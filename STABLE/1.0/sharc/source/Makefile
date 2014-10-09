@@ -2,6 +2,8 @@
 F90 = ifort
 LD = -lblas -llapack -lfftw3
 
+# this is a comment for testing purposes.
+
 # works for GFORTRAN and IFORT
 F90FLAGS     = -O2
 DEBUGFLAGS   = 
