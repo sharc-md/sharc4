@@ -1,9 +1,11 @@
-# kate: replace-tabs FALSE; indent-width 8;
+# Makefile for Sharc
 F90 = ifort
 LD = -lblas -llapack -lfftw3
 
 # works for GFORTRAN and IFORT
-OPTFLAGS     = -O2
+F90FLAGS     = -O2
+DEBUGFLAGS   = 
+
 
 # will be included in sharc source code so that compiler, host, etc. can be printed at runtime
 DATE  = $(shell date)
@@ -32,13 +34,14 @@ SHARC  =  main.o \
 	  input.o 
 
 
+main.o: output.o qm.o restart.o misc.o electronic_laser.o input.o
+misc.o:	definitions.o
+output.o: $(TOOLS) build_info.inc
+nuclear.o: $(TOOLS)
 electronic.o: nuclear.o $(TOOLS)
 electronic_laser.o: electronic.o $(TOOLS)
 input.o: $(TOOLS) output.o restart.o misc.o
-misc.o:	definitions.o
-nuclear.o: $(TOOLS)
-output.o: $(TOOLS)
-qm.o: $(TOOLS) electronic.o
+qm.o: $(TOOLS) electronic.o qm_out.o restart.o
 qm_out.o: $(TOOLS)
 restart.o: $(TOOLS)
 
@@ -64,18 +67,18 @@ DIAGONALIZER=string.o \
 
 all: sharc data_extractor diagonalizer laser
 
-sharc: build_info.mod $(TOOLS) $(SHARC)  
-	$(F90) $(OPTFLAGS) $(LD) $(SHARC) $(TOOLS) -o  $@.x
+sharc: build_info.inc $(TOOLS) $(SHARC)  
+	$(F90)  $(LD) $(SHARC) $(TOOLS) -o  $@.x
 
 data_extractor: $(DATA_EXTRACTOR) 
-	$(F90) $(LD) $(OPTFLAGS) $(DATA_EXTRACTOR) -o $@.x
+	$(F90)  $(LD) $(DATA_EXTRACTOR) -o $@.x
 
 diagonalizer: $(DIAGONALIZER) 
-	$(F90) $(LD) $(OPTFLAGS) $(DIAGONALIZER) -o $@.x
+	$(F90)  $(LD) $(DIAGONALIZER) -o $@.x
 
 
 laser:  $(LASER) 
-	$(F90) $(LD) $(OPTFLAGS) $(LASER) -o $@.x
+	$(F90)  $(LD)  $(LASER) -o $@.x
 
 clean:
 	rm -rvf *.o
@@ -89,7 +92,7 @@ install:
 
 
 # build_info.mod is never created, so the following is always executed
-build_info.mod: 
+build_info.inc: 
 	@echo "Updating \"build_info.inc\""
 	@echo "character*8000, parameter :: build_date=\"$(DATE)\"" > build_info.inc
 	@echo "character*8000, parameter :: build_host=\"$(HOST)\"" >> build_info.inc
@@ -97,5 +100,5 @@ build_info.mod:
 	@echo "character*8000, parameter :: build_compiler=\"$(COMPILER)\"" >> build_info.inc
 
 %.o: %.f90 
-	$(F90) $(F90FLAGS) -c $<
+	$(F90) $(DEBUGFLAGS) $(F90FLAGS) -c $<
 
