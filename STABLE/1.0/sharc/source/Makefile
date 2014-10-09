@@ -1,6 +1,8 @@
 # Makefile for Sharc 
 # Version 1.0
 # Oct-09-2014
+# (c) AG Leti
+#
 F90 = ifort
 LD = -lblas -llapack -lfftw3
 
