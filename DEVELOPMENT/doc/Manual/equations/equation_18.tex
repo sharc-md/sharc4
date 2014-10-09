@@ -1,0 +1,39 @@
+\documentclass{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath,amssymb,xcolor,colortbl}
+
+\usepackage[scaled=.92]{helvet}
+\renewcommand{\familydefault}{\sfdefault}
+\usepackage{sfmath}
+
+\usepackage[active,tightpage]{preview}
+\PreviewEnvironment{equation}
+\PreviewEnvironment{multline}
+\PreviewEnvironment{align}
+\setlength\PreviewBorder{100pt}
+\setlength{\textwidth}{246pt}
+
+\newcommand{\E}{\ensuremath{\mathrm{e}}}
+\newcommand{\I}{\ensuremath{\mathrm{i}}}
+\newcommand{\D}{\ensuremath{\mathrm{d}}}
+\renewcommand{\vec}[1]{\ensuremath{\mathbf{#1}}}
+
+\definecolor{RL}{HTML}{d65454}
+\newcommand{\R}{\cellcolor{RL!50}}
+
+\begin{document}
+
+\begin{equation}
+  \vec{R}^{\text{MCH}}(t+\Delta t,t)=
+  \hat{\mathfrak{T}}
+  \exp\left[
+    -\int\limits_{t}^{t+\Delta t}
+    \left(
+      \frac{\I}{\hbar}\vec{H}^{\text{MCH}}(\tau)+\vec{K}^{\text{MCH}}(\tau) 
+    \right)\D\tau
+  \right]
+\nonumber\end{equation}
+
+\end{document}

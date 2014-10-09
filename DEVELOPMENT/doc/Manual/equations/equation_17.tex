@@ -1,0 +1,42 @@
+\documentclass{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath,amssymb,xcolor,colortbl}
+
+\usepackage[scaled=.92]{helvet}
+\renewcommand{\familydefault}{\sfdefault}
+\usepackage{sfmath}
+
+\usepackage[active,tightpage]{preview}
+\PreviewEnvironment{equation}
+\PreviewEnvironment{multline}
+\PreviewEnvironment{align}
+\setlength\PreviewBorder{100pt}
+\setlength{\textwidth}{246pt}
+
+\newcommand{\E}{\ensuremath{\mathrm{e}}}
+\newcommand{\I}{\ensuremath{\mathrm{i}}}
+\newcommand{\D}{\ensuremath{\mathrm{d}}}
+\renewcommand{\vec}[1]{\ensuremath{\mathbf{#1}}}
+
+\definecolor{RL}{HTML}{d65454}
+\newcommand{\R}{\cellcolor{RL!50}}
+
+\begin{document}
+
+\begin{equation}
+  \left(\vec{K}^{\text{MCH}}(t)\right)_{\beta\alpha}
+  =
+  \frac{\partial \vec{R}}{\partial t}\cdot
+  \left\langle
+    \psi_\beta(t)
+  \middle|
+    \frac{\partial}{\partial \vec{R}}
+  \middle|
+    \psi_\alpha(t)
+  \right\rangle.
+  \
+\nonumber\end{equation}
+
+\end{document}

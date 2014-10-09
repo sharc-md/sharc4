@@ -1,0 +1,43 @@
+\documentclass{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath,amssymb,xcolor,colortbl}
+
+\usepackage[scaled=.92]{helvet}
+\renewcommand{\familydefault}{\sfdefault}
+\usepackage{sfmath}
+
+\usepackage[active,tightpage]{preview}
+\PreviewEnvironment{equation}
+\PreviewEnvironment{multline}
+\PreviewEnvironment{align}
+\setlength\PreviewBorder{100pt}
+\setlength{\textwidth}{246pt}
+
+\newcommand{\E}{\ensuremath{\mathrm{e}}}
+\newcommand{\I}{\ensuremath{\mathrm{i}}}
+\newcommand{\D}{\ensuremath{\mathrm{d}}}
+\renewcommand{\vec}[1]{\ensuremath{\mathbf{#1}}}
+
+\definecolor{RL}{HTML}{d65454}
+\newcommand{\R}{\cellcolor{RL!50}}
+
+\begin{document}
+
+\begin{align}
+  \vec{H}\vec{u}=h\vec{u}
+  \qquad&\text{and}\qquad
+  \vec{u}^\dagger\vec{u}=1\nonumber\\
+  &\Rightarrow\nonumber\nonumber\\
+  \vec{H}\left(\E^{\I\phi}\vec{u}\right)
+  =\E^{\I\phi}\left(\vec{H}\vec{u}\right)
+  &=\E^{\I\phi}h\vec{u}
+  =h\left(\E^{\I\phi}\vec{u}\right)\nonumber\\
+  &\text{and}\nonumber\nonumber\\
+  \left(\E^{\I\phi}\vec{u}\right)^\dagger\left(\E^{\I\phi}\vec{u}\right)
+  =\vec{u}^\dagger\E^{-\I\phi}&\E^{\I\phi}\vec{u}
+  =\vec{u}^\dagger\vec{u}=1
+\nonumber\end{align}
+
+\end{document}

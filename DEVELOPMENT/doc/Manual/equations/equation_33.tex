@@ -1,0 +1,41 @@
+\documentclass{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath,amssymb,xcolor,colortbl}
+
+\usepackage[scaled=.92]{helvet}
+\renewcommand{\familydefault}{\sfdefault}
+\usepackage{sfmath}
+
+\usepackage[active,tightpage]{preview}
+\PreviewEnvironment{equation}
+\PreviewEnvironment{multline}
+\PreviewEnvironment{align}
+\setlength\PreviewBorder{100pt}
+\setlength{\textwidth}{246pt}
+
+\newcommand{\E}{\ensuremath{\mathrm{e}}}
+\newcommand{\I}{\ensuremath{\mathrm{i}}}
+\newcommand{\D}{\ensuremath{\mathrm{d}}}
+\renewcommand{\vec}[1]{\ensuremath{\mathbf{#1}}}
+
+\definecolor{RL}{HTML}{d65454}
+\newcommand{\R}{\cellcolor{RL!50}}
+
+\begin{document}
+
+\begin{align}
+  l(t)=&
+  E_0^\prime
+  \E^{-\beta^\prime(t-t_c)^2}
+  \E^{-\I\left(
+    \omega_0(t-t_c)+a_2(t-t_c)^2+\phi
+  \right)}\nonumber\\
+  \beta=&\frac{4\ln 2}{\mathrm{FWHM}^2}\nonumber\\
+  \beta^\prime=&\frac{1}{\frac{1}{\beta}+4\beta b_2^2}\nonumber\\
+  a_2=&\frac{b_2}{\frac{1}{4\beta^2}+b^2_2}\nonumber\\
+  E_0^\prime=&E_0\sqrt{\frac{1}{2\I b_2\beta+1}}
+\nonumber\end{align}
+
+\end{document}

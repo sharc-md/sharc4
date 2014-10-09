@@ -1,0 +1,65 @@
+\documentclass{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath,amssymb,xcolor,colortbl}
+
+\usepackage[scaled=.92]{helvet}
+\renewcommand{\familydefault}{\sfdefault}
+\usepackage{sfmath}
+
+\usepackage[active,tightpage]{preview}
+\PreviewEnvironment{equation}
+\PreviewEnvironment{multline}
+\PreviewEnvironment{align}
+\setlength\PreviewBorder{100pt}
+\setlength{\textwidth}{246pt}
+
+\newcommand{\E}{\ensuremath{\mathrm{e}}}
+\newcommand{\I}{\ensuremath{\mathrm{i}}}
+\newcommand{\D}{\ensuremath{\mathrm{d}}}
+\renewcommand{\vec}[1]{\ensuremath{\mathbf{#1}}}
+
+\definecolor{RL}{HTML}{d65454}
+\newcommand{\R}{\cellcolor{RL!50}}
+
+\begin{document}
+
+\begin{equation}
+  P_{\beta\rightarrow\alpha}=
+  \left(
+    1-
+    \frac{
+      \left|
+        c_\beta^{\text{diag}}(t+\Delta t)
+      \right|^2
+    }{
+      \left|
+        c_\beta^{\text{diag}}(t)
+      \right|^2
+    }\right)
+    \nonumber\\
+    \times
+    \frac{
+      \Re\left[
+        c^{\text{diag}}_\alpha(t+\Delta t)
+        R^*_{\alpha\beta}
+        \left(
+          c^{\text{diag}}_\beta(t)
+        \right)^*
+      \right]
+    }{
+      \left|
+        c^{\text{diag}}_\beta(t)
+      \right|^2
+      -\Re\left[
+        c^{\text{diag}}_\beta(t+\Delta t)
+        R^*_{\beta\beta}
+        \left(
+          c^{\text{diag}}_\beta(t)
+        \right)^*
+      \right]
+    }.
+\nonumber\end{equation}
+
+\end{document}

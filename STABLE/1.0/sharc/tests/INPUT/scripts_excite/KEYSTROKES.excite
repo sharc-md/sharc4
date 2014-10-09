@@ -1,0 +1,9 @@
+                                         #Use file "initconds"? [True] 
+.                                        #Path to ICOND directories: (autocomplete enabled) 
+y                                        #Do you want to perform the selection of initial states for dynamics? 
+                                         #Only ground state as initial state? [False] 
+                                         #Range (eV): [0.0 10.0] 
+                                         #Do you want to include all states in the selection? [True] 
+1234                                     #RNG Seed:  [!] 
+n                                        #Do you want to use the diagonal representation (yes=diag, no=MCH)? 
+                                         #Do you want to continue? [True] 

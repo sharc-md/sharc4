@@ -1,0 +1,278 @@
+\documentclass[10pt]{article}
+
+\usepackage[rgb]{xcolor}
+\usepackage{tikz,graphicx,siunitx,pgfplots,amsmath}
+\usepackage[version=3]{mhchem}
+\usepackage[active,tightpage]{preview}
+\PreviewEnvironment{tikzpicture}
+\setlength\PreviewBorder{1pt}
+\setlength{\textwidth}{333pt}
+\pgfplotsset{every tick label/.append style={/pgf/number format/1000 sep={}}}
+\pgfplotsset{compat=1.3}
+\usetikzlibrary{plotmarks,fit,positioning}
+%\DeclareSIUnit\year{y}
+ \usetikzlibrary{calc,fadings,arrows,decorations}
+\usepackage{mystuff}
+
+\usepackage{sfmath}
+
+
+      \newlength{\colorstep}
+      \setlength{\colorstep}{4pt}
+      \newcommand{\wavestart}{700}
+      \newcommand{\wavestop}{400}
+
+
+\begin{document}
+  \begin{tikzpicture}[font=\sffamily, >=stealth, scale=0.6]
+
+%     \begin{scope}[rectangle, draw=black, yshift=11.4cm, xshift=0.5cm]
+%       \draw[G, thick] (0,0) -- ++(0:1) node[anchor=west, inner sep=1pt] {\color{black} GS};
+%       \draw[B, thick] (2,0) -- ++(0:1) node[anchor=west, inner sep=1pt] {\color{black} S};
+%       \draw[RL, thick] (4,0) -- ++(0:1) node[anchor=west, inner sep=1pt] {\color{black} T};
+%       \draw[thick] (6,0) -- ++(0:1) node[anchor=west, inner sep=1pt] {\color{black} Ion};
+%     \end{scope}
+% 
+%     \node[fit=(current bounding box), draw=black, inner sep=1pt, xscale=0.6] {};
+
+
+
+    \begin{scope}[xshift=0cm]
+      \draw[->, thick] (-0.8,-0.5) -- (-0.8,6.7) node[inner sep=2pt,anchor=east] {$E$};
+%       \foreach \i in {1,2,3,4,5,6}
+%       {
+%         \draw[very thick] (0,\i) -- ++(180:0.2) node[anchor=east] {};
+%       }
+%       \draw[thick] (0,0) -- ++(180:0.2) node[anchor=east] {0};
+
+
+      \node[anchor=north] at (1.75,0) {Singlet};
+      \node[anchor=north] at (5.25,0) {Triplet};
+
+%       \node[anchor=north] at (2.75,-1) {(a) Ionization};
+
+
+    \draw[G, ultra thick] (0.75,0) node[anchor=east] {$S_0$} -- ++(0:2);
+    \foreach \i in {0.2,0.4,0.6,0.8,1.0}
+    {
+      \draw[G, very thin] (0.75,\i) -- ++(0:2);
+    }
+
+
+    \draw[B!100, ultra thick] (0.75,4.1) node[anchor=east] {$S_1$} -- ++(0:2);
+    \foreach \i in {4.2,4.3,4.4,4.5,4.6,4.7,4.8,4.9}
+    {
+      \draw[B!100, very thin] (0.75,\i) -- ++(0:2);
+    }
+
+
+    \draw[B!60, ultra thick] (0.75,5.5) node[anchor=east] {$S_2$} -- ++(0:2);
+    \foreach \i in {5.6,5.7,5.8,5.9,6.0,6.1,6.2}
+    {
+      \draw[B!60, very thin] (0.75,\i) -- ++(0:2);
+    }
+
+
+    \draw[RL, ultra thick] (4.25,2.2) -- ++(0:2) node[anchor=west] {$T_1$};
+    \foreach \i in {2.3,2.4,2.5,2.6,2.7,2.8,2.9,3.0,3.1}
+    {
+      \draw[RL, very thin] (4.25,\i) -- ++(0:2);
+    }
+
+      \draw[very thick, black!50, ->] ($(0.75,0.0)+0.15*(2,0)$) --node[left, inner sep=1pt] {$h\nu$} ++(90:5.7);
+      \draw[very thick, black!50, <-] ($(0.75,0.0)+0.5*(2,0)$) --node[left, inner sep=1pt] {$F$} ++(90:4.1);
+      \draw[very thick, black, <-, decorate, decoration={snake, pre length=4pt}] ($(0.75,0.0)+0.75*(2,0)$) --node[right] {IC} ++(90:4.1);
+      \draw[very thick, black, ->, decorate, decoration={snake, post length=2pt}] ($(0.75,5.7)+0.75*(2,0)$) --node[right] {IC} ++(270:1.6);
+      \draw[very thick, black, ->, decorate, decoration={snake, post length=4pt}] ($(0.75,4.1)+0.75*(2,0)$) --node[above, sloped] {ISC} ++(2.5,-1.0);
+
+%       \draw[very thick, black, ->, decorate, decoration={snake, post length=2pt}] ($(4.25,3.1)+0.25*(2,0)$) --node[right] {IVR} ++(0,-0.9);
+      \draw[very thick, black!50, ->] ($(4.25,2.2)+0.33*(2,0)$) --node[below,sloped, inner sep=1pt] {P} ++(-2.7,-2.2);
+
+% 
+%       % draw each state, correlate them with thinner lines
+%       %cs
+%       \draw[G, ultra thick] (0.75,0) -- (1.75,0)    (3.75,1) -- (4.75,1) node[anchor=west, inner sep=1pt] {\color{G} cs};
+%       \draw[G, dashed, thick]           (1.75,0) -- (3.75,1);
+%       %npi
+%       \draw[BL, ultra thick] (0.75,4.1) -- (1.75,4.1)    (3.75,4.8) -- (4.75,4.8) node[anchor=west, inner sep=1pt] {\color{BL} $^1n\pi^*$};
+%       \draw[BL, dashed, thick]             (1.75,4.1) -- (3.75,4.8);
+%       %pipi
+%       \draw[B, ultra thick]  (0.75,4.5) -- (1.75,4.5)    (3.75,3.4) -- (4.75,3.4) node[anchor=west, inner sep=1pt] {\color{B} $^1\pi\pi^*$};
+%       \draw[B, dashed, thick]              (1.75,4.5) -- (3.75,3.4);
+% %       %3npi
+% %       \draw[RL, ultra thick] (0.75,5.1) -- (1.75,5.1)    (3.75,5.4) -- (4.75,5.4) node[anchor=west, inner sep=1pt] {\color{RL} $^3n\pi^*$};
+% %       \draw[RL, dashed, thick]             (1.75,5.1) -- (3.75,5.4);
+%       %3pipi
+%       \draw[RL, ultra thick]  (0.75,3.6) -- (1.75,3.6)    (3.75,1.8) -- (4.75,1.8) node[anchor=west, inner sep=1pt] {\color{R} $^3\pi\pi^*$};
+%       \draw[RL, dashed, thick]              (1.75,3.6) -- (3.75,1.8);
+% 
+%       %ion
+%       \shade[bottom color=black!60,top color=black!5] 
+%                             (0.75,8.0) rectangle (1.75,12);
+%       \shade[bottom color=black!60,top color=black!5] 
+%                             (3.75,9.0) rectangle (4.75,12);
+%       \draw[black!60, dashed, thick]  (1.75,8) -- (3.75,9);
+%       \node[anchor=west, inner sep=1pt] at (4.75,9) {\color{black!80} Ion};
+
+%       % arrows for ionization
+%       % left
+%       \draw[dotted, very thick, black, ->] ($(0.75,0.0)+1/5*(1,0)$) -- ++(90:6.2);
+%       \draw[very thick, black, ->]         ($(0.75,3.6)+2/5*(1,0)$) -- ++(90:6.2);
+%       \draw[very thick, black, ->]         ($(0.75,4.1)+3/5*(1,0)$) -- ++(90:6.2);
+%       \draw[very thick, black, ->]         ($(0.75,4.5)+4/5*(1,0)$) -- ++(90:6.2);
+% %       \draw[very thick, black, ->]         ($(0.75,5.1)+5/6*(1,0)$) -- ++(90:6.2);
+%       % right
+%       \draw[dotted, very thick, black, ->] ($(3.75,1.0)+1/5*(1,0)$) -- ++(90:6.2);
+%       \draw[dotted, very thick, black, ->] ($(3.75,1.8)+2/5*(1,0)$) -- ++(90:6.2);
+%       \draw[very thick, black, ->]         ($(3.75,3.4)+3/5*(1,0)$) -- ++(90:6.2);
+%       \draw[very thick, black, ->]         ($(3.75,4.8)+4/5*(1,0)$) -- ++(90:6.2);
+% %       \draw[very thick, black, ->]         ($(3.75,5.4)+5/6*(1,0)$) -- ++(90:6.2);
+
+    \end{scope}
+% 
+%     \begin{scope}[xshift=8cm]
+% 
+%       \draw[->, thick] (0,-0.5) -- (0,12.7) node[inner sep=2pt,anchor=east] {$E$};
+%             \foreach \i in {1,2,3,4,5,6,7,8,9,10,11,12}
+%       {
+%         \draw[very thick] (0,\i) -- ++(180:0.2) node[anchor=east] {};
+%       }
+%       \draw[thick] (0,0) -- ++(180:0.2) node[anchor=east] {0};
+% 
+% 
+%       \node[anchor=north] at (1.25,0) {FC};
+%       \node[anchor=north] at (4.25,0) {non-FC};
+% 
+%       \node[anchor=north] at (2.75,-1) {(b) Transient Absorption};
+% 
+%       % draw each state, correlate them with thinner lines
+%       %cs
+%       \draw[G, ultra thick] (0.75,0) -- (1.75,0)    (3.75,1) -- (4.75,1) node[anchor=west, inner sep=1pt] {\color{G} cs};
+%       \draw[G, dashed, thick]          (1.75,0) -- (3.75,1);
+%       %S1
+%       \draw[B, ultra thick]  (0.75,4.5) -- (1.75,4.5)    (3.75,3.4) -- (4.75,3.4) node[anchor=west, inner sep=1pt] {\color{B} $S_1$};
+%       \draw[B, dashed, thick]              (1.75,4.5) -- (3.75,3.4);
+%       %S2
+%       \draw[B!70, ultra thick]  (0.75,5.9) -- (1.75,5.9)    (3.75,5.4) -- (4.75,5.4) node[anchor=west, inner sep=1pt] {\color{B!70} $S_2$};
+%       \draw[B!70, dashed, thick]              (1.75,5.9) -- (3.75,5.4);
+%       %S3
+%       \draw[B!40, ultra thick]  (0.75,7.8) -- (1.75,7.8)    (3.75,5.9) -- (4.75,5.9) node[anchor=west, inner sep=1pt] {\color{B!40} $S_3$};
+%       \draw[B!40, dashed, thick]              (1.75,7.8) -- (3.75,5.9);
+%       %T1
+%       \draw[RL, ultra thick]    (0.75,2.5) -- (1.75,2.5)    (3.75,2.3) -- (4.75,2.3) node[anchor=west, inner sep=1pt] {\color{RL} $T_1$};
+%       \draw[RL, dashed, thick]                (1.75,2.5) -- (3.75,2.3);
+%       %T2
+%       \draw[RL!70, ultra thick]    (0.75,5.1) -- (1.75,5.1)    (3.75,3.9) -- (4.75,3.9) node[anchor=west, inner sep=1pt] {\color{RL} $T_2$};
+%       \draw[RL!70, dashed, thick]                (1.75,5.1) -- (3.75,3.9);
+% 
+% 
+%       \node[inner sep=0pt] (x) at (1.00,4.5) {};
+%       \foreach \i/\c in {1.5/black!40, 0.3/RL, 0.3/RL!50!Y, 0.3/Y, 0.3/G, 0.3/BL, 0.3/B, 0.3/B!50!RL}
+%       {
+%         \shade[bottom color=\c,top color=\c] 
+%           (x.center) -- ++(0:2pt) -- ++(90:\i) -- ++(180:2pt) node[inner sep=0pt] (x) {} -- ++(180:2pt)-- ++(270:\i) -- ++(0:2pt);
+%       };
+% 
+%       \node[inner sep=0pt] (x) at (1.50,2.5) {};
+%       \foreach \i/\c in {1.5/black!40, 0.3/RL, 0.3/RL!50!Y, 0.3/Y, 0.3/G, 0.3/BL, 0.3/B, 0.3/B!50!RL}
+%       {
+%         \shade[bottom color=\c,top color=\c] 
+%           (x.center) -- ++(0:2pt) -- ++(90:\i) -- ++(180:2pt) node[inner sep=0pt] (x) {} -- ++(180:2pt)-- ++(270:\i) -- ++(0:2pt);
+%       };
+% 
+%       \begin{axis}[anchor=south, at={(1.25cm,9cm)}, width=2cm, height=2cm, scale only axis,
+%         xmin=400,xmax=900,
+%         ymin=0,ymax=1,
+%         xlabel={$\lambda$}, 
+%         xticklabels={},yticklabels={},
+%       ]
+%         \addplot[solid, black, ultra thick, domain=400:900, samples=200] {0+1/(0.001*(x-450)^2+1)+0.3/(0.001*(x-750)^2+1)+0.1/(0.01*(x-550)^2+1)};
+%       \end{axis}
+% 
+% 
+%       \node[inner sep=0pt] (x) at (4.00,3.4) {};
+%       \foreach \i/\c in {1.5/black!40, 0.3/RL, 0.3/RL!50!Y, 0.3/Y, 0.3/G, 0.3/BL, 0.3/B, 0.3/B!50!RL}
+%       {
+%         \shade[bottom color=\c,top color=\c] 
+%           (x.center) -- ++(0:2pt) -- ++(90:\i) -- ++(180:2pt) node[inner sep=0pt] (x) {} -- ++(180:2pt)-- ++(270:\i) -- ++(0:2pt);
+%       };
+% 
+%       \node[inner sep=0pt] (x) at (4.50,2.3) {};
+%       \foreach \i/\c in {1.5/black!40, 0.3/RL, 0.3/RL!50!Y, 0.3/Y, 0.3/G, 0.3/BL, 0.3/B, 0.3/B!50!RL}
+%       {
+%         \shade[bottom color=\c,top color=\c] 
+%           (x.center) -- ++(0:2pt) -- ++(90:\i) -- ++(180:2pt) node[inner sep=0pt] (x) {} -- ++(180:2pt)-- ++(270:\i) -- ++(0:2pt);
+%       };
+% 
+%       \begin{axis}[anchor=south, at={(4.25cm,9cm)}, width=2cm, height=2cm, scale only axis,
+%         xmin=400,xmax=900,
+%         ymin=0,ymax=1,
+%         xlabel={$\lambda$}, 
+%         xticklabels={},yticklabels={},
+%       ]
+%         \addplot[solid, black, ultra thick, domain=400:900, samples=200] {0+0.9/(0.001*(x-550)^2+1)+0.4/(0.001*(x-650)^2+1)+0.1/(0.01*(x-750)^2+1)};
+%       \end{axis}
+% 
+%     \end{scope}
+% 
+%     \begin{scope}[xshift=16cm]
+% 
+%       \draw[->, thick] (0,-0.5) -- (0,12.7) node[inner sep=2pt,anchor=east] {$E$};
+%             \foreach \i in {1,2,3,4,5,6,7,8,9,10,11,12}
+%       {
+%         \draw[very thick] (0,\i) -- ++(180:0.2) node[anchor=east] {};
+%       }
+%       \draw[thick] (0,0) -- ++(180:0.2) node[anchor=east] {0};
+% 
+% 
+%       \node[anchor=north] at (1.25,0) {FC};
+%       \node[anchor=north] at (4.25,0) {non-FC};
+% 
+%       \node[anchor=north] at (2.75,-1) {(c) Fluorescence};
+% 
+%       % draw each state, correlate them with thinner lines
+%       %cs
+%       \draw[G, ultra thick] (0.75,0) -- (1.75,0)    (3.75,1) -- (4.75,1) node[anchor=west, inner sep=1pt] {\color{G} cs};
+%       \draw[G, dashed, thick]          (1.75,0) -- (3.75,1);
+%       %npi
+%       \draw[BL, ultra thick] (0.75,4.1) -- (1.75,4.1)    (3.75,4.8) -- (4.75,4.8) node[anchor=west, inner sep=1pt] {\color{BL} $^1n\pi^*$};
+%       \draw[BL, dashed, thick]             (1.75,4.1) -- (3.75,4.8);
+%       %pipi
+%       \draw[B, ultra thick]  (0.75,4.7) -- (1.75,4.7)    (3.75,3.4) -- (4.75,3.4) node[anchor=west, inner sep=1pt] {\color{B} $^1\pi\pi^*$};
+%       \draw[B, dashed, thick]              (1.75,4.7) -- (3.75,3.4);
+% 
+% 
+%       \draw[->, line width=1pt,  black, decorate, decoration={snake, amplitude=1.5pt}] (1.00,4.1) -- (1.00,0);
+%       \draw[->, line width=1pt,  black, decorate, decoration={snake, amplitude=1.5pt}] (1.50,4.7) -- (1.50,0);
+% 
+% 
+%       \begin{axis}[anchor=south, at={(1.25cm,9cm)}, width=2cm, height=2cm, scale only axis,
+%         xmin=400,xmax=900,
+%         ymin=0,ymax=1,
+%         xlabel={$\lambda$}, 
+%         xticklabels={},yticklabels={},
+%       ]
+%         \addplot[solid, BL, ultra thick, domain=400:900, samples=200] {1./(0.001*(x-550)^2+1)};
+%         \addplot[solid, B, ultra thick, domain=400:900, samples=200] {1./(0.001*(x-450)^2+1)};
+%       \end{axis}
+% 
+% 
+%       \draw[->, line width=1pt,  black, decorate, decoration={snake, amplitude=1.5pt}] (4.00,4.8) -- (4.00,1);
+%       \draw[->, line width=1pt,  black, decorate, decoration={snake, amplitude=1.5pt}] (4.50,3.4) -- (4.50,1);
+% 
+% 
+%       \begin{axis}[anchor=south, at={(4.25cm,9cm)}, width=2cm, height=2cm, scale only axis,
+%         xmin=400,xmax=900,
+%         ymin=0,ymax=1,
+%         xlabel={$\lambda$}, 
+%         xticklabels={},yticklabels={},
+%       ]
+%         \addplot[solid, B, ultra thick, domain=400:900, samples=200] {0.8/(0.001*(x-750)^2+1)};
+%         \addplot[solid, BL, ultra thick, domain=400:900, samples=200] {0.8/(0.001*(x-550)^2+1)};
+%       \end{axis}
+% 
+%     \end{scope}
+
+
+  \end{tikzpicture}
+\end{document}

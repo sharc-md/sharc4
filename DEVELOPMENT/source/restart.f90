@@ -1,0 +1,431 @@
+module restart
+ contains
+
+  subroutine mkdir_restart(ctrl)
+    use definitions
+    implicit none
+    type(ctrl_type) :: ctrl
+    character*1023 :: filename
+    logical :: exists
+
+    filename=trim(ctrl%cwd)//'/restart'
+    inquire(file=filename, exist=exists)
+    if (.not.exists) then
+      call system('mkdir '//filename)
+    endif
+
+  endsubroutine
+
+  subroutine write_restart_ctrl(u,ctrl)
+    use definitions
+    use matrix
+    implicit none
+    integer :: u
+    type(ctrl_type) :: ctrl
+
+    integer :: imult, istate, ilaser
+
+    ! the ctrl restart file is only written once at the beginning to avoid writing the laser field
+    ! each timestep
+    open(unit=u, file='restart.ctrl',status='replace',action='write')
+
+    ! write the ctrl compound, including all entries (see definition)
+    ! even the restart keyword is written for completeness
+    ! however, the read_restart routine must set ctrl%restart afterwards to 1
+
+    ! printlevel is not part of ctrl, but write it anyways
+    write(u,*) printlevel
+
+    ! write ctrl
+    write(u,*) trim(ctrl%cwd)
+    write(u,*) ctrl%natom
+    write(u,*) ctrl%maxmult
+    write(u,*) (ctrl%nstates_m(imult),imult=1,ctrl%maxmult)
+    write(u,*) ctrl%nstates
+    write(u,*) ctrl%nsteps
+    write(u,*) ctrl%nsubsteps
+    write(u,*) ctrl%dtstep
+    write(u,*) ctrl%ezero
+    write(u,*) ctrl%scalingfactor
+    write(u,*) ctrl%eselect_grad
+    write(u,*) ctrl%eselect_nac
+    write(u,*) ctrl%eselect_dmgrad
+    write(u,*) ctrl%dampeddyn
+    write(u,*) ctrl%decoherence_alpha
+    write(u,*) (ctrl%actstates_s(istate),istate=1,ctrl%nstates)
+    write(u,*) ctrl%restart
+    write(u,*) ctrl%staterep
+    write(u,*) ctrl%initcoeff
+    write(u,*) ctrl%laser
+    write(u,*) ctrl%coupling
+    write(u,*) ctrl%surf
+    write(u,*) ctrl%decoherence
+    write(u,*) ctrl%ekincorrect
+    write(u,*) ctrl%gradcorrect
+    write(u,*) ctrl%dipolegrad
+    write(u,*) ctrl%calc_grad
+    write(u,*) ctrl%calc_overlap
+    write(u,*) ctrl%calc_nacdt
+    write(u,*) ctrl%calc_nacdr
+    write(u,*) ctrl%calc_dipolegrad
+    write(u,*) ctrl%calc_second
+    write(u,*) ctrl%killafter
+    write(u,*) ctrl%ionization
+    write(u,*) ctrl%track_phase
+    write(u,*) ctrl%hopping_procedure
+
+    ! write the laser field
+    if (ctrl%laser==2) then
+      write(u,*) ctrl%laser_bandwidth
+      write(u,*) ctrl%nlasers
+      call vec3write(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_td, u, 'Laser field','E20.13')
+      do ilaser=1,ctrl%nlasers
+        call vecwrite(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserenergy_tl(:,ilaser), u, 'Laser Energy','E20.13')
+      enddo
+    endif
+
+    close(u)
+
+  endsubroutine
+
+! =========================================================== !
+
+  subroutine write_restart_traj(u,ctrl,traj)
+    use definitions
+    use matrix
+    implicit none
+    integer :: u
+    type(trajectory_type) :: traj
+    type(ctrl_type) :: ctrl
+
+    integer :: iatom, i,j,k
+    character(8000) :: string
+
+    ! the restart file has to be opened each time, since its contents have to be replaced
+    open(unit=u, file='restart.traj',status='replace',action='write')
+    ! TODO perhaps replace this with a rewind command
+
+    ! write everything
+    write(u,*) traj%RNGseed
+    write(u,*) traj%traj_hash
+    write(u,*) traj%state_MCH
+    write(u,*) traj%state_diag
+    write(u,*) traj%state_diag_old
+    write(u,*) traj%step
+    write(u,*) traj%Ekin
+    write(u,*) traj%Epot
+    write(u,*) traj%Etot
+    write(u,*) traj%time_start
+    write(u,*) traj%time_last
+    write(u,*) traj%time_step
+    write(u,*) traj%kind_of_jump
+    write(u,*) traj%steps_in_gs
+
+    ! write the arrays
+    write(u,*) (traj%atomicnumber_a(iatom),iatom=1,ctrl%natom)
+    write(u,*) (traj%element_a(iatom),iatom=1,ctrl%natom)
+    write(u,*) (traj%mass_a(iatom),iatom=1,ctrl%natom)
+    call vec3write(ctrl%natom, traj%geom_ad,  u, 'Geometry','E20.13')
+    call vec3write(ctrl%natom, traj%veloc_ad, u, 'Velocity','E20.13')
+    call vec3write(ctrl%natom, traj%accel_ad, u, 'Acceleration','E20.13')
+
+    call matwrite(ctrl%nstates, traj%H_MCH_ss,     u, 'H_MCH_ss','E20.13')
+    call matwrite(ctrl%nstates, traj%dH_MCH_ss,    u, 'dH_MCH_ss','E20.13')
+    call matwrite(ctrl%nstates, traj%H_MCH_old_ss, u, 'H_MCH_old_ss','E20.13')
+    call matwrite(ctrl%nstates, traj%H_diag_ss,    u, 'H_diag_ss','E20.13')
+    call matwrite(ctrl%nstates, traj%U_ss,         u, 'U_ss','E20.13')
+    call matwrite(ctrl%nstates, traj%U_old_ss,     u, 'U_old_ss','E20.13')
+    call matwrite(ctrl%nstates, traj%NACdt_ss,     u, 'NACdt_ss','E20.13')
+    call matwrite(ctrl%nstates, traj%NACdt_old_ss, u, 'NACdt_old_ss','E20.13')
+    call matwrite(ctrl%nstates, traj%overlaps_ss,  u, 'overlaps_ss','E20.13')
+    call matwrite(ctrl%nstates, traj%DM_ssd(:,:,1),  u, 'DM_ssd(x)','E20.13')
+    call matwrite(ctrl%nstates, traj%DM_ssd(:,:,2),  u, 'DM_ssd(y)','E20.13')
+    call matwrite(ctrl%nstates, traj%DM_ssd(:,:,3),  u, 'DM_ssd(z)','E20.13')
+    call matwrite(ctrl%nstates, traj%DM_old_ssd(:,:,1),  u, 'DM_old_ssd(x)','E20.13')
+    call matwrite(ctrl%nstates, traj%DM_old_ssd(:,:,2),  u, 'DM_old_ssd(y)','E20.13')
+    call matwrite(ctrl%nstates, traj%DM_old_ssd(:,:,3),  u, 'DM_old_ssd(z)','E20.13')
+    call matwrite(ctrl%nstates, traj%DM_print_ssd(:,:,1),  u, 'DM_print_ssd(x)','E20.13')
+    call matwrite(ctrl%nstates, traj%DM_print_ssd(:,:,2),  u, 'DM_print_ssd(y)','E20.13')
+    call matwrite(ctrl%nstates, traj%DM_print_ssd(:,:,3),  u, 'DM_print_ssd(z)','E20.13')
+    call matwrite(ctrl%nstates, traj%Property_ss,  u, 'Property_ss','E20.13')
+    call matwrite(ctrl%nstates, traj%Rtotal_ss,    u, 'Rtotal_ss','E20.13')
+    call vecwrite(ctrl%nstates, traj%phases_s, u, 'phases_s','E20.13')
+    call vecwrite(ctrl%nstates, traj%phases_old_s, u, 'phases_old_s','E20.13')
+    call vecwrite(ctrl%nstates, traj%hopprob_s, u, 'hopprob_s_s','E20.13')
+    write(u,*) traj%randnum
+
+    if (ctrl%calc_dipolegrad>-1) then
+      do i=1,ctrl%nstates
+        do j=1,ctrl%nstates
+          do k=1,3
+            write(string,'(A45,I3,1X,I3,1X,I3)') 'DMgrad_ssdad',i,j,k
+            call vec3write(ctrl%natom,traj%DMgrad_ssdad(i,j,k,:,:),u,trim(string),'E20.13')
+          enddo
+        enddo
+      enddo
+    endif
+    if (ctrl%calc_nacdr>-1) then
+      do i=1,ctrl%nstates
+        do j=1,ctrl%nstates
+          write(string,'(A45,I3,1X,I3)') 'naddr_ssad',i,j
+          call vec3write(ctrl%natom,traj%NACdr_ssad(i,j,:,:),u,trim(string),'E20.13')
+        enddo
+      enddo
+      do i=1,ctrl%nstates
+        do j=1,ctrl%nstates
+          write(string,'(A45,I3,1X,I3)') 'naddr_old_ssad',i,j
+          call vec3write(ctrl%natom,traj%NACdr_old_ssad(i,j,:,:),u,trim(string),'E20.13')
+        enddo
+      enddo
+    endif
+    do i=1,ctrl%nstates
+      write(string,'(A45,I3,1X,I3)') 'grad_mch_sad',i
+      call vec3write(ctrl%natom,traj%grad_mch_sad(i,:,:),u,trim(string),'E20.13')
+    enddo
+    do i=1,ctrl%nstates
+      do j=1,ctrl%nstates
+        write(string,'(A45,I3,1X,I3)') 'Gmatrix_ssad',i,j
+        call vec3write(ctrl%natom,traj%Gmatrix_ssad(i,j,:,:),u,trim(string),'E20.13')
+      enddo
+    enddo
+    call vec3write(ctrl%natom,traj%grad_ad(:,:),u,'grad_ad','E20.13')
+
+    call vecwrite(ctrl%nstates, traj%coeff_diag_s, u, 'coeff_diag_s','E20.13')
+    call vecwrite(ctrl%nstates, traj%coeff_diag_old_s, u, 'coeff_diag_old_s','E20.13')
+    call vecwrite(ctrl%nstates, traj%coeff_mch_s, u, 'coeff_mch_s','E20.13')
+
+    write(u,*) (traj%selg_s(i),i=1,ctrl%nstates)
+    do i=1,ctrl%nstates
+      write(u,*) (traj%selt_ss(i,j),j=1,ctrl%nstates)
+    enddo
+    if (ctrl%calc_dipolegrad>-1) then
+      do i=1,ctrl%nstates
+        write(u,*) (traj%seldm_ss(i,j),j=1,ctrl%nstates)
+      enddo
+    endif
+    write(u,*) traj%phases_found
+
+    close(u)
+
+  endsubroutine
+
+! =========================================================== !
+
+  subroutine read_restart(u_ctrl,u_traj,ctrl,traj)
+    use definitions
+    use matrix
+    implicit none
+    integer :: u_ctrl,u_traj
+    type(trajectory_type) :: traj
+    type(ctrl_type) :: ctrl
+
+    integer :: imult, iatom, i,j,k, istate,ilaser
+    character(8000) :: string
+    real*8 :: dummy_randnum
+    integer :: time
+
+    open(unit=u_ctrl, file='restart.ctrl',status='old',action='read')
+
+    ! read the ctrl compound, including all entries (see definition)
+    ! even the restart keyword is written for completeness
+    ! however, the read_restart routine must set ctrl%restart afterwards to 1
+
+    ! printlevel is not part of ctrl, but write it anyways
+    read(u_ctrl,*) printlevel
+
+    if (printlevel>0) then
+      write(u_log,'(A)')      '<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<============================>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>'
+      write(u_log,'(A)')      '<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<    Initializing Restart    >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>'
+      write(u_log,'(A)')      '<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<============================>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>'
+      write(u_log,*)
+    endif
+
+    if (printlevel>0) then
+      write(u_log,*) '============================================================='
+      write(u_log,*) '                          Allocation'
+      write(u_log,*) '============================================================='
+      write(u_log,*)
+    endif
+
+    ! read ctrl
+    read(u_ctrl,*) ctrl%cwd
+    read(u_ctrl,*) ctrl%natom
+    read(u_ctrl,*) ctrl%maxmult
+    allocate( ctrl%nstates_m(ctrl%maxmult) )
+    read(u_ctrl,*) (ctrl%nstates_m(imult),imult=1,ctrl%maxmult)
+    read(u_ctrl,*) ctrl%nstates
+    read(u_ctrl,*) ctrl%nsteps
+    read(u_ctrl,*) ctrl%nsubsteps
+    read(u_ctrl,*) ctrl%dtstep
+    read(u_ctrl,*) ctrl%ezero
+    read(u_ctrl,*) ctrl%scalingfactor
+    read(u_ctrl,*) ctrl%eselect_grad
+    read(u_ctrl,*) ctrl%eselect_nac
+    read(u_ctrl,*) ctrl%eselect_dmgrad
+    read(u_ctrl,*) ctrl%dampeddyn
+    read(u_ctrl,*) ctrl%decoherence_alpha
+    allocate( ctrl%actstates_s(ctrl%nstates) )
+    read(u_ctrl,*) (ctrl%actstates_s(istate),istate=1,ctrl%nstates)
+    read(u_ctrl,*) ctrl%restart
+    read(u_ctrl,*) ctrl%staterep
+    read(u_ctrl,*) ctrl%initcoeff
+    read(u_ctrl,*) ctrl%laser
+    read(u_ctrl,*) ctrl%coupling
+    read(u_ctrl,*) ctrl%surf
+    read(u_ctrl,*) ctrl%decoherence
+    read(u_ctrl,*) ctrl%ekincorrect
+    read(u_ctrl,*) ctrl%gradcorrect
+    read(u_ctrl,*) ctrl%dipolegrad
+    read(u_ctrl,*) ctrl%calc_grad
+    read(u_ctrl,*) ctrl%calc_overlap
+    read(u_ctrl,*) ctrl%calc_nacdt
+    read(u_ctrl,*) ctrl%calc_nacdr
+    read(u_ctrl,*) ctrl%calc_dipolegrad
+    read(u_ctrl,*) ctrl%calc_second
+    read(u_ctrl,*) ctrl%killafter
+    read(u_ctrl,*) ctrl%ionization
+    read(u_ctrl,*) ctrl%track_phase
+    read(u_ctrl,*) ctrl%hopping_procedure
+
+    ! read the laser field
+    ! with an external laser, increasing the simulation time necessitates that the laserfield in
+    ! the control file is enlarged 
+    if (ctrl%laser==2) then
+      read(u_ctrl,*) ctrl%laser_bandwidth
+      read(u_ctrl,*) ctrl%nlasers
+      allocate( ctrl%laserfield_td(ctrl%nsteps*ctrl%nsubsteps+1,3) )
+      allocate( ctrl%laserenergy_tl(ctrl%nsteps*ctrl%nsubsteps+1,ctrl%nlasers) )
+      call vec3read(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_td, u_ctrl, string)
+      do ilaser=1,ctrl%nlasers
+        call vecread(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserenergy_tl(:,ilaser), u_ctrl, string)
+      enddo
+    endif
+
+    close(u_ctrl)
+
+    ctrl%restart=.true.
+
+    call allocate_traj(traj,ctrl)
+
+    if (printlevel>1) then
+      write(u_log,'(a,1x,i4,1x,a,1x,i4,1x,a)') 'Allocation with nstates=',ctrl%nstates,'and natom=',ctrl%natom,'successful.'
+      write(u_log,*)
+    endif
+
+    call flush(u_log)
+
+    open(unit=u_traj, file='restart.traj',status='old',action='read')
+
+    ! read everything
+    read(u_traj,*) traj%RNGseed
+    read(u_traj,*) traj%traj_hash
+    read(u_traj,*) traj%state_MCH
+    read(u_traj,*) traj%state_diag
+    read(u_traj,*) traj%state_diag_old
+    read(u_traj,*) traj%step
+    read(u_traj,*) traj%Ekin
+    read(u_traj,*) traj%Epot
+    read(u_traj,*) traj%Etot
+    read(u_traj,*) traj%time_start
+    read(u_traj,*) traj%time_last
+    read(u_traj,*) traj%time_step
+    read(u_traj,*) traj%kind_of_jump
+    read(u_traj,*) traj%steps_in_gs
+
+    ! read the arrays
+    read(u_traj,*) (traj%atomicnumber_a(iatom),iatom=1,ctrl%natom)
+    read(u_traj,*) (traj%element_a(iatom),iatom=1,ctrl%natom)
+    read(u_traj,*) (traj%mass_a(iatom),iatom=1,ctrl%natom)
+    call vec3read(ctrl%natom, traj%geom_ad,  u_traj, string)
+    call vec3read(ctrl%natom, traj%veloc_ad, u_traj, string)
+    call vec3read(ctrl%natom, traj%accel_ad, u_traj, string)
+
+    call matread(ctrl%nstates, traj%H_MCH_ss,     u_traj,   string)
+    call matread(ctrl%nstates, traj%dH_MCH_ss,    u_traj,   string)
+    call matread(ctrl%nstates, traj%H_MCH_old_ss, u_traj,   string)
+    call matread(ctrl%nstates, traj%H_diag_ss,    u_traj,   string)
+    call matread(ctrl%nstates, traj%U_ss,         u_traj,   string)
+    call matread(ctrl%nstates, traj%U_old_ss,     u_traj,   string)
+    call matread(ctrl%nstates, traj%NACdt_ss,     u_traj,   string)
+    call matread(ctrl%nstates, traj%NACdt_old_ss, u_traj,   string)
+    call matread(ctrl%nstates, traj%overlaps_ss,  u_traj,   string)
+    call matread(ctrl%nstates, traj%DM_ssd(:,:,1),  u_traj, string)
+    call matread(ctrl%nstates, traj%DM_ssd(:,:,2),  u_traj, string)
+    call matread(ctrl%nstates, traj%DM_ssd(:,:,3),  u_traj, string)
+    call matread(ctrl%nstates, traj%DM_old_ssd(:,:,1),  u_traj, string)
+    call matread(ctrl%nstates, traj%DM_old_ssd(:,:,2),  u_traj, string)
+    call matread(ctrl%nstates, traj%DM_old_ssd(:,:,3),  u_traj, string)
+    call matread(ctrl%nstates, traj%DM_print_ssd(:,:,1),  u_traj, string)
+    call matread(ctrl%nstates, traj%DM_print_ssd(:,:,2),  u_traj, string)
+    call matread(ctrl%nstates, traj%DM_print_ssd(:,:,3),  u_traj, string)
+    call matread(ctrl%nstates, traj%Property_ss,  u_traj,   string)
+    call matread(ctrl%nstates, traj%Rtotal_ss,    u_traj,   string)
+    call vecread(ctrl%nstates, traj%phases_s, u_traj,       string)
+    call vecread(ctrl%nstates, traj%phases_old_s, u_traj,   string)
+    call vecread(ctrl%nstates, traj%hopprob_s, u_traj,      string)
+    read(u_traj,*) traj%randnum
+
+    if (ctrl%calc_dipolegrad>-1) then
+      do i=1,ctrl%nstates
+        do j=1,ctrl%nstates
+          do k=1,3
+            call vec3read(ctrl%natom,traj%DMgrad_ssdad(i,j,k,:,:),u_traj,string)
+          enddo
+        enddo
+      enddo
+    endif
+    if (ctrl%calc_nacdr>-1) then
+      do i=1,ctrl%nstates
+        do j=1,ctrl%nstates
+          call vec3read(ctrl%natom,traj%NACdr_ssad(i,j,:,:),u_traj,string)
+        enddo
+      enddo
+      do i=1,ctrl%nstates
+        do j=1,ctrl%nstates
+          call vec3read(ctrl%natom,traj%NACdr_old_ssad(i,j,:,:),u_traj,string)
+        enddo
+      enddo
+    endif
+    do i=1,ctrl%nstates
+      call vec3read(ctrl%natom,traj%grad_mch_sad(i,:,:),u_traj,string)
+    enddo
+    do i=1,ctrl%nstates
+      do j=1,ctrl%nstates
+        call vec3read(ctrl%natom,traj%Gmatrix_ssad(i,j,:,:),u_traj,string)
+      enddo
+    enddo
+    call vec3read(ctrl%natom,traj%grad_ad(:,:),u_traj,string)
+
+    call vecread(ctrl%nstates, traj%coeff_diag_s, u_traj, string)
+    call vecread(ctrl%nstates, traj%coeff_diag_old_s, u_traj, string)
+    call vecread(ctrl%nstates, traj%coeff_mch_s, u_traj, string)
+
+    read(u_traj,*) (traj%selg_s(i),i=1,ctrl%nstates)
+    do i=1,ctrl%nstates
+      read(u_traj,*) (traj%selt_ss(i,j),j=1,ctrl%nstates)
+    enddo
+    if (ctrl%calc_dipolegrad>-1) then
+      do i=1,ctrl%nstates
+        read(u_traj,*) (traj%seldm_ss(i,j),j=1,ctrl%nstates)
+      enddo
+    endif
+    read(u_traj,*) traj%phases_found
+
+    close(u_traj)
+
+    ! call the random number generator until it is in the same status as before the restart
+    do i=1,traj%step
+      call random_number(dummy_randnum)
+    enddo
+
+    ! since the relaxation check is done after writing the restart file,
+    ! add one to the relaxation counter
+    traj%steps_in_gs=traj%steps_in_gs+1
+
+    ! set time so that timing is correct
+    traj%time_start=time()
+    traj%time_last=time()
+
+  endsubroutine
+
+endmodule

@@ -1,0 +1,39 @@
+\documentclass{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath,amssymb,xcolor,colortbl}
+
+\usepackage[scaled=.92]{helvet}
+\renewcommand{\familydefault}{\sfdefault}
+\usepackage{sfmath}
+
+\usepackage[active,tightpage]{preview}
+\PreviewEnvironment{equation}
+\PreviewEnvironment{multline}
+\PreviewEnvironment{align}
+\setlength\PreviewBorder{100pt}
+\setlength{\textwidth}{246pt}
+
+\newcommand{\E}{\ensuremath{\mathrm{e}}}
+\newcommand{\I}{\ensuremath{\mathrm{i}}}
+\newcommand{\D}{\ensuremath{\mathrm{d}}}
+\renewcommand{\vec}[1]{\ensuremath{\mathbf{#1}}}
+
+\definecolor{RL}{HTML}{d65454}
+\newcommand{\R}{\cellcolor{RL!50}}
+
+\begin{document}
+
+\begin{align}
+  \vec{a}_A(t)=&
+  -\frac{1}{m_A}\nabla_{\vec{R_A}}E_\beta(\vec{R}(t))\nonumber\\
+  \vec{a}_A(t+\Delta t)=&
+  -\frac{1}{m_A}\nabla_{\vec{R_A}}E_\beta(\vec{R}(t+\Delta t))\nonumber\\
+  \vec{R}_A(t+\Delta t)=&
+  \vec{R}_A(t)+\vec{v}_A(t)\Delta t + \frac{1}{2}\vec{a}_A(t)\Delta t^2\nonumber\\
+  \vec{v}_A(t+\Delta t)=&
+  \vec{v}_A(t)+\frac{1}{2}\left[\vec{a}_A(t)+\vec{a}_A(t+\Delta t)\right]\Delta t
+\nonumber\end{align}
+
+\end{document}

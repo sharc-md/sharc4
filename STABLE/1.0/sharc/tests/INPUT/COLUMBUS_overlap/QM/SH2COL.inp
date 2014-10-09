@@ -1,0 +1,20 @@
+columbus $COLUMBUS
+molcas /scratch/barium/oppel/molcas/7.9.dev/
+dyson /user/matruc/workspace/mydyson3/dyson.x
+civecconsolidate /user/matruc/CC/bin/civecconsolidate
+
+scratchdir $SCRADIR/WORK
+savedir $SCRADIR/TRAJ/restart
+
+memory 1700             # for runc
+ciothres 1e-4           # for cioverlaps, default 1e-5
+dysonthres 1e-2         # for dyson, default 1e-4
+
+template COLUMBUS.template/
+
+DIR 1 1_3/
+DIR 3 1_3/
+DIR 2 2/
+
+MOCOEF 1_3/ 1_3/
+MOCOEF 2/ 1_3/

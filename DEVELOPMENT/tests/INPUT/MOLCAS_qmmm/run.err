@@ -1,0 +1,19 @@
+STOP 1
+
+Backtrace for this error:
+  + function __qm_MOD_call_runqm (0x49E5DB)
+    at line 378 of file qm.f90
+  + function __qm_MOD_do_qm_calculations (0x4A199C)
+    at line 115 of file qm.f90
+  + function __qm_MOD_do_initial_qm (0x4A8785)
+    at line 26 of file qm.f90
+  + in the main program
+    at line 57 of file main.f90
+  + /lib64/libc.so.6(__libc_start_main+0xfd) [0x336901ed1d]
+     64
+
+ #===================================================#
+ QM call was not successful, aborting the run.
+ Error code:      64
+ #===================================================#
+
