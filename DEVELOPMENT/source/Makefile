@@ -56,7 +56,8 @@ restart.o: $(TOOLS)
 
 DATA_EXTRACTOR =      definitions.o \
 		      matrix.o \
-  	              data_extractor.o
+  	              data_extractor.o \
+  	              qm_out.o
 
 LASER=  LASER_definitions.o \
 	LASER_calc_fftw.o \
