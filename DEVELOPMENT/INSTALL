@@ -64,6 +64,8 @@ scripts.
 Now you are ready to run your first surface hopping trajectory including
 arbitrary couplings!
 
+Maybe at this stage it is a good idea to take a look at the test suite.
+
 Installation for the experts
 ============================
 
@@ -90,6 +92,7 @@ LD =  -L$(MKLROOT)/lib/intel64 -lmkl_intel_lp64 -lmkl_core -lmkl_sequential -lpt
 
 Note that since version 10.2, MKL provides FFTW3 interfaces, so there is
 no need to link against fftw3 explicitly when using MKL.
+
 
 
 
