@@ -1,3 +1,11 @@
+******************************************
+
+SHARC Program Suite
+
+Copyright (c) 2014 University of Vienna
+
+******************************************
+
 Installation Instructions
 *************************
 
@@ -38,6 +46,20 @@ make install
 will copy the binary files into the ../bin directory of the 
 Sharc distribution, which already contains all the python scripts which
 come with sharc.
+
+In oder to use the binaries together with the python scripts,
+set the $SHARC environment variable to the bin directory of the
+sharc distribution, e.g. if you have unpacked sharc into your $HOME directory, 
+just set: 
+
+export SHARC=/sharc/bin (for bourne shell users)
+
+or
+
+setenv SHARC $HOME/sharc/bin (for c-shell type users)
+
+Note that it is advisable to put this line into your shell's login
+scripts.
 
 Now you are ready to run your first surface hopping trajectory including
 arbitrary couplings!
