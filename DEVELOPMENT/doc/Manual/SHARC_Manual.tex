@@ -1,3 +1,7 @@
+% to make it work with AcrobatReader
+% \pdfminorversion=4
+
+
 \documentclass[a4paper,11pt,DIV=15,openany,twoside=false]{scrbook}
 
 % everything inside \tthdump is ignored by tth, but processed by LaTeX
@@ -59,7 +63,7 @@
 \newenvironment{tpage}{%
 \addtokomafont{title}{\rmfamily}
   \begin{titlepage}
-    \title{\hspace{1cm}\includegraphics[width=0.8\textwidth,keepaspectratio=true]{img/sharc.png}\vspace{1.5cm}\\
+    \title{\hspace{1cm}\includegraphics[width=0.8\textwidth,keepaspectratio=true]{img/sharc.pdf}\vspace{1.5cm}\\
     SHARC: Surface Hopping in the Adiabatic Representation Including Arbitrary Couplings}
     \subtitle{Manual}
     \date{Vienna, \today}
@@ -187,85 +191,82 @@ University of Vienna, Austria
 \chapter{Introduction}
 
 % what is non-adiabatic dynamics
-Dynamics involving radiationless processes in the excited-state manifold of molecules are responsible for many photophysical and photochemical processes. For example, the explanation for Kasha's rule \cite{Kasha1950DFS} is that radiationless transfer from higher excited singlet states to the $S_1$ is faster than fluorescence. This radiationless transfer is called internal conversion (IC). In figure~\ref{fig:jablonski}, radiative and radiationless processes are summarized in a so-called Jab{\l}onski diagram.
+When a molecule is irradiated by light, a number of dynamical processes can take place, in which the molecule redistributes the energy among different electronic and vibrational degrees of freedom. Kasha's rule \cite{Kasha1950DFS} states that radiationless transfer from higher excited singlet states to the lowest-lying $S_1$ excited state is faster than fluorescence (F). This radiationless transfer is called internal conversion (IC) and involves a changes between electronic states of the same multiplicity. If a transition occurs between electronic states of different spin, the process is called intersystem crossing (ISC). A typical ISC process is from a singlet to a triplet state, and once the lowest triplet is populated, phosphorescence (P) can take place. In figure~\ref{fig:jablonski}, radiative (F and P) and radiationless (IC and ISC) processes are summarized in a so-called Jab{\l}onski diagram.
 
 \begin{figure}[h]
   \centering
   \includegraphics[scale=1.6]{img/jablonski/jablonski.pdf}
-  \caption{Jab{\l}onski diagram showing the conceptual photophysical processes. Straight arrows show radiative processes (absorption $h\nu$, fluorescence F, phosphorescence P), wavy arrows show radiationless processes (internal conversion IC and intersystem crossing ISC). }
+  \caption{Jab{\l}onski diagram showing the conceptual photophysical processes. Straight arrows show radiative processes: absorption ($h\nu$), fluorescence (F), and phosphorescence (P); wavy arrows show radiationless processes: internal conversion (IC) and intersystem crossing (ISC). }
   \label{fig:jablonski}
 \end{figure}
 
-IC also plays a crucial role in the first step of the biological process of visual perception, where the retinal moiety of rhodopsin is hit by a photon and non-radiatively performs a torsion around one of the double bonds, changing the conformation of the protein and inducing a neural signal.
-Similarly, protection of the human body from the influence of UV light is achieved through very efficient IC of DNA, proteins and melanins. In these molecules, via ultrafast IC to the electronic ground state, the excitation energy of the UV photons is quickly converted to nuclear kinetic energy, which is spread harmlessly as heat to the environment.
-Besides biologically relevant cases, IC processes also occur in the excited-state dynamics of many small molecules, for example \ce{O2} and \ce{O3}, \ce{SO2}, \ce{NO2} and other nitrous oxides, as well as many organic molecules. Hence, these processes are of very high relevance for atmospheric chemistry.
+The non-radiative IC and ISC process are fundamental concepts which play a decisive role in photochemistry and photobiology. IC processes are present in the excited-state dynamics of many organic and inorganic molecules, whose applications range from solar energy conversion to drug therapy. Even many, very small molecules, for example \ce{O2} and \ce{O3}, \ce{SO2}, \ce{NO2} and other nitrous oxides, show efficient IC, which has important consequences in atmospheric chemistry and the study of the environment and pollution. IC is also the first step of the biological process of visual perception, where the retinal moiety of rhodopsin absorbs a photon and non-radiatively performs a torsion around one of the double bonds, changing the conformation of the protein and inducing a neural signal. Similarly, protection of the human body from the influence of UV light is achieved through very efficient IC in DNA, proteins and melanins. Ultrafast IC to the electronic ground state allows quickly converting the excitation energy of the UV photons into nuclear kinetic energy, which is spread harmlessly as heat to the environment.
 
-Besides IC, where the system changes between electronic states of the same multiplicity, another important radiationless process is intersystem crossing (ISC), where a change of the electronic spin accompanies the electronic transition. These processes are completely forbidden in the non-relativistic Schr\"odinger equation, but they become allowed when including spin-orbit couplings (SOC), a relativistic effect.
-SOC depends on the nuclear charge and becomes stronger for heavy atoms. However, even for molecules with only first- and second-row atoms, ISC might be relevant, for example in \ce{SO2} \cite{Wilkinson2014JCP,Mai2014JCP_SO2,Leveque2014JCP_ISC}, benzene \cite{Penfold2012JCP}, aromatic nitrocompounds \cite{Vogt2013JPC} and DNA nucleobases and derivatives 
-\cite{Crespo-Hernandez2004CR, Richter2012JPCL, Mai2013C, Reichardt2010CC}. 
+ISC processes are completely forbidden in the frame of the non-relativistic Schr\"odinger equation, but they become allowed when including spin-orbit couplings, a relativistic effect~\cite{Marian2012WCMS}. Spin-orbit coupling depends on the nuclear charge and becomes stronger for heavy atoms, therefore it is typically known as a ''heavy atom'' effect. However, it has been recently recognized that even for molecules with only first- and second-row atoms, ISC might be relevant and can be competitive in time scales with IC. A small selection of the growing number of molecules where efficient ISC in a sub-ps time scale has been predicted are \ce{SO2}~\cite{Wilkinson2014JCP,Mai2014JCP_SO2,Leveque2014JCP_ISC}, benzene~\cite{Penfold2012JCP}, aromatic nitrocompounds~\cite{Vogt2013JPC} or DNA nucleobases and derivatives~\cite{Crespo-Hernandez2004CR, Richter2012JPCL, Martinez-Fernandez2012CC, Mai2013C, Reichardt2010CC}.
 
 % dynamics simulations
-In order to understand those radiationless processes, one of the most important kind of studies employs numeric simulations to follow the nuclear motion on the excited-state potential energy surfaces (PES). These simulations are called excited-state dynamics simulations. Since the Born-Oppenheimer approximation is not applicable for this kind of dynamics, non-adiabatic effects need to be incorporated into the simulations. 
+Theoretical simulations can greatly contribute to understand non-radiative processes by following the nuclear motion on the excited-state potential energy surfaces (PES) in real time. These simulations are called excited-state dynamics simulations. 
+Since the Born-Oppenheimer approximation is not applicable for this kind of dynamics, non-adiabatic effects need to be incorporated into the simulations.
 
-The principal methodology to tackle excited-state dynamics simulations is to numerically integrate the time-dependent Schr\"odinger equation, which is usually called full quantum dynamics simulations (QD). Given accurate PESs, QD is able to reach or surpass experimental accuracy. However, the full multi-dimensional PES is needed for these kinds of simulations, which quickly becomes unfeasible for more than about 6 degrees of freedom. There are several methodologies to overcome this restriction. One of the most popular schemes for non-adiabatic dynamics is the surface hopping methodology.
+The principal methodology to tackle excited-state dynamics simulations is to numerically integrate the time-dependent Schr\"odinger equation, which is usually called full quantum dynamics simulations (QD). Given accurate PESs, QD is able to reach or surpass experimental accuracy. However, the need of an ''a priori'' knowledge of the full multi-dimensional PES renders this type of simulations quickly unfeasible for more than few degrees of freedom. Several alternative methodologies are possible to alleviate this problem. One of the most popular ones is to use surface hopping non-adiabatic dynamics.
 
 % surface hopping, advantages, history
-Surface hopping was originally devised by Tully \cite{Tully1971JCP, Tully1990JCP}. Since in this manual we can only give a brief theoretical introduction to the topic, we refer to several interesting reviews \cite{Barbatti2011WCMS,Doltsinis2006,Doltsinis2002JTCC}.
-In surface hopping, the motion of the excited-state wavepacket is approximated by the motion of an ensemble of many independent, classical trajectories. Each trajectory is at every instant of time tied to one particular PES, and the nuclear motion is integrated using the gradient of this PES. However, non-adiabatic population transfer can lead to the switching of a trajectory from one PES to another PES. This switching (also called ``hopping'', which is the origin of the name ``surface hopping'') is based on a stochastic algorithm, taking into account the change of the electronic population from one timestep to the next one.
+Surface hopping was originally devised by Tully~\cite{Tully1971JCP} and greatly improved later by the ``fewest-switches criterion''\cite{Tully1990JCP} and it has been reviewed extensively since then, see e.g.~\cite{Barbatti2011WCMS,Doltsinis2006,Doltsinis2002JTCC}.
+In surface hopping, the motion of the excited-state wavepacket is approximated by the motion of an ensemble of many independent, classical trajectories. Each trajectory is at every instant of time tied to one particular PES, and the nuclear motion is integrated using the gradient of this PES. However, non-adiabatic population transfer can lead to the switching of a trajectory from one PES to another PES. This switching (also called ``hopping'', which is the origin of the name ``surface hopping'') is based on a stochastic algorithm, taking into account the change of the electronic population from one time step to the next one.
 
-The surface hopping methodology's popularity can be explained by a number of advantages \cite{Barbatti2011WCMS}:
+The advantages of the surface hopping methodology and thus its popularity are well summarized in Ref.~\cite{Barbatti2011WCMS}:
 \begin{itemize}
   \item The method is conceptually simple, since it is based on classical mechanics. The nuclear propagation is based on Newton's equations and can be performed in cartesian coordinates, avoiding any problems with curved coordinate systems as in QD.
-  \item For the propagation of the trajectories only local information of the PESs are needed. This avoids to calculate the full, multi-dimensional PES before the dynamics simulation, which is the main restriction of QD methods. In surface hopping dynamics, all degrees of freedom can be included in the simulation. Additionally, all necessary quantities can be calculated on-demand, usually called ``on-the-fly'' in this context.
+  \item For the propagation of the trajectories only local information of the PESs is needed. This avoids the calculation of the full, multi-dimensional PES in advance, which is the main bottleneck of QD methods. In surface hopping dynamics, all degrees of freedom can be included in the simulation. Additionally, all necessary quantities can be calculated on-demand, usually called ``on-the-fly'' in this context.
   \item The independent trajectories can be trivially parallelized.
 \end{itemize}
-The strongest of these points of course is the fact that all degrees of freedom can be included easily in the calculations, allowing to describe large systems, like DNA nucleobases, transition metal complexes and even large DNA strands and solvated molecules (by means of QM/MM schemes).
-However, the classical nature of the trajectories does not allow to treat some purely quantum-mechanical effects like tunneling, (tunneling for selected degrees of freedom is possible \cite{Hammes-Schiffer1994JCP}). Additionally, quantum coherence between the electronic states is usually described poorly, because of the independent-trajectory ansatz. This can be treated with some ad-hoc corrections, e.g., in \cite{Granucci2007JCP}. 
+The strongest of these points of course is the fact that all degrees of freedom can be included easily in the calculations, allowing to describe large systems.
+%like DNA nucleobases, transition metal complexes and even large DNA strands and solvated molecules (by means of QM/MM schemes).
+One should note, however, that surface hopping methods in the standard formulation~\cite{Tully1971JCP, Tully1990JCP}---due to  the classical nature of the trajectories---do not allow to treat some purely quantum-mechanical effects like tunneling, (tunneling for selected degrees of freedom is possible \cite{Hammes-Schiffer1994JCP}). Additionally, quantum coherence between the electronic states is usually described poorly, because of the independent-trajectory ansatz. This can be treated with some ad-hoc corrections, e.g., in \cite{Granucci2007JCP}.
 
 % SHARC
-However, in the original surface hopping method, only non-adiabatic couplings lead to population transfer between different electronic states, allowing only for the description of IC. ISC and radiative processes (absorption) cannot be described, since this necessitates the inclusion of spin-orbit couplings (for ISC) or interactions of dipole moments with electric fields (for absorption). 
+In the original surface hopping method, only non-adiabatic couplings are considered, only allowing for population transfer between electronic states of the same multiplicity. 
+The \sharc\ methodology is a generalization of standard surface hopping since it allows to include any type of coupling. Beyond non-adiabatic couplings (for IC), spin-orbit couplings (for ISC) or interactions of dipole moments with electric fields (to explicitly describe laser-induced processes) can be included.
+A number of methodologies for surface hopping including one or the other type of potential couplings 
+have been proposed in references~\cite{Thachuk1996JCP,Maiti2004JPCA,Jones2008JPCA,Mitric2009PRA,Granucci2012JCP,Curchod2013C,Cui2014JCP}, but \sharc\ can include all types of potential couplings on the same footing. 
 
-The \sharc\ methodology is an extension to standard surface hopping which allows to include these kinds of couplings. The central idea of \sharc\ is to obtain a fully diagonal Hamiltonian, which is adiabatic with respect to all couplings. The diagonal Hamiltonian is obtained by unitary transformation of the Hamiltonian including all couplings. Surface hopping is conducted on the transformed electronic states. 
+The \sharc\ methodology is an extension to standard surface hopping which allows to include these kinds of couplings. The central idea of \sharc\ is to obtain a fully diagonal Hamiltonian, which is adiabatic with respect to all couplings. The diagonal Hamiltonian is obtained by unitary transformation of the Hamiltonian including all couplings. Surface hopping is conducted on the transformed electronic states.
 This has a number of advantages over the standard surface hopping methodology, where no diagonalization is performed:
 \begin{itemize}
-  \item Potential couplings (like spin-orbit couplings and laser-dipole couplings) are usually delocalized. Surface hopping, however, rests on the assumption that the couplings are localized and hence surface hops only occur in the small region where the couplings are large. Within \sharc\ by transforming the potential couplings away, additional terms of non-adiabatic (kinetic) couplings arise, which are localized. 
+  \item Potential couplings (like spin-orbit couplings and laser-dipole couplings) are usually delocalized. Surface hopping, however, rests on the assumption that the couplings are localized and hence surface hops only occur in the small region where the couplings are large. Within \sharc, by transforming away the potential couplings, additional terms of non-adiabatic (kinetic) couplings arise, which are localized. 
   \item The potential couplings have an influence on the gradients acting on the nuclei. To a good approximation, within \sharc\ it is possible to include this influence in the dynamics.
   \item When including spin-orbit couplings for states of higher multiplicity, diagonalization solves the problem of rotational invariance of the multiplet components (see~\cite{Granucci2012JCP}). 
 \end{itemize}
 
-A number of methodologies for surface-hopping including different types of potential couplings (similar to \sharc)
-have been proposed in references \cite{Granucci2012JCP, Thachuk1996JCP, Maiti2004JPCA,Jones2008JPCA,Mitric2009PRA,Curchod2013C}.
-
-The \sharc\ suite of programs is an implementation of the \sharc\ method. Besides the core dynamics code, it comes with a number of tools, aiding in the setup, maintainance and analysis of the trajectories. 
+The \sharc\ suite of programs is an implementation of the \sharc\ method. Besides the core dynamics code, it comes with a number of tools aiding in the setup, maintenance and analysis of the trajectories. 
 
 \section{Capabilities}
 
-Those are the main features of the \sharc\ suite:
+The main features of the \sharc\ suite are:
 \begin{itemize}
-  \item Non-adiabatic dynamics based on the surface hopping methodology for internal conversion and intersystem crossing with any number of singlets, doublets, triplets, and higher multiplicities.
-  \item Stable propagation in the presence of very small as well as very large spin-orbit couplings.
+  \item Non-adiabatic dynamics based on the surface hopping methodology able to describe internal conversion and intersystem crossing with any number of states (singlets, doublets, triplets, or higher multiplicities).
+  \item Algorithms for stable wavefunction propagation in the presence of very small or very large couplings.
   \item Inclusion of interactions with laser fields in the long-wavelength limit. The derivatives of the dipole moments can be included in strong-field applications.
   \item Propagation using either non-adiabatic couplings vectors $\langle\alpha|\frac{\partial}{\partial \mathbf{R}}|\beta\rangle$, time-derivative couplings $\langle\alpha|\frac{\partial}{\partial t}|\beta\rangle$ or wavefunction overlaps $\langle\alpha(t_0)|\beta(t)\rangle$ (via the local diabatization procedure \cite{Granucci2007JCP}).
   \item Gradients including the effects of spin-orbit couplings (with the approximation that the diabatic spin-orbit couplings are slowly varying).
   \item Energy-difference-based partial coupling approximation to speed up calculations \cite{Pittner2009CP}.
   \item Energy-based decoherence correction \cite{Granucci2007JCP}.
+  \item Flexible interface to quantum chemistry programs. Existing interfaces to \textsc{Molpro} 2010 and 2012, \textsc{Molcas} 7.8 and 8.0 and \textsc{Columbus 7.1} (only if interfaced to \textsc{Molcas}). An interface to implement dynamics based on analytical expressions is also available.
   \item Calculation of Dyson norms along the trajectories through the \textsc{Columbus} interface.
-  \item Flexible interface to quantum chemistry programs. Existing interfaces to \textsc{Molpro}, \textsc{Molcas 7} and \textsc{Columbus 7.1} (only if interfaced to \textsc{Molcas}). An interface to implement dynamics based on analytical expressions is also available.
-  \item Suite of auxilliary Python scripts for all steps of the setup procedure and for various analysis tasks.
+  \item Suite of auxiliary Python scripts for all steps of the setup procedure and for various analysis tasks.
   \item Comprehensive tutorial.
 \end{itemize}
 
-The following features are planned for future versions:
-\begin{itemize}
-  \item QM/MM calculations.
-  \item Dynamics in the Floquet picture.
-  \item Description of ionization processes by more advanced methods than Dyson norms.
-\end{itemize}
-
+%The following features are planned for future versions:
+%\begin{itemize}
+%  \item QM/MM calculations.
+%  \item Dynamics in the Floquet picture.
+%  \item Description of ionization processes by more advanced methods than Dyson norms.
+%\end{itemize}
 
 \section{References}
 
-Please cite the following references when using the \sharc\ suite:
+The following references should be cited when using the \sharc\ suite:
 {
 \newcommand{\enquote}[1]{``#1''}
 \begin{example}
@@ -279,16 +280,18 @@ Please cite the following references when using the \sharc\ suite:
 \end{example}
 }
 
+Further details can be found in the following references:
+
 The theoretical background of \sharc\ is described in Refs.~\cite{Richter2011JCTC, Richter2012JCTC_erratum, Bajo2011JPCA, Marquetand2011FD}.
 
 Applications of the \sharc\ code can be found in Refs.~\cite{Richter2012JPCL, Mai2013C, Mai2014TCC, Mai2014JCP_SO2, Gonzalez2014}.
 
-Some features of the \sharc\ suite are described in the following references:
+Other features included in the \sharc\ suite are described in the following references:
 \begin{itemize}
-  \item Excited state selection for initial condition generation: \cite{Barbatti2011}.
   \item Energy-based decoherence correction: \cite{Granucci2007JCP}.
   \item Local diabatization and wavefunction overlap calculation: \cite{Granucci2001JCP, Pittner2009CP, Plasser2012JCP}.
   \item Sampling of initial conditions from a quantum-mechanical harmonic Wigner distribution: \cite{Dahl1988JCP, Schinke1995}.
+  \item Excited state selection for initial condition generation: \cite{Barbatti2011}.
   \item Calculation of ring puckering parameters and their classification: \cite{Cremer1975JACS, Boeyens1976JCMS}.
 \end{itemize}
 
@@ -301,7 +304,7 @@ The quantum chemistry programs to which interfaces with \sharc\ exist are descri
 
 \section{Authors}
 
-The \sharc\ suite has been programmed by Sebastian Mai and Martin Richter of the AG Gonz\'alez of the Institute of Theoretical Chemistry of the University of Vienna with contributions by Matthias Ruckenbauer, Jes\'us Gonz\'alez-V\'azquez, Philipp Marquetand and Markus Oppel.
+The current version of the \sharc\ suite has been programmed by Sebastian Mai and Martin Richter of the AG Gonz\'alez of the Institute of Theoretical Chemistry of the University of Vienna with contributions from Jes\'us Gonz\'alez-V\'azquez, Philipp Marquetand, Matthias Ruckenbauer and Markus Oppel.
 
 \section{Suggestions and Bug Reports}
 
@@ -852,9 +855,9 @@ The third possibility is the use of the overlap matrix, requested with \ttt{coup
 
 \paragraph{Decoherence}
 
-Decoherence according to Granucci et al.\cite{Granucci2010JCP} can be applied to the diagonal coefficients by using the keyword \ttt{decoherence}. By default, decoherence is off. The keyword \ttt{nodecoherence} turns decoherence off. 
+Decoherence according to Granucci et al.~\cite{Granucci2010JCP} can be applied to the diagonal coefficients by using the keyword \ttt{decoherence}. By default, decoherence is off. However, the keyword \ttt{nodecoherence} can be used to explicitly turn decoherence off. 
 
-The keyword \ttt{decoherence\_param} can be used to change the parameter $\alpha$ (see~\ref{met:decoherence}). The default is 0.1~Hartree, which is the value recommended by Granucci et al.
+The keyword \ttt{decoherence\_param} can be used to change the parameter $\alpha$ (see~\ref{met:decoherence}). The default is 0.1~Hartree, which is the value recommended by Granucci et al.~\cite{Granucci2010JCP}.
 
 \paragraph{Correction to the Gradients}
 
@@ -1749,7 +1752,7 @@ Note that exponentiation in Python is \ttt{**}. In order to provide most usual m
 
 \chapter{Auxilliary Scripts}\label{chap:aux}
 
-In this chapter, all auxilliary scripts and programs are documented. Input generators (\ttt{molpro\_input.py} and \ttt{molcas\_input.py}) are documented in the relevant interface sections.
+In this chapter, all auxilliary scripts and programs are documented. Input generators (currently \ttt{molpro\_input.py} and \ttt{molcas\_input.py}) are documented in the relevant interface sections.
 
 All auxilliary scripts are either interactive---prompting user input from stdin in order to setup a certain task---or non-interactive, meaning they are controlled by command-line arguments and options, in the same way as many command-line tools work.
 
@@ -1921,7 +1924,7 @@ The user can enter a project name. This is used currently only for the job names
 
 \subsection{Output}
 
-\ttt{setup\_init.py} will create for each initial condition in the given range a directory, named \ttt{ICOND\_\%05i}, where \ttt{\%05i} is the index of the initial condition padded with zeroes to 5 digits. Additionally, the directory \ttt{ICOND\_00000} is created for the calculation of the excitation energies at the equilibrium geometry.
+\ttt{setup\_init.py} will create for each initial condition in the given range a directory, whose names follow the format \ttt{ICOND\_\%05i}, where \ttt{\%05i} is the index of the initial condition padded with zeroes to 5 digits. Additionally, the directory \ttt{ICOND\_00000} is created for the calculation of the excitation energies at the equilibrium geometry.
 
 To each directory, the following files will be added:
 \begin{itemize}
@@ -2139,7 +2142,9 @@ This option determines how the total energy is conserved after a surface hop. Af
 
 \paragraph{Decoherence}
 
-For most applications, decoherence should be enabled. Affects the keyword \ttt{decoherence}. Note that \ttt{setup\_traj.py} does not allow to modify the $\alpha$ value. In order to change the keyword \ttt{decoherence\_param}, the user has to manually edit the \sharc\ input files.
+For most applications, decoherence should be enabled. Requesting decoherence here leads to the addition of the keyword \ttt{decoherence} to the \sharc\ input files. 
+
+Note that \ttt{setup\_traj.py} does not allow to modify the $\alpha$ value. In order to change the keyword \ttt{decoherence\_param}, the user has to manually edit the \sharc\ input files.
 
 \paragraph{Scaling and Damping}
 
@@ -2151,9 +2156,9 @@ The keywords \ttt{grad\_select} and \ttt{nac\_select} can be set here. For dynam
 
 \subsection{Interface-specific input}
 
-This input section is basically the same as for \ttt{setup\_init.py}. Note that for the dynamics simulations an initial wavefunction file is even more strongly recommended than for the initial calculations.
+This input section is basically the same as for \ttt{setup\_init.py} (section~\ref{sec:setup_init.py}). Note that for the dynamics simulations an initial wavefunction file is even more strongly recommended than for the initial excited-state calculations.
 
-For MRCI dynamics using the \textsc{Columbus} interface, it is strongly advisory to obtain the \ttt{excitlistfiles} before starting the dynamics. 
+For MRCI dynamics using the \textsc{Columbus} interface, for performance reasons it is strongly advisory to obtain the \ttt{excitlistfiles} before starting the dynamics. 
 
 \subsection{Run script setup}
 
@@ -2168,7 +2173,7 @@ Also this input section is similar to the one in \ttt{setup\_init.py}.
   \label{fig:dirs_traj}
 \end{figure}
 
-\ttt{setup\_traj.py} will create for each initial state a directory, where all trajectories starting in this state will be put. If the initial conditions file specified that the initial conditions are in the MCH representation, then the initial states will be assumed to be in the MCH representation as well. In this case, the directories will be named \ttt{Singlet\_0}, \ttt{Singlet\_1}, ..., \ttt{Doublet\_0}, \ttt{Triplet\_1}, ... If the initial states are in the diagonal representation, then the directories are simply called \ttt{X\_1}, ... since they do not have a definite spin.
+\ttt{setup\_traj.py} will create for each initial state a directory where all trajectories starting in this state will be put. If the initial conditions file specified that the initial conditions are in the MCH representation, then the initial states will be assumed to be in the MCH representation as well. In this case, the directories will be named \ttt{Singlet\_0}, \ttt{Singlet\_1}, ..., \ttt{Doublet\_0}, \ttt{Triplet\_1}, ... If the initial states are in the diagonal representation, then the directories are simply called \ttt{X\_1}, ... since they do not have a definite spin.
 
 In each directory, subdirectories called \ttt{TRAJ\_\%05i} are created, where \ttt{\%05i} is the initial condition index, padded to 5 digits with zeroes. In each trajectory directory, an \sharc\ input file called \ttt{input} will be created, which contains all the dynamics options chosen during the \ttt{setup\_traj.py} run. Also, files \ttt{geom} and \ttt{veloc} will be created. For trajectories setup with \ttt{setup\_traj.py}, the determination of the initial wavefunction coefficients is done by \sharc.
 For each trajectory, a \ttt{run.sh} script will be created, which can be executed to run the dynamics simulation. 
@@ -2420,7 +2425,7 @@ The program will extract the complete \ttt{output.dat} file until it reaches the
 
 After the program finishes, the directory \ttt{output\_data} contains a number of files. In each file, the number of columns is dependent in the total number $n$ of states $i\in\{1...n\}$. The content of the files is listed in Table~\ref{tab:outputdata}.
 
-The file \ttt{expec.out} contains the information of \ttt{energy.out}, \ttt{spin.out} and \ttt{fosc.out} in one file. The content of \ttt{expec.out} can be conveniently plotted with a \textsc{Gnuplot} script generated by \ttt{make\_gnuscript.py}.
+The file \ttt{expec.out} contains the information of \ttt{energy.out}, \ttt{spin.out} and \ttt{fosc.out} in one file. The content of \ttt{expec.out} can be conveniently plotted by using \ttt{make\_gnuscript.py} to generate a \textsc{Gnuplot} script.
 
 \begin{table}
   \centering
@@ -2637,7 +2642,7 @@ All geometries are in the end written to an output file, by default \ttt{crossin
 
 \section{Diagonalization Helper: \ttt{diagonalizer.x}}\label{sec:diagonalizer.x}
 
-The small program \ttt{diagonalizer.x} is used by the Python scripts to diagonalize matrices if the Numpy library is not available. Currently, only \ttt{excite.py} needs to diagonalize matrices (If the excitation energies and oscillator strengths are calculated in the diagonal representation). \ttt{diagonalizer.x} is implemented as a simple front-end to the LAPACK libary.
+The small program \ttt{diagonalizer.x} is used by the Python scripts to diagonalize matrices if the Numpy library is not available. Currently, only \ttt{excite.py} needs to diagonalize matrices (If the excitation energies and oscillator strengths are calculated in the diagonal representation). The program \ttt{diagonalizer.x} is implemented as a simple front-end to the LAPACK libary.
 
 The program reads from stdin. The first line consists of the letter ``r'' or ``c'', followed by two integers giving the matrix dimensions. For ``r'', the program assumes a real symmetric matrix, for ``c'' a Hermitian matrix. The matrix must be square.
 The second line is a comment and is ignored.
