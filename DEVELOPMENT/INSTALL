@@ -11,7 +11,7 @@ All you need to install sharc on a Linux system is a Fortran90 compatible
 compiler (this release is tested against gfortran 4.4.7 and ifort 15.0)
 as well as working blas, lapack and fftw3 libraries. The versions which come
 with your Linux distribution should be sufficient. IF you want to use your
-own numerical libraries (like MKL etc), please change the correspoding
+own numerical libraries (like MKL etc), please change the corresponding
 LD variable within the Makefile.
 
 To compile the fortran source code, just unzip and untar the distribution
