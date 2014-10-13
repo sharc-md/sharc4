@@ -1,7 +1,10 @@
-SHARC: Surface Hopping with Arbitrary Couplings. A program suite to
-study the excited-state dynamics of molecules.
+******************************************
 
-Copyright (C) 2014 University of Vienna
+SHARC Program Suite
+
+Copyright (c) 2014 University of Vienna
+
+******************************************
 
 By obtaining and using the SHARC Program Suite or any part of it you agree
 on the following terms:
@@ -39,5 +42,5 @@ OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
 ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER 
 DEALINGS IN THE SOFTWARE.
 
-The latest Sharc source code, including the documentation, can always be
+The latest SHARC source code, including the documentation, can always be
 found at: http://www.sharc-md.org
