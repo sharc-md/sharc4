@@ -52,7 +52,7 @@ set the $SHARC environment variable to the bin directory of the
 sharc distribution, e.g. if you have unpacked sharc into your $HOME directory, 
 just set: 
 
-export SHARC=/sharc/bin (for bourne shell users)
+export SHARC=~/sharc/bin (for bourne shell users)
 
 or
 
