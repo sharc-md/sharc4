@@ -385,12 +385,19 @@ subroutine write_final(traj)
 
 endsubroutine
 
+subroutine myflush()
+use definitions
+implicit none
 
+call flush(u_log)
+call flush(u_lis)
+call flush(u_dat)
+call flush(u_geo)
+call flush(u_resc)
+call flush(u_rest)
+call fluhs(u_qm_QMin)
 
-
-
-
-
+end subroutine
 
 
 

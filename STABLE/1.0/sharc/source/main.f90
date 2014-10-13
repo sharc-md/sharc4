@@ -110,7 +110,7 @@ do i_step=traj%step+1,ctrl%nsteps
   call write_geom(u_geo, traj, ctrl)
   ! write_restart_traj must be the last command
   call write_restart_traj(u_rest,ctrl,traj)
-  call flush()
+  call myflush()
   ! kill trajectory 
   call kill_after_relaxation(traj,ctrl)
   if ((ctrl%killafter>0).and.(traj%steps_in_gs>ctrl%killafter)) exit

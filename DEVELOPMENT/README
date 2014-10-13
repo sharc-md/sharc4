@@ -1,0 +1,19 @@
+Welcome to the SHARC Program Suite
+
+Please refer to the following files for further information:
+
+* AUTHORS: a list of the SHARC developers and contributors
+* COPYRIGHT: the license under which SHARC can be used
+* INSTALL: how to compile and install the program
+* README: this file
+
+directory structure:
+
+* source:	the (Fortran90) source files
+* bin:    	the compiled executables as well as the python scripts
+* doc:		the documentation (manual and tutorials)
+* tests: 	a test suite to check the installation.  
+
+--
+for further information take a look at:
+http://www.sharc-md.org
