@@ -1536,7 +1536,7 @@ def writeQMoutgrad(QMin,QMout):
   string+='! %i Gradient Vectors (%ix%ix3, real)\n' % (3,nmstates,natom)
   i=0
   for imult,istate,ims in itnmstates(states):
-    string+='%i %i ! %i %i %i\n' % (natom,3,imult,istate,ims)
+    string+='%i %i ! m1 %i s1 %i ms1 %i\n' % (natom,3,imult,istate,ims)
     for atom in range(natom):
       for xyz in range(3):
         string+='%s ' % (eformat(QMout['grad'][i][atom][xyz],12,3))
@@ -1600,7 +1600,8 @@ def writeQMoutnacana(QMin,QMout):
   for imult,istate,ims in itnmstates(states):
     j=0
     for jmult,jstate,jms in itnmstates(states):
-      string+='%i %i ! %i %i %i %i %i %i\n' % (natom,3,imult,istate,ims,jmult,jstate,jms)
+      #string+='%i %i ! %i %i %i %i %i %i\n' % (natom,3,imult,istate,ims,jmult,jstate,jms)
+      string+='%i %i ! m1 %i s1 %i ms1 %i   m2 %i s2 %i ms2 %i\n' % (natom,3,imult,istate,ims,jmult,jstate,jms)
       for atom in range(natom):
         for xyz in range(3):
           string+='%s ' % (eformat(QMout['nacdr'][i][j][atom][xyz],12,3))
