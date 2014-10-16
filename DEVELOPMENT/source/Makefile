@@ -1,12 +1,26 @@
+#******************************************
+#
+#SHARC Program Suite
+#
+#Copyright (c) 2014 University of Vienna
+#
+#******************************************
 # Makefile for Sharc 
 # Version 1.0
-# Oct-09-2014
-# (c) AG Leti
+# Oct-16-2014
 #
-F90 = ifort
+# uncomment the following line and comment the 2nd next line to 
+# use the intel fortran compiler.
+#F90 = ifort 
+F90 = gfortran
+
+
+# uncomment the following line and comment the 2nd next line to use intel's MKL
+# Note: you probably need to adjust the search path if you haven't set
+# $(MKLROOT) 
+# LD =  -L$(MKLROOT)/lib/intel64 -lmkl_intel_lp64 -lmkl_core -lmkl_sequential -lpthread -lm
 LD = -lblas -llapack -lfftw3
 
-# this is a comment for testing purposes.
 
 # works for GFORTRAN and IFORT
 F90FLAGS     = -O2
@@ -40,19 +54,6 @@ SHARC  =  main.o \
 	  input.o 
 
 
-main.o: output.o qm.o restart.o misc.o electronic_laser.o input.o
-misc.o:	definitions.o
-output.o: $(TOOLS) build_info.inc
-nuclear.o: $(TOOLS)
-electronic.o: nuclear.o $(TOOLS)
-electronic_laser.o: electronic.o $(TOOLS)
-input.o: $(TOOLS) output.o restart.o misc.o
-qm.o: $(TOOLS) electronic.o qm_out.o restart.o
-qm_out.o: $(TOOLS)
-restart.o: $(TOOLS)
-
-
-
 
 DATA_EXTRACTOR =      definitions.o \
 		      matrix.o \
@@ -64,8 +65,6 @@ LASER=  LASER_definitions.o \
         LASER_input.o \
         LASER_main.o 
 
-LASER_input.o: LASER_definitions.o 
-LASER_calc_fftw.o: LASER_definitions.o
 
 DIAGONALIZER=string.o \
              matrix.o \
@@ -95,6 +94,21 @@ clean:
 
 install: 
 	cp -f *.x $(EXEDIR)	
+
+# the following lines define the dependencies of the Fortran90 module files
+main.o: output.o qm.o restart.o misc.o electronic_laser.o input.o
+misc.o:	definitions.o
+output.o: $(TOOLS) build_info.inc
+nuclear.o: $(TOOLS)
+electronic.o: nuclear.o $(TOOLS)
+electronic_laser.o: electronic.o $(TOOLS)
+input.o: $(TOOLS) output.o restart.o misc.o
+qm.o: $(TOOLS) electronic.o qm_out.o restart.o
+qm_out.o: $(TOOLS)
+restart.o: $(TOOLS)
+
+LASER_input.o: LASER_definitions.o 
+LASER_calc_fftw.o: LASER_definitions.o
 
 
 
