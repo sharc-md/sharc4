@@ -427,10 +427,16 @@ module input
     line=get_value_from_key('killafter',io)
     if (io==0) then
       read(line,*) tmax
-      ctrl%killafter=int(anint(tmax/ctrl%dtstep))
-      traj%steps_in_gs=0
+      if (tmax<=0) then
+        ctrl%killafter=-1
+        traj%steps_in_gs=-123
+      else
+        ctrl%killafter=int(anint(tmax/ctrl%dtstep))
+        traj%steps_in_gs=0
+      endif
     else
       ctrl%killafter=-1
+      traj%steps_in_gs=-123
     endif
 
     if (ctrl%killafter>=1) then

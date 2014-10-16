@@ -1135,15 +1135,20 @@ def get_MOLPRO(INFOS):
   print centerstring('Path to MOLPRO',60,'-')+'\n'
   path=os.getenv('MOLPRO')
   path=os.path.expanduser(os.path.expandvars(path))
-  if not path.endswith('/molpro'):
-    path+='/molpro'
-  if path!='':
-    print 'Environment variable $MOLPRO detected:\n$MOLPRO=%s\n' % (path)
-    if question('Do you want to use this MOLPRO installation?',bool,True):
-      INFOS['molpro']=path
-  if not 'molpro' in INFOS:
-    print '\nPlease specify path to MOLPRO directory (SHELL variables and ~ can be used, will be expanded when interface is started).\n'
-    INFOS['molpro']=question('Path to MOLPRO:',str)
+  if not path=='':
+    if not path.endswith('/molpro'):
+      path='$MOLPRO/molpro'
+    else:
+      path='$MOLPRO/'
+  else:
+    path=None
+  #if path!='':
+    #print 'Environment variable $MOLPRO detected:\n$MOLPRO=%s\n' % (path)
+    #if question('Do you want to use this MOLPRO installation?',bool,True):
+      #INFOS['molpro']=path
+  #if not 'molpro' in INFOS:
+  print '\nPlease specify path to MOLPRO directory (SHELL variables and ~ can be used, will be expanded when interface is started).\n'
+  INFOS['molpro']=question('Path to MOLPRO executable:',str,path)
   print ''
 
 
@@ -1301,14 +1306,18 @@ def get_COLUMBUS(INFOS):
   # Path to COLUMBUS directory
   print centerstring('Path to COLUMBUS',60,'-')+'\n'
   path=os.getenv('COLUMBUS')
-  path=os.path.expanduser(os.path.expandvars(path))
-  if path!='':
-    print 'Environment variable $COLUMBUS detected:\n$COLUMBUS=%s\n' % (path)
-    if question('Do you want to use this COLUMBUS installation?',bool,True):
-      INFOS['columbus']=path
-  if not 'columbus' in INFOS:
-    print '\nPlease specify path to COLUMBUS directory (SHELL variables and ~ can be used, will be expanded when interface is started).\n'
-    INFOS['columbus']=question('Path to COLUMBUS:',str)
+  if path=='':
+    path=None
+  else:
+    path='$COLUMBUS/'
+  #path=os.path.expanduser(os.path.expandvars(path))
+  #if path!='':
+    #print 'Environment variable $COLUMBUS detected:\n$COLUMBUS=%s\n' % (path)
+    #if question('Do you want to use this COLUMBUS installation?',bool,True):
+      #INFOS['columbus']=path
+  #if not 'columbus' in INFOS:
+  print '\nPlease specify path to COLUMBUS directory (SHELL variables and ~ can be used, will be expanded when interface is started).\n'
+  INFOS['columbus']=question('Path to COLUMBUS:',str,path)
   print ''
 
 
@@ -1729,14 +1738,17 @@ def get_MOLCAS(INFOS):
 
   print centerstring('Path to MOLCAS',60,'-')+'\n'
   path=os.getenv('MOLCAS')
-  path=os.path.expanduser(os.path.expandvars(path))
-  if path!='':
-    print 'Environment variable $MOLCAS detected:\n$MOLCAS=%s\n' % (path)
-    if question('Do you want to use this MOLCAS installation?',bool,True):
-      INFOS['molcas']=path
-  if not 'molcas' in INFOS:
-    print '\nPlease specify path to MOLCAS directory (SHELL variables and ~ can be used, will be expanded when interface is started).\n'
-    INFOS['molcas']=question('Path to MOLCAS:',str)
+  #path=os.path.expanduser(os.path.expandvars(path))
+  if path=='':
+    path=None
+  else:
+    path='$MOLCAS/'
+      #print 'Environment variable $MOLCAS detected:\n$MOLCAS=%s\n' % (path)
+      #if question('Do you want to use this MOLCAS installation?',bool,True):
+        #INFOS['molcas']=path
+    #if not 'molcas' in INFOS:
+  print '\nPlease specify path to MOLCAS directory (SHELL variables and ~ can be used, will be expanded when interface is started).\n'
+  INFOS['molcas']=question('Path to MOLCAS:',str,path)
   print ''
 
 
