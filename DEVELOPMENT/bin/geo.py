@@ -553,7 +553,7 @@ J. Cryst. Mol. Struct., 1977, 8, 317-320.
 
   parser = OptionParser(usage=usage, description=description)
   parser.add_option('-p', dest='p', type=int, nargs=1, default=4,help="number of decimals (default=4)")
-  parser.add_option('-f', dest='f', type=int, nargs=1, default=20,help="field width (default=20)")
+  parser.add_option('-w', dest='f', type=int, nargs=1, default=20,help="field width (default=20)")
   parser.add_option('-b', dest='b', action='store_true',help="switch to bohrs (default is angstrom)")
   parser.add_option('-r', dest='r', action='store_true',help="switch to radians (default is degrees)")
   parser.add_option('-g', dest='g', type="string", nargs=1, default="output.xyz",help="geometry file in xyz format (default=output.xyz)")
@@ -585,9 +585,11 @@ J. Cryst. Mol. Struct., 1977, 8, 317-320.
   sys.stderr.write('Enter the internal coordinate specifications:\n')
   answered=False
   req=[]
+  iline=0
   while not answered:
     try:
       s=raw_input()
+      iline+=1
       s=re.sub('#.*$','',s)
       if 'end' in s:
         answered=True
@@ -596,6 +598,8 @@ J. Cryst. Mol. Struct., 1977, 8, 317-320.
       s[0]=s[0][0:1]
       if checkreq(s,natom):
         req.append(s)
+      elif not sys.stdin.isatty():
+        sys.stderr.write('... error on line %i\n' % (iline))
     except EOFError:
       answered=True
     except IndexError:
