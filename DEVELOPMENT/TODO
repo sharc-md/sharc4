@@ -29,6 +29,8 @@ MOLPRO interface:
 Python:
 - question(): add comma-separated lists
 - class for understanding ranges:
+  for example:
         s = "2,5,7-9,12"
         ranges = (x.split("-") for x in s.split(","))
         print [i for r in ranges for i in range(int(r[0]), int(r[-1]) + 1)]
+
