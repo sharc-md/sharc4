@@ -873,7 +873,7 @@ Using the keyword \ttt{killafter}, the dynamics can be terminated before the ful
 
 \paragraph{Surface Treatment}
 
-The keyword \ttt{surf} controls whether the dynamics runs on diagonal potential energy surfaces (which makes it a \sharc\ simulation) or on the MCH PESs (which corresponds to a \textsc{Fish} simulation). Internally, a \textsc{Fish} simulation is conducted by setting the $U$ matrix equal to the unity matrix at each timestep. 
+The keyword \ttt{surf} controls whether the dynamics runs on diagonal potential energy surfaces (which makes it a \sharc\ simulation) or on the MCH PESs (which corresponds to a spin-diabatic dynamics \cite{Granucci2012JCP} or FISH \cite{Mitric2009PRA} simulation). Internally, dynamics on the MCH potentials is conducted by setting the $U$ matrix equal to the unity matrix at each timestep. 
 
 \paragraph{Description of Non-adiabatic Coupling}
 
@@ -2101,7 +2101,7 @@ To each directory, the following files will be added:
 \end{itemize}
 
 The calculations in each directory can be simply executed by starting \ttt{run.sh} in each directory. In order to perform this task consecutively on a single machine, the script \ttt{all\_run.sh} can be executed. The file \ttt{DONE} contains the progress of this calculation.
-Alternatively, each run script can be sent to a queueing system (some modifications to the run script might be necessary).
+Alternatively, each run script can be sent to a queueing system (you might need to adapt this script to you cluster system).
 
 In figure~\ref{fig:dirs_init}, the directory tree structure setup by \ttt{setup\_init.py} is given.
 
@@ -2369,7 +2369,7 @@ This gives the number of substeps for the interpolation of the Hamiltonian for t
 
 \paragraph{Prematurely terminate trajectories}
 
-Usually, trajectories which relaxed to the ground state do not recross to an excited state, but vibrate indefinitely in the ground state. Since one is rarely interested in these vibrations, such trajectories can be terminated prematurely in order to save computational ressources. A threshold of 10--20~fs is usually a good choice to safely detect ground state relaxation. Sets the keyword \ttt{killafter} in the \sharc\ input files.
+Usually, trajectories which relaxed to the ground state do not recross to an excited state, but vibrate indefinitely in the ground state. If the user is not interested in these vibrations, such trajectories can be terminated prematurely in order to save computational ressources. A threshold of 10--20~fs is usually a good choice to safely detect ground state relaxation. Sets the keyword \ttt{killafter} in the \sharc\ input files.
 
 \paragraph{Representation for the dynamics}
 
@@ -2427,11 +2427,12 @@ Also this input section is very similar to the one in \ttt{setup\_init.py} (see 
 
 \ttt{setup\_traj.py} will create for each initial state a directory where all trajectories starting in this state will be put. If the initial conditions file specified that the initial conditions are in the MCH representation, then the initial states will be assumed to be in the MCH representation as well. In this case, the directories will be named \ttt{Singlet\_0}, \ttt{Singlet\_1}, ..., \ttt{Doublet\_0}, \ttt{Triplet\_1}, ... If the initial states are in the diagonal representation, then the directories are simply called \ttt{X\_1}, ... since they do not have a definite spin.
 
-In each directory, subdirectories called \ttt{TRAJ\_\%05i} are created, where \ttt{\%05i} is the initial condition index, padded to 5 digits with zeroes. In each trajectory directory, an \sharc\ input file called \ttt{input} will be created, which contains all the dynamics options chosen during the \ttt{setup\_traj.py} run. Also, files \ttt{geom} and \ttt{veloc} will be created. For trajectories setup with \ttt{setup\_traj.py}, the determination of the initial wavefunction coefficients is done by \sharc.
-For each trajectory, a \ttt{run.sh} script will be created, which can be executed to run the dynamics simulation. 
+In each directory, subdirectories called \ttt{TRAJ\_\%05i} are created, where \ttt{\%05i} is the initial condition index, padded to 5 digits with zeroes. In each trajectory's directory, an \sharc\ input file called \ttt{input} will be created, which contains all the dynamics options chosen during the \ttt{setup\_traj.py} run. Also, files \ttt{geom} and \ttt{veloc} will be created. For trajectories setup with \ttt{setup\_traj.py}, the determination of the initial wavefunction coefficients is done by \sharc.
 Furthermore, in each trajectory directory a subdirectory \ttt{QM} is created, where the \ttt{runQM.sh} script containing the call to the interface is put. In the directory \ttt{QM} also all interface-specific input files will be copied.
 
-Optionally, \ttt{setup\_traj.py} also creates a script \ttt{all\_qsub.sh}, which can be executed to submit all trajectories to a queueing system.
+For each trajectory, a \ttt{run.sh} script will be created, which can be executed to run the dynamics simulation. You might need to adapt the run script to your cluster setup.
+
+Optionally, \ttt{setup\_traj.py} also creates a script \ttt{all\_qsub.sh}, which can be executed to submit all trajectories to a queueing system. You might need to adapt also this script to your cluster setup.
 
 The full directory structure created by \ttt{setup\_traj.py} is given in figure~\ref{fig:dirs_traj}.
 
@@ -2456,7 +2457,7 @@ user@host> python $SHARC/laser.x < KEYSTROKES.laser
 
 \subsection{Input}
 
-The first four options need to be entered only once, all remaining input options need to be present for every laser pulse. For the definition of laser field see section~\ref{met:laser_field}.
+The first four options are global and need to be entered only once, all remaining input options need to be given for every laser pulse. For the definition of laser fields see section~\ref{met:laser_field}.
 
 \paragraph{Number of lasers}
 
@@ -2468,7 +2469,7 @@ If this is true, the output file will only contain the real parts of the laser f
 
 \paragraph{Time interval and steps}
 
-The definitions of the starting time, end time and time step of the laser field must exactly match the simulation time and time substeps of the \sharc\ simulation. Note that the laser field must always start at $t$=0 fs to be used with \sharc. The end time for the laser field must therefore coincide with the total simulation time given in the \sharc\ input. The number of time steps for the laser field is $t_\text{total}/\Delta t_\text{sub} +1$.
+The definitions of the starting time, end time and time step of the laser field must exactly match the simulation time and time substeps of the \sharc\ simulation. Note, that the laser field must always start at $t$=0 fs to be used with \sharc. The end time for the laser field must therefore coincide with the total simulation time given in the \sharc\ input. The number of time steps for the laser field is $t_\text{total}/\Delta t_\text{sub} +1$.
 
 \paragraph{Files for debugging}
 
@@ -2476,7 +2477,7 @@ This option is normally not needed, and can be set to False. If set to True, the
 
 \paragraph{Polarization vector}
 
-The polarization vector $\VEC{p}$ will be normalized.
+The polarization vector $\VEC{p}$ (will be normalized).
 
 \paragraph{Type of envelope}
 
@@ -2488,11 +2489,11 @@ There are two input lines for the field strength $\mathcal{E}_0$, the first defi
 
 \paragraph{FWHM and time intervals}
 
-This option depends on the type of envelope chosen. While in both cases all 5 numbers need to be entered, for a Gaussian pulse only the first and third number have an effect. For a sinusoidal pulse only the first number has no effect.
+This option depends on the type of envelope chosen. While in both cases all 5 numbers need to be entered, for a Gaussian pulse only the first and third number have an effect. For a sinusoidal pulse all but the first number has an effect.
 
 For a Gaussian pulse, the first argument corresponds to FWHM in equation~\eqref{eq:laser_gauss_2} and the third argument to $t_c$ in ~\eqref{eq:laser_gauss_1}.
 
-For a sinusoidal pulse ,the second, third, fourth and fifth argument correspond to $t_0$, $t_c$, $t_{c2}$ and $t_e$, respectively, in equation~\eqref{eq:laser_sinus}.
+For a sinusoidal pulse, the second, third, fourth and fifth argument correspond to $t_0$, $t_c$, $t_{c2}$ and $t_e$, respectively, in equation~\eqref{eq:laser_sinus}.
 
 \paragraph{Central frequency}
 
@@ -2510,15 +2511,15 @@ There are four lines giving the chirp parameters $b_1$, $b_2$, $b_3$ and $b_4$. 
 
 \section{Calculation of Absorption Spectra: \ttt{spectrum.py}}\label{sec:spectrum.py}
 
-Besides for setting up trajectories, the \ttt{initconds.excited} files can be used to generate absorption spectra based on the excitation energies and oscillator strengths in the file. The script \ttt{spectrum.py} calculates Gaussian or Lorentzian convolutions of these data in order to obtain spectra. See section~\ref{met:spectrum} for further details.
+Aside from setting up trajectories, the \ttt{initconds.excited} files can also be used to generate absorption spectra based on the excitation energies and oscillator strengths in the file. The script \ttt{spectrum.py} calculates Gaussian or Lorentzian convolutions of these data in order to obtain spectra. See section~\ref{met:spectrum} for further details.
 
-\ttt{spectrum.py} evaluates the absorption spectrum on a grid for all states it finds in an initial conditions file. Using command-line options, some initial conditions can be omitted in the convolution, see below.
+\ttt{spectrum.py} evaluates the absorption spectrum on a grid for all states it finds in an initial conditions file. Using command-line options, some initial conditions can be omitted in the convolution, see table~\ref{tab:spectrum_opts}.
 
 \subsection{Input}
 
-The script is executed with the initial conditions file as argument and with standard output (where the spectrum is written to) redirected to the desired output file:
+The script is executed with the initial conditions file as argument:
 \begin{verbatim}
-user@host> python $SHARC/spectrum.py initconds.excited > spectrum.out
+user@host> python $SHARC/spectrum.py [OPTIONS] initconds.excited
 \end{verbatim}
 
 The script accepts a number of command-line options, which are given in table~\ref{tab:spectrum_opts}.
@@ -2547,9 +2548,9 @@ The script accepts a number of command-line options, which are given in table~\r
 
 \subsection{Output}
 
-The script writes the absorption spectrum to a file (by default \ttt{spectrum.out}). Using the \ttt{-o} option, the user can redirect the output to a suitable file. The output is a table containing $n+2$ columns, where $n$ is the number of states found in the initial conditions file. The first column gives the energy in eV, which is within the given energy interval. In columns 2 to $n+1$ the state-wise absorption spectra are given. The last column contains the total absorption spectrum, the sum over all states. The table has $n_{\text{grid}}+1$ rows. For line spectra the output format is exactly the same, however, the file will contain one row for each excited state of each initial condition in the initial conditions file.
+The script writes the absorption spectrum to a file (by default \ttt{spectrum.out}). Using the \ttt{-o} option, the user can redirect the output to a suitable file. The output is a table containing $n+2$ columns, where $n$ is the number of states found in the initial conditions file. The first column gives the energy in eV, within the given energy interval. In columns 2 to $n+1$ the state-wise absorption spectra are given. The last column contains the total absorption spectrum, i.e., the sum over all states. The table has $n_{\text{grid}}+1$ rows. For line spectra the output format is exactly the same, however, the file will contain one row for each excited state of each initial condition in the initial conditions file.
 
-Additionally, the script writes some information about the calculation to standard error. Very helpful can be the reported maximum of the spectrum, which can be used in order to normalize the spectrum. The reported maximum is simply the largest value in the last column of the spectrum. 
+Additionally, the script writes some information about the calculation to standard output, among these the maximum of the spectrum, which can be used in order to normalize the spectrum. The reported maximum is simply the largest value in the last column of the spectrum. 
 
 If requested, the script generates a \textsc{Gnuplot} script, which can be used to directly plot the spectrum. 
 
@@ -2560,13 +2561,13 @@ If requested, the script generates a \textsc{Gnuplot} script, which can be used 
 
 \section{File transfer: \ttt{retrieve.sh}}\label{sec:retrieve}
 
-Usually, \sharc\ will run on some temporary storage device, not in the home directory, where the trajectories have been submitted from. The shell script \ttt{retrieve.sh} is a simple \ttt{scp} wrapper, which can be executed (in a directory where a trajectory has been sent from) in order to retrieve the output files of this trajectory.
+Usually, \sharc\ will run on some temporary directory, and not in the directory where the trajectories have been submitted from. The shell script \ttt{retrieve.sh} is a simple \ttt{scp} wrapper, which can be executed (in a directory where a trajectory has been sent from) in order to retrieve the output files of this trajectory. This might not work for every cluster setup.
 
 It relies on the presence of the file \ttt{host\_infos}. All trajectories set up with \ttt{setup\_traj.py} create this file after the trajectory has been started with \ttt{run.sh}. \ttt{retrieve.sh} reads \ttt{host\_infos} to determine the hostname and working directory of the trajectory and then uses \ttt{scp} to retrieve the output and restart files.
 
 The script can be called with the option ``\ttt{-lis}'' in order to only retrieve the \ttt{output.lis} file, but not the other output files.
 
-If the script is called with the option ``\ttt{-res}'' then also the restart files and the content of the restart directory are copied.
+If the script is called with the option ``\ttt{-res}'' then also the restart files and the content of the \ttt{restart/} directory are copied.
 
 It is advisable to configure public-key authentification for the hosts running the trajectories, so that not for every execution of \ttt{retrieve.sh} a password has to be entered.
 
@@ -2582,7 +2583,7 @@ It is advisable to configure public-key authentification for the hosts running t
 
 \section{Data Extractor: \ttt{data\_extractor.x}}\label{sec:data_extractor.x}
 
-The output of \sharc\ is mainly written to \ttt{output.dat}. In order to obtain plottable files in tabular form, the Fortran program \ttt{data\_extractor.x} is used.
+The output of \sharc\ is mainly written to \ttt{output.dat}. In order to obtain plottable files in tabular format, the Fortran program \ttt{data\_extractor.x} is used.
 
 \subsection{Usage}
 
@@ -2590,19 +2591,19 @@ The \ttt{data\_extractor.x} is a command line tool, and is called with the \ttt{
 \begin{verbatim}
 user@host> $SHARC/data_extractor.x output.dat
 \end{verbatim}
-The program will create a directory \ttt{output\_data} in the current working directory (not necessarily in the directory where \ttt{output.dat} resides). In this directory, several files are written, containing e.g.\ the potential energies depending on time, etc.
+The program will create a directory \ttt{output\_data/} in the current working directory (not necessarily in the directory where \ttt{output.dat} resides). In this directory, several files are written, containing e.g.\ the potential energies depending on time, etc.
 
 The program will extract the complete \ttt{output.dat} file until it reaches the EOF. No further input except for the data file can be given.
 
 \subsection{Output}
 
-After the program finishes, the directory \ttt{output\_data} contains a number of files. In each file, the number of columns is dependent in the total number $n$ of states $i\in\{1...n\}$. The content of the files is listed in Table~\ref{tab:outputdata}.
+After the program finishes, the directory \ttt{output\_data/} contains a number of files. In each file, the number of columns is dependent in the total number $n$ of states $i\in\{1...n\}$. The content of the files is listed in Table~\ref{tab:outputdata}.
 
 The file \ttt{expec.out} contains the information of \ttt{energy.out}, \ttt{spin.out} and \ttt{fosc.out} in one file. The content of \ttt{expec.out} can be conveniently plotted by using \ttt{make\_gnuscript.py} to generate a \textsc{Gnuplot} script.
 
 \begin{table}
   \centering
-  \caption{Content of the files written by \ttt{data\_extractor.x}. $n$ is the total number of states, $i$ is a state index ($i\in\{1..n\}$).}
+  \caption{Content of the files written by \ttt{data\_extractor.x}. $n$ is the total number of states, $j$ is a state index ($j\in\{1..n\}$).}
   \label{tab:outputdata}
   \begin{tabular}{>{\tt}lcll}
     \toprule
@@ -2610,40 +2611,40 @@ The file \ttt{expec.out} contains the information of \ttt{energy.out}, \ttt{spin
     \midrule
     coeff\_diag.out       &$2+2n$
       &$1$ &Time $t$ (fs)\\
-      &&$2$ &Norm of wavefunction $\sum_i |c_i^{\text{diag}}|^2$\\
-      &&$1+2i$ &$\Re (c_i^{\text{diag}})$\\
-      &&$2+2i$ &$\Im (c_i^{\text{diag}})$\\
+      &&$2$ &Norm of wavefunction $\sum_j |c_j^{\text{diag}}|^2$\\
+      &&$1+2j$ &$\Re (c_j^{\text{diag}})$\\
+      &&$2+2j$ &$\Im (c_j^{\text{diag}})$\\
     coeff\_MCH.out       &$2+2n$
       &$1$ &Time $t$ (fs)\\
-      &&$2$ &Norm of wavefunction $\sum_i |c_i^{\text{MCH}}|^2$\\
-      &&$1+2i$ &$\Re (c_i^{\text{MCH}})$\\
-      &&$2+2i$ &$\Im (c_i^{\text{MCH}})$\\
+      &&$2$ &Norm of wavefunction $\sum_j |c_j^{\text{MCH}}|^2$\\
+      &&$1+2j$ &$\Re (c_j^{\text{MCH}})$\\
+      &&$2+2j$ &$\Im (c_j^{\text{MCH}})$\\
     energy.out       &$4+n$
       &$1$ &Time $t$ (fs)\\
       &&$2$ &Kinetic energy (eV)\\
       &&$3$ &Potential energy (eV) of active state\\
       &&$4$ &Total energy (eV)\\
-      &&$4+i$ &Potential energy (eV) of state $i$\\
+      &&$4+j$ &Potential energy (eV) of state $j$\\
     fosc.out       &$2+n$
       &$1$ &Time $t$ (fs)\\
       &&$2$ &Oscillator strength of active state\\
-      &&$2+i$ &Oscillator strength of state $i$\\
+      &&$2+j$ &Oscillator strength of state $j$\\
     spin.out       &$2+n$
       &$1$ &Time $t$ (fs)\\
       &&$2$ &Total spin expectation value of active state\\
-      &&$2+i$ &Total spin expectation value of state $i$\\
+      &&$2+j$ &Total spin expectation value of state $j$\\
     prob.out       &$2+n$
       &$1$ &Time $t$ (fs)\\
       &&$2$ &Random number from surface hopping\\
-      &&$2+i$ &Cumulated hopping probability $\sum_{j=1}^i P_j$\\
+      &&$2+j$ &Cumulated hopping probability $\sum_{k=1}^j P_k$\\
     expec.out      &$4+3n$
       &$1$ &Time $t$ (fs)\\
       &&$2$ &Kinetic energy (eV)\\
       &&$3$ &Potential energy (eV) of active state\\
       &&$4$ &Total energy (eV)\\
-      &&$4+i$ &Potential energy (eV) of state $i$\\
-      &&$4+n+i$ &Total spin expectation value of state $i$\\
-      &&$4+2n+i$ &Oscillator strength of state $i$\\
+      &&$4+j$ &Potential energy (eV) of state $j$\\
+      &&$4+n+j$ &Total spin expectation value of state $j$\\
+      &&$4+2n+j$ &Oscillator strength of state $j$\\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -2669,7 +2670,7 @@ This can also be accomplished in one step using a pipe, e.g.:
 user@host> python $SHARC/make_gnuscript.py 3 0 2 | gnuplot
 \end{verbatim}
 
-The created plot script generates four different plots (press ENTER in the command-line where you started \textsc{Gnuplot} to go to the next plot). The first plot shows the diagonal potential energy of all states in the dynamics over time. The currently occupied state is marked with black circles. A thin black line gives the total energy (sum of the kinetic energy and the potential energy of the currently occupied state). Each state is colored, with one color as contour and one color at the core of the line. The contour color represents the total spin expectation value of the state. The core color represents the oscillator strength of the state with the lowest state. See figure~\ref{fig:colors} for the relevant color code.
+The created plot script generates four different plots (press ENTER in the command-line where you started \textsc{Gnuplot} to go to the next plot). The first plot shows the potential energy of all states in the dynamics over time in the diagonal representation. The currently occupied state is marked with black circles. A thin black line gives the total energy (sum of the kinetic energy and the potential energy of the currently occupied state). Each state is colored, with one color as contour and one color at the core of the line. The contour color represents the total spin expectation value of the state. The core color represents the oscillator strength of the state with the lowest state. See figure~\ref{fig:colors} for the relevant color code.
 \begin{figure}
   \centering
   \includegraphics[scale=1]{img/colors/colors.pdf}
@@ -2719,15 +2720,16 @@ The second way to obtain populations is to obtain the sum of the absolute square
     Mode        &Description    &\rmfamily From which     &Extract?\\
                                &&\rmfamily file?          &\\
     \midrule
-    1   &Counts how many trajectories are classically in each diagonal state. &output.lis  &No\\
-    2   &Counts how many trajectories are classically in each MCH state. &output.lis  &No\\
-    3   &Counts how many trajectories are classically in each MCH state. Multiplet components are summed up. &output.lis  &No\\
-    4   &Counts how many trajectories have their total spin expectation value in certain intervals.   &output.lis &No\\
-    5   &Counts how many trajectories have their permanent dipole moment expectation value in certain intervals.   &output.lis &No\\
-    6   &Counts how many trajectories have their oscillator strength with the lowest state in certain intervals.        &output\_data/fosc.out  &Yes\\
-    7   &Calculates the sum of the absolute squares of the diagonal coefficients.       &output\_data/coeff\_diag.out&Yes\\
-    8   &Calculates the sum of the absolute squares of the MCH coefficients.       &output\_data/coeff\_MCH.out&Yes\\
-    9   &Calculates the sum of the absolute squares of the MCH coefficients. Multiplet components are summed up.       &output\_data/coeff\_MCH.out&Yes\\
+    1   &For each diagonal state count how many trajectories have this state as active state. &output.lis  &No\\
+    2   &For each MCH state count how many trajectories have this state as approximate active state (see section~\ref{ssec:state_transform}). &output.lis  &No\\
+    3   &For each MCH state count how many trajectories have this state as approximate active state (see section~\ref{ssec:state_transform}). Multiplet components are summed up. &output.lis  &No\\
+    4   &Generate a histogram with definable bins (variable width). Bin the trajectories according to their total spin expectation value (of the currently active diagonal state).   &output.lis &No\\
+    5   &Generate a histogram with definable bins (variable width). Bin the trajectories according to their state dipole moment expectation value (of the currently active diagonal state).   &output.lis &No\\
+    6   &Generate a histogram with definable bins (variable width). Bin the trajectories according to the oscillator strength between lowest and currently active diagonal states.        &output\_data/fosc.out  &Yes\\
+    7   &Calculate the sum of the absolute squares of the diagonal coefficients.       &output\_data/coeff\_diag.out&Yes\\
+    8   &Calculate the sum of the absolute squares of the MCH coefficients.       &output\_data/coeff\_MCH.out&Yes\\
+    9   &Calculate the sum of the absolute squares of the MCH coefficients. Multiplet components are summed up.       &output\_data/coeff\_MCH.out&Yes\\
+   10   &Calculate the sum of the absolute squares of the diabatic coefficients (Only for trajectories with local diabatization).      &output\_data/coeff\_diab.out&Yes\\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -2779,7 +2781,9 @@ By default, \ttt{populations.py} writes the resulting populations to \ttt{pop.ou
 
 \section{Obtaining special geometries: \ttt{crossing.py}}\label{sec:crossing.py}
 
-In many cases, it is also important to obtain certain special geometries from the trajectories. The script \ttt{crossing.py} extracts geometries fulfilling special conditions from an ensemble of trajectories. Currently, \ttt{crossing.py} finds geometries where the approximate MCH state of the last timestep is different from the MCH state of the current timestep (i.e.\ \ttt{crossing.py} finds geometries where surface hops occured). 
+In many cases, it is also important to obtain certain special geometries from the trajectories. The script \ttt{crossing.py} extracts geometries fulfilling special conditions from an ensemble of trajectories. 
+
+Currently, \ttt{crossing.py} finds geometries where the approximate MCH state (see section~\ref{ssec:state_transform}) of the last timestep is different from the MCH state of the current timestep (i.e.\ \ttt{crossing.py} finds geometries where surface hops occured). 
 
 \subsection{Usage}
 
@@ -2818,7 +2822,7 @@ All geometries are in the end written to an output file, by default \ttt{crossin
 
 \section{Internal Coordinates Analysis: \ttt{geo.py}}\label{sec:geo.py}
 
-\sharc\ writes at every timestep the molecular geometry to the file \ttt{output.xyz}. The non-interactive script \ttt{geo.py} can be used in order to extract internal coordinates from the xyz files. The usage is:
+\sharc\ writes at every timestep the molecular geometry to the file \ttt{output.xyz}. The non-interactive script \ttt{geo.py} can be used in order to extract internal coordinates from xyz files. The usage is:
 \begin{verbatim}
 user@host> python $SHARC/geo.py [options] < Geo.inp > Geo.out
 \end{verbatim}
@@ -2826,7 +2830,7 @@ By default, the coordinates are read from \ttt{output.xyz}, but this can be chan
 
 \subsection{Input}
 
-The specifications for the desired internal coordinates are read from standard input. It follows a simple syntax, where each internal coordinate is specified by a single line of input. Each line starts with a one-letter key which specifies the type of internal coordinate (e.g.\ bond length, angle, dihedral, ...). The key is followed by a number of integers, specifying which atoms should be measured. As a simple example, \ttt{r 1 2} specifies the bond length (\ttt{r} is the key for bond lengths) between atoms 1 and 2. Note that the numbering starts with 1. Each line of input is checked for consistency (whether any atom index is larger than the number of atoms, repeated atom indices, misspelled keys, wrong number of atom indices, ...), and erroneous lines are ignored.
+The specifications for the desired internal coordinates are read from standard input. It follows a simple syntax, where each internal coordinate is specified by a single line of input. Each line starts with a one-letter key which specifies the type of internal coordinate (e.g.\ bond length, angle, dihedral, ...). The key is followed by a number of integers, specifying which atoms should be measured. As a simple example, \ttt{r 1 2} specifies the bond length (\ttt{r} is the key for bond lengths) between atoms 1 and 2. Note that the numbering of the atoms starts with 1. Each line of input is checked for consistency (whether any atom index is larger than the number of atoms, repeated atom indices, misspelled keys, wrong number of atom indices, ...), and erroneous lines are ignored (this is indicate by an error message).
 
 Table~\ref{tab:Geo_input} lists the available types of internal coordinates. The output is a table, where the first column is the time (Actually, the geometries are just enumerated starting with zero, and the number multiplied by the timestep from the \ttt{-t} option). The successive columns in the output table list the results of the internal coordinates calculations. Each request generates at least one column, see table~\ref{tab:Geo_input}. 
 
@@ -2836,10 +2840,10 @@ Note that for most internal coordinates, the order of the atoms is crucial, sinc
   \centering
   \caption{Possible types of internal coordinates in \ttt{geo.py}. }
   \label{tab:Geo_input}
-  \begin{tabular}{>{\tt}c>{\tt}lll}
+  \begin{tabular}{>{\tt}c>{\bfseries\ttfamily}lll}
     \toprule
-    \rmfamily Key         &\rmfamily Atom      &Description    &Output columns\\
-                          &\rmfamily Indices   &               &\\
+    \rmfamily Key         &\normalfont\rmfamily Atom      &Description    &Output columns\\
+                          &\normalfont\rmfamily Indices   &               &\\
     \midrule
     x   &a              &$x$ coordinate of atom \ttt{a}         &$x$\\
     y   &a              &$y$ coordinate of atom \ttt{a}         &$y$\\
@@ -2860,7 +2864,7 @@ Note that for most internal coordinates, the order of the atoms is crucial, sinc
   \end{tabular}
 \end{table}
 
-As an advice, it is always a good idea to put the comment as the last request, if the comment needs to be included. Since the comment may contain blanks, having the comment not as the very last column might make it impossible to plot the resulting table.
+As an advice, it is always a good idea to put the comment as the \textit{last} request, if at all. Since the comment may contain blanks, having the comment not as the very last column might make it impossible to plot the resulting table.
 
 The Boeyens classification symbols which are output for 6-membered rings are reported in \LaTeX\ math code. Note that in the Boeyens classification scheme a number of symbols are equivalent, and only one symbol is reported. For example, by definition the chair configuration $^1C_4$ is equivalent to $^5C_2$ and $^3C_6$.
 
@@ -2882,7 +2886,7 @@ The Boeyens classification symbols which are output for 6-membered rings are rep
     -g FILENAME &Read coordinates from the specified file       &\ttt{output.xyz}\\
     -t FLOAT    &Assumed timestep between successive geometries (fs)    &1.0 fs\\
     -p INTEGER  &Precision (Number of decimals, max.~width--3)         &4\\
-    -f INTEGER  &Width of each column (min.~20)                   &20\\
+    -w INTEGER  &Width of each column (min.~20)                   &20\\
     \bottomrule
   \end{tabular}
 \end{table}
