@@ -450,6 +450,9 @@ def get_general():
     if irange[0]>irange[1]:
       print 'Range empty!'
       continue
+    if irange[0]==irange[1]==0:
+      print 'Only preparing calculation at equilibrium geometry!'
+      break
     if irange[1]>ninit:
       print 'There are only %i initial conditions in file %s!' % (ninit,initfile)
       continue
@@ -885,6 +888,11 @@ In order to setup the COLUMBUS input, use COLUMBUS' input facility colinp. For f
   INFOS['columbus.multmap']=multmap
   INFOS['columbus.mocoefmap']=mocoefmap
 
+  INFOS['columbus.copy_template']=question('Do you want to copy the template directory to each trajectory (Otherwise it will be linked)?',bool,False)
+  if INFOS['columbus.copy_template']:
+    INFOS['columbus.copy_template_from']=INFOS['columbus.template']
+    INFOS['columbus.template']='./COLUMBUS.template/'
+
 
   print centerstring('Initial wavefunction: MO Guess',60,'-')+'\n'
   print '''Please specify the path to a COLUMBUS mocoef file containing suitable starting MOs for the CASSCF calculation.
@@ -1275,6 +1283,11 @@ def prepare_COLUMBUS(INFOS,iconddir):
     cpto='%s/mocoef_mc.init' % (iconddir)
     shutil.copy(cpfrom,cpto)
 
+  if INFOS['columbus.copy_template']:
+    copy_from=INFOS['columbus.copy_template_from']
+    copy_to=iconddir+'/COLUMBUS.template/'
+    shutil.copytree(copy_from,copy_to)
+
   return
 
 # ======================================================================================================================
@@ -1547,27 +1560,28 @@ def setup_all(INFOS):
       string='cd $CWD/%s/\n%s run.sh\ncd $CWD\n' % (iconddir,INFOS['qsubcommand'])
       all_qsub.write(string)
 
-  for icond in range(INFOS['irange'][0],INFOS['irange'][1]+1):
-    iconddir='ICOND_%05i/' % (icond)
-    idone+=1
-    done=idone*width/ninit
-    sys.stdout.write('\rProgress: ['+'='*done+' '*(width-done)+'] %3i%%' % (done*100/width))
-    sys.stdout.flush()
+  if INFOS['irange']!=[0,0]:
+    for icond in range(INFOS['irange'][0],INFOS['irange'][1]+1):
+      iconddir='ICOND_%05i/' % (icond)
+      idone+=1
+      done=idone*width/ninit
+      sys.stdout.write('\rProgress: ['+'='*done+' '*(width-done)+'] %3i%%' % (done*100/width))
+      sys.stdout.flush()
 
-    io=make_directory(iconddir)
-    if io!=0:
-      print 'Skipping initial condition %i!' % (iconddir)
-      continue
+      io=make_directory(iconddir)
+      if io!=0:
+        print 'Skipping initial condition %i!' % (iconddir)
+        continue
 
-    writeQMin(INFOS,iconddir)
-    globals()[Interfaces[ INFOS['interface']]['prepare_routine'] ](INFOS,iconddir)
-    writeRunscript(INFOS,iconddir)
+      writeQMin(INFOS,iconddir)
+      globals()[Interfaces[ INFOS['interface']]['prepare_routine'] ](INFOS,iconddir)
+      writeRunscript(INFOS,iconddir)
 
-    string='cd $CWD/%s/\nbash run.sh\ncd $CWD\necho %s >> DONE\n' % (iconddir,iconddir)
-    all_run.write(string)
-    if INFOS['qsub']:
-      string='cd $CWD/%s/\n%s run.sh\ncd $CWD\n' % (iconddir,INFOS['qsubcommand'])
-      all_qsub.write(string)
+      string='cd $CWD/%s/\nbash run.sh\ncd $CWD\necho %s >> DONE\n' % (iconddir,iconddir)
+      all_run.write(string)
+      if INFOS['qsub']:
+        string='cd $CWD/%s/\n%s run.sh\ncd $CWD\n' % (iconddir,INFOS['qsubcommand'])
+        all_qsub.write(string)
 
   all_run.close()
   filename='all_run_init.sh'
