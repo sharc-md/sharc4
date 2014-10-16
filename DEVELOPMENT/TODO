@@ -1,27 +1,20 @@
-Installation:
-- library path, compiler  => install.config
-
-
-
 Fortran code:
-- Laser field (Granucci paper, Thachuk paper): gradients, radiative/nonradiative hops
+- Laser field (Granucci paper, Thachuk paper): radiative/nonradiative hops
 - doxygen comments
 - substitute real*8 and friends with real(kind=??) stuff
 
 
 Tutorial:
-- Analytical interface
-- MOLCAS interface
 - mark background infos
 
 Others:
-- Git repository
 - script for extracting random geometries from trajectories (from/to timestep, which trajectories, ...)
 
 
 
 MOLPRO interface:
 - allow the interface to do several subsequent calculations (so that it can first do H/DM/SOC/OVERLAP and then the gradients/NACs)
+- implement to shift the records at restarts
 - for SOC/DM, always calculate the OVERLAPS, extract the phases, problem: phases are not in overlap matrix
 - CASSCF-CI overlaps for phases: doable, but need to store the CAS and CI coefficients for samestep jobs
   Translation from CASSCF to MRCI wavefunctions:
@@ -30,3 +23,12 @@ MOLPRO interface:
   * |//00> = |aa00>
   * |////> = |aaaa>
   
+
+  
+  
+Python:
+- question(): add comma-separated lists
+- class for understanding ranges:
+        s = "2,5,7-9,12"
+        ranges = (x.split("-") for x in s.split(","))
+        print [i for r in ranges for i in range(int(r[0]), int(r[-1]) + 1)]
