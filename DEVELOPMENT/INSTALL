@@ -65,6 +65,8 @@ Now you are ready to run your first surface hopping trajectory including
 arbitrary couplings!
 
 Maybe at this stage it is a good idea to take a look at the test suite.
+The easiest way to run some basic tests is to execute $SHARC/test.py, 
+which will test the fundamental functionality of SHARC.
 
 Installation for the experts
 ============================
