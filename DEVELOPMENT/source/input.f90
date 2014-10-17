@@ -1491,7 +1491,7 @@ module input
       string=trim(string)//trim(key)
     enddo
     if (ctrl%laser==2) then
-      do i=1,ctrl%nsteps*ctrl%nsubsteps+1
+      do i=1,min(40,ctrl%nsteps*ctrl%nsubsteps+1)
         write(key,'(6(F9.6))') (ctrl%laserfield_td(i,j),j=1,3)
         string=trim(string)//trim(key)
       enddo
