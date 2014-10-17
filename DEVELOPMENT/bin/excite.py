@@ -1006,6 +1006,7 @@ def excite(INFOS,initlist):
               jstate.Excited=False
         elif INFOS['excite']==3:
           # get the maximum oscillator strength
+          maxprob=0
           for j,jstate in enumerate(icond.statelist):
             if emin <= jstate.Eexc <= emax:
               if -(j+1) not in INFOS['allowed']:
