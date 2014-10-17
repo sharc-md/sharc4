@@ -272,6 +272,7 @@ def get_general():
       break
   inputfilename=INFOS['paths'][0]+'/'+i+'/input'
   guessstates=None
+  LD_dynamics=False
   if os.path.isfile(inputfilename):
     inputfile=open(inputfilename)
     for line in inputfile:
@@ -280,9 +281,12 @@ def get_general():
         l=re.sub('#.*$','',line).strip().split()
         for i in range(1,len(l)):
           guessstates.append(int(l[i]))
+      if 'coupling' in line.lower():
+        if 'overlap' in line.lower():
+          LD_dynamics=True
 
 
-
+  allowed=[i for i in range(1,10)]
   print centerstring('Analyze Mode',60,'-')
   print '''\nThis script can analyze the classical populations in different ways:
 1       Number of trajectories in each diagonal state                                   from output.lis
@@ -296,12 +300,14 @@ It can also sum the quantum amplitudes:
 7       Quantum amplitudes in diagonal picture                                          from output_data/coeff_diag.out
 8       Quantum amplitudes in MCH picture                                               from output_data/coeff_MCH.out
 9       Quantum amplitudes in MCH picture (multiplets summed up)                        from output_data/coeff_MCH.out
-10      Quantum amplitudes in diabatic picture                                          from output_data/coeff_diab.out
 '''
+  if LD_dynamics:
+    print '10      Quantum amplitudes in diabatic picture                                          from output_data/coeff_diab.out'
+    allowed.append(10)
   while True:
     num=question('Analyze mode:',int)[0]
-    if not 1<=num<=10:
-      print 'Please enter an integer between 1 and 10!'
+    if not num in allowed:
+      print 'Please enter one of the following integers: %s!' % (allowed)
       continue
     if guessstates!=None and len(guessstates)==1 and num==4:
       print 'Only singlet states, analysis unnecessary.'
