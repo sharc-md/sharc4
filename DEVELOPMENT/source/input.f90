@@ -544,12 +544,20 @@ module input
     if (io==0) then
       selg=0
     endif
+    line=get_value_from_key('nograd_select',io)
+    if (io==0) then
+      selg=0
+    endif
     selt=0
     line=get_value_from_key('nac_select',io)
     if (io==0) then
       selt=1
     endif
     line=get_value_from_key('nac_all',io)
+    if (io==0) then
+      selt=0
+    endif
+    line=get_value_from_key('nonac_select',io)
     if (io==0) then
       selt=0
     endif
@@ -848,7 +856,7 @@ module input
       endif
     endif
 
-    line=get_value_from_key('no_track_phase',io)
+    line=get_value_from_key('notrack_phase',io)
     if (io==0) then
       ctrl%track_phase=0
     else
