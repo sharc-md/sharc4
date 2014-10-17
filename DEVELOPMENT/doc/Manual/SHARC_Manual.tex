@@ -2001,7 +2001,7 @@ Note that the setup script will not expand the user (\ttt{\textasciitilde}) and 
 
 \paragraph{Scratch directory}
 
-The script takes the string without any checking. Each individual initial condition uses a subdirectory \ttt{ICOND\_\%05i} with the appropriate number. \ttt{\textasciitilde} and shell variables will only be expanded by the interfaces during the actual calculation.
+The script takes the string without any checking. Each individual initial condition uses a subdirectory \ttt{ICOND\_\%05i} with the appropriate number. \ttt{\textasciitilde} and shell variables will only be expanded by the interface during the actual calculation.
 
 Note that you can use, e.g., \ttt{./temp/} as scratch directory, which is a subdirectory of the working directory of the interface. Using \ttt{./} as scratch directory is not recommended, since the interface will delete the scratch directory.
 
@@ -2023,7 +2023,7 @@ Note that \ttt{\$COLUMBUS} does not have to be defined on the setup host, but it
 
 \paragraph{Scratch directory}
 
-The script takes the string without any checking. Each individual initial condition uses a subdirectory \ttt{ICOND\_\%05i} with the appropriate number. \ttt{\textasciitilde} and shell variables will only be expanded by the interfaces during the actual calculation.
+The script takes the string without any checking. Each individual initial condition uses a subdirectory \ttt{ICOND\_\%05i} with the appropriate number. \ttt{\textasciitilde} and shell variables will only be expanded by the interface during the actual calculation.
 
 Note that you can use, e.g., \ttt{./temp/} as scratch directory, which is a subdirectory of the working directory of the interface. Using \ttt{./} as scratch directory is not recommended, since the interface will delete the scratch directory.
 
@@ -2033,7 +2033,7 @@ Enter the path to a directory containing subdirectories with \textsc{Columbus} i
 
 The script will auto-detect (based on the \ttt{cidrtin} files) which subdirectory contains the input for each multiplicity. The user has to check in the following dialog whether the association of multiplicities with job directories is correct. Additionally, the association of MO coefficient files to the jobs has to be checked. See the section on the \sharc-\textsc{Columbus} interface (\ref{sec:int:columbus}) for further details. 
 
-Note that the setup script does not check any content of the input files beyond the multiplicity. Note that \ttt{transmomin} and \ttt{control.run} do not need to be present, since these files are written on-the-fly by the interface. 
+Note that the setup script does not check any content of the input files beyond the multiplicity. Note that \ttt{transmomin} and \ttt{control.run} do not need to be present (and that their content has no effect on the calculation), since these files are written on-the-fly by the interface. 
 
 \paragraph{Initial orbital coefficient file}
 
@@ -2051,7 +2051,9 @@ The script will first look for a shell variable \ttt{\$MOLCAS}. The user can eit
 
 \paragraph{Scratch directory}
 
-The script takes the string without any checking. The \sharc-\textsc{Molcas} interface will expand \ttt{\textasciitilde} and shell variables. Each individual initial condition uses a subdirectory \ttt{ICOND\_\%05i} with the appropriate number. 
+The script takes the string without any checking. Each individual initial condition uses a subdirectory \ttt{ICOND\_\%05i} with the appropriate number. \ttt{\textasciitilde} and shell variables will only be expanded by the interface during the actual calculation.
+
+Note that you can use, e.g., \ttt{./temp/} as scratch directory, which is a subdirectory of the working directory of the interface. Using \ttt{./} as scratch directory is not recommended, since the interface will delete the scratch directory.
 
 \paragraph{Template file}
 
@@ -2160,11 +2162,11 @@ If the ab initio results are read the number of states will be automatically det
 
 \paragraph{Excited-state representation}
 
-When generating new lists of excited states (either dummy states or from ab initio results), the user can specify the representation of the excited states (either MCH or diagonal representation). The MCH representation is spin-free, meaning that transition dipole moments are only allowed between states of the same multiplicity. For molecules without heavy atoms, this option is sufficient. For heavier atoms, the diagonal representation can be used, which includes the effects of spin-orbit coupling on the excitation energies and oscillator strengths. 
+When generating new lists of excited states (either dummy states or from ab initio results), the user has to specify the representation of the excited states (either MCH or diagonal representation). The MCH representation is spin-free, meaning that transition dipole moments are only allowed between states of the same multiplicity. For molecules without heavy atoms, this option is sufficient. For heavier atoms, the diagonal representation can be used, which includes the effects of spin-orbit coupling on the excitation energies and oscillator strengths. 
 
-When reading ab initio results, \ttt{excite.py} will diagonalize the Hamiltonian for each initial condition to obtain the diagonal representation. 
+When reading ab initio results, \ttt{excite.py} will diagonalize the Hamiltonian and transform the transition dipole matrices for each initial condition to obtain the diagonal representation. 
 
-When a dummy state list is generated, the representation will only be written to the output file \ttt{initconds.excited}. Note that the representation which is declared in the \ttt{initconds.excited} file influences how \sharc\ determines the initial coefficients (see the paragraph on initial coefficients in~~\ref{ssec:input:keywords}).
+When a dummy state list is generated, the representation will only be written to the output file \ttt{initconds.excited} (but has no actual numeric effect for \ttt{excite.py}). Note that the representation which is declared in the \ttt{initconds.excited} file influences how \sharc\ determines the initial coefficients (see the paragraph on initial coefficients in~~\ref{ssec:input:keywords}).
 
 Note that the representation cannot be changed if existing excited-state information is kept. 
 
@@ -2736,9 +2738,11 @@ The second way to obtain populations is to obtain the sum of the absolute square
 
 \paragraph{Run data extractor}
 
-For analysis modes 6, 7, 8 and 9 it is necessary to first run the data extractor (see section~\ref{sec:data_extractor.x}). This task can be accomplished by \ttt{populations.py}. However, for a large ensemble or for long trajectories this may take some time. Hence, it is not necessary to perform this step each time \ttt{populations.py} is run. 
+For analysis modes 6, 7, 8, 9 and 10 it is necessary to first run the data extractor (see section~\ref{sec:data_extractor.x}). This task can be accomplished by \ttt{populations.py}. However, for a large ensemble or for long trajectories this may take some time. Hence, it is not necessary to perform this step each time \ttt{populations.py} is run. 
 
 \ttt{populations.py} will detect whether the file \ttt{output.dat} or the content of \ttt{output\_data/} is more recent. Only if \ttt{output.dat} is newer the \ttt{data\_extractor.x} will be run for this trajectory.
+
+Note that mode 10 can only be used for trajectories using local diabatization propagation (keyword \ttt{coupling overlap} in \sharc\ input file).
 
 \paragraph{Number of states}
 
@@ -3470,7 +3474,7 @@ Note that the translational and rotational components of random initial velociti
 Random initial velocities can be requested in the input with \ttt{veloc random $E$}, where $E$ is a float defining the kinetic energy per atom (in eV).
 
 
-\section{Representations}
+\section{Representations}\label{sec:repr}
 
 Within \sharc, two different representations for the electronic states are used. The first is the so-called MCH basis, which is the basis of the eigenfunctions of the molecular Coulomb Hamiltonian. The molecular Coulomb Hamiltonian is the standard electronic Hamiltonian employed by the majority of quantum chemistry programs. It contains only the kinetic energy of the electrons and the potential energy arising from the Coulomb interaction between the electrons and nuclei.
 \begin{equation}
