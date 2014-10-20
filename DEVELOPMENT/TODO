@@ -4,6 +4,10 @@ Fortran code:
 - substitute real*8 and friends with real(kind=??) stuff
 
 
+Makefile:
+- output.f90 needs to be compiled every time, so that the build info is always up-to-date
+
+
 Tutorial:
 - mark background infos
 
