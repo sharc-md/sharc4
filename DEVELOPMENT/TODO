@@ -12,9 +12,6 @@ Tutorial:
 - mark background infos
 
 
-Manual:
-- definitions of internal coordinates from geo.py
-
 Others:
 - script for extracting random geometries from trajectories (from/to timestep, which trajectories, ...)
 
