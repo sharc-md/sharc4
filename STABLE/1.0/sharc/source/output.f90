@@ -385,7 +385,10 @@ subroutine write_final(traj)
 
 endsubroutine
 
-subroutine myflush()
+  ! =====================================================
+
+
+subroutine allflush()
 use definitions
 implicit none
 
@@ -398,6 +401,13 @@ call flush(u_rest)
 call flush(u_qm_QMin)
 
 end subroutine
+
+
+
+
+
+
+
 
 
 

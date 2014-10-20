@@ -586,7 +586,7 @@ def writeQMoutgrad(QMin,QMout):
   string+='! %i Gradient Vectors (%ix%ix3, real)\n' % (3,nmstates,natom)
   i=0
   for imult,istate,ims in itnmstates(states):
-    string+='%i %i ! %i %i %i\n' % (natom,3,imult,istate,ims)
+    string+='%i %i ! m1 %i s1 %i ms1 %i\n' % (natom,3,imult,istate,ims)
     for atom in range(natom):
       for xyz in range(3):
         string+='%s ' % (eformat(QMout['grad'][i][atom][xyz],12,3))

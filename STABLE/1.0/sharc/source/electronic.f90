@@ -412,6 +412,7 @@ subroutine surface_hopping(traj,ctrl)
   traj%randnum=randnum
   cumuprob=0.d0
   traj%kind_of_jump=0
+  deltaE=0.d0
 
   stateloop: do istate=1,ctrl%nstates
     cumuprob=cumuprob + traj%hopprob_s(istate)

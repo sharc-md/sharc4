@@ -326,7 +326,6 @@ def full_lists(dc):
 
 # ======================================================================================================================
 
-
 def compare_scripts(INFOS,index):
   dc=filecmp.dircmp(INFOS['pwd']+'/RUNNING_TESTS/'+INFOS['joblist'][index],
                     INFOS['sharc']+'/../tests/RESULTS/'+INFOS['joblist'][index])
@@ -337,6 +336,18 @@ def compare_scripts(INFOS,index):
   sys.stdout.write('Same     : '+str(same)+'\n')
   count=len(diff)
   return count
+
+# ======================================================================================================================
+
+def sign(x):
+  if x==float('inf'):
+    return 1.
+  elif x==-float('inf'):
+    return -1.
+  elif x==0.:
+    return 0.
+  else:
+    return math.copysign(1, x)
 
 # ======================================================================================================================
 
@@ -353,25 +364,63 @@ def compare_trajectories(INFOS,index):
   reftext=f.readlines()
   f.close()
 
-  count=0
-  nlines=len(outtext)
-
-  runtime_flag=False
+  # return -1 if output.dat files have different lengths
   if len(outtext)!=len(reftext):
     count=-1
     return count
+
+
+  compare={
+  # flag accuracy   check sign?
+    -1: [1e-8, True],    # anything in the header
+     0: [1e-8, False],   # step
+     1: [1e-8, False],   # Hamiltonian
+     2: [1e-8, True],    # U matrix
+     3: [1e-8, False],   # Dipole matrices
+     4: [1e-8, True],    # Overlap matrix
+     5: [1e-8, True],    # coefficients
+     6: [1e-8, False],   # probabilities
+     7: [1e-8, False],   # ekin
+     8: [0e+0, False],   # states
+     9: [1e+0, False],   # random number
+    10: [1e+8, False],   # runtime
+    11: [1e-6, True],    # geometry
+    12: [1e-6, True],    # velocity
+    13: [1e+8, False]    # property matrix
+  }
+
+  count=0
+  nlines=len(outtext)
+  flag=-1
+
   for i in range(nlines):
     try:
       a=outtext[i]
       b=reftext[i]
     except IndexError:
       break
-    if not a==b and not runtime_flag:
-      count+=1
-    if 'Runtime' in a:
-      runtime_flag=True
+    if a[0]=='!':
+      if not b[0]=='!':
+        return -1
+      flag=int(a.split()[1])
+      continue
+    if flag==-1:
+      a1=[float(a.split()[0])]
+      b1=[float(b.split()[0])]
     else:
-      runtime_flag=False
+      a1=[float(j) for j in a.split()]
+      b1=[float(j) for j in b.split()]
+
+    for j,ja in enumerate(a1):
+      jb=b1[j]
+      d=abs(ja-jb)
+      if d>compare[flag][0]:
+        count+=1
+        sys.stdout.write('*** Value deviation on line %i: %18.12f vs %18.12f\n' % (i, ja,jb))
+      if compare[flag][1]:
+        if not sign(ja)==sign(jb):
+          count+=1
+          sys.stdout.write('***  Sign deviation on line %i: %18.12f vs %18.12f\n' % (i, ja,jb))
   return count
 
 # ======================================================================================================================
