@@ -217,11 +217,11 @@ def dih(a,b,c,d):
     r1[i]=b[i]-a[i]
     r2[i]=c[i]-b[i]
     r3[i]=d[i]-c[i]
-  if rscalar3d(r1,r2)==1 or rscalar3d(r2,r3)==1:
-    sys.stderr.write('Undefined dihedral angle!')
-    return 0.
   q1=rcross3d(r1,r2)
   q2=rcross3d(r2,r3)
+  if q1==[0.,0.,0.] or q2==[0.,0.,0.]:
+    sys.stderr.write('Undefined dihedral angle!')
+    return float('NaN')
   return rangle3d(q1,q2)
 
 def pyr(a,b,c,d):
@@ -234,6 +234,10 @@ def pyr(a,b,c,d):
     r2[i]=c[i]-b[i]
     r3[i]=d[i]-b[i]
   q1=rcross3d(r2,r3)
+  if q1==[0.,0.,0.]:
+    sys.stderr.write('Undefined pyramidalization angle!')
+    return float('NaN')
+  return rangle3d(q1,q2)
   if Radians:
     return 90.0*deg2rad-rangle3d(q1,r1)
   else:
