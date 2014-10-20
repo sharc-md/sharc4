@@ -1,0 +1,37 @@
+\documentclass{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath,amssymb,xcolor,colortbl}
+
+\usepackage[scaled=.92]{helvet}
+\renewcommand{\familydefault}{\sfdefault}
+\usepackage{sfmath}
+
+\usepackage[active,tightpage]{preview}
+\PreviewEnvironment{equation}
+\PreviewEnvironment{multline}
+\PreviewEnvironment{align}
+\setlength\PreviewBorder{100pt}
+\setlength{\textwidth}{246pt}
+
+\newcommand{\E}{\ensuremath{\mathrm{e}}}
+\newcommand{\I}{\ensuremath{\mathrm{i}}}
+\newcommand{\D}{\ensuremath{\mathrm{d}}}
+\renewcommand{\vec}[1]{\ensuremath{\mathbf{#1}}}
+
+\definecolor{RL}{HTML}{d65454}
+\newcommand{\R}{\cellcolor{RL!50}}
+
+\begin{document}
+
+\begin{align}
+  \mathbf{H}^{\text{d}}&=\mathbf{U}^\dagger\mathbf{H}\mathbf{U}\nonumber\\
+  \mathbf{H}^{\text{MCH}}&=\mathbf{H}^{\text{d}}+\mathbf{U}^\dagger\boldsymbol{\Sigma}\mathbf{U}\nonumber\\
+  \left(\mathbf{g}^{\text{MCH}}_\alpha\right)_{x_i}&=\left(\mathbf{U}^\dagger\mathbf{H}_{x_i}\mathbf{U}\right)_{\alpha\alpha}\nonumber\\
+  \mathbf{M}^{\text{MCH}}_i&=\mathbf{U}^\dagger\mathbf{M}_i\mathbf{U}\nonumber\\
+  \mathbf{S}^{\text{MCH}}(t_0,t)&=\mathbf{U}^\dagger(t_0)\mathbf{U}(t)\nonumber\\
+  \mathbf{D}^{\text{MCH}}_{i,x_j}=\mathbf{U}^\dagger\mathbf{D}_{i,x_j}\mathbf{U}
+\nonumber\end{align}
+
+\end{document}

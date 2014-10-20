@@ -1,0 +1,39 @@
+\documentclass{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath,amssymb,xcolor,colortbl}
+
+\usepackage[scaled=.92]{helvet}
+\renewcommand{\familydefault}{\sfdefault}
+\usepackage{sfmath}
+
+\usepackage[active,tightpage]{preview}
+\PreviewEnvironment{equation}
+\PreviewEnvironment{multline}
+\PreviewEnvironment{align}
+\setlength\PreviewBorder{100pt}
+\setlength{\textwidth}{246pt}
+
+\newcommand{\E}{\ensuremath{\mathrm{e}}}
+\newcommand{\I}{\ensuremath{\mathrm{i}}}
+\newcommand{\D}{\ensuremath{\mathrm{d}}}
+\renewcommand{\vec}[1]{\ensuremath{\mathbf{#1}}}
+
+\definecolor{RL}{HTML}{d65454}
+\newcommand{\R}{\cellcolor{RL!50}}
+
+\begin{document}
+
+  \begin{equation}
+    E(t)=E_0
+    \begin{cases}
+      0                                                   &\text{if } t<t_0,\nonumber\\
+      \sin\left(\frac{\pi(t-t_0)}{2(t_c-t_0)}\right)      &\text{if } t_0<t<t_c,\nonumber\\
+      1                                                   &\text{if } t_c<t<t_{c2},\nonumber\\
+      \cos\left(\frac{\pi(t-t_{c2})}{2(t_e-t_{c2})}\right)      &\text{if } t_{c2}<t<t_e,\nonumber\\
+      0                                                   &\text{if } t_e<t,\
+    \end{cases}
+\nonumber  \end{equation}
+
+\end{document}
