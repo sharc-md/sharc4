@@ -83,7 +83,7 @@
 \newenvironment{tpage}{%
 \addtokomafont{title}{\rmfamily}
   \begin{titlepage}
-    \title{\hspace{1cm}\includegraphics[width=0.8\textwidth,keepaspectratio=true]{img/sharc.pdf}\vspace{1.5cm}\\
+    \title{\hspace{1cm}\includegraphics[width=0.8\textwidth,keepaspectratio=true]{img/sharc.pdf}\\[0.5cm]
     SHARC: Surface Hopping in the Adiabatic Representation Including Arbitrary Couplings}
     \subtitle{Manual\\[1cm]Version 1.0}
     \date{Vienna, \today}
@@ -499,7 +499,7 @@ Figure~\ref{fig:dir_traj_after} shows the content of a trajectory directory afte
 The file \ttt{output.log} contains mainly a listing of the chosen options and the resulting dynamics settings. At higher print levels, the log file contains also information per timestep (useful for debugging). \ttt{output.lis} contains a table with one line per timestep, giving active states, energies and expectation values. \ttt{output.dat} contains a list of all important matrices and vectors at each timestep. This information can be extracted with \ttt{data\_extractor.x} to yield plottable table files. \ttt{output.xyz} contains the geometries of all timesteps (the comments to each geometry give the active state).
 For details about the content of the output files, see chapter~\ref{chap:output}.
 
-The restart files contain the full state of a trajectory and its control variables from the last successful timestep. These files are needed in order to restart a trajectory at this timestep (either because it crashed, or in order to extend the simulation time beyond the original maximum time). 
+The restart files contain the full state of a trajectory and its control variables from the last successful timestep. These files are needed in order to restart a trajectory at this timestep (either because the calculation failed, or in order to extend the simulation time beyond the original maximum simulation time). 
 
 \begin{figure}[h!]
   \centering
@@ -525,7 +525,7 @@ The typical workflow is given schematically in figure~\ref{fig:workflow}.
 \subsection{Initial condition generation}
 
 In the typical workflow, the user will first create a set of suitable initial conditions. In the context of the \sharc\ package, an initial condition is a set of an initial geometry, initial velocity, initial occupied state and initial wavefunction coefficients. 
-Many sets are needed in order to setup proper dynamics simulations.
+Many such sets are needed in order to setup physically sound dynamics simulations.
 
 \paragraph{Generation of initial geometries and velocities}
 
@@ -536,17 +536,20 @@ As given in figure~\ref{fig:workflow}, \ttt{wigner.py} needs as input the result
 
 \paragraph{Generation of initial coefficients and states}
 
-In the second preparation step, for each of the sampled initial geometries it has to be decided which excited state should be the initial one. This decision is based on a vertical excitation calculation at the same level of theory as in the subsequent dynamics. 
+In the second preparation step, for each of the sampled initial geometries it has to be decided which excited state should be the initial one. In simple cases, the user may manually choose the initial excited state using \ttt{excite.py} (see~\ref{sec:excite.py}). Alternatively, the selection of initial states can be performed based on the excitation energies and oscillator strengths of the excited states at each initial geometry (\todo{this approximately simulates a delta-pulse excitation}). 
 
-These calculations can be set up with \ttt{setup\_init.py} (see section~\ref{sec:setup_init.py}). This script prepares for each initial condition in the \ttt{initconds} file a directory with the necessary input to perform the calculation. The user should then execute the run script (\ttt{run.sh}) in each of the directories (either manually or through a batch queueing system).
+The latter option makes it necessary to carry out vertical excitation calculation before the selection of the initial states.
+The calculations can be set up with \ttt{setup\_init.py} (see section~\ref{sec:setup_init.py}). This script prepares for each initial condition in the \ttt{initconds} file a directory with the necessary input to perform the calculation. The user should then execute the run script (\ttt{run.sh}) in each of the directories (either manually or through a batch queueing system).
 
-After the vertical excitation calculations are completed, the vertical excitation energies and oscillator strengths of each calculation are collected by \ttt{excite.py} (see~\ref{sec:excite.py}). The same script then performs the selection of the initial electronic state for each initial geometry. The results are written to a new file, \ttt{initconds.excited}. This file contains all information needed to setup the ensemble. Additionally, \ttt{spectrum.py} (\ref{sec:spectrum.py}) can calculate absorption spectra based on the \ttt{initconds.excited} file.
+After the vertical excitation calculations are completed, the vertical excitation energies and oscillator strengths of each calculation are collected by \ttt{excite.py} (see~\ref{sec:excite.py}). The same script then performs the selection of the initial electronic state for each initial geometry. The results are written to a new file, \ttt{initconds.excited}. This file contains all information needed to setup the ensemble. 
+
+Additionally, \ttt{spectrum.py} (\ref{sec:spectrum.py}) can calculate absorption spectra based on the \ttt{initconds.excited} file. This may be useful to verify that the level of theory chosen is appropriate (e.g., by comparing to an experimental spectrum), or to choose a suitable excitation window for the determination of the initial state.
 
 \subsection{Running the dynamics simulations}
 
 Based on the initial conditions given in \ttt{initconds.excited}, the input for all trajectories in the ensemble can be setup by \ttt{setup\_traj.py} (see section~\ref{sec:setup_traj.py}). The script produces one directory for each trajectory, containing the input files for \sharc\ and the selected interface.
 
-In order to run a particular trajectory, the user should execute the run script (\ttt{run.sh}) in the directory of the trajectory. Since those calculations can run for several weeks (depending on the level of theory used and the number of timesteps), it is advisory to submit the run scripts to a batch queueing system. 
+In order to run a particular trajectory, the user should execute the run script (\ttt{run.sh}) in the directory of the trajectory. Since those calculations can run between minutes and several weeks (depending on the level of theory used and the number of timesteps), it is advisory to submit the run scripts to a batch queueing system. 
 
 The progress of the simulations can be monitored most conveniently in the \ttt{output.lis} files. If the calculations are running in some temporary directory, the output files can be copied to the local directory (where they were setup) with the \ttt{scp} wrapper \ttt{retrieve.sh} (see \ref{sec:retrieve}). This allows to perform ensemble analysis while the trajectories are still running.
 
@@ -554,8 +557,8 @@ If a trajectory fails, the temporary directory where the calculation is running 
 
 \subsection{Analysis of the dynamics results}
 
-Each trajectory can be analyzed independently by inspecting the output files (see chapter~\ref{chap:output}). Most importantly, calling \ttt{data\_extractor.x} (\ref{sec:data_extractor.x}) on the \ttt{output.dat} file of a trajectory creates a number of output files, which can be plotted with the help of \ttt{make\_gnuscript.py} (\ref{sec:make_gnuscript.py}.
-The nuclear geometries in \ttt{output.xyz} file can be analyzed efficiently using \ttt{geo.py} (\ref{sec:geo.py}).
+Each trajectory can be analyzed independently by inspecting the output files (see chapter~\ref{chap:output}). Most importantly, calling \ttt{data\_extractor.x} (\ref{sec:data_extractor.x}) on the \ttt{output.dat} file of a trajectory creates a number of formatted files which can be plotted with the help of \ttt{make\_gnuscript.py} (\ref{sec:make_gnuscript.py}) and \textsc{Gnuplot}.
+The nuclear geometries in \ttt{output.xyz} file can be analyzed in terms of internal coordinates (bond lengths, angles, ring conformations, etc.) using \ttt{geo.py} (\ref{sec:geo.py}).
 
 For the complete ensemble, the script \ttt{populations.py} (section~\ref{sec:populations.py} can calculate average excited-state populations. The script~\ttt{crossing.py} (\ref{sec:crossing.py}) can find and extract notable geometries, e.g., those geometries where a surface hop between two particular states occured.
 
@@ -567,8 +570,8 @@ The following tables list the auxilliary programs in the \sharc\ suite. The righ
 
 \begin{tabular}{>{\tt}lp{9.5cm}r}
   wigner.py             &Creates initial conditions from Wigner distribution.                   &\ref{sec:wigner.py}\\
-  setup\_init.py        &Sets up vertical excitation calculations.                              &\ref{sec:setup_init.py}\\
-  excite.py             &Selects initial conditions.                                            &\ref{sec:excite.py}\\
+  setup\_init.py        &Sets up initial vertical excitation calculations.                              &\ref{sec:setup_init.py}\\
+  excite.py             &Generates excited state lists for initial conditions and selects initial states.                                            &\ref{sec:excite.py}\\
   setup\_traj.py        &Sets up the dynamics simulations based on the initial conditions.      &\ref{sec:setup_traj.py}\\
   laser.x               &Prepares files containing laser fields.                                &\ref{sec:laser.x}\\
   molpro\_input.py      &Prepares \textsc{Molpro} input files for common jobs.                  &\ref{sec:molpro_input.py}\\
@@ -584,17 +587,17 @@ The following tables list the auxilliary programs in the \sharc\ suite. The righ
   data\_extractor.x     &Extracts plottable results from the \sharc\ output data file.          &\ref{sec:data_extractor.x}\\
   make\_gnuscript.py    &Creates gnuplot scripts for a given number of states.                  &\ref{sec:make_gnuscript.py}\\
   populations.py        &Calculates ensemble populations.                                       &\ref{sec:populations.py}\\
-  crossing.py           &Extracts specific geometries.                                          &\ref{sec:crossing.py}\\
-  geo.py                &Calculates internal coordinates from the xyz output file.              &\ref{sec:geo.py}\\
+  crossing.py           &Extracts specific geometries from ensembles.                                          &\ref{sec:crossing.py}\\
+  geo.py                &Calculates internal coordinates from xyz files.              &\ref{sec:geo.py}\\
 \end{tabular}
 
 \subsection{Interfaces}
 
 \begin{tabular}{>{\tt}lp{9.5cm}r}
   SHARC\_MOLPRO.py      &Allows for the calculation of SOC, gradients, non-adiabatic couplings, time derivatives, overlaps, dipole moments and angular momentum expectation values at the CASSCF level of theory. Symmetry or RASSCF are not supported. Only segmented basis sets are possible.   &\ref{sec:int:molpro}\\
-  SHARC\_MOLCAS.py      &Allows for the calculation of SOC, gradients, overlaps and dipole moments at the CASSCF and RASSCF level of theory. Symmetry is not supported. QM/MM capabilities and trivial parallelization of gradient calculation will be available in the future.         &\ref{sec:int:molcas}\\
-  SHARC\_COLUMBUS.py    &Allows for the calculation of SOC, gradients, (non-adiabatic couplings), overlaps, dipole moments and Dyson norms at the CASSCF, RASSCF, MRCISD and LRT-MRAQCC level of theory. Symmetry is not supported. More accurate ionization transition properties will be available in the future. Only works with the \textsc{Columbus}-\textsc{Molcas} interface.                  &\ref{sec:int:columbus}\\
-  SHARC\_Analytical.py  &Allows to calculate a 2 singlets + 2 triplets system based on analytical expressions for the diabatic states. Supports up to three dimensions.         &\ref{sec:int:analytical}\\
+  SHARC\_MOLCAS.py      &Allows for the calculation of SOC, gradients, overlaps and dipole moments at the CASSCF and RASSCF level of theory. Symmetry is not supported.   &\ref{sec:int:molcas}\\
+  SHARC\_COLUMBUS.py    &Allows for the calculation of SOC, gradients, overlaps, dipole moments and Dyson norms at the CASSCF, RASSCF, MRCISD and LRT-MRAQCC levels of theory. Symmetry is not supported. Only works with the \textsc{Columbus}-\textsc{Molcas} interface.                  &\ref{sec:int:columbus}\\
+  SHARC\_Analytical.py  &Allows to calculate SOC, gradients, overlaps, dipole moments and dipole moment gradients based on analytical expressions of diabatic matrix elements. \todo{Supports only cartesian (linear) coordinates. }        &\ref{sec:int:analytical}\\
 \end{tabular}
 
 
@@ -625,7 +628,11 @@ The input file has a relatively flexible structure. With very few exceptions, ea
 
 Here, \ttt{stepsize} is the keyword, referring to the size of the timesteps for the nuclear motion in the dynamics. \ttt{0.5} gives the size of this timestep, in this example 0.5~fs.
 
-In each line a trailing comment can be added in the input file, by using the special character \ttt{\#}. Everything after \ttt{\#} is ignored by the input parser of \sharc. The input file also can contain arbitrary blank lines and lines containing only comments. Also, the order of the keywords is completely arbitray. Note however, that if a keyword is repeated in the input only the \textit{first} instance is used by the program. Furthermore, note that all input is case-insensitive.
+A number of keywords have no arguments and act as simple switches (e.g., \ttt{restart}, \ttt{gradcorrect}, \ttt{grad\_select}, \ttt{nac\_select}, \ttt{ionization}, \ttt{track\_phase}, \ttt{dipole\_gradient}). Those keywords can be prefixed with \ttt{no} to explicitly deactivate the option (e.g., \ttt{norestart} deactivates restarts).
+
+In each line a trailing comment can be added in the input file, by using the special character \ttt{\#}. Everything after \ttt{\#} is ignored by the input parser of \sharc. The input file also can contain arbitrary blank lines and lines containing only comments. All input is case-insensitive.
+
+The input file is read by \sharc\ by subsequently searching the file for all known keywords. Hence, unknown or misspelled keywords are ignored. Also, the order of the keywords is completely arbitray. Note however, that if a keyword is repeated in the input only the \textit{first} instance is used by the program. 
 
 \subsection{Input keywords}
 
@@ -763,11 +770,11 @@ In Table~\ref{tab:input}, all input keywords for the \sharc\ input file are list
                         &\$1=parallel\_nac                   &{\footnotesize Only the velocity component in the direction of $\langle\psi_\alpha|\partial/\partial R|\psi_\beta\rangle$ is rescaled.}\\
   \hline
   grad\_select          &                                    &Only some gradients are calculated at every timestep.\\
-  \DEFAULT{grad\_all}   &                                    &All gradients are calculated at every timestep.\\
+  \DEFAULT{grad\_all}   &                                    &All gradients are calculated at every timestep (Alias: \ttt{nograd\_select}).\\
                         &                                    &{\footnotesize \ttt{grad\_all} takes precedence.}\\
   \hline
   nac\_select           &                                    &Only some $\langle\psi_\alpha|\partial/\partial R|\psi_\beta\rangle$ are calculated at every timestep.\\
-  \DEFAULT{nac\_all}    &                                    &All $\langle\psi_\alpha|\partial/\partial R|\psi_\beta\rangle$ are calculated at every timestep.\\
+  \DEFAULT{nac\_all}    &                                    &All $\langle\psi_\alpha|\partial/\partial R|\psi_\beta\rangle$ are calculated at every timestep (Alias: \ttt{nonac\_select}).\\
                         &                                    &{\footnotesize \ttt{nac\_all} takes precedence.}\\
   \hline
   eselect               &\textbf{float}                      &Parameter for selection of gradients and non-adiabatic couplings (in eV).\\
@@ -801,7 +808,7 @@ In Table~\ref{tab:input}, all input keywords for the \sharc\ input file are list
                         &\DEFAULT{1}                          &By default calculated every timestep (if at all).\\
   \hline
   \DEFAULT{track\_phase}&                                    &Follows the phase of the transformation matrix $\mathbf{U}$.\\
-  no\_track\_phase      &                                    &No phase following of $\mathbf{U}$ (not recommended, only for debugging).\\
+  notrack\_phase      &                                      &No phase following of $\mathbf{U}$ (not recommended, only for debugging).\\
   \hline
   dipole\_gradient              &                            &Include the derivatives of the dipole moments in the gradients.\\
   \DEFAULT{nodipole\_gradient}  &                            &Neglect the derivatives of the dipole moments.
@@ -1046,7 +1053,7 @@ In the following, all printlevels are explained.
 
 \paragraph{Printlevel 0}
 
-At printlevel 0, only the execution infos (date, host and working directory at execution start) and build infos (compiler, date, building host and working directory) are given.
+At printlevel 0, only the execution infos (date, host and working directory at execution start) and build infos (compiler, compile date, building host and working directory) are given.
 
 \paragraph{Printlevel 1}
 
@@ -1070,7 +1077,7 @@ At printlevel 5, additionally the log file contains the results of each quantum 
 
 \section{Listing file}\label{sec:lisfile}
 
-The listing file \ttt{output.lis} is a tabular summary of the progress of the dynamics simulation. At the end of each timestep (including the initial calculations), one line with 11 elements is printed. These are, from left to right:
+The listing file \ttt{output.lis} is a tabular summary of the progress of the dynamics simulation. At the end of each timestep (including the initial timestep), one line with 11 elements is printed. These are, from left to right:
 \begin{enumerate}
   \item current step (counting starts at zero for the initial step),
   \item current simulation time (fs),
@@ -1119,7 +1126,7 @@ where $S_\alpha$ is the total spin of the MCH state with index $\alpha$.
 
 \section{Data file}\label{sec:datfile}
 
-The data file \ttt{output.dat} contains all relevant data from the simulation for all timesteps, in ASCII format. Accordingly, this file can become quite large for long trajectories or if many states are included, but for most computer architectures it is easier to deal with a single large file than with many small files.
+The data file \ttt{output.dat} contains all relevant data from the simulation for all timesteps, in ASCII format. Accordingly, this file can become quite large for long trajectories or if many states are included, but for most file systems it is easier to deal with a single large file than with many small files.
 
 Usually, after the simulation is finished the data file is processed by \ttt{data\_extractor.x} to obtain a number of tabular files which can be plotted. For this, see sections~\ref{sec:diagonalizer.x} for the data extractor and~\ref{sec:make_gnuscript.py} for plotting.
 
@@ -1172,13 +1179,11 @@ The comments of the geometries (given in the second line of each geometry block)
 
 \chapter{Interfaces}\label{chap:interfaces}
 
+This chapter describes the interface between \sharc\ and quantum chemistry programs. In the first section, the interface is specified (e.g., for users who attempt to create their own interfaces). The description of the currently existing interfaces takes the remainder of this chapter.
+
 % ========================================================================================================= %
 
 \section{Interface Specifications}
-
-In this section the interface between \sharc\ and any quantum chemistry program is described (e.g., for users which want to create their own interfaces). The description of the currently existing interfaces takes the remainder of this chapter.
-
-The main \sharc\ code is written to work together with any quantum chemistry program, via external interfaces. 
 
 From the \sharc\ point of view, quantum chemical calculation proceeds as follows in the \ttt{QM} directory:
 \begin{enumerate}
@@ -1192,7 +1197,7 @@ For specifications of the formats of these two files (\ttt{QM.in} and \ttt{QM.ou
 
 The \ttt{QM.in} file is written by \sharc\ every time a quantum chemistry calculation is necessary. It contains all information available to \sharc. This information includes the current geometry (and velocity), the timestep, the number of states, the timestep and the unit used to specify the atomic coordinates. The file also contains \textit{control} keywords and \textit{request} keywords. 
 
-The file format is consistent with a standard xyz file. The first line contains the number of atoms, the second line is a comment. \sharc\ writes the trajectory ID to this line. The following lines specify the atom positions. As a fourth, fifth and sixth column, these lines may contain the atomic velocities.
+The file format is consistent with a standard xyz file. The first line contains the number of atoms, the second line is a comment. \sharc\ writes the trajectory ID (a hash of all \sharc\ input files) to this line. The following lines specify the atom positions. As a fourth, fifth and sixth column, these lines may contain the atomic velocities.
 All following lines contain keywords, one per line and possibly with arguments. Comments can be inserted with '\#', and empty lines are permissible. Comments and empty lines are only permissible below the xyz file part.
 An examplary \ttt{QM.in} file is given in the following:
 \begin{example}
