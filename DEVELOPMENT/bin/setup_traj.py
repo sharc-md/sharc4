@@ -1445,6 +1445,11 @@ In order to setup the COLUMBUS input, use COLUMBUS' input facility colinp. For f
   INFOS['columbus.multmap']=multmap
   INFOS['columbus.mocoefmap']=mocoefmap
 
+  INFOS['columbus.copy_template']=question('Do you want to copy the template directory to each trajectory (Otherwise it will be linked)?',bool,False)
+  if INFOS['columbus.copy_template']:
+    INFOS['columbus.copy_template_from']=INFOS['columbus.template']
+    INFOS['columbus.template']='./COLUMBUS.template/'
+
 
   # Initial mocoef
   print centerstring('Initial wavefunction: MO Guess',60,'-')+'\n'
@@ -1906,8 +1911,13 @@ template %s
   # copy MOs and template
   if INFOS['columbus.guess']:
     cpfrom=INFOS['columbus.guess']
-    cpto='%s/mocoef_mc.init' % (iconddir)
+    cpto='%s/QM/mocoef_mc.init' % (iconddir)
     shutil.copy(cpfrom,cpto)
+
+  if INFOS['columbus.copy_template']:
+    copy_from=INFOS['columbus.copy_template_from']
+    copy_to=iconddir+'/QM/COLUMBUS.template/'
+    shutil.copytree(copy_from,copy_to)
 
   # runQM.sh
   runname=iconddir+'/QM/runQM.sh'

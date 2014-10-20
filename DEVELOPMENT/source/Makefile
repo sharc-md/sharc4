@@ -11,7 +11,7 @@
 #
 # uncomment the following line and comment the 2nd next line to 
 # use the intel fortran compiler.
-#F90 = ifort 
+# F90 = ifort 
 F90 = gfortran
 
 
@@ -25,6 +25,7 @@ LD = -lblas -llapack -lfftw3
 # works for GFORTRAN and IFORT
 F90FLAGS     = -O2
 DEBUGFLAGS   = 
+#DEBUGFLAGS   = -Wall -Wextra -Winline -Wno-unused-parameter -Wimplicit-interface -fbounds-check -fimplicit-none -fbacktrace -g 
 
 
 # will be included in sharc source code so that compiler, host, etc. can be printed at runtime
@@ -73,10 +74,10 @@ DIAGONALIZER=string.o \
 
 all: sharc data_extractor diagonalizer laser
 
-sharc: build_info.inc $(TOOLS) $(SHARC)  
+sharc: build_info $(TOOLS) $(SHARC)  
 	$(F90)  $(LD) $(SHARC) $(TOOLS) -o  $@.x
 
-data_extractor: $(DATA_EXTRACTOR) 
+data_extractor: build_info $(DATA_EXTRACTOR) 
 	$(F90)  $(LD) $(DATA_EXTRACTOR) -o $@.x
 
 diagonalizer: $(DIAGONALIZER) 
@@ -98,7 +99,7 @@ install:
 # the following lines define the dependencies of the Fortran90 module files
 main.o: output.o qm.o restart.o misc.o electronic_laser.o input.o
 misc.o:	definitions.o
-output.o: $(TOOLS) build_info.inc
+output.o: $(TOOLS) build_info
 nuclear.o: $(TOOLS)
 electronic.o: nuclear.o $(TOOLS)
 electronic_laser.o: electronic.o $(TOOLS)
@@ -112,8 +113,8 @@ LASER_calc_fftw.o: LASER_definitions.o
 
 
 
-# build_info.mod is never created, so the following is always executed
-build_info.inc: 
+# do not call this target build_info.inc, because the file should always be updated when compiling
+build_info: 
 	@echo "Updating \"build_info.inc\""
 	@echo "character*8000, parameter :: build_date=\"$(DATE)\"" > build_info.inc
 	@echo "character*8000, parameter :: build_host=\"$(HOST)\"" >> build_info.inc

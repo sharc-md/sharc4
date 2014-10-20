@@ -43,7 +43,7 @@ will compile the source and create all the binaries.
 
 make install
 
-will copy the binary files into the ../bin directory of the 
+will copy the binary files into the sharc/bin/ directory of the 
 Sharc distribution, which already contains all the python scripts which
 come with sharc.
 
@@ -65,7 +65,7 @@ Now you are ready to run your first surface hopping trajectory including
 arbitrary couplings!
 
 Maybe at this stage it is a good idea to take a look at the test suite.
-The easiest way to run some basic tests is to execute $SHARC/test.py, 
+The easiest way to run some basic tests is to execute $SHARC/tests.py, 
 which will test the fundamental functionality of SHARC.
 
 Installation for the experts
@@ -73,7 +73,7 @@ Installation for the experts
 
 Although the time consuming part of any ab initio molecular dynamics
 simulation are the necessary quantum chemical calculations and thus
-any BLAS/LAPACK version should be fine link sharc against, adjusting
+any BLAS/LAPACK version should be fine to link sharc against, adjusting
 the Makefile to use a vendor provided version like MKL can easily be
 done by exchanging the corresponding Makefile line
 
