@@ -237,7 +237,6 @@ def pyr(a,b,c,d):
   if q1==[0.,0.,0.]:
     sys.stderr.write('Undefined pyramidalization angle!')
     return float('NaN')
-  return rangle3d(q1,q2)
   if Radians:
     return 90.0*deg2rad-rangle3d(q1,r1)
   else:
