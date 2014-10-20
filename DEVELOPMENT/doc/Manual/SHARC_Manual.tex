@@ -1,7 +1,7 @@
 \documentclass[a4paper,11pt,DIV=15,openany,twoside=false]{scrbook}
 
-% everything inside \ttmdump is ignored by tth, but processed by LaTeX
-\newcommand{\ttmdump}[1]{#1}
+% everything inside \tthdump is ignored by tth, but processed by LaTeX
+\newcommand{\tthdump}[1]{#1}
 
 % #==================================================================
 % |
@@ -9,12 +9,12 @@
 % | do the following replacements (with search and replace):
 % |
 % | for TTH      for TTM
-% | \tthdump <-> \ttmdump
-% | %%tth:   <-> %%ttm: 
+% | \tthdump <-> \tthdump
+% | %%tth:   <-> %%tth: 
 % |
 % |
 % | ************************************************
-% | DO NOT DELETE THE %%ttm: COMMENTS IN THIS FILE!!
+% | DO NOT DELETE THE %%tth: COMMENTS IN THIS FILE!!
 % | ************************************************
 % |
 % |
@@ -23,7 +23,7 @@
 
 
 % include most packages
-\ttmdump{
+\tthdump{
   \usepackage[utf8]{inputenc}
   \usepackage[T1]{fontenc}
 }
@@ -46,7 +46,7 @@
 \usepackage[colorlinks=true,urlcolor=B,linkcolor=B,citecolor=R]{hyperref}
 \usepackage[square, sort&compress, numbers]{natbib}
 % hide some packages from tth
-\ttmdump{
+\tthdump{
   \usepackage[version=3]{mhchem}
   \usepackage{tikz,pgfplots}
   \pgfplotsset{compat=1.3}
@@ -58,7 +58,7 @@
 
 
 % Bold caption labels
-\ttmdump{
+\tthdump{
   \setkomafont{captionlabel}{\bfseries}
 }
 
@@ -81,7 +81,7 @@
 
 
 % =============================== TITLE ==========================
-%%ttm: \title{SHARC: Surface Hopping in the Adiabatic Representation Including Arbitrary Couplings -- Manual}
+%%tth: \title{SHARC: Surface Hopping in the Adiabatic Representation Including Arbitrary Couplings -- Manual}
 \newenvironment{tpage}{%
 \addtokomafont{title}{\rmfamily}
   \begin{titlepage}
@@ -103,7 +103,7 @@ University of Vienna, Austria
 
 
 % =============================== HEADER AND FOOT ==========================
-\ttmdump{
+\tthdump{
   \usepackage[automark]{scrpage2}
   \pagestyle{scrheadings}
   \clearscrheadfoot
@@ -120,14 +120,14 @@ University of Vienna, Austria
 \newcommand{\E}{\ensuremath{\mathrm{e}}}
 \newcommand{\I}{\ensuremath{\mathrm{i}}}
 \newcommand{\D}{\ensuremath{\mathrm{d}}}
-%%ttm: \newcommand{\VEC}[1]{\mathbf{#1}}
-\ttmdump{
+%%tth: \newcommand{\VEC}[1]{\mathbf{#1}}
+\tthdump{
   \newcommand{\VEC}[1]{\ensuremath{\mathbf{#1}}}
 }
-%%ttm: \def\l{l}
-%%ttm: \def\middle{}
-%%ttm: \def\mathfrak#1{\mathcal{#1}}
-%%ttm: \def\ce#1{#1}
+%%tth: \def\l{l}
+%%tth: \def\middle{}
+%%tth: \def\mathfrak#1{\mathcal{#1}}
+%%tth: \def\ce#1{#1}
 
 % unnumbered things
 \newenvironment{unnumbered}%
@@ -155,8 +155,8 @@ University of Vienna, Austria
 
 \tpage
 
-%%ttm: \Large \textcolor{red}{Due to the limited capabilities of HTML to render complex equations, the reader should consult the \href{http://sharc-md.org}{Manual in PDF format} for correctly displayed equations.}
-%%ttm: \normalsize
+%%tth: \Large \textcolor{red}{Due to the limited capabilities of HTML to render complex equations, the reader should consult the \href{http://sharc-md.org/?page_id=50}{Manual in PDF format} for correctly displayed equations.}
+%%tth: \normalsize
 
 \begin{shaded}
   \textbf{Contact:}
@@ -311,7 +311,7 @@ The current version of the \sharc\ suite has been programmed by Sebastian Mai an
 \section{Suggestions and Bug Reports}
 
 \begin{shaded}
-Bug reports and suggestions for possible features can be submitted to \href{mailto:philipp.marquetand@univie.ac.at}{philipp.marquetand@univie.ac.at}.
+Bug reports and suggestions for possible features can be submitted to \href{mailto:sharc@univie.ac.at}{sharc@univie.ac.at}.
 \end{shaded}
 
 \section{Notation in this Manual}
@@ -320,7 +320,7 @@ Bug reports and suggestions for possible features can be submitted to \href{mail
 
 The \sharc\ suite consists of Fortran90 programs as well as Python and Shell scripts. The executable Fortran90 programs are denoted by the extension \ttt{.x}, the Python scripts have the extension \ttt{.py} and the Shell scripts \ttt{.sh}. Within this manual, all program names are given in \ttt{bold monospaced font}.
 
-\ttmdump{
+\tthdump{
 \paragraph{Shaded Sections}
 
 Important sections are given in blue boxes like the following one:
@@ -707,7 +707,7 @@ The following tables list the auxiliary programs in the \sharc\ suite. The right
   SHARC\_MOLPRO.py      &Allows for the calculation of SOC, gradients, non-adiabatic couplings, time derivatives, overlaps, dipole moments and angular momentum expectation values at the CASSCF level of theory. Symmetry or RASSCF are not supported. Only segmented basis sets are possible.   &\ref{sec:int:molpro}\\
   SHARC\_MOLCAS.py      &Allows for the calculation of SOC, gradients, overlaps and dipole moments at the CASSCF and RASSCF level of theory. Symmetry is not supported.   &\ref{sec:int:molcas}\\
   SHARC\_COLUMBUS.py    &Allows for the calculation of SOC, gradients, overlaps, dipole moments and Dyson norms at the CASSCF, RASSCF, MRCISD and LRT-MRAQCC levels of theory. Symmetry is not supported. Only works with the \textsc{Columbus}-\textsc{Molcas} interface.                  &\ref{sec:int:columbus}\\
-  SHARC\_Analytical.py  &Allows to calculate SOC, gradients, overlaps, dipole moments and dipole moment gradients based on analytical expressions of diabatic matrix elements. \todo{Supports only cartesian (linear) coordinates. }        &\ref{sec:int:analytical}\\
+  SHARC\_Analytical.py  &Allows to calculate SOC, gradients, overlaps, dipole moments and dipole moment gradients based on analytical expressions of diabatic matrix elements. Works only with cartesian coordinates.       &\ref{sec:int:analytical}\\
 \end{tabular}
 
 
@@ -750,8 +750,8 @@ In Table~\ref{tab:input}, all input keywords for the \sharc\ input file are list
 
 \clearpage
 {
-%%ttm: \newcommand{\DEFAULT}[1]{\textbf{\textcolor{PineGreen}{#1}}}
-\ttmdump{
+%%tth: \newcommand{\DEFAULT}[1]{\textbf{\textcolor{PineGreen}{#1}}}
+\tthdump{
   \newcommand{\DEFAULT}[1]{\textbf{\textcolor{G}{#1}}}
 }
 \begin{longtable}{|>{\tt}l|l|p{7cm}|}
@@ -766,7 +766,7 @@ In Table~\ref{tab:input}, all input keywords for the \sharc\ input file are list
 
 % ========================================
 
-\ttmdump{
+\tthdump{
     \multicolumn{3}{c}{{\bfseries \tablename\ \thetable{} \mdseries-- Continued from previous page}} \\
     \hline
     \rmfamily Keyword     &Arguments    &Explanation\\
@@ -776,7 +776,7 @@ In Table~\ref{tab:input}, all input keywords for the \sharc\ input file are list
 
 % ========================================
 
-\ttmdump{
+\tthdump{
     \hline 
     \multicolumn{3}{r}{{Continued on next page}} \\ 
 %     \hline
@@ -785,7 +785,7 @@ In Table~\ref{tab:input}, all input keywords for the \sharc\ input file are list
   
 % =======================================
 
-\ttmdump{
+\tthdump{
     \hline
   \endlastfoot
 }
@@ -1002,7 +1002,8 @@ The third possibility is the use of the overlap matrix, requested with \ttt{coup
 
 \paragraph{Correction to the Gradients}
 
-As detailed in~\ref{met:gradtra}, the correct transformation of the gradients to the diagonal representation includes contributions from the non-adiabatic coupling vectors. Using \ttt{gradcorrect true}, these contributions are included. In this case \sharc\ will request the calculation of the non-adiabatic coupling vectors, even if they are not used in the wavefunction propagation. 
+% As detailed in~\ref{met:gradtra}, t
+The correct transformation of the gradients to the diagonal representation includes contributions from the non-adiabatic coupling vectors. Using \ttt{gradcorrect true}, these contributions are included. In this case \sharc\ will request the calculation of the non-adiabatic coupling vectors, even if they are not used in the wavefunction propagation. 
 
 \paragraph{Frustrated Hops and Adjustment of the Kinetic Energy}
 
@@ -1048,11 +1049,14 @@ If the keyword is given, \sharc\ will request the calculation of the ionization 
 
 \paragraph{Phase Tracking}
 
-Using the keywords \ttt{track\_phase} and \ttt{no\_track\_phase}, the tracking of the eigenvector phases of the transformation matrix $\mathbf{U}$ (see \ref{met:phase_track}) can be switched on or off. However, it is usually not a good idea to deactivate the phase tracking, since this might lead to spurious behaviour in the wavefunction propagation and the surface hopping.
+Using the keywords \ttt{track\_phase} and \ttt{no\_track\_phase}, the tracking of the eigenvector phases of the transformation matrix $\mathbf{U}$ 
+%(see \ref{met:phase_track}) 
+can be switched on or off. However, it is usually not a good idea to deactivate the phase tracking, since this might lead to spurious behaviour in the wavefunction propagation and the surface hopping.
 
 \paragraph{Dipole Moment Gradients}
 
-As explained in~\ref{met:dipolegrad}, the derivatives of the dipole moments can be included in the gradients. This can be activated with the keyword \ttt{dipole\_gradient}. Currently, only the analytical interface can deliver these quantities.
+% As explained in~\ref{met:dipolegrad}, t
+The derivatives of the dipole moments can be included in the gradients. This can be activated with the keyword \ttt{dipole\_gradient}. Currently, only the analytical interface can deliver these quantities.
 
 
 
@@ -1136,8 +1140,8 @@ Example:
 \section{Laser file}\label{sec:laserfile}
 
 The laser file contains a table with the amplitude of the laser field $\boldsymbol{\epsilon}(t)$ at each timestep of the \textit{electronic} propagation. Given a laser field of the general form:
-%%ttm: \newline\includegraphics{equations/equation_1.gif}\newline
-\ttmdump{
+%%tth: \newline\includegraphics{img/equations/equation_1.gif}\newline
+\tthdump{
   \begin{equation}
     \boldsymbol{\epsilon}(t)=
     \begin{pmatrix}
@@ -1798,7 +1802,8 @@ For each multiplicity, the number of states for the state-averaging procedure mu
 
 \section{COLUMBUS Interface}\label{sec:int:columbus}
 
-The \sharc-\textsc{Columbus} interface allows to run \sharc\ dynamics based on \textsc{Columbus}' CASSCF, RASSCF, MRCI and LRT-MRAQCC wavefunctions. The interface is compatible to \textsc{Columbus} calculations utilizing the \textsc{Columbus}-\textsc{Molcas} interface only (\textsc{Seward} integrals and \textsc{Alaska} gradients). Unfortunately, time derivatives and non-adiabatic coupling vectors cannot be calculated with this setup, only wavefunction overlaps can be obtained. The interface utilizes the \ttt{cioverlap} program by Jiri Pittner \cite{Pittner2009CP} to calculate the overlap matrices needed for local diabatization propagation. The interface can also calculate Dyson norms between neutral and ionic wavefunctions using Matthias Ruckenbauer's Dyson code (or any other suitable code). 
+The \sharc-\textsc{Columbus} interface allows to run \sharc\ dynamics based on \textsc{Columbus}' CASSCF, RASSCF, MRCI and LRT-MRAQCC wavefunctions. The interface is compatible to \textsc{Columbus} calculations utilizing the \textsc{Columbus}-\textsc{Molcas} interface only (\textsc{Seward} integrals and \textsc{Alaska} gradients). Unfortunately, time derivatives and non-adiabatic coupling vectors cannot be calculated with this setup, only wavefunction overlaps can be obtained. The interface utilizes the \ttt{cioverlap} program by Jiri Pittner \cite{Pittner2009CP} to calculate the overlap matrices needed for local diabatization propagation. The interface can also calculate Dyson norms between neutral and ionic wavefunctions using a suitable user-supplied code.
+%Matthias Ruckenbauer's Dyson code (or any other suitable code). 
 
 The interface needs as additional input the file \ttt{QM/SH2COL.inp} and a template directory containing all input files needed for the \textsc{Columbus} calculations. Additionally, initial MOs can be given in the file \ttt{QM/mocoef\_mc.init}.
 
@@ -1857,8 +1862,8 @@ columbus        &Is followed by a string giving the path to the \textsc{Columbus
 molcas          &Is followed by a string giving the path to the \textsc{Molcas} main directory.  Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. This path is only used for overlap calculations (since in this case the interface calls \textsc{Molcas} explicitly). Otherwise \textsc{Columbus} will use the path to \textsc{Molcas} specified during the installation of \textsc{Columbus}.\\
 scratchdir      &Is a path to the temporary directory. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. If it does not exist, the interface will create it. In any case, the interface will delete this directory after the calculation.\\
 savedir         &Is a path to another temporary directory.  Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. The interface will store files needed for restart there.\\
-dyson           &Path to the dyson code. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. Only necessary if Dyson norms are calculated.\\
-civecconsolidate&Path to the civecconsolidate code. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. Only used if Dyson norms are calculated. If not present, the civecconsolidate code in the \ttt{\$COLUMBUS} directory is used. Note that in the current version of \textsc{Columbus} (Oct. 2014) civecconsolidate is not compatible with the calculation of Dyson norms.\\
+dyson           &Path to the dyson code. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. Only necessary if Dyson norms are calculated. Needs a suitable code that computes Dyson norms.\\
+civecconsolidate&Path to the civecconsolidate code suitable for preparation of input for the Dyson program (CI vectors in terms of determinants). Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. Only used if Dyson norms are calculated. If not present, the civecconsolidate code in the \ttt{\$COLUMBUS} directory is used. Note that in the current version of \textsc{Columbus} (Oct. 2014) civecconsolidate is not compatible with the calculation of Dyson norms.\\
 memory          &(integer, MB) Memory for \textsc{Columbus}. Note that the maximum amount of memory used by cioverlaps cannot be controlled with this keyword.\\
 ciothres        &(float) Threshold for including a pair of determinants in the cioverlaps program.\\
 dysonthres      &(float) Threshold for including a pair of determinants in the calculation of Dyson norms.\\
@@ -1919,22 +1924,22 @@ The diabatic Hamiltonian is diagonalized:
 
 
 Then the following calculations lead to the MCH matrices which are passed to \sharc:
-%%ttm: \begin{equation}
-%%ttm:   \mathbf{H}^{\text{MCH}}=\mathbf{H}^{\text{d}}+\mathbf{W}^\dagger\boldsymbol{\Sigma}\mathbf{W}
-%%ttm: \end{equation}
-%%ttm: \begin{equation}
-%%ttm:   \left(\mathbf{g}^{\text{MCH}}_\alpha\right)_{x_i}=\left(\mathbf{W}^\dagger\mathbf{H}_{x_i}\mathbf{W}\right)_{\alpha\alpha}
-%%ttm: \end{equation}
-%%ttm: \begin{equation}
-%%ttm:   \mathbf{M}^{\text{MCH}}_i=\mathbf{W}^\dagger\mathbf{M}_i\mathbf{W}
-%%ttm: \end{equation}
-%%ttm: \begin{equation}
-%%ttm:   \mathbf{S}^{\text{MCH}}(t_0,t)=\mathbf{W}^\dagger(t_0)\mathbf{W}(t)
-%%ttm: \end{equation}
-%%ttm: \begin{equation}
-%%ttm:   \mathbf{D}^{\text{MCH}}_{i,x_j}=\mathbf{W}^\dagger\mathbf{D}_{i,x_j}\mathbf{W}
-%%ttm: \end{equation}
-\ttmdump{
+%%tth: \begin{equation}
+%%tth:   \mathbf{H}^{\text{MCH}}=\mathbf{H}^{\text{d}}+\mathbf{W}^\dagger\boldsymbol{\Sigma}\mathbf{W}
+%%tth: \end{equation}
+%%tth: \begin{equation}
+%%tth:   \left(\mathbf{g}^{\text{MCH}}_\alpha\right)_{x_i}=\left(\mathbf{W}^\dagger\mathbf{H}_{x_i}\mathbf{W}\right)_{\alpha\alpha}
+%%tth: \end{equation}
+%%tth: \begin{equation}
+%%tth:   \mathbf{M}^{\text{MCH}}_i=\mathbf{W}^\dagger\mathbf{M}_i\mathbf{W}
+%%tth: \end{equation}
+%%tth: \begin{equation}
+%%tth:   \mathbf{S}^{\text{MCH}}(t_0,t)=\mathbf{W}^\dagger(t_0)\mathbf{W}(t)
+%%tth: \end{equation}
+%%tth: \begin{equation}
+%%tth:   \mathbf{D}^{\text{MCH}}_{i,x_j}=\mathbf{W}^\dagger\mathbf{D}_{i,x_j}\mathbf{W}
+%%tth: \end{equation}
+\tthdump{
   \begin{align}
     \mathbf{H}^{\text{MCH}}&=\mathbf{H}^{\text{d}}+\mathbf{W}^\dagger\boldsymbol{\Sigma}\mathbf{W}\\
     \left(\mathbf{g}^{\text{MCH}}_\alpha\right)_{x_i}&=\left(\mathbf{W}^\dagger\mathbf{H}_{x_i}\mathbf{W}\right)_{\alpha\alpha}\\
@@ -3100,8 +3105,8 @@ comment
 
 \normalsize
 for the matrix 
-%%ttm: \newline\includegraphics[scale=1]{equations/equation_65.gif}\newline
-\ttmdump{
+%%tth: \newline\includegraphics[scale=1]{img/equations/equation_65.gif}\newline
+\tthdump{
   \begin{equation}
     A=\begin{pmatrix}
         1 &2+0.1i\\
@@ -3133,13 +3138,13 @@ where $i$ runs over the initial conditions.
 The spectrum of a single initial condition is the convolution of its line spectrum, defined through a set of tuples $(E^\alpha,f_\text{osc}^\alpha)$ for each electronic state $\alpha$, where $E^\alpha$ is the excitation energy and $f_\text{osc}^\alpha)$ is the oscillator strength.
 
 The convolution of the line spectrum can be performed with \ttt{spectrum.py} using either Gaussian or Lorentzian functions. The contribution of a state $\alpha$ to the absorption spectrum $\sigma^\alpha(E)$ is given by:
-%%ttm: \begin{equation}
-%%ttm:   \sigma^\alpha_{\text{Gaussian}}(E)=\left(f_{\text{osc}}\right)_i^\alpha \E^{c\left(E-E_i^\alpha\right)^2},
-%%ttm: \end{equation}
-%%ttm: \begin{equation}
-%%ttm:   \text{with}\qquad c=-\frac{4\ln(2)}{\text{FWHM}^2},
-%%ttm: \end{equation}
-\ttmdump{
+%%tth: \begin{equation}
+%%tth:   \sigma^\alpha_{\text{Gaussian}}(E)=\left(f_{\text{osc}}\right)_i^\alpha \E^{c\left(E-E_i^\alpha\right)^2},
+%%tth: \end{equation}
+%%tth: \begin{equation}
+%%tth:   \text{with}\qquad c=-\frac{4\ln(2)}{\text{FWHM}^2},
+%%tth: \end{equation}
+\tthdump{
   \begin{align}
     \sigma_{\text{Gaussian}}^\alpha(E)&=
     \left(f_{\text{osc}}\right)_i^\alpha 
@@ -3149,13 +3154,13 @@ The convolution of the line spectrum can be performed with \ttt{spectrum.py} usi
   \end{align}
 }
 or
-%%ttm: \begin{equation}
-%%ttm:   \sigma_{\text{Lorentzian}}^\alpha(E)=\frac{\left(f_{\text{osc}}\right)_i^\alpha}{\frac{1}{c}\left(E-E_i^\alpha\right)^2+1},
-%%ttm: \end{equation}
-%%ttm: \begin{equation}
-%%ttm:   \text{with}\qquad c=\frac{1}{4}\text{FWHM}^2,
-%%ttm: \end{equation}
-\ttmdump{
+%%tth: \begin{equation}
+%%tth:   \sigma_{\text{Lorentzian}}^\alpha(E)=\frac{\left(f_{\text{osc}}\right)_i^\alpha}{\frac{1}{c}\left(E-E_i^\alpha\right)^2+1},
+%%tth: \end{equation}
+%%tth: \begin{equation}
+%%tth:   \text{with}\qquad c=\frac{1}{4}\text{FWHM}^2,
+%%tth: \end{equation}
+\tthdump{
   \begin{align}
     \sigma_{\text{Lorentzian}}^\alpha(E)&=
     \frac{\left(f_{\text{osc}}\right)_i^\alpha}{\frac{1}{c}\left(E-E_i^\alpha\right)^2+1},\\
@@ -3179,8 +3184,8 @@ where FWHM is the full width at half maximum.
 
 In the example given, state $T_2$ is frozen. The corresponding Hamiltonian looks like:
 
-%%ttm: \newline\includegraphics{equations/equation_9.gif}\newline
-\ttmdump{
+%%tth: \newline\includegraphics{img/equations/equation_9.gif}\newline
+\tthdump{
   \begin{equation}
     \VEC{H}=
     \begin{pmatrix}
@@ -3220,13 +3225,13 @@ The damping factor $C$ must be between 0 and 1.
 In surface hopping, without any corrections the coherence between the states is usually too large \cite{Granucci2007JCP}. A trajectory in state $\beta$, but where state $\alpha$ has a large coefficient, will still travel according to the gradient of state $\beta$. However, the gradients of state $\alpha$ are almost certainly different to the ones of state $\beta$. As a consequence, too much population of state $\alpha$ is following the gradient of state $\beta$. Decoherence corrections damp in different ways the population of all states $\alpha\neq\beta$, so that only population of $\beta$ follows the gradient of state $\beta$.
 
 The decoherence correction currently implemented in \sharc\ is based on the energies of the excited states (``energy-based decoherence'', or EDC, as given in \cite{Granucci2010JCP}). After the surface hopping procedure, when the system is in state $\beta$, the coefficients are updated by the following relation
-%%ttm: \begin{equation}
-%%ttm:   c_\alpha^\prime=c_\alpha\cdot\exp\left[-\Delta t\frac{|E_\alpha-E_\beta|}{\hbar}\left(1+\frac{C}{E_{\text{kin}}} \right)^{-1}\right],\qquad \alpha\neq\beta,
-%%ttm: \end{equation}
-%%ttm: \begin{equation}
-%%ttm:   c_\beta^\prime=\frac{c_\beta}{|c_\beta|}\cdot\left[1-\sum\limits_{\alpha\neq\beta}^{\vphantom{\alpha}} |c^\prime_\alpha|^2\right]^{\frac{1}{2}}
-%%ttm: \end{equation}
-\ttmdump{
+%%tth: \begin{equation}
+%%tth:   c_\alpha^\prime=c_\alpha\cdot\exp\left[-\Delta t\frac{|E_\alpha-E_\beta|}{\hbar}\left(1+\frac{C}{E_{\text{kin}}} \right)^{-1}\right],\qquad \alpha\neq\beta,
+%%tth: \end{equation}
+%%tth: \begin{equation}
+%%tth:   c_\beta^\prime=\frac{c_\beta}{|c_\beta|}\cdot\left[1-\sum\limits_{\alpha\neq\beta}^{\vphantom{\alpha}} |c^\prime_\alpha|^2\right]^{\frac{1}{2}}
+%%tth: \end{equation}
+\tthdump{
   \begin{align}
     c_\alpha^\prime=&
     c_\alpha\cdot\exp
@@ -3248,7 +3253,7 @@ where $C$ is the decoherence parameter. The decoherence correction can be activa
 
 \section{Excitation Selection}\label{met:exc_selection}
 
-After the initial ab initio calculations, for each initial condition $k$ the excitation energies $E_{k,\alpha}$ and the oscillator strengths $f^{\text{osc}}_{k,\alpha}$ are known for the excited states $\alpha$.
+\ttt{excite.py} can select initial active states for the dynamics based on for each initial condition $k$ the excitation energies $E_{k,\alpha}$ and the oscillator strengths $f^{\text{osc}}_{k,\alpha}$ are known for the excited states $\alpha$. The procedure is based on reference~\cite{Barbatti2011}.
 
 First, for all excited states of all initial conditions, the maximum value $p_{\text{max}}$ of 
 \begin{equation}
@@ -3263,50 +3268,50 @@ then the excited state is selected for performing the dynamics. This excited-sta
 Within \ttt{excite.py} it is possible to restrict the selection to a subset of all excited states. In this case, also $p_{\text{max}}$ is only determined based on this subset of excited states.
 
 
-\section{Gradient transformation}\label{met:gradtra}
-
-Since the actual dynamics is performed on the PESs of the diagonal states, also the gradients have to be transformed to the diagonal representation. To this end, first a generalized gradient matrix $\VEC{G}^{\text{MCH}}$ is constructed from the gradients %
-%%ttm: $\VEC{g}^{\text{MCH}}_\alpha=-\nabla_RH_{\alpha\alpha}^{\text{MCH}}$
-\ttmdump{%
-$\VEC{g}^{\text{MCH}}_\alpha=-\nabla_\VEC{R}H_{\alpha\alpha}^{\text{MCH}}$%
-}
-and the non-adiabatic coupling vectors 
-$\VEC{K}_{\beta\alpha}^{\text{MCH}}$:
-%%ttm: \newline\includegraphics[scale=1]{equations/equation_40.gif}\newline
-\ttmdump{
-  \begin{equation}
-    \VEC{G}^{\text{MCH}}=
-    \begin{pmatrix}
-      \VEC{g}_1   &-(H_{11}-H_{22})\VEC{K}_{12} &-(H_{11}-H_{33})\VEC{K}_{13} &\cdots\\
-      -(H_{22}-H_{11})\VEC{K}_{21}      &\VEC{g}_2      &-(H_{22}-H_{33})\VEC{K}_{23}&\cdots\\
-      -(H_{33}-H_{11})\VEC{K}_{31}      &-(H_{33}-H_{22})\VEC{K}_{32} &\VEC{g}_3\\
-      \vdots      &\vdots         &       &\ddots
-    \end{pmatrix}
-  \end{equation}
-}
-Note that all quantities in the matrix are in the MCH representation, the superscripts were omitted for brevity.
-
-The matrix $\VEC{G}^{\text{MCH}}$ is subsequently transformed into the diagonal representation, using the transformation matrix $\VEC{U}$:
-\begin{equation}
-  \VEC{G}^{\text{diag}}=\VEC{U}^\dagger\VEC{G}^{\text{MCH}}\VEC{U}.
-\end{equation}
-The diagonal elements of $\VEC{G}^{\text{diag}}$ now contain the gradients of the diagonal states, while the off-diagonal elements contain the scaled non-adiabatic couplings $-(H^{\text{diag}}_{\beta\beta}-H^{\text{diag}}_{\alpha\alpha})\VEC{K}_{\beta\alpha}^{\text{diag}}$. The gradients are needed in the Velocity Verlet algorithm in order to propagate the nuclear coordinates. The non-adiabatic couplings are necessary if the velocity vector is to be rescaled along the non-adiabatic coupling vector.
-
-Since the matrix $\VEC{G}^{\text{MCH}}$ contains elements which are itself vectors with $3N$ components, the transformation is done component-wise (e.g.\ first a matrix $G_{x,\text{atom} 1}$ is constructed from the $x$ components of all gradients (and non-adiabatic couplings) for atom $1$, this matrix is transformed and written to the $x$, atom $1$ component of $\VEC{G}^{\text{diag}}$, then this is repeated for all components).
-
-Since the calculation of the non-adiabatic couplings $\VEC{K}^{\text{MCH}}_{\beta\alpha}$ might add considerable computational cost, there is the input keyword \ttt{nogradcorrect} which tells \sharc\ to neglect the $\VEC{K}^{\text{MCH}}_{\beta\alpha}$ in the gradient transformation.
-
-\subsection{Dipole moment derivatives}\label{met:dipolegrad}
-
-For strong laser fields, the derivative of the dipole moments might be a non-negligible contribution to the gradients. In this case, they should be included in the gradient transformation step:
-\begin{equation}
-  \VEC{G}^{\text{diag}}=\VEC{U}^\dagger
-  \left[
-    \VEC{G}^{\text{MCH}}
-    -\boldsymbol{\epsilon}(t)\cdot\frac{\partial}{\partial R}\boldsymbol{\mu}
-  \right]\VEC{U}.
-\end{equation}
-This can be activated with the keyword \ttt{dipole\_grad} in the \sharc\ input file.
+% \section{Gradient transformation}\label{met:gradtra}
+% 
+% Since the actual dynamics is performed on the PESs of the diagonal states, also the gradients have to be transformed to the diagonal representation. To this end, first a generalized gradient matrix $\VEC{G}^{\text{MCH}}$ is constructed from the gradients %
+% %%tth: $\VEC{g}^{\text{MCH}}_\alpha=-\nabla_RH_{\alpha\alpha}^{\text{MCH}}$
+% \tthdump{%
+% $\VEC{g}^{\text{MCH}}_\alpha=-\nabla_\VEC{R}H_{\alpha\alpha}^{\text{MCH}}$%
+% }
+% and the non-adiabatic coupling vectors 
+% $\VEC{K}_{\beta\alpha}^{\text{MCH}}$:
+% %%tth: \newline\includegraphics[scale=1]{img/equations/equation_40.gif}\newline
+% \tthdump{
+%   \begin{equation}
+%     \VEC{G}^{\text{MCH}}=
+%     \begin{pmatrix}
+%       \VEC{g}_1   &-(H_{11}-H_{22})\VEC{K}_{12} &-(H_{11}-H_{33})\VEC{K}_{13} &\cdots\\
+%       -(H_{22}-H_{11})\VEC{K}_{21}      &\VEC{g}_2      &-(H_{22}-H_{33})\VEC{K}_{23}&\cdots\\
+%       -(H_{33}-H_{11})\VEC{K}_{31}      &-(H_{33}-H_{22})\VEC{K}_{32} &\VEC{g}_3\\
+%       \vdots      &\vdots         &       &\ddots
+%     \end{pmatrix}
+%   \end{equation}
+% }
+% Note that all quantities in the matrix are in the MCH representation, the superscripts were omitted for brevity.
+% 
+% The matrix $\VEC{G}^{\text{MCH}}$ is subsequently transformed into the diagonal representation, using the transformation matrix $\VEC{U}$:
+% \begin{equation}
+%   \VEC{G}^{\text{diag}}=\VEC{U}^\dagger\VEC{G}^{\text{MCH}}\VEC{U}.
+% \end{equation}
+% The diagonal elements of $\VEC{G}^{\text{diag}}$ now contain the gradients of the diagonal states, while the off-diagonal elements contain the scaled non-adiabatic couplings $-(H^{\text{diag}}_{\beta\beta}-H^{\text{diag}}_{\alpha\alpha})\VEC{K}_{\beta\alpha}^{\text{diag}}$. The gradients are needed in the Velocity Verlet algorithm in order to propagate the nuclear coordinates. The non-adiabatic couplings are necessary if the velocity vector is to be rescaled along the non-adiabatic coupling vector.
+% 
+% Since the matrix $\VEC{G}^{\text{MCH}}$ contains elements which are itself vectors with $3N$ components, the transformation is done component-wise (e.g.\ first a matrix $G_{x,\text{atom} 1}$ is constructed from the $x$ components of all gradients (and non-adiabatic couplings) for atom $1$, this matrix is transformed and written to the $x$, atom $1$ component of $\VEC{G}^{\text{diag}}$, then this is repeated for all components).
+% 
+% Since the calculation of the non-adiabatic couplings $\VEC{K}^{\text{MCH}}_{\beta\alpha}$ might add considerable computational cost, there is the input keyword \ttt{nogradcorrect} which tells \sharc\ to neglect the $\VEC{K}^{\text{MCH}}_{\beta\alpha}$ in the gradient transformation.
+% 
+% \subsection{Dipole moment derivatives}\label{met:dipolegrad}
+% 
+% For strong laser fields, the derivative of the dipole moments might be a non-negligible contribution to the gradients. In this case, they should be included in the gradient transformation step:
+% \begin{equation}
+%   \VEC{G}^{\text{diag}}=\VEC{U}^\dagger
+%   \left[
+%     \VEC{G}^{\text{MCH}}
+%     -\boldsymbol{\epsilon}(t)\cdot\frac{\partial}{\partial R}\boldsymbol{\mu}
+%   \right]\VEC{U}.
+% \end{equation}
+% This can be activated with the keyword \ttt{dipole\_grad} in the \sharc\ input file.
 
 
 \section{Internal coordinates definitions}\label{met:geo}
@@ -3363,16 +3368,16 @@ The Boeyens classification scheme is described in \cite{Boeyens1976JCMS}.
 There are several options how to adjust the kinetic energy after a surface hop occured. The simplest option is to not adjust the kinetic energy at all (input: \ttt{ekincorrect none}), but this obviously leads to violation of the conservation of total energy.
 
 Alternatively, the velocities of all atoms can be rescaled so that the new kinetic energy and the potential energy of the new state $\beta$ again sum up to the total energy.
-%%ttm: \begin{equation} 
-%%ttm:   f=\sqrt{\frac{E_{\text{total}}-E_\beta}{E_{\text{kin}}}}
-%%ttm: \end{equation}
-%%ttm: \begin{equation} 
-%%ttm:   \VEC{v}^\prime=f\VEC{v}
-%%ttm: \end{equation}
-%%ttm: \begin{equation} 
-%%ttm:   E_{\text{kin}}^\prime=f^2E_{\text{kin}}
-%%ttm: \end{equation}
-\ttmdump{
+%%tth: \begin{equation} 
+%%tth:   f=\sqrt{\frac{E_{\text{total}}-E_\beta}{E_{\text{kin}}}}
+%%tth: \end{equation}
+%%tth: \begin{equation} 
+%%tth:   \VEC{v}^\prime=f\VEC{v}
+%%tth: \end{equation}
+%%tth: \begin{equation} 
+%%tth:   E_{\text{kin}}^\prime=f^2E_{\text{kin}}
+%%tth: \end{equation}
+\tthdump{
   \begin{align}
     f&=\sqrt{\frac{E_{\text{total}}-E_\beta}{E_{\text{kin}}}}\\
     \VEC{v}^\prime&=f\VEC{v}\\
@@ -3382,13 +3387,13 @@ Alternatively, the velocities of all atoms can be rescaled so that the new kinet
 Within this methodology, when the energy of the old state $\alpha$ was lower than the energy of the new state $\beta$ the kinetic energy is lowered. Since the kinetic energy must be positive, this implies that there might be states which cannot be reached (their potential energy is above the total energy). A hop to such a state is called ``frustrated hop'' and will be rejected by \sharc. Rescaling parallel to the nuclear velocity vector is requested with \ttt{ekincorrect parallel\_vel}.
 
 Alternatively, according to Tully's original formulation of the surface hopping method \cite{Tully1990JCP}, after a hop from $\alpha$ to $\beta$ only the component of the velocity along the direction of the non-adiabatic coupling vector $\VEC{K}_{\beta\alpha}$ should be rescaled. With
-%%ttm: \begin{equation} 
-%%ttm:   a=\sum\limits_i^{N_\mathrm{atom}} \frac{\VEC{K}_{\beta\alpha, i}\cdot\VEC{K}_{\beta\alpha, i}}{2M_i}
-%%ttm: \end{equation}
-%%ttm: \begin{equation} 
-%%ttm:   b=\sum\limits_i^{N_\mathrm{atom}} \VEC{v}_{i}\cdot \VEC{K}_{\beta\alpha, i}
-%%ttm: \end{equation}
-\ttmdump{
+%%tth: \begin{equation} 
+%%tth:   a=\sum\limits_i^{N_\mathrm{atom}} \frac{\VEC{K}_{\beta\alpha, i}\cdot\VEC{K}_{\beta\alpha, i}}{2M_i}
+%%tth: \end{equation}
+%%tth: \begin{equation} 
+%%tth:   b=\sum\limits_i^{N_\mathrm{atom}} \VEC{v}_{i}\cdot \VEC{K}_{\beta\alpha, i}
+%%tth: \end{equation}
+\tthdump{
   \begin{align}
     a&=\sum\limits_i^{N_\mathrm{atom}} \frac{\VEC{K}_{\beta\alpha, i}\cdot\VEC{K}_{\beta\alpha, i}}{2M_i}\\
     b&=\sum\limits_i^{N_\mathrm{atom}} \VEC{v}_{i}\cdot\VEC{K}_{\beta\alpha, i}
@@ -3403,8 +3408,8 @@ the available energy can be calculated:
   \right)+b^2.
 \end{equation}
 If $\Delta<0$, the hop is frustrated and will be rejected. Otherwise, the scaled velocities $\VEC{v}^\prime$ can be calculated as
-%%ttm: \newline\includegraphics{equations/equation_38.gif}\newline
-\ttmdump{
+%%tth: \newline\includegraphics{img/equations/equation_38.gif}\newline
+\tthdump{
   \begin{align}
     \VEC{v}_i^\prime&=\VEC{v}_i-f\frac{\VEC{K}_{\beta\alpha, i}}{M_i}\\
     \mathrm{with}\quad f&=
@@ -3439,13 +3444,13 @@ A pulse $l(t)$ is formed as the product of an envelope function and a field func
 There are two types of envelope function defined in \ttt{laser.x}, which are Gaussian and sinusoidal.
 
 The Gaussian envelope is defined as:
-%%ttm: \begin{equation} 
-%%ttm:   \mathcal{E}(t)=\mathcal{E}_0 \E^{-\beta(t-t_c)^2}\label{eq:laser_gauss_1}
-%%ttm: \end{equation}
-%%ttm: \begin{equation} 
-%%ttm:   \beta=\frac{4\ln 2}{\mathrm{FWHM}^2}\label{eq:laser_gauss_2}
-%%ttm: \end{equation}
-\ttmdump{
+%%tth: \begin{equation} 
+%%tth:   \mathcal{E}(t)=\mathcal{E}_0 \E^{-\beta(t-t_c)^2}\label{eq:laser_gauss_1}
+%%tth: \end{equation}
+%%tth: \begin{equation} 
+%%tth:   \beta=\frac{4\ln 2}{\mathrm{FWHM}^2}\label{eq:laser_gauss_2}
+%%tth: \end{equation}
+\tthdump{
   \begin{align}
     \mathcal{E}(t)&=\mathcal{E}_0 \E^{-\beta(t-t_c)^2}\label{eq:laser_gauss_1}\\
     \beta&=\frac{4\ln 2}{\mathrm{FWHM}^2}\label{eq:laser_gauss_2}
@@ -3454,8 +3459,8 @@ The Gaussian envelope is defined as:
 where $\mathcal{E}_0$ is the peak field strength, FWHM is the full width at half maximum and $t_c$ is the temporal center of the pulse.
 
 The sinusoidal envelope is defined as:
-%%ttm: \newline\includegraphics[scale=1]{equations/equation_30.gif}\newline
-\ttmdump{
+%%tth: \newline\includegraphics[scale=1]{img/equations/equation_30.gif}\newline
+\tthdump{
   \begin{equation}
     \mathcal{E}(t)=\mathcal{E}_0
     \begin{cases}
@@ -3503,22 +3508,22 @@ The chirped laser in the time domain $l^\prime(t)$ is then obtained by Fourier t
 \subsection{Quadratic chirp without Fourier transform}
 
 If \ttt{laser.x} was compiled without the FFTW package, the only accessible chirps are quadratic chirps for Gaussian pulses:
-%%ttm: \begin{equation} 
-%%ttm:   l(t)=\mathcal{E}_0^\prime\E^{-\I\left(\omega_0(t-t_c)+a_2(t-t_c)^2+\phi\right)}
-%%ttm: \end{equation}
-%%ttm: \begin{equation} 
-%%ttm:   \beta=\frac{4\ln 2}{\mathrm{FWHM}^2}
-%%ttm: \end{equation}
-%%ttm: \begin{equation} 
-%%ttm:   \beta^\prime=\frac{1}{\frac{1}{\beta}+4\beta b_2^2}
-%%ttm: \end{equation}
-%%ttm: \begin{equation} 
-%%ttm:   a_2=\frac{b_2}{\frac{1}{4\beta^2}+b^2_2}
-%%ttm: \end{equation}
-%%ttm: \begin{equation} 
-%%ttm:   \mathcal{E}_0^\prime=\mathcal{E}_0\sqrt{\frac{1}{2\I b_2\beta+1}}
-%%ttm: \end{equation}
-\ttmdump{
+%%tth: \begin{equation} 
+%%tth:   l(t)=\mathcal{E}_0^\prime\E^{-\I\left(\omega_0(t-t_c)+a_2(t-t_c)^2+\phi\right)}
+%%tth: \end{equation}
+%%tth: \begin{equation} 
+%%tth:   \beta=\frac{4\ln 2}{\mathrm{FWHM}^2}
+%%tth: \end{equation}
+%%tth: \begin{equation} 
+%%tth:   \beta^\prime=\frac{1}{\frac{1}{\beta}+4\beta b_2^2}
+%%tth: \end{equation}
+%%tth: \begin{equation} 
+%%tth:   a_2=\frac{b_2}{\frac{1}{4\beta^2}+b^2_2}
+%%tth: \end{equation}
+%%tth: \begin{equation} 
+%%tth:   \mathcal{E}_0^\prime=\mathcal{E}_0\sqrt{\frac{1}{2\I b_2\beta+1}}
+%%tth: \end{equation}
+\tthdump{
   \begin{align}
     l(t)=&
     \mathcal{E}_0^\prime
@@ -3538,16 +3543,16 @@ Other chirps are only possible with the Fourier transformation.
 \section{Laser interactions}\label{met:laser}
 
 The laser field $\boldsymbol{\epsilon}$ is included in the propagation of the electronic wavefunction. In each substep of the propagation, the interaction of the laser field with the dipole moments is included in the Hamiltonian. The contribution $\VEC{V}_i$ is in each timestep added to the Hamiltonian in equations~\eqref{eq:ham_propn} or \eqref{eq:ham_propl}, respectively:
-%%ttm: \begin{equation} 
-%%ttm:   \VEC{V}_i=-\Re\left(\boldsymbol{\mu}_i\cdot\boldsymbol{\epsilon}_i\right),
-%%ttm: \end{equation}
-%%ttm: \begin{equation} 
-%%ttm:   \boldsymbol{\mu}_i=\boldsymbol{\mu}^{\text{MCH}}(t) + \frac{i}{n}\left(\boldsymbol{\mu}^{\text{MCH}}(t+\Delta t)-\boldsymbol{\mu}^{\text{MCH}}(t)\right),
-%%ttm: \end{equation}
-%%ttm: \begin{equation} 
-%%ttm:   \boldsymbol{\epsilon}_i=\boldsymbol{\epsilon}\left(t+\frac{i}{n}\Delta t\right)
-%%ttm: \end{equation}
-\ttmdump{
+%%tth: \begin{equation} 
+%%tth:   \VEC{V}_i=-\Re\left(\boldsymbol{\mu}_i\cdot\boldsymbol{\epsilon}_i\right),
+%%tth: \end{equation}
+%%tth: \begin{equation} 
+%%tth:   \boldsymbol{\mu}_i=\boldsymbol{\mu}^{\text{MCH}}(t) + \frac{i}{n}\left(\boldsymbol{\mu}^{\text{MCH}}(t+\Delta t)-\boldsymbol{\mu}^{\text{MCH}}(t)\right),
+%%tth: \end{equation}
+%%tth: \begin{equation} 
+%%tth:   \boldsymbol{\epsilon}_i=\boldsymbol{\epsilon}\left(t+\frac{i}{n}\Delta t\right)
+%%tth: \end{equation}
+\tthdump{
   \begin{align}
     \VEC{V}_i=&
     -
@@ -3578,112 +3583,112 @@ where $W$ is a fixed parameter. $W$ can be set using the input keyword \ttt{lase
 
 If a hop has been classified as laser-free, the momentum is adjusted according to the equations given in section~\ref{met:ekinadj}.
 
-\section{Phase tracking}
-
-\subsection{Phase tracking of the transformation matrix}\label{met:phase_track}
-
-A Hermitian matrix $\VEC{H}^{\text{MCH}}$ can always be diagonalized. Its eigenvectors form the rows of a unitary matrix $\VEC{U}$, which can be used to transform between the original basis and the basis of the eigenfunctions of $\VEC{H}$. 
-\begin{equation}
-  \VEC{H}^{\text{diag}}=\VEC{U}^\dagger\VEC{H}^{\text{MCH}}\VEC{U}.
-\end{equation}
-
-However, the condition that $\VEC{U}$ diagonalizes $\VEC{H}^{\text{MCH}}$ is not sufficient to define $\VEC{U}$ uniquely. Each normalized eigenvector $\VEC{u}$ can be multiplied by a complex number on the unit circle and still remains a normalized eigenvector:
-%%ttm: \begin{equation} 
-%%ttm:   \VEC{H} \VEC{u} =h\VEC{u} \qquad\text{and}\qquad\VEC{u}^\dagger\VEC{u}=1
-%%ttm: \end{equation}
-%%ttm: \begin{equation} 
-%%ttm:   \Rightarrow\nonumber
-%%ttm: \end{equation}
-%%ttm: \begin{equation} 
-%%ttm:   \VEC{H}\left(\E^{\I\phi}\VEC{u}\right)=\E^{\I\phi}\left(\VEC{H}\VEC{u}\right)=\E^{\I\phi}h\VEC{u} =h\left(\E^{\I\phi}\VEC{u}\right)
-%%ttm: \end{equation}
-%%ttm: \begin{equation} 
-%%ttm:   \text{and}
-%%ttm: \end{equation}
-%%ttm: \begin{equation} 
-%%ttm:   \left(\E^{\I\phi}\VEC{u}\right)^\dagger\left(\E^{\I\phi}\VEC{u}\right)=\VEC{u}^\dagger\E^{-\I\phi}\E^{\I\phi}\VEC{u}=\VEC{u}^\dagger\VEC{u}=1
-%%ttm: \end{equation}
-\ttmdump{
-  \begin{align}
-    \VEC{H}\VEC{u}=h\VEC{u}
-    \qquad&\text{and}\qquad
-    \VEC{u}^\dagger\VEC{u}=1\\
-    &\Rightarrow\nonumber\\
-    \VEC{H}\left(\E^{\I\phi}\VEC{u}\right)
-    =\E^{\I\phi}\left(\VEC{H}\VEC{u}\right)
-    &=\E^{\I\phi}h\VEC{u}
-    =h\left(\E^{\I\phi}\VEC{u}\right)\\
-    &\text{and}\nonumber\\
-    \left(\E^{\I\phi}\VEC{u}\right)^\dagger\left(\E^{\I\phi}\VEC{u}\right)
-    =\VEC{u}^\dagger\E^{-\I\phi}&\E^{\I\phi}\VEC{u}
-    =\VEC{u}^\dagger\VEC{u}=1
-  \end{align}
-}
-Thus, for all diagonal matrices $\boldsymbol{\Phi}$ with elements 
-%%ttm: $\delta_{\beta\alpha}\exp(\I\phi_\beta)$, 
-\ttmdump{
-  $\delta_{\beta\alpha}\E^{\I\phi_\beta}$, 
-}
-also the matrix $\VEC{U}^\prime=\VEC{U}\boldsymbol{\Phi}$ diagonalizes $\VEC{H}^{\text{MCH}}$ (if $\VEC{U}$ diagonalizes it).
-
-The propagation of the coefficients in the diagonal basis is written as (see section~\ref{met:propagate}):
-\begin{equation}
-  \VEC{c}^{\text{diag}}(t+\Delta t)=\underbrace{\VEC{U}^\dagger(t+\Delta t)\VEC{R}^{\text{MCH}}(t+\Delta t,t)\VEC{U}(t)}_{\VEC{R}^{\text{diag}}(t+\Delta t,t)}\VEC{c}^{\text{diag}}(t)
-\end{equation}
-where $\VEC{U}(t)$ and $\VEC{U}(t+\Delta t)$ are determined independently from diagonalizing the matrices $\VEC{H}^{\text{MCH}}(t)$ and $\VEC{H}^{\text{MCH}}(t+\Delta t)$, respectively. However, depending on the implementation of the diagonalization, $\VEC{U}(t)$ and $\VEC{U}(t+\Delta t)$ may carry unrelated, random phases. Even if $\VEC{H}^{\text{MCH}}(t)$ and $\VEC{H}^{\text{MCH}}(t+\Delta t)$ were identical, $\VEC{U}(t)$ and $\VEC{U}(t+\Delta t)$ might still differ, e.g.:
-%%ttm:\newline \includegraphics[scale=1]{equations/equation_51.gif}\newline
-\ttmdump{
-  \begin{equation}
-    \VEC{U}(t)=
-    \begin{pmatrix}1&0\\0&1\end{pmatrix}
-    \qquad\text{and}\qquad 
-    \VEC{U}(t+\Delta t)=
-    \begin{pmatrix}\I&0\\0&-\I\end{pmatrix}
-  \end{equation}
-}
-The result is that the coefficients $\VEC{c}$ pick up random phases during the propagation, leading to random changes in the direction of population transfer, invalidating the whole propagation.
-
-In order to make the phases of $\VEC{U}(t)$ and $\VEC{U}(t+\Delta t)$ as similar as possible, \sharc\ employs a projection technique. First, we define the overlap matrix $\VEC{V}$ between $\VEC{U}(t)$ and $\VEC{U}(t+\Delta t)$:
-\begin{equation}
-  \VEC{V}=\VEC{U}^\dagger(t+\Delta t)\VEC{U}(t)
-\end{equation}
-For $\Delta t=0$, clearly
-\begin{equation}
-  \VEC{U}(t+\Delta t)\VEC{V}=\VEC{U}(t)
-\end{equation}
-and $\VEC{V}$ can be identified with the phase matrix $\boldsymbol{\Phi}$.
-
-For $\Delta t\neq 0$, we must now find a matrix $\VEC{P}$ so that
-\begin{equation}
-  \VEC{U}(t+\Delta t)\VEC{P}=\VEC{U}^\prime(t+\Delta t)
-\end{equation}
-still diagonalizes $\VEC{H}^{\text{MCH}}(t+\Delta t)$, but which minimizes the phase change with regard to $\VEC{U}(t)$.
-The matrix $\VEC{P}$ has elements
-\begin{equation}
-  P_{\beta\alpha}=V_{\beta\alpha}
-  \delta\left(
-    E_\beta-E_\alpha
-  \right).
-\end{equation}
-where $E_\beta$ is the $\beta$-th eigenvalue of $\VEC{H}^{\text{MCH}}(t+\Delta t)$.
-
-Within the \sharc\ algorithm, the phase of $\VEC{U}(t+\Delta t)$ is adjusted to be most similar to $\VEC{U}(t)$ by calculating first $\VEC{V}$, generating $\VEC{P}$ from $\VEC{V}$ and the eigenvalues of $\VEC{H}^{\text{MCH}}(t+\Delta t)$ and calculating the phase-corrected matrix $\VEC{U}^\prime(t+\Delta t)$ as $\VEC{U}(t+\Delta t)\VEC{P}$.
-
-\subsection{Tracking of the phase of the MCH wavefunctions}
-
-Additionally, within the quantum chemistry programs, the phases of the electronic wavefunctions may change from one timestep to the next one. This will result in changes of the phase of all off-diagonal matrix elements (spin-orbit couplings, transition dipole moments, non-adiabatic couplings). \sharc\ has several possibilities to correct for that:
-\begin{itemize}
-  \item The interface can provide wavefunction phases through \ttt{QM.out}.
-  \item If the overlap matrix is available, its diagonal contains the necessary phase information.
-  \item Otherwise the scalar products of old and new non-adiabatic couplings and the relative phase of SOC matrix elements can be used to construct phase information.
-\end{itemize}
+% \section{Phase tracking}
+% 
+% \subsection{Phase tracking of the transformation matrix}\label{met:phase_track}
+% 
+% A Hermitian matrix $\VEC{H}^{\text{MCH}}$ can always be diagonalized. Its eigenvectors form the rows of a unitary matrix $\VEC{U}$, which can be used to transform between the original basis and the basis of the eigenfunctions of $\VEC{H}$. 
+% \begin{equation}
+%   \VEC{H}^{\text{diag}}=\VEC{U}^\dagger\VEC{H}^{\text{MCH}}\VEC{U}.
+% \end{equation}
+% 
+% However, the condition that $\VEC{U}$ diagonalizes $\VEC{H}^{\text{MCH}}$ is not sufficient to define $\VEC{U}$ uniquely. Each normalized eigenvector $\VEC{u}$ can be multiplied by a complex number on the unit circle and still remains a normalized eigenvector:
+% %%tth: \begin{equation} 
+% %%tth:   \VEC{H} \VEC{u} =h\VEC{u} \qquad\text{and}\qquad\VEC{u}^\dagger\VEC{u}=1
+% %%tth: \end{equation}
+% %%tth: \begin{equation} 
+% %%tth:   \Rightarrow\nonumber
+% %%tth: \end{equation}
+% %%tth: \begin{equation} 
+% %%tth:   \VEC{H}\left(\E^{\I\phi}\VEC{u}\right)=\E^{\I\phi}\left(\VEC{H}\VEC{u}\right)=\E^{\I\phi}h\VEC{u} =h\left(\E^{\I\phi}\VEC{u}\right)
+% %%tth: \end{equation}
+% %%tth: \begin{equation} 
+% %%tth:   \text{and}
+% %%tth: \end{equation}
+% %%tth: \begin{equation} 
+% %%tth:   \left(\E^{\I\phi}\VEC{u}\right)^\dagger\left(\E^{\I\phi}\VEC{u}\right)=\VEC{u}^\dagger\E^{-\I\phi}\E^{\I\phi}\VEC{u}=\VEC{u}^\dagger\VEC{u}=1
+% %%tth: \end{equation}
+% \tthdump{
+%   \begin{align}
+%     \VEC{H}\VEC{u}=h\VEC{u}
+%     \qquad&\text{and}\qquad
+%     \VEC{u}^\dagger\VEC{u}=1\\
+%     &\Rightarrow\nonumber\\
+%     \VEC{H}\left(\E^{\I\phi}\VEC{u}\right)
+%     =\E^{\I\phi}\left(\VEC{H}\VEC{u}\right)
+%     &=\E^{\I\phi}h\VEC{u}
+%     =h\left(\E^{\I\phi}\VEC{u}\right)\\
+%     &\text{and}\nonumber\\
+%     \left(\E^{\I\phi}\VEC{u}\right)^\dagger\left(\E^{\I\phi}\VEC{u}\right)
+%     =\VEC{u}^\dagger\E^{-\I\phi}&\E^{\I\phi}\VEC{u}
+%     =\VEC{u}^\dagger\VEC{u}=1
+%   \end{align}
+% }
+% Thus, for all diagonal matrices $\boldsymbol{\Phi}$ with elements 
+% %%tth: $\delta_{\beta\alpha}\exp(\I\phi_\beta)$, 
+% \tthdump{
+%   $\delta_{\beta\alpha}\E^{\I\phi_\beta}$, 
+% }
+% also the matrix $\VEC{U}^\prime=\VEC{U}\boldsymbol{\Phi}$ diagonalizes $\VEC{H}^{\text{MCH}}$ (if $\VEC{U}$ diagonalizes it).
+% 
+% The propagation of the coefficients in the diagonal basis is written as (see section~\ref{met:propagate}):
+% \begin{equation}
+%   \VEC{c}^{\text{diag}}(t+\Delta t)=\underbrace{\VEC{U}^\dagger(t+\Delta t)\VEC{R}^{\text{MCH}}(t+\Delta t,t)\VEC{U}(t)}_{\VEC{R}^{\text{diag}}(t+\Delta t,t)}\VEC{c}^{\text{diag}}(t)
+% \end{equation}
+% where $\VEC{U}(t)$ and $\VEC{U}(t+\Delta t)$ are determined independently from diagonalizing the matrices $\VEC{H}^{\text{MCH}}(t)$ and $\VEC{H}^{\text{MCH}}(t+\Delta t)$, respectively. However, depending on the implementation of the diagonalization, $\VEC{U}(t)$ and $\VEC{U}(t+\Delta t)$ may carry unrelated, random phases. Even if $\VEC{H}^{\text{MCH}}(t)$ and $\VEC{H}^{\text{MCH}}(t+\Delta t)$ were identical, $\VEC{U}(t)$ and $\VEC{U}(t+\Delta t)$ might still differ, e.g.:
+% %%ttm:\newline \includegraphics[scale=1]{img/equations/equation_51.gif}\newline
+% \tthdump{
+%   \begin{equation}
+%     \VEC{U}(t)=
+%     \begin{pmatrix}1&0\\0&1\end{pmatrix}
+%     \qquad\text{and}\qquad 
+%     \VEC{U}(t+\Delta t)=
+%     \begin{pmatrix}\I&0\\0&-\I\end{pmatrix}
+%   \end{equation}
+% }
+% The result is that the coefficients $\VEC{c}$ pick up random phases during the propagation, leading to random changes in the direction of population transfer, invalidating the whole propagation.
+% 
+% In order to make the phases of $\VEC{U}(t)$ and $\VEC{U}(t+\Delta t)$ as similar as possible, \sharc\ employs a projection technique. First, we define the overlap matrix $\VEC{V}$ between $\VEC{U}(t)$ and $\VEC{U}(t+\Delta t)$:
+% \begin{equation}
+%   \VEC{V}=\VEC{U}^\dagger(t+\Delta t)\VEC{U}(t)
+% \end{equation}
+% For $\Delta t=0$, clearly
+% \begin{equation}
+%   \VEC{U}(t+\Delta t)\VEC{V}=\VEC{U}(t)
+% \end{equation}
+% and $\VEC{V}$ can be identified with the phase matrix $\boldsymbol{\Phi}$.
+% 
+% For $\Delta t\neq 0$, we must now find a matrix $\VEC{P}$ so that
+% \begin{equation}
+%   \VEC{U}(t+\Delta t)\VEC{P}=\VEC{U}^\prime(t+\Delta t)
+% \end{equation}
+% still diagonalizes $\VEC{H}^{\text{MCH}}(t+\Delta t)$, but which minimizes the phase change with regard to $\VEC{U}(t)$.
+% The matrix $\VEC{P}$ has elements
+% \begin{equation}
+%   P_{\beta\alpha}=V_{\beta\alpha}
+%   \delta\left(
+%     E_\beta-E_\alpha
+%   \right).
+% \end{equation}
+% where $E_\beta$ is the $\beta$-th eigenvalue of $\VEC{H}^{\text{MCH}}(t+\Delta t)$.
+% 
+% Within the \sharc\ algorithm, the phase of $\VEC{U}(t+\Delta t)$ is adjusted to be most similar to $\VEC{U}(t)$ by calculating first $\VEC{V}$, generating $\VEC{P}$ from $\VEC{V}$ and the eigenvalues of $\VEC{H}^{\text{MCH}}(t+\Delta t)$ and calculating the phase-corrected matrix $\VEC{U}^\prime(t+\Delta t)$ as $\VEC{U}(t+\Delta t)\VEC{P}$.
+% 
+% \subsection{Tracking of the phase of the MCH wavefunctions}
+% 
+% Additionally, within the quantum chemistry programs, the phases of the electronic wavefunctions may change from one timestep to the next one. This will result in changes of the phase of all off-diagonal matrix elements (spin-orbit couplings, transition dipole moments, non-adiabatic couplings). \sharc\ has several possibilities to correct for that:
+% \begin{itemize}
+%   \item The interface can provide wavefunction phases through \ttt{QM.out}.
+%   \item If the overlap matrix is available, its diagonal contains the necessary phase information.
+%   \item Otherwise the scalar products of old and new non-adiabatic couplings and the relative phase of SOC matrix elements can be used to construct phase information.
+% \end{itemize}
 
 
 \section{Random initial velocities}\label{met:veloc}
 
 Random initial velocities are calculated with a given amount of kinetic energy $E$ per atom $a$. For each atom, the velocity is calculated as follows, with two uniform random numbers $\theta$ and $\phi$, from the interval $[0,1[$:
-%%ttm: \newline\includegraphics[scale=1]{equations/equation_47.gif}\newline
-\ttmdump{
+%%tth: \newline\includegraphics[scale=1]{img/equations/equation_47.gif}\newline
+\tthdump{
   \begin{equation}
     \VEC{v}=\sqrt{2E/m_a}
     \begin{pmatrix}
@@ -3748,13 +3753,13 @@ In order to create an initial condition $(\VEC{R},\VEC{v})$, the following proce
   W_i=\E^{-P_i^2}\E^{-Q_i^2}.
 \end{equation}
 $W_i$ is compared to a uniform random $r_i$ number from $[0,1]$. If $W_i>r_i$, then $P_i$ and $Q_i$ are accepted and the coordinates and velocities are updated:
-%%ttm: \begin{equation}
-%%ttm:   \VEC{R}_i=\VEC{R}_{i-1} + \frac{Q}{\sqrt{2\nu_i}}\VEC{n}_i
-%%ttm: \end{equation}
-%%ttm: \begin{equation}
-%%ttm:   \VEC{v}_i=\VEC{v}_{i-1} + \frac{P\sqrt{\nu_i}}{\sqrt{2}}\VEC{n}_i
-%%ttm: \end{equation}
-\ttmdump{
+%%tth: \begin{equation}
+%%tth:   \VEC{R}_i=\VEC{R}_{i-1} + \frac{Q}{\sqrt{2\nu_i}}\VEC{n}_i
+%%tth: \end{equation}
+%%tth: \begin{equation}
+%%tth:   \VEC{v}_i=\VEC{v}_{i-1} + \frac{P\sqrt{\nu_i}}{\sqrt{2}}\VEC{n}_i
+%%tth: \end{equation}
+\tthdump{
   \begin{align}
     \VEC{R}_i=&\VEC{R}_{i-1} + \frac{Q}{\sqrt{2\nu_i}}\VEC{n}_i\\
     \VEC{v}_i=&\VEC{v}_{i-1} + \frac{P\sqrt{\nu_i}}{\sqrt{2}}\VEC{n}_i\\
@@ -3902,19 +3907,19 @@ See section~\ref{met:ekinadj} for further details on how frustrated hops are han
 \section{Velocity Verlet}
 
 The nuclear coordinates of atom $A$ are updated according to the Velocity Verlet algorithm \cite{Verlet1967PR}, based on the gradient of state $\beta$ at $\VEC{R}(t)$ and $\VEC{R}(t+\Delta t)$:
-%%ttm: \begin{equation}
-%%ttm:   \VEC{a}_A(t)=-\frac{1}{m_A}\nabla_{\VEC{R_A}}E_\beta(\VEC{R}(t))
-%%ttm: \end{equation}
-%%ttm: \begin{equation}
-%%ttm:   \VEC{a}_A(t+\Delta t)=-\frac{1}{m_A}\nabla_{\VEC{R_A}}E_\beta(\VEC{R}(t+\Delta t))
-%%ttm: \end{equation}
-%%ttm: \begin{equation}
-%%ttm:   \VEC{R}_A(t+\Delta t)=\VEC{R}_A(t)+\VEC{v}_A(t)\Delta t + \frac{1}{2}\VEC{a}_A(t)\Delta t^2
-%%ttm: \end{equation}
-%%ttm: \begin{equation}
-%%ttm:   \VEC{v}_A(t+\Delta t)=\VEC{v}_A(t)+\frac{1}{2}\left[\VEC{a}_A(t)+\VEC{a}_A(t+\Delta t)\right]\Delta t
-%%ttm: \end{equation}
-\ttmdump{
+%%tth: \begin{equation}
+%%tth:   \VEC{a}_A(t)=-\frac{1}{m_A}\nabla_{\VEC{R_A}}E_\beta(\VEC{R}(t))
+%%tth: \end{equation}
+%%tth: \begin{equation}
+%%tth:   \VEC{a}_A(t+\Delta t)=-\frac{1}{m_A}\nabla_{\VEC{R_A}}E_\beta(\VEC{R}(t+\Delta t))
+%%tth: \end{equation}
+%%tth: \begin{equation}
+%%tth:   \VEC{R}_A(t+\Delta t)=\VEC{R}_A(t)+\VEC{v}_A(t)\Delta t + \frac{1}{2}\VEC{a}_A(t)\Delta t^2
+%%tth: \end{equation}
+%%tth: \begin{equation}
+%%tth:   \VEC{v}_A(t+\Delta t)=\VEC{v}_A(t)+\frac{1}{2}\left[\VEC{a}_A(t)+\VEC{a}_A(t+\Delta t)\right]\Delta t
+%%tth: \end{equation}
+\tthdump{
   \begin{align}
     \VEC{a}_A(t)=&
     -\frac{1}{m_A}\nabla_{\VEC{R_A}}E_\beta(\VEC{R}(t))\\
@@ -4016,19 +4021,19 @@ with the time-ordering operator $\hat{\mathfrak{T}}$. For small timesteps $\Delt
   \right]
 \end{equation}
 And in order to have a sufficiently small timestep for this to work, the interval $(t,t+\Delta t)$ is further split into subtimesteps $\Delta\tau=\frac{\Delta t}{n}$. 
-%%ttm: \begin{equation}
-%%ttm:   \VEC{R}^{\text{MCH}}(t+\Delta t,t)=\prod\limits_{i=1}^{n}\VEC{R}_i
-%%ttm: \end{equation}
-%%ttm: \begin{equation}
-%%ttm:   \VEC{R}_i=\exp\left[-\left(\frac{\I}{\hbar}\VEC{H}_i+\VEC{K}_i\right)\Delta\tau\right]
-%%ttm: \end{equation}
-%%ttm: \begin{equation}
-%%ttm:   \VEC{H}_i=\VEC{H}^{\text{MCH}}(t) + \frac{i}{n}\left(\VEC{H}^{\text{MCH}}(t+\Delta t)-\VEC{H}^{\text{MCH}}(t)\right)\label{eq:ham_propn}
-%%ttm: \end{equation}
-%%ttm: \begin{equation}
-%%ttm:   \VEC{K}_i=\VEC{K}^{\text{MCH}}(t) + \frac{i}{n}\left(\VEC{K}^{\text{MCH}}(t+\Delta t)-\VEC{K}^{\text{MCH}}(t)\right)
-%%ttm: \end{equation}
-\ttmdump{
+%%tth: \begin{equation}
+%%tth:   \VEC{R}^{\text{MCH}}(t+\Delta t,t)=\prod\limits_{i=1}^{n}\VEC{R}_i
+%%tth: \end{equation}
+%%tth: \begin{equation}
+%%tth:   \VEC{R}_i=\exp\left[-\left(\frac{\I}{\hbar}\VEC{H}_i+\VEC{K}_i\right)\Delta\tau\right]
+%%tth: \end{equation}
+%%tth: \begin{equation}
+%%tth:   \VEC{H}_i=\VEC{H}^{\text{MCH}}(t) + \frac{i}{n}\left(\VEC{H}^{\text{MCH}}(t+\Delta t)-\VEC{H}^{\text{MCH}}(t)\right)\label{eq:ham_propn}
+%%tth: \end{equation}
+%%tth: \begin{equation}
+%%tth:   \VEC{K}_i=\VEC{K}^{\text{MCH}}(t) + \frac{i}{n}\left(\VEC{K}^{\text{MCH}}(t+\Delta t)-\VEC{K}^{\text{MCH}}(t)\right)
+%%tth: \end{equation}
+\tthdump{
   \begin{align}
     \VEC{R}^{\text{MCH}}(t+\Delta t,t)=&
     \prod\limits_{i=1}^{n}
@@ -4068,19 +4073,19 @@ Within this algorithm, the change of the electronic states between timesteps is 
 \end{equation}
 
 With this, the propagator matrix can be written as
-%%ttm: \begin{equation}
-%%ttm:   \VEC{R}^{\text{MCH}}(t+\Delta t,t)=\VEC{S}^{\text{MCH}}(t,t+\Delta t)^\dagger\prod\limits_{i=1}^{n}\VEC{R}_i
-%%ttm: \end{equation}
-%%ttm: \begin{equation}
-%%ttm:   \VEC{R}_i=\exp\left[-\frac{\I}{\hbar}\VEC{H}_i\Delta\tau\right]
-%%ttm: \end{equation}
-%%ttm: \begin{equation}
-%%ttm:   \VEC{H}_i=\VEC{H}^{\text{MCH}}(t) + \frac{i}{n}\left(\VEC{H}^{\text{MCH}}_{\text{tra}}-\VEC{H}^{\text{MCH}}(t)\right)\label{eq:ham_propl}
-%%ttm: \end{equation}
-%%ttm: \begin{equation}
-%%ttm:   \VEC{H}^{\text{MCH}}_{\text{tra}}=\VEC{S}^{\text{MCH}}(t,t+\Delta t)\VEC{H}^{\text{MCH}}(t+\Delta t)\VEC{S}^{\text{MCH}}(t,t+\Delta t)^\dagger
-%%ttm: \end{equation}
-\ttmdump{
+%%tth: \begin{equation}
+%%tth:   \VEC{R}^{\text{MCH}}(t+\Delta t,t)=\VEC{S}^{\text{MCH}}(t,t+\Delta t)^\dagger\prod\limits_{i=1}^{n}\VEC{R}_i
+%%tth: \end{equation}
+%%tth: \begin{equation}
+%%tth:   \VEC{R}_i=\exp\left[-\frac{\I}{\hbar}\VEC{H}_i\Delta\tau\right]
+%%tth: \end{equation}
+%%tth: \begin{equation}
+%%tth:   \VEC{H}_i=\VEC{H}^{\text{MCH}}(t) + \frac{i}{n}\left(\VEC{H}^{\text{MCH}}_{\text{tra}}-\VEC{H}^{\text{MCH}}(t)\right)\label{eq:ham_propl}
+%%tth: \end{equation}
+%%tth: \begin{equation}
+%%tth:   \VEC{H}^{\text{MCH}}_{\text{tra}}=\VEC{S}^{\text{MCH}}(t,t+\Delta t)\VEC{H}^{\text{MCH}}(t+\Delta t)\VEC{S}^{\text{MCH}}(t,t+\Delta t)^\dagger
+%%tth: \end{equation}
+\tthdump{
   \begin{align}
     \VEC{R}^{\text{MCH}}(t+\Delta t,t)=&
     \VEC{S}^{\text{MCH}}(t,t+\Delta t)^\dagger\prod\limits_{i=1}^{n}
@@ -4112,9 +4117,9 @@ With this, the propagator matrix can be written as
 
 
 
-%%ttm: \chapter{Bibliography}
+%%tth: \chapter{Bibliography}
 \begin{unnumbered}
-  \ttmdump{
+  \tthdump{
     \phantomsection
     \addcontentsline{toc}{chapter}{Bibliography}
   }
