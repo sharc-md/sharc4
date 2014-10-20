@@ -40,9 +40,6 @@
     grow via three points={one child at (0.9,-0.55) and two children at (0.9,-0.55) and (0.9,-1.1)},
     edge from parent path={[very thick] (\tikzparentnode.south) |- (\tikzchildnode.west) }]
     \node[dir] {sharc/}
-      child { node [] {Makefile} }
-      child { node [sh] {Run\_Tests.sh} }
-      child { node [sh] {Run\_Tests.py} }
       child { node [dir] (bin) {bin/} 
         child { node[sh] {sharc.x}}
         child { node[sh] {data\_extractor.x}}
@@ -60,10 +57,12 @@
       child [missing] {}
       child [missing] {}
       child { node [dir] {source/} 
+        child { node[] {Makefile}}
         child { node[] {Fortran code}}
       }
       child [missing] {}
-      child { node [dir] {test/} 
+      child [missing] {}
+      child { node [dir] {tests/} 
         child { node[dir] {INPUT/}
           child { node[dir, opacity=0.5] {Test Cases .../}}
         }
