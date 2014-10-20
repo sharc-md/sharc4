@@ -7,14 +7,10 @@
 \usepackage{tikz,pgfplots}
 \pgfplotsset{compat=1.3}
 
+% fonts
+\usepackage{pxfonts}
+\renewcommand*{\sfdefault}{lmss}
 
-% \usepackage[
-%   left=2cm,
-%   right=2cm,
-%   top=1cm,
-%   bottom=2cm,
-%   includeheadfoot
-% ]{geometry}
 
 % Bold caption labels
 \setkomafont{captionlabel}{\bfseries}
@@ -81,16 +77,16 @@ University of Vienna, Austria
 
 \newcommand{\ttt}[1]{\texttt{#1}}
 
+% shaded boxes
+\definecolor{shadecolor}{HTML}{BBDDFF}
+
 \newenvironment{example}{
   \vspace{0mm}
-  \definecolor{shadecolor}{HTML}{BBDDFF}
+  \definecolor{shadecolor}{HTML}{E4F4FF}
   \begin{shaded}
-  \begin{minipage}{0.9\textwidth}
 }{
-  \end{minipage}
   \end{shaded}
 }
-\newcommand\hc[2][black]{\setbox0=\hbox{$#2$}\rlap{\raisebox{.45\ht0}{\textcolor{#1}{\rule{\wd0}{1pt}}}}#2}
 
 % ========================================================================================================= %
 % ========================================================================================================= %
@@ -114,8 +110,7 @@ University of Vienna, Austria
 \chapter{Before you Start}
 
 In this tutorial, the steps necessary to perform non-adiabatic dynamics with \sharc\ are explained. 
-
-This document consists of three tutorial sections. 
+The tutorial consists of three tutorial sections. 
 
 \textbf{The first one} is a quick tutorial, showing just the minimum steps necessary to run the dynamics code. 
 
@@ -123,7 +118,7 @@ This document consists of three tutorial sections.
 
 \textbf{The third part} is a collection of more specialized tutorials showing some advanced usage aspects in detail.
 
-At the end of the tutorial, some additional hints for the usage of the other quantum chemistry interfaces are given.
+At the end of this document, some additional hints for the usage of the quantum chemistry interfaces are given.
 
 
 
@@ -137,7 +132,7 @@ The main idea is to simulate the well-known excited-state dynamics of ethylene, 
 In the following, an overview over the level of theory and the initial geometry are given:
 
 \definecolor{shadecolor}{HTML}{BBDDFF}
-\begin{shaded}
+\begin{example}
 \begin{minipage}{0.45\textwidth}
   \centering
   Ab initio level of theory for ethylene.
@@ -165,7 +160,7 @@ Initial geometry ethylene
  H -0.943102  0.000000 -0.544500
   \end{verbatim}
 \end{minipage}
-\end{shaded}
+\end{example}
 
 
 \chapter{Quick Tutorial}
@@ -187,7 +182,7 @@ The contents of the files are given in the following.
 
 The \sharc\ input file (``\ttt{input}'') contains the dynamics settings and names of additional input files (geometry, velocity, coefficients). An example is given below:
 \definecolor{shadecolor}{HTML}{BBDDFF}
-\begin{shaded}\vspace{-8mm}
+\begin{example}\vspace{-8mm}
 \begin{verbatim}
 geomfile "geom"
 veloc random 0.1
@@ -203,7 +198,7 @@ stepsize 0.5
 surf sharc
 coupling ddr
 \end{verbatim}\vspace{-5mm}
-\end{shaded}
+\end{example}
 
 The meaning of these keywords is: The geometry is read from file \ttt{geom}. The nuclear velocities are picked at random, with 0.1 eV kinetic energy per atom. Two singlet states and one triplet state (with 3 components) will be included in the simulation. The initial state is the second state (the $S_1$). The initial coefficients will be set automatically (the initial state will get a coefficient of 1.0, the remaining state zero). The diagonal elements of the Hamiltonian will be shifted by -78.0814 Hartree. The simulation will include 10 fs, with a 0.5 fs timestep. The \sharc\ formalism will be used (propagation on the diagonalized states). Vectorial non-adiabatic couplings will be used for the propagation. 
 
@@ -212,7 +207,7 @@ The meaning of these keywords is: The geometry is read from file \ttt{geom}. The
 The geometry file ``\ttt{geom}'' contains the chemical symbols, atomic charge, $x$, $y$ and $z$ coordinates and the relative atomic masses.
 
 \definecolor{shadecolor}{HTML}{BBDDFF}
-\begin{shaded}\vspace{-8mm}
+\begin{example}\vspace{-8mm}
 \begin{verbatim}
 C 6.0  0.0 0.0  0.0 12.000
 C 6.0  0.0 0.0  2.5 12.000
@@ -221,7 +216,7 @@ H 1.0  1.7 0.0  3.7  1.008
 H 1.0 -1.7 0.0  3.7  1.008
 H 1.0 -1.7 0.0 -1.2  1.008
 \end{verbatim}\vspace{-5mm}
-\end{shaded}
+\end{example}
 
 \section{QM Run Script}
 
@@ -229,12 +224,12 @@ At each timestep, \sharc\ writes the current geometry and different keywords to 
 
 In most of the cases, in \ttt{runQM.sh} simply one of the \sharc-interfaces is called.
 \definecolor{shadecolor}{HTML}{BBDDFF}
-\begin{shaded}\vspace{-8mm}
+\begin{example}\vspace{-8mm}
 \begin{verbatim}
 cd QM
 $SHARC/SHARC_MOLPRO.py QM.in > QM.log
 \end{verbatim}\vspace{-5mm}
-\end{shaded}
+\end{example}
 The interface will do all work necessary to produce the desired file \ttt{QM.out}.
 
 \section{MOLPRO Template}
@@ -242,7 +237,7 @@ The interface will do all work necessary to produce the desired file \ttt{QM.out
 The \textsc{Molpro} interface needs as additional input file giving the settings for the electronic structure calculation. The file is called ``\ttt{MOLPRO.template}''.
 
 \definecolor{shadecolor}{HTML}{BBDDFF}
-\begin{shaded}\vspace{-8mm}
+\begin{example}\vspace{-8mm}
 \begin{verbatim}
 ***
 memory,12500,k
@@ -261,29 +256,29 @@ weight,1
 };
 ---
 \end{verbatim}\vspace{-5mm}
-\end{shaded}
+\end{example}
 
 \section{Interface Input}
 
 The interface additionally needs some paths, which are read from ``\ttt{SH2PRO.inp}''.
 \definecolor{shadecolor}{HTML}{BBDDFF}
-\begin{shaded}\vspace{-8mm}
+\begin{example}\vspace{-8mm}
 \begin{verbatim}
 molpro $MOLPRO/molpro
 scratchdir ./SCRA/
 savedir ../restart/
 \end{verbatim}\vspace{-5mm}
-\end{shaded}
+\end{example}
 
 \section{Running \sharc}
 
 The trajectory can then be started by simply executing:
 \definecolor{shadecolor}{HTML}{BBDDFF}
-\begin{shaded}\vspace{-8mm}
+\begin{example}\vspace{-8mm}
 \begin{verbatim}
 $SHARC/sharc.x input 
 \end{verbatim}\vspace{-5mm}
-\end{shaded}
+\end{example}
 
 \section{Output}
 
@@ -320,11 +315,11 @@ Geometry filename: [geom.xyz] (autocomplete enabled) \textcolor{red}{\textbf{geo
 \normalsize
 During the interactive sessions, square brackets indicate that the question has a default answer, which can be used by just pressing ENTER. If filenames or directory paths need to be entered, auto-complete is active, which can be used by pressing TAB. Every interactive script upon completion also produces a file \ttt{KEYSTROKES.name}, which contains all user input for the last run.
 
-\begin{example}
+\begin{shaded}
   Please make sure before starting that \ttt{\$SHARC} is set to the directory containing the \sharc\ scripts and executables.
 
-  It is also advisory to set \ttt{\$MOLPRO} to the \textsc{Molpro} executable.
-\end{example}
+  It is also advisable to set \ttt{\$MOLPRO} to the \textsc{Molpro} executable.
+\end{shaded}
 
 
 
@@ -332,7 +327,7 @@ During the interactive sessions, square brackets indicate that the question has 
 % \clearpage
 \section{Optimization and Frequency calculation}
 
-In general, the user is free to calculate the frequencies and normal modes with any quantum chemistry software and any method he sees fit. The user only has to provide a standard MOLDEN format file containing the results of the frequency calculation. However, usually it is advisory to calculate the frequencies at the same level of theory as the dynamics calculation. For the ethylene example, we will use the quantum chemistry method specified above. 
+In general, the user is free to calculate the frequencies and normal modes with any quantum chemistry software and any method he sees fit. The user only has to provide a standard MOLDEN format file containing the results of the frequency calculation. However, usually it is advisable to calculate the frequencies at the same level of theory as the dynamics calculation. For the ethylene example, we will use the quantum chemistry method specified above. 
 
 Create an empty directory. Prepare a geometry file called \ttt{geom.xyz} containing the given geometry.
 \begin{Verbatim}[commandchars=\\\{\}]
@@ -873,8 +868,8 @@ This script is interactive, and input should be straight-forward. Per default, t
 
 
 This script automatizes to read-out the results of initial excited-state calculations for SHARC.
-It calculates oscillator strength (in MCH and diagonal basis) and stochastically determines whether
-a trajectory is bright or not.
+It calculates oscillator strength (in MCH and diagonal basis) and stochastically 
+determines whether a trajectory is bright or not.
   
 -------------------Initial conditions file------------------
 
@@ -884,30 +879,69 @@ Use file "initconds"? [True] \textcolor{red}{\textbf{<ENTER>}}
 File "initconds" contains 20 initial conditions.
 Number of atoms is 6
 
---------Initial conditions excited-state calculations-------
+----------------Generate excited state lists----------------
+
+Using the following options, excited state lists can be added to the initial conditions:
+
+1       Generate a list of dummy states
+2       Read excited-state information from ab initio calculations (from setup_init.py)
+
+How should the excited-state lists be generated? [2] \textcolor{red}{\textbf{<ENTER>}}        \textcolor{blue}{# Read from ICOND_%05i/}
 Please enter the path to the directory containing the ICOND subdirectories.
-
-If you do not have yet calculated the excited states of the initial conditions, you can use 
-setup_init.py to create the input files for these calculations!
-
 Path to ICOND directories: (autocomplete enabled) \textcolor{red}{\textbf{.}}        \textcolor{blue}{# "." is the current directory}
-/user/sharc/Tutorial/Ethylene/
 
+/user/sharc/Tutorial/Ethylene/
 Directory contains 11 subdirectories.
 There are more initial conditions in initconds.
 
-Do you want to perform the selection of initial states for dynamics? \textcolor{red}{\textbf{yes}}
-Only ground state as initial state? [False] \textcolor{red}{\textbf{<ENTER>}}
+----------------Excited-state representation----------------
+
+This script can calculate the excited-state energies and oscillator strengths in two 
+representations.
+These representations are:
+- MCH representation: Only the diagonal elements of the Hamiltonian are taken into account. 
+  The states are the spin-free states as calculated in the quantum chemistry code. This option 
+  is usually sufficient for systems with small SOC (below 300 cm^-1).
+- diagonal representation: The Hamiltonian including spin-orbit coupling is diagonalized. 
+  The states are spin-corrected, fully adiabatic. Note that for this the excited-state calculations 
+  have to include spin-orbit couplings. This is usually not necessary for systems with small SOC.
+
+Do you want to use the diagonal representation (yes=diag, no=MCH)? \textcolor{red}{\textbf{no}}
+
+----------------------Reference energy----------------------
+
+Reference energy read from file
+/user/sharc/Tutorial/Ethylene/ICOND_00000/QM.out
+E_ref= -78.081394900000
+
+
+-------------------Excited-state selection-------------------
+
+Using the following options, the excited states can be flagged as valid initial states 
+for dynamics:
+
+1       Unselect all initial states
+2       Provide a list of desired initial states
+3       Simulate delta-pulse excitation based on excitation energies and oscillator strengths
+
+How should the excited states be flagged? [3] \textcolor{red}{\textbf{<ENTER>}}        \textcolor{blue}{# Use oscillator strengths}
+
 
 ----------------------Excitation window---------------------
 
-Enter the energy window for exciting the trajectories. If you just want to calculate 
-absorption spectra, enter any range.
-Range (eV): [0 10] \textcolor{red}{\textbf{9 11}}
+Enter the energy window for exciting the trajectories.
+Range (eV): [0.0 10.0] 9 11
 
 Script will allow excitations only between 9.000000 eV and 11.000000 eV.
 
 ----------------------Considered states---------------------
+
+#State  Mult    M_s     Quant        \textcolor{blue}{# Here the states are listed, if known}
+1       1       0       1
+2       1       0       2
+3       3       -1      1
+4       3       0       1
+5       3       1       1
 
 Do you want to include all states in the selection? [True] \textcolor{red}{\textbf{<ENTER>}}
 
@@ -916,43 +950,27 @@ Do you want to include all states in the selection? [True] \textcolor{red}{\text
 Please enter a random number generator seed (type "!" to initialize the RNG from the system time).
 RNG Seed:  [!] \textcolor{red}{\textbf{1234}}
 
-----------------Excited-state representation----------------
 
-This script can calculate the excited-state energies and oscillator strengths in two 
-representations.
-  These representations are:
-  - MCH representation: Only the diagonal elements of the Hamiltonian are taken into account. 
-    The states are the spin-free states as calculated in the quantum chemistry code. This 
-    option is usually sufficient for systems with small SOC (below 300 cm^-1).
-  - diagonal representation: The Hamiltonian including spin-orbit coupling is diagonalized. 
-    The states are spin-corrected, fully adiabatic. Note that for this the excited-state 
-    calculations have to include spin-orbit couplings. This is usually not necessary 
-    for systems with small SOC.
-
-Do you want to use the diagonal representation (yes=diag, no=MCH)? \textcolor{red}{\textbf{no}}
-
-----------------------Reference energy----------------------
-
-Reference energy read from file 
-/user/sharc/Tutorial/Ethylene/ICOND_00000/QM.out
-E_ref= -78.081394900000
 
 #########################Full input#########################
 
-initf                      <open file 'initconds', mode 'r' at 0xe56270>
+initf                      <open file 'initconds', mode 'r' at 0x153e390>
 eharm                      0.0543664278
 ninit                      20
 diag                       False
 erange                     [0.33074377942027749, 0.40424239706922804]
+allowed                    set([])
+excite                     3
 repr                       MCH
 states                     [2, 0, 1]
 ion                        False
 iconddir                   /user/sharc/Tutorial/Ethylene/
+make_list                  False
 eref                       -78.0813949
 ncond                      11
 natom                      6
 read_QMout                 True
-forbidden                  set([])
+gen_list                   2
 
 Do you want to continue? [True] \textcolor{red}{\textbf{<ENTER>}}
 
@@ -1407,7 +1425,7 @@ While the trajectory is running, you can watch its progress in the file \ttt{out
 Besides the \ttt{output.lis} file, \sharc\ creates the files \ttt{output.log}, \ttt{output.xyz} and \ttt{output.dat}. The file
 \ttt{output.log} contains mainly parsing information of the input file parsing and a list of internal steps of the dynamics simulation. With sufficiently high \ttt{printlevel} in the \sharc\ input file, the log file may also contain debug information in various detail.
 The file \ttt{output.dat} contains for each timestep the most important matrices and vectors. This information can be used to calculate the excited-state energies, populations, hopping probabilities and a large number of expectation values. See below for the usage of \ttt{data\_extractor.x} and \ttt{make\_gnuplot.py}, which can be used for plotting the mentioned quantities.
-Finally, \ttt{output.xyz} contains the cartesian coordinates of all atoms for each timestep. This file can be opened with any program capable of processing xyz files, like Molden, Molekel and Gabedit. Additionally, the \sharc\ suite contains the program \ttt{Geo.py}, which is a command line tool to extract internal coordinates from such an xyz file.
+Finally, \ttt{output.xyz} contains the cartesian coordinates of all atoms for each timestep. This file can be opened with any program capable of processing xyz files, like Molden, Molekel and Gabedit. Additionally, the \sharc\ suite contains the program \ttt{geo.py}, which is a command line tool to extract internal coordinates from such an xyz file.
 
 
 % ===========================================================================================================================
@@ -1496,9 +1514,9 @@ Figure~\ref{fig:prob} shows the surface hopping probabilities and the correspond
 \clearpage
 \subsection{Analyzing internal coordinates}
 
-The file \ttt{output.xyz} contains the cartesian coordinates of all timesteps. Oftentimes, one is interested in the variation of certain internal coordinates (like bond lengths, angles, etc.) during the dynamics. The \sharc\ tool \ttt{Geo.py} can quickly calculate these values. Invoke the program and enter the internal coordinate specifications:
+The file \ttt{output.xyz} contains the cartesian coordinates of all timesteps. Oftentimes, one is interested in the variation of certain internal coordinates (like bond lengths, angles, etc.) during the dynamics. The \sharc\ tool \ttt{geo.py} can quickly calculate these values. Invoke the program and enter the internal coordinate specifications:
 \begin{Verbatim}[commandchars=\\\{\}]
-user@host> \textcolor{red}{$SHARC/Geo.py -g output.xyz -t 0.5}
+user@host> \textcolor{red}{$SHARC/geo.py -g output.xyz -t 0.5}
 \end{Verbatim}
 
 \begin{oframed}
@@ -1514,9 +1532,9 @@ FINISHED!
 \end{oframed}
 
 \normalsize
-The \ttt{-g} option specifies the filename of the input xyz geometry file, while the \ttt{-t} option specifies the timestep. \ttt{Geo.py} writes the results to standard out, so redirect the output to some file:
+The \ttt{-g} option specifies the filename of the input xyz geometry file, while the \ttt{-t} option specifies the timestep. \ttt{geo.py} writes the results to standard out, so redirect the output to some file:
 \begin{Verbatim}[commandchars=\\\{\}]
-user@host> \textcolor{red}{$SHARC/Geo.py -g output.xyz -t 0.5 > Geo.out}
+user@host> \textcolor{red}{$SHARC/geo.py -g output.xyz -t 0.5 > Geo.out}
 \end{Verbatim}
 The file \ttt{Geo.out} contains a table with the specified internal coordinates:
 \begin{oframed}
@@ -1973,7 +1991,7 @@ Writing to crossing.xyz ...
 \end{oframed}
 
 \normalsize
-The output file \ttt{crossing.xyz} in turn can also be analyzed with \ttt{Geo.py} in order to calculate internal coordinates. 
+The output file \ttt{crossing.xyz} in turn can also be analyzed with \ttt{geo.py} in order to calculate internal coordinates. 
 
 
 
@@ -2058,7 +2076,7 @@ Sometimes, states should be included in the dynamics simulation in order to calc
 
 It is only possible to make the highest states in each multiplicity inactive. With \ttt{states 3 0 3} and \ttt{actstates 2 0 1} in the \sharc\ input, one would include $S_0$, $S_1$, $S_2$, $T_1$, $T_2$ and $T_3$ in the simulation, but restrict the actual dynamics to $S_0$, $S_1$ and $T_1$.
 
-It is advisory to make inactive all states which do not show any couplings with the occupied states (e.g., ionic states in a dynamics simulation of a neutral molecule). 
+It is advisable to make inactive all states which do not show any couplings with the occupied states (e.g., ionic states in a dynamics simulation of a neutral molecule). 
 
 \paragraph{Inactive states in \ttt{excite.py}}
 
@@ -2108,7 +2126,7 @@ See the full tutorial in chapter \ref{chap:full}. In combination with \ttt{molpr
 
 \section{MOLCAS}
 
-Instead of the \ttt{MOLPRO.template} file needed for \textsc{Molpro}, usage of \textsc{Molcas} requires a \ttt{MOLCAS.template} file, which has a different structure. The template file can also be setup with the script \ttt{molcas\_input.py}.
+Instead of the \ttt{MOLPRO.template} file needed for \textsc{Molpro}, usage of \textsc{Molcas} requires a \ttt{MOLCAS.template} file, which has a different structure. The template file can be setup with the script \ttt{molcas\_input.py}.
 
 \subsection{Template file}
 
@@ -2168,7 +2186,7 @@ The interface is only able to use input for calculations using \textsc{Molpro/Se
 
 \paragraph{MCSCF input}
 
-The MCSCF section can use any desired state-averaging scheme. However, frozen core orbitals in the MCSCF step are not possible. Prepare the MCSCF input for CI gradients. It is advisory to use very tight MCSCF convergence criteria.
+The MCSCF section can use any desired state-averaging scheme. However, frozen core orbitals in the MCSCF step are not possible. Prepare the MCSCF input for CI gradients. It is advisable to use very tight MCSCF convergence criteria.
 
 \paragraph{MRCI input}
 

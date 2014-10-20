@@ -1,8 +1,3 @@
-% to make it work with AcrobatReader
-% \pdfminorversion=4
-% Problem was the sharc.png file, using sharc.pdf solves the problem with AcrobatReader
-
-
 \documentclass[a4paper,11pt,DIV=15,openany,twoside=false]{scrbook}
 
 % everything inside \ttmdump is ignored by tth, but processed by LaTeX
@@ -56,13 +51,18 @@
   \usepackage{tikz,pgfplots}
   \pgfplotsset{compat=1.3}
 }
+% fonts
 \usepackage{pxfonts}
+\renewcommand*{\sfdefault}{lmss}
+
 
 
 % Bold caption labels
 \ttmdump{
   \setkomafont{captionlabel}{\bfseries}
 }
+
+
 
 % Paragraph settings
 \setlength{\parindent}{0pt}
@@ -71,6 +71,8 @@
 \usepackage{enumitem}
 \setlist[itemize]{parsep=0pt}
 \setlist[enumerate]{parsep=0pt}
+
+
 
 % no clubs and widows
 \clubpenalty = 2000
@@ -107,27 +109,6 @@ University of Vienna, Austria
   \clearscrheadfoot
 }
 
-% \lstset{        numbers=left, 
-%                 numberstyle=\tiny, 
-%                 numbersep=5pt, 
-%                 showstringspaces=true, 
-%                 showspaces=false, 
-%                 basicstyle=\ttfamily\small, 
-%                 commentstyle=\color{black!50},
-%                 keywordstyle=\color{B},
-%                 stringstyle=\color{red},
-%                 fontadjust=false, 
-%                 breaklines=true, 
-%                 breakatwhitespace=true, 
-%                 breakautoindent=true, 
-%                 flexiblecolumns=true, 
-%                 language=fortran,
-%                 morekeywords={dconjg},
-%                 morekeywords={=},
-%                 morekeywords={*}
-%                 }
-
-
 % =============================== KEYWORDS ==========================
 
 \newcommand{\sharc}{\textsc{Sharc}}
@@ -154,16 +135,17 @@ University of Vienna, Austria
 {\setcounter{secnumdepth}{2}}
 
 % shaded boxes
+\definecolor{shadecolor}{HTML}{BBDDFF}
+
 \newenvironment{example}{
   \vspace{0mm}
-  \definecolor{shadecolor}{HTML}{BBDDFF}
+  \definecolor{shadecolor}{HTML}{E4F4FF}
   \begin{shaded}
-  \begin{minipage}{0.9\textwidth}
 }{
-  \end{minipage}
   \end{shaded}
 }
-\newcommand\hc[2][black]{\setbox0=\hbox{$#2$}\rlap{\raisebox{.45\ht0}{\textcolor{#1}{\rule{\wd0}{1pt}}}}#2}
+
+
 
 % ========================================================================================================= %
 % ========================================================================================================= %
@@ -176,7 +158,7 @@ University of Vienna, Austria
 %%ttm: \Large \textcolor{red}{Due to the limited capabilities of HTML to render complex equations, the reader should consult the \href{http://sharc-md.org}{Manual in PDF format} for correctly displayed equations.}
 %%ttm: \normalsize
 
-\begin{example}
+\begin{shaded}
   \textbf{Contact:}
 
   \begin{tabular}{ll}
@@ -191,7 +173,7 @@ University of Vienna, Austria
 %     Email: &\href{mailto:office.theochem@univie.ac.at}{office.theochem@univie.ac.at}\\
     Email: &\href{mailto:sharc@univie.ac.at}{sharc@univie.ac.at}\\
   \end{tabular}
-\end{example}
+\end{shaded}
 
 \newpage
 \ihead{\textsc{Sharc} Manual}
@@ -248,8 +230,7 @@ One should note, however, that surface hopping methods in the standard formulati
 % SHARC
 In the original surface hopping method, only non-adiabatic couplings are considered, only allowing for population transfer between electronic states of the same multiplicity. 
 The \sharc\ methodology is a generalization of standard surface hopping since it allows to include any type of coupling. Beyond non-adiabatic couplings (for IC), spin-orbit couplings (for ISC) or interactions of dipole moments with electric fields (to explicitly describe laser-induced processes) can be included.
-A number of methodologies for surface hopping including one or the other type of potential couplings 
-have been proposed in references~\cite{Thachuk1996JCP,Maiti2004JPCA,Jones2008JPCA,Mitric2009PRA,Granucci2012JCP,Curchod2013C,Cui2014JCP}, but \sharc\ can include all types of potential couplings on the same footing. 
+A number of methodologies for surface hopping including one or the other type of potential couplings have been proposed in references~\cite{Thachuk1996JCP,Maiti2004JPCA,Jones2008JPCA,Mitric2009PRA,Granucci2012JCP,Curchod2013C,Cui2014JCP}, but \sharc\ can include all types of potential couplings on the same footing. 
 
 The \sharc\ methodology is an extension to standard surface hopping which allows to include these kinds of couplings. The central idea of \sharc\ is to obtain a fully diagonal Hamiltonian, which is adiabatic with respect to all couplings. The diagonal Hamiltonian is obtained by unitary transformation of the Hamiltonian including all couplings. Surface hopping is conducted on the transformed electronic states.
 This has a number of advantages over the standard surface hopping methodology, where no diagonalization is performed:
@@ -272,7 +253,7 @@ The main features of the \sharc\ suite are:
   \item Gradients including the effects of spin-orbit couplings (with the approximation that the diabatic spin-orbit couplings are slowly varying).
   \item Energy-difference-based partial coupling approximation to speed up calculations \cite{Pittner2009CP}.
   \item Energy-based decoherence correction \cite{Granucci2007JCP}.
-  \item Flexible interface to quantum chemistry programs. Existing interfaces to \textsc{Molpro} 2010 and 2012, \textsc{Molcas} 7.8 and 8.0 and \textsc{Columbus 7.1} (only if interfaced to \textsc{Molcas}). An interface to implement dynamics based on analytical expressions is also available.
+  \item Flexible interface to quantum chemistry programs. Existing interfaces to \textsc{Molpro} 2010 and 2012, \textsc{Molcas} 7.8 and 8.0, and to \textsc{Columbus 7.0} (only if interfaced to \textsc{Molcas}). An interface to implement dynamics based on analytical expressions is also available.
   \item Calculation of Dyson norms for single-photon ionization spectra through the \textsc{Columbus} interface.
   \item Suite of auxiliary Python scripts for all steps of the setup procedure and for various analysis tasks.
   \item Comprehensive tutorial.
@@ -290,7 +271,7 @@ The main features of the \sharc\ suite are:
 The following references should be cited when using the \sharc\ suite:
 {
 \newcommand{\enquote}[1]{``#1''}
-\begin{example}
+\begin{shaded}
   % \begin{itemize}
   %   \item \cite{Mai2014WCMS} \bibentry{Mai2014WCMS}
   % \end{itemize}
@@ -298,7 +279,7 @@ The following references should be cited when using the \sharc\ suite:
     \item \cite{Richter2011JCTC} \bibentry{Richter2011JCTC}.
     \item \cite{Mai2014SHARC} \bibentry{Mai2014SHARC}.
   \end{itemize}
-\end{example}
+\end{shaded}
 }
 
 Further details can be found in the following references:
@@ -307,7 +288,7 @@ The theoretical background of \sharc\ is described in Refs.~\cite{Richter2011JCT
 
 Applications of the \sharc\ code can be found in Refs.~\cite{Richter2012JPCL, Mai2013C, Mai2014TCC, Mai2014JCP_SO2, Gonzalez2014}.
 
-Other features included in the \sharc\ suite are described in the following references:
+Other features implemented in the \sharc\ suite are described in the following references:
 \begin{itemize}
   \item Energy-based decoherence correction: \cite{Granucci2007JCP}.
   \item Local diabatization and wavefunction overlap calculation: \cite{Granucci2001JCP, Pittner2009CP, Plasser2012JCP}.
@@ -318,8 +299,8 @@ Other features included in the \sharc\ suite are described in the following refe
 
 The quantum chemistry programs to which interfaces with \sharc\ exist are described in the following sources:
 \begin{itemize}
-  \item \textsc{Columbus}: \cite{Lischka2011WCMS, Lischka2012, Yabushita1999JPCA, Mai2014JCP_reindex}.
-  \item \textsc{Molpro}: \cite{Werner2012WCMS, Werner2012}.
+  \item \textsc{Columbus}: \cite{Lischka2011WCMS, Lischka2012, Yabushita1999JPCA, Mai2014JCP_reindex},
+  \item \textsc{Molpro}: \cite{Werner2012WCMS, Werner2012},
   \item \textsc{Molcas}: \cite{Karlstrom2003CMS, Aquilante2010JCC}.
 \end{itemize}
 
@@ -329,17 +310,31 @@ The current version of the \sharc\ suite has been programmed by Sebastian Mai an
 
 \section{Suggestions and Bug Reports}
 
-\begin{example}
+\begin{shaded}
 Bug reports and suggestions for possible features can be submitted to \href{mailto:philipp.marquetand@univie.ac.at}{philipp.marquetand@univie.ac.at}.
-\end{example}
+\end{shaded}
 
 \section{Notation in this Manual}
 
 \paragraph{Names of programs}
 
-The \sharc\ suite consists of Fortran90 programs as well as Python and Shell scripts. The compiled Fortran90 programs are denoted by the extension \ttt{.x}, the Python scripts have the extension \ttt{.py} and the Shell scripts \ttt{.sh}. Within this manual, all program names are given in \ttt{bold monospaced font}.
+The \sharc\ suite consists of Fortran90 programs as well as Python and Shell scripts. The executable Fortran90 programs are denoted by the extension \ttt{.x}, the Python scripts have the extension \ttt{.py} and the Shell scripts \ttt{.sh}. Within this manual, all program names are given in \ttt{bold monospaced font}.
 
-\todo{}
+\ttmdump{
+\paragraph{Shaded Sections}
+
+Important sections are given in blue boxes like the following one:
+\begin{shaded}
+Important sections are given in blue boxes like this one.
+\end{shaded}
+
+On the other hand, examples of input files and command lines are marked like this:
+\begin{example}
+  \tt user@host$>$ example example.dat
+\end{example}
+}
+
+
 
 % ========================================================================================================= %
 % ========================================================================================================= %
@@ -349,66 +344,154 @@ The \sharc\ suite consists of Fortran90 programs as well as Python and Shell scr
 
 \section{How To Obtain}
 
-\sharc\ can be obtained from the \sharc\ homepage \href{http://sharc-md.org}{sharc-md.org}. There, click on Download and register with your email adress and affiliation. You will receive a download link via email. Clicking on the link in the email will download the archive file containing the \sharc\ package. Note that the link is active only for 24 h and the number of downloads is limited.
+\sharc\ can be obtained from the \sharc\ homepage \href{http://sharc-md.org}{www.sharc-md.org}. In the Download section, register with your e-mail adress and affiliation. You will receive a download link to the stated e-mail adress. Clicking on the link in the email will download the archive file containing the \sharc\ package. Note that the link is active only for 24 h and the number of downloads is limited.
 
-\subsection{Prerequisites}
+Note that you must accept the Terms of Use given in the following section in order to download \sharc.
 
-Note that \sharc\ is only compatible with Linux systems. Windows and OS X are currently not supported. 
+\section{Terms of Use}
 
-In order to carry out ab-initio (CASSCF) on-the-fly dynamics, you will also need one of the following quantum chemistry programs:
+% \begin{shaded}
+% Copyright 2014 University of Vienna.
+% 
+% \medskip
+% 
+% Permission is hereby granted, free of charge, to any person obtaining a copy
+% of this software and associated documentation files (the "Software"), to deal
+% in the Software without restriction, including without limitation the rights
+% to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+% copies of the Software, and to permit persons to whom the Software is
+% furnished to do so, subject to the following conditions:
+% 
+% The above copyright notice and this permission notice shall be included in
+% all copies or substantial portions of the Software.
+% 
+% The Software is provided ``AS IS'', without warranty of any kind, express or
+% implied, including but not limited to the warranties of merchantability,
+% fitness for a particular purpose and noninfringement. In no event shall the
+% authors or copyright holders be liable for any claim, damages or other
+% liability, whether in an action of contract, tort or otherwise, arising from,
+% out of or in connection with the software or the use or other dealings in
+% the Software.
+% \end{shaded}
+
+\newcounter{licenseparacount}
+\newcommand{\licensepara}[1]{\vspace{\bigskipamount}\addtocounter{licenseparacount}{1}\textbf{\thelicenseparacount.\quad#1}\newline}
+{
+\definecolor{shadecolor}{HTML}{BBDDFF}
+\begin{shaded}
+\licensepara{Recitals}
+
+The University of Vienna (in following the ``University''), whose principal address is at Universit\"ats\-ring 1, 1010 Vienna, Austria, developed the Software ``SHARC: Surface Hopping with Arbitrary Couplings. A program suite to study the excited-state dynamics of molecules'' (in the following the ``Software'').
+
+The Software is not to be used for commercial purposes. Our Software provided on the relevant website is solely to be used for research, teaching and demonstration purposes and is free of any charge. The user of the Software is required to have the appropriate knowledge and know-how to use the Software (in the following the ``User''). Any User should seek further guidance and make independent enquiries before relying on the Software.
+
+\licensepara{Research, Teaching and Demonstration Purposes, Content and Liability}
+
+The Software on this website is based on scientific work and is solely to be used for research, teaching and demonstration purposes. The University, its organs, associated companies, employees and representatives do not warrant, represent or guarantee the functionality of the Software whatsoever. 
+
+The use of the Software is at your own risk and your own responsibility. The University, its organs, associated companies, employees and representatives do not assume any liability for the use the Software including its results. The University does not warrant, represent or guarantee any quality or performance of the Software and shall not be responsible for including but not limited to
+
 \begin{itemize}
-  \item \textsc{Molpro} (at least version 2010)
-  \item \textsc{Molcas} (at least version 7.8)
+  \item any contents of the Software in any kind;
+  \item any intermediate or permanent amendments of the Software of any kind;
+  \item any damages of any kind arising out of or in connection with the use of the Software (including without limitation damages for any consequential loss or loss of business opportunities or projects, or loss of profits) including, but not limited to, data theft or data loss;
+  \item any errors, faults, incompleteness, inaccuracy, inadequacy or unsuitability or incorrectness of the provided Software or its results;
+  \item any personal damages or damages to property due to the use of the Software;
+  \item any damages of computers, any viruses or Trojans or similar which were transferred or conveyed by the Software;
+  \item any defaults or incompleteness of the Software including any loss or damages of any kind due to or arising out of the use of the Software provided on the website of the University;
+  \item any damages caused by third persons or subcontractors.
 \end{itemize}
-If you have \textsc{Molcas}, you can also use \textsc{Columbus} (at least 7.1, needs the \textsc{Columbus}-\textsc{Molcas} interface) to carry out dynamics simulations on CASSCF and correlated multi-reference levels (MRCISD, LRT-MRAQCC) of theory.
 
-\section{License}
+Hence, the University explicitly reserves the right to amend, supplement, delete or remove the Software, partially or as a whole, at any time and without prior notice.
 
-\begin{example}
-Copyright 2014 University of Vienna.
+The University explicitly refrains from and does not assume any liability whatsoever for any products or services offered or advertised by third persons via the provided Software.
 
-\medskip
+\licensepara{Acknowledgements}
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+The User shall acknowledge the authors or originators and use of the Software in the publication of any results achieved through use of the Software in the form of including the following references:
 
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
+\begin{itemize}
+  \item S. Mai, M. Richter, M. Ruckenbauer, M. Oppel, P. Marquetand, L. Gonz\'alez: ``SHARC: Surface Hopping Including Arbitrary Couplings - Program Package for Non-Adiabatic Dynamics''. www.sharc-md.org (2014).
+  \item M. Richter, P. Marquetand, J. Gonz\'alez-V\'azquez, I. Sola, L. Gonz\'alez: ``SHARC: ab Initio Molecular Dynamics with Surface Hopping in the Adiabatic Representation Including Arbitrary Couplings''. J. Chem. Theory Comput., 7, 1253-1258 (2011).
+\end{itemize}
 
-The Software is provided ``AS IS'', without warranty of any kind, express or
-implied, including but not limited to the warranties of merchantability,
-fitness for a particular purpose and noninfringement. In no event shall the
-authors or copyright holders be liable for any claim, damages or other
-liability, whether in an action of contract, tort or otherwise, arising from,
-out of or in connection with the software or the use or other dealings in
-the Software.
-\end{example}
+The User shall reproduce a copyright notice on every copy of the Software including partial copies and on any accompanying manuals and documentation in the form ``Copyright \copyright\ 2014 University of Vienna. All rights reserved.'' Trademark and other proprietary notices must also be reproduced but the User has no longer the right to use the name, arms, trademark, logo or other designation of the University of Vienna.
+
+\licensepara{Intellectual Property}
+
+The contents of this Software are exclusively governed and construed by Austrian intellectual property laws. Any copying, editing, distribution or use of the contents require the prior consent of the respective authors or originators which is not granted or deemed to be granted without the prior written consent as described above.
+
+If and to the extent the User amends, edits or otherwise supplements the Software with own information or other information of third persons, the User shall be deemed as the new operator of the Software. Consequently, the User expressly assumes any and all liability in connection with the Software.
+
+\licensepara{Indemnity}
+
+The User is irrevocably obliged to indemnify the University, its employees, its organs, its associated companies and representatives for any damages in particular claims and damage claims including legal cost for
+\begin{itemize}
+  \item any use of the Software by the User;
+  \item any violation or infringement of this terms of use partially or in whole;
+  \item any violation of rights of third persons in particular of intellectual property rights or personality rights of publicity or
+  \item any claims of third persons due to the use of the Software.
+\end{itemize}
+
+This obligation of the User to indemnify shall not impede any other provision of this disclaimer described herein and shall remain in force and effect after the User has ceased to use the Software.
+
+If and to the extent third persons assert any claims against the University due to or arising out of the use by any User, such User shall be obliged to indemnify and hold harmless the University for any damages asserted against the University.
+
+\licensepara{Data Protection}
+
+The User explicitly acknowledges that the University uses services of third party suppliers (e.g. Google Analytics etc.) and consents to the use of its data by the third party supplier. Further, the User consents to the use of the respective IP address of the User or similar by third persons (e.g. for statistical use). The University shall be entitled to provide third persons with such data for statistical purposes. If personal data of Users is provided to or used by third persons, the University shall not be deemed as a sponsor pursuant to the Austrian Data Protection Act 2000.
+
+\licensepara{Final Provisions}
+
+The Software was developed in Austria and is applicable through a server located in Austria. Any and all interpretation of the content of the Software, any claims with regards to the Software and any disputes in connection with the Software shall be governed by Austrian law excluding any applicable collision provisions. Exclusive place of jurisdiction shall be Vienna, Austria.
+
+\end{shaded}
+}
+
+
+% \section{Prerequisites}
+% 
+% Note that \sharc\ is only compatible with Linux systems. Windows and OS X are currently not supported. 
+% 
+% In order to carry out ab-initio (CASSCF) on-the-fly dynamics, you will also need one of the following quantum chemistry programs:
+% \begin{itemize}
+%   \item \textsc{Molpro} (at least version 2010)
+%   \item \textsc{Molcas} (at least version 7.8)
+% \end{itemize}
+% If you have \textsc{Molcas}, you can also use \textsc{Columbus} (at least 7.1, needs the \textsc{Columbus}-\textsc{Molcas} interface) to carry out dynamics simulations on CASSCF and correlated multi-reference levels (MRCISD, LRT-MRAQCC) of theory.
+
 
 \section{Installation}
 
-The source code of the  \sharc\ suite is distributed as a tar archive file. In order to install it, first extract the content of the archive to a suitable directory.
-
 In order to install and run \sharc, you need the following:
 \begin{itemize}
-  \item A Fortran90 compiler (Optimally either the \href{https://gcc.gnu.org/fortran/}{GNU Fortran} or the \href{https://software.intel.com/en-us/fortran-compilers}{Intel Fortran} compiler).
-  \item The \href{http://www.netlib.org/blas/}{BLAS} and \href{http://www.netlib.org/lapack/}{LAPACK} libraries.
-  \item The \href{http://http://www.fftw.org/}{FFTW3} package.
-  \item \href{https://www.python.org/downloads/release/python-278/}{Python 2 (Version $\geq$2.6)}.
+  \item A Fortran90 compiler (This release is tested against \href{https://gcc.gnu.org/fortran/}{GNU Fortran} 4.4.7 and \href{https://software.intel.com/en-us/fortran-compilers}{Intel Fortran} 15.0).
+  \item The \href{http://www.netlib.org/blas/}{BLAS}, \href{http://www.netlib.org/lapack/}{LAPACK} and \href{http://http://www.fftw.org/}{FFTW3} libraries.
+  \item \href{https://www.python.org/downloads/release/python-278/}{Python 2} (This release is tested against Python 2.6.6 and 2.7.3).
 \end{itemize}
 
-To compile the Fortran90 programs of the \sharc\ suite, go to the \ttt{source/} directory and execute \ttt{make}. By default, the \ttt{gfortran} compiler is used. However, by typing \ttt{make intel} instead the \ttt{ifort} compiler will be used. 
-It might be necessary to alter the \ttt{LDFLAGS} string in the \ttt{Makefile}, depending on where the BLAS and LAPACK libraries are located on your system.
+The source code of the  \sharc\ suite is distributed as a tar archive file. In order to install it, first extract the content of the archive to a suitable directory:
+\begin{example}
+\verb|tar -xzvf sharc.tgz|
+\end{example}
+This should create a new directory called \ttt{sharc/} which contains all the necessary subdirectories and files. 
 
-The FFTW package is only needed if laser fields need to be calculated with \ttt{laser.x}. Dynamics without inclusion of explicit laser fields do not require the FFTW3 package in any way.
-
-In order to use the \sharc\ suite, set the environment variable \ttt{\$SHARC} to the \ttt{bin/} directory of the \sharc\ installation. This ensures that all programs of the \sharc\ suite find the other executables and all calls are successful.
-
-Besides the Fortran90 codes, the \sharc\ suite contains a number of Python scripts, most importantly the quantum chemistry interfaces. All Python scripts are written for Python 2 (Version $\geq$2.6) and do not work with Python 3. 
-
+To compile the Fortran90 programs of the \sharc\ suite, go to the \ttt{source/} directory.
+\begin{example}
+\verb|cd source/|
+\end{example}
+and edit the \ttt{Makefile} by adjusting the \ttt{F90} variable to point to the Fortran compiler of your choice. 
+Issuing the command:
+\begin{example}
+\verb|make|
+\end{example}
+will compile the source and create all the binaries.
+\begin{example}
+\verb|make install|
+\end{example}
+will copy the binary files into the \ttt{sharc/bin/} directory of the 
+\sharc\ distribution, which already contains all the python scripts which
+come with \sharc.
 In figure~\ref{fig:installation} the directory structure of the complete \sharc\ directory is shown.
 
 \begin{figure}[h!]
@@ -418,35 +501,65 @@ In figure~\ref{fig:installation} the directory structure of the complete \sharc\
   \label{fig:installation}
 \end{figure}
 
-\subsection{Additional programs}
+In order to use the \sharc\ suite, set the environment variable \ttt{\$SHARC} to the \ttt{bin/} directory of the \sharc\ installation. This ensures that all programs of the \sharc\ suite find the other executables and all calls are successful. For example, if you have unpacked \sharc into your home directory, 
+just set: 
+\begin{example}
+\verb|export SHARC=~/sharc/bin|\quad (for bourne shell users)
+\end{example}
+or
+\begin{example}
+\verb|setenv SHARC $HOME/sharc/bin|\quad (for c-shell type users)
+\end{example}
+Note that it is advisable to put this line into your shell's login
+scripts.
 
-For full functionality, several additional programs are recommended:
+\subsection{Libraries}
+
+\sharc\ requires the BLAS, LAPACK and FFTW3 libraries. During the installation, it might be necessary to alter the \ttt{LDFLAGS} string in the \ttt{Makefile}, depending on where the relevant libraries are located on your system. In this way, it is for example possible to use vendor-provided libraries like the \href{https://software.intel.com/en-us/intel-mkl}{Intel MKL}. For more details see the \ttt{INSTALL} file which is included in the \sharc\ distribution.
+
+\subsection{Test Suite}
+
+After the installation, it is advisable to first execute the test suite of \sharc, which will test the fundamental functionality of SHARC.
+Change to an empty directory and execute
+\begin{example}
+\verb|$SHARC/tests.py|
+\end{example}
+The interactive script will first verify the Python installation (no message will appear if the Python installation is fine). Subsequently, the script prompts the user to enter which tests should be executed. Their is at least one test for each of the auxiliary scripts and interfaces. Tests whose names start with \ttt{scripts\_} test the functionality of the auxiliary programs in the \sharc\ suite. Tests whose names start with \ttt{Analytical\_}, \ttt{COLUMBUS\_}, \ttt{MOLCAS\_} or \ttt{MOLPRO\_} run short trajectories, testing whether the main dynamics code, the interfaces and the quantum chemistry programs work together correctly.
+
+If the installation was successful and Python is installed correctly, the tests named \ttt{scripts\_<NAME>} and \ttt{Analytical\_overlap} should execute without error. 
+
+The test calculations involving the quantum chemistry programs (\textsc{Columbus}, \textsc{Molcas}, \textsc{Molpro}) can be used to check that \sharc\ can correctly call these programs and that they are installed correctly.
+
+If any of the tests show differences between output and reference output, it is advisable to check the respective files. Note that small differences in the output can already occur when using a different version of the quantum chemistry programs, and that these small differences can add up during the simulations.
+
+\subsection{Additional Programs}
+
+For full functionality of the \sharc\ suite, several additional programs are recommended:
 \begin{itemize}
   \item The Python package \href{http://www.numpy.org/}{\textsc{NumPy}}.
   \item The \href{http://www.gnuplot.info/}{\textsc{Gnuplot}} plotting software.
   \item A program for molecular visualization, able to read files in the xyz file format (e.g.\ \href{http://www.cmbi.ru.nl/molden/molden.html}{\textsc{Molden}}, \href{http://gabedit.sourceforge.net/}{\textsc{Gabedit}}, \href{http://molekel.cscs.ch/wiki/pmwiki.php}{\textsc{Molekel}} or \href{http://www.ks.uiuc.edu/Research/vmd/}{VMD})
 \end{itemize}
 
-Optimally, within your Python installation the \textsc{NumPy} package (provides many numerical methods, e.g., matrix diagonalization) should be available. If \textsc{NumPy} is not available, the scripts will fall back to use a small Fortran code (front-end for LAPACK) within the \sharc\ package. Since in the Python scripts no large-scale matrix calculations are carried out, there should be no significant performance loss if \textsc{NumPy} is not available.
+Optimally, within your Python installation the \textsc{NumPy} package (which provides many numerical methods, e.g., matrix diagonalization) should be available. If \textsc{NumPy} is not available, the \sharc\ suite is still functional, and the affected scripts will fall back to use a small Fortran code (front-end for LAPACK) within the \sharc\ package. Since in the Python scripts no large-scale matrix calculations are carried out, there should be no significant performance loss if \textsc{NumPy} is not available.
 
-\textsc{Gnuplot} is not strictly necessary, since all output files could be plotted using other plotting programs. However, a number of scripts from the \sharc\ suite automatically generate \textsc{Gnuplot} scripts together with the data files.
+\textsc{Gnuplot} is not strictly necessary, since all output files could be plotted using other plotting programs. However, a number of scripts from the \sharc\ suite automatically generate \textsc{Gnuplot} scripts after data processing, allowing to quickly plot the output files.
+
+% Molecular visualization software ..
+
+\subsection{Quantum Chemistry Programs}
 
 Even though \sharc\ comes with an interface for analytical potentials (and hence can be used without any quantum chemistry program), the main application of \sharc\ is certainly on-the-fly ab initio dynamics. Hence, one of the following interfaced quantum chemistry programs is necessary:
 \begin{itemize}
-  \item \href{http://www.molpro.net/}{\textsc{Molpro} 2010 or 2012} (older versions might also work, but this could not be tested).
-  \item \href{http://http://molcas.org/}{\textsc{Molcas} 7.8 or 8.0} (older versions of \textsc{Molcas} 7 might also work, but this could not be tested).
+  \item \href{http://www.molpro.net/}{\textsc{Molpro}} (this release was checked against \textsc{Molpro} 2010 and 2012).
+  \item \href{http://http://molcas.org/}{\textsc{Molcas}} (this release was checked against \textsc{Molcas} 7.8 and 8.0).
   \begin{itemize}
-    \item \href{http://www.univie.ac.at/columbus/docs_COL70/documentation_main.html}{\textsc{Columbus} 7}, interfaced to \href{http://http://molcas.org/}{\textsc{Molcas} 7.8} for correlated multi-reference wavefunctions. 
+    \item \href{http://www.univie.ac.at/columbus/docs_COL70/documentation_main.html}{\textsc{Columbus} 7}, interfaced to \href{http://http://molcas.org/}{\textsc{Molcas}}, for correlated multi-reference wavefunctions. 
 %     \item \href{http://dasher.wustl.edu/tinker/}{Tinker}, interfaced to \textsc{Molcas} 7.8 or 8.0 for QM/MM dynamics.
   \end{itemize}
 \end{itemize}
 
-
-\section{Test Runs}
-
-After the installation is completed it should be validated. Execute \ttt{\$SHARC/tests.py}, which will first check whether a valid Python version is installed. Afterwards, the user can interactively run the available test simulations. It is recommended to run all tests after the installation (except tests which need quantum chemistry programs the user does not have). 
-
-After the test script has collected all necessary environment variables, the tests are executed. After all tests have been finished, the output files are compared to a reference output. If any tests reported differing output files, please carefully check the mentioned files. The output files may simply differ in the last decimals for reasons of numerical precision. 
+See the relevant sections in chapter~\ref{chap:interfaces} for a description of the quantum chemical methods available with each of these programs.
 
 % ========================================================================================================= %
 % ========================================================================================================= %
@@ -454,9 +567,9 @@ After the test script has collected all necessary environment variables, the tes
 
 \chapter{Execution}
 
-The \sharc\ suite consists of the main dynamics code \ttt{sharc.x} and a number of auxilliary programs, like setup scripts and analyse tools. Additionally, the suite comes with interfaces to suitable quantum chemistry software, e.g.\ \textsc{Molpro}, \textsc{Molcas} or \textsc{Columbus}. 
+The \sharc\ suite consists of the main dynamics code \ttt{sharc.x} and a number of auxiliary programs, like setup scripts and analyse tools. Additionally, the suite comes with interfaces to suitable quantum chemistry software, e.g.\ \textsc{Molpro}, \textsc{Molcas} or \textsc{Columbus}. 
 
-In the following, first it is explained how to run a single trajectory by setting up all necessary input for the dynamics code \ttt{sharc.x} manually. Afterwards, the usage of the auxilliary scripts is explained. Detailed infos on the \sharc\ input files is given in chapter~\ref{chap:input} and on the auxilliary scripts in chapter~\ref{chap:aux}. The interfaces are described in chapter~\ref{chap:interfaces}.
+In the following, first it is explained how to run a single trajectory by setting up all necessary input for the dynamics code \ttt{sharc.x} manually. Afterwards, the usage of the auxiliary scripts is explained. Detailed infos on the \sharc\ input files is given in chapter~\ref{chap:input} and on the auxiliary scripts in chapter~\ref{chap:aux}. The interfaces are described in chapter~\ref{chap:interfaces}.
 
 \section{Running a single trajectory}
 
@@ -475,10 +588,9 @@ The content of the main input file is explained in detail in section~\ref{sec:in
 Additionally, the directory \ttt{QM/} and the script \ttt{QM/runQM.sh} need to be present, since the on-the-fly ab initio calculations are implemented through these files. The script \ttt{QM/runQM.sh} is called each time \sharc\ performs an on-the-fly calculation of electronic properties (usually by a quantum chemistry program). In order to do so, \sharc\ first writes the request for the calculation to \ttt{QM/QM.in}, then calls \ttt{QM/runQM.sh}, waits for the script to finish and then reads the requested quantities from \ttt{QM/QM.out}. The script \ttt{QM/runQM.sh} is fully responsible to generate the requested results from the provided input. 
 In virtually all cases, this task is handled by the \sharc-quantum chemistry interfaces (see chapter~\ref{chap:interfaces}), so that the script \ttt{QM/runQM.sh} has a particularly simple form:
 \begin{example}
-  \begin{verbatim}
-cd QM/
-$SHARC/<INTERFACE> QM.in 
-  \end{verbatim}
+\verb|cd QM/|
+
+\verb|$SHARC/<INTERFACE> QM.in |
 \end{example}
 with the corresponding interface name given. Note that the interfaces in all cases need additional input files, which must be present in \ttt{QM/}. Those input files contain the specifications for the quantum chemistry information, e.g., basis set, active and reference space, memory settings, path to the quantum chemistry program, path to scratch directories; or for \ttt{SHARC\_Analytical.py}, the expressions for the analytical potentials. For each interface, the input files are slightly different. See sections~\ref{sec:int:molpro}, \ref{sec:int:molcas}, \ref{sec:int:columbus} or \ref{sec:int:analytical} for the necessary information.
 
@@ -486,9 +598,7 @@ with the corresponding interface name given. Note that the interfaces in all cas
 
 Given the necessary input files, \sharc\ can be started by executing
 \begin{example}
-\begin{verbatim}
-user@host> $SHARC/sharc.x input
-\end{verbatim}
+\verb|user@host> $SHARC/sharc.x input|
 \end{example}
 Note that besides the input file, at least the geometry file needs to be present (see in the input section for details).
 
@@ -549,7 +659,7 @@ Additionally, \ttt{spectrum.py} (\ref{sec:spectrum.py}) can calculate absorption
 
 Based on the initial conditions given in \ttt{initconds.excited}, the input for all trajectories in the ensemble can be setup by \ttt{setup\_traj.py} (see section~\ref{sec:setup_traj.py}). The script produces one directory for each trajectory, containing the input files for \sharc\ and the selected interface.
 
-In order to run a particular trajectory, the user should execute the run script (\ttt{run.sh}) in the directory of the trajectory. Since those calculations can run between minutes and several weeks (depending on the level of theory used and the number of timesteps), it is advisory to submit the run scripts to a batch queueing system. 
+In order to run a particular trajectory, the user should execute the run script (\ttt{run.sh}) in the directory of the trajectory. Since those calculations can run between minutes and several weeks (depending on the level of theory used and the number of timesteps), it is advisable to submit the run scripts to a batch queueing system. 
 
 The progress of the simulations can be monitored most conveniently in the \ttt{output.lis} files. If the calculations are running in some temporary directory, the output files can be copied to the local directory (where they were setup) with the \ttt{scp} wrapper \ttt{retrieve.sh} (see \ref{sec:retrieve}). This allows to perform ensemble analysis while the trajectories are still running.
 
@@ -564,7 +674,7 @@ For the complete ensemble, the script \ttt{populations.py} (section~\ref{sec:pop
 
 \section{Auxilliary Programs and Scripts}
 
-The following tables list the auxilliary programs in the \sharc\ suite. The rightmost column gives the section where the program is documented.
+The following tables list the auxiliary programs in the \sharc\ suite. The rightmost column gives the section where the program is documented.
 
 \subsection{Setup}
 
@@ -623,7 +733,7 @@ This section presents the format and all input keywords for the main \sharc\ inp
 The input file has a relatively flexible structure. With very few exceptions, each single line is independent. An input line starts with a keyword, followed optionally by a number of arguments to this keyword. Example:
 
 \begin{example}
-  \ttt{stepsize 0.5}
+  \verb|stepsize 0.5|
 \end{example}
 
 Here, \ttt{stepsize} is the keyword, referring to the size of the timesteps for the nuclear motion in the dynamics. \ttt{0.5} gives the size of this timestep, in this example 0.5~fs.
@@ -953,27 +1063,27 @@ The following input sample shows a typical input for excited-state dynamics incl
 
 \begin{example}
   \begin{verbatim}
-  nstates   8 0 3       # many singlet states for transient absorption
-  actstates 3 0 3       # only few states to reduce cost
+nstates   8 0 3       # many singlet states for transient absorption
+actstates 3 0 3       # only few states to reduce cost
 
-  stepsize 0.5          # typical timestep for a molecule containing H
-  tmax 1000.0           # one ps
+stepsize 0.5          # typical timestep for a molecule containing H
+tmax 1000.0           # one ps
 
-  surf sharc
-  state 3 mch                  # start on the S2 singlet state
-  coeff auto                   # coefficient of S2 will be set to one
-  coupling ddr                 # \
-  decoherence                  # | typical settings
-  ekincorrect parallel_vel     # /
-  grad_select           # \
-  nac_select            # | improve performance
-  eselect 0.3           # /
+surf sharc
+state 3 mch                  # start on the S2 singlet state
+coeff auto                   # coefficient of S2 will be set to one
+coupling ddr                 # \
+decoherence                  # | typical settings
+ekincorrect parallel_vel     # /
+grad_select           # \
+nac_select            # | improve performance
+eselect 0.3           # /
 
-  veloc external        # velocity comes from file "veloc"
-  velocfile "veloc"     #
+veloc external        # velocity comes from file "veloc"
+velocfile "veloc"     #
 
-  RNGseed 65435
-  ezero -399.41494751   # ground state energy of molecule
+RNGseed 65435
+ezero -399.41494751   # ground state energy of molecule
   \end{verbatim}
 \end{example}
 
@@ -1040,6 +1150,16 @@ The laser file contains a table with the amplitude of the laser field $\boldsymb
 each line consists of 8 elements: $t$ (in fs), $\Re(\epsilon_x(t))$, $\Im(\epsilon_x(t))$, $\Re(\epsilon_y(t))$, $\Im(\epsilon_y(t))$, $\Re(\epsilon_z(t))$, $\Im(\epsilon_z(t))$, (all in atomic units), and finally the instantaneous central frequency (also atomic units).
 
 The timestep in the laser file must exactly match the timestep used for the electronic propagation, which is the timestep used for the nuclear propagation (keyword \ttt{stepsize}) divided by the number of substeps (keyword \ttt{nsubsteps}). The first line of the laser file must correspond to $t$=0 fs.
+
+\begin{example}
+\begin{Verbatim}[commandchars=\\\{\}]
+0.00E+00 -0.68E-03  0.00E+00  0.00E+00  0.00E+00  0.00E+00  0.00E+00  0.31E+00
+0.10E-02 -0.77E-02  0.00E+00  0.00E+00  0.00E+00  0.00E+00  0.00E+00  0.33E+00
+0.20E-02 -0.13E-01  0.00E+00  0.00E+00  0.00E+00  0.00E+00  0.00E+00  0.35E+00
+       \vdots         \vdots          \vdots         \vdots          \vdots         \vdots          \vdots         \vdots
+\end{Verbatim}
+\end{example}
+
 
 \chapter{Output files}\label{chap:output}
 
@@ -1202,57 +1322,73 @@ All following lines contain keywords, one per line and possibly with arguments. 
 An examplary \ttt{QM.in} file is given in the following:
 \begin{example}
   \begin{verbatim}
-    3
-    Jobname
-    S     0.0     0.0     0.0    0.000  -0.020   0.002
-    H     0.0     0.9     1.2    0.000  -0.030   0.000
-    H     0.0    -0.9     1.2    0.000   0.010  -0.000
-    # This is a comment
-    Init
-    States 3 0 2
-    Unit Angstrom
-    SOC
-    DM
-    GRAD 1 2
-    OVERLAP
-    NACDR select
-      1 2
-      end
+3
+Jobname
+S     0.0     0.0     0.0    0.000  -0.020   0.002
+H     0.0     0.9     1.2    0.000  -0.030   0.000
+H     0.0    -0.9     1.2    0.000   0.010  -0.000
+# This is a comment
+Init
+States 3 0 2
+Unit Angstrom
+SOC
+DM
+GRAD 1 2
+OVERLAP
+NACDR select
+  1 2
+  end
   \end{verbatim}
 \end{example}
 
-There exist two types of keywords, \textit{control} keywords and \textit{request} keywords. Control keywords pass some information to the interface. Request keywords tell the interface to provide a quantity in the \ttt{QM.out} file.
-
-\paragraph{Control Keywords}
-
-Control keywords tell the interface how to perform the calculations.
-
-\begin{tabular}{>{\tt}lp{9cm}}
-init            &Specifies that this is the first calculation. The interface should create a save directory to save all information necessary for a restart. \\
-samestep        &Specifies that this is an additional calculation at the same geometry/timestep. \\
-cleanup         &Specifies that all output files of the interface (except \ttt{QM.out}) should be deleted (including the save directory).\\
-unit            &Specifies in which unit the atomic coordinates are to be interpreted. Possible arguments are ``angstrom'' and ``bohr''.\\
-states          &Gives the number of excited states per multiplicity (singlets, doublet, triplets, ...).\\
-dt              &Gives the time between the last calculation and the current calculation in atomic units.\\
-savedir         &Gives a path to the directory where the interface should save files needed for restart and between timesteps. If the interface-specific input files also have this keyword, \sharc\ assumes that the path in \ttt{QM.in} takes precedence.\\
-\end{tabular}
+There exist two types of keywords, \textit{control} keywords and \textit{request} keywords. Control keywords pass some information to the interface. Request keywords tell the interface to provide a quantity in the \ttt{QM.out} file. Table~\ref{tab:int_ctrl} contains all control keywords while table~\ref{tab:int_req} lists all request keywords.
 
 
-\paragraph{Request Keywords}
 
-Request keywords tell the interface which calculations to conduct.
 
-\begin{tabular}{>{\tt}lp{9cm}}
-H               &Calculate the molecular Hamiltonian (diagonal matrix with the energies of the states of the model space).\\
-SOC             &Calculate the molecular Hamiltonian including the SOCs (not diagonal anymore within the model space).\\
-DM              &Calculate the state dipole moments and transition dipole moments between all states.\\
-ION             &Calculate transition properties between neutral and ionic wavefunctions.\\
-GRAD            &Calculate gradients for all states. If followed by a list of states, calculate only gradients for the specified states.\\
-NACDT           &Calculate the time-derivatives $\left\langle\Psi_1|\partial/\partial t|\Psi_2\right\rangle$ by finite differences between the last timestep and the current timestep\\
-NACDR           &Calculate non-adiabatic coupling vectors $\left\langle\Psi_1|\partial/\partial \mathbf{R}|\Psi_2\right\rangle$ between all pairs of states. If followed by ``select'', read the list of pairs on the following lines until ``end'' and calculate non-adiabatic coupling vectors between the specified pairs of states.\\
-OVERLAP         &Calculate overlaps $\left\langle\Psi_1(t_0)|\Psi_2(t)\right\rangle$ between all pairs of states (between the last and current timestep). If followed by ``select'', read the list of pairs on the following lines until ``end'' and calculate overlaps between the specified pairs of states.\\
-DMDR            &Calculate the cartesian gradients of the dipole moments and transition dipole moments of all states.\\
-\end{tabular}
+\begin{table}
+  \centering
+  \caption{Control keywords for \sharc\ interfaces. These keywords pass information from \sharc\ to the interface.}
+  \label{tab:int_ctrl}
+  \begin{tabular}{>{\tt}lp{12cm}}
+  \toprule
+  Keyword       &Description\\
+  \midrule
+  init            &Specifies that this is the first calculation. The interface should create a save directory to save all information necessary for a restart. \\
+  samestep        &Specifies that this is an additional calculation at the same geometry/timestep. \\
+  cleanup         &Specifies that all output files of the interface (except \ttt{QM.out}) should be deleted (including the save directory).\\
+  unit            &Specifies in which unit the atomic coordinates are to be interpreted. Possible arguments are ``angstrom'' and ``bohr''.\\
+  states          &Gives the number of excited states per multiplicity (singlets, doublet, triplets, ...).\\
+  dt              &Gives the time between the last calculation and the current calculation in atomic units.\\
+  savedir         &Gives a path to the directory where the interface should save files needed for restart and between timesteps. If the interface-specific input files also have this keyword, \sharc\ assumes that the path in \ttt{QM.in} takes precedence.\\
+  \bottomrule
+  \end{tabular}
+\end{table}
+
+
+
+
+
+\begin{table}
+  \centering
+  \caption{Request keywords for \sharc\ interfaces.}
+  \label{tab:int_req}
+  \begin{tabular}{>{\tt}lp{12cm}}
+  \toprule
+  Keyword       &Description\\
+  \midrule
+  H               &Calculate the molecular Hamiltonian (diagonal matrix with the energies of the states of the model space).\\
+  SOC             &Calculate the molecular Hamiltonian including the SOCs (not diagonal anymore within the model space).\\
+  DM              &Calculate the state dipole moments and transition dipole moments between all states.\\
+  ION             &Calculate transition properties between neutral and ionic wavefunctions.\\
+  GRAD            &Calculate gradients for all states. If followed by a list of states, calculate only gradients for the specified states.\\
+  NACDT           &Calculate the time-derivatives $\left\langle\Psi_1|\partial/\partial t|\Psi_2\right\rangle$ by finite differences between the last timestep and the current timestep\\
+  NACDR           &Calculate non-adiabatic coupling vectors $\left\langle\Psi_1|\partial/\partial \mathbf{R}|\Psi_2\right\rangle$ between all pairs of states. If followed by ``select'', read the list of pairs on the following lines until ``end'' and calculate non-adiabatic coupling vectors between the specified pairs of states.\\
+  OVERLAP         &Calculate overlaps $\left\langle\Psi_1(t_0)|\Psi_2(t)\right\rangle$ between all pairs of states (between the last and current timestep). If followed by ``select'', read the list of pairs on the following lines until ``end'' and calculate overlaps between the specified pairs of states.\\
+  DMDR            &Calculate the cartesian gradients of the dipole moments and transition dipole moments of all states.\\
+  \bottomrule
+  \end{tabular}
+\end{table}
 
 \subsection{\ttt{QM.out} Specification}\label{intf:qmout}
 
@@ -1317,7 +1453,7 @@ Gradient and non-adiabatic couplings vectors are written as $3\times n_\text{ato
  0.0000 -6.8428 -1.0265
   \end{verbatim}
 \end{example}
-If gradients are requested, \sharc\ expects every gradient to be present, even if only some gradients are requested. The gradients are expected in the canonical ordering, which implies that for higher multiplets the same gradient has to be present several times. For example, with 3 singlets and 3 triplets, \sharc\ expects 12 gradients in the \ttt{QM.out} file (each triplet has three components with $M_s=$ -1, 0 or 1).
+If gradients are requested, \sharc\ expects every gradient to be present, even if only some gradients are requested. The gradients are expected in the canonical ordering (see section~\ref{met:ordering}), which implies that for higher multiplets the same gradient has to be present several times. For example, with 3 singlets and 3 triplets, \sharc\ expects 12 gradients in the \ttt{QM.out} file (each triplet has three components with $M_s=$ -1, 0 or 1).
 
 Similarly, for non-adiabatic coupling vectors, \sharc\ expects all pairs, even between states of different multiplicity. The vectors are also in canonical ordering, where the inner loop goes over the ket states. For example, with 3 singlets and 3 triplets (12 states), \sharc\ expects 144 ($12^2$) non-adiabatic coupling vectors in the \ttt{QM.out} file.
 \begin{example}
@@ -1393,18 +1529,27 @@ The \sharc-\textsc{Molpro} interface needs two additional input files, which sho
 
 The interface requires some additional information beyond the content of \ttt{QM.in}. This information is given in the file \ttt{SH2PRO.inp}, which must reside in the directory where the interface is started. This file uses a simple ``\ttt{keyword argument}'' syntax. Comments using \# and blank lines are possible, the order of keywords is arbitrary. Lines with unknown keywords are ignored, since the interface just searches the file for certain keywords.
 
-The following keywords exist:
+Table~\ref{tab:molpro_sh2} lists the existing keywords.
 
-\begin{tabular}{lp{9cm}}
-molpro          &Is followed by a string giving the path to the \textsc{Molpro} executable. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used.\\
-scratchdir      &Is a path to the temporary directory. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. If the directory does not exist, the interface will create it. In any case, the interface will delete this directory after the calculation.\\
-gradaccudefault &(float) Default accuracy for CP-MCSCF.\\
-gradaccumax     &(float) Worst acceptable accuracy for CP-MCSCF (see below).\\
-checknacs       &(boolean) Use the MRCI overlaps to check whether the time derivatives and overlap matrices are correct.\\
-correctnacs     &(boolean) Replace bad time derivatives with the scalar product of non-adiabatic coupling vectors and velocities.\\
-checknacs\_mrcio &(float) Threshold for the MRCI overlaps to be considered bad.\\
-checknacs\_ediff &(float, eV) If MRCI overlaps indicate inaccurate couplings, set to zero couplings between states which are farther apart than this value.
-\end{tabular}
+\begin{table}
+  \centering
+  \caption{Keywords for the \ttt{SH2PRO.inp} file.}
+  \label{tab:molpro_sh2}
+  \begin{tabular}{>{\tt}lp{12cm}}
+  \toprule
+  Keyword       &Description\\
+  \midrule
+  molpro          &Is followed by a string giving the path to the \textsc{Molpro} executable. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used.\\
+  scratchdir      &Is a path to the temporary directory. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. If the directory does not exist, the interface will create it. In any case, the interface will delete this directory after the calculation.\\
+  gradaccudefault &(float) Default accuracy for CP-MCSCF.\\
+  gradaccumax     &(float) Worst acceptable accuracy for CP-MCSCF (see below).\\
+  checknacs       &(boolean) Use the MRCI overlaps to check whether the time derivatives and overlap matrices are correct.\\
+  correctnacs     &(boolean) Replace bad time derivatives with the scalar product of non-adiabatic coupling vectors and velocities.\\
+  checknacs\_mrcio &(float) Threshold for the MRCI overlaps to be considered bad.\\
+  checknacs\_ediff &(float, eV) If MRCI overlaps indicate inaccurate couplings, set to zero couplings between states which are farther apart than this value.\\
+  \bottomrule
+  \end{tabular}
+\end{table}
 
 Note that only the first two keywords are mandatory. The last four keywords are only used for calculations with time derivatives or overlaps. The checking and correction of these couplings has to be considered experimental. Normally, \ttt{checknacs} should be ``False'' (in this case the other three keywords are not necessary).
 
@@ -1537,30 +1682,48 @@ The interface needs two additional input files, a template file for the quantum 
 
 The file \ttt{SH2CAS.inp} contains mainly paths (to the \textsc{Molcas} executables, to the scratch directory, etc.). This file must reside in the same directory where the interface is started. It uses a simple ``\ttt{keyword argument}'' syntax. Comments using \# and blank lines are possible, the order of keywords is arbitrary. Lines with unknown keywords are ignored, since the interface just searches the file for certain keywords.
 
-The following keywords exist:
+Table~\ref{tab:molcas_sh2} lists the existing keywords.
 
-\begin{tabular}{lp{12cm}}
+\begin{table}
+  \centering
+  \caption{Keywords for the \ttt{SH2CAS.inp} file.}
+  \label{tab:molcas_sh2}
+  \begin{tabular}{>{\tt}lp{12cm}}
+  \toprule
+  Keyword       &Description\\
+  \midrule
 molcas          &Is the path to the \textsc{Molcas} installation. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. The interface will set \ttt{\$MOLCAS} to this path. If this keyword is not present in \ttt{SH2CAS.inp}, the interface will use the environment variable \ttt{\$MOLCAS}, if it is set.\\
 % tinker          &The path to the \textsc{Tinker} installation, usable with \textsc{Molcas}.\\
 scratchdir      &Is a path to the temporary directory. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. If it does not exist, the interface will create it. In any case, the interface will delete this directory after the calculation.\\
 memory          &The memory usable by \textsc{Molcas}. The interface will set \ttt{\$MOLCASMEM} to this value. The default is 10~MB.\\
-project         &Can be used to set a \textsc{Molcas} project name (\ttt{\$Project}). If not used, the interface will generate a default project name.
-\end{tabular}
+project         &Can be used to set a \textsc{Molcas} project name (\ttt{\$Project}). If not used, the interface will generate a default project name.\\
+  \bottomrule
+  \end{tabular}
+\end{table}
 
-Note that with the paths to \textsc{Molcas} and the scratch directory, all environment variables necessary to run \textsc{Molcas} (e.g., \ttt{\$MOLCAS}, \ttt{\$MOLCASMEM}, \ttt{\$WorkDir} ,\ttt{\$Project}) are automatically set by the interface. 
+Note that the interface sets all environment variables necessary to run \textsc{Molcas} (e.g., \ttt{\$MOLCAS}, \ttt{\$MOLCASMEM}, \ttt{\$WorkDir} ,\ttt{\$Project}) automatically, based on the paths to \textsc{Molcas} and the scratch directory from \ttt{SH2CAS.inp}.
 
 \subsection{Template file: \ttt{MOLCAS.template}}
 
-This file contains the specifications for the wavefunction. Note that this is not a valid \textsc{Molcas} input file. No sections like \ttt{\$GATEWAY}, etc., can be used. The file only contains a number of keywords:
+This file contains the specifications for the wavefunction. Note that this is not a valid \textsc{Molcas} input file. No sections like \ttt{\$GATEWAY}, etc., can be used. The file only contains a number of keywords, given in table~\ref{tab:molcas_temp}.
 
-\begin{tabular}{lp{12cm}}
+\begin{table}
+  \centering
+  \caption{Keywords for the \ttt{MOLACS.template} file.}
+  \label{tab:molcas_temp}
+  \begin{tabular}{>{\tt}lp{12cm}}
+  \toprule
+  Keyword       &Description\\
+  \midrule
 basis           &The basis set used. Note that some basis sets (e.g., Pople basis sets) do not work, since the spin-orbit integrals cannot be calculated.\\
 ras2            &Number of active orbitals for CASSCF.\\
 nactel          &Number of active electrons for CASSCF.\\
 inactive        &Number of inactive orbitals.\\
 spin            &The full line reads as \ttt{spin s roots r} and specifies the number of roots for the given multiplicity. This influences only the number of states in the state-averaging procedure. The number of states in the dynamics must not be larger than the number of states given here.\\
 % qmmm            &Activates the QM/MM mode. In this case, two more input files need to be present (see below).
-\end{tabular}
+  \bottomrule
+  \end{tabular}
+\end{table}
 
 The template file can be setup with the tool \ttt{molcas\_input.py}.
 
@@ -1680,9 +1843,16 @@ Request first transition moments and interstate couplings in the following dialo
 
 \subsection{Interface specific input file: \ttt{SH2COL.inp}}
 
-Beyond the information from \ttt{QM.in} the interface needs additional input, which is read from the file \ttt{SH2COL.inp}. The following keywords can be given in this file:
+Beyond the information from \ttt{QM.in} the interface needs additional input, which is read from the file \ttt{SH2COL.inp}. Table~\ref{tab:columbus_sh2} lists the keywords which can be given in the file.
 
-\begin{tabular}{lp{9cm}}
+\begin{table}
+  \centering
+  \caption{Keywords for the \ttt{SH2COL.inp} file.}
+  \label{tab:columbus_sh2}
+  \begin{tabular}{>{\tt}lp{12cm}}
+  \toprule
+  Keyword       &Description\\
+  \midrule
 columbus        &Is followed by a string giving the path to the \textsc{Columbus} main directory. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used.\\
 molcas          &Is followed by a string giving the path to the \textsc{Molcas} main directory.  Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. This path is only used for overlap calculations (since in this case the interface calls \textsc{Molcas} explicitly). Otherwise \textsc{Columbus} will use the path to \textsc{Molcas} specified during the installation of \textsc{Columbus}.\\
 scratchdir      &Is a path to the temporary directory. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. If it does not exist, the interface will create it. In any case, the interface will delete this directory after the calculation.\\
@@ -1696,7 +1866,9 @@ nooverlap       &(no argument) Do not keep the binary files necessary to calcula
 template        &Is followed by the path to the directory containing the template subdirectories. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used.\\
 DIR             &See \ref{int:col:template}.\\
 MOCOEF          &See \ref{int:col:template}.\\
-\end{tabular}
+  \bottomrule
+  \end{tabular}
+\end{table}
 
 \subsection{Template setup}\label{int:col:template}
 
@@ -1876,9 +2048,9 @@ Note that exponentiation in Python is \ttt{**}. In order to provide most usual m
 
 \chapter{Auxilliary Scripts}\label{chap:aux}
 
-In this chapter, all auxilliary scripts and programs are documented. Input generators (currently \ttt{molpro\_input.py} and \ttt{molcas\_input.py}) are documented in the relevant interface sections.
+In this chapter, all auxiliary scripts and programs are documented. Input generators (currently \ttt{molpro\_input.py} and \ttt{molcas\_input.py}) are documented in the relevant interface sections.
 
-All auxilliary scripts are either interactive -- prompting user input from stdin in order to setup a certain task -- or non-interactive, meaning they are controlled by command-line arguments and options, in the same way as many command-line tools work.
+All auxiliary scripts are either interactive -- prompting user input from stdin in order to setup a certain task -- or non-interactive, meaning they are controlled by command-line arguments and options, in the same way as many command-line tools work.
 
 All interactive scripts sequentially ask a number of questions to the user. In many cases, a default value is presented, which is either preset or detected by the scripts based on the availability of certain files. Furthermore, the scripts feature auto-completion of paths and filenames (use TAB), which is active only in questions where auto-completion is relevant.
 
@@ -2733,10 +2905,10 @@ The second way to obtain populations is to obtain the sum of the absolute square
     4   &Generate a histogram with definable bins (variable width). Bin the trajectories according to their total spin expectation value (of the currently active diagonal state).   &output.lis &No\\
     5   &Generate a histogram with definable bins (variable width). Bin the trajectories according to their state dipole moment expectation value (of the currently active diagonal state).   &output.lis &No\\
     6   &Generate a histogram with definable bins (variable width). Bin the trajectories according to the oscillator strength between lowest and currently active diagonal states.        &output\_data/fosc.out  &Yes\\
-    7   &Calculate the sum of the absolute squares of the diagonal coefficients.       &output\_data/coeff\_diag.out&Yes\\
-    8   &Calculate the sum of the absolute squares of the MCH coefficients.       &output\_data/coeff\_MCH.out&Yes\\
-    9   &Calculate the sum of the absolute squares of the MCH coefficients. Multiplet components are summed up.       &output\_data/coeff\_MCH.out&Yes\\
-   10   &Calculate the sum of the absolute squares of the diabatic coefficients (Only for trajectories with local diabatization).      &output\_data/coeff\_diab.out&Yes\\
+    7   &Calculate the sum of the absolute squares of the diagonal coefficients for each state.       &output\_data/coeff\_diag.out&Yes\\
+    8   &Calculate the sum of the absolute squares of the MCH coefficients for each state.       &output\_data/coeff\_MCH.out&Yes\\
+    9   &Calculate the sum of the absolute squares of the MCH coefficients for each state. Multiplet components are summed up.       &output\_data/coeff\_MCH.out&Yes\\
+   10   &Calculate the sum of the absolute squares of the diabatic coefficients for each state (Only for trajectories with local diabatization).      &output\_data/coeff\_diab.out&Yes\\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -2756,20 +2928,22 @@ For analysis modes 1, 2, 3, 7, 8 and 9 it is necessary to specify the number of 
 \paragraph{Intervals}
 
 For analysis modes 4, 5 and 6 the user must specify the intervals for the classification of the trajectories. The user has to input a list of interval borders, e.g.:
+\begin{example}
 \begin{verbatim}
 Please enter the interval limits, all on one line.
 Interval limits: 1e-3 0.01 0.1 1
 \end{verbatim}
-Note that scientific notation can be used. Based on this input, for each timestep a histogram is created with the number of trajectories in each interval. The histogram bins are:
+\end{example}
 
-\begin{tabular}{ccccc}
-  \toprule
-  1&2&3&4&5\\
-  \midrule
-  $x\leq10^{-3}$     &$10^{-3}<x\leq10^{-2}$ &$10^{-2}<x\leq10^{-1}$ &$10^{-2}<x\leq10^{0}$ &$10^{0}<x$\\
-  \bottomrule
-\end{tabular}\\
-Note that there is always one more bin that interval borders.
+Note that scientific notation can be used. Based on this input, for each timestep a histogram is created with the number of trajectories in each interval. The histogram bins are:
+\begin{enumerate}
+  \item $x\leq10^{-3}$
+  \item $10^{-3}<x\leq10^{-2}$
+  \item $10^{-2}<x\leq10^{-1}$
+  \item $10^{-2}<x\leq10^{0}$
+  \item $10^{0}<x$
+\end{enumerate}
+Note that there is always one more bin that interval borders entered.
 
 \paragraph{Normalization}
 
@@ -2839,7 +3013,7 @@ By default, the coordinates are read from \ttt{output.xyz}, but this can be chan
 
 \subsection{Input}
 
-The specifications for the desired internal coordinates are read from standard input. It follows a simple syntax, where each internal coordinate is specified by a single line of input. Each line starts with a one-letter key which specifies the type of internal coordinate (e.g.\ bond length, angle, dihedral, ...). The key is followed by a number of integers, specifying which atoms should be measured. As a simple example, \ttt{r 1 2} specifies the bond length (\ttt{r} is the key for bond lengths) between atoms 1 and 2. Note that the numbering of the atoms starts with 1. Each line of input is checked for consistency (whether any atom index is larger than the number of atoms, repeated atom indices, misspelled keys, wrong number of atom indices, ...), and erroneous lines are ignored (this is indicate by an error message).
+The specifications for the desired internal coordinates are read from standard input. It follows a simple syntax, where each internal coordinate is specified by a single line of input. Each line starts with a one-letter key which specifies the type of internal coordinate (e.g.\ bond length, angle, dihedral, ...). The key is followed by a list of integers, specifying which atoms should be measured. As a simple example, \ttt{r 1 2} specifies the bond length (\ttt{r} is the key for bond lengths) between atoms 1 and 2. Note that the numbering of the atoms starts with 1. Each line of input is checked for consistency (whether any atom index is larger than the number of atoms, repeated atom indices, misspelled keys, wrong number of atom indices, ...), and erroneous lines are ignored (this is indicate by an error message).
 
 Table~\ref{tab:Geo_input} lists the available types of internal coordinates. The output is a table, where the first column is the time (Actually, the geometries are just enumerated starting with zero, and the number multiplied by the timestep from the \ttt{-t} option). The successive columns in the output table list the results of the internal coordinates calculations. Each request generates at least one column, see table~\ref{tab:Geo_input}. 
 
@@ -2861,12 +3035,12 @@ Note that for most internal coordinates, the order of the atoms is crucial, sinc
     a   &a b c          &Angle between \ttt{a}--\ttt{b} and \ttt{b}--\ttt{c}         &$a$\\
     d   &a b c d        &Dihedral (Angle between planes (\ttt{a,b,c})    &$d$\\
                        &&and (\ttt{b,c,d}))&\\
-    p   &a b c d        &Pyramidalization angle (90$^\circ$ -- Angle between    &$p$\\
-                       &&bond \ttt{a}--\ttt{b} and plane (\ttt{b,c,d}))&\\
-    5   &a b c d e      &Cremer-Pople parameters for &$q_2$, $\phi_2$\\
-                       &&5-membered rings&\\
-    6   &a b c d e f    &Cremer-Pople parameters for &$Q$, $\phi$, $\theta$, Boeyens\\
-                       &&6-membered rings and Boeyens classification&\\
+    p   &a b c d        &Pyramidalization angle (90$^\circ$ minus angle    &$p$\\
+                       &&between bond \ttt{a}--\ttt{b} and plane (\ttt{b,c,d}))&\\
+    5   &a b c d e      &Cremer-Pople parameters for 5-membered&$q_2$, $\phi_2$\\
+                       &&rings \cite{Cremer1975JACS}.&\\
+    6   &a b c d e f    &Cremer-Pople parameters for 6-membered&$Q$, $\phi$, $\theta$, Boeyens\\
+                       &&rings \cite{Cremer1975JACS} and Boeyens classification \cite{Boeyens1976JCMS}.&\\
     c   &               &Writes the comment (second line of the &Comment\\
                        &&xyz format) to the table.&\\
     \bottomrule
@@ -2996,36 +3170,34 @@ where FWHM is the full width at half maximum.
 
 \sharc\ allows to ``freeze'' certain states, which then do not participate in the dynamics. Only energies and dipole moments are calculated, but all couplings are disabled. In this way, these states are never visited (hence also no gradients and non-adiabatic couplings are calculated, making the inclusion of these states cheap). Example:
 
-\newcommand{\R}{\cellcolor{RL!50}}
+\newcommand{\R}{\cellcolor{RL!30}}
 \begin{example}
   \verb|nstates 2 0 2|
 
   \verb|actstates 2 0 1|
-
-  State $T_2$ is frozen. The Hamiltonian looks like:
-
-  %%ttm: \newline\includegraphics{equations/equation_9.gif}\newline
-  \ttmdump{
-    \begin{equation}
-      \VEC{H}=
-      \begin{pmatrix}
-        E(S_0)    &             &   a^*_{01} &\R a^*_{02}   &   b^*_{01} &\R b^*_{02}   &a_{01}       &\R a_{02}\\
-                  &   E(S_1)    &   a^*_{11} &\R a^*_{12}   &   b^*_{11} &\R b^*_{12}   &a_{11}       &\R a_{12}\\
-        a_{01}    &   a_{11}    &   E(T_1)   &\R p^*_{12}   &            &\R{-q^*_{12}} &             &\R\\
-    \R a_{02}    &\R a_{12}    &\R p_{12}   &   E(T_2)     &\R q^*_{12} &\R            &\R           &\R\\
-        b_{01}    &   b_{11}    &            &\R -q_{12}    &   E(T_1)   &\R            &             &\R -q^*_{12}\\
-    \R b_{02}    &\R b_{12}    &\R q_{12}   &\R            &\R          &   E(T_2)     &\R q^*_{12}  &\R\\
-        a^*_{01}  &   a^*_{11}  &            &\R            &            &\R -q_{12}    &   E(T_1)    &\R p_{12}\\
-    \R a^*_{02}  &\R a^*_{12}  &\R          &\R            &\R q_{12}   &\R            &\R p^*_{12}  &   E(T_2)\\
-      \end{pmatrix}\nonumber
-    \end{equation}
-  }
-
-  All matrix elements marked \begin{tabular}{c}\cellcolor{RL!50}red\end{tabular} are deleted, since $T_2$ is frozen. 
 \end{example}
 
+In the example given, state $T_2$ is frozen. The corresponding Hamiltonian looks like:
 
-Similarly, the same matrix elements are deleted from the non-adiabatic coupling and overlap matrices. For propagation including laser fields, also the corresponding transition dipole moments are neglected, while the transition dipole moments still show up in the output (in order to characterize the frozen states).
+%%ttm: \newline\includegraphics{equations/equation_9.gif}\newline
+\ttmdump{
+  \begin{equation}
+    \VEC{H}=
+    \begin{pmatrix}
+&      E(S_0)    &             &   a^*_{01} &\R a^*_{02}   &   b^*_{01} &\R b^*_{02}   &a_{01}       &\R a_{02}&\\
+&                &   E(S_1)    &   a^*_{11} &\R a^*_{12}   &   b^*_{11} &\R b^*_{12}   &a_{11}       &\R a_{12}&\\
+&      a_{01}    &   a_{11}    &   E(T_1)   &\R p^*_{12}   &            &\R{-q^*_{12}} &             &\R&\\
+&  \R a_{02}    &\R a_{12}    &\R p_{12}   &   E(T_2)     &\R q^*_{12} &\R            &\R           &\R&\\
+&      b_{01}    &   b_{11}    &            &\R -q_{12}    &   E(T_1)   &\R            &             &\R -q^*_{12}&\\
+&  \R b_{02}    &\R b_{12}    &\R q_{12}   &\R            &\R          &   E(T_2)     &\R q^*_{12}  &\R&\\
+&      a^*_{01}  &   a^*_{11}  &            &\R            &            &\R -q_{12}    &   E(T_1)    &\R p_{12}&\\
+&  \R a^*_{02}  &\R a^*_{12}  &\R          &\R            &\R q_{12}   &\R            &\R p^*_{12}  &   E(T_2)&\\
+    \end{pmatrix}\nonumber
+  \end{equation}
+}
+where all matrix elements marked \begin{tabular}{c}\cellcolor{RL!50}red\end{tabular} are deleted, since $T_2$ is frozen. 
+
+The corresponding matrix elements are also deleted from the non-adiabatic coupling and overlap matrices. For propagation including laser fields, also the corresponding transition dipole moments are neglected, while the transition dipole moments still show up in the output (in order to characterize the frozen states).
 
 Active and frozen states are defined with the \ttt{states} and \ttt{actstates} keywords in the input file. Note that only the highest states in each multiplicity can be frozen, i.e., it is not possible to freeze the $T_1$ while having $T_2$ active. However, it is possible to freeze all states of a certain multiplicity.
 
@@ -3040,12 +3212,12 @@ where $C$ is the damping factor given in the input. Hence, in each timestep the 
 \begin{equation}
   E_{\text{kin}}^\prime=E_{\text{kin}}\cdot C
 \end{equation}
-The damping factor must be between 0 and 1.
+The damping factor $C$ must be between 0 and 1.
 
 
 \section{Decoherence}\label{met:decoherence}
 
-In surface hopping without any corrections, usually the coherence between the states is too large \cite{Granucci2007JCP}. A trajectory in state $\beta$, but where state $\alpha$ has a large coefficient, will still travel according to the gradient of state $\beta$. However, the gradients of state $\alpha$ are almost certainly different to the ones of state $\beta$. As a consequence, too much population of state $\alpha$ is following the gradient of state $\beta$. Decoherence corrections damp in different ways the population of all states $\alpha\neq\beta$, so that only population of $\beta$ follows the gradient of state $\beta$.
+In surface hopping, without any corrections the coherence between the states is usually too large \cite{Granucci2007JCP}. A trajectory in state $\beta$, but where state $\alpha$ has a large coefficient, will still travel according to the gradient of state $\beta$. However, the gradients of state $\alpha$ are almost certainly different to the ones of state $\beta$. As a consequence, too much population of state $\alpha$ is following the gradient of state $\beta$. Decoherence corrections damp in different ways the population of all states $\alpha\neq\beta$, so that only population of $\beta$ follows the gradient of state $\beta$.
 
 The decoherence correction currently implemented in \sharc\ is based on the energies of the excited states (``energy-based decoherence'', or EDC, as given in \cite{Granucci2010JCP}). After the surface hopping procedure, when the system is in state $\beta$, the coefficients are updated by the following relation
 %%ttm: \begin{equation}
@@ -3136,6 +3308,55 @@ For strong laser fields, the derivative of the dipole moments might be a non-neg
 \end{equation}
 This can be activated with the keyword \ttt{dipole\_grad} in the \sharc\ input file.
 
+
+\section{Internal coordinates definitions}\label{met:geo}
+
+In this section, the internal coordinates available in \ttt{geo.py} are defined.
+
+\paragraph{Bond length}
+
+The bond length between two atoms $a$ and $b$ is:
+\begin{equation}
+  r_{ab}=
+  \sqrt{
+    (x_a-x_b)^2+(y_a-y_b)^2+(z_a-z_b)^2
+  }
+\end{equation}
+
+\paragraph{Bond angle}
+
+The bond angle for atoms $a$, $b$ and $c$ is defined as the angle
+\begin{equation}
+  \theta=
+  \cos^{-1}\left(
+    \frac{\VEC{v}_{ba}\cdot\VEC{v}_{bc}}{|\VEC{v}_{ba}|\cdot|\VEC{v}_{bc}|}
+  \right)\label{eq:angle}
+\end{equation}
+where $\VEC{v}_{ba}$ is the vector from atom $b$ to atom $a$.
+
+\paragraph{Dihedral}
+
+The dihedral angle is defined via the vectors $\VEC{w}_1$ and $\VEC{w}_2$:
+\begin{equation}
+  \VEC{w}_1=\VEC{v}_{ab}\times\VEC{v}_{bc}\qquad\text{and}\qquad\VEC{w}_1=\VEC{v}_{ab}\times\VEC{v}_{bc}.
+\end{equation}
+The dihedral is given as the angle between $\VEC{w}_1$ and $\VEC{w}_2$ according to equation~\eqref{eq:angle}.
+
+\paragraph{Pyramidalization angle}
+
+The pyramidalization angle is defined via the vectors $\VEC{v}_{ba}$ and 
+\begin{equation}
+  \VEC{w}_1=\VEC{v}_{bc}\times\VEC{v}_{bd}.
+\end{equation}
+The pyramidalization angle is then given as $90^\circ - \theta(\VEC{v}_{ba},\VEC{w}_1)$.
+
+\paragraph{Cremer-Pople parameters}
+
+The definitions of the Cremer-Pople parameters for 5- and 6-membered rings is described in \cite{Cremer1975JACS}.
+
+\paragraph{Boeyens classification}
+
+The Boeyens classification scheme is described in \cite{Boeyens1976JCMS}.
 
 \section{Kinetic energy adjustments}\label{met:ekinadj}
 
@@ -3413,10 +3634,10 @@ where $\VEC{U}(t)$ and $\VEC{U}(t+\Delta t)$ are determined independently from d
 %%ttm:\newline \includegraphics[scale=1]{equations/equation_51.gif}\newline
 \ttmdump{
   \begin{equation}
-    \VEC{U}(0)=
+    \VEC{U}(t)=
     \begin{pmatrix}1&0\\0&1\end{pmatrix}
     \qquad\text{and}\qquad 
-    \VEC{U}(t)=
+    \VEC{U}(t+\Delta t)=
     \begin{pmatrix}\I&0\\0&-\I\end{pmatrix}
   \end{equation}
 }
@@ -3520,9 +3741,9 @@ The corresponding MCH state $\alpha$ is the index of the (absolute) largest elem
 
 The sampling is based on references~\cite{Dahl1988JCP, Schinke1995}.
 
-The frequency calculation provides a set of vibrational frequencies $\{\nu_i\}$ and the corresponding normal mode vectors $\{\VEC{n}_i\}$, where $i$ runs from 1 to $N=3*n_{\text{atom}}$. It also provides the equilibrium geometry $\VEC{R}_{\text{eq}}$.
+The frequency calculation provides a set of vibrational frequencies $\{\nu_i\}$ and the corresponding normal mode vectors $\{\VEC{n}_i\}$, where $i$ runs from 1 to $N=3n_{\text{atom}}$. It also provides the equilibrium geometry $\VEC{R}_{\text{eq}}$.
 
-In order to create an initial condition $(\VEC{R},\VEC{v})$, the following procedure is applied. Initially, $\VEC{R}_0=\VEC{R}_{\text{eq}}$ and $\VEC{v}_0)=0$. Then, for each normal mode $i$, two random numbers $P_i$ and $Q_i$ are chosen uniformly from the interval $[-3,3]$. The value of a ground state quantum Wigner distribution for these values is calculated:
+In order to create an initial condition $(\VEC{R},\VEC{v})$, the following procedure is applied. Initially, $\VEC{R}_0=\VEC{R}_{\text{eq}}$ and $\VEC{v}_0=0$. Then, for each normal mode $i$, two random numbers $P_i$ and $Q_i$ are chosen uniformly from the interval $[-3,3]$. The value of a ground state quantum Wigner distribution for these values is calculated:
 \begin{equation}
   W_i=\E^{-P_i^2}\E^{-Q_i^2}.
 \end{equation}
@@ -3603,30 +3824,30 @@ There is only one keyword (\ttt{eselect}) to set the selection threshold, so $\v
 
 The canonical ordering of MCH states of different $S$ and $M_S$ in \sharc\ is as follows. In the innermost loop, the quantum number is increased; then $M_S$ and finally $S$. Example:
 
-% \begin{example}
+\begin{example}
   \verb|nstates 3 0 3|
+\end{example}
 
-  Order of states:
+In this example, the order of states is given as:
 
-  \begin{tabular}{rlccc}
-    \toprule
-    Number      &Label       &$S$ &$M_S$  &$n$\\
-    \midrule
-    1&$S_0$       &0&0&1\\
-    2&$S_1$       &0&0&2\\
-    3&$S_2$       &0&0&3\\
-    4&$T_1^-$       &2&-1&1\\
-    5&$T_2^-$       &2&-1&2\\
-    6&$T_3^-$       &2&-1&3\\
-    7&$T_1^0$       &2&0&1\\
-    8&$T_2^0$       &2&0&2\\
-    9&$T_3^0$       &2&0&3\\
-    10&$T_1^+$       &2&+1&1\\
-    11&$T_2^+$       &2&+1&2\\
-    12&$T_3^+$       &2&+1&3\\
-    \bottomrule
-  \end{tabular}
-% \end{example}
+\begin{tabular}{rlccc}
+  \toprule
+  Number      &Label       &$S$ &$M_S$  &$n$\\
+  \midrule
+  1&$S_0$       &0&0&1\\
+  2&$S_1$       &0&0&2\\
+  3&$S_2$       &0&0&3\\
+  4&$T_1^-$       &2&-1&1\\
+  5&$T_2^-$       &2&-1&2\\
+  6&$T_3^-$       &2&-1&3\\
+  7&$T_1^0$       &2&0&1\\
+  8&$T_2^0$       &2&0&2\\
+  9&$T_3^0$       &2&0&3\\
+  10&$T_1^+$       &2&+1&1\\
+  11&$T_2^+$       &2&+1&2\\
+  12&$T_3^+$       &2&+1&3\\
+  \bottomrule
+\end{tabular}
 
 The canonical ordering of states is for example important in order to specify the initial state in the MCH basis (using the \ttt{state} keyword in the input file).
 
