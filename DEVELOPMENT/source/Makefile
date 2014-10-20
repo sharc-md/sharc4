@@ -89,6 +89,7 @@ laser:  $(LASER)
 
 clean:
 	rm -rvf *.o
+	rm -rvf *.x
 	rm -rvf *.mod
 	rm -rvf build_info.inc
 
