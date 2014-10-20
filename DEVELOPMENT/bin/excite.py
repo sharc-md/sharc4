@@ -258,10 +258,10 @@ def get_statemap(states):
 
 def print_statemap(statemap):
   n=len(statemap)
-  s='#State\tMult\tQuant\tM_s\n'
+  s='#State\tMult\tM_s\tQuant\n'
   for i in range(1,n+1):
     (mult,state,ms)=statemap[i]
-    s+='%i\t%i\t%i\t%i\n' % (i,mult,state,ms)
+    s+='%i\t%i\t%i\t%i\n' % (i,mult,ms,state)
   return s
 
 # ======================================================================================================================
@@ -795,6 +795,8 @@ There are two representations:
             print 'File %s does not exist!' % (qmfilename)
             continue
           break
+      else:
+        qmfilename=''
     if os.path.isfile(qmfilename):
       H,DM,P=extractQMout(qmfilename)
       if H!=None:
@@ -803,7 +805,7 @@ There are two representations:
         INFOS['eref']=H[0][0].real
         print 'Reference energy read from file \n%s' % (qmfilename)
         print 'E_ref= %16.12f' % (INFOS['eref'])
-    if not 'eref' in INFOS:
+    else:
       print '\nPlease enter the ground state equilibrium energy in hartree.'
       INFOS['eref']=question('Reference energy (hartree): ',float)[0]
     print ''
