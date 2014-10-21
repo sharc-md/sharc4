@@ -1,6 +1,7 @@
 program data_extractor
 use matrix
 use definitions, only: au2a, au2fs, au2u, au2rcm, au2eV, au2debye
+use qm_out
 implicit none
 
 integer, parameter :: u_dat=11
@@ -11,6 +12,8 @@ integer, parameter :: u_coefd=24
 integer, parameter :: u_coefm=25
 integer, parameter :: u_prob=26
 integer, parameter :: u_expec=27
+integer, parameter :: u_coefdiab=28
+integer, parameter :: u_ref=31
 integer, parameter :: u_info=42
 
 
@@ -23,13 +26,13 @@ integer :: calc_overlap, laser, nsteps, nsubsteps
 ! per step
 integer :: step
 complex*16, allocatable :: H_MCH_ss(:,:),U_ss(:,:),DM_ssd(:,:,:), Prop_ss(:,:)
-complex*16, allocatable :: coeff_diag_s(:),overlaps_ss(:,:)
+complex*16, allocatable :: coeff_diag_s(:),overlaps_ss(:,:), ref_ovl_ss(:,:)
 real*8, allocatable :: geom_ad(:,:), veloc_ad(:,:)
 real*8 , allocatable :: hopprob_s(:)
 real*8 :: Ekin, Epot, randnum
 integer :: state_diag, state_MCH, runtime
 
-complex*16, allocatable :: H_diag_ss(:,:), A_ss(:,:), coeff_MCH_s(:), laser_td(:,:)
+complex*16, allocatable :: H_diag_ss(:,:), A_ss(:,:), coeff_MCH_s(:), laser_td(:,:), coeff_diab_s(:)
 real*8,allocatable :: expec_s(:), expec_dm(:), spin0_s(:)
 real*8 :: sumc
 
@@ -79,9 +82,9 @@ read(u_dat,*) natom
 allocate( H_MCH_ss(nstates,nstates), H_diag_ss(nstates,nstates) )
 allocate( U_ss(nstates,nstates) )
 allocate( Prop_ss(nstates,nstates) )
-allocate( overlaps_ss(nstates,nstates) )
+allocate( overlaps_ss(nstates,nstates), ref_ovl_ss(nstates,nstates) )
 allocate( DM_ssd(nstates,nstates,3) )
-allocate( coeff_diag_s(nstates), coeff_MCH_s(nstates) )
+allocate( coeff_diag_s(nstates), coeff_MCH_s(nstates), coeff_diab_s(nstates) )
 allocate( hopprob_s(nstates) )
 allocate( A_ss(nstates,nstates) )
 allocate( expec_s(nstates),expec_dm(nstates) )
@@ -120,6 +123,7 @@ open(unit=u_coefd, file='output_data/coeff_diag.out', status='replace', action='
 open(unit=u_coefm, file='output_data/coeff_MCH.out', status='replace', action='write')
 open(unit=u_prob, file='output_data/prob.out', status='replace', action='write')
 open(unit=u_expec, file='output_data/expec.out', status='replace', action='write')
+open(unit=u_coefdiab, file='output_data/coeff_diab.out', status='replace', action='write')
 
 
 
@@ -145,6 +149,10 @@ write(u_coefm,'(A1,1X,1000(I20,1X))') '#',(i,i=1,2*nstates+2)
 write(u_coefm,'(A1,1X,3(A20,1X))') '#','Time |','Sum c**2 |','=== coeff_MCH ===>'
 write(u_coefm,'(A1,1X,3(A20,1X))') '#','[fs] |','[] |','[] |'
 
+write(u_coefdiab,'(A1,1X,1000(I20,1X))') '#',(i,i=1,2*nstates+2)
+write(u_coefdiab,'(A1,1X,3(A20,1X))') '#','Time |','Sum c**2 |','=== coeff_diab ===>'
+write(u_coefdiab,'(A1,1X,3(A20,1X))') '#','[fs] |','[] |','[] |'
+
 write(u_prob,'(A1,1X,1000(I20,1X))') '#',(i,i=1,nstates+2)
 write(u_prob,'(A1,1X,3(A20,1X))') '#','Time |','Random Number |','=== cumu Prob ===>'
 write(u_prob,'(A1,1X,3(A20,1X))') '#','[fs] |','[] |','[] |'
@@ -155,10 +163,14 @@ do i=1,nstates
   write(string2,'(1X,A8,I10,A2)') 'Energy ',i,' |'
   string=trim(string)//string2
 enddo
+!write(string2,'(X,A20)') 'Spin (occ) |'
+!string=trim(string)//string2
 do i=1,nstates
   write(string2,'(1X,A5,I13,A2)') 'Spin ',i,' |'
   string=trim(string)//string2
 enddo
+!write(string2,'(X,A20)') 'f_osc (occ) |'
+!string=trim(string)//string2
 do i=1,nstates
   write(string2,'(1X,A6,I12,A2)') 'f_osc ',i,' |'
   string=trim(string)//string2
@@ -191,6 +203,24 @@ do imult=1,maxmult
     enddo
   enddo
 enddo
+
+! reference overlap
+ref_ovl_ss=dcmplx(0.d0,0.d0)
+do i=1,nstates
+  ref_ovl_ss(i,i)=dcmplx(1.d0,0.d0)
+enddo
+
+filename='Reference/QM.out'
+inquire(file=filename,exist=exists)
+if (exists) then
+  call open_qmout(u_ref,filename)
+  call get_overlap(nstates,ref_ovl_ss)
+  call close_qmout
+  call lowdin(nstates,ref_ovl_ss)
+else
+  write(6,*) 'Reference overlap not available!'
+endif
+
 
 ! main loop
 do
@@ -231,6 +261,13 @@ do
 !   call matwrite(nstates,H_diag_ss,6,'','F12.9')
   call matvecmultiply(nstates,U_ss,coeff_diag_s,coeff_MCH_s,'n')
   Epot=real(H_diag_ss(state_diag,state_diag))
+
+  ! calculate diabatic coefficients
+  if (step>0) then
+    call matmultiply(nstates,ref_ovl_ss,overlaps_ss,A_ss,'nn')
+    ref_ovl_ss=A_ss
+  endif
+  call matvecmultiply(nstates,ref_ovl_ss,coeff_MCH_s,coeff_diab_s,'n')
 
   ! energy.out
   write(u_ener,'(2X,1000(E20.13,1X))') &
@@ -280,6 +317,15 @@ do
   write(u_coefm,'(2X,1000(E20.13,1X))') &
   &step*dtstep, sumc,&
   (coeff_MCH_s(istate),istate=1,nstates)
+
+  ! coeff_diab.out
+  sumc=0.d0
+  do istate=1,nstates
+    sumc=sumc + dconjg(coeff_diab_s(istate))*coeff_diab_s(istate)
+  enddo
+  write(u_coefdiab,'(2X,1000(E20.13,X))') &
+  &step*dtstep, sumc,&
+  (coeff_diab_s(istate),istate=1,nstates)
 
   ! prob.out
   do istate=2,nstates

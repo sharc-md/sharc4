@@ -239,6 +239,35 @@ class INITCOND:
 # ======================================================================================================================
 # ======================================================================================================================
 
+def itnmstates(states):
+  for i in range(len(states)):
+    if states[i]<1:
+      continue
+    for k in range(i+1):
+      for j in range(states[i]):
+        yield i+1,j+1,k-i/2.
+  return
+
+def get_statemap(states):
+  statemap={}
+  i=1
+  for imult,istate,ims in itnmstates(states):
+    statemap[i]=[imult,istate,ims]
+    i+=1
+  return statemap
+
+def print_statemap(statemap):
+  n=len(statemap)
+  s='#State\tMult\tM_s\tQuant\n'
+  for i in range(1,n+1):
+    (mult,state,ms)=statemap[i]
+    s+='%i\t%i\t%i\t%i\n' % (i,mult,ms,state)
+  return s
+
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+
 def check_initcond_version(string,must_be_excited=False):
   if not 'sharc initial conditions file' in string.lower():
     return False
@@ -605,7 +634,7 @@ def get_infos(INFOS):
     if 'Equilibrium' in line:
       break
     if line=='':
-      print 'No equilibrium geometry!'
+      print 'File malformatted! No equilibrium geometry!'
       quit(1)
   equi=[]
   for i in range(INFOS['natom']):
@@ -620,19 +649,38 @@ def get_infos(INFOS):
   print 'Number of atoms is %i\n' % (INFOS['natom'])
 
 
-  print centerstring('Initial conditions excited-state calculations',60,'-')
-  if INFOS['repr'].lower()=='none':
-    readout=True
-  else:
-    print '\nShould the excited-state information be read from the ICOND directories?'
-    readout=question('Read from ICOND directories?',bool,True)
-  if not readout:
-    print 'Will reread the excited-state information from %s and will just redo stochastic excitation.\n' % (initfile)
+  print centerstring('Generate excited state lists',60,'-')+'\n'
+  print '''Using the following options, excited state lists can be added to the initial conditions:
+
+1       Generate a list of dummy states
+2       Read excited-state information from ab initio calculations (from setup_init.py)'''
+  allowed=[1,2]
+  guess_gen=[2]
+  if any([i in INFOS['repr'].lower()   for i in ['mch','diag']]):
+    allowed.append(3)
+    print '3       Keep existing excited-state information'
+    guess_gen=[3]
+  print ''
+  while True:
+    INFOS['gen_list']=question('How should the excited-state lists be generated?',int,guess_gen)[0]
+    if not INFOS['gen_list'] in allowed:
+      print 'Please give one of the following integer: %s' % (allowed)
+      continue
+    break
+
+  if INFOS['gen_list']==1:
     INFOS['read_QMout']=False
-  else:
+    INFOS['make_list']=True
+  elif INFOS['gen_list']==2:
     INFOS['read_QMout']=True
+    INFOS['make_list']=False
+  elif INFOS['gen_list']==3:
+    INFOS['read_QMout']=False
+    INFOS['make_list']=False
+
+
+  if INFOS['read_QMout']:
     print 'Please enter the path to the directory containing the ICOND subdirectories.'
-    print '\nIf you do not have yet calculated the excited states of the initial conditions, you can use setup_init.py to create the input files for these calculations!\n'
     while True:
       path=question('Path to ICOND directories:',str)
       path=os.path.expanduser(os.path.expandvars(path))
@@ -658,69 +706,44 @@ def get_infos(INFOS):
     INFOS['ncond']=n
     print ''
 
-  INFOS['do_excitations']=question('Do you want to perform the selection of initial states for dynamics?',bool)
-  if INFOS['do_excitations']:
-    INFOS['ground_state_only']=question('Only ground state as initial state?',bool,False)
-    if not INFOS['ground_state_only']:
 
-      print '\n'+centerstring('Excitation window',60,'-')
-      print '\nEnter the energy window for exciting the trajectories. If you just want to calculate absorption spectra, enter any range.'
-      while True:
-        erange=question('Range (eV):',float,[0.,10.])
-        if erange[0]>=erange[1]:
-          print 'Range empty!'
-          continue
-        break
-      print '\nScript will allow excitations only between %f eV and %f eV.\n' % (erange[0],erange[1])
-      erange[0]/=HARTREE_TO_EV
-      erange[1]/=HARTREE_TO_EV
-      INFOS['erange']=erange
-
-
-      print centerstring('Considered states',60,'-')+'\n'
-      allstates=question('Do you want to include all states in the selection?',bool,True)
-      if allstates:
-        INFOS['forbidden']=set()
-      else:
-        print '\nPlease enter the states which you want to EXCLUDE from the selection procedure.'
-        INFOS['forbidden']=set(question('Excluded states:',int))
-      print ''
+  if INFOS['make_list']:
+    print '\nPlease enter the number of states as a list of integers\ne.g. 3 0 3 for three singlets, zero doublets and three triplets.'
+    while True:
+      states=question('Number of states:',int)
+      if len(states)==0:
+        continue
+      if any(i<0 for i in states):
+        print 'Number of states must be positive!'
+        continue
+      break
+    print ''
+    nstates=0
+    for mult,i in enumerate(states):
+      nstates+=(mult+1)*i
+    print 'Number of states: '+str(states)
+    print 'Total number of states: %i\n' % (nstates)
+    print ''
+    INFOS['states']=states
+    INFOS['nstates']=nstates
 
 
-      print centerstring('Random number seed',60,'-')+'\n'
-      print 'Please enter a random number generator seed (type "!" to initialize the RNG from the system time).'
-      while True:
-        line=question('RNG Seed: ',str,'!',False)
-        if line=='!':
-          random.seed()
-          break
-        try:
-          rngseed=int(line)
-          random.seed(rngseed)
-        except ValueError:
-          print 'Please enter an integer or "!".'
-          continue
-        break
-      print ''
-
-    else:
-      INFOS['erange']=[-2.,-1.]
-      INFOS['forbidden']=set()
-
-  else:
-    INFOS['erange']=[-2.,-1.]
-    INFOS['forbidden']=set()
-
-
-  if INFOS['read_QMout']:
+  if INFOS['make_list'] or INFOS['read_QMout']:
     print centerstring('Excited-state representation',60,'-')
-    print '''\nThis script can calculate the excited-state energies and oscillator strengths in two representations.
-  These representations are:
-  - MCH representation: Only the diagonal elements of the Hamiltonian are taken into account. The states are the spin-free states as calculated in the quantum chemistry code. This option is usually sufficient for systems with small SOC (below 300 cm^-1).
-  - diagonal representation: The Hamiltonian including spin-orbit coupling is diagonalized. The states are spin-corrected, fully adiabatic. Note that for this the excited-state calculations have to include spin-orbit couplings. This is usually not necessary for systems with small SOC.
-  '''
+    if INFOS['read_QMout']:
+      print '''\nThis script can calculate the excited-state energies and oscillator strengths in two representations.
+These representations are:
+- MCH representation: Only the diagonal elements of the Hamiltonian are taken into account. The states are the spin-free states as calculated in the quantum chemistry code. This option is usually sufficient for systems with small SOC (below 300 cm^-1).
+- diagonal representation: The Hamiltonian including spin-orbit coupling is diagonalized. The states are spin-corrected, fully adiabatic. Note that for this the excited-state calculations have to include spin-orbit couplings. This is usually not necessary for systems with small SOC.
+'''
+    else:
+      print '''\nThis script needs to set the electronic state representation.
+There are two representations:
+- MCH representation: Only the diagonal elements of the Hamiltonian are taken into account. The states are the spin-free states as calculated in the quantum chemistry code. This option is usually sufficient for systems with small SOC (below 300 cm^-1).
+- diagonal representation: The Hamiltonian including spin-orbit coupling is diagonalized. The states are spin-corrected, fully adiabatic. Note that for this the excited-state calculations have to include spin-orbit couplings. This is usually not necessary for systems with small SOC.
+'''
     INFOS['diag']=question('Do you want to use the diagonal representation (yes=diag, no=MCH)?',bool)
-    if INFOS['diag']:
+    if INFOS['diag'] and INFOS['read_QMout']:
       qmfilename=INFOS['iconddir']+'/ICOND_00000/QM.in'
       if os.path.isfile(qmfilename):
         soc_there=False
@@ -730,8 +753,9 @@ def get_infos(INFOS):
             soc_there=True
         qmfile.close()
         if not soc_there:
-          print 'Diagonal representation specified, \nbut %s says there are no SOCs in the QM.out files.' % (qmfilename)
+          print '\nDiagonal representation specified, but \n%s\n says there are no SOCs in the QM.out files.\nUsing MCH representation.' % (qmfilename)
           INFOS['diag']=False
+          time.sleep(2)
       else:
         print 'Could not determine whether calculations include SOC.'
     print ''
@@ -740,31 +764,42 @@ def get_infos(INFOS):
     else:
       INFOS['repr']='MCH'
 
-    qmfilename=INFOS['iconddir']+'/ICOND_00000/QM.in'
-    if os.path.isfile(qmfilename):
-      qmfile=open(qmfilename,'r')
-      for line in qmfile:
-        if re.search('^\s?ion\s?',line.lower()):
-          INFOS['ion']=question('Use Dyson norms instead of dipole moments?',bool,False)
-        if 'states' in line.lower():
-          states=[]
-          l=line.split()
-          for i in range(1,len(l)):
-            states.append(int(l[i]))
-          INFOS['states']=states
-      qmfile.close()
-    if not 'ion' in INFOS:
-      INFOS['ion']=False
+
+    if INFOS['read_QMout']:
+      qmfilename=INFOS['iconddir']+'/ICOND_00000/QM.in'
+      if os.path.isfile(qmfilename):
+        qmfile=open(qmfilename,'r')
+        for line in qmfile:
+          if re.search('^\s?ion\s?',line.lower()):
+            INFOS['ion']=question('Use ionization probabilities instead of dipole moments?',bool,False)
+          if 'states' in line.lower():
+            states=[]
+            l=line.split()
+            for i in range(1,len(l)):
+              states.append(int(l[i]))
+            INFOS['states']=states
+        qmfile.close()
+      if not 'ion' in INFOS:
+        INFOS['ion']=False
 
 
-    print centerstring('Reference energy',60,'-')+'\n'
-    if os.path.isfile(INFOS['iconddir']+'/ICOND_00000/QM.out'):
+    print '\n'+centerstring('Reference energy',60,'-')+'\n'
+    if INFOS['read_QMout']:
       qmfilename=INFOS['iconddir']+'/ICOND_00000/QM.out'
-      H,DM,P=extractQMout(qmfilename)
-      if H==None:
-        print '\nPlease enter the ground state equilibrium energy in hartree.'
-        INFOS['eref']=question('Reference energy (hartree): ',float)[0]
+    if INFOS['make_list']:
+      eref_from_file=question('Do you have conducted an ab initio calculation at the equilibrium geometry?',bool)
+      if eref_from_file:
+        while True:
+          qmfilename=question('Path to the QM.out file of the calculation:',str)
+          if not os.path.isfile(qmfilename):
+            print 'File %s does not exist!' % (qmfilename)
+            continue
+          break
       else:
+        qmfilename=''
+    if os.path.isfile(qmfilename):
+      H,DM,P=extractQMout(qmfilename)
+      if H!=None:
         if INFOS['diag']:
           H,DM,P=transform(H,DM,P)
         INFOS['eref']=H[0][0].real
@@ -775,6 +810,111 @@ def get_infos(INFOS):
       INFOS['eref']=question('Reference energy (hartree): ',float)[0]
     print ''
 
+
+
+
+  print '\n'+centerstring('Excited-state selection',60,'-')+'\n'
+  print '''Using the following options, the excited states can be flagged as valid initial states for dynamics:
+
+1       Unselect all initial states
+2       Provide a list of desired initial states'''
+  allowed=[1,2]
+  guess_gen=[2]
+  if not INFOS['make_list']:
+    print '3       Simulate delta-pulse excitation based on excitation energies and oscillator strengths'
+    allowed.append(3)
+    guess_gen=[3]
+  if not INFOS['make_list'] and not INFOS['read_QMout']:
+    print '4       Keep selection (i.e., only print statistics on the excited states and exit)'
+    allowed.append(4)
+  print ''
+  while True:
+    INFOS['excite']=question('How should the excited states be flagged?',int,guess_gen)[0]
+    if not INFOS['excite'] in allowed:
+      print 'Please give one of the following integer: %s' % (allowed)
+      continue
+    break
+  print ''
+
+
+
+  if INFOS['excite']==1:
+    INFOS['allowed']=set()
+    INFOS['erange']=[-2.,-1.]
+
+
+  if INFOS['excite']==3 or (INFOS['excite']==2 and not INFOS['make_list']) or INFOS['excite']==4:
+    print '\n'+centerstring('Excitation window',60,'-')
+    if INFOS['excite']==4:
+      print '\nEnter the energy window for counting.'
+    else:
+      print '\nEnter the energy window for exciting the trajectories.'
+    while True:
+      erange=question('Range (eV):',float,[0.,10.])
+      if erange[0]>=erange[1]:
+        print 'Range empty!'
+        continue
+      break
+    print '\nScript will allow excitations only between %f eV and %f eV.\n' % (erange[0],erange[1])
+    erange[0]/=HARTREE_TO_EV
+    erange[1]/=HARTREE_TO_EV
+    INFOS['erange']=erange
+
+
+  if INFOS['excite']==2:
+    print '\n'+centerstring('Considered states',60,'-')
+    print '''Please give a list of all states which should be 
+flagged as valid initial states for the dynamics.
+Note that this is applied to all initial conditions.'''
+    if 'states' in INFOS:
+      print print_statemap(get_statemap(INFOS['states']))
+
+    while True:
+      allowed_states=question('List of initial states:',int)
+      if any([i<=0 for i in allowed_states]):
+        print 'State indices must be positive!'
+        continue
+      break
+    INFOS['allowed']=set(allowed_states)
+    if not 'erange' in INFOS:
+      INFOS['erange']=[float('-inf'),float('inf')]
+
+
+  if INFOS['excite']==3:
+    print centerstring('Considered states',60,'-')+'\n'
+    if 'states' in INFOS:
+      print print_statemap(get_statemap(INFOS['states']))
+    allstates=question('Do you want to include all states in the selection?',bool,True)
+    if allstates:
+      INFOS['allowed']=set()
+    else:
+      print '\nPlease enter the states which you want to EXCLUDE from the selection procedure.'
+      a=question('Excluded states:',int)
+      INFOS['allowed']=set([-i for i in a])
+    print ''
+
+
+    print centerstring('Random number seed',60,'-')+'\n'
+    print 'Please enter a random number generator seed (type "!" to initialize the RNG from the system time).'
+    while True:
+      line=question('RNG Seed: ',str,'!',False)
+      if line=='!':
+        random.seed()
+        break
+      try:
+        rngseed=int(line)
+        random.seed(rngseed)
+      except ValueError:
+        print 'Please enter an integer or "!".'
+        continue
+      break
+    print ''
+
+
+  if INFOS['excite']==4:
+    INFOS['allowed']=set()
+
+
   return INFOS
 
 # ======================================================================================================================
@@ -784,12 +924,13 @@ def get_infos(INFOS):
 def get_initconds(INFOS):
   ''''''
 
-  if not INFOS['read_QMout']:
+  if not INFOS['read_QMout'] and not INFOS['make_list']:
     INFOS['initf'].seek(0)
     while True:
       line=INFOS['initf'].readline()
       if 'Repr' in line:
         INFOS['diag']=line.split()[1].lower()=='diag'
+        INFOS['repr']=line.split()[1]
       if 'Eref' in line:
         INFOS['eref']=float(line.split()[1])
         break
@@ -800,6 +941,17 @@ def get_initconds(INFOS):
     initcond.init_from_file(INFOS['initf'],INFOS['eref'],icond)
     initlist.append(initcond)
   print 'Number of initial conditions in file:       %5i' % (INFOS['ninit'])
+  return initlist
+
+# ======================================================================================================================
+
+def make_list(INFOS,initlist):
+  for icond in range(1,INFOS['ninit']+1):
+    estates=[]
+    for istate in range(INFOS['nstates']):
+      estates.append(STATE(i=istate+1))
+    initlist[icond-1].addstates(estates)
+  print 'Number of initial conditions where states were added:   %5i' % (INFOS['ninit'])
   return initlist
 
 # ======================================================================================================================
@@ -838,9 +990,35 @@ def get_QMout(INFOS,initlist):
 # ======================================================================================================================
 
 def excite(INFOS,initlist):
-  # get the maximum oscillator strength
   emin=INFOS['erange'][0]
   emax=INFOS['erange'][1]
+  if not INFOS['excite']==4:
+    for i,icond in enumerate(initlist):
+      if icond.statelist==[]:
+        continue
+      else:
+        if INFOS['excite']==1:
+          for jstate in icond.statelist:
+            jstate.Excited=False
+        elif INFOS['excite']==2:
+          for j,jstate in enumerate(icond.statelist):
+            if emin <= jstate.Eexc <= emax and j+1 in INFOS['allowed']:
+              jstate.Excited=True
+            else:
+              jstate.Excited=False
+        elif INFOS['excite']==3:
+          # get the maximum oscillator strength
+          maxprob=0
+          for j,jstate in enumerate(icond.statelist):
+            if emin <= jstate.Eexc <= emax:
+              if -(j+1) not in INFOS['allowed']:
+                if jstate.Prob>maxprob:
+                  maxprob=jstate.Prob
+          # and excite
+          for j,jstate in enumerate(icond.statelist):
+            jstate.Excite(maxprob,INFOS['erange'])
+
+  # statistics
   maxprob=0.
   nexc=[0]
   ninrange=[0]
@@ -849,36 +1027,22 @@ def excite(INFOS,initlist):
     if icond.statelist==[]:
       continue
     else:
-      if INFOS['ground_state_only']:
-        for jstate in icond.statelist:
-          jstate.Excited=False
-        icond.statelist[0].Excited=True
-        nexc[0]+=1
-        ntotal[0]+=1
-        ninrange[0]+=1
-      else:
-        for j,jstate in enumerate(icond.statelist):
-          if j+1>len(ntotal):
-            ntotal.append(0)
-          if j+1>len(ninrange):
-            ninrange.append(0)
-          if j+1>len(nexc):
-            nexc.append(0)
-          ntotal[j]+=1
-          if (emin <= jstate.Eexc <= emax) and j+1 not in INFOS['forbidden']:
-            ninrange[j]+=1
-            if jstate.Prob>maxprob:
-              maxprob=jstate.Prob
-          else:
-            jstate.Excited=False
       for j,jstate in enumerate(icond.statelist):
-        jstate.Excite(maxprob,INFOS['erange'])
+        if j+1>len(ntotal):
+          ntotal.append(0)
+        if j+1>len(ninrange):
+          ninrange.append(0)
+        if j+1>len(nexc):
+          nexc.append(0)
+        ntotal[j]+=1
+        if emin <= jstate.Eexc <= emax:
+          ninrange[j]+=1
         if jstate.Excited:
           nexc[j]+=1
   print 'Number of initial conditions excited:'
-  print 'State   Excited   InRange   Total'
+  print 'State   Selected   InRange   Total'
   for i in range(len(ntotal)):
-    print '  % 3i      % 4i      % 4i    % 4i' % (i+1,nexc[i],ninrange[i],ntotal[i])
+    print '  % 3i       % 4i      % 4i    % 4i' % (i+1,nexc[i],ninrange[i],ntotal[i])
   return initlist
 
 # ======================================================================================================================
@@ -975,9 +1139,14 @@ information to determine which initial conditions are bright enough for a dynami
 
   if INFOS['read_QMout']:
     initlist=get_QMout(INFOS,initlist)
+  if INFOS['make_list']:
+    initlist=make_list(INFOS,initlist)
   initlist=excite(INFOS,initlist)
 
-  writeoutput(initlist,INFOS)
+  if not INFOS['excite']==4:
+    writeoutput(initlist,INFOS)
+  else:
+    print 'Nothing done, will not write output.'
 
   close_keystrokes()
 

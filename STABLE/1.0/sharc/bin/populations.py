@@ -236,7 +236,7 @@ def get_general():
   INFOS={}
 
   print centerstring('Paths to trajectories',60,'-')
-  print '\nPlease enter the paths to all directories containing the "TRAJ_0XXXX" directories.\nE.g. S_2 and S_3. \nPlease enter one path at a time, and type "end" to finish the list.'
+  print '\nPlease enter the paths to all directories containing the "TRAJ_0XXXX" directories.\nE.g. Sing_2/ and Sing_3/. \nPlease enter one path at a time, and type "end" to finish the list.'
   count=0
   paths=[]
   while True:
@@ -272,6 +272,7 @@ def get_general():
       break
   inputfilename=INFOS['paths'][0]+'/'+i+'/input'
   guessstates=None
+  LD_dynamics=False
   if os.path.isfile(inputfilename):
     inputfile=open(inputfilename)
     for line in inputfile:
@@ -280,9 +281,12 @@ def get_general():
         l=re.sub('#.*$','',line).strip().split()
         for i in range(1,len(l)):
           guessstates.append(int(l[i]))
+      if 'coupling' in line.lower():
+        if 'overlap' in line.lower():
+          LD_dynamics=True
 
 
-
+  allowed=[i for i in range(1,10)]
   print centerstring('Analyze Mode',60,'-')
   print '''\nThis script can analyze the classical populations in different ways:
 1       Number of trajectories in each diagonal state                                   from output.lis
@@ -297,10 +301,13 @@ It can also sum the quantum amplitudes:
 8       Quantum amplitudes in MCH picture                                               from output_data/coeff_MCH.out
 9       Quantum amplitudes in MCH picture (multiplets summed up)                        from output_data/coeff_MCH.out
 '''
+  if LD_dynamics:
+    print '10      Quantum amplitudes in diabatic picture                                          from output_data/coeff_diab.out'
+    allowed.append(10)
   while True:
     num=question('Analyze mode:',int)[0]
-    if not 1<=num<=9:
-      print 'Please enter an integer between 1 and 9!'
+    if not num in allowed:
+      print 'Please enter one of the following integers: %s!' % (allowed)
       continue
     if guessstates!=None and len(guessstates)==1 and num==4:
       print 'Only singlet states, analysis unnecessary.'
@@ -311,10 +318,13 @@ It can also sum the quantum amplitudes:
 
 
 
-  if INFOS['mode'] in [6,7,8,9]:
+  if INFOS['mode'] in [6,7,8,9,10]:
     print 'Run data_extractor.x for each trajectory prior to performing the analysis?\nFor many or long trajectories, this might take some time.'
     run_extractor=question('Run data_extractor.x?',bool,True)
-    run_full=not question('Run data_extractor.x only if output.dat newer than output_data/',bool,True)
+    if run_extractor:
+      run_full=not question('Run data_extractor.x only if output.dat newer than output_data/',bool,True)
+    else:
+      run_full=False
   else:
     run_extractor=False
     run_full=False
@@ -323,7 +333,7 @@ It can also sum the quantum amplitudes:
 
 
 
-  if INFOS['mode'] in [1,2,3,7,8,9]:
+  if INFOS['mode'] in [1,2,3,7,8,9,10]:
 
     print centerstring('Number of states',60,'-')
     print '\nPlease enter the number of states as a list of integers\ne.g. 3 0 3 for three singlets, zero doublets and three triplets.'
@@ -420,13 +430,19 @@ def do_calc(INFOS):
             path=idir+'/'+itraj
             print path
             # check whether output_data/expec.out is newer than output.dat
-            time_dat=os.path.getmtime(path+'/output.dat')
-            time_expec=os.path.getmtime(path+'/output_data/expec.out')
-            if time_dat > time_expec or INFOS['run_extractor_full']:
+            update=False
+            if not os.path.isfile(path+'/output_data/expec.out'):
+              update=True
+            if not update:
+              time_dat=os.path.getmtime(path+'/output.dat')
+              time_expec=os.path.getmtime(path+'/output_data/expec.out')
+              if time_dat > time_expec or INFOS['run_extractor_full']:
+                update=True
+            if update:
               os.chdir(path)
               io=sp.call(sharcpath+'/data_extractor.x output.dat > /dev/null 2> /dev/null',shell=True)
               if io!=0:
-                print 'WARNING: extractor call failed for %s!' % (path)
+                print 'WARNING: extractor call failed for %s! Exit code %i' % (path,io)
               os.chdir(cwd)
             else:
               pass
@@ -452,6 +468,8 @@ def do_calc(INFOS):
         pathfile=path+'/output_data/coeff_diag.out'
       elif INFOS['mode'] in [8,9]:
         pathfile=path+'/output_data/coeff_MCH.out'
+      elif INFOS['mode'] in [10]:
+        pathfile=path+'/output_data/coeff_diab.out'
       if not os.path.isfile(pathfile):
         s+='%s NOT FOUND' % (pathfile)
         print s
@@ -472,7 +490,7 @@ def do_calc(INFOS):
       files.append(pathfile)
   print 'Number of trajectories: %i' % (ntraj)
   if ntraj==0:
-    print 'No trajectories found, exiting...'
+    print 'No valid trajectories found, exiting...'
     sys.exit(0)
 
   # get timestep
@@ -486,7 +504,7 @@ def do_calc(INFOS):
     f=line.split()
     if INFOS['mode'] in [1,2,3,4,5]:
       t0=float(f[1])
-    elif INFOS['mode'] in [6,7,8,9]:
+    elif INFOS['mode'] in [6,7,8,9,10]:
       t0=float(f[0])
     N=0
     while True:
@@ -501,7 +519,7 @@ def do_calc(INFOS):
     f=l2.split()
     if INFOS['mode'] in [1,2,3,4,5]:
       dt=(float(f[1])-t0)/N
-    elif INFOS['mode'] in [6,7,8,9]:
+    elif INFOS['mode'] in [6,7,8,9,10]:
       dt=(float(f[0])-t0)/N
     if dt==0.:
       print 'ERROR: Timestep is zero.'
@@ -510,7 +528,7 @@ def do_calc(INFOS):
     nsteps=int(INFOS['maxtime']/dt)+1
 
   # get nstates
-  if INFOS['mode'] in [1,2,7,8]:
+  if INFOS['mode'] in [1,2,7,8,10]:
     nstates=INFOS['nmstates']
   elif INFOS['mode'] in [3,9]:
     nstates=INFOS['nstates']
@@ -551,12 +569,9 @@ def do_calc(INFOS):
         elif INFOS['mode']==6:
           state=INFOS['histo'].put(float(f[1]))
         pop[t][state]+=1
-      elif INFOS['mode'] in [7,8,9]:
+      elif INFOS['mode'] in [7,8,9,10]:
         vec=[ 0. for i in range(nstates)]
-        if INFOS['mode']==7:
-          for i in range(nstates):
-            vec[i]=float(f[2+2*i])**2+float(f[3+2*i])**2
-        if INFOS['mode']==8:
+        if INFOS['mode'] in [7,8,10]:
           for i in range(nstates):
             vec[i]=float(f[2+2*i])**2+float(f[3+2*i])**2
         if INFOS['mode']==9:
@@ -582,7 +597,7 @@ def do_calc(INFOS):
       t+=1
       if INFOS['mode'] in [1,2,3,4,5,6]:
         pop[t][state]+=1
-      elif INFOS['mode'] in [7,8,9]:
+      elif INFOS['mode'] in [7,8,9,10]:
         for i in range(nstates):
           pop[t][i]+=vec[i]
   print 'Shortest trajectory: %f' % (shortest)
@@ -600,7 +615,7 @@ def do_calc(INFOS):
 
     if INFOS['mode'] in [1,7]:
       s+='%16s ' % ('X%i' % (i+1))
-    elif INFOS['mode'] in [2,8]:
+    elif INFOS['mode'] in [2,8,10]:
       mult,state,ms=tuple(INFOS['statemap'][i+1][0:3])
       #IstateToMultState(i+1,INFOS['states'])
       string='%s %i %i' % (IToMult[mult][0:3],state,ms)
@@ -836,7 +851,8 @@ def make_gnuplot(INFOS):
          6: 'Populations (oscillator strength)',
          7: 'Quantum amplitudes (diagonal)',
          8: 'Quantum amplitudes (MCH)',
-         9: 'Quantum amplitudes (MCH, multiplets)'
+         9: 'Quantum amplitudes (MCH, multiplets)',
+        10: 'Quantum amplitudes (diabatic)'
         }
 
   gnustring='''set title "%s\\n%i Trajectories (Shortest %.1f fs, Longest %.1f fs)"
@@ -867,7 +883,7 @@ set out '%s.png'
 
     if INFOS['mode'] in [1,7]:
       gnustring+='u 1:%i w l tit "State %i" lw 2.5 lc rgbcolor "%s"' % (istate+1,istate,R.hexcolor(1,istate) )
-    elif INFOS['mode'] in [2,8]:
+    elif INFOS['mode'] in [2,8,10]:
       mult,state,ms=tuple(INFOS['statemap'][istate][0:3])
       name=IToMult[mult]+' %i' % (state-(mult==1 or mult==2))
       gnustring+='u 1:%i w l tit "%s" lw 2.5 lc rgbcolor "%s"' % (istate+1,name,R.hexcolor(mult,state))
