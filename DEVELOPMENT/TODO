@@ -41,3 +41,9 @@ Python:
         ranges = (x.split("-") for x in s.split(","))
         print [i for r in ranges for i in range(int(r[0]), int(r[-1]) + 1)]
 
+
+        
+        
+        
+For SHARC workshop:
+- SHARC homepage banner als lineal (werbeartikel) machen lassen :D

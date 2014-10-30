@@ -1,7 +1,5 @@
 columbus $COLUMBUS
-molcas /scratch/barium/oppel/molcas/7.9.dev/
-dyson /user/matruc/workspace/mydyson3/dyson.x
-civecconsolidate /user/matruc/CC/bin/civecconsolidate
+molcas $MOLCAS
 
 scratchdir $SCRADIR/WORK
 savedir $SCRADIR/TRAJ/restart
