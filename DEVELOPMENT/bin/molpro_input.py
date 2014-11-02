@@ -640,7 +640,7 @@ def setup_input(INFOS):
   if INFOS['freq']:
     s+='mass,isotope\n'
     for iatom,atom in enumerate(INFOS['geom']):
-      s+='mass,,%s%i=%f\n' % (atom[0],iatom+1,INFOS['masslist'][iatom][1])
+      s+='mass,init,%s%i=%f\n' % (atom[0],iatom+1,INFOS['masslist'][iatom][1])
     s+='mass,print\n\n'
 
   if INFOS['ltype']==1:
@@ -716,7 +716,7 @@ def setup_input(INFOS):
       if n==0:
         continue
       s+='{ci\norbital,2140.2\nsave,%i.2\nnoexc\ncore,%i\n' % (6001+i,(INFOS['nelec']-INFOS['cas.nact'])/2)
-      s+='wf,%i,%i,%i\nstate,%i\n}\n\n' % (INFOS['nelec'],1,i+1,n)
+      s+='wf,%i,%i,%i\nstate,%i\n}\n\n' % (INFOS['nelec'],1,i,n)
     s+='{ci\nhlsmat,amfi'
     for i,n in enumerate(INFOS['cas.nstates']):
       if n==0:
