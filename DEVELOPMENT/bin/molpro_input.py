@@ -715,7 +715,7 @@ def setup_input(INFOS):
     for i,n in enumerate(INFOS['cas.nstates']):
       if n==0:
         continue
-      s+='{ci\norbital,2140.2\nsave,%i.2\nnoexc\ncore,%i\n' % (6001+i,(INFOS['nelec']-INFOS['cas.nact'])/2)
+      s+='{ci\nmaxiter,250,1000\norbital,2140.2\nsave,%i.2\nnoexc\ncore,%i\n' % (6001+i,(INFOS['nelec']-INFOS['cas.nact'])/2)
       s+='wf,%i,%i,%i\nstate,%i\n}\n\n' % (INFOS['nelec'],1,i,n)
     s+='{ci\nhlsmat,amfi'
     for i,n in enumerate(INFOS['cas.nstates']):
