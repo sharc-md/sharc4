@@ -978,7 +978,7 @@ def get_QMout(INFOS,initlist):
     estates=[]
     for istate in range(len(H)):
       if INFOS['ion']:
-        dip=[P[0][istate],0,0]
+        dip=[math.sqrt(P[0][istate]),0,0]
       else:
         dip=[DM[i][0][istate] for i in range(3)]
       estate=STATE(len(estates)+1,H[istate][istate],H[0][0],dip)
