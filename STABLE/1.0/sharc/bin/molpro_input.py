@@ -65,6 +65,80 @@ NUMBERS = {'H':  1, 'He': 2,
 'Tl':81, 'Pb':82, 'Bi':83, 'Po':84, 'At':85, 'Rn':86
 }
 
+
+MASSES = {'H' :   1.00782,
+          'He':   4.00260,
+          'Li':   7.01600,
+          'Be':   9.01218,
+          'B' :  11.00931,
+          'C' :  12.00000,
+          'N' :  14.00307,
+          'O' :  15.99491,
+          'F' :  18.99840,
+          'Ne':  19.99244,
+          'Na':  22.98980,
+          'Mg':  23.98504,
+          'Al':  26.98153,
+          'Si':  27.97693,
+          'P' :  30.97376,
+          'S' :  31.97207,
+          'Cl':  34.96885,
+          'Ar':  39.96238,
+          'K' :  38.96371,
+          'Ca':  39.96259,
+          'Sc':  44.95592,
+          'Ti':  47.94795,
+          'V' :  50.94400,
+          'Cr':  51.94050,
+          'Mn':  54.93800,
+          'Fe':  55.93490,
+          'Co':  58.93320,
+          'Ni':  57.93534,
+          'Cu':  62.92960,
+          'Zn':  63.92910,
+          'Ga':  68.92570,
+          'Ge':  73.92190,
+          'As':  74.92160,
+          'Se':  79.91650,
+          'Br':  78.91830,
+          'Kr':  83.80000,
+          'Rb':  84.91170,
+          'Sr':  87.90560,
+          'Y' :  88.90590,
+          'Zr':  89.90430,
+          'Nb':  92.90600,
+          'Mo':  97.90550,
+          'Tc':  98.90620,
+          'Ru': 101.90370,
+          'Rh': 102.90480,
+          'Pd': 105.90320,
+          'Ag': 106.90509,
+          'Cd': 113.90360,
+          'In': 114.90410,
+          'Sn': 119.90220,   # MOLPRO library is wrong
+          'Sb': 120.90380,
+          'Te': 129.90670,
+          'I' : 126.90440,
+          'Xe': 131.90420,
+          'Cs': 132.90510,
+          'Ba': 137.90500,
+          'La': 138.90610,
+          'Hf': 179.94680,
+          'Ta': 180.94800,
+          'W' : 183.95100,
+          'Re': 186.95600,
+          'Os': 190.20000,
+          'Ir': 192.96330,
+          'Pt': 194.96480,
+          'Au': 196.96660,
+          'Hg': 201.97060,
+          'Tl': 204.97450,
+          'Pb': 207.97660,
+          'Bi': 208.98040,
+          'Po': 208.98250,
+          'At': 209.98715,   # MOLPRO library is wrong
+          'Rn': 210.99060}   # MOLPRO library is wrong
+
 # ======================================================================================================================
 # ======================================================================================================================
 # ======================================================================================================================
@@ -184,25 +258,27 @@ def question(question,typefunc,default=None,autocomplete=True):
 # ======================================================================================================================
 # ======================================================================================================================
 
-def ask_for_masses():
+def show_massses(masslist):
+  s='Number\tType\tMass\n'
+  for i,atom in enumerate(masslist):
+    s+='%i\t%2s\t%12.9f %s\n' % (i+1,atom[0],atom[1], ['','*'][atom[1]!=MASSES[atom[0]]])
+  print s
+
+def ask_for_masses(masslist):
   print '''
 Please enter non-default masses:
-+ number mass           add non-default mass <mass> for atom <number>
-- number                remove non-default mass for atom <number> (default mass will be used)
-show                    show non-default atom masses
++ number mass           use non-default mass <mass> for atom <number>
+- number                remove non-default mass for atom <number> (default mass will reinstated)
+show                    show atom masses
 end                     finish input for non-default masses
 '''
-  MASS_LIST={}
+  show_massses(masslist)
   while True:
     line=question('Change an atoms mass:',str,'end',False)
     if 'end' in line:
       break
     if 'show' in line:
-      s='-----------------------\nAtom               Mass\n'
-      for i in MASS_LIST:
-        s+='% 4i %18.12f\n' % (i,MASS_LIST[i])
-      s+='-----------------------'
-      print s
+      show_massses(masslist)
       continue
     if '+' in line:
       f=line.split()
@@ -213,7 +289,10 @@ end                     finish input for non-default masses
         mass=float(f[2])
       except ValueError:
         continue
-      MASS_LIST[num]=mass
+      if not 0<=num<=len(masslist):
+        print 'Atom %i does not exist!' % (num)
+        continue
+      masslist[num-1][1]=mass
       continue
     if '-' in line:
       f=line.split()
@@ -223,9 +302,12 @@ end                     finish input for non-default masses
         num=int(f[1])
       except ValueError:
         continue
-      del MASS_LIST[num]
+      if not 0<=num<=len(masslist):
+        print 'Atom %i does not exist!' % (num)
+        continue
+      masslist[num-1][1]=MASSES[masslist[num-1][0]]
       continue
-  return MASS_LIST
+  return masslist
 
 # ======================================================================================================================
 # ======================================================================================================================
@@ -373,9 +455,16 @@ Please enter the number corresponding to the type of calculation.
 
   # Masses
   if INFOS['freq']:
+    # make default mass list
+    masslist=[]
+    for atom in geom:
+      masslist.append( [atom[0],MASSES[atom[0]]] )
+    # ask
     INFOS['nondefmass']=not question('Use standard masses (most common isotope)?',bool,True)
     if INFOS['nondefmass']:
-      INFOS['masslist']=ask_for_masses()
+      INFOS['masslist']=ask_for_masses(masslist)
+    else:
+      INFOS['masslist']=masslist
 
   # Level of theory
   print '\n'+centerstring('Level of theory',60,'-')
@@ -502,6 +591,8 @@ Please enter the number corresponding to the type of calculation.
           continue
         break
       INFOS['cas.root']=[rmult,rstate]
+    if ctype==1 and maxmult>1:
+      INFOS['soci']=question('Do Spin-Orbit CASCI after CASSCF?',bool,False)
 
   print '\n'+centerstring('Memory',60,'-')
   print '\nRecommendation: for small systems: 100-300 MB, for medium-sized systems: 1000-2000 MB\n'
@@ -548,10 +639,8 @@ def setup_input(INFOS):
     s+='}\n\n'
   if INFOS['freq']:
     s+='mass,isotope\n'
-    if INFOS['nondefmass']:
-      for iatom,atom in enumerate(INFOS['geom']):
-        if iatom+1 in INFOS['masslist']:
-          s+='mass,,%s%i=%f\n' % (atom[0],iatom+1,INFOS['masslist'][iatom+1])
+    for iatom,atom in enumerate(INFOS['geom']):
+      s+='mass,init,%s%i=%f\n' % (atom[0],iatom+1,INFOS['masslist'][iatom][1])
     s+='mass,print\n\n'
 
   if INFOS['ltype']==1:
@@ -620,6 +709,21 @@ def setup_input(INFOS):
       s+='PUT,MOLDEN,freq.molden\n'
     else:
       s+='PUT,MOLDEN,opt.molden\n'
+
+  if 'soci' in INFOS and INFOS['soci']:
+    s+='\n\n'
+    for i,n in enumerate(INFOS['cas.nstates']):
+      if n==0:
+        continue
+      s+='{ci\nmaxiter,250,1000\norbital,2140.2\nsave,%i.2\nnoexc\ncore,%i\n' % (6001+i,(INFOS['nelec']-INFOS['cas.nact'])/2)
+      s+='wf,%i,%i,%i\nstate,%i\n}\n\n' % (INFOS['nelec'],1,i,n)
+    s+='{ci\nhlsmat,amfi'
+    for i,n in enumerate(INFOS['cas.nstates']):
+      if n==0:
+        continue
+      s+=',%i.2' % (6001+i)
+    s+='\nprint,hls=1\n}\n\n'
+
   s+='\n\n---\n'
   s+='!Infos:\n'
   s+='!%s@%s\n' % (os.environ['USER'],os.environ['HOSTNAME'])
