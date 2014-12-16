@@ -851,7 +851,7 @@ module input
         write(u_log,'(a,1x,f6.3,1x,a)') 'Decoherence constant is',ctrl%decoherence_alpha,'Hartree'
         write(u_log,*)
       else
-        write(u_log,'(a)') 'Decoherence (Granucci) is OFF'
+        write(u_log,'(a)') 'Decoherence is OFF'
         write(u_log,*)
       endif
     endif
@@ -859,6 +859,10 @@ module input
     line=get_value_from_key('notrack_phase',io)
     if (io==0) then
       ctrl%track_phase=0
+      if (printlevel>1) then
+        write(u_log,'(a)') 'Phase tracking is OFF'
+        write(u_log,*)
+      endif
     else
       ctrl%track_phase=1
     endif
@@ -870,7 +874,12 @@ module input
     ctrl%hopping_procedure=1
     line=get_value_from_key('no_hops',io)
     if (io==0) then
-      ctrl%hopping_procedure=0
+      ctrl%hopping_procedure=0  ! negate hopping
+      ctrl%ekincorrect=0        ! negate kinetic energy adjustment at a negated hopping
+      if (printlevel>1) then
+        write(u_log,'(a)') 'Surface Hopping is OFF (will stay in initial diagonal state)'
+        write(u_log,*)
+      endif
     else
       ctrl%hopping_procedure=1
     endif
