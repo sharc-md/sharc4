@@ -880,7 +880,10 @@ In Table~\ref{tab:input}, all input keywords for the \sharc\ input file are list
   notrack\_phase      &                                      &No phase following of $\mathbf{U}$ (not recommended, only for debugging).\\
   \hline
   dipole\_gradient              &                            &Include the derivatives of the dipole moments in the gradients.\\
-  \DEFAULT{nodipole\_gradient}  &                            &Neglect the derivatives of the dipole moments.
+  \DEFAULT{nodipole\_gradient}  &                            &Neglect the derivatives of the dipole moments.\\
+  \hline
+  \DEFAULT{spinorbit}   &                                    &Include spin-orbit couplings into the Hamiltonian.\\
+  nospinorbit           &                                    &Neglect spin-orbit couplings.\\
 \end{longtable}
 }
 
@@ -1017,6 +1020,12 @@ can be switched on or off. However, it is usually not a good idea to deactivate 
 % As explained in~\ref{met:dipolegrad}, t
 The derivatives of the dipole moments can be included in the gradients. This can be activated with the keyword \ttt{dipole\_gradient}. Currently, only the analytical interface can deliver these quantities.
 
+\paragraph{Spin-Orbit Couplings}
+
+% As explained in~\ref{met:dipolegrad}, t
+Using the keyword \ttt{nospinorbit} the calculation of spin-orbit couplings is disabled. \sharc\ will only request the diagonal elements of the Hamiltonian from the interfaces. If the interface returns a non-diagonal Hamiltonian anyways, the off-diagonal elements are deleted.
+
+The keyword \ttt{spinorbit} (which is the default if neither keyword is present) reenables spin-orbit couplings.
 
 
 
@@ -1481,7 +1490,7 @@ The interfaces must be able to save all information necessary for restart to a g
 \clearpage
 \section{MOLPRO Interface}\label{sec:int:molpro}
 
-The \sharc-\textsc{Molpro} interface allows to run \sharc\ dynamics with \textsc{Molpro}'s CASSCF wavefunctions. RASSCF is not supported, since on RASSCF level state-averaging over different multiplicities is not possible. The interface uses \textsc{Molpro}'s CI program in order to calculate transition dipole moments and spin-orbit couplings. Gradients and non-adiabatic coupling vectors are calculated using \textsc{Molpro}'s CADPACK code (hence no generally contracted basis sets can be used). Time derivatives and overlaps are obtained with the DDR prodecure. Hence, all types of couplings usable by \sharc\ are available through this interface. The interface also allows to calculate the expectation value of the angular momentum operators.
+The \sharc-\textsc{Molpro} interface allows to run \sharc\ dynamics with \textsc{Molpro}'s CASSCF wavefunctions. RASSCF is not supported, since on RASSCF level state-averaging over different multiplicities is not possible. The interface uses \textsc{Molpro}'s CI program in order to calculate transition dipole moments and spin-orbit couplings. Gradients and non-adiabatic coupling vectors are calculated using \textsc{Molpro}'s CADPACK code (hence no generally contracted basis sets can be used). Time derivatives and overlaps are obtained with the DDR prodecure. Hence, all types of couplings usable by \sharc\ are available through this interface. The interface also allows to calculate the expectation value of the angular momentum operators. Parallel execution is possible if \textsc{Molpro} is properly installed in parallel mode.
 
 The \sharc-\textsc{Molpro} interface needs two additional input files, which should be present in \ttt{QM/}. Those input files are \ttt{SH2PRO.inp}, which contains the paths to \textsc{Molpro} and the scratch directory, and \ttt{MOLPRO.template}, which is a minimal input from which the full input can be built. If \ttt{QM/wf.init} is present, it will be used as a \textsc{Molpro} wavefunction file containing the initial MOs.
 
@@ -1499,7 +1508,7 @@ Table~\ref{tab:molpro_sh2} lists the existing keywords.
   \toprule
   Keyword       &Description\\
   \midrule
-  molpro          &Is followed by a string giving the path to the \textsc{Molpro} executable. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used.\\
+  molpro          &Is followed by a string giving the path to the \textsc{Molpro} executable. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. If more than one argument is given after the keyword \ttt{molpro}, these arguments are passed to \textsc{Molpro} as command line arguments (e.g., to enable parallel execution). \\
   scratchdir      &Is a path to the temporary directory. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. If the directory does not exist, the interface will create it. In any case, the interface will delete this directory after the calculation.\\
   gradaccudefault &(float) Default accuracy for CP-MCSCF.\\
   gradaccumax     &(float) Worst acceptable accuracy for CP-MCSCF (see below).\\
@@ -1512,6 +1521,16 @@ Table~\ref{tab:molpro_sh2} lists the existing keywords.
 \end{table}
 
 Note that only the first two keywords are mandatory. The last four keywords are only used for calculations with time derivatives or overlaps. The checking and correction of these couplings has to be considered experimental. Normally, \ttt{checknacs} should be ``False'' (in this case the other three keywords are not necessary).
+
+\paragraph{Execution of parallel MOLPRO}
+
+In the file \ttt{SH2PRO.inp}, the keyword \ttt{molpro} can take more than one argument. Arguments after the first one are passed to \textsc{Molpro} as command line arguments. Hence, it is possible to pass the flag for parallel execution to \textsc{Molpro}, e.g.
+\begin{example}
+  \begin{verbatim}
+molpro /path/to/MOLPRO/molpro -n 8
+  \end{verbatim}
+\end{example}
+Note that \textsc{Molpro} needs to be compiled properly in order to support parallel execution. If the \textsc{Molpro} installation used does not support parallel execution, the calculation will simply run in sequential mode.
 
 \subsection{Template file: \ttt{MOLPRO.template}}
 
