@@ -180,7 +180,7 @@ def readfile(filename):
     out=f.readlines()
     f.close()
   except IOError:
-    print 'File %s does not exist!' % (f)
+    print 'File %s does not exist!' % (filename)
     sys.exit(12)
   return out
 

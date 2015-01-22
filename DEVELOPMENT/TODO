@@ -16,12 +16,12 @@ Tutorial:
 
 Others:
 - script for extracting random geometries from trajectories (from/to timestep, which trajectories, ...)
-
+- script for setting up scattering initial conditions (merge two initconds files with Wigner distributions, setting translational and rotational shift and relative translational and rotational velocities)
 
 
 MOLPRO interface:
 - allow the interface to do several subsequent calculations (so that it can first do H/DM/SOC/OVERLAP and then the gradients/NACs)
-- implement to shift the records at restarts
+- implement to shift the records at restarts (makes the item directly above unnecessary), alternatively, try whether file can be opened only until record X
 - for SOC/DM, always calculate the OVERLAPS, extract the phases, problem: phases are not in overlap matrix
 - CASSCF-CI overlaps for phases: doable, but need to store the CAS and CI coefficients for samestep jobs
   Translation from CASSCF to MRCI wavefunctions:
@@ -29,10 +29,15 @@ MOLPRO interface:
   * |/\00> = 1/sqrt(2) * [ |ab00> - |ba00> ]
   * |//00> = |aa00>
   * |////> = |aaaa>
-  
+- ionization via Dyson code
+- several independent CASSCF calculations (but with same active space)
+- integral reuse (activated by keyword in SH2PRO.inp)
+- use routines from COLUMBUS interface (statemap etc)
+- rework the checknacs/recalculate nacs system
 
-  
-  
+
+
+
 Python:
 - question(): add comma-separated lists
 - class for understanding ranges:
@@ -42,9 +47,9 @@ Python:
         print [i for r in ranges for i in range(int(r[0]), int(r[-1]) + 1)]
 
 
-        
-        
-        
+
+
+
 For SHARC workshop:
 - SHARC homepage banner als lineal (werbeartikel) machen lassen :D
 
