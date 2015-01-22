@@ -126,6 +126,7 @@ module qm
     do i=1,ctrl%nstates
       do j=1,ctrl%nstates
         if (ctrl%actstates_s(i).neqv.ctrl%actstates_s(j)) traj%H_MCH_ss(i,j)=dcmplx(0.d0,0.d0)
+        if ((ctrl%calc_soc/=1).and.(i/=j)) traj%H_MCH_ss(i,j)=dcmplx(0.d0,0.d0)
       enddo
     enddo
     if (printlevel>3) write(u_log,'(A31,A2)') 'Hamiltonian:                   ','OK'
@@ -418,7 +419,11 @@ module qm
 
     if (traj%step==0) write(u_qm_qmin,'(A)') 'init'
     if (ctrl%restart) write(u_qm_qmin,'(A)') 'restart'
-    write(u_qm_qmin,'(A)') 'SOC'
+    if (ctrl%calc_soc==1) then
+      write(u_qm_qmin,'(A)') 'SOC'
+    else
+      write(u_qm_qmin,'(A)') 'H'
+    endif
     write(u_qm_qmin,'(A)') 'DM'
 
     select case (ctrl%calc_grad)

@@ -157,6 +157,7 @@ type ctrl_type
   integer :: gradcorrect                    !< 0=no, 1=include nac vectors in gradient transformation
   integer :: dipolegrad                     !< 0=no, 1=include dipole gradients in gradient transformation
 
+  integer :: calc_soc                       !< request SOC, otherwise only the diagonal elements of H (plus any laser interactions) are taken into account\n 0=no soc, 1=soc enabled
   integer :: calc_grad                      !< request gradients:   \n        0=all in step 1, 1=select in step 1, 2=select in step 2
   integer :: calc_overlap                   !< 0=no, 1=request overlap matrices
   integer :: calc_nacdt                     !< 0=no, 1=request time derivatives

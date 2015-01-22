@@ -507,6 +507,16 @@ module input
       ctrl%coupling=1
     endif
 
+    ctrl%calc_soc=1
+    line=get_value_from_key('nospinorbit',io)
+    if (io==0) then
+      ctrl%calc_soc=0
+    endif
+    line=get_value_from_key('spinorbit',io)
+    if (io==0) then
+      ctrl%calc_soc=1
+    endif
+
     line=get_value_from_key('gradcorrect',io)
     if (io==0) then
       ctrl%gradcorrect=1
@@ -716,8 +726,22 @@ module input
         if (ctrl%calc_second==1) then
           write(u_log,'(a)') 'Doing two QM calculations per step for selection.'
         endif
+        if (ctrl%calc_soc==1) then
+          write(u_log,'(a)') 'Calculating Spin-Orbit couplings.'
+        else
+          write(u_log,'(a)') 'Not calculating Spin-Orbit couplings.'
+        endif
       endif
       write(u_log,*)
+      if (ctrl%calc_soc/=1) then
+        n=0
+        do i=1,ctrl%maxmult
+          if (ctrl%nstates_m(i)>0) n=n+1
+        enddo
+        if (n>1) then
+          write(u_log,'(a)') 'Warning: More than one multiplicity, but Spin-Orbit couplings are disabled.'
+        endif
+      endif
     endif
 
   ! =====================================================

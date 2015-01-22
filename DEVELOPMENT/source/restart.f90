@@ -73,6 +73,7 @@ module restart
     write(u,*) ctrl%ionization
     write(u,*) ctrl%track_phase
     write(u,*) ctrl%hopping_procedure
+    write(u,*) ctrl%calc_soc
 
     ! write the laser field
     if (ctrl%laser==2) then
