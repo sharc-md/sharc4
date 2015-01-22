@@ -261,7 +261,7 @@ def print_statemap(statemap):
   s='#State\tMult\tM_s\tQuant\n'
   for i in range(1,n+1):
     (mult,state,ms)=statemap[i]
-    s+='%i\t%i\t%i\t%i\n' % (i,mult,ms,state)
+    s+='%i\t%i\t%+3.1f\t%i\n' % (i,mult,ms,state)
   return s
 
 # ======================================================================================================================
