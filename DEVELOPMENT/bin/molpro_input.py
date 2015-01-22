@@ -540,8 +540,8 @@ Please enter the number corresponding to the type of calculation.
       if norb<=0:
         print 'Enter a positive number!'
         continue
-      if norb>2*nact:
-        print 'norb cannot be larger than 2*nact!'
+      if 2*norb<nact:
+        print 'norb must be larger than nact/2!'
         continue
       break
     INFOS['cas.norb']=norb
@@ -564,15 +564,20 @@ Please enter the number corresponding to the type of calculation.
       INFOS['maxmult']=mult
   elif ltype==5:
     print 'Please enter the number of states as a list of integers\ne.g. 3 0 3 for three singlets, zero doublets and three triplets.'
-    states=question('Number of states:',int,guessstates)
-    maxmult=len(states)
-    for i in range(maxmult):
-      n=states[i]
-      if (not i%2==INFOS['nelec']%2) and int(n)>0:
-        print 'Nelec is %i. Ignoring states with mult=%i!' % (INFOS['nelec'], i+1)
-        states[i]=0
-      if n<0:
-        states[i]=0
+    while True:
+      states=question('Number of states:',int,guessstates)
+      maxmult=len(states)
+      for i in range(maxmult):
+        n=states[i]
+        if (not i%2==INFOS['nelec']%2) and int(n)>0:
+          print 'Nelec is %i. Ignoring states with mult=%i!' % (INFOS['nelec'], i+1)
+          states[i]=0
+        if n<0:
+          states[i]=0
+      if sum(states)==0:
+        print 'No states!'
+        continue
+      break
     s='Accepted number of states:'
     for i in states:
       s+=' %i' % (i)
