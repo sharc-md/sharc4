@@ -287,6 +287,7 @@ module restart
     read(u_ctrl,*) ctrl%ionization
     read(u_ctrl,*) ctrl%track_phase
     read(u_ctrl,*) ctrl%hopping_procedure
+    read(u_ctrl,*) ctrl%calc_soc
 
     ! read the laser field
     ! with an external laser, increasing the simulation time necessitates that the laserfield in
