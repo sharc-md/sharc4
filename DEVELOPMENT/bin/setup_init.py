@@ -538,7 +538,7 @@ Interfaces={
       'couplings':       [3]
      },
   4: {'script':          'SHARC_MOLCAS.py',
-      'description':     'MOLCAS (only CASSCF)',
+      'description':     'MOLCAS (CASSCF, CASPT2, MS-CASPT2)',
       'get_routine':     'get_MOLCAS',
       'prepare_routine': 'prepare_MOLCAS',
       'couplings':       [3]
@@ -1096,7 +1096,7 @@ def checktemplate_MOLCAS(filename,INFOS):
   valid=[]
   for i in necessary:
     for l in data:
-      if i in l:
+      if i in re.sub('#.*$','',l):
         valid.append(True)
         break
     else:
@@ -1104,18 +1104,26 @@ def checktemplate_MOLCAS(filename,INFOS):
   if not all(valid):
     print 'The template %s seems to be incomplete! It should contain: ' % (filename) +str(necessary)
     return False
-  for mult,state in enumerate(INFOS['states']):
-    if state<=0:
+  roots_there=False
+  for l in data:
+    l=re.sub('#.*$','',l).lower().split()
+    if len(l)==0:
       continue
-    valid=[]
-    for l in data:
-      if 'spin' in l.lower():
-        f=l.split()
-        if int(f[1])==mult+1:
-          valid.append(True)
-          break
-    else:
-      valid.append(False)
+    if 'roots' in l[0]:
+      roots_there=True
+  if not roots_there:
+    for mult,state in enumerate(INFOS['states']):
+      if state<=0:
+        continue
+      valid=[]
+      for l in data:
+        if 'spin' in re.sub('#.*$','',l).lower():
+          f=l.split()
+          if int(f[1])==mult+1:
+            valid.append(True)
+            break
+      else:
+        valid.append(False)
   if not all(valid):
     string='The template %s seems to be incomplete! It should contain the keyword "spin" for ' % (filename)
     for mult,state in enumerate(INFOS['states']):
@@ -1203,12 +1211,21 @@ The MOLCAS interface will generate the appropriate MOLCAS input automatically.
     string+='%s, ' % (IToMult[mult+1])
   string=string[:-2]+'?'
   if question(string,bool,True):
+    while True:
+      jobiph_or_rasorb=question('JobIph files (1) or RasOrb files (2)?',int)[0]
+      if jobiph_or_rasorb in [1,2]:
+        break
+    INFOS['molcas.jobiph_or_rasorb']=jobiph_or_rasorb
     INFOS['molcas.guess']={}
     for mult,state in enumerate(INFOS['states']):
       if state<=0:
         continue
       while True:
-        filename=question('Initial wavefunction file for %ss:' % (IToMult[mult+1]),str,'wf.%i.JobIph.old' % (mult+1))
+        if jobiph_or_rasorb==1:
+          guess_file='MOLCAS.%i.JobIph.init' % (mult+1)
+        else:
+          guess_file='MOLCAS.%i.RasOrb.init' % (mult+1)
+        filename=question('Initial wavefunction file for %ss:' % (IToMult[mult+1]),str,guess_file)
         if os.path.isfile(filename):
           INFOS['molcas.guess'][mult+1]=filename
           break
@@ -1220,10 +1237,13 @@ The MOLCAS interface will generate the appropriate MOLCAS input automatically.
     INFOS['molcas.guess']={}
 
 
-  print centerstring('MOLCAS Memory usage',60,'-')+'\n'
+  print centerstring('MOLCAS Ressource usage',60,'-')+'\n'
   print '''Please specify the amount of memory available to MOLCAS (in MB). For calculations including moderately-sized CASSCF calculations and less than 150 basis functions, around 2000 MB should be sufficient.
 '''
   INFOS['molcas.mem']=abs(question('MOLCAS memory:',int)[0])
+  print '''Please specify the number of CPUs to be used by EACH calculation.
+'''
+  INFOS['molcas.ncpu']=abs(question('Number of CPUs:',int)[0])
 
 
 
@@ -1311,8 +1331,8 @@ def prepare_MOLCAS(INFOS,iconddir):
   except IOError:
     print 'IOError during prepareMOLCAS, iconddir=%s' % (iconddir)
     quit(1)
-  project=iconddir.replace('/','_')
-  string='molcas %s\nscratchdir %s/%s/\nmemory %i\nproject %s' % (INFOS['molcas'],INFOS['scratchdir'],iconddir,INFOS['molcas.mem'],project)
+  project='MOLCAS'
+  string='molcas %s\nscratchdir %s/%s/\nmemory %i\nncpu %i\nproject %s' % (INFOS['molcas'],INFOS['scratchdir'],iconddir,INFOS['molcas.mem'],INFOS['molcas.ncpu'],project)
   sh2cas.write(string)
   sh2cas.close()
 
@@ -1322,8 +1342,12 @@ def prepare_MOLCAS(INFOS,iconddir):
   shutil.copy(cpfrom,cpto)
   if not INFOS['molcas.guess']=={}:
     for i in INFOS['molcas.guess']:
-      cpfrom=INFOS['molcas.guess'][i]
-      cpto='%s/%s.%i.JobIph.old' % (iconddir,project,i)
+      if INFOS['molcas.jobiph_or_rasorb']==1:
+        cpfrom=INFOS['molcas.guess'][i]
+        cpto='%s/%s.%i.JobIph.init' % (iconddir,project,i)
+      else:
+        cpfrom=INFOS['molcas.guess'][i]
+        cpto='%s/%s.%i.RasOrb.init' % (iconddir,project,i)
       shutil.copy(cpfrom,cpto)
 
   return
