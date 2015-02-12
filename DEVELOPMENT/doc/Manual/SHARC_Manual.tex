@@ -1510,6 +1510,7 @@ Table~\ref{tab:molpro_sh2} lists the existing keywords.
   \midrule
   molpro          &Is followed by a string giving the path to the \textsc{Molpro} executable. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. If more than one argument is given after the keyword \ttt{molpro}, these arguments are passed to \textsc{Molpro} as command line arguments (e.g., to enable parallel execution). \\
   scratchdir      &Is a path to the temporary directory. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. If the directory does not exist, the interface will create it. In any case, the interface will delete this directory after the calculation.\\
+  savedir         &Is a path to another temporary directory.  Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. The interface will store files needed for restart there.\\
   gradaccudefault &(float) Default accuracy for CP-MCSCF.\\
   gradaccumax     &(float) Worst acceptable accuracy for CP-MCSCF (see below).\\
   checknacs       &(boolean) Use the MRCI overlaps to check whether the time derivatives and overlap matrices are correct.\\
@@ -1651,11 +1652,11 @@ Note that the scratch directory will be deleted after the calculation, only the 
 
 \section{MOLCAS Interface}\label{sec:int:molcas}
 
-The \sharc-\textsc{Molcas} interface can be used to conduct excited-state dynamics based on \textsc{Molcas}' CASSCF wavefunctions. RASSCF wavefunctions are not supported currently. The interface uses the modules GATEWAY, SEWARD (integrals), RASSCF (wavefunction, energies), RASSI (transition dipole moments, spin-orbit couplings, overlaps), MCLR and ALASKA (gradients). Since \textsc{Molcas} is not able to calculate the full non-adiabatic coupling vectors, only wavefunction overlaps are currently implemented in the interface.
+The \sharc-\textsc{Molcas} interface can be used to conduct excited-state dynamics based on \textsc{Molcas}' CASSCF wavefunctions, and with CASPT2 or MS-CASPT2 energies (and numerical gradients). RASSCF wavefunctions are not supported currently. The interface uses the modules GATEWAY, SEWARD (integrals), RASSCF (wavefunction, energies), RASSI (transition dipole moments, spin-orbit couplings, overlaps), MCLR and ALASKA (gradients). For CASPT2, MS-CASPT2 and Cholesky-CASSCF numerical gradients can be calculated. Since \textsc{Molcas} is not able to calculate the full non-adiabatic coupling vectors, only wavefunction overlaps are currently implemented in the interface. The interface can also numerically differentiate dipole moments and spin-orbit couplings.
 
 % The \sharc-\textsc{Molcas} interface furthermore allows to perform QM/MM dynamics (CASSCF plus force fields), through the \textsc{Molcas}-\textsc{Tinker} interface. 
 
-The interface needs two additional input files, a template file for the quantum chemistry (file name is \ttt{MOLCAS.template}) and a general input file (\ttt{SH2CAS.inp}). If \ttt{QM/MOLCAS.<i>.JobIph.old} files are present, they are used as initial wavefunction files, where \ttt{<i>} is the multiplicity. %In the case of QM/MM calculations, two more input files are needed: \ttt{MOLCAS.qmmm.key}, which contains the path to the force field parameters and the partitioning into QM and MM regions, and \ttt{MOLCAS.qmmm.template}, which contains the connectivity and force field parameters per atom.
+The interface needs two additional input files, a template file for the quantum chemistry (file name is \ttt{MOLCAS.template}) and a general input file (\ttt{SH2CAS.inp}). If \ttt{QM/MOLCAS.<i>.JobIph.init} or \ttt{QM/MOLCAS.<i>.RasOrb.init} files are present, they are used as initial wavefunction files, where \ttt{<i>} is the multiplicity. %In the case of QM/MM calculations, two more input files are needed: \ttt{MOLCAS.qmmm.key}, which contains the path to the force field parameters and the partitioning into QM and MM regions, and \ttt{MOLCAS.qmmm.template}, which contains the connectivity and force field parameters per atom.
 
 \subsection{Interface specific input file: \ttt{SH2CAS.inp}}
 
@@ -1674,13 +1675,20 @@ Table~\ref{tab:molcas_sh2} lists the existing keywords.
 molcas          &Is the path to the \textsc{Molcas} installation. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. The interface will set \ttt{\$MOLCAS} to this path. If this keyword is not present in \ttt{SH2CAS.inp}, the interface will use the environment variable \ttt{\$MOLCAS}, if it is set.\\
 % tinker          &The path to the \textsc{Tinker} installation, usable with \textsc{Molcas}.\\
 scratchdir      &Is a path to the temporary directory. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. If it does not exist, the interface will create it. In any case, the interface will delete this directory after the calculation.\\
+savedir         &Is a path to another temporary directory.  Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. The interface will store files needed for restart there.\\
 memory          &The memory usable by \textsc{Molcas}. The interface will set \ttt{\$MOLCASMEM} to this value. The default is 10~MB.\\
-project         &Can be used to set a \textsc{Molcas} project name (\ttt{\$Project}). If not used, the interface will generate a default project name.\\
+ncpu            & The number of CPUs used by the interface. If zero or negative, one CPU will be used and all subtasks (Hamiltonian, dipole moments, analytical gradients, overlaps) will be done in one \textsc{Molcas} call. If positive, analytical gradients will be calculated by separate calls to \textsc{Molcas}, parallelized over the given number of CPUs. \\
+always\_orb\_init &Do not use the orbital guesses from previous calculations/timesteps, but always use the provided initial orbitals.\\
+always\_guess   &Always use the orbital guess from \textsc{Molcas}'s \ttt{guessorb} module.\\
   \bottomrule
   \end{tabular}
 \end{table}
 
-Note that the interface sets all environment variables necessary to run \textsc{Molcas} (e.g., \ttt{\$MOLCAS}, \ttt{\$MOLCASMEM}, \ttt{\$WorkDir} ,\ttt{\$Project}) automatically, based on the paths to \textsc{Molcas} and the scratch directory from \ttt{SH2CAS.inp}.
+Note that the interface sets all environment variables necessary to run \textsc{Molcas} (e.g., \ttt{\$MOLCAS}, \ttt{\$MOLCASMEM}, \ttt{\$WorkDir} ,\ttt{\$Project}) automatically, based on the input from \ttt{SH2CAS.inp}.
+
+Some explanations on parallelization: There are two parallel modes in which the interface can act. In the first mode, the wavefunction and expectation values are calculated serially first, and then all analytical gradients are computed in parallel, over the given number of CPUs. If the number of CPUs is one, then also the interface prepares independent computations for each gradient, and runs those sequentially on one CPU. If the given number of CPUs is negative or zero, then the gradients are not prepared separately, but together with the other quantities. The latter variant has less overhead, but is only recommended if the user is sure that MCLR will converge in virtually all cases. If MCLR does not converge occasionally, it is advisable to use NCPU=1 instead of NCPU$\leq$0.
+
+In the second parallelization mode, the central point and all displacements are computed in parallel. This mode will be used for CASPT2, MS-CASPT2 and Cholesky-CASSCF gradients and spin-orbit/dipole moment derivatives. In this mode there is no distinction between NCPU=1 and NCPU$\leq$0.
 
 \subsection{Template file: \ttt{MOLCAS.template}}
 
@@ -1698,7 +1706,12 @@ basis           &The basis set used. Note that some basis sets (e.g., Pople basi
 ras2            &Number of active orbitals for CASSCF.\\
 nactel          &Number of active electrons for CASSCF.\\
 inactive        &Number of inactive orbitals.\\
-spin            &The full line reads as \ttt{spin s roots r} and specifies the number of roots for the given multiplicity. This influences only the number of states in the state-averaging procedure. The number of states in the dynamics must not be larger than the number of states given here.\\
+spin            &The full line reads as \ttt{spin s roots r} and specifies the number of roots for the given multiplicity. This influences only the number of states in the state-averaging procedure. The number of states in the dynamics must not be larger than the number of states given here. This input style is still valid but deprecated.\\
+roots           &Followed by a list of integers, giving the number of states per multiplicity in the state-averaging procedure. This keyword is recommended over the \ttt{spin} keyword.\\
+method          &Followed by a string, which is either ``CASSCF'', ``CASPT2'' or ``MS-CASPT2'' (case insensitive), defining the level of theory. Default is ``CASSCF''.\\
+douglas-kroll   &Activates the use of the scalar-relativistic DK Hamiltonian (In standard parametrization). Default is a non-relativistic Hamiltonian.\\
+ipea            &Followed by a float giving the IP-EA shift for CASPT2 (see \textsc{Molcas} manual for more information). The default is 0.25, as in \textsc{Molcas}.\\
+cholesky        &Activates Cholesky decomposition in \textsc{Molcas}. Recommended for large basis sets. Necessitates numerical gradients also for CASSCF. Default is to use regular 4-electron integrals.\\
 % qmmm            &Activates the QM/MM mode. In this case, two more input files need to be present (see below).
   \bottomrule
   \end{tabular}
