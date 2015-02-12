@@ -969,15 +969,6 @@ def makermatrix(a,b):
   mat=[ [ 0. for i in range(a) ] for j in range(b) ]
   return mat
 
-# ======================================================================= #     OK
-def multtodrt(mult,states):
-  drt=0
-  for i in itmult(states):
-    drt+=1
-    if i==mult:
-      return drt
-
-
 
 
 
@@ -2013,6 +2004,10 @@ def readQMin(QMinfilename):
     print 'Dipole moment gradients not available!'
     sys.exit(50)
 
+  if 'socdr' in QMin:
+    print 'Spin-orbit coupling gradients not available!'
+    sys.exit(50)
+
 
 
   # Process the gradient requests
@@ -2183,6 +2178,15 @@ def readQMin(QMinfilename):
   line=getsh2colkey(sh2col,'always_mocoef_init')
   if line[0]:
     QMin['always_mocoef_init']=[]
+
+  QMin['ncpu']=1
+  line=getsh2colkey(sh2col,'ncpu')
+  if line[0]:
+    try:
+      QMin['ncpu']=int(line[1])
+    except ValueError:
+      print 'Number of CPUs does not evaluate to numerical value!'
+      sys.exit(47)
 
   # Path to civecconsolidate
   if 'ion' in QMin:
@@ -3299,6 +3303,7 @@ c2_threshold=%f
   link(f,fdest)
 
   # run dyson
+  os.environ['OMP_NUM_THREADS']=str(QMin['ncpu'])
   workdir=QMin['scratchdir']+'/DYSON'
   string=QMin['dyson']+' > dyson.output          # Pair: %s' % (pair)
   runerror=runProgram(string,workdir)
