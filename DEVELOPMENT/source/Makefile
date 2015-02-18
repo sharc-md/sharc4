@@ -75,17 +75,17 @@ DIAGONALIZER=string.o \
 all: sharc data_extractor diagonalizer laser
 
 sharc: build_info $(TOOLS) $(SHARC)  
-	$(F90)  $(LD) $(SHARC) $(TOOLS) -o  $@.x
+	$(F90)  $(SHARC) $(TOOLS) -o  $@.x $(LD)
 
 data_extractor: build_info $(DATA_EXTRACTOR) 
-	$(F90)  $(LD) $(DATA_EXTRACTOR) -o $@.x
+	$(F90)  $(DATA_EXTRACTOR) -o $@.x $(LD)
 
 diagonalizer: $(DIAGONALIZER) 
-	$(F90)  $(LD) $(DIAGONALIZER) -o $@.x
+	$(F90)  $(DIAGONALIZER) -o $@.x $(LD)
 
 
 laser:  $(LASER) 
-	$(F90)  $(LD)  $(LASER) -o $@.x
+	$(F90)   $(LASER) -o $@.x $(LD)
 
 clean:
 	rm -rvf *.o
