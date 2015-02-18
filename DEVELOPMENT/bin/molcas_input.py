@@ -644,10 +644,9 @@ def setup_input(INFOS):
     s+='ras2 %i\n' % (INFOS['cas.norb'])
     s+='nactel %i\n' % (INFOS['cas.nact'])
     s+='inactive %i\n' % ((INFOS['nelec']-INFOS['cas.nact'])/2)
+    s+='roots'
     for i,n in enumerate(INFOS['cas.nstates']):
-      if n==0:
-        continue
-      s+='spin %i roots %i\n' % (i+1,n)
+      s+='%i ' % (n)
     s+='\n\n'
     s+='*     Infos:\n'
     s+='*     %s@%s\n' % (os.environ['USER'],os.environ['HOSTNAME'])

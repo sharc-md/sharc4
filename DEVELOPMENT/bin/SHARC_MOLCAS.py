@@ -67,6 +67,7 @@ import datetime
 from copy import deepcopy
 # parallel calculations
 from multiprocessing import Pool
+import time
 
 
 # =========================================================0
@@ -92,11 +93,32 @@ if sys.version_info[1]<5:
 
 # ======================================================================= #
 
-version='1.1'
-versiondate=datetime.date(2015,12,2)
+version='1.0'
+versiondate=datetime.date(2014,10,8)
 
 
 changelogstring='''
+09.01.2014:
+- Changed script to work with MOLCAS
+Functions with a #-symbol have been changed.
+readQMin -> inputfile to dictionary with keywords about what should be calculated, number of states, ...
+gettasks -> converts dictionary of QMin to list of tasks with parameters
+cycleMOLPRO -> cycle through task list until it is empty
+    # writeMOLPROinput -> writes MOLPRO input for the given tasks -> has to be rewritten for MOLCAS usage
+    # runMOLPRO -> starts the MOLPRO job
+    # redotasks -> scans MOLPRO output for error messages. checks if tasks performed succesfully. returns a new tasklist including all crashed tasks
+catMOLPROoutput -> concatenates all MOLPRO output files
+getQMout
+    # getcienergy -> casscf energy of a state specified by mult and statenumber
+    # getsocme -> get single SOC matrix element
+      getcidm -> TODO later
+    # getgrad -> get gradient for certain atom and certain mult,state
+    # getsmate -> returns the overlap matrix with possible sign changes of columns if diagonal elements are negative
+    # getmrcioverlap -> right now only returns the unity matrix
+printQMout
+cleanupSCRATCH
+writeQMout
+
 07.07.2014:
 - Gradients can be setup with MOLCAS in parallel fashion, using 1 core per gradient.
 - QM/MM support added (using MOLCAS and TINKER).
@@ -121,17 +143,6 @@ changelogstring='''
 
 06.02.2015:
 - major rewrite started...
-
-12.02.2015:
-- major rewrite finished
-- New features:
-  * Numerical gradients for Cholesky-based methods, CASPT2 and MS-CASPT2
-  * Dipole moment derivatives and spin-orbit coupling derivatives
-  * Numerical differentiation parallelized
-  * Project is now always "MOLCAS"
-  * Restart if MCLR did not converge
-- most of the code was redesigned from scratch to make it easier to maintain
-- backwards compatibility to input for version 1.0
 '''
 
 # ======================================================================= #
@@ -335,7 +346,7 @@ def printheader():
     string='\n'
     string+='  '+'='*80+'\n'
     string+='||'+' '*80+'||\n'
-    string+='||'+' '*27+'SHARC - MOLCAS - Interface'+' '*27+'||\n'
+    string+='||'+' '*25+'SHARC - MOLCAS - Interface'+' '*25+'||\n'
     string+='||'+' '*80+'||\n'
     string+='||'+' '*19+'Authors: Sebastian Mai and Martin Richter'+' '*20+'||\n'
     string+='||'+' '*80+'||\n'
@@ -827,8 +838,25 @@ def getcidm(out,mult,state1,state2,pol,version):
 
             return float(out[iline+jline+rowshift+1].split()[colshift])
 
+
 # ======================================================================= #
-def getsocme(out, mult1, state1, ms1, mult2, state2, ms2, statemap, version, method):
+def getMOLCASstatenumber(mult, state, ms, states):
+    statenumber = 0
+    for m, mstates in enumerate(states): # iterate over multiplicities
+        if m+1 < mult:
+            statenumber += mstates*(m+1)
+        else: # correct multiplicity found
+            for nstate in range(1, mstates+1): # iterate over states
+                if nstate < state:
+                    statenumber += m+1
+                else: # correct state found
+                    statenumber += int(ms + 1 + 0.5*(mult))
+                    return statenumber
+    print 'getMOLCASstatenumber Error: mult=%i, state=%i, ms=%i not in' % (mult, state, ms), states
+    quit(1)
+
+# ======================================================================= #
+def getsocme(out, mult1, state1, ms1, mult2, state2, ms2, states, version, method):
     '''Searches a MOLCAS output for an element of the Spin-Orbit hamiltonian matrix. Also converts from cm^-1 to hartree and adds the diagonal shift.
 
     Arguments:
@@ -848,19 +876,22 @@ def getsocme(out, mult1, state1, ms1, mult2, state2, ms2, statemap, version, met
         return complex(getcienergy(out,mult1,state1,version,method), 0.0)
 
     # otherwise, find state indices s1 and s2
-    s1=-1
-    s2=-1
-    for i in statemap:
-        if (mult1,state1,ms1)==tuple(statemap[i]):
-            s1=i
-        elif (mult2,state2,ms2)==tuple(statemap[i]):
-            s2=i
-    if s1==-1:
-        print 'Mult %i, State %i, MS %+3.1f not in statemap=%s' % (mult1,state1,ms1,statemap)
-        sys.exit(20)
-    if s2==-1:
-        print 'Mult %i, State %i, MS %+3.1f not in statemap=%s' % (mult2,state2,ms2,statemap)
-        sys.exit(20)
+    s1 = getMOLCASstatenumber(mult1, state1, ms1, states)
+    s2 = getMOLCASstatenumber(mult2, state2, ms2, states)
+
+    #s1=-1
+    #s2=-1
+    #for i in statemap:
+        #if (mult1,state1,ms1)==tuple(statemap[i]):
+            #s1=i
+        #elif (mult2,state2,ms2)==tuple(statemap[i]):
+            #s2=i
+    #if s1==-1:
+        #print 'Mult %i, State %i, MS %+3.1f not in statemap=%s' % (mult1,state1,ms1,statemap)
+        #sys.exit(20)
+    #if s2==-1:
+        #print 'Mult %i, State %i, MS %+3.1f not in statemap=%s' % (mult2,state2,ms2,statemap)
+        #sys.exit(20)
 
     # look for spin-orbit section
     for iline,line in enumerate(out):
@@ -1066,7 +1097,7 @@ def getQMout(out,QMin):
                     method1=1
                 else:
                     method1=method
-                soc[istate][jstate]=getsocme(out, mult1, state1, ms1, mult2, state2, ms2 ,QMin['statemap'],version,method)
+                soc[istate][jstate]=getsocme(out, mult1, state1, ms1, mult2, state2, ms2 ,QMin['states'],version,method)
         QMout['h']=soc
     # DM: get vector of three dipole matrices, three nested loops, returns a list of three matrices(nmstates,nmstates)
     if 'dm' in QMin:
@@ -1479,6 +1510,21 @@ def readQMin(QMinfilename):
     if not hasveloc:
         QMin=removekey(QMin,'veloc')
 
+    if 'unit' in QMin:
+        if QMin['unit'][0]=='angstrom':
+            factor=1./au2a
+        elif QMin['unit'][0]=='bohr':
+            factor=1.
+        else:
+            print 'Dont know input unit %s!' % (QMin['unit'][0])
+            sys.exit(79)
+    else:
+        factor=1./au2a
+
+    for iatom in range(len(QMin['geo'])):
+        for ixyz in range(3):
+            QMin['geo'][iatom][ixyz+1]*=factor
+
 
     # Parse remaining file
     i=natom+1
@@ -1502,22 +1548,6 @@ def readQMin(QMinfilename):
         else:
             QMin[key]=args
 
-
-    # adjust unit of geometry
-    if 'unit' in QMin:
-        if QMin['unit'][0]=='angstrom':
-            factor=1./au2a
-        elif QMin['unit'][0]=='bohr':
-            factor=1.
-        else:
-            print 'Dont know input unit %s!' % (QMin['unit'][0])
-            sys.exit(79)
-    else:
-        factor=1./au2a
-
-    for iatom in range(len(QMin['geo'])):
-        for ixyz in range(3):
-            QMin['geo'][iatom][ixyz+1]*=factor
 
     # Calculate states, nstates, nmstates
     for i in range(len(QMin['states'])):
@@ -1655,7 +1685,7 @@ def readQMin(QMinfilename):
         if line==None:
             line=QMin['pwd']+'/SAVEDIR/'
     else:
-        line=QMin['savedir'][0]
+        line=line[0]
     line=os.path.expandvars(line)
     line=os.path.expanduser(line)
     line=os.path.abspath(line)
@@ -1683,13 +1713,25 @@ def readQMin(QMinfilename):
         print 'WARNING: Please set memory for MOLCAS in SH2CAS.inp (in MB)! Using 10 MB default value!'
     os.environ['MOLCASMEM']=str(QMin['memory'])
 
-    QMin['ncpu']=0
+    QMin['ncpu']=1
     line=getsh2caskey(sh2cas,'ncpu')
     if line[0]:
         try:
             QMin['ncpu']=int(line[1])
         except ValueError:
             print 'Number of CPUs does not evaluate to numerical value!'
+            sys.exit(47)
+
+    QMin['Project']='MOLCAS'
+    os.environ['Project']=QMin['Project']
+
+    QMin['delay']=0.0
+    line=getsh2caskey(sh2cas,'delay')
+    if line[0]:
+        try:
+            QMin['delay']=float(line[1])
+        except ValueError:
+            print 'Submit delay does not evaluate to numerical value!'
             sys.exit(47)
 
     QMin['Project']='MOLCAS'
@@ -2366,6 +2408,7 @@ def runjobs(joblist,QMin):
             WORKDIR=os.path.join(QMin['scratchdir'],job)
 
             errorcodes[job]=pool.apply_async(run_calc , [WORKDIR,QMin1])
+            time.sleep(QMin['delay'])
         pool.close()
         pool.join()
 
@@ -2379,11 +2422,11 @@ def runjobs(joblist,QMin):
         errorcodes[i]=errorcodes[i].get()
 
     if PRINT:
-        string='  '+'='*40+'\n'
+        string='    '+'='*40+'\n'
         string+='||'+' '*40+'||\n'
         string+='||'+' '*10+'All Tasks completed!'+' '*10+'||\n'
         string+='||'+' '*40+'||\n'
-        string+='  '+'='*40+'\n'
+        string+='    '+'='*40+'\n'
         print string
         j=0
         string='Error Codes:\n\n'
@@ -2555,9 +2598,9 @@ def arrangeQMout(QMin,QMoutall):
         QMout['dmdr']=dmdr
 
     if PRINT:
-        print '\n==================================================================='
-        print   '========================= Final Results ==========================='
-        print   '==================================================================='
+        print '==================================================================='
+        print '========================= Final Results ==========================='
+        print '==================================================================='
         printQMout(QMin,QMout)
 
     return QMout
@@ -2694,7 +2737,7 @@ def main():
     writeQMout(QMin,QMout,QMinfilename)
 
     # Remove Scratchfiles from SCRATCHDIR
-    cleanupSCRATCH(QMin['scratchdir'])
+    #cleanupSCRATCH(QMin['scratchdir'])
     if PRINT or DEBUG:
         print '#================ END ================#'
 
