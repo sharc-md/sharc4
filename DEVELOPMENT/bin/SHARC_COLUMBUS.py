@@ -2103,6 +2103,7 @@ def readQMin(QMinfilename):
   line=getsh2colkey(sh2col,'debug')
   if line[0]:
     if line[1].lower()=='true':
+      global DEBUG
       DEBUG=True
 
   # Set default memory for runc and default screening threshold for cioverlaps
@@ -3007,16 +3008,26 @@ def runCOLUMBUS(QMin):
     if PRINT or DEBUG:
       print '=> Saving all text files from WORK directory to %s\n' % (s1)
     os.mkdir(s1)
-    d=QMin['scratchdir']+'/JOB/WORK'
-    ls=os.listdir(d)
-    for i in ls:
-      if os.stat(d+'/'+i)[6]<=3*1024**2: # smaller than 3 MB
-        try:
-          shutil.copy(d+'/'+i,s1)
-        except OSError:
-          pass
-        if PRINT or DEBUG:
-          print i
+
+    dirs=[
+        os.path.join(QMin['scratchdir'],'JOB'),
+        os.path.join(QMin['scratchdir'],'JOB/WORK'),
+        os.path.join(QMin['scratchdir'],'JOB/LISTINGS')]
+    maxsize=3*1024**2
+    for d in dirs:
+      ls=os.listdir(d)
+      if DEBUG:
+        print d
+        print ls
+      for i in ls:
+        f=os.path.join(d,i)
+        if os.stat(f)[6]<=maxsize and not os.path.isdir(f):
+          try:
+            shutil.copy(f,s1)
+          except OSError:
+            pass
+          if PRINT or DEBUG:
+            print i
     sys.exit(83)
 
 # ======================================================================= #
