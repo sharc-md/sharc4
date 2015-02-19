@@ -94,7 +94,7 @@ if sys.version_info[1]<5:
 # ======================================================================= #
 
 version='1.1'
-versiondate=datetime.date(2015,19,2)
+versiondate=datetime.date(2015,2,19)
 
 
 
@@ -138,6 +138,7 @@ changelogstring='''
 18.02.2015:
 - fixed a bug with SOC matrix element readout
 - added a delay time (default 0 sec) for starting parallel jobs, which can be set in SH2CAS.inp
+- Default is Douglas-Kroll, to be backwards-compatible with MOLCAS interface 1.0. DKH can be turned off with option "no-douglas-kroll"
 '''
 
 # ======================================================================= #
@@ -403,7 +404,7 @@ def printQMin(QMin):
   parts=[]
   if QMin['template']['cholesky']:
     parts.append('Cholesky')
-  if QMin['template']['douglas-kroll']:
+  if not QMin['template']['no-douglas-kroll']:
     parts.append('Douglas-Kroll')
   if QMin['method']>0 and QMin['template']['ipea']!=0.25:
     parts.append('IP-EA=%4.2f' % (QMin['template']['ipea']) )
@@ -427,7 +428,7 @@ def printQMin(QMin):
   string+='NAtom is %i.\n' % (QMin['natom'])
   print string
 
-  string=''
+  string='\nGeometry in Bohrs:\n'
   for i in range(QMin['natom']):
     string+='%s ' % (QMin['geo'][i][0])
     for j in range(3):
@@ -1748,8 +1749,8 @@ def readQMin(QMinfilename):
     QMin['template']={}
     integers=['nactel','inactive','ras2']
     strings =['basis','method']
-    booleans=['cholesky','douglas-kroll','qmmm']
     floats=['ipea']
+    booleans=['cholesky','no-douglas-kroll','qmmm']
     for i in booleans:
         QMin['template'][i]=False
     QMin['template']['roots'] = [0 for i in range(8)]
@@ -2051,7 +2052,7 @@ def writeMOLCASinput(tasks, QMin):
 
         elif task[0]=='seward':
             string+='&SEWARD\n'
-            if QMin['template']['douglas-kroll']:
+            if not QMin['template']['no-douglas-kroll']:
                 string+='R02O\nRELINT\nEXPERT\n'
             if 'soc' in QMin:
                 string+='AMFI\n'
@@ -2223,7 +2224,7 @@ def setupWORKDIR(WORKDIR,tasks,QMin):
         copyfiles=[('MOLCAS.RunFile','MOLCAS.RunFile')]
 
         linkfiles=[('MOLCAS.OrdInt','ORDINT')]
-        if QMin['template']['douglas-kroll']:
+        if not QMin['template']['no-douglas-kroll']:
             linkfiles.append( ('MOLCAS.OneRel','ONEINT') )
         else:
             linkfiles.append( ('MOLCAS.OneInt','ONEINT') )
