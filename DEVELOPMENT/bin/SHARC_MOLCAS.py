@@ -776,7 +776,7 @@ def getcienergy(out,mult,state,version,method,dkh):
             if int(2*spin)+1==mult:
                 correct_mult = True
         elif energystring in line and module and correct_mult:
-            if dkh:
+            if method==0 and dkh:
                 l=out[i+4+state].split()
                 return float(l[1])
             else:
