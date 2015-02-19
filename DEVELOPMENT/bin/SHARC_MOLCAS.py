@@ -139,6 +139,7 @@ changelogstring='''
 - fixed a bug with SOC matrix element readout
 - added a delay time (default 0 sec) for starting parallel jobs, which can be set in SH2CAS.inp
 - Default is Douglas-Kroll, to be backwards-compatible with MOLCAS interface 1.0. DKH can be turned off with option "no-douglas-kroll"
+- fixed a bug with DKH-CASSCF Energy readout
 '''
 
 # ======================================================================= #
@@ -729,7 +730,7 @@ def getversion(out):
         return v
 
 # ======================================================================= #
-def getcienergy(out,mult,state,version,method):
+def getcienergy(out,mult,state,version,method,dkh):
     '''Searches a complete MOLCAS output file for the MRCI energy of (mult,state).
 
     Arguments:
@@ -743,12 +744,15 @@ def getcienergy(out,mult,state,version,method):
     if method==0:
         modulestring='MOLCAS executing module RASSCF'
         spinstring='Spin quantum number'
-        energystring='::    RASSCF root number'
-        stateindex=4
-        if 7<=version<8:
-            enindex=8
-        elif 8<=version<9:
-            enindex=7
+        if dkh:
+            energystring='Final state energy(ies)'
+        else:
+            energystring='::    RASSCF root number'
+            stateindex=4
+            if 7<=version<8:
+                enindex=8
+            elif 8<=version<9:
+                enindex=7
     elif method==1:
         modulestring='MOLCAS executing module CASPT2'
         spinstring='Spin quantum number'
@@ -772,11 +776,15 @@ def getcienergy(out,mult,state,version,method):
             if int(2*spin)+1==mult:
                 correct_mult = True
         elif energystring in line and module and correct_mult:
-            l=line.split()
-            if int(l[stateindex])==state:
-                return float(l[enindex])
+            if dkh:
+                l=out[i+4+state].split()
+                return float(l[1])
+            else:
+                l=line.split()
+                if int(l[stateindex])==state:
+                    return float(l[enindex])
     print 'CI energy of state %i in mult %i not found!' % (state,mult)
-    sys.exit(17)
+    sys.exit(14)
 
 # ======================================================================= #
 def getcidm(out,mult,state1,state2,pol,version):
@@ -813,14 +821,14 @@ def getcidm(out,mult,state1,state2,pol,version):
     else:
         print 'DM element not found!', mult,state1,state2,pol
         print 'No RASSI run for multiplicity %i found!' % (mult)
-        sys.exit(11)
+        sys.exit(15)
 
     # Now start searching at iline, looking for the requested matrix element
     for jline,line in enumerate(out[iline+1:]):
         if stop2string in line:
             print 'DM element not found!', mult,state1,state2,pol
             print 'Found correct RASSI run, but too few matrix elements!'
-            sys.exit(11)
+            sys.exit(16)
         if statesstring in line:
             nstates=int(line.split()[-1])
             if len(jobiphmult)==2:
@@ -852,7 +860,7 @@ def getMOLCASstatenumber(mult, state, ms, states):
     quit(1)
 
 # ======================================================================= #
-def getsocme(out, mult1, state1, ms1, mult2, state2, ms2, states, version, method):
+def getsocme(out, mult1, state1, ms1, mult2, state2, ms2, states, version, method, dkh):
     '''Searches a MOLCAS output for an element of the Spin-Orbit hamiltonian matrix. Also converts from cm^-1 to hartree and adds the diagonal shift.
 
     Arguments:
@@ -869,7 +877,7 @@ def getsocme(out, mult1, state1, ms1, mult2, state2, ms2, states, version, metho
 
     # return diagonal elements
     if mult1==mult2 and state1==state2 and ms1==ms2:
-        return complex(getcienergy(out,mult1,state1,version,method), 0.0)
+        return complex(getcienergy(out,mult1,state1,version,method,dkh), 0.0)
 
     # otherwise, find state indices s1 and s2
     s1 = getMOLCASstatenumber(mult1, state1, ms1, states)
@@ -884,10 +892,10 @@ def getsocme(out, mult1, state1, ms1, mult2, state2, ms2, states, version, metho
             #s2=i
     #if s1==-1:
         #print 'Mult %i, State %i, MS %+3.1f not in statemap=%s' % (mult1,state1,ms1,statemap)
-        #sys.exit(20)
+        #sys.exit(17)
     #if s2==-1:
         #print 'Mult %i, State %i, MS %+3.1f not in statemap=%s' % (mult2,state2,ms2,statemap)
-        #sys.exit(20)
+        #sys.exit(18)
 
     # look for spin-orbit section
     for iline,line in enumerate(out):
@@ -895,7 +903,7 @@ def getsocme(out, mult1, state1, ms1, mult2, state2, ms2, states, version, metho
             break
     else:
         print 'No Spin-Orbit section found in output!'
-        sys.exit(11)
+        sys.exit(19)
 
     # look for matrix element
     socme=complex(0.0,0.0)
@@ -975,7 +983,7 @@ def getgrad(out,mult,state,QMin,version):
                     return grad
     else:
         print 'Gradient of state %i in mult %i not found!' % (state,mult)
-        sys.exit(23)
+        sys.exit(20)
 
 # ======================================================================= #
 def getsmate(out,mult,state1,state2,states):
@@ -1008,14 +1016,14 @@ def getsmate(out,mult,state1,state2,states):
     else:
         print 'Overlap element not found!', mult,state1,state2
         print 'No correct RASSI run for multiplicity %i found!' % (mult)
-        sys.exit(11)
+        sys.exit(21)
 
     # Now start searching at iline, looking for the requested matrix element
     for jline,line in enumerate(out[iline+1:]):
         if stop2string in line:
             print 'Overlap element not found!', mult,state1,state2
             print 'Found correct RASSI run, but too few matrix elements!'
-            sys.exit(11)
+            sys.exit(22)
         if statesstring in line:
             nstates=int(line.split()[-1])
         if matrixstring in line:
@@ -1079,7 +1087,7 @@ def getQMout(out,QMin):
                 method1=1
             else:
                 method1=method
-            h[istate][istate]=complex(getcienergy(out,mult,state,version,method1))
+            h[istate][istate]=complex(getcienergy(out,mult,state,version,method1,not QMin['template']['no-douglas-kroll']))
         QMout['h']=h
     # SOC: get SOC matrix and construct hamiltonian, returns a matrix(nmstates,nmstates)
     if 'soc' in QMin:
@@ -1093,7 +1101,7 @@ def getQMout(out,QMin):
                     method1=1
                 else:
                     method1=method
-                soc[istate][jstate]=getsocme(out, mult1, state1, ms1, mult2, state2, ms2 ,QMin['states'],version,method)
+                soc[istate][jstate]=getsocme(out, mult1, state1, ms1, mult2, state2, ms2 ,QMin['states'],version,method1,not QMin['template']['no-douglas-kroll'])
         QMout['h']=soc
     # DM: get vector of three dipole matrices, three nested loops, returns a list of three matrices(nmstates,nmstates)
     if 'dm' in QMin:
@@ -1369,13 +1377,13 @@ def checkscratch(SCRATCHDIR):
         isfile=os.path.isfile(SCRATCHDIR)
         if isfile:
             print '$SCRATCHDIR=%s exists and is a file!' % (SCRATCHDIR)
-            sys.exit(27)
+            sys.exit(23)
     else:
         try:
             os.makedirs(SCRATCHDIR)
         except OSError:
             print 'Can not create SCRATCHDIR=%s\n' % (SCRATCHDIR)
-            sys.exit(28)
+            sys.exit(24)
 
 # ======================================================================= #
 def removequotes(string):
@@ -1414,20 +1422,20 @@ def get_sh2cas_environ(sh2cas,key,environ=True,crucial=True):
       if not LINE:
         if crucial:
           print 'Either set $%s or give path to %s in SH2CAS.inp!' % (key.upper(),key.upper())
-          sys.exit(29)
+          sys.exit(25)
         else:
           return ''
     else:
       if crucial:
         print 'Give path to %s in SH2CAS.inp!' % (key.upper())
-        sys.exit(30)
+        sys.exit(26)
       else:
         return ''
   LINE=os.path.expandvars(LINE)
   LINE=os.path.expanduser(LINE)
   if containsstring(';',LINE):
     print "$%s contains a semicolon. Do you probably want to execute another command after %s? I can't do that for you..." % (key.upper(),key.upper())
-    sys.exit(31)
+    sys.exit(27)
   return LINE
 
 # ======================================================================= #
@@ -1439,7 +1447,7 @@ def get_pairs(QMinlines,i):
       line=QMinlines[i].lower()
     except IndexError:
       print '"keyword select" has to be completed with an "end" on another line!'
-      sys.exit(32)
+      sys.exit(28)
     if 'end' in line:
       break
     fields=line.split()
@@ -1447,7 +1455,7 @@ def get_pairs(QMinlines,i):
       nacpairs.append([int(fields[0]),int(fields[1])])
     except ValueError:
       print '"nacdr select" is followed by pairs of state indices, each pair on a new line!'
-      sys.exit(33)
+      sys.exit(29)
   return nacpairs,i
 
 # ======================================================================= #         OK
@@ -1476,11 +1484,11 @@ def readQMin(QMinfilename):
         natom=int(QMinlines[0])
     except ValueError:
         print 'first line must contain the number of atoms!'
-        sys.exit(35)
+        sys.exit(30)
     QMin['natom']=natom
     if len(QMinlines)<natom+4:
         print 'Input file must contain at least:\nnatom\ncomment\ngeometry\nkeyword "states"\nat least one task'
-        sys.exit(36)
+        sys.exit(31)
 
     # Save Comment line
     QMin['comment']=QMinlines[1]
@@ -1492,7 +1500,7 @@ def readQMin(QMinfilename):
     for i in range(2,natom+2):
         if not containsstring('[a-zA-Z][a-zA-Z]?[0-9]*.*[-]?[0-9]+[.][0-9]*.*[-]?[0-9]+[.][0-9]*.*[-]?[0-9]+[.][0-9]*', QMinlines[i]):
             print 'Input file does not comply to xyz file format! Maybe natom is just wrong.'
-            sys.exit(37)
+            sys.exit(32)
         fields=QMinlines[i].split()
         for j in range(1,4):
             fields[j]=float(fields[j])
@@ -1536,7 +1544,7 @@ def readQMin(QMinfilename):
             factor=1.
         else:
             print 'Dont know input unit %s!' % (QMin['unit'][0])
-            sys.exit(79)
+            sys.exit(33)
     else:
         factor=1./au2a
 
@@ -1560,20 +1568,20 @@ def readQMin(QMinfilename):
     # Various logical checks
     if not 'states' in QMin:
         print 'Number of states not given in QM input file %s!' % (QMinfilename)
-        sys.exit(38)
+        sys.exit(34)
 
     possibletasks=['h','soc','dm','grad','overlap','dmdr','socdr']
     if not any([i in QMin for i in possibletasks]):
         print 'No tasks found! Tasks are "h", "soc", "dm", "grad","dmdr", "socdr" and "overlap".'
-        sys.exit(39)
+        sys.exit(35)
 
     if 'samestep' in QMin and 'init' in QMin:
         print '"Init" and "Samestep" cannot be both present in QM.in!'
-        sys.exit(40)
+        sys.exit(36)
 
     if 'overlap' in QMin and 'init' in QMin:
         print '"overlap" cannot be calculated in the first timestep! Delete either "overlap" or "init"'
-        sys.exit(41)
+        sys.exit(37)
 
     if not 'init' in QMin and not 'samestep' in QMin:
         QMin['newstep']=[]
@@ -1583,18 +1591,18 @@ def readQMin(QMinfilename):
 
     if len(QMin['states'])>8:
         print 'Higher multiplicities than octets are not supported!'
-        sys.exit(42)
+        sys.exit(38)
 
     if 'h' in QMin and 'soc' in QMin:
         QMin=removekey(QMin,'h')
 
     if 'nacdt' in QMin or 'nacdr' in QMin:
         print 'Within the SHARC-MOLCAS interface couplings can only be calculated via the overlap method. "nacdr" and "nacdt" are not supported.'
-        sys.exit(43)
+        sys.exit(39)
 
     if 'ion' in QMin:
         print 'Ionization probabilities not implemented!'
-        sys.exit(11)
+        sys.exit(40)
 
     # Check for correct gradient list
     if 'grad' in QMin:
@@ -1607,10 +1615,10 @@ def readQMin(QMinfilename):
                     QMin['grad'][i]=int(QMin['grad'][i])
                 except ValueError:
                     print 'Arguments to keyword "grad" must be "all" or a list of integers!'
-                    sys.exit(44)
+                    sys.exit(41)
                 if QMin['grad'][i]>nmstates:
                     print 'State for requested gradient does not correspond to any state in QM input file state list!'
-                    sys.exit(45)
+                    sys.exit(42)
 
     # Process the overlap requests
     # identically to the nac requests
@@ -1620,7 +1628,7 @@ def readQMin(QMinfilename):
             for i in range(len(nacpairs)):
                 if nacpairs[i][0]>nmstates or nacpairs[i][1]>nmstates:
                     print 'State for requested non-adiabatic couplings does not correspond to any state in QM input file state list!'
-                    sys.exit(54)
+                    sys.exit(43)
         else:
             QMin['overlap']=[ [j+1,i+1] for i in range(nmstates) for j in range(i+1)]
 
@@ -1704,7 +1712,7 @@ def readQMin(QMinfilename):
             QMin['memory']=int(line[1])
         except ValueError:
             print 'MOLCAS memory does not evaluate to numerical value!'
-            sys.exit(47)
+            sys.exit(44)
     else:
         print 'WARNING: Please set memory for MOLCAS in SH2CAS.inp (in MB)! Using 10 MB default value!'
     os.environ['MOLCASMEM']=str(QMin['memory'])
@@ -1716,7 +1724,7 @@ def readQMin(QMinfilename):
             QMin['ncpu']=int(line[1])
         except ValueError:
             print 'Number of CPUs does not evaluate to numerical value!'
-            sys.exit(47)
+            sys.exit(45)
 
     QMin['Project']='MOLCAS'
     os.environ['Project']=QMin['Project']
@@ -1728,7 +1736,7 @@ def readQMin(QMinfilename):
             QMin['delay']=float(line[1])
         except ValueError:
             print 'Submit delay does not evaluate to numerical value!'
-            sys.exit(47)
+            sys.exit(46)
 
     QMin['Project']='MOLCAS'
     os.environ['Project']=QMin['Project']
@@ -1741,7 +1749,7 @@ def readQMin(QMinfilename):
         QMin['always_guess']=[]
     if 'always_orb_init' in QMin and 'always_guess' in QMin:
         print 'Keywords "always_orb_init" and "always_guess" cannot be used together!'
-        sys.exit(11)
+        sys.exit(47)
 
     # open template
     template=readfile('MOLCAS.template')
@@ -1781,7 +1789,7 @@ def readQMin(QMinfilename):
             break
         if not n>=QMin['states'][i]:
             print 'Too few states in state-averaging in multiplicity %i! %i requested, but only %i given' % (i+1,QMin['states'][i],n)
-            sys.exit(1)
+            sys.exit(48)
 
     # condense roots list
     for i in range(len(QMin['template']['roots'])-1,0,-1):
@@ -1796,13 +1804,13 @@ def readQMin(QMinfilename):
         if n>0:
             if not (QMin['template']['nactel']+i)%2==0:
                 print 'Number of electrons is %i, but states of multiplicity %i are requested.' % (nelec,i+1)
-                sys.exit(11)
+                sys.exit(49)
 
     necessary=['basis','nactel','ras2','inactive']
     for i in necessary:
         if not i in QMin['template']:
             print 'Key %s missing in template file!' % (i)
-            sys.exit(11)
+            sys.exit(50)
 
 
     # logic checks:
@@ -1810,7 +1818,7 @@ def readQMin(QMinfilename):
     # QM/MM mode needs Tinker
     if QMin['template']['qmmm'] and not 'tinker' in QMin:
         print 'Please set $TINKER or give path to tinker in SH2CAS.inp!'
-        sys.exit(52)
+        sys.exit(51)
 
     # find method
     allowed_methods=['casscf','caspt2','ms-caspt2']
@@ -1820,7 +1828,7 @@ def readQMin(QMinfilename):
             break
     else:
         print 'Unknown method "%s" given in MOLCAS.template' % (QMin['template']['method'])
-        sys.exit(11)
+        sys.exit(52)
 
     # decide which type of gradients to do:
     # 0 = analytical CASSCF gradients on one CPU
@@ -1849,7 +1857,7 @@ def readQMin(QMinfilename):
     if QMin['template']['qmmm']:
         if QMin['gradmode']==2:
             print 'QM/MM is only possible currently with CASSCF and analytical gradients.'
-            sys.exit(11)
+            sys.exit(53)
         elif QMin['gradmode']==1:
             QMin['gradmode']=0
 
@@ -1865,7 +1873,7 @@ def readQMin(QMinfilename):
                 QMin['gradaccudefault']=float(line[1])
             except ValueError:
                 print 'SH2CAS.inp: "gradaccudefault" does not evaluate to numerical value!'
-                sys.exit(47)
+                sys.exit(54)
 
         line=getsh2caskey(sh2cas,'gradaccumax')
         if line[0]:
@@ -1873,7 +1881,7 @@ def readQMin(QMinfilename):
                 QMin['gradaccumax']=float(line[1])
             except ValueError:
                 print 'SH2CAS.inp: "gradaccumax" does not evaluate to numerical value!'
-                sys.exit(47)
+                sys.exit(55)
 
 
     # QM/MM setup
@@ -1923,7 +1931,7 @@ def readQMin(QMinfilename):
                 err+=1
     if err>0:
         print '%i files missing in SAVEDIR=%s' % (err,QMin['savedir'])
-        sys.exit(11)
+        sys.exit(56)
 
 
     if PRINT:
@@ -2136,7 +2144,7 @@ def writeMOLCASinput(tasks, QMin):
         else:
             print 'Unknown task keyword %s found in writeMOLCASinput!' % task[0]
             print task
-            sys.exit(59)
+            sys.exit(57)
 
     return string
 
@@ -2148,7 +2156,7 @@ def writegeomfile(QMin):
             geomtmpfile = open('MOLCAS.qmmm.template', 'r')
         except IOError:
             print 'Could not find file "MOLCAS.qmmm.template"!'
-            sys.exit(11)
+            sys.exit(58)
         geomtemplate = geomtmpfile.readlines()
         geomtmpfile.close()
         string+='%i\n\n' % (QMin['natom'])
@@ -2176,7 +2184,7 @@ def setupWORKDIR(WORKDIR,tasks,QMin):
     if os.path.exists(WORKDIR):
         if os.path.isfile(WORKDIR):
             print '%s exists and is a file!' % (WORKDIR)
-            sys.exit(27)
+            sys.exit(59)
         elif os.path.isdir(WORKDIR):
             if DEBUG:
                 print 'Remake\t%s' % WORKDIR
@@ -2189,7 +2197,7 @@ def setupWORKDIR(WORKDIR,tasks,QMin):
             os.makedirs(WORKDIR)
         except OSError:
             print 'Can not create %s\n' % (WORKDIR)
-            sys.exit(28)
+            sys.exit(60)
 
     # write geom file
     geomstring=writegeomfile(QMin)
@@ -2224,10 +2232,10 @@ def setupWORKDIR(WORKDIR,tasks,QMin):
         copyfiles=[('MOLCAS.RunFile','MOLCAS.RunFile')]
 
         linkfiles=[('MOLCAS.OrdInt','ORDINT')]
-        if not QMin['template']['no-douglas-kroll']:
-            linkfiles.append( ('MOLCAS.OneRel','ONEINT') )
-        else:
-            linkfiles.append( ('MOLCAS.OneInt','ONEINT') )
+        #if QMin['template']['no-douglas-kroll']:
+        linkfiles.append( ('MOLCAS.OneInt','ONEINT') )
+        #else:
+            #linkfiles.append( ('MOLCAS.OneRel','ONEINT') )
 
         for ifile in copyfiles:
             fromfile=os.path.join(QMin['scratchdir'],'master',ifile[0])
@@ -2254,7 +2262,7 @@ def runMOLCAS(WORKDIR,strip=False):
         runerror=sp.call(string,shell=True)
     except OSError:
         print 'Call have had some serious problems:',OSError
-        sys.exit(82)
+        sys.exit(61)
     if PRINT or DEBUG:
         endtime=datetime.datetime.now()
         sys.stdout.write('FINISH:\t%s\t%s\tRuntime: %s\tError Code: %i\n' % (WORKDIR,endtime,endtime-starttime,runerror))
@@ -2297,7 +2305,7 @@ def generate_joblist(QMin):
         joblist.append({'master':QMin1})
 
         QMin2=deepcopy(QMin)
-        remove=['soc','dm','always_guess','always_orb_init','comment','ncpu','init','veloc','overlap']
+        remove=['h','soc','dm','always_guess','always_orb_init','comment','ncpu','init','veloc','overlap']
         for r in remove:
             QMin2=removekey(QMin2,r)
         QMin2['gradmode']=0
@@ -2436,7 +2444,7 @@ def runjobs(joblist,QMin):
 
     if any((i!=0 for i in errorcodes.values())):
         print 'Some subprocesses did not finish successfully!'
-        sys.exit(11)
+        sys.exit(62)
 
     return
 
@@ -2632,7 +2640,7 @@ def saveJobIphs(WORKDIR,QMin):
         fromfile=os.path.join(WORKDIR,'MOLCAS.%i.JobIph' % (imult+1))
         if not os.path.isfile(fromfile):
             print 'File %s not found, cannot move to savedir!' % (fromfile)
-            sys.exit(11)
+            sys.exit(65)
         tofile=os.path.join(QMin['savedir'],'MOLCAS.%i.JobIph' % (imult+1))
         if DEBUG:
             print 'Copy:\t%s\n\t==>\n\t%s' % (fromfile,tofile)
@@ -2655,7 +2663,7 @@ def moveJobIphs(QMin):
         fromfile=os.path.join(QMin['savedir'],'MOLCAS.%i.JobIph' % (imult+1))
         if not os.path.isfile(fromfile):
             print 'File %s not found, cannot move to OLD!' % (fromfile)
-            sys.exit(11)
+            sys.exit(66)
         tofile  =os.path.join(QMin['savedir'],'MOLCAS.%i.JobIph.old' % (imult+1))
         if DEBUG:
             print 'Copy:\t%s\n\t==>\n\t%s' % (fromfile,tofile)
@@ -2698,7 +2706,7 @@ def main():
             DEBUG=True
     except ValueError:
         print 'PRINT or DEBUG environment variables do not evaluate to numerical values!'
-        sys.exit(69)
+        sys.exit(67)
 
     # Process Command line arguments
     if len(sys.argv)!=2:
@@ -2706,7 +2714,7 @@ def main():
         print 'version:',version
         print 'date:',versiondate
         print 'changelog:\n',changelogstring
-        sys.exit(70)
+        sys.exit(68)
     QMinfilename=sys.argv[1]
 
     # Print header
