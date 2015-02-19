@@ -1678,6 +1678,7 @@ scratchdir      &Is a path to the temporary directory. Relative and absolute pat
 savedir         &Is a path to another temporary directory.  Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. The interface will store files needed for restart there.\\
 memory          &The memory usable by \textsc{Molcas}. The interface will set \ttt{\$MOLCASMEM} to this value. The default is 10~MB.\\
 ncpu            & The number of CPUs used by the interface. If zero or negative, one CPU will be used and all subtasks (Hamiltonian, dipole moments, analytical gradients, overlaps) will be done in one \textsc{Molcas} call. If positive, analytical gradients will be calculated by separate calls to \textsc{Molcas}, parallelized over the given number of CPUs. \\
+delay           &Followed by a float giving the delay in seconds between starting parallel jobs to avoid excessive disk I/O.\\
 always\_orb\_init &Do not use the orbital guesses from previous calculations/timesteps, but always use the provided initial orbitals.\\
 always\_guess   &Always use the orbital guess from \textsc{Molcas}'s \ttt{guessorb} module.\\
   \bottomrule
@@ -1686,9 +1687,9 @@ always\_guess   &Always use the orbital guess from \textsc{Molcas}'s \ttt{guesso
 
 Note that the interface sets all environment variables necessary to run \textsc{Molcas} (e.g., \ttt{\$MOLCAS}, \ttt{\$MOLCASMEM}, \ttt{\$WorkDir} ,\ttt{\$Project}) automatically, based on the input from \ttt{SH2CAS.inp}.
 
-Some explanations on parallelization: There are two parallel modes in which the interface can act. In the first mode, the wavefunction and expectation values are calculated serially first, and then all analytical gradients are computed in parallel, over the given number of CPUs. If the number of CPUs is one, then also the interface prepares independent computations for each gradient, and runs those sequentially on one CPU. If the given number of CPUs is negative or zero, then the gradients are not prepared separately, but together with the other quantities. The latter variant has less overhead, but is only recommended if the user is sure that MCLR will converge in virtually all cases. If MCLR does not converge occasionally, it is advisable to use NCPU=1 instead of NCPU$\leq$0.
+Some explanations on parallelization: There are two parallel modes in which the interface can act. In the first mode, the wavefunction and expectation values are calculated serially first, and then all analytical gradients are computed in parallel, over the given number of CPUs. If the number of CPUs is one, then still the interface prepares independent computations for each gradient, and runs those sequentially on one CPU. If the given number of CPUs is negative or zero, then the gradients are not prepared as separate \textsc{Molcas} calculations, but together with the other quantities. The latter variant has less overhead, but is only recommended if the user is sure that MCLR will converge in virtually all cases. If MCLR does not converge occasionally, it is advisable to use NCPU=1 instead of NCPU$\leq$0.
 
-In the second parallelization mode, the central point and all displacements are computed in parallel. This mode will be used for CASPT2, MS-CASPT2 and Cholesky-CASSCF gradients and spin-orbit/dipole moment derivatives. In this mode there is no distinction between NCPU=1 and NCPU$\leq$0.
+In the second parallelization mode, used for numerical gradients, the central point and all displacements are computed in parallel. This mode will be used for CASPT2, MS-CASPT2 and Cholesky-CASSCF gradients and spin-orbit/dipole moment derivatives. In this mode there is no distinction between NCPU=1 and NCPU$\leq$0. 
 
 \subsection{Template file: \ttt{MOLCAS.template}}
 
@@ -1709,7 +1710,7 @@ inactive        &Number of inactive orbitals.\\
 spin            &The full line reads as \ttt{spin s roots r} and specifies the number of roots for the given multiplicity. This influences only the number of states in the state-averaging procedure. The number of states in the dynamics must not be larger than the number of states given here. This input style is still valid but deprecated.\\
 roots           &Followed by a list of integers, giving the number of states per multiplicity in the state-averaging procedure. This keyword is recommended over the \ttt{spin} keyword.\\
 method          &Followed by a string, which is either ``CASSCF'', ``CASPT2'' or ``MS-CASPT2'' (case insensitive), defining the level of theory. Default is ``CASSCF''.\\
-douglas-kroll   &Activates the use of the scalar-relativistic DK Hamiltonian (In standard parametrization). Default is a non-relativistic Hamiltonian.\\
+no-douglas-kroll&Deactivates the use of the scalar-relativistic DK Hamiltonian and uses a non-relativistic Hamiltonian instead. Default is Douglas-Kroll-Hess 2nd order  (In \textsc{Molcas} standard parametrization).\\
 ipea            &Followed by a float giving the IP-EA shift for CASPT2 (see \textsc{Molcas} manual for more information). The default is 0.25, as in \textsc{Molcas}.\\
 cholesky        &Activates Cholesky decomposition in \textsc{Molcas}. Recommended for large basis sets. Necessitates numerical gradients also for CASSCF. Default is to use regular 4-electron integrals.\\
 % qmmm            &Activates the QM/MM mode. In this case, two more input files need to be present (see below).
