@@ -93,32 +93,12 @@ if sys.version_info[1]<5:
 
 # ======================================================================= #
 
-version='1.0'
-versiondate=datetime.date(2014,10,8)
+version='1.1'
+versiondate=datetime.date(2015,19,2)
+
 
 
 changelogstring='''
-09.01.2014:
-- Changed script to work with MOLCAS
-Functions with a #-symbol have been changed.
-readQMin -> inputfile to dictionary with keywords about what should be calculated, number of states, ...
-gettasks -> converts dictionary of QMin to list of tasks with parameters
-cycleMOLPRO -> cycle through task list until it is empty
-    # writeMOLPROinput -> writes MOLPRO input for the given tasks -> has to be rewritten for MOLCAS usage
-    # runMOLPRO -> starts the MOLPRO job
-    # redotasks -> scans MOLPRO output for error messages. checks if tasks performed succesfully. returns a new tasklist including all crashed tasks
-catMOLPROoutput -> concatenates all MOLPRO output files
-getQMout
-    # getcienergy -> casscf energy of a state specified by mult and statenumber
-    # getsocme -> get single SOC matrix element
-      getcidm -> TODO later
-    # getgrad -> get gradient for certain atom and certain mult,state
-    # getsmate -> returns the overlap matrix with possible sign changes of columns if diagonal elements are negative
-    # getmrcioverlap -> right now only returns the unity matrix
-printQMout
-cleanupSCRATCH
-writeQMout
-
 07.07.2014:
 - Gradients can be setup with MOLCAS in parallel fashion, using 1 core per gradient.
 - QM/MM support added (using MOLCAS and TINKER).
@@ -143,6 +123,21 @@ writeQMout
 
 06.02.2015:
 - major rewrite started...
+
+12.02.2015:
+- major rewrite finished
+- New features:
+  * Numerical gradients for Cholesky-based methods, CASPT2 and MS-CASPT2
+  * Dipole moment derivatives and spin-orbit coupling derivatives
+  * Numerical differentiation parallelized
+  * Project is now always "MOLCAS"
+  * Restart if MCLR did not converge
+- most of the code was redesigned from scratch to make it easier to maintain
+- backwards compatibility to input for version 1.0
+
+18.02.2015:
+- fixed a bug with SOC matrix element readout
+- added a delay time (default 0 sec) for starting parallel jobs, which can be set in SH2CAS.inp
 '''
 
 # ======================================================================= #
@@ -346,7 +341,7 @@ def printheader():
     string='\n'
     string+='  '+'='*80+'\n'
     string+='||'+' '*80+'||\n'
-    string+='||'+' '*25+'SHARC - MOLCAS - Interface'+' '*25+'||\n'
+    string+='||'+' '*27+'SHARC - MOLCAS - Interface'+' '*27+'||\n'
     string+='||'+' '*80+'||\n'
     string+='||'+' '*19+'Authors: Sebastian Mai and Martin Richter'+' '*20+'||\n'
     string+='||'+' '*80+'||\n'
@@ -1510,21 +1505,6 @@ def readQMin(QMinfilename):
     if not hasveloc:
         QMin=removekey(QMin,'veloc')
 
-    if 'unit' in QMin:
-        if QMin['unit'][0]=='angstrom':
-            factor=1./au2a
-        elif QMin['unit'][0]=='bohr':
-            factor=1.
-        else:
-            print 'Dont know input unit %s!' % (QMin['unit'][0])
-            sys.exit(79)
-    else:
-        factor=1./au2a
-
-    for iatom in range(len(QMin['geo'])):
-        for ixyz in range(3):
-            QMin['geo'][iatom][ixyz+1]*=factor
-
 
     # Parse remaining file
     i=natom+1
@@ -1547,6 +1527,21 @@ def readQMin(QMinfilename):
             QMin[key]=pairs
         else:
             QMin[key]=args
+
+    if 'unit' in QMin:
+        if QMin['unit'][0]=='angstrom':
+            factor=1./au2a
+        elif QMin['unit'][0]=='bohr':
+            factor=1.
+        else:
+            print 'Dont know input unit %s!' % (QMin['unit'][0])
+            sys.exit(79)
+    else:
+        factor=1./au2a
+
+    for iatom in range(len(QMin['geo'])):
+        for ixyz in range(3):
+            QMin['geo'][iatom][ixyz+1]*=factor
 
 
     # Calculate states, nstates, nmstates
@@ -1679,13 +1674,13 @@ def readQMin(QMinfilename):
 
 
     # Set up savedir
-    if not 'savedir' in QMin:
+    if 'savedir' in QMin:
         # savedir may be read from QM.in file
+        line=QMin['savedir'][0]
+    else:
         line=get_sh2cas_environ(sh2cas,'savedir',False,False)
         if line==None:
             line=QMin['pwd']+'/SAVEDIR/'
-    else:
-        line=line[0]
     line=os.path.expandvars(line)
     line=os.path.expanduser(line)
     line=os.path.abspath(line)
@@ -2422,11 +2417,11 @@ def runjobs(joblist,QMin):
         errorcodes[i]=errorcodes[i].get()
 
     if PRINT:
-        string='    '+'='*40+'\n'
+        string='  '+'='*40+'\n'
         string+='||'+' '*40+'||\n'
         string+='||'+' '*10+'All Tasks completed!'+' '*10+'||\n'
         string+='||'+' '*40+'||\n'
-        string+='    '+'='*40+'\n'
+        string+='  '+'='*40+'\n'
         print string
         j=0
         string='Error Codes:\n\n'
@@ -2598,9 +2593,9 @@ def arrangeQMout(QMin,QMoutall):
         QMout['dmdr']=dmdr
 
     if PRINT:
-        print '==================================================================='
-        print '========================= Final Results ==========================='
-        print '==================================================================='
+        print '\n==================================================================='
+        print   '========================= Final Results ==========================='
+        print   '==================================================================='
         printQMout(QMin,QMout)
 
     return QMout
@@ -2737,7 +2732,7 @@ def main():
     writeQMout(QMin,QMout,QMinfilename)
 
     # Remove Scratchfiles from SCRATCHDIR
-    #cleanupSCRATCH(QMin['scratchdir'])
+    cleanupSCRATCH(QMin['scratchdir'])
     if PRINT or DEBUG:
         print '#================ END ================#'
 
