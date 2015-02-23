@@ -1,9 +1,9 @@
 #!/usr/bin/env python2
 
 #    ====================================================================
-#||                                                                                                                                        ||
+#||                                                                       ||
 #||                General Remarks                                        ||
-#||                                                                                                                                        ||
+#||                                                                       ||
 #    ====================================================================
 #
 # This script uses several different specification for the electronic states under consideration.
@@ -68,6 +68,7 @@ from copy import deepcopy
 # parallel calculations
 from multiprocessing import Pool
 import time
+from socket import gethostname
 
 
 # =========================================================0
@@ -140,6 +141,14 @@ changelogstring='''
 - added a delay time (default 0 sec) for starting parallel jobs, which can be set in SH2CAS.inp
 - Default is Douglas-Kroll, to be backwards-compatible with MOLCAS interface 1.0. DKH can be turned off with option "no-douglas-kroll"
 - fixed a bug with DKH-CASSCF Energy readout
+
+20.02.2015:
+- made retrieving the hostname more portable
+- made molcas call more portable (pipes)
+- made getversion() more portable by reading from $MOLCAS/.molcasversion
+- added support for states of different electron number (number of active electrons might be one lower than given)
+- added support for gradmode=1 with QM/MM
+- changed: SS-CASSCF gradients always lead to gradmode=1
 '''
 
 # ======================================================================= #
@@ -337,7 +346,7 @@ def printheader():
 
     Takes nothing, returns nothing.'''
 
-    print starttime,os.environ['HOSTNAME'],os.getcwd()
+    print starttime,gethostname(),os.getcwd()
     if not PRINT:
         return
     string='\n'
@@ -416,6 +425,15 @@ def printQMin(QMin):
   if QMin['template']['qmmm']:
       string+='\t+AMBER'
   print string
+  # say, if CAS(n-1,m) is used for any multiplicity
+  oddmults=False
+  for i in QMin['statemap'].values():
+      if (QMin['template']['nactel']+i[0])%2==0:
+          oddmults=True
+  if oddmults:
+    string='\t\t'+['Even ','Odd '][QMin['template']['nactel']%2==0]
+    string+='numbers of electrons are treated with CAS(%i,%i).' % (QMin['template']['nactel']-1,QMin['template']['ras2'])
+    print string
   # CAS(2,2) does not allow for SOC calculations (bug in MOLCAS)
   if QMin['template']['nactel']==2 and QMin['template']['ras2']==2:
     if 'soc' in QMin or 'socdr' in QMin:
@@ -499,7 +517,7 @@ def printtasks(tasks):
         elif task[0]=='copy':
             print 'Copy\t%s\t==> \t%s' % (task[1],task[2])
         elif task[0]=='rasscf':
-            print 'RASSCF\tMultiplicity: %i\tStates: %i\tJOBIPH=%s' % (task[1],task[2],task[3])
+            print 'RASSCF\tMultiplicity: %i\tStates: %i\tJOBIPH=%s\tLUMORB=%s' % (task[1],task[2],task[3],task[4])
         elif task[0]=='rasscf-rlx':
             print 'RASSCF\tMultiplicity: %i\tStates: %i\tRLXROOT=%i' % (task[1],task[2],task[3])
         elif task[0]=='alaska':
@@ -510,6 +528,8 @@ def printtasks(tasks):
             print 'CASPT2\tMultiplicity: %i\tStates: %i\tMULTISTATE=%s' % (task[1],task[2],task[3])
         elif task[0]=='rassi':
             print 'RASSI\t%s\tStates: %s' % ({'soc':'Spin-Orbit Coupling','dm':'Dipole Moments','overlap':'Overlaps'}[task[1]],task[2])
+        elif task[0]=='espf':
+            print 'ESPF'
         else:
             print task
     print '\n'
@@ -719,15 +739,34 @@ def makermatrix(a,b):
 # =============================================================================================== #
 
 # ======================================================================= #
-def getversion(out):
-  for i in range(50):
-    line=out[i]
-    s=line.split()
-    for j,el in enumerate(s):
-      if 'version' in el:
-        v=float(s[j+1])
-        #print 'Found MOLCAS version %3.1f\n' % (v)
-        return v
+def getversion(out,MOLCAS):
+    allowedrange=[7.0,8.1]
+    # first try to find $MOLCAS/.molcasversion
+    molcasversion=os.path.join(MOLCAS,'.molcasversion')
+    if os.path.isfile(molcasversion):
+        vf=open(molcasversion)
+        string=vf.readline()
+        vf.close()
+    # otherwise try to read this from the output file
+    else:
+        string=''
+        for i in range(50):
+            line=out[i]
+            s=line.split()
+            for j,el in enumerate(s):
+                if 'version' in el:
+                    string=s[j+1]
+                    break
+            if string!='':
+                break
+    a=re.search('[0-9]+\.[0-9]+',string)
+    v=float(a.group())
+    if not allowedrange[0]<=v<=allowedrange[1]:
+        print 'MOLCAS version %3.1f not supported! ' % (v)
+        sys.exit(69)
+    if DEBUG:
+        print 'Found MOLCAS version %3.1f\n' % (v)
+    return v
 
 # ======================================================================= #
 def getcienergy(out,mult,state,version,method,dkh):
@@ -751,7 +790,7 @@ def getcienergy(out,mult,state,version,method,dkh):
             stateindex=4
             if 7<=version<8:
                 enindex=8
-            elif 8<=version<9:
+            elif 8<=version<8.1:
                 enindex=7
     elif method==1:
         modulestring='MOLCAS executing module CASPT2'
@@ -1068,7 +1107,7 @@ def getQMout(out,QMin):
 
 
     # get version of MOLCAS
-    version=getversion(out)
+    version=getversion(out,QMin['molcas'])
     method=QMin['method']
 
     # Currently implemented keywords: h, soc, dm, grad, nac (num,ana,smat)
@@ -1799,12 +1838,12 @@ def readQMin(QMinfilename):
             break
 
     # check roots versus number of electrons
-    nelec=QMin['template']['inactive']*2+QMin['template']['nactel']
-    for i,n in enumerate(QMin['states']):
-        if n>0:
-            if not (QMin['template']['nactel']+i)%2==0:
-                print 'Number of electrons is %i, but states of multiplicity %i are requested.' % (nelec,i+1)
-                sys.exit(49)
+    #nelec=QMin['template']['inactive']*2+QMin['template']['nactel']
+    #for i,n in enumerate(QMin['states']):
+        #if n>0:
+            #if not (QMin['template']['nactel']+i)%2==0:
+                #print 'Number of electrons is %i, but states of multiplicity %i are requested.' % (nelec,i+1)
+                #sys.exit(49)
 
     necessary=['basis','nactel','ras2','inactive']
     for i in necessary:
@@ -1831,8 +1870,8 @@ def readQMin(QMinfilename):
         sys.exit(52)
 
     # decide which type of gradients to do:
-    # 0 = analytical CASSCF gradients on one CPU
-    # 1 = analytical CASSCF gradients distributed over several CPUs
+    # 0 = analytical CASSCF gradients in one MOLCAS input file (less overhead, but recommended only under certain circumstances)
+    # 1 = analytical CASSCF gradients in separate MOLCAS inputs, possibly distributed over several CPUs (DEFAULT)
     # 2 = numerical gradients (CASPT2, MS-CASPT2, Cholesky-CASSCF; or for dmdr and socdr), possibly distributed over several CPUs
     if 'dmdr' in QMin or 'socdr' in QMin or 'grad' in QMin:
         if 'dmdr' in QMin or 'socdr' in QMin:
@@ -1845,7 +1884,15 @@ def readQMin(QMinfilename):
             if QMin['ncpu']>0:
                 QMin['gradmode']=1
             else:
-                QMin['gradmode']=0
+                # check if any gradient to be calculated is a SS-CASSCF gradient
+                ss_grads=False
+                for i in QMin['gradmap']:
+                    if QMin['template']['roots'][i[0]-1]==1:
+                        ss_grads=True
+                if ss_grads:
+                    QMin['gradmode']=1
+                else:
+                    QMin['gradmode']=0
         if QMin['gradmode']==2:
             QMin['displ']=0.005/au2a    # default displacement of 0.005 Angstrom
     else:
@@ -1854,12 +1901,9 @@ def readQMin(QMinfilename):
 
     # currently, QM/MM is only allowed with CASSCF and analytical gradients on one CPU
     # will be available in the future
-    if QMin['template']['qmmm']:
-        if QMin['gradmode']==2:
-            print 'QM/MM is only possible currently with CASSCF and analytical gradients.'
+    if QMin['template']['qmmm'] and QMin['gradmode']==2:
+            print 'QM/MM is only possible currently with analytical gradients.'
             sys.exit(53)
-        elif QMin['gradmode']==1:
-            QMin['gradmode']=0
 
 
     # gradient accuracy
@@ -1953,6 +1997,12 @@ def gettasks(QMin):
     if not 'pargrad' in QMin:
         tasks.append(['gateway'])
         tasks.append(['seward'])
+
+    if QMin['template']['qmmm']:
+        if 'pargrad' in QMin:
+            tasks.append(['gateway'])
+            tasks.append(['seward'])
+        tasks.append(['espf'])
 
     for imult,nstates in enumerate(QMin['states']):
         if nstates==0:
@@ -2067,9 +2117,9 @@ def writeMOLCASinput(tasks, QMin):
             if QMin['template']['cholesky']:
                 string+='CHOLESKY\n'
             string+='\n'
-            # ESPF for QM/MM
-            if QMin['template']['qmmm']:
-                string+='&ESPF\nEXTERNAL=TINKER\n\n'
+
+        elif task[0]=='espf':
+            string+='&ESPF\nEXTERNAL=TINKER\n\n'
 
         elif task[0]=='link':
             name=os.path.basename(task[1])
@@ -2079,9 +2129,12 @@ def writeMOLCASinput(tasks, QMin):
             string+='>> COPY %s %s\n\n' % (task[1],task[2])
 
         elif task[0]=='rasscf':
+            nactel=QMin['template']['nactel']
+            if (nactel-task[1])%2==0:
+                nactel-=1
             string+='&RASSCF\nSPIN=%i\nNACTEL=%i 0 0\nINACTIVE=%i\nRAS2=%i\nCIROOT=%i %i 1\n' % (
                     task[1],
-                    QMin['template']['nactel'],
+                    nactel,
                     QMin['template']['inactive'],
                     QMin['template']['ras2'],
                     task[2],task[2])
@@ -2102,7 +2155,7 @@ def writeMOLCASinput(tasks, QMin):
                     QMin['template']['ras2'],
                     task[2],task[2],
                     task[3])
-            string+='ORBLISTING=NOTHING\nPRWF=0.1\n'
+            string+='ORBLISTING=NOTHING\nPRWF=0.1\nJOBIPH\n'
             string+='\n'
 
         elif task[0]=='caspt2':
@@ -2203,11 +2256,17 @@ def setupWORKDIR(WORKDIR,tasks,QMin):
     geomstring=writegeomfile(QMin)
     filename=os.path.join(WORKDIR,'MOLCAS.xyz')
     writefile(filename,geomstring)
+    if DEBUG:
+        print geomstring
+        print 'Geom written to: %s' % (filename)
 
     # write MOLCAS.input
     inputstring=writeMOLCASinput(tasks,QMin)
     filename=os.path.join(WORKDIR,'MOLCAS.input')
     writefile(filename,inputstring)
+    if DEBUG:
+        print inputstring
+        print 'MOLCAS input written to: %s' % (filename)
 
     # JobIph copying
     copyfiles=set()
@@ -2228,7 +2287,7 @@ def setupWORKDIR(WORKDIR,tasks,QMin):
         shutil.copy(fromfile,tofile)
 
     # link integral files
-    if 'pargrad' in QMin:
+    if 'pargrad' in QMin and not QMin['template']['qmmm']:
         copyfiles=[('MOLCAS.RunFile','MOLCAS.RunFile')]
 
         linkfiles=[('MOLCAS.OrdInt','ORDINT')]
@@ -2253,22 +2312,27 @@ def runMOLCAS(WORKDIR,strip=False):
     prevdir=os.getcwd()
     os.chdir(WORKDIR)
     os.environ['WorkDir']=WORKDIR
-    string='molcas MOLCAS.input &> MOLCAS.out'
+    #string='molcas MOLCAS.input > MOLCAS.out 2>&1'
+    string='molcas MOLCAS.input'
+    stdoutfile=open(os.path.join(WORKDIR,'MOLCAS.out'),'w')
+    stderrfile=open(os.path.join(WORKDIR,'MOLCAS.err'),'w')
     if PRINT or DEBUG:
         starttime=datetime.datetime.now()
         sys.stdout.write('START:\t%s\t%s\t"%s"\n' % (WORKDIR,starttime,string))
         sys.stdout.flush()
     try:
-        runerror=sp.call(string,shell=True)
+        runerror=sp.call(string,shell=True,stdout=stdoutfile,stderr=stderrfile)
     except OSError:
         print 'Call have had some serious problems:',OSError
         sys.exit(61)
+    stdoutfile.close()
+    stderrfile.close()
     if PRINT or DEBUG:
         endtime=datetime.datetime.now()
         sys.stdout.write('FINISH:\t%s\t%s\tRuntime: %s\tError Code: %i\n' % (WORKDIR,endtime,endtime-starttime,runerror))
         sys.stdout.flush()
     os.chdir(prevdir)
-    if strip:
+    if strip and not DEBUG:
         stripWORKDIR(WORKDIR)
     return runerror
 
@@ -2388,7 +2452,7 @@ def run_calc(WORKDIR,QMin):
             if irun>0:
                 QMin['gradaccudefault']*=10.
             if QMin['gradaccudefault']>QMin['gradaccumax']:
-                print 'CRASHED: %s\tMCLR did not converge.'
+                print 'CRASHED:\t%s\tMCLR did not converge.' % (WORKDIR)
                 return 96
         Tasks=gettasks(QMin)
         setupWORKDIR(WORKDIR,Tasks,QMin)
@@ -2741,7 +2805,8 @@ def main():
     writeQMout(QMin,QMout,QMinfilename)
 
     # Remove Scratchfiles from SCRATCHDIR
-    cleanupSCRATCH(QMin['scratchdir'])
+    if not DEBUG:
+        cleanupSCRATCH(QMin['scratchdir'])
     if PRINT or DEBUG:
         print '#================ END ================#'
 
