@@ -64,6 +64,7 @@ import cmath
 import datetime
 # copy of arrays of arrays
 from copy import deepcopy
+from socket import gethostname
 
 # ======================================================================= #
 
@@ -470,7 +471,7 @@ def printheader():
 
   Takes nothing, returns nothing.'''
 
-  print starttime,os.environ['HOSTNAME'],os.getcwd()
+  print starttime,gethostname(),os.getcwd()
   if not PRINT:
     return
   string='\n'
