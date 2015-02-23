@@ -8,4 +8,12 @@ version 1.02
         excite.py: minor bugfix
         molpro_input.py: minor bugfix, changed atom mass dialog, added SO-CASCI option
         retrieve.sh: minor bugfix
-        
+version 1.1
+        excite.py: fixed a bug with printing MS values in the dialog
+        molcas_input.py: rewritten, now also writes proper MOLCAS input files in addition to MOLCAS.template files for the interface
+        molpro_input.py: fixed a bug in the check of the CAS size, added check for empty state list
+        setup_init.py: changed to accomodate the new MOLCAS interface
+        setup_traj.py: changed to accomodate the new MOLCAS interface
+        SHARC_MOLCAS.py: rewritten, CASPT2 dynamics, dipole/SOC derivatives, parallization
+        SHARC_COLUMBUS.py: bugfixes (gethostname, debug features, error messages), added check for "socdr" keyword, added "ncpu" keyword
+        SHARC_MOLPRO.py: bugfixes (gethostname,empty gradient list), added support for command line options to MOLPRO, which will be passed through the interface, uses record 1 instead of 9 now for gradient dumps, also works if CPMCSCF converges in one iteration
