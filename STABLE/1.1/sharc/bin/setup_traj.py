@@ -1,0 +1,2426 @@
+#!/usr/bin/env python2
+
+# Interactive script for the setup of dynamics calculations for SHARC
+# 
+# usage: python setup_traj.py
+
+import copy
+import math
+import sys
+import re
+import os
+import stat
+import shutil
+import datetime
+import random
+from optparse import OptionParser
+import readline
+import time
+
+# =========================================================0
+# compatibility stuff
+
+if sys.version_info[0]!=2:
+  print 'This is a script for Python 2!'
+  sys.exit(0)
+
+if sys.version_info[1]<5:
+  def any(iterable):
+    for element in iterable:
+      if element:
+        return True
+    return False
+
+  def all(iterable):
+    for element in iterable:
+      if not element:
+        return False
+    return True
+
+
+# some constants
+DEBUG = False
+CM_TO_HARTREE = 1./219474.6     #4.556335252e-6 # conversion factor from cm-1 to Hartree
+HARTREE_TO_EV = 27.211396132    # conversion factor from Hartree to eV
+U_TO_AMU = 1./5.4857990943e-4            # conversion from g/mol to amu
+BOHR_TO_ANG=0.529177211
+PI = math.pi
+
+version='1.0'
+versionneeded=[0.2, 1.0]
+versiondate=datetime.date(2014,10,8)
+
+
+IToMult={
+         1: 'Singlet', 
+         2: 'Doublet', 
+         3: 'Triplet', 
+         4: 'Quartet', 
+         5: 'Quintet', 
+         6: 'Sextet', 
+         7: 'Septet', 
+         8: 'Octet', 
+         'Singlet': 1, 
+         'Doublet': 2, 
+         'Triplet': 3, 
+         'Quartet': 4, 
+         'Quintet': 5, 
+         'Sextet': 6, 
+         'Septet': 7, 
+         'Octet': 8
+         }
+
+# ======================================================================= #
+
+Interfaces={
+  1: {'script':          'SHARC_MOLPRO.py',
+      'description':     'MOLPRO (only CASSCF)',
+      'get_routine':     'get_MOLPRO',
+      'prepare_routine': 'prepare_MOLPRO',
+      'couplings':       [1,2,3],
+      'dipolegrad':      False
+     },
+  2: {'script':          'SHARC_COLUMBUS.py',
+      'description':     'COLUMBUS (CASSCF, RASSCF and MRCISD), using SEWARD integrals',
+      'get_routine':     'get_COLUMBUS',
+      'prepare_routine': 'prepare_COLUMBUS',
+      'couplings':       [3],
+      'dipolegrad':      False
+     },
+  3: {'script':          'SHARC_Analytical.py',
+      'description':     'Analytical PESs',
+      'get_routine':     'get_Analytical',
+      'prepare_routine': 'prepare_Analytical',
+      'couplings':       [3],
+      'dipolegrad':      True
+     },
+  4: {'script':          'SHARC_MOLCAS.py',
+      'description':     'MOLCAS (CASSCF, CASPT2, MS-CASPT2)',
+      'get_routine':     'get_MOLCAS',
+      'prepare_routine': 'prepare_MOLCAS',
+      'couplings':       [3],
+      'dipolegrad':      False
+     },
+  #4: {'script':          'SHARC_MOLCAS_QMMM.py',
+      #'description':     'MOLCAS (with QM/MM)',
+      #'get_routine':     'get_MOLCAS_QMMM',
+      #'prepare_routine': 'prepare_MOLCAS_QMMM',
+      #'couplings':       []
+     #},
+  }
+
+Couplings={
+  1: {'name':        'ddt',
+      'description': 'DDT     =  < a|d/dt|b >        Hammes-Schiffer-Tully scheme   '
+     },
+  2: {'name':        'ddr',
+      'description': 'DDR     =  < a|d/dR|b >        original Tully scheme          '
+     },
+  3: {'name':        'overlap',
+      'description': 'overlap = < a(t0)|b(t) >       Local Diabatization scheme     '
+     }
+  }
+
+EkinCorrect={
+  1: {'name':        'none',
+      'description': 'Do not conserve total energy. Hops are never frustrated.',
+      'couplings':   [1,2,3]
+     },
+  2: {'name':        'parallel_vel',
+      'description': 'Adjust kinetic energy by rescaling the velocity vectors. Often sufficient.',
+      'couplings':   [1,2,3]
+     },
+  3: {'name':        'parallel_nac',
+      'description': 'Adjust kinetic energy only with the component of the velocity vector along the non-adiabatic coupling vector.',
+      'couplings':   [2]
+     }
+  }
+
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+
+def try_read(l,index,typefunc,default):
+  try:
+    if typefunc==bool:
+      return 'True'==l[index]
+    else:
+      return typefunc(l[index])
+  except IndexError:
+    return typefunc(default)
+  except ValueError:
+    print 'Could not initialize object!'
+    quit(1)
+
+# ======================================================================================================================
+
+class ATOM:
+  def __init__(self,symb='??',num=0.,coord=[0.,0.,0.],m=0.,veloc=[0.,0.,0.]):
+    self.symb  = symb
+    self.num   = num
+    self.coord = coord
+    self.mass  = m
+    self.veloc = veloc
+    self.Ekin=0.5*self.mass * sum( [ self.veloc[i]**2 for i in range(3) ] )
+
+  def init_from_str(self,initstring=''):
+    f=initstring.split()
+    self.symb  =   try_read(f,0,str,  '??')
+    self.num   =   try_read(f,1,float,0.)
+    self.coord = [ try_read(f,i,float,0.) for i in range(2,5) ]
+    self.mass  =   try_read(f,5,float,0.)*U_TO_AMU
+    self.veloc = [ try_read(f,i,float,0.) for i in range(6,9) ]
+    self.Ekin=0.5*self.mass * sum( [ self.veloc[i]**2 for i in range(3) ] )
+
+  def __str__(self):
+    s ='%2s % 5.1f '               % (self.symb, self.num)
+    s+='% 12.8f % 12.8f % 12.8f '  % tuple(self.coord)
+    s+='% 12.8f '                  % (self.mass/U_TO_AMU)
+    s+='% 12.8f % 12.8f % 12.8f'   % tuple(self.veloc)
+    return s
+
+  def EKIN(self):
+    self.Ekin=0.5*self.mass * sum( [ self.veloc[i]**2 for i in range(3) ] )
+    return self.Ekin
+
+  def geomstring(self):
+    s='  %2s % 5.1f % 12.8f % 12.8f % 12.8f % 12.8f' % (self.symb,self.num,self.coord[0],self.coord[1],self.coord[2],self.mass/U_TO_AMU)
+    return s
+
+  def velocstring(self):
+    s=' '*11+'% 12.8f % 12.8f % 12.8f' % tuple(self.veloc)
+    return s
+
+# ======================================================================================================================
+
+class STATE:
+  def __init__(self,i=0,e=0.,eref=0.,dip=[0.,0.,0.]):
+    self.i       = i
+    self.e       = e.real
+    self.eref    = eref.real
+    self.dip     = dip
+    self.Excited = False
+    self.Eexc    = self.e-self.eref
+    self.Fosc    = (2./3.*self.Eexc*sum( [i*i.conjugate() for i in self.dip] ) ).real
+    if self.Eexc==0.:
+      self.Prob  = 0.
+    else:
+      self.Prob  = self.Fosc/self.Eexc**2
+
+  def init_from_str(self,initstring):
+    f=initstring.split()
+    self.i       =   try_read(f,0,int,  0 )
+    self.e       =   try_read(f,1,float,0.)
+    self.eref    =   try_read(f,2,float,0.)
+    self.dip     = [ complex( try_read(f,i,float,0.),try_read(f,i+1,float,0.) ) for i in [3,5,7] ]
+    self.Excited =   try_read(f,11,bool, False)
+    self.Eexc    = self.e-self.eref
+    self.Fosc    = (2./3.*self.Eexc*sum( [i*i.conjugate() for i in self.dip] ) ).real
+    if self.Eexc==0.:
+      self.Prob  = 0.
+    else:
+      self.Prob  = self.Fosc/self.Eexc**2
+
+  def __str__(self):
+    s ='%03i % 18.10f % 18.10f ' % (self.i,self.e,self.eref)
+    for i in range(3):
+      s+='% 12.8f % 12.8f ' % (self.dip[i].real,self.dip[i].imag)
+    s+='% 12.8f % 12.8f %s' % (self.Eexc*HARTREE_TO_EV,self.Fosc,self.Excited)
+    return s
+
+  def Excite(self,max_Prob,erange):
+    try:
+      Prob=self.Prob/max_Prob
+    except ZeroDivisionError:
+      Prob=-1.
+    if not (erange[0] <= self.Eexc <= erange[1]):
+      Prob=-1.
+    self.Excited=(random.random() < Prob)
+
+# ======================================================================================================================
+
+class INITCOND:
+  def __init__(self,atomlist=[],eref=0.,epot_harm=0.):
+    self.atomlist=atomlist
+    self.eref=eref
+    self.Epot_harm=epot_harm
+    self.natom=len(atomlist)
+    self.Ekin=sum( [atom.Ekin for atom in self.atomlist] )
+    self.statelist=[]
+    self.nstate=0
+    self.Epot=epot_harm
+
+  def addstates(self,statelist):
+    self.statelist=statelist
+    self.nstate=len(statelist)
+    self.Epot=self.statelist[0].e-self.eref
+
+  def init_from_file(self,f,eref,index):
+    while True: 
+      line=f.readline()
+      if 'Index     %i' % (index) in line:
+        break
+      if line=='\n':
+        continue
+      if line=='':
+        print 'Initial condition %i not found in file %s' % (index,f.name)
+        quit(1)
+    f.readline()        # skip one line, where "Atoms" stands
+    atomlist=[]
+    while True:
+      line=f.readline()
+      if 'States' in line:
+        break
+      atom=ATOM()
+      atom.init_from_str(line)
+      atomlist.append(atom)
+    statelist=[]
+    while True:
+      line=f.readline()
+      if 'Ekin' in line:
+        break
+      state=STATE()
+      state.init_from_str(line)
+      statelist.append(state)
+    epot_harm=0.
+    while not line=='\n' and not line=='':
+      line=f.readline()
+      if 'epot_harm' in line.lower():
+        epot_harm=float(line.split()[1])
+        break
+    self.atomlist=atomlist
+    self.eref=eref
+    self.Epot_harm=epot_harm
+    self.natom=len(atomlist)
+    self.Ekin=sum( [atom.Ekin for atom in self.atomlist] )
+    self.statelist=statelist
+    self.nstate=len(statelist)
+    if self.nstate>0:
+      self.Epot=self.statelist[0].e-self.eref
+    else:
+      self.Epot=epot_harm
+
+  def __str__(self):
+    s='Atoms\n'
+    for atom in self.atomlist:
+      s+=str(atom)+'\n'
+    s+='States\n'
+    for state in self.statelist:
+      s+=str(state)+'\n'
+    s+='Ekin      % 16.12f a.u.\n' % (self.Ekin)
+    s+='Epot_harm % 16.12f a.u.\n' % (self.Epot_harm)
+    s+='Epot      % 16.12f a.u.\n' % (self.Epot)
+    s+='Etot_harm % 16.12f a.u.\n' % (self.Epot_harm+self.Ekin)
+    s+='Etot      % 16.12f a.u.\n' % (self.Epot+self.Ekin)
+    s+='\n\n'
+    return s
+
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+
+def check_initcond_version(string,must_be_excited=False):
+  if not 'sharc initial conditions file' in string.lower():
+    return False
+  f=string.split()
+  for i,field in enumerate(f):
+    if 'version' in field.lower():
+      try:
+        v=float(f[i+1])
+        if not v in versionneeded:
+          return False
+      except IndexError:
+        return False
+  if must_be_excited:
+    if not 'excited' in string.lower():
+      return False
+  return True
+
+
+# ======================================================================================================================
+
+def centerstring(string,n,pad=' '):
+  l=len(string)
+  if l>=n:
+    return string
+  else:
+    return  pad*((n-l+1)/2)+string+pad*((n-l)/2)
+
+def displaywelcome():
+  print 'Script for setup of initial conditions started...\n'
+  string='\n'
+  string+='  '+'='*80+'\n'
+  string+='||'+centerstring('',80)+'||\n'
+  string+='||'+centerstring('Setup trajectories for SHARC dynamics',80)+'||\n'
+  string+='||'+centerstring('',80)+'||\n'
+  string+='||'+centerstring('Author: Sebastian Mai',80)+'||\n'
+  string+='||'+centerstring('',80)+'||\n'
+  string+='||'+centerstring('Version:'+version,80)+'||\n'
+  string+='||'+centerstring(versiondate.strftime("%d.%m.%y"),80)+'||\n'
+  string+='||'+centerstring('',80)+'||\n'
+  string+='  '+'='*80+'\n\n'
+  string+='''
+This script automatizes the setup of the input files for SHARC dynamics. 
+  '''
+  print string
+
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+
+def open_keystrokes():
+  global KEYSTROKES
+  KEYSTROKES=open('KEYSTROKES.tmp','w')
+
+def close_keystrokes():
+  KEYSTROKES.close()
+  shutil.move('KEYSTROKES.tmp','KEYSTROKES.setup_traj')
+
+# ===================================
+
+def question(question,typefunc,default=None,autocomplete=True):
+  if typefunc==int or typefunc==float:
+    if not default==None and not isinstance(default,list):
+      print 'Default to int or float question must be list!'
+      quit(1)
+  if typefunc==str and autocomplete:
+    readline.set_completer_delims(' \t\n;')
+    readline.parse_and_bind("tab: complete")    # activate autocomplete
+  else:
+    readline.parse_and_bind("tab: ")            # deactivate autocomplete
+
+  while True:
+    s=question
+    if default!=None:
+      if typefunc==bool or typefunc==str:
+        s+= ' [%s]' % (str(default))
+      elif typefunc==int or typefunc==float:
+        s+= ' ['
+        for i in default:
+          s+=str(i)+' '
+        s=s[:-1]+']'
+    if typefunc==str and autocomplete:
+      s+=' (autocomplete enabled)'
+    s+=' '
+
+    line=raw_input(s)
+    line=re.sub('#.*$','',line).strip()
+    if not typefunc==str:
+      line=line.lower()
+
+    if line=='' or line=='\n':
+      if default!=None:
+        KEYSTROKES.write(line+' '*(40-len(line))+' #'+s+'\n')
+        return default
+      else:
+        continue
+
+    if typefunc==bool:
+      posresponse=['y','yes','true', 'ja',  'si','yea','yeah','aye','sure','definitely']
+      negresponse=['n','no', 'false','nein',     'nope']
+      if line in posresponse:
+        KEYSTROKES.write(line+' '*(40-len(line))+' #'+s+'\n')
+        return True
+      elif line in negresponse:
+        KEYSTROKES.write(line+' '*(40-len(line))+' #'+s+'\n')
+        return False
+      else:
+        print 'I didn''t understand you.'
+        continue
+
+    if typefunc==str:
+      KEYSTROKES.write(line+' '*(40-len(line))+' #'+s+'\n')
+      return line
+
+    if typefunc==int or typefunc==float:
+      # int and float will be returned as a list
+      f=line.split()
+      try:
+        for i in range(len(f)):
+          f[i]=typefunc(f[i])
+        KEYSTROKES.write(line+' '*(40-len(line))+' #'+s+'\n')
+        return f
+      except ValueError:
+        if typefunc==int:
+          i=1
+        elif typefunc==float:
+          i=2
+        print 'Please enter a %s' % ( ['string','integer','float'][i] )
+        continue
+
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+
+def itnmstates(states):
+  for i in range(len(states)):
+    if states[i]<1:
+      continue
+    for k in range(i+1):
+      for j in range(states[i]):
+        yield i+1,j+1,k-i/2.
+  return
+
+# ======================================================================================================================
+
+
+class init_string:
+  def __init__(self):
+    self.strings=[]
+    self.nst=0
+    self.width=100
+    self.group=10
+    self.groups=(self.width-1)/self.group+1
+    self.nrow=1
+    self.lastrow=0
+  def add(self,s):
+    self.strings.append(s)
+    self.nst+=1
+    self.nrow=(self.nst-1)/self.width+1
+    self.lastrow=self.nst%self.width
+    if self.lastrow==0:
+      self.lastrow=self.width
+  def reset(self):
+    self.strings=[]
+    self.nst=0
+    self.nrow=1
+    self.lastrow=0
+  def __str__(self):
+    nw=int(math.log(self.nst)/math.log(10)+1.1)
+    s=' '*(nw+2)
+    fs='%%%ii' % (nw)
+    for i in range(self.groups):
+      s+=' '*(self.group-nw+1)+fs % ((i+1)*self.group)
+    s+='\n'
+    s+=' '*(nw+2)
+    for i in range(self.groups):
+      s+=' '
+      for j in range(self.group-1):
+        s+=' '
+      s+='|'
+    s+='\n'
+    index=0
+    for i in range(self.nrow):
+      s+=fs % (i*self.width) + ' | '
+      for j in range(self.width):
+        try:
+          s+=self.strings[index]
+        except IndexError:
+          return s
+        index+=1
+        if (j+1)%self.group==0:
+          s+=' '
+      s+='\n'
+    s+='\n'
+    return s
+
+# ======================================================================================================================
+
+def analyze_initconds(initlist,INFOS):
+  if INFOS['show_content']:
+    print 'Contents of the initconds file:'
+    print '''\nLegend:
+?       Geometry and Velocity
+.       not selected
+#       selected
+'''
+  n_hasexc=[]
+  n_issel=[]
+  display=init_string()
+  for state in range(INFOS['nstates']):
+    if INFOS['show_content']:
+      print 'State %i:' % (state+1)
+    display.reset()
+    n_hasexc.append(0)
+    n_issel.append(0)
+    for i in initlist:
+      if len(i.statelist)<state+1:
+        display.add('?')
+      else:
+        n_hasexc[-1]+=1
+        if i.statelist[state].Excited:
+          display.add('#')
+          n_issel[-1]+=1
+        else:
+          display.add('.')
+    if INFOS['show_content']:
+      print display
+  print 'Number of excited states and selections:'
+  print   'State    #InitCalc       #Selected'
+  for i in range(len(n_hasexc)):
+    s= '% 5i        % 5i           % 5i' % (i+1,n_hasexc[i],n_issel[i])
+    if not INFOS['isactive'][i]:
+      s+='  inactive'
+    print s
+  return n_issel
+
+# ======================================================================================================================
+
+def get_initconds(INFOS):
+  ''''''
+
+  INFOS['initf'].seek(0)                 # rewind the initf file
+  initlist=[]
+  for icond in range(1,INFOS['ninit']+1):
+    initcond=INITCOND()
+    initcond.init_from_file(INFOS['initf'],INFOS['eref'],icond)
+    initlist.append(initcond)
+  print 'Number of initial conditions in file:       %5i' % (INFOS['ninit'])
+
+  INFOS['initlist']=initlist
+  INFOS['n_issel']=analyze_initconds(initlist,INFOS)
+  return INFOS
+
+# ======================================================================================================================
+
+def check_laserfile(filename,nsteps,dt):
+  try:
+    f=open(filename)
+    data=f.readlines()
+    f.close()
+  except IOError:
+    print 'Could not open laser file %s' % (filename)
+    return False
+  n=0
+  for line in data:
+    if len(line.split())>=8:
+      n+=1
+    else:
+      break
+  if n<nsteps:
+    print 'File %s has only %i timesteps, %i steps needed!' % (filename,n,nsteps)
+    return False
+  for i in range(int(nsteps)-1):
+    t0=float(data[i].split()[0])
+    t1=float(data[i+1].split()[0])
+    if abs(abs(t1-t0)-dt)>1e-6:
+      print 'Time step wrong in file %s at line %i.' % (filename,i+1)
+      return False
+  return True
+
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+
+def get_general():
+  '''This routine questions from the user some general information:
+  - initconds file
+  - number of states
+  - number of initial conditions
+  - interface to use'''
+
+  INFOS={}
+
+  string='\n  '+'='*80+'\n'
+  string+='||'+centerstring('Initial conditions',80)+'||\n'
+  string+='  '+'='*80+'\n\n'
+  print string
+  print '''\nThis script reads the initial conditions (geometries, velocities, initial excited state)
+from the initconds.excited files as provided by excite.py. 
+'''
+
+  # open the initconds file
+  try:
+    initfile='initconds.excited'
+    initf=open(initfile)
+    line=initf.readline()
+    if check_initcond_version(line,must_be_excited=True):
+      print 'Initial conditions file "initconds.excited" detected. Do you want to use this?'
+      if not question('Use file "initconds.excited"?',bool,True):
+        initf.close()
+        raise IOError
+    else:
+      initf.close()
+      raise IOError
+  except IOError:
+    print 'Please enter the filename of the initial conditions file.'
+    while True:
+      initfile=question('Initial conditions filename:',str,'initconds.excited')
+      initfile=os.path.expanduser(os.path.expandvars(initfile))
+      if os.path.isdir(initfile):
+        print 'Is a directory: %s' % (initfile)
+        continue
+      if not os.path.isfile(initfile):
+        print 'File does not exist: %s' % (initfile)
+        continue
+      try:
+        initf=open(initfile,'r')
+      except IOError:
+        print 'Could not open: %s' % (initfile)
+        continue
+      line=initf.readline()
+      if check_initcond_version(line,must_be_excited=True):
+        break
+      else:
+        print 'File does not contain initial conditions!'
+        continue
+  # read the header
+  INFOS['ninit']=int(initf.readline().split()[1])
+  INFOS['natom']=int(initf.readline().split()[1])
+  print '\nFile %s contains %i initial conditions.' % (initfile,INFOS['ninit'])
+  print 'Number of atoms is %i' % (INFOS['natom'])
+  INFOS['repr']=initf.readline().split()[1]
+  if INFOS['repr']=='MCH':
+    INFOS['diag']=False
+  else:
+    INFOS['diag']=True
+  INFOS['eref']=float(initf.readline().split()[1])
+  INFOS['eharm']=float(initf.readline().split()[1])
+
+  # get guess for number of states
+  line=initf.readline()
+  if 'states' in line.lower():
+    states=[]
+    l=line.split()
+    for i in range(1,len(l)):
+      states.append(int(l[i]))
+    guessstates=states
+  else:
+    guessstates=None
+
+  print 'Reference energy %16.12f a.u.' % (INFOS['eref'])
+  print 'Excited states are in %s representation.\n' % (['MCH','diagonal'][INFOS['diag']])
+  initf.seek(0)                 # rewind the initf file
+  INFOS['initf']=initf
+
+
+  # Number of states
+  print '\nPlease enter the number of states as a list of integers\ne.g. 3 0 3 for three singlets, zero doublets and three triplets.'
+  while True:
+    states=question('Number of states:',int,guessstates)
+    if len(states)==0:
+      continue
+    if any(i<0 for i in states):
+      print 'Number of states must be positive!'
+      continue
+    break
+  print ''
+  nstates=0
+  for mult,i in enumerate(states):
+    nstates+=(mult+1)*i
+  print 'Number of states: '+str(states)
+  print 'Total number of states: %i\n' % (nstates)
+  INFOS['states']=states
+  INFOS['nstates']=nstates
+  # obtain the statemap 
+  statemap={}
+  i=1
+  for imult,istate,ims in itnmstates(INFOS['states']):
+    statemap[i]=[imult,istate,ims]
+    i+=1
+  INFOS['statemap']=statemap
+
+  # get active states
+  if question('Do you want all states to be active?',bool,True):
+    INFOS['actstates']=INFOS['states']
+  else:
+    print '\nPlease enter the number of ACTIVE states as a list of integers\ne.g. 3 0 3 for three singlets, zero doublets and three triplets.'
+    while True:
+      actstates=question('Number of states:',int)
+      if len(actstates)!=len(INFOS['states']):
+        print 'Length of nstates and actstates must match!'
+        continue
+      valid=True
+      for i,nst in enumerate(actstates):
+        if not 0<=nst<=INFOS['states'][i]:
+          print 'Number of active states of multiplicity %i must be between 0 and the number of states of this multiplicity (%i)!' % (i+1,INFOS['states'][i])
+          valid=False
+      if not valid:
+        continue
+      break
+    INFOS['actstates']=actstates
+  isactive=[]
+  for imult in range(len(INFOS['states'])):
+    for ims in range(imult+1):
+      for istate in range(INFOS['states'][imult]):
+        isactive.append( (istate+1<=INFOS['actstates'][imult]) )
+  INFOS['isactive']=isactive
+  print ''
+
+
+  # ask whether initfile content is shown
+  INFOS['show_content']=question('Do you want to see the content of the initconds file?',bool,True)
+
+
+
+  # read initlist, analyze it and print content (all in get_initconds)
+  INFOS['initf']=initf
+  INFOS=get_initconds(INFOS)
+
+
+  # Generate random example for setup-states, according to Leti's wishes
+  exampleset=set()
+  nactive=sum(INFOS['isactive'])
+  while len(exampleset)<min(3,nactive):
+    i=random.randint(1,INFOS['nstates'])
+    if INFOS['isactive'][i-1]:
+      exampleset.add(i)
+  exampleset=list(exampleset)
+  exampleset.sort()
+  string1=''
+  string2=''
+  j=0
+  for i in exampleset:
+    j+=1
+    if j==len(exampleset) and len(exampleset)>1:
+      string1+=str(i)
+      string2+='and '+str(i)
+    else:
+      string1+=str(i)+' '
+      string2+=str(i)+', '
+
+
+
+  # ask for states to setup
+  print '\nPlease enter a list specifying for which excited states trajectories should be set-up\ne.g. %s to select states %s.' % (string1,string2)
+  defsetupstates=[]
+  for i,active in enumerate(INFOS['isactive']):
+    if active and INFOS['n_issel'][i]>0:
+      defsetupstates.append(i+1)
+  while True:
+    setupstates=question('States to setup the dynamics:',int,defsetupstates)
+    valid=True
+    for i in setupstates:
+      if i>INFOS['nstates']:
+        print 'There are only %i states!' % (INFOS['nstates'])
+        valid=False
+        continue
+      if i<0:
+        valid=False
+        continue
+      if not INFOS['isactive'][i-1]:
+        print 'State %i is inactive!' % (i)
+        valid=False
+    if not valid:
+      continue
+    INFOS['setupstates']=set(setupstates)
+    nsetupable=sum( [ INFOS['n_issel'][i-1] for i in INFOS['setupstates'] if INFOS['isactive'][i-1] ] )
+    print '\nThere can be %i trajector%s set up.\n' % (nsetupable,['y','ies'][nsetupable!=1])
+    if nsetupable==0:
+      continue
+    break
+
+
+  # select range within initconds file
+  # only start index needed, end index is determined by number of trajectories
+  print 'Please enter the index of the first initial condition in the initconds file to be setup.'
+  while True:
+    firstindex=question('Starting index:',int,[1])[0]
+    if not 0<firstindex<=INFOS['ninit']:
+      print 'Please enter an integer between %i and %i.' % (1,INFOS['ninit'])
+      continue
+    nsetupable=0
+    for i,initcond in enumerate(INFOS['initlist']):
+      if i+1<firstindex:
+        continue
+      for state in set(setupstates):
+        try:
+          nsetupable+=initcond.statelist[state-1].Excited
+        except IndexError:
+          break
+    print '\nThere can be %i trajector%s set up, starting in %i states.' % (nsetupable,['y','ies'][nsetupable!=1],len(INFOS['setupstates']))
+    if nsetupable==0:
+      continue
+    break
+  INFOS['firstindex']=firstindex
+
+
+  # Number of trajectories
+  print '\nPlease enter the total number of trajectories to setup.'
+  while True:
+    ntraj=question('Number of trajectories:',int,[nsetupable])[0]
+    if not 1<=ntraj<=nsetupable:
+      print 'Please enter an integer between %i and %i.' % (1,nsetupable)
+      continue
+    break
+  INFOS['ntraj']=ntraj
+
+
+  # Random number seed
+  print '\nPlease enter a random number generator seed (type "!" to initialize the RNG from the system time).'
+  while True:
+    line=question('RNG Seed: ',str,'!',False)
+    if line=='!':
+      random.seed()
+      break
+    try:
+      rngseed=int(line)
+      random.seed(rngseed)
+    except ValueError:
+      print 'Please enter an integer or "!".'
+      continue
+    break
+  print ''
+
+
+
+
+  # Interface
+  string='\n  '+'='*80+'\n'
+  string+='||'+centerstring('Choose the quantum chemistry interface',80)+'||\n'
+  string+='  '+'='*80+'\n'
+  print string
+  print '\nPlease specify the quantum chemistry interface (enter any of the following numbers):'
+  for i in Interfaces:
+    print '%i\t%s' % (i, Interfaces[i]['description'])
+  print ''
+  while True:
+    num=question('Interface number:',int)[0]
+    if num in Interfaces:
+      break
+    else:
+      print 'Please input one of the following: %s!' % ([i for i in Interfaces])
+  INFOS['interface']=num
+
+
+
+
+  # Dynamics options
+  string='\n  '+'='*80+'\n'
+  string+='||'+centerstring('Surface Hopping dynamics settings',80)+'||\n'
+  string+='  '+'='*80+'\n\n'
+  print string
+
+
+  # Simulation time
+  print centerstring('Simulation time',60,'-')+'\n'
+  print 'Please enter the total simulation time.'
+  while True:
+    num=question('Simulation time (fs):',float,[1000.])[0]
+    if num<=0:
+      print 'Simulation time must be positive!'
+      continue
+    break
+  INFOS['tmax']=num
+
+
+  # Timestep
+  print '\nPlease enter the simulation timestep (0.5 fs recommended).'
+  while True:
+    dt=question('Simulation timestep (fs):',float,[0.5])[0]
+    if dt<=0:
+      print 'Simulation timestep must be positive!'
+      continue
+    break
+  INFOS['dtstep']=dt
+  print '\nSimulation will have %i timesteps.' % (num/dt+1)
+
+
+  # number of substeps
+  print '\nPlease enter the number of substeps for propagation (25 recommended).'
+  while True:
+    nsubstep=question('Nsubsteps:',int,[25])[0]
+    if nsubstep<=0:
+      print 'Enter a positive integer!'
+      continue
+    break
+  INFOS['nsubstep']=nsubstep
+
+
+  # whether to kill relaxed trajectories
+  print '\nThe trajectories can be prematurely terminated after they run for a certain time in the lowest state. '
+  INFOS['kill']=question('Do you want to prematurely terminate trajectories?',bool,False)
+  if INFOS['kill']:
+    while True:
+      tkill=question('Kill after (fs):',float,[10.])[0]
+      if tkill<=0:
+        print 'Must be positive!'
+        continue
+      break
+    INFOS['killafter']=tkill
+  print ''
+
+
+  print '\n'+centerstring('Dynamics settings',60,'-')
+
+
+  # SHARC or FISH
+  print '\nDo you want to perform the dynamics in the diagonal representation (SHARC dynamics) or in the MCH representation (regular surface hopping)?'
+  surf=question('SHARC dynamics?',bool,True)
+  INFOS['surf']=['fish','sharc'][surf]
+
+
+  # Coupling
+  print '\nPlease choose the quantities to describe non-adiabatic effects between the states:'
+  for i in Couplings:
+    print '%i\t%s%s' % (i, Couplings[i]['description'],['not available',''][i in Interfaces[INFOS['interface']]['couplings']])
+  print ''
+  while True:
+    if len(Interfaces[INFOS['interface']]['couplings'])==1:
+      default=Interfaces[INFOS['interface']]['couplings']
+    else:
+      default=None
+    num=question('Coupling number:',int,default)[0]
+    if num in Couplings and num in Interfaces[INFOS['interface']]['couplings']:
+      break
+    else:
+      print 'Please input one of the following: %s!' % ([i for i in Interfaces[INFOS['interface']]['couplings']])
+  INFOS['coupling']=num
+
+
+  # Gradient correction (only for SHARC)
+  if INFOS['surf']=='sharc':
+    recommended=Couplings[INFOS['coupling']]['name']=='ddr'
+    print '\nFor SHARC dynamics, the evaluation of the mixed gradients necessitates to calculate non-adiabatic coupling vectors %s.' % (['(Extra computational cost)',' (Recommended)'][recommended])
+    while True:
+      INFOS['gradcorrect']=question('Include non-adiabatic couplings in the gradient transformation?',bool,recommended)
+      if INFOS['gradcorrect'] and not 2 in Interfaces[INFOS['interface']]['couplings']:
+        print 'Not possible with the chosen interface!'
+      else:
+        break
+  else:
+    INFOS['gradcorrect']=False
+
+
+  # Kinetic energy modification
+  print '\nDuring a surface hop, the kinetic energy has to be modified in order to conserve total energy. There are several options to that:'
+  for i in EkinCorrect:
+    recommended=Couplings[INFOS['coupling']]['name']=='ddr'
+    if i==3:
+      print '%i\t%s%s' % (i, EkinCorrect[i]['description'],['\n\t(extra computational cost)',''][ recommended ])
+    else:
+      print '%i\t%s' % (i, EkinCorrect[i]['description'])
+  while True:
+    ekinc=question('EkinCorrect:',int,[2])[0]
+    if ekinc in EkinCorrect:
+      break
+    else:
+      print 'Please input one of the following: %s!' % ([i for i in EkinCorrect])
+  INFOS['ekincorrect']=ekinc
+
+
+  # decoherence
+  print '\nDo you want to apply decoherence to the %s states?' % (['MCH','diagonal'][INFOS['surf']=='sharc'])
+  decoh=question('Decoherence?',bool,True)
+  INFOS['decoherence']=['off','0.1'][decoh]
+
+
+  # Scaling
+  print '\nDo you want to scale the energies and gradients?'
+  scal=question('Scaling?',bool,False)
+  if scal:
+    while True:
+      fscal=question('Scaling factor (>0.0): ',float)[0]
+      if fscal<=0:
+        print 'Please enter a positive real number!'
+        continue
+      break
+    INFOS['scaling']=fscal
+  else:
+    INFOS['scaling']=False
+
+
+  # Damping
+  print '\nDo you want to damp the dynamics (Kinetic energy is reduced at each timestep by a factor)?'
+  damp=question('Damping?',bool,False)
+  if damp:
+    while True:
+      fdamp=question('Scaling factor (0-1): ',float)[0]
+      if not 0<=fdamp<=1:
+        print 'Please enter a real number 0<=r<=1!'
+        continue
+      break
+    INFOS['damping']=fdamp
+  else:
+    INFOS['damping']=False
+
+
+  # selection of gradients (only for SHARC) and NACs (only if NAC=ddr)
+  print '\n'+centerstring('Selection of Gradients and NACs',60,'-')+'\n'
+  print '''In order to speed up calculations, SHARC is able to select which gradients and NAC vectors it has to calculate at a certain timestep. The selection is based on the energy difference between the state under consideration and the classical occupied state.
+'''
+  if INFOS['surf']=='sharc':
+    sel_g=question('Select gradients?',bool,False)
+    INFOS['sel_g']=sel_g
+  else:
+    sel_g=False
+    INFOS['sel_g']=False
+  if Couplings[INFOS['coupling']]['name']=='ddr' or INFOS['gradcorrect'] or EkinCorrect[INFOS['ekincorrect']]['name']=='parallel_nac':
+    sel_t=question('Select non-adiabatic couplings?',bool,False)
+  else:
+    sel_t=False
+  INFOS['sel_t']=sel_t
+  if sel_g or sel_t:
+    print '\nPlease enter the energy difference threshold for the selection of gradients and non-adiabatic couplings (in eV). (0.5 eV recommended, or even larger if SOC is strong in this system.)'
+    eselect=question('Selection threshold (eV):',float,[0.5])[0]
+    INFOS['eselect']=abs(eselect)
+
+
+  # Laser file
+  print '\n\n'+centerstring('Laser file',60,'-')+'\n'
+  INFOS['laser']=question('Do you want to include a laser field in the simulation?',bool,False)
+  if INFOS['laser']:
+    print '''Please specify the file containing the complete laser field. The timestep in the file and the length of the file must fit to the simulation time, time step and number of substeps given above. 
+
+Laser files can be created using $SHARC/laser.x
+'''
+    if os.path.isfile('laser'):
+      if check_laserfile('laser',INFOS['tmax']/INFOS['dtstep']*INFOS['nsubstep']+1,INFOS['dtstep']/INFOS['nsubstep']):
+        print 'Valid laser file "laser" detected. '
+        usethisone=question('Use this laser file?',bool,True)
+        if usethisone:
+          INFOS['laserfile']='laser'
+    if not 'laserfile' in INFOS:
+      while True:
+        filename=question('Laser filename:',str)
+        if not os.path.isfile(filename):
+          print 'File %s does not exist!' % (filename)
+          continue
+        if check_laserfile(filename,INFOS['tmax']/INFOS['dtstep']*INFOS['nsubstep']+1,INFOS['dtstep']/INFOS['nsubstep']):
+          break
+      INFOS['laserfile']=filename
+    # only the analytical interface can do dipole gradients
+    if Interfaces[INFOS['interface']]['dipolegrad']:
+      INFOS['dipolegrad']=question('Do you want to use dipole moment gradients?',bool,False)
+    else:
+      INFOS['dipolegrad']=False
+    print ''
+  else:
+    INFOS['dipolegrad']=False
+
+
+
+  # Interface-specific section
+  INFOS=globals()[Interfaces[ INFOS['interface']]['get_routine'] ](INFOS)
+
+
+
+  # Add some simple keys
+  INFOS['printlevel']=2
+  INFOS['cwd']=os.getcwd()
+  print ''
+
+
+  return INFOS
+
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+
+def checktemplate_MOLPRO(filename):
+  necessary=['memory','basis','closed','occ','wf','state']
+  try:
+    f=open(filename)
+    data=f.readlines()
+    f.close()
+  except IOError:
+    print 'Could not open template file %s' % (filename)
+    return False
+  i=0
+  for l in data:
+    if necessary[i] in l:
+      i+=1
+      if i+1==len(necessary):
+        return True
+  print 'The template %s seems to be incomplete! It should contain: ' % (filename) +str(necessary)
+  return False
+
+# =================================================
+
+def get_MOLPRO(INFOS):
+  '''This routine asks for all questions specific to MOLPRO:
+  - path to molpro
+  - scratch directory
+  - MOLPRO.template
+  - wf.init
+  '''
+
+  string='\n  '+'='*80+'\n'
+  string+='||'+centerstring('MOLPRO Interface setup',80)+'||\n'
+  string+='  '+'='*80+'\n\n'
+  print string
+
+
+  # MOLPRO executable
+  print centerstring('Path to MOLPRO',60,'-')+'\n'
+  path=os.getenv('MOLPRO')
+  path=os.path.expanduser(os.path.expandvars(path))
+  if not path=='':
+    if not path.endswith('/molpro'):
+      path='$MOLPRO/molpro'
+    else:
+      path='$MOLPRO/'
+  else:
+    path=None
+  #if path!='':
+    #print 'Environment variable $MOLPRO detected:\n$MOLPRO=%s\n' % (path)
+    #if question('Do you want to use this MOLPRO installation?',bool,True):
+      #INFOS['molpro']=path
+  #if not 'molpro' in INFOS:
+  print '\nPlease specify path to MOLPRO directory (SHELL variables and ~ can be used, will be expanded when interface is started).\n'
+  INFOS['molpro']=question('Path to MOLPRO executable:',str,path)
+  print ''
+
+
+  # Scratch directory
+  print centerstring('Scratch directory',60,'-')+'\n'
+  print 'Please specify an appropriate scratch directory. This will be used to temporally store the integrals. The scratch directory will be deleted after the calculation. Remember that this script cannot check whether the path is valid, since you may run the calculations on a different machine. The path will not be expanded by this script.'
+  INFOS['scratchdir']=question('Path to scratch directory:',str)
+  print ''
+
+
+  # MOLPRO input template
+  print centerstring('MOLPRO input template file',60,'-')+'\n'
+  print '''Please specify the path to the MOLPRO.template file. This file must be a valid MOLPRO input file for a CASSCF calculation. It should contain the following settings:
+- memory settings
+- Basis set (possibly also Douglas-Kroll settings etc.)
+- CASSCF calculation with:
+  * Number of frozen, closed and occupied orbitals
+  * wf and state cards for the specification of the wavefunction
+MOLPRO.template files can easily be created using molpro_input.py (Open a second shell if you need to create one now).
+
+The MOLPRO interface will generate the remaining MOLPRO input automatically.
+'''
+  if os.path.isfile('MOLPRO.template'):
+    if checktemplate_MOLPRO('MOLPRO.template'):
+      print 'Valid file "MOLPRO.template" detected. '
+      usethisone=question('Use this template file?',bool,True)
+      if usethisone:
+        INFOS['molpro.template']='MOLPRO.template'
+  if not 'molpro.template' in INFOS:
+    while True:
+      filename=question('Template filename:',str)
+      if not os.path.isfile(filename):
+        print 'File %s does not exist!' % (filename)
+        continue
+      if checktemplate_MOLPRO(filename):
+        break
+    INFOS['molpro.template']=filename
+  print ''
+
+
+  # Initial wavefunction
+  print centerstring('Initial wavefunction: MO Guess',60,'-')+'\n'
+  print '''Please specify the path to a MOLPRO wavefunction file containing suitable starting MOs for the CASSCF calculation. Please note that this script cannot check whether the wavefunction file and the Input template are consistent!
+
+If you optimized your geometry with MOLPRO/CASSCF you can reuse the "wf" file from the optimization.
+'''
+  if question('Do you have an initial wavefunction file?',bool,True):
+    while True:
+      filename=question('Initial wavefunction file:',str,'wf.init')
+      if os.path.isfile(filename):
+        break
+      else:
+        print 'File not found!'
+    INFOS['molpro.guess']=filename
+  else:
+    print 'WARNING: Remember that CASSCF calculations may run very long and/or yield wrong results without proper starting MOs.'
+    time.sleep(2)
+    INFOS['molpro.guess']=False
+
+
+  # Other settings
+  INFOS['molpro.gradaccudefault']=1.e-7
+  INFOS['molpro.gradaccumax']=1.e-2
+  if Couplings[INFOS['coupling']]['name']=='ddt':
+    INFOS['molpro.checknacs']=True
+    INFOS['molpro.correctnacs']=False
+
+  return INFOS
+
+# ======================================================================================================================
+
+def checktemplate_COLUMBUS(TEMPLATE, mult):
+  '''Checks whether TEMPLATE is a file or directory. If a file or does not exist, it quits with exit code 1, if it is a directory, it checks whether all important input files are there. Does not check for all input files, since runc does this, too.
+
+  Arguments:
+  1 string: path to TEMPLATE
+
+  returns whether input is for isc keyword or socinr keyword
+  and returns the DRT of the given multiplicity'''
+
+  exist=os.path.exists(TEMPLATE)
+  if exist:
+    isfile=os.path.isfile(TEMPLATE)
+    if isfile:
+      #print 'TEMPLATE=%s exists and is a file!' % (TEMPLATE)
+      return None,None
+    necessary=['control.run','mcscfin','molcas.input','tranin','propin']
+    lof=os.listdir(TEMPLATE)
+    for i in necessary:
+      if not i in lof:
+        #print 'Did not find input file %s! Did you prepare the input according to the instructions?' % (i)
+        return None,None
+    cidrtinthere=False
+    ciudginthere=False
+    for i in lof:
+      if 'cidrtin' in i:
+        cidrtinthere=True
+      if 'ciudgin' in i:
+        ciudginthere=True
+    if not cidrtinthere or not ciudginthere:
+      #print 'Did not find input file %s.*! Did you prepare the input according to the instructions?' % (i)
+      return None,None
+  else:
+    #print 'Directory %s does not exist!' % (TEMPLATE)
+    return None,None
+
+  # check cidrtin and cidrtin* for the multiplicity
+  try:
+    cidrtin=open(TEMPLATE+'/cidrtin')
+    line=cidrtin.readline().split()
+    if line[0].lower()=='y':
+      maxmult=int(cidrtin.readline().split()[0])
+      cidrtin.readline()
+      nelec=int(cidrtin.readline().split()[0])
+      if mult<=maxmult and (mult+nelec)%2!=0:
+        return 1, (mult+1)/2    # socinr=1, single=-1, isc=0
+      else:
+        return None,None
+    else:
+      mult2=int(cidrtin.readline().split()[0])
+      if mult!=mult2:
+        #print 'Multiplicity %i cannot be treated in directory %s (single DRT)!'  % (mult,TEMPLATE)
+        return None,None
+      return -1,1
+  except IOError:
+    # find out in which DRT the requested multiplicity is
+    for i in range(1,9):        # COLUMBUS can treat at most 8 DRTs
+      try:
+        cidrtin=open(TEMPLATE+'/cidrtin.%i' % i)
+      except IOError:
+        return None,None
+      cidrtin.readline()
+      mult2=int(cidrtin.readline().split()[0])
+      if mult==mult2:
+        return 0,i
+      cidrtin.close()
+
+# =================================================
+
+def get_COLUMBUS(INFOS):
+  '''This routine asks for all questions specific to COLUMBUS:
+  - path to COLUMBUS
+  - scratchdir
+  - path to template directory
+  - mocoef
+  - memory
+  '''
+
+  string='\n  '+'='*80+'\n'
+  string+='||'+centerstring('COLUMBUS Interface setup',80)+'||\n'
+  string+='  '+'='*80+'\n\n'
+  print string
+
+
+  # Path to COLUMBUS directory
+  print centerstring('Path to COLUMBUS',60,'-')+'\n'
+  path=os.getenv('COLUMBUS')
+  if path=='':
+    path=None
+  else:
+    path='$COLUMBUS/'
+  #path=os.path.expanduser(os.path.expandvars(path))
+  #if path!='':
+    #print 'Environment variable $COLUMBUS detected:\n$COLUMBUS=%s\n' % (path)
+    #if question('Do you want to use this COLUMBUS installation?',bool,True):
+      #INFOS['columbus']=path
+  #if not 'columbus' in INFOS:
+  print '\nPlease specify path to COLUMBUS directory (SHELL variables and ~ can be used, will be expanded when interface is started).\n'
+  INFOS['columbus']=question('Path to COLUMBUS:',str,path)
+  print ''
+
+
+  # Scratch directory
+  print centerstring('Scratch directory',60,'-')+'\n'
+  print 'Please specify an appropriate scratch directory. This will be used to temporally store all COLUMBUS files. The scratch directory will be deleted after the calculation. Remember that this script cannot check whether the path is valid, since you may run the calculations on a different machine. The path will not be expanded by this script.'
+  INFOS['scratchdir']=question('Path to scratch directory:',str)
+  print ''
+
+
+  # COLUMBUS template directory
+  print centerstring('COLUMBUS input template directory',60,'-')+'\n'
+  print '''Please specify the path to the COLUMBUS template directory. 
+The directory must contain subdirectories with complete COLUMBUS input file sets for the following steps:
+- Integrals with SEWARD/MOLCAS
+- SCF
+- MCSCF
+- SO-MRCI (even if no Spin-Orbit couplings will be calculated)
+The COLUMBUS interface will generate the remaining COLUMBUS input automatically, depending on the number of states.
+
+In order to setup the COLUMBUS input, use COLUMBUS' input facility colinp. For further information, see the Spin-orbit tutorial for COLUMBUS [1].
+
+[1] http://www.univie.ac.at/columbus/docs_COL70/tutorial-SO.pdf
+'''
+  while True:
+    path=question('Path to templates:',str)
+    path=os.path.expanduser(os.path.expandvars(path))
+    path=os.path.abspath(path)
+    if not os.path.isdir(path):
+      print 'Directory %s does not exist!' % (path)
+      continue
+
+    content=os.listdir(path)
+    multmap={}
+    allOK=True
+    for mult in range(1,1+len(INFOS['states'])):
+      if INFOS['states'][mult-1]==0:
+        continue
+      found=False
+      for d in content:
+        template=path+'/'+d
+        socitype,drt=checktemplate_COLUMBUS(template,mult)
+        if socitype==None:
+          continue
+        if not d[-1]=='/':
+          d+='/'
+        multmap[mult]=d
+        found=True
+        break
+      if not found:
+        print 'No input directory for multiplicity %i!' % (mult)
+        allOK=False
+        continue
+    if allOK:
+      break
+  print ''
+
+  print '''Check whether the jobs are assigned correctly to the multiplicities. Use the following commands:
+  mult job        make <mult> use the input in <job>
+  show            show the mapping of multiplicities to jobs
+  end             confirm this mapping
+'''
+  for i in multmap:
+    print '%i ==> %s' % (i,multmap[i])
+  while True:
+    line=question('Adjust job mapping:',str,'end',False)
+    if 'show' in line.lower():
+      for i in multmap:
+        print '%i ==> %s' % (i,multmap[i])
+      continue
+    elif 'end' in line.lower():
+      break
+    else:
+      f=line.split()
+      try:
+        m=int(f[0])
+        j=f[1]
+      except (ValueError,IndexError):
+        continue
+      if not m in multmap:
+        print 'Multiplicity %i not necessary!' % (m)
+        continue
+      if not os.path.isdir(path+'/'+j):
+        print 'No template subdirectory %s!' % (j)
+        continue
+      if not j[-1]=='/':
+        j+='/'
+      multmap[m]=j
+  print ''
+
+  mocoefmap={}
+  for job in set([ multmap[i] for i in multmap]):
+    mocoefmap[job]=multmap[1]
+  print '''Check whether the mocoeffiles are assigned correctly to the jobs. Use the following commands:
+  job mocoefjob   make <job> use the mocoeffiles from <mocoefjob>
+  show            show the mapping of multiplicities to jobs
+  end             confirm this mapping
+'''
+  width=max([ len(i) for i in mocoefmap] )
+  for i in mocoefmap:
+    print '%s' % (i) +' '*(width-len(i))+ ' <== %s' % (mocoefmap[i])
+  while True:
+    line=question('Adjust mocoef mapping:',str,'end',False)
+    if 'show' in line.lower():
+      for i in mocoefmap:
+        print '%s <== %s' % (i,mocoefmap[i])
+      continue
+    elif 'end' in line.lower():
+      break
+    else:
+      f=line.split()
+      try:
+        j=f[0]
+        m=f[1]
+      except (ValueError,IndexError):
+        continue
+      if not m[-1]=='/':
+        m+='/'
+      if not j[-1]=='/':
+        j+='/'
+      mocoefmap[j]=m
+  print ''
+
+  INFOS['columbus.template']=path
+  INFOS['columbus.multmap']=multmap
+  INFOS['columbus.mocoefmap']=mocoefmap
+
+  INFOS['columbus.copy_template']=question('Do you want to copy the template directory to each trajectory (Otherwise it will be linked)?',bool,False)
+  if INFOS['columbus.copy_template']:
+    INFOS['columbus.copy_template_from']=INFOS['columbus.template']
+    INFOS['columbus.template']='./COLUMBUS.template/'
+
+
+  # Initial mocoef
+  print centerstring('Initial wavefunction: MO Guess',60,'-')+'\n'
+  print '''Please specify the path to a COLUMBUS mocoef file containing suitable starting MOs for the CASSCF calculation.
+'''
+  init=question('Do you have an initial mocoef file?',bool,True)
+  if init:
+    while True:
+      line=question('Mocoef filename:',str,'mocoef_mc.init')
+      line=os.path.expanduser(os.path.expandvars(line))
+      if os.path.isfile(line):
+          break
+      else:
+        print 'File not found!'
+        continue
+    INFOS['columbus.guess']=line
+  else:
+    print 'WARNING: Remember that CASSCF calculations may run very long and/or yield wrong results without proper starting MOs.'
+    time.sleep(2)
+    INFOS['columbus.guess']=False
+  print ''
+
+
+  # Memory
+  print centerstring('COLUMBUS Memory usage',60,'-')+'\n'
+  print '''Please specify the amount of memory available to COLUMBUS (in MB). For calculations including moderately-sized CASSCF calculations and less than 150 basis functions, around 2000 MB should be sufficient.
+'''
+  INFOS['columbus.mem']=abs(question('COLUMBUS memory:',int)[0])
+
+
+  # Ionization
+  print centerstring('Ionization probability by Dyson norms',60,'-')+'\n'
+  INFOS['ion']=question('Dyson norms?',bool,False)
+  if 'ion' in INFOS and INFOS['ion']:
+    INFOS['columbus.dysonpath']=question('Path to dyson executable:',str)
+    INFOS['columbus.civecpath']=question('Path to civecconsolidate executable:',str,'$COLUMBUS/civecconsolidate')
+    INFOS['columbus.dysonthres']=abs(question('c2 threshold for Dyson:',float,[1e-4])[0])
+
+
+  # cioverlaps
+  if Couplings[INFOS['coupling']]['name']=='overlap':
+    print centerstring('cioverlaps',60,'-')+'\n'
+    print 'If you do MRCI and cioverlaps, it is strongly advisory to first generate the excitlistfiles for cioverlaps, since their generation can take several hours. These files can then be used for all trajectories, so that the excitlistfiles have to be generated only once.'
+    excitlf=question('Do you have excitlistfiles?',bool,True)
+    if not excitlf:
+      INFOS['columbus.excitlf']=None
+    else:
+      print '\nPlease enter the path to the directory containing the excitlistfiles.'
+      INFOS['columbus.excitlf']=question('Path to excitlistfiles:',str)
+    print ''
+    print 'Please enter the cioverlaps screening threshold (recommended 1e-5)'
+    while True:
+      INFOS['columbus.ciothres']=question('Cioverlaps screening threshold:',float,[1e-5])[0]
+      if not 0<INFOS['columbus.ciothres']<=1:
+        print 'Must be between 0 and 1!'
+        continue
+      break
+
+  # scratchdir scratchdir
+  # savedir is $RUNDIR/SAVE     (RUNDIR will be set by get_runscript_info)
+
+  return INFOS
+
+# ======================================================================================================================
+
+def check_Analytical_block(data,identifier,nstates,eMsg):
+  iline=-1
+  while True:
+    iline+=1
+    if iline==len(data):
+      if eMsg:
+        print 'No matrix %s defined!' % (identifier)
+      return False
+    line=re.sub('#.*$','',data[iline]).split()
+    if line==[]:
+      continue
+    ident=identifier.split()
+    fits=True
+    for i,el in enumerate(ident):
+      if not el.lower() in line[i].lower():
+        fits=False
+        break
+    if fits:
+      break
+  strings=data[iline+1:iline+1+nstates]
+  for i,el in enumerate(strings):
+    a=el.strip().split(',')
+    if len(a)<i+1:
+      if eMsg:
+        print '%s matrix is not a lower triangular matrix with n=%i!' % (identifier,nstates)
+      return False
+  return True
+
+# ======================================================================================================================
+
+def checktemplate_Analytical(filename,req_nstates,eMsg=True,dipolegrad=False):
+  try:
+    f=open(filename)
+    data=f.readlines()
+    f.close()
+  except IOError:
+    if eMsg:
+      print 'Could not open %s' % (filename)
+    return False
+
+  # check whether first two lines are positive integers
+  try:
+    natom=int(data[0])
+    nstates=int(data[1])
+  except ValueError:
+    if eMsg:
+      print 'First two lines must contain natom and nstates!'
+    return False
+  if natom<1 or nstates<1:
+    if eMsg:
+      print 'natom and nstates must be positive!'
+    return False
+  if nstates!=req_nstates:
+    if eMsg:
+      print 'Template file is for %i states!' % (nstates)
+    return False
+
+  # check the next natom lines
+  variables=set()
+  for i in range(2,2+natom):
+    line=data[i]
+    match=re.match('\s*[a-zA-Z]*\s+[a-zA-Z0][a-zA-Z0-9_]*\s+[a-zA-Z0][a-zA-Z0-9_]*\s+[a-zA-Z0][a-zA-Z0-9_]*',line)
+    if not match:
+      if eMsg:
+        print 'Line %i malformatted!' % (i+1)
+      return False
+    else:
+      a=line.split()
+      for j in range(3):
+        match=re.match('\s*[a-zA-Z][a-zA-Z0-9_]*',a[j+1])
+        if match:
+          variables.add(a[j+1])
+
+  # check variable blocks
+  iline=-1
+  while True:
+    iline+=1
+    if iline==len(data):
+      break
+    line=re.sub('#.*$','',data[iline]).split()
+    if line==[]:
+      continue
+    if 'variables' in line[0].lower():
+      while True:
+        iline+=1
+        if iline==len(data):
+          if eMsg:
+            print 'Non-terminated variables block!'
+          return False
+        line=re.sub('#.*$','',data[iline]).split()
+        if line==[]:
+          continue
+        if 'end' in line[0].lower():
+          break
+        match=re.match('[a-zA-Z][a-zA-Z0-9_]*',line[0])
+        if not match:
+          if eMsg:
+            print 'Invalid variable name: %s' % (line[0])
+          return False
+        try:
+          a=float(line[1])
+        except ValueError:
+          if eMsg:
+            print 'Non-numeric value for variable %s' % (line[0])
+          return False
+        except IndexError:
+          if eMsg:
+            print 'No value for variable %s' % (line[0])
+          return False
+
+  # check hamiltonian block
+  line='hamiltonian'
+  a=check_Analytical_block(data,line,nstates,eMsg)
+  if not a:
+    return False
+
+  # check derivatives of each variable
+  for v in variables:
+    line='derivatives %s' % (v)
+    a=check_Analytical_block(data,line,nstates,eMsg)
+    if not a:
+      return False
+
+  ## check dipole derivatives of each variable
+  ## can be zero, hence commented out
+  #if dipolegrad:
+    #for v in variables:
+      #for p in range(3):
+        #line='dipolederivatives %i %s' % (p+1,v)
+        #a=check_Analytical_block(data,line,nstates,eMsg)
+        #if not a:
+          #return False
+
+  return True
+
+# ======================================================================================================================
+
+def get_Analytical(INFOS):
+
+  string='\n  '+'='*80+'\n'
+  string+='||'+centerstring('Analytical PES Interface setup',80)+'||\n'
+  string+='  '+'='*80+'\n\n'
+  print string
+
+  if os.path.isfile('SH2Ana.inp'):
+    if checktemplate_Analytical('SH2Ana.inp',INFOS['nstates'],eMsg=False,dipolegrad=INFOS['dipolegrad']):
+      print 'Valid file "SH2Ana.inp" detected. '
+      usethisone=question('Use this template file?',bool,True)
+      if usethisone:
+        INFOS['analytical.template']='SH2Ana.inp'
+  if not 'analytical.template' in INFOS:
+    while True:
+      filename=question('Template filename:',str)
+      if not os.path.isfile(filename):
+        print 'File %s does not exist!' % (filename)
+        continue
+      if checktemplate_Analytical(filename,INFOS['nstates'],dipolegrad=INFOS['dipolegrad']):
+        break
+    INFOS['analytical.template']=filename
+  print ''
+
+  return INFOS
+
+
+
+
+# ======================================================================================================================
+
+def checktemplate_MOLCAS(filename,INFOS):
+  necessary=['basis','ras2','nactel','inactive']
+  try:
+    f=open(filename)
+    data=f.readlines()
+    f.close()
+  except IOError:
+    print 'Could not open template file %s' % (filename)
+    return False
+  valid=[]
+  for i in necessary:
+    for l in data:
+      if i in re.sub('#.*$','',l):
+        valid.append(True)
+        break
+    else:
+      valid.append(False)
+  if not all(valid):
+    print 'The template %s seems to be incomplete! It should contain: ' % (filename) +str(necessary)
+    return False
+  roots_there=False
+  for l in data:
+    l=re.sub('#.*$','',l).lower().split()
+    if len(l)==0:
+      continue
+    if 'roots' in l[0]:
+      roots_there=True
+  if not roots_there:
+    for mult,state in enumerate(INFOS['states']):
+      if state<=0:
+        continue
+      valid=[]
+      for l in data:
+        if 'spin' in re.sub('#.*$','',l).lower():
+          f=l.split()
+          if int(f[1])==mult+1:
+            valid.append(True)
+            break
+      else:
+        valid.append(False)
+  if not all(valid):
+    string='The template %s seems to be incomplete! It should contain the keyword "spin" for ' % (filename)
+    for mult,state in enumerate(INFOS['states']):
+      if state<=0:
+        continue
+      string+='%s, ' % (IToMult[mult+1])
+    string=string[:-2]+'!'
+    print string
+    return False
+  return True
+# =================================================
+
+def get_MOLCAS(INFOS):
+  '''This routine asks for all questions specific to MOLPRO:
+  - path to molpro
+  - scratch directory
+  - MOLPRO.template
+  - wf.init
+  '''
+
+  string='\n  '+'='*80+'\n'
+  string+='||'+centerstring('MOLCAS Interface setup',80)+'||\n'
+  string+='  '+'='*80+'\n\n'
+  print string
+
+  print centerstring('Path to MOLCAS',60,'-')+'\n'
+  path=os.getenv('MOLCAS')
+  #path=os.path.expanduser(os.path.expandvars(path))
+  if path=='':
+    path=None
+  else:
+    path='$MOLCAS/'
+      #print 'Environment variable $MOLCAS detected:\n$MOLCAS=%s\n' % (path)
+      #if question('Do you want to use this MOLCAS installation?',bool,True):
+        #INFOS['molcas']=path
+    #if not 'molcas' in INFOS:
+  print '\nPlease specify path to MOLCAS directory (SHELL variables and ~ can be used, will be expanded when interface is started).\n'
+  INFOS['molcas']=question('Path to MOLCAS:',str,path)
+  print ''
+
+
+  print centerstring('Scratch directory',60,'-')+'\n'
+  print 'Please specify an appropriate scratch directory. This will be used to temporally store the integrals. The scratch directory will be deleted after the calculation. Remember that this script cannot check whether the path is valid, since you may run the calculations on a different machine. The path will not be expanded by this script.'
+  INFOS['scratchdir']=question('Path to scratch directory:',str)
+  print ''
+
+
+  print centerstring('MOLCAS input template file',60,'-')+'\n'
+  print '''Please specify the path to the MOLcas.template file. This file must contain the following settings:
+  
+basis <Basis set>
+ras2 <Number of active orbitals>
+nactel <Number of active electrons>
+inactive <Number of doubly occupied orbitals>
+spin <Multiplicity (1=S)> roots <Number of roots for this multiplicity>  (repeat this line for each multiplicity)
+
+The MOLCAS interface will generate the appropriate MOLCAS input automatically.
+'''
+  if os.path.isfile('MOLCAS.template'):
+    if checktemplate_MOLCAS('MOLCAS.template',INFOS):
+      print 'Valid file "MOLCAS.template" detected. '
+      usethisone=question('Use this template file?',bool,True)
+      if usethisone:
+        INFOS['molcas.template']='MOLCAS.template'
+  if not 'molcas.template' in INFOS:
+    while True:
+      filename=question('Template filename:',str)
+      if not os.path.isfile(filename):
+        print 'File %s does not exist!' % (filename)
+        continue
+      if checktemplate_MOLCAS(filename,INFOS):
+        break
+    INFOS['molcas.template']=filename
+  print ''
+
+
+  print centerstring('Initial wavefunction: MO Guess',60,'-')+'\n'
+  print '''Please specify the path to a MOLCAS JobIph file containing suitable starting MOs for the CASSCF calculation. Please note that this script cannot check whether the wavefunction file and the Input template are consistent!
+'''
+  string='Do you have initial wavefunction files for '
+  for mult,state in enumerate(INFOS['states']):
+    if state<=0:
+      continue
+    string+='%s, ' % (IToMult[mult+1])
+  string=string[:-2]+'?'
+  if question(string,bool,True):
+    while True:
+      jobiph_or_rasorb=question('JobIph files (1) or RasOrb files (2)?',int)
+      if jobiph_or_rasorb in [1,2]:
+        break
+    INFOS['molcas.jobiph_or_rasorb']=jobiph_or_rasorb
+    INFOS['molcas.guess']={}
+    for mult,state in enumerate(INFOS['states']):
+      if state<=0:
+        continue
+      while True:
+        if jobiph_or_rasorb==1:
+          guess_file='MOLCAS.%i.JobIph.init' % (mult+1)
+        else:
+          guess_file='MOLCAS.%i.RasOrb.init' % (mult+1)
+        filename=question('Initial wavefunction file for %ss:' % (IToMult[mult+1]),str,guess_file)
+        if os.path.isfile(filename):
+          INFOS['molcas.guess'][mult+1]=filename
+          break
+        else:
+          print 'File not found!'
+  else:
+    print 'WARNING: Remember that CASSCF calculations may run very long and/or yield wrong results without proper starting MOs.'
+    time.sleep(2)
+    INFOS['molcas.guess']={}
+
+
+  print centerstring('MOLCAS Ressource usage',60,'-')+'\n'
+  print '''Please specify the amount of memory available to MOLCAS (in MB). For calculations including moderately-sized CASSCF calculations and less than 150 basis functions, around 2000 MB should be sufficient.
+'''
+  INFOS['molcas.mem']=abs(question('MOLCAS memory:',int)[0])
+  print '''Please specify the number of CPUs to be used by EACH calculation.
+'''
+  INFOS['molcas.ncpu']=abs(question('Number of CPUs:',int)[0])
+
+
+
+
+  return INFOS
+
+# ======================================================================================================================
+
+def prepare_MOLPRO(INFOS,iconddir):
+  # write SH2PRO.inp
+  try:
+    sh2pro=open('%s/QM/SH2PRO.inp' % (iconddir), 'w')
+  except IOError:
+    print 'IOError during prepareMOLPRO, iconddir=%s' % (iconddir)
+    quit(1)
+  string='''molpro %s
+scratchdir %s/%s/
+savedir %s/%s/restart
+gradaccudefault %.8f
+gradaccumax %f
+''' % (INFOS['molpro'],INFOS['scratchdir'],iconddir,INFOS['copydir'],iconddir,INFOS['molpro.gradaccudefault'],INFOS['molpro.gradaccumax'])
+  if Couplings[INFOS['coupling']]['name']=='ddt':
+    string+='''checknacs %s
+correctnacs %s''' % (INFOS['molpro.checknacs'],INFOS['molpro.correctnacs'])
+  sh2pro.write(string)
+  sh2pro.close()
+
+  # copy MOs and template
+  cpfrom=INFOS['molpro.template']
+  cpto='%s/QM/MOLPRO.template' % (iconddir)
+  shutil.copy(cpfrom,cpto)
+  if INFOS['molpro.guess']:
+    cpfrom=INFOS['molpro.guess']
+    cpto='%s/QM/wf.init' % (iconddir)
+    shutil.copy(cpfrom,cpto)
+
+  # runQM.sh
+  runname=iconddir+'/QM/runQM.sh'
+  runscript=open(runname,'w')
+  s='''cd %s/%s/QM
+$SHARC/%s QM.in >> QM.log 2>> QM.err
+err=$?
+
+rm *.xml
+exit $err''' % (INFOS['copydir'],iconddir,Interfaces[INFOS['interface']]['script'])
+  runscript.write(s)
+  runscript.close()
+  os.chmod(runname, os.stat(runname).st_mode | stat.S_IXUSR)
+
+  return
+
+# ======================================================================================================================
+
+def prepare_COLUMBUS(INFOS,iconddir):
+  # write SH2COL.inp
+  try:
+    sh2col=open('%s/QM/SH2COL.inp' % (iconddir), 'w')
+  except IOError:
+    print 'IOError during prepareCOLUMBUS, directory=%i' % (iconddir)
+    quit(1)
+  string='''columbus %s
+scratchdir %s/%s/
+savedir %s/%s/restart
+memory %i
+template %s
+''' % (INFOS['columbus'], INFOS['scratchdir'], iconddir, INFOS['copydir'], iconddir, INFOS['columbus.mem'], INFOS['columbus.template'])
+  for mult in INFOS['columbus.multmap']:
+    string+='DIR %i %s\n' % (mult,INFOS['columbus.multmap'][mult])
+  string+='\n'
+  for job in INFOS['columbus.mocoefmap']:
+    string+='MOCOEF %s %s\n' % (job,INFOS['columbus.mocoefmap'][job])
+  string+='\n'
+  if 'ion' in INFOS and INFOS['ion']:
+    string+='dyson %s\n' % (INFOS['columbus.dysonpath'])
+    string+='civecconsolidate %s\n' % (INFOS['columbus.civecpath'])
+    string+='dysonthres %s\n' % (INFOS['columbus.dysonthres'])
+  if Couplings[INFOS['coupling']]['name']=='overlap':
+    if INFOS['columbus.excitlf']:
+      string+='excitlists %s\n' % (INFOS['columbus.excitlf'])
+    string+='ciothres %f\n' % (INFOS['columbus.ciothres'])
+  else:
+    string+='nooverlap\n'
+  sh2col.write(string)
+  sh2col.close()
+
+  # copy MOs and template
+  if INFOS['columbus.guess']:
+    cpfrom=INFOS['columbus.guess']
+    cpto='%s/QM/mocoef_mc.init' % (iconddir)
+    shutil.copy(cpfrom,cpto)
+
+  if INFOS['columbus.copy_template']:
+    copy_from=INFOS['columbus.copy_template_from']
+    copy_to=iconddir+'/QM/COLUMBUS.template/'
+    shutil.copytree(copy_from,copy_to)
+
+  # runQM.sh
+  runname=iconddir+'/QM/runQM.sh'
+  runscript=open(runname,'w')
+  s='''cd %s/%s/QM
+$SHARC/%s QM.in >> QM.log 2>> QM.err
+err=$?
+
+exit $err''' % (INFOS['copydir'],iconddir,Interfaces[INFOS['interface']]['script'])
+  runscript.write(s)
+  runscript.close()
+  os.chmod(runname, os.stat(runname).st_mode | stat.S_IXUSR)
+
+  return
+
+# ======================================================================================================================
+
+def prepare_Analytical(INFOS,iconddir):
+  # copy SH2Ana.inp
+
+  # copy MOs and template
+  cpfrom=INFOS['analytical.template']
+  cpto='%s/QM/SH2Ana.inp' % (iconddir)
+  shutil.copy(cpfrom,cpto)
+
+  # runQM.sh
+  runname=iconddir+'/QM/runQM.sh'
+  runscript=open(runname,'w')
+  s='''cd %s/%s/QM
+$SHARC/%s QM.in >> QM.log 2>> QM.err
+err=$?
+
+exit $err''' % (INFOS['copydir'],iconddir,Interfaces[INFOS['interface']]['script'])
+  runscript.write(s)
+  runscript.close()
+  os.chmod(runname, os.stat(runname).st_mode | stat.S_IXUSR)
+
+  return
+
+# ======================================================================================================================
+
+def prepare_MOLCAS(INFOS,iconddir):
+  # write SH2PRO.inp
+  try:
+    sh2cas=open('%s/QM/SH2CAS.inp' % (iconddir), 'w')
+  except IOError:
+    print 'IOError during prepareMOLCAS, iconddir=%s' % (iconddir)
+    quit(1)
+  project='MOLCAS'
+  string='''molcas %s
+scratchdir %s/%s/
+savedir %s/%s/restart
+memory %i
+ncpu %i
+project %s''' % (INFOS['molcas'],
+                 INFOS['scratchdir'],
+                 iconddir,
+                 INFOS['copydir'],
+                 iconddir,
+                 INFOS['molcas.mem'],
+                 INFOS['molcas.ncpu'],
+                 project)
+  sh2cas.write(string)
+  sh2cas.close()
+
+  # copy MOs and template
+  cpfrom=INFOS['molcas.template']
+  cpto='%s/QM/MOLCAS.template' % (iconddir)
+  shutil.copy(cpfrom,cpto)
+  if not INFOS['molcas.guess']=={}:
+    for i in INFOS['molcas.guess']:
+      if INFOS['molcas.jobiph_or_rasorb']==1:
+        cpfrom=INFOS['molcas.guess'][i]
+        cpto='%s/%s.%i.JobIph.init' % (iconddir,project,i)
+      else:
+        cpfrom=INFOS['molcas.guess'][i]
+        cpto='%s/%s.%i.RasOrb.init' % (iconddir,project,i)
+      shutil.copy(cpfrom,cpto)
+
+  # runQM.sh
+  runname=iconddir+'/QM/runQM.sh'
+  runscript=open(runname,'w')
+  s='''cd %s/%s/QM
+$SHARC/%s QM.in >> QM.log 2>> QM.err
+err=$?
+
+exit $err''' % (INFOS['copydir'],iconddir,Interfaces[INFOS['interface']]['script'])
+  runscript.write(s)
+  runscript.close()
+  os.chmod(runname, os.stat(runname).st_mode | stat.S_IXUSR)
+
+  return
+
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+
+def get_runscript_info(INFOS):
+  ''''''
+
+  string='\n  '+'='*80+'\n'
+  string+='||'+centerstring('Run mode setup',80)+'||\n'
+  string+='  '+'='*80+'\n\n'
+  print string
+
+  print centerstring('Run script',60,'-')+'\n'
+  print '''This script can generate the run scripts for each trajectory in two modes:
+
+  - In the first mode, the calculation is run in subdirectories of the current directory.
+
+  - In the second mode, the input files are transferred to another directory (e.g. a local scratch directory), the calculation is run there, results are copied back and the temporary directory is deleted. Note that this temporary directory is not the same as the scratchdir employed by the interfaces.
+
+Note that in any case this script will setup the input subdirectories in the current working directory. 
+'''
+  print 'Do you want to use mode 1 \n(actually perform the calculations in subdirectories of: %s)\n' % (INFOS['cwd'])
+  here=question('Calculate here?',bool,False)
+  if here:
+    INFOS['here']=True
+    INFOS['copydir']=INFOS['cwd']
+  else:
+    INFOS['here']=False
+    print '\nWhere do you want to perform the calculations? Note that this script cannot check whether the path is valid.'
+    INFOS['copydir']=question('Run directory?',str)
+  print ''
+
+  print centerstring('Submission script',60,'-')+'\n'
+  print '''During the setup, a script for running all initial conditions sequentially in batch mode is generated. Additionally, a queue submission script can be generated for all initial conditions.
+'''
+  qsub=question('Generate submission script?',bool,False)
+  if not qsub:
+    INFOS['qsub']=False
+  else:
+    INFOS['qsub']=True
+    print '\nPlease enter a queue submission command, including possibly options to the queueing system,\ne.g. for SGE: "qsub -q queue.q -S /bin/bash -cwd" (Do not type quotes!).'
+    INFOS['qsubcommand']=question('Submission command?',str,None,False)
+    INFOS['proj']=question('Project Name:',str,None,False)
+
+  print ''
+  return INFOS
+
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+
+def make_directory(iconddir):
+  '''Creates a directory'''
+
+  if os.path.isfile(iconddir):
+    print '\nWARNING: %s is a file!' % (iconddir)
+    return -1
+  if os.path.isdir(iconddir):
+    if len(os.listdir(iconddir))==0:
+      return 0
+    else:
+      print '\nWARNING: %s/ is not empty!' % (iconddir)
+      if not 'overwrite' in globals():
+        global overwrite
+        overwrite=question('Do you want to overwrite files in this and all following directories? ',bool,False)
+      if overwrite:
+        return 0
+      else:
+        return -1
+  else:
+    try:
+      os.mkdir(iconddir)
+    except OSError:
+      print '\nWARNING: %s cannot be created!' % (iconddir)
+      return -1
+    return 0
+
+# ======================================================================================================================
+
+def writeSHARCinput(INFOS,initobject,iconddir,istate):
+
+  inputfname=iconddir+'/input'
+  try:
+    inputf=open(inputfname, 'w')
+  except IOError:
+    print 'IOError during writeSHARCinput, iconddir=%s\n%s' % (iconddir,inputfname)
+    quit(1)
+
+  s='geomfile "geom"\nveloc external\nvelocfile "veloc"\n\n'
+  s+='nstates '
+  for nst in INFOS['states']:
+    s+='%i ' % nst
+  s+='\nactstates '
+  for nst in INFOS['actstates']:
+    s+='%i ' % nst
+  s+='\nstate %i %s\n' % (istate,['mch','diag'][INFOS['diag']])
+  s+='coeff auto\n'
+  s+='rngseed %i\n\n' % (random.randint(-32768,32767))
+  s+='ezero %18.10f\n' % (INFOS['eref'])
+
+  s+='tmax %f\nstepsize %f\nnsubsteps %i\n' % (INFOS['tmax'],INFOS['dtstep'],INFOS['nsubstep'])
+  if INFOS['kill']:
+    s+='killafter %f\n' % (INFOS['killafter'])
+  s+='\n'
+
+  s+='surf %s\n' % (INFOS['surf'])
+  s+='coupling %s\n' % (Couplings[INFOS['coupling']]['name'])
+  s+='%sgradcorrect\n' % (['no',''][INFOS['gradcorrect']])
+  s+='ekincorrect %s\n' % (EkinCorrect[INFOS['ekincorrect']]['name'])
+  if 'off' in INFOS['decoherence']:
+    s+='nodecoherence\n'
+  else:
+    s+='decoherence %s\n' % (INFOS['decoherence'])
+  if INFOS['scaling']:
+    s+='scaling %f\n' % (INFOS['scaling'])
+  if INFOS['damping']:
+    s+='dampeddyn %f\n' % (INFOS['damping'])
+
+  # in MOLPRO gradient/ddr calculations must not be done in same run as overlap/ddt, so make selection with infinite threshold
+  if Interfaces[INFOS['interface']]['script']=='SHARC_MOLPRO.py' and not Couplings[INFOS['coupling']]['name']=='ddr' and not (INFOS['sel_g'] or INFOS['sel_t']):
+    s+='grad_select\n'
+    if INFOS['gradcorrect'] or EkinCorrect[INFOS['ekincorrect']]['name']=='parallel_nac':
+      s+='nac_select\n'
+    s+='eselect %f\n' % (999999.9)
+  # every other case
+  else:
+    if INFOS['sel_g']:
+      s+='grad_select\n'
+    else:
+      s+='grad_all\n'
+    if INFOS['sel_t']:
+      s+='nac_select\n'
+    else:
+      if Couplings[INFOS['coupling']]['name']=='ddr' or INFOS['gradcorrect'] or EkinCorrect[INFOS['ekincorrect']]['name']=='parallel_nac':
+        s+='nac_all\n'
+    if 'eselect' in INFOS:
+      s+='eselect %f\n' % (INFOS['eselect'])
+    if Interfaces[INFOS['interface']]['script']=='SHARC_COLUMBUS.py':
+      s+='select_directly\n'
+
+  # laser
+  if INFOS['laser']:
+    s+='laser external\n'
+    s+='laserfile "laser"\n'
+    if INFOS['dipolegrad']:
+      s+='dipole_gradient'
+
+  inputf.write(s)
+  inputf.close()
+
+  # geometry file
+  geomfname=iconddir+'/geom'
+  geomf=open(geomfname,'w')
+  for atom in initobject.atomlist:
+    geomf.write(atom.geomstring()+'\n')
+  geomf.close()
+
+  # velocity file
+  velocfname=iconddir+'/veloc'
+  velocf=open(velocfname,'w')
+  for atom in initobject.atomlist:
+    velocf.write(atom.velocstring()+'\n')
+  velocf.close()
+
+  # laser file
+  if INFOS['laser']:
+    laserfname=iconddir+'/laser'
+    shutil.copy(INFOS['laserfile'],laserfname)
+
+  return
+
+# ======================================================================================================================
+
+def writeRunscript(INFOS,iconddir):
+  '''writes the runscript in each subdirectory'''
+  try:
+    runscript=open('%s/run.sh' % (iconddir), 'w')
+  except IOError:
+    print 'IOError during writeRunscript, iconddir=%s' % (iconddir)
+    quit(1)
+  if 'proj' in INFOS:
+    projname='%4s_%5s' % (INFOS['proj'][0:4],iconddir[-6:-1])
+  else:
+    projname='traj_%5s' % (iconddir[-6:-1])
+
+  if INFOS['here']:
+    string='''#/bin/bash
+
+#$-N %s
+
+PRIMARY_DIR=%s/%s
+
+cd $PRIMARY_DIR
+
+$SHARC/sharc.x input
+''' % (projname,INFOS['cwd'],iconddir)
+  else:
+    string='''#/bin/bash
+
+#$-N %s
+''' % (projname)
+    if INFOS['qsub']:
+      string+='#$ -v USER_EPILOG=%s/epilog.sh' % (iconddir)
+    string+='''
+
+PRIMARY_DIR=%s/%s
+COPY_DIR=%s/%s
+
+mkdir -p $COPY_DIR
+cp -r $PRIMARY_DIR/* $COPY_DIR
+cd $COPY_DIR
+echo $HOSTNAME > $PRIMARY_DIR/host_info
+echo $(pwd) >> $PRIMARY_DIR/host_info
+echo $(date) >> $PRIMARY_DIR/host_info
+
+$SHARC/sharc.x input
+err=$?
+
+cp -r $COPY_DIR/output.* $COPY_DIR/restart.* $COPY_DIR/restart/ $PRIMARY_DIR
+
+if [ $err == 0 ]; 
+then
+  rm -r $COPY_DIR
+else
+  echo "The calculation crashed at
+date = $(date)
+with error code $err. 
+Please inspect the trajectory on
+host = $HOSTNAME
+in
+dir  = $(pwd)
+" > $PRIMARY_DIR/README
+fi
+''' % (INFOS['cwd'], iconddir, INFOS['copydir'], iconddir)
+
+  runscript.write(string)
+  runscript.close()
+  filename=iconddir+'/run.sh'
+  os.chmod(filename, os.stat(filename).st_mode | stat.S_IXUSR)
+
+  # also write an epilog script
+  if not INFOS['here'] and INFOS['qsub']:
+    try:
+      episcript=open(iconddir+'/epilog.sh','w')
+      string='''#/bin/bash
+
+PRIMARY_DIR=%s/%s
+COPY_DIR=%s/%s
+
+cp $COPY_DIR/output.* $COPY_DIR/restart.* $PRIMARY_DIR
+rm -r $COPY_DIR
+''' % (INFOS['cwd'], iconddir, INFOS['copydir'], iconddir)
+      episcript.write(string)
+      episcript.close()
+    except IOError:
+      print 'Could not write epilog script for %s.' % (iconddir)
+  return
+
+
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+
+def get_iconddir(istate,INFOS):
+  if INFOS['diag']:
+    dirname='State_%i' % (istate)
+  else:
+    mult,state,ms=INFOS['statemap'][istate]
+    dirname=IToMult[mult]+'_%i' % (state-(mult==1 or mult==2))
+  return dirname
+
+# ====================================
+
+def setup_all(INFOS):
+  '''This routine sets up the directories for the initial calculations.'''
+
+  string='\n  '+'='*80+'\n'
+  string+='||'+centerstring('Setting up directories...',80)+'||\n'
+  string+='  '+'='*80+'\n\n'
+  print string
+
+  if INFOS['qsub']:
+    all_qsub=open('all_qsub_traj.sh','w')
+    string='#/bin/bash\n\nCWD=%s\n\n' % (INFOS['cwd'])
+    all_qsub.write(string)
+
+  for istate in INFOS['setupstates']:
+    dirname=get_iconddir(istate,INFOS)
+    io=make_directory(dirname)
+    if io!=0:
+      print 'Could not make directory %s' % (dirname)
+      quit(1)
+
+  width=50
+  ntraj=INFOS['ntraj']
+  idone=0
+  finished=False
+
+  initlist=INFOS['initlist']
+
+  for icond in range(INFOS['firstindex'],INFOS['ninit']+1):
+
+    for istate in INFOS['setupstates']:
+
+      if len(initlist[icond-1].statelist)<istate:
+        continue
+      if not initlist[icond-1].statelist[istate-1].Excited:
+        continue
+
+      idone+=1
+
+      done=idone*width/ntraj
+      sys.stdout.write('\rProgress: ['+'='*done+' '*(width-done)+'] %3i%%' % (done*100/width))
+
+      dirname=get_iconddir(istate,INFOS)+'/TRAJ_%05i/' % (icond)
+      io=make_directory(dirname)
+      if io!=0:
+        print 'Skipping initial condition %i %i!' % (istate, icond)
+        continue
+
+      writeSHARCinput(INFOS,initlist[icond-1],dirname,istate)
+      io=make_directory(dirname+'/QM')
+      io+=make_directory(dirname+'/restart')
+      if io!=0:
+        print 'Could not make QM or restart directory!'
+        continue
+      globals()[Interfaces[ INFOS['interface']]['prepare_routine'] ](INFOS,dirname)
+
+      writeRunscript(INFOS,dirname)
+
+      if INFOS['qsub']:
+        string='cd $CWD/%s/\n%s run.sh\ncd $CWD\n' % (dirname,INFOS['qsubcommand'])
+        all_qsub.write(string)
+
+      if idone==ntraj:
+        finished=True
+        break
+    if finished:
+      print '\n\n%i trajectories setup, last initial condition was %i in state %i.\n' % (ntraj,icond,istate)
+      break
+
+  if INFOS['qsub']:
+    all_qsub.close()
+    filename='all_qsub_traj.sh'
+    os.chmod(filename, os.stat(filename).st_mode | stat.S_IXUSR)
+
+  print '\n'
+
+
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+
+def main():
+  '''Main routine'''
+
+  usage='''
+python setup_traj.py
+
+This interactive program prepares SHARC dynamics calculations.
+'''
+
+  description=''
+  parser = OptionParser(usage=usage, description=description)
+
+  displaywelcome()
+  open_keystrokes()
+
+  INFOS=get_general()
+  INFOS=get_runscript_info(INFOS)
+
+  print '\n'+centerstring('Full input',60,'#')+'\n'
+  for item in INFOS:
+    if not 'initlist' in item:
+      print item, ' '*(25-len(item)), INFOS[item]
+  print ''
+  setup=question('Do you want to setup the specified calculations?',bool,True)
+  print ''
+
+  if setup:
+    setup_all(INFOS)
+
+  close_keystrokes()
+
+
+
+# ======================================================================================================================
+
+if __name__ == '__main__':
+  try:
+    main()
+  except KeyboardInterrupt:
+    print '\nCtrl+C makes me a sad SHARC ;-(\n'
+    quit(0)
