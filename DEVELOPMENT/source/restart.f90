@@ -79,9 +79,9 @@ module restart
     if (ctrl%laser==2) then
       write(u,*) ctrl%laser_bandwidth
       write(u,*) ctrl%nlasers
-      call vec3write(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_td, u, 'Laser field','E20.13')
+      call vec3write(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_td, u, 'Laser field','ES24.16E3')
       do ilaser=1,ctrl%nlasers
-        call vecwrite(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserenergy_tl(:,ilaser), u, 'Laser Energy','E20.13')
+        call vecwrite(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserenergy_tl(:,ilaser), u, 'Laser Energy','ES24.16E3')
       enddo
     endif
 
@@ -124,35 +124,35 @@ module restart
 
     ! write the arrays
     write(u,*) (traj%atomicnumber_a(iatom),iatom=1,ctrl%natom)
-    write(u,*) (traj%element_a(iatom),iatom=1,ctrl%natom)
+    write(u,'(99999(A3,1X))') (traj%element_a(iatom),iatom=1,ctrl%natom)
     write(u,*) (traj%mass_a(iatom),iatom=1,ctrl%natom)
-    call vec3write(ctrl%natom, traj%geom_ad,  u, 'Geometry','E20.13')
-    call vec3write(ctrl%natom, traj%veloc_ad, u, 'Velocity','E20.13')
-    call vec3write(ctrl%natom, traj%accel_ad, u, 'Acceleration','E20.13')
+    call vec3write(ctrl%natom, traj%geom_ad,  u, 'Geometry','ES24.16E3')
+    call vec3write(ctrl%natom, traj%veloc_ad, u, 'Velocity','ES24.16E3')
+    call vec3write(ctrl%natom, traj%accel_ad, u, 'Acceleration','ES24.16E3')
 
-    call matwrite(ctrl%nstates, traj%H_MCH_ss,     u, 'H_MCH_ss','E20.13')
-    call matwrite(ctrl%nstates, traj%dH_MCH_ss,    u, 'dH_MCH_ss','E20.13')
-    call matwrite(ctrl%nstates, traj%H_MCH_old_ss, u, 'H_MCH_old_ss','E20.13')
-    call matwrite(ctrl%nstates, traj%H_diag_ss,    u, 'H_diag_ss','E20.13')
-    call matwrite(ctrl%nstates, traj%U_ss,         u, 'U_ss','E20.13')
-    call matwrite(ctrl%nstates, traj%U_old_ss,     u, 'U_old_ss','E20.13')
-    call matwrite(ctrl%nstates, traj%NACdt_ss,     u, 'NACdt_ss','E20.13')
-    call matwrite(ctrl%nstates, traj%NACdt_old_ss, u, 'NACdt_old_ss','E20.13')
-    call matwrite(ctrl%nstates, traj%overlaps_ss,  u, 'overlaps_ss','E20.13')
-    call matwrite(ctrl%nstates, traj%DM_ssd(:,:,1),  u, 'DM_ssd(x)','E20.13')
-    call matwrite(ctrl%nstates, traj%DM_ssd(:,:,2),  u, 'DM_ssd(y)','E20.13')
-    call matwrite(ctrl%nstates, traj%DM_ssd(:,:,3),  u, 'DM_ssd(z)','E20.13')
-    call matwrite(ctrl%nstates, traj%DM_old_ssd(:,:,1),  u, 'DM_old_ssd(x)','E20.13')
-    call matwrite(ctrl%nstates, traj%DM_old_ssd(:,:,2),  u, 'DM_old_ssd(y)','E20.13')
-    call matwrite(ctrl%nstates, traj%DM_old_ssd(:,:,3),  u, 'DM_old_ssd(z)','E20.13')
-    call matwrite(ctrl%nstates, traj%DM_print_ssd(:,:,1),  u, 'DM_print_ssd(x)','E20.13')
-    call matwrite(ctrl%nstates, traj%DM_print_ssd(:,:,2),  u, 'DM_print_ssd(y)','E20.13')
-    call matwrite(ctrl%nstates, traj%DM_print_ssd(:,:,3),  u, 'DM_print_ssd(z)','E20.13')
-    call matwrite(ctrl%nstates, traj%Property_ss,  u, 'Property_ss','E20.13')
-    call matwrite(ctrl%nstates, traj%Rtotal_ss,    u, 'Rtotal_ss','E20.13')
-    call vecwrite(ctrl%nstates, traj%phases_s, u, 'phases_s','E20.13')
-    call vecwrite(ctrl%nstates, traj%phases_old_s, u, 'phases_old_s','E20.13')
-    call vecwrite(ctrl%nstates, traj%hopprob_s, u, 'hopprob_s_s','E20.13')
+    call matwrite(ctrl%nstates, traj%H_MCH_ss,     u, 'H_MCH_ss','ES24.16E3')
+    call matwrite(ctrl%nstates, traj%dH_MCH_ss,    u, 'dH_MCH_ss','ES24.16E3')
+    call matwrite(ctrl%nstates, traj%H_MCH_old_ss, u, 'H_MCH_old_ss','ES24.16E3')
+    call matwrite(ctrl%nstates, traj%H_diag_ss,    u, 'H_diag_ss','ES24.16E3')
+    call matwrite(ctrl%nstates, traj%U_ss,         u, 'U_ss','ES24.16E3')
+    call matwrite(ctrl%nstates, traj%U_old_ss,     u, 'U_old_ss','ES24.16E3')
+    call matwrite(ctrl%nstates, traj%NACdt_ss,     u, 'NACdt_ss','ES24.16E3')
+    call matwrite(ctrl%nstates, traj%NACdt_old_ss, u, 'NACdt_old_ss','ES24.16E3')
+    call matwrite(ctrl%nstates, traj%overlaps_ss,  u, 'overlaps_ss','ES24.16E3')
+    call matwrite(ctrl%nstates, traj%DM_ssd(:,:,1),  u, 'DM_ssd(x)','ES24.16E3')
+    call matwrite(ctrl%nstates, traj%DM_ssd(:,:,2),  u, 'DM_ssd(y)','ES24.16E3')
+    call matwrite(ctrl%nstates, traj%DM_ssd(:,:,3),  u, 'DM_ssd(z)','ES24.16E3')
+    call matwrite(ctrl%nstates, traj%DM_old_ssd(:,:,1),  u, 'DM_old_ssd(x)','ES24.16E3')
+    call matwrite(ctrl%nstates, traj%DM_old_ssd(:,:,2),  u, 'DM_old_ssd(y)','ES24.16E3')
+    call matwrite(ctrl%nstates, traj%DM_old_ssd(:,:,3),  u, 'DM_old_ssd(z)','ES24.16E3')
+    call matwrite(ctrl%nstates, traj%DM_print_ssd(:,:,1),  u, 'DM_print_ssd(x)','ES24.16E3')
+    call matwrite(ctrl%nstates, traj%DM_print_ssd(:,:,2),  u, 'DM_print_ssd(y)','ES24.16E3')
+    call matwrite(ctrl%nstates, traj%DM_print_ssd(:,:,3),  u, 'DM_print_ssd(z)','ES24.16E3')
+    call matwrite(ctrl%nstates, traj%Property_ss,  u, 'Property_ss','ES24.16E3')
+    call matwrite(ctrl%nstates, traj%Rtotal_ss,    u, 'Rtotal_ss','ES24.16E3')
+    call vecwrite(ctrl%nstates, traj%phases_s, u, 'phases_s','ES24.16E3')
+    call vecwrite(ctrl%nstates, traj%phases_old_s, u, 'phases_old_s','ES24.16E3')
+    call vecwrite(ctrl%nstates, traj%hopprob_s, u, 'hopprob_s_s','ES24.16E3')
     write(u,*) traj%randnum
 
     if (ctrl%calc_dipolegrad>-1) then
@@ -160,7 +160,7 @@ module restart
         do j=1,ctrl%nstates
           do k=1,3
             write(string,'(A45,I3,1X,I3,1X,I3)') 'DMgrad_ssdad',i,j,k
-            call vec3write(ctrl%natom,traj%DMgrad_ssdad(i,j,k,:,:),u,trim(string),'E20.13')
+            call vec3write(ctrl%natom,traj%DMgrad_ssdad(i,j,k,:,:),u,trim(string),'ES24.16E3')
           enddo
         enddo
       enddo
@@ -169,31 +169,31 @@ module restart
       do i=1,ctrl%nstates
         do j=1,ctrl%nstates
           write(string,'(A45,I3,1X,I3)') 'naddr_ssad',i,j
-          call vec3write(ctrl%natom,traj%NACdr_ssad(i,j,:,:),u,trim(string),'E20.13')
+          call vec3write(ctrl%natom,traj%NACdr_ssad(i,j,:,:),u,trim(string),'ES24.16E3')
         enddo
       enddo
       do i=1,ctrl%nstates
         do j=1,ctrl%nstates
           write(string,'(A45,I3,1X,I3)') 'naddr_old_ssad',i,j
-          call vec3write(ctrl%natom,traj%NACdr_old_ssad(i,j,:,:),u,trim(string),'E20.13')
+          call vec3write(ctrl%natom,traj%NACdr_old_ssad(i,j,:,:),u,trim(string),'ES24.16E3')
         enddo
       enddo
     endif
     do i=1,ctrl%nstates
       write(string,'(A45,I3,1X,I3)') 'grad_mch_sad',i
-      call vec3write(ctrl%natom,traj%grad_mch_sad(i,:,:),u,trim(string),'E20.13')
+      call vec3write(ctrl%natom,traj%grad_mch_sad(i,:,:),u,trim(string),'ES24.16E3')
     enddo
     do i=1,ctrl%nstates
       do j=1,ctrl%nstates
         write(string,'(A45,I3,1X,I3)') 'Gmatrix_ssad',i,j
-        call vec3write(ctrl%natom,traj%Gmatrix_ssad(i,j,:,:),u,trim(string),'E20.13')
+        call vec3write(ctrl%natom,traj%Gmatrix_ssad(i,j,:,:),u,trim(string),'ES24.16E3')
       enddo
     enddo
-    call vec3write(ctrl%natom,traj%grad_ad(:,:),u,'grad_ad','E20.13')
+    call vec3write(ctrl%natom,traj%grad_ad(:,:),u,'grad_ad','ES24.16E3')
 
-    call vecwrite(ctrl%nstates, traj%coeff_diag_s, u, 'coeff_diag_s','E20.13')
-    call vecwrite(ctrl%nstates, traj%coeff_diag_old_s, u, 'coeff_diag_old_s','E20.13')
-    call vecwrite(ctrl%nstates, traj%coeff_mch_s, u, 'coeff_mch_s','E20.13')
+    call vecwrite(ctrl%nstates, traj%coeff_diag_s, u, 'coeff_diag_s','ES24.16E3')
+    call vecwrite(ctrl%nstates, traj%coeff_diag_old_s, u, 'coeff_diag_old_s','ES24.16E3')
+    call vecwrite(ctrl%nstates, traj%coeff_mch_s, u, 'coeff_mch_s','ES24.16E3')
 
     write(u,*) (traj%selg_s(i),i=1,ctrl%nstates)
     do i=1,ctrl%nstates
@@ -215,6 +215,7 @@ module restart
   subroutine read_restart(u_ctrl,u_traj,ctrl,traj)
     use definitions
     use matrix
+    use misc
     implicit none
     integer :: u_ctrl,u_traj
     type(trajectory_type) :: traj
@@ -416,6 +417,7 @@ module restart
     close(u_traj)
 
     ! call the random number generator until it is in the same status as before the restart
+    call init_random_seed(traj%RNGseed)
     do i=1,traj%step
       call random_number(dummy_randnum)
     enddo

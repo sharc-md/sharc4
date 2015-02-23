@@ -369,11 +369,13 @@ endsubroutine
 
 subroutine write_final(traj)
   use definitions
+  use misc
   implicit none
   type(trajectory_type) :: traj
 
   integer :: runtime, days, hours, minutes, seconds
   integer :: time
+  character*1024 :: sharcfact
 
   runtime=time()-traj%time_start
   days=runtime/86400
@@ -382,6 +384,8 @@ subroutine write_final(traj)
   seconds=mod(runtime,60)
 
   write(u_log,'(A,4(1X,I4,1X,A))') 'Total wallclock time:',days,'days',hours,'h',minutes,'min',seconds,'sec'
+
+  call write_sharcfact(u_log)
 
 endsubroutine
 
