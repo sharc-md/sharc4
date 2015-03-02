@@ -1,12 +1,25 @@
+!> # Module MISC
+!>
+!> \author Sebastian mai
+!> \date 27.02.2015
+!> 
+!> This module defines some miscellaneous subroutines for various purposes,
+!> which are:
+!> - generation of the SHARC fun facts
+!> - hashing the input files to generate a unique identifier for this input
+!> - updating the runtime in traj
+!> - initializing the random number generator
+!> 
 module misc
 
-integer,parameter :: n_sharcfacts=9
-character*1024    :: sharcfacts(n_sharcfacts)
+integer,parameter :: n_sharcfacts=9             !< number of SHARC facts, needs to be changed when adding new facts
+character*1024    :: sharcfacts(n_sharcfacts)   !< array containing the fun facts.
 
  contains
 
 ! ===================================================
 
+!> initializes the SHARC fun facts array. New facts should be added here, while adjusting n_sharcfacts above.
   subroutine init_sharcfacts
     implicit none
 
@@ -26,6 +39,9 @@ character*1024    :: sharcfacts(n_sharcfacts)
 
 ! ===================================================
 
+!> Writes a randomly chosen SHARC fun fact to unit u
+!> \param u unit to which the fun fact is written
+!> this routine also takes care of linebreaking the fun fact
   subroutine write_sharcfact(u)
     implicit none
     integer, intent(in) :: u
@@ -54,6 +70,10 @@ character*1024    :: sharcfacts(n_sharcfacts)
 
 ! ===================================================
 
+!> takes a string of variable length and calculates an integer number which is
+!> can be used as a check sum for the input.
+!> the calling routine has to take care to concatenate all input files to str.
+!> \param str variable length string
   function djb_hash(str) result(res)
     character(len=*),intent(in) :: str
     integer :: hash = 16661     ! some prime
@@ -70,6 +90,8 @@ character*1024    :: sharcfacts(n_sharcfacts)
 
 ! ===================================================
 
+!> updates in traj the wallclock time of the last timestep 
+!> and the time where the last step was completed
   subroutine set_time(traj)
     use definitions
     implicit none
@@ -83,6 +105,10 @@ character*1024    :: sharcfacts(n_sharcfacts)
 
 ! ===================================================
 
+!> Initializes the random number generator 
+!> In order to obtain a set of uncorrelated seeds from the single input seed 
+!> a two-step procedure is used, which is described in the SHARC manual in detail.
+!> \param rngseed a single input seed which is used to generate the set of actual seeds
   subroutine init_random_seed(rngseed)
     implicit none
     integer,intent(in) :: rngseed
@@ -90,11 +116,14 @@ character*1024    :: sharcfacts(n_sharcfacts)
     integer,allocatable :: seed(:)
     real*8 :: r
 
+    ! find the number of seeds required
     call random_seed(size=n)
     allocate(seed(n))
+    ! calculate a sequence of seeds from rngseed
     do i=1,n
       seed(i)=rngseed+37*i+17*i**2
     enddo
+    ! initialize with the first sequence (low quality)
     call random_seed(put=seed)
 
     ! the elements of seed should be uncorrelated, thus we

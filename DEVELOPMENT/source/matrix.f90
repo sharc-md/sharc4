@@ -18,7 +18,7 @@
 !>   - check functions for symmetry/hermiticity and anti-symmetry/anti-hermiticity
 !>   - check functions for orthogonality/unitarity
 !> 
-!> the lapack workspaces are private global arrays
+!> the lapack workspaces are private arrays, global to this module
 !> they can only be changed by calling allocatelapack()
 module matrix
 

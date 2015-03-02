@@ -1,6 +1,20 @@
+!> # Module RESTART
+!>
+!> \author Sebastian Mai
+!> \date 27.02.2015
+!>
+!> This module provides all subroutines necessary for the restart feature
+!> These are:
+!> - creating a restart/ directory where the interfaces put the wavefunction files, etc.
+!> - writing static restart information to restart.ctrl
+!> - writing timestep-dependent information to restart.traj
+!> - reading restart.ctrl and restart.traj to initialize all arrays
 module restart
  contains
 
+!> creates a directory $CWD/restart/
+!> Via QM.in the interfaces are given the path to this directory
+!> where they have to save all files necessary for restart
   subroutine mkdir_restart(ctrl)
     use definitions
     implicit none
@@ -16,6 +30,7 @@ module restart
 
   endsubroutine
 
+!> writes the static ctrl variable to restart.ctrl
   subroutine write_restart_ctrl(u,ctrl)
     use definitions
     use matrix
@@ -91,6 +106,9 @@ module restart
 
 ! =========================================================== !
 
+!> writes the traj variable to restart.traj
+!> while restart.ctrl is written only once at initialization,
+!> restart.traj is rewritten after each timestep
   subroutine write_restart_traj(u,ctrl,traj)
     use definitions
     use matrix
@@ -212,6 +230,15 @@ module restart
 
 ! =========================================================== !
 
+!> this routine reads all restart information from restart.ctrl and restart.traj
+!> and initializes the ctrl and traj compounds
+!> it also does:
+!> - allocation of all arrays
+!> - setting ctrl%restart to .true.
+!> - fast-forwards the random number generator so that the 
+!>     restarted trajectory uses the same random number sequence as if it was not restarted
+!> - sets steps_in_gs correctly
+!> - sets the wallclock timing 
   subroutine read_restart(u_ctrl,u_traj,ctrl,traj)
     use definitions
     use matrix
