@@ -155,8 +155,6 @@ class STATE:
       Prob=-1.
     if not (erange[0] <= self.Eexc <= erange[1]):
       Prob=-1.
-    if Prob!=-1.:
-      print self.Prob,max_Prob,Prob
     self.Excited=(random.random() < Prob)
 
 # ======================================================================================================================
@@ -1006,7 +1004,6 @@ def excite(INFOS,initlist):
             if -(j+1) not in INFOS['allowed']:
               if jstate.Prob>maxprob:
                 maxprob=jstate.Prob
-      print maxprob
     # set the excitation flags
     for i,icond in enumerate(initlist):
       if icond.statelist==[]:
