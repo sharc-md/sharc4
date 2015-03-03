@@ -1,7 +1,28 @@
+!> # Module OUTPUT
+!>
+!> \author Sebastian Mai
+!> \date 27.02.2015
+!>
+!> This module defines a number of subroutines which print various
+!> information.
+!> 
+!> The following files are written here:
+!> - parts of output.log
+!> - output.lis
+!> - output.dat
+!> - output.xyz
+!>
+!> Note that the print routines for the restart files are in restart.f90
+!> Also note that output.log is written to by many routines from all modules, depending on printlevel.
 module output
 
  contains
 
+!> prints the header of the SHARC log file, containing:
+!> - PWD, hostname, start time
+!> - Logo
+!> - Build/verson information
+!> 
 subroutine write_logheader(u,version)
   implicit none
   character*1023 :: hostname, cwd
@@ -44,6 +65,7 @@ endsubroutine
 
 ! ===================================================
 
+!> writes the headline for a new timestep and the date where the step was entered
 subroutine write_logtimestep(u,step)
   use definitions
   implicit none
@@ -65,6 +87,7 @@ endsubroutine
 
 ! ===================================================
 
+!> writes the old SHARC logo from the pre-release versions
   subroutine write_sharc_r(u)
   implicit none
   integer :: u
@@ -102,6 +125,7 @@ endsubroutine
 
 ! ===================================================
 
+! writes the official SHARC logo in ASCII art
   subroutine write_sharc_l(u)
   implicit none
   integer :: u
@@ -132,6 +156,8 @@ endsubroutine
 
   ! =====================================================
 
+!> prints the version, authors, adress, citations, license and build information
+!> can be accessed by executing $SHARC/sharc.x -v | --version | --info
   subroutine write_license(u,version)
   implicit none
   integer :: u
@@ -201,6 +227,7 @@ endsubroutine
 
   ! =====================================================
 
+!> writes a formatted header for the listing file
 subroutine write_list_header(u)
   implicit none
   integer :: u
@@ -218,6 +245,8 @@ endsubroutine
 
   ! =====================================================
 
+!> calculates and prints properties for the listing file
+!> 
 subroutine write_list_line(u, traj, ctrl)
   use definitions
   implicit none
@@ -283,6 +312,7 @@ endsubroutine
 
   ! =====================================================
 
+!> writes the new geometry in xyz format (for output.xyz)
 subroutine write_geom(u,traj,ctrl)
   use definitions
   use matrix
@@ -302,6 +332,7 @@ endsubroutine
 
   ! =====================================================
 
+!> writes the header of the dat file. 
 subroutine write_dat_initial(u, ctrl)
   use definitions
   use matrix
@@ -324,6 +355,7 @@ endsubroutine
 
   ! =====================================================
 
+!> writes all information for a timestep to the dat file.
 subroutine write_dat(u, traj, ctrl)
   use definitions
   use matrix
@@ -367,6 +399,7 @@ endsubroutine
 
   ! =====================================================
 
+!> writes the total runtime of SHARC at the end and appends a SHARC fun fact.
 subroutine write_final(traj)
   use definitions
   use misc
@@ -391,7 +424,7 @@ endsubroutine
 
   ! =====================================================
 
-
+!> flushes all output files
 subroutine allflush()
 use definitions
 implicit none

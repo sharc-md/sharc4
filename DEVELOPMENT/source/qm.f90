@@ -1,6 +1,29 @@
+!> # Module QM
+!> 
+!> \author Sebastian mai
+!> \date 27.02.2015
+!> 
+!> This module implements the SHARC-QM interface.
+!> It writes the QM.in file, calls the interfaces, 
+!> and reads the QM.out file to update the electronic matrices.
+!> Also performs post-processing of the matrices:
+!> - applies frozen-state filters
+!> - tracks U matrix phase
+!> - corrects state phases
+!> - updates _old matrices after a timestep
+!> - gradient, non-adiabatic coupling vector selection
+!> - calculation of diagonal gradients
+!> 
+!> In summary, this module updates all relevant quantities in traj at a new timestep,
+!> so that the propagation, surface hopping and nuclear dynamics can be performed.
+
 module qm
   contains
 
+  !> Calls the QM calculation for the zero-th timestep and
+  !> then performs the remaining initialization:
+  !> calculation of initial coefficients and state in diagonal basis
+  !> calculation of initial NACdt matrix
   subroutine do_initial_qm(traj,ctrl)
     use definitions
     use electronic
@@ -13,61 +36,56 @@ module qm
 
     if (printlevel>1) then
       call write_logtimestep(u_log,traj%step)
-!       write(u_log,'(A)')      '<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<============================>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>'
-!       write(u_log,'(A)') '<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<   Initial QM calculation   >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>'
-!       write(u_log,'(A)')      '<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<============================>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>'
-!       write(u_log,*)
-      endif
+    endif
 
+    ! initial QM calculation
     call do_qm_calculations(traj,ctrl)
 
     ! now finalize the initial state, if this was not done in the read_input routine
-
     if (printlevel>1) then
       write(u_log,*) '============================================================='
       write(u_log,*) '             Initializing states and coefficients'
       write(u_log,*) '============================================================='
     endif
-!     select case (ctrl%surf)
-!       case (0)  ! SHARC
-        select case (ctrl%staterep)
-          case (0)      ! coeff is in diag, transform to MCH for printing
-            call matvecmultiply(ctrl%nstates,traj%U_ss,traj%coeff_diag_s,traj%coeff_MCH_s,'n')
-            traj%state_MCH=state_diag_to_MCH(ctrl%nstates,traj%state_diag,traj%U_ss)
-          case (1)      ! coeff is in MCH, transform to diag
-!             traj%state_diag=state_MCH_to_diag(ctrl%nstates,traj%state_MCH,traj%U_ss)
-!             traj%coeff_diag_s=dcmplx(0.d0,0.d0)
-!             traj%coeff_diag_s(traj%state_diag)=dcmplx(1.d0,0.d0)
-!             call matvecmultiply(ctrl%nstates,traj%U_ss,traj%coeff_diag_s,traj%coeff_MCH_s,'n')
-            call matvecmultiply(ctrl%nstates,traj%U_ss,traj%coeff_MCH_s,traj%coeff_diag_s,'t')
-            traj%state_diag=state_MCH_to_diag(ctrl%nstates,traj%state_MCH,traj%U_ss)
-        endselect
-        if (ctrl%actstates_s(traj%state_MCH).eqv..false.) then
-          write(0,*) 'Initial state is not active!'
-          stop 1
-        endif
-        if (printlevel>1) then
-          write(u_log,'(a,1x,i3,1x,a)') 'Initial state is ',traj%state_mch,'in the MCH basis. '
-          write(u_log,'(a,1x,i3,1x,a)') 'Initial state is ',traj%state_diag,'in the DIAG basis. '
-          write(u_log,*) 'Coefficients (MCH):'
-          write(u_log,'(a3,1x,A12,1X,A12)') '#','Real(c)','Imag(c)'
-          do i=1,ctrl%nstates
-            write(u_log,'(i3,1x,F12.9,1X,F12.9)') i,traj%coeff_MCH_s(i)
-          enddo
-          write(u_log,*) 'Coefficients (diag):'
-          write(u_log,'(a3,1x,A12,1X,A12)') '#','Real(c)','Imag(c)'
-          do i=1,ctrl%nstates
-            write(u_log,'(i3,1x,F12.9,1X,F12.9)') i,traj%coeff_diag_s(i)
-          enddo
-        endif
-        if (abs(traj%coeff_diag_s(traj%state_diag))<1.d-9) then
-          write(0,*) 'Initial state has zero population!'
-          stop 1
-        endif
-!     endselect
 
+    ! using the U matrix, calculate the remaining coefficient vectors
+    select case (ctrl%staterep)
+      case (0)      ! coeff is in diag, transform to MCH for printing
+        call matvecmultiply(ctrl%nstates,traj%U_ss,traj%coeff_diag_s,traj%coeff_MCH_s,'n')
+        traj%state_MCH=state_diag_to_MCH(ctrl%nstates,traj%state_diag,traj%U_ss)
+      case (1)      ! coeff is in MCH, transform to diag
+        call matvecmultiply(ctrl%nstates,traj%U_ss,traj%coeff_MCH_s,traj%coeff_diag_s,'t')
+        traj%state_diag=state_MCH_to_diag(ctrl%nstates,traj%state_MCH,traj%U_ss)
+    endselect
+
+    ! check whether the initial state is active
+    ! (active states are defined in MCH basis, initial state might be given in diagonal basis
+    if (ctrl%actstates_s(traj%state_MCH).eqv..false.) then
+      write(0,*) 'Initial state is not active!'
+      stop 1
+    endif
+
+    if (printlevel>1) then
+      write(u_log,'(a,1x,i3,1x,a)') 'Initial state is ',traj%state_mch,'in the MCH basis. '
+      write(u_log,'(a,1x,i3,1x,a)') 'Initial state is ',traj%state_diag,'in the DIAG basis. '
+      write(u_log,*) 'Coefficients (MCH):'
+      write(u_log,'(a3,1x,A12,1X,A12)') '#','Real(c)','Imag(c)'
+      do i=1,ctrl%nstates
+        write(u_log,'(i3,1x,F12.9,1X,F12.9)') i,traj%coeff_MCH_s(i)
+      enddo
+      write(u_log,*) 'Coefficients (diag):'
+      write(u_log,'(a3,1x,A12,1X,A12)') '#','Real(c)','Imag(c)'
+      do i=1,ctrl%nstates
+        write(u_log,'(i3,1x,F12.9,1X,F12.9)') i,traj%coeff_diag_s(i)
+      enddo
+    endif
+    if (abs(traj%coeff_diag_s(traj%state_diag))<1.d-9) then
+      write(0,*) 'Initial state has zero population!'
+      stop 1
+    endif
+
+    ! we have to set up the initial NACdt_ss matrix here
     if (ctrl%coupling==1) then
-      ! we have to set up the initial NACdt_ss matrix here
       traj%NACdt_ss=dcmplx(0.d0,0.d0)
       do iatom=1,ctrl%natom
         do idir=1,3
@@ -81,6 +99,8 @@ module qm
 
 ! ===========================================================
 
+!> This routine performs all steps of the QM calculation, including post-processing 
+!> (more post-processing steps) are performed in main.
   subroutine do_qm_calculations(traj,ctrl)
     use definitions
     use electronic
@@ -99,30 +119,38 @@ module qm
       write(u_log,*) 'QMin file="QM/QM.in"'
     endif
 
+    ! open QM.in and write geometry + some keywords (task keywords are written by write_tasks_*)
     open(u_qm_qmin,file='QM/QM.in',status='replace',action='write')
     call write_infos(traj,ctrl)
 
+    ! if necessary, select the quantities for calculation
     if (ctrl%calc_grad==1) call select_grad(traj,ctrl)
     if (ctrl%calc_nacdr==1) call select_nacdr(traj,ctrl)
     if (ctrl%calc_dipolegrad==1) call select_dipolegrad(traj,ctrl)
 
+    ! write tasks for first QM call
     call write_tasks_first(traj,ctrl)
     close(u_qm_qmin)
 
+    ! run QM interface
     if (printlevel>3) write(u_log,*) 'Running file="QM/runQM.sh"'
     call call_runqm
 
+    ! open QM.out
     if (printlevel>3) write(u_log,*) 'QMout file="QM/QM.out"'
     call open_qmout(u_qm_qmout, 'QM/QM.out')
 
-    ! get Hamiltonian, apply energy shift, scaling factor and actstates mask
+    ! get Hamiltonian
     call get_hamiltonian(ctrl%nstates, traj%H_MCH_ss)
+    ! apply reference energy shift
     do i=1,ctrl%nstates
       traj%H_MCH_ss(i,i)=traj%H_MCH_ss(i,i)-ctrl%ezero
     enddo
+    ! apply scaling factor
     if (ctrl%scalingfactor/=1.d0) then
       traj%H_MCH_ss=traj%H_MCH_ss*ctrl%scalingfactor
     endif
+    ! apply frozen-state mask
     do i=1,ctrl%nstates
       do j=1,ctrl%nstates
         if (ctrl%actstates_s(i).neqv.ctrl%actstates_s(j)) traj%H_MCH_ss(i,j)=dcmplx(0.d0,0.d0)
@@ -131,38 +159,52 @@ module qm
     enddo
     if (printlevel>3) write(u_log,'(A31,A2)') 'Hamiltonian:                   ','OK'
 
-
+    ! get Dipole moments
     call get_dipoles(ctrl%nstates, traj%DM_ssd)
     if (printlevel>3) write(u_log,'(A31,A2)') 'Dipole Moments:                ','OK'
     traj%DM_print_ssd=traj%DM_ssd
+    ! apply frozen-state mask 
     do i=1,ctrl%nstates
       do j=1,ctrl%nstates
         if (ctrl%actstates_s(i).neqv.ctrl%actstates_s(j)) traj%DM_ssd(i,j,:)=dcmplx(0.d0,0.d0)
       enddo
     enddo
 
+    ! get Property matrix, if necessary
     if ((ctrl%ionization>0).and.(mod(traj%step,ctrl%ionization)==0)) then
       call get_property(ctrl%nstates, traj%Property_ss,stat)
     else
       traj%Property_ss=dcmplx(0.d0,0.d0)
     endif
 
+    ! if gradients were calculated in first call, get them
     if (ctrl%calc_grad<=1) then
       call get_gradients(ctrl%nstates, ctrl%natom, traj%grad_MCH_sad)
+      ! apply scaling factor to gradients
       if (ctrl%scalingfactor/=1.d0) then
         traj%grad_MCH_sad=traj%grad_MCH_sad*ctrl%scalingfactor
       endif
       if (printlevel>3) write(u_log,'(A31,A2)') 'Gradients:                     ','OK'
     endif
 
+    ! if this is not the initial QM calculation
     if (traj%step>=1) then
+      ! get NACdt matrix
       if (ctrl%calc_nacdt==1) then
         call get_nonadiabatic_ddt(ctrl%nstates, traj%NACdt_ss)
+        ! apply frozen-state mask
+        do i=1,ctrl%nstates
+          do j=1,ctrl%nstates
+            if (ctrl%actstates_s(i).neqv.ctrl%actstates_s(j)) traj%NACdt_ss(i,j)=dcmplx(0.d0,0.d0)
+          enddo
+        enddo
         if (printlevel>3) write(u_log,'(A31,A2)') 'Non-adiabatic couplings (DDT): ','OK'
       endif
 
+      ! get overlap matrix
       if (ctrl%calc_overlap==1) then
         call get_overlap(ctrl%nstates, traj%overlaps_ss)
+        ! apply frozen-state mask
         do i=1,ctrl%nstates
           do j=1,ctrl%nstates
             if (ctrl%actstates_s(i).neqv.ctrl%actstates_s(j)) traj%overlaps_ss(i,j)=dcmplx(0.d0,0.d0)
@@ -171,6 +213,7 @@ module qm
         if (printlevel>3) write(u_log,'(A31,A2)') 'Overlap matrix:                ','OK'
       endif
 
+      ! get wavefunction phases
       call get_phases(ctrl%nstates,traj%phases_s,stat)
       if (stat==0) then
         traj%phases_found=.true.
@@ -184,11 +227,13 @@ module qm
       traj%phases_s=dcmplx(1.d0,0.d0)
     endif
 
+    ! get non-adiabatic couplings
     if ( (ctrl%calc_nacdr==0).or.(ctrl%calc_nacdr==1) ) then
       call get_nonadiabatic_ddr(ctrl%nstates, ctrl%natom, traj%NACdr_ssad)
       if (printlevel>3) write(u_log,'(A31,A2)') 'Non-adiabatic couplings (DDR): ','OK'
     endif
 
+    ! get dipole moment derivatives
     if ( (ctrl%calc_dipolegrad==0).or.(ctrl%calc_dipolegrad==1) ) then
       call get_dipolegrad(ctrl%nstates, ctrl%natom, traj%DMgrad_ssdad)
       if (printlevel>3) write(u_log,'(A31,A2)') 'Dipole moment gradients:       ','OK'
@@ -197,9 +242,12 @@ module qm
     if (printlevel>3) write(u_log,*) ''
 
     ! ===============================
+    ! all quantities read, post-processing
+    ! ===============================
 
     ! here the Hamiltonian is diagonalized, but without phase adjustment
-    ! phase adjusted diagonalization is carried out during the Adjust_phases
+    ! phase adjusted diagonalization is carried out later
+    ! here we need to diagonalize only for selection of gradients/couplings/...
     traj%H_diag_ss=traj%H_MCH_ss
     ! if laser field, add it here, without imaginary part
     if (ctrl%laser==2) then
@@ -207,7 +255,7 @@ module qm
         traj%H_diag_ss=traj%H_diag_ss - traj%DM_ssd(:,:,i)*real(ctrl%laserfield_td(traj%step*ctrl%nsubsteps+1,i))
       enddo
     endif
-    !
+    ! diagonalize, if SHARC dynamics
     if (ctrl%surf==0) then
       call diagonalize(ctrl%nstates,traj%H_diag_ss,traj%U_ss)
     elseif (ctrl%surf==1) then
@@ -219,34 +267,47 @@ module qm
 
 !     call check_allocation(u_log,ctrl,traj)
 
+    ! get state in all representations
     if ((traj%step==0).and.(ctrl%staterep==1)) then
       traj%state_diag=state_MCH_to_diag(ctrl%nstates,traj%state_MCH,traj%U_ss)
     endif
     traj%state_MCH=state_diag_to_MCH(ctrl%nstates,traj%state_diag,traj%U_ss)
 
     ! ===============================
+    ! now perform a second QM call, where selected gradients/couplings/... are calculated
+    ! ===============================
 
     if (ctrl%calc_second==1) then
       if (printlevel>3) write(u_log,*) 'Doing a second calculation...'
       if (printlevel>3) write(u_log,*) ''
+
+      ! select quantities
       if (ctrl%calc_grad==2) call select_grad(traj,ctrl)
       if (ctrl%calc_nacdr==2) call select_nacdr(traj,ctrl)
+      if (ctrl%calc_dipolegrad==2) call select_dipolegrad(traj,ctrl)
+
+      ! write a new QM.in file
       if (printlevel>3) write(u_log,*) ''
       if (printlevel>3) write(u_log,*) 'QMin file="QM/QM.in"'
       open(u_qm_qmin,file='QM/QM.in',status='replace',action='write')
       call write_infos(traj,ctrl)
 
+      ! write tasks
       call write_tasks_second(traj,ctrl)
       close(u_qm_qmin)
 
+      ! call QM interface
       if (printlevel>3) write(u_log,*) 'Running file="QM/runQM.sh"'
       call call_runqm
 
+      ! open QM.out
       if (printlevel>3) write(u_log,*) 'QMout file="QM/QM.out"'
       call open_qmout(u_qm_qmout, 'QM/QM.out')
 
+      ! read properties: gradients, non-adiabatic couplings, dipole moment derivatives
       if (ctrl%calc_grad==2) then
         call get_gradients(ctrl%nstates, ctrl%natom, traj%grad_MCH_sad)
+        ! apply scaling factor to gradient
         if (ctrl%scalingfactor/=1.d0) then
           traj%grad_MCH_sad=traj%grad_MCH_sad*ctrl%scalingfactor
         endif
@@ -270,6 +331,9 @@ module qm
 
 ! ===========================================================
 
+!> this routine checks whether after a surface hops there is a need
+!> to calculate additional gradients.
+!> If necessary, performs the QM call and reads the additional gradients
   subroutine redo_qm_gradients(traj,ctrl)
     use definitions
     use electronic
@@ -289,9 +353,12 @@ module qm
       write(u_log,*) '============================================================='
     endif
 
+    ! old selection mask
     old_selg_s=traj%selg_s
+    ! previously calculated gradients
     old_grad_MCH_sad=traj%grad_MCH_sad
 
+    ! make new selection mask
     call select_grad(traj,ctrl)
 
     if (printlevel>2) then
@@ -301,6 +368,7 @@ module qm
       write(u_log,*) 'Necessary gradients'
       write(u_log,*) traj%selg_s
     endif
+    ! compare old and new selection masks
     traj%selg_s=.not.old_selg_s.and.traj%selg_s
     if (printlevel>2) then
       write(u_log,*) 'Missing gradients'
@@ -353,6 +421,10 @@ module qm
 
 ! ===========================================================
 
+!> performs the system call to the QM interface
+!> calls QM/runQM.sh
+!> In QM/runQM.sh, the correct interface has to be called.
+!> sharc.x does not know which interface is employed.
   subroutine call_runqm
     use definitions
     implicit none
@@ -378,8 +450,8 @@ module qm
 
 ! ===========================================================
 
+!> writes ctrl parameters to QM.in, but not task keywords
   subroutine write_infos(traj,ctrl)
-  ! writes ctrl parameters to QM.in, but not task keywords
     use definitions
     implicit none
     type(trajectory_type) :: traj
@@ -409,8 +481,10 @@ module qm
 
 ! ===========================================================
 
+!> writes task keywords for all non-selected quantities
+!> or for selected quantities which need to be calculated in the first QM call 
+!> (select_directly keyword)
   subroutine write_tasks_first(traj,ctrl)
-  ! writes task keywords for all non-selected quantities
     use definitions
     implicit none
     type(trajectory_type) :: traj
@@ -488,8 +562,8 @@ module qm
 
 ! ===========================================================
 
+!> writes task keywords for all selected quantities (grad, nacdr, dmdr)
   subroutine write_tasks_second(traj,ctrl)
-  ! writes task keywords for all selected quantities (grad and nacdr)
     use definitions
     implicit none
     type(trajectory_type) :: traj
@@ -530,8 +604,8 @@ module qm
 
 ! ===========================================================
 
+!> writes task keywords for additional gradient calculation
   subroutine write_tasks_third(traj,ctrl)
-  ! writes task keywords for all selected quantities (grad and nacdr)
     use definitions
     implicit none
     type(trajectory_type) :: traj
@@ -552,6 +626,9 @@ module qm
 
 ! ===========================================================
 
+!> selects gradients to be calculated by the QM interface.
+!> The selection is based on an energy criterion: Only gradients of states
+!> closer than <eselect_grad> to the active state are calculated.
   subroutine select_grad(traj,ctrl)
     use definitions
     implicit none
@@ -560,10 +637,12 @@ module qm
     integer :: i
     real*8 :: E=0.d0
 
+    ! in first timestep always calculate all gradients
     if (traj%step==0) then
       traj%selg_s=.true.
     else
       traj%selg_s=.false.
+      ! energy-based selection for SHARC
       select case (ctrl%surf)
         case (0) ! SHARC
           E=real(traj%H_diag_ss(traj%state_diag,traj%state_diag))
@@ -571,11 +650,13 @@ module qm
             if ( abs( traj%H_MCH_ss(i,i) - E )< ctrl%eselect_grad ) traj%selg_s(i)=.true.
           enddo
 
+        ! only active state for FISH
         case (1) ! FISH
           traj%selg_s(traj%state_MCH)=.true.
 
       endselect
     endif
+    ! never calculate gradients of frozen states
     traj%selg_s=traj%selg_s.and.ctrl%actstates_s
 
     if (printlevel>3) then
@@ -599,6 +680,12 @@ module qm
 
 ! ===========================================================
 
+!> selects non-adiabatic couplings to be calculated by the QM interface.
+!> The selection is based on an energy criterion: Only gradients of states
+!> closer than <eselect_nac> to the active state are calculated.
+!> 
+!> The interface has to take care to only calculate non-zero NACs 
+!> (e.g., not between singlets and triplets)
   subroutine select_nacdr(traj,ctrl)
     use definitions
     implicit none
@@ -607,10 +694,12 @@ module qm
     integer :: i,j
     real*8 :: E=0.d0
 
+    ! calculate all non-adiabatic couplings in first timestep
     if (traj%step==0) then
       traj%selt_ss=.true.
     else
       traj%selt_ss=.false.
+      ! energy-based selection for SHARC and FISH
       if (ctrl%surf==0) then
         E=real(traj%H_diag_ss(traj%state_diag,traj%state_diag))
       elseif (ctrl%surf==1) then
@@ -624,6 +713,7 @@ module qm
       enddo
     endif
 
+    ! apply frozen-state mask
     do i=1,ctrl%nstates
       do j=1,ctrl%nstates
         traj%selt_ss(i,j)=traj%selt_ss(i,j).and.ctrl%actstates_s(i).and.ctrl%actstates_s(j)
@@ -648,6 +738,14 @@ module qm
 
 ! ===========================================================
 
+!> selects dipole moment derivatives to be calculated by the QM interface.
+!> The selection is based on an energy criterion: Only gradients of states
+!> closer than <eselect_dmgrad> to the active state are calculated.
+!> 
+!> The interface has to take care to only calculate non-zero NACs 
+!> (e.g., not between singlets and triplets)
+!> 
+!> TODO: The threshold eselect_dmgrad should be dependent on the laser energy
   subroutine select_dipolegrad(traj,ctrl)
     use definitions
     implicit none
@@ -697,6 +795,7 @@ module qm
 
 ! ===========================================================
 
+!> This routine prints all electronic quantities after a QM call
   subroutine print_qm(u,traj,ctrl)
     use definitions
     use matrix
@@ -764,6 +863,7 @@ module qm
 
 ! =========================================================== !
 
+!> Updates all *_old matrices when advancing to a new timestep
   subroutine Update_old(traj)
     use definitions
     implicit none
@@ -787,6 +887,9 @@ module qm
 
 ! ===========================================================
 
+!> This routine calculates the diagonal gradients by mixing the MCH gradients
+!> and non-adiabatic couplings.
+!> See IJQC paper.
   subroutine Mix_gradients(traj,ctrl)
     use definitions
     use matrix
@@ -797,6 +900,7 @@ module qm
     complex*16 :: Gmatrix_ss(ctrl%nstates,ctrl%nstates)
     complex*16 :: U_temp(ctrl%nstates,ctrl%nstates), H_temp(ctrl%nstates,ctrl%nstates)
 
+    ! get correct U matrix (or laser fields etc.)
     if (ctrl%surf==0) then
       if (ctrl%laser==0) then
         U_temp=traj%U_ss
@@ -817,14 +921,17 @@ module qm
       write(u_log,*) '============================================================='
     endif
     if (printlevel>4) call matwrite(ctrl%nstates,U_temp,u_log,'U_ss','F12.9')
+    ! loop over all atom displacements
     do iatom=1,ctrl%natom
       do idir=1,3
 
+        ! initialize G matrix, MCH gradients on diagonal
         Gmatrix_ss=dcmplx(0.d0,0.d0)
         do istate=1,ctrl%nstates
           Gmatrix_ss(istate,istate)=traj%grad_MCH_sad(istate,iatom,idir)
         enddo
 
+        ! if available, add non-adiabatic coupling terms
         if (ctrl%gradcorrect==1) then
           do istate=1,ctrl%nstates
             do jstate=istate+1,ctrl%nstates
@@ -836,6 +943,7 @@ module qm
           enddo
         endif
 
+        ! if available, add dipole moment derivatives
         if (ctrl%dipolegrad==1) then
           do istate=1,ctrl%nstates
             do jstate=1,ctrl%nstates
@@ -852,7 +960,9 @@ module qm
           call matwrite(ctrl%nstates,Gmatrix_ss,u_log,'Gmatrix MCH','F12.9')
         endif
 
+        ! transform G matrix to diagonal basis
         call transform(ctrl%nstates,Gmatrix_ss,U_temp,'utau')
+        ! save full G matrix in traj
         traj%Gmatrix_ssad(:,:,iatom,idir)=Gmatrix_ss
 
         if (printlevel>4) then
