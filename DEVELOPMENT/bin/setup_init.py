@@ -1498,7 +1498,7 @@ def writeRunscript(INFOS,iconddir):
     projname='init_%5s' % (iconddir[-6:-1])
 
   if INFOS['here']:
-    string='''#/bin/bash
+    string='''#!/bin/bash
 
 #$-N %s
 
@@ -1509,7 +1509,7 @@ cd $PRIMARY_DIR
 $SHARC/%s QM.in >> QM.log 2>> QM.err
 ''' % (projname,INFOS['cwd'], iconddir, Interfaces[INFOS['interface']]['script'])
   else:
-    string='''#/bin/bash
+    string='''#!/bin/bash
 
 #$-N %s
 

@@ -1810,7 +1810,7 @@ The MOLCAS interface will generate the appropriate MOLCAS input automatically.
   string=string[:-2]+'?'
   if question(string,bool,True):
     while True:
-      jobiph_or_rasorb=question('JobIph files (1) or RasOrb files (2)?',int)
+      jobiph_or_rasorb=question('JobIph files (1) or RasOrb files (2)?',int)[0]
       if jobiph_or_rasorb in [1,2]:
         break
     INFOS['molcas.jobiph_or_rasorb']=jobiph_or_rasorb
@@ -2216,7 +2216,7 @@ def writeRunscript(INFOS,iconddir):
     projname='traj_%5s' % (iconddir[-6:-1])
 
   if INFOS['here']:
-    string='''#/bin/bash
+    string='''#!/bin/bash
 
 #$-N %s
 
@@ -2227,7 +2227,7 @@ cd $PRIMARY_DIR
 $SHARC/sharc.x input
 ''' % (projname,INFOS['cwd'],iconddir)
   else:
-    string='''#/bin/bash
+    string='''#!/bin/bash
 
 #$-N %s
 ''' % (projname)
