@@ -130,7 +130,10 @@ changelogstring='''
 - data is not saved for "samestep" runs. This would make the wavefunction phases in the determinant files inconsistent with previous calculations at the same geometry.
 
 08.10.2014:     1.0
-- official release version, no changes to 0.3.06'''
+- official release version, no changes to 0.3.06
+
+20.02.2015:
+- fixed a bug with obtaining the hostname, and updated the debug facilities'''
 
 # ======================================================================= #
 # holds the system time when the script was started
