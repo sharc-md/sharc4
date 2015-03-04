@@ -9,7 +9,7 @@ version 1.02
         molpro_input.py: minor bugfix, changed atom mass dialog, added SO-CASCI option
         retrieve.sh: minor bugfix
 version 1.1
-        excite.py: fixed a bug with printing MS values in the dialog
+        excite.py: fixed a bug with printing MS values in the dialog, fixed a bug with delta pulse selection
         molcas_input.py: rewritten, now also writes proper MOLCAS input files in addition to MOLCAS.template files for the interface
         molpro_input.py: fixed a bug in the check of the CAS size, added check for empty state list
         setup_init.py: changed to accomodate the new MOLCAS interface
