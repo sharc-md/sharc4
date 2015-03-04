@@ -2308,12 +2308,13 @@ def setupWORKDIR(WORKDIR,tasks,QMin):
 
 
 # ======================================================================= #
-def runMOLCAS(WORKDIR,strip=False):
+def runMOLCAS(WORKDIR,MOLCAS,strip=False):
     prevdir=os.getcwd()
     os.chdir(WORKDIR)
     os.environ['WorkDir']=WORKDIR
     #string='molcas MOLCAS.input > MOLCAS.out 2>&1'
-    string='molcas MOLCAS.input'
+    #string='molcas MOLCAS.input'
+    string=os.path.join(MOLCAS,'bin/molcas.exe')+' MOLCAS.input'
     stdoutfile=open(os.path.join(WORKDIR,'MOLCAS.out'),'w')
     stderrfile=open(os.path.join(WORKDIR,'MOLCAS.err'),'w')
     if PRINT or DEBUG:
@@ -2457,7 +2458,7 @@ def run_calc(WORKDIR,QMin):
         Tasks=gettasks(QMin)
         setupWORKDIR(WORKDIR,Tasks,QMin)
         strip=not 'keepintegrals' in QMin
-        err=runMOLCAS(WORKDIR,strip)
+        err=runMOLCAS(WORKDIR,QMin['molcas'],strip)
     return err
 
 # ======================================================================= #
