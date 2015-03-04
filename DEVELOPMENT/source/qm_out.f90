@@ -350,7 +350,7 @@ endsubroutine
 
 !> reads the overlap matrix (nstates x nstates) from the already opened QMout 
 subroutine get_overlap(n, S_ss)
-  use matrixfile
+  use matrix
   implicit none
   integer,intent(in) :: n       ! size of the matrix
   complex*16,intent(out) :: S_ss(n,n)

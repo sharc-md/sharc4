@@ -137,5 +137,28 @@ character*1024    :: sharcfacts(n_sharcfacts)   !< array containing the fun fact
 
   endsubroutine
 
+! ===================================================
+
+!> Checks whether the file "STOP" exists in the CWD
+  logical function check_stop(cwd)
+    use definitions
+    implicit none
+    character*1023, intent(in) :: cwd
+    character*1023 :: filename
+    logical :: exists
+
+    ! inquire the file
+    filename=trim(cwd)//'/STOP'
+    inquire(file=filename, exist=exists)
+    check_stop=exists
+
+    if ((exists).and.(printlevel>0)) then
+      write(u_log,*) '============================================================='
+      write(u_log,*) '                      File STOP detected!'
+      write(u_log,*) '============================================================='
+    endif
+
+  endfunction
+
 
 endmodule
