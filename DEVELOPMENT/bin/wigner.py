@@ -565,10 +565,26 @@ file. Returns molecule and modes as the other function does.
     molecule.append(ATOM(symb,num,coord,mass))
     iline+=1
 
+  # find number of frequencies
+  iline=-1
+  nmodes=-1
+  while True:
+    iline+=1
+    if iline==len(data):
+      nmodes=3*natom
+      break
+    line=data[iline]
+    if 'N_FREQ' in line:
+      nmodes=int(data[iline+1])
+      break
+
+  # warn, if too few normal modes were found
+  if nmodes<3*natom:
+    print '*'*51+'\nWARNING: Less than 3*N_atom normal modes extracted!\n'+'*'*51+'\n'
+
   # obtain all frequencies, including low ones
   iline=0
   modes=[]
-  nmodes=3*natom
   while not '[FREQ]' in data[iline]:
     iline+=1
   iline+=1
