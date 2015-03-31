@@ -274,6 +274,7 @@ The following references should be cited when using the \sharc\ suite:
   % \end{itemize}
   \begin{itemize}
     \item \cite{Richter2011JCTC} \bibentry{Richter2011JCTC}.
+    \item \cite{Mai2015IJQC} \bibentry{Mai2015IJQC}.
     \item \cite{Mai2014SHARC} \bibentry{Mai2014SHARC}.
   \end{itemize}
 \end{shaded}
@@ -281,7 +282,7 @@ The following references should be cited when using the \sharc\ suite:
 
 Further details can be found in the following references:
 
-The theoretical background of \sharc\ is described in Refs.~\cite{Richter2011JCTC, Richter2012JCTC_erratum, Bajo2011JPCA, Marquetand2011FD}.
+The theoretical background of \sharc\ is described in Refs.~\cite{Richter2011JCTC, Richter2012JCTC_erratum, Bajo2011JPCA, Marquetand2011FD, Mai2015IJQC}.
 
 Applications of the \sharc\ code can be found in Refs.~\cite{Richter2012JPCL, Mai2013C, Mai2014TCC, Mai2014JCP_SO2, Gonzalez2014}.
 
@@ -462,7 +463,7 @@ In figure~\ref{fig:installation} the directory structure of the complete \sharc\
   \label{fig:installation}
 \end{figure}
 
-In order to use the \sharc\ suite, set the environment variable \ttt{\$SHARC} to the \ttt{bin/} directory of the \sharc\ installation. This ensures that all programs of the \sharc\ suite find the other executables and all calls are successful. For example, if you have unpacked \sharc into your home directory, 
+In order to use the \sharc\ suite, set the environment variable \ttt{\$SHARC} to the \ttt{bin/} directory of the \sharc\ installation. This ensures that all programs of the \sharc\ suite find the other executables and all calls are successful. For example, if you have unpacked \sharc\ into your home directory, 
 just set: 
 \begin{example}
 \verb|export SHARC=~/sharc/bin|\quad (for bourne shell users)
@@ -563,6 +564,11 @@ Given the necessary input files, \sharc\ can be started by executing
 \end{example}
 Note that besides the input file, at least the geometry file needs to be present (see in the input section for details).
 
+A running trajectory can be stopped after the current timestep by creating an empty file \ttt{STOP}:
+\begin{example}
+\verb|user@host> touch STOP|
+\end{example}
+
 \subsection{Output files}
 
 Figure~\ref{fig:dir_traj_after} shows the content of a trajectory directory after the execution of \sharc. There will be six new files. These files are \ttt{output.log}, \ttt{output.lis}, \ttt{output.dat} and \ttt{output.xyz}, as well as \ttt{restart.ctrl} and \ttt{restart.traj}.
@@ -607,7 +613,7 @@ As given in figure~\ref{fig:workflow}, \ttt{wigner.py} needs as input the result
 
 \paragraph{Generation of initial coefficients and states}
 
-In the second preparation step, for each of the sampled initial geometries it has to be decided which excited state should be the initial one. In simple cases, the user may manually choose the initial excited state using \ttt{excite.py} (see~\ref{sec:excite.py}). Alternatively, the selection of initial states can be performed based on the excitation energies and oscillator strengths of the excited states at each initial geometry (\todo{this approximately simulates a delta-pulse excitation}). 
+In the second preparation step, for each of the sampled initial geometries it has to be decided which excited state should be the initial one. In simple cases, the user may manually choose the initial excited state using \ttt{excite.py} (see~\ref{sec:excite.py}). Alternatively, the selection of initial states can be performed based on the excitation energies and oscillator strengths of the excited states at each initial geometry (this approximately simulates a delta-pulse excitation). 
 
 The latter option makes it necessary to carry out vertical excitation calculation before the selection of the initial states.
 The calculations can be set up with \ttt{setup\_init.py} (see section~\ref{sec:setup_init.py}). This script prepares for each initial condition in the \ttt{initconds} file a directory with the necessary input to perform the calculation. The user should then execute the run script (\ttt{run.sh}) in each of the directories (either manually or through a batch queueing system).
@@ -625,6 +631,8 @@ In order to run a particular trajectory, the user should execute the run script 
 The progress of the simulations can be monitored most conveniently in the \ttt{output.lis} files. If the calculations are running in some temporary directory, the output files can be copied to the local directory (where they were setup) with the \ttt{scp} wrapper \ttt{retrieve.sh} (see \ref{sec:retrieve}). This allows to perform ensemble analysis while the trajectories are still running.
 
 If a trajectory fails, the temporary directory where the calculation is running is not deleted. The file \ttt{README} will be created in the trajectory's directory, giving the time of the failure and the location of the temporary data, so that the case can be investigated. 
+
+In order to signal \sharc\ to terminate a trajectory after the current timestep is completed, the user can create a (possibly empty) file \ttt{STOP} in the working directory of the trajectory (the directory where \ttt{sharc.x} is running).
 
 \subsection{Analysis of the dynamics results}
 
@@ -666,9 +674,9 @@ The following tables list the auxiliary programs in the \sharc\ suite. The right
 
 \begin{tabular}{>{\tt}lp{9.5cm}r}
   SHARC\_MOLPRO.py      &Allows for the calculation of SOC, gradients, non-adiabatic couplings, time derivatives, overlaps, dipole moments and angular momentum expectation values at the CASSCF level of theory. Symmetry or RASSCF are not supported. Only segmented basis sets are possible.   &\ref{sec:int:molpro}\\
-  SHARC\_MOLCAS.py      &Allows for the calculation of SOC, gradients, overlaps and dipole moments at the CASSCF and RASSCF level of theory. Symmetry is not supported.   &\ref{sec:int:molcas}\\
+  SHARC\_MOLCAS.py      &Allows for the calculation of SOC, gradients, overlaps, dipole moments, dipole moment derivatives and spin-orbit coupling derivatives at the CASSCF and CASPT2 level of theory. Symmetry is not supported.   &\ref{sec:int:molcas}\\
   SHARC\_COLUMBUS.py    &Allows for the calculation of SOC, gradients, overlaps, dipole moments and Dyson norms at the CASSCF, RASSCF, MRCISD and LRT-MRAQCC levels of theory. Symmetry is not supported. Only works with the \textsc{Columbus}-\textsc{Molcas} interface.                  &\ref{sec:int:columbus}\\
-  SHARC\_Analytical.py  &Allows to calculate SOC, gradients, overlaps, dipole moments and dipole moment gradients based on analytical expressions of diabatic matrix elements. Works only with cartesian coordinates.       &\ref{sec:int:analytical}\\
+  SHARC\_Analytical.py  &Allows to calculate SOC, gradients, overlaps, dipole moments and dipole moment derivatives based on analytical expressions of diabatic matrix elements. Works only with cartesian coordinates.       &\ref{sec:int:analytical}\\
 \end{tabular}
 
 
@@ -1065,7 +1073,7 @@ ezero -399.41494751   # ground state energy of molecule
 
 The geometry file (default file name is \ttt{geom}) contains the initial coordinates of all atoms. This file must be present when starting a new trajectory.
 
-It uses the \href{http://www.univie.ac.at/columbus/docs_COL70/documentation_main.html}{\textsc{Columbus} geometry file format} (however, \todo{}). For each atom, the file contains one line, giving the chemical symbol (a string), the atomic number (a real number), the $x$, $y$ and $z$ coordinates of the atom in Bohrs (three real numbers), and the relative atomic weight of the atom (a real number). The six items must be separated by spaces. The real numbers are read in using Fortran list-directed I/O, and hence are free format (can have any numbers of decimals, exponential notation, etc.). Element symbols can have at most 2 characters.
+The format is based on the \href{http://www.univie.ac.at/columbus/docs_COL70/documentation_main.html}{\textsc{Columbus} geometry file format} (however, differently formatted numbers are also accepted). For each atom, the file contains one line, giving the chemical symbol (a string), the atomic number (a real number), the $x$, $y$ and $z$ coordinates of the atom in Bohrs (three real numbers), and the relative atomic weight of the atom (a real number). The six items must be separated by spaces. The real numbers are read in using Fortran list-directed I/O, and hence are free format (can have any numbers of decimals, exponential notation, etc.). Element symbols can have at most 2 characters.
 
 The following is an example of a \ttt{geom} file for \ce{CH2}:
 \begin{example}
@@ -1150,7 +1158,7 @@ At printlevel 1, also the content of the input file (cleaned of comments and bla
 
 \paragraph{Printlevel 2}
 
-At printlevel 2, the log file also contains information about the parsing of the input files (echoing all enabled options, initial geometry, velocity and coefficients, etc.) and about the initialization of the coefficients after the first quantum chemistry calculation. This printlevel is recommended, since it is the highest printlevel where no output per timestep is written to the log file.
+At printlevel 2, the log file also contains information about the parsing of the input files (echoing all enabled options, initial geometry, velocity and coefficients, etc.) and about the initialization of the coefficients after the first quantum chemistry calculation. This printlevel is recommended for production calculations, since it is the highest printlevel where no output per timestep is written to the log file.
 
 \paragraph{Printlevel 3}
 
@@ -1580,11 +1588,11 @@ This error check is controlled by two keywords in the \ttt{SH2PRO.inp} file. The
 
 For CASSCF calculations it is always a good idea to start from converged MOs from a nearby geometry. For the first timestep, if a file \ttt{QM/wf.init} is present, the \sharc-\textsc{Molpro} interface will take this file for the starting orbitals. In subsequent calculations, the MOs from the previous step will be used.
 
-\paragraph{CP-MCSCF calculations vs.\ DDR calculations}
-
-In the current version of the interface, the keywords \ttt{grad} and \ttt{nacdr} cannot be combined with the keywords \ttt{nacdt} and \ttt{overlap}. This is related to the way the interface allocates the records for gradients in the wavefunction file of \ttt{Molpro}. This issue might be resolved in future releases.
-
-This has the consequence that for trajectories using time derivatives or overlaps the gradient selection \textit{must} be activated (though the selection criterion can be chosen arbitrarily high). Also, the \ttt{select\_directly} keyword is not compatible with time derivatives and overlaps. \ttt{setup\_traj.py} automatically takes care of this constraints.
+% \paragraph{CP-MCSCF calculations vs.\ DDR calculations}
+% 
+% In the current version of the interface, the keywords \ttt{grad} and \ttt{nacdr} cannot be combined with the keywords \ttt{nacdt} and \ttt{overlap}. This is related to the way the interface allocates the records for gradients in the wavefunction file of \ttt{Molpro}. This issue might be resolved in future releases.
+% 
+% This has the consequence that for trajectories using time derivatives or overlaps the gradient selection \textit{must} be activated (though the selection criterion can be chosen arbitrarily high). Also, the \ttt{select\_directly} keyword is not compatible with time derivatives and overlaps. \ttt{setup\_traj.py} automatically takes care of this constraints.
 
 \paragraph{Basis sets}
 
@@ -1652,7 +1660,7 @@ Note that the scratch directory will be deleted after the calculation, only the 
 
 \section{MOLCAS Interface}\label{sec:int:molcas}
 
-The \sharc-\textsc{Molcas} interface can be used to conduct excited-state dynamics based on \textsc{Molcas}' CASSCF wavefunctions, and with CASPT2 or MS-CASPT2 energies (and numerical gradients). RASSCF wavefunctions are not supported currently. The interface uses the modules GATEWAY, SEWARD (integrals), RASSCF (wavefunction, energies), RASSI (transition dipole moments, spin-orbit couplings, overlaps), MCLR and ALASKA (gradients). For CASPT2, MS-CASPT2 and Cholesky-CASSCF numerical gradients can be calculated. Since \textsc{Molcas} is not able to calculate the full non-adiabatic coupling vectors, only wavefunction overlaps are currently implemented in the interface. The interface can also numerically differentiate dipole moments and spin-orbit couplings.
+The \sharc-\textsc{Molcas} interface can be used to conduct excited-state dynamics based on \textsc{Molcas}' CASSCF wavefunctions, and with CASPT2 or MS-CASPT2 energies (and numerical gradients). RASSCF wavefunctions are not supported currently. The interface uses the modules GATEWAY, SEWARD (integrals), RASSCF (wavefunction, energies), RASSI (transition dipole moments, spin-orbit couplings, overlaps), MCLR and ALASKA (gradients). For CASPT2, MS-CASPT2 and Cholesky-CASSCF numerical gradients can be calculated, where the interface itself controls the calculations at the displaced geometries. Since \textsc{Molcas} is not able to calculate the full non-adiabatic coupling vectors, only wavefunction overlaps are currently implemented in the interface. The interface can also numerically differentiate dipole moments and spin-orbit couplings.
 
 % The \sharc-\textsc{Molcas} interface furthermore allows to perform QM/MM dynamics (CASSCF plus force fields), through the \textsc{Molcas}-\textsc{Tinker} interface. 
 
@@ -1685,11 +1693,11 @@ always\_guess   &Always use the orbital guess from \textsc{Molcas}'s \ttt{guesso
   \end{tabular}
 \end{table}
 
-Note that the interface sets all environment variables necessary to run \textsc{Molcas} (e.g., \ttt{\$MOLCAS}, \ttt{\$MOLCASMEM}, \ttt{\$WorkDir} ,\ttt{\$Project}) automatically, based on the input from \ttt{SH2CAS.inp}.
+Note that the interface sets all environment variables necessary to run \textsc{Molcas} (e.g., \ttt{\$MOLCAS}, \ttt{\$MOLCASMEM}, \ttt{\$WorkDir} ,\ttt{\$Project}) automatically, based on the input from \ttt{SH2CAS.inp} and \ttt{QM.in}.
 
-Some explanations on parallelization: There are two parallel modes in which the interface can act. In the first mode, the wavefunction and expectation values are calculated serially first, and then all analytical gradients are computed in parallel, over the given number of CPUs. If the number of CPUs is one, then still the interface prepares independent computations for each gradient, and runs those sequentially on one CPU. If the given number of CPUs is negative or zero, then the gradients are not prepared as separate \textsc{Molcas} calculations, but together with the other quantities. The latter variant has less overhead, but is only recommended if the user is sure that MCLR will converge in virtually all cases. If MCLR does not converge occasionally, it is advisable to use NCPU=1 instead of NCPU$\leq$0.
+Some explanations on parallelization: There are two parallel modes in which the interface can act. In the first mode, the wavefunction and expectation values are calculated serially first, and then all analytical gradients are computed in parallel, over the given number of CPUs. If the number of CPUs is one, then still the interface prepares independent computations for each gradient, and runs those sequentially on one CPU. If the given number of CPUs is negative or zero, then the gradients are not prepared as separate \textsc{Molcas} calculations, but together with the other quantities. The latter variant has less overhead, but is only recommended if the user is sure that the gradient calculations (MCLR) will converge in virtually all cases. If MCLR does not converge occasionally, it is advisable to use NCPU=1 instead of NCPU$\leq$0.
 
-In the second parallelization mode, used for numerical gradients, the central point and all displacements are computed in parallel. This mode will be used for CASPT2, MS-CASPT2 and Cholesky-CASSCF gradients and spin-orbit/dipole moment derivatives. In this mode there is no distinction between NCPU=1 and NCPU$\leq$0. 
+In the second parallelization mode, used for numerical gradients, the central point is calculated first and then all displacements are computed in parallel. This mode will be used for gradients on CASPT2, MS-CASPT2 and Cholesky-CASSCF level as well as for spin-orbit/dipole moment derivatives on all levels. In this mode there is no distinction between NCPU=1 and NCPU$\leq$0. 
 
 \subsection{Template file: \ttt{MOLCAS.template}}
 
@@ -1712,7 +1720,8 @@ roots           &Followed by a list of integers, giving the number of states per
 method          &Followed by a string, which is either ``CASSCF'', ``CASPT2'' or ``MS-CASPT2'' (case insensitive), defining the level of theory. Default is ``CASSCF''.\\
 no-douglas-kroll&Deactivates the use of the scalar-relativistic DK Hamiltonian and uses a non-relativistic Hamiltonian instead. Default is Douglas-Kroll-Hess 2nd order  (In \textsc{Molcas} standard parametrization).\\
 ipea            &Followed by a float giving the IP-EA shift for CASPT2 (see \textsc{Molcas} manual for more information). The default is 0.25, as in \textsc{Molcas}.\\
-cholesky        &Activates Cholesky decomposition in \textsc{Molcas}. Recommended for large basis sets. Necessitates numerical gradients also for CASSCF. Default is to use regular 4-electron integrals.\\
+imaginary       &Followed by a float giving the imaginary level shift for CASPT2 (see \textsc{Molcas} manual for more information). The default is 0.0, as in \textsc{Molcas}.\\
+cholesky        &Activates Cholesky decomposition in \textsc{Molcas}. Recommended for large basis sets. Necessitates numerical gradients even for CASSCF. Default is to use regular 4-electron integrals.\\
 % qmmm            &Activates the QM/MM mode. In this case, two more input files need to be present (see below).
   \bottomrule
   \end{tabular}
@@ -1722,7 +1731,7 @@ The template file can be setup with the tool \ttt{molcas\_input.py}.
 
 \subsection{Template file generator: \ttt{molcas\_input.py}}\label{sec:molcas_input.py}
 
-This is a small interactive script to generate template files for the \sharc-\textsc{Molcas} interface. It simply queries the user for some input parameters and then writes the file \ttt{SH2CAS.inp}, which can be used to run \sharc\ simulations with the \sharc-\textsc{Molcas} interface.
+This is a small interactive script to generate template files for the \sharc-\textsc{Molcas} interface. It simply queries the user for some input parameters and then writes the file \ttt{MOLCAS.template}, which can be used to run \sharc\ simulations with the \sharc-\textsc{Molcas} interface.
 
 \paragraph{Geometry file}
 
