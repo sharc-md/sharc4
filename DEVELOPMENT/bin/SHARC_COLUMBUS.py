@@ -3335,7 +3335,7 @@ def runcioverlap(QMin):
   #outfile='cioverlap.out'
   #selfile='cioverlap.mask'
   #string='%s/cioverlap -s %s -t %f -e 2 < %s > %s' % (QMin['columbus'],selfile,thres,infile,outfile)
-  string='%s -f cioverlap.in > cioverlap.out' % (QMin['cioverlap'])
+  string='%s -f cioverlap.in -m %i > cioverlap.out' % (QMin['cioverlap'],QMin['colmem'])
   runerror=runProgram(string,workdir)
   if runerror!=0:
     print 'cioverlap call not successful!'
