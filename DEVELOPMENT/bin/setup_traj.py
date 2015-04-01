@@ -16,6 +16,7 @@ import random
 from optparse import OptionParser
 import readline
 import time
+from socket import gethostname
 
 # =========================================================0
 # compatibility stuff
@@ -2371,6 +2372,22 @@ def setup_all(INFOS):
         break
     if finished:
       print '\n\n%i trajectories setup, last initial condition was %i in state %i.\n' % (ntraj,icond,istate)
+      setup_stat=open('setup_traj.status','a+')
+      string='''*** %s %s %s
+  First index:          %i
+  Last index:           %i
+  Trajectories:         %i
+  State of last traj.:  %i
+
+''' % (datetime.datetime.now(),
+       gethostname(),
+       os.getcwd(),
+       INFOS['firstindex'],
+       icond,
+       ntraj,
+       istate)
+      setup_stat.write(string)
+      setup_stat.close()
       break
 
   if INFOS['qsub']:
