@@ -299,8 +299,7 @@ def get_general():
 It can also sum the quantum amplitudes:
 7       Quantum amplitudes in diagonal picture                                          from output_data/coeff_diag.out
 8       Quantum amplitudes in MCH picture                                               from output_data/coeff_MCH.out
-9       Quantum amplitudes in MCH picture (multiplets summed up)                        from output_data/coeff_MCH.out
-'''
+9       Quantum amplitudes in MCH picture (multiplets summed up)                        from output_data/coeff_MCH.out'''
   if LD_dynamics:
     print '10      Quantum amplitudes in diabatic picture                                          from output_data/coeff_diab.out'
     allowed.append(10)
@@ -496,11 +495,18 @@ def do_calc(INFOS):
   # get timestep
   for ifile in files:
     lisf=open(ifile)
+    file_valid=True
     while True:
       line=lisf.readline()
+      if line=='':
+        file_valid=False
+        break
       if line[0]=='#':
         continue
       break
+    if not file_valid:
+      lisf.close()
+      continue
     f=line.split()
     if INFOS['mode'] in [1,2,3,4,5]:
       t0=float(f[1])
