@@ -23,17 +23,17 @@ character*1024    :: sharcfacts(n_sharcfacts)   !< array containing the fun fact
   subroutine init_sharcfacts
     implicit none
 
-    sharcfacts(1)='SHARC fun fact #1: If you print the source code of SHARC and fold boats out of the paper, SHARC will &
+    sharcfacts(1) ='SHARC fun fact #1: If you print the source code of SHARC and fold boats out of the paper, SHARC will &
       &actually swim.'
-    sharcfacts(2)='SHARC fun fact #2: If you try to run SHARC backwards, you will get a CRAHS.'
-    sharcfacts(3)='SHARC fun fact #3: Seemingly, some anagrams of SHARC are frowned upon in german-speaking coutries.'
-    sharcfacts(4)='SHARC fun fact #4: SHARC is a common misspelling of a flightless, cartilaginous fish belonging to the &
+    sharcfacts(2) ='SHARC fun fact #2: If you try to run SHARC backwards, you will get a CRAHS.'
+    sharcfacts(3) ='SHARC fun fact #3: Seemingly, some anagrams of SHARC are frowned upon in german-speaking coutries.'
+    sharcfacts(4) ='SHARC fun fact #4: SHARC is a common misspelling of a flightless, cartilaginous fish belonging to the &
       &superorder selachimorpha, usually referred to as "sea dogs" until the 16th century.'
-    sharcfacts(5)='SHARC fun fact #42: SHARC is not the ultimate answer to life and everything :('
-    sharcfacts(6)='SHARC fun fact #5: SHARC can detect electromagnetic radiation.'
-    sharcfacts(7)='SHARC fun fact #6: SHARC is not a living fossil.'
-    sharcfacts(8)='SHARC fun fact #7: SHARC is a rather sophisticated random number generator.'
-    sharcfacts(9)='SHARC fun fact #8: In 2014, more people were killed by lightning than by SHARC.'
+    sharcfacts(5) ='SHARC fun fact #42: SHARC is not the ultimate answer to life and everything :('
+    sharcfacts(6) ='SHARC fun fact #5: SHARC can detect electromagnetic radiation.'
+    sharcfacts(7) ='SHARC fun fact #6: SHARC is not a living fossil.'
+    sharcfacts(8) ='SHARC fun fact #7: SHARC is a rather sophisticated random number generator.'
+    sharcfacts(9) ='SHARC fun fact #8: In 2014, more people were killed by lightning than by SHARC.'
 
   endsubroutine
 
@@ -51,7 +51,7 @@ character*1024    :: sharcfacts(n_sharcfacts)   !< array containing the fun fact
 
     call init_sharcfacts()
     call random_number(r)
-    r2=int(n_sharcfacts*r)
+    r2=int(n_sharcfacts*r)+1
     str=sharcfacts(r2)
     write(u,*) '------------------------------------------------------------------------------------------'
     do
