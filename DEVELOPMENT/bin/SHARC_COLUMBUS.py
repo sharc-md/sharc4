@@ -2016,6 +2016,8 @@ def readQMin(QMinfilename):
     print 'Spin-orbit coupling gradients not available!'
     sys.exit(50)
 
+  if not 'step' in QMin:
+    QMin['step']=['0']
 
 
   # Process the gradient requests
@@ -2530,6 +2532,9 @@ def gettasks(QMin):
     tasks.append(['mkdir',QMin['savedir']])
     tasks.append(['link', QMin['savedir'],QMin['pwd']+'/SAVE',False])
 
+  if 'molden' in QMin and not os.path.isdir(QMin['savedir']+'/MOLDEN'):
+    tasks.append(['mkdir',QMin['savedir']+'/MOLDEN'])
+
   if not 'samestep' in QMin and not 'init' in QMin:
     tasks.append(['movetoold'])
 
@@ -2879,6 +2884,9 @@ def link(PATH, NAME,crucial=True,force=False):
         sys.exit(71)
       else:
         return
+  #if not os.path.exists(os.path.realpath(NAME)):
+    ## NAME is already a broken link
+    #os.remove(NAME)
   os.symlink(PATH, NAME)
 
 # ======================================================================= #
@@ -3094,11 +3102,11 @@ def copymolden(job,QMin):
   # create directory
   jobdir=job.replace('/','_')
   moldendir=QMin['savedir']+'/MOLDEN/'+job
-  if not os.isdir(moldendir):
+  if not os.path.isdir(moldendir):
     mkdir(moldendir)
   # save the molcas.input file
   f=QMin['scratchdir']+'/JOB/MOLDEN/molden_mo_mc.sp'
-  fdest=moldendir+'/step_%05i.molden' % (int(QMin['step'][0]))
+  fdest=moldendir+'/step_%s.molden' % (QMin['step'][0])
   shutil.move(f,fdest)
 
 # ======================================================================= #
@@ -3224,7 +3232,7 @@ def writemolcas(oldgeom,newgeom,molcasinfile):
     if isinfo(line):
       if line!=geomold[ln]:
         print 'Inconsistent basis set information in line %i!' % (ln+1)
-        sys.exit(85)
+        #sys.exit(85)
       string+=line
     if isatom(line):
       parts=line.split()
@@ -3232,7 +3240,7 @@ def writemolcas(oldgeom,newgeom,molcasinfile):
       oldatom=re.sub("\d+", "", geomold[ln].split()[0])
       if parts[0]!=oldatom:
         print 'Different atoms in line %i!' % (ln+1)
-        sys.exit(86)
+        #sys.exit(86)
       parts[0]+=str(atom)
       atom+=1
       line=' '.join(parts)
@@ -3563,6 +3571,8 @@ def runeverything(tasks, QMin):
       keep_data(task[1],QMin)
     if task[0]=='backupdata':
       backupdata(task[1],QMin)
+    if task[0]=='copymolden':
+      copymolden(task[1],QMin)
     if task[0]=='make_dets':
       make_dets(task[1],QMin)
     if task[0]=='make_dets_new':
