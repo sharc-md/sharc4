@@ -2601,7 +2601,7 @@ def numdiff(enp,enn,enc,displ,o1p,o2p,o1n,o2n,iatom,idir):
 
     if (o1p==0.0 or o2p==0.0) and (o1n==0.0 or o2n==0.0):
         print 'Numerical differentiation failed, both displacements have bad overlap! iatom=%i, idir=%i' % (iatom,idir)
-        sys.exit(0)
+        sys.exit(11)
     if o1p==0.0 or o2p==0.0:
         print 'Using one-sided NumDiff for iatom=%i, idir=%i. Retaining only negative displacement.' % (iatom,idir)
         g=(enc-enn)/displ
