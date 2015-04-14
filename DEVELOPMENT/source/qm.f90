@@ -134,7 +134,7 @@ module qm
 
     ! run QM interface
     if (printlevel>3) write(u_log,*) 'Running file="QM/runQM.sh"'
-    call call_runqm
+    call call_runqm(traj)
 
     ! open QM.out
     if (printlevel>3) write(u_log,*) 'QMout file="QM/QM.out"'
@@ -298,7 +298,7 @@ module qm
 
       ! call QM interface
       if (printlevel>3) write(u_log,*) 'Running file="QM/runQM.sh"'
-      call call_runqm
+      call call_runqm(traj)
 
       ! open QM.out
       if (printlevel>3) write(u_log,*) 'QMout file="QM/QM.out"'
@@ -393,7 +393,7 @@ module qm
       call write_tasks_third(traj,ctrl)
       close(u_qm_qmin)
       if (printlevel>3) write(u_log,*) 'Running file="QM/runQM.sh"'
-      call call_runqm
+      call call_runqm(traj)
       if (printlevel>3) write(u_log,*) 'QMout file="QM/QM.out"'
       call open_qmout(u_qm_qmout, 'QM/QM.out')
       call get_gradients(ctrl%nstates, ctrl%natom, traj%grad_MCH_sad)
@@ -425,9 +425,11 @@ module qm
 !> calls QM/runQM.sh
 !> In QM/runQM.sh, the correct interface has to be called.
 !> sharc.x does not know which interface is employed.
-  subroutine call_runqm
+  subroutine call_runqm(traj)
     use definitions
+    use output
     implicit none
+    type(trajectory_type) :: traj
     integer(KIND=2):: status
     character(255) :: command
     integer(KIND=2) :: system
@@ -443,6 +445,13 @@ module qm
       write(0,*) 'Error code: ',status
       write(0,*) '#===================================================#'
       write(0,*) 
+      if (printlevel>0) then
+        write(u_log,*) '============================================================='
+        write(u_log,*) 'QM call was not successful, aborting the run.'
+        write(u_log,*) 'Error code: ',status
+        write(u_log,*) '============================================================='
+        call write_final(traj)
+      endif
       stop 1
     endif
 
