@@ -1021,7 +1021,13 @@ def excite(INFOS,initlist):
         elif INFOS['excite']==3:
           # and excite
           for j,jstate in enumerate(icond.statelist):
-            jstate.Excite(maxprob,INFOS['erange'])
+            if emin <= jstate.Eexc <= emax:
+              if -(j+1) not in INFOS['allowed']:
+                jstate.Excite(maxprob,INFOS['erange'])
+              else:
+                jstate.Excited=False
+            else:
+              jstate.Excited=False
 
   # statistics
   maxprob=0.
