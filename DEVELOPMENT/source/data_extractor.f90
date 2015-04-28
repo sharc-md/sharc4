@@ -209,58 +209,21 @@ write(u_prob,'(A1,1X,3(A20,1X))') '#','[fs] |','[] |','[] |'
 
 
 write(u_expec,'(A1,1X,1000(I20,1X))') '#',(i,i=1,3*nstates+4)
-write(string, '(A1,1X,4(A20,1X))') '#','Time |','Ekin |','Epot |','Etot |'
-do i=1,nstates
-  write(string2,'(1X,A8,I10,A2)') 'Energy ',i,' |'
-  string=trim(string)//string2
-enddo
-!write(string2,'(X,A20)') 'Spin (occ) |'
-!string=trim(string)//string2
-do i=1,nstates
-  write(string2,'(1X,A5,I13,A2)') 'Spin ',i,' |'
-  string=trim(string)//string2
-enddo
-!write(string2,'(X,A20)') 'f_osc (occ) |'
-!string=trim(string)//string2
-do i=1,nstates
-  write(string2,'(1X,A6,I12,A2)') 'f_osc ',i,' |'
-  string=trim(string)//string2
-enddo
-write(u_expec,'(A)') trim(string)
-write(string, '(A1,1X,4(A20,1X))') '#','[fs] |','[eV] |','[eV] |','[eV] |'
-do i=1,nstates
-  write(string2,'(1X,A20)') '[eV] |'
-  string=trim(string)//string2
-enddo
-do i=1,nstates
-  write(string2,'(1X,A20)') '[] |'
-  string=trim(string)//string2
-enddo
-do i=1,nstates
-  write(string2,'(1X,A20)') '[] |'
-  string=trim(string)//string2
-enddo
-write(u_expec,'(A)') trim(string)
-
-
 write(u_expec_mch,'(A1,1X,1000(I20,1X))') '#',(i,i=1,3*nstates+4)
 write(string, '(A1,1X,4(A20,1X))') '#','Time |','Ekin |','Epot |','Etot |'
 do i=1,nstates
   write(string2,'(1X,A8,I10,A2)') 'Energy ',i,' |'
   string=trim(string)//string2
 enddo
-!write(string2,'(X,A20)') 'Spin (occ) |'
-!string=trim(string)//string2
 do i=1,nstates
   write(string2,'(1X,A5,I13,A2)') 'Spin ',i,' |'
   string=trim(string)//string2
 enddo
-!write(string2,'(X,A20)') 'f_osc (occ) |'
-!string=trim(string)//string2
 do i=1,nstates
   write(string2,'(1X,A6,I12,A2)') 'f_osc ',i,' |'
   string=trim(string)//string2
 enddo
+write(u_expec,'(A)') trim(string)
 write(u_expec_mch,'(A)') trim(string)
 write(string, '(A1,1X,4(A20,1X))') '#','[fs] |','[eV] |','[eV] |','[eV] |'
 do i=1,nstates
@@ -275,7 +238,9 @@ do i=1,nstates
   write(string2,'(1X,A20)') '[] |'
   string=trim(string)//string2
 enddo
+write(u_expec,'(A)') trim(string)
 write(u_expec_mch,'(A)') trim(string)
+
 
 ! spin values in MCH basis
 ! spin values in diagonal basis are calculated from these 
