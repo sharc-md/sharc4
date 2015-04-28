@@ -94,8 +94,8 @@ if sys.version_info[1]<5:
 
 # ======================================================================= #
 
-version='1.0'
-versiondate=datetime.date(2014,10,8)
+version='1.1'
+versiondate=datetime.date(2015,4,16)
 
 
 changelogstring='''
@@ -133,7 +133,13 @@ changelogstring='''
 - official release version, no changes to 0.3.06
 
 20.02.2015:
-- fixed a bug with obtaining the hostname, and updated the debug facilities'''
+- fixed a bug with obtaining the hostname, and updated the debug facilities
+
+01.04.2015:     1.1
+- moved to new cioverlap code of Felix Plasser, Matthias Ruckenbauer, Sebastian Mai
+
+16.04.2015:
+- cioverlap.x default path is $SHARC/cioverlap.x'''
 
 # ======================================================================= #
 # holds the system time when the script was started
@@ -2093,7 +2099,14 @@ def readQMin(QMinfilename):
   if 'ion' in QMin:
     QMin['dyson']=get_sh2col_environ(sh2col,'dyson',False)
   if 'overlap' in QMin:
-    QMin['cioverlap']=get_sh2col_environ(sh2col,'cioverlap',False)
+    QMin['cioverlap']=get_sh2col_environ(sh2col,'cioverlap',False,False)
+    if QMin['cioverlap']==None:
+      ciopath=os.path.join(os.path.expandvars(os.path.expanduser('$SHARC')),'cioverlap.x')
+      if os.path.isfile(ciopath):
+        QMin['cioverlap']=ciopath
+      else:
+        print 'Give path to cioverlap.x in SH2COL.inp!'
+        sys.exit(41)
 
   # Set up scratchdir
   QMin['scratchdir']=get_sh2col_environ(sh2col,'scratchdir',False,False)
@@ -2142,7 +2155,7 @@ def readQMin(QMinfilename):
         print 'Cioverlaps threshold variable does not evaluate to numerical value!'
         sys.exit(58)
     else:
-      print 'WARNING: Please set ciothres to some appropriate value (floating point number)! Using 1e-5 default value!'
+      print 'WARNING: Please set ciothres to some appropriate value (floating point number)! Using 5e-2 default value!'
 
   if 'ion' in QMin:
     QMin['dysonthres']=1e-4
@@ -2154,7 +2167,7 @@ def readQMin(QMinfilename):
         print 'Dyson threshold variable does not evaluate to numerical value!'
         sys.exit(59)
     else:
-      print 'WARNING: Please set dysonthres to some appropriate value (floating point number)! Using 1e-3 default value!'
+      print 'WARNING: Please set dysonthres to some appropriate value (floating point number)! Using 1e-4 default value!'
     QMin['civecthres']=QMin['dysonthres']
     line=getsh2colkey(sh2col,'civecthres')
     if line[0]:
@@ -2166,18 +2179,18 @@ def readQMin(QMinfilename):
     else:
       print 'INFO: Please set civecthres to some appropriate value (floating point number)! Using same value as dysonthres.'
 
-    line=getsh2colkey(sh2col,'excitlists')
-    if line[0]:
-      CIOEXCIT=line[1]
-      CIOEXCIT=os.path.expandvars(CIOEXCIT)
-      CIOEXCIT=os.path.expanduser(CIOEXCIT)
-      CIOEXCIT=removequotes(CIOEXCIT).strip()
-      if containsstring(';',CIOEXCIT):
-        print "$CIOEXCIT contains a semicolon. Do you probably want to execute another command after CIOEXCIT? I can't do that for you..."
-        sys.exit(61)
-      QMin['cioexcitlists']=CIOEXCIT
-    else:
-      print 'Hint: Set in SH2COL.inp a path to a directory containing the excitlistfiles, so that not every trajectory has to calculate them individually.'
+    #line=getsh2colkey(sh2col,'excitlists')
+    #if line[0]:
+      #CIOEXCIT=line[1]
+      #CIOEXCIT=os.path.expandvars(CIOEXCIT)
+      #CIOEXCIT=os.path.expanduser(CIOEXCIT)
+      #CIOEXCIT=removequotes(CIOEXCIT).strip()
+      #if containsstring(';',CIOEXCIT):
+        #print "$CIOEXCIT contains a semicolon. Do you probably want to execute another command after CIOEXCIT? I can't do that for you..."
+        #sys.exit(61)
+      #QMin['cioexcitlists']=CIOEXCIT
+    #else:
+      #print 'Hint: Set in SH2COL.inp a path to a directory containing the excitlistfiles, so that not every trajectory has to calculate them individually.'
 
   line=getsh2colkey(sh2col,'nooverlap')
   if line[0]:
