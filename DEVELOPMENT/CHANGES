@@ -11,7 +11,7 @@ version 1.02
 version 1.1
         excite.py: fixed a bug with printing MS values in the dialog, fixed a bug with delta pulse selection
         molcas_input.py: rewritten, now also writes proper MOLCAS input files in addition to MOLCAS.template files for the interface
-        molpro_input.py: fixed a bug in the check of the CAS size, added check for empty state list
+        molpro_input.py: fixed a bug in the check of the CAS size, added check for empty state list, can now write input for EOM-CCSD, CI/MXP-optimization
         setup_init.py: changed to accomodate the new MOLCAS interface
         setup_traj.py: changed to accomodate the new MOLCAS interface
         SHARC_MOLCAS.py: rewritten, CASPT2 dynamics, dipole/SOC derivatives, parallization
