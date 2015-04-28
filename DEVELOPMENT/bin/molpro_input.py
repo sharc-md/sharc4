@@ -331,15 +331,16 @@ specific:
   # Type of calculation
   print centerstring('Type of calculation',60,'-')
   print '''\nThis script generates input for the following types of calculations:
-  1       Single point calculations (HF, DFT, MP2, SS/SA-CASSCF)
+  1       Single point calculations (HF, DFT, MP2, SS/SA-CASSCF, EOM-CCSD)
   2       Optimizations & Frequency calculations (HF, DFT, MP2, SS/SA-CASSCF)
   3       MOLPRO.template file for dynamics (SA-CASSCF)
+  4       Crossing point optimization: CI and MXP (SA-CASSCF)
 Please enter the number corresponding to the type of calculation.
 '''
   while True:
     ctype=question('Type of calculation:',int)[0]
-    if not ctype in [1,2,3]:
-      print 'Enter an integer (1-3)!'
+    if not ctype in [1,2,3,4]:
+      print 'Enter an integer (1-4)!'
       continue
     break
   INFOS['ctype']=ctype
@@ -468,21 +469,29 @@ Please enter the number corresponding to the type of calculation.
 
   # Level of theory
   print '\n'+centerstring('Level of theory',60,'-')
-  print '''\nSupported by this script are:
+  allowed=[1,2,3,4,5]
+  s='''\nSupported by this script are:
   1       HF
   2       DFT %s
   3       MP2 %s
   4       SS-CASSCF
   5       SA-CASSCF %s
 ''' % tuple(3*[['','(Only numerical frequencies)'][INFOS['freq']]])
-  if ctype==3:
+  if ctype==1 and INFOS['nelec']%2==0:
+    s+='  6       EOM-CCSD\n'
+    allowed.append(6)
+  else:
+    s+='EOM-CCSD is not possible for odd-electron systems.\n'
+  print s
+
+  if ctype==3 or ctype==4:
     ltype=5
     print 'Choosing SA-CASSCF for MOLPRO.template generation.'
   else:
     while True:
       ltype=question('Level of theory:',int)[0]
-      if not ltype in [1,2,3,4,5]:
-        print 'Enter an integer (1-5)!'
+      if not ltype in allowed:
+        print 'Enter an integer in %s!' % (allowed)
         continue
       break
   INFOS['ltype']=ltype
@@ -502,8 +511,8 @@ Please enter the number corresponding to the type of calculation.
 
   # basis set
   print '\nPlease enter the basis set.'
-  cadpac=(ctype==2 and ltype+freq>=5) or ctype==3
-  if ctype==2 and ltype+freq>=5:
+  cadpac=(ctype==2 and ltype+freq>=5) or ctype==3 or ctype==4
+  if (ctype==2 and ltype+freq>=5) or ctype==4:
     print 'For SA-CASSCF Optimizations/Frequencies and SS-CASSCF Frequencies,\nonly segmented basis sets are allowed.'
   if ctype==3:
     print 'For MOLPRO.template generation, only segmented basis sets are allowed.'
@@ -520,7 +529,7 @@ Please enter the number corresponding to the type of calculation.
   INFOS['DK']=dk
 
   # CASSCF
-  if ltype>=4:
+  if ltype==4 or ltype==5:
     print '\n'+centerstring('CASSCF Settings',60,'-')+'\n'
     while True:
       nact=question('Number of active electrons:',int,guessnact)[0]
@@ -596,8 +605,56 @@ Please enter the number corresponding to the type of calculation.
           continue
         break
       INFOS['cas.root']=[rmult,rstate]
+    if ctype==4:
+      print '\nPlease specify the first state involved in the optimization\ne.g. 3 2 for the second triplet state.'
+      while True:
+        rmult,rstate=tuple(question('Root:',int,[1,1]))
+        if not 1<=rmult<=INFOS['maxmult']:
+          print '%i must be between 1 and %i!' % (rmult,INFOS['maxmult'])
+          continue
+        if not 1<=rstate<=states[rmult-1]:
+          print 'Only %i states of mult %i' % (states[rmult-1],rmult)
+          continue
+        break
+      INFOS['cas.root1']=[rmult,rstate]
+      print '\nPlease specify the second state involved in the optimization\ne.g. 3 2 for the second triplet state.'
+      while True:
+        rmult,rstate=tuple(question('Root:',int,[1,2]))
+        if not 1<=rmult<=INFOS['maxmult']:
+          print '%i must be between 1 and %i!' % (rmult,INFOS['maxmult'])
+          continue
+        if not 1<=rstate<=states[rmult-1]:
+          print 'Only %i states of mult %i' % (states[rmult-1],rmult)
+          continue
+        break
+      INFOS['cas.root2']=[rmult,rstate]
+      if INFOS['cas.root1']==INFOS['cas.root2']:
+        print 'Both states are identical, please use calculation type 2 for optimizations of state minima.'
+        quit(1)
+      if INFOS['cas.root1'][0]==INFOS['cas.root2'][0]:
+        print 'Multiplicities of both states identical, optimizing a conical intersection.'
+        INFOS['cas.opt_ci']=True
+      else:
+        print 'Multiplicities of both states different, optimizing a minimum crossing point.'
+        INFOS['cas.opt_ci']=False
     if ctype==1 and maxmult>1:
       INFOS['soci']=question('Do Spin-Orbit CASCI after CASSCF?',bool,False)
+  elif ltype==6:
+    print '\nPlease enter the number of singlet states (1=only CCSD, >1=EOM-CCSD)'
+    while True:
+      nstates=question('Number of states:',int,[1])[0]
+      if nstates<=0:
+        print 'Enter a positive number!'
+        continue
+      break
+    if nstates==1:
+      INFOS['ccsd.eom']=False
+    else:
+      INFOS['ccsd.eom']=True
+    INFOS['ccsd.states']=nstates
+    INFOS['mult']=1
+    if nstates>1:
+      INFOS['ccsd.trans']=question('Calculate oscillator strength?',bool,False)
 
   print '\n'+centerstring('Memory',60,'-')
   print '\nRecommendation: for small systems: 100-300 MB, for medium-sized systems: 1000-2000 MB\n'
@@ -629,7 +686,7 @@ def setup_input(INFOS):
 
   s='***,%s generated by molpro_input.py Version %s\n' % (inpf,version)
   s+='memory,%i,k\n\n' % (INFOS['mem']*125)     # convert to Mega-Words
-  if INFOS['ctype']<3:
+  if INFOS['ctype']!=3:
     s+='file,1,./integrals,scratch\n'
     s+='file,2,./wf,new   ! remove ",new" if you want to restart\n'
   s+='\n\nprint,orbitals,civectors;\n\n'
@@ -648,6 +705,7 @@ def setup_input(INFOS):
       s+='mass,init,%s%i=%f\n' % (atom[0],iatom+1,INFOS['masslist'][iatom][1])
     s+='mass,print\n\n'
 
+  # ============================ HF
   if INFOS['ltype']==1:
     if INFOS['nelec']%2==0:
       s+='{hf'
@@ -656,6 +714,7 @@ def setup_input(INFOS):
     if INFOS['mult']!=1 or INFOS['ncharge']!=INFOS['nelec']:
       s+='\nwf,%i,1,%i\n' % (INFOS['nelec'],INFOS['mult']-1)
     s+='};\n\n'
+  # ============================ DFT
   elif INFOS['ltype']==2:
     if INFOS['nelec']%2==0:
       s+='{ks'
@@ -667,6 +726,7 @@ def setup_input(INFOS):
     if INFOS['mult']!=1 or INFOS['ncharge']!=INFOS['nelec']:
       s+='\nwf,%i,1,%i\n' % (INFOS['nelec'],INFOS['mult']-1)
     s+='};\n\n'
+  # ============================ MP2
   elif INFOS['ltype']==3:
     if INFOS['nelec']%2==0:
       s+='{hf'
@@ -678,7 +738,23 @@ def setup_input(INFOS):
       s+='};\n{mp2};\n\n'
     else:
       s+='};\n{ump2};\n\n'
-  elif INFOS['ltype']>=4:
+  # ============================ CCSD
+  elif INFOS['ltype']==6:
+    if INFOS['nelec']%2==0:
+      s+='{hf'
+    else:
+      s+='{uhf'
+    if INFOS['mult']!=1 or INFOS['ncharge']!=INFOS['nelec']:
+      s+='\nwf,%i,1,%i\n' % (INFOS['nelec'],INFOS['mult']-1)
+    if INFOS['nelec']%2==0:
+      s+='};\n{ccsd'
+    else:
+      s+='};\n{uccsd'
+    if INFOS['ccsd.eom']:
+      s+='\neom,-%i.1%s' % (INFOS['ccsd.states'],['',',trans=1'][INFOS['ccsd.trans']])
+    s+='};\n\n'
+  # ============================ CASSCF
+  elif INFOS['ltype']==4 or INFOS['ltype']==5:
     s+='{casscf\n'
     s+='frozen,0\nclosed,%i\n' % ((INFOS['nelec']-INFOS['cas.nact'])/2)
     s+='occ,%i\n' % (INFOS['cas.norb']+(INFOS['nelec']-INFOS['cas.nact'])/2)
@@ -696,9 +772,20 @@ def setup_input(INFOS):
 
     if INFOS['ctype']==2:
       if INFOS['ltype']==5:
-        s+='\ncpmcscf,grad,state=%i.1,ms2=%i,record=5001.2,accu=1e-7\n' % (INFOS['cas.root'][1],INFOS['cas.root'][0]-1)
+        s+='\ncpmcscf,grad,state=%i.1,ms2=%i,record=5001.1,accu=1e-7\n' % (INFOS['cas.root'][1],INFOS['cas.root'][0]-1)
       if INFOS['ltype']==4 and INFOS['freq']:
         s+='\ncpmcscf,hess,accu=1e-4\n'
+    if INFOS['ctype']==4:
+      if INFOS['cas.opt_ci']:
+        if INFOS['cas.root1'][1]>INFOS['cas.root2'][1]:
+          INFOS['cas.root1'],INFOS['cas.root2']=INFOS['cas.root2'],INFOS['cas.root1']
+        s+='\ncpmcscf,nacm,state1=%i.1,state2=%i.1,ms2=%i,record=5001.1,accu=1e-7\n' % (
+          INFOS['cas.root1'][1],
+          INFOS['cas.root2'][1],
+          INFOS['cas.root1'][0]-1)
+      s+='\ncpmcscf,grad,state=%i.1,            ms2=%i,record=5002.1,accu=1e-7\n' % (INFOS['cas.root1'][1],INFOS['cas.root1'][0]-1)
+      s+='\ncpmcscf,grad,state=%i.1,            ms2=%i,record=5003.1,accu=1e-7\n' % (INFOS['cas.root2'][1],INFOS['cas.root2'][0]-1)
+
     s+='};\n\n'
 
   if INFOS['ctype']==2:
@@ -707,9 +794,30 @@ def setup_input(INFOS):
       s+='{frequencies};\n'
     s+='\n'
 
+  if INFOS['ctype']==4:
+    if INFOS['cas.opt_ci']:
+      recs=[1,2,3]
+    else:
+      recs=[2,3]
+    for irec in recs:
+      s+='{force\nsamc,%i.1\nconical,6100.1%s}\n\n' % (
+        5000+irec,
+        [',nodc',''][INFOS['cas.opt_ci']])
+    s+='{optg,maxit=50,startcmd=casscf,gradient=1e-4};\n\n'
+    s+='{casscf\n'
+    s+='frozen,0\nclosed,%i\n' % ((INFOS['nelec']-INFOS['cas.nact'])/2)
+    s+='occ,%i\n' % (INFOS['cas.norb']+(INFOS['nelec']-INFOS['cas.nact'])/2)
+    for i,n in enumerate(INFOS['cas.nstates']):
+      if n==0:
+        continue
+      s+='wf,%i,1,%i\n' % (INFOS['nelec'],i)
+      s+='state,%i\n' % (n)
+      s+='weight'+',1'*n+'\n'
+    s+='};\n\n'
+
   if INFOS['ctype']==1:
     s+='PUT,MOLDEN,geom.molden\n'
-  elif INFOS['ctype']==2:
+  elif INFOS['ctype']==2 or INFOS['ctype']==4:
     if INFOS['freq']:
       s+='PUT,MOLDEN,freq.molden\n'
     else:
@@ -743,7 +851,7 @@ def setup_input(INFOS):
 
 def set_runscript(INFOS):
 
-  if INFOS['ctype']>=3:
+  if INFOS['ctype']==3:
     return
 
   print ''
