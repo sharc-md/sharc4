@@ -641,6 +641,11 @@ The nuclear geometries in \ttt{output.xyz} file can be analyzed in terms of inte
 
 For the complete ensemble, the script \ttt{populations.py} (section~\ref{sec:populations.py} can calculate average excited-state populations. The script~\ttt{crossing.py} (\ref{sec:crossing.py}) can find and extract notable geometries, e.g., those geometries where a surface hop between two particular states occured.
 
+It is advisable that any trajectories which are not suitable for final analysis (e.g., not finished due to technical reasons, unreasonable variation in total energy, etc.) are excluded from the analysis. 
+This can be conveniently accomplished by placing a file named \ttt{CRASHED} in the directory of the respective trajectory. 
+The ensemble analysis scripts (\ttt{populations.py} and \ttt{crossing.py}) will ignore any trajectories marked this way.
+Furthermore, trajectories which are still running and should be excluded from preliminary analysis can be marked with a file called \ttt{RUNNING}.
+
 \section{Auxilliary Programs and Scripts}
 
 The following tables list the auxiliary programs in the \sharc\ suite. The rightmost column gives the section where the program is documented.
@@ -2869,7 +2874,7 @@ Depending on the analysis mode (see below) it might be necessary to run \ttt{dat
 
 First the script asks the user to specify all directories for whose content the analysis should be performed. Enter one directory path at a time, and finish the directory input section by typing ``\ttt{end}''. Please do not specify each trajectory directory separately, but specify their parent directories, e.g.\ the directories \ttt{Singlet\_1} and \ttt{Singlet\_2}. \ttt{populations.py} will automatically include all trajectories contained in these directories.
 
-If you want to exclude certain trajectories from the analysis, it is sufficient to create an empty file called \ttt{CRASHED} or \ttt{RUNNING} in the corresponding trajectory directory. \ttt{populations.py} will ignore all directories containing one of these files.
+If you want to exclude certain trajectories from the analysis, it is sufficient to create an empty file called \ttt{CRASHED} or \ttt{RUNNING} in the corresponding trajectory directory. \ttt{populations.py} will ignore all directories containing one of these files. The file name is case insensitive, i.e., also files like \ttt{crashed} or even \ttt{cRasHED} will lead to the trajectory being ignored.
 
 \paragraph{Analysis mode}
 
