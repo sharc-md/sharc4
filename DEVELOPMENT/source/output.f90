@@ -194,6 +194,7 @@ endsubroutine
     write(u,'(A)') 
     write(u,'(A)') 
     write(u,'(A)') 'Please report bugs and feature suggestions to:'
+    write(u,'(A)') 'sharc@univie.ac.at'
     write(u,'(A)') 'philipp.marquetand@univie.ac.at'
     write(u,'(A)') 
     write(u,'(A)') 

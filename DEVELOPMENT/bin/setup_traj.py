@@ -16,6 +16,7 @@ import random
 from optparse import OptionParser
 import readline
 import time
+from socket import gethostname
 
 # =========================================================0
 # compatibility stuff
@@ -1492,17 +1493,18 @@ In order to setup the COLUMBUS input, use COLUMBUS' input facility colinp. For f
   # cioverlaps
   if Couplings[INFOS['coupling']]['name']=='overlap':
     print centerstring('cioverlaps',60,'-')+'\n'
-    print 'If you do MRCI and cioverlaps, it is strongly advisory to first generate the excitlistfiles for cioverlaps, since their generation can take several hours. These files can then be used for all trajectories, so that the excitlistfiles have to be generated only once.'
-    excitlf=question('Do you have excitlistfiles?',bool,True)
-    if not excitlf:
-      INFOS['columbus.excitlf']=None
-    else:
-      print '\nPlease enter the path to the directory containing the excitlistfiles.'
-      INFOS['columbus.excitlf']=question('Path to excitlistfiles:',str)
-    print ''
-    print 'Please enter the cioverlaps screening threshold (recommended 1e-5)'
+    #print 'If you do MRCI and cioverlaps, it is strongly advisory to first generate the excitlistfiles for cioverlaps, since their generation can take several hours. These files can then be used for all trajectories, so that the excitlistfiles have to be generated only once.'
+    #excitlf=question('Do you have excitlistfiles?',bool,True)
+    #if not excitlf:
+      #INFOS['columbus.excitlf']=None
+    #else:
+      #print '\nPlease enter the path to the directory containing the excitlistfiles.'
+      #INFOS['columbus.excitlf']=question('Path to excitlistfiles:',str)
+    #print ''
+    INFOS['columbus.ciopath']=question('Path to cioverlap executable:',str)
+    print 'Please enter the cioverlaps density threshold (recommended 1e-2)'
     while True:
-      INFOS['columbus.ciothres']=question('Cioverlaps screening threshold:',float,[1e-5])[0]
+      INFOS['columbus.ciothres']=question('Cioverlaps screening threshold:',float,[1e-2])[0]
       if not 0<INFOS['columbus.ciothres']<=1:
         print 'Must be between 0 and 1!'
         continue
@@ -1919,9 +1921,10 @@ template %s
     string+='civecconsolidate %s\n' % (INFOS['columbus.civecpath'])
     string+='dysonthres %s\n' % (INFOS['columbus.dysonthres'])
   if Couplings[INFOS['coupling']]['name']=='overlap':
-    if INFOS['columbus.excitlf']:
-      string+='excitlists %s\n' % (INFOS['columbus.excitlf'])
+    #if INFOS['columbus.excitlf']:
+      #string+='excitlists %s\n' % (INFOS['columbus.excitlf'])
     string+='ciothres %f\n' % (INFOS['columbus.ciothres'])
+    string+='cioverlaps %s\n' % (INFOS['columbus.ciopath'])
   else:
     string+='nooverlap\n'
   sh2col.write(string)
@@ -2010,10 +2013,10 @@ project %s''' % (INFOS['molcas'],
     for i in INFOS['molcas.guess']:
       if INFOS['molcas.jobiph_or_rasorb']==1:
         cpfrom=INFOS['molcas.guess'][i]
-        cpto='%s/%s.%i.JobIph.init' % (iconddir,project,i)
+        cpto='%s/QM/%s.%i.JobIph.init' % (iconddir,project,i)
       else:
         cpfrom=INFOS['molcas.guess'][i]
-        cpto='%s/%s.%i.RasOrb.init' % (iconddir,project,i)
+        cpto='%s/QM/%s.%i.RasOrb.init' % (iconddir,project,i)
       shutil.copy(cpfrom,cpto)
 
   # runQM.sh
@@ -2369,6 +2372,22 @@ def setup_all(INFOS):
         break
     if finished:
       print '\n\n%i trajectories setup, last initial condition was %i in state %i.\n' % (ntraj,icond,istate)
+      setup_stat=open('setup_traj.status','a+')
+      string='''*** %s %s %s
+  First index:          %i
+  Last index:           %i
+  Trajectories:         %i
+  State of last traj.:  %i
+
+''' % (datetime.datetime.now(),
+       gethostname(),
+       os.getcwd(),
+       INFOS['firstindex'],
+       icond,
+       ntraj,
+       istate)
+      setup_stat.write(string)
+      setup_stat.close()
       break
 
   if INFOS['qsub']:
