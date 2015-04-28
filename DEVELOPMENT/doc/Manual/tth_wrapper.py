@@ -44,6 +44,7 @@ pwd=os.getcwd()
 mathenv=['equation','multline','align']
 density_for_pdf={'sharc.pdf': 20}
 tthpath='/user/mai/SHARC/REPOSITORY/DEVELOPMENT/doc/bin/tth'
+tthpath='~/Dokumente/Arbeit/SHARC/REPOSITORY/sharc_main/DEVELOPMENT/doc/bin/tth'
 
 
 # ================================================================================
@@ -103,6 +104,9 @@ while True:
     outf.write(line)
     continue
 
+
+
+
   # convert all \includegraphics
   # convert pdf to png, put all pngs to imagepath
   # change path in \includegraphics
@@ -138,23 +142,89 @@ while True:
     newline=preline+newfilename+postline
     outf.write(newline)
 
+
+
+
   # convert equation environments to png via pdflatex and convert
   # copy them to imagepath
   # replace equation environment with includegraphics
   elif any([r'\begin{%s}' % (i) in line for i in mathenv]):
     print '%s found' % (line.strip())
+    if 'align' in line:
+      align=True
+    else:
+      align=False
     iline-=1
+    cases=False
     while True:
-      iline+=1
-      line=tex[iline]
-      eqf.write(line)
+      labelname=''
+      while True:
+        iline+=1
+        line=tex[iline]
+
+        if r'\label' in line:
+          preline=re.findall(r'^.*\label{',line)[0]
+          postline=line[len(preline):-1]
+          postline=re.findall(r'}.*$',postline)[0]
+          labelname=line[len(preline):-1][0:len(line)-len(preline)-len(postline)-1]
+
+        if r'\begin{cases}' in line:
+          cases=True
+        elif r'\end{cases}' in line:
+          cases=False
+
+        if align:
+          if r'\\' in line and not cases:
+            preline=re.findall(r'^.*\\',line)[0][:-2]
+            postline=line[len(preline):-1]
+            eqf.write(preline+'\n')
+            eqf.write(r'\end{equation}'+'\n')
+            eqf.write(r'\begin{equation}')
+            eqf.write(r'\nonumber')
+            eqf.write(postline+'\n')
+            break
+          else:
+            if r'\begin{align}' in line or r'\end{align}' in line:
+              line=re.sub('align','equation',line)
+            eqf.write(line)
+            if r'\begin' in line:
+              eqf.write(r'\nonumber')
+        else:
+          eqf.write(line)
+          if r'\begin' in line:
+            eqf.write(r'\nonumber')
+        if any([r'\end{%s}' % (i) in line for i in mathenv]):
+          break
+
+      # get filename
+      eqc+=1
+      newfilename=os.path.join(imagepath,'equation-%i.png' % (eqc))
+      newline=r'''
+\begin{equation}
+  \includegraphics{%s}''' % (newfilename)
+      if labelname:
+        newline+='\label{%s}' % (labelname)
+      newline+=r'''
+\end{equation}
+'''
+      outf.write(newline)
+
       if any([r'\end{%s}' % (i) in line for i in mathenv]):
         break
-    # get filename
-    eqc+=1
-    newfilename=os.path.join(imagepath,'equation-%i.png' % (eqc))
-    newline='\n\includegraphics{%s}\n' % (newfilename)
-    outf.write(newline)
+
+
+
+  # replace \eqref{} with (\ref{})
+  elif r'\eqref' in line:
+    line=re.sub(r'\\eqref{(.*)}',r'(\\ref{\1})',line)
+    outf.write(line)
+
+
+  # delete \bibentry
+  elif r'\bibentry' in line:
+    line=re.sub(r'\\bibentry{(.*)}',r'\1',line)
+    outf.write(line)
+
 
   # put chapters into the equation file for correct numbering
   elif r'\chapter' in line:
@@ -168,6 +238,8 @@ while True:
 outf.close()
 eqf.write(poststring)
 eqf.close()
+
+#quit(1)
 
 os.chdir(temppath)
 shline='pdflatex -interaction=nonstopmode %s > pdflatex.log 2> pdflatex.err' % (eqbasename)
@@ -235,6 +307,8 @@ htmls=''
 
 
 imagepath2='http://sharc-md.org/wp-content/uploads/2014/10'
+
+imagepath2='html/'
 
 
 write=False
