@@ -522,6 +522,8 @@ def do_calc(INFOS):
       f=line.split()
       l2=line
       N+=1
+    if N==0:
+      continue
     f=l2.split()
     if INFOS['mode'] in [1,2,3,4,5]:
       dt=(float(f[1])-t0)/N
@@ -532,6 +534,7 @@ def do_calc(INFOS):
       quit(1)
     lisf.close()
     nsteps=int(INFOS['maxtime']/dt)+1
+    break
 
   # get nstates
   if INFOS['mode'] in [1,2,7,8,10]:
@@ -608,6 +611,7 @@ def do_calc(INFOS):
           pop[t][i]+=vec[i]
   print 'Shortest trajectory: %f' % (shortest)
   print 'Longest trajectory: %f' % (longest)
+  print 'Number of trajectories: %i' % (ntraj)
   INFOS['shortest']=shortest
   INFOS['longest']=longest
 
