@@ -1592,7 +1592,7 @@ Note that \ttt{Molpro} cannot calculation SA-CASSCF gradients for generally cont
 
 \subsection{Molpro input generator: \ttt{molpro\_input.py}}\label{sec:molpro_input.py}
 
-In order to quickly setup simple calculations using \textsc{Molpro}, the \sharc\ suite contains a small script called \ttt{molpro\_input.py}. It can be used to setup singlepoint calculations, optimizations and frequency calculations on the HF, DFT, MP2 and CASSCF level of theory. Of course, \textsc{Molpro} has far more capabilities, but these are not covered by \ttt{molpro\_input.py}. However, \ttt{molpro\_input.py} can also prepare template files which are compatible with the \sharc-\text{Molpro} interface.
+In order to quickly setup simple calculations using \textsc{Molpro}, the \sharc\ suite contains a small script called \ttt{molpro\_input.py}. It can be used to setup singlepoint calculations, optimizations and frequency calculations on the HF, DFT, MP2 and CASSCF level of theory. Of course, \textsc{Molpro} has far more capabilities, but these are not covered by \ttt{molpro\_input.py}. However, \ttt{molpro\_input.py} can also prepare template files which are compatible with the \sharc-\textsc{Molpro} interface.
 
 The script interactively asks the user to specify the calculation and afterwards writes an input file and optionally a run script.
 
@@ -1600,7 +1600,7 @@ The script interactively asks the user to specify the calculation and afterwards
 
 \paragraph{Type of calculation}
 
-Choose to either perform a single-point calculation or an optimization (including optionally frequency calculation), or to generate a template file. In the latter case, no geometry file is needed. The script looks for a \ttt{MOLPRO.input} in the same directory and allows to copy the settings. 
+Choose to either perform a single-point calculation or a minimum optimization (including optionally frequency calculation), to generate a template file, or an optimization of a state crossing. For the template generation, no geometry file is needed, but the script looks for a \ttt{MOLPRO.input} in the same directory and allows to copy the settings. 
 
 For single-point calculations, optimizations and frequency calculations, files in \textsc{Molden} format called \ttt{geom.molden}, \ttt{opt.molden} or \ttt{freq.molden}, respectively, are created (containing the orbitals, optimization steps and normal modes, respectively). The file \ttt{freq.molden} can be used to generate initial conditions with \ttt{wigner.py}.
 
@@ -1618,9 +1618,9 @@ Note that when using the produced \textsc{Molden} file later with \ttt{wigner.py
 
 \paragraph{Level of theory}
 
-Supported are Hartree-Fock (HF), Density Functional Theory (DFT), M{\o}ller-Plesset perturbation theory (MP2) and CASSCF (either single-state or state-averaged). All methods are compatible with odd-electron wavefunctions (\ttt{molpro\_input.py} will use the corresponding UHF, UMP2 and UKS keywords in the input file, if necessary).
+Supported are Hartree-Fock (HF), density functional theory (DFT), M{\o}ller-Plesset perturbation theory (MP2), equation-of-motion coupled-cluster with singles and doubles (EOM-CCSD) and CASSCF (either single-state or state-averaged). All methods (except EOM-CCSD) are compatible with odd-electron wavefunctions (\ttt{molpro\_input.py} will use the corresponding UHF, UMP2 and UKS keywords in the input file, if necessary).
 
-For template generation state-average CASSCF is automatically chosen. All methods can be combined with optimizations and frequency calculations, however, the frequency calculation is much more efficient with HF or SS-CASSCF. 
+For template generation, state-average CASSCF is automatically chosen. All methods (except EOM-CCSD) can be combined with optimizations and frequency calculations, however, the frequency calculation is much more efficient with HF or SS-CASSCF. 
 
 \paragraph{DFT functional}
 
@@ -1636,7 +1636,14 @@ For CASSCF calculations, enter the number of active electrons and orbitals.
 
 For SS-CASSCF, only the multiplicity needs to be specified. For SA-CASSCF, specify the number of states per multiplicity to be included. Note that \textsc{Molpro} allows to average over states with different numbers of electrons. This feature is not supported in \ttt{molpro\_input.py}. However, the user can generate a closely-matching input and simply add the missing states to the CASSCF block manually. 
 
-For optimizations at SA-CASSCF level, the state to be optimized has to be given.
+For optimizations at SA-CASSCF level, the state to be optimized has to be given. For crossing point optimizations, two states need to be entered. The script automatically detects whether a conical intersection or a crossing between states of different multiplicity is requested and sets up the input accordingly.
+
+\paragraph{EOM-CCSD settings}
+
+EOM-CCSD calculations allow to calculate relatively accurate excited-state energies and oscillator strengths from a Hartree-Fock reference, but only for singlet excited states.
+
+The user has to specify the number of states to be calculated. If only one state is requested, the script will setup a regular ground state CCSD calculation, while for more than one states, an EOM-CCSD calculation is setup.
+Note that the calculation of transition properties takes twice as long as the energy calculation itself.
 
 \paragraph{Memory}
 
@@ -3081,7 +3088,7 @@ for the matrix
   A=\begin{pmatrix}
       1 &2+0.1i\\
       2-0.1i&6
-    \end{pmatrix}.\nonumber
+    \end{pmatrix}.
 \end{equation}
 The diagonal matrix and the matrix of eigenvectors is written to stdout.
 
@@ -3148,7 +3155,7 @@ In the example given, state $T_2$ is frozen. The corresponding Hamiltonian looks
 &  \R b_{02}    &\R b_{12}    &\R q_{12}   &\R            &\R          &   E(T_2)     &\R q^*_{12}  &\R&\\
 &      a^*_{01}  &   a^*_{11}  &            &\R            &            &\R -q_{12}    &   E(T_1)    &\R p_{12}&\\
 &  \R a^*_{02}  &\R a^*_{12}  &\R          &\R            &\R q_{12}   &\R            &\R p^*_{12}  &   E(T_2)&\\
-  \end{pmatrix}\nonumber
+  \end{pmatrix}
 \end{equation}
 where all matrix elements marked \begin{tabular}{c}\cellcolor{RL!50}red\end{tabular} are deleted, since $T_2$ is frozen. 
 
