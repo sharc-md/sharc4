@@ -10,20 +10,18 @@
 !>
 !> If a file "Reference/QM.out" exists, the overlap matrix from this file is read 
 !> and used as reference overlap for along-trajectory-diabatization.
-!> This will produce the output file "output_data/coeff_diab.out" in addition to 
-!> the other output files.
 !>
 !> Output files:
 !> - energy.out 
 !> - fosc.out
-!> - coeff_diab.out (only if overlap matrices and reference overlap available)
+!> - coeff_diab.out
 !> - coeff_MCH.out
 !> - coeff_diag.out
 !> - spin.out
 !> - prop.out
 !> - expec.out
 !> 
-!> Additionally, the file <input.file>.ext contains build infos of the data_extractor program
+!> Additionally, the output file <input.file>.ext contains build infos of the data_extractor program
 program data_extractor
 use matrix
 use definitions, only: au2a, au2fs, au2u, au2rcm, au2eV, au2debye
@@ -44,7 +42,7 @@ integer, parameter :: u_ref=31          !< Reference/QM.out
 integer, parameter :: u_info=42         !< output.dat.ext
 
 
-!> # Information which is contant throughout all timesteps
+!> # Information which is constant throughout all timesteps
 integer :: nstates                      !< total number of states
 integer :: narg                         !< number of command line arguments
 integer :: maxmult                      !< maximum multiplicity
