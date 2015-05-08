@@ -902,10 +902,10 @@ def getcidm(out,mult,state1,state2,pol):
             # expectation values are in the results section, transition moments seperately
             if state1==state2:
               while not containsstring('\*\*\*', out[ilines]):
-                if containsstring('!.* STATE [0-9]+.1 Dipole moment',out[ilines]):
-                  kstate=int(out[ilines].replace('.',' ').split()[2])
+                if containsstring('!.*STATE[\s0-9]+\.1 Dipole moment',out[ilines]):
+                  kstate=int(out[ilines].replace('.',' ').replace('E',' ').split()[2])
                   if kstate==state1:
-                    return float(out[ilines].split()[5+pol])
+                    return float(out[ilines].split()[-3+pol])
                 ilines+=1
             else:
               while not containsstring('\*\*\*', out[ilines]):
