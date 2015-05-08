@@ -481,7 +481,7 @@ Please enter the number corresponding to the type of calculation.
     s+='  6       EOM-CCSD\n'
     allowed.append(6)
   else:
-    s+='EOM-CCSD is not possible for odd-electron systems.\n'
+    s+='EOM-CCSD is only possible single-point calculations of singlet (even-electron) states.\n'
   print s
 
   if ctype==3 or ctype==4:
