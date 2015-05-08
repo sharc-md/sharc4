@@ -589,8 +589,14 @@ file. Returns molecule and modes as the other function does.
     iline+=1
   iline+=1
   for imode in range(nmodes):
-    mode={'freq':float(data[iline+imode])*CM_TO_HARTREE * scaling}
-    modes.append(mode)
+    try:
+      mode={'freq':float(data[iline+imode])*CM_TO_HARTREE * scaling}
+      modes.append(mode)
+    except ValueError:
+      print '*'*51+'\nWARNING: Less than 3*N_atom normal modes, but no [N_FREQ] keyword!\n'+'*'*51+'\n'
+      nmodes=imode
+      break
+
   # obtain normal coordinates
   iline=0
   while not 'FR-NORM-COORD' in data[iline]:
