@@ -270,7 +270,7 @@ if (exists) then
   call close_qmout
   call lowdin(nstates,ref_ovl_ss)
 else
-  write(6,*) 'Reference overlap not available!'
+  write(6,*) 'Reference overlap not available! Data in coeff_diab.out will be incompatible with other trajectories.'
 endif
 
 
