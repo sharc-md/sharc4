@@ -371,11 +371,12 @@ Please enter the number corresponding to the type of calculation.
 
 
   guessnact=None
-  guessnorb=None
+  guessninact=None
   guessnelec=None
+  guessnorb=None
   guessbase=None
-  guessstates=None
-  guessmem=None
+  guessstates=[0]*8
+  guessspin=None
 
 
   # Geometry
@@ -383,36 +384,45 @@ Please enter the number corresponding to the type of calculation.
   if ctype==3:
     print '\nNo geometry necessary for MOLCAS.template generation\n'
     INFOS['geom']=None
-    # see whether a MOLPRO.input file is there, where we can take the number of electrons from
+    # see whether a MOLCAS.input file is there, where we can take the number of electrons from
     nelec=0
-    #try:
-      #molproinput=open('MOLPRO.input','r')
-      #for line in molproinput:
-        #if 'wf,' in line and not './wf,' in line:
-          #guessnelec=[int(line.split(',')[1])]
-          #mult=int(line.split(',')[3])
-        #if 'state,' in line:
-          #if guessstates==None:
-            #guessstates=[]
-          #nstate=int(line.split(',')[1])
-          #for i in range(mult-len(guessstates)):
-            #guessstates.append(0)
-          #guessstates.append(nstate)
-        #if 'closed,' in line:
-          #nclosed=int(line.split(',')[1])
-        #if 'occ,' in line:
-          #nocc=int(line.split(',')[1])
-        #if 'basis=' in line:
-          #guessbase=line.split('=')[1].strip()
-        #if 'memory' in line:
-          #guessmem=[int(line.split(',')[1])/125]
-      #try:
-        #guessnorb=[nocc-nclosed]
-        #guessnact=[guessnelec[0]-2*nclosed]
-      #except:
-        #pass
-    #except (IOError,ValueError):
-      #pass
+    try:
+      molproinput=open('MOLCAS.input','r')
+      for line in molproinput:
+        #print line.strip()
+        if 'basis' in line.lower():
+          guessbase=line.split()[-1]
+        if 'nactel' in line.lower():
+          guessnact=int(line.split()[-1].split(',')[0])
+        if 'inact' in line.lower():
+          guessninact=int(line.split()[-1])
+        if 'ras2' in line.lower():
+          guessnorb=int(line.split()[-1])
+        if 'spin' in line.lower():
+          guessspin=int(line.split()[-1])
+        if 'ciroot' in line.lower():
+          s=int(line.split()[-1].split(',')[0])
+          guessstates[guessspin-1]=s
+      try:
+        for istate in range(len(guessstates)-1,-1,-1):
+          if guessstates[istate]==0:
+            guessstates.pop()
+          else:
+            break
+        #print guessnorb,guessnact,guessninact,guessnelec
+        if guessninact!=None and guessnact!=None:
+          guessnelec=[2*guessninact+guessnact]
+        if guessnorb!=None:
+          guessnorb=[guessnorb]
+        if guessnact!=None:
+          guessnact=[guessnact]
+        if guessninact!=None:
+          guessninact=[guessninact]
+        #print guessnorb,guessnact,guessninact,guessnelec
+      except:
+        pass
+    except (IOError,ValueError):
+      pass
     # continue with asking for number of electrons
     while True:
       nelec=question('Number of electrons: ',int,guessnelec,False)[0]
@@ -492,16 +502,16 @@ Please enter the number corresponding to the type of calculation.
   1       RASSCF
   2       CASPT2 %s
 ''' % (['','(Only numerical gradients)'][INFOS['freq']])
-  if ctype==3:
-    ltype=1
-    print 'Choosing RASSCF for MOLCAS.template generation.'
-  else:
-    while True:
-      ltype=question('Level of theory:',int)[0]
-      if not ltype in [1,2,3]:
-        print 'Enter an integer (1-3)!'
-        continue
-      break
+  #if ctype==3:
+    #ltype=1
+    #print 'Choosing RASSCF for MOLCAS.template generation.'
+  #else:
+  while True:
+    ltype=question('Level of theory:',int)[0]
+    if not ltype in [1,2]:
+      print 'Enter an integer (1-2)!'
+      continue
+    break
   INFOS['ltype']=ltype
 
 
@@ -598,6 +608,7 @@ Please enter the number corresponding to the type of calculation.
     else:
       INFOS['pt2.multi']=True
     INFOS['pt2.ipea']=not question('Set IPEA shift to zero?',bool,False)
+    INFOS['pt2.imag']=question('Imaginary level shift?',float,[0.0])[0]
 
 
 
@@ -609,12 +620,6 @@ Please enter the number corresponding to the type of calculation.
     INFOS['soc']=question('Do Spin-Orbit RASSI?',bool,False)
   else:
     INFOS['soc']=False
-
-  print '\n'+centerstring('Memory',60,'-')
-  print '\nRecommendation: for small systems: 100-300 MB, for medium-sized systems: 1000-2000 MB\n'
-  mem=abs(question('Memory in MB: ',int,guessmem)[0])
-  mem=max(mem,50)
-  INFOS['mem']=mem
 
   print ''
 
@@ -646,12 +651,27 @@ def setup_input(INFOS):
     s+='inactive %i\n' % ((INFOS['nelec']-INFOS['cas.nact'])/2)
     s+='roots'
     for i,n in enumerate(INFOS['cas.nstates']):
-      s+='%i ' % (n)
+      s+=' %i ' % (n)
     s+='\n\n'
-    s+='*     Infos:\n'
-    s+='*     %s@%s\n' % (os.environ['USER'],os.environ['HOSTNAME'])
-    s+='*     Date: %s\n' % (datetime.datetime.now())
-    s+='*     Current directory: %s\n\n' % (os.getcwd())
+    if not INFOS['DK']:
+      s+='no-douglas-kroll\n'
+    if INFOS['cholesky']:
+      s+='cholesky\n'
+    if INFOS['ltype']==1:
+      s+='method CASSF\n'
+    elif INFOS['ltype']==2:
+      if not INFOS['pt2.ipea']:
+        s+='ipea 0.00\n'
+      s+='imaginary %4.2f\n' % INFOS['pt2.imag']
+      if INFOS['pt2.multi']:
+        s+='method MS-CASPT2\n'
+      else:
+        s+='method CASPT2\n'
+    s+='\n\n'
+    s+='#     Infos:\n'
+    s+='#     %s@%s\n' % (os.environ['USER'],os.environ['HOSTNAME'])
+    s+='#     Date: %s\n' % (datetime.datetime.now())
+    s+='#     Current directory: %s\n\n' % (os.getcwd())
     inp.write(s)
     return
 
@@ -676,6 +696,7 @@ def setup_input(INFOS):
   if INFOS['DK']:
     s+='EXPERT\nRELINT\nR02O\n'
   if INFOS['soc']:
+    s+='* If using MOLCAS v>=8.1, move the AMFI keyword to the &GATEWAY section.'
     s+='AMFI\n'
   if INFOS['cholesky']:
     s+='CHOLESKY\n'
@@ -727,10 +748,10 @@ CIROOT = %i,%i,1
       s+='''
 &CASPT2
 SHIFT      = 0.0
-IMAGINARY  = 0.0
+IMAGINARY  = %4.2f
 IPEASHIFT  = %4.2f
 MAXITER    = 120
-''' % ([0.,0.25][INFOS['pt2.ipea']])
+''' % (INFOS['pt2.imag'],[0.,0.25][INFOS['pt2.ipea']])
       if not INFOS['pt2.multi']:
         s+='NOMULT\n' 
       s+='MULTISTATE = %i %s\n' % (nstate, ' '.join([str(i+1) for i in range(nstate)]))
@@ -845,7 +866,8 @@ MAXITER    = 120
 
 def set_runscript(INFOS):
 
-  if INFOS['ctype']>=3:
+  if INFOS['ctype']==3:
+    # no run script for template generation
     return
 
   print ''
@@ -853,47 +875,87 @@ def set_runscript(INFOS):
     return
   print ''
 
-  # MOLPRO executable
-  print centerstring('Path to MOLPRO',60,'-')+'\n'
-  path=os.getenv('MOLPRO')
-  path=os.path.expanduser(os.path.expandvars(path))
-  if not path.endswith('/molpro'):
-    path+='/molpro'
-  if path!='':
-    print 'Environment variable $MOLPRO detected:\n$MOLPRO=%s\n' % (path)
-    if question('Do you want to use this MOLPRO installation?',bool,True):
-      INFOS['molpro']=path
-  if not 'molpro' in INFOS:
-    print '\nPlease specify path to MOLPRO directory (SHELL variables and ~ can be used, will be expanded when interface is started).\n'
-    INFOS['molpro']=question('Path to MOLPRO:',str)
+  # MOLCAS executable
+  print centerstring('Path to MOLCAS',60,'-')+'\n'
+  path=os.getenv('MOLCAS')
+  if path!=None:
+    path=os.path.expanduser(os.path.expandvars(path))
+    print 'Environment variable $MOLCAS detected:\n$MOLCAS=%s\n' % (path)
+    if question('Do you want to use this MOLCAS installation?',bool,True):
+      INFOS['molcas']=path
+  if not 'molcas' in INFOS:
+    print '\nPlease specify path to MOLCAS directory (SHELL variables and ~ can be used, will be expanded when interface is started).\n'
+    INFOS['molcas']=question('Path to MOLCAS:',str)
   print ''
 
 
   # Scratch directory
   print centerstring('Scratch directory',60,'-')+'\n'
-  print 'Please specify an appropriate scratch directory. This will be used to temporally store the integrals. The scratch directory will be deleted after the calculation. Remember that this script cannot check whether the path is valid, since you may run the calculations on a different machine. The path will not be expanded by this script.'
+  print 'Please specify an appropriate scratch directory. This will be used to run the calculation. Remember that this script cannot check whether the path is valid, since you may run the calculation on a different machine. The path will not be expanded by this script.'
   INFOS['scratchdir']=question('Path to scratch directory:',str)+'/WORK'
   print ''
+  # Keep scratch directory
+  INFOS['delete_scratch']=question('Delete scratch directory after calculation?',bool,False)
 
-  runscript='run_MOLPRO.sh'
+  # Memory
+  print '\n'+centerstring('Memory',60,'-')
+  print '\nRecommendation: for small systems: 100-300 MB, for medium-sized systems: 1000-2000 MB\n'
+  mem=abs(question('Memory in MB: ',int,[500])[0])
+  # always give at least 50 MB
+  mem=max(mem,50)
+  INFOS['mem']=mem
+
+
+
+  string='''#!/bin/bash
+
+PRIMARY_DIR=%s
+SCRATCH_DIR=%s
+
+export MOLCAS=%s
+export MOLCASMEM=%i
+export MOLCASDISK=0
+export MOLCASRAMD=0
+export MOLCAS_MOLDEN=ON
+
+export $Project=MOLCAS
+export HomeDir=$PRIMARY_DIR
+export CurrDir=$PRIMARY_DIR
+export WorkDir=$SCRATCH_DIR/$Project/
+
+cd $HomeDir
+mkdir -p $WorkDir
+
+''' % (os.getcwd(), 
+       INFOS['scratchdir'], 
+       INFOS['molcas'],
+       INFOS['mem'])
+
+  for imult,nstate in enumerate(INFOS['cas.nstates']):
+    if nstate==0:
+      continue
+    mult=imult+1
+    string+='cp $HomeDir/%sOrbitals.RasOrb $WorkDir\n' % (IToMult[mult])
+
+  string+='\n$MOLCAS/bin/molcas.exe MOLPRO.input > $CurrDir/MOLCAS.log\n\n'
+
+  for imult,nstate in enumerate(INFOS['cas.nstates']):
+    if nstate==0:
+      continue
+    mult=imult+1
+    string+='cp $WorkDir/%sOrbitals.* $HomeDir\n' % (IToMult[mult])
+
+  if INFOS['delete_scratch']:
+    string+='\nrm -r $SCRATCH_DIR\n'
+
+
+  runscript='run_MOLCAS.sh'
   print 'Writing run script %s' % (runscript)
   try:
     runf=open(runscript,'w')
   except IOError:
     print 'Could not write %s' (runscript)
     return
-
-  string='''#!/bin/bash
-
-PRIMARY_DIR=%s
-SCRATCH_DIR=%s
-cd $PRIMARY_DIR
-mkdir -p $SCRATCH_DIR
-
-%s MOLPRO.input -W$PRIMARY_DIR -I$SCRATCH_DIR -d$SCRATCH_DIR
-
-rm -r $SCRATCH_DIR  ''' % (os.getcwd(), INFOS['scratchdir'], INFOS['molpro'])
-
   runf.write(string)
   runf.close()
   os.chmod(runscript, os.stat(runscript).st_mode | stat.S_IXUSR)
@@ -925,7 +987,7 @@ This interactive program prepares a MOLPRO input file for ground state optimizat
   print ''
 
   setup_input(INFOS)
-  #set_runscript(INFOS)
+  set_runscript(INFOS)
   print '\nFinished\n'
 
   close_keystrokes()
