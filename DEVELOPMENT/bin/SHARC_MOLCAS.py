@@ -153,6 +153,9 @@ changelogstring='''
 26.03.2015:
 - MOLCAS version is used to write the AMFI keyword into the appropriate section (&GATEWAY or &SEWARD)
 - MOLCAS.template keyword "cholesky_analytical" leads to analytical gradient calculations for CD-CASSCF. Without the keyword, CD-CASSCF gradients are evaluated numerically.
+
+28.05.2015:
+- added "frozen" keyword to modify the number of frozen orbitals in CASPT2
 '''
 
 # ======================================================================= #
@@ -424,6 +427,8 @@ def printQMin(QMin):
     parts.append('IPEA=%4.2f' % (QMin['template']['ipea']) )
   if QMin['method']>0 and QMin['template']['imaginary']!=0.00:
     parts.append('Imaginary Shift=%4.2f' % (QMin['template']['imaginary']) )
+  if QMin['template']['frozen']!=-1:
+    parts.append('CASPT2 frozen orbitals=%i' % (QMin['template']['frozen']) )
   if len(parts)>0:
       string+='\t('
       string+=','.join(parts)
@@ -1806,7 +1811,7 @@ def readQMin(QMinfilename):
     template=readfile('MOLCAS.template')
 
     QMin['template']={}
-    integers=['nactel','inactive','ras2']
+    integers=['nactel','inactive','ras2','frozen']
     strings =['basis','method']
     floats=['ipea','imaginary']
     booleans=['cholesky','no-douglas-kroll','qmmm','cholesky_analytical']
@@ -1816,6 +1821,7 @@ def readQMin(QMinfilename):
     QMin['template']['method']='casscf'
     QMin['template']['ipea']=0.25
     QMin['template']['imaginary']=0.00
+    QMin['template']['frozen']=-1
 
     for line in template:
         line=re.sub('#.*$','',line).lower().split()
@@ -1961,10 +1967,13 @@ def readQMin(QMinfilename):
 
 
     # Check the save directory
-    ls=os.listdir(QMin['savedir'])
-    err=0
+    try:
+        ls=os.listdir(QMin['savedir'])
+        err=0
+    except OSError:
+        err=1
     if 'init' in QMin:
-        pass
+        err=0
     elif 'samestep' in QMin:
         for imult,nstates in enumerate(QMin['states']):
             if nstates<1:
@@ -2182,6 +2191,8 @@ def writeMOLCASinput(tasks, QMin):
                     QMin['template']['imaginary'],
                     QMin['template']['ipea'],
                     120)
+            if QMin['template']['frozen']!=-1:
+                string+='FROZEN=%i\n' % (QMin['template']['frozen'])
             if QMin['method']==1:
                 string+='NOMULT\n'
             string+='MULTISTATE= %i ' % (task[2])
