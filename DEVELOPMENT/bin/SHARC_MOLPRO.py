@@ -862,10 +862,10 @@ def getcienergy(out,mult,state):
           if containsstring(IToMult[mult],out[ilines]):
             # look for energy
             while ilines<len(out):
-              if containsstring('!(MRCI|CI\(SD\)) STATE [0-9]+.1 Energy',out[ilines]):
-                kstate=int(out[ilines].replace('.',' ').split()[2])
+              if containsstring('!(MRCI|CI\(SD\)) STATE[\s0-9]+\.1 Energy',out[ilines]):
+                kstate=int(out[ilines].replace('.',' ').replace('E',' ').split()[2])
                 if kstate==state:
-                  return float(out[ilines].split()[4])
+                  return float(out[ilines].split()[-1])
               ilines+=1
           else:
             break
@@ -1050,8 +1050,8 @@ def getgrad(out,mult,state,natom):
       jlines=ilines
       while not containsstring('\*\*\*',out[jlines]):
         if containsstring('SA-MC GRADIENT FOR STATE',out[jlines]):
-          line=out[jlines].replace('.',' ').split()
-          if state==int(line[4]):
+          line=out[jlines].replace('.',' ').replace('E',' ').split()
+          if state==int(line[5]):
             statefound=True
           break
         jlines+=1
