@@ -38,7 +38,8 @@ integer, parameter :: u_coefm=25        !< coeff_MCH.out
 integer, parameter :: u_prob=26         !< prob.out
 integer, parameter :: u_expec=27        !< expec.out
 integer, parameter :: u_coefdiab=28     !< coeff_diab.out
-integer, parameter :: u_expec_mch=29     !< expec_MCH.out
+integer, parameter :: u_expec_mch=29    !< expec_MCH.out
+integer, parameter :: u_fosc_act=30     !< fosc_act.out
 integer, parameter :: u_ref=31          !< Reference/QM.out
 integer, parameter :: u_info=42         !< output.dat.ext
 
@@ -75,6 +76,7 @@ complex*16, allocatable :: coeff_diab_s(:)      !< diabatic coefficient vector
 real*8,allocatable :: expec_s(:)                !< spin expectation value per state
 real*8,allocatable :: expec_dm(:)               !< oscillator strength per state
 real*8,allocatable :: expec_dm_mch(:)           !< oscillator strength per state in MCH basis
+real*8,allocatable :: expec_dm_act(:)           !< oscillator strength per state with active state as source state
 real*8,allocatable :: spin0_s(:)                !< spin value per MCH state (initialized in the beginning)
 real*8 :: sumc                                  !< sum of coefficients
 
@@ -130,7 +132,7 @@ allocate( DM_ssd(nstates,nstates,3) )
 allocate( coeff_diag_s(nstates), coeff_MCH_s(nstates), coeff_diab_s(nstates) )
 allocate( hopprob_s(nstates) )
 allocate( A_ss(nstates,nstates) )
-allocate( expec_s(nstates),expec_dm(nstates),expec_dm_mch(nstates) )
+allocate( expec_s(nstates),expec_dm(nstates),expec_dm_mch(nstates),expec_dm_act(nstates) )
 allocate( spin0_s(nstates) )
 allocate( geom_ad(natom,3), veloc_ad(natom,3) )
 call allocate_lapack(nstates)
@@ -172,6 +174,7 @@ open(unit=u_prob, file='output_data/prob.out', status='replace', action='write')
 open(unit=u_expec, file='output_data/expec.out', status='replace', action='write')
 open(unit=u_expec_mch, file='output_data/expec_MCH.out', status='replace', action='write')
 open(unit=u_coefdiab, file='output_data/coeff_diab.out', status='replace', action='write')
+open(unit=u_fosc_act, file='output_data/fosc_act.out', status='replace', action='write')
 
 
 
@@ -184,6 +187,31 @@ write(u_ener,'(A1,1X,5(A20,1X))') '#','[fs] |','[eV] |','[eV] |','[eV] |','[eV] 
 write(u_dm,'(A1,1X,1000(I20,1X))') '#',(i,i=1,nstates+2)
 write(u_dm,'(A1,1X,3(A20,1X))') '#','Time |','f_osc (state) |','=== f_osc ===>'
 write(u_dm,'(A1,1X,3(A20,1X))') '#','[fs] |','[] |','[] |'
+
+
+write(u_fosc_act,'(A1,1X,1000(I20,1X))') '#',(i,i=1,2*nstates+1)
+write(string, '(A1,1X,1(A20,1X))') '#','Time |'
+do i=1,nstates
+  write(string2,'(1X,A8,I10,A2)') 'dE ',i,' |'
+  string=trim(string)//string2
+enddo
+do i=1,nstates
+  write(string2,'(1X,A6,I12,A2)') 'f_osc ',i,' |'
+  string=trim(string)//string2
+enddo
+write(u_fosc_act,'(A)') trim(string)
+write(string, '(A1,1X,1(A20,1X))') '#','[fs] |'
+do i=1,nstates
+  write(string2,'(1X,A20)') '[eV] |'
+  string=trim(string)//string2
+enddo
+do i=1,nstates
+  write(string2,'(1X,A20)') '[] |'
+  string=trim(string)//string2
+enddo
+write(u_fosc_act,'(A)') trim(string)
+! write(u_fosc_act,'(A1,1X,2(A20,1X))') '#','[fs] |','[] |'
+
 
 write(u_spin,'(A1,1X,1000(I20,1X))') '#',(i,i=1,nstates+2)
 write(u_spin,'(A1,1X,3(A20,1X))') '#','Time |','Spin_s |','=== Spins ===>'
@@ -326,29 +354,37 @@ do
   call matvecmultiply(nstates,ref_ovl_ss,coeff_MCH_s,coeff_diab_s,'n')
 
   ! write to energy.out
-  write(u_ener,'(2X,1000(E20.13,1X))') &
+  write(u_ener,'(2X,1000(ES20.12E3,1X))') &
   &step*dtstep, Ekin*au2eV, Epot*au2eV, (Epot+Ekin)*au2eV,&
   (real(H_diag_ss(istate,istate)*au2eV),istate=1,nstates)
 
   ! calculate oscillator strengths
   expec_dm=0.d0
   expec_dm_mch=0.d0
+  expec_dm_act=0.d0
   do idir=1,3
     A_ss=DM_ssd(:,:,idir)
     expec_dm_mch=expec_dm_mch+real(A_ss(:,1)*A_ss(1,:))
     call transform(nstates,A_ss,U_ss,'utau')
     expec_dm=expec_dm+real(A_ss(:,1)*A_ss(1,:))
+    expec_dm_act=expec_dm_act+real(A_ss(:,state_diag)*A_ss(state_diag,:))
   enddo
   expec_dm=expec_dm*2./3.
   expec_dm_mch=expec_dm_mch*2./3.
+  expec_dm_act=expec_dm_act*2./3.
   do i=1,nstates
     expec_dm(i)=expec_dm(i)*real(H_diag_ss(i,i)-H_diag_ss(1,1))
     expec_dm_mch(i)=expec_dm_mch(i)*real(H_MCH_ss(i,i)-H_MCH_ss(1,1))
+    expec_dm_act(i)=expec_dm_act(i)*real(H_diag_ss(i,i)-H_diag_ss(state_diag,state_diag))
   enddo
   ! write to fosc.out
-  write(u_dm,'(2X,1000(E20.13,1X))') &
+  write(u_dm,'(2X,1000(ES20.12E3,1X))') &
   &step*dtstep, expec_dm(state_diag),&
   (expec_dm(istate),istate=1,nstates)
+  ! write to fosc_act.out
+  write(u_fosc_act,'(2X,1000(ES20.12E3,1X))') &
+  &step*dtstep,(real(H_diag_ss(istate,istate)-H_diag_ss(state_diag,state_diag))*au2eV,istate=1,nstates),&
+  (expec_dm_act(istate),istate=1,nstates)
 
   ! calculate spin expectation value
   expec_s=0.d0
@@ -358,7 +394,7 @@ do
     enddo
   enddo
   ! write to spin.out
-  write(u_spin,'(2X,1000(E20.13,1X))') &
+  write(u_spin,'(2X,1000(ES20.12E3,1X))') &
   &step*dtstep, expec_s(state_diag),&
   (expec_s(istate),istate=1,nstates)
 
@@ -368,7 +404,7 @@ do
     sumc=sumc + real(conjg(coeff_diag_s(istate))*coeff_diag_s(istate))
   enddo
   ! write to coeff_diag.out
-  write(u_coefd,'(2X,1000(E20.13,1X))') &
+  write(u_coefd,'(2X,1000(ES20.12E3,1X))') &
   &step*dtstep, sumc,&
   (coeff_diag_s(istate),istate=1,nstates)
 
@@ -378,7 +414,7 @@ do
     sumc=sumc + real(conjg(coeff_MCH_s(istate))*coeff_MCH_s(istate))
   enddo
   ! write to coeff_MCH.out
-  write(u_coefm,'(2X,1000(E20.13,1X))') &
+  write(u_coefm,'(2X,1000(ES20.12E3,1X))') &
   &step*dtstep, sumc,&
   (coeff_MCH_s(istate),istate=1,nstates)
 
@@ -388,7 +424,7 @@ do
     sumc=sumc + dconjg(coeff_diab_s(istate))*coeff_diab_s(istate)
   enddo
   ! write to coeff_diab.out
-  write(u_coefdiab,'(2X,1000(E20.13,X))') &
+  write(u_coefdiab,'(2X,1000(ES20.12E3,X))') &
   &step*dtstep, sumc,&
   (coeff_diab_s(istate),istate=1,nstates)
 
@@ -397,20 +433,20 @@ do
     hopprob_s(istate)=hopprob_s(istate)+hopprob_s(istate-1)
   enddo
   ! write to prob.out
-  write(u_prob,'(2X,1000(E20.13,1X))') &
+  write(u_prob,'(2X,1000(ES20.12E3,1X))') &
   &step*dtstep, randnum,&
   (hopprob_s(istate),istate=1,nstates)
 
   ! write to expec.out
   ! this infos are also in energy.out, spin.out and fosc.out
   ! but in order to plot them together they are also written in one file
-  write(u_expec,'(2X,1000(E20.13,1X))') &
+  write(u_expec,'(2X,1000(ES20.12E3,1X))') &
   &step*dtstep, Ekin*au2eV, Epot*au2eV, (Epot+Ekin)*au2eV,&
   &(real(H_diag_ss(istate,istate)*au2eV),istate=1,nstates),&
   &(expec_s(istate),istate=1,nstates),&
   &(expec_dm(istate),istate=1,nstates)
 
-  write(u_expec_mch,'(2X,1000(E20.13,1X))') &
+  write(u_expec_mch,'(2X,1000(ES20.12E3,1X))') &
   &step*dtstep, Ekin*au2eV, Epot*au2eV, (Epot+Ekin)*au2eV,&
   &(real(H_MCH_ss(istate,istate)*au2eV),istate=1,nstates),&
   &(spin0_s(istate),istate=1,nstates),&
