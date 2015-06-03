@@ -598,6 +598,7 @@ Please enter the number corresponding to the type of calculation.
     else:
       INFOS['pt2.multi']=True
     INFOS['pt2.ipea']=not question('Set IPEA shift to zero?',bool,False)
+    INFOS['pt2.imag']=question('Imaginary level shift:',float,[0.0])[0]
 
 
 
@@ -727,10 +728,10 @@ CIROOT = %i,%i,1
       s+='''
 &CASPT2
 SHIFT      = 0.0
-IMAGINARY  = 0.0
+IMAGINARY  = %4.2f
 IPEASHIFT  = %4.2f
 MAXITER    = 120
-''' % ([0.,0.25][INFOS['pt2.ipea']])
+''' % (INFOS['pt2.imag'],[0.,0.25][INFOS['pt2.ipea']])
       if not INFOS['pt2.multi']:
         s+='NOMULT\n' 
       s+='MULTISTATE = %i %s\n' % (nstate, ' '.join([str(i+1) for i in range(nstate)]))
