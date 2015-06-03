@@ -1486,9 +1486,12 @@ In order to setup the COLUMBUS input, use COLUMBUS' input facility colinp. For f
   INFOS['ion']=question('Dyson norms?',bool,False)
   if 'ion' in INFOS and INFOS['ion']:
     INFOS['columbus.dysonpath']=question('Path to dyson executable:',str)
-    INFOS['columbus.civecpath']=question('Path to civecconsolidate executable:',str,'$COLUMBUS/civecconsolidate')
+    #INFOS['columbus.civecpath']=question('Path to civecconsolidate executable:',str,'$COLUMBUS/civecconsolidate')
     INFOS['columbus.dysonthres']=abs(question('c2 threshold for Dyson:',float,[1e-4])[0])
-
+    if not Couplings[INFOS['coupling']]['name']=='overlap':
+      INFOS['columbus.ciothres']=question('Determinant screening threshold:',float,[1e-2])[0]
+    else:
+      print 'Give determinant screening threshold in the cioverlaps section below.'
 
   # cioverlaps
   if Couplings[INFOS['coupling']]['name']=='overlap':
@@ -1504,7 +1507,7 @@ In order to setup the COLUMBUS input, use COLUMBUS' input facility colinp. For f
     INFOS['columbus.ciopath']=question('Path to cioverlap executable:',str)
     print 'Please enter the cioverlaps density threshold (recommended 1e-2)'
     while True:
-      INFOS['columbus.ciothres']=question('Cioverlaps screening threshold:',float,[1e-2])[0]
+      INFOS['columbus.ciothres']=question('Determinant screening threshold:',float,[1e-2])[0]
       if not 0<INFOS['columbus.ciothres']<=1:
         print 'Must be between 0 and 1!'
         continue
