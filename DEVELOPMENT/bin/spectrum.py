@@ -734,9 +734,9 @@ date %s
   if options.l:
     INFOS['lineshape']=3
   if INFOS['lineshape']==1:
-    sys.stdout.write('Lineshape: Gaussian\n')
+    sys.stdout.write('Lineshape: Gaussian (FWHM=%.3f eV)\n' % (options.f))
   elif INFOS['lineshape']==2:
-    sys.stdout.write('Lineshape: Lorentzian\n')
+    sys.stdout.write('Lineshape: Lorentzian (FWHM=%.3f eV)\n' % (options.f))
   elif INFOS['lineshape']==3:
     sys.stdout.write('Lineshape: Line Spectrum\n')
   INFOS['selected']=options.s
