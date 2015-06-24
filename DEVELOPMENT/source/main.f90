@@ -114,6 +114,7 @@ do i_step=traj%step+1,ctrl%nsteps
   ! kill trajectory 
   call kill_after_relaxation(traj,ctrl)
   if ((ctrl%killafter>0).and.(traj%steps_in_gs>ctrl%killafter)) exit
+  if (check_stop(ctrl%cwd)) exit
   ctrl%restart=.false.
 enddo
 

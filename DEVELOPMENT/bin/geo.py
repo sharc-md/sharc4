@@ -33,22 +33,48 @@ versiondate=datetime.date(2014,10,8)
 
 allowedreq=['a','d','r','p','x','y','z','5','6','c']
 
-# This array contains all Boeyens classification symbols.
-BOEYENS = {
+# This array contains all Boeyens classification symbols for 5-membered rings.
+# (phi): symbol
+BOEYENS_5 = {
+  (  0.): 'E_1',
+  ( 36.): '2^E',
+  ( 72.): 'E_3',
+  (108.): '4^E',
+  (144.): 'E_5',
+  (180.): '1^E',
+  (216.): 'E_2',
+  (252.): '3^E',
+  (288.): 'E_4',
+  (324.): '5^E',
+  ( 18.): '^2H_1',
+  ( 54.): '^2H_3',
+  ( 90.): '^4H_3',
+  (126.): '^4H_5',
+  (162.): '^1H_5',
+  (198.): '^1H_2',
+  (234.): '^3H_2',
+  (270.): '^3H_4',
+  (306.): '^5H_4',
+  (342.): '^5H_1'
+}
+
+# This array contains all Boeyens classification symbols for 6-membered rings.
+# (phi,theta): symbol
+BOEYENS_6 = {
   (   0.,   0.): '^1C_4',
-  (   0., 180.): '^3C_1',
+  (   0., 180.): '^4C_1',
   (   0., 54.7): '^1E',
-  (  60., 54.7): '^2E',
+  (  60., 54.7): 'E_2',
   ( 120., 54.7): '^3E',
-  ( 180., 54.7): '^4E',
+  ( 180., 54.7): 'E_4',
   ( 240., 54.7): '^5E',
-  ( 300., 54.7): '^6E',
+  ( 300., 54.7): 'E_6',
   (   0.,125.3): '^4E',
-  (  60.,125.3): '^5E',
+  (  60.,125.3): 'E_5',
   ( 120.,125.3): '^6E',
-  ( 180.,125.3): '^1E',
+  ( 180.,125.3): 'E_1',
   ( 240.,125.3): '^2E',
-  ( 300.,125.3): '^3E',
+  ( 300.,125.3): 'E_3',
   (  30., 50.8): '^1H_2',
   (  90., 50.8): '^3H_2',
   ( 150., 50.8): '^3H_4',
@@ -291,7 +317,7 @@ def CP6(a,b,c,d,e,f):
     h2-=z[j]*math.sin(4.*math.pi*j/6.)
   h1*=math.sqrt(2./6.)
   h2*=math.sqrt(2./6.)
-  ph=math.atan2(h2,h1)
+  ph=math.atan2(h2,h1)+math.pi
   if ph<0:
     ph=2*math.pi+ph
   q2=math.sqrt(h1**2+h2**2)
@@ -328,16 +354,30 @@ def orthodromic_distance(phi1_degree, theta1_degree, phi2_degree, theta2_degree)
   delta_theta = abs(theta2 - theta1)
   return math.acos(math.sin(theta1)*math.sin(theta2) + math.cos(theta1)*math.cos(theta2)*math.cos(delta_phi))
 
-def Boeyens(ph,th):
+def Boeyens6(ph,th):
   '''Determines the Boeyens symbol for a given phi and theta.'''
   dist_list = []
   if Radians:
     ph/=deg2rad
     th/=deg2rad
-  for angles, conformation in BOEYENS.items():
+  for angles, conformation in BOEYENS_6.items():
       dist_list.append([conformation, orthodromic_distance(angles[0], angles[1], ph, th)])
   dist_list.sort(key=lambda d: d[1])
   return dist_list[0][0]
+
+def angular_distance(a,b):
+  return min( (a-b)%360., (b-a)%360.)
+
+def Boeyens5(ph):
+  '''Determines the Boeyens symbol for a given phi.'''
+  dist_list = []
+  if Radians:
+    ph/=deg2rad
+  for angles,conformation in BOEYENS_5.items():
+      dist_list.append([conformation, angular_distance(angles, ph)])
+  dist_list.sort(key=lambda d: d[1])
+  return dist_list[0][0]
+
 
 # ================================================================= #
 
@@ -416,10 +456,13 @@ Also converts the atom numbers to integer.'''
 
 def tableheader(req):
   '''Creates a two-line string with the column number and a column label.'''
+  comment_bonus=50
   s='#'+' '*(f-6) + '% 5i|' % (1)
   i=0
   for r in req:
     i+=1
+    if r[0]=='c':
+      s+=' '*comment_bonus
     s+=' '*(f-5) + '% 5i|' % (i+1)
     if r[0]=='5':
       i+=1
@@ -442,13 +485,14 @@ def tableheader(req):
     elif r[0]=='5':
       s+=' '*(f-16)+'q'+'%3i%3i%3i%3i%3i|'  % (r[1],r[2],r[3],r[4],r[5])
       s+=' '*(f-17)+'ph'+'%3i%3i%3i%3i%3i|' % (r[1],r[2],r[3],r[4],r[5])
+      s+=' '*(f-17)+'By'+'%3i%3i%3i%3i%3i|' % (r[1],r[2],r[3],r[4],r[5])
     elif r[0]=='6':
       s+=' '*(f-20)+' Q'+'%3i%3i%3i%3i%3i%3i|'  % (r[1],r[2],r[3],r[4],r[5],r[6])
       s+=' '*(f-20)+'ph'+'%3i%3i%3i%3i%3i%3i|' % (r[1],r[2],r[3],r[4],r[5],r[6])
       s+=' '*(f-20)+'th'+'%3i%3i%3i%3i%3i%3i|' % (r[1],r[2],r[3],r[4],r[5],r[6])
       s+=' '*(f-20)+'By'+'%3i%3i%3i%3i%3i%3i|' % (r[1],r[2],r[3],r[4],r[5],r[6])
     elif r[0]=='c':
-      s+=' '*(f-7)+'Comment '
+      s+=' '*(f-7+comment_bonus)+'Comment '
   return s
 
 def ang_or_bohr(a):
@@ -459,9 +503,11 @@ def ang_or_bohr(a):
 
 def calculate(g,req,comm):
   '''Creates a one-line string containing all requested internal coordinates for geometry g.'''
+  comment_bonus=50
   s=''
   formatstring='%%%i.%if ' % (f,p)
-  commentstring='%%%is ' % (f)
+  stringstring='%%%is ' % (f)
+  commentstring='%%%is ' % (f+comment_bonus)
   for r in req:
     if r[0]=='x':
       s+=formatstring % (ang_or_bohr(g[r[1]-1][0]))
@@ -481,16 +527,17 @@ def calculate(g,req,comm):
       q,ph=CP5(g[r[1]-1],g[r[2]-1],g[r[3]-1],g[r[4]-1],g[r[5]-1])
       s+=formatstring % (q)
       s+=formatstring % (ph)
+      s+=stringstring % ('$'+Boeyens5(ph)+'$')
     elif r[0]=='6':
       Q,ph,th=CP6(g[r[1]-1],g[r[2]-1],g[r[3]-1],g[r[4]-1],g[r[5]-1],g[r[6]-1])
       s+=formatstring % (Q)
       s+=formatstring % (ph)
       s+=formatstring % (th)
-      s+=commentstring % ('$'+Boeyens(ph,th)+'$')
+      s+=stringstring % ('$'+Boeyens6(ph,th)+'$')
     elif r[0]=='c':
-      if comm[0:f].strip()=='':
-        comm=' '*(f-14)+'<EMPTY_STRING>'
-      s+=commentstring % (comm[0:f].strip())
+      if comm[0:f+comment_bonus].strip()=='':
+        comm=' '*(f-14+comment_bonus)+'<EMPTY_STRING>'
+      s+=commentstring % (comm[0:f+comment_bonus].strip())
   return s
 # ================================================================= #
 
@@ -526,7 +573,8 @@ as the angle between the C-N bond and the NH2 plane.
 The program can also output x, y or z coordinates of single atoms. 
 Additionally, Cremer-Pople parameters for 5- and 6-membered rings can be 
 calculated [1]. For 6-membered rings, also the Boeyens classification 
-symbols [2] can be generated.
+symbols [2] can be generated. For 5-membered rings, the classification
+symbols are inspired by the Boeyens scheme.
 
 Internal coordinates are specified on STDIN, with one coordinate per line.
 Each line consists of a one-letter key followed by a number of atom indices,
@@ -541,7 +589,7 @@ The one-letter keys are:
     x\tx coordinate (1 atom)
     y\ty coordinate (1 atom)
     z\tz coordinate (1 atom)
-    5\tCremer-Pople parameters q2 and phi2 (5 atoms)
+    5\tCremer-Pople parameters q2, phi2 and conformation terms (5 atoms)
     6\tCremer-Pople parameters Q, phi, theta and Boeyens terms (6 atoms)
     c\tComment line from xyz file (truncated to 20 characters)
 

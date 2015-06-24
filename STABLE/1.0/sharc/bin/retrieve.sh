@@ -28,6 +28,7 @@ fi
 scp  $USER@$host:$cwd/output.* .
 
 if [ "$1" == "-res" ];
+then
   scp  $USER@$host:$cwd/restart.* .
   scp  $USER@$host:$cwd/restart/* ./restart/
 fi

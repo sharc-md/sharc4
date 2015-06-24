@@ -7,7 +7,7 @@
 !> Features:
 !> - a (key,value) pair can be added with add_key
 !> - pairs cannot be deleted
-!> - the list ist automatically allocated when the first pair is added
+!> - the list is automatically allocated when the first pair is added
 !> - the module takes care of reallocating the list if too many keys are added
 !> - key and value can be obtained based on index
 !> - values can be obtained based on keys

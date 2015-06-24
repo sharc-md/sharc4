@@ -64,6 +64,7 @@ import cmath
 import datetime
 # copy of arrays of arrays
 from copy import deepcopy
+from socket import gethostname
 
 # ======================================================================= #
 
@@ -103,7 +104,7 @@ changelogstring='''
 =>NOT COMPATIBLE WITH OLDER VERSIONS OF SHARC!
 
 19.02.2014:
-- modifyed qmout write routines to be compatible with the new SHARC
+- modified qmout write routines to be compatible with the new SHARC
 
 11.03.2014:
 - changed keyword "restart" to "samestep" to avoid ambiguity
@@ -119,7 +120,14 @@ changelogstring='''
 - improved calculation of overlap matrices
 
 08.10.2014:     1.0
-- official release version, no changes to 0.2'''
+- official release version, no changes to 0.2
+
+18.12.2014:
+- fixed a bug where CPMCSCF solutions converging in zero iterations (full CI case) are not treated properly
+- fixed a bug where gradients are not read out if "grad" is given without specifying "all" or the states
+
+20.01.2015:
+- command line options for MOLPRO are now read from SH2PRO.inp and passed to MOLPRO, allowing e.g. parallel execution.'''
 
 # ======================================================================= #
 # holds the system time when the script was started
@@ -463,7 +471,7 @@ def printheader():
 
   Takes nothing, returns nothing.'''
 
-  print starttime,os.environ['HOSTNAME'],os.getcwd()
+  print starttime,gethostname(),os.getcwd()
   if not PRINT:
     return
   string='\n'
@@ -854,10 +862,10 @@ def getcienergy(out,mult,state):
           if containsstring(IToMult[mult],out[ilines]):
             # look for energy
             while ilines<len(out):
-              if containsstring('!(MRCI|CI\(SD\)) STATE [0-9]+.1 Energy',out[ilines]):
-                kstate=int(out[ilines].replace('.',' ').split()[2])
+              if containsstring('!(MRCI|CI\(SD\)) STATE[\s0-9]+\.1 Energy',out[ilines]):
+                kstate=int(out[ilines].replace('.',' ').replace('E',' ').split()[2])
                 if kstate==state:
-                  return float(out[ilines].split()[4])
+                  return float(out[ilines].split()[-1])
               ilines+=1
           else:
             break
@@ -894,10 +902,10 @@ def getcidm(out,mult,state1,state2,pol):
             # expectation values are in the results section, transition moments seperately
             if state1==state2:
               while not containsstring('\*\*\*', out[ilines]):
-                if containsstring('!.* STATE [0-9]+.1 Dipole moment',out[ilines]):
-                  kstate=int(out[ilines].replace('.',' ').split()[2])
+                if containsstring('!.*STATE[\s0-9]+\.1 Dipole moment',out[ilines]):
+                  kstate=int(out[ilines].replace('.',' ').replace('E',' ').split()[2])
                   if kstate==state1:
-                    return float(out[ilines].split()[5+pol])
+                    return float(out[ilines].split()[-3+pol])
                 ilines+=1
             else:
               while not containsstring('\*\*\*', out[ilines]):
@@ -1042,8 +1050,8 @@ def getgrad(out,mult,state,natom):
       jlines=ilines
       while not containsstring('\*\*\*',out[jlines]):
         if containsstring('SA-MC GRADIENT FOR STATE',out[jlines]):
-          line=out[jlines].replace('.',' ').split()
-          if state==int(line[4]):
+          line=out[jlines].replace('.',' ').replace('E',' ').split()
+          if state==int(line[5]):
             statefound=True
           break
         jlines+=1
@@ -1691,6 +1699,12 @@ def readQMin(QMinfilename):
     if not MOLPRO:
       print 'Either set $MOLPRO or give path to MOLPRO in SH2COL.inp!'
       sys.exit(42)
+  f=MOLPRO.split()
+  if len(f)>1:
+    MOLPRO=f[0]
+    options=' '.join(f[1:])
+  else:
+    options=' '
   MOLPRO=os.path.expandvars(MOLPRO)
   MOLPRO=os.path.expanduser(MOLPRO)
   MOLPRO=removequotes(MOLPRO).strip()
@@ -1700,6 +1714,7 @@ def readQMin(QMinfilename):
   if os.path.isdir(MOLPRO):
     MOLPRO+='/molpro'
   QMin['qmexe']=MOLPRO
+  QMin['qmexe_options']=options
 
   line=getsh2prokey(sh2pro,'scratchdir')
   if line[0]:
@@ -2052,8 +2067,8 @@ def writeMOLPROinput(tasks, QMin):
     if exist2:
       inp.write('file,3,./wf.init\n\n')
       noinit=False
-  if 'grad' in QMin or 'nacdr' in QMin:
-    inp.write('file,9,./wf.gradient,new\n\n')
+  #if 'grad' in QMin or 'nacdr' in QMin:
+    #inp.write('file,9,./wf.gradient,new\n\n')
 
   # if first task is mcscf: get global options, write geometry input ================================================== #
   if tasks[0]==['mcscf']:
@@ -2295,11 +2310,11 @@ def writeMOLPROinput(tasks, QMin):
           print 'cpmcscf for state %i only possible for SA>=%i!\nPlease increase the number of states in the SA-CASSCF information in the template file!' % (task[i+1][1],task[i+1][1])
           sys.exit(63)
         # build string
-        string+='cpmcscf,grad,state=%i.1,ms2=%i,record=%i.9,accu=%18.15f\n' % (task[i+1][1],task[i+1][0]-1,5000+task[i+1][0]*100+task[i+1][1],task[i+1][2])
+        string+='cpmcscf,grad,state=%i.1,ms2=%i,record=%i.1,accu=%18.15f\n' % (task[i+1][1],task[i+1][0]-1,5000+task[i+1][0]*100+task[i+1][1],task[i+1][2])
       string+='};\n\n'
     # forcegrad: samc record is as above =============================================================================== #
     elif task[0]=='forcegrad':
-      string+='{force\nsamc,%i.9\n};\n\n' % (5000+task[1][0]*100+task[1][1])
+      string+='{force\nsamc,%i.1\n};\n\n' % (5000+task[1][0]*100+task[1][1])
     # citrans: transition density matrix =============================================================================== #
     elif task[0]=='citrans':
       string+='{ci\ntrans,%i.2,%i.3\ndm,%i.2\n};\n\n' % (6000+task[1],6000+task[1],8000+task[1])
@@ -2320,11 +2335,11 @@ def writeMOLPROinput(tasks, QMin):
           print 'cpmcscf for states %i and %i only possible for SA>=%i,%i!\nPlease increase the number of states in the SA-CASSCF information in the template file!' % (task[i+1][1],task[i+1][2],task[i+1][1],task[i+1][2])
           sys.exit(64)
         # build string
-        string+='cpmcscf,nacm,state1=%i.1,state2=%i.1,ms2=%i,record=%i.9,accu=%18.15f\n' % (task[i+1][1],task[i+1][2],task[i+1][0]-1,5020+task[i+1][0]*100+10*task[i+1][1]+task[i+1][2],task[i+1][3])
+        string+='cpmcscf,nacm,state1=%i.1,state2=%i.1,ms2=%i,record=%i.1,accu=%18.15f\n' % (task[i+1][1],task[i+1][2],task[i+1][0]-1,5020+task[i+1][0]*100+10*task[i+1][1]+task[i+1][2],task[i+1][3])
       string+='};\n\n'
     # forcenac: evaluate the cp nacme ================================================================================== #
     elif task[0]=='forcenac':
-      string+='{force\nsamc,%i.9\n};\n\n' % (5020+task[i+1][0]*100+10*task[i+1][1]+task[i+1][2])
+      string+='{force\nsamc,%i.1\n};\n\n' % (5020+task[i+1][0]*100+10*task[i+1][1]+task[i+1][2])
     # casdiab: diabatize orbitals ====================================================================================== #
     elif task[0]=='casdiab':
       string+='{'+ASblock+'noextra\nstart,2140.2\norbital,2180.2\ndont,orbital\n'+WFblock+'\ndiab,2140.3,method=1\n};\n\n'
@@ -2365,7 +2380,7 @@ def runMOLPRO(QMin):
   Returns:
   1 integer: MOLPRO exit code'''
 
-  string='%s MOLPRO.inp -W%s -I%s -d%s' % (QMin['qmexe'],QMin['savedir'],QMin['scratchdir'],QMin['scratchdir'])
+  string='%s MOLPRO.inp %s -W%s -I%s -d%s' % (QMin['qmexe'],QMin['qmexe_options'],QMin['savedir'],QMin['scratchdir'],QMin['scratchdir'])
   if PRINT:
     print datetime.datetime.now()
     print '===> Running MOLPRO:\n\n%s\n\nError Code:' % (string)
@@ -2507,6 +2522,9 @@ def redotasks(tasks,QMin):
           if float(data[idata].split()[-1])<conv:
             conv=float(data[idata].split()[-1])
           idata+=1
+        idata+=1
+        if containsstring('Convergence reached',data[idata]):
+          conv=0.
         if conv<task[i+1][2]:
           continue
         else:
@@ -2682,7 +2700,7 @@ def getQMout(out,QMin):
   # Grad: for argument all single loop, otherwise a bit more complex, returns a list of nmstates vectors
   if 'grad' in QMin:
     grad=[]
-    if QMin['grad']==['all']:
+    if QMin['grad']==['all'] or QMin['grad']==[]:
       for istate in range(nmstates):
         mult,state=IstateToMultState(istate+1,states)
         grad.append(getgrad(out,mult,state,natom))

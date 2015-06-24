@@ -16,6 +16,7 @@ import random
 from optparse import OptionParser
 import readline
 import time
+from socket import gethostname
 
 # =========================================================0
 # compatibility stuff
@@ -95,7 +96,7 @@ Interfaces={
       'dipolegrad':      True
      },
   4: {'script':          'SHARC_MOLCAS.py',
-      'description':     'MOLCAS (only CASSCF)',
+      'description':     'MOLCAS (CASSCF, CASPT2, MS-CASPT2)',
       'get_routine':     'get_MOLCAS',
       'prepare_routine': 'prepare_MOLCAS',
       'couplings':       [3],
@@ -1480,33 +1481,54 @@ In order to setup the COLUMBUS input, use COLUMBUS' input facility colinp. For f
   INFOS['columbus.mem']=abs(question('COLUMBUS memory:',int)[0])
 
 
+  need_wfoverlap=False
+
   # Ionization
   print centerstring('Ionization probability by Dyson norms',60,'-')+'\n'
   INFOS['ion']=question('Dyson norms?',bool,False)
   if 'ion' in INFOS and INFOS['ion']:
-    INFOS['columbus.dysonpath']=question('Path to dyson executable:',str)
-    INFOS['columbus.civecpath']=question('Path to civecconsolidate executable:',str,'$COLUMBUS/civecconsolidate')
-    INFOS['columbus.dysonthres']=abs(question('c2 threshold for Dyson:',float,[1e-4])[0])
-
+    need_wfoverlap=True
+    #INFOS['columbus.dysonpath']=question('Path to dyson executable:',str)
+    #INFOS['columbus.civecpath']=question('Path to civecconsolidate executable:',str,'$COLUMBUS/civecconsolidate')
+    #INFOS['columbus.dysonthres']=abs(question('c2 threshold for Dyson:',float,[1e-4])[0])
+    #if not Couplings[INFOS['coupling']]['name']=='overlap':
+      #INFOS['columbus.wfthres']=question('Determinant screening threshold:',float,[1e-2])[0]
+    #else:
+      #print 'Give determinant screening threshold in the cioverlaps section below.'
 
   # cioverlaps
   if Couplings[INFOS['coupling']]['name']=='overlap':
-    print centerstring('cioverlaps',60,'-')+'\n'
-    print 'If you do MRCI and cioverlaps, it is strongly advisory to first generate the excitlistfiles for cioverlaps, since their generation can take several hours. These files can then be used for all trajectories, so that the excitlistfiles have to be generated only once.'
-    excitlf=question('Do you have excitlistfiles?',bool,True)
-    if not excitlf:
-      INFOS['columbus.excitlf']=None
-    else:
-      print '\nPlease enter the path to the directory containing the excitlistfiles.'
-      INFOS['columbus.excitlf']=question('Path to excitlistfiles:',str)
-    print ''
-    print 'Please enter the cioverlaps screening threshold (recommended 1e-5)'
-    while True:
-      INFOS['columbus.ciothres']=question('Cioverlaps screening threshold:',float,[1e-5])[0]
-      if not 0<INFOS['columbus.ciothres']<=1:
-        print 'Must be between 0 and 1!'
-        continue
-      break
+    need_wfoverlap=True
+
+
+  # wfoverlap
+  if need_wfoverlap:
+    if 'ion' in INFOS and INFOS['ion']:
+      print 'Dyson norms requested.'
+    if Couplings[INFOS['coupling']]['name']=='overlap':
+      print 'Wavefunction overlaps requested.'
+    INFOS['columbus.wfpath']=question('Path to wfoverlap executable:',str)
+    INFOS['columbus.wfthres']=question('Determinant screening threshold:',float,[1e-2])[0]
+
+  ## cioverlaps
+  #if Couplings[INFOS['coupling']]['name']=='overlap':
+    #print centerstring('cioverlaps',60,'-')+'\n'
+    ##print 'If you do MRCI and cioverlaps, it is strongly advisory to first generate the excitlistfiles for cioverlaps, since their generation can take several hours. These files can then be used for all trajectories, so that the excitlistfiles have to be generated only once.'
+    ##excitlf=question('Do you have excitlistfiles?',bool,True)
+    ##if not excitlf:
+      ##INFOS['columbus.excitlf']=None
+    ##else:
+      ##print '\nPlease enter the path to the directory containing the excitlistfiles.'
+      ##INFOS['columbus.excitlf']=question('Path to excitlistfiles:',str)
+    ##print ''
+    #INFOS['columbus.wfpath']=question('Path to cioverlap executable:',str)
+    #print 'Please enter the cioverlaps density threshold (recommended 1e-2)'
+    #while True:
+      #INFOS['columbus.wfthres']=question('Determinant screening threshold:',float,[1e-2])[0]
+      #if not 0<INFOS['columbus.wfthres']<=1:
+        #print 'Must be between 0 and 1!'
+        #continue
+      #break
 
   # scratchdir scratchdir
   # savedir is $RUNDIR/SAVE     (RUNDIR will be set by get_runscript_info)
@@ -1695,7 +1717,7 @@ def checktemplate_MOLCAS(filename,INFOS):
   valid=[]
   for i in necessary:
     for l in data:
-      if i in l:
+      if i in re.sub('#.*$','',l):
         valid.append(True)
         break
     else:
@@ -1703,18 +1725,26 @@ def checktemplate_MOLCAS(filename,INFOS):
   if not all(valid):
     print 'The template %s seems to be incomplete! It should contain: ' % (filename) +str(necessary)
     return False
-  for mult,state in enumerate(INFOS['states']):
-    if state<=0:
+  roots_there=False
+  for l in data:
+    l=re.sub('#.*$','',l).lower().split()
+    if len(l)==0:
       continue
-    valid=[]
-    for l in data:
-      if 'spin' in l.lower():
-        f=l.split()
-        if int(f[1])==mult+1:
-          valid.append(True)
-          break
-    else:
-      valid.append(False)
+    if 'roots' in l[0]:
+      roots_there=True
+  if not roots_there:
+    for mult,state in enumerate(INFOS['states']):
+      if state<=0:
+        continue
+      valid=[]
+      for l in data:
+        if 'spin' in re.sub('#.*$','',l).lower():
+          f=l.split()
+          if int(f[1])==mult+1:
+            valid.append(True)
+            break
+      else:
+        valid.append(False)
   if not all(valid):
     string='The template %s seems to be incomplete! It should contain the keyword "spin" for ' % (filename)
     for mult,state in enumerate(INFOS['states']):
@@ -1725,7 +1755,6 @@ def checktemplate_MOLCAS(filename,INFOS):
     print string
     return False
   return True
-
 # =================================================
 
 def get_MOLCAS(INFOS):
@@ -1802,12 +1831,21 @@ The MOLCAS interface will generate the appropriate MOLCAS input automatically.
     string+='%s, ' % (IToMult[mult+1])
   string=string[:-2]+'?'
   if question(string,bool,True):
+    while True:
+      jobiph_or_rasorb=question('JobIph files (1) or RasOrb files (2)?',int)[0]
+      if jobiph_or_rasorb in [1,2]:
+        break
+    INFOS['molcas.jobiph_or_rasorb']=jobiph_or_rasorb
     INFOS['molcas.guess']={}
     for mult,state in enumerate(INFOS['states']):
       if state<=0:
         continue
       while True:
-        filename=question('Initial wavefunction file for %ss:' % (IToMult[mult+1]),str,'wf.%i.JobIph.old' % (mult+1))
+        if jobiph_or_rasorb==1:
+          guess_file='MOLCAS.%i.JobIph.init' % (mult+1)
+        else:
+          guess_file='MOLCAS.%i.RasOrb.init' % (mult+1)
+        filename=question('Initial wavefunction file for %ss:' % (IToMult[mult+1]),str,guess_file)
         if os.path.isfile(filename):
           INFOS['molcas.guess'][mult+1]=filename
           break
@@ -1819,10 +1857,13 @@ The MOLCAS interface will generate the appropriate MOLCAS input automatically.
     INFOS['molcas.guess']={}
 
 
-  print centerstring('MOLCAS Memory usage',60,'-')+'\n'
+  print centerstring('MOLCAS Ressource usage',60,'-')+'\n'
   print '''Please specify the amount of memory available to MOLCAS (in MB). For calculations including moderately-sized CASSCF calculations and less than 150 basis functions, around 2000 MB should be sufficient.
 '''
   INFOS['molcas.mem']=abs(question('MOLCAS memory:',int)[0])
+  print '''Please specify the number of CPUs to be used by EACH calculation.
+'''
+  INFOS['molcas.ncpu']=abs(question('Number of CPUs:',int)[0])
 
 
 
@@ -1895,14 +1936,15 @@ template %s
   for job in INFOS['columbus.mocoefmap']:
     string+='MOCOEF %s %s\n' % (job,INFOS['columbus.mocoefmap'][job])
   string+='\n'
-  if 'ion' in INFOS and INFOS['ion']:
-    string+='dyson %s\n' % (INFOS['columbus.dysonpath'])
-    string+='civecconsolidate %s\n' % (INFOS['columbus.civecpath'])
-    string+='dysonthres %s\n' % (INFOS['columbus.dysonthres'])
-  if Couplings[INFOS['coupling']]['name']=='overlap':
-    if INFOS['columbus.excitlf']:
-      string+='excitlists %s\n' % (INFOS['columbus.excitlf'])
-    string+='ciothres %f\n' % (INFOS['columbus.ciothres'])
+  #if 'ion' in INFOS and INFOS['ion']:
+    #string+='dyson %s\n' % (INFOS['columbus.dysonpath'])
+    #string+='civecconsolidate %s\n' % (INFOS['columbus.civecpath'])
+    #string+='dysonthres %s\n' % (INFOS['columbus.dysonthres'])
+  if Couplings[INFOS['coupling']]['name']=='overlap' or 'ion' in QMin and QMin['ion']:
+    #if INFOS['columbus.excitlf']:
+      #string+='excitlists %s\n' % (INFOS['columbus.excitlf'])
+    string+='wfthres %f\n' % (INFOS['columbus.wfthres'])
+    string+='fverlaps %s\n' % (INFOS['columbus.wfpath'])
   else:
     string+='nooverlap\n'
   sh2col.write(string)
@@ -1966,12 +2008,20 @@ def prepare_MOLCAS(INFOS,iconddir):
   except IOError:
     print 'IOError during prepareMOLCAS, iconddir=%s' % (iconddir)
     quit(1)
-  project=iconddir.replace('/','_')
+  project='MOLCAS'
   string='''molcas %s
 scratchdir %s/%s/
 savedir %s/%s/restart
 memory %i
-project %s''' % (INFOS['molcas'],INFOS['scratchdir'],iconddir,INFOS['copydir'],iconddir,INFOS['molcas.mem'],project)
+ncpu %i
+project %s''' % (INFOS['molcas'],
+                 INFOS['scratchdir'],
+                 iconddir,
+                 INFOS['copydir'],
+                 iconddir,
+                 INFOS['molcas.mem'],
+                 INFOS['molcas.ncpu'],
+                 project)
   sh2cas.write(string)
   sh2cas.close()
 
@@ -1981,8 +2031,12 @@ project %s''' % (INFOS['molcas'],INFOS['scratchdir'],iconddir,INFOS['copydir'],i
   shutil.copy(cpfrom,cpto)
   if not INFOS['molcas.guess']=={}:
     for i in INFOS['molcas.guess']:
-      cpfrom=INFOS['molcas.guess'][i]
-      cpto='%s/QM/%s.%i.JobIph.old' % (iconddir,project,i)
+      if INFOS['molcas.jobiph_or_rasorb']==1:
+        cpfrom=INFOS['molcas.guess'][i]
+        cpto='%s/QM/%s.%i.JobIph.init' % (iconddir,project,i)
+      else:
+        cpfrom=INFOS['molcas.guess'][i]
+        cpto='%s/QM/%s.%i.RasOrb.init' % (iconddir,project,i)
       shutil.copy(cpfrom,cpto)
 
   # runQM.sh
@@ -2185,7 +2239,7 @@ def writeRunscript(INFOS,iconddir):
     projname='traj_%5s' % (iconddir[-6:-1])
 
   if INFOS['here']:
-    string='''#/bin/bash
+    string='''#!/bin/bash
 
 #$-N %s
 
@@ -2196,7 +2250,7 @@ cd $PRIMARY_DIR
 $SHARC/sharc.x input
 ''' % (projname,INFOS['cwd'],iconddir)
   else:
-    string='''#/bin/bash
+    string='''#!/bin/bash
 
 #$-N %s
 ''' % (projname)
@@ -2217,7 +2271,7 @@ echo $(date) >> $PRIMARY_DIR/host_info
 $SHARC/sharc.x input
 err=$?
 
-cp $COPY_DIR/output.* $COPY_DIR/restart.* $PRIMARY_DIR
+cp -r $COPY_DIR/output.* $COPY_DIR/restart.* $COPY_DIR/restart/ $PRIMARY_DIR
 
 if [ $err == 0 ]; 
 then
@@ -2338,6 +2392,22 @@ def setup_all(INFOS):
         break
     if finished:
       print '\n\n%i trajectories setup, last initial condition was %i in state %i.\n' % (ntraj,icond,istate)
+      setup_stat=open('setup_traj.status','a+')
+      string='''*** %s %s %s
+  First index:          %i
+  Last index:           %i
+  Trajectories:         %i
+  State of last traj.:  %i
+
+''' % (datetime.datetime.now(),
+       gethostname(),
+       os.getcwd(),
+       INFOS['firstindex'],
+       icond,
+       ntraj,
+       istate)
+      setup_stat.write(string)
+      setup_stat.close()
       break
 
   if INFOS['qsub']:

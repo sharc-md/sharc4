@@ -1,9 +1,18 @@
+!> # Module INPUT
+!>
+!> \author Sebastian Mai
+!> \date 27.02.2015
+!>
+!> This module provides the central input parsing routine and some 
+!> auxilliary routines for input parsing
+!> 
+!> 
 module input
  contains
 
 ! =================================================================== !
 
-  !> initialises traj and ctrl by reading the input, geom, veloc and coeff files
+  !> initialises traj and ctrl by reading the input, geom, veloc, laser and coeff files
   !> or alternatively by calling the restart reader
   !> excluded from initialitzation:
   !> - coefficients will be set after the first QM calculation if generated automatically
@@ -186,6 +195,8 @@ module input
       close(u_i_input)
       call read_restart(u_resc,u_rest,ctrl,traj)
 
+      ! if explicit laser field is used, the simulation time cannot be changed
+      ! otherwise, the simulation time is read from the input file instead of the restart file
       if (ctrl%laser/=2) then
         line=get_value_from_key('nsteps',io)
         if (io==0) then
@@ -227,6 +238,9 @@ module input
       write(u_log,*)
     endif
 
+  ! =====================================================
+  ! Here starts parsing of the input file step by step
+  ! Parsing is not line by line, but rather option by option
   ! =====================================================
 
   ! next find the number of states
@@ -278,7 +292,7 @@ module input
       write(u_log,*)
     endif
 
-    ! look up actstates_s keyword
+    ! look up actstates keyword
     allocate( ctrl%actstates_s(ctrl%nstates))
     line=get_value_from_key('actstates',io)
     if (io==0) then
@@ -472,6 +486,7 @@ module input
 
   ! other keywords, including consistency checks
 
+    ! Dynamics type
     line=get_value_from_key('surf',io)
     if (io==0) then
       select case (trim(line))
@@ -490,6 +505,7 @@ module input
       ctrl%surf=0
     endif
 
+    ! coupling quantity
     line=get_value_from_key('coupling',io)
     if (io==0) then
       select case (trim(line))
@@ -507,6 +523,18 @@ module input
       ctrl%coupling=1
     endif
 
+    ! spin-orbit couplings
+    ctrl%calc_soc=1
+    line=get_value_from_key('nospinorbit',io)
+    if (io==0) then
+      ctrl%calc_soc=0
+    endif
+    line=get_value_from_key('spinorbit',io)
+    if (io==0) then
+      ctrl%calc_soc=1
+    endif
+
+    ! non-adiabatic couplings for gradients
     line=get_value_from_key('gradcorrect',io)
     if (io==0) then
       ctrl%gradcorrect=1
@@ -518,6 +546,7 @@ module input
       ctrl%gradcorrect=0
     endif
 
+    ! adjustment of kinetic energy
     line=get_value_from_key('ekincorrect',io)
     if (io==0) then
       select case (trim(line))
@@ -535,6 +564,7 @@ module input
       ctrl%ekincorrect=1
     endif
 
+    ! selection of gradients/non-adiabatic couplings
     selg=0
     line=get_value_from_key('grad_select',io)
     if (io==0) then
@@ -562,12 +592,16 @@ module input
       selt=0
     endif
 
+    ! ===========================================
+    ! process which quantities need to be calculated by the interface
+    ! initialize to "do not calculate"
     ctrl%calc_grad=0
     ctrl%calc_nacdt=0
     ctrl%calc_nacdr=-1
     ctrl%calc_overlap=0
     ctrl%calc_second=0
 
+    ! calculate the active coupling quantity (nacdr, nacdt, overlaps)
     select case (ctrl%coupling)
       case (0)  ! ddt
         ctrl%calc_nacdt=1
@@ -583,6 +617,7 @@ module input
 !     if (ctrl%coupling==1) then   ! having ddr couplings
 !       ctrl%gradcorrect=1         ! they can be used for gradient correction
 !     endif
+
     if (ctrl%surf/=0) then   ! not doing SHARC dynamics
       if (ctrl%gradcorrect==1) then
         write(0,*) 'Info: keyword "gradcorrect" has no effect in FISH dynamics.'
@@ -593,38 +628,39 @@ module input
     if (ctrl%gradcorrect==1) then ! for gradcorrect
       ctrl%calc_nacdr=0           ! we need nacdr
     endif
-    if (ctrl%ekincorrect==2) then ! for kinetic energy correction parallel to nac, we need nac
+    if (ctrl%ekincorrect==2) then ! for kinetic energy correction parallel to nac, we need nacdr
       ctrl%calc_nacdr=0
-      ctrl%gradcorrect=1
+!       ctrl%gradcorrect=1
     endif
 
     if (ctrl%surf==1) then   ! doing FISH
       ctrl%calc_grad=1       ! always select grad
     endif
 
-    if (selg==1) then   ! select gradients
+    if (selg==1) then           ! select gradients
       if (ctrl%surf==0) then
-        ctrl%calc_grad=2        ! in second calculation
+        ctrl%calc_grad=2        ! for SHARC in second calculation
       else
-        ctrl%calc_grad=1        ! in first calculation
+        ctrl%calc_grad=1        ! else in first calculation
       endif
     endif
 
-    if (selt==1.and.ctrl%calc_nacdr==0) then
-      ctrl%calc_nacdr=2
+    if (selt==1.and.ctrl%calc_nacdr==0) then    ! if selection of non-adiabatic couplings
+      ctrl%calc_nacdr=2                         ! calculate them in second calculation
     endif
 
     if (ctrl%calc_grad==2.or.ctrl%calc_nacdr==2) then
-      ctrl%calc_second=1
+      ctrl%calc_second=1                                ! do a second interface call
     endif
 
-    line=get_value_from_key('select_directly',io)
+    line=get_value_from_key('select_directly',io)       ! do not do a second interface call
     if (io==0) then
       if (ctrl%calc_grad==2) ctrl%calc_grad=1
       if (ctrl%calc_nacdr==2) ctrl%calc_nacdr=1
       ctrl%calc_second=0
     endif
 
+    ! obtain the energy threshold for selection, default 0.5 eV
     line=get_value_from_key('eselect',io)
     if (io==0) then
       read(line,*) ctrl%eselect_grad
@@ -634,12 +670,13 @@ module input
       ctrl%eselect_nac=0.5d0
     endif
 
-
+    ! if we have frozen states, setup selection
     if ( (ctrl%calc_nacdr==0).and.(.not.all(ctrl%actstates_s) ) ) then
       ctrl%calc_nacdr=1
       ctrl%eselect_nac=99999.9d0
     endif
 
+    ! if we have frozen states, setup selection
     if ( (ctrl%calc_grad==0).and.(.not.all(ctrl%actstates_s) ) ) then
       ctrl%calc_grad=1
       ctrl%eselect_grad=99999.9d0
@@ -716,8 +753,22 @@ module input
         if (ctrl%calc_second==1) then
           write(u_log,'(a)') 'Doing two QM calculations per step for selection.'
         endif
+        if (ctrl%calc_soc==1) then
+          write(u_log,'(a)') 'Calculating Spin-Orbit couplings.'
+        else
+          write(u_log,'(a)') 'Not calculating Spin-Orbit couplings.'
+        endif
       endif
       write(u_log,*)
+      if (ctrl%calc_soc/=1) then
+        n=0
+        do i=1,ctrl%maxmult
+          if (ctrl%nstates_m(i)>0) n=n+1
+        enddo
+        if (n>1) then
+          write(u_log,'(a)') 'Warning: More than one multiplicity, but Spin-Orbit couplings are disabled.'
+        endif
+      endif
     endif
 
   ! =====================================================
@@ -851,14 +902,20 @@ module input
         write(u_log,'(a,1x,f6.3,1x,a)') 'Decoherence constant is',ctrl%decoherence_alpha,'Hartree'
         write(u_log,*)
       else
-        write(u_log,'(a)') 'Decoherence (Granucci) is OFF'
+        write(u_log,'(a)') 'Decoherence is OFF'
         write(u_log,*)
       endif
     endif
 
+    ! phase tracking algorithm, actually not necessary in release SHARC version
+    ! (see IJQC paper)
     line=get_value_from_key('notrack_phase',io)
     if (io==0) then
       ctrl%track_phase=0
+      if (printlevel>1) then
+        write(u_log,'(a)') 'Phase tracking is OFF'
+        write(u_log,*)
+      endif
     else
       ctrl%track_phase=1
     endif
@@ -867,10 +924,16 @@ module input
       ctrl%track_phase=1
     endif
 
+    ! deactivate surface hops
     ctrl%hopping_procedure=1
     line=get_value_from_key('no_hops',io)
     if (io==0) then
-      ctrl%hopping_procedure=0
+      ctrl%hopping_procedure=0  ! negate hopping
+      ctrl%ekincorrect=0        ! negate kinetic energy adjustment at a negated hopping
+      if (printlevel>1) then
+        write(u_log,'(a)') 'Surface Hopping is OFF (will stay in initial diagonal state)'
+        write(u_log,*)
+      endif
     else
       ctrl%hopping_procedure=1
     endif
@@ -924,9 +987,11 @@ module input
     if (io==0) then
       call split(line,' ',values,n)
       select case (trim(values(1)))
+        ! initialize velocities to zero
         case ('zero')
           if (printlevel>1) write(u_log,'(A)') 'Velocities are assumed to be zero!'
           traj%veloc_ad=0.
+        ! initialize velocities randomly
         case ('random')
           if (size(values)<2) then
             write(0,*) 'Give kinetic energy per atom (in eV) for "veloc random"!'
@@ -938,6 +1003,7 @@ module input
           a=a/au2eV
           call set_random_velocities(traj,ctrl,a)
           call init_random_seed(traj%rngseed)
+        ! initialize velocities from file
         case ('external')
 
           line=get_value_from_key('velocfile',io)
@@ -1093,6 +1159,7 @@ module input
     ! =====================================================
     if (ctrl%initcoeff<2) then
 
+      ! get filename
       line=get_value_from_key('coefffile',io)
       if (io==0) then
         call get_quoted(line,geomfilename)
@@ -1102,6 +1169,7 @@ module input
       endif
       open(u_i_coeff,file=filename, status='old', action='read', iostat=io)
 
+      ! read the coefficients
       if (printlevel>1) write(u_log,'(3a)') 'Reading from coefffile "',trim(filename),'"'
       if (io/=0) then
         write(0,*) 'Could not find coefficients file!'
@@ -1258,6 +1326,7 @@ module input
 
     if (ctrl%laser==2) then
 
+      ! get filename
       line=get_value_from_key('laserfile',io)
       if (io==0) then
         call get_quoted(line,geomfilename)
@@ -1281,12 +1350,16 @@ module input
       endif
       call split(line,' ',values,n)
       ctrl%nlasers=n-7
+      if (ctrl%nlasers<1) then
+        write(0,*) 'No central energies for lasers found in ',filename
+        stop 1
+      endif
       rewind(u_i_laser)
 
       allocate(ctrl%laserfield_td(ctrl%nsteps*ctrl%nsubsteps+1,3))
       allocate(ctrl%laserenergy_tl(ctrl%nsteps*ctrl%nsubsteps+1,ctrl%nlasers))
 
-
+      ! read laser field line by line, checking the time with the substeps given above
       do i=1,ctrl%nsteps*ctrl%nsubsteps+1
         read(u_i_laser,'(A)',iostat=io) line
         if (io/=0) then
@@ -1378,6 +1451,7 @@ module input
 
   ! =====================================================
 
+    ! initialize hopping probabilities and acceleration
     traj%hopprob_s=0.d0
     traj%accel_ad=0.d0
 
@@ -1400,6 +1474,9 @@ module input
 
 ! =================================================================== !
 
+!> this routine returns the next valid (key,value) pair from unit nunit
+!> removes comments, skips empty/comment-only lines, makes lowercase, adjusts to left
+!> and splits the line into key and value
   subroutine next_keyword(nunit, keyword, values, stat)
     use string
     implicit none
@@ -1435,6 +1512,9 @@ module input
 
 ! =================================================================== !
 
+!> calculates random velocities for each atom with given kinetic energy
+!> random velocity is uniformly distributed over the sphere
+!> \param a kinetic energy per atom
   subroutine set_random_velocities(traj,ctrl,a)
     ! uniform distribution on a sphere with radius sqrt(2a/m)
     use definitions
@@ -1462,6 +1542,13 @@ module input
 
 ! ===================================================
 
+!> concatenates all relevant input files to a long string and generates a hash from the string
+!> the following infos are hashed:
+!> - input file (cleaned from comments, newlines, duplicates, ...)
+!> - geometry
+!> - velocities
+!> - coefficients
+!> - up to 40 steps from laser
   integer*8 function hash_input(ctrl,traj)
     use definitions
     use input_list

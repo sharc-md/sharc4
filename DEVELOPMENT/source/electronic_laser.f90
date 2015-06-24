@@ -1,9 +1,22 @@
+!> # Module ELECTRONIC_LASER
+!>
+!> \author Sebastian Mai
+!> 13.03.2015
+!>
+!> This module provides modified versions of some routines in electronic.f90, which
+!> are used if a laser field enters in the wavefunction propagation.
+!>
+!>
+
 module electronic_laser
   contains
 ! ==================================================================================================
 ! ==================================================================================================
 ! ==================================================================================================
 
+!> Calculates the propagator Rtotal from the matrices in traj 
+!> (H_MCH, H_MCH_old, NACdt, NACdt_old, U, U_old) and the timestep.
+!> It also updates the diagonal and MCH coefficients.
 subroutine propagate_laser(traj,ctrl)
   use definitions
   use matrix
@@ -13,11 +26,13 @@ subroutine propagate_laser(traj,ctrl)
   type(ctrl_type) :: ctrl
   integer :: istate, iatom, idir
 
+  ! initialize the propagator matrix to the unit matrix
   traj%Rtotal_ss=dcmplx(0.d0,0.d0)
   do istate=1,ctrl%nstates
     traj%Rtotal_ss(istate,istate)=dcmplx(1.d0,0.d0)
   enddo
 
+  ! call the appropriate propagator routine
   select case (ctrl%coupling)
     case (0)    ! ddt
       ! NADdt_ss can be directly used
@@ -161,15 +176,19 @@ endsubroutine
 ! ==================================================================================================
 ! ==================================================================================================
 
+!> calculates the propagator matrix in substeps, see SHARC manual for the equations.
+!> \param interp 0=linear interpolation of non-adiabatic coupling matrix, 1=constant non-adiabatic coupling matrix (NACMold not used)
 subroutine unitary_propagator_laser(n, SO, SOold, NACM, NACMold, U, Uold, DM, DMold, laserfield, dt, nsubsteps, interp, Rtotal)
   use definitions, only: u_log
   use matrix
-  !
-  !
-  !
-  !
-  !
-  !
+! calculates the propagator matrix for a timestep
+! it calculates:
+!              n
+!  R = U^t . PROD exp( -[iH+T]*dt ) . Uold
+!             i=1
+! note that Rtotal has to be initialized as a unit matrix prior to calling unitary_propagator()
+!
+! interp: 0 linear interpolation of T, 1 constant interpolation of T
   implicit none
 
   integer, intent(in) :: n, nsubsteps, interp
@@ -194,6 +213,7 @@ subroutine unitary_propagator_laser(n, SO, SOold, NACM, NACMold, U, Uold, DM, DM
 
     ! first ingredient, H
     H=SOold + (SO-SOold)*istep/nsubsteps
+    ! here the laser field is added to the Hamiltonian
     do ixyz=1,3
       H=H - ( DMold(:,:,ixyz) + (DM(:,:,ixyz)-DMold(:,:,ixyz))*istep/nsubsteps ) * real(laserfield(istep,ixyz))
     enddo
@@ -228,6 +248,8 @@ endsubroutine
 ! ==================================================================================================
 ! ==================================================================================================
 
+!> calculates the propagator matrix in substeps, see SHARC manual for the equations.
+!> Uses the local diabatization procedure
 subroutine LD_propagator_laser(n, SOin, SOold, U, Uold, overlap, DMin, DMold, laserfield, dt, nsubsteps, Rtotal)
   use definitions, only: u_log
   use matrix
@@ -295,6 +317,7 @@ subroutine LD_propagator_laser(n, SOin, SOold, U, Uold, overlap, DMin, DMold, la
   dtsubstep=dt/nsubsteps
   do k=1,nsubsteps
     H=SOold + (SO-SOold)*k/nsubsteps
+    ! here the laser field is added to the Hamiltonian
     do ixyz=1,3
       H=H - ( DMold(:,:,ixyz) + (DM(:,:,ixyz)-DMold(:,:,ixyz))*k/nsubsteps ) * real(laserfield(k,ixyz))
     enddo
@@ -316,6 +339,8 @@ endsubroutine
 ! ==================================================================================================
 ! ==================================================================================================
 
+!> template for a subroutine returning the laser field for a given time
+!> this is not yet fully implemented
 subroutine internal_laserfield(t,field,energy)
 implicit none
 real*8,intent(in) :: t     ! time in atomic units

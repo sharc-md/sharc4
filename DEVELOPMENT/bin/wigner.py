@@ -565,16 +565,38 @@ file. Returns molecule and modes as the other function does.
     molecule.append(ATOM(symb,num,coord,mass))
     iline+=1
 
+  # find number of frequencies
+  iline=-1
+  nmodes=-1
+  while True:
+    iline+=1
+    if iline==len(data):
+      nmodes=3*natom
+      break
+    line=data[iline]
+    if 'N_FREQ' in line:
+      nmodes=int(data[iline+1])
+      break
+
+  # warn, if too few normal modes were found
+  if nmodes<3*natom:
+    print '*'*51+'\nWARNING: Less than 3*N_atom normal modes extracted!\n'+'*'*51+'\n'
+
   # obtain all frequencies, including low ones
   iline=0
   modes=[]
-  nmodes=3*natom
   while not '[FREQ]' in data[iline]:
     iline+=1
   iline+=1
   for imode in range(nmodes):
-    mode={'freq':float(data[iline+imode])*CM_TO_HARTREE * scaling}
-    modes.append(mode)
+    try:
+      mode={'freq':float(data[iline+imode])*CM_TO_HARTREE * scaling}
+      modes.append(mode)
+    except ValueError:
+      print '*'*51+'\nWARNING: Less than 3*N_atom normal modes, but no [N_FREQ] keyword!\n'+'*'*51+'\n'
+      nmodes=imode
+      break
+
   # obtain normal coordinates
   iline=0
   while not 'FR-NORM-COORD' in data[iline]:
@@ -1110,7 +1132,7 @@ Random number generator seed = %i''' % (['MOLDEN','MOLPRO'][options.M], filename
   outfile.close()
 
   # save the shell command
-  command='python'+' '.join(sys.argv)
+  command='python '+' '.join(sys.argv)
   f=open('KEYSTROKES.wigner','w')
   f.write(command)
   f.close()

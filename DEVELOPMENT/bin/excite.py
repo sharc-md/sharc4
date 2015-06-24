@@ -261,7 +261,7 @@ def print_statemap(statemap):
   s='#State\tMult\tM_s\tQuant\n'
   for i in range(1,n+1):
     (mult,state,ms)=statemap[i]
-    s+='%i\t%i\t%i\t%i\n' % (i,mult,ms,state)
+    s+='%i\t%i\t%+3.1f\t%i\n' % (i,mult,ms,state)
   return s
 
 # ======================================================================================================================
@@ -464,14 +464,16 @@ def extractQMout(filename,readP=False):
 
   i=find_flag(qmout,2,filename)
   if i==None:
-    return H,None,None
-  DM=[]
-  for idir in range(3):
-    DM.append(read_matrix(qmout,i+1,filename))
-    if DM[-1]==None:
-      DM=None
-      break
-    i+=len(DM[-1])+1
+    DM=None
+  else:
+    #return H,None,None
+    DM=[]
+    for idir in range(3):
+      DM.append(read_matrix(qmout,i+1,filename))
+      if DM[-1]==None:
+        DM=None
+        break
+      i+=len(DM[-1])+1
 
   if readP:
     i=find_flag(qmout,11,filename)
@@ -978,7 +980,7 @@ def get_QMout(INFOS,initlist):
     estates=[]
     for istate in range(len(H)):
       if INFOS['ion']:
-        dip=[P[0][istate],0,0]
+        dip=[math.sqrt(abs(P[0][istate])),0,0]
       else:
         dip=[DM[i][0][istate] for i in range(3)]
       estate=STATE(len(estates)+1,H[istate][istate],H[0][0],dip)
@@ -993,6 +995,18 @@ def excite(INFOS,initlist):
   emin=INFOS['erange'][0]
   emax=INFOS['erange'][1]
   if not INFOS['excite']==4:
+    if INFOS['excite']==3:
+      # get the maximum oscillator strength
+      maxprob=0
+      for i,icond in enumerate(initlist):
+        if icond.statelist==[]:
+          continue
+        for j,jstate in enumerate(icond.statelist):
+          if emin <= jstate.Eexc <= emax:
+            if -(j+1) not in INFOS['allowed']:
+              if jstate.Prob>maxprob:
+                maxprob=jstate.Prob
+    # set the excitation flags
     for i,icond in enumerate(initlist):
       if icond.statelist==[]:
         continue
@@ -1007,16 +1021,15 @@ def excite(INFOS,initlist):
             else:
               jstate.Excited=False
         elif INFOS['excite']==3:
-          # get the maximum oscillator strength
-          maxprob=0
+          # and excite
           for j,jstate in enumerate(icond.statelist):
             if emin <= jstate.Eexc <= emax:
               if -(j+1) not in INFOS['allowed']:
-                if jstate.Prob>maxprob:
-                  maxprob=jstate.Prob
-          # and excite
-          for j,jstate in enumerate(icond.statelist):
-            jstate.Excite(maxprob,INFOS['erange'])
+                jstate.Excite(maxprob,INFOS['erange'])
+              else:
+                jstate.Excited=False
+            else:
+              jstate.Excited=False
 
   # statistics
   maxprob=0.

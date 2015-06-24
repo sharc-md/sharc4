@@ -1,11 +1,13 @@
+!> # Module QM_OUT
+!>
+!> \author Sebastian Mai
+!> \date 27.02.2015
+!>
+!> This module realizes the QM -> SHARC half of the QM interface.
+!> It provides routines to open and close the QM.out file,
+!> and to extract the different quantities found in this file.
+!>
 module qm_out
-! This module realizes the QM -> SHARC half of the QM interface.
-! It provides routines to open and close the QM.out file,
-! and to extract the different quantities found in this file.
-!
-! It also provides routines to write said quantities in the same format,
-! so that a user realization of the interface can rely on a consistent
-! data formatting.
 implicit none
 
 ! =================================================================== !
@@ -52,10 +54,10 @@ public get_QMruntime
 
 ! =================================================================== !
 
+!> opens a file with filename
+!> and assigns unit nunit to it
+!> for subsequent extraction of QMout data
 subroutine open_qmout(nunit, filename)
-! opens a file with filename
-! and assigns unit nunit to it
-! for subsequent extraction of QMout data
   implicit none
 
   integer, intent(in) :: nunit
@@ -78,9 +80,9 @@ endsubroutine
 
 ! =================================================================== !
 
+!> closes a QMout file 
+!> and assigns -1 to qmout_unit
 subroutine close_qmout
-! closes a QMout file 
-! and assigns -1 to qmout_unit
 !
   implicit none
 
@@ -101,6 +103,7 @@ endsubroutine
 
 ! =================================================================== !
 
+!> check whether a QM.out file is currently open
 subroutine check_qmout_unit(routine)
   implicit none
   character(len=*) :: routine
@@ -115,6 +118,9 @@ endsubroutine
 
 ! =================================================================== !
 
+!> rewinds and searches the QM.out file for the given flag
+!> each flag marks a quantity (e.g., Hamiltonian)
+!> \param flag1 requested flag
 subroutine goto_flag(flag1,routine)
   implicit none
   character(len=*) :: routine
@@ -137,6 +143,11 @@ endsubroutine
 
 ! =================================================================== !
 
+!> rewinds and searches the QM.out file for the given flag
+!> each flag marks a quantity (e.g., Hamiltonian)
+!> In opposite to goto_flag, this routine does not give an error
+!> if the requested flag is not found.
+!> \param flag1 requested flag
 subroutine goto_flag_nostop(flag1,stat)
   implicit none
   character :: marker
@@ -160,10 +171,10 @@ endsubroutine
 
 ! =================================================================== !
 
+!> reads the Hamiltonian matrix from the already opened QMout file
+!> the reference energy shift is not applied here
 subroutine get_hamiltonian(n, H_ss)
   use matrix
-! reads the Hamiltonian matrix from the already opened QMout file
-! shift has to be applied externally
   implicit none
   integer,intent(in) :: n       ! size of the matrix
   complex*16,intent(out) :: H_ss(n,n)
@@ -187,9 +198,9 @@ endsubroutine
 
 ! =================================================================== !
 
+!> reads the Dipole moment matrix from the already opened QMout file
 subroutine get_dipoles(n, DM_ssd)
   use matrix
-! reads the Dipole moment matrix from the already opened QMout file
   implicit none
   integer,intent(in) :: n       ! size of the matrix
   complex*16,intent(out) :: DM_ssd(n,n,3)
@@ -215,9 +226,9 @@ endsubroutine
 
 ! =================================================================== !
 
+!> reads the gradients from the already opened QMout file
 subroutine get_gradients(nstates, natom, grad_sad)
   use matrix
-! reads the gradients from the already opened QMout file
   implicit none
   integer,intent(in) :: nstates,natom
   real*8,intent(out) :: grad_sad(nstates,natom,3)
@@ -243,11 +254,11 @@ endsubroutine
 
 ! =================================================================== !
 
+!> reads the phases from QMout file
+!> if phases are present, stat=0
+!> if no phases are present, phase_s=1.0 and stat=-1
 subroutine get_phases(n,phase_s,stat)
   use matrix
-! reads the phases from QMout file
-! if phases are present, stat=0
-! if no phases are present, phase=1 and stat=-1
   implicit none
 
   integer,intent(in) :: n
@@ -278,10 +289,10 @@ endsubroutine
 
 ! =================================================================== !
 
+!> reads the NACdt matrix (nstates x nstates) from the already opened QMout file
+!> does not read the vectorial couplings, which are read by get_nonadiabatic_ddr
 subroutine get_nonadiabatic_ddt(n, T_ss)
   use matrix
-! reads the NAC matrix (nstates x nstates) from the already opened QMout file
-! does not read the vectorial couplings, which are read by get_nonadiabatic_ddr
   implicit none
   integer,intent(in) :: n       ! size of the matrix
   complex*16,intent(out) :: T_ss(n,n)
@@ -305,10 +316,10 @@ endsubroutine
 
 ! =================================================================== !
 
+!> reads the NACdR vectors (nstates x nstates vectors) from the already opened QMout file
+!> does not read the NACdt matrix, which is read by get_nonadiabatic_ddt
 subroutine get_nonadiabatic_ddr(nstates, natom, T_ssad)
   use matrix
-! reads the NAC vectors (nstates x nstates vectors) from the already opened QMout file
-! does not read the non-adiabatic coupling matrix, which is read by get_nonadiabatic_ddt
   implicit none
   integer,intent(in) :: nstates,natom
   real*8,intent(out) :: T_ssad(nstates,nstates,natom,3)
@@ -337,9 +348,9 @@ endsubroutine
 
 ! =================================================================== !
 
+!> reads the overlap matrix (nstates x nstates) from the already opened QMout 
 subroutine get_overlap(n, S_ss)
   use matrix
-! reads the overlap matrix (nstates x nstates) from the already opened QMout file
   implicit none
   integer,intent(in) :: n       ! size of the matrix
   complex*16,intent(out) :: S_ss(n,n)
@@ -363,8 +374,8 @@ endsubroutine
 
 ! =================================================================== !
 
+!> reads the runtime of the quantum mechanics call
 subroutine get_QMruntime(runtime)
-! reads the runtime of the quantum mechanics call
   implicit none
   real*8 :: runtime
   integer :: io
@@ -384,11 +395,11 @@ endsubroutine
 
 ! =================================================================== !
 
+! reads the property matrix from QMout file
+! if property matrix present, stat=0
+! if no property matrix: property_ss=(0,-123) and stat=-1
 subroutine get_property(n,property_ss,stat)
   use matrix
-! reads the phases from QMout file
-! if phases are present, stat=0
-! if no phases are present, phase=1 and stat=-1
   implicit none
 
   integer,intent(in) :: n
@@ -421,6 +432,7 @@ endsubroutine
 
 ! =================================================================== !
 
+!> reads the dipole moment derivatives from QMout
 subroutine get_dipolegrad(nstates, natom, DMDR_ssdad)
   use matrix
   implicit none

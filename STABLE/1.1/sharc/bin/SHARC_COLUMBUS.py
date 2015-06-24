@@ -1,0 +1,3503 @@
+#!/usr/bin/python
+
+#  ====================================================================
+#||                                                                    ||
+#||                             General Remarks                        ||
+#||                                                                    ||
+#  ====================================================================
+#
+# This script uses several different specification for the electronic states under consideration.
+# Generally, the input specs are like "3 Singlets, 0 Doublets and 3 Triplets"
+# Based on this information, the states may be denoted by different systems.
+#
+# The most comprehensive denotation is: (mult, state, MS).
+# In this case, states of higher multiplicity show up several times and the total number of states may be quite large.
+# This total number of states is called nmstates in the script (equals to 12 for the above example)
+#
+# Since the MS components of a multiplet often share several expectation values, these need to be calculated only once.
+# In this case, states can be safely denoted by (mult,state).
+# The total number of these states is called nstates.
+#
+# In both systems, the states can be given indices. In this script and in SHARC, one first counts up the state quantum number,
+# then the MS quantum number, and finally the multiplicity, like in this code snippet:
+#
+# i=0
+# for mult in range(len(states)):
+#   for MS in range(mult):
+#     for state in range(states[mult]):
+#       i+=1
+#       print i, mult+1, state+1, MS-i/2
+#
+# more about this below in the docstrings of the iterator functions
+
+# ======================================================================= #
+
+# IMPLEMENTATION OF ADDITIONAL TASKS KEYWORDS, JOBS, ETC:
+#
+# A new task keyword in QMin has to be added to:
+#       - readQMin (for consistency check)
+#       - gettasks (planning the MOLPRO calculation)
+#       - print QMin (optional)
+#
+# A new task in the Tasks array needs changes in:
+#       - gettasks 
+#       - writeMOLPROinput 
+#       - redotasks
+#       - printtasks
+
+# ======================================================================= #
+# Modules:
+# Operating system, isfile and related routines, move files, create directories
+import os
+# External Calls to MOLPRO
+import subprocess as sp
+# Command line arguments
+import sys
+# shell utilities like copy
+import shutil
+# Regular expressions
+import re
+# debug print for dicts and arrays
+import pprint
+# sqrt and other math
+import math
+import cmath
+# runtime measurement
+import datetime
+# copy of arrays of arrays
+from copy import deepcopy
+from socket import gethostname
+
+
+
+# =========================================================0
+# compatibility stuff
+
+if sys.version_info[0]!=2:
+  print 'This is a script for Python 2!'
+  sys.exit(0)
+
+if sys.version_info[1]<5:
+  def any(iterable):
+    for element in iterable:
+      if element:
+        return True
+    return False
+
+  def all(iterable):
+    for element in iterable:
+      if not element:
+        return False
+    return True
+
+
+
+# ======================================================================= #
+
+version='1.0'
+versiondate=datetime.date(2014,10,8)
+
+
+changelogstring='''
+28.05.2014:     0.3 MAJOR UPDATE
+- added ionization via Dyson norms
+- can use several COLUMBUS input directories
+- storage is divided into SAVE and KEEP directories
+- restartable
+- molden keyword
+
+03.06.2014:     0.3.01
+- fixed bug when doing socinr calculations with e.g. quintets but triplets missing
+- dyson output is saved with backup keyword
+
+16.07.2014:     0.3.02
+- fixed a bug where the savedir was read in lowercase from the QM.in file
+
+25.08.2014:     0.3.03
+- fixed a bug where the order of states from socinr jobs is not correct in the SO-Hamiltonian
+
+26.08.2014:     0.3.04
+- savedir and scratchdir now have defaults ($PWD/SAVEDIR/ and $PWD/SCRATCHDIR/)
+- added keyword "always_mocoef_init" to SH2COL.inp, to force the use of the provided initial MOs in all timesteps
+- the maximum multiplicity actually needed for SOCI calculations is now written to cidrtin 
+  (the value in cidrtin could be higher than needed, which will break runc)
+- links to savedir and scratchdir are set now
+
+09.09.2014:     0.3.05
+- multiple mocoef_mc.init files can be used (mocoef_mc.init.<job> is used for <job>, if available, otherwise mocoef_mc.init)
+
+23.09.2014:     0.3.06
+- data is not saved for "samestep" runs. This would make the wavefunction phases in the determinant files inconsistent with previous calculations at the same geometry.
+
+08.10.2014:     1.0
+- official release version, no changes to 0.3.06'''
+
+# ======================================================================= #
+# holds the system time when the script was started
+starttime=datetime.datetime.now()
+
+# global variables for printing (PRINT gives formatted output, DEBUG gives raw output)
+DEBUG=False
+PRINT=True
+
+# hash table for conversion of multiplicity to the keywords used in COLUMBUS
+IToMult={
+         1: 'Singlet', 
+         2: 'Doublet', 
+         3: 'Triplet', 
+         4: 'Quartet', 
+         5: 'Quintet', 
+         6: 'Sextet', 
+         7: 'Septet', 
+         8: 'Octet', 
+         'Singlet': 1, 
+         'Doublet': 2, 
+         'Triplet': 3, 
+         'Quartet': 4, 
+         'Quintet': 5, 
+         'Sextet': 6, 
+         'Septet': 7, 
+         'Octet': 8
+         }
+
+# hash table for conversion of polarisations to the keywords used in COLUMBUS
+IToPol={
+        0: 'X', 
+        1: 'Y', 
+        2: 'Z', 
+        'X': 0, 
+        'Y': 1, 
+        'Z': 2
+        }
+
+# conversion factors
+au2a=0.529177211
+rcm_to_Eh=4.556335e-6
+
+# ======================================================================= #
+def readfile(filename):
+  try:
+    f=open(filename)
+    out=f.readlines()
+    f.close()
+  except IOError:
+    print 'File %s does not exist!' % (filename)
+    sys.exit(12)
+  return out
+
+# ======================================================================= #
+def writefile(filename,content):
+  # content can be either a string or a list of strings
+  try:
+    f=open(filename,'w')
+    if isinstance(content,list):
+      for line in content:
+        f.write(line)
+    elif isinstance(content,str):
+      f.write(content)
+    else:
+      print 'Content %s cannot be written to file!' % (content)
+    f.close()
+  except IOError:
+    print 'Could not write to file %s!' % (filename)
+    sys.exit(13)
+
+# ======================================================================= #
+def isbinary(path):
+  return (re.search(r':.* text',sp.Popen(["file", '-L', path], stdout=sp.PIPE).stdout.read())is None)
+
+
+
+
+# ======================================================================= #
+def eformat(f, prec, exp_digits):
+  '''Formats a float f into scientific notation with prec number of decimals and exp_digits number of exponent digits.
+
+  String looks like:
+  [ -][0-9]\.[0-9]*E[+-][0-9]*
+
+  Arguments:
+  1 float: Number to format
+  2 integer: Number of decimals
+  3 integer: Number of exponent digits
+
+  Returns:
+  1 string: formatted number'''
+
+  s = "% .*e"%(prec, f)
+  mantissa, exp = s.split('e')
+  return "%sE%+0*d"%(mantissa, exp_digits+1, int(exp))
+
+# ======================================================================= #
+def measuretime():
+  '''Calculates the time difference between global variable starttime and the time of the call of measuretime.
+
+  Prints the Runtime, if PRINT or DEBUG are enabled.
+
+  Arguments:
+  none
+
+  Returns:
+  1 float: runtime in seconds'''
+
+  endtime=datetime.datetime.now()
+  runtime=endtime-starttime
+  if PRINT or DEBUG:
+    hours=runtime.seconds/3600
+    minutes=runtime.seconds/60-hours*60
+    seconds=runtime.seconds%60
+    print '==> Runtime:\n%i Days\t%i Hours\t%i Minutes\t%i Seconds\n\n' % (runtime.days,hours,minutes,seconds)
+  total_seconds=runtime.days*24*3600+runtime.seconds+runtime.microseconds/1.e6
+  return total_seconds
+
+
+
+
+
+# ======================================================================= #
+def itmult(states):
+  '''Takes an array of the number of states in each multiplicity and generates an iterator over all multiplicities with non-zero states.
+
+  Example:
+  [3,0,3] yields two iterations with
+  1
+  3
+
+  Arguments:
+  1 list of integers: States specification
+
+  Returns:
+  1 integer: multiplicity'''
+
+  for i in range(len(states)):
+    if states[i]<1:
+      continue
+    yield i+1
+  return
+
+# ======================================================================= #
+def itnstates(states):
+  '''Takes an array of the number of states in each multiplicity and generates an iterator over all states specified. Different values of MS for each state are not taken into account.
+
+  Example:
+  [3,0,3] yields six iterations with
+  1,1
+  1,2
+  1,3
+  3,1
+  3,2
+  3,3
+
+  Arguments:
+  1 list of integers: States specification
+
+  Returns:
+  1 integer: multiplicity
+  2 integer: state'''
+
+  for i in range(len(states)):
+    if states[i]<1:
+      continue
+    for j in range(states[i]):
+      yield i+1,j+1
+  return
+
+# ======================================================================= #
+def itnmstates(states):
+  '''Takes an array of the number of states in each multiplicity and generates an iterator over all states specified. Iterates also over all MS values of all states.
+
+  Example:
+  [3,0,3] yields 12 iterations with
+  1,1,0
+  1,2,0
+  1,3,0
+  3,1,-1
+  3,2,-1
+  3,3,-1
+  3,1,0
+  3,2,0
+  3,3,0
+  3,1,1
+  3,2,1
+  3,3,1
+
+  Arguments:
+  1 list of integers: States specification
+
+  Returns:
+  1 integer: multiplicity
+  2 integer: state
+  3 integer: MS value'''
+
+  for i in range(len(states)):
+    if states[i]<1:
+      continue
+    for k in range(i+1):
+      for j in range(states[i]):
+        yield i+1,j+1,k-i/2.
+  return
+
+# ======================================================================= #
+def ittwostates(states):
+  '''Takes an array of the number of states in each multiplicity and generates an iterator over all pairs of states (s1/=s2 and s1<s2), which have the same multiplicity. Different values of MS for each state are not taken into account.
+
+  Example:
+  [3,0,3] yields six iterations with
+  1 1 2
+  1 1 3
+  1 2 3
+  3 1 2
+  3 1 3
+  3 2 3
+
+  Arguments:
+  1 list of integers: States specification
+
+  Returns:
+  1 integer: multiplicity
+  2 integer: state 1
+  3 integer: state 2'''
+
+  for i in range(len(states)):
+    if states[i]<2:
+      continue
+    for j1 in range(states[i]):
+      for j2 in range(j1+1,states[i]):
+        yield i+1,j1+1,j2+1
+  return
+
+# ======================================================================= #
+def ittwostatesfull(states):
+  '''Takes an array of the number of states in each multiplicity and generates an iterator over all pairs of states (all combinations), which have the same multiplicity. Different values of MS for each state are not taken into account.
+
+  Example:
+  [3,0,3] yields 18 iterations with
+  1 1 1
+  1 1 2
+  1 1 3
+  1 2 1
+  1 2 2
+  1 2 3
+  1 3 1
+  1 3 2
+  1 3 3
+  3 1 1
+  3 1 2
+  3 1 3
+  3 2 1
+  3 2 2
+  3 2 3
+  3 3 1
+  3 3 2
+  3 3 3
+
+  Arguments:
+  1 list of integers: States specification
+
+  Returns:
+  1 integer: multiplicity
+  2 integer: state 1
+  3 integer: state 2'''
+
+  for i in itmult(states):
+    for j in itnstates([states[i-1]]):
+      for k in itnstates([states[i-1]]):
+        yield i,j[1],k[1]
+  return
+
+# ======================================================================= #
+def IstateToMultState(i,states):
+  '''Takes a state index in nmstates counting scheme and converts it into (mult,state).
+
+  Arguments:
+  1 integer: state index
+  2 list of integers: states specification
+
+  Returns:
+  1 integer: mult
+  2 integer: state'''
+
+  j=i
+  for mult,state,ms in itnmstates(states):
+    i-=1
+    if i==0:
+      return mult,state
+  print 'state %i is not in states:' % (j),states
+  sys.exit(14)
+
+# ======================================================================= #
+def IstateToMultStateMS(i,states):
+  '''Takes a state index in nmstates counting scheme and converts it into (mult,state).
+
+  Arguments:
+  1 integer: state index
+  2 list of integers: states specification
+
+  Returns:
+  1 integer: mult
+  2 integer: state'''
+
+  for mult,state,ms in itnmstates(states):
+    i-=1
+    if i==0:
+      return mult,state,ms
+  print 'state %i is not in states:',states
+  sys.exit(15)
+
+# ======================================================================= #
+def MultStateMSToIstateCOL(mult,state,ms,states):
+  '''Takes a tuple (mult,state) and returns all indices i in nmstates scheme, which correspond to this mult and state.
+
+  Arguments:
+  1 integer: mult
+  2 integer: state
+  3 list of integers: states specification
+
+  Returns:
+  1 integer: state index in nmstates scheme'''
+
+  if mult-1>len(states) or state>states[mult-1]:
+    print 'No state %i, mult %i in states:' % (state,mult),states
+    sys.exit(16)
+  n=1
+  for i in range(len(states)):
+    if states[i]<1:
+      continue
+    for j in range(states[i]):
+      for k in range(i+1):
+        if i+1==mult and j+1==state and k-i/2.==ms:
+          return n
+        n+=1
+
+# ======================================================================= #
+def MultStateToIstate(mult,state,states):
+  '''Takes a tuple (mult,state) and returns all indices i in nmstates scheme, which correspond to this mult and state.
+
+  Arguments:
+  1 integer: mult
+  2 integer: state
+  3 list of integers: states specification
+
+  Returns:
+  1 integer: state index in nmstates scheme'''
+
+  if mult-1>len(states) or state>states[mult-1]:
+    print 'No state %i, mult %i in states:' % (state,mult),states
+    sys.exit(17)
+  i=1
+  for imult,istate,ms in itnmstates(states):
+    if imult==mult and istate==state:
+      yield i
+    i+=1
+  return
+
+# ======================================================================= #
+def MultStateToIstateJstate(mult,state1,state2,states):
+  '''Takes (mult,state1,state2) and returns all index tuples (i,j) in nmstates scheme, which correspond to this mult and pair of states. Only returns combinations, where both states have the same MS value.
+
+  Arguments:
+  1 integer: mult
+  2 integer: state1
+  3 integer: state2
+  4 list of integers: states specification
+
+  Returns:
+  1 integer: state1 index in nmstates scheme
+  2 integer: state2 index in nmstates scheme'''
+
+  if mult-1>len(states) or state1>states[mult-1] or state2>states[mult-1]:
+    print 'No states %i, %i mult %i in states:' % (state1,state2,mult),states
+    sys.exit(18)
+  i=1
+  k=-1
+  for imult,istate,ms in itnmstates(states):
+    if imult==mult and istate==state1:
+      j=1
+      for jmult,jstate,ms2 in itnmstates(states):
+        if jmult==mult and jstate==state2:
+          k+=1
+          if k%(mult+1)==0:
+            yield i,j
+        j+=1
+    i+=1
+  return
+
+# ======================================================================= #
+def removekey(d,key):
+  '''Removes an entry from a dictionary and returns the dictionary.
+
+  Arguments:
+  1 dictionary
+  2 anything which can be a dictionary keyword
+
+  Returns:
+  1 dictionary'''
+
+  if key in d:
+    r = dict(d)
+    del r[key]
+    return r
+  return d
+
+# ======================================================================= #     OK
+def containsstring(string,line):
+  '''Takes a string (regular expression) and another string. Returns True if the first string is contained in the second string.
+
+  Arguments:
+  1 string: Look for this string
+  2 string: within this string
+
+  Returns:
+  1 boolean'''
+
+  a=re.search(string,line)
+  if a:
+    return True
+  else:
+    return False
+
+
+# =============================================================================================== #
+# =============================================================================================== #
+# =========================================== print routines ==================================== #
+# =============================================================================================== #
+# =============================================================================================== #
+
+# ======================================================================= #
+def printheader():
+  '''Prints the formatted header of the log file. Prints version number and version date
+
+  Takes nothing, returns nothing.'''
+
+  print starttime,gethostname(),os.getcwd()
+  if not PRINT:
+    return
+  string='\n'
+  string+='  '+'='*80+'\n'
+  string+='||'+' '*80+'||\n'
+  string+='||'+' '*25+'SHARC - COLUMBUS 7 - Interface'+' '*25+'||\n'
+  string+='||'+' '*80+'||\n'
+  string+='||'+' '*29+'Author: Sebastian Mai'+' '*30+'||\n'
+  string+='||'+' '*80+'||\n'
+  string+='||'+' '*(36-(len(version)+1)/2)+'Version: %s' % (version)+' '*(35-(len(version))/2)+'||\n'
+  lens=len(versiondate.strftime("%d.%m.%y"))
+  string+='||'+' '*(37-lens/2)+'Date: %s' % (versiondate.strftime("%d.%m.%y"))+' '*(37-(lens+1)/2)+'||\n'
+  string+='||'+' '*80+'||\n'
+  string+='  '+'='*80+'\n\n'
+  print string
+  if DEBUG:
+    print changelogstring
+
+# ======================================================================= #
+def printQMin(QMin):
+  '''If PRINT, prints a formatted Summary of the control variables read from the input file.
+
+  Arguments:
+  1 dictionary: QMin'''
+
+  if DEBUG:
+    pprint.pprint(QMin)
+  if not PRINT:
+    return
+  print '==> QMin Job description for:\n%s' % (QMin['comment'])
+  string='Tasks:'
+  if 'h' in QMin:
+    string+='\tH'
+  if 'soc' in QMin:
+    string+='\tSOC'
+  if 'dm' in QMin:
+    string+='\tDM'
+  if 'grad' in QMin:
+    string+='\tGrad'
+  if 'nacdr' in QMin:
+    string+='\tNac(ddr)'
+  if 'nacdt' in QMin:
+    string+='\tNac(ddt)'
+  if 'overlap' in QMin:
+    string+='\tOverlaps'
+  if 'angular' in QMin:
+    string+='\tAngular'
+  if 'ion' in QMin:
+    string+='\tDyson norms'
+  print string
+  string='States: '
+  for i in itmult(QMin['states']):
+    string+='\t%i %s' % (QMin['states'][i-1],IToMult[i])
+  print string
+  string='Found Geo'
+  if 'veloc' in QMin:
+    string+=' and Veloc! '
+  else:
+    string+='! '
+  string+='NAtom is %i.\n' % (QMin['natom'])
+  print string
+  string=''
+  for i in range(QMin['natom']):
+    string+='%s ' % (QMin['geo'][i][0])
+    for j in range(3):
+      string+='% 7.4f ' % (QMin['geo'][i][j+1])
+    string+='\n'
+  print string
+  if 'veloc' in QMin:
+    string=''
+    for i in range(QMin['natom']):
+      string+='%s ' % (QMin['geo'][i][0])
+      for j in range(3):
+        string+='% 7.4f ' % (QMin['veloc'][i][j])
+      string+='\n'
+    print string
+  if 'grad' in QMin:
+    string='Gradients:   '
+    for i in range(1,QMin['nmstates']+1):
+      if i in QMin['grad']:
+        string+='X '
+      else:
+        string+='. '
+    string+='\n'
+    print string
+  if 'nacdr' in QMin:
+    string='Non-adiabatic couplings:\n'
+    for i in range(1,QMin['nmstates']+1):
+      for j in range(1,QMin['nmstates']+1):
+        if [i,j] in QMin['nacdr'] or [j,i] in QMin['nacdr']:
+          string+='X '
+        else:
+          string+='. '
+      string+='\n'
+    print string
+  if 'overlap' in QMin:
+    string='Overlaps:\n'
+    for i in range(1,QMin['nmstates']+1):
+      for j in range(1,QMin['nmstates']+1):
+        if [i,j] in QMin['overlap'] or [j,i] in QMin['overlap']:
+          string+='X '
+        else:
+          string+='. '
+      string+='\n'
+    print string
+  if 'ion' in QMin:
+    string='Dyson norms: '
+    for i in range(1,QMin['nmstates']+1):
+      if i in QMin['ion']:
+        string+='X '
+      else:
+        string+='. '
+    string+='\n'
+    print string
+  for i in QMin:
+    if not any( [i==j for j in ['h','dm','soc','geo','veloc','states','comment','LD_LIBRARY_PATH', 'grad','nacdr','ion','overlap'] ] ):
+      if not any( [i==j for j in ['ionlist','ionmap'] ] ) or DEBUG:
+        string=i+': '
+        string+=str(QMin[i])
+        print string
+  print '\n'
+  sys.stdout.flush()
+
+# ======================================================================= #
+def printtasks(tasks):
+  '''If PRINT, prints a formatted table of the tasks in the tasks list.
+
+  Arguments:
+  1 list of lists: tasks list (see gettasks for specs)'''
+
+  if DEBUG:
+    pprint.pprint(tasks)
+  if not PRINT:
+    return
+  print '==> Task Queue:\n'
+  for i in range(len(tasks)):
+    task=tasks[i]
+    if task[0]=='movetoold':
+      print 'Move SAVE to old'
+    if task[0]=='backupdata':
+      print 'Backup data\t%s' % (task[1])
+    elif task[0]=='save_data':
+      print 'Save data\t%s' % (task[1])
+    elif task[0]=='keep_data':
+      print 'Keep data\t%s' % (task[1])
+    elif task[0]=='get_COLout':
+      print 'Parse Output\t%s' % (task[1])
+    elif task[0]=='cleanup':
+      print 'Clean directory\t%s' % (task[1])
+    elif task[0]=='mkdir':
+      print 'Make directory\t%s' % (task[1])
+    elif task[0]=='link':
+      print 'Link\t\t%s\n\t--> \t%s' % (task[2],task[1])
+    elif task[0]=='write':
+      print 'Write file\t%s' % (task[1])
+    elif task[0]=='getmo':
+      print 'Get mocoef file\t%s' % (task[1])
+    elif task[0]=='getinput':
+      print 'Get input files\t%s' % (task[1])
+    elif task[0]=='getmcinput':
+      print 'Get MCSCF input\t%s' % (task[1])
+    elif task[0]=='checkinput':
+      print 'Check input files'
+    elif task[0]=='writegeom':
+      print 'Write geometry\nCall xyz2col.x'
+    elif task[0]=='runc':
+      print 'Run COLUMBUS'
+    elif task[0]=='writemolcas':
+      print 'Write MOLCAS AO overlap integral input\n\tfrom\t%s\n\tand\t%s\n\tto\t%s' % (task[1],task[2],task[3])
+    elif task[0]=='runmolcas':
+      print 'Run MOLCAS'
+    elif task[0]=='runmkciovinp':
+      print 'Run mkciovinp'
+    elif task[0]=='runcioverlap':
+      print 'Run cioverlap'
+    elif task[0]=='saveexcitlistfile':
+      print 'Save excitlistfile\tDRT%i' % (task[1])
+    elif task[0]=='keep_excitlists':
+      print 'Get excitlistfiles from \n\t\t%s' % (task[1])
+    elif task[0]=='get_CIOoutput':
+      print 'Parse Output \t%s, DRT %i' % (task[1],task[2])
+    elif task[0]=='make_dets':
+      print 'Run civecconsolidate'
+    elif task[0]=='dyson':
+      print 'Dyson norm\tMult %i, State %i\tand\tMult %i, State %i' % tuple(task[1])
+    else:
+      print task
+  print '\n'
+  sys.stdout.flush()
+
+# ======================================================================= #
+def printcomplexmatrix(matrix,states):
+  '''Prints a formatted matrix. Zero elements are not printed, blocks of different mult and MS are delimited by dashes. Also prints a matrix with the imaginary parts, if any one element has non-zero imaginary part.
+
+  Arguments:
+  1 list of list of complex: the matrix
+  2 list of integers: states specs'''
+
+  nmstates=0
+  for i in range(len(states)):
+    nmstates+=states[i]*(i+1)
+  string='Real Part:\n'
+  string+='-'*(11*nmstates+nmstates/3)
+  string+='\n'
+  istate=0
+  for imult,i,ms in itnmstates(states):
+    jstate=0
+    string+='|'
+    for jmult,j,ms2 in itnmstates(states):
+      if matrix[istate][jstate].real==0.:
+        string+=' '*11
+      else:
+        string+='% .3e ' % (matrix[istate][jstate].real)
+      if j==states[jmult-1]:
+        string+='|'
+      jstate+=1
+    string+='\n'
+    if i==states[imult-1]:
+      string+='-'*(11*nmstates+nmstates/3)
+      string+='\n'
+    istate+=1
+  print string
+  imag=False
+  string='Imaginary Part:\n'
+  string+='-'*(11*nmstates+nmstates/3)
+  string+='\n'
+  istate=0
+  for imult,i,ms in itnmstates(states):
+    jstate=0
+    string+='|'
+    for jmult,j,ms2 in itnmstates(states):
+      if matrix[istate][jstate].imag==0.:
+        string+=' '*11
+      else:
+        imag=True
+        string+='% .3e ' % (matrix[istate][jstate].imag)
+      if j==states[jmult-1]:
+        string+='|'
+      jstate+=1
+    string+='\n'
+    if i==states[imult-1]:
+      string+='-'*(11*nmstates+nmstates/3)
+      string+='\n'
+    istate+=1
+  string+='\n'
+  if imag:
+    print string
+
+# ======================================================================= #
+def printgrad(grad,natom,geo):
+  '''Prints a gradient or nac vector. Also prints the atom elements. If the gradient is identical zero, just prints one line.
+
+  Arguments:
+  1 list of list of float: gradient
+  2 integer: natom
+  3 list of list: geometry specs'''
+
+  string=''
+  iszero=True
+  for atom in range(natom):
+    string+='%i\t%s\t' % (atom+1,geo[atom][0])
+    for xyz in range(3):
+      if grad[atom][xyz]!=0:
+        iszero=False
+      string+='% .5f\t' % (grad[atom][xyz])
+    string+='\n'
+  if iszero:
+    print '\t\t...is identical zero...\n'
+  else:
+    print string
+
+# ======================================================================= #
+def printQMout(QMin,QMout):
+  '''If PRINT, prints a summary of all requested QM output values. Matrices are formatted using printcomplexmatrix, vectors using printgrad. 
+
+  Arguments:
+  1 dictionary: QMin
+  2 dictionary: QMout'''
+
+  if DEBUG:
+    pprint.pprint(QMout)
+  if not PRINT:
+    return
+  states=QMin['states']
+  nstates=QMin['nstates']
+  nmstates=QMin['nmstates']
+  natom=QMin['natom']
+  print '===> Results:\n'
+  # Hamiltonian matrix, real or complex
+  if 'h' in QMin or 'soc' in QMin:
+    eshift=math.ceil(QMout['h'][0][0].real)
+    print '=> Hamiltonian Matrix:\nDiagonal Shift: %9.2f' % (eshift)
+    matrix=deepcopy(QMout['h'])
+    for i in range(nmstates):
+      matrix[i][i]-=eshift
+    printcomplexmatrix(matrix,states)
+  # Dipole moment matrices
+  if 'dm' in QMin:
+    print '=> Dipole Moment Matrices:\n'
+    for xyz in range(3):
+      print 'Polarisation %s:' % (IToPol[xyz])
+      matrix=QMout['dm'][xyz]
+      printcomplexmatrix(matrix,states)
+  # Gradients
+  if 'grad' in QMin:
+    print '=> Gradient Vectors:\n'
+    istate=0
+    for imult,i,ms in itnmstates(states):
+      print '%s\t%i\tMs= % .1f:' % (IToMult[imult],i,ms)
+      printgrad(QMout['grad'][istate],natom,QMin['geo'])
+      istate+=1
+  # Non-adiabatic couplings
+  if 'nacdt' in QMin:
+    print '=> Numerical Non-adiabatic couplings:\n'
+    matrix=QMout['nacdt']
+    printcomplexmatrix(matrix,states)
+    matrix=deepcopy(QMout['mrcioverlap'])
+    for i in range(nmstates):
+      for j in range(nmstates):
+        matrix[i][j]=complex(matrix[i][j])
+    print '=> MRCI overlaps:\n'
+    printcomplexmatrix(matrix,states)
+    if 'phases' in QMout:
+      print '=> Wavefunction Phases:\n'
+      for i in range(nmstates):
+        print '% 3.1f % 3.1f' % (QMout['phases'][i].real,QMout['phases'][i].imag)
+      print '\n'
+  if 'nacdr' in QMin:
+    print '=> Analytical Non-adiabatic coupling vectors:\n'
+    istate=0
+    for imult,i,msi in itnmstates(states):
+      jstate=0
+      for jmult,j,msj in itnmstates(states):
+        if imult==jmult and msi==msj:
+          print '%s\tStates %i - %i\tMs= % .1f:' % (IToMult[imult],i,j,msi)
+          printgrad(QMout['nacdr'][istate][jstate],natom,QMin['geo'])
+        jstate+=1
+      istate+=1
+  if 'overlap' in QMin:
+    print '=> Overlap matrix:\n'
+    matrix=QMout['overlap']
+    printcomplexmatrix(matrix,states)
+    if 'phases' in QMout:
+      print '=> Wavefunction Phases:\n'
+      for i in range(nmstates):
+        print '% 3.1f % 3.1f' % (QMout['phases'][i].real,QMout['phases'][i].imag)
+      print '\n'
+  # Angular momentum matrices
+  if 'angular' in QMin:
+    print '=> Angular Momentum Matrices:\n'
+    for xyz in range(3):
+      print 'Polarisation %s:' % (IToPol[xyz])
+      matrix=QMout['angular'][xyz]
+      printcomplexmatrix(matrix,states)
+  # Property matrix (dyson norms)
+  if 'ion' in QMin:
+    print '=> Property matrix:\n'
+    matrix=QMout['prop']
+    printcomplexmatrix(matrix,states)
+  sys.stdout.flush()
+
+
+
+# =============================================================================================== #
+# =============================================================================================== #
+# =========================================== ????????????????? ================================= #
+# =============================================================================================== #
+# =============================================================================================== #
+
+
+
+
+# ======================================================================= #     OK
+def makecmatrix(a,b):
+  '''Initialises a complex axb matrix.
+
+  Arguments:
+  1 integer: first dimension
+  2 integer: second dimension
+
+  Returns;
+  1 list of list of complex'''
+
+  mat=[ [ complex(0.,0.) for i in range(a) ] for j in range(b) ]
+  return mat
+
+# ======================================================================= #     OK
+def makermatrix(a,b):
+  '''Initialises a real axb matrix.
+
+  Arguments:
+  1 integer: first dimension
+  2 integer: second dimension
+
+  Returns;
+  1 list of list of real'''
+
+  mat=[ [ 0. for i in range(a) ] for j in range(b) ]
+  return mat
+
+
+
+
+
+# =============================================================================================== #
+# =============================================================================================== #
+# =========================================== output extraction ================================= #
+# =============================================================================================== #
+# =============================================================================================== #
+
+# ======================================================================= #
+def getcienergy(runls,QMin,istate):
+  mult,state,ms=tuple(QMin['statemap'][istate])
+  job,drt=tuple(QMin['multmap'][mult])
+  socimode=QMin['socimap'][job]
+
+  ilines=0
+  if socimode in [0,1]:         # for socinr or isc keywords
+    while ilines<len(runls):
+      if 'Starting ciudgav with' in runls[ilines]:
+        s=runls[ilines].split()
+        if int(s[5])==drt:
+          istate=0
+          while not 'all zwalks' in runls[ilines]:
+            if 'total mr-sdci energy' in runls[ilines]:
+              istate+=1
+              if istate==state:
+                return float(runls[ilines].split()[3])
+            ilines+=1
+      ilines+=1
+  elif socimode==-1:            # for single-drt jobs without extra keyword
+    istate=0
+    while not 'all zwalks' in runls[ilines]:
+      if 'total mr-sdci energy' in runls[ilines]:
+        istate+=1
+        if istate==state:
+          return float(runls[ilines].split()[3])
+      ilines+=1
+  print 'CI energy of state %i in drt %i not found!' % (state,drt)
+  sys.exit(19)
+
+# ======================================================================= #
+def istate_in_job(m1,s1,ms1,states):
+  k=-1
+  for im in range(m1):
+    for ist in range(states[im]):
+      for ims in range(im+1):
+        k+=1
+        if (im+1,ims-im/2+1/2,ist+1)==(m1,ms1,s1):
+          return k
+
+# ======================================================================= #
+def getsocme(runls,QMin,istate,jstate):
+  if not istate in QMin['statemap'] or not jstate in QMin['statemap']:
+    print 'States %i or %i are not in statemap!' % (istate,jstate)
+    sys.exit(20)
+
+  m1,s1,ms1=tuple(QMin['statemap'][istate])
+  m2,s2,ms2=tuple(QMin['statemap'][jstate])
+  job1=QMin['multmap'][m1][0]
+  job2=QMin['multmap'][m2][0]
+
+  if job1!=job2:
+    return complex(0.,0.)
+  job=job1
+
+  if not QMin['socimap'][job]==1:
+    print 'Job %s is not a socinr job!' % (job)
+    return complex(0.,0.)
+
+  ## get numbers of the states within this job
+  #i=istate-1
+  #for mult in range(1,m1):
+    #if QMin['states'][mult-1]==0:
+      #continue
+    #if QMin['multmap'][mult][0]!=job:
+      #i-=mult*QMin['states'][mult-1]
+  #j=jstate-1
+  #for mult in range(1,m2):
+    #if QMin['states'][mult-1]==0:
+      #continue
+    #if QMin['multmap'][mult][0]!=job:
+      #j-=mult*QMin['states'][mult-1]
+
+  # get numbers of states within job
+  mults=QMin['multmap'][job]
+  states_in_job=[ 0 for imult in range(max(mults)) ]
+  for imult in mults:
+    states_in_job[imult-1]=QMin['states'][imult-1]
+
+  ## get index of state 1
+  #k=-1
+  #for im in range(m1):
+    #for ist in range(states_in_job[im]):
+      #for ims in range(im+1):
+        #k+=1
+        #print im+1,ims-im/2+1/2,ist+1
+        #if (im+1,ims-im/2+1/2,ist+1)==(m1,ms1,s1):
+          #i=k
+          #break
+  ## get index of state 2
+  #k=-1
+  #for im in range(m1):
+    #for ist in range(states_in_job[im]):
+      #for ims in range(im+1):
+        #k+=1
+        #print im+1,ims-im/2+1/2,ist+1
+        #if (im+1,ims-im/2+1/2,ist+1)==(m2,ms2,s2):
+          #j=k
+          #break
+
+  i=istate_in_job(m1,s1,ms1,states_in_job)
+  j=istate_in_job(m2,s2,ms2,states_in_job)
+
+  # find reference energy (simply the first mrci energy encountered)
+  ilines=0
+  while not ' total mr-sdci energy'in runls[ilines]:
+    ilines+=1
+  eref=float(runls[ilines].split()[3])
+
+  # find the matrix
+  while not '-------------- HT matrix in cm-1 -------------------' in runls[ilines]:
+    ilines+=1
+    if ilines==len(runls):
+      print 'SO Matrix not found!'
+      sys.exit(21)
+  ilines+=2
+
+  # find a matrix element
+  if i>=j:
+    # use j as col and i as row
+    f=runls[ilines+i].split()
+    real=float(f[j])*rcm_to_Eh
+  else:
+    # use i as col and j as row
+    f=runls[ilines+j].split()
+    real=float(f[i])*rcm_to_Eh
+  imag=0.
+  if i==j:
+    real+=eref
+  return complex(real,imag)
+
+## ======================================================================= #
+def getcidm(runls,QMin,istate,jstate,idir):
+  m1,s1,ms1=tuple(QMin['statemap'][istate])
+  m2,s2,ms2=tuple(QMin['statemap'][jstate])
+  job1=QMin['multmap'][m1][0]
+  job2=QMin['multmap'][m2][0]
+
+  if job1!=job2:
+    return 0.
+  job=job1
+
+  if m1!=m2:
+    return 0.
+
+  if ms1!=ms2:
+    return 0.
+
+  if idir=='X' or idir=='Y' or idir=='Z':
+    idir=IToPol[idir]
+
+  drt=QMin['multmap'][m1][1]
+
+  # get a matrix element
+  ilines=0
+  if s1==s2:
+    while ilines<len(runls):
+      if ' --- ci properties for state ' in runls[ilines]:
+        f=runls[ilines].split()
+        if drt==int(f[8]) and s1==int(f[5]):
+          while not '-------------------------' in runls[ilines]:
+            if 'total' in runls[ilines]:
+              f=runls[ilines].split()
+              return float(f[idir+1])
+            ilines+=1
+      ilines+=1
+
+  else:
+    while ilines<len(runls):
+      if ' Calculating transition moment for' in runls[ilines]:
+        f=runls[ilines].replace('(',' ').replace(')',' ').replace(',',' ').split()
+        if drt==int(f[4]):
+          x1=int(f[5])
+          x2=int(f[8])
+          if (s1==x1 and s2==x2) or (s2==x1 and s1==x2):
+            while not '-------------------------' in runls[ilines]:
+              if 'total (elec)' in runls[ilines]:
+                f=runls[ilines].split()
+                return float(f[idir+2])
+              ilines+=1
+      ilines+=1
+
+  print 'CI dipole moment of states %i and %i in drt %i not found!' % (s1,s2,drt)
+  sys.exit(22)
+
+
+# ======================================================================= #
+def getgrad(runls,QMin,istate):
+  mult,state,ms=tuple(QMin['statemap'][istate])
+  job,drt=tuple(QMin['multmap'][mult])
+  natom=QMin['natom']
+
+  ilines=0
+  grad=[]
+  while ilines<len(runls):
+    if ' === Gradient of DRT' in runls[ilines]:
+      f=runls[ilines].replace(',',' ').split()
+      if drt==int(f[4]) and state==int(f[6]):
+        ilines+=1
+        for atom in range(natom):
+          line=runls[ilines+atom].replace('D','E').split()
+          for i in range(3):
+            line[i]=float(line[i])
+          grad.append(line)
+        return grad
+    ilines+=1
+  print 'Gradient of state %i in drt %i not found!' % (state,drt)
+  sys.exit(23)
+
+# ======================================================================= #
+def getnacana(runls,QMin,istate,jstate):
+  m1,s1,ms1=tuple(QMin['statemap'][istate])
+  m2,s2,ms2=tuple(QMin['statemap'][jstate])
+  job1=QMin['multmap'][m1][0]
+  job2=QMin['multmap'][m2][0]
+  natom=QMin['natom']
+
+  nac=[ [0.,0.,0.] for i in range(natom) ]
+
+  if job1!=job2:
+    return nac
+
+  if m1!=m2:
+    return nac
+
+  if ms1!=ms2:
+    return nac
+
+  if s1==s2:
+    return nac
+
+  drt=QMin['multmap'][m1][1]
+
+  # get a non-adiabatic coupling vector
+  ilines=0
+  nac=[]
+  while ilines<len(runls):
+    if 'coupling for DRT' in runls[ilines]:
+      f=runls[ilines].replace(':',' ').split()
+      if drt==int(f[5]):
+        if (s1==int(f[7]) and s2==int(f[12])) or (s2==int(f[7]) and s1==int(f[12])):
+          ilines+=1
+          for atom in range(natom):
+            line=runls[ilines+atom].replace('D','E').split()
+            for i in range(3):
+              line[i]=float(line[i])
+              if s1>s2:
+                line[i]*=-1.
+            nac.append(line)
+          return nac
+    ilines+=1
+  print 'Interstate coupling of states %i and %i in drt %i not found!' % (s1,s2,drt)
+  sys.exit(24)
+
+# ======================================================================= #
+def get_COLout(QMin,QMout,job):
+  '''Updates QMout by reading the runls of job'''
+
+  with open(QMin['scratchdir']+'/JOB/runls') as f:
+    runls=f.readlines()
+
+  states=QMin['states']
+  nstates=QMin['nstates']
+  nmstates=QMin['nmstates']
+  natom=QMin['natom']
+
+  # Hamiltonian
+  if 'h' in QMin or 'soc' in QMin:
+    # make Hamiltonian
+    if not 'h' in QMout:
+      QMout['h']=makecmatrix(nmstates,nmstates)
+    # read the matrix elements from runls
+    for i in range(nmstates):
+      for j in range(nmstates):
+        m1,s1,ms1=tuple(QMin['statemap'][i+1])
+        m2,s2,ms2=tuple(QMin['statemap'][j+1])
+        if not QMin['multmap'][m1][0]==QMin['multmap'][m2][0]==job:
+          continue
+        if 'soc' in QMin and QMin['socimap'][job]==1:
+          # read SOC elements
+          QMout['h'][i][j]=getsocme(runls,QMin,i+1,j+1)
+        else:
+          # read only diagonal elements
+          if i==j:
+            QMout['h'][i][j]=getcienergy(runls,QMin,i+1)
+
+  # Dipole matrices
+  if 'dm' in QMin:
+    # make matrix
+    if not 'dm' in QMout:
+      QMout['dm']=[]
+      for xyz in range(3):
+        QMout['dm'].append(makecmatrix(nmstates,nmstates))
+    # read the matrix elements from runls
+    for i in range(nmstates):
+      for j in range(nmstates):
+        m1,s1,ms1=tuple(QMin['statemap'][i+1])
+        m2,s2,ms2=tuple(QMin['statemap'][j+1])
+        if not QMin['multmap'][m1][0]==QMin['multmap'][m2][0]==job:
+          continue
+        for idir in range(3):
+          QMout['dm'][idir][i][j]=getcidm(runls,QMin,i+1,j+1,idir)
+
+  # Gradients
+  # full list, even with selection of gradients
+  if 'grad' in QMin:
+    # initialize array
+    if not 'grad' in QMout:
+      QMout['grad']=[ [ [0.,0.,0.] for i in range(natom) ] for j in range(nmstates) ]
+    # read gradients of current job
+    for i in range(nmstates):
+      m,s,ms=tuple(QMin['statemap'][i+1])
+      if not QMin['multmap'][m][0]==job:
+        continue
+      requested=False
+      for j in QMin['grad']:
+        m2,s2,ms2=tuple(QMin['statemap'][j])
+        if m==m2 and s==s2:
+          requested=True
+      if requested:
+        QMout['grad'][i]=getgrad(runls,QMin,i+1)
+
+  # Non-adiabatic couplings
+  # full list, even with selection
+  if 'nacdr' in QMin:
+    # initialize
+    if not 'nacdr' in QMout:
+      QMout['nacdr']=[ [ [ [0.,0.,0.] for i in range(natom) ] for j in range(nmstates) ] for k in range(nmstates) ]
+    # read nac vectors
+    for i in range(nmstates):
+      for j in range(nmstates):
+        m1,s1,ms1=tuple(QMin['statemap'][i+1])
+        m2,s2,ms2=tuple(QMin['statemap'][j+1])
+        if not QMin['multmap'][m1][0]==QMin['multmap'][m2][0]==job:
+          continue
+        requested=False
+        for sel in QMin['nacdr']:
+          k,l=tuple(sel)
+          m3,s3,ms3=tuple(QMin['statemap'][k])
+          m4,s4,ms4=tuple(QMin['statemap'][l])
+          if m1==m2==m3==m4:
+            if (s1,s2)==(s3,s4) or (s1,s2)==(s4,s3):
+              requested=True
+        if requested:
+          QMout['nacdr'][i][j]=getnacana(runls,QMin,i+1,j+1)
+
+  return QMout
+# ======================================================================= #
+def get_smatel(out,s1,s2):
+  ilines=0
+  while True:
+    if containsstring('CI overlap before alignment', out[ilines]):
+      break
+    ilines+=1
+    if ilines==len(out):
+      print 'Overlap of states %i - %i not found!' % (s1,s2)
+      sys.exit(25)
+  ilines+=1+s1
+  f=out[ilines].split()
+  return float(f[s2-1])
+
+# ======================================================================= #
+def get_CIOoutput(QMin,QMout,job,drt):
+  with open(QMin['scratchdir']+'/OVERLAP/cioverlap.out') as f:
+    out=f.readlines()
+
+  if 'overlap' in QMin:
+    nmstates=QMin['nmstates']
+    if not 'overlap' in QMout:
+      QMout['overlap']=makecmatrix(nmstates,nmstates)
+    # read the overlap matrix
+    mult=QMin['multmap'][job][drt-1]
+    for i in range(nmstates):
+      for j in range(nmstates):
+        m1,s1,ms1=tuple(QMin['statemap'][i+1])
+        m2,s2,ms2=tuple(QMin['statemap'][j+1])
+        if not m1==m2==mult:
+          continue
+        if not ms1==ms2:
+          continue
+        QMout['overlap'][i][j]=get_smatel(out,s1,s2)
+
+  return QMout
+
+
+
+
+# =============================================================================================== #
+# =============================================================================================== #
+# =========================================== QMout writing ===================================== #
+# =============================================================================================== #
+# =============================================================================================== #
+
+
+# ======================================================================= #
+def writeQMout(QMin,QMout,QMinfilename):
+  '''Writes the requested quantities to the file which SHARC reads in. The filename is QMinfilename with everything after the first dot replaced by "out". 
+
+  Arguments:
+  1 dictionary: QMin
+  2 dictionary: QMout
+  3 string: QMinfilename'''
+
+  os.chdir(QMin['pwd'])
+  k=QMinfilename.find('.')
+  if k==-1:
+    outfilename=QMinfilename+'.out'
+  else:
+    outfilename=QMinfilename[:k]+'.out'
+  if PRINT:
+    print '===> Writing output to file %s in SHARC Format\n' % (outfilename)
+  string=''
+  if 'h' in QMin or 'soc' in QMin:
+    string+=writeQMoutsoc(QMin,QMout)
+  if 'dm' in QMin:
+    string+=writeQMoutdm(QMin,QMout)
+  if 'angular' in QMin:
+    string+=writeQMoutang(QMin,QMout)
+  if 'grad' in QMin:
+    string+=writeQMoutgrad(QMin,QMout)
+  if 'nacdr' in QMin:
+    string+=writeQMoutnacana(QMin,QMout)
+  if 'overlap' in QMin:
+    string+=writeQMoutnacsmat(QMin,QMout)
+  if 'ion' in QMin:
+    string+=writeQMoutprop(QMin,QMout)
+  string+=writeQMouttime(QMin,QMout)
+  try:
+    outfile=open(outfilename,'w')
+    outfile.write(string)
+    outfile.close()
+  except IOError:
+    print 'Could not write QM output!'
+    sys.exit(26)
+  if 'backup' in QMin:
+    try:
+      outfile=open(QMin['backup']+'/'+outfilename,'w')
+      outfile.write(string)
+      outfile.close()
+    except IOError:
+      print 'WARNING: Could not write QM output backup!'
+  return
+
+# ======================================================================= #
+def writeQMoutsoc(QMin,QMout):
+  '''Generates a string with the Spin-Orbit Hamiltonian in SHARC format.
+
+  The string starts with a ! followed by a flag specifying the type of data. In the next line, the dimensions of the matrix are given, followed by nmstates blocks of nmstates elements. Blocks are separated by a blank line.
+
+  Arguments:
+  1 dictionary: QMin
+  2 dictionary: QMout
+
+  Returns:
+  1 string: multiline string with the SOC matrix'''
+
+  states=QMin['states']
+  nstates=QMin['nstates']
+  nmstates=QMin['nmstates']
+  natom=QMin['natom']
+  string=''
+  string+='! %i Hamiltonian Matrix (%ix%i, complex)\n' % (1,nmstates,nmstates)
+  string+='%i %i\n' % (nmstates,nmstates)
+  for i in range(nmstates):
+    for j in range(nmstates):
+      string+='%s %s ' % (eformat(QMout['h'][i][j].real,12,3),eformat(QMout['h'][i][j].imag,12,3))
+    string+='\n'
+  string+='\n'
+  return string
+
+# ======================================================================= #
+def writeQMoutdm(QMin,QMout):
+  '''Generates a string with the Dipole moment matrices in SHARC format.
+
+  The string starts with a ! followed by a flag specifying the type of data. In the next line, the dimensions of the matrix are given, followed by nmstates blocks of nmstates elements. Blocks are separated by a blank line. The string contains three such matrices.
+
+  Arguments:
+  1 dictionary: QMin
+  2 dictionary: QMout
+
+  Returns:
+  1 string: multiline string with the DM matrices'''
+
+  states=QMin['states']
+  nstates=QMin['nstates']
+  nmstates=QMin['nmstates']
+  natom=QMin['natom']
+  string=''
+  string+='! %i Dipole Moment Matrices (3x%ix%i, complex)\n' % (2,nmstates,nmstates)
+  for xyz in range(3):
+    string+='%i %i\n' % (nmstates,nmstates)
+    for i in range(nmstates):
+      for j in range(nmstates):
+        string+='%s %s ' % (eformat(QMout['dm'][xyz][i][j].real,12,3),eformat(QMout['dm'][xyz][i][j].imag,12,3))
+      string+='\n'
+    string+=''
+  return string
+
+# ======================================================================= #
+def writeQMoutang(QMin,QMout):
+  '''Generates a string with the Dipole moment matrices in SHARC format.
+
+  The string starts with a ! followed by a flag specifying the type of data. In the next line, the dimensions of the matrix are given, followed by nmstates blocks of nmstates elements. Blocks are separated by a blank line. The string contains three such matrices.
+
+  Arguments:
+  1 dictionary: QMin
+  2 dictionary: QMout
+
+  Returns:
+  1 string: multiline string with the DM matrices'''
+
+  states=QMin['states']
+  nstates=QMin['nstates']
+  nmstates=QMin['nmstates']
+  natom=QMin['natom']
+  string=''
+  string+='! %i Angular Momentum Matrices (3x%ix%i, complex)\n' % (9,nmstates,nmstates)
+  for xyz in range(3):
+    string+='%i %i\n' % (nmstates,nmstates)
+    for i in range(nmstates):
+      for j in range(nmstates):
+        string+='%s %s ' % (eformat(QMout['angular'][xyz][i][j].real,12,3),eformat(QMout['angular'][xyz][i][j].imag,12,3))
+      string+='\n'
+    string+=''
+  return string
+
+# ======================================================================= #
+def writeQMoutgrad(QMin,QMout):
+  '''Generates a string with the Gradient vectors in SHARC format.
+
+  The string starts with a ! followed by a flag specifying the type of data. On the next line, natom and 3 are written, followed by the gradient, with one line per atom and a blank line at the end. Each MS component shows up (nmstates gradients are written).
+
+  Arguments:
+  1 dictionary: QMin
+  2 dictionary: QMout
+
+  Returns:
+  1 string: multiline string with the Gradient vectors'''
+
+  states=QMin['states']
+  nstates=QMin['nstates']
+  nmstates=QMin['nmstates']
+  natom=QMin['natom']
+  string=''
+  string+='! %i Gradient Vectors (%ix%ix3, real)\n' % (3,nmstates,natom)
+  i=0
+  for imult,istate,ims in itnmstates(states):
+    string+='%i %i ! m1 %i s1 %i ms1 %i\n' % (natom,3,imult,istate,ims)
+    for atom in range(natom):
+      for xyz in range(3):
+        string+='%s ' % (eformat(QMout['grad'][i][atom][xyz],12,3))
+      string+='\n'
+    string+=''
+    i+=1
+  return string
+
+# ======================================================================= #
+def writeQMoutnacnum(QMin,QMout):
+  '''Generates a string with the NAC matrix in SHARC format.
+
+  The string starts with a ! followed by a flag specifying the type of data. In the next line, the dimensions of the matrix are given, followed by nmstates blocks of nmstates elements. Blocks are separated by a blank line.
+
+  Arguments:
+  1 dictionary: QMin
+  2 dictionary: QMout
+
+  Returns:
+  1 string: multiline string with the NAC matrix'''
+
+  states=QMin['states']
+  nstates=QMin['nstates']
+  nmstates=QMin['nmstates']
+  natom=QMin['natom']
+  string=''
+  string+='! %i Non-adiabatic couplings (ddt) (%ix%i, complex)\n' % (4,nmstates,nmstates)
+  string+='%i %i\n' % (nmstates,nmstates)
+  for i in range(nmstates):
+    for j in range(nmstates):
+      string+='%s %s ' % (eformat(QMout['nacdt'][i][j].real,12,3),eformat(QMout['nacdt'][i][j].imag,12,3))
+    string+='\n'
+  string+=''
+  # also write wavefunction phases
+  string+='! %i Wavefunction phases (%i, complex)\n' % (7,nmstates)
+  for i in range(nmstates):
+    string+='%s %s\n' % (eformat(QMout['phases'][i],12,3),eformat(0.,12,3))
+  string+='\n\n'
+  return string
+
+# ======================================================================= #
+def writeQMoutnacana(QMin,QMout):
+  '''Generates a string with the NAC vectors in SHARC format.
+
+  The string starts with a ! followed by a flag specifying the type of data. On the next line, natom and 3 are written, followed by the gradient, with one line per atom and a blank line at the end. Each MS component shows up (nmstates x nmstates vectors are written).
+
+  Arguments:
+  1 dictionary: QMin
+  2 dictionary: QMout
+
+  Returns:
+  1 string: multiline string with the NAC vectors'''
+
+  states=QMin['states']
+  nstates=QMin['nstates']
+  nmstates=QMin['nmstates']
+  natom=QMin['natom']
+  string=''
+  string+='! %i Non-adiabatic couplings (ddr) (%ix%ix%ix3, real)\n' % (5,nmstates,nmstates,natom)
+  i=0
+  for imult,istate,ims in itnmstates(states):
+    j=0
+    for jmult,jstate,jms in itnmstates(states):
+      #string+='%i %i ! %i %i %i %i %i %i\n' % (natom,3,imult,istate,ims,jmult,jstate,jms)
+      string+='%i %i ! m1 %i s1 %i ms1 %i   m2 %i s2 %i ms2 %i\n' % (natom,3,imult,istate,ims,jmult,jstate,jms)
+      for atom in range(natom):
+        for xyz in range(3):
+          string+='%s ' % (eformat(QMout['nacdr'][i][j][atom][xyz],12,3))
+        string+='\n'
+      string+=''
+      j+=1
+    i+=1
+  return string
+
+# ======================================================================= #
+def writeQMoutnacsmat(QMin,QMout):
+  '''Generates a string with the adiabatic-diabatic transformation matrix in SHARC format.
+
+  The string starts with a ! followed by a flag specifying the type of data. In the next line, the dimensions of the matrix are given, followed by nmstates blocks of nmstates elements. Blocks are separated by a blank line.
+
+  Arguments:
+  1 dictionary: QMin
+  2 dictionary: QMout
+
+  Returns:
+  1 string: multiline string with the transformation matrix'''
+
+  states=QMin['states']
+  nstates=QMin['nstates']
+  nmstates=QMin['nmstates']
+  natom=QMin['natom']
+  string=''
+  string+='! %i Overlap matrix (%ix%i, complex)\n' % (6,nmstates,nmstates)
+  string+='%i %i\n' % (nmstates,nmstates)
+  for j in range(nmstates):
+    for i in range(nmstates):
+      string+='%s %s ' % (eformat(QMout['overlap'][j][i].real,12,3),eformat(QMout['overlap'][j][i].imag,12,3))
+    string+='\n'
+  string+='\n'
+  return string
+
+# ======================================================================= #
+def writeQMouttime(QMin,QMout):
+  '''Generates a string with the quantum mechanics total runtime in SHARC format.
+
+  The string starts with a ! followed by a flag specifying the type of data. In the next line, the runtime is given
+
+  Arguments:
+  1 dictionary: QMin
+  2 dictionary: QMout
+
+  Returns:
+  1 string: multiline string with the runtime'''
+
+  string='! 8 Runtime\n%s\n' % (eformat(QMout['runtime'],9,3))
+  return string
+
+# ======================================================================= #
+def writeQMoutprop(QMin,QMout):
+  '''Generates a string with the Spin-Orbit Hamiltonian in SHARC format.
+
+  The string starts with a ! followed by a flag specifying the type of data. In the next line, the dimensions of the matrix are given, followed by nmstates blocks of nmstates elements. Blocks are separated by a blank line.
+
+  Arguments:
+  1 dictionary: QMin
+  2 dictionary: QMout
+
+  Returns:
+  1 string: multiline string with the SOC matrix'''
+
+  states=QMin['states']
+  nstates=QMin['nstates']
+  nmstates=QMin['nmstates']
+  natom=QMin['natom']
+  string=''
+  string+='! %i Property Matrix (%ix%i, complex)\n' % (11,nmstates,nmstates)
+  string+='%i %i\n' % (nmstates,nmstates)
+  for i in range(nmstates):
+    for j in range(nmstates):
+      string+='%s %s ' % (eformat(QMout['prop'][i][j].real,12,3),eformat(QMout['prop'][i][j].imag,12,3))
+    string+='\n'
+  string+='\n'
+  return string
+
+
+
+# =============================================================================================== #
+# =============================================================================================== #
+# =========================================== SUBROUTINES TO readQMin =========================== #
+# =============================================================================================== #
+# =============================================================================================== #
+
+def checkscratch(SCRATCHDIR):
+  '''Checks whether SCRATCHDIR is a file or directory. If a file, it quits with exit code 1, if its a directory, it passes. If SCRATCHDIR does not exist, tries to create it.
+
+  Arguments:
+  1 string: path to SCRATCHDIR'''
+
+  exist=os.path.exists(SCRATCHDIR)
+  if exist:
+    isfile=os.path.isfile(SCRATCHDIR)
+    if isfile:
+      print '$SCRATCHDIR=%s exists and is a file!' % (SCRATCHDIR)
+      sys.exit(27)
+  else:
+    try:
+      os.makedirs(SCRATCHDIR)
+    except OSError:
+      print 'Can not create SCRATCHDIR=%s\n' % (SCRATCHDIR)
+      sys.exit(28)
+
+# ======================================================================= #
+def checktemplate(TEMPLATE, mult,states):
+  '''Checks whether TEMPLATE is a file or directory. If a file or does not exist, it quits with exit code 1, if it is a directory, it checks whether all important input files are there. Does not check for all input files, since runc does this, too.
+
+  Arguments:
+  1 string: path to TEMPLATE
+
+  returns whether input is for isc keyword or socinr keyword
+  and returns the DRT of the given multiplicity'''
+
+  exist=os.path.exists(TEMPLATE)
+  if exist:
+    isfile=os.path.isfile(TEMPLATE)
+    if isfile:
+      print 'TEMPLATE=%s exists and is a file!' % (TEMPLATE)
+      sys.exit(29)
+    necessary=['control.run','mcscfin','molcas.input','tranin']
+    lof=os.listdir(TEMPLATE)
+    for i in necessary:
+      if not i in lof:
+        print 'Did not find input file %s! Did you prepare the input according to the instructions?' % (i)
+        sys.exit(30)
+    cidrtinthere=False
+    ciudginthere=False
+    for i in lof:
+      if 'cidrtin' in i:
+        cidrtinthere=True
+      if 'ciudgin' in i:
+        ciudginthere=True
+    if not cidrtinthere or not ciudginthere:
+      print 'Did not find input file %s.*! Did you prepare the input according to the instructions?' % (i)
+      sys.exit(31)
+  else:
+    print 'Directory %s does not exist!' % (TEMPLATE)
+    sys.exit(32)
+
+  # check cidrtin and cidrtin* for the multiplicity
+  try:
+    cidrtin=open(TEMPLATE+'/cidrtin')
+    line=cidrtin.readline().split()
+    if line[0].lower()=='y':
+      maxmult=int(cidrtin.readline().split()[0])
+      cidrtin.readline()
+      nelec=int(cidrtin.readline().split()[0])
+      if mult<=maxmult and (mult+nelec)%2!=0:
+        drt=0
+        for m1,n in enumerate(states):
+          if m1+1>mult:
+            break
+          if (m1+1+nelec)%2!=0 and n>0:
+            drt+=1
+        return 1, drt    # socinr=1, single=-1, isc=0
+      else:
+        print 'Multiplicity %i cannot be treated in directory %s (socinr)!'  % (mult,TEMPLATE)
+        sys.exit(33)
+    else:
+      mult2=int(cidrtin.readline().split()[0])
+      if mult!=mult2:
+        print 'Multiplicity %i cannot be treated in directory %s (single DRT)!'  % (mult,TEMPLATE)
+      # not a soci calculation, but cidrtin file -> only one DRT
+      return -1,1
+  except IOError:
+    # find out in which DRT the requested multiplicity is
+    for i in range(1,9):        # COLUMBUS can treat at most 8 DRTs
+      try:
+        cidrtin=open(TEMPLATE+'/cidrtin.%i' % i)
+      except IOError:
+        print 'Multiplicity %i cannot be treated in directory %s (isc)!'  % (mult,TEMPLATE)
+        sys.exit(34)
+      cidrtin.readline()
+      mult2=int(cidrtin.readline().split()[0])
+      if mult==mult2:
+        return 0,i
+      cidrtin.close()
+
+# ======================================================================= #
+def removequotes(string):
+  if string.startswith("'") and string.endswith("'"):
+    return string[1:-1]
+  elif string.startswith('"') and string.endswith('"'):
+    return string[1:-1]
+  else:
+    return string
+
+# ======================================================================= #
+def getsh2colkey(sh2col,key):
+  i=-1
+  while True:
+    i+=1
+    try:
+      line=re.sub('#.*$','',sh2col[i])
+    except IndexError:
+      break
+    line=line.split(None,1)
+    if line==[]:
+      continue
+    if key.lower() in line[0].lower():
+      return line
+  return ['','']
+
+# ======================================================================= #
+def get_sh2col_environ(sh2col,key,environ=True,crucial=True):
+  line=getsh2colkey(sh2col,key)
+  if line[0]:
+    LINE=line[1]
+  else:
+    if environ:
+      LINE=os.getenv(key.upper())
+      if not LINE:
+        print 'Either set $%s or give path to %s in SH2COL.inp!' % (key.upper(),key.upper())
+        if crucial:
+          sys.exit(35)
+        else:
+          return None
+    else:
+      print 'Give path to %s in SH2COL.inp!' % (key.upper())
+      if crucial:
+        sys.exit(36)
+      else:
+        return None
+  LINE=os.path.expandvars(LINE)
+  LINE=os.path.expanduser(LINE)
+  LINE=os.path.abspath(LINE)
+  LINE=removequotes(LINE).strip()
+  if containsstring(';',LINE):
+    print "$%s contains a semicolon. Do you probably want to execute another command after %s? I can't do that for you..." % (key.upper(),key.upper())
+    sys.exit(37)
+  return LINE
+
+# ======================================================================= #
+def get_pairs(QMinlines,i):
+  nacpairs=[]
+  while True:
+    i+=1
+    try:
+      line=QMinlines[i].lower()
+    except IndexError:
+      print '"keyword select" has to be completed with an "end" on another line!'
+      sys.exit(38)
+    if 'end' in line:
+      break
+    fields=line.split()
+    try:
+      nacpairs.append([int(fields[0]),int(fields[1])])
+    except ValueError:
+      print '"nacdr select" is followed by pairs of state indices, each pair on a new line!'
+      sys.exit(39)
+  return nacpairs,i
+
+# =============================================================================================== #
+# =============================================================================================== #
+# =========================================== readQMin and gettasks ============================= #
+# =============================================================================================== #
+# =============================================================================================== #
+
+
+# ======================================================================= #     OK
+def readQMin(QMinfilename):
+  '''Reads the time-step dependent information from QMinfilename. This file contains all information from the current SHARC job: geometry, velocity, number of states, requested quantities along with additional information. The routine also checks this input and obtains a number of environment variables necessary to run COLUMBUS.
+
+  Reads also the information from SH2COL
+
+  Steps are:
+  - open and read QMinfilename
+  - Obtain natom, comment, geometry (, velocity)
+  - parse remaining keywords from QMinfile
+  - check keywords for consistency, calculate nstates, nmstates
+  - obtain environment variables for path to COLUMBUS and scratch directory, and for error handling
+
+  Arguments:
+  1 string: name of the QMin file
+
+  Returns:
+  1 dictionary: QMin'''
+
+  # read QMinfile
+  try:
+    QMinfile=open(QMinfilename,'r')
+  except IOError:
+    print 'QM input file "%s" not found!' % (QMinfilename)
+    sys.exit(40)
+  QMinlines=QMinfile.readlines()
+  QMinfile.close()
+  QMin={}
+
+
+
+  # Get natom
+  try:
+    natom=int(QMinlines[0].split()[0])
+  except ValueError:
+    print 'first line must contain the number of atoms!'
+    sys.exit(41)
+  QMin['natom']=natom
+  if len(QMinlines)<natom+4:
+    print 'Input file must contain at least:\nnatom\ncomment\ngeometry\nkeyword "states"\nat least one task'
+    sys.exit(42)
+
+
+
+  # Save Comment line
+  QMin['comment']=QMinlines[1]
+
+
+
+  # Get geometry and possibly velocity
+  QMin['geo']=[]
+  QMin['veloc']=[]
+  hasveloc=True
+  for i in range(2,natom+2):
+    if not containsstring('[a-zA-Z][a-zA-Z]?[0-9]*.*[-]?[0-9]+[.][0-9]*.*[-]?[0-9]+[.][0-9]*.*[-]?[0-9]+[.][0-9]*', QMinlines[i]):
+      print 'Input file does not comply to xyz file format! Maybe natom is just wrong.'
+      sys.exit(43)
+    fields=QMinlines[i].split()
+    for j in range(1,4):
+      fields[j]=float(fields[j])
+    QMin['geo'].append(fields[0:4])
+    if len(fields)>=7:
+      for j in range(4,7):
+        fields[j]=float(fields[j])
+      QMin['veloc'].append(fields[4:7])
+    else:
+      hasveloc=False
+  if not hasveloc:
+    QMin=removekey(QMin,'veloc')
+
+
+
+  # Parse remaining file
+  i=natom+1
+  while i+1<len(QMinlines):
+    i+=1
+    line=QMinlines[i]
+    line=re.sub('#.*$','',line)
+    if len(line.split())==0:
+      continue
+    key=line.lower().split()[0]
+    if 'savedir' in key:
+      args=line.split()[1:]
+    else:
+      args=line.lower().split()[1:]
+    if key in QMin:
+      print 'Repeated keyword %s in line %i in input file! Check your input!' % (linekeyword(line),i+1)
+      continue  # only first instance of key in QM.in takes effect
+    if len(args)>=1 and 'select' in args[0]:
+      pairs,i=get_pairs(QMinlines,i)
+      QMin[key]=pairs
+    else:
+      QMin[key]=args
+
+
+
+  # Calculate states, nstates, nmstates
+  for i in range(len(QMin['states'])):
+    QMin['states'][i]=int(QMin['states'][i])
+
+  nstates=0
+  nmstates=0
+  for i in range(len(QMin['states'])):
+    nstates+=QMin['states'][i]
+    nmstates+=QMin['states'][i]*(i+1)
+  QMin['nstates']=nstates
+  QMin['nmstates']=nmstates
+
+
+
+  # Various logical checks
+  if not 'states' in QMin:
+    print 'Number of states not given in QM input file %s!' % (QMinfilename)
+    sys.exit(44)
+
+  possibletasks=['h','soc','dm','grad','nacdr','nacdt','overlap','angular']
+  if not any([i in QMin for i in possibletasks]):
+    print 'No tasks found! Tasks are "h", "soc", "dm", "grad", "nacdt", "nacdr" and "overlap".'
+    sys.exit(45)
+
+  if 'samestep' in QMin and 'init' in QMin:
+    print '"Init" and "Samestep" cannot be both present in QM.in!'
+    sys.exit(46)
+
+  if 'overlap' in QMin and 'init' in QMin:
+    print '"overlap" cannot be calculated in the first timestep! Delete either "overlap" or "init"'
+    sys.exit(47)
+
+  if not 'init' in QMin and not 'samestep' in QMin:
+    QMin['newstep']=[]
+
+  if not any([i in QMin for i in ['h','soc','dm','grad','nacdt','nacdr']]) and ('overlap' in QMin or 'ion' in QMin):
+    QMin['h']=[]
+
+  if len(QMin['states'])>8:
+    print 'Higher multiplicities than octets are not supported!'
+    sys.exit(48)
+
+  if 'h' in QMin and 'soc' in QMin:
+    QMin=removekey(QMin,'h')
+
+  if 'nacdt' in QMin:
+    print 'Numerical non-adiabatic couplings not available! Use "nacdr" instead!'
+    sys.exit(49)
+
+  if 'dmdr' in QMin:
+    print 'Dipole moment gradients not available!'
+    sys.exit(50)
+
+  if 'socdr' in QMin:
+    print 'Spin-orbit coupling gradients not available!'
+    sys.exit(50)
+
+
+
+  # Process the gradient requests
+  if 'grad' in QMin:
+    if len(QMin['grad'])==0 or QMin['grad'][0]=='all':
+      QMin['grad']=[ i+1 for i in range(nmstates)]
+    else:
+      for i in range(len(QMin['grad'])):
+        try:
+          QMin['grad'][i]=int(QMin['grad'][i])
+        except ValueError:
+          print 'Arguments to keyword "grad" must be "all" or a list of integers!'
+          sys.exit(51)
+        if QMin['grad'][i]>nmstates:
+          print 'State for requested gradient does not correspond to any state in QM input file state list!'
+          sys.exit(52)
+
+  # Process the non-adiabatic coupling requests
+  # type conversion has already been done
+  if 'nacdr' in QMin:
+    if len(QMin['nacdr'])>=1:
+      nacpairs=QMin['nacdr']
+      for i in range(len(nacpairs)):
+        if nacpairs[i][0]>nmstates or nacpairs[i][1]>nmstates:
+          print 'State for requested non-adiabatic couplings does not correspond to any state in QM input file state list!'
+          sys.exit(53)
+    else:
+      QMin['nacdr']=[ [j+1,i+1] for i in range(nmstates) for j in range(i)]
+
+  # Process the overlap requests
+  # identically to the nac requests
+  if 'overlap' in QMin:
+    if len(QMin['overlap'])>=1:
+      nacpairs=QMin['overlap']
+      for i in range(len(nacpairs)):
+        if nacpairs[i][0]>nmstates or nacpairs[i][1]>nmstates:
+          print 'State for requested non-adiabatic couplings does not correspond to any state in QM input file state list!'
+          sys.exit(54)
+    else:
+      QMin['overlap']=[ [j+1,i+1] for i in range(nmstates) for j in range(i)]
+
+  # Process the ionization requests
+  if 'ion' in QMin:
+    if len(QMin['ion'])==0 or QMin['ion'][0]=='all':
+      QMin['ion']=[i+1 for i in range(nmstates)]
+    else:
+      for i in range(len(QMin['ion'])):
+        try:
+          QMin['ion'][i]=int(QMin['ion'][i])
+        except ValueError:
+          print 'Arguments to keyword "ion" must be "all" or a list of integers!'
+          sys.exit(55)
+        if QMin['ion'][i]>nmstates:
+          print 'State for requested ionization yield does not correspond to any state in QM input file state list!'
+          sys.exit(56)
+
+
+
+  # open SH2COL.inp
+  sh2colf=open('SH2COL.inp','r')
+  sh2col=sh2colf.readlines()
+  sh2colf.close()
+
+
+
+  # Set up environment variables: $COLUMBUS, $MOLCAS, TEMPLATE, Dyson
+  QMin['pwd']=os.getcwd()
+  QMin['columbus']=get_sh2col_environ(sh2col,'columbus')
+  os.environ['COLUMBUS']=QMin['columbus']
+  QMin['molcas']=get_sh2col_environ(sh2col,'molcas')
+  os.environ['MOLCAS']=QMin['molcas']
+  QMin['template']=get_sh2col_environ(sh2col,'template',False)
+  if 'ion' in QMin:
+    QMin['dyson']=get_sh2col_environ(sh2col,'dyson',False)
+
+  # Set up scratchdir
+  QMin['scratchdir']=get_sh2col_environ(sh2col,'scratchdir',False,False)
+  if QMin['scratchdir']==None:
+    QMin['scratchdir']=QMin['pwd']+'/SCRATCHDIR/'
+  checkscratch(QMin['scratchdir'])
+
+  # Set up savedir
+  if not 'savedir' in QMin:
+    # savedir may be read from QM.in file
+    QMin['savedir']=get_sh2col_environ(sh2col,'savedir',False,False)
+    if QMin['savedir']==None:
+      QMin['savedir']=QMin['pwd']+'/SAVEDIR/'
+  else:
+    QMin['savedir']=QMin['savedir'][0]
+  checkscratch(QMin['savedir'])
+
+
+  line=getsh2colkey(sh2col,'debug')
+  if line[0]:
+    if line[1].lower()=='true':
+      global DEBUG
+      DEBUG=True
+
+  # Set default memory for runc and default screening threshold for cioverlaps
+  QMin['colmem']=10
+  line=getsh2colkey(sh2col,'memory')
+  if line[0]:
+    try:
+      QMin['colmem']=int(line[1])
+    except ValueError:
+      print 'COLUMBUS memory does not evaluate to numerical value!'
+      sys.exit(57)
+  else:
+    print 'WARNING: Please set memory for COLUMBUS in SH2COL.inp (in MB)! Using 10 MB default value!'
+
+  if 'overlap' in QMin:
+    QMin['ciothres']=1e-5
+    line=getsh2colkey(sh2col,'ciothres')
+    if line[0]:
+      try:
+        QMin['ciothres']=float(line[1])
+      except ValueError:
+        print 'Cioverlaps threshold variable does not evaluate to numerical value!'
+        sys.exit(58)
+    else:
+      print 'WARNING: Please set ciothres to some appropriate value (floating point number)! Using 1e-5 default value!'
+
+  if 'ion' in QMin:
+    QMin['dysonthres']=1e-4
+    line=getsh2colkey(sh2col,'dysonthres')
+    if line[0]:
+      try:
+        QMin['dysonthres']=float(line[1])
+      except ValueError:
+        print 'Dyson threshold variable does not evaluate to numerical value!'
+        sys.exit(59)
+    else:
+      print 'WARNING: Please set dysonthres to some appropriate value (floating point number)! Using 1e-3 default value!'
+    QMin['civecthres']=QMin['dysonthres']
+    line=getsh2colkey(sh2col,'civecthres')
+    if line[0]:
+      try:
+        QMin['civecthres']=float(line[1])
+      except ValueError:
+        print 'Dyson threshold variable does not evaluate to numerical value!'
+        sys.exit(60)
+    else:
+      print 'INFO: Please set civecthres to some appropriate value (floating point number)! Using same value as dysonthres.'
+
+    line=getsh2colkey(sh2col,'excitlists')
+    if line[0]:
+      CIOEXCIT=line[1]
+      CIOEXCIT=os.path.expandvars(CIOEXCIT)
+      CIOEXCIT=os.path.expanduser(CIOEXCIT)
+      CIOEXCIT=removequotes(CIOEXCIT).strip()
+      if containsstring(';',CIOEXCIT):
+        print "$CIOEXCIT contains a semicolon. Do you probably want to execute another command after CIOEXCIT? I can't do that for you..."
+        sys.exit(61)
+      QMin['cioexcitlists']=CIOEXCIT
+    else:
+      print 'Hint: Set in SH2COL.inp a path to a directory containing the excitlistfiles, so that not every trajectory has to calculate them individually.'
+
+  line=getsh2colkey(sh2col,'nooverlap')
+  if line[0]:
+    QMin['nooverlap']=[]
+  if 'nooverlap' in QMin and 'overlap' in QMin:
+    print 'keyword "overlap" in QM.in, but keyword "nooverlap" in SH2COL.inp!'
+    sys.exit(62)
+
+  line=getsh2colkey(sh2col,'alwaysscf')
+  if line[0]:
+    QMin['alwaysscf']=[]
+
+  line=getsh2colkey(sh2col,'always_mocoef_init')
+  if line[0]:
+    QMin['always_mocoef_init']=[]
+
+  QMin['ncpu']=1
+  line=getsh2colkey(sh2col,'ncpu')
+  if line[0]:
+    try:
+      QMin['ncpu']=int(line[1])
+    except ValueError:
+      print 'Number of CPUs does not evaluate to numerical value!'
+      sys.exit(47)
+
+  # Path to civecconsolidate
+  if 'ion' in QMin:
+    line=getsh2colkey(sh2col,'civecconsolidate')
+    if line[0]:
+      CIVEC=line[1]
+      CIVEC=os.path.expandvars(CIVEC)
+      CIVEC=os.path.expanduser(CIVEC)
+      CIVEC=removequotes(CIVEC).strip()
+      if containsstring(';',CIVEC):
+        print "$CIVEC contains a semicolon. Do you probably want to execute another command after CIVEC? I can't do that for you..."
+        sys.exit(63)
+      QMin['civecconsolidate']=CIVEC
+    else:
+      print 'Hint: Using civecconsolidate in $COLUMBUS.'
+
+
+
+
+
+  # get the necessary template mappings
+  # Map: state -> mult,state,ms                         statemap
+  # Map: mult -> dir, DRT and dir, DRT -> mult          multmap
+  # Map: dir -> mocoefdir                               mocoefmap
+  # Map: dir -> socinr/isc                              socimap
+  # List: dir   (dependency-resolved)                   joblist
+
+  # obtain the statemap 
+  statemap={}
+  i=1
+  for imult,istate,ims in itnmstates(QMin['states']):
+    statemap[i]=[imult,istate,ims]
+    i+=1
+  QMin['statemap']=statemap
+
+  # get the multmap
+  multmap={}
+  for mult in itmult(QMin['states']):
+    # find the appropriate line in SH2COL.inp
+    i=-1
+    while True:
+      i+=1
+      try:
+        line=re.sub('#.*$','',sh2col[i])
+      except IndexError:
+        print 'Multiplicity %i has no template directory given in SH2COL.inp!' % (mult)
+        sys.exit(64)
+      line=line.split()
+      if len(line)==0:
+        continue
+      if line[0].lower()=='dir':
+        if int(line[1])==mult:
+          break
+    # lines look like ['dir', '1', '1_3/']
+    # put into multmap
+    if line[2][-1]!='/':
+      line[2]+='/'
+    multmap[mult]=line[2]
+    if not line[2] in multmap:
+      multmap[line[2]]=[mult]
+    else:
+      multmap[line[2]].append(mult)
+
+
+  # get the mocoefmap
+  mocoefmap={}
+  # first get all jobs
+  for mult in itmult(QMin['states']):
+    if not multmap[mult] in mocoefmap:
+      mocoefmap[multmap[mult]]=None
+  # now look up for all jobs the mocoefdir
+  for job in mocoefmap:
+    # find the line in SH2COL.inp
+    i=-1
+    while True:
+      i+=1
+      try:
+        line=re.sub('#.*$','',sh2col[i])
+      except IndexError:
+        print 'WARNING: no mocoef directory specified for %s, will use its own mocoefs' % (job)
+        line=['mocoef',job,job]
+        break
+      line=line.split()
+      if len(line)==0:
+        continue
+      if line[0].lower()=='mocoef':
+        if line[1][-1]!='/':
+          line[1]+='/'
+        if line[1] not in mocoefmap:
+          continue
+        if line[1]==job:
+          break
+    # line looks like ['mocoef', '1_3/', '1_3/']
+    # put into mocoefmap
+    if line[2][-1]!='/':
+      line[2]+='/'
+    mocoefmap[job]=line[2]
+  # do a topological sort of the mocoefmap
+  joblist=toposort(mocoefmap)
+
+
+
+  # now put the DRTs inside the multmap and create the socimap
+  socimap={}
+  for mult in itmult(QMin['states']):
+    job=multmap[mult]
+    socimode,drt=checktemplate(QMin['template']+'/'+job,mult,QMin['states'])
+    multmap[mult]=[job,drt]
+    multmap[job][drt-1]=mult
+    socimap[job]=socimode
+
+
+
+  # make the ionmap
+  # { state: set([states]) }
+  if 'ion' in QMin:
+    ionmap={}
+    for istate in QMin['ion']:
+      m1,s1,ms1=tuple(QMin['statemap'][istate])
+      ionmap[istate]=set()
+      for jstate in range(1,nmstates+1):
+        m2,s2,ms2=tuple(QMin['statemap'][jstate])
+        if abs(m1-m2)==1 and abs(ms1-ms2)==0.5:
+          ionmap[istate].add(jstate)
+    # the ionlist contains only the pairs of states which need to be calculated
+    ionlist=[]
+    for istate in ionmap:
+      for jstate in ionmap[istate]:
+        m1,s1,ms1=tuple(QMin['statemap'][istate])
+        m2,s2,ms2=tuple(QMin['statemap'][jstate])
+        # check if already in ionlist
+        isthere=False
+        for i in ionlist:
+          if (m1,s1,m2,s2)==tuple(i) or (m2,s2,m1,s1)==tuple(i):
+            isthere=True
+            break
+        if not isthere:
+          ionlist.append([m1,s1,m2,s2])
+    #QMin['ionmap']=ionmap
+    QMin['ionlist']=ionlist
+
+
+  # check the savedir
+  if not 'init' in QMin:
+    required=[]
+    for job in joblist:
+      jobdir=job.replace('/','_')
+      if 'overlap' in QMin:
+        if 'samestep' in QMin:
+          for drt,mult in enumerate(multmap[job]):
+            required.append('eivectors.red.drt%i.sp.%s.old' % (drt+1,jobdir))
+          required.append('molcas.input.seward.%s.old' % (jobdir))
+          required.append('mocoef.%s.old' % (jobdir))
+        else:
+          for drt,mult in enumerate(multmap[job]):
+            required.append('eivectors.red.drt%i.sp.%s' % (drt+1,jobdir))
+          required.append('molcas.input.seward.%s' % (jobdir))
+          required.append('mocoef.%s' % (jobdir))
+      if job==mocoefmap[job]:
+        required.append('mocoef.%s' % (jobdir))
+    ls=os.listdir(QMin['savedir'])
+    for f in required:
+      if not f in ls:
+        print 'File %s missing in savedir %s!' % (f,QMin['savedir'])
+        sys.exit(65)
+
+
+  QMin['multmap']=multmap
+  QMin['mocoefmap']=mocoefmap
+  QMin['joblist']=joblist
+  QMin['socimap']=socimap
+
+
+
+  if 'backup' in QMin:
+    backupdir=QMin['savedir']+'/backup'
+    backupdir1=backupdir
+    i=0
+    while os.path.isdir(backupdir1):
+      i+=1
+      if 'step' in QMin:
+        backupdir1=backupdir+'/step%s_%i' % (QMin['step'][0],i)
+      else:
+        backupdir1=backupdir+'/calc_%i' % (i)
+    QMin['backup']=backupdir1
+
+
+  print '\n\n\n'
+  return QMin
+
+## ======================================================================= #
+
+def toposort(jobmap):
+  '''does a topological sort of the list jobmap according to the Kahn (1962) doi:10.1145/368996.369025 algorithm'''
+
+  #sortedjobmap=[]
+  ## first, make a useful representation of the graph
+  ## gather the set of nodes without incoming edges in edgefree
+  #graph={}
+  #edgefree=set([])
+  #for j in jobmap:
+    #if j==jobmap[j]:
+      #edgefree.add(j)
+    #else:
+      #graph[j]=jobmap[j]
+
+  ## do the loop
+  #while len(edgefree)!=0:
+    ## take a random element from edgefree
+    #n=edgefree.pop()
+    ## put it into the sortedlist
+    #sortedjobmap.append(n)
+    ## remove nodes pointing to n
+    #toremove=[]
+    #for m in graph:
+      #if graph[m]==n:
+        #toremove.append(m)
+    #for m in toremove:
+      #del graph[m]
+      #edgefree.add(m)
+  ## if there is leftover in graph, then there was a cyclic depencency
+  #if len(graph)>0:
+    #print 'Cyclic dependency in the jobmap!'
+    #print jobmap
+    #sys.exit(66)
+
+  # actually, the situation is easier: there must only be self-loops and paths of length 1
+  sortedjobmap=[]
+  edgefree=set([])
+  for j in jobmap:
+    if jobmap[j]==j:
+      edgefree.add(j)
+  for j in edgefree:
+    sortedjobmap.append(j)
+  for j in jobmap:
+    if not j in edgefree:
+      if jobmap[j] in edgefree:
+        sortedjobmap.append(j)
+      else:
+        print 'Dependecy violation in mocoefdir specifications!'
+        sys.exit(67)
+
+  return sortedjobmap
+
+## ======================================================================= #
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# ======================================================================= #
+def gettasks(QMin):
+  ''''''
+
+  states=QMin['states']
+  nstates=QMin['nstates']
+  nmstates=QMin['nmstates']
+
+  # Currently implemented keywords: soc, dm, grad, nac, samestep, init
+  tasks=[]
+  # During initialization, create all temporary directories
+  # and link them appropriately
+  tasks.append(['mkdir',QMin['scratchdir']])
+  tasks.append(['link', QMin['scratchdir'],QMin['pwd']+'/SCRATCH',False])
+  tasks.append(['mkdir',QMin['scratchdir']+'/JOB'])
+  tasks.append(['mkdir',QMin['scratchdir']+'/OVERLAP'])
+  tasks.append(['mkdir',QMin['scratchdir']+'/DYSON'])
+  tasks.append(['mkdir',QMin['scratchdir']+'/MOLCAS'])
+  if not os.path.isdir(QMin['scratchdir']+'/KEEP'):
+    tasks.append(['mkdir',QMin['scratchdir']+'/KEEP'])
+
+  if 'init' in QMin:
+    tasks.append(['mkdir',QMin['savedir']])
+    tasks.append(['link', QMin['savedir'],QMin['pwd']+'/SAVE',False])
+
+  if not 'samestep' in QMin and not 'init' in QMin:
+    tasks.append(['movetoold'])
+
+  if 'backup' in QMin:
+    tasks.append(['mkdir',QMin['savedir']+'/backup/'])
+    tasks.append(['mkdir',QMin['backup']])
+
+  # do all COLUMBUS calculations
+  if not 'overlaponly' in QMin:
+
+    for job in QMin['joblist']:
+
+      tasks.append(['cleanup',QMin['scratchdir']+'/JOB'])
+      tasks.append(['getinput',QMin['template']+'/'+job])
+      tasks.append(['getmcinput',QMin['template']+'/'+QMin['mocoefmap'][job]])
+      tasks.append(['checkinput'])
+      tasks.append(['writegeom'])
+
+      # control.run ==========================================================
+      string='niter=1\nseward\nciudgmom\nciprop\nmcscf\n'
+      if not 'nooverlap' in QMin or 'ion' in QMin:
+        string+='detprt\n'
+      # check in socimap whether isc keyword or socinr keyword is necessary
+      if QMin['socimap'][job]==1:
+        # socinr
+        string+='ciudgav\nsocinr='
+        for mult in range(len(states)):
+          if states[mult]<=0:
+            string+='0'
+          elif QMin['multmap'][mult+1][0]==job:
+            string+='%i' % (states[mult])
+          else:
+            string+='0'
+          if mult+1<len(states):
+            string+=':'
+        string+='\n'
+      elif QMin['socimap'][job]==0:
+        # isc
+        string+='ciudgav\nisc\n'
+      elif QMin['socimap'][job]==-1:
+        # single drt
+        string+='ciudg\n'
+        # in this case, the ciudgin file has to be adjusted for the number of states
+      if 'grad' in QMin or 'nacdr' in QMin:
+        string+='nadcoupl\n'
+      if 'alwaysscf' in QMin:
+        string+='scf\n'
+      elif 'init' in QMin and not os.path.isfile(QMin['pwd']+'/mocoef_mc.init') and not os.path.isfile(QMin['pwd']+'/mocoef_mc.init.'+job.replace('/','')) and QMin['mocoefmap'][job]==job:
+        string+='scf\n'
+      if 'molden' in QMin:
+        string+='molden\n'
+      tasks.append(['write',QMin['scratchdir']+'/JOB/control.run',string])
+      if DEBUG:
+        print string
+
+      # transmomin ==========================================================
+      transmomstring='CI\n'
+      # use the list of gradients from QM.in or produce one
+      if 'grad' in QMin:
+        #if QMin['grad'][0]=='all':
+          #gargs=[i+1 for i in range(nmstates)]
+        #else:
+        gargs=QMin['grad']
+      else:
+        gargs=[]
+      # use the list of gradients from QM.in or produce one
+      if 'nacdr' in QMin:
+        #if len(QMin['nacdr'])>=2:
+        nargs=QMin['nacdr']
+        #else:
+          #nargs=[ [i+1,j+1] for i in range(nmstates) for j in range(nmstates)]
+      else:
+        nargs=[]
+      # go over all multiplicities of the current job
+      for drt,mult in enumerate(QMin['multmap'][job]):
+        for j1 in range(1,1+states[mult-1]):
+          for j2 in range(j1,1+states[mult-1]):
+            string='%i %i %i %i ' % (drt+1,j1,drt+1,j2)
+            # figure out whether the gradient/nac should be calculated
+            if j1==j2:
+              # gradient
+              requested=False
+              for iarg in gargs:
+                # go through all requests
+                imult,istate,ims=tuple(QMin['statemap'][iarg])
+                if imult==mult and istate==j1:
+                  requested=True
+              if not requested:
+                string+='T'
+            else:
+              # nac
+              requested=False
+              for iarg in nargs:
+                # go through all requests
+                imult1,istate1,ims1=tuple(QMin['statemap'][iarg[0]])
+                imult2,istate2,ims2=tuple(QMin['statemap'][iarg[1]])
+                if mult==imult1==imult2 and ims1==ims2 and ( (j1,j2)==(istate1,istate2) or (j1,j2)==(istate2,istate1) ):
+                #if mult==imult1==imult2 and ( (j1==istate1 and j2==istate2) or (j1==istate2 and j2==istate1) ) and ims1==ims2:
+                  requested=True
+              if not requested:
+                string+='T'
+            transmomstring+=string+'\n'
+      tasks.append(['write',QMin['scratchdir']+'/JOB/transmomin',transmomstring])
+      if DEBUG:
+        print transmomstring
+
+      # ciudgin ==========================================================
+      # if socinr is not used, the ciudgin file has to be adjusted for the correct number of states
+      if not QMin['socimap'][job]==1:
+        for drt,mult in enumerate(QMin['multmap'][job]):
+          numberstates=states[mult-1]
+          if QMin['socimap'][job]==0:
+            filename='ciudgin.drt%i' % (drt+1)
+          elif QMin['socimap'][job]==-1:
+            filename='ciudgin'
+          f=open(QMin['template']+'/'+job+'/'+filename)
+          ciudgin=f.readlines()
+          f.close()
+          for i in range(len(ciudgin)):
+            if 'nroot' in ciudgin[i].lower():
+              ciudgin[i]=' NROOT = %i\n' % (numberstates)
+            if 'rtolci' in ciudgin[i].lower():
+              tol=ciudgin[i].split('=')[1].split(',')[0]
+              ciudgin[i]=' RTOLCI =' + numberstates*(tol+',')+'\n'
+          string=' '.join(ciudgin)
+          tasks.append(['write',QMin['scratchdir']+'/JOB/'+filename,string])
+
+      # cidrtin ==========================================================
+      # if socinr is used, adjust the maximum multiplicity in cidrtin to the one actually needed
+      if QMin['socimap'][job]==1:
+        max_needed=max(QMin['multmap'][job])
+        f=open(QMin['template']+'/'+job+'/cidrtin')
+        cidrtin=f.readlines()
+        f.close()
+        for i in range(len(cidrtin)):
+          if 'maximal spin multiplicity' in cidrtin[i]:
+            cidrtin[i]='%i / maximal spin multiplicity\n' % (max_needed)
+        string=' '.join(cidrtin)
+        tasks.append(['write',QMin['scratchdir']+'/JOB/cidrtin',string])
+
+      # prepare the mocoef guess ============================================
+      if not 'alwaysscf' in QMin:
+        if 'always_mocoef_init' in QMin:
+          if os.path.isfile(QMin['pwd']+'/mocoef_mc.init.'+job.replace('/','')):
+            tasks.append(['getmo',QMin['pwd']+'/mocoef_mc.init.'+job.replace('/','')])
+          else:
+            tasks.append(['getmo',QMin['pwd']+'/mocoef_mc.init'])
+        else:
+          if QMin['mocoefmap'][job]==job:
+            if 'init' in QMin:
+              if os.path.isfile(QMin['pwd']+'/mocoef_mc.init.'+job.replace('/','')):
+                tasks.append(['getmo',QMin['pwd']+'/mocoef_mc.init.'+job.replace('/','')])
+              elif os.path.isfile(QMin['pwd']+'/mocoef_mc.init'):
+                tasks.append(['getmo',QMin['pwd']+'/mocoef_mc.init'])
+                # if this file is not there, an scf calculation is performed (see above)
+            else:
+              mocoefjob=QMin['mocoefmap'][job].replace('/','_')
+              if 'samestep' in QMin:
+                tasks.append(['getmo',QMin['savedir']+'/mocoef.%s' % (mocoefjob)])
+              else:
+                tasks.append(['getmo',QMin['savedir']+'/mocoef.%s.old' % (mocoefjob)])
+          else:
+            mocoefjob=QMin['mocoefmap'][job].replace('/','_')
+            tasks.append(['getmo',QMin['savedir']+'/mocoef.%s' % (mocoefjob)])
+
+      # run COLUMBUS ========================================================
+      tasks.append(['runc'])
+
+      # get output ==========================================================
+      tasks.append(['get_COLout',job])
+
+      # do the civecconsolidate runs, keep data =============================
+      # make_dets before save_data, because save_data moves the eivector files 
+      if 'ion' in QMin:
+        tasks.append(['make_dets',job])
+
+      # save mocoef, eigenvectors, molcas,input =============================
+      if not 'samestep' in QMin:
+        tasks.append(['save_data',job])
+
+      # keep slaterfiles ====================================================
+      tasks.append(['keep_data',job])
+
+      # keep molden file ====================================================
+      if 'molden' in QMin:
+        tasks.append(['copymolden',job])
+
+      # remove temporary files ==============================================
+      tasks.append(['cleanup',QMin['scratchdir']+'/JOB/WORK'])
+
+  # End of loop over COLUMBUS jobs
+  # now comes the dyson and cioverlaps parts
+
+  # Dyson part
+  if 'ion' in QMin:
+    for pair in QMin['ionlist']:
+      # pair is [m1,s1,m2,s2]
+      tasks.append(['dyson',pair])
+
+  # Overlap part
+  if 'overlap' in QMin:
+    tasks.append(['cleanup',QMin['scratchdir']+'/OVERLAP'])
+    tasks.append(['mkdir',QMin['scratchdir']+'/OVERLAP/molcas'])
+    jobdir=QMin['joblist'][0].replace('/','_')
+    tasks.append(
+      ['writemolcas',
+      QMin['savedir']+'/molcas.input.seward.%s.old' % (jobdir),
+      QMin['savedir']+'/molcas.input.seward.%s' % (jobdir),
+      QMin['scratchdir']+'/OVERLAP/molcas.input']
+    )
+    tasks.append(['runmolcas'])
+    tasks.append(['link',QMin['scratchdir']+'/OVERLAP/molcas/molcas.RunFile',QMin['scratchdir']+'/OVERLAP/RUNFILE'])
+    tasks.append(['link',QMin['scratchdir']+'/OVERLAP/molcas/molcas.OneInt', QMin['scratchdir']+'/OVERLAP/ONEINT'])
+
+    for job in QMin['joblist']:
+      jobdir=job.replace('/','_')
+      tasks.append(['link',QMin['savedir']+'/mocoef.%s.old' % (jobdir),QMin['scratchdir']+'/OVERLAP/mocoef1'])
+      tasks.append(['link',QMin['savedir']+'/mocoef.%s'     % (jobdir),QMin['scratchdir']+'/OVERLAP/mocoef2'])
+
+      for drt,mult in enumerate(QMin['multmap'][job]):
+        tasks.append(['link',QMin['scratchdir']+'/KEEP/cidrtfl.drt%i.%s' % (drt+1,jobdir),QMin['scratchdir']+'/OVERLAP/cidrtfl'])
+        tasks.append(['write',QMin['scratchdir']+'/OVERLAP/mkciovinpin','''&input
+seward=1
+runfile='RUNFILE'
+mo_t1='mocoef1'
+mo_t2='mocoef2'
+cidrtfl='cidrtfl'
+&end
+'''])
+        tasks.append(['runmkciovinp'])
+        tasks.append(['link',QMin['savedir']+'/eivectors.red.drt%i.sp.%s.old'   % (drt+1,jobdir),QMin['scratchdir']+'/OVERLAP/eivectors1'])
+        tasks.append(['link',QMin['savedir']+'/eivectors.red.drt%i.sp.%s'       % (drt+1,jobdir),QMin['scratchdir']+'/OVERLAP/eivectors2'])
+        tasks.append(['link',QMin['scratchdir']+'/KEEP/slaterfile.red.drt%i.%s' % (drt+1,jobdir),QMin['scratchdir']+'/OVERLAP/slaterfile'])
+
+        genexcitlistfile=False
+        if 'cioexcitlists' in QMin:
+          tasks.append(['link',QMin['cioexcitlists']+'/excitlistfile.drt%i.%s' % (drt+1,jobdir),QMin['scratchdir']+'/OVERLAP/excitlistfile'])
+        elif os.path.isfile(QMin['scratchdir']+ '/KEEP/excitlistfile.drt%i.%s' % (drt+1,jobdir)):
+          tasks.append(['link',QMin['scratchdir']+ '/KEEP/excitlistfile.drt%i.%s' % (drt+1,jobdir),QMin['scratchdir']+'/OVERLAP/excitlistfile'])
+        else:
+          genexcitlistfile=True  # excitlistfile will be generated
+
+        # generate the transmomin file
+        string='CIoverlap\n'
+        for j1 in range(1,1+QMin['states'][mult-1]):
+          for j2 in range(j1,1+QMin['states'][mult-1]):
+            # for cioverlaps, the diagonal elements are always calculated
+            if j1==j2:
+              continue
+            for iarg in QMin['overlap']:
+              # go through all requests
+              imult1,istate1,ims1=tuple(QMin['statemap'][iarg[0]])
+              imult2,istate2,ims2=tuple(QMin['statemap'][iarg[1]])
+              if mult==imult1==imult2 and ims1==ims2 and ( (j1,j2)==(istate1,istate2) or (j1,j2)==(istate2,istate1) ):
+                string+='%i %i %i %i\n' % (drt+1,j1,drt+1,j2)
+        tasks.append(['write',QMin['scratchdir']+'/OVERLAP/cioverlap.mask',string])
+
+        tasks.append(['runcioverlap'])
+        tasks.append(['get_CIOoutput',job,drt+1])
+        if genexcitlistfile:
+          tasks.append(['keep_excitlists',job,drt+1])
+
+  if 'backup' in QMin:
+    tasks.append(['backupdata',QMin['backup']])
+
+  if 'cleanup' in QMin:
+    tasks.append(['cleanup',QMin['savedir']])
+    tasks.append(['cleanup',QMin['scratchdir']])
+
+  return tasks
+
+
+
+# =============================================================================================== #
+# =============================================================================================== #
+# =========================================== SUBROUTINES TO RUNEVERYTING ======================= #
+# =============================================================================================== #
+# =============================================================================================== #
+
+def mkdir(PATH):
+  if os.path.exists(PATH):
+    if os.path.isfile(PATH):
+      print '%s exists and is a file!' % (PATH)
+      sys.exit(68)
+    else:
+      ls=os.listdir(PATH)
+      if not ls==[]:
+        print 'INFO: %s exists and is a non-empty directory!' % (PATH)
+        #sys.exit(69)
+  else:
+    os.mkdir(PATH)
+
+# ======================================================================= #
+
+def movetoold(QMin):
+  # rename all eivectors, mocoef, molcas.input
+  saveable=['eivectors','mocoef','molcas.input']
+  savedir=QMin['savedir']
+  ls=os.listdir(savedir)
+  if ls==[]:
+    return
+  for f in ls:
+    f2=savedir+'/'+f
+    if os.path.isfile(f2):
+      if any( [ i in f for i in saveable ] ):
+        if not 'old' in f:
+          fdest=f2+'.old'
+          shutil.move(f2,fdest)
+
+# ======================================================================= #
+
+def link(PATH, NAME,crucial=True):
+  # do not create broken links
+  if not os.path.exists(PATH):
+    print 'Source %s does not exist, cannot create link!' % (PATH)
+    sys.exit(70)
+  # do ln -f only if NAME is already a link
+  if os.path.exists(NAME):
+    if os.path.islink(NAME):
+      os.remove(NAME)
+    else:
+      print '%s exists, cannot create a link of the same name!' % (NAME)
+      if crucial:
+        sys.exit(71)
+      else:
+        return
+  os.symlink(PATH, NAME)
+
+# ======================================================================= #
+def cleandir(directory):
+  if DEBUG:
+    print '===> Cleaning up directory %s\n' % (directory)
+  for data in os.listdir(directory):
+    path=directory+'/'+data
+    if os.path.isfile(path) or os.path.islink(path):
+      if DEBUG:
+        print 'rm %s' % (path)
+      try:
+        os.remove(path)
+      except OSError:
+        print 'Could not remove file from directory: %s' % (path)
+    else:
+      if DEBUG:
+        print ''
+      cleandir(path)
+      os.rmdir(path)
+      if DEBUG:
+        print 'rm %s' % (path)
+  if DEBUG:
+    print '\n'
+
+# ======================================================================= #
+def getmo(mofile,QMin):
+  if os.path.exists(mofile):
+    shutil.copy(mofile,QMin['scratchdir']+'/JOB/mocoef')
+  else:
+    print 'Could not find mocoef-file %s!' % (mofile)
+    sys.exit(72)
+
+# ======================================================================= #
+def getinput(path,QMin):
+  if os.path.exists(path) and os.path.isdir(path):
+    ls=os.listdir(path)
+    if not ls==[]:
+      for f in ls:
+        if os.path.isfile(path+'/'+f):
+          shutil.copy(path+'/'+f,QMin['scratchdir']+'/JOB')
+    else:
+      print 'Template directory %s is empty!' % (path)
+      sys.exit(73)
+  else:
+    print 'Template directory %s does not exist or is a file!' % (path)
+    sys.exit(74)
+
+# ======================================================================= #
+def getmcinput(path,QMin):
+  if os.path.exists(path) and os.path.isdir(path):
+    ls=os.listdir(path)
+    if not ls==[]:
+      for f in ls:
+        if 'mcdrtin' in f or 'mcscfin' in f:
+          if os.path.isfile(path+'/'+f):
+            shutil.copy(path+'/'+f,QMin['scratchdir']+'/JOB')
+    else:
+      print 'Template directory %s is empty!' % (path)
+      sys.exit(75)
+  else:
+    print 'Template directory %s does not exist or is a file!' % (path)
+    sys.exit(76)
+
+# ======================================================================= #
+def checkinput(QMin):
+  # check molcas.input for relevant keywords and necessary basis set information
+  fname=QMin['scratchdir']+'/JOB/molcas.input'
+  molcas=readfile(fname)
+  necessary=['relint','amfi','douglas-kroll','angmom']
+  allthere=[False for i in necessary]
+  for line in molcas:
+    for i,nec in enumerate(necessary):
+      if nec in line.lower():
+        allthere[i]=True
+  if not all(allthere):
+    print '%s is missing one of the keywords %s!' % (fname,necessary)
+    sys.exit(77)
+  iline=0
+  for atom in QMin['geo']:
+    while True:
+      if containsstring('%s\..*' % (atom[0].lower()),molcas[iline].lower()):
+        break
+      iline+=1
+      if iline==len(molcas):
+        print 'Basis set for atom %s not in molcas.input!' % (atom[0])
+        sys.exit(78)
+  # check cigrdin and mcscfin compatibility
+  if 'grad' in QMin or 'nacdr' in QMin:
+    # look for explicit HMC option in mcscfin
+    fname=QMin['scratchdir']+'/JOB/mcscfin'
+    mcscfin=readfile(fname)
+    for line in mcscfin:
+      if 'npath' in line.lower():
+        f=line.split('=',1)[-1].split(',')
+        explHMC=False
+        for fi in f:
+          if fi=='11':
+            explHMC=True
+    # adjust cigrdin according to explicit HMC option
+    fname=QMin['scratchdir']+'/JOB/cigrdin'
+    cigrdin=readfile(fname)
+    for iline in range(len(cigrdin)):
+      line=cigrdin[iline]
+      if 'mdir' in line.lower():
+        f=line.split(',')
+        for fi in range(len(f)):
+          if 'mdir' in f[fi].lower():
+            f[fi]='mdir=%i' % ([1,0][explHMC])
+        cigrdin[iline]=','.join(f)
+    with open(fname,'w') as f:
+      for line in cigrdin:
+        f.write(line)
+
+# ======================================================================= #
+def writegeom(QMin):
+  if 'unit' in QMin:
+    if QMin['unit'][0]=='angstrom':
+      factor=1.
+    elif QMin['unit'][0]=='bohr':
+      factor=au2a
+    else:
+      print 'Dont know input unit %s!' % (QMin['unit'][0])
+      sys.exit(79)
+  else:
+    factor=1.
+
+  fname=QMin['scratchdir']+'/JOB/geom.xyz'
+  try:
+    with open(fname,'w') as g:
+      g.write('%i\n\n' % (QMin['natom']) )
+      for atom in QMin['geo']:
+        g.write(atom[0])
+        for xyz in range(1,4):
+          g.write('  %f' % (atom[xyz]*factor))
+        g.write('\n')
+  except IOError:
+    print 'Could not open geometry file %s!' % (fname)
+    sys.exit(80)
+
+  os.chdir(QMin['scratchdir']+'/JOB')
+  error=sp.call('%s/xyz2col.x < %s' % (QMin['columbus'],'geom.xyz'),shell=True)
+  if error!=0:
+    print 'xyz2col call failed!'
+    sys.exit(81)
+  os.chdir(QMin['pwd'])
+# ======================================================================= #
+def runProgram(string,workdir):
+  prevdir=os.getcwd()
+  os.chdir(workdir)
+  if PRINT or DEBUG:
+    starttime=datetime.datetime.now()
+    sys.stdout.write('%s\n\t%s' % (string,starttime))
+    sys.stdout.flush()
+  try:
+    runerror=sp.call(string,shell=True)
+  except OSError:
+    print 'Call have had some serious problems:',OSError
+    sys.exit(82)
+  if PRINT or DEBUG:
+    endtime=datetime.datetime.now()
+    sys.stdout.write('\t%s\t\tRuntime: %s\t\tError Code: %i\n\n' % (endtime,endtime-starttime,runerror))
+  os.chdir(prevdir)
+  return runerror
+
+# ======================================================================= #
+def runCOLUMBUS(QMin):
+  # setup
+  workdir=QMin['scratchdir']+'/JOB'
+  string='%s/runc -m %i > runls' % (QMin['columbus'],QMin['colmem'])
+  runerror=runProgram(string,workdir)
+
+  # copy debug infos if crashed
+  if runerror!=0:
+    print 'COLUMBUS calculation crashed! Error code=%i' % (runerror)
+    s=QMin['savedir']+'/COLUMBUS-debug/'
+    s1=s
+    i=0
+    while os.path.exists(s1):
+      i+=1
+      s1=s+'%i/' % (i)
+    if PRINT or DEBUG:
+      print '=> Saving all text files from WORK directory to %s\n' % (s1)
+    os.mkdir(s1)
+
+    dirs=[
+        os.path.join(QMin['scratchdir'],'JOB'),
+        os.path.join(QMin['scratchdir'],'JOB/WORK'),
+        os.path.join(QMin['scratchdir'],'JOB/LISTINGS')]
+    maxsize=3*1024**2
+    for d in dirs:
+      ls=os.listdir(d)
+      if DEBUG:
+        print d
+        print ls
+      for i in ls:
+        f=os.path.join(d,i)
+        if os.stat(f)[6]<=maxsize and not os.path.isdir(f):
+          try:
+            shutil.copy(f,s1)
+          except OSError:
+            pass
+          if PRINT or DEBUG:
+            print i
+    sys.exit(83)
+
+# ======================================================================= #
+def copymolden(job,QMin):
+  # create directory
+  jobdir=job.replace('/','_')
+  moldendir=QMin['savedir']+'/MOLDEN/'+job
+  if not os.isdir(moldendir):
+    mkdir(moldendir)
+  # save the molcas.input file
+  f=QMin['scratchdir']+'/JOB/MOLDEN/molden_mo_mc.sp'
+  fdest=moldendir+'/step_%05i.molden' % (int(QMin['step'][0]))
+  shutil.move(f,fdest)
+
+# ======================================================================= #
+def save_data(job,QMin):
+  jobdir=job.replace('/','_')
+  # save all mocoef files, even if not necessary for other jobs
+  f=QMin['scratchdir']+'/JOB/MOCOEFS/mocoef_mc.sp'
+  fdest=QMin['savedir']+'/mocoef.%s' % (jobdir)
+  if os.path.isfile(f):
+    shutil.copy(f,fdest)
+  else:
+    print 'Could not find %s!' % (f)
+    sys.exit(84)
+  # save the molcas.input file
+  f=QMin['scratchdir']+'/JOB/WORK/molcas.input.seward'
+  fdest=QMin['savedir']+'/molcas.input.seward.%s' % (jobdir)
+  shutil.copy(f,fdest)
+  # save the eivector files
+  if not 'nooverlap' in QMin:
+    for drt,mult in enumerate(QMin['multmap'][job]):
+      fdest=QMin['savedir']+'/eivectors.red.drt%i.sp.%s' % (drt+1,jobdir)
+      f=QMin['scratchdir']+'/JOB/WORK/eivectors.red.drt%i.sp' % (drt+1)
+      shutil.copy(f,fdest)
+
+# ======================================================================= #
+def backupdata(backupdir,QMin):
+  # save all files in savedir, except which have 'old' in their name
+  ls=os.listdir(QMin['savedir'])
+  for f in ls:
+    ff=QMin['savedir']+'/'+f
+    if os.path.isfile(ff) and not 'old' in ff:
+      fdest=backupdir+'/'+f
+      shutil.copy(ff,fdest)
+
+# ======================================================================= #
+def keep_data(job,QMin):
+  jobdir=job.replace('/','_')
+  if not 'nooverlap' in QMin:
+    # save the slaterfiles if not already in KEEP
+    for drt,mult in enumerate(QMin['multmap'][job]):
+      fdest=QMin['scratchdir']+'/KEEP/slaterfile.red.drt%i.%s' % (drt+1,jobdir)
+      if not os.path.exists(fdest):
+        f=QMin['scratchdir']+'/JOB/WORK/slaterfile.red.drt%i.sp' % (drt+1)
+        shutil.move(f,fdest)      # move is faster than copy
+      # move the cidrtfl files
+      fdest=QMin['scratchdir']+'/KEEP/cidrtfl.drt%i.%s' % (drt+1,jobdir)
+      if not os.path.exists(fdest):
+        if QMin['socimap'][job]==-1:
+          f=QMin['scratchdir']+'/JOB/WORK/cidrtfl'
+        else:
+          f=QMin['scratchdir']+'/JOB/WORK/cidrtfl.%i' % (drt+1)
+        shutil.move(f,fdest)      # move is faster than copy
+
+  if 'ion' in QMin:
+    # move the ONEINT, RUNFILE and molcas.env files
+    f=QMin['scratchdir']+'/JOB/WORK/molcas.OneInt'
+    fdest=QMin['scratchdir']+'/KEEP/ONEINT.%s' % (jobdir)
+    shutil.move(f,fdest)
+    f=QMin['scratchdir']+'/JOB/WORK/molcas.RunFile'
+    fdest=QMin['scratchdir']+'/KEEP/RUNFILE.%s' % (jobdir)
+    shutil.move(f,fdest)
+    f=QMin['scratchdir']+'/JOB/WORK/molcas.env'
+    fdest=QMin['scratchdir']+'/KEEP/molcas.env.%s' % (jobdir)
+    shutil.move(f,fdest)
+
+# ======================================================================= #
+def writemolcas(oldgeom,newgeom,molcasinfile):
+  # =================
+  atomlabel=re.compile('[a-zA-Z][a-zA-Z]?[1-9][0-9]*')
+  numberlabel=re.compile('[-]?[0-9]+[.][0-9]*')
+  basislabel=re.compile('[bB]asis')
+  basisinfo=re.compile('[a-zA-Z][a-zA-Z]?[.]')
+  # =================
+  def isatom(line):
+    parts=line.split()
+    if len(parts)!=4:
+      return False
+    match=atomlabel.match(parts[0])
+    for i in range(1,3):
+      match=match and numberlabel.match(parts[i])
+    if match:
+      return True
+    else:
+      return False
+  # =================
+  def isinfo(line):
+    match=basislabel.search(line)
+    if match:
+      return True
+    match=basisinfo.search(line)
+    if match:
+      return True
+    else:
+      return False
+
+  geomold=readfile(oldgeom)
+  geomnew=readfile(newgeom)
+
+  string='&SEWARD &END\nONEOnly\nEXPErt\nNOGUessorb\nNODElete\nNODKroll\nNOAMfi\nMULTipoles\n0\n\n'
+  # go through old geometry file
+  atom=1
+  for line in geomold:
+    if isinfo(line):
+      string+=line
+    if isatom(line):
+      parts=line.split()
+      parts[0] = re.sub("\d+", "", parts[0])+str(atom)
+      atom+=1
+      line=' '.join(parts)
+      string+=line+'\n'
+  # go through the new geometry file
+  for ln,line in enumerate(geomnew):
+    if isinfo(line):
+      if line!=geomold[ln]:
+        print 'Inconsistent basis set information in line %i!' % (ln+1)
+        sys.exit(85)
+      string+=line
+    if isatom(line):
+      parts=line.split()
+      parts[0] = re.sub("\d+", "", parts[0])
+      oldatom=re.sub("\d+", "", geomold[ln].split()[0])
+      if parts[0]!=oldatom:
+        print 'Different atoms in line %i!' % (ln+1)
+        sys.exit(86)
+      parts[0]+=str(atom)
+      atom+=1
+      line=' '.join(parts)
+      string+=line+'\n'
+  string+='End of Input'
+
+  # write to file
+  with open(molcasinfile,'w') as f:
+    f.write(string)
+
+# ======================================================================= #
+def runmolcas(QMin):
+  os.environ['MOLCAS_PROJECT']='molcas'
+  os.environ['MOLCAS_WORKDIR']='molcas'
+  workdir=QMin['scratchdir']+'/OVERLAP'
+  string='%s/bin/molcas.exe %s &> %s' % (QMin['molcas'],'molcas.input','molcas.output')
+  runerror=runProgram(string,workdir)
+  if runerror!=0:
+    print 'MOLCAS call not successful!'
+    sys.exit(87)
+
+# ======================================================================= #
+def runmkciovinp(QMin):
+  workdir=QMin['scratchdir']+'/OVERLAP'
+  string='%s/mkciovinp.x &> mkciovinpls' % (QMin['columbus'])
+  runerror=runProgram(string,workdir)
+  if runerror!=0:
+    print 'mkciovinp call not successful!'
+    sys.exit(88)
+
+# ======================================================================= #
+def runcioverlap(QMin):
+  workdir=QMin['scratchdir']+'/OVERLAP'
+  thres=QMin['ciothres']
+  infile='cioverlap.in'
+  outfile='cioverlap.out'
+  selfile='cioverlap.mask'
+  string='%s/cioverlap -s %s -t %f -e 2 < %s > %s' % (QMin['columbus'],selfile,thres,infile,outfile)
+  runerror=runProgram(string,workdir)
+  if runerror!=0:
+    print 'cioverlap call not successful!'
+    sys.exit(89)
+
+# ======================================================================= #
+def keep_excitlists(job,drt,QMin):
+  jobdir=job.replace('/','_')
+  fdest=QMin['scratchdir']+'/KEEP/excitlistfile.drt%i.%s' % (drt,jobdir)
+  if not os.path.exists(fdest):
+    f=QMin['scratchdir']+'/OVERLAP/excitlistfile'
+    shutil.move(f,fdest)
+
+# ======================================================================= #
+def get_excitlists(path,QMin):
+  for job in QMin['joblist']:
+    jobdir=job.replace('/','_')
+    for drt,mult in enumerate(QMin['multmap'][job]):
+      f=path+'/excitlistfile.drt%i.%s' % (drt+1,jobdir)
+      fdest=QMin['scratchdir']+'/KEEP/excitlistfile.drt%i.%s' % (drt+1,jobdir)
+      shutil.copy(f,fdest)
+
+# ======================================================================= #
+def make_dets(job,QMin):
+  # find all multiplicities which are relevant for dyson calculations
+  mults=set([])
+  for i in QMin['ionlist']:
+    m1,s1,m2,s1=tuple(i)
+    mults.add(m1)
+    mults.add(m2)
+  for mult in mults:
+    job2,drt=tuple(QMin['multmap'][mult])
+    if job2==job:
+      # remove "dum" dummy files of civecconsolidate
+      ls=os.listdir(QMin['scratchdir']+'/JOB/WORK')
+      for ifile in ls:
+        if 'dum' in ifile:
+          os.remove(QMin['scratchdir']+'/JOB/WORK/'+ifile)
+      # run civecconsolidate in JOB/WORK for drt
+      workdir=QMin['scratchdir']+'/JOB/WORK'
+      eivecfile='eivectors.red.drt%i.sp' % (drt)
+      slaterfile='slaterfile.red.drt%i.sp' % (drt)
+      if 'civecconsolidate' in QMin:
+        string=QMin['civecconsolidate']
+      else:
+        string=QMin['columbus']+'/civecconsolidate'
+      string+=' -d %f %s %s dum1 dum2 dum3 < civecconsolidate.in >> civecconsolidate.out' % (QMin['civecthres'],eivecfile,slaterfile)
+      runerror=runProgram(string,workdir)
+      if runerror!=0:
+        print 'civecconsolidate call not successful!'
+        sys.exit(90)
+      # move determinant files to KEEP
+      for istate in range(1,QMin['states'][mult-1]+1):
+        f=QMin['scratchdir']+'/JOB/WORK/determinants.vec_%i' % (istate)
+        fdest=QMin['scratchdir']+'/KEEP/determinants.vec_s%i_m%i' % (istate,mult)
+        shutil.move(f,fdest)
+
+# ======================================================================= #
+def get_info_from_det(filename):
+  with open(filename) as f:
+    lines=f.readlines()
+  line=lines[0].split()
+  norb=len(line)-1
+  nelec=0
+  for i in range(1,norb+1):
+    nelec+=abs(int(line[i]))
+  ndet=len(lines)
+  return nelec,norb,ndet
+
+# ======================================================================= #
+def do_dyson(QMin,QMout,pair):
+  # write input file
+  m1,s1,m2,s2=tuple(pair)
+  file1=QMin['scratchdir']+'/KEEP/determinants.vec_s%i_m%i' % (s1,m1)
+  file2=QMin['scratchdir']+'/KEEP/determinants.vec_s%i_m%i' % (s2,m2)
+  nelec1,norb1,ndet1=get_info_from_det(file1)
+  nelec2,norb2,ndet2=get_info_from_det(file2)
+  mocoef1=QMin['savedir']+'/mocoef.%s' % (QMin['multmap'][m1][0].replace('/','_'))
+  mocoef2=QMin['savedir']+'/mocoef.%s' % (QMin['multmap'][m2][0].replace('/','_'))
+  if nelec1>nelec2:
+    infos=(mocoef1,mocoef2,file1,file2,norb1,norb2,ndet1,ndet2,QMin['dysonthres'])
+    jobdir=QMin['multmap'][m1][0].replace('/','_')
+  else:
+    infos=(mocoef2,mocoef1,file2,file1,norb2,norb1,ndet2,ndet1,QMin['dysonthres'])
+    jobdir=QMin['multmap'][m2][0].replace('/','_')
+  string='''ref_mo=%s
+ion_mo=%s
+ref_det=%s
+ion_det=%s
+ref_active=%i
+ion_active=%i
+ref_ndets=%i
+ion_ndets=%i
+c2_threshold=%f
+''' % infos
+  with open(QMin['scratchdir']+'/DYSON/dyson.input','w') as f:
+    f.write(string)
+
+  # link RUNFILE, ONEINT, molcas.env
+  f=QMin['scratchdir']+'/KEEP/ONEINT.%s' % (jobdir)
+  fdest=QMin['scratchdir']+'/DYSON/ONEINT'
+  link(f,fdest)
+
+  f=QMin['scratchdir']+'/KEEP/RUNFILE.%s' % (jobdir)
+  fdest=QMin['scratchdir']+'/DYSON/RUNFILE'
+  link(f,fdest)
+
+  f=QMin['scratchdir']+'/KEEP/molcas.env.%s' % (jobdir)
+  fdest=QMin['scratchdir']+'/DYSON/molcas.env'
+  link(f,fdest)
+
+  # run dyson
+  os.environ['OMP_NUM_THREADS']=str(QMin['ncpu'])
+  workdir=QMin['scratchdir']+'/DYSON'
+  string=QMin['dyson']+' > dyson.output          # Pair: %s' % (pair)
+  runerror=runProgram(string,workdir)
+  if runerror!=0:
+    print 'dyson call not successful!'
+    sys.exit(91)
+
+  # extract result
+  with open(QMin['scratchdir']+'/DYSON/dyson.output') as f:
+    dysonout=f.readlines()
+  for line in dysonout:
+    if '<psid|psid>' in line:
+      dysonnorm=float(line.split()[2])
+      break
+
+  # backup dyson.out
+  if 'backup' in QMin:
+    f=QMin['scratchdir']+'/DYSON/dyson.output'
+    fdest=QMin['backup']+'/dyson.output.m%is%i.m%is%i' % tuple(pair)
+    shutil.move(f,fdest)
+
+  # update QMout
+  if not 'prop' in QMout:
+    QMout['prop']=makecmatrix(QMin['nmstates'],QMin['nmstates'])
+  for i in range(QMin['nmstates']):
+    for j in range(QMin['nmstates']):
+      m3,s3,ms3=tuple(QMin['statemap'][i+1])
+      m4,s4,ms4=tuple(QMin['statemap'][j+1])
+      if (m3,s3,m4,s4)==(m1,s1,m2,s2) or (m4,s4,m3,s3)==(m1,s1,m2,s2):
+        if abs(ms3-ms4)==0.5:
+          QMout['prop'][i][j]=complex(dysonnorm,0.)
+          QMout['prop'][j][i]=complex(dysonnorm,0.)
+
+  return QMout
+
+
+
+
+# ======================================================================= #
+def runeverything(tasks, QMin):
+  
+  if PRINT or DEBUG:
+    print '=============> Entering RUN section <=============\n\n'
+
+  QMout={}
+  #states=QMin['states']
+  #nstates=QMin['nstates']
+  #nmstates=QMin['nmstates']
+  for task in tasks:
+    if DEBUG:
+      print task
+    if task[0]=='movetoold':
+      movetoold(QMin)
+    if task[0]=='mkdir':
+      mkdir(task[1])
+    if task[0]=='link':
+      if len(task)==4:
+        link(task[1],task[2],task[3])
+      else:
+        link(task[1],task[2])
+    if task[0]=='getmo':
+      getmo(task[1],QMin)
+    if task[0]=='getinput':
+      getinput(task[1],QMin)
+    if task[0]=='getmcinput':
+      getmcinput(task[1],QMin)
+    if task[0]=='checkinput':
+      checkinput(QMin)
+    if task[0]=='writegeom':
+      writegeom(QMin)
+    if task[0]=='write':
+      writefile(task[1],task[2])
+    if task[0]=='runc':
+      runCOLUMBUS(QMin)
+    if task[0]=='save_data':
+      save_data(task[1],QMin)
+    if task[0]=='keep_data':
+      keep_data(task[1],QMin)
+    if task[0]=='backupdata':
+      backupdata(task[1],QMin)
+    if task[0]=='make_dets':
+      make_dets(task[1],QMin)
+    if task[0]=='cleanup':
+      cleandir(task[1])
+    if task[0]=='writemolcas':
+      writemolcas(task[1],task[2],task[3])
+    if task[0]=='runmolcas':
+      runmolcas(QMin)
+    if task[0]=='runmkciovinp':
+      runmkciovinp(QMin)
+    if task[0]=='runcioverlap':
+      runcioverlap(QMin)
+    if task[0]=='keep_excitlists':
+      keep_excitlists(task[1],task[2],QMin)
+    if task[0]=='get_COLout':
+      QMout=get_COLout(QMin,QMout,task[1])
+    if task[0]=='dyson':
+      QMout=do_dyson(QMin,QMout,task[1])
+    if task[0]=='get_CIOoutput':
+      QMout=get_CIOoutput(QMin,QMout,task[1],task[2])
+
+  # if no dyson pairs were calculated because of selection rules, put an empty matrix
+  if not 'prop' in QMout and 'ion' in QMin:
+    QMout['prop']=makecmatrix(QMin['nmstates'],QMin['nmstates'])
+
+  return QMout
+
+# ========================== Main Code =============================== #
+def main():
+  '''This script realises an interface between the semi-classical dynamics code SHARC and the quantum chemistry program MOLPRO 2012. It allows the automatised calculation of non-relativistic and spin-orbit Hamiltonians, Dipole moments, gradients and non-adiabatic couplings at the CASSCF level of theory for an arbitrary number of states of different multiplicities. It also includes a small number of MOLPRO error handling capabilities (restarting non-converged calculations etc.).
+
+  Input is realised through two files and a number of environment variables.
+
+  QM.in:
+    This file contains all information which are known to SHARC and which are independent of the used quantum chemistry code. This includes the current geometry and velocity, the number of states/multiplicities, the time step and the kind of quantities to be calculated.
+
+  MOLPRO.template:
+    This file is a minimal MOLPRO input file containing all molecule-specific parameters, like memory requirement, basis set, Douglas-Kroll-Hess transformation, active space and state-averaging. 
+
+  Environment variables:
+    Additional information, which are necessary to run MOLPRO, but which do not actually belong in a MOLPRO input file. 
+    The necessary variables are:
+      * QMEXE: is the path to the MOLPRO executable
+      * SCRATCHDIR: is the path to a scratch directory for fast I/O Operations.
+    Some optional variables are concerned with MOLPRO error handling (defaults in parenthesis):
+      * GRADACCUDEFAULT: default accuracy for MOLPRO CPMCSCF (1e-7)
+      * GRADACCUMAX: loosest allowed accuracy for MOLPRO CPMCSCF (1e-2)
+      * GRADACCUSTEP: factor for decreasing the accuracy for MOLPRO CPMCSCF (1e-1)
+      * CHECKNACS: check whether non-adiabatic couplings are corrupted by intruder states (False)
+      * CHECKNACS_MRCIO: threshold for intruder state detection, see mrcioverlapsok() (0.85)'''
+
+  # Retrieve PRINT and DEBUG
+  try:
+    envPRINT=os.getenv('SH2COL_PRINT')
+    if envPRINT and envPRINT.lower()=='false':
+      global PRINT
+      PRINT=False
+    envDEBUG=os.getenv('SH2COL_DEBUG')
+    if envDEBUG and envDEBUG.lower()=='true':
+      global DEBUG
+      DEBUG=True
+  except ValueError:
+    print 'PRINT or DEBUG environment variables do not evaluate to logical values!'
+    sys.exit(92)
+
+  # Process Command line arguments
+  if len(sys.argv)!=2:
+    print 'Usage:\n./SHARC_COLUMBUS.py <QMin>\n'
+    print 'version:',version
+    print 'date:',versiondate
+    print 'changelog:\n',changelogstring
+    sys.exit(93)
+  QMinfilename=sys.argv[1]
+
+  # Print header
+  printheader()
+
+  # Read QMinfile
+  QMin=readQMin(QMinfilename)
+  printQMin(QMin)
+
+  # Process Tasks
+  Tasks=gettasks(QMin)
+  if DEBUG:
+    printtasks(Tasks)
+
+
+  # Do the COLUMBUS, cioverlaps and dyson runs, extract QMout
+  QMout=runeverything(Tasks,QMin)
+
+  printQMout(QMin,QMout)
+
+  # Measure time
+  runtime=measuretime()
+  QMout['runtime']=runtime
+
+  # Write QMout
+  writeQMout(QMin,QMout,QMinfilename)
+
+  if PRINT or DEBUG:
+    print datetime.datetime.now()
+    print '#================ END ================#'
+
+if __name__ == '__main__':
+    main()

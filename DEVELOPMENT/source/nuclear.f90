@@ -1,8 +1,21 @@
+!> # Module NUCLEAR
+!> 
+!> \author Sebastian Mai
+!> \ðate 27.02.2015
+!>
+!> This module defines all subroutines for the nuclear dynamics:
+!> - the two velocity-verlet steps (update of geometry, update of velocity)
+!> - calculation of total and kinetic energy
+!> - rescaling of velocities after surface hop
+!> - damping of velocities
 module nuclear
  contains
 
 ! ===========================================================
 
+!> performs the geometry update of the Velocity Verlet algorithm
+!> a(t)=g(t)/M
+!> x(t+dt)=x(t)+v(t)*dt+0.5*a(t)*dt^2
 subroutine VelocityVerlet_xstep(traj,ctrl)
   use definitions
   use matrix
@@ -40,6 +53,9 @@ endsubroutine
 
 ! ===========================================================
 
+!> performs the velocity update of the Velocity Verlet algorithm
+!> a(t+dt)=g(t+dt)/M
+!> v(t+dt)=v(t)+a(t+dt)*dt
 subroutine VelocityVerlet_vstep(traj,ctrl)
   use definitions
   use matrix
@@ -76,6 +92,7 @@ endsubroutine
 
 ! ===========================================================
 
+!> calculates the sum of the kinetic energies of all atoms
 real*8 function Calculate_ekin(n, veloc, mass) result(Ekin)
   implicit none
   integer, intent(in) :: n
@@ -93,6 +110,9 @@ endfunction
 
 ! ===========================================================
 
+!> calculates the kinetic energy,
+!> the potential energy (from H_diag)
+!> and the total energy
 subroutine Calculate_etot(traj,ctrl)
   use definitions
   implicit none
@@ -118,6 +138,14 @@ endsubroutine
 
 ! ===========================================================
 
+!> Rescales the velocity after each timestep
+!> - no rescaling if no hop occured
+!> - no rescaling after field-induced hops
+!> - no rescaling after frustrated hops
+!> - otherwise, rescaling according to input options:
+!>    * no rescaling
+!>    * parallel to velocity vector
+!>    * parallel to relevant non-adiabatic coupling vector
 subroutine Rescale_velocities(traj,ctrl)
   use definitions
   use matrix
@@ -161,27 +189,12 @@ subroutine Rescale_velocities(traj,ctrl)
             traj%veloc_ad(:,i)=traj%veloc_ad(:,i)-factor*&
             &real(traj%gmatrix_ssad(traj%state_diag_old, traj%state_diag,:,i))/traj%mass_a(:)
           enddo
-! ! ! ! !           ! TODO: The Gmatrix contains the SCALED NACs, but this is ok, since only the unit vector of the NAC vector is used in the following
-! ! ! ! !           ! TODO: The rescaling of the velocities is most probably wrong      25.4: Fix attempt: still wrong
-! ! ! ! !           do i=1,ctrl%natom
-! ! ! ! !             scaled_nac(i,:)=sqrt(traj%mass_a(i))*real(traj%gmatrix_ssad(traj%state_diag_old, traj%state_diag,i,:))
-! ! ! ! !             scaled_vel(i,:)=sqrt(traj%mass_a(i))*traj%veloc_ad(i,:)
-! ! ! ! !           enddo
-! ! ! ! !           call project_a_on_b(ctrl%natom, scaled_vel, scaled_nac, veloc_par)
-! ! ! ! !           ekin_par=0.5d0*sum(veloc_par**2)
-! ! ! ! !           veloc_ort=scaled_vel-veloc_par
-! ! ! ! !           ekin_ort=0.5d0*sum(veloc_ort**2)
-! ! ! ! ! !           write(0,*) ekin_par, ekin_ort, ekin_par+ekin_ort, traj%Ekin
-! ! ! ! !           factor=sqrt( (traj%H_diag_ss(traj%state_diag_old,traj%state_diag_old)-traj%Epot+ekin_par)/ekin_par )
-! ! ! ! !           do i=1,ctrl%natom
-! ! ! ! !             traj%veloc_ad(i,:)=(veloc_ort(i,:)+factor*veloc_par(i,:))/sqrt(traj%mass_a(i))
-! ! ! ! !           enddo
           if (printlevel>2) then
             write(u_log,'(A)') 'Velocity is rescaled along non-adiabatic coupling vector.'
             write(u_log,'(A,1X,F12.6)') 'Scaling factor is ',factor
           endif
         case (3)
-        if (printlevel>2) write(u_log,*) 'Velocity is not rescaled after resonant surface hop.'
+          if (printlevel>2) write(u_log,*) 'Velocity is not rescaled after resonant surface hop.'
       endselect
     case (2)
       if (printlevel>2) write(u_log,'(A)') 'Frustrated jump.'
@@ -191,10 +204,10 @@ endsubroutine
 
 ! ===========================================================
 
+!> calculates the following sums:
+!> sum_kk=1/2*sum_atom nac_atom*nac_atom/mass_atom
+!> sum_vk=sum_atom vel_atom*nac_atom
 subroutine available_ekin(natom,veloc_ad,nac_ad,mass_a, sum_kk, sum_vk)
-  ! calculates the following sums:
-  ! sum_kk=1/2*sum_atom nac_atom*nac_atom/mass_atom
-  ! sum_vk=sum_atom vel_atom*nac_atom
   implicit none
   integer, intent(in) :: natom
   real*8, intent(in) :: veloc_ad(natom,3), nac_ad(natom,3), mass_a(natom)
@@ -213,6 +226,7 @@ endsubroutine
 
 ! ===========================================================
 
+!> multiplies the velocity vector by the sqrt of the damping factor
 subroutine Damp_velocities(traj,ctrl)
   use definitions
   implicit none

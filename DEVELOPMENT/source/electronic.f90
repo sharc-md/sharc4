@@ -1,9 +1,23 @@
+!> # Module ELECTRONIC
+!>
+!> \author Sebastian Mai
+!> \date 27.02.2015
+!> 
+!> This module provides all routines for the propagation of the electronic wavefunction,
+!> transformation between representations, decoherence and surface hopping (except for momentum adjustment)
+!> 
+!> The alternative module electronic_laser.f90 reimplements some of the subroutines 
+!> to add a laser field
+
 module electronic
   contains
 ! ==================================================================================================
 ! ==================================================================================================
 ! ==================================================================================================
 
+!> Calculates the propagator Rtotal from the matrices in traj 
+!> (H_MCH, H_MCH_old, NACdt, NACdt_old, U, U_old) and the timestep.
+!> It also updates the diagonal and MCH coefficients.
 subroutine propagate(traj,ctrl)
   use definitions
   use matrix
@@ -12,11 +26,13 @@ subroutine propagate(traj,ctrl)
   type(ctrl_type) :: ctrl
   integer :: istate, iatom, idir
 
+  ! initialize the propagator matrix to the unit matrix
   traj%Rtotal_ss=dcmplx(0.d0,0.d0)
   do istate=1,ctrl%nstates
     traj%Rtotal_ss(istate,istate)=dcmplx(1.d0,0.d0)
   enddo
 
+  ! call the appropriate propagator routine
   select case (ctrl%coupling)
     case (0)    ! ddt
       ! NADdt_ss can be directly used
@@ -137,7 +153,7 @@ subroutine propagate(traj,ctrl)
   traj%state_MCH=state_diag_to_MCH(ctrl%nstates,traj%state_diag,traj%U_ss)
 
   if (printlevel>2) then
-    write(u_log,*) 'Old and new coefficients:'
+    write(u_log,*) 'Old and new diagonal coefficients:'
     do istate=1,ctrl%nstates
       write(u_log,'(2(F7.4,1X),4X,2(F7.4,1X))') traj%coeff_diag_old_s(istate),traj%coeff_diag_s(istate)
     enddo
@@ -149,6 +165,8 @@ endsubroutine
 ! ==================================================================================================
 ! ==================================================================================================
 
+!> calculates the propagator matrix in substeps, see SHARC manual for the equations.
+!> \param interp 0=linear interpolation of non-adiabatic coupling matrix, 1=constant non-adiabatic coupling matrix (NACMold not used)
 subroutine unitary_propagator(n, SO, SOold, NACM, NACMold, U, Uold, dt, nsubsteps, interp, Rtotal)
 use definitions, only: u_log
 use matrix
@@ -213,6 +231,8 @@ endsubroutine
 ! ==================================================================================================
 ! ==================================================================================================
 
+!> calculates the propagator matrix in substeps, see SHARC manual for the equations.
+!> Uses the local diabatization procedure
 subroutine LD_propagator(n, SOin, SOold, U, Uold, overlap, dt, nsubsteps, Rtotal)
 use definitions, only: u_log
 use matrix
@@ -291,6 +311,7 @@ endsubroutine
 
 ! ===========================================================
 
+!> this function finds the most similar diagonal state to a given MCH state.
   integer function state_MCH_to_diag(n,state_MCH,U)
     use matrix
     implicit none
@@ -321,6 +342,7 @@ endsubroutine
 
 ! ===========================================================
 
+!> this function finds the most similar MCH state to a given diagonal state.
   integer function state_diag_to_MCH(n,state_diag,U)
     use matrix
     implicit none
@@ -330,14 +352,6 @@ endsubroutine
     complex*16 :: b(n), b2(n)
     real*8 :: maxv,currv
     integer :: i,imax
-
-!     print*,"DEBUGMR: will allocate matrices to dimension",n
-!     allocate( b(n),stat=i )
-!     print*,i
-!     if(i.ne.0)then
-!       print*,"Baehhh!"
-!       endif
-!     allocate( b2(n) )
 
     b=dcmplx(0.d0,0.d0)
     b(state_diag)=dcmplx(1.d0,0.d0)
@@ -354,8 +368,6 @@ endsubroutine
     enddo
 
     state_diag_to_MCH=imax
-!     deallocate(b)
-!     deallocate(b2)
     return
   endfunction
 
@@ -365,6 +377,12 @@ endsubroutine
 ! ==================================================================================================
 ! ==================================================================================================
 
+!> this routine performs all steps of the surface hopping algorithm:
+!> - calculate the surface hopping probabilities (update traj%hopprob_s)
+!> - generate a random number
+!> - find the new active state
+!> - check for resonance with laser
+!> - check for frustrated hops
 subroutine surface_hopping(traj,ctrl)
   use definitions
   use matrix
@@ -396,18 +414,6 @@ subroutine surface_hopping(traj,ctrl)
     enddo
   endif
 
-!   Emax=99999.d0
-!   ! calculate Emax
-!   select case (ctrl%ekincorrect)
-!     case (0)    ! no frustrated jumps
-!       Emax=99999.d0
-!     case (1)    ! correct along v, full kinetic energy available
-!       Emax=traj%Epot + traj%Ekin
-!     case (2)    ! correct along T, less energy available
-!       continue
-!   endselect
-
-
   call random_number(randnum)
   traj%randnum=randnum
   cumuprob=0.d0
@@ -415,6 +421,7 @@ subroutine surface_hopping(traj,ctrl)
   deltaE=0.d0
 
   stateloop: do istate=1,ctrl%nstates
+    ! calculate cumulative probability
     cumuprob=cumuprob + traj%hopprob_s(istate)
     if (cumuprob > randnum) then
 
@@ -430,7 +437,7 @@ subroutine surface_hopping(traj,ctrl)
             endif
             traj%Epot=real(traj%H_diag_ss(istate,istate))
             traj%kind_of_jump=3   ! induced hop
-            exit stateloop
+            exit stateloop        ! ************************************************* exit of loop
           endif
         enddo
       endif
@@ -444,7 +451,7 @@ subroutine surface_hopping(traj,ctrl)
           Emax=traj%Epot + traj%Ekin
           if (real(traj%H_diag_ss(istate,istate)) > Emax) then
             traj%kind_of_jump=2
-            exit stateloop
+            exit stateloop         ! ************************************************* exit of loop
           endif
 
         case (2)    ! correct along T, less energy available
@@ -455,7 +462,7 @@ subroutine surface_hopping(traj,ctrl)
           &real(traj%H_diag_ss(istate,istate)))+sum_vk**2
           if (deltaE<0.d0) then
             traj%kind_of_jump=2
-            exit stateloop
+            exit stateloop         ! ************************************************* exit of loop
           endif
 
       endselect
@@ -466,7 +473,7 @@ subroutine surface_hopping(traj,ctrl)
         traj%state_diag=istate
       endif
       traj%kind_of_jump=1
-      exit stateloop
+      exit stateloop               ! ************************************************* exit of loop
 
     endif
   enddo stateloop
@@ -503,6 +510,9 @@ endsubroutine
 
 ! ===========================================================
 
+!> this routine calculates the hopping probabilities based on
+!> the old and new coefficients and the propagator matrix
+!> negative probabilities and the probability to stay in the same state are set to zero
 subroutine calculate_probabilities(n, c0, c, R, state, prob)
   implicit none
   integer, intent(in) :: n, state
@@ -516,22 +526,22 @@ subroutine calculate_probabilities(n, c0, c, R, state, prob)
 
   prob=0.d0
 
-!   w=real(conjg(c(state))*c(state))
-!   x=real(conjg(c0(state))*c0(state))
-!   y=x-real(c(state)*conjg(R(state,state))*conjg(c0(state)))
-
+  ! this numbers are the same for all states
   w=conjg(c(state))*c(state)
   x=conjg(c0(state))*c0(state)
   y=x-c(state)*conjg(R(state,state))*conjg(c0(state))
 
+  ! if population of active state increases, all probabilities are zero
   if ( (1.d0 - real(w/x))>0.d0) then
     do i=1,n
       if (i==state) cycle
+      ! this number changes for each state
       z=c(i)*conjg(R(i,state))*conjg(c0(state))
       prob(i)=max(0.d0, (1.d0-real(w/x))*real(z/y) )
     enddo
   endif
 
+  ! renormalize, if sum of probabilities is above 1
   sump=sum(prob)
   if (sump>1.d0) prob=prob/sump
 
@@ -539,6 +549,8 @@ endsubroutine
 
 ! ===========================================================
 
+!> applies a decoherence correction to traj%coeff_diag_s
+!> is based on the EDC correction by Granucci and Persico
 subroutine Decoherence(traj,ctrl)
   use definitions
   use matrix
@@ -578,6 +590,7 @@ endsubroutine
 
 ! ===========================================================
 
+!> updates coeff_diag_s and state_MCH
 subroutine Calculate_cMCH(traj,ctrl)
   use definitions
   use matrix
@@ -593,6 +606,8 @@ endsubroutine
 
 ! ===========================================================
 
+!> updates steps_in_gs and checks whether the trajectory should be killed
+!> the trajectory is actually killed in the main routine, so that proper finalization can be conducted.
 subroutine kill_after_relaxation(traj,ctrl)
   use definitions
   implicit none
@@ -618,6 +633,8 @@ endsubroutine
 
 ! ===================================================
 
+!> calculates the multiplicity of a state in nmstates nomenclature
+!> see "canonical ordering of states" in SHARC manual
   integer function mult_of_nmstate(n, maxmult, mults)
   ! given a state n (in nmstates nomenclature, i.e. with multiplets expanded), 
   ! this routine returns the multiplicity of state n
