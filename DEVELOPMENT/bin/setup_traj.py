@@ -1481,37 +1481,54 @@ In order to setup the COLUMBUS input, use COLUMBUS' input facility colinp. For f
   INFOS['columbus.mem']=abs(question('COLUMBUS memory:',int)[0])
 
 
+  need_wfoverlap=False
+
   # Ionization
   print centerstring('Ionization probability by Dyson norms',60,'-')+'\n'
   INFOS['ion']=question('Dyson norms?',bool,False)
   if 'ion' in INFOS and INFOS['ion']:
-    INFOS['columbus.dysonpath']=question('Path to dyson executable:',str)
+    need_wfoverlap=True
+    #INFOS['columbus.dysonpath']=question('Path to dyson executable:',str)
     #INFOS['columbus.civecpath']=question('Path to civecconsolidate executable:',str,'$COLUMBUS/civecconsolidate')
-    INFOS['columbus.dysonthres']=abs(question('c2 threshold for Dyson:',float,[1e-4])[0])
-    if not Couplings[INFOS['coupling']]['name']=='overlap':
-      INFOS['columbus.ciothres']=question('Determinant screening threshold:',float,[1e-2])[0]
-    else:
-      print 'Give determinant screening threshold in the cioverlaps section below.'
+    #INFOS['columbus.dysonthres']=abs(question('c2 threshold for Dyson:',float,[1e-4])[0])
+    #if not Couplings[INFOS['coupling']]['name']=='overlap':
+      #INFOS['columbus.wfthres']=question('Determinant screening threshold:',float,[1e-2])[0]
+    #else:
+      #print 'Give determinant screening threshold in the cioverlaps section below.'
 
   # cioverlaps
   if Couplings[INFOS['coupling']]['name']=='overlap':
-    print centerstring('cioverlaps',60,'-')+'\n'
-    #print 'If you do MRCI and cioverlaps, it is strongly advisory to first generate the excitlistfiles for cioverlaps, since their generation can take several hours. These files can then be used for all trajectories, so that the excitlistfiles have to be generated only once.'
-    #excitlf=question('Do you have excitlistfiles?',bool,True)
-    #if not excitlf:
-      #INFOS['columbus.excitlf']=None
-    #else:
-      #print '\nPlease enter the path to the directory containing the excitlistfiles.'
-      #INFOS['columbus.excitlf']=question('Path to excitlistfiles:',str)
-    #print ''
-    INFOS['columbus.ciopath']=question('Path to cioverlap executable:',str)
-    print 'Please enter the cioverlaps density threshold (recommended 1e-2)'
-    while True:
-      INFOS['columbus.ciothres']=question('Determinant screening threshold:',float,[1e-2])[0]
-      if not 0<INFOS['columbus.ciothres']<=1:
-        print 'Must be between 0 and 1!'
-        continue
-      break
+    need_wfoverlap=True
+
+
+  # wfoverlap
+  if need_wfoverlap:
+    if 'ion' in INFOS and INFOS['ion']:
+      print 'Dyson norms requested.'
+    if Couplings[INFOS['coupling']]['name']=='overlap':
+      print 'Wavefunction overlaps requested.'
+    INFOS['columbus.wfpath']=question('Path to wfoverlap executable:',str)
+    INFOS['columbus.wfthres']=question('Determinant screening threshold:',float,[1e-2])[0]
+
+  ## cioverlaps
+  #if Couplings[INFOS['coupling']]['name']=='overlap':
+    #print centerstring('cioverlaps',60,'-')+'\n'
+    ##print 'If you do MRCI and cioverlaps, it is strongly advisory to first generate the excitlistfiles for cioverlaps, since their generation can take several hours. These files can then be used for all trajectories, so that the excitlistfiles have to be generated only once.'
+    ##excitlf=question('Do you have excitlistfiles?',bool,True)
+    ##if not excitlf:
+      ##INFOS['columbus.excitlf']=None
+    ##else:
+      ##print '\nPlease enter the path to the directory containing the excitlistfiles.'
+      ##INFOS['columbus.excitlf']=question('Path to excitlistfiles:',str)
+    ##print ''
+    #INFOS['columbus.wfpath']=question('Path to cioverlap executable:',str)
+    #print 'Please enter the cioverlaps density threshold (recommended 1e-2)'
+    #while True:
+      #INFOS['columbus.wfthres']=question('Determinant screening threshold:',float,[1e-2])[0]
+      #if not 0<INFOS['columbus.wfthres']<=1:
+        #print 'Must be between 0 and 1!'
+        #continue
+      #break
 
   # scratchdir scratchdir
   # savedir is $RUNDIR/SAVE     (RUNDIR will be set by get_runscript_info)
@@ -1919,15 +1936,15 @@ template %s
   for job in INFOS['columbus.mocoefmap']:
     string+='MOCOEF %s %s\n' % (job,INFOS['columbus.mocoefmap'][job])
   string+='\n'
-  if 'ion' in INFOS and INFOS['ion']:
-    string+='dyson %s\n' % (INFOS['columbus.dysonpath'])
-    string+='civecconsolidate %s\n' % (INFOS['columbus.civecpath'])
-    string+='dysonthres %s\n' % (INFOS['columbus.dysonthres'])
-  if Couplings[INFOS['coupling']]['name']=='overlap':
+  #if 'ion' in INFOS and INFOS['ion']:
+    #string+='dyson %s\n' % (INFOS['columbus.dysonpath'])
+    #string+='civecconsolidate %s\n' % (INFOS['columbus.civecpath'])
+    #string+='dysonthres %s\n' % (INFOS['columbus.dysonthres'])
+  if Couplings[INFOS['coupling']]['name']=='overlap' or 'ion' in QMin and QMin['ion']:
     #if INFOS['columbus.excitlf']:
       #string+='excitlists %s\n' % (INFOS['columbus.excitlf'])
-    string+='ciothres %f\n' % (INFOS['columbus.ciothres'])
-    string+='cioverlaps %s\n' % (INFOS['columbus.ciopath'])
+    string+='wfthres %f\n' % (INFOS['columbus.wfthres'])
+    string+='fverlaps %s\n' % (INFOS['columbus.wfpath'])
   else:
     string+='nooverlap\n'
   sh2col.write(string)
