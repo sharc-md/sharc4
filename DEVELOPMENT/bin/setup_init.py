@@ -929,7 +929,7 @@ In order to setup the COLUMBUS input, use COLUMBUS' input facility colinp. For f
     #INFOS['columbus.civecpath']=question('Path to civecconsolidate executable:',str,'$COLUMBUS/civecconsolidate')
     INFOS['columbus.ciothres']=question('Determinant screening threshold:',float,[1e-2])[0]
     #INFOS['columbus.dysonthres']=abs(question('c2 threshold for Dyson:',float,[1e-12])[0])
-    INFOS['columbus.dysonthres']=1e-12
+    #INFOS['columbus.dysonthres']=1e-12
 
   return INFOS
 
@@ -1295,8 +1295,8 @@ def prepare_COLUMBUS(INFOS,iconddir):
   if INFOS['ion']:
     string+='dyson %s\n' % (INFOS['columbus.dysonpath'])
     #string+='civecconsolidate %s\n' % (INFOS['columbus.civecpath'])
-    string+='dysonthres %s\n' % (INFOS['columbus.dysonthres'])
-    string+='ciothres %s\n' % (INFOS['columbus.ciothres'])
+    #string+='dysonthres %s\n' % (INFOS['columbus.dysonthres'])
+    string+='wfthres %s\n' % (INFOS['columbus.ciothres'])
   sh2col.write(string)
   sh2col.close()
 
