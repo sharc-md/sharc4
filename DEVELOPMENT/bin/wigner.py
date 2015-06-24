@@ -1132,7 +1132,7 @@ Random number generator seed = %i''' % (['MOLDEN','MOLPRO'][options.M], filename
   outfile.close()
 
   # save the shell command
-  command='python'+' '.join(sys.argv)
+  command='python '+' '.join(sys.argv)
   f=open('KEYSTROKES.wigner','w')
   f.write(command)
   f.close()
