@@ -456,10 +456,13 @@ Also converts the atom numbers to integer.'''
 
 def tableheader(req):
   '''Creates a two-line string with the column number and a column label.'''
+  comment_bonus=50
   s='#'+' '*(f-6) + '% 5i|' % (1)
   i=0
   for r in req:
     i+=1
+    if r[0]=='c':
+      s+=' '*comment_bonus
     s+=' '*(f-5) + '% 5i|' % (i+1)
     if r[0]=='5':
       i+=1
@@ -489,7 +492,7 @@ def tableheader(req):
       s+=' '*(f-20)+'th'+'%3i%3i%3i%3i%3i%3i|' % (r[1],r[2],r[3],r[4],r[5],r[6])
       s+=' '*(f-20)+'By'+'%3i%3i%3i%3i%3i%3i|' % (r[1],r[2],r[3],r[4],r[5],r[6])
     elif r[0]=='c':
-      s+=' '*(f-7)+'Comment '
+      s+=' '*(f-7+comment_bonus)+'Comment '
   return s
 
 def ang_or_bohr(a):
@@ -500,9 +503,11 @@ def ang_or_bohr(a):
 
 def calculate(g,req,comm):
   '''Creates a one-line string containing all requested internal coordinates for geometry g.'''
+  comment_bonus=50
   s=''
   formatstring='%%%i.%if ' % (f,p)
-  commentstring='%%%is ' % (f)
+  stringstring='%%%is ' % (f)
+  commentstring='%%%is ' % (f+comment_bonus)
   for r in req:
     if r[0]=='x':
       s+=formatstring % (ang_or_bohr(g[r[1]-1][0]))
@@ -522,17 +527,17 @@ def calculate(g,req,comm):
       q,ph=CP5(g[r[1]-1],g[r[2]-1],g[r[3]-1],g[r[4]-1],g[r[5]-1])
       s+=formatstring % (q)
       s+=formatstring % (ph)
-      s+=commentstring % ('$'+Boeyens5(ph)+'$')
+      s+=stringstring % ('$'+Boeyens5(ph)+'$')
     elif r[0]=='6':
       Q,ph,th=CP6(g[r[1]-1],g[r[2]-1],g[r[3]-1],g[r[4]-1],g[r[5]-1],g[r[6]-1])
       s+=formatstring % (Q)
       s+=formatstring % (ph)
       s+=formatstring % (th)
-      s+=commentstring % ('$'+Boeyens6(ph,th)+'$')
+      s+=stringstring % ('$'+Boeyens6(ph,th)+'$')
     elif r[0]=='c':
-      if comm[0:f].strip()=='':
-        comm=' '*(f-14)+'<EMPTY_STRING>'
-      s+=commentstring % (comm[0:f].strip())
+      if comm[0:f+comment_bonus].strip()=='':
+        comm=' '*(f-14+comment_bonus)+'<EMPTY_STRING>'
+      s+=commentstring % (comm[0:f+comment_bonus].strip())
   return s
 # ================================================================= #
 
