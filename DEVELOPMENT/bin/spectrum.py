@@ -90,6 +90,8 @@ class spectrum:
     self.en=[ emin + float(i)/self.npts*(emax-emin) for i in range(self.npts+1) ]       # the energy grid needs to be calculated only once
     self.spec=[ 0. for i in range(self.npts+1) ]
   def add(self,A,x0):
+    if A==0.:
+      return
     for i in range(self.npts+1):
       self.spec[i]+=self.f.ev(A,x0,self.en[i])
 
@@ -764,7 +766,7 @@ date %s
   print ''
 
   # save the shell command
-  command='python'+' '.join(sys.argv)
+  command='python '+' '.join(sys.argv)
   f=open('KEYSTROKES.spectrum','w')
   f.write(command)
   f.close()
