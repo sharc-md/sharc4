@@ -1507,7 +1507,7 @@ In order to setup the COLUMBUS input, use COLUMBUS' input facility colinp. For f
       print 'Dyson norms requested.'
     if Couplings[INFOS['coupling']]['name']=='overlap':
       print 'Wavefunction overlaps requested.'
-    INFOS['columbus.wfpath']=question('Path to wfoverlap executable:',str)
+    INFOS['columbus.wfpath']=question('Path to wavefunction overlap executable:',str)
     INFOS['columbus.wfthres']=question('Determinant screening threshold:',float,[1e-2])[0]
 
   ## cioverlaps
@@ -1944,7 +1944,7 @@ template %s
     #if INFOS['columbus.excitlf']:
       #string+='excitlists %s\n' % (INFOS['columbus.excitlf'])
     string+='wfthres %f\n' % (INFOS['columbus.wfthres'])
-    string+='fverlaps %s\n' % (INFOS['columbus.wfpath'])
+    string+='wfoverlap %s\n' % (INFOS['columbus.wfpath'])
   else:
     string+='nooverlap\n'
   sh2col.write(string)

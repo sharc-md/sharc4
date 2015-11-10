@@ -853,7 +853,7 @@ In order to setup the COLUMBUS input, use COLUMBUS' input facility colinp. For f
 
   mocoefmap={}
   for job in set([ multmap[i] for i in multmap]):
-    mocoefmap[job]=multmap[1]
+    mocoefmap[job]=multmap[min(multmap)]
   print '''Check whether the mocoeffiles are assigned correctly to the jobs. Use the following commands:
   job mocoefjob   make <job> use the mocoeffiles from <mocoefjob>
   show            show the mapping of multiplicities to jobs
@@ -925,7 +925,7 @@ In order to setup the COLUMBUS input, use COLUMBUS' input facility colinp. For f
   print '\n'+centerstring('Ionization probability by Dyson norms',60,'-')+'\n'
   INFOS['ion']=question('Dyson norms?',bool,False)
   if INFOS['ion']:
-    INFOS['columbus.dysonpath']=question('Path to dyson executable:',str)
+    INFOS['columbus.dysonpath']=question('Path to wavefunction overlap executable:',str)
     #INFOS['columbus.civecpath']=question('Path to civecconsolidate executable:',str,'$COLUMBUS/civecconsolidate')
     INFOS['columbus.ciothres']=question('Determinant screening threshold:',float,[1e-2])[0]
     #INFOS['columbus.dysonthres']=abs(question('c2 threshold for Dyson:',float,[1e-12])[0])
@@ -1293,7 +1293,7 @@ def prepare_COLUMBUS(INFOS,iconddir):
   for job in INFOS['columbus.mocoefmap']:
     string+='MOCOEF %s %s\n' % (job,INFOS['columbus.mocoefmap'][job])
   if INFOS['ion']:
-    string+='dyson %s\n' % (INFOS['columbus.dysonpath'])
+    string+='wfoverlap %s\n' % (INFOS['columbus.dysonpath'])
     #string+='civecconsolidate %s\n' % (INFOS['columbus.civecpath'])
     #string+='dysonthres %s\n' % (INFOS['columbus.dysonthres'])
     string+='wfthres %s\n' % (INFOS['columbus.ciothres'])
