@@ -246,7 +246,7 @@ def get_infos():
   jobs=list(set(jobs))
   jobs.sort()
   INFOS['joblist']=[ testlist[j-1][0] for j in jobs if 0<j<=len(testlist)]
-  INFOS['interfaces']=set([ testlist[j-1][1] for j in jobs])
+  INFOS['interfaces']=set([ testlist[j-1][1] for j in jobs if 0<j<=len(testlist)])
 
   # collect environment variables
   string='\n  '+'='*80+'\n'
