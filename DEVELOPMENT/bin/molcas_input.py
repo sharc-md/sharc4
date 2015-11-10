@@ -459,6 +459,7 @@ Please enter the number corresponding to the type of calculation.
           print 'Malformatted: %s' % (path)
           fine=False
         try:
+          line[0]=re.sub('[0-9]','',line[0])
           atom=[line[0],float(line[1]),float(line[2]),float(line[3])]
         except (IndexError,ValueError):
           print 'Malformatted: %s' % (path)
@@ -711,7 +712,7 @@ def setup_input(INFOS):
     if not INFOS['DK'] and INFOS['nelec']%2==0:
       s+='\n\n&SCF\n\n'
     else:
-      s+='\n\n*&SCF\n\n'
+      s+='\n\n** For DKH integrals, MOLCAS SCF seems to not work properly.\n*&SCF\n\n'
 
 
   ijobiph=0
@@ -763,6 +764,8 @@ SHIFT      = 0.0
 IMAGINARY  = %4.2f
 IPEASHIFT  = %4.2f
 MAXITER    = 120
+* If using MOLCAS v>=8.1, uncomment the following line to get CASPT2 properties (dipole moments):
+*PROP
 ''' % (INFOS['pt2.imag'],[0.,0.25][INFOS['pt2.ipea']])
       if not INFOS['pt2.multi']:
         s+='NOMULT\n' 
@@ -811,6 +814,13 @@ MAXITER    = 120
       s+='EJOB\n'
     if INFOS['soc']:
       s+='SPINORBIT\nSOCOUPLING = 0.0\n'
+
+    s+='**If you want to calculate transition densities for TheoDORE:\n'
+    s+='*       *Uncomment the corresponding block in the run script.\n'
+    if INFOS['ltype']==2:
+      s+='*       *Delete the EJOB keyword above.\n'
+    s+='*       *Uncomment the following line:\n'
+    s+='*TRD1\n'
 
   s+='\n\n'
   s+='*     Infos:\n'
@@ -865,9 +875,16 @@ def set_runscript(INFOS):
   mem=max(mem,50)
   INFOS['mem']=mem
 
-
+  # make job name
+  cwd=os.path.split(os.getcwd())[-1][0:6]
+  if len(cwd)<6:
+    cwd='_'*(6-len(cwd))+cwd
+  cwd='MCAS'+cwd
 
   string='''#!/bin/bash
+#$ -N %s
+#$ -S /bin/bash
+#$ -cwd
 
 PRIMARY_DIR=%s
 SCRATCH_DIR=%s
@@ -878,6 +895,9 @@ export MOLCASDISK=0
 export MOLCASRAMD=0
 export MOLCAS_MOLDEN=ON
 
+#export MOLCAS_CPUS=1
+#export OMP_NUM_THREADS=1
+
 export Project="MOLCAS"
 export HomeDir=$PRIMARY_DIR
 export CurrDir=$PRIMARY_DIR
@@ -887,7 +907,8 @@ ln -sf $WorkDir $CurrDir/WORK
 cd $HomeDir
 mkdir -p $WorkDir
 
-''' % (os.getcwd(), 
+''' % (cwd,
+       os.getcwd(), 
        INFOS['scratchdir'], 
        INFOS['molcas'],
        INFOS['mem'])
@@ -905,6 +926,8 @@ mkdir -p $WorkDir
       continue
     mult=imult+1
     string+='cp $WorkDir/%sOrbitals.* $HomeDir\n' % (IToMult[mult])
+
+  string+='#mkdir -p $HomeDir/TRD/\n#cp $WorkDir/TRD2_* $HomeDir/TRD/\n'
 
   if INFOS['delete_scratch']:
     string+='\nrm -r $SCRATCH_DIR\n'
