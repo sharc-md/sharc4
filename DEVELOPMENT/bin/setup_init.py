@@ -1249,6 +1249,12 @@ The MOLCAS interface will generate the appropriate MOLCAS input automatically.
 
 
 
+  # Ionization
+  print '\n'+centerstring('Ionization probability by Dyson norms',60,'-')+'\n'
+  INFOS['ion']=question('Dyson norms?',bool,False)
+  if INFOS['ion']:
+    INFOS['molcas.wfoverlap']=question('Path to wavefunction overlap executable:',str)
+
 
   return INFOS
 
@@ -1336,6 +1342,8 @@ def prepare_MOLCAS(INFOS,iconddir):
     quit(1)
   project='MOLCAS'
   string='molcas %s\nscratchdir %s/%s/\nmemory %i\nncpu %i\nproject %s' % (INFOS['molcas'],INFOS['scratchdir'],iconddir,INFOS['molcas.mem'],INFOS['molcas.ncpu'],project)
+  if 'ion' in INFOS and INFOS['ion']:
+    string+='\nwfoverlap %s\n' % INFOS['molcas.wfoverlap']
   sh2cas.write(string)
   sh2cas.close()
 
