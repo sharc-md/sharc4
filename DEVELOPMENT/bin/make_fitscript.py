@@ -662,14 +662,16 @@ end               Finish initial condition input
   INFOS['data']=data
 
   # =========================== Define the data -- species mapping ==================================
-  print centerstring('Population-to-Species Mapping for Fit',60,'-')+'\n'
+  print '\n'+centerstring('Population-to-Species Mapping for Fit',60,'-')+'\n'
   print '''Please specify which model species should be fitted to which data file columns.
 For example, you can fit the label 'S0' to column 2:
   S0 = 2
 You can also fit the sum of two species to a column:
-  T1 T2 T3 = 5
+  T1 T2 = 5
 You can also fit a species to the sum of several columns:
   T_all = 5 6 7
+You can even fit a sum of species to a sum of columns:
+  T1 T2 = 5 6 7
 
 Possible input:
 <species1> <species2> ... = <columns1> <column2> ...            Set one mapping
@@ -719,7 +721,15 @@ Each column number (except for \'1\', which denotes the time) must be used at mo
           continue
         if do_species:
           if not i in species:
-            print '  Species label %s not defined!' % (i)
+            print '  Species label \'%s\' not defined!' % (i)
+            valid=False
+            break
+          if any( [ i in j for j in species_groups ] ):
+            print '  Species label \'%s\' already assigned!' % (i)
+            valid=False
+            break
+          if i in new_species_group:
+            print '  Species label \'%s\' used twice!' % (i)
             valid=False
             break
           new_species_group.append(i)
@@ -727,6 +737,14 @@ Each column number (except for \'1\', which denotes the time) must be used at mo
           i=int(i)
           if not i in columns:
             print '  Column number %i not in data file!' % (i)
+            valid=False
+            break
+          if any( [ i in j for j in columns_groups ] ):
+            print '  Column number %i already assigned!' % (i)
+            valid=False
+            break
+          if i in new_columns_group:
+            print '  Columns number %i used twice!' % (i)
             valid=False
             break
           new_columns_group.append(i)
@@ -1028,6 +1046,7 @@ set key at %.2f,1.00 top right
 
   # Initial plot
   string+='# *** Initial plot before fit: ***\n'
+  string+='set title "Initial plot before fit"'
   string+='p \\\n'
   for igroup,group in enumerate(INFOS['species_groups']):
     string+='  '
@@ -1074,6 +1093,7 @@ set key at %.2f,1.00 top right
 
   # global plot
   string+='# *** Global plot before fitting: ***\n'
+  string+='set title "Global plot before fitting"'
   string+='p F(x) w l lw 2 lc rgbcolor "red", "model_fit.dat" u 1:( %s ) w p pt 6 lc rgbcolor "black"\npause -1\n' % (usingstring)
   string+='\n'
 
@@ -1089,6 +1109,7 @@ set key at %.2f,1.00 top right
 
   # global plot after fitting
   string+='# *** Global plot after fitting: ***\n'
+  string+='set title "Global plot after fitting"'
   string+='p F(x) w l lw 2 lc rgbcolor "red", "model_fit.dat" u 1:( %s ) w p pt 6 lc rgbcolor "black"\npause -1\n' % (usingstring)
   string+='\n'
 
@@ -1114,7 +1135,8 @@ set key at %.2f,1.00 top right
   string+='\n'
 
   # Final plot
-  string+='# *** Initial plot before fit: ***\n'
+  string+='# *** Final plot after fit: ***\n'
+  string+='set title "Final plot after fitting"'
   string+='p \\\n'
   for igroup,group in enumerate(INFOS['species_groups']):
     string+='  '
