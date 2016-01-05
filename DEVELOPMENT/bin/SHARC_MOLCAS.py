@@ -813,6 +813,9 @@ def getversion(out,MOLCAS):
             if string!='':
                 break
     a=re.search('[0-9]+\.[0-9]+',string)
+    if a==None:
+        print 'No MOLCAS version found.\nCheck whether MOLCAS path is set correctly in SH2CAS.inp\nand whether $MOLCAS/.molcasversion exists.'
+        sys.exit(11)
     v=float(a.group())
     if not allowedrange[0]<=v<=allowedrange[1]:
         print 'MOLCAS version %3.1f not supported! ' % (v)
@@ -952,6 +955,9 @@ def getMOLCASstatenumber(mult, state, ms, states):
     quit(1)
 
 # ======================================================================= #
+#SOCME_START_ILINE=-1
+#SOCME_FILE_ID=-1
+
 def getsocme(out, mult1, state1, ms1, mult2, state2, ms2, states, version, method, dkh):
     '''Searches a MOLCAS output for an element of the Spin-Orbit hamiltonian matrix. Also converts from cm^-1 to hartree and adds the diagonal shift.
 
@@ -978,19 +984,21 @@ def getsocme(out, mult1, state1, ms1, mult2, state2, ms2, states, version, metho
     s1 = getMOLCASstatenumber(mult1, state1, ms1, states)
     s2 = getMOLCASstatenumber(mult2, state2, ms2, states)
 
-    #s1=-1
-    #s2=-1
-    #for i in statemap:
-        #if (mult1,state1,ms1)==tuple(statemap[i]):
-            #s1=i
-        #elif (mult2,state2,ms2)==tuple(statemap[i]):
-            #s2=i
-    #if s1==-1:
-        #print 'Mult %i, State %i, MS %+3.1f not in statemap=%s' % (mult1,state1,ms1,statemap)
-        #sys.exit(17)
-    #if s2==-1:
-        #print 'Mult %i, State %i, MS %+3.1f not in statemap=%s' % (mult2,state2,ms2,statemap)
-        #sys.exit(18)
+    ## accelerated version of finding the SOC section if it was already found for this particular output file
+    #if SOCME_START_ILINE==-1 or SOCME_FILE_ID!=hash(tuple(out)):
+        ## look for spin-orbit section
+        #for iline,line in enumerate(out):
+            #if socstring in line:
+                #break
+        #else:
+            #print 'No Spin-Orbit section found in output!'
+            #sys.exit(19)
+        #global SOCME_START_ILINE
+        #SOCME_START_ILINE=iline
+        #global SOCME_FILE_ID
+        #SOCME_FILE_ID=hash(tuple(out))
+    #else:
+        #iline=SOCME_START_ILINE
 
     # look for spin-orbit section
     for iline,line in enumerate(out):
@@ -2296,8 +2304,9 @@ def writeMOLCASinput(tasks, QMin):
             string+='MEIN\n'
             if QMin['method']>0:
                 string+='EJOB\n'
-            if task[1]!='soc':
-                string+='CIPR\nTHRS=0.d0\n'
+            if task[1]!='soc' and 'master' in QMin and 'ion' in QMin:
+                # smallest value printed by MOLCAS is 0.00001
+                string+='CIPR\nTHRS=0.000005d0\n'
             if task[1]=='dm':
                 pass
             elif task[1]=='soc':
@@ -2994,19 +3003,20 @@ def saveJobIphs(WORKDIR,QMin):
             print 'Copy:\t%s\n\t==>\n\t%s' % (fromfile,tofile)
         shutil.copy(fromfile,tofile)
 
-        # copy MOLDEN files
-        path=os.path.join(QMin['savedir'],'MOLDEN')
-        if not os.path.isdir(path):
+        if 'molden' in QMin:
+            # copy MOLDEN files
+            path=os.path.join(QMin['savedir'],'MOLDEN')
+            if not os.path.isdir(path):
+                try:
+                    os.makedirs(path)
+                except OSError:
+                    pass
             try:
-                os.makedirs(path)
+                fromfile=os.path.join(WORKDIR,'MOLCAS.%i.molden' % (imult+1))
+                tofile=os.path.join(QMin['savedir'],'MOLDEN','MOLCAS.%i.molden' % (imult+1))
+                shutil.copy(fromfile,tofile)
             except OSError:
                 pass
-        try:
-            fromfile=os.path.join(WORKDIR,'MOLCAS.%i.molden' % (imult+1))
-            tofile=os.path.join(QMin['savedir'],'MOLDEN','MOLCAS.%i.molden' % (imult+1))
-            shutil.copy(fromfile,tofile)
-        except OSError:
-            pass
 
         if 'master_displacement' in QMin:
             fromfile=os.path.join(QMin['savedir'],'MOLCAS.%i.JobIph' % (imult+1))
@@ -3396,8 +3406,8 @@ a_mo_read=1
 b_mo_read=1
 same_aos
 ''' % (pair[0],pair[1],pair[0],pair[1])
-        frozen=min( nfrozen[pair[0]],nfrozen[pair[1]] )
-        string+='\nncore=%i\n' % (frozen)
+        #frozen=min( nfrozen[pair[0]],nfrozen[pair[1]] )
+        #string+='\nndocc=%i\n' % (frozen)
         writefile(inputfile,string)
 
     # run the jobs subsequently with full number of CPUs
