@@ -700,7 +700,7 @@ def setup_input(INFOS):
 
   s+='\n&SEWARD\n'
   if INFOS['DK']:
-    s+='EXPERT\nRELINT\nR02O\n'
+    s+='EXPERT\nR02O\n'
   if INFOS['soc']:
     s+='* If using MOLCAS v>=8.1, move the AMFI keyword to the &GATEWAY section.\n'
     s+='AMFI\n'
