@@ -1997,7 +1997,11 @@ def readQMin(QMinfilename):
                 else:
                     QMin['gradmode']=0
         if QMin['gradmode']==2:
-            QMin['displ']=0.005/au2a    # default displacement of 0.005 Angstrom
+            line=getsh2caskey(sh2cas,'displ')
+            if line[0]:
+                QMin['displ']=float(line[1])/au2a             # displacement given in angstrom in input, but here we make bohrs out of it
+            else:
+                QMin['displ']=0.005/au2a        # default displacement of 0.005 Angstrom
     else:
         QMin['gradmode']=0
     QMin['ncpu']=max(1,QMin['ncpu'])
