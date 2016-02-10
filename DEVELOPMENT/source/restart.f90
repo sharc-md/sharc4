@@ -52,7 +52,7 @@ module restart
     write(u,*) printlevel
 
     ! write ctrl
-    write(u,*) trim(ctrl%cwd)
+    write(u,'(A)') trim(ctrl%cwd)
     write(u,*) ctrl%natom
     write(u,*) ctrl%maxmult
     write(u,*) (ctrl%nstates_m(imult),imult=1,ctrl%maxmult)
@@ -277,7 +277,7 @@ module restart
     endif
 
     ! read ctrl
-    read(u_ctrl,*) ctrl%cwd
+    read(u_ctrl,'(A)') ctrl%cwd
     read(u_ctrl,*) ctrl%natom
     read(u_ctrl,*) ctrl%maxmult
     allocate( ctrl%nstates_m(ctrl%maxmult) )
