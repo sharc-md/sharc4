@@ -391,6 +391,7 @@ def print_reactions(rate_matrix,specmap):
     for j in range(len(rate_matrix)):
       string+=formatstring % (rate_matrix[i][j])
     string+='\n'
+  string+='\n(Initial species: rows; Final species: columns)\n'
   return string
 
 # ===================================================
@@ -429,6 +430,7 @@ def get_cycles(rate_matrix):
     return nullrank
   else:
     print '  Hint: Cannot check for cycles without NUMPY!'
+    return -1
 
 # ===================================================
 
@@ -474,7 +476,7 @@ def check_pop_file(content):
 # ===================================================
 
 def get_infos():
-  '''This routine asks for the paths of the initconds file and ICONDS directory, for energy window and the representation.'''
+  '''This routine asks for definitions of the kinetic model and the populations file.'''
 
   INFOS={}
 
@@ -560,7 +562,7 @@ Each rate label must be unique.
       if s[1]==s[2]:
         print '  Species labels identical! No reaction added.'
         continue
-      if s[1] in specmap and s[2] in specmap:
+      if s[1] in specmap and s[2] in specmap and not s[3] in specmap:
         if not s[3] in rateset:
           if label_valid(s[3]):
             if rate_matrix[specmap[s[1]]][specmap[s[2]]]!='':
@@ -569,15 +571,18 @@ Each rate label must be unique.
             rateset.add(s[3])
             rate_matrix[specmap[s[1]]][specmap[s[2]]]=s[3]
             rank=get_cycles(rate_matrix)
+            print '  Reaction from \'%s\' to \'%s\' with rate label \'%s\' added!' % (s[1],s[2],s[3])
           else:
             print '  Invalid label \'%s\'! Labels must be a letter followed by letters, numbers and single underscores!' % (s[3])
         else:
           print '  Rate label \'%s\' already defined!' % (s[3])
       else:
-        if not s[1] in spec:
+        if not s[1] in specmap:
           print '  Species \'%s\' not defined!' % (s[1])
-        if not s[2] in spec:
+        if not s[2] in specmap:
           print '  Species \'%s\' not defined!' % (s[2])
+        if s[3] in specmap:
+          print '  Label \'%s\' already used for a species!' % (s[3])
     elif '-' in s[0]:
       if s[1] in rateset:
         rateset.remove(s[1])
@@ -585,6 +590,7 @@ Each rate label must be unique.
           for j in range(nspec):
             if rate_matrix[i][j]==s[1]:
               rate_matrix[i][j]=''
+              rank=get_cycles(rate_matrix)
       else:
         print '  Rate label \'%s\' not defined!' % (s[1])
     else:
@@ -593,6 +599,7 @@ Each rate label must be unique.
   print print_reactions(rate_matrix,specmap)
   INFOS['rateset']=rateset
   INFOS['rate_matrix']=rate_matrix
+  INFOS['rank']=rank
 
   # =========================== Define the kinetic model initial conditions ==================================
   print centerstring('Model Initial Conditions',60,'-')+'\n'
@@ -680,7 +687,7 @@ end                                                             Finish mapping i
 reset                                                           Redo the mapping input
 
 Each species label must be used at most once.
-Each column number (except for \'1\', which denotes the time) must be used at most once (if a column number was not used, this column will be ignored in the fit).
+Each column number (except for \'1\', which denotes the time) must be used at most once.
 '''
   print 'Set of species:        %s' % (species)
   columns=[i for i in range(2,ncol+1)]
@@ -844,7 +851,7 @@ def get_functions_from_maxima(INFOS):
   string='maxima -b %s' % (infile)
   while True:
     print 'Calling MAXIMA computer algebra system with following command:\n  %s' % (string)
-    go_on=question('OK?',bool,True)
+    go_on=question('Run this command?',bool,True)
     if go_on:
       break
     else:
@@ -856,16 +863,28 @@ def get_functions_from_maxima(INFOS):
   errfile=infile=os.path.join(cwd,'MAXIMA.err')
   stdoutfile=open(outfile,'w')
   stderrfile=open(errfile,'w')
-  print 'Running...'
+  print 'Running MAXIMA...'
   p=sp.Popen(string,shell=True,stdout=stdoutfile,stderr=stderrfile)
-  time.sleep(1)
-  if p.poll() is None:
-    p.kill()
-    print '*** MAXIMA timed out!'
-    sys.exit(1)
-  else:
-    p.communicate()
-  #sp.call(string,shell=True,stdout=stdoutfile,stderr=stderrfile)
+  maxwait=30
+  waited=0
+  while True:
+    try:
+      time.sleep(1)
+    except KeyboardInterrupt:
+      p.kill()
+      print '*** MAXIMA execution halted ***\n\n'
+      raise
+    waited+=1
+    if p.poll() is None:
+      if waited==maxwait:
+        p.kill()
+        print '*** MAXIMA timed out! ***\n\nThis is most probably because the kinetic model specifications do not allow to solve \nthe differential equation system without further assumptions.\nCheck "MAXIMA.output" for further information.\n\nYou might need to reconsider your kinetic model for the computation to succeed.\n\nError: MAXIMA timed out'
+        sys.exit(1)
+      else:
+        print 'waiting...'
+    else:
+      break
+  p.communicate()
   stdoutfile.close()
   stderrfile.close()
   print 'Done!'
@@ -946,6 +965,8 @@ def get_global_function(species_groups,maxtime,timeshift):
     string+=' ) '
     return string
 
+# ===================================================
+
 def get_global_using(columns_groups,maxtime,timeshift):
   if len(columns_groups)==1:
     string=''
@@ -1012,7 +1033,7 @@ def write_gnuscript(INFOS,functionstring):
   string+='\n'
 
   # add the rate constant guesses
-  string+='# *** Reaction rates initial guesses: ***\n# TODO: Please change to some suitable values!\n'
+  string+='# *** Reaction rates initial guesses: ***\n# These are given in units of inverse fs (e.g., time constant of 100 fs is written as 1./100.).\n# TODO: Please change to some suitable values!\n'
   for i,rate in enumerate(list(INFOS['rateset'])):
     string+='%s = 1./%i.\n' % (rate,100+i)
   string+='\n'
@@ -1038,15 +1059,19 @@ set key at %.2f,1.00 top right
   string+='set label 1 sprintf("'
   for i in INFOS['rateset']:
     string+='t_%s = %%7.1f fs\\n' % (i)
+  for i in INFOS['initset']:
+    string+='%s__0 = %%7.1f\\n' % (i)
   string+='"'
   for i in INFOS['rateset']:
     string+=',1./%s' % (i)
+  for i in INFOS['initset']:
+    string+=',%s__0' % (i)
   string+=') at %.2f,0.95\n' % (0.3*INFOS['maxtime'])
   string+='\n'
 
   # Initial plot
   string+='# *** Initial plot before fit: ***\n'
-  string+='set title "Initial plot before fit"'
+  string+='set title "Initial plot before fit\\nPress ENTER to setup global fit."\n'
   string+='p \\\n'
   for igroup,group in enumerate(INFOS['species_groups']):
     string+='  '
@@ -1093,8 +1118,8 @@ set key at %.2f,1.00 top right
 
   # global plot
   string+='# *** Global plot before fitting: ***\n'
-  string+='set title "Global plot before fitting"'
-  string+='p F(x) w l lw 2 lc rgbcolor "red", "model_fit.dat" u 1:( %s ) w p pt 6 lc rgbcolor "black"\npause -1\n' % (usingstring)
+  string+='set title "Global plot before fitting\\nPress ENTER to perform fit."\n'
+  string+='p "model_fit.dat" u 1:( %s ) t "Data" w p pt 6 ps 0.5 lc rgbcolor "black", F(x) t "Fitting function" w l lw 2 lc rgbcolor "red"\npause -1\n' % (usingstring)
   string+='\n'
 
   # global fit
@@ -1109,8 +1134,8 @@ set key at %.2f,1.00 top right
 
   # global plot after fitting
   string+='# *** Global plot after fitting: ***\n'
-  string+='set title "Global plot after fitting"'
-  string+='p F(x) w l lw 2 lc rgbcolor "red", "model_fit.dat" u 1:( %s ) w p pt 6 lc rgbcolor "black"\npause -1\n' % (usingstring)
+  string+='set title "Global plot after fitting\\nPress ENTER to display final results."\n'
+  string+='p "model_fit.dat" u 1:( %s ) t "Data" w p pt 6 ps 0.5 lc rgbcolor "black", F(x) t "Fitting function" w l lw 2 lc rgbcolor "red"\npause -1\n' % (usingstring)
   string+='\n'
 
   # add gnuplot global options
@@ -1128,15 +1153,19 @@ set key at %.2f,1.00 top right
   string+='set label 1 sprintf("'
   for i in INFOS['rateset']:
     string+='t_%s = %%7.1f fs\\n' % (i)
+  for i in INFOS['initset']:
+    string+='%s__0 = %%7.1f\\n' % (i)
   string+='"'
   for i in INFOS['rateset']:
     string+=',1./%s' % (i)
+  for i in INFOS['initset']:
+    string+=',%s__0' % (i)
   string+=') at %.2f,0.95\n' % (0.3*INFOS['maxtime'])
   string+='\n'
 
   # Final plot
   string+='# *** Final plot after fit: ***\n'
-  string+='set title "Final plot after fitting"'
+  string+='set title "Final plot after fitting\\nPress ENTER to save as PNG and TXT."\n'
   string+='p \\\n'
   for igroup,group in enumerate(INFOS['species_groups']):
     string+='  '
@@ -1176,7 +1205,7 @@ set key at %.2f,1.00 top right
 
   # Write gnuplot script
   outfilename='model_fit.gp'
-  print 'Writing gnuplot script to %s ...' % (outfilename)
+  print 'Writing GNUPLOT script to %s ...' % (outfilename)
   writefile(outfilename,string)
 
   return
@@ -1197,8 +1226,102 @@ def write_fitting_data(INFOS):
 
   # Write file
   outfilename='model_fit.dat'
-  print 'Writing gnuplot populations data to %s ...' % (outfilename)
+  print 'Writing GNUPLOT populations data to %s ...' % (outfilename)
   writefile(outfilename,string)
+
+  return
+
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+
+def print_messages(INFOS):
+  string=''
+  # decoration
+  string+='\n'+centerstring('',62,'*')+'\n'
+  string+='*'+centerstring(' Final Instructions and Hints ',60,' ')+'*\n'
+  string+=centerstring('',62,'*')+'\n'
+
+  # how to run the fitting script
+  string+='\n'
+  string+='''* How to run the fit *
+  The fitting script is a script for GNUPLOT. Execute it with:
+    user@host> gnuplot model_fit.gp
+  Note that the file "model_fit.dat" must be present for the GNUPLOT script to work.
+  By pressing ENTER, you can proceed through these stages:
+    1) Initial plot of the population data and the fitting functions using the initial fitting parameters
+    2) Plot of the data and functions (transformed for global fit) before fitting
+    3) Perform the global fit and plot of the data and functions
+    4) Final plot of the population data and the fitting functions, also presenting the final fit parameters
+    5) Write the final plot to "model_fit.png" and write the data to "model_fit.txt"
+'''
+
+  # adjust parameters
+  string+='\n'
+  string+='* Adjust initial parameters *\n  Please adjust the starting guess values of the following fitting parameters:\n'
+  for i in INFOS['rateset']:
+    string+='    %s\n' % (i)
+  for i in INFOS['initset']:
+    string+='    %s__0\n' % (i)
+  string+='  in file "model_fit.gp" before running the fitting procedure.\n'
+
+  # whether initial populations should be fitted
+  string+='\n'
+  string+='* Fitting of initial populations *\n  The fitting script was setup to only optimize the rate constants in the global fit.\n  If you intend to also optimize the initial populations, please modify the fit command like this:\n'
+  string+='    fit F(x), [...] via '
+  for i in INFOS['rateset']:
+    string+='%s,' % (i)
+  for j,i in enumerate(list(INFOS['initset'])):
+    string+='%s__0' % (i)
+    if j+1<len(INFOS['initset']):
+      string+=','
+  string+='\n'
+
+  # warning if not all species or columns are used
+  unused_spec=[]
+  for i in range(INFOS['nspec']):
+    spec=INFOS['specmap'][i]
+    used=False
+    for j in INFOS['species_groups']:
+      if spec in j:
+        used=True
+        break
+    if not used:
+      unused_spec.append(spec)
+  unused_col=[]
+  for i in range(2,1+INFOS['ncol']):
+    used=False
+    for j in INFOS['columns_groups']:
+      if i in j:
+        used=True
+        break
+    if not used:
+      unused_col.append(i)
+  if len(unused_col)>0 or len(unused_spec)>0:
+    string+='\n'
+    string+='**** Unused species or data columns ****\n'
+    if len(unused_spec)>0:
+      string+='  You defined species in your kinetic model which are not used in the global fit:\n'
+      for i in unused_spec:
+        string+='    %s\n' % (i)
+    if len(unused_col)>0:
+      string+='  The population data file contains columns which are not used in the global fit:\n'
+      for i in unused_col:
+        string+='    %i\n' % (i)
+    string+='  Please ensure that this is in accord with your intentions.\n'
+
+  # if cycles are in the model
+  if INFOS['rank']==-1:
+    string+='\n'
+    string+='**** Cycles in reaction network ****\n'
+    string+='  Without NUMPY, this script cannot check the reaction network for cycles.\n  Cycles might make the fit hard to converge or lead to large uncertainties for some fitting parameters.\n  Please carefully check your results.\n'
+  if INFOS['rank']>0:
+    string+='\n'
+    string+='**** Cycles in reaction network ****\n'
+    string+='  The reaction network defined contains %i cycles.\n  Cycles might make the fit hard to converge or lead to large uncertainties for some fitting parameters.\n  Please carefully check your results.\n' % (INFOS['rank'])
+
+  string+=centerstring('',62,'*')+'\n'
+  print string
 
   return
 
@@ -1241,6 +1364,9 @@ GNUPLOT script which allows to fit the model parameters to the populations
   functionstring=get_functions_from_maxima(INFOS)
   write_gnuscript(INFOS,functionstring)
   write_fitting_data(INFOS)
+
+  # display final messages
+  print_messages(INFOS)
 
   # finalize
   close_keystrokes()
