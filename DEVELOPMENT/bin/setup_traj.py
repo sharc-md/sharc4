@@ -2457,8 +2457,6 @@ $SHARC/sharc.x input
 ''' % (projname)
     if INFOS['qsub']:
       string+='#$ -v USER_EPILOG=%s/epilog.sh' % (iconddir)
-    if Interfaces[INFOS['interface']]['script']=='SHARC_ADF.py':
-       string+='\nunset PE_HOSTFILE'
 
     string+='''
 
