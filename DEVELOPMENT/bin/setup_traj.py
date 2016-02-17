@@ -108,6 +108,14 @@ Interfaces={
       #'prepare_routine': 'prepare_MOLCAS_QMMM',
       #'couplings':       []
      #},
+  5: {'script':          'SHARC_ADF.py',
+      'description':     'ADF (DFT, TD-DFT)',
+      'get_routine':     'get_ADF',
+      'prepare_routine': 'prepare_ADF',
+      'couplings':       [3],
+      'dipolegrad':      False
+     },
+
   }
 
 Couplings={
@@ -1091,7 +1099,6 @@ Laser files can be created using $SHARC/laser.x
   INFOS['cwd']=os.getcwd()
   print ''
 
-
   return INFOS
 
 # ======================================================================================================================
@@ -1757,6 +1764,181 @@ def checktemplate_MOLCAS(filename,INFOS):
   return True
 # =================================================
 
+def get_ADF(INFOS):
+  '''This routine asks for all questions specific to ADF:
+  - path to ADF
+  - scratch directory
+  - ADF.template
+  - TAPE21
+  '''
+
+  string='\n  '+'='*80+'\n'
+  string+='||'+centerstring('ADF Interface setup',80)+'||\n'
+  string+='  '+'='*80+'\n\n'
+  print string
+
+  print centerstring('Path to ADF',60,'-')+'\n'
+  path=os.getenv('ADFHOME')
+  #path=os.path.expanduser(os.path.expandvars(path))
+  if path=='':
+    path=None
+  else:
+    path='$ADFHOME/'
+      #print 'Environment variable $MOLCAS detected:\n$MOLCAS=%s\n' % (path)
+      #if question('Do you want to use this MOLCAS installation?',bool,True):
+        #INFOS['molcas']=path
+    #if not 'molcas' in INFOS:
+  print '\nPlease specify path to ADF directory (SHELL variables and ~ can be used, will be expanded when interface is started).\n'
+  INFOS['adf']=question('Path to ADF:',str,path)
+  print ''
+  print centerstring('Path to ADF license file',60,'-')+'\n'
+  path=os.getenv('SCMLICENSE')
+  #path=os.path.expanduser(os.path.expandvars(path))
+  if path=='':
+    path=None
+  else:
+    path='$ADFHOME/license.txt'
+  print'\nPlease specify path to ADF license.txt\n'
+  INFOS['scmlicense']=question('Path to license:',str,path)
+  print ''
+
+  print centerstring('Scratch directory',60,'-')+'\n'
+  print 'Please specify an appropriate scratch directory. This will be used to temporally store the integrals. The scratch directory will be deleted after the calculation. Remember that this script cannot check whether the path is valid, since you may run the calculations on a different machine. The path will not be expanded by this script.'
+  INFOS['scratchdir']=question('Path to scratch directory:',str)
+  print ''
+
+
+  print centerstring('ADF input template file',60,'-')+'\n'
+  print '''Please specify the path to the ADF.template file. This file must contain the following blocks:
+  
+BASIS <Basis set> END
+XC <Functional of choice> END
+EXCITATION  <Number of excitations to calculate> END
+SAVE <Saves the tape files>  
+
+The ADF interface will generate the appropriate ADF input automatically.
+'''
+  if os.path.isfile('ADF.template'):
+    if checktemplate_ADF('ADF.template',INFOS):
+      print 'Valid file "ADF.template" detected. '
+      usethisone=question('Use this template file?',bool,True)
+      if usethisone:
+        INFOS['adf.template']='ADF.template'
+  if not 'adf.template' in INFOS:
+    while True:
+      filename=question('Template filename:',str)
+      if not os.path.isfile(filename):
+        print 'File %s does not exist!' % (filename)
+        continue
+      if checktemplate_ADF(filename,INFOS):
+        break
+    INFOS['adf.template']=filename
+  print ''
+
+
+  print centerstring('Initial restart: MO Guess',60,'-')+'\n'
+  print '''Please specify the path to an ADF .t21 file containing suitable starting MOs for restarting the ADF calculation. Please note that this script cannot check whether the wavefunction file and the Input template are consistent!
+'''
+  filename=question('Restart file:',str,'init.t21')
+  INFOS['adf.guess']=filename
+
+  print centerstring('ADF Ressource usage',60,'-')+'\n'
+  print '''Please specify the number of CPUs to be used by EACH calculation.
+'''
+  INFOS['adf.ncpu']=abs(question('Number of CPUs:',int)[0])
+
+  if Couplings[INFOS['coupling']]['name']=='overlap':
+    print 'Wavefunction overlaps requested.'
+    INFOS['adf.wfpath']=question('Path to wfoverlap executable:',str)
+#    INFOS['adf.wfthres']=question('Determinant screening threshold:',float,[1e-2])[0]
+    print ''
+    print '''State threshold for choosing determinants to include in the overlaps'''
+    print '''For hybrids one should consider that the eigenvector X may have a norm larger than 1'''
+    INFOS['threshold']=question('Threshold:',float,[0.99])[0]
+    print 'Do you want to use frozen cores for the overlaps (recommended to use for at least the 1s orbital and a negative number uses default values)?' 
+    frozcore_bool=question('Use Frozen cores for overlap?',bool,True)
+    if frozcore_bool==True:
+       INFOS['frozcore']='yes'
+    else:
+       INFOS['frozcore']='no'
+    INFOS['frozcore_number']=question('How many orbital to freeze?',int,[-1])[0]
+  return INFOS
+
+#======================================================================================================================
+
+def checktemplate_ADF(filename,INFOS):
+  necessary=['basis','xc','excitation','save']
+  try:
+    f=open(filename)
+    data=f.readlines()
+    f.close()
+  except IOError:
+    print 'Could not open template file %s' % (filename)
+    return False
+  valid=[]
+  for i in necessary:
+    for l in data:
+      line=l.lower()
+      if i in re.sub('#.*$','',line):
+        valid.append(True)
+        break
+    else:
+      valid.append(False)
+  if not all(valid):
+    print 'The template %s seems to be incomplete! It should contain: ' % (filename) +str(necessary)
+    return False
+  return True
+
+#======================================================================================================================
+
+def prepare_ADF(INFOS,iconddir):
+  # write SH2PRO.inp
+  try:
+    sh2cas=open('%s/QM/SH2ADF.inp' % (iconddir), 'w')
+  except IOError:
+    print 'IOError during prepareADF, iconddir=%s' % (iconddir)
+    quit(1)
+  project='ADF'
+  string='adfhome %s\nscmlicense %s\nscratchdir %s/%s/\nsavedir %s/%s/restart\nncpu %i\nproject %s\n' % (INFOS['adf'],INFOS['scmlicense'],INFOS['scratchdir'],iconddir,INFOS['copydir'],iconddir,INFOS['adf.ncpu'],project)
+  if Couplings[INFOS['coupling']]['name']=='overlap' or 'ion' in QMin and QMin['ion']:
+    #if INFOS['columbus.excitlf']:
+      #string+='excitlists %s\n' % (INFOS['columbus.excitlf'])
+    string+='wfoverlap %s\n' % (INFOS['adf.wfpath'])
+    string+='threshold %f\n' %(INFOS['threshold'])
+    string+='frozcore %s\n' %(INFOS['frozcore'])
+    string+='numfrozcore %i\n' %(INFOS['frozcore_number'])
+  else:
+    string+='nooverlap\n'
+  sh2cas.write(string)
+  sh2cas.close()
+
+  # copy MOs and template
+  cpfrom=INFOS['adf.template']
+  cpto='%s/QM/adf.template' % (iconddir)
+  shutil.copy(cpfrom,cpto)
+  if not INFOS['adf.guess'] == {}:
+     cpfrom=INFOS['adf.guess']
+     cpto='%s/QM/%s.t21_init' % (iconddir,project)
+     shutil.copy(cpfrom,cpto)
+
+  # runQM.sh
+  runname=iconddir+'/QM/runQM.sh'
+  runscript=open(runname,'w')
+  s='''cd %s/%s/QM
+$SHARC/%s QM.in >> QM.log 2>> QM.err
+err=$?
+
+exit $err''' % (INFOS['copydir'],iconddir,Interfaces[INFOS['interface']]['script'])
+  runscript.write(s)
+  runscript.close()
+  os.chmod(runname, os.stat(runname).st_mode | stat.S_IXUSR)
+
+
+  return
+
+
+# =============================================================== #
+
 def get_MOLCAS(INFOS):
   '''This routine asks for all questions specific to MOLPRO:
   - path to molpro
@@ -2200,6 +2382,9 @@ def writeSHARCinput(INFOS,initobject,iconddir,istate):
     if INFOS['dipolegrad']:
       s+='dipole_gradient'
 
+  if Interfaces[INFOS['interface']]['script']=='SHARC_ADF.py':
+     s+='select_directly\n'
+
   inputf.write(s)
   inputf.close()
 
@@ -2256,6 +2441,9 @@ $SHARC/sharc.x input
 ''' % (projname)
     if INFOS['qsub']:
       string+='#$ -v USER_EPILOG=%s/epilog.sh' % (iconddir)
+    if Interfaces[INFOS['interface']]['script']=='SHARC_ADF.py':
+       string+='\nunset PE_HOSTFILE'
+
     string+='''
 
 PRIMARY_DIR=%s/%s

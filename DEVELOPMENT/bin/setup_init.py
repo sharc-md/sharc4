@@ -542,17 +542,23 @@ Interfaces={
       'get_routine':     'get_MOLCAS',
       'prepare_routine': 'prepare_MOLCAS',
       'couplings':       [3]
-     }
+     },
   #4: {'script':          'SHARC_MOLCAS_QMMM.py',
       #'description':     'MOLCAS (with QM/MM)',
       #'get_routine':     'get_MOLCAS_QMMM',
       #'prepare_routine': 'prepare_MOLCAS_QMMM',
       #'couplings':       []
      #},
+  5: {'script':          'SHARC_ADF.py',
+      'description':     'ADF (DFT, TD-DFT)',
+      'get_routine':     'get_ADF',
+      'prepare_routine': 'prepare_ADF',
+      'couplings':       [3]
+     }
   }
 
 
-
+# =================================================
 
 def checktemplate_MOLPRO(filename):
   necessary=['memory','basis','closed','occ','wf','state']
@@ -1355,9 +1361,144 @@ def prepare_MOLCAS(INFOS,iconddir):
 
   return
 
+#======================================================================================================================
+
+def checktemplate_ADF(filename,INFOS):
+  necessary=['basis','xc','excitation','save']
+  try:
+    f=open(filename)
+    data=f.readlines()
+    f.close()
+  except IOError:
+    print 'Could not open template file %s' % (filename)
+    return False
+  valid=[]
+  for i in necessary:
+    for l in data:
+      line=l.lower()
+      if i in re.sub('#.*$','',line):
+        valid.append(True)
+        break
+    else:
+      valid.append(False)
+  if not all(valid):
+    print 'The template %s seems to be incomplete! It should contain: ' % (filename) +str(necessary)
+    return False
+  return True
+
+# =================================================
+
+def get_ADF(INFOS):
+  '''This routine asks for all questions specific to ADF:
+  - path to ADF
+  - scratch directory
+  - ADF.template
+  - TAPE21
+  '''
+
+  string='\n  '+'='*80+'\n'
+  string+='||'+centerstring('ADF Interface setup',80)+'||\n'
+  string+='  '+'='*80+'\n\n'
+  print string
+
+  print centerstring('Path to ADF',60,'-')+'\n'
+  path=os.getenv('ADFHOME')
+  #path=os.path.expanduser(os.path.expandvars(path))
+  if path=='':
+    path=None
+  else:
+    path='$ADFHOME/'
+      #print 'Environment variable $MOLCAS detected:\n$MOLCAS=%s\n' % (path)
+      #if question('Do you want to use this MOLCAS installation?',bool,True):
+        #INFOS['molcas']=path
+    #if not 'molcas' in INFOS:
+  print '\nPlease specify path to ADF directory (SHELL variables and ~ can be used, will be expanded when interface is started).\n'
+  INFOS['adf']=question('Path to ADF:',str,path)
+  print ''
+  print centerstring('Path to ADF license file',60,'-')+'\n'
+  path=os.getenv('SCMLICENSE')
+  #path=os.path.expanduser(os.path.expandvars(path))
+  if path=='':
+    path=None
+  else:
+    path='$ADFHOME/license.txt'
+  print'\nPlease specify path to ADF license.txt\n'
+  INFOS['scmlicense']=question('Path to license:',str,path)
+  print ''
+
+  print centerstring('Scratch directory',60,'-')+'\n'
+  print 'Please specify an appropriate scratch directory. This will be used to temporally store the integrals. The scratch directory will be deleted after the calculation. Remember that this script cannot check whether the path is valid, since you may run the calculations on a different machine. The path will not be expanded by this script.'
+  INFOS['scratchdir']=question('Path to scratch directory:',str)
+  print ''
+
+
+  print centerstring('ADF input template file',60,'-')+'\n'
+  print '''Please specify the path to the ADF.template file. This file must contain the following blocks:
+  
+BASIS <Basis set> END
+XC <Functional of choice> END
+EXCITATION  <Number of excitations to calculate> END
+SAVE <Saves the tape files>  
+
+The ADF interface will generate the appropriate ADF input automatically.
+'''
+  if os.path.isfile('ADF.template'):
+    if checktemplate_ADF('ADF.template',INFOS):
+      print 'Valid file "ADF.template" detected. '
+      usethisone=question('Use this template file?',bool,True)
+      if usethisone:
+        INFOS['adf.template']='ADF.template'
+  if not 'adf.template' in INFOS:
+    while True:
+      filename=question('Template filename:',str)
+      if not os.path.isfile(filename):
+        print 'File %s does not exist!' % (filename)
+        continue
+      if checktemplate_ADF(filename,INFOS):
+        break
+    INFOS['adf.template']=filename
+  print ''
+
+
+  print centerstring('Initial restart: MO Guess',60,'-')+'\n'
+  print '''Please specify the path to an ADF.t21 file containing suitable starting MOs for restarting the ADF calculation. Please note that this script cannot check whether the wavefunction file and the Input template are consistent!
+'''
+  filename=question('Restart file:',str,'init.t21')
+  INFOS['adf.guess']=filename
+
+  print centerstring('ADF Ressource usage',60,'-')+'\n'
+  print '''Please specify the number of CPUs to be used by EACH calculation.
+'''
+  INFOS['adf.ncpu']=abs(question('Number of CPUs:',int)[0])
 
 
 
+
+  return INFOS
+
+#======================================================================================================================
+
+def prepare_ADF(INFOS,iconddir):
+  # write SH2PRO.inp
+  try:
+    sh2cas=open('%s/SH2ADF.inp' % (iconddir), 'w')
+  except IOError:
+    print 'IOError during prepareADF, iconddir=%s' % (iconddir)
+    quit(1)
+  project='ADF'
+  string='adfhome %s\nscmlicense %s\nscratchdir %s/%s/\nncpu %i\nproject %s\n' % (INFOS['adf'],INFOS['scmlicense'],INFOS['scratchdir'],iconddir,INFOS['adf.ncpu'],project)
+  sh2cas.write(string)
+  sh2cas.close()
+
+  # copy MOs and template
+  cpfrom=INFOS['adf.template']
+  cpto='%s/adf.template' % (iconddir)
+  cpfrom1=INFOS['adf.guess']
+  cpto1='%s/%s.t21_init' % (iconddir,project)
+
+  shutil.copy(cpfrom,cpto)
+  shutil.copy(cpfrom1,cpto1)
+  return
 
 # ======================================================================================================================
 # ======================================================================================================================
