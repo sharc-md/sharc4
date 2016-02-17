@@ -554,11 +554,19 @@ Interfaces={
       'get_routine':     'get_ADF',
       'prepare_routine': 'prepare_ADF',
       'couplings':       [3]
+     },
+  6: {'script':          'SHARC_RICC2.py',
+      'description':     'TURBOMOLE (ricc2 with CC2 and ADC(2))',
+      'get_routine':     'get_RICC2',
+      'prepare_routine': 'prepare_RICC2',
+      'couplings':       [3]
      }
   }
 
 
-# =================================================
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
 
 def checktemplate_MOLPRO(filename):
   necessary=['memory','basis','closed','occ','wf','state']
@@ -668,8 +676,32 @@ If you optimized your geometry with MOLPRO/CASSCF you can reuse the "wf" file fr
 
   return INFOS
 
+# =================================================
 
+def prepare_MOLPRO(INFOS,iconddir):
+  # write SH2PRO.inp
+  try:
+    sh2pro=open('%s/SH2PRO.inp' % (iconddir), 'w')
+  except IOError:
+    print 'IOError during prepareMOLPRO, iconddir=%s' % (iconddir)
+    quit(1)
+  string='molpro %s\nscratchdir %s/%s/' % (INFOS['molpro'],INFOS['scratchdir'],iconddir)
+  sh2pro.write(string)
+  sh2pro.close()
 
+  # copy MOs and template
+  cpfrom=INFOS['molpro.template']
+  cpto='%s/MOLPRO.template' % (iconddir)
+  shutil.copy(cpfrom,cpto)
+  if INFOS['molpro.guess']:
+    cpfrom=INFOS['molpro.guess']
+    cpto='%s/wf.init' % (iconddir)
+    shutil.copy(cpfrom,cpto)
+
+  return
+
+# ======================================================================================================================
+# ======================================================================================================================
 # ======================================================================================================================
 
 def checktemplate_COLUMBUS(TEMPLATE, mult):
@@ -939,6 +971,45 @@ In order to setup the COLUMBUS input, use COLUMBUS' input facility colinp. For f
 
   return INFOS
 
+# =================================================
+
+def prepare_COLUMBUS(INFOS,iconddir):
+  # write SH2COL.inp
+  try:
+    sh2col=open('%s/SH2COL.inp' % (iconddir), 'w')
+  except IOError:
+    print 'IOError during prepareCOLUMBUS, directory=%i' % (iconddir)
+    quit(1)
+  string= 'columbus %s\nscratchdir %s/%s/WORK\n' % (INFOS['columbus'],INFOS['scratchdir'],iconddir)
+  string+='savedir %s/%s/savedir\ntemplate %s\nmemory %i\nnooverlap\n\n' % (INFOS['scratchdir'],iconddir, INFOS['columbus.template'],INFOS['columbus.mem'])
+  for mult in INFOS['columbus.multmap']:
+    string+='DIR %i %s\n' % (mult,INFOS['columbus.multmap'][mult])
+  string+='\n'
+  for job in INFOS['columbus.mocoefmap']:
+    string+='MOCOEF %s %s\n' % (job,INFOS['columbus.mocoefmap'][job])
+  if INFOS['ion']:
+    string+='wfoverlap %s\n' % (INFOS['columbus.dysonpath'])
+    #string+='civecconsolidate %s\n' % (INFOS['columbus.civecpath'])
+    #string+='dysonthres %s\n' % (INFOS['columbus.dysonthres'])
+    string+='wfthres %s\n' % (INFOS['columbus.ciothres'])
+  sh2col.write(string)
+  sh2col.close()
+
+  # copy MOs and template
+  if INFOS['columbus.guess']:
+    cpfrom=INFOS['columbus.guess']
+    cpto='%s/mocoef_mc.init' % (iconddir)
+    shutil.copy(cpfrom,cpto)
+
+  if INFOS['columbus.copy_template']:
+    copy_from=INFOS['columbus.copy_template_from']
+    copy_to=iconddir+'/COLUMBUS.template/'
+    shutil.copytree(copy_from,copy_to)
+
+  return
+
+# ======================================================================================================================
+# ======================================================================================================================
 # ======================================================================================================================
 
 def check_Analytical_block(data,identifier,nstates,eMsg):
@@ -969,7 +1040,7 @@ def check_Analytical_block(data,identifier,nstates,eMsg):
       return False
   return True
 
-# ======================================================================================================================
+# =================================================
 
 def checktemplate_Analytical(filename,req_nstates,eMsg=True):
   f=open(filename)
@@ -1061,7 +1132,7 @@ def checktemplate_Analytical(filename,req_nstates,eMsg=True):
 
   return True
 
-# ======================================================================================================================
+# =================================================
 
 def get_Analytical(INFOS):
 
@@ -1089,7 +1160,20 @@ def get_Analytical(INFOS):
 
   return INFOS
 
+# =================================================
 
+def prepare_Analytical(INFOS,iconddir):
+  # copy SH2Ana.inp
+
+  # copy MOs and template
+  cpfrom=INFOS['analytical.template']
+  cpto='%s/SH2Ana.inp' % (iconddir)
+  shutil.copy(cpfrom,cpto)
+
+  return
+
+# ======================================================================================================================
+# ======================================================================================================================
 # ======================================================================================================================
 
 def checktemplate_MOLCAS(filename,INFOS):
@@ -1181,7 +1265,7 @@ def get_MOLCAS(INFOS):
 
 
   print centerstring('MOLCAS input template file',60,'-')+'\n'
-  print '''Please specify the path to the MOLcas.template file. This file must contain the following settings:
+  print '''Please specify the path to the MOLCAS.template file. This file must contain the following settings:
   
 basis <Basis set>
 ras2 <Number of active orbitals>
@@ -1261,83 +1345,9 @@ The MOLCAS interface will generate the appropriate MOLCAS input automatically.
   if INFOS['ion']:
     INFOS['molcas.wfoverlap']=question('Path to wavefunction overlap executable:',str)
 
-
   return INFOS
 
-# ======================================================================================================================
-
-def prepare_MOLPRO(INFOS,iconddir):
-  # write SH2PRO.inp
-  try:
-    sh2pro=open('%s/SH2PRO.inp' % (iconddir), 'w')
-  except IOError:
-    print 'IOError during prepareMOLPRO, iconddir=%s' % (iconddir)
-    quit(1)
-  string='molpro %s\nscratchdir %s/%s/' % (INFOS['molpro'],INFOS['scratchdir'],iconddir)
-  sh2pro.write(string)
-  sh2pro.close()
-
-  # copy MOs and template
-  cpfrom=INFOS['molpro.template']
-  cpto='%s/MOLPRO.template' % (iconddir)
-  shutil.copy(cpfrom,cpto)
-  if INFOS['molpro.guess']:
-    cpfrom=INFOS['molpro.guess']
-    cpto='%s/wf.init' % (iconddir)
-    shutil.copy(cpfrom,cpto)
-
-  return
-
-# ======================================================================================================================
-
-def prepare_COLUMBUS(INFOS,iconddir):
-  # write SH2COL.inp
-  try:
-    sh2col=open('%s/SH2COL.inp' % (iconddir), 'w')
-  except IOError:
-    print 'IOError during prepareCOLUMBUS, directory=%i' % (iconddir)
-    quit(1)
-  string= 'columbus %s\nscratchdir %s/%s/WORK\n' % (INFOS['columbus'],INFOS['scratchdir'],iconddir)
-  string+='savedir %s/%s/savedir\ntemplate %s\nmemory %i\nnooverlap\n\n' % (INFOS['scratchdir'],iconddir, INFOS['columbus.template'],INFOS['columbus.mem'])
-  for mult in INFOS['columbus.multmap']:
-    string+='DIR %i %s\n' % (mult,INFOS['columbus.multmap'][mult])
-  string+='\n'
-  for job in INFOS['columbus.mocoefmap']:
-    string+='MOCOEF %s %s\n' % (job,INFOS['columbus.mocoefmap'][job])
-  if INFOS['ion']:
-    string+='wfoverlap %s\n' % (INFOS['columbus.dysonpath'])
-    #string+='civecconsolidate %s\n' % (INFOS['columbus.civecpath'])
-    #string+='dysonthres %s\n' % (INFOS['columbus.dysonthres'])
-    string+='wfthres %s\n' % (INFOS['columbus.ciothres'])
-  sh2col.write(string)
-  sh2col.close()
-
-  # copy MOs and template
-  if INFOS['columbus.guess']:
-    cpfrom=INFOS['columbus.guess']
-    cpto='%s/mocoef_mc.init' % (iconddir)
-    shutil.copy(cpfrom,cpto)
-
-  if INFOS['columbus.copy_template']:
-    copy_from=INFOS['columbus.copy_template_from']
-    copy_to=iconddir+'/COLUMBUS.template/'
-    shutil.copytree(copy_from,copy_to)
-
-  return
-
-# ======================================================================================================================
-
-def prepare_Analytical(INFOS,iconddir):
-  # copy SH2Ana.inp
-
-  # copy MOs and template
-  cpfrom=INFOS['analytical.template']
-  cpto='%s/SH2Ana.inp' % (iconddir)
-  shutil.copy(cpfrom,cpto)
-
-  return
-
-# ======================================================================================================================
+# =================================================
 
 def prepare_MOLCAS(INFOS,iconddir):
   # write SH2PRO.inp
@@ -1369,6 +1379,8 @@ def prepare_MOLCAS(INFOS,iconddir):
 
   return
 
+#======================================================================================================================
+#======================================================================================================================
 #======================================================================================================================
 
 def checktemplate_ADF(filename,INFOS):
@@ -1479,12 +1491,9 @@ The ADF interface will generate the appropriate ADF input automatically.
 '''
   INFOS['adf.ncpu']=abs(question('Number of CPUs:',int)[0])
 
-
-
-
   return INFOS
 
-#======================================================================================================================
+# =================================================
 
 def prepare_ADF(INFOS,iconddir):
   # write SH2PRO.inp
@@ -1503,6 +1512,163 @@ def prepare_ADF(INFOS,iconddir):
   cpto='%s/adf.template' % (iconddir)
   cpfrom1=INFOS['adf.guess']
   cpto1='%s/%s.t21_init' % (iconddir,project)
+
+  shutil.copy(cpfrom,cpto)
+  shutil.copy(cpfrom1,cpto1)
+  return
+
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+
+def checktemplate_RICC2(filename,INFOS):
+  necessary=['basis']
+  try:
+    f=open(filename)
+    data=f.readlines()
+    f.close()
+  except IOError:
+    print 'Could not open template file %s' % (filename)
+    return False
+  valid=[]
+  for i in necessary:
+    for l in data:
+      line=l.lower()
+      if i in re.sub('#.*$','',line):
+        valid.append(True)
+        break
+    else:
+      valid.append(False)
+  if not all(valid):
+    print 'The template %s seems to be incomplete! It should contain: ' % (filename) +str(necessary)
+    return False
+  return True
+
+# =================================================
+
+def get_RICC2(INFOS):
+  string='\n  '+'='*80+'\n'
+  string+='||'+centerstring('Turbomole RICC2 Interface setup',80)+'||\n'
+  string+='  '+'='*80+'\n\n'
+  print string
+
+  print centerstring('Path to TURBOMOLE',60,'-')+'\n'
+  path=os.getenv('TURBODIR')
+  if path=='':
+    path=None
+  else:
+    path='$TURBODIR/'
+  print '\nPlease specify path to TURBOMOLE directory (SHELL variables and ~ can be used, will be expanded when interface is started).\n'
+  INFOS['turbomole']=question('Path to TURBOMOLE:',str,path)
+  print ''
+
+  if INFOS['soc']:
+    print centerstring('Path to ORCA',60,'-')+'\n'
+    path=os.getenv('ORCADIR')
+    if path=='':
+      path=None
+    else:
+      path='$ORCADIR/'
+    print '\nPlease specify path to ORCA directory (SHELL variables and ~ can be used, will be expanded when interface is started).\n\nORCA is necessary for the calculation of spin-orbit couplings with ricc2.\n'
+    INFOS['orca']=question('Path to ORCA:',str,path)
+    print ''
+
+
+  print centerstring('Scratch directory',60,'-')+'\n'
+  print 'Please specify an appropriate scratch directory. This will be used to temporally store the integrals. The scratch directory will be deleted after the calculation. Remember that this script cannot check whether the path is valid, since you may run the calculations on a different machine. The path will not be expanded by this script.'
+  INFOS['scratchdir']=question('Path to scratch directory:',str)
+  print ''
+
+
+  print centerstring('RICC2 input template file',60,'-')+'\n'
+  print '''Please specify the path to the RICC2.template file. This file must contain the following settings:
+
+basis <Basis set>
+
+In addition, it can contain the following:
+
+auxbasis <Basis set>
+charge <integer>
+method <"ADC(2)" or "CC2">                      # only ADC(2) can calculate spin-orbit couplings
+frozen <number of frozen core orbitals>
+spin-scaling <"none", "SCS", or "SOS">
+douglas-kroll                                   # DKH is only used if this keyword is given
+
+'''
+  if os.path.isfile('RICC2.template'):
+    if checktemplate_RICC2('RICC2.template',INFOS):
+      print 'Valid file "RICC2.template" detected. '
+      usethisone=question('Use this template file?',bool,True)
+      if usethisone:
+        INFOS['ricc2.template']='RICC2.template'
+  if not 'ricc2.template' in INFOS:
+    while True:
+      filename=question('Template filename:',str)
+      if not os.path.isfile(filename):
+        print 'File %s does not exist!' % (filename)
+        continue
+      if checktemplate_RICC2(filename,INFOS):
+        break
+    INFOS['ricc2.template']=filename
+  print ''
+
+
+  print centerstring('Initial wavefunction: MO Guess',60,'-')+'\n'
+  print '''Please specify the path to a Turbomole "mos" file containing suitable starting MOs for the calculation. Please note that this script cannot check whether the file and the input template are consistent!
+'''
+  string='Do you have an initial orbitals file?'
+  if question(string,bool,True):
+    while True:
+      guess_file='mos'
+      filename=question('Initial wavefunction file:',str,guess_file)
+      if os.path.isfile(filename):
+        INFOS['ricc2.guess']=filename
+        break
+      else:
+        print 'File not found!'
+  else:
+    INFOS['ricc2.guess']={}
+
+
+  print centerstring('RICC2 Ressource usage',60,'-')+'\n'
+  print '''Please specify the amount of memory available to Turbomole (in MB). 
+'''
+  INFOS['ricc2.mem']=abs(question('RICC2 memory:',int,[1000])[0])
+  print '''Please specify the number of CPUs to be used by EACH trajectory.
+'''
+  INFOS['ricc2.ncpu']=abs(question('Number of CPUs:',int,[1])[0])
+
+  return INFOS
+
+# =================================================
+
+def prepare_RICC2(INFOS,iconddir):
+  # write SH2CC2.inp
+  try:
+    sh2cas=open('%s/SH2CC2.inp' % (iconddir), 'w')
+  except IOError:
+    print 'IOError during prepare_RICC2, iconddir=%s' % (iconddir)
+    quit(1)
+  string='''turbodir %s
+scratchdir %s/%s
+memory %i
+ncpu %i
+dipolelevel 1
+''' % (INFOS['turbomole'],
+       INFOS['scratchdir'],
+       iconddir,
+       INFOS['ricc2.mem'],
+       INFOS['ricc2.ncpu'])
+  if INFOS['soc']:
+    string+='orcadir %s\n' % (INFOS['orca'])
+  sh2cas.write(string)
+  sh2cas.close()
+
+  # copy MOs and template
+  cpfrom=INFOS['ricc2.template']
+  cpto='%s/RICC2.template' % (iconddir)
+  cpfrom1=INFOS['ricc2.guess']
+  cpto1='%s/mos.init' % (iconddir)
 
   shutil.copy(cpfrom,cpto)
   shutil.copy(cpfrom1,cpto1)
