@@ -3046,7 +3046,7 @@ def mkdir(PATH):
         print 'INFO: %s exists and is a non-empty directory!' % (PATH)
         #sys.exit(69)
   else:
-    os.mkdir(PATH)
+    os.makedirs(PATH)
 
 # ======================================================================= #
 
