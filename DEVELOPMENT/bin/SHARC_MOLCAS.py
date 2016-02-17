@@ -69,6 +69,7 @@ from copy import deepcopy
 from multiprocessing import Pool
 import time
 from socket import gethostname
+import itertools
 
 
 # =========================================================0
@@ -156,6 +157,12 @@ changelogstring='''
 
 28.05.2015:
 - added "frozen" keyword to modify the number of frozen orbitals in CASPT2
+
+10.11.2015:
+- added support for "ion" (Dyson calculations) using the wfoverlap code
+- fixed gradients for MS-CASPT2 calcs with only one state
+- fixed gradients for (N-1)-electron states
+- added "molden" keyword
 '''
 
 # ======================================================================= #
@@ -233,6 +240,36 @@ def writefile(filename,content):
   except IOError:
     print 'Could not write to file %s!' % (filename)
     sys.exit(13)
+
+# ======================================================================= #
+def link(PATH,NAME,crucial=True,force=True):
+  # do not create broken links
+  if not os.path.exists(PATH):
+    print 'Source %s does not exist, cannot create link!' % (PATH)
+    sys.exit(70)
+  if os.path.islink(NAME):
+    if not os.path.exists(NAME):
+      # NAME is a broken link, remove it so that a new link can be made
+      os.remove(NAME)
+    else:
+      # NAME is a symlink pointing to a valid file
+      if force:
+        # remove the link if forced to
+        os.remove(NAME)
+      else:
+        print '%s exists, cannot create a link of the same name!' % (NAME)
+        if crucial:
+          sys.exit(71)
+        else:
+          return
+  elif os.path.exists(NAME):
+    # NAME is not a link. The interface will not overwrite files/directories with links, even with force=True
+    print '%s exists, cannot create a link of the same name!' % (NAME)
+    if crucial:
+      sys.exit(72)
+    else:
+      return
+  os.symlink(PATH, NAME)
 
 # ======================================================================= #
 def isbinary(path):
@@ -705,6 +742,11 @@ def printQMout(QMin,QMout):
                         printgrad(QMout['dmdr'][ipol][istate][jstate],natom,QMin['geo'])
                 jstate+=1
             istate+=1
+    # Property matrix (dyson norms)
+    if 'ion' in QMin and 'prop' in QMout:
+        print '=> Property matrix:\n'
+        matrix=QMout['prop']
+        printcomplexmatrix(matrix,states)
     sys.stdout.flush()
 
 
@@ -771,6 +813,9 @@ def getversion(out,MOLCAS):
             if string!='':
                 break
     a=re.search('[0-9]+\.[0-9]+',string)
+    if a==None:
+        print 'No MOLCAS version found.\nCheck whether MOLCAS path is set correctly in SH2CAS.inp\nand whether $MOLCAS/.molcasversion exists.'
+        sys.exit(11)
     v=float(a.group())
     if not allowedrange[0]<=v<=allowedrange[1]:
         print 'MOLCAS version %3.1f not supported! ' % (v)
@@ -910,6 +955,9 @@ def getMOLCASstatenumber(mult, state, ms, states):
     quit(1)
 
 # ======================================================================= #
+#SOCME_START_ILINE=-1
+#SOCME_FILE_ID=-1
+
 def getsocme(out, mult1, state1, ms1, mult2, state2, ms2, states, version, method, dkh):
     '''Searches a MOLCAS output for an element of the Spin-Orbit hamiltonian matrix. Also converts from cm^-1 to hartree and adds the diagonal shift.
 
@@ -936,19 +984,21 @@ def getsocme(out, mult1, state1, ms1, mult2, state2, ms2, states, version, metho
     s1 = getMOLCASstatenumber(mult1, state1, ms1, states)
     s2 = getMOLCASstatenumber(mult2, state2, ms2, states)
 
-    #s1=-1
-    #s2=-1
-    #for i in statemap:
-        #if (mult1,state1,ms1)==tuple(statemap[i]):
-            #s1=i
-        #elif (mult2,state2,ms2)==tuple(statemap[i]):
-            #s2=i
-    #if s1==-1:
-        #print 'Mult %i, State %i, MS %+3.1f not in statemap=%s' % (mult1,state1,ms1,statemap)
-        #sys.exit(17)
-    #if s2==-1:
-        #print 'Mult %i, State %i, MS %+3.1f not in statemap=%s' % (mult2,state2,ms2,statemap)
-        #sys.exit(18)
+    ## accelerated version of finding the SOC section if it was already found for this particular output file
+    #if SOCME_START_ILINE==-1 or SOCME_FILE_ID!=hash(tuple(out)):
+        ## look for spin-orbit section
+        #for iline,line in enumerate(out):
+            #if socstring in line:
+                #break
+        #else:
+            #print 'No Spin-Orbit section found in output!'
+            #sys.exit(19)
+        #global SOCME_START_ILINE
+        #SOCME_START_ILINE=iline
+        #global SOCME_FILE_ID
+        #SOCME_FILE_ID=hash(tuple(out))
+    #else:
+        #iline=SOCME_START_ILINE
 
     # look for spin-orbit section
     for iline,line in enumerate(out):
@@ -1233,6 +1283,8 @@ def writeQMout(QMin,QMout,QMinfilename):
         string+=writeQMoutsocdr(QMin,QMout)
     if 'dmdr' in QMin:
         string+=writeQMoutdmdr(QMin,QMout)
+    if 'ion' in QMin:
+        string+=writeQMoutprop(QMin,QMout)
     string+=writeQMouttime(QMin,QMout)
     outfile=os.path.join(QMin['pwd'],outfilename)
     writefile(outfile,string)
@@ -1410,6 +1462,33 @@ def writeQMouttime(QMin,QMout):
 
     string='! 8 Runtime\n%s\n' % (eformat(QMout['runtime'],9,3))
     return string
+
+# ======================================================================= #
+def writeQMoutprop(QMin,QMout):
+  '''Generates a string with the Spin-Orbit Hamiltonian in SHARC format.
+
+  The string starts with a ! followed by a flag specifying the type of data. In the next line, the dimensions of the matrix are given, followed by nmstates blocks of nmstates elements. Blocks are separated by a blank line.
+
+  Arguments:
+  1 dictionary: QMin
+  2 dictionary: QMout
+
+  Returns:
+  1 string: multiline string with the SOC matrix'''
+
+  states=QMin['states']
+  nstates=QMin['nstates']
+  nmstates=QMin['nmstates']
+  natom=QMin['natom']
+  string=''
+  string+='! %i Property Matrix (%ix%i, complex)\n' % (11,nmstates,nmstates)
+  string+='%i %i\n' % (nmstates,nmstates)
+  for i in range(nmstates):
+    for j in range(nmstates):
+      string+='%s %s ' % (eformat(QMout['prop'][i][j].real,12,3),eformat(QMout['prop'][i][j].imag,12,3))
+    string+='\n'
+  string+='\n'
+  return string
 
 
 # =============================================================================================== #
@@ -1626,9 +1705,9 @@ def readQMin(QMinfilename):
         print 'Number of states not given in QM input file %s!' % (QMinfilename)
         sys.exit(34)
 
-    possibletasks=['h','soc','dm','grad','overlap','dmdr','socdr']
+    possibletasks=['h','soc','dm','grad','overlap','dmdr','socdr','ion']
     if not any([i in QMin for i in possibletasks]):
-        print 'No tasks found! Tasks are "h", "soc", "dm", "grad","dmdr", "socdr" and "overlap".'
+        print 'No tasks found! Tasks are "h", "soc", "dm", "grad","dmdr", "socdr", "overlap" and "ion".'
         sys.exit(35)
 
     if 'samestep' in QMin and 'init' in QMin:
@@ -1656,9 +1735,12 @@ def readQMin(QMinfilename):
         print 'Within the SHARC-MOLCAS interface couplings can only be calculated via the overlap method. "nacdr" and "nacdt" are not supported.'
         sys.exit(39)
 
-    if 'ion' in QMin:
-        print 'Ionization probabilities not implemented!'
-        sys.exit(40)
+    if 'molden' in QMin:
+        os.environ['MOLCAS_MOLDEN']='ON'
+
+    #if 'ion' in QMin:
+        #print 'Ionization probabilities not implemented!'
+        #sys.exit(40)
 
     # Check for correct gradient list
     if 'grad' in QMin:
@@ -1726,6 +1808,8 @@ def readQMin(QMinfilename):
     else:
         os.environ['TINKER']=QMin['tinker']
 
+    if 'ion' in QMin:
+        QMin['wfoverlap']=get_sh2cas_environ(sh2cas,'wfoverlap')
 
     # Set up scratchdir
     line=get_sh2cas_environ(sh2cas,'scratchdir',False,False)
@@ -1913,7 +1997,11 @@ def readQMin(QMinfilename):
                 else:
                     QMin['gradmode']=0
         if QMin['gradmode']==2:
-            QMin['displ']=0.005/au2a    # default displacement of 0.005 Angstrom
+            line=getsh2caskey(sh2cas,'displ')
+            if line[0]:
+                QMin['displ']=float(line[1])/au2a             # displacement given in angstrom in input, but here we make bohrs out of it
+            else:
+                QMin['displ']=0.005/au2a        # default displacement of 0.005 Angstrom
     else:
         QMin['gradmode']=0
     QMin['ncpu']=max(1,QMin['ncpu'])
@@ -2063,6 +2151,10 @@ def gettasks(QMin):
             tasks.append(['rasscf',imult+1,QMin['template']['roots'][imult],jobiph,rasorb])
             if QMin['method']==0:
                 tasks.append(['copy','MOLCAS.JobIph','MOLCAS.%i.JobIph' % (imult+1)])
+            if 'ion' in QMin:
+                tasks.append(['copy','MOLCAS.RasOrb','MOLCAS.%i.RasOrb' % (imult+1)])
+            if 'molden' in QMin:
+                tasks.append(['copy','MOLCAS.rasscf.molden','MOLCAS.%i.molden' % (imult+1)])
 
         # Gradients
         if QMin['gradmode']==0:
@@ -2096,7 +2188,7 @@ def gettasks(QMin):
             tasks.append(['rassi','overlap',[nstates,nstates]])
 
         # RASSI for Dipole moments only if overlap-RASSI is not needed
-        elif 'dm' in QMin:
+        elif 'dm' in QMin or 'ion' in QMin:
             tasks.append(['link','MOLCAS.%i.JobIph' % (imult+1),'JOB001'])
             tasks.append(['rassi','dm',[nstates]])
 
@@ -2130,8 +2222,8 @@ def writeMOLCASinput(tasks, QMin):
                 string+='&GATEWAY\nTINKER\nGROUP=NOSYM\nBASIS=%s\n' % (QMin['template']['basis'])
             else:
                 string+='&GATEWAY\nCOORD=MOLCAS.xyz\nGROUP=NOSYM\nBASIS=%s\n' % (QMin['template']['basis'])
-            if 'soc' in QMin and QMin['version']>8.0:
-                string+='AMFI\n'
+            #if 'soc' in QMin and QMin['version']>8.0:
+                #string+='AMFI\n'
             if QMin['template']['cholesky']:
                 string+='RICD\n'
             string+='\n'
@@ -2140,7 +2232,9 @@ def writeMOLCASinput(tasks, QMin):
             string+='&SEWARD\n'
             if not QMin['template']['no-douglas-kroll']:
                 string+='R02O\nRELINT\nEXPERT\n'
-            if 'soc' in QMin and QMin['version']<=8.0:
+            #if 'soc' in QMin and QMin['version']<=8.0:
+                #string+='AMFI\n'
+            if 'soc' in QMin:
                 string+='AMFI\n'
             if QMin['template']['cholesky']:
                 string+='DOANA\n'
@@ -2176,9 +2270,12 @@ def writeMOLCASinput(tasks, QMin):
             string+='\n'
 
         elif task[0]=='rasscf-rlx':
+            nactel=QMin['template']['nactel']
+            if (nactel-task[1])%2==0:
+                nactel-=1
             string+='&RASSCF\nSPIN=%i\nNACTEL=%i 0 0\nINACTIVE=%i\nRAS2=%i\nCIROOT=%i %i 1\nRLXROOT=%i\n' % (
                     task[1],
-                    QMin['template']['nactel'],
+                    nactel,
                     QMin['template']['inactive'],
                     QMin['template']['ras2'],
                     task[2],task[2],
@@ -2211,6 +2308,9 @@ def writeMOLCASinput(tasks, QMin):
             string+='MEIN\n'
             if QMin['method']>0:
                 string+='EJOB\n'
+            if task[1]!='soc' and 'master' in QMin and 'ion' in QMin:
+                # smallest value printed by MOLCAS is 0.00001
+                string+='CIPR\nTHRS=0.000005d0\n'
             if task[1]=='dm':
                 pass
             elif task[1]=='soc':
@@ -2393,6 +2493,8 @@ def generate_joblist(QMin):
         # case of serial gradients on one cpu
         QMin1=deepcopy(QMin)
         QMin1['master']=[]
+        if 'ion' in QMin:
+            QMin1['keepintegrals']=[]
         joblist.append({'master':QMin1})
 
     elif QMin['gradmode']==1:
@@ -2407,7 +2509,7 @@ def generate_joblist(QMin):
         joblist.append({'master':QMin1})
 
         QMin2=deepcopy(QMin)
-        remove=['h','soc','dm','always_guess','always_orb_init','comment','ncpu','init','veloc','overlap']
+        remove=['h','soc','dm','always_guess','always_orb_init','comment','ncpu','init','veloc','overlap','ion']
         for r in remove:
             QMin2=removekey(QMin2,r)
         QMin2['gradmode']=0
@@ -2426,6 +2528,8 @@ def generate_joblist(QMin):
         # -> do all other displacements afterwards
         QMin1=deepcopy(QMin)
         QMin1['master']=[]
+        if 'ion' in QMin:
+            QMin1['keepintegrals']=[]
         QMin1['gradmap']=[]
         QMin1['master_displacement']=[]
         if not 'h' in QMin and not 'soc' in QMin and not 'socdr' in QMin:
@@ -2440,7 +2544,7 @@ def generate_joblist(QMin):
         joblist.append({'master':QMin1})
 
         QMin2=deepcopy(QMin)
-        remove=['comment','ncpu','veloc','grad','h','soc','dm','overlap','socdr','dmdr']
+        remove=['comment','ncpu','veloc','grad','h','soc','dm','overlap','socdr','dmdr','ion']
         for r in remove:
             QMin2=removekey(QMin2,r)
         QMin2['newstep']=[]
@@ -2511,7 +2615,7 @@ def runjobs(joblist,QMin):
     if 'newstep' in QMin:
         moveJobIphs(QMin)
 
-    print 'Starting the job execution'
+    print '>>>>>>>>>>>>> Starting the job execution'
 
     errorcodes={}
     for jobset in joblist:
@@ -2624,7 +2728,7 @@ def numdiff(enp,enn,enc,displ,o1p,o2p,o1n,o2n,iatom,idir):
     return -g
 
 # ======================================================================= #
-def arrangeQMout(QMin,QMoutall):
+def arrangeQMout(QMin,QMoutall,QMoutDyson):
 
     #sys.exit(0)
 
@@ -2724,6 +2828,9 @@ def arrangeQMout(QMin,QMoutall):
                             dmdr[ipol][istate][jstate][iatom][xyz]=g
         QMout['dmdr']=dmdr
 
+    if 'ion' in QMin:
+        QMout['prop']=QMoutDyson
+
     if PRINT:
         print '\n==================================================================='
         print   '========================= Final Results ==========================='
@@ -2769,12 +2876,14 @@ def getcaspt2transform(out,mult):
     spinstring='Spin quantum number'
     statestring='Number of CI roots used'
     matrixstring='Eigenvectors:'
+    singlestatestring='This is a CASSCF or RASSCF reference function'
     stateindex=5
     refindex=2
 
     module = False
     correct_mult = False
     nstates=0
+    
     for i, line in enumerate(out):
         if modulestring in line:
             module = True
@@ -2787,6 +2896,8 @@ def getcaspt2transform(out,mult):
                 correct_mult = True
         elif statestring in line and module:
             nstates=int(line.split()[stateindex])
+        elif singlestatestring in line and module and correct_mult:
+            return [ [ 1. ] ]
         elif matrixstring in line and module and correct_mult:
             t=[ [ 0. for x in range(nstates) ] for y in range(nstates) ]
             for x in range(nstates):
@@ -2896,6 +3007,21 @@ def saveJobIphs(WORKDIR,QMin):
             print 'Copy:\t%s\n\t==>\n\t%s' % (fromfile,tofile)
         shutil.copy(fromfile,tofile)
 
+        if 'molden' in QMin:
+            # copy MOLDEN files
+            path=os.path.join(QMin['savedir'],'MOLDEN')
+            if not os.path.isdir(path):
+                try:
+                    os.makedirs(path)
+                except OSError:
+                    pass
+            try:
+                fromfile=os.path.join(WORKDIR,'MOLCAS.%i.molden' % (imult+1))
+                tofile=os.path.join(QMin['savedir'],'MOLDEN','MOLCAS.%i.molden' % (imult+1))
+                shutil.copy(fromfile,tofile)
+            except OSError:
+                pass
+
         if 'master_displacement' in QMin:
             fromfile=os.path.join(QMin['savedir'],'MOLCAS.%i.JobIph' % (imult+1))
             tofile=os.path.join(QMin['savedir'],'MOLCAS.%i.JobIph.master' % (imult+1))
@@ -2928,7 +3054,7 @@ def moveJobIphs(QMin):
 # ======================================================================= #
 def stripWORKDIR(WORKDIR):
     ls=os.listdir(WORKDIR)
-    keep=['MOLCAS.out','MOLCAS\.[1-9]\.JobIph']
+    keep=['MOLCAS.out','MOLCAS\.[1-9]\.JobIph','MOLCAS\.[1-9]\.RasOrb']
     for ifile in ls:
         delete=True
         for k in keep:
@@ -2940,6 +3066,422 @@ def stripWORKDIR(WORKDIR):
                 os.remove(rmfile)
 
 
+
+# =============================================================================================== #
+# =============================================================================================== #
+# ===========================================  Dyson norms  ===================================== #
+# =============================================================================================== #
+# =============================================================================================== #
+
+def decompose_csf(ms2,step):
+  # ms2 is M_S value
+  # step is step vector for CSF (e.g. 3333012021000)
+
+  def powmin1(x):
+    a=[1,-1]
+    return a[x%2]
+
+  # calculate key numbers
+  nopen=sum( [ i==1 or i==2 for i in step] )
+  nalpha=int(nopen/2.+ms2)
+  norb=len(step)
+
+  # make reference determinant
+  refdet=deepcopy(step)
+  for i in range(len(refdet)):
+    if refdet[i]==1:
+      refdet[i]=2
+
+  # get the b vector and the set of open shell orbitals
+  bval=[]
+  openorbs=[]
+  b=0
+  for i in range(norb):
+    if step[i]==1:
+      b+=1
+    elif step[i]==2:
+      b-=1
+    bval.append(b)
+    if refdet[i]==2:
+      openorbs.append(i)
+
+  # loop over the possible determinants
+  dets={}
+  # get all possible combinations of nalpha orbitals from the openorbs set
+  for localpha in itertools.combinations(openorbs, nalpha):
+    # make determinant string
+    det=deepcopy(refdet)
+    for i in localpha:
+      det[i]=1
+
+    # get coefficient
+    coeff=1.
+    sign=+1
+    m2=0
+    for k in range(norb):
+      if step[k]==1:
+        m2+=powmin1(det[k]+1)
+        num=bval[k]+powmin1(det[k]+1)*m2
+        denom=2.*bval[k]
+        if num==0.:
+          break
+        coeff*=1.*num/denom
+      elif step[k]==2:
+        m2+=powmin1(det[k]-1)
+        num=bval[k]+2+powmin1(det[k])*m2
+        denom=2.*(bval[k]+2)
+        sign*=powmin1(bval[k]+2-det[k])
+        if num==0.:
+          break
+        coeff*=1.*num/denom
+      elif step[k]==3:
+        sign*=powmin1(bval[k])
+        num=1.
+
+    # add determinant to dict if coefficient non-zero
+    if num!=0.:
+      dets[tuple(det)]=1.*sign*math.sqrt(coeff)
+
+  #pprint.pprint( dets)
+  return dets
+
+# ======================================================================= #
+def get_determinants(out,mult):
+
+    # first, find the correct RASSI output section for the given multiplicity
+    modulestring='MOLCAS executing module RASSI'
+    spinstring='SPIN MULTIPLICITY:'
+    stopstring='The following data are common to all the states'
+    module=False
+    jobiphmult=[]
+    for iline, line in enumerate(out):
+        if modulestring in line:
+            module=True
+            jobiphmult=[]
+        elif module:
+            if spinstring in line:
+                jobiphmult.append(int(line.split()[-1]))
+            if stopstring in line:
+                if all(i==mult for i in jobiphmult):
+                    break
+                else:
+                    module=False
+    else:
+        print 'Determinants not found!', mult
+        print 'No RASSI run for multiplicity %i found!' % (mult)
+        sys.exit(15)
+
+    # ndocc and nvirt
+    ndocc=-1
+    nvirt=-1
+    while True:
+        iline+=1
+        line=out[iline]
+        if ' INACTIVE ' in line:
+            ndocc=int(line.split()[-1])
+        if ' SECONDARY ' in line:
+            nvirt=int(line.split()[-1])
+        if ndocc!=-1 and nvirt!=-1:
+            break
+
+    # Get number of states
+    while True:
+        iline+=1
+        line=out[iline]
+        if 'Nr of states:' in line:
+            nstates=int(line.split()[-1])
+            break
+
+    # Now start searching at iline, collecting all CI vectors
+    # the dict has det-string tuples as keys and lists of float as values
+    ci_vectors={}
+    statesstring='READCI called for state'
+    stopstring='****************************'
+
+    for istate in range(nstates):
+        while True:
+            iline+=1
+            line=out[iline]
+            if statesstring in line:
+                state=int(line.split()[-1])
+                break
+        iline+=10
+        while True:
+            iline+=1
+            line=out[iline]
+            if stopstring in line:
+                break
+            s=line.split()
+            if s==[]:
+                continue
+            coef=float(s[-2])
+            if coef==0.:
+                continue
+            csf=s[-3]
+            step=[]
+            for i in csf:
+                if i=='2':
+                    step.append(3)
+                elif i=='d':
+                    step.append(2)
+                elif i=='u':
+                    step.append(1)
+                elif i=='0':
+                    step.append(0)
+            dets=decompose_csf( (mult-1)/2. ,step)
+            # add dets to ci_vectors
+            for det in dets:
+                if det in ci_vectors:
+                    d=state-len(ci_vectors[det])
+                    if d>0:
+                        ci_vectors[det].extend( [0.]*d )
+                    ci_vectors[det][state-1]+=coef*dets[det]
+                else:
+                    ci_vectors[det]=[0.]*state
+                    ci_vectors[det][state-1]+=coef*dets[det]
+    for det in ci_vectors.keys():
+        d=nstates-len(ci_vectors[det])
+        if d>0:
+            ci_vectors[det].extend( [0.]*d )
+        #if all( i==0. for i in ci_vectors[det] ):
+            #del ci_vectors[det]
+    ci_vectors['ndocc']=ndocc
+    ci_vectors['nvirt']=nvirt
+    #pprint.pprint( ci_vectors)
+    return ci_vectors
+
+# ======================================================================= #
+def format_ci_vectors(ci_vectors):
+    # get nstates, norb and ndets
+    for key in ci_vectors:
+        if key!='ndocc' and key!='nvirt':
+            nstates=len(ci_vectors[key])
+            norb=len(key)
+    ndets=len(ci_vectors)-2
+    ndocc=ci_vectors['ndocc']
+    nvirt=ci_vectors['nvirt']
+
+    # sort determinant strings
+    dets=[]
+    for key in ci_vectors:
+        if key!='ndocc' and key!='nvirt':
+            dets.append(key)
+    dets.sort(reverse=True)
+
+    string='%i %i %i\n' % (nstates,norb+ndocc+nvirt,ndets)
+    for det in dets:
+        for i in range(ndocc):
+            string+='d'
+        for o in det:
+            if o==0:
+                string+='e'
+            elif o==1:
+                string+='a'
+            elif o==2:
+                string+='b'
+            elif o==3:
+                string+='d'
+        for i in range(nvirt):
+            string+='e'
+        for c in ci_vectors[det]:
+            string+=' %16.12f ' % c
+        string+='\n'
+    return string
+
+# ======================================================================= #
+def runWFOVERLAPS(WORKDIR,wfoverlaps,memory=100,ncpu=1):
+    prevdir=os.getcwd()
+    os.chdir(WORKDIR)
+    string=wfoverlaps+' -m %i' % (memory) +' -f dyson.in'
+    stdoutfile=open(os.path.join(WORKDIR,'dyson.out'),'w')
+    stderrfile=open(os.path.join(WORKDIR,'dyson.err'),'w')
+    os.environ['OMP_NUM_THREADS']=str(ncpu)
+    if PRINT or DEBUG:
+        starttime=datetime.datetime.now()
+        sys.stdout.write('START:\t%s\t%s\t"%s"\n' % (WORKDIR,starttime,string))
+        sys.stdout.flush()
+    try:
+        runerror=sp.call(string,shell=True,stdout=stdoutfile,stderr=stderrfile)
+    except OSError:
+        print 'Call have had some serious problems:',OSError
+        sys.exit(61)
+    stdoutfile.close()
+    stderrfile.close()
+    if PRINT or DEBUG:
+        endtime=datetime.datetime.now()
+        sys.stdout.write('FINISH:\t%s\t%s\tRuntime: %s\tError Code: %i\n' % (WORKDIR,endtime,endtime-starttime,runerror))
+        sys.stdout.flush()
+    os.chdir(prevdir)
+    return runerror
+
+# ======================================================================= #
+def get_dysonel(out,s1,s2):
+  ilines=-1
+  while True:
+    ilines+=1
+    if ilines==len(out):
+      print 'Overlap of states %i - %i not found!' % (s1,s2)
+      sys.exit(25)
+    if containsstring('Dyson norm matrix |<PsiA_i|PsiB_j>|^2', out[ilines]):
+      break
+  ilines+=1+s1
+  f=out[ilines].split()
+  return float(f[s2+1])
+
+# ======================================================================= #
+
+def do_Dyson(QMin):
+    print '\n>>>>>>>>>>>>> Starting the Dyson calculations'
+
+    # create list of mult-pairings
+    states=QMin['states']
+    mult_pairs=[]
+    for i in range(len(states)-1):
+        if states[i]!=0 and states[i+1]!=0:
+            mult_pairs.append( (i+1,i+2) )
+
+    # create directories for each pair
+    for pair in mult_pairs:
+        path=os.path.join(QMin['scratchdir'],'Dyson_%i_%i' % (pair[0],pair[1]))
+        if os.path.exists(path):
+            if os.path.isfile(path):
+                print '%s exists and is a file!\n' % (path)
+                sys.exit(23)
+        else:
+            try:
+                os.makedirs(path)
+            except OSError:
+                print 'Can not create %s\n' % (SCRATCHDIR)
+                sys.exit(24)
+
+    # create list of multiplicities to treat and mapping to directories
+    mult_map={}
+    for pair in mult_pairs:
+        if pair[0] in mult_map:
+            mult_map[pair[0]].append(pair)
+        else:
+            mult_map[pair[0]]=[pair]
+        if pair[1] in mult_map:
+            mult_map[pair[1]].append(pair)
+        else:
+            mult_map[pair[1]]=[pair]
+    #print mult_map
+
+    # obtain the determinant files from master/MOLCAS.out
+    path=os.path.join(QMin['scratchdir'],'master','MOLCAS.out')
+    out=readfile(path)
+    nfrozen={}
+    for mult in mult_map:
+        ci_vectors=get_determinants(out,mult)
+        nfrozen[mult]=ci_vectors['ndocc']
+        for pair in mult_map[mult]:
+            path=os.path.join(QMin['scratchdir'],'Dyson_%i_%i' % (pair[0],pair[1]),'dets.%i' % mult)
+            #print path
+            string=format_ci_vectors(ci_vectors)
+            writefile(path,string)
+
+    # link the RasOrb files from master to Dyson_*_*
+    for mult in mult_map:
+        fromfile=os.path.join(QMin['scratchdir'],'master','MOLCAS.%i.RasOrb' % mult)
+        for pair in mult_map[mult]:
+            tofile=os.path.join(QMin['scratchdir'],'Dyson_%i_%i' % (pair[0],pair[1]),'MOLCAS.%i.RasOrb' % mult)
+            link(fromfile,tofile)
+
+    # link the integral files
+    fromRunFile=os.path.join(QMin['scratchdir'],'master','MOLCAS.RunFile')
+    fromOneInt=os.path.join(QMin['scratchdir'],'master','MOLCAS.OneInt')
+    for pair in mult_pairs:
+        path=os.path.join(QMin['scratchdir'],'Dyson_%i_%i' % (pair[0],pair[1]))
+        toRunFile=os.path.join(path,'RUNFILE')
+        link(fromRunFile,toRunFile)
+        toOneInt=os.path.join(path,'ONEINT')
+        link(fromOneInt,toOneInt)
+
+    # write input files
+    for pair in mult_pairs:
+        path=os.path.join(QMin['scratchdir'],'Dyson_%i_%i' % (pair[0],pair[1]))
+        inputfile=os.path.join(path,'dyson.in')
+        string='''ao_read=1
+a_mo=MOLCAS.%i.RasOrb
+b_mo=MOLCAS.%i.RasOrb
+a_det=dets.%i
+b_det=dets.%i
+a_mo_read=1
+b_mo_read=1
+same_aos
+''' % (pair[0],pair[1],pair[0],pair[1])
+        #frozen=min( nfrozen[pair[0]],nfrozen[pair[1]] )
+        #string+='\nndocc=%i\n' % (frozen)
+        writefile(inputfile,string)
+
+    # run the jobs subsequently with full number of CPUs
+    errorcodes={}
+    for pair in mult_pairs:
+        path=os.path.join(QMin['scratchdir'],'Dyson_%i_%i' % (pair[0],pair[1]))
+        runerror=runWFOVERLAPS(path,QMin['wfoverlap'],QMin['memory'],QMin['ncpu'])
+        errorcodes['Dyson_%i_%i' % (pair[0],pair[1])]=runerror
+    if PRINT:
+        string='\n  '+'='*40+'\n'
+        string+='||'+' '*40+'||\n'
+        string+='||'+' '*10+'All Tasks completed!'+' '*10+'||\n'
+        string+='||'+' '*40+'||\n'
+        string+='  '+'='*40+'\n'
+        print string
+        j=0
+        string='Error Codes:\n\n'
+        for i in errorcodes:
+            string+='\t%s\t%i\n' % (i+' '*(10-len(i)),errorcodes[i])
+        print string
+    if any((i!=0 for i in errorcodes.values())):
+        print 'Some subprocesses did not finish successfully!'
+        sys.exit(62)
+
+    # get the Dyson norms
+    nmstates=QMin['nmstates']
+    QMoutDyson=makecmatrix(nmstates,nmstates)
+    for pair in mult_pairs:
+        path=os.path.join(QMin['scratchdir'],'Dyson_%i_%i' % (pair[0],pair[1]), 'dyson.out')
+        out=readfile(path)
+        imult=pair[0]
+        jmult=pair[1]
+        for i in range(nmstates):
+            for j in range(nmstates):
+                m1,s1,ms1=tuple(QMin['statemap'][i+1])
+                m2,s2,ms2=tuple(QMin['statemap'][j+1])
+                if not (imult,jmult)==(m1,m2) and not (imult,jmult)==(m2,m1):
+                    continue
+                if not abs(ms1-ms2)==0.5:
+                    continue
+                if m1>m2:
+                    s1,s2=s2,s1
+                QMoutDyson[i][j]=get_dysonel(out,s1,s2)
+
+    return QMoutDyson
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# =============================================================================================== #
+# =============================================================================================== #
+# =========================================== Main routine  ===================================== #
+# =============================================================================================== #
+# =============================================================================================== #
 
 # ========================== Main Code =============================== #
 def main():
@@ -2981,7 +3523,15 @@ def main():
 
     # get output
     QMoutall=collectOutputs(joblist,QMin,errorcodes)
-    QMout=arrangeQMout(QMin,QMoutall)
+
+    # extract data, perform Dyson calculations
+    if 'ion' in QMin:
+        QMoutDyson=do_Dyson(QMin)
+    else:
+        QMoutDyson=None
+
+    # format final output
+    QMout=arrangeQMout(QMin,QMoutall,QMoutDyson)
 
     # Measure time
     runtime=measuretime()

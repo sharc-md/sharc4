@@ -210,7 +210,6 @@ do i=1,nstates
   string=trim(string)//string2
 enddo
 write(u_fosc_act,'(A)') trim(string)
-! write(u_fosc_act,'(A1,1X,2(A20,1X))') '#','[fs] |','[] |'
 
 
 write(u_spin,'(A1,1X,1000(I20,1X))') '#',(i,i=1,nstates+2)

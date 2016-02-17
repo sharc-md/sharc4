@@ -18,6 +18,13 @@ from optparse import OptionParser
 import readline
 import time
 import colorsys
+import pprint
+
+try:
+  import numpy
+  NONUMPY=False
+except ImportError:
+  NONUMPY=True
 
 # =========================================================0
 # compatibility stuff
@@ -46,6 +53,7 @@ CM_TO_HARTREE = 1./219474.6     #4.556335252e-6 # conversion factor from cm-1 to
 HARTREE_TO_EV = 27.211396132    # conversion factor from Hartree to eV
 U_TO_AMU = 1./5.4857990943e-4            # conversion from g/mol to amu
 BOHR_TO_ANG=0.529177211
+AU_TO_FS=0.024188843
 PI = math.pi
 
 version='1.0'
@@ -86,6 +94,124 @@ def itnmstates(states):
       x-=states[i]
     x+=states[i]
   return
+
+
+# =============================================================================================== #
+# =============================================================================================== #
+# =========================================== general routines ================================== #
+# =============================================================================================== #
+# =============================================================================================== #
+
+# ======================================================================= #
+def readfile(filename):
+  try:
+    f=open(filename)
+    out=f.readlines()
+    f.close()
+  except IOError:
+    print 'File %s does not exist!' % (filename)
+    sys.exit(12)
+  return out
+
+# ======================================================================= #
+def writefile(filename,content):
+  # content can be either a string or a list of strings
+  try:
+    f=open(filename,'w')
+    if isinstance(content,list):
+      for line in content:
+        f.write(line)
+    elif isinstance(content,str):
+      f.write(content)
+    else:
+      print 'Content %s cannot be written to file!' % (content)
+    f.close()
+  except IOError:
+    print 'Could not write to file %s!' % (filename)
+    sys.exit(13)
+
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+
+class output_dat:
+  def __init__(self,filename):
+    self.data=readfile(filename)
+    self.filename=filename
+    # get number of states
+    for line in self.data:
+      if 'nstates_m' in line:
+        s=line.split()[0:-2]
+        break
+    self.states=[ int(i) for i in s ]
+    nm=0
+    for i,n in enumerate(self.states):
+      nm+=n*(i+1)
+    self.nmstates=nm
+    # get line numbers where new timesteps start
+    self.startlines=[]
+    iline=-1
+    while True:
+      iline+=1
+      if iline==len(self.data):
+        break
+      if 'Step' in self.data[iline]:
+        self.startlines.append(iline)
+    self.current=0
+    #print self.states
+    #print self.nmstates
+    #print self.startlines
+    #print self.current
+
+  def __iter__(self):
+    return self
+
+  def next(self):
+    # returns time step, U matrix and diagonal state
+    # step
+    current=self.current
+    self.current+=1
+    if current+1>len(self.startlines):
+      raise StopIteration
+    # U matrix starts at startlines[current]+5+nmstates
+    U=[ [ 0 for i in range(self.nmstates) ] for j in range(self.nmstates) ]
+    for iline in range(self.nmstates):
+      index=self.startlines[current]+4+self.nmstates+iline
+      line=self.data[index]
+      s=line.split()
+      for j in range(self.nmstates):
+        r=float(s[2*j])
+        i=float(s[2*j+1])
+        U[iline][j]=complex(r,i)
+    # diagonal state, has to search linearly
+    while True:
+      index+=1
+      if index>len(self.data) or index==self.startlines[iline+1]:
+        print 'Error reading timestep %i in file %s' % (current,self.filename)
+        sys.exit(11)
+      line=self.data[index]
+      if 'states (diag, MCH)' in line:
+        state_diag=int(self.data[index+1].split()[0])
+        break
+    return current,U,state_diag
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 # ======================================================================================================================
@@ -286,7 +412,7 @@ def get_general():
           LD_dynamics=True
 
 
-  allowed=[i for i in range(1,10)]
+  allowed=[i for i in range(1,12)]
   print centerstring('Analyze Mode',60,'-')
   print '''\nThis script can analyze the classical populations in different ways:
 1       Number of trajectories in each diagonal state                                   from output.lis
@@ -299,10 +425,14 @@ def get_general():
 It can also sum the quantum amplitudes:
 7       Quantum amplitudes in diagonal picture                                          from output_data/coeff_diag.out
 8       Quantum amplitudes in MCH picture                                               from output_data/coeff_MCH.out
-9       Quantum amplitudes in MCH picture (multiplets summed up)                        from output_data/coeff_MCH.out'''
+9       Quantum amplitudes in MCH picture (multiplets summed up)                        from output_data/coeff_MCH.out
+
+It can also transform the classical diagonal populations to MCH basis (might take long):
+10      Transform diagonal populations to MCH states                                    from output.dat
+11      Transform diagonal populations to MCH states (multiplets summed up)             from output.dat'''
   if LD_dynamics:
-    print '10      Quantum amplitudes in diabatic picture                                          from output_data/coeff_diab.out'
-    allowed.append(10)
+    print '20      Quantum amplitudes in diabatic picture                                          from output_data/coeff_diab.out'
+    allowed.append(20)
   while True:
     num=question('Analyze mode:',int)[0]
     if not num in allowed:
@@ -317,7 +447,7 @@ It can also sum the quantum amplitudes:
 
 
 
-  if INFOS['mode'] in [6,7,8,9,10]:
+  if INFOS['mode'] in [6,7,8,9,20]:
     print 'Run data_extractor.x for each trajectory prior to performing the analysis?\nFor many or long trajectories, this might take some time.'
     run_extractor=question('Run data_extractor.x?',bool,True)
     if run_extractor:
@@ -332,7 +462,7 @@ It can also sum the quantum amplitudes:
 
 
 
-  if INFOS['mode'] in [1,2,3,7,8,9,10]:
+  if INFOS['mode'] in [1,2,3,7,8,9,20]:
 
     print centerstring('Number of states',60,'-')
     print '\nPlease enter the number of states as a list of integers\ne.g. 3 0 3 for three singlets, zero doublets and three triplets.'
@@ -467,8 +597,10 @@ def do_calc(INFOS):
         pathfile=path+'/output_data/coeff_diag.out'
       elif INFOS['mode'] in [8,9]:
         pathfile=path+'/output_data/coeff_MCH.out'
-      elif INFOS['mode'] in [10]:
+      elif INFOS['mode'] in [20]:
         pathfile=path+'/output_data/coeff_diab.out'
+      elif INFOS['mode'] in [10,11]:
+        pathfile=path+'/output.dat'
       if not os.path.isfile(pathfile):
         s+='%s NOT FOUND' % (pathfile)
         print s
@@ -493,56 +625,86 @@ def do_calc(INFOS):
     sys.exit(0)
 
   # get timestep
-  for ifile in files:
-    lisf=open(ifile)
-    file_valid=True
-    while True:
-      line=lisf.readline()
-      if line=='':
-        file_valid=False
+  if INFOS['mode'] in [1,2,3,4,5,6,7,8,9,20]:
+    for ifile in files:
+      lisf=open(ifile)
+      file_valid=True
+      while True:
+        line=lisf.readline()
+        if line=='':
+          file_valid=False
+          break
+        if line[0]=='#':
+          continue
         break
-      if line[0]=='#':
-        continue
-      break
-    if not file_valid:
-      lisf.close()
-      continue
-    f=line.split()
-    if INFOS['mode'] in [1,2,3,4,5]:
-      t0=float(f[1])
-    elif INFOS['mode'] in [6,7,8,9,10]:
-      t0=float(f[0])
-    N=0
-    while True:
-      line=lisf.readline()
-      if len(line)==0:
-        break
-      if line[0]=='#':
+      if not file_valid:
+        lisf.close()
         continue
       f=line.split()
-      l2=line
-      N+=1
-    if N==0:
-      continue
-    f=l2.split()
-    if INFOS['mode'] in [1,2,3,4,5]:
-      dt=(float(f[1])-t0)/N
-    elif INFOS['mode'] in [6,7,8,9,10]:
-      dt=(float(f[0])-t0)/N
-    if dt==0.:
-      print 'ERROR: Timestep is zero.'
-      quit(1)
-    lisf.close()
-    nsteps=int(INFOS['maxtime']/dt)+1
-    break
+      if INFOS['mode'] in [1,2,3,4,5]:
+        t0=float(f[1])
+      elif INFOS['mode'] in [6,7,8,9,20]:
+        t0=float(f[0])
+      N=0
+      while True:
+        line=lisf.readline()
+        if len(line)==0:
+          break
+        if line[0]=='#':
+          continue
+        f=line.split()
+        l2=line
+        N+=1
+      if N==0:
+        lisf.close()
+        continue
+      f=l2.split()
+      if INFOS['mode'] in [1,2,3,4,5]:
+        dt=(float(f[1])-t0)/N
+      elif INFOS['mode'] in [6,7,8,9,20]:
+        dt=(float(f[0])-t0)/N
+      if dt==0.:
+        print 'ERROR: Timestep is zero.'
+        quit(1)
+      lisf.close()
+      break
+  elif INFOS['mode'] in [10,11]:
+    for ifile in files:
+      lisf=open(ifile)
+      for line in lisf:
+        if 'dtstep' in line:
+          dt=float(line.split()[0])*AU_TO_FS
+          break
+      else:
+        lisf.close()
+        continue
+      lisf.close()
+      break
+
+  # get number of steps
+  nsteps=int(INFOS['maxtime']/dt)+1
 
   # get nstates
-  if INFOS['mode'] in [1,2,7,8,10]:
+  if INFOS['mode'] in [1,2,7,8,20]:
     nstates=INFOS['nmstates']
   elif INFOS['mode'] in [3,9]:
     nstates=INFOS['nstates']
   elif INFOS['mode'] in [4,5,6]:
     nstates=len(INFOS['histo'].binlist)+1
+  elif INFOS['mode'] in [10,11]:
+    output_first=output_dat(files[0])
+    INFOS['nmstates']=output_first.nmstates
+    INFOS['states']=output_first.states
+    nstates=0
+    for i in INFOS['states']:
+      nstates+=i
+    # obtain the statemap 
+    statemap={}
+    i=1
+    for imult,istate,ims,instate in itnmstates(INFOS['states']):
+      statemap[i]=[imult,istate,ims,instate]
+      i+=1
+    INFOS['statemap']=statemap
   print 'Found dt=%f, nsteps=%i, nstates=%i\n' % (dt,nsteps,nstates)
   INFOS['nstates']=nstates
 
@@ -552,63 +714,95 @@ def do_calc(INFOS):
   shortest=9999999.
   longest=0.
   for ifile in files:
-    lisf=open(ifile)
-    t=-1
-    for line in lisf:
-      if line[0]=='#':
-        continue
-      f=line.split()
-      t+=1
-      if t>=nsteps:
-        break
-
-      if INFOS['mode'] in [1,2,3,4,5,6]:
-        if INFOS['mode']==1:
-          state=int(f[2])-1
-        elif INFOS['mode']==2:
-          state=int(f[3])-1
-        elif INFOS['mode']==3:
-          state=int(f[3])
-          # state in nm scheme to state in n scheme
-          state=INFOS['statemap'][state][3]-1
-        elif INFOS['mode']==4:
-          state=INFOS['histo'].put(float(f[9]))
-        elif INFOS['mode']==5:
-          state=INFOS['histo'].put(float(f[8]))
-        elif INFOS['mode']==6:
-          state=INFOS['histo'].put(float(f[1]))
-        pop[t][state]+=1
-      elif INFOS['mode'] in [7,8,9,10]:
+    if INFOS['mode'] in [10,11]:
+      output_current=output_dat(ifile)
+      istep=-1
+      for istep,U,state_diag in output_current:
+        #print istep,state_diag
+        vec2=[ U[i][state_diag-1] for i in range(len(U)) ]
         vec=[ 0. for i in range(nstates)]
-        if INFOS['mode'] in [7,8,10]:
+        if INFOS['mode'] in [10]:
           for i in range(nstates):
-            vec[i]=float(f[2+2*i])**2+float(f[3+2*i])**2
-        if INFOS['mode']==9:
+            vec[i]=vec2[i].real**2+vec2[i].imag**2
+        elif INFOS['mode'] in [11]:
           for i in range(INFOS['nmstates']):
             state=INFOS['statemap'][i+1][3]-1
-            #imult,istate,ims=IstateToMultState(i+1,INFOS['states'])
-            #state=MultStateToIstate(imult,istate,INFOS['states'])-1
-            vec[state]+=float(f[2+2*i])**2+float(f[3+2*i])**2
-        for i in range(nstates):
-          pop[t][i]+=vec[i]
-    lisf.close()
-    if dt*t<shortest:
-      shortest=dt*t
-    if dt*t>longest:
-      longest=dt*t
-    if t==-1:
-      print '%s' % (ifile)+' '*(width-len(ifile))+'%i\tZero Timesteps found!' % (t)
-      ntraj-=1
-      continue
+            vec[state]+=vec2[i].real**2+vec2[i].imag**2
+        for istate in range(nstates):
+          pop[istep][istate]+=vec[istate]
+      if dt*istep<shortest:
+        shortest=dt*istep
+      if dt*istep>longest:
+        longest=dt*istep
+      if istep==-1:
+        print '%s' % (ifile)+' '*(width-len(ifile))+'%i\tZero Timesteps found!' % (t)
+        ntraj-=1
+        continue
+      else:
+        print '%s' % (ifile)+' '*(width-len(ifile))+'%i' % (istep)
+      while istep+1<nsteps:
+        istep+=1
+        if INFOS['mode'] in [10,11]:
+          for i in range(nstates):
+            pop[istep][i]+=vec[i]
     else:
-      print '%s' % (ifile)+' '*(width-len(ifile))+'%i' % (t)
-    while t+1<nsteps:
-      t+=1
-      if INFOS['mode'] in [1,2,3,4,5,6]:
-        pop[t][state]+=1
-      elif INFOS['mode'] in [7,8,9,10]:
-        for i in range(nstates):
-          pop[t][i]+=vec[i]
+      lisf=open(ifile)
+      t=-1
+      for line in lisf:
+        if line[0]=='#':
+          continue
+        f=line.split()
+        t+=1
+        if t>=nsteps:
+          break
+
+        if INFOS['mode'] in [1,2,3,4,5,6]:
+          if INFOS['mode']==1:
+            state=int(f[2])-1
+          elif INFOS['mode']==2:
+            state=int(f[3])-1
+          elif INFOS['mode']==3:
+            state=int(f[3])
+            # state in nm scheme to state in n scheme
+            state=INFOS['statemap'][state][3]-1
+          elif INFOS['mode']==4:
+            state=INFOS['histo'].put(float(f[9]))
+          elif INFOS['mode']==5:
+            state=INFOS['histo'].put(float(f[8]))
+          elif INFOS['mode']==6:
+            state=INFOS['histo'].put(float(f[1]))
+          pop[t][state]+=1
+        elif INFOS['mode'] in [7,8,9,20]:
+          vec=[ 0. for i in range(nstates)]
+          if INFOS['mode'] in [7,8,20]:
+            for i in range(nstates):
+              vec[i]=float(f[2+2*i])**2+float(f[3+2*i])**2
+          if INFOS['mode']==9:
+            for i in range(INFOS['nmstates']):
+              state=INFOS['statemap'][i+1][3]-1
+              #imult,istate,ims=IstateToMultState(i+1,INFOS['states'])
+              #state=MultStateToIstate(imult,istate,INFOS['states'])-1
+              vec[state]+=float(f[2+2*i])**2+float(f[3+2*i])**2
+          for i in range(nstates):
+            pop[t][i]+=vec[i]
+      lisf.close()
+      if dt*t<shortest:
+        shortest=dt*t
+      if dt*t>longest:
+        longest=dt*t
+      if t==-1:
+        print '%s' % (ifile)+' '*(width-len(ifile))+'%i\tZero Timesteps found!' % (t)
+        ntraj-=1
+        continue
+      else:
+        print '%s' % (ifile)+' '*(width-len(ifile))+'%i' % (t)
+      while t+1<nsteps:
+        t+=1
+        if INFOS['mode'] in [1,2,3,4,5,6]:
+          pop[t][state]+=1
+        elif INFOS['mode'] in [7,8,9,20]:
+          for i in range(nstates):
+            pop[t][i]+=vec[i]
   print 'Shortest trajectory: %f' % (shortest)
   print 'Longest trajectory: %f' % (longest)
   print 'Number of trajectories: %i' % (ntraj)
@@ -625,12 +819,12 @@ def do_calc(INFOS):
 
     if INFOS['mode'] in [1,7]:
       s+='%16s ' % ('X%i' % (i+1))
-    elif INFOS['mode'] in [2,8,10]:
+    elif INFOS['mode'] in [2,8,20,10]:
       mult,state,ms=tuple(INFOS['statemap'][i+1][0:3])
       #IstateToMultState(i+1,INFOS['states'])
       string='%s %i %i' % (IToMult[mult][0:3],state,ms)
       s+='%16s ' % (string)
-    elif INFOS['mode'] in [3,9]:
+    elif INFOS['mode'] in [3,9,11]:
       mult,state=tuple(INFOS['statemap'][i+1][0:2])
       #INstateToMultState(i+1,INFOS['states'])
       string='%s %i' % (IToMult[mult][0:3],state)
@@ -862,7 +1056,9 @@ def make_gnuplot(INFOS):
          7: 'Quantum amplitudes (diagonal)',
          8: 'Quantum amplitudes (MCH)',
          9: 'Quantum amplitudes (MCH, multiplets)',
-        10: 'Quantum amplitudes (diabatic)'
+        10: 'Transformed classical populations (MCH)',
+        11: 'Transformed classical populations (MCH)',
+        20: 'Quantum amplitudes (diabatic)'
         }
 
   gnustring='''set title "%s\\n%i Trajectories (Shortest %.1f fs, Longest %.1f fs)"
@@ -893,11 +1089,11 @@ set out '%s.png'
 
     if INFOS['mode'] in [1,7]:
       gnustring+='u 1:%i w l tit "State %i" lw 2.5 lc rgbcolor "%s"' % (istate+1,istate,R.hexcolor(1,istate) )
-    elif INFOS['mode'] in [2,8,10]:
+    elif INFOS['mode'] in [2,8,10,20]:
       mult,state,ms=tuple(INFOS['statemap'][istate][0:3])
       name=IToMult[mult]+' %i' % (state-(mult==1 or mult==2))
       gnustring+='u 1:%i w l tit "%s" lw 2.5 lc rgbcolor "%s"' % (istate+1,name,R.hexcolor(mult,state))
-    elif INFOS['mode'] in [3,9]:
+    elif INFOS['mode'] in [3,9,11]:
       gnustring+='u 1:%i' % (istate+1)
       for i in INFOS['statemap']:
         if istate==INFOS['statemap'][i][3]:

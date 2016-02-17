@@ -1514,7 +1514,7 @@ In order to setup the COLUMBUS input, use COLUMBUS' input facility colinp. For f
       print 'Dyson norms requested.'
     if Couplings[INFOS['coupling']]['name']=='overlap':
       print 'Wavefunction overlaps requested.'
-    INFOS['columbus.wfpath']=question('Path to wfoverlap executable:',str)
+    INFOS['columbus.wfpath']=question('Path to wavefunction overlap executable:',str)
     INFOS['columbus.wfthres']=question('Determinant screening threshold:',float,[1e-2])[0]
 
   ## cioverlaps
@@ -2050,6 +2050,20 @@ The MOLCAS interface will generate the appropriate MOLCAS input automatically.
 
 
 
+  # Ionization
+  need_wfoverlap=False
+  print centerstring('Ionization probability by Dyson norms',60,'-')+'\n'
+  INFOS['ion']=question('Dyson norms?',bool,False)
+  if 'ion' in INFOS and INFOS['ion']:
+    need_wfoverlap=True
+
+  # wfoverlap
+  if need_wfoverlap:
+    if 'ion' in INFOS and INFOS['ion']:
+      print 'Dyson norms requested.'
+    INFOS['molcas.wfpath']=question('Path to wavefunction overlap executable:',str)
+
+
   return INFOS
 
 # ======================================================================================================================
@@ -2126,7 +2140,7 @@ template %s
     #if INFOS['columbus.excitlf']:
       #string+='excitlists %s\n' % (INFOS['columbus.excitlf'])
     string+='wfthres %f\n' % (INFOS['columbus.wfthres'])
-    string+='fverlaps %s\n' % (INFOS['columbus.wfpath'])
+    string+='wfoverlap %s\n' % (INFOS['columbus.wfpath'])
   else:
     string+='nooverlap\n'
   sh2col.write(string)
@@ -2204,6 +2218,8 @@ project %s''' % (INFOS['molcas'],
                  INFOS['molcas.mem'],
                  INFOS['molcas.ncpu'],
                  project)
+  if 'ion' in INFOS and INFOS['ion']:
+    string+='\nwfoverlap %s\n' % INFOS['molcas.wfpath']
   sh2cas.write(string)
   sh2cas.close()
 

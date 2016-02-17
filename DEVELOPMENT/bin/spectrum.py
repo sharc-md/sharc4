@@ -439,7 +439,7 @@ def print_spectra(speclist,outputfile):
 
 # ======================================================================================================================
 
-def print_line_spectra(statelist,outputfile):
+def print_line_spectra(statelist,outputfile,INFOS):
   s='#%15i ' % (1)
   for i in range(len(statelist)+1):
     s+='%16i ' % (i+2)
@@ -454,10 +454,20 @@ def print_line_spectra(statelist,outputfile):
       s+='%16.12f ' % (ex.Eexc*HARTREE_TO_EV)
       for j in range(i):
         s+='%16.12f ' % (0.)
-      s+='%16.12f ' % (ex.Fosc)
+
+      if ex.Excited or not INFOS['selected']:
+        s+='%16.12f ' % (ex.Fosc)
+      else:
+        s+='%16.12f ' % (0.)
+
       for j in range(nstate-i-1):
         s+='%16.12f ' % (0.)
-      s+='%16.12f\n' % (ex.Fosc)
+
+      if ex.Excited or not INFOS['selected']:
+        s+='%16.12f ' % (ex.Fosc)
+      else:
+        s+='%16.12f ' % (0.)
+      s+='\n'
   out=open(outputfile,'w')
   out.write(s)
   out.close()
@@ -751,7 +761,7 @@ date %s
 
   statelist,INFOS=get_initconds(INFOS)
   if options.l:
-    print_line_spectra(statelist,outputfile)
+    print_line_spectra(statelist,outputfile,INFOS)
   else:
     speclist=make_spectra(statelist,INFOS)
     maxsum=print_spectra(speclist,outputfile)
