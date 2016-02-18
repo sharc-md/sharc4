@@ -12,6 +12,7 @@ Makefile:
 
 Tutorial:
 - mark background infos
+- state that the example figures could also look different (different compilers, etc)
 
 
 Others:

@@ -147,8 +147,14 @@ character*1024    :: sharcfacts(n_sharcfacts)   !< array containing the fun fact
     character*1023 :: filename
     logical :: exists
 
-    ! inquire the file
+    ! filename
     filename=trim(cwd)//'/STOP'
+
+    if (printlevel>2) then
+      write(u_log,*) 'Inquiring STOP file: "'//trim(filename)//'"'
+    endif
+
+    ! inquire the file
     inquire(file=filename, exist=exists)
     check_stop=exists
 

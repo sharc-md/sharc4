@@ -616,9 +616,13 @@ file. Returns molecule and modes as the other function does.
       for xyz in range(3):
         norm += modes[imode]['move'][j][xyz]**2
     norm = math.sqrt(norm)
-    for j, atom in enumerate(molecule):
-      for xyz in range(3):
-        modes[imode]['move'][j][xyz] /= norm
+    if norm!=0.0:
+      for j, atom in enumerate(molecule):
+        for xyz in range(3):
+          modes[imode]['move'][j][xyz] /= norm
+    elif modes[imode]['freq']>=LOW_FREQ*CM_TO_HARTREE:
+      print 'WARNING: Displacement vector of mode %i is null vector. Ignoring this mode!' % (imode+1)
+      modes[imode]['freq']=0.
     # now calculate the movement vectors, taking the mass of the atoms into account
     mu_reduced = 0.0
     for j, atom in enumerate(molecule):
@@ -1118,7 +1122,7 @@ Random number generator seed = %i''' % (['MOLDEN','MOLPRO'][options.M], filename
   string+='\nIsotopes with * are pure isotopes.\n'
   print string
 
-  string='Frequencies (cm^-1):\n'
+  string='Frequencies (cm^-1) used in the calculation:\n'
   for i,mode in enumerate(modes):
     string+='%4i %12.4f\n' % (i+1,mode['freq']/CM_TO_HARTREE)
   print string

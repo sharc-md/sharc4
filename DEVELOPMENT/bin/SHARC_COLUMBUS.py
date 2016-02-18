@@ -152,6 +152,10 @@ changelogstring='''
 22.06.2015:     1.1.2
 - the same code (wfoverlap) is now used for overlaps and Dyson norms
 - ciudgin thresholds are now used unaltered (except that the last threshold is reused for additional states)
+
+01.11.2015:
+- fixed "restart" keyword
+- added support for BASLIB keyword in Seward
 '''
 
 # ======================================================================= #
@@ -2050,7 +2054,7 @@ def readQMin(QMinfilename):
     print 'No tasks found! Tasks are "h", "soc", "dm", "grad", "nacdt", "nacdr" and "overlap".'
     sys.exit(45)
 
-  if 'samestep' in QMin and 'init' in QMin:
+  if ('samestep' in QMin and 'init' in QMin) or ('restart' in QMin and 'init' in QMin):
     print '"Init" and "Samestep" cannot be both present in QM.in!'
     sys.exit(46)
 
@@ -2058,7 +2062,7 @@ def readQMin(QMinfilename):
     print '"overlap" cannot be calculated in the first timestep! Delete either "overlap" or "init"'
     sys.exit(47)
 
-  if not 'init' in QMin and not 'samestep' in QMin:
+  if not 'init' in QMin and not 'samestep' in QMin and not 'restart' in QMin:
     QMin['newstep']=[]
 
   if not any([i in QMin for i in ['h','soc','dm','grad','nacdt','nacdr']]) and ('overlap' in QMin or 'ion' in QMin):
@@ -2479,7 +2483,7 @@ def readQMin(QMinfilename):
     for job in joblist:
       jobdir=job.replace('/','_')
       if 'overlap' in QMin:
-        if 'samestep' in QMin:
+        if 'samestep' in QMin or 'restart' in QMin:
           for drt,mult in enumerate(multmap[job]):
             required.append('dets.%i.old' % (mult))
           if QMin['integrals']=='seward':
@@ -2502,10 +2506,16 @@ def readQMin(QMinfilename):
           else:
             required.append('mocoef.%s' % (jobdir))
       if job==mocoefmap[job]:
-        if QMin['molcas_rasscf']:
-          required.append('molcas.RasOrb.%s' % (jobdir))
+        if 'restart' in QMin:
+          if QMin['molcas_rasscf']:
+            required.append('molcas.RasOrb.%s.old' % (jobdir))
+          else:
+            required.append('mocoef.%s.old' % (jobdir))
         else:
-          required.append('mocoef.%s' % (jobdir))
+          if QMin['molcas_rasscf']:
+            required.append('molcas.RasOrb.%s' % (jobdir))
+          else:
+            required.append('mocoef.%s' % (jobdir))
     ls=os.listdir(QMin['savedir'])
     for f in required:
       if not f in ls:
@@ -2659,7 +2669,7 @@ def gettasks(QMin):
   if 'molden' in QMin and not os.path.isdir(QMin['savedir']+'/MOLDEN'):
     tasks.append(['mkdir',QMin['savedir']+'/MOLDEN'])
 
-  if not 'samestep' in QMin and not 'init' in QMin:
+  if not 'samestep' in QMin and not 'init' in QMin and not 'restart' in QMin:
     tasks.append(['movetoold'])
 
   if 'backup' in QMin:
@@ -3036,7 +3046,7 @@ def mkdir(PATH):
         print 'INFO: %s exists and is a non-empty directory!' % (PATH)
         #sys.exit(69)
   else:
-    os.mkdir(PATH)
+    os.makedirs(PATH)
 
 # ======================================================================= #
 
@@ -3057,25 +3067,60 @@ def movetoold(QMin):
 
 # ======================================================================= #
 
-def link(PATH, NAME,crucial=True,force=False):
+#def link(PATH, NAME,crucial=True,force=False):
+  ## do not create broken links
+  #if not os.path.exists(PATH):
+    #print 'Source %s does not exist, cannot create link!' % (PATH)
+    #sys.exit(70)
+  ## do ln -f only if NAME is already a link
+  #if os.path.exists(NAME):
+    #if os.path.islink(NAME) or force:
+      #os.remove(NAME)
+    #else:
+      #print '%s exists, cannot create a link of the same name!' % (NAME)
+      #if crucial:
+        #sys.exit(71)
+      #else:
+        #return
+  #if not os.path.exists(os.path.realpath(NAME)):
+    #if os.path.islink(NAME):
+    ## NAME is already a broken link
+      #os.remove(NAME)
+    #else:
+      #return
+  #os.symlink(PATH, NAME)
+
+# ======================================================================= #
+
+def link(PATH,NAME,crucial=True,force=True):
   # do not create broken links
   if not os.path.exists(PATH):
     print 'Source %s does not exist, cannot create link!' % (PATH)
     sys.exit(70)
-  # do ln -f only if NAME is already a link
-  if os.path.exists(NAME):
-    if os.path.islink(NAME) or force:
+  if os.path.islink(NAME):
+    if not os.path.exists(NAME):
+      # NAME is a broken link, remove it so that a new link can be made
       os.remove(NAME)
     else:
-      print '%s exists, cannot create a link of the same name!' % (NAME)
-      if crucial:
-        sys.exit(71)
+      # NAME is a symlink pointing to a valid file
+      if force:
+        # remove the link if forced to
+        os.remove(NAME)
       else:
-        return
-  #if not os.path.exists(os.path.realpath(NAME)):
-    ## NAME is already a broken link
-    #os.remove(NAME)
+        print '%s exists, cannot create a link of the same name!' % (NAME)
+        if crucial:
+          sys.exit(71)
+        else:
+          return
+  elif os.path.exists(NAME):
+    # NAME is not a link. The interface will not overwrite files/directories with links, even with force=True
+    print '%s exists, cannot create a link of the same name!' % (NAME)
+    if crucial:
+      sys.exit(72)
+    else:
+      return
   os.symlink(PATH, NAME)
+
 
 # ======================================================================= #
 def cleandir(directory):
@@ -3149,7 +3194,9 @@ def checkinput(QMin):
   if QMin['integrals']=='seward':
     fname=QMin['scratchdir']+'/JOB/molcas.input'
     molcas=readfile(fname)
-    necessary=['amfi','angmom']
+    necessary=['angmom']
+    if 'soc' in QMin:
+      necessary.append('amfi')
     if QMin['molcas_rasscf']:
       necessary.append('&rasscf')
     allthere=[False for i in necessary]
@@ -3384,8 +3431,9 @@ def writemolcas(oldgeom,newgeom,molcasinfile):
   # =================
   atomlabel=re.compile('[a-zA-Z][a-zA-Z]?[1-9][0-9]*')
   numberlabel=re.compile('[-]?[0-9]+[.][0-9]*')
-  basislabel=re.compile('[bB]asis')
-  basisinfo=re.compile('[a-zA-Z][a-zA-Z]?[.]')
+  #basislabel=re.compile('[bB]asis')
+  basislabel=re.compile('^[bB]asis [sS]et|^[Ee]nd of [bB]asis')
+  basisinfo=re.compile('^[a-zA-Z][a-zA-Z]?[.]')
   # =================
   def isatom(line):
     parts=line.split()
@@ -3413,6 +3461,14 @@ def writemolcas(oldgeom,newgeom,molcasinfile):
   geomnew=readfile(newgeom)
 
   string='&SEWARD &END\nONEOnly\nEXPErt\nNOGUessorb\nNODElete\nNODKroll\nNOAMfi\nMULTipoles\n0\n\n'
+
+  # check for BASLIB keyword
+  for i,line in enumerate(geomold):
+    if 'baslib' in line.lower():
+      string+='BASLIB\n'
+      string+=geomold[i+1]+'\n'
+      break
+
   # go through old geometry file
   atom=1
   for line in geomold:
@@ -3616,6 +3672,13 @@ def make_dets_new(job,QMin):
   mults=QMin['multmap'][job]
   # for all DRTs, call read_civfl
   os.chdir(os.path.join(QMin['scratchdir'],'JOB','WORK'))
+
+  # delete cidrtfl, if it exists
+  if not QMin['socimap'][job]==-1:
+    filename='cidrtfl'
+    if os.path.isfile(filename):
+      os.remove(filename)
+
   for imult in mults:
 
     if QMin['socimap'][job]==1 or QMin['socimap'][job]==0:
