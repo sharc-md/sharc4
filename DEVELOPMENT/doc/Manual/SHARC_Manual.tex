@@ -9,8 +9,8 @@
 % | do the following replacements (with search and replace):
 % |
 % | for TTH      for TTM
-% | \tthdump <-> \tthdump
-% | %%tth:   <-> %%tth: 
+% | \tthdump <-> \ttmdump
+% | %%tth:   <-> %%ttm: 
 % |
 % |
 % | ************************************************
@@ -87,7 +87,7 @@
   \begin{titlepage}
     \title{\hspace{1cm}\includegraphics[width=0.8\textwidth,keepaspectratio=true]{img/sharc.pdf}\\[0.5cm]
     SHARC: Surface Hopping in the Adiabatic Representation Including Arbitrary Couplings}
-    \subtitle{Manual\\[1cm]Version 1.0}
+    \subtitle{Manual\\[1cm]Version 1.1}
     \date{Vienna, \today}
     \author{AG Gonz\'alez\\
 Institute of Theoretical Chemistry\\
@@ -297,9 +297,9 @@ Other features implemented in the \sharc\ suite are described in the following r
 
 The quantum chemistry programs to which interfaces with \sharc\ exist are described in the following sources:
 \begin{itemize}
-  \item \textsc{Columbus}: \cite{Lischka2011WCMS, Lischka2012, Yabushita1999JPCA, Mai2014JCP_reindex},
   \item \textsc{Molpro}: \cite{Werner2012WCMS, Werner2012},
-  \item \textsc{Molcas}: \cite{Karlstrom2003CMS, Aquilante2010JCC}.
+  \item \textsc{Molcas}: \cite{Karlstrom2003CMS, Aquilante2010JCC, Aquilante2015JCC},
+  \item \textsc{Columbus}: \cite{Lischka2011WCMS, Lischka2012, Yabushita1999JPCA, Mai2014JCP_reindex}.
 \end{itemize}
 
 \section{Authors}
@@ -496,18 +496,21 @@ If any of the tests show differences between output and reference output, it is 
 
 \subsection{Additional Programs}
 
-For full functionality of the \sharc\ suite, several additional programs are recommended:
+For full functionality of the \sharc\ suite, several additional programs are recommended (all of these programs are currently freely available):
 \begin{itemize}
   \item The Python package \href{http://www.numpy.org/}{\textsc{NumPy}}.
   \item The \href{http://www.gnuplot.info/}{\textsc{Gnuplot}} plotting software.
   \item A program for molecular visualization, able to read files in the xyz file format (e.g.\ \href{http://www.cmbi.ru.nl/molden/molden.html}{\textsc{Molden}}, \href{http://gabedit.sourceforge.net/}{\textsc{Gabedit}}, \href{http://molekel.cscs.ch/wiki/pmwiki.php}{\textsc{Molekel}} or \href{http://www.ks.uiuc.edu/Research/vmd/}{VMD})
+  \item The \href{http://maxima.sourceforge.net/}{\textsc{Maxima}} computer algebra system.
 \end{itemize}
 
 Optimally, within your Python installation the \textsc{NumPy} package (which provides many numerical methods, e.g., matrix diagonalization) should be available. If \textsc{NumPy} is not available, the \sharc\ suite is still functional, and the affected scripts will fall back to use a small Fortran code (front-end for LAPACK) within the \sharc\ package. Since in the Python scripts no large-scale matrix calculations are carried out, there should be no significant performance loss if \textsc{NumPy} is not available.
 
 \textsc{Gnuplot} is not strictly necessary, since all output files could be plotted using other plotting programs. However, a number of scripts from the \sharc\ suite automatically generate \textsc{Gnuplot} scripts after data processing, allowing to quickly plot the output files.
 
-% Molecular visualization software ..
+Molecular visualization software is needed in order to visualize molecular motion in the dynamics.
+
+The computer algebra system \textsc{Maxima} is necessary for the use of \ttt{make\_fitscript.py}, a program which allows to perform global fits of chemical kinetics models to populations data.
 
 \subsection{Quantum Chemistry Programs}
 
@@ -516,8 +519,8 @@ Even though \sharc\ comes with an interface for analytical potentials (and hence
   \item \href{http://www.molpro.net/}{\textsc{Molpro}} (this release was checked against \textsc{Molpro} 2010 and 2012).
   \item \href{http://http://molcas.org/}{\textsc{Molcas}} (this release was checked against \textsc{Molcas} 7.8 and 8.0).
   \begin{itemize}
-    \item \href{http://www.univie.ac.at/columbus/docs_COL70/documentation_main.html}{\textsc{Columbus} 7}, interfaced to \href{http://http://molcas.org/}{\textsc{Molcas}}, for correlated multi-reference wavefunctions. 
-%     \item \href{http://dasher.wustl.edu/tinker/}{Tinker}, interfaced to \textsc{Molcas} 7.8 or 8.0 for QM/MM dynamics.
+    \item \href{http://www.univie.ac.at/columbus/docs_COL70/documentation_main.html}{\textsc{Columbus} 7}, interfaced to \href{http://http://molcas.org/}{\textsc{Molcas}}, for multi-reference configuration interaction wavefunctions. 
+%     \item \href{http://dasher.wustl.edu/tinker/}{Tinker}, interfaced to \textsc{Molcas} 7.8 or 8.0 for QM/MM dynamics with CASSCF.
   \end{itemize}
 \end{itemize}
 
@@ -639,7 +642,10 @@ In order to signal \sharc\ to terminate a trajectory after the current timestep 
 Each trajectory can be analyzed independently by inspecting the output files (see chapter~\ref{chap:output}). Most importantly, calling \ttt{data\_extractor.x} (\ref{sec:data_extractor.x}) on the \ttt{output.dat} file of a trajectory creates a number of formatted files which can be plotted with the help of \ttt{make\_gnuscript.py} (\ref{sec:make_gnuscript.py}) and \textsc{Gnuplot}.
 The nuclear geometries in \ttt{output.xyz} file can be analyzed in terms of internal coordinates (bond lengths, angles, ring conformations, etc.) using \ttt{geo.py} (\ref{sec:geo.py}).
 
-For the complete ensemble, the script \ttt{populations.py} (section~\ref{sec:populations.py} can calculate average excited-state populations. The script~\ttt{crossing.py} (\ref{sec:crossing.py}) can find and extract notable geometries, e.g., those geometries where a surface hop between two particular states occured.
+For the complete ensemble, the script \ttt{populations.py} (section~\ref{sec:populations.py}) can calculate average excited-state populations. 
+The script \ttt{transition.py} (section~\ref{sec:transition.py}) can analyze the total number of hops between all pairs of states in an ensemble, allowing to identify relevant relaxation routes in the dynamics.
+Using the script \ttt{make\_fitscript.py} (\ref{sec:make_fitscript.py}), it is possible to make elaborate global fits of chemical kinetics models to the populations data, allowing to extract rate constants from the populations.
+The script~\ttt{crossing.py} (\ref{sec:crossing.py}) can find and extract notable geometries, e.g., those geometries where a surface hop between two particular states occured.
 
 It is advisable that any trajectories which are not suitable for final analysis (e.g., not finished due to technical reasons, unreasonable variation in total energy, etc.) are excluded from the analysis. 
 This can be conveniently accomplished by placing a file named \ttt{CRASHED} in the directory of the respective trajectory. 
@@ -654,8 +660,8 @@ The following tables list the auxiliary programs in the \sharc\ suite. The right
 
 \begin{tabular}{>{\tt}lp{9.5cm}r}
   wigner.py             &Creates initial conditions from Wigner distribution.                   &\ref{sec:wigner.py}\\
-  setup\_init.py        &Sets up initial vertical excitation calculations.                              &\ref{sec:setup_init.py}\\
-  excite.py             &Generates excited state lists for initial conditions and selects initial states.                                            &\ref{sec:excite.py}\\
+  setup\_init.py        &Sets up initial vertical excitation calculations.                      &\ref{sec:setup_init.py}\\
+  excite.py             &Generates excited state lists for initial conditions and selects initial states.                 &\ref{sec:excite.py}\\
   setup\_traj.py        &Sets up the dynamics simulations based on the initial conditions.      &\ref{sec:setup_traj.py}\\
   laser.x               &Prepares files containing laser fields.                                &\ref{sec:laser.x}\\
   molpro\_input.py      &Prepares \textsc{Molpro} input files for common jobs.                  &\ref{sec:molpro_input.py}\\
@@ -669,10 +675,12 @@ The following tables list the auxiliary programs in the \sharc\ suite. The right
   spectrum.py           &Generates absorption spectra from initial conditions files.            &\ref{sec:spectrum.py}\\
   retrieve.sh           &\ttt{scp} wrapper to retrieve dynamics output during the simulation.   &\ref{sec:retrieve}\\
   data\_extractor.x     &Extracts plottable results from the \sharc\ output data file.          &\ref{sec:data_extractor.x}\\
-  make\_gnuscript.py    &Creates gnuplot scripts for a given number of states.                  &\ref{sec:make_gnuscript.py}\\
+  make\_gnuscript.py    &Creates gnuplot scripts to plot trajectory data.                       &\ref{sec:make_gnuscript.py}\\
   populations.py        &Calculates ensemble populations.                                       &\ref{sec:populations.py}\\
-  crossing.py           &Extracts specific geometries from ensembles.                                          &\ref{sec:crossing.py}\\
-  geo.py                &Calculates internal coordinates from xyz files.              &\ref{sec:geo.py}\\
+  transition.py         &Calculates total number of hops within an ensemble.                    &\ref{sec:transition.py}\\
+  make\_fitscript.py    &Creates gnuplot scripts to fit kinetic models to population data.      &\ref{sec:make_fitscript.py}\\
+  crossing.py           &Extracts specific geometries from ensembles.                           &\ref{sec:crossing.py}\\
+  geo.py                &Calculates internal coordinates from xyz files.                        &\ref{sec:geo.py}\\
 \end{tabular}
 
 \subsection{Interfaces}
@@ -1727,7 +1735,8 @@ basis           &The basis set used. Note that some basis sets (e.g., Pople basi
 ras2            &Number of active orbitals for CASSCF.\\
 nactel          &Number of active electrons for CASSCF.\\
 inactive        &Number of inactive orbitals.\\
-spin            &The full line reads as \ttt{spin s roots r} and specifies the number of roots for the given multiplicity. This influences only the number of states in the state-averaging procedure. The number of states in the dynamics must not be larger than the number of states given here. This input style is still valid but deprecated.\\
+frozen          &Number of frozen orbitals for CASPT2. Default is to let \textsc{Molcas} choose the number of frozen orbitals.\\
+spin            &The full line reads as \ttt{spin s roots r} and specifies the number of roots for the given multiplicity. This influences only the number of states in the state-averaging procedure. The number of states in the dynamics must not be larger than the number of states given here. This input style is still valid but deprecated, the \ttt{roots} keyword should be used instead.\\
 roots           &Followed by a list of integers, giving the number of states per multiplicity in the state-averaging procedure. This keyword is recommended over the \ttt{spin} keyword.\\
 method          &Followed by a string, which is either ``CASSCF'', ``CASPT2'' or ``MS-CASPT2'' (case insensitive), defining the level of theory. Default is ``CASSCF''.\\
 no-douglas-kroll&Deactivates the use of the scalar-relativistic DK Hamiltonian and uses a non-relativistic Hamiltonian instead. Default is Douglas-Kroll-Hess 2nd order  (In \textsc{Molcas} standard parametrization).\\
@@ -1812,7 +1821,9 @@ For each multiplicity, the number of states for the state-averaging procedure mu
 
 \section{COLUMBUS Interface}\label{sec:int:columbus}
 
-The \sharc-\textsc{Columbus} interface allows to run \sharc\ dynamics based on \textsc{Columbus}' CASSCF, RASSCF, MRCI and LRT-MRAQCC wavefunctions. The interface is compatible to \textsc{Columbus} calculations utilizing the \textsc{Columbus}-\textsc{Molcas} interface only (\textsc{Seward} integrals and \textsc{Alaska} gradients). Unfortunately, time derivatives and non-adiabatic coupling vectors cannot be calculated with this setup, only wavefunction overlaps can be obtained. The interface utilizes the \ttt{cioverlap} program by Jiri Pittner \cite{Pittner2009CP} to calculate the overlap matrices needed for local diabatization propagation. The interface can also calculate Dyson norms between neutral and ionic wavefunctions using a suitable user-supplied code.
+The \sharc-\textsc{Columbus} interface allows to run \sharc\ dynamics based on \textsc{Columbus}' CASSCF, RASSCF and MRCI type wavefunctions. The interface is compatible to \textsc{Columbus} calculations utilizing the \textsc{Columbus}-\textsc{Molcas} interface (\textsc{Seward} integrals and \textsc{Alaska} gradients) or with integrals from \textsc{Dalton} (no SOC available).
+Time derivatives cannot be calculated with the \textsc{Columbus} interface, and non-adiabatic coupling vectors are only available with \textsc{Dalton} integrals; however, wavefunction overlaps can always be used.
+The interface can also calculate Dyson norms between neutral and ionic wavefunctions using a suitable code.
 %Matthias Ruckenbauer's Dyson code (or any other suitable code). 
 
 The interface needs as additional input the file \ttt{QM/SH2COL.inp} and a template directory containing all input files needed for the \textsc{Columbus} calculations. Additionally, initial MOs can be given in the file \ttt{QM/mocoef\_mc.init}.
@@ -1822,23 +1833,29 @@ The interface needs as additional input the file \ttt{QM/SH2COL.inp} and a templ
 The interface does not generate the full \textsc{Columbus} input on-the-fly. Instead, the interface uses an existing set of input files and performs only necessary modifications (e.g., the number of states). The set of input files must be provided by the user. Please see the \href{http://www.univie.ac.at/columbus/docs_COL70/documentation_main.html}{\textsc{Columbus} online documentation} and, most importantly, the 
 \href{http://www.univie.ac.at/columbus/docs_COL70/tutorial-SO.pdf}{\textsc{Columbus} SOCI tutorial} for a documentation of the necessary input.
 
-Generally, the input consists of a directory with one subdirectory with input for each multiplicity (singlets, doublets, triplets, \dots). However, even-electron wavefunctions of different multiplicities can be computed together in the same job if spin-orbit couplings are desired. Otherwise independent multiple-DRT inputs (ISC keyword) are also acceptable. Note that symmetry is not allowed when using the interface.
+Generally, the input consists of a directory with one subdirectory with input for each multiplicity (singlets, doublets, triplets, \dots). However, even-electron wavefunctions of different multiplicities can be computed together in the same job if spin-orbit couplings are desired. Independent multiple-DRT inputs (ISC keyword) are also acceptable. Note that symmetry is not allowed when using the interface.
 
 The path to the template directory must be given in \ttt{SH2COL.inp}.
 
 \paragraph{Integral input}
 
-The interface is only able to use input for calculations using \textsc{Molpro/Seward} integrals. Also make sure that you include scalar-relativistic (Douglas-Kroll-Hess) and spin-orbit (AMFI) effects in the integral input.
+The interface is able to use input for calculations using \textsc{Seward} or \textsc{Dalton} integrals. 
+If you want to calculation SOC, you have to use \textsc{Seward} and have to include the AMFI keyword in the integral input.
+If you use \textsc{Dalton}, SOCs are not available, but it is possible to compute non-adiabatic couplings.
 
 It is important to make sure that \textbf{the order of atoms} in the template input files and in the \sharc\ input \textbf{is consistent}.
 
+Furthermore, it is necessary to prepare all template subdirectories with the same integral code and the same AO basis set. 
+
 \paragraph{MCSCF input}
 
-The MCSCF section can use any desired state-averaging scheme. However, frozen core orbitals in the MCSCF step are not possible (since otherwise gradients cannot be computed). Prepare the MCSCF input for CI gradients. It is advisable to use very tight MCSCF convergence criteria.
+The MCSCF section can use any desired state-averaging scheme, since the number of states in MCSCF is independent of the number of states in the MRCI module. However, frozen core orbitals in the MCSCF step are not possible (since otherwise gradients cannot be computed). Prepare the MCSCF input for CI gradients. It is advisable to use very tight MCSCF convergence criteria.
+
+If gradients are not needed, you can also manually prepare a \textsc{Molcas} RASSCF input in \ttt{molcas.input}, in order to use \textsc{Molcas} RASSCF instead of \textsc{Columbus} MCSCF (see \ttt{molcas\_rasscf} keyword).
 
 \paragraph{MRCI input}
 
-Either prepare a single-DRT input without SOCI (to cover a single multiplicity), a single-DRT input with SOCI and a sufficient maximum multiplicity for spin-orbit couplings or a independent multiple-DRT input (ISC case). Make sure that all multiplicities are covered with all input directories.
+Either prepare a single-DRT input without SOCI (to cover a single multiplicity), a single-DRT input with SOCI and a sufficient maximum multiplicity for spin-orbit couplings or an independent multiple-DRT input (as, e.g., for ISC optimizations). Make sure that all multiplicities are covered with all input directories.
 
 In the MRCI input, make sure to use sequential \ttt{ciudg}. Also take care to setup gradient input on MRCI level.
 
@@ -1848,42 +1865,81 @@ Setup a single-point calculation with the following steps:
 \begin{itemize}
   \item SCF
   \item MCSCF
-  \item MR-CISD (serial operation) or SO-CI coupled to non-rel CI (for SOCI DRT inputs)
+  \item MR-CISD (serial operation) \textbf{or} SO-CI coupled to non-rel CI (for SOCI DRT inputs)
   \item one-electron properties for all methods
   \item transition moments for MR-CISD
   \item nonadiabatic couplings (and/or gradients)
 \end{itemize}
 
-Request first transition moments and interstate couplings in the following dialogues. Analysis in internal coordinates and intersection slope analysis are not required.
+Request first transition moments and interstate couplings (or full non-adiabatic couplings if Dalton integrals are used) in the following dialogues. Analysis in internal coordinates and intersection slope analysis are not required.
 
 \subsection{Interface specific input file: \ttt{SH2COL.inp}}
 
 Beyond the information from \ttt{QM.in} the interface needs additional input, which is read from the file \ttt{SH2COL.inp}. Table~\ref{tab:columbus_sh2} lists the keywords which can be given in the file.
 
-\begin{table}
-  \centering
+
+
+\begin{longtable}{>{\tt}lp{12cm}}
   \caption{Keywords for the \ttt{SH2COL.inp} file.}
-  \label{tab:columbus_sh2}
-  \begin{tabular}{>{\tt}lp{12cm}}
-  \toprule
-  Keyword       &Description\\
-  \midrule
-columbus        &Is followed by a string giving the path to the \textsc{Columbus} main directory. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used.\\
-molcas          &Is followed by a string giving the path to the \textsc{Molcas} main directory.  Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. This path is only used for overlap calculations (since in this case the interface calls \textsc{Molcas} explicitly). Otherwise \textsc{Columbus} will use the path to \textsc{Molcas} specified during the installation of \textsc{Columbus}.\\
-scratchdir      &Is a path to the temporary directory. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. If it does not exist, the interface will create it. In any case, the interface will delete this directory after the calculation.\\
-savedir         &Is a path to another temporary directory.  Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. The interface will store files needed for restart there.\\
-dyson           &Path to the dyson code. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. Only necessary if Dyson norms are calculated. Needs a suitable code that computes Dyson norms.\\
-civecconsolidate&Path to the civecconsolidate code suitable for preparation of input for the Dyson program (CI vectors in terms of determinants). Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. Only used if Dyson norms are calculated. If not present, the civecconsolidate code in the \ttt{\$COLUMBUS} directory is used. Note that in the current version of \textsc{Columbus} (Oct. 2014) civecconsolidate is not compatible with the calculation of Dyson norms.\\
-memory          &(integer, MB) Memory for \textsc{Columbus}. Note that the maximum amount of memory used by cioverlaps cannot be controlled with this keyword.\\
-ciothres        &(float) Threshold for including a pair of determinants in the cioverlaps program.\\
-dysonthres      &(float) Threshold for including a pair of determinants in the calculation of Dyson norms.\\
-nooverlap       &(no argument) Do not keep the binary files necessary to calculate wavefunction overlaps in the next timestep.\\
-template        &Is followed by the path to the directory containing the template subdirectories. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used.\\
+  \label{tab:columbus_sh2}\\
+
+% ========================================
+
+    \hline
+    \rmfamily Keyword     &Description\\
+    \hline
+  \endfirsthead
+
+% ========================================
+
+\tthdump{
+    \multicolumn{2}{c}{{\bfseries \tablename\ \thetable{} \mdseries-- Continued from previous page}} \\
+    \hline
+    \rmfamily Keyword     &Description\\
+    \hline
+  \endhead
+}
+
+% ========================================
+
+\tthdump{
+    \hline 
+    \multicolumn{2}{r}{{Continued on next page}} \\ 
+%     \hline
+  \endfoot
+}
+  
+% =======================================
+
+\tthdump{
+    \hline
+  \endlastfoot
+}
+
+columbus        &Path to the \textsc{Columbus} main directory. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used.\\
+molcas          &Path to the \textsc{Molcas} main directory.  Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. This path is only used for overlap/Dyson calculations (since in this case the interface calls \textsc{Molcas} explicitly). Otherwise \textsc{Columbus} will use the path to \textsc{Molcas} specified during the installation of \textsc{Columbus}.\\
+% dyson           &Path to the Dyson code. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. Only necessary if Dyson norms are calculated. Needs a suitable code that computes Dyson norms.\\
+wfoverlap       &Path to the wavefunction overlap and Dyson norm code. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. Only necessary if overlaps or Dyson norms are calculated. Needs a suitable code that computes overlaps of CI wavefunctions.\\
+runc            &Path to the \ttt{runc} script for \textsc{Columbus} execution. Default is \ttt{\$COLUMBUS/runc}. This keyword is intended for users who like to modify \ttt{runc}.\\
+scratchdir      &Path to the temporary directory, used to perform the \textsc{Columbus} calculations. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. If it does not exist, the interface will create it. The interface will delete this directory after the calculation.\\
+savedir         &Path to another directory.  Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. The interface will store files needed for restart in this directory. Default is a subdirectory of the directory where the interface is executed.\\
+memory          &(integer, MB) Memory for \textsc{Columbus}. The maximum amount of memory used by the wfoverlap code is also controlled with this keyword.\\
+ncpu            &(integer) Number of CPU cores to use for SMP-parallel execution of the wfoverlap code. Parallel \textsc{Columbus} is currently not supported.\\
+wfthres         &(float) Gives the amount of wavefunction norm which will be neglected in the generation of the determinant files for Dyson and overlap calculations. Default is 0.03 (i.e., the wavefunctions in the determinant files will have a norm of 0.97)\\
+% dysonthres      &(float) Threshold for including a pair of determinants in the calculation of Dyson norms. Since screening with \ttt{ciothres} is more efficient, \ttt{dysonthres} should be kept at the default ($10^{-12}$).\\
+nooverlap       &(no argument) Do not keep the files necessary to calculate wavefunction overlaps in the next timestep. If Dyson norms are requested, \ttt{nooverlap} is ignored.\\
+always\_mocoef\_init    &Use the initial MO guess (\ttt{mocoef\_mc.init}) for all timesteps, not only for the first step.\\
+always\_scf     &In all timesteps obtain the MO guess from an SCF calculation, instead of using the MOs from the previous step.\\
+integrals       &Followed by a string which is either \ttt{seward} or \ttt{dalton}. Chooses the integral program for \textsc{Columbus}. Note that with \textsc{Dalton} integrals SOC is not available. Default is \ttt{seward}.\\
+molcas\_rasscf  &Use \textsc{Molcas}' RASSCF program instead of \textsc{Columbus}' MCSCF program. Needs a properly prepared \textsc{Columbus} input (A \ttt{\&RASSCF} section in \ttt{molcas.input}). Note that gradients are not available in this mode (Hence, this option is mainly intended for spectrum simulations without dynamics).\\
+template        &Is followed by the path to the directory containing the template subdirectories. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. See also \ref{int:col:template}.\\
 DIR             &See \ref{int:col:template}.\\
 MOCOEF          &See \ref{int:col:template}.\\
-  \bottomrule
-  \end{tabular}
-\end{table}
+ncore           &Can be used to override the number of frozen orbitals in Dyson calculations (Default is the value from the \ttt{cidrt} input).\\
+% ndocc           &Can be used to declare orbitals above the frozen orbitals as doubly occupied in Dyson calculations. No ionization from these orbitals is calculated, but otherwise they are considered in the Dyson calculations. Default is zero.\\
+\end{longtable}
+
+
 
 \subsection{Template setup}\label{int:col:template}
 
@@ -2623,13 +2679,13 @@ The Fortran code \ttt{laser.x} can generate files containing laser fields which 
 
 The program is simply called by 
 \begin{verbatim}
-user@host> python $SHARC/laser.x
+user@host> $SHARC/laser.x
 \end{verbatim}
 It will interactively ask for the laser parameters. After input is complete, it writes the laser field to the file \ttt{laser} in the format which \sharc\ expects (see~\ref{sec:laserfile}).
 
 Similar to the interactive Python scripts, \ttt{laser.x} will also write the user input to \ttt{KEYSTROKES.laser}. After modifying this file, it can be used to directly execute \ttt{laser.x} without doing the interactive input again:
 \begin{verbatim}
-user@host> python $SHARC/laser.x < KEYSTROKES.laser
+user@host> $SHARC/laser.x < KEYSTROKES.laser
 \end{verbatim}
 
 \subsection{Input}
@@ -2862,6 +2918,10 @@ The third plot shows the population $|c_i^{\text{diag}}|^2$ of the diagonal elec
 
 The fourth plot shows the surface hopping probabilities over time. The plot is setup in such a way that the visible area corresponding to a certain state is proportional to the probability to hop into the state. Hence, if for a given timestep the random number (black circles) lies within a colored area, a surface hop to the corresponding state is performed.
 
+
+
+
+
 \section{Calculation of Ensemble Populations: \ttt{populations.py}}\label{sec:populations.py}
 
 For an ensemble of trajectories, usually one of the most relevant results are ensemble-averaged populations. The interactive script \ttt{populations.py} collects these populations from a set of trajectories. 
@@ -2875,7 +2935,7 @@ The script is interactive, simply start it with no command-line arguments or opt
 user@host> python $SHARC/populations.py
 \end{verbatim}
 
-Depending on the analysis mode (see below) it might be necessary to run \ttt{data\_extractor.x} for each trajectory prior to running \ttt{populations.py}. 
+Depending on the analysis mode (see below) it might be necessary to run \ttt{data\_extractor.x} for each trajectory prior to running \ttt{populations.py} (but \ttt{populations.py} can also call \ttt{data\_extractor.x} for each subdirectory, if necessary and requested). 
 
 \paragraph{Paths to trajectories}
 
@@ -2960,7 +3020,165 @@ This gives the maximum simulation time until which the populations are analyzed.
 By default, \ttt{populations.py} writes the resulting populations to \ttt{pop.out}. If the file already exists, the user is ask whether it shall be overwritten, or to provide an alternative filename. Note that the output file is checked only after the analysis is completed, so the program might run for a considerable amount of time before asking for the output file.
 
 
-\section{Obtaining special geometries: \ttt{crossing.py}}\label{sec:crossing.py}
+
+
+\section{Calculation of Numbers of Hops: \ttt{transition.py}}\label{sec:transition.py}
+
+Another important information from the trajectory ensemble is the number of hopping events and the involved states, for example to judge the relative importance of competing reaction pathways.
+
+The interactive script \ttt{transition.py} calculates from an ensemble the number of hops between each pair of states and presents the results as ``transition matrices''.
+Currently, the script employs the MCH active state information from \ttt{output.lis} for this computations. 
+Note that since the MCH active state is only an approximate quantity (since hops are actually performed in the diagonal basis in \textsc{Sharc}), the results should be checked carefully.
+The script \ttt{transition.py} is still partly work-in-progress.
+
+\subsection{Usage}
+
+The script is interactive, simply start it with no command-line arguments or options:
+\begin{verbatim}
+user@host> python $SHARC/transition.py
+\end{verbatim}
+
+\paragraph{Paths to trajectories}
+
+First the script asks the user to specify all directories for whose content the analysis should be performed. Enter one directory path at a time, and finish the directory input section by typing ``\ttt{end}''. Please do not specify each trajectory directory separately, but specify their parent directories, e.g.\ the directories \ttt{Singlet\_1} and \ttt{Singlet\_2}. \ttt{populations.py} will automatically include all trajectories contained in these directories.
+
+If you want to exclude certain trajectories from the analysis, it is sufficient to create an empty file called \ttt{CRASHED} or \ttt{RUNNING} in the corresponding trajectory directory. \ttt{populations.py} will ignore all directories containing one of these files. The file name is case insensitive, i.e., also files like \ttt{crashed} or even \ttt{cRasHED} will lead to the trajectory being ignored.
+
+\paragraph{Analysis mode}
+
+\begin{table}
+  \centering
+  \caption{Analysis modes for \ttt{transition.py}. The last column indicates whether \ttt{data\_extractor.x} has to be run prior to the ensemble analysis.}
+  \label{tab:Transition_modes}
+  \begin{tabular}{lp{6cm}>{\tt}lc}
+    \toprule
+    Mode        &Description    &\rmfamily From which     &Extract?\\
+                               &&\rmfamily file?          &\\
+    \midrule
+    1   &Get transition matrix in MCH basis. &output.lis  &No\\
+    2   &Get transition matrix in MCH basis, ignoring hops within multiplets. &output.lis  &No\\
+    3   &Write a tabular file with the transition matrix in the MCH basis for each timestep. &output.lis  &No\\
+    4   &Write a tabular file with the transition matrix in the MCH basis for each timestep, ignoring hops within multiplets.   &output.lis &No\\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+
+
+
+\section{Fitting population data to kinetic models: \ttt{make\_fitscript.py}}\label{sec:make_fitscript.py}
+
+Often it is interesting to fit some functions to the population data from a trajectory ensemble, in order to provide a way to abstract the data and to obtain some kind of rate constants for population transfer, which allows to compare to experimental works.
+In simple cases, it might be sufficient to fit basic mono- and biexponential functions to the data, which provides the sought-after time constants.
+However, often a more concise approach is based on a chemical kinetics model.
+Such a model is specified by a set of chemical species (e.g., electronic states, reactants, products, etc) connected by elementary reactions with associated rate constants, which together form a reaction network graph.
+For a formal description of those graphs, see section~\ref{met:globalfit}.
+
+The script \ttt{make\_fitscript.py} helps the user in developing and executing such global fits to a kinetics model.
+
+The script employs the open-source computer algebra system \textsc{Maxima} as back-end to solve the differential equation systems which describe the model kinetics.
+The script writes a \textsc{Gnuplot} script containing all commands necessary for the fit. 
+The fitting itself is performed with \textsc{Gnuplot}.
+
+\subsection{Usage}
+
+The script is interactive, simply start it with no command-line arguments or options:
+\begin{verbatim}
+user@host> python $SHARC/make_fitscript.py
+\end{verbatim}
+
+Before you start the script, you need to prepare a file with the relevant populations data (usually, the output file of \ttt{populations.py} will suffice).
+You might want to also run \ttt{transition.py} first, which can help in developing a suitable kinetic model.
+
+\subsection{Input}
+
+The interactive input for this script consists of specifying the reaction network graph, the initial conditions and the data file.
+Additionally, the user has to specify which species should be fitted to which data columns in the file.
+
+\paragraph{Kinetic model species}
+
+As a first step, the user has to specify the set of species in the model.
+Each species is fully described by its label.
+A label must start with a letter and can be followed by letters, numbers and underscores (although an underscore must not be directly followed by another underscore).
+
+During input, the user can add one or several labels to the set of species, remove labels and display the current set of defined labels.
+It is not possible to add a label twice.
+Once all labels are defined, the keyword \ttt{end} brings the user to the next input section.
+
+\paragraph{Kinetic model elementary reactions}
+
+Next, the reactions have to be defined.
+A reaction is specified by its initial species, final species and reaction rate label.
+Reaction rate labels are under the same restrictions as species labels and otherwise must not be already used as a species label.
+Furthermore, initial and final species must be both defined previously and they must be different.
+There can only be one reaction from any species to another species (If a second reaction is defined, the first reaction label is simply overwritten).
+
+During input, the user can add and remove reactions and display the currently defined reactions (displayed as a matrix).
+Unlike species labels, only one reaction can be added per line.
+Once all reactions are defined, the keyword \ttt{end} brings the user to the next input section.
+
+\paragraph{Kinetic model initial values}
+
+In order to specify the initial values for each species, the user simply has to define which species have non-zero initial population.
+These species will then be assigned an initial population constant (e.g., for species \ttt{A} the initial population constant would be \ttt{A\_\_0}).
+These constants will show up in the \textsc{Gnuplot} script and their value can edited there.
+It is also possible to fit the initial populations to the data.
+
+During input, the user can add and remove species from the set of species with non-zero initial population.
+Once all reactions are defined, the keyword \ttt{end} brings the user to the next input section.
+
+\paragraph{Populations data file}
+
+The user has to specify a path (autocomplete is enabled) to the file containing the population data to which the model functions should be fitted.
+The script reads the file and automatically detects the maximum time and the number of data columns.
+
+The file should be formatted as a table, with one time step per line. 
+On each line, the first number is interpreted as the time in femtoseconds and all consecutive numbers (separated by spaces) as the populations at this time.
+Note that the first entry must be at $t$=0 and all subsequent lines must be in strictly increasing order.
+Time steps can be unevenly spaced if necessary.
+
+\paragraph{Species--Data mapping}
+
+In the final setup section, the user has to specify which functions should be fitted to which data column from the data file.
+In the simplest case, one species is fitted to a single data column (e.g., the species \ttt{S0} is fitted to data column 2).
+However, it is also possible to fit the sum of two species to a column (this can be useful, e.g., to describe biexponential processes) and to fit a species to the sum of several columns (e.g., one can fit to the total triplet population to obtain a total ISC rate constant).
+In general, it is also possible to fit sums of species to sums of columns.
+
+It is not allowed to use one species or one column in more than one mapping.
+However, it is possible to leave species or data columns unused in the global fit. 
+While unused species still affect the outcome (through the reaction network definitions), unused data columns are simply ignored in the fit.
+
+During input, the user can add one mapping per line as well as display the current mappings.
+If a typo is made, the user can reset the mappings and repeat only the mapping input without the need to repeat the previous input.
+Once all mappings are defined, the keyword \ttt{end} finishes the input section.
+
+\paragraph{Running \textsc{Maxima}}
+
+Before the script attempts to call \textsc{Maxima}, it prints the command to be executed and asks the user for permission to execute.
+If permission is denied, the user may enter another command to call maxima.
+After permission is granted, the script calls \textsc{Maxima} and waits for up to 30~seconds before killing it (this is an error and the script cannot proceed to generate the output files).
+If \textsc{Maxima} runs for long durations, often this is due to complicated reaction networks which need additional assumptions (e.g., whether certain linear combinations of rate constants are positive, negative or, zero).
+In this cases the script cannot automatically continue, but the user can use the \ttt{MAXIMA.input} and \ttt{MAXIMA.output} files to identify the problem.
+
+\subsection{Output}
+
+After successful execution of the script, two files are created, \ttt{model\_fit.dat} and \ttt{model\_fit.gp}.
+The former file contains the populations data formatted appropriately for the global fit.
+The latter file contains the \textsc{Gnuplot} script which can be executed by
+\begin{verbatim}
+user@host> gnuplot model_fit.gp
+\end{verbatim}
+to perform the global fit.
+Please follow the instructions printed by \ttt{make\_fitscript.py} at the end of the execution, in particular by adjusting the starting guesses for the fitting parameters (you have to open and edit \ttt{model\_fit.gp} for this).
+
+
+
+
+
+
+
+
+\section{Obtaining Special Geometries: \ttt{crossing.py}}\label{sec:crossing.py}
 
 In many cases, it is also important to obtain certain special geometries from the trajectories. The script \ttt{crossing.py} extracts geometries fulfilling special conditions from an ensemble of trajectories. 
 
@@ -3036,7 +3254,7 @@ Note that for most internal coordinates, the order of the atoms is crucial, sinc
     p   &a b c d        &Pyramidalization angle (90$^\circ$ minus angle    &$p$\\
                        &&between bond \ttt{a}--\ttt{b} and plane (\ttt{b,c,d}))&\\
     5   &a b c d e      &Cremer-Pople parameters for 5-membered&$q_2$, $\phi_2$\\
-                       &&rings \cite{Cremer1975JACS}.&\\
+                       &&rings \cite{Cremer1975JACS} and comformation classification.&\\
     6   &a b c d e f    &Cremer-Pople parameters for 6-membered&$Q$, $\phi$, $\theta$, Boeyens\\
                        &&rings \cite{Cremer1975JACS} and Boeyens classification \cite{Boeyens1976JCMS}.&\\
     c   &               &Writes the comment (second line of the &Comment\\
@@ -3045,9 +3263,11 @@ Note that for most internal coordinates, the order of the atoms is crucial, sinc
   \end{tabular}
 \end{table}
 
-As an advice, it is always a good idea to put the comment as the \textit{last} request, if at all. Since the comment may contain blanks, having the comment not as the very last column might make it impossible to plot the resulting table.
+As an advice, it is always a good idea to put the comment as the \textit{last} request, if needed. Since the comment may contain blanks, having the comment not as the very last column might make it impossible to plot the resulting table.
 
 The Boeyens classification symbols which are output for 6-membered rings are reported in \LaTeX\ math code. Note that in the Boeyens classification scheme a number of symbols are equivalent, and only one symbol is reported. For example, by definition the chair configuration $^1C_4$ is equivalent to $^5C_2$ and $^3C_6$.
+
+For 5-membered rings, the classification symbols are chosen similar to the Boeyens symbols. For the $^aE$ and $E_a$ symbols, atom $a$ is puckered out of the plane and the four other atoms are coplanar, while for the $^aH_b$ symbols the neighboring atoms $a$ and $b$ are puckered out of the plane in opposite directions and only the three remaining atoms are coplanar.
 
 \subsection{Options}
 
@@ -3231,47 +3451,117 @@ then the excited state is selected for performing the dynamics. This excited-sta
 Within \ttt{excite.py} it is possible to restrict the selection to a subset of all excited states. In this case, also $p_{\text{max}}$ is only determined based on this subset of excited states.
 
 
-% \section{Gradient transformation}\label{met:gradtra}
-% 
-% Since the actual dynamics is performed on the PESs of the diagonal states, also the gradients have to be transformed to the diagonal representation. To this end, first a generalized gradient matrix $\VEC{G}^{\text{MCH}}$ is constructed from the gradients %
-% %%tth: $\VEC{g}^{\text{MCH}}_\alpha=-\nabla_RH_{\alpha\alpha}^{\text{MCH}}$
-% \tthdump{%
-% $\VEC{g}^{\text{MCH}}_\alpha=-\nabla_\VEC{R}H_{\alpha\alpha}^{\text{MCH}}$%
-% }
-% and the non-adiabatic coupling vectors 
-% $\VEC{K}_{\beta\alpha}^{\text{MCH}}$:
-% \begin{equation}
-%   \VEC{G}^{\text{MCH}}=
-%   \begin{pmatrix}
-%     \VEC{g}_1   &-(H_{11}-H_{22})\VEC{K}_{12} &-(H_{11}-H_{33})\VEC{K}_{13} &\cdots\\
-%     -(H_{22}-H_{11})\VEC{K}_{21}      &\VEC{g}_2      &-(H_{22}-H_{33})\VEC{K}_{23}&\cdots\\
-%     -(H_{33}-H_{11})\VEC{K}_{31}      &-(H_{33}-H_{22})\VEC{K}_{32} &\VEC{g}_3\\
-%     \vdots      &\vdots         &       &\ddots
-%   \end{pmatrix}
-% \end{equation}
-% Note that all quantities in the matrix are in the MCH representation, the superscripts were omitted for brevity.
-% 
-% The matrix $\VEC{G}^{\text{MCH}}$ is subsequently transformed into the diagonal representation, using the transformation matrix $\VEC{U}$:
-% \begin{equation}
-%   \VEC{G}^{\text{diag}}=\VEC{U}^\dagger\VEC{G}^{\text{MCH}}\VEC{U}.
-% \end{equation}
-% The diagonal elements of $\VEC{G}^{\text{diag}}$ now contain the gradients of the diagonal states, while the off-diagonal elements contain the scaled non-adiabatic couplings $-(H^{\text{diag}}_{\beta\beta}-H^{\text{diag}}_{\alpha\alpha})\VEC{K}_{\beta\alpha}^{\text{diag}}$. The gradients are needed in the Velocity Verlet algorithm in order to propagate the nuclear coordinates. The non-adiabatic couplings are necessary if the velocity vector is to be rescaled along the non-adiabatic coupling vector.
-% 
-% Since the matrix $\VEC{G}^{\text{MCH}}$ contains elements which are itself vectors with $3N$ components, the transformation is done component-wise (e.g.\ first a matrix $G_{x,\text{atom} 1}$ is constructed from the $x$ components of all gradients (and non-adiabatic couplings) for atom $1$, this matrix is transformed and written to the $x$, atom $1$ component of $\VEC{G}^{\text{diag}}$, then this is repeated for all components).
-% 
-% Since the calculation of the non-adiabatic couplings $\VEC{K}^{\text{MCH}}_{\beta\alpha}$ might add considerable computational cost, there is the input keyword \ttt{nogradcorrect} which tells \sharc\ to neglect the $\VEC{K}^{\text{MCH}}_{\beta\alpha}$ in the gradient transformation.
-% 
-% \subsection{Dipole moment derivatives}\label{met:dipolegrad}
-% 
-% For strong laser fields, the derivative of the dipole moments might be a non-negligible contribution to the gradients. In this case, they should be included in the gradient transformation step:
-% \begin{equation}
-%   \VEC{G}^{\text{diag}}=\VEC{U}^\dagger
-%   \left[
-%     \VEC{G}^{\text{MCH}}
-%     -\boldsymbol{\epsilon}(t)\cdot\frac{\partial}{\partial R}\boldsymbol{\mu}
-%   \right]\VEC{U}.
-% \end{equation}
-% This can be activated with the keyword \ttt{dipole\_grad} in the \sharc\ input file.
+\section{Global fits and kinetic models}\label{met:globalfit}
+
+In this section, we specify the basic assumptions of the chemical kinetic models used with \ttt{make\_fitscript.py} and the globals fits of these models to data.
+
+\subsection{Reaction networks}
+
+The kinetic models used by \ttt{make\_fitscript.py} is based on a chemical reaction network, where chemical \textit{species} react via unimolecular \textit{reactions}.
+
+The reaction networks allowed in the script are a simple directed graphs, where the species are the vertices and the reactions are the directed edges.
+Each reaction is characterized by an associated rate constant and connects exactly one reactant species to exactly one product species.
+
+In order to obtain rate laws which can analytically be integrated easily, there are a number of restrictions imposed on the network graphs.
+Some restrictions and possible features of the graphs are depicted exemplarily in Figure~\ref{fig:graph_restrictions}.
+First, each species and each reaction rate needs to have a unique label. 
+There cannot be two species with the same label and there cannot be two reactions with the same reaction rate constant.
+Second, the graph must be a simple directed graph, hence there cannot be any (self-) loops or more than one reaction with the same initial and the same final species.
+However, back reactions are allowed (as a back reaction has a different initial and a different final species as the corresponding reaction).
+Except from these restrictions, the graph may contain combinations of sequential and parallel reactions.
+The graph may also be disjoint, i.e., it can be the union of several independent sub-networks.
+
+There are two kinds of cycles possible, called here \textit{parallel pathways} and \textit{closed walks}.
+Parallel pathways are independent sequences of reactions with the same initial and final species (e.g., $A\rightarrow C$ and $A\rightarrow B\rightarrow C$).
+A closed walk is a  sequence of reactions with the same initial and final species.
+These cycles can sometimes lead to problems, either in solving the system of differential equations of the rate laws (for some networks containing cycles, the integrated rate equations cannot be stated in closed form and hence cannot be used with \textsc{Gnuplot}) or in the fitting procedure (rate constants in parallel pathways can be strongly correlated and cause large errors and bad convergence in fitting).
+
+\begin{figure}[h!]
+  \centering
+  \includegraphics[scale=1]{img/reaction_networks/allowed_notallowed.pdf}
+  \caption{Forbidden and allowed features of the reaction network graphs.}
+  \label{fig:graph_restrictions}
+\end{figure}
+
+An example reaction network graph is shown in Figure~\ref{fig:example_graph}.
+In this graph, there are 5~species ($S_2$, $S_1$, $S_0$, $T_2$, and $T_1$) and 6~reactions, each with a rate constant ($k_S$, $k_{Rlx}$, $k_{22}$, $k_{11}$, $k_{21}$, $k_{12}$).
+This graph shows some features which are allowed in the reaction networks for \ttt{make\_fitscript.py}: sequential reactions, parallel reactions, back reactions, and converging reaction pathways.
+
+\begin{figure}[h!]
+  \centering
+  \includegraphics[scale=1]{img/reaction_networks/example_graph.pdf}
+  \caption{Example reaction network graph. For explanation see text.}
+  \label{fig:example_graph}
+\end{figure}
+
+\subsection{Kinetic models}
+
+Based on the reaction network graph, a system of differential equations describing the rate laws of all species can be setup.
+The system of equations (equivalently, the matrix differential equation) can be written as:
+\begin{equation}
+  \frac{\partial}{\partial t} \VEC{s}(t) = \VEC{A} \cdot \VEC{s}(t),
+  \label{eq:rate_law}
+\end{equation}
+where $\VEC{s}$ is the vector of the time-dependent populations of each species and $\VEC{A}$ is the matrix containing the rate constants.
+In order to construct $\VEC{A}$, start with $\VEC{A}=0$ and, for each reaction from species $i$ to species $j$ with rate $k$, substract $k$ from $A_{ii}$ and add $k$ to $A_{ji}$.
+
+In order to integrate this system of equations, in practice one also needs to define initial conditions. 
+In the present context, the initial conditions are fully specified by $\VEC{s}(t=0)=\VEC{s}_0$, where $\VEC{s}_0$ are constant expressions defined by the user.
+
+Solving~\eqref{eq:rate_law} yields (in not too complicated cases) the closed-form expressions for the functions $\VEC{s}(t)$, which contain as parameters all rate constants $k$ and all initial values $\VEC{s}_0$.
+
+\subsection{Global fit}
+
+Suppose there is a data set $\VEC{p}(t)=(p_1(t),p_2(t),\dots)$ of time-dependent populations of several states $k=1,2,\dots$ and which is given at several points of time $\{t_i: 0<t_i<t_\mathrm{max}\}$.
+We can \textit{fit} to one data set $p_k(t)$ a function $s_l(t)$ from $\VEC{s}(t)$ by optimizing the parameters (mainly the rate constants) such that $\sum_i |p_k(t_i)-s_l(t_i)|^2$ becomes minimal.
+
+In order to perform global fit including several species $l$ and several states $k$, one constructs piecewise global functions from $\VEC{p}(t)$ and $\VEC{s}(t)$ and then optimizes the parameters accordingly.
+% TODO: add more explanation here
+
+
+
+
+\section{Gradient transformation}\label{met:gradtra}
+
+Since the actual dynamics is performed on the PESs of the diagonal states, also the gradients have to be transformed to the diagonal representation. To this end, first a generalized gradient matrix $\VEC{G}^{\text{MCH}}$ is constructed from the gradients %
+%%tth: $\VEC{g}^{\text{MCH}}_\alpha=-\nabla_RH_{\alpha\alpha}^{\text{MCH}}$
+\tthdump{%
+$\VEC{g}^{\text{MCH}}_\alpha=-\nabla_\VEC{R}H_{\alpha\alpha}^{\text{MCH}}$%
+}
+and the non-adiabatic coupling vectors 
+$\VEC{K}_{\beta\alpha}^{\text{MCH}}$:
+\begin{equation}
+  \VEC{G}^{\text{MCH}}=
+  \begin{pmatrix}
+    \VEC{g}_1   &-(H_{11}-H_{22})\VEC{K}_{12} &-(H_{11}-H_{33})\VEC{K}_{13} &\cdots\\
+    -(H_{22}-H_{11})\VEC{K}_{21}      &\VEC{g}_2      &-(H_{22}-H_{33})\VEC{K}_{23}&\cdots\\
+    -(H_{33}-H_{11})\VEC{K}_{31}      &-(H_{33}-H_{22})\VEC{K}_{32} &\VEC{g}_3\\
+    \vdots      &\vdots         &       &\ddots
+  \end{pmatrix}
+\end{equation}
+Note that all quantities in the matrix are in the MCH representation, the superscripts were omitted for brevity.
+
+The matrix $\VEC{G}^{\text{MCH}}$ is subsequently transformed into the diagonal representation, using the transformation matrix $\VEC{U}$:
+\begin{equation}
+  \VEC{G}^{\text{diag}}=\VEC{U}^\dagger\VEC{G}^{\text{MCH}}\VEC{U}.
+\end{equation}
+The diagonal elements of $\VEC{G}^{\text{diag}}$ now contain the gradients of the diagonal states, while the off-diagonal elements contain the scaled non-adiabatic couplings $-(H^{\text{diag}}_{\beta\beta}-H^{\text{diag}}_{\alpha\alpha})\VEC{K}_{\beta\alpha}^{\text{diag}}$. The gradients are needed in the Velocity Verlet algorithm in order to propagate the nuclear coordinates. The non-adiabatic couplings are necessary if the velocity vector is to be rescaled along the non-adiabatic coupling vector.
+
+Since the matrix $\VEC{G}^{\text{MCH}}$ contains elements which are itself vectors with $3N$ components, the transformation is done component-wise (e.g.\ first a matrix $G_{x,\text{atom} 1}$ is constructed from the $x$ components of all gradients (and non-adiabatic couplings) for atom $1$, this matrix is transformed and written to the $x$, atom $1$ component of $\VEC{G}^{\text{diag}}$, then this is repeated for all components).
+
+Since the calculation of the non-adiabatic couplings $\VEC{K}^{\text{MCH}}_{\beta\alpha}$ might add considerable computational cost, there is the input keyword \ttt{nogradcorrect} which tells \sharc\ to neglect the $\VEC{K}^{\text{MCH}}_{\beta\alpha}$ in the gradient transformation.
+
+\subsection{Dipole moment derivatives}\label{met:dipolegrad}
+
+For strong laser fields, the derivative of the dipole moments might be a non-negligible contribution to the gradients. In this case, they should be included in the gradient transformation step:
+\begin{equation}
+  \VEC{G}^{\text{diag}}=\VEC{U}^\dagger
+  \left[
+    \VEC{G}^{\text{MCH}}
+    -\boldsymbol{\epsilon}(t)\cdot\frac{\partial}{\partial R}\boldsymbol{\mu}
+  \right]\VEC{U}.
+\end{equation}
+This can be activated with the keyword \ttt{dipole\_grad} in the \sharc\ input file.
 
 
 \section{Internal coordinates definitions}\label{met:geo}
@@ -3482,85 +3772,85 @@ where $W$ is a fixed parameter. $W$ can be set using the input keyword \ttt{lase
 
 If a hop has been classified as laser-free, the momentum is adjusted according to the equations given in section~\ref{met:ekinadj}.
 
-% \section{Phase tracking}
-% 
-% \subsection{Phase tracking of the transformation matrix}\label{met:phase_track}
-% 
-% A Hermitian matrix $\VEC{H}^{\text{MCH}}$ can always be diagonalized. Its eigenvectors form the rows of a unitary matrix $\VEC{U}$, which can be used to transform between the original basis and the basis of the eigenfunctions of $\VEC{H}$. 
-% \begin{equation}
-%   \VEC{H}^{\text{diag}}=\VEC{U}^\dagger\VEC{H}^{\text{MCH}}\VEC{U}.
-% \end{equation}
-% 
-% However, the condition that $\VEC{U}$ diagonalizes $\VEC{H}^{\text{MCH}}$ is not sufficient to define $\VEC{U}$ uniquely. Each normalized eigenvector $\VEC{u}$ can be multiplied by a complex number on the unit circle and still remains a normalized eigenvector:
-% \begin{align}
-%   \VEC{H}\VEC{u}=h\VEC{u}
-%   \qquad&\text{and}\qquad
-%   \VEC{u}^\dagger\VEC{u}=1\\
-%   &\Rightarrow\nonumber\\
-%   \VEC{H}\left(\E^{\I\phi}\VEC{u}\right)
-%   =\E^{\I\phi}\left(\VEC{H}\VEC{u}\right)
-%   &=\E^{\I\phi}h\VEC{u}
-%   =h\left(\E^{\I\phi}\VEC{u}\right)\\
-%   &\text{and}\nonumber\\
-%   \left(\E^{\I\phi}\VEC{u}\right)^\dagger\left(\E^{\I\phi}\VEC{u}\right)
-%   =\VEC{u}^\dagger\E^{-\I\phi}&\E^{\I\phi}\VEC{u}
-%   =\VEC{u}^\dagger\VEC{u}=1
-% \end{align}
-% Thus, for all diagonal matrices $\boldsymbol{\Phi}$ with elements 
-% %%tth: $\delta_{\beta\alpha}\exp(\I\phi_\beta)$, 
-% \tthdump{
-%   $\delta_{\beta\alpha}\E^{\I\phi_\beta}$, 
-% }
-% also the matrix $\VEC{U}^\prime=\VEC{U}\boldsymbol{\Phi}$ diagonalizes $\VEC{H}^{\text{MCH}}$ (if $\VEC{U}$ diagonalizes it).
-% 
-% The propagation of the coefficients in the diagonal basis is written as (see section~\ref{met:propagate}):
-% \begin{equation}
-%   \VEC{c}^{\text{diag}}(t+\Delta t)=\underbrace{\VEC{U}^\dagger(t+\Delta t)\VEC{R}^{\text{MCH}}(t+\Delta t,t)\VEC{U}(t)}_{\VEC{R}^{\text{diag}}(t+\Delta t,t)}\VEC{c}^{\text{diag}}(t)
-% \end{equation}
-% where $\VEC{U}(t)$ and $\VEC{U}(t+\Delta t)$ are determined independently from diagonalizing the matrices $\VEC{H}^{\text{MCH}}(t)$ and $\VEC{H}^{\text{MCH}}(t+\Delta t)$, respectively. However, depending on the implementation of the diagonalization, $\VEC{U}(t)$ and $\VEC{U}(t+\Delta t)$ may carry unrelated, random phases. Even if $\VEC{H}^{\text{MCH}}(t)$ and $\VEC{H}^{\text{MCH}}(t+\Delta t)$ were identical, $\VEC{U}(t)$ and $\VEC{U}(t+\Delta t)$ might still differ, e.g.:
-% \begin{equation}
-%   \VEC{U}(t)=
-%   \begin{pmatrix}1&0\\0&1\end{pmatrix}
-%   \qquad\text{and}\qquad 
-%   \VEC{U}(t+\Delta t)=
-%   \begin{pmatrix}\I&0\\0&-\I\end{pmatrix}
-% \end{equation}
-% The result is that the coefficients $\VEC{c}$ pick up random phases during the propagation, leading to random changes in the direction of population transfer, invalidating the whole propagation.
-% 
-% In order to make the phases of $\VEC{U}(t)$ and $\VEC{U}(t+\Delta t)$ as similar as possible, \sharc\ employs a projection technique. First, we define the overlap matrix $\VEC{V}$ between $\VEC{U}(t)$ and $\VEC{U}(t+\Delta t)$:
-% \begin{equation}
-%   \VEC{V}=\VEC{U}^\dagger(t+\Delta t)\VEC{U}(t)
-% \end{equation}
-% For $\Delta t=0$, clearly
-% \begin{equation}
-%   \VEC{U}(t+\Delta t)\VEC{V}=\VEC{U}(t)
-% \end{equation}
-% and $\VEC{V}$ can be identified with the phase matrix $\boldsymbol{\Phi}$.
-% 
-% For $\Delta t\neq 0$, we must now find a matrix $\VEC{P}$ so that
-% \begin{equation}
-%   \VEC{U}(t+\Delta t)\VEC{P}=\VEC{U}^\prime(t+\Delta t)
-% \end{equation}
-% still diagonalizes $\VEC{H}^{\text{MCH}}(t+\Delta t)$, but which minimizes the phase change with regard to $\VEC{U}(t)$.
-% The matrix $\VEC{P}$ has elements
-% \begin{equation}
-%   P_{\beta\alpha}=V_{\beta\alpha}
-%   \delta\left(
-%     E_\beta-E_\alpha
-%   \right).
-% \end{equation}
-% where $E_\beta$ is the $\beta$-th eigenvalue of $\VEC{H}^{\text{MCH}}(t+\Delta t)$.
-% 
-% Within the \sharc\ algorithm, the phase of $\VEC{U}(t+\Delta t)$ is adjusted to be most similar to $\VEC{U}(t)$ by calculating first $\VEC{V}$, generating $\VEC{P}$ from $\VEC{V}$ and the eigenvalues of $\VEC{H}^{\text{MCH}}(t+\Delta t)$ and calculating the phase-corrected matrix $\VEC{U}^\prime(t+\Delta t)$ as $\VEC{U}(t+\Delta t)\VEC{P}$.
-% 
-% \subsection{Tracking of the phase of the MCH wavefunctions}
-% 
-% Additionally, within the quantum chemistry programs, the phases of the electronic wavefunctions may change from one timestep to the next one. This will result in changes of the phase of all off-diagonal matrix elements (spin-orbit couplings, transition dipole moments, non-adiabatic couplings). \sharc\ has several possibilities to correct for that:
-% \begin{itemize}
-%   \item The interface can provide wavefunction phases through \ttt{QM.out}.
-%   \item If the overlap matrix is available, its diagonal contains the necessary phase information.
-%   \item Otherwise the scalar products of old and new non-adiabatic couplings and the relative phase of SOC matrix elements can be used to construct phase information.
-% \end{itemize}
+\section{Phase tracking}
+
+\subsection{Phase tracking of the transformation matrix}\label{met:phase_track}
+
+A Hermitian matrix $\VEC{H}^{\text{MCH}}$ can always be diagonalized. Its eigenvectors form the rows of a unitary matrix $\VEC{U}$, which can be used to transform between the original basis and the basis of the eigenfunctions of $\VEC{H}$. 
+\begin{equation}
+  \VEC{H}^{\text{diag}}=\VEC{U}^\dagger\VEC{H}^{\text{MCH}}\VEC{U}.
+\end{equation}
+
+However, the condition that $\VEC{U}$ diagonalizes $\VEC{H}^{\text{MCH}}$ is not sufficient to define $\VEC{U}$ uniquely. Each normalized eigenvector $\VEC{u}$ can be multiplied by a complex number on the unit circle and still remains a normalized eigenvector:
+\begin{align}
+  \VEC{H}\VEC{u}=h\VEC{u}
+  \qquad&\text{and}\qquad
+  \VEC{u}^\dagger\VEC{u}=1\\
+  &\Rightarrow\nonumber\\
+  \VEC{H}\left(\E^{\I\phi}\VEC{u}\right)
+  =\E^{\I\phi}\left(\VEC{H}\VEC{u}\right)
+  &=\E^{\I\phi}h\VEC{u}
+  =h\left(\E^{\I\phi}\VEC{u}\right)\\
+  &\text{and}\nonumber\\
+  \left(\E^{\I\phi}\VEC{u}\right)^\dagger\left(\E^{\I\phi}\VEC{u}\right)
+  =\VEC{u}^\dagger\E^{-\I\phi}&\E^{\I\phi}\VEC{u}
+  =\VEC{u}^\dagger\VEC{u}=1
+\end{align}
+Thus, for all diagonal matrices $\boldsymbol{\Phi}$ with elements 
+%%tth: $\delta_{\beta\alpha}\exp(\I\phi_\beta)$, 
+\tthdump{
+  $\delta_{\beta\alpha}\E^{\I\phi_\beta}$, 
+}
+also the matrix $\VEC{U}^\prime=\VEC{U}\boldsymbol{\Phi}$ diagonalizes $\VEC{H}^{\text{MCH}}$ (if $\VEC{U}$ diagonalizes it).
+
+The propagation of the coefficients in the diagonal basis is written as (see section~\ref{met:propagate}):
+\begin{equation}
+  \VEC{c}^{\text{diag}}(t+\Delta t)=\underbrace{\VEC{U}^\dagger(t+\Delta t)\VEC{R}^{\text{MCH}}(t+\Delta t,t)\VEC{U}(t)}_{\VEC{R}^{\text{diag}}(t+\Delta t,t)}\VEC{c}^{\text{diag}}(t)
+\end{equation}
+where $\VEC{U}(t)$ and $\VEC{U}(t+\Delta t)$ are determined independently from diagonalizing the matrices $\VEC{H}^{\text{MCH}}(t)$ and $\VEC{H}^{\text{MCH}}(t+\Delta t)$, respectively. However, depending on the implementation of the diagonalization, $\VEC{U}(t)$ and $\VEC{U}(t+\Delta t)$ may carry unrelated, random phases. Even if $\VEC{H}^{\text{MCH}}(t)$ and $\VEC{H}^{\text{MCH}}(t+\Delta t)$ were identical, $\VEC{U}(t)$ and $\VEC{U}(t+\Delta t)$ might still differ, e.g.:
+\begin{equation}
+  \VEC{U}(t)=
+  \begin{pmatrix}1&0\\0&1\end{pmatrix}
+  \qquad\text{and}\qquad 
+  \VEC{U}(t+\Delta t)=
+  \begin{pmatrix}\I&0\\0&-\I\end{pmatrix}
+\end{equation}
+The result is that the coefficients $\VEC{c}$ pick up random phases during the propagation, leading to random changes in the direction of population transfer, invalidating the whole propagation.
+
+In order to make the phases of $\VEC{U}(t)$ and $\VEC{U}(t+\Delta t)$ as similar as possible, \sharc\ employs a projection technique. First, we define the overlap matrix $\VEC{V}$ between $\VEC{U}(t)$ and $\VEC{U}(t+\Delta t)$:
+\begin{equation}
+  \VEC{V}=\VEC{U}^\dagger(t+\Delta t)\VEC{U}(t)
+\end{equation}
+For $\Delta t=0$, clearly
+\begin{equation}
+  \VEC{U}(t+\Delta t)\VEC{V}=\VEC{U}(t)
+\end{equation}
+and $\VEC{V}$ can be identified with the phase matrix $\boldsymbol{\Phi}$.
+
+For $\Delta t\neq 0$, we must now find a matrix $\VEC{P}$ so that
+\begin{equation}
+  \VEC{U}(t+\Delta t)\VEC{P}=\VEC{U}^\prime(t+\Delta t)
+\end{equation}
+still diagonalizes $\VEC{H}^{\text{MCH}}(t+\Delta t)$, but which minimizes the phase change with regard to $\VEC{U}(t)$.
+The matrix $\VEC{P}$ has elements
+\begin{equation}
+  P_{\beta\alpha}=V_{\beta\alpha}
+  \delta\left(
+    E_\beta-E_\alpha
+  \right).
+\end{equation}
+where $E_\beta$ is the $\beta$-th eigenvalue of $\VEC{H}^{\text{MCH}}(t+\Delta t)$.
+
+Within the \sharc\ algorithm, the phase of $\VEC{U}(t+\Delta t)$ is adjusted to be most similar to $\VEC{U}(t)$ by calculating first $\VEC{V}$, generating $\VEC{P}$ from $\VEC{V}$ and the eigenvalues of $\VEC{H}^{\text{MCH}}(t+\Delta t)$ and calculating the phase-corrected matrix $\VEC{U}^\prime(t+\Delta t)$ as $\VEC{U}(t+\Delta t)\VEC{P}$.
+
+\subsection{Tracking of the phase of the MCH wavefunctions}
+
+Additionally, within the quantum chemistry programs, the phases of the electronic wavefunctions may change from one timestep to the next one. This will result in changes of the phase of all off-diagonal matrix elements (spin-orbit couplings, transition dipole moments, non-adiabatic couplings). \sharc\ has several possibilities to correct for that:
+\begin{itemize}
+  \item The interface can provide wavefunction phases through \ttt{QM.out}.
+  \item If the overlap matrix is available, its diagonal contains the necessary phase information.
+  \item Otherwise the scalar products of old and new non-adiabatic couplings and the relative phase of SOC matrix elements can be used to construct phase information.
+\end{itemize}
 
 
 \section{Random initial velocities}\label{met:veloc}
