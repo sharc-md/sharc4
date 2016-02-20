@@ -9,8 +9,8 @@
 % | do the following replacements (with search and replace):
 % |
 % | for TTH      for TTM
-% | \tthdump <-> \tthdump
-% | %%tth:   <-> %%tth: 
+% | \tthdump <-> \ttmdump
+% | %%tth:   <-> %%ttm: 
 % |
 % |
 % | ************************************************
@@ -248,10 +248,18 @@ The main features of the \sharc\ suite are:
   \item Inclusion of interactions with laser fields in the long-wavelength limit. The derivatives of the dipole moments can be included in strong-field applications.
   \item Propagation using either non-adiabatic couplings vectors $\langle\alpha|\frac{\partial}{\partial \mathbf{R}}|\beta\rangle$, time-derivative couplings $\langle\alpha|\frac{\partial}{\partial t}|\beta\rangle$ or wavefunction overlaps $\langle\alpha(t_0)|\beta(t)\rangle$ (via the local diabatization procedure \cite{Granucci2007JCP}).
   \item Gradients including the effects of spin-orbit couplings (with the approximation that the diabatic spin-orbit couplings are slowly varying).
+  \item Flexible interface to quantum chemistry programs. Existing interfaces to:
+  \begin{itemize}
+    \item \textsc{Molpro} 2010 and 2012: SA-CASSCF
+    \item \textsc{Molcas} 7.8 and 8.0: SA-CASSCF, SS-CASPT2, MS-CASPT2%, QM/MM-SA-CASSCF
+    \item \textsc{Columbus} 7: SA-CASSCF, SA-RASSCF, MR-CISD
+    \item \textsc{ADF}: TD-DFT
+    \item \textsc{Turbomole}: ADC(2), CC2
+    \item Interface for analytical potentials
+  \end{itemize}
   \item Energy-difference-based partial coupling approximation to speed up calculations \cite{Pittner2009CP}.
   \item Energy-based decoherence correction \cite{Granucci2007JCP}.
-  \item Flexible interface to quantum chemistry programs. Existing interfaces to \textsc{Molpro} 2010 and 2012, \textsc{Molcas} 7.8 and 8.0, and to \textsc{Columbus 7.0} (only if interfaced to \textsc{Molcas}). An interface to implement dynamics based on analytical expressions is also available.
-  \item Calculation of Dyson norms for single-photon ionization spectra through the \textsc{Columbus} interface.
+  \item Calculation of Dyson norms for single-photon ionization spectra (for some interfaces).
   \item Suite of auxiliary Python scripts for all steps of the setup procedure and for various analysis tasks.
   \item Comprehensive tutorial.
 \end{itemize}
@@ -304,7 +312,7 @@ The quantum chemistry programs to which interfaces with \sharc\ exist are descri
 
 \section{Authors}
 
-The current version of the \sharc\ suite has been programmed by Sebastian Mai and Martin Richter of the AG Gonz\'alez of the Institute of Theoretical Chemistry of the University of Vienna with contributions from Jes\'us Gonz\'alez-V\'azquez, Philipp Marquetand, Matthias Ruckenbauer, Markus Oppel and Leticia Gonz\'alez.
+The current version of the \sharc\ suite has been programmed by Sebastian Mai, Martin Richter, and Andrew Atkins of the AG Gonz\'alez of the Institute of Theoretical Chemistry of the University of Vienna with contributions from Jes\'us Gonz\'alez-V\'azquez, Philipp Marquetand, Matthias Ruckenbauer, Markus Oppel and Leticia Gonz\'alez.
 
 \section{Suggestions and Bug Reports}
 
@@ -515,9 +523,17 @@ Even though \sharc\ comes with an interface for analytical potentials (and hence
 \begin{itemize}
   \item \href{http://www.molpro.net/}{\textsc{Molpro}} (this release was checked against \textsc{Molpro} 2010 and 2012).
   \item \href{http://http://molcas.org/}{\textsc{Molcas}} (this release was checked against \textsc{Molcas} 7.8 and 8.0).
-  \begin{itemize}
-    \item \href{http://www.univie.ac.at/columbus/docs_COL70/documentation_main.html}{\textsc{Columbus} 7}, interfaced to \href{http://http://molcas.org/}{\textsc{Molcas}}, for correlated multi-reference wavefunctions. 
+%   \begin{itemize}
 %     \item \href{http://dasher.wustl.edu/tinker/}{Tinker}, interfaced to \textsc{Molcas} 7.8 or 8.0 for QM/MM dynamics.
+%   \end{itemize}
+  \item \href{http://www.univie.ac.at/columbus/docs_COL70/documentation_main.html}{\textsc{Columbus} 7}
+  \begin{itemize}
+    \item \href{http://www.univie.ac.at/columbus/docs_COL70/columbus_molcas_link.html}{\textsc{Columbus-Molcas} interface} for spin-orbit couplings.
+  \end{itemize}
+  \item \href{http://www.scm.com/ADF}{\textsc{Amsterdam Density Functional}}
+  \item \href{http://www.turbomole.com}{\textsc{Turbomole}}
+  \begin{itemize}
+    \item \href{http://orcaforum.cec.mpg.de}{\textsc{Orca}} for spin-orbit couplings.
   \end{itemize}
 \end{itemize}
 
@@ -659,7 +675,8 @@ The following tables list the auxiliary programs in the \sharc\ suite. The right
   setup\_traj.py        &Sets up the dynamics simulations based on the initial conditions.      &\ref{sec:setup_traj.py}\\
   laser.x               &Prepares files containing laser fields.                                &\ref{sec:laser.x}\\
   molpro\_input.py      &Prepares \textsc{Molpro} input files for common jobs.                  &\ref{sec:molpro_input.py}\\
-  molcas\_input.py      &Prepares template files for the \textsc{Molcas} interface.             &\ref{sec:molcas_input.py}\\
+  molcas\_input.py      &Prepares \textsc{Molcas} input files and template files for the \textsc{Molcas} interface.             &\ref{sec:molcas_input.py}\\
+  ADF\_input.py         &Prepares ADF input files and template files for the ADF interface.                     &\ref{sec:ADF_input.py}\\
   diagonalizer.x        &Helper program for \ttt{excite.py}. Only required if \textsc{NumPy} is not available.            &\ref{sec:diagonalizer.x}\\
 \end{tabular}
 
@@ -678,10 +695,12 @@ The following tables list the auxiliary programs in the \sharc\ suite. The right
 \subsection{Interfaces}
 
 \begin{tabular}{>{\tt}lp{9.5cm}r}
-  SHARC\_MOLPRO.py      &Allows for the calculation of SOC, gradients, non-adiabatic couplings, time derivatives, overlaps, dipole moments and angular momentum expectation values at the CASSCF level of theory. Symmetry or RASSCF are not supported. Only segmented basis sets are possible.   &\ref{sec:int:molpro}\\
-  SHARC\_MOLCAS.py      &Allows for the calculation of SOC, gradients, overlaps, dipole moments, dipole moment derivatives and spin-orbit coupling derivatives at the CASSCF and CASPT2 level of theory. Symmetry is not supported.   &\ref{sec:int:molcas}\\
-  SHARC\_COLUMBUS.py    &Allows for the calculation of SOC, gradients, overlaps, dipole moments and Dyson norms at the CASSCF, RASSCF, MRCISD and LRT-MRAQCC levels of theory. Symmetry is not supported. Only works with the \textsc{Columbus}-\textsc{Molcas} interface.                  &\ref{sec:int:columbus}\\
-  SHARC\_Analytical.py  &Allows to calculate SOC, gradients, overlaps, dipole moments and dipole moment derivatives based on analytical expressions of diabatic matrix elements. Works only with cartesian coordinates.       &\ref{sec:int:analytical}\\
+  SHARC\_MOLPRO.py      &Allows for the calculation of SOCs, gradients, non-adiabatic couplings, time derivatives, overlaps, dipole moments and angular momentum expectation values at the CASSCF level of theory (using \textsc{Molpro}). Symmetry or RASSCF are not supported. Only segmented basis sets are possible.   &\ref{sec:int:molpro}\\
+  SHARC\_MOLCAS.py      &Allows for the calculation of SOCs, gradients, overlaps, dipole moments, dipole moment derivatives and spin-orbit coupling derivatives at the CASSCF and CASPT2 level of theory (using \textsc{Molcas}). Symmetry is not supported.   &\ref{sec:int:molcas}\\
+  SHARC\_COLUMBUS.py    &Allows for the calculation of SOCs, gradients, nonadiabatic couplings, overlaps, dipole moments and Dyson norms at the CASSCF, RASSCF, MRCISD and LRT-MRAQCC levels of theory (using \textsc{Columbus}). Symmetry is not supported. Works with the either \textsc{Dalton} or \textsc{Seward} integrals (through the \textsc{Columbus}-\textsc{Molcas} interface), but SOCs are only available with \textsc{Seward} integrals. Nonadiabatic couplings are only available with \textsc{Dalton} integrals.                &\ref{sec:int:columbus}\\
+  SHARC\_Analytical.py  &Allows to calculate SOCs, gradients, overlaps, dipole moments and dipole moment derivatives based on analytical expressions of diabatic matrix elements. Works only with cartesian coordinates.       &\ref{sec:int:analytical}\\
+  SHARC\_ADF.py         &Allows to calculate SOCs, gradients, overlaps and dipole moments at the TD-DFT level of theory with GGA and hybrid functionals (using \textsc{ADF}). Symmetry is not allowed.  &\ref{sec:int:adf}\\
+  SHARC\_RICC2.py       &Allows to calculate SOCs, gradients, overlaps and dipole moments at the ADC(2) and CC2 levels of theory (using \textsc{Turbomole}). Symmetry is not allowed, but spin-component scaling can be used. For SOCs, only ADC(2) can be used and \textsc{Orca} has to be installed in addition to \textsc{Turbomole}.        &\ref{sec:int:ricc2}\\
 \end{tabular}
 
 
@@ -1601,7 +1620,7 @@ For CASSCF calculations it is always a good idea to start from converged MOs fro
 
 \paragraph{Basis sets}
 
-Note that \ttt{Molpro} cannot calculation SA-CASSCF gradients for generally contracted basis sets (like Dunning's ``cc'' basis sets or Roos' ``ANO'' basis sets). Only segmented basis sets are allowed, like the Pople basis sets and the ``def'' family from \textsc{Turbomole}.
+Note that the \textsc{Molpro} interface cannot calculation SA-CASSCF gradients for generally contracted basis sets (like Dunning's ``cc'' basis sets or Roos' ``ANO'' basis sets). Only segmented basis sets are allowed, like the Pople basis sets and the ``def'' family from \textsc{Turbomole}.
 
 \subsection{Molpro input generator: \ttt{molpro\_input.py}}\label{sec:molpro_input.py}
 
@@ -1672,7 +1691,13 @@ Note that the scratch directory will be deleted after the calculation, only the 
 
 \section{MOLCAS Interface}\label{sec:int:molcas}
 
-The \sharc-\textsc{Molcas} interface can be used to conduct excited-state dynamics based on \textsc{Molcas}' CASSCF wavefunctions, and with CASPT2 or MS-CASPT2 energies (and numerical gradients). RASSCF wavefunctions are not supported currently. The interface uses the modules GATEWAY, SEWARD (integrals), RASSCF (wavefunction, energies), RASSI (transition dipole moments, spin-orbit couplings, overlaps), MCLR and ALASKA (gradients). For CASPT2, MS-CASPT2 and Cholesky-CASSCF numerical gradients can be calculated, where the interface itself controls the calculations at the displaced geometries. Since \textsc{Molcas} is not able to calculate the full non-adiabatic coupling vectors, only wavefunction overlaps are currently implemented in the interface. The interface can also numerically differentiate dipole moments and spin-orbit couplings.
+The \sharc-\textsc{Molcas} interface can be used to conduct excited-state dynamics based on \textsc{Molcas}' CASSCF wavefunctions, and with CASPT2 or MS-CASPT2 energies (and numerical gradients). 
+RASSCF wavefunctions are not supported currently. 
+The interface uses the modules GATEWAY, SEWARD (integrals), RASSCF (wavefunction, energies), RASSI (transition dipole moments, spin-orbit couplings, overlaps), MCLR and ALASKA (gradients). 
+For CASPT2 and MS-CASPT2, numerical gradients can be calculated, where the interface itself controls the calculations at the displaced geometries. 
+The interface can also numerically differentiate dipole moments and spin-orbit couplings.
+Since \textsc{Molcas} is not able to calculate the full non-adiabatic coupling vectors, only wavefunction overlaps are currently implemented in the interface. 
+Using the \ttt{Wfoverlap} code, it is possible to calculate Dyson norms between neutral and ionic states.
 
 % The \sharc-\textsc{Molcas} interface furthermore allows to perform QM/MM dynamics (CASSCF plus force fields), through the \textsc{Molcas}-\textsc{Tinker} interface. 
 
@@ -1701,6 +1726,7 @@ ncpu            & The number of CPUs used by the interface. If zero or negative,
 delay           &Followed by a float giving the delay in seconds between starting parallel jobs to avoid excessive disk I/O.\\
 always\_orb\_init &Do not use the orbital guesses from previous calculations/timesteps, but always use the provided initial orbitals.\\
 always\_guess   &Always use the orbital guess from \textsc{Molcas}'s \ttt{guessorb} module.\\
+wfoverlap       &Is the path to the \textsc{Wfoverlap} executable. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. Only needed for Dyson norm calculations.\\
   \bottomrule
   \end{tabular}
 \end{table}
@@ -1733,7 +1759,8 @@ method          &Followed by a string, which is either ``CASSCF'', ``CASPT2'' or
 no-douglas-kroll&Deactivates the use of the scalar-relativistic DK Hamiltonian and uses a non-relativistic Hamiltonian instead. Default is Douglas-Kroll-Hess 2nd order  (In \textsc{Molcas} standard parametrization).\\
 ipea            &Followed by a float giving the IP-EA shift for CASPT2 (see \textsc{Molcas} manual for more information). The default is 0.25, as in \textsc{Molcas}.\\
 imaginary       &Followed by a float giving the imaginary level shift for CASPT2 (see \textsc{Molcas} manual for more information). The default is 0.0, as in \textsc{Molcas}.\\
-cholesky        &Activates Cholesky decomposition in \textsc{Molcas}. Recommended for large basis sets. Necessitates numerical gradients even for CASSCF. Default is to use regular 4-electron integrals.\\
+cholesky        &Activates Cholesky decomposition in \textsc{Molcas}. Recommended for large basis sets. Will use numerical gradients even for CASSCF. Default is to use regular 4-electron integrals.\\
+cholesky\_analytical    &Activates analytical SA-CASSCF gradients with Cholesky decomposition. This is only possible with \textsc{Molcas} 8.\\
 % qmmm            &Activates the QM/MM mode. In this case, two more input files need to be present (see below).
   \bottomrule
   \end{tabular}
@@ -1812,8 +1839,12 @@ For each multiplicity, the number of states for the state-averaging procedure mu
 
 \section{COLUMBUS Interface}\label{sec:int:columbus}
 
-The \sharc-\textsc{Columbus} interface allows to run \sharc\ dynamics based on \textsc{Columbus}' CASSCF, RASSCF, MRCI and LRT-MRAQCC wavefunctions. The interface is compatible to \textsc{Columbus} calculations utilizing the \textsc{Columbus}-\textsc{Molcas} interface only (\textsc{Seward} integrals and \textsc{Alaska} gradients). Unfortunately, time derivatives and non-adiabatic coupling vectors cannot be calculated with this setup, only wavefunction overlaps can be obtained. The interface utilizes the \ttt{cioverlap} program by Jiri Pittner \cite{Pittner2009CP} to calculate the overlap matrices needed for local diabatization propagation. The interface can also calculate Dyson norms between neutral and ionic wavefunctions using a suitable user-supplied code.
-%Matthias Ruckenbauer's Dyson code (or any other suitable code). 
+The \sharc-\textsc{Columbus} interface allows to run \sharc\ dynamics based on \textsc{Columbus}' CASSCF, RASSCF and MRCI wavefunctions. 
+The interface is compatible to \textsc{Columbus} calculations utilizing the \textsc{Columbus}-\textsc{Molcas} interface (\textsc{Seward} integrals and \textsc{Alaska} gradients), or using the \textsc{Dalton} integral code distributed with \textsc{Columbus}. 
+Using \textsc{Seward} integrals, spin-orbit couplings can be calculated, but no nonadiabatic couplings (only overlaps can thus be used).
+Using \textsc{Dalton} integrals, spin-orbit couplings are not possible, but nonadiabatic couplings can be calculated.
+The interface utilizes the \ttt{Wfoverlap} program of the Gonz\'alez group\cite{Plasser2016JCTC} to calculate the overlap matrices needed for local diabatization propagation. 
+The interface can also calculate Dyson norms between neutral and ionic wavefunctions using the \textsc{Wfoverlap} code.
 
 The interface needs as additional input the file \ttt{QM/SH2COL.inp} and a template directory containing all input files needed for the \textsc{Columbus} calculations. Additionally, initial MOs can be given in the file \ttt{QM/mocoef\_mc.init}.
 
@@ -1828,7 +1859,8 @@ The path to the template directory must be given in \ttt{SH2COL.inp}.
 
 \paragraph{Integral input}
 
-The interface is only able to use input for calculations using \textsc{Molpro/Seward} integrals. Also make sure that you include scalar-relativistic (Douglas-Kroll-Hess) and spin-orbit (AMFI) effects in the integral input.
+The interface is able to use input for calculations using \textsc{Molcas/Seward} integrals or \textsc{Dalton} integrals. 
+For spin-orbit couplings, you have to use \textsc{Molcas} and include scalar-relativistic (Douglas-Kroll-Hess) and spin-orbit (AMFI) effects in the integral input.
 
 It is important to make sure that \textbf{the order of atoms} in the template input files and in the \sharc\ input \textbf{is consistent}.
 
@@ -1872,11 +1904,9 @@ columbus        &Is followed by a string giving the path to the \textsc{Columbus
 molcas          &Is followed by a string giving the path to the \textsc{Molcas} main directory.  Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. This path is only used for overlap calculations (since in this case the interface calls \textsc{Molcas} explicitly). Otherwise \textsc{Columbus} will use the path to \textsc{Molcas} specified during the installation of \textsc{Columbus}.\\
 scratchdir      &Is a path to the temporary directory. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. If it does not exist, the interface will create it. In any case, the interface will delete this directory after the calculation.\\
 savedir         &Is a path to another temporary directory.  Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. The interface will store files needed for restart there.\\
-dyson           &Path to the dyson code. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. Only necessary if Dyson norms are calculated. Needs a suitable code that computes Dyson norms.\\
-civecconsolidate&Path to the civecconsolidate code suitable for preparation of input for the Dyson program (CI vectors in terms of determinants). Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. Only used if Dyson norms are calculated. If not present, the civecconsolidate code in the \ttt{\$COLUMBUS} directory is used. Note that in the current version of \textsc{Columbus} (Oct. 2014) civecconsolidate is not compatible with the calculation of Dyson norms.\\
 memory          &(integer, MB) Memory for \textsc{Columbus}. Note that the maximum amount of memory used by cioverlaps cannot be controlled with this keyword.\\
-ciothres        &(float) Threshold for including a pair of determinants in the cioverlaps program.\\
-dysonthres      &(float) Threshold for including a pair of determinants in the calculation of Dyson norms.\\
+wfthres         &(float) Threshold for truncation of the eigenvectors for the overlap and Dyson calculations.\\
+wfoverlap       &Is followed by a string giving the path to the \textsc{Wfoverlap} executable. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used.\\
 nooverlap       &(no argument) Do not keep the binary files necessary to calculate wavefunction overlaps in the next timestep.\\
 template        &Is followed by the path to the directory containing the template subdirectories. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used.\\
 DIR             &See \ref{int:col:template}.\\
@@ -2037,6 +2067,131 @@ Note that exponentiation in Python is \ttt{**}. In order to provide most usual m
   \item \ttt{math.pi}, \ttt{math.e}: $\pi$ and Euler's number
   \item \ttt{math.cosh(x)}, \ttt{math.sinh(x)}: Hyperbolic functions (also tanh, acosh, asinh, atanh are available)
 \end{itemize}
+
+
+
+% ========================================================================================================= %
+
+\section{ADF Interface}\label{sec:int:adf}
+
+\subsection{Interface specific input file: \ttt{SH2ADF.inp}}
+
+\subsection{Template file: \ttt{ADF.template}}
+
+\subsection{Template file generator: \ttt{ADF\_input.py}}\label{sec:adf_input.py}
+
+
+
+% ========================================================================================================= %
+
+\section{RICC2 Interface}\label{sec:int:ricc2}
+
+The \sharc-\textsc{Ricc2} interface can be used to conduct excited-state dynamics based on \textsc{Turbomole}'s CC2 and ADC(2) methods, for singlet and triplet states.
+The interface uses the programs \ttt{define}, \ttt{dscf} and \ttt{ricc2}.
+For spin-orbit couplings, \textsc{Orca} needs to be installed in addition to \textsc{Turbomole}.
+Only ADC(2) can be used to calculate spin-orbit couplings, but not CC2 (hence, it is not recommended to perform CC2 calculations with both singlet and triplet states).
+Even with ADC(2), only singlet-triplet SOCs are obtained, but no triplet-triplet SOCs; $S_0$-triplet SOCs are also missing currently.
+Wavefunction overlaps are calculated using the \textsc{Wfoverlap} code of the Gonz\'alez group.\cite{Plasser2016JCTC}
+
+The interface needs two additional input files, a template file for the quantum chemistry (file name is \ttt{RICC2.template}) and a general input file (\ttt{SH2CC2.inp}). 
+If a file \ttt{QM/mos.init} is are present, it is used to provide an initial orbital guess for the SCF calculation.
+
+\subsection{Interface specific input file: \ttt{SH2CAS.inp}}
+
+The file \ttt{SH2CC2.inp} contains mainly paths (to the \textsc{Turbomole} and \textsc{Orca} executables, to the scratch directory, etc.). This file must reside in the same directory where the interface is started. It uses a simple ``\ttt{keyword argument}'' syntax. Comments using \# and blank lines are possible, the order of keywords is arbitrary. Lines with unknown keywords are ignored, since the interface just searches the file for certain keywords.
+
+Table~\ref{tab:ricc2_sh2} lists the existing keywords.
+
+\begin{table}
+  \centering
+  \caption{Keywords for the \ttt{SH2CC2.inp} file.}
+  \label{tab:ricc2_sh2}
+  \begin{tabular}{>{\tt}lp{12cm}}
+  \toprule
+  Keyword       &Description\\
+  \midrule
+turbodir        &Is the path to the \textsc{Turbomole} installation. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. The interface will set \ttt{\$TURBODIR} to this path, and will set the \ttt{\$PATH} correctly (using \textsc{Turbomole}'s \ttt{sysname} tool. If this keyword is not present in \ttt{SH2CC2.inp}, the interface will use the environment variable \ttt{\$TURBODIR}, if it is set.\\
+orcadir         &Is the path to the \textsc{Orca} installation, which is necessary when spin-orbit couplings are calculated. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. If this keyword is not present in \ttt{SH2CC2.inp}, the interface will use the environment variable \ttt{\$ORCADIR}, if it is set.\\
+scratchdir      &Is a path to the temporary directory. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. If it does not exist, the interface will create it. In any case, the interface will delete this directory after the calculation.\\
+savedir         &Is a path to another temporary directory.  Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. The interface will store files needed for restart there.\\
+memory          &The memory usable by \textsc{Turbomole} and \textsc{Wfoverlap}. The default is 100~MB.\\
+ncpu            & The number of CPUs used by the interface. If larger than one, the interface will use the SMP executables of \textsc{Turbomole} with the given number of CPUs.\\
+always\_orb\_init &Do not use the orbital guesses from previous calculations/timesteps, but always use the provided initial orbitals.\\
+always\_guess   &Always use the orbital guess from the EHT calculation of \ttt{define}.\\
+dipolelevel     &Followed by an integer which is either 0, 1, or 2. Controls which dipole moment calculations are skipped by the interface.\\
+wfoverlap       &Is the path to the \textsc{Wfoverlap} executable. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. This keyword is only necessary if overlaps need to be calculated.\\
+wfthres         &Threshold for the truncation of the response vectors which are used in the overlap calculations. A threshold of $x$ implies that only the minimal number of determinants needed to give a norm of $1-x$ are included.\\
+  \bottomrule
+  \end{tabular}
+\end{table}
+
+Note that the interface sets all environment variables necessary to run \textsc{Turbomole} (e.g., \ttt{\$PATH}) automatically, based on the input from \ttt{SH2CC2.inp} and \ttt{QM.in}.
+
+For parallel calculations, the interface will call the SMP executables of \textsc{Turbomole} and \textsc{Wfoverlap}.
+
+Note that the \ttt{dipolelevel} keyword can have significant impact on the calculation time.
+Generally, in response methods like CC2 and ADC(2), extra computational effort is required for the calculation of state and transition dipole moments .
+However, dipole moments have only influence in the dynamics simulations if a laser field is present.
+Using the \ttt{dipolelevel} keyword, it is possible to deactivate dipole moment calculations if they are not required.
+There are three different settings for \ttt{dipolelevel}: 
+\begin{itemize}
+  \item \ttt{dipolelevel}=0: The interface will return only dipole moments which can be calculated at no cost (state dipole moments of states where a gradient is calculated; excited-excited transition dipole moments if SOCs are calculated)
+  \item \ttt{dipolelevel}=1: In addition, the interface will calculate transition dipole moments between $S_0$ and excited singlet states. Use at least this level for the initial condition setup (\ttt{setup\_init.py} takes care of this).
+  \item \ttt{dipolelevel}=2: The interface will calculate all state and transition dipole moments
+\end{itemize}
+If only energies and dipole moments are calculated, \ttt{dipolelevel}=1 is only slightly more expensive than \ttt{dipolelevel}=0, while \ttt{dipolelevel}=2 increases computation time more strongly.
+However, the computation time also depends on whether or not spin-orbit couplings and gradients are calculated. 
+
+
+
+\subsection{Template file: \ttt{RICC2.template}}
+
+This file contains the specifications for the quantum chemistry calculation. Note that this is not a valid \textsc{Turbomole} input file. The file only contains a number of keywords, given in table~\ref{tab:ricc2_temp}. The actual input for \textsc{Turbomole} will be generated automatically through \ttt{define}.
+
+\begin{table}
+  \centering
+  \caption{Keywords for the \ttt{RICC2.template} file.}
+  \label{tab:ricc2_temp}
+  \begin{tabular}{>{\tt}lp{12cm}}
+  \toprule
+  Keyword       &Description\\
+  \midrule
+basis           &The basis set used. The interface will convert this string to the correct case for \textsc{Turbomole}.\\
+auxbasis        &The auxilliary basis set used in \ttt{ricc2}. If no auxbasis is given, the interface will let \ttt{define} decide on a proper auxbasis.\\
+charge          &The total molecular charge. The interface will calculate the number of electrons automatically during setup.\\
+method          &Followed by a string, which is either ``CC2'' or ``ADC(2)'' (case insensitive), defining the level of theory. Default is ``ADC(2)''.\\
+douglas-kroll   &Activates the use of the scalar-relativistic DK Hamiltonian of 2nd order. Default (if no keyword is given) is to use the non-relativistic Hamiltonian.\\
+spin-scaling    &Followed by a string, which is either ``none'', ``scs'' or ``sos''. Using these options, spin-component scaling can be activated.\\
+frozen          &Followed by an integer giving the number of frozen core orbitals in the \ttt{ricc2} calculations. Default is to use frozen core orbitals and let \ttt{define} decide on the number. If frozen core is not wanted, use \ttt{frozen 0} in the template.\\
+  \bottomrule
+  \end{tabular}
+\end{table}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
