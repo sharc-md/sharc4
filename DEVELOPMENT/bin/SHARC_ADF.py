@@ -1970,7 +1970,12 @@ def write_ADFinput(type,QMin):
        outfile.write('end\n\n')
        if 'sopert' in QMin['template']:
            outfile.write('SOPERT\nGSCORR\nPRINT SOMATRIX\n\n')
-       outfile.write('RESTART ADF.t21 &\nnogeo\nEND\n\n')
+       if 'init' in QMin:
+           filename=QMin['pwd']+'/ADF.t21_init'
+           if os.path.isfile(filename) or:
+               outfile.write('RESTART ADF.t21 &\nnogeo\nEND\n\n')
+       else:
+           outfile.write('RESTART ADF.t21 &\nnogeo\nEND\n\n')
        outfile.write('SCF\niterations %sEND\n\n' %(QMin['template']['scf'][1][1]))
        if not DEBUG:
            outfile.write('NOPRINT LOGFILE')
@@ -2092,8 +2097,10 @@ def run_tddft(QMin):
    workdir = QMin['scratchdir']+'/ADF'
    savedir = QMin['savedir']
    os.environ['NSCM']=str(QMin['ncpu'])
-   if 'init' in QMin:
-      shutil.copy(QMin['pwd']+'/ADF.t21_init',workdir+'/ADF.t21')
+   if 'init' in QMn:
+      filename=QMin['pwd']+'/ADF.t21_init'
+      if os.path.isfile(filename):
+         shutil.copy(QMin['pwd']+'/ADF.t21_init',workdir+'/ADF.t21')
    else:
       shutil.copy(savedir+'/ADF.t21',workdir)
    string = 'adf -n %i <ADF_tddft.run > ADF_tddft.out'%(QMin['ncpu'])
