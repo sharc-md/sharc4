@@ -663,7 +663,7 @@ def setup_input(INFOS):
     if INFOS['cholesky']:
       s+='cholesky\n'
     if INFOS['ltype']==1:
-      s+='method CASSF\n'
+      s+='method CASSCF\n'
     elif INFOS['ltype']==2:
       if not INFOS['pt2.ipea']:
         s+='ipea 0.00\n'
