@@ -1242,6 +1242,7 @@ def readQMin(QMinfilename):
     os.environ['ADFBIN']=QMin['ADFHOME']+'/bin'
     os.environ['ADFRESOURCES']=QMin['ADFHOME']+'/atomicdata'
     os.environ['SHARC_RUN']='yes'
+    os.environ['PATH']='$ADFBIN:'+os.environ['PATH']
 
     frozencore=get_sh2ADF_environ(sh2ADF,'frozcore',False,False)
     if frozencore != 'No' and frozencore != None:
@@ -1972,7 +1973,7 @@ def write_ADFinput(type,QMin):
            outfile.write('SOPERT\nGSCORR\nPRINT SOMATRIX\n\n')
        if 'init' in QMin:
            filename=QMin['pwd']+'/ADF.t21_init'
-           if os.path.isfile(filename) or:
+           if os.path.isfile(filename):
                outfile.write('RESTART ADF.t21 &\nnogeo\nEND\n\n')
        else:
            outfile.write('RESTART ADF.t21 &\nnogeo\nEND\n\n')
@@ -2097,13 +2098,13 @@ def run_tddft(QMin):
    workdir = QMin['scratchdir']+'/ADF'
    savedir = QMin['savedir']
    os.environ['NSCM']=str(QMin['ncpu'])
-   if 'init' in QMn:
+   if 'init' in QMin:
       filename=QMin['pwd']+'/ADF.t21_init'
       if os.path.isfile(filename):
          shutil.copy(QMin['pwd']+'/ADF.t21_init',workdir+'/ADF.t21')
    else:
       shutil.copy(savedir+'/ADF.t21',workdir)
-   string = 'adf -n %i <ADF_tddft.run > ADF_tddft.out'%(QMin['ncpu'])
+   string = '$ADFBIN/adf -n %i <ADF_tddft.run > ADF_tddft.out'%(QMin['ncpu'])
    runerror=runProgram(string,workdir)
    if runerror == 0:
       os.chdir(workdir)
@@ -2115,6 +2116,7 @@ def run_tddft(QMin):
       print 'ADF calculation crashed! Error code = %i'%(runerror)
       s=QMin['savedir']+'/ADF-debug/'
       s1=s
+      i=0
       while os.path.exists(s1):
         i+=1
         s1=s+'%i/' % (i)
