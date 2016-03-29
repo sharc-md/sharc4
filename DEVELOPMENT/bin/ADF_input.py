@@ -241,10 +241,11 @@ Please enter the number corresponding to the type of calculation.
   INFOS['ctype']=ctype
   freq=False
   print ''
-  print 'If alterations to the options given here or more complex options are wished to be used please\nsee the ADF manual at www.scm.com/Doc/Doc2014/ADF/ADFUsersGuide/page1.html' 
+  print 'If alterations to the options given here or more complex options are wished to be used please\nsee the ADF manual at https://www.scm.com/documentation/ADF/index/' 
   print ''
   if ctype==2:
     freq=question('Frequency calculation?',bool,True)
+  print 'WARNING: For numerical frequencies (Needed for all but a few selected GGA functionals) you cannot run a geometry optimisation in the same run, please provide an optimised geometry in the input'
   INFOS['freq']=freq
   print ''
 
@@ -307,7 +308,7 @@ Please enter the number corresponding to the type of calculation.
         INFOS['GIter']=iterations  
         if INFOS['freq']==True:
            print ''
-           print 'Do you wish to perform Analytical frequencies (Only works for some GGA functionals. but should be quicker)?'
+           print 'Do you wish to perform Analytical frequencies (Only works for some GGA functionals, but should be quicker)?'
            Type=question('Analytical frequencies:',bool,True)
            if Type == True:
              INFOS['Freqtype']='analytical'
@@ -460,7 +461,7 @@ def setup_input(INFOS):
      if INFOS['ctype']==2:
         if INFOS['freq']==True:
            if INFOS['Freqtype']!='analytical':
-              s+='GEOMETRY \nFrequencies Numdif=2 SCANALL \noptim Delocalized \niterations %s \nEND\n\n' %(INFOS['GIter'])
+              s+='GEOMETRY \nFrequencies\nEND\n\n'
            else:
               s+='GEOMETRY \n optim Delocalized\n iterations %s\nEND\n\nAnalyticalFreq\nEND\n\n'%(INFOS['GIter'])
         else:
