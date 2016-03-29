@@ -1243,6 +1243,10 @@ def readQMin(QMinfilename):
     os.environ['ADFRESOURCES']=QMin['ADFHOME']+'/atomicdata'
     os.environ['SHARC_RUN']='yes'
     os.environ['PATH']='$ADFBIN:'+os.environ['PATH']
+    SCMTEMPDIR=get_sh2ADF_environ(sh2ADF,'scmtmpdir',True,False)
+    if SCMTEMPDIR != None:
+       os.environ['SCM_TMPDIR']=SCMTEMPDIR
+
 
     frozencore=get_sh2ADF_environ(sh2ADF,'frozcore',False,False)
     if frozencore != 'No' and frozencore != None:
@@ -2636,7 +2640,6 @@ def get_cicoef(QMin):
    file1 = kf.kffile(filename)
 
    Lhybrid = file1.read('General','lhybrid')
-
    Nrexci = int(file1.read('All excitations','nr excitations'))
 
    line_num=-1
