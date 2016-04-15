@@ -363,6 +363,8 @@ def label_valid(label):
   # allowed format: letter followed by letters and numbers and underscore
   if '__' in label:
     return False
+  if label=='F' or label=='x':
+    return False
   if re.match('^[a-zA-Z][a-zA-Z0-9_]*$',label)==None:
     return False
   else:
@@ -515,7 +517,7 @@ Each label must be unique. Enter the labels without quotes.
             species.append(i)
             print '  Species \'%s\' added!' % (i)
           else:
-            print '  Invalid label \'%s\'! Labels must be a letter followed by letters, numbers and single underscores!' % (i)
+            print '  Invalid label \'%s\'! Labels must be a letter followed by letters, \n  numbers and single underscores! "F" and "x" are reserved!' % (i)
     elif '-' in s[0]:
       for i in s[1:]:
         if i in species:
@@ -907,6 +909,8 @@ def get_functions_from_maxima(INFOS):
       string=''
       while True:
         line=out[iline]
+        if line[0]=='&':
+          line=line[1:]
         if not '&' in line:
           string+=line
           break
@@ -1268,7 +1272,7 @@ def print_messages(INFOS):
   # whether initial populations should be fitted
   string+='\n'
   string+='* Fitting of initial populations *\n  The fitting script was setup to only optimize the rate constants in the global fit.\n  If you intend to also optimize the initial populations, please modify the fit command like this:\n'
-  string+='    fit F(x), [...] via '
+  string+='    fit F(x) [...] via '
   for i in INFOS['rateset']:
     string+='%s,' % (i)
   for j,i in enumerate(list(INFOS['initset'])):
