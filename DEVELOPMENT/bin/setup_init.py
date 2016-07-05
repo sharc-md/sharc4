@@ -1635,7 +1635,7 @@ douglas-kroll                                   # DKH is only used if this keywo
       else:
         print 'File not found!'
   else:
-    INFOS['ricc2.guess']={}
+    INFOS['ricc2.guess']=[]
 
 
   print centerstring('RICC2 Ressource usage',60,'-')+'\n'
@@ -1675,11 +1675,11 @@ dipolelevel 1
   # copy MOs and template
   cpfrom=INFOS['ricc2.template']
   cpto='%s/RICC2.template' % (iconddir)
-  cpfrom1=INFOS['ricc2.guess']
-  cpto1='%s/mos.init' % (iconddir)
-
   shutil.copy(cpfrom,cpto)
-  shutil.copy(cpfrom1,cpto1)
+  if INFOS['ricc2.guess']:
+    cpfrom1=INFOS['ricc2.guess']
+    cpto1='%s/mos.init' % (iconddir)
+    shutil.copy(cpfrom1,cpto1)
   return
 
 # ======================================================================================================================
