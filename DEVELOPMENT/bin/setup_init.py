@@ -1479,12 +1479,18 @@ The ADF interface will generate the appropriate ADF input automatically.
     INFOS['adf.template']=filename
   print ''
 
-
   print centerstring('Initial restart: MO Guess',60,'-')+'\n'
-  print '''Please specify the path to an ADF.t21 file containing suitable starting MOs for restarting the ADF calculation. Please note that this script cannot check whether the wavefunction file and the Input template are consistent!
+  print '''Please specify the path to an ADF .t21 file containing suitable starting MOs for restarting the ADF calculation. Please note that this script cannot check whether the wavefunction file and the Input template are consistent!
 '''
-  filename=question('Restart file:',str,'init.t21')
-  INFOS['adf.guess']=filename
+  if question('Do you have a restart file?',bool,True):
+     if True:
+       filename=question('Restart file:',str,'init.t21')
+       INFOS['adf.guess']=filename
+  else:
+    print 'WARNING: Remember that the calculations may take longer without an initial guess for the MOs.'
+    time.sleep(2)
+    INFOS['adf.guess']={}
+
 
   print centerstring('ADF Ressource usage',60,'-')+'\n'
   print '''Please specify the number of CPUs to be used by EACH calculation.
@@ -1510,11 +1516,13 @@ def prepare_ADF(INFOS,iconddir):
   # copy MOs and template
   cpfrom=INFOS['adf.template']
   cpto='%s/adf.template' % (iconddir)
-  cpfrom1=INFOS['adf.guess']
-  cpto1='%s/%s.t21_init' % (iconddir,project)
+  filename = INFOS['adf.guess']
+  if not INFOS['adf.guess']=={}:
+     cpfrom1=INFOS['adf.guess']
+     cpto1='%s/%s.t21_init' % (iconddir,project)
+     shutil.copy(cpfrom1,cpto1)
 
   shutil.copy(cpfrom,cpto)
-  shutil.copy(cpfrom1,cpto1)
   return
 
 # ======================================================================================================================
