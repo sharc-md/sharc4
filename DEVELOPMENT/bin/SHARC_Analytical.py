@@ -1100,7 +1100,7 @@ def getQMout(QMin,SH2ANA):
 
   QMout={}
 
-  pprint.pprint(SH2ANA,width=192)
+  #pprint.pprint(SH2ANA,width=192)
 
   if NONUMPY:
     diagon=diagonalizer()
@@ -1157,7 +1157,7 @@ def getQMout(QMin,SH2ANA):
           Dmatrix=transform(SH2ANA['dipolederiv'][ipol][v],U)
           gdmdr[-1][-1].append( [ [ Dmatrix[i][j].real for i in range(QMin['nmstates']) ] for j in range(QMin['nmstates']) ] )
   # rearrange dipole gradients 
-  pprint.pprint(gdmdr,width=192)
+  #pprint.pprint(gdmdr,width=192)
   dmdr= [ 
           [ 
             [ 
@@ -1188,7 +1188,7 @@ def getQMout(QMin,SH2ANA):
   QMout['overlap']=overlap
   QMout['runtime']=0.
 
-  pprint.pprint(QMout,width=192)
+  #pprint.pprint(QMout,width=192)
 
 
 

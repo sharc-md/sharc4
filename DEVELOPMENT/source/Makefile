@@ -58,8 +58,8 @@ SHARC  =  main.o \
 
 DATA_EXTRACTOR =      definitions.o \
 		      matrix.o \
-  	              data_extractor.o \
-  	              qm_out.o
+  	              qm_out.o \
+  	              data_extractor.o
 
 LASER=  LASER_definitions.o \
 	LASER_calc_fftw.o \
