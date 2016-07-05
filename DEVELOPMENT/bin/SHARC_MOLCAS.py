@@ -980,6 +980,9 @@ def getsocme(out, mult1, state1, ms1, mult2, state2, ms2, states, version, metho
     if len(states)==1:
         return complex(0.0,0.0)
 
+    if mult1==mult2==1:
+        return complex(0.0,0.0)
+
     # otherwise, find state indices s1 and s2
     s1 = getMOLCASstatenumber(mult1, state1, ms1, states)
     s2 = getMOLCASstatenumber(mult2, state2, ms2, states)
@@ -1064,8 +1067,12 @@ def getgrad(out,mult,state,QMin,version):
         elif 'Spin quantum number' in line and rasscf:
             if int(round(float(line.split()[3])*2))+1 == mult:
                 multfound = True
+            else:
+                multfound = False
             if ssgrad:
                 statefound=True
+            else:
+                statefound=False
         elif ' Lagrangian multiplier is calculated for root no.' in line and mclr and multfound:
             if int(line.split()[8].strip()) == state:
                 statefound = True
@@ -1691,6 +1698,14 @@ def readQMin(QMinfilename):
     # Calculate states, nstates, nmstates
     for i in range(len(QMin['states'])):
         QMin['states'][i]=int(QMin['states'][i])
+    reduc=0
+    for i in reversed(QMin['states']):
+        if i==0:
+            reduc+=1
+        else:
+            break
+    for i in range(reduc):
+        del QMin['states'][-1]
     nstates=0
     nmstates=0
     for i in range(len(QMin['states'])):
@@ -3054,7 +3069,7 @@ def moveJobIphs(QMin):
 # ======================================================================= #
 def stripWORKDIR(WORKDIR):
     ls=os.listdir(WORKDIR)
-    keep=['MOLCAS.out','MOLCAS\.[1-9]\.JobIph','MOLCAS\.[1-9]\.RasOrb']
+    keep=['MOLCAS.out','MOLCAS\.[1-9]\.JobIph','MOLCAS\.[1-9]\.RasOrb','MOLCAS\.[1-9]\.molden']
     for ifile in ls:
         delete=True
         for k in keep:
