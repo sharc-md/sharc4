@@ -1,14 +1,12 @@
 columbus $COLUMBUS
-molcas /scratch/barium/oppel/molcas/7.9.dev/
-dyson /user/matruc/workspace/mydyson3/dyson.x
-civecconsolidate /user/matruc/CC/bin/civecconsolidate
+molcas $MOLCAS
+wfoverlap 
 
 scratchdir $SCRADIR/WORK
 savedir $SCRADIR/TRAJ/restart
 
 memory 1700             # for runc
-ciothres 1e-4           # for cioverlaps, default 1e-5
-dysonthres 1e-2         # for dyson, default 1e-4
+wfthres 3e-2           # for cioverlaps, default 1e-5
 
 template COLUMBUS.template/
 
