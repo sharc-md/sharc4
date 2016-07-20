@@ -78,7 +78,7 @@ Interfaces={
       'description':     'MOLPRO (only CASSCF)',
       'get_routine':     'get_MOLPRO',
       'prepare_routine': 'prepare_MOLPRO',
-      'couplings':       [1,2,3],
+      'couplings':       [2,3],
       'dipolegrad':      False
      },
   2: {'script':          'SHARC_COLUMBUS.py',
@@ -1113,7 +1113,7 @@ Laser files can be created using $SHARC/laser.x
 # ======================================================================================================================
 
 def checktemplate_MOLPRO(filename):
-  necessary=['memory','basis','closed','occ','wf','state']
+  necessary=['basis','closed','occ','nelec','roots']
   try:
     f=open(filename)
     data=f.readlines()
@@ -1151,10 +1151,7 @@ def get_MOLPRO(INFOS):
   path=os.getenv('MOLPRO')
   path=os.path.expanduser(os.path.expandvars(path))
   if not path=='':
-    if not path.endswith('/molpro'):
-      path='$MOLPRO/molpro'
-    else:
-      path='$MOLPRO/'
+    path='$MOLPRO/'
   else:
     path=None
   #if path!='':
@@ -1224,12 +1221,27 @@ If you optimized your geometry with MOLPRO/CASSCF you can reuse the "wf" file fr
     INFOS['molpro.guess']=False
 
 
+  print centerstring('MOLPRO Ressource usage',60,'-')+'\n'
+  print '''Please specify the amount of memory available to MOLPRO (in MB). For calculations including moderately-sized CASSCF calculations and less than 150 basis functions, around 2000 MB should be sufficient.
+'''
+  INFOS['molpro.mem']=abs(question('MOLPRO memory:',int,[500])[0])
+  print '''Please specify the number of CPUs to be used by EACH trajectory.
+'''
+  INFOS['molpro.ncpu']=abs(question('Number of CPUs:',int,[1])[0])
+
+  # Ionization
+  print centerstring('Ionization probability by Dyson norms',60,'-')+'\n'
+  INFOS['ion']=question('Dyson norms?',bool,False)
+
+  # wfoverlap
+  INFOS['molpro.wfpath']=question('Path to wavefunction overlap executable:',str)
+
+
   # Other settings
   INFOS['molpro.gradaccudefault']=1.e-7
-  INFOS['molpro.gradaccumax']=1.e-2
-  if Couplings[INFOS['coupling']]['name']=='ddt':
-    INFOS['molpro.checknacs']=True
-    INFOS['molpro.correctnacs']=False
+  INFOS['molpro.gradaccumax']=1.e-4
+  INFOS['molpro.ncore']=-1
+  INFOS['molpro.ndocc']=0
 
   return INFOS
 
@@ -1247,10 +1259,21 @@ scratchdir %s/%s/
 savedir %s/%s/restart
 gradaccudefault %.8f
 gradaccumax %f
-''' % (INFOS['molpro'],INFOS['scratchdir'],iconddir,INFOS['copydir'],iconddir,INFOS['molpro.gradaccudefault'],INFOS['molpro.gradaccumax'])
-  if Couplings[INFOS['coupling']]['name']=='ddt':
-    string+='''checknacs %s
-correctnacs %s''' % (INFOS['molpro.checknacs'],INFOS['molpro.correctnacs'])
+memory %i
+ncpu %i
+wfoverlap %s
+''' % (
+       INFOS['molpro'],
+       INFOS['scratchdir'],
+       iconddir,
+       INFOS['copydir'],
+       iconddir,
+       INFOS['molpro.gradaccudefault'],
+       INFOS['molpro.gradaccumax'],
+       INFOS['molpro.mem'],
+       INFOS['molpro.ncpu'],
+       INFOS['molpro.wfpath']
+       )
   sh2pro.write(string)
   sh2pro.close()
 
@@ -1270,7 +1293,6 @@ correctnacs %s''' % (INFOS['molpro.checknacs'],INFOS['molpro.correctnacs'])
 $SHARC/%s QM.in >> QM.log 2>> QM.err
 err=$?
 
-rm *.xml
 exit $err''' % (INFOS['copydir'],iconddir,Interfaces[INFOS['interface']]['script'])
   runscript.write(s)
   runscript.close()
@@ -1914,7 +1936,7 @@ basis <Basis set>
 ras2 <Number of active orbitals>
 nactel <Number of active electrons>
 inactive <Number of doubly occupied orbitals>
-spin <Multiplicity (1=S)> roots <Number of roots for this multiplicity>  (repeat this line for each multiplicity)
+roots <Number of roots for state-averaging>
 
 The MOLCAS interface will generate the appropriate MOLCAS input automatically.
 '''
@@ -2159,8 +2181,16 @@ The ADF interface will generate the appropriate ADF input automatically.
   print centerstring('Initial restart: MO Guess',60,'-')+'\n'
   print '''Please specify the path to an ADF .t21 file containing suitable starting MOs for restarting the ADF calculation. Please note that this script cannot check whether the wavefunction file and the Input template are consistent!
 '''
-  filename=question('Restart file:',str,'init.t21')
-  INFOS['adf.guess']=filename
+  if question('Do you have a restart file?',bool,True):
+     if True:
+       filename=question('Restart file:',str,'init.t21')
+       INFOS['adf.guess']=filename
+  else:
+    print 'WARNING: Remember that the calculations may take longer without an initial guess for the MOs.'
+    time.sleep(2)
+    INFOS['adf.guess']={}
+
+
 
   print centerstring('ADF Ressource usage',60,'-')+'\n'
   print '''Please specify the number of CPUs to be used by EACH calculation.
@@ -2340,7 +2370,7 @@ douglas-kroll                                   # DKH is only used if this keywo
       else:
         print 'File not found!'
   else:
-    INFOS['ricc2.guess']={}
+    INFOS['ricc2.guess']=[]
 
 
   print centerstring('RICC2 Ressource usage',60,'-')+'\n'
@@ -2408,11 +2438,11 @@ dipolelevel %i
   # copy MOs and template
   cpfrom=INFOS['ricc2.template']
   cpto='%s/QM/RICC2.template' % (iconddir)
-  cpfrom1=INFOS['ricc2.guess']
-  cpto1='%s/QM/mos.init' % (iconddir)
-
   shutil.copy(cpfrom,cpto)
-  shutil.copy(cpfrom1,cpto1)
+  if INFOS['ricc2.guess']:
+    cpfrom1=INFOS['ricc2.guess']
+    cpto1='%s/QM/mos.init' % (iconddir)
+    shutil.copy(cpfrom1,cpto1)
 
   # runQM.sh
   runname=iconddir+'/QM/runQM.sh'
@@ -2570,6 +2600,10 @@ def writeSHARCinput(INFOS,initobject,iconddir,istate):
     if Interfaces[INFOS['interface']]['script']=='SHARC_ADF.py':
         s+='select_directly\n'
     if Interfaces[INFOS['interface']]['script']=='SHARC_RICC2.py':
+        s+='select_directly\n'
+    if Interfaces[INFOS['interface']]['script']=='SHARC_MOLPRO.py':
+        s+='select_directly\n'
+    if Interfaces[INFOS['interface']]['script']=='SHARC_MOLCAS.py':
         s+='select_directly\n'
 
   # laser

@@ -467,7 +467,7 @@ Please enter the number corresponding to the type of calculation.
           continue
         geom.append(atom)
         try:
-          ncharge+=NUMBERS[atom[0]]
+          ncharge+=NUMBERS[atom[0].title()]
         except KeyError:
           print 'Atom type %s not supported!' % (atom[0])
           fine=False
@@ -483,6 +483,7 @@ Please enter the number corresponding to the type of calculation.
     while True:
       charge=question('Charge:',int,[0])[0]
       break
+    INFOS['charge']=charge
     INFOS['nelec']=ncharge-charge
     print 'Number of electrons: %i\n' % (ncharge-charge)
 
@@ -709,10 +710,10 @@ def setup_input(INFOS):
 
 
   if INFOS['ctype']==1:
-    if not INFOS['DK'] and INFOS['nelec']%2==0:
+    if not INFOS['DK'] and INFOS['nelec']%2==0 and INFOS['charge']==0:
       s+='\n\n&SCF\n\n'
     else:
-      s+='\n\n** For DKH integrals, MOLCAS SCF seems to not work properly.\n*&SCF\n\n'
+      s+='\n\n** For DKH integrals or with ions, MOLCAS SCF seems to not work properly.\n*&SCF\n\n'
 
 
   ijobiph=0
@@ -957,6 +958,9 @@ def warnings(INFOS):
       print '*'+' '*60+'*'
     if INFOS['nelec']%2!=0:
       print '*'+centerstring('Odd number of electrons: Will not do SCF!',60,' ')+'*'
+      print '*'+' '*60+'*'
+    if INFOS['charge']!=0:
+      print '*'+centerstring('Nonzero charge: Will not do SCF!',60,' ')+'*'
       print '*'+' '*60+'*'
   print '*'+' '*60+'*'
   print '*'*62

@@ -69,6 +69,7 @@ from copy import deepcopy
 from socket import gethostname
 # reading binary files
 import struct
+import copy
 
 
 # =========================================================0
@@ -95,7 +96,7 @@ if sys.version_info[1]<5:
 
 # ======================================================================= #
 
-version='0.1'
+version='0.1.1'
 versiondate=datetime.date(2016,2,12)
 
 
@@ -105,6 +106,11 @@ changelogstring='''
 - SOC from Orca call
 - only singlets and triplets
   => Doublets and Dyson could be added later
+
+15.03.2016:     0.1.1
+- ridft can be used for the SCF calculation, but dscf has to be run afterwards anyways (for SOC and overlaps).
+- Laplace-transformed SOS-CC2/ADC(2) can be used ("spin-scaling lt-sos"), but does not work for soc or trans-dm
+- if ricc2 does not converge, it is rerun with different combinations of npre and nstart (until convergence or too many tries)
 '''
 
 # ======================================================================= #
@@ -509,6 +515,10 @@ def printQMin(QMin):
     print 'WARNING: excited-to-excited transition dipole moments in ADC(2) are zero!'
 
 
+  if 'dm' in QMin and QMin['template']['method']=='cc2' and (QMin['states'][0]>1 and len(QMin['states'])>2 and QMin['states'][2]>0):
+    print 'WARNING: will not calculate transition dipole moments! For CC2, please use only singlet states or ground state + triplets.'
+
+
   string='Found Geo'
   if 'veloc' in QMin:
     string+=' and Veloc! '
@@ -544,16 +554,16 @@ def printQMin(QMin):
     string+='\n'
     print string
 
-  if 'overlap' in QMin:
-    string='Overlaps:\n'
-    for i in range(1,QMin['nmstates']+1):
-      for j in range(1,QMin['nmstates']+1):
-        if [i,j] in QMin['overlap'] or [j,i] in QMin['overlap']:
-          string+='X '
-        else:
-          string+='. '
-      string+='\n'
-    print string
+  #if 'overlap' in QMin:
+    #string='Overlaps:\n'
+    #for i in range(1,QMin['nmstates']+1):
+      #for j in range(1,QMin['nmstates']+1):
+        #if [i,j] in QMin['overlap'] or [j,i] in QMin['overlap']:
+          #string+='X '
+        #else:
+          #string+='. '
+      #string+='\n'
+    #print string
 
   for i in QMin:
     if not any( [i==j for j in ['h','dm','soc','dmdr','socdr','geo','veloc','states','comment','LD_LIBRARY_PATH', 'grad','nacdr','ion','overlap','template'] ] ):
@@ -1966,6 +1976,12 @@ def readQMin(QMinfilename):
     sys.exit(47)
 
 
+  # get the nooverlap keyword: no dets will be extracted if present
+  line=getsh2cc2key(sh2cc2,'nooverlap')
+  if line[0]:
+    QMin['nooverlap']=[]
+
+
   # dipole moment calculation level
   QMin['dipolelevel']=2
   line=getsh2cc2key(sh2cc2,'dipolelevel')
@@ -1984,6 +2000,12 @@ def readQMin(QMinfilename):
     QMin['wfthres']=float(line[1])
   if 'overlap' in QMin:
     QMin['wfoverlap']=get_sh2cc2_environ(sh2cc2,'wfoverlap')
+
+
+  # norestart setting
+  line=getsh2cc2key(sh2cc2,'no_ricc2_restart')
+  if line[0]:
+    QMin['no_ricc2_restart']=[]
 
 
   # open template
@@ -2046,12 +2068,12 @@ def readQMin(QMinfilename):
     sys.exit(52)
 
   # find spin-scaling
-  allowed_methods=['scs','sos','none']
+  allowed_methods=['scs','sos','lt-sos','none']
   if not any ([  QMin['template']['spin-scaling']==i for i in allowed_methods  ]):
     print 'Unknown spin-scaling "%s" given in RICC2.template' % (QMin['template']['spin-scaling'])
     sys.exit(52)
 
-  # find spin-scaling
+  # find SCF program
   allowed_methods=['dscf','ridft']
   if not any ([  QMin['template']['scf']==i for i in allowed_methods  ]):
     print 'Unknown SCF program "%s" given in RICC2.template' % (QMin['template']['scf'])
@@ -2060,11 +2082,31 @@ def readQMin(QMinfilename):
   # get number of electrons
   nelec=0
   for atom in QMin['geo']:
-    nelec+=NUMBERS[atom[0]]
+    nelec+=NUMBERS[atom[0].title()]
   nelec-=QMin['template']['charge']
   QMin['nelec']=nelec
 
+  # no soc for elements beyond Kr due to ECP
+  if 'soc' in QMin and any( [ NUMBERS[atom[0].title()]>36 for atom in QMin['geo'] ] ):
+    print 'Spin-orbit couplings for elements beyond Kr do not work due to default ECP usage!'
+    sys.exit(11)
 
+  # soc and cc2 do not work together
+  if 'soc' in QMin and 'cc2' in QMin['template']['method']:
+    print 'Currently, spin-orbit coupling is not possible at CC2 level. Please use ADC(2)!'
+    sys.exit(11)
+
+  # lt-sos-CC2/ADC(2) does not work in certain cases
+  if 'lt-sos' in QMin['template']['spin-scaling']:
+    if QMin['ncpu']>1:
+      print 'NOTE: Laplace-transformed SOS-%s is not fully SMP parallelized.' % (QMin['template']['method'].upper())
+      #sys.exit(11)
+    if 'soc' in QMin:
+      print 'Laplace-transformed SOS-%s is not compatible with SOC calculation!' % (QMin['template']['method'].upper())
+      sys.exit(11)
+    if QMin['dipolelevel']==2:
+      print 'Laplace-transformed SOS-%s is not compatible with dipolelevel=2!' % (QMin['template']['method'].upper())
+      sys.exit(11)
 
   # Check the save directory
   try:
@@ -2075,18 +2117,32 @@ def readQMin(QMinfilename):
   if 'init' in QMin:
     err=0
   elif 'overlap' in QMin:
-    if not 'mos' in ls:
-      print 'File "mos" missing in SAVEDIR!'
-      err+=1
-    if not 'coord' in ls:
-      print 'File "coord" missing in SAVEDIR!'
-      err+=1
-    for imult,nstates in enumerate(QMin['states']):
-      if nstates<1:
-        continue
-      if not 'dets.%i' % (imult+1) in ls:
-        print 'File "dets.%i" missing in SAVEDIR!' % (imult+1)
+    if 'newstep' in QMin:
+      if not 'mos' in ls:
+        print 'File "mos" missing in SAVEDIR!'
         err+=1
+      if not 'coord' in ls:
+        print 'File "coord" missing in SAVEDIR!'
+        err+=1
+      for imult,nstates in enumerate(QMin['states']):
+        if nstates<1:
+          continue
+        if not 'dets.%i' % (imult+1) in ls:
+          print 'File "dets.%i.old" missing in SAVEDIR!' % (imult+1)
+          err+=1
+    elif 'samestep' in QMin or 'restart' in QMin:
+      if not 'mos.old' in ls:
+        print 'File "mos" missing in SAVEDIR!'
+        err+=1
+      if not 'coord.old' in ls:
+        print 'File "coord.old" missing in SAVEDIR!'
+        err+=1
+      for imult,nstates in enumerate(QMin['states']):
+        if nstates<1:
+          continue
+        if not 'dets.%i.old' % (imult+1) in ls:
+          print 'File "dets.%i.old" missing in SAVEDIR!' % (imult+1)
+          err+=1
   if err>0:
     print '%i files missing in SAVEDIR=%s' % (err,QMin['savedir'])
     sys.exit(56)
@@ -2133,8 +2189,8 @@ def get_jobs(QMin):
     if QMin['dipolelevel']>=2:
       prop.add('exprop_dm')
       prop.add('static_dm')
-      # tmexc does not work for ADC(2) or for CC2 if excited singlets and triples are present
-      if not QMin['template']['method']=='adc(2)' and (len(QMin['states'])==1 or QMin['states'][0]<=1):
+      # tmexc does not work for CC2 if excited singlets and triples are present
+      if not (QMin['template']['method']=='cc2' and len(QMin['states'])>1 and QMin['states'][0]>1):
         prop.add('tmexc_dm')
 
   # define the rules for distribution of jobs
@@ -2270,8 +2326,7 @@ def gettasks(QMin):
     # SCF calculation
     if QMin['template']['scf']=='ridft':
       tasks.append(['ridft'])
-    else:
-      tasks.append(['dscf'])
+    tasks.append(['dscf'])
     if 'molden' in QMin:
       tasks.append(['copymolden'])
 
@@ -2311,7 +2366,8 @@ def gettasks(QMin):
 
   if 'cleanup' in QMin:
     tasks.append(['cleanup',QMin['savedir']])
-    tasks.append(['cleanup',QMin['scratchdir']])
+  #if not DEBUG:
+    #tasks.append(['cleanup',QMin['scratchdir']])
 
   return tasks
 
@@ -2513,6 +2569,11 @@ y
       string+='scs\n'
     elif QMin['template']['spin-scaling']=='sos':
       string+='sos\n'
+    elif QMin['template']['spin-scaling']=='lt-sos':
+      string+='sos\n'
+    # number of DIIS vectors
+    ndiis=max(10,5*max(QMin['states']))
+    string+='mxdiis = %i\n' % (ndiis)
     string+='*\n'
 
     # leave cc input
@@ -2580,6 +2641,9 @@ def add_option_to_control_section(path,section,newline):
     line=infile[jline]
     if '$' in line:
       break
+    # do nothing if line is already there
+    if newline+'\n'==line:
+      return
 
   # splice together new file
   outfile=infile[:jline]
@@ -2628,6 +2692,11 @@ def modify_control(QMin):
   if QMin['template']['douglas-kroll']:
     add_section_to_control(control,'$rdkh')
 
+  # add laplace keyword for LT-SOS
+  if QMin['template']['spin-scaling']=='lt-sos':
+    add_section_to_control(control,'$laplace')
+    add_option_to_control_section(control,'$laplace','conv=5')
+
   #remove_section_in_control(control,'$optimize')
   #add_option_to_control_section(control,'$ricc2','scs')
   return
@@ -2645,6 +2714,7 @@ def prep_control(QMin,job):
 
   # add number of states
   add_section_to_control(control,'$excitations')
+  add_option_to_control_section(control,'$excitations','maxiter 45')
   nst=QMin['states'][0]-1       # exclude ground state here
   if nst>=1:
     string='irrep=a multiplicity=1 nexc=%i npre=%i nstart=%i' % (nst,nst+1,nst+1)
@@ -2688,6 +2758,15 @@ def prep_control(QMin,job):
       string='xgrad states=(a{%i} %i)' % (j[1],j[2]-(j[1]==1))
       add_option_to_control_section(control,'$excitations',string)
 
+  # ricc2 restart
+  if not 'E' in job and not 'no_ricc2_restart' in QMin:
+    add_option_to_control_section(control,'$ricc2','restart')
+    restartfile=os.path.join(QMin['scratchdir'],'JOB/restart.cc')
+    try:
+      os.remove(restartfile)
+    except OSError:
+      pass
+
   return
 
 # ======================================================================= #
@@ -2695,11 +2774,20 @@ def get_dets(path,mults,QMin):
   # read all determinant expansions from working directory and put them into the savedir
 
   for imult in mults:
-    ca=civfl_ana(path,imult,maxsqnorm=1.-QMin['wfthres'])
+    ca=civfl_ana(path,imult,maxsqnorm=1.-QMin['wfthres'],filestr='CCRE0')
     for istate in range(1,1+QMin['states'][imult-1]):
       ca.get_state_dets(istate)
     writename=os.path.join(QMin['savedir'],'dets.%i' % (imult))
     ca.write_det_file(QMin['states'][imult-1],wname=writename)
+
+    # for CC2, also save the left eigenvectors
+    if QMin['template']['method']=='cc2':
+      ca=civfl_ana(path,imult,maxsqnorm=1.-QMin['wfthres'],filestr='CCLE0')
+      for istate in range(1,1+QMin['states'][imult-1]):
+        ca.get_state_dets(istate)
+      writename=os.path.join(QMin['savedir'],'dets_left.%i' % (imult))
+      ca.write_det_file(QMin['states'][imult-1],wname=writename)
+
     if not 'frozenmap' in QMin:
       QMin['frozenmap']={}
     QMin['frozenmap'][imult]=ca.nfrz
@@ -2796,7 +2884,10 @@ def wfoverlap(QMin,scradir,mult):
   link( os.path.join(savedir,'ao_ovl'              ), os.path.join(scradir,'ao_ovl'), crucial=True, force=True)
   link( os.path.join(savedir,'mos.old'             ), os.path.join(scradir,'mos.a'),  crucial=True, force=True)
   link( os.path.join(savedir,'mos'                 ), os.path.join(scradir,'mos.b'),  crucial=True, force=True)
-  link( os.path.join(savedir,'dets.%i.old' % (mult)), os.path.join(scradir,'dets.a'), crucial=True, force=True)
+  if QMin['template']['method']=='cc2':
+    link( os.path.join(savedir,'dets_left.%i.old' % (mult)), os.path.join(scradir,'dets.a'), crucial=True, force=True)
+  else:
+    link( os.path.join(savedir,'dets.%i.old' % (mult)), os.path.join(scradir,'dets.a'), crucial=True, force=True)
   link( os.path.join(savedir,'dets.%i'     % (mult)), os.path.join(scradir,'dets.b'), crucial=True, force=True)
 
   # write input file for wfoverlap
@@ -2836,6 +2927,37 @@ def run_dscf(QMin):
   return
 
 # ======================================================================= #
+def run_ridft(QMin):
+  workdir=os.path.join(QMin['scratchdir'],'JOB')
+
+  # add RI settings to control file
+  controlfile=os.path.join(workdir,'control')
+  remove_section_in_control(controlfile,'$maxcor')
+  add_section_to_control(controlfile,'$maxcor %i' % (int(QMin['memory']*0.6)))
+  add_section_to_control(controlfile,'$ricore %i' % (int(QMin['memory']*0.4)))
+  add_section_to_control(controlfile,'$jkbas file=auxbasis')
+  add_section_to_control(controlfile,'$rij')
+  add_section_to_control(controlfile,'$rik')
+
+  if QMin['ncpu']>1:
+    string='ridft_smp &> ridft.out'
+  else:
+    string='ridft &> ridft.out'
+  runerror=runProgram(string,workdir)
+  if runerror!=0:
+    print 'RIDFT calculation crashed! Error code=%i' % (runerror)
+    sys.exit(11)
+
+  # remove RI settings from control file
+  controlfile=os.path.join(workdir,'control')
+  remove_section_in_control(controlfile,'$maxcor')
+  add_section_to_control(controlfile,'$maxcor %i' % (QMin['memory']))
+  remove_section_in_control(controlfile,'$rij')
+  remove_section_in_control(controlfile,'$rik')
+
+  return
+
+# ======================================================================= #
 def run_orca(QMin):
   workdir=os.path.join(QMin['scratchdir'],'JOB')
   string='orca_2mkl soc -gbw > orca_2mkl.out 2> orca_2mkl.err'
@@ -2853,16 +2975,59 @@ def run_orca(QMin):
   return
 
 # ======================================================================= #
+shift_mask={1: (+1,+1),
+            2: (-2,-1),
+            3: (+1,+1),
+            4: (+1,+1),
+            5: (+1,+1),
+            6: (+1,+1)  }
+
+def change_pre_states(workdir,itrials):
+  filename=os.path.join(workdir,'control')
+  data=readfile(filename)
+  data2=copy.deepcopy(data)
+  for i,line in enumerate(data):
+    if 'irrep' in line:
+      s=line.replace('=',' ').split()
+      mult=s[3]
+      nexc=s[5]
+      npre=str(int(s[7])+shift_mask[itrials][0])
+      nstart=str(int(s[9])+shift_mask[itrials][1])
+      data2[i]='irrep=a multiplicity=%s nexc=%s npre=%s nstart=%s\n' % (mult,nexc,npre,nstart)
+  writefile(filename,data2)
+
+# ======================================================================= #
 def run_ricc2(QMin):
   workdir=os.path.join(QMin['scratchdir'],'JOB')
-  if QMin['ncpu']>1:
-    string='ricc2_omp &> ricc2.out'
-  else:
-    string='ricc2 &> ricc2.out'
-  runerror=runProgram(string,workdir)
-  if runerror!=0:
-    print 'RICC2 calculation crashed! Error code=%i' % (runerror)
-    sys.exit(11)
+
+  # enter loop until convergence of CC2/ADC(2)
+  itrials=0
+  while True:
+    if QMin['ncpu']>1:
+      string='ricc2_omp &> ricc2.out'
+    else:
+      string='ricc2 &> ricc2.out'
+    runerror=runProgram(string,workdir)
+    if runerror!=0:
+      print 'RICC2 calculation crashed! Error code=%i' % (runerror)
+      ok=False
+    # check for convergence in output file
+    filename=os.path.join(workdir,'ricc2.out')
+    data=readfile(filename)
+    ok=True
+    for line in data:
+      if 'NO CONVERGENCE' in line:
+        ok=False
+        break
+    if ok:
+      break
+    # go only here if no convergence
+    itrials+=1
+    if itrials>max(shift_mask):
+      print 'Not able to obtain convergence in RICC2. Aborting...'
+      sys.exit(11)
+    print 'No convergence of excited-state calculations! Restarting with modified number of preoptimization states...'
+    change_pre_states(workdir,itrials)
 
   return
 
@@ -2957,6 +3122,8 @@ def runeverything(tasks, QMin):
       cleandir(task[1])
     if task[0]=='dscf':
       run_dscf(QMin)
+    if task[0]=='ridft':
+      run_ridft(QMin)
     if task[0]=='orca_soc':
       run_orca(QMin)
     if task[0]=='prep_control':
@@ -2986,7 +3153,7 @@ def runeverything(tasks, QMin):
 # ======================================================================= #
 # ======================================================================= #
 class civfl_ana:
-  def __init__(self, path, imult, maxsqnorm=1.0, debug=False):
+  def __init__(self, path, imult, maxsqnorm=1.0, debug=False, filestr='CCRE0'):
     self.det_dict = {} # dictionary with determinant strings and cicoefficient information
     self.sqcinorms = {} # CI-norms
     self.path=path
@@ -3000,6 +3167,7 @@ class civfl_ana:
     self.nfrz= 0  # number of frozen orbs
     self.nocc=-1  # number of occupied orbs (including frozen)
     self.nvir=-1  # number of virtuals
+    self.filestr=filestr
     self.read_control()
 # ================================================== #
   def read_control(self):
@@ -3031,9 +3199,15 @@ class civfl_ana:
       det=self.det_string(0,self.nocc,'de')
       self.det_dict[det]={1: 1.}
       return
-    filename=('CCRE0% 2i% 3i% 4i' % (1,self.mult,state-(self.mult==1))).replace(' ','-')
-    filename=os.path.join(self.path,filename)
-    CCfile=open(filename,'rb')
+    try:
+      filename=('%s% 2i% 3i% 4i' % (self.filestr,1,self.mult,state-(self.mult==1))).replace(' ','-')
+      filename=os.path.join(self.path,filename)
+      CCfile=open(filename,'rb')
+    except IOError:
+      # if the files are not there, use the right eigenvectors
+      filename=('%s% 2i% 3i% 4i' % ('CCRE0',1,self.mult,state-(self.mult==1))).replace(' ','-')
+      filename=os.path.join(self.path,filename)
+      CCfile=open(filename,'rb')
     # skip 8 byte
     CCfile.read(8)
     # read method from 8 byte
@@ -3062,12 +3236,17 @@ class civfl_ana:
         elif self.mult==3:
           det=self.det_string(iocc+self.nfrz,self.nocc+ivirt,'aa')
           state_dict[det]=coef
+    # renormalize
+    vnorm=0.
+    for i in state_dict:
+      vnorm+=state_dict[i]**2
+    vnorm=math.sqrt(vnorm)
     # truncate data
     state_dict2={}
     norm=0.
     for i in sorted(state_dict, key=lambda x: state_dict[x]**2, reverse=True):
-      state_dict2[i]=state_dict[i]
-      norm+=state_dict[i]**2
+      state_dict2[i]=state_dict[i]/vnorm
+      norm+=state_dict[i]**2/vnorm
       if norm>self.maxsqnorm:
         break
     # put into general det_dict, also adding the b->a excitation for singlets

@@ -241,10 +241,11 @@ Please enter the number corresponding to the type of calculation.
   INFOS['ctype']=ctype
   freq=False
   print ''
-  print 'If alterations to the options given here or more complex options are wished to be used please\nsee the ADF manual at www.scm.com/Doc/Doc2014/ADF/ADFUsersGuide/page1.html' 
+  print 'If alterations to the options given here or more complex options are wished to be used please\nsee the ADF manual at https://www.scm.com/documentation/ADF/index/' 
   print ''
   if ctype==2:
     freq=question('Frequency calculation?',bool,True)
+  print 'WARNING: For numerical frequencies (Needed for all but a few selected GGA functionals) you cannot run a geometry optimisation in the same run, please provide an optimised geometry in the input'
   INFOS['freq']=freq
   print ''
 
@@ -302,19 +303,17 @@ Please enter the number corresponding to the type of calculation.
      INFOS['Unp_elec']=Unr
      if ctype == 2 :
         print ''
-        print 'Do you wish to perform a Geometry Optimization?'
-        GeoOpt=question('Geometry Optimization:',bool,True)
-        INFOS['GeoOpt']=GeoOpt
-        if INFOS['GeoOpt']==True:
-           print ''
-           print 'Number of Geometry Iterations Permitted:'
-           iterations = question('Iterations:',int,[150])[0]
-           INFOS['GIter']=iterations  
+        print 'Please state the number of geometry iterations permitted:'
+        iterations = question('Iterations:',int,[150])[0]
+        INFOS['GIter']=iterations  
         if INFOS['freq']==True:
            print ''
-           print 'Analytical or Numerical Frequencies? (Analytical should be quicker)' 
-           Type=question('Type of Frequencies:',str,'analytical',autocomplete=False)
-           INFOS['Freqtype']=Type
+           print 'Do you wish to perform Analytical frequencies (Only works for some GGA functionals, but should be quicker)?'
+           Type=question('Analytical frequencies:',bool,True)
+           if Type == True:
+             INFOS['Freqtype']='analytical'
+           else:
+             INFOS['Freqtype']='numerical'
   elif ctype ==3:
      print ''
      print 'Enter the total (net) molecular charge:'
@@ -460,14 +459,13 @@ def setup_input(INFOS):
          s+='%i %s %4.8f %4.8f %4.8f \n' % (INFOS['geom'][n][0],INFOS['geom'][n][1],INFOS['geom'][n][2],INFOS['geom'][n][3],INFOS['geom'][n][4])
      s+='END\n\n'
      if INFOS['ctype']==2:
-        if INFOS['GeoOpt']==True:
-           if INFOS['freq']==True:
-              if INFOS['Freqtype']!='analytical':
-                 s+='GEOMETRY \nFrequencies Numdif=2 SCANALL \noptim Delocalized \niterations %s \nEND\n\n' %(INFOS['GIter'])
-              else:
-                 s+='GEOMETRY \n optim Delocalized\n iterations %s\nEND\n\nAnalyticalFreq\nEND\n\n'%(INFOS['GIter'])
+        if INFOS['freq']==True:
+           if INFOS['Freqtype']!='analytical':
+              s+='GEOMETRY \nFrequencies\nEND\n\n'
            else:
-              s+='GEOMETRY \n optim Delocalized\n iterations %s\nEND\n\n' %(INFOS['GIter'])
+              s+='GEOMETRY \n optim Delocalized\n iterations %s\nEND\n\nAnalyticalFreq\nEND\n\n'%(INFOS['GIter'])
+        else:
+           s+='GEOMETRY \n optim Delocalized\n iterations %s\nEND\n\n' %(INFOS['GIter'])
   else:
      s+='END\n\n'
   s+='SYMMETRY NOSYM\n\n'
@@ -510,8 +508,8 @@ def setup_input(INFOS):
         s+='EXCITATION\n%s DAVIDSON\nlowest %i\nEND\n\n' % (INFOS['Mult'],INFOS['NrExci'])
      else:
         s+='EXCITATION\nDAVIDSON\nlowest %s\nEND\n\n' % (INFOS['NrExci'])
-  if INFOS['TDA'] == True and INFOS['Exci'] == True:
-     s+='TDA \n\n'
+     if INFOS['TDA'] == True and INFOS['Exci'] == True:
+        s+='TDA \n\n'
   if INFOS['Exci']==True and INFOS['ExcGO'] == True:
      s+='GEOMETRY\nIterations %s\nEND\n\n' % (INFOS['Iter'])
      s+='EXCITEDGO\n%s\nSTATE A %i\nOUTPUT=4\nEND\n\n' %(INFOS['SINGTRIP'],INFOS['STATE'])
