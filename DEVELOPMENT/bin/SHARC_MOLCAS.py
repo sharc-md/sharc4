@@ -1860,7 +1860,7 @@ def readQMin(QMinfilename):
             DEBUG=True
 
 
-    QMin['memory']=10
+    QMin['memory']=500
     line=getsh2caskey(sh2cas,'memory')
     if line[0]:
         try:
@@ -1869,7 +1869,7 @@ def readQMin(QMinfilename):
             print 'MOLCAS memory does not evaluate to numerical value!'
             sys.exit(44)
     else:
-        print 'WARNING: Please set memory for MOLCAS in SH2CAS.inp (in MB)! Using 10 MB default value!'
+        print 'WARNING: Please set memory for MOLCAS in SH2CAS.inp (in MB)! Using 500 MB default value!'
     os.environ['MOLCASMEM']=str(QMin['memory'])
 
     QMin['ncpu']=1
