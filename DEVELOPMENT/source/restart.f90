@@ -278,6 +278,7 @@ module restart
 
     ! read ctrl
     read(u_ctrl,'(A)') ctrl%cwd
+    call getcwd(ctrl%cwd)
     read(u_ctrl,*) ctrl%natom
     read(u_ctrl,*) ctrl%maxmult
     allocate( ctrl%nstates_m(ctrl%maxmult) )
