@@ -478,6 +478,28 @@ def get_general():
 # ======================================================================================================================
 # ======================================================================================================================
 
+
+class histogram:
+  def __init__(self,binlist):
+    '''binlist must be a list of floats
+Later, all floats x with binlist[i-1]<x<=binlist[i] will return i'''
+    self.binlist=sorted(binlist)
+    self.len=len(binlist)+1
+  def put(self,x):
+    i=0
+    for el in self.binlist:
+      if x<el:
+        return i
+      else:
+        i+=1
+    return i
+  def __repr__(self):
+    s='Histogram object: '
+    for i in self.binlist:
+      s+='%f ' % (i)
+    return s
+
+
 def do_calc(INFOS):
 
   sharcpath=os.getenv('SHARC')
@@ -500,13 +522,13 @@ def do_calc(INFOS):
         continue
       path=os.path.join(idir,itraj)
       trajectories[path]={}
-      s=centerstring(' '+path+' ',80,'~')+'\n\n'
+      print centerstring(' '+path+' ',80,'~')+'\n'
 
       # check if files are there
       trajectories[path]['files']={}
       files=['output.lis','output.log','output.dat','output.xyz']
       ls2=os.listdir(path)
-      s+='    Output files:     '
+      s='    Output files:     '
       for ifile in files:
         f=os.path.join(path,ifile)
         s+=ifile[-3:]
@@ -516,19 +538,21 @@ def do_calc(INFOS):
         else:
           trajectories[path]['files'][ifile]=False
           s+=' !! '
-      if all(trajectories[path]['files']):
+      if all(trajectories[path]['files'].values()):
         s+='    OK'
       else:
         s+='    Files missing!'
         trajectories[path]['maxsteps']=0
         trajectories[path]['tana']=0.
+        print s+'\n\n\n'
         continue
-      s+='\n'
+      if INFOS['settings']['missing_output']:
+        print s
 
       # check for restart files
       if INFOS['settings']['missing_restart']:
         files=['restart.ctrl','restart.traj']
-        s+='    Restart files:    '
+        s='    Restart files:    '
         for ifile in files:
           f=os.path.join(path,ifile)
           s+=ifile[-4:]
@@ -539,60 +563,65 @@ def do_calc(INFOS):
             trajectories[path]['files'][ifile]=False
             s+=' !! '
         ls2=os.path.join(path,'restart')
-        if len(os.listdir(ls2))!=0:
-          s+='restart/ .. '
-          trajectories[path]['files']['restart']=True
-        else:
+        if not os.path.isdir(ls2) or len(os.listdir(ls2))==0:
           s+='restart/ !! '
           trajectories[path]['files']['restart']=False
-        if all(trajectories[path]['files']):
+        else:
+          s+='restart/ .. '
+          trajectories[path]['files']['restart']=True
+        if all(trajectories[path]['files'].values()):
           s+='    OK'
         else:
           s+='    Restart might not be possible.'
-        s+='\n'
+        if INFOS['settings']['missing_restart']:
+          print s
 
       # check for normal termination
-      if INFOS['settings']['normal_termination']:
-        f=os.path.join(path,'output.log')
-        f=readfile(f)
-        trajectories[path]['terminated']=False
-        trajectories[path]['crashed']=False
-        trajectories[path]['stopped']=False
-        for line in reversed(f[-30:]):
-          if 'total wallclock time' in line.lower():
-            trajectories[path]['terminated']=True
-          elif 'file stop detected' in line.lower():
-            trajectories[path]['stopped']=True
-          elif 'qm call was not successful' in line.lower():
-            trajectories[path]['crashed']=True
-        s+='    Status:                                           '
-        if trajectories[path]['terminated']:
-          if trajectories[path]['crashed']:
-            s+='CRASHED'
-          elif trajectories[path]['stopped']:
-            s+='FINISHED (stopped by user)'
-          else:
-            s+='FINISHED'
+      f=os.path.join(path,'output.log')
+      f=readfile(f)
+      trajectories[path]['terminated']=False
+      trajectories[path]['crashed']=False
+      trajectories[path]['stopped']=False
+      for line in reversed(f[-30:]):
+        if 'total wallclock time' in line.lower():
+          trajectories[path]['terminated']=True
+        elif 'file stop detected' in line.lower():
+          trajectories[path]['stopped']=True
+        elif 'qm call was not successful' in line.lower():
+          trajectories[path]['crashed']=True
+      s='    Status:                                           '
+      if trajectories[path]['terminated']:
+        if trajectories[path]['crashed']:
+          s+='CRASHED'
+        elif trajectories[path]['stopped']:
+          s+='FINISHED (stopped by user)'
         else:
-          s+='RUNNING'
-        s+='\n'
+          s+='FINISHED'
+      else:
+        s+='RUNNING'
+      if INFOS['settings']['normal_termination']:
+        print s
 
       # get maximum run time
-        for line in reversed(f):
-          trajectories[path]['laststep']=0
-          trajectories[path]['maxsteps']=1
-          if 'entering timestep' in line.lower():
-            trajectories[path]['laststep']=int(line.split()[3])
-            break
-        for line in reversed(f):
-          if 'found nsteps=' in line.lower():
-            trajectories[path]['maxsteps']=int(line.split()[2])
-        s+='    Progress:         ['
-        progress=float(trajectories[path]['laststep'])/trajectories[path]['maxsteps']
-        s+='='*int(25*progress) + ' '*(25-int(25*progress))+']     %i of %i' % (trajectories[path]['laststep'], trajectories[path]['maxsteps'])
-        s+='\n'
+      #f=os.path.join(path,'output.log')
+      #f=readfile(f)
+      for line in reversed(f):
+        trajectories[path]['laststep']=0
+        trajectories[path]['maxsteps']=1
+        if 'entering timestep' in line.lower():
+          trajectories[path]['laststep']=int(line.split()[3])
+          break
+      for line in reversed(f):
+        if 'found nsteps=' in line.lower():
+          trajectories[path]['maxsteps']=int(line.split()[2])
+          trajectories[path]['dtstep']=float(line.split()[5])
+      s='    Progress:         ['
+      progress=float(trajectories[path]['laststep'])/trajectories[path]['maxsteps']
+      s+='='*int(25*progress) + ' '*(25-int(25*progress))+']     %.1f of %.1f fs' % (trajectories[path]['laststep']*trajectories[path]['dtstep'], trajectories[path]['maxsteps']*trajectories[path]['dtstep'])
+      #s+='\n'
+      if INFOS['settings']['normal_termination']:
+        print s
 
-      sys.stdout.write(s)
 
       # run data extractor
       update=False
@@ -617,7 +646,7 @@ def do_calc(INFOS):
       else:
         pass
 
-      s+='\n'
+      #s='\n'
       # check energies
       f=os.path.join(path,'output_data','energy.out')
       f=readfile(f)
@@ -681,7 +710,7 @@ def do_calc(INFOS):
         s+='at %.2f fs' % tana
       else:
         s+='OK'
-      s+='\n'
+      print s
 
       # check populations
       f=os.path.join(path,'output_data','coeff_diag.out')
@@ -711,12 +740,12 @@ def do_calc(INFOS):
       trajectories[path]['tana']=min(tana,trajectories[path]['tana'])
       if not trajectories[path]['problem']:
         trajectories[path]['problem']=problem
-      s+='    Population:       ' + problem + ' '*(32-len(problem))
+      s='    Population:       ' + problem + ' '*(32-len(problem))
       if problem:
         s+='at %.2f fs' % tana
       else:
         s+='OK'
-      s+='\n'
+      print s
 
       # check for intruder states
       if INFOS['settings']['intruders']:
@@ -751,465 +780,112 @@ def do_calc(INFOS):
             if not ok:
               break
         trajectories[path]['tana']=min(tana,trajectories[path]['tana'])
-        s+='    Intruder states:  ' + problem + ' '*(32-len(problem))
+        s='    Intruder states:  ' + problem + ' '*(32-len(problem))
         if not trajectories[path]['problem']:
           trajectories[path]['problem']=problem
         if problem:
           s+='at %.2f fs' % tana
         else:
           s+='OK'
-        s+='\n'
+        print s
 
 
-      sys.stdout.write(s)
+      #sys.stdout.write(s)
 
 
-      print '\n\n\n'
+      print '\n\n'
 
 
 
   # statistics
-  pprint.pprint(trajectories)
+  #pprint.pprint(trajectories)
 
+  trajsorted=sorted(trajectories,key=lambda x: trajectories[x]['tana'])
+  print '\n\n'+centerstring(' Summary ',80,'=')+'\n'
 
+  print '%30s %6s %6s %6s %6s' % ('Trajectory','Files?','Status','Length','T_use')
+  print '%30s %6s %6s %6s %6s\n' % ('','','','(fs)','(fs)')
 
+  maxtime=0.
+  for i in trajectories:
+    if 'laststep' in trajectories[i] and 'dtstep' in trajectories[i]:
+      maxtime=max(maxtime,trajectories[i]['laststep']*trajectories[i]['dtstep'])
+  maxtime=100.*int(maxtime/100.+0.999)
+  nhisto=5
+  hist=histogram( [ maxtime/nhisto*i for i in range(1,1+nhisto) ] )
+  hist_data=[0]*nhisto
+  #print hist
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  sys.exit(1)
-
-      #path=idir+'/'+itraj
-      #s=path+' '*(width-len(path))
-      #if INFOS['mode'] in [1,2,3,4,5]:
-        #pathfile=path+'/output.lis'
-      #elif INFOS['mode'] in [6]:
-        #pathfile=path+'/output_data/fosc.out'
-      #elif INFOS['mode'] in [7]:
-        #pathfile=path+'/output_data/coeff_diag.out'
-      #elif INFOS['mode'] in [8,9]:
-        #pathfile=path+'/output_data/coeff_MCH.out'
-      #elif INFOS['mode'] in [20]:
-        #pathfile=path+'/output_data/coeff_diab.out'
-      #elif INFOS['mode'] in [10,11]:
-        #pathfile=path+'/output.dat'
-      #if not os.path.isfile(pathfile):
-        #s+='%s NOT FOUND' % (pathfile)
-        #print s
-        #continue
-      #lstraj=os.listdir(path)
-      #valid=True
-      #for i in lstraj:
-        #if i.lower() in forbidden:
-          #s+='DETECTED FILE %s' % (i.lower())
-          #print s
-          #valid=False
-          #break
-      #if not valid:
-        #continue
-      #s+='OK'
-      #print s
-      #ntraj+=1
-      #files.append(pathfile)
-  #print 'Number of trajectories: %i' % (ntraj)
-  #if ntraj==0:
-    #print 'No valid trajectories found, exiting...'
-    #sys.exit(0)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  forbidden=['crashed','running','dead']
-
-  #run the data extractor, if necessary
-  if INFOS['run_extractor']:
-    # first check whether $SHARC contains the exctractor
-    print 'Running data_extractor...'
-    sharcpath=os.getenv('SHARC')
-    if sharcpath==None:
-      print 'Please set $SHARC to the directory containing the SHARC executables!'
-      sys.exit(1)
+  for itraj in trajsorted:
+    if all( [trajectories[itraj]['files'][i] for i in ['output.log','output.dat','output.lis','output.xyz'] ] ):
+      complete='OK'
     else:
-      if not os.path.isfile(sharcpath+'/data_extractor.x'):
-        print '$SHARC does not contain data_extractor.x!'
-        sys.exit(1)
+      complete='!!'
+    if complete=='OK':
+      if trajectories[itraj]['crashed']:
+        status='CRASH'
+      elif trajectories[itraj]['stopped']:
+        status='STOP'
+      elif trajectories[itraj]['terminated']:
+        status='FINISH'
       else:
-        cwd=os.getcwd()
-        for idir in INFOS['paths']:
-          ls=os.listdir(idir)
-          for itraj in ls:
-            if not 'TRAJ_' in itraj:
-              continue
-            path=idir+'/'+itraj
-            print path
-            # check whether output_data/expec.out is newer than output.dat
-            update=False
-            if not os.path.isfile(path+'/output_data/expec.out'):
-              update=True
-            if not update:
-              time_dat=os.path.getmtime(path+'/output.dat')
-              time_expec=os.path.getmtime(path+'/output_data/expec.out')
-              if time_dat > time_expec or INFOS['run_extractor_full']:
-                update=True
-            if update:
-              os.chdir(path)
-              io=sp.call(sharcpath+'/data_extractor.x output.dat > /dev/null 2> /dev/null',shell=True)
-              if io!=0:
-                print 'WARNING: extractor call failed for %s! Exit code %i' % (path,io)
-              os.chdir(cwd)
-            else:
-              pass
-    print 'Extraction finished!\n'
-
-  width=30
-  # prepare the list of output.lis files
-  files=[]
-  ntraj=0
-  print 'Checking the directories...'
-  for idir in INFOS['paths']:
-    ls=os.listdir(idir)
-    for itraj in ls:
-      if not 'TRAJ_' in itraj:
-        continue
-      path=idir+'/'+itraj
-      s=path+' '*(width-len(path))
-      if INFOS['mode'] in [1,2,3,4,5]:
-        pathfile=path+'/output.lis'
-      elif INFOS['mode'] in [6]:
-        pathfile=path+'/output_data/fosc.out'
-      elif INFOS['mode'] in [7]:
-        pathfile=path+'/output_data/coeff_diag.out'
-      elif INFOS['mode'] in [8,9]:
-        pathfile=path+'/output_data/coeff_MCH.out'
-      elif INFOS['mode'] in [20]:
-        pathfile=path+'/output_data/coeff_diab.out'
-      elif INFOS['mode'] in [10,11]:
-        pathfile=path+'/output.dat'
-      if not os.path.isfile(pathfile):
-        s+='%s NOT FOUND' % (pathfile)
-        print s
-        continue
-      lstraj=os.listdir(path)
-      valid=True
-      for i in lstraj:
-        if i.lower() in forbidden:
-          s+='DETECTED FILE %s' % (i.lower())
-          print s
-          valid=False
-          break
-      if not valid:
-        continue
-      s+='OK'
-      print s
-      ntraj+=1
-      files.append(pathfile)
-  print 'Number of trajectories: %i' % (ntraj)
-  if ntraj==0:
-    print 'No valid trajectories found, exiting...'
-    sys.exit(0)
-
-  # get timestep
-  if INFOS['mode'] in [1,2,3,4,5,6,7,8,9,20]:
-    for ifile in files:
-      lisf=open(ifile)
-      file_valid=True
-      while True:
-        line=lisf.readline()
-        if line=='':
-          file_valid=False
-          break
-        if line[0]=='#':
-          continue
-        break
-      if not file_valid:
-        lisf.close()
-        continue
-      f=line.split()
-      if INFOS['mode'] in [1,2,3,4,5]:
-        t0=float(f[1])
-      elif INFOS['mode'] in [6,7,8,9,20]:
-        t0=float(f[0])
-      N=0
-      while True:
-        line=lisf.readline()
-        if len(line)==0:
-          break
-        if line[0]=='#':
-          continue
-        f=line.split()
-        l2=line
-        N+=1
-      if N==0:
-        lisf.close()
-        continue
-      f=l2.split()
-      if INFOS['mode'] in [1,2,3,4,5]:
-        dt=(float(f[1])-t0)/N
-      elif INFOS['mode'] in [6,7,8,9,20]:
-        dt=(float(f[0])-t0)/N
-      if dt==0.:
-        print 'ERROR: Timestep is zero.'
-        quit(1)
-      lisf.close()
-      break
-  elif INFOS['mode'] in [10,11]:
-    for ifile in files:
-      lisf=open(ifile)
-      for line in lisf:
-        if 'dtstep' in line:
-          dt=float(line.split()[0])*AU_TO_FS
-          break
-      else:
-        lisf.close()
-        continue
-      lisf.close()
-      break
-
-  # get number of steps
-  nsteps=int(INFOS['maxtime']/dt)+1
-
-  # get nstates
-  if INFOS['mode'] in [1,2,7,8,20]:
-    nstates=INFOS['nmstates']
-  elif INFOS['mode'] in [3,9]:
-    nstates=INFOS['nstates']
-  elif INFOS['mode'] in [4,5,6]:
-    nstates=len(INFOS['histo'].binlist)+1
-  elif INFOS['mode'] in [10,11]:
-    output_first=output_dat(files[0])
-    INFOS['nmstates']=output_first.nmstates
-    INFOS['states']=output_first.states
-    nstates=0
-    for i in INFOS['states']:
-      nstates+=i
-    # obtain the statemap 
-    statemap={}
-    i=1
-    for imult,istate,ims,instate in itnmstates(INFOS['states']):
-      statemap[i]=[imult,istate,ims,instate]
-      i+=1
-    INFOS['statemap']=statemap
-  print 'Found dt=%f, nsteps=%i, nstates=%i\n' % (dt,nsteps,nstates)
-  INFOS['nstates']=nstates
-
-  # get populations
-  width=60
-  pop=[ [0. for j in range(nstates) ] for i in range(nsteps) ]        # first index is time, second is state
-  shortest=9999999.
-  longest=0.
-  for ifile in files:
-    if INFOS['mode'] in [10,11]:
-      output_current=output_dat(ifile)
-      istep=-1
-      for istep,U,state_diag in output_current:
-        #print istep,state_diag
-        vec2=[ U[i][state_diag-1] for i in range(len(U)) ]
-        vec=[ 0. for i in range(nstates)]
-        if INFOS['mode'] in [10]:
-          for i in range(nstates):
-            vec[i]=vec2[i].real**2+vec2[i].imag**2
-        elif INFOS['mode'] in [11]:
-          for i in range(INFOS['nmstates']):
-            state=INFOS['statemap'][i+1][3]-1
-            vec[state]+=vec2[i].real**2+vec2[i].imag**2
-        for istate in range(nstates):
-          pop[istep][istate]+=vec[istate]
-      if dt*istep<shortest:
-        shortest=dt*istep
-      if dt*istep>longest:
-        longest=dt*istep
-      if istep==-1:
-        print '%s' % (ifile)+' '*(width-len(ifile))+'%i\tZero Timesteps found!' % (t)
-        ntraj-=1
-        continue
-      else:
-        print '%s' % (ifile)+' '*(width-len(ifile))+'%i' % (istep)
-      while istep+1<nsteps:
-        istep+=1
-        if INFOS['mode'] in [10,11]:
-          for i in range(nstates):
-            pop[istep][i]+=vec[i]
+        status='RUN'
     else:
-      lisf=open(ifile)
-      t=-1
-      for line in lisf:
-        if line[0]=='#':
-          continue
-        f=line.split()
-        t+=1
-        if t>=nsteps:
-          break
-
-        if INFOS['mode'] in [1,2,3,4,5,6]:
-          if INFOS['mode']==1:
-            state=int(f[2])-1
-          elif INFOS['mode']==2:
-            state=int(f[3])-1
-          elif INFOS['mode']==3:
-            state=int(f[3])
-            # state in nm scheme to state in n scheme
-            state=INFOS['statemap'][state][3]-1
-          elif INFOS['mode']==4:
-            state=INFOS['histo'].put(float(f[9]))
-          elif INFOS['mode']==5:
-            state=INFOS['histo'].put(float(f[8]))
-          elif INFOS['mode']==6:
-            state=INFOS['histo'].put(float(f[1]))
-          pop[t][state]+=1
-        elif INFOS['mode'] in [7,8,9,20]:
-          vec=[ 0. for i in range(nstates)]
-          if INFOS['mode'] in [7,8,20]:
-            for i in range(nstates):
-              vec[i]=float(f[2+2*i])**2+float(f[3+2*i])**2
-          if INFOS['mode']==9:
-            for i in range(INFOS['nmstates']):
-              state=INFOS['statemap'][i+1][3]-1
-              #imult,istate,ims=IstateToMultState(i+1,INFOS['states'])
-              #state=MultStateToIstate(imult,istate,INFOS['states'])-1
-              vec[state]+=float(f[2+2*i])**2+float(f[3+2*i])**2
-          for i in range(nstates):
-            pop[t][i]+=vec[i]
-      lisf.close()
-      if dt*t<shortest:
-        shortest=dt*t
-      if dt*t>longest:
-        longest=dt*t
-      if t==-1:
-        print '%s' % (ifile)+' '*(width-len(ifile))+'%i\tZero Timesteps found!' % (t)
-        ntraj-=1
-        continue
-      else:
-        print '%s' % (ifile)+' '*(width-len(ifile))+'%i' % (t)
-      while t+1<nsteps:
-        t+=1
-        if INFOS['mode'] in [1,2,3,4,5,6]:
-          pop[t][state]+=1
-        elif INFOS['mode'] in [7,8,9,20]:
-          for i in range(nstates):
-            pop[t][i]+=vec[i]
-  print 'Shortest trajectory: %f' % (shortest)
-  print 'Longest trajectory: %f' % (longest)
-  print 'Number of trajectories: %i' % (ntraj)
-  INFOS['shortest']=shortest
-  INFOS['longest']=longest
-
-  # write populations
-  s='#%15i ' % (1)
-  for i in range(nstates):
-    s+='%16i ' % (i+2)
-  s+='\n'
-  s+='#%15s ' % ('Time (fs)')
-  for i in range(nstates):
-
-    if INFOS['mode'] in [1,7]:
-      s+='%16s ' % ('X%i' % (i+1))
-    elif INFOS['mode'] in [2,8,20,10]:
-      mult,state,ms=tuple(INFOS['statemap'][i+1][0:3])
-      #IstateToMultState(i+1,INFOS['states'])
-      string='%s %i %i' % (IToMult[mult][0:3],state,ms)
-      s+='%16s ' % (string)
-    elif INFOS['mode'] in [3,9,11]:
-      mult,state=tuple(INFOS['statemap'][i+1][0:2])
-      #INstateToMultState(i+1,INFOS['states'])
-      string='%s %i' % (IToMult[mult][0:3],state)
-      s+='%16s ' % (string)
-    elif INFOS['mode'] in [4,5,6]:
-      if i<len(INFOS['histo'].binlist):
-        string='< %.2e' % (INFOS['histo'].binlist[i])
-      else:
-        string='> %.2e' % (INFOS['histo'].binlist[-1])
-      s+='%16s ' % (string)
-
-  s+='\n'
-  for i,line in enumerate(pop):
-    s+='%16.9f ' % (i*dt)
-    for el in line:
-      if INFOS['normalize']:
-        x=float(el)/ntraj
-      else:
-        x=float(el)
-      s+='%16.9f ' % (x)
-    s+='\n'
-  #print s
-
-  print ''
-  outfilename='pop.out'
-  if os.path.isfile(outfilename):
-    overw=question('Overwrite %s? ' % (outfilename),bool,False)
-    print ''
-    if overw:
-      try:
-        outf=open(outfilename,'w')
-      except IOError:
-        print 'Could not open: %s' % (outfilename)
-        outf=None
+      status=''
+    if complete=='OK':
+      full=trajectories[itraj]['maxsteps']*trajectories[itraj]['dtstep']
+      length=trajectories[itraj]['laststep']*trajectories[itraj]['dtstep']
+      t_use=trajectories[itraj]['tana']
     else:
-      outf=None
-    if not outf:
-      while True:
-        outfilename=question('Please enter the output filename: ',str)
-        try:
-          outf=open(outfilename,'w')
-        except IOError:
-          print 'Could not open: %s' % (outfilename)
-          continue
-        break
-  else:
-    outf=open(outfilename,'w')
+      full=1000.
+      length=0.
+      t_use=0.
+    diagram='['
+    diagram+='='*(int(25.*t_use/full))
+    diagram+='-'*(int(25.*length/full)-int(25.*t_use/full))
+    diagram+=' '*(25-int(25.*length/full))
+    diagram+=']'
+    print '%30s %6s %6s %6s %6s   %s' % (itraj,complete,status,length,t_use,diagram)
+    hist_data[hist.put(t_use)]+=1
 
-  print 'Writing to %s ...' % (outfilename)
-  outf.write(s)
-  outf.close()
+  s='\nThis many trajectories can be used for an analysis up to the given time:\n'
+  total=sum(hist_data)
+  for i in range(nhisto):
+    s+='up to % .1f fs:    % 3i  trajectories\n' % (hist.binlist[i],total-sum(hist_data[:i+1]))
+  print s
 
-  INFOS['outputfile']=outfilename
-  INFOS['ntraj']=ntraj
+  # get a guess for the T_use threshold
+  t_uses=[ trajectories[itraj]['tana'] for itraj in trajsorted ]
+  topt=0.
+  nopt=0
+  for i,t in enumerate(t_uses):
+    if (total-i)*t > topt*nopt:
+      topt=t
+      nopt=total-i
+
+  print centerstring(' Trajectory Flagging ',60,'-')
+  print '\nYou can now flag the trajectories according to their maximum usable time.\nIn this way, you can restrict the analysis tools to the set of trajectories with sufficient simulation time.\n'
+  flag=question('Do you want to flag the trajectories?',bool,True)
+  if flag:
+    t_thres=question('Threshold for T_use (fs):',float,[topt])[0]
+    nanalyze=0
+
+    for itraj in trajectories:
+      tana=trajectories[itraj]['tana']
+      f=os.path.join(itraj,'DONT_ANALYZE')
+      if tana>=t_thres:
+        nanalyze+=1
+        if os.path.isfile(f):
+          os.remove(f)
+      else:
+        if not os.path.isfile(f):
+          open(f,'w').close()
+
+    print
+    print 'Flagged  %i trajectories for analysis.' % (nanalyze)
+    print 'Excluded %i trajectories from analysis.' % (total-nanalyze)
+
+
   return INFOS
 
 # ======================================================================================================================
