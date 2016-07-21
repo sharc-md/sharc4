@@ -448,7 +448,7 @@ def print_transition_matrix(transition,labels):
 
 def do_calc(INFOS):
 
-  forbidden=['crashed','running','dead']
+  forbidden=['crashed','running','dead','dont_analyze']
 
   #run the data extractor, if necessary
   if INFOS['run_extractor']:
