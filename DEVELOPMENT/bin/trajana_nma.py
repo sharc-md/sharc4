@@ -261,21 +261,24 @@ def get_general():
 
   print centerstring('Automatic plot creation',60,'-')
   print ''
-  autoplot=question('Do you want to automatically creat plots of your data?',bool,False)
+  autoplot=question('Do you want to automatically create plots of your data?',bool,False)
   INFOS['plot']=autoplot
   print ''
+
 
   symmodes_list=[]
   print centerstring('Any symmetric modes that should have their absolute value taken?',60,'-')
   print 'List of normal modes for which the absolute value is taken because of symmetry. The numbering is according to the Molden input file. Without this setting all non-totally symmetric modes should average out to 0. If left blank all modes will be included as they are. A value of -1 ends this input section.'
   print ''
   while True:
-      symmodes_val=question('Please give the number of a normal mode you wish to include as an absolute value',int,[-1])[0]
-      if symmodes_val==-1:
+      symmodes_val=question('Please give the number of a normal mode you wish to include as an absolute value',str,'-1')
+      if '-1' in symmodes_val:
          INFOS['symmmodes']=symmodes_list
          break
       else:
-         symmodes_list.append(symmodes_val)
+         symmodes_list1=symmodes_val.split()
+         for i in range(len(symmodes_list1)):
+            symmodes_list.append(int(symmodes_list1[i]))
          continue
       print ''
   print ''
@@ -555,7 +558,7 @@ def nm_analysis(INFOS):
         
     tm_av_var.write_to_file(out_dir + '/cross_av_std.txt')
     
-    if plot: plot_summary()
+    if plot: plot_summary(INFOS)
     
 def plot_summary(INFOS):
     # plotting
@@ -594,9 +597,9 @@ def main():
     if len(sys.argv) == 1:
         nm_analysis(INFOS)
     else:
-        if sys.argv[1] == 'plot':
+       if sys.argv[1] == 'plot':
             if len(sys.argv) == 2:
-                plot_summary(INFOS)
+               plot_summary(INFOS)
             else:
                 if 'modes' in sys.argv:
                     modes_ind = sys.argv.index('modes')
