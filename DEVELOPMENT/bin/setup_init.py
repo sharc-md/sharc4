@@ -523,7 +523,7 @@ Interfaces={
       'description':     'MOLPRO (only CASSCF)',
       'get_routine':     'get_MOLPRO',
       'prepare_routine': 'prepare_MOLPRO',
-      'couplings':       [1,2,3]
+      'couplings':       [2,3]
      },
   2: {'script':          'SHARC_COLUMBUS.py',
       'description':     'COLUMBUS (CASSCF, RASSCF and MRCISD), using SEWARD integrals',
@@ -569,7 +569,7 @@ Interfaces={
 # ======================================================================================================================
 
 def checktemplate_MOLPRO(filename):
-  necessary=['memory','basis','closed','occ','wf','state']
+  necessary=['basis','closed','occ','nelec','roots']
   try:
     f=open(filename)
     data=f.readlines()
@@ -605,10 +605,7 @@ def get_MOLPRO(INFOS):
   path=os.getenv('MOLPRO')
   path=os.path.expanduser(os.path.expandvars(path))
   if not path=='':
-    if not path.endswith('/molpro'):
-      path='$MOLPRO/molpro'
-    else:
-      path='$MOLPRO/'
+    path='$MOLPRO/'
   else:
     path=None
   #if path!='':
@@ -674,6 +671,22 @@ If you optimized your geometry with MOLPRO/CASSCF you can reuse the "wf" file fr
     time.sleep(2)
     INFOS['molpro.guess']=False
 
+
+  print centerstring('MOLPRO Ressource usage',60,'-')+'\n'
+  print '''Please specify the amount of memory available to MOLPRO (in MB). For calculations including moderately-sized CASSCF calculations and less than 150 basis functions, around 2000 MB should be sufficient.
+'''
+  INFOS['molpro.mem']=abs(question('MOLPRO memory:',int,[500])[0])
+  print '''Please specify the number of CPUs to be used by EACH calculation.
+'''
+  INFOS['molpro.ncpu']=abs(question('Number of CPUs:',int,[1])[0])
+
+
+  # Ionization
+  print '\n'+centerstring('Ionization probability by Dyson norms',60,'-')+'\n'
+  INFOS['ion']=question('Dyson norms?',bool,False)
+  if INFOS['ion']:
+    INFOS['molpro.wfpath']=question('Path to wavefunction overlap executable:',str)
+
   return INFOS
 
 # =================================================
@@ -685,7 +698,14 @@ def prepare_MOLPRO(INFOS,iconddir):
   except IOError:
     print 'IOError during prepareMOLPRO, iconddir=%s' % (iconddir)
     quit(1)
-  string='molpro %s\nscratchdir %s/%s/' % (INFOS['molpro'],INFOS['scratchdir'],iconddir)
+  string='''molpro %s
+scratchdir %s/%s/
+
+memory %i
+ncpu %i
+''' % (INFOS['molpro'],INFOS['scratchdir'],iconddir,INFOS['molpro.mem'],INFOS['molpro.ncpu'])
+  if INFOS['ion']:
+    string+='wfoverlap %s\n' % (INFOS['molpro.wfpath'])
   sh2pro.write(string)
   sh2pro.close()
 
@@ -1271,7 +1291,7 @@ basis <Basis set>
 ras2 <Number of active orbitals>
 nactel <Number of active electrons>
 inactive <Number of doubly occupied orbitals>
-spin <Multiplicity (1=S)> roots <Number of roots for this multiplicity>  (repeat this line for each multiplicity)
+roots <Number of roots for state-averaging>
 
 The MOLCAS interface will generate the appropriate MOLCAS input automatically.
 '''
@@ -1635,7 +1655,7 @@ douglas-kroll                                   # DKH is only used if this keywo
       else:
         print 'File not found!'
   else:
-    INFOS['ricc2.guess']={}
+    INFOS['ricc2.guess']=[]
 
 
   print centerstring('RICC2 Ressource usage',60,'-')+'\n'
@@ -1675,11 +1695,11 @@ dipolelevel 1
   # copy MOs and template
   cpfrom=INFOS['ricc2.template']
   cpto='%s/RICC2.template' % (iconddir)
-  cpfrom1=INFOS['ricc2.guess']
-  cpto1='%s/mos.init' % (iconddir)
-
   shutil.copy(cpfrom,cpto)
-  shutil.copy(cpfrom1,cpto1)
+  if INFOS['ricc2.guess']:
+    cpfrom1=INFOS['ricc2.guess']
+    cpto1='%s/mos.init' % (iconddir)
+    shutil.copy(cpfrom1,cpto1)
   return
 
 # ======================================================================================================================

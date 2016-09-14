@@ -1029,6 +1029,8 @@ as a list containing all initial condition objects."""
         ic_list.append(ic)
     return ic_list
 
+# ======================================================================================================================
+
 def make_dyn_file(states, ic_list):
   if not os.path.exists('init_geoms'):
     os.mkdir('init_geoms')

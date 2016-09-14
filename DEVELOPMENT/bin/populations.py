@@ -535,7 +535,7 @@ It can also transform the classical diagonal populations to MCH basis (might tak
 
 def do_calc(INFOS):
 
-  forbidden=['crashed','running','dead']
+  forbidden=['crashed','running','dead','dont_analyze']
 
   #run the data extractor, if necessary
   if INFOS['run_extractor']:

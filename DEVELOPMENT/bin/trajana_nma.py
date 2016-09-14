@@ -59,7 +59,7 @@ def displaywelcome():
   string+='||'+centerstring('',80)+'||\n'
   string+='||'+centerstring('Reading structures from SHARC dynamics',80)+'||\n'
   string+='||'+centerstring('',80)+'||\n'
-  string+='||'+centerstring('Author: Fleix Plasser, Andrew Atkins',80)+'||\n'
+  string+='||'+centerstring('Author: Felix Plasser, Andrew Atkins',80)+'||\n'
   string+='||'+centerstring('',80)+'||\n'
   string+='||'+centerstring('Version:'+version,80)+'||\n'
   string+='||'+centerstring(versiondate.strftime("%d.%m.%y"),80)+'||\n'
@@ -384,7 +384,7 @@ def nm_analysis(INFOS):
     
     #not_list = []
 
-    forbidden=['crashed','running','dead']
+    forbidden=['crashed','running','dead','dont_analyze']
     width=30
     files=[]
     ntraj=0
