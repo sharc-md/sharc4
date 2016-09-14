@@ -1,8 +1,8 @@
 #!/usr/bin/env python2
 
-# Script for obtaining geometries where surface hops occured
+# Script for counting hopping events
 # 
-# usage: python crossing.py
+# usage: python transition.py
 
 import copy
 import math
@@ -87,7 +87,7 @@ def displaywelcome():
   string='\n'
   string+='  '+'='*80+'\n'
   string+='||'+centerstring('',80)+'||\n'
-  string+='||'+centerstring('Reading hopping geometries from SHARC dynamics',80)+'||\n'
+  string+='||'+centerstring('Counting hopping events from SHARC dynamics',80)+'||\n'
   string+='||'+centerstring('',80)+'||\n'
   string+='||'+centerstring('Author: Sebastian Mai',80)+'||\n'
   string+='||'+centerstring('',80)+'||\n'
@@ -96,8 +96,8 @@ def displaywelcome():
   string+='||'+centerstring('',80)+'||\n'
   string+='  '+'='*80+'\n\n'
   string+='''
-This script reads output.lis files and output.xyz files to produce a list of 
-all geometries where certain surface hops (or other events) occured.
+This script reads output.lis files files and counts all hopping events
+to produce a matrix with the transition counts.
   '''
   print string
 
@@ -111,7 +111,7 @@ def open_keystrokes():
 
 def close_keystrokes():
   KEYSTROKES.close()
-  shutil.move('KEYSTROKES.tmp','KEYSTROKES.crossing')
+  shutil.move('KEYSTROKES.tmp','KEYSTROKES.transition')
 
 # ===================================
 
@@ -282,13 +282,18 @@ def get_general():
 
   # Analyze mode
   print centerstring('Analyze Mode',60,'-')
-  print '''\nThis script can find geometries where:
-1        A change of MCH state occured (ignoring hops within one multiplet)               from output.lis
+  print '''\nThis script finds the transition matrix:
+1        In MCH basis                                                    from output.lis
+2        In MCH basis (ignoring hops within one multiplet)               from output.lis
+
+This script can also print the transition matrix for each timestep:
+3        In MCH basis                                                    from output.lis
+4        In MCH basis (ignoring hops within one multiplet)               from output.lis
 '''
   while True:
     num=question('Analyze mode:',int)[0]
-    if not 1<=num<=1:
-      print 'Please enter an integer between 1 and 1!'
+    if not 1<=num<=4:
+      print 'Please enter an integer between 1 and 2!'
       continue
     break
   INFOS['mode']=num
@@ -305,7 +310,7 @@ def get_general():
 
 
   # Number of states
-  if INFOS['mode'] in [1]:
+  if INFOS['mode'] in [1,2,3,4]:
     print centerstring('Number of states',60,'-')
     print '\nPlease enter the number of states as a list of integers\ne.g. 3 0 3 for three singlets, zero doublets and three triplets.'
     while True:
@@ -333,6 +338,18 @@ def get_general():
       i+=1
     INFOS['statemap']=statemap
 
+  # Simulation time
+  if INFOS['mode'] in [3,4]:
+    print centerstring('Simulation time',60,'-')
+    print '\nUp to which simulation time should the analysis be performed?'
+    while True:
+      time=question('Simulation time (in fs): ',float,[1000.])[0]
+      if time <0.:
+        print 'Time must be positive!'
+        continue
+      break
+    INFOS['maxtime']=time
+    print ''
 
   # Intervals
   if INFOS['mode'] in []:
@@ -357,56 +374,73 @@ def get_general():
 
 
   # States involved in hopping and direction
-  if INFOS['mode'] in [1]:
-    INFOS['fromstates']=[]
-    print centerstring('States involved in surface hop',60,'-')+'\n'
-    print 'In this analysis mode, all geometries are fetched where a trajectory switches from a given MCH state to another given MCH state.\n\nPlease enter the old MCH state involved (mult state):'
-    while True:
-      rmult,rstate=tuple(question('State 1:',int)[0:2])
-      if rmult>len(INFOS['states']):
-        print '%i is larger than maxmult (%i)!' % (rmult,len(INFOS['states']))
-        continue
-      if rstate>INFOS['states'][rmult-1]:
-        print 'Only %i states of mult %i' % (INFOS['states'][rmult-1],rmult)
-        continue
-      break
-    INFOS['fromstates'].append([rmult,rstate])
+  #if INFOS['mode'] in [1]:
+    #INFOS['fromstates']=[]
+    #print centerstring('States involved in surface hop',60,'-')+'\n'
+    #print 'In this analysis mode, all geometries are fetched where a trajectory switches from a given MCH state to another given MCH state.\n\nPlease enter the old MCH state involved (mult state):'
+    #while True:
+      #rmult,rstate=tuple(question('State 1:',int)[0:2])
+      #if rmult>len(INFOS['states']):
+        #print '%i is larger than maxmult (%i)!' % (rmult,len(INFOS['states']))
+        #continue
+      #if rstate>INFOS['states'][rmult-1]:
+        #print 'Only %i states of mult %i' % (INFOS['states'][rmult-1],rmult)
+        #continue
+      #break
+    #INFOS['fromstates'].append([rmult,rstate])
 
-    INFOS['tostates']=[]
-    print '\nPlease enter the new MCH state involved (mult state):'
-    while True:
-      rmult,rstate=tuple(question('State 2:',int)[0:2])
-      if rmult>len(INFOS['states']):
-        print '%i is larger than maxmult (%i)!' % (rmult,len(INFOS['states']))
-        continue
-      if rstate>INFOS['states'][rmult-1]:
-        print 'Only %i states of mult %i' % (INFOS['states'][rmult-1],rmult)
-        continue
-      break
-    INFOS['tostates'].append([rmult,rstate])
+    #INFOS['tostates']=[]
+    #print '\nPlease enter the new MCH state involved (mult state):'
+    #while True:
+      #rmult,rstate=tuple(question('State 2:',int)[0:2])
+      #if rmult>len(INFOS['states']):
+        #print '%i is larger than maxmult (%i)!' % (rmult,len(INFOS['states']))
+        #continue
+      #if rstate>INFOS['states'][rmult-1]:
+        #print 'Only %i states of mult %i' % (INFOS['states'][rmult-1],rmult)
+        #continue
+      #break
+    #INFOS['tostates'].append([rmult,rstate])
 
-    print '''\nDirection:
-1       Forwards
-2       Backwards
-3       Two-way
-'''
-    while True:
-      num=question('Direction mode:',int,[3])[0]
-      if not 1<=num<=3:
-        print 'Please enter an integer between 1 and 3!'
-        continue
-      break
-    INFOS['dirmode']=num
-    print ''
-    if num==1:
-      pass
-    elif num==2:
-      INFOS['fromstates'],INFOS['tostates']=INFOS['tostates'],INFOS['fromstates']
-    elif num==3:
-      INFOS['fromstates'].extend(INFOS['tostates'])
-      INFOS['tostates']=INFOS['fromstates']
+    #print '''\nDirection:
+#1       Forwards
+#2       Backwards
+#3       Two-way
+#'''
+    #while True:
+      #num=question('Direction mode:',int,[3])[0]
+      #if not 1<=num<=3:
+        #print 'Please enter an integer between 1 and 3!'
+        #continue
+      #break
+    #INFOS['dirmode']=num
+    #print ''
+    #if num==1:
+      #pass
+    #elif num==2:
+      #INFOS['fromstates'],INFOS['tostates']=INFOS['tostates'],INFOS['fromstates']
+    #elif num==3:
+      #INFOS['fromstates'].extend(INFOS['tostates'])
+      #INFOS['tostates']=INFOS['fromstates']
 
   return INFOS
+
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+
+def print_transition_matrix(transition,labels):
+  string=' '*8+'|'
+  for i in range(len(transition)):
+    string+='%8s' % (labels[i].rstrip())
+  string+='\n'
+  string+='-'*8+'+'+'-'*(8*len(transition))+'\n'
+  for i in range(len(transition)):
+    string+='%8s' % (labels[i])+'|'
+    for j in range(len(transition)):
+      string+=' %7i' % (transition[i][j])
+    string+='\n'
+  return string
 
 # ======================================================================================================================
 # ======================================================================================================================
@@ -457,13 +491,8 @@ def do_calc(INFOS):
         continue
       path=idir+'/'+itraj
       s=path+' '*(width-len(path))
-      if INFOS['mode'] in [1]:
+      if INFOS['mode'] in [1,2,3,4]:
         pathfile=path+'/output.lis'
-      if not os.path.isfile(pathfile):
-        s+='%s NOT FOUND' % (pathfile)
-        print s
-        continue
-      pathfile=path+'/output.xyz'
       if not os.path.isfile(pathfile):
         s+='%s NOT FOUND' % (pathfile)
         print s
@@ -481,79 +510,202 @@ def do_calc(INFOS):
       s+='OK'
       print s
       ntraj+=1
-      files.append(path)
+      files.append(pathfile)
   print 'Number of trajectories: %i' % (ntraj)
   if ntraj==0:
     print 'No trajectories found, exiting...'
     sys.exit(0)
 
+  # get timestep
+  if INFOS['mode'] in [3,4]:
+    for ifile in files:
+      lisf=open(ifile)
+      file_valid=True
+      while True:
+        line=lisf.readline()
+        if line=='':
+          file_valid=False
+          break
+        if line[0]=='#':
+          continue
+        break
+      if not file_valid:
+        lisf.close()
+        continue
+      f=line.split()
+      t0=float(f[1])
+      N=0
+      while True:
+        line=lisf.readline()
+        if len(line)==0:
+          break
+        if line[0]=='#':
+          continue
+        f=line.split()
+        l2=line
+        N+=1
+      if N==0:
+        lisf.close()
+        continue
+      f=l2.split()
+      dt=(float(f[1])-t0)/N
+      if dt==0.:
+        print 'ERROR: Timestep is zero.'
+        quit(1)
+      lisf.close()
+      break
+
+    # get number of steps
+    nsteps=int(INFOS['maxtime']/dt)+1
+    print 'Number of steps: %i' % (nsteps)
+
+
+  # make empty transition matrices
+  if INFOS['mode']==1:
+    transition=[ [ 0 for i in range(INFOS['nmstates']) ] for j in range(INFOS['nmstates']) ]
+  elif INFOS['mode']==2:
+    transition=[ [ 0 for i in range(INFOS['nstates']) ] for j in range(INFOS['nstates']) ]
+  elif INFOS['mode']==3:
+    transition=[ [ [ 0 for i in range(INFOS['nmstates']) ] for j in range(INFOS['nmstates']) ] for t in range(nsteps) ]
+  elif INFOS['mode']==4:
+    transition=[ [ [ 0 for i in range(INFOS['nstates']) ] for j in range(INFOS['nstates']) ] for t in range(nsteps) ]
+
+  # make state mapping and labels
+  mapping={}
+  labels={}
+  if INFOS['mode'] in [1,3]:
+    for i in range(INFOS['nmstates']):
+      mapping[i]=i
+      mult,state,ms=tuple(INFOS['statemap'][i+1][0:3])
+      label='%1s%i%+3.1f' % (IToMult[mult][0:1],state-(mult<=2),ms)
+      labels[i]=label
+  elif INFOS['mode'] in [2,4]:
+    for i in range(INFOS['nmstates']):
+      mult,state,ms,j=tuple(INFOS['statemap'][i+1])
+      mapping[i]=j-1
+      label='%1s%i    ' % (IToMult[mult][0:1],state-(mult<=2))
+      labels[i]=label
+
   # loop over the permissible trajectories
   string=''
   for ipath in files:
-    f=open(ipath+'/output.lis')
+    f=open(ipath)
     lis=f.readlines()
     f.close()
-    f=open(ipath+'/output.xyz')
-    xyz=f.readlines()
-    f.close()
-    try:
-      natom=int(xyz[0].split()[0])
-    except IndexError:
-      # looks like the file is empty
-      print 'Empty xyz file in %s' % (ipath)
     # go through the lis file line by line, skipping commented lines
     oldstate=-1
+    istep=0
     for line in lis:
       if '#' in line:
         continue
       s=line.split()
-      step=int(s[0])
       state=int(s[3])
       if oldstate==-1:
         oldstate=state
         continue
-      oldmult,iold=INFOS['statemap'][oldstate][0],INFOS['statemap'][oldstate][1]
-      mult,i=INFOS['statemap'][state][0],INFOS['statemap'][state][1]
-      if oldmult==mult and iold==i:
-        continue
-      if [oldmult,iold] in INFOS['fromstates'] and [mult,i] in INFOS['tostates']:
-        # we have a winner. now find the corresponding geometry and print it
-        start=step*(natom+2)
-        stop=(step+1)*(natom+2)
-        string+=xyz[start]
-        string+=ipath+xyz[start+1]
-        string+=' '+' '.join(xyz[start+2:stop])
+      if INFOS['mode'] in [1,2]:
+        transition[mapping[state-1]][mapping[oldstate-1]]+=1
+      elif INFOS['mode'] in [3,4]:
+        transition[istep][mapping[state-1]][mapping[oldstate-1]]+=1
+        istep+=1
+        if istep==len(transition):
+          break
       oldstate=state
   #print string
 
-  print ''
-  outfilename='crossing.xyz'
-  if os.path.isfile(outfilename):
-    overw=question('Overwrite %s? ' % (outfilename),bool,False)
-    print ''
-    if overw:
-      try:
-        outf=open(outfilename,'w')
-      except IOError:
-        print 'Could not open: %s' % (outfilename)
-        outf=None
-    else:
-      outf=None
-    if not outf:
-      while True:
-        outfilename=question('Please enter the output filename: ',str)
+  if INFOS['mode'] in [1,2]:
+    print '\n'
+    print centerstring('Results',60,'*')
+
+    string=print_transition_matrix(transition,labels)
+    print 'Full transition matrix:'
+    print string
+
+    sumtrans=copy.deepcopy(transition)
+    for i in range(len(transition)):
+      for j in range(len(transition)):
+        if i<j:
+          sumtrans[i][j]=transition[i][j]+transition[j][i]
+        elif i==j:
+          sumtrans[i][j]=transition[i][j]
+        elif i>j:
+          sumtrans[i][j]=0
+    string=print_transition_matrix(sumtrans,labels)
+    print 'Sum transition matrix:'
+    print string
+
+    length=len(transition)+1
+    difftrans=[ [ 0 for i in range(length) ] for j in range(length)]
+    for i in range(len(transition)):
+      for j in range(len(transition)):
+        difftrans[i][j]=transition[i][j]-transition[j][i]
+    for i in range(len(transition)):
+      difftrans[i][length-1]=sum( [difftrans[i][j] for j in range(len(transition)) ])
+      difftrans[length-1][i]=sum( [difftrans[j][i] for j in range(len(transition)) ])
+    difftrans[length-1][length-1]=0
+    labels[length-1]='Sum   '
+    string=print_transition_matrix(difftrans,labels)
+    print 'Difference transition matrix:'
+    print string
+
+  elif INFOS['mode'] in [3,4]:
+    print '\n'
+    print centerstring('Results',60,'*')
+    print '\n'
+
+    # make header
+    s='#%7i ' % (1)
+    k=1
+    for i in range(len(transition[0])):
+      for j in range(len(transition[0])):
+        k+=1
+        s+='%5i ' % (k)
+    s+='\n'
+    s+='#%7s ' % ('Time')
+    for i in range(len(transition[0])):
+      for j in range(len(transition[0])):
+        s+='%2s-%2s ' % (labels[i][:2],labels[j][:2])
+    s+='\n'
+
+    for istep,tran in enumerate(transition):
+      s+='%8.1f ' % (dt*istep)
+      for row in tran:
+        for col in row:
+          s+='%+5i ' % (col)
+      s+='\n'
+
+    # write to file
+    outfilename='transition_full.out'
+    if os.path.isfile(outfilename):
+      overw=question('Overwrite %s? ' % (outfilename),bool,False)
+      print ''
+      if overw:
         try:
           outf=open(outfilename,'w')
         except IOError:
           print 'Could not open: %s' % (outfilename)
-          continue
-        break
-  else:
-    outf=open(outfilename,'w')
+          outf=None
+      else:
+        outf=None
+      if not outf:
+        while True:
+          outfilename=question('Please enter the output filename: ',str)
+          try:
+            outf=open(outfilename,'w')
+          except IOError:
+            print 'Could not open: %s' % (outfilename)
+            continue
+          break
+    else:
+      outf=open(outfilename,'w')
 
-  print 'Writing to %s ...' % (outfilename)
-  outf.write(string)
-  outf.close()
+    print 'Writing to %s ...' % (outfilename)
+    outf.write(s)
+    outf.close()
+
+
+
+
 
 # ======================================================================================================================
 # ======================================================================================================================
@@ -568,9 +720,10 @@ def main():
   '''Main routine'''
 
   usage='''
-python crossing.py
+python transition.py
 
-This interactive program creates files containing geometries from trajectories at timesteps which fulfill certain criteria.
+This interactive program counts hopping events in an ensemble and presents the results as
+a transition matrix.
 '''
 
   description=''

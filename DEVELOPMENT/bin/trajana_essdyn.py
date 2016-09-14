@@ -37,7 +37,7 @@ def displaywelcome():
   string+='||'+centerstring('',80)+'||\n'
   string+='||'+centerstring('Reading structures from SHARC dynamics',80)+'||\n'
   string+='||'+centerstring('',80)+'||\n'
-  string+='||'+centerstring('Author: Fleix Plasser, Andrew Atkins',80)+'||\n'
+  string+='||'+centerstring('Author: Felix Plasser, Andrew Atkins',80)+'||\n'
   string+='||'+centerstring('',80)+'||\n'
   string+='||'+centerstring('Version:'+version,80)+'||\n'
   string+='||'+centerstring(versiondate.strftime("%d.%m.%y"),80)+'||\n'
@@ -281,7 +281,7 @@ def ess_dyn(INFOS):
     cross_num_array = numpy.zeros(num_steps)
     cross_sum_array = numpy.zeros([num_steps,num_at*3], float) # a number for every time step and coordinate; sum, has to be divided by num_array
 
-    forbidden=['crashed','running','dead']
+    forbidden=['crashed','running','dead','dont_analyze']
     width=30
     files=[]
     ntraj=0

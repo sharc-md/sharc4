@@ -669,6 +669,7 @@ end               Finish initial condition input
   INFOS['maxtime']=maxtime
   INFOS['ncol']=ncol
   INFOS['data']=data
+  INFOS['popfile']=os.path.abspath(popfile)
 
   # =========================== Define the data -- species mapping ==================================
   print '\n'+centerstring('Population-to-Species Mapping for Fit',60,'-')+'\n'
@@ -1205,7 +1206,14 @@ set key at %.2f,1.00 top right
 
   # For saving the final plot to a file and a table
   string+='# *** File output: ***\n'
-  string+='set term pngcairo\nset out "model_fit.png"\nreplot\nset table "model_fit.txt"\nreplot\n\n'
+  string+='set title "%s@%s, %s\\nFile:%s"\n' % (os.environ['USER'],os.environ['HOSTNAME'],datetime.datetime.now(),INFOS['popfile'])
+  string+='set term pngcairo size 800,480\nset out "model_fit.png"\nreplot\nset table "model_fit.txt"\nreplot\n\n'
+
+  # Put time stamp infos at the end
+  string+='# *** Infos: ***\n'
+  string+='# %s@%s\n' % (os.environ['USER'],os.environ['HOSTNAME'])
+  string+='# Date: %s\n' % (datetime.datetime.now())
+  string+='# Current directory: %s\n\n' % (os.getcwd())
 
   # Write gnuplot script
   outfilename='model_fit.gp'

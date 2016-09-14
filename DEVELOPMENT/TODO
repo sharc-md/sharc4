@@ -2,8 +2,7 @@
 
 Fortran code:
 - Laser field (Granucci paper, Thachuk paper): radiative/nonradiative hops
-- doxygen comments
-- substitute real*8 and friends with real(kind=??) stuff
+- other decoherence schemes
 
 
 Makefile:
@@ -13,6 +12,11 @@ Makefile:
 Tutorial:
 - mark background infos
 - state that the example figures could also look different (different compilers, etc)
+- switch the tutorial to MOLCAS
+
+
+Manual:
+- elaborate more on analysis
 
 
 Others:
@@ -20,22 +24,16 @@ Others:
 - script for setting up scattering initial conditions (merge two initconds files with Wigner distributions, setting translational and rotational shift and relative translational and rotational velocities)
 
 
-MOLPRO interface:
-- allow the interface to do several subsequent calculations (so that it can first do H/DM/SOC/OVERLAP and then the gradients/NACs)                                      DONE
-- implement to shift the records at restarts (makes the item directly above unnecessary), alternatively, try whether file can be opened only until record X             UNNECESSARY
-- for SOC/DM, always calculate the OVERLAPS, extract the phases, problem: phases are not in overlap matrix
-- CASSCF-CI overlaps for phases: doable, but need to store the CAS and CI coefficients for samestep jobs
-  Translation from CASSCF to MRCI wavefunctions:
-  * |2000> = |2000>
-  * |/\00> = 1/sqrt(2) * [ |ab00> - |ba00> ]
-  * |//00> = |aa00>
-  * |////> = |aaaa>
-- ionization via Dyson code
-- several independent CASSCF calculations (but with same active space)                                                                                                  DONE: can do arbitrarily different active spaces for different multiplicities
-- integral reuse (activated by keyword in SH2PRO.inp)
-- use routines from COLUMBUS interface (statemap etc)                                                                                                                   PARTIALLY DONE
-- rework the checknacs/recalculate nacs system
-
+Diagnostics tool:
+- Check trajectories for 
+    * total energy conversion (changes per time step, and overall changes), 
+    * discontinuities in the potential energies/kinetic energy, 
+    * crashes/normal termination, 
+    * missing files (output, is it restartable?), 
+    * total population (should not be necessary with our propagators),
+    * intruder states
+    * TODO: also unreasonable hops?
+- find maximum usable time for each trajectory
 
 
 
@@ -65,9 +63,27 @@ COLUMBUS interface:
 
 MOLCAS interface:
 - state-averaging with zero weight extra states
+- cleanup keyword
 
+
+Setup:
+- on the fly Dyson norms
+- excite.py: initial state different from S0
+
+
+Analysis:
+- TR spectra generation from trajectory data
+- TR spectra from a posteriori calculations
 
 
 
 Test suite:
 - adjust to new MOLCAS interface
+- adjust to new MOLPRO interface
+- RICC2, ADF, check COLUMBUS
+
+
+
+
+Introduce wfoverlaps to suite
+- make $SHARC/wfoverlap.x the default path in setup scripts/interfaces
