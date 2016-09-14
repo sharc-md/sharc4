@@ -2194,7 +2194,7 @@ def run_gradients(QMin):
       workdir = QMin['scratchdir']+'/GRAD/'+string+'/'
       shutil.copy(QMin['savedir']+'/ADF.t21',workdir+'ADF.t21')
       os.environ['NSCM']=str(ncores)
-      string2 = 'adf -n '+str(ncores)+' <ADF_grad'+string+'.run > ADF_grad'+string+'.out'
+      string2 = '$ADFBIN/adf -n '+str(ncores)+' <ADF_grad'+string+'.run > ADF_grad'+string+'.out'
       errorcodes[string] = pool.apply_async(runProgram, [string2,workdir])
    pool.close()
    pool.join()
@@ -2513,7 +2513,7 @@ def run_smat(QMin):
    savedir = QMin['savedir']
 #   shutil.copy(savedir+'/ADF.t21',workdir+'/ADF.t21')
 #   shutil.copy(savedir+'/ADF.t21.old',workdir+'/ADF_old.t21')
-   string = 'adf -n %i <ADF_AO_overlap.run > ADF_AO_overlap.out'%(QMin['ncpu'])
+   string = '$ADFBIN/adf -n %i <ADF_AO_overlap.run > ADF_AO_overlap.out'%(QMin['ncpu'])
    runerror=runProgram(string,workdir)
    if runerror == 0:
       os.chdir(workdir)
