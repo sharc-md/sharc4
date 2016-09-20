@@ -2165,8 +2165,8 @@ The ADF interface will generate the appropriate ADF input automatically.
       print 'Valid file "ADF.template" detected. '
       usethisone=question('Use this template file?',bool,True)
       if usethisone:
-        INFOS['adf.template']='ADF.template'
-  if not 'adf.template' in INFOS:
+        INFOS['ADF.template']='ADF.template'
+  if not 'ADF.template' in INFOS:
     while True:
       filename=question('Template filename:',str)
       if not os.path.isfile(filename):
@@ -2174,7 +2174,7 @@ The ADF interface will generate the appropriate ADF input automatically.
         continue
       if checktemplate_ADF(filename,INFOS):
         break
-    INFOS['adf.template']=filename
+    INFOS['ADF.template']=filename
   print ''
 
 
@@ -2238,8 +2238,8 @@ def prepare_ADF(INFOS,iconddir):
   sh2cas.close()
 
   # copy MOs and template
-  cpfrom=INFOS['adf.template']
-  cpto='%s/QM/adf.template' % (iconddir)
+  cpfrom=INFOS['ADF.template']
+  cpto='%s/QM/ADF.template' % (iconddir)
   shutil.copy(cpfrom,cpto)
   if not INFOS['adf.guess'] == {}:
      cpfrom=INFOS['adf.guess']
