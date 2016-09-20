@@ -163,6 +163,9 @@ changelogstring='''
 - fixed gradients for MS-CASPT2 calcs with only one state
 - fixed gradients for (N-1)-electron states
 - added "molden" keyword
+
+04.08.2015:
+- added "angmom" keyword for GATEWAY, so that SOC can be calculated for Natom<3
 '''
 
 # ======================================================================= #
@@ -1752,6 +1755,9 @@ def readQMin(QMinfilename):
 
     if 'molden' in QMin:
         os.environ['MOLCAS_MOLDEN']='ON'
+        if 'samestep' in QMin:
+            print 'HINT: Not producing Molden files in "samestep" mode!'
+            del QMin['molden']
 
     #if 'ion' in QMin:
         #print 'Ionization probabilities not implemented!'
@@ -2241,6 +2247,8 @@ def writeMOLCASinput(tasks, QMin):
                 #string+='AMFI\n'
             if QMin['template']['cholesky']:
                 string+='RICD\n'
+            if 'soc' in QMin:
+                string+='angmom\n0 0 0\n'
             string+='\n'
 
         elif task[0]=='seward':
