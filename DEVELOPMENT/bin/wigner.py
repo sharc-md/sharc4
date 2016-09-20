@@ -1038,8 +1038,8 @@ def make_dyn_file(ic_list,filename):
   fl=open(filename,'w')
   string=''
   for i,ic in enumerate(ic_list):
-    string+='%i\n%i\n' % (len(ic),i)
-    for atom in ic:
+    string+='%i\n%i\n' % (ic.natom,i)
+    for atom in ic.atomlist:
       string+='%s' % (atom.symb)
       for j in range(3):
         string+=' %f' % (atom.coord[j]/ANG_TO_BOHR)
