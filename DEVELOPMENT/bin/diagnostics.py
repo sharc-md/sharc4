@@ -649,103 +649,119 @@ def do_calc(INFOS):
       #s='\n'
       # check energies
       f=os.path.join(path,'output_data','energy.out')
-      f=readfile(f)
-      f2=os.path.join(path,'output.lis')
-      f2=readfile(f2)
-      if2=-1
-      problem=''
-      for line in f:
-        if '#' in line:
-          continue
-        x=line.split()
-        t=float(x[0])
-        e=[ float(i) for i in x[1:] ]
-        if t==0.:
-          eold=e
-          etotmin=e[2]
-          etotmax=e[2]
-        hop=False
-        while True:
-          if2+=1
-          line2=f2[if2]
-          if 'Surface Hop' in line2:
-            hop=True
+      if os.path.isfile(f):
+        f=readfile(f)
+        f2=os.path.join(path,'output.lis')
+        f2=readfile(f2)
+        if2=-1
+        problem=''
+        for line in f:
+          if '#' in line:
             continue
-          elif '#' in line2:
-            continue
-          if abs(t-float(line2.split()[1]))<1e-4:
-            break
+          x=line.split()
+          t=float(x[0])
+          e=[ float(i) for i in x[1:] ]
+          if t==0.:
+            eold=e
+            etotmin=e[2]
+            etotmax=e[2]
           hop=False
-        # checks
-        ok=True
-        tana=t
-        if etotmin>e[2]:
-          etotmin=e[2]
-        if etotmax<e[2]:
-          etotmax=e[2]
-        if abs(etotmax-etotmin)>INFOS['settings']['etot_window']:
-          ok=False
-          problem='Large fluctuation in Etot'
-        if not hop:
-          if abs(e[0]-eold[0]) > INFOS['settings']['ekin_step']:
+          while True:
+            if2+=1
+            line2=f2[if2]
+            if 'Surface Hop' in line2:
+              hop=True
+              continue
+            elif '#' in line2:
+              continue
+            if abs(t-float(line2.split()[1]))<1e-4:
+              break
+            hop=False
+          # checks
+          ok=True
+          tana=t
+          if etotmin>e[2]:
+            etotmin=e[2]
+          if etotmax<e[2]:
+            etotmax=e[2]
+          if abs(etotmax-etotmin)>INFOS['settings']['etot_window']:
             ok=False
-            problem='Large step in Ekin'
-          if abs(e[1]-eold[1]) > INFOS['settings']['epot_step']:
+            problem='Large fluctuation in Etot'
+          if not hop:
+            if abs(e[0]-eold[0]) > INFOS['settings']['ekin_step']:
+              ok=False
+              problem='Large step in Ekin'
+            if abs(e[1]-eold[1]) > INFOS['settings']['epot_step']:
+              ok=False
+              problem='Large step in Epot'
+          else:
+            if abs(e[1]-eold[1]) > INFOS['settings']['hop_energy']:
+              ok=False
+              problem='Large dE during hop'
+          if abs(e[2]-eold[2]) > INFOS['settings']['etot_step']:
             ok=False
-            problem='Large step in Epot'
+            problem='Large step in Etot'
+          if not ok:
+            break
+          eold=e
+        trajectories[path]['tana']=tana
+        trajectories[path]['problem']=problem
+        s='    Energy:           ' + problem + ' '*(32-len(problem))
+        if problem:
+          s+='at %.2f fs' % tana
         else:
-          if abs(e[1]-eold[1]) > INFOS['settings']['hop_energy']:
-            ok=False
-            problem='Large dE during hop'
-        if abs(e[2]-eold[2]) > INFOS['settings']['etot_step']:
-          ok=False
-          problem='Large step in Etot'
-        if not ok:
-          break
-        eold=e
-      trajectories[path]['tana']=tana
-      trajectories[path]['problem']=problem
-      s='    Energy:           ' + problem + ' '*(32-len(problem))
-      if problem:
-        s+='at %.2f fs' % tana
+          s+='OK'
+        print s
       else:
-        s+='OK'
-      print s
+        problem='"energy.out" missing'
+        s='    Energy:           ' + problem + ' '*(32-len(problem))+'!!'
+        trajectories[path]['tana']=0.
+        trajectories[path]['problem']=problem
+        print s
 
       # check populations
       f=os.path.join(path,'output_data','coeff_diag.out')
-      f=readfile(f)
-      problem=''
-      for line in f:
-        if '#' in line:
-          continue
-        x=line.split()
-        t=float(x[0])
-        pop=float(x[1])
-        if t==0.:
-          popmin=pop
-          popmax=pop
-        # checks
-        ok=True
-        tana=t
-        if popmin>pop:
-          popmin=pop
-        if popmax<pop:
-          popmax=pop
-        if abs(popmax-popmin)>INFOS['settings']['pop_window']:
-          ok=False
-          problem='Fluctuation in Population'
-        if not ok:
-          break
-      trajectories[path]['tana']=min(tana,trajectories[path]['tana'])
-      if not trajectories[path]['problem']:
-        trajectories[path]['problem']=problem
-      s='    Population:       ' + problem + ' '*(32-len(problem))
-      if problem:
-        s+='at %.2f fs' % tana
+      if os.path.isfile(f):
+        f=readfile(f)
+        problem=''
+        for line in f:
+          if '#' in line:
+            continue
+          x=line.split()
+          t=float(x[0])
+          pop=float(x[1])
+          if t==0.:
+            popmin=pop
+            popmax=pop
+          # checks
+          ok=True
+          tana=t
+          if popmin>pop:
+            popmin=pop
+          if popmax<pop:
+            popmax=pop
+          if abs(popmax-popmin)>INFOS['settings']['pop_window']:
+            ok=False
+            problem='Fluctuation in Population'
+          if not ok:
+            break
+        trajectories[path]['tana']=min(tana,trajectories[path]['tana'])
+        if not trajectories[path]['problem']:
+          trajectories[path]['problem']=problem
+        s='    Population:       ' + problem + ' '*(32-len(problem))
+        if problem:
+          s+='at %.2f fs' % tana
+        else:
+          s+='OK'
+        print s
       else:
-        s+='OK'
-      print s
+        problem='"coeff_diag.out" missing'
+        s='    Population:       ' + problem + ' '*(32-len(problem))+'!!'
+        trajectories[path]['tana']=0.
+        if not trajectories[path]['problem']:
+          trajectories[path]['problem']=problem
+        print s
+
 
       # check for intruder states
       if INFOS['settings']['intruders']:
@@ -813,7 +829,7 @@ def do_calc(INFOS):
   maxtime=100.*int(maxtime/100.+0.999)
   nhisto=5
   hist=histogram( [ maxtime/nhisto*i for i in range(1,1+nhisto) ] )
-  hist_data=[0]*nhisto
+  hist_data=[0]*(nhisto+1)
   #print hist
 
   for itraj in trajsorted:
@@ -851,7 +867,7 @@ def do_calc(INFOS):
   s='\nThis many trajectories can be used for an analysis up to the given time:\n'
   total=sum(hist_data)
   for i in range(nhisto):
-    s+='up to % .1f fs:    % 3i  trajectories\n' % (hist.binlist[i],total-sum(hist_data[:i+1]))
+    s+='up to % 5.1f fs:    % 3i  trajectories\n' % (hist.binlist[i],total-sum(hist_data[:i+1]))
   print s
 
   # get a guess for the T_use threshold
