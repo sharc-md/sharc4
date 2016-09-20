@@ -756,10 +756,12 @@ def getcienergy(out,mult,state):
           if containsstring(IToMult[mult],out[ilines]):
             # look for energy
             while ilines<len(out):
-              if containsstring('!(MRCI|CI\(SD\)) STATE [0-9]+.1 Energy',out[ilines]):
-                kstate=int(out[ilines].replace('.',' ').split()[2])
+              #if '********************************************************' in out[ilines]:
+                #break
+              if containsstring('!(MRCI|CI\(SD\)) STATE ?[0-9]+\.1 Energy',out[ilines]):
+                kstate=int(out[ilines].replace('.',' ').replace('E',' ').split()[2])
                 if kstate==state:
-                  return float(out[ilines].split()[4])
+                  return float(out[ilines].split()[-1])
               ilines+=1
           else:
             break
@@ -796,10 +798,10 @@ def getcidm(out,mult,state1,state2,pol):
             # expectation values are in the results section, transition moments seperately
             if state1==state2:
               while not containsstring('\*\*\*', out[ilines]):
-                if containsstring('!.* STATE [0-9]+.1 Dipole moment',out[ilines]):
-                  kstate=int(out[ilines].replace('.',' ').split()[2])
+                if containsstring('!.* STATE ?[0-9]+\.1 Dipole moment',out[ilines]):
+                  kstate=int(out[ilines].replace('.',' ').replace('E',' ').split()[2])
                   if kstate==state1:
-                    return float(out[ilines].split()[5+pol])
+                    return float(out[ilines].split()[-3+pol])
                 ilines+=1
             else:
               while not containsstring('\*\*\*', out[ilines]):
@@ -927,17 +929,22 @@ def getsocme(out,istate,jstate,QMin):
     iline+=1
     line=out[iline]
     if ' Spin-Orbit Matrix (CM-1)' in line:
+    #if '  State Sym Spin    / Nr.' in line:
       break
   else:
     print 'SOC matrix not found in master_%i/MOLPRO.out!' % (job)
     sys.exit(11)
   iline+=5
+  #iline+=2
 
   rcm_to_Eh=4.556335e-6
   # get a single matrix element
   block=(j)/10
   yoffset=(i)*3 + block*(3*nmstates+3)
   xoffset=(j)%10
+  #block=(j)/8
+  #yoffset=(i)*3 + block*(3*nmstates+2)
+  #xoffset=(j)%8
   #print iline
   #print block,xoffset,yoffset
   #print out[iline+yoffset]
@@ -951,70 +958,70 @@ def getsocme(out,istate,jstate,QMin):
 
 
 
-  sys.exit(1)
+  #sys.exit(1)
 
-  iline=-1
-  while True:
-    while True:
-      iline+=1
-      if iline==len(out):
-        print 'No Spin-Orbit CI output found for multiplicities %i and %i!' % (mult1,mult2)
-        sys.exit(11)
-      if 'SEWLS' in out[iline]:
-        break
-    iline+=8
-    found=[False,False]
-    while True:
-      iline+=1
-      if not 'Wavefunction restored' in out[iline]:
-        break
-      mult=int(float(out[iline].split()[7])*2+1)
-      if mult==mult1:
-        found[0]=True
-      if mult==mult2:
-        found[1]=True
-    if all(found):
-      break
-  while True:
-    iline+=1
-    if 'Lowest unperturbed energy E0=' in out[iline]:
-      eref=complex(float(out[iline].split()[4]),0)
-      break
-  while True:
-    iline+=1
-    if r'Spin-Orbit Matrix (CM-1)' in out[iline]:
-      break
-  iline+=5
+  #iline=-1
+  #while True:
+    #while True:
+      #iline+=1
+      #if iline==len(out):
+        #print 'No Spin-Orbit CI output found for multiplicities %i and %i!' % (mult1,mult2)
+        #sys.exit(11)
+      #if 'SEWLS' in out[iline]:
+        #break
+    #iline+=8
+    #found=[False,False]
+    #while True:
+      #iline+=1
+      #if not 'Wavefunction restored' in out[iline]:
+        #break
+      #mult=int(float(out[iline].split()[7])*2+1)
+      #if mult==mult1:
+        #found[0]=True
+      #if mult==mult2:
+        #found[1]=True
+    #if all(found):
+      #break
+  #while True:
+    #iline+=1
+    #if 'Lowest unperturbed energy E0=' in out[iline]:
+      #eref=complex(float(out[iline].split()[4]),0)
+      #break
+  #while True:
+    #iline+=1
+    #if r'Spin-Orbit Matrix (CM-1)' in out[iline]:
+      #break
+  #iline+=5
 
-  rcm_to_Eh=4.556335e-6
+  #rcm_to_Eh=4.556335e-6
 
-  mstate1=0
-  mstate2=0
-  i=0
-  for imult,istate,ims in itnmstates(states):
-    i+=1
-    if (imult,istate,ims)==(mult1,state1,ms1):
-      mstate1=i
-    if (imult,istate,ims)==(mult2,state2,ms2):
-      mstate2=i
-  nmstates=i
+  #mstate1=0
+  #mstate2=0
+  #i=0
+  #for imult,istate,ims in itnmstates(states):
+    #i+=1
+    #if (imult,istate,ims)==(mult1,state1,ms1):
+      #mstate1=i
+    #if (imult,istate,ims)==(mult2,state2,ms2):
+      #mstate2=i
+  #nmstates=i
 
-  if mstate1==0:
-    print 'Mult %i, State %i, MS %i not in SOC matrix after line %i!' % (mult1,state1,ms1,iline)
-    sys.exit(11)
-  if mstate2==0:
-    print 'Mult %i, State %i, MS %i not in SOC matrix after line %i!' % (mult2,state2,ms2,iline)
-    sys.exit(11)
+  #if mstate1==0:
+    #print 'Mult %i, State %i, MS %i not in SOC matrix after line %i!' % (mult1,state1,ms1,iline)
+    #sys.exit(11)
+  #if mstate2==0:
+    #print 'Mult %i, State %i, MS %i not in SOC matrix after line %i!' % (mult2,state2,ms2,iline)
+    #sys.exit(11)
 
-  # get a single matrix element
-  block=(mstate2-1)/10
-  yoffset=(mstate1-1)*3 + block*(3*nmstates+3)
-  xoffset=(mstate2-1)%10
-  real=float(out[iline+yoffset].split()[4+xoffset])*rcm_to_Eh
-  imag=float(out[iline+yoffset+1].split()[xoffset])*rcm_to_Eh
-  if mstate1==mstate2:
-    real+=eref
-  return complex(real,imag)
+  ## get a single matrix element
+  #block=(mstate2-1)/10
+  #yoffset=(mstate1-1)*3 + block*(3*nmstates+3)
+  #xoffset=(mstate2-1)%10
+  #real=float(out[iline+yoffset].split()[4+xoffset])*rcm_to_Eh
+  #imag=float(out[iline+yoffset+1].split()[xoffset])*rcm_to_Eh
+  #if mstate1==mstate2:
+    #real+=eref
+  #return complex(real,imag)
 
 # ======================================================================= #
 def getgrad(out,mult,state,natom):
@@ -3719,7 +3726,7 @@ def getQMout(QMin):
   if 'dm' in QMin:
     # make matrix
     if not 'dm' in QMout:
-      QMout['dm']=[makecmatrix(nmstates,nmstates)]*3
+      QMout['dm']=[makecmatrix(nmstates,nmstates) for i in range(3)]
     # go through all jobs
     for job in joblist:
       outfile=os.path.join(QMin['scratchdir'],'master_%i/MOLPRO.out' % (job))
