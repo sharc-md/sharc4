@@ -440,7 +440,10 @@ def printQMin(QMin):
     nelec=QMin['template']['nelec'][j][QMin['multmap'][-j][0]-1]-2*QMin['template']['closed'][j-1]
     norb=QMin['template']['occ'][j-1]-QMin['template']['closed'][j-1]
     string+=')-CASSCF(%i,%i)' % (nelec,norb)
-    string+='/%s\n' % (QMin['template']['basis'])
+    if 'basis_external' in QMin['template']:
+      string+='/%s\n' % ('CUSTOM BASIS')
+    else:
+      string+='/%s\n' % (QMin['template']['basis'])
   if QMin['template']['dkho']>0:
     string+='Using Douglas-Kroll-Hess Hamiltonian\n'
   print string
@@ -756,10 +759,12 @@ def getcienergy(out,mult,state):
           if containsstring(IToMult[mult],out[ilines]):
             # look for energy
             while ilines<len(out):
-              if containsstring('!(MRCI|CI\(SD\)) STATE [0-9]+.1 Energy',out[ilines]):
-                kstate=int(out[ilines].replace('.',' ').split()[2])
+              #if '********************************************************' in out[ilines]:
+                #break
+              if containsstring('!(MRCI|CI\(SD\)) STATE ?[0-9]+\.1 Energy',out[ilines]):
+                kstate=int(out[ilines].replace('.',' ').replace('E',' ').split()[2])
                 if kstate==state:
-                  return float(out[ilines].split()[4])
+                  return float(out[ilines].split()[-1])
               ilines+=1
           else:
             break
@@ -796,10 +801,10 @@ def getcidm(out,mult,state1,state2,pol):
             # expectation values are in the results section, transition moments seperately
             if state1==state2:
               while not containsstring('\*\*\*', out[ilines]):
-                if containsstring('!.* STATE [0-9]+.1 Dipole moment',out[ilines]):
-                  kstate=int(out[ilines].replace('.',' ').split()[2])
+                if containsstring('!.* STATE ?[0-9]+\.1 Dipole moment',out[ilines]):
+                  kstate=int(out[ilines].replace('.',' ').replace('E',' ').split()[2])
                   if kstate==state1:
-                    return float(out[ilines].split()[5+pol])
+                    return float(out[ilines].split()[-3+pol])
                 ilines+=1
             else:
               while not containsstring('\*\*\*', out[ilines]):
@@ -927,17 +932,22 @@ def getsocme(out,istate,jstate,QMin):
     iline+=1
     line=out[iline]
     if ' Spin-Orbit Matrix (CM-1)' in line:
+    #if '  State Sym Spin    / Nr.' in line:
       break
   else:
     print 'SOC matrix not found in master_%i/MOLPRO.out!' % (job)
     sys.exit(11)
   iline+=5
+  #iline+=2
 
   rcm_to_Eh=4.556335e-6
   # get a single matrix element
   block=(j)/10
   yoffset=(i)*3 + block*(3*nmstates+3)
   xoffset=(j)%10
+  #block=(j)/8
+  #yoffset=(i)*3 + block*(3*nmstates+2)
+  #xoffset=(j)%8
   #print iline
   #print block,xoffset,yoffset
   #print out[iline+yoffset]
@@ -951,70 +961,70 @@ def getsocme(out,istate,jstate,QMin):
 
 
 
-  sys.exit(1)
+  #sys.exit(1)
 
-  iline=-1
-  while True:
-    while True:
-      iline+=1
-      if iline==len(out):
-        print 'No Spin-Orbit CI output found for multiplicities %i and %i!' % (mult1,mult2)
-        sys.exit(11)
-      if 'SEWLS' in out[iline]:
-        break
-    iline+=8
-    found=[False,False]
-    while True:
-      iline+=1
-      if not 'Wavefunction restored' in out[iline]:
-        break
-      mult=int(float(out[iline].split()[7])*2+1)
-      if mult==mult1:
-        found[0]=True
-      if mult==mult2:
-        found[1]=True
-    if all(found):
-      break
-  while True:
-    iline+=1
-    if 'Lowest unperturbed energy E0=' in out[iline]:
-      eref=complex(float(out[iline].split()[4]),0)
-      break
-  while True:
-    iline+=1
-    if r'Spin-Orbit Matrix (CM-1)' in out[iline]:
-      break
-  iline+=5
+  #iline=-1
+  #while True:
+    #while True:
+      #iline+=1
+      #if iline==len(out):
+        #print 'No Spin-Orbit CI output found for multiplicities %i and %i!' % (mult1,mult2)
+        #sys.exit(11)
+      #if 'SEWLS' in out[iline]:
+        #break
+    #iline+=8
+    #found=[False,False]
+    #while True:
+      #iline+=1
+      #if not 'Wavefunction restored' in out[iline]:
+        #break
+      #mult=int(float(out[iline].split()[7])*2+1)
+      #if mult==mult1:
+        #found[0]=True
+      #if mult==mult2:
+        #found[1]=True
+    #if all(found):
+      #break
+  #while True:
+    #iline+=1
+    #if 'Lowest unperturbed energy E0=' in out[iline]:
+      #eref=complex(float(out[iline].split()[4]),0)
+      #break
+  #while True:
+    #iline+=1
+    #if r'Spin-Orbit Matrix (CM-1)' in out[iline]:
+      #break
+  #iline+=5
 
-  rcm_to_Eh=4.556335e-6
+  #rcm_to_Eh=4.556335e-6
 
-  mstate1=0
-  mstate2=0
-  i=0
-  for imult,istate,ims in itnmstates(states):
-    i+=1
-    if (imult,istate,ims)==(mult1,state1,ms1):
-      mstate1=i
-    if (imult,istate,ims)==(mult2,state2,ms2):
-      mstate2=i
-  nmstates=i
+  #mstate1=0
+  #mstate2=0
+  #i=0
+  #for imult,istate,ims in itnmstates(states):
+    #i+=1
+    #if (imult,istate,ims)==(mult1,state1,ms1):
+      #mstate1=i
+    #if (imult,istate,ims)==(mult2,state2,ms2):
+      #mstate2=i
+  #nmstates=i
 
-  if mstate1==0:
-    print 'Mult %i, State %i, MS %i not in SOC matrix after line %i!' % (mult1,state1,ms1,iline)
-    sys.exit(11)
-  if mstate2==0:
-    print 'Mult %i, State %i, MS %i not in SOC matrix after line %i!' % (mult2,state2,ms2,iline)
-    sys.exit(11)
+  #if mstate1==0:
+    #print 'Mult %i, State %i, MS %i not in SOC matrix after line %i!' % (mult1,state1,ms1,iline)
+    #sys.exit(11)
+  #if mstate2==0:
+    #print 'Mult %i, State %i, MS %i not in SOC matrix after line %i!' % (mult2,state2,ms2,iline)
+    #sys.exit(11)
 
-  # get a single matrix element
-  block=(mstate2-1)/10
-  yoffset=(mstate1-1)*3 + block*(3*nmstates+3)
-  xoffset=(mstate2-1)%10
-  real=float(out[iline+yoffset].split()[4+xoffset])*rcm_to_Eh
-  imag=float(out[iline+yoffset+1].split()[xoffset])*rcm_to_Eh
-  if mstate1==mstate2:
-    real+=eref
-  return complex(real,imag)
+  ## get a single matrix element
+  #block=(mstate2-1)/10
+  #yoffset=(mstate1-1)*3 + block*(3*nmstates+3)
+  #xoffset=(mstate2-1)%10
+  #real=float(out[iline+yoffset].split()[4+xoffset])*rcm_to_Eh
+  #imag=float(out[iline+yoffset+1].split()[xoffset])*rcm_to_Eh
+  #if mstate1==mstate2:
+    #real+=eref
+  #return complex(real,imag)
 
 # ======================================================================= #
 def getgrad(out,mult,state,natom):
@@ -2013,7 +2023,7 @@ def readQMin(QMinfilename):
   template=readfile('MOLPRO.template')
   temp=[]
   for line in template:
-    line=re.sub('#.*$','',line).lower().split()
+    line=re.sub('#.*$','',line).split()
     if len(line)==0:
       continue
     temp.append(line)
@@ -2021,28 +2031,40 @@ def readQMin(QMinfilename):
 
   # first collect the "simple" inputs
   integers=['dkho']
-  strings =['basis']
+  strings =['basis','basis_external']
   floats=[]
   booleans=[]
   for i in booleans:
     QMin['template'][i]=False
   QMin['template']['dkho']=0
   for line in temp:
-    if line[0] in integers:
+    if line[0].lower() in integers:
       QMin['template'][line[0]]=int(line[1])
-    elif line[0] in booleans:
+    elif line[0].lower() in booleans:
       QMin['template'][line[0]]=True
-    elif line[0] in strings:
+    elif line[0].lower() in strings:
       QMin['template'][line[0]]=line[1]
-    elif line[0] in floats:
+    elif line[0].lower() in floats:
       QMin['template'][line[0]]=float(line[1])
 
-  # check for completeness
-  necessary=['basis']
-  for i in necessary:
-    if not i in QMin['template']:
-      print 'Key %s missing in template file!' % (i)
+  # get external basis set block
+  if 'basis_external' in QMin['template']:
+    if os.path.isfile(QMin['template']['basis_external']):
+      QMin['template']['basis_block']=readfile(QMin['template']['basis_external'])
+    else:
+      print '"basis_external" key not readable: "%s"!' % QMin['template']['basis_external']
+      sys.exit(11)
+  else:
+    if not 'basis' in QMin['template']:
+      print 'Key "basis" missing in template file!' % (i)
       sys.exit(50)
+
+  ## check for completeness
+  #necessary=['basis']
+  #for i in necessary:
+    #if not i in QMin['template']:
+      #print 'Key %s missing in template file!' % (i)
+      #sys.exit(50)
 
   # now collect the casscf settings
   # jobs keyword
@@ -2631,7 +2653,10 @@ def writeMOLPROinput(tasks, QMin):
       string+='\n'
       if QMin['template']['dkho']>0:
         string+='dkho=%i\n' % (QMin['template']['dkho'])
-      string+='basis=%s\n\n' % (QMin['template']['basis'])
+      if 'basis_block' in QMin['template']:
+        string+='basis={\n%s\n}\n\n' % ('\n'.join(QMin['template']['basis_block']))
+      else:
+        string+='basis=%s\n\n' % (QMin['template']['basis'])
       string+='nosym\nbohr\ngeometry={\n'
       for iatom,atom in enumerate(QMin['geo']):
         string+='%s%i %16.9f %16.9f %16.9f\n' % (atom[0],iatom+1,atom[1],atom[2],atom[3])
@@ -3719,7 +3744,7 @@ def getQMout(QMin):
   if 'dm' in QMin:
     # make matrix
     if not 'dm' in QMout:
-      QMout['dm']=[makecmatrix(nmstates,nmstates)]*3
+      QMout['dm']=[makecmatrix(nmstates,nmstates) for i in range(3)]
     # go through all jobs
     for job in joblist:
       outfile=os.path.join(QMin['scratchdir'],'master_%i/MOLPRO.out' % (job))

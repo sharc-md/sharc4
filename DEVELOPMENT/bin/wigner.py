@@ -1031,22 +1031,21 @@ as a list containing all initial condition objects."""
 
 # ======================================================================================================================
 
-def make_dyn_file(states, ic_list):
-  if not os.path.exists('init_geoms'):
-    os.mkdir('init_geoms')
-  for state in range(states):
-    fl=open('init_geoms/state_%i.xyz' % (state+1),'w')
-    string=''
-    for i,ic in enumerate(ic_list):
-      if 'Excited state %i' % (state) in ic[0] and ic[0]['Excited state %i' % (state)]['Excitation']:
-        string+='%i\n%i\n' % (len(ic),i)
-        for atom in ic:
-          string+='%s' % (atom.symb)
-          for j in range(3):
-            string+=' %f' % (atom.coord[j]/ANG_TO_BOHR)
-          string+='\n'
-    fl.write(string)
-    fl.close()
+def make_dyn_file(ic_list,filename):
+  #if not os.path.exists('init_geoms'):
+    #os.mkdir('init_geoms')
+  #for state in range(states):
+  fl=open(filename,'w')
+  string=''
+  for i,ic in enumerate(ic_list):
+    string+='%i\n%i\n' % (ic.natom,i)
+    for atom in ic.atomlist:
+      string+='%s' % (atom.symb)
+      for j in range(3):
+        string+=' %f' % (atom.coord[j]/ANG_TO_BOHR)
+      string+='\n'
+  fl.write(string)
+  fl.close()
 
 # ======================================================================================================================
 # ======================================================================================================================
@@ -1076,6 +1075,7 @@ as described in [2] (non-fixed energy, independent mode sampling).
   parser.add_option('-r', dest='r', type=int, nargs=1, default=16661, help="Seed for the random number generator (integer, default=16661)")
   parser.add_option('-o', dest='o', type=str, nargs=1, default='initconds', help="Output filename (string, default=""initconds"")")
   parser.add_option('--MOLPRO', dest='M', action='store_true',help="Assume a MOLPRO frequency file (default=assume MOLDEN file)")
+  parser.add_option('-x', dest='X', action='store_true',help="Generate a xyz file with the sampled geometries in addition to the initconds file")
   parser.add_option('-m', dest='m', action='store_true',help="Enter non-default atom masses")
   parser.add_option('-s', dest='s', type=float, nargs=1, default=1.0, help="Scaling factor for the energies (float, default=1.0)")
   parser.add_option('--keep_trans_rot', dest='KTR', action='store_true',help="Keep translational and rotational components")
@@ -1136,6 +1136,9 @@ Random number generator seed = %i''' % (['MOLDEN','MOLPRO'][options.M], filename
   outstring = create_initial_conditions_string(molecule, modes, ic_list)
   outfile.write(outstring)
   outfile.close()
+
+  if options.X:
+    make_dyn_file(ic_list,options.o+'.xyz')
 
   # save the shell command
   command='python '+' '.join(sys.argv)

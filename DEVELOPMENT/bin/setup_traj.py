@@ -1289,11 +1289,11 @@ wfoverlap %s
   # runQM.sh
   runname=iconddir+'/QM/runQM.sh'
   runscript=open(runname,'w')
-  s='''cd %s/%s/QM
+  s='''cd QM
 $SHARC/%s QM.in >> QM.log 2>> QM.err
 err=$?
 
-exit $err''' % (INFOS['copydir'],iconddir,Interfaces[INFOS['interface']]['script'])
+exit $err''' % (Interfaces[INFOS['interface']]['script'])
   runscript.write(s)
   runscript.close()
   os.chmod(runname, os.stat(runname).st_mode | stat.S_IXUSR)
@@ -1635,11 +1635,11 @@ template %s
   # runQM.sh
   runname=iconddir+'/QM/runQM.sh'
   runscript=open(runname,'w')
-  s='''cd %s/%s/QM
+  s='''cd QM
 $SHARC/%s QM.in >> QM.log 2>> QM.err
 err=$?
 
-exit $err''' % (INFOS['copydir'],iconddir,Interfaces[INFOS['interface']]['script'])
+exit $err''' % (Interfaces[INFOS['interface']]['script'])
   runscript.write(s)
   runscript.close()
   os.chmod(runname, os.stat(runname).st_mode | stat.S_IXUSR)
@@ -1826,11 +1826,11 @@ def prepare_Analytical(INFOS,iconddir):
   # runQM.sh
   runname=iconddir+'/QM/runQM.sh'
   runscript=open(runname,'w')
-  s='''cd %s/%s/QM
+  s='''cd QM
 $SHARC/%s QM.in >> QM.log 2>> QM.err
 err=$?
 
-exit $err''' % (INFOS['copydir'],iconddir,Interfaces[INFOS['interface']]['script'])
+exit $err''' % (Interfaces[INFOS['interface']]['script'])
   runscript.write(s)
   runscript.close()
   os.chmod(runname, os.stat(runname).st_mode | stat.S_IXUSR)
@@ -2066,11 +2066,11 @@ project %s''' % (INFOS['molcas'],
   # runQM.sh
   runname=iconddir+'/QM/runQM.sh'
   runscript=open(runname,'w')
-  s='''cd %s/%s/QM
+  s='''cd QM
 $SHARC/%s QM.in >> QM.log 2>> QM.err
 err=$?
 
-exit $err''' % (INFOS['copydir'],iconddir,Interfaces[INFOS['interface']]['script'])
+exit $err''' % (Interfaces[INFOS['interface']]['script'])
   runscript.write(s)
   runscript.close()
   os.chmod(runname, os.stat(runname).st_mode | stat.S_IXUSR)
@@ -2249,11 +2249,11 @@ def prepare_ADF(INFOS,iconddir):
   # runQM.sh
   runname=iconddir+'/QM/runQM.sh'
   runscript=open(runname,'w')
-  s='''cd %s/%s/QM
+  s='''cd QM
 $SHARC/%s QM.in >> QM.log 2>> QM.err
 err=$?
 
-exit $err''' % (INFOS['copydir'],iconddir,Interfaces[INFOS['interface']]['script'])
+exit $err''' % (Interfaces[INFOS['interface']]['script'])
   runscript.write(s)
   runscript.close()
   os.chmod(runname, os.stat(runname).st_mode | stat.S_IXUSR)
@@ -2447,11 +2447,11 @@ dipolelevel %i
   # runQM.sh
   runname=iconddir+'/QM/runQM.sh'
   runscript=open(runname,'w')
-  s='''cd %s/%s/QM
+  s='''cd QM
 $SHARC/%s QM.in >> QM.log 2>> QM.err
 err=$?
 
-exit $err''' % (INFOS['copydir'],iconddir,Interfaces[INFOS['interface']]['script'])
+exit $err''' % (Interfaces[INFOS['interface']]['script'])
   runscript.write(s)
   runscript.close()
   os.chmod(runname, os.stat(runname).st_mode | stat.S_IXUSR)

@@ -78,7 +78,7 @@ def open_keystrokes():
 
 def close_keystrokes():
   KEYSTROKES.close()
-  shutil.move('KEYSTROKES.tmp','KEYSTROKES.essdyn')
+  shutil.move('KEYSTROKES.tmp','KEYSTROKES.nma')
 
 def question(question,typefunc,default=None,autocomplete=True):
   if typefunc==int or typefunc==float:
@@ -355,32 +355,33 @@ def nm_analysis(INFOS):
     num_at = ref_struc.ret_num_at()
     mol_calc = struc_linalg.mol_calc(def_file_path=ref_struc_file, file_type='tmol')
     
-    mult_array = numpy.zeros(3*num_at, float) # for final summary files, output is multiplied with this list
-    for i in xrange(3*num_at):
-        if i+1 in neg_list:
-            mult_array[i] = -1
-        else:
-            mult_array[i] = 1
-    
     # read in data from the vibration file
 #     mass_mat = mol_calc.ret_mass_matrix(power=0) # the mass matrix is for the mass weighted skalar product, it is the unit matrix if mass_wt_pw=0
     vmol = vib_molden.vib_molden()
     vmol.read_molden_file(vibration_file)
-    nma_mat = numpy.linalg.inv(vmol.ret_vib_matrix()) # this way it is a coordinate transformation
+    nma_mat = numpy.linalg.pinv(vmol.ret_vib_matrix()) # this way it is a coordinate transformation
         # +++ the alternative would be an orthogonal projection, e.g. if only a few modes are chosen
     header = vmol.ret_nma_header()
 #     eff_mass_array = numpy.array(vmol.ret_eff_masses(mol_calc=mol_calc, mass_wt_pw = mass_wt_pw))
+    num_vib=len(nma_mat[0])
+    
+    mult_array = numpy.zeros(num_vib, float) # for final summary files, output is multiplied with this list
+    for i in xrange(num_vib):
+        if i+1 in neg_list:
+            mult_array[i] = -1
+        else:
+            mult_array[i] = 1
 
     # used for computing the variance for each mode over all trajectories and timesteps
     num_points = numpy.zeros(len(ana_ints)) # number of all timesteps in all the trajectories for each interval analysed
-    sum_array = numpy.zeros([len(ana_ints), num_at*3], float) # a number for every time interval analysed and normal mode
-    sum_sq_array = numpy.zeros([len(ana_ints), num_at*3], float)
+    sum_array = numpy.zeros([len(ana_ints), num_vib], float) # a number for every time interval analysed and normal mode
+    sum_sq_array = numpy.zeros([len(ana_ints), num_vib], float)
     
     # used for computing time resolved mean and variance
     cross_num_array = numpy.zeros(num_steps)
-    cross_sum_array = numpy.zeros([num_steps,num_at*3], float) # a number for every time step and normal mode; sum, has to be divided by cross_num_array
-    cross_mean_array = numpy.zeros([num_steps,num_at*3], float) # cross_sum_array / cross_num_array
-    cross_sum_sq_array = numpy.zeros([num_steps,num_at*3], float)
+    cross_sum_array = numpy.zeros([num_steps,num_vib], float) # a number for every time step and normal mode; sum, has to be divided by cross_num_array
+    cross_mean_array = numpy.zeros([num_steps,num_vib], float) # cross_sum_array / cross_num_array
+    cross_sum_sq_array = numpy.zeros([num_steps,num_vib], float)
     
     #not_list = []
 
@@ -450,12 +451,12 @@ def nm_analysis(INFOS):
                #not_list += [i]
            else:
            # addition for total std and for trajectory specific average and std
-               tm_traj_av = file_handler.table_maker([35]+3*num_at*[20])
+               tm_traj_av = file_handler.table_maker([35]+num_vib*[20])
                tm_traj_av.write_line(['Nr']+header[0])
                tm_traj_av.write_line(['Wavenumber (1/cm)']+header[1])
                tm_traj_av.write_line(['Period (fs)']+header[2])
                
-               tm_traj_std = file_handler.table_maker([35]+3*num_at*[20])
+               tm_traj_std = file_handler.table_maker([35]+num_vib*[20])
                tm_traj_std.write_line(['Nr']+header[0])
                tm_traj_std.write_line(['Wavenumber (1/cm)']+header[1])
                tm_traj_std.write_line(['Period (fs)']+header[2])
@@ -492,13 +493,15 @@ def nm_analysis(INFOS):
      #   print 'TRAJ' + str(i),
          
     print 'Processing data ...'
-    for num in cross_num_array:
+    for inum,num in enumerate(cross_num_array):
         if num == 0:
-            print '*** Error: Value of <num_steps> larger than steps number in any trajectory.'
-            sys.exit()
+            print '*** WARNING: No trajectory found for step %i. Will perform analysis only until step %i.' % (inum,inum-1)
+            num_steps=inum-1
+            break
+            #sys.exit()
             
     # determine the total standard deviation
-    tm_tot_std = file_handler.table_maker([35]+3*num_at*[20])
+    tm_tot_std = file_handler.table_maker([35]+num_vib*[20])
     tm_tot_std.write_line(['Nr']+header[0])
     tm_tot_std.write_line(['Wavenumber (1/cm)']+header[1])
     tm_tot_std.write_line(['Period (fs)']+header[2])
@@ -515,8 +518,8 @@ def nm_analysis(INFOS):
     tm_tot_std.write_to_file(out_dir + '/total_std.txt')
     
     # time resolved average curves
-    tm_mean = file_handler.table_maker(3*num_at*[20])
-    tm_std = file_handler.table_maker(3*num_at*[20])
+    tm_mean = file_handler.table_maker(num_vib*[20])
+    tm_std = file_handler.table_maker(num_vib*[20])
     
     tm_mean.write_line(header[0])
     tm_std.write_line(header[0])
@@ -526,12 +529,12 @@ def nm_analysis(INFOS):
     tm_std.write_line(header[2])
     
 
-    std_list = [0 for i in xrange(3*num_at)]
+    std_list = [0 for i in xrange(num_vib)]
     
     for i in xrange(num_steps):
             tm_mean.write_line([coor/cross_num_array[i] for coor in cross_sum_array[i]])
             cross_mean_array[i] = cross_sum_array[i] / cross_num_array[i] 
-            for j in xrange(3*num_at):
+            for j in xrange(num_vib):
                 exp_x = cross_sum_array[i,j]/cross_num_array[i]
                 exp_x2 = cross_sum_sq_array[i,j]/cross_num_array[i]
                 std_list[j] = (cross_num_array[i]/(cross_num_array[i]-1)*exp_x2 - exp_x**2)**.5
@@ -542,7 +545,7 @@ def nm_analysis(INFOS):
     tm_std.write_to_file(out_dir + '/std_against_time.txt')
     
     # get the variance of the time averaged structures
-    tm_av_var = file_handler.table_maker([35]+3*num_at*[20])
+    tm_av_var = file_handler.table_maker([35]+num_vib*[20])
     tm_av_var.write_line(['Nr']+header[0])
     tm_av_var.write_line(['Wavenumber (1/cm)']+header[1])
     tm_av_var.write_line(['Period (fs)']+header[2])
@@ -557,6 +560,8 @@ def nm_analysis(INFOS):
         tm_av_var.write_line([str(st)+'-'+str(en)] + av_std_array.tolist())
         
     tm_av_var.write_to_file(out_dir + '/cross_av_std.txt')
+    
+    print 'Data processing finished.'
     
     if plot: plot_summary(INFOS)
     
