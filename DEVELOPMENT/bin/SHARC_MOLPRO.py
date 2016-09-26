@@ -440,7 +440,10 @@ def printQMin(QMin):
     nelec=QMin['template']['nelec'][j][QMin['multmap'][-j][0]-1]-2*QMin['template']['closed'][j-1]
     norb=QMin['template']['occ'][j-1]-QMin['template']['closed'][j-1]
     string+=')-CASSCF(%i,%i)' % (nelec,norb)
-    string+='/%s\n' % (QMin['template']['basis'])
+    if 'basis_external' in QMin['template']:
+      string+='/%s\n' % ('CUSTOM BASIS')
+    else:
+      string+='/%s\n' % (QMin['template']['basis'])
   if QMin['template']['dkho']>0:
     string+='Using Douglas-Kroll-Hess Hamiltonian\n'
   print string
@@ -2020,7 +2023,7 @@ def readQMin(QMinfilename):
   template=readfile('MOLPRO.template')
   temp=[]
   for line in template:
-    line=re.sub('#.*$','',line).lower().split()
+    line=re.sub('#.*$','',line).split()
     if len(line)==0:
       continue
     temp.append(line)
@@ -2028,28 +2031,40 @@ def readQMin(QMinfilename):
 
   # first collect the "simple" inputs
   integers=['dkho']
-  strings =['basis']
+  strings =['basis','basis_external']
   floats=[]
   booleans=[]
   for i in booleans:
     QMin['template'][i]=False
   QMin['template']['dkho']=0
   for line in temp:
-    if line[0] in integers:
+    if line[0].lower() in integers:
       QMin['template'][line[0]]=int(line[1])
-    elif line[0] in booleans:
+    elif line[0].lower() in booleans:
       QMin['template'][line[0]]=True
-    elif line[0] in strings:
+    elif line[0].lower() in strings:
       QMin['template'][line[0]]=line[1]
-    elif line[0] in floats:
+    elif line[0].lower() in floats:
       QMin['template'][line[0]]=float(line[1])
 
-  # check for completeness
-  necessary=['basis']
-  for i in necessary:
-    if not i in QMin['template']:
-      print 'Key %s missing in template file!' % (i)
+  # get external basis set block
+  if 'basis_external' in QMin['template']:
+    if os.path.isfile(QMin['template']['basis_external']):
+      QMin['template']['basis_block']=readfile(QMin['template']['basis_external'])
+    else:
+      print '"basis_external" key not readable: "%s"!' % QMin['template']['basis_external']
+      sys.exit(11)
+  else:
+    if not 'basis' in QMin['template']:
+      print 'Key "basis" missing in template file!' % (i)
       sys.exit(50)
+
+  ## check for completeness
+  #necessary=['basis']
+  #for i in necessary:
+    #if not i in QMin['template']:
+      #print 'Key %s missing in template file!' % (i)
+      #sys.exit(50)
 
   # now collect the casscf settings
   # jobs keyword
@@ -2638,7 +2653,10 @@ def writeMOLPROinput(tasks, QMin):
       string+='\n'
       if QMin['template']['dkho']>0:
         string+='dkho=%i\n' % (QMin['template']['dkho'])
-      string+='basis=%s\n\n' % (QMin['template']['basis'])
+      if 'basis_block' in QMin['template']:
+        string+='basis={\n%s\n}\n\n' % ('\n'.join(QMin['template']['basis_block']))
+      else:
+        string+='basis=%s\n\n' % (QMin['template']['basis'])
       string+='nosym\nbohr\ngeometry={\n'
       for iatom,atom in enumerate(QMin['geo']):
         string+='%s%i %16.9f %16.9f %16.9f\n' % (atom[0],iatom+1,atom[1],atom[2],atom[3])
