@@ -1235,6 +1235,7 @@ def readQMin(QMinfilename):
 
     QMin['pwd']=os.getcwd()
 
+    #SM: TODO setup_*.py write "adfhome" key but here you look for "adf" key. What is correct?
     QMin['ADFHOME']=get_sh2ADF_environ(sh2ADF,'adf')
     os.environ['ADFHOME']=QMin['ADFHOME']
     QMin['scmlicense']=get_sh2ADF_environ(sh2ADF,'scmlicense')
@@ -1264,9 +1265,14 @@ def readQMin(QMinfilename):
        os.environ['SCM_TMPDIR']=SCMTEMPDIR
 
 
+    #SM: TODO why are two keywords necessary?
+    # <0: use default from ADF
+    #  0: no frozen core (i.e. frozcore no)
+    # >0: given number of orbitals
     frozencore=get_sh2ADF_environ(sh2ADF,'frozcore',False,False)
     if frozencore != 'No' and frozencore != None:
        numfrozencore=get_sh2ADF_environ(sh2ADF,'numfrozcore',False,False)
+       #SM: TODO '-?' fits zero or one minus sign, so it always fits!! Don't use re for such simple things, use 'if "-" in line' or such if possible
        negative = re.search('-?',numfrozencore)
        if negative == None:
           numfrozcore=int(numfrozencore)
@@ -1281,6 +1287,7 @@ def readQMin(QMinfilename):
         else:
           print 'Give path to wfoverlap.x in SH2ADF.inp!'
           sys.exit(40)
+    #SM: TODO to harmonize with other interfaces, call this "wfthres"
     QMin['threshold']=0.99 
     valthresh=get_sh2ADF_environ(sh2ADF,'threshold',False,False)
     if valthresh != None:
@@ -1352,9 +1359,11 @@ def readQMin(QMinfilename):
         print 'Number of cpus is an odd number! The interface has reduced the number to be used by 1'
         QMin['ncpu']=int(QMin['ncpu'])-1
 
+    #SM: TODO Is this needed? Note that only MOLCAS needs the $Project environment variable. ADF too?
     QMin['Project']='ADF'
     os.environ['Project']=QMin['Project']
 
+    #SM: TODO consider deleting the delay keyword, or implement it in the pool loop routine
     QMin['delay']=0.0
     line=getsh2ADFkey(sh2ADF,'delay')
     if line[0]:
@@ -1364,9 +1373,11 @@ def readQMin(QMinfilename):
             print 'Submit delay does not evaluate to numerical value!'
             sys.exit(42)
 
+    #SM: TODO Duplicate, delete
     QMin['Project']='ADF'
     os.environ['Project']=QMin['Project']
 
+    #SM: TODO how are initial orbitals handled in the ADF interface?
     line=getsh2ADFkey(sh2ADF,'always_orb_init')
     if line[0]:
         QMin['always_orb_init']=[]
@@ -1784,6 +1795,7 @@ def movetoold(QMin):
           shutil.copy(f2,fdest)
 
 # ======================================================================= #
+# SM: TODO we might want to revise the link function for all interfaces again
 
 def link(PATH, NAME,crucial=True,force=False):
   # do not create broken links
@@ -1805,6 +1817,7 @@ def link(PATH, NAME,crucial=True,force=False):
     # NAME is already a broken link
       os.remove(NAME)
     else:
+      #SM: TODO attention: here the routine does not link anything and does not raise any error!
       return
   os.symlink(PATH, NAME)
 
