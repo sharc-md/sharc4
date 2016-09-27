@@ -1378,7 +1378,7 @@ def readQMin(QMinfilename):
         sys.exit(43)
 
     # open template
-    template=readfile('adf.template')
+    template=readfile('ADF.template')
 
     QMin['template']={}
     integers=[]
