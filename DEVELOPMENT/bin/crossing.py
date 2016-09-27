@@ -360,9 +360,14 @@ def get_general():
   if INFOS['mode'] in [1]:
     INFOS['fromstates']=[]
     print centerstring('States involved in surface hop',60,'-')+'\n'
-    print 'In this analysis mode, all geometries are fetched where a trajectory switches from a given MCH state to another given MCH state.\n\nPlease enter the old MCH state involved (mult state):'
+    print 'In this analysis mode, all geometries are fetched where a trajectory switches from a given MCH state to another given MCH state.\n\nPlease enter the old MCH state involved as "mult state", e.g., "1 1" for S0, "1 2" for S1, or "3 1" for T1:'
     while True:
-      rmult,rstate=tuple(question('State 1:',int)[0:2])
+      state=question('State 1:',int)
+      if len(state)>=2:
+        rmult,rstate=tuple(state[0:2])
+      else:
+        print 'Please enter two numbers (mult state)!'
+        continue
       if rmult>len(INFOS['states']):
         print '%i is larger than maxmult (%i)!' % (rmult,len(INFOS['states']))
         continue
@@ -375,7 +380,12 @@ def get_general():
     INFOS['tostates']=[]
     print '\nPlease enter the new MCH state involved (mult state):'
     while True:
-      rmult,rstate=tuple(question('State 2:',int)[0:2])
+      state=question('State 2:',int)
+      if len(state)>=2:
+        rmult,rstate=tuple(state[0:2])
+      else:
+        print 'Please enter two numbers (mult state)!'
+        continue
       if rmult>len(INFOS['states']):
         print '%i is larger than maxmult (%i)!' % (rmult,len(INFOS['states']))
         continue
