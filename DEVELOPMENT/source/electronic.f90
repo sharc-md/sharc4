@@ -450,7 +450,9 @@ subroutine surface_hopping(traj,ctrl)
         case (1)    ! correct along v, full kinetic energy available
 !           Emax=traj%Epot + traj%Ekin
           ! should use the potential energy at the new step
-          Emax=traj%H_diag_ss(istate,istate) + traj%Ekin
+!           Emax=traj%H_diag_ss(traj%state_diag,traj%state_diag) + traj%Ekin
+          ! why not use Etot
+          Emax=traj%Etot
           if (real(traj%H_diag_ss(istate,istate)) > Emax) then
             traj%kind_of_jump=2
             exit stateloop         ! ************************************************* exit of loop
