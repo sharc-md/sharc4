@@ -1455,6 +1455,7 @@ def readQMin(QMinfilename):
     QMin['gradmode']=1
     QMin['ncpu']=max(1,QMin['ncpu'])
 
+    #SM: TODO gradaccudefault and gradaccumax were historically variables for MOLPRO and MOLCAS, could delete them here
     # gradient accuracy
     if QMin['gradmode']<2:
         QMin['gradaccumax']=1.e-2
@@ -2180,7 +2181,10 @@ def run_gradients(QMin):
    numjobs = int(len(QMin['gradmap']))
    ncpu = int(QMin['ncpu'])
    maxjobs = math.ceil(float(ncpu)/2.0)
+   # SM: TODO should fix this, gradmap contains tuples, not strings
    if '(1, 1)' in QMin['gradmap'] and numjobs >1 :
+   # SM: TODO why the "numjobs>1" ? What happens if ONLY the S0 gradient is requested?
+   #if (1,1) in QMin['gradmap'] and numjobs >1 :
       numjobs=numjobs-1
    if numjobs>=maxjobs:
       nproc = maxjobs
