@@ -1528,8 +1528,9 @@ def prepare_ADF(INFOS,iconddir):
   except IOError:
     print 'IOError during prepareADF, iconddir=%s' % (iconddir)
     quit(1)
-  project='ADF'
-  string='adfhome %s\nscmlicense %s\nscratchdir %s/%s/\nncpu %i\nproject %s\n' % (INFOS['adf'],INFOS['scmlicense'],INFOS['scratchdir'],iconddir,INFOS['adf.ncpu'],project)
+#  project='ADF'
+#  string='adfhome %s\nscmlicense %s\nscratchdir %s/%s/\nncpu %i\nproject %s\n' % (INFOS['adf'],INFOS['scmlicense'],INFOS['scratchdir'],iconddir,INFOS['adf.ncpu'],project)
+  string='adfhome %s\nscmlicense %s\nscratchdir %s/%s/\nncpu %i' % (INFOS['adf'],INFOS['scmlicense'],INFOS['scratchdir'],iconddir,INFOS['adf.ncpu'])
   sh2cas.write(string)
   sh2cas.close()
 
