@@ -2204,13 +2204,15 @@ The ADF interface will generate the appropriate ADF input automatically.
     print ''
     print '''State threshold for choosing determinants to include in the overlaps'''
     print '''For hybrids one should consider that the eigenvector X may have a norm larger than 1'''
-    INFOS['threshold']=question('Threshold:',float,[0.99])[0]
-    print 'Do you want to use frozen cores for the overlaps (recommended to use for at least the 1s orbital and a negative number uses default values)?' 
-    frozcore_bool=question('Use Frozen cores for overlap?',bool,True)
-    if frozcore_bool==True:
-       INFOS['frozcore']='yes'
-    else:
-       INFOS['frozcore']='no'
+    INFOS['wfthres']=question('Threshold:',float,[0.99])[0]
+#    print 'Do you want to use frozen cores for the overlaps (recommended to use for at least the 1s orbital and a negative number uses default values)?' 
+#    frozcore_bool=question('Use Frozen cores for overlap?',bool,True)
+#    if frozcore_bool==True:
+#       INFOS['frozcore']='yes'
+#    else:
+#       INFOS['frozcore']='no'
+    print 'Please state the number of core orbitals zou wish to freeze for the overlaps (recommended to use for at least the 1s orbital and a negative number uses default values)?'
+    print 'A value of -1 will use the defaults used by ADF for a small frozen core and 0 will turn off the use of frozen cores'
     INFOS['frozcore_number']=question('How many orbital to freeze?',int,[-1])[0]
   return INFOS
 
@@ -2223,14 +2225,15 @@ def prepare_ADF(INFOS,iconddir):
   except IOError:
     print 'IOError during prepareADF, iconddir=%s' % (iconddir)
     quit(1)
-  project='ADF'
-  string='adfhome %s\nscmlicense %s\nscratchdir %s/%s/\nsavedir %s/%s/restart\nncpu %i\nproject %s\n' % (INFOS['adf'],INFOS['scmlicense'],INFOS['scratchdir'],iconddir,INFOS['copydir'],iconddir,INFOS['adf.ncpu'],project)
+#  project='ADF'
+#  string='adfhome %s\nscmlicense %s\nscratchdir %s/%s/\nsavedir %s/%s/restart\nncpu %i\nproject %s\n' % (INFOS['adf'],INFOS['scmlicense'],INFOS['scratchdir'],iconddir,INFOS['copydir'],iconddir,INFOS['adf.ncpu'],project)
+  string='adfhome %s\nscmlicense %s\nscratchdir %s/%s/\nsavedir %s/%s/restart\nncpu %i\n' % (INFOS['adf'],INFOS['scmlicense'],INFOS['scratchdir'],iconddir,INFOS['copydir'],iconddir,INFOS['adf.ncpu'])
   if Couplings[INFOS['coupling']]['name']=='overlap' or 'ion' in INFOS and INFOS['ion']:
     #if INFOS['columbus.excitlf']:
       #string+='excitlists %s\n' % (INFOS['columbus.excitlf'])
     string+='wfoverlap %s\n' % (INFOS['adf.wfpath'])
-    string+='threshold %f\n' %(INFOS['threshold'])
-    string+='frozcore %s\n' %(INFOS['frozcore'])
+    string+='wfthres %f\n' %(INFOS['wfthres'])
+#    string+='frozcore %s\n' %(INFOS['frozcore'])
     string+='numfrozcore %i\n' %(INFOS['frozcore_number'])
   else:
     string+='nooverlap\n'
