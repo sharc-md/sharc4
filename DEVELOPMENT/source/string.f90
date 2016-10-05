@@ -171,7 +171,6 @@ call compact(string,delimiter)
 ! number of substrings
 numdel=1
 do i=2,strlen(string)
-!   if ((string(i:i)==delimiter).and.(string(i-1:i-1)/='\') ) numdel=numdel+1
   if (string(i:i)==delimiter) numdel=numdel+1
 enddo
 allocate( substrings(numdel) )
@@ -205,6 +204,7 @@ character*8000, intent(inout) :: string
 character, intent(in) :: delimiter
 character*8000 :: tempstring
 
+if (string=='') return
 if (string(1:1)==delimiter) then
   tempstring=string(2:)
   call generaladjustl(tempstring,delimiter)
