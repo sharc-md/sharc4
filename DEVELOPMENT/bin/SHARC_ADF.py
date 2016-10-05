@@ -105,6 +105,9 @@ changelogstring='''
 -Fixed number of core use for gradients when GS gradient is not explicitly calculated
 -Changed link routine to same as new SHARC_MOLPRO interface
 -Simplified frozen core vairable reading
+
+05.10.2016:
+-Fixed minor issue with number of excitations when running unrestricted calculations of doublet or higher than triplet multiplicity
 '''
 
 # ======================================================================= #
@@ -1168,6 +1171,7 @@ def readQMin(QMinfilename):
         if i == 1 or i>=3:
           if numberstates!=0:
              numberunrmult=numberunrmult+1
+             QMin['unr']='yes'
         if i == 2:
            if QMin['states'][0]==0 and QMin['states'][1]==0:
               numberunrmult=numberunrmult+1
@@ -1183,6 +1187,11 @@ def readQMin(QMinfilename):
        print "Will run as a restricted calculation"
        QMin['unr']='no'
     if QMin['states'][0] ==0 and QMin['states'][2]!=0:
+ #      if 'restricted' in QMin:
+ #         print 'Will run a restricted triplet calculation and Number of singlet states is set to 1 (S0)'
+ #         QMin['unr']='no'
+ #         QMin['states'][0]=1        
+ #      else:
        print "Will run unrestricted triplet calculation"
        QMin['unr']='yes'
     if QMin['states'][0] !=0 and QMin['states'][2]==0:
@@ -1451,10 +1460,14 @@ def readQMin(QMinfilename):
                 l=re.sub('#.*$','',l).lower().split(None,1)
                 if l[0] == 'lowest':
                    exci=QMin['states']
-                   if int(exci[2])>=int(exci[0]-1):
+                   if QMin['unr']=='yes':
+                      nstates=QMin['nstates']
+                      l[1]=str(int(nstates)+3)+'\n'
+                   elif int(exci[2])>=int(exci[0]-1):
                       l[1]=str(int(exci[2])+3)+'\n'
                    else:
                       l[1]=str(int(exci[0]-1)+3)+'\n'
+                   print l[1]
                 if str(l1[0]) in ELEMENTS:
                    block[0].append(l1)
                 else:
@@ -1932,6 +1945,8 @@ def write_ADFinput(type,QMin):
                outfile.write(' %s'%(QMin['template']['excitation'][l][i]))
                if 'davidson' in QMin['template']['excitation'][l][i]:
                   outfile.write('\n')
+#       if QMin['states'][0]==1 and QMin['states'][2]!=0:
+#          outfile.write('ONLYTRIP\n')
        outfile.write('end\n\n')
        if 'sopert' in QMin['template']:
            outfile.write('SOPERT\nGSCORR\nPRINT SOMATRIX\n\n')
@@ -2394,20 +2409,20 @@ def get_adf_out(QMin,QMout):
                QMout['gradients'][string]=Grad
           else:
             if not 'S0' in string:
-               if QMin['gradmap'][0][0]==1:
-                  if not 'S0' in QMout['gradients']:
-                     GS_Grad = []
-                     l2 = -1
-                     for line in f:
-                         l2 = l2+1
-                         GS_Gradient = re.search('Ground state gradients:',line)
-                         if GS_Gradient != None:
-                            for lines in f[l2+5:l2+5+natom]:
-                               line_split = lines.split()
-                               for xyz in range(3):
-                                   line_split[2+xyz]=float(line_split[2+xyz])*au2a
-                               GS_Grad.append(line_split[2:])
-                            QMout['gradients']['S0']=GS_Grad
+#               if QMin['gradmap'][0][0]==1:
+               if not 'S0' in QMout['gradients']:
+                  GS_Grad = []
+                  l2 = -1
+                  for line in f:
+                      l2 = l2+1
+                      GS_Gradient = re.search('Ground state gradients:',line)
+                      if GS_Gradient != None:
+                         for lines in f[l2+5:l2+5+natom]:
+                            line_split = lines.split()
+                            for xyz in range(3):
+                                line_split[2+xyz]=float(line_split[2+xyz])*au2a
+                            GS_Grad.append(line_split[2:])
+                         QMout['gradients']['S0']=GS_Grad
                l1 = -1
                Grad = []
                for line in f:
@@ -2805,6 +2820,8 @@ def get_cicoef(QMin):
       CI_thresh_sorted_A = []
       CI_thresh_sorted_B = []
       for exci in range(1,int(excita)):
+#         if exci == 1 and QMin['states'][0]==1:
+#            continue
          eigen = []
          eigen_X = []
          eigen_other = []
