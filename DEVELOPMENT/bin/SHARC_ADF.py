@@ -108,6 +108,10 @@ changelogstring='''
 
 05.10.2016:
 -Fixed minor issue with number of excitations when running unrestricted calculations of doublet or higher than triplet multiplicity
+
+14.10.2016:
+-Fixed a minor issue with the CreateQMout subroutine
+
 '''
 
 # ======================================================================= #
@@ -3229,6 +3233,8 @@ def CreateQMout(QMin,QMout):
   nstates = QMin['nstates']
   nmstates = QMin['nmstates']
   natom = QMin['natom']
+  nrsings = QMin['states'][0]
+  nrtrips = QMin['states'][2]
   if 'grad' in QMin:
      Grad = []
      if QMin['unr'] == 'no':
