@@ -112,6 +112,14 @@ changelogstring='''
 14.10.2016:
 -Fixed a minor issue with the CreateQMout subroutine
 
+17.10.2016:
+-Fixed the unrestricted multiplicity checking routine
+-Added internal checks for charge and multiplicity
+-Fixed for singlet runs only that it only calculate singlet excitations in the TD-DFT
+-For doublet, quartet etc, fixes charge relative to the atomic charge
+-Added atomic charge library
+
+
 '''
 
 # ======================================================================= #
@@ -163,13 +171,13 @@ FROZENS = {'H':  0, 'He': 0,
 'Y':14,  'Zr':14, 'Nb':14, 'Mo':14, 'Tc':14, 'Ru':14, 'Rh':14, 'Pd':14, 'Ag':14, 'Cd':14,
 'In':18, 'Sn':18, 'Sb':18, 'Te':18,  'I':18, 'Xe':18,
 'Cs':18, 'Ba':18,
-'La':23, 'Hf':23, 'Ta':23,  'W':23, 'Re':23, 'Os':23, 'Ir':23, 'Pt':23, 'Au':23, 'Hg':23,
+'La':23, 'Lu':23, 'Hf':23, 'Ta':23,  'W':23, 'Re':23, 'Os':23, 'Ir':23, 'Pt':23, 'Au':23, 'Hg':23,
 'Tl':23, 'Pb':23, 'Bi':23, 'Po':23, 'At':23, 'Rn':23
 }
 
 ELEMENTS = {'H':'h', 'He':'he',
 'Li':'li', 'Be':'be', 'B':'b', 'C':'c',  'N':'n',  'O':'o', 'F':'f', 'Ne':'ne',
-'Na':'na', 'Mg':'mg', 'Al':'Al', 'Si':'si',  'P':'p',  'S':'s', 'Cl':'cl', 'Ar':'ar',
+'Na':'na', 'Mg':'mg', 'Al':'al', 'Si':'si',  'P':'p',  'S':'s', 'Cl':'cl', 'Ar':'ar',
 'K':'k', 'Ca':'ca',
 'Sc':'sc', 'Ti':'ti', 'V':'v', 'Cr':'cr', 'Mn':'mn', 'Fe':'fe', 'Co':'co', 'Ni':'ni', 'Cu':'cu', 'Zn':'zn',
 'Ga':'ga', 'Ge':'ge', 'As':'as', 'Se':'se', 'Br':'br', 'Kr':'kr',
@@ -177,8 +185,23 @@ ELEMENTS = {'H':'h', 'He':'he',
 'Y':'y',  'Zr':'zr', 'Nb':'nb', 'Mo':'mo', 'Tc':'tc', 'Ru':'ru', 'Rh':'rh', 'Pd':'pd', 'Ag':'ag', 'Cd':'cd',
 'In':'in', 'Sn':'sn', 'Sb':'sb', 'Te':'te',  'I':'i', 'Xe':'xe',
 'Cs':'cs', 'Ba':'ba',
-'La':'la', 'Hf':'hf', 'Ta':'ta',  'W':'w', 'Re':'re', 'Os':'os', 'Ir':'ir', 'Pt':'pt', 'Au':'au', 'Hg':'hg',
+'La':'la', 'Lu':'lu', 'Hf':'hf', 'Ta':'ta',  'W':'w', 'Re':'re', 'Os':'os', 'Ir':'ir', 'Pt':'pt', 'Au':'au', 'Hg':'hg',
 'Tl':'tl', 'Pb':'pb', 'Bi':'bi', 'Po':'po', 'At':'at', 'Rn':'rn'
+}
+
+
+ATOMCHARGE = {'H':1, 'He':2,
+'Li':3, 'Be':4, 'B':5, 'C':6,  'N':7,  'O':8, 'F':9, 'Ne':10,
+'Na':11, 'Mg':12, 'Al':13, 'Si':14,  'P':15,  'S':16, 'Cl':17, 'Ar':18,
+'K':19, 'Ca':20,
+'Sc':21, 'Ti':22, 'V':23, 'Cr':24, 'Mn':25, 'Fe':26, 'Co':27, 'Ni':28, 'Cu':29, 'Zn':30,
+'Ga':31, 'Ge':32, 'As':33, 'Se':34, 'Br':35, 'Kr':36,
+'Rb':37, 'Sr':38,
+'Y':39,  'Zr':40, 'Nb':41, 'Mo':42, 'Tc':43, 'Ru':44, 'Rh':45, 'Pd':46, 'Ag':47, 'Cd':48,
+'In':49, 'Sn':50, 'Sb':51, 'Te':52,  'I':53, 'Xe':54,
+'Cs':55, 'Ba':56,
+'La':57, 'Lu':71, 'Hf':72, 'Ta':73,  'W':74, 'Re':75, 'Os':76, 'Ir':77, 'Pt':78, 'Au':79, 'Hg':80,
+'Tl':81, 'Pb':82, 'Bi':83, 'Po':84, 'At':85, 'Rn':86
 }
 
 # conversion factors
@@ -1070,6 +1093,7 @@ def readQMin(QMinfilename):
     QMin['veloc']=[]
     hasveloc=True
     QMin['frozcore']=0
+    QMin['Atomcharge']=0
     for i in range(2,natom+2):
         if not containsstring('[a-zA-Z][a-zA-Z]?[0-9]*.*[-]?[0-9]+[.][0-9]*.*[-]?[0-9]+[.][0-9]*.*[-]?[0-9]+[.][0-9]*', QMinlines[i]):
             print 'Input file does not comply to xyz file format! Maybe natom is just wrong.'
@@ -1077,6 +1101,7 @@ def readQMin(QMinfilename):
         fields=QMinlines[i].split()
         symb = fields[0].lower().title()
         QMin['frozcore']+=FROZENS[symb]
+        QMin['Atomcharge']+=ATOMCHARGE[symb]
         for j in range(1,4):
             fields[j]=float(fields[j])
         QMin['geo'].append(fields[0:4])
@@ -1169,38 +1194,68 @@ def readQMin(QMinfilename):
     if not any([i in QMin for i in ['h','soc','dm','grad']]) and 'overlap' in QMin:
         QMin['h']=[]
 
-    for i in range(len(QMin['states'])):
-        numberstates=QMin['states'][i]
-        numberunrmult=0
-        if i == 1 or i>=3:
-          if numberstates!=0:
-             numberunrmult=numberunrmult+1
-             QMin['unr']='yes'
-        if i == 2:
-           if QMin['states'][0]==0 and QMin['states'][1]==0:
-              numberunrmult=numberunrmult+1
-        if numberunrmult >= 2:
-           print "Only single unrestricted multiplicity runs are supported"
-           sys.exit(31)
-        if i == 0 or i==2:
-           if numberstates!=0 and numberunrmult >= 2:
-              print "Mixed restricted and unrestricted multiplicities are not currently supported"
-              sys.exit(32)
+    restrmult=[0,2]
+    restr=True
+    nunr=0
+    nmults=0
+    for mult,nstate in enumerate(QMin['states']):
+        if nstate>0:
+            nmults+=1
+#            if not mult in restrmult:
+#                nunr+=1
+#                restr=False
+    if nmults>1:
+        bla=[ (n!=0 and not mult in restrmult) for mult,n in enumerate(QMin['states']) ]
+        #print bla
+        if any( bla ):
+            print "Only single unrestricted multiplicity runs are supported"
+            sys.exit(31)
+        else:
+            restr=True
+    if nmults==1:
+        if QMin['states'][0]!=0:
+            restr=True
+        else:
+            restr=False
+    if restr:
+        print "Running restricted calculation."
+        QMin['unr']='no'
+    else:
+        print "Running unrestricted calculation."
+        QMin['unr']='yes'
 
-    if QMin['states'][0] !=0 and QMin['states'][2]!=0:
-       print "Will run as a restricted calculation"
-       QMin['unr']='no'
-    if QMin['states'][0] ==0 and QMin['states'][2]!=0:
- #      if 'restricted' in QMin:
- #         print 'Will run a restricted triplet calculation and Number of singlet states is set to 1 (S0)'
- #         QMin['unr']='no'
- #         QMin['states'][0]=1        
- #      else:
-       print "Will run unrestricted triplet calculation"
-       QMin['unr']='yes'
-    if QMin['states'][0] !=0 and QMin['states'][2]==0:
-       print "Will run restricted singlet calculation"
-       QMin['unr']='no'
+#    for i in range(len(QMin['states'])):
+#        numberstates=QMin['states'][i]
+#        numberunrmult=0
+#        if i == 1 or i>=3:
+#          if numberstates!=0:
+#             numberunrmult=numberunrmult+1
+#             QMin['unr']='yes'
+#        if i == 2:
+#           if QMin['states'][0]==0 and QMin['states'][1]==0:
+#              numberunrmult=numberunrmult+1
+#        if numberunrmult >= 2:
+#           print "Only single unrestricted multiplicity runs are supported"
+#           sys.exit(31)
+#        if i == 0 or i==2:
+#           if numberstates!=0 and numberunrmult >= 2:
+#              print "Mixed restricted and unrestricted multiplicities are not currently supported"
+#              sys.exit(32)
+#
+#    if QMin['states'][0] !=0 and QMin['states'][2]!=0:
+#       print "Will run as a restricted calculation"
+#       QMin['unr']='no'
+#    if QMin['states'][0] ==0 and QMin['states'][2]!=0:
+# #      if 'restricted' in QMin:
+# #         print 'Will run a restricted triplet calculation and Number of singlet states is set to 1 (S0)'
+# #         QMin['unr']='no'
+# #         QMin['states'][0]=1        
+# #      else:
+#       print "Will run unrestricted triplet calculation"
+#       QMin['unr']='yes'
+#    if QMin['states'][0] !=0 and QMin['states'][2]==0:
+#       print "Will run restricted singlet calculation"
+#       QMin['unr']='no'
            
         
 #    if len(QMin['states'])>3:
@@ -1437,11 +1492,37 @@ def readQMin(QMinfilename):
         elif 'charge' in line[0]:
             data=line[1].split()
             values = len(data)
-            if values == 2:
-               QMin['template']['charge']=float(data[0])
-               QMin['template']['unpelec']=float(data[1])
+#            if values == 2:
+            if QMin['statemap'][1][0]%2==0:
+               if QMin['Atomcharge']%2==0:
+                  totnelec=float(data[0])+float(QMin['Atomcharge'])
+                  if totnelec%2==0:
+                     newcharge=float(data[0])+1.0
+                     QMin['template']['charge']=float(newcharge)
+               else:
+                  QMin['template']['charge']=float(data[0])
             else:
-               QMin['template']['charge']=float(data[0])
+               if QMin['Atomcharge']%2==0:
+                  if QMin['unr']=='no':
+                     totnelec=float(data[0])+float(QMin['Atomcharge'])
+                     if totnelec%2==0:
+                        QMin['template']['charge']=float(data[0])
+                     else:
+                        unel=totnelec%2
+                        newcharge=float(data[0])-unel
+                        print 'The charge on the system leads to %i unpaired electrons' % (int(unel))
+                        print 'Charge of the system is set to %i' % (newcharge)
+                        QMin['template']['charge']=float(newcharge)
+                  else:
+                     QMin['template']['charge']=float(data[0])
+            if values == 2:
+               if QMin['unr']=='no':
+                  QMin['template']['unpelec']=float(0.0)
+               else:
+                  unpel=int(QMin['statemap'][1][0])-1 
+                  QMin['template']['unpelec']=float(unpel)
+#            else:
+#               QMin['template']['charge']=float(data[0])
 #        elif 'lowest' in line[0]
 #            QMin['template']['nrexci']=int(line[1])
         elif line[0] in strings:
@@ -1467,15 +1548,20 @@ def readQMin(QMinfilename):
                    if QMin['unr']=='yes':
                       nstates=QMin['nstates']
                       l[1]=str(int(nstates)+3)+'\n'
-                   elif int(exci[2])>=int(exci[0]-1):
-                      l[1]=str(int(exci[2])+3)+'\n'
                    else:
                       l[1]=str(int(exci[0]-1)+3)+'\n'
-                   print l[1]
+                      if len(exci)>=3 and exci[2]>exci[0]-1:
+                          l[1]=str(int(exci[2])+3)+'\n'               
+                   #elif int(exci[2])>=int(exci[0]-1):
+                   #   l[1]=str(int(exci[2])+3)+'\n'
+                   #else:
+                   #   l[1]=str(int(exci[0]-1)+3)+'\n'
+                   #print l[1]
                 if str(l1[0]) in ELEMENTS:
                    block[0].append(l1)
                 else:
                    block[0].append(l)
+              print block[0]
               QMin['template'][line[0]]=block[0]
 
     necessary=['basis','xc','excitation','save']
@@ -1879,7 +1965,8 @@ def write_ADFinput(type,QMin):
                outfile.write(' %2.1f \n\n'%(float(unp)))
            else:
                outfile.write('\n')
-       if QMin['unr']=='yes' or 'unrestricted' in QMin['template']:
+       if QMin['unr']=='yes': 
+#'unrestricted' in QMin['template']:
            outfile.write('unrestricted\n\n')
        if 'zlmfit' in QMin['template']:
            outfile.write('zlmfit\nquality %send\n\n'%(QMin['template']['zlmfit'][1][1]))
@@ -1935,7 +2022,8 @@ def write_ADFinput(type,QMin):
                outfile.write(' %2.1f \n\n'%(float(QMin['template']['unpelec'])))
            else:
                outfile.write('\n\n')
-       if QMin['unr']=='yes' or 'unrestricted' in QMin['template']:
+       if QMin['unr']=='yes':
+# or 'unrestricted' in QMin['template']:
            outfile.write('unrestricted\n\n')
        if 'zlmfit' in QMin['template']:
            outfile.write('zlmfit\nquality %send\n\n'%(QMin['template']['zlmfit'][1][1]))
@@ -1949,11 +2037,16 @@ def write_ADFinput(type,QMin):
                outfile.write(' %s'%(QMin['template']['excitation'][l][i]))
                if 'davidson' in QMin['template']['excitation'][l][i]:
                   outfile.write('\n')
+       if QMin['unr']=='no':
+          if QMin['states'][2]==0:
+             outfile.write('ONLYSING\n')
 #       if QMin['states'][0]==1 and QMin['states'][2]!=0:
 #          outfile.write('ONLYTRIP\n')
        outfile.write('end\n\n')
-       if 'sopert' in QMin['template']:
-           outfile.write('SOPERT\nGSCORR\nPRINT SOMATRIX\n\n')
+       if QMin['unr']=='no':
+          if QMin['states'][2]!=0:
+             if 'sopert' in QMin['template']:
+                 outfile.write('SOPERT\nGSCORR\nPRINT SOMATRIX\n\n')
        if 'init' in QMin:
            filename=QMin['pwd']+'/ADF.t21_init'
            if os.path.isfile(filename):
@@ -2006,7 +2099,8 @@ def write_ADFinput(type,QMin):
                        outfile.write(' %2.1f \n'%(float(QMin['template']['unpelec'])))
                    else:
                        outfile.write('\n')
-               if QMin['unr']=='yes' or 'unrestricted' in QMin['template']:
+               if QMin['unr']=='yes':
+# or 'unrestricted' in QMin['template']:
                    outfile.write('unrestricted\n\n')
                if 'zlmfit' in QMin['template']:
                    outfile.write('zlmfit\nquality %send\n\n'%(QMin['template']['zlmfit'][1][1]))
@@ -2211,7 +2305,7 @@ def get_adf_out(QMin,QMout):
       shutil.copy(QMin['scratchdir']+'/OVERLAP/cicoef.b', QMin['savedir']+'/cicoef')
    else:
       shutil.copy(QMin['scratchdir']+'/OVERLAP/cicoef_S.b', QMin['savedir']+'/cicoef_S')
-      if QMin['states'][2]!=0:
+      if len(QMin["states"])>=3 and QMin['states'][2]!=0:
          shutil.copy(QMin['scratchdir']+'/OVERLAP/cicoef_T.b', QMin['savedir']+'/cicoef_T')
    shutil.copy(QMin['scratchdir']+'/OVERLAP/mocoef.b', QMin['savedir']+'/mocoef')
 
@@ -2223,7 +2317,7 @@ def get_adf_out(QMin,QMout):
    file = kf.kffile('ADF/ADF.t21')
    GS_energy = float(file.read('Energy','Bond Energy'))
    Sing_energies = file.read('Excitations SS A', 'excenergies')
-   if QMin['unr']=='no' and QMin['states'][2]!=0:
+   if QMin['unr']=='no' and len(QMin["states"])>=3 and QMin['states'][2]!=0:
       Trip_energies = file.read('Excitations ST A', 'excenergies')
    State_energies = []
    State_energies.append(GS_energy)
@@ -2241,7 +2335,7 @@ def get_adf_out(QMin,QMout):
       for a in range(1,QMin['states'][0]):
           E=GS_energy+float(Sing_energies[a-1])
           State_energies.append(E)
-   if QMin['states'][2]!=0 and QMin['unr']=='no': 
+   if len(QMin["states"])>=3 and QMin['states'][2]!=0 and QMin['unr']=='no': 
       for a in range(0,QMin['states'][2]):
           E=GS_energy+float(Trip_energies[a])
           State_energies.append(E)
@@ -2812,10 +2906,13 @@ def get_cicoef(QMin):
    if QMin['unr']=='yes':
       Mults= [1]
    else:
-      if QMin['states'][2]!=0 and QMin['states'][0]!=0:
+      Mults=[1]
+      if len(QMin['states'])>=3 and QMin['states'][2]!=0:
          Mults = [1,3]
-      else:
-         Mults = [1]
+      #if QMin['states'][2]!=0 and QMin['states'][0]!=0:
+      #   Mults = [1,3]
+      #else:
+      #   Mults = [1]
 
    for Mult in Mults:
       CIcoef = []
@@ -3234,7 +3331,8 @@ def CreateQMout(QMin,QMout):
   nmstates = QMin['nmstates']
   natom = QMin['natom']
   nrsings = QMin['states'][0]
-  nrtrips = QMin['states'][2]
+  if len(QMin['states'])>=3:
+     nrtrips = QMin['states'][2]
   if 'grad' in QMin:
      Grad = []
      if QMin['unr'] == 'no':
