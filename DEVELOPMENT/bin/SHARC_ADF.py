@@ -119,7 +119,8 @@ changelogstring='''
 -For doublet, quartet etc, fixes charge relative to the atomic charge
 -Added atomic charge library
 
-
+18.10.2016
+-Fixed some issues with regards to only singlet runs
 '''
 
 # ======================================================================= #
@@ -1270,6 +1271,14 @@ def readQMin(QMinfilename):
        QMin=removekey(QMin,'soc')
        QMin['h']=[]
 
+    if QMin['unr']=='no' and QMin['states'][0]>1:
+       if len(QMin['states'])<=2:
+          QMin=removekey(QMin,'soc')
+          QMin['h']=[]
+       elif QMin['states'][2]==0:
+          QMin=removekey(QMin,'soc')
+          QMin['h']=[]
+
     if 'h' in QMin and 'soc' in QMin:
         QMin=removekey(QMin,'h')
 
@@ -1561,7 +1570,6 @@ def readQMin(QMinfilename):
                    block[0].append(l1)
                 else:
                    block[0].append(l)
-              print block[0]
               QMin['template'][line[0]]=block[0]
 
     necessary=['basis','xc','excitation','save']
@@ -2038,15 +2046,18 @@ def write_ADFinput(type,QMin):
                if 'davidson' in QMin['template']['excitation'][l][i]:
                   outfile.write('\n')
        if QMin['unr']=='no':
-          if QMin['states'][2]==0:
+          if len(QMin['states'])<=2:
+             outfile.write('ONLYSING\n') 
+          elif QMin['states'][2]==0:
              outfile.write('ONLYSING\n')
 #       if QMin['states'][0]==1 and QMin['states'][2]!=0:
 #          outfile.write('ONLYTRIP\n')
        outfile.write('end\n\n')
        if QMin['unr']=='no':
-          if QMin['states'][2]!=0:
-             if 'sopert' in QMin['template']:
-                 outfile.write('SOPERT\nGSCORR\nPRINT SOMATRIX\n\n')
+          if len(QMin['states'])>=3:
+             if QMin['states'][2]!=0:
+                if 'sopert' in QMin['template']:
+                    outfile.write('SOPERT\nGSCORR\nPRINT SOMATRIX\n\n')
        if 'init' in QMin:
            filename=QMin['pwd']+'/ADF.t21_init'
            if os.path.isfile(filename):
@@ -3195,8 +3206,9 @@ def run_wfoverlap(QMin):
       shutil.copy(QMin['savedir']+'/cicoef.old', workdir+'/cicoef.a')
     else:   
       shutil.copy(QMin['savedir']+'/cicoef_S.old', workdir+'/cicoef_S.a')
-      if QMin['states'][2]!=0: 
-         shutil.copy(QMin['savedir']+'/cicoef_T.old', workdir+'/cicoef_T.a')
+      if len(QMin['states'])>=3:
+         if QMin['states'][2]!=0: 
+            shutil.copy(QMin['savedir']+'/cicoef_T.old', workdir+'/cicoef_T.a')
     shutil.copy(QMin['savedir']+'/mocoef.old', workdir+'/mocoef.a')
     if QMin['unr']=='yes':
       outfile = open('wfovl.in','w')
@@ -3210,12 +3222,13 @@ def run_wfoverlap(QMin):
       outfile.close()
       string='%s -f wfovl_S.in > wfovl_S.out  || exit $?'%(QMin['wfoverlap'])
       runerror=runProgram(string,workdir)
-      if QMin['states'][2]!=0:
-         outfile1 = open('wfovl_T.in','w')
-         outfile1.write('a_mo=mocoef.a \nb_mo=mocoef.b \na_det=cicoef_T.a \nb_det=cicoef_T.b\nmix_aoovl=AO_overl.mixed\nncore=%i'%(ncore))
-         outfile1.close()
-         string2='%s -f wfovl_T.in > wfovl_T.out  || exit $?'%(QMin['wfoverlap']) 
-         runerror=runProgram(string2,workdir)
+      if len(QMin['states'])>=3:
+         if QMin['states'][2]!=0:
+            outfile1 = open('wfovl_T.in','w')
+            outfile1.write('a_mo=mocoef.a \nb_mo=mocoef.b \na_det=cicoef_T.a \nb_det=cicoef_T.b\nmix_aoovl=AO_overl.mixed\nncore=%i'%(ncore))
+            outfile1.close()
+            string2='%s -f wfovl_T.in > wfovl_T.out  || exit $?'%(QMin['wfoverlap']) 
+            runerror=runProgram(string2,workdir)
     if runerror!=0:
       print 'wfoverlap call not successful!'
       sys.exit(58)
@@ -3229,8 +3242,9 @@ def get_wfoverlap(QMin,QMout):
       out = readfile(QMin['scratchdir']+'/OVERLAP/wfovl.out')
    else:
       out = readfile(QMin['scratchdir']+'/OVERLAP/wfovl_S.out')
-      if QMin['states'][2]!=0:
-         out1 = readfile(QMin['scratchdir']+'/OVERLAP/wfovl_T.out')
+      if len(QMin['states'])>=3:
+         if QMin['states'][2]!=0:
+            out1 = readfile(QMin['scratchdir']+'/OVERLAP/wfovl_T.out')
    nstates = int(QMin['nstates'])
    if QMin['unr']=='yes':
      Multip=int(QMin['template']['unpelec'])+1
@@ -3253,7 +3267,9 @@ def get_wfoverlap(QMin,QMout):
                 QMout['overlap'][a][b]=float(f[j+2])
    else:
       nSings = int(QMin['states'][0])
-      nTrips = int(QMin['states'][2])
+      if len(QMin['states'])>=3:
+         if QMin['states'][2]!=0:
+            nTrips = int(QMin['states'][2])
       for i in range(nstates):
          for j in range(nstates):
             ilines = -1
@@ -3336,8 +3352,8 @@ def CreateQMout(QMin,QMout):
   if 'grad' in QMin:
      Grad = []
      if QMin['unr'] == 'no':
-         nrsings = QMin['states'][0]
-         nrtrips = QMin['states'][2]
+#         nrsings = QMin['states'][0]
+#         nrtrips = QMin['states'][2]
          for i in range(nmstates):
              Grad.append(makecmatrix(3,natom))
          for i in range(nmstates):
