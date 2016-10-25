@@ -1540,7 +1540,7 @@ def prepare_ADF(INFOS,iconddir):
   filename = INFOS['adf.guess']
   if not INFOS['adf.guess']=={}:
      cpfrom1=INFOS['adf.guess']
-     cpto1='%s/%s.t21_init' % (iconddir,project)
+     cpto1='%s/ADF.t21_init' % (iconddir)
      shutil.copy(cpfrom1,cpto1)
 
   shutil.copy(cpfrom,cpto)

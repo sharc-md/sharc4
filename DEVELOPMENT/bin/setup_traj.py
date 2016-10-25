@@ -2246,7 +2246,7 @@ def prepare_ADF(INFOS,iconddir):
   shutil.copy(cpfrom,cpto)
   if not INFOS['adf.guess'] == {}:
      cpfrom=INFOS['adf.guess']
-     cpto='%s/QM/%s.t21_init' % (iconddir,project)
+     cpto='%s/QM/ADF.t21_init' % (iconddir)
      shutil.copy(cpfrom,cpto)
 
   # runQM.sh

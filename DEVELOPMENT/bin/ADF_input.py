@@ -360,6 +360,7 @@ Please enter the number corresponding to the type of calculation.
   print 'Would you like to include Relativistic effects (Scalar)?'
   Rel=question('Include Relativistic effects:',bool,True)
   INFOS['Rel']=Rel
+  INFOS['SO_COUP']=False
   if Rel == True:
      print''
      print 'Use Spin-orbit Coupling? (Perturbative method, not possible for unrestricted calculations)'
@@ -383,6 +384,7 @@ Please enter the number corresponding to the type of calculation.
   print 'Do you want to run excited state calculations (yes/no)?'
   Exci=question('Excitation Calculation',bool,False)
   INFOS['Exci']=Exci
+  INFOS['TDA']=False
   if Exci == True:
      print ''
      print 'Singlets, Triplets or Both (ONLYSING, ONLYTRIP or BOTH)?'
@@ -398,6 +400,8 @@ Please enter the number corresponding to the type of calculation.
      TDA=question('Use TDA?',bool,True)
      INFOS['TDA']=TDA
      print ''
+     INFOS['ExcGO']=False
+     INFOS['COSMO']=False
      if ctype <=2:
         print 'Do you want to optimize an excited state or get excited state gradients (For SHARC-dynamics do not use in template)?'
         ExcitedGO=question('Gradients/GeoOpt:',bool,False)
@@ -572,4 +576,5 @@ if __name__ == '__main__':
     main()
   except KeyboardInterrupt:
     print '\nCtrl+C makes me a sad SHARC ;-(\n'
+
     quit(0)
