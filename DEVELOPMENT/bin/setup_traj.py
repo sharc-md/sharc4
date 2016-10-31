@@ -2177,6 +2177,11 @@ The ADF interface will generate the appropriate ADF input automatically.
     INFOS['ADF.template']=filename
   print ''
 
+  print 'Please state the number of states you wish to be added to your calculation ot make sure the states you wish toi include are the lowest'
+  print 'Example: Calculate 15 Singlets and give padding states as 3, TD-DFT will calculate 18 states and the interface will report the first 15'
+  padstates=question('Number of padding states?', int,[3])[0]
+  INFOS['pad']=int(padstates)
+  print ''
 
   print centerstring('Initial restart: MO Guess',60,'-')+'\n'
   print '''Please specify the path to an ADF .t21 file containing suitable starting MOs for restarting the ADF calculation. Please note that this script cannot check whether the wavefunction file and the Input template are consistent!
@@ -2196,6 +2201,7 @@ The ADF interface will generate the appropriate ADF input automatically.
   print '''Please specify the number of CPUs to be used by EACH calculation.
 '''
   INFOS['adf.ncpu']=abs(question('Number of CPUs:',int)[0])
+
 
   if Couplings[INFOS['coupling']]['name']=='overlap':
     print 'Wavefunction overlaps requested.'
@@ -2227,7 +2233,7 @@ def prepare_ADF(INFOS,iconddir):
     quit(1)
 #  project='ADF'
 #  string='adfhome %s\nscmlicense %s\nscratchdir %s/%s/\nsavedir %s/%s/restart\nncpu %i\nproject %s\n' % (INFOS['adf'],INFOS['scmlicense'],INFOS['scratchdir'],iconddir,INFOS['copydir'],iconddir,INFOS['adf.ncpu'],project)
-  string='adfhome %s\nscmlicense %s\nscratchdir %s/%s/\nsavedir %s/%s/restart\nncpu %i\n' % (INFOS['adf'],INFOS['scmlicense'],INFOS['scratchdir'],iconddir,INFOS['copydir'],iconddir,INFOS['adf.ncpu'])
+  string='adfhome %s\nscmlicense %s\nscratchdir %s/%s/\nsavedir %s/%s/restart\nncpu %i\npaddingstates %i' % (INFOS['adf'],INFOS['scmlicense'],INFOS['scratchdir'],iconddir,INFOS['copydir'],iconddir,INFOS['adf.ncpu'],INFOS['pad'])
   if Couplings[INFOS['coupling']]['name']=='overlap' or 'ion' in INFOS and INFOS['ion']:
     #if INFOS['columbus.excitlf']:
       #string+='excitlists %s\n' % (INFOS['columbus.excitlf'])
