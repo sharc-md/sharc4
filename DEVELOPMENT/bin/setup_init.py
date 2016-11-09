@@ -188,7 +188,8 @@ class INITCOND:
   def init_from_file(self,f,eref,index):
     while True: 
       line=f.readline()
-      if 'Index     %i' % (index) in line:
+      #if 'Index     %i' % (index) in line:
+      if re.search('Index\s+%i' % (index),line):
         break
       if line=='\n':
         continue
@@ -1791,7 +1792,7 @@ def writeQMin(INFOS,iconddir):
   string='%i\nInitial condition %s\n' % (INFOS['natom'],iconddir)
 
   if icond>0:
-    searchstring='Index     %i' % (icond)
+    searchstring='Index\s+%i' % (icond)
   else:
     searchstring='Equilibrium'
   rewinded=False
@@ -1805,7 +1806,8 @@ def writeQMin(INFOS,iconddir):
       else:
         print 'Could not find Initial condition %i!' % (icond)
         quit(1)
-    if searchstring in line:
+    #if searchstring in line:
+    if re.search(searchstring,line):
       break
   if icond>0:
     line=INFOS['initf'].readline()        # skip one line
