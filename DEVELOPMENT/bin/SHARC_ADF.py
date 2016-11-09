@@ -119,7 +119,13 @@ changelogstring='''
 -For doublet, quartet etc, fixes charge relative to the atomic charge
 -Added atomic charge library
 
+18.10.2016
+-Fixed some issues with regards to only singlet runs
 
+28.10.2016
+-Added a keyword allowing the use to choose the number of padding states for the TD-DFT
+-Modified the gradient routine to initiate a gradient calculation in the initial TD-DFT
+-Fixed an issue with regards to using multiple basis sets during the AO overlap calculation
 '''
 
 # ======================================================================= #
@@ -1270,6 +1276,14 @@ def readQMin(QMinfilename):
        QMin=removekey(QMin,'soc')
        QMin['h']=[]
 
+    if QMin['unr']=='no' and QMin['states'][0]>1:
+       if len(QMin['states'])<=2:
+          QMin=removekey(QMin,'soc')
+          QMin['h']=[]
+       elif QMin['states'][2]==0:
+          QMin=removekey(QMin,'soc')
+          QMin['h']=[]
+
     if 'h' in QMin and 'soc' in QMin:
         QMin=removekey(QMin,'h')
 
@@ -1372,6 +1386,8 @@ def readQMin(QMinfilename):
        os.unsetenv('SCM_MACHINEFILE')
     elif SCMTEMPDIR != None:
        os.environ['SCM_TMPDIR']=SCMTEMPDIR
+
+    padstates=get_sh2ADF_environ(sh2ADF,'paddingstates',False,False)
 
     numfrozencore=get_sh2ADF_environ(sh2ADF,'numfrozcore',False,False)
     if numfrozencore!= None:
@@ -1547,11 +1563,11 @@ def readQMin(QMinfilename):
                    exci=QMin['states']
                    if QMin['unr']=='yes':
                       nstates=QMin['nstates']
-                      l[1]=str(int(nstates)+3)+'\n'
+                      l[1]=str(int(nstates)+int(padstates))+'\n'
                    else:
-                      l[1]=str(int(exci[0]-1)+3)+'\n'
+                      l[1]=str(int(exci[0]-1)+int(padstates))+'\n'
                       if len(exci)>=3 and exci[2]>exci[0]-1:
-                          l[1]=str(int(exci[2])+3)+'\n'               
+                          l[1]=str(int(exci[2])+int(padstates))+'\n'               
                    #elif int(exci[2])>=int(exci[0]-1):
                    #   l[1]=str(int(exci[2])+3)+'\n'
                    #else:
@@ -1561,7 +1577,6 @@ def readQMin(QMinfilename):
                    block[0].append(l1)
                 else:
                    block[0].append(l)
-              print block[0]
               QMin['template'][line[0]]=block[0]
 
     necessary=['basis','xc','excitation','save']
@@ -1728,7 +1743,8 @@ def runeverything(tasks, QMin):
     if task[0]=='td-dft':
       run_tddft(QMin)
     if task[0]=='gradientcalculation':
-      run_gradients(QMin)
+      if len(QMin['gradmap'])>1:
+         run_gradients(QMin)
     if task[0]=='get_ADF_out':
       get_adf_out(QMin,QMout)
     if task[0]=='check_supergeom':
@@ -1940,6 +1956,10 @@ def write_ADFinput(type,QMin):
                   outfile.write(' %s'%(QMin['template']['basis'][l][i]))
                elif QMin['template']['basis'][l][0] in ELEMENTS:
                   outfile.write(' %s'%(QMin['template']['basis'][l][i]))
+                  outfile.write('%s' %((QMin['template']['basis'][l][0])))
+                  outfile.write('.1')
+                  if i != 0:
+                     outfile.write(' %s'%(QMin['template']['basis'][l][i]))
                else:
                   basisset = QMin['template']['basis'][l][i].upper()
                   outfile.write(' '+basisset)
@@ -2038,15 +2058,47 @@ def write_ADFinput(type,QMin):
                if 'davidson' in QMin['template']['excitation'][l][i]:
                   outfile.write('\n')
        if QMin['unr']=='no':
-          if QMin['states'][2]==0:
+          if len(QMin['states'])<=2:
+             outfile.write('ONLYSING\n') 
+          elif QMin['states'][2]==0:
              outfile.write('ONLYSING\n')
 #       if QMin['states'][0]==1 and QMin['states'][2]!=0:
 #          outfile.write('ONLYTRIP\n')
        outfile.write('end\n\n')
+       if len(QMin['gradmap'])>=1:
+          outfile.write('GEOMETRY\n iterations 0\nEND\n\n')
+          el=list(QMin['gradmap'][-1])
+          string=IToMult[el[0]][0]+'%i'% (el[1]-(el[0]<=2))
+          if QMin['unr']=='yes':
+             if QMin['states'][1]!=0:
+                if string != 'D0':
+                   outfile.write('EXCITEDGO\n')
+                   outfile.write('SINGLET\n')
+                   outfile.write('STATE A %i\n'%(el[1]-1))
+             elif el[0] != 2:
+                   outfile.write('EXCITEDGO\n')
+                   outfile.write('SINGLET\n')
+                   outfile.write('STATE A %i\n'%(el[1]-1))
+             outfile.write('OUTPUT = 4\n')
+             outfile.write('CPKS EPS=0.0001\n')
+             outfile.write('END\n\n')
+          else:
+             if string != 'S0':
+                outfile.write('EXCITEDGO\n')
+                if 'S' in string:
+                    outfile.write('SINGLET\n')
+                    outfile.write('STATE A %i\n'%(el[1]-1))
+                if 'T' in string:
+                    outfile.write('TRIPLET\n')
+                    outfile.write('STATE A %i\n'%(el[1]))
+                outfile.write('OUTPUT = 4\n')
+                outfile.write('CPKS EPS=0.0001\n')
+                outfile.write('END\n\n')
        if QMin['unr']=='no':
-          if QMin['states'][2]!=0:
-             if 'sopert' in QMin['template']:
-                 outfile.write('SOPERT\nGSCORR\nPRINT SOMATRIX\n\n')
+          if len(QMin['states'])>=3:
+             if QMin['states'][2]!=0:
+                if 'sopert' in QMin['template']:
+                    outfile.write('SOPERT\nGSCORR\nPRINT SOMATRIX\n\n')
        if 'init' in QMin:
            filename=QMin['pwd']+'/ADF.t21_init'
            if os.path.isfile(filename):
@@ -2056,8 +2108,10 @@ def write_ADFinput(type,QMin):
        outfile.write('SCF\niterations %sEND\n\n' %(QMin['template']['scf'][1][1]))
        if not DEBUG:
            outfile.write('NOPRINT LOGFILE')
+       new_gradmap_length=len(QMin['gradmap'])-1
+       gradmap=QMin['gradmap'][:new_gradmap_length]
        if 'grad' in QMin:
-           for i,el in enumerate(QMin['gradmap']):
+           for i,el in enumerate(gradmap):
                string=IToMult[el[0]][0]+'%i'% (el[1]-(el[0]<=2))
                mkdir(QMin['scratchdir']+'/GRAD/'+string)
                gradpath = QMin['scratchdir']+'/GRAD/'+string
@@ -2229,7 +2283,7 @@ def run_tddft(QMin):
 def run_gradients(QMin):
    
    errorcodes = {}
-   numjobs = int(len(QMin['gradmap']))
+   numjobs = int(len(QMin['gradmap']))-1
    ncpu = int(QMin['ncpu'])
    maxjobs = math.ceil(float(ncpu)/2.0)
    if QMin['gradmap'][0] == 1 and numjobs >1 :
@@ -2346,16 +2400,20 @@ def get_adf_out(QMin,QMout):
               State_energies.append(Triplets[b])
    if 'dm' in QMin:
       Excited_dipole= file.read('Excitations SS A', 'transition dipole moments')
-      file1=open('ADF/ADF_tddft.out')
-      f=file1.readlines()
-      l = -1
+      Ground_dipole=file.read('Properties', 'Dipole')
+#      file1=open('ADF/ADF_tddft.out')
+#      f=file1.readlines()
+#      l = -1
+#      GS_dipole = []
+#      for line in f :
+#          l = l+1
+#          sec = re.search('Dipole Moment\s*\**\s*\(Debye\)',line)
+#          if sec !=None:
+#             GS_dip =f[l+3].split()
+#             GS_dipole = GS_dip[2:]
       GS_dipole = []
-      for line in f :
-          l = l+1
-          sec = re.search('Dipole Moment\s*\**\s*\(Debye\)',line)
-          if sec !=None:
-             GS_dip =f[l+3].split()
-             GS_dipole = GS_dip[2:]
+      for xyz in range(3):
+          GS_dipole.append(Ground_dipole[xyz])
       QMout['dipolemoments']['GS']=GS_dipole
       c=-3
       if QMin['unr']=='yes':
@@ -2407,7 +2465,10 @@ def get_adf_out(QMin,QMout):
               continue
           if QMin['unr']=='yes' and QMin['gradmap'][i][1]==1 and len(QMin['gradmap'])>1:
               continue
-          file2=open('GRAD/'+string+'/ADF_grad'+string+'.out')
+          if QMin['gradmap'][i]==QMin['gradmap'][-1]:
+             file2=open('ADF/ADF_tddft.out')
+          else:
+             file2=open('GRAD/'+string+'/ADF_grad'+string+'.out')
           f=file2.readlines()
           natom =QMin['natom']
           if QMin['unr']=='yes':
@@ -2434,9 +2495,12 @@ def get_adf_out(QMin,QMout):
                       l1 = l1+1
                       sec = re.search('\s*Excited\s*state\s*dipole\s*moment\s*=\s*(-?[\d\.]+)\s*(-?[\d\.]+)\s*(-?[\d\.]+)',line)
                       if sec != None:
-                         Excited_state_dipole.append(sec.group(1))
-                         Excited_state_dipole.append(sec.group(2))
-                         Excited_state_dipole.append(sec.group(3))
+                         excix=float(sec.group(1))/2.54
+                         Excited_state_dipole.append(excix)
+                         exciy=float(sec.group(2))/2.54
+                         Excited_state_dipole.append(exciy)
+                         exciz=float(sec.group(3))/2.54
+                         Excited_state_dipole.append(exciz)
                          QMout['dipolemoments'][string]=Excited_state_dipole
                       Gradient = re.search('Energy gradients wrt nuclear displacements',line)
                       if Gradient != None:
@@ -2480,9 +2544,12 @@ def get_adf_out(QMin,QMout):
                    l1 = l1+1
                    sec = re.search('\s*Excited\s*state\s*dipole\s*moment\s*=\s*(-?[\d\.]+)\s*(-?[\d\.]+)\s*(-?[\d\.]+)',line)
                    if sec != None:
-                      Excited_state_dipole.append(sec.group(1))
-                      Excited_state_dipole.append(sec.group(2))
-                      Excited_state_dipole.append(sec.group(3))
+                      excix=float(sec.group(1))/2.54
+                      Excited_state_dipole.append(excix)
+                      exciy=float(sec.group(2))/2.54
+                      Excited_state_dipole.append(exciy)
+                      exciz=float(sec.group(3))/2.54
+                      Excited_state_dipole.append(exciz)
                       QMout['dipolemoments'][string]=Excited_state_dipole
                    Gradient = re.search('Energy gradients wrt nuclear displacements',line)
                    if Gradient != None:
@@ -2527,9 +2594,12 @@ def get_adf_out(QMin,QMout):
                    l1 = l1+1
                    sec = re.search('\s*Excited\s*state\s*dipole\s*moment\s*=\s*(-?[\d\.]+)\s*(-?[\d\.]+)\s*(-?[\d\.]+)',line)
                    if sec != None:
-                      Excited_state_dipole.append(sec.group(1))
-                      Excited_state_dipole.append(sec.group(2))
-                      Excited_state_dipole.append(sec.group(3))
+                      excix=float(sec.group(1))/2.54
+                      Excited_state_dipole.append(excix)
+                      exciy=float(sec.group(2))/2.54
+                      Excited_state_dipole.append(exciy)
+                      exciz=float(sec.group(3))/2.54
+                      Excited_state_dipole.append(exciz)
                       QMout['dipolemoments'][string]=Excited_state_dipole
                    Gradient = re.search('Energy gradients wrt nuclear displacements',line)
                    if Gradient != None:
@@ -3195,8 +3265,9 @@ def run_wfoverlap(QMin):
       shutil.copy(QMin['savedir']+'/cicoef.old', workdir+'/cicoef.a')
     else:   
       shutil.copy(QMin['savedir']+'/cicoef_S.old', workdir+'/cicoef_S.a')
-      if QMin['states'][2]!=0: 
-         shutil.copy(QMin['savedir']+'/cicoef_T.old', workdir+'/cicoef_T.a')
+      if len(QMin['states'])>=3:
+         if QMin['states'][2]!=0: 
+            shutil.copy(QMin['savedir']+'/cicoef_T.old', workdir+'/cicoef_T.a')
     shutil.copy(QMin['savedir']+'/mocoef.old', workdir+'/mocoef.a')
     if QMin['unr']=='yes':
       outfile = open('wfovl.in','w')
@@ -3210,12 +3281,13 @@ def run_wfoverlap(QMin):
       outfile.close()
       string='%s -f wfovl_S.in > wfovl_S.out  || exit $?'%(QMin['wfoverlap'])
       runerror=runProgram(string,workdir)
-      if QMin['states'][2]!=0:
-         outfile1 = open('wfovl_T.in','w')
-         outfile1.write('a_mo=mocoef.a \nb_mo=mocoef.b \na_det=cicoef_T.a \nb_det=cicoef_T.b\nmix_aoovl=AO_overl.mixed\nncore=%i'%(ncore))
-         outfile1.close()
-         string2='%s -f wfovl_T.in > wfovl_T.out  || exit $?'%(QMin['wfoverlap']) 
-         runerror=runProgram(string2,workdir)
+      if len(QMin['states'])>=3:
+         if QMin['states'][2]!=0:
+            outfile1 = open('wfovl_T.in','w')
+            outfile1.write('a_mo=mocoef.a \nb_mo=mocoef.b \na_det=cicoef_T.a \nb_det=cicoef_T.b\nmix_aoovl=AO_overl.mixed\nncore=%i'%(ncore))
+            outfile1.close()
+            string2='%s -f wfovl_T.in > wfovl_T.out  || exit $?'%(QMin['wfoverlap']) 
+            runerror=runProgram(string2,workdir)
     if runerror!=0:
       print 'wfoverlap call not successful!'
       sys.exit(58)
@@ -3229,8 +3301,9 @@ def get_wfoverlap(QMin,QMout):
       out = readfile(QMin['scratchdir']+'/OVERLAP/wfovl.out')
    else:
       out = readfile(QMin['scratchdir']+'/OVERLAP/wfovl_S.out')
-      if QMin['states'][2]!=0:
-         out1 = readfile(QMin['scratchdir']+'/OVERLAP/wfovl_T.out')
+      if len(QMin['states'])>=3:
+         if QMin['states'][2]!=0:
+            out1 = readfile(QMin['scratchdir']+'/OVERLAP/wfovl_T.out')
    nstates = int(QMin['nstates'])
    if QMin['unr']=='yes':
      Multip=int(QMin['template']['unpelec'])+1
@@ -3253,7 +3326,9 @@ def get_wfoverlap(QMin,QMout):
                 QMout['overlap'][a][b]=float(f[j+2])
    else:
       nSings = int(QMin['states'][0])
-      nTrips = int(QMin['states'][2])
+      if len(QMin['states'])>=3:
+         if QMin['states'][2]!=0:
+            nTrips = int(QMin['states'][2])
       for i in range(nstates):
          for j in range(nstates):
             ilines = -1
@@ -3336,8 +3411,8 @@ def CreateQMout(QMin,QMout):
   if 'grad' in QMin:
      Grad = []
      if QMin['unr'] == 'no':
-         nrsings = QMin['states'][0]
-         nrtrips = QMin['states'][2]
+#         nrsings = QMin['states'][0]
+#         nrtrips = QMin['states'][2]
          for i in range(nmstates):
              Grad.append(makecmatrix(3,natom))
          for i in range(nmstates):
