@@ -126,6 +126,9 @@ changelogstring='''
 -Added a keyword allowing the use to choose the number of padding states for the TD-DFT
 -Modified the gradient routine to initiate a gradient calculation in the initial TD-DFT
 -Fixed an issue with regards to using multiple basis sets during the AO overlap calculation
+
+14.11.2016
+-Fixed routine for creating the cicoef files so that in an unrestircted case both alpha and beta orbitals are frozen
 '''
 
 # ======================================================================= #
@@ -2836,25 +2839,47 @@ def get_mocoef(QMin):
    
    line_num=-1
    NAO = file1.read('Basis','naos')
-   NMO = file1.read('A','nmo_A')
-   MOcoef_a = file1.read('A','Eigen-Bas_A')
-   MOcoef=MOcoef_a.tolist()
-   occuporb_a = file1.read('A','froc_A')
-   occuporb=occuporb_a.tolist()
+   NMO = 0
+   MOcoef=[]
+   occuporb=[]
+   if QMin['unr']=='no':
+      NMO = file1.read('A','nmo_A')
+      MOcoef_a = file1.read('A','Eigen-Bas_A')
+      MOcoef=MOcoef_a.tolist()
+      occuporb_a = file1.read('A','froc_A')
+      occuporb=occuporb_a.tolist()
    npart_a = file1.read("A","npart")
    npart = npart_a.tolist()
    nspin=1 
    if QMin['unr']=='yes':
       nspin=2
+      ncore=int(QMin['frozcore'])
+      NMO_A = file1.read('A','nmo_A')
+      MOcoef_a = file1.read('A','Eigen-Bas_A')
+      MOcoef_A = MOcoef_a.tolist()
+      occuporb_a = file1.read('A','froc_A')
+      occuporb_A=occuporb_a.tolist()
       NMO_B = file1.read('A','nmo_B')
       MOcoef_b = file1.read('A','Eigen-Bas_B')
       MOcoef_B = MOcoef_b.tolist()
       occuporb_b = file1.read('A','froc_B')
       occuporb_B=occuporb_b.tolist()
-      NMO=NMO+NMO_B
-      MOcoef.extend(MOcoef_B)
-      occuporb.extend(occuporb_B)
-      npart.extend(npart)
+      #NMO=NMO+NMO_B
+      NMO=NMO_A+NMO_B
+#      NMO=NMO_B[0:ncore]
+#      NMO=NMO+NMO_A+NMO_B[ncore:]
+#      MOcoef=MOcoef_B[0:ncore]
+#      MOcoef.extend(MOcoef_A)
+#      MOcoef.extend(MOcoef_B[ncore:])
+      MOcoef=MOcoef_A
+      MOcoef.extend(MOcoef_B)   
+      occuporb=occuporb_B[0:ncore]
+      occuporb.extend(occuporb_A)
+      occuporb.extend(occuporb_B[ncore:])
+
+#      MOcoef.extend(MOcoef_B)
+#      occuporb.extend(occuporb_B)
+#      npart.extend(npart)
 
    outfile = open('mocoef.b','w')
    init_MOcoef_mat = []
@@ -2877,7 +2902,13 @@ def get_mocoef(QMin):
            z = npart.index(m+1)
            MOcoef_MO.append(init_MOcoef_mat[n][z])
        MOcoef_mat.append(MOcoef_MO)
-   
+
+   if QMin['unr']=='yes': 
+      NMOA=int(NMO)/2
+      MOcoef_mat_new=MOcoef_mat[NMOA:(NMOA+ncore)]
+      MOcoef_mat_new.extend(MOcoef_mat[:NMOA])
+      MOcoef_mat_new.extend(MOcoef_mat[(NMOA+ncore):])
+      MOcoeg_mat=MOcoef_mat_new
    
    for n in range(0,int(NMO)):
        MOcoef_new_MO = []
@@ -2946,6 +2977,7 @@ def get_cicoef(QMin):
    line_num=-1
    NAO = file1.read('Basis','naos')
    NMO = file1.read('A','nmo_A')
+   ncore=QMin['frozcore']
 
    excita = int(Nrexci)+1
    Nrelec = file1.read('General','electrons')
@@ -3083,7 +3115,7 @@ def get_cicoef(QMin):
       Nrlines=0
       output = []
       if QMin['unr']=='yes':
-         GS_config = int(Nocc_A)*'a'+int(Nvirt_A)*'e'+int(Nocc_B)*'b'+int(Nvirt_B)*'e'
+         GS_config = ncore*'b'+int(Nocc_A)*'a'+int(Nvirt_A)*'e'+(int(Nocc_B)-ncore)*'b'+int(Nvirt_B)*'e'
          for nspin in range(2):
               if nspin ==0:
                  Nocc=int(Nocc_A)
@@ -3097,9 +3129,9 @@ def get_cicoef(QMin):
                        string = ''
                        m=i*Nvirt
                        if nspin==0:
-                          Config_string = i*'a'+'e'+(int(Nocc)-i-1)*'a'+a*'e'+'a'+(int(Nvirt)-a-1)*'e'+int(Nocc_B)*'b'+int(Nvirt_B)*'e'
+                          Config_string = ncore*'b'+i*'a'+'e'+(int(Nocc)-i-1)*'a'+a*'e'+'a'+(int(Nvirt)-a-1)*'e'+(int(Nocc_B)-ncore)*'b'+int(Nvirt_B)*'e'
                        if nspin==1:
-                          Config_string = int(Nocc_A)*'a'+int(Nvirt_A)*'e'+i*'b'+'e'+(int(Nocc)-i-1)*'b'+a*'e'+'b'+(int(Nvirt)-a-1)*'e'
+                          Config_string = ncore*'b'+int(Nocc_A)*'a'+int(Nvirt_A)*'e'+(i-ncore)*'b'+'e'+(int(Nocc)-i-1)*'b'+a*'e'+'b'+(int(Nvirt)-a-1)*'e'
                        list = []
                        for n in range(0,int(Nrexci)):
                           if nspin == 0:
@@ -3260,7 +3292,7 @@ def run_wfoverlap(QMin):
     workdir = QMin['scratchdir']+'/OVERLAP'
     os.chdir(workdir)
     os.environ['OMP_NUM_THREADS']=str(QMin['ncpu'])
-    ncore = QMin['frozcore']
+    ncore = int(QMin['frozcore'])
     if QMin['unr']=='yes':
       shutil.copy(QMin['savedir']+'/cicoef.old', workdir+'/cicoef.a')
     else:   
@@ -3270,6 +3302,7 @@ def run_wfoverlap(QMin):
             shutil.copy(QMin['savedir']+'/cicoef_T.old', workdir+'/cicoef_T.a')
     shutil.copy(QMin['savedir']+'/mocoef.old', workdir+'/mocoef.a')
     if QMin['unr']=='yes':
+      ncore=ncore*2
       outfile = open('wfovl.in','w')
       outfile.write('a_mo=mocoef.a \nb_mo=mocoef.b \na_det=cicoef.a \nb_det=cicoef.b\nmix_aoovl=AO_overl.mixed\nncore=%i'%(ncore))
       outfile.close()
