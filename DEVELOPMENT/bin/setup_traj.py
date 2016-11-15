@@ -2177,6 +2177,11 @@ The ADF interface will generate the appropriate ADF input automatically.
     INFOS['ADF.template']=filename
   print ''
 
+  print 'Please state the number of states you wish to be added to your calculation ot make sure the states you wish toi include are the lowest'
+  print 'Example: Calculate 15 Singlets and give padding states as 3, TD-DFT will calculate 18 states and the interface will report the first 15'
+  padstates=question('Number of padding states?', int,[3])[0]
+  INFOS['pad']=int(padstates)
+  print ''
 
   print centerstring('Initial restart: MO Guess',60,'-')+'\n'
   print '''Please specify the path to an ADF .t21 file containing suitable starting MOs for restarting the ADF calculation. Please note that this script cannot check whether the wavefunction file and the Input template are consistent!
@@ -2197,6 +2202,7 @@ The ADF interface will generate the appropriate ADF input automatically.
 '''
   INFOS['adf.ncpu']=abs(question('Number of CPUs:',int)[0])
 
+
   if Couplings[INFOS['coupling']]['name']=='overlap':
     print 'Wavefunction overlaps requested.'
     INFOS['adf.wfpath']=question('Path to wfoverlap executable:',str)
@@ -2204,13 +2210,15 @@ The ADF interface will generate the appropriate ADF input automatically.
     print ''
     print '''State threshold for choosing determinants to include in the overlaps'''
     print '''For hybrids one should consider that the eigenvector X may have a norm larger than 1'''
-    INFOS['threshold']=question('Threshold:',float,[0.99])[0]
-    print 'Do you want to use frozen cores for the overlaps (recommended to use for at least the 1s orbital and a negative number uses default values)?' 
-    frozcore_bool=question('Use Frozen cores for overlap?',bool,True)
-    if frozcore_bool==True:
-       INFOS['frozcore']='yes'
-    else:
-       INFOS['frozcore']='no'
+    INFOS['wfthres']=question('Threshold:',float,[0.99])[0]
+#    print 'Do you want to use frozen cores for the overlaps (recommended to use for at least the 1s orbital and a negative number uses default values)?' 
+#    frozcore_bool=question('Use Frozen cores for overlap?',bool,True)
+#    if frozcore_bool==True:
+#       INFOS['frozcore']='yes'
+#    else:
+#       INFOS['frozcore']='no'
+    print 'Please state the number of core orbitals zou wish to freeze for the overlaps (recommended to use for at least the 1s orbital and a negative number uses default values)?'
+    print 'A value of -1 will use the defaults used by ADF for a small frozen core and 0 will turn off the use of frozen cores'
     INFOS['frozcore_number']=question('How many orbital to freeze?',int,[-1])[0]
   return INFOS
 
@@ -2223,14 +2231,15 @@ def prepare_ADF(INFOS,iconddir):
   except IOError:
     print 'IOError during prepareADF, iconddir=%s' % (iconddir)
     quit(1)
-  project='ADF'
-  string='adfhome %s\nscmlicense %s\nscratchdir %s/%s/\nsavedir %s/%s/restart\nncpu %i\nproject %s\n' % (INFOS['adf'],INFOS['scmlicense'],INFOS['scratchdir'],iconddir,INFOS['copydir'],iconddir,INFOS['adf.ncpu'],project)
+#  project='ADF'
+#  string='adfhome %s\nscmlicense %s\nscratchdir %s/%s/\nsavedir %s/%s/restart\nncpu %i\nproject %s\n' % (INFOS['adf'],INFOS['scmlicense'],INFOS['scratchdir'],iconddir,INFOS['copydir'],iconddir,INFOS['adf.ncpu'],project)
+  string='adfhome %s\nscmlicense %s\nscratchdir %s/%s/\nsavedir %s/%s/restart\nncpu %i\npaddingstates %i' % (INFOS['adf'],INFOS['scmlicense'],INFOS['scratchdir'],iconddir,INFOS['copydir'],iconddir,INFOS['adf.ncpu'],INFOS['pad'])
   if Couplings[INFOS['coupling']]['name']=='overlap' or 'ion' in INFOS and INFOS['ion']:
     #if INFOS['columbus.excitlf']:
       #string+='excitlists %s\n' % (INFOS['columbus.excitlf'])
     string+='wfoverlap %s\n' % (INFOS['adf.wfpath'])
-    string+='threshold %f\n' %(INFOS['threshold'])
-    string+='frozcore %s\n' %(INFOS['frozcore'])
+    string+='wfthres %f\n' %(INFOS['wfthres'])
+#    string+='frozcore %s\n' %(INFOS['frozcore'])
     string+='numfrozcore %i\n' %(INFOS['frozcore_number'])
   else:
     string+='nooverlap\n'
@@ -2243,7 +2252,7 @@ def prepare_ADF(INFOS,iconddir):
   shutil.copy(cpfrom,cpto)
   if not INFOS['adf.guess'] == {}:
      cpfrom=INFOS['adf.guess']
-     cpto='%s/QM/%s.t21_init' % (iconddir,project)
+     cpto='%s/QM/ADF.t21_init' % (iconddir)
      shutil.copy(cpfrom,cpto)
 
   # runQM.sh

@@ -15,7 +15,7 @@ import datetime
 from optparse import OptionParser
 import readline
 import time
-sys.path.append('/usr/license/adf/adf2014.07/scripting')
+sys.path.append('/usr/license/adf/adf2016.101/scripting')
 from kf import *
 
 
@@ -245,7 +245,7 @@ Please enter the number corresponding to the type of calculation.
   print ''
   if ctype==2:
     freq=question('Frequency calculation?',bool,True)
-  print 'WARNING: For numerical frequencies (Needed for all but a few selected GGA functionals) you cannot run a geometry optimisation in the same run, please provide an optimised geometry in the input'
+  print 'WARNING: For numerical frequencies (Needed for all but a few selected GGA functionals) you cannot run a geometry optimization in the same run, please provide an optimised geometry in the input'
   INFOS['freq']=freq
   print ''
 
@@ -354,15 +354,16 @@ Please enter the number corresponding to the type of calculation.
  Model: LB94, SAOP
  Range-separated: CAMY-B3LYP, LCY-PBE
 '''
-  XCfun=question('Functional:',str,'BP86',autocomplete=False)
+  XCfun=question('Functional:',str,'PBE',autocomplete=False)
   INFOS['XCfun']=XCfun 
   print ''
   print 'Would you like to include Relativistic effects (Scalar)?'
   Rel=question('Include Relativistic effects:',bool,True)
   INFOS['Rel']=Rel
+  INFOS['SO_COUP']=False
   if Rel == True:
      print''
-     print 'Use Spin-orbit Coupling? (Perturbative method)'
+     print 'Use Spin-orbit Coupling? (Perturbative method, not possible for unrestricted calculations)'
      SO=question('Spin-orbit coupling:',bool,False)
      INFOS['SO_COUP']=SO
   print ''
@@ -383,10 +384,11 @@ Please enter the number corresponding to the type of calculation.
   print 'Do you want to run excited state calculations (yes/no)?'
   Exci=question('Excitation Calculation',bool,False)
   INFOS['Exci']=Exci
+  INFOS['TDA']=False
   if Exci == True:
      print ''
      print 'Singlets, Triplets or Both (ONLYSING, ONLYTRIP or BOTH)?'
-     print 'If Spin-orbit coupling only select BOTH'
+     print 'If Spin-orbit coupling or unrestricted only select BOTH'
      Mult=question('Excitation Type:',str,'BOTH',autocomplete=False)
      INFOS['Mult']=Mult
      print ''
@@ -394,42 +396,46 @@ Please enter the number corresponding to the type of calculation.
      NrExci=question('Number of Excitations:',int,[10])[0]
      INFOS['NrExci']=NrExci
      print ''
-     print 'Select to use the Tamm-Dancoff Approximation (Recommended as it shoudl improve the description of conical intersections)'
+     print 'Select to use the Tamm-Dancoff Approximation (Recommended as it should improve the description of conical intersections)'
      TDA=question('Use TDA?',bool,True)
      INFOS['TDA']=TDA
      print ''
-     print 'Do you want to optimize an excited state or get excited state gradients (In SHARC-dynamics runs do not use in template)?'
-     ExcitedGO=question('Gradients/GeoOpt:',bool,False)
-     INFOS['ExcGO']=ExcitedGO
-     if ExcitedGO == True:
-        print ''
-        SingTrip=question('Singlet or Triplet:',str,'SINGLET',autocomplete=False)
-        INFOS['SINGTRIP']=SingTrip
-        print ''
-        State=question('Which State:',int,[1])[0]
-        INFOS['STATE']=State
-        print ''
-        Iter=question('Number of Iterations:',int,[0])[0]
-        INFOS['Iter']=Iter
-  print ''
-  print 'Would you like to use COSMO (Does not work with Excited State Geometries)?'
-  COSMO=question('Include the Solvent:',bool,False)
-  INFOS['COSMO']=COSMO
-  if COSMO == True:
-     print 'Choose whether to use a simple input with solvent name or User defined'
-     User=question('User defined dielectric constant and solvent radius?',bool,False) 
-     INFOS['User']=User
+     INFOS['ExcGO']=False
+     INFOS['COSMO']=False
+     if ctype <=2:
+        print 'Do you want to optimize an excited state or get excited state gradients (For SHARC-dynamics do not use in template)?'
+        ExcitedGO=question('Gradients/GeoOpt:',bool,False)
+        INFOS['ExcGO']=ExcitedGO
+        if ExcitedGO == True:
+           print ''
+           SingTrip=question('Singlet or Triplet:',str,'SINGLET',autocomplete=False)
+           INFOS['SINGTRIP']=SingTrip
+           print ''
+           State=question('Which State:',int,[1])[0]
+           INFOS['STATE']=State
+           print ''
+           Iter=question('Number of Iterations:',int,[0])[0]
+           INFOS['Iter']=Iter
+  if ctype <=2:
      print ''
-     if User == True:
-        Epsi = question('State the dielecric constant:',float,[0.1])[0]
+     print 'Would you like to use COSMO (Does not work with Excited State Geometry optimizations)?'
+     COSMO=question('Include the Solvent:',bool,False)
+     INFOS['COSMO']=COSMO
+     if COSMO == True:
+        print 'Choose whether to use a simple input with solvent name or User defined'
+        User=question('User defined dielectric constant and solvent radius?',bool,False) 
+        INFOS['User']=User
         print ''
-        Rad = question('State the solvent radius:',float,[1.93])[0]
-        INFOS['Epsi']=Epsi
-        INFOS['Rad']=Rad
-     else:
-        print 'Here are a few solvent options: infinitedielectric, Water, Acetonitrile, Methanol, Dichloromethane'
-        Solvent=question('Which Solvent:',str,'infinitedielectric',autocomplete=False)
-        INFOS['SOLVENT']=Solvent
+        if User == True:
+           Epsi = question('State the dielecric constant:',float,[0.1])[0]
+           print ''
+           Rad = question('State the solvent radius:',float,[1.93])[0]
+           INFOS['Epsi']=Epsi
+           INFOS['Rad']=Rad
+        else:
+           print 'Here are a few solvent options: infinitedielectric, Water, Acetonitrile, Methanol, Dichloromethane'
+           Solvent=question('Which Solvent:',str,'infinitedielectric',autocomplete=False)
+           INFOS['SOLVENT']=Solvent
      
   print ''
 
@@ -542,7 +548,7 @@ def main():
   usage='''
 python ADF_input.py
 
-This interactive program prepares template files for the SHARC-MOLCAS interface.
+This interactive program prepares template files for the SHARC-ADF interface.
 '''
 
   description=''
@@ -570,4 +576,5 @@ if __name__ == '__main__':
     main()
   except KeyboardInterrupt:
     print '\nCtrl+C makes me a sad SHARC ;-(\n'
+
     quit(0)

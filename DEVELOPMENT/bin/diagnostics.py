@@ -336,7 +336,7 @@ def question(question,typefunc,default=None,autocomplete=True):
 # ======================================================================================================================
 # ======================================================================================================================
 
-def print_settings(settings):
+def print_settings(settings,header='Current settings:'):
   order=[
     'missing_output',
     'missing_restart',
@@ -349,7 +349,7 @@ def print_settings(settings):
     'hop_energy',
     'intruders'
   ]
-  print 'Current settings:'
+  print header
   for i in order:
     print '%22s : %s' % (i,settings[i])
   return
@@ -426,13 +426,25 @@ def get_general():
     'hop_energy':1.0,
     'intruders':False
   }
+  helptext={
+    'normal_termination':'Checks for exit status of trajectory (RUNNING, CRASHED, FINISHED).',
+    'missing_output':'Checks if "output.lis", "output.log", "output.xyz", "output.dat" are existing.',
+    'missing_restart':'Checks if "restart.ctrl", "restart.traj", "restart/" are existing.',
+    'etot_window':'Maximum permittible drift in total energy (in eV).',
+    'etot_step':'Maximum permittible total energy difference between two successive timesteps (in eV).',
+    'epot_step':'Maximum permittible active state potential energy difference between two successive timesteps (in eV). Not checked for timesteps where a hop occurred.',
+    'ekin_step':'Maximum permittible kinetic energy difference between two successive timesteps (in eV).',
+    'pop_window':'Maximum permittible drift in total population.',
+    'hop_energy':'Maximum permittible change in active state energy difference during a surface hop (in eV).',
+    'intruders':'Checks if intruder state messages in "output.log" refer to active state.'
+  }
   if LD_dynamics:
     defaults['intruders']=True
 
   # get settings
   print centerstring('Diagnostic settings',60,'-')
   print '\nPlease, adjust the diagnostic settings according to your preferences.'
-  print 'You can use the following commands:\nshow\t\tPrints the current settings\nend\t\tSave and continue\n<key> <value>\tAdjust setting.\n'
+  print 'You can use the following commands:\nshow\t\tPrints the current settings\nhelp\t\tPrints explanations for the keys\nend\t\tSave and continue\n<key> <value>\tAdjust setting.\n'
   INFOS['settings']=deepcopy(defaults)
   print_settings(INFOS['settings'])
   print ''
@@ -442,6 +454,14 @@ def get_general():
       break
     if 'show' in line:
       print_settings(INFOS['settings'])
+      continue
+    if 'help' in line:
+      s=line.split()
+      if len(s)==1:
+        print_settings(helptext,header='Explanation for keys:')
+      elif len(s)==2:
+        if s[1] in helptext:
+          print '%22s : %s' % (s[1],helptext[s[1]])
       continue
     s=line.split()
     if len(s)!=2:
@@ -470,6 +490,9 @@ def get_general():
 
 
 
+  if not LD_dynamics:
+    print 'HINT: Intruder state check only possible if trajectories were propagated with "coupling overlap".'
+    defaults['settings']=False
 
 
   return INFOS

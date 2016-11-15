@@ -465,8 +465,9 @@ def tableheader(req):
       s+=' '*comment_bonus
     s+=' '*(f-5) + '% 5i|' % (i+1)
     if r[0]=='5':
-      i+=1
-      s+=' '*(f-5) + '% 5i|' % (i+1)
+      for j in range(2):
+        i+=1
+        s+=' '*(f-5) + '% 5i|' % (i+1)
     if r[0]=='6':
       for j in range(3):
         i+=1
