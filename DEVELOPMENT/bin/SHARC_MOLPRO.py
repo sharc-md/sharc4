@@ -119,6 +119,9 @@ changelogstring='''
 - parallelization (multi-job, multi-grad)
 - new Input file structure (like MOLCAS interface)
 => NOT BACKWARDS-COMPATIBLE WITH OLDER MOLPRO INTERFACE INPUTS
+
+27.09.2016:
+- added "basis_external" keyword for MOLPRO.template, which allows specifying a file whose content is taken as the basis set definition
 '''
 
 # ======================================================================= #
@@ -925,7 +928,7 @@ def getsocme(out,istate,jstate,QMin):
     print 'SOC matrix not found in master_%i/MOLPRO.out!' % (job)
     sys.exit(11)
   iline+=3
-  eref=float(out[iline].split()[-1])
+  eref=float(out[iline].replace('=',' ').split()[-1])
 
   iline=-1
   while iline<len(out):
@@ -2148,6 +2151,9 @@ def readQMin(QMinfilename):
   for line in temp:
     if line[0]=='roots':
       i+=1
+      if i>QMin['njobs']:
+        print 'Too many "roots" statements (at least %i statements, but only %i jobs).' % (i,QMin['njobs'])
+        sys.exit(11)
       f=[ int(j) for j in line[1:]]
       if len(f)<QMin['maxmult']:
         f=f+[0]*(QMin['maxmult']-len(f))
