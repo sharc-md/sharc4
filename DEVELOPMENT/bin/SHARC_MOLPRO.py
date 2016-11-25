@@ -3843,12 +3843,18 @@ def getQMout(QMin):
       for iatom in range(natom):
         for ixyz in range(3):
           g[iatom][ixyz]*=phase1*phase2
+      gneg=deepcopy(g)
+      for iatom in range(natom):
+        for ixyz in range(3):
+          gneg[iatom][ixyz]*=-1
       for istate in QMin['statemap']:
         for jstate in QMin['statemap']:
           state1=QMin['statemap'][istate]
           state2=QMin['statemap'][jstate]
-          if (state1[0],state1[1],state2[0],state2[1])==nac or (state2[0],state2[1],state1[0],state1[1])==nac:
+          if (state1[0],state1[1],state2[0],state2[1])==nac:
             QMout['nacdr'][istate-1][jstate-1]=g
+          elif (state2[0],state2[1],state1[0],state1[1])==nac:
+            QMout['nacdr'][istate-1][jstate-1]=gneg
 
   return QMout
 
