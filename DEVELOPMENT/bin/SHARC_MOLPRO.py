@@ -2632,7 +2632,7 @@ def setupWORKDIR(WORKDIR,tasks,QMin):
   elif 'grad' in QMin or 'nacdr' in QMin:
     job=QMin['JOB']
     fromfile=os.path.join(QMin['scratchdir'],'master_%i' % job, 'wf')
-    tofileo=os.path.join(WORKDIR,'wf')
+    tofile=os.path.join(WORKDIR,'wf')
     shutil.copy(fromfile,tofile)
 
   return
