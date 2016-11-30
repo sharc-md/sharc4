@@ -339,7 +339,7 @@ This script can also print the transition matrix for each timestep:
     INFOS['statemap']=statemap
 
   # Simulation time
-  if INFOS['mode'] in [3,4]:
+  if INFOS['mode'] in [1,2,3,4]:
     print centerstring('Simulation time',60,'-')
     print '\nUp to which simulation time should the analysis be performed?'
     while True:
@@ -517,7 +517,7 @@ def do_calc(INFOS):
     sys.exit(0)
 
   # get timestep
-  if INFOS['mode'] in [3,4]:
+  if INFOS['mode'] in [1,2,3,4]:
     for ifile in files:
       lisf=open(ifile)
       file_valid=True
@@ -605,10 +605,13 @@ def do_calc(INFOS):
         continue
       if INFOS['mode'] in [1,2]:
         transition[mapping[state-1]][mapping[oldstate-1]]+=1
+        istep+=1
+        if istep>nsteps:
+          break
       elif INFOS['mode'] in [3,4]:
         transition[istep][mapping[state-1]][mapping[oldstate-1]]+=1
         istep+=1
-        if istep==len(transition):
+        if istep==len(transition) or istep>nsteps:
           break
       oldstate=state
   #print string
