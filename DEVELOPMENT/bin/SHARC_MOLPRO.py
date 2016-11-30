@@ -2480,7 +2480,7 @@ def run_calc(WORKDIR,QMin):
         print 'CRASHED:\t%s\tCP-MCSCF did not converge.' % (WORKDIR)
         return 96
 
-    if 'master' in QMin:
+    elif 'master' in QMin:
       out=readfile(os.path.join(WORKDIR,'MOLPRO.out'))
       errors=findCICASerrors(out)
       if 'excessgrad' in errors:
