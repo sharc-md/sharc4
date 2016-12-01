@@ -2071,7 +2071,7 @@ def readQMin(QMinfilename):
 
   # now collect the casscf settings
   # jobs keyword
-  jobs=[1]*QMin['maxmult']
+  jobs=[1 for i in range(QMin['maxmult'])]
   for line in temp:
     if line[0]=='jobs':
       jobs=[ int(i) for i in line[1:]]
@@ -2670,7 +2670,7 @@ def writeMOLPROinput(tasks, QMin):
 
     # make Twoelectron integrals cheap when calculating AO overlaps
     elif task[0]=='coarseINT':
-      string+='GTHRESH,THROVL=0.,TWOINT=1.d9,PREFAC=1.d9\nGDIRECT\n\n'
+      string+='GTHRESH,THROVL=-1e6,TWOINT=1.d9,PREFAC=1.d9\nGDIRECT\n\n'
 
     # integrate ======================================================================================== #
     elif task[0]=='integrate':
