@@ -2071,7 +2071,7 @@ def readQMin(QMinfilename):
 
   # now collect the casscf settings
   # jobs keyword
-  jobs=[1]*QMin['maxmult']
+  jobs=[1 for i in range(QMin['maxmult'])]
   for line in temp:
     if line[0]=='jobs':
       jobs=[ int(i) for i in line[1:]]
@@ -2480,7 +2480,7 @@ def run_calc(WORKDIR,QMin):
         print 'CRASHED:\t%s\tCP-MCSCF did not converge.' % (WORKDIR)
         return 96
 
-    if 'master' in QMin:
+    elif 'master' in QMin:
       out=readfile(os.path.join(WORKDIR,'MOLPRO.out'))
       errors=findCICASerrors(out)
       if 'excessgrad' in errors:
@@ -2632,7 +2632,7 @@ def setupWORKDIR(WORKDIR,tasks,QMin):
   elif 'grad' in QMin or 'nacdr' in QMin:
     job=QMin['JOB']
     fromfile=os.path.join(QMin['scratchdir'],'master_%i' % job, 'wf')
-    tofileo=os.path.join(WORKDIR,'wf')
+    tofile=os.path.join(WORKDIR,'wf')
     shutil.copy(fromfile,tofile)
 
   return
@@ -2670,7 +2670,7 @@ def writeMOLPROinput(tasks, QMin):
 
     # make Twoelectron integrals cheap when calculating AO overlaps
     elif task[0]=='coarseINT':
-      string+='GTHRESH,THROVL=0.,TWOINT=1.d9,PREFAC=1.d9\nGDIRECT\n\n'
+      string+='GTHRESH,THROVL=-1e6,TWOINT=1.d9,PREFAC=1.d9\nGDIRECT\n\n'
 
     # integrate ======================================================================================== #
     elif task[0]=='integrate':
@@ -3843,12 +3843,18 @@ def getQMout(QMin):
       for iatom in range(natom):
         for ixyz in range(3):
           g[iatom][ixyz]*=phase1*phase2
+      gneg=deepcopy(g)
+      for iatom in range(natom):
+        for ixyz in range(3):
+          gneg[iatom][ixyz]*=-1
       for istate in QMin['statemap']:
         for jstate in QMin['statemap']:
           state1=QMin['statemap'][istate]
           state2=QMin['statemap'][jstate]
-          if (state1[0],state1[1],state2[0],state2[1])==nac or (state2[0],state2[1],state1[0],state1[1])==nac:
+          if (state1[0],state1[1],state2[0],state2[1])==nac:
             QMout['nacdr'][istate-1][jstate-1]=g
+          elif (state2[0],state2[1],state1[0],state1[1])==nac:
+            QMout['nacdr'][istate-1][jstate-1]=gneg
 
   return QMout
 
