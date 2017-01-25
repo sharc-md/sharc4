@@ -274,7 +274,8 @@ class INITCOND:
   def init_from_file(self,f,eref,index):
     while True: 
       line=f.readline()
-      if 'Index     %i' % (index) in line:
+      #if 'Index     %i' % (index) in line:
+      if re.search('Index\s+%i' % (index),line):
         break
       if line=='\n':
         continue
@@ -2234,7 +2235,7 @@ def prepare_ADF(INFOS,iconddir):
 #  project='ADF'
 #  string='adfhome %s\nscmlicense %s\nscratchdir %s/%s/\nsavedir %s/%s/restart\nncpu %i\nproject %s\n' % (INFOS['adf'],INFOS['scmlicense'],INFOS['scratchdir'],iconddir,INFOS['copydir'],iconddir,INFOS['adf.ncpu'],project)
   string='adfhome %s\nscmlicense %s\nscratchdir %s/%s/\nsavedir %s/%s/restart\nncpu %i\npaddingstates %i' % (INFOS['adf'],INFOS['scmlicense'],INFOS['scratchdir'],iconddir,INFOS['copydir'],iconddir,INFOS['adf.ncpu'],INFOS['pad'])
-  if Couplings[INFOS['coupling']]['name']=='overlap' or 'ion' in INFOS and INFOS['ion']:
+  if Couplings[INFOS['coupling']]['name']=='overlap':
     #if INFOS['columbus.excitlf']:
       #string+='excitlists %s\n' % (INFOS['columbus.excitlf'])
     string+='wfoverlap %s\n' % (INFOS['adf.wfpath'])
@@ -2435,7 +2436,7 @@ dipolelevel %i
        INFOS['ricc2.mem'],
        INFOS['ricc2.ncpu'],
        INFOS['ricc2.dipolelevel'])
-  if Couplings[INFOS['coupling']]['name']=='overlap' or 'ion' in INFOS and INFOS['ion']:
+  if Couplings[INFOS['coupling']]['name']=='overlap':
     string+='wfoverlap %s\n' % (INFOS['ricc2.wfpath'])
     string+='threshold %f\n' %(INFOS['threshold'])
   else:
@@ -2622,6 +2623,9 @@ def writeSHARCinput(INFOS,initobject,iconddir,istate):
     if INFOS['dipolegrad']:
       s+='dipole_gradient'
 
+  if 'ion' in INFOS and INFOS['ion']:
+    s+='ionization\n'
+    s+='ionization_step 1\n'
 
   inputf.write(s)
   inputf.close()

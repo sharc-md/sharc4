@@ -338,7 +338,8 @@ class INITCOND:
   def init_from_file(self,f,eref,index):
     while True: 
       line=f.readline()
-      if 'Index     %i' % (index) in line:
+      #if 'Index     %i' % (index) in line:
+      if re.search('Index\s+%i' % (index),line):
         break
     f.readline()        # skip one line, where "Atoms" stands
     atomlist=[]

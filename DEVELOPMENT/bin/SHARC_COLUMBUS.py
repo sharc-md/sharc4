@@ -2281,7 +2281,7 @@ def readQMin(QMinfilename):
       try:
         QMin['wfthres']=float(line[1])
       except ValueError:
-        print 'Cioverlaps threshold variable does not evaluate to numerical value!'
+        print 'WFoverlaps threshold variable does not evaluate to numerical value!'
         sys.exit(58)
     else:
       print 'WARNING: Please set wfthres to some appropriate value (floating point number)! Using 3e-2 default value!'
