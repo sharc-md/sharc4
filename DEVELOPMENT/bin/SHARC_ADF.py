@@ -133,6 +133,10 @@ changelogstring='''
 25.01.2017
 -Fixed routine for creating the cicoef files so that it doesnt only use the number oif excitations+1 but the length of the eigenvector for determining maximum number of configurations
 -Switched indices for the writing of the overlaps to the QM.out file so the matrix is not transposed 
+
+30.01.2017
+-Added a check for TDA in the readQMin
+-Fixed routine for non-TDA Hybrid dynamics when sorting and getting the cicoef
 '''
 
 # ======================================================================= #
@@ -1498,7 +1502,7 @@ def readQMin(QMinfilename):
 
     # open template
     template=readfile('ADF.template')
-
+    QMin['tda']=False
     QMin['template']={}
     integers=[]
     strings =['save','print','relativistic','symmetry']
@@ -1552,6 +1556,8 @@ def readQMin(QMinfilename):
             QMin['template'][line[0]]=line[1]
         elif line[0] in keystrings:
             QMin['template'][line[0]]=line[0]
+            if 'tda' in line[0]:
+               QMin['tda']=True
         elif line[0] in blocks:
            if 'grad' in QMin and line[0]=='cosmo':
                continue
@@ -2979,6 +2985,7 @@ def get_cicoef(QMin):
    Nrexci = int(file1.read('All excitations','nr excitations'))
 
    line_num=-1
+
    NAO = file1.read('Basis','naos')
    NMO = file1.read('A','nmo_A')
    ncore=QMin['frozcore']
@@ -3039,7 +3046,7 @@ def get_cicoef(QMin):
          eigen_other = []
          eigen_left = []
          eigen_right = []
-         if Lhybrid == 'T':
+         if Lhybrid == True and QMin['tda']==False:
             if Mult == 1:
                eigen_right = file1.read('Excitations SS A','eigenvector '+str(exci))
                eigen_left = file1.read('Excitations SS A','left eigenvector '+str(exci))
@@ -3047,7 +3054,9 @@ def get_cicoef(QMin):
                eigen_right = file1.read('Excitations ST A','eigenvector '+str(exci))
                eigen_left = file1.read('Excitations ST A','left eigenvector '+str(exci))
             for a in range(0,int(Dimension)):
-               eig_X = (float(eigen_right[a])*float(eigen_left[a]))
+#               eig_X = (float(eigen_right[a])*float(eigen_left[a]))
+               eig_X_1 = (float(eigen_right[a])+float(eigen_left[a]))/(2.0)
+               eig_X=eig_X_1**2
                eigen_X.append(eig_X)
                eigen_other.append(eig_X)
                if QMin['unr']=='yes':
