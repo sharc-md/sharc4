@@ -129,6 +129,14 @@ changelogstring='''
 
 14.11.2016
 -Fixed routine for creating the cicoef files so that in an unrestircted case both alpha and beta orbitals are frozen
+
+25.01.2017
+-Fixed routine for creating the cicoef files so that it doesnt only use the number oif excitations+1 but the length of the eigenvector for determining maximum number of configurations
+-Switched indices for the writing of the overlaps to the QM.out file so the matrix is not transposed 
+
+30.01.2017
+-Added a check for TDA in the readQMin
+-Fixed routine for non-TDA Hybrid dynamics when sorting and getting the cicoef
 '''
 
 # ======================================================================= #
@@ -896,7 +904,7 @@ def writeQMoutnacsmat(QMin,QMout):
     string+='%i %i\n' % (nmstates,nmstates)
     for j in range(nmstates):
         for i in range(nmstates):
-            string+='%s %s ' % (eformat(QMout['overlap'][i][j].real,9,3),eformat(QMout['overlap'][i][j].imag,9,3))
+            string+='%s %s ' % (eformat(QMout['overlap'][j][i].real,9,3),eformat(QMout['overlap'][j][i].imag,9,3))
         string+='\n'
     string+='\n'
     return string
@@ -1494,7 +1502,7 @@ def readQMin(QMinfilename):
 
     # open template
     template=readfile('ADF.template')
-
+    QMin['tda']=False
     QMin['template']={}
     integers=[]
     strings =['save','print','relativistic','symmetry']
@@ -1548,6 +1556,8 @@ def readQMin(QMinfilename):
             QMin['template'][line[0]]=line[1]
         elif line[0] in keystrings:
             QMin['template'][line[0]]=line[0]
+            if 'tda' in line[0]:
+               QMin['tda']=True
         elif line[0] in blocks:
            if 'grad' in QMin and line[0]=='cosmo':
                continue
@@ -2975,6 +2985,7 @@ def get_cicoef(QMin):
    Nrexci = int(file1.read('All excitations','nr excitations'))
 
    line_num=-1
+
    NAO = file1.read('Basis','naos')
    NMO = file1.read('A','nmo_A')
    ncore=QMin['frozcore']
@@ -2983,6 +2994,11 @@ def get_cicoef(QMin):
    Nrelec = file1.read('General','electrons')
    Dimension = 0
    Nocc = 0
+   Nvirt=0
+   Nocc_A = 0
+   Nocc_B = 0
+   Nvirt_A=0
+   Nvirt_B=0
    if QMin['unr']=='no':
       Nocc = int(Nrelec)/2
       Nvirt = int(NMO)-Nocc
@@ -3015,13 +3031,13 @@ def get_cicoef(QMin):
       #   Mults = [1,3]
       #else:
       #   Mults = [1]
-
    for Mult in Mults:
       CIcoef = []
       CIthresh = []
       CI_thresh_sorted = []
       CI_thresh_sorted_A = []
       CI_thresh_sorted_B = []
+      exci_info=[]
       for exci in range(1,int(excita)):
 #         if exci == 1 and QMin['states'][0]==1:
 #            continue
@@ -3030,7 +3046,7 @@ def get_cicoef(QMin):
          eigen_other = []
          eigen_left = []
          eigen_right = []
-         if Lhybrid == 'T':
+         if Lhybrid == True and QMin['tda']==False:
             if Mult == 1:
                eigen_right = file1.read('Excitations SS A','eigenvector '+str(exci))
                eigen_left = file1.read('Excitations SS A','left eigenvector '+str(exci))
@@ -3038,7 +3054,9 @@ def get_cicoef(QMin):
                eigen_right = file1.read('Excitations ST A','eigenvector '+str(exci))
                eigen_left = file1.read('Excitations ST A','left eigenvector '+str(exci))
             for a in range(0,int(Dimension)):
-               eig_X = (float(eigen_right[a])*float(eigen_left[a]))
+#               eig_X = (float(eigen_right[a])*float(eigen_left[a]))
+               eig_X_1 = (float(eigen_right[a])+float(eigen_left[a]))/(2.0)
+               eig_X=eig_X_1**2
                eigen_X.append(eig_X)
                eigen_other.append(eig_X)
                if QMin['unr']=='yes':
@@ -3063,6 +3081,7 @@ def get_cicoef(QMin):
                eigen.append(eig)
          CIcoef.append(eigen)
          CIthresh.append(eigen_other)
+         exci_info_a=[]
          if QMin['unr']=='yes':
             Dimension_A=Dimension/2
             eigen_X_A=eigen_X[0:int(Dimension_A)]
@@ -3071,15 +3090,42 @@ def get_cicoef(QMin):
             eigen_X_B.sort(reverse=True)
             CI_thresh_sorted_A.append(eigen_X_A)
             CI_thresh_sorted_B.append(eigen_X_B)
+            for nspin in range(2):
+                Nocc_curr=0
+                if nspin==0:
+                   Nocc_curr=Nocc_A
+                   Nvirt_curr=Nvirt_A
+                else:
+                   Nocc_curr=Nocc_B
+                   Nvirt_curr=Nvirt_B
+                for a in range(Nocc_curr):
+                    for b in range(Nvirt_curr):
+                        c=b+(a*Nvirt_curr)
+                        d=b+Nocc_curr
+                        exci_tuple=(exci, nspin, a, d, CIcoef[exci-1][c], CIthresh[exci-1][c])
+                        exci_info_a.append(exci_tuple)
+            exci_info_a.sort(key=lambda x: x[5])    
+            exci_info.append(exci_info_a)
          else:
+            for a in range(Nocc):
+                for b in range(Nvirt):
+                    c=b+(a*Nvirt)
+                    d=b+Nocc
+                    exci_tuple=(exci, a, d, CIcoef[exci-1][c], CIthresh[exci-1][c])
+                    exci_info_a.append(exci_tuple)
+            exci_info_a.sort(key=lambda x: x[4],reverse=True)
+            exci_info.append(exci_info_a)
             eigen_X.sort(reverse=True)
-            CI_thresh_sorted.append(eigen_X)      
-
+            CI_thresh_sorted.append(eigen_X)
+      
       new_CI_thresh = []
       new_CI_thresh_A = []
       new_CI_thresh_B = []
-      length= len(CI_thresh_sorted)
-      length_unr=len(CI_thresh_sorted_A)
+      nex_exci_info=[]
+      length= len(CI_thresh_sorted[0])
+      if QMin['unr']=='yes':
+         length_unr=len(CI_thresh_sorted_A[0])
+      print length
       if QMin['unr']=='yes':
          threshold=float(threshold)/math.sqrt(2)
          for nspin in range(2):
