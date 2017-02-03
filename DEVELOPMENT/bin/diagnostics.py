@@ -430,12 +430,12 @@ def get_general():
     'normal_termination':'Checks for exit status of trajectory (RUNNING, CRASHED, FINISHED).',
     'missing_output':'Checks if "output.lis", "output.log", "output.xyz", "output.dat" are existing.',
     'missing_restart':'Checks if "restart.ctrl", "restart.traj", "restart/" are existing.',
-    'etot_window':'Maximum permittible drift in total energy (in eV).',
-    'etot_step':'Maximum permittible total energy difference between two successive timesteps (in eV).',
-    'epot_step':'Maximum permittible active state potential energy difference between two successive timesteps (in eV). Not checked for timesteps where a hop occurred.',
-    'ekin_step':'Maximum permittible kinetic energy difference between two successive timesteps (in eV).',
-    'pop_window':'Maximum permittible drift in total population.',
-    'hop_energy':'Maximum permittible change in active state energy difference during a surface hop (in eV).',
+    'etot_window':'Maximum permissible drift in total energy (in eV).',
+    'etot_step':'Maximum permissible total energy difference between two successive timesteps (in eV).',
+    'epot_step':'Maximum permissible active state potential energy difference between two successive timesteps (in eV). Not checked for timesteps where a hop occurred.',
+    'ekin_step':'Maximum permissible kinetic energy difference between two successive timesteps (in eV). Not checked for timesteps where a hop occurred.',
+    'pop_window':'Maximum permissible drift in total population.',
+    'hop_energy':'Maximum permissible change in active state energy difference during a surface hop (in eV).',
     'intruders':'Checks if intruder state messages in "output.log" refer to active state.'
   }
   if LD_dynamics:
