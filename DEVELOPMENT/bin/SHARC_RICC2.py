@@ -511,8 +511,8 @@ def printQMin(QMin):
   print string
 
 
-  if 'dm' in QMin and QMin['template']['method']=='adc(2)':
-    print 'WARNING: excited-to-excited transition dipole moments in ADC(2) are zero!'
+  #if 'dm' in QMin and QMin['template']['method']=='adc(2)':
+    #print 'WARNING: excited-to-excited transition dipole moments in ADC(2) are zero!'
 
 
   if 'dm' in QMin and QMin['template']['method']=='cc2' and (QMin['states'][0]>1 and len(QMin['states'])>2 and QMin['states'][2]>0):

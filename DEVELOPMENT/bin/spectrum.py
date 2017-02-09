@@ -12,6 +12,7 @@ import sys
 import datetime
 from optparse import OptionParser
 import colorsys
+import re
 
 
 # =========================================================0
@@ -405,7 +406,10 @@ def make_spectra(statelist,INFOS):
         sys.stdout.write('\rProgress: ['+'='*done+' '*(width-done)+'] %3i%%' % (done*100/width))
 
       if not INFOS['selected'] or cond.Excited:
-        speclist[istate].add(cond.Fosc,cond.Eexc)
+        if INFOS['dos_switch']:
+          speclist[istate].add(1.,cond.Eexc)
+        else:
+          speclist[istate].add(cond.Fosc,cond.Eexc)
   sys.stdout.write('\n')
 
   return speclist
@@ -628,7 +632,12 @@ def make_gnuplot(outputfile,INFOS):
 
   R=rgbcolor(init)
 
-  gnustring='''set title "Absorption spectrum (%s%s)\\n%i Initial conditions, %s representation"
+  if INFOS['dos_switch']:
+    title='Density-of-states spectrum'
+  else:
+    title='Absorption spectrum'
+
+  gnustring='''set title "%s (%s%s)\\n%i Initial conditions, %s representation"
 
 set xrange [%f:%f]
 set yrange [%f:%f]
@@ -639,7 +648,8 @@ set style fill transparent solid 0.25 border
 set term pngcairo size 640,480
 set out '%s.png'
 
-''' % (['Gaussian','Lorentzian','Lines'][INFOS['lineshape']-1],
+''' % (title,
+       ['Gaussian','Lorentzian','Lines'][INFOS['lineshape']-1],
        [', FWHM=%f eV' % (INFOS['fwhm']*HARTREE_TO_EV),''][INFOS['lineshape']==3],
        INFOS['ninit'],
        ['MCH','diagonal'][INFOS['diag']],
@@ -698,17 +708,10 @@ def main():
   '''Main routine'''
 
   usage='''
-spectrum.py [options] initconds.excited > spectrum.out
+spectrum.py [options] initconds.excited
 
 This script reads a SHARC initconds file containing excited-state information of the
-initial conditions and generates a spectrum. The spectrum is written to STDOUT.
-
-Options:
-- npts
-- emin, emax (eV)
-- fwhm
-- imin, imax (initconds indices)
-- whether only selected states should be included
+initial conditions and generates a spectrum. The spectrum is written to file.
 
 version %s
 date %s
@@ -717,7 +720,7 @@ date %s
   description=''
 
   parser = OptionParser(usage=usage, description=description)
-  parser.add_option('-n', dest='n', type=int, nargs=1, default=500, help="Grid points for the spectrum (integer, default=1000)")
+  parser.add_option('-n', dest='n', type=int, nargs=1, default=500, help="Grid points for the spectrum (integer, default=500)")
   parser.add_option('-e', dest='e', type=float, nargs=2, default=(0.,10.), help="Energy range (eV) for the spectrum grid (float, default=0 to 10 eV)")
   parser.add_option('-i', dest='i', type=int, nargs=2, default=(1,1000), help="Index range for the evaluation of the spectrum (default=1 to 1000)")
   parser.add_option('-f', dest='f', type=float, nargs=1, default=0.1, help="FWHM (eV) for the spectrum (float, default=0.1 eV)")
@@ -726,6 +729,7 @@ date %s
   parser.add_option('-L', dest='L', action='store_true',default=False,help="Use Lorentzian convolution")
   parser.add_option('-s', dest='s', action='store_true',default=False,help="Use only selected initial conditions")
   parser.add_option('-l', dest='l', action='store_true',default=False,help="Make a line spectrum instead of a convolution")
+  parser.add_option('-D', dest='D', action='store_true',default=False,help="Calculate density of states instead of absorption spectrum")
   parser.add_option('--gnuplot', dest='gp', type=str, nargs=1, default='', help="Write a gnuplot script to this file")
   (options, args) = parser.parse_args()
   if len(args)<=0:
@@ -754,9 +758,13 @@ date %s
     sys.stdout.write('Lineshape: Line Spectrum\n')
   INFOS['selected']=options.s
   INFOS['filename']=filename
+  INFOS['dos_switch']=options.D
 
   if options.o=='':
-    outputfile=['spectrum.out','spectrum_line.out'][options.l]
+    if INFOS['dos_switch']:
+      outputfile='density_of_states.out'
+    else:
+      outputfile=['spectrum.out','spectrum_line.out'][options.l]
   else:
     outputfile=options.o
 

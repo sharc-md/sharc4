@@ -2007,6 +2007,9 @@ def readQMin(QMinfilename):
       QMin['ncore']=sum([ FROZENS[atom[0]] for atom in QMin['geo'] ])
     if QMin['ndocc']<0:
       pass              # ndocc is dependent on job
+    if 'nooverlap' in QMin:
+      print '"nooverlap" keyword present, but overlap calculation required.'
+      sys.exit(11)
 
 
 

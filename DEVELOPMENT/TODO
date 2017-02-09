@@ -2,7 +2,8 @@
 
 Fortran code:
 - Laser field (Granucci paper, Thachuk paper): radiative/nonradiative hops
-- other decoherence schemes
+- other decoherence schemes (see, e.g., Prezhdo JPCL review)
+- adjust_phases from largest element, not from diagonal
 
 
 Makefile:
@@ -16,7 +17,11 @@ Tutorial:
 
 
 Manual:
-- elaborate more on analysis
+- diagnostics.py                DONE
+- elaborate more on analysis    DONE (partially)
+- essdyn and nma                DONE
+- ADF interface
+- MOLPRO interface              DONE
 
 
 Others:
@@ -49,11 +54,6 @@ Python:
 
 
 
-For SHARC workshop:
-- SHARC homepage banner als lineal (werbeartikel) machen lassen :D
-
-
-
 
 
 COLUMBUS interface:
@@ -64,6 +64,14 @@ COLUMBUS interface:
 MOLCAS interface:
 - state-averaging with zero weight extra states
 - cleanup keyword
+- readcienergy from RASSI output
+- RASSCF capabilities (i.e., RAS1, RAS2, RAS3)
+
+
+
+diagnostics.py:
+- explanation of settings (help dialog) DONE
+
 
 
 Setup:
@@ -87,3 +95,13 @@ Test suite:
 
 Introduce wfoverlaps to suite
 - make $SHARC/wfoverlap.x the default path in setup scripts/interfaces
+
+
+trajana_*.py:
+- merge the two scripts
+- redesign the time interval setup
+
+
+
+Interfaces:
+- choose alpha and beta spins cleverly for efficient Dyson calculations
