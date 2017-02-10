@@ -1505,7 +1505,7 @@ def writeQMoutnacsmat(QMin,QMout):
   string+='%i %i\n' % (nmstates,nmstates)
   for j in range(nmstates):
     for i in range(nmstates):
-      string+='%s %s ' % (eformat(QMout['overlap'][i][j].real,12,3),eformat(QMout['overlap'][i][j].imag,12,3))
+      string+='%s %s ' % (eformat(QMout['overlap'][j][i].real,12,3),eformat(QMout['overlap'][j][i].imag,12,3))
     string+='\n'
   string+='\n'
   return string
@@ -3682,9 +3682,11 @@ def get_Double_AOovl(QMin):
   # get off-diagonal block of AO matrix
   AOovl2=[]
   for irow in range(nao/2):
-    AOovl2.append( AOovl[nao/2+irow][:nao/2])
+    #AOovl2.append( AOovl[nao/2+irow][:nao/2])  # lower left block
+    AOovl2.append( AOovl[irow][nao/2:])         # upper right block
 
   # format string
+  # IMPORTANT: upper right block should not be transposed
   string='%i %i\n' % (nao/2,nao/2)
   for irow in range(nao/2):
     for icol in range(nao/2):
