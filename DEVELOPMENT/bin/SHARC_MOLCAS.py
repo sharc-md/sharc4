@@ -1902,6 +1902,7 @@ def readQMin(QMinfilename):
 
     QMin['Project']='MOLCAS'
     os.environ['Project']=QMin['Project']
+    os.environ['MOLCAS_OUTPUT']='PWD'
 
     line=getsh2caskey(sh2cas,'always_orb_init')
     if line[0]:
