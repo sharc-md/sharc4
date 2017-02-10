@@ -3347,49 +3347,95 @@ def get_cicoef(QMin):
 #   shutil.copyfile(QMin['scratchdir']+'/OVERLAP/cicoef_S', QMin['savedir']+'/cicoef_S')
 #   shutil.copyfile(QMin['scratchdir']+'/OVERLAP/cicoef_T', QMin['savedir']+'/cicoef_T')     
 
+##### ======================================================================= #
+###def get_smat(QMin):
+    
+   ###path = QMin['scratchdir']+'/OVERLAP'
+   ###os.chdir(path)
+   ###filename = 'ADF.t15'
+   ###import kf
+   ###file1 = kf.kffile(filename)
+   ###NAO = file1.read('Basis','naos')
+   ###Smat = file1.read('Matrices','Smat')
+   ###Diag_SMAT=[]
+   ###i=0
+   ###j=[]
+   ###k=0
+   ###Smat_final = []
+   ###for a in range(0,int(NAO)):
+       ###i=i+1
+       ###j.append(i)
+       ###Smat_column=[]
+       ###l=math.fsum(j)
+       ###for b in range(int(k),int(l)):
+          ###Smat_column.append(Smat[b])
+       ###k=l
+       ###Diag_SMAT.append(Smat_column)
+   ###geom_NAO = int(NAO)/2
+   ###for a in range(int(geom_NAO),int(NAO)):
+       ###Smat_column=[]
+       ###for b in range(0,int(geom_NAO)):
+           ###Smat_column.append(Diag_SMAT[a][b])
+       ###Smat_final.append(Smat_column)
+   
+   ###outfile = open(QMin['scratchdir']+'/OVERLAP/AO_overl.mixed','w')
+   ###outfile.write(' %i %i \n' %(int(geom_NAO),int(geom_NAO)))
+
+   ###for b in range(0,int(geom_NAO)):
+       ###for a in range(0,int(geom_NAO)):
+           ###outfile.write('  %6.12e  '%(float(Smat_final[a][b])))
+           ###if a == int(geom_NAO)-1:
+              ###outfile.write(' \n')#
+
+   ###outfile.close()
+   ###file1.close()
+####   shutil.copy(path+'/AO_overl.mixed',QMin['scratchdir']+'/OVERLAP/AO_overl.mixed')
+
+
 ## ======================================================================= #
 def get_smat(QMin):
-    
-   path = QMin['scratchdir']+'/OVERLAP'
-   os.chdir(path)
-   filename = 'ADF.t15'
-   import kf
-   file1 = kf.kffile(filename)
-   NAO = file1.read('Basis','naos')
-   Smat = file1.read('Matrices','Smat')
-   Diag_SMAT=[]
-   i=0
-   j=[]
-   k=0
-   Smat_final = []
-   for a in range(0,int(NAO)):
-       i=i+1
-       j.append(i)
-       Smat_column=[]
-       l=math.fsum(j)
-       for b in range(int(k),int(l)):
-          Smat_column.append(Smat[b])
-       k=l
-       Diag_SMAT.append(Smat_column)
-   geom_NAO = int(NAO)/2
-   for a in range(int(geom_NAO),int(NAO)):
-       Smat_column=[]
-       for b in range(0,int(geom_NAO)):
-           Smat_column.append(Diag_SMAT[a][b])
-       Smat_final.append(Smat_column)
-   
-   outfile = open(QMin['scratchdir']+'/OVERLAP/AO_overl.mixed','w')
-   outfile.write(' %i %i \n' %(int(geom_NAO),int(geom_NAO)))
 
-   for b in range(0,int(geom_NAO)):
-       for a in range(0,int(geom_NAO)):
-           outfile.write('  %6.12e  '%(float(Smat_final[a][b])))
-           if a == int(geom_NAO)-1:
-              outfile.write(' \n')#
+    path = QMin['scratchdir']+'/OVERLAP'
+    os.chdir(path)
+    filename = 'ADF.t15'
+    import kf
+    file1 = kf.kffile(filename)
+    NAO = file1.read('Basis','naos')
+    Smat = file1.read('Matrices','Smat')
+    file1.close()
 
-   outfile.close()
-   file1.close()
-#   shutil.copy(path+'/AO_overl.mixed',QMin['scratchdir']+'/OVERLAP/AO_overl.mixed')
+    # Smat is lower triangular matrix, len is NAO*(NAO+1)/2
+    ao_ovl=makermatrix(NAO,NAO)
+    x=0
+    y=0
+    for el in Smat:
+        ao_ovl[x][y]=el
+        ao_ovl[y][x]=el
+        x+=1
+        if x>y:
+            x=0
+            y+=1
+    # ao_ovl is now full matrix NAO*NAO
+    # we want the lower left quarter, but transposed
+
+    # write AO overlap matrix to savedir
+    string='%i %i\n' % (NAO/2,NAO/2)
+    for irow in range(NAO/2,NAO):
+        for icol in range(0,NAO/2):
+            string+='% .15e ' % (ao_ovl[icol][irow])          # note the exchanged indices => transposition
+            string+='\n'
+    filename=os.path.join(QMin['scratchdir'],'OVERLAP','AO_overl.mixed')
+    writefile(filename,string)
+
+
+
+
+
+
+
+
+
+
 
 ## ======================================================================= #
 def run_wfoverlap(QMin):
