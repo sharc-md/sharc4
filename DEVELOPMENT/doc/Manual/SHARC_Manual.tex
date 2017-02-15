@@ -1,4 +1,4 @@
-\documentclass[a4paper,11pt,DIV=15,openany,twoside=false]{scrbook}
+\documentclass[a4paper,10pt,DIV=15,openany,twoside=false]{scrbook}
 
 % everything inside \tthdump is ignored by tth, but processed by LaTeX
 \newcommand{\tthdump}[1]{#1}
@@ -42,7 +42,8 @@
   amssymb,
   multirow,
   url,
-  framed}
+  framed,
+  microtype}
 \usepackage[colorlinks=true,urlcolor=B,linkcolor=B,citecolor=R]{hyperref}
 \usepackage[square, sort&compress, numbers]{natbib}
 % hide some packages from tth
@@ -78,6 +79,14 @@
 \clubpenalty = 2000
 \widowpenalty = 2000 
 \displaywidowpenalty = 2000
+\renewcommand{\textfraction}{0.01}
+\renewcommand{\topfraction}{0.9}
+\renewcommand{\bottomfraction}{0.8}
+\renewcommand{\dbltopfraction}{0.9}
+\setcounter{topnumber}{2}
+\setcounter{bottomnumber}{2}
+
+
 
 
 % =============================== TITLE ==========================
@@ -216,7 +225,7 @@ In surface hopping, the motion of the excited-state wavepacket is approximated b
 
 The advantages of the surface hopping methodology and thus its popularity are well summarized in Ref.~\cite{Barbatti2011WCMS}:
 \begin{itemize}
-  \item The method is conceptually simple, since it is based on classical mechanics. The nuclear propagation is based on Newton's equations and can be performed in cartesian coordinates, avoiding any problems with curved coordinate systems as in QD.
+  \item The method is conceptually simple, since it is based on classical mechanics. The nuclear propagation is based on Newton's equations and can be performed in Cartesian coordinates, avoiding any problems with curved coordinate systems as in QD.
   \item For the propagation of the trajectories only local information of the PESs is needed. This avoids the calculation of the full, multi-dimensional PES in advance, which is the main bottleneck of QD methods. In surface hopping dynamics, all degrees of freedom can be included in the simulation. Additionally, all necessary quantities can be calculated on-demand, usually called ``on-the-fly'' in this context.
   \item The independent trajectories can be trivially parallelized.
 \end{itemize}
@@ -290,7 +299,7 @@ The following references should be cited when using the \sharc\ suite:
 
 Further details can be found in the following references:
 
-The theoretical background of \sharc\ is described in Refs.~\cite{Richter2011JCTC, Richter2012JCTC_erratum, Bajo2011JPCA, Marquetand2011FD, Mai2015IJQC}.
+The theoretical background of \sharc\ is described in Refs.~\cite{Richter2011JCTC, Richter2012JCTC_erratum, Bajo2012JPCA, Marquetand2011FD, Mai2015IJQC}.
 
 Applications of the \sharc\ code can be found in Refs.~\cite{Richter2012JPCL, Mai2013C, Mai2014TCC, Mai2014JCP_SO2, Gonzalez2014}.
 
@@ -336,7 +345,7 @@ Important sections are given in blue boxes like this one.
 
 On the other hand, examples of input files and command lines are marked like this:
 \begin{example}
-  \tt user@host$>$ example example.dat
+  \texttt{ user@host$>$ example example.dat}
 \end{example}
 }
 
@@ -486,6 +495,11 @@ scripts.
 \subsection{Libraries}
 
 \sharc\ requires the BLAS, LAPACK and FFTW3 libraries. During the installation, it might be necessary to alter the \ttt{LDFLAGS} string in the \ttt{Makefile}, depending on where the relevant libraries are located on your system. In this way, it is for example possible to use vendor-provided libraries like the \href{https://software.intel.com/en-us/intel-mkl}{Intel MKL}. For more details see the \ttt{INSTALL} file which is included in the \sharc\ distribution.
+
+In order to use the analysis scripts \ttt{trajana\_essdyn.py} and \ttt{trajana\_nma.py}, it is necessary to set the Python path accordingly:
+\begin{example}
+\verb|export PYTHONPATH=$PYTHONPATH:$SHARC/../lib/|
+\end{example}
 
 \subsection{Test Suite}
 
@@ -658,15 +672,19 @@ In order to signal \sharc\ to terminate a trajectory after the current timestep 
 Each trajectory can be analyzed independently by inspecting the output files (see chapter~\ref{chap:output}). Most importantly, calling \ttt{data\_extractor.x} (\ref{sec:data_extractor.x}) on the \ttt{output.dat} file of a trajectory creates a number of formatted files which can be plotted with the help of \ttt{make\_gnuscript.py} (\ref{sec:make_gnuscript.py}) and \textsc{Gnuplot}.
 The nuclear geometries in \ttt{output.xyz} file can be analyzed in terms of internal coordinates (bond lengths, angles, ring conformations, etc.) using \ttt{geo.py} (\ref{sec:geo.py}).
 
-For the complete ensemble, the script \ttt{populations.py} (section~\ref{sec:populations.py}) can calculate average excited-state populations. 
+For the complete ensemble, the first step should usually be to run \ttt{diagnostics.py} (section~\ref{sec:diagnostics.py}).
+This script will determine how long the different trajectories are, and, more importantly, will check the trajectories for file integrity, conservation of total energy, and continuity of potential/kinetic energy.
+Based on a set of costumizable criteria, the script determines for each trajectory a ``maximum usable time''.
+The script then can mark all trajectories with maximum usable time below a given threshold to be excluded from analysis (by creating a file \ttt{DONT\_ANALYZE} in the trajectory's directory).
+The other analysis scripts will then ignore trajectories marked by \ttt{diagnostics.py}.
+Trajectories can also be manually excluded from analysis, by creating a file called \ttt{CRASHED} or \ttt{RUNNING} in the respective directory.
+
+After the trajectories are prepared for statistical analysis, the script \ttt{populations.py} (section~\ref{sec:populations.py}) can calculate average excited-state populations. 
 The script \ttt{transition.py} (section~\ref{sec:transition.py}) can analyze the total number of hops between all pairs of states in an ensemble, allowing to identify relevant relaxation routes in the dynamics.
 Using the script \ttt{make\_fitscript.py} (\ref{sec:make_fitscript.py}), it is possible to make elaborate global fits of chemical kinetics models to the populations data, allowing to extract rate constants from the populations.
 The script~\ttt{crossing.py} (\ref{sec:crossing.py}) can find and extract notable geometries, e.g., those geometries where a surface hop between two particular states occured.
+Using \ttt{trajana\_essdyn.py} (\ref{sec:trajana_essdyn.py}) and \ttt{trajana\_nma.py} (\ref{sec:trajana_nma.py}) it is furthermore possible to perform essential dynamics analysis and normal mode analysis.
 
-It is advisable that any trajectories which are not suitable for final analysis (e.g., not finished due to technical reasons, unreasonable variation in total energy, etc.) are excluded from the analysis. 
-This can be conveniently accomplished by placing a file named \ttt{CRASHED} in the directory of the respective trajectory. 
-The ensemble analysis scripts (\ttt{populations.py} and \ttt{crossing.py}) will ignore any trajectories marked this way.
-Furthermore, trajectories which are still running and should be excluded from preliminary analysis can be marked with a file called \ttt{RUNNING}.
 
 \section{Auxilliary Programs and Scripts}
 
@@ -674,13 +692,13 @@ The following tables list the auxiliary programs in the \sharc\ suite. The right
 
 \subsection{Setup}
 
-\begin{tabular}{>{\tt}lp{9.5cm}r}
+\begin{tabular}{>{\ttfamily}lp{9.5cm}r}
   wigner.py             &Creates initial conditions from Wigner distribution.                   &\ref{sec:wigner.py}\\
   setup\_init.py        &Sets up initial vertical excitation calculations.                      &\ref{sec:setup_init.py}\\
   excite.py             &Generates excited state lists for initial conditions and selects initial states.                 &\ref{sec:excite.py}\\
   setup\_traj.py        &Sets up the dynamics simulations based on the initial conditions.      &\ref{sec:setup_traj.py}\\
   laser.x               &Prepares files containing laser fields.                                &\ref{sec:laser.x}\\
-  molpro\_input.py      &Prepares \textsc{Molpro} input files for common jobs.                  &\ref{sec:molpro_input.py}\\
+  molpro\_input.py      &Prepares \textsc{Molpro} input files and template files for the \textsc{Molpro} interface.                  &\ref{sec:molpro_input.py}\\
   molcas\_input.py      &Prepares \textsc{Molcas} input files and template files for the \textsc{Molcas} interface.             &\ref{sec:molcas_input.py}\\
   ADF\_input.py         &Prepares ADF input files and template files for the ADF interface.                     &\ref{sec:ADF_input.py}\\
   diagonalizer.x        &Helper program for \ttt{excite.py}. Only required if \textsc{NumPy} is not available.            &\ref{sec:diagonalizer.x}\\
@@ -688,25 +706,28 @@ The following tables list the auxiliary programs in the \sharc\ suite. The right
 
 \subsection{Analysis}
 
-\begin{tabular}{>{\tt}lp{9.5cm}r}
+\begin{tabular}{>{\ttfamily}lp{9.5cm}r}
   spectrum.py           &Generates absorption spectra from initial conditions files.            &\ref{sec:spectrum.py}\\
   retrieve.sh           &\ttt{scp} wrapper to retrieve dynamics output during the simulation.   &\ref{sec:retrieve}\\
   data\_extractor.x     &Extracts plottable results from the \sharc\ output data file.          &\ref{sec:data_extractor.x}\\
   make\_gnuscript.py    &Creates gnuplot scripts to plot trajectory data.                       &\ref{sec:make_gnuscript.py}\\
+  diagnostics.py        &Checks ensembles for integrity, progress, energy conservation.                      &\ref{sec:diagnostics.py}\\
   populations.py        &Calculates ensemble populations.                                       &\ref{sec:populations.py}\\
   transition.py         &Calculates total number of hops within an ensemble.                    &\ref{sec:transition.py}\\
   make\_fitscript.py    &Creates gnuplot scripts to fit kinetic models to population data.      &\ref{sec:make_fitscript.py}\\
   crossing.py           &Extracts specific geometries from ensembles.                           &\ref{sec:crossing.py}\\
   geo.py                &Calculates internal coordinates from xyz files.                        &\ref{sec:geo.py}\\
+  trajana\_essdyn.py    &Performs an essential dynamics analysis for an ensemble.                        &\ref{sec:trajana_essdyn.py}\\
+  trajana\_nma.py       &Performs a normal mode analysis for an ensemble.                        &\ref{sec:trajana_nma.py}\\
 \end{tabular}
 
 \subsection{Interfaces}
 
-\begin{tabular}{>{\tt}lp{9.5cm}r}
+\begin{tabular}{>{\ttfamily}lp{9.5cm}r}
   SHARC\_MOLPRO.py      &Allows for the calculation of SOCs, gradients, non-adiabatic couplings, time derivatives, overlaps, dipole moments and angular momentum expectation values at the CASSCF level of theory (using \textsc{Molpro}). Symmetry or RASSCF are not supported. Only segmented basis sets are possible.   &\ref{sec:int:molpro}\\
   SHARC\_MOLCAS.py      &Allows for the calculation of SOCs, gradients, overlaps, dipole moments, dipole moment derivatives and spin-orbit coupling derivatives at the CASSCF and CASPT2 level of theory (using \textsc{Molcas}). Symmetry is not supported.   &\ref{sec:int:molcas}\\
   SHARC\_COLUMBUS.py    &Allows for the calculation of SOCs, gradients, nonadiabatic couplings, overlaps, dipole moments and Dyson norms at the CASSCF, RASSCF, MRCISD and LRT-MRAQCC levels of theory (using \textsc{Columbus}). Symmetry is not supported. Works with the either \textsc{Dalton} or \textsc{Seward} integrals (through the \textsc{Columbus}-\textsc{Molcas} interface), but SOCs are only available with \textsc{Seward} integrals. Nonadiabatic couplings are only available with \textsc{Dalton} integrals.                &\ref{sec:int:columbus}\\
-  SHARC\_Analytical.py  &Allows to calculate SOCs, gradients, overlaps, dipole moments and dipole moment derivatives based on analytical expressions of diabatic matrix elements. Works only with cartesian coordinates.       &\ref{sec:int:analytical}\\
+  SHARC\_Analytical.py  &Allows to calculate SOCs, gradients, overlaps, dipole moments and dipole moment derivatives based on analytical expressions of diabatic matrix elements. Works only with Cartesian coordinates.       &\ref{sec:int:analytical}\\
   SHARC\_ADF.py         &Allows to calculate SOCs, gradients, overlaps and dipole moments at the TD-DFT level of theory with GGA and hybrid functionals (using \textsc{ADF}). Symmetry is not allowed.  &\ref{sec:int:adf}\\
   SHARC\_RICC2.py       &Allows to calculate SOCs, gradients, overlaps and dipole moments at the ADC(2) and CC2 levels of theory (using \textsc{Turbomole}). Symmetry is not allowed, but spin-component scaling can be used. For SOCs, only ADC(2) can be used and \textsc{Orca} has to be installed in addition to \textsc{Turbomole}.        &\ref{sec:int:ricc2}\\
 \end{tabular}
@@ -753,7 +774,7 @@ In Table~\ref{tab:input}, all input keywords for the \sharc\ input file are list
 \tthdump{
   \newcommand{\DEFAULT}[1]{\textbf{\textcolor{G}{#1}}}
 }
-\begin{longtable}{|>{\tt}l|l|p{7cm}|}
+\begin{longtable}{|>{\ttfamily}l|l|p{7cm}|}
   \caption{Input keywords. The first column gives the name of the keyword, the second lists possible arguments and the third line provides an explanation. Defaults are marked like \DEFAULT{this}. \$$n$ denotes the $n$-th argument to the keyword.}  \label{tab:input}\\
 
 % ========================================
@@ -924,6 +945,8 @@ In Table~\ref{tab:input}, all input keywords for the \sharc\ input file are list
   \hline
   \DEFAULT{spinorbit}   &                                    &Include spin-orbit couplings into the Hamiltonian.\\
   nospinorbit           &                                    &Neglect spin-orbit couplings.\\
+  \hline
+  no\_hop               &                                       &Disables surface hopping.\\
 \end{longtable}
 }
 
@@ -968,7 +991,7 @@ The initial geometry must be given in a second file in the  \href{http://www.uni
 Using the \ttt{veloc} keyword, the initial velocities can be either set to zero, determined randomly or read from a file. Random determination of the velocities is such that each atom has the same kinetic energy, which must be specified after \ttt{veloc random} in units of eV. Determination of the random velocities is detailed in~\ref{met:veloc}. Note that after the initial velocities are generated, the RNG is reseeded (i.e., the sequence of random numbers in the surface hopping procedure is independent of whether random initial velocities are used).
 
 Alternatively, the initial velocities can be read from a file. 
-The default velocity filename is \ttt{veloc}, but the filename can be specified with the \ttt{velocfile} keyword. Note that the filename has to be enclosed in single or double quotes. The file must contain the cartesian components of the velocity for each atom on a new line, in the same order as in the geomety file. The velocity is interpreted in terms of atomic units (bohr/atu). See section~\ref{sec:velocfile} for more details.
+The default velocity filename is \ttt{veloc}, but the filename can be specified with the \ttt{velocfile} keyword. Note that the filename has to be enclosed in single or double quotes. The file must contain the Cartesian components of the velocity for each atom on a new line, in the same order as in the geomety file. The velocity is interpreted in terms of atomic units (bohr/atu). See section~\ref{sec:velocfile} for more details.
 
 \paragraph{Laser Input}
 
@@ -1359,12 +1382,13 @@ There exist two types of keywords, \textit{control} keywords and \textit{request
   \centering
   \caption{Control keywords for \sharc\ interfaces. These keywords pass information from \sharc\ to the interface.}
   \label{tab:int_ctrl}
-  \begin{tabular}{>{\tt}lp{12cm}}
+  \begin{tabular}{>{\ttfamily}lp{12cm}}
   \toprule
   Keyword       &Description\\
   \midrule
-  init            &Specifies that this is the first calculation. The interface should create a save directory to save all information necessary for a restart. \\
-  samestep        &Specifies that this is an additional calculation at the same geometry/timestep. \\
+  init            &Specifies that this is the first calculation. The interface should create a save directory (if not existing already) to save all information necessary for a restart. \\
+  samestep        &Specifies that this is an additional calculation at the same geometry/timestep. Implies that, e.g., the converged orbitals from the savedir could be reused or that the wavefunction calculations could be skipped.\\
+  restart         &Specifies that this is a calculation after a restart of \ttt{sharc.x}, possibly after a crash. Implies that in the savedir some files might be incomplete, the interface should therefore act as if a new step is requested, except that the savedir files should be managed accordingly.\\
   cleanup         &Specifies that all output files of the interface (except \ttt{QM.out}) should be deleted (including the save directory).\\
   unit            &Specifies in which unit the atomic coordinates are to be interpreted. Possible arguments are ``angstrom'' and ``bohr''.\\
   states          &Gives the number of excited states per multiplicity (singlets, doublet, triplets, ...).\\
@@ -1382,7 +1406,7 @@ There exist two types of keywords, \textit{control} keywords and \textit{request
   \centering
   \caption{Request keywords for \sharc\ interfaces.}
   \label{tab:int_req}
-  \begin{tabular}{>{\tt}lp{12cm}}
+  \begin{tabular}{>{\ttfamily}lp{12cm}}
   \toprule
   Keyword       &Description\\
   \midrule
@@ -1394,7 +1418,9 @@ There exist two types of keywords, \textit{control} keywords and \textit{request
   NACDT           &Calculate the time-derivatives $\left\langle\Psi_1|\partial/\partial t|\Psi_2\right\rangle$ by finite differences between the last timestep and the current timestep\\
   NACDR           &Calculate non-adiabatic coupling vectors $\left\langle\Psi_1|\partial/\partial \mathbf{R}|\Psi_2\right\rangle$ between all pairs of states. If followed by ``select'', read the list of pairs on the following lines until ``end'' and calculate non-adiabatic coupling vectors between the specified pairs of states.\\
   OVERLAP         &Calculate overlaps $\left\langle\Psi_1(t_0)|\Psi_2(t)\right\rangle$ between all pairs of states (between the last and current timestep). If followed by ``select'', read the list of pairs on the following lines until ``end'' and calculate overlaps between the specified pairs of states.\\
-  DMDR            &Calculate the cartesian gradients of the dipole moments and transition dipole moments of all states.\\
+  DMDR            &Calculate the Cartesian gradients of the dipole moments and transition dipole moments of all states.\\
+  SOCDR           &Calculate the Cartesian gradients of the full spin-orbit Hamiltonian.\\
+  MOLDEN          &Generate \textsc{Molden} files of the relevant orbitals and copy them to the savedir.\\
   \bottomrule
   \end{tabular}
 \end{table}
@@ -1418,6 +1444,7 @@ Each quantity is given as a data block, which has a fixed format. The order of t
 8       &Wallclock time for QM calculation (optional)\\
 11      &Property matrix (e.g. ionization probabilities)\\
 12      &Dipole moment gradients\\
+13      &Spin-orbit matrix gradients\\
 \end{tabular}
 
 On the next line, two integers are expected giving the dimensions of the following matrix. Note, that all these matrices must be square matrices. On the following lines, the matrix or vector follows. Matrices are in general complex, and real and imaginary part of each element is given as a pair of floating point numbers.
@@ -1521,18 +1548,143 @@ The dipole moment gradients are a list of $3\times n_\text{atom}$ vectors, each 
 The interfaces may require additional input files beyond \ttt{QM.in}, which contain static information. This may include paths to the executable quantum chemistry program, paths to scratch directories or input templates for the quantum chemistry calculation (e.g.\ active space specifications, basis sets, etc.).
 The dynamics code does not depend on these additional files.
 
+The current conventions in the \sharc\ suite are that the quantum chemistry interfaces use two additional input files, one specifying the level of theory (template file, e.g., \ttt{MOLCAS.template}, \ttt{MOLPRO.template}, ...) and one specifying the computational resources like paths, memory, number of CPU cores, initial orbital source (resource file, e.g., \ttt{SH2CAS.inp}, \ttt{SH2PRO.inp}, ...).
+Furthermore, the current interfaces allow to read in initial orbitals (e.g., \ttt{MOLCAS.*.RasOrb.init}, \ttt{mocoef.init}, ...).
+
 \subsection{Save Directory Specification}
 
 The interfaces must be able to save all information necessary for restart to a given directory. The absolute path is written to \ttt{QM.in} by \sharc. Hence, for the trajectories the path to the save directory is always a subdirectory of the working directory of \sharc.
+
+% ========================================================================================================= %
+\clearpage
+\section{Overview over Interfaces}\label{sec:int:overview}
+
+The \sharc\ suite comes with a number of interfaces to different quantum chemistry programs.
+Their capabilities and usage are explained in the following sections.
+Table~\ref{tab:interfaces} gives an overview over the capabilities of the interfaces.
+Table~\ref{tab:interface_files} shows the file names for interface-related input files of the different interfaces.
+
+
+
+\begin{table}
+  \newcommand{\chk}{\ensuremath{\surd}}
+  \centering
+  \caption{Overview over capabilities of \sharc\ interfaces.}
+  \label{tab:interfaces}
+  \begin{tabular}{llccccccc}
+    \toprule
+    Method          &Program          &Mults.  &SOC     &DM      &Grad    &NACDR   &OVL     \\
+    \midrule
+    SA-CASSCF   &\textsc{Molpro}      &any     &\chk    &\chk    &\chk    &\chk    &\chk    \\
+                &\textsc{Molcas}      &any     &\chk    &\chk    &\chk    &        &\chk    \\
+                &\textsc{Columbus}    &any     &(\chk)  &\chk    &\chk    &(\chk)  &\chk    \\
+    MS-CASPT2   &\textsc{Molcas}      &any     &\chk    &\chk    &(\chk)  &        &\chk    \\
+    MR-CISD     &\textsc{Columbus}    &any     &(\chk)  &\chk    &\chk    &(\chk)  &\chk    \\
+    TD-DFT      &\textsc{ADF}         &S, T    &\chk    &(\chk)  &\chk    &        &\chk    \\
+    ADC(2)      &\textsc{Turbomole}   &S, T    &\chk    &\chk    &\chk    &        &\chk    \\
+    CC2         &\textsc{Turbomole}   &S, T    &        &\chk    &\chk    &        &\chk    \\
+    Analytical  &---                  &any     &\chk    &\chk    &\chk    &        &\chk    \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\begin{table}
+  \centering
+  \caption{Overview over files of \sharc\ interfaces.}
+  \label{tab:interface_files}
+  \begin{tabular}{llll}
+    \toprule
+    Interface           &Template file          &Resource file          &Initial MOs                    \\
+    \midrule
+    \textsc{Molpro}     &\ttt{MOLPRO.template}  &\ttt{SH2PRO.inp}       &\ttt{wf.init}                  \\
+                        &                       &                       &\ttt{wf.<job>.init}            \\
+    \textsc{Molcas}     &\ttt{MOLCAS.template}  &\ttt{SH2CAS.inp}       &\ttt{MOLCAS.<mult>.RasOrb.init}\\
+                        &                       &                       &\ttt{MOLCAS.<mult>.JobIph.init}\\
+    \textsc{Columbus}   &a directory            &\ttt{SH2COL.inp}       &\ttt{mocoef\_mc.init}          \\
+                        &                       &                       &\ttt{mocoef\_mc.init.<job>}    \\
+                        &                       &                       &\ttt{molcas.RasOrb.init}       \\
+                        &                       &                       &\ttt{molcas.RasOrb.init.<job>} \\
+    \textsc{ADF}        &\ttt{ADF.template}     &\ttt{SH2ADF.inp}       &\ttt{ADF.t21\_init}            \\
+    \textsc{Turbomole}  &\ttt{RICC2.template}   &\ttt{SH2CC2.inp}       &\ttt{mos.init}                 \\
+    Analytical          &\ttt{SH2Ana.inp}       &                       &N/A                            \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+
 
 % ========================================================================================================= %
 
 \clearpage
 \section{MOLPRO Interface}\label{sec:int:molpro}
 
-The \sharc-\textsc{Molpro} interface allows to run \sharc\ dynamics with \textsc{Molpro}'s CASSCF wavefunctions. RASSCF is not supported, since on RASSCF level state-averaging over different multiplicities is not possible. The interface uses \textsc{Molpro}'s CI program in order to calculate transition dipole moments and spin-orbit couplings. Gradients and non-adiabatic coupling vectors are calculated using \textsc{Molpro}'s CADPACK code (hence no generally contracted basis sets can be used). Time derivatives and overlaps are obtained with the DDR prodecure. Hence, all types of couplings usable by \sharc\ are available through this interface. The interface also allows to calculate the expectation value of the angular momentum operators. Parallel execution is possible if \textsc{Molpro} is properly installed in parallel mode.
+The \sharc-\textsc{Molpro} interface allows to run \sharc\ dynamics with \textsc{Molpro}'s CASSCF wavefunctions. RASSCF is not supported, since on RASSCF level state-averaging over different multiplicities is not possible. The interface uses \textsc{Molpro}'s CI program in order to calculate transition dipole moments and spin-orbit couplings. Gradients and non-adiabatic coupling vectors are calculated using \textsc{Molpro}'s CADPACK code (hence no generally contracted basis sets can be used). In the new version of the interface, overlaps are calculated using the \textsc{Wfoverlap} code. 
+Time-derivative couplings (NACDT) are not supported anymore in the \sharc-\textsc{Molpro} interface.
+Wavefunction phases between the CASSCF and MRCI wavefunctions are automatically adjusted.
+The interface can trivially parallelize the computation of gradients and coupling vectors over several processors.
+% Parallel execution is possible if \textsc{Molpro} is properly installed in parallel mode.
 
-The \sharc-\textsc{Molpro} interface needs two additional input files, which should be present in \ttt{QM/}. Those input files are \ttt{SH2PRO.inp}, which contains the paths to \textsc{Molpro} and the scratch directory, and \ttt{MOLPRO.template}, which is a minimal input from which the full input can be built. If \ttt{QM/wf.init} is present, it will be used as a \textsc{Molpro} wavefunction file containing the initial MOs.
+The \sharc-\textsc{Molpro} interface needs two additional input files, which should be present in \ttt{QM/}. Those input files are \ttt{SH2PRO.inp}, which contains, e.g., the paths to \textsc{Molpro} and the scratch directory, and \ttt{MOLPRO.template}, which is a keyword-argument input file specifying the CASSCF level of theory. 
+If \ttt{QM/wf.init} is present, it will be used as a \textsc{Molpro} wavefunction file containing the initial MOs.
+For calculations with several ``jobs'' (see below), initial orbitals can also given as \ttt{QM/wf.<job>.init}.
+
+\subsection{Template file: \ttt{MOLPRO.template}}
+
+During the rework of the \textsc{Molpro} interface, the template file structure was completely changed.
+In the new version, the template file is a keyword-argument list file, similar to the template file for the \textsc{Molcas} interface (see section~\ref{sec:int:molcas}).
+
+For simple cases, an example for the template file looks like this:
+\begin{example}
+  \begin{verbatim}
+basis def2-svp
+dkho 2                  # Douglas-Kroll second order
+occ 14
+closed 10
+nelec           24
+roots           4 0 3
+rootpad         1 0 1
+  \end{verbatim}
+\end{example}
+This specifies a SA(4S+3T)-CASSCF(4,4)/def2-SVP calculation for 24 electrons.
+Note the \ttt{rootpad} keyword, which adds one singlet and one triplet with zero weight to the state-averaging (so technically this is a SA(5S+4T) calculation, but the results are the same as SA(4S+3T)).
+These zero-weight states are sometimes useful to improve convergence of CASSCF.
+
+The new interface can also be used to perform several independent CASSCF calculations for different multiplicities (e.g., one CASSCF for the neutral states and another one for the ionic states).
+In this case, each independent CASSCF calculation is called a ``job''.
+In the template, most settings can be modified independently for each job.
+An example is given here:
+\begin{example}
+  \begin{verbatim}
+# In this way, users can employ custom basis sets
+basis_external /path/to/basisset        # no spaces allowed
+dkho 2
+
+# job 1 for singlet+triplet; job 2 for doublets
+jobs 1 2 1
+
+occ 14 13       # for job 1 and 2
+closed 11 10    # for job 1 and 2
+
+nelec           24 23 24   # for job 1
+nelec           24 23 24   # for job 2
+
+roots           4 0 3   # for job 1
+roots           0 2 0   # for job 2
+
+rootpad         1 0 1   # for job 1
+rootpad         0 2 0   # for job 2
+  \end{verbatim}
+\end{example}
+This template specifies two jobs, where job 1 should be used to compute singlet and triplet states, and job 2 used for doublet states.
+Job 1 is a SA(4S+3T)-CASSCF(2,3) computation, with singlets and triplets each having 24 electrons.
+Job 2 is a SA(2D)-CASSCF(3,3) computation, with 23 electrons.
+Note how for different jobs it is possible to have different active spaces and state-averagings.
+However, keep in mind that all states of a given multiplicity are always calculated in the same job (e.g., it is not possible to have one job for $S_0$ and another job for $S_1$ and $S_2$).
+
+It is also possible to do a mixed input, for example having two jobs, but only giving one number after \ttt{occ} or \ttt{closed}.
+The interface provides comprehensive error messages during the template check.
+
+Remember that \ttt{molcas\_input.py} cannot create multi-job templates.
 
 \subsection{Interface specific input file: \ttt{SH2PRO.inp}}
 
@@ -1540,66 +1692,43 @@ The interface requires some additional information beyond the content of \ttt{QM
 
 Table~\ref{tab:molpro_sh2} lists the existing keywords.
 
-\begin{table}
+\begin{table}[t]
   \centering
-  \caption{Keywords for the \ttt{SH2PRO.inp} file.}
+  \caption{Keywords for the \ttt{SH2PRO.inp} input file.}
   \label{tab:molpro_sh2}
-  \begin{tabular}{>{\tt}lp{12cm}}
+  \begin{tabular}{>{\ttfamily}lp{12cm}}
   \toprule
   Keyword       &Description\\
   \midrule
-  molpro          &Is followed by a string giving the path to the \textsc{Molpro} executable. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. If more than one argument is given after the keyword \ttt{molpro}, these arguments are passed to \textsc{Molpro} as command line arguments (e.g., to enable parallel execution). \\
+  molpro          &Is followed by a string giving the path to the \textsc{Molpro} executable. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. \\
   scratchdir      &Is a path to the temporary directory. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. If the directory does not exist, the interface will create it. In any case, the interface will delete this directory after the calculation.\\
   savedir         &Is a path to another temporary directory.  Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. The interface will store files needed for restart there.\\
+  memory        &(int) Memory for \textsc{Molpro} and \textsc{Wfoverlap} in MB.\\
+  ncpu          &(int) Number of CPU cores for parallel computation of gradients/NAC vectors.\\
   gradaccudefault &(float) Default accuracy for CP-MCSCF.\\
   gradaccumax     &(float) Worst acceptable accuracy for CP-MCSCF (see below).\\
-  checknacs       &(boolean) Use the MRCI overlaps to check whether the time derivatives and overlap matrices are correct.\\
-  correctnacs     &(boolean) Replace bad time derivatives with the scalar product of non-adiabatic coupling vectors and velocities.\\
-  checknacs\_mrcio &(float) Threshold for the MRCI overlaps to be considered bad.\\
-  checknacs\_ediff &(float, eV) If MRCI overlaps indicate inaccurate couplings, set to zero couplings between states which are farther apart than this value.\\
+  always\_orb\_init &Do not use the orbital guesses from previous calculations/timesteps, but always use the provided initial orbitals.\\
+  always\_guess   &Always use the orbital guess from \textsc{Molcas}'s \ttt{guessorb} module.\\
+  wfoverlap       &Is the path to the \textsc{Wfoverlap} executable. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used.\\
+  ncore           &Number of neglected core orbitals for overlap and Dyson calculations.\\
+  ndocc           &Number of doubly occupied orbitals for Dyson calculations.\\
+  nooverlap       &Do not save determinant files for overlap computations.\\
+  checknacs       &(deprecated)\\
+  correctnacs     &(deprecated)\\
+  checknacs\_mrcio &(deprecated)\\
+  checknacs\_ediff &(deprecated)\\
   \bottomrule
   \end{tabular}
 \end{table}
 
-Note that only the first two keywords are mandatory. The last four keywords are only used for calculations with time derivatives or overlaps. The checking and correction of these couplings has to be considered experimental. Normally, \ttt{checknacs} should be ``False'' (in this case the other three keywords are not necessary).
+Mandatory keywords are the paths to \textsc{Molpro}, the scratch directory, and to the \textsc{Wfoverlap} executable (the latter for overlap, Dyson, NACDR calculations).
 
-\paragraph{Execution of parallel MOLPRO}
+\paragraph{Parallel execution of MOLPRO}
 
-In the file \ttt{SH2PRO.inp}, the keyword \ttt{molpro} can take more than one argument. Arguments after the first one are passed to \textsc{Molpro} as command line arguments. Hence, it is possible to pass the flag for parallel execution to \textsc{Molpro}, e.g.
-\begin{example}
-  \begin{verbatim}
-molpro /path/to/MOLPRO/molpro -n 8
-  \end{verbatim}
-\end{example}
-Note that \textsc{Molpro} needs to be compiled properly in order to support parallel execution. If the \textsc{Molpro} installation used does not support parallel execution, the calculation will simply run in sequential mode.
+In the new version of the \sharc-\textsc{Molpro} interface, calculations of multiple independent active spaces (``jobs''), of several gradients, and of several nonadiabatic coupling vectors are automatically parallelized over the given number of CPU cores.
 
-\subsection{Template file: \ttt{MOLPRO.template}}
+Note that in the new version of the interface, \textsc{Molpro} calls iteself cannot be run with multiple CPUs.
 
-The template file is a \textsc{Molpro} input file specifying a state-averaged CASSCF calculation. There must not be any \ttt{file} specifications and no geometry input in this file. It should contain memory specifications, basis set, and optionally settings like Douglas-Kroll.
-
-Most importantly, it has to contain a CASSCF input block with the number of frozen, closed-shell and occupied orbitals. Additionally, all wavefunctions for the state-averaging have to be defined. For each multiplicity, the \ttt{wf}, \ttt{state} and \ttt{weight} keywords must be present. The following shows an example input for CASSCF(12,9) with 4 singlets and 3 triplets in the state-averaging.
-\begin{example}
-  \begin{verbatim}
-***,Example
-memory,100,M
-
-dkroll=1
-dkho=2
-basis=6-31G*
-
-{casscf
-frozen,0
-closed,23
-occ,32
-wf,58,1,0
-state,4
-weight,1,1,1,1
-wf,58,1,2
-state,3
-weight,1,1,1
-};
-  \end{verbatim}
-\end{example}
 
 \subsection{Error checking}
 
@@ -1618,21 +1747,35 @@ This error check is controlled by two keywords in the \ttt{SH2PRO.inp} file. The
 
 \paragraph{Initial orbital guess}
 
-For CASSCF calculations it is always a good idea to start from converged MOs from a nearby geometry. For the first timestep, if a file \ttt{QM/wf.init} is present, the \sharc-\textsc{Molpro} interface will take this file for the starting orbitals. In subsequent calculations, the MOs from the previous step will be used.
-
-% \paragraph{CP-MCSCF calculations vs.\ DDR calculations}
-% 
-% In the current version of the interface, the keywords \ttt{grad} and \ttt{nacdr} cannot be combined with the keywords \ttt{nacdt} and \ttt{overlap}. This is related to the way the interface allocates the records for gradients in the wavefunction file of \ttt{Molpro}. This issue might be resolved in future releases.
-% 
-% This has the consequence that for trajectories using time derivatives or overlaps the gradient selection \textit{must} be activated (though the selection criterion can be chosen arbitrarily high). Also, the \ttt{select\_directly} keyword is not compatible with time derivatives and overlaps. \ttt{setup\_traj.py} automatically takes care of this constraints.
+For CASSCF calculations it is always a good idea to start from converged MOs from a nearby geometry. For the first timestep, if a file \ttt{QM/wf.init} is present, the \sharc-\textsc{Molpro} interface will take this file for the starting orbitals. In case of multi-job calculations, separate initial orbitals can be provided with files called \ttt{QM/wf.<job>.init}, where \ttt{<job>} is an integer.
+In subsequent calculations, the MOs from the previous step will be used (unless the \ttt{always\_orb\_init} keyword is used).
 
 \paragraph{Basis sets}
 
 Note that the \textsc{Molpro} interface cannot calculation SA-CASSCF gradients for generally contracted basis sets (like Dunning's ``cc'' basis sets or Roos' ``ANO'' basis sets). Only segmented basis sets are allowed, like the Pople basis sets and the ``def'' family from \textsc{Turbomole}.
 
+In order to employ user-defined basis sets, in the template the keyword \ttt{basis\_external}, followed by a filename, can be used.
+The interface will then take the content of this file and insert it as basis set definition in the \textsc{Molpro} input files (i.e., it will add in the input \ttt{basis=\{ <content of the file> \}}.
+Note that the filename must not contain spaces.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 \subsection{Molpro input generator: \ttt{molpro\_input.py}}\label{sec:molpro_input.py}
 
-In order to quickly setup simple calculations using \textsc{Molpro}, the \sharc\ suite contains a small script called \ttt{molpro\_input.py}. It can be used to setup singlepoint calculations, optimizations and frequency calculations on the HF, DFT, MP2 and CASSCF level of theory. Of course, \textsc{Molpro} has far more capabilities, but these are not covered by \ttt{molpro\_input.py}. However, \ttt{molpro\_input.py} can also prepare template files which are compatible with the \sharc-\textsc{Molpro} interface.
+In order to quickly setup simple calculations using \textsc{Molpro}, the \sharc\ suite contains a small script called \ttt{molpro\_input.py}. It can be used to setup singlepoint calculations, optimizations and frequency calculations on the HF, DFT, MP2 and CASSCF level of theory. Of course, \textsc{Molpro} has far more capabilities, but these are not covered by \ttt{molpro\_input.py}. However, \ttt{molpro\_input.py} can also prepare template files which are compatible with the \sharc-\textsc{Molpro} interface (\ttt{MOLPRO.template} file).
 
 The script interactively asks the user to specify the calculation and afterwards writes an input file and optionally a run script.
 
@@ -1695,21 +1838,27 @@ If requested, the script also generates a simple Bash script (\ttt{run\_molpro.s
 
 Note that the scratch directory will be deleted after the calculation, only the wavefunction file \ttt{wf} will be copied back to the main directory.
 
+
+
+
+
+
+
 % ========================================================================================================= %
 
 \section{MOLCAS Interface}\label{sec:int:molcas}
 
 The \sharc-\textsc{Molcas} interface can be used to conduct excited-state dynamics based on \textsc{Molcas}' CASSCF wavefunctions, and with CASPT2 or MS-CASPT2 energies (and numerical gradients). 
 RASSCF wavefunctions are not supported currently. 
-The interface uses the modules GATEWAY, SEWARD (integrals), RASSCF (wavefunction, energies), RASSI (transition dipole moments, spin-orbit couplings, overlaps), MCLR and ALASKA (gradients). 
+The interface uses the modules GATEWAY, SEWARD (integrals), RASSCF (wavefunction, energies), RASSI (transition dipole moments, spin-orbit couplings, overlaps), MCLR, and ALASKA (gradients). 
 For CASPT2 and MS-CASPT2, numerical gradients can be calculated, where the interface itself controls the calculations at the displaced geometries. 
 The interface can also numerically differentiate dipole moments and spin-orbit couplings.
-Since \textsc{Molcas} is not able to calculate the full non-adiabatic coupling vectors, only wavefunction overlaps are currently implemented in the interface. 
+Since \textsc{Molcas} is not able to calculate the full non-adiabatic coupling vectors, only wavefunction overlaps are currently implemented in the interface (overlaps are calculated via RASSI). 
 Using the \ttt{Wfoverlap} code, it is possible to calculate Dyson norms between neutral and ionic states.
 
 % The \sharc-\textsc{Molcas} interface furthermore allows to perform QM/MM dynamics (CASSCF plus force fields), through the \textsc{Molcas}-\textsc{Tinker} interface. 
 
-The interface needs two additional input files, a template file for the quantum chemistry (file name is \ttt{MOLCAS.template}) and a general input file (\ttt{SH2CAS.inp}). If \ttt{QM/MOLCAS.<i>.JobIph.init} or \ttt{QM/MOLCAS.<i>.RasOrb.init} files are present, they are used as initial wavefunction files, where \ttt{<i>} is the multiplicity. %In the case of QM/MM calculations, two more input files are needed: \ttt{MOLCAS.qmmm.key}, which contains the path to the force field parameters and the partitioning into QM and MM regions, and \ttt{MOLCAS.qmmm.template}, which contains the connectivity and force field parameters per atom.
+The interface needs two additional input files, a template file for the quantum chemistry (file name is \ttt{MOLCAS.template}) and a general input file (\ttt{SH2CAS.inp}). If files with the name \ttt{QM/MOLCAS.<i>.JobIph.init} or \ttt{QM/MOLCAS.<i>.RasOrb.init} files are present, they are used as initial wavefunction files, where \ttt{<i>} is the multiplicity. %In the case of QM/MM calculations, two more input files are needed: \ttt{MOLCAS.qmmm.key}, which contains the path to the force field parameters and the partitioning into QM and MM regions, and \ttt{MOLCAS.qmmm.template}, which contains the connectivity and force field parameters per atom.
 
 \subsection{Interface specific input file: \ttt{SH2CAS.inp}}
 
@@ -1721,7 +1870,7 @@ Table~\ref{tab:molcas_sh2} lists the existing keywords.
   \centering
   \caption{Keywords for the \ttt{SH2CAS.inp} file.}
   \label{tab:molcas_sh2}
-  \begin{tabular}{>{\tt}lp{12cm}}
+  \begin{tabular}{>{\ttfamily}lp{12cm}}
   \toprule
   Keyword       &Description\\
   \midrule
@@ -1730,10 +1879,11 @@ molcas          &Is the path to the \textsc{Molcas} installation. Relative and a
 scratchdir      &Is a path to the temporary directory. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. If it does not exist, the interface will create it. In any case, the interface will delete this directory after the calculation.\\
 savedir         &Is a path to another temporary directory.  Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. The interface will store files needed for restart there.\\
 memory          &The memory usable by \textsc{Molcas}. The interface will set \ttt{\$MOLCASMEM} to this value. The default is 10~MB.\\
-ncpu            & The number of CPUs used by the interface. If zero or negative, one CPU will be used and all subtasks (Hamiltonian, dipole moments, analytical gradients, overlaps) will be done in one \textsc{Molcas} call. If positive, analytical gradients will be calculated by separate calls to \textsc{Molcas}, parallelized over the given number of CPUs. \\
+ncpu            &The number of CPUs used by the interface. If zero or negative, one CPU will be used and all subtasks (Hamiltonian, dipole moments, analytical gradients, overlaps) will be done in one \textsc{Molcas} call. If positive, analytical gradients will be calculated by separate calls to \textsc{Molcas}, parallelized over the given number of CPUs. \\
 delay           &Followed by a float giving the delay in seconds between starting parallel jobs to avoid excessive disk I/O.\\
 always\_orb\_init &Do not use the orbital guesses from previous calculations/timesteps, but always use the provided initial orbitals.\\
 always\_guess   &Always use the orbital guess from \textsc{Molcas}'s \ttt{guessorb} module.\\
+displ           &Cartesian displacement (in \AA) for numerical differentiation.\\
 wfoverlap       &Is the path to the \textsc{Wfoverlap} executable. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. Only needed for Dyson norm calculations.\\
   \bottomrule
   \end{tabular}
@@ -1753,7 +1903,7 @@ This file contains the specifications for the wavefunction. Note that this is no
   \centering
   \caption{Keywords for the \ttt{MOLACS.template} file.}
   \label{tab:molcas_temp}
-  \begin{tabular}{>{\tt}lp{12cm}}
+  \begin{tabular}{>{\ttfamily}lp{12cm}}
   \toprule
   Keyword       &Description\\
   \midrule
@@ -1780,6 +1930,7 @@ The template file can be setup with the tool \ttt{molcas\_input.py}.
 \subsection{Template file generator: \ttt{molcas\_input.py}}\label{sec:molcas_input.py}
 
 This is a small interactive script to generate template files for the \sharc-\textsc{Molcas} interface. It simply queries the user for some input parameters and then writes the file \ttt{MOLCAS.template}, which can be used to run \sharc\ simulations with the \sharc-\textsc{Molcas} interface.
+The input generator can also be used to write proper \textsc{Molcas} input files for single-point calculations and optimizations/frequency calculations on CASSCF and (MS-)CASPT2 level of theory.
 
 \paragraph{Geometry file}
 
@@ -1908,7 +2059,7 @@ Beyond the information from \ttt{QM.in} the interface needs additional input, wh
 
 
 
-\begin{longtable}{>{\tt}lp{12cm}}
+\begin{longtable}{>{\ttfamily}lp{12cm}}
   \caption{Keywords for the \ttt{SH2COL.inp} file.}
   \label{tab:columbus_sh2}\\
 
@@ -2045,7 +2196,7 @@ Br      xBr      0       0
 \end{example}
 Here, the first line gives the number of atoms and the second line the number of states. 
 
-On the remaining lines, each cartesian component of the atomic coordinates is associated to a variable name, which can be used in the analytical expressions. If a zero (\ttt{0}) is given instead of a variable name, then the corresponding cartesian coordinate is neglected. In the above example, the variable name \ttt{xI} is associated with the $x$ coordinate of the first atom given in \ttt{QM.in}. The $y$ and $z$ coordinates of the first atom are neglected.
+On the remaining lines, each Cartesian component of the atomic coordinates is associated to a variable name, which can be used in the analytical expressions. If a zero (\ttt{0}) is given instead of a variable name, then the corresponding Cartesian coordinate is neglected. In the above example, the variable name \ttt{xI} is associated with the $x$ coordinate of the first atom given in \ttt{QM.in}. The $y$ and $z$ coordinates of the first atom are neglected.
 
 All variable names must be \href{https://docs.python.org/2/reference/lexical_analysis.html#identifiers}{valid Python identifiers} and must not start with an underscore. Hence, all strings starting with a letter, followed by an arbitrary number of letters, digits and underscores, are valid. It is not allowed to use a variable name twice.
 
@@ -2089,7 +2240,7 @@ The first line identifies the type of matrix. Those are valid identifiers:
 \begin{tabular}{p{5cm}p{9cm}}
 \ttt{Hamiltonian}                               &Defines the Hamiltonian including the diabatic potential couplings.\\
 \ttt{Derivatives} followed by a variable name   &Derivative of the Hamiltonian with respect to the given variable.\\
-\ttt{Dipole} followed by 1, 2 or 3              &(Transition) dipole moment matrix for cartesian direction $x$, $y$ or $z$, respectively.\\
+\ttt{Dipole} followed by 1, 2 or 3              &(Transition) dipole moment matrix for Cartesian direction $x$, $y$ or $z$, respectively.\\
 \ttt{Dipolederivatives} followed by 1, 2 or 3 followed by a variable name       &Derivative of the respective dipole moment matrix.\\
 \ttt{SpinOrbit} followed by \ttt{R} or \ttt{I}  &Real or Imaginary (respectively) part of the spin-orbit coupling matrix $\boldsymbol{\Sigma}$.\\
 \end{tabular}
@@ -2131,7 +2282,7 @@ Note that exponentiation in Python is \ttt{**}. In order to provide most usual m
 
 \subsection{Template file: \ttt{ADF.template}}
 
-\subsection{Template file generator: \ttt{ADF\_input.py}}\label{sec:adf_input.py}
+\subsection{Template file generator: \ttt{ADF\_input.py}}\label{sec:ADF_input.py}
 
 
 
@@ -2159,7 +2310,7 @@ Table~\ref{tab:ricc2_sh2} lists the existing keywords.
   \centering
   \caption{Keywords for the \ttt{SH2CC2.inp} file.}
   \label{tab:ricc2_sh2}
-  \begin{tabular}{>{\tt}lp{12cm}}
+  \begin{tabular}{>{\ttfamily}lp{12cm}}
   \toprule
   Keyword       &Description\\
   \midrule
@@ -2205,16 +2356,17 @@ This file contains the specifications for the quantum chemistry calculation. Not
   \centering
   \caption{Keywords for the \ttt{RICC2.template} file.}
   \label{tab:ricc2_temp}
-  \begin{tabular}{>{\tt}lp{12cm}}
+  \begin{tabular}{>{\ttfamily}lp{12cm}}
   \toprule
   Keyword       &Description\\
   \midrule
 basis           &The basis set used. The interface will convert this string to the correct case for \textsc{Turbomole}.\\
-auxbasis        &The auxilliary basis set used in \ttt{ricc2}. If no auxbasis is given, the interface will let \ttt{define} decide on a proper auxbasis.\\
+auxbasis        &The auxilliary basis set used in \ttt{ricc2}. If no auxbasis is given, the interface will let \ttt{define} decide on a suitable auxbasis.\\
 charge          &The total molecular charge. The interface will calculate the number of electrons automatically during setup.\\
 method          &Followed by a string, which is either ``CC2'' or ``ADC(2)'' (case insensitive), defining the level of theory. Default is ``ADC(2)''.\\
 douglas-kroll   &Activates the use of the scalar-relativistic DK Hamiltonian of 2nd order. Default (if no keyword is given) is to use the non-relativistic Hamiltonian.\\
-spin-scaling    &Followed by a string, which is either ``none'', ``scs'' or ``sos''. Using these options, spin-component scaling can be activated.\\
+spin-scaling    &Followed by a string, which is either ``none'', ``scs'' or ``sos''. Using these options, spin-component scaling can be activated. Under certain restrictions (no SOC, no transition dipole moments, no SMP), ``lt-sos'' can be used to perform cheaper ``sos'' calculations.\\
+scf             &Followed by a string which is either ``dscf'' or ``ridft''. Using this option, the SCF program can be chosen. Note that currently, there is no advantage of using ``ridft''.\\
 frozen          &Followed by an integer giving the number of frozen core orbitals in the \ttt{ricc2} calculations. Default is to use frozen core orbitals and let \ttt{define} decide on the number. If frozen core is not wanted, use \ttt{frozen 0} in the template.\\
   \bottomrule
   \end{tabular}
@@ -2304,7 +2456,7 @@ The script accepts a number of command-line options, specified in table~\ref{tab
   \centering
   \caption{Command-line options for script \ttt{wigner.py}.}
   \label{tab:wigner_opts}
-  \begin{tabular}{>{\tt}lll}
+  \begin{tabular}{>{\ttfamily}lll}
     \toprule
     \rmfamily Option        &Description      &Default\\
     \midrule
@@ -2315,6 +2467,7 @@ The script accepts a number of command-line options, specified in table~\ref{tab
     -o  FILENAME        &Output filename.                           &\ttt{initconds}                \\
     -r  INTEGER         &Seed for random number generator.          &16661                          \\
     -s  FLOAT           &Scaling factor for the frequencies.        &1.0                            \\
+    -x                  &Creates an xyz file with the sampled geometries &\ttt{initconds.xyz}       \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -2549,7 +2702,7 @@ When generating new lists of excited states (either dummy states or from ab init
 
 When reading ab initio results, \ttt{excite.py} will diagonalize the Hamiltonian and transform the transition dipole matrices for each initial condition to obtain the diagonal representation. 
 
-When a dummy state list is generated, the representation will only be written to the output file \ttt{initconds.excited} (but has no actual numeric effect for \ttt{excite.py}). Note that the representation which is declared in the \ttt{initconds.excited} file influences how \sharc\ determines the initial coefficients (see the paragraph on initial coefficients in~~\ref{ssec:input:keywords}).
+When a dummy state list is generated, the representation will only be written to \ttt{initconds.excited} (but has no actual numeric effect for \ttt{excite.py}). Note that the representation which is declared in the \ttt{initconds.excited} file influences how \sharc\ determines the initial coefficients (see the paragraph on initial coefficients in~~\ref{ssec:input:keywords}).
 
 Note that the representation cannot be changed if existing excited-state information is kept. 
 
@@ -2754,7 +2907,7 @@ This gives the number of substeps for the interpolation of the Hamiltonian for t
 
 \paragraph{Prematurely terminate trajectories}
 
-Usually, trajectories which relaxed to the ground state do not recross to an excited state, but vibrate indefinitely in the ground state. If the user is not interested in these vibrations, such trajectories can be terminated prematurely in order to save computational ressources. A threshold of 10--20~fs is usually a good choice to safely detect ground state relaxation. Sets the keyword \ttt{killafter} in the \sharc\ input files.
+Usually, trajectories which relaxed to the ground state do not recross to an excited state, but vibrate indefinitely in the ground state. If the user is not interested in these vibrations, such trajectories can be terminated prematurely in order to save computational resources. A threshold of 10--20~fs is usually a good choice to safely detect ground state relaxation. Sets the keyword \ttt{killafter} in the \sharc\ input files.
 
 \paragraph{Representation for the dynamics}
 
@@ -2776,7 +2929,7 @@ This option determines how the total energy is conserved after a surface hop. Se
 
 For most applications, a decoherence correction should be enabled. Requesting decoherence correction here leads to the addition of the keyword \ttt{decoherence} to the \sharc\ input files. 
 
-Note that \ttt{setup\_traj.py} does not allow to modify the $\alpha$ value. In order to change the keyword \ttt{decoherence\_param}, the user has to manually edit the \sharc\ input files.
+Note that \ttt{setup\_traj.py} does not allow to modify the $\alpha$ parameter for the energy-based decoherence (keyword \ttt{decoherence\_param}). In order to change \ttt{decoherence\_param}, the user has to manually edit the \sharc\ input files.
 
 \paragraph{Scaling and Damping}
 
@@ -2912,7 +3065,7 @@ The script accepts a number of command-line options, which are given in table~\r
   \centering
   \caption{Command-line options for script \ttt{spectrum.py}.}
   \label{tab:spectrum_opts}
-  \begin{tabular}{>{\tt}lll}
+  \begin{tabular}{>{\ttfamily}lll}
     \toprule
     \rmfamily Option        &Description      &Default\\
     \midrule
@@ -2990,7 +3143,7 @@ The file \ttt{expec.out} contains the information of \ttt{energy.out}, \ttt{spin
   \centering
   \caption{Content of the files written by \ttt{data\_extractor.x}. $n$ is the total number of states, $j$ is a state index ($j\in\{1..n\}$).}
   \label{tab:outputdata}
-  \begin{tabular}{>{\tt}lcll}
+  \begin{tabular}{>{\ttfamily}lcll}
     \toprule
     File  &\# Columns     &\multicolumn{2}{l}{Columns}\\
     \midrule
@@ -3071,6 +3224,70 @@ The third plot shows the population $|c_i^{\text{diag}}|^2$ of the diagonal elec
 The fourth plot shows the surface hopping probabilities over time. The plot is setup in such a way that the visible area corresponding to a certain state is proportional to the probability to hop into the state. Hence, if for a given timestep the random number (black circles) lies within a colored area, a surface hop to the corresponding state is performed.
 
 
+\section{Ensemble Diagnostics Tool: \ttt{diagnostics.py}}\label{sec:diagnostics.py}
+
+The purpose of this script is to automatize the crucial step of checking the trajectories in an ensemble before beginning the ensemble analysis.
+
+The tool can check several different aspects of the trajectories.
+First, it checks whether all relevant output files of the trajectories are present.
+Second, it checks simulation progress and status (e.g., whether the trajectory is running, crashed, finished or stopped).
+Third, it can check several energy-related requirements: total energy conservation, smoothness of kinetic and potential energy, and hopping energy differences.
+It also checks for conservation of total population, and for trajectories ran with overlap coupling also intruder states are checked.
+
+Note that the diagnostics script also automatically runs the \ttt{data\_extractor.x} for all trajectories.
+
+\subsection{Usage}
+
+The script is interactive, simply start it with no command-line arguments or options:
+\begin{verbatim}
+user@host> python $SHARC/diagnostics.py
+\end{verbatim}
+
+\paragraph{Paths to trajectories}
+
+First the script asks the user to specify all directories for whose content the analysis should be performed. Enter one directory path at a time, and finish the directory input section by typing ``\ttt{end}''. Please do not specify each trajectory directory separately, but specify their parent directories, e.g.\ the directories \ttt{Singlet\_1} and \ttt{Singlet\_2}. \ttt{diagnostics.py} will automatically include all trajectories contained in these directories.
+
+\paragraph{Settings}
+
+The settings for the diagnostics run can be modified with a simple menu, which can be navigated with the commands \ttt{show}, \ttt{help}, \ttt{end}, and where the settings can be modified with \ttt{<key> <value>} (e.g., \ttt{hop\_energy 0.2} sets the corresponding option to 0.2~eV).
+A list of the settings is given in Table~\ref{tab:diagnostics}.
+
+\begin{table}
+  \centering
+  \caption{List of the settings for \ttt{diagnostics.py}.}
+  \label{tab:diagnostics}
+  \begin{tabular}{>{\ttfamily}lcp{10cm}}
+    \toprule
+    Key  &Value     &Explanation\\
+    \midrule
+    missing\_output     &Boolean        &Checks if "output.lis", "output.log", "output.xyz", "output.dat" are existing.\\
+    missing\_restart    &Boolean        &Checks if "restart.ctrl", "restart.traj", "restart/" are existing.\\
+    normal\_termination &Boolean        &Checks for exit status of trajectory (RUNNING, CRASHED, FINISHED).\\
+    etot\_window        &Float          &Maximum permittible drift in total energy (in eV).\\
+    etot\_step          &Float          &Maximum permittible total energy difference between two successive timesteps (in eV).\\
+    epot\_step          &Float          &Maximum permittible active state potential energy difference between two successive timesteps (in eV). Not checked for timesteps where a hop occurred.\\
+    ekin\_step          &Float          &Maximum permittible kinetic energy difference between two successive timesteps (in eV).\\
+    pop\_window         &Float          &Maximum permittible drift in total population.\\
+    hop\_energy         &Float          &Maximum permittible change in active state energy difference during a surface hop (in eV).\\
+    intruders           &Boolean        &Checks if intruder state messages in "output.log" refer to active state.\\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\paragraph{Trajectory Flagging}
+
+\ttt{diagnostics.py} determines for each trajectory a ``maximum usable time'' value ($T_\text{mu}$).
+This value is either the total simulation time or the time when the first violation (of total energy conservation, potential/kinetic energy smoothness, hopping energy restriction, or intruder state) in the trajectory appeared.
+The script prints the $T_\text{mu}$ values for all trajectories at the end.
+
+The user can then give a threshold for $T_\text{mu}$, so that \ttt{diagnostics.py} excludes all trajectories with values smaller than the threshold from analysis (the script will create a file \ttt{DONT\_ANALYZE} into each affected trajectory).
+In this way it is possible to perform ensemble analysis for a given simulation length while ignoring problematic trajectories.
+
+When choosing the threshold for $T_\text{mu}$, keep in mind that a compromise usually has to be made.
+A small value of the threshold will mean that many trajectories are admitted for analysis, giving good statistics, but only for very short simulations.
+On the other hand, choosing a large threshold will lead to a satisfactory simulation time, but only few trajectories will be included in the analysis (only the ones long enough).
+
+It is advisable that the chosen threshold value is used as input for the other analysis scripts which ask for a maximum analysis time (\ttt{populations.py}, \ttt{transition.py}, \ttt{crossing.py}, \ttt{trajana\_essdyn.py}, \ttt{trajana\_nma.py}).
 
 
 
@@ -3094,6 +3311,7 @@ Depending on the analysis mode (see below) it might be necessary to run \ttt{dat
 First the script asks the user to specify all directories for whose content the analysis should be performed. Enter one directory path at a time, and finish the directory input section by typing ``\ttt{end}''. Please do not specify each trajectory directory separately, but specify their parent directories, e.g.\ the directories \ttt{Singlet\_1} and \ttt{Singlet\_2}. \ttt{populations.py} will automatically include all trajectories contained in these directories.
 
 If you want to exclude certain trajectories from the analysis, it is sufficient to create an empty file called \ttt{CRASHED} or \ttt{RUNNING} in the corresponding trajectory directory. \ttt{populations.py} will ignore all directories containing one of these files. The file name is case insensitive, i.e., also files like \ttt{crashed} or even \ttt{cRasHED} will lead to the trajectory being ignored.
+Additionally, \ttt{populations.py} will ignore trajectories with a \ttt{DONT\_ANALYZE} file from \ttt{diagnostics.py}.
 
 \paragraph{Analysis mode}
 
@@ -3104,7 +3322,7 @@ The second way to obtain populations is to obtain the sum of the absolute square
   \centering
   \caption{Analysis modes for \ttt{populations.py}. The last column indicates whether \ttt{data\_extractor.x} has to be run prior to the ensemble analysis.}
   \label{tab:Populations_modes}
-  \begin{tabular}{lp{6cm}>{\tt}lc}
+  \begin{tabular}{lp{7cm}>{\ttfamily}lc}
     \toprule
     Mode        &Description    &\rmfamily From which     &Extract?\\
                                &&\rmfamily file?          &\\
@@ -3118,14 +3336,16 @@ The second way to obtain populations is to obtain the sum of the absolute square
     7   &Calculate the sum of the absolute squares of the diagonal coefficients for each state.       &output\_data/coeff\_diag.out&Yes\\
     8   &Calculate the sum of the absolute squares of the MCH coefficients for each state.       &output\_data/coeff\_MCH.out&Yes\\
     9   &Calculate the sum of the absolute squares of the MCH coefficients for each state. Multiplet components are summed up.       &output\_data/coeff\_MCH.out&Yes\\
-   10   &Calculate the sum of the absolute squares of the diabatic coefficients for each state (Only for trajectories with local diabatization).      &output\_data/coeff\_diab.out&Yes\\
+   10   &Transform option 1 to MCH basis (trajectory-wise transformation with $\VEC{U}$ matrix).   &output.dat&No\\
+   11   &Transform option 1 to MCH basis (trajectory-wise transformation with $\VEC{U}$ matrix). Multiplet components are summed up.   &output.dat&No\\
+   20   &Calculate the sum of the absolute squares of the diabatic coefficients for each state (Only for trajectories with local diabatization).      &output\_data/coeff\_diab.out&Yes\\
     \bottomrule
   \end{tabular}
 \end{table}
 
 \paragraph{Run data extractor}
 
-For analysis modes 6, 7, 8, 9 and 10 it is necessary to first run the data extractor (see section~\ref{sec:data_extractor.x}). This task can be accomplished by \ttt{populations.py}. However, for a large ensemble or for long trajectories this may take some time. Hence, it is not necessary to perform this step each time \ttt{populations.py} is run. 
+For analysis modes 6, 7, 8, 9 and 20 it is necessary to first run the data extractor (see section~\ref{sec:data_extractor.x}). This task can be accomplished by \ttt{populations.py}. However, for a large ensemble or for long trajectories this may take some time. Hence, it is not necessary to perform this step each time \ttt{populations.py} is run. 
 
 \ttt{populations.py} will detect whether the file \ttt{output.dat} or the content of \ttt{output\_data/} is more recent. Only if \ttt{output.dat} is newer the \ttt{data\_extractor.x} will be run for this trajectory.
 
@@ -3195,14 +3415,17 @@ user@host> python $SHARC/transition.py
 First the script asks the user to specify all directories for whose content the analysis should be performed. Enter one directory path at a time, and finish the directory input section by typing ``\ttt{end}''. Please do not specify each trajectory directory separately, but specify their parent directories, e.g.\ the directories \ttt{Singlet\_1} and \ttt{Singlet\_2}. \ttt{populations.py} will automatically include all trajectories contained in these directories.
 
 If you want to exclude certain trajectories from the analysis, it is sufficient to create an empty file called \ttt{CRASHED} or \ttt{RUNNING} in the corresponding trajectory directory. \ttt{populations.py} will ignore all directories containing one of these files. The file name is case insensitive, i.e., also files like \ttt{crashed} or even \ttt{cRasHED} will lead to the trajectory being ignored.
+Additionally, \ttt{transition.py} will ignore trajectories with a \ttt{DONT\_ANALYZE} file from \ttt{diagnostics.py}.
 
 \paragraph{Analysis mode}
+
+The different analysis modes for \ttt{transition.py} are given in Table~\ref{tab:Transition_modes}.
 
 \begin{table}
   \centering
   \caption{Analysis modes for \ttt{transition.py}. The last column indicates whether \ttt{data\_extractor.x} has to be run prior to the ensemble analysis.}
   \label{tab:Transition_modes}
-  \begin{tabular}{lp{6cm}>{\tt}lc}
+  \begin{tabular}{lp{8cm}>{\ttfamily}lc}
     \toprule
     Mode        &Description    &\rmfamily From which     &Extract?\\
                                &&\rmfamily file?          &\\
@@ -3222,14 +3445,14 @@ If you want to exclude certain trajectories from the analysis, it is sufficient 
 
 Often it is interesting to fit some functions to the population data from a trajectory ensemble, in order to provide a way to abstract the data and to obtain some kind of rate constants for population transfer, which allows to compare to experimental works.
 In simple cases, it might be sufficient to fit basic mono- and biexponential functions to the data, which provides the sought-after time constants.
-However, often a more concise approach is based on a chemical kinetics model.
+However, often a more meaningful approach is based on a chemical kinetics model.
 Such a model is specified by a set of chemical species (e.g., electronic states, reactants, products, etc) connected by elementary reactions with associated rate constants, which together form a reaction network graph.
-For a formal description of those graphs, see section~\ref{met:globalfit}.
+For an explanation of those graphs, see section~\ref{met:globalfit}.
 
 The script \ttt{make\_fitscript.py} helps the user in developing and executing such global fits to a kinetics model.
 
 The script employs the open-source computer algebra system \textsc{Maxima} as back-end to solve the differential equation systems which describe the model kinetics.
-The script writes a \textsc{Gnuplot} script containing all commands necessary for the fit. 
+The script writes a \textsc{Gnuplot} script containing all commands necessary for the global fit. 
 The fitting itself is performed with \textsc{Gnuplot}.
 
 \subsection{Usage}
@@ -3350,6 +3573,7 @@ The input to the script is very similar to the one of \ttt{populations.py}.
 First the script asks the user to specify all directories for whose content the analysis should be performed. Enter one directory path at a time, and finish the directory input section by typing ``\ttt{end}''. Please do not specify each trajectory directory separately, but specify their parent directories, e.g.\ the directories \ttt{Singlet\_1} and \ttt{Singlet\_2}. \ttt{crossing.py} will automatically include all trajectories contained in these directories.
 
 If you want to exclude certain trajectories from the analysis, it is sufficient to create an empty file called \ttt{CRASHED} or \ttt{RUNNING} in the corresponding trajectory directory. \ttt{crossing.py} will ignore all directories containing one of these files.
+Additionally, \ttt{crossing.py} will ignore trajectories with a \ttt{DONT\_ANALYZE} file from \ttt{diagnostics.py}.
 
 \paragraph{Analysis mode}
 
@@ -3391,7 +3615,7 @@ Note that for most internal coordinates, the order of the atoms is crucial, sinc
   \centering
   \caption{Possible types of internal coordinates in \ttt{geo.py}. }
   \label{tab:Geo_input}
-  \begin{tabular}{>{\tt}c>{\bfseries\ttfamily}lll}
+  \begin{tabular}{>{\ttfamily}c>{\bfseries\ttfamily}lll}
     \toprule
     \rmfamily Key         &\normalfont\rmfamily Atom      &Description    &Output columns\\
                           &\normalfont\rmfamily Indices   &               &\\
@@ -3417,7 +3641,8 @@ Note that for most internal coordinates, the order of the atoms is crucial, sinc
 
 As an advice, it is always a good idea to put the comment as the \textit{last} request, if needed. Since the comment may contain blanks, having the comment not as the very last column might make it impossible to plot the resulting table.
 
-The Boeyens classification symbols which are output for 6-membered rings are reported in \LaTeX\ math code. Note that in the Boeyens classification scheme a number of symbols are equivalent, and only one symbol is reported. For example, by definition the chair configuration $^1C_4$ is equivalent to $^5C_2$ and $^3C_6$.
+The Boeyens classification symbols which are output for 6-membered rings are reported in \LaTeX\ math code. Note that in the Boeyens classification scheme by definition a number of symbols are equivalent, and only one symbol is reported. 
+These are the equivalent symbols: $^1C_4={}^3C_6={}^5C_2$, $^4C_1={}^6C_3={}^2C_5$, $^1T_3={}^4T_6$, $^2T_6={}^5T_3$, $^2T_4={}^5T_1$, $^3T_1={}^6T_4$, $^6T_2={}^3T_5$ and $^4T_2={}^1T_5$.
 
 For 5-membered rings, the classification symbols are chosen similar to the Boeyens symbols. For the $^aE$ and $E_a$ symbols, atom $a$ is puckered out of the plane and the four other atoms are coplanar, while for the $^aH_b$ symbols the neighboring atoms $a$ and $b$ are puckered out of the plane in opposite directions and only the three remaining atoms are coplanar.
 
@@ -3429,7 +3654,7 @@ For 5-membered rings, the classification symbols are chosen similar to the Boeye
   \centering
   \caption{Command-line options for \ttt{geo.py}. }
   \label{tab:Geo_options}
-  \begin{tabular}{>{\tt}lll}
+  \begin{tabular}{>{\ttfamily}lll}
     \toprule
     \rmfamily Option         &Description    &Default\\
     \midrule
@@ -3444,6 +3669,24 @@ For 5-membered rings, the classification symbols are chosen similar to the Boeye
   \end{tabular}
 \end{table}
 
+
+
+
+\section{Essential Dynamics Analysis: \ttt{trajana\_essdyn.py}}\label{sec:trajana_essdyn.py}
+
+\cite{Amadei1993PSFB}
+
+Additionally, \ttt{trajana\_essdyn.py} will ignore trajectories with a \ttt{DONT\_ANALYZE} file from \ttt{diagnostics.py}.
+
+For details on the computation, see section~\ref{met:essdyn}.
+
+\section{Normal Mode Analysis: \ttt{trajana\_nma.py}}\label{sec:trajana_nma.py}
+
+\cite{Kurtz2001JCP}
+
+Additionally, \ttt{trajana\_nma.py} will ignore trajectories with a \ttt{DONT\_ANALYZE} file from \ttt{diagnostics.py}.
+
+For details on the computation, see section~\ref{met:nma}.
 
 
 
@@ -3563,6 +3806,44 @@ where $C$ is the damping factor given in the input. Hence, in each timestep the 
 The damping factor $C$ must be between 0 and 1.
 
 
+\section{Essential Dynamics Analysis}\label{met:essdyn}
+
+As an alternative to normal mode analysis (see section~\ref{met:nma}), essential dynamics analysis can be used to identify important modes in the dynamics.
+This procedure is a principal component analysis of the geometric displacements.\cite{Amadei1993PSFB,Plasser2009}
+Unlike normal mode analysis, it does not depend on the availability of the normal mode vectors.
+
+The covariance matrix is computed from ($\mu$ and $\nu$ are indices over the $3N_\text{atom}$ degrees of freedom):
+\begin{equation}
+  \bar{R}_\mu=
+  \frac{1}{N_\text{traj}(k_\text{end}-k_\text{start})}
+  \sum_{i=1}^{N_\text{traj}}
+  \sum_{k=k_\text{start}}^{k_\text{end}} 
+  R_\mu^i(k\Delta t)
+\end{equation}
+and
+\begin{equation}
+  A_{\mu\nu}=
+  \frac{1}{N_\text{traj}(k_\text{end}-k_\text{start})}
+  \sum_{i=1}^{N_\text{traj}}
+  \sum_{k=k_\text{start}}^{k_\text{end}} 
+  R_\mu^i(k\Delta t)
+  R_\nu^i(k\Delta t)
+\end{equation}
+as a matrix $\VEC{C}$ with elements:
+\begin{equation}
+  C_{\mu\nu}=
+  A_{\mu\nu}-R_\mu R_\nu.
+\end{equation}
+
+Diagonalization of the symmetric matrix $\VEC{C}$ gives a set of eigenvalues and eigenvectors.
+The eigenvectors represent the essential dynamics modes, and the corresponding eigenvalues are the variances of the modes.
+Modes with large variances show strong motion in the dynamics, whereas small variances are found for modes which show weak motion.
+Because the modes are uncorrelated, the few modes with the largest variance describe most of the molecular motion, which shows that essential dynamics analysis can be used to for data reduction.
+
+
+
+
+
 \section{Decoherence}\label{met:decoherence}
 
 In surface hopping, without any corrections the coherence between the states is usually too large \cite{Granucci2007JCP}. A trajectory in state $\beta$, but where state $\alpha$ has a large coefficient, will still travel according to the gradient of state $\beta$. However, the gradients of state $\alpha$ are almost certainly different to the ones of state $\beta$. As a consequence, too much population of state $\alpha$ is following the gradient of state $\beta$. Decoherence corrections damp in different ways the population of all states $\alpha\neq\beta$, so that only population of $\beta$ follows the gradient of state $\beta$.
@@ -3605,7 +3886,7 @@ Within \ttt{excite.py} it is possible to restrict the selection to a subset of a
 
 \section{Global fits and kinetic models}\label{met:globalfit}
 
-In this section, we specify the basic assumptions of the chemical kinetic models used with \ttt{make\_fitscript.py} and the globals fits of these models to data.
+In this section, we specify the basic assumptions of the chemical kinetic models used with the script \ttt{make\_fitscript.py} and the globals fits of these models to data.
 
 \subsection{Reaction networks}
 
@@ -3668,7 +3949,7 @@ Suppose there is a data set $\VEC{p}(t)=(p_1(t),p_2(t),\dots)$ of time-dependent
 We can \textit{fit} to one data set $p_k(t)$ a function $s_l(t)$ from $\VEC{s}(t)$ by optimizing the parameters (mainly the rate constants) such that $\sum_i |p_k(t_i)-s_l(t_i)|^2$ becomes minimal.
 
 In order to perform global fit including several species $l$ and several states $k$, one constructs piecewise global functions from $\VEC{p}(t)$ and $\VEC{s}(t)$ and then optimizes the parameters accordingly.
-% TODO: add more explanation here
+
 
 
 
@@ -3923,6 +4204,57 @@ The hop is assumed to be laser-induced if
 where $W$ is a fixed parameter. $W$ can be set using the input keyword \ttt{laserwidth}.
 
 If a hop has been classified as laser-free, the momentum is adjusted according to the equations given in section~\ref{met:ekinadj}.
+
+
+
+\section{Normal Mode Analysis}\label{met:nma}
+
+The normal mode analysis can be used to find important vibrational modes in the excited-state dynamics.\cite{Kurtz2001JCP,Plasser2009}
+
+Given a matrix $\VEC{Q}$ containing the normal mode vectors and a reference geometry $\VEC{R}_\text{ref}$, calculate for each trajectory
+\begin{equation}
+  R^i(t)=\VEC{Q}^{-1}(\VEC{R}^i(t)-\VEC{R}^\text{ref})
+\end{equation}
+to obtain the displacements in normal mode coordinates.
+Averaging over the displacements gives the average trajectory:
+\begin{equation}
+  \bar{R}(t)=\frac{1}{N_\text{traj}}
+  \sum_{i=1}^{N_\text{traj}} R^i(t)
+\end{equation}
+which should contain only coherent motion, since random motion cancels out in an ensemble.
+
+A measure for the coherent activity in a mode is the standard deviation (over time) of the average trajectory:
+\begin{equation}
+  R_\text{coh}^2=
+  \frac{1}{k_\text{end}-k_\text{start}}
+  \sum_{k=k_\text{start}}^{k_\text{end}} \bar{R}(k\Delta t)^2
+  -
+  \left(
+  \frac{1}{k_\text{end}-k_\text{start}}
+  \sum_{k=k_\text{start}}^{k_\text{end}} \bar{R}(k\Delta t)
+  \right)^2,
+\end{equation}
+where $k_\text{start}$ and $k_\text{end}$ are the start and end time steps for the analysis.
+$R_\text{coh}$ a vector with one number per normal mode, where larger number mean that there is more coherent activity in this mode.
+
+A measure for the total motion in a mode is the total standard deviation:
+\begin{equation}
+  R_\text{total}^2=
+  \frac{1}{N_\text{traj}(k_\text{end}-k_\text{start})}
+  \sum_{i=1}^{N_\text{traj}}
+  \sum_{k=k_\text{start}}^{k_\text{end}} 
+  R^i(k\Delta t)^2
+  -
+  \left(
+  \frac{1}{N_\text{traj}(k_\text{end}-k_\text{start})}
+  \sum_{i=1}^{N_\text{traj}}
+  \sum_{k=k_\text{start}}^{k_\text{end}} 
+  R^i(k\Delta t)
+  \right)^2.
+\end{equation}
+
+
+
 
 \section{Phase tracking}
 

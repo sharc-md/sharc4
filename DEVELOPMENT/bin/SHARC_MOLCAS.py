@@ -1141,10 +1141,10 @@ def getsmate(out,mult,state1,state2,states):
             nstates=int(line.split()[-1])
         if matrixstring in line:
             rowshift=1
-            for i in range(nstates/2+state1-1):
+            for i in range(nstates/2+state2-1):
                 rowshift+=i/5+1
-            rowshift+=1+(state2-1)/5
-            colshift=(state2-1)%5
+            rowshift+=1+(state1-1)/5
+            colshift=(state1-1)%5
 
             return float(out[iline+jline+rowshift+1].split()[colshift])
 
@@ -1407,7 +1407,7 @@ def writeQMoutnacsmat(QMin,QMout):
     string+='%i %i\n' % (nmstates,nmstates)
     for j in range(nmstates):
         for i in range(nmstates):
-            string+='%s %s ' % (eformat(QMout['overlap'][i][j].real,9,3),eformat(QMout['overlap'][i][j].imag,9,3))
+            string+='%s %s ' % (eformat(QMout['overlap'][j][i].real,9,3),eformat(QMout['overlap'][j][i].imag,9,3))
         string+='\n'
     string+='\n'
     return string
@@ -1877,6 +1877,7 @@ def readQMin(QMinfilename):
     else:
         print 'WARNING: Please set memory for MOLCAS in SH2CAS.inp (in MB)! Using 500 MB default value!'
     os.environ['MOLCASMEM']=str(QMin['memory'])
+    os.environ['MOLCAS_MEM']=str(QMin['memory'])
 
     QMin['ncpu']=1
     line=getsh2caskey(sh2cas,'ncpu')
@@ -1901,6 +1902,7 @@ def readQMin(QMinfilename):
 
     QMin['Project']='MOLCAS'
     os.environ['Project']=QMin['Project']
+    os.environ['MOLCAS_OUTPUT']='PWD'
 
     line=getsh2caskey(sh2cas,'always_orb_init')
     if line[0]:

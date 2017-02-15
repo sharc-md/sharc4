@@ -511,8 +511,8 @@ def printQMin(QMin):
   print string
 
 
-  if 'dm' in QMin and QMin['template']['method']=='adc(2)':
-    print 'WARNING: excited-to-excited transition dipole moments in ADC(2) are zero!'
+  #if 'dm' in QMin and QMin['template']['method']=='adc(2)':
+    #print 'WARNING: excited-to-excited transition dipole moments in ADC(2) are zero!'
 
 
   if 'dm' in QMin and QMin['template']['method']=='cc2' and (QMin['states'][0]>1 and len(QMin['states'])>2 and QMin['states'][2]>0):
@@ -2867,12 +2867,14 @@ def get_AO_OVL(path,QMin):
         y+=1
     if y>=nbas:
       break
+  # the SAO overlap in dscf output is a LOWER triangular matrix
+  # hence, the off-diagonal block must be transposed
 
   # write AO overlap matrix to savedir
   string='%i %i\n' % (nbas/2,nbas/2)
   for irow in range(nbas/2,nbas):
     for icol in range(0,nbas/2):
-      string+='% .15e ' % (ao_ovl[irow][icol])
+      string+='% .15e ' % (ao_ovl[icol][irow])          # note the exchanged indices => transposition
     string+='\n'
   filename=os.path.join(QMin['savedir'],'ao_ovl')
   writefile(filename,string)
@@ -3246,7 +3248,7 @@ class civfl_ana:
     norm=0.
     for i in sorted(state_dict, key=lambda x: state_dict[x]**2, reverse=True):
       state_dict2[i]=state_dict[i]/vnorm
-      norm+=state_dict[i]**2/vnorm
+      norm+=state_dict2[i]**2
       if norm>self.maxsqnorm:
         break
     # put into general det_dict, also adding the b->a excitation for singlets

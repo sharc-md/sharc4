@@ -28,10 +28,10 @@ if sys.version_info[1]<5:
         return False
     return True
 
-version='1.0'
-versiondate=datetime.date(2014,10,8)
+version='1.1'
+versiondate=datetime.date(2017,1,25)
 
-allowedreq=['a','d','r','p','x','y','z','5','6','c']
+allowedreq=['a','d','r','p','x','y','z','5','6','c','i','j','k','l']
 
 # This array contains all Boeyens classification symbols for 5-membered rings.
 # (phi): symbol
@@ -208,7 +208,7 @@ def getz(atoms):
   '''Uses the above routines to calculate the relative z coordinates relative to a 
 mean plane of the atoms.'''
   atoms=translate(atoms)
-  N=len(atoms)
+  #N=len(atoms)
   n=normvec(atoms)
   z=project(atoms,n)
   return z
@@ -378,6 +378,37 @@ def Boeyens5(ph):
   dist_list.sort(key=lambda d: d[1])
   return dist_list[0][0]
 
+def Angle_between_3rings(a1,a2,a3,b1,b2,b3):
+  '''Calculates the angle between the normal vectors of two 3-rings (a1,a2,a3) and (b1,b2,b3).'''
+  ring1=[a1,a2,a3]
+  ring2=[b1,b2,b3]
+  n1=normvec(ring1)
+  n2=normvec(ring2)
+  return rangle3d(n1,n2)
+
+def Angle_between_4rings(a1,a2,a3,a4,b1,b2,b3,b4):
+  '''Calculates the angle between the normal vectors of two 4-rings (a1,a2,a3,a4) and (b1,b2,b3,b4).'''
+  ring1=[a1,a2,a3,a4]
+  ring2=[b1,b2,b3,b4]
+  n1=normvec(ring1)
+  n2=normvec(ring2)
+  return rangle3d(n1,n2)
+
+def Angle_between_5rings(a1,a2,a3,a4,a5,b1,b2,b3,b4,b5):
+  '''Calculates the angle between the normal vectors of two 5-rings (a1,a2,a3,a4,a5) and (b1,b2,b3,b4,b5).'''
+  ring1=[a1,a2,a3,a4,a5]
+  ring2=[b1,b2,b3,b4,b5]
+  n1=normvec(ring1)
+  n2=normvec(ring2)
+  return rangle3d(n1,n2)
+
+def Angle_between_6rings(a1,a2,a3,a4,a5,a6,b1,b2,b3,b4,b5,b6):
+  '''Calculates the angle between the normal vectors of two 6-rings (a1,a2,a3,a4,a5,a6) and (b1,b2,b3,b4,b5,b6).'''
+  ring1=[a1,a2,a3,a4,a5,a6]
+  ring2=[b1,b2,b3,b4,b5,b6]
+  n1=normvec(ring1)
+  n2=normvec(ring2)
+  return rangle3d(n1,n2)
 
 # ================================================================= #
 
@@ -409,6 +440,10 @@ Also converts the atom numbers to integer.'''
     z\tz coordinate (1 atom)\n
     5\tCremer-Pople parameters q2 and phi2 (5 atoms)\n
     6\tCremer-Pople parameters Q, phi, theta and Boeyens terms (6 atoms)\n
+    i\tangle between normal vectors of two 3-rings (6 atoms)\n
+    j\tangle between normal vectors of two 4-rings (8 atoms)\n
+    k\tangle between normal vectors of two 5-rings (10 atoms)\n
+    l\tangle between normal vectors of two 6-rings (12 atoms)\n
     c\tComment line (shortened to the first 20 characters)\n''')
     return False
   elif s[0]=='x' or s[0]=='y' or s[0]=='z':
@@ -434,6 +469,22 @@ Also converts the atom numbers to integer.'''
   elif s[0]=='6':
     if not len(s)==7:
       sys.stderr.write('Six-Ring Cremer-Pople parameters needs six atoms as arguments!\n')
+      return False
+  elif s[0]=='i':
+    if not len(s)==7:
+      sys.stderr.write('Angle between two 3-rings needs six atoms as arguments!\n')
+      return False
+  elif s[0]=='j':
+    if not len(s)==9:
+      sys.stderr.write('Angle between two 4-rings needs eight atoms as arguments!\n')
+      return False
+  elif s[0]=='k':
+    if not len(s)==11:
+      sys.stderr.write('Angle between two 5-rings needs ten atoms as arguments!\n')
+      return False
+  elif s[0]=='l':
+    if not len(s)==13:
+      sys.stderr.write('Angle between two 6-rings needs twelve atoms as arguments!\n')
       return False
   for i in range(len(s)-1):
     s[i+1]=int(s[i+1])
@@ -463,6 +514,14 @@ def tableheader(req):
     i+=1
     if r[0]=='c':
       s+=' '*comment_bonus
+    if r[0]=='i':
+      s+=' '*(1)
+    if r[0]=='j':
+      s+=' '*(max(26,f)-20+1)
+    if r[0]=='k':
+      s+=' '*(max(32,f)-20+1)
+    if r[0]=='l':
+      s+=' '*(max(38,f)-20+1)
     s+=' '*(f-5) + '% 5i|' % (i+1)
     if r[0]=='5':
       for j in range(2):
@@ -492,6 +551,14 @@ def tableheader(req):
       s+=' '*(f-20)+'ph'+'%3i%3i%3i%3i%3i%3i|' % (r[1],r[2],r[3],r[4],r[5],r[6])
       s+=' '*(f-20)+'th'+'%3i%3i%3i%3i%3i%3i|' % (r[1],r[2],r[3],r[4],r[5],r[6])
       s+=' '*(f-20)+'By'+'%3i%3i%3i%3i%3i%3i|' % (r[1],r[2],r[3],r[4],r[5],r[6])
+    elif r[0]=='i':
+      s+=' '*(f-20)+'A3'+'%3i%3i%3i,%3i%3i%3i|'  % (r[1],r[2],r[3],r[4],r[5],r[6])
+    elif r[0]=='j':
+      s+=' '*(f-20)+'A4'+'%3i%3i%3i%3i,%3i%3i%3i%3i|'  % (r[1],r[2],r[3],r[4],r[5],r[6],r[7],r[8])
+    elif r[0]=='k':
+      s+=' '*(f-20)+'A5'+'%3i%3i%3i%3i%3i,%3i%3i%3i%3i%3i|'  % (r[1],r[2],r[3],r[4],r[5],r[6],r[7],r[8],r[9],r[10])
+    elif r[0]=='l':
+      s+=' '*(f-20)+'A6'+'%3i%3i%3i%3i%3i%3i,%3i%3i%3i%3i%3i%3i|'  % (r[1],r[2],r[3],r[4],r[5],r[6],r[7],r[8],r[9],r[10],r[11],r[12])
     elif r[0]=='c':
       s+=' '*(f-7+comment_bonus)+'Comment '
   return s
@@ -535,6 +602,22 @@ def calculate(g,req,comm):
       s+=formatstring % (ph)
       s+=formatstring % (th)
       s+=stringstring % ('$'+Boeyens6(ph,th)+'$')
+    elif r[0]=='i':
+      a=Angle_between_3rings(g[r[1]-1],g[r[2]-1],g[r[3]-1],g[r[4]-1],g[r[5]-1],g[r[6]-1])
+      s+=' '*(1)
+      s+=formatstring % (a)
+    elif r[0]=='j':
+      a=Angle_between_4rings(g[r[1]-1],g[r[2]-1],g[r[3]-1],g[r[4]-1],g[r[5]-1],g[r[6]-1],g[r[7]-1],g[r[8]-1])
+      s+=' '*(max(26,f)-20+1)
+      s+=formatstring % (a)
+    elif r[0]=='k':
+      a=Angle_between_5rings(g[r[1]-1],g[r[2]-1],g[r[3]-1],g[r[4]-1],g[r[5]-1],g[r[6]-1],g[r[7]-1],g[r[8]-1],g[r[9]-1],g[r[10]-1])
+      s+=' '*(max(32,f)-20+1)
+      s+=formatstring % (a)
+    elif r[0]=='l':
+      a=Angle_between_6rings(g[r[1]-1],g[r[2]-1],g[r[3]-1],g[r[4]-1],g[r[5]-1],g[r[6]-1],g[r[7]-1],g[r[8]-1],g[r[9]-1],g[r[10]-1],g[r[11]-1],g[r[12]-1])
+      s+=' '*(max(38,f)-20+1)
+      s+=formatstring % (a)
     elif r[0]=='c':
       if comm[0:f+comment_bonus].strip()=='':
         comm=' '*(f-14+comment_bonus)+'<EMPTY_STRING>'
@@ -567,15 +650,17 @@ This command line tool calculates internal coordinates (see below) for
 xyz files with several consecutive geometries, like from a molecular 
 dynamics simulation.
 
-Internal coordinates are specified via STDIN. The program can calculate 
-bond lengths, bond angles, dihedral angles and pyramidalization angles.
-For example, a pyramidalization angle for a C-NH2 group would be defined
-as the angle between the C-N bond and the NH2 plane.
-The program can also output x, y or z coordinates of single atoms. 
+The program can calculate bond lengths, bond angles, dihedral angles 
+and pyramidalization angles. For example, a pyramidalization angle for 
+a C-NH2 group would be defined as the angle between the C-N bond and 
+the NH2 plane. Inter-ring angles, angles between the mean plane of two 
+rings, can be computed for pairs of 3-, 4-, 5-, and 6-membered rings.
+
 Additionally, Cremer-Pople parameters for 5- and 6-membered rings can be 
 calculated [1]. For 6-membered rings, also the Boeyens classification 
 symbols [2] can be generated. For 5-membered rings, the classification
 symbols are inspired by the Boeyens scheme.
+The program can also output x, y or z coordinates of single atoms. 
 
 Internal coordinates are specified on STDIN, with one coordinate per line.
 Each line consists of a one-letter key followed by a number of atom indices,
@@ -587,6 +672,10 @@ The one-letter keys are:
     a\tbond angle (3 atoms)
     d\tdihedral angle (4 atoms)
     p\tpyramidalization angle (4 atoms)
+    i\tangle between normal vectors of two 3-rings (6 atoms)
+    j\tangle between normal vectors of two 4-rings (8 atoms)
+    k\tangle between normal vectors of two 5-rings (10 atoms)
+    l\tangle between normal vectors of two 6-rings (12 atoms)
     x\tx coordinate (1 atom)
     y\ty coordinate (1 atom)
     z\tz coordinate (1 atom)

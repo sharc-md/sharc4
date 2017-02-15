@@ -706,7 +706,7 @@ def writeQMoutnacsmat(QMin,QMout):
   string+='%i %i\n' % (nmstates,nmstates)
   for j in range(nmstates):
     for i in range(nmstates):
-      string+='%s %s ' % (eformat(QMout['overlap'][i][j].real,12,3),eformat(QMout['overlap'][i][j].imag,12,3))
+      string+='%s %s ' % (eformat(QMout['overlap'][j][i].real,12,3),eformat(QMout['overlap'][j][i].imag,12,3))
     string+='\n'
   string+='\n'
   return string
