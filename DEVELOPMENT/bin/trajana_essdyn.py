@@ -194,6 +194,11 @@ def get_general():
   INFOS['reftype']=reftype
   print ''
 
+  massweightques=question('Do you wish to use mass weighted coordinates?',bool,True)
+  INFOS['massweight']=massweightques
+  print ''
+
+
   print centerstring('Number of total steps in your trajectories',60,'-')
   print '\n total simulation time *2 and +1 if timestep is 0.5 fs'
   print ''
@@ -256,6 +261,7 @@ def ess_dyn(INFOS):
     ref_struc_type=INFOS['reftype']
     ana_ints=INFOS['interval']
     dt=INFOS['timestep']
+    mawe=INFOS['massweight']
 
     try:
         os.makedirs('ESS_DYN/'+descr+'/total_cov')
@@ -380,11 +386,22 @@ def ess_dyn(INFOS):
             for iii in xrange(3*num_at):
                 cov_mat_i[ii,iii] = exp_XY_i[ii,iii] - exp_X_i[ii]*exp_X_i[iii]
                 cov_mat_i[iii,ii] = exp_XY_i[ii,iii] - exp_X_i[ii]*exp_X_i[iii]
-                
+        
+        if mawe == True:
+           mass_mat = mol_calc.ret_mass_matrix(power=0.5)
+           cov_mat_mawe=numpy.dot(mass_mat, numpy.dot(cov_mat_i, mass_mat))        
+           cov_mat_i=cov_mat_mawe
         #cov_mat_i = numpy.dot(mass_mat, cov_mat_i) # mass weighting
         #cov_mat_i = numpy.dot(cov_mat_i, mass_mat)
         
         cov_eigvals, t_eigvects = numpy.linalg.eigh(cov_mat_i)
+        if mawe== True:
+           mass_mat_inv=numpy.linalg.inv(mass_mat)
+#mass_mat**-1
+           unity = numpy.dot(mass_mat,mass_mat_inv)
+           t_eigvects_nonmawe = numpy.dot(mass_mat_inv,t_eigvects)
+           t_eigvects=t_eigvects_nonmawe
+         
         cov_eigvects = t_eigvects.transpose()
         #print cov_eigvals[0]
         #print cov_eigvects[0]
@@ -406,11 +423,20 @@ def ess_dyn(INFOS):
             for iii in xrange(3*num_at): 
                 cov_mat_i[ii,iii] = exp_XY_i[ii,iii] - exp_X_i[ii]*exp_X_i[iii]
                 cov_mat_i[iii,ii] = exp_XY_i[ii,iii] - exp_X_i[ii]*exp_X_i[iii]
-                
+
+        if mawe == True:
+           mass_mat = mol_calc.ret_mass_matrix(power=0.5)
+           cov_mat_mawe=numpy.dot(mass_mat, numpy.dot(cov_mat_i, mass_mat))
+           cov_mat_i=cov_mat_mawe                
 #         cov_mat_i = numpy.dot(mass_mat, cov_mat_i) # mass weighting
 #         cov_mat_i = numpy.dot(cov_mat_i, mass_mat)
         
         cov_eigvals, t_eigvects = numpy.linalg.eigh(cov_mat_i)
+        if mawe==True:
+           mass_mat_inv=numpy.linalg.inv(mass_mat)
+           unity = numpy.dot(mass_mat,mass_mat_inv)
+           t_eigvects_nonmawe = numpy.dot(mass_mat_inv,t_eigvects)
+           t_eigvects=t_eigvects_nonmawe
         cov_eigvects = t_eigvects.transpose()
          
         vib_molden.make_molden_file(struc=av_struc, freqs=cov_eigvals, vibs=cov_eigvects, out_file='ESS_DYN/'+descr+'/cross_av/'+str(interv[0])+'-'+str(interv[1])+'.mld')

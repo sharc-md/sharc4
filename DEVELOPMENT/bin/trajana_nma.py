@@ -233,7 +233,9 @@ def get_general():
   INFOS['refvib']=refvib
   print ''
   
-
+  massweightques=question('Do you wish to use mass weighted normal modes?',bool,True)
+  INFOS['massweight']=massweightques
+  print ''
 
   print centerstring('Number of total steps in your trajectories',60,'-')
   print '\n total simulation time *2 and +1 if timestep is 0.5 fs'
@@ -342,7 +344,8 @@ def nm_analysis(INFOS):
     abs_list=INFOS['symmmodes']
     neg_list=INFOS['negmodes']
     plot=INFOS['plot']
-    
+    mawe=INFOS['massweight']    
+
     try:
         os.makedirs(out_dir)
     except OSError:
@@ -353,14 +356,17 @@ def nm_analysis(INFOS):
     ref_struc = struc_linalg.structure('ref_struc') # define the structure that all the time step structures are superimposed onto
     ref_struc.read_file(ref_struc_file, ref_struc_type)
     num_at = ref_struc.ret_num_at()
-    mol_calc = struc_linalg.mol_calc(def_file_path=ref_struc_file, file_type='tmol')
+    mol_calc = struc_linalg.mol_calc(def_file_path=ref_struc_file, file_type=ref_struc_type)
     
     # read in data from the vibration file
-#     mass_mat = mol_calc.ret_mass_matrix(power=0) # the mass matrix is for the mass weighted skalar product, it is the unit matrix if mass_wt_pw=0
     vmol = vib_molden.vib_molden()
     vmol.read_molden_file(vibration_file)
     nma_mat = numpy.linalg.pinv(vmol.ret_vib_matrix()) # this way it is a coordinate transformation
         # +++ the alternative would be an orthogonal projection, e.g. if only a few modes are chosen
+    if mawe ==True:    
+       mass_mat = mol_calc.ret_mass_matrix(power=0.5) # the mass matrix is for the mass weighted skalar product, it is the unit matrix if mass_wt_pw=0
+       nma_mat_mawe=numpy.dot(mass_mat,nma_mat)
+       nma_mat=nma_mat_mawe
     header = vmol.ret_nma_header()
 #     eff_mass_array = numpy.array(vmol.ret_eff_masses(mol_calc=mol_calc, mass_wt_pw = mass_wt_pw))
     num_vib=len(nma_mat[0])
