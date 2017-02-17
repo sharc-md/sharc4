@@ -1031,7 +1031,7 @@ def make_gnuplot(INFOS):
   # calculate maxmult and angdiff
   if 'states' in INFOS:
     if INFOS['mode'] in [1,7]:
-      init=[sum(INFOS['states'])]
+      init=[INFOS['nmstates']]
       #maxmult=1
       #angdiff=1./maxmult/max(INFOS['states'])
     else:

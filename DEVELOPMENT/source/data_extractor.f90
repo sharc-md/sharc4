@@ -42,6 +42,8 @@ integer, parameter :: u_expec_mch=29    !< expec_MCH.out
 integer, parameter :: u_fosc_act=30     !< fosc_act.out
 integer, parameter :: u_ref=31          !< Reference/QM.out
 integer, parameter :: u_info=42         !< output.dat.ext
+!integer, parameter :: u_ion_diag=51     !< ion_diag.out
+!integer, parameter :: u_ion_mch=52      !< ion_mch.out
 
 
 !> # Information which is constant throughout all timesteps
@@ -76,6 +78,8 @@ complex*16, allocatable :: coeff_diab_s(:)      !< diabatic coefficient vector
 real*8,allocatable :: expec_s(:)                !< spin expectation value per state
 real*8,allocatable :: expec_dm(:)               !< oscillator strength per state
 real*8,allocatable :: expec_dm_mch(:)           !< oscillator strength per state in MCH basis
+!real*8,allocatable :: expec_ion_diag(:)           !< oscillator strength per state in MCH basis
+!real*8,allocatable :: expec_ion_mch(:)           !< oscillator strength per state in MCH basis
 real*8,allocatable :: expec_dm_act(:)           !< oscillator strength per state with active state as source state
 real*8,allocatable :: spin0_s(:)                !< spin value per MCH state (initialized in the beginning)
 real*8 :: sumc                                  !< sum of coefficients
@@ -133,6 +137,7 @@ allocate( coeff_diag_s(nstates), coeff_MCH_s(nstates), coeff_diab_s(nstates) )
 allocate( hopprob_s(nstates) )
 allocate( A_ss(nstates,nstates) )
 allocate( expec_s(nstates),expec_dm(nstates),expec_dm_mch(nstates),expec_dm_act(nstates) )
+!allocate( expec_ion_diag(nstates),expec_ion_mch(nstates) )
 allocate( spin0_s(nstates) )
 allocate( geom_ad(natom,3), veloc_ad(natom,3) )
 call allocate_lapack(nstates)
@@ -175,6 +180,8 @@ open(unit=u_expec, file='output_data/expec.out', status='replace', action='write
 open(unit=u_expec_mch, file='output_data/expec_MCH.out', status='replace', action='write')
 open(unit=u_coefdiab, file='output_data/coeff_diab.out', status='replace', action='write')
 open(unit=u_fosc_act, file='output_data/fosc_act.out', status='replace', action='write')
+!open(unit=u_ion_diag, file='output_data/ion_diag.out', status='replace', action='write')
+!open(unit=u_ion_mch, file='output_data/ion_mch.out', status='replace', action='write')
 
 
 
@@ -211,6 +218,49 @@ do i=1,nstates
 enddo
 write(u_fosc_act,'(A)') trim(string)
 
+!write(u_ion_diag,'(A1,1X,1000(I20,1X))') '#',(i,i=1,2*nstates+2)
+!write(string, '(A1,1X,2(A20,1X))') '#','Time |','State (diag) |'
+!do i=1,nstates
+!  write(string2,'(1X,A8,I10,A2)') 'dE ',i,' |'
+!  string=trim(string)//string2
+!enddo
+!do i=1,nstates
+!  write(string2,'(1X,A6,I12,A2)') 'f_osc ',i,' |'
+!  string=trim(string)//string2
+!enddo
+!write(u_ion_diag,'(A)') trim(string)
+!write(string, '(A1,1X,2(A20,1X))') '#','[fs] |','|'
+!do i=1,nstates
+!  write(string2,'(1X,A20)') '[eV] |'
+!  string=trim(string)//string2
+!enddo
+!do i=1,nstates
+!  write(string2,'(1X,A20)') '[] |'
+!  string=trim(string)//string2
+!enddo
+!write(u_ion_diag,'(A)') trim(string)
+!
+!write(u_ion_mch,'(A1,1X,1000(I20,1X))') '#',(i,i=1,2*nstates+2)
+!write(string, '(A1,1X,2(A20,1X))') '#','Time |','State (diag) |'
+!do i=1,nstates
+!  write(string2,'(1X,A8,I10,A2)') 'dE ',i,' |'
+!  string=trim(string)//string2
+!enddo
+!do i=1,nstates
+!  write(string2,'(1X,A6,I12,A2)') 'f_osc ',i,' |'
+!  string=trim(string)//string2
+!enddo
+!write(u_ion_mch,'(A)') trim(string)
+!write(string, '(A1,1X,2(A20,1X))') '#','[fs] |','|'
+!do i=1,nstates
+!  write(string2,'(1X,A20)') '[eV] |'
+!  string=trim(string)//string2
+!enddo
+!do i=1,nstates
+!  write(string2,'(1X,A20)') '[] |'
+!  string=trim(string)//string2
+!enddo
+!write(u_ion_mch,'(A)') trim(string)
 
 write(u_spin,'(A1,1X,1000(I20,1X))') '#',(i,i=1,nstates+2)
 write(u_spin,'(A1,1X,3(A20,1X))') '#','Time |','Spin_s |','=== Spins ===>'
@@ -384,6 +434,27 @@ do
   write(u_fosc_act,'(2X,1000(ES20.12E3,1X))') &
   &step*dtstep,(real(H_diag_ss(istate,istate)-H_diag_ss(state_diag,state_diag))*au2eV,istate=1,nstates),&
   (expec_dm_act(istate),istate=1,nstates)
+
+
+
+!  ! calculate ionization
+!  expec_ion_diag=0.d0
+!  expec_ion_mch=0.d0
+!  A_ss=Prop_ss
+!  expec_ion_mch=expec_ion_mch + real(A_ss(:,state_mch)*A_ss(state_mch,:))
+!  call transform(nstates,A_ss,U_ss,'utau')
+!  expec_ion_diag=expec_ion_diag + real(A_ss(:,state_diag)*A_ss(state_diag,:))
+
+!  ! write to ion_diag.out
+!  write(u_ion_diag,'(2X,ES20.12E3,1X,I20,1X,1000(ES20.12E3,1X))') &
+!  &step*dtstep,state_diag,(real(H_diag_ss(istate,istate)-H_diag_ss(state_diag,state_diag))*au2eV,istate=1,nstates),&
+!  (expec_ion_diag(istate),istate=1,nstates)
+
+!  ! write to ion_mch.out
+!  write(u_ion_mch,'(2X,ES20.12E3,1X,I20,1X,1000(ES20.12E3,1X))') &
+!  &step*dtstep,state_diag,(real(H_mch_ss(istate,istate)-H_mch_ss(state_mch,state_mch))*au2eV,istate=1,nstates),&
+!  (expec_ion_mch(istate),istate=1,nstates)
+
 
   ! calculate spin expectation value
   expec_s=0.d0
