@@ -1489,9 +1489,9 @@ def readQMin(QMinfilename):
 #            print 'Submit delay does not evaluate to numerical value!'
 #            sys.exit(42)
 
-#    line=getsh2ADFkey(sh2ADF,'always_orb_init')
-#    if line[0]:
-#        QMin['always_orb_init']=[]
+    line=getsh2ADFkey(sh2ADF,'always_orb_init')
+    if line[0]:
+        QMin['always_orb_init']=[]
 #    line=getsh2ADFkey(sh2ADF,'always_guess')
 #    if line[0]:
 #        QMin['always_guess']=[]
@@ -2111,7 +2111,7 @@ def write_ADFinput(type,QMin):
              if QMin['states'][2]!=0:
                 if 'sopert' in QMin['template']:
                     outfile.write('SOPERT\nGSCORR\nPRINT SOMATRIX\n\n')
-       if 'init' in QMin:
+       if 'init' in QMin or 'always_orb_init' in QMin:
            filename=QMin['pwd']+'/ADF.t21_init'
            if os.path.isfile(filename):
                outfile.write('RESTART ADF.t21 &\nnogeo\nEND\n\n')
@@ -2246,7 +2246,7 @@ def run_tddft(QMin):
    workdir = QMin['scratchdir']+'/ADF'
    savedir = QMin['savedir']
    os.environ['NSCM']=str(QMin['ncpu'])
-   if 'init' in QMin:
+   if 'init' in QMin or 'always_orb_init' in QMin:
       filename=QMin['pwd']+'/ADF.t21_init'
       if os.path.isfile(filename):
          shutil.copy(QMin['pwd']+'/ADF.t21_init',workdir+'/ADF.t21')
@@ -3028,13 +3028,9 @@ def get_cicoef(QMin):
    for Mult in Mults:
       CIcoef = []
       CIthresh = []
-#      CI_thresh_sorted = []
-#      CI_thresh_sorted_A = []
-#      CI_thresh_sorted_B = []
       exci_info=[]
       for exci in range(1,int(excita)):
          eigen = []
-#         eigen_X = []
          eigen_other = []
          eigen_left = []
          eigen_right = []
@@ -3066,7 +3062,6 @@ def get_cicoef(QMin):
                    eig = float(eigen_right[a])
                else:
                    eig = float(eigen_right[a])/float(math.sqrt(2))
-#               eigen_X.append(eig_x)
                eigen_other.append(eig_x)
                eigen.append(eig)
          CIcoef.append(eigen)
@@ -3074,14 +3069,6 @@ def get_cicoef(QMin):
          exci_info_a=[]
          if QMin['unr']=='yes':
             Dimension_A=Dimension/2
-            eigen_X_A=eigen_X[0:int(Dimension_A)]
-            eigen_X_B=eigen_X[int(Dimension_A):int(Dimension)]
-            eigen_X_A.sort(reverse=True)
-            eigen_X_B.sort(reverse=True)
-            CI_thresh_sorted_A.append(eigen_X_A)
-            CI_thresh_sorted_B.append(eigen_X_B)
-            CI_thresh_sorted.append(eigen_X)
-            CI_thresh_sorted.append(eigen_X)
             for nspin in range(2):
                 Nocc_curr=0
                 if nspin==0:
@@ -3107,28 +3094,19 @@ def get_cicoef(QMin):
                     exci_info_a.append(exci_tuple)
             exci_info_a.sort(key=lambda x: x[4],reverse=True)
             exci_info.append(exci_info_a)
-#            eigen_X.sort(reverse=True)
-#            CI_thresh_sorted.append(eigen_X)
 
-#      new_CI_thresh = []
-#      new_CI_thresh_A = []
-#      new_CI_thresh_B = []
       new_exci_info=[]
       length=len(exci_info[0])
       for n in range(0,int(Nrexci)):
          thresh= 0
-#         thresh_alt=0
          a=0
          while thresh < float(threshold):
                 if a == length:
                    break
-#                thresh = thresh+float(CI_thresh_sorted[n][a])
                 thresh=thresh+float(exci_info[n][a][4])
                 a=a+1
          new_exci_info_a=exci_info[n][:a]
          new_exci_info.append(new_exci_info_a)
-#         New_CIvect = CI_thresh_sorted[n][:a+1]
-#         new_CI_thresh.append(New_CIvect)
 
 
       Nrlines=0
@@ -3274,73 +3252,6 @@ def get_cicoef(QMin):
              outputstring+='\n'
              outfile2.write('%s' %(outputstring))
 
-#      else:
-#         GS_config = Nocc*'d'+Nvirt*'e'
-#         for i in range(0,int(Nocc)):
-#             for a in range(0,int(Nvirt)):
-#                 Config_string = ''
-#                 Config_string2 = ''
-#                 Config_string3 = ''
-#                 Config_string4 = ''
-#                 string = ''
-#                 m=i*Nvirt
-#                 if Mult == 1:
-#                    Config_string = i*'d'+'a'+(int(Nocc)-i-1)*'d'+a*'e'+'b'+(int(Nvirt)-a-1)*'e'
-#                    Config_string2 = i*'d'+'b'+(int(Nocc)-i-1)*'d'+a*'e'+'a'+(int(Nvirt)-a-1)*'e'
-#                 if Mult == 3:
-#                    Config_string = i*'d'+'a'+(int(Nocc)-i-1)*'d'+a*'e'+'a'+(int(Nvirt)-a-1)*'e'
-#                 list = []
-#                 for n in range(0,int(Nrexci)):
-#                    p = CIthresh[n][m+a]
-#                    for z in range(len(new_CI_thresh[n])):
-#                       if p == float(new_CI_thresh[n][z]):
-#                          list.append(n)
-#                 if len(list) !=0 :
-#                    Nrlines = Nrlines + 1
-#                    if Mult == 1:
-#                       string+=Config_string+'  0.000000000000  '
-#                    else:
-#                       string+=Config_string
-#                    for n in range(0,int(Nrexci)):
-#                       if n in list:
-#                          if Mult == 3:
-#                             CIcoefficient = 1.0 * math.sqrt(2)* float(CIcoef[n][m+a])
-#                             string+='  %6.12f  ' % (float(CIcoefficient))
-#                          else:
-#                             string+='  %6.12f  ' % (float(CIcoef[n][m+a]))
-#                       else:
-#                          string+='  0.000000000000  '
-#                    string+='\n'
-#                    if Mult == 1:
-#                       string+=Config_string2+'  0.000000000000  '
-#                       for n in range(0,int(Nrexci)):
-#                          if n in list:
-#                             CIcoefficient = 0
-#                             if Mult ==1 :
-#                                CIcoefficient = -1.0 * float(CIcoef[n][m+a])
-#                             if Mult == 3:
-#                                CIcoefficient = 1.0 * float(CIcoef[n][m+a])
-#                             string+='  %6.12f  ' %(float(CIcoefficient))
-#                          else:
-#                             string+='  0.000000000000  '
-#                       string+='\n'
-#                    output.append(string)
-#         if Mult == 1:
-#            Nrlines=Nrlines*2
-#            outfilename = 'cicoef_S.b'
-#         if Mult == 3:
-#            Nrlines=Nrlines
-#            outfilename = 'cicoef_T.b'
-#         outfile2=open(outfilename,'w')
-#         if Mult != 1:
-#            outfile2.write('%i %i %i \n' % (int(Nrexci), int(NMO), int(Nrlines)))
-#         else:
-#            outfile2.write('%i %i %i \n' % (int(Nrexci+1), int(NMO), int(Nrlines+1)))
-#            outfile2.write(GS_config+'  1.000000000000  '+int(Nrexci)*'  0.000000000000  '+'\n')
-#   
-#         for n in range(0,len(output)):
-#             outfile2.write('%s' %(output[n]))
-    
    outfile2.close()
    file1.close() 
 
