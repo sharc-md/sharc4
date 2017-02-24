@@ -3172,6 +3172,10 @@ def get_MO_from_out(out):
     elif 'Number of external orbitals:' in line:
       nex=int(line.split()[-4])
       found+=1
+      if found==2:
+        # this means that no closed-shell orbitals are present in output
+        found+=1
+        nclosed=0
     elif '1PROGRAM * CI ' in line:
       found-=1000
     if found==3:
@@ -3229,6 +3233,9 @@ def get_CASdet_from_out(out,isym,nstates):
     elif 'Number of active  orbitals:' in line:
       nact=int(line.split()[-4])
       found+=1
+      if found==1:
+        found+=1
+        nclosed=0
     elif '1PROGRAM * CI ' in line:
       found-=1000
     if found==2:
@@ -3297,6 +3304,9 @@ def get_CIdet_from_out(out,imult):
     elif 'Number of active  orbitals:' in line:
       nact=int(line.split()[-4])
       found+=1
+      if found==1:
+        found+=1
+        nclosed=0
     elif '1PROGRAM * CI ' in line:
       found+=-1000
     if found==2:
