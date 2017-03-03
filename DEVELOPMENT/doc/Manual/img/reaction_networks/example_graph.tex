@@ -1,0 +1,55 @@
+\documentclass[10pt]{article}
+
+\usepackage{tikz,graphicx,pgfplots,amsmath}
+\usepackage[lighttt]{lmodern}
+\usepackage{mycolors}
+\usepackage{sfmath}
+\usepackage[version=3]{mhchem}
+\usepackage[active,tightpage]{preview}
+
+
+\PreviewEnvironment{tikzpicture}
+\setlength\PreviewBorder{1pt}
+\setlength{\textwidth}{246pt}
+
+
+\pgfplotsset{every tick label/.append style={/pgf/number format/1000 sep={}}}
+\pgfplotsset{compat=1.3}
+\usetikzlibrary{plotmarks,fit,positioning}
+\usetikzlibrary{calc}
+\usetikzlibrary{trees}
+
+
+\newcommand*\phantomas[3][c]{% 
+   \ifmmode 
+     \makebox[\widthof{$#2$}][#1]{$#3$}% 
+   \else 
+     \makebox[\widthof{#2}][#1]{#3}% 
+   \fi 
+} 
+
+
+\begin{document}
+
+\tikzstyle{every node}=[draw=black,thick,circle,inner sep=2pt]
+
+  \begin{tikzpicture}[font=\sffamily, >=stealth, scale=1]
+
+    \begin{scope}[xshift=0cm, yshift=0cm]
+      \node (S2) at (0.0, 0.0) {$S_2$};
+      \node (S1) at (0.0,-1.5) {$S_1$};
+      \node (S0) at (0.0,-3.0) {$S_0$};
+      \node (T2) at (2.0,-0.5) {$T_2$};
+      \node (T1) at (2.0,-2.0) {$T_1$};
+
+      \draw[black, ->] (S2) --node[draw=none,rectangle,left] {$k_{S}$} (S1);
+      \draw[black, ->] (S1) --node[draw=none,rectangle,left] {$k_{Rlx}$} (S0);
+      \draw[black, ->] (S2) --node[draw=none,rectangle,above] {$k_{22}$} (T2);
+      \draw[black, ->] (S1) --node[draw=none,rectangle,below] {$k_{11}$} (T1);
+      \draw[black, ->] (T2) to[bend right] node[draw=none,rectangle,left] {$k_{21}$} (T1);
+      \draw[black, ->] (T1) to[bend right] node[draw=none,rectangle,right] {$k_{12}$} (T2);
+    \end{scope}
+
+
+  \end{tikzpicture}
+\end{document}

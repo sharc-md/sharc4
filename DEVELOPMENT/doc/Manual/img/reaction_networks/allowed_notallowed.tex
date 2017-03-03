@@ -1,0 +1,148 @@
+\documentclass[10pt]{article}
+
+\usepackage{tikz,graphicx,pgfplots,amsmath}
+\usepackage[lighttt]{lmodern}
+\usepackage{mycolors}
+\usepackage{sfmath}
+\usepackage[version=3]{mhchem}
+\usepackage[active,tightpage]{preview}
+
+
+\PreviewEnvironment{tikzpicture}
+\setlength\PreviewBorder{1pt}
+\setlength{\textwidth}{246pt}
+
+
+\pgfplotsset{every tick label/.append style={/pgf/number format/1000 sep={}}}
+\pgfplotsset{compat=1.3}
+\usetikzlibrary{plotmarks,fit,positioning}
+\usetikzlibrary{calc}
+\usetikzlibrary{trees}
+
+
+\newcommand*\phantomas[3][c]{% 
+   \ifmmode 
+     \makebox[\widthof{$#2$}][#1]{$#3$}% 
+   \else 
+     \makebox[\widthof{#2}][#1]{#3}% 
+   \fi 
+} 
+
+
+\begin{document}
+
+\tikzstyle{every node}=[draw=black,thick,circle,inner sep=2pt]
+
+  \begin{tikzpicture}[font=\sffamily, >=stealth, scale=1]
+
+    % forbidden
+    \draw[draw=none,fill=black!10] (-1,0.5) rectangle (13,1);
+    \node[rectangle,draw=none,anchor=center] at (6,0.75) {Not allowed};
+
+    \begin{scope}[xshift=0cm, yshift=0cm]
+      \node[red] (A) at (0,0) {A};
+      \node[red] (B) at (0,-1.5) {A};
+      \draw[black, thick, ->] (A) --node[draw=none,right] {a} (B);
+      \node[draw=none,anchor=north,rectangle] at (0,-1.8) {\begin{tabular}{c}Repeated\\species label\end{tabular}};
+    \end{scope}
+
+    \begin{scope}[xshift=3cm, yshift=0cm]
+      \node (A) at (0,0) {A};
+      \node (B) at (-0.5,-1.5) {B};
+      \node (C) at (+0.5,-1.5) {C};
+      \draw[black, thick, ->] (A) to node[draw=none,left,red] {a} (B);
+      \draw[black, thick, ->] (A) to node[draw=none,right,red] {a} (C);
+      \node[draw=none,anchor=north,rectangle] at (0,-1.8) {\begin{tabular}{c}Repeated\\rate label\end{tabular}};
+    \end{scope}
+
+    \begin{scope}[xshift=6cm, yshift=0cm]
+      \node[red] (A) at (0,0) {A};
+      \node (B) at (0,-1.5) {B};
+      \draw[black, thick, ->] (A) --node[draw=none,right,red] {A} (B);
+      \node[draw=none,anchor=north,rectangle] at (0,-1.8) {\begin{tabular}{c}Repeated\\label\end{tabular}};
+    \end{scope}
+
+    \begin{scope}[xshift=9cm, yshift=0cm]
+      \node (A) at (0,-0.95) {A};
+      \draw[red, thick, ->] 
+        (A) 
+          .. controls ++(90:1.2) and ++(0:1.2) .. node[draw=none,above] {a}
+        (A);
+      \node[draw=none,anchor=north,rectangle] at (0,-1.8) {Loop};
+    \end{scope}
+
+    \begin{scope}[xshift=12cm, yshift=0cm]
+      \node (A) at (0,0) {A};
+      \node (B) at (0,-1.5) {B};
+      \draw[red, thick, ->] (A) to[bend left] node[draw=none,right] {a} (B);
+      \draw[red, thick, ->] (A) to[bend right] node[draw=none,left] {b} (B);
+      \node[draw=none,anchor=north,rectangle] at (0,-1.8) {\begin{tabular}{c}Repeated\\reaction\end{tabular}};
+    \end{scope}
+
+    % allowed
+    \draw[draw=none,fill=black!10] (-1,-3.5) rectangle (13,-3.0);
+    \node[rectangle,draw=none,anchor=center] at (6,-3.25) {Allowed};
+
+    \begin{scope}[xshift=0cm, yshift=-4.5cm]
+      \node (A) at (0,0) {A};
+      \node (B) at (0,-1.5) {B};
+      \draw[G, thick, ->] (A) to[bend left] node[draw=none,right] {a} (B);
+      \draw[G, thick, ->] (B) to[bend left] node[draw=none,left] {b} (A);
+      \node[draw=none,anchor=north,rectangle] at (0,-1.8) {\begin{tabular}{c}Back\\reaction\end{tabular}};
+    \end{scope}
+
+    \begin{scope}[xshift=3cm, yshift=-4.5cm]
+      \node (A) at (0, 0.5) {A};
+      \node (B) at (0,-0.5) {B};
+      \node (C) at (0,-1.5) {C};
+      \draw[G, thick, ->] (A) --node[draw=none,right] {a} (B);
+      \draw[G, thick, ->] (B) --node[draw=none,right] {b} (C);
+      \node[draw=none,anchor=north,rectangle] at (0,-1.8) {\begin{tabular}{c}Sequential\\reactions\end{tabular}};
+    \end{scope}
+
+    \begin{scope}[xshift=6cm, yshift=-4.5cm]
+      \node (A) at (0,0) {A};
+      \node (B) at (-0.5,-1.5) {B};
+      \node (C) at (+0.5,-1.5) {C};
+      \draw[G, thick, ->] (A) to node[draw=none,left] {b} (B);
+      \draw[G, thick, ->] (A) to node[draw=none,right] {c} (C);
+      \node[draw=none,anchor=north,rectangle] at (0,-1.8) {\begin{tabular}{c}Parallel\\reactions\end{tabular}};
+    \end{scope}
+
+    \begin{scope}[xshift=9cm, yshift=-4.5cm]
+      \node (A) at (-0.5,0) {A};
+      \node (C) at (+0.5,0) {C};
+      \node (B) at (-0.5,-1.5) {B};
+      \node (D) at (+0.5,-1.5) {D};
+      \draw[G, thick, ->] (A) to node[draw=none,left] {a} (B);
+      \draw[G, thick, ->] (C) to node[draw=none,right] {c} (D);
+      \node[draw=none,anchor=north,rectangle] at (0,-1.8) {\begin{tabular}{c}Disjoint\\network\end{tabular}};
+    \end{scope}
+
+    % problematic
+    \draw[draw=none,fill=black!10] (-1,-8) rectangle (13,-7.5);
+    \node[rectangle,draw=none,anchor=center] at (6,-7.75) {Problematic};
+
+    \begin{scope}[xshift=0.8cm, yshift=-8.5cm]
+      \node (A) at (-0.8,0) {A};
+      \node (B) at (-0.8,-1.5) {B};
+      \node (C) at (+0.8,-1.5) {C};
+      \draw[O, thick, ->] (A) to node[draw=none,left] {ab} (B);
+      \draw[O, thick, ->] (A) to node[draw=none,right] {ac} (C);
+      \draw[O, thick, ->] (B) to node[draw=none,above] {bc} (C);
+      \node[draw=none,anchor=north,rectangle] at (0,-1.8) {\begin{tabular}{c}Parallel\\pathways\end{tabular}};
+    \end{scope}
+
+    \begin{scope}[xshift=4.5cm, yshift=-8.5cm]
+      \node (A) at (0,0) {A};
+      \node (B) at (-0.8,-1.5) {B};
+      \node (C) at (+0.8,-1.5) {C};
+      \draw[O, thick, ->] (A) to node[draw=none,left] {ab} (B);
+      \draw[O, thick, <-] (A) to node[draw=none,right] {ca} (C);
+      \draw[O, thick, ->] (B) to node[draw=none,above] {bc} (C);
+      \node[draw=none,anchor=north,rectangle] at (0,-1.8) {\begin{tabular}{c}Closed\\walks\end{tabular}};
+    \end{scope}
+
+
+  \end{tikzpicture}
+\end{document}
