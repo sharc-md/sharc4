@@ -2586,12 +2586,12 @@ def writeSHARCinput(INFOS,initobject,iconddir,istate):
   if INFOS['damping']:
     s+='dampeddyn %f\n' % (INFOS['damping'])
 
-  # in MOLPRO gradient/ddr calculations must not be done in same run as overlap/ddt, so make selection with infinite threshold
-  if Interfaces[INFOS['interface']]['script']=='SHARC_MOLPRO.py' and not Couplings[INFOS['coupling']]['name']=='ddr' and not (INFOS['sel_g'] or INFOS['sel_t']):
-    s+='grad_select\n'
-    if INFOS['gradcorrect'] or EkinCorrect[INFOS['ekincorrect']]['name']=='parallel_nac':
-      s+='nac_select\n'
-    s+='eselect %f\n' % (999999.9)
+  ## in MOLPRO gradient/ddr calculations must not be done in same run as overlap/ddt, so make selection with infinite threshold
+  #if Interfaces[INFOS['interface']]['script']=='SHARC_MOLPRO.py' and not Couplings[INFOS['coupling']]['name']=='ddr' and not (INFOS['sel_g'] or INFOS['sel_t']):
+    #s+='grad_select\n'
+    #if INFOS['gradcorrect'] or EkinCorrect[INFOS['ekincorrect']]['name']=='parallel_nac':
+      #s+='nac_select\n'
+    #s+='eselect %f\n' % (999999.9)
   # every other case
   else:
     if INFOS['sel_g']:
