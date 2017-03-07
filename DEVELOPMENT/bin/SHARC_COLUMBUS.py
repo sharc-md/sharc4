@@ -156,6 +156,9 @@ changelogstring='''
 01.11.2015:
 - fixed "restart" keyword
 - added support for BASLIB keyword in Seward
+
+07.03.2017:
+- wfthres is now interpreted as in other interfaces (default is 0.97 now)
 '''
 
 # ======================================================================= #
@@ -2275,7 +2278,7 @@ def readQMin(QMinfilename):
 
 
   if not 'nooverlap' in QMin:
-    QMin['wfthres']=3.e-2
+    QMin['wfthres']=0.97
     line=getsh2colkey(sh2col,'wfthres')
     if line[0]:
       try:
@@ -3697,7 +3700,7 @@ def make_dets_new(job,QMin):
       pass
 
     #print 'Running cipc.x for multiplicity: %i' % (imult)
-    ca=civfl_ana(1.0-QMin['wfthres'],DEBUG,QMin['columbus'])
+    ca=civfl_ana(QMin['wfthres'],DEBUG,QMin['columbus'])
     for istate in range(1,1+QMin['states'][imult-1]):
       #ca.call_cipc(istate,ms=0.,mem=QMin['colmem'])
       ca.call_cipc(istate,ms=0.5*(imult-1),mem=QMin['colmem'])
