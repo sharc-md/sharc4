@@ -1284,6 +1284,7 @@ def readQMin(QMinfilename):
 
     if QMin['unr']=='yes' and 'soc' in QMin:
        QMin=removekey(QMin,'soc')
+       print 'WARNING: will not compute SOC in unrestricted calculation.'
        QMin['h']=[]
 
     if QMin['unr']=='no' and QMin['states'][0]>1:
