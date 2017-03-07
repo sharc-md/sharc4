@@ -956,6 +956,12 @@ from the initconds.excited files as provided by excite.py.
   surf=question('SHARC dynamics?',bool,True)
   INFOS['surf']=['fish','sharc'][surf]
 
+  # SOC or not
+  recommended=True
+  if len(INFOS['states'])==1:
+    recommended=False
+  print '\nDo you want to include spin-orbit couplings in the dynamics?'
+  INFOS['socs']=question('Spin-orbit couplings?',bool,recommended)
 
   # Coupling
   print '\nPlease choose the quantities to describe non-adiabatic effects between the states:'
@@ -1583,7 +1589,7 @@ In order to setup the COLUMBUS input, use COLUMBUS' input facility colinp. For f
     if Couplings[INFOS['coupling']]['name']=='overlap':
       print 'Wavefunction overlaps requested.'
     INFOS['columbus.wfpath']=question('Path to wavefunction overlap executable:',str)
-    INFOS['columbus.wfthres']=question('Determinant screening threshold:',float,[1e-2])[0]
+    INFOS['columbus.wfthres']=question('Determinant screening threshold:',float,[0.97])[0]
 
   return INFOS
 
@@ -2409,8 +2415,8 @@ douglas-kroll                                   # DKH is only used if this keywo
     print 'Wavefunction overlaps requested.'
     INFOS['ricc2.wfpath']=question('Path to wfoverlap executable:',str)
     print ''
-    print '''State threshold for choosing determinants to include in the overlaps'''
-    INFOS['threshold']=question('Threshold:',float,[0.99])[0]
+    print '''Give threshold for choosing determinants to include in the overlaps'''
+    INFOS['ricc2.wfthres']=question('Threshold:',float,[0.99])[0]
 
   return INFOS
 
@@ -2438,7 +2444,7 @@ dipolelevel %i
        INFOS['ricc2.dipolelevel'])
   if Couplings[INFOS['coupling']]['name']=='overlap':
     string+='wfoverlap %s\n' % (INFOS['ricc2.wfpath'])
-    string+='threshold %f\n' %(INFOS['threshold'])
+    string+='wfthres %f\n' %(INFOS['ricc2.wfthres'])
   else:
     string+='nooverlap\n'
 
@@ -2593,28 +2599,30 @@ def writeSHARCinput(INFOS,initobject,iconddir,istate):
       #s+='nac_select\n'
     #s+='eselect %f\n' % (999999.9)
   # every other case
+  #else:
+  if INFOS['sel_g']:
+    s+='grad_select\n'
   else:
-    if INFOS['sel_g']:
-      s+='grad_select\n'
-    else:
-      s+='grad_all\n'
-    if INFOS['sel_t']:
-      s+='nac_select\n'
-    else:
-      if Couplings[INFOS['coupling']]['name']=='ddr' or INFOS['gradcorrect'] or EkinCorrect[INFOS['ekincorrect']]['name']=='parallel_nac':
-        s+='nac_all\n'
-    if 'eselect' in INFOS:
-      s+='eselect %f\n' % (INFOS['eselect'])
-    if Interfaces[INFOS['interface']]['script']=='SHARC_COLUMBUS.py':
-      s+='select_directly\n'
-    if Interfaces[INFOS['interface']]['script']=='SHARC_ADF.py':
-        s+='select_directly\n'
-    if Interfaces[INFOS['interface']]['script']=='SHARC_RICC2.py':
-        s+='select_directly\n'
-    if Interfaces[INFOS['interface']]['script']=='SHARC_MOLPRO.py':
-        s+='select_directly\n'
-    if Interfaces[INFOS['interface']]['script']=='SHARC_MOLCAS.py':
-        s+='select_directly\n'
+    s+='grad_all\n'
+  if INFOS['sel_t']:
+    s+='nac_select\n'
+  else:
+    if Couplings[INFOS['coupling']]['name']=='ddr' or INFOS['gradcorrect'] or EkinCorrect[INFOS['ekincorrect']]['name']=='parallel_nac':
+      s+='nac_all\n'
+  if 'eselect' in INFOS:
+    s+='eselect %f\n' % (INFOS['eselect'])
+  if Interfaces[INFOS['interface']]['script']=='SHARC_COLUMBUS.py':
+    s+='select_directly\n'
+  if Interfaces[INFOS['interface']]['script']=='SHARC_ADF.py':
+    s+='select_directly\n'
+  if Interfaces[INFOS['interface']]['script']=='SHARC_RICC2.py':
+    s+='select_directly\n'
+  if Interfaces[INFOS['interface']]['script']=='SHARC_MOLPRO.py':
+    s+='select_directly\n'
+  if Interfaces[INFOS['interface']]['script']=='SHARC_MOLCAS.py':
+    s+='select_directly\n'
+  if not INFOS['socs']:
+    s+='nospinorbit\n'
 
   # laser
   if INFOS['laser']:
