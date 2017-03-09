@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python2
 
 #    ====================================================================
 #||                                                                       ||
@@ -111,6 +111,9 @@ changelogstring='''
 - ridft can be used for the SCF calculation, but dscf has to be run afterwards anyways (for SOC and overlaps).
 - Laplace-transformed SOS-CC2/ADC(2) can be used ("spin-scaling lt-sos"), but does not work for soc or trans-dm
 - if ricc2 does not converge, it is rerun with different combinations of npre and nstart (until convergence or too many tries)
+
+07.03.2017:
+- wfthres is now interpreted as in other interfaces (default is 0.99 now)
 '''
 
 # ======================================================================= #
@@ -1994,7 +1997,7 @@ def readQMin(QMinfilename):
 
 
   # wfoverlaps setting
-  QMin['wfthres']=0.
+  QMin['wfthres']=0.99
   line=getsh2cc2key(sh2cc2,'wfthres')
   if line[0]:
     QMin['wfthres']=float(line[1])
@@ -2714,7 +2717,7 @@ def prep_control(QMin,job):
 
   # add number of states
   add_section_to_control(control,'$excitations')
-  add_option_to_control_section(control,'$excitations','maxiter 45')
+  add_option_to_control_section(control,'$ricc2','maxiter 45')
   nst=QMin['states'][0]-1       # exclude ground state here
   if nst>=1:
     string='irrep=a multiplicity=1 nexc=%i npre=%i nstart=%i' % (nst,nst+1,nst+1)
@@ -2774,7 +2777,7 @@ def get_dets(path,mults,QMin):
   # read all determinant expansions from working directory and put them into the savedir
 
   for imult in mults:
-    ca=civfl_ana(path,imult,maxsqnorm=1.-QMin['wfthres'],filestr='CCRE0')
+    ca=civfl_ana(path,imult,maxsqnorm=QMin['wfthres'],filestr='CCRE0')
     for istate in range(1,1+QMin['states'][imult-1]):
       ca.get_state_dets(istate)
     writename=os.path.join(QMin['savedir'],'dets.%i' % (imult))
@@ -2782,7 +2785,7 @@ def get_dets(path,mults,QMin):
 
     # for CC2, also save the left eigenvectors
     if QMin['template']['method']=='cc2':
-      ca=civfl_ana(path,imult,maxsqnorm=1.-QMin['wfthres'],filestr='CCLE0')
+      ca=civfl_ana(path,imult,maxsqnorm=QMin['wfthres'],filestr='CCLE0')
       for istate in range(1,1+QMin['states'][imult-1]):
         ca.get_state_dets(istate)
       writename=os.path.join(QMin['savedir'],'dets_left.%i' % (imult))
@@ -2996,6 +2999,8 @@ def change_pre_states(workdir,itrials):
       npre=str(int(s[7])+shift_mask[itrials][0])
       nstart=str(int(s[9])+shift_mask[itrials][1])
       data2[i]='irrep=a multiplicity=%s nexc=%s npre=%s nstart=%s\n' % (mult,nexc,npre,nstart)
+    if 'maxiter 45' in line:
+      data2[i]='maxiter 100\n'
   writefile(filename,data2)
 
 # ======================================================================= #
