@@ -1,6 +1,6 @@
 !> # Module DEFINITIONS
 !> \author Sebastian Mai
-!> \date 10.07.2014
+!> \date 10.07.2014, modified 27.02.2017 by Philipp Marquetand
 !> 
 !> This module defines the trajectory and control types.
 !> 
@@ -143,6 +143,7 @@ type ctrl_type
   real*8 :: eselect_dmgrad                  !< energy difference for neglecting dipole gradients
   real*8 :: dampeddyn                       !< damping factor for kinetic energy
   real*8 :: decoherence_alpha               !< decoherence parameter (a.u.) for energy-based decoherence
+  real*8 :: output_version                         !< version as float for checks during writing output
   logical,allocatable :: actstates_s(:)     !< mask of the active states
 
 ! methods and switches
@@ -164,6 +165,12 @@ type ctrl_type
   integer :: calc_nacdr                     !< request nac vectors: \n -1=no, 0=all in step 1, 1=select in step 1, 2=select in step 2
   integer :: calc_dipolegrad                !< request dipole gradient vectors: \n -1=no, 0=all in step 1, 1=select in step 1, 2=select in step 2
   integer :: calc_second                    !< 0=no, 1=do two interface calls per timestep
+
+  integer :: write_soc                      !< write SOC to output.dat or not \n 0=no soc, 1=write soc )
+  integer :: write_grad                     !< write gradients:   \n        0=no gradients, 1=write gradients
+  integer :: write_overlap                  !< write overlap matrix:   \n        0=no overlap, 1=write overlap
+  integer :: write_NAC                      !< write gradients:   \n        0=no gradients, 1=write gradients
+  integer :: write_property                 !< write property matrix:   \n        0=no property, 1=write property
 
   integer :: killafter                      !< -1=no, >1=kill after that many steps in the ground state
   integer :: ionization                     !< -1=no, 1=request ionization properties
@@ -206,7 +213,7 @@ character*20,parameter :: multnames(8)=(/'Singlet','Doublet','Triplet','Quartet'
 !< strings used to represent the multiplicities
 ! =========================================================== !
 
-character*255, parameter :: version='1.0 (October 8, 2014)'    !< string holding the version number
+character*255, parameter :: version='2.0 (March 13, 2017)'    !< string holding the version number
 
 integer, parameter :: u_log=1                !< long output file
 integer, parameter :: u_lis=2                !< short output file
