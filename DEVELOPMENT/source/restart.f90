@@ -53,7 +53,7 @@ module restart
 
     ! write ctrl
     write(u,'(A)') trim(ctrl%cwd)
-    write(u,*) ctrl%natom
+    write(u,*) ctrl%natom, '! natom'
     write(u,*) ctrl%maxmult
     write(u,*) (ctrl%nstates_m(imult),imult=1,ctrl%maxmult)
     write(u,*) ctrl%nstates
@@ -99,7 +99,13 @@ module restart
         call vecwrite(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserenergy_tl(:,ilaser), u, 'Laser Energy','ES24.16E3')
       enddo
     endif
-
+    
+    write(u,*) ctrl%write_soc
+    write(u,*) ctrl%write_overlap
+    write(u,*) ctrl%write_grad
+    write(u,*) ctrl%write_nac
+    write(u,*) ctrl%write_property
+    
     close(u)
 
   endsubroutine
@@ -331,7 +337,13 @@ module restart
         call vecread(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserenergy_tl(:,ilaser), u_ctrl, string)
       enddo
     endif
-
+    
+    read(u_ctrl,*) ctrl%write_soc
+    read(u_ctrl,*) ctrl%write_overlap
+    read(u_ctrl,*) ctrl%write_grad
+    read(u_ctrl,*) ctrl%write_nac
+    read(u_ctrl,*) ctrl%write_property
+    
     close(u_ctrl)
 
     ctrl%restart=.true.
