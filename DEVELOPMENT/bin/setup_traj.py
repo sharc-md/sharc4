@@ -47,9 +47,9 @@ U_TO_AMU = 1./5.4857990943e-4            # conversion from g/mol to amu
 BOHR_TO_ANG=0.529177211
 PI = math.pi
 
-version='1.0'
-versionneeded=[0.2, 1.0]
-versiondate=datetime.date(2014,10,8)
+version='2.0'
+versionneeded=[0.2, 1.0, 2.0]
+versiondate=datetime.date(2017,3,1)
 
 
 IToMult={
@@ -370,7 +370,7 @@ def displaywelcome():
   string+='||'+centerstring('',80)+'||\n'
   string+='||'+centerstring('Setup trajectories for SHARC dynamics',80)+'||\n'
   string+='||'+centerstring('',80)+'||\n'
-  string+='||'+centerstring('Author: Sebastian Mai',80)+'||\n'
+  string+='||'+centerstring('Author: Sebastian Mai, Philipp Marquetand',80)+'||\n'
   string+='||'+centerstring('',80)+'||\n'
   string+='||'+centerstring('Version:'+version,80)+'||\n'
   string+='||'+centerstring(versiondate.strftime("%d.%m.%y"),80)+'||\n'
@@ -433,8 +433,8 @@ def question(question,typefunc,default=None,autocomplete=True):
         continue
 
     if typefunc==bool:
-      posresponse=['y','yes','true', 'ja',  'si','yea','yeah','aye','sure','definitely']
-      negresponse=['n','no', 'false','nein',     'nope']
+      posresponse=['y','yes','true', 't', 'ja',  'si','yea','yeah','aye','sure','definitely']
+      negresponse=['n','no', 'false', 'f', 'nein', 'nope']
       if line in posresponse:
         KEYSTROKES.write(line+' '*(40-len(line))+' #'+s+'\n')
         return True
@@ -1099,6 +1099,42 @@ Laser files can be created using $SHARC/laser.x
 
   # Interface-specific section
   INFOS=globals()[Interfaces[ INFOS['interface']]['get_routine'] ](INFOS)
+
+
+  # options for writing to output.dat
+  print '\nDo you want to write out the gradients during the dynamics?'
+  write_grad=question('Write gradients?',bool,False)
+  if write_grad:
+    INFOS['write_grad']=True
+  else:
+    INFOS['write_grad']=False
+    
+  print '\nDo you want to write out the non-adiabatic couplings (NACs) during the dynamics?'
+  write_NAC=question('Write NACs?',bool,False)
+  if write_NAC:
+    INFOS['write_NAC']=True
+  else:
+    INFOS['write_NAC']=False
+
+  print '\nDo you want to write out the property matrix during the dynamics?'
+  if 'ion' in INFOS and INFOS['ion']:
+    write_property=question('Write property matrix?',bool,True)
+  else:
+    write_property=question('Write property matrix?',bool,False)
+  if write_property:
+    INFOS['write_property']=True
+  else:
+    INFOS['write_property']=False
+
+  print '\nDo you want to write out the overlap matrix during the dynamics?'
+  write_overlap=question('Write overlap matrix?',bool,False)
+  if write_overlap:
+    INFOS['write_overlap']=True
+    if Couplings[INFOS['coupling']]['name']!='overlap':
+      print '\nWarning! No overlaps requested for calculation, no overlaps will be written.'
+      INFOS['write_overlap']=False
+  else:
+    INFOS['write_overlap']=False
 
 
 
@@ -2586,12 +2622,12 @@ def writeSHARCinput(INFOS,initobject,iconddir,istate):
   if INFOS['damping']:
     s+='dampeddyn %f\n' % (INFOS['damping'])
 
-  # in MOLPRO gradient/ddr calculations must not be done in same run as overlap/ddt, so make selection with infinite threshold
-  if Interfaces[INFOS['interface']]['script']=='SHARC_MOLPRO.py' and not Couplings[INFOS['coupling']]['name']=='ddr' and not (INFOS['sel_g'] or INFOS['sel_t']):
-    s+='grad_select\n'
-    if INFOS['gradcorrect'] or EkinCorrect[INFOS['ekincorrect']]['name']=='parallel_nac':
-      s+='nac_select\n'
-    s+='eselect %f\n' % (999999.9)
+  ## in MOLPRO gradient/ddr calculations must not be done in same run as overlap/ddt, so make selection with infinite threshold
+  #if Interfaces[INFOS['interface']]['script']=='SHARC_MOLPRO.py' and not Couplings[INFOS['coupling']]['name']=='ddr' and not (INFOS['sel_g'] or INFOS['sel_t']):
+    #s+='grad_select\n'
+    #if INFOS['gradcorrect'] or EkinCorrect[INFOS['ekincorrect']]['name']=='parallel_nac':
+      #s+='nac_select\n'
+    #s+='eselect %f\n' % (999999.9)
   # every other case
   else:
     if INFOS['sel_g']:
@@ -2615,6 +2651,15 @@ def writeSHARCinput(INFOS,initobject,iconddir,istate):
         s+='select_directly\n'
     if Interfaces[INFOS['interface']]['script']=='SHARC_MOLCAS.py':
         s+='select_directly\n'
+
+  if INFOS['write_grad']:
+    s+='write_grad\n'
+  if INFOS['write_NAC']:
+    s+='write_nac\n'
+  if INFOS['write_overlap']:
+    s+='write_overlap\n'
+  if INFOS['write_property']:
+    s+='write_property\n'
 
   # laser
   if INFOS['laser']:
