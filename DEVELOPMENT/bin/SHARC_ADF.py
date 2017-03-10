@@ -1504,7 +1504,7 @@ def readQMin(QMinfilename):
     QMin['tda']=False
     QMin['template']={}
     integers=[]
-    strings =['save','print','relativistic','symmetry']
+    strings =['save','print','relativistic','symmetry','occupations']
     keystrings=['sopert','stofit','exactdensity','gscorr','nosharedarrays','tda','unrestricted']
     floats=[]
     blocks=['basis','scf','xc','excitation','geometry','beckegrid','zlmfit','atoms','excitedgo','cosmo']
@@ -2040,6 +2040,8 @@ def write_ADFinput(type,QMin):
            for i in range(0,len(QMin['template']['xc'][l])):
                outfile.write(' %s'%(QMin['template']['xc'][l][i]))
        outfile.write('end\n\n')
+       if 'occupations' in QMin['template']:
+          outfile.write('OCCUPATIONS  %s\n\n'%(QMin['template']['occupations']))
        if 'tda' in QMin['template']:
            outfile.write('tda\n\n')
        outfile.write('save TAPE21\n\n')
@@ -2078,7 +2080,7 @@ def write_ADFinput(type,QMin):
 #          outfile.write('ONLYTRIP\n')
        outfile.write('end\n\n')
        if len(QMin['gradmap'])>=1:
-          outfile.write('GEOMETRY\n iterations 0\nEND\n\n')
+          outfile.write('GEOMETRY\n Optim Delocalised\n iterations 0\nEND\n\n')
           el=list(QMin['gradmap'][-1])
           string=IToMult[el[0]][0]+'%i'% (el[1]-(el[0]<=2))
           if QMin['unr']=='yes':
@@ -2114,9 +2116,9 @@ def write_ADFinput(type,QMin):
        if 'init' in QMin or 'always_orb_init' in QMin:
            filename=QMin['pwd']+'/ADF.t21_init'
            if os.path.isfile(filename):
-               outfile.write('RESTART ADF.t21 &\nnogeo\nEND\n\n')
+               outfile.write('RESTART ADF.t21 &\nnogeo\nnohes\nEND\n\n')
        else:
-           outfile.write('RESTART ADF.t21 &\nnogeo\nEND\n\n')
+           outfile.write('RESTART ADF.t21 &\nnogeo\nnohes\nEND\n\n')
        outfile.write('SCF\niterations %sEND\n\n' %(QMin['template']['scf'][1][1]))
        if not DEBUG:
            outfile.write('NOPRINT LOGFILE')
@@ -2213,7 +2215,7 @@ def write_ADFinput(type,QMin):
                      outfile.write('OUTPUT = 4\n')
                      outfile.write('CPKS EPS=0.0001\n')
                      outfile.write('END\n\n')
-               outfile.write('RESTART ADF.t21 &\nnogeo\nEND\n\n')
+               outfile.write('RESTART ADF.t21 &\nnogeo\nnohes\nEND\n\n')
                outfile.write('SCF\niterations %sEND\n\n' %(QMin['template']['scf'][1][1]))           
                if not DEBUG:
                    outfile.write('NOPRINT LOGFILE')
@@ -2917,7 +2919,7 @@ def get_mocoef(QMin):
       MOcoef_mat_new=MOcoef_mat[NMOA:(NMOA+ncore)]
       MOcoef_mat_new.extend(MOcoef_mat[:NMOA])
       MOcoef_mat_new.extend(MOcoef_mat[(NMOA+ncore):])
-      MOcoeg_mat=MOcoef_mat_new
+      MOcoef_mat=MOcoef_mat_new
    
    for n in range(0,int(NMO)):
        MOcoef_new_MO = []
