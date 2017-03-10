@@ -227,7 +227,10 @@ excitation energies and oscillator strengths.
     else:
       dmx=dmy=dmz=0.
       fosc.append(0.)
-    de=(e-energies[0])*27.21
+    if ezero!=0.0:
+      de=(e-ezero)*27.21
+    else:
+      de=(e-energies[0])*27.21
     string='%5i %10s%i %16.10f %12.8f %12.8f' % (istate+1,IToMult[m][0],s-(m<=2),e,de,fosc[-1])
     print string
 

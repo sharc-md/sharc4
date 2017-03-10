@@ -56,9 +56,7 @@ SHARC  =  main.o \
 
 
 
-DATA_EXTRACTOR =      definitions.o \
-		      matrix.o \
-  	              qm_out.o \
+DATA_EXTRACTOR =      qm_out.o \
   	              data_extractor.o
 
 LASER=  LASER_definitions.o \
@@ -78,7 +76,7 @@ sharc: build_info $(TOOLS) $(SHARC)
 	$(F90)  $(SHARC) $(TOOLS) -o  $@.x $(LD)
 
 data_extractor: build_info $(DATA_EXTRACTOR) 
-	$(F90)  $(DATA_EXTRACTOR) -o $@.x $(LD)
+	$(F90)  $(DATA_EXTRACTOR) $(TOOLS) -o $@.x $(LD)
 
 diagonalizer: $(DIAGONALIZER) 
 	$(F90)  $(DIAGONALIZER) -o $@.x $(LD)
