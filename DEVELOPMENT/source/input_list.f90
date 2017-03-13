@@ -1,7 +1,7 @@
 !> # Module INPUT_LIST
 !>
-!> \author Sebastian Mai
-!> \date 10.07.2014
+!> \authors Sebastian Mai, Philipp Marquetand
+!> \date 03.03.2017
 !>
 !> This module defines a variable-size list of pairs of strings.
 !> Features:
@@ -21,6 +21,76 @@ private alloc_list, resize_list
   integer,parameter, private :: nstep=10                !< always allocate a multiple of nstep elements
 
   contains
+
+! =========================================================== !
+
+!> used to initialize the list (allocate with minimum number of elements)
+!> \param n allocate at least n elements
+  subroutine read_input_list_from_file(nunit)
+  
+    use string
+    
+    implicit none
+    
+    integer, intent(in) :: nunit
+    character*8000 :: keyword, value
+    integer :: io
+    
+    ! read all keywords into the variable size list and copy to output
+    do 
+      io=0 !no idea why something has to be here but without it the next line is not executed correctly
+      ! reads the next non-comment line from input file
+      call next_keyword(nunit, keyword, value, io)
+      if (io/=0) exit
+      if (keyword(1:4) == '****') then
+        print*,'Found ****, finished reading keywords.' 
+        exit
+      endif
+      ! keyword,value pair is added to input list (in input_list)
+      call add_key(keyword,value)
+    enddo
+
+
+  endsubroutine
+  
+! =================================================================== !
+
+!> this routine returns the next valid (key,value) pair from unit nunit
+!> removes comments, skips empty/comment-only lines, makes lowercase, adjusts to left
+!> and splits the line into key and value
+  subroutine next_keyword(nunit, keyword, values, stat)
+    use string
+    implicit none
+    integer, intent(in) :: nunit
+    character*8000, intent(out) :: values
+    character*8000, intent(out) :: keyword
+    integer, intent(out) :: stat
+    character*8000 :: line, line_precomment, line_postcomment
+    integer :: io
+
+    do
+      ! read a line
+      read(nunit,'(A)', iostat=io) line
+      if (io<0) then
+        stat=-1
+        return
+      endif
+
+      ! remove comment, spaces, make lowercase and split the string at spaces
+      call cut(line, '#', line_precomment, line_postcomment)
+      if (trim(line_precomment)=='') cycle
+      call lowercase(line_precomment)
+      call compact(line_precomment,' ')
+      call cut(line_precomment, ' ', line, line_postcomment)
+      line_postcomment=adjustl(line_postcomment)
+
+      keyword=line
+      values=line_postcomment
+      return
+    enddo
+
+  endsubroutine
+
 
 ! =========================================================== !
 

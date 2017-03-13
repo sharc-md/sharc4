@@ -1,7 +1,7 @@
 !> # Module INPUT
 !>
 !> \author Sebastian Mai
-!> \date 27.02.2015
+!> \date 27.02.2015, modified 27.02.2017 by Philipp Marquetand
 !>
 !> This module provides the central input parsing routine and some 
 !> auxilliary routines for input parsing
@@ -56,27 +56,18 @@ module input
   endif
 
   ! =====================================================
+  ! open the input file
+  open(u_i_input,file=filename, status='old', action='read', iostat=io)
+  if (io/=0) then
+    write(0,*) 'Could not find input file "',trim(filename),'"!'
+    stop 1
+  endif
 
-    ! open the input file
-    open(u_i_input,file=filename, status='old', action='read', iostat=io)
-    if (io/=0) then
-      write(0,*) 'Could not find input file "',trim(filename),'"!'
-      stop 1
-    endif
-
-  ! =====================================================
-
-  ! read all keywords into the variable size list and copy to output
-    do
-      ! reads the next non-comment line from input file
-      call next_keyword(u_i_input, keyword, value, io)
-      if (io/=0) exit
-      ! keyword,value pair is added to input list (in input_list)
-      call add_key(keyword,value)
-    enddo
-    ! input file is now in input list
-    close(u_i_input)
-
+  call read_input_list_from_file(u_i_input)
+  
+  ! input file is now in input list
+  close(u_i_input)
+  
   ! =====================================================
 
     ! default is no restart
@@ -592,6 +583,8 @@ module input
       selt=0
     endif
 
+
+
     ! ===========================================
     ! process which quantities need to be calculated by the interface
     ! initialize to "do not calculate"
@@ -682,6 +675,72 @@ module input
       ctrl%eselect_grad=99999.9d0
     endif
 
+    ! Flags for switching on/off writing data to output.dat
+    !
+    ctrl%write_soc=1                     !< write SOC to output.dat or not \n 0=no soc, 1=write soc )
+    line=get_value_from_key('write_soc',io)
+    if (io==0) then
+      ctrl%write_soc=1
+    endif
+    line=get_value_from_key('nowrite_soc',io)
+    if (io==0) then
+      ctrl%write_soc=0
+    endif
+    if (ctrl%calc_soc==0 .and. ctrl%write_soc==1) then
+      write(u_log,*) 'Warning! Requested writing SOCs but no SOC calculated. Writing of SOC disabled.'
+      ctrl%write_soc = 0
+    endif
+
+    ctrl%write_grad=0                     !< write gradients:   \n        0=no gradients, 1=write gradients
+    line=get_value_from_key('write_grad',io)
+    if (io==0) then
+      ctrl%write_grad=1
+    endif
+    line=get_value_from_key('nowrite_grad',io)
+    if (io==0) then
+      ctrl%write_grad=0
+    endif
+
+    ctrl%write_overlap=1                  !< write overlap matrix:   \n        0=no overlap, 1=write overlap
+    line=get_value_from_key('write_overlap',io)
+    if (io==0) then
+      ctrl%write_overlap=1
+    endif
+    line=get_value_from_key('nowrite_overlap',io)
+    if (io==0) then
+      ctrl%write_overlap=0
+    endif
+    if (ctrl%calc_overlap==0 .and. ctrl%write_overlap==1) then
+      write(u_log,*) 'Warning! Requested writing overlaps but no overlap calculated. Writing of overlap disabled.'
+      ctrl%write_overlap = 0
+    endif
+
+    ctrl%write_NAC=0                   !< write nonadiabatic couplings:   \n        0=no NACs, 1=write NACs
+    line=get_value_from_key('write_nac',io)
+    if (io==0) then
+      ctrl%write_NAC=1
+    endif
+    line=get_value_from_key('nowrite_nac',io)
+    if (io==0) then
+      ctrl%write_NAC=0
+    endif
+    if (ctrl%calc_nacdr==-1 .and. ctrl%write_NAC==1) then
+      write(u_log,*) 'Warning! Requested writing NonAdiabatic Coupling (NACs) but no NACs calculated. Writing of NACs disabled.'
+      ctrl%write_NAC = 0
+    endif
+
+    ctrl%write_property=0                !< write property matrix:   \n        0=no property, 1=write property
+    line=get_value_from_key('write_property',io)
+    if (io==0) then
+      ctrl%write_property=1
+    endif
+    line=get_value_from_key('nowrite_property',io)
+    if (io==0) then
+      ctrl%write_property=0
+    endif
+
+
+
 
     if (printlevel>0) then
       write(u_log,*) '============================================================='
@@ -769,6 +828,33 @@ module input
           write(u_log,'(a)') 'Warning: More than one multiplicity, but Spin-Orbit couplings are disabled.'
         endif
       endif
+      write(u_log,*)
+      if (ctrl%write_soc==0) then
+        write(u_log,'(a)') 'Not writing Spin-Orbit couplings.'
+      else
+        write(u_log,'(a)') 'Writing Spin-Orbit couplings.'
+      endif
+      if (ctrl%write_overlap==0) then
+        write(u_log,'(a)') 'Not writing overlap matrix.'
+      else
+        write(u_log,'(a)') 'Writing overlap matrix.'
+      endif
+      if (ctrl%write_grad==0) then
+        write(u_log,'(a)') 'Not writing gradients.'
+      else
+        write(u_log,'(a)') 'Writing gradients.'
+      endif
+      if (ctrl%write_NAC==0) then
+        write(u_log,'(a)') 'Not writing nonadiabatic couplings.'
+      else
+        write(u_log,'(a)') 'Writing nonadiabatic couplings.'
+      endif
+      if (ctrl%write_property==0) then
+        write(u_log,'(a)') 'Not writing property matrix.'
+      else
+        write(u_log,'(a)') 'Writing property matrix.'
+      endif
+     
     endif
 
   ! =====================================================
@@ -1468,47 +1554,10 @@ module input
 
   ! =====================================================
     ! write some basic information into the data file
-    call write_dat_initial(u_dat, ctrl)
+    call write_dat_initial(u_dat, ctrl, traj)
 
   endsubroutine
 
-! =================================================================== !
-
-!> this routine returns the next valid (key,value) pair from unit nunit
-!> removes comments, skips empty/comment-only lines, makes lowercase, adjusts to left
-!> and splits the line into key and value
-  subroutine next_keyword(nunit, keyword, values, stat)
-    use string
-    implicit none
-    integer, intent(in) :: nunit
-    character*8000, intent(out) :: values
-    character*8000, intent(out) :: keyword
-    integer, intent(out) :: stat
-    character*8000 :: line, line_precomment, line_postcomment
-    integer :: io
-
-    do
-      ! read a line
-      read(nunit,'(A)', iostat=io) line
-      if (io<0) then
-        stat=-1
-        return
-      endif
-
-      ! remove comment, spaces, make lowercase and split the string at spaces
-      call cut(line, '#', line_precomment, line_postcomment)
-      if (trim(line_precomment)=='') cycle
-      call lowercase(line_precomment)
-      call compact(line_precomment,' ')
-      call cut(line_precomment, ' ', line, line_postcomment)
-      line_postcomment=adjustl(line_postcomment)
-
-      keyword=line
-      values=line_postcomment
-      return
-    enddo
-
-  endsubroutine
 
 ! =================================================================== !
 

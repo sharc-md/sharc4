@@ -661,7 +661,7 @@ def do_calc(INFOS):
         sys.stdout.write('    Data extractor...                                 ')
         sys.stdout.flush()
         os.chdir(path)
-        io=sp.call(sharcpath+'/data_extractor.x output.dat > /dev/null 2> /dev/null',shell=True)
+        io=sp.call(sharcpath+'/data_extractor.x -s -f output.dat > /dev/null 2> /dev/null',shell=True)
         if io!=0:
           print 'WARNING: extractor call failed for %s! Exit code %i' % (path,io)
         os.chdir(cwd)
