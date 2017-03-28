@@ -385,6 +385,7 @@ Please enter the number corresponding to the type of calculation.
   Exci=question('Excitation Calculation',bool,False)
   INFOS['Exci']=Exci
   INFOS['TDA']=False
+  INFOS['COSMO']=False
   if Exci == True:
      print ''
      print 'Singlets, Triplets or Both (ONLYSING, ONLYTRIP or BOTH)?'
@@ -396,7 +397,7 @@ Please enter the number corresponding to the type of calculation.
      NrExci=question('Number of Excitations:',int,[10])[0]
      INFOS['NrExci']=NrExci
      print ''
-     print 'Select to use the Tamm-Dancoff Approximation (Recommended as it should improve the description of conical intersections)'
+     print 'Select to use the Tamm-Dancoff Approximation (Recommended as it should improve the description of conical intersections and should be used for dynamics.)'
      TDA=question('Use TDA?',bool,True)
      INFOS['TDA']=TDA
      print ''
@@ -514,12 +515,12 @@ def setup_input(INFOS):
         s+='EXCITATION\n%s DAVIDSON\nlowest %i\nEND\n\n' % (INFOS['Mult'],INFOS['NrExci'])
      else:
         s+='EXCITATION\nDAVIDSON\nlowest %s\nEND\n\n' % (INFOS['NrExci'])
-     if INFOS['TDA'] == True and INFOS['Exci'] == True:
-        s+='TDA \n\n'
+  if INFOS['TDA'] == True and INFOS['Exci'] == True:
+     s+='TDA \n\n'
   if INFOS['Exci']==True and INFOS['ExcGO'] == True:
      s+='GEOMETRY\nIterations %s\nEND\n\n' % (INFOS['Iter'])
      s+='EXCITEDGO\n%s\nSTATE A %i\nOUTPUT=4\nEND\n\n' %(INFOS['SINGTRIP'],INFOS['STATE'])
- 
+
   if INFOS['COSMO']== True:
      if INFOS['User']==True:
         s+='SOLVATION\nSurf Esurf\n Solv eps=%2.2f rad=%2.2f cav0=0.0 cav1=0.0067639\nCharged method=CONJ\nC-Mat POT\nSCF VAR ALL\nCSMRSP\nEND\n\n' %(INFOS['Epsi'], INFOS['Rad'])
