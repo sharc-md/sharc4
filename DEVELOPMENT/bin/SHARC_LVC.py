@@ -1033,6 +1033,31 @@ def read_SH2LVC(QMin):
       SH2LVC['H'][istate][istate]  += val * Q[i]
       SH2LVC['dH'][i][istate][istate] += val
 
+  # Add the interstate LVC constants (lambda)
+  # Enter in separate lines as:
+  # <n_lambda>
+  # <state1> <state2> <mode> <lambda>
+  # <state1> <state2> <mode> <lambda>
+  
+  tmp = find_lines(1, 'lambda', sh2lvc)
+  if not tmp==[]:
+    lam = []
+    nlam = int(tmp[0])
+    tmp = find_lines(nlam+1, 'lambda', sh2lvc)
+    for line in tmp[1:]:
+      words = line.split()
+      lam.append((int(words[0])-1, int(words[1])-1, int(words[2])-1, float(words[3])))
+
+    for l in lam:
+      (istate, jstate, i, val) = l
+      SH2LVC['H'][istate][jstate]  += val * Q[i]
+      SH2LVC['H'][jstate][istate]  += val * Q[i]
+      SH2LVC['dH'][i][istate][jstate] += val      
+      SH2LVC['dH'][i][jstate][istate] += val      
+
+  print "statemap"
+  print statemap
+
   SH2LVC['dipole'] = {}
   for idir in range(1,4):
     SH2LVC['dipole'][idir]=[ [ complex(0.,0.) for i in range(nstates) ] for j in range(nstates) ]
