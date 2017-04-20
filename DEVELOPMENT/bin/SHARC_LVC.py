@@ -895,26 +895,10 @@ def read_QMin():
   for i in range(QMin['natom']):
     for j in range(3):
       geom[i][j+1]/=factor
-
-  # reads old geometry from QM.out
-  try:
-    f=open('QM.out')
-    qmin=f.readlines()
-    f.close()
-
-    geomold=[]
-    for i in range(QMin['natom']):
-      line=qmin[i].split()
-      for j in range(3):
-        line[j+1]=float(line[j+1])
-      geomold.append(line)
-  except IOError:
-    geomold=geom
-
   QMin['geom']=geom
-  QMin['geomold']=geomold
 
   # find forbidden keywords and optional keywords
+  QMin['init'] = False
   for line in qmin:
     s=line.lower().split()
     if len(s)==0:
@@ -924,7 +908,8 @@ def read_QMin():
       sys.exit(16)
     if 'dmdr' in s[0]:
       QMin['dmdr']=[]
-
+    if s[0] == 'init':
+      QMin['init'] = True
 
   # add request keywords
   QMin['soc']=[]
@@ -980,39 +965,73 @@ def read_SH2LVC(QMin):
     disp += [geom[i][1] - float(s[2]), geom[i][2] - float(s[3]), geom[i][3] - float(s[4])]
     SH2LVC['Ms'] += 3*[(float(s[5])*U_TO_AMU)**.5]
 
+  #print "Cartesian displacements:"
+  #for d in disp:
+  #  print "% .6f"%d,
+  #print
+
   # Frequencies (a.u.)
-  tmpstr = find_lines(1, 'Frequencies',sh2lvc)
-  if tmpstr==[]:
+  tmp = find_lines(1, 'Frequencies',sh2lvc)
+  if tmp==[]:
     print 'No Frequencies defined in SH2LVC.inp!'
     sys.exit(24)
-  SH2LVC['Om'] = [float(o) for o in tmpstr[0].split()]
+  SH2LVC['Om'] = [float(o) for o in tmp[0].split()]
   Om = SH2LVC['Om']
 
   # Normal modes in mass-weighted coordinates
-  SH2LVC['V']  = [[float(v) for v in line.split()] for line in open('V.txt', 'r').readlines()] # transformation matrix
+  tmp = find_lines(1, 'Mass-weighted normal modes', sh2lvc)
+  if tmp==[]:
+    print 'Path to normal modes not defined in SH2LVC.inp!'
+    sys.exit(24)
+  NMfile = tmp[0].strip()
+  SH2LVC['V']  = [[float(v) for v in line.split()] for line in open(NMfile, 'r').readlines()] # transformation matrix
   
   # Transform to dimensionless mass-weighted normal modes
   MR = [SH2LVC['Ms'][i] * disp[i] for i in r3N]
   MRV = matmult([MR], SH2LVC['V'])
   Q =  [MRV[0][i] * Om[i]**0.5 for i in r3N]
 
-  #print 'Ms:', SH2LVC['Ms']
-  #print 'disp:', disp
-  #print 'Q:', Q
+  print "Normal-mode displacements:"
+  for i, QQ in enumerate(Q):
+    if abs(QQ) > 1.e-5: print "%i: % .5f"%(i+1, QQ)
 
-  # Compute the ground state potential
+  # Compute the ground state potential and gradient
   V0 = sum(0.5 * Om[i] * Q[i]*Q[i] for i in r3N) 
   SH2LVC['H'] =  [[0. for istate in range(nstates)] for jstate in range(nstates)]
   for istate in range(nstates):
     SH2LVC['H'][istate][istate] = V0
-
+  
   SH2LVC['dH'] = [[[0. for istate in range(nstates)] for jstate in range(nstates)] for i in r3N]
   for i in r3N:
     for istate in range(nstates):
       SH2LVC['dH'][i][istate][istate] = Om[i] * Q[i]
 
-  # temp!!
-  SH2LVC['Hold'] = SH2LVC['H']
+  # Add the vertical energies (epsilon)
+  tmp = find_lines(nstates, 'epsilon',sh2lvc)
+  if not tmp==[]:
+    epsilon = [float(t) for t in tmp]
+    for istate in range(nstates):
+      SH2LVC['H'][istate][istate] += epsilon[istate]
+
+  # Add the intrastate LVC constants (kappa)
+  # Enter in separate lines as:
+  # <n_kappa>
+  # <state> <mode> <kappa>
+  # <state> <mode> <kappa>
+
+  tmp = find_lines(1, 'kappa', sh2lvc)
+  if not tmp==[]:
+    kappa = []
+    nkappa = int(tmp[0])
+    tmp = find_lines(nkappa+1, 'kappa', sh2lvc)
+    for line in tmp[1:]:
+      words = line.split()
+      kappa.append((int(words[0])-1, int(words[1])-1, float(words[2])))
+
+    for k in kappa:
+      (istate, i, val) = k
+      SH2LVC['H'][istate][istate]  += val * Q[i]
+      SH2LVC['dH'][i][istate][istate] += val
 
   SH2LVC['dipole'] = {}
   for idir in range(1,4):
@@ -1053,16 +1072,10 @@ def getQMout(QMin,SH2LVC):
     Hd,U=diagonalize(SH2LVC['H'])
   else:
     Hd=SH2LVC['H']
-    U=[ [ i==j for i in range(QMin['nmstates']) ] for j in range(QMin['nmstates']) ]
-
-  #pprint.pprint(SH2LVC['H'])
-  #pprint.pprint(U)
-
-  # diagonalize old Hamiltonian
-  if not 'nodiag' in QMin:
-    Uold=diagonalize(SH2LVC['Hold'])[1]
-  else:
-    Uold=[ [ i==j for i in range(QMin['nmstates']) ] for j in range(QMin['nmstates']) ]
+    U=[ [ float(i==j) for i in range(QMin['nmstates']) ] for j in range(QMin['nmstates']) ]
+    
+  print "Transformation matrix U:"
+  print U
 
   # get gradients
   dE = [[0. for iQ in range(3*QMin['natom'])] for istate in range(QMin['nmstates'])]
@@ -1092,7 +1105,18 @@ def getQMout(QMin,SH2LVC):
     dipole.append(Dmatrix)
 
   # get overlap matrix
-  overlap=matmult(Uold,U,transA=True)
+  if QMin['init']:
+    overlap = [ [ float(i==j) for i in range(QMin['nmstates']) ] for j in range(QMin['nmstates']) ]
+  else:
+    Uold = [[float(v) for v in line.split()] for line in open('Uold.txt', 'r').readlines()]
+    overlap=matmult(Uold,U,transA=True)
+
+  f = open('Uold.txt', 'w')
+  for line in U:
+    for c in line:
+      f.write(str(c) + ' ')
+    f.write('\n')
+  f.close()
 
   # transform SOC matrix
   SO=transform(SH2LVC['soc'],U)
