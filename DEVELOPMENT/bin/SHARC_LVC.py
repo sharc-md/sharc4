@@ -871,11 +871,15 @@ def read_QMin():
   QMin['states']=states
   QMin['nstates']=nstates
   QMin['nmstates']=nmstates
+  QMin['nmult'] = 0
   statemap={}
   i=1
+#  QMin['stateinc']=[0]
   for imult,nstates in enumerate(states):
+    #QMin['stateinc'].append(nstates + QMin['stateinc'][-1])
     if nstates==0:
       continue
+    QMin['nmult'] += 1
     for ims in range(imult+1):
       ms=ims-imult/2.
       for istate in range(nstates):
@@ -948,10 +952,13 @@ def read_SH2LVC(QMin):
   r3N = range(3*natom)
 
   # check nstates
-  nstates=int(sh2lvc [1])
-  if not nstates==QMin['nmstates']:
-    print 'NMstates (%i) from QM.in and nstates (%i) from SH2LVC.inp are inconsistent!'%(QMin['nmstates'], nstates)
+  states=[int(s) for s in sh2lvc[1].split()]
+  if not states==QMin['states']:
+    print 'states from QM.in and nstates from SH2LVC.inp are inconsistent!', QMin['states'], states
     sys.exit(18)
+  nstates = QMin['nstates']
+  nmstates = QMin['nmstates']
+  nmult = len(states)
 
   # read the coordinates and compute Cartesian displacements
   disp=[] # displacement as one 3N-vector
@@ -997,27 +1004,43 @@ def read_SH2LVC(QMin):
 
   # Compute the ground state potential and gradient
   V0 = sum(0.5 * Om[i] * Q[i]*Q[i] for i in r3N) 
-  SH2LVC['H'] =  [[0. for istate in range(nstates)] for jstate in range(nstates)]
-  for istate in range(nstates):
-    SH2LVC['H'][istate][istate] = V0
-  
-  SH2LVC['dH'] = [[[0. for istate in range(nstates)] for jstate in range(nstates)] for i in r3N]
+  HMCH =  [[[0. for istate in range(states[imult])] for jstate in range(states[imult])] for imult in range(nmult)]
+  for imult in range(nmult):
+    for istate in range(states[imult]):
+      HMCH[imult][istate][istate] = V0
+
+  dHMCH = [[[[0. for istate in range(states[imult])] for jstate in range(states[imult])] for imult in range(nmult)] for i in r3N]
   for i in r3N:
-    for istate in range(nstates):
-      SH2LVC['dH'][i][istate][istate] = Om[i] * Q[i]
+    for imult in range(nmult):
+      for istate in range(states[imult]):      
+        dHMCH[i][imult][istate][istate] = Om[i] * Q[i]
 
   # Add the vertical energies (epsilon)
-  tmp = find_lines(nstates, 'epsilon',sh2lvc)
+  # Enter in separate lines as:
+  # <n_epsilon>
+  # <mult> <state> <epsilon>
+  # <mult> <state> <epsilon>
+
+  tmp = find_lines(1, 'epsilon',sh2lvc)
   if not tmp==[]:
-    epsilon = [float(t) for t in tmp]
-    for istate in range(nstates):
-      SH2LVC['H'][istate][istate] += epsilon[istate]
+    eps = []
+    neps = int(tmp[0])
+    tmp = find_lines(neps+1, 'epsilon', sh2lvc)
+    for line in tmp[1:]:
+      words = line.split()
+      eps.append((int(words[0])-1, int(words[1])-1, float(words[-1])))
+
+    for e in eps:
+      (imult, istate, val) = e
+      HMCH[imult][istate][istate] += val
+
+  #for imult in range(nmult): print numpy.array(HMCH[imult])
 
   # Add the intrastate LVC constants (kappa)
   # Enter in separate lines as:
   # <n_kappa>
-  # <state> <mode> <kappa>
-  # <state> <mode> <kappa>
+  # <mult> <state> <mode> <kappa>
+  # <mult> <state> <mode> <kappa>
 
   tmp = find_lines(1, 'kappa', sh2lvc)
   if not tmp==[]:
@@ -1026,18 +1049,18 @@ def read_SH2LVC(QMin):
     tmp = find_lines(nkappa+1, 'kappa', sh2lvc)
     for line in tmp[1:]:
       words = line.split()
-      kappa.append((int(words[0])-1, int(words[1])-1, float(words[2])))
+      kappa.append((int(words[0])-1, int(words[1])-1, int(words[2])-1, float(words[-1])))
 
     for k in kappa:
-      (istate, i, val) = k
-      SH2LVC['H'][istate][istate]  += val * Q[i]
-      SH2LVC['dH'][i][istate][istate] += val
+      (imult, istate, i, val) = k
+      HMCH[imult][istate][istate]  += val * Q[i]
+      dHMCH[i][imult][istate][istate] += val
 
   # Add the interstate LVC constants (lambda)
   # Enter in separate lines as:
   # <n_lambda>
-  # <state1> <state2> <mode> <lambda>
-  # <state1> <state2> <mode> <lambda>
+  # <mult> <state1> <state2> <mode> <lambda>
+  # <mult> <state1> <state2> <mode> <lambda>
   
   tmp = find_lines(1, 'lambda', sh2lvc)
   if not tmp==[]:
@@ -1046,28 +1069,51 @@ def read_SH2LVC(QMin):
     tmp = find_lines(nlam+1, 'lambda', sh2lvc)
     for line in tmp[1:]:
       words = line.split()
-      lam.append((int(words[0])-1, int(words[1])-1, int(words[2])-1, float(words[3])))
+      lam.append((int(words[0])-1, int(words[1])-1, int(words[2])-1, int(words[3])-1, float(words[-1])))
 
     for l in lam:
-      (istate, jstate, i, val) = l
-      SH2LVC['H'][istate][jstate]  += val * Q[i]
-      SH2LVC['H'][jstate][istate]  += val * Q[i]
-      SH2LVC['dH'][i][istate][jstate] += val      
-      SH2LVC['dH'][i][jstate][istate] += val      
+      (imult, istate, jstate, i, val) = l
+      HMCH[imult][istate][jstate]  += val * Q[i]
+      HMCH[imult][jstate][istate]  += val * Q[i]
+      dHMCH[i][imult][istate][jstate] += val      
+      dHMCH[i][imult][jstate][istate] += val      
 
-  print "statemap"
-  print statemap
+  #for imult in range(nmult): print numpy.array(dHMCH[23][imult])
+
+  SH2LVC['H']  = HMCH
+  SH2LVC['dH'] = dHMCH
+
+  # Expand the Hamiltonian for individual Ms states
+  #SH2LVC['H']  = [[0. for imstate in range(nmstates)] for jmstate in range(nmstates)]
+  #SH2LVC['dH'] = [[[0. for istate in range(nmstates)] for jstate in range(nmstates)] for i in r3N]
+  #for imstate in range(nmstates):
+  #  mi,si,msi = QMin['statemap'][imstate+1]
+  #  istate = QMin['stateinc'][mi-1] + si - 1
+  #  for jmstate in range(nmstates):
+  #    mj,sj,msj = QMin['statemap'][jmstate+1]
+  #    jstate = QMin['stateinc'][mj-1] + sj - 1
+  #    if mi==mj and msi==msj:
+  #      SH2LVC['H'][imstate][jmstate] = HMCH[istate][jstate]
+  #      for i in r3N:
+  #        SH2LVC['dH'][i][imstate][jmstate] = dHMCH[i][istate][jstate]
+  #        
+  #numpy.set_printoptions(precision=3, suppress=True)
+  #print numpy.array(HMCH)
+  #print numpy.array(SH2LVC['H'])
+  #
+  #print numpy.array(dHMCH[23])
+  #print numpy.array(SH2LVC['dH'][23])
 
   SH2LVC['dipole'] = {}
   for idir in range(1,4):
-    SH2LVC['dipole'][idir]=[ [ complex(0.,0.) for i in range(nstates) ] for j in range(nstates) ]
+    SH2LVC['dipole'][idir]=[ [ complex(0.,0.) for i in range(nmstates) ] for j in range(nmstates) ]
 
   # obtain the SO matrix
-  Rstring=find_lines(nstates,'SpinOrbit R',sh2lvc)
+  Rstring=find_lines(nmstates,'SpinOrbit R',sh2lvc)
   if Rstring==[]:
-    SH2LVC['soc']=[ [ complex(0.,0.) for i in range(nstates) ] for j in range(nstates) ]
+    SH2LVC['soc']=[ [ complex(0.,0.) for i in range(nmstates) ] for j in range(nmstates) ]
   else:
-    Istring=find_lines(nstates,'SpinOrbit I',sh2lvc)
+    Istring=find_lines(nmstates,'SpinOrbit I',sh2lvc)
     if Istring==[]:
       fmat=func_mat(Rstring)
     else:
@@ -1092,20 +1138,39 @@ def getQMout(QMin,SH2LVC):
   else:
     diagon=numpy.linalg
 
-  # diagonalize Hamiltonian
-  if not 'nodiag' in QMin:
-    Hd,U=diagonalize(SH2LVC['H'])
-  else:
-    Hd=SH2LVC['H']
-    U=[ [ float(i==j) for i in range(QMin['nmstates']) ] for j in range(QMin['nmstates']) ]
-    
-  print "Transformation matrix U:"
-  print U
+  nmult = len(QMin['states'])
+  r3N = range(3*QMin['natom'])
 
-  # get gradients
+  # Diagonalize Hamiltonian and expand to the full ms-basis
+  U  = [[ 0. for i in range(QMin['nmstates']) ] for j in range(QMin['nmstates']) ]
+  Hd = [[ 0. for i in range(QMin['nmstates']) ] for j in range(QMin['nmstates']) ]
+  dHfull = [[[ 0. for i in range(QMin['nmstates']) ] for j in range(QMin['nmstates']) ] for iQ in r3N]
+  offs = 0
+  for imult in range(nmult):
+    dim = QMin['states'][imult]
+    if not dim == 0:
+      Hdtmp,Utmp=diagonalize(SH2LVC['H'][imult])
+      for ms in range(imult+1):
+        for i in range(dim):
+          Hd[i+offs][i+offs] = Hdtmp[i][i]
+          for j in range(dim):
+            U[i+offs][j+offs]  = Utmp[i][j]
+            for iQ in r3N:
+              dHfull[iQ][i+offs][j+offs] = SH2LVC['dH'][iQ][imult][i][j]
+        offs += dim
+
+  #numpy.set_printoptions(precision=3, suppress=True)
+  #print "Hd"
+  #print numpy.array(Hd)
+  #print "Transformation matrix U:"
+  #print numpy.array(U)
+ # print "dHfull[23]"
+ # print numpy.array(dHfull[23])
+
+  # Transform the gradients to the MCH basis
   dE = [[0. for iQ in range(3*QMin['natom'])] for istate in range(QMin['nmstates'])]
-  for iQ in range(3*QMin['natom']):
-    dEmat = transform(SH2LVC['dH'][iQ], U)
+  for iQ in r3N:
+    dEmat = transform(dHfull[iQ], U)
     for istate in range(QMin['nmstates']):
       dE[istate][iQ] = dEmat[istate][istate]
 
