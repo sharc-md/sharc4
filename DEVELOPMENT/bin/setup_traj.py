@@ -121,6 +121,13 @@ Interfaces={
       'prepare_routine': 'prepare_RICC2',
       'couplings':       [3],
       'dipolegrad':      False
+     },
+  7: {'script':          'SHARC_LVC.py',
+      'description':     'LVC Hamiltonian',
+      'get_routine':     'get_LVC',
+      'prepare_routine': 'prepare_LVC',
+      'couplings':       [3],
+      'dipolegrad':      True
      }
 
   }
@@ -1864,6 +1871,57 @@ def prepare_Analytical(INFOS,iconddir):
   # copy MOs and template
   cpfrom=INFOS['analytical.template']
   cpto='%s/QM/SH2Ana.inp' % (iconddir)
+  shutil.copy(cpfrom,cpto)
+
+  # runQM.sh
+  runname=iconddir+'/QM/runQM.sh'
+  runscript=open(runname,'w')
+  s='''cd QM
+$SHARC/%s QM.in >> QM.log 2>> QM.err
+err=$?
+
+exit $err''' % (Interfaces[INFOS['interface']]['script'])
+  runscript.write(s)
+  runscript.close()
+  os.chmod(runname, os.stat(runname).st_mode | stat.S_IXUSR)
+
+  return
+
+# =================================================
+
+def get_LVC(INFOS):
+
+  string='\n  '+'='*80+'\n'
+  string+='||'+centerstring('LVC Interface setup',80)+'||\n'
+  string+='  '+'='*80+'\n\n'
+  print string
+
+  if os.path.isfile('SH2LVC.inp'):
+    print 'File "SH2LVC.inp" detected. '
+    usethisone=question('Use this template file?',bool,True)
+    if usethisone:
+      INFOS['LVC.template']='SH2LVC.inp'
+  if not 'LVC.template' in INFOS:
+    while True:
+      filename=question('Template filename:',str)
+      if not os.path.isfile(filename):
+        print 'File %s does not exist!' % (filename)
+        continue
+
+      break
+    INFOS['LVC.template']=filename
+  print ''
+
+  return INFOS
+
+# =================================================
+
+def prepare_LVC(INFOS,iconddir):
+  # copy LVCAna.inp
+
+  # copy MOs and template
+  cpfrom=INFOS['LVC.template']
+  cpto='%s/QM/SH2LVC.inp' % (iconddir)
   shutil.copy(cpfrom,cpto)
 
   # runQM.sh
