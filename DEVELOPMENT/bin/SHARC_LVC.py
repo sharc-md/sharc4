@@ -1,12 +1,12 @@
 #!/usr/bin/env python2
 
 # This script calculates QC results for a model system
-# 
+#
 # Reads QM.in
 # Calculates SOC matrix, dipole moments, gradients, nacs and overlaps
 # Writes these back to QM.out
 
-from copy import deepcopy 
+from copy import deepcopy
 import math
 import sys
 import re
@@ -62,31 +62,31 @@ versiondate=datetime.date(2014,10,8)
 
 # hash table for conversion of multiplicity to the keywords used in MOLPRO
 IToMult={
-         1: 'Singlet', 
-         2: 'Doublet', 
-         3: 'Triplet', 
-         4: 'Quartet', 
-         5: 'Quintet', 
-         6: 'Sextet', 
-         7: 'Septet', 
-         8: 'Octet', 
-         'Singlet': 1, 
-         'Doublet': 2, 
-         'Triplet': 3, 
-         'Quartet': 4, 
-         'Quintet': 5, 
-         'Sextet': 6, 
-         'Septet': 7, 
+         1: 'Singlet',
+         2: 'Doublet',
+         3: 'Triplet',
+         4: 'Quartet',
+         5: 'Quintet',
+         6: 'Sextet',
+         7: 'Septet',
+         8: 'Octet',
+         'Singlet': 1,
+         'Doublet': 2,
+         'Triplet': 3,
+         'Quartet': 4,
+         'Quintet': 5,
+         'Sextet': 6,
+         'Septet': 7,
          'Octet': 8
          }
 
 # hash table for conversion of polarisations to the keywords used in MOLPRO
 IToPol={
-        0: 'X', 
-        1: 'Y', 
-        2: 'Z', 
-        'X': 0, 
-        'Y': 1, 
+        0: 'X',
+        1: 'Y',
+        2: 'Z',
+        'X': 0,
+        'Y': 1,
         'Z': 2
         }
 
@@ -213,7 +213,7 @@ def printgrad(grad,natom,geo):
 # ======================================================================= #
 
 def printQMout(QMin,QMout):
-  '''If PRINT, prints a summary of all requested QM output values. Matrices are formatted using printcomplexmatrix, vectors using printgrad. 
+  '''If PRINT, prints a summary of all requested QM output values. Matrices are formatted using printcomplexmatrix, vectors using printgrad.
 
   Arguments:
   1 dictionary: QMin
@@ -427,7 +427,7 @@ def eformat(f, prec, exp_digits):
 
 # ======================================================================= #
 def writeQMout(QMin,QMout,QMinfilename):
-  '''Writes the requested quantities to the file which SHARC reads in. The filename is QMinfilename with everything after the first dot replaced by "out". 
+  '''Writes the requested quantities to the file which SHARC reads in. The filename is QMinfilename with everything after the first dot replaced by "out".
 
   Arguments:
   1 dictionary: QMin
@@ -992,7 +992,7 @@ def read_SH2LVC(QMin):
     sys.exit(24)
   NMfile = tmp[0].strip()
   SH2LVC['V']  = [[float(v) for v in line.split()] for line in open(NMfile, 'r').readlines()] # transformation matrix
-  
+
   # Transform to dimensionless mass-weighted normal modes
   MR = [SH2LVC['Ms'][i] * disp[i] for i in r3N]
   MRV = matmult([MR], SH2LVC['V'])
@@ -1003,7 +1003,7 @@ def read_SH2LVC(QMin):
     if abs(QQ) > 1.e-5: print "%i: % .5f"%(i+1, QQ)
 
   # Compute the ground state potential and gradient
-  V0 = sum(0.5 * Om[i] * Q[i]*Q[i] for i in r3N) 
+  V0 = sum(0.5 * Om[i] * Q[i]*Q[i] for i in r3N)
   HMCH =  [[[0. for istate in range(states[imult])] for jstate in range(states[imult])] for imult in range(nmult)]
   for imult in range(nmult):
     for istate in range(states[imult]):
@@ -1012,7 +1012,7 @@ def read_SH2LVC(QMin):
   dHMCH = [[[[0. for istate in range(states[imult])] for jstate in range(states[imult])] for imult in range(nmult)] for i in r3N]
   for i in r3N:
     for imult in range(nmult):
-      for istate in range(states[imult]):      
+      for istate in range(states[imult]):
         dHMCH[i][imult][istate][istate] = Om[i] * Q[i]
 
   # Add the vertical energies (epsilon)
@@ -1061,7 +1061,7 @@ def read_SH2LVC(QMin):
   # <n_lambda>
   # <mult> <state1> <state2> <mode> <lambda>
   # <mult> <state1> <state2> <mode> <lambda>
-  
+
   tmp = find_lines(1, 'lambda', sh2lvc)
   if not tmp==[]:
     lam = []
@@ -1075,34 +1075,13 @@ def read_SH2LVC(QMin):
       (imult, istate, jstate, i, val) = l
       HMCH[imult][istate][jstate]  += val * Q[i]
       HMCH[imult][jstate][istate]  += val * Q[i]
-      dHMCH[i][imult][istate][jstate] += val      
-      dHMCH[i][imult][jstate][istate] += val      
+      dHMCH[i][imult][istate][jstate] += val
+      dHMCH[i][imult][jstate][istate] += val
 
   #for imult in range(nmult): print numpy.array(dHMCH[23][imult])
 
   SH2LVC['H']  = HMCH
   SH2LVC['dH'] = dHMCH
-
-  # Expand the Hamiltonian for individual Ms states
-  #SH2LVC['H']  = [[0. for imstate in range(nmstates)] for jmstate in range(nmstates)]
-  #SH2LVC['dH'] = [[[0. for istate in range(nmstates)] for jstate in range(nmstates)] for i in r3N]
-  #for imstate in range(nmstates):
-  #  mi,si,msi = QMin['statemap'][imstate+1]
-  #  istate = QMin['stateinc'][mi-1] + si - 1
-  #  for jmstate in range(nmstates):
-  #    mj,sj,msj = QMin['statemap'][jmstate+1]
-  #    jstate = QMin['stateinc'][mj-1] + sj - 1
-  #    if mi==mj and msi==msj:
-  #      SH2LVC['H'][imstate][jmstate] = HMCH[istate][jstate]
-  #      for i in r3N:
-  #        SH2LVC['dH'][i][imstate][jmstate] = dHMCH[i][istate][jstate]
-  #        
-  #numpy.set_printoptions(precision=3, suppress=True)
-  #print numpy.array(HMCH)
-  #print numpy.array(SH2LVC['H'])
-  #
-  #print numpy.array(dHMCH[23])
-  #print numpy.array(SH2LVC['dH'][23])
 
   SH2LVC['dipole'] = {}
   for idir in range(1,4):
@@ -1159,14 +1138,6 @@ def getQMout(QMin,SH2LVC):
               dHfull[iQ][i+offs][j+offs] = SH2LVC['dH'][iQ][imult][i][j]
         offs += dim
 
-  #numpy.set_printoptions(precision=3, suppress=True)
-  #print "Hd"
-  #print numpy.array(Hd)
-  #print "Transformation matrix U:"
-  #print numpy.array(U)
- # print "dHfull[23]"
- # print numpy.array(dHfull[23])
-
   # Transform the gradients to the MCH basis
   dE = [[0. for iQ in range(3*QMin['natom'])] for istate in range(QMin['nmstates'])]
   for iQ in r3N:
@@ -1182,8 +1153,7 @@ def getQMout(QMin,SH2LVC):
       if abs(SH2LVC['Om'][iQ]) > 1.e-8:
         OdE[iQ] = dE[istate][iQ] * SH2LVC['Om'][iQ]**0.5
     VOdE = matmult(SH2LVC['V'], OdE)
-    #ggrad = [VOdE[iQ] / SH2LVC['Ms'][iQ] for iQ in range(3*QMin['natom'])]
-    
+
     grad.append([])
     for iat in range(QMin['natom']):
       grad[-1].append([VOdE[3*iat] * SH2LVC['Ms'][3*iat], VOdE[3*iat+1] * SH2LVC['Ms'][3*iat+1], VOdE[3*iat+2] * SH2LVC['Ms'][3*iat+2]])
@@ -1223,11 +1193,6 @@ def getQMout(QMin,SH2LVC):
   QMout['runtime']=0.
 
   #pprint.pprint(QMout,width=192)
-
-
-
-
-
 
   return QMout
 
