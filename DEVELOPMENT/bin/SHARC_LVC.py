@@ -754,78 +754,6 @@ def writeQMoutprop(QMin,QMout):
   string+='\n'
   return string
 
-# =========================================================
-# =========================================================
-# =========================================================
-
-# =========================================================
-# class for real function of three coordinates
-# includes derivatives
-#
-# using eval is probably risky, because it can execute any code...
-class func_mat:
-  def split_strings(self,n,strings):
-    a=[]
-    for i in range(n):
-      s=strings[i].strip().split(',')
-      if any([j.strip()=='' for j in s[0:i+1]]):
-        print 'Matrix elements missing in definition!'
-        sys.exit(14)
-      a.append(s)
-    return a
-
-  def __init__(self, rstrings, istrings=None):
-    # rstring: list of strings defining the matrix elements for the real part
-    # istrings: for the imaginary part
-    # both matrices should be defined with lower triangle matrices
-    self.n=int(len(rstrings))
-    self.cmpx=False
-    self.r=self.split_strings(self.n,rstrings)
-
-    if istrings!=None:
-      self.cmpx=True
-      self.i=self.split_strings(self.n,istrings)
-
-  def mat(self,_geom,_var):
-    # geom is list of list of atom coordinates
-    # e.g. [['I', 0.6, 0.0, 0.0], ['Br', 2.4, 0.0, 0.0]]
-    # var is dictionary of variable mappings
-    # e.g. {'y': (1, 0), 'x': (0, 0)}
-
-    # set the variables
-    for _v in _var:
-      if isinstance(_var[_v],list):
-        _i,_j=tuple(_var[_v])
-        exec('%s=%f' % (_v,_geom[_i][_j+1]) )
-      else:
-        exec('%s=%f' % (_v,_var[_v] ) )
-
-    # build the real matrix
-    _R=[ [ 0. for _i in range(self.n) ] for _j in range(self.n) ]
-    for _i in range(self.n):
-      for _j in range(_i+1):
-        _R[_i][_j]=eval(self.r[_i][_j])
-
-    # build the imaginary matrix
-    _I=[ [ 0. for _i in range(self.n) ] for _j in range(self.n) ]
-    if self.cmpx:
-      for _i in range(self.n):
-        for _j in range(_i+1):
-          _I[_i][_j]=eval(self.i[_i][_j])
-
-    # build the Hermitian matrix
-    _M=[ [ 0. for _i in range(self.n) ] for _j in range(self.n) ]
-    for _i in range(self.n):
-      for _j in range(self.n):
-        if _i<_j:
-          _M[_i][_j]=complex(_R[_j][_i],-_I[_j][_i])
-        elif _i==_j:
-          _M[_i][_j]=complex(_R[_i][_j],0)
-        elif _i>_j:
-          _M[_i][_j]=complex(_R[_i][_j],_I[_i][_j])
-
-    # return
-    return _M
 
 # =========================================================
 def read_QMin():
@@ -874,9 +802,7 @@ def read_QMin():
   QMin['nmult'] = 0
   statemap={}
   i=1
-#  QMin['stateinc']=[0]
   for imult,nstates in enumerate(states):
-    #QMin['stateinc'].append(nstates + QMin['stateinc'][-1])
     if nstates==0:
       continue
     QMin['nmult'] += 1
@@ -1087,17 +1013,21 @@ def read_SH2LVC(QMin):
   for idir in range(1,4):
     SH2LVC['dipole'][idir]=[ [ complex(0.,0.) for i in range(nmstates) ] for j in range(nmstates) ]
 
-  # obtain the SO matrix
-  Rstring=find_lines(nmstates,'SpinOrbit R',sh2lvc)
-  if Rstring==[]:
-    SH2LVC['soc']=[ [ complex(0.,0.) for i in range(nmstates) ] for j in range(nmstates) ]
-  else:
-    Istring=find_lines(nmstates,'SpinOrbit I',sh2lvc)
-    if Istring==[]:
-      fmat=func_mat(Rstring)
-    else:
-      fmat=func_mat(Rstring,Istring)
-    SH2LVC['soc']=fmat.mat(QMin['geom'],SH2LVC['var'])
+  # obtain the SOC matrix
+  SH2LVC['soc']=[ [ complex(0.,0.) for i in range(nmstates) ] for j in range(nmstates) ]
+  # real part
+  tmp=find_lines(nmstates,'SOC R',sh2lvc)
+  if not tmp==[]:
+    for i, line in enumerate(tmp):
+      for j, val in enumerate(line.split()):
+        SH2LVC['soc'][i][j] += float(val)
+  tmp=find_lines(nmstates,'SOC I',sh2lvc)
+  # imaginary part
+  tmp=find_lines(nmstates,'SOC I',sh2lvc)
+  if not tmp==[]:
+    for i, line in enumerate(tmp):
+      for j, val in enumerate(line.split()):
+        SH2LVC['soc'][i][j] += float(val) * 1j
 
   return SH2LVC, QMin
 
