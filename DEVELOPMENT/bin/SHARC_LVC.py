@@ -6,22 +6,22 @@
 # Calculates SOC matrix, dipole moments, gradients, nacs and overlaps
 # Writes these back to QM.out
 
-from copy import deepcopy
+import time
+(tc, tt) = (time.clock(), time.time())
+
 import math
 import sys
-import re
 import os
-import stat
-import shutil
 import datetime
-import pprint
 try:
+  # Importing numpy takes about 100 ms, which is ~50% of the execution time!
   import numpy
   NONUMPY=False
 except ImportError:
   import subprocess as sp
   NONUMPY=True
 
+print "Import: CPU time: % .3f s, wall time: %.3f s"%(time.clock() - tc, time.time() - tt)
 
 # =========================================================
 # compatibility stuff
@@ -332,13 +332,15 @@ class diagonalizer:
     for ix in range(len(H)):
       line=STDOUT[shift+ix].split()
       for iy in range(len(H)):
-        H[ix][iy]=complex(float(line[0+2*iy]),float(line[1+2*iy]))
+        assert abs(float(line[1+2*iy])) <= 1.e-10
+        H[ix][iy]=float(line[0+2*iy])
     U=[ [ 0. for i in range(len(H)) ] for j in range(len(H)) ]
     shift=2+len(H)
     for ix in range(len(H)):
       line=STDOUT[shift+ix].split()
       for iy in range(len(H)):
-        U[ix][iy]=complex(float(line[0+2*iy]),float(line[1+2*iy]))
+        assert abs(float(line[1+2*iy])) <= 1.e-10
+        U[ix][iy]=float(line[0+2*iy])
     return H,U
 
 # =========================================================
@@ -373,30 +375,10 @@ def transform(A,U):
         for i in range(len(U)):
           B[a][b]+=temp[a][i]*U[i][b]
   else:
-    Ucon=[ [ U[i][j].conjugate() for i in range(len(U)) ] for j in range(len(U)) ]
-    B=numpy.dot(Ucon,numpy.dot(A,U))
+    #Ucon=[ [ U[i][j].conjugate() for i in range(len(U)) ] for j in range(len(U)) ]
+    B=numpy.dot(numpy.array(U).T,numpy.dot(A,U))
 
   return B
-
-# =========================================================
-def matmult(A,B,transA=False,transB=False):
-  if transA:
-    tempA=[ [ A[i][j].conjugate() for i in range(len(A)) ] for j in range(len(A)) ]
-  else:
-    tempA=A
-  if transB:
-    tempB=[ [ B[i][j].conjugate() for i in range(len(B)) ] for j in range(len(B)) ]
-  else:
-    tempB=B
-  if NONUMPY:
-    Res=[ [ 0. for i in range(len(A)) ] for j in range(len(A)) ]
-    for a in range(len(A)):
-      for b in range(len(A)):
-        for i in range(len(A)):
-          Res[a][b]+=tempA[a][i]*tempB[i][b]
-  else:
-    Res=numpy.dot(tempA,tempB)
-  return Res
 
 # =============================================================================================== #
 # =============================================================================================== #
@@ -921,8 +903,11 @@ def read_SH2LVC(QMin):
 
   # Transform to dimensionless mass-weighted normal modes
   MR = [SH2LVC['Ms'][i] * disp[i] for i in r3N]
-  MRV = matmult([MR], SH2LVC['V'])
-  Q =  [MRV[0][i] * Om[i]**0.5 for i in r3N]
+  MRV = [0. for i in r3N]
+  for i in r3N:
+    MRV[i] = sum(MR[j] * SH2LVC['V'][j][i] for j in r3N)
+  #MRV = numpy.dot(MR, SH2LVC['V'])
+  Q =  [MRV[i] * Om[i]**0.5 for i in r3N]
 
   print "Normal-mode displacements:"
   for i, QQ in enumerate(Q):
@@ -1040,13 +1025,6 @@ def getQMout(QMin,SH2LVC):
 
   QMout={}
 
-  #pprint.pprint(SH2LVC,width=192)
-
-  if NONUMPY:
-    diagon=diagonalizer()
-  else:
-    diagon=numpy.linalg
-
   nmult = len(QMin['states'])
   r3N = range(3*QMin['natom'])
 
@@ -1062,11 +1040,11 @@ def getQMout(QMin,SH2LVC):
       for ms in range(imult+1):
         for i in range(dim):
           Hd[i+offs][i+offs] = Hdtmp[i][i]
-          for j in range(dim):
-            U[i+offs][j+offs]  = Utmp[i][j]
-            for iQ in r3N:
-              dHfull[iQ][i+offs][j+offs] = SH2LVC['dH'][iQ][imult][i][j]
+          U[i+offs][offs:offs+dim] = Utmp[i]
+          for iQ in r3N:
+            dHfull[iQ][i+offs][offs:offs+dim] = SH2LVC['dH'][iQ][imult][i]
         offs += dim
+#  print "QMout1: CPU time: % .3f s, wall time: %.3f s"%(time.clock() - tc, time.time() - tt)
 
   # Transform the gradients to the MCH basis
   dE = [[0. for iQ in range(3*QMin['natom'])] for istate in range(QMin['nmstates'])]
@@ -1074,19 +1052,27 @@ def getQMout(QMin,SH2LVC):
     dEmat = transform(dHfull[iQ], U)
     for istate in range(QMin['nmstates']):
       dE[istate][iQ] = dEmat[istate][istate]
+#  print "QMout2: CPU time: % .3f s, wall time: %.3f s"%(time.clock() - tc, time.time() - tt)
 
   # Convert the gradient to Cartesian coordinates
+  VOdE = [0. for i in r3N]
   grad = []
   for istate in range(QMin['nmstates']):
-    OdE = [0. for iQ in range(3*QMin['natom'])]
-    for iQ in range(3*QMin['natom']):
+    OdE = [0. for iQ in r3N]
+    for iQ in r3N:
       if abs(SH2LVC['Om'][iQ]) > 1.e-8:
         OdE[iQ] = dE[istate][iQ] * SH2LVC['Om'][iQ]**0.5
-    VOdE = matmult(SH2LVC['V'], OdE)
+    if NONUMPY:
+      for iQ in r3N:
+        VOdE[iQ] = sum(SH2LVC['V'][iQ][jQ] * OdE[jQ] for jQ in r3N)
+    else:
+      VOdE = numpy.dot(SH2LVC['V'], OdE)
+#    VOdE = numpy.dot(SH2LVC['V'], OdE)
 
     grad.append([])
     for iat in range(QMin['natom']):
       grad[-1].append([VOdE[3*iat] * SH2LVC['Ms'][3*iat], VOdE[3*iat+1] * SH2LVC['Ms'][3*iat+1], VOdE[3*iat+2] * SH2LVC['Ms'][3*iat+2]])
+#  print "QMout3: CPU time: % .3f s, wall time: %.3f s"%(time.clock() - tc, time.time() - tt)
 
   # transform dipole matrices
   dipole=[]
@@ -1099,7 +1085,15 @@ def getQMout(QMin,SH2LVC):
     overlap = [ [ float(i==j) for i in range(QMin['nmstates']) ] for j in range(QMin['nmstates']) ]
   else:
     Uold = [[float(v) for v in line.split()] for line in open('Uold.txt', 'r').readlines()]
-    overlap=matmult(Uold,U,transA=True)
+    if NONUMPY:
+      overlap = [ [ 0. for i in range(QMin['nmstates']) ] for j in range(QMin['nmstates']) ]
+      rS = range(QMin['nmstates'])
+      for a in rS:
+        for b in rS:
+          for i in rS:
+            overlap[a][b]+=Uold[i][a]*U[i][b]
+    else:
+      overlap = numpy.dot(numpy.array(Uold).T,U)
 
   f = open('Uold.txt', 'w')
   for line in U:
@@ -1131,16 +1125,22 @@ def main():
 
   QMin=read_QMin()
   SH2LVC,QMin=read_SH2LVC(QMin)
+  print "SH2LVC: CPU time: % .3f s, wall time: %.3f s"%(time.clock() - tc, time.time() - tt)
   #pprint.pprint( QMin)
   #pprint.pprint( SH2LVC)
 
   QMout=getQMout(QMin,SH2LVC)
+  print "QMout:  CPU time: % .3f s, wall time: %.3f s"%(time.clock() - tc, time.time() - tt)
 
-  printQMout(QMin,QMout)
+  # This print routine takes about 10 ms, i.e. ~5% of the total execution time
+  #printQMout(QMin,QMout)
+  #print "Print:  CPU time: % .3f s, wall time: %.3f s"%(time.clock() - tc, time.time() - tt)
 
   # Write QMout
   writeQMout(QMin,QMout,'QM.in')
+  print "Write:  CPU time: % .3f s, wall time: %.3f s"%(time.clock() - tc, time.time() - tt)
 
+  print "Final:  CPU time: % .3f s, wall time: %.3f s"%(time.clock() - tc, time.time() - tt)
   print '#================ END ================#'
 
 # ============================================================================
