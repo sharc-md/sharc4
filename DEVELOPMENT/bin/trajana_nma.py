@@ -25,6 +25,7 @@ descr: Script for doing a normal mode analysis. Coordinates are transformed into
     # maybe computation with absolute values should be changed. an oscillating planar molecule would only show half the expected amplitude the way it is implemented now -> multiplication by 2 or comparison against mean without absolute values. But that may not make sense if the molecule loses its planarity.
 
 import os, sys, shutil, re, datetime, readline
+sys.path.insert(0, os.environ['SHARC']+'/../lib')
 try:
     import numpy
 except ImportError:

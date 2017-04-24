@@ -9,6 +9,7 @@ descr: Script for doing essential dynamics analysis.
 # runs on hawk4,5,6,11,14
 
 import os, sys, datetime, readline, re, shutil
+sys.path.insert(0, os.environ['SHARC']+'/../lib')
 try:
     import numpy
 except ImportError:
