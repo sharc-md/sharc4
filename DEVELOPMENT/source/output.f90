@@ -429,7 +429,7 @@ subroutine write_dat(u, traj, ctrl)
 
   call vec3write(natom, traj%geom_ad, u, '! 11 Geometry in a.u.','E20.13')
   call vec3write(natom, traj%veloc_ad, u, '! 12 Velocities in a.u.','E20.13')
-  if (ctrl%write_overlap==1) then
+  if (ctrl%write_property==1) then
     call matwrite(nstates, traj%Property_ss, u, '! 13 Property matrix (MCH)', 'E20.13')
   endif
   if (ctrl%write_grad == 1) then
