@@ -127,7 +127,7 @@ Interfaces={
       'get_routine':     'get_LVC',
       'prepare_routine': 'prepare_LVC',
       'couplings':       [3],
-      'dipolegrad':      True
+      'dipolegrad':      False
      }
 
   }
@@ -1917,7 +1917,7 @@ def get_LVC(INFOS):
 # =================================================
 
 def prepare_LVC(INFOS,iconddir):
-  # copy LVCAna.inp
+  # copy SH2LVC.inp
 
   # copy MOs and template
   cpfrom=INFOS['LVC.template']

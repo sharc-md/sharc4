@@ -357,8 +357,6 @@ def diagonalize(A):
 
   return Hd,U
 
-
-
 # =========================================================
 def transform(A,U):
   '''returns U^T.A.U'''
@@ -1067,7 +1065,6 @@ def getQMout(QMin,SH2LVC):
         VOdE[iQ] = sum(SH2LVC['V'][iQ][jQ] * OdE[jQ] for jQ in r3N)
     else:
       VOdE = numpy.dot(SH2LVC['V'], OdE)
-#    VOdE = numpy.dot(SH2LVC['V'], OdE)
 
     grad.append([])
     for iat in range(QMin['natom']):
@@ -1126,8 +1123,6 @@ def main():
   QMin=read_QMin()
   SH2LVC,QMin=read_SH2LVC(QMin)
   print "SH2LVC: CPU time: % .3f s, wall time: %.3f s"%(time.clock() - tc, time.time() - tt)
-  #pprint.pprint( QMin)
-  #pprint.pprint( SH2LVC)
 
   QMout=getQMout(QMin,SH2LVC)
   print "QMout:  CPU time: % .3f s, wall time: %.3f s"%(time.clock() - tc, time.time() - tt)
