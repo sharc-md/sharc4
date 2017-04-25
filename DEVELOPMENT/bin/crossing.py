@@ -273,7 +273,7 @@ def get_general():
   if os.path.isfile(inputfilename):
     inputfile=open(inputfilename)
     for line in inputfile:
-      if 'states' in line.lower():
+      if 'nstates' in line.lower():
         guessstates=[]
         l=line.split()
         for i in range(1,len(l)):
