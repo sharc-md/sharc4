@@ -1517,6 +1517,9 @@ def readQMin(QMinfilename):
         if len(line)==0:
             continue
         elif 'charge' in line[0]:
+            # TODO: needs to be fixed, crashes if:
+            # Atomcharge%2==0 and doublets requested and charge=+1
+            print 'blabla',line
             data=line[1].split()
             values = len(data)
 #            if values == 2:
@@ -1597,8 +1600,6 @@ def readQMin(QMinfilename):
         if not i in QMin['template']:
             print 'Key %s missing in template file!' % (i)
             sys.exit(44)
-
-    
 
     QMin['gradmode']=1
     QMin['ncpu']=max(1,QMin['ncpu'])

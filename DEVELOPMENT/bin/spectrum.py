@@ -81,6 +81,18 @@ class lorentz:
   def ev(self,A,x0,x):
     return A/( (x-x0)**2/self.c+1)
 
+class lognormal:
+  def __init__(self,fwhm):
+    self.fwhm=fwhm
+  def ev(self,A,x0,x):
+    if x<=0 or x0<=0:
+      return 0.
+    # for lognormal distribution, the factor for the exponent depends on x0
+    c=(math.log( (self.fwhm+math.sqrt(self.fwhm**2+4.*x0**2))/(2.*x0)))**2
+    # note that the function does not take a value of A at x0
+    # instead, the function is normalized such that its maximum will have a value of A (at x<=x0)
+    return A*x0/x*math.exp( -c/(4.*math.log(2.)) -math.log(2.)*(math.log(x)-math.log(x0))**2/c)
+
 class spectrum:
   def __init__(self,npts,emin,emax,fwhm,lineshape):
     self.npts=npts
@@ -88,6 +100,8 @@ class spectrum:
       self.f=gauss(fwhm)
     elif lineshape==2:
       self.f=lorentz(fwhm)
+    elif lineshape==4:
+      self.f=lognormal(fwhm)
     self.en=[ emin + float(i)/self.npts*(emax-emin) for i in range(self.npts+1) ]       # the energy grid needs to be calculated only once
     self.spec=[ 0. for i in range(self.npts+1) ]
   def add(self,A,x0):
@@ -649,7 +663,7 @@ set term pngcairo size 640,480
 set out '%s.png'
 
 ''' % (title,
-       ['Gaussian','Lorentzian','Lines'][INFOS['lineshape']-1],
+       ['Gaussian','Lorentzian','Lines','Log-normal'][INFOS['lineshape']-1],
        [', FWHM=%f eV' % (INFOS['fwhm']*HARTREE_TO_EV),''][INFOS['lineshape']==3],
        INFOS['ninit'],
        ['MCH','diagonal'][INFOS['diag']],
@@ -727,6 +741,7 @@ date %s
   parser.add_option('-o', dest='o', type=str, nargs=1, default='', help="Output filename")
   parser.add_option('-G', dest='G', action='store_true',default=False,help="Use Gaussian convolution (default)")
   parser.add_option('-L', dest='L', action='store_true',default=False,help="Use Lorentzian convolution")
+  parser.add_option('-N', dest='N', action='store_true',default=False,help="Use Log-normal convolution")
   parser.add_option('-s', dest='s', action='store_true',default=False,help="Use only selected initial conditions")
   parser.add_option('-l', dest='l', action='store_true',default=False,help="Make a line spectrum instead of a convolution")
   parser.add_option('-D', dest='D', action='store_true',default=False,help="Calculate density of states instead of absorption spectrum")
@@ -746,14 +761,20 @@ date %s
   INFOS['lineshape']=1
   if options.L:
     INFOS['lineshape']=2
+  if options.N:
+    INFOS['lineshape']=4
   if options.L and options.G:
     sys.stdout.write('WARNING: Both Gaussian and Lorentzian convolution specified, will use Lorentzian!')
+  if options.N and options.G:
+    sys.stdout.write('WARNING: Both Gaussian and Log-normal convolution specified, will use Log-normal!')
   if options.l:
     INFOS['lineshape']=3
   if INFOS['lineshape']==1:
     sys.stdout.write('Lineshape: Gaussian (FWHM=%.3f eV)\n' % (options.f))
   elif INFOS['lineshape']==2:
     sys.stdout.write('Lineshape: Lorentzian (FWHM=%.3f eV)\n' % (options.f))
+  elif INFOS['lineshape']==4:
+    sys.stdout.write('Lineshape: Log-normal (FWHM=%.3f eV)\n' % (options.f))
   elif INFOS['lineshape']==3:
     sys.stdout.write('Lineshape: Line Spectrum\n')
   INFOS['selected']=options.s
