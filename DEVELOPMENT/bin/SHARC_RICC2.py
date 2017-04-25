@@ -114,6 +114,9 @@ changelogstring='''
 
 07.03.2017:
 - wfthres is now interpreted as in other interfaces (default is 0.99 now)
+
+25.04.2017:
+- can use external basis set libraries
 '''
 
 # ======================================================================= #
@@ -2016,7 +2019,7 @@ def readQMin(QMinfilename):
 
   QMin['template']={}
   integers=['frozen','charge']
-  strings =['basis','auxbasis','method','scf','spin-scaling']
+  strings =['basis','auxbasis','method','scf','spin-scaling','basislib']
   floats=[]
   booleans=['douglas-kroll']
   for i in booleans:
@@ -2024,6 +2027,7 @@ def readQMin(QMinfilename):
   QMin['template']['method']='adc(2)'
   QMin['template']['scf']='dscf'
   QMin['template']['spin-scaling']='none'
+  QMin['template']['basislib']=''
   QMin['template']['charge']=0
   QMin['template']['frozen']=-1
 
@@ -2056,6 +2060,9 @@ def readQMin(QMinfilename):
       if QMin['template']['auxbasis'].lower()==basis.lower():
         QMin['template']['auxbasis']=basis
         break
+    if QMin['template']['basislib']:
+      print 'Keywords "basislib" and "auxbasis" cannot be used together in template!\nInstead, create a file for the auxbasis in /basislib/cbasen/'
+      sys.exit(11)
 
 
   # logic checks:
@@ -2525,13 +2532,27 @@ def runProgram(string,workdir):
 # ======================================================================= #
 def define(path,QMin,ricc2=True):
 
-  # first three sections
+    # first three sections
+  if QMin['template']['basislib']:
+    # write definrc
+    string='''basis=%s/basen
+basis=%s/cbasen
+''' % (QMin['template']['basislib'],QMin['template']['basislib'])
+    infile=os.path.join(path,'.definerc')
+    writefile(infile,string)
+
+  # write define input
   string='''
 title: SHARC-RICC2 run
 a coord
 *
 no
-b
+'''
+  if QMin['template']['basislib']:
+    string+='''lib
+3
+'''
+  string+='''b
 all %s
 *
 eht
@@ -2557,7 +2578,21 @@ y
     # auxilliary basis set: cbas
     # this is mandatory for ricc2, so if the user does not give an auxbasis, we take the default one
     if not 'auxbasis' in QMin['template']:
-      string+='cbas\n*\n'
+      if QMin['template']['basislib']:
+        string+='cbas\n'
+        # skip error messages in define
+        elements=set()
+        for atom in QMin['geo']:
+          elements.add(atom[0])
+        string+='\n\n'*len(elements)
+        string+='''lib
+4
+b
+all %s
+*
+''' % (QMin['template']['basis'])
+      else:
+        string+='cbas\n*\n'
     else:
       string+='cbas\nb\nall %s\n*\n' % (QMin['template']['auxbasis'])
 
