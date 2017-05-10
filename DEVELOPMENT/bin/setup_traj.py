@@ -2622,7 +2622,7 @@ def writeSHARCinput(INFOS,initobject,iconddir,istate):
   if 'off' in INFOS['decoherence']:
     s+='nodecoherence\n'
   else:
-    s+='decoherence %s\n' % (INFOS['decoherence'])
+    s+='decoherence\ndecoherence_param %s\n' % (INFOS['decoherence'])
   if INFOS['scaling']:
     s+='scaling %f\n' % (INFOS['scaling'])
   if INFOS['damping']:
