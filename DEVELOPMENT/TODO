@@ -105,3 +105,4 @@ trajana_*.py:
 
 Interfaces:
 - choose alpha and beta spins cleverly for efficient Dyson calculations
+- ALL interfaces should write to savedir some info about the status of the files (i.e., to which time step the new and old files correspond! Otherwise, the interface cannot know whether it should moveToOld at restarts.
