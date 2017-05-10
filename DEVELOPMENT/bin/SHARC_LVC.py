@@ -13,6 +13,7 @@ import math
 import sys
 import os
 import datetime
+from copy import deepcopy
 try:
   # Importing numpy takes about 100 ms, which is ~50% of the execution time!
   import numpy
@@ -1004,7 +1005,6 @@ def read_SH2LVC(QMin):
     for i, line in enumerate(tmp):
       for j, val in enumerate(line.split()):
         SH2LVC['soc'][i][j] += float(val)
-  tmp=find_lines(nmstates,'SOC I',sh2lvc)
   # imaginary part
   tmp=find_lines(nmstates,'SOC I',sh2lvc)
   if not tmp==[]:
@@ -1128,7 +1128,7 @@ def main():
   print "QMout:  CPU time: % .3f s, wall time: %.3f s"%(time.clock() - tc, time.time() - tt)
 
   # This print routine takes about 10 ms, i.e. ~5% of the total execution time
-  #printQMout(QMin,QMout)
+  printQMout(QMin,QMout)
   #print "Print:  CPU time: % .3f s, wall time: %.3f s"%(time.clock() - tc, time.time() - tt)
 
   # Write QMout
