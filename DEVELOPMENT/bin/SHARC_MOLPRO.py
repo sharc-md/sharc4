@@ -2010,6 +2010,10 @@ def readQMin(QMinfilename):
     if 'nooverlap' in QMin:
       print '"nooverlap" keyword present, but overlap calculation required.'
       sys.exit(11)
+    QMin['wfthres']=1.0
+    line=getsh2ADFkey(sh2ADF,'wfthres')
+    if line[0]:
+        QMin['wfthres']= float(line[1])
 
 
 
@@ -3930,10 +3934,10 @@ def main():
   writeQMout(QMin,QMout,QMinfilename)
 
   # Remove Scratchfiles from SCRATCHDIR
-  #if not DEBUG:
-    #cleandir(QMin['scratchdir'])
-    #if 'cleanup' in QMin:
-      #cleandir(QMin['savedir'])
+  if not DEBUG:
+    cleandir(QMin['scratchdir'])
+    if 'cleanup' in QMin:
+      cleandir(QMin['savedir'])
 
   if PRINT or DEBUG:
     print datetime.datetime.now()
