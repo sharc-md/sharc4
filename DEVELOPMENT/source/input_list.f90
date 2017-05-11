@@ -43,7 +43,7 @@ private alloc_list, resize_list
       call next_keyword(nunit, keyword, value, io)
       if (io/=0) exit
       if (keyword(1:4) == '****') then
-        print*,'Found ****, finished reading keywords.' 
+        write(*,*) 'Found ****, finished reading keywords.' 
         exit
       endif
       ! keyword,value pair is added to input list (in input_list)

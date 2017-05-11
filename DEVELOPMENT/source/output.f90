@@ -382,7 +382,7 @@ subroutine write_dat_initial(u, ctrl, traj)
     write(u,*) 'laser',          ctrl%laser
     write(u,*) 'nsteps',         ctrl%nsteps
     write(u,*) 'nsubsteps',      ctrl%nsubsteps
-    write(u,*) '************** End of header *************************************'
+    write(u,'(a)') '************** End of header *************************************'
     if (ctrl%laser==2) call vec3write(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_td, u, '! Laser field','E20.13')    
   endif
 
