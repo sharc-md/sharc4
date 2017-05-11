@@ -475,6 +475,7 @@ subroutine surface_hopping(traj,ctrl)
       traj%state_diag_old=traj%state_diag
       if (ctrl%hopping_procedure/=0) then
         traj%state_diag=istate
+        traj%Epot=real(traj%H_diag_ss(istate,istate))
       endif
       traj%kind_of_jump=1
       exit stateloop               ! ************************************************* exit of loop
@@ -571,7 +572,7 @@ subroutine Decoherence(traj,ctrl)
     sumc=0.d0
     do istate=1,ctrl%nstates
       if (istate/=traj%state_diag) then
-        tau=tau0 / abs( real(traj%H_diag_ss(istate,istate) ) - traj%Epot )
+        tau=tau0 / abs( real(traj%H_diag_ss(istate,istate) ) - real(traj%H_diag_ss(traj%state_diag,traj%state_diag)) )
         c(istate)=traj%coeff_diag_s(istate) * exp( -ctrl%dtstep / tau)
         sumc=sumc+abs(c(istate))**2
       endif
