@@ -120,21 +120,21 @@ program data_extractor
   ! first determine the filename of the dat file and open it
   nargs=iargc()
   if (nargs<3) then
-    print*,'Usage: ./data_extractor <flags> -f <data-file>'
-    print*,'        -a  : write all output files'
-    print*,'        -s  : standard = write all output files except ionization data'
-    print*,'        -e  : write energy file              (output_data/energy.out)'
-    print*,'        -d  : write dipole file              (output_data/fosc.out)'
-    print*,'        -sp : write spin expec file          (output_data/spin.out)'
-    print*,'        -cd : write diag coefficient file    (output_data/coeff_diag.out)'
-    print*,'        -cm : write MCH coefficient file     (output_data/coeff_MCH.out)'
-    print*,'        -cb : write diab coefficient file    (output_data/coeff_diab.out)'
-    print*,'        -p  : write hop probability file     (output_data/prob.out)'
-    print*,'        -x  : write expec (E,S^2,mu) file    (output_data/expec.out)'
-    print*,'        -xm : write MCH expec file           (output_data/expec_MCH.out)'
-    print*,'        -da : write dip of active state file (output_data/fosc_act.out)'
-    print*,'        -id : write diag ion file            (output_data/ion_diag.out)'
-    print*,'        -im : write MCH ion file             (output_data/ion_mch.out)'
+    write(*,*) 'Usage: ./data_extractor <flags> -f <data-file>'
+    write(*,*) '        -a  : write all output files'
+    write(*,*) '        -s  : standard = write all output files except ionization data'
+    write(*,*) '        -e  : write energy file              (output_data/energy.out)'
+    write(*,*) '        -d  : write dipole file              (output_data/fosc.out)'
+    write(*,*) '        -sp : write spin expec file          (output_data/spin.out)'
+    write(*,*) '        -cd : write diag coefficient file    (output_data/coeff_diag.out)'
+    write(*,*) '        -cm : write MCH coefficient file     (output_data/coeff_MCH.out)'
+    write(*,*) '        -cb : write diab coefficient file    (output_data/coeff_diab.out)'
+    write(*,*) '        -p  : write hop probability file     (output_data/prob.out)'
+    write(*,*) '        -x  : write expec (E,S^2,mu) file    (output_data/expec.out)'
+    write(*,*) '        -xm : write MCH expec file           (output_data/expec_MCH.out)'
+    write(*,*) '        -da : write dip of active state file (output_data/fosc_act.out)'
+    write(*,*) '        -id : write diag ion file            (output_data/ion_diag.out)'
+    write(*,*) '        -im : write MCH ion file             (output_data/ion_mch.out)'
     stop 
   endif
 
@@ -152,9 +152,9 @@ program data_extractor
   write_dipact = .false.
   write_iondiag = .false.
   write_ionmch = .false.
-        
-  readthis=.TRUE.
+
   ! read command line arguments
+  readthis=.TRUE.
   do i=1,nargs
     call getarg(i,args(i))
     args(i)=trim(adjustl(args(i)))
@@ -309,7 +309,7 @@ program data_extractor
     ! else we have the format of SHARC 2.0, which is list-based
     ! =====================================================
     call read_input_list_from_file(u_dat)
-    
+
     ! look up nstates keyword
     line=get_value_from_key('nstates_m',io)
     if (io==0) then
@@ -334,7 +334,7 @@ program data_extractor
       nstates_m(1)=1
       nstates=1
     endif
-  
+
     ! look up nstates keyword
     line=get_value_from_key('natom',io)
     if (io==0) then
@@ -343,7 +343,7 @@ program data_extractor
       ! currently natom is needed
       stop 'Error! Number of atoms (keyword: natom) is required!'
     endif
-    
+
     ! allocate everything
     allocate( H_MCH_ss(nstates,nstates), H_diag_ss(nstates,nstates) )
     allocate( U_ss(nstates,nstates) )
@@ -359,7 +359,7 @@ program data_extractor
     allocate( geom_ad(natom,3), veloc_ad(natom,3) )
     call allocate_lapack(nstates)
     overlaps_ss=dcmplx(0.d0,0.d0)
-    
+
     ! look up dtstep keyword
     line=get_value_from_key('dtstep',io)
     if (io==0) then
@@ -369,42 +369,42 @@ program data_extractor
       ! dtstep is needed
       stop 'Error! Time step (keyword: dtstep) is required!'
     endif
-    
+
     ! look up have_overlap keyword
     line=get_value_from_key('write_overlap',io)
     if (io==0) then
       read(line,*) have_overlap
     endif
     if (have_overlap == 0 .and. write_coeffdiab) then
-      print*, 'Warning! Writing diabatic coefficients is impossible without overlaps present.'
-      print*, 'Unsetting flag -cb'
+      write(*,*)  'Warning! Writing diabatic coefficients is impossible without overlaps present.'
+      write(*,*)  'Unsetting flag -cb'
       write_coeffdiab = .false.
     endif
-    
+
     ! look up have_grad keyword
     line=get_value_from_key('write_grad',io)
     if (io==0) then
       read(line,*) have_grad
     endif
-    
+
     ! look up have_NAC keyword
     line=get_value_from_key('write_nac',io)
     if (io==0) then
       read(line,*) have_NAC
     endif
-    
+
     ! look up have_property keyword
     line=get_value_from_key('write_property',io)
     if (io==0) then
       read(line,*) have_property
     endif
     if (have_property == 0 .and. (write_iondiag .or. write_ionmch)) then
-      print*, 'Warning! Writing ionization probabilities does not make sense if property matrix is not present.'
-      print*, 'Unsetting flags -im and -id'
+      write(*,*)  'Warning! Writing ionization probabilities does not make sense if property matrix is not present.'
+      write(*,*)  'Unsetting flags -im and -id'
       write_ionmch = .false.
       write_iondiag = .false.
     endif
-    
+
     ! look up laser keyword
     line=get_value_from_key('laser',io)
     if (io==0) then
@@ -426,24 +426,31 @@ program data_extractor
     else
       laser=0
     endif
-    
+
     if (have_grad == 1) then
       allocate( grad_mch_sad(nstates,natom,3) )
     endif
-  
+
     if (have_NAC == 1) then
       allocate( NAC_ssad(nstates,nstates,natom,3) )
     endif
-  
+
   endif
-      
-    
+
+  ! Now we skip over the header array data (atomic numbers, elements, masses)
+  do i=1,3*(1+natom)
+    read(u_dat,*) string1
+  enddo
+
   ! if an explicit laser file is in the dat file, read it now
   ! laser field comes before the time step data
   if (laser==2) then
     allocate( laser_td(nsteps*nsubsteps+1,3) )
     call vec3read(nsteps*nsubsteps+1,laser_td,u_dat,string1)
   endif
+
+  ! skip the "End of header array data" separator line
+  read(u_dat,*)
 
   ! create output directory "output_data"
   ! inquire will not work with Intel compiler, so mkdir is always attempted
