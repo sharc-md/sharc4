@@ -2011,7 +2011,7 @@ def readQMin(QMinfilename):
       print '"nooverlap" keyword present, but overlap calculation required.'
       sys.exit(11)
     QMin['wfthres']=1.0
-    line=getsh2ADFkey(sh2ADF,'wfthres')
+    line=getsh2prokey(sh2pro,'wfthres')
     if line[0]:
         QMin['wfthres']= float(line[1])
 
