@@ -3083,16 +3083,38 @@ def saveAOovl(WORKDIR,QMin):
     print 'Did not find AO overlap matrix!'
     sys.exit(11)
 
+  # detect format
+  line=out[iline+1]
+  if 'E' in line:
+    newformat=True
+    q=24
+  else:
+    newformat=False
+
   # get matrix
   AOovl=[]
   for irow in range(nao):
     AOovl.append([])
-    for x in range((nao-1)/99+1):
+    if newformat:
       iline+=1
       line=out[iline]
-      s=line.split()
+      i=0
+      s=[]
+      while True:
+        x=line[1+i*q:1+(i+1)*q]
+        s.append(x)
+        i+=1
+        if 1+(i+1)*q > len(line):
+          break
       for y in s:
         AOovl[-1].append(float(y))
+    else:
+      for x in range((nao-1)/99+1):
+        iline+=1
+        line=out[iline]
+        s=line.split()
+        for y in s:
+          AOovl[-1].append(float(y))
 
   # format string
   string='%i %i\n' % (nao,nao)
