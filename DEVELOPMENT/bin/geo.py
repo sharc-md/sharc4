@@ -145,7 +145,8 @@ def rnorm3d(a):
 
 def rangle3d(a,b):
   '''Angle between two 3-dimensional vectors.'''
-  angle=math.acos( rscalar3d(a,b) / ( rnorm3d(a)*rnorm3d(b) ) )
+  x = rscalar3d(a,b) / ( rnorm3d(a)*rnorm3d(b) )
+  angle=math.acos( max( -1.0, min( 1.0, x) ) )
   if Radians:
     return angle
   else:
@@ -248,7 +249,14 @@ def dih(a,b,c,d):
   if q1==[0.,0.,0.] or q2==[0.,0.,0.]:
     sys.stderr.write('Undefined dihedral angle!')
     return float('NaN')
-  return rangle3d(q1,q2)
+  Q=rcross3d(q1,q2)
+  if Q==[0.,0.,0.]:
+    sign=1.
+  elif rangle3d(Q,r2)<90.:
+    sign=1.
+  else:
+    sign=-1.
+  return rangle3d(q1,q2)*sign
 
 def pyr(a,b,c,d):
   '''Pyramidalization angle between the a-b bond and the b-c-d plane.'''
