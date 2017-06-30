@@ -2737,6 +2737,8 @@ def modify_control(QMin):
 
   #remove_section_in_control(control,'$optimize')
   #add_option_to_control_section(control,'$ricc2','scs')
+  remove_section_in_control(control,'$scfiterlimit')
+  add_section_to_control(control,'$scfiterlimit 100')
   return
 
 # ======================================================================= #
