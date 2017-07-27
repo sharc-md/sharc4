@@ -130,7 +130,7 @@ interface matwrite
 endinterface
 
 interface vecwrite
-  module procedure dvecwrite,zvecwrite
+  module procedure dvecwrite,zvecwrite,svecwrite
 endinterface
 
 interface vec3write
@@ -142,7 +142,7 @@ interface matread
 endinterface
 
 interface vecread
-  module procedure dvecread,zvecread
+  module procedure dvecread,zvecread,svecread
 endinterface
 
 interface vec3read
@@ -1109,7 +1109,7 @@ subroutine iwrite(n,A,wrunit,title,precstring)
   implicit none
   ! parameters
   integer, intent(in) :: n
-  integer,intent(in) :: A(n,n)
+  integer, intent(in) :: A(n,n)
   integer, intent(in) :: wrunit
   character(len=*), intent(in) :: title
   character(len=*), intent(in) :: precstring
@@ -1136,7 +1136,7 @@ subroutine dvecwrite(n,c,wrunit,title,precstring)
   implicit none
   ! parameters
   integer, intent(in) :: n
-  real*8,intent(in) :: c(n)
+  real*8,  intent(in) :: c(n)
   integer, intent(in) :: wrunit
   character(len=*), intent(in) :: title
   character(len=*), intent(in) :: precstring
@@ -1175,6 +1175,33 @@ subroutine zvecwrite(n,c,wrunit,title,precstring)
 
   write(fmtstring,'(I10)') n
   fmtstring='('//trim(adjustl(fmtstring))//'('//trim(adjustl(precstring))//',1X,'//trim(adjustl(precstring))//',4X))'
+  do i=1,n
+    write(wrunit,fmtstring) c(i)
+  enddo
+
+endsubroutine
+
+! =================================================================== !
+
+!> writes vector c to unit wrunit
+!> writes the title before the vector
+!> uses precstring as format string
+subroutine svecwrite(n,c,wrunit,title,precstring)
+  implicit none
+  ! parameters
+  integer, intent(in) :: n
+  character(len=*),  intent(in) :: c(n)
+  integer, intent(in) :: wrunit
+  character(len=*), intent(in) :: title
+  character(len=*), intent(in) :: precstring
+  ! internal variables
+  integer :: i
+  character*255 :: fmtstring
+
+  write(wrunit,'(A)') trim(title)
+
+  write(fmtstring,'(I10)') n
+  fmtstring='('//trim(adjustl(fmtstring))//'('//trim(adjustl(precstring))//',1X))'
   do i=1,n
     write(wrunit,fmtstring) c(i)
   enddo
@@ -1382,6 +1409,33 @@ subroutine zvecread(n,c,runit,title)
       write(*,*) 'title=',trim(title)
     endif
     c(i)=dcmplx(re,im)
+  enddo
+
+endsubroutine
+
+! =================================================================== !
+
+!> reads vector c from unit runit
+!> also reads the title, THIS MEANS THAT the current line of runit has to be the title line
+subroutine svecread(n,c,runit,title)
+  implicit none
+  ! parameters
+  integer, intent(in) :: n
+  character(len=*),intent(out) :: c(n)
+  integer, intent(in) :: runit
+  character(len=8000), intent(out) :: title
+  ! internal variables
+  integer :: i, io
+
+  read(runit,'(A)') title
+
+  do i=1,n
+    read(runit,*, iostat=io) c(i)
+    if (io/=0) then
+      write(*,*) 'Could not read vector'
+      write(*,*) 'routine=svecread(), n=',n,', unit=',runit
+      write(*,*) 'title=',trim(title)
+    endif
   enddo
 
 endsubroutine

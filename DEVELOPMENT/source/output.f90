@@ -376,14 +376,15 @@ subroutine write_dat_initial(u, ctrl, traj)
     write(u,*) 'write_grad',     ctrl%write_grad
     write(u,*) 'write_nac',      ctrl%write_NAC
     write(u,*) 'write_property', ctrl%write_property
-    write(u,*) 'atomic_numbers', (traj%atomicnumber_a(iatom),iatom=1,ctrl%natom)
-    write(u,'(A10,99999(A3,1X))') ' elements ', (traj%element_a(iatom),iatom=1,ctrl%natom)
-    write(u,*) 'atomic_masses',  (traj%mass_a(iatom),iatom=1,ctrl%natom)
     write(u,*) 'laser',          ctrl%laser
     write(u,*) 'nsteps',         ctrl%nsteps
     write(u,*) 'nsubsteps',      ctrl%nsubsteps
-    write(u,'(a)') '************** End of header *************************************'
+    write(u,'(a)') '************************************* End of settings *************************************'
+    call vecwrite(ctrl%natom,traj%atomicnumber_a,u,'! Atomic numbers','E20.13')
+    call vecwrite(ctrl%natom,traj%element_a,     u,'! Elements',      'A3'  )
+    call vecwrite(ctrl%natom,traj%mass_a,        u,'! Atomic masses', 'E20.13')
     if (ctrl%laser==2) call vec3write(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_td, u, '! Laser field','E20.13')    
+    write(u,'(a)') '********************************* End of header array data ********************************'
   endif
 
 endsubroutine

@@ -71,37 +71,62 @@ endsubroutine
 
 ! =================================================================== !
 
-recursive subroutine compact(string,delimiter)
+subroutine compact(string,delimiter)
 ! this subroutine removes leading delimiters and collapses multiple delimiters to a single one
-! does not compact escaped delimiters
 implicit none
 character*8000, intent(inout) :: string
 character, intent(in) :: delimiter
 integer :: i
 character*8000 :: tempstring,keepstring
 
+i=0
+keepstring=''
 tempstring=string
-call generaladjustl(tempstring,delimiter)
-i=index(trim(tempstring),delimiter)
-! do
-!   if ( (tempstring(i-1:i-1)/='\').and.(tempstring(i:i)==delimiter) ) exit
-!   i=i+1
-!   if (i>len(trim(tempstring))) then
-!     i=0
-!     exit
-!   endif
-! enddo
-if (i==0) then
-  string=tempstring
-else
-  keepstring=tempstring(1:i-1)
+
+do
+  call generaladjustl(tempstring,delimiter)
+  i=index(trim(tempstring),delimiter)
+
+  if (i==0) then
+    keepstring=trim(keepstring)//delimiter//tempstring
+    exit
+  endif
+
+  keepstring=trim(keepstring)//delimiter//tempstring(1:i-1)
   tempstring=tempstring(i+1:len(tempstring))
-  call compact(tempstring,delimiter)
-  string=keepstring(1:i-1)//delimiter//tempstring
-endif
+enddo
+
+call generaladjustl(keepstring,delimiter)
+string=keepstring
 
 return
 endsubroutine
+
+! =================================================================== !
+
+! recursive subroutine compact(string,delimiter)
+! ! this subroutine removes leading delimiters and collapses multiple delimiters to a single one
+! implicit none
+! character*8000, intent(inout) :: string
+! character, intent(in) :: delimiter
+! integer :: i
+! character*8000 :: tempstring,keepstring
+! 
+! tempstring=string
+! call generaladjustl(tempstring,delimiter)
+! i=index(trim(tempstring),delimiter)
+! 
+! if (i==0) then
+!   string=tempstring
+! else
+!   keepstring=tempstring(1:i-1)
+!   tempstring=tempstring(i+1:len(tempstring))
+!   call compact(tempstring,delimiter)
+!   string=keepstring(1:i-1)//delimiter//tempstring
+! endif
+! 
+! return
+! endsubroutine
 
 ! =================================================================== !
 
@@ -198,21 +223,38 @@ endfunction
 
 ! =================================================================== !
 
-recursive subroutine generaladjustl(string,delimiter)
+subroutine generaladjustl(string,delimiter)
 implicit none
 character*8000, intent(inout) :: string
 character, intent(in) :: delimiter
 character*8000 :: tempstring
+integer :: i
 
-if (string=='') return
-if (string(1:1)==delimiter) then
-  tempstring=string(2:)
-  call generaladjustl(tempstring,delimiter)
-  string=tempstring
-endif
+do i=1,len(string)
+  if (string(i:i)/=delimiter) exit
+enddo
+string=string(i:)
 return
 
 endsubroutine
+
+! =================================================================== !
+
+! recursive subroutine generaladjustl(string,delimiter)
+! implicit none
+! character*8000, intent(inout) :: string
+! character, intent(in) :: delimiter
+! character*8000 :: tempstring
+! 
+! if (string=='') return
+! if (string(1:1)==delimiter) then
+!   tempstring=string(2:)
+!   call generaladjustl(tempstring,delimiter)
+!   string=tempstring
+! endif
+! return
+! 
+! endsubroutine
 
 ! =================================================================== !
 
