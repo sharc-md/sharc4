@@ -3008,6 +3008,15 @@ def run_orca(QMin):
     print 'orca_2mkl calculation crashed! Error code=%i' % (runerror)
     sys.exit(11)
 
+  string='''soc.gbw 
+soc.psoc 
+soc.soc  
+3  
+1 2 3 0 4 0 0 4 
+0  
+'''
+  writefile(os.path.join(workdir,'soc.socinp'),string)
+
   string='orca_soc soc.socinp -gbw > orca_soc.out 2> orca_soc.err'
   runerror=runProgram(string,workdir)
   if runerror!=0:
