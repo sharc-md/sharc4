@@ -126,7 +126,7 @@ Interfaces={
       'description':     'LVC Hamiltonian',
       'get_routine':     'get_LVC',
       'prepare_routine': 'prepare_LVC',
-      'couplings':       [3],
+      'couplings':       [2,3],
       'dipolegrad':      False
      }
 

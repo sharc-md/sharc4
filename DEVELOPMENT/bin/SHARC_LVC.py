@@ -189,7 +189,7 @@ def printcomplexmatrix(matrix,states):
     print string
 
 # ======================================================================= #
-def printgrad(grad,natom,geo):
+def printgrad(grad,natom,geo,prnorm=False):
   '''Prints a gradient or nac vector. Also prints the atom elements. If the gradient is identical zero, just prints one line.
 
   Arguments:
@@ -197,15 +197,19 @@ def printgrad(grad,natom,geo):
   2 integer: natom
   3 list of list: geometry specs'''
 
+  norm = 0.
   string=''
   iszero=True
   for atom in range(natom):
     string+='%i\t%s\t' % (atom+1,geo[atom][0])
     for xyz in range(3):
+      norm += grad[atom][xyz] * grad[atom][xyz]
       if grad[atom][xyz]!=0:
         iszero=False
       string+='% .5f\t' % (grad[atom][xyz])
     string+='\n'
+  if prnorm:
+    print 'Norm: %.6f'%norm
   if iszero:
     print '\t\t...is identical zero...\n'
   else:
@@ -276,7 +280,7 @@ def printQMout(QMin,QMout):
         for jmult,j,msj in itnmstates(states):
           if imult==jmult and msi==msj:
             print '%s\tStates %i - %i\tMs= % .1f:' % (IToMult[imult],i,j,msi)
-            printgrad(QMout['nacdr'][istate][jstate],natom,QMin['geom'])
+            printgrad(QMout['nacdr'][istate][jstate],natom,QMin['geom'], True)
           jstate+=1
         istate+=1
   if 'dmdr' in QMin:
@@ -814,8 +818,10 @@ def read_QMin():
     s=line.lower().split()
     if len(s)==0:
       continue
-    if 'nacdt' in s[0] or 'nacdr' in s[0]:
-      print 'NACDR and NACDT are not supported!'
+    if 'nacdr' in s[0]:
+      QMin['nacdr'] = True
+    if 'nacdt' in s[0]:
+      print 'NACDT is not supported!'
       sys.exit(16)
     if 'dmdr' in s[0]:
       QMin['dmdr']=[]
@@ -1045,21 +1051,23 @@ def getQMout(QMin,SH2LVC):
 #  print "QMout1: CPU time: % .3f s, wall time: %.3f s"%(time.clock() - tc, time.time() - tt)
 
   # Transform the gradients to the MCH basis
-  dE = [[0. for iQ in range(3*QMin['natom'])] for istate in range(QMin['nmstates'])]
+  dE = [[[0. for iQ in range(3*QMin['natom'])] for istate in range(QMin['nmstates'])] for jstate in range(QMin['nmstates'])]
   for iQ in r3N:
     dEmat = transform(dHfull[iQ], U)
     for istate in range(QMin['nmstates']):
-      dE[istate][iQ] = dEmat[istate][istate]
+      for jstate in range(QMin['nmstates']):
+        dE[istate][jstate][iQ] = dEmat[istate][jstate]
 #  print "QMout2: CPU time: % .3f s, wall time: %.3f s"%(time.clock() - tc, time.time() - tt)
 
   # Convert the gradient to Cartesian coordinates
+  #   -> It would be more efficent to do this only for unique Ms values
   VOdE = [0. for i in r3N]
   grad = []
   for istate in range(QMin['nmstates']):
     OdE = [0. for iQ in r3N]
     for iQ in r3N:
       if abs(SH2LVC['Om'][iQ]) > 1.e-8:
-        OdE[iQ] = dE[istate][iQ] * SH2LVC['Om'][iQ]**0.5
+        OdE[iQ] = dE[istate][istate][iQ] * SH2LVC['Om'][iQ]**0.5
     if NONUMPY:
       for iQ in r3N:
         VOdE[iQ] = sum(SH2LVC['V'][iQ][jQ] * OdE[jQ] for jQ in r3N)
@@ -1070,6 +1078,37 @@ def getQMout(QMin,SH2LVC):
     for iat in range(QMin['natom']):
       grad[-1].append([VOdE[3*iat] * SH2LVC['Ms'][3*iat], VOdE[3*iat+1] * SH2LVC['Ms'][3*iat+1], VOdE[3*iat+2] * SH2LVC['Ms'][3*iat+2]])
 #  print "QMout3: CPU time: % .3f s, wall time: %.3f s"%(time.clock() - tc, time.time() - tt)
+
+  if 'nacdr' in QMin:
+    nonac = [ [0., 0., 0.] for iat in range(QMin['natom'])]
+    QMout['nacdr'] = [[ nonac for istate in range(QMin['nmstates'])] for jstate in range(QMin['nmstates'])]
+    istate =- 1
+    for imult,ist,ims in itnmstates(QMin['states']):
+      istate += 1
+
+      jstate =- 1
+      for jmult,jst,jms in itnmstates(QMin['states']):
+        jstate += 1
+
+        if imult == jmult and ims == jms and istate < jstate:
+          OdE = [0. for iQ in r3N]
+          for iQ in r3N:
+            if abs(SH2LVC['Om'][iQ]) > 1.e-8:
+              OdE[iQ] = dE[istate][jstate][iQ] * SH2LVC['Om'][iQ]**0.5
+          if NONUMPY:
+            for iQ in r3N:
+              VOdE[iQ] = sum(SH2LVC['V'][iQ][jQ] * OdE[jQ] for jQ in r3N)
+          else:
+            VOdE = numpy.dot(SH2LVC['V'], OdE)
+
+          deriv = []
+          for iat in range(QMin['natom']):
+            deriv.append([VOdE[3*iat] * SH2LVC['Ms'][3*iat], VOdE[3*iat+1] * SH2LVC['Ms'][3*iat+1], VOdE[3*iat+2] * SH2LVC['Ms'][3*iat+2]])
+
+          Einv = (Hd[jstate][jstate] - Hd[istate][istate]) ** (-1.)
+
+          QMout['nacdr'][istate][jstate] = [ [ c * Einv for c in d] for d in deriv]
+          QMout['nacdr'][jstate][istate] = [ [-c * Einv for c in d] for d in deriv]
 
   # transform dipole matrices
   dipole=[]
