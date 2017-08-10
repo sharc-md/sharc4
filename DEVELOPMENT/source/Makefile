@@ -92,7 +92,7 @@ clean:
 	rm -rvf build_info.inc
 
 
-install: 
+install: all
 	cp -f *.x $(EXEDIR)	
 
 # the following lines define the dependencies of the Fortran90 module files
