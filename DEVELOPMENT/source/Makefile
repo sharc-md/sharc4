@@ -52,7 +52,8 @@ SHARC  =  main.o \
           electronic.o \
           qm.o \
           electronic_laser.o \
-	  input.o 
+	  input.o \
+          decoherence_afssh.o 
 
 
 
@@ -96,16 +97,17 @@ install: all
 	cp -f *.x $(EXEDIR)	
 
 # the following lines define the dependencies of the Fortran90 module files
-main.o: output.o qm.o restart.o misc.o electronic_laser.o input.o
+main.o: output.o qm.o restart.o misc.o electronic_laser.o input.o decoherence_afssh.o
 misc.o:	definitions.o
 output.o: $(TOOLS) build_info misc.o
 nuclear.o: $(TOOLS)
-electronic.o: nuclear.o $(TOOLS)
+electronic.o: nuclear.o $(TOOLS) decoherence_afssh.o
 electronic_laser.o: electronic.o $(TOOLS)
 input.o: $(TOOLS) output.o restart.o misc.o
 qm.o: $(TOOLS) electronic.o qm_out.o restart.o
 qm_out.o: $(TOOLS)
 restart.o: $(TOOLS) misc.o
+decoherence_afssh.o: $(TOOLS) definitions.o 
 
 LASER_input.o: LASER_definitions.o 
 LASER_calc_fftw.o: LASER_definitions.o

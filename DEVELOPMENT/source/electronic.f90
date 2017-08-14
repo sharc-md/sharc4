@@ -555,10 +555,54 @@ endsubroutine
 ! ===========================================================
 
 !> applies a decoherence correction to traj%coeff_diag_s
-!> is based on the EDC correction by Granucci and Persico
 subroutine Decoherence(traj,ctrl)
   use definitions
   use matrix
+  use decoherence_afssh
+  implicit none
+  type(trajectory_type) :: traj
+  type(ctrl_type) :: ctrl
+  real*8 :: randnum
+  complex*16 :: cpre(ctrl%nstates)
+
+  ! draw a new random number independently of the algorithm
+  call random_number(randnum)
+  traj%randnum2=randnum
+
+  cpre = traj%coeff_diag_s
+
+  if (ctrl%decoherence==1) then
+    if (printlevel>2) then
+      write(u_log,*) '============================================================='
+      write(u_log,*) '              Decoherence (Granucci & Persico)'
+      write(u_log,*) '============================================================='
+    endif
+    call EDC_step(traj,ctrl)
+  elseif (ctrl%decoherence==2) then
+    if (printlevel>2) then
+      write(u_log,*) '============================================================='
+      write(u_log,*) '           Decoherence (Jain, Alguire, Subotnik)'
+      write(u_log,*) '============================================================='
+    endif
+    call afssh_step(traj,ctrl)
+  endif
+
+  if (ctrl%decoherence>0) then
+    if (printlevel>2) then
+      call vecwrite(ctrl%nstates, cpre, u_log, 'Coeff before decoherence','F12.9')
+      call vecwrite(ctrl%nstates, traj%coeff_diag_s, u_log, 'Coeff after decoherence','F12.9')
+    endif
+  endif
+
+endsubroutine
+
+! ===========================================================
+
+!> is based on the EDC correction by Granucci and Persico
+subroutine EDC_step(traj,ctrl)
+  use definitions
+  use matrix
+  use decoherence_afssh
   implicit none
   type(trajectory_type) :: traj
   type(ctrl_type) :: ctrl
@@ -566,31 +610,21 @@ subroutine Decoherence(traj,ctrl)
   real*8 :: tau0, tau, sumc
   complex*16 :: c(ctrl%nstates)
 
-  if (ctrl%decoherence==1) then 
-    tau0=1.d0 + ctrl%decoherence_alpha/traj%Ekin
+  tau0=1.d0 + ctrl%decoherence_alpha/traj%Ekin
 
-    sumc=0.d0
-    do istate=1,ctrl%nstates
-      if (istate/=traj%state_diag) then
-        tau=tau0 / abs( real(traj%H_diag_ss(istate,istate) ) - real(traj%H_diag_ss(traj%state_diag,traj%state_diag)) )
-        c(istate)=traj%coeff_diag_s(istate) * exp( -ctrl%dtstep / tau)
-        sumc=sumc+abs(c(istate))**2
-      endif
-    enddo
-
-    c(traj%state_diag)=traj%coeff_diag_s(traj%state_diag) * &
-    &sqrt( (1.d0-sumc) / abs(traj%coeff_diag_s(traj%state_diag))**2)
-
-    if (printlevel>2) then
-      write(u_log,*) '============================================================='
-      write(u_log,*) '              Decoherence (Granucci & Persico)'
-      write(u_log,*) '============================================================='
-      call vecwrite(ctrl%nstates, traj%coeff_diag_s, u_log, 'Coeff before decoherence','F12.9')
-      call vecwrite(ctrl%nstates, c, u_log, 'Coeff after decoherence','F12.9')
+  sumc=0.d0
+  do istate=1,ctrl%nstates
+    if (istate/=traj%state_diag) then
+      tau=tau0 / abs( real(traj%H_diag_ss(istate,istate) ) - real(traj%H_diag_ss(traj%state_diag,traj%state_diag)) )
+      c(istate)=traj%coeff_diag_s(istate) * exp( -ctrl%dtstep / tau)
+      sumc=sumc+abs(c(istate))**2
     endif
-    traj%coeff_diag_s=c
-  endif
+  enddo
 
+  c(traj%state_diag)=traj%coeff_diag_s(traj%state_diag) * &
+  &sqrt( (1.d0-sumc) / abs(traj%coeff_diag_s(traj%state_diag))**2)
+
+  traj%coeff_diag_s=c
 endsubroutine
 
 ! ===========================================================

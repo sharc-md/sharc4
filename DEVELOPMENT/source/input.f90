@@ -29,7 +29,7 @@ module input
   type(trajectory_type) :: traj
   type(ctrl_type) :: ctrl
   character*255 :: filename
-  character*8000 :: geomfilename, line, keyword, value
+  character*8000 :: geomfilename, line
   character*8000, allocatable :: values(:)
   integer :: narg, io, nlines, selg, selt
   integer :: i,j,k,n
@@ -943,7 +943,7 @@ module input
 
     line=get_value_from_key('decoherence',io)
     if (io==0) then
-      ctrl%decoherence=1
+      read(line,*) ctrl%decoherence
       ctrl%decoherence_alpha=0.1d0
     else
       ctrl%decoherence=0
@@ -984,8 +984,11 @@ module input
 
     if (printlevel>1) then
       if (ctrl%decoherence==1) then
-        write(u_log,'(a)') 'Decoherence (EDC by Granucci, Persico, Zoccante) is ON'
+        write(u_log,'(a)') 'Decoherence is 1 (EDC by Granucci, Persico, Zoccante)'
         write(u_log,'(a,1x,f6.3,1x,a)') 'Decoherence constant is',ctrl%decoherence_alpha,'Hartree'
+        write(u_log,*)
+      elseif (ctrl%decoherence==2) then
+        write(u_log,'(a)') 'Decoherence is 2 (A-FSSH by Jain, Alguire, Subotnik)'
         write(u_log,*)
       else
         write(u_log,'(a)') 'Decoherence is OFF'

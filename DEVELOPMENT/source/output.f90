@@ -341,7 +341,7 @@ subroutine write_dat_initial(u, ctrl, traj)
   implicit none
   type(ctrl_type) :: ctrl
   type(trajectory_type) :: traj
-  integer :: u, iatom, n
+  integer :: u, n
   character*8000 :: string1
   character*8000, allocatable :: string2(:)
 
@@ -463,7 +463,6 @@ subroutine write_final(traj)
 
   integer :: runtime, days, hours, minutes, seconds
   integer :: time
-  character*1024 :: sharcfact
 
   runtime=time()-traj%time_start
   days=runtime/86400

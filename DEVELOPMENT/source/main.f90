@@ -20,6 +20,7 @@
 !>   - writing of output
 !> - Timing
 program sharc
+use decoherence_afssh
 use definitions
 use electronic
 use electronic_laser
@@ -50,6 +51,7 @@ traj%time_last=traj%time_start
 
 call read_input(traj,ctrl)
 call allocate_lapack(ctrl%nstates)
+if (ctrl%decoherence==2) call allocate_afssh(traj, ctrl)
 
 if (.not.ctrl%restart) then
   call write_list_header(u_lis)

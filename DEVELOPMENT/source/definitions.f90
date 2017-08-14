@@ -20,6 +20,29 @@ module definitions
 implicit none
 save
 
+!> # Auxiliary trajectory type:
+!> This is a type with the data relevant for auxiliary trajectories
+!> needed for the decoherence correction in A-FSSH.
+!> geom, veloc, and accel are given relative to the main trajectory
+type aux_trajectory_type
+  sequence             ! to store the constituents of the type contiguously
+
+  ! nuclear information
+  real*8,allocatable :: mass_a(:)                        !< atomic mass in a.u. (1 a.u. = rest mass of electron m_e)
+  real*8,allocatable :: geom_ad(:,:)                     !< Cartesian displacement from SH trajectory in a.u. (bohr)
+  real*8,allocatable :: veloc_ad(:,:)                    !< Cartesian displacment velocity in a.u. (bohr/atu)
+  real*8,allocatable :: geom_tmp(:,:)                    !< Temporary Cartesian displacement during A-FSSH step
+  real*8,allocatable :: veloc_tmp(:,:)                   !< Temporary Cartesian displacment velocity during A-FSSH step
+  real*8,allocatable :: accel_ad(:,:)                    !< Cartesian displacment acceleration in a.u. (bohr/atu/atu)
+
+  ! other quantities
+  integer :: istate                                       !< Which state
+  real*8 :: rate1, rate2                                  !< Term occuring in the decoherence rate
+  real*8, allocatable :: grad_ad(:,:)                     !< Difference gradient
+endtype
+
+! =========================================================== !
+
 public
 !> # Trajectory type:
 !> This is a type with all data which would be private to a trajectory,
@@ -91,7 +114,7 @@ type trajectory_type
   complex*16,allocatable :: phases_s(:)                  !< electronic state phases of the current step
   complex*16,allocatable :: phases_old_s(:)              !< electronic state phases of the last step
   real*8, allocatable :: hopprob_s(:)                    !< hopping probabilities
-  real*8 :: randnum                                      !< random number for surface hopping
+  real*8 :: randnum, randnum2                            !< random number for surface hopping and A-FSSH
 
   ! vector information
   real*8,allocatable :: DMgrad_ssdad(:,:,:,:,:)          !< Cartesian gradient of the dipole moments (bra, ket, polarization, atom, cartesian component of atom displacement)
@@ -110,6 +133,9 @@ type trajectory_type
   logical,allocatable :: selG_s(:)                       !< selection mask for gradients
   logical,allocatable :: selT_ss(:,:)                    !< selection mask for non-adiabatic coupling vectors
   logical,allocatable :: selDM_ss(:,:)                   !< selection mask for dipole moment gradients
+
+  ! Auxiliary trajectories for A-FSSH
+  type(aux_trajectory_type) :: aux_trajs(100)  ! Temp: fixed number
 
 endtype
 
