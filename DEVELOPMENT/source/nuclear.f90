@@ -191,8 +191,8 @@ subroutine Rescale_velocities(traj,ctrl)
           enddo
           if (printlevel>2) then
             write(u_log,'(A)') 'Velocity is rescaled along non-adiabatic coupling vector.'
-            write(u_log,'(A,1X,F16.10,1X,F16.10)') 'a, b: ', sum_kk, sum_vk
-            write(u_log,'(A,1X,F16.10)') 'Delta is          ',deltaE
+            write(u_log,'(A,1X,E16.8,1X,E16.8)') 'a, b: ', sum_kk, sum_vk
+            write(u_log,'(A,1X,E16.8)') 'Delta is          ',deltaE
             write(u_log,'(A,1X,F12.6)') 'Scaling factor is ',factor
           endif
         case (3)

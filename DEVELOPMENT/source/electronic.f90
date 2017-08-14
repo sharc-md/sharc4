@@ -462,7 +462,7 @@ subroutine surface_hopping(traj,ctrl)
           call available_ekin(ctrl%natom,&
           &traj%veloc_ad,real(traj%gmatrix_ssad(traj%state_diag, istate,:,:)),&
           &traj%mass_a, sum_kk, sum_vk)
-          deltaE=4.d0*sum_kk*(traj%Epot-&
+          deltaE=4.d0*sum_kk*(traj%Etot-traj%Ekin-&
           &real(traj%H_diag_ss(istate,istate)))+sum_vk**2
           if (deltaE<0.d0) then
             traj%kind_of_jump=2
