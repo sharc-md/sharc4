@@ -39,18 +39,10 @@ subroutine allocate_afssh(traj,ctrl)
       stop 'ERROR: A-FSSH only implemented for "coupling overlap"'
     endif
 
-    !allocate(traj%aux_trajs(nstates), stat=allocst)
-    !if (allocst/=0) stop 'Could not allocate aux_trajs'
+    allocate(traj%aux_trajs(nstates), stat=allocst)
+    if (allocst/=0) stop 'Could not allocate aux_trajs'
 
-    print *, 'starting allocation'
     do istate = 1, nstates
-      print *, 'allocation', istate, nstates
-
-      !allocate(traj%aux_trajs(istate)%mass_a(natom), traj%aux_trajs(istate)%geom_ad(natom,3),&
-      !&traj%aux_trajs(istate)%veloc_ad(natom,3),traj%aux_trajs(istate)%accel_ad(natom,3),&
-      !&traj%aux_trajs(istate)%grad_ad(natom,3), stat=allocst)
-      !if (allocst/=0) stop 'Could not allocate'
-
       allocate(traj%aux_trajs(istate)%mass_a(natom),stat=allocst)
       if (allocst/=0) stop 'Could not allocate mass_a'
       traj%aux_trajs(istate)%mass_a = traj%mass_a
@@ -72,12 +64,11 @@ subroutine allocate_afssh(traj,ctrl)
 
       allocate(traj%aux_trajs(istate)%grad_ad(natom,3),stat=allocst)
       if (allocst/=0) stop 'Could not allocate grad_ad'
-      !
+
       traj%aux_trajs(istate)%istate = istate
     enddo
 
     call reset_moments(traj,ctrl)
-    print *, 'alloc afssh finished'
 endsubroutine
 
 ! ===========================================================

@@ -135,7 +135,7 @@ type trajectory_type
   logical,allocatable :: selDM_ss(:,:)                   !< selection mask for dipole moment gradients
 
   ! Auxiliary trajectories for A-FSSH
-  type(aux_trajectory_type) :: aux_trajs(100)  ! Temp: fixed number
+  type(aux_trajectory_type),allocatable :: aux_trajs(:)
 
 endtype
 
