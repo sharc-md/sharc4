@@ -3477,9 +3477,17 @@ same_aos
                     continue
                 if not abs(ms1-ms2)==0.5:
                     continue
+                # switch multiplicities such that m1 is smaller mult
                 if m1>m2:
                     s1,s2=s2,s1
-                QMoutDyson[i][j]=get_dysonel(out,s1,s2)
+                    m1,m2=m2,m1
+                    ms1,ms2=ms2,ms1
+                # compute M_S overlap factor
+                if ms1<ms2:
+                    factor=( ms1+1.+(m1-1.)/2. )/m1
+                else:
+                    factor=( -ms1+1.+(m1-1.)/2. )/m1
+                QMoutDyson[i][j]=get_dysonel(out,s1,s2)*factor
 
     return QMoutDyson
 

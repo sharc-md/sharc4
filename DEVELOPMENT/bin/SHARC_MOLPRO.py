@@ -3498,7 +3498,7 @@ def format_ci_vectors(ci_vectors):
     for i in range(nvirt):
       string+='e'
     for c in ci_vectors[det]:
-      string+=' %11.7f ' % c
+      string+=' %16.12f ' % c
     string+='\n'
   return string
 
@@ -3839,12 +3839,16 @@ def getQMout(QMin):
             continue
           if not abs(ms1-ms2)==0.5:
             continue
-          if float(m1-1)/2==abs(ms1) and float(m2-1)/2==abs(ms2):
-            factor=1.
-          else:
-            factor=0.5
+          # switch multiplicities such that m1 is smaller mult
           if m1>m2:
             s1,s2=s2,s1
+            m1,m2=m2,m1
+            ms1,ms2=ms2,ms1
+          # compute M_S overlap factor
+          if ms1<ms2:
+            factor=( ms1+1.+(m1-1.)/2. )/m1
+          else:
+            factor=( -ms1+1.+(m1-1.)/2. )/m1
           QMout['prop'][i][j]=getDyson(out,s1,s2)*factor
 
   # Gradients
