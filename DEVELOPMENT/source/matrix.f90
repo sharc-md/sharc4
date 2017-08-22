@@ -1430,7 +1430,7 @@ subroutine svecread(n,c,runit,title)
   read(runit,'(A)') title
 
   do i=1,n
-    read(runit,*, iostat=io) c(i)
+    read(runit,'(A)', iostat=io) c(i)
     if (io/=0) then
       write(*,*) 'Could not read vector'
       write(*,*) 'routine=svecread(), n=',n,', unit=',runit
