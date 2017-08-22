@@ -31,7 +31,7 @@ if sys.version_info[1]<5:
 version='1.1'
 versiondate=datetime.date(2017,1,25)
 
-allowedreq=['a','d','r','p','x','y','z','5','6','c','i','j','k','l']
+allowedreq=['a','d','r','p','q','x','y','z','5','6','c','i','j','k','l']
 
 # This array contains all Boeyens classification symbols for 5-membered rings.
 # (phi): symbol
@@ -276,6 +276,21 @@ def pyr(a,b,c,d):
   else:
     return 90.0-rangle3d(q1,r1)
 
+def pyr_new(a,b,c,d):
+  '''Angle between the a-b bond and average of the b-c and b-d bonds.'''
+  r1=[0,0,0]
+  r2=[0,0,0]
+  for i in range(3):
+    r1[i]=a[i]-b[i]
+    r2[i]=(d[i]+c[i])/2.-b[i]
+  if Radians:
+    phi=180.0*deg2rad-rangle3d(r1,r2)
+  else:
+    phi=180.0-rangle3d(r1,r2)
+  if pyr(a,b,c,d)<0.:
+    phi*=-1.
+  return phi
+
 def x(a):
   '''X coordinate of atom a.'''
   return a[0]
@@ -443,6 +458,7 @@ Also converts the atom numbers to integer.'''
     a\tbond angle (3 atoms)\n
     d\tdihedral angle (4 atoms)\n
     p\tpyramidalization angle (4 atoms)\n
+    q\tpyramidalization angle, alternative definition (4 atoms)\n
     x\tx coordinate (1 atom)\n
     y\ty coordinate (1 atom)\n
     z\tz coordinate (1 atom)\n
@@ -466,7 +482,7 @@ Also converts the atom numbers to integer.'''
     if not len(s)==4:
       sys.stderr.write('Angle needs three atoms as arguments!\n')
       return False
-  elif s[0]=='d' or s[0]=='p':
+  elif s[0]=='d' or s[0]=='p' or s[0]=='q':
     if not len(s)==5:
       sys.stderr.write('Dihedral/Pyramidalization angle needs four atoms as arguments!\n')
       return False
@@ -548,7 +564,7 @@ def tableheader(req):
       s+=' '*(f-7)+r[0]+'%3i%3i|' % (r[1],r[2])
     elif r[0]=='a':
       s+=' '*(f-10)+r[0]+'%3i%3i%3i|' % (r[1],r[2],r[3])
-    elif r[0]=='d' or r[0]=='p':
+    elif r[0]=='d' or r[0]=='p' or r[0]=='q':
       s+=' '*(f-13)+r[0]+'%3i%3i%3i%3i|' % (r[1],r[2],r[3],r[4])
     elif r[0]=='5':
       s+=' '*(f-16)+'q'+'%3i%3i%3i%3i%3i|'  % (r[1],r[2],r[3],r[4],r[5])
@@ -597,6 +613,8 @@ def calculate(g,req,comm):
       s+=formatstring % (ang(g[r[1]-1],g[r[2]-1],g[r[3]-1]))
     elif r[0]=='p':
       s+=formatstring % (pyr(g[r[1]-1],g[r[2]-1],g[r[3]-1],g[r[4]-1]))
+    elif r[0]=='q':
+      s+=formatstring % (pyr_new(g[r[1]-1],g[r[2]-1],g[r[3]-1],g[r[4]-1]))
     elif r[0]=='d':
       s+=formatstring % (dih(g[r[1]-1],g[r[2]-1],g[r[3]-1],g[r[4]-1]))
     elif r[0]=='5':
@@ -680,6 +698,7 @@ The one-letter keys are:
     a\tbond angle (3 atoms)
     d\tdihedral angle (4 atoms)
     p\tpyramidalization angle (4 atoms)
+    q\tpyramidalization angle, alternative definition (4 atoms)
     i\tangle between normal vectors of two 3-rings (6 atoms)
     j\tangle between normal vectors of two 4-rings (8 atoms)
     k\tangle between normal vectors of two 5-rings (10 atoms)
