@@ -794,7 +794,8 @@ def do_calc(INFOS):
         f2=readfile(f2)
         if2=-1
         problem=''
-        tana=1e9
+        tana=trajectories[path]['laststep']
+        ok=True
         for line in f:
           if 'ntering timestep' in line:
             tstep=int(line.split()[3])
