@@ -993,7 +993,7 @@ In order to setup the COLUMBUS input, use COLUMBUS' input facility colinp. For f
   if INFOS['ion']:
     INFOS['columbus.dysonpath']=question('Path to wavefunction overlap executable:',str)
     #INFOS['columbus.civecpath']=question('Path to civecconsolidate executable:',str,'$COLUMBUS/civecconsolidate')
-    INFOS['columbus.ciothres']=question('Determinant screening threshold:',float,[1e-2])[0]
+    INFOS['columbus.ciothres']=question('Determinant screening threshold:',float,[0.97])[0]
     #INFOS['columbus.dysonthres']=abs(question('c2 threshold for Dyson:',float,[1e-12])[0])
     #INFOS['columbus.dysonthres']=1e-12
 
@@ -1450,7 +1450,7 @@ def prepare_MOLCAS(INFOS,iconddir):
 #======================================================================================================================
 
 def checktemplate_ADF(filename,INFOS):
-  necessary=['basis','xc','excitation','save']
+  necessary=['basis','functional','charge']
   try:
     f=open(filename)
     data=f.readlines()
@@ -1461,14 +1461,44 @@ def checktemplate_ADF(filename,INFOS):
   valid=[]
   for i in necessary:
     for l in data:
-      line=l.lower()
-      if i in re.sub('#.*$','',line):
+      line=l.lower().split()
+      if len(line)==0:
+        continue
+      line=line[0]
+      if i==re.sub('#.*$','',line):
         valid.append(True)
         break
     else:
       valid.append(False)
   if not all(valid):
     print 'The template %s seems to be incomplete! It should contain: ' % (filename) +str(necessary)
+    return False
+  return True
+
+# =================================================
+
+def qmmm_job(filename,INFOS):
+  necessary=['qmmm']
+  try:
+    f=open(filename)
+    data=f.readlines()
+    f.close()
+  except IOError:
+    print 'Could not open template file %s' % (filename)
+    return False
+  valid=[]
+  for i in necessary:
+    for l in data:
+      line=l.lower().split()
+      if len(line)==0:
+        continue
+      line=line[0]
+      if i==re.sub('#.*$','',line):
+        valid.append(True)
+        break
+    else:
+      valid.append(False)
+  if not all(valid):
     return False
   return True
 
@@ -1507,24 +1537,23 @@ def get_ADF(INFOS):
   if path=='':
     path=None
   else:
-    path='$ADFHOME/license.txt'
+    path='$SCMLICENSE'
   print'\nPlease specify path to ADF license.txt\n'
   INFOS['scmlicense']=question('Path to license:',str,path)
   print ''
 
   print centerstring('Scratch directory',60,'-')+'\n'
-  print 'Please specify an appropriate scratch directory. This will be used to temporally store the integrals. The scratch directory will be deleted after the calculation. Remember that this script cannot check whether the path is valid, since you may run the calculations on a different machine. The path will not be expanded by this script.'
+  print 'Please specify an appropriate scratch directory. This will be used to run the ADF calculations. The scratch directory will be deleted after the calculation. Remember that this script cannot check whether the path is valid, since you may run the calculations on a different machine. The path will not be expanded by this script.'
   INFOS['scratchdir']=question('Path to scratch directory:',str)
   print ''
 
 
   print centerstring('ADF input template file',60,'-')+'\n'
-  print '''Please specify the path to the ADF.template file. This file must contain the following blocks:
+  print '''Please specify the path to the ADF.template file. This file must contain the following keywords:
   
-BASIS <Basis set> END
-XC <Functional of choice> END
-EXCITATION  <Number of excitations to calculate> END
-SAVE <Saves the tape files>  
+basis <basis>
+functional <type> <name>
+charge <x> [ <x2> [ <x3> ...] ] 
 
 The ADF interface will generate the appropriate ADF input automatically.
 '''
@@ -1545,22 +1574,33 @@ The ADF interface will generate the appropriate ADF input automatically.
     INFOS['ADF.template']=filename
   print ''
 
-  print 'Please state the number of states you wish to be added to your calculation ot make sure the states you wish toi include are the lowest'
-  print 'Example: Calculate 15 Singlets and give padding states as 3, TD-DFT will calculate 18 states and the interface will report the first 15'
-  padstates=question('Number of padding states?', int,[3])[0]
-  INFOS['pad']=int(padstates)
-  print ''
+
+
+  if qmmm_job(INFOS['ADF.template'],INFOS):
+    print centerstring('ADF QM/MM setup',60,'-')+'\n'
+    print 'Your template specifies a QM/MM calculation. Please give the force field and connection table files.'
+    while True:
+      filename=question('Force field file:',str)
+      if not os.path.isfile(filename):
+        print 'File %s does not exist!' % (filename)
+        continue
+    INFOS['ADF.fffile']=filename
+    while True:
+      filename=question('Connection table file:',str)
+      if not os.path.isfile(filename):
+        print 'File %s does not exist!' % (filename)
+        continue
+    INFOS['ADF.ctfile']=filename
+
 
   print centerstring('Initial restart: MO Guess',60,'-')+'\n'
-  print '''Please specify the path to an ADF .t21 file containing suitable starting MOs for restarting the ADF calculation. Please note that this script cannot check whether the wavefunction file and the Input template are consistent!
+  print '''Please specify the path to an ADF TAPE21 file containing suitable starting MOs for the ADF calculation. Please note that this script cannot check whether the wavefunction file and the Input template are consistent!
 '''
   if question('Do you have a restart file?',bool,True):
      if True:
-       filename=question('Restart file:',str,'init.t21')
+       filename=question('Restart file:',str,'ADF.t21.init')
        INFOS['adf.guess']=filename
   else:
-    print 'WARNING: Remember that the calculations may take longer without an initial guess for the MOs.'
-    time.sleep(2)
     INFOS['adf.guess']={}
 
 
@@ -1568,6 +1608,29 @@ The ADF interface will generate the appropriate ADF input automatically.
   print '''Please specify the number of CPUs to be used by EACH calculation.
 '''
   INFOS['adf.ncpu']=abs(question('Number of CPUs:',int)[0])
+
+  if INFOS['adf.ncpu']>1:
+    print '''Please specify how well your job will parallelize.
+A value of 0 means that running in parallel will not make the calculation faster, a value of 1 means that the speedup scales perfectly with the number of cores.
+Typical values for ADF are 0.90-0.98 for LDA/GGA functionals and 0.50-0.80 for hybrids (better if RIHartreeFock is used).'''
+  INFOS['adf.scaling']=min(1.0,max(0.0,question('Parallel scaling:',float,[0.8])[0] ))
+
+
+  # Ionization
+  print '\n'+centerstring('Ionization probability by Dyson norms',60,'-')+'\n'
+  INFOS['ion']=question('Dyson norms?',bool,False)
+  if INFOS['ion']:
+    INFOS['adf.wfoverlap']=question('Path to wavefunction overlap executable:',str)
+    print ''
+    print '''State threshold for choosing determinants to include in the overlaps'''
+    print '''For hybrids one should consider that the eigenvector X may have a norm larger than 1'''
+    INFOS['adf.ciothres']=question('Threshold:',float,[0.99])[0]
+    print 'Please state the number of core orbitals you wish to freeze for the overlaps (recommended to use for at least the 1s orbital and a negative number uses default values)?'
+    print 'A value of -1 will use the defaults used by ADF for a small frozen core and 0 will turn off the use of frozen cores'
+    INFOS['frozcore_number']=question('How many orbital to freeze?',int,[-1])[0]
+
+
+
 
   return INFOS
 
@@ -1581,21 +1644,34 @@ def prepare_ADF(INFOS,iconddir):
     print 'IOError during prepareADF, iconddir=%s' % (iconddir)
     quit(1)
 #  project='ADF'
-#  string='adfhome %s\nscmlicense %s\nscratchdir %s/%s/\nncpu %i\nproject %s\n' % (INFOS['adf'],INFOS['scmlicense'],INFOS['scratchdir'],iconddir,INFOS['adf.ncpu'],project)
-  string='adfhome %s\nscmlicense %s\nscratchdir %s/%s/\nncpu %i\npaddingstates %i' % (INFOS['adf'],INFOS['scmlicense'],INFOS['scratchdir'],iconddir,INFOS['adf.ncpu'],INFOS['pad'])
+  string='adfhome %s\nscmlicense %s\nscratchdir %s/%s/\nncpu %i\nschedule_scaling %f\n' % (INFOS['adf'],INFOS['scmlicense'],INFOS['scratchdir'],iconddir,INFOS['adf.ncpu'],INFOS['adf.scaling'])
+  if INFOS['ion']:
+    string+='wfoverlap %s\nwfthres %f\n' % (INFOS['adf.wfoverlap'],INFOS['adf.ciothres'])
+    string+='numfrozcore %i\n' %(INFOS['frozcore_number'])
+  else:
+    string+='nooverlap\n'
   sh2cas.write(string)
   sh2cas.close()
 
   # copy MOs and template
   cpfrom=INFOS['ADF.template']
   cpto='%s/ADF.template' % (iconddir)
-  filename = INFOS['adf.guess']
-  if not INFOS['adf.guess']=={}:
-     cpfrom1=INFOS['adf.guess']
-     cpto1='%s/ADF.t21_init' % (iconddir)
-     shutil.copy(cpfrom1,cpto1)
-
   shutil.copy(cpfrom,cpto)
+
+  if INFOS['adf.guess']:
+    cpfrom1=INFOS['adf.guess']
+    cpto1='%s/ADF.t21_init' % (iconddir)
+    shutil.copy(cpfrom1,cpto1)
+
+  if 'ADF.fffile' in INFOS:
+    cpfrom1=INFOS['ADF.fffile']
+    cpto1='%s/amber95.ff' % (iconddir)
+    shutil.copy(cpfrom1,cpto1)
+  if 'ADF.ctfile' in INFOS:
+    cpfrom1=INFOS['ADF.ctfile']
+    cpto1='%s/ADF.qmmm.table' % (iconddir)
+    shutil.copy(cpfrom1,cpto1)
+
   return
 
 # ======================================================================================================================
