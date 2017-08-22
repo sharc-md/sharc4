@@ -37,6 +37,8 @@ module input
   real*8 :: a,b,tmax
   character*24 :: ctime, date
   integer :: idate,time
+  character*8000 :: string1
+  character*8000, allocatable :: string2(:)
 
   ! get the input filename from the command line argument
 
@@ -359,6 +361,23 @@ module input
       write(u_log,*)
     endif
     call flush(u_log)
+
+  ! =====================================================
+
+  ! find number of properties
+
+    line=get_value_from_key('n_property1d',io)
+    if (io==0) then
+      read(line,*) ctrl%n_property1d
+    else
+      ctrl%n_property1d=1
+    endif
+    line=get_value_from_key('n_property2d',io)
+    if (io==0) then
+      read(line,*) ctrl%n_property2d
+    else
+      ctrl%n_property2d=1
+    endif
 
   ! =====================================================
 
@@ -715,30 +734,50 @@ module input
       ctrl%write_overlap = 0
     endif
 
-    ctrl%write_NAC=0                   !< write nonadiabatic couplings:   \n        0=no NACs, 1=write NACs
-    line=get_value_from_key('write_nac',io)
+    ctrl%write_NACdr=0                   !< write nonadiabatic couplings:   \n        0=no NACs, 1=write NACs
+    line=get_value_from_key('write_nacdr',io)
     if (io==0) then
-      ctrl%write_NAC=1
+      ctrl%write_NACdr=1
     endif
-    line=get_value_from_key('nowrite_nac',io)
+    line=get_value_from_key('nowrite_nacdr',io)
     if (io==0) then
-      ctrl%write_NAC=0
+      ctrl%write_NACdr=0
     endif
-    if (ctrl%calc_nacdr==-1 .and. ctrl%write_NAC==1) then
+    if (ctrl%calc_nacdr==-1 .and. ctrl%write_NACdr==1) then
       write(u_log,*) 'Warning! Requested writing NonAdiabatic Coupling (NACs) but no NACs calculated. Writing of NACs disabled.'
-      ctrl%write_NAC = 0
+      ctrl%write_NACdr = 0
     endif
 
-    ctrl%write_property=0                !< write property matrix:   \n        0=no property, 1=write property
-    line=get_value_from_key('write_property',io)
+    ctrl%write_property1d=0                !< write property vectors:   \n        0=no property, 1=write property
+    line=get_value_from_key('write_property1d',io)
     if (io==0) then
-      ctrl%write_property=1
+      ctrl%write_property1d=1
     endif
-    line=get_value_from_key('nowrite_property',io)
+    line=get_value_from_key('nowrite_property1d',io)
     if (io==0) then
-      ctrl%write_property=0
+      ctrl%write_property1d=0
     endif
 
+    ctrl%write_property2d=0                !< write property matrices:   \n        0=no property, 1=write property
+    line=get_value_from_key('write_property2d',io)
+    if (io==0) then
+      ctrl%write_property2d=1
+    endif
+    line=get_value_from_key('nowrite_property2d',io)
+    if (io==0) then
+      ctrl%write_property2d=0
+    endif
+
+
+    line=get_value_from_key('output_version',io)
+    if (io==0) then
+      read(line,*) ctrl%output_version
+    else
+      string1=version
+      call split(string1,' ',string2,n)
+      read(string2(1),*) ctrl%output_version
+      deallocate(string2)
+    endif
 
 
 
@@ -818,7 +857,7 @@ module input
           write(u_log,'(a)') 'Not calculating Spin-Orbit couplings.'
         endif
       endif
-      write(u_log,*)
+
       if (ctrl%calc_soc/=1) then
         n=0
         do i=1,ctrl%maxmult
@@ -829,6 +868,7 @@ module input
         endif
       endif
       write(u_log,*)
+
       if (ctrl%write_soc==0) then
         write(u_log,'(a)') 'Not writing Spin-Orbit couplings.'
       else
@@ -844,17 +884,23 @@ module input
       else
         write(u_log,'(a)') 'Writing gradients.'
       endif
-      if (ctrl%write_NAC==0) then
+      if (ctrl%write_NACdr==0) then
         write(u_log,'(a)') 'Not writing nonadiabatic couplings.'
       else
         write(u_log,'(a)') 'Writing nonadiabatic couplings.'
       endif
-      if (ctrl%write_property==0) then
-        write(u_log,'(a)') 'Not writing property matrix.'
+      if (ctrl%write_property1d==0) then
+        write(u_log,'(a)') 'Not writing property vectors.'
       else
-        write(u_log,'(a)') 'Writing property matrix.'
+        write(u_log,'(a)') 'Writing property vectors.'
       endif
-     
+      if (ctrl%write_property2d==0) then
+        write(u_log,'(a)') 'Not writing property matrices.'
+      else
+        write(u_log,'(a)') 'Writing property matrices.'
+      endif
+      write(u_log,*)
+
     endif
 
   ! =====================================================

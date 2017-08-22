@@ -342,13 +342,6 @@ subroutine write_dat_initial(u, ctrl, traj)
   type(ctrl_type) :: ctrl
   type(trajectory_type) :: traj
   integer :: u, iatom, n
-  character*8000 :: string1
-  character*8000, allocatable :: string2(:)
-
-  string1=version
-  call split(string1,' ',string2,n)
-  read(string2(1),*) ctrl%output_version
-  deallocate(string2)
   
   if (ctrl%output_version == 1.0) then
     ! old header for SHARC v1.0
@@ -361,29 +354,30 @@ subroutine write_dat_initial(u, ctrl, traj)
     write(u,*) ctrl%laser, '! laser'
     write(u,*) ctrl%nsteps,'! nsteps'
     write(u,*) ctrl%nsubsteps,'! nsubsteps'
-    if (ctrl%laser==2) call vec3write(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_td, u, '! Laser field','E20.13')    
-  else
+    if (ctrl%laser==2) call vec3write(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_td, u, '! Laser field','E21.13e3')    
+  elseif   (ctrl%output_version >= 2.0) then
     ! header for SHARC v2.0
     write(u,'(a14,f5.1)') 'SHARC_version ',  ctrl%output_version
-    write(u,*) 'maxmult',        ctrl%maxmult
-    write(u,*) 'nstates_m',      ctrl%nstates_m
-    write(u,*) 'natom',          ctrl%natom
-    write(u,*) 'dtstep',         ctrl%dtstep 
-    write(u,*) 'nsteps',         ctrl%nsteps
-    write(u,*) 'nsubsteps',      ctrl%nsubsteps
-    write(u,*) 'ezero',          ctrl%ezero
-    write(u,*) 'write_overlap',  ctrl%write_overlap
-    write(u,*) 'write_grad',     ctrl%write_grad
-    write(u,*) 'write_nac',      ctrl%write_NAC
-    write(u,*) 'write_property', ctrl%write_property
-    write(u,*) 'laser',          ctrl%laser
-    write(u,*) 'nsteps',         ctrl%nsteps
-    write(u,*) 'nsubsteps',      ctrl%nsubsteps
+    write(u,*) 'maxmult',          ctrl%maxmult
+    write(u,*) 'nstates_m',        ctrl%nstates_m
+    write(u,*) 'natom',            ctrl%natom
+    write(u,*) 'dtstep',           ctrl%dtstep 
+    write(u,*) 'nsteps',           ctrl%nsteps
+    write(u,*) 'nsubsteps',        ctrl%nsubsteps
+    write(u,*) 'ezero',            ctrl%ezero
+    write(u,*) 'write_overlap',    ctrl%write_overlap
+    write(u,*) 'write_grad',       ctrl%write_grad
+    write(u,*) 'write_nacdr',      ctrl%write_NACdr
+    write(u,*) 'write_property1d', ctrl%write_property1d
+    write(u,*) 'write_property2d', ctrl%write_property2d
+    write(u,*) 'n_property1d',     ctrl%n_property1d
+    write(u,*) 'n_property2d',     ctrl%n_property2d
+    write(u,*) 'laser',            ctrl%laser
     write(u,'(a)') '************************************* End of settings *************************************'
-    call vecwrite(ctrl%natom,traj%atomicnumber_a,u,'! Atomic numbers','E20.13')
+    call vecwrite(ctrl%natom,traj%atomicnumber_a,u,'! Atomic numbers','E21.13e3')
     call vecwrite(ctrl%natom,traj%element_a,     u,'! Elements',      'A3'  )
-    call vecwrite(ctrl%natom,traj%mass_a,        u,'! Atomic masses', 'E20.13')
-    if (ctrl%laser==2) call vec3write(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_td, u, '! Laser field','E20.13')    
+    call vecwrite(ctrl%natom,traj%mass_a,        u,'! Atomic masses', 'E21.13e3')
+    if (ctrl%laser==2) call vec3write(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_td, u, '! Laser field','E21.13e3')    
     write(u,'(a)') '********************************* End of header array data ********************************'
   endif
 
@@ -408,44 +402,67 @@ subroutine write_dat(u, traj, ctrl)
 
   write(u,'(A)') '! 0 Step'
   write(u,'(I12)') traj%step
-  call matwrite(nstates, traj%H_MCH_ss, u, '! 1 Hamiltonian (MCH) in a.u.', 'E20.13')
-  call matwrite(nstates, traj%U_ss, u, '! 2 U matrix', 'E20.13')
-  call matwrite(nstates, traj%DM_print_ssd(:,:,1), u, '! 3 Dipole moments X (MCH) in a.u.', 'E20.13')
-  call matwrite(nstates, traj%DM_print_ssd(:,:,2), u, '! 3 Dipole moments Y (MCH) in a.u.', 'E20.13')
-  call matwrite(nstates, traj%DM_print_ssd(:,:,3), u, '! 3 Dipole moments Z (MCH) in a.u.', 'E20.13')
+  call matwrite(nstates, traj%H_MCH_ss, u, '! 1 Hamiltonian (MCH) in a.u.', 'E21.13e3')
+  call matwrite(nstates, traj%U_ss, u, '! 2 U matrix', 'E21.13e3')
+  call matwrite(nstates, traj%DM_print_ssd(:,:,1), u, '! 3 Dipole moments X (MCH) in a.u.', 'E21.13e3')
+  call matwrite(nstates, traj%DM_print_ssd(:,:,2), u, '! 3 Dipole moments Y (MCH) in a.u.', 'E21.13e3')
+  call matwrite(nstates, traj%DM_print_ssd(:,:,3), u, '! 3 Dipole moments Z (MCH) in a.u.', 'E21.13e3')
+
   if (ctrl%write_overlap==1) then
-    call matwrite(nstates, traj%overlaps_ss, u, '! 4 Overlap matrix (MCH)', 'E20.13')
+    call matwrite(nstates, traj%overlaps_ss, u, '! 4 Overlap matrix (MCH)', 'E21.13e3')
   endif
-  call vecwrite(nstates, traj%coeff_diag_s, u, '! 5 Coefficients (diag)','E20.13')
-  call vecwrite(nstates, traj%hopprob_s, u, '! 6 Hopping Probabilities (diag)','E20.13')
+
+  call vecwrite(nstates, traj%coeff_diag_s, u, '! 5 Coefficients (diag)','E21.13e3')
+  call vecwrite(nstates, traj%hopprob_s, u, '! 6 Hopping Probabilities (diag)','E21.13e3')
 
   write(u,'(A)') '! 7 Ekin (a.u.)'
-  write(u,'(E20.13)') traj%Ekin
+  write(u,'(E21.13e3)') traj%Ekin
   write(u,'(A)') '! 8 states (diag, MCH)'
   write(u,'(I12,1X,I12)') traj%state_diag, traj%state_MCH
   write(u,'(A)') '! 9 Random number'
-  write(u,'(E20.13)') traj%randnum
+  write(u,'(E21.13e3)') traj%randnum
   write(u,'(A)') '! 10 Runtime (sec)'
   write(u,'(I12)') traj%time_step
 
-  call vec3write(natom, traj%geom_ad, u, '! 11 Geometry in a.u.','E20.13')
-  call vec3write(natom, traj%veloc_ad, u, '! 12 Velocities in a.u.','E20.13')
-  if (ctrl%write_property==1) then
-    call matwrite(nstates, traj%Property_ss, u, '! 13 Property matrix (MCH)', 'E20.13')
+  call vec3write(natom, traj%geom_ad, u, '! 11 Geometry in a.u.','E21.13e3')
+  call vec3write(natom, traj%veloc_ad, u, '! 12 Velocities in a.u.','E21.13e3')
+
+
+  if (ctrl%output_version <= 1.0) then
+    call matwrite(nstates, traj%Property2d_xss(1,:,:), u, '! 13 Property matrix (MCH)', 'E21.13e3')
+  elseif (ctrl%output_version >= 2.0) then
+    if (ctrl%write_property2d==1) then
+!       write(u,'(A)') '! 13 Property matrices (MCH)'
+      do i=1,ctrl%n_property2d
+        write(string,'(A26,I3,A3,A)') '! 13 Property matrix (MCH)',i,' : ',traj%Property2d_labels_x(i)
+        call matwrite(nstates, traj%Property2d_xss(i,:,:), u, string, 'E21.13e3')
+      enddo
+    endif
+    if (ctrl%write_property1d==1) then
+!       write(u,'(A)') '! 14 Property vectors (MCH)'
+      do i=1,ctrl%n_property1d
+        write(string,'(A26,I3,A3,A)') '! 14 Property vector (MCH)',i,' : ',traj%Property1d_labels_y(i)
+        call vecwrite(nstates, traj%Property1d_ys(i,:), u, string, 'E21.13e3')
+      enddo
+    endif
   endif
+
+
   if (ctrl%write_grad == 1) then
-    write(u,'(A)') '! 14 Gradient matrix (MCH) as x,y,z (per line) for each atom (per newline)'
+!     write(u,'(A)') '! 15 Gradient matrix (MCH) as x,y,z (per line) for each atom (per newline)'
     do i=1,ctrl%nstates
-      write(string,'(A13,I3)') 'State (MCH)',i
-      call vec3write(ctrl%natom,traj%grad_mch_sad(i,:,:),u,trim(string),'E20.13')
+      write(string,'(A26,I3)') '! 15 Gradients (MCH) State',i
+      call vec3write(ctrl%natom,traj%grad_mch_sad(i,:,:),u,trim(string),'E21.13e3')
     enddo
   endif
-  if (ctrl%write_NAC == 1) then
-    write(u,'(A)') '! 15 NAC matrix (MCH) as x,y,z (per line) for each atom (per newline)'
+
+
+  if (ctrl%write_NACdr == 1) then
+!     write(u,'(A)') '! 16 NAC matrix (MCH) as x,y,z (per line) for each atom (per newline)'
     do i=1,ctrl%nstates
       do j=1,ctrl%nstates
-        write(string,'(A26,I3,1X,I3)') 'Matrix element (MCH-MCH)',i,j
-        call vec3write(ctrl%natom,traj%NACdr_ssad(i,j,:,:),u,trim(string),'E20.13')
+        write(string,'(A31,I3,1X,I3)') '! 16 NACdr matrix element (MCH)',i,j
+        call vec3write(ctrl%natom,traj%NACdr_ssad(i,j,:,:),u,trim(string),'E21.13e3')
       enddo
     enddo
    endif

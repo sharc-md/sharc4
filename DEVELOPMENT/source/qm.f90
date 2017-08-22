@@ -170,12 +170,17 @@ module qm
       enddo
     enddo
 
-    ! get Property matrix, if necessary
-    if ((ctrl%ionization>0).and.(mod(traj%step,ctrl%ionization)==0)) then
-      call get_property(ctrl%nstates, traj%Property_ss,stat)
-    else
-      traj%Property_ss=dcmplx(0.d0,0.d0)
-    endif
+!     ! get Property matrix, if necessary
+!     if ((ctrl%ionization>0).and.(mod(traj%step,ctrl%ionization)==0)) then
+!       call get_property(ctrl%nstates, traj%Property_ss,stat)
+!     else
+!       traj%Property_ss=dcmplx(0.d0,0.d0)
+!     endif
+
+    ! get all available Properties
+    call get_properties_new(ctrl, traj)
+
+
 
     ! if gradients were calculated in first call, get them
     if (ctrl%calc_grad<=1) then
@@ -658,6 +663,7 @@ module qm
           do i=1,ctrl%nstates
             if ( abs( traj%H_MCH_ss(i,i) - E )< ctrl%eselect_grad ) traj%selg_s(i)=.true.
           enddo
+          traj%selg_s(traj%state_MCH)=.true.
 
         ! only active state for FISH
         case (1) ! FISH

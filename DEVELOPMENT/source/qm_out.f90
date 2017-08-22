@@ -37,6 +37,7 @@ public get_nonadiabatic_ddt
 public get_nonadiabatic_ddr
 public get_overlap
 public get_property
+public get_properties_new
 public get_dipolegrad
 public get_QMruntime
 
@@ -426,6 +427,60 @@ subroutine get_property(n,property_ss,stat)
     property_ss=dcmplx(0.d0,-123.d0)
     stat=-1
     return
+  endif
+
+endsubroutine
+
+! =================================================================== !
+
+! read 1d and 2d properties from QMout file, reading all available data sets
+! all allocated parts which are not found in the QMout file are given the value (0,-123)
+subroutine get_properties_new(ctrl,traj)
+  use matrix
+  use definitions
+  implicit none
+
+  type(trajectory_type) :: traj
+  type(ctrl_type) :: ctrl
+
+  integer :: i,io,nread
+  character(len=8000) :: string
+
+  call check_qmout_unit('get_properties_new')
+
+  ! first, the 1d properties will be processed
+  traj%Property1d_ys=dcmplx(0.d0,-123.d0)
+  traj%Property1d_labels_y='N/A'
+
+  call goto_flag_nostop(21,io)
+  if (io/=-1) then
+    read(qmout_unit,*) nread
+    if (nread>ctrl%n_property1d) nread=ctrl%n_property1d
+    call vecread(nread, traj%Property1d_labels_y(:nread), qmout_unit, string)
+    read(qmout_unit,*) 
+    do i=1,nread
+      call vecread(ctrl%nstates, traj%Property1d_ys(i,:), qmout_unit, string)
+    enddo
+  endif
+
+
+  ! second, the 2d properties will be processed
+  traj%Property2d_xss=dcmplx(0.d0,-123.d0)
+  traj%Property2d_labels_x='N/A'
+
+  ! get property matrix in old way
+  call get_property(ctrl%nstates,traj%Property2d_xss(1,:,:),i)
+
+  ! new way
+  call goto_flag_nostop(20,io)
+  if (io/=-1) then
+    read(qmout_unit,*) nread
+    if (nread>ctrl%n_property2d) nread=ctrl%n_property2d
+    call vecread(nread, traj%Property2d_labels_x(:nread), qmout_unit, string)
+    read(qmout_unit,*)
+    do i=1,nread
+      call matread(ctrl%nstates, traj%Property2d_xss(i,:,:), qmout_unit, string)
+    enddo
   endif
 
 endsubroutine
