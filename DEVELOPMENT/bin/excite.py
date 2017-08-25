@@ -914,6 +914,8 @@ Note that this is applied to all initial conditions.'''
 
   if INFOS['excite']==3:
     print centerstring('Considered states',60,'-')+'\n'
+    print 'From which state should the initial conditions be excited?'
+    INFOS['initstate']=question('Initial state?',int,[1])[0]-1
     if 'states' in INFOS:
       print print_statemap(get_statemap(INFOS['states']))
     allstates=question('Do you want to include all states in the selection?',bool,True)
@@ -996,6 +998,7 @@ def get_QMout(INFOS,initlist):
     global diagon
     diagon=diagonalizer()
   ncond=0
+  initstate=INFOS['initstate']
   for icond in range(1,INFOS['ninit']+1):
     # look for a QM.out file
     qmfilename=INFOS['iconddir']+'/ICOND_%05i/QM.out' % (icond)
@@ -1026,10 +1029,10 @@ def get_QMout(INFOS,initlist):
     estates=[]
     for istate in range(len(H)):
       if INFOS['ion']:
-        dip=[math.sqrt(abs(P[0][istate])),0,0]
+        dip=[math.sqrt(abs(P[initstate][istate])),0,0]
       else:
-        dip=[DM[i][0][istate] for i in range(3)]
-      estate=STATE(len(estates)+1,H[istate][istate],H[0][0],dip)
+        dip=[DM[i][initstate][istate] for i in range(3)]
+      estate=STATE(len(estates)+1,  H[istate][istate],  H[initstate][initstate],   dip)
       estates.append(estate)
     initlist[icond-1].addstates(estates)
     if INFOS['diabatize']:
