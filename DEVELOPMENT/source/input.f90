@@ -492,6 +492,27 @@ module input
     ctrl%ionization=-1
   endif
 
+  ! theodore keyword
+
+  line=get_value_from_key('theodore',io)
+  if (io==0) then
+    ctrl%theodore=1
+    line=get_value_from_key('theodore_step',io)
+    if (io==0) then
+      read(line,*) ctrl%theodore
+    endif
+    if (printlevel>1) then
+      write(u_log,'(A,1X,I6,1X,A)') 'Calculating TheoDORE properties every',ctrl%theodore,'steps.'
+      write(u_log,*)
+    endif
+  else
+    ctrl%theodore=-1
+  endif
+  line=get_value_from_key('notheodore',io)
+  if (io==0) then
+    ctrl%theodore=-1
+  endif
+
   ! =====================================================
 
   ! other keywords, including consistency checks

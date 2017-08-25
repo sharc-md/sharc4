@@ -87,6 +87,7 @@ module restart
     write(u,*) ctrl%calc_second
     write(u,*) ctrl%killafter
     write(u,*) ctrl%ionization
+    write(u,*) ctrl%theodore
     write(u,*) ctrl%track_phase
     write(u,*) ctrl%hopping_procedure
     write(u,*) ctrl%calc_soc
@@ -336,6 +337,7 @@ module restart
     read(u_ctrl,*) ctrl%calc_second
     read(u_ctrl,*) ctrl%killafter
     read(u_ctrl,*) ctrl%ionization
+    read(u_ctrl,*) ctrl%theodore
     read(u_ctrl,*) ctrl%track_phase
     read(u_ctrl,*) ctrl%hopping_procedure
     read(u_ctrl,*) ctrl%calc_soc

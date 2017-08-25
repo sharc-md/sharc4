@@ -572,6 +572,12 @@ module qm
       endif
     endif
 
+    if (ctrl%theodore>0) then
+      if (mod(traj%step,ctrl%theodore)==0) then
+        write(u_qm_qmin,'(A)') 'THEODORE'
+      endif
+    endif
+
   endsubroutine
 
 ! ===========================================================
