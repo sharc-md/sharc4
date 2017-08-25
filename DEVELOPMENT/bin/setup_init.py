@@ -15,6 +15,8 @@ import datetime
 from optparse import OptionParser
 import readline
 import time
+import ast
+import pprint
 
 # =========================================================
 # compatibility stuff
@@ -383,6 +385,12 @@ def question(question,typefunc,default=None,autocomplete=True):
 
 
 # ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
 
 def get_general():
   '''This routine questions from the user some general information:
@@ -482,13 +490,13 @@ def get_general():
     nstates+=(mult+1)*i
   print 'Number of states: '+str(states)
   print 'Total number of states: %i\n' % (nstates)
-  soc=question('Spin-Orbit calculation?',bool,True)
-  if soc:
-    if len(states)>1:
+  if len(states)>1:
+    soc=question('Spin-Orbit calculation?',bool,True)
+    if soc:
       print 'Will calculate spin-orbit matrix.'
-    else:
-      print 'Not calculating spin-orbit matrix, only singlets specified.'
-      soc=False
+  else:
+    print 'Not calculating spin-orbit matrix, only singlets specified.'
+    soc=False
   print ''
   INFOS['states']=states
   INFOS['nstates']=nstates
@@ -509,6 +517,37 @@ def get_general():
       print 'Please input one of the following: %s!' % ([i for i in Interfaces])
   INFOS['interface']=num
 
+  INFOS['needed']=[]
+
+  # Setup Dyson spectra
+  if 'dyson' in Interfaces[num]['features']:
+    n=[0,0]
+    for i,j in enumerate(states):
+      n[i%2]+=j
+    if n[0]>=1 and n[1]>=1:
+      print '\n'+centerstring('Ionization probability by Dyson norms',60,'-')+'\n'
+      print 'Do you want to compute Dyson norms between neutral and ionic states?'
+      INFOS['ion']=question('Dyson norms?',bool,False)
+      if INFOS['ion']:
+        INFOS['needed'].extend(Interfaces[num]['features']['dyson'])
+
+
+  # Setup initconds with reference overlap
+  if 'overlap' in Interfaces[num]['features']:
+    print '\n'+centerstring('Overlaps to reference states',60,'-')+'\n'
+    print 'Do you want to compute the overlaps between the states at the equilibrium geometry and the states at the initial condition geometries?'
+    INFOS['refov']=question('Reference overlaps?',bool,False)
+    if INFOS['refov']:
+      INFOS['needed'].extend(Interfaces[num]['features']['overlap'])
+
+
+  # Setup theodore 
+  if 'theodore' in Interfaces[num]['features']:
+    print '\n'+centerstring('TheoDORE wave function analysis',60,'-')+'\n'
+    print 'Do you want to run TheoDORE to obtain one-electron descriptors for the electronic wave functions?'
+    INFOS['theodore']=question('TheoDORE?',bool,False)
+    if INFOS['theodore']:
+      INFOS['needed'].extend(Interfaces[num]['features']['theodore'])
 
 
   INFOS['cwd']=os.getcwd()
@@ -518,60 +557,75 @@ def get_general():
 # ======================================================================================================================
 # ======================================================================================================================
 # ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
 
 Interfaces={
   1: {'script':          'SHARC_MOLPRO.py',
       'description':     'MOLPRO (only CASSCF)',
       'get_routine':     'get_MOLPRO',
       'prepare_routine': 'prepare_MOLPRO',
-      'couplings':       [2,3]
+      'features':        {'overlap': ['wfoverlap'],
+                          'dyson':   ['wfoverlap'],
+                          'nacdr':   ['wfoverlap']    }
      },
   2: {'script':          'SHARC_COLUMBUS.py',
       'description':     'COLUMBUS (CASSCF, RASSCF and MRCISD), using SEWARD integrals',
       'get_routine':     'get_COLUMBUS',
       'prepare_routine': 'prepare_COLUMBUS',
-      'couplings':       [3]
+      'features':        {'overlap': ['wfoverlap'],
+                          'dyson':   ['wfoverlap']  }
      },
   3: {'script':          'SHARC_Analytical.py',
       'description':     'Analytical PESs',
       'get_routine':     'get_Analytical',
       'prepare_routine': 'prepare_Analytical',
-      'couplings':       [3]
+      'features':        {'overlap': [],
+                          'dipolegrad':[]}
      },
   4: {'script':          'SHARC_MOLCAS.py',
       'description':     'MOLCAS (CASSCF, CASPT2, MS-CASPT2)',
       'get_routine':     'get_MOLCAS',
       'prepare_routine': 'prepare_MOLCAS',
-      'couplings':       [3]
+      'features':        {'overlap': [],
+                          'dyson':   ['wfoverlap'],
+                          'dipolegrad':[]}
      },
-  #4: {'script':          'SHARC_MOLCAS_QMMM.py',
-      #'description':     'MOLCAS (with QM/MM)',
-      #'get_routine':     'get_MOLCAS_QMMM',
-      #'prepare_routine': 'prepare_MOLCAS_QMMM',
-      #'couplings':       []
-     #},
   5: {'script':          'SHARC_ADF.py',
       'description':     'ADF (DFT, TD-DFT)',
       'get_routine':     'get_ADF',
       'prepare_routine': 'prepare_ADF',
-      'couplings':       [3]
+      'features':        {'overlap': ['wfoverlap'],
+                          'dyson':   ['wfoverlap'],
+                          'theodore':['theodore']    }
      },
   6: {'script':          'SHARC_RICC2.py',
       'description':     'TURBOMOLE (ricc2 with CC2 and ADC(2))',
       'get_routine':     'get_RICC2',
       'prepare_routine': 'prepare_RICC2',
-      'couplings':       [3]
+      'features':        {'overlap': ['wfoverlap'],
+                          'theodore':['theodore']    }
      },
   7: {'script':          'SHARC_LVC.py',
       'description':     'LVC Hamiltonian',
       'get_routine':     'get_LVC',
       'prepare_routine': 'prepare_LVC',
-      'couplings':       [3],
-      'dipolegrad':      False
+      'features':        {'overlap': [],
+                          'nacdr':   []    }
      }
   }
 
 
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
 # ======================================================================================================================
 # ======================================================================================================================
 # ======================================================================================================================
@@ -689,20 +743,20 @@ If you optimized your geometry with MOLPRO/CASSCF you can reuse the "wf" file fr
   INFOS['molpro.ncpu']=abs(question('Number of CPUs:',int,[1])[0])
 
 
-  # Ionization
-  print '\n'+centerstring('Ionization probability by Dyson norms',60,'-')+'\n'
-  INFOS['ion']=question('Dyson norms?',bool,False)
-  if INFOS['ion']:
-    INFOS['molpro.wfpath']=question('Path to wavefunction overlap executable:',str)
+
+  if 'wfoverlap' in INFOS['needed']:
+    print '\n'+centerstring('Wfoverlap code setup',60,'-')+'\n'
+    INFOS['molpro.wfpath']=question('Path to wavefunction overlap executable:',str,'$SHARC/wfoverlap.x')
+    # TODO: not asked for: numfrozcore, numocc
 
   return INFOS
 
 # =================================================
 
 def prepare_MOLPRO(INFOS,iconddir):
-  # write SH2PRO.inp
+  # write MOLPRO.resources
   try:
-    sh2pro=open('%s/SH2PRO.inp' % (iconddir), 'w')
+    sh2pro=open('%s/MOLPRO.resources' % (iconddir), 'w')
   except IOError:
     print 'IOError during prepareMOLPRO, iconddir=%s' % (iconddir)
     quit(1)
@@ -712,8 +766,10 @@ scratchdir %s/%s/
 memory %i
 ncpu %i
 ''' % (INFOS['molpro'],INFOS['scratchdir'],iconddir,INFOS['molpro.mem'],INFOS['molpro.ncpu'])
-  if INFOS['ion']:
+  if 'wfoverlap' in INFOS['needed']:
     string+='wfoverlap %s\n' % (INFOS['molpro.wfpath'])
+  else:
+    string+='\nnooverlap\n'
   sh2pro.write(string)
   sh2pro.close()
 
@@ -988,38 +1044,38 @@ In order to setup the COLUMBUS input, use COLUMBUS' input facility colinp. For f
 
 
   # Ionization
-  print '\n'+centerstring('Ionization probability by Dyson norms',60,'-')+'\n'
-  INFOS['ion']=question('Dyson norms?',bool,False)
-  if INFOS['ion']:
-    INFOS['columbus.dysonpath']=question('Path to wavefunction overlap executable:',str)
-    #INFOS['columbus.civecpath']=question('Path to civecconsolidate executable:',str,'$COLUMBUS/civecconsolidate')
+  #print '\n'+centerstring('Ionization probability by Dyson norms',60,'-')+'\n'
+  #INFOS['ion']=question('Dyson norms?',bool,False)
+  #if INFOS['ion']:
+  if 'wfoverlap' in INFOS['needed']:
+    print '\n'+centerstring('Wfoverlap code setup',60,'-')+'\n'
+    INFOS['columbus.dysonpath']=question('Path to wavefunction overlap executable:',str,'$SHARC/wfoverlap.x')
     INFOS['columbus.ciothres']=question('Determinant screening threshold:',float,[0.97])[0]
-    #INFOS['columbus.dysonthres']=abs(question('c2 threshold for Dyson:',float,[1e-12])[0])
-    #INFOS['columbus.dysonthres']=1e-12
+    # TODO not asked: numfrozcore, numocc
 
   return INFOS
 
 # =================================================
 
 def prepare_COLUMBUS(INFOS,iconddir):
-  # write SH2COL.inp
+  # write COLUMBUS.resources
   try:
-    sh2col=open('%s/SH2COL.inp' % (iconddir), 'w')
+    sh2col=open('%s/COLUMBUS.resources' % (iconddir), 'w')
   except IOError:
     print 'IOError during prepareCOLUMBUS, directory=%i' % (iconddir)
     quit(1)
   string= 'columbus %s\nscratchdir %s/%s/WORK\n' % (INFOS['columbus'],INFOS['scratchdir'],iconddir)
-  string+='savedir %s/%s/savedir\ntemplate %s\nmemory %i\nnooverlap\n\n' % (INFOS['scratchdir'],iconddir, INFOS['columbus.template'],INFOS['columbus.mem'])
+  string+='savedir %s/%s/savedir\ntemplate %s\nmemory %i\n\n' % (INFOS['scratchdir'],iconddir, INFOS['columbus.template'],INFOS['columbus.mem'])
   for mult in INFOS['columbus.multmap']:
     string+='DIR %i %s\n' % (mult,INFOS['columbus.multmap'][mult])
   string+='\n'
   for job in INFOS['columbus.mocoefmap']:
     string+='MOCOEF %s %s\n' % (job,INFOS['columbus.mocoefmap'][job])
-  if INFOS['ion']:
+  if 'wfoverlap' in INFOS['needed']:
     string+='wfoverlap %s\n' % (INFOS['columbus.dysonpath'])
-    #string+='civecconsolidate %s\n' % (INFOS['columbus.civecpath'])
-    #string+='dysonthres %s\n' % (INFOS['columbus.dysonthres'])
     string+='wfthres %s\n' % (INFOS['columbus.ciothres'])
+  else:
+    string+='\nnooverlap\n'
   sh2col.write(string)
   sh2col.close()
 
@@ -1169,12 +1225,12 @@ def get_Analytical(INFOS):
   string+='  '+'='*80+'\n\n'
   print string
 
-  if os.path.isfile('SH2Ana.inp'):
-    if checktemplate_Analytical('SH2Ana.inp',INFOS['nstates'],eMsg=True):
-      print 'Valid file "SH2Ana.inp" detected. '
+  if os.path.isfile('Analytical.template'):
+    if checktemplate_Analytical('Analytical.template',INFOS['nstates'],eMsg=True):
+      print 'Valid file "Analytical.template" detected. '
       usethisone=question('Use this template file?',bool,True)
       if usethisone:
-        INFOS['analytical.template']='SH2Ana.inp'
+        INFOS['analytical.template']='Analytical.template'
   if not 'analytical.template' in INFOS:
     while True:
       filename=question('Template filename:',str)
@@ -1191,17 +1247,21 @@ def get_Analytical(INFOS):
 # =================================================
 
 def prepare_Analytical(INFOS,iconddir):
-  # copy SH2Ana.inp
+  # copy Analytical.template
 
   # copy MOs and template
   cpfrom=INFOS['analytical.template']
-  cpto='%s/SH2Ana.inp' % (iconddir)
+  cpto='%s/Analytical.template' % (iconddir)
   shutil.copy(cpfrom,cpto)
 
   return
-# =================================================
+
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
 
 def get_LVC(INFOS):
+  # TODO: rename files for consistency with other interfaces
 
   string='\n  '+'='*80+'\n'
   string+='||'+centerstring('LVC Interface setup',80)+'||\n'
@@ -1406,26 +1466,31 @@ The MOLCAS interface will generate the appropriate MOLCAS input automatically.
 
 
   # Ionization
-  print '\n'+centerstring('Ionization probability by Dyson norms',60,'-')+'\n'
-  INFOS['ion']=question('Dyson norms?',bool,False)
-  if INFOS['ion']:
-    INFOS['molcas.wfoverlap']=question('Path to wavefunction overlap executable:',str)
+  #print '\n'+centerstring('Ionization probability by Dyson norms',60,'-')+'\n'
+  #INFOS['ion']=question('Dyson norms?',bool,False)
+  #if INFOS['ion']:  
+  if 'wfoverlap' in INFOS['needed']:
+    print '\n'+centerstring('Wfoverlap code setup',60,'-')+'\n'
+    INFOS['molcas.wfoverlap']=question('Path to wavefunction overlap executable:',str,'$SHARC/wfoverlap.x')
+    # TODO not asked for: numfrozcore, numocc
 
   return INFOS
 
 # =================================================
 
 def prepare_MOLCAS(INFOS,iconddir):
-  # write SH2PRO.inp
+  # write MOLCAS.resources
   try:
-    sh2cas=open('%s/SH2CAS.inp' % (iconddir), 'w')
+    sh2cas=open('%s/MOLCAS.resources' % (iconddir), 'w')
   except IOError:
     print 'IOError during prepareMOLCAS, iconddir=%s' % (iconddir)
     quit(1)
   project='MOLCAS'
   string='molcas %s\nscratchdir %s/%s/\nmemory %i\nncpu %i\nproject %s' % (INFOS['molcas'],INFOS['scratchdir'],iconddir,INFOS['molcas.mem'],INFOS['molcas.ncpu'],project)
-  if 'ion' in INFOS and INFOS['ion']:
+  if 'wfoverlap' in INFOS['needed']:
     string+='\nwfoverlap %s\n' % INFOS['molcas.wfoverlap']
+  else:
+    string+='\nnooverlap\n'
   sh2cas.write(string)
   sh2cas.close()
 
@@ -1502,6 +1567,28 @@ def qmmm_job(filename,INFOS):
     return False
   return True
 
+## =================================================
+
+#def get_qmmm_filenames(filename):
+  #try:
+    #f=open(filename)
+    #data=f.readlines()
+    #f.close()
+  #except IOError:
+    #print 'Could not open template file %s' % (filename)
+    #return False
+  #results={}
+  #for line in data:
+    #if 'qmmm_table' in line.lower() and not '/' in line:
+      #s=line.split()
+      #if len(s)>=2:
+        #results['ctfile']=s[1]
+    #if 'qmmm_ff_file' in line.lower() and not '/' in line:
+      #s=line.split()
+      #if len(s)>=2:
+        #results['fffile']=s[1]
+  #return results
+
 # =================================================
 
 def get_ADF(INFOS):
@@ -1519,35 +1606,46 @@ def get_ADF(INFOS):
 
   print centerstring('Path to ADF',60,'-')+'\n'
   path=os.getenv('ADFHOME')
-  #path=os.path.expanduser(os.path.expandvars(path))
-  if path=='':
-    path=None
-  else:
+  if path:
     path='$ADFHOME/'
-      #print 'Environment variable $MOLCAS detected:\n$MOLCAS=%s\n' % (path)
-      #if question('Do you want to use this MOLCAS installation?',bool,True):
-        #INFOS['molcas']=path
-    #if not 'molcas' in INFOS:
-  print '\nPlease specify path to ADF directory (SHELL variables and ~ can be used, will be expanded when interface is started).\n'
-  INFOS['adf']=question('Path to ADF:',str,path)
-  print ''
-  print centerstring('Path to ADF license file',60,'-')+'\n'
-  path=os.getenv('SCMLICENSE')
-  #path=os.path.expanduser(os.path.expandvars(path))
-  if path=='':
-    path=None
+  adfrc=question('Setup from adfrc.sh file?',bool,True)
+  if adfrc:
+    if path:
+      path='$ADFHOME/adfrc.sh'
+    print '\nPlease specify path to the adfrc.sh file (SHELL variables and ~ can be used, will be expanded when interface is started).\n'
+    path=question('Path to ADF:',str,path)
+    INFOS['adfrc']=os.path.abspath(os.path.expanduser(os.path.expandvars(path)))
+    print 'Will use adfrc= %s' % INFOS['adfrc']
+    INFOS['adf']='$ADFHOME'
+    INFOS['scmlicense']='$SCMLICENSE'
+    print ''
   else:
-    path='$SCMLICENSE'
-  print'\nPlease specify path to ADF license.txt\n'
-  INFOS['scmlicense']=question('Path to license:',str,path)
-  print ''
+    print '\nPlease specify path to ADF directory (SHELL variables and ~ can be used, will be expanded when interface is started).\n'
+    INFOS['adf']=question('Path to ADF:',str,path)
+    print ''
+    print centerstring('Path to ADF license file',60,'-')+'\n'
+    path=os.getenv('SCMLICENSE')
+    #path=os.path.expanduser(os.path.expandvars(path))
+    if path=='':
+      path=None
+    else:
+      path='$SCMLICENSE'
+    print'\nPlease specify path to ADF license.txt\n'
+    INFOS['scmlicense']=question('Path to license:',str,path)
+    print ''
 
+
+
+
+
+  # scratch
   print centerstring('Scratch directory',60,'-')+'\n'
   print 'Please specify an appropriate scratch directory. This will be used to run the ADF calculations. The scratch directory will be deleted after the calculation. Remember that this script cannot check whether the path is valid, since you may run the calculations on a different machine. The path will not be expanded by this script.'
   INFOS['scratchdir']=question('Path to scratch directory:',str)
   print ''
 
 
+  # template file
   print centerstring('ADF input template file',60,'-')+'\n'
   print '''Please specify the path to the ADF.template file. This file must contain the following keywords:
   
@@ -1575,7 +1673,7 @@ The ADF interface will generate the appropriate ADF input automatically.
   print ''
 
 
-
+  # QMMM
   if qmmm_job(INFOS['ADF.template'],INFOS):
     print centerstring('ADF QM/MM setup',60,'-')+'\n'
     print 'Your template specifies a QM/MM calculation. Please give the force field and connection table files.'
@@ -1583,27 +1681,41 @@ The ADF interface will generate the appropriate ADF input automatically.
       filename=question('Force field file:',str)
       if not os.path.isfile(filename):
         print 'File %s does not exist!' % (filename)
-        continue
+      else:
+        break
     INFOS['ADF.fffile']=filename
     while True:
       filename=question('Connection table file:',str)
       if not os.path.isfile(filename):
         print 'File %s does not exist!' % (filename)
-        continue
+      else:
+        break
     INFOS['ADF.ctfile']=filename
+    #files=get_qmmm_filenames(INFOS['ADF.template'])
+    #if 'ctfile' in files:
+      #INFOS['ADF.ctfile.dest']=files['ctfile']
+    #if 'fffile' in files:
+      #INFOS['ADF.fffile.dest']=files['fffile']
 
 
+  # initial MOs
   print centerstring('Initial restart: MO Guess',60,'-')+'\n'
   print '''Please specify the path to an ADF TAPE21 file containing suitable starting MOs for the ADF calculation. Please note that this script cannot check whether the wavefunction file and the Input template are consistent!
 '''
   if question('Do you have a restart file?',bool,True):
-     if True:
-       filename=question('Restart file:',str,'ADF.t21.init')
-       INFOS['adf.guess']=filename
+    if True:
+      while True:
+        filename=question('Restart file:',str,'ADF.t21.init')
+        if os.path.isfile(filename):
+          INFOS['adf.guess']=filename
+          break
+        else:
+          print 'Could not find file "%s"!' % (filename)
   else:
     INFOS['adf.guess']={}
 
 
+  # Resources
   print centerstring('ADF Ressource usage',60,'-')+'\n'
   print '''Please specify the number of CPUs to be used by EACH calculation.
 '''
@@ -1617,19 +1729,72 @@ Typical values for ADF are 0.90-0.98 for LDA/GGA functionals and 0.50-0.80 for h
 
 
   # Ionization
-  print '\n'+centerstring('Ionization probability by Dyson norms',60,'-')+'\n'
-  INFOS['ion']=question('Dyson norms?',bool,False)
-  if INFOS['ion']:
-    INFOS['adf.wfoverlap']=question('Path to wavefunction overlap executable:',str)
+  #print '\n'+centerstring('Ionization probability by Dyson norms',60,'-')+'\n'
+  #INFOS['ion']=question('Dyson norms?',bool,False)
+  #if INFOS['ion']:
+  if 'wfoverlap' in INFOS['needed']:
+    print '\n'+centerstring('Wfoverlap code setup',60,'-')+'\n'
+    INFOS['adf.wfoverlap']=question('Path to wavefunction overlap executable:',str,'$SHARC/wfoverlap.x')
     print ''
-    print '''State threshold for choosing determinants to include in the overlaps'''
-    print '''For hybrids one should consider that the eigenvector X may have a norm larger than 1'''
+    print 'State threshold for choosing determinants to include in the overlaps'
+    print 'For hybrids (and without TDA) one should consider that the eigenvector X may have a norm larger than 1'
     INFOS['adf.ciothres']=question('Threshold:',float,[0.99])[0]
-    print 'Please state the number of core orbitals you wish to freeze for the overlaps (recommended to use for at least the 1s orbital and a negative number uses default values)?'
-    print 'A value of -1 will use the defaults used by ADF for a small frozen core and 0 will turn off the use of frozen cores'
-    INFOS['frozcore_number']=question('How many orbital to freeze?',int,[-1])[0]
+    # TODO not asked: numfrozcore and numocc
+
+    #print 'Please state the number of core orbitals you wish to freeze for the overlaps (recommended to use for at least the 1s orbital and a negative number uses default values)?'
+    #print 'A value of -1 will use the defaults used by ADF for a small frozen core and 0 will turn off the use of frozen cores'
+    #INFOS['frozcore_number']=question('How many orbital to freeze?',int,[-1])[0]
 
 
+  # TheoDORE
+  theodore_spelling=['Om', 
+                    'PRNTO', 
+                    'Z_HE', 'S_HE', 'RMSeh',
+                    'POSi', 'POSf', 'POS', 
+                    'PRi', 'PRf', 'PR', 'PRh',
+                    'CT', 'CT2', 'CTnt',
+                    'MC', 'LC', 'MLCT', 'LMCT', 'LLCT', 
+                    'DEL', 'COH', 'COHh']
+  #INFOS['theodore']=question('TheoDORE analysis?',bool,False)
+  if 'theodore' in INFOS['needed']:
+    print '\n'+centerstring('Wave function analysis by TheoDORE',60,'-')+'\n'
+
+    INFOS['adf.theodore']=question('Path to TheoDORE directory:',str,'$THEODIR')
+    print ''
+
+    print 'Please give a list of the properties to calculate by TheoDORE.\nPossible properties:'
+    string=''
+    for i,p in enumerate(theodore_spelling):
+      string+='%s ' % (p)
+      if (i+1)%8==0:
+        string+='\n'
+    print string
+    l=question('TheoDORE properties:',str,'Om  PRNTO  S_HE  Z_HE  RMSeh')
+    if '[' in l:
+      INFOS['theodore.prop']=ast.literal_eval(l)
+    else:
+      INFOS['theodore.prop']=l.split()
+    print ''
+
+    print 'Please give a list of the fragments used for TheoDORE analysis.'
+    print 'You can use the list-of-lists from dens_ana.in'
+    print 'Alternatively, enter all atom numbers for one fragment in one line. After defining all fragments, type "end".'
+    if qmmm_job(INFOS['ADF.template'],INFOS):
+      print 'You should only include the atom numbers of QM and link atoms.'
+    INFOS['theodore.frag']=[]
+    while True:
+      l=question('TheoDORE fragment:',str,'end')
+      if 'end' in l.lower():
+        break
+      if '[' in l:
+        try:
+          INFOS['theodore.frag']=ast.literal_eval(l)
+          break
+        except ValueError:
+          continue
+      f=[ int(i) for i in l.split() ]
+      INFOS['theodore.frag'].append(f)
+      INFOS['theodore.count']=len(INFOS['theodore.prop'])+len(INFOS['theodore.frag'])**2
 
 
   return INFOS
@@ -1637,19 +1802,27 @@ Typical values for ADF are 0.90-0.98 for LDA/GGA functionals and 0.50-0.80 for h
 # =================================================
 
 def prepare_ADF(INFOS,iconddir):
-  # write SH2PRO.inp
+  # write ADF.resources
   try:
-    sh2cas=open('%s/SH2ADF.inp' % (iconddir), 'w')
+    sh2cas=open('%s/ADF.resources' % (iconddir), 'w')
   except IOError:
     print 'IOError during prepareADF, iconddir=%s' % (iconddir)
     quit(1)
 #  project='ADF'
   string='adfhome %s\nscmlicense %s\nscratchdir %s/%s/\nncpu %i\nschedule_scaling %f\n' % (INFOS['adf'],INFOS['scmlicense'],INFOS['scratchdir'],iconddir,INFOS['adf.ncpu'],INFOS['adf.scaling'])
-  if INFOS['ion']:
+  if 'wfoverlap' in INFOS['needed']:
     string+='wfoverlap %s\nwfthres %f\n' % (INFOS['adf.wfoverlap'],INFOS['adf.ciothres'])
-    string+='numfrozcore %i\n' %(INFOS['frozcore_number'])
+    #string+='numfrozcore %i\n' %(INFOS['frozcore_number'])
   else:
     string+='nooverlap\n'
+  if 'theodore' in INFOS['needed']:
+    string+='theodir %s\n' % (INFOS['adf.theodore'])
+    string+='theodore_prop %s\n' % (INFOS['theodore.prop'])
+    string+='theodore_fragment %s\n' % (INFOS['theodore.frag'])
+  if 'ADF.fffile' in INFOS:
+    string+='qmmm_ff_file ADF.qmmm.ff\n'
+  if 'ADF.ctfile' in INFOS:
+    string+='qmmm_table ADF.qmmm.table\n'
   sh2cas.write(string)
   sh2cas.close()
 
@@ -1665,8 +1838,9 @@ def prepare_ADF(INFOS,iconddir):
 
   if 'ADF.fffile' in INFOS:
     cpfrom1=INFOS['ADF.fffile']
-    cpto1='%s/amber95.ff' % (iconddir)
+    cpto1='%s/ADF.qmmm.ff' % (iconddir)
     shutil.copy(cpfrom1,cpto1)
+
   if 'ADF.ctfile' in INFOS:
     cpfrom1=INFOS['ADF.ctfile']
     cpto1='%s/ADF.qmmm.table' % (iconddir)
@@ -1795,14 +1969,77 @@ douglas-kroll                                   # DKH is only used if this keywo
 '''
   INFOS['ricc2.ncpu']=abs(question('Number of CPUs:',int,[1])[0])
 
+
+
+  if 'wfoverlap' in INFOS['needed']:
+    print '\n'+centerstring('Wfoverlap code setup',60,'-')+'\n'
+    INFOS['ricc2.wfoverlap']=question('Path to wavefunction overlap executable:',str,'$SHARC/wfoverlap.x')
+    print ''
+    print 'State threshold for choosing determinants to include in the overlaps'
+    #print 'For hybrids (and without TDA) one should consider that the eigenvector X may have a norm larger than 1'
+    INFOS['ricc2.ciothres']=question('Threshold:',float,[0.99])[0]
+
+
+
+  # TheoDORE
+  theodore_spelling=['Om', 
+                    'PRNTO', 
+                    'Z_HE', 'S_HE', 'RMSeh',
+                    'POSi', 'POSf', 'POS', 
+                    'PRi', 'PRf', 'PR', 'PRh',
+                    'CT', 'CT2', 'CTnt',
+                    'MC', 'LC', 'MLCT', 'LMCT', 'LLCT', 
+                    'DEL', 'COH', 'COHh']
+  #INFOS['theodore']=question('TheoDORE analysis?',bool,False)
+  if 'theodore' in INFOS['needed']:
+    print '\n'+centerstring('Wave function analysis by TheoDORE',60,'-')+'\n'
+
+    INFOS['ricc2.theodore']=question('Path to TheoDORE directory:',str,'$THEODIR')
+    print ''
+
+    print 'Please give a list of the properties to calculate by TheoDORE.\nPossible properties:'
+    string=''
+    for i,p in enumerate(theodore_spelling):
+      string+='%s ' % (p)
+      if (i+1)%8==0:
+        string+='\n'
+    print string
+    l=question('TheoDORE properties:',str,'Om  PRNTO  S_HE  Z_HE  RMSeh')
+    if '[' in l:
+      INFOS['theodore.prop']=ast.literal_eval(l)
+    else:
+      INFOS['theodore.prop']=l.split()
+    print ''
+
+    print 'Please give a list of the fragments used for TheoDORE analysis.'
+    print 'You can use the list-of-lists from dens_ana.in'
+    print 'Alternatively, enter all atom numbers for one fragment in one line. After defining all fragments, type "end".'
+    INFOS['theodore.frag']=[]
+    while True:
+      l=question('TheoDORE fragment:',str,'end')
+      if 'end' in l.lower():
+        break
+      if '[' in l:
+        try:
+          INFOS['theodore.frag']=ast.literal_eval(l)
+          break
+        except ValueError:
+          continue
+      f=[ int(i) for i in l.split() ]
+      INFOS['theodore.frag'].append(f)
+      INFOS['theodore.count']=len(INFOS['theodore.prop'])+len(INFOS['theodore.frag'])**2
+
+
+
+
   return INFOS
 
 # =================================================
 
 def prepare_RICC2(INFOS,iconddir):
-  # write SH2CC2.inp
+  # write RICC2.resources
   try:
-    sh2cas=open('%s/SH2CC2.inp' % (iconddir), 'w')
+    sh2cas=open('%s/RICC2.resources' % (iconddir), 'w')
   except IOError:
     print 'IOError during prepare_RICC2, iconddir=%s' % (iconddir)
     quit(1)
@@ -1818,6 +2055,15 @@ dipolelevel 1
        INFOS['ricc2.ncpu'])
   if INFOS['soc']:
     string+='orcadir %s\n' % (INFOS['orca'])
+  if 'wfoverlap' in INFOS['needed']:
+    string+='wfoverlap %s\nwfthres %f\n' % (INFOS['ricc2.wfoverlap'],INFOS['ricc2.ciothres'])
+    #string+='numfrozcore %i\n' %(INFOS['frozcore_number'])
+  else:
+    string+='nooverlap\n'
+  if 'theodore' in INFOS['needed']:
+    string+='theodir %s\n' % (INFOS['ricc2.theodore'])
+    string+='theodore_prop %s\n' % (INFOS['theodore.prop'])
+    string+='theodore_fragment %s\n' % (INFOS['theodore.frag'])
   sh2cas.write(string)
   sh2cas.close()
 
@@ -1831,6 +2077,12 @@ dipolelevel 1
     shutil.copy(cpfrom1,cpto1)
   return
 
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
 # ======================================================================================================================
 # ======================================================================================================================
 # ======================================================================================================================
@@ -1943,9 +2195,19 @@ def writeQMin(INFOS,iconddir):
     s=line.split()
     string+='%s %s %s %s\n' % (s[0],s[2],s[3],s[4])
 
-  string+='unit bohr\ninit\ncleanup\nstates '
+  string+='unit bohr\nstates '
   for i in INFOS['states']:
     string+='%i ' % (i)
+  string+='\n'
+
+  if ('refov' in INFOS and INFOS['refov']):
+    if icond==0:
+      string+='init\nsavedir ./SAVE/\n'
+    else:
+      string+='overlap\ncleanup\nsavedir ./SAVE/\n'
+  else:
+    string+='init\ncleanup\n'
+
   if INFOS['soc']:
     string+='\nSOC\n'
   else:
@@ -1953,6 +2215,8 @@ def writeQMin(INFOS,iconddir):
   string+='DM\n'
   if 'ion' in INFOS and INFOS['ion']:
     string+='ion\n'
+  if 'theodore' in INFOS and INFOS['theodore']:
+    string+='theodore\n'
 
   qmin.write(string)
   qmin.close()
@@ -1973,24 +2237,55 @@ def writeRunscript(INFOS,iconddir):
   else:
     projname='init_%5s' % (iconddir[-6:-1])
 
+  # ================================ 
+  intstring=''
+  if 'adfrc' in INFOS:
+    intstring='. %s' % (INFOS['adfrc'])
+
+  # ================================ 
+  if ('refov' in INFOS and INFOS['refov']) and iconddir!='ICOND_00000/':
+    refstring='''
+if [ -d ../ICOND_00000/SAVE ];
+then
+  cp -r ../ICOND_00000/SAVE/ ./SAVE/
+else
+  echo "Should do a reference overlap calculation, but the reference data in ../ICOND_00000/ seems not OK."
+  exit 1
+fi
+'''
+  else:
+    refstring=''
+
+  # generate run scripts here
+  # ================================ for here mode
   if INFOS['here']:
     string='''#!/bin/bash
 
 #$-N %s
 
+%s
+
 PRIMARY_DIR=%s/%s/
 
 cd $PRIMARY_DIR
+%s
 
 $SHARC/%s QM.in >> QM.log 2>> QM.err
-''' % (projname,INFOS['cwd'], iconddir, Interfaces[INFOS['interface']]['script'])
+''' % (projname,intstring,INFOS['cwd'], iconddir, refstring, Interfaces[INFOS['interface']]['script'])
+  #
+  # ================================ for remote mode
   else:
     string='''#!/bin/bash
 
 #$-N %s
 
+%s
+
 PRIMARY_DIR=%s/%s/
 COPY_DIR=%s/%s/
+
+cd $PRIMARY_DIR
+%s
 
 mkdir -p $COPY_DIR
 cp -r $PRIMARY_DIR/* $COPY_DIR
@@ -1998,10 +2293,11 @@ cd $COPY_DIR
 
 $SHARC/%s QM.in >> QM.log 2>> QM.err
 
-cp $COPY_DIR/QM.* $PRIMARY_DIR
+cp -r $COPY_DIR/QM.* $COPY_DIR/SAVE/ $PRIMARY_DIR
 rm -r $COPY_DIR
-''' % (projname,INFOS['cwd'], iconddir, INFOS['copydir'], iconddir, Interfaces[INFOS['interface']]['script'])
+''' % (projname,intstring,INFOS['cwd'], iconddir, INFOS['copydir'], iconddir, refstring,Interfaces[INFOS['interface']]['script'])
 
+  # ================================
   runscript.write(string)
   runscript.close()
   filename='%s/run.sh' % (iconddir)
@@ -2019,7 +2315,7 @@ def setup_equilibrium(INFOS):
     iconddir='ICOND_%05i/' % (0)
     io=make_directory(iconddir)
     if io!=0:
-      print 'Skipping initial condition %i!' % (iconddir)
+      print 'Skipping initial condition %s!' % (iconddir)
       return
 
     writeQMin(INFOS,iconddir)
