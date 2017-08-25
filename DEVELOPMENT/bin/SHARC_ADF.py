@@ -140,6 +140,10 @@ changelogstring='''
 - writes Property matrices (Dyson norms) and vectors (TheoDORE output) in new format into QM.out
 - Dyson norms are now correctly scaled depending on Ms value
 - TheoDORE properties and fragments are now defined in SH2ADF.inp (not backwards compatible)
+- Paths to QM/MM files are now defined in SH2ADF.inp (not backwards compatible)
+
+23.08.2017
+- Resource file is now called "ADF.resources" instead of "SH2ADF.inp" (old filename still works)
 '''
 
 # ======================================================================= #
@@ -1136,13 +1140,13 @@ def get_sh2ADF_environ(sh2ADF,key,environ=True,crucial=True):
       LINE=os.getenv(key.upper())
       if not LINE:
         if crucial:
-          print 'Either set $%s or give path to %s in SH2ADF.inp!' % (key.upper(),key.upper())
+          print 'Either set $%s or give path to %s in ADF.resources!' % (key.upper(),key.upper())
           sys.exit(18)
         else:
           return None
     else:
       if crucial:
-        print 'Give path to %s in SH2adf.inp!' % (key.upper())
+        print 'Give path to %s in ADF.resources!' % (key.upper())
         sys.exit(19)
       else:
         return None
@@ -1361,12 +1365,17 @@ def readQMin(QMinfilename):
 
 
 
-# --------------------------------------------- SH2ADF.inp ----------------------------------
+# --------------------------------------------- ADF.resources ----------------------------------
 
     QMin['pwd']=os.getcwd()
 
-    # open SH2ADF.inp
-    sh2ADF=readfile('SH2ADF.inp')
+    # open ADF.resources
+    filename='ADF.resources'
+    if os.path.isfile(filename):
+        sh2ADF=readfile(filename)
+    else:
+        print 'HINT: reading resources from SH2ADF.inp'
+        sh2ADF=readfile('SH2ADF.inp')
 
 
     # Set up scratchdir
@@ -1472,7 +1481,7 @@ def readQMin(QMinfilename):
 
 
 
-    # ressources
+    # resources
     QMin['ncpu']=1
     line=getsh2ADFkey(sh2ADF,'ncpu')
     if line[0]:
@@ -1531,7 +1540,7 @@ def readQMin(QMinfilename):
             if os.path.isfile(ciopath):
                 QMin['wfoverlap']=ciopath
             else:
-                print 'Give path to wfoverlap.x in SH2ADF.inp!'
+                print 'Give path to wfoverlap.x in ADF.resources!'
                 sys.exit(43)
 
     # memory
@@ -1556,7 +1565,7 @@ def readQMin(QMinfilename):
     if 'theodore' in QMin:
         QMin['theodir']=get_sh2ADF_environ(sh2ADF,'theodir',False,False)
         if QMin['theodir']==None or not os.path.isdir(QMin['theodir']):
-            print 'Give path to the TheoDORE installation directory in SH2ADF.inp!'
+            print 'Give path to the TheoDORE installation directory in ADF.resources!'
             sys.exit(44)
         os.environ['THEODIR']=QMin['theodir']
         os.environ['PYTHONPATH']+=os.pathsep + os.path.join(QMin['theodir'],'lib')
@@ -1684,24 +1693,6 @@ def readQMin(QMinfilename):
                     print 'Length of "charge" does not match length of "states"!'
                     sys.exit(48)
 
-            # qmmm_table is a filename which needs to be checked
-            elif line[0]=='qmmm_table':
-                line2=orig.split(None,1)
-                if len(line2)<2:
-                    print 'Please specify a connection table file after "qmmm_table"!'
-                    sys.exit(49)
-                filename=os.path.abspath(os.path.expandvars(os.path.expanduser(line2[1])))
-                QMin['template']['qmmm_table']=filename
-
-            # qmmm_ff_file is a filename which needs to be checked
-            elif line[0]=='qmmm_ff_file':
-                line2=orig.split(None,1)
-                if len(line2)<2:
-                    print 'Please specify a force field file after "qmmm_ff_file"!'
-                    sys.exit(50)
-                filename=os.path.abspath(os.path.expandvars(os.path.expanduser(line2[1])))
-                QMin['template']['qmmm_ff_file']=filename
-
             # grid_per_atom can occur several times
             elif line[0]=='grid_per_atom' or line[0]=='fit_per_atom':
                 quality=line[1]
@@ -1713,7 +1704,7 @@ def readQMin(QMinfilename):
                         QMin['template'][line[0]][quality].append(n)
 
 
-    # go through sh2ADF for the theodore settings
+    # go through sh2ADF for the theodore settings and QM/MM file names
     for line in sh2ADF:
         orig=re.sub('#.*$','',line).strip()
         line=orig.lower().split()
@@ -1756,6 +1747,24 @@ def readQMin(QMinfilename):
                         l.append(int(i))
                     QMin['template']['theodore_fragment'].append(l)
 
+            # qmmm_table is a filename which needs to be checked
+            elif line[0]=='qmmm_table':
+                line2=orig.split(None,1)
+                if len(line2)<2:
+                    print 'Please specify a connection table file after "qmmm_table"!'
+                    sys.exit(49)
+                filename=os.path.abspath(os.path.expandvars(os.path.expanduser(line2[1])))
+                QMin['template']['qmmm_table']=filename
+
+            # qmmm_ff_file is a filename which needs to be checked
+            elif line[0]=='qmmm_ff_file':
+                line2=orig.split(None,1)
+                if len(line2)<2:
+                    print 'Please specify a force field file after "qmmm_ff_file"!'
+                    sys.exit(50)
+                filename=os.path.abspath(os.path.expandvars(os.path.expanduser(line2[1])))
+                QMin['template']['qmmm_ff_file']=filename
+
 
 
 
@@ -1766,10 +1775,12 @@ def readQMin(QMinfilename):
             print 'Request "SOC" is not compatible with "unrestricted_triplets"!'
             sys.exit(51)
     if QMin['template']['qmmm']:
-        if not os.path.isfile(QMin['template']['qmmm_table']):
+        filename=QMin['template']['qmmm_table']
+        if not os.path.isfile(filename):
             print 'Connection table file "%s" does not exist!' % filename
             sys.exit(52)
-        if not os.path.isfile(QMin['template']['qmmm_ff_file']):
+        filename=QMin['template']['qmmm_ff_file']
+        if not os.path.isfile(filename):
             print 'Force field file "%s" does not exist!' % filename
             sys.exit(53)
         print 'HINT: For QM/MM calculations, you have to specify in the template file the charge for the *QM region only*!'
@@ -1812,6 +1823,9 @@ def readQMin(QMinfilename):
             if 'subend' in line.lower():
                 break
             natom_table+=1
+            if natom_table>QMin['natom']:
+                print 'Number of atoms in connection table (>=%i) is inconsistent with %s (%i)!' % (natom_table,QMinfilename,QMin['natom'])
+                sys.exit(59)
             s=line.lower().split()
             if not qm and ('qm' in s[2] or 'li' in s[2]):
                 print 'In %s, all QM/LI atoms must occur consecutively at the beginning!' % QMin['template']['qmmm_table']
@@ -1825,7 +1839,7 @@ def readQMin(QMinfilename):
                 QMin['frozcore']+=FROZENS[QMin['geo'][iline][0]]
                 nqmatom+=1
         if natom_table!=QMin['natom']:
-            print 'Number of atoms in %s is inconsistent with %s!' % (QMin['template']['qmmm_table'],QMinfilename)
+            print 'Number of atoms in connection table (%i) is inconsistent with %s (%i)!' % (natom_table,QMinfilename,QMin['natom'])
             sys.exit(59)
         if nlink>0:
             links_found=False
@@ -1888,7 +1902,9 @@ def readQMin(QMinfilename):
         if numfroz<=0:
             QMin['ndocc']=0 
         elif numfroz>0:
-            QMin['ndocc']=numfroz
+            QMin['ndocc']=max(0,numfroz-QMin['frozcore'])
+    else:
+        QMin['ndocc']=0 
 
 # --------------------------------------------- Logic ----------------------------------
 
@@ -2231,6 +2247,7 @@ def runjobs(schedule,QMin):
     print string
     if any((i!=0 for i in errorcodes.values())):
         print 'Some subprocesses did not finish successfully!'
+        print 'See %s:%s for error messages in ADF output.' % (gethostname(),QMin['scratchdir'])
         sys.exit(65)
     print
 
@@ -2626,6 +2643,10 @@ def runADF(WORKDIR,ADF,ncpu,strip=False):
     stderrfile.close()
     if os.path.isfile(os.path.join(WORKDIR,'TAPE13')):
         runerror=1
+    stderr=readfile(os.path.join(WORKDIR,'ADF.err'))
+    for line in stderr:
+        if 'error' in line.lower():
+            runerror+=1
     if PRINT or DEBUG:
         endtime=datetime.datetime.now()
         sys.stdout.write('FINISH:\t%s\t%s\tRuntime: %s\tError Code: %i\n' % (shorten_DIR(WORKDIR),endtime,endtime-starttime,runerror))
@@ -3159,7 +3180,7 @@ def setupWORKDIR_TH(WORKDIR,QMin):
 rfile='TAPE21'
 jmol_orbitals=False
 molden_orbitals=False
-Om_formula=1
+Om_formula=2
 eh_pop=1
 comp_ntos=True
 print_OmFrag=True
@@ -3278,6 +3299,8 @@ ao_read=0
     if 'ion' in QMin:
         if QMin['ndocc']>0:
             inputstring+='ndocc=%i\n' % (QMin['ndocc'])
+    if QMin['ncpu']>=8:
+        inputstring+='force_direct_dets\n'
     filename=os.path.join(WORKDIR,'wfovl.inp')
     writefile(filename,inputstring)
     if DEBUG:

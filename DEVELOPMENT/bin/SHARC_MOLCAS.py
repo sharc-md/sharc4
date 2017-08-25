@@ -166,6 +166,17 @@ changelogstring='''
 
 04.08.2015:
 - added "angmom" keyword for GATEWAY, so that SOC can be calculated for Natom<3
+
+23.08.2017:
+- added the "rootpad" keyword to the template, which can be used to request extra, zero-weight states in SA
+- added the "baslib" keyword to the template, which can be used to load custom basis sets
+- Resource file is now called "MOLCAS.resources" instead of "SH2CAS.inp" (old filename still works)
+- The connection table file for QM/MM is now called MOLCAS.qmmm.table (old filename still works)
+
+24.08.2017:
+- added the numfrozcore and numocc keywords for Dyson norm calculations
+- gradaccumax, gradaccudefault, displ are now keywords in the template, not in the resources file (not backwards compatible)
+- cleanup keyword now available
 '''
 
 # ======================================================================= #
@@ -817,7 +828,7 @@ def getversion(out,MOLCAS):
                 break
     a=re.search('[0-9]+\.[0-9]+',string)
     if a==None:
-        print 'No MOLCAS version found.\nCheck whether MOLCAS path is set correctly in SH2CAS.inp\nand whether $MOLCAS/.molcasversion exists.'
+        print 'No MOLCAS version found.\nCheck whether MOLCAS path is set correctly in MOLCAS.resources\nand whether $MOLCAS/.molcasversion exists.'
         sys.exit(11)
     v=float(a.group())
     if not allowedrange[0]<=v<=allowedrange[1]:
@@ -1563,13 +1574,13 @@ def get_sh2cas_environ(sh2cas,key,environ=True,crucial=True):
       LINE=os.getenv(key.upper())
       if not LINE:
         if crucial:
-          print 'Either set $%s or give path to %s in SH2CAS.inp!' % (key.upper(),key.upper())
+          print 'Either set $%s or give path to %s in MOLCAS.resources!' % (key.upper(),key.upper())
           sys.exit(25)
         else:
           return ''
     else:
       if crucial:
-        print 'Give path to %s in SH2CAS.inp!' % (key.upper())
+        print 'Give path to %s in MOLCAS.resources!' % (key.upper())
         sys.exit(26)
       else:
         return ''
@@ -1814,9 +1825,13 @@ def readQMin(QMinfilename):
 
 
 
-
-    # open SH2COL.inp
-    sh2cas=readfile('SH2CAS.inp')
+    # open MOLCAS.resources
+    filename='MOLCAS.resources'
+    if os.path.isfile(filename):
+        sh2cas=readfile(filename)
+    else:
+        print 'HINT: reading resources from SH2CAS.inp'
+        sh2cas=readfile('SH2CAS.inp')
 
     QMin['pwd']=os.getcwd()
 
@@ -1830,7 +1845,30 @@ def readQMin(QMinfilename):
         os.environ['TINKER']=QMin['tinker']
 
     if 'ion' in QMin:
-        QMin['wfoverlap']=get_sh2cas_environ(sh2cas,'wfoverlap')
+        QMin['wfoverlap']=get_sh2cas_environ(sh2cas,'wfoverlap',crucial=False)
+        if not QMin['wfoverlap']:
+            ciopath=os.path.join(os.path.expandvars(os.path.expanduser('$SHARC')),'wfoverlap.x')
+            if os.path.isfile(ciopath):
+                QMin['wfoverlap']=ciopath
+            else:
+                print 'Give path to wfoverlap.x in MOLCAS.resources!'
+                sys.exit(43)
+        # read ncore and ndocc from resources
+        line=getsh2caskey(sh2cas,'numfrozcore')
+        if line[0]:
+            try:
+                QMin['ncore']=max(0,int(line[1]))
+            except ValueError:
+                print 'numfrozcore does not evaluate to numerical value!'
+                sys.exit(47)
+        line=getsh2caskey(sh2cas,'numocc')
+        if line[0]:
+            try:
+                QMin['ndocc']=int(line[1])
+            except ValueError:
+                print 'numocc does not evaluate to numerical value!'
+                sys.exit(47)
+
 
     # Set up scratchdir
     line=get_sh2cas_environ(sh2cas,'scratchdir',False,False)
@@ -1865,6 +1903,11 @@ def readQMin(QMinfilename):
             global DEBUG
             DEBUG=True
 
+    line=getsh2caskey(sh2cas,'no_print')
+    if line[0]:
+        if len(line)<=1 or 'true' in line[1].lower():
+            global PRINT
+            PRINT=False
 
     QMin['memory']=500
     line=getsh2caskey(sh2cas,'memory')
@@ -1875,7 +1918,7 @@ def readQMin(QMinfilename):
             print 'MOLCAS memory does not evaluate to numerical value!'
             sys.exit(44)
     else:
-        print 'WARNING: Please set memory for MOLCAS in SH2CAS.inp (in MB)! Using 500 MB default value!'
+        print 'WARNING: Please set memory for MOLCAS in MOLCAS.resources (in MB)! Using 500 MB default value!'
     os.environ['MOLCASMEM']=str(QMin['memory'])
     os.environ['MOLCAS_MEM']=str(QMin['memory'])
 
@@ -1919,18 +1962,24 @@ def readQMin(QMinfilename):
 
     QMin['template']={}
     integers=['nactel','inactive','ras2','frozen']
-    strings =['basis','method']
-    floats=['ipea','imaginary']
+    strings =['basis','method','baslib']
+    floats=['ipea','imaginary','gradaccumax','gradaccudefault','displ']
     booleans=['cholesky','no-douglas-kroll','qmmm','cholesky_analytical']
     for i in booleans:
         QMin['template'][i]=False
     QMin['template']['roots'] = [0 for i in range(8)]
+    QMin['template']['rootpad'] = [0 for i in range(8)]
     QMin['template']['method']='casscf'
+    QMin['template']['baslib']=''
     QMin['template']['ipea']=0.25
     QMin['template']['imaginary']=0.00
     QMin['template']['frozen']=-1
+    QMin['template']['gradaccumax']=1.e-2
+    QMin['template']['gradaccudefault']=1.e-4
+    QMin['template']['displ']=0.005
 
     for line in template:
+        orig=re.sub('#.*$','',line).split(None,1)
         line=re.sub('#.*$','',line).lower().split()
         if len(line)==0:
             continue
@@ -1939,6 +1988,11 @@ def readQMin(QMinfilename):
         elif 'roots' in line[0]:
             for i,n in enumerate(line[1:]):
                 QMin['template']['roots'][i]=int(n)
+        elif 'rootpad' in line[0]:
+            for i,n in enumerate(line[1:]):
+                QMin['template']['rootpad'][i]=int(n)
+        elif 'baslib' in line[0]:
+            QMin['template']['baslib']=os.path.abspath(orig[1])
         elif line[0] in integers:
             QMin['template'][line[0]]=int(line[1])
         elif line[0] in booleans:
@@ -1956,12 +2010,21 @@ def readQMin(QMinfilename):
             print 'Too few states in state-averaging in multiplicity %i! %i requested, but only %i given' % (i+1,QMin['states'][i],n)
             sys.exit(48)
 
+    # check rootpad
+    for i,n in enumerate(QMin['template']['rootpad']):
+        if i==len(QMin['states']):
+            break
+        if not n>=0:
+            print 'Rootpad must not be negative!'
+            sys.exit(22)
+
     # condense roots list
     for i in range(len(QMin['template']['roots'])-1,0,-1):
         if QMin['template']['roots'][i]==0:
             QMin['template']['roots'].pop(i)
         else:
             break
+    QMin['template']['rootpad']=QMin['template']['rootpad'][:len(QMin['template']['roots'])]
 
     # check roots versus number of electrons
     #nelec=QMin['template']['inactive']*2+QMin['template']['nactel']
@@ -1982,7 +2045,7 @@ def readQMin(QMinfilename):
 
     # QM/MM mode needs Tinker
     if QMin['template']['qmmm'] and not 'tinker' in QMin:
-        print 'Please set $TINKER or give path to tinker in SH2CAS.inp!'
+        print 'Please set $TINKER or give path to tinker in MOLCAS.resources!'
         sys.exit(51)
 
     # find method
@@ -2020,11 +2083,12 @@ def readQMin(QMinfilename):
                 else:
                     QMin['gradmode']=0
         if QMin['gradmode']==2:
-            line=getsh2caskey(sh2cas,'displ')
-            if line[0]:
-                QMin['displ']=float(line[1])/au2a             # displacement given in angstrom in input, but here we make bohrs out of it
-            else:
-                QMin['displ']=0.005/au2a        # default displacement of 0.005 Angstrom
+            QMin['displ']=QMin['template']['displ']/au2a
+            #line=getsh2caskey(sh2cas,'displ')
+            #if line[0]:
+                #QMin['displ']=float(line[1])/au2a             # displacement given in angstrom in input, but here we make bohrs out of it
+            #else:
+                #QMin['displ']=0.005/au2a        # default displacement of 0.005 Angstrom
     else:
         QMin['gradmode']=0
     QMin['ncpu']=max(1,QMin['ncpu'])
@@ -2036,26 +2100,6 @@ def readQMin(QMinfilename):
             sys.exit(53)
 
 
-    # gradient accuracy
-    if QMin['gradmode']<2:
-        QMin['gradaccumax']=1.e-2
-        QMin['gradaccudefault']=1.e-4
-
-        line=getsh2caskey(sh2cas,'gradaccudefault')
-        if line[0]:
-            try:
-                QMin['gradaccudefault']=float(line[1])
-            except ValueError:
-                print 'SH2CAS.inp: "gradaccudefault" does not evaluate to numerical value!'
-                sys.exit(54)
-
-        line=getsh2caskey(sh2cas,'gradaccumax')
-        if line[0]:
-            try:
-                QMin['gradaccumax']=float(line[1])
-            except ValueError:
-                print 'SH2CAS.inp: "gradaccumax" does not evaluate to numerical value!'
-                sys.exit(55)
 
 
     # QM/MM setup
@@ -2192,7 +2236,7 @@ def gettasks(QMin):
                         # SA-CASSCF
                         tasks.append(['link','MOLCAS.%i.JobIph' % (imult+1),'JOBOLD'])
                         tasks.append(['rasscf-rlx',imult+1,QMin['template']['roots'][imult],i[1]])
-                        tasks.append(['mclr',QMin['gradaccudefault']])
+                        tasks.append(['mclr',QMin['template']['gradaccudefault']])
                         tasks.append(['alaska'])
 
         if QMin['method']>0:
@@ -2247,6 +2291,8 @@ def writeMOLCASinput(tasks, QMin):
                 string+='&GATEWAY\nCOORD=MOLCAS.xyz\nGROUP=NOSYM\nBASIS=%s\n' % (QMin['template']['basis'])
             #if 'soc' in QMin and QMin['version']>8.0:
                 #string+='AMFI\n'
+            if QMin['template']['baslib']:
+                string+='BASLIB\n%s\n' % QMin['template']['baslib']
             if QMin['template']['cholesky']:
                 string+='RICD\n'
             if 'soc' in QMin:
@@ -2277,14 +2323,24 @@ def writeMOLCASinput(tasks, QMin):
 
         elif task[0]=='rasscf':
             nactel=QMin['template']['nactel']
+            npad=QMin['template']['rootpad'][task[1]-1]
             if (nactel-task[1])%2==0:
                 nactel-=1
-            string+='&RASSCF\nSPIN=%i\nNACTEL=%i 0 0\nINACTIVE=%i\nRAS2=%i\nCIROOT=%i %i 1\n' % (
+            string+='&RASSCF\nSPIN=%i\nNACTEL=%i 0 0\nINACTIVE=%i\nRAS2=%i\n' % (
                     task[1],
                     nactel,
                     QMin['template']['inactive'],
-                    QMin['template']['ras2'],
-                    task[2],task[2])
+                    QMin['template']['ras2'])
+            if npad==0:
+                string+='CIROOT=%i %i 1\n' % (task[2],task[2])
+            else:
+                string+='CIROOT=%i %i; ' % (task[2],task[2]+npad)
+                for i in range(task[2]):
+                    string+='%i ' % (i+1)
+                string+=';'
+                for i in range(task[2]):
+                    string+='%i ' % (1)
+                string+='\n'
             string+='ORBLISTING=NOTHING\nPRWF=0.1\n'
             if 'grad' in QMin and QMin['gradmode']<2:
                 string+='THRS=1.0e-10 1.0e-06 1.0e-06\n'
@@ -2362,10 +2418,13 @@ def writegeomfile(QMin):
     string=''
     if QMin['template']['qmmm']:
         try:
-            geomtmpfile = open('MOLCAS.qmmm.template', 'r')
+            geomtmpfile = open('MOLCAS.qmmm.table', 'r')
         except IOError:
-            print 'Could not find file "MOLCAS.qmmm.template"!'
-            sys.exit(58)
+            try:
+                geomtmpfile = open('MOLCAS.qmmm.template', 'r')
+            except IOError:
+                print 'Could not find file "MOLCAS.qmmm.table"!'
+                sys.exit(58)
         geomtemplate = geomtmpfile.readlines()
         geomtmpfile.close()
         string+='%i\n\n' % (QMin['natom'])
@@ -2618,8 +2677,8 @@ def run_calc(WORKDIR,QMin):
         irun+=1
         if 'grad' in QMin:
             if irun>0:
-                QMin['gradaccudefault']*=10.
-            if QMin['gradaccudefault']>QMin['gradaccumax']:
+                QMin['template']['gradaccudefault']*=10.
+            if QMin['template']['gradaccudefault']>QMin['template']['gradaccumax']:
                 print 'CRASHED:\t%s\tMCLR did not converge.' % (WORKDIR)
                 return 96
         else:
@@ -3222,14 +3281,25 @@ def get_determinants(out,mult):
     ci_vectors={}
     statesstring='READCI called for state'
     stopstring='****************************'
+    finalstring='HAMILTONIAN MATRIX'
+    done=set()
 
-    for istate in range(nstates):
+    finished=False
+    while True:
         while True:
             iline+=1
             line=out[iline]
             if statesstring in line:
                 state=int(line.split()[-1])
                 break
+            if finalstring in line:
+                finished=True
+                break
+        if finished:
+            break
+        if state in done:
+            continue
+        done.add(state)
         iline+=10
         while True:
             iline+=1
@@ -3435,6 +3505,10 @@ a_mo_read=1
 b_mo_read=1
 same_aos
 ''' % (pair[0],pair[1],pair[0],pair[1])
+        if 'ncore' in QMin:
+            string+='ncore=%i\n' % QMin['ncore']
+        if 'ndocc' in QMin:
+            string+='ndocc=%i\n' % QMin['ndocc']
         #frozen=min( nfrozen[pair[0]],nfrozen[pair[1]] )
         #string+='\nndocc=%i\n' % (frozen)
         writefile(inputfile,string)
@@ -3576,6 +3650,8 @@ def main():
     # Remove Scratchfiles from SCRATCHDIR
     if not DEBUG:
         cleanupSCRATCH(QMin['scratchdir'])
+        if 'cleanup' in QMin:
+            cleanupSCRATCH(QMin['savedir'])
     if PRINT or DEBUG:
         print '#================ END ================#'
 

@@ -70,6 +70,7 @@ from socket import gethostname
 # reading binary files
 import struct
 import copy
+import ast
 
 
 # =========================================================0
@@ -96,8 +97,8 @@ if sys.version_info[1]<5:
 
 # ======================================================================= #
 
-version='0.1.1'
-versiondate=datetime.date(2016,2,12)
+version='1.0'
+versiondate=datetime.date(2017,8,24)
 
 
 changelogstring='''
@@ -117,6 +118,13 @@ changelogstring='''
 
 25.04.2017:
 - can use external basis set libraries
+
+23.08.2017
+- Resource file is now called "RICC2.resources" instead of "SH2CC2.inp" (old filename still works)
+
+24.08.2017:
+- numfrozcore in resources file can now be used to override number of frozen cores for overlaps
+- added Theodore capabilities (compute descriptors, OmFrag, and NTOs (also activate MOLDEN key for that))
 '''
 
 # ======================================================================= #
@@ -489,6 +497,8 @@ def printQMin(QMin):
     string+='\tDM-Grad'
   if 'socdr' in QMin:
     string+='\tSOC-Grad'
+  if 'theodore' in QMin:
+    string+='\tTheoDORE'
   print string
 
   string='States: '
@@ -572,7 +582,7 @@ def printQMin(QMin):
     #print string
 
   for i in QMin:
-    if not any( [i==j for j in ['h','dm','soc','dmdr','socdr','geo','veloc','states','comment','LD_LIBRARY_PATH', 'grad','nacdr','ion','overlap','template'] ] ):
+    if not any( [i==j for j in ['h','dm','soc','dmdr','socdr','theodore','geo','veloc','states','comment','LD_LIBRARY_PATH', 'grad','nacdr','ion','overlap','template'] ] ):
       if not any( [i==j for j in ['ionlist','ionmap'] ] ) or DEBUG:
         string=i+': '
         string+=str(QMin[i])
@@ -662,6 +672,24 @@ def printgrad(grad,natom,geo):
     print string
 
 # ======================================================================= #
+def printtheodore(matrix,QMin):
+    string='%6s ' % 'State'
+    for i in QMin['template']['theodore_prop']:
+        string+='%6s ' % i
+    for i in range(len(QMin['template']['theodore_fragment'])):
+        for j in range(len(QMin['template']['theodore_fragment'])):
+            string+='  Om%1i%1i ' % (i+1,j+1)
+    string+='\n'+'-------'*(1+QMin['template']['theodore_n'])+'\n'
+    istate=0
+    for imult,i,ms in itnmstates(QMin['states']):
+        istate+=1
+        string+='%6i ' % istate
+        for i in matrix[istate-1]:
+            string+='%6.4f ' % i.real
+        string+='\n'
+    print string
+
+# ======================================================================= #
 def printQMout(QMin,QMout):
   '''If PRINT, prints a summary of all requested QM output values. Matrices are formatted using printcomplexmatrix, vectors using printgrad. 
 
@@ -740,6 +768,11 @@ def printQMout(QMin,QMout):
     print '=> Property matrix:\n'
     matrix=QMout['prop']
     printcomplexmatrix(matrix,states)
+  # TheoDORE
+  if 'theodore' in QMin:
+      print '=> TheoDORE results:\n'
+      matrix=QMout['theodore']
+      printtheodore(matrix,QMin)
   sys.stdout.flush()
 
 
@@ -1294,6 +1327,8 @@ def writeQMout(QMin,QMout,QMinfilename):
     string+=writeQMoutdmdr(QMin,QMout)
   if 'ion' in QMin:
     string+=writeQMoutprop(QMin,QMout)
+  if 'theodore' in QMin:
+    string+=writeQMoutTHEODORE(QMin,QMout)
   string+=writeQMouttime(QMin,QMout)
   outfile=os.path.join(QMin['pwd'],outfilename)
   writefile(outfile,string)
@@ -1546,7 +1581,51 @@ def writeQMoutprop(QMin,QMout):
       string+='%s %s ' % (eformat(QMout['prop'][i][j].real,12,3),eformat(QMout['prop'][i][j].imag,12,3))
     string+='\n'
   string+='\n'
+
+  # print property matrices (flag 20) in new format
+  string+='! %i Property Matrices\n' % (20)
+  string+='%i    ! number of property matrices\n' % (1)
+
+  string+='! Property Matrix Labels (%i strings)\n' % (1)
+  string+='Dyson norms\n'
+
+  string+='! Property Matrices (%ix%ix%i, complex)\n' % (1,nmstates,nmstates)
+  string+='%i %i   ! Dyson norms\n' % (nmstates,nmstates)
+  for i in range(nmstates):
+    for j in range(nmstates):
+      string+='%s %s ' % (eformat(QMout['prop'][i][j].real,12,3),eformat(QMout['prop'][i][j].imag,12,3))
+    string+='\n'
+  string+='\n'
   return string
+
+# ======================================================================= #
+def writeQMoutTHEODORE(QMin,QMout):
+
+    nmstates=QMin['nmstates']
+    nprop=QMin['template']['theodore_n']
+    string=''
+
+    string+='! %i Property Vectors\n' % (21)
+    string+='%i    ! number of property vectors\n' % (nprop)
+
+    string+='! Property Vector Labels (%i strings)\n' % (nprop)
+    descriptors=[]
+    for i in QMin['template']['theodore_prop']:
+        descriptors.append('%s' % i)
+        string+=descriptors[-1]+'\n'
+    for i in range(len(QMin['template']['theodore_fragment'])):
+        for j in range(len(QMin['template']['theodore_fragment'])):
+            descriptors.append('Om_{%i,%i}' % (i+1,j+1))
+            string+=descriptors[-1]+'\n'
+
+    string+='! Property Vectors (%ix%i, real)\n' % (nprop,nmstates)
+    for i in range(nprop):
+        string+='! TheoDORE descriptor %i (%s)\n' % (i+1,descriptors[i])
+        for j in range(nmstates):
+            string+='%s\n' % (eformat(QMout['theodore'][j][i].real,12,3))
+    string+='\n'
+
+    return string
 
 
 
@@ -1789,7 +1868,7 @@ def readQMin(QMinfilename):
     print 'Number of states not given in QM input file %s!' % (QMinfilename)
     sys.exit(34)
 
-  possibletasks=['h','soc','dm','grad','overlap','dmdr','socdr','ion']
+  possibletasks=['h','soc','dm','grad','overlap','dmdr','socdr','ion','theodore']
   if not any([i in QMin for i in possibletasks]):
     print 'No tasks found! Tasks are "h", "soc", "dm", "grad","dmdr", "socdr", "overlap" and "ion".'
     sys.exit(35)
@@ -1820,7 +1899,11 @@ def readQMin(QMinfilename):
     QMin=removekey(QMin,'h')
 
   if 'nacdt' in QMin or 'nacdr' in QMin:
-    print 'Within the SHARC-RICC2 interface couplings can only be calculated via the overlap method. "nacdr" and "nacdt" are not supported.'
+    print 'Within the SHARC-RICC2 interface, couplings can only be calculated via the overlap method. "nacdr" and "nacdt" are not supported.'
+    sys.exit(39)
+
+  if 'socdr' in QMin or 'dmdr' in QMin:
+    print 'Within the SHARC-RICC2 interface, "dmdr" and "socdr" are not supported.'
     sys.exit(39)
 
   if 'ion' in QMin:
@@ -1886,10 +1969,13 @@ def readQMin(QMinfilename):
 
   QMin['pwd']=os.getcwd()
 
-
-  # open SH2COL.inp
-  sh2cc2=readfile('SH2CC2.inp')
-
+  # open RICC2.resources
+  filename='RICC2.resources'
+  if os.path.isfile(filename):
+    sh2cc2=readfile(filename)
+  else:
+    print 'HINT: reading resources from SH2CC2.inp'
+    sh2cc2=readfile('SH2CC2.inp')
 
   # ncpus for SMP-parallel turbomole and wfoverlap
   # this comes before the turbomole path determination
@@ -1954,6 +2040,12 @@ def readQMin(QMinfilename):
       global DEBUG
       DEBUG=True
 
+  line=getsh2cc2key(sh2cc2,'no_print')
+  if line[0]:
+    if len(line)<=1 or 'true' in line[1].lower():
+      global PRINT
+      PRINT=False
+
 
   # memory for Turbomole, Orca, and wfoverlap
   QMin['memory']=100
@@ -1966,7 +2058,7 @@ def readQMin(QMinfilename):
       print 'Run memory does not evaluate to numerical value!'
       sys.exit(44)
   else:
-    print 'WARNING: Please set memory in SH2CC2.inp (in MB)! Using 100 MB default value!'
+    print 'WARNING: Please set memory in RICC2.resources (in MB)! Using 100 MB default value!'
 
 
   # initial MO guess settings
@@ -2006,12 +2098,36 @@ def readQMin(QMinfilename):
     QMin['wfthres']=float(line[1])
   if 'overlap' in QMin:
     QMin['wfoverlap']=get_sh2cc2_environ(sh2cc2,'wfoverlap')
+    line=getsh2cc2key(sh2cc2,'numfrozcore')
+    if line[0]:
+      numfroz=int(line[1])
+      if numfroz==0:
+        QMin['ncore']=0 
+      elif numfroz>0:
+        QMin['ncore']=numfroz
+      elif numfroz<0:
+        pass        # here we rely on the frozen key from the template below
+
+
+  # TheoDORE settings
+  if 'theodore' in QMin:
+    QMin['theodir']=get_sh2cc2_environ(sh2cc2,'theodir',False,False)
+    if QMin['theodir']==None or not os.path.isdir(QMin['theodir']):
+      print 'Give path to the TheoDORE installation directory in ADF.resources!'
+      sys.exit(44)
+    os.environ['THEODIR']=QMin['theodir']
+    os.environ['PYTHONPATH']+=os.pathsep + os.path.join(QMin['theodir'],'lib')
 
 
   # norestart setting
   line=getsh2cc2key(sh2cc2,'no_ricc2_restart')
   if line[0]:
     QMin['no_ricc2_restart']=[]
+
+
+
+
+
 
 
   # open template
@@ -2030,6 +2146,9 @@ def readQMin(QMinfilename):
   QMin['template']['basislib']=''
   QMin['template']['charge']=0
   QMin['template']['frozen']=-1
+
+  QMin['template']['theodore_prop']=['Om','PRNTO','S_HE','Z_HE','RMSeh']
+  QMin['template']['theodore_fragment']=[]
 
   for line in template:
     line=re.sub('#.*$','',line).lower().split()
@@ -2063,6 +2182,48 @@ def readQMin(QMinfilename):
     if QMin['template']['basislib']:
       print 'Keywords "basislib" and "auxbasis" cannot be used together in template!\nInstead, create a file for the auxbasis in /basislib/cbasen/'
       sys.exit(11)
+
+  # go through sh2cc2 for the theodore settings
+  for line in sh2cc2:
+    orig=re.sub('#.*$','',line).strip()
+    line=orig.lower().split()
+    if len(line)==0:
+      continue
+
+    # TheoDORE properties need to be parsed in a special way
+    if line[0]=='theodore_prop':
+      if '[' in orig:
+        string=orig.split(None,1)[1]
+        QMin['template']['theodore_prop']=ast.literal_eval(string)
+      else:
+        QMin['template']['theodore_prop']=[]
+        s=orig.split(None)[1:]
+        for i in s:
+          QMin['template']['theodore_prop'].append(i)
+      theodore_spelling=['Om', 
+                'PRNTO', 
+                'Z_HE', 'S_HE', 'RMSeh',
+                'POSi', 'POSf', 'POS', 
+                'PRi', 'PRf', 'PR', 'PRh',
+                'CT', 'CT2', 'CTnt',
+                'MC', 'LC', 'MLCT', 'LMCT', 'LLCT', 
+                'DEL', 'COH', 'COHh']
+      for i in range(len(QMin['template']['theodore_prop'])):
+        for j in theodore_spelling:
+          if QMin['template']['theodore_prop'][i].lower()==j.lower():
+            QMin['template']['theodore_prop'][i]=j
+
+    # TheoDORE fragments need to be parsed in a special way
+    elif line[0]=='theodore_fragment':
+      if '[' in orig:
+        string=orig.split(None,1)[1]
+        QMin['template']['theodore_fragment']=ast.literal_eval(string)
+      else:
+        s=orig.split(None)[1:]
+        l=[]
+        for i in s:
+          l.append(int(i))
+        QMin['template']['theodore_fragment'].append(l)
 
 
   # logic checks:
@@ -2117,6 +2278,11 @@ def readQMin(QMinfilename):
     if QMin['dipolelevel']==2:
       print 'Laplace-transformed SOS-%s is not compatible with dipolelevel=2!' % (QMin['template']['method'].upper())
       sys.exit(11)
+
+  # number of properties/entries calculated by TheoDORE
+  if 'theodore' in QMin:
+    QMin['template']['theodore_n']=len(QMin['template']['theodore_prop']) + len(QMin['template']['theodore_fragment'])**2
+
 
   # Check the save directory
   try:
@@ -2337,7 +2503,7 @@ def gettasks(QMin):
     if QMin['template']['scf']=='ridft':
       tasks.append(['ridft'])
     tasks.append(['dscf'])
-    if 'molden' in QMin:
+    if 'molden' in QMin or 'theodore' in QMin:
       tasks.append(['copymolden'])
 
     # Orca call for SOCs
@@ -2356,8 +2522,14 @@ def gettasks(QMin):
         if not 'nooverlap' in QMin:
           mults=[ i+1 for i in range(len(QMin['states'])) if QMin['states'][i]>0 ]
           tasks.append(['get_dets',QMin['scratchdir']+'/JOB',mults])
-        if 'molden' in QMin:
-          tasks.append(['molden'])
+        #if 'molden' in QMin:
+          #tasks.append(['molden'])
+
+        if 'theodore' in QMin:
+          tasks.append(['run_theodore'])
+          tasks.append(['get_theodore'])
+          if 'molden' in QMin:
+            tasks.append(['copy_ntos'])
 
     if 'overlap' in QMin:
       # get mixed AO overlap
@@ -3094,15 +3266,16 @@ def copymolden(QMin):
   path=os.path.join(QMin['scratchdir'],'JOB')
   runProgram(string,path)
 
-  # create directory
-  moldendir=QMin['savedir']+'/MOLDEN/'
-  if not os.path.isdir(moldendir):
-    mkdir(moldendir)
+  if 'molden' in QMin:
+    # create directory
+    moldendir=QMin['savedir']+'/MOLDEN/'
+    if not os.path.isdir(moldendir):
+      mkdir(moldendir)
 
-  # save the molcas.input file
-  f=QMin['scratchdir']+'/JOB/molden.input'
-  fdest=moldendir+'/step_%s.molden' % (QMin['step'][0])
-  shutil.move(f,fdest)
+    # save the molden.input file
+    f=QMin['scratchdir']+'/JOB/molden.input'
+    fdest=moldendir+'/step_%s.molden' % (QMin['step'][0])
+    shutil.copy(f,fdest)
 
 # ======================================================================= #
 def backupdata(backupdir,QMin):
@@ -3191,6 +3364,13 @@ def runeverything(tasks, QMin):
       wfoverlap(QMin,task[1],task[2])
     if task[0]=='get_wfovlout':
       QMout=get_wfovlout(QMin,QMout,task[1],task[2])
+    if task[0]=='run_theodore':
+      setupWORKDIR_TH(QMin)
+      run_theodore(QMin)
+    if task[0]=='get_theodore':
+      QMout=get_theodore(QMin,QMout)
+    if task[0]=='copy_ntos':
+      copy_ntos(QMin)
 
   # if no dyson pairs were calculated because of selection rules, put an empty matrix
   if not 'prop' in QMout and 'ion' in QMin:
@@ -3199,8 +3379,113 @@ def runeverything(tasks, QMin):
   return QMout
 
 
+# =============================================================================================== #
+# =============================================================================================== #
+# =======================================  TheoDORE ============================================= #
+# =============================================================================================== #
+# =============================================================================================== #
 
+# ======================================================================= #
+def run_theodore(QMin):
+  workdir=os.path.join(QMin['scratchdir'],'JOB')
+  string='analyze_tden.py &> theodore.out'
+  runerror=runProgram(string,workdir)
+  if runerror!=0:
+    print 'Theodore calculation crashed! Error code=%i' % (runerror)
+    sys.exit(11)
+  return
 
+# ======================================================================= #
+def setupWORKDIR_TH(QMin):
+    # mkdir the WORKDIR, or clean it if it exists, then copy all necessary files from pwd and savedir
+
+    WORKDIR=os.path.join(QMin['scratchdir'],'JOB')
+    # write dens_ana.in
+    inputstring='''rtype='ricc2'
+rfile='ricc2.out'
+mo_file='molden.input'
+jmol_orbitals=False
+molden_orbitals=%s
+read_binary=True
+comp_ntos=True
+alphabeta=False
+Om_formula=2
+eh_pop=1
+print_OmFrag=True
+output_file='tden_summ.txt'
+prop_list=%s
+at_lists=%s
+''' % ( ('molden' in QMin),
+       str(QMin['template']['theodore_prop']),
+       str(QMin['template']['theodore_fragment']))
+
+    filename=os.path.join(WORKDIR,'dens_ana.in')
+    writefile(filename,inputstring)
+    return
+
+# ======================================================================= #
+def get_theodore(QMin,QMout):
+  if not 'theodore' in QMout:
+    QMout['theodore']=makecmatrix(QMin['template']['theodore_n'],QMin['nmstates'])
+    sumfile=os.path.join(QMin['scratchdir'],'JOB/tden_summ.txt')
+    omffile=os.path.join(QMin['scratchdir'],'JOB/OmFrag.txt')
+    props=get_props(sumfile,omffile,QMin)
+    for i in range(QMin['nmstates']):
+      m1,s1,ms1=tuple(QMin['statemap'][i+1])
+      if (m1,s1) in props:
+        for j in range(QMin['template']['theodore_n']):
+          QMout['theodore'][i][j]=props[(m1,s1)][j]
+  return QMout
+
+# ======================================================================= #
+def get_props(sumfile,omffile,QMin):
+    out=readfile(sumfile)
+    props={}
+    for line in out[2:]:
+        s=line.replace('(',' ').replace(')',' ').split()
+        if len(s)==0:
+            continue
+        n=int(s[0])
+        m=int(s[1])
+        props[(m,n+(m==1))]=[ theo_float(i) for i in s[5:]]
+
+    out=readfile(omffile)
+    for line in out[1:]:
+        s=line.replace('(',' ').replace(')',' ').split()
+        if len(s)==0:
+            continue
+        n=int(s[0])
+        m=int(s[1])
+        props[(m,n+(m==1))].extend([ theo_float(i) for i in s[4:]])
+
+    return props
+
+# ======================================================================= #
+def theo_float(string):
+    try:
+        s=float(string)
+    except ValueError:
+        s=0.
+    return s
+
+# ======================================================================= #
+def copy_ntos(QMin):
+
+  # create directory
+  moldendir=QMin['savedir']+'/MOLDEN/'
+  if not os.path.isdir(moldendir):
+    mkdir(moldendir)
+
+  # save the nto_x-x.a.mld files
+  for i in QMin['statemap']:
+    m,s,ms=QMin['statemap'][i]
+    if m==1 and s==1:
+      continue
+    if m>1 and ms!=float(m-1)/2:
+      continue
+    f=os.path.join(QMin['scratchdir'],'JOB','nto_%i-%i-a.mld' % (s-(m==1),m))
+    fdest=moldendir+'/step_%s__nto_%i_%i.molden' % (QMin['step'][0],m,s)
+    shutil.copy(f,fdest)
 
 # ======================================================================= #
 # ======================================================================= #

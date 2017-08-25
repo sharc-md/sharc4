@@ -122,6 +122,13 @@ changelogstring='''
 
 27.09.2016:
 - added "basis_external" keyword for MOLPRO.template, which allows specifying a file whose content is taken as the basis set definition
+
+23.08.2017:
+- Resource file is now called "MOLPRO.resources" instead of "SH2PRO.inp" (old filename still works)
+
+24.08.2017:
+- added the numfrozcore and numocc keywords for Dyson norm and overlap calculations
+- gradaccumax and gradaccudefault are now keywords in the template, not in the resources file (not backwards compatible)
 '''
 
 # ======================================================================= #
@@ -1900,8 +1907,13 @@ def readQMin(QMinfilename):
   QMin['pwd']=os.getcwd()
 
 
-  # open SH2COL.inp
-  sh2pro=readfile('SH2PRO.inp')
+  # open MOLPRO.resources
+  filename='MOLPRO.resources'
+  if os.path.isfile(filename):
+    sh2pro=readfile(filename)
+  else:
+    print 'HINT: reading resources from SH2PRO.inp'
+    sh2pro=readfile('SH2PRO.inp')
 
 
   # ncpus 
@@ -1955,6 +1967,12 @@ def readQMin(QMinfilename):
       global DEBUG
       DEBUG=True
 
+  line=getsh2prokey(sh2pro,'no_print')
+  if line[0]:
+    if len(line)<=1 or 'true' in line[1].lower():
+      global PRINT
+      PRINT=False
+
 
   # memory for MOLPRO and wfoverlap
   QMin['memory']=100
@@ -1993,12 +2011,12 @@ def readQMin(QMinfilename):
   if 'overlap' in QMin or 'ion' in QMin or 'docicas' in QMin:
     QMin['wfoverlap']=get_sh2pro_environ(sh2pro,'wfoverlap')
     # get ncore and ndocc
-    line=getsh2prokey(sh2pro,'ncore')
+    line=getsh2prokey(sh2pro,'numfrozcore')
     if line[0]:
       QMin['ncore']=int(line[1])
     else:
       QMin['ncore']=0
-    line=getsh2prokey(sh2pro,'ndocc')
+    line=getsh2prokey(sh2pro,'numocc')
     if line[0]:
       QMin['ndocc']=int(line[1])
     else:
@@ -2042,11 +2060,13 @@ def readQMin(QMinfilename):
   # first collect the "simple" inputs
   integers=['dkho']
   strings =['basis','basis_external']
-  floats=[]
+  floats=['gradaccudefault','gradaccumax']
   booleans=[]
   for i in booleans:
     QMin['template'][i]=False
   QMin['template']['dkho']=0
+  QMin['template']['gradaccudefault']=1e-7
+  QMin['template']['gradaccumax']=1e-2
   for line in temp:
     if line[0].lower() in integers:
       QMin['template'][line[0]]=int(line[1])
@@ -2273,19 +2293,7 @@ def readQMin(QMinfilename):
         backupdir1=backupdir+'/calc_%i' % (i)
     QMin['backup']=backupdir1
 
-  # Set default gradient accuracies and get accuracies from environment
-  QMin['gradaccudefault']=1e-7
-  QMin['gradaccumax']=1e-2
-  try:
-    line=getsh2prokey(sh2pro,'gradaccudefault')
-    if line[0]:
-      QMin['gradaccudefault']=float(line[1])
-    line=getsh2prokey(sh2pro,'gradaccumax')
-    if line[0]:
-      QMin['gradaccumax']=float(line[1])
-  except ValueError:
-    print 'Gradient accuracy-related environment variables do not evaluate to numerical values!'
-    sys.exit(46)
+
 
   # check for initial orbitals
   initorbs={}
@@ -2481,9 +2489,9 @@ def run_calc(WORKDIR,QMin):
         break
       elif conv==-1:
         return 97
-      elif conv<=QMin['gradaccumax']:
-        QMin['gradaccudefault']=1.1*conv
-      elif conv>QMin['gradaccumax']:
+      elif conv<=QMin['template']['gradaccumax']:
+        QMin['template']['gradaccudefault']=1.1*conv
+      elif conv>QMin['template']['gradaccumax']:
         print 'CRASHED:\t%s\tCP-MCSCF did not converge.' % (WORKDIR)
         return 96
 
@@ -2576,13 +2584,13 @@ def gettasks(QMin):
   # gradient calculations
   if 'grad' in QMin:
     for grad in QMin['gradmap']:
-      tasks.append( ['cpgrad',job,grad,QMin['gradaccudefault']] )
+      tasks.append( ['cpgrad',job,grad,QMin['template']['gradaccudefault']] )
       tasks.append( ['forcegrad',grad ] )
 
   # NAC calculations
   if 'nacdr' in QMin:
     for nac in QMin['nacmap']:
-      tasks.append( ['cpnac',job,nac,QMin['gradaccudefault']] )
+      tasks.append( ['cpnac',job,nac,QMin['template']['gradaccudefault']] )
       tasks.append( ['forcenac',nac ] )
 
   if DEBUG:
@@ -2667,7 +2675,7 @@ def writeMOLPROinput(tasks, QMin):
       if QMin['template']['dkho']>0:
         string+='dkho=%i\n' % (QMin['template']['dkho'])
       if 'basis_block' in QMin['template']:
-        string+='basis={\n%s\n}\n\n' % ('\n'.join(QMin['template']['basis_block']))
+        string+='basis={\n%s\n}\n\n' % (''.join(QMin['template']['basis_block']))
       else:
         string+='basis=%s\n\n' % (QMin['template']['basis'])
       string+='nosym\nbohr\ngeometry={\n'

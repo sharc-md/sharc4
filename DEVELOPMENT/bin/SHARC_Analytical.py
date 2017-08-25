@@ -951,7 +951,10 @@ def find_lines(nlines,match,strings):
 def read_SH2Ana(QMin):
   # reads SH2Ana.inp, deletes comments and blank lines
   SH2ANA={}
-  f=open('SH2Ana.inp')
+  if os.path.isfile('Analytical.template'):
+    f=open('Analytical.template')
+  else:
+    f=open('SH2Ana.inp')
   sh2ana=f.readlines()
   f.close()
 
