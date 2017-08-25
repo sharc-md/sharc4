@@ -2097,7 +2097,14 @@ def readQMin(QMinfilename):
   if line[0]:
     QMin['wfthres']=float(line[1])
   if 'overlap' in QMin:
-    QMin['wfoverlap']=get_sh2cc2_environ(sh2cc2,'wfoverlap')
+    #QMin['wfoverlap']=get_sh2cc2_environ(sh2cc2,'wfoverlap')
+    QMin['wfoverlap']=get_sh2cc2_environ(sh2cc2,'wfoverlap',False,False)
+      if QMin['wfoverlap']==None:
+          ciopath=os.path.join(os.path.expandvars(os.path.expanduser('$SHARC')),'wfoverlap.x')
+          if os.path.isfile(ciopath):
+            QMin['wfoverlap']=ciopath
+          else:
+            print 'Give path to wfoverlap.x in RICC2.resources!'
     line=getsh2cc2key(sh2cc2,'numfrozcore')
     if line[0]:
       numfroz=int(line[1])

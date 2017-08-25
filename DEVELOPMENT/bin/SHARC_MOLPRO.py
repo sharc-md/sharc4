@@ -2009,7 +2009,15 @@ def readQMin(QMinfilename):
 
   # wfoverlaps setting
   if 'overlap' in QMin or 'ion' in QMin or 'docicas' in QMin:
-    QMin['wfoverlap']=get_sh2pro_environ(sh2pro,'wfoverlap')
+    #QMin['wfoverlap']=get_sh2pro_environ(sh2pro,'wfoverlap')
+    QMin['wfoverlap']=get_sh2pro_environ(sh2pro,'wfoverlap',False,False)
+      if QMin['wfoverlap']==None:
+          ciopath=os.path.join(os.path.expandvars(os.path.expanduser('$SHARC')),'wfoverlap.x')
+          if os.path.isfile(ciopath):
+            QMin['wfoverlap']=ciopath
+          else:
+            print 'Give path to wfoverlap.x in MOLPRO.resources!'
+            sys.exit(43)
     # get ncore and ndocc
     line=getsh2prokey(sh2pro,'numfrozcore')
     if line[0]:
