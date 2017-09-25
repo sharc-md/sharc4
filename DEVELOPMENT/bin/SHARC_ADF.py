@@ -59,7 +59,7 @@ if sys.version_info[1]<5:
 # ======================================================================= #
 
 version='2.1'
-versiondate=datetime.date(2017,8,22)
+versiondate=datetime.date(2017,9,21)
 
 
 
@@ -144,6 +144,23 @@ changelogstring='''
 
 23.08.2017
 - Resource file is now called "ADF.resources" instead of "SH2ADF.inp" (old filename still works)
+
+13.09.2017
+- Added "define_fragment" keyword, allowing to specify different basis sets 
+  for atoms of the same element (together with "basis_per_element")
+
+19.09.2017
+- can extract QM/MM energy components and write to property 1d (automatically, the last 7 entries in property1d are these energies)
+
+20.09.2017
+- stores and reuses atomic fragment files (increases performance for small calculations)
+- AOoverlaps are now possible even if no restricted job is present (by creating fake restricted TAPE21 files)
+
+21.09.2017
+- optimized the get_dets_from_tape21 routine (truncate before making det strings)
+
+22.09.2017
+- Added the rihf_per_atom keyword
 '''
 
 # ======================================================================= #
@@ -447,6 +464,8 @@ def printQMin(QMin):
     string+='\tSOC-Grad'
   if 'theodore' in QMin:
     string+='\tTheoDORE'
+  if 'phases' in QMin:
+    string+='\tPhases'
   print string
 
   string='States:        '
@@ -820,8 +839,10 @@ def writeQMout(QMin,QMout,QMinfilename):
         string+=writeQMoutdmdr(QMin,QMout)
     if 'ion' in QMin:
         string+=writeQMoutprop(QMin,QMout)
-    if 'theodore' in QMin:
+    if 'theodore' in QMin or QMin['template']['qmmm']:
         string+=writeQMoutTHEODORE(QMin,QMout)
+    if 'phases' in QMin:
+        string+=writeQmoutPhases(QMin,QMout)
     string+=writeQMouttime(QMin,QMout)
     outfile=os.path.join(QMin['pwd'],outfilename)
     writefile(outfile,string)
@@ -1025,6 +1046,11 @@ def writeQMoutTHEODORE(QMin,QMout):
 
     nmstates=QMin['nmstates']
     nprop=QMin['template']['theodore_n']
+    if QMin['template']['qmmm']:
+        nprop+=7
+    if nprop<=0:
+        return '\n'
+
     string=''
 
     string+='! %i Property Vectors\n' % (21)
@@ -1032,21 +1058,40 @@ def writeQMoutTHEODORE(QMin,QMout):
 
     string+='! Property Vector Labels (%i strings)\n' % (nprop)
     descriptors=[]
-    for i in QMin['template']['theodore_prop']:
-        descriptors.append('%s' % i)
-        string+=descriptors[-1]+'\n'
-    for i in range(len(QMin['template']['theodore_fragment'])):
-        for j in range(len(QMin['template']['theodore_fragment'])):
-            descriptors.append('Om_{%i,%i}' % (i+1,j+1))
+    if 'theodore' in QMin:
+        for i in QMin['template']['theodore_prop']:
+            descriptors.append('%s' % i)
             string+=descriptors[-1]+'\n'
+        for i in range(len(QMin['template']['theodore_fragment'])):
+            for j in range(len(QMin['template']['theodore_fragment'])):
+                descriptors.append('Om_{%i,%i}' % (i+1,j+1))
+                string+=descriptors[-1]+'\n'
+    if QMin['template']['qmmm']:
+        for label in QMout['qmmm_energies']:
+            descriptors.append(label)
+            string+=label+'\n'
 
     string+='! Property Vectors (%ix%i, real)\n' % (nprop,nmstates)
-    for i in range(nprop):
-        string+='! TheoDORE descriptor %i (%s)\n' % (i+1,descriptors[i])
-        for j in range(nmstates):
-            string+='%s\n' % (eformat(QMout['theodore'][j][i].real,12,3))
+    if 'theodore' in QMin:
+        for i in range(QMin['template']['theodore_n']):
+            string+='! TheoDORE descriptor %i (%s)\n' % (i+1,descriptors[i])
+            for j in range(nmstates):
+                string+='%s\n' % (eformat(QMout['theodore'][j][i].real,12,3))
+    if QMin['template']['qmmm']:
+        for label in QMout['qmmm_energies']:
+            string+='! QM/MM energy contribution (%s)\n' % (label)
+            for j in range(nmstates):
+                string+='%s\n' % (eformat(QMout['qmmm_energies'][label],12,3))
     string+='\n'
 
+    return string
+
+# ======================================================================= #
+def writeQmoutPhases(QMin,QMout):
+
+    string='! 7 Phases\n%i ! for all nmstates\n' % (QMin['nmstates'])
+    for i in range(QMin['nmstates']):
+        string+='%s %s\n' % (eformat(QMout['phases'][i].real,9,3),eformat(QMout['phases'][i].imag,9,3))
     return string
 
 # ======================================================================= #
@@ -1218,7 +1263,8 @@ def readQMin(QMinfilename):
             print 'Input file does not comply to xyz file format! Maybe natom is just wrong.'
             sys.exit(25)
         fields=QMinlines[i].split()
-        symb = fields[0].lower().title()
+        fields[0]=fields[0].title()
+        symb = fields[0]
         QMin['frozcore']+=FROZENS[symb]
         QMin['Atomcharge']+=ATOMCHARGE[symb]
         for j in range(1,4):
@@ -1250,7 +1296,7 @@ def readQMin(QMinfilename):
         if key in QMin:
             print 'Repeated keyword %s in line %i in input file! Check your input!' % (key,i+1)
             continue  # only first instance of key in QM.in takes effect
-        if len(args)>=1 and 'select' in args[0]:
+        if len(args)>=1 and args[0]=='select':
             pairs,i=get_pairs(QMinlines,i)
             QMin[key]=pairs
         else:
@@ -1300,7 +1346,7 @@ def readQMin(QMinfilename):
         print 'Number of states not given in QM input file %s!' % (QMinfilename)
         sys.exit(28)
 
-    possibletasks=['h','soc','dm','grad','overlap','dmdr','socdr','ion','theodore']
+    possibletasks=['h','soc','dm','grad','overlap','dmdr','socdr','ion','theodore','phases']
     if not any([i in QMin for i in possibletasks]):
         print 'No tasks found! Tasks are %s.' % possibletasks
         sys.exit(29)
@@ -1321,8 +1367,11 @@ def readQMin(QMinfilename):
         print '"Init" and "Samestep" cannot be both present in QM.in!'
         sys.exit(31)
 
+    if 'phases' in QMin:
+        QMin['overlap']=[]
+
     if 'overlap' in QMin and 'init' in QMin:
-        print '"overlap" cannot be calculated in the first timestep! Delete either "overlap" or "init"'
+        print '"overlap" and "phases" cannot be calculated in the first timestep! Delete either "overlap" or "init"'
         sys.exit(32)
 
     if not 'init' in QMin and not 'samestep' in QMin and not 'restart'in QMin:
@@ -1610,6 +1659,7 @@ def readQMin(QMinfilename):
               'grid_qpnear'             :4.0/au2a
               }
     special ={'basis_per_element'       :{},
+              'define_fragment'         :{},
               'paddingstates'           :[0 for i in QMin['states']],
               'charge'                  :[i%2 for i in range(len(QMin['states']))],
               'qmmm_table'              :'ADF.qmmm.table',
@@ -1617,7 +1667,8 @@ def readQMin(QMinfilename):
               'theodore_prop'           :['Om','PRNTO','S_HE','Z_HE','RMSeh'],
               'theodore_fragment'       :[],
               'grid_per_atom'           :{},
-              'fit_per_atom'            :{}
+              'fit_per_atom'            :{},
+              'rihf_per_atom'           :{}
               }
 
     # create QMin subdictionary
@@ -1657,6 +1708,36 @@ def readQMin(QMinfilename):
                 line2=orig.split(None,2)
                 QMin['template']['basis_per_element'][line2[1]]=os.path.expandvars(os.path.expanduser(line2[2]))
 
+            # define_fragment can occur several times
+            if line[0]=='define_fragment':
+                label=line[1].title()
+                if not '.' in label:
+                    print 'ERROR: fragments for "define_fragment" have to be formatted like "El.i".'
+                    sys.exit(11)
+                s=label.split('.')
+                if not len(s)==2:
+                    print 'ERROR: fragments for "define_fragment" have to be formatted like "El.i".'
+                    sys.exit(11)
+                try:
+                    x=int(s[1])
+                except ValueError:
+                    print 'ERROR: fragments for "define_fragment" have to be formatted like "El.i".'
+                    sys.exit(11)
+                element=label.split('.')[0]
+                atoms=[ int(i)-1 for i in line[2:] ]
+                ok=True
+                for i in atoms:
+                    if element!=QMin['geo'][i][0]:
+                        ok=False
+                        print 'ERROR: for "define_fragment" key, atom %i is not of element %s!' % (i+1,element)
+                    if any( [i in j for j in QMin['template']['define_fragment'].values()] ):
+                        print 'ERROR: atom %i used in two different in "define_fragment" lines!' % (i+1)
+                        ok=False
+                if not ok:
+                    print '"define_fragment" key misuse.'
+                    sys.exit(11)
+                QMin['template']['define_fragment'][label]=atoms
+
             # paddingstates needs to be autoexpanded and checked
             elif line[0]=='paddingstates':
                 if len(line)==2:
@@ -1693,8 +1774,8 @@ def readQMin(QMinfilename):
                     print 'Length of "charge" does not match length of "states"!'
                     sys.exit(48)
 
-            # grid_per_atom can occur several times
-            elif line[0]=='grid_per_atom' or line[0]=='fit_per_atom':
+            # those can occur several times
+            elif line[0]=='grid_per_atom' or line[0]=='fit_per_atom' or line[0]=='rihf_per_atom':
                 quality=line[1]
                 if not quality in QMin['template'][line[0]]:
                     QMin['template'][line[0]][quality]=[]
@@ -1785,6 +1866,9 @@ def readQMin(QMinfilename):
             sys.exit(53)
         print 'HINT: For QM/MM calculations, you have to specify in the template file the charge for the *QM region only*!'
         print 'The automatic assignment of total charge might not work if the MM part is not neutral!\n'
+    #if QMin['template']['qmmm'] and QMin['template']['define_fragment']:
+        #print '"define_fragment" key cannot be used with QM/MM!'
+        #sys.exit(11)
     if 'soc' in QMin and not QMin['template']['relativistic']:
         print 'You have to use a relativistic Hamiltonian (e.g., ZORA) for spin-orbit couplings!'
         sys.exit(54)
@@ -1807,45 +1891,39 @@ def readQMin(QMinfilename):
     # check the connection table file
     if QMin['template']['qmmm']:
         out=readfile(QMin['template']['qmmm_table'])
-        s=out[0].split()
-        nlink=0
-        nqmatom=0
-        QMin['frozcore']=0 
-        if 'mm' in s[2].lower():
-            print 'First atom in %s is an MM atom!' % QMin['template']['qmmm_table']
-            sys.exit(57)
-        if 'li' in s[2].lower():
-            nlink+=1
-            nqmatom+=1
-        qm=True
-        natom_table=1
-        for iline,line in enumerate(out[1:]):
-            if 'subend' in line.lower():
+        link_atoms={}
+        qm_atoms={}
+        mm_atoms={}
+        found_mm=False
+        for iline,line in enumerate(out):
+            if 'subend' in line:
                 break
-            natom_table+=1
-            if natom_table>QMin['natom']:
-                print 'Number of atoms in connection table (>=%i) is inconsistent with %s (%i)!' % (natom_table,QMinfilename,QMin['natom'])
-                sys.exit(59)
-            s=line.lower().split()
-            if not qm and ('qm' in s[2] or 'li' in s[2]):
-                print 'In %s, all QM/LI atoms must occur consecutively at the beginning!' % QMin['template']['qmmm_table']
-                sys.exit(58)
-            if 'mm' in s[2]:
-                qm=False
-            if 'li' in s[2]:
-                nlink+=1
-                nqmatom+=1
-            if 'li' in s[2] or 'qm' in s[2]:
-                QMin['frozcore']+=FROZENS[QMin['geo'][iline][0]]
-                nqmatom+=1
+            s=line.split()
+            if 'qm' in s[2].lower():
+                if found_mm:
+                    print 'In %s, all QM/LI atoms must occur consecutively at the beginning!' % QMin['template']['qmmm_table']
+                    sys.exit(58)
+                qm_atoms[iline]=QMin['geo'][iline][0]
+            elif 'li' in s[2].lower():
+                if found_mm:
+                    print 'In %s, all QM/LI atoms must occur consecutively at the beginning!' % QMin['template']['qmmm_table']
+                    sys.exit(58)
+                link_atoms[iline]=''
+            elif 'mm' in s[2].lower():
+                found_mm=True
+                mm_atoms[iline]=s[1]
+        nlink=len(link_atoms)
+        nqmatom=len(qm_atoms)+nlink
+        natom_table=nqmatom+len(mm_atoms)
         if natom_table!=QMin['natom']:
             print 'Number of atoms in connection table (%i) is inconsistent with %s (%i)!' % (natom_table,QMinfilename,QMin['natom'])
             sys.exit(59)
         if nlink>0:
             links_found=False
-            for line in out:
-                if 'link_bonds' in line.lower():
+            for iline,line in enumerate(out):
+                if 'link_bonds' in line.lower() and not '!' in line:
                     links_found=True
+                    break
             if not links_found:
                 print 'Please add a "link_bonds" block to %s!' % (QMin['template']['qmmm_table'])
                 print '''Example:
@@ -1859,6 +1937,94 @@ def readQMin(QMinfilename):
   link_bonds
 7 - 4 1.4 H H1'''
                 sys.exit(60)
+            while True:
+                iline+=1
+                if iline>=len(out):
+                    break
+                line=out[iline]
+                s=line.split()
+                n=int(s[0])
+                link_atoms[n-1]=s[4]
+
+        #print qm_atoms
+        #print link_atoms
+        #print mm_atoms
+        QMin['frozcore']=0 
+        atom_frags=set()
+        for i in qm_atoms:
+            QMin['frozcore']+=FROZENS[qm_atoms[i]]
+            atom_frags.add(qm_atoms[i])
+        for i in link_atoms:
+            QMin['frozcore']+=FROZENS[link_atoms[i]]
+            atom_frags.add(link_atoms[i])
+        QMin['atom_frags']=atom_frags
+
+    # find which atomic fragments are used
+    else:
+        atom_frags=set()
+        for iatom,atom in enumerate(QMin['geo']):
+            label=atom[0]
+            if QMin['template']['define_fragment']:
+                for l in QMin['template']['define_fragment']:
+                    if iatom in QMin['template']['define_fragment'][l]:
+                        label=l
+            atom_frags.add(label)
+        QMin['atom_frags']=atom_frags
+
+
+        #s=out[0].split()
+        #nlink=0
+        #nqmatom=0
+        #atom_frags=set()
+        #QMin['frozcore']=0 
+        #if 'mm' in s[2].lower():
+            #print 'First atom in %s is an MM atom!' % QMin['template']['qmmm_table']
+            #sys.exit(57)
+        #if 'li' in s[2].lower():
+            #nlink+=1
+            #nqmatom+=1
+        #qm=True
+        #natom_table=1
+        #for iline,line in enumerate(out[1:]):
+            #if 'subend' in line.lower():
+                #break
+            #natom_table+=1
+            #if natom_table>QMin['natom']:
+                #print 'Number of atoms in connection table (>=%i) is inconsistent with %s (%i)!' % (natom_table,QMinfilename,QMin['natom'])
+                #sys.exit(59)
+            #s=line.lower().split()
+            #if not qm and ('qm' in s[2] or 'li' in s[2]):
+                #print 'In %s, all QM/LI atoms must occur consecutively at the beginning!' % QMin['template']['qmmm_table']
+                #sys.exit(58)
+            #if 'mm' in s[2]:
+                #qm=False
+            #if 'li' in s[2]:
+                #nlink+=1
+                #nqmatom+=1
+            #if 'li' in s[2] or 'qm' in s[2]:
+                #QMin['frozcore']+=FROZENS[QMin['geo'][iline][0]]
+                #nqmatom+=1
+        ##if natom_table!=QMin['natom']:
+            ##print 'Number of atoms in connection table (%i) is inconsistent with %s (%i)!' % (natom_table,QMinfilename,QMin['natom'])
+            ##sys.exit(59)
+        #if nlink>0:
+            #links_found=False
+            #for line in out:
+                #if 'link_bonds' in line.lower() and not '!' in line:
+                    #links_found=True
+            #if not links_found:
+                #print 'Please add a "link_bonds" block to %s!' % (QMin['template']['qmmm_table'])
+                #print '''Example:
+#...
+#6       H1      QM      4
+#7       CT      LI      4       8       9       10
+#8       HC      MM      7
+#...
+  #subend
+
+  #link_bonds
+#7 - 4 1.4 H H1'''
+                #sys.exit(60)
 
 
     # number of frozen core orbitals for wfoverlap (no frozen orbitals in ADF!)
@@ -1893,6 +2059,12 @@ def readQMin(QMinfilename):
             if i<=nmax:
                 fit_map[i]=quality
     QMin['template']['fit_per_atom']=fit_map
+    rihf_map={}
+    for quality in QMin['template']['rihf_per_atom']:
+        for i in QMin['template']['rihf_per_atom'][quality]:
+            if i<=nmax:
+                rihf_map[i]=quality
+    QMin['template']['rihf_per_atom']=rihf_map
 
 
     # number of doubly occupied orbitals for Dyson
@@ -2000,6 +2172,8 @@ def readQMin(QMinfilename):
     # number of properties/entries calculated by TheoDORE
     if 'theodore' in QMin:
         QMin['template']['theodore_n']=len(QMin['template']['theodore_prop']) + len(QMin['template']['theodore_fragment'])**2
+    else:
+        QMin['template']['theodore_n']=0
 
 # --------------------------------------------- File setup ----------------------------------
 
@@ -2043,6 +2217,14 @@ def readQMin(QMinfilename):
                 print 'File %s missing in savedir!' % (filename)
                 sys.exit(64)
         QMin['initorbs']=initorbs
+
+    # check for atomic fragment files
+    frags_there=(not 'init' in QMin)
+    for i in QMin['atom_frags']:
+        filename=os.path.join(QMin['savedir'],'frag.t21.%s' % (i))
+        if not os.path.isfile(filename):
+            frags_there=False
+    QMin['frags_there']=frags_there
 
     # make name for backup directory
     if 'backup' in QMin:
@@ -2316,6 +2498,13 @@ def setupWORKDIR(WORKDIR,QMin):
         tofile=os.path.join(WORKDIR,'TAPE21.guess')
         shutil.copy(fromfile,tofile)
 
+    # atomic fragment files
+    if QMin['frags_there']:
+        for i in QMin['atom_frags']:
+            fromfile=os.path.join(QMin['savedir'],'frag.t21.%s' % i)
+            tofile=os.path.join(WORKDIR,'t21.%s' % i)
+            shutil.copy(fromfile,tofile)
+
     # force field file copying
     if QMin['template']['qmmm']:
         fromfile=QMin['template']['qmmm_ff_file']
@@ -2400,7 +2589,7 @@ def writeADFinput(QMin):
                 if not (gsmult,1)==grad:
                     if grad[0]==gsmult:
                         singgrad.append(grad[1]-1)
-                    if grad[0]==3:
+                    if grad[0]==3 and restr:
                         tripgrad.append(grad[1])
     else:
         dograd=False
@@ -2411,11 +2600,18 @@ def writeADFinput(QMin):
     # geometry data
     string+='UNITS\n  length bohr\nEND\nATOMS\n'
     for iatom,atom in enumerate(QMin['geo']):
-        if 'AOoverlap' in QMin and iatom>=QMin['natom']:
-            label='.1'
-        else:
-            label=''
-        string+='  % 3i %2s%s %16.9f %16.9f %16.9f\n' % (iatom+1,atom[0],label,atom[1],atom[2],atom[3])
+        fragment=''
+        if 'AOoverlap' in QMin:
+            if iatom>=QMin['natom']:
+                fragment='f=f2'
+            else:
+                fragment='f=f1'
+        label=atom[0]
+        if QMin['template']['define_fragment']:
+            for l in QMin['template']['define_fragment']:
+                if iatom in QMin['template']['define_fragment'][l]:
+                    label=l
+        string+='  % 3i %4s %16.9f %16.9f %16.9f  %s\n' % (iatom+1,label,atom[1],atom[2],atom[3],fragment)
     string+='END\nSYMMETRY NOSYM\n\n'
 
     # charge, multiplicity, restricted
@@ -2427,12 +2623,20 @@ def writeADFinput(QMin):
     # basis set
     if QMin['template']['relativistic']:
         string+='RELATIVISTIC %s\n' % QMin['template']['relativistic']
-    string+='BASIS\n  type %s\n  core None\n  createoutput None\n' % (QMin['template']['basis'])
-    if QMin['template']['basis_path']:
-        string+='  path %s\n' % (QMin['template']['basis_path'])
-    for i in QMin['template']['basis_per_element']:
-        string+='  %s %s\n' % (i,QMin['template']['basis_per_element'][i])
-    string+='END\n\n'
+    if 'AOoverlap' in QMin:
+        string+='FRAGMENTS\n  f1 %s\n  f2 %s\nEND\n\n' % tuple(QMin['AOoverlap'])
+    elif QMin['frags_there']:
+        string+='FRAGMENTS\n'
+        for i in QMin['atom_frags']:
+            string+='  %s t21.%s\n' % (i,i)
+        string+='END\n\n'
+    else:
+        string+='BASIS\n  type %s\n  core None\n  createoutput None\n' % (QMin['template']['basis'])
+        if QMin['template']['basis_path']:
+            string+='  path %s\n' % (QMin['template']['basis_path'])
+        for i in QMin['template']['basis_per_element']:
+            string+='  %s %s\n' % (i,QMin['template']['basis_per_element'][i])
+        string+='END\n\n'
 
     # chemistry
     string+='XC\n  %s\n' % QMin['template']['functional']
@@ -2474,7 +2678,13 @@ def writeADFinput(QMin):
     if QMin['template']['exactdensity']:
         string+='EXACTDENSITY\n'
     if QMin['template']['rihartreefock']:
-        string+='RIHARTREEFOCK\n  useme True\n  quality %s\nEND\n' % QMin['template']['rihartreefock']
+        string+='RIHARTREEFOCK\n  useme True\n  quality %s\n' % QMin['template']['rihartreefock']
+        if QMin['template']['rihf_per_atom']:
+            string+='  atomdepquality\n'
+            for i in QMin['template']['rihf_per_atom']:
+                string+='    %i %s\n' % (i,QMin['template']['rihf_per_atom'][i])
+            string+='  subend\n'
+        string+='END\n'
     else:
         string+='RIHARTREEFOCK\n  useme False\nEND\n'
     string+='\n'
@@ -2581,7 +2791,7 @@ def writeADFinput(QMin):
 
     # QM/MM
     if QMin['template']['qmmm'] and not 'AOoverlap' in QMin:
-        string+='QMMM\n  newqmmm\n  force_field_file ./ADF.ff\n  output_level 1\n  warning_level 1\n  elstat_coupling_model %i\n' % (QMin['template']['qmmm_coupling'])
+        string+='QMMM\n  newqmmm\n  force_field_file ./ADF.ff\n  level_output 1\n  level_warning 1\n  elstat_coupling_model %i\n  elst_cutoff 999.0\n  vdw_cutoff 999.0\n' % (QMin['template']['qmmm_coupling'])
         if 'grad' in QMin:
             string+='  optimize\n    max_steps 0\n    print_cycles 1\n    mm_notconverged 0\n    method skip\n  subend\n'
         data=readfile(QMin['template']['qmmm_table'])
@@ -2646,7 +2856,9 @@ def runADF(WORKDIR,ADF,ncpu,strip=False):
     stderr=readfile(os.path.join(WORKDIR,'ADF.err'))
     for line in stderr:
         if 'error' in line.lower():
+            sys.stdout.write('ERROR: \t%s\t"%s"\n' % (shorten_DIR(WORKDIR),line.strip()))
             runerror+=1
+            break
     if PRINT or DEBUG:
         endtime=datetime.datetime.now()
         sys.stdout.write('FINISH:\t%s\t%s\tRuntime: %s\tError Code: %i\n' % (shorten_DIR(WORKDIR),endtime,endtime-starttime,runerror))
@@ -2722,6 +2934,18 @@ def saveFiles(WORKDIR,QMin):
     shutil.copy(fromfile,tofile)
     if PRINT:
         print shorten_DIR(tofile)
+
+    # copy atomic fragment files
+    for i in QMin['atom_frags']:
+        fromfile=os.path.join(WORKDIR,'t21.%s' % i)
+        tofile=os.path.join(QMin['savedir'],'frag.t21.%s' % (i))
+        if os.path.isfile(tofile):
+            continue
+        if not os.path.isfile(fromfile):
+            continue
+        shutil.copy(fromfile,tofile)
+        if PRINT:
+            print shorten_DIR(tofile)
 
     # if necessary, extract the MOs and write them to savedir
     if 'ion' in QMin or not 'nooverlap' in QMin:
@@ -2921,53 +3145,63 @@ def get_dets_from_tape21(filename,QMin):
                 eigl=f.read(section,key).tolist()
                 for i in range(len(eig)):
                     eig[i]=(eig[i]+eigl[i])/2.
+            # make dictionary
             dets={}
             if restr:
                 for iocc in range(nocc_A):
                     for ivirt in range(nvir_A):
                         index=iocc*nvir_A+ivirt
-                        if mult==1:
-                            # alpha excitation
-                            key=list(occ_A)
-                            key[iocc]=2
-                            key[nocc_A+ivirt]=1
-                            dets[tuple(key)]=eig[index]#/math.sqrt(2.)
-                            ## beta excitation
-                            #key[iocc]=1
-                            #key[nocc_A+ivirt]=2
-                            #dets[tuple(key)]=eig[index]/math.sqrt(2.)
-                        elif mult==3:
-                            key=list(occ_A)
-                            key[iocc]=1
-                            key[nocc_A+ivirt]=1
-                            dets[tuple(key)]=eig[index]
+                        dets[ (iocc,ivirt,1) ]=eig[index]
             else:
-                # alpha excitation
                 for iocc in range(nocc_A):
                     for ivirt in range(nvir_A):
                         index=iocc*nvir_A+ivirt
-                        key=list(occ_A+occ_B)
-                        key[iocc]=0
-                        key[nocc_A+ivirt]=1
-                        dets[tuple(key)]=eig[index]
-                # beta excitation
+                        dets[ (iocc,ivirt,1) ]=eig[index]
                 for iocc in range(nocc_B):
                     for ivirt in range(nvir_B):
                         index=iocc*nvir_B+ivirt + max(nvir_A,nvir_B)*max(nocc_A,nocc_B)
-                        key=list(occ_A+occ_B)
-                        key[nocc_A+nvir_A + iocc]=0
-                        key[nocc_A+nvir_A + nocc_B+ivirt]=2
-                        dets[tuple(key)]=eig[index]
-            # truncate vector
+                        dets[ (iocc,ivirt,2) ]=eig[index]
+            # truncate vectors
             norm=0.
             for k in sorted(dets,key=lambda x: dets[x]**2,reverse=True):
                 if norm>QMin['wfthres']:
                     del dets[k]
                     continue
                 norm+=dets[k]**2
-            # remove frozen core
+            # create strings and expand singlets
             dets2={}
-            for key in dets:
+            if restr:
+                for iocc,ivirt,dummy in dets:
+                    if mult==1:
+                        # alpha excitation
+                        key=list(occ_A)
+                        key[iocc]=2
+                        key[nocc_A+ivirt]=1
+                        dets2[tuple(key)]=dets[ (iocc,ivirt,dummy) ]/math.sqrt(2.)
+                        # beta excitation
+                        key[iocc]=1
+                        key[nocc_A+ivirt]=2
+                        dets2[tuple(key)]=dets[ (iocc,ivirt,dummy) ]/math.sqrt(2.)
+                    elif mult==3:
+                        key=list(occ_A)
+                        key[iocc]=1
+                        key[nocc_A+ivirt]=1
+                        dets2[tuple(key)]=dets[ (iocc,ivirt,dummy) ]
+            else:
+                for iocc,ivirt,dummy in dets:
+                    if dummy==1:
+                        key=list(occ_A+occ_B)
+                        key[iocc]=0
+                        key[nocc_A+ivirt]=1
+                        dets2[tuple(key)]=dets[ (iocc,ivirt,dummy) ]
+                    elif dummy==2:
+                        key=list(occ_A+occ_B)
+                        key[nocc_A+nvir_A + iocc]=0
+                        key[nocc_A+nvir_A + nocc_B+ivirt]=2
+                        dets2[tuple(key)]=dets[ (iocc,ivirt,dummy) ]
+            # remove frozen core
+            dets3={}
+            for key in dets2:
                 problem=False
                 if restr:
                     if any( [key[i]!=3 for i in range(QMin['frozcore']) ] ):
@@ -2985,23 +3219,8 @@ def get_dets_from_tape21(filename,QMin):
                     key2=key[QMin['frozcore']:]
                 else:
                     key2=key[QMin['frozcore']:nocc_A+nvir_A] + key[nocc_A+nvir_A+QMin['frozcore']:]
-                dets2[key2]=dets[key]
-            # expand singlet states
-            if restr and mult==1:
-                dets3={}
-                for key in dets2:
-                    if 1 in key and 2 in key:
-                        key2=list(key)
-                        o=key2.index(1)
-                        v=key2.index(2)
-                        key2[o]=2
-                        key2[v]=1
-                        dets3[key]=dets2[key]/math.sqrt(2.)
-                        dets3[tuple(key2)]=dets3[key]
-                    else:
-                        dets3[key]=dets2[key]
-            else:
-                dets3=dets2
+                dets3[key2]=dets2[key]
+            # append
             eigenvectors[mult].append(dets3)
 
     strings={}
@@ -3350,10 +3569,27 @@ def get_Double_AOovl(QMin):
 
 
     # get old geometry
-    filename=os.path.join(QMin['savedir'],'TAPE21.1.old')
-    oldgeo=get_geometry(filename)
-    filename=os.path.join(QMin['savedir'],'TAPE21.1')
-    newgeo=get_geometry(filename)
+    job=QMin['joblist'][0]
+    filename1=os.path.join(QMin['savedir'],'TAPE21.%i.old' % (job))
+    oldgeo=get_geometry(filename1)
+    filename2=os.path.join(QMin['savedir'],'TAPE21.%i' % (job))
+    newgeo=get_geometry(filename2)
+    if job!=1:
+        import kf
+        # make file1 restricted
+        fromfile=filename1
+        filename1=os.path.join(QMin['savedir'],'TAPE21.%i.old.AO' % (job))
+        shutil.copy(fromfile,filename1)
+        f=kf.kffile(filename1)
+        f.writeints('General','nspin',1)
+        f.close()
+        # make file2 restricted
+        fromfile=filename2
+        filename2=os.path.join(QMin['savedir'],'TAPE21.%i.AO' % (job))
+        shutil.copy(fromfile,filename2)
+        f=kf.kffile(filename2)
+        f.writeints('General','nspin',1)
+        f.close()
 
     # apply shift
     shift=1e-5
@@ -3364,8 +3600,8 @@ def get_Double_AOovl(QMin):
     # build QMin 
     QMin1=deepcopy(QMin)
     QMin1['geo']=oldgeo+newgeo
-    QMin1['AOoverlap']=[]
-    QMin1['IJOB']=1
+    QMin1['AOoverlap']=[filename1,filename2]
+    QMin1['IJOB']=job
     QMin1['natom']=len(newgeo)
     remove=['nacdr','grad','h','soc','dm','overlap','ion']
     for r in remove:
@@ -3374,6 +3610,13 @@ def get_Double_AOovl(QMin):
     # run the calculation
     WORKDIR=os.path.join(QMin['scratchdir'],'AOoverlap')
     err=run_calc(WORKDIR,QMin1)
+
+    # remove fake TAPE21 files
+    if job!=1:
+        filename1=os.path.join(QMin['savedir'],'TAPE21.%i.old.AO' % (job))
+        os.remove(filename1)
+        filename2=os.path.join(QMin['savedir'],'TAPE21.%i.AO' % (job))
+        os.remove(filename2)
 
     # get output
     filename=os.path.join(WORKDIR,'TAPE15')
@@ -3530,6 +3773,15 @@ def getQMout(QMin):
                         continue
                     QMout['overlap'][i][j]=getsmate(out,s1,s2)
 
+    # Phases from overlaps
+    if 'phases' in QMin:
+        if not 'phases' in QMout:
+            QMout['phases']=[ complex(1.,0.) for i in range(nmstates) ]
+        if 'overlap' in QMout:
+            for i in range(nmstates):
+                if QMout['overlap'][i][i].real<0.:
+                    QMout['phases'][i]=complex(-1.,0.)
+
     # Dyson norms
     if 'ion' in QMin:
         if not 'prop' in QMout:
@@ -3574,6 +3826,12 @@ def getQMout(QMin):
                 if (m1,s1) in props:
                     for j in range(QMin['template']['theodore_n']):
                         QMout['theodore'][i][j]=props[(m1,s1)][j]
+
+    # QM/MM energy terms
+    if QMin['template']['qmmm']:
+        job=QMin['joblist'][0]
+        outfile=os.path.join(QMin['scratchdir'],'master_%i/ADF.out' % (job))
+        QMout['qmmm_energies']=get_qmmm_energies(outfile,QMin['template']['qmmm_coupling'])
 
     endtime=datetime.datetime.now()
     if PRINT:
@@ -3668,7 +3926,7 @@ def getsocm(outfile,t21file,ijob,QMin):
             if abs(imag_tri[i])<1e-15:
                 imag_tri[i]=0.
             real[x][y]=real_tri[i] + (0+1j)*imag_tri[i]
-            real[y][x]=real_tri[i] + (0+1j)*imag_tri[i]
+            real[y][x]=real_tri[i] + (0-1j)*imag_tri[i]
             x+=1
             if x>y:
                 y+=1
@@ -3923,6 +4181,45 @@ def getgrad_fromTAPE21(t21file,outfile,mult,state,QMin):
                 g[iatom][ixyz]=-g1[3*iatom+ixyz]
     return g
 
+
+# ======================================================================= #
+def get_qmmm_energies(outfile,coupling):
+
+    out=readfile(outfile)
+    if PRINT:
+        print 'QMMM:     '+shorten_DIR(outfile)
+
+    if coupling==1:
+        startstring='Q M / M M      E N E R G Y'
+        shift=2
+    elif coupling==2:
+        startstring='These results include the electrostatic interaction between QM and MM systems'
+        shift=0
+
+    toextract={'bond_mm':     (5,2),
+               'angle_mm':    (6,2),
+               'torsion_mm':  (7,2),
+               'VdW_mm':      (10,4),
+               'elstat_mm':   (11,2),
+               'VdW_qmmm':    (10,5),
+               'elstat_qmmm': (11,3)
+              }
+
+    iline=-1
+    while True:
+        iline+=1
+        if startstring in out[iline]:
+            break
+    iline+=shift
+
+    energies={}
+    for label in toextract:
+        t=toextract[label]
+        e=float(out[iline+t[0]].split()[t[1]])
+        energies[label]=e
+
+    return energies
+
 # ======================================================================= #
 def getsmate(out,s1,s2):
     ilines=-1
@@ -4068,7 +4365,7 @@ def main():
     QMin,schedule=generate_joblist(QMin)
     printQMin(QMin)
     if DEBUG:
-        pprint.pprint(schedule,depth=2)
+        pprint.pprint(schedule,depth=1)
 
     # run all the ADF jobs
     errorcodes=runjobs(schedule,QMin)
@@ -4076,7 +4373,7 @@ def main():
     ## do all necessary overlap and Dyson calculations
     errorcodes=run_wfoverlap(QMin,errorcodes)
 
-    ## do all necessary overlap and Dyson calculations
+    ## do all necessary Theodore calculations
     errorcodes=run_theodore(QMin,errorcodes)
 
       # read all the output files
