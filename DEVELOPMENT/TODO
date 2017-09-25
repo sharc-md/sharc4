@@ -4,10 +4,16 @@ Fortran code:
 - Laser field (Granucci paper, Thachuk paper): radiative/nonradiative hops
 - other decoherence schemes (see, e.g., Prezhdo JPCL review)
 - adjust_phases from largest element, not from diagonal
+- output.dat format, array info not in (list-based) header, triblock-matrices
+- IMPORTANT: "no_grad_correct" with "ekin_correct par_nac" produces NaNs and does not work              
+- implement augmented FSSH of Subotnik                                                                  DONE (still needs to be merged)
+- implement reflection afer frustrated hops                                                             DONE (still needs to be merged)
+- property (1d and 2d) arrays for saving arbitary data along with the trajectory                        DONE
+- IMPORTANT: fix crash if properties in QM.out have different number than input
 
 
 Makefile:
-- output.f90 needs to be compiled every time, so that the build info is always up-to-date
+- output.f90 needs to be compiled every time, so that the build info is always up-to-date               DONE
 
 
 Tutorial:
@@ -22,24 +28,27 @@ Manual:
 - essdyn and nma                DONE
 - ADF interface
 - MOLPRO interface              DONE
+- update all interface sections, point to commented input files in examples/
 
 
-Others:
+Initial condition generation:
 - script for extracting random geometries from trajectories (from/to timestep, which trajectories, ...)
 - script for setting up scattering initial conditions (merge two initconds files with Wigner distributions, setting translational and rotational shift and relative translational and rotational velocities)
+- script for setting up initconds from MD data
 
 
-Diagnostics tool:
-- Check trajectories for 
-    * total energy conversion (changes per time step, and overall changes), 
-    * discontinuities in the potential energies/kinetic energy, 
-    * crashes/normal termination, 
-    * missing files (output, is it restartable?), 
-    * total population (should not be necessary with our propagators),
-    * intruder states
-    * TODO: also unreasonable hops?
-- find maximum usable time for each trajectory
-
+Diagnostics tool:                       DONE
+    - Check trajectories for 
+        * total energy conversion (changes per time step, and overall changes), 
+        * discontinuities in the potential energies/kinetic energy, 
+        * crashes/normal termination, 
+        * missing files (output, is it restartable?), 
+        * total population (should not be necessary with our propagators),
+        * intruder states
+        * TODO: also unreasonable hops?
+    - find maximum usable time for each trajectory
+- check wall clock times
+- if start of current step and current time is very different (e.g., crashed trajectories)
 
 
 Python:
@@ -54,29 +63,45 @@ Python:
 
 
 
+LVC interface:
+- add a setup_LVC.py and a LVC_input.py to have a workflow to generate models
+- write Uold.txt to savedir properly
+
+
+Analytical interface:
+- write old geometry to savedir properly
+
 
 
 COLUMBUS interface:
 - parallel jobs
 
 
+MOLPRO interface:
+- parallel MOLPRO runs with scheduling from ADF interface
+- gradaccumax/default into template file                        DONE
+
 
 MOLCAS interface:
-- state-averaging with zero weight extra states
-- cleanup keyword
+- state-averaging with zero weight extra states         DONE
+- cleanup keyword                                       DONE
 - readcienergy from RASSI output
 - RASSCF capabilities (i.e., RAS1, RAS2, RAS3)
-
+- gradaccumax/default into template file                DONE
 
 
 diagnostics.py:
-- explanation of settings (help dialog) DONE
+- explanation of settings (help dialog)                 DONE
+- infinite lines bug                                    DONE (partially)
 
 
 
 Setup:
-- on the fly Dyson norms
-- excite.py: initial state different from S0
+- on the fly Dyson norms                                DONE
+- on the fly Theodore                                   DONE
+- excite.py: initial state different from S0            DONE
+- excite.py: setup a diabatic state                     DONE
+- setup calcullations with reference overlaps           DONE
 
 
 Analysis:
@@ -94,7 +119,7 @@ Test suite:
 
 
 Introduce wfoverlaps to suite
-- make $SHARC/wfoverlap.x the default path in setup scripts/interfaces
+- make $SHARC/wfoverlap.x the default path in setup scripts/interfaces          DONE
 
 
 trajana_*.py:
@@ -104,5 +129,38 @@ trajana_*.py:
 
 
 Interfaces:
-- choose alpha and beta spins cleverly for efficient Dyson calculations
+- choose alpha and beta spins cleverly for efficient Dyson calculations                 DONE
 - ALL interfaces should write to savedir some info about the status of the files (i.e., to which time step the new and old files correspond! Otherwise, the interface cannot know whether it should moveToOld at restarts.
+
+
+
+
+
+
+
+File IO with named pipe (might be useful to write output.dat directly to a zipped file):
+    program testfifo
+    implicit none
+    integer:: i,j,k,io,unit,iostat
+    character(len=30)::File,filename
+    character(len=600)::Instruction
+    write(*,*)Name of the xz file ?"
+    read(*,*)filename
+    !//Create a named pipe//
+    call EXECUTE_COMMAND_LINE("rm -f MyUnCompressedFile ;mkfifo MyUnCompressedFile")
+    !//Open a connection to it//
+    open(11,file="MyUnCompressedFile",iostat=iostat)
+    !//Write decompression instruction//
+    write(Instruction,'(a,a,a)')"(xz -dc  ",filename," >MyUnCompressedFile; echo \x4 >MyUnCompressedFile )"
+    !//Execute//
+    call EXECUTE_COMMAND_LINE(Instruction)
+    !//Execute a normal reading loop//
+    do
+    read(11,*,iostat=io)i,j,k
+    if(io/=0)exit
+    write(*,*)i,j,k
+    end do
+    !//remove named pipe//
+    write(Instruction,'(a)')"( rm -f MyUnCompressedFile)"
+    CALL EXECUTE_COMMAND_LINE(Instruction)
+    end program testfifo
