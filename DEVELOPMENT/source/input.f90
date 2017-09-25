@@ -542,7 +542,11 @@ module input
       select case (trim(line))
         case ('ddt') 
           ctrl%coupling=0
+        case ('nacdt') 
+          ctrl%coupling=0
         case ('ddr')
+          ctrl%coupling=1
+        case ('nacdr')
           ctrl%coupling=1
         case ('overlap')
           ctrl%coupling=2
@@ -563,6 +567,24 @@ module input
     line=get_value_from_key('spinorbit',io)
     if (io==0) then
       ctrl%calc_soc=1
+    endif
+
+    ! request phase corrections from interface
+    ctrl%calc_phases=0
+    line=get_value_from_key('nophases_from_interface',io)
+    if (io==0) then
+      ctrl%calc_phases=0
+    endif
+    line=get_value_from_key('phases_from_interface',io)
+    if (io==0) then
+      ctrl%calc_phases=1
+    endif
+
+    ! request phase corrections from interface at time step zero (only works if something is in savedir)
+    ctrl%track_phase_at_zero=0
+    line=get_value_from_key('phases_at_zero',io)
+    if (io==0) then
+      ctrl%track_phase_at_zero=1
     endif
 
     ! non-adiabatic couplings for gradients
@@ -856,6 +878,9 @@ module input
         if (ctrl%calc_overlap==1) then
           write(u_log,'(a)') 'Calculating wavefunction overlaps.'
         endif
+        if (ctrl%calc_phases==1) then
+          write(u_log,'(a)') 'Calculating wavefunction phases.'
+        endif
         select case (ctrl%calc_nacdr)
           case (0)
             write(u_log,'(a)') 'Including all non-adiabatic coupling vectors in the dynamics.'
@@ -1077,8 +1102,35 @@ module input
       ctrl%track_phase=1
     endif
 
-    ! deactivate surface hops
+    ! surface hopping procedure
     ctrl%hopping_procedure=1
+    line=get_value_from_key('hopping_procedure',io)
+    if (io==0) then
+      select case (trim(line))
+        case ('standard') 
+          ctrl%hopping_procedure=1
+        case ('sharc') 
+          ctrl%hopping_procedure=1
+        case ('gfsh') 
+          ctrl%hopping_procedure=2
+          if (printlevel>1) then
+            write(u_log,'(a)') 'Surface Hopping is GFSH'
+            write(u_log,*)
+          endif
+        case ('off') 
+          ctrl%hopping_procedure=0
+          ctrl%ekincorrect=0
+          if (printlevel>1) then
+            write(u_log,'(a)') 'Surface Hopping is OFF (will stay in initial diagonal state)'
+            write(u_log,*)
+          endif
+        case default
+          write(0,*) 'Unknown keyword ',trim(line),' to "hopping_procedure"!'
+          stop 1
+      endselect
+    endif
+
+    ! TODO: could delete this keyword
     line=get_value_from_key('no_hops',io)
     if (io==0) then
       ctrl%hopping_procedure=0  ! negate hopping
@@ -1087,8 +1139,6 @@ module input
         write(u_log,'(a)') 'Surface Hopping is OFF (will stay in initial diagonal state)'
         write(u_log,*)
       endif
-    else
-      ctrl%hopping_procedure=1
     endif
 
   ! =====================================================

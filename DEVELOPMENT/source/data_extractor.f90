@@ -814,7 +814,10 @@ program data_extractor
         H_diag_ss=H_diag_ss - DM_ssd(:,:,idir)*real(laser_td(step*nsubsteps+1,idir))
       enddo
     endif
+!     call matwrite(nstates,H_diag_ss,0,'Hbefore','F12.9')
+!     call matwrite(nstates,U_ss,0,'U','F12.9')
     call transform(nstates,H_diag_ss,U_ss,'utau')
+!     call matwrite(nstates,H_diag_ss,0,'Hafter','F12.9')
 
     ! calculate MCH coefficients and potential energy
     call matvecmultiply(nstates,U_ss,coeff_diag_s,coeff_MCH_s,'n')

@@ -41,6 +41,11 @@ module qm
     ! initial QM calculation
     call do_qm_calculations(traj,ctrl)
 
+    ! correct phases if required
+    if (ctrl%track_phase_at_zero==1) then
+      call Adjust_phases(traj,ctrl)
+    endif
+
     ! now finalize the initial state, if this was not done in the read_input routine
     if (printlevel>1) then
       write(u_log,*) '============================================================='
@@ -230,6 +235,16 @@ module qm
     endif
     if (traj%step==0) then
       traj%phases_s=dcmplx(1.d0,0.d0)
+      if (ctrl%track_phase_at_zero==1) then
+        call get_phases(ctrl%nstates,traj%phases_s,stat)
+        if (stat==0) then
+          traj%phases_found=.true.
+          if (printlevel>3) write(u_log,'(A31,A2)') 'Phases:                        ','OK'
+        else
+          traj%phases_found=.false.
+          if (printlevel>3) write(u_log,'(A31,A9)') 'Phases:                        ','NOT FOUND'
+        endif
+      endif
     endif
 
     ! get non-adiabatic couplings
@@ -505,8 +520,12 @@ module qm
     type(ctrl_type) :: ctrl
     integer :: i,j
 
-    if (traj%step==0) write(u_qm_qmin,'(A)') 'init'
-    if (ctrl%restart) write(u_qm_qmin,'(A)') 'restart'
+    if ((traj%step==0).and..not.(ctrl%track_phase_at_zero==1)) then
+      write(u_qm_qmin,'(A)') 'init'
+    endif
+    if (ctrl%restart) then
+      write(u_qm_qmin,'(A)') 'restart'
+    endif
     if (ctrl%calc_soc==1) then
       write(u_qm_qmin,'(A)') 'SOC'
     else
@@ -527,9 +546,13 @@ module qm
         write(u_qm_qmin,*)
     endselect
 
+    if ((traj%step==0).and.(ctrl%track_phase_at_zero==1)) then
+      write(u_qm_qmin,'(A)') 'PHASES'
+    endif
     if (traj%step>=1) then
       if (ctrl%calc_nacdt==1) write(u_qm_qmin,'(A)') 'NACDT'
       if (ctrl%calc_overlap==1) write(u_qm_qmin,'(A)') 'OVERLAP'
+      if (ctrl%calc_phases==1) write(u_qm_qmin,'(A)') 'PHASES'
     endif
 
     select case (ctrl%calc_nacdr)
@@ -1016,6 +1039,7 @@ module qm
     type(ctrl_type) :: ctrl
     integer :: istate, jstate, ixyz
     complex*16:: scalarProd(ctrl%nstates,ctrl%nstates)
+    complex*16 :: Utemp(ctrl%nstates,ctrl%nstates), Htemp(ctrl%nstates,ctrl%nstates)
 
     ! if phases were not found in the QM output, try to obtain it
     if (traj%phases_found.eqv..false.) then
@@ -1098,44 +1122,74 @@ module qm
       endif
     enddo
 
-    traj%H_diag_ss=traj%H_MCH_ss
-    if (ctrl%laser==2) then
-      do ixyz=1,3
-        traj%H_diag_ss=traj%H_diag_ss - traj%DM_ssd(:,:,ixyz)*real(ctrl%laserfield_td(traj%step*ctrl%nsubsteps+1,ixyz))
-      enddo
-    endif
-    if (ctrl%surf==0) then
-      ! obtain the diagonal Hamiltonian
-      if (printlevel>4) then
-        write(u_log,*) '============================================================='
-        write(u_log,*) '             Adjusting phase of U matrix'
-        write(u_log,*) '============================================================='
-        call matwrite(ctrl%nstates,traj%H_diag_ss,u_log,'H_MCH + Field','F12.9')
+    ! electronic structure phase patching finished
+    if (traj%step>0) then
+      ! U matrix phase patching follows
+
+      ! ================== S matrix Löwdin
+
+      if (ctrl%calc_overlap==1) then
+        call intruder(ctrl%nstates, traj%overlaps_ss)
+        call lowdin(ctrl%nstates, traj%overlaps_ss)
       endif
-      call diagonalize(ctrl%nstates,traj%H_diag_ss,traj%U_ss)
-      if (printlevel>4) call matwrite(ctrl%nstates,traj%U_old_ss,u_log,'Old U','F12.9')
-      if (printlevel>4) call matwrite(ctrl%nstates,traj%U_ss,u_log,'U before adjustment','F12.9')
-      ! obtain the U matrix with the correct phase
-      if (ctrl%track_phase/=0) then
-        if (ctrl%laser==0) then
-          call project_recursive(ctrl%nstates, traj%H_MCH_old_ss, traj%H_MCH_ss, traj%U_old_ss, traj%U_ss,&
-          &ctrl%dtstep, printlevel, u_log)
-        endif
-      else
+
+      ! ==================
+
+      traj%H_diag_ss=traj%H_MCH_ss
+      if (ctrl%laser==2) then
+        do ixyz=1,3
+          traj%H_diag_ss=traj%H_diag_ss - traj%DM_ssd(:,:,ixyz)*real(ctrl%laserfield_td(traj%step*ctrl%nsubsteps+1,ixyz))
+        enddo
+      endif
+      if (ctrl%surf==0) then
+        ! obtain the diagonal Hamiltonian
         if (printlevel>4) then
-          write(u_log,*) 'Tracking turned off.'
+          write(u_log,*) '============================================================='
+          write(u_log,*) '             Adjusting phase of U matrix'
+          write(u_log,*) '============================================================='
+          call matwrite(ctrl%nstates,traj%H_diag_ss,u_log,'H_MCH + Field','F12.9')
         endif
+        call diagonalize(ctrl%nstates,traj%H_diag_ss,traj%U_ss)
+        if (printlevel>4) call matwrite(ctrl%nstates,traj%U_old_ss,u_log,'Old U','F12.9')
+        if (printlevel>4) call matwrite(ctrl%nstates,traj%U_ss,u_log,'U before adjustment','F12.9')
+        ! obtain the U matrix with the correct phase
+        if (ctrl%track_phase/=0) then
+          if (ctrl%laser==0) then
+            if (ctrl%calc_overlap==1) then
+              Utemp=traj%U_old_ss
+              call matmultiply(ctrl%nstates,traj%overlaps_ss,traj%U_old_ss,Utemp,'tn')
+              Htemp=traj%H_MCH_old_ss
+              call transform(ctrl%nstates,Htemp,traj%overlaps_ss,'utau')
+              call project_recursive(ctrl%nstates, Htemp, traj%H_MCH_ss, Utemp, traj%U_ss,&
+              &ctrl%dtstep, printlevel, u_log)
+            else
+              call project_recursive(ctrl%nstates, traj%H_MCH_old_ss, traj%H_MCH_ss, traj%U_old_ss, traj%U_ss,&
+              &ctrl%dtstep, printlevel, u_log)
+            endif
+          else
+            if (printlevel>4) then
+              write(u_log,*) 'Phase tracking turned off with laser fields.'
+            endif
+          endif
+        else
+          if (printlevel>4) then
+            write(u_log,*) 'Phase tracking turned off.'
+          endif
+        endif
+        if (printlevel>4) then
+          call matwrite(ctrl%nstates,traj%U_ss,u_log,'U after adjustment','F12.9')
+          Htemp=traj%H_MCH_ss
+          call transform(ctrl%nstates,Htemp,traj%U_ss,'utau')
+          call matwrite(ctrl%nstates,Htemp,u_log,'H_MCH transformed','F12.9')
+          call matwrite(ctrl%nstates,traj%H_diag_ss,u_log,'H_diag','F12.9')
+        endif
+  !       call diagonalize_and_project(ctrl%nstates,traj%H_diag_ss,traj%U_ss,traj%U_old_ss)
+      elseif (ctrl%surf==1) then
+        traj%U_ss=dcmplx(0.d0,0.d0)
+        do istate=1,ctrl%nstates
+          traj%U_ss(istate,istate)=dcmplx(1.d0,0.d0)
+        enddo
       endif
-      if (printlevel>4) then
-        call matwrite(ctrl%nstates,traj%U_ss,u_log,'U after adjustment','F12.9')
-        call matwrite(ctrl%nstates,traj%H_diag_ss,u_log,'H_diag','F12.9')
-      endif
-!       call diagonalize_and_project(ctrl%nstates,traj%H_diag_ss,traj%U_ss,traj%U_old_ss)
-    elseif (ctrl%surf==1) then
-      traj%U_ss=dcmplx(0.d0,0.d0)
-      do istate=1,ctrl%nstates
-        traj%U_ss(istate,istate)=dcmplx(1.d0,0.d0)
-      enddo
     endif
 
   endsubroutine

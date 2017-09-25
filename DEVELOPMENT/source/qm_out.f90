@@ -125,19 +125,28 @@ endsubroutine
 subroutine goto_flag(flag1,routine)
   implicit none
   character(len=*) :: routine
-  character :: marker
+!   character :: marker
   integer :: flag1, flag
   integer :: io
+  character(len=20) :: string
 
   rewind(qmout_unit)
   do
-    read(qmout_unit,*,iostat=io) marker,flag
+!     read(qmout_unit,*,iostat=io) marker,flag
+    read(qmout_unit,'(a)',iostat=io) string     !marker,flag
     if (io==-1) then
       write(0,*) 'Quantity not found in QMout file, unit=',qmout_unit
       write(0,*) 'Routine=',trim(routine)
       stop 1
     endif
-    if ( (marker=='!').and.(flag==flag1) ) exit
+!     if ( (marker=='!').and.(flag==flag1) ) exit
+    if ( string(1:1)=='!' ) then
+      read(string(2:20),*,iostat=io) flag
+      if ( (io==0).and.(flag==flag1) ) then
+!         stat=0
+        exit
+      endif
+    endif
   enddo
 
 endsubroutine
@@ -151,20 +160,24 @@ endsubroutine
 !> \param flag1 requested flag
 subroutine goto_flag_nostop(flag1,stat)
   implicit none
-  character :: marker
+!   character :: marker
   integer :: flag1, flag, stat
   integer :: io
+  character(len=20) :: string
 
   rewind(qmout_unit)
   do
-    read(qmout_unit,*,iostat=io) marker,flag
+    read(qmout_unit,'(a)',iostat=io) string     !marker,flag
     if (io==-1) then
       stat=-1
       return
     endif
-    if ( (marker=='!').and.(flag==flag1) ) then
-      stat=0
-      return
+    if ( string(1:1)=='!' ) then
+      read(string(2:20),*,iostat=io) flag
+      if ( (io==0).and.(flag==flag1) ) then
+        stat=0
+        return
+      endif
     endif
   enddo
 
@@ -264,6 +277,7 @@ subroutine get_phases(n,phase_s,stat)
 
   integer,intent(in) :: n
   complex*16,intent(out) :: phase_s(n)
+  complex*16 :: phase_tmp(n)
   integer,intent(out) :: stat
   integer :: io
   character(len=8000) title
@@ -277,7 +291,8 @@ subroutine get_phases(n,phase_s,stat)
     return
   endif
 
-  call vecread(n,phase_s,qmout_unit, title)
+  call vecread(n,phase_tmp,qmout_unit, title)
+  phase_s=phase_s*phase_tmp
   read(title,*) io
   if ( io==n ) then
     stat=0

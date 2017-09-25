@@ -132,6 +132,7 @@ type ctrl_type
   sequence
 
   character*1023 :: cwd                     !< working directory for SHARC
+  real*8 :: output_version                         !< version as float for checks during writing output
 
 ! numerical constants
   integer :: natom                          !< number of atoms
@@ -148,7 +149,6 @@ type ctrl_type
   real*8 :: eselect_dmgrad                  !< energy difference for neglecting dipole gradients
   real*8 :: dampeddyn                       !< damping factor for kinetic energy
   real*8 :: decoherence_alpha               !< decoherence parameter (a.u.) for energy-based decoherence
-  real*8 :: output_version                         !< version as float for checks during writing output
   logical,allocatable :: actstates_s(:)     !< mask of the active states
 
 ! methods and switches
@@ -170,6 +170,7 @@ type ctrl_type
   integer :: calc_nacdr                     !< request nac vectors: \n -1=no, 0=all in step 1, 1=select in step 1, 2=select in step 2
   integer :: calc_dipolegrad                !< request dipole gradient vectors: \n -1=no, 0=all in step 1, 1=select in step 1, 2=select in step 2
   integer :: calc_second                    !< 0=no, 1=do two interface calls per timestep
+  integer :: calc_phases                    !< 0=nom 1=yes
 
   integer :: write_soc                      !< write SOC to output.dat or not \n 0=no soc, 1=write soc )
   integer :: write_grad                     !< write gradients:   \n        0=no gradients, 1=write gradients
@@ -185,7 +186,8 @@ type ctrl_type
   integer :: ionization                     !<  -1=no, n=ionization every n steps
   integer :: theodore                       !<  -1=no, n=theodore every n steps
   integer :: track_phase                    !< 0=no, 1=track phase of U matrix through the propagation (turn off only for debugging purposes)
-  integer :: hopping_procedure              !< 0=no hops, 1=hops
+  integer :: track_phase_at_zero            !< 0=nothing, 1=at time zero, get phases from whatever is in the savedir
+  integer :: hopping_procedure              !< 0=no hops, 1=hops (standard formula), 2=GFSH
 
 ! thresholds
 !   real*8 :: propag_sharc_UdUdiags=1.d-2           ! Threshold for the size of diagonal elements in UdU (needed for dynamic substeps)        in hartree

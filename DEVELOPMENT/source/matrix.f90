@@ -60,6 +60,7 @@ private disantihermitian,zisantihermitian
 private disunitary,zisunitary
 private z_project_recursive
 private d3project_a_on_b, z3project_a_on_b
+private zintruder
 
 ! this routines can be called from outside
 
@@ -84,6 +85,7 @@ public isantihermitian
 public isunitary
 public project_recursive
 public project_a_on_b
+public intruder
 
 ! =================================================================== !
 
@@ -163,6 +165,10 @@ endinterface
 
 interface project_a_on_b
   module procedure d3project_a_on_b, z3project_a_on_b
+endinterface
+
+interface intruder
+  module procedure zintruder
 endinterface
 
 ! =================================================================== !
@@ -319,6 +325,41 @@ endsubroutine
 ! =================================================================== !
 !                          Lowdin orthogonalisation                   !
 ! =================================================================== !
+! =================================================================== !
+
+subroutine zintruder(n,A_ss)
+  use definitions, only: u_log
+  implicit none
+  integer, intent(in) :: n
+  complex*16, intent(inout) :: A_ss(n,n)
+  real*8 :: sums
+  integer :: i,j,k
+  real*8,parameter :: intr_thrs=1.d-1
+
+    ! Intruder state check
+    do i=1,n
+      sums=0.d0
+      do j=1,n
+        sums=sums+abs(A_ss(i,j))**2
+        sums=sums+abs(A_ss(j,i))**2
+      enddo
+      sums=sums-abs(A_ss(i,i))**2
+
+      if (sums < intr_thrs) then
+        write(u_log,'(A)') '! ======== INTRUDER STATE PROBLEM ======== !'
+        write(u_log,'(A,I4)') 'State: ',i
+        do k=1,n
+          write(u_log,'(1000(F8.5,1X))') (A_ss(k,j),j=1,n)
+        enddo
+
+        A_ss(i,:)=dcmplx(0.d0,0.d0)
+        A_ss(:,i)=dcmplx(0.d0,0.d0)
+        A_ss(i,i)=dcmplx(1.d0,0.d0)
+      endif
+    enddo
+
+endsubroutine
+
 ! =================================================================== !
 
 !> takes a real matrix A and orthonormalises it
@@ -552,19 +593,23 @@ subroutine zdiagonalize_and_project(n,H,U,Uold)
   complex*16, intent(out) :: U(n,n)
   complex*16, intent(in) :: Uold(n,n)
   ! internal variables
-  complex*16 :: S(n,n), P(n,n), Pafter(n,n), tempM(n,n), temp(n), eigv(n), temph
+  complex*16 :: S(n,n), P(n,n), Pafter(n,n), tempM(n,n), temp(n), eigv(n), temph, Hinput(n,n)
   logical :: mask(n,n)
   real*8 :: sums
   integer :: i,j,k
 
   ! diagonalise H
+!           Hinput=H
   call zdiagonalize(n,H,U)
+!           call transform(n,Hinput,U,'utau')
+!           call matwrite(n,H,6,'H','F12.9')
+!           call matwrite(n,Hinput,6,'U^tHU','F12.9')
   do i=1,n
     eigv(i)=H(i,i)
   enddo
 
-!           call matwrite(n,U,6,'U','ES24.16E2')
 !           call matwrite(n,Uold,6,'Uold','ES24.16E2')
+!           call matwrite(n,U,6,'U','ES24.16E2')
 
   ! calculate overlap of U and Uold
   call zmultiply(n,U,Uold,S,'tn')
@@ -578,6 +623,8 @@ subroutine zdiagonalize_and_project(n,H,U,Uold)
     do j=1,n
       if (abs(S(i,j))**2>0.5d0) then
 !         write(6,*) i,j
+        ! do not reorder if degenerate
+        if (abs(eigv(i)-eigv(j))<diagonalize_degeneracy_diff) exit
         if (i==j) then
           exit
         elseif (i<j) then
@@ -690,7 +737,13 @@ subroutine zdiagonalize_and_project(n,H,U,Uold)
   ! use S as temporary memory, since it is not needed anymore
   call zmultiply(n,U,P,S,'nn')
 
+!           call transform(n,Hinput,U,'utau')
+!           call matwrite(n,Hinput,6,'U^tHU after all','ES24.16E2')
   U=S
+!           call matwrite(n,Uold,6,'Uold after all','ES24.16E2')
+!           call matwrite(n,U,6,'U after all','ES24.16E2')
+!           call transform(n,Hinput2,U,'utau')
+!           call matwrite(n,Hinput2,6,'U^tHU after all','ES24.16E2')
 
   return
 
