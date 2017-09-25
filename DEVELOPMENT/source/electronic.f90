@@ -258,30 +258,30 @@ real*8 :: sums, dtsubstep
 real*8,parameter :: intr_thrs=1.d-1
 complex*16,parameter :: ii=dcmplx(0.d0,1.d0)
 
-! Intruder state check
-do i=1,n
-  sums=0.d0
-  do j=1,n
-    sums=sums+abs(overlap(i,j))**2
-    sums=sums+abs(overlap(j,i))**2
-  enddo
-  sums=sums-abs(overlap(i,i))**2
-
-  if (sums < intr_thrs) then
-    write(u_log,'(A)') '! ======== INTRUDER STATE PROBLEM ======== !'
-    write(u_log,'(A,I4)') 'State: ',i
-    do k=1,n
-      write(u_log,'(1000(F8.5,1X))') (overlap(k,j),j=1,n)
-    enddo
-
-    overlap(i,:)=dcmplx(0.d0,0.d0)
-    overlap(:,i)=dcmplx(0.d0,0.d0)
-    overlap(i,i)=dcmplx(1.d0,0.d0)
-  endif
-enddo
-
-! Löwdin orthogonalisation
-call lowdin(n,overlap)
+! ! Intruder state check
+! do i=1,n
+!   sums=0.d0
+!   do j=1,n
+!     sums=sums+abs(overlap(i,j))**2
+!     sums=sums+abs(overlap(j,i))**2
+!   enddo
+!   sums=sums-abs(overlap(i,i))**2
+! 
+!   if (sums < intr_thrs) then
+!     write(u_log,'(A)') '! ======== INTRUDER STATE PROBLEM ======== !'
+!     write(u_log,'(A,I4)') 'State: ',i
+!     do k=1,n
+!       write(u_log,'(1000(F8.5,1X))') (overlap(k,j),j=1,n)
+!     enddo
+! 
+!     overlap(i,:)=dcmplx(0.d0,0.d0)
+!     overlap(:,i)=dcmplx(0.d0,0.d0)
+!     overlap(i,i)=dcmplx(1.d0,0.d0)
+!   endif
+! enddo
+! 
+! ! Löwdin orthogonalisation
+! call lowdin(n,overlap)
 
 ! Initialize Rtotal
 call matmultiply(n,Uold,Rtotal,Rprod,'nn')
@@ -403,8 +403,17 @@ subroutine surface_hopping(traj,ctrl)
   endif
 
   ! calculate the hopping probabilities
-  call calculate_probabilities(ctrl%nstates, traj%coeff_diag_old_s, traj%coeff_diag_s, &
-  &traj%Rtotal_ss, traj%state_diag, traj%hopprob_s)
+  select case (ctrl%hopping_procedure)
+    case (1)
+      call calculate_probabilities(ctrl%nstates, traj%coeff_diag_old_s, traj%coeff_diag_s, &
+      &traj%Rtotal_ss, traj%state_diag, traj%hopprob_s)
+    case (2)
+      call calculate_probabilities_GFSH(ctrl%nstates, traj%coeff_diag_old_s, traj%coeff_diag_s, &
+      &traj%state_diag, traj%hopprob_s)
+    case default
+      write(0,*) 'Unknown option ',ctrl%hopping_procedure,' to hopping_procedure!'
+      stop 1
+  endselect
 
   if (printlevel>2) then
     write(u_log,*) 'Old and new occupancies and hopping probabilities:'
@@ -489,7 +498,7 @@ subroutine surface_hopping(traj,ctrl)
   if (printlevel>2) then
     write(u_log,*) 
     write(u_log,'(A,1X,F12.9)') 'Random number:',randnum
-    if (ctrl%hopping_procedure/=1) then
+    if (ctrl%hopping_procedure==0) then
       write(u_log,*) 
       write(u_log,'(A,1X,F12.9)') '*** Hopping is forbidden: new state = old state ***'
       write(u_log,*) 
@@ -527,7 +536,6 @@ subroutine calculate_probabilities(n, c0, c, R, state, prob)
   complex*16, intent(in) :: c0(n), c(n), R(n,n)
   real*8, intent(out) :: prob(n)
 
-!   real*8 :: w,x,y,z
   complex*16 :: w,x,y,z
   integer :: i
   real*8 :: sump
@@ -537,15 +545,64 @@ subroutine calculate_probabilities(n, c0, c, R, state, prob)
   ! this numbers are the same for all states
   w=conjg(c(state))*c(state)
   x=conjg(c0(state))*c0(state)
-  y=x-c(state)*conjg(R(state,state))*conjg(c0(state))
+  y=real(x-c(state)*conjg(R(state,state))*conjg(c0(state)))
 
   ! if population of active state increases, all probabilities are zero
   if ( (1.d0 - real(w/x))>0.d0) then
     do i=1,n
       if (i==state) cycle
       ! this number changes for each state
-      z=c(i)*conjg(R(i,state))*conjg(c0(state))
+      z=real(c(i)*conjg(R(i,state))*conjg(c0(state)))
       prob(i)=max(0.d0, (1.d0-real(w/x))*real(z/y) )
+    enddo
+  endif
+
+  ! renormalize, if sum of probabilities is above 1
+  sump=sum(prob)
+  if (sump>1.d0) prob=prob/sump
+
+endsubroutine
+
+! ===========================================================
+
+!> this routine calculates the hopping probabilities based on
+!> the equation for GFSH of Prezhdo et al.
+subroutine calculate_probabilities_GFSH(n, c0, c, state, prob)
+  implicit none
+  integer, intent(in) :: n, state
+  complex*16, intent(in) :: c0(n), c(n)
+  real*8, intent(out) :: prob(n)
+
+  real*8 :: w,x,y,z
+  real*8 :: rho0(n),rho(n),drho(n)
+  integer :: i
+  real*8 :: sump
+
+  prob=0.d0
+
+  ! calculate rhos
+  do i=1,n
+    rho0(i)=real(conjg(c0(i))*c0(i))
+    rho(i) =real(conjg(c(i)) *c(i) )
+    drho(i)=rho(i)-rho0(i)
+  enddo
+
+  ! same for all states
+  w=rho(state)
+  x=rho0(state)
+  y=0.
+  do i=1,n
+    if (drho(i)<0.d0) y=y-drho(i)
+  enddo
+
+  ! if population of active state increases, all probabilities are zero
+  if ( (1.d0 - w/x)>0.d0) then
+    do i=1,n
+      if (i==state) cycle
+      if (drho(i)<0.d0) cycle
+      ! this number changes for each state
+      z=drho(i)
+      prob(i)=max(0.d0, (1.d0-w/x)*(z/y) )
     enddo
   endif
 

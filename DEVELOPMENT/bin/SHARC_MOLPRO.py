@@ -122,6 +122,13 @@ changelogstring='''
 
 27.09.2016:
 - added "basis_external" keyword for MOLPRO.template, which allows specifying a file whose content is taken as the basis set definition
+
+23.08.2017:
+- Resource file is now called "MOLPRO.resources" instead of "SH2PRO.inp" (old filename still works)
+
+24.08.2017:
+- added the numfrozcore and numocc keywords for Dyson norm and overlap calculations
+- gradaccumax and gradaccudefault are now keywords in the template, not in the resources file (not backwards compatible)
 '''
 
 # ======================================================================= #
@@ -417,6 +424,8 @@ def printQMin(QMin):
     string+='\tAngular'
   if 'ion' in QMin:
     string+='\tDyson norms'
+  if 'phases' in QMin:
+    string+='\tPhases'
   print string
 
   string='States: '
@@ -1293,6 +1302,8 @@ def writeQMout(QMin,QMout,QMinfilename):
     string+=writeQMoutnacsmat(QMin,QMout)
   if 'ion' in QMin:
     string+=writeQMoutprop(QMin,QMout)
+  if 'phases' in QMin:
+    string+=writeQmoutPhases(QMin,QMout)
   string+=writeQMouttime(QMin,QMout)
   writefile(outfilename,string)
   #try:
@@ -1553,6 +1564,14 @@ def writeQMoutprop(QMin,QMout):
   string+='\n'
   return string
 
+# ======================================================================= #
+def writeQmoutPhases(QMin,QMout):
+
+    string='! 7 Phases\n%i ! for all nmstates\n' % (QMin['nmstates'])
+    for i in range(QMin['nmstates']):
+        string+='%s %s\n' % (eformat(QMout['phases'][i].real,9,3),eformat(QMout['phases'][i].imag,9,3))
+    return string
+
 # =============================================================================================== #
 # =============================================================================================== #
 # =========================================== SUBROUTINES TO readQMin =========================== #
@@ -1790,7 +1809,7 @@ def readQMin(QMinfilename):
 
 
   # Various logical checks
-  possibletasks=['h','soc','dm','grad','nacdr','overlap','ion','molden']
+  possibletasks=['h','soc','dm','grad','nacdr','overlap','ion','molden','phases']
   if not any([i in QMin for i in possibletasks]):
     print 'No tasks found! Tasks are "h", "soc", "dm", "grad", "nacdr", "overlap", "ion", and "molden".'
     sys.exit(45)
@@ -1799,8 +1818,11 @@ def readQMin(QMinfilename):
     print '"Init" and "Samestep" cannot be both present in QM.in!'
     sys.exit(46)
 
+  if 'phases' in QMin:
+    QMin['overlap']=[]
+
   if 'overlap' in QMin and 'init' in QMin:
-    print '"overlap" cannot be calculated in the first timestep! Delete either "overlap" or "init"'
+    print '"overlap" and "phases" cannot be calculated in the first timestep! Delete either "overlap" or "init"'
     sys.exit(47)
 
   if not 'init' in QMin and not 'samestep' in QMin and not 'restart' in QMin:
@@ -1900,8 +1922,13 @@ def readQMin(QMinfilename):
   QMin['pwd']=os.getcwd()
 
 
-  # open SH2COL.inp
-  sh2pro=readfile('SH2PRO.inp')
+  # open MOLPRO.resources
+  filename='MOLPRO.resources'
+  if os.path.isfile(filename):
+    sh2pro=readfile(filename)
+  else:
+    print 'HINT: reading resources from SH2PRO.inp'
+    sh2pro=readfile('SH2PRO.inp')
 
 
   # ncpus 
@@ -1955,6 +1982,12 @@ def readQMin(QMinfilename):
       global DEBUG
       DEBUG=True
 
+  line=getsh2prokey(sh2pro,'no_print')
+  if line[0]:
+    if len(line)<=1 or 'true' in line[1].lower():
+      global PRINT
+      PRINT=False
+
 
   # memory for MOLPRO and wfoverlap
   QMin['memory']=100
@@ -1991,14 +2024,22 @@ def readQMin(QMinfilename):
 
   # wfoverlaps setting
   if 'overlap' in QMin or 'ion' in QMin or 'docicas' in QMin:
-    QMin['wfoverlap']=get_sh2pro_environ(sh2pro,'wfoverlap')
+    #QMin['wfoverlap']=get_sh2pro_environ(sh2pro,'wfoverlap')
+    QMin['wfoverlap']=get_sh2pro_environ(sh2pro,'wfoverlap',False,False)
+    if QMin['wfoverlap']==None:
+      ciopath=os.path.join(os.path.expandvars(os.path.expanduser('$SHARC')),'wfoverlap.x')
+      if os.path.isfile(ciopath):
+        QMin['wfoverlap']=ciopath
+      else:
+        print 'Give path to wfoverlap.x in MOLPRO.resources!'
+        sys.exit(43)
     # get ncore and ndocc
-    line=getsh2prokey(sh2pro,'ncore')
+    line=getsh2prokey(sh2pro,'numfrozcore')
     if line[0]:
       QMin['ncore']=int(line[1])
     else:
       QMin['ncore']=0
-    line=getsh2prokey(sh2pro,'ndocc')
+    line=getsh2prokey(sh2pro,'numocc')
     if line[0]:
       QMin['ndocc']=int(line[1])
     else:
@@ -2042,11 +2083,13 @@ def readQMin(QMinfilename):
   # first collect the "simple" inputs
   integers=['dkho']
   strings =['basis','basis_external']
-  floats=[]
+  floats=['gradaccudefault','gradaccumax']
   booleans=[]
   for i in booleans:
     QMin['template'][i]=False
   QMin['template']['dkho']=0
+  QMin['template']['gradaccudefault']=1e-7
+  QMin['template']['gradaccumax']=1e-2
   for line in temp:
     if line[0].lower() in integers:
       QMin['template'][line[0]]=int(line[1])
@@ -2273,19 +2316,7 @@ def readQMin(QMinfilename):
         backupdir1=backupdir+'/calc_%i' % (i)
     QMin['backup']=backupdir1
 
-  # Set default gradient accuracies and get accuracies from environment
-  QMin['gradaccudefault']=1e-7
-  QMin['gradaccumax']=1e-2
-  try:
-    line=getsh2prokey(sh2pro,'gradaccudefault')
-    if line[0]:
-      QMin['gradaccudefault']=float(line[1])
-    line=getsh2prokey(sh2pro,'gradaccumax')
-    if line[0]:
-      QMin['gradaccumax']=float(line[1])
-  except ValueError:
-    print 'Gradient accuracy-related environment variables do not evaluate to numerical values!'
-    sys.exit(46)
+
 
   # check for initial orbitals
   initorbs={}
@@ -2481,9 +2512,9 @@ def run_calc(WORKDIR,QMin):
         break
       elif conv==-1:
         return 97
-      elif conv<=QMin['gradaccumax']:
-        QMin['gradaccudefault']=1.1*conv
-      elif conv>QMin['gradaccumax']:
+      elif conv<=QMin['template']['gradaccumax']:
+        QMin['template']['gradaccudefault']=1.1*conv
+      elif conv>QMin['template']['gradaccumax']:
         print 'CRASHED:\t%s\tCP-MCSCF did not converge.' % (WORKDIR)
         return 96
 
@@ -2576,13 +2607,13 @@ def gettasks(QMin):
   # gradient calculations
   if 'grad' in QMin:
     for grad in QMin['gradmap']:
-      tasks.append( ['cpgrad',job,grad,QMin['gradaccudefault']] )
+      tasks.append( ['cpgrad',job,grad,QMin['template']['gradaccudefault']] )
       tasks.append( ['forcegrad',grad ] )
 
   # NAC calculations
   if 'nacdr' in QMin:
     for nac in QMin['nacmap']:
-      tasks.append( ['cpnac',job,nac,QMin['gradaccudefault']] )
+      tasks.append( ['cpnac',job,nac,QMin['template']['gradaccudefault']] )
       tasks.append( ['forcenac',nac ] )
 
   if DEBUG:
@@ -2667,7 +2698,7 @@ def writeMOLPROinput(tasks, QMin):
       if QMin['template']['dkho']>0:
         string+='dkho=%i\n' % (QMin['template']['dkho'])
       if 'basis_block' in QMin['template']:
-        string+='basis={\n%s\n}\n\n' % ('\n'.join(QMin['template']['basis_block']))
+        string+='basis={\n%s\n}\n\n' % (''.join(QMin['template']['basis_block']))
       else:
         string+='basis=%s\n\n' % (QMin['template']['basis'])
       string+='nosym\nbohr\ngeometry={\n'
@@ -3028,15 +3059,26 @@ def saveFiles(WORKDIR,QMin):
     mofile=os.path.join(QMin['savedir'],'mo.%i' % job)
     writefile(mofile,string)
 
-  # if necessary, extract the CASSCF coefficientsand write them to savedir
+  # if necessary, extract the CASSCF coefficients and write them to savedir
   # TODO: actually, the CASSCF det files are not needed in savedir, could be placed in a keepdir
   if 'docicas' in QMin:
     out=readfile(os.path.join(WORKDIR,'MOLPRO.out'))
     for im,m in enumerate(QMin['multmap'][-job]):
-      if len(QMin['multmap'][-job])==1:
+      roots=QMin['template']['roots'][job]
+      n=0
+      for i in roots:
+        if i>0:
+          n+=1
+      if n==1:
         string=get_CASdet_from_out(out,0,QMin['states'][m-1])
       else:
-        string=get_CASdet_from_out(out,im+1,QMin['states'][m-1])
+        n=0
+        for i,j in enumerate(roots):
+          if j>0:
+            n+=1
+          if i+1==m:
+            break
+        string=get_CASdet_from_out(out,n,QMin['states'][m-1])
       detfile=os.path.join(QMin['savedir'],'det_cas.%i' % m)
       writefile(detfile,string)
 
@@ -3498,7 +3540,7 @@ def format_ci_vectors(ci_vectors):
     for i in range(nvirt):
       string+='e'
     for c in ci_vectors[det]:
-      string+=' %11.7f ' % c
+      string+=' %16.12f ' % c
     string+='\n'
   return string
 
@@ -3824,6 +3866,15 @@ def getQMout(QMin):
             continue
           QMout['overlap'][i][j]=getsmate(out,s1,s2)
 
+  # Phases from overlaps
+  if 'phases' in QMin:
+    if not 'phases' in QMout:
+      QMout['phases']=[ complex(1.,0.) for i in range(nmstates) ]
+    if 'overlap' in QMout:
+      for i in range(nmstates):
+        if QMout['overlap'][i][i].real<0.:
+          QMout['phases'][i]=complex(-1.,0.)
+
   # Dyson norms
   if 'ion' in QMin:
     if not 'prop' in QMout:
@@ -3839,12 +3890,16 @@ def getQMout(QMin):
             continue
           if not abs(ms1-ms2)==0.5:
             continue
-          if float(m1-1)/2==abs(ms1) and float(m2-1)/2==abs(ms2):
-            factor=1.
-          else:
-            factor=0.5
+          # switch multiplicities such that m1 is smaller mult
           if m1>m2:
             s1,s2=s2,s1
+            m1,m2=m2,m1
+            ms1,ms2=ms2,ms1
+          # compute M_S overlap factor
+          if ms1<ms2:
+            factor=( ms1+1.+(m1-1.)/2. )/m1
+          else:
+            factor=( -ms1+1.+(m1-1.)/2. )/m1
           QMout['prop'][i][j]=getDyson(out,s1,s2)*factor
 
   # Gradients
@@ -3892,6 +3947,8 @@ def getQMout(QMin):
         for jstate in QMin['statemap']:
           state1=QMin['statemap'][istate]
           state2=QMin['statemap'][jstate]
+          if not state1[2]==state2[2]:
+            continue
           if (state1[0],state1[1],state2[0],state2[1])==nac:
             QMout['nacdr'][istate-1][jstate-1]=g
           elif (state2[0],state2[1],state1[0],state1[1])==nac:

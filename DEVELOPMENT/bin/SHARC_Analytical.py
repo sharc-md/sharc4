@@ -465,6 +465,8 @@ def writeQMout(QMin,QMout,QMinfilename):
     string+=writeQMoutprop(QMin,QMout)
   if 'dmdr' in QMin:
     string+=writeQMoutDMgrad(QMin,QMout)
+  if 'phases' in QMin:
+    string+=writeQmoutPhases(QMin,QMout)
   string+=writeQMouttime(QMin,QMout)
   try:
     outfile=open(outfilename,'w')
@@ -754,6 +756,14 @@ def writeQMoutprop(QMin,QMout):
   string+='\n'
   return string
 
+# ======================================================================= #
+def writeQmoutPhases(QMin,QMout):
+
+  string='! 7 Phases\n%i ! for all nmstates\n' % (QMin['nmstates'])
+  for i in range(QMin['nmstates']):
+    string+='%s %s\n' % (eformat(QMout['phases'][i].real,9,3),eformat(QMout['phases'][i].imag,9,3))
+  return string
+
 # =========================================================
 # =========================================================
 # =========================================================
@@ -931,6 +941,7 @@ def read_QMin():
   QMin['dm']=[]
   QMin['grad']=[]
   QMin['overlap']=[]
+  QMin['phases']=[]
   QMin['pwd']=os.getcwd()
   return QMin
 
@@ -951,7 +962,10 @@ def find_lines(nlines,match,strings):
 def read_SH2Ana(QMin):
   # reads SH2Ana.inp, deletes comments and blank lines
   SH2ANA={}
-  f=open('SH2Ana.inp')
+  if os.path.isfile('Analytical.template'):
+    f=open('Analytical.template')
+  else:
+    f=open('SH2Ana.inp')
   sh2ana=f.readlines()
   f.close()
 
@@ -1187,6 +1201,14 @@ def getQMout(QMin,SH2ANA):
   QMout['dmdr']=dmdr
   QMout['overlap']=overlap
   QMout['runtime']=0.
+  # Phases from overlaps
+  if 'phases' in QMin:
+    if not 'phases' in QMout:
+      QMout['phases']=[ complex(1.,0.) for i in range(QMin['nmstates']) ]
+    if 'overlap' in QMout:
+      for i in range(QMin['nmstates']):
+        if QMout['overlap'][i][i].real<0.:
+          QMout['phases'][i]=complex(-1.,0.)
 
   #pprint.pprint(QMout,width=192)
 

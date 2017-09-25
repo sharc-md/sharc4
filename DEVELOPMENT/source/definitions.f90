@@ -110,12 +110,17 @@ type trajectory_type
   complex*16,allocatable :: DM_old_ssd(:,:,:)            !< old dipole moment matrix
   complex*16,allocatable :: DM_print_ssd(:,:,:)          !< dipole moment matrix used for the output routines
                                                          !< transition dipoles between active and inactive states are not zero.
-  complex*16,allocatable :: Property_ss(:,:)             !< Matrix containing arbitrary data (not used in propagation)
   complex*16,allocatable :: Rtotal_ss(:,:)               !< total propagator for the current timestep
   complex*16,allocatable :: phases_s(:)                  !< electronic state phases of the current step
   complex*16,allocatable :: phases_old_s(:)              !< electronic state phases of the last step
   real*8, allocatable :: hopprob_s(:)                    !< hopping probabilities
   real*8 :: randnum, randnum2                            !< random number for surface hopping and A-FSSH
+
+  ! arbitrary properties
+  complex*16,allocatable :: Property2d_xss(:,:,:)        !< list of matrices containing arbitrary data (not used in propagation)
+  real*8,    allocatable :: Property1d_ys(:,:)           !< list of vectors containing arbitrary data (not used in propagation)
+  character*40,allocatable :: Property2d_labels_x(:)     !< list of descriptions for 2d properties
+  character*40,allocatable :: Property1d_labels_y(:)     !< list of descriptions for 1d properties
 
   ! vector information
   real*8,allocatable :: DMgrad_ssdad(:,:,:,:,:)          !< Cartesian gradient of the dipole moments (bra, ket, polarization, atom, cartesian component of atom displacement)
@@ -154,6 +159,7 @@ type ctrl_type
   sequence
 
   character*1023 :: cwd                     !< working directory for SHARC
+  real*8 :: output_version                         !< version as float for checks during writing output
 
 ! numerical constants
   integer :: natom                          !< number of atoms
@@ -170,7 +176,6 @@ type ctrl_type
   real*8 :: eselect_dmgrad                  !< energy difference for neglecting dipole gradients
   real*8 :: dampeddyn                       !< damping factor for kinetic energy
   real*8 :: decoherence_alpha               !< decoherence parameter (a.u.) for energy-based decoherence
-  real*8 :: output_version                         !< version as float for checks during writing output
   logical,allocatable :: actstates_s(:)     !< mask of the active states
 
 ! methods and switches
@@ -193,17 +198,24 @@ type ctrl_type
   integer :: calc_nacdr                     !< request nac vectors: \n -1=no, 0=all in step 1, 1=select in step 1, 2=select in step 2
   integer :: calc_dipolegrad                !< request dipole gradient vectors: \n -1=no, 0=all in step 1, 1=select in step 1, 2=select in step 2
   integer :: calc_second                    !< 0=no, 1=do two interface calls per timestep
+  integer :: calc_phases                    !< 0=nom 1=yes
 
   integer :: write_soc                      !< write SOC to output.dat or not \n 0=no soc, 1=write soc )
   integer :: write_grad                     !< write gradients:   \n        0=no gradients, 1=write gradients
   integer :: write_overlap                  !< write overlap matrix:   \n        0=no overlap, 1=write overlap
-  integer :: write_NAC                      !< write gradients:   \n        0=no gradients, 1=write gradients
-  integer :: write_property                 !< write property matrix:   \n        0=no property, 1=write property
+  integer :: write_NACdr                    !< write nac vectors:   \n        0=no vectors, 1=write vectors
+
+  integer :: write_property2d               !< write property matrices:   \n        0=no property, 1=write property
+  integer :: write_property1d               !< write property vectors:   \n        0=no property, 1=write property
+  integer :: n_property2d                   !< number of property matrices
+  integer :: n_property1d                   !< number of property vectors
 
   integer :: killafter                      !< -1=no, >1=kill after that many steps in the ground state
-  integer :: ionization                     !< -1=no, 1=request ionization properties
+  integer :: ionization                     !<  -1=no, n=ionization every n steps
+  integer :: theodore                       !<  -1=no, n=theodore every n steps
   integer :: track_phase                    !< 0=no, 1=track phase of U matrix through the propagation (turn off only for debugging purposes)
-  integer :: hopping_procedure              !< 0=no hops, 1=hops
+  integer :: track_phase_at_zero            !< 0=nothing, 1=at time zero, get phases from whatever is in the savedir
+  integer :: hopping_procedure              !< 0=no hops, 1=hops (standard formula), 2=GFSH
 
 ! thresholds
 !   real*8 :: propag_sharc_UdUdiags=1.d-2           ! Threshold for the size of diagonal elements in UdU (needed for dynamic substeps)        in hartree
@@ -274,10 +286,12 @@ integer, parameter :: u_qm_QMout=42          !< here SHARC retrieves the results
       type(ctrl_type), intent(inout) :: ctrl
       type(trajectory_type), intent(inout) :: traj
       integer :: status
-      integer :: natom,nstates
+      integer :: natom,nstates,n1d,n2d
 
       natom=ctrl%natom
       nstates=ctrl%nstates
+      n1d=ctrl%n_property1d
+      n2d=ctrl%n_property2d
 
       allocate(traj%atomicnumber_a(natom),stat=status)
       if (status/=0) stop 'Could not allocate atomicnumber_a'
@@ -353,10 +367,6 @@ integer, parameter :: u_qm_QMout=42          !< here SHARC retrieves the results
       if (status/=0) stop 'Could not allocate DM_print_ssd'
       traj%DM_print_ssd=-123.d0
 
-      allocate(traj%Property_ss(nstates,nstates),stat=status)
-      if (status/=0) stop 'Could not allocate Property_ss'
-      traj%Property_ss=-123.d0
-
       allocate(traj%Rtotal_ss(nstates,nstates),stat=status)
       if (status/=0) stop 'Could not allocate Rtotal_ss'
       traj%Rtotal_ss=-123.d0
@@ -364,6 +374,23 @@ integer, parameter :: u_qm_QMout=42          !< here SHARC retrieves the results
       allocate(traj%hopprob_s(nstates),stat=status)
       if (status/=0) stop 'Could not allocate hopprob_s'
       traj%hopprob_s=-123.d0
+
+
+      allocate(traj%Property2d_xss(n2d,nstates,nstates),stat=status)
+      if (status/=0) stop 'Could not allocate Property2d_xss'
+      traj%Property2d_xss=-123.d0
+
+      allocate(traj%Property1d_ys(n1d,nstates),stat=status)
+      if (status/=0) stop 'Could not allocate Property1d_ys'
+      traj%Property1d_ys=-123.d0
+
+      allocate(traj%Property2d_labels_x(n2d),stat=status)
+      if (status/=0) stop 'Could not allocate Property2d_labels_x'
+      traj%Property2d_labels_x='N/A'
+
+      allocate(traj%Property1d_labels_y(n1d),stat=status)
+      if (status/=0) stop 'Could not allocate Property1d_labels_y'
+      traj%Property1d_labels_y='N/A'
 
 
       allocate(traj%phases_s(nstates),stat=status)
@@ -461,11 +488,14 @@ integer, parameter :: u_qm_QMout=42          !< here SHARC retrieves the results
     write(u,'(A20,1X,L1)') 'DM_old_ssd',      allocated(traj%DM_old_ssd      )
     write(u,'(A20,1X,L1)') 'DM_print_ssd',    allocated(traj%DM_print_ssd    )
     write(u,'(A20,1X,L1)') 'DM_ssd',          allocated(traj%DM_ssd          )
-    write(u,'(A20,1X,L1)') 'Property_ss',     allocated(traj%Property_ss     )
     write(u,'(A20,1X,L1)') 'Rtotal_ss',       allocated(traj%Rtotal_ss       )
     write(u,'(A20,1X,L1)') 'phases_s',        allocated(traj%phases_s        )
     write(u,'(A20,1X,L1)') 'phases_old_s',    allocated(traj%phases_old_s    )
     write(u,'(A20,1X,L1)') 'hopprob_s',       allocated(traj%hopprob_s       )
+    write(u,'(A20,1X,L1)') 'Property2d_xss',  allocated(traj%Property2d_xss     )
+    write(u,'(A20,1X,L1)') 'Property1d_ys',   allocated(traj%Property1d_ys      )
+    write(u,'(A20,1X,L1)') 'Property2d_labels_x',     allocated(traj%Property2d_labels_x     )
+    write(u,'(A20,1X,L1)') 'Property1d_labels_y',     allocated(traj%Property1d_labels_y     )
     write(u,'(A20,1X,L1)') 'grad_MCH_sad',    allocated(traj%grad_MCH_sad    )
     write(u,'(A20,1X,L1)') 'Gmatrix_ssad',    allocated(traj%Gmatrix_ssad    )
     write(u,'(A20,1X,L1)') 'grad_ad',         allocated(traj%grad_ad         )
@@ -500,7 +530,8 @@ integer, parameter :: u_qm_QMout=42          !< here SHARC retrieves the results
     write(u,'(A20,1X,L1)') 'overlaps_ss',     any((real(traj%overlaps_ss     )).ne.(real(traj%overlaps_ss     )))
     write(u,'(A20,1X,L1)') 'DM_ssd',          any((real(traj%DM_ssd          )).ne.(real(traj%DM_ssd          )))
     write(u,'(A20,1X,L1)') 'DM_old_ssd',      any((real(traj%DM_old_ssd      )).ne.(real(traj%DM_old_ssd      )))
-    write(u,'(A20,1X,L1)') 'Property_ss',     any((real(traj%Property_ss     )).ne.(real(traj%Property_ss     )))
+    write(u,'(A20,1X,L1)') 'Property2d_xss',  any((real(traj%Property2d_xss  )).ne.(real(traj%Property2d_xss  )))
+    write(u,'(A20,1X,L1)') 'Property1d_ys',   any((real(traj%Property1d_ys   )).ne.(real(traj%Property1d_ys   )))
     write(u,'(A20,1X,L1)') 'DM_print_ssd',    any((real(traj%DM_print_ssd    )).ne.(real(traj%DM_print_ssd    )))
     write(u,'(A20,1X,L1)') 'Rtotal_ss',       any((real(traj%Rtotal_ss       )).ne.(real(traj%Rtotal_ss       )))
     write(u,'(A20,1X,L1)') 'phases_s',        any((real(traj%phases_s        )).ne.(real(traj%phases_s        )))
@@ -522,7 +553,8 @@ integer, parameter :: u_qm_QMout=42          !< here SHARC retrieves the results
     write(u,'(A20,1X,L1)') 'DM_ssd',          any((aimag(traj%DM_ssd          )).ne.(aimag(traj%DM_ssd          )))
     write(u,'(A20,1X,L1)') 'DM_old_ssd',      any((aimag(traj%DM_old_ssd      )).ne.(aimag(traj%DM_old_ssd      )))
     write(u,'(A20,1X,L1)') 'DM_print_ssd',    any((aimag(traj%DM_print_ssd    )).ne.(aimag(traj%DM_print_ssd    )))
-    write(u,'(A20,1X,L1)') 'Property_ss',     any((aimag(traj%Property_ss     )).ne.(aimag(traj%Property_ss     )))
+    write(u,'(A20,1X,L1)') 'Property2d_xss',  any((aimag(traj%Property2d_xss  )).ne.(aimag(traj%Property2d_xss  )))
+!     write(u,'(A20,1X,L1)') 'Property1d_ys',   any((aimag(traj%Property1d_ys   )).ne.(aimag(traj%Property1d_ys   )))
     write(u,'(A20,1X,L1)') 'Rtotal_ss',       any((aimag(traj%Rtotal_ss       )).ne.(aimag(traj%Rtotal_ss       )))
     write(u,'(A20,1X,L1)') 'phases_s',        any((aimag(traj%phases_s        )).ne.(aimag(traj%phases_s        )))
     write(u,'(A20,1X,L1)') 'phases_old_s',    any((aimag(traj%phases_old_s    )).ne.(aimag(traj%phases_old_s    )))

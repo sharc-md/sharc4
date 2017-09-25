@@ -37,6 +37,7 @@ public get_nonadiabatic_ddt
 public get_nonadiabatic_ddr
 public get_overlap
 public get_property
+public get_properties_new
 public get_dipolegrad
 public get_QMruntime
 
@@ -124,19 +125,28 @@ endsubroutine
 subroutine goto_flag(flag1,routine)
   implicit none
   character(len=*) :: routine
-  character :: marker
+!   character :: marker
   integer :: flag1, flag
   integer :: io
+  character(len=20) :: string
 
   rewind(qmout_unit)
   do
-    read(qmout_unit,*,iostat=io) marker,flag
+!     read(qmout_unit,*,iostat=io) marker,flag
+    read(qmout_unit,'(a)',iostat=io) string     !marker,flag
     if (io==-1) then
       write(0,*) 'Quantity not found in QMout file, unit=',qmout_unit
       write(0,*) 'Routine=',trim(routine)
       stop 1
     endif
-    if ( (marker=='!').and.(flag==flag1) ) exit
+!     if ( (marker=='!').and.(flag==flag1) ) exit
+    if ( string(1:1)=='!' ) then
+      read(string(2:20),*,iostat=io) flag
+      if ( (io==0).and.(flag==flag1) ) then
+!         stat=0
+        exit
+      endif
+    endif
   enddo
 
 endsubroutine
@@ -150,20 +160,24 @@ endsubroutine
 !> \param flag1 requested flag
 subroutine goto_flag_nostop(flag1,stat)
   implicit none
-  character :: marker
+!   character :: marker
   integer :: flag1, flag, stat
   integer :: io
+  character(len=20) :: string
 
   rewind(qmout_unit)
   do
-    read(qmout_unit,*,iostat=io) marker,flag
+    read(qmout_unit,'(a)',iostat=io) string     !marker,flag
     if (io==-1) then
       stat=-1
       return
     endif
-    if ( (marker=='!').and.(flag==flag1) ) then
-      stat=0
-      return
+    if ( string(1:1)=='!' ) then
+      read(string(2:20),*,iostat=io) flag
+      if ( (io==0).and.(flag==flag1) ) then
+        stat=0
+        return
+      endif
     endif
   enddo
 
@@ -263,6 +277,7 @@ subroutine get_phases(n,phase_s,stat)
 
   integer,intent(in) :: n
   complex*16,intent(out) :: phase_s(n)
+  complex*16 :: phase_tmp(n)
   integer,intent(out) :: stat
   integer :: io
   character(len=8000) title
@@ -276,7 +291,8 @@ subroutine get_phases(n,phase_s,stat)
     return
   endif
 
-  call vecread(n,phase_s,qmout_unit, title)
+  call vecread(n,phase_tmp,qmout_unit, title)
+  phase_s=phase_s*phase_tmp
   read(title,*) io
   if ( io==n ) then
     stat=0
@@ -426,6 +442,60 @@ subroutine get_property(n,property_ss,stat)
     property_ss=dcmplx(0.d0,-123.d0)
     stat=-1
     return
+  endif
+
+endsubroutine
+
+! =================================================================== !
+
+! read 1d and 2d properties from QMout file, reading all available data sets
+! all allocated parts which are not found in the QMout file are given the value (0,-123)
+subroutine get_properties_new(ctrl,traj)
+  use matrix
+  use definitions
+  implicit none
+
+  type(trajectory_type) :: traj
+  type(ctrl_type) :: ctrl
+
+  integer :: i,io,nread
+  character(len=8000) :: string
+
+  call check_qmout_unit('get_properties_new')
+
+  ! first, the 1d properties will be processed
+  traj%Property1d_ys=dcmplx(0.d0,-123.d0)
+  traj%Property1d_labels_y='N/A'
+
+  call goto_flag_nostop(21,io)
+  if (io/=-1) then
+    read(qmout_unit,*) nread
+    if (nread>ctrl%n_property1d) nread=ctrl%n_property1d
+    call vecread(nread, traj%Property1d_labels_y(:nread), qmout_unit, string)
+    read(qmout_unit,*) 
+    do i=1,nread
+      call vecread(ctrl%nstates, traj%Property1d_ys(i,:), qmout_unit, string)
+    enddo
+  endif
+
+
+  ! second, the 2d properties will be processed
+  traj%Property2d_xss=dcmplx(0.d0,-123.d0)
+  traj%Property2d_labels_x='N/A'
+
+  ! get property matrix in old way
+  call get_property(ctrl%nstates,traj%Property2d_xss(1,:,:),i)
+
+  ! new way
+  call goto_flag_nostop(20,io)
+  if (io/=-1) then
+    read(qmout_unit,*) nread
+    if (nread>ctrl%n_property2d) nread=ctrl%n_property2d
+    call vecread(nread, traj%Property2d_labels_x(:nread), qmout_unit, string)
+    read(qmout_unit,*)
+    do i=1,nread
+      call matread(ctrl%nstates, traj%Property2d_xss(i,:,:), qmout_unit, string)
+    enddo
   endif
 
 endsubroutine

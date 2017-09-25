@@ -943,9 +943,11 @@ Method is based on L. Sun, W. L. Hase J. Chem. Phys. 133, 044313
         # distort geometry according to normal mode movement
         # factor of sqrt(1/2) is necessary to distribute energy evenly over
         # kinetatomlist and potential energy
-        atom.coord[xyz] += random_Q * mode['move'][i][xyz] * math.sqrt(0.5)
+        if not UEG:
+          atom.coord[xyz] += random_Q * mode['move'][i][xyz] * math.sqrt(0.5)
         # add velocity
-        atom.veloc[xyz] += random_P * mode['move'][i][xyz] * math.sqrt(0.5)
+        if not UZV:
+          atom.veloc[xyz] += random_P * mode['move'][i][xyz] * math.sqrt(0.5)
       atom.EKIN()
   if not KTR:
     restore_center_of_mass(molecule, atomlist)
@@ -1081,6 +1083,10 @@ as described in [2] (non-fixed energy, independent mode sampling).
   parser.add_option('-m', dest='m', action='store_true',help="Enter non-default atom masses")
   parser.add_option('-s', dest='s', type=float, nargs=1, default=1.0, help="Scaling factor for the energies (float, default=1.0)")
   parser.add_option('--keep_trans_rot', dest='KTR', action='store_true',help="Keep translational and rotational components")
+  parser.add_option('--use_eq_geom',    dest='UEG', action='store_true',help="For all samples, use the equilibrium geometry (only sample velocities)")
+  parser.add_option('--use_zero_veloc', dest='UZV', action='store_true',help="For all samples, set velocities to zero")
+
+
   (options, args) = parser.parse_args()
   random.seed(options.r)
   amount=options.n
@@ -1109,6 +1115,10 @@ Random number generator seed = %i''' % (['MOLDEN','MOLPRO'][options.M], filename
 
   global KTR
   KTR=options.KTR
+  global UEG
+  UEG=options.UEG
+  global UZV
+  UZV=options.UZV
 
   global whichatoms
   whichatoms=[]

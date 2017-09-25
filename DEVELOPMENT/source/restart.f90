@@ -53,6 +53,7 @@ module restart
 
     ! write ctrl
     write(u,'(A)') trim(ctrl%cwd)
+    write(u,*) ctrl%output_version
     write(u,*) ctrl%natom, '! natom'
     write(u,*) ctrl%maxmult
     write(u,*) (ctrl%nstates_m(imult),imult=1,ctrl%maxmult)
@@ -78,17 +79,20 @@ module restart
     write(u,*) ctrl%ekincorrect
     write(u,*) ctrl%gradcorrect
     write(u,*) ctrl%dipolegrad
+    write(u,*) ctrl%calc_soc
     write(u,*) ctrl%calc_grad
     write(u,*) ctrl%calc_overlap
     write(u,*) ctrl%calc_nacdt
     write(u,*) ctrl%calc_nacdr
     write(u,*) ctrl%calc_dipolegrad
     write(u,*) ctrl%calc_second
+    write(u,*) ctrl%calc_phases
     write(u,*) ctrl%killafter
     write(u,*) ctrl%ionization
+    write(u,*) ctrl%theodore
     write(u,*) ctrl%track_phase
+    write(u,*) ctrl%track_phase_at_zero
     write(u,*) ctrl%hopping_procedure
-    write(u,*) ctrl%calc_soc
 
     ! write the laser field
     if (ctrl%laser==2) then
@@ -103,8 +107,11 @@ module restart
     write(u,*) ctrl%write_soc
     write(u,*) ctrl%write_overlap
     write(u,*) ctrl%write_grad
-    write(u,*) ctrl%write_nac
-    write(u,*) ctrl%write_property
+    write(u,*) ctrl%write_nacdr
+    write(u,*) ctrl%write_property1d
+    write(u,*) ctrl%write_property2d
+    write(u,*) ctrl%n_property1d
+    write(u,*) ctrl%n_property2d
     
     close(u)
 
@@ -172,7 +179,7 @@ module restart
     call matwrite(ctrl%nstates, traj%DM_print_ssd(:,:,1),  u, 'DM_print_ssd(x)','ES24.16E3')
     call matwrite(ctrl%nstates, traj%DM_print_ssd(:,:,2),  u, 'DM_print_ssd(y)','ES24.16E3')
     call matwrite(ctrl%nstates, traj%DM_print_ssd(:,:,3),  u, 'DM_print_ssd(z)','ES24.16E3')
-    call matwrite(ctrl%nstates, traj%Property_ss,  u, 'Property_ss','ES24.16E3')
+!     call matwrite(ctrl%nstates, traj%Property_ss,  u, 'Property_ss','ES24.16E3')
     call matwrite(ctrl%nstates, traj%Rtotal_ss,    u, 'Rtotal_ss','ES24.16E3')
     call vecwrite(ctrl%nstates, traj%phases_s, u, 'phases_s','ES24.16E3')
     call vecwrite(ctrl%nstates, traj%phases_old_s, u, 'phases_old_s','ES24.16E3')
@@ -230,6 +237,17 @@ module restart
     endif
     write(u,*) traj%phases_found
 
+    call vecwrite(ctrl%n_property1d, traj%Property1d_labels_y, u, 'Property1d_labels_y','A40')
+    call vecwrite(ctrl%n_property2d, traj%Property2d_labels_x, u, 'Property2d_labels_x','A40')
+    do i=1,ctrl%n_property1d
+      write(string,'(A45,I3,1X,I3)') 'Property1d_ys',i
+      call vecwrite(ctrl%nstates, traj%Property1d_ys(i,:), u, string,'ES24.16E3')
+    enddo
+    do i=1,ctrl%n_property2d
+      write(string,'(A45,I3,1X,I3)') 'Property2d_xss',i
+      call matwrite(ctrl%nstates, traj%Property2d_xss(i,:,:), u, string,'ES24.16E3')
+    enddo
+
     close(u)
 
   endsubroutine
@@ -285,6 +303,7 @@ module restart
     ! read ctrl
     read(u_ctrl,'(A)') ctrl%cwd
     call getcwd(ctrl%cwd)
+    read(u_ctrl,*) ctrl%output_version
     read(u_ctrl,*) ctrl%natom
     read(u_ctrl,*) ctrl%maxmult
     allocate( ctrl%nstates_m(ctrl%maxmult) )
@@ -312,17 +331,20 @@ module restart
     read(u_ctrl,*) ctrl%ekincorrect
     read(u_ctrl,*) ctrl%gradcorrect
     read(u_ctrl,*) ctrl%dipolegrad
+    read(u_ctrl,*) ctrl%calc_soc
     read(u_ctrl,*) ctrl%calc_grad
     read(u_ctrl,*) ctrl%calc_overlap
     read(u_ctrl,*) ctrl%calc_nacdt
     read(u_ctrl,*) ctrl%calc_nacdr
     read(u_ctrl,*) ctrl%calc_dipolegrad
     read(u_ctrl,*) ctrl%calc_second
+    read(u_ctrl,*) ctrl%calc_phases
     read(u_ctrl,*) ctrl%killafter
     read(u_ctrl,*) ctrl%ionization
+    read(u_ctrl,*) ctrl%theodore
     read(u_ctrl,*) ctrl%track_phase
+    read(u_ctrl,*) ctrl%track_phase_at_zero
     read(u_ctrl,*) ctrl%hopping_procedure
-    read(u_ctrl,*) ctrl%calc_soc
 
     ! read the laser field
     ! with an external laser, increasing the simulation time necessitates that the laserfield in
@@ -341,8 +363,11 @@ module restart
     read(u_ctrl,*) ctrl%write_soc
     read(u_ctrl,*) ctrl%write_overlap
     read(u_ctrl,*) ctrl%write_grad
-    read(u_ctrl,*) ctrl%write_nac
-    read(u_ctrl,*) ctrl%write_property
+    read(u_ctrl,*) ctrl%write_nacdr
+    read(u_ctrl,*) ctrl%write_property1d
+    read(u_ctrl,*) ctrl%write_property2d
+    read(u_ctrl,*) ctrl%n_property1d
+    read(u_ctrl,*) ctrl%n_property2d
     
     close(u_ctrl)
 
@@ -401,7 +426,7 @@ module restart
     call matread(ctrl%nstates, traj%DM_print_ssd(:,:,1),  u_traj, string)
     call matread(ctrl%nstates, traj%DM_print_ssd(:,:,2),  u_traj, string)
     call matread(ctrl%nstates, traj%DM_print_ssd(:,:,3),  u_traj, string)
-    call matread(ctrl%nstates, traj%Property_ss,  u_traj,   string)
+!     call matread(ctrl%nstates, traj%Property_ss,  u_traj,   string)
     call matread(ctrl%nstates, traj%Rtotal_ss,    u_traj,   string)
     call vecread(ctrl%nstates, traj%phases_s, u_traj,       string)
     call vecread(ctrl%nstates, traj%phases_old_s, u_traj,   string)
@@ -453,6 +478,15 @@ module restart
       enddo
     endif
     read(u_traj,*) traj%phases_found
+
+    call vecread(ctrl%n_property1d, traj%Property1d_labels_y, u_traj, string)
+    call vecread(ctrl%n_property2d, traj%Property2d_labels_x, u_traj, string)
+    do i=1,ctrl%n_property1d
+      call vecread(ctrl%nstates, traj%Property1d_ys(i,:), u_traj, string)
+    enddo
+    do i=1,ctrl%n_property2d
+      call matread(ctrl%nstates, traj%Property2d_xss(i,:,:), u_traj, string)
+    enddo
 
     close(u_traj)
 

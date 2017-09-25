@@ -38,9 +38,9 @@ COMPILER   = $(shell which ${F90})
 EXEDIR     = ../bin
 
 # sources for sharc.x, data_extractor.x and diagonalizer.x
-TOOLS = matrix.o \
- 	definitions.o \
-        string.o \
+TOOLS = definitions.o \
+        matrix.o \
+ 	string.o \
 	input_list.o
 
 SHARC  =  main.o \
