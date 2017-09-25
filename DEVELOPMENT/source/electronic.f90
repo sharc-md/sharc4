@@ -453,8 +453,10 @@ subroutine surface_hopping(traj,ctrl)
 !           Emax=traj%H_diag_ss(traj%state_diag,traj%state_diag) + traj%Ekin
           ! why not use Etot
           Emax=traj%Etot
-          if (real(traj%H_diag_ss(istate,istate)) > Emax) then
+          deltaE = Emax-real(traj%H_diag_ss(istate,istate))
+          if (deltaE<0.d0) then
             traj%kind_of_jump=2
+            traj%state_diag_frust=istate
             exit stateloop         ! ************************************************* exit of loop
           endif
 
@@ -466,6 +468,7 @@ subroutine surface_hopping(traj,ctrl)
           &real(traj%H_diag_ss(istate,istate)))+sum_vk**2
           if (deltaE<0.d0) then
             traj%kind_of_jump=2
+            traj%state_diag_frust=istate
             exit stateloop         ! ************************************************* exit of loop
           endif
 
@@ -499,7 +502,7 @@ subroutine surface_hopping(traj,ctrl)
         write(u_log,'(A,1X,I4,1X,A)') 'New state:',traj%state_diag,'(diag)'
         write(u_log,'(A,1X,F12.9,1X,A)') 'Jump is not frustrated, new Epot=',traj%Epot*au2ev,'eV'
       case (2)
-        write(u_log,'(A,1X,I4,1X,A)') 'Jump to state',istate,'is frustrated.'
+        write(u_log,'(A,1X,I4,1X,A,1X,E12.5,1X,A)') 'Jump to state',istate,'is frustrated by',deltaE*au2eV,'eV.'
         if (ctrl%laser==2) then
           write(u_log,'(A,1X,F16.9,1X,A,1X,F16.9,1X,A)') &
           &'Detuning:',deltaE*au2eV,'eV, Laser Bandwidth:',ctrl%laser_bandwidth*au2eV,'eV'

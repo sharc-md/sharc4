@@ -73,6 +73,7 @@ type trajectory_type
   integer :: state_MCH                                   !< currently occupied state in MCH basis
   integer :: state_diag                                  !< currently occupied state in diag basis
   integer :: state_diag_old                              !< diag state occupied in the last timestep
+  integer :: state_diag_frust                            !< diag state of a frustrated hop
 
   real*8 :: Ekin                                         !< kinetic energy
   real*8 :: Epot                                         !< potential energy (diag energy of state_diag)
@@ -181,6 +182,7 @@ type ctrl_type
   integer :: surf                           !< 0=propagation in diag surfaces (SHARC), 1=on MCH surfaces (regular SH)
   integer :: decoherence                    !< 0=off, 1=activate energy-based decoherence correction
   integer :: ekincorrect                    !< 0=none, 1=adjust momentum along velocity, 2=adjust momentum along nac vector
+  integer :: reflect_frustrated             !< 0=none, 1=reflect along velocity, 2=reflect along nac vector
   integer :: gradcorrect                    !< 0=no, 1=include nac vectors in gradient transformation
   integer :: dipolegrad                     !< 0=no, 1=include dipole gradients in gradient transformation
 

@@ -941,7 +941,7 @@ module qm
         enddo
 
         ! if available, add non-adiabatic coupling terms
-        if (ctrl%gradcorrect==1) then
+        if (ctrl%calc_nacdr.gt.-1) then
           do istate=1,ctrl%nstates
             do jstate=istate+1,ctrl%nstates
               Gmatrix_ss(istate,jstate)=&

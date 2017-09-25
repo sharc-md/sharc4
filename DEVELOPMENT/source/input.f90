@@ -541,11 +541,11 @@ module input
     line=get_value_from_key('ekincorrect',io)
     if (io==0) then
       select case (trim(line))
-        case ('none') 
+        case ('none')
           ctrl%ekincorrect=0
-        case ('parallel_vel') 
+        case ('parallel_vel')
           ctrl%ekincorrect=1
-        case ('parallel_nac') 
+        case ('parallel_nac')
           ctrl%ekincorrect=2
         case default
           write(0,*) 'Unknown keyword ',trim(line),' to "ekincorrect"!'
@@ -553,6 +553,24 @@ module input
       endselect
     else
       ctrl%ekincorrect=1
+    endif
+
+    ! reflection after frustrated hops
+    line=get_value_from_key('reflect_frustrated',io)
+    if (io==0) then
+      select case (trim(line))
+        case ('none') 
+          ctrl%reflect_frustrated=0
+        case ('parallel_vel') 
+          ctrl%reflect_frustrated=1
+        case ('parallel_nac') 
+          ctrl%reflect_frustrated=2
+        case default
+          write(0,*) 'Unknown keyword ',trim(line),' to "reflect_frustrated"!'
+          stop 1
+      endselect
+    else
+      ctrl%reflect_frustrated=0
     endif
 
     ! selection of gradients/non-adiabatic couplings
@@ -624,6 +642,12 @@ module input
     if (ctrl%ekincorrect==2) then ! for kinetic energy correction parallel to nac, we need nacdr
       ctrl%calc_nacdr=0
 !       ctrl%gradcorrect=1
+    endif
+    if (ctrl%reflect_frustrated==2) then ! for reflection parallel to nac, we need nacdr
+      ctrl%calc_nacdr=0
+    endif
+    if (ctrl%decoherence==2) then ! for A-FSSH we need nacdr
+      ctrl%calc_nacdr=0
     endif
 
     if (ctrl%surf==1) then   ! doing FISH
@@ -860,7 +884,7 @@ module input
   ! =====================================================
 
   ! fill up the other ctrl parameters:
-  ! cwd, ezero, scalingfactor, printlevel, RNGseed, dampeddyn, decoherence, decoherence_alpha
+  ! cwd, ezero, scalingfactor, printlevel, RNGseed, dampeddyn, decoherence, decoherence_type, decoherence_alpha
 
     ! current directory ============================================
 
@@ -940,10 +964,11 @@ module input
     endif
 
     ! decoherence ============================================
+    ! alternatively one can use the decoherence/nodecoherence or decoherence_type keywords
 
     line=get_value_from_key('decoherence',io)
     if (io==0) then
-      read(line,*) ctrl%decoherence
+      ctrl%decoherence=1
       ctrl%decoherence_alpha=0.1d0
     else
       ctrl%decoherence=0
@@ -952,35 +977,31 @@ module input
     if (io==0) then
       ctrl%decoherence=0
     endif
+
+    line=get_value_from_key('decoherence_type',io)
+    if (io==0) then
+      select case (trim(line))
+        case ('none')
+          ctrl%decoherence=0
+        case ('edc')
+          ctrl%decoherence=1
+        case ('afssh') 
+          ctrl%decoherence=2
+        case default
+          write(0,*) 'Unknown keyword ',trim(line),' to "decoherence_type"!'
+          stop 1
+      endselect
+    endif   
+
     if (ctrl%decoherence==0) write(0,*) 'Warning: Decoherence correction turned off!'
     if (ctrl%decoherence==1) then
       line=get_value_from_key('decoherence_param',io)
       if (io==0) read(line,*) ctrl%decoherence_alpha
-      if (ctrl%decoherence_alpha<=0.d0) then
-        write(0,*) 'Decoherence parameter must be larger than 0.0!'
+      if (ctrl%decoherence_alpha<0.d0) then
+        write(0,*) 'Decoherence parameter must not be smaller than 0.0!'
         stop 1
       endif
     endif
-    
-
-!     line=get_value_from_key('decoherence',io)
-!     if (io==0) then
-!       if (trim(line)=='off') then
-!         ctrl%decoherence=0
-!       else
-!         ctrl%decoherence=1
-!       endif
-!     else
-!       ctrl%decoherence=0
-!     endif
-!     if (ctrl%decoherence==1) then
-!       read(line,*,iostat=io)ctrl%decoherence_alpha
-!       if (io==0) then
-!         continue
-!       else
-!         ctrl%decoherence_alpha=0.1d0
-!       endif
-!     endif
 
     if (printlevel>1) then
       if (ctrl%decoherence==1) then

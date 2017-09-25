@@ -406,7 +406,11 @@ def eformat(f, prec, exp_digits):
   1 string: formatted number'''
 
   s = "% .*e"%(prec, f)
-  mantissa, exp = s.split('e')
+  try:
+    mantissa, exp = s.split('e')
+  except:
+    print f, s
+    raise
   return "%sE%+0*d"%(mantissa, exp_digits+1, int(exp))
 
 
