@@ -455,6 +455,8 @@ def printQMin(QMin):
     string+='\tDM-Grad'
   if 'socdr' in QMin:
     string+='\tSOC-Grad'
+  if 'phases' in QMin:
+    string+='\tPhases'
   print string
 
   string='States: '
@@ -1266,6 +1268,14 @@ def getQMout(out,QMin):
                 else:
                     nac[istate][jstate]=complex(0.0)
         QMout['overlap']=nac
+    # Phases from overlaps
+    if 'phases' in QMin:
+        if not 'phases' in QMout:
+            QMout['phases']=[ complex(1.,0.) for i in range(nmstates) ]
+        if 'overlap' in QMout:
+            for i in range(nmstates):
+                if QMout['overlap'][i][i].real<0.:
+                    QMout['phases'][i]=complex(-1.,0.)
     return QMout
 
 # =============================================================================================== #
@@ -1306,6 +1316,8 @@ def writeQMout(QMin,QMout,QMinfilename):
         string+=writeQMoutdmdr(QMin,QMout)
     if 'ion' in QMin:
         string+=writeQMoutprop(QMin,QMout)
+    if 'phases' in QMin:
+        string+=writeQmoutPhases(QMin,QMout)
     string+=writeQMouttime(QMin,QMout)
     outfile=os.path.join(QMin['pwd'],outfilename)
     writefile(outfile,string)
@@ -1510,6 +1522,14 @@ def writeQMoutprop(QMin,QMout):
     string+='\n'
   string+='\n'
   return string
+
+# ======================================================================= #
+def writeQmoutPhases(QMin,QMout):
+
+    string='! 7 Phases\n%i ! for all nmstates\n' % (QMin['nmstates'])
+    for i in range(QMin['nmstates']):
+        string+='%s %s\n' % (eformat(QMout['phases'][i].real,9,3),eformat(QMout['phases'][i].imag,9,3))
+    return string
 
 
 # =============================================================================================== #
@@ -1734,7 +1754,7 @@ def readQMin(QMinfilename):
         print 'Number of states not given in QM input file %s!' % (QMinfilename)
         sys.exit(34)
 
-    possibletasks=['h','soc','dm','grad','overlap','dmdr','socdr','ion']
+    possibletasks=['h','soc','dm','grad','overlap','dmdr','socdr','ion','phases']
     if not any([i in QMin for i in possibletasks]):
         print 'No tasks found! Tasks are "h", "soc", "dm", "grad","dmdr", "socdr", "overlap" and "ion".'
         sys.exit(35)
@@ -1743,8 +1763,11 @@ def readQMin(QMinfilename):
         print '"Init" and "Samestep" cannot be both present in QM.in!'
         sys.exit(36)
 
+    if 'phases' in QMin:
+        QMin['overlap']=[]
+
     if 'overlap' in QMin and 'init' in QMin:
-        print '"overlap" cannot be calculated in the first timestep! Delete either "overlap" or "init"'
+        print '"overlap" and "phases" cannot be calculated in the first timestep! Delete either "overlap" or "init"'
         sys.exit(37)
 
     if not 'init' in QMin and not 'samestep' in QMin:
@@ -2823,6 +2846,14 @@ def arrangeQMout(QMin,QMoutall,QMoutDyson):
         QMout['dm']=QMoutall['master']['dm']
     if 'overlap' in QMin:
         QMout['overlap']=QMoutall['master']['overlap']
+    # Phases from overlaps
+    if 'phases' in QMin:
+        if not 'phases' in QMout:
+            QMout['phases']=[ complex(1.,0.) for i in range(QMin['nmstates']) ]
+        if 'overlap' in QMout:
+            for i in range(QMin['nmstates']):
+                if QMout['overlap'][i][i].real<0.:
+                    QMout['phases'][i]=complex(-1.,0.)
 
     if 'grad' in QMin:
         if QMin['gradmode']==0:

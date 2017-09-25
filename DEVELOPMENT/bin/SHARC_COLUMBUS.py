@@ -656,6 +656,8 @@ def printQMin(QMin):
     string+='\tAngular'
   if 'ion' in QMin:
     string+='\tDyson norms'
+  if 'phases' in QMin:
+    string+='\tPhases'
   print string
   string='States: '
   for i in itmult(QMin['states']):
@@ -1357,6 +1359,8 @@ def get_COLout(QMin,QMout,job):
       for j in range(nmstates):
         m1,s1,ms1=tuple(QMin['statemap'][i+1])
         m2,s2,ms2=tuple(QMin['statemap'][j+1])
+        if not ms1==ms2:
+          continue
         if not QMin['multmap'][m1][0]==QMin['multmap'][m2][0]==job:
           continue
         requested=False
@@ -1497,6 +1501,8 @@ def writeQMout(QMin,QMout,QMinfilename):
     string+=writeQMoutnacsmat(QMin,QMout)
   if 'ion' in QMin:
     string+=writeQMoutprop(QMin,QMout)
+  if 'phases' in QMin:
+    string+=writeQmoutPhases(QMin,QMout)
   string+=writeQMouttime(QMin,QMout)
   writefile(outfilename,string)
   #try:
@@ -1764,6 +1770,15 @@ def writeQMoutprop(QMin,QMout):
     string+='\n'
   string+='\n'
   return string
+
+# ======================================================================= #
+def writeQmoutPhases(QMin,QMout):
+
+  string='! 7 Phases\n%i ! for all nmstates\n' % (QMin['nmstates'])
+  for i in range(QMin['nmstates']):
+    string+='%s %s\n' % (eformat(QMout['phases'][i].real,9,3),eformat(QMout['phases'][i].imag,9,3))
+  return string
+
 
 
 
@@ -2068,7 +2083,7 @@ def readQMin(QMinfilename):
     print 'Number of states not given in QM input file %s!' % (QMinfilename)
     sys.exit(44)
 
-  possibletasks=['h','soc','dm','grad','nacdr','nacdt','overlap','angular']
+  possibletasks=['h','soc','dm','grad','nacdr','nacdt','overlap','angular','phases']
   if not any([i in QMin for i in possibletasks]):
     print 'No tasks found! Tasks are "h", "soc", "dm", "grad", "nacdt", "nacdr" and "overlap".'
     sys.exit(45)
@@ -2077,8 +2092,11 @@ def readQMin(QMinfilename):
     print '"Init" and "Samestep" cannot be both present in QM.in!'
     sys.exit(46)
 
+  if 'phases' in QMin:
+    QMin['overlap']=[]
+
   if 'overlap' in QMin and 'init' in QMin:
-    print '"overlap" cannot be calculated in the first timestep! Delete either "overlap" or "init"'
+    print '"overlap" and "phases" cannot be calculated in the first timestep! Delete either "overlap" or "init"'
     sys.exit(47)
 
   if not 'init' in QMin and not 'samestep' in QMin and not 'restart' in QMin:
@@ -3991,6 +4009,15 @@ def runeverything(tasks, QMin):
   # if no dyson pairs were calculated because of selection rules, put an empty matrix
   if not 'prop' in QMout and 'ion' in QMin:
     QMout['prop']=makecmatrix(QMin['nmstates'],QMin['nmstates'])
+
+  # Phases from overlaps
+  if 'phases' in QMin:
+    if not 'phases' in QMout:
+      QMout['phases']=[ complex(1.,0.) for i in range(QMin['nmstates']) ]
+    if 'overlap' in QMout:
+      for i in range(QMin['nmstates']):
+        if QMout['overlap'][i][i].real<0.:
+          QMout['phases'][i]=complex(-1.,0.)
 
   return QMout
 

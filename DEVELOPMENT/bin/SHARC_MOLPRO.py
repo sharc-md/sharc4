@@ -424,6 +424,8 @@ def printQMin(QMin):
     string+='\tAngular'
   if 'ion' in QMin:
     string+='\tDyson norms'
+  if 'phases' in QMin:
+    string+='\tPhases'
   print string
 
   string='States: '
@@ -1300,6 +1302,8 @@ def writeQMout(QMin,QMout,QMinfilename):
     string+=writeQMoutnacsmat(QMin,QMout)
   if 'ion' in QMin:
     string+=writeQMoutprop(QMin,QMout)
+  if 'phases' in QMin:
+    string+=writeQmoutPhases(QMin,QMout)
   string+=writeQMouttime(QMin,QMout)
   writefile(outfilename,string)
   #try:
@@ -1560,6 +1564,14 @@ def writeQMoutprop(QMin,QMout):
   string+='\n'
   return string
 
+# ======================================================================= #
+def writeQmoutPhases(QMin,QMout):
+
+    string='! 7 Phases\n%i ! for all nmstates\n' % (QMin['nmstates'])
+    for i in range(QMin['nmstates']):
+        string+='%s %s\n' % (eformat(QMout['phases'][i].real,9,3),eformat(QMout['phases'][i].imag,9,3))
+    return string
+
 # =============================================================================================== #
 # =============================================================================================== #
 # =========================================== SUBROUTINES TO readQMin =========================== #
@@ -1797,7 +1809,7 @@ def readQMin(QMinfilename):
 
 
   # Various logical checks
-  possibletasks=['h','soc','dm','grad','nacdr','overlap','ion','molden']
+  possibletasks=['h','soc','dm','grad','nacdr','overlap','ion','molden','phases']
   if not any([i in QMin for i in possibletasks]):
     print 'No tasks found! Tasks are "h", "soc", "dm", "grad", "nacdr", "overlap", "ion", and "molden".'
     sys.exit(45)
@@ -1806,8 +1818,11 @@ def readQMin(QMinfilename):
     print '"Init" and "Samestep" cannot be both present in QM.in!'
     sys.exit(46)
 
+  if 'phases' in QMin:
+    QMin['overlap']=[]
+
   if 'overlap' in QMin and 'init' in QMin:
-    print '"overlap" cannot be calculated in the first timestep! Delete either "overlap" or "init"'
+    print '"overlap" and "phases" cannot be calculated in the first timestep! Delete either "overlap" or "init"'
     sys.exit(47)
 
   if not 'init' in QMin and not 'samestep' in QMin and not 'restart' in QMin:
@@ -2011,13 +2026,13 @@ def readQMin(QMinfilename):
   if 'overlap' in QMin or 'ion' in QMin or 'docicas' in QMin:
     #QMin['wfoverlap']=get_sh2pro_environ(sh2pro,'wfoverlap')
     QMin['wfoverlap']=get_sh2pro_environ(sh2pro,'wfoverlap',False,False)
-      if QMin['wfoverlap']==None:
-          ciopath=os.path.join(os.path.expandvars(os.path.expanduser('$SHARC')),'wfoverlap.x')
-          if os.path.isfile(ciopath):
-            QMin['wfoverlap']=ciopath
-          else:
-            print 'Give path to wfoverlap.x in MOLPRO.resources!'
-            sys.exit(43)
+    if QMin['wfoverlap']==None:
+      ciopath=os.path.join(os.path.expandvars(os.path.expanduser('$SHARC')),'wfoverlap.x')
+      if os.path.isfile(ciopath):
+        QMin['wfoverlap']=ciopath
+      else:
+        print 'Give path to wfoverlap.x in MOLPRO.resources!'
+        sys.exit(43)
     # get ncore and ndocc
     line=getsh2prokey(sh2pro,'numfrozcore')
     if line[0]:
@@ -3044,15 +3059,26 @@ def saveFiles(WORKDIR,QMin):
     mofile=os.path.join(QMin['savedir'],'mo.%i' % job)
     writefile(mofile,string)
 
-  # if necessary, extract the CASSCF coefficientsand write them to savedir
+  # if necessary, extract the CASSCF coefficients and write them to savedir
   # TODO: actually, the CASSCF det files are not needed in savedir, could be placed in a keepdir
   if 'docicas' in QMin:
     out=readfile(os.path.join(WORKDIR,'MOLPRO.out'))
     for im,m in enumerate(QMin['multmap'][-job]):
-      if len(QMin['multmap'][-job])==1:
+      roots=QMin['template']['roots'][job]
+      n=0
+      for i in roots:
+        if i>0:
+          n+=1
+      if n==1:
         string=get_CASdet_from_out(out,0,QMin['states'][m-1])
       else:
-        string=get_CASdet_from_out(out,im+1,QMin['states'][m-1])
+        n=0
+        for i,j in enumerate(roots):
+          if j>0:
+            n+=1
+          if i+1==m:
+            break
+        string=get_CASdet_from_out(out,n,QMin['states'][m-1])
       detfile=os.path.join(QMin['savedir'],'det_cas.%i' % m)
       writefile(detfile,string)
 
@@ -3840,6 +3866,15 @@ def getQMout(QMin):
             continue
           QMout['overlap'][i][j]=getsmate(out,s1,s2)
 
+  # Phases from overlaps
+  if 'phases' in QMin:
+    if not 'phases' in QMout:
+      QMout['phases']=[ complex(1.,0.) for i in range(nmstates) ]
+    if 'overlap' in QMout:
+      for i in range(nmstates):
+        if QMout['overlap'][i][i].real<0.:
+          QMout['phases'][i]=complex(-1.,0.)
+
   # Dyson norms
   if 'ion' in QMin:
     if not 'prop' in QMout:
@@ -3912,6 +3947,8 @@ def getQMout(QMin):
         for jstate in QMin['statemap']:
           state1=QMin['statemap'][istate]
           state2=QMin['statemap'][jstate]
+          if not state1[2]==state2[2]:
+            continue
           if (state1[0],state1[1],state2[0],state2[1])==nac:
             QMout['nacdr'][istate-1][jstate-1]=g
           elif (state2[0],state2[1],state1[0],state1[1])==nac:
