@@ -571,14 +571,16 @@ Interfaces={
       'prepare_routine': 'prepare_MOLPRO',
       'features':        {'overlap': ['wfoverlap'],
                           'dyson':   ['wfoverlap'],
-                          'nacdr':   ['wfoverlap']    }
+                          'nacdr':   ['wfoverlap'],
+                          'phases':  ['wfoverlap']    }
      },
   2: {'script':          'SHARC_COLUMBUS.py',
       'description':     'COLUMBUS (CASSCF, RASSCF and MRCISD), using SEWARD integrals',
       'get_routine':     'get_COLUMBUS',
       'prepare_routine': 'prepare_COLUMBUS',
       'features':        {'overlap': ['wfoverlap'],
-                          'dyson':   ['wfoverlap']  }
+                          'dyson':   ['wfoverlap'],
+                          'phases':  ['wfoverlap']  }
      },
   3: {'script':          'SHARC_Analytical.py',
       'description':     'Analytical PESs',
@@ -593,7 +595,8 @@ Interfaces={
       'prepare_routine': 'prepare_MOLCAS',
       'features':        {'overlap': [],
                           'dyson':   ['wfoverlap'],
-                          'dipolegrad':[]}
+                          'dipolegrad':[],
+                          'phases':  []}
      },
   5: {'script':          'SHARC_ADF.py',
       'description':     'ADF (DFT, TD-DFT)',
@@ -601,14 +604,16 @@ Interfaces={
       'prepare_routine': 'prepare_ADF',
       'features':        {'overlap': ['wfoverlap'],
                           'dyson':   ['wfoverlap'],
-                          'theodore':['theodore']    }
+                          'theodore':['theodore'],
+                          'phases':  ['wfoverlap']    }
      },
   6: {'script':          'SHARC_RICC2.py',
       'description':     'TURBOMOLE (ricc2 with CC2 and ADC(2))',
       'get_routine':     'get_RICC2',
       'prepare_routine': 'prepare_RICC2',
       'features':        {'overlap': ['wfoverlap'],
-                          'theodore':['theodore']    }
+                          'theodore':['theodore'],
+                          'phases':  ['wfoverlap']    }
      },
   7: {'script':          'SHARC_LVC.py',
       'description':     'LVC Hamiltonian',
@@ -1739,6 +1744,8 @@ Typical values for ADF are 0.90-0.98 for LDA/GGA functionals and 0.50-0.80 for h
     print 'State threshold for choosing determinants to include in the overlaps'
     print 'For hybrids (and without TDA) one should consider that the eigenvector X may have a norm larger than 1'
     INFOS['adf.ciothres']=question('Threshold:',float,[0.99])[0]
+    print ''
+    INFOS['adf.mem']=question('Memory for wfoverlap (MB):',int,[1000])[0]
     # TODO not asked: numfrozcore and numocc
 
     #print 'Please state the number of core orbitals you wish to freeze for the overlaps (recommended to use for at least the 1s orbital and a negative number uses default values)?'
@@ -1812,6 +1819,7 @@ def prepare_ADF(INFOS,iconddir):
   string='adfhome %s\nscmlicense %s\nscratchdir %s/%s/\nncpu %i\nschedule_scaling %f\n' % (INFOS['adf'],INFOS['scmlicense'],INFOS['scratchdir'],iconddir,INFOS['adf.ncpu'],INFOS['adf.scaling'])
   if 'wfoverlap' in INFOS['needed']:
     string+='wfoverlap %s\nwfthres %f\n' % (INFOS['adf.wfoverlap'],INFOS['adf.ciothres'])
+    string+='memory %i\n' % (INFOS['adf.mem'])
     #string+='numfrozcore %i\n' %(INFOS['frozcore_number'])
   else:
     string+='nooverlap\n'

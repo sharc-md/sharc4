@@ -926,8 +926,11 @@ Note that this is applied to all initial conditions.'''
       a=question('Excluded states:',int)
       INFOS['allowed']=set([-i for i in a])
     print ''
+  else:
+    INFOS['initstate']=0
 
 
+  if INFOS['excite']==3:
     print centerstring('Random number seed',60,'-')+'\n'
     print 'Please enter a random number generator seed (type "!" to initialize the RNG from the system time).'
     while True:

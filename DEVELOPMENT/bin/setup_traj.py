@@ -81,21 +81,24 @@ Interfaces={
       'prepare_routine': 'prepare_MOLPRO',
       'features':        {'overlap': ['wfoverlap'],
                           'dyson':   ['wfoverlap'],
-                          'nacdr':   ['wfoverlap']    }
+                          'nacdr':   ['wfoverlap'],
+                          'phases':  ['wfoverlap']    }
      },
   2: {'script':          'SHARC_COLUMBUS.py',
       'description':     'COLUMBUS (CASSCF, RASSCF and MRCISD), using SEWARD integrals',
       'get_routine':     'get_COLUMBUS',
       'prepare_routine': 'prepare_COLUMBUS',
       'features':        {'overlap': ['wfoverlap'],
-                          'dyson':   ['wfoverlap']  }
+                          'dyson':   ['wfoverlap'],
+                          'phases':  ['wfoverlap']  }
      },
   3: {'script':          'SHARC_Analytical.py',
       'description':     'Analytical PESs',
       'get_routine':     'get_Analytical',
       'prepare_routine': 'prepare_Analytical',
       'features':        {'overlap': [],
-                          'dipolegrad':[]}
+                          'dipolegrad':[],
+                          'phases':[]}
      },
   4: {'script':          'SHARC_MOLCAS.py',
       'description':     'MOLCAS (CASSCF, CASPT2, MS-CASPT2)',
@@ -103,7 +106,8 @@ Interfaces={
       'prepare_routine': 'prepare_MOLCAS',
       'features':        {'overlap': [],
                           'dyson':   ['wfoverlap'],
-                          'dipolegrad':[]}
+                          'dipolegrad':[],
+                          'phases':  []}
      },
   5: {'script':          'SHARC_ADF.py',
       'description':     'ADF (DFT, TD-DFT)',
@@ -111,14 +115,16 @@ Interfaces={
       'prepare_routine': 'prepare_ADF',
       'features':        {'overlap': ['wfoverlap'],
                           'dyson':   ['wfoverlap'],
-                          'theodore':['theodore']    }
+                          'theodore':['theodore'],
+                          'phases':  ['wfoverlap']    }
      },
   6: {'script':          'SHARC_RICC2.py',
       'description':     'TURBOMOLE (ricc2 with CC2 and ADC(2))',
       'get_routine':     'get_RICC2',
       'prepare_routine': 'prepare_RICC2',
       'features':        {'overlap': ['wfoverlap'],
-                          'theodore':['theodore']    }
+                          'theodore':['theodore'],
+                          'phases':  ['wfoverlap']    }
      },
   7: {'script':          'SHARC_LVC.py',
       'description':     'LVC Hamiltonian',
@@ -854,9 +860,14 @@ from the initconds.excited files as provided by excite.py.
   # ask for states to setup
   print '\nPlease enter a list specifying for which excited states trajectories should be set-up\ne.g. %s to select states %s.' % (string1,string2)
   defsetupstates=[]
+  nmax=0
   for i,active in enumerate(INFOS['isactive']):
     if active and INFOS['n_issel'][i]>0:
       defsetupstates.append(i+1)
+      nmax+=INFOS['n_issel'][i]
+  if nmax<=0:
+    print '\nZero trajectories can be set up!'
+    sys.exit(1)
   while True:
     setupstates=question('States to setup the dynamics:',int,defsetupstates)
     valid=True
@@ -1059,7 +1070,13 @@ from the initconds.excited files as provided by excite.py.
   INFOS['needed'].extend(Interfaces[INFOS['interface']]['features'][Couplings[i]['name']])
 
 
-
+  # Phase tracking
+  INFOS['phases_from_interface']=False
+  if Couplings[INFOS['coupling']]['name']!='overlap':
+    if 'phases' in Interfaces[INFOS['interface']]['features']:
+      INFOS['phases_from_interface']=question('Do you want to track wavefunction phases through overlaps?',bool,True)
+      if INFOS['phases_from_interface']:
+        INFOS['needed'].extend(Interfaces[INFOS['interface']]['features']['phases'])
 
   # Gradient correction (only for SHARC)
   if INFOS['surf']=='sharc':
@@ -1067,12 +1084,12 @@ from the initconds.excited files as provided by excite.py.
     recommended=Couplings[INFOS['coupling']]['name']=='nacdr'
     print '\nFor SHARC dynamics, the evaluation of the mixed gradients necessitates to calculate non-adiabatic coupling vectors %s.' % (['(Extra computational cost)',' (Recommended)'][recommended])
     if possible:
-      while True:
+      #while True:
         INFOS['gradcorrect']=question('Include non-adiabatic couplings in the gradient transformation?',bool,recommended)
-        if INFOS['gradcorrect'] and not 2 in Interfaces[INFOS['interface']]['couplings']:
-          print 'Not possible with the chosen interface!'
-        else:
-          break
+        #if INFOS['gradcorrect'] and not 'nacdr' in Interfaces[INFOS['interface']]['features']:
+          #print 'Not possible with the chosen interface!'
+        #else:
+          #break
     else:
       print '... but interface cannot provide non-adiabatic coupling vectors, turning option off.'
       INFOS['gradcorrect']=False
@@ -2541,6 +2558,8 @@ Typical values for ADF are 0.90-0.98 for LDA/GGA functionals and 0.50-0.80 for h
     print '''State threshold for choosing determinants to include in the overlaps'''
     print '''For hybrids (and without TDA) one should consider that the eigenvector X may have a norm larger than 1'''
     INFOS['adf.ciothres']=question('Threshold:',float,[0.99])[0]
+    print ''
+    INFOS['adf.mem']=question('Memory for wfoverlap (MB):',int,[1000])[0]
     # TODO not asked: numfrozcore and numocc
 
     #print 'Please state the number of core orbitals you wish to freeze for the overlaps (recommended to use for at least the 1s orbital and a negative number uses default values)?'
@@ -2614,6 +2633,7 @@ def prepare_ADF(INFOS,iconddir):
   string='adfhome %s\nscmlicense %s\nscratchdir %s/%s/\nsavedir %s/%s/restart\nncpu %i\nschedule_scaling %f\n' % (INFOS['adf'],INFOS['scmlicense'],INFOS['scratchdir'],iconddir,INFOS['copydir'],iconddir,INFOS['adf.ncpu'],INFOS['adf.scaling'])
   if 'wfoverlap' in INFOS['needed']:
     string+='wfoverlap %s\nwfthres %f\n' % (INFOS['adf.wfoverlap'],INFOS['adf.ciothres'])
+    string+='memory %i\n' % (INFOS['adf.mem'])
     #string+='numfrozcore %i\n' %(INFOS['frozcore_number'])
   else:
     string+='nooverlap\n'
@@ -3002,7 +3022,7 @@ def writeSHARCinput(INFOS,initobject,iconddir,istate):
     print 'IOError during writeSHARCinput, iconddir=%s\n%s' % (iconddir,inputfname)
     quit(1)
 
-  s='geomfile "geom"\nveloc external\nvelocfile "veloc"\n\n'
+  s='printlevel 2\n\ngeomfile "geom"\nveloc external\nvelocfile "veloc"\n\n'
   s+='nstates '
   for nst in INFOS['states']:
     s+='%i ' % nst
@@ -3031,6 +3051,8 @@ def writeSHARCinput(INFOS,initobject,iconddir,istate):
     s+='scaling %f\n' % (INFOS['scaling'])
   if INFOS['damping']:
     s+='dampeddyn %f\n' % (INFOS['damping'])
+  if INFOS['phases_from_interface']:
+    s+='phases_from_interface\n'
 
   ## in MOLPRO gradient/ddr calculations must not be done in same run as overlap/ddt, so make selection with infinite threshold
   #if Interfaces[INFOS['interface']]['script']=='SHARC_MOLPRO.py' and not Couplings[INFOS['coupling']]['name']=='ddr' and not (INFOS['sel_g'] or INFOS['sel_t']):
@@ -3067,7 +3089,7 @@ def writeSHARCinput(INFOS,initobject,iconddir,istate):
   if INFOS['write_grad']:
     s+='write_grad\n'
   if INFOS['write_NAC']:
-    s+='write_nac\n'
+    s+='write_nacdr\n'
   if INFOS['write_overlap']:
     s+='write_overlap\n'
   if INFOS['write_property1d']:
