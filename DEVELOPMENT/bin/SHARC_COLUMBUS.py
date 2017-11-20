@@ -118,7 +118,7 @@ changelogstring='''
 
 26.08.2014:     0.3.04
 - savedir and scratchdir now have defaults ($PWD/SAVEDIR/ and $PWD/SCRATCHDIR/)
-- added keyword "always_mocoef_init" to SH2COL.inp, to force the use of the provided initial MOs in all timesteps
+- added keyword "always_orb_init" to SH2COL.inp, to force the use of the provided initial MOs in all timesteps
 - the maximum multiplicity actually needed for SOCI calculations is now written to cidrtin 
   (the value in cidrtin could be higher than needed, which will break runc)
 - links to savedir and scratchdir are set now
@@ -159,6 +159,14 @@ changelogstring='''
 
 07.03.2017:
 - wfthres is now interpreted as in other interfaces (default is 0.97 now)
+
+23.08.2017:
+- Dyson norms are now correctly scaled depending on Ms value
+- Resource file is now called "COLUMBUS.resources" instead of "SH2COL.inp" (old filename still works)
+
+24.08.2017:
+- "always_orb_init" and "always_guess" are now keywords in resources file, "always_mocoef_init" and "always_scf" are deprecated
+- "numfrozcore" and "numocc" are now keywords, "ncore" is deprecated ("ndocc" was not functional previously)
 '''
 
 # ======================================================================= #
@@ -648,6 +656,8 @@ def printQMin(QMin):
     string+='\tAngular'
   if 'ion' in QMin:
     string+='\tDyson norms'
+  if 'phases' in QMin:
+    string+='\tPhases'
   print string
   string='States: '
   for i in itmult(QMin['states']):
@@ -1349,6 +1359,8 @@ def get_COLout(QMin,QMout,job):
       for j in range(nmstates):
         m1,s1,ms1=tuple(QMin['statemap'][i+1])
         m2,s2,ms2=tuple(QMin['statemap'][j+1])
+        if not ms1==ms2:
+          continue
         if not QMin['multmap'][m1][0]==QMin['multmap'][m2][0]==job:
           continue
         requested=False
@@ -1433,9 +1445,17 @@ def get_DYSONoutput(QMin,QMout,imult,jmult):
           continue
         if not abs(ms1-ms2)==0.5:
           continue
+        # switch multiplicities such that m1 is smaller mult
         if m1>m2:
           s1,s2=s2,s1
-        QMout['prop'][i][j]=get_dysonel(out,s1,s2)
+          m1,m2=m2,m1
+          ms1,ms2=ms2,ms1
+        # compute M_S overlap factor
+        if ms1<ms2:
+          factor=( ms1+1.+(m1-1.)/2. )/m1
+        else:
+          factor=( -ms1+1.+(m1-1.)/2. )/m1
+        QMout['prop'][i][j]=get_dysonel(out,s1,s2)*factor
 
   return QMout
 
@@ -1481,6 +1501,8 @@ def writeQMout(QMin,QMout,QMinfilename):
     string+=writeQMoutnacsmat(QMin,QMout)
   if 'ion' in QMin:
     string+=writeQMoutprop(QMin,QMout)
+  if 'phases' in QMin:
+    string+=writeQmoutPhases(QMin,QMout)
   string+=writeQMouttime(QMin,QMout)
   writefile(outfilename,string)
   #try:
@@ -1749,6 +1771,15 @@ def writeQMoutprop(QMin,QMout):
   string+='\n'
   return string
 
+# ======================================================================= #
+def writeQmoutPhases(QMin,QMout):
+
+  string='! 7 Phases\n%i ! for all nmstates\n' % (QMin['nmstates'])
+  for i in range(QMin['nmstates']):
+    string+='%s %s\n' % (eformat(QMout['phases'][i].real,9,3),eformat(QMout['phases'][i].imag,9,3))
+  return string
+
+
 
 
 # =============================================================================================== #
@@ -1890,13 +1921,13 @@ def get_sh2col_environ(sh2col,key,environ=True,crucial=True):
     if environ:
       LINE=os.getenv(key.upper())
       if not LINE:
-        print 'Either set $%s or give path to %s in SH2COL.inp!' % (key.upper(),key.upper())
+        print 'Either set $%s or give path to %s in COLUMBUS.resources!' % (key.upper(),key.upper())
         if crucial:
           sys.exit(35)
         else:
           return None
     else:
-      print 'Give path to %s in SH2COL.inp!' % (key.upper())
+      print 'Give path to %s in COLUMBUS.resources!' % (key.upper())
       if crucial:
         sys.exit(36)
       else:
@@ -2052,7 +2083,7 @@ def readQMin(QMinfilename):
     print 'Number of states not given in QM input file %s!' % (QMinfilename)
     sys.exit(44)
 
-  possibletasks=['h','soc','dm','grad','nacdr','nacdt','overlap','angular']
+  possibletasks=['h','soc','dm','grad','nacdr','nacdt','overlap','angular','phases']
   if not any([i in QMin for i in possibletasks]):
     print 'No tasks found! Tasks are "h", "soc", "dm", "grad", "nacdt", "nacdr" and "overlap".'
     sys.exit(45)
@@ -2061,8 +2092,11 @@ def readQMin(QMinfilename):
     print '"Init" and "Samestep" cannot be both present in QM.in!'
     sys.exit(46)
 
+  if 'phases' in QMin:
+    QMin['overlap']=[]
+
   if 'overlap' in QMin and 'init' in QMin:
-    print '"overlap" cannot be calculated in the first timestep! Delete either "overlap" or "init"'
+    print '"overlap" and "phases" cannot be calculated in the first timestep! Delete either "overlap" or "init"'
     sys.exit(47)
 
   if not 'init' in QMin and not 'samestep' in QMin and not 'restart' in QMin:
@@ -2158,8 +2192,11 @@ def readQMin(QMinfilename):
 
 
 
-  # open SH2COL.inp
-  sh2colf=open('SH2COL.inp','r')
+  # open COLUMBUS.resources
+  if os.path.isfile('COLUMBUS.resources'):
+    sh2colf=open('COLUMBUS.resources','r')
+  else:
+    sh2colf=open('SH2COL.inp','r')
   sh2col=sh2colf.readlines()
   sh2colf.close()
 
@@ -2183,7 +2220,7 @@ def readQMin(QMinfilename):
       if os.path.isfile(ciopath):
         QMin['wfoverlap']=ciopath
       else:
-        print 'Give path to wfoverlap.x in SH2COL.inp!'
+        print 'Give path to wfoverlap.x in COLUMBUS.resources!'
         sys.exit(41)
   #if 'overlap' in QMin:
     #QMin['cioverlap']=get_sh2col_environ(sh2col,'cioverlap',False,False)
@@ -2192,7 +2229,7 @@ def readQMin(QMinfilename):
       #if os.path.isfile(ciopath):
         #QMin['cioverlap']=ciopath
       #else:
-        #print 'Give path to cioverlap.x in SH2COL.inp!'
+        #print 'Give path to cioverlap.x in COLUMBUS.resources!'
         #sys.exit(41)
 
   # Set up scratchdir
@@ -2201,23 +2238,43 @@ def readQMin(QMinfilename):
     QMin['scratchdir']=QMin['pwd']+'/SCRATCHDIR/'
   checkscratch(QMin['scratchdir'])
 
-  # Set up savedir
-  if not 'savedir' in QMin:
-    # savedir may be read from QM.in file
-    QMin['savedir']=get_sh2col_environ(sh2col,'savedir',False,False)
-    if QMin['savedir']==None:
-      QMin['savedir']=QMin['pwd']+'/SAVEDIR/'
-  else:
-    QMin['savedir']=QMin['savedir'][0]
-  checkscratch(QMin['savedir'])
+  ## Set up savedir
+  #if not 'savedir' in QMin:
+    ## savedir may be read from QM.in file
+    #QMin['savedir']=get_sh2col_environ(sh2col,'savedir',False,False)
+    #if QMin['savedir']==None:
+      #QMin['savedir']=QMin['pwd']+'/SAVEDIR/'
+  #else:
+    #QMin['savedir']=QMin['savedir'][0]
+  #checkscratch(QMin['savedir'])
 
+  # Set up savedir
+  if 'savedir' in QMin:
+    # savedir may be read from QM.in file
+    line=QMin['savedir'][0]
+  else:
+    line=get_sh2col_environ(sh2col,'savedir',False,False)
+    if line==None:
+      line=QMin['pwd']+'/SAVEDIR/'
+  line=os.path.expandvars(line)
+  line=os.path.expanduser(line)
+  line=os.path.abspath(line)
+  if 'init' in QMin:
+    checkscratch(line)
+  QMin['savedir']=line
+  link(QMin['savedir'],os.path.join(QMin['pwd'],'SAVE'),False,False)
 
   line=getsh2colkey(sh2col,'debug')
   if line[0]:
-    if line[1].lower().strip()=='true':
-      global DEBUG
-      DEBUG=True
+    #if line[1].lower().strip()=='true':
+    global DEBUG
+    DEBUG=True
 
+  line=getsh2colkey(sh2col,'no_print')
+  if line[0]:
+    #if line[1].lower().strip()=='true':
+    global PRINT
+    PRINT=True
 
 
   # Set default memory for runc and default screening threshold for cioverlaps
@@ -2230,7 +2287,7 @@ def readQMin(QMinfilename):
       print 'COLUMBUS memory does not evaluate to numerical value!'
       sys.exit(57)
   else:
-    print 'WARNING: Please set memory for COLUMBUS in SH2COL.inp (in MB)! Using 10 MB default value!'
+    print 'WARNING: Please set memory for COLUMBUS in COLUMBUS.resources (in MB)! Using 10 MB default value!'
 
   line=getsh2colkey(sh2col,'integrals')
   if line[0]:
@@ -2270,7 +2327,7 @@ def readQMin(QMinfilename):
   if line[0]:
     QMin['nooverlap']=[]
   if 'nooverlap' in QMin and 'overlap' in QMin:
-    print 'keyword "overlap" in QM.in, but keyword "nooverlap" in SH2COL.inp!'
+    print 'keyword "overlap" in QM.in, but keyword "nooverlap" in COLUMBUS.resources!'
     sys.exit(62)
   if 'nooverlap' in QMin and 'ion' in QMin:
     print 'keyword "ion" in QM.in, ignoring keyword "nooverlap"!'
@@ -2287,7 +2344,7 @@ def readQMin(QMinfilename):
         print 'WFoverlaps threshold variable does not evaluate to numerical value!'
         sys.exit(58)
     else:
-      print 'WARNING: Please set wfthres to some appropriate value (floating point number)! Using 3e-2 default value!'
+      print 'WARNING: Please set wfthres to some appropriate value (floating point number)! Using 0.97 default value!'
 
   #if 'ion' in QMin:
     ## dyson.x in principal does not need to screen anymore, since this is done by read_civfl
@@ -2300,13 +2357,21 @@ def readQMin(QMinfilename):
         #print 'Dyson threshold variable does not evaluate to numerical value!'
         #sys.exit(59)
 
-  line=getsh2colkey(sh2col,'alwaysscf')
+  line=getsh2colkey(sh2col,'always_guess')
   if line[0]:
-    QMin['alwaysscf']=[]
+    QMin['always_guess']=[]
+  else:
+    line=getsh2colkey(sh2col,'always_scf')
+    if line[0]:
+      QMin['always_orb_init']=[]
 
-  line=getsh2colkey(sh2col,'always_mocoef_init')
+  line=getsh2colkey(sh2col,'always_orb_init')
   if line[0]:
-    QMin['always_mocoef_init']=[]
+    QMin['always_orb_init']=[]
+  else:
+    line=getsh2colkey(sh2col,'always_mocoef_init')
+    if line[0]:
+      QMin['always_orb_init']=[]
 
   QMin['ncpu']=1
   line=getsh2colkey(sh2col,'ncpu')
@@ -2333,20 +2398,20 @@ def readQMin(QMinfilename):
 
 
   # read ncore and ndocc from SH2COL
-  line=getsh2colkey(sh2col,'ncore')
+  line=getsh2colkey(sh2col,'numfrozcore')
   if line[0]:
     try:
       QMin['ncore']=max(0,int(line[1]))
     except ValueError:
-      print 'ncore does not evaluate to numerical value!'
+      print 'numfrozcore does not evaluate to numerical value!'
       sys.exit(47)
-  #line=getsh2colkey(sh2col,'ndocc')
-  #if line[0]:
-    #try:
-      #QMin['ndocc']=int(line[1])
-    #except ValueError:
-      #print 'ndocc does not evaluate to numerical value!'
-      #sys.exit(47)
+  line=getsh2colkey(sh2col,'numocc')
+  if line[0]:
+    try:
+      QMin['ndocc']=int(line[1])
+    except ValueError:
+      print 'numocc does not evaluate to numerical value!'
+      sys.exit(47)
 
 
   # get the necessary template mappings
@@ -2367,14 +2432,14 @@ def readQMin(QMinfilename):
   # get the multmap
   multmap={}
   for mult in itmult(QMin['states']):
-    # find the appropriate line in SH2COL.inp
+    # find the appropriate line in COLUMBUS.resources
     i=-1
     while True:
       i+=1
       try:
         line=re.sub('#.*$','',sh2col[i])
       except IndexError:
-        print 'Multiplicity %i has no template directory given in SH2COL.inp!' % (mult)
+        print 'Multiplicity %i has no template directory given in COLUMBUS.resources!' % (mult)
         sys.exit(64)
       line=line.split()
       if len(line)==0:
@@ -2401,7 +2466,7 @@ def readQMin(QMinfilename):
       mocoefmap[multmap[mult]]=None
   # now look up for all jobs the mocoefdir
   for job in mocoefmap:
-    # find the line in SH2COL.inp
+    # find the line in COLUMBUS.resources
     i=-1
     while True:
       i+=1
@@ -2725,7 +2790,7 @@ def gettasks(QMin):
         # in this case, the ciudgin file has to be adjusted for the number of states
       if 'grad' in QMin or 'nacdr' in QMin:
         string+='nadcoupl\n'
-      if 'alwaysscf' in QMin:
+      if 'always_guess' in QMin:
         string+='scf\n'
       elif 'init' in QMin and QMin['mocoefmap'][job]==job:
         if QMin['molcas_rasscf']:
@@ -2840,8 +2905,8 @@ def gettasks(QMin):
         tasks.append(['write',QMin['scratchdir']+'/JOB/cidrtin',string])
 
       # prepare the mocoef guess ============================================
-      if not 'alwaysscf' in QMin:
-        if 'always_mocoef_init' in QMin:
+      if not 'always_guess' in QMin:
+        if 'always_orb_init' in QMin:
           if QMin['molcas_rasscf']:
             filestring='molcas.RasOrb.init'
           else:
@@ -3615,7 +3680,10 @@ a_det=dets1
 b_det=dets2
 same_aos
 ao_read=%i
-ncore=%i''' % (nintegrals, icore)
+ncore=%i
+''' % (nintegrals, icore)
+  if 'ndocc' in QMin:
+    string+='ndocc=%i\n' % QMin['ndocc']
   writefile(os.path.join(QMin['scratchdir'],'DYSON','dyson.in'),string)
 
 # ======================================================================= #
@@ -3941,6 +4009,15 @@ def runeverything(tasks, QMin):
   # if no dyson pairs were calculated because of selection rules, put an empty matrix
   if not 'prop' in QMout and 'ion' in QMin:
     QMout['prop']=makecmatrix(QMin['nmstates'],QMin['nmstates'])
+
+  # Phases from overlaps
+  if 'phases' in QMin:
+    if not 'phases' in QMout:
+      QMout['phases']=[ complex(1.,0.) for i in range(QMin['nmstates']) ]
+    if 'overlap' in QMout:
+      for i in range(QMin['nmstates']):
+        if QMout['overlap'][i][i].real<0.:
+          QMout['phases'][i]=complex(-1.,0.)
 
   return QMout
 

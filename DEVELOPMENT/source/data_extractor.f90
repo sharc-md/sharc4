@@ -59,7 +59,10 @@ program data_extractor
   integer :: have_overlap                 !< whether overlap matrices are in the dat file (0=no, 1=yes)
   integer :: have_grad                    !< whether gradients are in the dat file (0=no, 1=yes)
   integer :: have_NAC                     !< whether nonadiabatic couplings are in the dat file (0=no, 1=yes)
-  integer :: have_property                !< whether property matrices are in the dat file (0=no, 1=yes)
+  integer :: have_property1d                !< whether property vectors are in the dat file (0=no, 1=yes)
+  integer :: have_property2d                !< whether property matrices are in the dat file (0=no, 1=yes)
+  integer :: n_property1d                !< 
+  integer :: n_property2d                !< 
   integer :: laser                        !< whether a laser field is in the dat file (0=no, 1=, 2=yes)
   integer :: nsteps                       !< number of timesteps from dat file (needed to read the laser field)
   integer :: nsubsteps                    !< number of substeps (needed to read the laser field)
@@ -67,7 +70,9 @@ program data_extractor
   !> # Information which is updated per time step
   !> Most of these are equivalent to their definition in definitions.f90
   integer :: step
-  complex*16, allocatable :: H_MCH_ss(:,:),U_ss(:,:),DM_ssd(:,:,:), Prop_ss(:,:)
+  complex*16, allocatable :: H_MCH_ss(:,:),U_ss(:,:),DM_ssd(:,:,:)
+  complex*16, allocatable :: Prop2d_xss(:,:,:)
+  real*8, allocatable     :: Prop1d_ys(:,:)
   complex*16, allocatable :: coeff_diag_s(:),overlaps_ss(:,:), ref_ovl_ss(:,:)
   real*8, allocatable :: geom_ad(:,:), veloc_ad(:,:)
   real*8 , allocatable :: hopprob_s(:)
@@ -111,126 +116,152 @@ program data_extractor
   logical :: write_dipact
   logical :: write_iondiag
   logical :: write_ionmch
-  logical :: readthis
+  logical :: anyoptions
+  integer :: skipthese
 
   ! build_info.inc is written by the Makefile and contains the 
   ! date and host, when/where SHARC was built
   include 'build_info.inc'
 
-  ! first determine the filename of the dat file and open it
+  ! =============================================================================================
+  !                                Command line argument processing
+  ! =============================================================================================
+
+  ! print usage if no arguments are given
   nargs=iargc()
-  if (nargs<3) then
-    write(*,*) 'Usage: ./data_extractor <flags> -f <data-file>'
-    write(*,*) '        -a  : write all output files'
-    write(*,*) '        -s  : standard = write all output files except ionization data'
-    write(*,*) '        -e  : write energy file              (output_data/energy.out)'
-    write(*,*) '        -d  : write dipole file              (output_data/fosc.out)'
-    write(*,*) '        -sp : write spin expec file          (output_data/spin.out)'
-    write(*,*) '        -cd : write diag coefficient file    (output_data/coeff_diag.out)'
-    write(*,*) '        -cm : write MCH coefficient file     (output_data/coeff_MCH.out)'
-    write(*,*) '        -cb : write diab coefficient file    (output_data/coeff_diab.out)'
-    write(*,*) '        -p  : write hop probability file     (output_data/prob.out)'
-    write(*,*) '        -x  : write expec (E,S^2,mu) file    (output_data/expec.out)'
-    write(*,*) '        -xm : write MCH expec file           (output_data/expec_MCH.out)'
-    write(*,*) '        -da : write dip of active state file (output_data/fosc_act.out)'
-    write(*,*) '        -id : write diag ion file            (output_data/ion_diag.out)'
-    write(*,*) '        -im : write MCH ion file             (output_data/ion_mch.out)'
+  if (nargs<1) then
+    call print_usage(0)
     stop 
   endif
 
+  ! get the command line arguments
   allocate(args(1:nargs))
-
-  write_energy = .false.
-  write_dip = .false.
-  write_spin = .false.
-  write_coeffdiag = .false.
-  write_coeffmch = .false.
-  write_prob = .false.
-  write_expec = .false.
-  write_expecmch = .false.
-  write_coeffdiab = .false.
-  write_dipact = .false.
-  write_iondiag = .false.
-  write_ionmch = .false.
-
-  ! read command line arguments
-  readthis=.TRUE.
   do i=1,nargs
     call getarg(i,args(i))
     args(i)=trim(adjustl(args(i)))
   end do
+
+  ! defaults for writing options
+  write_energy    = .false.
+  write_dip       = .false.
+  write_spin      = .false.
+  write_coeffdiag = .false.
+  write_coeffmch  = .false.
+  write_prob      = .false.
+  write_expec     = .false.
+  write_expecmch  = .false.
+  write_coeffdiab = .false.
+  write_dipact    = .false.
+  write_iondiag   = .false.
+  write_ionmch    = .false.
+
+  ! read command line arguments
+  skipthese=0
+  anyoptions=.false.
+  filename=''
+
   do i=1,nargs
-    call lowercase(args(i))
-    if(.NOT.readthis) then
-      readthis=.TRUE.
+    ! skip arguments to options
+    if (skipthese>0) then
+      skipthese=skipthese-1
       cycle
+    endif
+    ! make option flags lowercase
+    if (args(i)(1:1)=='-') then
+      call lowercase(args(i))
+      anyoptions=.true.
     else
-      if (trim(args(i)) == '-f') then
-        if ((i+1).GT.nargs) then
-          stop '-f must be followed by a filename'
-        else
-          filename = trim(adjustl(args(i+1)))
-          readthis=.FALSE.
-          !PRINT*,"reading input from file: ", trim(filename)
-        end if
-      elseif (trim(args(i)) == "-e") then
-        write_energy = .true.
-      elseif (trim(args(i)) == "-d") then
-        write_dip = .true.
-      elseif (trim(args(i)) == "-sp") then
-        write_spin = .true.
-      elseif (trim(args(i)) == "-cd") then
-        write_coeffdiag = .true.
-      elseif (trim(args(i)) == "-cm") then
-        write_coeffmch = .true.
-      elseif (trim(args(i)) == "-p") then
-        write_prob = .true.
-      elseif (trim(args(i)) == "-x") then
-        write_expec = .true.
-      elseif (trim(args(i)) == "-xm") then
-        write_expecmch = .true.
-      elseif (trim(args(i)) == "-cb") then
-        write_coeffdiab = .true.
-      elseif (trim(args(i)) == "-da") then
-        write_dipact = .true.
-      elseif (trim(args(i)) == "-id") then
-        write_iondiag = .true.
-      elseif (trim(args(i)) == "-im") then
-        write_ionmch = .true.
-      elseif (trim(args(i)) == "-a") then
-        write_energy = .true.
-        write_dip = .true.
-        write_spin = .true.
-        write_coeffdiag = .true.
-        write_coeffmch = .true.
-        write_prob = .true.
-        write_expec = .true.
-        write_expecmch = .true.
-        write_coeffdiab = .true.
-        write_dipact = .true.
-        write_iondiag = .true.
-        write_ionmch = .true.
-      elseif (trim(args(i)) == "-s") then
-        write_energy = .true.
-        write_dip = .true.
-        write_spin = .true.
-        write_coeffdiag = .true.
-        write_coeffmch = .true.
-        write_prob = .true.
-        write_expec = .true.
-        write_expecmch = .true.
-        write_coeffdiab = .true.
-        write_dipact = .true.
-      else
-        write(0,*) 'Cannot understand: ',trim(args(i))
-        !stop 'Input error'
-      end if
-    end if
-  end do
+      ! we have an argument which is not an option, hence it is the filename
+      filename = trim(adjustl(args(i)))
+      cycle
+    endif
+
+    ! process the options
+    if (trim(args(i)) == '-f') then
+      if ((i+1).GT.nargs) stop '-f must be followed by a filename'
+      filename = trim(adjustl(args(i+1)))
+      skipthese=1
+    elseif (trim(args(i)) == "-e") then
+      write_energy = .true.
+    elseif (trim(args(i)) == "-d") then
+      write_dip = .true.
+    elseif (trim(args(i)) == "-sp") then
+      write_spin = .true.
+    elseif (trim(args(i)) == "-cd") then
+      write_coeffdiag = .true.
+    elseif (trim(args(i)) == "-cm") then
+      write_coeffmch = .true.
+    elseif (trim(args(i)) == "-p") then
+      write_prob = .true.
+    elseif (trim(args(i)) == "-x") then
+      write_expec = .true.
+    elseif (trim(args(i)) == "-xm") then
+      write_expecmch = .true.
+    elseif (trim(args(i)) == "-cb") then
+      write_coeffdiab = .true.
+    elseif (trim(args(i)) == "-da") then
+      write_dipact = .true.
+    elseif (trim(args(i)) == "-id") then
+      write_iondiag = .true.
+    elseif (trim(args(i)) == "-im") then
+      write_ionmch = .true.
+    elseif (trim(args(i)) == "-a") then
+      write_energy = .true.
+      write_dip = .true.
+      write_spin = .true.
+      write_coeffdiag = .true.
+      write_coeffmch = .true.
+      write_prob = .true.
+      write_expec = .true.
+      write_expecmch = .true.
+      write_coeffdiab = .true.
+      write_dipact = .true.
+      write_iondiag = .true.
+      write_ionmch = .true.
+    elseif (trim(args(i)) == "-s") then
+      write_energy = .true.
+      write_dip = .true.
+      write_spin = .true.
+      write_coeffdiag = .true.
+      write_coeffmch = .true.
+      write_prob = .true.
+      write_expec = .true.
+      write_expecmch = .true.
+      write_coeffdiab = .true.
+      write_dipact = .true.
+    elseif (trim(args(i)) == "-h") then
+      call print_usage(0)
+      stop 
+    else
+      write(0,*) 'Cannot understand argument: ',trim(args(i))
+      !stop 'Input error'
+    endif
+  enddo
+
+  if (.not.anyoptions) then
+    ! defaults for writing options
+    write_energy    = .true.
+    write_dip       = .true.
+    write_spin      = .true.
+    write_coeffdiag = .true.
+    write_coeffmch  = .true.
+    write_prob      = .true.
+    write_expec     = .true.
+    write_expecmch  = .true.
+    write_coeffdiab = .true.
+    write_dipact    = .true.
+    write_iondiag   = .false.
+    write_ionmch    = .false.
+  endif
 
   deallocate(args)
 
+  ! =============================================================================================
+  !                                Open dat file and write build info
+  ! =============================================================================================
 
+  ! open the dat file
+  if (trim(filename)=='') stop 'No filename given!'
   open(unit=u_dat, file=filename, status='old', action='read', iostat=io)
   if (io/=0) then
     write(*,*) 'File ',trim(filename),' not found'
@@ -246,7 +277,11 @@ program data_extractor
   write(u_info,*) 'Build directory: ',trim(build_dir)
   write(u_info,*) 'Compiler: ',trim(build_compiler)
   close(u_info)
-  
+
+  ! =============================================================================================
+  !                                Read dat file header
+  ! =============================================================================================
+
   ! Check whether first entry is an integer, which indicates that we have the old format starting with "<integer> ! maxmult"
   read(u_dat,'(I8,A)',iostat=io) maxmult, string3
   if (io==0) then
@@ -255,18 +290,22 @@ program data_extractor
     is_integer = .false.
   endif
   rewind u_dat
-  
+
+
   ! set default switches for different properties
   have_NAC=0
   have_grad=0
   have_overlap=0
-  have_property=0
-  
-  
+  have_property1d=0
+  have_property2d=0
+
+
   if (is_integer) then
     write(*,*) 'Found SHARC v1.0 format'
     ! old format has property matrix by default
-    have_property=1
+    have_property2d=1
+    n_property1d=1
+    n_property2d=1
     ! determine number of states per mult and total number of states
     read(u_dat,*) maxmult
     allocate( nstates_m(maxmult) )
@@ -275,13 +314,13 @@ program data_extractor
     do i=1,maxmult
       nstates=nstates+i*nstates_m(i)
     enddo
-    write(*,*) 'This makes nstates=',nstates
+    write(*,*) 'Found nstates=',nstates
     read(u_dat,*) natom
 
     ! allocate everything
     allocate( H_MCH_ss(nstates,nstates), H_diag_ss(nstates,nstates) )
     allocate( U_ss(nstates,nstates) )
-    allocate( Prop_ss(nstates,nstates) )
+    allocate( Prop2d_xss(n_property2d,nstates,nstates),Prop1d_ys(n_property1d,nstates) )
     allocate( overlaps_ss(nstates,nstates), ref_ovl_ss(nstates,nstates) )
     allocate( DM_ssd(nstates,nstates,3) )
     allocate( coeff_diag_s(nstates), coeff_MCH_s(nstates), coeff_diab_s(nstates) )
@@ -324,7 +363,7 @@ program data_extractor
         read(values(i),*) nstates_m(i)
         nstates=nstates+nstates_m(i)*i
       enddo
-      write(*,*) 'This makes nstates=',nstates
+      write(*,*) 'Found nstates=',nstates
       ! values is not needed anymore
       deallocate(values)
     else
@@ -344,10 +383,24 @@ program data_extractor
       stop 'Error! Number of atoms (keyword: natom) is required!'
     endif
 
+    ! look up properties
+    line=get_value_from_key('n_property1d',io)
+    if (io==0) then
+      read(line,*) n_property1d
+    else
+      n_property1d=1
+    endif
+    line=get_value_from_key('n_property2d',io)
+    if (io==0) then
+      read(line,*) n_property2d
+    else
+      n_property2d=1
+    endif
+
     ! allocate everything
     allocate( H_MCH_ss(nstates,nstates), H_diag_ss(nstates,nstates) )
     allocate( U_ss(nstates,nstates) )
-    allocate( Prop_ss(nstates,nstates) )
+    allocate( Prop2d_xss(n_property2d,nstates,nstates), Prop1d_ys(n_property1d,nstates) )
     allocate( overlaps_ss(nstates,nstates), ref_ovl_ss(nstates,nstates) )
     allocate( DM_ssd(nstates,nstates,3) )
     allocate( coeff_diag_s(nstates), coeff_MCH_s(nstates), coeff_diab_s(nstates) )
@@ -388,17 +441,25 @@ program data_extractor
     endif
 
     ! look up have_NAC keyword
-    line=get_value_from_key('write_nac',io)
+    line=get_value_from_key('write_nacdr',io)
     if (io==0) then
       read(line,*) have_NAC
     endif
 
     ! look up have_property keyword
-    line=get_value_from_key('write_property',io)
+    line=get_value_from_key('write_property1d',io)
     if (io==0) then
-      read(line,*) have_property
+      read(line,*) have_property1d
     endif
-    if (have_property == 0 .and. (write_iondiag .or. write_ionmch)) then
+    line=get_value_from_key('write_property2d',io)
+    if (io==0) then
+      read(line,*) have_property2d
+    elseif (io==-1) then
+      line=get_value_from_key('write_property',io)      ! backwards compatibility
+      if (io==0) read(line,*) have_property2d
+      n_property2d=1
+    endif
+    if (have_property2d == 0 .and. (write_iondiag .or. write_ionmch)) then
       write(*,*)  'Warning! Writing ionization probabilities does not make sense if property matrix is not present.'
       write(*,*)  'Unsetting flags -im and -id'
       write_ionmch = .false.
@@ -435,36 +496,40 @@ program data_extractor
       allocate( NAC_ssad(nstates,nstates,natom,3) )
     endif
 
+    ! Now we skip over the header array data (atomic numbers, elements, masses)
+    do i=1,3*(1+natom)
+      read(u_dat,*) string1
+    enddo
+
+    ! if an explicit laser file is in the dat file, read it now
+    ! laser field comes before the time step data
+    if (laser==2) then
+      allocate( laser_td(nsteps*nsubsteps+1,3) )
+      call vec3read(nsteps*nsubsteps+1,laser_td,u_dat,string1)
+    endif
+
+    ! skip the "End of header array data" separator line
+    read(u_dat,*)
+
   endif
 
-  ! Now we skip over the header array data (atomic numbers, elements, masses)
-  do i=1,3*(1+natom)
-    read(u_dat,*) string1
-  enddo
-
-  ! if an explicit laser file is in the dat file, read it now
-  ! laser field comes before the time step data
-  if (laser==2) then
-    allocate( laser_td(nsteps*nsubsteps+1,3) )
-    call vec3read(nsteps*nsubsteps+1,laser_td,u_dat,string1)
-  endif
-
-  ! skip the "End of header array data" separator line
-  read(u_dat,*)
+  ! =============================================================================================
+  !                                Create output directory and files
+  ! =============================================================================================
 
   ! create output directory "output_data"
   ! inquire will not work with Intel compiler, so mkdir is always attempted
   inquire(file="output_data", exist=exists)
   if (.not.exists) then
-    write(*,'(A)') 'Creating directory "output_data"...'
+    write(*,'(A)') ' Creating directory "output_data"'
     call system('mkdir output_data')
   else
-    write(*,'(A)') 'Writing to directory "output_data"...'
+    write(*,'(A)') ' Writing to directory "output_data"'
   endif
 
 
+
   ! open output files
-                                                                                               ! -a
   if (write_energy)    open(unit=u_ener, file='output_data/energy.out', status='replace', action='write')           ! -e
   if (write_dip)       open(unit=u_dm, file='output_data/fosc.out', status='replace', action='write')               ! -d
   if (write_spin)      open(unit=u_spin, file='output_data/spin.out', status='replace', action='write')             ! -s
@@ -475,10 +540,9 @@ program data_extractor
   if (write_expecmch)  open(unit=u_expec_mch, file='output_data/expec_MCH.out', status='replace', action='write')   ! -xm
   if (write_coeffdiab) open(unit=u_coefdiab, file='output_data/coeff_diab.out', status='replace', action='write')   ! -cb
   if (write_dipact)    open(unit=u_fosc_act, file='output_data/fosc_act.out', status='replace', action='write')     ! -da
-  if (write_iondiag)   open(unit=u_ion_diag, file='output_data/ion_diag.out', status='replace', action='write')    ! -id
-  if (write_ionmch)    open(unit=u_ion_mch, file='output_data/ion_mch.out', status='replace', action='write')      ! -im
-
-
+  if (write_iondiag)   open(unit=u_ion_diag, file='output_data/ion_diag.out', status='replace', action='write')     ! -id
+  if (write_ionmch)    open(unit=u_ion_mch, file='output_data/ion_mch.out', status='replace', action='write')       ! -im
+                                                                                                                    ! -a
 
 
 
@@ -641,6 +705,9 @@ program data_extractor
   endif
 
 
+  ! =============================================================================================
+  !                                Initialize data
+  ! =============================================================================================
 
 
   ! spin values in MCH basis
@@ -655,7 +722,8 @@ program data_extractor
       enddo
     enddo
   enddo
-  
+
+  ! Initial overlap for diabatic populations
   if (write_coeffdiab) then
     ! reference overlap
     ! by default, the reference overlap is the unit matrix
@@ -674,12 +742,16 @@ program data_extractor
       call close_qmout
       call lowdin(nstates,ref_ovl_ss)
     else
-      write(6,*) 'Reference overlap not available! Data in coeff_diab.out will be incompatible with other trajectories.'
+      write(6,*) 'WARNING: Reference overlap not available! Data in coeff_diab.out will be incompatible with other trajectories.'
     endif
   endif
 
+  ! =============================================================================================
+  !                                Main loop
+  ! =============================================================================================
 
-  ! main loop
+  write(6,*) 
+  write(6,*) 'Running...'
   do
     ! read everything: H, U, DM, overlap, coeff_diag, hopprob, Ekin, active states
     ! random number, runtime for the timestep, geometry, velocity, property matrix
@@ -706,17 +778,26 @@ program data_extractor
     read(u_dat,*) runtime
     call vec3read(natom,geom_ad,u_dat,string1)
     call vec3read(natom,veloc_ad,u_dat,string1)
-    if (have_property==1) then
-      call matread(nstates,Prop_ss,u_dat,string1)
+    if (have_property2d==1) then
+!       if (.not.is_integer) read(u_dat,*)
+      do i=1,n_property2d
+        call matread(nstates,Prop2d_xss(i,:,:),u_dat,string1)
+      enddo
+    endif
+    if (have_property1d==1) then
+!       read(u_dat,*)
+      do i=1,n_property1d
+        call vecread(nstates,Prop1d_ys(i,:),u_dat,string1)
+      enddo
     endif
     if (have_grad == 1) then
-      read(u_dat,*) 
+!       read(u_dat,*) 
       do i=1,nstates
         call vec3read(natom,grad_mch_sad(i,:,:),u_dat,string1)
       enddo
     endif
     if (have_NAC == 1) then
-      read(u_dat,*) 
+!       read(u_dat,*) 
       do i=1,nstates
         do j=1,nstates
           call vec3read(natom,NAC_ssad(i,j,:,:),u_dat,string1)
@@ -733,8 +814,10 @@ program data_extractor
         H_diag_ss=H_diag_ss - DM_ssd(:,:,idir)*real(laser_td(step*nsubsteps+1,idir))
       enddo
     endif
+!     call matwrite(nstates,H_diag_ss,0,'Hbefore','F12.9')
+!     call matwrite(nstates,U_ss,0,'U','F12.9')
     call transform(nstates,H_diag_ss,U_ss,'utau')
-  !   call matwrite(nstates,H_diag_ss,6,'','F12.9')
+!     call matwrite(nstates,H_diag_ss,0,'Hafter','F12.9')
 
     ! calculate MCH coefficients and potential energy
     call matvecmultiply(nstates,U_ss,coeff_diag_s,coeff_MCH_s,'n')
@@ -749,15 +832,8 @@ program data_extractor
       call matvecmultiply(nstates,ref_ovl_ss,coeff_MCH_s,coeff_diab_s,'n')
     endif
 
-    if (write_energy) then
-      ! write to energy.out
-      write(u_ener,'(2X,1000(ES20.12E3,1X))') &
-      &step*dtstep, Ekin*au2eV, Epot*au2eV, (Epot+Ekin)*au2eV,&
-      (real(H_diag_ss(istate,istate)*au2eV),istate=1,nstates)
-    endif
-
+    ! calculate oscillator strengths
     if (write_dip .or. write_dipact .or. write_expec .or. write_expecmch) then
-      ! calculate oscillator strengths
       expec_dm=0.d0
       expec_dm_mch=0.d0
       expec_dm_act=0.d0
@@ -777,6 +853,38 @@ program data_extractor
         expec_dm_act(i)=expec_dm_act(i)*real(H_diag_ss(i,i)-H_diag_ss(state_diag,state_diag))
       enddo
     endif
+
+    ! calculate ionization
+    if (write_iondiag .or. write_ionmch) then
+      expec_ion_diag=0.d0
+      expec_ion_mch=0.d0
+      A_ss=Prop2d_xss(1,:,:)
+      expec_ion_mch=expec_ion_mch + real(A_ss(:,state_mch)*A_ss(state_mch,:))
+      call transform(nstates,A_ss,U_ss,'utau')
+      expec_ion_diag=expec_ion_diag + real(A_ss(:,state_diag)*A_ss(state_diag,:))
+    endif
+
+
+    ! calculate spin expectation value
+    if (write_spin .or. write_expec .or. write_expecmch) then
+      expec_s=0.d0
+      do istate=1,nstates
+        do jstate=1,nstates
+          expec_s(istate)=expec_s(istate) + spin0_s(jstate) * real(U_ss(jstate,istate) * conjg(U_ss(jstate,istate)))
+        enddo
+      enddo
+    endif
+    ! ========== Calculating is done for this time step =============
+
+
+    if (write_energy) then
+      ! write to energy.out
+      write(u_ener,'(2X,1000(ES20.12E3,1X))') &
+      &step*dtstep, Ekin*au2eV, Epot*au2eV, (Epot+Ekin)*au2eV,&
+      (real(H_diag_ss(istate,istate)*au2eV),istate=1,nstates)
+    endif
+
+
     if (write_dip) then
       ! write to fosc.out
       write(u_dm,'(2X,1000(ES20.12E3,1X))') &
@@ -791,15 +899,6 @@ program data_extractor
     endif
 
 
-    if (write_iondiag .or. write_ionmch) then
-      ! calculate ionization
-      expec_ion_diag=0.d0
-      expec_ion_mch=0.d0
-      A_ss=Prop_ss
-      expec_ion_mch=expec_ion_mch + real(A_ss(:,state_mch)*A_ss(state_mch,:))
-      call transform(nstates,A_ss,U_ss,'utau')
-      expec_ion_diag=expec_ion_diag + real(A_ss(:,state_diag)*A_ss(state_diag,:))
-    endif
     if (write_iondiag) then
       ! write to ion_diag.out
       write(u_ion_diag,'(2X,ES20.12E3,1X,I20,1X,1000(ES20.12E3,1X))') &
@@ -813,21 +912,14 @@ program data_extractor
       (expec_ion_mch(istate),istate=1,nstates)
     endif
 
-    if (write_spin .or. write_expec .or. write_expecmch) then
-      ! calculate spin expectation value
-      expec_s=0.d0
-      do istate=1,nstates
-        do jstate=1,nstates
-          expec_s(istate)=expec_s(istate) + spin0_s(jstate) * real(U_ss(jstate,istate) * conjg(U_ss(jstate,istate)))
-        enddo
-      enddo
-    endif
+
     if (write_spin) then
       ! write to spin.out
       write(u_spin,'(2X,1000(ES20.12E3,1X))') &
       &step*dtstep, expec_s(state_diag),&
       (expec_s(istate),istate=1,nstates)
     endif
+
 
     if (write_coeffdiag) then
       ! calculate sumsq of diagonal coefficients
@@ -841,6 +933,7 @@ program data_extractor
       (coeff_diag_s(istate),istate=1,nstates)
     endif
 
+
     if (write_coeffmch) then
       ! calculate sumsq of MCH coefficients
       sumc=0.d0
@@ -852,6 +945,7 @@ program data_extractor
       &step*dtstep, sumc,&
       (coeff_MCH_s(istate),istate=1,nstates)
     endif
+
 
     if (write_coeffdiab) then
       ! calculate sumsq of diabatic coefficients
@@ -865,6 +959,7 @@ program data_extractor
       (coeff_diab_s(istate),istate=1,nstates)
     endif
 
+
     if (write_prob) then
       ! calculate cumulative hopping probabilities
       do istate=2,nstates
@@ -875,6 +970,7 @@ program data_extractor
       &step*dtstep, randnum,&
       (hopprob_s(istate),istate=1,nstates)
     endif
+
 
     if (write_expec) then
       ! write to expec.out
@@ -887,6 +983,7 @@ program data_extractor
       &(expec_dm(istate),istate=1,nstates)
     endif
 
+
     if (write_expecmch) then
       write(u_expec_mch,'(2X,1000(ES20.12E3,1X))') &
       &step*dtstep, Ekin*au2eV, Epot*au2eV, (Epot+Ekin)*au2eV,&
@@ -894,20 +991,40 @@ program data_extractor
       &(spin0_s(istate),istate=1,nstates),&
       &(expec_dm_mch(istate),istate=1,nstates)
     endif
-
+    ! ========== Writing is done for this time step =============
 
 
 
 
     ! write progress to screen
     write(*,'(A,A,F9.2,A)',advance='no') achar(13), 't=',step*dtstep,' fs'
-
   enddo
-
   write(*,*)
 
 
 
+! subroutines for data extractor
+  contains
+
+  subroutine print_usage(u)
+    implicit none
+    integer :: u
+    write(u,*) 'Usage: ./data_extractor <flags> -f <data-file>'
+    write(u,*) '        -a  : write all output files'
+    write(u,*) '        -s  : standard = write all output files except ionization data'
+    write(u,*) '        -e  : write energy file              (output_data/energy.out)'
+    write(u,*) '        -d  : write dipole file              (output_data/fosc.out)'
+    write(u,*) '        -sp : write spin expec file          (output_data/spin.out)'
+    write(u,*) '        -cd : write diag coefficient file    (output_data/coeff_diag.out)'
+    write(u,*) '        -cm : write MCH coefficient file     (output_data/coeff_MCH.out)'
+    write(u,*) '        -cb : write diab coefficient file    (output_data/coeff_diab.out)'
+    write(u,*) '        -p  : write hop probability file     (output_data/prob.out)'
+    write(u,*) '        -x  : write expec (E,S^2,mu) file    (output_data/expec.out)'
+    write(u,*) '        -xm : write MCH expec file           (output_data/expec_MCH.out)'
+    write(u,*) '        -da : write dip of active state file (output_data/fosc_act.out)'
+    write(u,*) '        -id : write diag ion file            (output_data/ion_diag.out)'
+    write(u,*) '        -im : write MCH ion file             (output_data/ion_mch.out)'
+  endsubroutine
 
 endprogram
 

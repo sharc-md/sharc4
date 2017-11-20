@@ -448,7 +448,7 @@ def find_flag(qmout,flag,filename):
 
 # =======================================
 
-def extractQMout(filename,readP=False):
+def extractQMout(filename,readP=False,readS=False):
   '''Takes the path to a QM.out file and returns the Hamiltonian, the Dipole matrices and the property matrix'''
   try:
     qmoutf=open(filename,'r')
@@ -456,11 +456,11 @@ def extractQMout(filename,readP=False):
     qmoutf.close()
   except IOError:
     print 'Could not find %s!' % (filename)
-    return None,None,None
+    return None,None,None,None
 
   i=find_flag(qmout,1,filename)
   if i==None:
-    return None,None,None
+    return None,None,None,None
   H=read_matrix(qmout,i+1,filename)
 
   i=find_flag(qmout,2,filename)
@@ -479,12 +479,20 @@ def extractQMout(filename,readP=False):
   if readP:
     i=find_flag(qmout,11,filename)
     if i==None:
-      return H,DM,None
+      return H,DM,None,None
     P=read_matrix(qmout,i+1,filename)
   else:
     P=None
 
-  return H,DM,P
+  if readS:
+    i=find_flag(qmout,6,filename)
+    if i==None:
+      return H,DM,P,None
+    S=read_matrix(qmout,i+1,filename)
+  else:
+    S=None
+
+  return H,DM,P,S
 
 # ======================================================================================================================
 
@@ -801,7 +809,7 @@ There are two representations:
       else:
         qmfilename=''
     if os.path.isfile(qmfilename):
-      H,DM,P=extractQMout(qmfilename)
+      H,DM,P,Smat=extractQMout(qmfilename)
       if H!=None:
         if INFOS['diag']:
           H,DM,P=transform(H,DM,P)
@@ -864,11 +872,28 @@ There are two representations:
     INFOS['erange']=erange
 
 
+
+
+  INFOS['diabatize']=False
   if INFOS['excite']==2:
     print '\n'+centerstring('Considered states',60,'-')
-    print '''Please give a list of all states which should be 
+
+    if INFOS['read_QMout'] and INFOS['repr']=='MCH':
+      qmfilename=INFOS['iconddir']+'/ICOND_00001/QM.in'
+      if os.path.isfile(qmfilename):
+        qmfile=open(qmfilename,'r')
+        for line in qmfile:
+          if re.search('^\s?overlap\s?',line.lower()):
+            print '\nThe vertical excitation calculations were done with overlaps with a reference.\nReference overlaps can be used to obtain diabatic states.\n'
+            INFOS['diabatize']=question('Do you want to specify the initial states in a diabatic picture?',bool,False)
+        qmfile.close()
+
+    print '''\nPlease give a list of all states which should be 
 flagged as valid initial states for the dynamics.
 Note that this is applied to all initial conditions.'''
+    if INFOS['diabatize']:
+      print '\nNOTE: These numbers are interpreted as diabatic states.\nThe diabatic basis is the set of states computed in ICOND_00000/.\nPlease carefully analyze these states to decide which diabatic states to request.'
+      #print 'NOTE: You can only enter one initial state.'
     if 'states' in INFOS:
       print print_statemap(get_statemap(INFOS['states']))
 
@@ -877,6 +902,10 @@ Note that this is applied to all initial conditions.'''
       if any([i<=0 for i in allowed_states]):
         print 'State indices must be positive!'
         continue
+      #if INFOS['diabatize']:
+        #if len(allowed_states)>1:
+          #print 'Only one initial state allowed!'
+          #continue
       break
     INFOS['allowed']=set(allowed_states)
     if not 'erange' in INFOS:
@@ -885,6 +914,8 @@ Note that this is applied to all initial conditions.'''
 
   if INFOS['excite']==3:
     print centerstring('Considered states',60,'-')+'\n'
+    print 'From which state should the initial conditions be excited?'
+    INFOS['initstate']=question('Initial state?',int,[1])[0]-1
     if 'states' in INFOS:
       print print_statemap(get_statemap(INFOS['states']))
     allstates=question('Do you want to include all states in the selection?',bool,True)
@@ -895,8 +926,11 @@ Note that this is applied to all initial conditions.'''
       a=question('Excluded states:',int)
       INFOS['allowed']=set([-i for i in a])
     print ''
+  else:
+    INFOS['initstate']=0
 
 
+  if INFOS['excite']==3:
     print centerstring('Random number seed',60,'-')+'\n'
     print 'Please enter a random number generator seed (type "!" to initialize the RNG from the system time).'
     while True:
@@ -967,6 +1001,7 @@ def get_QMout(INFOS,initlist):
     global diagon
     diagon=diagonalizer()
   ncond=0
+  initstate=INFOS['initstate']
   for icond in range(1,INFOS['ninit']+1):
     # look for a QM.out file
     qmfilename=INFOS['iconddir']+'/ICOND_%05i/QM.out' % (icond)
@@ -974,19 +1009,37 @@ def get_QMout(INFOS,initlist):
       #print 'No QM.out for ICOND_%05i!' % (icond)
       continue
     ncond+=1
-    H,DM,P=extractQMout(qmfilename,INFOS['ion'])
+    H,DM,P,Smat=extractQMout(qmfilename,INFOS['ion'],INFOS['diabatize'])
     if INFOS['diag']:
       H,DM,P=transform(H,DM,P)
+    if INFOS['diabatize']:
+      thres=0.5
+      #string=''
+      N=Smat[0][0].real**2
+      for i in range(len(Smat)):
+        for j in range(len(Smat[0])):
+          Smat[i][j]=Smat[i][j].real**2/N
+          #string+='%5.3f  ' % Smat[i][j]
+        #string+='\n'
+      #print string
+      Diabmap={}
+      for i in range(len(Smat)):
+        j=Smat[i].index(max(Smat[i]))
+        if Smat[i][j]>=thres:
+          Diabmap[i]=j
+      #print icond,Diabmap
     # generate list of excited states
     estates=[]
     for istate in range(len(H)):
       if INFOS['ion']:
-        dip=[math.sqrt(abs(P[0][istate])),0,0]
+        dip=[math.sqrt(abs(P[initstate][istate])),0,0]
       else:
-        dip=[DM[i][0][istate] for i in range(3)]
-      estate=STATE(len(estates)+1,H[istate][istate],H[0][0],dip)
+        dip=[DM[i][initstate][istate] for i in range(3)]
+      estate=STATE(len(estates)+1,  H[istate][istate],  H[initstate][initstate],   dip)
       estates.append(estate)
     initlist[icond-1].addstates(estates)
+    if INFOS['diabatize']:
+      initlist[icond-1].Diabmap=Diabmap
   print 'Number of initial conditions with QM.out:   %5i' % (ncond)
   return initlist
 
@@ -1016,8 +1069,17 @@ def excite(INFOS,initlist):
           for jstate in icond.statelist:
             jstate.Excited=False
         elif INFOS['excite']==2:
+          if INFOS['diabatize']:
+            Diabmap=icond.Diabmap
+            #print i,Diabmap
+            allowed=[]
+            for q in INFOS['allowed']:
+              if q-1 in Diabmap:
+                allowed.append(Diabmap[q-1]+1)
+          else:
+            allowed=INFOS['allowed']
           for j,jstate in enumerate(icond.statelist):
-            if emin <= jstate.Eexc <= emax and j+1 in INFOS['allowed']:
+            if emin <= jstate.Eexc <= emax and j+1 in allowed:
               jstate.Excited=True
             else:
               jstate.Excited=False

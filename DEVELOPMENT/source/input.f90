@@ -37,6 +37,8 @@ module input
   real*8 :: a,b,tmax
   character*24 :: ctime, date
   integer :: idate,time
+  character*8000 :: string1
+  character*8000, allocatable :: string2(:)
 
   ! get the input filename from the command line argument
 
@@ -362,6 +364,23 @@ module input
 
   ! =====================================================
 
+  ! find number of properties
+
+    line=get_value_from_key('n_property1d',io)
+    if (io==0) then
+      read(line,*) ctrl%n_property1d
+    else
+      ctrl%n_property1d=1
+    endif
+    line=get_value_from_key('n_property2d',io)
+    if (io==0) then
+      read(line,*) ctrl%n_property2d
+    else
+      ctrl%n_property2d=1
+    endif
+
+  ! =====================================================
+
   ! then call the allocator for the trajectory
     call allocate_traj(traj,ctrl)
 
@@ -473,6 +492,27 @@ module input
     ctrl%ionization=-1
   endif
 
+  ! theodore keyword
+
+  line=get_value_from_key('theodore',io)
+  if (io==0) then
+    ctrl%theodore=1
+    line=get_value_from_key('theodore_step',io)
+    if (io==0) then
+      read(line,*) ctrl%theodore
+    endif
+    if (printlevel>1) then
+      write(u_log,'(A,1X,I6,1X,A)') 'Calculating TheoDORE properties every',ctrl%theodore,'steps.'
+      write(u_log,*)
+    endif
+  else
+    ctrl%theodore=-1
+  endif
+  line=get_value_from_key('notheodore',io)
+  if (io==0) then
+    ctrl%theodore=-1
+  endif
+
   ! =====================================================
 
   ! other keywords, including consistency checks
@@ -502,7 +542,11 @@ module input
       select case (trim(line))
         case ('ddt') 
           ctrl%coupling=0
+        case ('nacdt') 
+          ctrl%coupling=0
         case ('ddr')
+          ctrl%coupling=1
+        case ('nacdr')
           ctrl%coupling=1
         case ('overlap')
           ctrl%coupling=2
@@ -523,6 +567,24 @@ module input
     line=get_value_from_key('spinorbit',io)
     if (io==0) then
       ctrl%calc_soc=1
+    endif
+
+    ! request phase corrections from interface
+    ctrl%calc_phases=0
+    line=get_value_from_key('nophases_from_interface',io)
+    if (io==0) then
+      ctrl%calc_phases=0
+    endif
+    line=get_value_from_key('phases_from_interface',io)
+    if (io==0) then
+      ctrl%calc_phases=1
+    endif
+
+    ! request phase corrections from interface at time step zero (only works if something is in savedir)
+    ctrl%track_phase_at_zero=0
+    line=get_value_from_key('phases_at_zero',io)
+    if (io==0) then
+      ctrl%track_phase_at_zero=1
     endif
 
     ! non-adiabatic couplings for gradients
@@ -715,30 +777,50 @@ module input
       ctrl%write_overlap = 0
     endif
 
-    ctrl%write_NAC=0                   !< write nonadiabatic couplings:   \n        0=no NACs, 1=write NACs
-    line=get_value_from_key('write_nac',io)
+    ctrl%write_NACdr=0                   !< write nonadiabatic couplings:   \n        0=no NACs, 1=write NACs
+    line=get_value_from_key('write_nacdr',io)
     if (io==0) then
-      ctrl%write_NAC=1
+      ctrl%write_NACdr=1
     endif
-    line=get_value_from_key('nowrite_nac',io)
+    line=get_value_from_key('nowrite_nacdr',io)
     if (io==0) then
-      ctrl%write_NAC=0
+      ctrl%write_NACdr=0
     endif
-    if (ctrl%calc_nacdr==-1 .and. ctrl%write_NAC==1) then
+    if (ctrl%calc_nacdr==-1 .and. ctrl%write_NACdr==1) then
       write(u_log,*) 'Warning! Requested writing NonAdiabatic Coupling (NACs) but no NACs calculated. Writing of NACs disabled.'
-      ctrl%write_NAC = 0
+      ctrl%write_NACdr = 0
     endif
 
-    ctrl%write_property=0                !< write property matrix:   \n        0=no property, 1=write property
-    line=get_value_from_key('write_property',io)
+    ctrl%write_property1d=0                !< write property vectors:   \n        0=no property, 1=write property
+    line=get_value_from_key('write_property1d',io)
     if (io==0) then
-      ctrl%write_property=1
+      ctrl%write_property1d=1
     endif
-    line=get_value_from_key('nowrite_property',io)
+    line=get_value_from_key('nowrite_property1d',io)
     if (io==0) then
-      ctrl%write_property=0
+      ctrl%write_property1d=0
     endif
 
+    ctrl%write_property2d=0                !< write property matrices:   \n        0=no property, 1=write property
+    line=get_value_from_key('write_property2d',io)
+    if (io==0) then
+      ctrl%write_property2d=1
+    endif
+    line=get_value_from_key('nowrite_property2d',io)
+    if (io==0) then
+      ctrl%write_property2d=0
+    endif
+
+
+    line=get_value_from_key('output_version',io)
+    if (io==0) then
+      read(line,*) ctrl%output_version
+    else
+      string1=version
+      call split(string1,' ',string2,n)
+      read(string2(1),*) ctrl%output_version
+      deallocate(string2)
+    endif
 
 
 
@@ -796,6 +878,9 @@ module input
         if (ctrl%calc_overlap==1) then
           write(u_log,'(a)') 'Calculating wavefunction overlaps.'
         endif
+        if (ctrl%calc_phases==1) then
+          write(u_log,'(a)') 'Calculating wavefunction phases.'
+        endif
         select case (ctrl%calc_nacdr)
           case (0)
             write(u_log,'(a)') 'Including all non-adiabatic coupling vectors in the dynamics.'
@@ -818,7 +903,7 @@ module input
           write(u_log,'(a)') 'Not calculating Spin-Orbit couplings.'
         endif
       endif
-      write(u_log,*)
+
       if (ctrl%calc_soc/=1) then
         n=0
         do i=1,ctrl%maxmult
@@ -829,6 +914,7 @@ module input
         endif
       endif
       write(u_log,*)
+
       if (ctrl%write_soc==0) then
         write(u_log,'(a)') 'Not writing Spin-Orbit couplings.'
       else
@@ -844,17 +930,23 @@ module input
       else
         write(u_log,'(a)') 'Writing gradients.'
       endif
-      if (ctrl%write_NAC==0) then
+      if (ctrl%write_NACdr==0) then
         write(u_log,'(a)') 'Not writing nonadiabatic couplings.'
       else
         write(u_log,'(a)') 'Writing nonadiabatic couplings.'
       endif
-      if (ctrl%write_property==0) then
-        write(u_log,'(a)') 'Not writing property matrix.'
+      if (ctrl%write_property1d==0) then
+        write(u_log,'(a)') 'Not writing property vectors.'
       else
-        write(u_log,'(a)') 'Writing property matrix.'
+        write(u_log,'(a)') 'Writing property vectors.'
       endif
-     
+      if (ctrl%write_property2d==0) then
+        write(u_log,'(a)') 'Not writing property matrices.'
+      else
+        write(u_log,'(a)') 'Writing property matrices.'
+      endif
+      write(u_log,*)
+
     endif
 
   ! =====================================================
@@ -1010,8 +1102,35 @@ module input
       ctrl%track_phase=1
     endif
 
-    ! deactivate surface hops
+    ! surface hopping procedure
     ctrl%hopping_procedure=1
+    line=get_value_from_key('hopping_procedure',io)
+    if (io==0) then
+      select case (trim(line))
+        case ('standard') 
+          ctrl%hopping_procedure=1
+        case ('sharc') 
+          ctrl%hopping_procedure=1
+        case ('gfsh') 
+          ctrl%hopping_procedure=2
+          if (printlevel>1) then
+            write(u_log,'(a)') 'Surface Hopping is GFSH'
+            write(u_log,*)
+          endif
+        case ('off') 
+          ctrl%hopping_procedure=0
+          ctrl%ekincorrect=0
+          if (printlevel>1) then
+            write(u_log,'(a)') 'Surface Hopping is OFF (will stay in initial diagonal state)'
+            write(u_log,*)
+          endif
+        case default
+          write(0,*) 'Unknown keyword ',trim(line),' to "hopping_procedure"!'
+          stop 1
+      endselect
+    endif
+
+    ! TODO: could delete this keyword
     line=get_value_from_key('no_hops',io)
     if (io==0) then
       ctrl%hopping_procedure=0  ! negate hopping
@@ -1020,8 +1139,6 @@ module input
         write(u_log,'(a)') 'Surface Hopping is OFF (will stay in initial diagonal state)'
         write(u_log,*)
       endif
-    else
-      ctrl%hopping_procedure=1
     endif
 
   ! =====================================================
