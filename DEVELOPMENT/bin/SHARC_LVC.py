@@ -918,9 +918,9 @@ def read_SH2LVC(QMin):
   #MRV = numpy.dot(MR, SH2LVC['V'])
   Q =  [MRV[i] * Om[i]**0.5 for i in r3N]
 
-  print "Normal-mode displacements:"
-  for i, QQ in enumerate(Q):
-    if abs(QQ) > 1.e-5: print "%i: % .5f"%(i+1, QQ)
+#  print "Normal-mode displacements:"
+#  for i, QQ in enumerate(Q):
+#    if abs(QQ) > 1.e-5: print "%i: % .5f"%(i+1, QQ)
 
   # Compute the ground state potential and gradient
   V0 = sum(0.5 * Om[i] * Q[i]*Q[i] for i in r3N)

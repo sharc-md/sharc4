@@ -260,6 +260,7 @@ subroutine afssh_rates(traj, atraj, ctrl, Hnew)
   endif
 
   ! decoherence
+  ! All states get the same random number. This should be ok ...
   if (traj%randnum2 < ctrl%dtstep * (atraj%rate1 - atraj%rate2)) then
     if (printlevel>2) then
       write(u_log, '(A,1X,I3)') 'Collapsing amplitude of state', istate
