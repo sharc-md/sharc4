@@ -40,8 +40,8 @@
 #       - print QMin (optional)
 #
 # A new task in the Tasks array needs changes in:
-#       - gettasks 
-#       - writeMOLPROinput 
+#       - gettasks
+#       - writeMOLPROinput
 #       - redotasks
 #       - printtasks
 
@@ -119,7 +119,7 @@ changelogstring='''
 26.08.2014:     0.3.04
 - savedir and scratchdir now have defaults ($PWD/SAVEDIR/ and $PWD/SCRATCHDIR/)
 - added keyword "always_orb_init" to SH2COL.inp, to force the use of the provided initial MOs in all timesteps
-- the maximum multiplicity actually needed for SOCI calculations is now written to cidrtin 
+- the maximum multiplicity actually needed for SOCI calculations is now written to cidrtin
   (the value in cidrtin could be higher than needed, which will break runc)
 - links to savedir and scratchdir are set now
 
@@ -179,31 +179,31 @@ PRINT=True
 
 # hash table for conversion of multiplicity to the keywords used in COLUMBUS
 IToMult={
-         1: 'Singlet', 
-         2: 'Doublet', 
-         3: 'Triplet', 
-         4: 'Quartet', 
-         5: 'Quintet', 
-         6: 'Sextet', 
-         7: 'Septet', 
-         8: 'Octet', 
-         'Singlet': 1, 
-         'Doublet': 2, 
-         'Triplet': 3, 
-         'Quartet': 4, 
-         'Quintet': 5, 
-         'Sextet': 6, 
-         'Septet': 7, 
+         1: 'Singlet',
+         2: 'Doublet',
+         3: 'Triplet',
+         4: 'Quartet',
+         5: 'Quintet',
+         6: 'Sextet',
+         7: 'Septet',
+         8: 'Octet',
+         'Singlet': 1,
+         'Doublet': 2,
+         'Triplet': 3,
+         'Quartet': 4,
+         'Quintet': 5,
+         'Sextet': 6,
+         'Septet': 7,
          'Octet': 8
          }
 
 # hash table for conversion of polarisations to the keywords used in COLUMBUS
 IToPol={
-        0: 'X', 
-        1: 'Y', 
-        2: 'Z', 
-        'X': 0, 
-        'Y': 1, 
+        0: 'X',
+        1: 'Y',
+        2: 'Z',
+        'X': 0,
+        'Y': 1,
         'Z': 2
         }
 
@@ -882,7 +882,7 @@ def printgrad(grad,natom,geo):
 
 # ======================================================================= #
 def printQMout(QMin,QMout):
-  '''If PRINT, prints a summary of all requested QM output values. Matrices are formatted using printcomplexmatrix, vectors using printgrad. 
+  '''If PRINT, prints a summary of all requested QM output values. Matrices are formatted using printcomplexmatrix, vectors using printgrad.
 
   Arguments:
   1 dictionary: QMin
@@ -1256,8 +1256,15 @@ def getnacana(runls,QMin,istate,jstate):
   # get a non-adiabatic coupling vector
   ilines=0
   nac=[]
+  interst = False
   while ilines<len(runls):
+    if 'deltae=' in runls[ilines]:
+      ideltae = -1./float(runls[ilines].replace('=', ' ').split()[-1])
     if 'coupling for DRT' in runls[ilines]:
+      if 'Interstate' in  runls[ilines]:
+        interst = True
+      else:
+        interst = False
       f=runls[ilines].replace(':',' ').split()
       if drt==int(f[5]):
         if (s1==int(f[7]) and s2==int(f[12])) or (s2==int(f[7]) and s1==int(f[12])):
@@ -1266,6 +1273,8 @@ def getnacana(runls,QMin,istate,jstate):
             line=runls[ilines+atom].replace('D','E').split()
             for i in range(3):
               line[i]=float(line[i])
+              if interst:
+                line[i]*=ideltae
               if s1>s2:
                 line[i]*=-1.
             nac.append(line)
@@ -1471,7 +1480,7 @@ def get_DYSONoutput(QMin,QMout,imult,jmult):
 
 # ======================================================================= #
 def writeQMout(QMin,QMout,QMinfilename):
-  '''Writes the requested quantities to the file which SHARC reads in. The filename is QMinfilename with everything after the first dot replaced by "out". 
+  '''Writes the requested quantities to the file which SHARC reads in. The filename is QMinfilename with everything after the first dot replaced by "out".
 
   Arguments:
   1 dictionary: QMin
@@ -2421,7 +2430,7 @@ def readQMin(QMinfilename):
   # Map: dir -> socinr/isc                              socimap
   # List: dir   (dependency-resolved order)             joblist
 
-  # obtain the statemap 
+  # obtain the statemap
   statemap={}
   i=1
   for imult,istate,ims in itnmstates(QMin['states']):
@@ -2518,7 +2527,7 @@ def readQMin(QMinfilename):
         if j-i==1:
           multpairset.add( (i,j) )
     QMin['multpairlist']=list(multpairset)
-    
+
     #ionmap={}
     #for istate in QMin['ion']:
       #m1,s1,ms1=tuple(QMin['statemap'][istate])
@@ -2959,7 +2968,7 @@ def gettasks(QMin):
       tasks.append(['get_COLout',job])
 
       # do the civecconsolidate runs, keep data =============================
-      # make_dets before save_data, because save_data moves the eivector files 
+      # make_dets before save_data, because save_data moves the eivector files
       #if 'ion' in QMin:
         #tasks.append(['make_dets',job])
       if not 'nooverlap' in QMin or 'ion' in QMin:
@@ -3623,7 +3632,7 @@ def writedalton(oldgeom,newgeom,daltcomm,daltaoin,template):
       num = int(words[1]) * 2
       string+="s  %2i    0           0.10D-14\n"%num
   for i, line in enumerate(dnew):
-    if i > 3: 
+    if i > 3:
       string+=line
   writefile(daltaoin,string)
 
@@ -3928,7 +3937,7 @@ def get_info_from_det(filename):
 
 # ======================================================================= #
 def runeverything(tasks, QMin):
-  
+
   if PRINT or DEBUG:
     print '=============> Entering RUN section <=============\n\n'
 
@@ -4035,7 +4044,7 @@ class civfl_ana:
         self.niot = -1  # number of internal orbs
         self.nfct = -1  # number of frozen orbs
         self.nfvt = -1  # number of frozen virtuals
-        self.ncsf = -1  
+        self.ncsf = -1
         self.maxsqnorm = maxsqnorm
         self.sqcinorms = {} # CI-norms
         self.debug = debug
@@ -4126,12 +4135,12 @@ class civfl_ana:
                 line = flist.pop()
                 continue
             elif ('csfs were printed in this range' in line):
-                if self.debug: 
+                if self.debug:
                     print "All CSFs of this batch read in.\n"
                 break
             if not csfsec: continue
             if len(line) == 0:
-                if self.debug: 
+                if self.debug:
                     print "All CSFs of this batch read in.\n"
                 break
             words = line.split()
@@ -4159,7 +4168,7 @@ class civfl_ana:
                     print "-> %2s-CSF %s: nel = %i, n_ext_el = %i, n_exto = %i, ext1 = %2i, ext2 = %2i"%(wtype, CSFstr, nel, n_ext_el, n_exto, ext1, ext2)
             else:
                 coeff = float(words[1])
-                # For even electron systems there is phase change if one external 
+                # For even electron systems there is phase change if one external
                 #   electron is moved from the front (where it is in the DRT)
                 #   to the back (where we expect it to be).
                 # With two external electrons, this cancels out.
@@ -4198,7 +4207,7 @@ class civfl_ana:
         """
         For specifying the sorting order of the determinants.
         """
-        return key.replace('d', '0').replace('a', '1').replace('b', '1')    
+        return key.replace('d', '0').replace('a', '1').replace('b', '1')
 # ================================================== #
     def sort_key2(self, key):
         """
@@ -4237,10 +4246,10 @@ def main():
     This file contains all information which are known to SHARC and which are independent of the used quantum chemistry code. This includes the current geometry and velocity, the number of states/multiplicities, the time step and the kind of quantities to be calculated.
 
   MOLPRO.template:
-    This file is a minimal MOLPRO input file containing all molecule-specific parameters, like memory requirement, basis set, Douglas-Kroll-Hess transformation, active space and state-averaging. 
+    This file is a minimal MOLPRO input file containing all molecule-specific parameters, like memory requirement, basis set, Douglas-Kroll-Hess transformation, active space and state-averaging.
 
   Environment variables:
-    Additional information, which are necessary to run MOLPRO, but which do not actually belong in a MOLPRO input file. 
+    Additional information, which are necessary to run MOLPRO, but which do not actually belong in a MOLPRO input file.
     The necessary variables are:
       * QMEXE: is the path to the MOLPRO executable
       * SCRATCHDIR: is the path to a scratch directory for fast I/O Operations.
