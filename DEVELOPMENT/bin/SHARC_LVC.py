@@ -120,7 +120,7 @@ def itnmstates(states):
   Returns:
   1 integer: multiplicity
   2 integer: state
-  3 integer: MS value'''
+  3 float: MS value'''
 
   for i in range(len(states)):
     if states[i]<1:
@@ -852,12 +852,30 @@ def find_lines(nlines,match,strings):
     if tuple(line)==tuple(smatch):
       return strings[iline+1:iline+nlines+1]
 
-
 # =========================================================
-def read_SH2LVC(QMin):
+def read_LVC_mat(nmstates, header, rfile):
+  mat=[ [ complex(0.,0.) for i in range(nmstates) ] for j in range(nmstates) ]
+
+  # real part
+  tmp=find_lines(nmstates,header+' R',rfile)
+  if not tmp==[]:
+    for i, line in enumerate(tmp):
+      for j, val in enumerate(line.split()):
+        mat[i][j] += float(val)
+
+  # imaginary part
+  tmp=find_lines(nmstates,header+' I',rfile)
+  if not tmp==[]:
+    for i, line in enumerate(tmp):
+      for j, val in enumerate(line.split()):
+        mat[i][j] += float(val) * 1j
+
+  return mat
+# =========================================================
+def read_SH2LVC(QMin, fname='SH2LVC.inp'):
   # reads SH2LVC.inp, deletes comments and blank lines
   SH2LVC={}
-  f=open('SH2LVC.inp')
+  f=open(fname)
   sh2lvc=f.readlines()
   f.close()
 
@@ -884,15 +902,10 @@ def read_SH2LVC(QMin):
   for i in range(natom):
     s=sh2lvc[i+2].lower().split()
     if s[0]!=geom[i][0].lower():
-      print 'Inconsistent atom labels in QM.in and SH2Ana.inp!'
+      print 'Inconsistent atom labels in QM.in and SH2LVC.inp!'
       sys.exit(19)
     disp += [geom[i][1] - float(s[2]), geom[i][2] - float(s[3]), geom[i][3] - float(s[4])]
     SH2LVC['Ms'] += 3*[(float(s[5])*U_TO_AMU)**.5]
-
-  #print "Cartesian displacements:"
-  #for d in disp:
-  #  print "% .6f"%d,
-  #print
 
   # Frequencies (a.u.)
   tmp = find_lines(1, 'Frequencies',sh2lvc)
@@ -908,7 +921,7 @@ def read_SH2LVC(QMin):
     print 'Path to normal modes not defined in SH2LVC.inp!'
     sys.exit(24)
   NMfile = tmp[0].strip()
-  SH2LVC['V']  = [[float(v) for v in line.split()] for line in open(NMfile, 'r').readlines()] # transformation matrix
+  SH2LVC['V']  = [map(float,line.split()) for line in open(NMfile, 'r').readlines()] # transformation matrix
 
   # Transform to dimensionless mass-weighted normal modes
   MR = [SH2LVC['Ms'][i] * disp[i] for i in r3N]
@@ -998,32 +1011,18 @@ def read_SH2LVC(QMin):
       dHMCH[i][imult][istate][jstate] += val
       dHMCH[i][imult][jstate][istate] += val
 
-  #for imult in range(nmult): print numpy.array(dHMCH[23][imult])
-
   SH2LVC['H']  = HMCH
   SH2LVC['dH'] = dHMCH
 
   SH2LVC['dipole'] = {}
-  for idir in range(1,4):
-    SH2LVC['dipole'][idir]=[ [ complex(0.,0.) for i in range(nmstates) ] for j in range(nmstates) ]
+  SH2LVC['dipole'][1]= read_LVC_mat(nmstates, 'DMX', sh2lvc)
+  SH2LVC['dipole'][2]= read_LVC_mat(nmstates, 'DMY', sh2lvc)
+  SH2LVC['dipole'][3]= read_LVC_mat(nmstates, 'DMZ', sh2lvc)
 
   # obtain the SOC matrix
-  SH2LVC['soc']=[ [ complex(0.,0.) for i in range(nmstates) ] for j in range(nmstates) ]
-  # real part
-  tmp=find_lines(nmstates,'SOC R',sh2lvc)
-  if not tmp==[]:
-    for i, line in enumerate(tmp):
-      for j, val in enumerate(line.split()):
-        SH2LVC['soc'][i][j] += float(val)
-  # imaginary part
-  tmp=find_lines(nmstates,'SOC I',sh2lvc)
-  if not tmp==[]:
-    for i, line in enumerate(tmp):
-      for j, val in enumerate(line.split()):
-        SH2LVC['soc'][i][j] += float(val) * 1j
+  SH2LVC['soc'] = read_LVC_mat(nmstates, 'SOC', sh2lvc)
 
   return SH2LVC, QMin
-
 
 # ============================================================================
 # ============================================================================
