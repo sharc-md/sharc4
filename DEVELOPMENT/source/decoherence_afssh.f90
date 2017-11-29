@@ -250,7 +250,7 @@ subroutine afssh_rates(traj, atraj, ctrl, Hnew)
   elseif (ctrl%coupling==2) then
     atraj%rate2 = tmprate2
   else
-    stop 'A-FSSH not possible without overlaps'
+    stop 'A-FSSH not possible without NAC vevtors or overlaps!'
   endif
 
   if (printlevel>2) then

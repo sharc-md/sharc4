@@ -708,9 +708,9 @@ module input
     if (ctrl%reflect_frustrated==2) then ! for reflection parallel to nac, we need nacdr
       ctrl%calc_nacdr=0
     endif
-    if (ctrl%decoherence==2) then ! for A-FSSH we need nacdr
-      ctrl%calc_nacdr=0
-    endif
+! !     if (ctrl%decoherence==2) then ! for A-FSSH we need nacdr
+! !       ctrl%calc_nacdr=0
+! !     endif
 
     if (ctrl%surf==1) then   ! doing FISH
       ctrl%calc_grad=1       ! always select grad
