@@ -696,7 +696,14 @@ def do_calc(INFOS):
       string+='   |  '
     string+='\n   '
     for i in bins:
-      string+=' %5i' % (i)
+      if i<10.:
+        string+=' %5.3f' % (i)
+      elif i<100.:
+        string+=' %5.2f' % (i)
+      elif i<1000.:
+        string+=' %5.1f' % (i)
+      else:
+        string+=' %5i' % (i)
     print string
     string_all+=string+'\n'
 
