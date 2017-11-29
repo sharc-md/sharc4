@@ -341,7 +341,14 @@ subroutine write_dat_initial(u, ctrl, traj)
   implicit none
   type(ctrl_type) :: ctrl
   type(trajectory_type) :: traj
-  integer :: u, iatom, n
+  integer :: u, n
+  character*8000 :: string1
+  character*8000, allocatable :: string2(:)
+
+  string1=version
+  call split(string1,' ',string2,n)
+  read(string2(1),*) ctrl%output_version
+  deallocate(string2)
   
   if (ctrl%output_version == 1.0) then
     ! old header for SHARC v1.0
@@ -480,7 +487,6 @@ subroutine write_final(traj)
 
   integer :: runtime, days, hours, minutes, seconds
   integer :: time
-  character*1024 :: sharcfact
 
   runtime=time()-traj%time_start
   days=runtime/86400

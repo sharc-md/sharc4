@@ -8,7 +8,6 @@ usage: Package for reading a molden input vibration file.
 
 import os
 import numpy
-import file_handler
 
 def convert_molden2xyz(path='.', name='molden.input'):
     """
@@ -38,7 +37,7 @@ class vib_molden:
                 Atoms = False
                 FREQ = False
                 FRNORMCOORD = False
-            
+
             if '[Atoms]' in line:
                 Atoms = True
             elif '[FREQ]' in line:
@@ -47,7 +46,8 @@ class vib_molden:
                 FRNORMCOORD = True
             # extract the information in that section
             elif Atoms:
-                self.atoms += [atom(file_handler.line_to_words(line)[0],file_handler.line_to_words(line)[3:6])]
+                words = line.split()
+                self.atoms += [atom(words[0],words[3:6])]
             elif FREQ:
                 self.freqs += [eval(line)]
             elif FRNORMCOORD:
@@ -55,7 +55,7 @@ class vib_molden:
                     actvib += 1
                     self.vibs += [vibration(self.freqs[actvib])]
                 else:
-                    self.vibs[actvib].add_vector(file_handler.line_to_words(line)[0:3])
+                    self.vibs[actvib].add_vector(line.split())
 
     def ret_vib_matrix(self):
         """
@@ -63,13 +63,13 @@ class vib_molden:
         The modes are in the lines of this matrix!
         """
         return numpy.array([vib.ret_joined_vector() for vib in self.vibs])
-    
+
     def ret_freqs(self):
         """
         Return the frequencies.
         """
         return self.freqs
-    
+
     def ret_eff_masses(self, mol_calc, mass_wt_pw=1):
         """
         Returns a list with the effective masses for all the modes.
@@ -89,7 +89,7 @@ class vib_molden:
                 T = 1/(freq * 2.9979E-5)
             except ZeroDivisionError:
                 T = 0
-                
+
             nr_list += [str(nr+1)]
             freq_list += [str(freq)[:6]]
             T_list += [str(T)[:6]]
@@ -104,9 +104,9 @@ class vib_molden:
         for vib in self.vibs:
             out_str += str(len(self.atoms)) + '\n'
             out_str += 'Frequency ' + str(vib.frequency) + '\n'
-            
+
             tmaker = file_handler.table_maker([5] + 6 * [20])
-            for at_ind, atom in enumerate(self.atoms):                 
+            for at_ind, atom in enumerate(self.atoms):
                 tmaker.write_line([' ' + atom.name] + atom.pos + vib.vector_list[at_ind])
             out_str += tmaker.return_table()
 
@@ -135,31 +135,31 @@ class vibration:
         t_list = []
         for vector in self.vector_list:
             t_list += vector
-        
+
         return numpy.array(t_list)
-        
+
     def ret_eff_mass(self, mol_calc, mass_wt_pw=1):
         """
         Return the effective mass of the vibration according to structure <struc>.
         """
         M = mol_calc.ret_mass_matrix(power=mass_wt_pw)
-        
+
         vec = self.ret_joined_vector()
         return numpy.dot(numpy.dot(vec, M), vec) / numpy.dot(vec,vec)
-        
+
 def make_molden_file(struc, freqs, vibs, out_file, title='Essential dynamics', num_at=None):
     """
     Subroutine for making a molden file.
     """
     if num_at == None:
         num_at = struc.ret_num_at()
-    
+
     out_str = '[Molden Format]\n[Title]\n'+title+'\n'
-    
+
     if not struc == None:
        out_str += '[Atoms] AU\n'
        out_str += ret_Atoms_table(struc)
-    
+
     # wavenumbers
     out_str += '[FREQ]\n'
     for freq in freqs:
@@ -179,13 +179,13 @@ def make_molden_file(struc, freqs, vibs, out_file, title='Essential dynamics', n
 #            tblm.write_line([' '] + [coor for coor in vibs[ind][3*j:(3*j+3)]])
 #        out_str += tblm.return_table()
         #print out_str
-    
+
     w_file = open(out_file, 'w')
     w_file.write(out_str)
     w_file.close()
-    
+
 b_in_a = 0.529178 # conversion factor between Bohr and Angstrom
-    
+
 def ret_Atoms_table(struc):
     """
     Create the atoms part in the molden file.
@@ -196,7 +196,7 @@ def ret_Atoms_table(struc):
         tblmaker.write_line([struc.ret_symbol(i+1),i+1,atom.GetAtomicNum()]+[atom.x()/b_in_a]+[atom.y()/b_in_a]+[atom.z()/b_in_a])
 
     return tblmaker.return_table()
-    
+
 def ret_FRCOORD_table(struc):
     """
     Create the FRCOORD part in the molden file.
@@ -208,11 +208,11 @@ def ret_FRCOORD_table(struc):
         tblmaker.write_line([struc.ret_symbol(i+1)]+[atom.x()/b_in_a]+[atom.y()/b_in_a]+[atom.z()/b_in_a])
 
     return tblmaker.return_table()
-    
-    
+
+
 if __name__ == '__main__':
     import struc_linalg
-    
+
     mol_calc = struc_linalg.mol_calc(def_file_path='coord', file_type='tmol')
     vmol = vib_molden()
     vmol.read_molden_file('molden.input')

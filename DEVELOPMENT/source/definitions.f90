@@ -20,6 +20,29 @@ module definitions
 implicit none
 save
 
+!> # Auxiliary trajectory type:
+!> This is a type with the data relevant for auxiliary trajectories
+!> needed for the decoherence correction in A-FSSH.
+!> geom, veloc, and accel are given relative to the main trajectory
+type aux_trajectory_type
+  sequence             ! to store the constituents of the type contiguously
+
+  ! nuclear information
+  real*8,allocatable :: mass_a(:)                        !< atomic mass in a.u. (1 a.u. = rest mass of electron m_e)
+  real*8,allocatable :: geom_ad(:,:)                     !< Cartesian displacement from SH trajectory in a.u. (bohr)
+  real*8,allocatable :: veloc_ad(:,:)                    !< Cartesian displacment velocity in a.u. (bohr/atu)
+  real*8,allocatable :: geom_tmp(:,:)                    !< Temporary Cartesian displacement during A-FSSH step
+  real*8,allocatable :: veloc_tmp(:,:)                   !< Temporary Cartesian displacment velocity during A-FSSH step
+  real*8,allocatable :: accel_ad(:,:)                    !< Cartesian displacment acceleration in a.u. (bohr/atu/atu)
+
+  ! other quantities
+  integer :: istate                                       !< Which state
+  real*8 :: rate1, rate2                                  !< Term occuring in the decoherence rate
+  real*8, allocatable :: grad_ad(:,:)                     !< Difference gradient
+endtype
+
+! =========================================================== !
+
 public
 !> # Trajectory type:
 !> This is a type with all data which would be private to a trajectory,
@@ -50,6 +73,7 @@ type trajectory_type
   integer :: state_MCH                                   !< currently occupied state in MCH basis
   integer :: state_diag                                  !< currently occupied state in diag basis
   integer :: state_diag_old                              !< diag state occupied in the last timestep
+  integer :: state_diag_frust                            !< diag state of a frustrated hop
 
   real*8 :: Ekin                                         !< kinetic energy
   real*8 :: Epot                                         !< potential energy (diag energy of state_diag)
@@ -90,7 +114,7 @@ type trajectory_type
   complex*16,allocatable :: phases_s(:)                  !< electronic state phases of the current step
   complex*16,allocatable :: phases_old_s(:)              !< electronic state phases of the last step
   real*8, allocatable :: hopprob_s(:)                    !< hopping probabilities
-  real*8 :: randnum                                      !< random number for surface hopping
+  real*8 :: randnum, randnum2                            !< random number for surface hopping and A-FSSH
 
   ! arbitrary properties
   complex*16,allocatable :: Property2d_xss(:,:,:)        !< list of matrices containing arbitrary data (not used in propagation)
@@ -115,6 +139,9 @@ type trajectory_type
   logical,allocatable :: selG_s(:)                       !< selection mask for gradients
   logical,allocatable :: selT_ss(:,:)                    !< selection mask for non-adiabatic coupling vectors
   logical,allocatable :: selDM_ss(:,:)                   !< selection mask for dipole moment gradients
+
+  ! Auxiliary trajectories for A-FSSH
+  type(aux_trajectory_type),allocatable :: aux_trajs(:)
 
 endtype
 
@@ -161,6 +188,7 @@ type ctrl_type
   integer :: surf                           !< 0=propagation in diag surfaces (SHARC), 1=on MCH surfaces (regular SH)
   integer :: decoherence                    !< 0=off, 1=activate energy-based decoherence correction
   integer :: ekincorrect                    !< 0=none, 1=adjust momentum along velocity, 2=adjust momentum along nac vector
+  integer :: reflect_frustrated             !< 0=none, 1=reflect along velocity, 2=reflect along nac vector
   integer :: gradcorrect                    !< 0=no, 1=include nac vectors in gradient transformation
   integer :: dipolegrad                     !< 0=no, 1=include dipole gradients in gradient transformation
 

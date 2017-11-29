@@ -160,11 +160,11 @@ endsubroutine
 !> Rescales the velocity after each timestep
 !> - no rescaling if no hop occured
 !> - no rescaling after field-induced hops
-!> - no rescaling after frustrated hops
 !> - otherwise, rescaling according to input options:
 !>    * no rescaling
 !>    * parallel to velocity vector
 !>    * parallel to relevant non-adiabatic coupling vector
+!> - reflection after frustrated hops according to input options
 subroutine Rescale_velocities(traj,ctrl)
   use definitions
   use matrix
@@ -228,15 +228,27 @@ subroutine Rescale_velocities(traj,ctrl)
           enddo
           if (printlevel>2) then
             write(u_log,'(A)') 'Velocity is rescaled along non-adiabatic coupling vector.'
-            write(u_log,'(A,1X,F16.10,1X,F16.10)') 'a, b: ', sum_kk, sum_vk
-            write(u_log,'(A,1X,F16.10)') 'Delta is          ',deltaE
+            write(u_log,'(A,1X,E16.8,1X,E16.8)') 'a, b: ', sum_kk, sum_vk
+            write(u_log,'(A,1X,E16.8)') 'Delta is          ',deltaE
             write(u_log,'(A,1X,F12.6)') 'Scaling factor is ',factor
           endif
-        case (3)
-          if (printlevel>2) write(u_log,*) 'Velocity is not rescaled after resonant surface hop.'
-      endselect
+        endselect
     case (2)
       if (printlevel>2) write(u_log,'(A)') 'Frustrated jump.'
+      select case (ctrl%reflect_frustrated)
+        case (0)
+          if (printlevel>2) write(u_log,*) 'Velocity is not reflected.'
+        case (1)
+          if (printlevel>2) write(u_log,*) 'Velocity is reflected completely.'
+          traj%veloc_ad(:,:) = -traj%veloc_ad(:,:)
+        case (2)
+          call reflect_nac(ctrl%natom,traj%veloc_ad,traj%mass_a,&
+          &real(traj%gmatrix_ssad(traj%state_diag_frust, traj%state_diag,:,:)),&
+          &real(traj%gmatrix_ssad(traj%state_diag, traj%state_diag,:,:)),&
+          &real(traj%gmatrix_ssad(traj%state_diag_frust, traj%state_diag_frust,:,:)) )
+    case (3)
+          if (printlevel>2) write(u_log,*) 'Velocity is not rescaled after resonant surface hop.'
+    endselect
   endselect
 
 endsubroutine
@@ -260,6 +272,51 @@ subroutine available_ekin(natom,veloc_ad,nac_ad,mass_a, sum_kk, sum_vk)
     sum_kk=sum_kk+0.5d0*sum( nac_ad(:,idir)*nac_ad(:,idir)/mass_a(:) )
     sum_vk=sum_vk+      sum( nac_ad(:,idir)*veloc_ad(:,idir) )
   enddo
+
+endsubroutine
+
+! ===========================================================
+
+subroutine reflect_nac(natom,veloc_ad,mass_a,nac_ad,Gdiag,Gfrust)
+  use definitions
+  implicit none
+  integer, intent(in) :: natom
+  real*8, intent(inout) :: veloc_ad(natom,3)
+  real*8, intent(in) :: mass_a(natom), nac_ad(natom,3), Gdiag(natom, 3), Gfrust(natom, 3)
+
+  integer :: idir, iat
+  real*8 :: mass_ad(natom,3)
+  real*8 :: sum_kk, sum_pk, sum_Fdiagk, sum_Ffrustk
+  real*8 :: factor
+
+  do idir=1,3
+    mass_ad(:,idir) = mass_a(:)
+  enddo
+  
+  sum_Fdiagk  = sum(-Gdiag*nac_ad)
+  sum_Ffrustk = sum(-Gfrust*nac_ad)
+  sum_pk = sum(mass_ad*veloc_ad*nac_ad)
+  if (printlevel>2)  then
+    write(u_log,*)'Checking velocity reflection along the nonadiabatic coupling vector.'
+    write(u_log,'(A,4E14.6)') ' sum_Fdiagk, sum_Ffrustk, sum_vk, sum_kk', sum_Fdiagk, sum_Ffrustk, sum_pk,&
+    &sum(nac_ad*nac_ad)
+  endif
+  write(u_log,'(A,4E14.6)') 'fptmp: pk, pv, pp', sum(mass_ad*veloc_ad*nac_ad),&
+  &sum(mass_ad*veloc_ad*veloc_ad), sum(mass_ad*mass_ad*veloc_ad*veloc_ad)
+    
+  if ((sum_Fdiagk*sum_Ffrustk<0).and.(sum_Ffrustk*sum_pk<0))then
+    if (printlevel>2) write(u_log,*) 'Conditions for reflection fulfilled.'
+    ! Reverse the velocity for individual atoms
+    !  -> this conserves p and Ekin
+    do iat=1,natom
+      factor = 2 * sum(veloc_ad(iat,:)*nac_ad(iat,:)) / sum(nac_ad(iat,:)*nac_ad(iat,:))
+      veloc_ad(iat,:) = veloc_ad(iat,:) - factor * nac_ad(iat,:)
+    enddo
+  write(u_log,'(A,4E14.6)') 'fptmp: pk, pv, pp', sum(mass_ad*veloc_ad*nac_ad),&
+  &sum(mass_ad*veloc_ad*veloc_ad), sum(mass_ad*mass_ad*veloc_ad*veloc_ad)
+  else
+    if (printlevel>2) write(u_log,*) 'Conditions for reflection not fulfilled.'
+  endif
 
 endsubroutine
 
