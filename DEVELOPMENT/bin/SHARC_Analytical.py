@@ -308,6 +308,26 @@ def printQMout(QMin,QMout):
       printcomplexmatrix(matrix,states)
   sys.stdout.flush()
 
+# ======================================================================= #
+def checkscratch(SCRATCHDIR):
+    '''Checks whether SCRATCHDIR is a file or directory. If a file, it quits with exit code 1, if its a directory, it passes. If SCRATCHDIR does not exist, tries to create it.
+
+    Arguments:
+    1 string: path to SCRATCHDIR'''
+
+    exist=os.path.exists(SCRATCHDIR)
+    if exist:
+        isfile=os.path.isfile(SCRATCHDIR)
+        if isfile:
+            print '$SCRATCHDIR=%s exists and is a file!' % (SCRATCHDIR)
+            sys.exit(16)
+    else:
+        try:
+            os.makedirs(SCRATCHDIR)
+        except OSError:
+            print 'Can not create SCRATCHDIR=%s\n' % (SCRATCHDIR)
+            sys.exit(17)
+
 # =========================================================
 # =========================================================
 # =========================================================
@@ -434,6 +454,22 @@ def writeQMout(QMin,QMout,QMinfilename):
   2 dictionary: QMout
   3 string: QMinfilename'''
 
+  outfilename=os.path.join(QMin['savedir'],'geom.out')
+  string=''
+  for iatom in range(QMin['natom']):
+    string+=QMin['geom'][iatom][0]
+    for i in range(3):
+      string+=' %12.9f ' % (QMin['geom'][iatom][i+1])
+    string+='\n'
+  string+='\n'
+  try:
+    outfile=open(outfilename,'w')
+    outfile.write(string)
+    outfile.close()
+  except IOError:
+    print 'Could not write to savedir!'
+    sys.exit(13)
+
   os.chdir(QMin['pwd'])
   k=QMinfilename.find('.')
   if k==-1:
@@ -443,12 +479,6 @@ def writeQMout(QMin,QMout,QMinfilename):
   if PRINT:
     print '===> Writing output to file %s in SHARC Format\n' % (outfilename)
   string=''
-  for iatom in range(QMin['natom']):
-    string+=QMin['geom'][iatom][0]
-    for i in range(3):
-      string+=' %12.9f ' % (QMin['geom'][iatom][i+1])
-    string+='\n'
-  string+='\n'
   if 'h' in QMin or 'soc' in QMin:
     string+=writeQMoutsoc(QMin,QMout)
   if 'dm' in QMin:
@@ -906,9 +936,41 @@ def read_QMin():
     for j in range(3):
       geom[i][j+1]/=factor
 
-  # reads old geometry from QM.out
+  # find init, samestep, restart
+  for line in qmin:
+    line=line.split('#')[0]
+    s=line.split()
+    if len(s)==0:
+      continue
+    if 'init' in s[0].lower():
+      QMin['init']=[]
+    if 'samestep' in s[0].lower():
+      QMin['samestep']=[]
+    if 'restart' in s[0].lower():
+      QMin['restart']=[]
+
+  # find savedir
+  QMin['savedir']='./SAVEDIR/'
+  for line in qmin:
+    s=line.split()
+    if len(s)==0:
+      continue
+    if 'savedir' in s[0].lower():
+      QMin['savedir']=s[1]
+  QMin['savedir']=os.path.abspath(os.path.expanduser(os.path.expandvars(QMin['savedir'])))
+
+  if 'init' in QMin:
+    checkscratch(QMin['savedir'])
+  if not 'init' in QMin and not 'samestep' in QMin and not 'restart' in QMin:
+    fromfile=os.path.join(QMin['savedir'],'geom.out')
+    tofile=os.path.join(QMin['savedir'],'geom_old.out')
+    shutil.copy(fromfile,tofile)
+
+  # read old geometry from savedir/geom_old.out
   try:
-    f=open('QM.out')
+    filename=os.path.join(QMin['savedir'],'geom_old.out')
+    f=open(filename)
+    #f=open('QM.out')
     qmin=f.readlines()
     f.close()
 
