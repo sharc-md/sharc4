@@ -391,7 +391,10 @@ def print_reactions(rate_matrix,specmap):
   for i in range(len(rate_matrix)):
     string+=formatstring % (specmap[i])+'|'
     for j in range(len(rate_matrix)):
-      string+=formatstring % (rate_matrix[i][j])
+      label=rate_matrix[i][j]
+      if label=='':
+        label='.'
+      string+=formatstring % (label)
     string+='\n'
   string+='\n(Initial species: rows; Final species: columns)\n'
   return string
@@ -948,7 +951,7 @@ def get_global_function(species_groups,maxtime,timeshift):
         string+='+'
     return string
   elif len(species_groups)==2:
-    string='x<=%.2f ? ' % (maxtime+timeshift)
+    string='x<%.2f ? ' % (maxtime+timeshift)
     for i,spec in enumerate(species_groups[0]):
       string+='%s(x-%.2f)' % (spec,timeshift)
       if i+1<len(species_groups[0]):
@@ -960,7 +963,7 @@ def get_global_function(species_groups,maxtime,timeshift):
         string+='+'
     return string
   else:
-    string='x<=%.2f ? ' % (maxtime+timeshift)
+    string='x<%.2f ? ' % (maxtime+timeshift)
     for i,spec in enumerate(species_groups[0]):
       string+='%s(x-%.2f)' % (spec,timeshift)
       if i+1<len(species_groups[0]):
@@ -981,7 +984,7 @@ def get_global_using(columns_groups,maxtime,timeshift):
         string+='+'
     return string
   elif len(columns_groups)==2:
-    string='$1<=%.2f ? ' % (maxtime+timeshift)
+    string='$1<%.2f ? ' % (maxtime+timeshift)
     for i,col in enumerate(columns_groups[0]):
       string+='$%i' % (col)
       if i+1<len(columns_groups[0]):
@@ -993,7 +996,7 @@ def get_global_using(columns_groups,maxtime,timeshift):
         string+='+'
     return string
   else:
-    string='$1<=%.2f ? ' % (maxtime+timeshift)
+    string='$1<%.2f ? ' % (maxtime+timeshift)
     for i,col in enumerate(columns_groups[0]):
       string+='$%i' % (col)
       if i+1<len(columns_groups[0]):
@@ -1009,7 +1012,8 @@ def write_gnuscript(INFOS,functionstring):
   colorpalette=rgbcolor([INFOS['ngroups']])
 
   # header
-  string ='# +'+'-'*60+'+\n'
+  string ='#>>\n'
+  string+='# +'+'-'*60+'+\n'
   string+='# |'+centerstring('Fitting script',60,' ')+'|\n'
   string+='# +'+'-'*60+'+\n#\n#\n'
 
@@ -1035,7 +1039,7 @@ def write_gnuscript(INFOS,functionstring):
   # add the function definitions
   string+='# *** Species population function definitions: ***\n'
   string+=functionstring
-  string+='\n'
+  string+='\n\n# ========================================================\n'
 
   # add the rate constant guesses
   string+='# *** Reaction rates initial guesses: ***\n# These are given in units of inverse fs (e.g., time constant of 100 fs is written as 1./100.).\n# TODO: Please change to some suitable values!\n'
@@ -1050,6 +1054,7 @@ def write_gnuscript(INFOS,functionstring):
   string+='\n'
 
   # add gnuplot global options
+  string+='#<<\n'
   string+='# *** Gnuplot general options: ***\n'
   string+='''set xlabel "Time (fs)"
 set ylabel "Population"
@@ -1111,9 +1116,12 @@ set key at %.2f,1.00 top right
   string+='\npause -1\n\n'
 
   # defining the global fit
+  string+='#>>\n'
   string+='# *** Global fit setup: ***\n'
   string+='set xrange [0:%.2f]\nunset label\n' % (INFOS['ngroups']*INFOS['maxtime'])
+  string+='set yrange [0:1]\n'
   string+='set key at %.2f,1.00 top right\n' % (INFOS['ngroups']*INFOS['maxtime'])
+  string+='set fit logfile "model_fit.log"\n'
 
   # global fitting function
   string+='F(x)= '
@@ -1122,28 +1130,35 @@ set key at %.2f,1.00 top right
   usingstring=get_global_using(INFOS['columns_groups'],INFOS['maxtime'],0)
 
   # global plot
+  string+='#<<\n'
   string+='# *** Global plot before fitting: ***\n'
   string+='set title "Global plot before fitting\\nPress ENTER to perform fit."\n'
   string+='p "model_fit.dat" u 1:( %s ) t "Data" w p pt 6 ps 0.5 lc rgbcolor "black", F(x) t "Fitting function" w l lw 2 lc rgbcolor "red"\npause -1\n' % (usingstring)
   string+='\n'
 
   # global fit
-  string+='# *** Execute global fit: ***\n'
+  string+='#>>\n'
+  string+='# *** Execute global fit: ***\n# TODO: remove the "#" on the next line to also fit the initial populations.\n'
   viastring=''
   for i,rate in enumerate(list(INFOS['rateset'])):
     viastring+='%s' % (rate)
     if i+1<len(INFOS['rateset']):
       viastring+=','
+  viastring+='#'
+  for i,init in enumerate(list(INFOS['initset'])):
+    viastring+=',%s__0' % (init)
   string+='fit F(x) "model_fit.dat" u 1:( %s ) via %s' % (usingstring,viastring)
   string+='\n\n'
 
   # global plot after fitting
+  string+='#<<\n'
   string+='# *** Global plot after fitting: ***\n'
   string+='set title "Global plot after fitting\\nPress ENTER to display final results."\n'
   string+='p "model_fit.dat" u 1:( %s ) t "Data" w p pt 6 ps 0.5 lc rgbcolor "black", F(x) t "Fitting function" w l lw 2 lc rgbcolor "red"\npause -1\n' % (usingstring)
   string+='\n'
 
   # add gnuplot global options
+  string+='#>>\n'
   string+='# *** Gnuplot general options: ***\n'
   string+='''set xlabel "Time (fs)"
 set ylabel "Population"
@@ -1169,6 +1184,7 @@ set key at %.2f,1.00 top right
   string+='\n'
 
   # Final plot
+  string+='#<><> 1\n'
   string+='# *** Final plot after fit: ***\n'
   string+='set title "Final plot after fitting\\nPress ENTER to save as PNG and TXT."\n'
   string+='p \\\n'
@@ -1202,12 +1218,23 @@ set key at %.2f,1.00 top right
       string+=', \\\n'
     else:
       string+='\n'
+  string+='#<<\n'
   string+='\npause -1\n\n'
+  string+='#>>\n'
 
   # For saving the final plot to a file and a table
   string+='# *** File output: ***\n'
+  string+='#<<\n'
   string+='set title "%s@%s, %s\\nFile:%s"\n' % (os.environ['USER'],os.environ['HOSTNAME'],datetime.datetime.now(),INFOS['popfile'])
-  string+='set term pngcairo size 800,480\nset out "model_fit.png"\nreplot\nset table "model_fit.txt"\nreplot\n\n'
+  string+='set term pngcairo size 800,480\nset out "model_fit.png"\nreplot\n'
+  string+='#>>\n'
+  string+='set table "model_fit.txt"\nreplot\n\n'
+
+  # Writing the time constants and initial populations
+  for i in INFOS['rateset']:
+    string+='print "&&& %s : ", 1./%s\n' % (i,i)
+  for i in INFOS['initset']:
+    string+='print "&&& %s__0 : ", %s__0\n' % (i,i)
 
   # Put time stamp infos at the end
   string+='# *** Infos: ***\n'
