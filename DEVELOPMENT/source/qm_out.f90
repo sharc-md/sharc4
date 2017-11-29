@@ -458,7 +458,7 @@ subroutine get_properties_new(ctrl,traj)
   type(trajectory_type) :: traj
   type(ctrl_type) :: ctrl
 
-  integer :: i,io,nread
+  integer :: i,j,io,nprop,nread
   character(len=8000) :: string
 
   call check_qmout_unit('get_properties_new')
@@ -469,10 +469,13 @@ subroutine get_properties_new(ctrl,traj)
 
   call goto_flag_nostop(21,io)
   if (io/=-1) then
-    read(qmout_unit,*) nread
-    if (nread>ctrl%n_property1d) nread=ctrl%n_property1d
+    read(qmout_unit,*) nprop
+    nread=nprop
+    if (nprop>ctrl%n_property1d) nread=ctrl%n_property1d
     call vecread(nread, traj%Property1d_labels_y(:nread), qmout_unit, string)
-    read(qmout_unit,*) 
+    do j=1,1+nprop-nread
+      read(qmout_unit,*) 
+    enddo
     do i=1,nread
       call vecread(ctrl%nstates, traj%Property1d_ys(i,:), qmout_unit, string)
     enddo
@@ -489,10 +492,13 @@ subroutine get_properties_new(ctrl,traj)
   ! new way
   call goto_flag_nostop(20,io)
   if (io/=-1) then
-    read(qmout_unit,*) nread
-    if (nread>ctrl%n_property2d) nread=ctrl%n_property2d
+    read(qmout_unit,*) nprop
+    nread=nprop
+    if (nprop>ctrl%n_property1d) nread=ctrl%n_property1d
     call vecread(nread, traj%Property2d_labels_x(:nread), qmout_unit, string)
-    read(qmout_unit,*)
+    do j=1,1+nprop-nread
+      read(qmout_unit,*) 
+    enddo
     do i=1,nread
       call matread(ctrl%nstates, traj%Property2d_xss(i,:,:), qmout_unit, string)
     enddo
