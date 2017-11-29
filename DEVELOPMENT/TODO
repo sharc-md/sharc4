@@ -5,11 +5,11 @@ Fortran code:
 - other decoherence schemes (see, e.g., Prezhdo JPCL review)
 - adjust_phases from largest element, not from diagonal
 - output.dat format, array info not in (list-based) header, triblock-matrices
-- IMPORTANT: "no_grad_correct" with "ekin_correct par_nac" produces NaNs and does not work              
+- IMPORTANT: "no_grad_correct" with "ekin_correct par_nac" produces NaNs and does not work              DONE?
 - implement augmented FSSH of Subotnik                                                                  DONE (still needs to be merged)
 - implement reflection afer frustrated hops                                                             DONE (still needs to be merged)
 - property (1d and 2d) arrays for saving arbitary data along with the trajectory                        DONE
-- IMPORTANT: fix crash if properties in QM.out have different number than input
+- IMPORTANT: fix crash if properties in QM.out have different number than input                         DONE
 
 
 Makefile:
@@ -73,6 +73,10 @@ Analytical interface:
 
 
 
+ADF interface:
+- bug: excited-state diagonal dipole moments are not read correctly (for >=2017.208 mode)       DONE
+
+
 COLUMBUS interface:
 - parallel jobs
 
@@ -133,6 +137,9 @@ Interfaces:
 - ALL interfaces should write to savedir some info about the status of the files (i.e., to which time step the new and old files correspond! Otherwise, the interface cannot know whether it should moveToOld at restarts.
 
 
+
+Interfaces:
+- select at least 100 determinants (plus the 0.999 thresholding)
 
 
 
