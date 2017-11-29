@@ -13,6 +13,7 @@ import math
 import sys
 import os
 import datetime
+import shutil
 from copy import deepcopy
 try:
   # Importing numpy takes about 100 ms, which is ~50% of the execution time!
@@ -94,6 +95,26 @@ IToPol={
 # =========================================================
 # =========================================================
 # =========================================================
+
+# ======================================================================= #
+def checkscratch(SCRATCHDIR):
+    '''Checks whether SCRATCHDIR is a file or directory. If a file, it quits with exit code 1, if its a directory, it passes. If SCRATCHDIR does not exist, tries to create it.
+
+    Arguments:
+    1 string: path to SCRATCHDIR'''
+
+    exist=os.path.exists(SCRATCHDIR)
+    if exist:
+        isfile=os.path.isfile(SCRATCHDIR)
+        if isfile:
+            print '$SCRATCHDIR=%s exists and is a file!' % (SCRATCHDIR)
+            sys.exit(16)
+    else:
+        try:
+            os.makedirs(SCRATCHDIR)
+        except OSError:
+            print 'Can not create SCRATCHDIR=%s\n' % (SCRATCHDIR)
+            sys.exit(17)
 
 # ======================================================================= #
 def itnmstates(states):
@@ -816,8 +837,41 @@ def read_QMin():
       geom[i][j+1]/=factor
   QMin['geom']=geom
 
+  # find init, samestep, restart
+  for line in qmin:
+    line=line.split('#')[0]
+    s=line.split()
+    if len(s)==0:
+      continue
+    if 'init' in s[0].lower():
+      QMin['init']=[]
+    if 'samestep' in s[0].lower():
+      QMin['samestep']=[]
+    if 'restart' in s[0].lower():
+      QMin['restart']=[]
+
+  # find savedir
+  QMin['savedir']='./SAVEDIR/'
+  for line in qmin:
+    s=line.split()
+    if len(s)==0:
+      continue
+    if 'savedir' in s[0].lower():
+      QMin['savedir']=s[1]
+  QMin['savedir']=os.path.abspath(os.path.expanduser(os.path.expandvars(QMin['savedir'])))
+
+  if 'init' in QMin:
+    checkscratch(QMin['savedir'])
+  if not 'init' in QMin and not 'samestep' in QMin and not 'restart' in QMin:
+    fromfile=os.path.join(QMin['savedir'],'U.out')
+    if not os.path.isfile(fromfile):
+      print 'ERROR: savedir does not contain U.out! Maybe you need to add "init" to QM.in.'
+      sys.exit(1)
+    tofile=os.path.join(QMin['savedir'],'Uold.out')
+    shutil.copy(fromfile,tofile)
+
+
   # find forbidden keywords and optional keywords
-  QMin['init'] = False
   for line in qmin:
     s=line.lower().split()
     if len(s)==0:
@@ -829,8 +883,6 @@ def read_QMin():
       sys.exit(16)
     if 'dmdr' in s[0]:
       QMin['dmdr']=[]
-    if s[0] == 'init':
-      QMin['init'] = True
 
   # add request keywords
   QMin['soc']=[]
@@ -872,10 +924,17 @@ def read_LVC_mat(nmstates, header, rfile):
 
   return mat
 # =========================================================
-def read_SH2LVC(QMin, fname='SH2LVC.inp'):
+def read_SH2LVC(QMin, fname='LVC.template'):
   # reads SH2LVC.inp, deletes comments and blank lines
   SH2LVC={}
-  f=open(fname)
+  try:
+    f=open(fname)
+  except IOError:
+    try:
+      f=open('SH2LVC.inp')
+    except IOError:
+      print 'Input file "LVC.template" not found.'
+      sys.exit(1)
   sh2lvc=f.readlines()
   f.close()
 
@@ -921,7 +980,11 @@ def read_SH2LVC(QMin, fname='SH2LVC.inp'):
     print 'Path to normal modes not defined in SH2LVC.inp!'
     sys.exit(24)
   NMfile = tmp[0].strip()
-  SH2LVC['V']  = [map(float,line.split()) for line in open(NMfile, 'r').readlines()] # transformation matrix
+  try:
+    SH2LVC['V']  = [map(float,line.split()) for line in open(NMfile, 'r').readlines()] # transformation matrix
+  except IOError:
+    print 'Normal-mode file "%s" does not exist!' % NMfile
+    sys.exit(1)
 
   # Transform to dimensionless mass-weighted normal modes
   MR = [SH2LVC['Ms'][i] * disp[i] for i in r3N]
@@ -1120,10 +1183,11 @@ def getQMout(QMin,SH2LVC):
     dipole.append(Dmatrix)
 
   # get overlap matrix
-  if QMin['init']:
+  Uoldfile=os.path.join(QMin['savedir'],'Uold.out')
+  if 'init' in QMin:
     overlap = [ [ float(i==j) for i in range(QMin['nmstates']) ] for j in range(QMin['nmstates']) ]
   else:
-    Uold = [[float(v) for v in line.split()] for line in open('Uold.txt', 'r').readlines()]
+    Uold = [[float(v) for v in line.split()] for line in open(Uoldfile, 'r').readlines()]
     if NONUMPY:
       overlap = [ [ 0. for i in range(QMin['nmstates']) ] for j in range(QMin['nmstates']) ]
       rS = range(QMin['nmstates'])
@@ -1134,7 +1198,8 @@ def getQMout(QMin,SH2LVC):
     else:
       overlap = numpy.dot(numpy.array(Uold).T,U)
 
-  f = open('Uold.txt', 'w')
+  Ufile=os.path.join(QMin['savedir'],'U.out')
+  f = open(Ufile, 'w')
   for line in U:
     for c in line:
       f.write(str(c) + ' ')
