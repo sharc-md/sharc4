@@ -130,6 +130,27 @@ def writefile(filename,content):
     print 'Could not write to file %s!' % (filename)
     sys.exit(13)
 
+# ======================================================================= #
+def mkdir(DIR):
+    # mkdir the DIR, or clean it if it exists
+    if os.path.exists(DIR):
+        if os.path.isfile(DIR):
+            print '%s exists and is a file!' % (DIR)
+            sys.exit(69)
+        elif os.path.isdir(DIR):
+            if DEBUG:
+                print 'Remake\t%s' % DIR
+            shutil.rmtree(DIR)
+            os.makedirs(DIR)
+    else:
+        try:
+            if DEBUG:
+                print 'Make\t%s' % DIR
+            os.makedirs(DIR)
+        except OSError:
+            print 'Can not create %s\n' % (DIR)
+            sys.exit(70)
+
 # ======================================================================================================================
 # ======================================================================================================================
 # ======================================================================================================================
@@ -141,9 +162,13 @@ class output_dat:
     # get number of states
     for line in self.data:
       if 'nstates_m' in line:
-        s=line.split()[0:-2]
+        try:
+          s=line.split()[0:-2]
+          self.states=[ int(i) for i in s ]
+        except ValueError:
+          s=line.split()[1:-1]
+          self.states=[ int(i) for i in s ]
         break
-    self.states=[ int(i) for i in s ]
     nm=0
     for i,n in enumerate(self.states):
       nm+=n*(i+1)
@@ -521,6 +546,13 @@ It can also transform the classical diagonal populations to MCH basis (might tak
   print ''
 
 
+  print centerstring('Setup for bootstrapping?',60,'-')+'\n'
+  print '\nThe population data can be analyzed by fitting with a kinetic model (via make_fitscript.py). In order to estimate errors for these time constants (via bootstrapping), additional data needs to be saved here.'
+  INFOS['bootstrap']=question('Save data for bootstrapping?',bool,False)
+  if INFOS['bootstrap']:
+    INFOS['bootstrap_dir']=question('Directory for data?',str,'bootstrap_data/')
+
+
   print centerstring('Gnuplot script',60,'-')+'\n'
   INFOS['gnuplot']=question('Gnuplot script?',bool,False)
   if INFOS['gnuplot']:
@@ -673,7 +705,10 @@ def do_calc(INFOS):
       lisf=open(ifile)
       for line in lisf:
         if 'dtstep' in line:
-          dt=float(line.split()[0])*AU_TO_FS
+          try:
+            dt=float(line.split()[0])*AU_TO_FS
+          except ValueError:
+            dt=float(line.split()[-1])*AU_TO_FS
           break
       else:
         lisf.close()
@@ -710,10 +745,10 @@ def do_calc(INFOS):
 
   # get populations
   width=60
-  pop=[ [0. for j in range(nstates) ] for i in range(nsteps) ]        # first index is time, second is state
+  pop_full=[ [ [0. for j in range(nstates) ] for i in range(nsteps) ] for ifile in files ]
   shortest=9999999.
   longest=0.
-  for ifile in files:
+  for fileindex,ifile in enumerate(files):
     if INFOS['mode'] in [10,11]:
       output_current=output_dat(ifile)
       istep=-1
@@ -729,22 +764,22 @@ def do_calc(INFOS):
             state=INFOS['statemap'][i+1][3]-1
             vec[state]+=vec2[i].real**2+vec2[i].imag**2
         for istate in range(nstates):
-          pop[istep][istate]+=vec[istate]
+          pop_full[fileindex][istep][istate]+=vec[istate]
       if dt*istep<shortest:
         shortest=dt*istep
       if dt*istep>longest:
         longest=dt*istep
       if istep==-1:
-        print '%s' % (ifile)+' '*(width-len(ifile))+'%i\tZero Timesteps found!' % (t)
+        print '%s' % (ifile)+' '*(width-len(ifile))+' %i\tZero Timesteps found!' % (t)
         ntraj-=1
         continue
       else:
-        print '%s' % (ifile)+' '*(width-len(ifile))+'%i' % (istep)
+        print '%s' % (ifile)+' '*(width-len(ifile))+' %i' % (istep)
       while istep+1<nsteps:
         istep+=1
         if INFOS['mode'] in [10,11]:
           for i in range(nstates):
-            pop[istep][i]+=vec[i]
+            pop_full[fileindex][istep][i]+=vec[i]
     else:
       lisf=open(ifile)
       t=-1
@@ -771,7 +806,7 @@ def do_calc(INFOS):
             state=INFOS['histo'].put(float(f[8]))
           elif INFOS['mode']==6:
             state=INFOS['histo'].put(float(f[1]))
-          pop[t][state]+=1
+          pop_full[fileindex][t][state]+=1
         elif INFOS['mode'] in [7,8,9,20]:
           vec=[ 0. for i in range(nstates)]
           if INFOS['mode'] in [7,8,20]:
@@ -784,7 +819,7 @@ def do_calc(INFOS):
               #state=MultStateToIstate(imult,istate,INFOS['states'])-1
               vec[state]+=float(f[2+2*i])**2+float(f[3+2*i])**2
           for i in range(nstates):
-            pop[t][i]+=vec[i]
+            pop_full[fileindex][t][i]+=vec[i]
       lisf.close()
       if dt*t<shortest:
         shortest=dt*t
@@ -799,18 +834,26 @@ def do_calc(INFOS):
       while t+1<nsteps:
         t+=1
         if INFOS['mode'] in [1,2,3,4,5,6]:
-          pop[t][state]+=1
+          pop_full[fileindex][t][state]+=1
         elif INFOS['mode'] in [7,8,9,20]:
           for i in range(nstates):
-            pop[t][i]+=vec[i]
+            pop_full[fileindex][t][i]+=vec[i]
   print 'Shortest trajectory: %f' % (shortest)
   print 'Longest trajectory: %f' % (longest)
   print 'Number of trajectories: %i' % (ntraj)
   INFOS['shortest']=shortest
   INFOS['longest']=longest
 
+  # make pop array
+  pop=[ [0. for j in range(nstates) ] for i in range(nsteps) ]        # first index is time, second is state
+  for fileindex,ifile in enumerate(files):
+    for i in range(nsteps):
+      for j in range(nstates):
+        pop[i][j]+=pop_full[fileindex][i][j]
+
   # write populations
-  s='#%15i ' % (1)
+  s='#Mode: %i\n' % INFOS['mode']
+  s+='#%15i ' % (1)
   for i in range(nstates):
     s+='%16i ' % (i+2)
   s+='\n'
@@ -876,6 +919,54 @@ def do_calc(INFOS):
   print 'Writing to %s ...' % (outfilename)
   outf.write(s)
   outf.close()
+
+
+  # save bootstrapping data
+  if INFOS['bootstrap']:
+    print 'Writing to %s ...' % (INFOS['bootstrap_dir'])
+    mkdir(INFOS['bootstrap_dir'])
+    for fileindex,ifile in enumerate(files):
+      filename=os.path.join(INFOS['bootstrap_dir'],'pop_%i.dat' % (fileindex+1))
+      s='#Mode: %i\n' % INFOS['mode']
+      s+='#%15i ' % (1)
+      for i in range(nstates):
+        s+='%16i ' % (i+2)
+      s+='\n'
+      s+='#%15s ' % ('Time (fs)')
+      for i in range(nstates):
+
+        if INFOS['mode'] in [1,7]:
+          s+='%16s ' % ('X%i' % (i+1))
+        elif INFOS['mode'] in [2,8,20,10]:
+          mult,state,ms=tuple(INFOS['statemap'][i+1][0:3])
+          #IstateToMultState(i+1,INFOS['states'])
+          string='%s %i %i' % (IToMult[mult][0:3],state,ms)
+          s+='%16s ' % (string)
+        elif INFOS['mode'] in [3,9,11]:
+          mult,state=tuple(INFOS['statemap'][i+1][0:2])
+          #INstateToMultState(i+1,INFOS['states'])
+          string='%s %i' % (IToMult[mult][0:3],state)
+          s+='%16s ' % (string)
+        elif INFOS['mode'] in [4,5,6]:
+          if i<len(INFOS['histo'].binlist):
+            string='< %.2e' % (INFOS['histo'].binlist[i])
+          else:
+            string='> %.2e' % (INFOS['histo'].binlist[-1])
+          s+='%16s ' % (string)
+
+      s+='\n'
+      for i,line in enumerate(pop_full[fileindex]):
+        s+='%16.9f ' % (i*dt)
+        for el in line:
+          s+='%16.9f ' % (float(el))
+        s+='\n'
+      writefile(filename,s)
+    #for i in range(nsteps):
+
+
+
+
+
 
   INFOS['outputfile']=outfilename
   INFOS['ntraj']=ntraj
