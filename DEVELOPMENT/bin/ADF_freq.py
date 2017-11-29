@@ -73,7 +73,7 @@ def read_ADFout(filename):
       print 'Could not find Frequencies output!'
       return None
     line=data[iline]
-    if 'F R E Q U E N C I E S' in line:
+    if 'F R E Q U E N C' in line:
       break
   iline+=10
   FreqCoord=[]
@@ -84,7 +84,11 @@ def read_ADFout(filename):
     if '----' in line:
       break
     s=line.split()
-    atom=[ s[1], float(s[2]), float(s[3]), float(s[4]) ]
+    try:
+      atom=[ s[1], float(s[2]), float(s[3]), float(s[4]) ]
+    except IndexError:
+      print 'Could not find optimized coordinates!'
+      return None
     FreqCoord.append(atom)
     natom+=1
 
