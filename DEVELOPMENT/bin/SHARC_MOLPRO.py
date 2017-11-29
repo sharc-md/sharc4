@@ -3128,16 +3128,18 @@ def saveAOovl(WORKDIR,QMin):
   # detect format
   line=out[iline+1]
   if 'E' in line:
-    newformat=True
+    formatting=2
     q=24
+  elif len(line.split())==0:
+    formatting=1
   else:
-    newformat=False
+    formatting=0
 
   # get matrix
   AOovl=[]
   for irow in range(nao):
     AOovl.append([])
-    if newformat:
+    if formatting==2:
       iline+=1
       line=out[iline]
       i=0
@@ -3150,7 +3152,15 @@ def saveAOovl(WORKDIR,QMin):
           break
       for y in s:
         AOovl[-1].append(float(y))
-    else:
+    elif formatting==1:
+      iline+=1
+      for x in range((nao-1)/10+1):
+        iline+=1
+        line=out[iline]
+        s=line.split()
+        for y in s:
+          AOovl[-1].append(float(y))
+    elif formatting==0:
       for x in range((nao-1)/99+1):
         iline+=1
         line=out[iline]
