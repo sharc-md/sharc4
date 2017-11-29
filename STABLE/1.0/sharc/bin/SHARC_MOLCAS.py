@@ -1203,8 +1203,12 @@ def getgrad(out,mult,state,natom, QMin):
         elif 'Spin quantum number' in line and rasscf:
             if int(round(float(line.split()[3])*2))+1 == mult:
                 multfound = True
+            else:
+                multfound = False
             if QMin['states'][mult-1]==1:
                 statefound=True
+            else:
+                statefound=False
 
         elif ' Lagrangian multiplier is calculated for root no.' in line and mclr and multfound:
             if int(line.split()[8].strip()) == state:
@@ -3263,7 +3267,8 @@ def main():
     saveJobIphs(QMin)
 
     # Remove Scratchfiles from SCRATCHDIR
-    cleanupSCRATCH(QMin['WorkDir'])
+    if not DEBUG:
+        cleanupSCRATCH(QMin['WorkDir'])
     if PRINT or DEBUG:
         print '#================ END ================#'
 
