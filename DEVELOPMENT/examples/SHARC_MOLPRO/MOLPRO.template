@@ -48,7 +48,7 @@ occ 13
 nelec 24
 
     ## Number of roots in the state-averaging
-roots 2 1 2
+roots 2 3 2
 
     ## Number of extra, zero-weight roots in state-averaging
 rootpad 0 0 0

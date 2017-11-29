@@ -27,7 +27,7 @@ Init                    # use for very first calculation
     ## ===============================================
     ## Settings:
 
-States 1 0 2            # number of states per multiplicity (singlets, doublets, triplets, ...)
+States 1 2 2            # number of states per multiplicity (singlets, doublets, triplets, ...)
 Unit Angstrom           # in which units to interpret the above geometry
 #Step 0                 # Optional, used only to name the backup directories
 
@@ -41,7 +41,7 @@ DM
 #GRAD
 NACDR
 #OVERLAP
-#ION
+ION
 #MOLDEN
 
     ## Not implemented:
