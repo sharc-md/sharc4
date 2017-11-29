@@ -160,7 +160,12 @@ changelogstring='''
 - optimized the get_dets_from_tape21 routine (truncate before making det strings)
 
 22.09.2017
-- Added the rihf_per_atom keyword
+- Added the "rihf_per_atom" keyword
+
+27.09.2017
+- if excited-state gradients are calculated, corresponding ground-state gradient is automatically returned, too
+- added the "neglected_gradient" keyword (arguments: "zero" (default), "gs", "closest")
+- fixed a bug where excited-state diagonal dipole moments are not read correctly
 '''
 
 # ======================================================================= #
@@ -1351,6 +1356,9 @@ def readQMin(QMinfilename):
         print 'No tasks found! Tasks are %s.' % possibletasks
         sys.exit(29)
 
+    if not 'h' in QMin and not 'soc' in QMin:
+        QMin['h']=[]
+
     if 'h' in QMin and 'soc' in QMin:
         QMin=removekey(QMin,'h')
 
@@ -1479,6 +1487,7 @@ def readQMin(QMinfilename):
 
 
     # setup SCM-own scratch
+    # TODO: make abspath of SCMTEMPDIR
     SCMTEMPDIR=get_sh2ADF_environ(sh2ADF,'scm_tmpdir',True,False)
     if SCMTEMPDIR == None:
         if 'SCMTEMPDIR' in os.environ:
@@ -1621,6 +1630,20 @@ def readQMin(QMinfilename):
         os.environ['PYTHONPATH']+=os.pathsep + os.path.join(QMin['ADFHOME'],'scripting')
 
 
+    # neglected gradients
+    QMin['neglected_gradient']='zero'
+    if 'grad' in QMin:
+        line=getsh2ADFkey(sh2ADF,'neglected_gradient')
+        if line[0]:
+            if line[1].lower().strip()=='zero':
+                QMin['neglected_gradient']='zero'
+            elif line[1].lower().strip()=='gs':
+                QMin['neglected_gradient']='gs'
+            elif line[1].lower().strip()=='closest':
+                QMin['neglected_gradient']='closest'
+            else:
+                print 'Unknown argument to "neglected_gradient"!'
+                sys.exit(1)
 
 
 
@@ -2139,11 +2162,27 @@ def readQMin(QMinfilename):
     njobs=len(joblist)
     QMin['njobs']=njobs
 
+    # make the gsmap
+    gsmap={}
+    for i in range(QMin['nmstates']):
+        m1,s1,ms1=tuple(QMin['statemap'][i+1])
+        gs=(m1,1,ms1)
+        job=QMin['multmap'][m1]
+        if m1==3 and QMin['jobs'][job]['restr']:
+            gs=(1,1,0.0)
+        for j in range(QMin['nmstates']):
+            m2,s2,ms2=tuple(QMin['statemap'][j+1])
+            if (m2,s2,ms2)==gs:
+                break
+        gsmap[i+1]=j+1
+    QMin['gsmap']=gsmap
+
     # get the set of states for which gradients actually need to be calculated
     gradmap=set()
     if 'grad' in QMin:
         for i in QMin['grad']:
             gradmap.add( tuple(statemap[i][0:2]) )
+            gradmap.add(      (statemap[i][0],1) )
     gradmap=list(gradmap)
     gradmap.sort()
     QMin['gradmap']=gradmap
@@ -2707,6 +2746,8 @@ def writeADFinput(QMin):
             string+='  residu %16.12f\n' % (QMin['template']['dvd_residu'])
         if QMin['template']['dvd_mblocksmall']:
             string+='  iterations %i\n' % (max(200,20*ncalc))
+        if DEBUG:
+            string+='  nto\n'
         string+='END\n'
         if QMin['template']['dvd_mblocksmall']:
             string+='MBLOCKSMALL\n'
@@ -3717,14 +3758,27 @@ def getQMout(QMin):
             dipoles=getdm(t21file,job,QMin)
             mults=QMin['multmap'][-job]
             for i in range(nmstates):
+                m1,s1,ms1=tuple(QMin['statemap'][i+1])
+                if not m1 in QMin['jobs'][job]['mults']:
+                    continue
                 for j in range(nmstates):
-                    m1,s1,ms1=tuple(QMin['statemap'][i+1])
                     m2,s2,ms2=tuple(QMin['statemap'][j+1])
+                    if not m2 in QMin['jobs'][job]['mults']:
+                        continue
                     if i==j and (m1,s1) in QMin['gradmap']:
                         path,isgs=QMin['jobgrad'][(m1,s1)]
                         if not isgs:
                             outfile=os.path.join(QMin['scratchdir'],path,'ADF.out')
-                            edm=getedm(outfile)
+                            if QMin['ADFversion']>=(2017,208):
+                                if QMin['jobs'][job]['restr'] and m1==3:
+                                    multstring='(Singlet-Triplet)'
+                                    state=s1
+                                else:
+                                    multstring=''
+                                    state=s1-1
+                                edm=getedm_multi(outfile,state,multstring)
+                            else:
+                                edm=getedm(outfile)
                             for ixyz in range(3):
                                 QMout['dm'][ixyz][i][j]=edm[ixyz]
                     if not m1==m2==mults[0] or not ms1==ms2:
@@ -3752,6 +3806,25 @@ def getQMout(QMin):
                 state=QMin['statemap'][istate]
                 if (state[0],state[1])==grad:
                     QMout['grad'][istate-1]=g
+        if QMin['neglected_gradient']!='zero':
+            for i in range(nmstates):
+                m1,s1,ms1=tuple(QMin['statemap'][i+1])
+                if not (m1,s1) in QMin['gradmap']:
+                    if QMin['neglected_gradient']=='gs':
+                        j=QMin['gsmap'][i+1]-1
+                    elif QMin['neglected_gradient']=='closest':
+                        e1=QMout['h'][i][i]
+                        de=999.
+                        for grad in QMin['gradmap']:
+                            for k in range(nmstates):
+                                m2,s2,ms2=tuple(QMin['statemap'][k+1])
+                                if grad==(m2,s2):
+                                    break
+                            e2=QMout['h'][k][k]
+                            if de>abs(e1-e2):
+                                de=abs(e1-e2)
+                                j=k
+                    QMout['grad'][i]=QMout['grad'][j]
 
     # Regular Overlaps
     if 'overlap' in QMin:
@@ -3836,6 +3909,33 @@ def getQMout(QMin):
     endtime=datetime.datetime.now()
     if PRINT:
         print "Readout Runtime: %s" % (endtime-starttime)
+
+    if DEBUG:
+        copydir=os.path.join(QMin['savedir'],'debug_ADF_stdout')
+        if not os.path.isdir(copydir):
+            mkdir(copydir)
+        for job in joblist:
+            outfile=os.path.join(QMin['scratchdir'],'master_%i/ADF.out' % (job))
+            shutil.copy(outfile,os.path.join(copydir,"ADF_%i.out" % job))
+            if QMin['jobs'][job]['restr'] and 'theodore' in QMin:
+                outfile=os.path.join(QMin['scratchdir'],'master_%i/tden_summ.txt' % job)
+                shutil.copy(outfile,os.path.join(copydir,'THEO_%i.out' % (job)))
+                outfile=os.path.join(QMin['scratchdir'],'master_%i/OmFrag.txt' % job)
+                shutil.copy(outfile,os.path.join(copydir,'THEO_OMF_%i.out' % (job)))
+        if 'grad' in QMin:
+            for grad in QMin['gradmap']:
+                path,isgs=QMin['jobgrad'][grad]
+                outfile=os.path.join(QMin['scratchdir'],path,'ADF.out')
+                shutil.copy(outfile,os.path.join(copydir,"ADF_GRAD_%i_%i.out" % grad))
+        if 'overlap' in QMin:
+            for mult in itmult(QMin['states']):
+                job=QMin['multmap'][mult]
+                outfile=os.path.join(QMin['scratchdir'],'WFOVL_%i_%i/wfovl.out' % (mult,job))
+                shutil.copy(outfile,os.path.join(copydir,'WFOVL_%i_%i.out' % (mult,job)))
+        if 'ion' in QMin:
+            for ion in QMin['ionmap']:
+                outfile=os.path.join(QMin['scratchdir'],'Dyson_%i_%i_%i_%i/wfovl.out' % ion)
+                shutil.copy(outfile,os.path.join(copydir,'Dyson_%i_%i_%i_%i.out' % ion))
 
     return QMout
 
@@ -4030,6 +4130,26 @@ def getedm(outfile):
             s=line.split()
             dm=[float(i)*D2au for i in s[5:]]
             return dm
+
+# ======================================================================= #
+def getedm_multi(outfile,state,multstring):
+
+    out=readfile(outfile)
+    if PRINT:
+        print 'Dipoles:  '+shorten_DIR(outfile)
+    active=False
+    for line in out:
+        if 'Excited state gradient for:' in line:
+            s=line.split()
+            if '%iA' % (state) == s[4] and multstring in line:
+                active=True
+            else:
+                active=False
+        if 'Excited state dipole moment =' in line and active:
+            s=line.split()
+            dm=[float(i)*D2au for i in s[5:]]
+            return dm
+    return [0.,0.,0.]
 
 # ======================================================================= #
 def getgrad(outfile,isgs,QMin):
