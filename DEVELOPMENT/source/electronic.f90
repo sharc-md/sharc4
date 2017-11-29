@@ -393,6 +393,7 @@ subroutine surface_hopping(traj,ctrl)
   integer :: istate,ilaser
   real*8 :: randnum, cumuprob
   real*8 :: Emax ! energy threshold for frustrated jumps
+  real*8 :: Ekin_masked
   real*8 :: sum_kk, sum_vk ! temp variables for kinetic adjustment
   real*8 :: deltaE
 
@@ -404,6 +405,8 @@ subroutine surface_hopping(traj,ctrl)
 
   ! calculate the hopping probabilities
   select case (ctrl%hopping_procedure)
+    case (0)
+      traj%hopprob_s=0.
     case (1)
       call calculate_probabilities(ctrl%nstates, traj%coeff_diag_old_s, traj%coeff_diag_s, &
       &traj%Rtotal_ss, traj%state_diag, traj%hopprob_s)
@@ -457,11 +460,11 @@ subroutine surface_hopping(traj,ctrl)
           continue
 
         case (1)    ! correct along v, full kinetic energy available
-!           Emax=traj%Epot + traj%Ekin
-          ! should use the potential energy at the new step
-!           Emax=traj%H_diag_ss(traj%state_diag,traj%state_diag) + traj%Ekin
-          ! why not use Etot
-          Emax=traj%Etot
+          Ekin_masked=Calculate_ekin_masked(ctrl%natom, traj%veloc_ad, traj%mass_a, ctrl%atommask_a)
+          ! Use Epot+Ekin
+!           Emax=traj%H_diag_ss(traj%state_diag,traj%state_diag) + Ekin_masked
+          ! Use Etot
+          Emax=traj%Etot- traj%Ekin + Ekin_masked
           if (real(traj%H_diag_ss(istate,istate)) > Emax) then
             traj%kind_of_jump=2
             exit stateloop         ! ************************************************* exit of loop
@@ -616,15 +619,17 @@ endsubroutine
 subroutine Decoherence(traj,ctrl)
   use definitions
   use matrix
+  use nuclear
   implicit none
   type(trajectory_type) :: traj
   type(ctrl_type) :: ctrl
   integer :: istate
-  real*8 :: tau0, tau, sumc
+  real*8 :: tau0, tau, sumc, Ekin_masked
   complex*16 :: c(ctrl%nstates)
 
   if (ctrl%decoherence==1) then 
-    tau0=1.d0 + ctrl%decoherence_alpha/traj%Ekin
+    Ekin_masked=Calculate_ekin_masked(ctrl%natom, traj%veloc_ad, traj%mass_a, ctrl%atommask_a)
+    tau0=1.d0 + ctrl%decoherence_alpha/Ekin_masked
 
     sumc=0.d0
     do istate=1,ctrl%nstates

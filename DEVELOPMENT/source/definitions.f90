@@ -136,6 +136,7 @@ type ctrl_type
 
 ! numerical constants
   integer :: natom                          !< number of atoms
+  logical,allocatable :: atommask_a(:)      !< atoms which are considered for decoherence, rescaling, ...
   integer :: maxmult                        !< highest spin quantum number (determines length of nstates_m)
   integer,allocatable :: nstates_m(:)       !< numer of states considered in each multiplicy
   integer :: nstates                        !< total number of states
@@ -239,6 +240,7 @@ integer, parameter :: u_i_geom=13            !< initial geometry
 integer, parameter :: u_i_veloc=14           !< initial velocity
 integer, parameter :: u_i_coeff=15           !< initial coefficients
 integer, parameter :: u_i_laser=16           !< numerical laser field
+integer, parameter :: u_i_atommask=17        !< which atoms are active for rescaling/decoherence/...
 
 integer, parameter :: u_qm_QMin=41           !< here SHARC writes information for the QM interface (like geometry, number of states, what kind of data is requested)
 integer, parameter :: u_qm_QMout=42          !< here SHARC retrieves the results of the QM run (Hamiltonian, gradients, couplings, etc.)

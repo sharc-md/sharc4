@@ -110,6 +110,25 @@ endfunction
 
 ! ===========================================================
 
+!> calculates the sum of the kinetic energies of all atoms
+real*8 function Calculate_ekin_masked(n, veloc, mass, mask) result(Ekin)
+  implicit none
+  integer, intent(in) :: n
+  real*8,intent(in) :: veloc(n,3), mass(n)
+  logical,intent(in) :: mask(n)
+  integer :: i
+
+  Ekin=0.d0
+  do i=1,n
+    ! sum of square can be written as sum(a**2)
+    if (mask(i))  Ekin=Ekin + 0.5d0*mass(i)*sum(veloc(i,:)**2)
+  enddo
+
+
+endfunction
+
+! ===========================================================
+
 !> calculates the kinetic energy,
 !> the potential energy (from H_diag)
 !> and the total energy
@@ -152,7 +171,7 @@ subroutine Rescale_velocities(traj,ctrl)
   implicit none
   type(trajectory_type) :: traj
   type(ctrl_type) :: ctrl
-  real*8 :: factor, sum_kk, sum_vk, deltaE
+  real*8 :: factor, sum_kk, sum_vk, deltaE, Ekin_masked, Ekin_new
   integer :: i
 
   if (printlevel>2) then
@@ -168,12 +187,30 @@ subroutine Rescale_velocities(traj,ctrl)
         case (0)
           if (printlevel>2) write(u_log,*) 'Velocity is not rescaled after surface hop.'
         case (1)
-          factor=sqrt( (traj%Etot-real(traj%H_diag_ss(traj%state_diag,traj%state_diag)))/traj%Ekin )
-          traj%veloc_ad=traj%veloc_ad*factor
+          Ekin_masked=Calculate_ekin_masked(ctrl%natom, traj%veloc_ad, traj%mass_a, ctrl%atommask_a)
+          ! Use Epot+Ekin
+!           Ekin_new=Ekin_masked &
+!           & + real(traj%H_diag_ss(traj%state_diag_old,traj%state_diag_old)) &
+!           & - real(traj%H_diag_ss(traj%state_diag,traj%state_diag))
+          ! Use Etot
+          Ekin_new=traj%Etot&
+          & - traj%Ekin + Ekin_masked &
+          & - real(traj%H_diag_ss(traj%state_diag,traj%state_diag))
+          factor=sqrt( Ekin_new/Ekin_masked )
+          do i=1,ctrl%natom
+            if (ctrl%atommask_a(i)) traj%veloc_ad(i,:)=traj%veloc_ad(i,:)*factor
+          enddo
           if (printlevel>2) then
             write(u_log,'(A)') 'Velocity is rescaled along velocity vector.'
+            if (.not.all(ctrl%atommask_a)) write(u_log,'(A)') 'Some velocities were not rescaled due to mask.'
             write(u_log,'(A,1X,F12.9)') 'Scaling factor is ',factor
           endif
+! ! !           factor=sqrt( (traj%Etot-real(traj%H_diag_ss(traj%state_diag,traj%state_diag)))/traj%Ekin )
+! ! !           traj%veloc_ad=traj%veloc_ad*factor
+! ! !           if (printlevel>2) then
+! ! !             write(u_log,'(A)') 'Velocity is rescaled along velocity vector.'
+! ! !             write(u_log,'(A,1X,F12.9)') 'Scaling factor is ',factor
+! ! !           endif
         case (2)
           call available_ekin(ctrl%natom,&
           &traj%veloc_ad,real(traj%gmatrix_ssad(traj%state_diag_old, traj%state_diag,:,:)),&

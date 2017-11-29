@@ -1257,6 +1257,55 @@ module input
 
   ! =====================================================
 
+  ! process the atom mask
+  allocate( ctrl%atommask_a(ctrl%natom))
+  ctrl%atommask_a=.true.
+  line=get_value_from_key('atommask',io)
+  if (io==0) then
+    ! ------- some combinations do not work
+    if (ctrl%ekincorrect==2) then
+      write(0,*) 'Keywords "atommask" and "ekincorrect parallel_nac" not compatible!'
+      stop 1
+    endif
+    ! TODO: add more as needed
+    ! -------
+    call split(line,' ',values,n)
+    select case (trim(values(1)))
+      ! initialize atommask from file
+      case ('external')
+          line=get_value_from_key('atommaskfile',io)
+          if (io==0) then
+            call get_quoted(line,geomfilename)
+            filename=trim(geomfilename)
+          else
+            filename='atommask'
+          endif
+          open(u_i_atommask,file=filename, status='old', action='read', iostat=io)
+
+          if (printlevel>1) write(u_log,'(3A)') 'Reading atom mask from file "',trim(filename),'"'
+          if (io/=0) then
+            write(0,*) 'Could not find atom mask file!'
+            stop 1
+          endif
+          do i=1,ctrl%natom
+            read(u_i_atommask,*) ctrl%atommask_a(i)
+          enddo
+          close(u_i_atommask)
+      case default
+        write(0,*) 'Unknown option for keyword atommask!'
+        stop 1
+    endselect
+    deallocate(values)
+  endif
+  if (printlevel>2) then
+    write(u_log,*) 'Atom mask:'
+    do i=1,ctrl%natom
+      write(u_log,*) i,traj%element_a(i),ctrl%atommask_a(i)
+    enddo
+  endif
+
+  ! =====================================================
+
   ! Reading the coefficients
 
     if (printlevel>0) then

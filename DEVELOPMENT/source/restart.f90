@@ -38,7 +38,7 @@ module restart
     integer :: u
     type(ctrl_type) :: ctrl
 
-    integer :: imult, istate, ilaser
+    integer :: imult, istate, ilaser, iatom
 
     ! the ctrl restart file is only written once at the beginning to avoid writing the laser field
     ! each timestep
@@ -112,6 +112,10 @@ module restart
     write(u,*) ctrl%write_property2d
     write(u,*) ctrl%n_property1d
     write(u,*) ctrl%n_property2d
+    
+    do iatom=1,ctrl%natom
+      write(u,*) ctrl%atommask_a(iatom)
+    enddo
     
     close(u)
 
@@ -368,6 +372,11 @@ module restart
     read(u_ctrl,*) ctrl%write_property2d
     read(u_ctrl,*) ctrl%n_property1d
     read(u_ctrl,*) ctrl%n_property2d
+    
+    allocate( ctrl%atommask_a(ctrl%natom))
+    do iatom=1,ctrl%natom
+      read(u_ctrl,*) ctrl%atommask_a(iatom)
+    enddo
     
     close(u_ctrl)
 
