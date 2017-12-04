@@ -10,8 +10,8 @@ import cmath
 import random
 import sys
 import datetime
-import re
 from optparse import OptionParser
+import re
 
 # =========================================================0
 # compatibility stuff
@@ -32,6 +32,13 @@ if sys.version_info[1]<5:
       if not element:
         return False
     return True
+
+np = True
+try:
+    import numpy
+except ImportError:
+    print 'numpy package not installed'
+    np = False
 
 
 
@@ -454,89 +461,7 @@ def get_mass(symb,number):
 
 # ======================================================================================================================
 
-def import_from_molpro(filename,scaling):
-  """This function imports the atomic coordinates and normal modes
-from a MOLPRO frequency calculation.
-It returns the atomic coordinates in a list where each entry is a
-dictionary containing the symbol and xyz-coordinates of a single
-atom. The normal modes are also returned in a list where each entry
-is a dictionary describing one mode by its frequency and the
-movement vector for each atom of the molecule."""
-
-  f=open(filename)
-  data=f.readlines()
-  f.close()
-
-  # find coordinate block
-  iline=0
-  while not 'FREQUENCIES * CALCULATION OF NORMAL MODES' in data[iline]:
-    iline+=1
-    if iline==len(data):
-      print 'Could not find coordinates in %s!' % (filename)
-      quit(1)
-  # get atoms
-  iline+=7
-  natom=0
-  molecule=[]
-  while not data[iline]=='\n':
-    f=data[iline].split()
-    symb=f[1].lower().title()
-    num=float(f[2])
-    coord=[ float(f[i+3]) for i in range(3) ]
-    natom+=1
-    mass=get_mass(symb,natom)
-    whichatoms.append(symb)
-    molecule.append(ATOM(symb,num,coord,mass))
-    iline+=1
-
-  # obtain all frequencies, including low ones
-  found_freq = True
-  modes = [] # list of normal modes
-  for ln, line in enumerate(data): # iterate through the file line by line
-    if line.find('Wavenumbers [cm-1]') != -1 and found_freq:
-      # read frequencies
-      line = line.split()
-      for i, freq in enumerate(line[2:]):
-        if float(freq) > LOW_FREQ: # ignore low frequencies
-          mode = {}
-          mode['freq'] = float(freq) * CM_TO_HARTREE * scaling
-          mode['move'] = []
-          hindex = i + 1 # horizontal index
-          for j, atom in enumerate(molecule):
-            vindex = ln + (j+1)*3 # at this line the data for the oscillation of the single atom starts
-            x = float(data[vindex].split()[hindex])
-            y = float(data[vindex+1].split()[hindex])
-            z = float(data[vindex+2].split()[hindex])
-            mode['move'].append( [x, y, z] )
-          # transform coordinates of displacement into mass weighted coordinates
-          # see: http://www.molpro.net/piperdavidl/molpro-user/2010-November/004035.html
-          # first of all, norm molpro movement vectors
-          norm = 0.0
-          for j, atom in enumerate(molecule):
-            for xyz in range(3):
-              norm += mode['move'][j][xyz]**2
-          norm = math.sqrt(norm)
-          for j, atom in enumerate(molecule):
-            for xyz in range(3):
-              mode['move'][j][xyz] /= norm
-          # now calculate the movement vectors, taking the mass of the atoms into account
-          mu_reduced = 0.0
-          for j, atom in enumerate(molecule):
-            for xyz in range(3):
-              mu_reduced += mode['move'][j][xyz]**2 / MASSES[atom.symb]
-          mu_reduced = math.sqrt(mu_reduced)
-          for j, atom in enumerate(molecule):
-            for xyz in range(3):
-              mode['move'][j][xyz] *= mu_reduced
-          mode['mu_red'] = mu_reduced
-          modes.append(mode)
-  #print molecule
-  #print modes
-  return molecule, modes
-
-# ======================================================================================================================
-
-def import_from_molden(filename,scaling):
+def import_from_molden(filename,scaling,flag):
   '''This function imports atomic coordinates and normal modes from a MOLDEN
 file. Returns molecule and modes as the other function does.
 '''
@@ -618,23 +543,9 @@ file. Returns molecule and modes as the other function does.
       for xyz in range(3):
         norm += modes[imode]['move'][j][xyz]**2
     norm = math.sqrt(norm)
-    if norm!=0.0:
-      for j, atom in enumerate(molecule):
-        for xyz in range(3):
-          modes[imode]['move'][j][xyz] /= norm
-    elif modes[imode]['freq']>=LOW_FREQ*CM_TO_HARTREE:
+    if norm ==0.0 and modes[imode]['freq']>=LOW_FREQ*CM_TO_HARTREE:
       print 'WARNING: Displacement vector of mode %i is null vector. Ignoring this mode!' % (imode+1)
       modes[imode]['freq']=0.
-    # now calculate the movement vectors, taking the mass of the atoms into account
-    mu_reduced = 0.0
-    for j, atom in enumerate(molecule):
-      for xyz in range(3):
-        mu_reduced += modes[imode]['move'][j][xyz]**2 / atom.mass
-    mu_reduced = math.sqrt(mu_reduced)
-    for j, atom in enumerate(molecule):
-      for xyz in range(3):
-        modes[imode]['move'][j][xyz] *= mu_reduced
-    modes[imode]['mu_red'] = mu_reduced
 
   # delete low modes
   newmodes=[]
@@ -644,13 +555,16 @@ file. Returns molecule and modes as the other function does.
     if modes[imode]['freq']>=LOW_FREQ*CM_TO_HARTREE:
       newmodes.append(modes[imode])
   modes=newmodes
+  nmodes = len(modes)
+  modes = determine_normal_modes_format(modes,molecule,nmodes,flag)
+
   return molecule, modes
 
 # ======================================================================================================================
 # ======================================================================================================================
 # ======================================================================================================================
 
-def factorial(n):
+def factorialold(n):
     """This function recursively calculates the factorial of n."""
     if n == 0:
         return 1
@@ -658,6 +572,26 @@ def factorial(n):
         return 1
     else:
         return n * factorial(n-1)
+
+def factorial(n,ndic):
+    """This function recursively calculates the factorial of n  and 
+stores it in ndicif it is not stored in ndic already."""
+    if n not in ndic:
+      m,ndic =factorial(n-1,ndic)
+      ndic[n] = m *n 
+      return ndic[n], ndic
+    else:
+      return ndic[n], ndic
+
+def ana_laguerre(n, x,ndic):
+    """This function analytically calculates the value of the nth order
+Laguerre polynomial at point x. The demoniator limits this function to 
+n below 99."""
+    total = 0.
+    for m in range(n+1):
+      entry = (-1.)**m*factorial(n,ndic)[0]/(factorial(n-m,ndic)[0]*(factorial(m,ndic)[0]**2))*(x**m)
+      total += entry
+    return total
 
 def laguerre(n, x):
     """This function recursively calculates the value of the nth order
@@ -670,21 +604,78 @@ Laguerre polynomial at point x."""
         L = 1.0 / n * ( (2.0*(n-1.0) + 1.0 - x) * laguerre(n-1, x)
                         - (n-1.0) * laguerre(n-2, x) )
         return L
+def determine_state(mode):
+  """This function determines the vibrational state of the
+mode for the system at a certain temperature."""
+  # every state has a finite probability of being populated
+  # at a finite temperature. we restrict only to so many
+  # states that the sum of populations is "thresh"
+  thresh=0.99
+  # also consider that with higher excited states harmonic
+  # approximation is probably worse.
+  freq = mode['freq']/CM_TO_HARTREE
+  exponent = freq/(0.695035*temperature)  # factor for conversion cm-1 to K
+  if exponent > 800:
+    print 'Very low temperature or very high frequency detected! Parameters were adjusted.'
+    exponent = 600
+  partition_function = math.exp(-exponent/2.) / \
+                       ( 1. - math.exp(-exponent) )
+  n=-1
+  sum_p=0.
+  prob=[]
+  # calculate probabilities until sum is larger than threshold
+  while True:
+    n += 1
+    p = math.exp(-exponent*(n+1./2.))/partition_function
+    prob.append(p)
+    sum_p += prob[n]
+    if sum_p >= thresh:
+      break
+  n=-1
+  probability = 0.
+  # generate random number that is smaller than threshold
+  while True:
+    random_state = random.random()
+    if random_state < sum_p:
+      break
+  # determine state number by comparing with random number
+  while True:
+    n += 1
+    probability += prob[n]
+    if probability >= random_state:
+      return n
+      break
 
-def wigner(Q, P, n=0):
+
+def wigner(Q, P, mode, ndic):
     """This function calculates the Wigner distribution for 
 a single one-dimensional harmonic oscillator.
 Q contains the dimensionless coordinate of the
 oscillator and P contains the corresponding momentum.
 n is the number of the vibrational state (default 0).
 The function returns a probability for this set of parameters."""
+    if temperature == 0:
+      n = 0
+    else:
+      n = determine_state(mode)
+      #square of the factorial becomes to large to handle. Keep in mind,
+      #that the harmonic approximation is most likely not valid at these 
+      #excited states
+      if n > 98:
+        if high_temp:
+          n = -1
+          print 'Highest considered vibrational state reached! Discarding this probability.'
+        else:
+          print 'Highest considered vibrational state reached!\nVibrational state ',n,' was set to 98. If you want to discard these states instead (due to oversampling of mode nr 98), use the -T option.'
+          n = 98
     if n == 0: # vibrational ground state
-        return math.exp(-Q**2) * math.exp(-P**2)
+        return (math.exp(-Q**2) * math.exp(-P**2), 0.)
     else: # vibrational excited state
         rhosquare = 2.0 * (P**2 + Q**2)
-        W = (-1.0)**n * laguerre(n,rhosquare) \
+        W = (-1.0)**n * ana_laguerre(n,rhosquare,ndic) \
           * math.exp(-rhosquare/2.0)
-        return W
+        n=float(n)
+        return (W,n)
 
 def plot_wigner_functions():
     """This function creates several output files for the first 11
@@ -902,7 +893,137 @@ original position. Threshold is given in bohr."""
                 ic[i]['coords'][xyz] = atom.coord[xyz] \
                                        + diff_vector[xyz]
 
-def sample_initial_condition(molecule, modes):
+def determine_normal_modes_format(modes, molecule, nmodes, flag):
+  '''This function determines the input format of the normal modes by trying to 
+transform them to mass-weighted coordinates and seeing which of the four methods 
+was able to do so via checking if the normal modes are now orthogonal. The mass-
+weighted normal coordinates are then returned'''
+
+  print 'Starting normal mode format determination...'
+
+  #generate different set of modes that each undergo a different transformation
+  #modes_1, modes_2, modes_3 and modes are represented by the numbers 1, 2, 3 
+  #and 4, where 1 stands for gaussian-type coordinates, 2 for cartesian coordinates, 
+  #3 for Colombus-type coordinates and 4 for already mass-weighted coordinates.
+  modes_1 = copy.deepcopy(modes)
+  modes_2 = copy.deepcopy(modes)
+  modes_3 = copy.deepcopy(modes)
+  allmodes = [modes_1,modes_2,modes_3,modes]
+  normformat = ["gaussian-type (Gaussian, Turbomole, Q-Chem, ADF, Orca)","cartesian (Molpro, Molcas)","columbus-type (Columbus)","mass-weighted"]
+
+  #apply transformations to normal modes
+  for imode in range(nmodes):
+    norm = 0.0
+    for j, atom in enumerate(molecule):
+      for xyz in range(3):
+        norm += modes_2[imode]['move'][j][xyz]**2*atom.mass/U_TO_AMU
+    norm = math.sqrt(norm)
+    if norm == 0.0 and modes[imode]['freq']>=LOW_FREQ*CM_TO_HARTREE:
+      print 'WARNING: Displacement vector of mode %i is null vector. Ignoring this mode!' % (imode+1)
+      for normmodes in allmodes:
+        normmodes[imode]['freq']=0.0       
+    for j, atom in enumerate(molecule):
+      for xyz in range(3):
+        modes_1[imode]['move'][j][xyz] /= norm/math.sqrt(atom.mass/U_TO_AMU)
+        modes_2[imode]['move'][j][xyz] *= math.sqrt(atom.mass/U_TO_AMU)
+        modes_3[imode]['move'][j][xyz] *= math.sqrt(atom.mass/U_TO_AMU)/math.sqrt(ANG_TO_BOHR)
+  if flag != 0:
+    print "Using input flag",flag, "for", normformat[flag-1],"coordinates. Skipping normal mode analysis. "
+    return allmodes[flag-1]
+
+  elif int(flag) <= 4:
+    #create dotproduct matrices of the normal mode multiplication 
+    #for all three transformations.
+    if np:
+      matrix = [[] for i in range(4)]
+      for coord in range(len(molecule)):
+        for xyz in range(3):
+          displacement = [[] for i in range(4)]
+          for mode in range(nmodes):
+            for nr in range(len(allmodes)):     
+              displacement[nr].append(allmodes[nr][mode]['move'][coord][xyz])
+          for nr in range(len(allmodes)):
+            matrix[nr].append(displacement[nr])
+      newmatrix = [[] for i in range(4)]
+      results = [[] for i in range(4)]
+      for nr in range(len(allmodes)):
+        newmatrix[nr] = numpy.array(matrix[nr])
+        results[nr] = numpy.dot(newmatrix[nr].T,newmatrix[nr]) 
+
+    else:
+      #do the slow matrix multiplication of every normal mode with every other
+      #this approach is approximately 25 times slower than the numpy approach 
+      #at a 190 atom test-system but works always
+      results = [[[0 for j in range(nmodes)]for i in range(nmodes)] for k in range(len(allmodes))]
+      for mode1 in range(nmodes):
+        for mode2 in range(nmodes):
+          dotproduct = [0,0,0,0]
+          for coord, atom in enumerate(molecule):
+            for xyz in range(3):
+              for i in range(len(allmodes)):
+                dotproduct[i] += allmodes[i][mode1]['move'][coord][xyz]*allmodes[i][mode2]['move'][coord][xyz]
+          for i in range(len(dotproduct)):
+            results[i][mode1][mode2] = dotproduct[i]
+
+
+    #check for orthogonal matrices
+    diagonalcheck = [[],[]]
+    thresh = 0.05
+    for result in results: 
+      trace = 0
+      for i in range(len(result)):
+        trace += result[i][i]
+        result[i][i] -= 1
+      diagonalcheck[0].append(trace)
+      #print all matrices
+      #for row in result:
+        #string = ''
+        #for entry in row:
+        #  string += "%4.1f" % (float(entry))
+        #print string
+      if any( [abs(i) > thresh for j in result for i in j ] ):
+        diagonalcheck[1].append(0)
+      else:
+        diagonalcheck[1].append(1)
+    possibleflags = []
+    for i in range(4):
+      if diagonalcheck[0][i] > nmodes-1 and diagonalcheck[0][i]/nmodes-1 < thresh and diagonalcheck[1][i] == 1:
+        possibleflags.append(i+1)
+        #this means that previous flag is overwritten if multiple checks were positive.
+        #However ordering of the checks is made in a way that it gives the right result
+        #for all QM programs tested so far. 
+        nm_flag = i
+    #check for input flag
+    try:
+      print "Final format specifier: ",nm_flag+1,"\n"
+    except UnboundLocalError:
+      print "The normal mode analysis was unable to diagonalize the normal modes."
+      print "Input is therefore neither in cartesian, gaussian-type, Columbus-type, or mass weighted coordinates."
+      exit(1)
+    if len(possibleflags) != 1:
+      string = ''
+      for entry in possibleflags:
+        string += normformat[entry-1]
+        string += ", "
+      print "Multiple possible flags have been identified: %s\n" % (string[:-2])
+      print "The most likely assumption is %s coordinates."  % (normformat[nm_flag])
+      print "These have been used in the creation of inital conditions."
+      print "\nYou can override this behavior by setting the -f [int] flag in the command line:"
+      string = ''
+      for mode in range(len(normformat)):
+         string += "  "+str(mode+1) + "\t" + (normformat[mode]) +"\n"
+      print string
+    else:
+      print "The normal modes input format was deterimend to be %s coordinates." % (normformat[nm_flag])      
+    #return the set of transformed normal modes that resulted in an orthogonal matrix (mass-weighted)
+    return allmodes[nm_flag]
+  else:
+    print "Wrong input, please specify a valid flag [0,1,2,3,4]!"
+    quit(1)
+
+
+
+def sample_initial_condition(molecule, modes, ndic):
   """This function samples a single initial condition from the
 modes and atomic coordinates by the use of a Wigner distribution.
 The first atomic dictionary in the molecule list contains also
@@ -923,10 +1044,11 @@ Method is based on L. Sun, W. L. Hase J. Chem. Phys. 133, 044313
       random_Q = random.random()*6.0 - 3.0
       random_P = random.random()*6.0 - 3.0
       # calculate probability for this set of P and Q with Wigner distr.
-      probability = wigner(random_Q, random_P)
-      if probability>1. or probability<0.:
-        print 'WARNING: wrong probability %f detected!' % (probability)
-      elif probability > random.random():
+      probability = wigner(random_Q, random_P, mode, ndic)
+      if probability[0]>1. or probability[0]<0.:
+        if temperature == 0:
+          print 'WARNING: wrong probability %f detected!' % (probability[0])
+      elif probability[0] > random.random():
         break # coordinates accepted
     # now transform the dimensionless coordinate into a real one
     # paper says, that freq_factor is sqrt(2*PI*freq)
@@ -941,13 +1063,10 @@ Method is based on L. Sun, W. L. Hase J. Chem. Phys. 133, 044313
     for i, atom in enumerate(atomlist): # for each atom
       for xyz in range(3): # and each direction
         # distort geometry according to normal mode movement
-        # factor of sqrt(1/2) is necessary to distribute energy evenly over
-        # kinetatomlist and potential energy
-        if not UEG:
-          atom.coord[xyz] += random_Q * mode['move'][i][xyz] * math.sqrt(0.5)
-        # add velocity
-        if not UZV:
-          atom.veloc[xyz] += random_P * mode['move'][i][xyz] * math.sqrt(0.5)
+        # and unweigh mass-weighted normal modes
+        atom.coord[xyz] += random_Q * mode['move'][i][xyz] * math.sqrt(1./atom.mass)
+          # add velocity
+        atom.veloc[xyz] += random_P * mode['move'][i][xyz] * math.sqrt(1./atom.mass)        
       atom.EKIN()
   if not KTR:
     restore_center_of_mass(molecule, atomlist)
@@ -1007,11 +1126,12 @@ def create_initial_conditions_string(molecule, modes, ic_list, eref=0.0):
 Ninit     %i
 Natom     %i
 Repr      %s
+Temp      %18.10f
 Eref      %18.10f
 Eharm     %18.10f
 
 Equilibrium
-''' % (version,ninit,natom,representation,eref,eharm)
+''' % (version,ninit,natom,representation,temperature,eref,eharm)
   for atom in molecule:
     string+=str(atom)+'\n'
   string+='\n\n'
@@ -1027,9 +1147,12 @@ def create_initial_conditions_list(amount, molecule, modes):
 data given in 'molecule' and 'modes'. Output is returned 
 as a list containing all initial condition objects."""
     ic_list = []
+    ndic = {}
+    ndic[0] = 1
+    ndic[1] = 1
     for i in range(1,amount+1): # for each requested initial condition
         # sample the initial condition
-        ic = sample_initial_condition(molecule, modes)
+        ic = sample_initial_condition(molecule, modes,ndic)
         ic_list.append(ic)
     return ic_list
 
@@ -1078,15 +1201,13 @@ as described in [2] (non-fixed energy, independent mode sampling).
   parser.add_option('-n', dest='n', type=int, nargs=1, default=3, help="Number of geometries to be generated (integer, default=3)")
   parser.add_option('-r', dest='r', type=int, nargs=1, default=16661, help="Seed for the random number generator (integer, default=16661)")
   parser.add_option('-o', dest='o', type=str, nargs=1, default='initconds', help="Output filename (string, default=""initconds"")")
-  parser.add_option('--MOLPRO', dest='M', action='store_true',help="Assume a MOLPRO frequency file (default=assume MOLDEN file)")
   parser.add_option('-x', dest='X', action='store_true',help="Generate a xyz file with the sampled geometries in addition to the initconds file")
   parser.add_option('-m', dest='m', action='store_true',help="Enter non-default atom masses")
   parser.add_option('-s', dest='s', type=float, nargs=1, default=1.0, help="Scaling factor for the energies (float, default=1.0)")
+  parser.add_option('-t', dest='t', type=float, nargs=1, default=0, help="Temperature (float, default=300.0)")
+  parser.add_option('-T', dest='T', action='store_true', help="Discard high vibrational states in the temperature sampling ")
   parser.add_option('--keep_trans_rot', dest='KTR', action='store_true',help="Keep translational and rotational components")
-  parser.add_option('--use_eq_geom',    dest='UEG', action='store_true',help="For all samples, use the equilibrium geometry (only sample velocities)")
-  parser.add_option('--use_zero_veloc', dest='UZV', action='store_true',help="For all samples, set velocities to zero")
-
-
+  parser.add_option('-f', dest='f', type=int, nargs=1, default='0', help="Define the type of read normal modes. 0 for automatic assignement, 1 for gaussian-type normal modes (Gaussian, Turbomole, Q-Chem, ADF, Orca), 2 for cartesian normal modes (Molcas, Molpro), 3 for Columbus-type (Columbus), or mass-weighted. (integer, default=0)")
   (options, args) = parser.parse_args()
   random.seed(options.r)
   amount=options.n
@@ -1097,14 +1218,15 @@ as described in [2] (non-fixed energy, independent mode sampling).
   outfile=options.o
   nondefmass=options.m
   scaling=options.s
-  if not options.M:
-    options.M=False
+  flag=options.f
+
 
   print '''Initial condition generation started...
-%s file                  = "%s"
+INPUT  file                  = "%s"
 OUTPUT file                  = "%s"
 Number of geometries         = %i
-Random number generator seed = %i''' % (['MOLDEN','MOLPRO'][options.M], filename, outfile, options.n, options.r)
+Random number generator seed = %i
+Temperature                  = %f''' % (filename, outfile, options.n, options.r,options.t)
   if nondefmass:
     global MASS_LIST
     MASS_LIST = ask_for_masses()
@@ -1115,17 +1237,25 @@ Random number generator seed = %i''' % (['MOLDEN','MOLPRO'][options.M], filename
 
   global KTR
   KTR=options.KTR
-  global UEG
-  UEG=options.UEG
-  global UZV
-  UZV=options.UZV
+
+  global temperature
+  temperature=options.t
+  if temperature!=0:
+    print 'Using temperature-dependent sampling'
+  #   print 'Script only for finite temperature. Sorry...'
+  #   sys.exit()
+
+  global high_temp
+  if options.T:
+    high_temp = True
+  else:
+    high_temp = False
+
 
   global whichatoms
   whichatoms=[]
-  if options.M:
-    molecule, modes = import_from_molpro(filename, scaling)
-  else:
-    molecule, modes = import_from_molden(filename, scaling)
+
+  molecule, modes = import_from_molden(filename, scaling,flag)
 
   string='Geometry:\n'
   for atom in molecule:
@@ -1162,3 +1292,4 @@ Random number generator seed = %i''' % (['MOLDEN','MOLPRO'][options.M], filename
 
 if __name__ == '__main__':
     main()
+
