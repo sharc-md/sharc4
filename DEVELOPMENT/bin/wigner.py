@@ -51,7 +51,7 @@ ANG_TO_BOHR = 1./0.529177211    #1.889725989      # conversion from Angstrom to 
 PI = math.pi
 
 version='1.0'
-versiondate=datetime.date(2014,10,8)
+versiondate=datetime.date(2017,12,4)
 
 
 NUMBERS = {'H':  1, 'He': 2,
@@ -475,7 +475,6 @@ file. Returns molecule and modes as the other function does.
     iline+=1
     if iline==len(data):
       print 'Could not find coordinates in %s!' % (filename)
-      print 'Perhaps this is a MOLPRO output, then please use -M option.'
       quit(1)
   # get atoms
   iline+=1
@@ -616,8 +615,9 @@ mode for the system at a certain temperature."""
   freq = mode['freq']/CM_TO_HARTREE
   exponent = freq/(0.695035*temperature)  # factor for conversion cm-1 to K
   if exponent > 800:
-    print 'Very low temperature or very high frequency detected! Parameters were adjusted.'
     exponent = 600
+    print '''The partition function is too close to zero due to very low temperature or very high frequency! It was set to %e''' % (math.exp(-exponent/2.) /\
+ ( 1. - math.exp(-exponent) ))
   partition_function = math.exp(-exponent/2.) / \
                        ( 1. - math.exp(-exponent) )
   n=-1
@@ -666,7 +666,7 @@ The function returns a probability for this set of parameters."""
           n = -1
           print 'Highest considered vibrational state reached! Discarding this probability.'
         else:
-          print 'Highest considered vibrational state reached!\nVibrational state ',n,' was set to 98. If you want to discard these states instead (due to oversampling of mode nr 98), use the -T option.'
+          print 'The calculated excited vibrational state for this normal mode exceeds the limit of the calculation.\nThe harmonic approximation is not valid for high vibrational states of low-frequency normal modes. The vibrational state ',n,' was set to 98. If you want to discard these states instead (due to oversampling of mode nr 98), use the -T option.'
           n = 98
     if n == 0: # vibrational ground state
         return (math.exp(-Q**2) * math.exp(-P**2), 0.)
@@ -899,7 +899,7 @@ transform them to mass-weighted coordinates and seeing which of the four methods
 was able to do so via checking if the normal modes are now orthogonal. The mass-
 weighted normal coordinates are then returned'''
 
-  print 'Starting normal mode format determination...'
+  print '\nStarting normal mode format determination...'
 
   #generate different set of modes that each undergo a different transformation
   #modes_1, modes_2, modes_3 and modes are represented by the numbers 1, 2, 3 
@@ -995,17 +995,16 @@ weighted normal coordinates are then returned'''
         nm_flag = i
     #check for input flag
     try:
-      print "Final format specifier: ",nm_flag+1,"\n"
+      print "Final format specifier: %s [%s]" % (nm_flag+1, normformat[nm_flag])
     except UnboundLocalError:
       print "The normal mode analysis was unable to diagonalize the normal modes."
       print "Input is therefore neither in cartesian, gaussian-type, Columbus-type, or mass weighted coordinates."
       exit(1)
     if len(possibleflags) != 1:
-      string = ''
+      string = '\n'
       for entry in possibleflags:
-        string += normformat[entry-1]
-        string += ", "
-      print "Multiple possible flags have been identified: %s\n" % (string[:-2])
+        string += '  %s \n' % (normformat[entry-1])
+      print "Multiple possible flags have been identified: %s" % (string[:-2])
       print "The most likely assumption is %s coordinates."  % (normformat[nm_flag])
       print "These have been used in the creation of inital conditions."
       print "\nYou can override this behavior by setting the -f [int] flag in the command line:"
@@ -1014,7 +1013,7 @@ weighted normal coordinates are then returned'''
          string += "  "+str(mode+1) + "\t" + (normformat[mode]) +"\n"
       print string
     else:
-      print "The normal modes input format was deterimend to be %s coordinates." % (normformat[nm_flag])      
+      print "The normal modes input format was determined to be %s coordinates." % (normformat[nm_flag])      
     #return the set of transformed normal modes that resulted in an orthogonal matrix (mass-weighted)
     return allmodes[nm_flag]
   else:
@@ -1052,7 +1051,7 @@ Method is based on L. Sun, W. L. Hase J. Chem. Phys. 133, 044313
         break # coordinates accepted
     # now transform the dimensionless coordinate into a real one
     # paper says, that freq_factor is sqrt(2*PI*freq)
-    # molpro directly gives angular frequency (2*PI is not needed)
+    # QM programs directly give angular frequency (2*PI is not needed)
     freq_factor = math.sqrt(mode['freq'])
     # Higher frequencies give lower displacements and higher momentum.
     # Therefore scale random_Q and random_P accordingly:
@@ -1204,7 +1203,7 @@ as described in [2] (non-fixed energy, independent mode sampling).
   parser.add_option('-x', dest='X', action='store_true',help="Generate a xyz file with the sampled geometries in addition to the initconds file")
   parser.add_option('-m', dest='m', action='store_true',help="Enter non-default atom masses")
   parser.add_option('-s', dest='s', type=float, nargs=1, default=1.0, help="Scaling factor for the energies (float, default=1.0)")
-  parser.add_option('-t', dest='t', type=float, nargs=1, default=0, help="Temperature (float, default=300.0)")
+  parser.add_option('-t', dest='t', type=float, nargs=1, default=0, help="Temperature (float, default=0.0)")
   parser.add_option('-T', dest='T', action='store_true', help="Discard high vibrational states in the temperature sampling ")
   parser.add_option('--keep_trans_rot', dest='KTR', action='store_true',help="Keep translational and rotational components")
   parser.add_option('-f', dest='f', type=int, nargs=1, default='0', help="Define the type of read normal modes. 0 for automatic assignement, 1 for gaussian-type normal modes (Gaussian, Turbomole, Q-Chem, ADF, Orca), 2 for cartesian normal modes (Molcas, Molpro), 3 for Columbus-type (Columbus), or mass-weighted. (integer, default=0)")
