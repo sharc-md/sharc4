@@ -140,12 +140,11 @@ def main():
             print "ERROR: only singlets and triplets supported (for now)"
             sys.exit()
 
-    wf = open('SH2LVC.inp', 'w')
-    #wf.write('%i\n'%QMin['natom'])
-    #for state in QMin['states']:
-    #    wf.write('%i '%state)
-    for line in open('SH2LVC.prep', 'r'):
-        wf.write(line)
+    wf = open('LVC.template', 'w')
+    wf.write('V0.txt\n')
+    for state in QMin['states']:
+        wf.write('%i '%state)
+    wf.write('\n')
 
     wf.write('epsilon\n')
     wf.write('%i\n'%QMin['nstates'])
@@ -158,7 +157,8 @@ def main():
 
 # ------------------------------------------------------------------------- #
 
-    SH2LVC,QMin=SHARC_LVC.read_SH2LVC(QMin, 'SH2LVC.prep')
+    SH2LVC = {}
+    SHARC_LVC.read_V0(QMin, SH2LVC)
     r3N = range(3*QMin['natom'])
 
     # OVM is the full transformation matrix from Cartesian to dimensionless
@@ -223,7 +223,7 @@ def main():
 # ------------------------------------------------------------------------- #
 
     wf.close()
-    print 'File SH2LVC.inp written.'
+    print 'File %s written.'%wf.name
 
 # ======================================================================= #
 

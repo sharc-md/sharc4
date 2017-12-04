@@ -924,6 +924,51 @@ def read_LVC_mat(nmstates, header, rfile):
 
   return mat
 # =========================================================
+def read_V0(QMin, SH2LVC, fname='V0.txt'):
+  """"
+  Reads information about the ground-state potential from V0.txt.
+  Returns the displacement vector.
+  """
+  try:
+    f=open(fname)
+  except IOError:
+    print 'Input file %s not found.'%fname
+    sys.exit(1)
+  v0=f.readlines()
+  f.close()
+
+  # read the coordinates and compute Cartesian displacements
+  disp=[] # displacement as one 3N-vector
+  SH2LVC['Ms']=[] # Squareroot masses in a.u.
+  geom = QMin['geom']
+  tmp = find_lines(QMin['natom'], 'Geometry',v0)
+  for i in range(QMin['natom']):
+    s=tmp[i].lower().split()
+    if s[0]!=geom[i][0].lower():
+      print s[0], geom[i][0]
+      print 'Inconsistent atom labels in QM.in and %s!'%fname
+      sys.exit(19)
+    disp += [geom[i][1] - float(s[2]), geom[i][2] - float(s[3]), geom[i][3] - float(s[4])]
+    SH2LVC['Ms'] += 3*[(float(s[5])*U_TO_AMU)**.5]
+
+  # Frequencies (a.u.)
+  tmp = find_lines(1, 'Frequencies',v0)
+  if tmp==[]:
+    print 'No Frequencies defined in %s!'%fname
+    sys.exit(24)
+  SH2LVC['Om'] = [float(o) for o in tmp[0].split()]
+
+  # Normal modes in mass-weighted coordinates
+  tmp = find_lines(len(SH2LVC['Om']), 'Mass-weighted normal modes', v0)
+  if tmp==[]:
+    print 'No normal modes given in %s!'%fname
+    sys.exit(24)
+  SH2LVC['V']  = [map(float,line.split()) for line in tmp] # transformation matrix
+
+  return disp
+
+# =========================================================
+
 def read_SH2LVC(QMin, fname='LVC.template'):
   # reads SH2LVC.inp, deletes comments and blank lines
   SH2LVC={}
@@ -938,12 +983,7 @@ def read_SH2LVC(QMin, fname='LVC.template'):
   sh2lvc=f.readlines()
   f.close()
 
-  # check natoms
-  natom=int(sh2lvc[0])
-  if not natom==QMin['natom']:
-    print 'Natom from QM.in and from SH2LVC.inp are inconsistent!'
-    sys.exit(17)
-  r3N = range(3*natom)
+  disp = read_V0(QMin, SH2LVC, sh2lvc[0].strip())
 
   # check nstates
   states=[int(s) for s in sh2lvc[1].split()]
@@ -953,50 +993,15 @@ def read_SH2LVC(QMin, fname='LVC.template'):
   nstates = QMin['nstates']
   nmstates = QMin['nmstates']
   nmult = len(states)
-
-  # read the coordinates and compute Cartesian displacements
-  disp=[] # displacement as one 3N-vector
-  SH2LVC['Ms']=[] # Squareroot masses in a.u.
-  geom = QMin['geom']
-  for i in range(natom):
-    s=sh2lvc[i+2].lower().split()
-    if s[0]!=geom[i][0].lower():
-      print 'Inconsistent atom labels in QM.in and SH2LVC.inp!'
-      sys.exit(19)
-    disp += [geom[i][1] - float(s[2]), geom[i][2] - float(s[3]), geom[i][3] - float(s[4])]
-    SH2LVC['Ms'] += 3*[(float(s[5])*U_TO_AMU)**.5]
-
-  # Frequencies (a.u.)
-  tmp = find_lines(1, 'Frequencies',sh2lvc)
-  if tmp==[]:
-    print 'No Frequencies defined in SH2LVC.inp!'
-    sys.exit(24)
-  SH2LVC['Om'] = [float(o) for o in tmp[0].split()]
+  r3N = range(3*QMin['natom'])
   Om = SH2LVC['Om']
 
-  # Normal modes in mass-weighted coordinates
-  tmp = find_lines(1, 'Mass-weighted normal modes', sh2lvc)
-  if tmp==[]:
-    print 'Path to normal modes not defined in SH2LVC.inp!'
-    sys.exit(24)
-  NMfile = tmp[0].strip()
-  try:
-    SH2LVC['V']  = [map(float,line.split()) for line in open(NMfile, 'r').readlines()] # transformation matrix
-  except IOError:
-    print 'Normal-mode file "%s" does not exist!' % NMfile
-    sys.exit(1)
-
-  # Transform to dimensionless mass-weighted normal modes
+  # Transform the coordinates to dimensionless mass-weighted normal modes
   MR = [SH2LVC['Ms'][i] * disp[i] for i in r3N]
   MRV = [0. for i in r3N]
   for i in r3N:
     MRV[i] = sum(MR[j] * SH2LVC['V'][j][i] for j in r3N)
-  #MRV = numpy.dot(MR, SH2LVC['V'])
   Q =  [MRV[i] * Om[i]**0.5 for i in r3N]
-
-#  print "Normal-mode displacements:"
-#  for i, QQ in enumerate(Q):
-#    if abs(QQ) > 1.e-5: print "%i: % .5f"%(i+1, QQ)
 
   # Compute the ground state potential and gradient
   V0 = sum(0.5 * Om[i] * Q[i]*Q[i] for i in r3N)
