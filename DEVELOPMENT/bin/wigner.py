@@ -1,7 +1,7 @@
 #!/usr/bin/env python2
 
 # Script for the calculation of Wigner distributions from molden frequency files
-#
+# 
 # usage python wigner.py [-n <NUMBER>] <MOLDEN-FILE>
 
 import copy
@@ -57,9 +57,9 @@ versiondate=datetime.date(2017,12,4)
 NUMBERS = {'H':  1, 'He': 2,
 'Li': 3, 'Be': 4, 'B':  5, 'C':  6,  'N': 7,  'O': 8, 'F':  9, 'Ne':10,
 'Na':11, 'Mg':12, 'Al':13, 'Si':14,  'P':15,  'S':16, 'Cl':17, 'Ar':18,
-'K': 19, 'Ca':20,
+'K': 19, 'Ca':20, 
 'Sc':21, 'Ti':22, 'V': 23, 'Cr':24, 'Mn':25, 'Fe':26, 'Co':27, 'Ni':28, 'Cu':29, 'Zn':30,
-'Ga':31, 'Ge':32, 'As':33, 'Se':34, 'Br':35, 'Kr':36,
+'Ga':31, 'Ge':32, 'As':33, 'Se':34, 'Br':35, 'Kr':36, 
 'Rb':37, 'Sr':38,
 'Y':39,  'Zr':40, 'Nb':41, 'Mo':42, 'Tc':43, 'Ru':44, 'Rh':45, 'Pd':46, 'Ag':47, 'Cd':48,
 'In':49, 'Sn':50, 'Sb':51, 'Te':52,  'I':53, 'Xe':54,
@@ -344,7 +344,7 @@ class INITCOND:
     self.Epot=self.statelist[0].e-self.eref
 
   def init_from_file(self,f,eref,index):
-    while True:
+    while True: 
       line=f.readline()
       #if 'Index     %i' % (index) in line:
       if re.search('Index\s+%i' % (index),line):
@@ -461,7 +461,7 @@ def get_mass(symb,number):
 
 # ======================================================================================================================
 
-def import_from_molden(filename,scaling,flag,lvc=False):
+def import_from_molden(filename,scaling,flag):
   '''This function imports atomic coordinates and normal modes from a MOLDEN
 file. Returns molecule and modes as the other function does.
 '''
@@ -546,16 +546,14 @@ file. Returns molecule and modes as the other function does.
       print 'WARNING: Displacement vector of mode %i is null vector. Ignoring this mode!' % (imode+1)
       modes[imode]['freq']=0.
 
-  if not lvc:
-    # delete low modes
-    newmodes=[]
-    for imode in range(nmodes):
-      if modes[imode]['freq']<0.:
-        print 'Detected negative frequency!'
-      if modes[imode]['freq']>=LOW_FREQ*CM_TO_HARTREE:
-        newmodes.append(modes[imode])
-    modes=newmodes
-
+  # delete low modes
+  newmodes=[]
+  for imode in range(nmodes):
+    if modes[imode]['freq']<0.:
+      print 'Detected negative frequency!'
+    if modes[imode]['freq']>=LOW_FREQ*CM_TO_HARTREE:
+      newmodes.append(modes[imode])
+  modes=newmodes
   nmodes = len(modes)
   modes = determine_normal_modes_format(modes,molecule,nmodes,flag)
 
@@ -575,18 +573,18 @@ def factorialold(n):
         return n * factorial(n-1)
 
 def factorial(n,ndic):
-    """This function recursively calculates the factorial of n  and
+    """This function recursively calculates the factorial of n  and 
 stores it in ndicif it is not stored in ndic already."""
     if n not in ndic:
       m,ndic =factorial(n-1,ndic)
-      ndic[n] = m *n
+      ndic[n] = m *n 
       return ndic[n], ndic
     else:
       return ndic[n], ndic
 
 def ana_laguerre(n, x,ndic):
     """This function analytically calculates the value of the nth order
-Laguerre polynomial at point x. The demoniator limits this function to
+Laguerre polynomial at point x. The demoniator limits this function to 
 n below 99."""
     total = 0.
     for m in range(n+1):
@@ -650,7 +648,7 @@ mode for the system at a certain temperature."""
 
 
 def wigner(Q, P, mode, ndic):
-    """This function calculates the Wigner distribution for
+    """This function calculates the Wigner distribution for 
 a single one-dimensional harmonic oscillator.
 Q contains the dimensionless coordinate of the
 oscillator and P contains the corresponding momentum.
@@ -661,7 +659,7 @@ The function returns a probability for this set of parameters."""
     else:
       n = determine_state(mode)
       #square of the factorial becomes to large to handle. Keep in mind,
-      #that the harmonic approximation is most likely not valid at these
+      #that the harmonic approximation is most likely not valid at these 
       #excited states
       if n > 98:
         if high_temp:
@@ -698,7 +696,7 @@ for the first 11 vibrational states."""
     outfile = open('wignerplot.out', 'w')
     outfile.write(outstring)
     outfile.close()
-
+    
     grid = [0.06*i for i in range(-100, 101)]
     outstring = ''
     for Q in grid:
@@ -896,16 +894,16 @@ original position. Threshold is given in bohr."""
                                        + diff_vector[xyz]
 
 def determine_normal_modes_format(modes, molecule, nmodes, flag):
-  '''This function determines the input format of the normal modes by trying to
-transform them to mass-weighted coordinates and seeing which of the four methods
+  '''This function determines the input format of the normal modes by trying to 
+transform them to mass-weighted coordinates and seeing which of the four methods 
 was able to do so via checking if the normal modes are now orthogonal. The mass-
 weighted normal coordinates are then returned'''
 
   print '\nStarting normal mode format determination...'
 
   #generate different set of modes that each undergo a different transformation
-  #modes_1, modes_2, modes_3 and modes are represented by the numbers 1, 2, 3
-  #and 4, where 1 stands for gaussian-type coordinates, 2 for cartesian coordinates,
+  #modes_1, modes_2, modes_3 and modes are represented by the numbers 1, 2, 3 
+  #and 4, where 1 stands for gaussian-type coordinates, 2 for cartesian coordinates, 
   #3 for Colombus-type coordinates and 4 for already mass-weighted coordinates.
   modes_1 = copy.deepcopy(modes)
   modes_2 = copy.deepcopy(modes)
@@ -923,7 +921,7 @@ weighted normal coordinates are then returned'''
     if norm == 0.0 and modes[imode]['freq']>=LOW_FREQ*CM_TO_HARTREE:
       print 'WARNING: Displacement vector of mode %i is null vector. Ignoring this mode!' % (imode+1)
       for normmodes in allmodes:
-        normmodes[imode]['freq']=0.0
+        normmodes[imode]['freq']=0.0       
     for j, atom in enumerate(molecule):
       for xyz in range(3):
         modes_1[imode]['move'][j][xyz] /= norm/math.sqrt(atom.mass/U_TO_AMU)
@@ -934,7 +932,7 @@ weighted normal coordinates are then returned'''
     return allmodes[flag-1]
 
   elif int(flag) <= 4:
-    #create dotproduct matrices of the normal mode multiplication
+    #create dotproduct matrices of the normal mode multiplication 
     #for all three transformations.
     if np:
       matrix = [[] for i in range(4)]
@@ -942,7 +940,7 @@ weighted normal coordinates are then returned'''
         for xyz in range(3):
           displacement = [[] for i in range(4)]
           for mode in range(nmodes):
-            for nr in range(len(allmodes)):
+            for nr in range(len(allmodes)):     
               displacement[nr].append(allmodes[nr][mode]['move'][coord][xyz])
           for nr in range(len(allmodes)):
             matrix[nr].append(displacement[nr])
@@ -950,11 +948,11 @@ weighted normal coordinates are then returned'''
       results = [[] for i in range(4)]
       for nr in range(len(allmodes)):
         newmatrix[nr] = numpy.array(matrix[nr])
-        results[nr] = numpy.dot(newmatrix[nr].T,newmatrix[nr])
+        results[nr] = numpy.dot(newmatrix[nr].T,newmatrix[nr]) 
 
     else:
       #do the slow matrix multiplication of every normal mode with every other
-      #this approach is approximately 25 times slower than the numpy approach
+      #this approach is approximately 25 times slower than the numpy approach 
       #at a 190 atom test-system but works always
       results = [[[0 for j in range(nmodes)]for i in range(nmodes)] for k in range(len(allmodes))]
       for mode1 in range(nmodes):
@@ -971,7 +969,7 @@ weighted normal coordinates are then returned'''
     #check for orthogonal matrices
     diagonalcheck = [[],[]]
     thresh = 0.05
-    for result in results:
+    for result in results: 
       trace = 0
       for i in range(len(result)):
         trace += result[i][i]
@@ -993,7 +991,7 @@ weighted normal coordinates are then returned'''
         possibleflags.append(i+1)
         #this means that previous flag is overwritten if multiple checks were positive.
         #However ordering of the checks is made in a way that it gives the right result
-        #for all QM programs tested so far.
+        #for all QM programs tested so far. 
         nm_flag = i
     #check for input flag
     try:
@@ -1015,7 +1013,7 @@ weighted normal coordinates are then returned'''
          string += "  "+str(mode+1) + "\t" + (normformat[mode]) +"\n"
       print string
     else:
-      print "The normal modes input format was determined to be %s coordinates." % (normformat[nm_flag])
+      print "The normal modes input format was determined to be %s coordinates." % (normformat[nm_flag])      
     #return the set of transformed normal modes that resulted in an orthogonal matrix (mass-weighted)
     return allmodes[nm_flag]
   else:
@@ -1057,8 +1055,8 @@ Method is based on L. Sun, W. L. Hase J. Chem. Phys. 133, 044313
     freq_factor = math.sqrt(mode['freq'])
     # Higher frequencies give lower displacements and higher momentum.
     # Therefore scale random_Q and random_P accordingly:
-    random_Q /= freq_factor
-    random_P *= freq_factor
+    random_Q /= freq_factor 
+    random_P *= freq_factor 
     # add potential energy of this mode to total potential energy
     Epot += 0.5 * mode['freq']**2 * random_Q**2
     for i, atom in enumerate(atomlist): # for each atom
@@ -1067,7 +1065,7 @@ Method is based on L. Sun, W. L. Hase J. Chem. Phys. 133, 044313
         # and unweigh mass-weighted normal modes
         atom.coord[xyz] += random_Q * mode['move'][i][xyz] * math.sqrt(1./atom.mass)
           # add velocity
-        atom.veloc[xyz] += random_P * mode['move'][i][xyz] * math.sqrt(1./atom.mass)
+        atom.veloc[xyz] += random_P * mode['move'][i][xyz] * math.sqrt(1./atom.mass)        
       atom.EKIN()
   if not KTR:
     restore_center_of_mass(molecule, atomlist)
@@ -1145,16 +1143,24 @@ Equilibrium
 
 def create_initial_conditions_list(amount, molecule, modes):
     """This function creates 'amount' initial conditions from the
-data given in 'molecule' and 'modes'. Output is returned
+data given in 'molecule' and 'modes'. Output is returned 
 as a list containing all initial condition objects."""
+    print 'Sampling initial conditions'
     ic_list = []
     ndic = {}
     ndic[0] = 1
     ndic[1] = 1
+    width = 50
+    idone = 0
     for i in range(1,amount+1): # for each requested initial condition
         # sample the initial condition
         ic = sample_initial_condition(molecule, modes,ndic)
         ic_list.append(ic)
+        idone += 1
+        done = idone*width/(amount)
+        sys.stdout.write('\rProgress: ['+'='*done+' '*(width-done)+'] %3i%%' % (done*100/width))   
+        sys.stdout.flush()
+    print '\n'  
     return ic_list
 
 # ======================================================================================================================
@@ -1176,31 +1182,6 @@ def make_dyn_file(ic_list,filename):
   fl.close()
 
 # ======================================================================================================================
-
-def lvc_input(molecule, modes):
-    """
-    Print an input file for for SHARC_LVC.py
-    """
-    print "Creating V0.txt for SHARC_LVC.py ..."
-    assert len(modes)==len(modes[0]['move']*3), 'trans/rot need to be included!'
-
-    wf = open('V0.txt', 'w')
-    wf.write('Geometry\n')
-    for atom in molecule:
-      wf.write(str(atom)[:61]+'\n')
-    wf.write('Frequencies\n')
-    for mode in modes:
-      wf.write(' % .10f'%(mode['freq']))
-    wf.write('\n')
-    wf.write('Mass-weighted normal modes\n')
-    for j, atom in enumerate(molecule):
-      for xyz in range(3):
-          for imode in range(len(modes)):
-              wf.write(' % .10f'%modes[imode]['move'][j][xyz])
-          wf.write('\n')
-    wf.close()
-
-# ======================================================================================================================
 # ======================================================================================================================
 # ======================================================================================================================
 
@@ -1213,8 +1194,8 @@ Wigner.py [options] filename.molden
 This script reads a MOLDEN file containing frequencies and normal modes [1]
 and generates a Wigner distribution of geometries and velocities.
 
-The creation of the geometries and velocities is based on the
-sampling of the Wigner distribution of a quantum harmonic oscillator,
+The creation of the geometries and velocities is based on the 
+sampling of the Wigner distribution of a quantum harmonic oscillator, 
 as described in [2] (non-fixed energy, independent mode sampling).
 
 [1] http://www.cmbi.ru.nl/molden/molden_format.html
@@ -1234,7 +1215,6 @@ as described in [2] (non-fixed energy, independent mode sampling).
   parser.add_option('-T', dest='T', action='store_true', help="Discard high vibrational states in the temperature sampling ")
   parser.add_option('--keep_trans_rot', dest='KTR', action='store_true',help="Keep translational and rotational components")
   parser.add_option('-f', dest='f', type=int, nargs=1, default='0', help="Define the type of read normal modes. 0 for automatic assignement, 1 for gaussian-type normal modes (Gaussian, Turbomole, Q-Chem, ADF, Orca), 2 for cartesian normal modes (Molcas, Molpro), 3 for Columbus-type (Columbus), or mass-weighted. (integer, default=0)")
-  parser.add_option('-l', dest='lvc', action='store_true', help='Generate input for SHARC_LVC.py (SH2LVC.inp, V.txt) rather than initconds')
   (options, args) = parser.parse_args()
   random.seed(options.r)
   amount=options.n
@@ -1246,7 +1226,7 @@ as described in [2] (non-fixed energy, independent mode sampling).
   nondefmass=options.m
   scaling=options.s
   flag=options.f
-  lvc = options.lvc
+
 
   print '''Initial condition generation started...
 INPUT  file                  = "%s"
@@ -1282,7 +1262,7 @@ Temperature                  = %f''' % (filename, outfile, options.n, options.r,
   global whichatoms
   whichatoms=[]
 
-  molecule, modes = import_from_molden(filename, scaling,flag,options.lvc)
+  molecule, modes = import_from_molden(filename, scaling,flag)
 
   string='Geometry:\n'
   for atom in molecule:
@@ -1298,16 +1278,13 @@ Temperature                  = %f''' % (filename, outfile, options.n, options.r,
     string+='%4i %12.4f\n' % (i+1,mode['freq']/CM_TO_HARTREE)
   print string
 
-  if options.lvc:
-      lvc_input(molecule, modes)
-  else:
-      #print 'Generating %i initial conditions' % amount
-      ic_list = create_initial_conditions_list(amount, molecule, modes)
-      #print 'Writing output to initconds'
-      outfile = open(outfile, 'w')
-      outstring = create_initial_conditions_string(molecule, modes, ic_list)
-      outfile.write(outstring)
-      outfile.close()
+  #print 'Generating %i initial conditions' % amount
+  ic_list = create_initial_conditions_list(amount, molecule, modes)
+  #print 'Writing output to initconds'
+  outfile = open(outfile, 'w')
+  outstring = create_initial_conditions_string(molecule, modes, ic_list)
+  outfile.write(outstring)
+  outfile.close()
 
   if options.X:
     make_dyn_file(ic_list,options.o+'.xyz')
@@ -1322,3 +1299,4 @@ Temperature                  = %f''' % (filename, outfile, options.n, options.r,
 
 if __name__ == '__main__':
     main()
+
