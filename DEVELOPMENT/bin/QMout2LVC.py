@@ -2,6 +2,11 @@
 
 import os
 import sys
+try:
+  import numpy
+  NONUMPY=False
+except ImportError:
+  NONUMPY=True
 
 sys.path = [os.environ['SHARC']] + sys.path
 import SHARC_LVC
@@ -161,13 +166,21 @@ def main():
     SHARC_LVC.read_V0(QMin, SH2LVC)
     r3N = range(3*QMin['natom'])
 
+    # Invert rather than transpose the V-matrix, in case there is some numerical
+    #   inaccuracy and the matrix is not completely orthonormal.
+    if not NONUMPY:
+        Vinv = numpy.linalg.inv(SH2LVC['V'])
+    else:
+        print "\nWARNING: numpy not available!"
+        print "Transposing rather than inverting the normal mode matrix.\n"
+        Vinv = [[SH2LVC['V'][ixyz][imode] for ixyz in r3N] for imode in r3N]
     # OVM is the full transformation matrix from Cartesian to dimensionless
     #   mass-weighted coordinates
     OVM = [[0. for i in r3N] for j in r3N]
     for ixyz in r3N:
         for imode in r3N:
             if SH2LVC['Om'][imode] > 1.e-6:
-                OVM[ixyz][imode] = SH2LVC['Om'][imode]**(-.5) * SH2LVC['V'][ixyz][imode] / SH2LVC['Ms'][ixyz]
+                OVM[ixyz][imode] = SH2LVC['Om'][imode]**(-.5) * Vinv[imode][ixyz] / SH2LVC['Ms'][ixyz]
 
 # ------------------------------------------------------------------------- #
 
