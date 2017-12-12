@@ -967,7 +967,7 @@ def read_V0(QMin, SH2LVC, fname='V0.txt'):
 # =========================================================
 
 def read_SH2LVC(QMin, fname='LVC.template'):
-  # reads SH2LVC.inp, deletes comments and blank lines
+  # reads LVC.template, deletes comments and blank lines
   SH2LVC={}
   try:
     f=open(fname)
@@ -985,7 +985,7 @@ def read_SH2LVC(QMin, fname='LVC.template'):
   # check nstates
   states=[int(s) for s in sh2lvc[1].split()]
   if not states==QMin['states']:
-    print 'states from QM.in and nstates from SH2LVC.inp are inconsistent!', QMin['states'], states
+    print 'states from QM.in and nstates from LVC.template are inconsistent!', QMin['states'], states
     sys.exit(18)
   nstates = QMin['nstates']
   nmstates = QMin['nmstates']

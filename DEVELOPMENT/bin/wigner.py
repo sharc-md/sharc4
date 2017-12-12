@@ -1146,7 +1146,7 @@ Equilibrium
 
 def create_initial_conditions_list(amount, molecule, modes):
     """This function creates 'amount' initial conditions from the
-data given in 'molecule' and 'modes'. Output is returned 
+data given in 'molecule' and 'modes'. Output is returned
 as a list containing all initial condition objects."""
     print 'Sampling initial conditions'
     ic_list = []
@@ -1161,9 +1161,9 @@ as a list containing all initial condition objects."""
         ic_list.append(ic)
         idone += 1
         done = idone*width/(amount)
-        sys.stdout.write('\rProgress: ['+'='*done+' '*(width-done)+'] %3i%%' % (done*100/width))   
+        sys.stdout.write('\rProgress: ['+'='*done+' '*(width-done)+'] %3i%%' % (done*100/width))
         sys.stdout.flush()
-    print '\n'  
+    print '\n'
     return ic_list
 
 # ======================================================================================================================
@@ -1243,7 +1243,7 @@ as described in [2] (non-fixed energy, independent mode sampling).
   parser.add_option('-T', dest='T', action='store_true', help="Discard high vibrational states in the temperature sampling ")
   parser.add_option('--keep_trans_rot', dest='KTR', action='store_true',help="Keep translational and rotational components")
   parser.add_option('-f', dest='f', type=int, nargs=1, default='0', help="Define the type of read normal modes. 0 for automatic assignement, 1 for gaussian-type normal modes (Gaussian, Turbomole, Q-Chem, ADF, Orca), 2 for cartesian normal modes (Molcas, Molpro), 3 for Columbus-type (Columbus), or 4 for mass-weighted. (integer, default=0)")
-  parser.add_option('-l', dest='lvc', action='store_true', help='Generate input for SHARC_LVC.py (SH2LVC.inp, V.txt) rather than initconds')
+  parser.add_option('-l', dest='lvc', action='store_true', help='Generate input for SHARC_LVC.py (V0.txt) rather than initconds')
   (options, args) = parser.parse_args()
   random.seed(options.r)
   amount=options.n
@@ -1331,4 +1331,3 @@ Temperature                  = %f''' % (filename, outfile, options.n, options.r,
 
 if __name__ == '__main__':
     main()
-
