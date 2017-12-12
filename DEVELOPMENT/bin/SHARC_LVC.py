@@ -876,19 +876,16 @@ def read_QMin():
     s=line.lower().split()
     if len(s)==0:
       continue
-    if 'nacdr' in s[0]:
-      QMin['nacdr'] = True
+    for t in ['soc', 'nacdr', 'dm', 'grad', 'overlap']:
+        if s[0] in t:
+            QMin[t] = []
     if 'nacdt' in s[0]:
       print 'NACDT is not supported!'
       sys.exit(16)
     if 'dmdr' in s[0]:
-      QMin['dmdr']=[]
+      print 'DMDR is not supported!'
+      sys.exit(16)
 
-  # add request keywords
-  QMin['soc']=[]
-  QMin['dm']=[]
-  QMin['grad']=[]
-  QMin['overlap']=[]
   QMin['pwd']=os.getcwd()
   return QMin
 

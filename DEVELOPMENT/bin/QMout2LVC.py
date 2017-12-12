@@ -136,8 +136,11 @@ def LVC_complex_mat(header, mat, deldiag=False, oformat=' % .7e'):
 
 def main():
     QMin = SHARC_LVC.read_QMin()
-    targets = ['h', 'dm', 'grad', 'nacdr']
-    QMout = read_QMout('QM.out', QMin['nmstates'], QMin['natom'], targets)
+    requests = ['h']
+    for t in ['dm', 'grad', 'nacdr']:
+        if t in QMin:
+            requests.append(t)
+    QMout = read_QMout('QM.out', QMin['nmstates'], QMin['natom'], requests)
 
     for sti in SHARC_LVC.itnmstates(QMin['states']):
         imult, istate, ims = sti
@@ -184,54 +187,58 @@ def main():
 
 # ------------------------------------------------------------------------- #
 
-    wf.write('kappa\n')
-    nkappa = 0
-    kstr = ''
-    for i, sti in enumerate(SHARC_LVC.itnmstates(QMin['states'])):
-        imult, istate, ims = sti
-        if imult == 3 and ims >= 0.: break
-        gradi = []
-        for comp in QMout['grad'][i]:
-            gradi += comp
-        for imode in r3N:
-            kappa = sum(OVM[ixyz][imode]*gradi[ixyz] for ixyz in r3N)
-            if kappa*kappa > pthresh:
-                kstr += "%3i %3i %5i % .5e\n"%(imult, istate, imode+1, kappa)
-                nkappa += 1
-    wf.write('%i\n'%nkappa)
-    wf.write(kstr)
-
-# ------------------------------------------------------------------------- #
-
-    wf.write('lambda\n')
-    nlam = 0
-    lstr = ''
-    for i, sti in enumerate(SHARC_LVC.itnmstates(QMin['states'])):
-        imult, istate, ims = sti
-        if imult == 3 and ims >= 0.: break
-        for j, stj in enumerate(SHARC_LVC.itnmstates(QMin['states'])):
-            jmult, jstate, jms = stj
-            if jmult == 3 and jms >= 0.: break
-            if j <= i: continue
-
-            nacij = []
-            for comp in QMout['nacdr'][i][j]:
-                nacij += comp
+    if 'grad' in QMin:
+        wf.write('kappa\n')
+        nkappa = 0
+        kstr = ''
+        for i, sti in enumerate(SHARC_LVC.itnmstates(QMin['states'])):
+            imult, istate, ims = sti
+            if imult == 3 and ims >= 0.: break
+            gradi = []
+            for comp in QMout['grad'][i]:
+                gradi += comp
             for imode in r3N:
-                dE = (QMout['h'][j][j]-QMout['h'][i][i]).real
-                lam = sum(OVM[ixyz][imode]*nacij[ixyz] for ixyz in r3N) * dE
-                if lam*lam > pthresh:
-                    lstr += "%3i %3i %3i %5i % .5e\n"%(imult, istate, jstate, imode+1, lam)
-                    nlam += 1
-    wf.write('%i\n'%nlam)
-    wf.write(lstr)
+                kappa = sum(OVM[ixyz][imode]*gradi[ixyz] for ixyz in r3N)
+                if kappa*kappa > pthresh:
+                    kstr += "%3i %3i %5i % .5e\n"%(imult, istate, imode+1, kappa)
+                    nkappa += 1
+        wf.write('%i\n'%nkappa)
+        wf.write(kstr)
 
 # ------------------------------------------------------------------------- #
 
-    wf.write( LVC_complex_mat('SOC', QMout['h'], deldiag=True) )
-    wf.write( LVC_complex_mat('DMX', QMout['dm'][0]) )
-    wf.write( LVC_complex_mat('DMY', QMout['dm'][1]) )
-    wf.write( LVC_complex_mat('DMZ', QMout['dm'][2]) )
+    if 'nacdr' in QMin:
+        wf.write('lambda\n')
+        nlam = 0
+        lstr = ''
+        for i, sti in enumerate(SHARC_LVC.itnmstates(QMin['states'])):
+            imult, istate, ims = sti
+            if imult == 3 and ims >= 0.: break
+            for j, stj in enumerate(SHARC_LVC.itnmstates(QMin['states'])):
+                jmult, jstate, jms = stj
+                if jmult == 3 and jms >= 0.: break
+                if j <= i: continue
+
+                nacij = []
+                for comp in QMout['nacdr'][i][j]:
+                    nacij += comp
+                for imode in r3N:
+                    dE = (QMout['h'][j][j]-QMout['h'][i][i]).real
+                    lam = sum(OVM[ixyz][imode]*nacij[ixyz] for ixyz in r3N) * dE
+                    if lam*lam > pthresh:
+                        lstr += "%3i %3i %3i %5i % .5e\n"%(imult, istate, jstate, imode+1, lam)
+                        nlam += 1
+        wf.write('%i\n'%nlam)
+        wf.write(lstr)
+
+# ------------------------------------------------------------------------- #
+
+    if 'soc' in QMin:
+        wf.write( LVC_complex_mat('SOC', QMout['h'], deldiag=True) )
+    if 'dm' in QMin:
+        wf.write( LVC_complex_mat('DMX', QMout['dm'][0]) )
+        wf.write( LVC_complex_mat('DMY', QMout['dm'][1]) )
+        wf.write( LVC_complex_mat('DMZ', QMout['dm'][2]) )
 
 # ------------------------------------------------------------------------- #
 
