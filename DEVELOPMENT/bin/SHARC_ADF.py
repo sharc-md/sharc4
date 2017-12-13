@@ -166,6 +166,9 @@ changelogstring='''
 - if excited-state gradients are calculated, corresponding ground-state gradient is automatically returned, too
 - added the "neglected_gradient" keyword (arguments: "zero" (default), "gs", "closest")
 - fixed a bug where excited-state diagonal dipole moments are not read correctly
+
+13.12.2017
+- if an ADF job terminates with error, the standard out is copied to savedir
 '''
 
 # ======================================================================= #
@@ -2497,7 +2500,7 @@ def run_calc(WORKDIR,QMin):
     try:
         setupWORKDIR(WORKDIR,QMin)
         strip=True
-        err=runADF(WORKDIR,QMin['ADFHOME'],QMin['ncpu'],strip)
+        err=runADF(WORKDIR,QMin['ADFHOME'],QMin['ncpu'],QMin['savedir'],strip)
     except Exception, problem:
         print '*'*50+'\nException in run_calc(%s)!' % (WORKDIR)
         traceback.print_exc()
@@ -2874,7 +2877,7 @@ def shorten_DIR(string):
         return string+' '*(maxlen-len(string))
 
 # ======================================================================= #
-def runADF(WORKDIR,ADF,ncpu,strip=False):
+def runADF(WORKDIR,ADF,ncpu,savedir,strip=False):
     prevdir=os.getcwd()
     os.chdir(WORKDIR)
     string=os.path.join(ADF,'bin','adf')+' '
@@ -2904,6 +2907,14 @@ def runADF(WORKDIR,ADF,ncpu,strip=False):
         endtime=datetime.datetime.now()
         sys.stdout.write('FINISH:\t%s\t%s\tRuntime: %s\tError Code: %i\n' % (shorten_DIR(WORKDIR),endtime,endtime-starttime,runerror))
         sys.stdout.flush()
+    if DEBUG and runerror!=0:
+        copydir=os.path.join(savedir,'debug_ADF_stdout')
+        if not os.path.isdir(copydir):
+            mkdir(copydir)
+        outfile=os.path.join(WORKDIR,'ADF.out')
+        tofile=os.path.join(copydir,"ADF_problems_%s.out" % (os.path.basename(WORKDIR)))
+        shutil.copy(outfile,tofile)
+        print 'Error in %s! Copied ADF output to %s' % (WORKDIR,tofile)
     os.chdir(prevdir)
     if strip and not DEBUG and runerror==0:
         stripWORKDIR(WORKDIR)
