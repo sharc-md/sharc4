@@ -103,11 +103,27 @@ class table_maker:
         self.cut = cut
         self.replace_list = replace_list
 
+    def write_header_line(self, words):
+        """
+        Writes a line with list <words>, prepending a # sign
+        """
+        plus_string = '#'
+        for i, word in enumerate(words):
+            if self.cut:
+                plus_string += str(word)[:(self.col_widths[i]-1)].ljust(self.col_widths[i])
+            else:
+                plus_string += str(word).ljust(self.col_widths[i])
+
+        for old,new in self.replace_list:
+            plus_string = plus_string.replace(old, new)
+    
+        self.ret_string += plus_string + '\n'
+
     def write_line(self, words):
         """
         Writes a line with list <words>.
         """
-        plus_string = ''
+        plus_string = ' '
         for i, word in enumerate(words):
             if self.cut:
                 plus_string += str(word)[:(self.col_widths[i]-1)].ljust(self.col_widths[i])
