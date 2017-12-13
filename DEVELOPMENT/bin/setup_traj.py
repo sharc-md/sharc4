@@ -82,7 +82,8 @@ Interfaces={
       'features':        {'overlap': ['wfoverlap'],
                           'dyson':   ['wfoverlap'],
                           'nacdr':   ['wfoverlap'],
-                          'phases':  ['wfoverlap']    }
+                          'phases':  ['wfoverlap'],
+                          'soc':     []             }
      },
   2: {'script':          'SHARC_COLUMBUS.py',
       'description':     'COLUMBUS (CASSCF, RASSCF and MRCISD), using SEWARD integrals',
@@ -90,7 +91,9 @@ Interfaces={
       'prepare_routine': 'prepare_COLUMBUS',
       'features':        {'overlap': ['wfoverlap'],
                           'dyson':   ['wfoverlap'],
-                          'phases':  ['wfoverlap']  }
+                          'phases':  ['wfoverlap'],
+                          'nacdr':   [],
+                          'soc':     []               }
      },
   3: {'script':          'SHARC_Analytical.py',
       'description':     'Analytical PESs',
@@ -98,7 +101,8 @@ Interfaces={
       'prepare_routine': 'prepare_Analytical',
       'features':        {'overlap': [],
                           'dipolegrad':[],
-                          'phases':[]}
+                          'phases':  [],
+                          'soc':     []             }
      },
   4: {'script':          'SHARC_MOLCAS.py',
       'description':     'MOLCAS (CASSCF, CASPT2, MS-CASPT2)',
@@ -107,7 +111,8 @@ Interfaces={
       'features':        {'overlap': [],
                           'dyson':   ['wfoverlap'],
                           'dipolegrad':[],
-                          'phases':  []}
+                          'phases':  [],
+                          'soc':     []             }
      },
   5: {'script':          'SHARC_ADF.py',
       'description':     'ADF (DFT, TD-DFT)',
@@ -116,7 +121,8 @@ Interfaces={
       'features':        {'overlap': ['wfoverlap'],
                           'dyson':   ['wfoverlap'],
                           'theodore':['theodore'],
-                          'phases':  ['wfoverlap']    }
+                          'phases':  ['wfoverlap'],
+                          'soc':     []                 }
      },
   6: {'script':          'SHARC_RICC2.py',
       'description':     'TURBOMOLE (ricc2 with CC2 and ADC(2))',
@@ -124,82 +130,36 @@ Interfaces={
       'prepare_routine': 'prepare_RICC2',
       'features':        {'overlap': ['wfoverlap'],
                           'theodore':['theodore'],
-                          'phases':  ['wfoverlap']    }
+                          'phases':  ['wfoverlap'],
+                          'soc':     []                 }
      },
   7: {'script':          'SHARC_LVC.py',
       'description':     'LVC Hamiltonian',
       'get_routine':     'get_LVC',
       'prepare_routine': 'prepare_LVC',
       'features':        {'overlap': [],
-                          'nacdr':   []    }
+                          'nacdr':   [],
+                          'phases':  [],
+                          'soc':     []                 }
+     },
+  8: {'script':          'SHARC_GAUSSIAN.py',
+      'description':     'GAUSSIAN (DFT, TD-DFT)',
+      'get_routine':     'get_GAUSSIAN',
+      'prepare_routine': 'prepare_GAUSSIAN',
+      'features':        {'overlap': ['wfoverlap'],
+                          'dyson':   ['wfoverlap'],
+                          'theodore':['theodore'],
+                          'phases':  ['wfoverlap']        }
      }
   }
 
-
-#Interfaces={
-  #1: {'script':          'SHARC_MOLPRO.py',
-      #'description':     'MOLPRO (only CASSCF)',
-      #'get_routine':     'get_MOLPRO',
-      #'prepare_routine': 'prepare_MOLPRO',
-      #'couplings':       [2,3],
-      #'dipolegrad':      False
-     #},
-  #2: {'script':          'SHARC_COLUMBUS.py',
-      #'description':     'COLUMBUS (CASSCF, RASSCF and MRCISD), using SEWARD integrals',
-      #'get_routine':     'get_COLUMBUS',
-      #'prepare_routine': 'prepare_COLUMBUS',
-      #'couplings':       [3],
-      #'dipolegrad':      False
-     #},
-  #3: {'script':          'SHARC_Analytical.py',
-      #'description':     'Analytical PESs',
-      #'get_routine':     'get_Analytical',
-      #'prepare_routine': 'prepare_Analytical',
-      #'couplings':       [3],
-      #'dipolegrad':      True
-     #},
-  #4: {'script':          'SHARC_MOLCAS.py',
-      #'description':     'MOLCAS (CASSCF, CASPT2, MS-CASPT2)',
-      #'get_routine':     'get_MOLCAS',
-      #'prepare_routine': 'prepare_MOLCAS',
-      #'couplings':       [3],
-      #'dipolegrad':      False
-     #},
-  ##4: {'script':          'SHARC_MOLCAS_QMMM.py',
-      ##'description':     'MOLCAS (with QM/MM)',
-      ##'get_routine':     'get_MOLCAS_QMMM',
-      ##'prepare_routine': 'prepare_MOLCAS_QMMM',
-      ##'couplings':       []
-     ##},
-  #5: {'script':          'SHARC_ADF.py',
-      #'description':     'ADF (DFT, TD-DFT)',
-      #'get_routine':     'get_ADF',
-      #'prepare_routine': 'prepare_ADF',
-      #'couplings':       [3],
-      #'dipolegrad':      False
-     #},
-  #6: {'script':          'SHARC_RICC2.py',
-      #'description':     'TURBOMOLE (ricc2 with CC2 and ADC(2))',
-      #'get_routine':     'get_RICC2',
-      #'prepare_routine': 'prepare_RICC2',
-      #'couplings':       [3],
-      #'dipolegrad':      False
-     #},
-  #7: {'script':          'SHARC_LVC.py',
-      #'description':     'LVC Hamiltonian',
-      #'get_routine':     'get_LVC',
-      #'prepare_routine': 'prepare_LVC',
-      #'couplings':       [2,3],
-      #'dipolegrad':      False
-     #}
-  #}
 
 Couplings={
   1: {'name':        'nacdt',
       'description': 'DDT     =  < a|d/dt|b >        Hammes-Schiffer-Tully scheme   '
      },
   2: {'name':        'nacdr',
-      'description': 'DDR     =  < a|d/dR|b >        original Tully scheme          '
+      'description': 'DDR     =  < a|d/dR|b >        Original Tully scheme          '
      },
   3: {'name':        'overlap',
       'description': 'overlap = < a(t0)|b(t) >       Local Diabatization scheme     '
@@ -207,17 +167,50 @@ Couplings={
   }
 
 EkinCorrect={
-  1: {'name':        'none',
-      'description': 'Do not conserve total energy. Hops are never frustrated.',
+  1: {'name':             'none',
+      'description':      'Do not conserve total energy. Hops are never frustrated.',
+      'description_refl': 'Do not reflect at a frustrated hop.',
       'required':   []
      },
-  2: {'name':        'parallel_vel',
-      'description': 'Adjust kinetic energy by rescaling the velocity vectors. Often sufficient.',
+  2: {'name':             'parallel_vel',
+      'description':      'Adjust kinetic energy by rescaling the velocity vectors. Often sufficient.',
+      'description_refl': 'Reflect the full velocity vector.',
       'required':   []
      },
-  3: {'name':        'parallel_nac',
-      'description': 'Adjust kinetic energy only with the component of the velocity vector along the non-adiabatic coupling vector.',
+  3: {'name':             'parallel_nac',
+      'description':      'Adjust kinetic energy only with the component of the velocity vector along the non-adiabatic coupling vector.',
+      'description_refl': 'Reflect only the component of the velocity vector along the non-adiabatic coupling vector.',
       'required':   ['nacdr']
+     }
+  }
+
+Decoherences={
+  1: {'name':             'none',
+      'description':      'No decoherence correction.',
+      'required':   [],
+      'params':     ''
+     },
+  2: {'name':             'edc',
+      'description':      'Energy-based decoherence scheme (Granucci, Persico, Zoccante).',
+      'required':   [],
+      'params':     '0.1'
+     },
+  3: {'name':             'afssh',
+      'description':      'Augmented fewest-switching surface hopping (Jain, Alguire, Subotnik).',
+      'required':   [],
+      'params':     ''
+     }
+  }
+
+HoppingSchemes={
+  1: {'name':             'off',
+      'description':      'Surface hops off.'
+     },
+  2: {'name':             'sharc',
+      'description':      'Standard SHARC surface hopping probabilities (Mai, Marquetand, Gonzalez).'
+     },
+  3: {'name':             'gfsh',
+      'description':      'Global flux surface hopping probabilities (Wang, Trivedi, Prezhdo).'
      }
   }
 
@@ -1029,16 +1022,34 @@ from the initconds.excited files as provided by excite.py.
   # SHARC or FISH
   print '\nDo you want to perform the dynamics in the diagonal representation (SHARC dynamics) or in the MCH representation (regular surface hopping)?'
   surf=question('SHARC dynamics?',bool,True)
-  INFOS['surf']=['fish','sharc'][surf]
+  INFOS['surf']=['mch','diagonal'][surf]
 
-  # SOC or not
-  recommended=True
-  if len(INFOS['states'])==1:
-    recommended=False
-  print '\nDo you want to include spin-orbit couplings in the dynamics?'
-  INFOS['socs']=question('Spin-orbit couplings?',bool,recommended)
+  ## SOC or not
+  #recommended=True
+  #if len(INFOS['states'])==1:
+    #recommended=False
+  #print '\nDo you want to include spin-orbit couplings in the dynamics?'
+  #INFOS['soc']=question('Spin-orbit couplings?',bool,recommended)
 
-
+  # Setup SOCs
+  if len(states)>1:
+    if 'soc' in Interfaces[num]['features']:
+      print 'Do you want to include spin-orbit couplings in the dynamics?\n'
+      soc=question('Spin-Orbit calculation?',bool,True)
+      if soc:
+        print 'Will calculate spin-orbit matrix.'
+    else:
+      print 'Interface cannot provide SOCs: not calculating spin-orbit matrix.'
+      soc=False
+  else:
+    print 'Only singlets specified: not calculating spin-orbit matrix.'
+    soc=False
+  print ''
+  INFOS['states']=states
+  INFOS['nstates']=nstates
+  INFOS['soc']=soc
+  if INFOS['soc']:
+    INFOS['needed'].extend(Interfaces[num]['features']['soc'])
 
   # Coupling
   print '\nPlease choose the quantities to describe non-adiabatic effects between the states:'
@@ -1047,7 +1058,7 @@ from the initconds.excited files as provided by excite.py.
                         Couplings[i]['description'],
                         ['(not available)',''][Couplings[i]['name'] in Interfaces[INFOS['interface']]['features']]
                         )
-  print ''
+  #print ''
   while True:
     default=None
     for i in Couplings:
@@ -1079,7 +1090,7 @@ from the initconds.excited files as provided by excite.py.
         INFOS['needed'].extend(Interfaces[INFOS['interface']]['features']['phases'])
 
   # Gradient correction (only for SHARC)
-  if INFOS['surf']=='sharc':
+  if INFOS['surf']=='diagonal':
     possible= ('nacdr' in Interfaces[INFOS['interface']]['features'])
     recommended=Couplings[INFOS['coupling']]['name']=='nacdr'
     print '\nFor SHARC dynamics, the evaluation of the mixed gradients necessitates to calculate non-adiabatic coupling vectors %s.' % (['(Extra computational cost)',' (Recommended)'][recommended])
@@ -1123,11 +1134,65 @@ from the initconds.excited files as provided by excite.py.
       INFOS['needed'].extend(Interfaces[INFOS['interface']]['features'][i])
 
 
+  # frustrated reflection
+  print '\nIf a surface hop is refused (frustrated) due to insufficient energy, the velocity can either be left unchanged or reflected:'
+  cando=[]
+  for i in EkinCorrect:
+    recommended=len(EkinCorrect[i]['required'])==0  or  Couplings[INFOS['coupling']]['name'] in EkinCorrect[i]['required']
+    possible= all([ j in Interfaces[INFOS['interface']]['features']  for j in EkinCorrect[i]['required']])
+    if possible:
+      cando.append(i)
+    if not possible:
+      print '%i\t%s%s' % (i, EkinCorrect[i]['description_refl'],'\n\t(not possible)' )
+    else:
+      print '%i\t%s%s' % (i, EkinCorrect[i]['description_refl'],['\n\t(extra computational cost)',''][ recommended ])
+  while True:
+    reflect=question('Reflect frustrated:',int,[1])[0]
+    if reflect in EkinCorrect and reflect in cando:
+      break
+    else:
+      print 'Please input one of the following: %s!' % ([i for i in cando])
+  INFOS['reflect']=reflect
+  if INFOS['reflect']:
+    for i in EkinCorrect[INFOS['ekincorrect']]['required']:
+      INFOS['needed'].extend(Interfaces[INFOS['interface']]['features'][i])
+
+
   # decoherence
-  # TODO: add more options here
-  print '\nDo you want to apply decoherence to the %s states?' % (['MCH','diagonal'][INFOS['surf']=='sharc'])
-  decoh=question('Decoherence?',bool,True)
-  INFOS['decoherence']=['off','0.1'][decoh]
+  print '\nPlease choose a decoherence correction for the %s states:' % (['MCH','diagonal'][INFOS['surf']=='diagonal'])
+  cando=[]
+  for i in Decoherences:
+    recommended=len(Decoherences[i]['required'])==0  or  Couplings[INFOS['coupling']]['name'] in Decoherences[i]['required']
+    possible= all([ j in Interfaces[INFOS['interface']]['features']  for j in Decoherences[i]['required']])
+    if possible:
+      cando.append(i)
+    if not possible:
+      print '%i\t%s%s' % (i, Decoherences[i]['description'],'\n\t(not possible)' )
+    else:
+      print '%i\t%s%s' % (i, Decoherences[i]['description'],['\n\t(extra computational cost)',''][ recommended ])
+  while True:
+    decoh=question('Decoherence scheme:',int,[2])[0]
+    if decoh in Decoherences and decoh in cando:
+      break
+    else:
+      print 'Please input one of the following: %s!' % ([i for i in cando])
+  INFOS['decoherence']=[Decoherences[decoh]['name'],Decoherences[decoh]['params']]
+  for i in Decoherences[decoh]['required']:
+    INFOS['needed'].extend(Interfaces[INFOS['interface']]['features'][i])
+
+
+  # surface hopping scheme
+  print '\nPlease choose a surface hopping scheme for the %s states:' % (['MCH','diagonal'][INFOS['surf']=='diagonal'])
+  cando=list(HoppingSchemes)
+  for i in HoppingSchemes:
+    print '%i\t%s' % (i, HoppingSchemes[i]['description'])
+  while True:
+    hopping=question('Hopping scheme:',int,[2])[0]
+    if hopping in HoppingSchemes and hopping in cando:
+      break
+    else:
+      print 'Please input one of the following: %s!' % ([i for i in cando])
+  INFOS['hopping']=HoppingSchemes[hopping]['name']
 
 
   # Scaling
@@ -1164,21 +1229,27 @@ from the initconds.excited files as provided by excite.py.
   print '\n'+centerstring('Selection of Gradients and NACs',60,'-')+'\n'
   print '''In order to speed up calculations, SHARC is able to select which gradients and NAC vectors it has to calculate at a certain timestep. The selection is based on the energy difference between the state under consideration and the classical occupied state.
 '''
-  if INFOS['surf']=='sharc':
-    sel_g=question('Select gradients?',bool,False)
-    INFOS['sel_g']=sel_g
+  if INFOS['surf']=='diagonal':
+    if INFOS['soc']:
+      sel_g=question('Select gradients?',bool,False)
+    else:
+      sel_g=True
   else:
     sel_g=False
-    INFOS['sel_g']=False
+  INFOS['sel_g']=sel_g
   if Couplings[INFOS['coupling']]['name']=='ddr' or INFOS['gradcorrect'] or EkinCorrect[INFOS['ekincorrect']]['name']=='parallel_nac':
     sel_t=question('Select non-adiabatic couplings?',bool,False)
   else:
     sel_t=False
   INFOS['sel_t']=sel_t
   if sel_g or sel_t:
-    print '\nPlease enter the energy difference threshold for the selection of gradients and non-adiabatic couplings (in eV). (0.5 eV recommended, or even larger if SOC is strong in this system.)'
-    eselect=question('Selection threshold (eV):',float,[0.5])[0]
-    INFOS['eselect']=abs(eselect)
+    if not sel_t and not INFOS['soc']:
+      INFOS['eselect']=0.001
+      print '\nSHARC dynamics without SOC and NAC: setting minimal selection threshold.'
+    else:
+      print '\nPlease enter the energy difference threshold for the selection of gradients and non-adiabatic couplings (in eV). (0.5 eV recommended, or even larger if SOC is strong in this system.)'
+      eselect=question('Selection threshold (eV):',float,[0.5])[0]
+      INFOS['eselect']=abs(eselect)
 
 
   # Laser file
@@ -2380,28 +2451,6 @@ def qmmm_job(filename,INFOS):
     return False
   return True
 
-## =================================================
-
-#def get_qmmm_filenames(filename):
-  #try:
-    #f=open(filename)
-    #data=f.readlines()
-    #f.close()
-  #except IOError:
-    #print 'Could not open template file %s' % (filename)
-    #return False
-  #results={}
-  #for line in data:
-    #if 'qmmm_table' in line.lower() and not '/' in line:
-      #s=line.split()
-      #if len(s)>=2:
-        #results['ctfile']=s[1]
-    #if 'qmmm_ff_file' in line.lower() and not '/' in line:
-      #s=line.split()
-      #if len(s)>=2:
-        #results['fffile']=s[1]
-  #return results
-
 # =================================================
 
 def get_ADF(INFOS):
@@ -2504,11 +2553,6 @@ The ADF interface will generate the appropriate ADF input automatically.
       else:
         break
     INFOS['ADF.ctfile']=filename
-    #files=get_qmmm_filenames(INFOS['ADF.template'])
-    #if 'ctfile' in files:
-      #INFOS['ADF.ctfile.dest']=files['ctfile']
-    #if 'fffile' in files:
-      #INFOS['ADF.fffile.dest']=files['fffile']
 
 
   # initial MOs
@@ -2536,7 +2580,9 @@ The ADF interface will generate the appropriate ADF input automatically.
     print '''Please specify how well your job will parallelize.
 A value of 0 means that running in parallel will not make the calculation faster, a value of 1 means that the speedup scales perfectly with the number of cores.
 Typical values for ADF are 0.90-0.98 for LDA/GGA functionals and 0.50-0.80 for hybrids (better if RIHartreeFock is used).'''
-  INFOS['adf.scaling']=min(1.0,max(0.0,question('Parallel scaling:',float,[0.8])[0] ))
+    INFOS['adf.scaling']=min(1.0,max(0.0,question('Parallel scaling:',float,[0.8])[0] ))
+  else:
+    INFOS['adf.scaling']=0.9
 
 
   # Ionization
@@ -2934,6 +2980,276 @@ exit $err''' % (Interfaces[INFOS['interface']]['script'])
 
   return
 
+
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+
+def checktemplate_GAUSSIAN(filename,INFOS):
+  necessary=['basis','functional','charge']
+  try:
+    f=open(filename)
+    data=f.readlines()
+    f.close()
+  except IOError:
+    print 'Could not open template file %s' % (filename)
+    return False
+  valid=[]
+  for i in necessary:
+    for l in data:
+      line=l.lower().split()
+      if len(line)==0:
+        continue
+      line=line[0]
+      if i==re.sub('#.*$','',line):
+        valid.append(True)
+        break
+    else:
+      valid.append(False)
+  if not all(valid):
+    print 'The template %s seems to be incomplete! It should contain: ' % (filename) +str(necessary)
+    return False
+  return True
+
+# =================================================
+
+def get_GAUSSIAN(INFOS):
+  '''This routine asks for all questions specific to GAUSSIAN:
+  - path to GAUSSIAN
+  - scratch directory
+  - GAUSSIAN.template
+  - TAPE21
+  '''
+
+  string='\n  '+'='*80+'\n'
+  string+='||'+centerstring('GAUSSIAN Interface setup',80)+'||\n'
+  string+='  '+'='*80+'\n\n'
+  print string
+
+  print centerstring('Path to GAUSSIAN',60,'-')+'\n'
+  tries=['g16root','g09root','g03root']
+  for i in tries:
+    path=os.getenv(i)
+    if path:
+      path='$%s/' % i
+      break
+  #gaussianprofile=question('Setup from gaussian.profile file?',bool,True)
+  #if gaussianprofile:
+    #if path:
+      #path='%s/gaussian.profile' % path
+    #print '\nPlease specify path to the gaussian.profile file (SHELL variables and ~ can be used, will be expanded when interface is started).\n'
+    #path=question('Path to GAUSSIAN:',str,path)
+    #INFOS['gaussianprofile']=os.path.abspath(os.path.expanduser(os.path.expandvars(path)))
+    #print 'Will use gaussianprofile= %s' % INFOS['gaussianprofile']
+    #INFOS['gaussian']='$GAUSSIANHOME'
+    #print ''
+  #else:
+  print '\nPlease specify path to GAUSSIAN directory (SHELL variables and ~ can be used, will be expanded when interface is started).\n'
+  INFOS['groot']=question('Path to GAUSSIAN:',str,path)
+  print ''
+
+
+  # scratch
+  print centerstring('Scratch directory',60,'-')+'\n'
+  print 'Please specify an appropriate scratch directory. This will be used to run the GAUSSIAN calculations. The scratch directory will be deleted after the calculation. Remember that this script cannot check whether the path is valid, since you may run the calculations on a different machine. The path will not be expanded by this script.'
+  INFOS['scratchdir']=question('Path to scratch directory:',str)
+  print ''
+
+
+  # template file
+  print centerstring('GAUSSIAN input template file',60,'-')+'\n'
+  print '''Please specify the path to the GAUSSIAN.template file. This file must contain the following keywords:
+  
+basis <basis>
+functional <type> <name>
+charge <x> [ <x2> [ <x3> ...] ] 
+
+The GAUSSIAN interface will generate the appropriate GAUSSIAN input automatically.
+'''
+  if os.path.isfile('GAUSSIAN.template'):
+    if checktemplate_GAUSSIAN('GAUSSIAN.template',INFOS):
+      print 'Valid file "GAUSSIAN.template" detected. '
+      usethisone=question('Use this template file?',bool,True)
+      if usethisone:
+        INFOS['GAUSSIAN.template']='GAUSSIAN.template'
+  if not 'GAUSSIAN.template' in INFOS:
+    while True:
+      filename=question('Template filename:',str)
+      if not os.path.isfile(filename):
+        print 'File %s does not exist!' % (filename)
+        continue
+      if checktemplate_GAUSSIAN(filename,INFOS):
+        break
+    INFOS['GAUSSIAN.template']=filename
+  print ''
+
+
+
+  # initial MOs
+  print centerstring('Initial restart: MO Guess',60,'-')+'\n'
+  print '''Please specify the path to an GAUSSIAN chk file containing suitable starting MOs for the GAUSSIAN calculation. Please note that this script cannot check whether the wavefunction file and the Input template are consistent!
+'''
+  if question('Do you have a restart file?',bool,True):
+    if True:
+      while True:
+        filename=question('Restart file:',str,'GAUSSIAN.chk.init')
+        if os.path.isfile(filename):
+          INFOS['gaussian.guess']=filename
+          break
+        else:
+          print 'Could not find file "%s"!' % (filename)
+  else:
+    INFOS['gaussian.guess']={}
+
+
+  # Resources
+  print centerstring('GAUSSIAN Ressource usage',60,'-')+'\n'
+  print '''Please specify the number of CPUs to be used by EACH calculation.
+'''
+  INFOS['gaussian.ncpu']=abs(question('Number of CPUs:',int)[0])
+
+  if INFOS['gaussian.ncpu']>1:
+    print '''Please specify how well your job will parallelize.
+A value of 0 means that running in parallel will not make the calculation faster, a value of 1 means that the speedup scales perfectly with the number of cores.
+Typical values for GAUSSIAN are 0.90-0.98.'''
+    INFOS['gaussian.scaling']=min(1.0,max(0.0,question('Parallel scaling:',float,[0.9])[0] ))
+  else:
+    INFOS['gaussian.scaling']=0.9
+
+  INFOS['gaussian.mem']=question('Memory (MB):',int,[1000])[0]
+
+  # Ionization
+  #print '\n'+centerstring('Ionization probability by Dyson norms',60,'-')+'\n'
+  #INFOS['ion']=question('Dyson norms?',bool,False)
+  #if INFOS['ion']:
+  if 'wfoverlap' in INFOS['needed']:
+    print '\n'+centerstring('Wfoverlap code setup',60,'-')+'\n'
+    INFOS['gaussian.wfoverlap']=question('Path to wavefunction overlap executable:',str,'$SHARC/wfoverlap.x')
+    print ''
+    print 'State threshold for choosing determinants to include in the overlaps'
+    print 'For hybrids without TDA one should consider that the eigenvector X may have a norm larger than 1'
+    INFOS['gaussian.ciothres']=question('Threshold:',float,[0.99])[0]
+    print ''
+    # TODO not asked: numfrozcore and numocc
+
+    #print 'Please state the number of core orbitals you wish to freeze for the overlaps (recommended to use for at least the 1s orbital and a negative number uses default values)?'
+    #print 'A value of -1 will use the defaults used by GAUSSIAN for a small frozen core and 0 will turn off the use of frozen cores'
+    #INFOS['frozcore_number']=question('How many orbital to freeze?',int,[-1])[0]
+
+
+  # TheoDORE
+  theodore_spelling=['Om', 
+                    'PRNTO', 
+                    'Z_HE', 'S_HE', 'RMSeh',
+                    'POSi', 'POSf', 'POS', 
+                    'PRi', 'PRf', 'PR', 'PRh',
+                    'CT', 'CT2', 'CTnt',
+                    'MC', 'LC', 'MLCT', 'LMCT', 'LLCT', 
+                    'DEL', 'COH', 'COHh']
+  #INFOS['theodore']=question('TheoDORE analysis?',bool,False)
+  if 'theodore' in INFOS['needed']:
+    print '\n'+centerstring('Wave function analysis by TheoDORE',60,'-')+'\n'
+
+    INFOS['gaussian.theodore']=question('Path to TheoDORE directory:',str,'$THEODIR')
+    print ''
+
+    print 'Please give a list of the properties to calculate by TheoDORE.\nPossible properties:'
+    string=''
+    for i,p in enumerate(theodore_spelling):
+      string+='%s ' % (p)
+      if (i+1)%8==0:
+        string+='\n'
+    print string
+    l=question('TheoDORE properties:',str,'Om  PRNTO  S_HE  Z_HE  RMSeh')
+    if '[' in l:
+      INFOS['theodore.prop']=ast.literal_eval(l)
+    else:
+      INFOS['theodore.prop']=l.split()
+    print ''
+
+    print 'Please give a list of the fragments used for TheoDORE analysis.'
+    print 'You can use the list-of-lists from dens_ana.in'
+    print 'Alternatively, enter all atom numbers for one fragment in one line. After defining all fragments, type "end".'
+    if qmmm_job(INFOS['GAUSSIAN.template'],INFOS):
+      print 'You should only include the atom numbers of QM and link atoms.'
+    INFOS['theodore.frag']=[]
+    while True:
+      l=question('TheoDORE fragment:',str,'end')
+      if 'end' in l.lower():
+        break
+      if '[' in l:
+        try:
+          INFOS['theodore.frag']=ast.literal_eval(l)
+          break
+        except ValueError:
+          continue
+      f=[ int(i) for i in l.split() ]
+      INFOS['theodore.frag'].append(f)
+      INFOS['theodore.count']=len(INFOS['theodore.prop'])+len(INFOS['theodore.frag'])**2
+
+
+  return INFOS
+
+# =================================================
+
+def prepare_GAUSSIAN(INFOS,iconddir):
+  # write GAUSSIAN.resources
+  try:
+    sh2cas=open('%s/QM/GAUSSIAN.resources' % (iconddir), 'w')
+  except IOError:
+    print 'IOError during prepareGAUSSIAN, iconddir=%s' % (iconddir)
+    quit(1)
+#  project='GAUSSIAN'
+  string='groot %s\nscratchdir %s/%s/\nsavedir %s/%s/restart\nncpu %i\nschedule_scaling %f\n' % (INFOS['groot'],INFOS['scratchdir'],iconddir,INFOS['scratchdir'],iconddir,INFOS['gaussian.ncpu'],INFOS['gaussian.scaling'])
+  string+='memory %i\n' % (INFOS['gaussian.mem'])
+  if 'wfoverlap' in INFOS['needed']:
+    string+='wfoverlap %s\nwfthres %f\n' % (INFOS['gaussian.wfoverlap'],INFOS['gaussian.ciothres'])
+    #string+='numfrozcore %i\n' %(INFOS['frozcore_number'])
+  else:
+    string+='nooverlap\n'
+  if 'theodore' in INFOS['needed']:
+    string+='theodir %s\n' % (INFOS['gaussian.theodore'])
+    string+='theodore_prop %s\n' % (INFOS['theodore.prop'])
+    string+='theodore_fragment %s\n' % (INFOS['theodore.frag'])
+  sh2cas.write(string)
+  sh2cas.close()
+
+  # copy MOs and template
+  cpfrom=INFOS['GAUSSIAN.template']
+  cpto='%s/QM/GAUSSIAN.template' % (iconddir)
+  shutil.copy(cpfrom,cpto)
+
+  if INFOS['gaussian.guess']:
+    cpfrom1=INFOS['gaussian.guess']
+    cpto1='%s/QM/GAUSSIAN.chk.init' % (iconddir)
+    shutil.copy(cpfrom1,cpto1)
+
+  # runQM.sh
+  runname=iconddir+'/QM/runQM.sh'
+  runscript=open(runname,'w')
+  s='''cd QM
+$SHARC/%s QM.in >> QM.log 2>> QM.err
+err=$?
+
+exit $err''' % (Interfaces[INFOS['interface']]['script'])
+  runscript.write(s)
+  runscript.close()
+  os.chmod(runname, os.stat(runname).st_mode | stat.S_IXUSR)
+
+  return
+
+
+
+
+
+
+
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
 # ======================================================================================================================
 # ======================================================================================================================
 # ======================================================================================================================
@@ -2956,7 +3272,7 @@ def get_runscript_info(INFOS):
 Note that in any case this script will setup the input subdirectories in the current working directory. 
 '''
   print 'Do you want to use mode 1 \n(actually perform the calculations in subdirectories of: %s)\n' % (INFOS['cwd'])
-  here=question('Calculate here?',bool,False)
+  here=question('Calculate here?',bool,True)
   if here:
     INFOS['here']=True
     INFOS['copydir']=INFOS['cwd']
@@ -3043,10 +3359,11 @@ def writeSHARCinput(INFOS,initobject,iconddir,istate):
   s+='coupling %s\n' % (Couplings[INFOS['coupling']]['name'])
   s+='%sgradcorrect\n' % (['no',''][INFOS['gradcorrect']])
   s+='ekincorrect %s\n' % (EkinCorrect[INFOS['ekincorrect']]['name'])
-  if 'off' in INFOS['decoherence']:
-    s+='nodecoherence\n'
-  else:
-    s+='decoherence\ndecoherence_param %s\n' % (INFOS['decoherence'])
+  s+='reflect_frustrated %s\n' % (EkinCorrect[INFOS['reflect']]['name'])
+  s+='decoherence_type %s\n' % (INFOS['decoherence'][0])
+  if INFOS['decoherence'][1]:
+    s+='decoherence_param %s\n' % (INFOS['decoherence'][1])
+  s+='hopping_procedure %s\n' % (INFOS['hopping'])
   if INFOS['scaling']:
     s+='scaling %f\n' % (INFOS['scaling'])
   if INFOS['damping']:
@@ -3054,14 +3371,6 @@ def writeSHARCinput(INFOS,initobject,iconddir,istate):
   if INFOS['phases_from_interface']:
     s+='phases_from_interface\n'
 
-  ## in MOLPRO gradient/ddr calculations must not be done in same run as overlap/ddt, so make selection with infinite threshold
-  #if Interfaces[INFOS['interface']]['script']=='SHARC_MOLPRO.py' and not Couplings[INFOS['coupling']]['name']=='ddr' and not (INFOS['sel_g'] or INFOS['sel_t']):
-    #s+='grad_select\n'
-    #if INFOS['gradcorrect'] or EkinCorrect[INFOS['ekincorrect']]['name']=='parallel_nac':
-      #s+='nac_select\n'
-    #s+='eselect %f\n' % (999999.9)
-  # every other case
-  #else:
   if INFOS['sel_g']:
     s+='grad_select\n'
   else:
@@ -3077,13 +3386,15 @@ def writeSHARCinput(INFOS,initobject,iconddir,istate):
     s+='select_directly\n'
   if Interfaces[INFOS['interface']]['script']=='SHARC_ADF.py':
     s+='select_directly\n'
+  if Interfaces[INFOS['interface']]['script']=='SHARC_GAUSSIAN.py':
+    s+='select_directly\n'
   if Interfaces[INFOS['interface']]['script']=='SHARC_RICC2.py':
     s+='select_directly\n'
   if Interfaces[INFOS['interface']]['script']=='SHARC_MOLPRO.py':
     s+='select_directly\n'
   if Interfaces[INFOS['interface']]['script']=='SHARC_MOLCAS.py':
     s+='select_directly\n'
-  if not INFOS['socs']:
+  if not INFOS['soc']:
     s+='nospinorbit\n'
 
   if INFOS['write_grad']:
@@ -3156,6 +3467,8 @@ def writeRunscript(INFOS,iconddir):
   intstring=''
   if 'adfrc' in INFOS:
     intstring='. %s' % (INFOS['adfrc'])
+  if 'gaussianprofile' in INFOS:
+    intstring='. %s' % (INFOS['gaussianprofile'])
 
   # ================================ for here mode
   if INFOS['here']:
