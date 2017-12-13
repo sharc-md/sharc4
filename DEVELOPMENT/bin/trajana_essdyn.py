@@ -24,6 +24,7 @@ except ImportError:
 version='1.0'
 versiondate=datetime.date(2016,05,12)
 
+# ======================================================================= #
 def centerstring(string,n,pad=' '):
   l=len(string)
   if l>=n:
@@ -31,12 +32,13 @@ def centerstring(string,n,pad=' '):
   else:
     return  pad*((n-l+1)/2)+string+pad*((n-l)/2)
 
+# ======================================================================= #
 def displaywelcome():
   print 'Script for performing essential dynamics analysis started ...\n'
   string='\n'
   string+='  '+'='*80+'\n'
   string+='||'+centerstring('',80)+'||\n'
-  string+='||'+centerstring('Reading structures from SHARC dynamics',80)+'||\n'
+  string+='||'+centerstring('Essential dynamics analysis for SHARC dynamics',80)+'||\n'
   string+='||'+centerstring('',80)+'||\n'
   string+='||'+centerstring('Author: Felix Plasser, Andrew Atkins',80)+'||\n'
   string+='||'+centerstring('',80)+'||\n'
@@ -50,15 +52,45 @@ This script reads output.xyz files and calculates the essential dynamics
   '''
   print string
 
+# ======================================================================= #
+def readfile(filename):
+  try:
+    f=open(filename)
+    out=f.readlines()
+    f.close()
+  except IOError:
+    print 'File %s does not exist!' % (filename)
+    sys.exit(12)
+  return out
 
+# ======================================================================= #
+def writefile(filename,content):
+  # content can be either a string or a list of strings
+  try:
+    f=open(filename,'w')
+    if isinstance(content,list):
+      for line in content:
+        f.write(line)
+    elif isinstance(content,str):
+      f.write(content)
+    else:
+      print 'Content %s cannot be written to file!' % (content)
+    f.close()
+  except IOError:
+    print 'Could not write to file %s!' % (filename)
+    sys.exit(13)
+
+# ======================================================================= #
 def open_keystrokes():
   global KEYSTROKES
   KEYSTROKES=open('KEYSTROKES.tmp','w')
 
+# ======================================================================= #
 def close_keystrokes():
   KEYSTROKES.close()
   shutil.move('KEYSTROKES.tmp','KEYSTROKES.essdyn')
 
+# ======================================================================= #
 def question(question,typefunc,default=None,autocomplete=True):
   if typefunc==int or typefunc==float:
     if not default==None and not isinstance(default,list):
@@ -111,7 +143,7 @@ def question(question,typefunc,default=None,autocomplete=True):
 
     if typefunc==str:
       KEYSTROKES.write(line+' '*(40-len(line))+' #'+s+'\n')
-      KEYSTROKES.write(line+' '*(40-len(line))+' #'+s+'\n')
+      #KEYSTROKES.write(line+' '*(40-len(line))+' #'+s+'\n')
       return line
 
     if typefunc==int or typefunc==float:
@@ -142,15 +174,18 @@ def question(question,typefunc,default=None,autocomplete=True):
 
  ##  read in variable assignments from ess_dyn.inp, this is always done when the program is called
  # first default definitions
-dt = .5
+#dt = .5
 # mass_wt_pw = 0.# mass weighting does not make sense as the variance does not depend on the mass
     # the variance, proportional to the amplitude of a normal mode, does not depend on mass with a given energy
-descr = ''
+#descr = ''
  
  # read from file
 #execfile('ess_dyn.inp')
 
 
+# ======================================================================= #
+# ======================================================================= #
+# ======================================================================= #
 def get_general():
 
   INFOS={}
@@ -184,16 +219,51 @@ def get_general():
   INFOS['paths']=paths
   print 'Total number of subdirectories: %i\n' % (count)
 
+  # try to obtain the maximum number of time steps in the trajectories
+  maxlen=0
+  dt=0.0
+  forbidden=['crashed','running','dead','dont_analyze']
+  for idir in INFOS['paths']:
+    ls=os.listdir(idir)
+    for itraj in ls:
+      if not 'TRAJ_' in itraj:
+        continue
+      path=idir+'/'+itraj
+      pathfile=path+'/output.lis'
+      if not os.path.isfile(pathfile):
+        continue
+      lstraj=os.listdir(path)
+      valid=True
+      for i in lstraj:
+        if i.lower() in forbidden:
+          valid=False
+          break
+      if not valid:
+        continue
+      f=readfile(pathfile)
+      for line in f:
+        if '#' in line:
+          continue
+        s=line.split()
+        step=int(s[0])
+        if step>maxlen:
+          maxlen=step
+        if dt==0.:
+          dt=float(s[1])
+
+
   print centerstring('Path to reference structure',60,'-')
   print '\nPlease enter the path to the equilibrium structure of your system (in the same atomic order as that given in the dynamics output)'
   print ''
   refpath=question('Path: ',str,'ref.xyz')
   refpath=os.path.expanduser(os.path.expandvars(refpath))
   print ''
-  reftype=question('Please give the type of coordinate file',str,'xyz')
+  reftype=question('Please give the type of coordinate file',str,os.path.splitext(refpath)[1][1:])
   INFOS['refstruc']=refpath
   INFOS['reftype']=reftype
   print ''
+
+
 
   massweightques=question('Do you wish to use mass weighted coordinates?',bool,True)
   INFOS['massweight']=massweightques
@@ -201,11 +271,11 @@ def get_general():
 
 
   print centerstring('Number of total steps in your trajectories',60,'-')
-  print '\n total simulation time *2 and +1 if timestep is 0.5 fs'
+  #print '\n total simulation time *2 and +1 if timestep is 0.5 fs'
   print ''
   while True:
-    numsteps=question('Simulation time steps: ',int,[2000])[0]
-    if numsteps <0.:
+    numsteps=question('Number of time steps: ',int,[maxlen+1])[0]
+    if numsteps <=0:
       print 'Number of steps must be positive!'
       continue
     break
@@ -215,34 +285,33 @@ def get_general():
   print centerstring('The time step of your calculation',60,'-')
   print ''
   while True:
-    timestep=question('Simulation time step: ',float,[0.5])[0]
-    if numsteps <0.:
-      print 'time step must be positive!'
+    timestep=question('Length of time step: ',float,[dt])[0]
+    if timestep <=0.:
+      print 'Time step must be positive!'
       continue
     break
   INFOS['timestep']=timestep
   print ''
 
   intervallist=[]
-  print centerstring('Simulation time to be analysed',60,'-')
-  print '\n Time intervals in which the trajectory is to be analyzed (0 to 2000 is 1000fs with 0.5fs timesteps) '
+  intervallist=[]
+  print centerstring('Time steps to be analysed',60,'-')
+  print '\nPlease enter the time step intervals for which the statistical analysis should be carried out. '
   print ''
   while True:
-    starttime=question('Start time of interval: ',int,[0])[0]
-    endtime=question('End time of interval: ',int,[1000])[0]
+    interval=question('Time step interval: ',int,[0,maxlen])
+    #endtime=question('End time of interval: ',int,[maxlen])[0]
     print ''
-    interval=[starttime,endtime]
+    #interval=[starttime,endtime]
     intervallist.append(interval)
     moreinterval=question('Do you want to add another time interval for analysis?',bool,False)
-    if moreinterval==True:
-      continue
-    else:
-      INFOS['interval']=intervallist
+    if not moreinterval:
       break
-    print ''
+  INFOS['interval']=intervallist
   print ''
 
-  print centerstring('Please give the name of the subdirectory to be used for the results',60,'-')
+  print centerstring('Results directory',60,'-')
+  print 'Please give the name of the subdirectory to be used for the results (use to save similar analysis in separate subdirectories).'
   destin=question('Name for subdirectory?',str,'essdyn')
   INFOS['descr']=destin
   print ''
