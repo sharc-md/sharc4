@@ -1,8 +1,8 @@
 #!/usr/bin/env python2
 
-# Interactive script for the setup of dynamics calculations for SHARC
+# Interactive script for the setup of dynamics calculations for SHARC #change
 # 
-# usage: python setup_traj.py
+# usage: python setup_traj.py #change
 
 from copy import deepcopy 
 import math
@@ -389,6 +389,7 @@ def get_general():
     print 'Found %i subdirectories in total.\n' % count
     paths.append(path)
   INFOS['paths']=paths
+  print INFOS
   print 'Total number of subdirectories: %i\n' % (count)
 
 
@@ -406,6 +407,7 @@ def get_general():
       if 'nstates' in line.lower():
         guessstates=[]
         l=re.sub('#.*$','',line).strip().split()
+        print l
         for i in range(1,len(l)):
           guessstates.append(int(l[i]))
       if 'coupling' in line.lower():
@@ -430,12 +432,12 @@ def get_general():
     'normal_termination':'Checks for exit status of trajectory (RUNNING, CRASHED, FINISHED).',
     'missing_output':'Checks if "output.lis", "output.log", "output.xyz", "output.dat" are existing.',
     'missing_restart':'Checks if "restart.ctrl", "restart.traj", "restart/" are existing.',
-    'etot_window':'Maximum permissible drift in total energy (in eV).',
-    'etot_step':'Maximum permissible total energy difference between two successive timesteps (in eV).',
-    'epot_step':'Maximum permissible active state potential energy difference between two successive timesteps (in eV). Not checked for timesteps where a hop occurred.',
-    'ekin_step':'Maximum permissible kinetic energy difference between two successive timesteps (in eV). Not checked for timesteps where a hop occurred.',
-    'pop_window':'Maximum permissible drift in total population.',
-    'hop_energy':'Maximum permissible change in active state energy difference during a surface hop (in eV).',
+    'etot_window':'Maximum permittible drift in total energy (in eV).',
+    'etot_step':'Maximum permittible total energy difference between two successive timesteps (in eV).',
+    'epot_step':'Maximum permittible active state potential energy difference between two successive timesteps (in eV). Not checked for timesteps where a hop occurred.',
+    'ekin_step':'Maximum permittible kinetic energy difference between two successive timesteps (in eV).',
+    'pop_window':'Maximum permittible drift in total population.',
+    'hop_energy':'Maximum permittible change in active state energy difference during a surface hop (in eV).',
     'intruders':'Checks if intruder state messages in "output.log" refer to active state.'
   }
   if LD_dynamics:
@@ -523,6 +525,350 @@ Later, all floats x with binlist[i-1]<x<=binlist[i] will return i'''
     return s
 
 
+def look_for_files(filelist,path,s,trajectories):
+      files=filelist
+      s=s
+      for ifile in files:
+        f=os.path.join(path,ifile)
+        s+=ifile[-4:]
+        if os.path.isfile(f):
+          trajectories[path]['files'][ifile]=True
+          s+=' .. '
+        else:
+          trajectories[path]['files'][ifile]=False
+          s+=' !! '
+      return s, trajectories
+
+def check_files(path,trajectories,INFOS):
+  # check if files are there
+  trajectories[path]['files']={}
+  s='    Output files:     '
+  files=['output.lis','output.log','output.dat','output.xyz']
+  s, trajectories = look_for_files(files,path,s,trajectories)
+  if all(trajectories[path]['files'].values()):
+    s+='OK'
+    missing = False
+    if INFOS['settings']['missing_output']:
+      print s
+  else:
+    s+='Files missing!'
+    trajectories[path]['maxsteps']=0
+    trajectories[path]['tana']=0.
+    missing = True
+    print s
+    #continue
+  #print INFOS['settings']['missing_output']
+
+
+  # check for restart files
+  if INFOS['settings']['missing_restart']:
+    files=['restart.ctrl','restart.traj']
+    s='    Restart files:    '
+    s, trajectories = look_for_files(files,path,s,trajectories)
+    ls2=os.path.join(path,'restart')
+    if not os.path.isdir(ls2) or len(os.listdir(ls2))==0:
+      s+='restart/ !! '
+      trajectories[path]['files']['restart']=False
+    else:
+      s+='restart/ .. '
+      trajectories[path]['files']['restart']=True
+    if all(trajectories[path]['files'].values()):
+      s+='    OK'
+    else:
+      s+='    Restart might not be possible.'
+    if INFOS['settings']['missing_restart']:
+      print s
+  return trajectories, missing
+
+def check_runtime(path, trajectories,INFOS):
+  # get maximum run time
+  f=os.path.join(path,'output.log')
+  f=readfile(f)
+  trajectories[path]['tana'] = 0
+  for line in reversed(f):
+    trajectories[path]['laststep']=0
+    trajectories[path]['maxsteps']=1
+    if 'entering timestep' in line.lower():
+      trajectories[path]['laststep']=int(line.split()[3])
+      break
+  for line in reversed(f):
+    if 'found nsteps=' in line.lower():
+      trajectories[path]['maxsteps']=int(line.split()[2])
+      trajectories[path]['dtstep']=float(line.split()[5])
+  s='    Progress:         ['
+  progress=float(trajectories[path]['laststep'])/trajectories[path]['maxsteps']
+  s+='='*int(25*progress) + ' '*(25-int(25*progress))+']     %.1f of %.1f fs' % (trajectories[path]['laststep']*trajectories[path]['dtstep'], trajectories[path]['maxsteps']*trajectories[path]['dtstep'])
+  #s+='\n'
+  if INFOS['settings']['normal_termination']:
+    print s
+  return trajectories, f
+
+def check_termination(path, trajectories,INFOS,f):
+  # check for normal termination
+  trajectories[path]['terminated']=False
+  trajectories[path]['crashed']=False
+  trajectories[path]['stopped']=False
+  trajectories[path]['stuck']=False
+  for line in reversed(f[-30:]):
+    if 'total wallclock time' in line.lower():
+      trajectories[path]['terminated']=True
+    elif 'file stop detected' in line.lower():
+      trajectories[path]['stopped']=True
+    elif 'qm call was not successful' in line.lower():
+      trajectories[path]['crashed']=True
+  s='    Status:                                           '
+  if trajectories[path]['terminated']:
+    if trajectories[path]['crashed']:
+      s+='CRASHED'
+    elif trajectories[path]['stopped']:
+      s+='FINISHED (stopped by user)'
+    else:
+      s+='FINISHED'
+  else:
+    #check how much time passed since last QM call and compare to average
+    #calculation time. Label trajectory STUCK if too much time passed (5x).
+    timesteps = []
+    count = 0
+    countmax = min(10,trajectories[path]['laststep'])
+    for line in range(len(f)):
+      if 'ntering timestep' in f[line].lower():
+        timesteps.append(f[line+2].strip())
+        count += 1
+      if count == countmax: 
+        break
+    total = datetime.timedelta()
+    for entry in range(len(timesteps)-2):
+      tstart = datetime.datetime.strptime(timesteps[entry+1], '%a %b %d %H:%M:%S %Y') 
+      tend = datetime.datetime.strptime(timesteps[entry+2], '%a %b %d %H:%M:%S %Y')
+      total += tend-tstart
+
+    for line in range(len(f)):
+      if 'ntering timestep' in f[-line].lower():
+        tstart = datetime.datetime.strptime(f[-line+2].strip(), '%a %b %d %H:%M:%S %Y')
+    tend=datetime.datetime.now()
+    tdiff = tend-tstart
+    if 5*total/(count-2) < tdiff:
+      trajectories[path]['stuck']=True
+      stuck = True
+    if stuck: 
+      s+='STUCK (%s since last QM call)' % (str(tdiff)[:-7])
+    else:
+      s+='RUNNING'
+  if INFOS['settings']['normal_termination']:
+    print s
+  
+  return trajectories
+
+def check_length(path,trajectories,filelength,filename):
+  #checks if the number of entries in a file corresponds to the number 
+  #of time steps in the output.log file
+  if filelength != trajectories[path]['laststep'] and filelength != trajectories[path]['laststep']+1:
+    return 'Wrong step nr in %s ' % (filename)
+  else:
+    return ''
+
+
+def check_consistency(path,trajectories,data,filename):
+  #checks if no timesteps are omitted in a given file
+  problem = ''
+  deltatime = float(trajectories[path]['dtstep'])
+  if filename == 'output.lis':
+    deltatime = 1
+  for line in data:
+    if not '#' in line:
+      x = line.split()
+      if float(x[0]) == 0.:
+        prevtime = 0
+        tana = 0
+      elif float(x[0]) - deltatime - prevtime == 0.:
+        prevtime = float(x[0])
+        tana = prevtime
+        pass
+      else:
+        problem = 'Missing steps in %s' % (filename) #(int(prevtime/deltatime))
+        if filename == 'output.lis':
+          tana = float(prevtime*float(trajectories[path]['dtstep']))
+        else:
+          tana = float(prevtime)
+        break
+    
+  return problem, tana
+
+def check_energies(path,trajectories,INFOS,hops):
+  #look for large changes in the total, kinetic, and potential energy
+  # inbetween time steps. Check also if a large change in energy was observed 
+  #during a hop.
+  f=os.path.join(path,'output_data','energy.out')
+  if os.path.isfile(f):
+    f=readfile(f)
+    try:
+      problem, tana_length = check_consistency(path,trajectories,f,'energy.out')
+    except:
+      print '\n    An error occured while trying to check energy.out for consistency.' 
+      trajectories[path]['error'] = True
+    if problem == '':
+      problem = check_length(path,trajectories,len(f)-3,'energy.out')
+    for line in f:
+      if '#' in line:
+        continue
+      x=line.split()
+      t=float(x[0])
+      e=[ float(i) for i in x[1:] ]
+      if t==0.:
+        eold=e
+        etotmin=e[2]
+        etotmax=e[2]
+      elif t > tana_length:
+        tana = tana_length
+        break
+      hop = False
+      currstep = int(t/trajectories[path]['dtstep']) 
+      if currstep in hops:
+        hop = True
+      ok=True
+      tana=t
+      if etotmin>e[2]:
+        etotmin=e[2]
+      if etotmax<e[2]:
+        etotmax=e[2]
+      if abs(etotmax-etotmin)>INFOS['settings']['etot_window']:
+        ok=False
+        problem='Large fluctuation in Etot'
+      if not hop:
+        if abs(e[0]-eold[0]) > INFOS['settings']['ekin_step']:
+          ok=False
+          problem='Large step in Ekin'
+        if abs(e[1]-eold[1]) > INFOS['settings']['epot_step']:
+          ok=False
+          problem='Large step in Epot'
+      else:
+        if abs(e[1]-eold[1]) > INFOS['settings']['hop_energy']:
+          ok=False
+          problem='Large dE during hop'
+      if abs(e[2]-eold[2]) > INFOS['settings']['etot_step']:
+        ok=False
+        problem='Large step in Etot'
+      if not ok:
+        break
+      eold=e
+    if len(f) <= 3:
+      tana = 0. 
+      problem='Empty energy.out file'
+    trajectories[path]['tana']=tana
+    trajectories[path]['problem']=problem
+    s='    Energy:           ' + problem + ' '*(32-len(problem))
+    if problem:
+      s+='at %.2f fs' % tana
+    else:
+      s+='OK'
+    print s
+  else:
+    problem='"energy.out" missing'
+    s='    Energy:           ' + problem + ' '*(32-len(problem))+'!!'
+    trajectories[path]['tana']=0.
+    trajectories[path]['problem']=problem
+    print s
+  return trajectories
+
+def check_populations(path,trajectories,INFOS):
+  #look for large changes in the total population inbetween time steps
+  f=os.path.join(path,'output_data','coeff_diag.out')
+  if os.path.isfile(f):
+    f=readfile(f)
+    tana = 0
+    problem=''
+    try:
+      problem, tana_length = check_consistency(path,trajectories,f,'coeff_diag.out')
+    except:
+      print '\n    An error occured while trying to check coeff_diag.out for consistency.'
+      trajectories[path]['error'] = True
+    if problem == '':
+      problem = check_length(path,trajectories,len(f)-3,'coeff_diag.out')
+    for line in f:
+      if '#' in line:
+        continue
+      x=line.split()
+      t=float(x[0])
+      pop=float(x[1])
+      if t==0.:
+        popmin=pop
+        popmax=pop
+      elif t > tana_length:
+        tana = tana_length
+        break
+      ok=True
+      tana=t
+      if popmin>pop:
+        popmin=pop
+      if popmax<pop:
+        popmax=pop
+      if abs(popmax-popmin)>INFOS['settings']['pop_window']:
+        ok=False
+        problem='Fluctuation in Population'
+      if not ok:
+        break
+    if len(f) <= 3:
+      tana = 0. 
+      problem='Empty coeff_diag.out file'
+    trajectories[path]['tana']=min(tana,trajectories[path]['tana'])
+    trajectories[path]['problem']=problem
+    s='    Population:       ' + problem + ' '*(32-len(problem))
+    if problem:
+      s+='at %.2f fs' % tana
+    else:
+      s+='OK'
+    print s
+  else:
+    problem='"coeff_diag.out" missing'
+    s='    Population:       ' + problem + ' '*(32-len(problem))+'!!'
+    trajectories[path]['tana']=0.
+    trajectories[path]['problem']=problem
+    print s
+  return trajectories
+
+def check_intruders(path,trajectories,INFOS,lis,tana,problem_length):
+  # control for intruder states by comparing detected intruder states in the
+  #output.log  to active states in output.lis
+  if INFOS['settings']['intruders']:
+    f=os.path.join(path,'output.log')
+    f=readfile(f)
+    ok=True
+    problem=''
+    for line in f:
+      if 'ntering timestep' in line:
+        tstep=int(line.split()[3])
+        if tstep == 0:
+          prevstep = 0
+        elif tstep - 1 != prevstep:
+          tana = prevstep * trajectories[path]['dtstep']
+          problem = 'Missing steps in output.log'
+          break
+        prevstep = tstep
+        if tstep > tana:
+          ok = False
+          problem = problem_length
+          break
+      if 'State: ' in line:
+        intruder=int(line.split()[1])
+        state = lis[tstep][2]
+        if state==intruder:
+          problem='Intruder state found'
+          ok=False
+          tana=t
+        if not ok:
+          break
+    else:
+      tana = trajectories[path]['laststep']*trajectories[path]['dtstep']
+    trajectories[path]['tana']=min(tana,trajectories[path]['tana'])
+    s='    Intruder states:  ' + problem + ' '*(32-len(problem))
+    trajectories[path]['problem']=problem
+    if problem:
+      s+='at %.2f fs' % tana
+    else:
+      s+='OK'
+    print s
+  return trajectories
+
 def do_calc(INFOS):
 
   sharcpath=os.getenv('SHARC')
@@ -530,8 +876,6 @@ def do_calc(INFOS):
     print 'Please set $SHARC to the directory containing the SHARC executables!'
     sys.exit(1)
   cwd=os.getcwd()
-
-
 
   # go through directories
   trajectories={}
@@ -546,106 +890,32 @@ def do_calc(INFOS):
       path=os.path.join(idir,itraj)
       trajectories[path]={}
       print centerstring(' '+path+' ',80,'~')+'\n'
+      trajectories[path]['error'] = False
+      trajectories[path]['filelength'] = ''
 
-      # check if files are there
-      trajectories[path]['files']={}
-      files=['output.lis','output.log','output.dat','output.xyz']
-      ls2=os.listdir(path)
-      s='    Output files:     '
-      for ifile in files:
-        f=os.path.join(path,ifile)
-        s+=ifile[-3:]
-        if os.path.isfile(f):
-          trajectories[path]['files'][ifile]=True
-          s+=' .. '
-        else:
-          trajectories[path]['files'][ifile]=False
-          s+=' !! '
-      if all(trajectories[path]['files'].values()):
-        s+='    OK'
-      else:
-        s+='    Files missing!'
-        trajectories[path]['maxsteps']=0
-        trajectories[path]['tana']=0.
-        print s+'\n\n\n'
+      try:
+        trajectories, missing = check_files(path,trajectories,INFOS)
+      except:
+        print '\n    An error occured while trying to look for the files.\n'
+        trajectories[path]['error'] = True
         continue
-      if INFOS['settings']['missing_output']:
-        print s
+      if missing:
+        continue
 
-      # check for restart files
-      if INFOS['settings']['missing_restart']:
-        files=['restart.ctrl','restart.traj']
-        s='    Restart files:    '
-        for ifile in files:
-          f=os.path.join(path,ifile)
-          s+=ifile[-4:]
-          if os.path.isfile(f):
-            trajectories[path]['files'][ifile]=True
-            s+=' .. '
-          else:
-            trajectories[path]['files'][ifile]=False
-            s+=' !! '
-        ls2=os.path.join(path,'restart')
-        if not os.path.isdir(ls2) or len(os.listdir(ls2))==0:
-          s+='restart/ !! '
-          trajectories[path]['files']['restart']=False
-        else:
-          s+='restart/ .. '
-          trajectories[path]['files']['restart']=True
-        if all(trajectories[path]['files'].values()):
-          s+='    OK'
-        else:
-          s+='    Restart might not be possible.'
-        if INFOS['settings']['missing_restart']:
-          print s
+      try:
+        trajectories, f = check_runtime(path, trajectories,INFOS)
+      except:
+        print '\n    An error occured while trying to extract the runtime.\n \
+   Files may be corrupted.\n'
+        trajectories[path]['error'] = True
 
-      # check for normal termination
-      f=os.path.join(path,'output.log')
-      f=readfile(f)
-      trajectories[path]['terminated']=False
-      trajectories[path]['crashed']=False
-      trajectories[path]['stopped']=False
-      for line in reversed(f[-30:]):
-        if 'total wallclock time' in line.lower():
-          trajectories[path]['terminated']=True
-        elif 'file stop detected' in line.lower():
-          trajectories[path]['stopped']=True
-        elif 'qm call was not successful' in line.lower():
-          trajectories[path]['crashed']=True
-      s='    Status:                                           '
-      if trajectories[path]['terminated']:
-        if trajectories[path]['crashed']:
-          s+='CRASHED'
-        elif trajectories[path]['stopped']:
-          s+='FINISHED (stopped by user)'
-        else:
-          s+='FINISHED'
-      else:
-        s+='RUNNING'
-      if INFOS['settings']['normal_termination']:
-        print s
-
-      # get maximum run time
-      #f=os.path.join(path,'output.log')
-      #f=readfile(f)
-      for line in reversed(f):
-        trajectories[path]['laststep']=0
-        trajectories[path]['maxsteps']=1
-        if 'entering timestep' in line.lower():
-          trajectories[path]['laststep']=int(line.split()[3])
-          break
-      for line in reversed(f):
-        if 'found nsteps=' in line.lower():
-          trajectories[path]['maxsteps']=int(line.split()[2])
-          trajectories[path]['dtstep']=float(line.split()[5])
-      s='    Progress:         ['
-      progress=float(trajectories[path]['laststep'])/trajectories[path]['maxsteps']
-      s+='='*int(25*progress) + ' '*(25-int(25*progress))+']     %.1f of %.1f fs' % (trajectories[path]['laststep']*trajectories[path]['dtstep'], trajectories[path]['maxsteps']*trajectories[path]['dtstep'])
-      #s+='\n'
-      if INFOS['settings']['normal_termination']:
-        print s
-
-
+      try:
+        trajectories = check_termination(path, trajectories,INFOS,f)
+      except:
+        print '\n    An error occured while trying to extract the status.\n \
+   Files may be corrupted.\n'
+        trajectories[path]['error'] = True   
+ 
       # run data extractor
       update=False
       if not os.path.isfile(os.path.join(path,'output_data','expec.out')):
@@ -661,7 +931,7 @@ def do_calc(INFOS):
         sys.stdout.write('    Data extractor...                                 ')
         sys.stdout.flush()
         os.chdir(path)
-        io=sp.call(sharcpath+'/data_extractor.x -s -f output.dat > /dev/null 2> /dev/null',shell=True)
+        io=sp.call(sharcpath+'/data_extractor.x output.dat > /dev/null 2> /dev/null',shell=True)
         if io!=0:
           print 'WARNING: extractor call failed for %s! Exit code %i' % (path,io)
         os.chdir(cwd)
@@ -669,177 +939,58 @@ def do_calc(INFOS):
       else:
         pass
 
-      #s='\n'
-      # check energies
-      f=os.path.join(path,'output_data','energy.out')
-      if os.path.isfile(f):
-        f=readfile(f)
-        f2=os.path.join(path,'output.lis')
-        f2=readfile(f2)
-        if2=-1
-        problem=''
-        for line in f:
-          if '#' in line:
-            continue
-          x=line.split()
-          t=float(x[0])
-          e=[ float(i) for i in x[1:] ]
-          if t==0.:
-            eold=e
-            etotmin=e[2]
-            etotmax=e[2]
-          hop=False
-          while True:
-            if2+=1
-            line2=f2[if2]
-            if 'Surface Hop' in line2:
-              hop=True
-              continue
-            elif '#' in line2:
-              continue
-            if abs(t-float(line2.split()[1]))<1e-4:
-              break
-            hop=False
-          # checks
-          ok=True
-          tana=t
-          if etotmin>e[2]:
-            etotmin=e[2]
-          if etotmax<e[2]:
-            etotmax=e[2]
-          if abs(etotmax-etotmin)>INFOS['settings']['etot_window']:
-            ok=False
-            problem='Large fluctuation in Etot'
-          if not hop:
-            if abs(e[0]-eold[0]) > INFOS['settings']['ekin_step']:
-              ok=False
-              problem='Large step in Ekin'
-            if abs(e[1]-eold[1]) > INFOS['settings']['epot_step']:
-              ok=False
-              problem='Large step in Epot'
-          else:
-            if abs(e[1]-eold[1]) > INFOS['settings']['hop_energy']:
-              ok=False
-              problem='Large dE during hop'
-          if abs(e[2]-eold[2]) > INFOS['settings']['etot_step']:
-            ok=False
-            problem='Large step in Etot'
-          if not ok:
-            break
-          eold=e
-        trajectories[path]['tana']=tana
-        trajectories[path]['problem']=problem
-        s='    Energy:           ' + problem + ' '*(32-len(problem))
-        if problem:
-          s+='at %.2f fs' % tana
-        else:
-          s+='OK'
-        print s
-      else:
-        problem='"energy.out" missing'
-        s='    Energy:           ' + problem + ' '*(32-len(problem))+'!!'
-        trajectories[path]['tana']=0.
-        trajectories[path]['problem']=problem
-        print s
-
-      # check populations
-      f=os.path.join(path,'output_data','coeff_diag.out')
-      if os.path.isfile(f):
-        f=readfile(f)
-        problem=''
-        for line in f:
-          if '#' in line:
-            continue
-          x=line.split()
-          t=float(x[0])
-          pop=float(x[1])
-          if t==0.:
-            popmin=pop
-            popmax=pop
-          # checks
-          ok=True
-          tana=t
-          if popmin>pop:
-            popmin=pop
-          if popmax<pop:
-            popmax=pop
-          if abs(popmax-popmin)>INFOS['settings']['pop_window']:
-            ok=False
-            problem='Fluctuation in Population'
-          if not ok:
-            break
-        trajectories[path]['tana']=min(tana,trajectories[path]['tana'])
-        if not trajectories[path]['problem']:
-          trajectories[path]['problem']=problem
-        s='    Population:       ' + problem + ' '*(32-len(problem))
-        if problem:
-          s+='at %.2f fs' % tana
-        else:
-          s+='OK'
-        print s
-      else:
-        problem='"coeff_diag.out" missing'
-        s='    Population:       ' + problem + ' '*(32-len(problem))+'!!'
-        trajectories[path]['tana']=0.
-        if not trajectories[path]['problem']:
-          trajectories[path]['problem']=problem
-        print s
-
-
-      # check for intruder states
-      if INFOS['settings']['intruders']:
-        f=os.path.join(path,'output.log')
-        f=readfile(f)
-        f2=os.path.join(path,'output.lis')
-        f2=readfile(f2)
-        if2=-1
-        problem=''
-        tana=trajectories[path]['laststep']
-        ok=True
-        for line in f:
-          if 'ntering timestep' in line:
-            tstep=int(line.split()[3])
-          if 'State: ' in line:
-            intruder=int(line.split()[1])
-            if2-=1
-            while True:
-              if2+=1
-              line2=f2[if2]
-              if '#' in line2:
-                continue
-              x=line2.split()
-              step=int(x[0])
-              t=float(x[1])
-              state=int(x[3])
-              if step==tstep:
-                break
-            if state==intruder:
-              problem='Intruder state found'
-              ok=False
-              tana=t
-            if not ok:
-              break
-        trajectories[path]['tana']=min(tana,trajectories[path]['tana'])
-        s='    Intruder states:  ' + problem + ' '*(32-len(problem))
-        if not trajectories[path]['problem']:
-          trajectories[path]['problem']=problem
-        if problem:
-          s+='at %.2f fs' % tana
-        else:
-          s+='OK'
-        print s
+      #save output.lis as dict with timestep as keys
+      lis = {}
+      f=os.path.join(path,'output.lis')
+      f=readfile(f)
+      hops = []
+      step = 0
+      for line in f:
+        if '#' in line:
+          if 'Surface Hop' in line:
+            hops.append(step)
+          continue
+        x=line.split()
+        lis[float(x[0])]=x[1:]
+        step += 1
+      try:
+        problem, tana = check_consistency(path,trajectories,f,'output.lis')
+      except:
+        print '\n    An error occured while trying to check output.lis for consistency.'
+        trajectories[path]['error'] = True 
+      if problem == '':
+        problem = check_length(path,trajectories,len(lis),'output.lis')
+      try:
+        trajectories = check_energies(path,trajectories,INFOS,hops)
+      except:
+        print '\n    An error occured while trying to extract the energies.\n \
+   Files may be corrupted.\n'
+        trajectories[path]['error'] = True   
+      try:
+        trajectories = check_populations(path,trajectories,INFOS)
+      except:
+        print '\n    An error occured while trying to extract the populations.\n \
+   Files may be corrupted.\n'
+        trajectories[path]['error'] = True   
+      try:
+        trajectories = check_intruders(path,trajectories,INFOS,lis,tana,problem)
+      except:
+        print '\n    An error occured while trying to extract possible intruder states.\n \
+   Files may be corrupted.\n'
+        trajectories[path]['error'] = True   
 
 
       #sys.stdout.write(s)
 
-
+      if  trajectories[path]['filelength'] != '':
+        print trajectories[path]['filelength']
       print '\n\n'
 
 
 
   # statistics
   #pprint.pprint(trajectories)
-
+  #print a summarizing table 
   trajsorted=sorted(trajectories,key=lambda x: trajectories[x]['tana'])
   print '\n\n'+centerstring(' Summary ',80,'=')+'\n'
 
@@ -857,15 +1008,19 @@ def do_calc(INFOS):
   #print hist
 
   for itraj in trajsorted:
-    if all( [trajectories[itraj]['files'][i] for i in ['output.log','output.dat','output.lis','output.xyz'] ] ):
+    if all( [trajectories[itraj]['files'][i] for i in ['output.log','output.dat','output.lis','output.xyz'] ] ) and not trajectories[itraj]['error']:
       complete='OK'
     else:
       complete='!!'
+    if trajectories[itraj]['filelength'] != '':
+      complete='**'
     if complete=='OK':
       if trajectories[itraj]['crashed']:
         status='CRASH'
       elif trajectories[itraj]['stopped']:
         status='STOP'
+      elif trajectories[itraj]['stuck']:
+        status='STUCK'
       elif trajectories[itraj]['terminated']:
         status='FINISH'
       else:
@@ -875,6 +1030,7 @@ def do_calc(INFOS):
     if complete=='OK':
       full=trajectories[itraj]['maxsteps']*trajectories[itraj]['dtstep']
       length=trajectories[itraj]['laststep']*trajectories[itraj]['dtstep']
+
       t_use=trajectories[itraj]['tana']
     else:
       full=1000.

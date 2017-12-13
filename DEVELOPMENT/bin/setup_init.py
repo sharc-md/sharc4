@@ -1,7 +1,7 @@
 #!/usr/bin/env python2
 
 # Interactive script for the setup of initial condition excitation calculations for SHARC
-# 
+#
 # usage: python setup_init.py
 
 import copy
@@ -188,7 +188,7 @@ class INITCOND:
     self.Epot=self.statelist[0].e-self.eref
 
   def init_from_file(self,f,eref,index):
-    while True: 
+    while True:
       line=f.readline()
       #if 'Index     %i' % (index) in line:
       if re.search('Index\s+%i' % (index),line):
@@ -295,8 +295,8 @@ def displaywelcome():
   string+='||'+centerstring('',80)+'||\n'
   string+='  '+'='*80+'\n\n'
   string+='''
-This script automatizes the setup of excited-state calculations for initial conditions 
-for SHARC dynamics. 
+This script automatizes the setup of excited-state calculations for initial conditions
+for SHARC dynamics.
   '''
   print string
 
@@ -553,7 +553,7 @@ def get_general():
       INFOS['needed'].extend(Interfaces[num]['features']['overlap'])
 
 
-  # Setup theodore 
+  # Setup theodore
   if 'theodore' in Interfaces[num]['features']:
     print '\n'+centerstring('TheoDORE wave function analysis',60,'-')+'\n'
     print 'Do you want to run TheoDORE to obtain one-electron descriptors for the electronic wave functions?'
@@ -931,7 +931,7 @@ def get_COLUMBUS(INFOS):
 
 
   print centerstring('COLUMBUS input template directory',60,'-')+'\n'
-  print '''Please specify the path to the COLUMBUS template directory. 
+  print '''Please specify the path to the COLUMBUS template directory.
 The directory must contain subdirectories with complete COLUMBUS input file sets for the following steps:
 - Integrals with SEWARD/MOLCAS
 - SCF
@@ -1427,7 +1427,7 @@ def get_MOLCAS(INFOS):
 
   print centerstring('MOLCAS input template file',60,'-')+'\n'
   print '''Please specify the path to the MOLCAS.template file. This file must contain the following settings:
-  
+
 basis <Basis set>
 ras2 <Number of active orbitals>
 nactel <Number of active electrons>
@@ -1503,7 +1503,7 @@ The MOLCAS interface will generate the appropriate MOLCAS input automatically.
   # Ionization
   #print '\n'+centerstring('Ionization probability by Dyson norms',60,'-')+'\n'
   #INFOS['ion']=question('Dyson norms?',bool,False)
-  #if INFOS['ion']:  
+  #if INFOS['ion']:
   if 'wfoverlap' in INFOS['needed']:
     print '\n'+centerstring('Wfoverlap code setup',60,'-')+'\n'
     INFOS['molcas.wfoverlap']=question('Path to wavefunction overlap executable:',str,'$SHARC/wfoverlap.x')
@@ -1661,10 +1661,10 @@ def get_ADF(INFOS):
   # template file
   print centerstring('ADF input template file',60,'-')+'\n'
   print '''Please specify the path to the ADF.template file. This file must contain the following keywords:
-  
+
 basis <basis>
 functional <type> <name>
-charge <x> [ <x2> [ <x3> ...] ] 
+charge <x> [ <x2> [ <x3> ...] ]
 
 The ADF interface will generate the appropriate ADF input automatically.
 '''
@@ -1759,13 +1759,13 @@ Typical values for ADF are 0.90-0.98 for LDA/GGA functionals and 0.50-0.80 for h
 
 
   # TheoDORE
-  theodore_spelling=['Om', 
-                    'PRNTO', 
+  theodore_spelling=['Om',
+                    'PRNTO',
                     'Z_HE', 'S_HE', 'RMSeh',
-                    'POSi', 'POSf', 'POS', 
+                    'POSi', 'POSf', 'POS',
                     'PRi', 'PRf', 'PR', 'PRh',
                     'CT', 'CT2', 'CTnt',
-                    'MC', 'LC', 'MLCT', 'LMCT', 'LLCT', 
+                    'MC', 'LC', 'MLCT', 'LMCT', 'LLCT',
                     'DEL', 'COH', 'COHh']
   #INFOS['theodore']=question('TheoDORE analysis?',bool,False)
   if 'theodore' in INFOS['needed']:
@@ -1975,7 +1975,7 @@ douglas-kroll                                   # DKH is only used if this keywo
 
 
   print centerstring('RICC2 Ressource usage',60,'-')+'\n'
-  print '''Please specify the amount of memory available to Turbomole (in MB). 
+  print '''Please specify the amount of memory available to Turbomole (in MB).
 '''
   INFOS['ricc2.mem']=abs(question('RICC2 memory:',int,[1000])[0])
   print '''Please specify the number of CPUs to be used by EACH trajectory.
@@ -1995,13 +1995,13 @@ douglas-kroll                                   # DKH is only used if this keywo
 
 
   # TheoDORE
-  theodore_spelling=['Om', 
-                    'PRNTO', 
+  theodore_spelling=['Om',
+                    'PRNTO',
                     'Z_HE', 'S_HE', 'RMSeh',
-                    'POSi', 'POSf', 'POS', 
+                    'POSi', 'POSf', 'POS',
                     'PRi', 'PRf', 'PR', 'PRh',
                     'CT', 'CT2', 'CTnt',
-                    'MC', 'LC', 'MLCT', 'LMCT', 'LLCT', 
+                    'MC', 'LC', 'MLCT', 'LMCT', 'LLCT',
                     'DEL', 'COH', 'COHh']
   #INFOS['theodore']=question('TheoDORE analysis?',bool,False)
   if 'theodore' in INFOS['needed']:
@@ -2496,12 +2496,12 @@ def writeRunscript(INFOS,iconddir):
   else:
     projname='init_%5s' % (iconddir[-6:-1])
 
-  # ================================ 
+  # ================================
   intstring=''
   if 'adfrc' in INFOS:
     intstring='. %s' % (INFOS['adfrc'])
 
-  # ================================ 
+  # ================================
   if ('refov' in INFOS and INFOS['refov']) and iconddir!='ICOND_00000/':
     refstring='''
 if [ -d ../ICOND_00000/SAVE ];
@@ -2670,7 +2670,7 @@ Afterwards, it asks for the interface used and goes through the preparation depe
 
   displaywelcome()
   open_keystrokes()
-  
+
   INFOS=get_general()
   INFOS=globals()[Interfaces[ INFOS['interface']]['get_routine'] ](INFOS)
   INFOS=get_runscript_info(INFOS)

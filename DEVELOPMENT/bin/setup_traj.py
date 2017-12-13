@@ -1,7 +1,7 @@
 #!/usr/bin/env python2
 
 # Interactive script for the setup of dynamics calculations for SHARC
-# 
+#
 # usage: python setup_traj.py
 
 import copy
@@ -54,21 +54,21 @@ versiondate=datetime.date(2017,3,1)
 
 
 IToMult={
-         1: 'Singlet', 
-         2: 'Doublet', 
-         3: 'Triplet', 
-         4: 'Quartet', 
-         5: 'Quintet', 
-         6: 'Sextet', 
-         7: 'Septet', 
-         8: 'Octet', 
-         'Singlet': 1, 
-         'Doublet': 2, 
-         'Triplet': 3, 
-         'Quartet': 4, 
-         'Quintet': 5, 
-         'Sextet': 6, 
-         'Septet': 7, 
+         1: 'Singlet',
+         2: 'Doublet',
+         3: 'Triplet',
+         4: 'Quartet',
+         5: 'Quintet',
+         6: 'Sextet',
+         7: 'Septet',
+         8: 'Octet',
+         'Singlet': 1,
+         'Doublet': 2,
+         'Triplet': 3,
+         'Quartet': 4,
+         'Quintet': 5,
+         'Sextet': 6,
+         'Septet': 7,
          'Octet': 8
          }
 
@@ -334,7 +334,7 @@ class INITCOND:
     self.Epot=self.statelist[0].e-self.eref
 
   def init_from_file(self,f,eref,index):
-    while True: 
+    while True:
       line=f.readline()
       #if 'Index     %i' % (index) in line:
       if re.search('Index\s+%i' % (index),line):
@@ -439,7 +439,7 @@ def displaywelcome():
   string+='||'+centerstring('',80)+'||\n'
   string+='  '+'='*80+'\n\n'
   string+='''
-This script automatizes the setup of the input files for SHARC dynamics. 
+This script automatizes the setup of the input files for SHARC dynamics.
   '''
   print string
 
@@ -695,7 +695,7 @@ def get_general():
   string+='  '+'='*80+'\n\n'
   print string
   print '''\nThis script reads the initial conditions (geometries, velocities, initial excited state)
-from the initconds.excited files as provided by excite.py. 
+from the initconds.excited files as provided by excite.py.
 '''
 
   # open the initconds file
@@ -781,7 +781,7 @@ from the initconds.excited files as provided by excite.py.
   print 'Total number of states: %i\n' % (nstates)
   INFOS['states']=states
   INFOS['nstates']=nstates
-  # obtain the statemap 
+  # obtain the statemap
   statemap={}
   i=1
   for imult,istate,ims in itnmstates(INFOS['states']):
@@ -1054,7 +1054,7 @@ from the initconds.excited files as provided by excite.py.
   # Coupling
   print '\nPlease choose the quantities to describe non-adiabatic effects between the states:'
   for i in Couplings:
-    print '%i\t%s%s' % (i, 
+    print '%i\t%s%s' % (i,
                         Couplings[i]['description'],
                         ['(not available)',''][Couplings[i]['name'] in Interfaces[INFOS['interface']]['features']]
                         )
@@ -1256,7 +1256,7 @@ from the initconds.excited files as provided by excite.py.
   print '\n\n'+centerstring('Laser file',60,'-')+'\n'
   INFOS['laser']=question('Do you want to include a laser field in the simulation?',bool,False)
   if INFOS['laser']:
-    print '''Please specify the file containing the complete laser field. The timestep in the file and the length of the file must fit to the simulation time, time step and number of substeps given above. 
+    print '''Please specify the file containing the complete laser field. The timestep in the file and the length of the file must fit to the simulation time, time step and number of substeps given above.
 
 Laser files can be created using $SHARC/laser.x
 '''
@@ -1302,7 +1302,7 @@ Laser files can be created using $SHARC/laser.x
         INFOS['needed'].extend(Interfaces[INFOS['interface']]['features']['dyson'])
 
 
-  # Setup theodore 
+  # Setup theodore
   if 'theodore' in Interfaces[INFOS['interface']]['features']:
     print '\n'+centerstring('TheoDORE wave function analysis',60,'-')+'\n'
     print 'Do you want to run TheoDORE to obtain one-electron descriptors for the electronic wave functions?'
@@ -1336,7 +1336,7 @@ Laser files can be created using $SHARC/laser.x
     INFOS['write_grad']=True
   else:
     INFOS['write_grad']=False
-    
+
   print '\nDo you want to write the non-adiabatic couplings (NACs) to the output.dat file ?'
   write_NAC=question('Write NACs?',bool,False)
   if write_NAC:
@@ -1679,7 +1679,7 @@ def get_COLUMBUS(INFOS):
 
   # COLUMBUS template directory
   print centerstring('COLUMBUS input template directory',60,'-')+'\n'
-  print '''Please specify the path to the COLUMBUS template directory. 
+  print '''Please specify the path to the COLUMBUS template directory.
 The directory must contain subdirectories with complete COLUMBUS input file sets for the following steps:
 - Integrals with SEWARD/MOLCAS
 - SCF
@@ -2110,11 +2110,11 @@ def get_LVC(INFOS):
   string+='  '+'='*80+'\n\n'
   print string
 
-  if os.path.isfile('SH2LVC.inp'):
-    print 'File "SH2LVC.inp" detected. '
+  if os.path.isfile('LVC.template'):
+    print 'File "LVC.template" detected. '
     usethisone=question('Use this template file?',bool,True)
     if usethisone:
-      INFOS['LVC.template']='SH2LVC.inp'
+      INFOS['LVC.template']='LVC.template'
   if not 'LVC.template' in INFOS:
     while True:
       filename=question('Template filename:',str)
@@ -2131,11 +2131,11 @@ def get_LVC(INFOS):
 # =================================================
 
 def prepare_LVC(INFOS,iconddir):
-  # copy SH2LVC.inp
+  # copy LVC.template
 
   # copy MOs and template
   cpfrom=INFOS['LVC.template']
-  cpto='%s/QM/SH2LVC.inp' % (iconddir)
+  cpto='%s/QM/LVC.template' % (iconddir)
   shutil.copy(cpfrom,cpto)
 
   # runQM.sh
@@ -2246,7 +2246,7 @@ def get_MOLCAS(INFOS):
 
   print centerstring('MOLCAS input template file',60,'-')+'\n'
   print '''Please specify the path to the MOLcas.template file. This file must contain the following settings:
-  
+
 basis <Basis set>
 ras2 <Number of active orbitals>
 nactel <Number of active electrons>
@@ -2507,10 +2507,10 @@ def get_ADF(INFOS):
   # template file
   print centerstring('ADF input template file',60,'-')+'\n'
   print '''Please specify the path to the ADF.template file. This file must contain the following keywords:
-  
+
 basis <basis>
 functional <type> <name>
-charge <x> [ <x2> [ <x3> ...] ] 
+charge <x> [ <x2> [ <x3> ...] ]
 
 The ADF interface will generate the appropriate ADF input automatically.
 '''
@@ -2614,13 +2614,13 @@ Typical values for ADF are 0.90-0.98 for LDA/GGA functionals and 0.50-0.80 for h
 
 
   # TheoDORE
-  theodore_spelling=['Om', 
-                    'PRNTO', 
+  theodore_spelling=['Om',
+                    'PRNTO',
                     'Z_HE', 'S_HE', 'RMSeh',
-                    'POSi', 'POSf', 'POS', 
+                    'POSi', 'POSf', 'POS',
                     'PRi', 'PRf', 'PR', 'PRh',
                     'CT', 'CT2', 'CTnt',
-                    'MC', 'LC', 'MLCT', 'LMCT', 'LLCT', 
+                    'MC', 'LC', 'MLCT', 'LMCT', 'LLCT',
                     'DEL', 'COH', 'COHh']
   print '\n'+centerstring('Wave function analysis by TheoDORE',60,'-')+'\n'
   #INFOS['theodore']=question('TheoDORE analysis?',bool,False)
@@ -2842,7 +2842,7 @@ douglas-kroll                                   # DKH is only used if this keywo
 
 
   print centerstring('RICC2 Ressource usage',60,'-')+'\n'
-  print '''Please specify the amount of memory available to Turbomole. 
+  print '''Please specify the amount of memory available to Turbomole.
 '''
   INFOS['ricc2.mem']=abs(question('RICC2 memory (MB):',int,[1000])[0])
   print '''Please specify the number of CPUs to be used by EACH trajectory.
@@ -2873,13 +2873,13 @@ douglas-kroll                                   # DKH is only used if this keywo
 
 
   # TheoDORE
-  theodore_spelling=['Om', 
-                    'PRNTO', 
+  theodore_spelling=['Om',
+                    'PRNTO',
                     'Z_HE', 'S_HE', 'RMSeh',
-                    'POSi', 'POSf', 'POS', 
+                    'POSi', 'POSf', 'POS',
                     'PRi', 'PRf', 'PR', 'PRh',
                     'CT', 'CT2', 'CTnt',
-                    'MC', 'LC', 'MLCT', 'LMCT', 'LLCT', 
+                    'MC', 'LC', 'MLCT', 'LMCT', 'LLCT',
                     'DEL', 'COH', 'COHh']
   #INFOS['theodore']=question('TheoDORE analysis?',bool,False)
   if 'theodore' in INFOS['needed']:
@@ -3269,7 +3269,7 @@ def get_runscript_info(INFOS):
 
   - In the second mode, the input files are transferred to another directory (e.g. a local scratch directory), the calculation is run there, results are copied back and the temporary directory is deleted. Note that this temporary directory is not the same as the scratchdir employed by the interfaces.
 
-Note that in any case this script will setup the input subdirectories in the current working directory. 
+Note that in any case this script will setup the input subdirectories in the current working directory.
 '''
   print 'Do you want to use mode 1 \n(actually perform the calculations in subdirectories of: %s)\n' % (INFOS['cwd'])
   here=question('Calculate here?',bool,True)
@@ -3463,7 +3463,7 @@ def writeRunscript(INFOS,iconddir):
   else:
     projname='traj_%5s' % (iconddir[-6:-1])
 
-  # ================================ 
+  # ================================
   intstring=''
   if 'adfrc' in INFOS:
     intstring='. %s' % (INFOS['adfrc'])
@@ -3512,13 +3512,13 @@ err=$?
 
 cp -r $COPY_DIR/output.* $COPY_DIR/restart.* $COPY_DIR/restart/ $PRIMARY_DIR
 
-if [ $err == 0 ]; 
+if [ $err == 0 ];
 then
   rm -r $COPY_DIR
 else
   echo "The calculation crashed at
 date = $(date)
-with error code $err. 
+with error code $err.
 Please inspect the trajectory on
 host = $HOSTNAME
 in
