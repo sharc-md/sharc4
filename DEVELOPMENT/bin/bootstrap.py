@@ -19,10 +19,15 @@ import readline
 import time
 import colorsys
 import pprint
+
 # parallel calculations
 from multiprocessing import Pool
+#from multiprocessing.pool import ThreadPool as Pool
+#from multiprocessing.dummy import Pool
+
 # write debug traces when in pool threads
 import traceback
+import signal
 
 try:
   import numpy
@@ -553,6 +558,7 @@ def do_calc(INFOS):
   begintime=datetime.datetime.now()
   idone=0
   constants_all=[]
+  prevdir=os.getcwd()
   while True:
     try:
       idone_step=0
@@ -570,8 +576,12 @@ def do_calc(INFOS):
         if idone>=INFOS['nboot']:
           break
 
-      for icpu in range(INFOS['npercycle']):
-        tmpdir=os.path.join(tmproot,'cpu_%i' % icpu)
+      if INFOS['ncpu']>1:
+        for icpu in range(INFOS['npercycle']):
+          tmpdir=os.path.join(tmproot,'cpu_%i' % icpu)
+          mkdir(tmpdir)
+      else:
+        tmpdir=os.path.join(tmproot,'cpu_%i' % 0)
         mkdir(tmpdir)
 
       constants_step=[]
@@ -587,6 +597,7 @@ def do_calc(INFOS):
         except Exception, e:
           pool.close()
           pool.join()
+          os.chdir(prevdir)
           raise KeyboardInterrupt
         for i in range(len(constants_step)):
           constants_step[i]=constants_step[i].get()
@@ -597,6 +608,7 @@ def do_calc(INFOS):
             constants=make_job(pop_full,indices[icpu],INFOS['dt'],directory,fit2,INFOS['gnuplot'])
             constants_step.append(constants)
         except Exception, e:
+          os.chdir(prevdir)
           raise KeyboardInterrupt
 
       for i in constants_step:
@@ -623,13 +635,17 @@ def do_calc(INFOS):
   outfile.close()
 
 
+  allconsts=set()
+  for i in constants_all:
+    for key in i:
+      allconsts.add(key)
 
 
   # final analysis
   print '\n>>>>>>>>>>>>> Finished the bootstrapping cycles ...'
   string_all=''
 
-  for key in constants_all[0]:
+  for key in allconsts:
     string='\n'+centerstring(' Analysis for time constant "%s" ' % key,110,'-')+'\n'
 
     # calculate
@@ -742,6 +758,7 @@ class KeyboardInterruptError(Exception): pass
 
 def make_job(pop_full,indices,dt,directory,fit2,gnuplot):
   sys.tracebacklimit=0
+  #signal.signal(signal.SIGINT, signal.SIG_IGN)
   try:
     # write data
     string=make_data_string(pop_full,indices,dt)
@@ -793,6 +810,7 @@ def run_gnuplot(directory,filename,gnuplot):
   constants={}
   for line in output:
     if '&&&' in line:
+      #print line
       s=line.split()
       constants[s[1]]=float(s[-1])
       if constants[s[1]]<=0.:
@@ -803,7 +821,11 @@ def run_gnuplot(directory,filename,gnuplot):
 # ======================================================================= #
 def print_intermediate_statistics(constants_all):
   string=''
-  for key in constants_all[0]:
+  allconsts=set()
+  for i in constants_all:
+    for key in i:
+      allconsts.add(key)
+  for key in allconsts:
     data=[]
     for i in constants_all:
       if key in i:
