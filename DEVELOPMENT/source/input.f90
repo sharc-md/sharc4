@@ -523,7 +523,11 @@ module input
       select case (trim(line))
         case ('sharc') 
           ctrl%surf=0
+        case ('diagonal') 
+          ctrl%surf=0
         case ('fish')
+          ctrl%surf=1
+        case ('mch')
           ctrl%surf=1
         case ('ehrenfest')
           write(0,*) 'Ehrenfest dynamics is not implemented in this SHARC version.'
@@ -1133,12 +1137,20 @@ module input
       select case (trim(line))
         case ('standard') 
           ctrl%hopping_procedure=1
+          if (printlevel>1) then
+            write(u_log,'(a)') 'Surface Hopping procedure is SHARC (Mai, Marquetand, Gonzalez)'
+            write(u_log,*)
+          endif
         case ('sharc') 
           ctrl%hopping_procedure=1
+          if (printlevel>1) then
+            write(u_log,'(a)') 'Surface Hopping procedure is SHARC (Mai, Marquetand, Gonzalez)'
+            write(u_log,*)
+          endif
         case ('gfsh') 
           ctrl%hopping_procedure=2
           if (printlevel>1) then
-            write(u_log,'(a)') 'Surface Hopping is GFSH'
+            write(u_log,'(a)') 'Surface Hopping procedure is GFSH (Wang, Trivedi, Prezhdo)'
             write(u_log,*)
           endif
         case ('off') 
@@ -1286,10 +1298,15 @@ module input
   ctrl%atommask_a=.true.
   line=get_value_from_key('atommask',io)
   if (io==0) then
-    ! ------- some combinations do not work
+    ! ------- some combinations have no effect
     if (ctrl%ekincorrect==2) then
-      write(0,*) 'Keywords "atommask" and "ekincorrect parallel_nac" not compatible!'
-      stop 1
+      write(u_log,*) 'HINT: "ekincorrect parallel_nac" ignores "atommask".'
+    endif
+    if (ctrl%decoherence==2) then
+      write(u_log,*) 'HINT: "decoherence_type afssh" ignores "atommask".'
+    endif
+    if (ctrl%reflect_frustrated==2) then
+      write(u_log,*) 'HINT: "reflect_frustrated parallel_nac" ignores "atommask".'
     endif
     ! TODO: add more as needed
     ! -------
@@ -1326,6 +1343,15 @@ module input
     do i=1,ctrl%natom
       write(u_log,*) i,traj%element_a(i),ctrl%atommask_a(i)
     enddo
+    if (ctrl%ekincorrect==1) then
+      write(u_log,*) 'Atom mask will be used for kinetic energy adjustment.'
+    endif
+    if (ctrl%decoherence==1) then
+      write(u_log,*) 'Atom mask will be used for EDC decoherence.'
+    endif
+    if (ctrl%reflect_frustrated==1) then
+      write(u_log,*) 'Atom mask will be used for reflection after frustrated hops.'
+    endif
   endif
 
   ! =====================================================

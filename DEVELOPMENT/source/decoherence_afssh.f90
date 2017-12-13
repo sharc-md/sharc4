@@ -39,33 +39,33 @@ subroutine allocate_afssh(traj,ctrl)
       stop 'ERROR: A-FSSH only implemented for "coupling overlap"'
     endif
 
-    allocate(traj%aux_trajs(nstates), stat=allocst)
-    if (allocst/=0) stop 'Could not allocate aux_trajs'
+    allocate(traj%auxtrajs_s(nstates), stat=allocst)
+    if (allocst/=0) stop 'Could not allocate auxtrajs_s'
 
     do istate = 1, nstates
-      allocate(traj%aux_trajs(istate)%mass_a(natom),stat=allocst)
+      allocate(traj%auxtrajs_s(istate)%mass_a(natom),stat=allocst)
       if (allocst/=0) stop 'Could not allocate mass_a'
-      traj%aux_trajs(istate)%mass_a = traj%mass_a
+      traj%auxtrajs_s(istate)%mass_a = traj%mass_a
 
-      allocate(traj%aux_trajs(istate)%geom_ad(natom,3),stat=allocst)
+      allocate(traj%auxtrajs_s(istate)%geom_ad(natom,3),stat=allocst)
       if (allocst/=0) stop 'Could not allocate geom_ad'
 
-      allocate(traj%aux_trajs(istate)%veloc_ad(natom,3),stat=allocst)
+      allocate(traj%auxtrajs_s(istate)%veloc_ad(natom,3),stat=allocst)
       if (allocst/=0) stop 'Could not allocate veloc_ad'
 
-      allocate(traj%aux_trajs(istate)%geom_tmp(natom,3),stat=allocst)
-      if (allocst/=0) stop 'Could not allocate geom_tmp'
+      allocate(traj%auxtrajs_s(istate)%geom_tmp_ad(natom,3),stat=allocst)
+      if (allocst/=0) stop 'Could not allocate geom_tmp_ad'
 
-      allocate(traj%aux_trajs(istate)%veloc_tmp(natom,3),stat=allocst)
-      if (allocst/=0) stop 'Could not allocate veloc_tmp'
+      allocate(traj%auxtrajs_s(istate)%veloc_tmp_ad(natom,3),stat=allocst)
+      if (allocst/=0) stop 'Could not allocate veloc_tmp_ad'
 
-      allocate(traj%aux_trajs(istate)%accel_ad(natom,3),stat=allocst)
+      allocate(traj%auxtrajs_s(istate)%accel_ad(natom,3),stat=allocst)
       if (allocst/=0) stop 'Could not allocate accel_ad'
 
-      allocate(traj%aux_trajs(istate)%grad_ad(natom,3),stat=allocst)
+      allocate(traj%auxtrajs_s(istate)%grad_ad(natom,3),stat=allocst)
       if (allocst/=0) stop 'Could not allocate grad_ad'
 
-      traj%aux_trajs(istate)%istate = istate
+      traj%auxtrajs_s(istate)%istate = istate
     enddo
 
     call reset_moments(traj,ctrl)
@@ -84,10 +84,10 @@ subroutine reset_moments(traj,ctrl)
       write(u_log, *)'Resetting all A-FSSH moments'
     endif
     do istate = 1, ctrl%nstates
-      traj%aux_trajs(istate)%geom_ad = 0.d0
-      traj%aux_trajs(istate)%veloc_ad = 0.d0
-      traj%aux_trajs(istate)%accel_ad = 0.d0
-      traj%aux_trajs(istate)%grad_ad = 0.d0
+      traj%auxtrajs_s(istate)%geom_ad = 0.d0
+      traj%auxtrajs_s(istate)%veloc_ad = 0.d0
+      traj%auxtrajs_s(istate)%accel_ad = 0.d0
+      traj%auxtrajs_s(istate)%grad_ad = 0.d0
     enddo
 
 endsubroutine
@@ -136,17 +136,17 @@ subroutine afssh_step(traj,ctrl)
 
   ! Propagate the auxiliary trajectories
   do istate = 1, nstates
-    call afssh_prop(traj, traj%aux_trajs(istate), ctrl, trans_mat)
+    call afssh_prop(traj, traj%auxtrajs_s(istate), ctrl, trans_mat)
   enddo
 
   ! Transform back to the instantaneous adiabatic basis
   do istate = 1, nstates
-    call afssh_transform(traj, traj%aux_trajs(istate), ctrl, trans_mat)
+    call afssh_transform(traj, traj%auxtrajs_s(istate), ctrl, trans_mat)
   enddo
 
   ! Compute the rates and perform the collapsing / resetting steps
   do istate = 1, nstates
-    call afssh_rates(traj, traj%aux_trajs(istate), ctrl, Hnew)
+    call afssh_rates(traj, traj%auxtrajs_s(istate), ctrl, Hnew)
   enddo
 
 endsubroutine
@@ -210,8 +210,8 @@ subroutine afssh_transform(traj, atraj, ctrl, trans_mat)
   atraj%geom_ad = 0.d0
   atraj%veloc_ad = 0.d0
   do jstate = 1, nstates
-    atraj%geom_ad  = atraj%geom_ad  + trans_col(jstate)*traj%aux_trajs(jstate)%geom_tmp
-    atraj%veloc_ad = atraj%veloc_ad + trans_col(jstate)*traj%aux_trajs(jstate)%veloc_tmp
+    atraj%geom_ad  = atraj%geom_ad  + trans_col(jstate)*traj%auxtrajs_s(jstate)%geom_tmp_ad
+    atraj%veloc_ad = atraj%veloc_ad + trans_col(jstate)*traj%auxtrajs_s(jstate)%veloc_tmp_ad
   enddo
 endsubroutine
 
@@ -234,7 +234,7 @@ subroutine afssh_rates(traj, atraj, ctrl, Hnew)
 
   istate = atraj%istate
   rstate = traj%state_diag
-  geom_disp = atraj%geom_ad - traj%aux_trajs(traj%state_diag)%geom_ad
+  geom_disp = atraj%geom_ad - traj%auxtrajs_s(traj%state_diag)%geom_ad
 
   ! F_nn . (R_nn - R_ll) / 2 hbar
   !  Note that F_nn = -grad_ad
@@ -305,7 +305,7 @@ subroutine VelocityVerlet_xstep_afssh(atraj,ctrl,sigma)
       atraj%accel_ad(iatom,idir)=&
       &-atraj%grad_ad(iatom,idir)/atraj%mass_a(iatom)
 
-      atraj%geom_tmp(iatom,idir)=&
+      atraj%geom_tmp_ad(iatom,idir)=&
       & atraj%geom_ad(iatom,idir)&
       &+atraj%veloc_ad(iatom,idir)*ctrl%dtstep&
       &+0.5d0*atraj%accel_ad(iatom,idir)*ctrl%dtstep**2*sigma
@@ -318,13 +318,13 @@ subroutine VelocityVerlet_xstep_afssh(atraj,ctrl,sigma)
     write(u_log,*) '============================================================='
 
     write(u_log,'(2X,A,2E12.4)') 'Geom norms (old/new):', sum(atraj%geom_ad*atraj%geom_ad),&
-    &sum(atraj%geom_tmp*atraj%geom_tmp)
+    &sum(atraj%geom_tmp_ad*atraj%geom_tmp_ad)
     write(u_log,'(2X,A,2E12.4)') 'grad/accel norms:', sum(atraj%grad_ad*atraj%grad_ad),&
     &sum(atraj%accel_ad*atraj%accel_ad)
 
     if (printlevel>3) then
       call vec3write(ctrl%natom,atraj%geom_ad,u_log,'Old geom','F12.7')
-      call vec3write(ctrl%natom,atraj%geom_tmp,u_log,'geom','F12.7')
+      call vec3write(ctrl%natom,atraj%geom_tmp_ad,u_log,'geom','F12.7')
     endif
   endif
 
@@ -350,7 +350,7 @@ subroutine VelocityVerlet_vstep_afssh(atraj,ctrl,sigma)
       atraj%accel_ad(iatom,idir)=0.5d0*(atraj%accel_ad(iatom,idir)&
       &-atraj%grad_ad(iatom,idir)/atraj%mass_a(iatom) )
 
-      atraj%veloc_tmp(iatom,idir)=&
+      atraj%veloc_tmp_ad(iatom,idir)=&
       & atraj%veloc_ad(iatom,idir)&
       &+atraj%accel_ad(iatom,idir)*ctrl%dtstep*sigma
     enddo
@@ -362,13 +362,13 @@ subroutine VelocityVerlet_vstep_afssh(atraj,ctrl,sigma)
     write(u_log,*) '============================================================='
 
     write(u_log,'(2X,A,2E12.4)') 'Veloc norms (old/new):', sum(atraj%veloc_ad*atraj%veloc_ad),&
-    &sum(atraj%veloc_tmp*atraj%veloc_tmp)
+    &sum(atraj%veloc_tmp_ad*atraj%veloc_tmp_ad)
     write(u_log,'(2X,A,2E12.4)') 'grad/accel norms:', sum(atraj%grad_ad*atraj%grad_ad),&
     &sum(atraj%accel_ad*atraj%accel_ad)
 
     if (printlevel>3) then
       call vec3write(ctrl%natom,atraj%veloc_ad,u_log,'Old veloc','F12.9')
-      call vec3write(ctrl%natom,atraj%veloc_tmp,u_log,'veloc','F12.9')
+      call vec3write(ctrl%natom,atraj%veloc_tmp_ad,u_log,'veloc','F12.9')
     endif
   endif
 

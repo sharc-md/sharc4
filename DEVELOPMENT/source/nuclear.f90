@@ -240,7 +240,9 @@ subroutine Rescale_velocities(traj,ctrl)
           if (printlevel>2) write(u_log,*) 'Velocity is not reflected.'
         case (1)
           if (printlevel>2) write(u_log,*) 'Velocity is reflected completely.'
-          traj%veloc_ad(:,:) = -traj%veloc_ad(:,:)
+          do i=1,ctrl%natom
+            if (ctrl%atommask_a(i)) traj%veloc_ad(i,:) = -traj%veloc_ad(i,:)
+          enddo
         case (2)
           call reflect_nac(ctrl%natom,traj%veloc_ad,traj%mass_a,&
           &real(traj%gmatrix_ssad(traj%state_diag_frust, traj%state_diag,:,:)),&

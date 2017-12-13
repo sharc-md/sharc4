@@ -77,6 +77,7 @@ module restart
     write(u,*) ctrl%surf
     write(u,*) ctrl%decoherence
     write(u,*) ctrl%ekincorrect
+    write(u,*) ctrl%reflect_frustrated
     write(u,*) ctrl%gradcorrect
     write(u,*) ctrl%dipolegrad
     write(u,*) ctrl%calc_soc
@@ -147,6 +148,7 @@ module restart
     write(u,*) traj%state_MCH
     write(u,*) traj%state_diag
     write(u,*) traj%state_diag_old
+    write(u,*) traj%state_diag_frust
     write(u,*) traj%step
     write(u,*) traj%Ekin
     write(u,*) traj%Epot
@@ -189,6 +191,7 @@ module restart
     call vecwrite(ctrl%nstates, traj%phases_old_s, u, 'phases_old_s','ES24.16E3')
     call vecwrite(ctrl%nstates, traj%hopprob_s, u, 'hopprob_s_s','ES24.16E3')
     write(u,*) traj%randnum
+    write(u,*) traj%randnum2
 
     if (ctrl%calc_dipolegrad>-1) then
       do i=1,ctrl%nstates
@@ -252,6 +255,21 @@ module restart
       call matwrite(ctrl%nstates, traj%Property2d_xss(i,:,:), u, string,'ES24.16E3')
     enddo
 
+    ! save restart info for the auxilliary trajectories
+    if (ctrl%decoherence==2) then
+      do i=1,ctrl%nstates
+        write(u,*) traj%auxtrajs_s(i)%istate
+        write(u,*) traj%auxtrajs_s(i)%rate1
+        write(u,*) traj%auxtrajs_s(i)%rate2
+        call vec3write(ctrl%natom, traj%auxtrajs_s(i)%geom_ad,   u, 'AuxGeometry','ES24.16E3')
+        call vec3write(ctrl%natom, traj%auxtrajs_s(i)%veloc_ad,  u, 'AuxVeloc','ES24.16E3')
+        call vec3write(ctrl%natom, traj%auxtrajs_s(i)%accel_ad,  u, 'AuxAccel','ES24.16E3')
+        call vec3write(ctrl%natom, traj%auxtrajs_s(i)%grad_ad,   u, 'AuxGrad','ES24.16E3')
+        call vec3write(ctrl%natom, traj%auxtrajs_s(i)%geom_tmp_ad,   u, 'AuxGeometry2','ES24.16E3')
+        call vec3write(ctrl%natom, traj%auxtrajs_s(i)%veloc_tmp_ad,  u, 'AuxVeloc2','ES24.16E3')
+      enddo
+    endif
+
     close(u)
 
   endsubroutine
@@ -271,6 +289,7 @@ module restart
     use definitions
     use matrix
     use misc
+    use decoherence_afssh
     implicit none
     integer :: u_ctrl,u_traj
     type(trajectory_type) :: traj
@@ -333,6 +352,7 @@ module restart
     read(u_ctrl,*) ctrl%surf
     read(u_ctrl,*) ctrl%decoherence
     read(u_ctrl,*) ctrl%ekincorrect
+    read(u_ctrl,*) ctrl%reflect_frustrated
     read(u_ctrl,*) ctrl%gradcorrect
     read(u_ctrl,*) ctrl%dipolegrad
     read(u_ctrl,*) ctrl%calc_soc
@@ -399,6 +419,7 @@ module restart
     read(u_traj,*) traj%state_MCH
     read(u_traj,*) traj%state_diag
     read(u_traj,*) traj%state_diag_old
+    read(u_traj,*) traj%state_diag_frust
     read(u_traj,*) traj%step
     read(u_traj,*) traj%Ekin
     read(u_traj,*) traj%Epot
@@ -441,6 +462,7 @@ module restart
     call vecread(ctrl%nstates, traj%phases_old_s, u_traj,   string)
     call vecread(ctrl%nstates, traj%hopprob_s, u_traj,      string)
     read(u_traj,*) traj%randnum
+    read(u_traj,*) traj%randnum2
 
     if (ctrl%calc_dipolegrad>-1) then
       do i=1,ctrl%nstates
@@ -497,11 +519,27 @@ module restart
       call matread(ctrl%nstates, traj%Property2d_xss(i,:,:), u_traj, string)
     enddo
 
+    ! read restart info for the auxilliary trajectories
+    if (ctrl%decoherence==2) then
+      call allocate_afssh(traj, ctrl)
+      do i=1,ctrl%nstates
+        read(u_traj,*) traj%auxtrajs_s(i)%istate
+        read(u_traj,*) traj%auxtrajs_s(i)%rate1
+        read(u_traj,*) traj%auxtrajs_s(i)%rate2
+        call vec3read(ctrl%natom, traj%auxtrajs_s(i)%geom_ad,   u_traj, string)
+        call vec3read(ctrl%natom, traj%auxtrajs_s(i)%veloc_ad,  u_traj, string)
+        call vec3read(ctrl%natom, traj%auxtrajs_s(i)%accel_ad,  u_traj, string)
+        call vec3read(ctrl%natom, traj%auxtrajs_s(i)%grad_ad,   u_traj, string)
+        call vec3read(ctrl%natom, traj%auxtrajs_s(i)%geom_tmp_ad,   u_traj, string)
+        call vec3read(ctrl%natom, traj%auxtrajs_s(i)%veloc_tmp_ad,  u_traj, string)
+      enddo
+    endif
+
     close(u_traj)
 
     ! call the random number generator until it is in the same status as before the restart
     call init_random_seed(traj%RNGseed)
-    do i=1,traj%step
+    do i=1,2*traj%step
       call random_number(dummy_randnum)
     enddo
 
