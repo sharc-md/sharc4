@@ -146,7 +146,7 @@ class trajectory:
             
         return ret_num
 
-    def normal_mode_analysis(self, nma_mat, def_struc, header=None, out_file='nma.txt', abs_list=[]):
+    def normal_mode_analysis(self, nma_mat, def_struc, header=None, out_file='nma.txt', abs_list=[],timestep=1.0):
         """
         Perform a normal mode analysis and print the result to <out_file>.
         Normal modes are specified by numpy.array <nma_mat> (in cartesian coordinates), <nma_mat> is the inverse of the normal mode matrix.
@@ -160,20 +160,20 @@ class trajectory:
         
         def_vect = def_struc.ret_vector()
         
-        tm = file_handler.table_maker(len(def_vect)*[20])
+        tm = file_handler.table_maker([35]+len(def_vect)*[20])
 
         if header == None: header = [i+1 for i in xrange(len(def_vect))]
-        tm.write_line(header[0])
-        tm.write_line(header[1])
-        tm.write_line(header[2])
+        tm.write_header_line(header[0])
+        tm.write_header_line(header[1])
+        tm.write_header_line(header[2])
         
         nma_list = []
-        for structure in self.structures:
+        for istruct,structure in enumerate(self.structures):
             diff = structure.ret_vector() - def_vect
             nma_vect = numpy.dot(diff, nma_mat) # one time step in the normal mode basis
             for i in abs_list:
                 nma_vect[i-1] = abs(nma_vect[i-1])
-            tm.write_line([coor for coor in nma_vect])
+            tm.write_line([timestep*istruct]+[coor for coor in nma_vect])
             nma_list += [nma_vect]
 
         tm.write_to_file(out_file)

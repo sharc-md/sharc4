@@ -31,14 +31,14 @@ type aux_trajectory_type
   real*8,allocatable :: mass_a(:)                        !< atomic mass in a.u. (1 a.u. = rest mass of electron m_e)
   real*8,allocatable :: geom_ad(:,:)                     !< Cartesian displacement from SH trajectory in a.u. (bohr)
   real*8,allocatable :: veloc_ad(:,:)                    !< Cartesian displacment velocity in a.u. (bohr/atu)
-  real*8,allocatable :: geom_tmp(:,:)                    !< Temporary Cartesian displacement during A-FSSH step
-  real*8,allocatable :: veloc_tmp(:,:)                   !< Temporary Cartesian displacment velocity during A-FSSH step
   real*8,allocatable :: accel_ad(:,:)                    !< Cartesian displacment acceleration in a.u. (bohr/atu/atu)
+  real*8,allocatable :: grad_ad(:,:)                     !< Difference gradient
+  real*8,allocatable :: geom_tmp_ad(:,:)                    !< Temporary Cartesian displacement during A-FSSH step
+  real*8,allocatable :: veloc_tmp_ad(:,:)                   !< Temporary Cartesian displacment velocity during A-FSSH step
 
   ! other quantities
   integer :: istate                                       !< Which state
   real*8 :: rate1, rate2                                  !< Term occuring in the decoherence rate
-  real*8, allocatable :: grad_ad(:,:)                     !< Difference gradient
 endtype
 
 ! =========================================================== !
@@ -141,7 +141,7 @@ type trajectory_type
   logical,allocatable :: selDM_ss(:,:)                   !< selection mask for dipole moment gradients
 
   ! Auxiliary trajectories for A-FSSH
-  type(aux_trajectory_type),allocatable :: aux_trajs(:)
+  type(aux_trajectory_type),allocatable :: auxtrajs_s(:)
 
 endtype
 

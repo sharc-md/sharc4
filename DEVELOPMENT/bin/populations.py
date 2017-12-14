@@ -1220,7 +1220,7 @@ def main():
   '''Main routine'''
 
   usage='''
-python pop_classical.py
+python populations.py
 
 This interactive program reads information from output.lis files or output_data/ and calculates ensemble populations.
 '''

@@ -490,17 +490,9 @@ def get_general():
     nstates+=(mult+1)*i
   print 'Number of states: '+str(states)
   print 'Total number of states: %i\n' % (nstates)
-  if len(states)>1:
-    soc=question('Spin-Orbit calculation?',bool,True)
-    if soc:
-      print 'Will calculate spin-orbit matrix.'
-  else:
-    print 'Not calculating spin-orbit matrix, only singlets specified.'
-    soc=False
-  print ''
   INFOS['states']=states
   INFOS['nstates']=nstates
-  INFOS['soc']=soc
+  
 
 
 
@@ -518,6 +510,26 @@ def get_general():
   INFOS['interface']=num
 
   INFOS['needed']=[]
+
+  # Setup SOCs
+  print '\n'+centerstring('Spin-orbit couplings (SOCs)',60,'-')+'\n'
+  if len(states)>1:
+    if 'soc' in Interfaces[num]['features']:
+      print 'Do you want to compute spin-orbit couplings?\n'
+      soc=question('Spin-Orbit calculation?',bool,True)
+      if soc:
+        print 'Will calculate spin-orbit matrix.'
+    else:
+      print 'Interface cannot provide SOCs: not calculating spin-orbit matrix.'
+      soc=False
+  else:
+    print 'Only singlets specified: not calculating spin-orbit matrix.'
+    soc=False
+  print ''
+  INFOS['soc']=soc
+  if INFOS['soc']:
+    INFOS['needed'].extend(Interfaces[num]['features']['soc'])
+
 
   # Setup Dyson spectra
   if 'dyson' in Interfaces[num]['features']:
@@ -572,7 +584,8 @@ Interfaces={
       'features':        {'overlap': ['wfoverlap'],
                           'dyson':   ['wfoverlap'],
                           'nacdr':   ['wfoverlap'],
-                          'phases':  ['wfoverlap']    }
+                          'phases':  ['wfoverlap'],
+                          'soc':     []             }
      },
   2: {'script':          'SHARC_COLUMBUS.py',
       'description':     'COLUMBUS (CASSCF, RASSCF and MRCISD), using SEWARD integrals',
@@ -580,14 +593,18 @@ Interfaces={
       'prepare_routine': 'prepare_COLUMBUS',
       'features':        {'overlap': ['wfoverlap'],
                           'dyson':   ['wfoverlap'],
-                          'phases':  ['wfoverlap']  }
+                          'phases':  ['wfoverlap'],
+                          'nacdr':   [],
+                          'soc':     []               }
      },
   3: {'script':          'SHARC_Analytical.py',
       'description':     'Analytical PESs',
       'get_routine':     'get_Analytical',
       'prepare_routine': 'prepare_Analytical',
       'features':        {'overlap': [],
-                          'dipolegrad':[]}
+                          'dipolegrad':[],
+                          'phases':  [],
+                          'soc':     []             }
      },
   4: {'script':          'SHARC_MOLCAS.py',
       'description':     'MOLCAS (CASSCF, CASPT2, MS-CASPT2)',
@@ -596,7 +613,8 @@ Interfaces={
       'features':        {'overlap': [],
                           'dyson':   ['wfoverlap'],
                           'dipolegrad':[],
-                          'phases':  []}
+                          'phases':  [],
+                          'soc':     []             }
      },
   5: {'script':          'SHARC_ADF.py',
       'description':     'ADF (DFT, TD-DFT)',
@@ -605,7 +623,8 @@ Interfaces={
       'features':        {'overlap': ['wfoverlap'],
                           'dyson':   ['wfoverlap'],
                           'theodore':['theodore'],
-                          'phases':  ['wfoverlap']    }
+                          'phases':  ['wfoverlap'],
+                          'soc':     []                 }
      },
   6: {'script':          'SHARC_RICC2.py',
       'description':     'TURBOMOLE (ricc2 with CC2 and ADC(2))',
@@ -613,14 +632,26 @@ Interfaces={
       'prepare_routine': 'prepare_RICC2',
       'features':        {'overlap': ['wfoverlap'],
                           'theodore':['theodore'],
-                          'phases':  ['wfoverlap']    }
+                          'phases':  ['wfoverlap'],
+                          'soc':     []                 }
      },
   7: {'script':          'SHARC_LVC.py',
       'description':     'LVC Hamiltonian',
       'get_routine':     'get_LVC',
       'prepare_routine': 'prepare_LVC',
       'features':        {'overlap': [],
-                          'nacdr':   []    }
+                          'nacdr':   [],
+                          'phases':  [],
+                          'soc':     []                 }
+     },
+  8: {'script':          'SHARC_GAUSSIAN.py',
+      'description':     'GAUSSIAN (DFT, TD-DFT)',
+      'get_routine':     'get_GAUSSIAN',
+      'prepare_routine': 'prepare_GAUSSIAN',
+      'features':        {'overlap': ['wfoverlap'],
+                          'dyson':   ['wfoverlap'],
+                          'theodore':['theodore'],
+                          'phases':  ['wfoverlap']        }
      }
   }
 
@@ -1266,7 +1297,6 @@ def prepare_Analytical(INFOS,iconddir):
 # ======================================================================================================================
 
 def get_LVC(INFOS):
-  # TODO: rename files for consistency with other interfaces
 
   string='\n  '+'='*80+'\n'
   string+='||'+centerstring('LVC Interface setup',80)+'||\n'
@@ -1572,28 +1602,6 @@ def qmmm_job(filename,INFOS):
     return False
   return True
 
-## =================================================
-
-#def get_qmmm_filenames(filename):
-  #try:
-    #f=open(filename)
-    #data=f.readlines()
-    #f.close()
-  #except IOError:
-    #print 'Could not open template file %s' % (filename)
-    #return False
-  #results={}
-  #for line in data:
-    #if 'qmmm_table' in line.lower() and not '/' in line:
-      #s=line.split()
-      #if len(s)>=2:
-        #results['ctfile']=s[1]
-    #if 'qmmm_ff_file' in line.lower() and not '/' in line:
-      #s=line.split()
-      #if len(s)>=2:
-        #results['fffile']=s[1]
-  #return results
-
 # =================================================
 
 def get_ADF(INFOS):
@@ -1696,11 +1704,6 @@ The ADF interface will generate the appropriate ADF input automatically.
       else:
         break
     INFOS['ADF.ctfile']=filename
-    #files=get_qmmm_filenames(INFOS['ADF.template'])
-    #if 'ctfile' in files:
-      #INFOS['ADF.ctfile.dest']=files['ctfile']
-    #if 'fffile' in files:
-      #INFOS['ADF.fffile.dest']=files['fffile']
 
 
   # initial MOs
@@ -1730,7 +1733,9 @@ The ADF interface will generate the appropriate ADF input automatically.
     print '''Please specify how well your job will parallelize.
 A value of 0 means that running in parallel will not make the calculation faster, a value of 1 means that the speedup scales perfectly with the number of cores.
 Typical values for ADF are 0.90-0.98 for LDA/GGA functionals and 0.50-0.80 for hybrids (better if RIHartreeFock is used).'''
-  INFOS['adf.scaling']=min(1.0,max(0.0,question('Parallel scaling:',float,[0.8])[0] ))
+    INFOS['adf.scaling']=min(1.0,max(0.0,question('Parallel scaling:',float,[0.8])[0] ))
+  else:
+    INFOS['adf.scaling']=0.9
 
 
   # Ionization
@@ -2084,6 +2089,252 @@ dipolelevel 1
     cpto1='%s/mos.init' % (iconddir)
     shutil.copy(cpfrom1,cpto1)
   return
+
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+
+def checktemplate_GAUSSIAN(filename,INFOS):
+  necessary=['basis','functional','charge']
+  try:
+    f=open(filename)
+    data=f.readlines()
+    f.close()
+  except IOError:
+    print 'Could not open template file %s' % (filename)
+    return False
+  valid=[]
+  for i in necessary:
+    for l in data:
+      line=l.lower().split()
+      if len(line)==0:
+        continue
+      line=line[0]
+      if i==re.sub('#.*$','',line):
+        valid.append(True)
+        break
+    else:
+      valid.append(False)
+  if not all(valid):
+    print 'The template %s seems to be incomplete! It should contain: ' % (filename) +str(necessary)
+    return False
+  return True
+
+# =================================================
+
+def get_GAUSSIAN(INFOS):
+  '''This routine asks for all questions specific to GAUSSIAN:
+  - path to GAUSSIAN
+  - scratch directory
+  - GAUSSIAN.template
+  - TAPE21
+  '''
+
+  string='\n  '+'='*80+'\n'
+  string+='||'+centerstring('GAUSSIAN Interface setup',80)+'||\n'
+  string+='  '+'='*80+'\n\n'
+  print string
+
+  print centerstring('Path to GAUSSIAN',60,'-')+'\n'
+  tries=['g16root','g09root','g03root']
+  for i in tries:
+    path=os.getenv(i)
+    if path:
+      path='$%s/' % i
+      break
+  #gaussianprofile=question('Setup from gaussian.profile file?',bool,True)
+  #if gaussianprofile:
+    #if path:
+      #path='%s/gaussian.profile' % path
+    #print '\nPlease specify path to the gaussian.profile file (SHELL variables and ~ can be used, will be expanded when interface is started).\n'
+    #path=question('Path to GAUSSIAN:',str,path)
+    #INFOS['gaussianprofile']=os.path.abspath(os.path.expanduser(os.path.expandvars(path)))
+    #print 'Will use gaussianprofile= %s' % INFOS['gaussianprofile']
+    #INFOS['gaussian']='$GAUSSIANHOME'
+    #print ''
+  #else:
+  print '\nPlease specify path to GAUSSIAN directory (SHELL variables and ~ can be used, will be expanded when interface is started).\n'
+  INFOS['groot']=question('Path to GAUSSIAN:',str,path)
+  print ''
+
+
+  # scratch
+  print centerstring('Scratch directory',60,'-')+'\n'
+  print 'Please specify an appropriate scratch directory. This will be used to run the GAUSSIAN calculations. The scratch directory will be deleted after the calculation. Remember that this script cannot check whether the path is valid, since you may run the calculations on a different machine. The path will not be expanded by this script.'
+  INFOS['scratchdir']=question('Path to scratch directory:',str)
+  print ''
+
+
+  # template file
+  print centerstring('GAUSSIAN input template file',60,'-')+'\n'
+  print '''Please specify the path to the GAUSSIAN.template file. This file must contain the following keywords:
+  
+basis <basis>
+functional <type> <name>
+charge <x> [ <x2> [ <x3> ...] ] 
+
+The GAUSSIAN interface will generate the appropriate GAUSSIAN input automatically.
+'''
+  if os.path.isfile('GAUSSIAN.template'):
+    if checktemplate_GAUSSIAN('GAUSSIAN.template',INFOS):
+      print 'Valid file "GAUSSIAN.template" detected. '
+      usethisone=question('Use this template file?',bool,True)
+      if usethisone:
+        INFOS['GAUSSIAN.template']='GAUSSIAN.template'
+  if not 'GAUSSIAN.template' in INFOS:
+    while True:
+      filename=question('Template filename:',str)
+      if not os.path.isfile(filename):
+        print 'File %s does not exist!' % (filename)
+        continue
+      if checktemplate_GAUSSIAN(filename,INFOS):
+        break
+    INFOS['GAUSSIAN.template']=filename
+  print ''
+
+
+
+  # initial MOs
+  print centerstring('Initial restart: MO Guess',60,'-')+'\n'
+  print '''Please specify the path to an GAUSSIAN chk file containing suitable starting MOs for the GAUSSIAN calculation. Please note that this script cannot check whether the wavefunction file and the Input template are consistent!
+'''
+  if question('Do you have a restart file?',bool,True):
+    if True:
+      while True:
+        filename=question('Restart file:',str,'GAUSSIAN.chk.init')
+        if os.path.isfile(filename):
+          INFOS['gaussian.guess']=filename
+          break
+        else:
+          print 'Could not find file "%s"!' % (filename)
+  else:
+    INFOS['gaussian.guess']={}
+
+
+  # Resources
+  print centerstring('GAUSSIAN Ressource usage',60,'-')+'\n'
+  print '''Please specify the number of CPUs to be used by EACH calculation.
+'''
+  INFOS['gaussian.ncpu']=abs(question('Number of CPUs:',int)[0])
+
+  if INFOS['gaussian.ncpu']>1:
+    print '''Please specify how well your job will parallelize.
+A value of 0 means that running in parallel will not make the calculation faster, a value of 1 means that the speedup scales perfectly with the number of cores.
+Typical values for GAUSSIAN are 0.90-0.98.'''
+    INFOS['gaussian.scaling']=min(1.0,max(0.0,question('Parallel scaling:',float,[0.9])[0] ))
+  else:
+    INFOS['gaussian.scaling']=0.9
+
+  INFOS['gaussian.mem']=question('Memory (MB):',int,[1000])[0]
+
+  # Ionization
+  #print '\n'+centerstring('Ionization probability by Dyson norms',60,'-')+'\n'
+  #INFOS['ion']=question('Dyson norms?',bool,False)
+  #if INFOS['ion']:
+  if 'wfoverlap' in INFOS['needed']:
+    print '\n'+centerstring('Wfoverlap code setup',60,'-')+'\n'
+    INFOS['gaussian.wfoverlap']=question('Path to wavefunction overlap executable:',str,'$SHARC/wfoverlap.x')
+    print ''
+    print 'State threshold for choosing determinants to include in the overlaps'
+    print 'For hybrids without TDA one should consider that the eigenvector X may have a norm larger than 1'
+    INFOS['gaussian.ciothres']=question('Threshold:',float,[0.99])[0]
+    print ''
+    # TODO not asked: numfrozcore and numocc
+
+    #print 'Please state the number of core orbitals you wish to freeze for the overlaps (recommended to use for at least the 1s orbital and a negative number uses default values)?'
+    #print 'A value of -1 will use the defaults used by GAUSSIAN for a small frozen core and 0 will turn off the use of frozen cores'
+    #INFOS['frozcore_number']=question('How many orbital to freeze?',int,[-1])[0]
+
+
+  # TheoDORE
+  theodore_spelling=['Om', 
+                    'PRNTO', 
+                    'Z_HE', 'S_HE', 'RMSeh',
+                    'POSi', 'POSf', 'POS', 
+                    'PRi', 'PRf', 'PR', 'PRh',
+                    'CT', 'CT2', 'CTnt',
+                    'MC', 'LC', 'MLCT', 'LMCT', 'LLCT', 
+                    'DEL', 'COH', 'COHh']
+  #INFOS['theodore']=question('TheoDORE analysis?',bool,False)
+  if 'theodore' in INFOS['needed']:
+    print '\n'+centerstring('Wave function analysis by TheoDORE',60,'-')+'\n'
+
+    INFOS['gaussian.theodore']=question('Path to TheoDORE directory:',str,'$THEODIR')
+    print ''
+
+    print 'Please give a list of the properties to calculate by TheoDORE.\nPossible properties:'
+    string=''
+    for i,p in enumerate(theodore_spelling):
+      string+='%s ' % (p)
+      if (i+1)%8==0:
+        string+='\n'
+    print string
+    l=question('TheoDORE properties:',str,'Om  PRNTO  S_HE  Z_HE  RMSeh')
+    if '[' in l:
+      INFOS['theodore.prop']=ast.literal_eval(l)
+    else:
+      INFOS['theodore.prop']=l.split()
+    print ''
+
+    print 'Please give a list of the fragments used for TheoDORE analysis.'
+    print 'You can use the list-of-lists from dens_ana.in'
+    print 'Alternatively, enter all atom numbers for one fragment in one line. After defining all fragments, type "end".'
+    if qmmm_job(INFOS['GAUSSIAN.template'],INFOS):
+      print 'You should only include the atom numbers of QM and link atoms.'
+    INFOS['theodore.frag']=[]
+    while True:
+      l=question('TheoDORE fragment:',str,'end')
+      if 'end' in l.lower():
+        break
+      if '[' in l:
+        try:
+          INFOS['theodore.frag']=ast.literal_eval(l)
+          break
+        except ValueError:
+          continue
+      f=[ int(i) for i in l.split() ]
+      INFOS['theodore.frag'].append(f)
+      INFOS['theodore.count']=len(INFOS['theodore.prop'])+len(INFOS['theodore.frag'])**2
+
+
+  return INFOS
+
+# =================================================
+
+def prepare_GAUSSIAN(INFOS,iconddir):
+  # write GAUSSIAN.resources
+  try:
+    sh2cas=open('%s/GAUSSIAN.resources' % (iconddir), 'w')
+  except IOError:
+    print 'IOError during prepareGAUSSIAN, iconddir=%s' % (iconddir)
+    quit(1)
+#  project='GAUSSIAN'
+  string='groot %s\nscratchdir %s/%s/\nncpu %i\nschedule_scaling %f\n' % (INFOS['groot'],INFOS['scratchdir'],iconddir,INFOS['gaussian.ncpu'],INFOS['gaussian.scaling'])
+  string+='memory %i\n' % (INFOS['gaussian.mem'])
+  if 'wfoverlap' in INFOS['needed']:
+    string+='wfoverlap %s\nwfthres %f\n' % (INFOS['gaussian.wfoverlap'],INFOS['gaussian.ciothres'])
+    #string+='numfrozcore %i\n' %(INFOS['frozcore_number'])
+  else:
+    string+='nooverlap\n'
+  if 'theodore' in INFOS['needed']:
+    string+='theodir %s\n' % (INFOS['gaussian.theodore'])
+    string+='theodore_prop %s\n' % (INFOS['theodore.prop'])
+    string+='theodore_fragment %s\n' % (INFOS['theodore.frag'])
+  sh2cas.write(string)
+  sh2cas.close()
+
+  # copy MOs and template
+  cpfrom=INFOS['GAUSSIAN.template']
+  cpto='%s/GAUSSIAN.template' % (iconddir)
+  shutil.copy(cpfrom,cpto)
+
+  if INFOS['gaussian.guess']:
+    cpfrom1=INFOS['gaussian.guess']
+    cpto1='%s/GAUSSIAN.chk.init' % (iconddir)
+    shutil.copy(cpfrom1,cpto1)
+
+  return
+
 
 # ======================================================================================================================
 # ======================================================================================================================

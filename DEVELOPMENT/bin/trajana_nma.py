@@ -46,6 +46,7 @@ except:
 version='1.0'
 versiondate=datetime.date(2016,05,12)
 
+# ======================================================================= #
 def centerstring(string,n,pad=' '):
   l=len(string)
   if l>=n:
@@ -53,12 +54,13 @@ def centerstring(string,n,pad=' '):
   else:
     return  pad*((n-l+1)/2)+string+pad*((n-l)/2)
 
+# ======================================================================= #
 def displaywelcome():
-  print 'Script for performing essential dynamics analysis started ...\n'
+  print 'Script for performing normal mode analysis started ...\n'
   string='\n'
   string+='  '+'='*80+'\n'
   string+='||'+centerstring('',80)+'||\n'
-  string+='||'+centerstring('Reading structures from SHARC dynamics',80)+'||\n'
+  string+='||'+centerstring('Normal-mode analysis for SHARC dynamics',80)+'||\n'
   string+='||'+centerstring('',80)+'||\n'
   string+='||'+centerstring('Author: Felix Plasser, Andrew Atkins',80)+'||\n'
   string+='||'+centerstring('',80)+'||\n'
@@ -67,20 +69,50 @@ def displaywelcome():
   string+='||'+centerstring('',80)+'||\n'
   string+='  '+'='*80+'\n\n'
   string+='''
-This script reads output.xyz files and calculates the essential dynamics 
+This script reads output.xyz files, transforms into normal modes, and performs statistical analyses 
 (i.e., Shows you which are the most important motions).
   '''
   print string
 
+# ======================================================================= #
+def readfile(filename):
+  try:
+    f=open(filename)
+    out=f.readlines()
+    f.close()
+  except IOError:
+    print 'File %s does not exist!' % (filename)
+    sys.exit(12)
+  return out
+
+# ======================================================================= #
+def writefile(filename,content):
+  # content can be either a string or a list of strings
+  try:
+    f=open(filename,'w')
+    if isinstance(content,list):
+      for line in content:
+        f.write(line)
+    elif isinstance(content,str):
+      f.write(content)
+    else:
+      print 'Content %s cannot be written to file!' % (content)
+    f.close()
+  except IOError:
+    print 'Could not write to file %s!' % (filename)
+    sys.exit(13)
+# ======================================================================= #
 
 def open_keystrokes():
   global KEYSTROKES
   KEYSTROKES=open('KEYSTROKES.tmp','w')
 
+# ======================================================================= #
 def close_keystrokes():
   KEYSTROKES.close()
   shutil.move('KEYSTROKES.tmp','KEYSTROKES.nma')
 
+# ======================================================================= #
 def question(question,typefunc,default=None,autocomplete=True):
   if typefunc==int or typefunc==float:
     if not default==None and not isinstance(default,list):
@@ -133,8 +165,8 @@ def question(question,typefunc,default=None,autocomplete=True):
 
     if typefunc==str:
       KEYSTROKES.write(line+' '*(40-len(line))+' #'+s+'\n')
-      KEYSTROKES.write(line+' '*(40-len(line))+' #'+s+'\n')
-      KEYSTROKES.write(line+' '*(40-len(line))+' #'+s+'\n')
+      #KEYSTROKES.write(line+' '*(40-len(line))+' #'+s+'\n')
+      #KEYSTROKES.write(line+' '*(40-len(line))+' #'+s+'\n')
       return line
 
     if typefunc==int or typefunc==float:
@@ -154,6 +186,9 @@ def question(question,typefunc,default=None,autocomplete=True):
         continue
 
 
+# ======================================================================= #
+# ======================================================================= #
+# ======================================================================= #
 
 ### input
 # ref_struc_file # file with a reference structure
@@ -172,10 +207,10 @@ def question(question,typefunc,default=None,autocomplete=True):
 
  ##  read in variable assignments from nma.inp, this is always done when the program is called
  # first default definitions
-dt = .5
-abs_list = []
-neg_list = []
-plot = False
+#dt = .5
+#abs_list = []
+#neg_list = []
+#plot = False
 
  
  # read from file
@@ -214,36 +249,71 @@ def get_general():
   INFOS['paths']=paths
   print 'Total number of subdirectories: %i\n' % (count)
 
-  print centerstring('Paths to reference structure',60,'-')
-  print '\nPlease enter the path to the equilibrium structure of your system (in the same atomic order as that given in the dynamics output)'
-  print ''
-  refpath=question('Path: ',str,'ref.xyz')
-  refpath=os.path.expanduser(os.path.expandvars(refpath))
-  print ''
-  reftype=question('Please give the type of coordinate file',str,'xyz')
-  INFOS['refstruc']=refpath
-  INFOS['reftype']=reftype
-  print ''
+  # try to obtain the maximum number of time steps in the trajectories
+  maxlen=0
+  dt=0.0
+  forbidden=['crashed','running','dead','dont_analyze']
+  for idir in INFOS['paths']:
+    ls=os.listdir(idir)
+    for itraj in ls:
+      if not 'TRAJ_' in itraj:
+        continue
+      path=idir+'/'+itraj
+      pathfile=path+'/output.lis'
+      if not os.path.isfile(pathfile):
+        continue
+      lstraj=os.listdir(path)
+      valid=True
+      for i in lstraj:
+        if i.lower() in forbidden:
+          valid=False
+          break
+      if not valid:
+        continue
+      f=readfile(pathfile)
+      for line in f:
+        if '#' in line:
+          continue
+        s=line.split()
+        step=int(s[0])
+        if step>maxlen:
+          maxlen=step
+        if dt==0.:
+          dt=float(s[1])
+
+  #print centerstring('Paths to reference structure',60,'-')
+  #print '\nPlease enter the path to the equilibrium structure of your system (in the same atomic order as that given in the dynamics output)'
+  #print ''
+  #refpath=question('Path: ',str,'ref.xyz')
+  #refpath=os.path.expanduser(os.path.expandvars(refpath))
+  #print ''
+  #reftype=question('Please give the type of coordinate file',str,'xyz')
+  #INFOS['refstruc']=refpath
+  #INFOS['reftype']=reftype
+  #print ''
 
 
-  print centerstring('Path to vibration file',60,'-')
-  print '\nPlease enter the path to the Molden frequencies file for your molecule (in the same atomic order as that given in the dynamics output)'
+  print centerstring('Path to frequencies file',60,'-')
+  print '\nPlease enter the path to the Molden frequencies file for your molecule. The contained geometry will be used as reference geometry.\n(Atomic order must be the same as in the trajectories!)'
   print ''
-  refvib=question('Path: ',str,'ref.molden')
+  refvib=question('Path: ',str)
   refvib=os.path.expanduser(os.path.expandvars(refvib))
   INFOS['refvib']=refvib
+  INFOS['refstruc']=refvib
+  INFOS['reftype']='molden'
   print ''
   
-  massweightques=question('Do you wish to use mass weighted normal modes?',bool,True)
-  INFOS['massweight']=massweightques
+  INFOS['massweight']=question('Do you wish to use mass weighted normal modes?',bool,True)
   print ''
 
+
+
   print centerstring('Number of total steps in your trajectories',60,'-')
-  print '\n total simulation time *2 and +1 if timestep is 0.5 fs'
+  #print '\n total simulation time *2 and +1 if timestep is 0.5 fs'
   print ''
   while True:
-    numsteps=question('Simulation time steps: ',int,[2000])[0]
-    if numsteps <0.:
+    numsteps=question('Number of time steps: ',int,[maxlen+1])[0]
+    if numsteps <=0:
       print 'Number of steps must be positive!'
       continue
     break
@@ -254,9 +324,9 @@ def get_general():
   print centerstring('The time step of your calculation',60,'-')
   print ''
   while True:
-    timestep=question('Simulation time step: ',float,[0.5])[0]
-    if numsteps <0.:
-      print 'time step must be positive!'
+    timestep=question('Length of time step: ',float,[dt])[0]
+    if timestep <=0.:
+      print 'Time step must be positive!'
       continue
     break
   INFOS['timestep']=timestep
@@ -270,57 +340,57 @@ def get_general():
 
 
   symmodes_list=[]
-  print centerstring('Any symmetric modes that should have their absolute value taken?',60,'-')
-  print 'List of normal modes for which the absolute value is taken because of symmetry. The numbering is according to the Molden input file. Without this setting all non-totally symmetric modes should average out to 0. If left blank all modes will be included as they are. A value of -1 ends this input section.'
+  print centerstring('Non-totally symmetric normal modes',60,'-')
+  print '\nPlease enter the numbers of the normal modes (numbering as in the Molden file) whose absolute value should be considered in the analysis. Without this setting, the average for all non-totally symmetric modes should be zero. Default is to not compute the absolute. Entering -1 ends this input section.'
   print ''
   while True:
-      symmodes_val=question('Please give the number of a normal mode you wish to include as an absolute value',str,'-1')
-      if '-1' in symmodes_val:
-         INFOS['symmmodes']=symmodes_list
-         break
-      else:
-         symmodes_list1=symmodes_val.split()
-         for i in range(len(symmodes_list1)):
-            symmodes_list.append(int(symmodes_list1[i]))
-         continue
-      print ''
+    modes_new=question('Symmetric normal modes:',int,[-1])
+    if -1 in modes_new:
+      break
+    elif any( [i<=0 for i in modes_new] ):
+      print 'Please only enter positive numbers (or -1 to end this input section)!'
+      continue
+    else:
+      symmodes_list.extend(modes_new)
+  INFOS['symmmodes']=symmodes_list
   print ''
 
   negmodes_list=[]
-  print centerstring('Any modes you want to mark with a negative value?',60,'-')
-  print 'List of normal modes where the negative value is taken in total_std.txt and cross_av_std.txt. This is only for convenience when viewing the results. A value of -1 ends this input section.'
+  print centerstring('Multiplication by -1',60,'-')
+  print 'Please enter the numbers of normal modes whose values should be multiplied by -1 before statistical analysis (affects total_std.txt and cross_av_std.txt). This is only for convenience when viewing the results. Entering -1 ends this input section.'
   print ''
   while True:
-      negmodes_val=question('Please give the number of a normal mode you wish to mark as negative',int,[-1])[0]
-      if negmodes_val==-1:
-         INFOS['negmodes']=negmodes_list
-         break
-      else:
-         negmodes_list.append(negmodes_val)
-         continue
-      print ''
+    negmodes_new=question('Inverted normal modes:',int,[-1])
+    if -1 in negmodes_new:
+      break
+    elif any( [i<=0 for i in negmodes_new] ):
+      print 'Please only enter positive numbers (or -1 to end this input section)!'
+      continue
+    else:
+      negmodes_list.extend(negmodes_new)
+      continue
+    print ''
+  INFOS['negmodes']=negmodes_list
 
   print ''
   intervallist=[]
-  print centerstring('Simulation time to be analysed',60,'-')
-  print '\n Time intervals in which the trajectory is to be analyzed (0 to 2000 is 1000fs with 0.5fs timesteps)'
+  print centerstring('Time steps to be analysed',60,'-')
+  print '\nPlease enter the time step intervals for which the statistical analysis should be carried out. '
   print ''
   while True:
-    starttime=question('Start time of interval: ',int,[0])[0]
-    endtime=question('End time of interval: ',int,[2000])[0]
+    interval=question('Time step interval: ',int,[0,maxlen])
+    #endtime=question('End time of interval: ',int,[maxlen])[0]
     print ''
-    interval=[starttime,endtime]
+    #interval=[starttime,endtime]
     intervallist.append(interval)
     moreinterval=question('Do you want to add another time interval for analysis?',bool,False)
-    if moreinterval==True:
-      continue
-    else:
-      INFOS['interval']=intervallist
+    if not moreinterval:
       break
-    print ''
+  INFOS['interval']=intervallist
   print ''
 
-  print centerstring('Please give the name of the subdirectory to be used for the results',60,'-')
+  print centerstring('Results directory',60,'-')
+  print 'Please give the name of the subdirectory to be used for the results (use to save similar analysis in separate subdirectories).'
   destin=question('Name for subdirectory?',str,'nma')
   INFOS['descr']=destin
   print ''
@@ -451,7 +521,7 @@ def nm_analysis(INFOS):
     
            # actual normal mode analysis
            try:
-               nma_list = trajectory.normal_mode_analysis(nma_mat, ref_struc, header=header, out_file=folder_name+'/nma_'+descr+'.txt', abs_list = abs_list)[:num_steps] # +++ abs_list should actually only be considered when averaging
+               nma_list = trajectory.normal_mode_analysis(nma_mat, ref_struc, header=header, out_file=folder_name+'/nma_'+descr+'.txt', abs_list = abs_list,timestep=dt)[:num_steps] # +++ abs_list should actually only be considered when averaging
            except:
                print ' *** Error: Coordinate transformation failed for trajectory ' + str(i) + '. Is there a proper calculation?'
                print ' Trajectory skipped ...'
@@ -459,14 +529,14 @@ def nm_analysis(INFOS):
            else:
            # addition for total std and for trajectory specific average and std
                tm_traj_av = file_handler.table_maker([35]+num_vib*[20])
-               tm_traj_av.write_line(['Nr']+header[0])
-               tm_traj_av.write_line(['Wavenumber (1/cm)']+header[1])
-               tm_traj_av.write_line(['Period (fs)']+header[2])
+               tm_traj_av.write_header_line(['Nr']+header[0][:-1])
+               tm_traj_av.write_header_line(['Wavenumber (1/cm)']+header[1][1:])
+               tm_traj_av.write_header_line(['Period (fs)']+header[2][1:])
                
                tm_traj_std = file_handler.table_maker([35]+num_vib*[20])
-               tm_traj_std.write_line(['Nr']+header[0])
-               tm_traj_std.write_line(['Wavenumber (1/cm)']+header[1])
-               tm_traj_std.write_line(['Period (fs)']+header[2])
+               tm_traj_std.write_header_line(['Nr']+header[0][:-1])
+               tm_traj_std.write_header_line(['Wavenumber (1/cm)']+header[1][1:])
+               tm_traj_std.write_header_line(['Period (fs)']+header[2][1:])
                for ii,interv in enumerate(ana_ints):
                    st = interv[0]
                    en = interv[1]
@@ -481,7 +551,7 @@ def nm_analysis(INFOS):
                    if not np == 0:
                        exp = sa / np
                        exp2 = sqa / np
-                       std_array = (np/(np-1)*(exp2 - exp**2))**.5 # empirical standard deviation
+                       std_array = ( np/(np-1)*(exp2 - exp**2) )**.5 # empirical standard deviation
                        
                        tm_traj_av.write_line([str(st)+'-'+str(en)] + exp.tolist())
                        tm_traj_std.write_line([str(st)+'-'+str(en)] + std_array.tolist())
@@ -509,14 +579,14 @@ def nm_analysis(INFOS):
             
     # determine the total standard deviation
     tm_tot_std = file_handler.table_maker([35]+num_vib*[20])
-    tm_tot_std.write_line(['Nr']+header[0])
-    tm_tot_std.write_line(['Wavenumber (1/cm)']+header[1])
-    tm_tot_std.write_line(['Period (fs)']+header[2])
+    tm_tot_std.write_header_line(['Nr']+header[0][:-1])
+    tm_tot_std.write_header_line(['Wavenumber (1/cm)']+header[1][1:])
+    tm_tot_std.write_header_line(['Period (fs)']+header[2][1:])
     
     for i,interv in enumerate(ana_ints):
         exp_x = sum_array[i] / num_points[i] # expected values of x and x**2
         exp_x2 = sum_sq_array[i] / num_points[i]
-        std = (num_points[i]/(num_points[i]-1)*exp_x2 - exp_x**2)**.5 # empirical standard deviation
+        std = ( num_points[i]/(num_points[i]-1)*(exp_x2 - exp_x**2) )**.5 # empirical standard deviation
         
         std = std * mult_array
         
@@ -528,12 +598,12 @@ def nm_analysis(INFOS):
     tm_mean = file_handler.table_maker(num_vib*[20])
     tm_std = file_handler.table_maker(num_vib*[20])
     
-    tm_mean.write_line(header[0])
-    tm_std.write_line(header[0])
-    tm_mean.write_line(header[1])
-    tm_std.write_line(header[1])
-    tm_mean.write_line(header[2])
-    tm_std.write_line(header[2])
+    tm_mean.write_header_line(header[0][:-1])
+    tm_std.write_header_line(header[0][:-1])
+    tm_mean.write_header_line(header[1][1:])
+    tm_std.write_header_line(header[1][1:])
+    tm_mean.write_header_line(header[2][1:])
+    tm_std.write_header_line(header[2][1:])
     
 
     std_list = [0 for i in xrange(num_vib)]
@@ -544,7 +614,7 @@ def nm_analysis(INFOS):
             for j in xrange(num_vib):
                 exp_x = cross_sum_array[i,j]/cross_num_array[i]
                 exp_x2 = cross_sum_sq_array[i,j]/cross_num_array[i]
-                std_list[j] = (cross_num_array[i]/(cross_num_array[i]-1)*exp_x2 - exp_x**2)**.5
+                std_list[j] = (cross_num_array[i]/(cross_num_array[i]-1)*(exp_x2 - exp_x**2))**.5 # empirical standard deviation
                 
             tm_std.write_line(std_list)
     
@@ -553,14 +623,14 @@ def nm_analysis(INFOS):
     
     # get the variance of the time averaged structures
     tm_av_var = file_handler.table_maker([35]+num_vib*[20])
-    tm_av_var.write_line(['Nr']+header[0])
-    tm_av_var.write_line(['Wavenumber (1/cm)']+header[1])
-    tm_av_var.write_line(['Period (fs)']+header[2])
+    tm_av_var.write_header_line(['Nr']+header[0][:-1])
+    tm_av_var.write_header_line(['Wavenumber (1/cm)']+header[1][1:])
+    tm_av_var.write_header_line(['Period (fs)']+header[2][1:])
     
     for st,en in ana_ints:
         av_exp = numpy.add.reduce(cross_mean_array[st:en]) / (en-st) # the way python defines this the field really has en-st entries, not en-st+1
         av_exp2 = numpy.add.reduce(cross_mean_array[st:en]**2) / (en-st)
-        av_std_array = ((en-st)/(en-st-1)*(av_exp2 - av_exp**2))**.5 # empirical standard deviation
+        av_std_array = ( (en-st)/(en-st-1)*(av_exp2 - av_exp**2) )**.5 # empirical standard deviation
     
         av_std_array = av_std_array * mult_array
     

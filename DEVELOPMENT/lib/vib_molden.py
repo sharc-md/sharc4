@@ -8,6 +8,7 @@ usage: Package for reading a molden input vibration file.
 
 import os
 import numpy
+import file_handler
 
 def convert_molden2xyz(path='.', name='molden.input'):
     """
@@ -81,16 +82,16 @@ class vib_molden:
         """
         Returns a list that can be used for a header for a normal mode analysis table.
         """
-        nr_list = []
-        freq_list = [] # frequency
-        T_list = [] # period
+        nr_list = ['1']
+        freq_list = ['Time'] # frequency
+        T_list = [''] # period
         for nr, freq in enumerate(self.freqs):
             try:
                 T = 1/(freq * 2.9979E-5)
             except ZeroDivisionError:
                 T = 0
 
-            nr_list += [str(nr+1)]
+            nr_list += [str(nr+2)]
             freq_list += [str(freq)[:6]]
             T_list += [str(T)[:6]]
 

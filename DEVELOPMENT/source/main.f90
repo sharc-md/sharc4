@@ -51,9 +51,9 @@ traj%time_last=traj%time_start
 
 call read_input(traj,ctrl)
 call allocate_lapack(ctrl%nstates)
-if (ctrl%decoherence==2) call allocate_afssh(traj, ctrl)
 
 if (.not.ctrl%restart) then
+  if (ctrl%decoherence==2) call allocate_afssh(traj, ctrl)
   call write_list_header(u_lis)
   call do_initial_qm(traj,ctrl)
   call Mix_gradients(traj,ctrl)
@@ -101,10 +101,10 @@ do i_step=traj%step+1,ctrl%nsteps
   call Rescale_Velocities(traj,ctrl)
   call Calculate_etot(traj,ctrl)
   ! obtain the correct gradient
+  call Calculate_cMCH(traj,ctrl)
   if (ctrl%calc_grad>=1) call redo_qm_gradients(traj,ctrl)
   if (traj%kind_of_jump/=0) call Mix_gradients(traj,ctrl)
   ! Finalization: Variable update, Output, Restart File, Consistency Checks
-  call Calculate_cMCH(traj,ctrl)
   call Update_old(traj)
   call set_time(traj)
   call write_list_line(u_lis,traj,ctrl)
