@@ -583,6 +583,10 @@ stores it in ndicif it is not stored in ndic already."""
       return ndic[n], ndic
     else:
       return ndic[n], ndic
+  #p=1.
+  #for i in range(n):
+    #p*=i+1
+  #return p
 
 def ana_laguerre(n, x,ndic):
     """This function analytically calculates the value of the nth order
@@ -668,10 +672,11 @@ The function returns a probability for this set of parameters."""
           n = -1
           print 'Highest considered vibrational state reached! Discarding this probability.'
         else:
-          print 'The calculated excited vibrational state for this normal mode exceeds the limit of the calculation.\nThe harmonic approximation is not valid for high vibrational states of low-frequency normal modes. The vibrational state ',n,' was set to 98. If you want to discard these states instead (due to oversampling of mode nr 98), use the -T option.'
+          print 'The calculated excited vibrational state for this normal mode exceeds the limit of the calculation.\nThe harmonic approximation is not valid for high vibrational states of low-frequency normal modes. The vibrational state ',n,' was set to 98. If you want to discard these states instead (due to oversampling of state nr 98), use the -T option.'
           n = 98
     if n == 0: # vibrational ground state
         return (math.exp(-Q**2) * math.exp(-P**2), 0.)
+    # TODO: what about n==-1 ??
     else: # vibrational excited state
         rhosquare = 2.0 * (P**2 + Q**2)
         W = (-1.0)**n * ana_laguerre(n,rhosquare,ndic) \
@@ -1065,9 +1070,11 @@ Method is based on L. Sun, W. L. Hase J. Chem. Phys. 133, 044313
       for xyz in range(3): # and each direction
         # distort geometry according to normal mode movement
         # and unweigh mass-weighted normal modes
-        atom.coord[xyz] += random_Q * mode['move'][i][xyz] * math.sqrt(1./atom.mass)
-          # add velocity
-        atom.veloc[xyz] += random_P * mode['move'][i][xyz] * math.sqrt(1./atom.mass)
+        if not UEG:
+          atom.coord[xyz] += random_Q * mode['move'][i][xyz] * math.sqrt(1./atom.mass)
+        # add velocity
+        if not UZV:
+          atom.veloc[xyz] += random_P * mode['move'][i][xyz] * math.sqrt(1./atom.mass)
       atom.EKIN()
   if not KTR:
     restore_center_of_mass(molecule, atomlist)
@@ -1234,17 +1241,25 @@ as described in [2] (non-fixed energy, independent mode sampling).
 
   parser = OptionParser(usage=usage, description=description)
   parser.add_option('-n', dest='n', type=int, nargs=1, default=3, help="Number of geometries to be generated (integer, default=3)")
-  parser.add_option('-r', dest='r', type=int, nargs=1, default=16661, help="Seed for the random number generator (integer, default=16661)")
-  parser.add_option('-o', dest='o', type=str, nargs=1, default='initconds', help="Output filename (string, default=""initconds"")")
-  parser.add_option('-x', dest='X', action='store_true',help="Generate a xyz file with the sampled geometries in addition to the initconds file")
   parser.add_option('-m', dest='m', action='store_true',help="Enter non-default atom masses")
   parser.add_option('-s', dest='s', type=float, nargs=1, default=1.0, help="Scaling factor for the energies (float, default=1.0)")
-  parser.add_option('-t', dest='t', type=float, nargs=1, default=0, help="Temperature (float, default=0.0)")
+  parser.add_option('-t', dest='t', type=float, nargs=1, default=0., help="Temperature (float, default=0.0)")
   parser.add_option('-T', dest='T', action='store_true', help="Discard high vibrational states in the temperature sampling ")
-  parser.add_option('--keep_trans_rot', dest='KTR', action='store_true',help="Keep translational and rotational components")
-  parser.add_option('-f', dest='f', type=int, nargs=1, default='0', help="Define the type of read normal modes. 0 for automatic assignement, 1 for gaussian-type normal modes (Gaussian, Turbomole, Q-Chem, ADF, Orca), 2 for cartesian normal modes (Molcas, Molpro), 3 for Columbus-type (Columbus), or 4 for mass-weighted. (integer, default=0)")
+  parser.add_option('-L', dest='L', type=float, nargs=1, default=10.0, help="Discard frequencies below this value in cm-1 (float, default=10.)")
+
+  parser.add_option('-o', dest='o', type=str, nargs=1, default='initconds', help="Output filename (string, default=""initconds"")")
+  parser.add_option('-x', dest='X', action='store_true',help="Generate a xyz file with the sampled geometries in addition to the initconds file")
   parser.add_option('-l', dest='lvc', action='store_true', help='Generate input for SHARC_LVC.py (V0.txt) rather than initconds')
+
+  parser.add_option('-r', dest='r', type=int, nargs=1, default=16661, help="Seed for the random number generator (integer, default=16661)")
+  parser.add_option('-f', dest='f', type=int, nargs=1, default='0', help="Define the type of read normal modes. 0 for automatic assignement, 1 for gaussian-type normal modes (Gaussian, Turbomole, Q-Chem, ADF, Orca), 2 for cartesian normal modes (Molcas, Molpro), 3 for Columbus-type (Columbus), or 4 for mass-weighted. (integer, default=0)")
+  
+  parser.add_option('--keep_trans_rot', dest='KTR', action='store_true',help="Keep translational and rotational components")
+  parser.add_option('--use_eq_geom',    dest='UEG', action='store_true',help="For all samples, use the equilibrium geometry (only sample velocities)")
+  parser.add_option('--use_zero_veloc', dest='UZV', action='store_true',help="For all samples, set velocities to zero")
+  
   (options, args) = parser.parse_args()
+
   random.seed(options.r)
   amount=options.n
   if len(args)==0:
@@ -1256,6 +1271,7 @@ as described in [2] (non-fixed energy, independent mode sampling).
   scaling=options.s
   flag=options.f
   lvc = options.lvc
+  LOW_FREQ=max(0.0000001,options.L)
 
   print '''Initial condition generation started...
 INPUT  file                  = "%s"
@@ -1273,6 +1289,10 @@ Temperature                  = %f''' % (filename, outfile, options.n, options.r,
 
   global KTR
   KTR=options.KTR
+  global UEG
+  UEG=options.UEG
+  global UZV
+  UZV=options.UZV
 
   global temperature
   temperature=options.t
@@ -1293,7 +1313,7 @@ Temperature                  = %f''' % (filename, outfile, options.n, options.r,
 
   molecule, modes = import_from_molden(filename, scaling,flag,options.lvc)
 
-  string='Geometry:\n'
+  string='\nGeometry:\n'
   for atom in molecule:
     string+=str(atom)[:61]+'\n'
   string+='Assumed Isotopes: '
@@ -1318,7 +1338,7 @@ Temperature                  = %f''' % (filename, outfile, options.n, options.r,
       outfile.write(outstring)
       outfile.close()
 
-  if options.X:
+  if options.X and not options.lvc:
     make_dyn_file(ic_list,options.o+'.xyz')
 
   # save the shell command
