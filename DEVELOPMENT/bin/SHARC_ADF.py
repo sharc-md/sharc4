@@ -1689,7 +1689,7 @@ def readQMin(QMinfilename):
               'paddingstates'           :[0 for i in QMin['states']],
               'charge'                  :[i%2 for i in range(len(QMin['states']))],
               'qmmm_table'              :'ADF.qmmm.table',
-              'qmmm_ff_file'            :'ADF.ff',
+              'qmmm_ff_file'            :'ADF.qmmm.ff',
               'theodore_prop'           :['Om','PRNTO','S_HE','Z_HE','RMSeh'],
               'theodore_fragment'       :[],
               'grid_per_atom'           :{},
