@@ -282,7 +282,7 @@ def close_keystrokes():
 
 # ===================================
 
-def question(question,typefunc,default=None,autocomplete=True):
+def question(question,typefunc,default=None,autocomplete=True,ranges=False):
   if typefunc==int or typefunc==float:
     if not default==None and not isinstance(default,list):
       print 'Default to int or float question must be list!'
@@ -305,12 +305,11 @@ def question(question,typefunc,default=None,autocomplete=True):
         s=s[:-1]+']'
     if typefunc==str and autocomplete:
       s+=' (autocomplete enabled)'
+    if typefunc==int and ranges:
+      s+=' (range comprehension enabled)'
     s+=' '
 
-    try:
-      line=raw_input(s)
-    except EOFError:
-      raise KeyboardInterrupt
+    line=raw_input(s)
     line=re.sub('#.*$','',line).strip()
     if not typefunc==str:
       line=line.lower()
@@ -323,8 +322,8 @@ def question(question,typefunc,default=None,autocomplete=True):
         continue
 
     if typefunc==bool:
-      posresponse=['y','yes','true', 'ja',  'si','yea','yeah','aye','sure','definitely']
-      negresponse=['n','no', 'false','nein',     'nope']
+      posresponse=['y','yes','true', 't', 'ja',  'si','yea','yeah','aye','sure','definitely']
+      negresponse=['n','no', 'false', 'f', 'nein', 'nope']
       if line in posresponse:
         KEYSTROKES.write(line+' '*(40-len(line))+' #'+s+'\n')
         return True
@@ -339,8 +338,8 @@ def question(question,typefunc,default=None,autocomplete=True):
       KEYSTROKES.write(line+' '*(40-len(line))+' #'+s+'\n')
       return line
 
-    if typefunc==int or typefunc==float:
-      # int and float will be returned as a list
+    if typefunc==float:
+      # float will be returned as a list
       f=line.split()
       try:
         for i in range(len(f)):
@@ -348,11 +347,28 @@ def question(question,typefunc,default=None,autocomplete=True):
         KEYSTROKES.write(line+' '*(40-len(line))+' #'+s+'\n')
         return f
       except ValueError:
-        if typefunc==int:
-          i=1
-        elif typefunc==float:
-          i=2
-        print 'Please enter a %s' % ( ['string','integer','float'][i] )
+        print 'Please enter floats!'
+        continue
+
+    if typefunc==int:
+      # int will be returned as a list
+      f=line.split()
+      out=[]
+      try:
+        for i in f:
+          if ranges and '~' in i:
+            q=i.split('~')
+            for j in range(int(q[0]),int(q[1])+1):
+              out.append(j)
+          else:
+            out.append(int(i))
+        KEYSTROKES.write(line+' '*(40-len(line))+' #'+s+'\n')
+        return out
+      except ValueError:
+        if ranges:
+          print 'Please enter integers or ranges of integers (e.g. "-3~-1  2  5~7")!'
+        else:
+          print 'Please enter integers!'
         continue
 
 # ======================================================================================================================
