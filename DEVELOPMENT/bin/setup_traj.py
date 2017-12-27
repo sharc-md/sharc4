@@ -457,7 +457,7 @@ def close_keystrokes():
 
 # ===================================
 
-def question(question,typefunc,default=None,autocomplete=True):
+def question(question,typefunc,default=None,autocomplete=True,ranges=False):
   if typefunc==int or typefunc==float:
     if not default==None and not isinstance(default,list):
       print 'Default to int or float question must be list!'
@@ -480,6 +480,8 @@ def question(question,typefunc,default=None,autocomplete=True):
         s=s[:-1]+']'
     if typefunc==str and autocomplete:
       s+=' (autocomplete enabled)'
+    if typefunc==int and ranges:
+      s+=' (range comprehension enabled)'
     s+=' '
 
     line=raw_input(s)
@@ -511,8 +513,8 @@ def question(question,typefunc,default=None,autocomplete=True):
       KEYSTROKES.write(line+' '*(40-len(line))+' #'+s+'\n')
       return line
 
-    if typefunc==int or typefunc==float:
-      # int and float will be returned as a list
+    if typefunc==float:
+      # float will be returned as a list
       f=line.split()
       try:
         for i in range(len(f)):
@@ -520,11 +522,28 @@ def question(question,typefunc,default=None,autocomplete=True):
         KEYSTROKES.write(line+' '*(40-len(line))+' #'+s+'\n')
         return f
       except ValueError:
-        if typefunc==int:
-          i=1
-        elif typefunc==float:
-          i=2
-        print 'Please enter a %s' % ( ['string','integer','float'][i] )
+        print 'Please enter floats!'
+        continue
+
+    if typefunc==int:
+      # int will be returned as a list
+      f=line.split()
+      out=[]
+      try:
+        for i in f:
+          if ranges and '~' in i:
+            q=i.split('~')
+            for j in range(int(q[0]),int(q[1])+1):
+              out.append(j)
+          else:
+            out.append(int(i))
+        KEYSTROKES.write(line+' '*(40-len(line))+' #'+s+'\n')
+        return out
+      except ValueError:
+        if ranges:
+          print 'Please enter integers or ranges of integers (e.g. "-3~-1  2  5~7")!'
+        else:
+          print 'Please enter integers!'
         continue
 
 # ======================================================================================================================
@@ -862,7 +881,7 @@ from the initconds.excited files as provided by excite.py.
     print '\nZero trajectories can be set up!'
     sys.exit(1)
   while True:
-    setupstates=question('States to setup the dynamics:',int,defsetupstates)
+    setupstates=question('States to setup the dynamics:',int,defsetupstates,ranges=True)
     valid=True
     for i in setupstates:
       if i>INFOS['nstates']:
@@ -1224,6 +1243,17 @@ from the initconds.excited files as provided by excite.py.
   else:
     INFOS['damping']=False
 
+
+  # atommask
+  INFOS['atommaskarray']=[]
+  if (INFOS['decoherence'][0]=='edc') or (INFOS['ekincorrect']==2) or (INFOS['reflect']==2):
+    print '\nDo you want to use an atom mask for velocity rescaling or decoherence?'
+    if question('Atom masking?',bool,False):
+      print '\nPlease enter all atom indices (start counting at 1) of the atoms which should be masked. \nRemember that you can also enter ranges (e.g., "-1~-3  5  11~21").'
+      arr=question('Masked atoms:',int,ranges=True)
+      for i in arr:
+        if 1<=i<=INFOS['natom']:
+          INFOS['atommaskarray'].append(i)
 
   # selection of gradients (only for SHARC) and NACs (only if NAC=ddr)
   print '\n'+centerstring('Selection of Gradients and NACs',60,'-')+'\n'
@@ -3355,12 +3385,15 @@ def writeSHARCinput(INFOS,initobject,iconddir,istate):
     s+='killafter %f\n' % (INFOS['killafter'])
   s+='\n'
 
+  if INFOS['atommaskarray']:
+    s+='atommask external\natommaskfile atommask\n\n'
+
   s+='surf %s\n' % (INFOS['surf'])
   s+='coupling %s\n' % (Couplings[INFOS['coupling']]['name'])
   s+='%sgradcorrect\n' % (['no',''][INFOS['gradcorrect']])
   s+='ekincorrect %s\n' % (EkinCorrect[INFOS['ekincorrect']]['name'])
   s+='reflect_frustrated %s\n' % (EkinCorrect[INFOS['reflect']]['name'])
-  s+='decoherence_type %s\n' % (INFOS['decoherence'][0])
+  s+='decoherence_scheme %s\n' % (INFOS['decoherence'][0])
   if INFOS['decoherence'][1]:
     s+='decoherence_param %s\n' % (INFOS['decoherence'][1])
   s+='hopping_procedure %s\n' % (INFOS['hopping'])
@@ -3446,6 +3479,17 @@ def writeSHARCinput(INFOS,initobject,iconddir,istate):
   if INFOS['laser']:
     laserfname=iconddir+'/laser'
     shutil.copy(INFOS['laserfile'],laserfname)
+
+  # atommask file
+  if INFOS['atommaskarray']:
+    atommfname=iconddir+'/atommask'
+    atommf=open(atommfname,'w')
+    for i,atom in enumerate(initobject.atomlist):
+      if i+1 in INFOS['atommaskarray']:
+        atommf.write('F\n')
+      else:
+        atommf.write('T\n')
+    atommf.close()
 
   return
 
