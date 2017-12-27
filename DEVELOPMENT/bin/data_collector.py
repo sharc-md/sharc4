@@ -385,7 +385,7 @@ def close_keystrokes():
 
 # ===================================
 
-def question(question,typefunc,default=None,autocomplete=True):
+def question(question,typefunc,default=None,autocomplete=True,ranges=False):
   if typefunc==int or typefunc==float:
     if not default==None and not isinstance(default,list):
       print 'Default to int or float question must be list!'
@@ -408,6 +408,8 @@ def question(question,typefunc,default=None,autocomplete=True):
         s=s[:-1]+']'
     if typefunc==str and autocomplete:
       s+=' (autocomplete enabled)'
+    if typefunc==int and ranges:
+      s+=' (range comprehension enabled)'
     s+=' '
 
     line=raw_input(s)
@@ -423,8 +425,8 @@ def question(question,typefunc,default=None,autocomplete=True):
         continue
 
     if typefunc==bool:
-      posresponse=['y','yes','true', 'ja',  'si','yea','yeah','aye','sure','definitely']
-      negresponse=['n','no', 'false','nein',     'nope']
+      posresponse=['y','yes','true', 't', 'ja',  'si','yea','yeah','aye','sure','definitely']
+      negresponse=['n','no', 'false', 'f', 'nein', 'nope']
       if line in posresponse:
         KEYSTROKES.write(line+' '*(40-len(line))+' #'+s+'\n')
         return True
@@ -439,8 +441,8 @@ def question(question,typefunc,default=None,autocomplete=True):
       KEYSTROKES.write(line+' '*(40-len(line))+' #'+s+'\n')
       return line
 
-    if typefunc==int or typefunc==float:
-      # int and float will be returned as a list
+    if typefunc==float:
+      # float will be returned as a list
       f=line.split()
       try:
         for i in range(len(f)):
@@ -448,11 +450,28 @@ def question(question,typefunc,default=None,autocomplete=True):
         KEYSTROKES.write(line+' '*(40-len(line))+' #'+s+'\n')
         return f
       except ValueError:
-        if typefunc==int:
-          i=1
-        elif typefunc==float:
-          i=2
-        print 'Please enter a %s' % ( ['string','integer','float'][i] )
+        print 'Please enter floats!'
+        continue
+
+    if typefunc==int:
+      # int will be returned as a list
+      f=line.split()
+      out=[]
+      try:
+        for i in f:
+          if ranges and '~' in i:
+            q=i.split('~')
+            for j in range(int(q[0]),int(q[1])+1):
+              out.append(j)
+          else:
+            out.append(int(i))
+        KEYSTROKES.write(line+' '*(40-len(line))+' #'+s+'\n')
+        return out
+      except ValueError:
+        if ranges:
+          print 'Please enter integers or ranges of integers (e.g. "-3~-1  2  5~7")!'
+        else:
+          print 'Please enter integers!'
         continue
 
 # ======================================================================================================================
@@ -636,6 +655,8 @@ def get_general():
     if string in allfiles2:
       INFOS['filepath']=string
       break
+    else:
+      print 'I did not understand %s' % string
 
   # make list of files
   allfiles=[]
@@ -673,20 +694,20 @@ def get_general():
     else:
       print 'Please enter a number between 0 and %i!' % ncol
   while True:
-    INFOS['colX']=question('X columns:',int,[2])
+    INFOS['colX']=question('X columns:',int,[2],ranges=True)
     if all( [-ncol<=x<=ncol for x in INFOS['colX'] ] ):
       INFOS['nX']=len(INFOS['colX'])
       break
     else:
-      print 'Please enter a set of numbers between %i and %i!' % (ncol,ncol)
+      print 'Please enter a set of numbers between %i and %i!' % (-ncol,ncol)
   while True:
     default=[0 for i in INFOS['colX']]
-    INFOS['colY']=question('Y columns:',int,default)
-    if all( [-ncol<=x<=ncol for x in INFOS['colY'] ] ):
+    INFOS['colY']=question('Y columns:',int,default,ranges=True)
+    if all( [-ncol<=x<=ncol for x in INFOS['colY'] ] ) and len(INFOS['colY'])==len(INFOS['colX']):
       INFOS['nY']=len(INFOS['colY'])
       break
     else:
-      print 'Please enter a set of numbers between %i and %i!' % (ncol,ncol)
+      print 'Please enter a set of %i numbers between %i and %i!' % (len(INFOS['colX']),-ncol,ncol)
 
   print 'Selected columns:'
   print 'T: %s     X: %s    Y: %s\n' % (str(INFOS['colT']),str(INFOS['colX']),str(INFOS['colY']))
@@ -980,7 +1001,7 @@ def do_calc(INFOS):
     outstring+='_cv'
     filename=make_filename(outindex,INFOS,outstring)
     print '>>>> Writing output to file "%s"...\n' % filename
-    writefile(filename,stringType3(data3))
+    writefile(filename,stringType2(data2))
 
 
   # ---------------------- write -------------------------------
