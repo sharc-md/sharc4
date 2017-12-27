@@ -487,7 +487,7 @@ def printQMin(QMin):
       string+=','.join(parts)
       string+=')'
   if QMin['template']['qmmm']:
-      string+='\t+AMBER'
+      string+='\t+Tinker'
   print string
   # say, if CAS(n-1,m) is used for any multiplicity
   oddmults=False
