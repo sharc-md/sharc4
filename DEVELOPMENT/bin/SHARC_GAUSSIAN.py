@@ -63,7 +63,7 @@ changelogstring='''
 - h, dm, grad, overlap are working
 
 01.12.2017:
-- 
+- all features of ADF interface, minus SOCs
 '''
 
 # ======================================================================= #
