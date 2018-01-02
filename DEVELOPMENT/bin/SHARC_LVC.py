@@ -878,7 +878,7 @@ def read_QMin():
       continue
     for t in ['soc', 'nacdr', 'dm', 'grad', 'overlap']:
         if s[0] in t:
-            QMin[t] = []
+            QMin[s[0]] = []
     if 'nacdt' in s[0]:
       print 'NACDT is not supported!'
       sys.exit(16)
