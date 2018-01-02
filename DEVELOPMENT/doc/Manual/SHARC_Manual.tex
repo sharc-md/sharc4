@@ -2802,7 +2802,7 @@ grid\_qpnear            &Followed by a float giving the maximum distance (in Boh
 \\
 grid\_per\_atom         &Followed by a string (e.g., \ttt{basic}, \ttt{normal}, \ttt{good}) and a list of the atoms which should have the given integration accuracy. Can be used multiple times with different qualities.
 \\
-fit                     &by two strings (e.g., \ttt{zlmfit normal} or \ttt{stofit}) defining which Coulomb integration method and accuracy to use. For details, see the example template file.
+fit                     &Followed by two strings (e.g., \ttt{zlmfit normal} or \ttt{stofit}) defining which Coulomb integration method and accuracy to use. For details, see the example template file.
 \\
 fit\_per\_atom          &Works like \ttt{grid\_per\_atom}, but for the Coulomb method accuracy.
 \\
@@ -3248,8 +3248,128 @@ However, the computation time also depends on whether or not spin-orbit coupling
 
 \section{\textsc{Gaussian} Interface}\label{sec:int:gaussian}
 
-\todo{todo}
+The \sharc-\textsc{Gaussian} interface allows to run \sharc\ simulations with \textsc{Gaussian}'s TD-DFT functionality.
+The interface is compatible with restricted and unrestricted ground states, but not with symmetry.
+Spin-orbit couplings cannot be computed, but wave function overlaps from the \textsc{Wfoverlap} code are available (no nonadiabatic couplings).
+Dyson norms can also be computed through the \textsc{Wfoverlap} code.
+\textsc{TheoDORE} can be used to perform automatic wave function analysis.
 
+The interface needs two additional input files, a template file for the quantum chemistry (file name is \ttt{GAUSSIAN.template}) and a resource file (\ttt{GAUSSIAN.resources}). 
+If files \ttt{QM/GAUSSIAN.chk.init} or \ttt{QM/GAUSSIAN.chk.<job>.init} are are present, they are used to provide an initial orbital guess for the SCF calculation of the respective job.
+
+\subsection{Template file: \ttt{GAUSSIAN.template}}
+
+This file contains the specifications for the quantum chemistry calculation. Note that this is not a valid \textsc{Gaussian} input file. The file only contains a number of keywords, given in table~\ref{tab:adf_temp}. The actual input for \textsc{Gaussian} will be generated automatically through the interface.
+
+A fully commented template file---with all possible options, a comprehensive descriptions, and some practical hints---is located in \ttt{\$SHARC/../examples/SHARC\_GAUSSIAN/GAUSSIAN.template}.
+We recommend that users start from this template file and modify it appropriately for their calculations.
+
+\begin{table}
+  \centering
+  \caption{Keywords for the \ttt{GAUSSIAN.template} file.}
+  \label{tab:adf_temp}
+  \small
+  \begin{tabular}{>{\ttfamily}lp{12cm}}
+  \toprule
+  Keyword       &Description\\
+  \midrule
+basis                   &Gives the basis set for all atoms (default 6-31G).
+\\
+functional              &followed by one string giving the exchange-correlation functional. Default is \ttt{PBEPBE}.
+\\
+dispersion              &Activates dispersion correction. Arguments are written verbatim to \textsc{Gaussian} input (in \ttt{EmpiricalDispersion=()}). Default is no dispersion. An example argument would be \ttt{GD3}.
+\\
+charge                  &Sets the total charge of the system. Can be either followed by a single integer (then the interface will automatically assign the charges to the multiplicities) or by one charge per multiplicity. 
+\\
+scrf                    &Activates solvation. All arguments (e.g., \ttt{iefpcm solvent=water}) are copied to \textsc{Gaussian} input (in \ttt{scrf=()}).
+\\
+grid                    &Followed by a string (e.g., \ttt{grid finegrid}) defining which integration grid and accuracy to use. For details, see the example template file.
+\\
+denfit                  &Activates density fitting, which might speed up the computation.
+\\
+scf                     &Arguments are written verbatim to \textsc{Gaussian} input (in \ttt{scf=()}).
+\\
+no\_tda                 &This keyword deactivates TDA, which the interface requests by default.
+\\
+paddingstates           &Followed by a list of integers, which give the number of extra states to compute by \textsc{Gaussian}, but which are neglected in the output. Should not be changed between time steps, as this will break \textsc{Gaussian}'s restart routines.
+\\
+unrestricted\_triplets  &Requests that the triplets are calculated in a separate job from an unrestricted ground state. Default is to compute triplets as linear response of the restricted singlet ground state.
+\\
+iop                     &Arguments are written verbatim to \textsc{Gaussian} input (in \ttt{iop=()}). Expert option.
+\\
+keys                    &Arguments are written verbatim to \textsc{Gaussian} input as separate keywords. Expert option.
+\\
+  \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{Resource file: \ttt{GAUSSIAN.resources}}
+
+The file \ttt{GAUSSIAN.resources} contains mainly paths (to the \textsc{Gaussian} executables, to the scratch directory, etc.) and other resources, plus settings for \ttt{wfoverlap.x} and \textsc{TheoDORE}. This file must reside in the same directory where the interface is started. It uses a simple ``\ttt{keyword argument}'' syntax. Comments using \# and blank lines are possible, the order of keywords is arbitrary. Lines with unknown keywords are ignored, since the interface just searches the file for certain keywords.
+
+Table~\ref{tab:adf_sh2} lists the existing keywords.
+A fully commented resource file with all possible options and comprehensive descriptions is located in \ttt{\$SHARC/../examples/SHARC\_GAUSSIAN/}.
+
+\begin{table}
+  \centering
+  \caption{Keywords for the \ttt{GAUSSIAN.resources} file.}
+  \label{tab:adf_sh2}
+  \begin{tabular}{>{\ttfamily}lp{12cm}}
+  \toprule
+  Keyword       &Description\\
+  \midrule
+groot                   &Is the path to the \textsc{Gaussian} installation. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. The interface will set \ttt{\$GAUSS\_EXEDIR} to this path.
+\\
+scratchdir              &Is a path to the temporary directory. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. If it does not exist, the interface will create it. In any case, the interface will delete this directory after the calculation. The interface will set \ttt{\$GAUSS\_SCRDIR} to this path.
+\\
+savedir                 &Is a path to another temporary directory.  Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. The interface will store files needed for restart there.
+\\
+memory                  &The memory usable by \textsc{Gaussian} and \textsc{Wfoverlap}. The default is 100~MB. 
+\\
+ncpu                    &The number of CPUs used by the interface. Is overridden by environment variables from queuing engines (e.g., \ttt{\$NSLOTS} or \ttt{\$SLURM\_NTASKS\_PER\_NODE}). Will either be used to run \textsc{Gaussian} in parallel or to run several independent \textsc{Gaussian} runs at the same time.
+\\
+schedule\_scaling       &Gives the expected parallelizable fraction of the \textsc{Gaussian} run time (Amdahl's law). With a value close to zero, the interface will try to run all jobs at the same time. With values close to one, jobs will be run sequentially with the maximum number of cores.
+\\
+delay                   &Followed by a float giving the delay in seconds between starting parallel jobs to avoid excessive disk I/O (usually not necessary).
+\\
+wfoverlap               &Path to the \textsc{Wfoverlap} code. Needed for overlap and Dyson norm calculations.
+\\
+wfthres                 &(float) Gives the amount of wave function norm which will be kept in the truncation of the determinant files. Default is 0.99 (i.e., the wave functions in the determinant files will have a norm of 0.99). Note that if hybrid functionals and no TDA are used, the response vector can have a norm larger than one, and wfthres should be increased.
+\\
+numfrozcore             &Number of frozen core orbitals for overlap and Dyson norm calculations. A value of -1 enables automatic frozen core.
+\\
+numocc                  &Number of ignored occupied orbitals in Dyson calculations.
+\\
+nooverlap               &Do not save determinant files for overlap computations.
+\\
+theodir                 &Path to the \textsc{TheoDORE} installation. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. The interface will set \ttt{\$PYTHONPATH} automatically.
+\\
+theodore\_prop          &Followed by a list with the descriptors which \textsc{TheoDORE} should compute. Note that descriptors will only be computed for restricted singlets (and triplets). Instead of a simple list, a Python literal can also be used, as in the \textsc{TheoDORE} input files.
+\\
+theodore\_fragment      &Followed by a list of atom numbers which should constitute a fragment in \textsc{TheoDORE}. For multiple fragments, the keyword can be used multiple times. Instead, the keyword can be followed by a Python literal, as in the \textsc{TheoDORE} input files.
+\\
+always\_orb\_init       &Do not use the orbital guesses from previous calculations/time steps, but always use the provided initial orbitals.
+\\
+always\_guess           &Always use the orbital guess from \textsc{Gaussian}.
+\\
+  debug                 &Increases the verbosity of the interface (standard out). Does not clean up the scratch directory. Copies all \textsc{Gaussian} outputs to the save directory.
+\\
+  no\_print             &Reduces interface standard output.
+\\
+  \bottomrule
+  \end{tabular}
+\end{table}
+
+\paragraph{Parallelization}
+
+\textsc{Gaussian} usually shows very good parallel scaling for most TD-DFT calculations.
+However, it is more efficient to carry out multiple \textsc{Gaussian} calculations (different multiplicities, multiple gradients) in parallel, each one using a smaller number of CPUs.
+
+In the \sharc-\textsc{Gaussian} interface, parallelization is controlled by the keywords \ttt{ncpu} and \ttt{schedule\_scaling}.
+The first keyword controls the maximum number of CPUs which the interface is allowed to use for all \textsc{Gaussian} runs simultaneously.
+The second keyword is the parallel fraction from Amdahl's Law, see Section~\ref{met:amdahl}.
+With a value close to zero, the interface will try to run all jobs at the same time. With values close to one, jobs will be run sequentially with the maximum number of cores.
+Typical values for \ttt{schedule\_scaling} are around 0.90 for both GGA functionals and hybrid functionals,  possibly less for very small computations.
 
 
 
@@ -3881,14 +4001,19 @@ The remaining settings for TheoDORE (fragment and descriptor input) will be aske
 
 The following input in \ttt{setup\_init.py} depends on the chosen interface.
 However, some input is similar between several interfaces and is discussed (out of input order) in section~\ref{sec:setup_init.py:several}.
+Note that most of the questions asked in the input dialogue have some counterpart in the resource file of the chosen interface, so you might find additional information in chapter~\ref{chap:interfaces}.
+
+% -----------------------------------------------------------------------------------------
 
 \subsubsection{Input which is similar between interfaces}\label{sec:setup_init.py:several}
 
-\paragraph{Path to quantum chemistry programs}
+\paragraph{Path to quantum chemistry programs and licenses}
 
-Here the user is prompted to provide the path to the relevant executables. 
+Here the user is prompted to provide the path to the relevant executables or installation directories. 
 
 Note that the setup script will not expand the user (\ttt{\textasciitilde}) and shell variables (since the calculations might be running on a different machine than the one used for setup, so the meaning of shell variables could be different). \ttt{\textasciitilde} and shell variables will only be expanded by the interfaces during the actual calculation.
+
+For some interfaces, also the path to a license file might need to be specified.
 
 \paragraph{Scratch directory}
 
@@ -3896,19 +4021,37 @@ The script takes the string without any checking. Each individual initial condit
 
 Note that you can use, e.g., \ttt{./temp/} as scratch directory, which is a subdirectory of the working directory of the interface. Using \ttt{./} as scratch directory is not recommended, since the interface will delete the scratch directory.
 
+\paragraph{Template file}
+
+For almost all interfaces, \ttt{setup\_init.py} will ask for a template file containing the quantum chemistry specifics of the calculations. The format of the template file depends on the interface; formats are described in the interface chapter~\ref{chap:interfaces}.
+
+For most interfaces, \ttt{setup\_init.py} will perform some basic checks, but ultimately the template file will be checked by the interface once the calculation is submitted.
+
+\paragraph{Initial orbital guess}
+
+For some interfaces, \ttt{setup\_init.py} will ask for files containing initial orbital guesses. providing initial is especially important for multi-reference calculations, because otherwise it is very likely that the calculations converge to an undesirable active space.
+
+\paragraph{Resource usage}
+
+For most interfaces, \ttt{setup\_init.py} will ask for the amount of memory and the number of CPU cores to use. For some interfaces, additionally a delay between the start of parallel calculation can be provided (this might be helpful if many calculations starting at the same time is problematic for I/O).
+For the ADF and \ttt{Gaussian} interfaces, furthermore the \ttt{schedule\_scaling} is queried for (see section~\ref{met:amdahl} for details).
+
 \paragraph{Wavefunction overlap program}
 
 The scripts asks for the path to the wavefunction overlap program. In a complete \sharc\ installation, the overlap program should be located at \ttt{\$/SHARC/wfoverlap.x}.
 Depending on the interface, the script might also ask for the threshold to truncate the wave function files, or for the memory for \ttt{wfoverlap.x} (if the memory of the quantum chemistry program cannot be set).
+For some interfaces, it is also possible to control the number of frozen core orbitals for the overlap calculation (and the number of inactive orbitals for Dyson orbital calculations).
 
-% TODO: hereIam
+\paragraph{\textsc{TheoDORE} setup}
 
+If \textsc{TheoDORE} is enabled, \ttt{setup\_init.py} will query for the path to the \textsc{TheoDORE} installation directory. Furthermore, the user needs to enter a list of the descriptors to be calculated by \textsc{TheoDORE}, as well as the atom indices for each fragment for the charge transfer number computation.
 
+\paragraph{QM/MM setup}
 
+For some interfaces, \ttt{setup\_init.py} will ask for QM/MM-related files if the template file specifies a QM/MM calculation.
+Currently, the QM/MM setup consists simply of providing the relevant interface-specific files to \ttt{setup\_init.py}, which it simply copies accordingly.
 
-
-
-
+% -----------------------------------------------------------------------------------------
 
 \subsubsection{Input for \textsc{Molpro}}\label{sec:setup_init.py:molpro}
 
@@ -3923,7 +4066,7 @@ See section~\ref{sec:setup_init.py:several}.
 
 \paragraph{Template file}
 
-Enter the filename for the \textsc{Molpro} template input. This file contains the details of the ab initio calculation, like basis set, active orbitals and electrons, number of electrons and number of states for state-averaging. For details, see the section about the \sharc-\textsc{Molpro} interface (\ref{sec:int:molpro}). The setup script will check whether the template file contains the necessary entries. 
+Enter the filename for the \textsc{Molpro} template input. This file should contain at least the basis set, active orbitals and electrons, number of electrons and number of states for state-averaging. For details, see the section about the \sharc-\textsc{Molpro} interface (\ref{sec:int:molpro}). The setup script will check whether the template file contains the necessary entries. 
 
 \paragraph{Initial wave function file}
 
@@ -3934,22 +4077,54 @@ You can provide an initial wave function (with an appropriate MO guess) to \text
 The script asks for the memory and number of CPU cores to be used. Note that both settings apply to \textsc{Molpro} and to \ttt{wfoverlap.x}, if the latter is required (but note that the two programs are never run simultaneously).
 If more than one CPU core is used, the interface will parallelize different \textsc{Molpro} runs (but will not run \textsc{Molpro} in parallel mode); \ttt{wfoverlap.x} will be run in SMP-parallel mode.
 
+\paragraph{Wavefunction overlap program}
 
+See section~\ref{sec:setup_init.py:several}. Note that for the \textsc{Molpro} interface, no truncation threshold can be given, since \ttt{wfoverlap.x} is very efficient for CASSCF wavefunctions.
+% -----------------------------------------------------------------------------------------
 
+\subsubsection{Input for \textsc{Molcas}}\label{sec:setup_init.py:molcas}
 
-\subsubsection{Input for \textsc{Columbus}}
+\paragraph{Path to \textsc{Molcas}}
 
-\paragraph{Path to \textsc{Columbus}}
-
-Here the user is prompted to provide the path to the \textsc{Columbus} directory. Note that the script will not expand the user (\ttt{\textasciitilde}) and shell variables (since possibly the ab initio calculations are running on a different machine than the one used for setup). \ttt{\textasciitilde} and shell variables will only be expanded by the interfaces during the actual calculation.
-
-Note that \ttt{\$COLUMBUS} does not have to be defined on the setup host, but it has to be defined on the hosts running the calculations.
+Here the user is prompted to provide the path to the \textsc{Molcas} directory. 
+For more details, see section~\ref{sec:setup_init.py:several}.
 
 \paragraph{Scratch directory}
 
-The script takes the string without any checking. Each individual initial condition uses a subdirectory \ttt{ICOND\_\%05i} with the appropriate number. \ttt{\textasciitilde} and shell variables will only be expanded by the interface during the actual calculation.
+See section~\ref{sec:setup_init.py:several}.
 
-Note that you can use, e.g., \ttt{./temp/} as scratch directory, which is a subdirectory of the working directory of the interface. Using \ttt{./} as scratch directory is not recommended, since the interface will delete the scratch directory.
+\paragraph{Template file}
+
+Enter the filename for the \textsc{Molcas} template input. This file should contain at least the basis set, active orbitals and electrons, number of inactive orbitals, and number of states for state-averaging. For details, see the section about the \sharc-\textsc{Molcas} interface (\ref{sec:int:molcas}). The setup script will check whether the template file contains the necessary entries. 
+
+\paragraph{\todo{QM/MM}}
+
+\paragraph{Initial wave function file}
+
+You can provide initial MO coefficients to \textsc{Molcas}. This usually provides a drastic speedup for the CASSCF calculations and helps in ensuring that all calculations are based on the same active space. In simple cases it might be acceptable to not provide an initial wave function. For \textsc{Molcas}, you have to specify one file for each multiplicity (but you can use the same file as guess for several multiplicities).
+Initial orbital files can either be in \ttt{JobIph} or \ttt{RasOrb} format.
+
+\paragraph{Resource usage}
+
+The script asks for the memory and number of CPU cores to be used. Note that both settings apply to \textsc{Molcas} and to \ttt{wfoverlap.x}, if the latter is required (but note that the two programs are never run simultaneously).
+If more than one CPU core is used, the interface will parallelize different \textsc{Molcas} runs (but will not run \textsc{Molcas} in parallel mode); \ttt{wfoverlap.x} will be run in SMP-parallel mode.
+
+\paragraph{Wavefunction overlap program}
+
+See section~\ref{sec:setup_init.py:several}. The \ttt{wfoverlap.x} program is only required if Dyson norms need to be calculated. Note that for the \textsc{Molcas} interface, no truncation threshold can be given, since \ttt{wfoverlap.x} is very efficient for CASSCF wavefunctions.
+
+% -----------------------------------------------------------------------------------------
+
+\subsubsection{Input for \textsc{Columbus}}\label{sec:setup_init.py:columbus}
+
+\paragraph{Path to \textsc{Columbus}}
+
+Here the user is prompted to provide the path to the \textsc{Columbus} directory. 
+For more details, see section~\ref{sec:setup_init.py:several}.
+
+\paragraph{Scratch directory}
+
+See section~\ref{sec:setup_init.py:several}.
 
 \paragraph{Template directory}
 
@@ -3959,39 +4134,21 @@ The script will auto-detect (based on the \ttt{cidrtin} files) which subdirector
 
 Note that the setup script does not check any content of the input files beyond the multiplicity. Note that \ttt{transmomin} and \ttt{control.run} do not need to be present (and that their content has no effect on the calculation), since these files are written on-the-fly by the interface. 
 
+The template directory can either be linked or copied to the initial condition calculations.
+
 \paragraph{Initial orbital coefficient file}
 
 You can provide initial MO coefficients for the \textsc{Columbus} calculation. This usually provides a drastic speedup for the CASSCF calculations and helps to ensure that all calculations are based on the same active space. In simple cases it might be acceptable to not provide an initial wave function.
 
 \paragraph{Memory}
 
-For \textsc{Columbus}, the available memory must be given here. 
+For \textsc{Columbus}, the available memory must be given here. The \textsc{Columbus} interface does not allow for parallelization currently.
 
+\paragraph{Wavefunction overlap program}
 
+See section~\ref{sec:setup_init.py:several}. For CASSCF calculations with \textsc{Columbus}, use a truncation threshold of 1.0, for MRCIS/MRCISD calculations, 0.97-0.99 should provide sufficient performance and accuracy.
 
-\subsubsection{Input for \textsc{Molcas}}
-
-\paragraph{Path to \textsc{Molcas}}
-
-The script will first look for a shell variable \ttt{\$MOLCAS}. The user can either confirm that \ttt{\$MOLCAS} is the correct executable, or enter the correct path. Note that the setup script will not expand the user (\ttt{\textasciitilde}) and shell variables (since possibly the ab initio calculations are running on a different machine than the one used for setup). The \sharc-\textsc{Molcas} interface will expand \ttt{\textasciitilde} and shell variables.
-
-\paragraph{Scratch directory}
-
-The script takes the string without any checking. Each individual initial condition uses a subdirectory \ttt{ICOND\_\%05i} with the appropriate number. \ttt{\textasciitilde} and shell variables will only be expanded by the interface during the actual calculation.
-
-Note that you can use, e.g., \ttt{./temp/} as scratch directory, which is a subdirectory of the working directory of the interface. Using \ttt{./} as scratch directory is not recommended, since the interface will delete the scratch directory.
-
-\paragraph{Template file}
-
-Enter the filename for the \textsc{Molcas} template input. This file contains the details of the ab initio calculation, like basis set, active orbitals and electrons, number of electrons and number of states for state-averaging. For details, see the section about the \sharc-\textsc{Molcas} interface (\ref{sec:int:molcas}). The setup script will check whether the template file contains the necessary entries. 
-
-\paragraph{Initial wave function file}
-
-You can provide initial MO coefficients to \textsc{Molcas}. This usually provides a drastic speedup for the CASSCF calculations and helps in ensuring that all calculations are based on the same active space. In simple cases it might be acceptable to not provide an initial wave function. For \textsc{Molcas}, you have to specify one file for each multiplicity.
-
-
-
-
+% -----------------------------------------------------------------------------------------
 
 \subsubsection{Input for analytical potentials}\label{sec:setup_init.py:analytical}
 
@@ -3999,10 +4156,127 @@ You can provide initial MO coefficients to \textsc{Molcas}. This usually provide
 
 Enter the filename for the template input specifying the analytical potentials. For details, see the section about the \sharc-Analytical interface (\ref{sec:int:analytical}). The setup script will check whether the template file is valid. 
 
+% -----------------------------------------------------------------------------------------
 
+\subsubsection{Input for \textsc{ADF}}\label{sec:setup_init.py:adf}
 
+\paragraph{Path to \textsc{ADF}}
 
+Here the user is first asked if setup should be made from an \ttt{adfrc.sh} file. If yes, only the path to this file is needed.
 
+Otherwise, the path to the ADF installation directory and the path to the license file need to be provided.
+For more details, see section~\ref{sec:setup_init.py:several}.
+
+\paragraph{Scratch directory}
+
+See section~\ref{sec:setup_init.py:several}.
+
+\paragraph{Template file}
+
+Enter the filename for the \textsc{ADF} template input. This file should contain at least the basis set, functional, and charge keywords. For details, see the section about the \sharc-\textsc{ADF} interface (\ref{sec:int:adf}). The setup script will check whether the template file contains the necessary entries. 
+
+\paragraph{QM/MM}
+
+The script will ask for the two QM/MM-specific input files for the interface, \ttt{ADF.qmmm.ff} and \ttt{ADF.qmmm.table}.
+See section~\ref{sec:int:adf} for details on these files.
+
+\paragraph{Initial orbital coefficient file}
+
+You can provide initial MO coefficients for the \textsc{ADF} calculation. This can provide a small speedup for the calculations and helps to ensure that all calculations are based on the same orbitals.
+In many cases, no initial orbitals are required.
+
+\paragraph{Resource usage}
+
+For \textsc{ADF}, the amount of memory to be used cannot be controlled. However, the number of CPU cores needs to be given. If more than one core is used, also the parallel scaling needs to be specified (see section~\ref{met:amdahl}).
+
+\paragraph{Wavefunction overlap program}
+
+See section~\ref{sec:setup_init.py:several}. \ttt{setup\_init.py} will ask for the memory usage of \ttt{wfoverlap.x}. The truncation threshold for TD-DFT can usually be chosen as 0.99--1.00 (depending on the system and functional, but it is recommended that it is high enough that each state is described by around 100 determinants in the generated files). See section~\ref{sec:int:adf} for details.
+
+\paragraph{\textsc{TheoDORE} setup}
+
+See section~\ref{sec:setup_init.py:several}. 
+
+% -----------------------------------------------------------------------------------------
+
+\subsubsection{Input for \textsc{Ricc2}}\label{sec:setup_init.py:ricc2}
+
+\paragraph{Path to \textsc{Turbomole}}
+
+The path to the \textsc{Turbomole} installation directory needs to be provided.
+If spin-orbit couplings are requested, also the path to the \textsc{Orca} installation directory is needed.
+For more details, see section~\ref{sec:setup_init.py:several}.
+
+\paragraph{Scratch directory}
+
+See section~\ref{sec:setup_init.py:several}.
+
+\paragraph{Template file}
+
+Enter the filename for the \textsc{Ricc2} template input. This file should contain at least the basis set and charge keywords. For details, see the section about the \sharc-\textsc{Ricc2} interface (\ref{sec:int:ricc2}). The setup script will check whether the template file contains the necessary entries. 
+
+\paragraph{Initial orbital coefficient file}
+
+You can provide initial MO coefficients for the \textsc{ADF} calculation. This can provide a small speedup for the calculations and helps to ensure that all calculations are based on the same orbitals.
+In many cases, no initial orbitals are required.
+
+\paragraph{Resource usage}
+
+The amount of memory and the number of CPU cores are required in this section.
+Note that the \sharc-\textsc{Ricc2} interface always runs only one \textsc{Turbomole} instance at the same time (if the number of CPU cores is larger than one, it will use the SMP/OMP binaries of \textsc{Turbomole}).
+
+\paragraph{Wavefunction overlap program}
+
+See section~\ref{sec:setup_init.py:several}. \ttt{setup\_init.py} will ask for the memory usage of \ttt{wfoverlap.x}. The truncation threshold can usually be chosen as 0.99--1.00 (depending on the system, but it is recommended that it is high enough that each state is described by around 100 determinants in the generated files). See section~\ref{sec:int:ricc2} for details.
+
+\paragraph{\textsc{TheoDORE} setup}
+
+See section~\ref{sec:setup_init.py:several}.
+
+% -----------------------------------------------------------------------------------------
+
+\subsubsection{Input for LVC interface}\label{sec:setup_init.py:lvc}
+
+\paragraph{Template file}
+
+Enter the filename for the template input specifying the LVC parameters. For details, see the section about the \sharc-LVC interface (\ref{sec:int:lvc}). The setup script will not check whether the template file is valid. 
+
+% -----------------------------------------------------------------------------------------
+
+\subsubsection{Input for \textsc{Gaussian} interface}\label{sec:setup_init.py:gaussian}
+
+\paragraph{Path to \textsc{Gaussian}}
+
+The path to the \textsc{Gaussian} installation directory needs to be provided.
+The interface will automatically detect which \textsc{Gaussian} version is used.
+For more details, see section~\ref{sec:setup_init.py:several}.
+
+\paragraph{Scratch directory}
+
+See section~\ref{sec:setup_init.py:several}.
+
+\paragraph{Template file}
+
+Enter the filename for the \textsc{Gaussian} template input. This file should contain at least the basis set, functional, and charge keywords. For details, see the section about the \sharc-\textsc{Gaussian} interface (\ref{sec:int:gaussian}). The setup script will check whether the template file contains the necessary entries. 
+
+\paragraph{Initial orbital coefficient file}
+
+You can provide initial MO coefficients for the \textsc{Gaussian} calculation. This can provide a small speedup for the calculations and helps to ensure that all calculations are based on the same orbitals.
+In many cases, no initial orbitals are required.
+
+\paragraph{Resource usage}
+
+The amount of memory and the number of CPU cores are required in this section. If more than one core is used, also the parallel scaling needs to be specified (see section~\ref{met:amdahl}).
+
+\paragraph{Wavefunction overlap program}
+
+See section~\ref{sec:setup_init.py:several}. \ttt{setup\_init.py} will ask for the memory usage of \ttt{wfoverlap.x}. The truncation threshold for TD-DFT can usually be chosen as 0.99--1.00 (depending on the system and functional, but it is recommended that it is high enough that each state is described by around 100 determinants in the generated files). See section~\ref{sec:int:gaussian} for details.
+
+\paragraph{\textsc{TheoDORE} setup}
+
+See section~\ref{sec:setup_init.py:several}. 
+
+% -----------------------------------------------------------------------------------------
 
 \subsection{Input for Run Scripts}\label{sec:setup_init.py:run}
 
@@ -4010,7 +4284,7 @@ Enter the filename for the template input specifying the analytical potentials. 
 
 The script \ttt{setup\_init.py} generates a run script (Bash) for each initial condition calculation. Due to the large variety of cluster architectures, these run scripts might not work in every case. It is the user's responsibility to adapt the generated run scripts to his needs.
 
-\ttt{setup\_init.py} can generate run scripts for two different schemes how to execute the calculations. With the first scheme, the ab initio calculations are performed in the directory where they were setup (subdirectories of the directory where \ttt{setup\_init.py} was started). Note that the interfaces will still use their scratch directories to perform the actual quantum chemistry calculations.
+\ttt{setup\_init.py} can generate run scripts for two different schemes how to execute the calculations. With the first scheme, the ab initio calculations are performed in the directory where they were setup (subdirectories of the directory where \ttt{setup\_init.py} was started). Note that the interfaces will still use their scratch directories to perform the actual quantum chemistry calculations. Currently, this is the default option.
 
 With the second option, the run scripts will transfer the input files for each ab initio calculation to a temporary directory, where the interface is started. After the interface finishes all calculations, the results files are transferred back to the primary directory and the temporary directory is deleted. Note that \ttt{setup\_init.py} in any case creates the directory structure in the directory where it was started. The name of the temporary directory can contain shell variables, which will be expanded when the script is running (on the compute host).
 
@@ -4024,17 +4298,18 @@ The user can enter a project name. This is used currently only for the job names
 
 \subsection{Output}
 
-\ttt{setup\_init.py} will create for each initial condition in the given range a directory whose names follow the format \ttt{ICOND\_\%05i}, where \ttt{\%05i} is the index of the initial condition padded with zeroes to 5 digits. Additionally, the directory \ttt{ICOND\_00000} is created for the calculation of the excitation energies at the equilibrium geometry.
+\ttt{setup\_init.py} will create for each initial condition in the given range a directory whose names follow the format \ttt{ICOND\_\%05i/}, where \ttt{\%05i} is the index of the initial condition padded with zeroes to 5 digits. Additionally, the directory \ttt{ICOND\_00000/} is created for the calculation of the excitation energies at the equilibrium geometry.
 
 To each directory, the following files will be added:
 \begin{itemize}
   \item \ttt{QM.in}: Main input file for the interface, contains the geometry and the control keywords (to specify which quantities need to be calculated). 
   \item \ttt{run.sh}: Run script, which can be started interactively in order to perform the ab initio calculation in this directory. Can also be adapted to a batch script for submission to a queue 
-  \item Interface-specific files: Usually a template file, a file containing additional input for the interface, and an initial wave function.
+  \item Interface-specific files: Usually a template file, a resource file, and an initial wave function.
 \end{itemize}
 
 The calculations in each directory can be simply executed by starting \ttt{run.sh} in each directory. In order to perform this task consecutively on a single machine, the script \ttt{all\_run.sh} can be executed. The file \ttt{DONE} contains the progress of this calculation.
 Alternatively, each run script can be sent to a queueing system (you might need to adapt this script to you cluster system).
+Note that if reference overlaps were requested, the calculation in \ttt{ICOND\_00000/} must be finished before starting any of the other calculations.
 
 In figure~\ref{fig:dirs_init}, the directory tree structure setup by \ttt{setup\_init.py} is given.
 
@@ -5490,7 +5765,7 @@ Hence, in the first input section, the script asks the user to specify all direc
 If you want to exclude certain trajectories from the analysis, it is sufficient to create an empty file called \ttt{CRASHED} or \ttt{RUNNING} in the corresponding trajectory directory. \ttt{data\_collector.py} will ignore all directories containing one of these files.
 Additionally, \ttt{data\_collector.py} will ignore trajectories with a \ttt{DONT\_ANALYZE} file from \ttt{diagnostics.py}.
 
-In the second step, \ttt{data\_collector.py} displays all files which appear in multiple trajectories and which might be suitable for analysis (the script ignores files which are not suitable, e.g., \ttt{output.dat}, \ttt{output.xyz}, most files in the \ttt{QM/} or \ttt{restart/} subdirectories, ...). 
+In the second step, \ttt{data\_collector.py} displays all files which appear in multiple trajectories and which might be suitable for analysis (the script ignores files which it knows to be not suitable, e.g., \ttt{output.dat}, \ttt{output.xyz}, most files in the \ttt{QM/} or \ttt{restart/} subdirectories, ...). 
 All other files (e.g., \ttt{output.lis}, files in \ttt{output\_data/}, ...) will be displayed, together with the number of appearances.
 
 Once one of the files has been selected, one needs to assign the different data columns.
@@ -5546,7 +5821,7 @@ For each time step, all X and Y values of all trajectories are collected.
 If a trajectories does not have data at a particular time step, NaNs will be inserted.
 In this way, a rectangular, two-dimensional data set is obtained, with as many rows as time steps, and $2n_\text{traj}n_\text{X}$ data columns.
 
-A simple application of Collecting+Smoothing could be to generate a table with the bond length for all time steps for all trajectories, in order to generate a ``hair figure''.
+A simple application of Collecting+Synchronizing could be to generate a table with the bond length for all time steps for all trajectories, in order to generate a ``hair figure''.
 This task could in principle also be accomplished with Bash tools like \ttt{awk} and \ttt{paste}, but this is troublesome if the trajectories are of different length, with different time steps, or if the table files contain comments.
 
 \paragraph{Averaging}
@@ -5597,7 +5872,7 @@ When computing transient spectra, one is often interested in integrating the spe
 This can be done with the Integrating(X) step.
 After entering a lower and upper X limit, a new \ttt{Type3} data set is created, with only three data points per time step.
 The first data point contains the integral from minus infinity to the lower limit, the second data point the integral between lower and upper limit, and the third data point the integral from the upper limit to infinity.
-If Summing(Y) was not carried out, this integration is carried out independently for each of the $n_\text{X}$ data column.
+If Summing(Y) was not carried out, this integration is carried out independently for each of the $n_\text{X}$ data columns.
 
 \paragraph{Convoluting(T)}
 
@@ -5606,7 +5881,7 @@ In order to do this, a uniform grid along the T axis is generated (with $n_\text
 \begin{equation}
   Y_i(t',X):=\sum_{t} Y_i(t,X) f(t,t').
 \end{equation}
-The created \ttt{Type3} data set has as many data points for each time step and each X grid point as before.
+The created \ttt{Type3} data set has as many data points for each X grid point as before, but the number of time steps is now $n_\text{Tgrid}$.
 Convoluting(T) can be applied also if Summing(Y) and/or Integrating(X) were used (in this case, the kernel is applied to the summed up or integrated data).
 
 \paragraph{Integrating(T)}
@@ -6236,6 +6511,7 @@ Some restrictions and possible features of the graphs are depicted exemplarily i
 First, each species and each reaction rate needs to have a unique label. 
 There cannot be two species with the same label and there cannot be two reactions with the same reaction rate constant.
 Second, the graph must be a simple directed graph, hence there cannot be any (self-) loops or more than one reaction with the same initial and the same final species.
+All restrictions marked as ``Not allowed'' in the Figure are enforced in the input dialogue of \ttt{make\_fitscript.py}
 However, back reactions are allowed (as a back reaction has a different initial and a different final species as the corresponding reaction).
 Except from these restrictions, the graph may contain combinations of sequential and parallel reactions.
 The graph may also be disjoint, i.e., it can be the union of several independent sub-networks.
@@ -7005,7 +7281,7 @@ Given two coefficient vectors $\VEC{c}^{\text{diag}}(t)$ and $\VEC{c}^{\text{dia
 where, however, $P_{\beta\rightarrow\beta}=0$ and all negative $P_{\beta\rightarrow\alpha}$ are set to zero.
 This equation is the default in \sharc, and can be used with \ttt{hopping\_procedure sharc}.
 
-Alternatively, the hopping probabilities can be obtained with the ``global flux surface hopping'' method by Prezhdo and coworkers \cite{Prezhdo_todo}.
+Alternatively, the hopping probabilities can be obtained with the ``global flux surface hopping'' method by Prezhdo and coworkers \cite{Wang2014JCTC}.
 The equation is:
 \begin{equation}
   P_{\beta\rightarrow\alpha}=
