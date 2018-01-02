@@ -257,7 +257,7 @@ When a molecule is irradiated by light, a number of dynamical processes can take
 \begin{figure}[!ht]
   \centering
   \includegraphics[scale=1.6]{img/jablonski/jablonski.pdf}
-  \caption{Jab{\l}onski diagram showing the conceptual photophysical processes. Straight arrows show radiative processes: absorption ($h\nu$), fluorescence (F), and phosphorescence (P); wavy arrows show radiationless processes: internal conversion (IC) and intersystem crossing (ISC). }
+  \caption[Jab{\l}onski diagram showing the conceptual photophysical processes.]{Jab{\l}onski diagram showing the conceptual photophysical processes. Straight arrows show radiative processes: absorption ($h\nu$), fluorescence (F), and phosphorescence (P); wavy arrows show radiationless processes: internal conversion (IC) and intersystem crossing (ISC). }
   \label{fig:jablonski}
 \end{figure}
 
@@ -320,12 +320,20 @@ The main features of the \sharc\ suite are:
     \item Interface for linear-vibronic coupling (LVC) models
   \end{itemize}
   \item Energy-difference-based partial coupling approximation to speed up calculations \cite{Pittner2009CP}.
-  \item Energy-based decoherence correction \cite{Granucci2007JCP} or augmented-FSSH decoherence correction \cite{Subotnik_todo}.
-  \item Calculation of Dyson norms for single-photon ionization spectra (for some interfaces).
-  \item On-the-fly wave function analysis with TheoDORE\cite{theodore_todo} (for some interfaces).
+  \item Energy-based decoherence correction \cite{Granucci2007JCP} or augmented-FSSH decoherence correction \cite{Jain2016JCTC}.
+  \item Calculation of Dyson norms for single-photon ionization spectra (for some interfaces) \cite{Ruckenbauer2016SR}.
+  \item On-the-fly wave function analysis with TheoDORE \cite{Plasser2014JCP1, Plasser2014JCP2, Plasser2017TheoDORE} (for some interfaces).
   \item Suite of auxiliary Python scripts for all steps of the setup procedure and for various analysis tasks.
   \item Comprehensive tutorial.
 \end{itemize}
+
+\subsection{New features in \sharc\ Version 2.0}
+
+These features are new in \sharc\ Version 2.0 (2018):
+\begin{itemize}
+  \item 
+\end{itemize}
+
 
 %The following features are planned for future versions:
 %\begin{itemize}
@@ -355,20 +363,22 @@ Details can be found in the following references:
 
 The theoretical background of \sharc\ is described in Refs.~\cite{Richter2011JCTC, Richter2012JCTC_erratum, Bajo2012JPCA, Marquetand2011FD, Mai2015IJQC}.
 
-Applications of the \sharc\ code can be found in Refs.~\cite{Richter2012JPCL, Mai2013C, Mai2014TCC, Mai2014JCP_SO2, Gonzalez2014, add_applications_todo}.
+Applications of the \sharc\ code can be found in Refs.~\cite{Richter2012JPCL, Mai2013C, Mai2014TCC, Mai2014JCP_SO2, Gonzalez2014, Richter2014PCCP,Martinez-Fernandez2014JCTC, Crespo-Hernandez2015JACS, Marazzi2016JPCL, Richter2016JCTC, Cao2016CP, Banerjee2016PCCP, Mai2016JPCL, Mai2016NC, Peccati2016PTRSA, Borin2017PCCP, Mai2017CP, Siouri2017JPCA, Bellshaw2017CPL, Sun2017JPCA, Rauer2016JACS, Atkins2017JPCL, Schnappinger2017PCCP, Mai2017JCP}.
+
+
 
 Other features implemented in the \sharc\ suite are described in the following references:
 \begin{itemize}
   \item Energy-based decoherence correction: \cite{Granucci2007JCP}.
-  \item Augmented-FSSH decoherence correction: \cite{Subotnik_todo}.
-  \item \todo{Global flux SH}.
+  \item Augmented-FSSH decoherence correction: \cite{Jain2016JCTC}.
+  \item Global flux SH: \cite{Wang2014JCTC}.
   \item Local diabatization and wave function overlap calculation: \cite{Granucci2001JCP, Plasser2012JCP, Plasser2016JCTC}.
   \item Sampling of initial conditions from a quantum-mechanical harmonic Wigner distribution: \cite{Dahl1988JCP, Schinke1995}.
   \item Excited state selection for initial condition generation: \cite{Barbatti2011}.
   \item Calculation of ring puckering parameters and their classification: \cite{Cremer1975JACS, Boeyens1976JCMS}.
-  \item \todo{Normal mode analysis and essential dynamics analysis}.
-  \item \todo{Bootstrapping}.
-  \item \todo{...?}.
+  \item Normal mode analysis \cite{Kurtz2001JCP,Plasser2009} and essential dynamics analysis \cite{Amadei1993PSFB,Plasser2009}.
+  \item Bootstrapping for error estimation \cite{Nangia2004JCP}.
+%   \item \todo{...?}.
 \end{itemize}
 
 The quantum chemistry programs to which interfaces with \sharc\ exist are described in the following sources:
@@ -376,15 +386,15 @@ The quantum chemistry programs to which interfaces with \sharc\ exist are descri
   \item \textsc{Molpro}: \cite{Werner2012WCMS, Werner2012},
   \item \textsc{Molcas}: \cite{Karlstrom2003CMS, Aquilante2010JCC, Aquilante2015JCC},
   \item \textsc{Columbus}: \cite{Lischka2011WCMS, Lischka2012, Yabushita1999JPCA, Mai2014JCP_reindex},
-  \item \textsc{ADF}: \cite{adf_todo},
-  \item \textsc{Turbomole}: \cite{turbomole_todo},
-  \item \textsc{Gaussian}: \cite{gaussian_todo}.
+  \item \textsc{ADF}: \cite{ADF2017},
+  \item \textsc{Turbomole}: \cite{TURBOMOLE70},
+  \item \textsc{Gaussian}: \cite{Gaussian09, Gaussian16}.
 \end{itemize}
 
 \todo{Others:}
 \begin{itemize}
-  \item \todo{\textsc{TheoDORE}: }
-  \item \todo{\textsc{Wfoverlap}: }
+  \item \todo{\textsc{TheoDORE}: \cite{Plasser2014JCP1, Plasser2014JCP2, Plasser2017TheoDORE}}
+  \item \todo{\textsc{Wfoverlap}: \cite{Plasser2016JCTC, Plasser2016JCP}}
 \end{itemize}
 
 
@@ -667,7 +677,7 @@ The content of the main input file is explained in detail in section~\ref{sec:in
 \begin{figure}[htb]
   \centering
   \includegraphics[scale=1]{img/dir_traj/dir_traj.pdf}
-  \caption{Input files for a \sharc\ dynamics simulation. Directories are in blue, executable scripts in green, regular files in white and optional files in grey.}
+  \caption[Input files for a \sharc\ dynamics simulation.]{Input files for a \sharc\ dynamics simulation. Directories are in blue, executable scripts in green, regular files in white and optional files in grey.}
   \label{fig:dir_traj}
 \end{figure}
 
@@ -706,7 +716,7 @@ The restart files contain the full state of a trajectory and its control variabl
 \begin{figure}[htb]
   \centering
   \includegraphics[scale=1]{img/dir_traj/dir_traj_after.pdf}
-  \caption{Files of a \sharc\ dynamics simulation after running. Directories are in blue, executable scripts in green, regular files in white and optional files in grey. Output files are in yellow.}
+  \caption[Files of a \sharc\ dynamics simulation after running.]{Files of a \sharc\ dynamics simulation after running. Directories are in blue, executable scripts in green, regular files in white and optional files in grey. Output files are in yellow.}
   \label{fig:dir_traj_after}
 \end{figure}
 
@@ -897,7 +907,7 @@ In Table~\ref{tab:input}, all input keywords for the \sharc\ input file are list
   \newcommand{\DEFAULT}[1]{\textbf{\textcolor{G}{#1}}}
 }
 \begin{longtable}{|>{\ttfamily}l|l|p{8.5cm}|}
-  \caption{Input keywords. The first column gives the name of the keyword, the second lists possible arguments and the third line provides an explanation. Defaults are marked like \DEFAULT{this}. \$$n$ denotes the $n$-th argument to the keyword. }  \label{tab:input}\\
+  \caption[Input keywords for \ttt{sharc.x}.]{Input keywords for \ttt{sharc.x}. The first column gives the name of the keyword, the second lists possible arguments and the third line provides an explanation. Defaults are marked like \DEFAULT{this}. \$$n$ denotes the $n$-th argument to the keyword. }  \label{tab:input}\\
 
 % ========================================
 
@@ -1057,8 +1067,8 @@ In Table~\ref{tab:input}, all input keywords for the \sharc\ input file are list
   \hline
   decoherence\_scheme     &\textbf{string}                     &Method for decoherence correction.\\
                         &\$1\DEFAULT{=none}                  &{\footnotesize No decoherence correction.}\\
-                        &\$1=edc                             &{\footnotesize Energy-difference based correction.\cite{Granucci2010JCP?}}\\
-                        &\$1=afssh                           &{\footnotesize Augmented FSSH.\cite{??}}\\
+                        &\$1=edc                             &{\footnotesize Energy-difference based correction.\cite{Granucci2010JCP}}\\
+                        &\$1=afssh                           &{\footnotesize Augmented FSSH.\cite{Jain2016JCTC}}\\
 
   \hline
   decoherence\_param    &\textbf{float}                      &Value $\alpha$ in EDC decoherence (in Hartree).\\
@@ -1071,7 +1081,7 @@ In Table~\ref{tab:input}, all input keywords for the \sharc\ input file are list
   hopping\_procedure    &\textbf{string}                     &Method for hopping probabilities.\\
                         &\$1=off                             &{\footnotesize No hops (same as \ttt{no\_hops}).}\\
                         &\$1\DEFAULT{=sharc,standard}        &{\footnotesize Standard \sharc\ hopping probabilities.}\\
-                        &\$1=gfsh                            &{\footnotesize Global flux SH hopping probabilities.\cite{??}}\\
+                        &\$1=gfsh                            &{\footnotesize Global flux SH hopping probabilities.\cite{Wang2014JCTC}}\\
   \hline
   no\_hops              &                                    &Disables surface hopping.\\
                         &                                    &{\footnotesize \ttt{no\_hops} takes precedence.}\\
@@ -1282,7 +1292,7 @@ There are three options for the decoherence correction (see~\ref{met:decoherence
 With the default \ttt{decoherence\_scheme none}, no decoherence correction is applied.
 The energy-difference based decoherence (EDC) scheme of Granucci et al.~\cite{Granucci2010JCP} can be activated with \ttt{decoherence\_scheme edc}. 
 The keyword \ttt{decoherence\_param} can be used to change the relevant parameter $\alpha$ (see~\ref{met:decoherence}). The default is 0.1~Hartree, which is the value recommended by Granucci et al.~\cite{Granucci2010JCP}.
-Alternatively, the AFSSH (augmented fewest-switches surface hopping) scheme of \todo{blabla et al.}~\cite{??} can be employed. This scheme does not use any parameters, so the keyword \ttt{decoherence\_param} will have no effect.
+Alternatively, the AFSSH (augmented fewest-switches surface hopping) scheme of Jain et al.~\cite{Jain2016JCTC} can be employed. This scheme does not use any parameters, so the keyword \ttt{decoherence\_param} will have no effect.
 Note that in any case, the decoherence correction is applied to the states in the representation chosen with the \ttt{surf} keyword.
 
 The keywords \ttt{decoherence} (activates EDC decoherence) and \ttt{nodecoherence} are present for backwards compatibility.
@@ -1293,7 +1303,7 @@ There are three options for the computation of the hopping probabilities (see~\r
 
 Using \ttt{hopping\_procedure off}, surface hopping will be disabled, such that the active state (in the representation chosen with the \ttt{surf} keyword) will never change.
 With the default, \ttt{hopping\_procedure sharc}, the standard hopping probability equation from Ref.~\cite{Mai2015IJQC} will be used.
-Alternatively, one can use the global flux surface hopping scheme~\cite{??}, which might be advantageous in super-exchange situations.
+Alternatively, one can use the global flux surface hopping scheme~\cite{Wang2014JCTC}, which might be advantageous in super-exchange situations.
 
 One can also turn off surface hopping with the \ttt{no\_hops} keyword.
 
@@ -1359,7 +1369,7 @@ The ionization probabilities are treated as one 2D property matrix, hence \ttt{n
 The keyword \ttt{theodore} activates (\ttt{notheodore} deactivates) the on-the-fly calculation of wave function descriptors with the \textsc{TheoDORE} program. This can be very useful to track the wave function character of the states on-the-fly.
 The interface must be able to execute and \textsc{TheoDORE} and return its output to \sharc\ (currently, the ADF, \textsc{Gaussian}, and \textsc{Turbomole} interfaces can do this). The keyword \ttt{theodore\_step} can be used to calculate these descriptors only every $n$-th time step. 
 
-The \textsc{TheoDORE} descriptors are treated as one 1D property vector for each descriptor (see section~\ref{todo}), and \ttt{n\_property1d} should be at least as large as the number of descriptors computed by the interface.
+The \textsc{TheoDORE} descriptors are treated as one 1D property vector for each descriptor, and \ttt{n\_property1d} should be at least as large as the number of descriptors computed by the interface.
 
 \paragraph{Output control}
 
@@ -1711,7 +1721,7 @@ There exist two types of keywords, \textit{control} keywords and \textit{request
 
 \begin{table}
   \centering
-  \caption{Control keywords for \sharc\ interfaces. These keywords pass information from \sharc\ to the interface.}
+  \caption[Control keywords for \sharc\ interfaces.]{Control keywords for \sharc\ interfaces. These keywords pass information from \sharc\ to the interface.}
   \label{tab:int_ctrl}
   \begin{tabular}{>{\ttfamily}lp{13cm}}
   \toprule
@@ -1736,7 +1746,7 @@ There exist two types of keywords, \textit{control} keywords and \textit{request
 
 \begin{table}
   \centering
-  \caption{Request keywords for \sharc\ interfaces. See Table~\ref{tab:interfaces} for which interfaces can fulfill these requests.}
+  \caption[Request keywords for \sharc\ interfaces.]{Request keywords for \sharc\ interfaces. See Table~\ref{tab:interfaces} for which interfaces can fulfill these requests.}
   \label{tab:int_req}
   \begin{tabular}{>{\ttfamily}lp{13cm}}
   \toprule
@@ -1956,7 +1966,7 @@ Table~\ref{tab:interface_files} shows the file names for interface-related input
 \begin{table}[htb]
   \newcommand{\chk}{\ensuremath{\surd}}
   \centering
-  \caption{Overview over capabilities of \sharc\ interfaces. For each method and program, the table shows which multiplicities ($S^2$), which quantities, and whether QM/MM are available.}
+  \caption[Overview over capabilities of \sharc\ interfaces.]{Overview over capabilities of \sharc\ interfaces. For each method and program, the table shows which multiplicities ($S^2$), which quantities, and whether QM/MM are available.}
   \label{tab:interfaces}
   \begin{tabular}{ll cccccccccc}
     \hline
@@ -3238,23 +3248,18 @@ However, the computation time also depends on whether or not spin-orbit coupling
 \section{LVC Interface}\label{sec:int:lvc}
 
 The purpose of the LVC interface is to allow performing computationally efficient dynamics using a linear vibronic coupling (LVC) model \cite{Koeppel84ACP}.
-In the vibronic coupling model the potential matrix $\mathbf{V}$ is constructed as
-%
-%\begin{equation}
-%\hat{H}_{el} = V_0 + \sum_{m,n}\ket{\Phi_m}W_{mn}\bra{\Phi_n}
-%\end{equation}
-%
+In the vibronic coupling model the diabatic energy and coupling matrix $\mathbf{V}$ is constructed as
 \begin{equation}
 \label{eq:V}
 \mathbf{V}=
 V_0\mathbf{1}+\mathbf{W}
 \end{equation}
 
-To construct, these matrices the Cartesian coordinate displacements $r_{\alpha}$ are first converted to dimensionless mass-frequency scaled normal coordinates, which are given as
+To construct these matrices, the Cartesian coordinate displacements $r_{\alpha}$ are first converted to dimensionless mass-frequency scaled normal coordinates, which are given as
 %
 \begin{equation}
 \label{eq:Qi}
-Q_i=\sqrt{\omega_i/\hbar}\sum_\alpha K_{\alpha i}\sqrt{M_\alpha}r_{\alpha}
+Q_i=\sqrt{\omega_i}\sum_\alpha K_{\alpha i}\sqrt{M_\alpha}r_{\alpha}
 \end{equation}
 %
 where $\omega_i$ is the frequency of normal mode $i$, $M_\alpha$ is an atomic mass, and $K_{\alpha i}$ denotes the conversion matrix between mass-weighted Cartesian and normal coordinates.
@@ -3275,13 +3280,13 @@ W_{nn}&=\epsilon_n + \sum_i\kappa_i^{(n)}Q_i\\
 W_{mn}&=\eta_{mn}+\sum_j\lambda_j^{(m,n)}Q_j
 \end{align}
 %
-Here the $\epsilon_n$ are the vertical excitation energies, the $\eta_{mn}$ are the SOC constants, and the $\kappa_i^{(n)}$ and $\lambda_j^{(m,n)}$ are termed intrastate and interstate vibronic coupling constant \cite{Koppel1984ACP}.
+Here the $\epsilon_n$ are the vertical excitation energies, the $\eta_{mn}$ are the SOC constants, and the $\kappa_i^{(n)}$ and $\lambda_j^{(m,n)}$ are termed intrastate and interstate vibronic coupling constant \cite{Koeppel84ACP}.
 
 \subsection{Input files}
 
 Two input files are needed:
 
-\ttt{V0.txt} - containing all information to describe $V_0$: the equilibrium geometry, the frequencies $\omega_i$, and an orthogonal matrix containing the normal coordinates $K_{\alpha i}$
+\paragraph{\ttt{V0.txt}} Contains all information to describe $V_0$: the equilibrium geometry, the frequencies $\omega_i$, and an orthogonal matrix containing the normal coordinates $K_{\alpha i}$.
 
 \begin{example}
 \begin{verbatim}
@@ -3298,8 +3303,8 @@ Mass-weighted normal modes
 \end{verbatim}
 \end{example}
 
-\ttt{LVC.template} - containing the state-specific information: $\epsilon_i, \kappa_i^{(n)}, \lambda_j^{(m,n)}, \eta_{mn}$ as well as (transition) dipole moments
-
+\paragraph{\ttt{LVC.template}} Contains the state-specific information: $\epsilon_i$, $\kappa_i^{(n)}$, $\lambda_j^{(m,n)}$, $\eta_{mn}$, as well as (transition) dipole moments.
+Here, for multiplets $\epsilon_i$, $\kappa_i^{(n)}$, and $\lambda_j^{(m,n)}$ are shared between the multiplet components, whereas in the SOC and dipole moment matrices the multiplet components need to be considered explicitly.
 \begin{example}
 \begin{verbatim}
 V0.txt
@@ -3347,18 +3352,18 @@ DMZ I
 ...
 \end{verbatim}
 \end{example}
+Only the two first lines are mandatory, but then all states will have the same potentials (the ground state potential).
 
-\subsection{Preparing Template Files: wigner.py and QMout2LVC.py}\label{sec:QMout2LVC.py}
+
+\subsection{Preparing Template Files: \ttt{wigner.py} and \ttt{QMout2LVC.py}}\label{sec:QMout2LVC.py}
 
 Both input files can be conveniently created using the \sharc\ tools. \ttt{V0.txt} is created using the \ttt{wigner.py} script, which is also used for initial condition generation. Simply call, e.g.
-
 \begin{example}
 \ttt{\$SHARC/wigner.py -l <filename.molden>}
 \end{example}
 
-For obtaining the LVC parameters, it is first necessary to perform a single-point computation at the ground state equilibrium geometry.
-Using the \ttt{QM.in} file, you can specify, which types of properties to compute. For the full LVC model, use
-
+To obtain the LVC parameters, it is first necessary to perform a single-point computation at the ground state equilibrium geometry.
+Using the \ttt{QM.in} file, you can specify, which types of properties to compute. For the full LVC model, \ttt{SOC}, \ttt{DM}, \ttt{Grad}, and \ttt{NACDR} are needed, so use
 \begin{example}
 \begin{verbatim}
 3
@@ -3377,12 +3382,11 @@ States           4           0           3
 \end{example}
 
 Copy the \ttt{V0.txt} to the same directory containing the \ttt{QM.out} file of this computation and run
-
 \begin{example}
 \ttt{\$SHARC/QMout2LVC.py}
 \end{example}
-
 to create the file \ttt{LVC.template}.
+Note that currently, the script only works for singlets and triplets.
 
 % ========================================================================================================= %
 
@@ -3399,7 +3403,7 @@ If files \ttt{QM/GAUSSIAN.chk.init} or \ttt{QM/GAUSSIAN.chk.<job>.init} are are 
 
 \subsection{Template file: \ttt{GAUSSIAN.template}}
 
-This file contains the specifications for the quantum chemistry calculation. Note that this is not a valid \textsc{Gaussian} input file. The file only contains a number of keywords, given in table~\ref{tab:adf_temp}. The actual input for \textsc{Gaussian} will be generated automatically through the interface.
+This file contains the specifications for the quantum chemistry calculation. Note that this is not a valid \textsc{Gaussian} input file. The file only contains a number of keywords, given in table~\ref{tab:gauss_temp}. The actual input for \textsc{Gaussian} will be generated automatically through the interface.
 
 A fully commented template file---with all possible options, a comprehensive descriptions, and some practical hints---is located in \ttt{\$SHARC/../examples/SHARC\_GAUSSIAN/GAUSSIAN.template}.
 We recommend that users start from this template file and modify it appropriately for their calculations.
@@ -3407,7 +3411,7 @@ We recommend that users start from this template file and modify it appropriatel
 \begin{table}
   \centering
   \caption{Keywords for the \ttt{GAUSSIAN.template} file.}
-  \label{tab:adf_temp}
+  \label{tab:gauss_temp}
   \small
   \begin{tabular}{>{\ttfamily}lp{12cm}}
   \toprule
@@ -3447,13 +3451,13 @@ keys                    &Arguments are written verbatim to \textsc{Gaussian} inp
 
 The file \ttt{GAUSSIAN.resources} contains mainly paths (to the \textsc{Gaussian} executables, to the scratch directory, etc.) and other resources, plus settings for \ttt{wfoverlap.x} and \textsc{TheoDORE}. This file must reside in the same directory where the interface is started. It uses a simple ``\ttt{keyword argument}'' syntax. Comments using \# and blank lines are possible, the order of keywords is arbitrary. Lines with unknown keywords are ignored, since the interface just searches the file for certain keywords.
 
-Table~\ref{tab:adf_sh2} lists the existing keywords.
+Table~\ref{tab:gauss_sh2} lists the existing keywords.
 A fully commented resource file with all possible options and comprehensive descriptions is located in \ttt{\$SHARC/../examples/SHARC\_GAUSSIAN/}.
 
 \begin{table}
   \centering
   \caption{Keywords for the \ttt{GAUSSIAN.resources} file.}
-  \label{tab:adf_sh2}
+  \label{tab:gauss_sh2}
   \begin{tabular}{>{\ttfamily}lp{12cm}}
   \toprule
   Keyword       &Description\\
@@ -3619,7 +3623,7 @@ This mode is significantly slower than (i) and (ii) and should be avoided by inc
 \paragraph{Input file}
 
 \begin{table}[tb]
-  \caption{List of keywords given in the input file. The \ttt{a\_mo, b\_mo, a\_det, b\_det} keywords are mandatory, all others are optional.}
+  \caption[List of keywords given in the input file.]{List of keywords given in the input file. The \ttt{a\_mo, b\_mo, a\_det, b\_det} keywords are mandatory, all others are optional.}
   \label{tab:key_wfo}
   \begin{tabular}{llp{9cm}}
     \hline
@@ -4456,7 +4460,7 @@ In figure~\ref{fig:dirs_init}, the directory tree structure setup by \ttt{setup\
 \begin{figure}
   \centering
   \includegraphics[scale=1]{img/dirs_init/dirs_init.pdf}
-  \caption{Directory structure created by \ttt{setup\_init.py}. Directories are in blue, executable scripts in green and regular files in black and white. Interface files usually include initial MO coefficients, template files and interface input files.}
+  \caption[Directory structure created by \ttt{setup\_init.py}.]{Directory structure created by \ttt{setup\_init.py}. Directories are in blue, executable scripts in green and regular files in black and white. Interface files usually include initial MO coefficients, template files and interface input files.}
   \label{fig:dirs_init}
 \end{figure}
 
@@ -4674,13 +4678,13 @@ The electronic state list is terminated with the keyword \ttt{Ekin}, which at th
 
 \section{Setup of Trajectories: \ttt{setup\_traj.py}}\label{sec:setup_traj.py}
 
-This interactive script prepares the input for the excited-state dynamics simulations with \sharc. It works similarly to \ttt{setup\_init.py}, reading an initial conditions file, prompting the user for a number of input parameters, and finally prepares one directory per trajectory. However, the \ttt{setup\_traj.py} input section is noticeably longer, because many options for the dynamics are covered.
+This interactive script prepares the input for the excited-state dynamics simulations with \sharc. It works similarly to \ttt{setup\_init.py}, reading an initial conditions file, prompting the user for a number of input parameters, and finally prepares one directory per trajectory. However, the \ttt{setup\_traj.py} input section is noticeably longer, because most options for the \sharc\ dynamics are covered.
 
 \subsection{Input}
 
 \paragraph{Initial conditions file}
 
-Please be aware that \ttt{setup\_traj.py} needs an initial conditions file generated by \ttt{excite.py} (Files generated by \ttt{wigner.py} are not allowed). The script reads the number of initial states, the representation and the reference energy automatically from the file.
+Please be aware that \ttt{setup\_traj.py} needs an initial conditions file generated by \ttt{excite.py} (files generated by \ttt{wigner.py}, \ttt{amber\_to\_initconds.py}, or \ttt{sharctraj\_to\_initconds.py} are not allowed). The script reads the number of initial states, the representation, and the reference energy automatically from the file.
 
 \paragraph{Number of states}
 
@@ -4734,9 +4738,15 @@ Usually, trajectories which relaxed to the ground state do not recross to an exc
 
 Either the diagonal representation can be chosen (by typing ``\ttt{yes}'') to perform dynamics with the \sharc\ methodology, or the dynamics can be performed on the MCH states (spin-diabatic dynamics \cite{Granucci2012JCP}, FISH \cite{Mitric2009PRA}). Sets the keyword \ttt{surf} in the \sharc\ input files.
 
+\paragraph{Spin-orbit couplings}
+
+If more than just singlet states are requested, the script asks whether spin-orbit couplings should be computed. If the chosen interface cannot provide spin-orbit couplings, this question is automatically answered.
+
 \paragraph{Non-adiabatic couplings}
 
-Electronic propagation can be performed with temporal derivatives, nonadiabatic coupling vectors or overlap matrices (Local diabatization). Enter the corresponding number. Note that depending on the chosen interface, some options might not be available, as displayed by \ttt{setup\_traj.py}. Sets the keyword \ttt{coupling} in the \sharc\ input files.
+Electronic propagation can be performed with temporal derivatives, nonadiabatic coupling vectors or overlap matrices (Local diabatization). Enter the corresponding number. Note that depending on the chosen interface, some options might not be available, as displayed by \ttt{setup\_traj.py}. Also note that currently, no interface can provide temporal derivatives (because their computation involves calculating the overlap matrix and then local diabatization can be done instead). Sets the keyword \ttt{coupling} in the \sharc\ input files.
+
+If nonadiabatic coupling vectors are chosen, the user is asked whether overlap matrices should be computed anyways to provide wave function phase information. As the overlap calculations are usually fast compared to other steps, this is recommended.
 
 \paragraph{Gradient transformation}
 
@@ -4744,17 +4754,26 @@ The nonadiabatic coupling vectors can be used to correctly transform the gradien
 
 \paragraph{Surface hop treatment}
 
-This option determines how the total energy is conserved after a surface hop. Sets the keyword \ttt{ekincorrect} in the \sharc\ input files.
+This option determines how the total energy is conserved after a surface hop and whether frustrated hops lead to reflection. Sets the keywords \ttt{ekincorrect} and \ttt{reflect\_frustrated} in the \sharc\ input files.
 
 \paragraph{Decoherence correction}
 
-For most applications, a decoherence correction should be enabled. Requesting decoherence correction here leads to the addition of the keyword \ttt{decoherence} to the \sharc\ input files. 
+For most applications, a decoherence correction should be enabled. This controls the \ttt{decoherence\_scheme} (and \ttt{decoherence\_param} keywords in the \sharc\ input files. 
 
 Note that \ttt{setup\_traj.py} does not allow to modify the $\alpha$ parameter for the energy-based decoherence (keyword \ttt{decoherence\_param}). In order to change \ttt{decoherence\_param}, the user has to manually edit the \sharc\ input files.
+
+\paragraph{Surface hopping scheme}
+
+Choose one of the available schemes to compute the hopping probabilities or turn off hopping.
 
 \paragraph{Scaling and Damping}
 
 These two prompts set the keywords \ttt{scaling} and \ttt{damping} in the \sharc\ input files. The scaling parameter has to be positive, and the damping parameter has to be in the interval $[0,1]$.
+
+\paragraph{Atom masking}
+
+In some cases, the script will ask to specify the atoms to which decoherence/rescaling/reflection should be applied.
+See section~\ref{chap:input} for explanations (keyword \ttt{atommask}).
 
 \paragraph{Gradient and nonadiabatic coupling selection}
 
@@ -4765,9 +4784,23 @@ Sets the keywords \ttt{grad\_select} and \ttt{nac\_select} in the \sharc\ input 
 
 The user can specify to use an external laser field during the dynamics, and has to provide the path to the laser file (see section~\ref{sec:laser.x} and~\ref{sec:laserfile}). \ttt{setup\_traj.py} will check whether the number of steps and the time steps are compatible to the dynamics. If the interface can provide dipole moment gradients, \ttt{setup\_traj.py} will also ask whether dipole moment gradients should be included in the simulations.
 
+\paragraph{Dyson norm calculation}
+
+If the interface is compatible, the user can request that Dyson norms are calculated on-the-fly. This option is only asked if Dyson norms can be computed (i.e., if states are present which differ by one electron, e.g., singlets and doublets).
+
+\paragraph{\textsc{TheoDORE} calculations}
+
+If the interface is compatible, the user can request that \textsc{TheoDORE} is run on-the-fly. 
+
+
 \subsection{Interface-specific input}
 
-This input section is basically the same as for \ttt{setup\_init.py} (\todo{sections~\ref{sec:setup_init.py:molpro} to~\ref{sec:setup_init.py:analytical}}). Note that for the dynamics simulations an initial wave function file is even more strongly recommended than for the initial excited-state calculations.
+This input section is basically the same as for \ttt{setup\_init.py} (section~\ref{sec:setup_init.py:several} and following sections). Note that for the dynamics simulations an initial wave function file is even more strongly recommended than for the initial excited-state calculations.
+
+\subsection{Output control}
+
+\ttt{setup\_traj.py} will ask a number of questions regarding the content of the \ttt{output.dat} file, specifically about writing gradients, nonadiabatic coupling vectors, properties (1D and 2D), and overlap matrices to this file.
+Note that this is only possible if these quantities are actually calculated; otherwise, \ttt{sharc.x} will ignore these requestes.
 
 \subsection{Run script setup}
 
@@ -4778,7 +4811,7 @@ Also this input section is very similar to the one in \ttt{setup\_init.py} (see 
 \begin{figure}
   \centering
   \includegraphics[scale=1]{img/dirs_traj/dirs_traj.pdf}
-  \caption{Directory structure created by \ttt{setup\_traj.py}. Directories are in blue, executable scripts in green and regular files in black and white. Interface files usually include initial MO coefficients, template files and interface input files.}
+  \caption[Directory structure created by \ttt{setup\_traj.py}.]{Directory structure created by \ttt{setup\_traj.py}. Directories are in blue, executable scripts in green and regular files in black and white. Interface files usually include initial MO coefficients, template files and interface input files.}
   \label{fig:dirs_traj}
 \end{figure}
 
@@ -4986,7 +5019,7 @@ It is advisable to configure public-key authentification for the hosts running t
 
 \begin{table}[tbp]
   \centering
-  \caption{Content of the files written by \ttt{data\_extractor.x}. $n$ is the total number of states, $j$ is a state index ($j\in\{1..n\}$).}
+  \caption[Content of the files written by \ttt{data\_extractor.x}.]{Content of the files written by \ttt{data\_extractor.x}. $n$ is the total number of states, $j$ is a state index ($j\in\{1..n\}$).}
   \label{tab:outputdata}
   \begin{tabular}{>{\ttfamily}lcll}
     \toprule
@@ -5249,7 +5282,7 @@ The second way to obtain populations is to obtain the sum of the absolute square
 
 \begin{table}
   \centering
-  \caption{Analysis modes for \ttt{populations.py}. The last column indicates whether \ttt{data\_extractor.x} has to be run prior to the ensemble analysis.}
+  \caption[Analysis modes for \ttt{populations.py}.]{Analysis modes for \ttt{populations.py}. The last column indicates whether \ttt{data\_extractor.x} has to be run prior to the ensemble analysis.}
   \label{tab:Populations_modes}
   \begin{tabular}{lp{8.5cm}>{\ttfamily}lc}
     \toprule
@@ -5364,7 +5397,7 @@ The different analysis modes for \ttt{transition.py} are given in Table~\ref{tab
 
 \begin{table}
   \centering
-  \caption{Analysis modes for \ttt{transition.py}. The last column indicates whether \ttt{data\_extractor.x} has to be run prior to the ensemble analysis.}
+  \caption[Analysis modes for \ttt{transition.py}.]{Analysis modes for \ttt{transition.py}. The last column indicates whether \ttt{data\_extractor.x} has to be run prior to the ensemble analysis.}
   \label{tab:Transition_modes}
   \begin{tabular}{lp{8cm}>{\ttfamily}lc}
     \toprule
@@ -6465,7 +6498,7 @@ The damping factor $C$ must be between 0 and 1.
 
 In surface hopping, without any corrections the coherence between the states is usually too large \cite{Granucci2007JCP}. A trajectory in state $\beta$, but where state $\alpha$ has a large coefficient, will still travel according to the gradient of state $\beta$. However, the gradients of state $\alpha$ are almost certainly different to the ones of state $\beta$. As a consequence, too much population of state $\alpha$ is following the gradient of state $\beta$. Decoherence corrections damp in different ways the population of all states $\alpha\neq\beta$, so that only population of $\beta$ follows the gradient of state $\beta$.
 
-Currently, in \sharc\ there are two decoherence corrections implemented, ``energy-based decoherence'', or EDC, as given in \cite{Granucci2010JCP} and ``augmented fewest-switches surface hopping'', or AFSSH, as described in \cite{Subotnik_todo}.
+Currently, in \sharc\ there are two decoherence corrections implemented, ``energy-based decoherence'', or EDC, as given in \cite{Granucci2010JCP} and ``augmented fewest-switches surface hopping'', or AFSSH, as described in \cite{Jain2016JCTC}.
 
 \subsection{Energy-based decoherence}
 
@@ -6491,7 +6524,7 @@ where $C$ is the decoherence parameter. The decoherence correction can be activa
 
 \subsection{Augmented FSSH decoherence}
 
-Augmented FSSH by Subotnik and coworkers is described in \cite{Subotnik_todo}.
+Augmented FSSH by Subotnik and coworkers is described in \cite{Jain2016JCTC}.
 For \sharc, the augmented FSSH algorithm was adjusted to the case of the diagonal representation.
 
 The basic idea is that besides the actual trajectory, the program maintains an auxiliary trajectory for each state.
@@ -7055,7 +7088,7 @@ With \ttt{orca\_External} it is possible to optimize different kinds of crossing
 In all cases, these optimizations involve the energies of the lower state $E_l$ and upper state $E_u$, the energy difference $\Delta E=E_u-E_l$, the gradients of the lower state $\VEC{g}_l$ and upper state $\VEC{g}_u$, the gradient difference vector $\VEC{d}$, and/or the nonadiabatic coupling vector $\VEC{t}$.
 
 The simplest case is the optimization of minimum-energy crossing points between states of different multiplicity, because in this case the nonadiabatic coupling vector is zero and the branching space is one-dimensional.
-In this case \cite{Bearpark}, the energy to optimize is $E_u$ inside the intersection space, and $\Delta E$ inside the branching space.
+In this case \cite{Bearpark1994CPL}, the energy to optimize is $E_u$ inside the intersection space, and $\Delta E$ inside the branching space.
 The corresponding gradient to follow $\VEC{F}$ can be written as:
 \begin{equation}
   \VEC{F}=\VEC{g}_u-\frac{\VEC{g}_u\cdot\VEC{d}}{\VEC{d}\cdot\VEC{d}}\VEC{d}+2(E_u-E_l)\frac{\VEC{d}}{|\VEC{d}|}.
