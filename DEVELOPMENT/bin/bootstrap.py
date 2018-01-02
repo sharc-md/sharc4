@@ -160,90 +160,6 @@ def mkdir(DIR):
             print 'Can not create %s\n' % (DIR)
             sys.exit(70)
 
-# ======================================================================================================================
-# ======================================================================================================================
-# ======================================================================================================================
-
-class output_dat:
-  def __init__(self,filename):
-    self.data=readfile(filename)
-    self.filename=filename
-    # get number of states
-    for line in self.data:
-      if 'nstates_m' in line:
-        try:
-          s=line.split()[0:-2]
-          self.states=[ int(i) for i in s ]
-        except ValueError:
-          s=line.split()[1:-1]
-          self.states=[ int(i) for i in s ]
-        break
-    nm=0
-    for i,n in enumerate(self.states):
-      nm+=n*(i+1)
-    self.nmstates=nm
-    # get line numbers where new timesteps start
-    self.startlines=[]
-    iline=-1
-    while True:
-      iline+=1
-      if iline==len(self.data):
-        break
-      if 'Step' in self.data[iline]:
-        self.startlines.append(iline)
-    self.current=0
-    #print self.states
-    #print self.nmstates
-    #print self.startlines
-    #print self.current
-
-  def __iter__(self):
-    return self
-
-  def next(self):
-    # returns time step, U matrix and diagonal state
-    # step
-    current=self.current
-    self.current+=1
-    if current+1>len(self.startlines):
-      raise StopIteration
-    # U matrix starts at startlines[current]+5+nmstates
-    U=[ [ 0 for i in range(self.nmstates) ] for j in range(self.nmstates) ]
-    for iline in range(self.nmstates):
-      index=self.startlines[current]+4+self.nmstates+iline
-      line=self.data[index]
-      s=line.split()
-      for j in range(self.nmstates):
-        r=float(s[2*j])
-        i=float(s[2*j+1])
-        U[iline][j]=complex(r,i)
-    # diagonal state, has to search linearly
-    while True:
-      index+=1
-      if index>len(self.data) or index==self.startlines[iline+1]:
-        print 'Error reading timestep %i in file %s' % (current,self.filename)
-        sys.exit(11)
-      line=self.data[index]
-      if 'states (diag, MCH)' in line:
-        state_diag=int(self.data[index+1].split()[0])
-        break
-    return current,U,state_diag
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -292,7 +208,7 @@ def close_keystrokes():
 
 # ===================================
 
-def question(question,typefunc,default=None,autocomplete=True):
+def question(question,typefunc,default=None,autocomplete=True,ranges=False):
   if typefunc==int or typefunc==float:
     if not default==None and not isinstance(default,list):
       print 'Default to int or float question must be list!'
@@ -315,6 +231,8 @@ def question(question,typefunc,default=None,autocomplete=True):
         s=s[:-1]+']'
     if typefunc==str and autocomplete:
       s+=' (autocomplete enabled)'
+    if typefunc==int and ranges:
+      s+=' (range comprehension enabled)'
     s+=' '
 
     line=raw_input(s)
@@ -330,8 +248,8 @@ def question(question,typefunc,default=None,autocomplete=True):
         continue
 
     if typefunc==bool:
-      posresponse=['y','yes','true', 'ja',  'si','yea','yeah','aye','sure','definitely']
-      negresponse=['n','no', 'false','nein',     'nope']
+      posresponse=['y','yes','true', 't', 'ja',  'si','yea','yeah','aye','sure','definitely']
+      negresponse=['n','no', 'false', 'f', 'nein', 'nope']
       if line in posresponse:
         KEYSTROKES.write(line+' '*(40-len(line))+' #'+s+'\n')
         return True
@@ -346,8 +264,8 @@ def question(question,typefunc,default=None,autocomplete=True):
       KEYSTROKES.write(line+' '*(40-len(line))+' #'+s+'\n')
       return line
 
-    if typefunc==int or typefunc==float:
-      # int and float will be returned as a list
+    if typefunc==float:
+      # float will be returned as a list
       f=line.split()
       try:
         for i in range(len(f)):
@@ -355,11 +273,28 @@ def question(question,typefunc,default=None,autocomplete=True):
         KEYSTROKES.write(line+' '*(40-len(line))+' #'+s+'\n')
         return f
       except ValueError:
-        if typefunc==int:
-          i=1
-        elif typefunc==float:
-          i=2
-        print 'Please enter a %s' % ( ['string','integer','float'][i] )
+        print 'Please enter floats!'
+        continue
+
+    if typefunc==int:
+      # int will be returned as a list
+      f=line.split()
+      out=[]
+      try:
+        for i in f:
+          if ranges and '~' in i:
+            q=i.split('~')
+            for j in range(int(q[0]),int(q[1])+1):
+              out.append(j)
+          else:
+            out.append(int(i))
+        KEYSTROKES.write(line+' '*(40-len(line))+' #'+s+'\n')
+        return out
+      except ValueError:
+        if ranges:
+          print 'Please enter integers or ranges of integers (e.g. "-3~-1  2  5~7")!'
+        else:
+          print 'Please enter integers!'
         continue
 
 # ======================================================================================================================

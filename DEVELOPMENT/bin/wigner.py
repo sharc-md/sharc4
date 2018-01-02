@@ -565,46 +565,26 @@ file. Returns molecule and modes as the other function does.
 # ======================================================================================================================
 # ======================================================================================================================
 
-def factorialold(n):
-    """This function recursively calculates the factorial of n."""
-    if n == 0:
-        return 1
-    elif n == 1:
-        return 1
-    else:
-        return n * factorial(n-1)
 
-def factorial(n,ndic):
-    """This function recursively calculates the factorial of n  and
-stores it in ndicif it is not stored in ndic already."""
-    if n not in ndic:
-      m,ndic =factorial(n-1,ndic)
-      ndic[n] = m *n
-      return ndic[n], ndic
-    else:
-      return ndic[n], ndic
+def factorial(n,start):
+    """This function calculates the factorial of n."""
+    p=1.
+    for i in range(n):
+        if i >= start:
+            p*=i+1
+    return p
 
-def ana_laguerre(n, x,ndic):
+def ana_laguerre(n, x):
     """This function analytically calculates the value of the nth order
-Laguerre polynomial at point x. The demoniator limits this function to
-n below 99."""
+Laguerre polynomial at point x. Computational limitations restrict very high 
+excited vibrational states (above 170). However, the harmonic approximation 
+is no good approximation at these high-lying vibrational states!"""
     total = 0.
     for m in range(n+1):
-      entry = (-1.)**m*factorial(n,ndic)[0]/(factorial(n-m,ndic)[0]*(factorial(m,ndic)[0]**2))*(x**m)
+      entry = (-1.)**m*factorial(n,m)/(factorial(n-m,1)*(factorial(m,1)))*(x**m)
       total += entry
     return total
-
-def laguerre(n, x):
-    """This function recursively calculates the value of the nth order
-Laguerre polynomial at point x."""
-    if n == 0:
-        return 1.0
-    elif n == 1:
-        return 1.0 - x
-    else:
-        L = 1.0 / n * ( (2.0*(n-1.0) + 1.0 - x) * laguerre(n-1, x)
-                        - (n-1.0) * laguerre(n-2, x) )
-        return L
+        
 def determine_state(mode):
   """This function determines the vibrational state of the
 mode for the system at a certain temperature."""
@@ -649,7 +629,7 @@ mode for the system at a certain temperature."""
       break
 
 
-def wigner(Q, P, mode, ndic):
+def wigner(Q, P, mode):
     """This function calculates the Wigner distribution for
 a single one-dimensional harmonic oscillator.
 Q contains the dimensionless coordinate of the
@@ -663,18 +643,19 @@ The function returns a probability for this set of parameters."""
       #square of the factorial becomes to large to handle. Keep in mind,
       #that the harmonic approximation is most likely not valid at these
       #excited states
-      if n > 98:
+      if n > 150:
         if high_temp:
           n = -1
           print 'Highest considered vibrational state reached! Discarding this probability.'
         else:
-          print 'The calculated excited vibrational state for this normal mode exceeds the limit of the calculation.\nThe harmonic approximation is not valid for high vibrational states of low-frequency normal modes. The vibrational state ',n,' was set to 98. If you want to discard these states instead (due to oversampling of mode nr 98), use the -T option.'
-          n = 98
+          print 'The calculated excited vibrational state for this normal mode exceeds the limit of the calculation.\nThe harmonic approximation is not valid for high vibrational states of low-frequency normal modes. The vibrational state ',n,' was set to 150. If you want to discard these states instead (due to oversampling of state nr 150), use the -T option.'
+          n = 150
     if n == 0: # vibrational ground state
         return (math.exp(-Q**2) * math.exp(-P**2), 0.)
+    # TODO: what about n==-1 ??
     else: # vibrational excited state
         rhosquare = 2.0 * (P**2 + Q**2)
-        W = (-1.0)**n * ana_laguerre(n,rhosquare,ndic) \
+        W = (-1.0)**n * ana_laguerre(n,rhosquare) \
           * math.exp(-rhosquare/2.0)
         n=float(n)
         return (W,n)
@@ -704,7 +685,7 @@ for the first 11 vibrational states."""
     for Q in grid:
         outstring += '%6.2f' % Q
         for n in range(11):
-            outstring += ' % 12.8e' % laguerre(n, Q)
+            outstring += ' % 12.8e' % ana_laguerre(n, Q)
         outstring += '\n'
     outfile = open('laguerreplot.out', 'w')
     outfile.write(outstring)
@@ -1024,7 +1005,7 @@ weighted normal coordinates are then returned'''
 
 
 
-def sample_initial_condition(molecule, modes, ndic):
+def sample_initial_condition(molecule, modes):
   """This function samples a single initial condition from the
 modes and atomic coordinates by the use of a Wigner distribution.
 The first atomic dictionary in the molecule list contains also
@@ -1045,7 +1026,7 @@ Method is based on L. Sun, W. L. Hase J. Chem. Phys. 133, 044313
       random_Q = random.random()*6.0 - 3.0
       random_P = random.random()*6.0 - 3.0
       # calculate probability for this set of P and Q with Wigner distr.
-      probability = wigner(random_Q, random_P, mode, ndic)
+      probability = wigner(random_Q, random_P, mode)
       if probability[0]>1. or probability[0]<0.:
         if temperature == 0:
           print 'WARNING: wrong probability %f detected!' % (probability[0])
@@ -1065,9 +1046,11 @@ Method is based on L. Sun, W. L. Hase J. Chem. Phys. 133, 044313
       for xyz in range(3): # and each direction
         # distort geometry according to normal mode movement
         # and unweigh mass-weighted normal modes
-        atom.coord[xyz] += random_Q * mode['move'][i][xyz] * math.sqrt(1./atom.mass)
-          # add velocity
-        atom.veloc[xyz] += random_P * mode['move'][i][xyz] * math.sqrt(1./atom.mass)
+        if not UEG:
+          atom.coord[xyz] += random_Q * mode['move'][i][xyz] * math.sqrt(1./atom.mass)
+        # add velocity
+        if not UZV:
+          atom.veloc[xyz] += random_P * mode['move'][i][xyz] * math.sqrt(1./atom.mass)
       atom.EKIN()
   if not KTR:
     restore_center_of_mass(molecule, atomlist)
@@ -1150,14 +1133,11 @@ data given in 'molecule' and 'modes'. Output is returned
 as a list containing all initial condition objects."""
     print 'Sampling initial conditions'
     ic_list = []
-    ndic = {}
-    ndic[0] = 1
-    ndic[1] = 1
     width = 50
     idone = 0
     for i in range(1,amount+1): # for each requested initial condition
         # sample the initial condition
-        ic = sample_initial_condition(molecule, modes,ndic)
+        ic = sample_initial_condition(molecule, modes)
         ic_list.append(ic)
         idone += 1
         done = idone*width/(amount)
@@ -1234,17 +1214,25 @@ as described in [2] (non-fixed energy, independent mode sampling).
 
   parser = OptionParser(usage=usage, description=description)
   parser.add_option('-n', dest='n', type=int, nargs=1, default=3, help="Number of geometries to be generated (integer, default=3)")
-  parser.add_option('-r', dest='r', type=int, nargs=1, default=16661, help="Seed for the random number generator (integer, default=16661)")
-  parser.add_option('-o', dest='o', type=str, nargs=1, default='initconds', help="Output filename (string, default=""initconds"")")
-  parser.add_option('-x', dest='X', action='store_true',help="Generate a xyz file with the sampled geometries in addition to the initconds file")
   parser.add_option('-m', dest='m', action='store_true',help="Enter non-default atom masses")
   parser.add_option('-s', dest='s', type=float, nargs=1, default=1.0, help="Scaling factor for the energies (float, default=1.0)")
-  parser.add_option('-t', dest='t', type=float, nargs=1, default=0, help="Temperature (float, default=0.0)")
+  parser.add_option('-t', dest='t', type=float, nargs=1, default=0., help="Temperature (float, default=0.0)")
   parser.add_option('-T', dest='T', action='store_true', help="Discard high vibrational states in the temperature sampling ")
-  parser.add_option('--keep_trans_rot', dest='KTR', action='store_true',help="Keep translational and rotational components")
-  parser.add_option('-f', dest='f', type=int, nargs=1, default='0', help="Define the type of read normal modes. 0 for automatic assignement, 1 for gaussian-type normal modes (Gaussian, Turbomole, Q-Chem, ADF, Orca), 2 for cartesian normal modes (Molcas, Molpro), 3 for Columbus-type (Columbus), or 4 for mass-weighted. (integer, default=0)")
+  parser.add_option('-L', dest='L', type=float, nargs=1, default=10.0, help="Discard frequencies below this value in cm-1 (float, default=10.)")
+
+  parser.add_option('-o', dest='o', type=str, nargs=1, default='initconds', help="Output filename (string, default=""initconds"")")
+  parser.add_option('-x', dest='X', action='store_true',help="Generate a xyz file with the sampled geometries in addition to the initconds file")
   parser.add_option('-l', dest='lvc', action='store_true', help='Generate input for SHARC_LVC.py (V0.txt) rather than initconds')
+
+  parser.add_option('-r', dest='r', type=int, nargs=1, default=16661, help="Seed for the random number generator (integer, default=16661)")
+  parser.add_option('-f', dest='f', type=int, nargs=1, default='0', help="Define the type of read normal modes. 0 for automatic assignement, 1 for gaussian-type normal modes (Gaussian, Turbomole, Q-Chem, ADF, Orca), 2 for cartesian normal modes (Molcas, Molpro), 3 for Columbus-type (Columbus), or 4 for mass-weighted. (integer, default=0)")
+  
+  parser.add_option('--keep_trans_rot', dest='KTR', action='store_true',help="Keep translational and rotational components")
+  parser.add_option('--use_eq_geom',    dest='UEG', action='store_true',help="For all samples, use the equilibrium geometry (only sample velocities)")
+  parser.add_option('--use_zero_veloc', dest='UZV', action='store_true',help="For all samples, set velocities to zero")
+  
   (options, args) = parser.parse_args()
+
   random.seed(options.r)
   amount=options.n
   if len(args)==0:
@@ -1256,6 +1244,7 @@ as described in [2] (non-fixed energy, independent mode sampling).
   scaling=options.s
   flag=options.f
   lvc = options.lvc
+  LOW_FREQ=max(0.0000001,options.L)
 
   print '''Initial condition generation started...
 INPUT  file                  = "%s"
@@ -1273,6 +1262,10 @@ Temperature                  = %f''' % (filename, outfile, options.n, options.r,
 
   global KTR
   KTR=options.KTR
+  global UEG
+  UEG=options.UEG
+  global UZV
+  UZV=options.UZV
 
   global temperature
   temperature=options.t
@@ -1293,7 +1286,7 @@ Temperature                  = %f''' % (filename, outfile, options.n, options.r,
 
   molecule, modes = import_from_molden(filename, scaling,flag,options.lvc)
 
-  string='Geometry:\n'
+  string='\nGeometry:\n'
   for atom in molecule:
     string+=str(atom)[:61]+'\n'
   string+='Assumed Isotopes: '
@@ -1318,7 +1311,7 @@ Temperature                  = %f''' % (filename, outfile, options.n, options.r,
       outfile.write(outstring)
       outfile.close()
 
-  if options.X:
+  if options.X and not options.lvc:
     make_dyn_file(ic_list,options.o+'.xyz')
 
   # save the shell command

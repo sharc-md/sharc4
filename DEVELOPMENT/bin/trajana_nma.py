@@ -113,7 +113,7 @@ def close_keystrokes():
   shutil.move('KEYSTROKES.tmp','KEYSTROKES.nma')
 
 # ======================================================================= #
-def question(question,typefunc,default=None,autocomplete=True):
+def question(question,typefunc,default=None,autocomplete=True,ranges=False):
   if typefunc==int or typefunc==float:
     if not default==None and not isinstance(default,list):
       print 'Default to int or float question must be list!'
@@ -136,6 +136,8 @@ def question(question,typefunc,default=None,autocomplete=True):
         s=s[:-1]+']'
     if typefunc==str and autocomplete:
       s+=' (autocomplete enabled)'
+    if typefunc==int and ranges:
+      s+=' (range comprehension enabled)'
     s+=' '
 
     line=raw_input(s)
@@ -151,8 +153,8 @@ def question(question,typefunc,default=None,autocomplete=True):
         continue
 
     if typefunc==bool:
-      posresponse=['y','yes','true', 'ja',  'si','yea','yeah','aye','sure','definitely']
-      negresponse=['n','no', 'false','nein',     'nope']
+      posresponse=['y','yes','true', 't', 'ja',  'si','yea','yeah','aye','sure','definitely']
+      negresponse=['n','no', 'false', 'f', 'nein', 'nope']
       if line in posresponse:
         KEYSTROKES.write(line+' '*(40-len(line))+' #'+s+'\n')
         return True
@@ -165,12 +167,10 @@ def question(question,typefunc,default=None,autocomplete=True):
 
     if typefunc==str:
       KEYSTROKES.write(line+' '*(40-len(line))+' #'+s+'\n')
-      #KEYSTROKES.write(line+' '*(40-len(line))+' #'+s+'\n')
-      #KEYSTROKES.write(line+' '*(40-len(line))+' #'+s+'\n')
       return line
 
-    if typefunc==int or typefunc==float:
-      # int and float will be returned as a list
+    if typefunc==float:
+      # float will be returned as a list
       f=line.split()
       try:
         for i in range(len(f)):
@@ -178,11 +178,28 @@ def question(question,typefunc,default=None,autocomplete=True):
         KEYSTROKES.write(line+' '*(40-len(line))+' #'+s+'\n')
         return f
       except ValueError:
-        if typefunc==int:
-          i=1
-        elif typefunc==float:
-          i=2
-        print 'Please enter a %s' % ( ['string','integer','float'][i] )
+        print 'Please enter floats!'
+        continue
+
+    if typefunc==int:
+      # int will be returned as a list
+      f=line.split()
+      out=[]
+      try:
+        for i in f:
+          if ranges and '~' in i:
+            q=i.split('~')
+            for j in range(int(q[0]),int(q[1])+1):
+              out.append(j)
+          else:
+            out.append(int(i))
+        KEYSTROKES.write(line+' '*(40-len(line))+' #'+s+'\n')
+        return out
+      except ValueError:
+        if ranges:
+          print 'Please enter integers or ranges of integers (e.g. "-3~-1  2  5~7")!'
+        else:
+          print 'Please enter integers!'
         continue
 
 
@@ -344,7 +361,7 @@ def get_general():
   print '\nPlease enter the numbers of the normal modes (numbering as in the Molden file) whose absolute value should be considered in the analysis. Without this setting, the average for all non-totally symmetric modes should be zero. Default is to not compute the absolute. Entering -1 ends this input section.'
   print ''
   while True:
-    modes_new=question('Symmetric normal modes:',int,[-1])
+    modes_new=question('Symmetric normal modes:',int,[-1],ranges=True)
     if -1 in modes_new:
       break
     elif any( [i<=0 for i in modes_new] ):
@@ -360,7 +377,7 @@ def get_general():
   print 'Please enter the numbers of normal modes whose values should be multiplied by -1 before statistical analysis (affects total_std.txt and cross_av_std.txt). This is only for convenience when viewing the results. Entering -1 ends this input section.'
   print ''
   while True:
-    negmodes_new=question('Inverted normal modes:',int,[-1])
+    negmodes_new=question('Inverted normal modes:',int,[-1],ranges=True)
     if -1 in negmodes_new:
       break
     elif any( [i<=0 for i in negmodes_new] ):

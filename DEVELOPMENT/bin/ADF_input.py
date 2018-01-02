@@ -136,7 +136,7 @@ def close_keystrokes():
 
 # ===================================
 
-def question(question,typefunc,default=None,autocomplete=True):
+def question(question,typefunc,default=None,autocomplete=True,ranges=False):
   if typefunc==int or typefunc==float:
     if not default==None and not isinstance(default,list):
       print 'Default to int or float question must be list!'
@@ -159,6 +159,8 @@ def question(question,typefunc,default=None,autocomplete=True):
         s=s[:-1]+']'
     if typefunc==str and autocomplete:
       s+=' (autocomplete enabled)'
+    if typefunc==int and ranges:
+      s+=' (range comprehension enabled)'
     s+=' '
 
     line=raw_input(s)
@@ -174,8 +176,8 @@ def question(question,typefunc,default=None,autocomplete=True):
         continue
 
     if typefunc==bool:
-      posresponse=['y','yes','true', 'ja',  'si','yea','yeah','aye','sure','definitely']
-      negresponse=['n','no', 'false','nein',     'nope']
+      posresponse=['y','yes','true', 't', 'ja',  'si','yea','yeah','aye','sure','definitely']
+      negresponse=['n','no', 'false', 'f', 'nein', 'nope']
       if line in posresponse:
         KEYSTROKES.write(line+' '*(40-len(line))+' #'+s+'\n')
         return True
@@ -190,8 +192,8 @@ def question(question,typefunc,default=None,autocomplete=True):
       KEYSTROKES.write(line+' '*(40-len(line))+' #'+s+'\n')
       return line
 
-    if typefunc==int or typefunc==float:
-      # int and float will be returned as a list
+    if typefunc==float:
+      # float will be returned as a list
       f=line.split()
       try:
         for i in range(len(f)):
@@ -199,11 +201,28 @@ def question(question,typefunc,default=None,autocomplete=True):
         KEYSTROKES.write(line+' '*(40-len(line))+' #'+s+'\n')
         return f
       except ValueError:
-        if typefunc==int:
-          i=1
-        elif typefunc==float:
-          i=2
-        print 'Please enter a %s' % ( ['string','integer','float'][i] )
+        print 'Please enter floats!'
+        continue
+
+    if typefunc==int:
+      # int will be returned as a list
+      f=line.split()
+      out=[]
+      try:
+        for i in f:
+          if ranges and '~' in i:
+            q=i.split('~')
+            for j in range(int(q[0]),int(q[1])+1):
+              out.append(j)
+          else:
+            out.append(int(i))
+        KEYSTROKES.write(line+' '*(40-len(line))+' #'+s+'\n')
+        return out
+      except ValueError:
+        if ranges:
+          print 'Please enter integers or ranges of integers (e.g. "-3~-1  2  5~7")!'
+        else:
+          print 'Please enter integers!'
         continue
 
 # ======================================================================================================================
@@ -228,14 +247,13 @@ specific:
   print centerstring('Type of calculation',60,'-')
   print '''\nThis script generates input for the following types of calculations:  
   1   Single Point calculations
-  2   Optimizations and Frequency calculations
-  3   ADF.template
+  2   Optimization or Frequency calculations
 Please enter the number corresponding to the type of calculation.
 '''
   while True:
     ctype=question('Type of calculation:',int)[0]
-    if not ctype in [1,2,3]:
-      print 'Enter an integer (1-3)!'
+    if not ctype in [1,2]:
+      print 'Enter an integer (1-2)!'
       continue
     break
   INFOS['ctype']=ctype
@@ -290,14 +308,20 @@ Please enter the number corresponding to the type of calculation.
          break
      INFOS['geom']=geom
      print ''
-     print 'Please input the name of the created .run file (if none stated will use the xyz file name)'
-     paths=question('name of the run file:',str,path[:-3]+'run')
-     INFOS['path']=paths
-     print ''
+
+
+     #print 'Please input the name of the created .run file (if none stated will use the xyz file name)'
+     #paths=question('name of the run file:',str,path[:-3]+'run')
+     INFOS['path']='ADF.run'
+     #print ''
+
+
      print 'Enter the total (net) molecular charge:'
      charge=question('Charge:',float,[0.0])[0]
      INFOS['CHARGE']=charge
      print ''
+
+
      print 'Please state the number of unpaired electrons (alpha-beta).'
      Unr=question('Nr of unpaired electrons:',float,[0.0])[0]
      INFOS['Unp_elec']=Unr
@@ -314,20 +338,26 @@ Please enter the number corresponding to the type of calculation.
              INFOS['Freqtype']='analytical'
            else:
              INFOS['Freqtype']='numerical'
-  elif ctype ==3:
-     print ''
-     print 'Enter the total (net) molecular charge:'
-     charge=question('Charge:',float,[0.0])[0]
-     INFOS['CHARGE']=charge
-     print ''
-     print 'Please state the number of unpaired electrons (alpha-beta).'
-     Unr=question('Nr of unpaired electrons:',float,[0.0])[0]
-     INFOS['Unp_elec']=Unr
-     
+
+
+
+  #elif ctype ==3:
+     #print ''
+     #print 'Enter the total (net) molecular charge:'
+     #charge=question('Charge:',float,[0.0])[0]
+     #INFOS['CHARGE']=charge
+     #print ''
+     #print 'Please state the number of unpaired electrons (alpha-beta).'
+     #Unr=question('Nr of unpaired electrons:',float,[0.0])[0]
+     #INFOS['Unp_elec']=Unr
+
+
+
   print ''
   print 'Please choose the maximum number of SCF iterations'
   SCFIter = question('Max Iterations:',int,[100])[0]
   INFOS['SCFIter']=SCFIter
+
 
   # basis set
   print ''
@@ -336,27 +366,30 @@ Please enter the number corresponding to the type of calculation.
   basis=question('Basis set:',str,'TZP',autocomplete=False)
   INFOS['basis']=basis
 
+
   #DFT SETUP
   print ''
-  print '\n Please choose the type of Functional (LDA, GGA, HYBRID, METAGGA, METAHYBRID, MODEL, RANGE).'
+  print '\nPlease choose the type of Functional (LDA, GGA, HYBRID, METAGGA, METAHYBRID, MODEL, RANGE).'
   print '\nGGA is recommended for Dynamics'
   XCtype=question('XCtype:',str,'GGA',autocomplete=False)
   INFOS['XCtype']=XCtype
   print ''
-  print '\n Please state the Functional to be used.'
-  print '\n Meta, Model and Range-seperated can not be used for dynamics'
+  print '\nPlease state the Functional to be used.'
+  print '\nMeta, Model and Range-seperated can not be used for dynamics'
   print '''Common functionals and their names in ADF (for more see\nhttp://www.scm.com/Doc/Doc2014/ADF/ADFUsersGuide/page68.html#keyscheme%20XC):
- LDA: VWN, PW92
- GGA: BP86, PBE, mPBE
- Hybrid: B3LYP, PBE0 BHandHLYP
- Meta-GGA: TPSS, M06-L
- Meta-Hybrid: TPSSH, M06
- Model: LB94, SAOP
- Range-separated: CAMY-B3LYP, LCY-PBE
+LDA: VWN, PW92
+GGA: BP86, PBE, mPBE
+Hybrid: B3LYP, PBE0 BHandHLYP
+Meta-GGA: TPSS, M06-L
+Meta-Hybrid: TPSSH, M06
+Model: LB94, SAOP
+Range-separated: CAMY-B3LYP, LCY-PBE
 '''
   XCfun=question('Functional:',str,'PBE',autocomplete=False)
   INFOS['XCfun']=XCfun 
   print ''
+
+
   print 'Would you like to include Relativistic effects (Scalar)?'
   Rel=question('Include Relativistic effects:',bool,True)
   INFOS['Rel']=Rel
@@ -367,22 +400,27 @@ Please enter the number corresponding to the type of calculation.
      SO=question('Spin-orbit coupling:',bool,False)
      INFOS['SO_COUP']=SO
   print ''
-  print 'ZlmFit, STOFit or EXACTDENSITY? (Warning ZlmFit replaced STOFit as default)'
-  print 'This is used to fit the Density unless EXACTDENSITY is chosen'
+
+
+  print 'ZlmFit or STOFit? (ZlmFit is recommended)'
   FIT=question('Fit type',str,'ZlmFit',autocomplete=False)
   INFOS['FIT']=FIT
   if FIT == 'ZlmFit':
      print ''
-     print 'Choose Fit Grid Quality (basic,normal,good,verygood,excellent),\na higher grid quality means increased computation time!'
-     Fitquality=question('Grid Quality:',str,'normal',autocomplete=False)
+     print 'Choose Fit Quality (basic, normal, good, verygood, excellent).'
+     Fitquality=question('ZlmFit Quality:',str,'normal',autocomplete=False)
      INFOS['FitGrid']=Fitquality
   print ''
-  print 'Choose Grid Quality for Integration (Becke: basic,normal,good,verygood,excellent),\na higher grid quality means increased computation time!'
-  IntGrid=question('Grid Quality:',str,'good',autocomplete=False)
+
+
+  print 'Choose Grid Quality for Integration (Becke: basic, normal, good, verygood, excellent).'
+  IntGrid=question('Becke Grid Quality:',str,'good',autocomplete=False)
   INFOS['IntGrid']=IntGrid 
   print ''
-  print 'Do you want to run excited state calculations (yes/no)?'
-  Exci=question('Excitation Calculation',bool,False)
+
+
+  #print 'Do you want to run excited state calculations?'
+  Exci=question('Do you want to run excited state calculations?',bool,False)
   INFOS['Exci']=Exci
   INFOS['TDA']=False
   INFOS['COSMO']=False
@@ -393,18 +431,18 @@ Please enter the number corresponding to the type of calculation.
      Mult=question('Excitation Type:',str,'BOTH',autocomplete=False)
      INFOS['Mult']=Mult
      print ''
-     print 'Number of Excitations to Calculate (If both types then you calculate the number for both Singlets and Triplets)'
-     NrExci=question('Number of Excitations:',int,[10])[0]
+     print 'Number of excitations to calculate (If BOTH, then calculate each that many singlets and triplets):'
+     NrExci=question('Number of excitations:',int,[3])[0]
      INFOS['NrExci']=NrExci
      print ''
-     print 'Select to use the Tamm-Dancoff Approximation (Recommended as it should improve the description of conical intersections and should be used for dynamics.)'
+     print 'Select to use the Tamm-Dancoff Approximation (recommended)'
      TDA=question('Use TDA?',bool,True)
      INFOS['TDA']=TDA
      print ''
      INFOS['ExcGO']=False
      INFOS['COSMO']=False
      if ctype <=2:
-        print 'Do you want to optimize an excited state or get excited state gradients (For SHARC-dynamics do not use in template)?'
+        print 'Do you want to optimize an excited state or get excited state gradients?'
         ExcitedGO=question('Gradients/GeoOpt:',bool,False)
         INFOS['ExcGO']=ExcitedGO
         if ExcitedGO == True:
@@ -414,20 +452,22 @@ Please enter the number corresponding to the type of calculation.
            print ''
            State=question('Which State:',int,[1])[0]
            INFOS['STATE']=State
-           print ''
-           Iter=question('Number of Iterations:',int,[0])[0]
-           INFOS['Iter']=Iter
-  if ctype <=2:
+           #print ''
+           #Iter=question('Number of Iterations:',int,[0])[0]
+           #INFOS['Iter']=Iter
+
+
+  if ctype <=2 and not INFOS['ExcGO']:
      print ''
-     print 'Would you like to use COSMO (Does not work with Excited State Geometry optimizations)?'
+     print 'Would you like to use COSMO (Does not work with excited-state geometry optimizations)?'
      COSMO=question('Include the Solvent:',bool,False)
      INFOS['COSMO']=COSMO
-     if COSMO == True:
+     if COSMO:
         print 'Choose whether to use a simple input with solvent name or User defined'
         User=question('User defined dielectric constant and solvent radius?',bool,False) 
         INFOS['User']=User
         print ''
-        if User == True:
+        if User:
            Epsi = question('State the dielecric constant:',float,[0.1])[0]
            print ''
            Rad = question('State the solvent radius:',float,[1.93])[0]
@@ -435,7 +475,7 @@ Please enter the number corresponding to the type of calculation.
            INFOS['Rad']=Rad
         else:
            print 'Here are a few solvent options: infinitedielectric, Water, Acetonitrile, Methanol, Dichloromethane'
-           Solvent=question('Which Solvent:',str,'infinitedielectric',autocomplete=False)
+           Solvent=question('Which Solvent:',str,'water',autocomplete=False)
            INFOS['SOLVENT']=Solvent
      
   print ''
@@ -518,17 +558,18 @@ def setup_input(INFOS):
   if INFOS['TDA'] == True and INFOS['Exci'] == True:
      s+='TDA \n\n'
   if INFOS['Exci']==True and INFOS['ExcGO'] == True:
-     s+='GEOMETRY\nIterations %s\nEND\n\n' % (INFOS['Iter'])
-     s+='EXCITEDGO\n%s\nSTATE A %i\nOUTPUT=4\nEND\n\n' %(INFOS['SINGTRIP'],INFOS['STATE'])
+    if INFOS['ctype']==1:
+        s+='GRADIENT\n\n'
+     s+='EXCITEDGO\n %s\n STATE A %i\n OUTPUT=4\nEND\n\n' %(INFOS['SINGTRIP'],INFOS['STATE'])
 
   if INFOS['COSMO']== True:
      if INFOS['User']==True:
-        s+='SOLVATION\nSurf Esurf\n Solv eps=%2.2f rad=%2.2f cav0=0.0 cav1=0.0067639\nCharged method=CONJ\nC-Mat POT\nSCF VAR ALL\nCSMRSP\nEND\n\n' %(INFOS['Epsi'], INFOS['Rad'])
+        s+='SOLVATION\n Solv eps=%2.2f rad=%2.2f cav0=0.0 cav1=0.0067639\nEND\n\n' %(INFOS['Epsi'], INFOS['Rad'])
      else:
         if INFOS['SOLVENT'] == 'infinitedielectric':
-           s+='SOLVATION\nSurf Esurf\n Solv eps=0.1 rad=1.93 cav0=0.0 cav1=0.0067639\nCharged method=CONJ\nC-Mat POT\nSCF VAR ALL\nCSMRSP\nEND\n\n'
+           s+='SOLVATION\n Solv eps=0.1 rad=1.93 cav0=0.0 cav1=0.0067639\nEND\n\n'
         else:
-           s+='SOLVATION\nSurf Esurf\n Solv name=%s cav0=0.0 cav1=0.0067639\nCharged method=CONJ\nC-Mat POT\nSCF VAR ALL\nCSMRSP\nEND\n\n' %(INFOS['SOLVENT'])
+           s+='SOLVATION\n Solv name=%s\nEND\n\n' %(INFOS['SOLVENT'])
 
 
   s+='\n\n'
