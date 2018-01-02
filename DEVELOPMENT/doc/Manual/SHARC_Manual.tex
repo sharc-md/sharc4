@@ -3237,12 +3237,152 @@ However, the computation time also depends on whether or not spin-orbit coupling
 
 \section{LVC Interface}\label{sec:int:lvc}
 
-\todo{todo}
+The purpose of the LVC interface is to allow performing computationally efficient dynamics using a linear vibronic coupling (LVC) model \cite{Koeppel84ACP}.
+In the vibronic coupling model the potential matrix $\mathbf{V}$ is constructed as
+%
+%\begin{equation}
+%\hat{H}_{el} = V_0 + \sum_{m,n}\ket{\Phi_m}W_{mn}\bra{\Phi_n}
+%\end{equation}
+%
+\begin{equation}
+\label{eq:V}
+\mathbf{V}=
+V_0\mathbf{1}+\mathbf{W}
+\end{equation}
 
-\subsection{Preparing Template Files: QMout2LVC.py}\label{sec:QMout2LVC.py}
+To construct, these matrices the Cartesian coordinate displacements $r_{\alpha}$ are first converted to dimensionless mass-frequency scaled normal coordinates, which are given as
+%
+\begin{equation}
+\label{eq:Qi}
+Q_i=\sqrt{\omega_i/\hbar}\sum_\alpha K_{\alpha i}\sqrt{M_\alpha}r_{\alpha}
+\end{equation}
+%
+where $\omega_i$ is the frequency of normal mode $i$, $M_\alpha$ is an atomic mass, and $K_{\alpha i}$ denotes the conversion matrix between mass-weighted Cartesian and normal coordinates.
+Using these coordinates, the harmonic ground state potential is given as
+%
+\begin{equation}
+\label{eq:V0Qi}
+V_0= \sum_i \dfrac{\omega_i}{2}Q_i^2
+.
+\end{equation}
+%
+In the case of the linear vibronic coupling model, one additionally considers the following state-specific terms that constitute the $\mathbf{W}$ matrix.
+%
+\begin{align}
+\label{eq:Wnn}
+W_{nn}&=\epsilon_n + \sum_i\kappa_i^{(n)}Q_i\\
+\label{eq:Wmn}
+W_{mn}&=\eta_{mn}+\sum_j\lambda_j^{(m,n)}Q_j
+\end{align}
+%
+Here the $\epsilon_n$ are the vertical excitation energies, the $\eta_{mn}$ are the SOC constants, and the $\kappa_i^{(n)}$ and $\lambda_j^{(m,n)}$ are termed intrastate and interstate vibronic coupling constant \cite{Koppel1984ACP}.
 
-\todo{todo}
+\subsection{Input files}
 
+Two input files are needed:
+
+\ttt{V0.txt} - containing all information to describe $V_0$: the equilibrium geometry, the frequencies $\omega_i$, and an orthogonal matrix containing the normal coordinates $K_{\alpha i}$
+
+\begin{example}
+\begin{verbatim}
+Geometry
+ S     16.    0.00000000    0.00000000   -0.00039079   31.97207180
+ O      8.    0.00000000   -2.38362453    1.36159121   15.99491464
+ O      8.    0.00000000    2.38362453    1.36159120   15.99491464
+Frequencies
+ 0.0000  0.0000  0.0000  0.0000  0.0000  0.0000  0.00234  0.0053  0.0064
+Mass-weighted normal modes
+  0.0000  1.0000  0.0000  0.0000  0.0000  0.0000  0.0000  0.0000  0.0000
+  0.6564  0.0000  0.0000  0.3108  0.0494  0.2004  0.0000  0.0000 -0.6557
+...
+\end{verbatim}
+\end{example}
+
+\ttt{LVC.template} - containing the state-specific information: $\epsilon_i, \kappa_i^{(n)}, \lambda_j^{(m,n)}, \eta_{mn}$ as well as (transition) dipole moments
+
+\begin{example}
+\begin{verbatim}
+V0.txt
+4 0 3 
+epsilon
+7
+  1   1  0.0000000000
+  1   2  0.1640045037
+  1   3  0.1781507393
+  1   4  0.2500917150
+  3   1  0.1341247878
+  3   2  0.1645714941
+  3   3  0.1700512159
+kappa
+12
+  1   2     7  1.19647e-03
+  1   2     8  1.21848e-02
+...
+lambda
+3
+  1   1   4     9 -1.83185e-02
+  1   2   3     9  7.32022e-03
+  3   1   3     9  5.71746e-03
+SOC R
+  0.000e+00  0.000e+00  0.000e+00  0.000e+00  0.000e+00  0.000e+00 ...
+  0.000e+00  0.000e+00  0.000e+00  0.000e+00  0.000e+00 -1.086e-04 ...
+...
+SOC I
+  0.000e+00  0.000e+00  0.000e+00  0.000e+00  0.000e+00  0.000e+00 ...
+  0.000e+00  0.000e+00  0.000e+00  1.000e+00  0.000e+00  1.000e-04 ...
+...
+DMX R
+ -7.400e-07 -1.639e-01  0.000e+00  3.000e-06  0.000e+00  0.000e+00  ...
+ -1.639e-01  3.930e-06  0.000e+00  2.400e-05  0.000e+00  0.000e+00  ...
+...
+DMX I
+...
+DMY R
+...
+DMY I
+...
+DMZ R
+...
+DMZ I
+...
+\end{verbatim}
+\end{example}
+
+\subsection{Preparing Template Files: wigner.py and QMout2LVC.py}\label{sec:QMout2LVC.py}
+
+Both input files can be conveniently created using the \sharc\ tools. \ttt{V0.txt} is created using the \ttt{wigner.py} script, which is also used for initial condition generation. Simply call, e.g.
+
+\begin{example}
+\ttt{\$SHARC/wigner.py -l <filename.molden>}
+\end{example}
+
+For obtaining the LVC parameters, it is first necessary to perform a single-point computation at the ground state equilibrium geometry.
+Using the \ttt{QM.in} file, you can specify, which types of properties to compute. For the full LVC model, use
+
+\begin{example}
+\begin{verbatim}
+3
+
+ S    0.00000000    0.00000000   -0.00039079 
+ O    0.00000000   -2.38362453    1.36159121 
+ O    0.00000000    2.38362453    1.36159120 
+Unit Bohr
+States           4           0           3
+ INIT
+ SOC
+ DM
+ Grad
+ NACDR
+\end{verbatim}
+\end{example}
+
+Copy the \ttt{V0.txt} to the same directory containing the \ttt{QM.out} file of this computation and run
+
+\begin{example}
+\ttt{\$SHARC/QMout2LVC.py}
+\end{example}
+
+to create the file \ttt{LVC.template}.
 
 % ========================================================================================================= %
 
