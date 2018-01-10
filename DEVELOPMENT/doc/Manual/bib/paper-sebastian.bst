@@ -467,7 +467,7 @@ FUNCTION {doilink}
 { pop$ "" }
 { doi empty$
     { skip$ }
-    { "\href{http://dx.doi.org/" doi * "}{" * swap$ * "}" * }
+    { "\link{http://dx.doi.org/" doi * "}{" * swap$ * "}" * }
   if$
 }
 if$

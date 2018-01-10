@@ -7,6 +7,7 @@
 
 \definecolor{BL}{HTML}{0099e6}
 \definecolor{B}{HTML}{006699}
+\definecolor{V}{HTML}{660099}
 \definecolor{BD}{HTML}{00334d}
 
 \definecolor{RL}{HTML}{d65454}
@@ -19,6 +20,27 @@
 
 \definecolor{Y}{HTML}{EEEE4D}
 \definecolor{O}{HTML}{FF884D}
+\definecolor{O2}{HTML}{FFA500}
 \definecolor{T}{HTML}{4DC0FF}
 \definecolor{OL}{HTML}{FFAA80}
 \definecolor{P}{HTML}{DD88BB}
+
+
+\definecolor{TUR}{HTML}{40E0D0}
+\definecolor{BRO}{HTML}{A52A2A}
+\definecolor{SKY}{HTML}{87CEEB}
+
+
+% code so that I can put full citations anywhere with \bibentry{}
+\RequirePackage{bibentry}
+\nobibliography*
+\makeatletter
+\renewcommand\bibentry[1]{\nocite{#1}{\frenchspacing
+  \@nameuse{BR@r@#1\@extra@b@citeb}}}
+\makeatother
+
+
+% Do not break the page before a list starts
+\makeatletter
+\@beginparpenalty=10000
+\makeatother

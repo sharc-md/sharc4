@@ -40,8 +40,8 @@
     \node[rectangle,draw=none,anchor=center] at (6,0.75) {Not allowed};
 
     \begin{scope}[xshift=0cm, yshift=0cm]
-      \node[red] (A) at (0,0) {A};
-      \node[red] (B) at (0,-1.5) {A};
+      \node (A) at (0,0) {\color{red}A};
+      \node (B) at (0,-1.5) {\color{red}A};
       \draw[black, thick, ->] (A) --node[draw=none,right] {a} (B);
       \node[draw=none,anchor=north,rectangle] at (0,-1.8) {\begin{tabular}{c}Repeated\\species label\end{tabular}};
     \end{scope}
@@ -56,7 +56,7 @@
     \end{scope}
 
     \begin{scope}[xshift=6cm, yshift=0cm]
-      \node[red] (A) at (0,0) {A};
+      \node (A) at (0,0) {\color{red}A};
       \node (B) at (0,-1.5) {B};
       \draw[black, thick, ->] (A) --node[draw=none,right,red] {A} (B);
       \node[draw=none,anchor=north,rectangle] at (0,-1.8) {\begin{tabular}{c}Repeated\\label\end{tabular}};
