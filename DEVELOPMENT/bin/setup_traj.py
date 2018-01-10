@@ -1052,7 +1052,7 @@ from the initconds.excited files as provided by excite.py.
 
   # Setup SOCs
   if len(states)>1:
-    if 'soc' in Interfaces[num]['features']:
+    if 'soc' in Interfaces[INFOS['interface']]['features']:
       print 'Do you want to include spin-orbit couplings in the dynamics?\n'
       soc=question('Spin-Orbit calculation?',bool,True)
       if soc:
@@ -1068,7 +1068,7 @@ from the initconds.excited files as provided by excite.py.
   INFOS['nstates']=nstates
   INFOS['soc']=soc
   if INFOS['soc']:
-    INFOS['needed'].extend(Interfaces[num]['features']['soc'])
+    INFOS['needed'].extend(Interfaces[INFOS['interface']]['features']['soc'])
 
   # Coupling
   print '\nPlease choose the quantities to describe non-adiabatic effects between the states:'

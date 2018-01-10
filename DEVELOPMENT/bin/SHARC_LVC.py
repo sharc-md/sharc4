@@ -1,6 +1,6 @@
 #!/usr/bin/env python2
 
-# This script calculates QC results for a model system
+# This script calculates QC results for a system described by the LVC model
 #
 # Reads QM.in
 # Calculates SOC matrix, dipole moments, gradients, nacs and overlaps
