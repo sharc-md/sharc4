@@ -252,7 +252,7 @@ def dih(a,b,c,d):
   Q=rcross3d(q1,q2)
   if Q==[0.,0.,0.]:
     sign=1.
-  elif rangle3d(Q,r2)<90.:
+  elif rangle3d(Q,r2) < 90.*[deg2rad,1.][Radians==None]:
     sign=1.
   else:
     sign=-1.
@@ -462,8 +462,8 @@ Also converts the atom numbers to integer.'''
     x\tx coordinate (1 atom)\n
     y\ty coordinate (1 atom)\n
     z\tz coordinate (1 atom)\n
-    5\tCremer-Pople parameters q2 and phi2 (5 atoms)\n
-    6\tCremer-Pople parameters Q, phi, theta and Boeyens terms (6 atoms)\n
+    5\tCremer-Pople parameters q2, phi2, and Boeyens-like term (5 atoms)\n
+    6\tCremer-Pople parameters Q, phi, theta and Boeyens term (6 atoms)\n
     i\tangle between normal vectors of two 3-rings (6 atoms)\n
     j\tangle between normal vectors of two 4-rings (8 atoms)\n
     k\tangle between normal vectors of two 5-rings (10 atoms)\n

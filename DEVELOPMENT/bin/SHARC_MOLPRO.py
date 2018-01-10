@@ -1068,8 +1068,8 @@ def getgrad(out,mult,state,natom):
       jlines=ilines
       while not containsstring('\*\*\*',out[jlines]):
         if containsstring('SA-MC GRADIENT FOR STATE',out[jlines]):
-          line=out[jlines].replace('.',' ').split()
-          if state==int(line[4]):
+          line=out[jlines].replace('E',' ').replace('.',' ').split()
+          if state==int(line[5]):
             statefound=True
           break
         jlines+=1

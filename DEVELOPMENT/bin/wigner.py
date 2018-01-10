@@ -1170,8 +1170,11 @@ def lvc_input(molecule, modes):
     """
     Print an input file for for SHARC_LVC.py
     """
+    if not len(modes)==len(modes[0]['move']*3):
+      print 'Error: Less than 3N normal modes in file!'
+      print 'For LVC model setup, all 3N modes need to be present.'
+      sys.exit(1)
     print "Creating V0.txt for SHARC_LVC.py ..."
-    assert len(modes)==len(modes[0]['move']*3), 'trans/rot need to be included!'
 
     wf = open('V0.txt', 'w')
     wf.write('Geometry\n')

@@ -95,35 +95,35 @@ Pipeline:
   |                       |
   |                 Synchronizing
   |                       |
-  |          /------------3-------------------\ 
-  |          |                                |
-  |          |                          Convoluting(X)
-  |          |                                |
-  |          4-------\                        6---------\ 
-  |          |       |                        |         |
-  |          |   Averaging                    |       Sum(Y)
-  |          |       |                        |         |
-  |          |<------/                        |<--------/
-  |          |                                |
-  |          5-------\                        7---------\ 
-  |          |       |                        |         |
-  |          |   Statistics                   |   Integrating(X)
-  |          |       |                        |         |
-  |          |<------/                        |<--------/
-  |          |                                |
-  |          |                                8---------\ 
-  |          |                                |         |
-  |          |                    /-----------9         |
-  |          |                    |           |         |
-  |          |              Integrating(T)    |   Convoluting(T)
-  |          |                    |           |         |
-  |          |                    \---------->|         |
-  |          |                                |         |
-  |          |                                |<--------/
-  |          |                                |
-  |          |<------------------------------10
-  |          |                                |
-Type1      Type2                            Type3
+  |          /------------3--------------\ 
+  |          |                           |
+  |          |                     Convoluting(X)
+  |          |                           |
+  |          4-------\                   6---------\ 
+  |          |       |                   |         |
+  |          |   Averaging               |     Summing(Y)
+  |          |       |                   |         |
+  |          |<------/                   |<--------/
+  |          |                           |
+  |          5-------\                   7---------\ 
+  |          |       |                   |         |
+  |          |   Statistics              |   Integrating(X)
+  |          |       |                   |         |
+  |          |<------/                   |<--------/
+  |          |                           |
+  |          |                           8---------\ 
+  |          |                           |         |
+  |          |               /-----------9         |
+  |          |               |           |         |
+  |          |         Integrating(T)    |   Convoluting(T)
+  |          |               |           |         |
+  |          |               \---------->|         |
+  |          |                           |         |
+  |          |                           |<--------/
+  |          |                           |
+  |          |<-------------------------10
+  |          |                           |
+Type1      Type2                       Type3
 
 Procedure Explanations:
 =======================
@@ -163,25 +163,28 @@ Dataset Explanations:
   Independent trajectories with possibly different time axes
   (not intended for plotting)
   ***
-  0 TRAJ_00001/filename 0.0 x1 x2 ... y1 y2 ...
-  0 TRAJ_00001/filename 0.5 x1 x2 ... y1 y2 ...
-  0 TRAJ_00001/filename 1.0 x1 x2 ... y1 y2 ...
+##i  path                 time   x1   x2  ...   y1   y1  ...
+  0  TRAJ_00001/filename   0.0  1.6  3.1  ...  0.1  6.1  ...
+  0  TRAJ_00001/filename   0.5  1.7  2.7  ...  0.1  6.0  ...
+  0  TRAJ_00001/filename   1.0  1.9  2.2  ...  0.2  6.1  ...
   ...
 
-  1 TRAJ_00002/filename 0.0 x1 x2 ... y1 y2 ...
-  1 TRAJ_00002/filename 1.5 x1 x2 ... y1 y2 ...
+  1  TRAJ_00002/filename   0.0  1.7  2.9  ...  0.2  6.2  ...
+  1  TRAJ_00002/filename   1.0  1.8  2.3  ...  0.1  6.3  ...
+  1  TRAJ_00002/filename   2.0  1.7  1.6  ...  0.1  6.1  ...
   ...
   ***
 
 
 - Type2 dataset:
-  A common time axis, with possibly missing entries for some trajectories
+  Data with a common time axis, with possibly missing entries for some trajectories
   (can be plotted as hair figures, etc)
   ***
-  0.0  x1  y1  x2  y2  ... x1  y1  x2  y2  ...
-  0.5  x1  y1  x2  y2  ... nan nan nan nan ...
-  1.0  x1  y1  x2  y2  ... nan nan nan nan ...
-  1.5  x1  y1  x2  y2  ... x1  y1  x2  y2  ...
+##       <-- TRAJ_00001 -->  ...  <-- TRAJ_00002 -->  ...
+##time   x1   y1   x2   y2  ...   x1   y1   x2   y2  ...
+  0.0    1.6  0.1  3.1  6.1  ...  1.7  0.2  2.9  6.2  ...
+  0.5    1.7  0.1  2.7  6.0  ...  nan  nan  nan  nan  ...
+  1.0    1.9  0.2  2.2  6.1  ...  1.8  0.1  2.3  6.3  ...
   ...
   ***
 
@@ -190,14 +193,17 @@ Dataset Explanations:
   Common time and X axes, Y values obtained by convolution
   (can be plotted as 3D plots)
   ***
-  0.0  1.2  y1  y2 ...
-  0.0  1.3  y1  y2 ...
-  0.0  1.4  y1  y2 ...
+##time   x   y1  y2   ...
+  0.0  1.2  0.2  0.0  ...
+  0.0  1.3  0.3  0.0  ...
+  0.0  1.4  0.5  0.0  ...
+  0.0  1.5  0.7  0.0  ...
   ...
 
-  0.5  1.2  y1  y2 ...
-  0.5  1.3  y1  y2 ...
-  0.5  1.4  y1  y2 ...
+  0.5  1.2  0.2  0.0  ...
+  0.5  1.3  0.3  0.0  ...
+  0.5  1.4  0.5  0.0  ...
+  0.5  1.5  0.7  0.0  ...
   ...
   ***
 **************************************************************************************************
@@ -353,7 +359,7 @@ def centerstring(string,n,pad=' '):
     return  pad*((n-l+1)/2)+string+pad*((n-l)/2)
 
 def displaywelcome():
-  print 'Script for setup of initial conditions started...\n'
+  print 'Script for data collecting started...\n'
   string='\n'
   string+='  '+'='*80+'\n'
   string+='||'+centerstring('',80)+'||\n'
@@ -889,7 +895,6 @@ def do_calc(INFOS):
   outindex=0
   outstring=''
 
-  # TODO: new option: total mean/stdev for all time steps (cumulative)
   # TODO: 
 
   print '\n\n>>>>>>>>>>>>>>>>>>>>>> Started data analysis\n'
@@ -1550,10 +1555,10 @@ def stdev_geom(data,mean=None):
 def stringType1(type1,INFOS):
   # make header
   longest=max( [len(key) for key in type1] )
-  string=   '#    1 '+' '*(longest-1)+'2'+' '*14+'3'
+  string=   '#    1 '+' '*(longest-1)+'2'+' '*15+'3'
   for i in range(2*len(INFOS['colX'])):
-    string+='            %3i' % (i+4)
-  string+='\n#Index '+' '*(longest-8)+'Filename'+' '*10+' Time'
+    string+='             %3i' % (i+4)
+  string+='\n#Index '+' '*(longest-8)+'Filename'+' '*11+' Time'
   for i in INFOS['colX']:
     string+='    X Column %3i' % (i)
   for i in INFOS['colY']:

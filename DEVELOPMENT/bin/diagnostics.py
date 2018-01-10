@@ -1,9 +1,5 @@
 #!/usr/bin/env python2
 
-# Interactive script for the setup of dynamics calculations for SHARC #change
-# 
-# usage: python setup_traj.py #change
-
 from copy import deepcopy 
 import math
 import sys
@@ -451,12 +447,12 @@ def get_general():
     'normal_termination':'Checks for exit status of trajectory (RUNNING, CRASHED, FINISHED).',
     'missing_output':'Checks if "output.lis", "output.log", "output.xyz", "output.dat" are existing.',
     'missing_restart':'Checks if "restart.ctrl", "restart.traj", "restart/" are existing.',
-    'etot_window':'Maximum permittible drift in total energy (in eV).',
-    'etot_step':'Maximum permittible total energy difference between two successive timesteps (in eV).',
-    'epot_step':'Maximum permittible active state potential energy difference between two successive timesteps (in eV). Not checked for timesteps where a hop occurred.',
-    'ekin_step':'Maximum permittible kinetic energy difference between two successive timesteps (in eV).',
-    'pop_window':'Maximum permittible drift in total population.',
-    'hop_energy':'Maximum permittible change in active state energy difference during a surface hop (in eV).',
+    'etot_window':'Maximum permissible drift in total energy (in eV).',
+    'etot_step':'Maximum permissible total energy difference between two successive timesteps (in eV).',
+    'epot_step':'Maximum permissible active state potential energy difference between two successive timesteps (in eV). Not checked for timesteps where a hop occurred.',
+    'ekin_step':'Maximum permissible kinetic energy difference between two successive timesteps (in eV).',
+    'pop_window':'Maximum permissible drift in total population.',
+    'hop_energy':'Maximum permissible change in active state energy difference during a surface hop (in eV).',
     'intruders':'Checks if intruder state messages in "output.log" refer to active state.'
   }
   if LD_dynamics:
@@ -608,6 +604,8 @@ def check_runtime(path, trajectories,INFOS):
   # get maximum run time
   f=os.path.join(path,'output.log')
   f=readfile(f)
+  if not check_printlevel(f):
+    pass
   trajectories[path]['tana'] = 0
   for line in reversed(f):
     trajectories[path]['laststep']=0
@@ -694,6 +692,18 @@ def check_length(path,trajectories,filelength,filename):
     return 'Wrong step nr in %s ' % (filename)
   else:
     return ''
+
+# ======================================================================================================================
+
+def check_printlevel(logdata):
+  for line in logdata:
+    if "Print level:" in line:
+      level=int(line.split()[-1])
+      if level<2:
+        return False
+      else:
+        return True
+  return False
 
 # ======================================================================================================================
 
@@ -869,6 +879,9 @@ def check_intruders(path,trajectories,INFOS,lis,tana,problem_length):
     f=readfile(f)
     ok=True
     problem=''
+    notpossible=False
+    if not check_printlevel(f):
+      notpossible=True
     for line in f:
       if 'ntering timestep' in line:
         tstep=int(line.split()[3])
@@ -885,11 +898,16 @@ def check_intruders(path,trajectories,INFOS,lis,tana,problem_length):
           break
       if 'State: ' in line:
         intruder=int(line.split()[1])
-        state = lis[tstep][2]
-        if state==intruder:
-          problem='Intruder state found'
+        if not notpossible:
+          state = lis[tstep][2]
+          if state==intruder:
+            problem='Intruder state found'
+            ok=False
+            tana=tstep*trajectories[path]['dtstep']
+        else:
+          problem='Intruder state found (cannot determine time step)'
           ok=False
-          tana=t
+          tana=0.
         if not ok:
           break
     else:

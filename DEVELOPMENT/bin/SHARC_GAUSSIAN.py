@@ -1507,7 +1507,7 @@ def readQMin(QMinfilename):
               'unrestricted_triplets'   :False
               }
     strings ={'basis'                   :'6-31G',
-              'functional'              :'PBE',
+              'functional'              :'PBEPBE',
               'dispersion'              :'',
               'grid'                    :'finegrid',
               'scrf'                    :'',

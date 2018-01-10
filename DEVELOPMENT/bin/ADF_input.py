@@ -560,7 +560,7 @@ def setup_input(INFOS):
   if INFOS['Exci']==True and INFOS['ExcGO'] == True:
     if INFOS['ctype']==1:
         s+='GRADIENT\n\n'
-     s+='EXCITEDGO\n %s\n STATE A %i\n OUTPUT=4\nEND\n\n' %(INFOS['SINGTRIP'],INFOS['STATE'])
+    s+='EXCITEDGO\n %s\n STATE A %i\n OUTPUT=4\nEND\n\n' %(INFOS['SINGTRIP'],INFOS['STATE'])
 
   if INFOS['COSMO']== True:
      if INFOS['User']==True:

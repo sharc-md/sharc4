@@ -531,8 +531,8 @@ def get_general():
       INFOS['needed'].extend(Interfaces[num]['features']['nacdr'])
 
 
-  print '\nPlease enter the values for the maximum allowed displacement per timestep \n(choose smaller value if starting from a good guess and for larger sigma or smaller alpha).'
-  INFOS['maxstep']=question('maxstep: ',float,[0.3])[0]
+  print '\nPlease enter the values for the maximum allowed displacement per timestep \n(choose smaller value if starting from a good guess and for large sigma or small alpha).'
+  INFOS['maxstep']=question('Maximum allowed step: ',float,[0.3])[0]
 
 
 
@@ -1782,6 +1782,8 @@ Typical values for ADF are 0.90-0.98 for LDA/GGA functionals and 0.50-0.80 for h
       f=[ int(i) for i in l.split() ]
       INFOS['theodore.frag'].append(f)
     INFOS['theodore.count']=len(INFOS['theodore.prop'])+len(INFOS['theodore.frag'])**2
+  else:
+    INFOS['theodore']=False
 
 
   return INFOS
@@ -2461,6 +2463,7 @@ def writeOrcascript(INFOS,iconddir):
 %%geom
   maxstep %f
   Trust %f
+  maxiter 200
 end
 
 * xyzfile 0 1 %s

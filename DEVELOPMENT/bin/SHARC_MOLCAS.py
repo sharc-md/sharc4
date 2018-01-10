@@ -1910,8 +1910,8 @@ def readQMin(QMinfilename):
         line=QMin['savedir'][0]
     else:
         line=get_sh2cas_environ(sh2cas,'savedir',False,False)
-        if line==None:
-            line=QMin['pwd']+'/SAVEDIR/'
+        if line==None or line=='':
+            line=os.path.join(QMin['pwd'],'SAVEDIR')
     line=os.path.expandvars(line)
     line=os.path.expanduser(line)
     line=os.path.abspath(line)

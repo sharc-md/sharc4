@@ -930,21 +930,21 @@ Note that this is applied to all initial conditions.'''
     if not 'erange' in INFOS:
       INFOS['erange']=[float('-inf'),float('inf')]
 
-
-  if INFOS['excite']==3:
+  if INFOS['read_QMout']:
     print centerstring('Considered states',60,'-')+'\n'
-    print 'From which state should the initial conditions be excited?'
-    INFOS['initstate']=question('Initial state?',int,[1])[0]-1
-    if 'states' in INFOS:
-      print print_statemap(get_statemap(INFOS['states']))
-    allstates=question('Do you want to include all states in the selection?',bool,True)
-    if allstates:
-      INFOS['allowed']=set()
-    else:
-      print '\nPlease enter the states which you want to EXCLUDE from the selection procedure.'
-      a=question('Excluded states:',int,ranges=True)
-      INFOS['allowed']=set([-i for i in a])
-    print ''
+    print 'From which state should the excitation originate (for computation of excitation energies and oscillator strength)?'
+    INFOS['initstate']=question('Lower state for excitation?',int,[1])[0]-1
+    if INFOS['excite']==3:
+      if 'states' in INFOS:
+        print print_statemap(get_statemap(INFOS['states']))
+      allstates=question('Do you want to include all states in the selection?',bool,True)
+      if allstates:
+        INFOS['allowed']=set()
+      else:
+        print '\nPlease enter the states which you want to EXCLUDE from the selection procedure.'
+        a=question('Excluded states:',int,ranges=True)
+        INFOS['allowed']=set([-i for i in a])
+      print ''
   else:
     INFOS['initstate']=0
 

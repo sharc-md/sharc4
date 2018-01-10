@@ -1473,6 +1473,26 @@ The MOLCAS interface will generate the appropriate MOLCAS input automatically.
   print ''
 
 
+  ## QMMM TODO!!
+  #if qmmm_job(INFOS['ADF.template'],INFOS):
+    #print centerstring('ADF QM/MM setup',60,'-')+'\n'
+    #print 'Your template specifies a QM/MM calculation. Please give the force field and connection table files.'
+    #while True:
+      #filename=question('Force field file:',str)
+      #if not os.path.isfile(filename):
+        #print 'File %s does not exist!' % (filename)
+      #else:
+        #break
+    #INFOS['ADF.fffile']=filename
+    #while True:
+      #filename=question('Connection table file:',str)
+      #if not os.path.isfile(filename):
+        #print 'File %s does not exist!' % (filename)
+      #else:
+        #break
+    #INFOS['ADF.ctfile']=filename
+
+
   print centerstring('Initial wavefunction: MO Guess',60,'-')+'\n'
   print '''Please specify the path to a MOLCAS JobIph file containing suitable starting MOs for the CASSCF calculation. Please note that this script cannot check whether the wavefunction file and the Input template are consistent!
 '''
@@ -2383,7 +2403,7 @@ def get_runscript_info(INFOS):
 Note that in any case this script will setup the input subdirectories in the current working directory. 
 '''
   print 'Do you want to use mode 1 \n(actually perform the calculations in subdirectories of: %s)\n' % (INFOS['cwd'])
-  here=question('Calculate here?',bool,False)
+  here=question('Calculate here?',bool,True)
   if here:
     INFOS['here']=True
   else:

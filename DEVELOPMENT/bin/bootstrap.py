@@ -380,7 +380,7 @@ def get_general():
   # nboot
   print centerstring('Number of bootstrap cycles',60,'-')
   print '\nPlease enter the number of bootstrapping cycles to be performed.'
-  INFOS['nboot']=question('Number of bootstrap cycles: ',int,[3])[0]
+  INFOS['nboot']=question('Number of bootstrap cycles: ',int,[10])[0]
 
   # Random number seed
   print '\nPlease enter a random number generator seed (type "!" to initialize the RNG from the system time).'
@@ -483,7 +483,10 @@ def do_calc(INFOS):
 
   # enter the main loop: generating files for gnuplot, running gnuplot, reading out...
   print '\n>>>>>>>>>>>>> Starting the bootstrapping cycles ...'
-  print '             (use Ctrl-C to skip the remaining cycles and go to the final analysis)\n'
+  if INFOS['ncpu']>1:
+    print '             (do not use Ctrl-C in parallel mode)\n'
+  else:
+    print '             (use Ctrl-C to skip the remaining cycles and go to the final analysis)\n'
   outfile=open('bootstrap_cycles.out','w')
   string='Step | %14s | %6s: %8s     %8s | ...\n' % ('Run Time','Key','g.Mean','g.Stdv')
   string+='='*59

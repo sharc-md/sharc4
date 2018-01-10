@@ -493,7 +493,7 @@ def ess_dyn(INFOS):
         cov_eigvects = t_eigvects.transpose()
         #print cov_eigvals[0]
         #print cov_eigvects[0]
-        vib_molden.make_molden_file(struc=av_struc, freqs=cov_eigvals, vibs=cov_eigvects, out_file='ESS_DYN/'+descr+'/total_cov/'+      str(interv[0])+'-'+str(interv[1])+'.mld')
+        vib_molden.make_molden_file(struc=av_struc, freqs=cov_eigvals, vibs=cov_eigvects, out_file='ESS_DYN/'+descr+'/total_cov/'+      str(interv[0])+'-'+str(interv[1])+'.molden')
     
     # covariance of time averaged structures
     for i in xrange(num_steps):
@@ -527,7 +527,7 @@ def ess_dyn(INFOS):
            t_eigvects=t_eigvects_nonmawe
         cov_eigvects = t_eigvects.transpose()
          
-        vib_molden.make_molden_file(struc=av_struc, freqs=cov_eigvals, vibs=cov_eigvects, out_file='ESS_DYN/'+descr+'/cross_av/'+str(interv[0])+'-'+str(interv[1])+'.mld')
+        vib_molden.make_molden_file(struc=av_struc, freqs=cov_eigvals, vibs=cov_eigvects, out_file='ESS_DYN/'+descr+'/cross_av/'+str(interv[0])+'-'+str(interv[1])+'.molden')
     
 
 def main():

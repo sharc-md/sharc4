@@ -310,8 +310,8 @@ def get_general():
   #print ''
 
 
-  print centerstring('Path to frequencies file',60,'-')
-  print '\nPlease enter the path to the Molden frequencies file for your molecule. The contained geometry will be used as reference geometry.\n(Atomic order must be the same as in the trajectories!)'
+  print centerstring('Path to normal mode file',60,'-')
+  print '\nPlease enter the path to the Molden normal mode file for your molecule. The contained geometry will be used as reference geometry.\n(Atomic order must be the same as in the trajectories!)'
   print ''
   refvib=question('Path: ',str)
   refvib=os.path.expanduser(os.path.expandvars(refvib))
@@ -349,11 +349,14 @@ def get_general():
   INFOS['timestep']=timestep
   print ''
 
-  print centerstring('Automatic plot creation',60,'-')
-  print ''
-  autoplot=question('Do you want to automatically create plots of your data?',bool,False)
-  INFOS['plot']=autoplot
-  print ''
+  if plot_possible:
+    print centerstring('Automatic plot creation',60,'-')
+    print ''
+    autoplot=question('Do you want to automatically create plots of your data?',bool,False)
+    INFOS['plot']=autoplot
+    print ''
+  else:
+    INFOS['plot']=False
 
 
   symmodes_list=[]
@@ -361,7 +364,7 @@ def get_general():
   print '\nPlease enter the numbers of the normal modes (numbering as in the Molden file) whose absolute value should be considered in the analysis. Without this setting, the average for all non-totally symmetric modes should be zero. Default is to not compute the absolute. Entering -1 ends this input section.'
   print ''
   while True:
-    modes_new=question('Symmetric normal modes:',int,[-1],ranges=True)
+    modes_new=question('Non-totally symmetric normal modes:',int,[-1],ranges=True)
     if -1 in modes_new:
       break
     elif any( [i<=0 for i in modes_new] ):
@@ -670,7 +673,7 @@ def plot_summary(INFOS):
         print 'Drawing plots ...'
         
         # Plots for time dependent cross averages
-        plotting.mean_std_from_files(mean_file=out_dir+'/mean_against_time.txt',out_dir=out_dir+'/time_plots',xlist=[dt * i for i in xrange(num_steps)],std_file=out_dir+'/std_against_time.txt')
+        plotting.mean_std_from_files(mean_file=out_dir+'/mean_against_time.txt',out_dir=out_dir+'/time_plots',xlist=[INFOS['timestep'] * i for i in xrange(num_steps)],std_file=out_dir+'/std_against_time.txt')
         
         # Bar graphs with the standard deviation of time dependent cross averages
         plotting.bars_from_file(in_file=out_dir+'/total_std.txt', out_dir=out_dir+'/bar_graphs/total_std')
@@ -684,7 +687,7 @@ def plot_1traj(ind, modes_list=None):
     """
     if plot_possible:
         print 'Drawing plots for trajectory ' + str(ind) + ' ...'
-        plotting.mean_std_from_files(mean_file='TRAJ'+str(ind)+'/RESULTS/nma_'+descr+'.txt',out_dir='TRAJ'+str(ind)+'/RESULTS/nma_plots/'+descr,xlist=[dt * i for i in xrange(num_steps)],col_list=modes_list)
+        plotting.mean_std_from_files(mean_file='TRAJ'+str(ind)+'/RESULTS/nma_'+descr+'.txt',out_dir='TRAJ'+str(ind)+'/RESULTS/nma_plots/'+descr,xlist=[INFOS['timestep'] * i for i in xrange(num_steps)],col_list=modes_list)
     else:
         print 'Plotting not possible'
     
