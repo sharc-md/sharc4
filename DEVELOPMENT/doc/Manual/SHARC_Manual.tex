@@ -331,7 +331,45 @@ The main features of the \sharc\ suite are:
 
 These features are new in \sharc\ Version 2.0 (2018):
 \begin{itemize}
-  \item 
+  \item Dynamics program \ttt{sharc.x}:
+  \begin{itemize}
+    \item New methods: AFSSH for decoherence, GFSH for hopping probabilities, reflection after frustrated hop.
+    \item Atom masking for size-extensive decoherence and rescaling.
+    \item Much better wave function and $\VEC{U}$ matrix phase tracking.
+    \item Support for on-the-fly computation of Dyson norms and \textsc{TheoDORE} descriptors.
+    \item Option to gracefully stop trajectories.
+  \end{itemize}
+  \item Fully integrated, efficient wave function overlap program \ttt{wfoverlap.x}
+  \item Quantum chemistry interfaces:
+  \begin{itemize}
+    \item \textsc{Molpro}: overhauled, uses \ttt{wfoverlap.x}, gives consistent phase between CASSCF and CI wave functions, can do Dyson norms.
+    \item \textsc{Molcas}: overhauled, can do (MS)-CASPT2 (numerical gradients), QM/MM, Cholesky, Dyson norms, is parallelized, \todo{works with \textsc{Molcas} version XXX}.
+    \item \textsc{Columbus}: overhauled, works with \ttt{wfoverlap.x}, can use \textsc{Dalton} integrals, can use \textsc{Molcas} orbitals, can do Dyson norms.
+    \item \textsc{Analytical}: ---
+    \item \textsc{Turbomole}: new interface ,can do ADC(2) and CC2; has SOC, overlaps, works with \textsc{TheoDORE}.
+    \item \textsc{ADF}: new interface, can do TD-DFT; has SOC, overlaps, Dyson norms, QM/MM, works with \textsc{TheoDORE}.
+    \item \textsc{Gaussian}: new interface, can do TD-DFT; has overlaps, Dyson norms, works with \textsc{TheoDORE}.
+    \item LVC: new interface, can do (analytical) linear vibronic coupling models.
+  \end{itemize}
+  \item Auxilliary scripts:
+  \begin{itemize}
+    \item \ttt{wigner.py}: elevated temperature sampling.
+    \item \ttt{amber\_to\_initconds.py}: new script, converts \textsc{Amber} trajectories to \sharc\ initial conditions.
+    \item \ttt{sharctraj\_to\_initconds.py}: new script, converts \sharc\ trajectories to \sharc\ initial conditions.
+    \item \ttt{spectrum.py}: log-normal convolution, density of states.
+    \item \ttt{data\_extractor.x}: new quantities to extract.
+    \item \ttt{diagnostics.py}: new script, checks all trajectories prior to analysis.
+    \item \ttt{populations.py}: new analysis modes
+    \item \ttt{transition.py}: new script, computes total number of hops in ensemble.
+    \item \ttt{make\_fitscript.py}: new script, prepares kinetic model fits to obtain time constants.
+    \item \ttt{bootstrap.py}: new script, calculates error estimates for time constants.
+    \item \ttt{trajana\_essdyn.py}: new script, performs essential dynamics analysis.
+    \item \ttt{trajana\_nma.py}: new script, performs normal mode analysis.
+    \item \ttt{data\_collector.py}: new script, performs generic data analysis (collecting, smoothing, convolution, integration).
+    \item \ttt{orca\_External}: new script, allows crossing point optimization with any method interfaced in \sharc.
+    \item Several input generation helpers.
+  \end{itemize}
+  \item Reworked tutorial using \textsc{Molcas} (which is free).
 \end{itemize}
 
 
@@ -724,6 +762,7 @@ The restart files contain the full state of a trajectory and its control variabl
 
 
 \section{Typical workflow for an ensemble of trajectories}
+\label{sec:typical_workflow}
 
 Usually, one is not interested in running only a single trajectory, since a single trajectory cannot reproduce the branching of a wave packet into different reaction channels. In order to do so, within surface hopping an ensemble of independent trajectories is employed. 
 
@@ -1976,7 +2015,7 @@ Table~\ref{tab:interface_files} shows the file names for interface-related input
                 &\textsc{Molcas}      &any     &\chk        &\chk        &\chk        &            &\chk    &\chk$^d$ &\chk &            &\chk \\
                 &\textsc{Columbus}    &any     &\chk$^e$    &\chk        &\chk        &\chk$^e$    &\chk    &         &\chk &            &     \\
     MR-CISD     &\textsc{Columbus}    &any     &\chk$^e$    &\chk        &\chk        &\chk$^e$    &\chk    &         &\chk &            &     \\
-    MS-CASPT2   &\textsc{Molcas}      &any     &\chk        &\chk        &\chk$^d$    &            &\chk    &         &\chk &            &     \\
+    MS-CASPT2   &\textsc{Molcas}      &any     &\chk        &\chk        &\chk$^d$    &            &\chk    &\chk$^d$ &\chk &            &     \\
     TD-DFT      &\textsc{ADF}         &any     &\chk$^f$    &\chk$^g$    &\chk        &            &\chk    &         &\chk &\chk        &\chk \\
                 &\textsc{Gaussian}    &any     &            &\chk$^g$    &\chk        &            &\chk    &         &\chk &\chk        &     \\
     ADC2        &\textsc{Turbomole}   &S, T    &\chk$^f$    &\chk        &\chk        &            &\chk    &         &     &\chk        &     \\
@@ -3287,7 +3326,6 @@ Here the $\epsilon_n$ are the vertical excitation energies, the $\eta_{mn}$ are 
 Two input files are needed:
 
 \paragraph{\ttt{V0.txt}} Contains all information to describe $V_0$: the equilibrium geometry, the frequencies $\omega_i$, and an orthogonal matrix containing the normal coordinates $K_{\alpha i}$.
-
 \begin{example}
 \begin{verbatim}
 Geometry
@@ -3302,6 +3340,7 @@ Mass-weighted normal modes
 ...
 \end{verbatim}
 \end{example}
+\ttt{V0.txt} can be created from a \textsc{Molden} file using \ttt{wigner.py}.
 
 \paragraph{\ttt{LVC.template}} Contains the state-specific information: $\epsilon_i$, $\kappa_i^{(n)}$, $\lambda_j^{(m,n)}$, $\eta_{mn}$, as well as (transition) dipole moments.
 Here, for multiplets $\epsilon_i$, $\kappa_i^{(n)}$, and $\lambda_j^{(m,n)}$ are shared between the multiplet components, whereas in the SOC and dipole moment matrices the multiplet components need to be considered explicitly.
@@ -3353,6 +3392,7 @@ DMZ I
 \end{verbatim}
 \end{example}
 Only the two first lines are mandatory, but then all states will have the same potentials (the ground state potential).
+This file can be prepared with \ttt{QMout2LVC.py}.
 
 
 \subsection{Preparing Template Files: \ttt{wigner.py} and \ttt{QMout2LVC.py}}\label{sec:QMout2LVC.py}
@@ -3361,6 +3401,7 @@ Both input files can be conveniently created using the \sharc\ tools. \ttt{V0.tx
 \begin{example}
 \ttt{\$SHARC/wigner.py -l <filename.molden>}
 \end{example}
+Note that this only works if all $3N$ normal modes are present in the file (unfortunately, some programs omit translations and rotations in the output).
 
 To obtain the LVC parameters, it is first necessary to perform a single-point computation at the ground state equilibrium geometry.
 Using the \ttt{QM.in} file, you can specify, which types of properties to compute. For the full LVC model, \ttt{SOC}, \ttt{DM}, \ttt{Grad}, and \ttt{NACDR} are needed, so use
@@ -3972,6 +4013,19 @@ Using \ttt{amber\_to\_initconds.py}, one can convert the results of an \textsc{A
 In order to use \ttt{amber\_to\_initconds.py}, it is necessary to first carry out an \textsc{Amber} simulation.
 You need to add the following options to the \textsc{Amber} MD input file: (i) \ttt{ntxo=1} to tell \textsc{Amber} to write ASCII restart files, (ii) \ttt{ntwr=-5000} to create a restart file every 5000 steps (other values are possible, but use the minus to not overwrite the restart files).
 This will create a set of \textsc{Amber} restart files called, e.g., \ttt{md.rst\_5000}, \ttt{md.rst\_10000}, ...
+
+Note that it is also necessary to reimage the \textsc{Amber} restart files, because \sharc\ does not work with periodic boundary conditions, but the \textsc{Amber} trajectories might use them.
+The reimaging can be performed with \textsc{Amber}'s tool \ttt{cpptraj}, using the following input:
+\begin{verbatim}
+parm <filename>.prmtop
+trajin <filename>.rst7
+autoimage
+trajout <filename2>.rst7
+run
+\end{verbatim}
+This command has to be repeated for each restart file which needs to be reimaged.
+If you saved the restart files in \textsc{Amber}'s newer NetCDF format, \ttt{cpptraj} can also be used to convert them to ASCII restart files.
+If you did not save restart files, \ttt{cpptraj} can even be used to generate restart files from the trajectory file (\ttt{.mdcrd}).
 
 With the restart files prepared, call \ttt{amber\_to\_initconds.py} like this:
 \begin{verbatim}
@@ -5180,6 +5234,8 @@ It also checks for conservation of total population, and for trajectories using 
 
 Note that the diagnostics script can also be used to automatically run the \ttt{data\_extractor.x} for all trajectories.
 
+Also note that \ttt{diagnostics.py} will not work if the \ttt{printlevel} in the \sharc\ trajectories was lower than 2.
+
 \subsection{Usage}
 
 The script is interactive, simply start it with no command-line arguments or options:
@@ -6028,6 +6084,7 @@ In order to do this, \ttt{data\_collector.py} creates a grid along the X axis ($
 The created \ttt{Type3} data set has $n_\text{X}$ data points for each time step and each X grid point.
 
 Using energies as X columns and oscillator strengths/intensities as Y columns, in this way it is possible to compute time-dependent spectra.
+\todo{Renormalize if number of trajectories changes.}
 
 \paragraph{Summing(Y)}
 
