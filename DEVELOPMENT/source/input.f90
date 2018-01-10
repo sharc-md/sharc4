@@ -205,8 +205,8 @@ module input
           write(u_log,*) '============================================================='
           write(u_log,*) '                       Simulation Time'
           write(u_log,*) '============================================================='
+          write(u_log,'(a,1x,i6,1x,a,1x,f6.3,1x,a)') 'Found nsteps=',ctrl%nsteps,'and stepsize=',ctrl%dtstep*au2fs,'fs.'
           if (printlevel>1) then
-            write(u_log,'(a,1x,i6,1x,a,1x,f6.3,1x,a)') 'Found nsteps=',ctrl%nsteps,'and stepsize=',ctrl%dtstep*au2fs,'fs.'
             write(u_log,'(a,1x,f9.3,1x,a)') 'This makes a total simulation time of ',ctrl%dtstep*ctrl%nsteps*au2fs,'fs.'
             write(u_log,'(a,1x,f7.4,1x,a)') 'The electronic wavefunction will be propagated using a ',&
             &ctrl%dtstep/ctrl%nsubsteps*au2fs, 'fs step.'
@@ -437,8 +437,8 @@ module input
       write(u_log,*) '============================================================='
       write(u_log,*) '                       Simulation Time'
       write(u_log,*) '============================================================='
+      write(u_log,'(a,1x,i6,1x,a,1x,f6.3,1x,a)') 'Found nsteps=',ctrl%nsteps,'and stepsize=',ctrl%dtstep,'fs.'
       if (printlevel>1) then
-        write(u_log,'(a,1x,i6,1x,a,1x,f6.3,1x,a)') 'Found nsteps=',ctrl%nsteps,'and stepsize=',ctrl%dtstep,'fs.'
         write(u_log,'(a,1x,f9.3,1x,a)') 'This makes a total simulation time of ',ctrl%dtstep*ctrl%nsteps,'fs.'
         write(u_log,'(a,1x,f7.4,1x,a)') 'The electronic wavefunction will be propagated using a ',&
         &ctrl%dtstep/ctrl%nsubsteps, 'fs step.'
@@ -559,7 +559,7 @@ module input
           stop 1
       endselect
     else
-      ctrl%coupling=1
+      ctrl%coupling=2
     endif
 
     ! spin-orbit couplings
@@ -574,7 +574,7 @@ module input
     endif
 
     ! request phase corrections from interface
-    ctrl%calc_phases=0
+    ctrl%calc_phases=1
     line=get_value_from_key('nophases_from_interface',io)
     if (io==0) then
       ctrl%calc_phases=0
@@ -768,18 +768,18 @@ module input
     ! Flags for switching on/off writing data to output.dat
     !
     ctrl%write_soc=1                     !< write SOC to output.dat or not \n 0=no soc, 1=write soc )
-    line=get_value_from_key('write_soc',io)
-    if (io==0) then
-      ctrl%write_soc=1
-    endif
-    line=get_value_from_key('nowrite_soc',io)
-    if (io==0) then
-      ctrl%write_soc=0
-    endif
-    if (ctrl%calc_soc==0 .and. ctrl%write_soc==1) then
-      write(u_log,*) 'Warning! Requested writing SOCs but no SOC calculated. Writing of SOC disabled.'
-      ctrl%write_soc = 0
-    endif
+!     line=get_value_from_key('write_soc',io)
+!     if (io==0) then
+!       ctrl%write_soc=1
+!     endif
+!     line=get_value_from_key('nowrite_soc',io)
+!     if (io==0) then
+!       ctrl%write_soc=0
+!     endif
+!     if (ctrl%calc_soc==0 .and. ctrl%write_soc==1) then
+!       write(u_log,*) 'Warning! Requested writing SOCs but no SOC calculated. Writing of SOC disabled.'
+!       ctrl%write_soc = 0
+!     endif
 
     ctrl%write_grad=0                     !< write gradients:   \n        0=no gradients, 1=write gradients
     line=get_value_from_key('write_grad',io)
@@ -819,7 +819,11 @@ module input
       ctrl%write_NACdr = 0
     endif
 
-    ctrl%write_property1d=0                !< write property vectors:   \n        0=no property, 1=write property
+    if (ctrl%theodore==1) then
+      ctrl%write_property1d=1
+    else
+      ctrl%write_property1d=0                !< write property vectors:   \n        0=no property, 1=write property
+    endif
     line=get_value_from_key('write_property1d',io)
     if (io==0) then
       ctrl%write_property1d=1
@@ -829,6 +833,11 @@ module input
       ctrl%write_property1d=0
     endif
 
+    if (ctrl%ionization==1) then
+      ctrl%write_property2d=1
+    else
+      ctrl%write_property2d=0                !< write property vectors:   \n        0=no property, 1=write property
+    endif
     ctrl%write_property2d=0                !< write property matrices:   \n        0=no property, 1=write property
     line=get_value_from_key('write_property2d',io)
     if (io==0) then
@@ -943,11 +952,12 @@ module input
       endif
       write(u_log,*)
 
-      if (ctrl%write_soc==0) then
-        write(u_log,'(a)') 'Not writing Spin-Orbit couplings.'
-      else
-        write(u_log,'(a)') 'Writing Spin-Orbit couplings.'
-      endif
+!       if (ctrl%write_soc==0) then
+!         write(u_log,'(a)') 'Not writing Spin-Orbit couplings.'
+!       else
+!         write(u_log,'(a)') 'Writing Spin-Orbit couplings.'
+!       endif
+    if (printlevel>1) then
       if (ctrl%write_overlap==0) then
         write(u_log,'(a)') 'Not writing overlap matrix.'
       else
@@ -974,13 +984,14 @@ module input
         write(u_log,'(a)') 'Writing property matrices.'
       endif
       write(u_log,*)
+    endif
 
     endif
 
   ! =====================================================
 
   ! fill up the other ctrl parameters:
-  ! cwd, ezero, scalingfactor, printlevel, RNGseed, dampeddyn, decoherence, decoherence_type, decoherence_alpha
+  ! cwd, ezero, scalingfactor, printlevel, RNGseed, dampeddyn, decoherence, decoherence_scheme, decoherence_alpha
 
     ! current directory ============================================
 
@@ -1060,7 +1071,7 @@ module input
     endif
 
     ! decoherence ============================================
-    ! alternatively one can use the decoherence/nodecoherence or decoherence_type keywords
+    ! alternatively one can use the decoherence/nodecoherence or decoherence_scheme keywords
 
     line=get_value_from_key('decoherence',io)
     if (io==0) then
@@ -1074,7 +1085,7 @@ module input
       ctrl%decoherence=0
     endif
 
-    line=get_value_from_key('decoherence_type',io)
+    line=get_value_from_key('decoherence_scheme',io)
     if (io==0) then
       select case (trim(line))
         case ('none')
@@ -1084,7 +1095,7 @@ module input
         case ('afssh') 
           ctrl%decoherence=2
         case default
-          write(0,*) 'Unknown keyword ',trim(line),' to "decoherence_type"!'
+          write(0,*) 'Unknown keyword ',trim(line),' to "decoherence_scheme"!'
           stop 1
       endselect
     endif   
@@ -1303,7 +1314,7 @@ module input
       write(u_log,*) 'HINT: "ekincorrect parallel_nac" ignores "atommask".'
     endif
     if (ctrl%decoherence==2) then
-      write(u_log,*) 'HINT: "decoherence_type afssh" ignores "atommask".'
+      write(u_log,*) 'HINT: "decoherence_scheme afssh" ignores "atommask".'
     endif
     if (ctrl%reflect_frustrated==2) then
       write(u_log,*) 'HINT: "reflect_frustrated parallel_nac" ignores "atommask".'
@@ -1332,6 +1343,8 @@ module input
             read(u_i_atommask,*) ctrl%atommask_a(i)
           enddo
           close(u_i_atommask)
+      case ('none')
+          continue
       case default
         write(0,*) 'Unknown option for keyword atommask!'
         stop 1
@@ -1728,13 +1741,13 @@ module input
 
   ! =====================================================
 
-  ! check for floquet keyword
-    if (printlevel>1) then
-      write(u_log,*) '============================================================='
-      write(u_log,*) '                     Floquet settings'
-      write(u_log,*) '============================================================='
-      write(u_log,'(A)') 'Not yet implemented.'
-    endif
+!   ! check for floquet keyword
+!     if (printlevel>1) then
+!       write(u_log,*) '============================================================='
+!       write(u_log,*) '                     Floquet settings'
+!       write(u_log,*) '============================================================='
+!       write(u_log,'(A)') 'Not yet implemented.'
+!     endif
 
   ! =====================================================
   ! make trajectory hash

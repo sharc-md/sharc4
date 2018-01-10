@@ -229,6 +229,12 @@ program data_extractor
       write_expecmch = .true.
       write_coeffdiab = .true.
       write_dipact = .true.
+    elseif (trim(args(i)) == "-z") then
+      write_energy = .true.
+      write_coeffdiag = .true.
+      write_coeffmch = .true.
+      write_prob = .true.
+      write_expec = .true.
     elseif (trim(args(i)) == "-h") then
       call print_usage(0)
       stop 
@@ -894,8 +900,11 @@ program data_extractor
     if (write_dipact)  then
       ! write to fosc_act.out
       write(u_fosc_act,'(2X,1000(ES20.12E3,1X))') &
-      &step*dtstep,(real(H_diag_ss(istate,istate)-H_diag_ss(state_diag,state_diag))*au2eV,istate=1,nstates),&
+      &step*dtstep,(abs(real(H_diag_ss(istate,istate)-H_diag_ss(state_diag,state_diag)))*au2eV,istate=1,nstates),&
       (expec_dm_act(istate),istate=1,nstates)
+!       write(u_fosc_act,'(2X,1000(ES20.12E3,1X))') &
+!       &step*dtstep,(real(H_diag_ss(istate,istate)-H_diag_ss(state_diag,state_diag))*au2eV,istate=1,nstates),&
+!       (expec_dm_act(istate),istate=1,nstates)
     endif
 
 
