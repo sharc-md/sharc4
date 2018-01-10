@@ -990,12 +990,12 @@ from the initconds.excited files as provided by excite.py.
   print centerstring('Simulation time',60,'-')+'\n'
   print 'Please enter the total simulation time.'
   while True:
-    num=question('Simulation time (fs):',float,[1000.])[0]
-    if num<=0:
+    num2=question('Simulation time (fs):',float,[1000.])[0]
+    if num2<=0:
       print 'Simulation time must be positive!'
       continue
     break
-  INFOS['tmax']=num
+  INFOS['tmax']=num2
 
 
   # Timestep
@@ -1007,7 +1007,7 @@ from the initconds.excited files as provided by excite.py.
       continue
     break
   INFOS['dtstep']=dt
-  print '\nSimulation will have %i timesteps.' % (num/dt+1)
+  print '\nSimulation will have %i timesteps.' % (num2/dt+1)
 
 
   # number of substeps
