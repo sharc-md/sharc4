@@ -1,0 +1,164 @@
+\documentclass[11pt]{beamer}
+
+\usepackage{libertine}
+\usepackage[libertine]{newtxmath}
+\usepackage{beramono}
+\usepackage[utf8x]{inputenc}
+\usepackage[T1]{fontenc}
+
+
+\usepackage{tikz,graphicx,siunitx,pgfplots,amsmath}
+\usepackage{mystuff}
+\usepackage[version=3]{mhchem}
+\usepackage[active,tightpage]{preview}
+\PreviewEnvironment{tikzpicture}
+\setlength\PreviewBorder{1pt}
+\setlength{\textwidth}{246pt}
+\pgfplotsset{every tick label/.append style={/pgf/number format/1000 sep={}}}
+\pgfplotsset{compat=1.3}
+\usetikzlibrary{plotmarks,fit,positioning}
+\DeclareSIUnit\year{y}
+\usetikzlibrary{calc}
+\usetikzlibrary{decorations}
+
+% \usepackage{sfmath}
+
+
+
+
+
+
+
+
+
+
+
+
+\begin{document}
+  \begin{tikzpicture}[font=\sffamily, >=stealth, scale=1, thick]
+
+
+
+\tikzset{
+    every node/.style={
+        font=\bfseries,
+        rectangle, rounded corners, draw=B, fill=B!20, anchor=center,
+        minimum height=0.6cm
+    },
+}
+
+  \node (or)  at ( -4,0) {Orca};
+  \node (sh)  at (  0,0) {orca\_External};
+  \node (qc)  at (  4,0) {Interface};
+
+\tikzset{
+    every node/.style={
+        font=\bfseries\footnotesize,
+        rectangle, rounded corners, draw=B, fill=B!20, anchor=center,
+        minimum height=0.6cm
+    },
+}
+
+  \node[anchor=west] (qc1)  at (  6,+2.1) {\textsc{Molpro}};
+  \node[anchor=west] (qc2)  at (  6,+1.5) {\textsc{Molcas}};
+  \node[anchor=west] (qc3)  at (  6,+0.9) {\textsc{Columbus}};
+  \node[anchor=west] (qc4)  at (  6,+0.3) {Analytical};
+  \node[anchor=west] (qc5)  at (  6,-0.3) {ADF};
+  \node[anchor=west] (qc6)  at (  6,-0.9) {\textsc{Turbomole}};
+  \node[anchor=west] (qc7)  at (  6,-1.5) {\textsc{Gaussian}};
+  \node[anchor=west] (qc8)  at (  6,-2.1) {LVC};
+
+  \node[anchor=west] (aux1) at (  5,-2.9) {\textsc{Wfoverlap}};
+%   \node[anchor=west] (aux2) at (  5,-3.5) {\textsc{TheoDORE}};
+
+
+
+\tikzset{
+  every node/.style={
+    font=,
+    rectangle, rounded corners, draw=G, fill=G!20, anchor=center,
+    minimum height=0.6cm
+  },
+}
+
+%   \node (i1) at (-0.5,2.0) {input};
+%   \node (i2) at (-0.5,2.6) {geom};
+%   \node (i3) at (-0.5,3.2) {veloc};
+
+\tikzset{
+  every node/.style={
+    font=,
+    rectangle, rounded corners, draw=Y, fill=Y!20, anchor=center,
+    minimum height=0.6cm
+  }
+}
+
+  \node[anchor=west] (o1) at (-4,-2.6) {orca.log};
+  \node[anchor=west] (o2) at (-4,-3.2) {orca.trj};
+%   \node (o3) at (+0.5,-3.2) {output.log};
+%   \node (o4) at (+0.5,-3.8) {output.dat};
+%   \node (o5) at (+0.5,-4.4) {output.xyz};
+
+\tikzset{
+  every node/.style={
+    font=,
+    rectangle, rounded corners, draw=black, fill=black!10, anchor=center,
+    minimum height=0.6cm
+  }
+}
+
+  \node (q1) at (2.0,1) {QM.in};
+  \node (q2) at (2.0,-1) {QM.out};
+  \node (q-1) at (-2.0,1) {orca.extcomp.inp};
+  \node (q-2) at (-2.0,-1) {orca.extcomp.out};
+
+\tikzset{
+  every node/.style={
+    font=,
+    rectangle, rounded corners, draw=G, fill=G!20, anchor=center,
+    minimum height=0.6cm
+  }
+}
+
+  \node[anchor=east] (t1) at (4.0,3.2) {template};
+  \node[anchor=east] (t2) at (4.0,2.6) {resources};
+  \node[anchor=east] (t3) at (4.0,2.0) {initial MOs};
+
+  \node[anchor=west] (t-1) at (-4.0,3.2) {orca.inp};
+
+
+
+
+  \draw[->] (t-1.west) to[bend right] (or);
+  \draw[->] (t-1.east) to[bend left]  (sh);
+  \draw[<-] (o1.west) to[bend left] (or.260);
+  \draw[<-] (o2.west) to[bend left] (or.250);
+
+  \draw[->] (or) to (q-1.west);
+  \draw[->] (q-1.east) to (sh);
+  \draw[->] (sh) to (q-2.east);
+  \draw[->] (q-2.west) to (or);
+
+  \draw[->] (sh) to (q1.west);
+  \draw[->] (q1.east) to (qc);
+  \draw[->] (qc) to (q2.east);
+  \draw[->] (q2.west) to (sh);
+
+  \draw[->] (t1.east) to[bend left] (qc.70);
+  \draw[->] (t2.east) to[bend left] (qc.90);
+  \draw[->] (t3.east) to[bend left] (qc.110);
+
+  \draw[<->] (qc.21) -- (qc1.west);
+  \draw[<->] (qc.15) -- (qc2.west);
+  \draw[<->] (qc.9) -- (qc3.west);
+  \draw[<->] (qc.3) -- (qc4.west);
+  \draw[<->] (qc.357) -- (qc5.west);
+  \draw[<->] (qc.351) -- (qc6.west);
+  \draw[<->] (qc.345) -- (qc7.west);
+  \draw[<->] (qc.339) -- (qc8.west);
+
+  \draw[<->] (qc.280) to[bend right] (aux1.west);
+%   \draw[<->] (qc.260) to[bend right] (aux2.west);
+
+  \end{tikzpicture}
+\end{document}
