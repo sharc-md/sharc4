@@ -656,7 +656,11 @@ def check_termination(path, trajectories,INFOS,f):
     countmax = min(10,trajectories[path]['laststep'])
     for line in range(len(f)):
       if 'ntering timestep' in f[line].lower():
-        timesteps.append(f[line+2].strip())
+        check_old=f[line+2].split()
+        if check_old[0] == "Start":
+          timesteps.append(f[line+2].strip()[12:])
+        else:
+          timesteps.append(f[line+2].strip())
         count += 1
       if count == countmax: 
         break
@@ -665,10 +669,13 @@ def check_termination(path, trajectories,INFOS,f):
       tstart = datetime.datetime.strptime(timesteps[entry+1], '%a %b %d %H:%M:%S %Y') 
       tend = datetime.datetime.strptime(timesteps[entry+2], '%a %b %d %H:%M:%S %Y')
       total += tend-tstart
-
     for line in range(len(f)):
       if 'ntering timestep' in f[-line].lower():
-        tstart = datetime.datetime.strptime(f[-line+2].strip(), '%a %b %d %H:%M:%S %Y')
+        check_old=f[-line+2].split()
+        if check_old[0] == "Start":
+          tstart = datetime.datetime.strptime(f[-line+2].strip()[12:], '%a %b %d %H:%M:%S %Y')
+        else:
+          tstart = datetime.datetime.strptime(f[-line+2].strip(), '%a %b %d %H:%M:%S %Y')
     tend=datetime.datetime.now()
     tdiff = tend-tstart
     if 5*total/(count-2) < tdiff:
@@ -966,12 +973,12 @@ def do_calc(INFOS):
    Files may be corrupted.\n'
         trajectories[path]['error'] = True
 
-      try:
-        trajectories = check_termination(path, trajectories,INFOS,f)
-      except:
-        print '\n    An error occured while trying to extract the status.\n \
-   Files may be corrupted.\n'
-        trajectories[path]['error'] = True   
+      #try:
+      trajectories = check_termination(path, trajectories,INFOS,f)
+      #except:
+        #print '\n    An error occured while trying to extract the status.\n \
+   #Files may be corrupted.\n'
+        #trajectories[path]['error'] = True   
  
       # run data extractor
       update=False
