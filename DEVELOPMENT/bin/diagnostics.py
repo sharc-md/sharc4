@@ -651,6 +651,7 @@ def check_termination(path, trajectories,INFOS,f):
   else:
     #check how much time passed since last QM call and compare to average
     #calculation time. Label trajectory STUCK if too much time passed (5x).
+    #f = reversed(f)
     timesteps = []
     count = 0
     countmax = min(10,trajectories[path]['laststep'])
@@ -674,8 +675,10 @@ def check_termination(path, trajectories,INFOS,f):
         check_old=f[-line+2].split()
         if check_old[0] == "Start":
           tstart = datetime.datetime.strptime(f[-line+2].strip()[12:], '%a %b %d %H:%M:%S %Y')
+          break
         else:
           tstart = datetime.datetime.strptime(f[-line+2].strip(), '%a %b %d %H:%M:%S %Y')
+          break
     tend=datetime.datetime.now()
     tdiff = tend-tstart
     if 5*total/(count-2) < tdiff:
