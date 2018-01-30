@@ -1,0 +1,139 @@
+******************************************
+
+SHARC Program Suite
+
+Copyright (c) 2014 University of Vienna
+
+******************************************
+
+
+Terms of Use
+
+
+1. Recitals
+
+The University of Vienna (in following the "University"), whose principal 
+address is at Universitätsring 1, 1010 Vienna, Austria, developed the 
+Software "SHARC: Surface Hopping with Arbitrary Couplings. A program suite 
+to study the excited-state dynamics of molecules" (in the following the 
+"Software").
+
+The Software is not to be used for commercial purposes. Our Software provided 
+on the relevant website is solely to be used for research, teaching and 
+demonstration purposes and is free of any charge. The user of the Software 
+is required to have the appropriate knowledge and know-how to use the Software 
+(in the following the "User"). Any User should seek further guidance and make 
+independent enquiries before relying on the Software.
+
+2. Research, Teaching and Demonstration Purposes, Content and Liability
+
+The Software on the website is based on scientific work and is solely to be 
+used for research, teaching and demonstration purposes. The University, its 
+organs, associated companies, employees and representatives do not warrant, 
+represent or guarantee the functionality of the Software whatsoever.
+
+The use of the Software is at your own risk and your own responsibility. The 
+University, its organs, associated companies, employees and representatives do 
+not assume any liability for the use the Software including its results. The 
+University does not warrant, represent or guarantee any quality or performance 
+of the Software and shall not be responsible for including but not limited to
+
+- any contents of the Software in any kind;
+- any intermediate or permanent amendments to the Software of any kind;
+- any damages of any kind arising out of or in connection with the use 
+  of the Software (including without limitation damages for any 
+  consequential loss or loss of business opportunities or projects, or 
+  loss of profits) including but not limited to data theft or data loss;
+- any errors, faults, incompleteness, inaccuracy, inadequacy or 
+  unsuitability or incorrectness of the provided Software or its results;
+- any personal damages or damages to property due to the use of the Software;
+- any damages of computers, any viruses or Trojans or similar which were 
+  transferred or conveyed by the Software;
+- any defaults or incompleteness of the Software including any loss or damages 
+  of any kind due to or arising out of the use of the Software provided on the 
+  website;
+- any damages caused by third persons or subcontractors.
+
+Hence, the University explicitly reserves the right to amend, supplement, 
+delete or remove the Software, partially or as a whole, at any time and 
+without prior notice.
+
+The University explicitly refrains from and does not assume any liability 
+whatsoever for any products or services offered or advertised by third persons 
+via the provided Software.
+
+3. Acknowledgements
+
+The User shall acknowledge the authors or originators and use of the Software 
+in the publication of any results achieved through use of the Software in the 
+form of including the following references
+
+* S. Mai, M. Richter, M. Ruckenbauer, M. Oppel, P. Marquetand, L. González: 
+"SHARC: Surface Hopping Including Arbitrary Couplings - Program Package for 
+Non-Adiabatic Dynamics".  www.sharc-md.org (2014).
+
+* M. Richter, P. Marquetand, J. González-Vázquez, I. Sola, L. González: 
+"SHARC: ab Initio Molecular Dynamics with Surface Hopping in the Adiabatic 
+Representation Including Arbitrary Couplings". J. Chem. Theory Comput., 7, 
+1253-1258 (2011).
+
+The User shall reproduce a copyright notice on every copy of the Software 
+including partial copies and on any accompanying manuals and documentation in 
+the form "Copyright © 2014 University of Vienna. All rights reserved." 
+Trademark and other proprietary notices must also be reproduced but the User 
+has no longer right to use the name, arms, trademark, logo or other designation
+of the University of Vienna.
+
+4. Intellectual Property
+
+The contents of this Software are exclusively governed and construed by 
+Austrian intellectual property laws. Any copying, editing, distribution or use 
+of the contents require the prior consent of the respective authors or 
+originators which is not granted or deemed to be granted without the prior 
+written consent as described above.
+
+If and to the extent the User amends, edits or otherwise supplements the 
+Software with own information or other information of third persons, the User 
+shall be deemed as the new operator of the Software. Consequently, the User 
+expressly assumes any and all liability in connection with the Software.
+
+5. Indemnity
+
+The User is irrevocably obliged to indemnify the University, its employees, its
+organs, its associated companies and representatives for any damages in 
+particular claims and damage claims including legal cost for
+
+- any use of the Software by the User;
+- any violation or infringement of this terms of use partially or in whole;
+- any violation of rights of third persons in particular of intellectual 
+  property rights or personality rights of publicity or
+- any claims of third persons due to the use of the Software.
+
+This obligation of the User to indemnify shall not impede any other provision 
+of this disclaimer described herein and shall remain in force and effect after 
+the User has ceased to use the Software.
+
+If and to the extent third persons assert any claims against the University due
+to or arising out of the use by any User, such User shall be obliged to 
+indemnify and hold harmless the University for any damages asserted against 
+the University.
+
+6. Data Protection
+
+The User explicitly acknowledges that the University uses services of third 
+party suppliers (e.g. Google Analytics etc.) and consents to the use of its 
+data by the third party supplier. Further, the User consents to the use of the 
+respective IP address of the User or similar by third persons (e.g. for 
+statistical use). The University shall be entitled to provide third persons 
+with such data for statistical purposes. If personal data of Users is provided 
+to or used by third persons, the University shall not be deemed as a sponsor 
+pursuant to the Austrian Data Protection Act 2000.
+
+7. Final Provisions
+
+The Software was developed in Austria and is applicable through a server 
+located in Austria. Any and all interpretation of the content of the Software, 
+any claims with regards to the Software and any disputes in connection with the 
+Software shall be governed by Austrian law excluding any applicable collision 
+provisions. Exclusive place of jurisdiction shall be Vienna, Austria.
+
