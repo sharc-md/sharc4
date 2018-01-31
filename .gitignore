@@ -1,3 +1,6 @@
 *.[ox]
 *.mod
 *.pyc
+header.py
+header
+header.f90
