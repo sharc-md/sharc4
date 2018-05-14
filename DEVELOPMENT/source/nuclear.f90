@@ -246,8 +246,8 @@ subroutine Rescale_velocities(traj,ctrl)
           endif
           do i=1,3
             traj%veloc_ad(:,i)=traj%veloc_ad(:,i)-factor*&
-            &real(traj%gmatrix_ssad(traj%state_diag, traj%state_diag,:,:)-&
-            &traj%gmatrix_ssad(traj%state_diag_old, traj%state_diag_old,:,:))/traj%mass_a(:)
+            &real(traj%gmatrix_ssad(traj%state_diag, traj%state_diag,:,i)-&
+            &traj%gmatrix_ssad(traj%state_diag_old, traj%state_diag_old,:,i))/traj%mass_a(:)
           enddo
           if (printlevel>2) then
             write(u_log,'(A)') 'Velocity is rescaled along gradient difference vector.'
