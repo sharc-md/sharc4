@@ -633,6 +633,8 @@ module input
           ctrl%reflect_frustrated=1
         case ('parallel_nac') 
           ctrl%reflect_frustrated=2
+        case ('parallel_diff') 
+          ctrl%reflect_frustrated=3
         case default
           write(0,*) 'Unknown keyword ',trim(line),' to "reflect_frustrated"!'
           stop 1
@@ -1324,6 +1326,9 @@ module input
       write(u_log,*) 'HINT: "decoherence_scheme afssh" ignores "atommask".'
     endif
     if (ctrl%reflect_frustrated==2) then
+      write(u_log,*) 'HINT: "reflect_frustrated parallel_nac" ignores "atommask".'
+    endif
+    if (ctrl%reflect_frustrated==3) then
       write(u_log,*) 'HINT: "reflect_frustrated parallel_nac" ignores "atommask".'
     endif
     ! TODO: add more as needed

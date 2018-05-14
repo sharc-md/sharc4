@@ -271,9 +271,15 @@ subroutine Rescale_velocities(traj,ctrl)
           &real(traj%gmatrix_ssad(traj%state_diag_frust, traj%state_diag,:,:)),&
           &real(traj%gmatrix_ssad(traj%state_diag, traj%state_diag,:,:)),&
           &real(traj%gmatrix_ssad(traj%state_diag_frust, traj%state_diag_frust,:,:)) )
+        case (3)
+          call reflect_nac(ctrl%natom,traj%veloc_ad,traj%mass_a,&
+          &real(traj%gmatrix_ssad(traj%state_diag_frust, traj%state_diag_frust,:,:)-&
+          &traj%gmatrix_ssad(traj%state_diag, traj%state_diag,:,:)),&
+          &real(traj%gmatrix_ssad(traj%state_diag, traj%state_diag,:,:)),&
+          &real(traj%gmatrix_ssad(traj%state_diag_frust, traj%state_diag_frust,:,:)) )
+      endselect
     case (3)
           if (printlevel>2) write(u_log,*) 'Velocity is not rescaled after resonant surface hop.'
-    endselect
   endselect
 
 endsubroutine
@@ -311,7 +317,7 @@ subroutine reflect_nac(natom,veloc_ad,mass_a,nac_ad,Gdiag,Gfrust)
 
   integer :: idir, iat
   real*8 :: mass_ad(natom,3)
-  real*8 :: sum_kk, sum_pk, sum_Fdiagk, sum_Ffrustk
+  real*8 :: sum_pk, sum_Fdiagk, sum_Ffrustk
   real*8 :: factor
 
   do idir=1,3
