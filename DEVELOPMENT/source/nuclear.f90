@@ -232,6 +232,29 @@ subroutine Rescale_velocities(traj,ctrl)
             write(u_log,'(A,1X,E16.8)') 'Delta is          ',deltaE
             write(u_log,'(A,1X,F12.6)') 'Scaling factor is ',factor
           endif
+        case (3)
+          call available_ekin(ctrl%natom,&
+          &traj%veloc_ad,real(traj%gmatrix_ssad(traj%state_diag, traj%state_diag,:,:)-&
+          &traj%gmatrix_ssad(traj%state_diag_old, traj%state_diag_old,:,:)),&
+          &traj%mass_a, sum_kk, sum_vk)
+          deltaE=4.d0*sum_kk*(traj%Etot-traj%Ekin-&
+          &real(traj%H_diag_ss(traj%state_diag,traj%state_diag)))+sum_vk**2
+          if (sum_vk<0.d0) then
+            factor=(sum_vk+sqrt(deltaE))/2.d0/sum_kk
+          else
+            factor=(sum_vk-sqrt(deltaE))/2.d0/sum_kk
+          endif
+          do i=1,3
+            traj%veloc_ad(:,i)=traj%veloc_ad(:,i)-factor*&
+            &real(traj%gmatrix_ssad(traj%state_diag, traj%state_diag,:,:)-&
+            &traj%gmatrix_ssad(traj%state_diag_old, traj%state_diag_old,:,:))/traj%mass_a(:)
+          enddo
+          if (printlevel>2) then
+            write(u_log,'(A)') 'Velocity is rescaled along gradient difference vector.'
+            write(u_log,'(A,1X,E16.8,1X,E16.8)') 'a, b: ', sum_kk, sum_vk
+            write(u_log,'(A,1X,E16.8)') 'Delta is          ',deltaE
+            write(u_log,'(A,1X,F12.6)') 'Scaling factor is ',factor
+          endif
         endselect
     case (2)
       if (printlevel>2) write(u_log,'(A)') 'Frustrated jump.'
