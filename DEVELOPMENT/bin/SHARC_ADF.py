@@ -1,5 +1,30 @@
 #!/usr/bin/env python2
 
+#******************************************
+#
+#    SHARC Program Suite
+#
+#    Copyright (c) 2018 University of Vienna
+#
+#    This file is part of SHARC.
+#
+#    SHARC is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    SHARC is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    inside the SHARC manual.  If not, see <http://www.gnu.org/licenses/>.
+#
+#******************************************
+
+#!/usr/bin/env python2
+
 
 # Modules:
 # Operating system, isfile and related routines, move files, create directories
@@ -58,8 +83,8 @@ if sys.version_info[1]<5:
 
 # ======================================================================= #
 
-version='2.1'
-versiondate=datetime.date(2017,9,21)
+version='2.0'
+versiondate=datetime.date(2018,2,1)
 
 
 
@@ -1629,8 +1654,11 @@ def readQMin(QMinfilename):
             print 'Give path to the TheoDORE installation directory in ADF.resources!'
             sys.exit(44)
         os.environ['THEODIR']=QMin['theodir']
-        os.environ['PYTHONPATH']+=os.pathsep + os.path.join(QMin['theodir'],'lib')
-        os.environ['PYTHONPATH']+=os.pathsep + os.path.join(QMin['ADFHOME'],'scripting')
+        if 'PYTHONPATH' in os.environ:
+            os.environ['PYTHONPATH']+=os.pathsep + os.path.join(QMin['theodir'],'lib')
+            os.environ['PYTHONPATH']+=os.pathsep + os.path.join(QMin['ADFHOME'],'scripting')
+        else:
+            os.environ['PYTHONPATH']=os.path.join(QMin['theodir'],'lib')+os.pathsep+os.path.join(QMin['ADFHOME'],'scripting')
 
 
     # neglected gradients
@@ -1646,7 +1674,7 @@ def readQMin(QMinfilename):
                 QMin['neglected_gradient']='closest'
             else:
                 print 'Unknown argument to "neglected_gradient"!'
-                sys.exit(1)
+                sys.exit(45)
 
 
 
@@ -1739,16 +1767,16 @@ def readQMin(QMinfilename):
                 label=line[1].title()
                 if not '.' in label:
                     print 'ERROR: fragments for "define_fragment" have to be formatted like "El.i".'
-                    sys.exit(11)
+                    sys.exit(46)
                 s=label.split('.')
                 if not len(s)==2:
                     print 'ERROR: fragments for "define_fragment" have to be formatted like "El.i".'
-                    sys.exit(11)
+                    sys.exit(47)
                 try:
                     x=int(s[1])
                 except ValueError:
                     print 'ERROR: fragments for "define_fragment" have to be formatted like "El.i".'
-                    sys.exit(11)
+                    sys.exit(48)
                 element=label.split('.')[0]
                 atoms=[ int(i)-1 for i in line[2:] ]
                 ok=True
@@ -1761,7 +1789,7 @@ def readQMin(QMinfilename):
                         ok=False
                 if not ok:
                     print '"define_fragment" key misuse.'
-                    sys.exit(11)
+                    sys.exit(49)
                 QMin['template']['define_fragment'][label]=atoms
 
             # paddingstates needs to be autoexpanded and checked
@@ -1772,7 +1800,7 @@ def readQMin(QMinfilename):
                     QMin['template']['paddingstates']=[int(line[1+i]) for i in range(len(QMin['states']))]
                 else:
                     print 'Length of "paddingstates" does not match length of "states"!'
-                    sys.exit(46)
+                    sys.exit(50)
                 for i in range(len(QMin['template']['paddingstates'])):
                     if QMin['template']['paddingstates'][i]<0:
                         QMin['template']['paddingstates'][i]=0
@@ -1795,10 +1823,10 @@ def readQMin(QMinfilename):
                             compatible=False
                     if not compatible:
                         print 'WARNING: Charges from template not compatible with multiplicities!  (this is probably OK if you use QM/MM)'
-                        #sys.exit(47)
+                        #sys.exit(51)
                 else:
                     print 'Length of "charge" does not match length of "states"!'
-                    sys.exit(48)
+                    sys.exit(52)
 
             # those can occur several times
             elif line[0]=='grid_per_atom' or line[0]=='fit_per_atom' or line[0]=='rihf_per_atom':
@@ -1859,7 +1887,7 @@ def readQMin(QMinfilename):
                 line2=orig.split(None,1)
                 if len(line2)<2:
                     print 'Please specify a connection table file after "qmmm_table"!'
-                    sys.exit(49)
+                    sys.exit(53)
                 filename=os.path.abspath(os.path.expandvars(os.path.expanduser(line2[1])))
                 QMin['template']['qmmm_table']=filename
 
@@ -1868,7 +1896,7 @@ def readQMin(QMinfilename):
                 line2=orig.split(None,1)
                 if len(line2)<2:
                     print 'Please specify a force field file after "qmmm_ff_file"!'
-                    sys.exit(50)
+                    sys.exit(54)
                 filename=os.path.abspath(os.path.expandvars(os.path.expanduser(line2[1])))
                 QMin['template']['qmmm_ff_file']=filename
 
@@ -1880,39 +1908,39 @@ def readQMin(QMinfilename):
     if QMin['template']['unrestricted_triplets'] and 'soc' in QMin:
         if len(QMin['states'])>=3 and QMin['states'][2]>0:
             print 'Request "SOC" is not compatible with "unrestricted_triplets"!'
-            sys.exit(51)
+            sys.exit(55)
     if QMin['template']['qmmm']:
         filename=QMin['template']['qmmm_table']
         if not os.path.isfile(filename):
             print 'Connection table file "%s" does not exist!' % filename
-            sys.exit(52)
+            sys.exit(56)
         filename=QMin['template']['qmmm_ff_file']
         if not os.path.isfile(filename):
             print 'Force field file "%s" does not exist!' % filename
-            sys.exit(53)
+            sys.exit(57)
         print 'HINT: For QM/MM calculations, you have to specify in the template file the charge for the *QM region only*!'
         print 'The automatic assignment of total charge might not work if the MM part is not neutral!\n'
     #if QMin['template']['qmmm'] and QMin['template']['define_fragment']:
         #print '"define_fragment" key cannot be used with QM/MM!'
-        #sys.exit(11)
+        #sys.exit(58)
     if 'soc' in QMin and not QMin['template']['relativistic']:
         print 'You have to use a relativistic Hamiltonian (e.g., ZORA) for spin-orbit couplings!'
-        sys.exit(54)
+        sys.exit(59)
     if QMin['template']['totalenergy'] and QMin['template']['relativistic']:
         print 'Key "totalenergy" is not compatible with "relativistic"!'
-        sys.exit(55)
+        sys.exit(60)
     if not QMin['template']['unrestricted_triplets']:
         if len(QMin['template']['charge'])>=3 and QMin['template']['charge'][0]!=QMin['template']['charge'][2]:
             print 'Charges of singlets and triplets differ. Please enable the "unrestricted_triplets" option!'
-            sys.exit(56)
+            sys.exit(61)
     if QMin['template']['cosmo'] and 'grad' in QMin:
         print 'COSMO is not compatible with gradient calculations!'
-        sys.exit(56)
+        sys.exit(62)
     if 'grad' in QMin:
         allowed_functionals=['lda','gga','hybrid']
         if not QMin['template']['functional'].split()[0].lower() in allowed_functionals:
             print 'Gradients can only be calculated with these functional classes: %s' % allowed_functionals
-            sys.exit(56)
+            sys.exit(63)
 
     # check the connection table file
     if QMin['template']['qmmm']:
@@ -1921,29 +1949,34 @@ def readQMin(QMinfilename):
         qm_atoms={}
         mm_atoms={}
         found_mm=False
+        iatom=-1
         for iline,line in enumerate(out):
-            if 'subend' in line:
+            line2=re.sub('!.*$','',line).strip()
+            if not line2:
+                continue
+            iatom+=1
+            if 'subend' in line.lower():
                 break
             s=line.split()
             if 'qm' in s[2].lower():
                 if found_mm:
                     print 'In %s, all QM/LI atoms must occur consecutively at the beginning!' % QMin['template']['qmmm_table']
-                    sys.exit(58)
-                qm_atoms[iline]=QMin['geo'][iline][0]
+                    sys.exit(64)
+                qm_atoms[iatom]=QMin['geo'][iatom][0]
             elif 'li' in s[2].lower():
                 if found_mm:
                     print 'In %s, all QM/LI atoms must occur consecutively at the beginning!' % QMin['template']['qmmm_table']
-                    sys.exit(58)
-                link_atoms[iline]=''
+                    sys.exit(65)
+                link_atoms[iatom]=''
             elif 'mm' in s[2].lower():
                 found_mm=True
-                mm_atoms[iline]=s[1]
+                mm_atoms[iatom]=s[1]
         nlink=len(link_atoms)
         nqmatom=len(qm_atoms)+nlink
         natom_table=nqmatom+len(mm_atoms)
         if natom_table!=QMin['natom']:
             print 'Number of atoms in connection table (%i) is inconsistent with %s (%i)!' % (natom_table,QMinfilename,QMin['natom'])
-            sys.exit(59)
+            sys.exit(66)
         if nlink>0:
             links_found=False
             for iline,line in enumerate(out):
@@ -1962,10 +1995,10 @@ def readQMin(QMinfilename):
 
   link_bonds
 7 - 4 1.4 H H1'''
-                sys.exit(60)
+                sys.exit(67)
             while True:
                 iline+=1
-                if iline>=len(out):
+                if iline>=len(out) or '!' in out[iline]:
                     break
                 line=out[iline]
                 s=line.split()
@@ -2005,7 +2038,7 @@ def readQMin(QMinfilename):
         #QMin['frozcore']=0 
         #if 'mm' in s[2].lower():
             #print 'First atom in %s is an MM atom!' % QMin['template']['qmmm_table']
-            #sys.exit(57)
+            #sys.exit(68)
         #if 'li' in s[2].lower():
             #nlink+=1
             #nqmatom+=1
@@ -2017,11 +2050,11 @@ def readQMin(QMinfilename):
             #natom_table+=1
             #if natom_table>QMin['natom']:
                 #print 'Number of atoms in connection table (>=%i) is inconsistent with %s (%i)!' % (natom_table,QMinfilename,QMin['natom'])
-                #sys.exit(59)
+                #sys.exit(69)
             #s=line.lower().split()
             #if not qm and ('qm' in s[2] or 'li' in s[2]):
                 #print 'In %s, all QM/LI atoms must occur consecutively at the beginning!' % QMin['template']['qmmm_table']
-                #sys.exit(58)
+                #sys.exit(70)
             #if 'mm' in s[2]:
                 #qm=False
             #if 'li' in s[2]:
@@ -2032,7 +2065,7 @@ def readQMin(QMinfilename):
                 #nqmatom+=1
         ##if natom_table!=QMin['natom']:
             ##print 'Number of atoms in connection table (%i) is inconsistent with %s (%i)!' % (natom_table,QMinfilename,QMin['natom'])
-            ##sys.exit(59)
+            ##sys.exit(71)
         #if nlink>0:
             #links_found=False
             #for line in out:
@@ -2050,7 +2083,7 @@ def readQMin(QMinfilename):
 
   #link_bonds
 #7 - 4 1.4 H H1'''
-                #sys.exit(60)
+                #sys.exit(72)
 
 
     # number of frozen core orbitals for wfoverlap (no frozen orbitals in ADF!)
@@ -2067,7 +2100,7 @@ def readQMin(QMinfilename):
     if QMin['template']['modifyexcitations'] and QMin['frozcore']>0:
         if not 'nooverlap' in QMin or 'ion' in QMin:
             print 'Calculations with "modifyexcitations" should only be done with numfrozcore=0!'
-            sys.exit(11)
+            sys.exit(73)
 
     # check and process the grid_per_atom and fit_per_atom keys
     nmax=QMin['natom']
@@ -2230,7 +2263,7 @@ def readQMin(QMinfilename):
                 initorbs[job]=filename
         if 'always_orb_init' in QMin and len(initorbs)<njobs:
             print 'Initial orbitals missing for some jobs!'
-            sys.exit(61)
+            sys.exit(74)
         QMin['initorbs']=initorbs
     elif 'newstep' in QMin:
         for job in QMin['joblist']:
@@ -2239,7 +2272,7 @@ def readQMin(QMinfilename):
                 initorbs[job]=filename+'.old'     # file will be moved to .old
             else:
                 print 'File %s missing in savedir!' % (filename)
-                sys.exit(62)
+                sys.exit(75)
         QMin['initorbs']=initorbs
     elif 'samestep' in QMin:
         for job in QMin['joblist']:
@@ -2248,7 +2281,7 @@ def readQMin(QMinfilename):
                 initorbs[job]=filename
             else:
                 print 'File %s missing in savedir!' % (filename)
-                sys.exit(63)
+                sys.exit(76)
         QMin['initorbs']=initorbs
     elif 'restart' in QMin:
         for job in QMin['joblist']:
@@ -2257,7 +2290,7 @@ def readQMin(QMinfilename):
                 initorbs[job]=filename
             else:
                 print 'File %s missing in savedir!' % (filename)
-                sys.exit(64)
+                sys.exit(77)
         QMin['initorbs']=initorbs
 
     # check for atomic fragment files
@@ -2472,7 +2505,7 @@ def runjobs(schedule,QMin):
     if any((i!=0 for i in errorcodes.values())):
         print 'Some subprocesses did not finish successfully!'
         print 'See %s:%s for error messages in ADF output.' % (gethostname(),QMin['scratchdir'])
-        sys.exit(65)
+        sys.exit(78)
     print
 
     if PRINT:
@@ -2733,7 +2766,8 @@ def writeADFinput(QMin):
 
     # excitations
     if ncalc>0:
-        string+='EXCITATION\n  davidson\n'
+        string+='EXCITATIONS\n'
+        #string+='EXCITATION\n  davidson\n'
         if onlysing:
             string+='  onlysing\n'
         if onlytrip:
@@ -2755,7 +2789,8 @@ def writeADFinput(QMin):
         if QMin['template']['dvd_mblocksmall']:
             string+='MBLOCKSMALL\n'
         if not QMin['template']['no_tda']:
-            string+='TDA\n'
+            #string+='TDA\n'
+            string+='\nTDA\n'
         if QMin['template']['modifyexcitations']>0:
             string+='MODIFYEXCITATION\n  useoccupied\n    A'
             for i in range(QMin['template']['modifyexcitations']):
@@ -2765,7 +2800,9 @@ def writeADFinput(QMin):
 
     # spin-orbit coupling
     if sopert:
-        string+='SOPERT\n'
+        string+='SOPERT\n'         # TODO: dont write END for older ADF!
+        if QMin['ADFversion']>=(2017,212):
+            string+='END\n'
         if gscorr:
             string+='GSCORR\n'
         string+='PRINT SOMATRIX\n\n'
@@ -2793,7 +2830,10 @@ def writeADFinput(QMin):
                         string+='  singlet\n'
                     elif egrad[0]==3:
                         string+='  triplet\n'
-            string+='  output = 4\n  cpks eps=%12.9f\n' % QMin['template']['cpks_eps']
+            if QMin['ADFversion']>=(2017,212):
+                string+='  output 4\n  cpks\n    eps %12.9f\n  subend\n' % QMin['template']['cpks_eps']
+            else:
+                string+='  output = 4\n  cpks eps=%12.9f\n' % QMin['template']['cpks_eps']
             string+='END\n'
         string+='\n'
 
@@ -2810,6 +2850,9 @@ def writeADFinput(QMin):
         savefiles.append('TAPE15')
     string+='SAVE %s\n' % (' '.join(savefiles))
     string+='DEPENDENCY\n'
+    if QMin['ADFversion']>=(2017,212):
+        string+='END\n'
+    string+='ALLOW POSHOMO\n'
     if DEBUG:
         string+='PRINT TIMING\n'
     else:
@@ -2892,7 +2935,7 @@ def runADF(WORKDIR,ADF,ncpu,savedir,strip=False):
         runerror=sp.call(string,shell=True,stdout=stdoutfile,stderr=stderrfile)
     except OSError:
         print 'Call have had some serious problems:',OSError
-        sys.exit(66)
+        sys.exit(79)
     stdoutfile.close()
     stderrfile.close()
     if os.path.isfile(os.path.join(WORKDIR,'TAPE13')):
@@ -2947,7 +2990,7 @@ def moveOldFiles(QMin):
             fromfile=os.path.join(QMin['savedir'],'%s.%i' % (base,job))
             if not os.path.isfile(fromfile):
                 print 'File %s not found, cannot move to OLD!' % (fromfile)
-                sys.exit(67)
+                sys.exit(80)
             tofile    =os.path.join(QMin['savedir'],'%s.%i.old' % (base,job))
             if PRINT:
                 print shorten_DIR(fromfile)+'   =>   '+shorten_DIR(tofile)
@@ -2961,7 +3004,7 @@ def moveOldFiles(QMin):
             fromfile=os.path.join(QMin['savedir'],'%s.%i' % (base,job))
             if not os.path.isfile(fromfile):
                 print 'File %s not found, cannot move to OLD!' % (fromfile)
-                sys.exit(68)
+                sys.exit(81)
             tofile    =os.path.join(QMin['savedir'],'%s.%i.old' % (base,job))
             if PRINT:
                 print shorten_DIR(fromfile)+'   =>   '+shorten_DIR(tofile)
@@ -3191,7 +3234,7 @@ def get_dets_from_tape21(filename,QMin):
                 eig=f.read(section,key).tolist()
             except AttributeError:
                 print 'No eigenvectors found in file %s!' % (filename)
-                sys.exit(11)
+                sys.exit(82)
             if lhybrid and QMin['template']['no_tda']:
                 key='left eigenvector %i' % (istate+1)
                 eigl=f.read(section,key).tolist()
@@ -3266,7 +3309,7 @@ def get_dets_from_tape21(filename,QMin):
                 if problem:
                     print 'WARNING: Non-occupied orbital inside frozen core! Skipping ...'
                     continue
-                    #sys.exit(1)
+                    #sys.exit(83)
                 if restr:
                     key2=key[QMin['frozcore']:]
                 else:
@@ -3356,7 +3399,7 @@ def mkdir(DIR):
     if os.path.exists(DIR):
         if os.path.isfile(DIR):
             print '%s exists and is a file!' % (DIR)
-            sys.exit(69)
+            sys.exit(84)
         elif os.path.isdir(DIR):
             if DEBUG:
                 print 'Remake\t%s' % DIR
@@ -3369,7 +3412,7 @@ def mkdir(DIR):
             os.makedirs(DIR)
         except OSError:
             print 'Can not create %s\n' % (DIR)
-            sys.exit(70)
+            sys.exit(85)
 
 # ======================================================================= #
 
@@ -3377,7 +3420,7 @@ def link(PATH,NAME,crucial=True,force=True):
     # do not create broken links
     if not os.path.exists(PATH) and crucial:
         print 'Source %s does not exist, cannot create link!' % (PATH)
-        sys.exit(71)
+        sys.exit(86)
     if os.path.islink(NAME):
         if not os.path.exists(NAME):
             # NAME is a broken link, remove it so that a new link can be made
@@ -3390,14 +3433,14 @@ def link(PATH,NAME,crucial=True,force=True):
             else:
                 print '%s exists, cannot create a link of the same name!' % (NAME)
                 if crucial:
-                    sys.exit(72)
+                    sys.exit(87)
                 else:
                     return
     elif os.path.exists(NAME):
         # NAME is not a link. The interface will not overwrite files/directories with links, even with force=True
         print '%s exists, cannot create a link of the same name!' % (NAME)
         if crucial:
-            sys.exit(73)
+            sys.exit(88)
         else:
             return
     os.symlink(PATH, NAME)
@@ -3436,7 +3479,7 @@ def run_theodore(QMin,errorcodes):
         print string
         if any((i!=0 for i in errorcodes.values())):
             print 'Some subprocesses did not finish successfully!'
-            sys.exit(74)
+            sys.exit(89)
 
         print ''
 
@@ -3474,7 +3517,7 @@ at_lists=%s
 def runTHEODORE(WORKDIR,THEODIR):
     prevdir=os.getcwd()
     os.chdir(WORKDIR)
-    string='python '+os.path.join(THEODIR,'bin','analyze_tden.py')
+    string='python2 '+os.path.join(THEODIR,'bin','analyze_tden.py')
     stdoutfile=open(os.path.join(WORKDIR,'theodore.out'),'w')
     stderrfile=open(os.path.join(WORKDIR,'theodore.err'),'w')
     if PRINT or DEBUG:
@@ -3485,7 +3528,7 @@ def runTHEODORE(WORKDIR,THEODIR):
         runerror=sp.call(string,shell=True,stdout=stdoutfile,stderr=stderrfile)
     except OSError:
         print 'Call have had some serious problems:',OSError
-        sys.exit(75)
+        sys.exit(90)
     stdoutfile.close()
     stderrfile.close()
     if PRINT or DEBUG:
@@ -3544,7 +3587,7 @@ def run_wfoverlap(QMin,errorcodes):
     print string
     if any((i!=0 for i in errorcodes.values())):
         print 'Some subprocesses did not finish successfully!'
-        sys.exit(76)
+        sys.exit(91)
 
     print ''
 
@@ -3605,7 +3648,7 @@ def runWFOVERLAP(WORKDIR,WFOVERLAP,memory=100,ncpu=1):
         runerror=sp.call(string,shell=True,stdout=stdoutfile,stderr=stderrfile)
     except OSError:
         print 'Call have had some serious problems:',OSError
-        sys.exit(77)
+        sys.exit(92)
     stdoutfile.close()
     stderrfile.close()
     if PRINT or DEBUG:
@@ -4358,7 +4401,7 @@ def getsmate(out,s1,s2):
         ilines+=1
         if ilines==len(out):
             print 'Overlap of states %i - %i not found!' % (s1,s2)
-            sys.exit(78)
+            sys.exit(93)
         if containsstring('Overlap matrix <PsiA_i|PsiB_j>', out[ilines]):
             break
     ilines+=1+s1
@@ -4372,7 +4415,7 @@ def getDyson(out,s1,s2):
         ilines+=1
         if ilines==len(out):
             print 'Dyson norm of states %i - %i not found!' % (s1,s2)
-            sys.exit(79)
+            sys.exit(94)
         if containsstring('Dyson norm matrix <PsiA_i|PsiB_j>', out[ilines]):
             break
     ilines+=1+s1
@@ -4472,7 +4515,7 @@ def main():
             DEBUG=True
     except ValueError:
         print 'PRINT or DEBUG environment variables do not evaluate to numerical values!'
-        sys.exit(80)
+        sys.exit(95)
 
     # Process Command line arguments
     if len(sys.argv)!=2:
@@ -4480,7 +4523,7 @@ def main():
         print 'version:',version
         print 'date:',versiondate
         print 'changelog:\n',changelogstring
-        sys.exit(81)
+        sys.exit(96)
     QMinfilename=sys.argv[1]
 
     # Print header
