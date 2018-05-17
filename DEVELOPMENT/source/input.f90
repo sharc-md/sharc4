@@ -636,6 +636,8 @@ module input
           ctrl%ekincorrect=1
         case ('parallel_nac')
           ctrl%ekincorrect=2
+        case ('parallel_diff')
+          ctrl%ekincorrect=3
         case default
           write(0,*) 'Unknown keyword ',trim(line),' to "ekincorrect"!'
           stop 1
@@ -654,6 +656,8 @@ module input
           ctrl%reflect_frustrated=1
         case ('parallel_nac') 
           ctrl%reflect_frustrated=2
+        case ('parallel_diff') 
+          ctrl%reflect_frustrated=3
         case default
           write(0,*) 'Unknown keyword ',trim(line),' to "reflect_frustrated"!'
           stop 1
@@ -913,6 +917,8 @@ module input
             write(u_log,'(a)') 'Correction to the kinetic energy after surface hop parallel to velocity vector.'
           case (2)
             write(u_log,'(a)') 'Correction to the kinetic energy after surface hop parallel to non-adiabatic coupling vector.'
+          case (3)
+            write(u_log,'(a)') 'Correction to the kinetic energy after surface hop parallel to gradient difference vector.'
         endselect
         write(u_log,*)
         select case (ctrl%calc_grad)
@@ -1336,10 +1342,16 @@ module input
     if (ctrl%ekincorrect==2) then
       write(u_log,*) 'HINT: "ekincorrect parallel_nac" ignores "atommask".'
     endif
+    if (ctrl%ekincorrect==3) then
+      write(u_log,*) 'HINT: "ekincorrect parallel_diff" ignores "atommask".'
+    endif
     if (ctrl%decoherence==2) then
       write(u_log,*) 'HINT: "decoherence_scheme afssh" ignores "atommask".'
     endif
     if (ctrl%reflect_frustrated==2) then
+      write(u_log,*) 'HINT: "reflect_frustrated parallel_nac" ignores "atommask".'
+    endif
+    if (ctrl%reflect_frustrated==3) then
       write(u_log,*) 'HINT: "reflect_frustrated parallel_nac" ignores "atommask".'
     endif
     ! TODO: add more as needed

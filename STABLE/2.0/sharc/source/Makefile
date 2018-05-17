@@ -18,7 +18,7 @@
 #
 #    You should have received a copy of the GNU General Public License
 #    inside the SHARC manual.  If not, see <http://www.gnu.org/licenses/>.
-#
+
 #******************************************
 # Makefile for Sharc 
 # Version 2.0
