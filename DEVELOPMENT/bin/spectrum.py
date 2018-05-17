@@ -1,5 +1,30 @@
 #!/usr/bin/env python2
 
+#******************************************
+#
+#    SHARC Program Suite
+#
+#    Copyright (c) 2018 University of Vienna
+#
+#    This file is part of SHARC.
+#
+#    SHARC is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    SHARC is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    inside the SHARC manual.  If not, see <http://www.gnu.org/licenses/>.
+#
+#******************************************
+
+#!/usr/bin/env python2
+
 # Script for the calculation of Wigner distributions from molden frequency files
 # 
 # usage python wigner.py [-n <NUMBER>] <MOLDEN-FILE>
@@ -13,6 +38,7 @@ import datetime
 from optparse import OptionParser
 import colorsys
 import re
+import pprint
 
 
 # =========================================================0
@@ -43,9 +69,9 @@ U_TO_AMU = 1./5.4857990943e-4            # conversion from g/mol to amu
 ANG_TO_BOHR = 1./0.529177211    #1.889725989      # conversion from Angstrom to bohr
 PI = math.pi
 
-version='1.0'
-versionneeded=[0.2, 1.0]
-versiondate=datetime.date(2014,10,8)
+version='2.0'
+versionneeded=[0.2, 1.0, 2.0, float(version)]
+versiondate=datetime.date(2018,2,1)
 
 
 IToMult={
@@ -72,23 +98,28 @@ IToMult={
 class gauss:
   def __init__(self,fwhm):
     self.c=-4.*math.log(2.)/fwhm**2             # this factor needs to be evaluated only once
+    self.f=fwhm
+    self.norm=self.f/2.*math.sqrt(math.pi/math.log(2.))
   def ev(self,A,x0,x):
     return A*math.exp( self.c*(x-x0)**2)        # this routine does only the necessary calculations
 
 class lorentz:
   def __init__(self,fwhm):
+    self.f=fwhm
     self.c=0.25*fwhm**2
+    self.norm=math.pi*self.f/2.
   def ev(self,A,x0,x):
     return A/( (x-x0)**2/self.c+1)
 
 class lognormal:
   def __init__(self,fwhm):
-    self.fwhm=fwhm
+    self.f=fwhm
+    self.norm=1.       # TODO: currently not implemented 
   def ev(self,A,x0,x):
     if x<=0 or x0<=0:
       return 0.
     # for lognormal distribution, the factor for the exponent depends on x0
-    c=(math.log( (self.fwhm+math.sqrt(self.fwhm**2+4.*x0**2))/(2.*x0)))**2
+    c=(math.log( (self.f+math.sqrt(self.f**2+4.*x0**2))/(2.*x0)))**2
     # note that the function does not take a value of A at x0
     # instead, the function is normalized such that its maximum will have a value of A (at x<=x0)
     return A*x0/x*math.exp( -c/(4.*math.log(2.)) -math.log(2.)*(math.log(x)-math.log(x0))**2/c)
@@ -104,6 +135,7 @@ class spectrum:
       self.f=lognormal(fwhm)
     self.en=[ emin + float(i)/self.npts*(emax-emin) for i in range(self.npts+1) ]       # the energy grid needs to be calculated only once
     self.spec=[ 0. for i in range(self.npts+1) ]
+    self.fnorm=self.f.norm
   def add(self,A,x0):
     if A==0.:
       return
@@ -418,6 +450,7 @@ def make_spectra(statelist,INFOS):
       if done<idone*width/imax:
         done=idone*width/imax
         sys.stdout.write('\rProgress: ['+'='*done+' '*(width-done)+'] %3i%%' % (done*100/width))
+        sys.stdout.flush()
 
       if not INFOS['selected'] or cond.Excited:
         if INFOS['dos_switch']:
@@ -427,6 +460,100 @@ def make_spectra(statelist,INFOS):
   sys.stdout.write('\n')
 
   return speclist
+
+# ======================================================================================================================
+
+def make_spectra_bootstrap(statelist,INFOS):
+
+  # check for rectangular statelist
+  ncond=len(statelist[0])
+  for states in statelist:
+    if not ncond==len(states):
+      print 'Error: Bootstrapping not possible for non-rectangular initconds file!'
+      return
+
+  # make list of admissible initial conditions
+  admiss=[ i for i in range(ncond) ]
+
+  width=50
+  idone=0
+  imax=INFOS['bootstraps']
+  done=0
+
+  #pprint.pprint(statelist)
+
+  allspec=[]
+  for ibootstrap in range(INFOS['bootstraps']):
+    # generate list
+    use=[]
+    for icond in range(len(states)):
+      r=random.randint(0,ncond-1)
+      use.append(admiss[r])
+    #print use
+    spec=spectrum(INFOS['npts'],INFOS['erange'][0],INFOS['erange'][1],INFOS['fwhm'],INFOS['lineshape'])
+    for istate,states in enumerate(statelist):
+      for icond in use:
+        cond=states[icond]
+        if not INFOS['selected'] or cond.Excited:
+          if INFOS['dos_switch']:
+            spec.add(1.,cond.Eexc)
+          else:
+            spec.add(cond.Fosc,cond.Eexc)
+    allspec.append(spec)
+    idone+=1
+    if done<idone*width/imax:
+      done=idone*width/imax
+      sys.stdout.write('\rProgress: ['+'='*done+' '*(width-done)+'] %3i%%' % (done*100/width))
+      sys.stdout.flush()
+  sys.stdout.write('\n')
+
+  mean_spec =spectrum(INFOS['npts'],INFOS['erange'][0],INFOS['erange'][1],INFOS['fwhm'],INFOS['lineshape'])
+  stdev_specp=spectrum(INFOS['npts'],INFOS['erange'][0],INFOS['erange'][1],INFOS['fwhm'],INFOS['lineshape'])
+  stdev_specm=spectrum(INFOS['npts'],INFOS['erange'][0],INFOS['erange'][1],INFOS['fwhm'],INFOS['lineshape'])
+
+  for ipt in range(INFOS['npts']):
+    data=[]
+    for j in allspec:
+      data.append(j.spec[ipt])
+    mean_spec.spec[ipt]=mean_geom(data)
+    stdev=stdev_geom(data,mean_spec.spec[ipt])
+    stdev_specp.spec[ipt]=mean_spec.spec[ipt]*(stdev**3-1.)
+    stdev_specm.spec[ipt]=mean_spec.spec[ipt]*(1./stdev**3-1.)
+
+  allspec=[mean_spec,stdev_specp,stdev_specm]+allspec
+
+
+  print_spectra(allspec,INFOS['bootstrapfile'])
+
+
+
+  #return speclist
+
+# ======================================== #
+def mean_geom(data):
+  s=0.
+  try:
+    for i in data:
+      s+=math.log(i)
+  except ValueError:
+    return float('nan')
+  s=s/len(data)
+  return math.exp(s)
+
+# ======================================== #
+def stdev_geom(data,mean=-9999):
+  if not mean==mean:
+    return float('nan')
+  if mean==-9999:
+    m=math.log(mean_geom(data))
+  else:
+    m=math.log(mean)
+  s=0.
+  for i in data:
+    s+=(math.log(i)-m)**2
+  s=s/(len(data)-1)
+  return math.exp(math.sqrt(s))
+
 
 # ======================================================================================================================
 
@@ -746,7 +873,14 @@ date %s
   parser.add_option('-l', dest='l', action='store_true',default=False,help="Make a line spectrum instead of a convolution")
   parser.add_option('-D', dest='D', action='store_true',default=False,help="Calculate density of states instead of absorption spectrum")
   parser.add_option('--gnuplot', dest='gp', type=str, nargs=1, default='', help="Write a gnuplot script to this file")
+
+  parser.add_option('-b', dest='b', type=str, nargs=1, default='spectrum_bootstrap.out', help="Output file for bootstrap analysis of total spectrum")
+  parser.add_option('-B', dest='B', type=int, nargs=1, default=0, help="Number of bootstrap cycles")
+  parser.add_option('-r', dest='r', type=int, nargs=1, default=16661, help="Seed for the random number generator (integer, default=16661)")
+
   (options, args) = parser.parse_args()
+
+
   if len(args)<=0:
     print 'Please give the filename of the initconds.excited file!\n'+usage
     quit(1)
@@ -780,6 +914,9 @@ date %s
   INFOS['selected']=options.s
   INFOS['filename']=filename
   INFOS['dos_switch']=options.D
+  random.seed(options.r)
+  INFOS['bootstrapfile']=options.b
+  INFOS['bootstraps']=options.B
 
   if options.o=='':
     if INFOS['dos_switch']:
@@ -797,6 +934,9 @@ date %s
     maxsum=print_spectra(speclist,outputfile)
     INFOS['maxsum']=maxsum
     sys.stdout.write('\nMaximum of the absorption spectrum: %f\n' % (maxsum))
+
+    if INFOS['bootstraps']>0:
+      make_spectra_bootstrap(statelist,INFOS)
   print '\nOutput spectrum written to "%s".' % (outputfile)
 
   INFOS['outputfile']=outputfile
