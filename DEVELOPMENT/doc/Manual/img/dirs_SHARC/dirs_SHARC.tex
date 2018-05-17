@@ -40,6 +40,7 @@
     grow via three points={one child at (0.9,-0.55) and two children at (0.9,-0.55) and (0.9,-1.1)},
     edge from parent path={[very thick] (\tikzparentnode.south) |- (\tikzchildnode.west) }]
     \node[dir] {sharc/}
+      % --------------------------------------------
       child { node [dir] (bin) {bin/} 
         child { node[sh] {sharc.x}}
         child { node[sh] {data\_extractor.x}}
@@ -50,33 +51,47 @@
       child [missing] {}
       child [missing] {}
       child [missing] {}
+      % --------------------------------------------
       child { node [dir] {doc/} 
         child { node[] {manual.pdf}}
         child { node[] {tutorial.pdf}}
       }
       child [missing] {}
       child [missing] {}
+      % --------------------------------------------
+      child { node [dir] {examples/} }
+      % --------------------------------------------
+      child { node [dir] {lib/} }
+      % --------------------------------------------
       child { node [dir] {source/} 
         child { node[] {Makefile}}
         child { node[] {Fortran code}}
       }
       child [missing] {}
       child [missing] {}
+      % --------------------------------------------
       child { node [dir] {tests/} 
         child { node[dir] {INPUT/}
           child { node[dir, opacity=0.5] {Test Cases .../}}
         }
         child [missing] {}
+        % --------------------------------------------
         child { node[dir] {RESULTS/}
           child { node[dir, opacity=0.5] {Test Cases .../}}
         }
         child [missing] {}
+        % --------------------------------------------
       }
       child [missing] {}
       child [missing] {}
       child [missing] {}
       child [missing] {}
-%       child { node [dir] {example/} }
+      % --------------------------------------------
+      child { node [dir] {wfoverlap/} 
+        child { node[dir] {scripts/}}
+        child { node[dir] {source/}}
+        child { node[dir] {test\_jobs/}}
+      }
     ;
 
     \path (bin) ++(4,0) node[draw=none] {=\$SHARC};

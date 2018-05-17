@@ -2,11 +2,14 @@
 
 \usepackage[version=3]{mhchem}
 \usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
 
 \usepackage{libertine}
 \usepackage[libertine]{newtxmath}
-\usepackage[scaled=0.95]{inconsolata}
+% \usepackage[scaled=0.95]{inconsolata}
+\usepackage[scaled=0.8]{beramono}
 \usepackage{microtype}
+\DisableLigatures[-]{family=tt*}
 
 \usepackage{listings,braket,fancyvrb,booktabs,mystuff,colortbl,lastpage,array,longtable,framed}
 \usepackage[colorlinks=true,urlcolor=V,linkcolor=B,citecolor=B]{hyperref}
@@ -78,13 +81,13 @@
 \displaywidowpenalty = 2000
 
 % =============================== TITLE ==========================
-\newenvironment{tpage}[3]{%
+\newenvironment{tpage}{%
 \KOMAoptions{twoside = false}
 \addtokomafont{title}{\rmfamily}
   \begin{titlepage}
-    \title{\hspace{1cm}\includegraphics[width=0.8\textwidth,keepaspectratio=true]{img/sharc.pdf}\vspace{1.5cm}\\
-    SHARC: Surface Hopping in the Adiabatic Representation Including Arbitrary Couplings}
-    \subtitle{Tutorial}
+    \title{\hspace{1cm}\includegraphics[width=0.8\textwidth,keepaspectratio=true]{img/sharc_new.pdf}\\[0.5cm]
+    SHARC2.0:\\ Surface Hopping Including\\ Arbitrary Couplings}
+    \subtitle{Tutorial\\[1cm]Version 2.0}
     \date{Vienna, \today}
     \author{AG Gonz\'alez\\
 Institute of Theoretical Chemistry\\
@@ -97,8 +100,10 @@ University of Vienna, Austria
 
     \maketitle
   \end{titlepage}
-\KOMAoptions{twoside = false}
+% \KOMAoptions{twoside = false}
 }{}
+
+
 
 
 
@@ -106,12 +111,12 @@ University of Vienna, Austria
 \usepackage[automark]{scrpage2}
 \pagestyle{scrheadings}
 \clearscrheadfoot
-\lehead{\leftmark}
-\rehead{\rightmark}
-\lohead{\leftmark}
-\rohead{\rightmark}
-\lofoot[Page \pagemark]{Page \pagemark}
-\refoot[Page \pagemark]{Page \pagemark}
+% \lehead{\leftmark}
+% \rehead{\rightmark}
+% \lohead{\leftmark}
+% \rohead{\rightmark}
+% \lofoot[Page \pagemark]{Page \pagemark}
+% \refoot[Page \pagemark]{Page \pagemark}
 
 
 
@@ -143,7 +148,16 @@ University of Vienna, Austria
 
 \begin{document}
 
-\tpage{Author}{Title}{Subtitle}
+\tpage
+
+% ========================================================================================================= %
+% ========================================================================================================= %
+% ========================================================================================================= %
+
+\newpage
+\ihead{\textsc{Sharc} Tutorial}
+\ohead{\leftmark\quad {\normalfont|} \quad\rightmark}
+\ofoot[\pagemark]{\pagemark}
 
 % ========================================================================================================= %
 % ========================================================================================================= %
@@ -161,20 +175,21 @@ University of Vienna, Austria
 In this tutorial, the steps necessary to perform non-adiabatic dynamics with the \sharc\ dynamics suite are explained. 
 The tutorial consists of four tutorial sections. 
 
-\textbf{The first one} is a quick tutorial, just presenting the files necessary to run a single \sharc\ trajectory, without initial condition generation, ensemble management, or analysis.
+\textbf{The first part} contains the full tutorial presenting a complete dynamics study including initial condition generation, ensemble management, and trajectory analysis (with plotting of the results and a brief discussion). 
+This tutorial will use the interface to \textsc{OpenMolcas}.
+\textbf{Note that \textsc{OpenMolcas} is freely available.}
+% version compatible with \sharc\ from the \link{https://sharc-md.org/?page_id=335}{\todo{\sharc\ homepage}}.}
 
-\textbf{The second part} contains the full tutorial presenting a complete dynamics study including initial condition generation, ensemble management, and trajectory analysis (with plotting of the results and a brief discussion). 
-This tutorial will use the interface to \textsc{Molcas}.
-\textbf{Note that \textsc{OpenMolcas} is freely available, and hence users who want to follow the tutorial as closely as possible are advised to get an \textsc{OpenMolcas} version compatible with \sharc\ from the \link{https://sharc-md.org/?page_id=335}{\todo{\sharc\ homepage}}.}
+\textbf{The second part} is a collection of more specialized tutorials showing some advanced usage aspects in detail.
 
-\textbf{The third part} is a collection of more specialized tutorials showing some advanced usage aspects in detail.
+\textbf{The third part} contains general information for what is different if using the other quantum chemistry interfaces besides the one for \textsc{Molcas}.
 
-\textbf{The fourth part} contains mini-tutorials for using the other quantum chemistry interfaces besides the one for \textsc{Molcas}.
-
+\textbf{The fourth part} is a quick tutorial, just presenting the files necessary to run a single \sharc\ trajectory, without initial condition generation, ensemble management, or analysis.
 
 
 
 \section{Description of the model system}
+\label{sec:model_system}
 
 The task of the tutorial is to simulate the excited-state dynamics of the methaniminium cation (\ce{CH2NH2+}) after excitation to the bright excited state.
 
@@ -192,7 +207,7 @@ In the following, an overview over the level of theory and the initial geometry 
 
 \definecolor{shadecolor}{HTML}{BBDDFF}
 \begin{example}
-\begin{minipage}[t]{0.45\textwidth}
+\begin{minipage}{0.45\textwidth}
   \centering
   Ab initio level of theory for pyrrole.
   \begin{tabular}{ll}
@@ -206,172 +221,22 @@ In the following, an overview over the level of theory and the initial geometry 
   \end{tabular}
 \end{minipage}
 \hfill
-\begin{minipage}[t]{0.45\textwidth}
+\begin{minipage}{0.45\textwidth}
   \begin{verbatim}
-    6
-Starting geometry for CH2NH2+
- C     0.000000     0.000000     0.000000
- N     0.000000     0.000000     1.300000
- H     0.943102     0.000000    -0.544500
- H     0.943102     0.000000     1.879500
- H    -0.943102     0.000000     1.879500
- H    -0.943102     0.000000    -0.544500
-  \end{verbatim}
+6
+Starting  geometry  for  CH2NH2+
+C +0.000000 +0.000000 +0.000000
+N +0.000000 +0.000000 +1.350000
+H +0.943102 +0.000000 -0.544500
+H +0.943102 +0.000000 +1.879500
+H -0.943102 +0.000000 +1.879500
+H -0.943102 +0.000000 -0.544500
+\end{verbatim}
 \end{minipage}
 \end{example}
 
 
 
-
-
-
-
-
-% ======================================================================================================
-% ======================================================================================================
-% ======================================================================================================
-
-\chapter{Quick Tutorial}
-
-This quick tutorial presents how to setup a single \sharc\ trajectory, by simply creating all necessary input files without employing the tools of the \sharc\ suite.
-In this quick tutorial, we are using the equilibrium geometry as starting geometry and random initial velocities. 
-
-The goal is to prepare all input files for \sharc\ and the \textsc{Molcas} interface. 
-The necessary files and directories are presented in figure~\ref{fig:traj_dir}. 
-Note that the files \ttt{MOLCAS.template} and \ttt{MOLCAS.resources} are only necessary since we are using the \sharc-\textsc{Molcas} interface.
-
-\begin{figure}
-  \centering
-  \includegraphics[]{img/dir_traj/dir_traj.pdf}
-  \caption{Input files for a \sharc\ dynamics simulation of a single, independent trajectory.}
-  \label{fig:traj_dir}
-\end{figure}
-
-The contents of the files are given and explained in the following.
-Please be aware that the two subdirectories need to exist before \sharc\ can be started.
-
-\section{Input File}
-
-The \sharc\ input file (``\ttt{input}'') contains the dynamics settings and names of additional input files (geometry, velocity, coefficients). An example is given below:
-\definecolor{shadecolor}{HTML}{BBDDFF}
-\begin{example}\vspace{-8mm}
-\begin{verbatim}
-geomfile "geom"
-veloc random 0.1
-
-nstates 4 0 3
-state 3 mch
-coeff auto
-
-ezero -94.41294549
-tmax 25.000000
-stepsize 0.5
-
-surf sharc
-coupling overlap
-decoherence_scheme edc
-
-grad_select
-eselect 0.1
-select_directly
-\end{verbatim}\vspace{-5mm}
-\end{example}
-
-The meaning of these keywords is: The geometry is read from file \ttt{geom}. 
-The nuclear velocities are picked at random, with 0.1~eV kinetic energy per atom. 
-Four singlet states and three triplet states will be included in the simulation (0 is the number of doublet states). 
-The initial state is the third state (the $S_2$). 
-The initial coefficients will be set automatically (the initial state will have a coefficient of 1.0, the remaining states a coefficient of zero). 
-The diagonal elements of the Hamiltonian will be shifted by $-94.41294549$~Hartree. 
-The simulation will run for 25~fs with a 0.5 fs timestep. 
-The \sharc\ formalism will be used (propagation on the diagonalized states). 
-Nonadiabatic interactions are described with wavefunction overlaps.
-SHARC will select which gradients to compute at each time step, with a selection threshold of 0.1~eV.
-SHARC will select these gradients directly, without doing two quantum chemistry calculations per time step.
-
-\section{Geometry File}
-
-The geometry file ``\ttt{geom}'' contains the chemical symbols, atomic charge, $x$, $y$ and $z$ coordinates and the relative atomic masses.
-
-\definecolor{shadecolor}{HTML}{BBDDFF}
-\begin{example}\vspace{-8mm}
-\begin{verbatim}
- C     6.0    0.00000000    0.00000000    0.00000000   12.00000000
- N     7.0    0.00000000    0.00000000    2.45664494   14.00307401
- H     1.0    1.78220520    0.00000000   -1.02895628    1.00782504
- H     1.0    1.78220520    0.00000000    3.55174167    1.00782504
- H     1.0   -1.78220520    0.00000000    3.55174167    1.00782504
- H     1.0   -1.78220520    0.00000000   -1.02895628    1.00782504
-\end{verbatim}\vspace{-5mm}
-\end{example}
-
-\section{QM Run Script}
-
-At each timestep, \sharc\ writes the current geometry and different keywords to the file \ttt{QM/QM.in} and then calls \ttt{runQM.sh}. 
-After this call is finished, \sharc\ reads the results of the quantum chemistry calculation from \ttt{QM.out}.
-
-In most of the cases, in \ttt{runQM.sh} simply one of the \sharc-interfaces is called:
-\definecolor{shadecolor}{HTML}{BBDDFF}
-\begin{example}\vspace{-8mm}
-\begin{verbatim}
-cd QM
-$SHARC/SHARC_MOLCAS.py QM.in >> QM.log 2>> QM.err
-\end{verbatim}\vspace{-5mm}
-\end{example}
-The interface will do all work necessary to produce the desired file \ttt{QM.out}.
-
-\section{MOLCAS Template}
-
-The \textsc{Molcas} interface needs as additional input file giving the settings for the electronic structure calculation. 
-The file is called ``\ttt{MOLCAS.template}''.
-It employs a simple keyword-argument structure and looks like:
-\definecolor{shadecolor}{HTML}{BBDDFF}
-\begin{example}\vspace{-8mm}
-\begin{verbatim}
-basis cc-pVDZ
-nactel 6
-ras2 4
-inactive 5
-roots 4 0 3
-method casscf
-no-douglas-kroll
-\end{verbatim}\vspace{-5mm}
-\end{example}
-
-\section{MOLCAS Resources}
-
-The \textsc{Molcas} interface additionally needs some paths and resource settings, both of which are read from the file  ``\ttt{MOLCAS.resources}''.
-\definecolor{shadecolor}{HTML}{BBDDFF}
-\begin{example}\vspace{-8mm}
-\begin{verbatim}
-molcas /usr/license/molcas/molcas80
-scratchdir $TMPDIR/WORK
-savedir ../restart/
-
-memory 1000
-ncpu 1
-\end{verbatim}\vspace{-5mm}
-\end{example}
-
-\section{Running \sharc}
-
-With the input files prepared, the trajectory can then be started by simply executing:
-\definecolor{shadecolor}{HTML}{BBDDFF}
-\begin{example}\vspace{-8mm}
-\begin{verbatim}
-$SHARC/sharc.x input 
-\end{verbatim}\vspace{-5mm}
-\end{example}
-
-\section{Output}
-
-\sharc\ produces four output files, \ttt{output.log}, \ttt{output.lis}, \ttt{output.dat} and \ttt{output.xyz}. 
-The file \ttt{output.log} contains mainly a listing of the chosen options and the resulting dynamics settings. 
-At higher print levels, the log file contains also information per timestep. 
-\ttt{output.lis} contains a table with one line per timestep, giving active states, energies and expectation values.
-\ttt{output.dat} contains a list of all important matrices and vectors at each timestep. 
-This information can be extracted with \ttt{data\_extractor.x} to yield plottable table files. 
-\ttt{output.xyz} contains the geometries of all timesteps, allowing visualization of the trajectory with the appropriate software (e.g., \textsc{Molden}).
 
 
 
@@ -426,7 +291,7 @@ Upon completion, every interactive script produces a file \ttt{KEYSTROKES.<name>
 \end{shaded}
 
 Note that in principle one should be able to reproduce all results in this tutorial, i.e., if you closely follow the given steps then you should see exactly the same output (and the same figures).
-The only exception to this is that the results might be different if you employed a different compiler to compile \ttt{sharc.x} (this tutorial uses \ttt{gfortran 4.8.5}) or if you use a different \textsc{Molcas} version (\todo{this tutorial uses XXXXX}).
+The only exception to this is that the results might be different if you employed a different compiler to compile \ttt{sharc.x} (this tutorial uses \ttt{gfortran 4.8.5}) or if you use a different \textsc{Molcas} version (this tutorial uses \textsc{OpenMolcas 18}).
 
 \refermanual{m-chap:aux}
 Note that it is recommended that for sections in which the user is especially interested, they should refer to the corresponding sections in the \sharc\ Manual.
@@ -447,7 +312,7 @@ However, usually it is advisable to calculate the frequencies at the same level 
 For the methaniminium cation in our example, we will do the frequency calculation with the quantum chemistry method specified above: (SA(4|3)-CASSCF(6,4)/cc-pVDZ). 
 
 Create an empty directory. 
-Prepare a geometry file called \ttt{geom.xyz} containing the geometry given above.
+Prepare a geometry file called \ttt{geom.xyz} containing the \hyperref[sec:model_system]{geometry given above}.
 \begin{Verbatim}[commandchars=\\\{\}]
 user@host> \textbf{\textcolor{red}{mkdir Opt_Freq}}
 user@host> \textbf{\textcolor{red}{cd Opt_Freq}}
@@ -471,8 +336,8 @@ The script can also generate a Bash-script to instantly launch the \textsc{Molca
 ||                                                                                ||
 ||                              Author: Sebastian Mai                             ||
 ||                                                                                ||
-||                                   Version:1.0                                  ||
-||                                    23.01.15                                    ||
+||                                   Version:2.0                                  ||
+||                                    01.02.18                                    ||
 ||                                                                                ||
   ================================================================================
 
@@ -527,7 +392,7 @@ Number of active electrons: \textbf{\textcolor{red}{6}}
 Number of active orbitals: \textbf{\textcolor{red}{4}}
 Please enter the number of states for state-averaging as a list of integers
 e.g. 3 0 2 for three singlets, zero doublets and two triplets.
-Number of states: [0 0 0 0 0 0 0 0] \textbf{\textcolor{red}{4 0 3}}    \textcolor{blue}{# same as for dynamics}
+Number of states: [0 0 0 0 0 0 0 0] \textbf{\textcolor{red}{4  0  3}}    \textcolor{blue}{# same as for dynamics}
 Accepted number of states: 4 0 3
 
 Please specify the state to optimize
@@ -576,7 +441,7 @@ Runscript? [True] \textbf{\textcolor{red}{<ENTER>}}
 -----------------------Path to MOLCAS-----------------------
 
 Environment variable $MOLCAS detected:
-$MOLCAS=/usr/license/molcas/molcas80/
+$MOLCAS=/usr/license/openmolcas/
 
 Do you want to use this MOLCAS installation? [True] \textbf{\textcolor{red}{<ENTER>}}
 
@@ -614,9 +479,11 @@ user@host> \textbf{\textcolor{red}{sh run_MOLCAS.sh}}
 This will produce the files \ttt{MOLCAS.log}, \ttt{MOLCAS.freq.molden} and \ttt{MOLCAS.RasOrb}. 
 The first file contains (among other things) the ground state minimum energy (should be $-94.412945$ Hartree) and the vibrational wavenumbers. 
 Check for any imaginary frequencies. 
-There should be an output block like this in the output file:
+There should be an output block like this in the output file (search for \ttt{Numerical differentiation is finished!} to find it quickly, and note that \textsc{Molcas} also prints isotope-shifted frequencies which can be easily confused with the non-shifted results):
 \begin{oframed}
 \footnotesize\begin{Verbatim}[commandchars=\\\{\}]
+  Numerical differentiation is finished!
+
  Observe that the harmonic oscillator analysis is only valid at stationary points!
 
  Note that rotational and translational degrees have been automatically removed.
@@ -777,8 +644,8 @@ Prepare a template file for the \sharc-\textsc{Molcas} interface.
 ||                                                                                ||
 ||                              Author: Sebastian Mai                             ||
 ||                                                                                ||
-||                                   Version:1.0                                  ||
-||                                    23.01.15                                    ||
+||                                   Version:2.0                                  ||
+||                                    01.02.18                                    ||
 ||                                                                                ||
   ================================================================================
 
@@ -826,7 +693,7 @@ Number of active electrons: [6] \textbf{\textcolor{red}{<ENTER>}}
 Number of active orbitals: [4] \textbf{\textcolor{red}{<ENTER>}}
 Please enter the number of states for state-averaging as a list of integers
 e.g. 3 0 2 for three singlets, zero doublets and two triplets.
-Number of states: [4] \textbf{\textcolor{red}{4 0 3}}        \textcolor{blue}{# Override suggestion to include triplet states.}
+Number of states: [4] \textbf{\textcolor{red}{4  0  3}}        \textcolor{blue}{# Override suggestion to include triplet states.}
 Accepted number of states: 4 0 3
 
 ----------------------Further Settings----------------------
@@ -885,8 +752,8 @@ This script is also interactive.
 ||                                                                                ||
 ||                              Author: Sebastian Mai                             ||
 ||                                                                                ||
-||                                   Version:1.0                                  ||
-||                                    08.10.14                                    ||
+||                                   Version:2.0                                  ||
+||                                    01.02.18                                    ||
 ||                                                                                ||
   ================================================================================
 
@@ -909,7 +776,7 @@ Number of atoms is 6
 
 Please enter the range of initial conditions for which an excited-state calculation should be 
 performed as two integers separated by space.
-Initial condition range: [1 20] \textbf{\textcolor{red}{1 10}}    \textcolor{blue}{# not all initial conditions need to be calculated}
+Initial condition range: [1 20] \textbf{\textcolor{red}{1  10}}    \textcolor{blue}{# not all initial conditions need to be calculated}
 
 Script will use initial conditions 1 to 10 (10 in total).
 
@@ -917,7 +784,7 @@ Script will use initial conditions 1 to 10 (10 in total).
 
 Please enter the number of states as a list of integers
 e.g. 3 0 3 for three singlets, zero doublets and three triplets.
-Number of states: \textbf{\textcolor{red}{4 0 3}}     \textcolor{blue}{# this could differ from the number of SA roots in MOLCAS.template}
+Number of states: \textbf{\textcolor{red}{4  0  3}}     \textcolor{blue}{# this could differ from the number of SA roots in MOLCAS.template}
 
 Number of states: [4, 0, 3]
 Total number of states: 13
@@ -1115,8 +982,8 @@ Otherwise, the script asks the user to enter the ground states equilibrium energ
 ||                                                                                ||
 ||                              Author: Sebastian Mai                             ||
 ||                                                                                ||
-||                                   Version:1.0                                  ||
-||                                    08.10.14                                    ||
+||                                   Version:2.0                                  ||
+||                                    01.02.18                                    ||
 ||                                                                                ||
   ================================================================================
 
@@ -1158,7 +1025,9 @@ These representations are:
 - MCH representation: Only the diagonal elements of the Hamiltonian are taken into account. 
 The states are the spin-free states as calculated in the quantum chemistry code. 
 This option is usually sufficient for systems with small SOC (below 300 cm^-1).
-- diagonal representation: The Hamiltonian including spin-orbit coupling is diagonalized. The states are spin-corrected, fully adiabatic. Note that for this the excited-state calculations have to include spin-orbit couplings. This is usually not necessary for systems with small SOC.
+- diagonal representation: The Hamiltonian including spin-orbit coupling is diagonalized. 
+The states are spin-corrected, fully adiabatic. Note that for this the excited-state calculations 
+have to include spin-orbit couplings. This is usually not necessary for systems with small SOC.
 
 Do you want to use the diagonal representation (yes=diag, no=MCH)? \textbf{\textcolor{red}{no}}
 
@@ -1184,14 +1053,15 @@ How should the excited states be flagged? [3] \textbf{\textcolor{red}{<ENTER>}}
 ----------------------Excitation window---------------------
 
 Enter the energy window for exciting the trajectories.
-Range (eV): [0.0 10.0] \textbf{\textcolor{red}{9 12}}
+Range (eV): [0.0 10.0] \textbf{\textcolor{red}{9  12}}
 
 Script will allow excitations only between 9.000000 eV and 12.000000 eV.
 
 ----------------------Considered states---------------------
 
-From which state should the initial conditions be excited?
-Initial state? [1] 
+From which state should the excitation originate (for computation of excitation energies 
+and oscillator strength)?
+Lower state for excitation? [1] \textbf{\textcolor{red}{<ENTER>}}
 #State  Mult    M_s     Quant    \textcolor{blue}{# Here the states are listed.}
 1       1       +0.0    1
 2       1       +0.0    2
@@ -1240,8 +1110,18 @@ gen_list                   2
 
 Do you want to continue? [True] \textbf{\textcolor{red}{<ENTER>}}
 
+Reading initial condition file ....
+  Progress: [==================================================] 100%
 Number of initial conditions in file:          20
+
+Reading QM.out data ...
+  Progress: [==================================================] 100%
 Number of initial conditions with QM.out:      10
+
+Selecting initial states ...
+  Progress: [==================================================] 100%
+Number of initial states:                       9
+
 Number of initial conditions excited:
 State   Selected   InRange   Total
     1          0         0      10
@@ -1352,10 +1232,14 @@ In figure~\ref{fig:spectrum} the result of this convolution is shown. Note that 
 The last preparatory step towards dynamics simulations consists naturally in setting up the \sharc\ input files and run scripts. 
 The interactive script \ttt{setup\_traj.py} takes care of this step. 
 Run the script in the directory where the trajectories should be set up. 
-Make sure that you have all required files (\ttt{initconds.excited}, \ttt{MOLCAS.template}, \ttt{MOLCAS.RasOrb}) at hand.
+For this, create a new directory:
 \begin{Verbatim}[commandchars=\\\{\}]
 user@host> \textbf{\textcolor{red}{mkdir traj}}
 user@host> \textbf{\textcolor{red}{cd traj}}
+\end{Verbatim}
+Make sure that you have all required files (\ttt{initconds.excited}, \ttt{MOLCAS.template}, \ttt{MOLCAS.RasOrb}) in this directory.
+Then start the setup script:
+\begin{Verbatim}[commandchars=\\\{\}]
 user@host> \textbf{\textcolor{red}{$SHARC/setup_traj.py}}
 \end{Verbatim}
 
@@ -1368,7 +1252,7 @@ user@host> \textbf{\textcolor{red}{$SHARC/setup_traj.py}}
 ||                    Author: Sebastian Mai, Philipp Marquetand                   ||
 ||                                                                                ||
 ||                                   Version:2.0                                  ||
-||                                    01.03.17                                    ||
+||                                    01.02.18                                    ||
 ||                                                                                ||
   ================================================================================
 
@@ -1875,7 +1759,7 @@ The program creates a subdirectory called \ttt{output\_data/}. With the default 
 
 In order to plot the content of these files in an efficient manner, \ttt{gnuplot} can be used. Use
 \begin{Verbatim}[commandchars=\\\{\}]
-user@host> \textbf{\textcolor{red}{$SHARC/make_gnuscript.py 4 0 3 > plot.gp}}
+user@host> \textbf{\textcolor{red}{$SHARC/make_gnuscript.py  4  0  3 > plot.gp}}
 \end{Verbatim}
 to create a \ttt{gnuplot} script with the correct state numbering and labeling. Execute
 \begin{Verbatim}[commandchars=\\\{\}]
@@ -1890,21 +1774,21 @@ to plot energies, populations and hopping probabilities (Use \textcolor{red}{\tt
   \caption{Plot of the potential energies for trajectory \ttt{TRAJ\_00002/} with 4 singlet and 3 triplet states. Straight arrows indicate hopping events discussed in the text, wiggly arrows indicate problems with energy conservation/continuity. }
   \label{fig:en}
 \end{figure}
-\begin{figure}[tb]
+\begin{figure}[p]
   \centering
-  \includegraphics[width=\textwidth]{figures/coeff_MCH.png}
+  \includegraphics[width=0.95\textwidth]{figures/coeff_MCH.png}
   \caption{Plot of the excited-state populations in the MCH representation.}
   \label{fig:cMCH}
 \end{figure}
-\begin{figure}[tb]
+\begin{figure}[p]
   \centering
-  \includegraphics[width=\textwidth]{figures/coeff_diag.png}
+  \includegraphics[width=0.95\textwidth]{figures/coeff_diag.png}
   \caption{Plot of the excited-state populations in the diagonal representation.}
   \label{fig:cDIAG}
 \end{figure}
-\begin{figure}[tb]
+\begin{figure}[p]
   \centering
-  \includegraphics[width=\textwidth]{figures/prob.png}
+  \includegraphics[width=0.95\textwidth]{figures/prob.png}
   \caption{Plot of the hopping probabilities in the diagonal representation. Additionally, the random number for the surface hopping procedure is given.}
   \label{fig:prob}
 \end{figure}
@@ -2090,8 +1974,8 @@ user@host> \textbf{\textcolor{red}{$SHARC/diagnostics.py}}
 ||                                                                                ||
 ||                              Author: Sebastian Mai                             ||
 ||                                                                                ||
-||                                   Version:1.0                                  ||
-||                                    08.10.14                                    ||
+||                                   Version:2.0                                  ||
+||                                    01.02.18                                    ||
 ||                                                                                ||
   ================================================================================
 
@@ -2247,7 +2131,7 @@ Checking the directories...
     Output files:     .lis .. .log .. .dat .. .xyz .. OK
     Restart files:    ctrl .. traj .. restart/ ..     OK
     Progress:         [=================        ]     71.5 of 100.0 fs
-    Status:                                           CRASHED    \textcolor{blue}{# crashed after 71 fs (convergence problem?)}
+    Status:                                           CRASHED   \textcolor{blue}{# crashed after 71 fs (convergence problem?)}
     Energy:           Large step in Etot              at 46.00 fs
     Population:                                       OK
     Intruder states:                                  OK
@@ -2259,7 +2143,7 @@ Checking the directories...
     Output files:     .lis .. .log .. .dat .. .xyz .. OK
     Restart files:    ctrl .. traj .. restart/ ..     OK
     Progress:         [=====                    ]     20.5 of 100.0 fs
-    Status:                                           CRASHED    \textcolor{blue}{# crashed after 20 fs (convergence problem?)}
+    Status:                                           CRASHED   \textcolor{blue}{# crashed after 20 fs (convergence problem?)}
     Energy:                                           OK
     Population:                                       OK
     Intruder states:                                  OK   \textcolor{blue}{# but no problems found}
@@ -2337,8 +2221,8 @@ user@host> \textbf{\textcolor{red}{$SHARC/diagnostics.py}}
 ||                                                                                ||
 ||                              Author: Sebastian Mai                             ||
 ||                                                                                ||
-||                                   Version:1.0                                  ||
-||                                    08.10.14                                    ||
+||                                   Version:2.0                                  ||
+||                                    01.02.18                                    ||
 ||                                                                                ||
   ================================================================================
 
@@ -2494,8 +2378,8 @@ user@host> \textbf{\textcolor{red}{$SHARC/populations.py}}
 ||                                                                                ||
 ||                              Author: Sebastian Mai                             ||
 ||                                                                                ||
-||                                   Version:1.0                                  ||
-||                                    08.10.14                                    ||
+||                                   Version:2.0                                  ||
+||                                    01.02.18                                    ||
 ||                                                                                ||
   ================================================================================
 
@@ -2528,14 +2412,14 @@ This script can analyze the classical populations in different ways:
 6  Number of trajectories whose oscillator strength falls into certain intervals   from output_data/fosc.out
 
 It can also sum the quantum amplitudes:
-7  Quantum amplitudes in diagonal picture                                     from output_data/coeff_diag.out
-8  Quantum amplitudes in MCH picture                                          from output_data/coeff_MCH.out
-9  Quantum amplitudes in MCH picture (multiplets summed up)                   from output_data/coeff_MCH.out
+7  Quantum amplitudes in diagonal picture                                    from output_data/coeff_diag.out
+8  Quantum amplitudes in MCH picture                                         from output_data/coeff_MCH.out
+9  Quantum amplitudes in MCH picture (multiplets summed up)                  from output_data/coeff_MCH.out
 
 It can also transform the classical diagonal populations to MCH basis (might take long):
-10 Transform diagonal populations to MCH states                               from output.dat
-11 Transform diagonal populations to MCH states (multiplets summed up)        from output.dat
-20 Quantum amplitudes in diabatic picture                                     from output_data/coeff_diab.out
+10 Transform diagonal populations to MCH states                              from output.dat
+11 Transform diagonal populations to MCH states (multiplets summed up)       from output.dat
+20 Quantum amplitudes in diabatic picture                                    from output_data/coeff_diab.out
 Analyze mode: \textbf{\textcolor{red}{3}}
 
 ----------------------Number of states----------------------
@@ -2649,14 +2533,14 @@ This script can analyze the classical populations in different ways:
 6  Number of trajectories whose oscillator strength falls into certain intervals   from output_data/fosc.out
 
 It can also sum the quantum amplitudes:
-7  Quantum amplitudes in diagonal picture                                     from output_data/coeff_diag.out
-8  Quantum amplitudes in MCH picture                                          from output_data/coeff_MCH.out
-9  Quantum amplitudes in MCH picture (multiplets summed up)                   from output_data/coeff_MCH.out
+7  Quantum amplitudes in diagonal picture                                    from output_data/coeff_diag.out
+8  Quantum amplitudes in MCH picture                                         from output_data/coeff_MCH.out
+9  Quantum amplitudes in MCH picture (multiplets summed up)                  from output_data/coeff_MCH.out
 
 It can also transform the classical diagonal populations to MCH basis (might take long):
-10 Transform diagonal populations to MCH states                               from output.dat
-11 Transform diagonal populations to MCH states (multiplets summed up)        from output.dat
-20 Quantum amplitudes in diabatic picture                                     from output_data/coeff_diab.out
+10 Transform diagonal populations to MCH states                              from output.dat
+11 Transform diagonal populations to MCH states (multiplets summed up)       from output.dat
+20 Quantum amplitudes in diabatic picture                                    from output_data/coeff_diab.out
 Analyze mode: \textbf{\textcolor{red}{9}}
 
 Run data_extractor.x for each trajectory prior to performing the analysis?
@@ -2708,14 +2592,14 @@ This script can analyze the classical populations in different ways:
 6  Number of trajectories whose oscillator strength falls into certain intervals   from output_data/fosc.out
 
 It can also sum the quantum amplitudes:
-7  Quantum amplitudes in diagonal picture                                     from output_data/coeff_diag.out
-8  Quantum amplitudes in MCH picture                                          from output_data/coeff_MCH.out
-9  Quantum amplitudes in MCH picture (multiplets summed up)                   from output_data/coeff_MCH.out
+7  Quantum amplitudes in diagonal picture                                    from output_data/coeff_diag.out
+8  Quantum amplitudes in MCH picture                                         from output_data/coeff_MCH.out
+9  Quantum amplitudes in MCH picture (multiplets summed up)                  from output_data/coeff_MCH.out
 
 It can also transform the classical diagonal populations to MCH basis (might take long):
-10 Transform diagonal populations to MCH states                               from output.dat
-11 Transform diagonal populations to MCH states (multiplets summed up)        from output.dat
-20 Quantum amplitudes in diabatic picture                                     from output_data/coeff_diab.out
+10 Transform diagonal populations to MCH states                              from output.dat
+11 Transform diagonal populations to MCH states (multiplets summed up)       from output.dat
+20 Quantum amplitudes in diabatic picture                                    from output_data/coeff_diab.out
 Analyze mode: \textbf{\textcolor{red}{6}}
 
 Run data_extractor.x for each trajectory prior to performing the analysis?
@@ -2727,7 +2611,7 @@ Run data_extractor.x? [True] \textbf{\textcolor{red}{no}}          \textcolor{bl
 --------------------------Intervals-------------------------
 
 Please enter the interval limits, all on one line.
-Interval limits:  \textbf{\textcolor{red}{1e-4 1e-1}}          \textcolor{blue}{# Outer limits 0 and infinity are automatically assumed}
+Interval limits:  \textbf{\textcolor{red}{1e-4  1e-1}}          \textcolor{blue}{# Outer limits 0 and infinity are automatically assumed}
 
 \vdots            \vdots            \vdots            \vdots            \vdots            \vdots            \vdots            
 
@@ -2823,7 +2707,7 @@ In order to quantify this population flow, one can use \ttt{transition.py}.
 This script counts the number of hops in all trajectories.
 
 \begin{Verbatim}[commandchars=\\\{\}]
-user@host> \textcolor{red}{$SHARC/transiton.py}
+user@host> \textcolor{red}{$SHARC/transition.py}
 \end{Verbatim}
 
 \begin{oframed}
@@ -2834,8 +2718,8 @@ user@host> \textcolor{red}{$SHARC/transiton.py}
 ||                                                                                ||
 ||                              Author: Sebastian Mai                             ||
 ||                                                                                ||
-||                                   Version:1.0                                  ||
-||                                    08.10.14                                    ||
+||                                   Version:2.0                                  ||
+||                                    01.02.18                                    ||
 ||                                                                                ||
   ================================================================================
 
@@ -2984,8 +2868,8 @@ user@host> \textbf{\textcolor{red}{$SHARC/make_fitscript.py}}
 ||                                                                                ||
 ||                              Author: Sebastian Mai                             ||
 ||                                                                                ||
-||                                   Version:1.0                                  ||
-||                                    05.01.16                                    ||
+||                                   Version:2.0                                  ||
+||                                    01.02.18                                    ||
 ||                                                                                ||
   ================================================================================
 
@@ -3244,8 +3128,8 @@ user@host> \textbf{\textcolor{red}{$SHARC/bootstrap.py}}
 ||                                                                                ||
 ||                              Author: Sebastian Mai                             ||
 ||                                                                                ||
-||                                   Version:1.0                                  ||
-||                                    08.10.14                                    ||
+||                                   Version:2.0                                  ||
+||                                    01.02.18                                    ||
 ||                                                                                ||
   ================================================================================
 
@@ -3288,16 +3172,16 @@ Number of CPUs to use:  [1] \textbf{\textcolor{red}{<ENTER>}}
 
 #########################Full input#########################
 
-ntraj                      7
-gnuplot                    gnuplot
-fitfile                    /user/mai/Documents/NewSHARC/SHARC_2.0/TUTORIAL/2_full/Tutorial/traj/model_fit.gp
-nboot                      500
-ncpu                       1
-bootstrap_dir              /user/mai/Documents/NewSHARC/SHARC_2.0/TUTORIAL/2_full/Tutorial/traj/bootstrap_data
-ncol                       7
-npercycle                  22
-steps                      200
-dt                         0.5
+ntraj                   7
+gnuplot                 gnuplot
+fitfile                 /user/mai/Documents/NewSHARC/SHARC_2.0/TUTORIAL/2_full/Tutorial/traj/model_fit.gp
+nboot                   500
+ncpu                    1
+bootstrap_dir           /user/mai/Documents/NewSHARC/SHARC_2.0/TUTORIAL/2_full/Tutorial/traj/bootstrap_data
+ncol                    7
+npercycle               22
+steps                   200
+dt                      0.5
 
 Do you want to do the specified analysis? [True] 
 
@@ -3492,8 +3376,8 @@ user@host> \textbf{\textcolor{red}{$SHARC/crossing.py}}
 ||                                                                                ||
 ||                              Author: Sebastian Mai                             ||
 ||                                                                                ||
-||                                   Version:1.0                                  ||
-||                                    08.10.14                                    ||
+||                                   Version:2.0                                  ||
+||                                    01.02.18                                    ||
 ||                                                                                ||
   ================================================================================
 
@@ -3535,10 +3419,10 @@ In this analysis mode, all geometries are fetched where a trajectory switches fr
 to another given MCH state.
 
 Please enter the old MCH state involved as "mult state", e.g., "1 1" for S0, "1 2" for S1, or "3 1" for T1:
-State 1: \textbf{\textcolor{red}{1 2}}      \textcolor{blue}{# Only hops from S1}
+State 1: \textbf{\textcolor{red}{1  2}}      \textcolor{blue}{# Only hops from S1}
 
 Please enter the new MCH state involved (mult state):
-State 2: \textbf{\textcolor{red}{1 1}}      \textcolor{blue}{# to S0}
+State 2: \textbf{\textcolor{red}{1  1}}      \textcolor{blue}{# to S0}
 
 Direction:
 1       Forwards      \textcolor{blue}{# Only S1 -> S0}
@@ -3605,7 +3489,7 @@ user@host> \textbf{\textcolor{red}{$SHARC/setup_orca_opt.py}}
 ||                      Author: Moritz Heindl, Sebastian Mai                      ||
 ||                                                                                ||
 ||                                   Version:2.0                                  ||
-||                                    01.03.17                                    ||
+||                                    01.02.18                                    ||
 ||                                                                                ||
   ================================================================================
 
@@ -3643,7 +3527,7 @@ Number of geometries: 9
 
 Please enter the number of states as a list of integers
 e.g. 3 0 3 for three singlets, zero doublets and three triplets.
-Number of states: \textbf{\textcolor{red}{4 0 3}}
+Number of states: \textbf{\textcolor{red}{4  0  3}}
 
 Number of states: [4, 0, 3]
 Total number of states: 13
@@ -3848,8 +3732,8 @@ user@host> \textbf{\textcolor{red}{$SHARC/trajana_essdyn.py}}
 ||                                                                                ||
 ||                      Author: Felix Plasser, Andrew Atkins                      ||
 ||                                                                                ||
-||                                   Version:1.0                                  ||
-||                                    12.05.16                                    ||
+||                                   Version:2.0                                  ||
+||                                    01.02.18                                    ||
 ||                                                                                ||
   ================================================================================
 
@@ -3894,7 +3778,7 @@ Length of time step:  [0.5] \textbf{\textcolor{red}{<ENTER>}}
 
 Please enter the time step intervals for which the statistical analysis should be carried out. 
 
-Time step interval:  [0 200] \textbf{\textcolor{red}{0 40}}
+Time step interval:  [0 200] \textbf{\textcolor{red}{0  40}}
 
 Do you want to add another time interval for analysis? [False] \textbf{\textcolor{red}{<ENTER>}}
 
@@ -3965,8 +3849,8 @@ user@host> \textbf{\textcolor{red}{$SHARC/trajana_nma.py}}
 ||                                                                                ||
 ||                      Author: Felix Plasser, Andrew Atkins                      ||
 ||                                                                                ||
-||                                   Version:1.0                                  ||
-||                                    12.05.16                                    ||
+||                                   Version:2.0                                  ||
+||                                    01.02.18                                    ||
 ||                                                                                ||
   ================================================================================
 
@@ -4098,7 +3982,7 @@ This can be achieved with \ttt{geo.py} and a simple Bash loop:
 \begin{Verbatim}[commandchars=\\\{\}]
 user@host> \textbf{\textcolor{red}{echo "r 1 2" > Geo.inp}}
 user@host> \textbf{\textcolor{red}{for i in Singlet_2/TRAJ_000*;}}
-user@host> \textbf{\textcolor{red}{python $SHARC/geo.py -t 0.5 -g $i/output.xyz < Geo.inp > $i/Geo.out;}}
+user@host> \textbf{\textcolor{red}{$SHARC/geo.py -t 0.5 -g $i/output.xyz < Geo.inp > $i/Geo.out;}}
 user@host> \textbf{\textcolor{red}{done}}
 \end{Verbatim}
 This will create a file \ttt{Geo.out} for each trajectory with the bond length between atoms 1 and 2.
@@ -4116,8 +4000,8 @@ user@host> \textbf{\textcolor{red}{$SHARC/data_collector.py}}
 ||                                                                                ||
 ||                              Author: Sebastian Mai                             ||
 ||                                                                                ||
-||                                   Version:1.0                                  ||
-||                                    08.10.14                                    ||
+||                                   Version:2.0                                  ||
+||                                    01.02.18                                    ||
 ||                                                                                ||
   ================================================================================
 
@@ -4316,14 +4200,14 @@ Using \ttt{data\_collector.py}, it is also possible to compute the mean and stan
 In order to do so, do not apply convolution in X direction, and then ask for an averaging and/or statistics analysis.
 
 
-\begin{figure}[ptb]
+\begin{figure}[p]
   \centering
   \includegraphics[width=0.7\textwidth]{figures/coll_1_2.png}
   \caption{All \ce{C=N} bond lengths from the 7 trajectories.}
   \label{fig:coll_1_2}
 \end{figure}
 
-\begin{figure}[ptb]
+\begin{figure}[p]
   \centering
   \includegraphics[width=0.7\textwidth]{figures/coll_1_2_cX.png}
   \caption{Convolution of the \ce{C=N} bond lengths from the 7 trajectories.}
@@ -4362,8 +4246,8 @@ user@host> \textbf{\textcolor{red}{$SHARC/data_collector.py}}
 ||                                                                                ||
 ||                              Author: Sebastian Mai                             ||
 ||                                                                                ||
-||                                   Version:1.0                                  ||
-||                                    08.10.14                                    ||
+||                                   Version:2.0                                  ||
+||                                    01.02.18                                    ||
 ||                                                                                ||
   ================================================================================
 
@@ -4549,7 +4433,7 @@ The simulated transient absorption spectrum is presented in Figure~\ref{fig:TAS}
 
 Using \ttt{data\_collector.py}, it is also possible to convolute the spectrum with an instrument response function, or to integrate it along the time or energy axes.
 
-\begin{figure}[ptb]
+\begin{figure}[h]
   \centering
   \includegraphics[width=0.9\textwidth]{figures/TAS.png}
   \caption{Simulated transient absorption spectrum of \ce{CH2NH2+}. Ground state bleech (negative absorption) is shown in red, and excited-state absorption (positive absorption) is shown in blue.}
@@ -4715,7 +4599,7 @@ Carry out the \ttt{setup\_init.py} input dialogue as usual, but request \ttt{4 3
 
 Please enter the number of states as a list of integers
 e.g. 3 0 3 for three singlets, zero doublets and three triplets.
-Number of states: \textbf{\textcolor{red}{4 3 3}}
+Number of states: \textbf{\textcolor{red}{4  3  3}}
 
 Number of states: [4, 3, 3]
 Total number of states: 19
@@ -4774,7 +4658,7 @@ More specifically, we will take the geometry from a random time step which is la
 This can be done with the following (assuming you are in the \ttt{traj/} directory):
 \begin{oframed}
 \footnotesize\begin{Verbatim}[commandchars=\\\{\}]
-user@host> \textbf{\textcolor{red}{python $SHARC/sharctraj_to_initconds.py -S 100 -20 -o initconds_II Singlet_2/}}
+user@host> \textbf{\textcolor{red}{$SHARC/sharctraj_to_initconds.py -S 100 -20 -o initconds_II Singlet_2/}}
 Initial condition generation started...
 directories                    = "['Singlet_2/']"
 Random number generator seed   = 16661
@@ -5201,6 +5085,7 @@ Also note that within \sharc, spin-orbit couplings are only available with ADC(2
 These are the main differences when using ADC(2) in \textsc{Turbomole} instead of \textsc{Molcas}:
 \begin{itemize}
   \item \textsc{Turbomole} calculations---single points, optimizations, frequency calculations---can be setup with \textsc{Turbomole}'s input facility \ttt{define}.
+  \item (For MP2 frequencies with \ttt{ricc2}, use \ttt{NumForce -ri -level mp2}, instead of the \ttt{NumForce -level CC2} claimed in the \textsc{Turbomole} documentation.)
   \item The result of \textsc{Turbomole} frequency calculations can be converted to \textsc{Molden} format using \textsc{Turbomole}'s \ttt{tm2molden} program.
   \item Template files for the \sharc-\textsc{Turbomole} interface should be created by copying and adjusting the documented example in \ttt{\$SHARC/../examples/SHARC\_RICC2/}.
   \item \textsc{Turbomole} cannot compute nonadiabatic coupling vectors, so all \sharc-\textsc{Turbomole} simulations rely on \ttt{wfoverlap.x}.
@@ -5232,8 +5117,8 @@ In the following, a brief tutorial is given how to prepare the template file for
 \end{enumerate}
 This creates the file \ttt{LVC.template}, which can be used as any other template file within \sharc.
 
-Note that this mini-tutorial cannot be done with \textsc{Molcas}, because it does not return all $3N$ normal modes in its \textsc{Molden} files (only $3N-6$) and cannot compute nonadiabatic coupling vectors.
-Among the other \sharc\ interfaces, only the \textsc{Columbus} interface (and the \textsc{Molpro} interface) can be used to compute nonadiabatic coupling vectors.
+Note that this mini-tutorial cannot be done with \textsc{Molcas}, because it does not return all $3N$ normal modes in its \textsc{Molden} files (only $3N-6$).
+Among the \sharc\ interfaces, only the \textsc{Columbus} interface and the \textsc{Molpro} interface can be used to compute nonadiabatic coupling vectors and deliver the full $3N$ normal modes.
 However, in systems where nonadiabatic couplings are not relevant (e.g., only one singlet and one triplet, or systems where the nonadiabatic couplings at the equilibrium geometry vanish by symmetry) all interfaces can be used for generating the \ttt{LVC.template} (in this case, do not add the \ttt{nacdr} keyword to \ttt{QM.in}).
 
 % ======================================================================================================
@@ -5258,6 +5143,156 @@ These are the main differences when using \textsc{Gaussian} instead of \textsc{M
 
 For the reasons mentioned above, the dynamics of \ce{CH2NH2+} cannot be properly described with TD-DFT.
 Users who intend to follow the tutorial with \textsc{Gaussian} instead of \textsc{Molcas} should therefore use a different molecule (\ce{SO2} might work well).
+
+
+
+% ======================================================================================================
+% ======================================================================================================
+% ======================================================================================================
+
+\chapter{Quick Tutorial}
+
+This quick tutorial presents how to setup a single \sharc\ trajectory, by simply creating all necessary input files without employing the tools of the \sharc\ suite.
+In this quick tutorial, we are using the equilibrium geometry as starting geometry and random initial velocities. 
+
+The goal is to prepare all input files for \sharc\ and the \textsc{Molcas} interface. 
+The necessary files and directories are presented in figure~\ref{fig:traj_dir}. 
+Note that the files \ttt{MOLCAS.template} and \ttt{MOLCAS.resources} are only necessary since we are using the \sharc-\textsc{Molcas} interface.
+
+\begin{figure}
+  \centering
+  \includegraphics[]{img/dir_traj/dir_traj.pdf}
+  \caption{Input files for a \sharc\ dynamics simulation of a single, independent trajectory.}
+  \label{fig:traj_dir}
+\end{figure}
+
+The contents of the files are given and explained in the following.
+Please be aware that the two subdirectories need to exist before \sharc\ can be started.
+
+\section{Input File}
+
+The \sharc\ input file (``\ttt{input}'') contains the dynamics settings and names of additional input files (geometry, velocity, coefficients). An example is given below:
+\definecolor{shadecolor}{HTML}{BBDDFF}
+\begin{example}\vspace{-8mm}
+\begin{verbatim}
+geomfile "geom"
+veloc random 0.1
+
+nstates 4 0 3
+state 3 mch
+coeff auto
+
+ezero -94.41294549
+tmax 25.000000
+stepsize 0.5
+
+surf sharc
+coupling overlap
+decoherence_scheme edc
+
+grad_select
+eselect 0.1
+select_directly
+\end{verbatim}\vspace{-5mm}
+\end{example}
+
+The meaning of these keywords is: The geometry is read from file \ttt{geom}. 
+The nuclear velocities are picked at random, with 0.1~eV kinetic energy per atom. 
+Four singlet states and three triplet states will be included in the simulation (0 is the number of doublet states). 
+The initial state is the third state (the $S_2$). 
+The initial coefficients will be set automatically (the initial state will have a coefficient of 1.0, the remaining states a coefficient of zero). 
+The diagonal elements of the Hamiltonian will be shifted by $-94.41294549$~Hartree. 
+The simulation will run for 25~fs with a 0.5 fs timestep. 
+The \sharc\ formalism will be used (propagation on the diagonalized states). 
+Nonadiabatic interactions are described with wavefunction overlaps.
+SHARC will select which gradients to compute at each time step, with a selection threshold of 0.1~eV.
+SHARC will select these gradients directly, without doing two quantum chemistry calculations per time step.
+
+\section{Geometry File}
+
+The geometry file ``\ttt{geom}'' contains the chemical symbols, atomic charge, $x$, $y$ and $z$ coordinates and the relative atomic masses.
+
+\definecolor{shadecolor}{HTML}{BBDDFF}
+\begin{example}\vspace{-8mm}
+\begin{verbatim}
+C 6.0 +0.00000000 +0.00000000 +0.00000000 12.00000000
+N 7.0 +0.00000000 +0.00000000 +2.45664494 14.00307401
+H 1.0 +1.78220520 +0.00000000 -1.02895628 1.00782504
+H 1.0 +1.78220520 +0.00000000 +3.55174167 1.00782504
+H 1.0 -1.78220520 +0.00000000 +3.55174167 1.00782504
+H 1.0 -1.78220520 +0.00000000 -1.02895628 1.00782504
+\end{verbatim}\vspace{-5mm}
+\end{example}
+
+\section{QM Run Script}
+
+At each timestep, \sharc\ writes the current geometry and different keywords to the file \ttt{QM/QM.in} and then calls \ttt{runQM.sh}. 
+After this call is finished, \sharc\ reads the results of the quantum chemistry calculation from \ttt{QM.out}.
+
+In most of the cases, in \ttt{runQM.sh} simply one of the \sharc-interfaces is called:
+\definecolor{shadecolor}{HTML}{BBDDFF}
+\begin{example}\vspace{-8mm}
+\begin{verbatim}
+cd QM
+$SHARC/SHARC_MOLCAS.py QM.in >> QM.log 2>> QM.err
+\end{verbatim}\vspace{-5mm}
+\end{example}
+The interface will do all work necessary to produce the desired file \ttt{QM.out}.
+
+\section{MOLCAS Template}
+
+The \textsc{Molcas} interface needs as additional input file giving the settings for the electronic structure calculation. 
+The file is called ``\ttt{MOLCAS.template}''.
+It employs a simple keyword-argument structure and looks like:
+\definecolor{shadecolor}{HTML}{BBDDFF}
+\begin{example}\vspace{-8mm}
+\begin{verbatim}
+basis cc-pVDZ
+nactel 6
+ras2 4
+inactive 5
+roots 4 0 3
+method casscf
+no-douglas-kroll
+\end{verbatim}\vspace{-5mm}
+\end{example}
+
+\section{MOLCAS Resources}
+
+The \textsc{Molcas} interface additionally needs some paths and resource settings, both of which are read from the file  ``\ttt{MOLCAS.resources}''.
+\definecolor{shadecolor}{HTML}{BBDDFF}
+\begin{example}\vspace{-8mm}
+\begin{verbatim}
+molcas /usr/license/molcas/molcas80
+scratchdir $TMPDIR/WORK
+savedir ../restart/
+
+memory 1000
+ncpu 1
+\end{verbatim}\vspace{-5mm}
+\end{example}
+
+\section{Running \sharc}
+
+With the input files prepared, the trajectory can then be started by simply executing:
+\definecolor{shadecolor}{HTML}{BBDDFF}
+\begin{example}\vspace{-8mm}
+\begin{verbatim}
+$SHARC/sharc.x input 
+\end{verbatim}\vspace{-5mm}
+\end{example}
+
+\section{Output}
+
+\sharc\ produces four output files, \ttt{output.log}, \ttt{output.lis}, \ttt{output.dat} and \ttt{output.xyz}. 
+The file \ttt{output.log} contains mainly a listing of the chosen options and the resulting dynamics settings. 
+At higher print levels, the log file contains also information per timestep. 
+\ttt{output.lis} contains a table with one line per timestep, giving active states, energies and expectation values.
+\ttt{output.dat} contains a list of all important matrices and vectors at each timestep. 
+This information can be extracted with \ttt{data\_extractor.x} to yield plottable table files. 
+\ttt{output.xyz} contains the geometries of all timesteps, allowing visualization of the trajectory with the appropriate software (e.g., \textsc{Molden}).
+
+
 
 
 

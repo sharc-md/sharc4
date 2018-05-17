@@ -1,4 +1,4 @@
-\documentclass[a4paper,10pt,DIV=15,openany,twoside=false]{scrbook}
+\documentclass[a4paper,10pt,DIV=15,openany]{scrbook}
 
 % everything inside \tthdump is ignored by tth, but processed by LaTeX
 \newcommand{\tthdump}[1]{#1}
@@ -45,6 +45,9 @@
   framed,
   flafter,
   microtype}
+\tthdump{
+  \DisableLigatures[-]{family=tt*}
+}
 \usepackage[colorlinks=true,urlcolor=V,linkcolor=B,citecolor=B]{hyperref}
 \usepackage[square, sort&compress, numbers]{natbib}
 % hide some packages from tth
@@ -58,7 +61,8 @@
 % \usepackage{pxfonts}
 \usepackage{libertine}
 \usepackage[libertine]{newtxmath}
-\usepackage[scaled=0.95]{inconsolata}
+% \usepackage[scaled=0.95]{inconsolata}
+\usepackage[scaled=0.8]{beramono}
 % \renewcommand*{\sfdefault}{lmss}
 
 
@@ -132,10 +136,11 @@
 % =============================== TITLE ==========================
 %%tth: \title{SHARC: Surface Hopping in the Adiabatic Representation Including Arbitrary Couplings---Manual}
 \newenvironment{tpage}{%
+\KOMAoptions{twoside = false}
 \addtokomafont{title}{\rmfamily}
   \begin{titlepage}
-    \title{\hspace{1cm}\includegraphics[width=0.8\textwidth,keepaspectratio=true]{img/sharc.pdf}\\[0.5cm]
-    SHARC:\\ Surface Hopping Including\\ Arbitrary Couplings}
+    \title{\hspace{1cm}\includegraphics[width=0.8\textwidth,keepaspectratio=true]{img/sharc_new.pdf}\\[0.5cm]
+    SHARC2.0:\\ Surface Hopping Including\\ Arbitrary Couplings}
 %     SHARC: Surface Hopping in the Adiabatic Representation Including Arbitrary Couplings}
     \subtitle{Manual\\[1cm]Version 2.0}
     \date{Vienna, \today}
@@ -232,7 +237,7 @@ University of Vienna, Austria
 
 \newpage
 \ihead{\textsc{Sharc} Manual}
-\ohead{\rightmark}
+\ohead{\leftmark\quad {\normalfont|} \quad\rightmark}
 \ofoot[\pagemark]{\pagemark}
 
 % ========================================================================================================= %
@@ -252,7 +257,7 @@ University of Vienna, Austria
 \chapter{Introduction}
 
 % what is nonadiabatic dynamics
-When a molecule is irradiated by light, a number of dynamical processes can take place, in which the molecule redistributes the energy among different electronic and vibrational degrees of freedom. Kasha's rule \cite{Kasha1950DFS} states that radiationless transfer from higher excited singlet states to the lowest-lying $S_1$ excited state is faster than fluorescence (F). This radiationless transfer is called internal conversion (IC) and involves a changes between electronic states of the same multiplicity. If a transition occurs between electronic states of different spin, the process is called intersystem crossing (ISC). A typical ISC process is from a singlet to a triplet state, and once the lowest triplet is populated, phosphorescence (P) can take place. In figure~\ref{fig:jablonski}, radiative (F and P) and radiationless (IC and ISC) processes are summarized in a so-called Jab{\l}onski diagram.
+When a molecule is irradiated by light, a number of dynamical processes can take place, in which the molecule redistributes the energy among different electronic and vibrational degrees of freedom. Kasha's rule \cite{Kasha1950DFS} states that radiationless transfer from higher excited singlet states to the lowest-lying excited singlet state ($S_1$) is faster than fluorescence (F). This radiationless transfer is called internal conversion (IC) and involves a changes between electronic states of the same multiplicity. If a transition occurs between electronic states of different spin, the process is called intersystem crossing (ISC). A typical ISC process is from a singlet to a triplet state, and once the lowest triplet is populated, phosphorescence (P) can take place. In figure~\ref{fig:jablonski}, radiative (F and P) and radiationless (IC and ISC) processes are summarized in a so-called Jab{\l}onski diagram.
 
 \begin{figure}[!ht]
   \centering
@@ -261,7 +266,7 @@ When a molecule is irradiated by light, a number of dynamical processes can take
   \label{fig:jablonski}
 \end{figure}
 
-The non-radiative IC and ISC process are fundamental concepts which play a decisive role in photochemistry and photobiology. IC processes are present in the excited-state dynamics of many organic and inorganic molecules, whose applications range from solar energy conversion to drug therapy. Even many, very small molecules, for example \ce{O2} and \ce{O3}, \ce{SO2}, \ce{NO2} and other nitrous oxides, show efficient IC, which has important consequences in atmospheric chemistry and the study of the environment and pollution. IC is also the first step of the biological process of visual perception, where the retinal moiety of rhodopsin absorbs a photon and non-radiatively performs a torsion around one of the double bonds, changing the conformation of the protein and inducing a neural signal. Similarly, protection of the human body from the influence of UV light is achieved through very efficient IC in DNA, proteins and melanins. Ultrafast IC to the electronic ground state allows quickly converting the excitation energy of the UV photons into nuclear kinetic energy, which is spread harmlessly as heat to the environment.
+The non-radiative IC and ISC processes are fundamental concepts which play a decisive role in photochemistry and photobiology. IC processes are present in the excited-state dynamics of many organic and inorganic molecules, whose applications range from solar energy conversion to drug therapy. Even many, very small molecules, for example \ce{O2} and \ce{O3}, \ce{SO2}, \ce{NO2} and other nitrous oxides, show efficient IC, which has important consequences in atmospheric chemistry and the study of the environment and pollution. IC is also the first step of the biological process of visual perception, where the retinal moiety of rhodopsin absorbs a photon and non-radiatively performs a torsion around one of the double bonds, changing the conformation of the protein and inducing a neural signal. Similarly, protection of the human body from the influence of UV light is achieved through very efficient IC in DNA, proteins and melanins. Ultrafast IC to the electronic ground state allows quickly converting the excitation energy of the UV photons into nuclear kinetic energy, which is spread harmlessly as heat to the environment.
 
 ISC processes are completely forbidden in the frame of the non-relativistic Schr\"odinger equation, but they become allowed when including spin-orbit couplings, a relativistic effect~\cite{Marian2012WCMS}. Spin-orbit coupling depends on the nuclear charge and becomes stronger for heavy atoms, therefore it is typically known as a ''heavy atom'' effect. However, it has been recently recognized that even for molecules with only first- and second-row atoms, ISC might be relevant and can be competitive in time scales with IC. A small selection of the growing number of molecules where efficient ISC in a sub-ps time scale has been predicted are \ce{SO2}~\cite{Wilkinson2014JCP,Mai2014JCP_SO2,Leveque2014JCP_ISC}, benzene~\cite{Penfold2012JCP}, aromatic nitrocompounds~\cite{Vogt2013JPC} or DNA nucleobases and derivatives~\cite{Crespo-Hernandez2004CR, Richter2012JPCL, Martinez-Fernandez2012CC, Mai2013C, Reichardt2010CC}.
 
@@ -269,10 +274,10 @@ ISC processes are completely forbidden in the frame of the non-relativistic Schr
 Theoretical simulations can greatly contribute to understand non-radiative processes by following the nuclear motion on the excited-state potential energy surfaces (PES) in real time. These simulations are called excited-state dynamics simulations. 
 Since the Born-Oppenheimer approximation is not applicable for this kind of dynamics, nonadiabatic effects need to be incorporated into the simulations.
 
-The principal methodology to tackle excited-state dynamics simulations is to numerically integrate the time-dependent Schr\"odinger equation, which is usually called full quantum dynamics simulations (QD). Given accurate PESs, QD is able to reach or surpass experimental accuracy. However, the need of an ''a priori'' knowledge of the full multi-dimensional PES renders this type of simulations quickly unfeasible for more than few degrees of freedom. Several alternative methodologies are possible to alleviate this problem. One of the most popular ones is to use surface hopping nonadiabatic dynamics.
+The principal methodology to tackle excited-state dynamics simulations is to numerically integrate the time-dependent Schr\"odinger equation, which is usually called full quantum dynamics simulations (QD). Given accurate PESs, QD is able to match experimental accuracy. However, the need for the ''a priori'' knowledge of the full multi-dimensional PES renders this type of simulations quickly unfeasible for more than few degrees of freedom. Several alternative methodologies are possible to alleviate this problem. One of the most popular ones is to use surface hopping nonadiabatic dynamics.
 
 % surface hopping, advantages, history
-Surface hopping was originally devised by Tully~\cite{Tully1971JCP} and greatly improved later by the ``fewest-switches criterion''\cite{Tully1990JCP} and it has been reviewed extensively since then, see e.g.~\cite{Barbatti2011WCMS,Doltsinis2006,Doltsinis2002JTCC}.
+Surface hopping was originally devised by Tully~\cite{Tully1971JCP} and greatly improved later by the ``fewest-switches criterion''\cite{Tully1990JCP} and it has been reviewed extensively since then, see e.g.~\cite{Barbatti2011WCMS,Subotnik2016ARPC,Wang2016JPCL,Doltsinis2006,Doltsinis2002JTCC}.
 In surface hopping, the motion of the excited-state wave packet is approximated by the motion of an ensemble of many independent, classical trajectories. Each trajectory is at every instant of time tied to one particular PES, and the nuclear motion is integrated using the gradient of this PES. However, nonadiabatic population transfer can lead to the switching of a trajectory from one PES to another PES. This switching (also called ``hopping'', which is the origin of the name ``surface hopping'') is based on a stochastic algorithm, taking into account the change of the electronic population from one time step to the next one.
 
 The advantages of the surface hopping methodology and thus its popularity are well summarized in Ref.~\cite{Barbatti2011WCMS}:
@@ -286,7 +291,7 @@ The strongest of these points of course is the fact that all degrees of freedom 
 One should note, however, that surface hopping methods in the standard formulation~\cite{Tully1971JCP, Tully1990JCP}---due to  the classical nature of the trajectories---do not allow to treat some purely quantum-mechanical effects like tunneling, (tunneling for selected degrees of freedom is possible \cite{Hammes-Schiffer1994JCP}). Additionally, quantum coherence between the electronic states is usually described poorly, because of the independent-trajectory ansatz. This can be treated with some ad-hoc corrections, e.g., in \cite{Granucci2007JCP}.
 
 % SHARC
-In the original surface hopping method, only nonadiabatic couplings are considered, only allowing for population transfer between electronic states of the same multiplicity. 
+In the original surface hopping method, only nonadiabatic couplings are considered, only allowing for population transfer between electronic states of the same multiplicity (IC). 
 The \sharc\ methodology is a generalization of standard surface hopping since it allows to include any type of coupling. Beyond nonadiabatic couplings (for IC), spin-orbit couplings (for ISC) or interactions of dipole moments with electric fields (to explicitly describe laser-induced processes) can be included.
 A number of methodologies for surface hopping including one or the other type of potential couplings have been proposed in references~\cite{Thachuk1996JCP,Maiti2004JPCA,Jones2008JPCA,Mitric2009PRA,Granucci2012JCP,Curchod2013C,Cui2014JCP}, but \sharc\ can include all types of potential couplings on the same footing. 
 
@@ -302,26 +307,27 @@ The \sharc\ suite of programs is an implementation of the \sharc\ method. Beside
 
 \section{Capabilities}
 
-The main features of the \sharc\ suite are:
+The main features of the \sharc{}2.0 suite are:
 \begin{itemize}
   \item Non-adiabatic dynamics based on the surface hopping methodology able to describe internal conversion and intersystem crossing with any number of states (singlets, doublets, triplets, or higher multiplicities).
   \item Algorithms for stable wave function propagation in the presence of very small or very large couplings.
   \item Inclusion of interactions with laser fields in the long-wavelength limit. The derivatives of the dipole moments can be included in strong-field applications.
-  \item Propagation using either nonadiabatic couplings vectors $\langle\alpha|\frac{\partial}{\partial \mathbf{R}}|\beta\rangle$, time-derivative couplings $\langle\alpha|\frac{\partial}{\partial t}|\beta\rangle$ or wave function overlaps $\langle\alpha(t_0)|\beta(t)\rangle$ (via the local diabatization procedure \cite{Granucci2007JCP}).
+  \item Propagation using either nonadiabatic couplings vectors $\langle\alpha|\frac{\partial}{\partial \mathbf{R}}|\beta\rangle$ or wave function overlaps $\langle\alpha(t_0)|\beta(t)\rangle$ (via the local diabatization procedure \cite{Granucci2007JCP}).
   \item Gradients including the effects of spin-orbit couplings (with the approximation that the diabatic spin-orbit couplings are slowly varying).
   \item Flexible interface to quantum chemistry programs. Existing interfaces to:
   \begin{itemize}
     \item \textsc{Molpro} 2010 and 2012: SA-CASSCF
-    \item \textsc{Molcas} 7.8 and 8.0: SA-CASSCF, SS-CASPT2, MS-CASPT2%, QM/MM-SA-CASSCF
+    \item \textsc{Openmolcas} 18.0: SA-CASSCF, SS-CASPT2, MS-CASPT2, SA-CASSCF+QM/MM
     \item \textsc{Columbus} 7: SA-CASSCF, SA-RASSCF, MR-CISD
-    \item \textsc{ADF}: TD-DFT
-    \item \textsc{Turbomole}: ADC(2), CC2
+    \item \textsc{ADF} 2017+: TD-DFT, TD-DFT+QM/MM
+    \item \textsc{Turbomole} 7: ADC(2), CC2
+    \item \textsc{Gaussian} 09 and 16: TD-DFT
     \item Interface for analytical potentials
     \item Interface for linear-vibronic coupling (LVC) models
   \end{itemize}
   \item Energy-difference-based partial coupling approximation to speed up calculations \cite{Pittner2009CP}.
   \item Energy-based decoherence correction \cite{Granucci2007JCP} or augmented-FSSH decoherence correction \cite{Jain2016JCTC}.
-  \item Calculation of Dyson norms for single-photon ionization spectra (for some interfaces) \cite{Ruckenbauer2016SR}.
+  \item Calculation of Dyson norms for single-photon ionization spectra (for most interfaces) \cite{Ruckenbauer2016SR}.
   \item On-the-fly wave function analysis with TheoDORE \cite{Plasser2014JCP1, Plasser2014JCP2, Plasser2017TheoDORE} (for some interfaces).
   \item Suite of auxiliary Python scripts for all steps of the setup procedure and for various analysis tasks.
   \item Comprehensive tutorial.
@@ -335,41 +341,41 @@ These features are new in \sharc\ Version 2.0 (2018):
   \begin{itemize}
     \item New methods: AFSSH for decoherence, GFSH for hopping probabilities, reflection after frustrated hop.
     \item Atom masking for size-extensive decoherence and rescaling.
-    \item Much better wave function and $\VEC{U}$ matrix phase tracking.
+    \item Improved wave function and $\VEC{U}$ matrix phase tracking.
     \item Support for on-the-fly computation of Dyson norms and \textsc{TheoDORE} descriptors.
-    \item Option to gracefully stop trajectories.
+    \item Option to gracefully stop trajectories after any time step.
   \end{itemize}
   \item Fully integrated, efficient wave function overlap program \ttt{wfoverlap.x}
   \item Quantum chemistry interfaces:
   \begin{itemize}
-    \item \textsc{Molpro}: overhauled, uses \ttt{wfoverlap.x}, gives consistent phase between CASSCF and CI wave functions, can do Dyson norms.
-    \item \textsc{Molcas}: overhauled, can do (MS)-CASPT2 (numerical gradients), QM/MM, Cholesky, Dyson norms, is parallelized, \todo{works with \textsc{Molcas} version XXX}.
-    \item \textsc{Columbus}: overhauled, works with \ttt{wfoverlap.x}, can use \textsc{Dalton} integrals, can use \textsc{Molcas} orbitals, can do Dyson norms.
+    \item \textsc{Molpro}: overhauled, uses \ttt{wfoverlap.x}, gives consistent phase between CASSCF and CI wave functions, can do Dyson norms, parallelizes independent job parts.
+    \item \textsc{Molcas}: overhauled, can do (MS)-CASPT2 (only numerical gradients), QM/MM, Cholesky decomposition, Dyson norms, parallelizes independent job parts, works with \textsc{Openmolcas} version 18.
+    \item \textsc{Columbus}: overhauled, uses \ttt{wfoverlap.x}, can use \textsc{Dalton} integrals, can use \textsc{Molcas} orbitals, can do Dyson norms.
     \item \textsc{Analytical}: ---
-    \item \textsc{Turbomole}: new interface ,can do ADC(2) and CC2; has SOC, overlaps, works with \textsc{TheoDORE}.
-    \item \textsc{ADF}: new interface, can do TD-DFT; has SOC, overlaps, Dyson norms, QM/MM, works with \textsc{TheoDORE}.
-    \item \textsc{Gaussian}: new interface, can do TD-DFT; has overlaps, Dyson norms, works with \textsc{TheoDORE}.
+    \item \textsc{Turbomole}: new interface, can do ADC(2) and CC2; has SOC (for ADC(2)), uses \ttt{wfoverlap.x}, works with \textsc{TheoDORE}.
+    \item \textsc{ADF}: new interface, can do TD-DFT; has SOC, uses \ttt{wfoverlap.x}, Dyson norms, has QM/MM, works with \textsc{TheoDORE}.
+    \item \textsc{Gaussian}: new interface, can do TD-DFT; uses \ttt{wfoverlap.x}, has Dyson norms, works with \textsc{TheoDORE}.
     \item LVC: new interface, can do (analytical) linear vibronic coupling models.
   \end{itemize}
   \item Auxilliary scripts:
   \begin{itemize}
-    \item \ttt{wigner.py}: elevated temperature sampling.
+    \item \ttt{wigner.py}: elevated temperature sampling, LVC model setup.
     \item \ttt{amber\_to\_initconds.py}: new script, converts \textsc{Amber} trajectories to \sharc\ initial conditions.
     \item \ttt{sharctraj\_to\_initconds.py}: new script, converts \sharc\ trajectories to \sharc\ initial conditions.
-    \item \ttt{spectrum.py}: log-normal convolution, density of states.
+    \item \ttt{spectrum.py}: log-normal convolution, density of state spectra.
     \item \ttt{data\_extractor.x}: new quantities to extract.
     \item \ttt{diagnostics.py}: new script, checks all trajectories prior to analysis.
-    \item \ttt{populations.py}: new analysis modes
+    \item \ttt{populations.py}: new analysis modes.
     \item \ttt{transition.py}: new script, computes total number of hops in ensemble.
-    \item \ttt{make\_fitscript.py}: new script, prepares kinetic model fits to obtain time constants.
+    \item \ttt{make\_fitscript.py}: new script, prepares kinetic model fits to obtain time constants from populations.
     \item \ttt{bootstrap.py}: new script, calculates error estimates for time constants.
     \item \ttt{trajana\_essdyn.py}: new script, performs essential dynamics analysis.
     \item \ttt{trajana\_nma.py}: new script, performs normal mode analysis.
     \item \ttt{data\_collector.py}: new script, performs generic data analysis (collecting, smoothing, convolution, integration).
-    \item \ttt{orca\_External}: new script, allows crossing point optimization with any method interfaced in \sharc.
+    \item \ttt{orca\_External}: new script, allows optimization with \textsc{Orca} and \sharc.
     \item Several input generation helpers.
   \end{itemize}
-  \item Reworked tutorial using \textsc{Molcas} (which is free).
+  \item Reworked tutorial using \textsc{Openmolcas} (which is available at no cost).
 \end{itemize}
 
 
@@ -392,18 +398,17 @@ The following references should be cited when using the \sharc\ suite:
   \begin{itemize}
     \item \cite{Richter2011JCTC} \bibentry{Richter2011JCTC}.
     \item \cite{Mai2015IJQC} \bibentry{Mai2015IJQC}.
-    \item \cite{Mai2014SHARC} \bibentry{Mai2014SHARC}.
+    \item \cite{Mai2018WCMS} \bibentry{Mai2018WCMS}.
+    \item \cite{Mai2018SHARC} \bibentry{Mai2018SHARC}.
   \end{itemize}
 \end{shaded}
 }
 
 Details can be found in the following references:
 
-The theoretical background of \sharc\ is described in Refs.~\cite{Richter2011JCTC, Richter2012JCTC_erratum, Bajo2012JPCA, Marquetand2011FD, Mai2015IJQC}.
+The theoretical background of \sharc\ is described in Refs.~\cite{Richter2011JCTC, Richter2012JCTC_erratum, Bajo2012JPCA, Marquetand2011FD, Mai2015IJQC, Mai2018WCMS, Mai2018}.
 
-Applications of the \sharc\ code can be found in Refs.~\cite{Richter2012JPCL, Mai2013C, Mai2014TCC, Mai2014JCP_SO2, Gonzalez2014, Richter2014PCCP,Martinez-Fernandez2014JCTC, Crespo-Hernandez2015JACS, Marazzi2016JPCL, Richter2016JCTC, Cao2016CP, Banerjee2016PCCP, Mai2016JPCL, Mai2016NC, Peccati2016PTRSA, Borin2017PCCP, Mai2017CP, Siouri2017JPCA, Bellshaw2017CPL, Sun2017JPCA, Rauer2016JACS, Atkins2017JPCL, Schnappinger2017PCCP, Mai2017JCP}.
-
-
+Applications of the \sharc\ code can be found in Refs.~\cite{Richter2012JPCL, Mai2013C, Mai2014TCC, Mai2014JCP_SO2, Gonzalez2014, Richter2014PCCP,Martinez-Fernandez2014JCTC, Corrales2014PCCP, Crespo-Hernandez2015JACS, Marazzi2016JPCL, Richter2016JCTC, Cao2016CP, Banerjee2016PCCP, Mai2016JPCL, Mai2016NC, Peccati2016PTRSA, Murillo-Sanchez2017CPL, Borin2017PCCP, Mai2017CP, Siouri2017JPCA, Bellshaw2017CPL, Sun2017JPCA, Rauer2016JACS, Atkins2017JPCL, Schnappinger2017PCCP, Mai2017JCP, Zobel2018CEJ, Rauer2018MC, Cao2018JMS, Squibb2018NC}.
 
 Other features implemented in the \sharc\ suite are described in the following references:
 \begin{itemize}
@@ -411,12 +416,14 @@ Other features implemented in the \sharc\ suite are described in the following r
   \item Augmented-FSSH decoherence correction: \cite{Jain2016JCTC}.
   \item Global flux SH: \cite{Wang2014JCTC}.
   \item Local diabatization and wave function overlap calculation: \cite{Granucci2001JCP, Plasser2012JCP, Plasser2016JCTC}.
-  \item Sampling of initial conditions from a quantum-mechanical harmonic Wigner distribution: \cite{Dahl1988JCP, Schinke1995}.
-  \item Excited state selection for initial condition generation: \cite{Barbatti2011}.
+  \item Sampling of initial conditions from a quantum-mechanical harmonic Wigner distribution: \cite{Dahl1988JCP, Schinke1995, Barbatti2016IJQC}.
+  \item Excited state selection for initial condition generation: \cite{Barbatti2007JPPA}.
   \item Calculation of ring puckering parameters and their classification: \cite{Cremer1975JACS, Boeyens1976JCMS}.
-  \item Normal mode analysis \cite{Kurtz2001JCP,Plasser2009} and essential dynamics analysis \cite{Amadei1993PSFB,Plasser2009}.
-  \item Bootstrapping for error estimation \cite{Nangia2004JCP}.
-%   \item \todo{...?}.
+  \item Normal mode analysis \cite{Kurtz2001JCP,Plasser2009} and essential dynamics analysis: \cite{Amadei1993PSFB,Plasser2009}.
+  \item Bootstrapping for error estimation: \cite{Nangia2004JCP}.
+  \item Crossing point optimization: \cite{Bearpark1994CPL, Levine2008JPCB}
+  \item Computation of ionization spectra: \cite{Ruckenbauer2016SR,Ruckenbauer2016JCP}.
+  \item Wave function comparison with overlaps: \cite{Plasser2016JCP}.
 \end{itemize}
 
 The quantum chemistry programs to which interfaces with \sharc\ exist are described in the following sources:
@@ -429,16 +436,16 @@ The quantum chemistry programs to which interfaces with \sharc\ exist are descri
   \item \textsc{Gaussian}: \cite{Gaussian09, Gaussian16}.
 \end{itemize}
 
-\todo{Others:}
+Others:
 \begin{itemize}
-  \item \todo{\textsc{TheoDORE}: \cite{Plasser2014JCP1, Plasser2014JCP2, Plasser2017TheoDORE}}
-  \item \todo{\textsc{Wfoverlap}: \cite{Plasser2016JCTC, Plasser2016JCP}}
+  \item \textsc{TheoDORE}: \cite{Plasser2014JCP1, Plasser2014JCP2, Plasser2017TheoDORE}
+  \item \textsc{WFoverlap}: \cite{Plasser2016JCTC, Plasser2016JCP}
 \end{itemize}
 
 
 \section{Authors}
 
-The current version of the \sharc\ suite has been programmed by Sebastian Mai, Martin Richter, Andrew Atkins, Felix Plasser, Moritz Heindl, and Philipp Marquetand of the AG Gonz\'alez of the Institute of Theoretical Chemistry of the University of Vienna with contributions from Jes\'us Gonz\'alez-V\'azquez, Matthias Ruckenbauer, Markus Oppel, Patrick J.\ Zobel, and Leticia Gonz\'alez.
+The current version of the \sharc\ suite has been programmed by Sebastian Mai, Martin Richter, Moritz Heindl, Maximilian F. S. J. Menger, Andrew Atkins, Felix Plasser, and Philipp Marquetand of the AG Gonz\'alez of the Institute of Theoretical Chemistry of the University of Vienna with contributions from Jes\'us Gonz\'alez-V\'azquez, Matthias Ruckenbauer, Markus Oppel, Patrick J.\ Zobel, and Leticia Gonz\'alez.
 
 \section{Suggestions and Bug Reports}
 
@@ -477,7 +484,7 @@ On the other hand, examples of input files and command lines are marked like thi
 \section{How To Obtain}
 
 \sharc\ can be obtained from the \sharc\ homepage \link{http://sharc-md.org}{www.sharc-md.org}. In the Download section, register with your e-mail adress and affiliation. You will receive a download link to the stated e-mail adress. Clicking on the link in the email will download the archive file containing the \sharc\ package. Note that the link is active only for 24 h and the number of downloads is limited.
-\todo{From the homepage, also the wfoverlap code is available, required for many functionalities of \sharc.}
+% \todo{From the homepage, also the wfoverlap code is available, required for many functionalities of \sharc.}
 
 Note that you must accept the Terms of Use given in the following section in order to download \sharc.
 
@@ -488,72 +495,751 @@ Note that you must accept the Terms of Use given in the following section in ord
 {
 \definecolor{shadecolor}{HTML}{BBDDFF}
 \begin{shaded}
-\licensepara{Recitals}
 
-The University of Vienna (in following the ``University''), whose principal address is at Universit\"ats\-ring 1, 1010 Vienna, Austria, developed the Software ``SHARC: Surface Hopping with Arbitrary Couplings. A program suite to study the excited-state dynamics of molecules'' (in the following the ``Software'').
+\sharc\ Program Suite
 
-The Software is not to be used for commercial purposes. Our Software provided on the relevant website is solely to be used for research, teaching and demonstration purposes and is free of any charge. The user of the Software is required to have the appropriate knowledge and know-how to use the Software (in the following the ``User''). Any User should seek further guidance and make independent enquiries before relying on the Software.
+Copyright \textcopyright{}2018, University of Vienna
 
-\licensepara{Research, Teaching and Demonstration Purposes, Content and Liability}
+SHARC is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
 
-The Software on this website is based on scientific work and is solely to be used for research, teaching and demonstration purposes. The University, its organs, associated companies, employees and representatives do not warrant, represent or guarantee the functionality of the Software whatsoever. 
+SHARC is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
 
-The use of the Software is at your own risk and your own responsibility. The University, its organs, associated companies, employees and representatives do not assume any liability for the use the Software including its results. The University does not warrant, represent or guarantee any quality or performance of the Software and shall not be responsible for including but not limited to
+A copy of the GNU General Public License is given below.
+It is also available at \link{http://www.gnu.org/licenses/}{www.gnu.org/licenses/}.
 
-\begin{itemize}
-  \item any contents of the Software in any kind;
-  \item any intermediate or permanent amendments of the Software of any kind;
-  \item any damages of any kind arising out of or in connection with the use of the Software (including without limitation damages for any consequential loss or loss of business opportunities or projects, or loss of profits) including, but not limited to, data theft or data loss;
-  \item any errors, faults, incompleteness, inaccuracy, inadequacy or unsuitability or incorrectness of the provided Software or its results;
-  \item any personal damages or damages to property due to the use of the Software;
-  \item any damages of computers, any viruses or Trojans or similar which were transferred or conveyed by the Software;
-  \item any defaults or incompleteness of the Software including any loss or damages of any kind due to or arising out of the use of the Software provided on the website of the University;
-  \item any damages caused by third persons or subcontractors.
-\end{itemize}
 
-Hence, the University explicitly reserves the right to amend, supplement, delete or remove the Software, partially or as a whole, at any time and without prior notice.
 
-The University explicitly refrains from and does not assume any liability whatsoever for any products or services offered or advertised by third persons via the provided Software.
+% \documentclass[11pt]{article}
+% 
+% \title{GNU GENERAL PUBLIC LICENSE}
+% \date{Version 3, 29 June 2007}
+% 
+% \begin{document}
+% \maketitle
 
-\licensepara{Acknowledgements}
+% \begin{center}
+% {\parindent 0in
+% 
+% Copyright \copyright\  2007 Free Software Foundation, Inc. \texttt{https://fsf.org/}
+% 
+% \bigskip
+% Everyone is permitted to copy and distribute verbatim copies of this
+% 
+% license document, but changing it is not allowed.}
+% 
+% \end{center}
 
-The User shall acknowledge the authors or originators and use of the Software in the publication of any results achieved through use of the Software in the form of including the following references:
+\begin{center}
+  {\bfseries\large GNU General Public License}
+\end{center}
+\vspace{-3mm}
 
-\begin{itemize}
-  \item \todo{S. Mai, M. Richter, M. Ruckenbauer, M. Oppel, P. Marquetand, L. Gonz\'alez}: ``SHARC: Surface Hopping Including Arbitrary Couplings - Program Package for Non-Adiabatic Dynamics''. www.sharc-md.org (2014).
-  \item M. Richter, P. Marquetand, J. Gonz\'alez-V\'azquez, I. Sola, L. Gonz\'alez: ``SHARC: ab Initio Molecular Dynamics with Surface Hopping in the Adiabatic Representation Including Arbitrary Couplings''. J. Chem. Theory Comput., 7, 1253-1258 (2011).
-  \item \todo{IJQC}
-\end{itemize}
+\licensepara{Preamble}
 
-The User shall reproduce a copyright notice on every copy of the Software including partial copies and on any accompanying manuals and documentation in the form ``Copyright \copyright\ 2014 University of Vienna. All rights reserved.'' Trademark and other proprietary notices must also be reproduced but the User has no longer the right to use the name, arms, trademark, logo or other designation of the University of Vienna.
+% \renewcommand{\abstractname}{Preamble}
+% \begin{abstract}
+The GNU General Public License is a free, copyleft license for
+software and other kinds of works.
 
-\licensepara{Intellectual Property}
+The licenses for most software and other practical works are designed
+to take away your freedom to share and change the works.  By contrast,
+the GNU General Public License is intended to guarantee your freedom to
+share and change all versions of a program--to make sure it remains free
+software for all its users.  We, the Free Software Foundation, use the
+GNU General Public License for most of our software; it applies also to
+any other work released this way by its authors.  You can apply it to
+your programs, too.
 
-The contents of this Software are exclusively governed and construed by Austrian intellectual property laws. Any copying, editing, distribution or use of the contents require the prior consent of the respective authors or originators which is not granted or deemed to be granted without the prior written consent as described above.
+When we speak of free software, we are referring to freedom, not
+price.  Our General Public Licenses are designed to make sure that you
+have the freedom to distribute copies of free software (and charge for
+them if you wish), that you receive source code or can get it if you
+want it, that you can change the software or use pieces of it in new
+free programs, and that you know you can do these things.
 
-If and to the extent the User amends, edits or otherwise supplements the Software with own information or other information of third persons, the User shall be deemed as the new operator of the Software. Consequently, the User expressly assumes any and all liability in connection with the Software.
+To protect your rights, we need to prevent others from denying you
+these rights or asking you to surrender the rights.  Therefore, you have
+certain responsibilities if you distribute copies of the software, or if
+you modify it: responsibilities to respect the freedom of others.
 
-\licensepara{Indemnity}
+For example, if you distribute copies of such a program, whether
+gratis or for a fee, you must pass on to the recipients the same
+freedoms that you received.  You must make sure that they, too, receive
+or can get the source code.  And you must show them these terms so they
+know their rights.
 
-The User is irrevocably obliged to indemnify the University, its employees, its organs, its associated companies and representatives for any damages in particular claims and damage claims including legal cost for
-\begin{itemize}
-  \item any use of the Software by the User;
-  \item any violation or infringement of this terms of use partially or in whole;
-  \item any violation of rights of third persons in particular of intellectual property rights or personality rights of publicity or
-  \item any claims of third persons due to the use of the Software.
-\end{itemize}
+Developers that use the GNU GPL protect your rights with two steps:
+(1) assert copyright on the software, and (2) offer you this License
+giving you legal permission to copy, distribute and/or modify it.
 
-This obligation of the User to indemnify shall not impede any other provision of this disclaimer described herein and shall remain in force and effect after the User has ceased to use the Software.
+For the developers' and authors' protection, the GPL clearly explains
+that there is no warranty for this free software.  For both users' and
+authors' sake, the GPL requires that modified versions be marked as
+changed, so that their problems will not be attributed erroneously to
+authors of previous versions.
 
-If and to the extent third persons assert any claims against the University due to or arising out of the use by any User, such User shall be obliged to indemnify and hold harmless the University for any damages asserted against the University.
+Some devices are designed to deny users access to install or run
+modified versions of the software inside them, although the manufacturer
+can do so.  This is fundamentally incompatible with the aim of
+protecting users' freedom to change the software.  The systematic
+pattern of such abuse occurs in the area of products for individuals to
+use, which is precisely where it is most unacceptable.  Therefore, we
+have designed this version of the GPL to prohibit the practice for those
+products.  If such problems arise substantially in other domains, we
+stand ready to extend this provision to those domains in future versions
+of the GPL, as needed to protect the freedom of users.
 
-\licensepara{Data Protection}
+Finally, every program is threatened constantly by software patents.
+States should not allow patents to restrict development and use of
+software on general-purpose computers, but in those that do, we wish to
+avoid the special danger that patents applied to a free program could
+make it effectively proprietary.  To prevent this, the GPL assures that
+patents cannot be used to render the program non-free.
 
-The User explicitly acknowledges that the University uses services of third party suppliers (e.g. Google Analytics etc.) and consents to the use of its data by the third party supplier. Further, the User consents to the use of the respective IP address of the User or similar by third persons (e.g. for statistical use). The University shall be entitled to provide third persons with such data for statistical purposes. If personal data of Users is provided to or used by third persons, the University shall not be deemed as a sponsor pursuant to the Austrian Data Protection Act 2000.
+The precise terms and conditions for copying, distribution and
+modification follow.
+% \end{abstract}
 
-\licensepara{Final Provisions}
+% \begin{center}
+% {\Large \sc Terms and Conditions}
+% \end{center}
 
-The Software was developed in Austria and is applicable through a server located in Austria. Any and all interpretation of the content of the Software, any claims with regards to the Software and any disputes in connection with the Software shall be governed by Austrian law excluding any applicable collision provisions. Exclusive place of jurisdiction shall be Vienna, Austria.
+\licensepara{Terms and Conditions}
+
+\begin{enumerate}
+
+\addtocounter{enumi}{-1}
+
+\item Definitions.
+
+``This License'' refers to version 3 of the GNU General Public License.
+
+``Copyright'' also means copyright-like laws that apply to other kinds of
+works, such as semiconductor masks.
+
+``The Program'' refers to any copyrightable work licensed under this
+License.  Each licensee is addressed as ``you''.  ``Licensees'' and
+``recipients'' may be individuals or organizations.
+
+To ``modify'' a work means to copy from or adapt all or part of the work
+in a fashion requiring copyright permission, other than the making of an
+exact copy.  The resulting work is called a ``modified version'' of the
+earlier work or a work ``based on'' the earlier work.
+
+A ``covered work'' means either the unmodified Program or a work based
+on the Program.
+
+To ``propagate'' a work means to do anything with it that, without
+permission, would make you directly or secondarily liable for
+infringement under applicable copyright law, except executing it on a
+computer or modifying a private copy.  Propagation includes copying,
+distribution (with or without modification), making available to the
+public, and in some countries other activities as well.
+
+To ``convey'' a work means any kind of propagation that enables other
+parties to make or receive copies.  Mere interaction with a user through
+a computer network, with no transfer of a copy, is not conveying.
+
+An interactive user interface displays ``Appropriate Legal Notices''
+to the extent that it includes a convenient and prominently visible
+feature that (1) displays an appropriate copyright notice, and (2)
+tells the user that there is no warranty for the work (except to the
+extent that warranties are provided), that licensees may convey the
+work under this License, and how to view a copy of this License.  If
+the interface presents a list of user commands or options, such as a
+menu, a prominent item in the list meets this criterion.
+
+\item Source Code.
+
+The ``source code'' for a work means the preferred form of the work
+for making modifications to it.  ``Object code'' means any non-source
+form of a work.
+
+A ``Standard Interface'' means an interface that either is an official
+standard defined by a recognized standards body, or, in the case of
+interfaces specified for a particular programming language, one that
+is widely used among developers working in that language.
+
+The ``System Libraries'' of an executable work include anything, other
+than the work as a whole, that (a) is included in the normal form of
+packaging a Major Component, but which is not part of that Major
+Component, and (b) serves only to enable use of the work with that
+Major Component, or to implement a Standard Interface for which an
+implementation is available to the public in source code form.  A
+``Major Component'', in this context, means a major essential component
+(kernel, window system, and so on) of the specific operating system
+(if any) on which the executable work runs, or a compiler used to
+produce the work, or an object code interpreter used to run it.
+
+The ``Corresponding Source'' for a work in object code form means all
+the source code needed to generate, install, and (for an executable
+work) run the object code and to modify the work, including scripts to
+control those activities.  However, it does not include the work's
+System Libraries, or general-purpose tools or generally available free
+programs which are used unmodified in performing those activities but
+which are not part of the work.  For example, Corresponding Source
+includes interface definition files associated with source files for
+the work, and the source code for shared libraries and dynamically
+linked subprograms that the work is specifically designed to require,
+such as by intimate data communication or control flow between those
+subprograms and other parts of the work.
+
+The Corresponding Source need not include anything that users
+can regenerate automatically from other parts of the Corresponding
+Source.
+
+The Corresponding Source for a work in source code form is that
+same work.
+
+\item Basic Permissions.
+
+All rights granted under this License are granted for the term of
+copyright on the Program, and are irrevocable provided the stated
+conditions are met.  This License explicitly affirms your unlimited
+permission to run the unmodified Program.  The output from running a
+covered work is covered by this License only if the output, given its
+content, constitutes a covered work.  This License acknowledges your
+rights of fair use or other equivalent, as provided by copyright law.
+
+You may make, run and propagate covered works that you do not
+convey, without conditions so long as your license otherwise remains
+in force.  You may convey covered works to others for the sole purpose
+of having them make modifications exclusively for you, or provide you
+with facilities for running those works, provided that you comply with
+the terms of this License in conveying all material for which you do
+not control copyright.  Those thus making or running the covered works
+for you must do so exclusively on your behalf, under your direction
+and control, on terms that prohibit them from making any copies of
+your copyrighted material outside their relationship with you.
+
+Conveying under any other circumstances is permitted solely under
+the conditions stated below.  Sublicensing is not allowed; section 10
+makes it unnecessary.
+
+\item Protecting Users' Legal Rights From Anti-Circumvention Law.
+
+No covered work shall be deemed part of an effective technological
+measure under any applicable law fulfilling obligations under article
+11 of the WIPO copyright treaty adopted on 20 December 1996, or
+similar laws prohibiting or restricting circumvention of such
+measures.
+
+When you convey a covered work, you waive any legal power to forbid
+circumvention of technological measures to the extent such circumvention
+is effected by exercising rights under this License with respect to
+the covered work, and you disclaim any intention to limit operation or
+modification of the work as a means of enforcing, against the work's
+users, your or third parties' legal rights to forbid circumvention of
+technological measures.
+
+\item Conveying Verbatim Copies.
+
+You may convey verbatim copies of the Program's source code as you
+receive it, in any medium, provided that you conspicuously and
+appropriately publish on each copy an appropriate copyright notice;
+keep intact all notices stating that this License and any
+non-permissive terms added in accord with section 7 apply to the code;
+keep intact all notices of the absence of any warranty; and give all
+recipients a copy of this License along with the Program.
+
+You may charge any price or no price for each copy that you convey,
+and you may offer support or warranty protection for a fee.
+
+\item Conveying Modified Source Versions.
+
+You may convey a work based on the Program, or the modifications to
+produce it from the Program, in the form of source code under the
+terms of section 4, provided that you also meet all of these conditions:
+  \begin{enumerate}
+  \item The work must carry prominent notices stating that you modified
+  it, and giving a relevant date.
+
+  \item The work must carry prominent notices stating that it is
+  released under this License and any conditions added under section
+  7.  This requirement modifies the requirement in section 4 to
+  ``keep intact all notices''.
+
+  \item You must license the entire work, as a whole, under this
+  License to anyone who comes into possession of a copy.  This
+  License will therefore apply, along with any applicable section 7
+  additional terms, to the whole of the work, and all its parts,
+  regardless of how they are packaged.  This License gives no
+  permission to license the work in any other way, but it does not
+  invalidate such permission if you have separately received it.
+
+  \item If the work has interactive user interfaces, each must display
+  Appropriate Legal Notices; however, if the Program has interactive
+  interfaces that do not display Appropriate Legal Notices, your
+  work need not make them do so.
+\end{enumerate}
+A compilation of a covered work with other separate and independent
+works, which are not by their nature extensions of the covered work,
+and which are not combined with it such as to form a larger program,
+in or on a volume of a storage or distribution medium, is called an
+``aggregate'' if the compilation and its resulting copyright are not
+used to limit the access or legal rights of the compilation's users
+beyond what the individual works permit.  Inclusion of a covered work
+in an aggregate does not cause this License to apply to the other
+parts of the aggregate.
+
+\item Conveying Non-Source Forms.
+
+You may convey a covered work in object code form under the terms
+of sections 4 and 5, provided that you also convey the
+machine-readable Corresponding Source under the terms of this License,
+in one of these ways:
+  \begin{enumerate}
+  \item Convey the object code in, or embodied in, a physical product
+  (including a physical distribution medium), accompanied by the
+  Corresponding Source fixed on a durable physical medium
+  customarily used for software interchange.
+
+  \item Convey the object code in, or embodied in, a physical product
+  (including a physical distribution medium), accompanied by a
+  written offer, valid for at least three years and valid for as
+  long as you offer spare parts or customer support for that product
+  model, to give anyone who possesses the object code either (1) a
+  copy of the Corresponding Source for all the software in the
+  product that is covered by this License, on a durable physical
+  medium customarily used for software interchange, for a price no
+  more than your reasonable cost of physically performing this
+  conveying of source, or (2) access to copy the
+  Corresponding Source from a network server at no charge.
+
+  \item Convey individual copies of the object code with a copy of the
+  written offer to provide the Corresponding Source.  This
+  alternative is allowed only occasionally and noncommercially, and
+  only if you received the object code with such an offer, in accord
+  with subsection 6b.
+
+  \item Convey the object code by offering access from a designated
+  place (gratis or for a charge), and offer equivalent access to the
+  Corresponding Source in the same way through the same place at no
+  further charge.  You need not require recipients to copy the
+  Corresponding Source along with the object code.  If the place to
+  copy the object code is a network server, the Corresponding Source
+  may be on a different server (operated by you or a third party)
+  that supports equivalent copying facilities, provided you maintain
+  clear directions next to the object code saying where to find the
+  Corresponding Source.  Regardless of what server hosts the
+  Corresponding Source, you remain obligated to ensure that it is
+  available for as long as needed to satisfy these requirements.
+
+  \item Convey the object code using peer-to-peer transmission, provided
+  you inform other peers where the object code and Corresponding
+  Source of the work are being offered to the general public at no
+  charge under subsection 6d.
+  \end{enumerate}
+
+A separable portion of the object code, whose source code is excluded
+from the Corresponding Source as a System Library, need not be
+included in conveying the object code work.
+
+A ``User Product'' is either (1) a ``consumer product'', which means any
+tangible personal property which is normally used for personal, family,
+or household purposes, or (2) anything designed or sold for incorporation
+into a dwelling.  In determining whether a product is a consumer product,
+doubtful cases shall be resolved in favor of coverage.  For a particular
+product received by a particular user, ``normally used'' refers to a
+typical or common use of that class of product, regardless of the status
+of the particular user or of the way in which the particular user
+actually uses, or expects or is expected to use, the product.  A product
+is a consumer product regardless of whether the product has substantial
+commercial, industrial or non-consumer uses, unless such uses represent
+the only significant mode of use of the product.
+
+``Installation Information'' for a User Product means any methods,
+procedures, authorization keys, or other information required to install
+and execute modified versions of a covered work in that User Product from
+a modified version of its Corresponding Source.  The information must
+suffice to ensure that the continued functioning of the modified object
+code is in no case prevented or interfered with solely because
+modification has been made.
+
+If you convey an object code work under this section in, or with, or
+specifically for use in, a User Product, and the conveying occurs as
+part of a transaction in which the right of possession and use of the
+User Product is transferred to the recipient in perpetuity or for a
+fixed term (regardless of how the transaction is characterized), the
+Corresponding Source conveyed under this section must be accompanied
+by the Installation Information.  But this requirement does not apply
+if neither you nor any third party retains the ability to install
+modified object code on the User Product (for example, the work has
+been installed in ROM).
+
+The requirement to provide Installation Information does not include a
+requirement to continue to provide support service, warranty, or updates
+for a work that has been modified or installed by the recipient, or for
+the User Product in which it has been modified or installed.  Access to a
+network may be denied when the modification itself materially and
+adversely affects the operation of the network or violates the rules and
+protocols for communication across the network.
+
+Corresponding Source conveyed, and Installation Information provided,
+in accord with this section must be in a format that is publicly
+documented (and with an implementation available to the public in
+source code form), and must require no special password or key for
+unpacking, reading or copying.
+
+\item Additional Terms.
+
+``Additional permissions'' are terms that supplement the terms of this
+License by making exceptions from one or more of its conditions.
+Additional permissions that are applicable to the entire Program shall
+be treated as though they were included in this License, to the extent
+that they are valid under applicable law.  If additional permissions
+apply only to part of the Program, that part may be used separately
+under those permissions, but the entire Program remains governed by
+this License without regard to the additional permissions.
+
+When you convey a copy of a covered work, you may at your option
+remove any additional permissions from that copy, or from any part of
+it.  (Additional permissions may be written to require their own
+removal in certain cases when you modify the work.)  You may place
+additional permissions on material, added by you to a covered work,
+for which you have or can give appropriate copyright permission.
+
+Notwithstanding any other provision of this License, for material you
+add to a covered work, you may (if authorized by the copyright holders of
+that material) supplement the terms of this License with terms:
+  \begin{enumerate}
+  \item Disclaiming warranty or limiting liability differently from the
+  terms of sections 15 and 16 of this License; or
+
+  \item Requiring preservation of specified reasonable legal notices or
+  author attributions in that material or in the Appropriate Legal
+  Notices displayed by works containing it; or
+
+  \item Prohibiting misrepresentation of the origin of that material, or
+  requiring that modified versions of such material be marked in
+  reasonable ways as different from the original version; or
+
+  \item Limiting the use for publicity purposes of names of licensors or
+  authors of the material; or
+
+  \item Declining to grant rights under trademark law for use of some
+  trade names, trademarks, or service marks; or
+
+  \item Requiring indemnification of licensors and authors of that
+  material by anyone who conveys the material (or modified versions of
+  it) with contractual assumptions of liability to the recipient, for
+  any liability that these contractual assumptions directly impose on
+  those licensors and authors.
+  \end{enumerate}
+
+All other non-permissive additional terms are considered ``further
+restrictions'' within the meaning of section 10.  If the Program as you
+received it, or any part of it, contains a notice stating that it is
+governed by this License along with a term that is a further
+restriction, you may remove that term.  If a license document contains
+a further restriction but permits relicensing or conveying under this
+License, you may add to a covered work material governed by the terms
+of that license document, provided that the further restriction does
+not survive such relicensing or conveying.
+
+If you add terms to a covered work in accord with this section, you
+must place, in the relevant source files, a statement of the
+additional terms that apply to those files, or a notice indicating
+where to find the applicable terms.
+
+Additional terms, permissive or non-permissive, may be stated in the
+form of a separately written license, or stated as exceptions;
+the above requirements apply either way.
+
+\item Termination.
+
+You may not propagate or modify a covered work except as expressly
+provided under this License.  Any attempt otherwise to propagate or
+modify it is void, and will automatically terminate your rights under
+this License (including any patent licenses granted under the third
+paragraph of section 11).
+
+However, if you cease all violation of this License, then your
+license from a particular copyright holder is reinstated (a)
+provisionally, unless and until the copyright holder explicitly and
+finally terminates your license, and (b) permanently, if the copyright
+holder fails to notify you of the violation by some reasonable means
+prior to 60 days after the cessation.
+
+Moreover, your license from a particular copyright holder is
+reinstated permanently if the copyright holder notifies you of the
+violation by some reasonable means, this is the first time you have
+received notice of violation of this License (for any work) from that
+copyright holder, and you cure the violation prior to 30 days after
+your receipt of the notice.
+
+Termination of your rights under this section does not terminate the
+licenses of parties who have received copies or rights from you under
+this License.  If your rights have been terminated and not permanently
+reinstated, you do not qualify to receive new licenses for the same
+material under section 10.
+
+\item Acceptance Not Required for Having Copies.
+
+You are not required to accept this License in order to receive or
+run a copy of the Program.  Ancillary propagation of a covered work
+occurring solely as a consequence of using peer-to-peer transmission
+to receive a copy likewise does not require acceptance.  However,
+nothing other than this License grants you permission to propagate or
+modify any covered work.  These actions infringe copyright if you do
+not accept this License.  Therefore, by modifying or propagating a
+covered work, you indicate your acceptance of this License to do so.
+
+\item Automatic Licensing of Downstream Recipients.
+
+Each time you convey a covered work, the recipient automatically
+receives a license from the original licensors, to run, modify and
+propagate that work, subject to this License.  You are not responsible
+for enforcing compliance by third parties with this License.
+
+An ``entity transaction'' is a transaction transferring control of an
+organization, or substantially all assets of one, or subdividing an
+organization, or merging organizations.  If propagation of a covered
+work results from an entity transaction, each party to that
+transaction who receives a copy of the work also receives whatever
+licenses to the work the party's predecessor in interest had or could
+give under the previous paragraph, plus a right to possession of the
+Corresponding Source of the work from the predecessor in interest, if
+the predecessor has it or can get it with reasonable efforts.
+
+You may not impose any further restrictions on the exercise of the
+rights granted or affirmed under this License.  For example, you may
+not impose a license fee, royalty, or other charge for exercise of
+rights granted under this License, and you may not initiate litigation
+(including a cross-claim or counterclaim in a lawsuit) alleging that
+any patent claim is infringed by making, using, selling, offering for
+sale, or importing the Program or any portion of it.
+
+\item Patents.
+
+A ``contributor'' is a copyright holder who authorizes use under this
+License of the Program or a work on which the Program is based.  The
+work thus licensed is called the contributor's ``contributor version''.
+
+A contributor's ``essential patent claims'' are all patent claims
+owned or controlled by the contributor, whether already acquired or
+hereafter acquired, that would be infringed by some manner, permitted
+by this License, of making, using, or selling its contributor version,
+but do not include claims that would be infringed only as a
+consequence of further modification of the contributor version.  For
+purposes of this definition, ``control'' includes the right to grant
+patent sublicenses in a manner consistent with the requirements of
+this License.
+
+Each contributor grants you a non-exclusive, worldwide, royalty-free
+patent license under the contributor's essential patent claims, to
+make, use, sell, offer for sale, import and otherwise run, modify and
+propagate the contents of its contributor version.
+
+In the following three paragraphs, a ``patent license'' is any express
+agreement or commitment, however denominated, not to enforce a patent
+(such as an express permission to practice a patent or covenant not to
+sue for patent infringement).  To ``grant'' such a patent license to a
+party means to make such an agreement or commitment not to enforce a
+patent against the party.
+
+If you convey a covered work, knowingly relying on a patent license,
+and the Corresponding Source of the work is not available for anyone
+to copy, free of charge and under the terms of this License, through a
+publicly available network server or other readily accessible means,
+then you must either (1) cause the Corresponding Source to be so
+available, or (2) arrange to deprive yourself of the benefit of the
+patent license for this particular work, or (3) arrange, in a manner
+consistent with the requirements of this License, to extend the patent
+license to downstream recipients.  ``Knowingly relying'' means you have
+actual knowledge that, but for the patent license, your conveying the
+covered work in a country, or your recipient's use of the covered work
+in a country, would infringe one or more identifiable patents in that
+country that you have reason to believe are valid.
+
+If, pursuant to or in connection with a single transaction or
+arrangement, you convey, or propagate by procuring conveyance of, a
+covered work, and grant a patent license to some of the parties
+receiving the covered work authorizing them to use, propagate, modify
+or convey a specific copy of the covered work, then the patent license
+you grant is automatically extended to all recipients of the covered
+work and works based on it.
+
+A patent license is ``discriminatory'' if it does not include within
+the scope of its coverage, prohibits the exercise of, or is
+conditioned on the non-exercise of one or more of the rights that are
+specifically granted under this License.  You may not convey a covered
+work if you are a party to an arrangement with a third party that is
+in the business of distributing software, under which you make payment
+to the third party based on the extent of your activity of conveying
+the work, and under which the third party grants, to any of the
+parties who would receive the covered work from you, a discriminatory
+patent license (a) in connection with copies of the covered work
+conveyed by you (or copies made from those copies), or (b) primarily
+for and in connection with specific products or compilations that
+contain the covered work, unless you entered into that arrangement,
+or that patent license was granted, prior to 28 March 2007.
+
+Nothing in this License shall be construed as excluding or limiting
+any implied license or other defenses to infringement that may
+otherwise be available to you under applicable patent law.
+
+\item No Surrender of Others' Freedom.
+
+If conditions are imposed on you (whether by court order, agreement or
+otherwise) that contradict the conditions of this License, they do not
+excuse you from the conditions of this License.  If you cannot convey a
+covered work so as to satisfy simultaneously your obligations under this
+License and any other pertinent obligations, then as a consequence you may
+not convey it at all.  For example, if you agree to terms that obligate you
+to collect a royalty for further conveying from those to whom you convey
+the Program, the only way you could satisfy both those terms and this
+License would be to refrain entirely from conveying the Program.
+
+\item Use with the GNU Affero General Public License.
+
+Notwithstanding any other provision of this License, you have
+permission to link or combine any covered work with a work licensed
+under version 3 of the GNU Affero General Public License into a single
+combined work, and to convey the resulting work.  The terms of this
+License will continue to apply to the part which is the covered work,
+but the special requirements of the GNU Affero General Public License,
+section 13, concerning interaction through a network will apply to the
+combination as such.
+
+\item Revised Versions of this License.
+
+The Free Software Foundation may publish revised and/or new versions of
+the GNU General Public License from time to time.  Such new versions will
+be similar in spirit to the present version, but may differ in detail to
+address new problems or concerns.
+
+Each version is given a distinguishing version number.  If the
+Program specifies that a certain numbered version of the GNU General
+Public License ``or any later version'' applies to it, you have the
+option of following the terms and conditions either of that numbered
+version or of any later version published by the Free Software
+Foundation.  If the Program does not specify a version number of the
+GNU General Public License, you may choose any version ever published
+by the Free Software Foundation.
+
+If the Program specifies that a proxy can decide which future
+versions of the GNU General Public License can be used, that proxy's
+public statement of acceptance of a version permanently authorizes you
+to choose that version for the Program.
+
+Later license versions may give you additional or different
+permissions.  However, no additional obligations are imposed on any
+author or copyright holder as a result of your choosing to follow a
+later version.
+
+\item Disclaimer of Warranty.
+
+\begin{sloppypar}
+ THERE IS NO WARRANTY FOR THE PROGRAM, TO THE EXTENT PERMITTED BY
+ APPLICABLE LAW.  EXCEPT WHEN OTHERWISE STATED IN WRITING THE
+ COPYRIGHT HOLDERS AND/OR OTHER PARTIES PROVIDE THE PROGRAM ``AS IS''
+ WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESSED OR IMPLIED,
+ INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.  THE ENTIRE
+ RISK AS TO THE QUALITY AND PERFORMANCE OF THE PROGRAM IS WITH YOU.
+ SHOULD THE PROGRAM PROVE DEFECTIVE, YOU ASSUME THE COST OF ALL
+ NECESSARY SERVICING, REPAIR OR CORRECTION.
+\end{sloppypar}
+
+\item Limitation of Liability.
+
+ IN NO EVENT UNLESS REQUIRED BY APPLICABLE LAW OR AGREED TO IN
+ WRITING WILL ANY COPYRIGHT HOLDER, OR ANY OTHER PARTY WHO MODIFIES
+ AND/OR CONVEYS THE PROGRAM AS PERMITTED ABOVE, BE LIABLE TO YOU FOR
+ DAMAGES, INCLUDING ANY GENERAL, SPECIAL, INCIDENTAL OR CONSEQUENTIAL
+ DAMAGES ARISING OUT OF THE USE OR INABILITY TO USE THE PROGRAM
+ (INCLUDING BUT NOT LIMITED TO LOSS OF DATA OR DATA BEING RENDERED
+ INACCURATE OR LOSSES SUSTAINED BY YOU OR THIRD PARTIES OR A FAILURE
+ OF THE PROGRAM TO OPERATE WITH ANY OTHER PROGRAMS), EVEN IF SUCH
+ HOLDER OR OTHER PARTY HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH
+ DAMAGES.
+
+\item Interpretation of Sections 15 and 16.
+
+If the disclaimer of warranty and limitation of liability provided
+above cannot be given local legal effect according to their terms,
+reviewing courts shall apply local law that most closely approximates
+an absolute waiver of all civil liability in connection with the
+Program, unless a warranty or assumption of liability accompanies a
+copy of the Program in return for a fee.
+
+% \begin{center}
+% {\Large\sc End of Terms and Conditions}
+% 
+% \bigskip
+% How to Apply These Terms to Your New Programs
+% \end{center}
+% 
+% If you develop a new program, and you want it to be of the greatest
+% possible use to the public, the best way to achieve this is to make it
+% free software which everyone can redistribute and change under these terms.
+% 
+% To do so, attach the following notices to the program.  It is safest
+% to attach them to the start of each source file to most effectively
+% state the exclusion of warranty; and each file should have at least
+% the ``copyright'' line and a pointer to where the full notice is found.
+% 
+% {\footnotesize
+% \begin{verbatim}
+% <one line to give the program's name and a brief idea of what it does.>
+% 
+% Copyright (C) <textyear>  <name of author>
+% 
+% This program is free software: you can redistribute it and/or modify
+% it under the terms of the GNU General Public License as published by
+% the Free Software Foundation, either version 3 of the License, or
+% (at your option) any later version.
+% 
+% This program is distributed in the hope that it will be useful,
+% but WITHOUT ANY WARRANTY; without even the implied warranty of
+% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+% GNU General Public License for more details.
+% 
+% You should have received a copy of the GNU General Public License
+% along with this program.  If not, see <https://www.gnu.org/licenses/>.
+% \end{verbatim}
+% }
+% 
+% Also add information on how to contact you by electronic and paper mail.
+% 
+% If the program does terminal interaction, make it output a short
+% notice like this when it starts in an interactive mode:
+% 
+% {\footnotesize
+% \begin{verbatim}
+% <program>  Copyright (C) <year>  <name of author>
+% 
+% This program comes with ABSOLUTELY NO WARRANTY; for details type `show w'.
+% This is free software, and you are welcome to redistribute it
+% under certain conditions; type `show c' for details.
+% \end{verbatim}
+% }
+% 
+% The hypothetical commands {\tt show w} and {\tt show c} should show
+% the appropriate
+% parts of the General Public License.  Of course, your program's commands
+% might be different; for a GUI interface, you would use an ``about box''.
+% 
+% You should also get your employer (if you work as a programmer) or
+% school, if any, to sign a ``copyright disclaimer'' for the program, if
+% necessary.  For more information on this, and how to apply and follow
+% the GNU GPL, see \texttt{https://www.gnu.org/licenses/}.
+% 
+% The GNU General Public License does not permit incorporating your
+% program into proprietary programs.  If your program is a subroutine
+% library, you may consider it more useful to permit linking proprietary
+% applications with the library.  If this is what you want to do, use
+% the GNU Lesser General Public License instead of this License.  But
+% first, please read \texttt{https://www.gnu.org/licenses/why-not-lgpl.html}.
+
+\end{enumerate}
 
 \end{shaded}
 }
@@ -563,9 +1249,10 @@ The Software was developed in Austria and is applicable through a server located
 
 In order to install and run \sharc\ under Linux (Windows and OS X are currently not supported), you need the following:
 \begin{itemize}
-  \item A Fortran90 compiler (This release is tested against \link{https://gcc.gnu.org/fortran/}{GNU Fortran} \todo{4.4.7} and \link{https://software.intel.com/en-us/fortran-compilers}{Intel Fortran} \todo{15.0}).
+  \item A Fortran90 compiler (This release is tested against \link{https://gcc.gnu.org/fortran/}{GNU Fortran} 4.4.7 and \link{https://software.intel.com/en-us/fortran-compilers}{Intel Fortran} 15.0).
   \item The \link{http://www.netlib.org/blas/}{BLAS}, \link{http://www.netlib.org/lapack/}{LAPACK} and \link{http://http://www.fftw.org/}{FFTW3} libraries.
-  \item \link{https://www.python.org/downloads/release/python-278/}{Python 2} (This release is tested against Python 2.6.6 and 2.7.3).
+  \item \link{https://www.python.org/downloads/release/python-278/}{Python 2} (This release is tested against Python 2.6 and 2.7).
+  \item \ttt{make}.
 \end{itemize}
 
 The source code of the  \sharc\ suite is distributed as a tar archive file. In order to install it, first extract the content of the archive to a suitable directory:
@@ -573,6 +1260,14 @@ The source code of the  \sharc\ suite is distributed as a tar archive file. In o
 \verb|tar -xzvf sharc.tgz|
 \end{example}
 This should create a new directory called \ttt{sharc/} which contains all the necessary subdirectories and files. 
+In figure~\ref{fig:installation} the directory structure of the complete \sharc\ directory is shown.
+
+\begin{figure}[htb]
+  \centering
+  \includegraphics[scale=1]{img/dirs_SHARC/dirs_SHARC.pdf}
+  \caption{Directory tree containing a complete \sharc\ installation.}
+  \label{fig:installation}
+\end{figure}
 
 To compile the Fortran90 programs of the \sharc\ suite, go to the \ttt{source/} directory.
 \begin{example}
@@ -590,15 +1285,6 @@ will compile the source and create all the binaries.
 will copy the binary files into the \ttt{sharc/bin/} directory of the 
 \sharc\ distribution, which already contains all the python scripts which
 come with \sharc.
-In figure~\ref{fig:installation} the directory structure of the complete \sharc\ directory is shown.
-\todo{Add example directory and update installation description.}
-
-\begin{figure}[htb]
-  \centering
-  \includegraphics[scale=1]{img/dirs_SHARC/dirs_SHARC.pdf}
-  \caption{Directory tree containing a complete \sharc\ installation.}
-  \label{fig:installation}
-\end{figure}
 
 In order to use the \sharc\ suite, set the environment variable \ttt{\$SHARC} to the \ttt{bin/} directory of the \sharc\ installation. This ensures that all programs of the \sharc\ suite find the other executables and all calls are successful. For example, if you have unpacked \sharc\ into your home directory, 
 just set: 
@@ -612,79 +1298,121 @@ or
 Note that it is advisable to put this line into your shell's login
 scripts.
 
+\subsection{\textsc{WFoverlap} Program}
+
+The \sharc\ package contains as a submodule the program \textsc{WFoverlap}, which is necessary for many functionalities of \sharc.
+In order to install and test this program, see section~\ref{sec:int:wfoverlap}.
+
 \subsection{Libraries}
 
 \sharc\ requires the BLAS, LAPACK and FFTW3 libraries. During the installation, it might be necessary to alter the \ttt{LDFLAGS} string in the \ttt{Makefile}, depending on where the relevant libraries are located on your system. In this way, it is for example possible to use vendor-provided libraries like the \link{https://software.intel.com/en-us/intel-mkl}{Intel MKL}. For more details see the \ttt{INSTALL} file which is included in the \sharc\ distribution.
 
-% In order to use the analysis scripts \ttt{trajana\_essdyn.py} and \ttt{trajana\_nma.py}, it is necessary to set the Python path accordingly:
-% \begin{example}
-% \verb|export PYTHONPATH=$PYTHONPATH:$SHARC/../lib/|
-% \end{example}
 
 \subsection{Test Suite}\label{sec:tests.py}
-
-\todo{Add tests here!}
 
 After the installation, it is advisable to first execute the test suite of \sharc, which will test the fundamental functionality of SHARC.
 Change to an empty directory and execute
 \begin{example}
 \verb|$SHARC/tests.py|
 \end{example}
-The interactive script will first verify the Python installation (no message will appear if the Python installation is fine). Subsequently, the script prompts the user to enter which tests should be executed. Their is at least one test for each of the auxiliary scripts and interfaces. Tests whose names start with \ttt{scripts\_} test the functionality of the auxiliary programs in the \sharc\ suite. Tests whose names start with \ttt{Analytical\_}, \ttt{COLUMBUS\_}, \ttt{MOLCAS\_} or \ttt{MOLPRO\_} run short trajectories, testing whether the main dynamics code, the interfaces and the quantum chemistry programs work together correctly.
+The interactive script will first verify the Python installation (no message will appear if the Python installation is fine). 
+Subsequently, the script prompts the user to enter which tests should be executed. 
+The script will also ask for a number of environment variables, which are listed in Table~\ref{tab:test_vars}.
 
-If the installation was successful and Python is installed correctly, the tests named \ttt{scripts\_<NAME>} and \ttt{Analytical\_overlap} should execute without error. 
+Their is at least one test for each of the auxiliary scripts and interfaces. 
+Tests whose names start with \ttt{scripts\_} test the functionality of the auxiliary programs in the \sharc\ suite.
+Tests whose names start with \ttt{ADF\_}, \ttt{Analytical\_}, \ttt{COLUMBUS\_}, \ttt{GAUSSIAN\_}, \ttt{LVC\_}, \ttt{MOLCAS\_} \ttt{MOLPRO\_}, or \ttt{TURBOMOLE\_} run short trajectories, testing whether the main dynamics code, the interfaces, the quantum chemistry programs, and auxiliary programs (\textsc{TheoDORE}, \textsc{WFoverlap}, \textsc{Orca}, \textsc{Tinker}) work together correctly.
 
-The test calculations involving the quantum chemistry programs (\textsc{Columbus}, \textsc{Molcas}, \textsc{Molpro}) can be used to check that \sharc\ can correctly call these programs and that they are installed correctly.
 
-If any of the tests show differences between output and reference output, it is advisable to check the respective files. Note that small differences in the output can already occur when using a different version of the quantum chemistry programs, and that these small differences can add up during the simulations.
+If the installation was successful and Python is installed correctly, \ttt{Analytical\_overlap}, \ttt{LVC\_overlap}, and most tests named \ttt{scripts\_<NAME>} should execute without error. 
+
+The test calculations involving the quantum chemistry programs can be used to check that \sharc\ can correctly call these programs and that they are installed correctly.
+
+If any of the tests show differences between output and reference output, it is advisable to check the respective files (i.e., compare \ttt{\$SHARC/../tests/RESULTS/<job>/} to \ttt{./RUNNING\_TESTS/<job>/}). Note that small differences (different sign of values or small numerical deviations) in the output can already occur when using a different version of the quantum chemistry programs, different compilers, different libraries, or different parallization schemes.
+It should be noted that along trajectories, these small changes can add up to notably influence the trajectories, but across the ensemble these small changes will likely cancel out.
+
+
+\begin{table}
+  \centering
+  \caption[Environment variables for \sharc\ test jobs.]{Environment variables for \sharc\ test jobs. These variables need to be set before the test job execution.}
+  \label{tab:test_vars}
+  \begin{tabular}{>{\ttfamily}lp{13cm}}
+  \hline
+  Keyword       &Description\\
+  \hline
+  \$ADF         &Points to the main directory of the ADF installation, which contains the file \ttt{adfrc.sh}.\\
+  \$COLUMBUS    &Points to the directory containing the \textsc{Columbus} executables, e.g., \ttt{runls}.\\
+  \$GAUSSIAN    &Points to the main directory of the \textsc{Gaussian} installation, which contains the \textsc{Gaussian} executables (e.g., \ttt{g09}/\ttt{g16} or \ttt{l9999.exe}).\\
+  \$MOLCAS      &Points to the main directory of the \textsc{Openmolcas} installation, containing \ttt{molcas.rte} and directories \ttt{basis\_library/} and \ttt{bin/}.\\
+  \$MOLPRO      &Points to the \ttt{bin/} directory of the \textsc{Molpro} installation, which contains the \ttt{molpro.exe} file.\\
+  \$TURBOMOLE   &Points to the main directory of the \textsc{Turbomole} installation, which contains subdirectories like \ttt{basen/}, \ttt{bin/}, or \ttt{scripts/}.\\
+  \$ORCA        &Points to the directory containing the \textsc{Orca} executables, e.g., \ttt{orca}, \ttt{orca\_gtoint}, or \ttt{orca\_scf}.\\
+  \$THEODORE    &Points to the main directory of the \textsc{TheoDORE} installation. \ttt{\$THEODORE/bin/} should contain \ttt{analyze\_tden.py}.\\
+  \$TINKER      &Points to the \ttt{bin/} directory of a \textsc{Molcas}-modified \textsc{Tinker} installation. It contains files like \ttt{tkr2qm\_s}.\\
+  \$molcas      &Should point to the same location as \ttt{\$MOLCAS}, or another \textsc{Molcas} installation. Note that \ttt{\$molcas} is only used by some \textsc{Columbus} test jobs. Also note that \ttt{\$molcas} does not need to point to the \textsc{Molcas} installation interfaced to \textsc{Columbus}.\\
+  \hline
+  \end{tabular}
+\end{table}
+
 
 \subsection{Additional Programs}
 
 For full functionality of the \sharc\ suite, several additional programs are recommended (all of these programs are currently freely available, except for \textsc{Amber}):
+
 \begin{itemize}
   \item The Python package \link{http://www.numpy.org/}{\textsc{NumPy}}.
+  \\
+  Optimally, within your Python installation the \textsc{NumPy} package (which provides many numerical methods, e.g., matrix diagonalization) should be available. If \textsc{NumPy} is not available, the \sharc\ suite is still functional, and the affected scripts will fall back to use a small Fortran code (front-end for LAPACK) within the \sharc\ package. Since in the Python scripts no large-scale matrix calculations are carried out, there should be no significant performance loss if \textsc{NumPy} is not available.
+  \medskip
   \item The Python package \link{https://matplotlib.org/}{\textsc{Matplotlib}}.
+  \\
+  If the \textsc{Matplotlib} package, some auxiliary scripts can automatically generate certain plots.
+  \medskip
   \item The \link{http://www.gnuplot.info/}{\textsc{Gnuplot}} plotting software.
-  \item A program for molecular visualization, able to read files in the xyz file format (e.g.\ \link{http://www.cmbi.ru.nl/molden/molden.html}{\textsc{Molden}}, \link{http://gabedit.sourceforge.net/}{\textsc{Gabedit}}, \link{http://molekel.cscs.ch/wiki/pmwiki.php}{\textsc{Molekel}} or \link{http://www.ks.uiuc.edu/Research/vmd/}{VMD})
+  \\
+  \textsc{Gnuplot} is not strictly necessary, since all output files could be plotted using other plotting programs. However, a number of scripts from the \sharc\ suite automatically generate \textsc{Gnuplot} scripts after data processing, allowing to quickly plot the output files or carry out data fits.
+  \medskip
+  \item A molecular visualization software able to read xyz files (e.g.\ \link{http://www.cmbi.ru.nl/molden/molden.html}{\textsc{Molden}}, \link{http://gabedit.sourceforge.net/}{\textsc{Gabedit}}, \link{http://molekel.cscs.ch/wiki/pmwiki.php}{\textsc{Molekel}} or \link{http://www.ks.uiuc.edu/Research/vmd/}{VMD}).
+  \\
+  Molecular visualization software is needed in order to visualize molecular motion in the dynamics.
+  \medskip
   \item The \link{http://maxima.sourceforge.net/}{\textsc{Maxima}} computer algebra system.
+  \\
+  The computer algebra system \textsc{Maxima} is necessary for the use of \ttt{make\_fitscript.py}, a program which allows to perform global fits of chemical kinetics models to populations data.
+  \medskip
   \item The \link{http://theodore-qc.sourceforge.net/}{\textsc{TheoDORE}} wave function analysis suite.
+  \\
+  The wave function analysis package \textsc{TheoDORE} allows to compute various descriptors of electronic wave functions (supported by some interfaces), which is helpful to follow the state characters along trajectories.
+  \medskip
   \item The \link{http://ambermd.org/}{\textsc{Amber}} molecular dynamics package.
-  \item The \link{http://orcaforum.cec.mpg.de}{\textsc{Orca}} ab initio package.
+  \\
+  \textsc{Amber} can be used to prepare initial conditions based on ground state molecular dynamics simulations (instead of using a Wigner distribution), which is especially useful for large systems.
+  \medskip
+  \item  The \link{http://orcaforum.cec.mpg.de}{\textsc{Orca}} ab initio package.
+  \\
+  \textsc{Orca} can be employed as external optimizer. In combination with the \sharc\ interfaces, it is possible to perform optimizations of minima, conical intersections, and crossing points for any method interfaced to \sharc.
 \end{itemize}
 
-Optimally, within your Python installation the \textsc{NumPy} package (which provides many numerical methods, e.g., matrix diagonalization) should be available. If \textsc{NumPy} is not available, the \sharc\ suite is still functional, and the affected scripts will fall back to use a small Fortran code (front-end for LAPACK) within the \sharc\ package. Since in the Python scripts no large-scale matrix calculations are carried out, there should be no significant performance loss if \textsc{NumPy} is not available.
 
-If the \textsc{Matplotlib} package, some auxiliary scripts can automatically generate certain plots.
 
-\textsc{Gnuplot} is not strictly necessary, since all output files could be plotted using other plotting programs. However, a number of scripts from the \sharc\ suite automatically generate \textsc{Gnuplot} scripts after data processing, allowing to quickly plot the output files or carry out data fits.
-
-Molecular visualization software is needed in order to visualize molecular motion in the dynamics.
-
-The computer algebra system \textsc{Maxima} is necessary for the use of \ttt{make\_fitscript.py}, a program which allows to perform global fits of chemical kinetics models to populations data.
-
-The wave function analysis package \textsc{TheoDORE} allows to compute various descriptors of electronic wave functions (supported by some interfaces), which is helpful to follow the state characters along trajectories.
-
-\textsc{Amber} can be used to prepare initial conditions based on ground state molecular dynamics simulations (instead of using a Wigner distribution), which is especially useful for large systems.
-
-\textsc{Orca} can be employed as external optimizer. In combination with the \sharc\ interfaces, it is possible to perform optimizations of minima, conical intersections, and crossing points for any method interfaced to \sharc.
 
 \subsection{Quantum Chemistry Programs}
 
 Even though \sharc\ comes with two interfaces for analytical potentials (and hence can be used without any quantum chemistry program), the main application of \sharc\ is certainly on-the-fly ab initio dynamics. Hence, one of the following interfaced quantum chemistry programs is necessary:
 \begin{itemize}
-  \item \link{http://www.molpro.net/}{\textsc{Molpro}} (this release was checked against \textsc{Molpro} 2010 and 2012 \todo{2015?}).
-  \item \link{http://http://molcas.org/}{\textsc{Molcas}} (this release was checked against \textsc{Molcas} 7.8 and 8.0).
+  \item \link{http://www.molpro.net/}{\textsc{Molpro}} (this release was checked against \textsc{Molpro} 2010 and 2012).
+  \item \link{https://gitlab.com/Molcas/OpenMolcas/}{\textsc{Openmolcas}} (this release was checked against \textsc{Openmolcas} 18).
   \begin{itemize}
-    \item \link{http://dasher.wustl.edu/tinker/}{\textsc{Tinker}}, interfaced to \textsc{Molcas} 7.8 or 8.0 for QM/MM dynamics.
+    \item \link{http://dasher.wustl.edu/tinker/}{\textsc{Tinker}}, \link{http://www.molcas.org/documentation/manual/node79.html#SECTION052122010000000000000}{interfaced to \textsc{Openmolcas} 18}, for QM/MM dynamics.
   \end{itemize}
   \item \link{http://www.univie.ac.at/columbus/docs_COL70/documentation_main.html}{\textsc{Columbus} 7}
   \begin{itemize}
     \item \link{http://www.univie.ac.at/columbus/docs_COL70/columbus_molcas_link.html}{\textsc{Columbus-Molcas} interface} for spin-orbit couplings.
   \end{itemize}
   \item \link{http://www.scm.com/ADF}{\textsc{Amsterdam Density Functional}} (ADF 2017 needed for overlaps, ADF 2018 for all QM/MM functionality)
-  \item \link{http://www.turbomole.com}{\textsc{Turbomole}} (this release was checked against \textsc{Turbomole} 6.6 and 7.0; \todo{version 7.1 is currently not supported}).
+  \item \link{http://www.turbomole.com}{\textsc{Turbomole}} (this release was checked against \textsc{Turbomole} 6.6 and 7.0; version 7.1 is currently not supported).
   \begin{itemize}
-    \item \link{http://orcaforum.cec.mpg.de}{\textsc{Orca}} for spin-orbit couplings.
+    \item \link{http://orcaforum.cec.mpg.de}{\textsc{Orca}} (version 3 or 4) for spin-orbit couplings.
   \end{itemize}
   \item \link{http://www.gaussian.com}{\textsc{Gaussian}} (this release was checked against \textsc{Gaussian} 09 and 16).
 \end{itemize}
@@ -793,7 +1521,7 @@ Currently, it is possible to either convert restart files \textsc{Amber} to an \
 
 \paragraph{Generation of initial coefficients and states}
 
-In the second preparation step, for each of the sampled initial geometries it has to be decided which excited state should be the initial one. In simple cases, the user may manually choose the initial excited state using \ttt{excite.py} (possibly after diabatization; see~\ref{sec:excite.py}). Alternatively, the selection of initial states can be performed based on the excitation energies and oscillator strengths of the excited states at each initial geometry (this approximately simulates a delta-pulse excitation). 
+In the second preparation step, for each of the sampled initial geometries it has to be decided which excited state should be the initial one. In simple cases, the user may manually choose the initial excited state using \ttt{excite.py} (optionally after diabatization; see~\ref{sec:excite.py}). Alternatively, the selection of initial states can be performed based on the excitation energies and oscillator strengths of the excited states at each initial geometry (this approximately simulates a delta-pulse excitation). 
 
 The latter options (diabatization or energies/oscillator strengths) make it necessary to carry out vertical excitation calculation before the selection of the initial states.
 The calculations can be set up with \ttt{setup\_init.py} (see section~\ref{sec:setup_init.py}). This script prepares for each initial condition in the \ttt{initconds} file a directory with the necessary input to perform the calculation. The user should then execute the run script (\ttt{run.sh}) in each of the directories (either manually or through a batch queueing system).
@@ -901,6 +1629,7 @@ The following tables list the auxiliary programs in the \sharc\ suite. The right
   wfoverlap.x           &Program to compute wave function overlaps, used by most interfaces.                                    &\ref{sec:int:wfoverlap}\\
   Orca\_External        &Script to carry out optimizations with \textsc{Orca} as optimizer and \sharc\ as gradient provider.    &\ref{sec:Orca_External}\\
   setup\_orca\_opt.py   &Script to setup optimizations with \textsc{Orca} as optimizer and \sharc\ as gradient provider.        &\ref{sec:Orca_External}\\
+  setup\_single\_point.py   &Script to setup single point calculations with \sharc\ interfaces.        &\ref{sec:setup_single_point.py}\\
   QMout\_print.py       &Script to convert a \ttt{QM.out} file to a table with energies and oscillator strengths.               &\ref{sec:QMout_print.py}\\
   diagonalizer.x        &Helper program for \ttt{excite.py}. Only required if \textsc{NumPy} is not available.                  &\ref{sec:diagonalizer.x}\\
 \end{tabular}
@@ -1305,7 +2034,7 @@ The keyword \ttt{surf} controls whether the dynamics runs on diagonal potential 
 
 The code allows propagating the electronic wave function using three different quantities describing nonadiabatic effects, see~\ref{met:propagate}. The keyword \ttt{coupling} controls which of these quantities is requested from the QM interfaces and used in the propagation. The first option is \ttt{nacdr}, which requires the nonadiabatic coupling vectors $\langle\psi_\alpha|\partial/\partial \VEC{R}|\psi_\beta\rangle$. For the wave function propagation, the scalar product of these vectors and the nuclear velocity is calculated to obtain the matrix $\langle\psi_\alpha|\partial/\partial t|\psi_\beta\rangle$. During the propagation, this matrix is interpolated linearly within each classical time step. Currently, only few \sharc\ interfaces can provide these couplings.
 
-Alternatively, one can directly request the matrix elements $\langle\psi_\alpha|\partial/\partial t|\psi_\beta\rangle$, which can be used for the propagation. The corresponding argument to \ttt{coupling} is \ttt{nacdt}. In this case, the matrix is taken as constant throughout each classical time step. \todo{Currently, none of the interfaces in \sharc\ can deliver these couplings, because they are computed via overlaps, and if overlaps are known it is preferable to use local diabatization.}
+Alternatively, one can directly request the matrix elements $\langle\psi_\alpha|\partial/\partial t|\psi_\beta\rangle$, which can be used for the propagation. The corresponding argument to \ttt{coupling} is \ttt{nacdt}. In this case, the matrix is taken as constant throughout each classical time step. Currently, none of the interfaces in \sharc\ can deliver these couplings, because they are computed via overlaps, and if overlaps are known it is preferable to use local diabatization.
 
 The third possibility is the use of the overlap matrix, requested with \ttt{coupling overlaps} (this is the default). The overlap matrix is used subsequently in the local diabatization algorithm for the wave function propagation. Currently, all \sharc\ interfaces can provide these couplings.
 
@@ -1526,7 +2255,7 @@ Example:
 
 \section{Atom mask file}\label{sec:atommaskfile}
 
-The atom mask file contains for each atom a line with a Boolean entry ("T" or "F"), which indicates whether the atom should be considered in some of the procedures. Specifically, the options \ttt{ekincorrect parallel\_vel}, \ttt{reflect\_frustrated parallel\_vel}, and \ttt{decoherence\_scheme edc} are affected.
+The atom mask file contains for each atom a line with a Boolean entry ("T" or "F"), which indicates whether the atom should be considered in the relevant procedures. Specifically, the atom masking settings affect the options \ttt{ekincorrect parallel\_vel}, \ttt{reflect\_frustrated parallel\_vel}, and \ttt{decoherence\_scheme edc}.
 In all cases, "T" indicates that the atom should be considered (as if \ttt{atommask} was not given), whereas "F" indicates that the atom should be ignored for these procedures.
 
 Example:
@@ -1763,9 +2492,9 @@ There exist two types of keywords, \textit{control} keywords and \textit{request
   \caption[Control keywords for \sharc\ interfaces.]{Control keywords for \sharc\ interfaces. These keywords pass information from \sharc\ to the interface.}
   \label{tab:int_ctrl}
   \begin{tabular}{>{\ttfamily}lp{13cm}}
-  \toprule
+  \hline
   Keyword       &Description\\
-  \midrule
+  \hline
   init            &Specifies that this is the first calculation. The interface should create a save directory (if not existing already) to save all information necessary for a restart. \\
   samestep        &Specifies that this is an additional calculation at the same geometry/time step. Implies that, e.g., the converged orbitals from the savedir could be reused or that the wave function calculations could be skipped.\\
   restart         &Specifies that this is a calculation after a restart of \ttt{sharc.x}, possibly after a crash. Implies that in the savedir some files might be incomplete, the interface should therefore act as if a new step is requested, except that the savedir files should be managed accordingly.\\
@@ -1775,7 +2504,7 @@ There exist two types of keywords, \textit{control} keywords and \textit{request
   states          &Gives the number of excited states per multiplicity (singlets, doublet, triplets, ...).\\
   dt              &Gives the time between the last calculation and the current calculation in atomic units.\\
   savedir         &Gives a path to the directory where the interface should save files needed for restart and between time steps. If the interface-specific input files also have this keyword, \sharc\ assumes that the path in \ttt{QM.in} takes precedence.\\
-  \bottomrule
+  \hline
   \end{tabular}
 \end{table}
 
@@ -1788,9 +2517,9 @@ There exist two types of keywords, \textit{control} keywords and \textit{request
   \caption[Request keywords for \sharc\ interfaces.]{Request keywords for \sharc\ interfaces. See Table~\ref{tab:interfaces} for which interfaces can fulfill these requests.}
   \label{tab:int_req}
   \begin{tabular}{>{\ttfamily}lp{13cm}}
-  \toprule
+  \hline
   Keyword       &Description\\
-  \midrule
+  \hline
   H               &Calculate the molecular Hamiltonian (diagonal matrix with the energies of the states of the model space). This request is always available.\\
   SOC             &Calculate the molecular Hamiltonian including the SOCs (not diagonal anymore within the model space).\\
   DM              &Calculate the state dipole moments and transition dipole moments between all states.\\
@@ -1804,7 +2533,7 @@ There exist two types of keywords, \textit{control} keywords and \textit{request
 
   THEODORE        &Run \textsc{TheoDORE} to compute electronic descriptors for all states.\\
   MOLDEN          &Generate \textsc{Molden} files of the relevant orbitals and copy them to the savedir.\\
-  \bottomrule
+  \hline
   \end{tabular}
 \end{table}
 
@@ -2004,6 +2733,7 @@ Table~\ref{tab:interface_files} shows the file names for interface-related input
 
 \begin{table}[htb]
   \newcommand{\chk}{\ensuremath{\surd}}
+  \renewcommand{\tabcolsep}{4.5pt}
   \centering
   \caption[Overview over capabilities of \sharc\ interfaces.]{Overview over capabilities of \sharc\ interfaces. For each method and program, the table shows which multiplicities ($S^2$), which quantities, and whether QM/MM are available.}
   \label{tab:interfaces}
@@ -2039,11 +2769,12 @@ Table~\ref{tab:interface_files} shows the file names for interface-related input
 \begin{table}[htb]
   \centering
   \caption{Overview over files of \sharc\ interfaces.}
+  \renewcommand{\tabcolsep}{5pt}
   \label{tab:interface_files}
   \begin{tabular}{lllll}
-    \toprule
+    \hline
     Interface           &Template file             &Resource file             &Initial MOs                     &QM/MM\\
-    \midrule
+    \hline
     \textsc{Molpro}     &\ttt{MOLPRO.template}     &\ttt{MOLPRO.resources}    &\ttt{wf.init}                   &\\
                         &                          &                          &\ttt{wf.<job>.init}             &\\
     \textsc{Molcas}     &\ttt{MOLCAS.template}     &\ttt{MOLCAS.resources}    &\ttt{MOLCAS.<mult>.RasOrb.init} &\ttt{MOLCAS.qmmm.table}\\
@@ -2059,18 +2790,30 @@ Table~\ref{tab:interface_files} shows the file names for interface-related input
     \textsc{Turbomole}  &\ttt{RICC2.template}      &\ttt{RICC2.resources}     &\ttt{mos.init}                  &\\
     Analytical          &\ttt{Analytical.template} &N/A                       &N/A                             &\\
     LVC                 &\ttt{LVC.template}        &N/A                       &N/A                             &\\
-    \bottomrule
+    \hline
   \end{tabular}
 \end{table}
 
 
+\subsection{Example Directory}
 
-% \subsection{Additional Programs: \textsc{Wfoverlap} and \textsc{TheoDORE}}
+
+The directory \ttt{\$SHARC/../examples/} contains for all quantum chemistry interfaces comprehensively commented examples of input files (template, resource files).
+These example files should be regarded as supplementary files to the documentation of the interfaces.
+For the interfaces without the possibility for automated template generation (e.g., \ttt{SHARC\_RICC2.py}), it is recommended that users copy the example template file and modify it to their needs.
+
+However, note that it might not necessarily work to directly start the respective interface in the example directories.
+In order to make the example calculations work,  some paths or variables in the resource files need to be adjusted.
+If you need automatically working test calculations for \sharc, consider using \ttt{tests.py} instead.
+
+
+
+% \subsection{Additional Programs: \textsc{WFoverlap} and \textsc{TheoDORE}}
 % 
 % Besides the quantum chemistry packages, many of the \sharc\ interfaces communicate also with additional programs, which carry out common tasks which are not implemented in the quantum chemistry packages.
-% Currently, two such programs are \textsc{Wfoverlap} and \textsc{TheoDORE}.
+% Currently, two such programs are \textsc{WFoverlap} and \textsc{TheoDORE}.
 % 
-% \paragraph{\text{Wfoverlap}}
+% \paragraph{\text{WFoverlap}}
 % 
 % This program is part of the \sharc\ distribution, but can also be obtained as a \todo{stand-alone package}.
 % It computes overlaps between many-electron wave functions expressed in terms of linear combinations of Slater determinant, which are based on molecular orbitals (from an LCAO ansatz).
@@ -2084,11 +2827,11 @@ Table~\ref{tab:interface_files} shows the file names for interface-related input
 % \clearpage
 \section{MOLPRO Interface}\label{sec:int:molpro}
 
-The \sharc-\textsc{Molpro} interface allows to run \sharc\ dynamics with \textsc{Molpro}'s CASSCF wave functions. RASSCF is not supported, since on RASSCF level state-averaging over different multiplicities is not possible. The interface uses \textsc{Molpro}'s CI program in order to calculate transition dipole moments and spin-orbit couplings. Gradients and nonadiabatic coupling vectors are calculated using \textsc{Molpro}'s CADPACK code (hence no generally contracted basis sets can be used). In the new version of the interface, overlaps are calculated using the \textsc{Wfoverlap} code. 
+The \sharc-\textsc{Molpro} interface allows to run \sharc\ dynamics with \textsc{Molpro}'s CASSCF wave functions. RASSCF is not supported, since on RASSCF level state-averaging over different multiplicities is not possible. The interface uses \textsc{Molpro}'s CI program in order to calculate transition dipole moments and spin-orbit couplings. Gradients and nonadiabatic coupling vectors are calculated using \textsc{Molpro}'s CADPACK code (hence no generally contracted basis sets can be used). In the new version of the interface, overlaps are calculated using the \textsc{WFoverlap} code. 
 Time-derivative couplings (NACDT) are not supported anymore in the \sharc-\textsc{Molpro} interface.
 Wavefunction phases between the CASSCF and MRCI wave functions are automatically adjusted.
 The interface can trivially parallelize the computation of gradients and coupling vectors over several processors.
-\todo{Execution of parallel \textsc{Molpro} binaries is currently not supported.}
+Execution of parallel \textsc{Molpro} binaries is currently not supported.
 
 The \sharc-\textsc{Molpro} interface needs two additional input files, which should be present in \ttt{QM/}. Those input files are \ttt{MOLPRO.resources}, which contains, e.g., the paths to \textsc{Molpro} and the scratch directory, and \ttt{MOLPRO.template}, which is a keyword-argument input file specifying the CASSCF level of theory. 
 If \ttt{QM/wf.init} is present, it will be used as a \textsc{Molpro} wave function file containing the initial MOs.
@@ -2154,7 +2897,7 @@ The interface provides comprehensive error messages during the template check.
 Also note the \ttt{basis\_external} keyword. It provides a file, whose content is used in the basis set definition (it is inserted verbatim into \ttt{basis=\{...\}} in the \textsc{Molpro} input).
 It is possible to use the generated input from the \link{https://bse.pnl.gov/bse/portal}{Basis Set Exchange Library}, but the \ttt{basis=\{} and \ttt{\}} need to be deleted from the file.
 
-Remember that \ttt{molcas\_input.py} cannot create multi-job templates or templates with the \ttt{basis\_external} keyword.
+Remember that \ttt{molpro\_input.py} cannot create multi-job templates or templates with the \ttt{basis\_external} keyword.
 
 \subsection{Resource file: \ttt{MOLPRO.resources}}
 
@@ -2168,20 +2911,20 @@ A fully commented resource file for this interface with all possible options is 
   \caption{Keywords for the \ttt{MOLPRO.resources} input file.}
   \label{tab:molpro_sh2}
   \begin{tabular}{>{\ttfamily}lp{12cm}}
-  \toprule
+  \hline
   Keyword       &Description\\
-  \midrule
+  \hline
   molpro          &Is followed by a string giving the path to the \textsc{Molpro} executable. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. \\
   scratchdir      &Is a path to the temporary directory. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. If the directory does not exist, the interface will create it. In any case, the interface will delete this directory after the calculation.\\
   savedir         &Is a path to another temporary directory.  Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. The interface will store files needed for restart there.\\
-  memory        &(int) Memory for \textsc{Molpro} and \textsc{Wfoverlap} in MB.\\
+  memory        &(int) Memory for \textsc{Molpro} and \textsc{WFoverlap} in MB.\\
   ncpu          &(int) Number of CPU cores for parallel computation of gradients/NAC vectors.\\
   delay         &(float) Time in seconds between starting parallel \textsc{Molpro} runs. Useful to lessen the I/O burden when having many runs starting at the same time.\\
   gradaccudefault &(float) Default accuracy for CP-MCSCF.\\
   gradaccumax     &(float) Worst acceptable accuracy for CP-MCSCF (see below).\\
   always\_orb\_init &Do not use the orbital guesses from previous calculations/time steps, but always use the provided initial orbitals.\\
-  always\_guess   &Always use the orbital guess from \textsc{Molcas}'s \ttt{guessorb} module.\\
-  wfoverlap       &Is the path to the \textsc{Wfoverlap} executable. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used.\\
+  always\_guess   &Always use the orbital guess from \textsc{Molpro}'s guess module.\\
+  wfoverlap       &Is the path to the \textsc{WFoverlap} executable. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used.\\
   numfrozcore           &Number of neglected core orbitals for overlap and Dyson calculations.\\
   numocc           &Number of doubly occupied orbitals for Dyson calculations.\\
   nooverlap       &Do not save determinant files for overlap computations.\\
@@ -2191,11 +2934,11 @@ A fully commented resource file for this interface with all possible options is 
 %   correctnacs     &(deprecated)\\
 %   checknacs\_mrcio &(deprecated)\\
 %   checknacs\_ediff &(deprecated)\\
-  \bottomrule
+  \hline
   \end{tabular}
 \end{table}
 
-Mandatory keywords are the paths to \textsc{Molpro}, the scratch directory, and to the \textsc{Wfoverlap} executable (the latter for overlap, Dyson, or NACDR calculations).
+Mandatory keywords are the paths to \textsc{Molpro}, the scratch directory, and to the \textsc{WFoverlap} executable (the latter for overlap, Dyson, or NACDR calculations).
 
 \paragraph{Parallel execution of MOLPRO}
 
@@ -2249,7 +2992,7 @@ Note that the filename must not contain spaces.
 
 \subsection{Molpro input generator: \ttt{molpro\_input.py}}\label{sec:molpro_input.py}
 
-In order to quickly setup simple calculations using \textsc{Molpro}, the \sharc\ suite contains a small script called \ttt{molpro\_input.py}. It can be used to setup single point calculations, optimizations and frequency calculations on the HF, DFT, MP2 and CASSCF level of theory. Of course, \textsc{Molpro} has far more capabilities, but these are not covered by \ttt{molpro\_input.py}. However, \ttt{molpro\_input.py} can also prepare template files which are compatible with the \sharc-\textsc{Molpro} interface (\ttt{MOLPRO.template} file).
+In order to quickly setup simple inputs for \textsc{Molpro}, the \sharc\ suite contains a small script called \ttt{molpro\_input.py}. It can be used to setup single point calculations, optimizations and frequency calculations on the HF, DFT, MP2 and CASSCF level of theory. Of course, \textsc{Molpro} has far more capabilities, but these are not covered by \ttt{molpro\_input.py}. However, \ttt{molpro\_input.py} can also prepare template files which are compatible with the \sharc-\textsc{Molpro} interface (\ttt{MOLPRO.template} file).
 
 The script interactively asks the user to specify the calculation and afterwards writes an input file and optionally a run script.
 
@@ -2324,16 +3067,20 @@ Note that the scratch directory will be deleted after the calculation, only the 
 
 The \sharc-\textsc{Molcas} interface can be used to conduct excited-state dynamics based on \textsc{Molcas}' CASSCF wave functions, and with CASPT2 or MS-CASPT2 energies (and numerical gradients). 
 RASSCF wave functions are not supported currently. 
+It is important to note that currently, \sharc\ was only tested to work with \textsc{Openmolcas} 18, which is freely available.
+Some versions of \textsc{Molcas} 8 might also work, but no guarantee is given.
+Note that within this Manual, \textsc{Molcas} and \textsc{Openmolcas} are used synonymously.
+
 The interface uses the modules GATEWAY, SEWARD (integrals), RASSCF (wave function, energies), RASSI (transition dipole moments, spin-orbit couplings, overlaps), MCLR, and ALASKA (gradients). 
 For CASPT2 and MS-CASPT2, numerical gradients can be calculated, where the interface itself controls the calculations at the displaced geometries. 
 The interface can also numerically differentiate dipole moments and spin-orbit couplings.
 Since \textsc{Molcas} is not able to calculate the full nonadiabatic coupling vectors, only wave function overlaps are currently implemented in the interface (overlaps are calculated via RASSI). 
-Using the \textsc{Wfoverlap} code, it is possible to calculate Dyson norms between neutral and ionic states.
+Using the \textsc{WFoverlap} code, it is possible to calculate Dyson norms between neutral and ionic states.
 Note that (unlike \textsc{Molpro}) \textsc{Molcas} cannot average over states of different multiplicities; hence, the multiplicities are always computed in separate jobs which all share the same CAS settings.
 
 The \sharc-\textsc{Molcas} interface furthermore allows to perform QM/MM dynamics (CASSCF plus force fields), through the \textsc{Molcas}-\textsc{Tinker} interface. 
 
-The interface needs two additional input files, a template file for the quantum chemistry (file name is \ttt{MOLCAS.template}) and a resource file (\ttt{MOLCAS.resources}). If files with the name \ttt{QM/MOLCAS.<i>.JobIph.init} or \ttt{QM/MOLCAS.<i>.RasOrb.init} files are present, they are used as initial wave function files, where \ttt{<i>} is the multiplicity. In the case of QM/MM calculations, two more input files are needed: \ttt{MOLCAS.qmmm.key}, which contains the path to the force field parameters and the partitioning into QM and MM regions, and \ttt{MOLCAS.qmmm.table}, which contains the connectivity and force field IDs per atom.
+The interface needs two additional input files, a template file for the quantum chemistry (file name is \ttt{MOLCAS.template}) and a resource file (\ttt{MOLCAS.resources}). If the interface finds files with the name \ttt{QM/MOLCAS.<i>.JobIph.init} or \ttt{QM/MOLCAS.<i>.RasOrb.init}, they are used as initial wave function files, where \ttt{<i>} is the multiplicity. In the case of QM/MM calculations, two more input files are needed: \ttt{MOLCAS.qmmm.key}, which contains the path to the force field parameters and the partitioning into QM and MM regions, and \ttt{MOLCAS.qmmm.table}, which contains the connectivity and force field IDs per atom.
 
 \subsection{Template file: \ttt{MOLCAS.template}}
 
@@ -2347,9 +3094,9 @@ A fully commented template file with all possible options is located in \ttt{\$S
   \caption{Keywords for the \ttt{MOLACS.template} file.}
   \label{tab:molcas_temp}
   \begin{tabular}{>{\ttfamily}lp{12cm}}
-  \toprule
+  \hline
   Keyword       &Description\\
-  \midrule
+  \hline
 basis           &The basis set used. Note that some basis sets (e.g., Pople basis sets) do not work, since the spin-orbit integrals cannot be calculated.\\
 baslib          &Can be used to provide the path to a custom basis set library (analogous to the baslib keyword in \textsc{Molcas}).\\
 nactel          &Number of active electrons for CASSCF.\\
@@ -2369,7 +3116,7 @@ gradaccudefault &(float) Default accuracy for CP-MCSCF.\\
 gradaccumax     &(float) Worst acceptable accuracy for CP-MCSCF.\\
 displ           &Cartesian displacement (in \AA) for numerical differentiation (default 0.005~\AA).\\
 qmmm            &Activates the QM/MM mode. In this case, two more input files need to be present (see below).\\
-  \bottomrule
+  \hline
   \end{tabular}
 \end{table}
 
@@ -2388,12 +3135,12 @@ A fully commented resource file for this interface with all possible options is 
   \caption{Keywords for the \ttt{MOLCAS.resources} file.}
   \label{tab:molcas_sh2}
   \begin{tabular}{>{\ttfamily}lp{12cm}}
-  \toprule
+  \hline
   Keyword       &Description\\
-  \midrule
-molcas          &Is the path to the \textsc{Molcas} installation. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. The interface will set \ttt{\$MOLCAS} to this path. If this keyword is not present in \ttt{MOLCAS.resources}, the interface will use the environment variable \ttt{\$MOLCAS}, if it is set.\\
+  \hline
+molcas          &Is the path to the \textsc{Openmolcas} installation. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. The interface will set \ttt{\$MOLCAS} to this path. If this keyword is not present in \ttt{MOLCAS.resources}, the interface will use the environment variable \ttt{\$MOLCAS}, if it is set.\\
 tinker          &The path to the \textsc{Tinker} installation, usable with \textsc{Molcas}.\\
-wfoverlap       &Is the path to the \textsc{Wfoverlap} executable. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. Only needed for Dyson norm calculations.\\
+wfoverlap       &Is the path to the \textsc{WFoverlap} executable. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. Only needed for Dyson norm calculations.\\
 scratchdir      &Is a path to the temporary directory. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. If it does not exist, the interface will create it. In any case, the interface will delete this directory after the calculation.\\
 savedir         &Is a path to another temporary directory.  Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. The interface will store files needed for restart there.\\
 memory          &The memory usable by \textsc{Molcas}. The interface will set \ttt{\$MOLCASMEM} to this value. The default is 10~MB.\\
@@ -2403,7 +3150,7 @@ always\_orb\_init &Do not use the orbital guesses from previous calculations/tim
 always\_guess   &Always use the orbital guess from \textsc{Molcas}'s \ttt{guessorb} module.\\
   debug           &Increases the verbosity of the interface.\\
   no\_print       &Reduces interface standard output.\\
-  \bottomrule
+  \hline
   \end{tabular}
 \end{table}
 
@@ -2471,7 +3218,8 @@ QMMM-ELECTROSTATICS ESPF
 \end{verbatim}
 \end{example}
 
-The first line defines the force field parameters, which are read from \textsc{Tinker}'s library here. The next three lines define the QM and MM regions of the system, where in this case atoms 1--15 are in the QM region and atoms 16--18 are in the MM region. The last line defines how to treat electrostatics in the calculation (currently, only ESPF is implemented for \textsc{Molcas}, so this line has to be present here).
+The first line defines the force field parameters, which are read from \textsc{Tinker}'s library here. Note that in the file path, environment variables are expanded by the interface.
+The next three lines define the QM and MM regions of the system, where in this case atoms 1--15 are in the QM region and atoms 16--18 are in the MM region (note the minus signs indicating the begin of an interval). The last line defines how to treat electrostatics in the calculation (currently, only ESPF is implemented for \textsc{Molcas}, so this line has to be present as shown, or omitted).
 
 \subsection{QM/MM connection table file: \ttt{MOLCAS.qmmm.table}}
 
@@ -2507,8 +3255,8 @@ The interface is compatible to \textsc{Columbus} calculations utilizing the \tex
 Using \textsc{Seward} integrals, spin-orbit couplings can be calculated, but no nonadiabatic couplings (only overlaps can thus be used).
 Using \textsc{Dalton} integrals, spin-orbit couplings are not possible, but nonadiabatic couplings can be calculated.
 The CASSCF step can be done with either \textsc{Columbus}' \ttt{mcscf} code (all features available) or with \textsc{Molcas}' \ttt{rasscf} code (faster, but no gradients possible).
-The interface utilizes the \textsc{Wfoverlap} program to calculate the overlap matrices.
-The interface can also calculate Dyson norms between neutral and ionic wave functions using the \textsc{Wfoverlap} code.
+The interface utilizes the \textsc{WFoverlap} program to calculate the overlap matrices.
+The interface can also calculate Dyson norms between neutral and ionic wave functions using the \textsc{WFoverlap} code.
 
 The interface needs as additional input the file \ttt{QM/COLUMBUS.resources} and a template directory containing all input files needed for the \textsc{Columbus} calculations. Initial MOs can be given in the file \ttt{QM/mocoef\_mc.init}.
 For multiple jobs, initial MOs can be given as \ttt{QM/mocoef\_mc.init.<job>}.
@@ -2792,8 +3540,8 @@ Note that exponentiation in Python is \ttt{**}. In order to provide most usual m
 
 The \sharc-ADF interface allows to run \sharc\ simulations with ADF's TD-DFT functionality.
 The interface is compatible with restricted and unrestricted ground states, but not with symmetry.
-Spin-orbit couplings are obtained with the perturbative ZORA formalism, and wave function overlaps from the \textsc{Wfoverlap} code are available (but no nonadiabatic couplings).
-Dyson norms can also be computed through the \textsc{Wfoverlap} code.
+Spin-orbit couplings are obtained with the perturbative ZORA formalism, and wave function overlaps from the \textsc{WFoverlap} code are available (but no nonadiabatic couplings).
+Dyson norms can also be computed through the \textsc{WFoverlap} code.
 \textsc{TheoDORE} can be used to perform automatic wave function analysis.
 QM/MM is possible through ADF's internal implementation, but only mechanical embedding is currently available in ADF.
 
@@ -2818,9 +3566,9 @@ We recommend that users start from this template file and modify it appropriatel
   \label{tab:adf_temp}
   \small
   \begin{tabular}{>{\ttfamily}lp{12cm}}
-  \toprule
+  \hline
   Keyword       &Description\\
-  \midrule
+  \hline
 relativistic            &If not given, perform a nonrelativistic calculation. Otherwise, copy the line verbatim to the ADF input.
 \\
 basis                   &Gives the basis set for all atoms (default SZ).
@@ -2831,13 +3579,13 @@ basis\_per\_element     &Followed by an elemental symbol (e.g., "Fe", "H.1") and
 \\
 define\_fragment        &Followed by an elemental symbol (e.g., "Fe", "H.1") and then by a list of atom numbers which should belong to this atom type.
 \\
-functional              &followed by two strings. First argument gives the type of functional (LDA, GGA, hybrid), second argument gives the functional (VWN, BP86, B3LYP, ...).
+functional              &Followed by two strings. First argument gives the type of functional (LDA, GGA, hybrid), second argument gives the functional (VWN, BP86, B3LYP, ...).
 \\
 functional\_xcfun       &Enables functional evaluation with the XCFun library within ADF.
 \\
 dispersion              &If present, is written verbatim to ADF input with all arguments.
 \\
-charge                  &Sets the total charge of the (QM) system. Can be either followed by a single integer (then the interface will automatically assign the charges to the multiplicities) or by one charge per multiplicity. Automatic assignment might not work for QM/MM computations.
+charge                  &Sets the total charge of the (QM) system. Can be either followed by a single integer (then the interface will automatically assign the charges to the multiplicities) or by one charge per multiplicity. Automatic assignment might not work correctly for QM/MM computations.
 \\
 totalenergy             &Activates the computation of total energies (by default, ADF computes binding energies). Does not work for relativistic or QM/MM calculations.
 \\
@@ -2888,7 +3636,7 @@ modifyexcitations       &Followed by an integer, indicating that excitation shou
 qmmm                    &Activates QM/MM. In this case, the interface will look for two additional input files (see below).
 \\
 qmmm\_coupling          &Followed by an integer (1=mechanical embedding, 2=electrostatic embedding). Default is 1, option 2 only works for ADF version $\geq$2017.207 or ADF2018.\\
-  \bottomrule
+  \hline
   \end{tabular}
 \end{table}
 
@@ -2904,9 +3652,9 @@ A fully commented resource file with all possible options and comprehensive desc
   \caption{Keywords for the \ttt{ADF.resources} file.}
   \label{tab:adf_sh2}
   \begin{tabular}{>{\ttfamily}lp{12cm}}
-  \toprule
+  \hline
   Keyword       &Description\\
-  \midrule
+  \hline
 adfhome                 &Is the path to the \textsc{ADF} installation. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. The interface will set \ttt{\$ADFHOME} to this path, and will set the \ttt{\$ADFBIN}.
 \\
 scmlicense              &Is the path to the \textsc{ADF} license file. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. 
@@ -2917,7 +3665,7 @@ scratchdir              &Is a path to the temporary directory. Relative and abso
 \\
 savedir                 &Is a path to another temporary directory.  Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. The interface will store files needed for restart there.
 \\
-memory                  &The memory usable by \textsc{Wfoverlap}. The default is 100~MB. The ADF memory usage cannot be controlled.
+memory                  &The memory usable by \textsc{WFoverlap}. The default is 100~MB. The ADF memory usage cannot be controlled.
 \\
 ncpu                    &The number of CPUs used by the interface. Is overridden by environment variables from queuing engines (e.g., \ttt{\$NSLOTS} or \ttt{\$SLURM\_NTASKS\_PER\_NODE}). Will either be used to run ADF in parallel or to run several independent ADF runs at the same time.
 \\
@@ -2929,7 +3677,7 @@ qmmm\_table             &Followed by the path to the connection table file, in A
 \\
 qmmm\_ff\_file          &Followed by the path to the force field file, in Amber95-like format for ADF.
 \\
-wfoverlap               &Path to the \textsc{Wfoverlap} code. Needed for overlap and Dyson norm calculations.
+wfoverlap               &Path to the \textsc{WFoverlap} code. Needed for overlap and Dyson norm calculations.
 \\
 wfthres                 &(float) Gives the amount of wave function norm which will be kept in the truncation of the determinant files. Default is 0.99 (i.e., the wave functions in the determinant files will have a norm of 0.99). Note that if hybrid functionals and no TDA are used, the response vector can have a norm larger than one, and wfthres should be increased.
 \\
@@ -2953,7 +3701,7 @@ always\_guess           &Always use the orbital guess from ADF.
 \\
   no\_print             &Reduces interface standard output.
 \\
-  \bottomrule
+  \hline
   \end{tabular}
 \end{table}
 
@@ -2981,8 +3729,8 @@ The force field file for ADF contains all force field parameters for the MM part
 The interface uses this file without any modification, except that it will copy the file into the relevant scratch directory.
 
 The force field file needs to be in the format specified in the \link{https://www.scm.com/doc/QMMM/ADF_QMMM/The_Force_Field_File.html}{ADF manual}, which is similar in format to an \textsc{Amber} parameter file.
-A functioning force field file which exemplifies the format is shown in \ttt{\$SHARC/../examples/SHARC\_ADF/ADF.qmmm.ff}.
-Here, we only show briefly the format:
+\ttt{\$SHARC/../examples/SHARC\_ADF\_qmmm/ADF.qmmm.ff} contains a functioning example of the file format.
+Here, we only show briefly the general format:
 \begin{example}
   \begin{verbatim}
 FORCE_FIELD_SETTINGS
@@ -3062,10 +3810,12 @@ CHARGES
 The connection table file defines the topology of the QM/MM system, by defining which atoms belong to QM or MM, and which atoms have MM bonds between them.
 The file can also be used to define link atoms or to override the MM charges of specific atoms.
 
-One should keep in mind that the content of the file is copied verbatim to the ADF input, inside the \ttt{MM\_CONNECTION\_TABLE} subblock of the QM/MM input section.
+In the ADF input file, the interface will automatically add the line \ttt{MM\_CONNECTION\_TABLE} (so this line should not be present in \ttt{ADF.qmmm.table}), then copy the content of \ttt{ADF.qmmm.table} verbatim to the ADF input, and then add a line \ttt{END}.
+Hence, \ttt{ADF.qmmm.table} needs to follow the format required by ADF.
+% One should keep in mind that the content of the file is copied verbatim to the ADF input, inside the \ttt{MM\_CONNECTION\_TABLE} subblock of the QM/MM input section.
 See the \link{https://www.scm.com/doc/QMMM/ADF_QMMM/QMMM_keyblock_options.html}{ADF manual} for details on this input section.
 
-An example of the file is given in \ttt{\$SHARC/../examples/SHARC\_ADF/ADF.qmmm.table}.
+An example of the file is given in \ttt{\$SHARC/../examples/SHARC\_ADF\_qmmm/ADF.qmmm.table}.
 In the simplest form, the content of the file could look like:
 \begin{example}
   \begin{verbatim}
@@ -3151,11 +3901,11 @@ With \ttt{ADF\_input.py} it is only possible to enter a single basis set for all
 
 One can setup calculations with any ADF-supported functional, and for ground state or excited state. The user is also queried whether relativistic effects need to be included, and for the most important accuracy settings.
 
-\paragraph{Run script}
-
-If requested, the script also generates a simple Bash script (\ttt{run\_molpro.sh}) to directly execute ADF. The user has to enter the path to ADF and the path to a suitable (fast) scratch directory. 
-
-Note that the scratch directory will be deleted after the calculation, only the wave function file \ttt{wf} will be copied back to the main directory.
+% \paragraph{Run script}
+% 
+% If requested, the script also generates a simple Bash script (\ttt{run\_molpro.sh}) to directly execute ADF. The user has to enter the path to ADF and the path to a suitable (fast) scratch directory. 
+% 
+% Note that the scratch directory will be deleted after the calculation, only the wave function file \ttt{wf} will be copied back to the main directory.
 
 
 
@@ -3165,13 +3915,13 @@ The small script \ttt{ADF\_freq.py} can be used to convert the standard output o
 The usage is very simple:
 \begin{example}
   \begin{verbatim}
-python $SHARC/ADF_freq.py ADF.out
+$SHARC/ADF_freq.py ADF.out
 \end{verbatim}
 \end{example}
 or:
 \begin{example}
   \begin{verbatim}
-python $SHARC/ADF_freq.py TAPE21
+$SHARC/ADF_freq.py TAPE21
 \end{verbatim}
 \end{example}
 The script detects automatically the file format.
@@ -3190,7 +3940,7 @@ The interface uses the programs \ttt{define}, \ttt{dscf} and \ttt{ricc2}.
 For spin-orbit couplings, \textsc{Orca} needs to be installed in addition to \textsc{Turbomole}.
 Only ADC(2) can be used to calculate spin-orbit couplings, but not CC2 (hence, it is not recommended to perform CC2 calculations with both singlet and triplet states).
 Even with ADC(2), only singlet-triplet SOCs are obtained, but no triplet-triplet SOCs; $S_0$-triplet SOCs are also missing currently.
-Wavefunction overlaps are calculated using the \textsc{Wfoverlap} code of the Gonz\'alez group.\cite{Plasser2016JCTC}
+Wavefunction overlaps are calculated using the \textsc{WFoverlap} code of the Gonz\'alez group.\cite{Plasser2016JCTC}
 
 The interface needs two additional input files, a template file for the quantum chemistry (file name is \ttt{RICC2.template}) and a general input file (\ttt{RICC2.resources}). 
 If a file \ttt{QM/mos.init} is are present, it is used to provide an initial orbital guess for the SCF calculation.
@@ -3206,9 +3956,9 @@ A fully commented template file with all possible options is located in \ttt{\$S
   \caption{Keywords for the \ttt{RICC2.template} file.}
   \label{tab:ricc2_temp}
   \begin{tabular}{>{\ttfamily}lp{12cm}}
-  \toprule
+  \hline
   Keyword       &Description\\
-  \midrule
+  \hline
 basis           &The basis set used. The interface will convert this string to the correct case for \textsc{Turbomole}.\\
 auxbasis        &The auxiliary basis set used in \ttt{ricc2}. If no auxbasis is given, the interface will let \ttt{define} decide on a suitable auxbasis.\\
 basislib        &Path to external basis set library. Can be used to employ custom basis sets.\\
@@ -3218,13 +3968,20 @@ douglas-kroll   &Activates the use of the scalar-relativistic DK Hamiltonian of 
 spin-scaling    &Followed by a string, which is either ``none'', ``scs'' or ``sos''. Using these options, spin-component scaling can be activated. Under certain restrictions (no SOC, no transition dipole moments, no SMP), ``lt-sos'' can be used to perform cheaper ``sos'' calculations.\\
 scf             &Followed by a string which is either ``dscf'' or ``ridft''. Using this option, the SCF program can be chosen. Note that currently, there is no advantage of using ``ridft''.\\
 frozen          &Followed by an integer giving the number of frozen core orbitals in the \ttt{ricc2} calculations. Default is to use frozen core orbitals and let \ttt{define} decide on the number. If frozen core is not wanted, use \ttt{frozen 0} in the template.\\
-  \bottomrule
+  \hline
   \end{tabular}
 \end{table}
 
-\todo{\subsubsection{External basis set libary}}
+\subsubsection{External basis set libary}
 
-\todo{Explain basislib keyword. Cannot be used together with auxbasis keyword. External library must have basen and cbasen subdirectries. These must contain one file per element with the desired basis set. cbasen must contain one file per element with the custom auxbasis, which must have the same name as the basis.}
+If users want to employ their own basis sets, they can create a basis set library directory with the required files, and use the \ttt{basislib} keyword to tell the interface to use this directory.
+The \ttt{basislib} keyword cannot be used together with the \ttt{auxbasis} keyword.
+
+The specified directory must contain \ttt{basen/} and \ttt{cbasen/} subdirectories. These must contain one file per element, containing the desired basis set parameters.
+The files in \ttt{cbasen/} must auxiliary basis sets of the same name as the basis sets in \ttt{basen/}.
+See the \textsc{Turbomole} directory structure to see how the directories and files need to be prepared.
+
+% \todo{Explain basislib keyword. Cannot be used together with auxbasis keyword. External library must have basen and cbasen subdirectries. These must contain one file per element with the desired basis set. cbasen must contain one file per element with the custom auxbasis, which must have the same name as the basis.}
 
 
 
@@ -3240,31 +3997,31 @@ A fully commented resource file with all possible options is located in \ttt{\$S
   \caption{Keywords for the \ttt{RICC2.resources} file.}
   \label{tab:ricc2_sh2}
   \begin{tabular}{>{\ttfamily}lp{12cm}}
-  \toprule
+  \hline
   Keyword       &Description\\
-  \midrule
+  \hline
 turbodir        &Is the path to the \textsc{Turbomole} installation. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. The interface will set \ttt{\$TURBODIR} to this path, and will set the \ttt{\$PATH} correctly (using \textsc{Turbomole}'s \ttt{sysname} tool. If this keyword is not present in \ttt{RICC2.resources}, the interface will use the environment variable \ttt{\$TURBODIR}, if it is set.\\
 orcadir         &Is the path to the \textsc{Orca} installation, which is necessary when spin-orbit couplings are calculated. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. If this keyword is not present in \ttt{RICC2.resources}, the interface will use the environment variable \ttt{\$ORCADIR}, if it is set.\\
 scratchdir      &Is a path to the temporary directory. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. If it does not exist, the interface will create it. In any case, the interface will delete this directory after the calculation.\\
 savedir         &Is a path to another temporary directory.  Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. The interface will store files needed for restart there.\\
-memory          &The memory usable by \textsc{Turbomole} and \textsc{Wfoverlap}. The default is 100~MB.\\
+memory          &The memory usable by \textsc{Turbomole} and \textsc{WFoverlap}. The default is 100~MB.\\
 ncpu            & The number of CPUs used by the interface. If larger than one, the interface will use the SMP executables of \textsc{Turbomole} with the given number of CPUs.\\
 always\_orb\_init &Do not use the orbital guesses from previous calculations/time steps, but always use the provided initial orbitals.\\
 always\_guess   &Always use the orbital guess from the EHT calculation of \ttt{define}.\\
 dipolelevel     &Followed by an integer which is either 0, 1, or 2. Controls which dipole moment calculations are skipped by the interface.\\
-wfoverlap       &Is the path to the \textsc{Wfoverlap} executable. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. This keyword is only necessary if overlaps need to be calculated.\\
+wfoverlap       &Is the path to the \textsc{WFoverlap} executable. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. This keyword is only necessary if overlaps need to be calculated.\\
 wfthres         &Threshold for the truncation of the response vectors which are used in the overlap calculations. A threshold of $x$ implies that only the minimal number of determinants needed to give a norm of $1-x$ are included.\\
 numfrozcore     &Overrides the number of frozen core orbitals for the overlap calculation. Default is to use the frozen orbitals from the RICC2 steps.\\
 nooverlap       &Do not save files necessary to do overlaps.\\
 debug           &Increases the verbosity of the interface.\\
   no\_print       &Reduces interface standard output.\\
-  \bottomrule
+  \hline
   \end{tabular}
 \end{table}
 
 Note that the interface sets all environment variables necessary to run \textsc{Turbomole} (e.g., \ttt{\$PATH}) automatically, based on the input from \ttt{RICC2.resources} and \ttt{QM.in}.
 
-For parallel calculations, the interface will call the SMP executables of \textsc{Turbomole} and \textsc{Wfoverlap}.
+For parallel calculations, the interface will call the SMP executables of \textsc{Turbomole} and \textsc{WFoverlap}.
 
 Note that the \ttt{dipolelevel} keyword can have significant impact on the calculation time.
 Generally, in response methods like CC2 and ADC(2), extra computational effort is required for the calculation of state and transition dipole moments .
@@ -3435,8 +4192,8 @@ Note that currently, the script only works for singlets and triplets.
 
 The \sharc-\textsc{Gaussian} interface allows to run \sharc\ simulations with \textsc{Gaussian}'s TD-DFT functionality.
 The interface is compatible with restricted and unrestricted ground states, but not with symmetry.
-Spin-orbit couplings cannot be computed, but wave function overlaps from the \textsc{Wfoverlap} code are available (no nonadiabatic couplings).
-Dyson norms can also be computed through the \textsc{Wfoverlap} code.
+Spin-orbit couplings cannot be computed, but wave function overlaps from the \textsc{WFoverlap} code are available (no nonadiabatic couplings).
+Dyson norms can also be computed through the \textsc{WFoverlap} code.
 \textsc{TheoDORE} can be used to perform automatic wave function analysis.
 
 The interface needs two additional input files, a template file for the quantum chemistry (file name is \ttt{GAUSSIAN.template}) and a resource file (\ttt{GAUSSIAN.resources}). 
@@ -3455,9 +4212,9 @@ We recommend that users start from this template file and modify it appropriatel
   \label{tab:gauss_temp}
   \small
   \begin{tabular}{>{\ttfamily}lp{12cm}}
-  \toprule
+  \hline
   Keyword       &Description\\
-  \midrule
+  \hline
 basis                   &Gives the basis set for all atoms (default 6-31G).
 \\
 functional              &followed by one string giving the exchange-correlation functional. Default is \ttt{PBEPBE}.
@@ -3484,7 +4241,7 @@ iop                     &Arguments are written verbatim to \textsc{Gaussian} inp
 \\
 keys                    &Arguments are written verbatim to \textsc{Gaussian} input as separate keywords. Expert option.
 \\
-  \bottomrule
+  \hline
   \end{tabular}
 \end{table}
 
@@ -3500,16 +4257,17 @@ A fully commented resource file with all possible options and comprehensive desc
   \caption{Keywords for the \ttt{GAUSSIAN.resources} file.}
   \label{tab:gauss_sh2}
   \begin{tabular}{>{\ttfamily}lp{12cm}}
-  \toprule
+  \hline
   Keyword       &Description\\
-  \midrule
-groot                   &Is the path to the \textsc{Gaussian} installation. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. The interface will set \ttt{\$GAUSS\_EXEDIR} to this path.
+  \hline
+groot                   &Is the path to the \textsc{Gaussian} installation. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. The interface will set \ttt{\$GAUSS\_EXEDIR} to this path. 
+Note that this needs to be the path to the directory containing the \textsc{Gaussian} executables, e.g., \ttt{g09}/\ttt{g16}, \ttt{l9999.exe}, etc.
 \\
 scratchdir              &Is a path to the temporary directory. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. If it does not exist, the interface will create it. In any case, the interface will delete this directory after the calculation. The interface will set \ttt{\$GAUSS\_SCRDIR} to this path.
 \\
 savedir                 &Is a path to another temporary directory.  Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. The interface will store files needed for restart there.
 \\
-memory                  &The memory usable by \textsc{Gaussian} and \textsc{Wfoverlap}. The default is 100~MB. 
+memory                  &The memory usable by \textsc{Gaussian} and \textsc{WFoverlap}. The default is 100~MB. 
 \\
 ncpu                    &The number of CPUs used by the interface. Is overridden by environment variables from queuing engines (e.g., \ttt{\$NSLOTS} or \ttt{\$SLURM\_NTASKS\_PER\_NODE}). Will either be used to run \textsc{Gaussian} in parallel or to run several independent \textsc{Gaussian} runs at the same time.
 \\
@@ -3517,7 +4275,7 @@ schedule\_scaling       &Gives the expected parallelizable fraction of the \text
 \\
 delay                   &Followed by a float giving the delay in seconds between starting parallel jobs to avoid excessive disk I/O (usually not necessary).
 \\
-wfoverlap               &Path to the \textsc{Wfoverlap} code. Needed for overlap and Dyson norm calculations.
+wfoverlap               &Path to the \textsc{WFoverlap} code. Needed for overlap and Dyson norm calculations.
 \\
 wfthres                 &(float) Gives the amount of wave function norm which will be kept in the truncation of the determinant files. Default is 0.99 (i.e., the wave functions in the determinant files will have a norm of 0.99). Note that if hybrid functionals and no TDA are used, the response vector can have a norm larger than one, and wfthres should be increased.
 \\
@@ -3541,7 +4299,7 @@ always\_guess           &Always use the orbital guess from \textsc{Gaussian}.
 \\
   no\_print             &Reduces interface standard output.
 \\
-  \bottomrule
+  \hline
   \end{tabular}
 \end{table}
 
@@ -3570,9 +4328,9 @@ Typical values for \ttt{schedule\_scaling} are around 0.90 for both GGA function
 
 % ========================================================================================================= %
 
-\section{The \textsc{Wfoverlap} Program}\label{sec:int:wfoverlap}
+\section{The \textsc{WFoverlap} Program}\label{sec:int:wfoverlap}
 
-This section does not describe an interface to \sharc, but rather the \textsc{Wfoverlap} program.
+This section does not describe an interface to \sharc, but rather the \textsc{WFoverlap} program.
 This program is part of the \sharc\ distribution, but can also be obtained as a \link{https://sharc-md.org/?page_id=309}{stand-alone package} (including a more detailed manual and a set of auxiliary scripts).
 It computes overlaps between many-electron wave functions expressed in terms of linear combinations of Slater determinant, which are based on molecular orbitals (from an LCAO ansatz).
 It can also compute Dyson orbitals and Dyson norms between wave functions differing by one $\alpha$ or one $\beta$ electron.
@@ -3585,10 +4343,66 @@ The resulting wave function overlaps or Dyson norms can be used for example for:
   \item Computation of photoionization spectra~\cite{Ruckenbauer2016SR,Ruckenbauer2016JCP},
   \item Comparison of wave functions at different levels of theory~\cite{Plasser2016JCP}.
 \end{itemize}
-\todo{Please cite these references (add to chapter 2!)} if you use the the \ttt{wfoverlap.x} code inside \sharc\ for these purposes.
+If you employ the \ttt{wfoverlap.x} code inside the \sharc\ suite for these purposes, please cite these references!
 
-The documentation here only gives a brief overview over the input options of \textsc{wfoverlap.x}, because within the \sharc\ suite the \ttt{wfoverlap.x} program is always called automatically by the interfaces. For the full manual (and for access to the auxiliary scripts of \textsc{wfoverlap.x}), please download the separate \link{https://sharc-md.org/?page_id=309}{\textsc{Wfoverlap} package}.
+The documentation here only gives a brief overview over the input options of \textsc{wfoverlap.x}, because within the \sharc\ suite the \ttt{wfoverlap.x} program is always called automatically by the interfaces. For the full manual (and for access to the auxiliary scripts of \textsc{wfoverlap.x}), please download the separate \link{https://sharc-md.org/?page_id=309}{\textsc{WFoverlap} package}.
 
+
+\subsection{Installation}
+
+\paragraph{Using precompiled binaries}
+
+After unpacking, the directory \ttt{\$SHARC} should contain a binary \ttt{wfoverlap\_ascii.x} and a link called \ttt{wfoverlap.x} pointing to the binary.
+With this setup, most interfaces should work without problems.
+
+\paragraph{Manual installation}
+
+The only exceptions are the following: \textsc{Columbus} (overlaps and Dyson norms) and \textsc{Molcas} (only Dyson norms).
+These features are only available if \ttt{wfoverlap.x} is recompiled with proper support for these programs.
+Alternatively, you may want to link \ttt{wfoverlap.x} against your favorite libraries.
+In these cases, a manual installation is necessary.
+
+For the manual installation you need a working Fortran90 compatible compiler (Intel's ifort is recommended),
+some reasonably fast BLAS/LAPACK libraries (Intel's MKL is recommended, although atlas is also fine).
+
+Optionally, with a working \textsc{Columbus} Installation you can install the \textsc{Columbus} bindings, which will
+allow direct reading of SIFS integral files generated by \textsc{Dalton}. To use this option, it is
+necessary to use the \verb|read_dalton.o| object file.
+\textsc{Molcas/Seward} integral files can be read by linking with the \textsc{Columbus/Molcas} interface. Link against
+\verb|read_molcas.o| for this purpose.
+
+To compile the source code, switch to the \texttt{source} directory and edit the Makefile to adjust it to your Fortran compiler and BLAS/LAPACK installation. The location of your \textsc{Columbus} installation has to be set via the enviroment variable
+\verb|$COLUMBUS|.
+
+Issuing the command:
+
+\begin{example}
+\verb|cd $SHARC/../wfoverlap/source/|
+
+\verb|make|
+\end{example}
+
+will compile the source and create the binaries.
+
+
+If you are unable to link against \textsc{Columbus} and/or \textsc{Molcas}, simply call
+
+\begin{example}
+\verb|make  wfoverlap_ascii.x|
+\end{example}
+
+to compile a minimal version of the CI Overlap program that only reads ASCII files.
+In this case, overlap and Dyson calculations with \ttt{SHARC\_COLUMBUS.py} and Dyson calculations with \ttt{SHARC\_MOLCAS.py} will not be possible.
+
+\paragraph{Testing}
+
+The command 
+
+\begin{example}
+\verb|make test|
+\end{example}
+
+will run a couple of tests to check if the program is working correctly (alternatively you can call \verb|ovl_test.bash $OVDIR|, but \ttt{\$OVDIR} needs to be set before).
 
 
 \subsection{Workflow}
@@ -3891,7 +4705,7 @@ MO     8 -1.91183349E-10  0.00000000E+00  9.40768334E-11
 
 \chapter{Auxilliary Scripts}\label{chap:aux}
 
-In this chapter, all auxiliary scripts and programs are documented. Input generators (\ttt{molpro\_input.py} and \ttt{molcas\_input.py}) are documented in the relevant interface sections.
+In this chapter, all auxiliary scripts and programs are documented. Input generators (like \ttt{molpro\_input.py} and \ttt{molcas\_input.py}) are documented in the relevant interface sections.
 
 All auxiliary scripts are either interactive---prompting user input from stdin in order to setup a certain task---or non-interactive, meaning they are controlled by command-line arguments and options, in the same way as many standard command-line tools work.
 
@@ -3922,7 +4736,7 @@ The sampling is carried out with the non-interactive Python script \ttt{wigner.p
 
 The general usage is 
 \begin{verbatim}
-user@host> python $SHARC/wigner.py [options] filename.molden
+user@host> $SHARC/wigner.py [options] filename.molden
 \end{verbatim}
 \ttt{wigner.py} takes exactly one command-line argument (the input file with the frequencies and normal modes), plus some options. Usually, the \ttt{-n} option is necessary, since the default is to only create 3 initial conditions.
 
@@ -3942,9 +4756,9 @@ The script accepts a number of command-line options, specified in table~\ref{tab
   \caption{Command-line options for script \ttt{wigner.py}.}
   \label{tab:wigner_opts}
   \begin{tabular}{>{\ttfamily}lp{9cm}l}
-    \toprule
+    \hline
     \rmfamily Option        &Description      &Default\\
-    \midrule
+    \hline
     -h                  &Display help message and quit              &---                            \\
     -n  INTEGER         &Number of initial conditions to generate   &3                              \\
     -m                  &Modify atom masses (starts interactive dialog)  &Most common isotopes      \\
@@ -3960,7 +4774,7 @@ The script accepts a number of command-line options, specified in table~\ref{tab
     --keep\_trans\_rot  &Do not remove translations and rotations from velocity vector &\\
     --use\_eq\_geom     &Sample only velocities, but keep equilibrium geometry  &Sample normally\\
     --use\_zero\_veloc  &Sample only geometries, but set velocities to zero     &Sample normally\\
-    \bottomrule
+    \hline
   \end{tabular}
 \end{table}
 
@@ -4004,7 +4818,7 @@ When the \ttt{-l} option is given, the script only produces a file called \ttt{V
 \section{\textsc{Amber} Trajectory Sampling: \ttt{amber\_to\_initconds.py}}\label{sec:amber_to_initconds.py}
 
 The first step in preparing the dynamics calculation is to obtain a set of physically reasonable initial conditions. Each initial condition is a set of initial atomic coordinates, initial atomic velocities and initial electronic state. The initial geometry and velocities can be obtained in different ways. 
-Besides sampling from a quantum mechanical Wigner distribution, it is often appropriate to sample geometries and velocities from a ground state molecular dynamics simulation.
+Besides sampling from a quantum mechanical Wigner distribution (with \ttt{wigner.py}), it is a widespread approach to sample geometries and velocities from a ground state molecular dynamics simulation.
 
 Using \ttt{amber\_to\_initconds.py}, one can convert the results of an \textsc{Amber} simulation to a \sharc\ \ttt{initconds} file.
 
@@ -4024,12 +4838,14 @@ trajout <filename2>.rst7
 run
 \end{verbatim}
 This command has to be repeated for each restart file which needs to be reimaged.
-If you saved the restart files in \textsc{Amber}'s newer NetCDF format, \ttt{cpptraj} can also be used to convert them to ASCII restart files.
-If you did not save restart files, \ttt{cpptraj} can even be used to generate restart files from the trajectory file (\ttt{.mdcrd}).
+Note that \ttt{amber\_to\_initconds.py} only works with the \ttt{rst7} ASCII file format, not with the \ttt{rst} format (even if it is ASCII-formatted).
+
+If you saved the restart files in \textsc{Amber}'s newer NetCDF format, \ttt{cpptraj} can also be used to convert them to ASCII \ttt{rst7} restart files.
+If you did not save restart files, \ttt{cpptraj} can even be used to generate restart files from the trajectory file (\ttt{.mdcrd} and \ttt{.mdvel}), but for this way it is necessary to save the velocities (\ttt{.mdvel} file).
 
 With the restart files prepared, call \ttt{amber\_to\_initconds.py} like this:
 \begin{verbatim}
-user@host> python $SHARC/amber_to_initconds.py [options] md.prmtop md.rst_0 md.rst_5000 md.rst_10000 ...
+user@host> $SHARC/amber_to_initconds.py [options] md.prmtop md.rst_0 md.rst_5000 md.rst_10000 ...
 \end{verbatim}
 The possible options are shown in Table~\ref{tab:amber_opts}.
 
@@ -4038,9 +4854,9 @@ The possible options are shown in Table~\ref{tab:amber_opts}.
   \caption{Command-line options for script \ttt{amber\_to\_initconds.py}.}
   \label{tab:amber_opts}
   \begin{tabular}{>{\ttfamily}lp{9cm}l}
-    \toprule
+    \hline
     \rmfamily Option        &Description      &Default\\
-    \midrule
+    \hline
     -h                  &Display help message and quit              &---                            \\
     -t  FLOAT           &Time step (in femtoseconds) used in the \textsc{Amber} simulation      &---\\
     -o  FILENAME        &Output filename                            &\ttt{initconds}                \\
@@ -4048,15 +4864,16 @@ The possible options are shown in Table~\ref{tab:amber_opts}.
     -m                  &Modify atom masses (starts interactive dialog)  &As in \ttt{prmtop} file   \\
     --keep\_trans\_rot  &Do not remove translations and rotations from velocity vector &\\
     --use\_zero\_veloc  &Sample only geometries, but set velocities to zero     &Sample normally\\
-    \bottomrule
+    \hline
   \end{tabular}
 \end{table}
 
 \subsection{Time Step}
 
 Note that the option \ttt{-t} (giving the time step used in \textsc{Amber} in femtoseconds) is mandatory; if not given, an error message is produced.
-This is because \textsc{Amber} uses a Leapfrog algorithm and thus stores in the restart file $R(t)$ and $v(t+\Delta t/2)$, whereas \sharc\ uses the velocity-Verlet algorithm and requires $R(t+\Delta t/2)$ and $v(t+\Delta t/2)$, i.e., geometry and velocity at the same time.
-To compensate this, \ttt{amber\_to\_initconds.py} computes $R(t+\Delta t/2)$ from $R(t)-v(t+\Delta t/2)\Delta t/2$.
+This is because \textsc{Amber} uses a Leapfrog algorithm and thus stores in the restart file $R(t)$ and $v(t-\Delta t/2)$, whereas \sharc\ uses the velocity-Verlet algorithm and requires geometry and velocity at the same time, e.g., $R(t-\Delta t/2)$ and $v(t-\Delta t/2)$.
+To compensate this, \ttt{amber\_to\_initconds.py} computes $R(t-\Delta t/2)$ from $R(t)-v(t-\Delta t/2)\Delta t/2$.
+Hence, $\Delta t$ of the \textsc{Amber} trajectory needs to be known.
 
 \subsection{Atom Types and Masses}
 
@@ -4091,7 +4908,11 @@ The trajectories can be run with any number of states and in any state, and with
 
 With the trajectories prepared, call \ttt{sharctraj\_to\_initconds.py} like this:
 \begin{verbatim}
-user@host> python $SHARC/sharctraj_to_initconds.py [options] TRAJ_00001 TRAJ_00002 ...
+user@host> $SHARC/sharctraj_to_initconds.py [options] Singlet_0 ...
+\end{verbatim}
+Alternatively, with the \ttt{--give\_TRAJ\_paths} option, one can also do:
+\begin{verbatim}
+user@host> $SHARC/sharctraj_to_initconds.py --give_TRAJ_paths [options] TRAJ_00001 TRAJ_00002 ...
 \end{verbatim}
 The possible options are shown in Table~\ref{tab:sharctraj_opts}.
 
@@ -4099,19 +4920,20 @@ The possible options are shown in Table~\ref{tab:sharctraj_opts}.
   \centering
   \caption{Command-line options for script \ttt{sharctraj\_to\_initconds.py}.}
   \label{tab:sharctraj_opts}
-  \begin{tabular}{>{\ttfamily}lp{9cm}l}
-    \toprule
+  \begin{tabular}{>{\ttfamily}lp{8.5cm}l}
+    \hline
     \rmfamily Option        &Description      &Default\\
-    \midrule
+    \hline
     -h                  &Display help message and quit              &---                            \\
     -r  INTEGER         &Seed for the random number generator       &16661                          \\
     -S INTEGER INTEGER  &Range of time steps from which a step is randomly chosen       &last step  \\
     -o  FILENAME        &Output filename                            &\ttt{initconds}                \\
     -x                  &Creates an xyz file with the sampled geometries &\ttt{initconds.xyz}       \\
-    --keep\_trans\_rot  &Do not remove translations and rotations from velocity vector &\\
+    --keep\_trans\_rot  &Do not remove translations and rotations from velocity &\\
     --use\_zero\_veloc  &Sample only geometries, but set velocities to zero     &Sample normally\\
     --debug             &Show timings                                           &\\
-    \bottomrule
+    --give\_TRAJ\_paths &Allows specifying individual trajectories &Specify parent directories\\
+    \hline
   \end{tabular}
 \end{table}
 
@@ -4147,7 +4969,7 @@ There are other choices of the initial state possible, which do not require sing
 
 The script is interactive, and can be started by simply typing 
 \begin{verbatim}
-user@host> python $SHARC/setup_init.py
+user@host> $SHARC/setup_init.py
 \end{verbatim}
 Please be aware that the script will setup the calculations in the directory where it was started, so the user should \ttt{cd} to the desired directory before executing the script.
 
@@ -4295,7 +5117,11 @@ See section~\ref{sec:setup_init.py:several}.
 
 Enter the filename for the \textsc{Molcas} template input. This file should contain at least the basis set, active orbitals and electrons, number of inactive orbitals, and number of states for state-averaging. For details, see the section about the \sharc-\textsc{Molcas} interface (\ref{sec:int:molcas}). The setup script will check whether the template file contains the necessary entries. 
 
-\paragraph{\todo{QM/MM}}
+\paragraph{QM/MM}
+
+If the keyword \ttt{qmmm} is contained in the template file, the user will be queried for the path to \textsc{Tinker}'s \ttt{bin/} directory. Note that only \textsc{Tinker} installations with the necessary modifications for \textsc{Molcas} can be used.
+
+The script will also ask for the key file (containing the path to the force field file and the QM/MM partition) and the connection table file. See section~\ref{sec:int:molcas} for details.
 
 \paragraph{Initial wave function file}
 
@@ -4375,7 +5201,7 @@ Enter the filename for the \textsc{ADF} template input. This file should contain
 
 \paragraph{QM/MM}
 
-The script will ask for the two QM/MM-specific input files for the interface, \ttt{ADF.qmmm.ff} and \ttt{ADF.qmmm.table}.
+The script will ask for the two QM/MM-specific input files for the interface, which are called \ttt{ADF.qmmm.ff} and \ttt{ADF.qmmm.table}.
 See section~\ref{sec:int:adf} for details on these files.
 
 \paragraph{Initial orbital coefficient file}
@@ -4446,6 +5272,7 @@ Enter the filename for the template input specifying the LVC parameters. For det
 \paragraph{Path to \textsc{Gaussian}}
 
 The path to the \textsc{Gaussian} installation directory needs to be provided.
+Note that this needs to be the path to the directory containing the \textsc{Gaussian} executables, e.g., \ttt{g09}/\ttt{g16}, \ttt{l9999.exe}, etc.
 The interface will automatically detect which \textsc{Gaussian} version is used.
 For more details, see section~\ref{sec:setup_init.py:several}.
 
@@ -4534,7 +5361,7 @@ After all calculations are finished, \ttt{excite.py} can be used to collect the 
 
 The script is interactive, and can be started by simply typing 
 \begin{verbatim}
-user@host> python $SHARC/excite.py
+user@host> $SHARC/excite.py
 \end{verbatim}
 
 
@@ -4571,6 +5398,7 @@ If the ab initio results are read the number of states will be automatically det
 \paragraph{Excited-state representation}
 
 When generating new lists of excited states (either dummy states or from ab initio results), the user has to specify the representation of the excited states (either MCH or diagonal representation). The MCH representation is spin-free, meaning that transition dipole moments are only allowed between states of the same multiplicity. For molecules without heavy atoms, this option is sufficient. For heavier atoms, the diagonal representation can be used, which includes the effects of spin-orbit coupling on the excitation energies and oscillator strengths. 
+Note, however, that excited-state selection with delta pulse excitation (option 3 under ``Initial state selection'') should be carried out in the MCH representation if the ground state is not significantly spin-orbit-mixed.
 
 When reading ab initio results, \ttt{excite.py} will diagonalize the Hamiltonian and transform the transition dipole matrices for each initial condition to obtain the diagonal representation. 
 
@@ -4876,7 +5704,9 @@ Furthermore, in each trajectory directory a subdirectory \ttt{QM} is created, wh
 
 For each trajectory, a \ttt{run.sh} script will be created, which can be executed to run the dynamics simulation. You might need to adapt the run script to your cluster setup.
 
-Optionally, \ttt{setup\_traj.py} also creates a script \ttt{all\_qsub.sh}, which can be executed to submit all trajectories to a queueing system. You might need to adapt also this script to your cluster setup.
+\ttt{setup\_traj.py} also creates a script \ttt{all\_run\_traj.sh}, which can be used to execute all trajectories sequentially.
+Note that this is intended for small test trajectories, and should not be used for expensive production trajectories.
+For the latter, \ttt{setup\_traj.py} can optionally create a script \ttt{all\_qsub\_traj.sh}, which can be executed to submit all trajectories to a queueing system. You might need to adapt also this script to your cluster setup.
 
 The full directory structure created by \ttt{setup\_traj.py} is given in figure~\ref{fig:dirs_traj}.
 
@@ -4975,7 +5805,7 @@ Aside from setting up trajectories, the \ttt{initconds.excited} files can also b
 
 The script is executed with the initial conditions file as argument:
 \begin{verbatim}
-user@host> python $SHARC/spectrum.py [OPTIONS] initconds.excited
+user@host> $SHARC/spectrum.py [OPTIONS] initconds.excited
 \end{verbatim}
 
 The script accepts a number of command-line options, which are given in table~\ref{tab:spectrum_opts}.
@@ -4984,11 +5814,11 @@ The script accepts a number of command-line options, which are given in table~\r
   \caption{Command-line options for script \ttt{spectrum.py}.}
   \label{tab:spectrum_opts}
   \begin{tabular}{>{\ttfamily}lll}
-    \toprule
+    \hline
     \rmfamily Option        &Description      &Default\\
-    \midrule
+    \hline
     -h                  &Display help message and quit.         &---       \\
-    -o FILENAME         &Output filename (for the spectrum)     &\ttt{spectrum.out}\\
+    -o FILENAME         &Output filename for the spectrum       &\ttt{spectrum.out}\\
     -n INTEGER          &Number of grid points                  &500       \\
     -e FLOAT FLOAT      &Energy range (eV) for the spectrum     &1 to 10 eV\\
     -i INTEGER INTEGER  &Index range for the initial conditions &1 to 1000\\
@@ -4999,8 +5829,11 @@ The script accepts a number of command-line options, which are given in table~\r
     -s                  &Use only selected initial conditions   &Use all\\
     -l                  &Make a line spectrum                   &Convolution\\
     -D                  &Compute density of states (ignore $f_\text{osc}$)      &Compute absorption\\
-    -{}-gnuplot FILENAME  &Write a \textsc{Gnuplot} script        &No \textsc{Gnuplot} script\\
-    \bottomrule
+    --gnuplot FILENAME  &Write a \textsc{Gnuplot} script        &No \textsc{Gnuplot} script\\
+    -B INTEGER          &Perform \ttt{B} bootstrapping cycles (error estimation)        &0\\
+    -b FILENAME         &Output filename for bootstrapping      &\ttt{spectrum\_bootstrap.out}\\
+    -r INTEGER          &Seed for random number generator (for bootstrap) &16661\\
+    \hline
   \end{tabular}
 \end{table}
 
@@ -5012,8 +5845,21 @@ Additionally, the script writes some information about the calculation to standa
 
 If requested, the script generates a \textsc{Gnuplot} script, which can be used to directly plot the spectrum. 
 
+\subsection{Error Analysis}
 
+The shape of the spectrum is strongly influenced by the number of initial conditions included and by the width of the broadening function (FWHM).
+In principle, the FWHM of the broadening function should be as small as possible and the number of initial conditions extremely large, in order to obtain a correctly sampled spectrum.
+In reality, if only few initial conditions were considered, the FWHM should be chosen large enough to smooth out any artifical structure of the spectrum arising solely from the small sample size.
 
+In order to estimate whether the number of initial conditions and the FWHM are well-chosen, \ttt{spectrum.py} can compute error estimates for the total absorption spectrum.
+This estimate is computed by a bootstrapping procedure (similar to the one used in \ttt{bootstrap.py}).
+In order to use it, use the \ttt{-B} option with a positive integer argument (the default is zero, and hence no bootstrapping is performed).
+The procedure will generate a second output file, called \ttt{spectrum\_bootstrap.out} by default.
+It contains in the first column the energy in eV, in the second the geometric average spectrum from all bootstrap cycles, in column 3 and 4 the positive and negative errors of the spectrum, and in all further columns the individual spectra obtained in the bootstrap cycles.
+In \ttt{gnuplot}, in order to plot the average spectrum and the upper and lower error bounds, plot \ttt{u 1:2}, \ttt{u 1:(\$2+\$3)}, and \ttt{u 1:(\$2+\$4)}.
+
+A suitable procedure is to start with a rather small FWHM, compute the spectrum with errors, and if the errors are unsatisfactorily large, increase stepwise the FWHM.
+Note that the bootstrapping estimate will give very small errors if the FWHM is very large---even though the actual spectrum can look very different in this case.
 
 
 % ========================================================================================================= %
@@ -5048,9 +5894,9 @@ It is advisable to configure public-key authentification for the hosts running t
   \caption{Command-line options for \ttt{data\_extractor.x}.}
   \label{tab:dataextractor_options}
   \begin{tabular}{>{\ttfamily}lll}
-    \toprule
+    \hline
     \rmfamily Option        &Description      &Default\\
-    \midrule
+    \hline
     -h          &Display help message and quit.                         &---                      \\
     -e          &Write \ttt{energy.out}                                 &True                     \\
     -d          &Write \ttt{fosc.out}                                   &True                     \\
@@ -5067,7 +5913,7 @@ It is advisable to configure public-key authentification for the hosts running t
     -z          &\ttt{-e}, \ttt{-cd}, \ttt{-cm}, \ttt{-p}, \ttt{-x}     &---                      \\
     -s          &All options except \ttt{-id} and \ttt{-im}             &---                      \\
     -a          &All options                                            &---                      \\
-    \bottomrule
+    \hline
   \end{tabular}
 \end{table}
 
@@ -5076,9 +5922,9 @@ It is advisable to configure public-key authentification for the hosts running t
   \caption[Content of the files written by \ttt{data\_extractor.x}.]{Content of the files written by \ttt{data\_extractor.x}. $n$ is the total number of states, $j$ is a state index ($j\in\{1..n\}$).}
   \label{tab:outputdata}
   \begin{tabular}{>{\ttfamily}lcll}
-    \toprule
+    \hline
     File  &\# Columns     &\multicolumn{2}{l}{Columns}\\
-    \midrule
+    \hline
     energy.out       &$4+n$
       &$1$ &Time $t$ (fs)\\
       &&$2$ &Kinetic energy (eV)\\
@@ -5152,7 +5998,7 @@ It is advisable to configure public-key authentification for the hosts running t
       &&$1+j$ &$E_j-E_\text{approximate active}$ (in eV, mCH)\\
       &&$1+n+j$ &Dyson norm from approximate active state to state $j$ (MCH)\\
     %
-    \bottomrule
+    \hline
   \end{tabular}
 \end{table}
 
@@ -5184,11 +6030,11 @@ The file \ttt{expec.out} contains the information of \ttt{energy.out}, \ttt{spin
 
 The contents of the output files of \ttt{data\_extractor.x} can be plotted with \textsc{Gnuplot}. In order to quickly generate an appropriate \textsc{Gnuplot} script, \ttt{make\_gnuscript.py} can be used. The usage is:
 \begin{verbatim}
-user@host> python $SHARC/make_gnuscript.py <S> [<D> [<T> [<Q> ... ] ] ]
+user@host> $SHARC/make_gnuscript.py <S> [<D> [<T> [<Q> ... ] ] ]
 \end{verbatim}
 \ttt{make\_gnuscript.py} takes between 1 and 8 integers as command-line arguments, specifying the number of singlet, doublet, triplet, etc.\ states. It writes an appropriate \textsc{Gnuplot} script to standard out, hence redirect the output to a file, e.g.:
 \begin{verbatim}
-user@host> python $SHARC/make_gnuscript.py 3 0 2 > gnuscript.gp
+user@host> $SHARC/make_gnuscript.py 3 0 2 > gnuscript.gp
 \end{verbatim}
 
 
@@ -5198,7 +6044,7 @@ user@host> gnuplot gnuscript.gp
 \end{verbatim}
 This can also be accomplished in one step using a pipe, e.g.:
 \begin{verbatim}
-user@host> python $SHARC/make_gnuscript.py 3 0 2 | gnuplot
+user@host> $SHARC/make_gnuscript.py 3 0 2 | gnuplot
 \end{verbatim}
 
 The created plot script generates four different plots (press ENTER in the command-line where you started \textsc{Gnuplot} to go to the next plot). The first plot shows the potential energy of all states in the dynamics over time in the diagonal representation. The currently occupied state is marked with black circles. A thin black line gives the total energy (sum of the kinetic energy and the potential energy of the currently occupied state). Each state is colored, with one color as contour and one color at the core of the line. The contour color represents the total spin expectation value of the state. The core color represents the oscillator strength of the state with the lowest state. See figure~\ref{fig:colors} for the relevant color code.
@@ -5240,7 +6086,7 @@ Also note that \ttt{diagnostics.py} will not work if the \ttt{printlevel} in the
 
 The script is interactive, simply start it with no command-line arguments or options:
 \begin{verbatim}
-user@host> python $SHARC/diagnostics.py
+user@host> $SHARC/diagnostics.py
 \end{verbatim}
 
 \subsection{Input}
@@ -5265,9 +6111,9 @@ During the check of each trajectory, \ttt{output.lis}, \ttt{output\_data/energie
   \caption{List of the settings for \ttt{diagnostics.py}.}
   \label{tab:diagnostics}
   \begin{tabular}{>{\ttfamily}lcp{11cm}}
-    \toprule
+    \hline
     Key  &Value     &Explanation\\
-    \midrule
+    \hline
     missing\_output     &Boolean        &Checks if "output.lis", "output.log", "output.xyz", "output.dat" are existing. Setting to \ttt{False} only suppresses output, but files are always checked.\\
     missing\_restart    &Boolean        &Checks if "restart.ctrl", "restart.traj", "restart/" are existing. Files are not checked if set to \ttt{False}.\\
     normal\_termination &Boolean        &Checks for status of trajectory:\\
@@ -5283,7 +6129,7 @@ During the check of each trajectory, \ttt{output.lis}, \ttt{output\_data/energie
     pop\_window         &Float          &Maximum permissible drift in total population.\\
     hop\_energy         &Float          &Maximum permissible change in active state energy during a surface hop (in eV).\\
     intruders           &Boolean        &Checks if intruder state messages in "output.log" refer to active state.\\
-    \bottomrule
+    \hline
   \end{tabular}
 \end{table}
 
@@ -5319,7 +6165,7 @@ Different methods to obtain populations or quantities approximating populations 
 
 The script is interactive, simply start it with no command-line arguments or options:
 \begin{verbatim}
-user@host> python $SHARC/populations.py
+user@host> $SHARC/populations.py
 \end{verbatim}
 
 Depending on the analysis mode (see below) it might be necessary to run \ttt{data\_extractor.x} for each trajectory prior to running \ttt{populations.py} (but \ttt{populations.py} can also call \ttt{data\_extractor.x} for each subdirectory, if desired). 
@@ -5341,9 +6187,9 @@ The second way to obtain populations is to obtain the sum of the absolute square
   \caption[Analysis modes for \ttt{populations.py}.]{Analysis modes for \ttt{populations.py}. The last column indicates whether \ttt{data\_extractor.x} has to be run prior to the ensemble analysis.}
   \label{tab:Populations_modes}
   \begin{tabular}{lp{8.5cm}>{\ttfamily}lc}
-    \toprule
+    \hline
     Mode        &Description    &\rmfamily From which file?     &Extract?\\
-    \midrule
+    \hline
     1   &For each diagonal state count how many trajectories have this state as active state. &output.lis  &No\\
     2   &For each MCH state count how many trajectories have this state as approximate active state (see section~\ref{ssec:state_transform}). &output.lis  &No\\
     3   &For each MCH state count how many trajectories have this state as approximate active state (see section~\ref{ssec:state_transform}). Multiplet components are summed up. &output.lis  &No\\
@@ -5356,7 +6202,7 @@ The second way to obtain populations is to obtain the sum of the absolute square
    10   &Transform option 1 to MCH basis (trajectory-wise transformation with $\VEC{U}$ matrix).   &output.dat&No\\
    11   &Transform option 1 to MCH basis (trajectory-wise transformation with $\VEC{U}$ matrix). Multiplet components are summed up.   &output.dat&No\\
    20   &Calculate the sum of the absolute squares of the diabatic coefficients for each state (Only for trajectories with local diabatization).      &output\_data/coeff\_diab.out&Yes\\
-    \bottomrule
+    \hline
   \end{tabular}
 \end{table}
 
@@ -5437,7 +6283,7 @@ The script \ttt{transition.py} is still partly work-in-progress.
 
 The script is interactive, simply start it with no command-line arguments or options:
 \begin{verbatim}
-user@host> python $SHARC/transition.py
+user@host> $SHARC/transition.py
 \end{verbatim}
 
 \paragraph{Paths to trajectories}
@@ -5456,15 +6302,15 @@ The different analysis modes for \ttt{transition.py} are given in Table~\ref{tab
   \caption[Analysis modes for \ttt{transition.py}.]{Analysis modes for \ttt{transition.py}. The last column indicates whether \ttt{data\_extractor.x} has to be run prior to the ensemble analysis.}
   \label{tab:Transition_modes}
   \begin{tabular}{lp{8cm}>{\ttfamily}lc}
-    \toprule
+    \hline
     Mode        &Description    &\rmfamily From which     &Extract?\\
                                &&\rmfamily file?          &\\
-    \midrule
+    \hline
     1   &Get transition matrix in MCH basis. &output.lis  &No\\
     2   &Get transition matrix in MCH basis, ignoring hops within multiplets. &output.lis  &No\\
     3   &Write a tabular file with the transition matrix in the MCH basis for each time step. &output.lis  &No\\
     4   &Write a tabular file with the transition matrix in the MCH basis for each time step, ignoring hops within multiplets.   &output.lis &No\\
-    \bottomrule
+    \hline
   \end{tabular}
 \end{table}
 
@@ -5493,7 +6339,7 @@ The fitting itself is performed with \textsc{Gnuplot}.
 
 The script is interactive, simply start it with no command-line arguments or options:
 \begin{verbatim}
-user@host> python $SHARC/make_fitscript.py
+user@host> $SHARC/make_fitscript.py
 \end{verbatim}
 
 Before you start the script, you need to prepare a file with the relevant populations data (usually, the output file of \ttt{populations.py} will suffice).
@@ -5601,7 +6447,7 @@ It is dependent on the output of \ttt{populations.py} and \ttt{make\_fitscript.p
 
 The script is interactive, simply start it with no command-line arguments or options:
 \begin{verbatim}
-user@host> python $SHARC/bootstrap.py
+user@host> $SHARC/bootstrap.py
 \end{verbatim}
 
 Before you start the script, you need to run \ttt{populations.py} to generate the bootstrapping data (\ttt{populations.py} asks the related question near the end of the input query).
@@ -5685,7 +6531,7 @@ Currently, \ttt{crossing.py} finds geometries where the approximate MCH state (s
 
 The script is interactive, simply start it with no command-line arguments or options:
 \begin{verbatim}
-user@host> python $SHARC/crossing.py
+user@host> $SHARC/crossing.py
 \end{verbatim}
 
 The input to the script is very similar to the one of \ttt{populations.py}. 
@@ -5724,7 +6570,7 @@ All geometries are in the end written to an output file, by default \ttt{crossin
 
 \sharc\ writes at every time step the molecular geometry to the file \ttt{output.xyz}. The non-interactive script \ttt{geo.py} can be used in order to extract internal coordinates from xyz files. The usage is:
 \begin{verbatim}
-user@host> python $SHARC/geo.py [options] < Geo.inp > Geo.out
+user@host> $SHARC/geo.py [options] < Geo.inp > Geo.out
 \end{verbatim}
 By default, the coordinates are read from \ttt{output.xyz}, but this can be changed with the \ttt{-g} option (see table~\ref{tab:Geo_options}). Note that the internal coordinate specifications are read from standard input and the result table is written to standard out. 
 
@@ -5741,10 +6587,10 @@ Note that for most internal coordinates, the order of the atoms is crucial, sinc
   \caption{Possible types of internal coordinates in \ttt{geo.py}. }
   \label{tab:Geo_input}
   \begin{tabular}{>{\ttfamily}c>{\bfseries\ttfamily}lll}
-    \toprule
+    \hline
     \rmfamily Key         &\normalfont\rmfamily Atom      &Description    &Output columns\\
                           &\normalfont\rmfamily Indices   &               &\\
-    \midrule
+    \hline
     x   &a              &$x$ coordinate of atom \ttt{a}                                         &$x$\\
     y   &a              &$y$ coordinate of atom \ttt{a}                                         &$y$\\
     z   &a              &$z$ coordinate of atom \ttt{a}                                         &$z$\\
@@ -5766,7 +6612,7 @@ Note that for most internal coordinates, the order of the atoms is crucial, sinc
     l   &a - l          &Angle between average plane through 6-rings (\ttt{a - f}) and (\ttt{g - l})      &$l$\\
     c   &               &Writes the comment (second line of the &Comment\\
                        &&xyz format) to the table.&\\
-    \bottomrule
+    \hline
   \end{tabular}
 \end{table}
 
@@ -5790,9 +6636,9 @@ Also note that the column for the comment is enlarged by 50 characters.
   \caption{Command-line options for \ttt{geo.py}. }
   \label{tab:Geo_options}
   \begin{tabular}{>{\ttfamily}lll}
-    \toprule
+    \hline
     \rmfamily Option         &Description    &Default\\
-    \midrule
+    \hline
     -h          &Display help message and quit.         &---       \\
     -b          &Report $x$, $y$, $z$, $r$, $q_2$ and $Q$ in Bohrs       &Angstrom\\
     -r          &Report $a$, $d$, $p$, $q$, $\phi_2$, $\phi$, $\theta$, $i$, $j$, $k$, and $l$ in Radians         &Degrees\\
@@ -5800,7 +6646,7 @@ Also note that the column for the comment is enlarged by 50 characters.
     -t FLOAT    &Assumed time step between successive geometries (fs)    &1.0 fs\\
     -w INTEGER  &Width of each column (min=20)                   &20\\
     -p INTEGER  &Precision (Number of decimals, min=width--3)         &4\\
-    \bottomrule
+    \hline
   \end{tabular}
 \end{table}
 
@@ -5822,7 +6668,7 @@ The interactive script \ttt{trajana\_essdyn.py} can be used to perform such an a
 
 \ttt{trajana\_essdyn.py} is an interactive script, which is started with:
 \begin{verbatim}
-user@host> python $SHARC/trajana_essdyn.py
+user@host> $SHARC/trajana_essdyn.py
 \end{verbatim}
 Note that before executing the script you should prepare an XYZ geometry file with the reference geometry (e.g., the ground state minimum or the average geometry from the trajectories).
 
@@ -5889,7 +6735,7 @@ The interactive script \ttt{trajana\_nma.py} can be used to perform such an anal
 
 \ttt{trajana\_nma.py} is an interactive script, which is started with:
 \begin{verbatim}
-user@host> python $SHARC/trajana_nma.py
+user@host> $SHARC/trajana_nma.py
 \end{verbatim}
 Note that before executing the script you should prepare a \textsc{Molden} file with the relevant normal modes.
 
@@ -5980,7 +6826,7 @@ Possible applications of this functionality are statistical analysis of internal
 
 \ttt{data\_collector.py} is an interactive script, which is started with:
 \begin{verbatim}
-user@host> python $SHARC/data_collector.py
+user@host> $SHARC/data_collector.py
 \end{verbatim}
 
 \subsection{Input}
@@ -6084,7 +6930,7 @@ In order to do this, \ttt{data\_collector.py} creates a grid along the X axis ($
 The created \ttt{Type3} data set has $n_\text{X}$ data points for each time step and each X grid point.
 
 Using energies as X columns and oscillator strengths/intensities as Y columns, in this way it is possible to compute time-dependent spectra.
-\todo{Renormalize if number of trajectories changes.}
+% \todo{Renormalize if number of trajectories changes.}
 
 \paragraph{Summing(Y)}
 
@@ -6210,7 +7056,7 @@ Each block consists of $n_\text{grid}$ lines, each starting with the time and X 
 
 % ========================================================================================================= %
 
-\section{Optimizations with \textsc{Orca} and \sharc: \ttt{orca\_External} and \ttt{setup\_orca\_opt.py}}\label{sec:Orca_External}
+\section{Optimizations: \ttt{orca\_External} and \ttt{setup\_orca\_opt.py}}\label{sec:Orca_External}
 
 All \sharc\ interfaces can deliver gradients for (multiple) ground and excited states in a uniform manner.
 This allows in principle to perform optimizations of excited-state minima, conical intersections, or crossing points.
@@ -6226,7 +7072,7 @@ In the following, \ttt{setup\_orca\_opt.py} is described first, because it is th
 
 \ttt{setup\_orca\_opt.py} is an interactive script, which is started with:
 \begin{verbatim}
-user@host> python $SHARC/setup_orca_opt.py
+user@host> $SHARC/setup_orca_opt.py
 \end{verbatim}
 Note that before executing the script you should prepare a template for the interface you want to use (as, e.g., in \ttt{setup\_init.py} or \ttt{setup\_traj.py}).
 
@@ -6261,7 +7107,7 @@ In all cases, the specified states need to be included in the number of states g
 
 \paragraph{CI optimization parameters}
 
-If you are optimizing a conical intersection (states of same multiplicity) with an interface which cannot provide nonadiabatic coupling vectors (e.g., \ttt{SHARC\_MOLCAS.py}, \ttt{SHARC\_RICC2.py}, \ttt{SHARC\_ADF.py}, or \ttt{SHARC\_GAUSSIAN.py}), then the optimization will employ the the penalty function method of Levine, Coe, and Mart\'inez~\cite{Levine2008JPCB}.
+If you are optimizing a conical intersection (states of same multiplicity) with an interface which cannot provide nonadiabatic coupling vectors (e.g., \ttt{SHARC\_RICC2.py}, \ttt{SHARC\_ADF.py}, or \ttt{SHARC\_GAUSSIAN.py}), then the optimization will employ the the penalty function method of Levine, Coe, and Mart\'inez~\cite{Levine2008JPCB}.
 In this method, a penalty function is optimized, which depends on the energies of the two states and on two parameters, $\sigma$ and $\alpha$ (see section~\ref{met:orcaopt} for their mathematical meaning).
 
 Practically, the parameters affect how close the minimum of the penalty function is to the true minimum on the crossing seam and how hard the optimization will be to converge.
@@ -6282,7 +7128,7 @@ Note that the maximum step can be restricted even the penalty function method is
 
 \paragraph{Interface-specific input}
 
-This input section is basically the same as for \ttt{setup\_init.py} (\todo{sections~\ref{sec:setup_init.py:molpro} to~\ref{sec:setup_init.py:analytical}}). Also for the optimizations an initial wave function file should be provided, especially for the multi-reference methods.
+This input section is basically the same as for \ttt{setup\_init.py} (sections~\ref{sec:setup_init.py:several}). Also for the optimizations an initial wave function file should be provided, especially for the multi-reference methods.
 
 \paragraph{Run script setup}
 
@@ -6323,6 +7169,63 @@ These comments start with \ttt{\#SHARC:}, followed by a keyword (\ttt{states}, \
 
 % ========================================================================================================= %
 
+\section{Single Point Calculations: \ttt{setup\_single\_point.py}}\label{sec:setup_single_point.py}
+
+It is possible to run single point calculations through the \sharc\ interfaces.
+This is useful, e.g., to do a computation in exactly the same way as during the dynamics simulations.
+Single point calculations using the interfaces can also be easily automatized.
+
+
+\subsection{Usage}
+
+\ttt{setup\_single\_point.py} is an interactive script, which is started with:
+\begin{verbatim}
+user@host> $SHARC/setup_single_point.py
+\end{verbatim}
+Note that before executing the script you should prepare a template for the interface you want to use (as, e.g., in \ttt{setup\_init.py} or \ttt{setup\_traj.py}).
+
+\subsection{Input}
+
+In the input section, the script asks for: (i) the input geometries, (ii) the number of states, and (iii) the interface settings.
+
+\paragraph{Interface}
+
+First, choose any of the displayed interfaces to carry out the ab initio calculations. Enter the corresponding number. 
+
+\paragraph{Input geometry}
+
+Here the user is prompted for a geometry file in XYZ format, containing one or more geometries (with consistent number of atoms).
+For each geometry in this file, a directory with all input files is created, in order to carry out multiple optimizations (e.g., with output from \ttt{crossing.py}).
+
+\paragraph{Number of states}
+
+Here the user can specify the number of excited states to be calculated. Note that the ground state has to be counted as well, e.g., if 4 singlet states are specified, the calculation will involve the $S_0$, $S_1$, $S_2$ and $S_3$. Also states of higher multiplicity can be given, e.g.\ triplet or quintet states. 
+
+\paragraph{Interface-specific input}
+
+This input section is basically the same as for \ttt{setup\_init.py} (sections~\ref{sec:setup_init.py:several}). Also for the optimizations an initial wave function file should be provided, especially for the multi-reference methods.
+
+\paragraph{Run script setup}
+
+Here the user needs to provide the path to the directory where the optimizations should be setup.
+
+
+\subsection{Output}
+
+Inside the specified directory, \ttt{setup\_single\_point.py} creates one subdirectory for each geometry in the input geometry file.
+Each subdirectory is prepared with the corresponding geometry file (\ttt{QM.in}), the appropriate interface-specific files (template, resources, QM/MM), and a shell script for execution (\ttt{run.sh}).
+
+In order to run one of the optimizations, execute the shell script or send it to a batch queuing system.
+
+When the shell script is started, the chosen \sharc\ interface is executed.
+The interface writes a file called \ttt{QM.log} which contains details of the computation and progress status.
+The final results of the computation are written to \ttt{QM.out}, which can be inspected manually.
+Alternatively, some basic data (excitation energies, oscillator strengths) can be computed with \ttt{QMout\_print.py} (section \ref{sec:QMout_print.py}).
+
+
+
+% ========================================================================================================= %
+
 \section{Format Data from \ttt{QM.out} Files: \ttt{QMout\_print.py}}\label{sec:QMout_print.py}
 
 With the script \ttt{QMout\_print.py} one can print a table with energies and oscillator strengths from a \ttt{QM.out} file, as it is produced by the interfaces.
@@ -6331,7 +7234,7 @@ With the script \ttt{QMout\_print.py} one can print a table with energies and os
 
 \ttt{QMout\_print.py} is a command line tool, and is executed like this:
 \begin{verbatim}
-user@host> python $SHARC/QMout_print.py [options] QM.out
+user@host> $SHARC/QMout_print.py [options] QM.out
 \end{verbatim}
 The options are summarized in Table~\ref{tab:QMoutprint_options}
 
@@ -6340,16 +7243,16 @@ The options are summarized in Table~\ref{tab:QMoutprint_options}
   \caption{Command-line options for \ttt{QMout\_print.py}. }
   \label{tab:QMoutprint_options}
   \begin{tabular}{>{\ttfamily}lll}
-    \toprule
+    \hline
     \rmfamily Option         &Description    &Default\\
-    \midrule
+    \hline
     -h          &Display help message and quit.         &---       \\
     -i FILENAME &Path to \ttt{QM.in} file (to read number of states)    &---\\
     -s INTEGERS &List of numbers of states per multiplicity             &1\\
     -e FLOAT    &Absolute energy shift in Hartree                       &0.0\\
 %     -n INTEGER  &Number of atoms (currently no need to specify)         &1\\
     -D          &Output diagonal states                                 &MCH states\\
-    \bottomrule
+    \hline
   \end{tabular}
 \end{table}
 
@@ -7445,9 +8348,9 @@ The canonical ordering of MCH states of different $S$ and $M_S$ in \sharc\ is as
 In this example, the order of states is given as:
 
 \begin{tabular}{rlccc}
-  \toprule
+  \hline
   Number      &Label       &$S$ &$M_S$  &$n$\\
-  \midrule
+  \hline
   1&$S_0$       &0&0&1\\
   2&$S_1$       &0&0&2\\
   3&$S_2$       &0&0&3\\
@@ -7460,7 +8363,7 @@ In this example, the order of states is given as:
   10&$T_1^+$       &2&+1&1\\
   11&$T_2^+$       &2&+1&2\\
   12&$T_3^+$       &2&+1&3\\
-  \bottomrule
+  \hline
 \end{tabular}
 
 The canonical ordering of states is for example important in order to specify the initial state in the MCH basis (using the \ttt{state} keyword in the input file).
@@ -7472,7 +8375,7 @@ Hence, the diagonal states are simply ordered by increasing energy.
 
 \section{Surface Hopping}\label{met:hopping}
 
-Given two coefficient vectors $\VEC{c}^{\text{diag}}(t)$ and $\VEC{c}^{\text{diag}}(t+\Delta t)$ and the corresponding propagator matrix $\VEC{R}^{\text{MCH}}(t+\Delta t,t)$, the surface hopping probabilities are given by
+Given two coefficient vectors $\VEC{c}^{\text{diag}}(t)$ and $\VEC{c}^{\text{diag}}(t+\Delta t)$ and the corresponding propagator matrix $\VEC{R}^{\text{diag}}(t+\Delta t,t)$, the surface hopping probabilities are given by
 \begin{equation}
   P_{\beta\rightarrow\alpha}=
   \left(

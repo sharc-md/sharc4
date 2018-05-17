@@ -43,8 +43,8 @@ temppath='tmp/'
 pwd=os.getcwd()
 mathenv=['equation','multline','align']
 density_for_pdf={'sharc.pdf': 20}
-tthpath='/user/mai/SHARC/REPOSITORY/DEVELOPMENT/doc/bin/tth'
-tthpath='~/Dokumente/Arbeit/SHARC/REPOSITORY/sharc_main/DEVELOPMENT/doc/bin/tth'
+tthpath='../../bin/tth'
+#tthpath='~/Dokumente/Arbeit/SHARC/REPOSITORY/sharc_main/DEVELOPMENT/doc/bin/tth'
 
 
 # ================================================================================
@@ -132,7 +132,7 @@ while True:
       shstring='convert -density %i -trim %s %s' % (density,filename,newfilename)
       print 'include PDF found: %s' % (filename)
       print '*** '+shstring+'\n'
-      sp.call(shstring,shell=True)
+      #sp.call(shstring,shell=True)
     else:
       newfilename=os.path.join(imagepath,basename+ext)
       print 'include OTHER found: %s' % (filename)
@@ -245,7 +245,7 @@ os.chdir(temppath)
 shline='pdflatex -interaction=nonstopmode %s > pdflatex.log 2> pdflatex.err' % (eqbasename)
 print 'Running pdflatex'
 print '*** %s\n' % (shline)
-sp.call(shline,shell=True)
+#sp.call(shline,shell=True)
 os.chdir(pwd)
 
 
@@ -255,7 +255,7 @@ shline='convert -density 150 -trim %s %s' % (pdffilename,targetfilename)
 print 'Running convert on all equations'
 print 'This may take some time...'
 print '*** %s\n' % (shline)
-sp.call(shline,shell=True)
+#sp.call(shline,shell=True)
 
 
 # run latex so that the aux, toc and bbl files are there
@@ -265,13 +265,13 @@ if any([not os.path.isfile(basefilename+'_tth.%s' % (i)) for i in ['aux','bbl','
 
   print 'Running pdflatex and bibtex'
   print '*** %s\n' % (shline)
-  sp.call(shline,shell=True)
+  #sp.call(shline,shell=True)
   print '*** %s\n' % (bbline)
-  sp.call(bbline,shell=True)
+  #sp.call(bbline,shell=True)
   print '*** %s\n' % (shline)
-  sp.call(shline,shell=True)
+  #sp.call(shline,shell=True)
   print '*** %s\n' % (shline)
-  sp.call(shline,shell=True)
+  #sp.call(shline,shell=True)
 
 
 
@@ -290,7 +290,7 @@ if not os.path.isfile(basefilename+'_tth.toc'):
 shline='%s %s > tth.log 2> tth.err' % (tthpath,basefilename+'_tth.tex')
 print 'Running tth'
 print '*** %s\n' % (shline)
-sp.call(shline,shell=True)
+#sp.call(shline,shell=True)
 
 
 # post processing starts here
@@ -306,9 +306,9 @@ os.chdir(pwd)
 htmls=''
 
 
-imagepath2='http://sharc-md.org/wp-content/uploads/2014/10'
+imagepath2='http://sharc-md.org/wp-content/uploads/2018/02'
 
-imagepath2='html/'
+#imagepath2='html/'
 
 
 write=False
@@ -337,10 +337,24 @@ while True:
     # substitute href with img src
     print 'Detected href to image'
     newline=re.sub(r'<a href="html/(.*)">Figure<\/a>',r'<img src="%s/\1">' % (imagepath2),line)
+    if re.search(r'/equation-', newline):
+      newline=r'<table border="0" width="100%"><tr><td>'+newline
   elif re.search(r'<br />', line):
     # delete <br />
     print 'deleted <br />'
     newline=re.sub(r'<br />','',line)
+  elif re.search(r' </td></tr></table>', line):
+    # delete " </td></tr></table>"
+    continue
+  elif re.search(r'<table align="center" cellspacing="0"  cellpadding="2"><tr><td nowrap="nowrap" align="center">', line):
+    # delete " </td></tr></table>"
+    continue
+  elif re.search(r'<br clear="all" /><table border="0" width="100%"><tr><td>', line):
+    # delete " </td></tr></table>"
+    continue
+  #elif re.search(r'/equation-', line):
+    ## put table before equation
+    #newline=r'<table border="0" width="100%"><tr><td>'+line
   else:
     newline=line
 
