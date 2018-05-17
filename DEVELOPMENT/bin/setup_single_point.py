@@ -25,7 +25,7 @@
 
 #!/usr/bin/env python2
 
-# Interactive script for the use of the ORCA external optimizer with SHARC
+# Interactive script to setup single point calculations using the SHARC interfaces
 # 
 # usage: python setup_traj.py #change
 
@@ -75,7 +75,7 @@ BOHR_TO_ANG=0.529177211
 PI = math.pi
 
 version='2.0'
-versionneeded=[0.2, 1.0, 2.0]
+versionneeded=[0.2, 1.0, 2.0, float(version)]
 versiondate=datetime.date(2018,2,1)
 
 
@@ -251,20 +251,20 @@ def centerstring(string,n,pad=' '):
 
 # ======================================================================= #
 def displaywelcome():
-  print 'Script for setup of optimizations with ORCA and SHARC started...\n' #change
+  print 'Script for single point setup with SHARC started...\n' #change
   string='\n'
   string+='  '+'='*80+'\n'
   string+='||'+centerstring('',80)+'||\n'
-  string+='||'+centerstring('Setup optimizations with ORCA and SHARC',80)+'||\n'
+  string+='||'+centerstring('Setup single points with SHARC',80)+'||\n'
   string+='||'+centerstring('',80)+'||\n'
-  string+='||'+centerstring('Author: Moritz Heindl, Sebastian Mai',80)+'||\n'
+  string+='||'+centerstring('Author: Sebastian Mai',80)+'||\n'
   string+='||'+centerstring('',80)+'||\n'
   string+='||'+centerstring('Version:'+version,80)+'||\n'
   string+='||'+centerstring(versiondate.strftime("%d.%m.%y"),80)+'||\n'
   string+='||'+centerstring('',80)+'||\n'
   string+='  '+'='*80+'\n\n'
   string+='''
-This script automatizes the setup of the input files ORCA+SHARC optimizations. 
+This script automatizes the setup of the input files for SHARC single point calculations. 
   '''
   print string
 
@@ -278,7 +278,7 @@ def open_keystrokes():
 
 def close_keystrokes():
   KEYSTROKES.close()
-  shutil.move('KEYSTROKES.tmp','KEYSTROKES.setup_orca_opt')
+  shutil.move('KEYSTROKES.tmp','KEYSTROKES.setup_single_point')
 
 # ===================================
 
@@ -398,23 +398,6 @@ def get_general():
   INFOS={}
 
 
-  print '\n'+centerstring('Path to ORCA',60,'-')+'\n'
-  path=os.getenv('ORCADIR')
-  #path=os.path.expanduser(os.path.expandvars(path))
-  if path=='':
-    path=None
-  else:
-    path='$ORCADIR/'
-      #print 'Environment variable $MOLCAS detected:\n$MOLCAS=%s\n' % (path)
-      #if question('Do you want to use this MOLCAS installation?',bool,True):
-        #INFOS['molcas']=path
-    #if not 'molcas' in INFOS:
-  print 'Please specify path to ORCA directory (SHELL variables and ~ can be used, will be expanded when interface is started).\n'
-  INFOS['orca']=question('Path to ORCA:',str,path)
-  #print INFOS['orca']
-  print
-
-
   print centerstring('Choose the quantum chemistry interface',60,'-')
   print '\nPlease specify the quantum chemistry interface (enter any of the following numbers):'
   for i in Interfaces:
@@ -485,95 +468,6 @@ def get_general():
     i+=1
   INFOS['statemap']=statemap
   pprint.pprint( statemap)
-
-
-
-
-
-  #states to optimize
-  print '\n'+centerstring('States to optimize',60,'-')+'\n'
-
-  INFOS['maxmult'] = len(states)
-  optmin=question('Do you want to optimize a minimum? (no=optimize crossing):',bool,True)
-  if optmin:
-    INFOS['opttype']='min'
-    print '\nPlease specify the state involved in the optimization\ne.g. 3 2 for the second triplet state.'
-  else:
-    INFOS['opttype']='cross'
-    print '\nPlease specify the first state involved in the optimization\ne.g. 3 2 for the second triplet state.'
-  while True:
-    rmult,rstate=tuple(question('State:',int,[1,1]))
-      # check
-    if not 1<=rmult<=INFOS['maxmult']:
-      print 'Multiplicity (%i) must be between 1 and %i!' % (rmult,INFOS['maxmult'])
-      continue
-    if not 1<=rstate<=states[rmult-1]:
-      print 'Only %i states of mult %i' % (states[rmult-1],rmult)
-      continue
-    break
-  INFOS['cas.root1']=[rmult,rstate]
-
-  if not optmin:
-    print '\nPlease specify the second state involved in the optimization\ne.g. 3 2 for the second triplet state.'
-    while True:
-      rmult,rstate=tuple(question('Root:',int,[1,2]))
-      # check
-      if not 1<=rmult<=INFOS['maxmult']:
-        print '%i must be between 1 and %i!' % (rmult,INFOS['maxmult'])
-        continue
-      if not 1<=rstate<=states[rmult-1]:
-        print 'Only %i states of mult %i' % (states[rmult-1],rmult)
-        continue
-      INFOS['cas.root2']=[rmult,rstate]
-      if INFOS['cas.root1']==INFOS['cas.root2']:
-        print 'Both states are identical!'
-        continue
-      # get type of optimization
-      if INFOS['cas.root1'][0]==INFOS['cas.root2'][0]:
-        print 'Multiplicities of both states identical, optimizing a conical intersection.'
-        INFOS['calc_ci']=True
-      else:
-        print 'Multiplicities of both states different, optimizing a minimum crossing point.'
-        INFOS['calc_ci']=False
-      # find state 2 in statemap
-      for i in statemap:
-        if statemap[i][0:2]==INFOS['cas.root2']:
-          INFOS['cas.root2']=i
-          break
-      break
-
-  # find state 1 in statemap
-  for i in statemap:
-    if statemap[i][0:2]==INFOS['cas.root1']:
-      INFOS['cas.root1']=i
-      break
-
-
-
-  INFOS['needed']=[]
-  if not optmin and INFOS['calc_ci']:
-    if not 'nacdr' in Interfaces[INFOS['interface']]['features']:
-      print centerstring('Optimization parameter',60,'-')
-      print '\nYou are optimizing a conical intersection, but the chosen interface cannot deliver nonadiabatic coupling vectors. The optimization will therefore employ the penalty function method of Levine, Coe, Martinez (DOI: 10.1021/jp0761618).\nIn this optimization scheme, there are two parameters, sigma and alpha, which affect how close to the true conical intersection the optimization will end up.'
-      print '\nPlease enter the values for the sigma and alpha parameters.\n'
-      print 'A larger sigma makes convergence harder but optimization will go closer to the true CI.'
-      sigma=question('Sigma: ',float,[3.5])[0]
-      print 'A smaller alpha makes convergence harder but optimization will go closer to the true CI.'
-      alpha=question('Alpha: ',float,[0.02])[0]
-      INFOS['sigma']=sigma
-      INFOS['alpha']=alpha
-    else:
-      INFOS['needed'].extend(Interfaces[num]['features']['nacdr'])
-
-
-  print '\nPlease enter the values for the maximum allowed displacement per timestep \n(choose smaller value if starting from a good guess and for large sigma or small alpha).'
-  INFOS['maxstep']=question('Maximum allowed step: ',float,[0.3])[0]
-
-
-
-
-
-
 
 
 
@@ -1471,6 +1365,7 @@ The MOLCAS interface will generate the appropriate MOLCAS input automatically.
         break
     INFOS['molcas.template']=filename
   print ''
+
 
 
   # QMMM 
@@ -2503,9 +2398,8 @@ def get_ORCA(INFOS):
   print string
 
   print centerstring('Path to ORCA',60,'-')+'\n'
-  print 'Using same ORCA installation as for the optimizer...'
-  #print '\nPlease specify path to ORCA directory (SHELL variables and ~ can be used, will be expanded when interface is started).\n'
-  INFOS['orcadir']=INFOS['orca']
+  print '\nPlease specify path to ORCA directory (SHELL variables and ~ can be used, will be expanded when interface is started).\n'
+  INFOS['orcadir']=question('Path to ORCA:',str,'$ORCADIR')
   print ''
 
 
@@ -2797,7 +2691,7 @@ def make_directory(iconddir):
 def writeRunscript(INFOS,iconddir):
   '''writes the runscript in each subdirectory'''
   try:
-    runscript=open('%s/run_EXTORCA.sh' % (iconddir), 'w')
+    runscript=open('%s/run_single_point.sh' % (iconddir), 'w')
   except IOError:
     print 'IOError during writeRunscript, iconddir=%s' % (iconddir)
     quit(1)
@@ -2820,15 +2714,14 @@ PRIMARY_DIR=%s/
 cd $PRIMARY_DIR
 
 %s
-export PATH=$SHARC:$PATH
 
-$ORCADIR/orca orca.inp > orca.log
+python $SHARC/%s QM.in >> QM.log 2>> QM.err
 
-''' % (projname,os.path.abspath(iconddir),intstring)
+''' % (projname,os.path.abspath(iconddir),intstring,Interfaces[INFOS['interface']]['script'])
 
   runscript.write(string)
   runscript.close()
-  filename='%s/run_EXTORCA.sh' % (iconddir)
+  filename='%s/run_single_point.sh' % (iconddir)
   os.chmod(filename, os.stat(filename).st_mode | stat.S_IXUSR)
 
   return
@@ -2836,52 +2729,29 @@ $ORCADIR/orca orca.inp > orca.log
 
 # ======================================================================================================================
 
-def writeOrcascript(INFOS,iconddir):
-  '''writes the orcascript in each subdirectory'''
-
-  #geometry_data=readfile(INFOS['geom_location'])
-  #natom=int(geometry_data[0])
-  #ngeoms=len(geometry_data)/(natom+2)
-  #print ngeoms
-  #sys.exit(1)
+def writeQMin(INFOS,iconddir,igeom,geometry_data):
 
   try:
-    runscript=open('%s/orca.inp' % (iconddir), 'w')
+    runscript=open('%s/QM.in' % (iconddir), 'w')
   except IOError:
-    print 'IOError during writeRunscript, iconddir=%s' % (iconddir)
+    print 'IOError during writeQMin, iconddir=%s' % (iconddir)
     quit(1)
 
-  string='''#
-#SHARC: states %s
-#SHARC: interface %s
-#SHARC: opt %s %i''' % (' '.join( [str(i) for i in INFOS['states']]),
-                     Interfaces[INFOS['interface']]['name'],
-                     INFOS['opttype'],
-                     INFOS['cas.root1'])
-  if INFOS['opttype']=='cross':
-    string+=' %i' % INFOS['cas.root2']
-  string+='\n'
-  if INFOS['opttype']=='cross' and INFOS['calc_ci'] and not 'nacdr' in Interfaces[INFOS['interface']]['features']:
-    string+='#SHARC: param %f %f\n' % (INFOS['sigma'],INFOS['alpha'])
+  string=''
+  natom=INFOS['natom']
+  for line in geometry_data[igeom*(natom+2):(igeom+1)*(natom+2)]:
+    string+=line.strip()+'\n'
+
   string+='''
-! ExtOpt
-
-%%geom
-  maxstep %f
-  Trust %f
-  maxiter 200
-end
-
-* xyzfile 0 1 %s
-
-''' % (INFOS['maxstep'],-INFOS['maxstep'],'geom.xyz')
-
-
+init
+unit angstrom
+states %s
+h
+dm
+''' % (' '.join( [str(i) for i in INFOS['states']]))
 
   runscript.write(string)
   runscript.close()
-  filename='%s/orca.inp' % (iconddir)
-
 
   return
 
@@ -2909,18 +2779,14 @@ def setup_all(INFOS):
 
   geometry_data=readfile(INFOS['geom_location'])
   natom=INFOS['natom']
-  # replace all comment lines (orca can be picky about them)
-  for igeom in range(INFOS['ngeom']):
-    geometry_data[igeom*(natom+2)+1]='geometry:%i\n' % (igeom+1)
   make_directory(INFOS['copydir'])
 
   for igeom in range(INFOS['ngeom']):
     iconddir=os.path.join(INFOS['copydir'],'geom_%i' % (igeom+1))
     make_directory(iconddir)
-    writefile(os.path.join(iconddir,'geom.xyz'),geometry_data[igeom*(natom+2):(igeom+1)*(natom+2)])
     globals()[Interfaces[ INFOS['interface']]['prepare_routine'] ](INFOS,iconddir)
     writeRunscript(INFOS,iconddir)
-    writeOrcascript(INFOS,iconddir)
+    writeQMin(INFOS,iconddir,igeom,geometry_data)
 
   print '\n'
 
@@ -2933,9 +2799,9 @@ def main():
   '''Main routine'''
 
   usage='''
-python setup_orca_opt.py
+python setup_single_point.py
 
-This interactive program prepares ORCA+SHARC optimizations.
+This interactive program prepares SHARC single point calculations.
 '''
 
   description=''
