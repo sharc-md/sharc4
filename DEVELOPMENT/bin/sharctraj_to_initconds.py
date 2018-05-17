@@ -1,5 +1,30 @@
 #!/usr/bin/env python2
 
+#******************************************
+#
+#    SHARC Program Suite
+#
+#    Copyright (c) 2018 University of Vienna
+#
+#    This file is part of SHARC.
+#
+#    SHARC is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    SHARC is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    inside the SHARC manual.  If not, see <http://www.gnu.org/licenses/>.
+#
+#******************************************
+
+#!/usr/bin/env python2
+
 # Script for extracting initial conditions from SHARC trajectories
 # 
 # usage python wigner.py [-n <NUMBER>] <MOLDEN-FILE>
@@ -47,8 +72,8 @@ ANG_TO_BOHR = 1./0.529177211    #1.889725989      # conversion from Angstrom to 
 AMBERVEL_TO_AU = 0.0009350161
 PI = math.pi
 
-version='1.0'
-versiondate=datetime.date(2014,10,8)
+version='2.0'
+versiondate=datetime.date(2018,2,1)
 
 # =========================================================
 
@@ -73,85 +98,127 @@ NUMBERS = {'H':1, 'He':2,
 'Nh':113,'Fl':114,'Mc':115,'Lv':116,'Ts':117,'Og':118
 }
 
-# =========================================================
-
 # Atomic Weights of the most common isotopes
-# Masses are from MOLPRO, except where noted
-# Also very comprehensive: http://www.nist.gov/pml/data/comp.cfm
-MASSES = {'H' :   1.00782 * U_TO_AMU,
-          'He':   4.00260 * U_TO_AMU,
-          'Li':   7.01600 * U_TO_AMU,
-          'Be':   9.01218 * U_TO_AMU,
-          'B' :  11.00931 * U_TO_AMU,
-          'C' :  12.00000 * U_TO_AMU,
-          'N' :  14.00307 * U_TO_AMU,
-          'O' :  15.99491 * U_TO_AMU,
-          'F' :  18.99840 * U_TO_AMU,
-          'Ne':  19.99244 * U_TO_AMU,
-          'Na':  22.98980 * U_TO_AMU,
-          'Mg':  23.98504 * U_TO_AMU,
-          'Al':  26.98153 * U_TO_AMU,
-          'Si':  27.97693 * U_TO_AMU,
-          'P' :  30.97376 * U_TO_AMU,
-          'S' :  31.97207 * U_TO_AMU,
-          'Cl':  34.96885 * U_TO_AMU,
-          'Ar':  39.96238 * U_TO_AMU,
-          'K' :  38.96371 * U_TO_AMU,
-          'Ca':  39.96259 * U_TO_AMU,
-          'Sc':  44.95592 * U_TO_AMU,
-          'Ti':  47.94795 * U_TO_AMU,
-          'V' :  50.94400 * U_TO_AMU,
-          'Cr':  51.94050 * U_TO_AMU,
-          'Mn':  54.93800 * U_TO_AMU,
-          'Fe':  55.93490 * U_TO_AMU,
-          'Co':  58.93320 * U_TO_AMU,
-          'Ni':  57.93534 * U_TO_AMU,
-          'Cu':  62.92960 * U_TO_AMU,
-          'Zn':  63.92910 * U_TO_AMU,
-          'Ga':  68.92570 * U_TO_AMU,
-          'Ge':  73.92190 * U_TO_AMU,
-          'As':  74.92160 * U_TO_AMU,
-          'Se':  79.91650 * U_TO_AMU,
-          'Br':  78.91830 * U_TO_AMU,
-          'Kr':  83.80000 * U_TO_AMU,
-          'Rb':  84.91170 * U_TO_AMU,
-          'Sr':  87.90560 * U_TO_AMU,
-          'Y' :  88.90590 * U_TO_AMU,
-          'Zr':  89.90430 * U_TO_AMU,
-          'Nb':  92.90600 * U_TO_AMU,
-          'Mo':  97.90550 * U_TO_AMU,
-          'Tc':  98.90620 * U_TO_AMU,
-          'Ru': 101.90370 * U_TO_AMU,
-          'Rh': 102.90480 * U_TO_AMU,
-          'Pd': 105.90320 * U_TO_AMU,
-          'Ag': 106.90509 * U_TO_AMU,
-          'Cd': 113.90360 * U_TO_AMU,
-          'In': 114.90410 * U_TO_AMU,
-          'Sn': 119.90220 * U_TO_AMU,   # MOLPRO library is wrong
-          'Sb': 120.90380 * U_TO_AMU,
-          'Te': 129.90670 * U_TO_AMU,
-          'I' : 126.90440 * U_TO_AMU,
-          'Xe': 131.90420 * U_TO_AMU,
-          'Cs': 132.90510 * U_TO_AMU,
-          'Ba': 137.90500 * U_TO_AMU,
-          'La': 138.90610 * U_TO_AMU,
-          'Hf': 179.94680 * U_TO_AMU,
-          'Ta': 180.94800 * U_TO_AMU,
-          'W' : 183.95100 * U_TO_AMU,
-          'Re': 186.95600 * U_TO_AMU,
-          'Os': 190.20000 * U_TO_AMU,
-          'Ir': 192.96330 * U_TO_AMU,
-          'Pt': 194.96480 * U_TO_AMU,
-          'Au': 196.96660 * U_TO_AMU,
-          'Hg': 201.97060 * U_TO_AMU,
-          'Tl': 204.97450 * U_TO_AMU,
-          'Pb': 207.97660 * U_TO_AMU,
-          'Bi': 208.98040 * U_TO_AMU,
-          'Po': 208.98250 * U_TO_AMU,
-          'At': 209.98715 * U_TO_AMU,   # MOLPRO library is wrong
-          'Rn': 210.99060 * U_TO_AMU}   # MOLPRO library is wrong
-
-# =========================================================
+# From https://chemistry.sciences.ncsu.edu/msf/pdf/IsotopicMass_NaturalAbundance.pdf
+MASSES = {'H' :   1.007825 * U_TO_AMU,
+          'He':   4.002603 * U_TO_AMU,
+          'Li':   7.016004 * U_TO_AMU,
+          'Be':   9.012182 * U_TO_AMU,
+          'B' :  11.009305 * U_TO_AMU,
+          'C' :  12.000000 * U_TO_AMU,
+          'N' :  14.003074 * U_TO_AMU,
+          'O' :  15.994915 * U_TO_AMU,
+          'F' :  18.998403 * U_TO_AMU,
+          'Ne':  19.992440 * U_TO_AMU,
+          'Na':  22.989770 * U_TO_AMU,
+          'Mg':  23.985042 * U_TO_AMU,
+          'Al':  26.981538 * U_TO_AMU,
+          'Si':  27.976927 * U_TO_AMU,
+          'P' :  30.973762 * U_TO_AMU,
+          'S' :  31.972071 * U_TO_AMU,
+          'Cl':  34.968853 * U_TO_AMU,
+          'Ar':  39.962383 * U_TO_AMU,
+          'K' :  38.963707 * U_TO_AMU,
+          'Ca':  39.962591 * U_TO_AMU,
+          'Sc':  44.955910 * U_TO_AMU,
+          'Ti':  47.947947 * U_TO_AMU,
+          'V' :  50.943964 * U_TO_AMU,
+          'Cr':  51.940512 * U_TO_AMU,
+          'Mn':  54.938050 * U_TO_AMU,
+          'Fe':  55.934942 * U_TO_AMU,
+          'Co':  58.933200 * U_TO_AMU,
+          'Ni':  57.935348 * U_TO_AMU,
+          'Cu':  62.929601 * U_TO_AMU,
+          'Zn':  63.929147 * U_TO_AMU,
+          'Ga':  68.925581 * U_TO_AMU,
+          'Ge':  73.921178 * U_TO_AMU,
+          'As':  74.921596 * U_TO_AMU,
+          'Se':  79.916522 * U_TO_AMU,
+          'Br':  78.918338 * U_TO_AMU,
+          'Kr':  83.911507 * U_TO_AMU,
+          'Rb':  84.911789 * U_TO_AMU,
+          'Sr':  87.905614 * U_TO_AMU,
+          'Y' :  88.905848 * U_TO_AMU,
+          'Zr':  89.904704 * U_TO_AMU,
+          'Nb':  92.906378 * U_TO_AMU,
+          'Mo':  97.905408 * U_TO_AMU,
+          'Tc':  98.907216 * U_TO_AMU,
+          'Ru': 101.904350 * U_TO_AMU,
+          'Rh': 102.905504 * U_TO_AMU,
+          'Pd': 105.903483 * U_TO_AMU,
+          'Ag': 106.905093 * U_TO_AMU,
+          'Cd': 113.903358 * U_TO_AMU,
+          'In': 114.903878 * U_TO_AMU,
+          'Sn': 119.902197 * U_TO_AMU,
+          'Sb': 120.903818 * U_TO_AMU,
+          'Te': 129.906223 * U_TO_AMU,
+          'I' : 126.904468 * U_TO_AMU,
+          'Xe': 131.904154 * U_TO_AMU,
+          'Cs': 132.905447 * U_TO_AMU,
+          'Ba': 137.905241 * U_TO_AMU,
+          'La': 138.906348 * U_TO_AMU,
+          'Ce': 139.905435 * U_TO_AMU,
+          'Pr': 140.907648 * U_TO_AMU,
+          'Nd': 141.907719 * U_TO_AMU,
+          'Pm': 144.912744 * U_TO_AMU,
+          'Sm': 151.919729 * U_TO_AMU,
+          'Eu': 152.921227 * U_TO_AMU,
+          'Gd': 157.924101 * U_TO_AMU,
+          'Tb': 158.925343 * U_TO_AMU,
+          'Dy': 163.929171 * U_TO_AMU,
+          'Ho': 164.930319 * U_TO_AMU,
+          'Er': 165.930290 * U_TO_AMU,
+          'Tm': 168.934211 * U_TO_AMU,
+          'Yb': 173.938858 * U_TO_AMU,
+          'Lu': 174.940768 * U_TO_AMU,
+          'Hf': 179.946549 * U_TO_AMU,
+          'Ta': 180.947996 * U_TO_AMU,
+          'W' : 183.950933 * U_TO_AMU,
+          'Re': 186.955751 * U_TO_AMU,
+          'Os': 191.961479 * U_TO_AMU,
+          'Ir': 192.962924 * U_TO_AMU,
+          'Pt': 194.964774 * U_TO_AMU,
+          'Au': 196.966552 * U_TO_AMU,
+          'Hg': 201.970626 * U_TO_AMU,
+          'Tl': 204.974412 * U_TO_AMU,
+          'Pb': 207.976636 * U_TO_AMU,
+          'Bi': 208.980383 * U_TO_AMU,
+          'Po': 208.982416 * U_TO_AMU,
+          'At': 209.987131 * U_TO_AMU,
+          'Rn': 222.017570 * U_TO_AMU,
+          'Fr': 223.019731 * U_TO_AMU, 
+          'Ra': 226.025403 * U_TO_AMU,
+          'Ac': 227.027747 * U_TO_AMU, 
+          'Th': 232.038050 * U_TO_AMU, 
+          'Pa': 231.035879 * U_TO_AMU, 
+          'U' : 238.050783 * U_TO_AMU, 
+          'Np': 237.048167 * U_TO_AMU,
+          'Pu': 244.064198 * U_TO_AMU, 
+          'Am': 243.061373 * U_TO_AMU, 
+          'Cm': 247.070347 * U_TO_AMU, 
+          'Bk': 247.070299 * U_TO_AMU, 
+          'Cf': 251.079580 * U_TO_AMU, 
+          'Es': 252.082972 * U_TO_AMU,
+          'Fm': 257.095099 * U_TO_AMU,
+          'Md': 258.098425 * U_TO_AMU,
+          'No': 259.101024 * U_TO_AMU,
+          'Lr': 262.109692 * U_TO_AMU,
+          'Rf': 267. * U_TO_AMU,
+          'Db': 268. * U_TO_AMU,
+          'Sg': 269. * U_TO_AMU,
+          'Bh': 270. * U_TO_AMU,
+          'Hs': 270. * U_TO_AMU,
+          'Mt': 278. * U_TO_AMU,
+          'Ds': 281. * U_TO_AMU,
+          'Rg': 282. * U_TO_AMU,
+          'Cn': 285. * U_TO_AMU,
+          'Nh': 286. * U_TO_AMU,
+          'Fl': 289. * U_TO_AMU,
+          'Mc': 290. * U_TO_AMU,
+          'Lv': 293. * U_TO_AMU,
+          'Ts': 294. * U_TO_AMU,
+          'Og': 294. * U_TO_AMU
+}
 
 # Isotopes used for the masses
 ISOTOPES={'H' : 'H-1' ,
@@ -184,7 +251,7 @@ ISOTOPES={'H' : 'H-1' ,
           'Ni': 'Ni-58',
           'Cu': 'Cu-63',
           'Zn': 'Zn-64',
-          'Ga': 'Ga-68',
+          'Ga': 'Ga-69',
           'Ge': 'Ge-74',
           'As': 'As-75*',
           'Se': 'Se-80',
@@ -196,7 +263,7 @@ ISOTOPES={'H' : 'H-1' ,
           'Zr': 'Zr-90',
           'Nb': 'Nb-93*',
           'Mo': 'Mo-98',
-          'Tc': 'Tc-99',
+          'Tc': 'Tc-98',
           'Ru': 'Ru-102',
           'Rh': 'Rh-103*',
           'Pd': 'Pd-106',
@@ -211,6 +278,20 @@ ISOTOPES={'H' : 'H-1' ,
           'Cs': 'Cs-133*',
           'Ba': 'Ba-138',
           'La': 'La-139',
+          'Ce': 'Ce-140',
+          'Pr': 'Pr-141*',
+          'Nd': 'Nd-142',
+          'Pm': 'Pm-145',
+          'Sm': 'Sm-152',
+          'Eu': 'Eu-153',
+          'Gd': 'Gd-158',
+          'Tb': 'Tb-159*',
+          'Dy': 'Dy-164',
+          'Ho': 'Ho-165*',
+          'Er': 'Er-166',
+          'Tm': 'Tm-169*',
+          'Yb': 'Yb-174',
+          'Lu': 'Lu-175',
           'Hf': 'Hf-180',
           'Ta': 'Ta-181',
           'W' : 'W-184' ,
@@ -225,7 +306,40 @@ ISOTOPES={'H' : 'H-1' ,
           'Bi': 'Bi-209*',
           'Po': 'Po-209',
           'At': 'At-210',
-          'Rn': 'Rn-211'}
+          'Rn': 'Rn-222',
+          'Fr': 'Fr-223', 
+          'Ra': 'Ra-226',
+          'Ac': 'Ac-227', 
+          'Th': 'Th-232*', 
+          'Pa': 'Pa-231*', 
+          'U' : 'U-238' , 
+          'Np': 'Np-237',
+          'Pu': 'Pu-244', 
+          'Am': 'Am-243', 
+          'Cm': 'Cm-247', 
+          'Bk': 'Bk-247', 
+          'Cf': 'Cf-251', 
+          'Es': 'Es-252',
+          'Fm': 'Fm-257',
+          'Md': 'Md-258',
+          'No': 'No-259',
+          'Lr': 'Lr-262',
+              'Rf': 'Rf-267',
+              'Db': 'Db-268',
+              'Sg': 'Sg-269',
+              'Bh': 'Bh-270',
+              'Hs': 'Hs-270',
+              'Mt': 'Mt-278',
+              'Ds': 'Ds-281',
+              'Rg': 'Rg-282',
+              'Cn': 'Cn-285',
+              'Nh': 'Nh-286',
+              'Fl': 'Fl-289',
+              'Mc': 'Mc-290',
+              'Lv': 'Lv-293',
+              'Ts': 'Ts-294',
+              'Og': 'Og-294'
+}
 
 
 # =============================================================================================== #
@@ -788,21 +902,32 @@ def get_coords(INFOS):
   # get files
   forbidden=['crashed','dont_analyze','running']
   filelist=[]
-  for i in sorted(INFOS['dirs']):
-    l=os.listdir(i)
-    for j in sorted(l):
+  if INFOS['TRAJ_']:
+    for i in INFOS['dirs']:
       valid=True
-      if not os.path.isdir(os.path.join(i,j)):
-        continue
-      l2=os.listdir(os.path.join(i,j))
-      for k in l2:
-        if k.lower() in forbidden:
-          valid=False
-      f=os.path.join(i,j,'output.dat')
+      f=os.path.join(i,'output.dat')
       if not os.path.isfile(f):
         valid=False
       if valid:
         filelist.append(f)
+  else:
+    for i in sorted(INFOS['dirs']):
+      l=os.listdir(i)
+      for j in sorted(l):
+        valid=True
+        if not os.path.isdir(os.path.join(i,j)):
+          continue
+        if not 'TRAJ_' in j:
+          continue
+        l2=os.listdir(os.path.join(i,j))
+        for k in l2:
+          if k.lower() in forbidden:
+            valid=False
+        f=os.path.join(i,j,'output.dat')
+        if not os.path.isfile(f):
+          valid=False
+        if valid:
+          filelist.append(f)
   if len(filelist)<1:
     print 'No trajectories found!'
     sys.exit(1)
@@ -941,6 +1066,7 @@ The data is then transformed and written to initconds format.
   #parser.add_option('--use_eq_geom',    dest='UEG', action='store_true',help="For all samples, use the equilibrium geometry (only sample velocities)")
   parser.add_option('--use_zero_veloc', dest='UZV', action='store_true',help="For all samples, set velocities to zero")
   parser.add_option('--debug', dest='debug', action='store_true',help="Show timings")
+  parser.add_option('--give_TRAJ_paths', dest='TRAJ', action='store_true',help="Allows specifying directly the TRAJ_..... directories to use (default: automatically recurses into all subdirectories)")
 
   # arg processing
   (options, args) = parser.parse_args()
@@ -956,6 +1082,7 @@ The data is then transformed and written to initconds format.
   INFOS['KTR']=options.KTR
   INFOS['UZV']=options.UZV
   INFOS['debug']=options.debug
+  INFOS['TRAJ_']=options.TRAJ
   random.seed(options.r)
 
   

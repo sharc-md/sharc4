@@ -1,5 +1,30 @@
 #!/usr/bin/env python2
 
+#******************************************
+#
+#    SHARC Program Suite
+#
+#    Copyright (c) 2018 University of Vienna
+#
+#    This file is part of SHARC.
+#
+#    SHARC is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    SHARC is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    inside the SHARC manual.  If not, see <http://www.gnu.org/licenses/>.
+#
+#******************************************
+
+#!/usr/bin/env python2
+
 import os
 import sys
 import math
@@ -28,8 +53,8 @@ if sys.version_info[1]<5:
         return False
     return True
 
-version='1.1'
-versiondate=datetime.date(2017,1,25)
+version='2.0'
+versiondate=datetime.date(2018,2,1)
 
 allowedreq=['a','d','r','p','q','x','y','z','5','6','c','i','j','k','l']
 
@@ -779,7 +804,11 @@ J. Cryst. Mol. Struct., 1977, 8, 317-320.
   line=0
   t=0
   while line<len(geo):
-    n=int(geo[line].split()[0])
+    try:
+      n=int(geo[line].split()[0])
+    except IndexError:
+      sys.stderr.write('ERROR: did not find number of atoms! Line= %i, step= %i' % (line,t) )
+      sys.exit(1)
     if not n==natom:
       sys.stderr.write('ERROR: Number of atoms inconsistent! Line= %i, step= %i' % (line,t) )
       sys.exit(1)
@@ -803,7 +832,7 @@ J. Cryst. Mol. Struct., 1977, 8, 317-320.
     s=calculate(g,req,comm)
     print formatstring % (t*dt) +s
     t+=1
-    sys.stderr.write('\rNumber of geometries: % 6i' % (t-1))
+    sys.stderr.write('\rNumber of geometries: % 6i' % (t))
 
   sys.stderr.write('\nFINISHED!\n\n')
   sys.exit(0)

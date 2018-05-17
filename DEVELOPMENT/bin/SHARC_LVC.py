@@ -1,5 +1,30 @@
 #!/usr/bin/env python2
 
+#******************************************
+#
+#    SHARC Program Suite
+#
+#    Copyright (c) 2018 University of Vienna
+#
+#    This file is part of SHARC.
+#
+#    SHARC is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    SHARC is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    inside the SHARC manual.  If not, see <http://www.gnu.org/licenses/>.
+#
+#******************************************
+
+#!/usr/bin/env python2
+
 # This script calculates QC results for a system described by the LVC model
 #
 # Reads QM.in
@@ -58,8 +83,8 @@ U_TO_AMU = 1./5.4857990943e-4
 BOHR_TO_ANG=0.529177211
 PI = math.pi
 
-version='1.0'
-versiondate=datetime.date(2014,10,8)
+version='2.0'
+versiondate=datetime.date(2018,2,1)
 
 
 # hash table for conversion of multiplicity to the keywords used in MOLPRO
@@ -108,13 +133,13 @@ def checkscratch(SCRATCHDIR):
         isfile=os.path.isfile(SCRATCHDIR)
         if isfile:
             print '$SCRATCHDIR=%s exists and is a file!' % (SCRATCHDIR)
-            sys.exit(16)
+            sys.exit(12)
     else:
         try:
             os.makedirs(SCRATCHDIR)
         except OSError:
             print 'Can not create SCRATCHDIR=%s\n' % (SCRATCHDIR)
-            sys.exit(17)
+            sys.exit(13)
 
 # ======================================================================= #
 def itnmstates(states):
@@ -344,7 +369,7 @@ class diagonalizer:
     exe=os.path.expanduser(os.path.expandvars(exe))+'/diagonalizer.x'
     if not os.path.isfile(exe):
       print 'SHARC auxilliary diagonalizer not found at %s!' % (exe)
-      sys.exit(12)
+      sys.exit(14)
     self.exe=exe
   def eigh(self,H):
     STDIN='C %i %i\nTitle\n' % (len(H),len(H))
@@ -482,7 +507,7 @@ def writeQMout(QMin,QMout,QMinfilename):
     outfile.close()
   except IOError:
     print 'Could not write QM output!'
-    sys.exit(13)
+    sys.exit(15)
   if 'backup' in QMin:
     try:
       outfile=open(QMin['backup']+'/'+outfilename,'w')
@@ -800,7 +825,7 @@ def read_QMin():
       break
   else:
     print 'No state keyword given!'
-    sys.exit(15)
+    sys.exit(16)
   nstates=0
   nmstates=0
   for mult,i in enumerate(states):
@@ -866,7 +891,7 @@ def read_QMin():
     fromfile=os.path.join(QMin['savedir'],'U.out')
     if not os.path.isfile(fromfile):
       print 'ERROR: savedir does not contain U.out! Maybe you need to add "init" to QM.in.'
-      sys.exit(1)
+      sys.exit(17)
     tofile=os.path.join(QMin['savedir'],'Uold.out')
     shutil.copy(fromfile,tofile)
 
@@ -876,15 +901,15 @@ def read_QMin():
     s=line.lower().split()
     if len(s)==0:
       continue
-    for t in ['soc', 'nacdr', 'dm', 'grad', 'overlap']:
+    for t in ['h','soc', 'nacdr', 'dm', 'grad', 'overlap']:
         if s[0] in t:
             QMin[s[0]] = []
     if 'nacdt' in s[0]:
       print 'NACDT is not supported!'
-      sys.exit(16)
+      sys.exit(18)
     if 'dmdr' in s[0]:
       print 'DMDR is not supported!'
-      sys.exit(16)
+      sys.exit(19)
 
   QMin['pwd']=os.getcwd()
   return QMin
@@ -930,7 +955,7 @@ def read_V0(QMin, SH2LVC, fname='V0.txt'):
     f=open(fname)
   except IOError:
     print 'Input file %s not found.'%fname
-    sys.exit(1)
+    sys.exit(20)
   v0=f.readlines()
   f.close()
 
@@ -944,7 +969,7 @@ def read_V0(QMin, SH2LVC, fname='V0.txt'):
     if s[0]!=geom[i][0].lower():
       print s[0], geom[i][0]
       print 'Inconsistent atom labels in QM.in and %s!'%fname
-      sys.exit(19)
+      sys.exit(21)
     disp += [geom[i][1] - float(s[2]), geom[i][2] - float(s[3]), geom[i][3] - float(s[4])]
     SH2LVC['Ms'] += 3*[(float(s[5])*U_TO_AMU)**.5]
 
@@ -952,14 +977,14 @@ def read_V0(QMin, SH2LVC, fname='V0.txt'):
   tmp = find_lines(1, 'Frequencies',v0)
   if tmp==[]:
     print 'No Frequencies defined in %s!'%fname
-    sys.exit(24)
+    sys.exit(22)
   SH2LVC['Om'] = [float(o) for o in tmp[0].split()]
 
   # Normal modes in mass-weighted coordinates
   tmp = find_lines(len(SH2LVC['Om']), 'Mass-weighted normal modes', v0)
   if tmp==[]:
     print 'No normal modes given in %s!'%fname
-    sys.exit(24)
+    sys.exit(23)
   SH2LVC['V']  = [map(float,line.split()) for line in tmp] # transformation matrix
 
   return disp
@@ -976,7 +1001,7 @@ def read_SH2LVC(QMin, fname='LVC.template'):
       f=open('SH2LVC.inp')
     except IOError:
       print 'Input file "LVC.template" not found.'
-      sys.exit(1)
+      sys.exit(24)
   sh2lvc=f.readlines()
   f.close()
 
@@ -986,7 +1011,7 @@ def read_SH2LVC(QMin, fname='LVC.template'):
   states=[int(s) for s in sh2lvc[1].split()]
   if not states==QMin['states']:
     print 'states from QM.in and nstates from LVC.template are inconsistent!', QMin['states'], states
-    sys.exit(18)
+    sys.exit(25)
   nstates = QMin['nstates']
   nmstates = QMin['nmstates']
   nmult = len(states)

@@ -1,5 +1,30 @@
 #!/usr/bin/env python2
 
+#******************************************
+#
+#    SHARC Program Suite
+#
+#    Copyright (c) 2018 University of Vienna
+#
+#    This file is part of SHARC.
+#
+#    SHARC is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    SHARC is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    inside the SHARC manual.  If not, see <http://www.gnu.org/licenses/>.
+#
+#******************************************
+
+#!/usr/bin/env python2
+
 # Interactive script for the setup of dynamics calculations for SHARC
 # 
 # usage: python setup_traj.py
@@ -56,8 +81,8 @@ BOHR_TO_ANG=0.529177211
 AU_TO_FS=0.024188843
 PI = math.pi
 
-version='1.0'
-versiondate=datetime.date(2014,10,8)
+version='2.0'
+versiondate=datetime.date(2018,2,1)
 
 
 IToMult={
@@ -568,6 +593,8 @@ def get_general():
       if not 'TRAJ_' in itraj and not 'ICOND_' in itraj:
         continue
       path=idir+'/'+itraj
+      if not os.path.isdir(path):
+        continue
       s=path+' '*(width-len(path))
       lstraj=os.listdir(path)
       valid=True
@@ -1035,6 +1062,8 @@ def make_filename(outindex,INFOS,outstring):
   for i in INFOS['colY']:
     filename+='%i' % i
   filename+=outstring+'.type%i.txt' % (outindex)
+  if len(filename)>=255:
+    filename=filename[:15]+'...'+filename[-35:]
   return filename
 
 # ======================================================================================================================
@@ -1124,7 +1153,7 @@ def synchronize( INFOS, data1 ):
   # order data and add NaNs
   data2=[ [] for i in times ]
   width_bar=50
-  for ik,key in enumerate(data1):
+  for ik,key in enumerate(sorted(data1)):
     done=width_bar*(ik+1)/len(data1)
     sys.stdout.write('\r  Progress: ['+'='*done+' '*(width_bar-done)+'] %3i%%' % (done*100/width_bar))
     #print '  ... %s' % traj

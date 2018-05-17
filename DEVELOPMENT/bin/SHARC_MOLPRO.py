@@ -1,5 +1,30 @@
 #!/usr/bin/env python2
 
+#******************************************
+#
+#    SHARC Program Suite
+#
+#    Copyright (c) 2018 University of Vienna
+#
+#    This file is part of SHARC.
+#
+#    SHARC is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    SHARC is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    inside the SHARC manual.  If not, see <http://www.gnu.org/licenses/>.
+#
+#******************************************
+
+#!/usr/bin/env python2
+
 # ======================================================================= #
 # Modules:
 # Operating system, isfile and related routines, move files, create directories
@@ -51,8 +76,8 @@ if sys.version_info[1]<5:
 
 # ======================================================================= #
 
-version='1.1'
-versiondate=datetime.date(2016,7,4)
+version='2.0'
+versiondate=datetime.date(2018,2,1)
 
 
 changelogstring='''
@@ -228,7 +253,7 @@ def link(PATH,NAME,crucial=True,force=True):
   # do not create broken links
   if not os.path.exists(PATH):
     print 'Source %s does not exist, cannot create link!' % (PATH)
-    sys.exit(70)
+    sys.exit(14)
   if os.path.islink(NAME):
     if not os.path.exists(NAME):
       # NAME is a broken link, remove it so that a new link can be made
@@ -241,14 +266,14 @@ def link(PATH,NAME,crucial=True,force=True):
       else:
         print '%s exists, cannot create a link of the same name!' % (NAME)
         if crucial:
-          sys.exit(71)
+          sys.exit(15)
         else:
           return
   elif os.path.exists(NAME):
     # NAME is not a link. The interface will not overwrite files/directories with links, even with force=True
     print '%s exists, cannot create a link of the same name!' % (NAME)
     if crucial:
-      sys.exit(72)
+      sys.exit(16)
     else:
       return
   os.symlink(PATH, NAME)
@@ -749,7 +774,7 @@ def nextblock(data,program='*',occ=1):
           break
     except IndexError:
       print 'Block %s not found in routine nextblock! Probably MOLPRO encountered an error not anticipated in this script. Check the MOLPRO output!' % (program)
-      sys.exit(14)
+      sys.exit(17)
   progdata.append(data[i])
   i+=1
   while i<len(data) and not containsstring('1PROGRAM',data[i]):
@@ -783,7 +808,7 @@ def getcienergy(out,mult,state):
         ilines+=1
     ilines+=1
   print 'CI energy of state %i in mult %i not found!' % (state,mult)
-  sys.exit(15)
+  sys.exit(18)
 
 # ======================================================================= #
 def getcidm(out,mult,state1,state2,pol):
@@ -835,7 +860,7 @@ def getcidm(out,mult,state1,state2,pol):
     ilines+=1
   if state1==state2:
     print 'Dipole moment of state %i, mult %i, not found!' % (state1,mult)
-    sys.exit(16)
+    sys.exit(19)
   else:
     #print 'CI dipole moment of states %i and %i in mult %i not found!' % (state1,state2,mult)
     return 0.
@@ -885,7 +910,7 @@ def getciang(out,mult,state1,state2,pol):
         ilines+=1
     ilines+=1
   print 'CI angular momentum of states %i and %i in mult %i not found!' % (state1,state2,mult)
-  sys.exit(17)
+  sys.exit(20)
 
 # ======================================================================= #
 def istate_in_job(m1,s1,ms1,states):
@@ -905,7 +930,7 @@ def getsocme(out,istate,jstate,QMin):
   jstate+=1
   if not istate in QMin['statemap'] or not jstate in QMin['statemap']:
     print 'States %i or %i are not in statemap!' % (istate,jstate)
-    sys.exit(20)
+    sys.exit(21)
 
   m1,s1,ms1=tuple(QMin['statemap'][istate])
   m2,s2,ms2=tuple(QMin['statemap'][jstate])
@@ -935,7 +960,7 @@ def getsocme(out,istate,jstate,QMin):
       break
   else:
     print 'SOC matrix not found in master_%i/MOLPRO.out!' % (job)
-    sys.exit(11)
+    sys.exit(22)
   iline+=3
   eref=float(out[iline].replace('=',' ').split()[-1])
 
@@ -948,7 +973,7 @@ def getsocme(out,istate,jstate,QMin):
       break
   else:
     print 'SOC matrix not found in master_%i/MOLPRO.out!' % (job)
-    sys.exit(11)
+    sys.exit(23)
   iline+=5
   #iline+=2
 
@@ -973,7 +998,7 @@ def getsocme(out,istate,jstate,QMin):
 
 
 
-  #sys.exit(1)
+  #sys.exit(24)
 
   #iline=-1
   #while True:
@@ -981,7 +1006,7 @@ def getsocme(out,istate,jstate,QMin):
       #iline+=1
       #if iline==len(out):
         #print 'No Spin-Orbit CI output found for multiplicities %i and %i!' % (mult1,mult2)
-        #sys.exit(11)
+        #sys.exit(25)
       #if 'SEWLS' in out[iline]:
         #break
     #iline+=8
@@ -1023,10 +1048,10 @@ def getsocme(out,istate,jstate,QMin):
 
   #if mstate1==0:
     #print 'Mult %i, State %i, MS %i not in SOC matrix after line %i!' % (mult1,state1,ms1,iline)
-    #sys.exit(11)
+    #sys.exit(26)
   #if mstate2==0:
     #print 'Mult %i, State %i, MS %i not in SOC matrix after line %i!' % (mult2,state2,ms2,iline)
-    #sys.exit(11)
+    #sys.exit(27)
 
   ## get a single matrix element
   #block=(mstate2-1)/10
@@ -1091,7 +1116,7 @@ def getgrad(out,mult,state,natom):
         continue
     ilines+=1
   print 'Gradient of state %i in mult %i not found!' % (state,mult)
-  sys.exit(21)
+  sys.exit(28)
 
 # ======================================================================= #
 def getnacana(out,mult,state1,state2,natom):
@@ -1157,7 +1182,7 @@ def getnacana(out,mult,state1,state2,natom):
         continue
     ilines+=1
   print 'Non-adiatic coupling of states %i - %i in mult %i not found!' % (state1,state2,mult)
-  sys.exit(22)
+  sys.exit(29)
 
 # ======================================================================= #
 def getmrcioverlap(out,mult,state1,state2):
@@ -1233,7 +1258,7 @@ def getnacnum(out,mult,state1,state2):
         jlines+=1
     ilines+=1
   print 'Non-adiatic coupling of states %i - %i in mult %i not found!' % (state1,state2,mult)
-  sys.exit(23)
+  sys.exit(30)
 
 # ======================================================================= #
 def getsmate(out,s1,s2):
@@ -1242,7 +1267,7 @@ def getsmate(out,s1,s2):
     ilines+=1
     if ilines==len(out):
       print 'Overlap of states %i - %i not found!' % (s1,s2)
-      sys.exit(25)
+      sys.exit(31)
     if containsstring('Overlap matrix <PsiA_i|PsiB_j>', out[ilines]):
       break
   ilines+=1+s1
@@ -1256,7 +1281,7 @@ def getDyson(out,s1,s2):
     ilines+=1
     if ilines==len(out):
       print 'Dyson norm of states %i - %i not found!' % (s1,s2)
-      sys.exit(25)
+      sys.exit(32)
     if containsstring('Dyson norm matrix <PsiA_i|PsiB_j>', out[ilines]):
       break
   ilines+=1+s1
@@ -1312,7 +1337,7 @@ def writeQMout(QMin,QMout,QMinfilename):
     #outfile.close()
   #except IOError:
     #print 'Could not write QM output!'
-    #sys.exit(74)
+    #sys.exit(33)
   return
 
 
@@ -1591,13 +1616,13 @@ def checkscratch(SCRATCHDIR):
     isfile=os.path.isfile(SCRATCHDIR)
     if isfile:
       print '$SCRATCHDIR=%s exists and is a file!' % (SCRATCHDIR)
-      sys.exit(25)
+      sys.exit(34)
   else:
     try:
       os.makedirs(SCRATCHDIR)
     except OSError:
       print 'Can not create SCRATCHDIR=%s\n' % (SCRATCHDIR)
-      sys.exit(26)
+      sys.exit(35)
 
 # ======================================================================= #
 def removequotes(string):
@@ -1636,20 +1661,20 @@ def get_sh2pro_environ(sh2pro,key,environ=True,crucial=True):
       if not LINE:
         if crucial:
           print 'Either set $%s or give path to %s in SH2CAS.inp!' % (key.upper(),key.upper())
-          sys.exit(25)
+          sys.exit(36)
         else:
           return ''
     else:
       if crucial:
         print 'Give path to %s in SH2CAS.inp!' % (key.upper())
-        sys.exit(26)
+        sys.exit(37)
       else:
         return ''
   LINE=os.path.expandvars(LINE)
   LINE=os.path.expanduser(LINE)
   if containsstring(';',LINE):
     print "$%s contains a semicolon. Do you probably want to execute another command after %s? I can't do that for you..." % (key.upper(),key.upper())
-    sys.exit(27)
+    sys.exit(38)
   return LINE
 
 # ======================================================================= #
@@ -1661,7 +1686,7 @@ def get_pairs(QMinlines,i):
       line=QMinlines[i].lower()
     except IndexError:
       print '"keyword select" has to be completed with an "end" on another line!'
-      sys.exit(38)
+      sys.exit(39)
     if 'end' in line:
       break
     fields=line.split()
@@ -1669,7 +1694,7 @@ def get_pairs(QMinlines,i):
       nacpairs.append([int(fields[0]),int(fields[1])])
     except ValueError:
       print '"nacdr select" is followed by pairs of state indices, each pair on a new line!'
-      sys.exit(39)
+      sys.exit(40)
   return nacpairs,i
 
 # ======================================================================= #     OK
@@ -1768,7 +1793,7 @@ def readQMin(QMinfilename):
       factor=1.
     else:
       print 'Dont know input unit %s!' % (QMin['unit'][0])
-      sys.exit(33)
+      sys.exit(44)
   else:
     factor=1./au2a
   for iatom in range(len(QMin['geo'])):
@@ -1779,7 +1804,7 @@ def readQMin(QMinfilename):
   # State number
   if not 'states' in QMin:
     print 'Keyword "states" not given!'
-    sys.exit(11)
+    sys.exit(45)
   for i in range(len(QMin['states'])):
     QMin['states'][i]=int(QMin['states'][i])
   reduc=0
@@ -1812,40 +1837,40 @@ def readQMin(QMinfilename):
   possibletasks=['h','soc','dm','grad','nacdr','overlap','ion','molden','phases']
   if not any([i in QMin for i in possibletasks]):
     print 'No tasks found! Tasks are "h", "soc", "dm", "grad", "nacdr", "overlap", "ion", and "molden".'
-    sys.exit(45)
+    sys.exit(46)
 
   if 'samestep' in QMin and 'init' in QMin:
     print '"Init" and "Samestep" cannot be both present in QM.in!'
-    sys.exit(46)
+    sys.exit(47)
 
   if 'phases' in QMin:
     QMin['overlap']=[]
 
   if 'overlap' in QMin and 'init' in QMin:
     print '"overlap" and "phases" cannot be calculated in the first timestep! Delete either "overlap" or "init"'
-    sys.exit(47)
+    sys.exit(48)
 
   if not 'init' in QMin and not 'samestep' in QMin and not 'restart' in QMin:
     QMin['newstep']=[]
 
   if len(QMin['states'])>8:
     print 'Higher multiplicities than octets are not supported!'
-    sys.exit(48)
+    sys.exit(49)
 
   if 'h' in QMin and 'soc' in QMin:
     QMin=removekey(QMin,'h')
 
   if 'nacdt' in QMin:
     print 'Within the SHARC-MOLPRO interface, couplings can only be calculated via "nacdr" or "overlap".'
-    sys.exit(39)
+    sys.exit(50)
 
   if 'dmdr' in QMin:
     print 'Dipole moment gradients not available!'
-    sys.exit(50)
+    sys.exit(51)
 
   if 'socdr' in QMin:
     print 'Spin-orbit gradients not available!'
-    sys.exit(50)
+    sys.exit(52)
 
   if 'nacdr' in QMin:
     QMin['docicas']=True
@@ -1860,10 +1885,10 @@ def readQMin(QMinfilename):
           QMin['grad'][i]=int(QMin['grad'][i])
         except ValueError:
           print 'Arguments to keyword "grad" must be "all" or a list of integers!'
-          sys.exit(51)
+          sys.exit(53)
         if QMin['grad'][i]>nmstates:
           print 'State for requested gradient does not correspond to any state in QM input file state list!'
-          sys.exit(52)
+          sys.exit(54)
 
   # Process the non-adiabatic coupling requests
   # type conversion has already been done
@@ -1873,7 +1898,7 @@ def readQMin(QMinfilename):
       for i in range(len(nacpairs)):
         if nacpairs[i][0]>nmstates or nacpairs[i][1]>nmstates:
           print 'State for requested non-adiabatic couplings does not correspond to any state in QM input file state list!'
-          sys.exit(53)
+          sys.exit(55)
     else:
       QMin['nacdr']=[ [j+1,i+1] for i in range(nmstates) for j in range(i)]
 
@@ -1940,7 +1965,7 @@ def readQMin(QMinfilename):
       QMin['ncpu']=max(1,QMin['ncpu'])
     except ValueError:
       print 'Number of CPUs does not evaluate to numerical value!'
-      sys.exit(45)
+      sys.exit(56)
   os.environ['OMP_NUM_THREADS']=str(QMin['ncpu'])
 
 
@@ -1998,7 +2023,7 @@ def readQMin(QMinfilename):
       QMin['memory']=max(100,QMin['memory'])
     except ValueError:
       print 'Run memory does not evaluate to numerical value!'
-      sys.exit(44)
+      sys.exit(57)
   else:
     print 'WARNING: Please set memory in SH2PRO.inp (in MB)! Using 100 MB default value!'
 
@@ -2013,7 +2038,7 @@ def readQMin(QMinfilename):
     QMin['always_guess']=[]
   if 'always_orb_init' in QMin and 'always_guess' in QMin:
     print 'Keywords "always_orb_init" and "always_guess" cannot be used together!'
-    sys.exit(47)
+    sys.exit(58)
 
 
   # get the nooverlap keyword: no dets will be extracted if present
@@ -2032,7 +2057,7 @@ def readQMin(QMinfilename):
         QMin['wfoverlap']=ciopath
       else:
         print 'Give path to wfoverlap.x in MOLPRO.resources!'
-        sys.exit(43)
+        sys.exit(59)
     # get ncore and ndocc
     line=getsh2prokey(sh2pro,'numfrozcore')
     if line[0]:
@@ -2050,7 +2075,7 @@ def readQMin(QMinfilename):
       pass              # ndocc is dependent on job
     if 'nooverlap' in QMin:
       print '"nooverlap" keyword present, but overlap calculation required.'
-      sys.exit(11)
+      sys.exit(60)
     QMin['wfthres']=1.0
     line=getsh2prokey(sh2pro,'wfthres')
     if line[0]:
@@ -2066,7 +2091,7 @@ def readQMin(QMinfilename):
       QMin['delay']=float(line[1])
     except ValueError:
       print 'Submit delay does not evaluate to numerical value!'
-      sys.exit(46)
+      sys.exit(61)
 
 
 
@@ -2106,18 +2131,18 @@ def readQMin(QMinfilename):
       QMin['template']['basis_block']=readfile(QMin['template']['basis_external'])
     else:
       print '"basis_external" key not readable: "%s"!' % QMin['template']['basis_external']
-      sys.exit(11)
+      sys.exit(62)
   else:
     if not 'basis' in QMin['template']:
       print 'Key "basis" missing in template file!' % (i)
-      sys.exit(50)
+      sys.exit(63)
 
   ## check for completeness
   #necessary=['basis']
   #for i in necessary:
     #if not i in QMin['template']:
       #print 'Key %s missing in template file!' % (i)
-      #sys.exit(50)
+      #sys.exit(64)
 
   # now collect the casscf settings
   # jobs keyword
@@ -2128,10 +2153,10 @@ def readQMin(QMinfilename):
   njobs=max(jobs)
   if any( [i<=0 for i in jobs] ):
     print 'Job ID numbers must be positive! Jobs: %s' % (jobs)
-    sys.exit(11)
+    sys.exit(65)
   if len(jobs)< QMin['maxmult']:
     print 'No jobs for multiplicities larger than %i!' % (len(jobs))
-    sys.exit(11)
+    sys.exit(66)
   QMin['jobs']=jobs
   QMin['njobs']=njobs
   #print 'jobs:',QMin['jobs']
@@ -2168,26 +2193,26 @@ def readQMin(QMinfilename):
       QMin['template']['closed']=[ int(i) for i in line[1:]]
   if not 'occ' in QMin['template']:
     print 'No "occ" statement given!'
-    sys.exit(11)
+    sys.exit(67)
   if not 'closed' in QMin['template']:
     print 'No "closed" statement given!'
-    sys.exit(11)
+    sys.exit(68)
   if len(QMin['template']['occ'])==1:
     QMin['template']['occ']=QMin['template']['occ']*njobs
   if len(QMin['template']['closed'])==1:
     QMin['template']['closed']=QMin['template']['closed']*njobs
   if len(QMin['template']['occ'])!=njobs:
     print 'Invalid "occ" specification! Give either 1 or %i values after "occ"!' % (njobs)
-    sys.exit(11)
+    sys.exit(69)
   if len(QMin['template']['closed'])!=njobs:
     print 'Invalid "closed" specification! Give either 1 or %i values after "closed"!' % (njobs)
-    sys.exit(11)
+    sys.exit(70)
   if any( [i<0 for i in QMin['template']['closed']] ):
     print 'Number of closed-shell orbitals must be positive! closed=%s' % (QMin['template']['closed'])
-    sys.exit(11)
+    sys.exit(71)
   if any( [QMin['template']['closed'][i]>=QMin['template']['occ'][i] for i in range(njobs)] ):
     print 'Number of occupied orbitals must be larger than number of closed orbitals!'
-    sys.exit(11)
+    sys.exit(72)
   #print 'closed:',QMin['template']['closed']
   #print 'occ:',QMin['template']['occ']
 
@@ -2203,7 +2228,7 @@ def readQMin(QMinfilename):
       i+=1
       if i>QMin['njobs']:
         print 'Too many "roots" statements (at least %i statements, but only %i jobs).' % (i,QMin['njobs'])
-        sys.exit(11)
+        sys.exit(73)
       f=[ int(j) for j in line[1:]]
       if len(f)<QMin['maxmult']:
         f=f+[0]*(QMin['maxmult']-len(f))
@@ -2211,15 +2236,15 @@ def readQMin(QMinfilename):
         #f=f[:QMin['maxmult']]
       if any( [j<0 for j in f] ):
         print 'Number of roots must be positive! %s' % (f)
-        sys.exit(11)
+        sys.exit(74)
       for m in QMin['multmap'][-i]:
         if QMin['states'][m-1] > f[m-1]:
           print 'Not enough roots in job %i in multiplicity %i!' % (i,m)
-          sys.exit(11)
+          sys.exit(75)
       roots[i]=f
   if len(roots)!=njobs:
     print 'Invalid number of "roots" statements! Please, give exactly %i "roots" statements.' % (njobs)
-    sys.exit(11)
+    sys.exit(76)
   #print 'roots:',roots
 
   # rootpad
@@ -2234,7 +2259,7 @@ def readQMin(QMinfilename):
         #f=f[:QMin['maxmult']]
       if any( [j<0 for j in f] ):
         print 'Values for "rootpad" must be positive! %s' % (f)
-        sys.exit(11)
+        sys.exit(77)
       rootpad[i]=f
   if len(rootpad)<njobs:
     for i in range(len(rootpad)+1,njobs+1):
@@ -2252,23 +2277,23 @@ def readQMin(QMinfilename):
         f=[ x-((x+m+1)%2==0) for m in range(len(roots[i])) ]
       if len(f)!=len(roots[i]):
         print 'Invalid specification of "nelec"! Give either 1 or %i values after "nelec"!' % (len(roots[i]))
-        sys.exit(11)
+        sys.exit(78)
       if any( [j<=0 for j in f] ):
         print 'Number of electrons must be positive! %s' % (f)
-        sys.exit(11)
+        sys.exit(79)
       if any( [ (f[m]+m+1)%2==0 for m in range(len(roots[i])) ] ):
         print 'Number of electrons incompatible with multiplicity! %s' % (f)
-        sys.exit(11)
+        sys.exit(80)
       nelec[i]=f
   if len(nelec)==0:
     print 'No "nelec" statements given!'
-    sys.exit(11)
+    sys.exit(81)
   if len(nelec)==1:
     for i in range(njobs-1):
       nelec[i+2]=nelec[1]
   if len(nelec)!=njobs:
     print 'Invalid number of "nelec" statements! Give either 1 or %i "nelec" statements' % (njobs)
-    sys.exit(11)
+    sys.exit(82)
   #print 'nelec:',nelec
 
   QMin['template']['nelec']=nelec
@@ -2333,7 +2358,7 @@ def readQMin(QMinfilename):
           initorbs[job]=filename
     if 'always_orb_init' in QMin and len(initorbs)<njobs:
       print 'Initial orbitals missing for some jobs!'
-      sys.exit(11)
+      sys.exit(83)
     QMin['initorbs']=initorbs
   elif 'newstep' in QMin:
     for job in QMin['joblist']:
@@ -2342,7 +2367,7 @@ def readQMin(QMinfilename):
         initorbs[job]=filename+'.old'   # file will be moved to .old
       else:
         print 'File %s missing in savedir!' % (filename)
-        sys.exit(11)
+        sys.exit(84)
     QMin['initorbs']=initorbs
   elif 'samestep' in QMin:
     for job in QMin['joblist']:
@@ -2351,7 +2376,7 @@ def readQMin(QMinfilename):
         initorbs[job]=filename
       else:
         print 'File %s missing in savedir!' % (filename)
-        sys.exit(11)
+        sys.exit(85)
     QMin['initorbs']=initorbs
   elif 'restart' in QMin:
     for job in QMin['joblist']:
@@ -2360,7 +2385,7 @@ def readQMin(QMinfilename):
         initorbs[job]=filename
       else:
         print 'File %s missing in savedir!' % (filename)
-        sys.exit(11)
+        sys.exit(86)
     QMin['initorbs']=initorbs
 
   return QMin
@@ -2439,7 +2464,7 @@ def runjobs(joblist,QMin):
   #WORKDIR=os.path.join(QMin['scratchdir'],job)
   #run_calc(WORKDIR,QMin1)
 
-  #sys.exit(1)
+  #sys.exit(87)
 
   print '>>>>>>>>>>>>> Starting the MOLPRO job execution'
 
@@ -2470,7 +2495,7 @@ def runjobs(joblist,QMin):
     print string
     if any((i!=0 for i in errorcodes.values())):
       print 'Some subprocesses did not finish successfully!'
-      sys.exit(62)
+      sys.exit(88)
 
 
 
@@ -2629,7 +2654,7 @@ def setupWORKDIR(WORKDIR,tasks,QMin):
   if os.path.exists(WORKDIR):
     if os.path.isfile(WORKDIR):
       print '%s exists and is a file!' % (WORKDIR)
-      sys.exit(59)
+      sys.exit(89)
     elif os.path.isdir(WORKDIR):
       if DEBUG:
         print 'Remake\t%s' % WORKDIR
@@ -2642,7 +2667,7 @@ def setupWORKDIR(WORKDIR,tasks,QMin):
       os.makedirs(WORKDIR)
     except OSError:
       print 'Can not create %s\n' % (WORKDIR)
-      sys.exit(60)
+      sys.exit(90)
 
   # write MOLPRO.input
   inputstring=writeMOLPROinput(tasks,QMin)
@@ -2825,7 +2850,7 @@ def writeMOLPROinput(tasks, QMin):
 
     else: # ========================================================================================== #
       print 'Unknown task %s found in writeMOLPROinput!' % task
-      sys.exit(65)
+      sys.exit(91)
 
   return string
 
@@ -2860,7 +2885,7 @@ def writeMOLPROinput(tasks, QMin):
       #exfile=os.path.join(QMin['savedir'],'wf.current')
       #if not os.path.exists(exfile):
         #print 'No "wf.current" found in scratchdir or savedir!'
-        #sys.exit (11)
+        #sys.exit (92)
       #else:
         #tofile=os.path.join(QMin['scratchdir'],'wf.current')
         #shutil.copy(exfile,tofile)
@@ -2881,7 +2906,7 @@ def writeMOLPROinput(tasks, QMin):
       #exfile=os.path.join(QMin['savedir'],'wf.last')
       #if not os.path.exists(exfile):
         #print 'No "wf.last" found in scratchdir or savedir!'
-        #sys.exit (11)
+        #sys.exit (93)
       #else:
         #tofile=os.path.join(QMin['scratchdir'],'wf.last')
         #shutil.copy(exfile,tofile)
@@ -2901,7 +2926,7 @@ def writeMOLPROinput(tasks, QMin):
     ## same as above, but with nstati statement (convergence helper) ==================================================== #
     #elif task[0]=='ci:nstati':
       #print 'ci:nstati is not yet implemented!'
-      #sys.exit(62)
+      #sys.exit(94)
 
     ## same as above, but with pspace statement (convergence helper) ==================================================== #
     #elif task[0]=='ci:pspace':
@@ -2932,7 +2957,7 @@ def runMOLPRO(WORKDIR,MOLPRO,strip=False):
     runerror=sp.call(string,shell=True,stdout=stdoutfile,stderr=stderrfile)
   except OSError:
     print 'Call have had some serious problems:',OSError
-    sys.exit(61)
+    sys.exit(95)
   stdoutfile.close()
   stderrfile.close()
   if PRINT or DEBUG:
@@ -3005,7 +3030,7 @@ def moveOldFiles(QMin):
     fromfile=os.path.join(QMin['savedir'],'geom')
     if not os.path.isfile(fromfile):
       print 'File %s not found, cannot move to OLD!' % (fromfile)
-      sys.exit(66)
+      sys.exit(96)
     tofile  =os.path.join(QMin['savedir'],'geom.old')
     if DEBUG:
       print 'Copy:\t%s\n\t==>\n\t%s' % (fromfile,tofile)
@@ -3019,7 +3044,7 @@ def moveOldFiles(QMin):
       fromfile=os.path.join(QMin['savedir'],'%s.%i' % (base,job))
       if not os.path.isfile(fromfile):
         print 'File %s not found, cannot move to OLD!' % (fromfile)
-        sys.exit(66)
+        sys.exit(97)
       tofile  =os.path.join(QMin['savedir'],'%s.%i.old' % (base,job))
       if DEBUG:
         print 'Copy:\t%s\n\t==>\n\t%s' % (fromfile,tofile)
@@ -3032,7 +3057,7 @@ def moveOldFiles(QMin):
         fromfile=os.path.join(QMin['savedir'],'%s.%i' % (base,job))
         if not os.path.isfile(fromfile):
           print 'File %s not found, cannot move to OLD!' % (fromfile)
-          sys.exit(66)
+          sys.exit(98)
         tofile  =os.path.join(QMin['savedir'],'%s.%i.old' % (base,job))
         if DEBUG:
           print 'Copy:\t%s\n\t==>\n\t%s' % (fromfile,tofile)
@@ -3123,7 +3148,7 @@ def saveAOovl(WORKDIR,QMin):
       break
   else:
     print 'Did not find AO overlap matrix!'
-    sys.exit(11)
+    sys.exit(99)
 
   # detect format
   line=out[iline+1]
@@ -3260,7 +3285,7 @@ def get_MO_from_out(out):
       break
   else:
     print 'Did not find number of orbital specifications in output!'
-    sys.exit(11)
+    sys.exit(100)
   norb=nclosed+nact+nex
   #print norb
 
@@ -3320,7 +3345,7 @@ def get_CASdet_from_out(out,isym,nstates):
       break
   else:
     print 'Did not find number of orbital specifications in output!'
-    sys.exit(11)
+    sys.exit(101)
   norb=nclosed+nact
 
   # find the determinants
@@ -3374,7 +3399,7 @@ def get_CIdet_from_out(out,imult):
     iline+=1
     if iline>=len(out):
       print 'Did not find number of orbital specifications in output!'
-      sys.exit(11)
+      sys.exit(102)
     line=out[iline]
     if 'Number of core orbitals:' in line:
       nclosed=int(line.split()[-4])
@@ -3396,13 +3421,13 @@ def get_CIdet_from_out(out,imult):
     iline+=1
     if iline>=len(out):
       print 'Did not find number of orbital specifications in output!'
-      sys.exit(11)
+      sys.exit(103)
     line=out[iline]
     if ' Reference coefficients greater than' in line:
       break
     elif '1PROGRAM * CI ' in line:
       print 'Did not find number of orbital specifications in output!'
-      sys.exit(11)
+      sys.exit(104)
   iline+=1
 
   # get csfs
@@ -3616,7 +3641,7 @@ def run_wfoverlap(QMin,errorcodes):
   print string
   if any((i!=0 for i in errorcodes.values())):
     print 'Some subprocesses did not finish successfully!'
-    sys.exit(62)
+    sys.exit(105)
 
   print ''
 
@@ -3646,7 +3671,7 @@ def runWFOVERLAP(WORKDIR,WFOVERLAP,memory=100,ncpu=1):
     runerror=sp.call(string,shell=True,stdout=stdoutfile,stderr=stderrfile)
   except OSError:
     print 'Call have had some serious problems:',OSError
-    sys.exit(61)
+    sys.exit(106)
   stdoutfile.close()
   stderrfile.close()
   if PRINT or DEBUG:
@@ -3667,7 +3692,7 @@ def setupWORKDIR_WF(WORKDIR,QMin,files):
   if os.path.exists(WORKDIR):
     if os.path.isfile(WORKDIR):
       print '%s exists and is a file!' % (WORKDIR)
-      sys.exit(59)
+      sys.exit(107)
     elif os.path.isdir(WORKDIR):
       if DEBUG:
         print 'Remake\t%s' % WORKDIR
@@ -3680,7 +3705,7 @@ def setupWORKDIR_WF(WORKDIR,QMin,files):
       os.makedirs(WORKDIR)
     except OSError:
       print 'Can not create %s\n' % (WORKDIR)
-      sys.exit(60)
+      sys.exit(108)
 
   # write wfovl.inp
   inputstring='''mix_aoovl=aoovl
@@ -3755,7 +3780,7 @@ def get_Double_AOovl(QMin):
       break
   else:
     print 'Did not find AO overlap matrix!'
-    sys.exit(11)
+    sys.exit(109)
 
   AOovl=[]
   for irow in range(nao):
@@ -3800,7 +3825,7 @@ def check_phases(phases):
   for p in phases:
     if abs(p)<thres:
       print 'CASSCF-CASCI overlaps are not unity!'
-      sys.exit(11)
+      sys.exit(110)
     if p<0.:
       newphases.append(-1.)
     else:
@@ -3981,7 +4006,7 @@ def main():
       DEBUG=True
   except ValueError:
     print 'PRINT or DEBUG environment variables do not evaluate to boolean values!'
-    sys.exit(78)
+    sys.exit(111)
 
   # Process Command line arguments
   if len(sys.argv)!=2:
@@ -3989,7 +4014,7 @@ def main():
     print 'version:',version
     print 'date:',versiondate
     print 'changelog:\n',changelogstring
-    sys.exit(79)
+    sys.exit(112)
   QMinfilename=sys.argv[1]
 
   # Print header
