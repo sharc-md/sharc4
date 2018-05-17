@@ -5,6 +5,7 @@
 
     ## Paths to TURBOMOLE and ORCA
 turbodir /usr/license/turbomole/7.0/TURBOMOLE/
+
 orcadir  /usr/license/orca/latest/
 
     ## Paths to savedir and scratchdir
@@ -45,7 +46,7 @@ dipolelevel 1
     ## ========  Debug options ============
 
     ## Increase verbosity of interface stdout
-#DEBUG true
+DEBUG true
 
     ## Do not use the ricc2 restart feature when doing multiple ricc2 runs (for gradients, TDMs)
 #no_ricc2_restart

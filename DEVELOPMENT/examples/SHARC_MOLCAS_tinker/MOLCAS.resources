@@ -1,38 +1,7 @@
-# Path to MOLCAS and TINKER
-molcas /usr/license/molcas/molcas80
-tinker /usr/license/molcas/molcas80/tinker/bin/
+molcas $MOLCAS
+tinker $TINKER
 wfoverlap $SHARC/wfoverlap.x
 
+scratchdir $SCRADIR/WORK
 
-# Paths to savedir and scratchdir
-scratchdir $TMPDIR/WORK
-savedir $TMPDIR/SAVE/
-
-
-
-# Ressources
 memory 1000
-ncpu 4
-delay 0.0
-
-
-# Initial orbital settings
-#always_orb_init         # always use MOLCAS.%i.JobIph.init or MOLCAS.%i.RasOrb.init
-#always_guess           # always start from GuessOrb
-                        # otherwise: start from savedir, if possible
-
-
-
-# Increase printlevel of interface a lot
-#DEBUG true
-
-
-
-
-
-
-
-
-
-
-# kate: syntax python

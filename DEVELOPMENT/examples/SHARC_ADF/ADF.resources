@@ -1,5 +1,5 @@
     ## This is a commented version of the ADF.resources file 
-    ## for version 2.1 of the SHARC_ADF.py interface.
+    ## for version 2.0 of the SHARC_ADF.py interface.
 
     ## ======== ADF setup ============
 
@@ -121,7 +121,7 @@ numocc 8
     ## ======== TheoDORE ============
 
     ## Path to the TheoDORE installation.
-theodir /user/plasserf/programs/TheoDORE/GIT
+theodir $THEODORE
 
     ## This keyword defines the properties to be computed by TheoDORE.
     ## The properties can either be given as space-separated items (the interface will reformat this for proper TheoDORE input:
