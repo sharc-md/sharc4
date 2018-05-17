@@ -1,3 +1,26 @@
+!******************************************
+!
+!    SHARC Program Suite
+!
+!    Copyright (c) 2018 University of Vienna
+!
+!    This file is part of SHARC.
+!
+!    SHARC is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHARC is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    inside the SHARC manual.  If not, see <http://www.gnu.org/licenses/>.
+!
+!******************************************
+
 !> # Main program
 !> \author Sebastian Mai
 !> \date 10.07.2014
@@ -95,11 +118,11 @@ do i_step=traj%step+1,ctrl%nsteps
   endif
   ! SH
   call surface_hopping(traj,ctrl)
-  ! Decoherence
-  call Decoherence(traj,ctrl)
   ! Rescale v
   call Rescale_Velocities(traj,ctrl)
   call Calculate_etot(traj,ctrl)
+  ! Decoherence
+  call Decoherence(traj,ctrl)
   ! obtain the correct gradient
   call Calculate_cMCH(traj,ctrl)
   if (ctrl%calc_grad>=1) call redo_qm_gradients(traj,ctrl)
