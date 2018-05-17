@@ -1,5 +1,30 @@
 #!/usr/bin/env python2
 
+#******************************************
+#
+#    SHARC Program Suite
+#
+#    Copyright (c) 2018 University of Vienna
+#
+#    This file is part of SHARC.
+#
+#    SHARC is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    SHARC is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    inside the SHARC manual.  If not, see <http://www.gnu.org/licenses/>.
+#
+#******************************************
+
+#!/usr/bin/env python2
+
 # Script to test whether a correct python version is installed, and to run the test calculations.
 # 
 # usage 
@@ -43,7 +68,15 @@ if sys.version_info[1]<5:
 try:
   import numpy
 except ImportError:
-  sys.stdout.write('*'*80+'\nThe Python package NumPy was not found.\nPerformance of excite.py might be slightly reduced.\n'+'*'*80+'\n')
+  sys.stdout.write('*'*80+'''
+*** The Python package NumPy was not found! ***
+Performance of excite.py and wigner.py slightly reduced.
+Performance of SHARC_Analytical.py significantly reduced.
+Null space check in make_fitscript.py not possible.
+Setup and Dynamics with LVC interface not possible.
+Setup and Dynamics with ADF interface not possible.
+Normal mode analysis not possible.
+Essential dynamics analysis not possible.'''+'*'*80+'\n')
   time.sleep(5)
 
 
@@ -51,13 +84,24 @@ except ImportError:
 
 
 
-version='1.0'
-versiondate=datetime.date(2014,10,8)
+version='2.0'
+versiondate=datetime.date(2018,2,1)
 
 
 
-INTERFACES=set(['MOLPRO','MOLCAS','COLUMBUS','Analytical','scripts'])
+INTERFACES=set(['MOLPRO','MOLCAS','COLUMBUS','Analytical','ADF','TURBOMOLE','GAUSSIAN','LVC','scripts'])
+OTHERENVS=set(['THEODORE','ORCA','TINKER','molcas'])
 
+INTERFACES={'MOLPRO':'MOLPRO',
+            'MOLCAS':'MOLCAS',
+            'COLUMBUS':'COLUMBUS',
+            'Analytical':'Analytical',
+            'ADF':'ADF',
+            'TURBOMOLE':'RICC2',
+            'GAUSSIAN':'GAUSSIAN',
+            'LVC':'LVC',
+            'scripts':'scripts'
+            }
 
 # ======================================================================================================================
 # ======================================================================================================================
@@ -99,7 +143,7 @@ def open_keystrokes():
 
 def close_keystrokes():
   KEYSTROKES.close()
-  shutil.move('KEYSTROKES.tmp','KEYSTROKES.test_suite')
+  shutil.move('KEYSTROKES.tmp','KEYSTROKES.tests')
 
 # ===================================
 
@@ -255,9 +299,9 @@ def get_infos():
   sys.stdout.write('Available test simulations:\n')
   for index,i in enumerate(testlist):
     if 'scripts' in i:
-      sys.stdout.write('%5i '% (index+1) + i[0]+' '*(25-len(i[0]))+'\n')
+      sys.stdout.write('%5i  '% (index+1) + i[0]+' '*(35-len(i[0]))+'\n')
     else:
-      sys.stdout.write('%5i '% (index+1) + i[0]+' '*(25-len(i[0]))+'via SHARC_%s.py\n' % (i[1]))
+      sys.stdout.write('%5i  '% (index+1) + i[0]+' '*(35-len(i[0]))+'via SHARC_%s.py\n' % (INTERFACES[i[1]]))
   sys.stdout.write('\n')
 
   # specify the jobs which should be run
@@ -266,6 +310,11 @@ def get_infos():
   jobs.sort()
   INFOS['joblist']=[ testlist[j-1][0] for j in jobs if 0<j<=len(testlist)]
   INFOS['interfaces']=set([ testlist[j-1][1] for j in jobs if 0<j<=len(testlist)])
+  INFOS['otherenvs']=set()
+  for j in jobs:
+    for i in OTHERENVS:
+      if i in testlist[j-1][0]:
+        INFOS['otherenvs'].add(i)
 
   # collect environment variables
   string='\n  '+'='*80+'\n'
@@ -273,8 +322,10 @@ def get_infos():
   string+='  '+'='*80+'\n'
   sys.stdout.write(string+'\n')
   for interface in INTERFACES:
-    if interface in INFOS['interfaces'] and not interface in ['Analytical','scripts']:
+    if interface in INFOS['interfaces'] and not interface in ['Analytical','scripts','LVC']:
       INFOS[interface]=env_or_question(interface,setenv=True)
+  for i in INFOS['otherenvs']:
+    INFOS[i]=env_or_question(i,setenv=True)
 
   # get scratch directory
   string='\n  '+'='*80+'\n'
@@ -349,7 +400,7 @@ def compare_scripts(INFOS,index):
   dc=filecmp.dircmp(INFOS['pwd']+'/RUNNING_TESTS/'+INFOS['joblist'][index],
                     INFOS['sharc']+'/../tests/RESULTS/'+INFOS['joblist'][index])
   same,diff=full_lists(dc)
-  ignore_files=['run.sh','all_run_init.sh','runQM.sh','SH2PRO.inp']
+  ignore_files=['run.sh','all_run_init.sh','runQM.sh']
   diff=[item for item in diff if not any([f in item for f in ignore_files]) ]
   sys.stdout.write('Differing: '+str(diff)+'\n')
   sys.stdout.write('Same     : '+str(same)+'\n')
@@ -405,7 +456,8 @@ def compare_trajectories(INFOS,index):
     10: [1e+8, False],   # runtime
     11: [1e-6, True],    # geometry
     12: [1e-6, True],    # velocity
-    13: [1e+8, False]    # property matrix
+    13: [1e+8, False],   # 2d property matrices
+    14: [1e+8, False]   # 1d property vectors
   }
 
   count=0
@@ -421,11 +473,17 @@ def compare_trajectories(INFOS,index):
     if a[0]=='!':
       if not b[0]=='!':
         return -1
-      flag=int(a.split()[1])
+      try:
+        flag=int(a.split()[1])
+      except ValueError:
+        pass
       continue
     if flag==-1:
-      a1=[float(a.split()[0])]
-      b1=[float(b.split()[0])]
+      try:
+        a1=[float(a.split()[-1])]
+        b1=[float(b.split()[-1])]
+      except ValueError:
+        continue
     else:
       a1=[float(j) for j in a.split()]
       b1=[float(j) for j in b.split()]
@@ -460,7 +518,7 @@ def run_diff(INFOS):
       INFOS['result'].append('Job did not finish')
       continue
 
-    if 'scripts' in INFOS['joblist'][index]:
+    if 'scripts' in INFOS['joblist'][index] or 'opt' in INFOS['joblist'][index]:
       count=compare_scripts(INFOS,index)
     else:
       count=compare_trajectories(INFOS,index)
@@ -480,7 +538,7 @@ def run_diff(INFOS):
   string+='  '+'='*80
   sys.stdout.write(string+'\n')
   for index,job in enumerate(INFOS['joblist']):
-    sys.stdout.write(job+' '*(25-len(job)) + INFOS['result'][index]+'\n')
+    sys.stdout.write(job+' '*(35-len(job)) + INFOS['result'][index]+'\n')
 
 # ======================================================================================================================
 

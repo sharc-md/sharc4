@@ -53,15 +53,18 @@ functional gga pbe
 #dispersion grimme3 bjdamp
 
     ## This keyword sets the total charge of the molecule.
-    ## For QM/MM calculations, you have to specify the charge of the QM (link atoms replaced) only!
+    ## For QM/MM calculations, you have to specify the charge of the QM (with link atoms replaced) only!
     ## Unlike in the ADF input, this keyword does not allow to set the number of unpaired electrons.
     ## Instead, the interface automatically sets this number based on the requested multiplicity.
+    ##
     ## This keyword accepts either a single number, or as many numbers as there are multiplicities.
-    ## In the first case, the charges are automatically assigned (does not work for QM/MM calculations).
-    ## In the second case, the charges are used for the respective multiplicities.
-    ## (for QM/MM with only singlets, specify at least two numbers to disable automatic assignment)
+    ## If only one charge is given but several multiplicities requested in QM.in, then the interface
+    ## will automatically check and assign the charges based on the nuclear charge (this might not for for QM/MM).
+    ## If after the "charge" keyword one charge is given for each multiplicities, these numbers will used as is.
+    ## 
+    ## (for QM/MM it is advisable to always give more than one charge values to disable automatic assignment)
 charge 0 +1 0 +1 0
-#charge 0 +1 0 +1
+#charge 0
 
     ## With this keyword, the interface returns total energies instead of bonding energies.
     ## Note that in ADF bonding energies are more accurate than total energies.
@@ -206,11 +209,11 @@ dvd_residu 1e-3
     ## If activated, the interface will look for two more files:
     ## - a force field file in Amber95 format
     ## - connection table file, specifying the "mm_connection_table" and "link_bonds" blocks for the input.
-qmmm
+#qmmm
 
     ## This keyword sets the QM-MM coupling scheme.
     ## default is 1 (mechanical embedding), option 2 (electrostatic embedding) only works for ADF>=2018.
-qmmm_coupling 2
+#qmmm_coupling 2
 
 
 

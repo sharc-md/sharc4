@@ -2,7 +2,7 @@
 
 SHARC Program Suite
 
-Copyright (c) 2014 University of Vienna
+Copyright (c) 2018 University of Vienna
 
 ******************************************
 Welcome to the SHARC Program Suite
@@ -16,10 +16,13 @@ Please refer to the following files for further information:
 
 directory structure:
 
-* source:	the (Fortran90) source files
-* bin:    	the compiled executables as well as the python scripts
-* doc:		the documentation (manual and tutorials)
-* tests: 	a test suite to check the installation.  
+* source:       the (Fortran90) source files
+* bin:          the compiled executables as well as the Python scripts
+* doc:          the documentation (manual and tutorial)
+* tests:        a test suite to check the installation.  
+* examples:     documented example inputs for quantum chemistry interfaces
+* lib:          Python libraries for some SHARC components
+* wfoverlap:    wave function overlap program (with source/ and scripts/ directories)
 
 --
 for further information take a look at:

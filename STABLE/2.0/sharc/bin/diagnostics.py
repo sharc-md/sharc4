@@ -1,5 +1,30 @@
 #!/usr/bin/env python2
 
+#******************************************
+#
+#    SHARC Program Suite
+#
+#    Copyright (c) 2018 University of Vienna
+#
+#    This file is part of SHARC.
+#
+#    SHARC is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    SHARC is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    inside the SHARC manual.  If not, see <http://www.gnu.org/licenses/>.
+#
+#******************************************
+
+#!/usr/bin/env python2
+
 from copy import deepcopy 
 import math
 import sys
@@ -52,8 +77,8 @@ BOHR_TO_ANG=0.529177211
 AU_TO_FS=0.024188843
 PI = math.pi
 
-version='1.0'
-versiondate=datetime.date(2014,10,8)
+version='2.0'
+versiondate=datetime.date(2018,2,1)
 
 
 IToMult={
@@ -228,7 +253,7 @@ def displaywelcome():
   string+='||'+centerstring('',80)+'||\n'
   string+='||'+centerstring('Diagnostic tool for trajectories from SHARC dynamics',80)+'||\n'
   string+='||'+centerstring('',80)+'||\n'
-  string+='||'+centerstring('Author: Sebastian Mai',80)+'||\n'
+  string+='||'+centerstring('Author: Sebastian Mai and Moritz Heindl',80)+'||\n'
   string+='||'+centerstring('',80)+'||\n'
   string+='||'+centerstring('Version:'+version,80)+'||\n'
   string+='||'+centerstring(versiondate.strftime("%d.%m.%y"),80)+'||\n'
@@ -982,13 +1007,15 @@ def do_calc(INFOS):
         print '\n    An error occured while trying to extract the runtime.\n \
    Files may be corrupted.\n'
         trajectories[path]['error'] = True
+        continue
 
-      #try:
-      trajectories = check_termination(path, trajectories,INFOS,f)
-      #except:
-        #print '\n    An error occured while trying to extract the status.\n \
-   #Files may be corrupted.\n'
-        #trajectories[path]['error'] = True   
+      try:
+        trajectories = check_termination(path, trajectories,INFOS,f)
+      except:
+        print '\n    An error occured while trying to extract the status.\n \
+   Files may be corrupted.\n'
+        trajectories[path]['error'] = True   
+        continue
  
       # run data extractor
       update=False
@@ -1016,7 +1043,7 @@ def do_calc(INFOS):
         sys.stdout.write('    Data extractor...                                 ')
         sys.stdout.flush()
         os.chdir(path)
-        io=sp.call(sharcpath+'/data_extractor.x output.dat > /dev/null 2> /dev/null',shell=True)
+        io=sp.call(sharcpath+'/data_extractor.x -a output.dat > /dev/null 2> /dev/null',shell=True)
         if io!=0:
           print 'WARNING: extractor call failed for %s! Exit code %i' % (path,io)
         os.chdir(cwd)

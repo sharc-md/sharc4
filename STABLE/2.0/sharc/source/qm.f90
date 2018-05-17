@@ -1,3 +1,26 @@
+!******************************************
+!
+!    SHARC Program Suite
+!
+!    Copyright (c) 2018 University of Vienna
+!
+!    This file is part of SHARC.
+!
+!    SHARC is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHARC is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    inside the SHARC manual.  If not, see <http://www.gnu.org/licenses/>.
+!
+!******************************************
+
 !> # Module QM
 !> 
 !> \author Sebastian mai
@@ -1160,6 +1183,9 @@ module qm
               call matmultiply(ctrl%nstates,traj%overlaps_ss,traj%U_old_ss,Utemp,'tn')
               Htemp=traj%H_MCH_old_ss
               call transform(ctrl%nstates,Htemp,traj%overlaps_ss,'utau')
+              if (printlevel>4) call matwrite(ctrl%nstates,Utemp,u_log,'Old U transformed','F12.9')
+              if (printlevel>4) call matwrite(ctrl%nstates,Htemp,u_log,'Old H transformed','F12.9')
+              if (printlevel>4) call matwrite(ctrl%nstates,traj%H_MCH_ss,u_log,'New H','F12.9')
               call project_recursive(ctrl%nstates, Htemp, traj%H_MCH_ss, Utemp, traj%U_ss,&
               &ctrl%dtstep, printlevel, u_log)
             else

@@ -5,7 +5,7 @@ Br   6.10463   0.0   0.0
     ## Control keywords are ignored:
     ##cleanup
 
-#init
+init
 #samestep
 #restart
 

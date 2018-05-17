@@ -1,13 +1,28 @@
 #******************************************
 #
-#SHARC Program Suite
+#    SHARC Program Suite
 #
-#Copyright (c) 2014 University of Vienna
+#    Copyright (c) 2018 University of Vienna
+#
+#    This file is part of SHARC.
+#
+#    SHARC is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    SHARC is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    inside the SHARC manual.  If not, see <http://www.gnu.org/licenses/>.
 #
 #******************************************
 # Makefile for Sharc 
-# Version 1.0
-# Oct-16-2014
+# Version 2.0
+# Feb-01-2018
 #
 # uncomment the following line and comment the 2nd next line to 
 # use the intel fortran compiler.
@@ -93,7 +108,7 @@ clean:
 	rm -rvf build_info.inc
 
 
-install: all
+install: 
 	cp -f *.x $(EXEDIR)	
 
 # the following lines define the dependencies of the Fortran90 module files

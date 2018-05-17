@@ -1,8 +1,33 @@
-#!/usr/bin/python
+#!/usr/bin/env python2
+
+#******************************************
+#
+#    SHARC Program Suite
+#
+#    Copyright (c) 2018 University of Vienna
+#
+#    This file is part of SHARC.
+#
+#    SHARC is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    SHARC is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    inside the SHARC manual.  If not, see <http://www.gnu.org/licenses/>.
+#
+#******************************************
+
+#!/usr/bin/env python2
 
 """
-author: Felix Plasser
-version: 1.0
+author: Felix Plasser, Andrew Atkins
+version: 2.0
 descr: Script for doing essential dynamics analysis.
 """
 
@@ -21,8 +46,8 @@ except ImportError:
     print 'file_handler, vib_molden, traj_manip or struc_linalg not found. They should be part of this package. Check the installation and if $SHARC/../lib is part of the PYTHONPATH environment variable.'
     sys.exit()
 
-version='1.0'
-versiondate=datetime.date(2016,05,12)
+version='2.0'
+versiondate=datetime.date(2018,2,1)
 
 # ======================================================================= #
 def centerstring(string,n,pad=' '):
@@ -88,7 +113,7 @@ def open_keystrokes():
 # ======================================================================= #
 def close_keystrokes():
   KEYSTROKES.close()
-  shutil.move('KEYSTROKES.tmp','KEYSTROKES.essdyn')
+  shutil.move('KEYSTROKES.tmp','KEYSTROKES.trajana_essdyn')
 
 # ======================================================================= #
 def question(question,typefunc,default=None,autocomplete=True,ranges=False):

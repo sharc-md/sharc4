@@ -1,5 +1,30 @@
 #!/usr/bin/env python2
 
+#******************************************
+#
+#    SHARC Program Suite
+#
+#    Copyright (c) 2018 University of Vienna
+#
+#    This file is part of SHARC.
+#
+#    SHARC is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    SHARC is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    inside the SHARC manual.  If not, see <http://www.gnu.org/licenses/>.
+#
+#******************************************
+
+#!/usr/bin/env python2
+
 # Script for the creation of ADF input files
 # 
 # usage 
@@ -15,8 +40,6 @@ import datetime
 from optparse import OptionParser
 import readline
 import time
-sys.path.append('/usr/license/adf/adf2016.101/scripting')
-from kf import *
 
 
 # =========================================================0
@@ -49,48 +72,45 @@ U_TO_AMU = 1./5.4857990943e-4            # conversion from g/mol to amu
 BOHR_TO_ANG=0.529177211
 PI = math.pi
 
-version='1.0'
-versiondate=datetime.date(2015,7,15)
+version='2.0'
+versiondate=datetime.date(2018,2,1)
 
 
 # List of atomic numbers until Rn, with Lanthanoids missing (1-57, 72-86)
-NUMBERS = {'H':  1, 'He': 2,
-'Li': 3, 'Be': 4, 'B':  5, 'C':  6,  'N': 7,  'O': 8, 'F':  9, 'Ne':10,
+NUMBERS = {'H':1, 'He':2,
+'Li':3, 'Be':4, 'B':5, 'C':6,  'N':7,  'O':8, 'F':9, 'Ne':10,
 'Na':11, 'Mg':12, 'Al':13, 'Si':14,  'P':15,  'S':16, 'Cl':17, 'Ar':18,
-'K': 19, 'Ca':20, 
-'Sc':21, 'Ti':22, 'V': 23, 'Cr':24, 'Mn':25, 'Fe':26, 'Co':27, 'Ni':28, 'Cd':29, 'Zn':30,
-'Ge':31, 'Ga':32, 'As':33, 'Se':34, 'Br':35, 'Kr':36, 
+'K':19, 'Ca':20,
+'Sc':21, 'Ti':22, 'V':23, 'Cr':24, 'Mn':25, 'Fe':26, 'Co':27, 'Ni':28, 'Cu':29, 'Zn':30,
+'Ga':31, 'Ge':32, 'As':33, 'Se':34, 'Br':35, 'Kr':36,
 'Rb':37, 'Sr':38,
 'Y':39,  'Zr':40, 'Nb':41, 'Mo':42, 'Tc':43, 'Ru':44, 'Rh':45, 'Pd':46, 'Ag':47, 'Cd':48,
 'In':49, 'Sn':50, 'Sb':51, 'Te':52,  'I':53, 'Xe':54,
 'Cs':55, 'Ba':56,
-'La':57, 'Hf':72, 'Ta':73,  'W':74, 'Re':75, 'Os':76, 'Ir':77, 'Pt':78, 'Au':79, 'Hg':80,
-'Tl':81, 'Pb':82, 'Bi':83, 'Po':84, 'At':85, 'Rn':86
+'La':57, 
+'Ce':58, 'Pr':59, 'Nd':60, 'Pm':61, 'Sm':62, 'Eu':63, 'Gd':64, 'Tb':65, 'Dy':66, 'Ho':67, 'Er':68, 'Tm':69, 'Yb':70, 'Lu':71,
+         'Hf':72, 'Ta':73,  'W':74, 'Re':75, 'Os':76, 'Ir':77, 'Pt':78, 'Au':79, 'Hg':80,
+'Tl':81, 'Pb':82, 'Bi':83, 'Po':84, 'At':85, 'Rn':86, 
+'Fr':87, 'Ra':88,
+'Ac':89, 
+'Th':90, 'Pa':91,  'U':92, 'Np':93, 'Pu':94, 'Am':95, 'Cm':96, 'Bk':97, 'Cf':98, 'Es':99,'Fm':100,'Md':101,'No':102,'Lr':103,
+        'Rf':104,'Db':105,'Sg':106,'Bh':107,'Hs':108,'Mt':109,'Ds':110,'Rg':111,'Cn':112,
+'Nh':113,'Fl':114,'Mc':115,'Lv':116,'Ts':117,'Og':118
 }
 
 # List of atomic numbers until Rn, with Lanthanoids missing (1-57, 72-86)
-Atomsymb = {1: 'H', 2: 'He',
-3: 'Li', 4: 'Be', 5: 'B', 6: 'C', 7: 'N', 8: 'O', 9: 'F', 10: 'Ne',
-11: 'Na', 12: 'Mg', 13: 'Al', 14: 'Si', 15: 'P', 16: 'S', 17: 'Cl', 18: 'Ar',
-19: 'K', 20: 'Ca',
-21:'Sc', 22:'Ti', 23:'V', 24:'Cr', 25:'Mn', 26:'Fe', 27:'Co', 28:'Ni', 29:'Cd', 30:'Zn',
-31:'Ge', 32:'Ga', 33:'As', 34:'Se', 35:'Br', 36:'Kr',
-37:'Rb', 38:'Sr',
-39:'Y',  40:'Zr', 41:'Nb', 42:'Mo', 43:'Tc', 44:'Ru', 45:'Rh', 46:'Pd', 47:'Ag', 48:'Cd',
-49:'In', 50:'Sn', 51:'Sb', 52:'Te',  53:'I', 54:'Xe',
-55:'Cs', 56:'Ba',
-57:'La', 72:'Hf', 73:'Ta',  74:'W', 75:'Re', 76:'Os', 77:'Ir', 78:'Pt', 79:'Au', 80:'Hg',
-81:'Tl', 82:'Pb', 83:'Bi', 84:'Po', 85:'At', 86:'Rn'
-}
+Atomsymb = {}
+for i in NUMBERS:
+  Atomsymb[NUMBERS[i]]=i
 
-#Atomic Radii 
-Allingerradii= {'H':   1.350,'He':  1.275,
-'Li':  2.125,'Be':  1.858,'B':   1.792,'C':   1.700,'N':   1.608,'O':   1.517,'F':   1.425,'Ne':  1.333,
-'Na':  2.250,'Mg':  2.025,'Al':  1.967,'Si':  1.908,'P':   1.850,'S':   1.792,'Cl':  1.725,'Ar':  1.658,
-'K':   2.575,'Ca':  2.342,'Sc':  2.175,'Ti':  1.992,'V':   1.908,'Cr':  1.875,'Mn':  1.867,'Fe':  1.858,'Co':  1.858,'Ni':  1.850,'Cu':  1.883,'Zn':  1.908,'Ga':  2.050,'Ge':  2.033,'As':  1.967,'Se':  1.908,'Br':  1.850,'Kr':  1.792,
-'Rb':  2.708,'Sr':  2.500,'Y':   2.258,'Zr':  2.117,'Nb':  2.025,'Mo':  1.992,'Tc':  1.967,'Ru':  1.950,'Rh':  1.950,'Pd':  1.975,'Ag':  2.025,'Cd':  2.083,'In':  2.200,'Sn':  2.158,'Sb':  2.100,'Te':  2.033,'I':   1.967,'Xe':  1.900,
-'Cs':  2.867,'Ba':  2.558,'La':  2.317,'Ce':  2.283,'Pr':  2.275,'Nd':  2.275,'Pm':  2.267,'Sm':  2.258,'Eu':  2.450,'Gd':  2.258,'Tb':  2.250,'Dy':  2.242,'Ho':  2.225,'Er':  2.225,'Tm':  2.225,'Yb':  2.325,'Lu':  2.208,'Hf':  2.108,'Ta':  2.025,'W':   1.992,'Re':  1.975,'Os':  1.958,'Ir':  1.967,'Pt':  1.992,'Au':  2.025,'Hg':  2.108,'Tl':  2.158,'Pb':  2.283,'Bi':  2.217,'Po':  2.158,'At':  2.092,'Rn':  2.025,'Fr':  3.033,'Ra':  2.725,'Ac':  2.567,'Th':  2.283,'Pa':  2.200,'U':   2.100,'Np':  2.100,'Pu':  2.100
-}
+##Atomic Radii 
+#Allingerradii= {'H':   1.350,'He':  1.275,
+#'Li':  2.125,'Be':  1.858,'B':   1.792,'C':   1.700,'N':   1.608,'O':   1.517,'F':   1.425,'Ne':  1.333,
+#'Na':  2.250,'Mg':  2.025,'Al':  1.967,'Si':  1.908,'P':   1.850,'S':   1.792,'Cl':  1.725,'Ar':  1.658,
+#'K':   2.575,'Ca':  2.342,'Sc':  2.175,'Ti':  1.992,'V':   1.908,'Cr':  1.875,'Mn':  1.867,'Fe':  1.858,'Co':  1.858,'Ni':  1.850,'Cu':  1.883,'Zn':  1.908,'Ga':  2.050,'Ge':  2.033,'As':  1.967,'Se':  1.908,'Br':  1.850,'Kr':  1.792,
+#'Rb':  2.708,'Sr':  2.500,'Y':   2.258,'Zr':  2.117,'Nb':  2.025,'Mo':  1.992,'Tc':  1.967,'Ru':  1.950,'Rh':  1.950,'Pd':  1.975,'Ag':  2.025,'Cd':  2.083,'In':  2.200,'Sn':  2.158,'Sb':  2.100,'Te':  2.033,'I':   1.967,'Xe':  1.900,
+#'Cs':  2.867,'Ba':  2.558,'La':  2.317,'Ce':  2.283,'Pr':  2.275,'Nd':  2.275,'Pm':  2.267,'Sm':  2.258,'Eu':  2.450,'Gd':  2.258,'Tb':  2.250,'Dy':  2.242,'Ho':  2.225,'Er':  2.225,'Tm':  2.225,'Yb':  2.325,'Lu':  2.208,'Hf':  2.108,'Ta':  2.025,'W':   1.992,'Re':  1.975,'Os':  1.958,'Ir':  1.967,'Pt':  1.992,'Au':  2.025,'Hg':  2.108,'Tl':  2.158,'Pb':  2.283,'Bi':  2.217,'Po':  2.158,'At':  2.092,'Rn':  2.025,'Fr':  3.033,'Ra':  2.725,'Ac':  2.567,'Th':  2.283,'Pa':  2.200,'U':   2.100,'Np':  2.100,'Pu':  2.100
+#}
 
 # ======================================================================================================================
 # ======================================================================================================================
@@ -109,7 +129,7 @@ def displaywelcome():
   string+='||'+centerstring('',80)+'||\n'
   string+='||'+centerstring('ADF template file generator',80)+'||\n'
   string+='||'+centerstring('',80)+'||\n'
-  string+='||'+centerstring('Author: Andrew Atkins',80)+'||\n'
+  string+='||'+centerstring('Author: Andrew Atkins and Sebastian Mai',80)+'||\n'
   string+='||'+centerstring('',80)+'||\n'
   string+='||'+centerstring('Version:'+version,80)+'||\n'
   string+='||'+centerstring(versiondate.strftime("%d.%m.%y"),80)+'||\n'
@@ -117,7 +137,6 @@ def displaywelcome():
   string+='  '+'='*80+'\n\n'
   string+='''
 This script allows to quickly create ADF input files. 
-It also generates the ADF.template files to be used with the SHARC-ADF interface.
   '''
   print string
 
@@ -132,7 +151,7 @@ def open_keystrokes():
 
 def close_keystrokes():
   KEYSTROKES.close()
-  shutil.move('KEYSTROKES.tmp','KEYSTROKES.adf_input')
+  shutil.move('KEYSTROKES.tmp','KEYSTROKES.ADF_input')
 
 # ===================================
 

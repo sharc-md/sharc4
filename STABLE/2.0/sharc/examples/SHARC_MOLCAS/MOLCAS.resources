@@ -2,10 +2,7 @@
     ## for version 2.1 of the SHARC_MOLCAS.py interface.
 
     # Path to MOLCAS, TINKER, wfoverlaps
-#molcas /usr/license/molcas/molcas80
-#molcas /usr/license/molcas/molcas-v8.1.14-11-21/
 molcas /usr/license/openmolcas/
-#tinker /scratch/barium/oppel/molcas80/tinker/bin/
 wfoverlap $SHARC/wfoverlap.x
 
 
@@ -17,7 +14,7 @@ savedir $TMPDIR/SAVE/
 
 # Ressources
 memory 1000
-ncpu 4
+ncpu 1
 delay 0.0
 
 

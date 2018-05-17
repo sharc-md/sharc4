@@ -1,5 +1,30 @@
 #!/usr/bin/env python2
 
+#******************************************
+#
+#    SHARC Program Suite
+#
+#    Copyright (c) 2018 University of Vienna
+#
+#    This file is part of SHARC.
+#
+#    SHARC is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    SHARC is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    inside the SHARC manual.  If not, see <http://www.gnu.org/licenses/>.
+#
+#******************************************
+
+#!/usr/bin/env python2
+
 # Interactive script to setup single point calculations using the SHARC interfaces
 # 
 # usage: python setup_traj.py #change
@@ -50,8 +75,8 @@ BOHR_TO_ANG=0.529177211
 PI = math.pi
 
 version='2.0'
-versionneeded=[0.2, 1.0, 2.0]
-versiondate=datetime.date(2017,3,1)
+versionneeded=[0.2, 1.0, 2.0, float(version)]
+versiondate=datetime.date(2018,2,1)
 
 
 IToMult={
@@ -159,6 +184,16 @@ Interfaces={
                           'dyson':   ['wfoverlap'],
                           'theodore':['theodore'],
                           'phases':  ['wfoverlap']        }
+     },
+  9: {'script':          'SHARC_ORCA.py',
+      'name':            'orca',
+      'description':     'ORCA (DFT, TD-DFT, HF, CIS)',
+      'get_routine':     'get_ORCA',
+      'prepare_routine': 'prepare_ORCA',
+      'features':        {'overlap': ['wfoverlap'],
+                          'dyson':   ['wfoverlap'],
+                          'theodore':['theodore'],
+                          'phases':  ['wfoverlap']          }
      }
   }
 
@@ -168,7 +203,7 @@ Couplings={
       'description': 'DDT     =  < a|d/dt|b >        Hammes-Schiffer-Tully scheme   '
      },
   2: {'name':        'nacdr',
-      'description': 'DDR     =  < a|d/dR|b >        original Tully scheme          '
+      'description': 'DDR     =  < a|d/dR|b >        Original Tully scheme          '
      },
   3: {'name':        'overlap',
       'description': 'overlap = < a(t0)|b(t) >       Local Diabatization scheme     '
@@ -216,20 +251,20 @@ def centerstring(string,n,pad=' '):
 
 # ======================================================================= #
 def displaywelcome():
-  print 'Script for setup of optimizations with ORCA and SHARC started...\n' #change
+  print 'Script for single point setup with SHARC started...\n' #change
   string='\n'
   string+='  '+'='*80+'\n'
   string+='||'+centerstring('',80)+'||\n'
-  string+='||'+centerstring('Setup optimizations with ORCA and SHARC',80)+'||\n'
+  string+='||'+centerstring('Setup single points with SHARC',80)+'||\n'
   string+='||'+centerstring('',80)+'||\n'
-  string+='||'+centerstring('Author: Moritz Heindl, Sebastian Mai',80)+'||\n'
+  string+='||'+centerstring('Author: Sebastian Mai',80)+'||\n'
   string+='||'+centerstring('',80)+'||\n'
   string+='||'+centerstring('Version:'+version,80)+'||\n'
   string+='||'+centerstring(versiondate.strftime("%d.%m.%y"),80)+'||\n'
   string+='||'+centerstring('',80)+'||\n'
   string+='  '+'='*80+'\n\n'
   string+='''
-This script automatizes the setup of the input files ORCA+SHARC optimizations. 
+This script automatizes the setup of the input files for SHARC single point calculations. 
   '''
   print string
 
@@ -643,13 +678,13 @@ def checktemplate_COLUMBUS(TEMPLATE, mult):
     isfile=os.path.isfile(TEMPLATE)
     if isfile:
       #print 'TEMPLATE=%s exists and is a file!' % (TEMPLATE)
-      return None,None
+      return None,None,None
     necessary=['control.run','mcscfin','tranin','propin']
     lof=os.listdir(TEMPLATE)
     for i in necessary:
       if not i in lof:
         #print 'Did not find input file %s! Did you prepare the input according to the instructions?' % (i)
-        return None,None
+        return None,None,None
     cidrtinthere=False
     ciudginthere=False
     for i in lof:
@@ -659,10 +694,23 @@ def checktemplate_COLUMBUS(TEMPLATE, mult):
         ciudginthere=True
     if not cidrtinthere or not ciudginthere:
       #print 'Did not find input file %s.*! Did you prepare the input according to the instructions?' % (i)
-      return None,None
+      return None,None,None
   else:
     #print 'Directory %s does not exist!' % (TEMPLATE)
-    return None,None
+    return None,None,None
+
+  # get integral program
+  try:
+    intprog=open(TEMPLATE+'/intprogram')
+    line=intprog.readline()
+    if 'hermit' in line:
+      INTPROG='dalton'
+    elif 'seward' in line:
+      INTPROG='seward'
+    else:
+      return None,None,None
+  except IOError:
+    return None,None,None
 
   # check cidrtin and cidrtin* for the multiplicity
   try:
@@ -673,26 +721,26 @@ def checktemplate_COLUMBUS(TEMPLATE, mult):
       cidrtin.readline()
       nelec=int(cidrtin.readline().split()[0])
       if mult<=maxmult and (mult+nelec)%2!=0:
-        return 1, (mult+1)/2    # socinr=1, single=-1, isc=0
+        return 1, (mult+1)/2,INTPROG    # socinr=1, single=-1, isc=0
       else:
-        return None,None
+        return None,None,None
     else:
       mult2=int(cidrtin.readline().split()[0])
       if mult!=mult2:
         #print 'Multiplicity %i cannot be treated in directory %s (single DRT)!'  % (mult,TEMPLATE)
-        return None,None
-      return -1,1
+        return None,None,None
+      return -1,1,INTPROG
   except IOError:
     # find out in which DRT the requested multiplicity is
     for i in range(1,9):        # COLUMBUS can treat at most 8 DRTs
       try:
         cidrtin=open(TEMPLATE+'/cidrtin.%i' % i)
       except IOError:
-        return None,None
+        return None,None,None
       cidrtin.readline()
       mult2=int(cidrtin.readline().split()[0])
       if mult==mult2:
-        return 0,i
+        return 0,i,INTPROG
       cidrtin.close()
 
 # =================================================
@@ -768,7 +816,7 @@ In order to setup the COLUMBUS input, use COLUMBUS' input facility colinp. For f
       found=False
       for d in content:
         template=path+'/'+d
-        socitype,drt=checktemplate_COLUMBUS(template,mult)
+        socitype,drt,intprog=checktemplate_COLUMBUS(template,mult)
         if socitype==None:
           continue
         if not d[-1]=='/':
@@ -853,6 +901,7 @@ In order to setup the COLUMBUS input, use COLUMBUS' input facility colinp. For f
   INFOS['columbus.template']=path
   INFOS['columbus.multmap']=multmap
   INFOS['columbus.mocoefmap']=mocoefmap
+  INFOS['columbus.intprog']=intprog
 
   INFOS['columbus.copy_template']=question('Do you want to copy the template directory to each trajectory (Otherwise it will be linked)?',bool,False)
   if INFOS['columbus.copy_template']:
@@ -909,7 +958,9 @@ In order to setup the COLUMBUS input, use COLUMBUS' input facility colinp. For f
     print '\n'+centerstring('Wfoverlap code setup',60,'-')+'\n'
     INFOS['columbus.wfpath']=question('Path to wavefunction overlap executable:',str,'$SHARC/wfoverlap.x')
     INFOS['columbus.wfthres']=question('Determinant screening threshold:',float,[0.97])[0]
-    # TODO not asked: numfrozcore, numocc
+    INFOS['columbus.numfrozcore']=question('Number of frozen core orbitals for overlaps (-1=as in template):',int,[-1])[0]
+    if 'ion' in INFOS and INFOS['ion']:
+      INFOS['columbus.numocc']=question('Number of doubly occupied orbitals for Dyson:',int,[0])[0]
 
   return INFOS
 
@@ -928,6 +979,7 @@ savedir %s/%s/restart
 memory %i
 template %s
 ''' % (INFOS['columbus'], INFOS['scratchdir'], iconddir, INFOS['copydir'], iconddir, INFOS['columbus.mem'], INFOS['columbus.template'])
+  string+='integrals %s\n' % (INFOS['columbus.intprog'])
   for mult in INFOS['columbus.multmap']:
     string+='DIR %i %s\n' % (mult,INFOS['columbus.multmap'][mult])
   string+='\n'
@@ -937,6 +989,10 @@ template %s
   if 'wfoverlap' in INFOS['needed']:
     string+='wfthres %f\n' % (INFOS['columbus.wfthres'])
     string+='wfoverlap %s\n' % (INFOS['columbus.wfpath'])
+    if INFOS['columbus.numfrozcore']>=0:
+      string+='numfrozcore %i\n' % (INFOS['columbus.numfrozcore'])
+    if 'columbus.numocc' in INFOS:
+      string+='numocc %i\n' % (INFOS['columbus.numocc'])
   else:
     string+='nooverlap\n'
   sh2col.write(string)
@@ -951,6 +1007,8 @@ template %s
   if INFOS['columbus.copy_template']:
     copy_from=INFOS['columbus.copy_template_from']
     copy_to=iconddir+'/COLUMBUS.template/'
+    if os.path.exists(copy_to):
+      shutil.rmtree(copy_to)
     shutil.copytree(copy_from,copy_to)
 
 
@@ -1182,6 +1240,16 @@ def prepare_LVC(INFOS,iconddir):
 # ======================================================================================================================
 # ======================================================================================================================
 
+def check_MOLCAS_qmmm(filename):
+  f=open(filename)
+  data=f.readlines()
+  f.close()
+  for line in data:
+    if 'qmmm' in line.lower():
+      return True
+  return False
+
+# =================================================
 def checktemplate_MOLCAS(filename,INFOS):
   necessary=['basis','ras2','nactel','inactive']
   try:
@@ -1271,7 +1339,7 @@ def get_MOLCAS(INFOS):
 
 
   print centerstring('MOLCAS input template file',60,'-')+'\n'
-  print '''Please specify the path to the MOLcas.template file. This file must contain the following settings:
+  print '''Please specify the path to the MOLCAS.template file. This file must contain the following settings:
 
 basis <Basis set>
 ras2 <Number of active orbitals>
@@ -1297,6 +1365,35 @@ The MOLCAS interface will generate the appropriate MOLCAS input automatically.
         break
     INFOS['molcas.template']=filename
   print ''
+
+
+
+  # QMMM 
+  if check_MOLCAS_qmmm(INFOS['molcas.template']):
+    print centerstring('MOLCAS+TINKER QM/MM setup',60,'-')+'\n'
+    print 'Your template specifies a QM/MM calculation. Please specify the path to TINKER.' 
+    path=os.getenv('TINKER')
+    if path=='':
+      path=None
+    else:
+      path='$TINKER/'
+    print '\nPlease specify path to TINKER bin/ directory (SHELL variables and ~ can be used, will be expanded when interface is started).\n'
+    INFOS['tinker']=question('Path to TINKER/bin:',str,path)
+    print 'Please give the key and connection table files.'
+    while True:
+      filename=question('Key file:',str)
+      if not os.path.isfile(filename):
+        print 'File %s does not exist!' % (filename)
+      else:
+        break
+    INFOS['MOLCAS.fffile']=filename
+    while True:
+      filename=question('Connection table file:',str)
+      if not os.path.isfile(filename):
+        print 'File %s does not exist!' % (filename)
+      else:
+        break
+    INFOS['MOLCAS.ctfile']=filename
 
 
   print centerstring('Initial wavefunction: MO Guess',60,'-')+'\n'
@@ -1389,6 +1486,8 @@ project %s''' % (INFOS['molcas'],
                  project)
   if 'wfoverlap' in INFOS['needed']:
     string+='\nwfoverlap %s\n' % INFOS['molcas.wfpath']
+  if 'tinker' in INFOS:
+    string+='tinker %s' % (INFOS['tinker'])
   sh2cas.write(string)
   sh2cas.close()
 
@@ -1406,7 +1505,15 @@ project %s''' % (INFOS['molcas'],
         cpto='%s/%s.%i.RasOrb.init' % (iconddir,project,i)
       shutil.copy(cpfrom,cpto)
 
+  if 'MOLCAS.fffile' in INFOS:
+    cpfrom1=INFOS['MOLCAS.fffile']
+    cpto1='%s/MOLCAS.qmmm.key' % (iconddir)
+    shutil.copy(cpfrom1,cpto1)
 
+  if 'MOLCAS.ctfile' in INFOS:
+    cpfrom1=INFOS['MOLCAS.ctfile']
+    cpto1='%s/MOLCAS.qmmm.table' % (iconddir)
+    shutil.copy(cpfrom1,cpto1)
   return
 
 # ======================================================================================================================
@@ -1490,7 +1597,7 @@ def get_ADF(INFOS):
     if path:
       path='$ADFHOME/adfrc.sh'
     print '\nPlease specify path to the adfrc.sh file (SHELL variables and ~ can be used, will be expanded when interface is started).\n'
-    path=question('Path to ADF:',str,path)
+    path=question('Path to adfrc.sh file:',str,path)
     INFOS['adfrc']=os.path.abspath(os.path.expanduser(os.path.expandvars(path)))
     print 'Will use adfrc= %s' % INFOS['adfrc']
     INFOS['adf']='$ADFHOME'
@@ -2218,6 +2325,304 @@ def prepare_GAUSSIAN(INFOS,iconddir):
   return
 
 
+#======================================================================================================================
+#======================================================================================================================
+#======================================================================================================================
+
+def checktemplate_ORCA(filename,INFOS):
+  necessary=['basis','functional','charge']
+  try:
+    f=open(filename)
+    data=f.readlines()
+    f.close()
+  except IOError:
+    print 'Could not open template file %s' % (filename)
+    return False
+  valid=[]
+  for i in necessary:
+    for l in data:
+      line=l.lower().split()
+      if len(line)==0:
+        continue
+      line=line[0]
+      if i==re.sub('#.*$','',line):
+        valid.append(True)
+        break
+    else:
+      valid.append(False)
+  if not all(valid):
+    print 'The template %s seems to be incomplete! It should contain: ' % (filename) +str(necessary)
+    return False
+  return True
+
+# =================================================
+
+def qmmm_job(filename,INFOS):
+  necessary=['qmmm']
+  try:
+    f=open(filename)
+    data=f.readlines()
+    f.close()
+  except IOError:
+    print 'Could not open template file %s' % (filename)
+    return False
+  valid=[]
+  for i in necessary:
+    for l in data:
+      line=l.lower().split()
+      if len(line)==0:
+        continue
+      line=line[0]
+      if i==re.sub('#.*$','',line):
+        valid.append(True)
+        break
+    else:
+      valid.append(False)
+  if not all(valid):
+    return False
+  return True
+
+# =================================================
+
+def get_ORCA(INFOS):
+  '''This routine asks for all questions specific to ORCA:
+  - path to ORCA
+  - scratch directory
+  - ORCA.template
+  - initial gbw file
+  '''
+
+  string='\n  '+'='*80+'\n'
+  string+='||'+centerstring('ORCA Interface setup',80)+'||\n'
+  string+='  '+'='*80+'\n\n'
+  print string
+
+  print centerstring('Path to ORCA',60,'-')+'\n'
+  print '\nPlease specify path to ORCA directory (SHELL variables and ~ can be used, will be expanded when interface is started).\n'
+  INFOS['orcadir']=question('Path to ORCA:',str,'$ORCADIR')
+  print ''
+
+
+
+
+  # scratch
+  print centerstring('Scratch directory',60,'-')+'\n'
+  print 'Please specify an appropriate scratch directory. This will be used to run the ORCA calculations. The scratch directory will be deleted after the calculation. Remember that this script cannot check whether the path is valid, since you may run the calculations on a different machine. The path will not be expanded by this script.'
+  INFOS['scratchdir']=question('Path to scratch directory:',str)
+  print ''
+
+
+  # template file
+  print centerstring('ORCA input template file',60,'-')+'\n'
+  print '''Please specify the path to the ORCA.template file. This file must contain the following keywords:
+
+basis <basis>
+functional <type> <name>
+charge <x> [ <x2> [ <x3> ...] ]
+
+The ORCA interface will generate the appropriate ORCA input automatically.
+'''
+  if os.path.isfile('ORCA.template'):
+    if checktemplate_ORCA('ORCA.template',INFOS):
+      print 'Valid file "ORCA.template" detected. '
+      usethisone=question('Use this template file?',bool,True)
+      if usethisone:
+        INFOS['ORCA.template']='ORCA.template'
+  if not 'ORCA.template' in INFOS:
+    while True:
+      filename=question('Template filename:',str)
+      if not os.path.isfile(filename):
+        print 'File %s does not exist!' % (filename)
+        continue
+      if checktemplate_ORCA(filename,INFOS):
+        break
+    INFOS['ORCA.template']=filename
+  print ''
+
+
+  # QMMM
+  if qmmm_job(INFOS['ORCA.template'],INFOS):
+    print centerstring('ORCA+TINKER QM/MM setup',60,'-')+'\n'
+    print 'Your template specifies a QM/MM calculation. Please specify the path to TINKER.' 
+    path=os.getenv('TINKER')
+    if path=='':
+      path=None
+    else:
+      path='$TINKER/'
+    print '\nPlease specify path to TINKER bin/ directory (SHELL variables and ~ can be used, will be expanded when interface is started).\n'
+    INFOS['tinker']=question('Path to TINKER/bin:',str,path)
+    while True:
+      filename=question('Force field file:',str)
+      if not os.path.isfile(filename):
+        print 'File %s does not exist!' % (filename)
+      else:
+        break
+    INFOS['ORCA.fffile']=filename
+    while True:
+      filename=question('Connection table file:',str)
+      if not os.path.isfile(filename):
+        print 'File %s does not exist!' % (filename)
+      else:
+        break
+    INFOS['ORCA.ctfile']=filename
+
+
+  # initial MOs
+  print centerstring('Initial restart: MO Guess',60,'-')+'\n'
+  print '''Please specify the path to an ORCA gbw file containing suitable starting MOs for the ORCA calculation. Please note that this script cannot check whether the wavefunction file and the Input template are consistent!
+'''
+  if question('Do you have a restart file?',bool,True):
+    if True:
+      while True:
+        filename=question('Restart file:',str,'ORCA.gbw')
+        if os.path.isfile(filename):
+          INFOS['orca.guess']=filename
+          break
+        else:
+          print 'Could not find file "%s"!' % (filename)
+  else:
+    INFOS['orca.guess']={}
+
+
+  # Resources
+  print centerstring('ORCA Ressource usage',60,'-')+'\n'
+  print '''Please specify the number of CPUs to be used by EACH calculation.
+'''
+  INFOS['orca.ncpu']=abs(question('Number of CPUs:',int)[0])
+
+  if INFOS['orca.ncpu']>1:
+    print '''Please specify how well your job will parallelize.
+A value of 0 means that running in parallel will not make the calculation faster, a value of 1 means that the speedup scales perfectly with the number of cores.'''
+    INFOS['orca.scaling']=min(1.0,max(0.0,question('Parallel scaling:',float,[0.8])[0] ))
+  else:
+    INFOS['orca.scaling']=0.9
+  INFOS['orca.mem']=question('Memory (MB):',int,[1000])[0]
+
+
+  # Ionization
+  #print '\n'+centerstring('Ionization probability by Dyson norms',60,'-')+'\n'
+  #INFOS['ion']=question('Dyson norms?',bool,False)
+  #if INFOS['ion']:
+  if 'wfoverlap' in INFOS['needed']:
+    print '\n'+centerstring('WFoverlap setup',60,'-')+'\n'
+    INFOS['orca.wfoverlap']=question('Path to wavefunction overlap executable:',str,'$SHARC/wfoverlap.x')
+    print ''
+    print 'State threshold for choosing determinants to include in the overlaps'
+    print 'For hybrids (and without TDA) one should consider that the eigenvector X may have a norm larger than 1'
+    INFOS['orca.ciothres']=question('Threshold:',float,[0.99])[0]
+    print ''
+
+    # PyQuante
+    print '\n'+centerstring('PyQuante setup',60,'-')+'\n'
+    INFOS['orca.pyquante']=question('Path to PyQuante lib directory:',str,'$PYQUANTE')
+    print ''
+
+
+  # TheoDORE
+  theodore_spelling=['Om',
+                    'PRNTO',
+                    'Z_HE', 'S_HE', 'RMSeh',
+                    'POSi', 'POSf', 'POS',
+                    'PRi', 'PRf', 'PR', 'PRh',
+                    'CT', 'CT2', 'CTnt',
+                    'MC', 'LC', 'MLCT', 'LMCT', 'LLCT',
+                    'DEL', 'COH', 'COHh']
+  #INFOS['theodore']=question('TheoDORE analysis?',bool,False)
+  if 'theodore' in INFOS['needed']:
+    print '\n'+centerstring('Wave function analysis by TheoDORE',60,'-')+'\n'
+
+    INFOS['orca.theodore']=question('Path to TheoDORE directory:',str,'$THEODIR')
+    print ''
+
+    print 'Please give a list of the properties to calculate by TheoDORE.\nPossible properties:'
+    string=''
+    for i,p in enumerate(theodore_spelling):
+      string+='%s ' % (p)
+      if (i+1)%8==0:
+        string+='\n'
+    print string
+    l=question('TheoDORE properties:',str,'Om  PRNTO  S_HE  Z_HE  RMSeh')
+    if '[' in l:
+      INFOS['theodore.prop']=ast.literal_eval(l)
+    else:
+      INFOS['theodore.prop']=l.split()
+    print ''
+
+    print 'Please give a list of the fragments used for TheoDORE analysis.'
+    print 'You can use the list-of-lists from dens_ana.in'
+    print 'Alternatively, enter all atom numbers for one fragment in one line. After defining all fragments, type "end".'
+    if qmmm_job(INFOS['ORCA.template'],INFOS):
+      print 'You should only include the atom numbers of QM and link atoms.'
+    INFOS['theodore.frag']=[]
+    while True:
+      l=question('TheoDORE fragment:',str,'end')
+      if 'end' in l.lower():
+        break
+      if '[' in l:
+        try:
+          INFOS['theodore.frag']=ast.literal_eval(l)
+          break
+        except ValueError:
+          continue
+      f=[ int(i) for i in l.split() ]
+      INFOS['theodore.frag'].append(f)
+      INFOS['theodore.count']=len(INFOS['theodore.prop'])+len(INFOS['theodore.frag'])**2
+
+
+  return INFOS
+
+# =================================================
+
+def prepare_ORCA(INFOS,iconddir):
+  # write ORCA.resources
+  try:
+    sh2cas=open('%s/ORCA.resources' % (iconddir), 'w')
+  except IOError:
+    print 'IOError during prepareORCA, iconddir=%s' % (iconddir)
+    quit(1)
+#  project='ORCA'
+  string='orcadir %s\nscratchdir %s/%s/\nsavedir %s/%s/restart\nncpu %i\nschedule_scaling %f\n' % (INFOS['orcadir'],INFOS['scratchdir'],iconddir,INFOS['copydir'],iconddir,INFOS['orca.ncpu'],INFOS['orca.scaling'])
+  string+='memory %i\n' % (INFOS['orca.mem'])
+  if 'wfoverlap' in INFOS['needed']:
+    string+='wfoverlap %s\nwfthres %f\npyquante %s\n' % (INFOS['orca.wfoverlap'],INFOS['orca.ciothres'],INFOS['orca.pyquante'])
+    #string+='numfrozcore %i\n' %(INFOS['frozcore_number'])
+  else:
+    string+='nooverlap\n'
+  if 'theodore' in INFOS['needed']:
+    string+='theodir %s\n' % (INFOS['orca.theodore'])
+    string+='theodore_prop %s\n' % (INFOS['theodore.prop'])
+    string+='theodore_fragment %s\n' % (INFOS['theodore.frag'])
+  if 'tinker' in INFOS:
+    string+='tinker %s\n' % (INFOS['tinker'])
+  if 'ORCA.fffile' in INFOS:
+    string+='qmmm_ff_file ORCA.qmmm.ff\n'
+  if 'ORCA.ctfile' in INFOS:
+    string+='qmmm_table ORCA.qmmm.table\n'
+  sh2cas.write(string)
+  sh2cas.close()
+
+  # copy MOs and template
+  cpfrom=INFOS['ORCA.template']
+  cpto='%s/ORCA.template' % (iconddir)
+  shutil.copy(cpfrom,cpto)
+
+  if INFOS['orca.guess']:
+    cpfrom1=INFOS['orca.guess']
+    cpto1='%s/ORCA.gbw.init' % (iconddir)
+    shutil.copy(cpfrom1,cpto1)
+
+  if 'ORCA.fffile' in INFOS:
+    cpfrom1=INFOS['ORCA.fffile']
+    cpto1='%s/ORCA.qmmm.ff' % (iconddir)
+    shutil.copy(cpfrom1,cpto1)
+
+  if 'ORCA.ctfile' in INFOS:
+    cpfrom1=INFOS['ORCA.ctfile']
+    cpto1='%s/ORCA.qmmm.table' % (iconddir)
+    shutil.copy(cpfrom1,cpto1)
+
+
+  return
 # ======================================================================================================================
 # ======================================================================================================================
 # ======================================================================================================================
@@ -2298,7 +2703,7 @@ def writeRunscript(INFOS,iconddir):
   # ================================ 
   intstring=''
   if 'adfrc' in INFOS:
-    intstring='. %s' % (INFOS['adfrc'])
+    intstring='. %s\nexport PYTHONPATH=$ADFHOME/scripting:$PYTHONPATH' % (INFOS['adfrc'])
 
 
   string='''#!/bin/bash

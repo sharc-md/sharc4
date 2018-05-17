@@ -1,5 +1,30 @@
 #!/usr/bin/env python2
 
+#******************************************
+#
+#    SHARC Program Suite
+#
+#    Copyright (c) 2018 University of Vienna
+#
+#    This file is part of SHARC.
+#
+#    SHARC is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    SHARC is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    inside the SHARC manual.  If not, see <http://www.gnu.org/licenses/>.
+#
+#******************************************
+
+#!/usr/bin/env python2
+
 # This script calculates QC results for a model system
 # 
 # Reads QM.in
@@ -56,8 +81,8 @@ U_TO_AMU = 1./5.4857990943e-4
 BOHR_TO_ANG=0.529177211
 PI = math.pi
 
-version='1.0'
-versiondate=datetime.date(2014,10,8)
+version='2.0'
+versiondate=datetime.date(2018,2,1)
 
 
 # hash table for conversion of multiplicity to the keywords used in MOLPRO
@@ -320,13 +345,13 @@ def checkscratch(SCRATCHDIR):
         isfile=os.path.isfile(SCRATCHDIR)
         if isfile:
             print '$SCRATCHDIR=%s exists and is a file!' % (SCRATCHDIR)
-            sys.exit(16)
+            sys.exit(12)
     else:
         try:
             os.makedirs(SCRATCHDIR)
         except OSError:
             print 'Can not create SCRATCHDIR=%s\n' % (SCRATCHDIR)
-            sys.exit(17)
+            sys.exit(13)
 
 # =========================================================
 # =========================================================
@@ -338,7 +363,7 @@ class diagonalizer:
     exe=os.path.expanduser(os.path.expandvars(exe))+'/diagonalizer.x'
     if not os.path.isfile(exe):
       print 'SHARC auxilliary diagonalizer not found at %s!' % (exe)
-      sys.exit(12)
+      sys.exit(14)
     self.exe=exe
   def eigh(self,H):
     STDIN='C %i %i\nTitle\n' % (len(H),len(H))
@@ -468,7 +493,7 @@ def writeQMout(QMin,QMout,QMinfilename):
     outfile.close()
   except IOError:
     print 'Could not write to savedir!'
-    sys.exit(13)
+    sys.exit(15)
 
   os.chdir(QMin['pwd'])
   k=QMinfilename.find('.')
@@ -504,7 +529,7 @@ def writeQMout(QMin,QMout,QMinfilename):
     outfile.close()
   except IOError:
     print 'Could not write QM output!'
-    sys.exit(13)
+    sys.exit(16)
   if 'backup' in QMin:
     try:
       outfile=open(QMin['backup']+'/'+outfilename,'w')
@@ -810,7 +835,7 @@ class func_mat:
       s=strings[i].strip().split(',')
       if any([j.strip()=='' for j in s[0:i+1]]):
         print 'Matrix elements missing in definition!'
-        sys.exit(14)
+        sys.exit(17)
       a.append(s)
     return a
 
@@ -902,7 +927,7 @@ def read_QMin():
       break
   else:
     print 'No state keyword given!'
-    sys.exit(15)
+    sys.exit(18)
   nstates=0
   nmstates=0
   for mult,i in enumerate(states):
@@ -993,7 +1018,7 @@ def read_QMin():
       continue
     if 'nacdt' in s[0] or 'nacdr' in s[0]:
       print 'NACDR and NACDT are not supported!'
-      sys.exit(16)
+      sys.exit(19)
     if 'dmdr' in s[0]:
       QMin['dmdr']=[]
 
@@ -1035,13 +1060,13 @@ def read_SH2Ana(QMin):
   natom=int(sh2ana[0])
   if not natom==QMin['natom']:
     print 'Natom from QM.in and from SH2Ana.inp are inconsistent!'
-    sys.exit(17)
+    sys.exit(20)
 
   # check nstates
   nstates=int(sh2ana[1])
   if not nstates==QMin['nmstates']:
     print 'NMstates from QM.in and nstates from SH2Ana.inp are inconsistent!'
-    sys.exit(18)
+    sys.exit(21)
 
   # read the coordinate <-> variable mapping
   gvar=[]
@@ -1049,7 +1074,7 @@ def read_SH2Ana(QMin):
     s=sh2ana[i+2].lower().split()
     if s[0]!=QMin['geom'][i][0].lower():
       print 'Inconsistent atom labels in QM.in and SH2Ana.inp!'
-      sys.exit(19)
+      sys.exit(22)
     gvar.append(s[1:])
   var={}
   for i in range(natom):
@@ -1059,10 +1084,10 @@ def read_SH2Ana(QMin):
         continue
       if v[0:1]=='_':
         print 'Variable names must not start with an underscore!'
-        sys.exit(20)
+        sys.exit(23)
       if v in var:
         print 'Repeated variable in geom<->var mapping in SH2Ana.inp!'
-        sys.exit(21)
+        sys.exit(24)
       var[v]=[i,j]
 
   # read additional variables
@@ -1086,10 +1111,10 @@ def read_SH2Ana(QMin):
           break
         if s[0][0:1]=='_':
           print 'Variable names must not start with an underscore!'
-          sys.exit(22)
+          sys.exit(25)
         if s[0] in var:
           print 'Repeated variable in additional variables in SH2Ana.inp!'
-          sys.exit(23)
+          sys.exit(26)
         var[s[0]]=float(s[1])
 
   SH2ANA['var']=var
@@ -1112,7 +1137,7 @@ def read_SH2Ana(QMin):
   Hstring=find_lines(nstates,'Hamiltonian',sh2ana)
   if Hstring==[]:
     print 'No Hamiltonian defined in SH2Ana.inp!'
-    sys.exit(24)
+    sys.exit(27)
   fmat=func_mat(Hstring)
   SH2ANA['H']=fmat.mat(QMin['geom'],SH2ANA['var'])
 
@@ -1126,7 +1151,7 @@ def read_SH2Ana(QMin):
       Dstring=find_lines(nstates,'Derivatives %s' % (v),sh2ana)
       if Dstring==[]:
         print 'No derivative matrix for variable %s defined in SH2Ana.inp!' % (v)
-        sys.exit(25)
+        sys.exit(28)
       fmat=func_mat(Dstring)
       SH2ANA['deriv'][v]=fmat.mat(QMin['geom'],SH2ANA['var'])
 

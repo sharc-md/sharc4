@@ -10,7 +10,6 @@ basis cc-pvdz
 baslib ./basisset
 
 
-
     ## ======== CASSCF settings ============
     ## RASSCF is not possible with the interface
 
@@ -29,6 +28,11 @@ roots 4 2 2
     ## Number of extra state-averaging states with zero weight
 rootpad 1 0 0
 
+    ## Convergence thresholds in RASSCF 
+    ## see Molcas keyword THRS for details
+rasscf_thrs_e           1e-8
+rasscf_thrs_rot         1e-4
+rasscf_thrs_egrd        1e-4
 
 
     ## ======== METHOD settings ============
@@ -53,6 +57,10 @@ method casscf
     ## Enable Cholesky integrals for faster calculations on large molecules.
     ## This will enforce numerical gradients, also for CASSCF
 #cholesky
+
+    ## Cholesky decomposition accuracy
+    ## see CDTHreshold in &GATEWAY
+cholesky_accu 1e-4
 
     ## Use this in combination with "cholesky" to use Cholesky-accelerated SA-CASSCF gradients.
     ## This will only work for very recent MOLCAS versions.

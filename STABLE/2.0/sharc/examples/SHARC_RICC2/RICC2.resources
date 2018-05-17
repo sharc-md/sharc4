@@ -4,9 +4,7 @@
     ## ======== PATHS ============
 
     ## Paths to TURBOMOLE and ORCA
-#turbodir /usr/license/turbomole/6.6/TURBOMOLE/
-#turbodir /usr/license/turbomole/7.0/TURBOMOLE/
-turbodir /usr/license/turbomole/7.1/TURBOMOLE/
+turbodir /usr/license/turbomole/7.0/TURBOMOLE/
 
 orcadir  /usr/license/orca/latest/
 
