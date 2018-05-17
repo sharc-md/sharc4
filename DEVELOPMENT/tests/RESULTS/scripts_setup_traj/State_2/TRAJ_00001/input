@@ -1,3 +1,5 @@
+printlevel 2
+
 geomfile "geom"
 veloc external
 velocfile "veloc"
@@ -13,9 +15,15 @@ tmax 1000.000000
 stepsize 0.500000
 nsubsteps 25
 
-surf sharc
+surf diagonal
 coupling overlap
 nogradcorrect
 ekincorrect parallel_vel
-decoherence 0.1
-grad_all
+reflect_frustrated none
+decoherence_scheme edc
+decoherence_param 0.1
+hopping_procedure sharc
+grad_select
+eselect 0.001000
+nospinorbit
+write_overlap

@@ -1,9 +1,0 @@
-           3 ! maxmult
-           4           0           3 ! nstates_m
-          42 ! natom
-   12.402412136868223      ! dtstep
-  -78.049999999999997      ! ezero
-           1 ! calc_overlap
-           0 ! laser
-           3 ! nsteps
-          25 ! nsubsteps

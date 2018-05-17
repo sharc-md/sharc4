@@ -1,3 +1,0 @@
-molpro $MOLPRO/molpro
-scratchdir $SCRADIR/WORK
-savedir $SCRADIR/TRAJ/restart

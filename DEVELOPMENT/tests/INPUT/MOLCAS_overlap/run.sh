@@ -12,6 +12,9 @@ $SHARC/sharc.x input
 err=$?
 
 cp $COPY_DIR/output.* $PRIMARYDIR
+if [ ! $err == 0 ];
+then
+  cp $COPY_DIR/QM/* $PRIMARYDIR/QM/
+fi
 rm -r $COPY_DIR
-rm -r $SCRADIR/WORK/
 exit $err
