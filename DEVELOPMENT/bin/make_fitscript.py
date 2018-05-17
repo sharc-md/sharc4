@@ -1,5 +1,30 @@
 #!/usr/bin/env python2
 
+#******************************************
+#
+#    SHARC Program Suite
+#
+#    Copyright (c) 2018 University of Vienna
+#
+#    This file is part of SHARC.
+#
+#    SHARC is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    SHARC is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    inside the SHARC manual.  If not, see <http://www.gnu.org/licenses/>.
+#
+#******************************************
+
+#!/usr/bin/env python2
+
 # Modules:
 # Operating system, isfile and related routines, move files, create directories
 import sys
@@ -55,8 +80,8 @@ if sys.version_info[1]<5:
 
 # ======================================================================= #
 
-version='1.0'
-versiondate=datetime.date(2016,1,5)
+version='2.0'
+versiondate=datetime.date(2018,2,1)
 
 changelogstring='''
 
@@ -580,6 +605,9 @@ Each rate label must be unique.
     elif 'show' in s[0].lower():
       print print_reactions(rate_matrix,specmap)
     elif '+' in s[0]:
+      if len(s)<4:
+        print 'Please write "+ species1 species2 ratelabel"!'
+        continue
       if s[1]==s[2]:
         print '  Species labels identical! No reaction added.'
         continue
@@ -915,6 +943,7 @@ def get_functions_from_maxima(INFOS):
   out=readfile(outfile)
   functions=[]
   iline=-1
+  active=False
   while True:
     iline+=1
     if iline>=len(out):
@@ -925,7 +954,10 @@ def get_functions_from_maxima(INFOS):
         sys.exit(1)
     line=out[iline]
     if '###' in line[0:4]:
-      iline+=3
+      for j in range(1,4):
+        if '=' in out[iline+j]:
+          iline+=j
+          break
       string=''
       while True:
         line=out[iline]

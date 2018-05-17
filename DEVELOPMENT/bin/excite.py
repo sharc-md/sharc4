@@ -1,5 +1,30 @@
 #!/usr/bin/env python2
 
+#******************************************
+#
+#    SHARC Program Suite
+#
+#    Copyright (c) 2018 University of Vienna
+#
+#    This file is part of SHARC.
+#
+#    SHARC is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    SHARC is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    inside the SHARC manual.  If not, see <http://www.gnu.org/licenses/>.
+#
+#******************************************
+
+#!/usr/bin/env python2
+
 # Script for the calculation of Wigner distributions from molden frequency files
 # 
 # usage 
@@ -52,9 +77,9 @@ U_TO_AMU = 1./5.4857990943e-4            # conversion from g/mol to amu
 BOHR_TO_ANG=0.529177211
 PI = math.pi
 
-version='1.0'
-versionneeded=[0.2, 1.0]
-versiondate=datetime.date(2014,10,8)
+version='2.0'
+versionneeded=[0.2, 1.0, 2.0, float(version)]
+versiondate=datetime.date(2018,2,1)
 
 # ======================================================================================================================
 # ======================================================================================================================
@@ -257,12 +282,17 @@ def get_statemap(states):
     i+=1
   return statemap
 
-def print_statemap(statemap):
+def print_statemap(statemap,diag=False):
   n=len(statemap)
-  s='#State\tMult\tM_s\tQuant\n'
-  for i in range(1,n+1):
-    (mult,state,ms)=statemap[i]
-    s+='%i\t%i\t%+3.1f\t%i\n' % (i,mult,ms,state)
+  if diag:
+    s='# State map for diagonal states:\n#State\tQuant\n'
+    for i in range(1,n+1):
+      s+='%i\t%i\n' % (i,i)
+  else:
+    s='# State map for MCH states:\n#State\tMult\tM_s\tQuant\n'
+    for i in range(1,n+1):
+      (mult,state,ms)=statemap[i]
+      s+='%i\t%i\t%+3.1f\t%i\n' % (i,mult,ms,state)
   return s
 
 # ======================================================================================================================
@@ -312,8 +342,8 @@ def displaywelcome():
   string+='  '+'='*80+'\n\n'
   string+='''
 This script automatizes to read-out the results of initial excited-state calculations for SHARC.
-It calculates oscillator strength (in MCH and diagonal basis) and stochastically determines whether
-a trajectory is bright or not.
+It calculates oscillator strength (in MCH and diagonal basis) and stochastically 
+determines initial states for trajectories.
   '''
   print string
 
@@ -914,7 +944,8 @@ Note that this is applied to all initial conditions.'''
       print '\nNOTE: These numbers are interpreted as diabatic states.\nThe diabatic basis is the set of states computed in ICOND_00000/.\nPlease carefully analyze these states to decide which diabatic states to request.'
       #print 'NOTE: You can only enter one initial state.'
     if 'states' in INFOS:
-      print print_statemap(get_statemap(INFOS['states']))
+      diago=(INFOS['repr']=='diag')
+      print print_statemap(get_statemap(INFOS['states']),diag=diago)
 
     while True:
       allowed_states=question('List of initial states:',int,ranges=True)
@@ -934,20 +965,21 @@ Note that this is applied to all initial conditions.'''
     print centerstring('Considered states',60,'-')+'\n'
     print 'From which state should the excitation originate (for computation of excitation energies and oscillator strength)?'
     INFOS['initstate']=question('Lower state for excitation?',int,[1])[0]-1
-    if INFOS['excite']==3:
-      if 'states' in INFOS:
-        print print_statemap(get_statemap(INFOS['states']))
-      allstates=question('Do you want to include all states in the selection?',bool,True)
-      if allstates:
-        INFOS['allowed']=set()
-      else:
-        print '\nPlease enter the states which you want to EXCLUDE from the selection procedure.'
-        a=question('Excluded states:',int,ranges=True)
-        INFOS['allowed']=set([-i for i in a])
-      print ''
   else:
     INFOS['initstate']=0
 
+  if INFOS['excite']==3:
+    if 'states' in INFOS:
+      diago=(INFOS['repr']=='diag')
+      print print_statemap(get_statemap(INFOS['states']),diag=diago)
+    allstates=question('Do you want to include all states in the selection?',bool,True)
+    if allstates:
+      INFOS['allowed']=set()
+    else:
+      print '\nPlease enter the states which you want to EXCLUDE from the selection procedure.'
+      a=question('Excluded states:',int,ranges=True)
+      INFOS['allowed']=set([-i for i in a])
+    print ''
 
   if INFOS['excite']==3:
     print centerstring('Random number seed',60,'-')+'\n'
@@ -980,6 +1012,7 @@ Note that this is applied to all initial conditions.'''
 def get_initconds(INFOS):
   ''''''
 
+  print 'Reading initial condition file ...'
   if not INFOS['read_QMout'] and not INFOS['make_list']:
     INFOS['initf'].seek(0)
     while True:
@@ -992,22 +1025,29 @@ def get_initconds(INFOS):
         break
 
   initlist=[]
+  width_bar=50
   for icond in range(1,INFOS['ninit']+1):
     initcond=INITCOND()
     initcond.init_from_file(INFOS['initf'],INFOS['eref'],icond)
     initlist.append(initcond)
-  print 'Number of initial conditions in file:       %5i' % (INFOS['ninit'])
+    done=width_bar*(icond)/INFOS['ninit']
+    sys.stdout.write('\r  Progress: ['+'='*done+' '*(width_bar-done)+'] %3i%%' % (done*100/width_bar))
+  print '\nNumber of initial conditions in file:       %5i' % (INFOS['ninit'])
   return initlist
 
 # ======================================================================================================================
 
 def make_list(INFOS,initlist):
+  print '\nMaking dummy states ...'
+  width_bar=50
   for icond in range(1,INFOS['ninit']+1):
     estates=[]
     for istate in range(INFOS['nstates']):
       estates.append(STATE(i=istate+1))
     initlist[icond-1].addstates(estates)
-  print 'Number of initial conditions where states were added:   %5i' % (INFOS['ninit'])
+    done=width_bar*(icond)/INFOS['ninit']
+    sys.stdout.write('\r  Progress: ['+'='*done+' '*(width_bar-done)+'] %3i%%' % (done*100/width_bar))
+  print '\nNumber of initial conditions where states were added:   %5i' % (INFOS['ninit'])
   return initlist
 
 # ======================================================================================================================
@@ -1015,15 +1055,19 @@ def make_list(INFOS,initlist):
 def get_QMout(INFOS,initlist):
   ''''''
 
-  if NONUMPY:
+  print '\nReading QM.out data ...'
+  if NONUMPY and  INFOS['diag']:
     print 'NUMPY not found, will use external SHARC diagonalizer...'
     global diagon
     diagon=diagonalizer()
   ncond=0
   initstate=INFOS['initstate']
+  width_bar=50
   for icond in range(1,INFOS['ninit']+1):
     # look for a QM.out file
     qmfilename=INFOS['iconddir']+'/ICOND_%05i/QM.out' % (icond)
+    done=width_bar*(icond)/INFOS['ninit']
+    sys.stdout.write('\r  Progress: ['+'='*done+' '*(width_bar-done)+'] %3i%%' % (done*100/width_bar))
     if not os.path.isfile(qmfilename):
       #print 'No QM.out for ICOND_%05i!' % (icond)
       continue
@@ -1059,7 +1103,7 @@ def get_QMout(INFOS,initlist):
     initlist[icond-1].addstates(estates)
     if INFOS['diabatize']:
       initlist[icond-1].Diabmap=Diabmap
-  print 'Number of initial conditions with QM.out:   %5i' % (ncond)
+  print '\nNumber of initial conditions with QM.out:   %5i' % (ncond)
   return initlist
 
 # ======================================================================================================================
@@ -1080,7 +1124,12 @@ def excite(INFOS,initlist):
               if jstate.Prob>maxprob:
                 maxprob=jstate.Prob
     # set the excitation flags
+    print '\nSelecting initial states ...'
+    width_bar=50
+    nselected=0
     for i,icond in enumerate(initlist):
+      done=width_bar*(i+1)/len(initlist)
+      sys.stdout.write('\r  Progress: ['+'='*done+' '*(width_bar-done)+'] %3i%%' % (done*100/width_bar))
       if icond.statelist==[]:
         continue
       else:
@@ -1100,6 +1149,7 @@ def excite(INFOS,initlist):
           for j,jstate in enumerate(icond.statelist):
             if emin <= jstate.Eexc <= emax and j+1 in allowed:
               jstate.Excited=True
+              nselected+=1
             else:
               jstate.Excited=False
         elif INFOS['excite']==3:
@@ -1108,10 +1158,13 @@ def excite(INFOS,initlist):
             if emin <= jstate.Eexc <= emax:
               if -(j+1) not in INFOS['allowed']:
                 jstate.Excite(maxprob,INFOS['erange'])
+                if jstate.Excited:
+                  nselected+=1
               else:
                 jstate.Excited=False
             else:
               jstate.Excited=False
+    print '\nNumber of initial states:                   %5i' % (nselected)
 
   # statistics
   maxprob=0.
@@ -1134,7 +1187,7 @@ def excite(INFOS,initlist):
           ninrange[j]+=1
         if jstate.Excited:
           nexc[j]+=1
-  print 'Number of initial conditions excited:'
+  print '\nNumber of initial conditions excited:'
   print 'State   Selected   InRange   Total'
   for i in range(len(ntotal)):
     print '  % 3i       % 4i      % 4i    % 4i' % (i+1,nexc[i],ninrange[i],ntotal[i])
