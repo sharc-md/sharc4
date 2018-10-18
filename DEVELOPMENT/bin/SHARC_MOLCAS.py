@@ -205,6 +205,9 @@ changelogstring='''
 
 29.01.2018:     2.0
 - rework for openMOLCAS
+
+29.06.2018:
+- can do nonadiabatic couplings (nacdr keyword)
 '''
 
 # ======================================================================= #
@@ -860,7 +863,7 @@ def makermatrix(a,b):
 
 # ======================================================================= #
 def getversion(out,MOLCAS):
-    allowedrange=[18.0,18.999]
+    allowedrange=[ (18.0,18.999), (8.29999,8.30001) ]
     # first try to find $MOLCAS/.molcasversion
     molcasversion=os.path.join(MOLCAS,'.molcasversion')
     if os.path.isfile(molcasversion):
@@ -884,7 +887,8 @@ def getversion(out,MOLCAS):
         print 'No MOLCAS version found.\nCheck whether MOLCAS path is set correctly in MOLCAS.resources\nand whether $MOLCAS/.molcasversion exists.'
         sys.exit(17)
     v=float(a.group())
-    if not allowedrange[0]<=v<=allowedrange[1]:
+    if not any( [ i[0]<=v<=i[1] for i in allowedrange ] ):
+        #allowedrange[0]<=v<=allowedrange[1]:
         print 'MOLCAS version %3.1f not supported! ' % (v)
         sys.exit(18)
     if DEBUG:
@@ -3146,6 +3150,7 @@ def arrangeQMout(QMin,QMoutall,QMoutDyson):
                 if (m1,s1,m2,s2) in QMin['nacmap']:
                     name='nacdr_%i_%i_%i_%i' % (m1,min(s1,s2),m2,max(s1,s2))
                     QMout['nacdr'][i-1][j-1]=deepcopy(QMoutall[name]['nacdr'][i-1][j-1])
+                    QMout['nacdr'][j-1][i-1]=deepcopy(QMoutall[name]['nacdr'][j-1][i-1])
 
     if 'socdr' in QMin:
         socdr=[ [ [ [ 0.0 for xyz in range(3) ] for iatom in range(QMin['natom']) ] for istate in range(QMin['nmstates'])] for jstate in range(QMin['nmstates'])]
