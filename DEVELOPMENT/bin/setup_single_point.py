@@ -2283,7 +2283,7 @@ Typical values for GAUSSIAN are 0.90-0.98.'''
           continue
       f=[ int(i) for i in l.split() ]
       INFOS['theodore.frag'].append(f)
-      INFOS['theodore.count']=len(INFOS['theodore.prop'])+len(INFOS['theodore.frag'])**2
+    INFOS['theodore.count']=len(INFOS['theodore.prop'])+len(INFOS['theodore.frag'])**2
 
 
   return INFOS
@@ -2566,7 +2566,9 @@ A value of 0 means that running in parallel will not make the calculation faster
           continue
       f=[ int(i) for i in l.split() ]
       INFOS['theodore.frag'].append(f)
-      INFOS['theodore.count']=len(INFOS['theodore.prop'])+len(INFOS['theodore.frag'])**2
+    INFOS['theodore.count']=len(INFOS['theodore.prop'])+len(INFOS['theodore.frag'])**2
+    if 'ORCA.ctfile' in INFOS:
+        INFOS['theodore.count']+=6
 
 
   return INFOS

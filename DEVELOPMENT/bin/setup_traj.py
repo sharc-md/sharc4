@@ -3334,7 +3334,7 @@ Typical values for GAUSSIAN are 0.90-0.98.'''
           continue
       f=[ int(i) for i in l.split() ]
       INFOS['theodore.frag'].append(f)
-      INFOS['theodore.count']=len(INFOS['theodore.prop'])+len(INFOS['theodore.frag'])**2
+    INFOS['theodore.count']=len(INFOS['theodore.prop'])+len(INFOS['theodore.frag'])**2
 
 
   return INFOS
@@ -3629,9 +3629,9 @@ A value of 0 means that running in parallel will not make the calculation faster
           continue
       f=[ int(i) for i in l.split() ]
       INFOS['theodore.frag'].append(f)
-      INFOS['theodore.count']=len(INFOS['theodore.prop'])+len(INFOS['theodore.frag'])**2
-      if 'ORCA.ctfile' in INFOS:
-          INFOS['theodore.count']+=6
+    INFOS['theodore.count']=len(INFOS['theodore.prop'])+len(INFOS['theodore.frag'])**2
+    if 'ORCA.ctfile' in INFOS:
+        INFOS['theodore.count']+=6
 
 
   return INFOS
@@ -3818,7 +3818,7 @@ def writeSHARCinput(INFOS,initobject,iconddir,istate):
   s+='\n'
 
   if INFOS['atommaskarray']:
-    s+='atommask external\natommaskfile atommask\n\n'
+    s+='atommask external\natommaskfile "atommask"\n\n'
 
   s+='surf %s\n' % (INFOS['surf'])
   s+='coupling %s\n' % (Couplings[INFOS['coupling']]['name'])
@@ -3858,6 +3858,8 @@ def writeSHARCinput(INFOS,initobject,iconddir,istate):
   if Interfaces[INFOS['interface']]['script']=='SHARC_MOLPRO.py':
     s+='select_directly\n'
   if Interfaces[INFOS['interface']]['script']=='SHARC_MOLCAS.py':
+    s+='select_directly\n'
+  if Interfaces[INFOS['interface']]['script']=='SHARC_ORCA.py':
     s+='select_directly\n'
   if not INFOS['soc']:
     s+='nospinorbit\n'
@@ -3918,9 +3920,9 @@ def writeSHARCinput(INFOS,initobject,iconddir,istate):
     atommf=open(atommfname,'w')
     for i,atom in enumerate(initobject.atomlist):
       if i+1 in INFOS['atommaskarray']:
-        atommf.write('F\n')
-      else:
         atommf.write('T\n')
+      else:
+        atommf.write('F\n')
     atommf.close()
 
   return
