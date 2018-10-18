@@ -88,6 +88,9 @@ changelogstring='''
 - functionality as SHARC_GAUSSIAN.py, minus restricted triplets
 - QM/MM capabilities in combination with TINKER
 - AO overlaps computed by PyQuante (only up to f functions)
+
+11.09.2018: 
+- added "basis_per_element", "basis_per_atom", and "hfexchange" keywords
 '''
 
 # ======================================================================= #
@@ -1055,6 +1058,8 @@ def prepare_QMMM(QMin,table_file):
 
 
     # read table file
+    print '===== Running QM/MM preparation ===='
+    print 'Reading table file ...         ',datetime.datetime.now()
     QMMM={}
     QMMM['qmmmtype']=[]
     QMMM['atomtype']=[]
@@ -1086,6 +1091,7 @@ def prepare_QMMM(QMin,table_file):
             QMMM['MM_atoms'].append(iatom)
 
     # make connections redundant and fill bond array
+    print 'Checking connection table ...  ',datetime.datetime.now()
     QMMM['bonds']=set()
     for iatom in range(QMMM['natom_table']):
         for jatom in QMMM['connect'][iatom]:
@@ -1095,6 +1101,7 @@ def prepare_QMMM(QMin,table_file):
 
 
     # find link bonds
+    print 'Finding link bonds ...         ',datetime.datetime.now()
     QMMM['linkbonds']=[]
     QMMM['LI_atoms']=[]
     for i,j in QMMM['bonds']:
@@ -1158,6 +1165,7 @@ def prepare_QMMM(QMin,table_file):
 
 
     # create reordering dicts
+    print 'Creating reorder mappings ...  ',datetime.datetime.now()
     QMMM['reorder_input_MM']={}
     QMMM['reorder_MM_input']={}
     j=-1
@@ -1196,6 +1204,7 @@ def prepare_QMMM(QMin,table_file):
 
     # process charge redistribution around link bonds
     # point charges are in input geometry ordering
+    print 'Charge redistribution ...      ',datetime.datetime.now()
     QMMM['charge_distr']=[]
     for iatom in range(QMMM['natom_table']):
         if QMMM['qmmmtype'][iatom]=='qm':
@@ -1261,6 +1270,7 @@ def execute_tinker(QMin,ff_file_path):
     ##writefile(filename,string)
 
 
+    print 'Writing TINKER inputs ...      ',datetime.datetime.now()
     # key file
     string='parameters %s\nQMMM %i\n' % (ff_file_path, QMMM['natom_table']+len(QMMM['linkbonds']))
     string+='QM %i %i\n' % (-1,len(QMMM['QM_atoms']))
@@ -1269,9 +1279,13 @@ def execute_tinker(QMin,ff_file_path):
           ' '.join( [ str(QMMM['reorder_input_MM'][i]+1) for i in QMMM['LI_atoms'] ] ) )
     string+='MM %i %i\n' % (-(1+len(QMMM['QM_atoms'])+len(QMMM['linkbonds'])),
                              QMMM['natom_table']+len(QMMM['linkbonds']) )
-    string+='\nDEBUG\n'
+    if DEBUG:
+        string+='\nDEBUG\n'
+    if QMin['ncpu']>1:
+        string+='\nOPENMP-THREADS %i\n' % QMin['ncpu']
     if len(QMMM['linkbonds'])>0:
         string+='atom    999    99    HLA     "Hydrogen Link Atom"        1      1.008     0\n'
+    #string+='CUTOFF 1.0\n'
     string+='\n'
     filename=os.path.join(WORKDIR,'TINKER.key')
     writefile(filename,string)
@@ -1310,7 +1324,7 @@ def execute_tinker(QMin,ff_file_path):
 
 
     # run TINKER
-    runTINKER(WORKDIR,QMin['tinker'],QMin['savedir'],strip=False)
+    runTINKER(WORKDIR,QMin['tinker'],QMin['savedir'],strip=False,ncpu=QMin['ncpu'])
 
 
     # read out TINKER
@@ -1323,11 +1337,11 @@ def execute_tinker(QMin,ff_file_path):
         sys.exit(11)
 
     # get MM energy (convert from kcal to Hartree)
-    for line in output:
-        if 'MMEnergy' in line:
-            QMMM['MMEnergy']=float(line.split()[-1])*kcal_to_Eh
+    print 'Searching MMEnergy ...         ',datetime.datetime.now()
+    QMMM['MMEnergy']=float(output[1].split()[-1])*kcal_to_Eh
 
     # get MM gradient (convert from kcal/mole/A to Eh/bohr)
+    print 'Searching MMGradient ...       ',datetime.datetime.now()
     QMMM['MMGradient']={}
     for line in output:
         if 'MMGradient' in line:
@@ -1336,8 +1350,11 @@ def execute_tinker(QMin,ff_file_path):
             iatom_input=QMMM['reorder_MM_input'][iatom_MM]
             grad=[ float(i)*kcal_to_Eh*au2a for i in s[2:5] ]
             QMMM['MMGradient'][iatom_input]=grad
+        if 'MMq' in line:
+          break
 
     # get MM point charges
+    print 'Searching MMpc_raw ...         ',datetime.datetime.now()
     QMMM['MMpc_raw']={}
     for i in range(QMMM['natom_table']):
         QMMM['MMpc_raw'][i]=0.
@@ -1347,22 +1364,19 @@ def execute_tinker(QMin,ff_file_path):
         line=output[iline]
         if 'MMq' in line:
             break
+    iatom_MM=len(QMMM['QM_atoms'])+len(QMMM['LI_atoms'])-1
     while True:
         iline+=1
+        iatom_MM+=1
         line=output[iline]
         if 'NMM' in line:
             break
         s=line.split()
-        coord=[ float(i) for i in s[0:3] ]
         q=float(s[-1])
-        # find right atom
-        for iatom_input in range(QMMM['natom_table']):
-            coord2=QMMM['MM_coords'][iatom_input][1:4]
-            if coords_same(coord,coord2):
-                QMMM['MMpc_raw'][iatom_input]=q
-                break
+        QMMM['MMpc_raw'][QMMM['reorder_MM_input'][iatom_MM]]=q
 
     # compute actual charges (including redistribution)
+    print 'Redistributing charges ...     ',datetime.datetime.now()
     QMMM['MMpc']={}
     for i in range(QMMM['natom_table']):
         s=0.
@@ -1371,6 +1385,7 @@ def execute_tinker(QMin,ff_file_path):
         QMMM['MMpc'][i]=s
 
     # make list of pointcharges without QM atoms
+    print 'Finalizing charges ...         ',datetime.datetime.now()
     QMMM['pointcharges']=[]
     QMMM['reorder_pc_input']={}
     ipc=0
@@ -1393,9 +1408,11 @@ def execute_tinker(QMin,ff_file_path):
     for line in output:
         if 'kcal/mol' in line:
             s=line.split()
-            QMMM['MMEnergy_terms'][s[0]]=float(s[-2])*kcal_to_Eh
+            #QMMM['MMEnergy_terms'][s[0]]=float(s[-2])*kcal_to_Eh
+            QMMM['MMEnergy_terms'][s[0]]=float(s[2])
 
-
+    print '===================================='
+    print '\n'
 
     # DONE! Final results:
     # QMMM['MMEnergy']
@@ -1440,11 +1457,12 @@ def coords_same(coord1,coord2):
 
 # ======================================================================= #
 
-def runTINKER(WORKDIR,tinker,savedir,strip=False):
+def runTINKER(WORKDIR,tinker,savedir,strip=False,ncpu=1):
     prevdir=os.getcwd()
     os.chdir(WORKDIR)
     string=os.path.join(tinker,'bin','tkr2qm_s')+' '
     string+=' < TINKER.in'
+    os.environ['OMP_NUM_THREADS']=str(ncpu)
     if PRINT or DEBUG:
         starttime=datetime.datetime.now()
         sys.stdout.write('START:\t%s\t%s\t"%s"\n' % (shorten_DIR(WORKDIR),starttime,shorten_DIR(string)))
@@ -1664,7 +1682,8 @@ def readQMin(QMinfilename):
     QMin['frozcore']=0
     QMin['Atomcharge']=0
     for i in range(2,natom+2):
-        if not containsstring('[a-zA-Z][a-zA-Z]?[0-9]*.*[-]?[0-9]+[.][0-9]*.*[-]?[0-9]+[.][0-9]*.*[-]?[0-9]+[.][0-9]*', QMinlines[i]):
+        # only check line formatting for first 1000 atoms
+        if i<1000 and not containsstring('[a-zA-Z][a-zA-Z]?[0-9]*.*[-]?[0-9]+[.][0-9]*.*[-]?[0-9]+[.][0-9]*.*[-]?[0-9]+[.][0-9]*', QMinlines[i]):
             print 'Input file does not comply to xyz file format! Maybe natom is just wrong.'
             sys.exit(25)
         fields=QMinlines[i].split()
@@ -2042,11 +2061,14 @@ def readQMin(QMinfilename):
               'frozen'                  :-1
               }
     floats  ={
+              'hfexchange'              :-1.
               }
     special ={'paddingstates'           :[0 for i in QMin['states']],
               'charge'                  :[i%2 for i in range(len(QMin['states']))],
               'theodore_prop'           :['Om','PRNTO','S_HE','Z_HE','RMSeh'],
-              'theodore_fragment'       :[]
+              'theodore_fragment'       :[],
+              'basis_per_element'       :{},
+              'basis_per_atom'          :{}
               }
 
     # create QMin subdictionary
@@ -2118,6 +2140,16 @@ def readQMin(QMinfilename):
                 else:
                     print 'Length of "charge" does not match length of "states"!'
                     sys.exit(49)
+
+            # basis_per_element can occur several times
+            elif line[0]=='basis_per_element':
+                line2=orig.split(None,2)
+                QMin['template']['basis_per_element'][line2[1]]=line2[2]
+
+            # basis_per_element can occur several times
+            elif line[0]=='basis_per_atom':
+                line2=orig.split(None,2)
+                QMin['template']['basis_per_atom'][int(line2[1])-1]=line2[2]
 
 
     # go through sh2Orca for the theodore settings and QM/MM file names
@@ -2575,6 +2607,8 @@ def generate_joblist(QMin):
             if 3 in QMin['multmap'][-QMin1['IJOB']] and QMin['jobs'][QMin1['IJOB']]['restr']:
               QMin1['states'][0]=1
               QMin1['states_to_do'][0]=1
+            if QMin1['qmmm']:
+              QMin1['qmmm']=True
             icount+=1
             schedule[-1][i]=QMin1
 
@@ -2599,6 +2633,8 @@ def generate_joblist(QMin):
                 QMin1['gradmap']=list(gradjob[i])
                 QMin1['ncpu']=cpu_per_run[icount]
                 QMin1['gradonly']=[]
+                if QMin1['qmmm']:
+                  QMin1['qmmm']=True
                 icount+=1
                 schedule[-1][i]=QMin1
 
@@ -2840,12 +2876,24 @@ def writeORCAinput(QMin):
       string+='%%pal\n  nprocs %i\nend\n\n' % (QMin['ncpu'])
     string+='%%maxcore %i\n\n' % (QMin['memory'])
 
+    # basis sets
+    if QMin['template']['basis_per_element']:
+      string+='%basis\n'
+      for i in QMin['template']['basis_per_element']:
+        string+='newgto %s "%s" end\n' % (i,QMin['template']['basis_per_element'][i])
+      string+='end\n\n'
+
     # frozen core
     if QMin['frozcore']>0:
       string+='%%method\nfrozencore -%i\nend\n\n' % (2*QMin['frozcore'])
     else:
       string+='%method\nfrozencore FC_NONE\nend\n\n'
 
+    # hf exchange
+    if QMin['template']['hfexchange']>=0.:
+      string+='%%method\nScalHFX = %f\nScalDFX = %f\nend\n\n' % (QMin['template']['hfexchange'],1.-QMin['template']['hfexchange'])
+
+    # excited states
     if ncalc>0 and not 'AOoverlap' in QMin:
       string+='%tddft\n'
       if not QMin['template']['no_tda']:
@@ -2861,6 +2909,7 @@ def writeORCAinput(QMin):
         string+='iroot %i\n' % (egrad[1]-(gsmult==egrad[0]))
       string+='end\n\n'
 
+    # output
     string+='%output\n'
     if 'AOoverlap' in QMin or 'ion' in QMin or 'theodore' in QMin:
       string+='Print[ P_Overlap ] 1\n'
@@ -2868,6 +2917,7 @@ def writeORCAinput(QMin):
       string+='Print[ P_MOs ] 1\n'
     string+='end\n\n'
 
+    # scf
     string+='%scf\n'
     if 'AOoverlap' in QMin:
       string+='maxiter 0\n'
@@ -2883,7 +2933,10 @@ def writeORCAinput(QMin):
     string+='coords\n'
     for iatom,atom in enumerate(QMin['geo']):
       label=atom[0]
-      string+='%4s %16.9f %16.9f %16.9f\n' % (label,atom[1],atom[2],atom[3])
+      string+='%4s %16.9f %16.9f %16.9f' % (label,atom[1],atom[2],atom[3])
+      if iatom in QMin['template']['basis_per_atom']:
+        string+=' newgto "%s" end' % (QMin['template']['basis_per_atom'][iatom])
+      string+='\n'
     string+='end\nend\n\n'
 
     # point charges
@@ -4521,7 +4574,7 @@ def getenergy(logfile,ijob,QMin):
       nstates=estates_to_extract[imult-1]
       if nstates>0:
         for iline,line in enumerate(f):
-          if 'TD-DFT/TDA EXCITED STATES' in line or 'TD-DFT EXCITED STATES' in line or 'RPA EXCITED STATES' in line:
+          if 'TD-DFT/TDA EXCITED STATES' in line or 'TD-DFT EXCITED STATES' in line or 'RPA EXCITED STATES' in line or 'CIS-EXCITED STATES' in line:
             break
         finalstring='-EXCITATION SPECTRA'
         while True:
@@ -4938,7 +4991,7 @@ def main():
     QMin,schedule=generate_joblist(QMin)
     printQMin(QMin)
     if DEBUG:
-        pprint.pprint(schedule,depth=1)
+        pprint.pprint(schedule,depth=3)
 
     # run all the ADF jobs
     errorcodes=runjobs(schedule,QMin)
