@@ -962,7 +962,7 @@ def read_QMin():
       geom[i][j+1]/=factor
 
   # find init, samestep, restart
-  for line in qmin:
+  for line in qmin[2:]:
     line=line.split('#')[0]
     s=line.split()
     if len(s)==0:
