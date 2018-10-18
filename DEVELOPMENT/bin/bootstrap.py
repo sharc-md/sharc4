@@ -553,7 +553,7 @@ def do_calc(INFOS):
         try:
           for icpu in range(idone_step):
             directory=os.path.join(tmproot,'cpu_%i' % icpu)
-            constants=pool.apply_async(make_job , [pop_full,indices[icpu],INFOS['dt'],directory,fit2,INFOS['gnuplot']])
+            constants=pool.apply_async(make_job , [pop_full,indices[icpu],INFOS['dt'],directory,fit2,INFOS['gnuplot'],idone+icpu-idone_step+1])
             constants_step.append(constants)
           pool.close()
           pool.join()
@@ -568,7 +568,7 @@ def do_calc(INFOS):
         try:
           for icpu in range(idone_step):
             directory=os.path.join(tmproot,'cpu_%i' % 0)
-            constants=make_job(pop_full,indices[icpu],INFOS['dt'],directory,fit2,INFOS['gnuplot'])
+            constants=make_job(pop_full,indices[icpu],INFOS['dt'],directory,fit2,INFOS['gnuplot'],idone+icpu-idone_step+1)
             constants_step.append(constants)
         except Exception, e:
           os.chdir(prevdir)
@@ -719,7 +719,7 @@ def do_calc(INFOS):
 
 class KeyboardInterruptError(Exception): pass
 
-def make_job(pop_full,indices,dt,directory,fit2,gnuplot):
+def make_job(pop_full,indices,dt,directory,fit2,gnuplot,idone):
   sys.tracebacklimit=0
   #signal.signal(signal.SIGINT, signal.SIG_IGN)
   try:
@@ -727,6 +727,9 @@ def make_job(pop_full,indices,dt,directory,fit2,gnuplot):
     string=make_data_string(pop_full,indices,dt)
     filename=os.path.join(directory,'data')
     writefile(filename,string)
+    if DEBUG:
+      filename='data_%i.dat' % idone
+      writefile(filename,string)
     # write fit file
     filename=os.path.join(directory,'fit.gp')
     writefile(filename,fit2)
@@ -867,8 +870,14 @@ python bootstrap.py
 This interactive program combines a bootstrap_data directory and a model-fit gnuplot script
 and computes error statistics for the model fit.
 '''
-
   description=''
+
+  parser = OptionParser(usage=usage, description=description)
+  parser.add_option('--debug', dest='D', action='store_true',help="Save all sampled pop.data")
+  (options, args) = parser.parse_args()
+  global DEBUG
+  DEBUG=options.D
+
   displaywelcome()
   open_keystrokes()
 
