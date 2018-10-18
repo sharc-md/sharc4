@@ -521,7 +521,7 @@ def printQMin(QMin):
       string+='TD-'
   else:
       string+='TDA-'
-  string+=QMin['template']['functional'].split()[1].upper()
+  string+=QMin['template']['functional'].split()[-1].upper()
   string+='/%s' % (QMin['template']['basis'])
   parts=[]
   if QMin['template']['relativistic']:
@@ -1937,7 +1937,7 @@ def readQMin(QMinfilename):
         print 'COSMO is not compatible with gradient calculations!'
         sys.exit(62)
     if 'grad' in QMin:
-        allowed_functionals=['lda','gga','hybrid']
+        allowed_functionals=['lda','gga','hybrid','hartreefock']
         if not QMin['template']['functional'].split()[0].lower() in allowed_functionals:
             print 'Gradients can only be calculated with these functional classes: %s' % allowed_functionals
             sys.exit(63)
@@ -2874,7 +2874,10 @@ def writeADFinput(QMin):
     elif 'grad' in QMin:
         resfile='TAPE21.guess'
     if resfile:
-        string+='RESTART %s &\n  nogeo\n  nohes\nEND\n\n' % resfile
+        if QMin['ADFversion']>=(2017,212):
+            string+='RESTART\n  file %s\n  nogeo\n  nohes\nEND\n\n' % resfile
+        else:
+            string+='RESTART %s &\n  nogeo\n  nohes\nEND\n\n' % resfile
 
     # QM/MM
     if QMin['template']['qmmm'] and not 'AOoverlap' in QMin:
@@ -2950,7 +2953,7 @@ def runADF(WORKDIR,ADF,ncpu,savedir,strip=False):
         endtime=datetime.datetime.now()
         sys.stdout.write('FINISH:\t%s\t%s\tRuntime: %s\tError Code: %i\n' % (shorten_DIR(WORKDIR),endtime,endtime-starttime,runerror))
         sys.stdout.flush()
-    if DEBUG and runerror!=0:
+    if DEBUG or runerror!=0:
         copydir=os.path.join(savedir,'debug_ADF_stdout')
         if not os.path.isdir(copydir):
             mkdir(copydir)
