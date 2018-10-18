@@ -876,14 +876,14 @@ def get_general():
           break
         else:
           print 'Choose one of the following: %s' % (list(kernels))
-      w=question('Choose width of the smoothing function (in units of the X columns):',float,[25.0])[0]
+      w=question('Choose width of the smoothing function (in units of the T column):',float,[25.0])[0]
       INFOS['convolute_T']={'function': kernels[kern]['f'](w)}
       #print 'Choose the size of the grid along X:'
       INFOS['convolute_T']['npoints']=question('Size of the grid along T:',int,[200])[0]
-      print '\nChoose minimum and maximum of the grid along X:'
-      print 'Enter either a single number a (X grid from  xmin-a*width  to  xmax+a*width)'
-      print '        or two numbers a and b (X grid from  a  to  b)'
-      INFOS['convolute_T']['xrange']=question('Xrange:',float,[kernels[kern]['factor']])
+      print '\nChoose minimum and maximum of the grid along T:'
+      print 'Enter either a single number a (T grid from  xmin-a*width  to  xmax+a*width)'
+      print '        or two numbers a and b (T grid from  a  to  b)'
+      INFOS['convolute_T']['xrange']=question('Trange:',float,[kernels[kern]['factor']])
       if len(INFOS['convolute_T']['xrange'])>2:
         INFOS['convolute_T']['xrange']=INFOS['convolute_T']['xrange'][:2]
 
@@ -1179,10 +1179,16 @@ def synchronize( INFOS, data1 ):
   data3['tmin']=min(times)
   data3['tmax']=max(times)
   nx=len(data2[0][0])/2
-  xmin=data2[0][0][0]
-  xmax=xmin
-  ymin=data2[0][0][nx]
-  ymax=ymin
+  for it1,t1 in enumerate(times):
+    xmin=data2[it1][0][0]
+    xmax=xmin
+    if xmax==xmin:
+      break
+  for it1,t1 in enumerate(times):
+    ymin=data2[it1][0][nx]
+    ymax=ymin
+    if ymax==ymin:
+      break
   for T in data2:
     for X in T:
       xmin=min( [xmin]+list(X[:nx]) )
