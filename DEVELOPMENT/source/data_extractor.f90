@@ -23,13 +23,12 @@
 
 !> # Program DATA_EXTRACTOR.X
 !> \authors Sebastian Mai, Philipp Marquetand
-!> \date 09.03.2017
+!> \date 22.10.2018
 !>
 !> This program reads the output.dat file of a trajectory and calculates various
 !> properties per timestep, which are printed in plottable tables.
 !>
 !> Usage: '$SHARC/data_extractor.x <output.dat>'
-!> No further files are necessary, the output.dat file contains all relevant data.
 !>
 !> If a file "Reference/QM.out" exists, the overlap matrix from this file is read 
 !> and used as reference overlap for along-trajectory-diabatization.
@@ -37,12 +36,16 @@
 !> Output files:
 !> - energy.out 
 !> - fosc.out
+!> - fosc_act.out
 !> - coeff_diab.out
 !> - coeff_MCH.out
 !> - coeff_diag.out
 !> - spin.out
-!> - prop.out
+!> - prob.out
 !> - expec.out
+!> - expec_MCH.out
+!> - dip_mom_diag.out
+!> - dip_mom_proj.out
 !> 
 !> Additionally, the output file <input.file>.ext contains build infos of the data_extractor program
 program data_extractor
@@ -69,6 +72,9 @@ program data_extractor
   integer, parameter :: u_info=42         !< output.dat.ext
   integer, parameter :: u_ion_diag=51     !< ion_diag.out
   integer, parameter :: u_ion_mch=52      !< ion_mch.out
+  integer, parameter :: u_dm_diag=53      !< dip_mom_diag.out
+  integer, parameter :: u_dm_proj=55      !< dip_mom_proj.out
+  integer, parameter :: u_proj=56         !< projections.inp
 
 
   !> # Information which is constant throughout all timesteps
@@ -89,11 +95,12 @@ program data_extractor
   integer :: laser                        !< whether a laser field is in the dat file (0=no, 1=, 2=yes)
   integer :: nsteps                       !< number of timesteps from dat file (needed to read the laser field)
   integer :: nsubsteps                    !< number of substeps (needed to read the laser field)
+  integer :: nprojections                    !< number of vectors to project dipole moment onto
 
   !> # Information which is updated per time step
   !> Most of these are equivalent to their definition in definitions.f90
   integer :: step
-  complex*16, allocatable :: H_MCH_ss(:,:),U_ss(:,:),DM_ssd(:,:,:)
+  complex*16, allocatable :: H_MCH_ss(:,:),U_ss(:,:),DM_mch_ssd(:,:,:),DM_diag_ssd(:,:,:)
   complex*16, allocatable :: Prop2d_xss(:,:,:)
   real*8, allocatable     :: Prop1d_ys(:,:)
   complex*16, allocatable :: coeff_diag_s(:),overlaps_ss(:,:), ref_ovl_ss(:,:)
@@ -114,17 +121,23 @@ program data_extractor
   real*8,allocatable :: expec_ion_diag(:)           !< oscillator strength per state in MCH basis
   real*8,allocatable :: expec_ion_mch(:)           !< oscillator strength per state in MCH basis
   real*8,allocatable :: expec_dm_act(:)           !< oscillator strength per state with active state as source state
+  real*8,allocatable :: dm_proj_sp(:,:)           !< dipole moment per state projected onto vector yet to be defined
+  real*8,allocatable :: proj_vec_pd(:,:)           !< vectors to project dipole moment onto
+  real*8,allocatable :: norm_proj_vec_p(:)          !< norm of vectors to project dipole moment onto
+  real*8,allocatable :: proj_point(:,:)          !< norm of vectors to project dipole moment onto
   real*8,allocatable :: spin0_s(:)                !< spin value per MCH state (initialized in the beginning)
   real*8,allocatable :: grad_mch_sad(:,:,:)       !< gradient per MCH state per atom per xyz
   real*8,allocatable :: NAC_ssad(:,:,:,:)         !< nonadiabatic coupling per element (MCH state, MCH state) per atom per xyz
+  real*8,allocatable :: distance_scaling(:,:)         !< scaling factor to define point between atom positions
   real*8 :: sumc                                  !< sum of coefficients
+  integer,allocatable :: proj_atomindex(:,:,:)         !< atomindex to be read from projections.inp
 
   ! helper
   character*8000 :: filename, string1, string3, line
   character*8000, allocatable :: args(:)
   character*8000, allocatable :: values(:)
   character*21 :: string2
-  integer :: i, io, idir,istate,jstate,imult,ims,j,n
+  integer :: i, io, idir,istate,jstate,imult,ims,j,n,iproj
   logical :: exists
   logical :: is_integer
   logical :: write_energy
@@ -137,10 +150,14 @@ program data_extractor
   logical :: write_expecmch
   logical :: write_coeffdiab
   logical :: write_dipact
+  logical :: write_dm_diag
+  logical :: write_dm_proj
   logical :: write_iondiag
   logical :: write_ionmch
+  logical :: skip_geom_vel_grad_nac
   logical :: anyoptions
   integer :: skipthese
+  integer :: ncolumns
 
   ! build_info.inc is written by the Makefile and contains the 
   ! date and host, when/where SHARC was built
@@ -175,8 +192,11 @@ program data_extractor
   write_expecmch  = .false.
   write_coeffdiab = .false.
   write_dipact    = .false.
+  write_dm_diag   = .false.
+  write_dm_proj   = .false.
   write_iondiag   = .false.
   write_ionmch    = .false.
+  skip_geom_vel_grad_nac = .false.
 
   ! read command line arguments
   skipthese=0
@@ -224,11 +244,34 @@ program data_extractor
       write_coeffdiab = .true.
     elseif (trim(args(i)) == "-da") then
       write_dipact = .true.
+    elseif (trim(args(i)) == "-dd") then
+      write_dm_diag = .true.
+    elseif (trim(args(i)) == "-dp") then
+      write_dm_proj = .true.
     elseif (trim(args(i)) == "-id") then
       write_iondiag = .true.
     elseif (trim(args(i)) == "-im") then
       write_ionmch = .true.
-    elseif (trim(args(i)) == "-a") then
+    elseif (trim(args(i)) == "-sk") then
+      skip_geom_vel_grad_nac = .true.
+    ! all flags true
+    elseif (trim(args(i)) == "-xl") then
+      write_energy = .true.
+      write_dip = .true.
+      write_spin = .true.
+      write_coeffdiag = .true.
+      write_coeffmch = .true.
+      write_prob = .true.
+      write_expec = .true.
+      write_expecmch = .true.
+      write_coeffdiab = .true.
+      write_dipact = .true.
+      write_dm_diag = .true.
+      write_dm_proj = .true.
+      write_iondiag = .true.
+      write_ionmch = .true.
+    ! large set of flags true
+    elseif (trim(args(i)) == "-l") then
       write_energy = .true.
       write_dip = .true.
       write_spin = .true.
@@ -241,6 +284,8 @@ program data_extractor
       write_dipact = .true.
       write_iondiag = .true.
       write_ionmch = .true.
+      skip_geom_vel_grad_nac = .true.
+    ! small set of flags true
     elseif (trim(args(i)) == "-s") then
       write_energy = .true.
       write_dip = .true.
@@ -252,12 +297,16 @@ program data_extractor
       write_expecmch = .true.
       write_coeffdiab = .true.
       write_dipact = .true.
-    elseif (trim(args(i)) == "-z") then
+      skip_geom_vel_grad_nac = .true.
+    ! very small set of flags true
+    elseif (trim(args(i)) == "-xs") then
       write_energy = .true.
+      write_dip = .true.
       write_coeffdiag = .true.
       write_coeffmch = .true.
       write_prob = .true.
       write_expec = .true.
+      skip_geom_vel_grad_nac = .true.
     elseif (trim(args(i)) == "-h") then
       call print_usage(0)
       stop 
@@ -279,12 +328,105 @@ program data_extractor
     write_expecmch  = .true.
     write_coeffdiab = .true.
     write_dipact    = .true.
+    write_dm_diag   = .false.
+    write_dm_proj   = .false.
     write_iondiag   = .false.
     write_ionmch    = .false.
+    skip_geom_vel_grad_nac = .true.
   endif
 
+  if (skip_geom_vel_grad_nac .and. write_dm_proj) then
+    write_dm_proj   = .false.
+    write(*,*) 'Skip reading of geometries, switching of writing of dipole moment projections'
+  endif
+  
   deallocate(args)
+  
+  ! =============================================================================================
+  !                                Open projections file 
+  ! =============================================================================================
 
+  
+  ! open the projections file
+  if (write_dm_proj) then
+    open(unit=u_proj, file='projections.inp', status='old', action='read', iostat=io)
+    if (io/=0) then
+      write(*,*) 'Warning!'
+      write(*,*) 'File projections.inp not found'
+      write(*,*) 'Switching off writing of dipole moment projections'
+      write(*,*) 
+      write_dm_proj   = .false.
+    else
+      read(u_proj,*,iostat=io) nprojections
+      if (io<0) then
+        write(*,*) 'First entry of projections.inp should be number of projections to be carried out.'
+        write(*,*)
+        stop
+      endif
+      
+      allocate(proj_atomindex(nprojections,2,2))
+      allocate(proj_point(2,2))
+      allocate(distance_scaling(nprojections,2))
+      proj_atomindex=-1
+      distance_scaling=1.
+      do iproj=1,nprojections
+        read(u_proj,*) ! empty line / comment
+        ! 1st row
+        read(u_proj,'(A)', iostat=io) line
+        if (io<0) then
+          write(*,*) 'Error in format of projections.inp'
+          write(*,*) 'Format example for 1 projection (first line)'
+          write(*,*) 'on vector from coordinates of atom with index 2'
+          write(*,*) 'to point with coordinates half way between atoms with indices 3 and 4:'
+          write(*,*) '1'
+          write(*,*) 'comment'
+          write(*,*) '2'
+          write(*,*) '3 4 0.5'
+          stop
+        endif
+        ncolumns = count([len_trim(line) > 0,(line(i:i)/=' '.and.line(i:i)/=','&
+         &  .and.line(i+1:i+1)==' '.or.line(i+1:i+1)==',', i=1,len_trim(line)-1)])
+        if (ncolumns == 1) then
+          read(line,*) proj_atomindex(iproj,1,1)
+        elseif (ncolumns == 3) then
+          read(line,*) proj_atomindex(iproj,1,1), proj_atomindex(iproj,1,2), distance_scaling(iproj,1)
+        else
+          write(*,*) 'projections.inp malformatted'
+        endif
+        ! 2nd row
+        read(u_proj,'(A)', iostat=io) line
+        if (io<0) then
+          write(*,*) 'Error in format of projections.inp'
+          write(*,*) 'Format example for 1 projection (first line)'
+          write(*,*) 'on vector from coordinates of atom with index 2'
+          write(*,*) 'to point with coordinates half way between atoms with indices 3 and 4:'
+          write(*,*) '1'
+          write(*,*) 'comment'
+          write(*,*) '2'
+          write(*,*) '3 4 0.5'
+          stop
+        endif
+        ncolumns = count([len_trim(line) > 0,(line(i:i)/=' '.and.line(i:i)/=','&
+         &  .and.line(i+1:i+1)==' '.or.line(i+1:i+1)==',', i=1,len_trim(line)-1)])
+        if (ncolumns == 1) then
+          read(line,*) proj_atomindex(iproj,2,1)
+        elseif (ncolumns == 3) then
+          read(line,*) proj_atomindex(iproj,2,1), proj_atomindex(iproj,2,2), distance_scaling(iproj,2)
+        else
+          write(*,*) 'projections.inp malformatted'
+          write(*,*) 'Format example for 1 projection (first line)'
+          write(*,*) 'on vector from coordinates of atom with index 2'
+          write(*,*) 'to point with coordinates half way between atoms with indices 3 and 4:'
+          write(*,*) '1'
+          write(*,*) 'comment'
+          write(*,*) '2'
+          write(*,*) '3 4 0.5'
+          stop
+        endif
+      enddo
+    endif ! io/=0
+  endif
+  
   ! =============================================================================================
   !                                Open dat file and write build info
   ! =============================================================================================
@@ -351,14 +493,20 @@ program data_extractor
     allocate( U_ss(nstates,nstates) )
     allocate( Prop2d_xss(n_property2d,nstates,nstates),Prop1d_ys(n_property1d,nstates) )
     allocate( overlaps_ss(nstates,nstates), ref_ovl_ss(nstates,nstates) )
-    allocate( DM_ssd(nstates,nstates,3) )
+    allocate( DM_mch_ssd(nstates,nstates,3) )
+    allocate( DM_diag_ssd(nstates,nstates,3) )
+    allocate( dm_proj_sp(nstates,nprojections) )
+    allocate( proj_vec_pd(nprojections,3) )
+    allocate( norm_proj_vec_p(nprojections) )
     allocate( coeff_diag_s(nstates), coeff_MCH_s(nstates), coeff_diab_s(nstates) )
     allocate( hopprob_s(nstates) )
     allocate( A_ss(nstates,nstates) )
     allocate( expec_s(nstates),expec_dm(nstates),expec_dm_mch(nstates),expec_dm_act(nstates) )
     allocate( expec_ion_diag(nstates),expec_ion_mch(nstates) )
     allocate( spin0_s(nstates) )
-    allocate( geom_ad(natom,3), veloc_ad(natom,3) )
+    if (.not. skip_geom_vel_grad_nac) then
+      allocate( geom_ad(natom,3), veloc_ad(natom,3) )
+    endif
     call allocate_lapack(nstates)
     overlaps_ss=dcmplx(0.d0,0.d0)
 
@@ -431,14 +579,20 @@ program data_extractor
     allocate( U_ss(nstates,nstates) )
     allocate( Prop2d_xss(n_property2d,nstates,nstates), Prop1d_ys(n_property1d,nstates) )
     allocate( overlaps_ss(nstates,nstates), ref_ovl_ss(nstates,nstates) )
-    allocate( DM_ssd(nstates,nstates,3) )
+    allocate( DM_mch_ssd(nstates,nstates,3) )
+    allocate( DM_diag_ssd(nstates,nstates,3) )
+    allocate( dm_proj_sp(nstates,nprojections) )
+    allocate( proj_vec_pd(nprojections,3) )
+    allocate( norm_proj_vec_p(nprojections) )
     allocate( coeff_diag_s(nstates), coeff_MCH_s(nstates), coeff_diab_s(nstates) )
     allocate( hopprob_s(nstates) )
     allocate( A_ss(nstates,nstates) )
     allocate( expec_s(nstates),expec_dm(nstates),expec_dm_mch(nstates),expec_dm_act(nstates) )
     allocate( expec_ion_diag(nstates),expec_ion_mch(nstates) )
     allocate( spin0_s(nstates) )
-    allocate( geom_ad(natom,3), veloc_ad(natom,3) )
+    if (.not. skip_geom_vel_grad_nac) then
+      allocate( geom_ad(natom,3), veloc_ad(natom,3) )
+    endif
     call allocate_lapack(nstates)
     overlaps_ss=dcmplx(0.d0,0.d0)
 
@@ -518,11 +672,15 @@ program data_extractor
     endif
 
     if (have_grad == 1) then
-      allocate( grad_mch_sad(nstates,natom,3) )
+      if (.not. skip_geom_vel_grad_nac) then
+        allocate( grad_mch_sad(nstates,natom,3) )
+      endif
     endif
 
     if (have_NAC == 1) then
-      allocate( NAC_ssad(nstates,nstates,natom,3) )
+      if (.not. skip_geom_vel_grad_nac) then
+        allocate( NAC_ssad(nstates,nstates,natom,3) )
+      endif
     endif
 
     ! Now we skip over the header array data (atomic numbers, elements, masses)
@@ -571,6 +729,8 @@ program data_extractor
   if (write_dipact)    open(unit=u_fosc_act, file='output_data/fosc_act.out', status='replace', action='write')     ! -da
   if (write_iondiag)   open(unit=u_ion_diag, file='output_data/ion_diag.out', status='replace', action='write')     ! -id
   if (write_ionmch)    open(unit=u_ion_mch, file='output_data/ion_mch.out', status='replace', action='write')       ! -im
+  if (write_dm_diag)   open(unit=u_dm_diag, file='output_data/dip_mom_diag.out', status='replace', action='write')   ! -dd
+  if (write_dm_proj)   open(unit=u_dm_proj, file='output_data/dip_mom_proj.out', status='replace', action='write')   ! -dd
                                                                                                                     ! -a
 
 
@@ -790,7 +950,7 @@ program data_extractor
     call matread(nstates,H_MCH_ss,u_dat,string1)
     call matread(nstates,U_ss,u_dat,string1)
     do idir=1,3
-      call matread(nstates,DM_ssd(:,:,idir),u_dat,string1)
+      call matread(nstates,DM_mch_ssd(:,:,idir),u_dat,string1)
     enddo
     if (have_overlap==1) then
       call matread(nstates,overlaps_ss,u_dat,string1)
@@ -805,8 +965,14 @@ program data_extractor
     read(u_dat,*) randnum
     read(u_dat,*)
     read(u_dat,*) runtime
-    call vec3read(natom,geom_ad,u_dat,string1)
-    call vec3read(natom,veloc_ad,u_dat,string1)
+    if (skip_geom_vel_grad_nac) then
+      do i=1,2*natom+2
+        read(u_dat,*)
+      enddo
+    else
+      call vec3read(natom,geom_ad,u_dat,string1)
+      call vec3read(natom,veloc_ad,u_dat,string1)
+    endif
     if (have_property2d==1) then
 !       if (.not.is_integer) read(u_dat,*)
       do i=1,n_property2d
@@ -821,17 +987,29 @@ program data_extractor
     endif
     if (have_grad == 1) then
 !       read(u_dat,*) 
-      do i=1,nstates
-        call vec3read(natom,grad_mch_sad(i,:,:),u_dat,string1)
-      enddo
+      if (skip_geom_vel_grad_nac) then
+        do i=1,nstates*natom+nstates
+          read(u_dat,*)
+        enddo
+      else
+        do i=1,nstates
+          call vec3read(natom,grad_mch_sad(i,:,:),u_dat,string1)
+        enddo
+      endif
     endif
     if (have_NAC == 1) then
 !       read(u_dat,*) 
-      do i=1,nstates
-        do j=1,nstates
-          call vec3read(natom,NAC_ssad(i,j,:,:),u_dat,string1)
+      if (skip_geom_vel_grad_nac) then
+        do i=1,nstates*nstates*natom+nstates*nstates
+          read(u_dat,*)
         enddo
-      enddo
+      else
+        do i=1,nstates
+          do j=1,nstates
+            call vec3read(natom,NAC_ssad(i,j,:,:),u_dat,string1)
+          enddo
+        enddo
+      endif
     endif
     ! ========== Reading is done for this time step =============
 
@@ -840,7 +1018,7 @@ program data_extractor
     H_diag_ss=H_MCH_ss
     if (laser==2) then
       do idir=1,3
-        H_diag_ss=H_diag_ss - DM_ssd(:,:,idir)*real(laser_td(step*nsubsteps+1,idir))
+        H_diag_ss=H_diag_ss - DM_mch_ssd(:,:,idir)*real(laser_td(step*nsubsteps+1,idir))
       enddo
     endif
 !     call matwrite(nstates,H_diag_ss,0,'Hbefore','F12.9')
@@ -862,14 +1040,15 @@ program data_extractor
     endif
 
     ! calculate oscillator strengths
-    if (write_dip .or. write_dipact .or. write_expec .or. write_expecmch) then
+    if (write_dip .or. write_dipact .or. write_expec .or. write_expecmch .or. write_dm_diag) then
       expec_dm=0.d0
       expec_dm_mch=0.d0
       expec_dm_act=0.d0
       do idir=1,3
-        A_ss=DM_ssd(:,:,idir)
+        A_ss=DM_mch_ssd(:,:,idir)
         expec_dm_mch=expec_dm_mch+real(A_ss(:,1)*A_ss(1,:))
         call transform(nstates,A_ss,U_ss,'utau')
+        DM_diag_ssd(:,:,idir)=A_ss
         expec_dm=expec_dm+real(A_ss(:,1)*A_ss(1,:))
         expec_dm_act=expec_dm_act+real(A_ss(:,state_diag)*A_ss(state_diag,:))
       enddo
@@ -880,6 +1059,43 @@ program data_extractor
         expec_dm(i)=expec_dm(i)*real(H_diag_ss(i,i)-H_diag_ss(1,1))
         expec_dm_mch(i)=expec_dm_mch(i)*real(H_MCH_ss(i,i)-H_MCH_ss(1,1))
         expec_dm_act(i)=expec_dm_act(i)*real(H_diag_ss(i,i)-H_diag_ss(state_diag,state_diag))
+      enddo
+    endif
+    
+    ! calculate length of projection of dipole moment onto vector
+    ! projection length is scalar product of dip mom with unit vector of desired direction (proj_vec/norm_proj_vec)
+    if (write_dm_proj) then
+      ! calculate desired vectors to project onto
+      do iproj=1,nprojections
+        do idir=1,3
+	  do i=1,2
+	    do j=1,2
+	      if (proj_atomindex(iproj,i,j) > 0) then
+    	        proj_point(i,j) = geom_ad(proj_atomindex(iproj,i,j),idir)
+	      else
+                ! in principle, two atom indeces can be given per line in projections.inp
+                ! if a single atom position is given in a line of projections.inp, then the atom index of the second (undefined) atom is -1
+	        proj_point(i,j) = 0.
+	      endif
+	    enddo
+	  enddo
+    	  proj_vec_pd(iproj,idir) = (proj_point(1,2) + (proj_point(1,1) - proj_point(1,2)) * distance_scaling(iproj,1)) &
+    	  &			  - (proj_point(2,2) + (proj_point(2,1) - proj_point(2,2)) * distance_scaling(iproj,2)) 
+	enddo
+      enddo
+      ! calculate norm
+      do iproj=1,nprojections
+        norm_proj_vec_p(iproj) = (proj_vec_pd(iproj,1)**2+proj_vec_pd(iproj,2)**2+proj_vec_pd(iproj,3)**2)
+      enddo
+      ! do projection statewise
+      dm_proj_sp = 0.
+      do i=1,nstates
+        ! scalar product
+        do iproj=1,nprojections
+          do idir=1,3
+            dm_proj_sp(i,iproj) = dm_proj_sp(i,iproj) + abs(DM_diag_ssd(1,i,idir)) * proj_vec_pd(iproj,idir)/norm_proj_vec_p(iproj)
+          enddo
+        enddo
       enddo
     endif
 
@@ -1023,6 +1239,23 @@ program data_extractor
       &(spin0_s(istate),istate=1,nstates),&
       &(expec_dm_mch(istate),istate=1,nstates)
     endif
+    
+    if (write_DM_diag) then
+      write(u_dm_diag,'(A)') '! 0 Step'
+      write(u_dm_diag,'(I12)') step
+      call matwrite(nstates, DM_diag_ssd(:,:,1), u_dm_diag, '! 1 Dipole moments X (diag) in a.u.', 'F12.8')
+      call matwrite(nstates, DM_diag_ssd(:,:,2), u_dm_diag, '! 1 Dipole moments Y (diag) in a.u.', 'F12.8')
+      call matwrite(nstates, DM_diag_ssd(:,:,3), u_dm_diag, '! 1 Dipole moments Z (diag) in a.u.', 'F12.8')
+    endif
+    
+    if (write_dm_proj) then
+      write(u_dm_proj,'(A,I12)') '# ',step
+      do i=1,nstates
+        write(u_dm_proj,'(2X,1000(F12.8,1X))') (dm_proj_sp(i,iproj), iproj=1,nprojections)
+      enddo
+    endif
+
+    
     ! ========== Writing is done for this time step =============
 
 
@@ -1041,22 +1274,29 @@ program data_extractor
   subroutine print_usage(u)
     implicit none
     integer :: u
-    write(u,*) 'Usage: ./data_extractor <flags> -f <data-file>'
-    write(u,*) '        -a  : write all output files'
-    write(u,*) '        -s  : standard = write all output files except ionization data'
-    write(u,*) '        -e  : write energy file              (output_data/energy.out)'
-    write(u,*) '        -d  : write dipole file              (output_data/fosc.out)'
-    write(u,*) '        -sp : write spin expec file          (output_data/spin.out)'
-    write(u,*) '        -cd : write diag coefficient file    (output_data/coeff_diag.out)'
-    write(u,*) '        -cm : write MCH coefficient file     (output_data/coeff_MCH.out)'
-    write(u,*) '        -cb : write diab coefficient file    (output_data/coeff_diab.out)'
-    write(u,*) '        -p  : write hop probability file     (output_data/prob.out)'
-    write(u,*) '        -x  : write expec (E,S^2,mu) file    (output_data/expec.out)'
-    write(u,*) '        -xm : write MCH expec file           (output_data/expec_MCH.out)'
-    write(u,*) '        -da : write dip of active state file (output_data/fosc_act.out)'
-    write(u,*) '        -id : write diag ion file            (output_data/ion_diag.out)'
-    write(u,*) '        -im : write MCH ion file             (output_data/ion_mch.out)'
+    write(u,*) 'Usage: ./data_extractor <flags> <data-file>'
+    write(u,*) '       -xl : extralarge = write all output files'
+    write(u,*) '       -l  : large = write all output files except diagonal dipole and projection'
+    write(u,*) '       -s  : small = write all output files except ionization data, diagonal dipole/projection'
+    write(u,*) '       -xs : extrasmall = energy (-e), coeffdiag (-cd), coeffmch (-cm), prob (-p), expec (-x), dip (-d), skip (-sk)'
+    write(u,*) '       -e  : write energy file              (output_data/energy.out)'
+    write(u,*) '       -d  : write dipole file              (output_data/fosc.out)'
+    write(u,*) '       -sp : write spin expec file          (output_data/spin.out)'
+    write(u,*) '       -cd : write diag coefficient file    (output_data/coeff_diag.out)'
+    write(u,*) '       -cm : write MCH coefficient file     (output_data/coeff_MCH.out)'
+    write(u,*) '       -cb : write diab coefficient file    (output_data/coeff_diab.out)'
+    write(u,*) '       -p  : write hop probability file     (output_data/prob.out)'
+    write(u,*) '       -x  : write expec (E,S^2,mu) file    (output_data/expec.out)'
+    write(u,*) '       -xm : write MCH expec file           (output_data/expec_MCH.out)'
+    write(u,*) '       -da : write dip of active state file (output_data/fosc_act.out)'
+    write(u,*) '       -dd : write dip in diag. represent.  (output_data/dip_mom_diag.out)'
+    write(u,*) '       -dp : write projection of dip diag   (output_data/dip_mom_proj.out)'
+    write(u,*) '       -id : write diag ion file            (output_data/ion_diag.out)'
+    write(u,*) '       -im : write MCH ion file             (output_data/ion_mch.out)'
+    write(u,*) '       -sk : skip reading geometries, velocities, gradients, NACs'
   endsubroutine
+
+
 
 endprogram
 

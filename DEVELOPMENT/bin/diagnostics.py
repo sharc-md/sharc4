@@ -78,7 +78,7 @@ AU_TO_FS=0.024188843
 PI = math.pi
 
 version='2.0'
-versiondate=datetime.date(2018,2,1)
+versiondate=datetime.date(2018,10,22)
 
 
 IToMult={
@@ -388,7 +388,8 @@ def print_settings(settings,header='Current settings:'):
     'ekin_step',
     'pop_window',
     'hop_energy',
-    'intruders'
+    'intruders',
+    'extractor_mode'
   ]
   print header
   for i in order:
@@ -468,7 +469,8 @@ def get_general():
     'pop_window':1e-7,
     'hop_energy':1.0,
     'intruders':False,
-    'always_update':False
+    'always_update':False,
+    'extractor_mode':'default'
   }
   helptext={
     'normal_termination':'Checks for exit status of trajectory (RUNNING, CRASHED, FINISHED).',
@@ -481,7 +483,8 @@ def get_general():
     'pop_window':'Maximum permissible drift in total population.',
     'hop_energy':'Maximum permissible change in active state energy difference during a surface hop (in eV).',
     'intruders':'Checks if intruder state messages in "output.log" refer to active state.',
-    'always_update':'Run data_extractor.x for all trajectories, even if all files have up-to-date time stamps.'
+    'always_update':'Run data_extractor.x for all trajectories, even if all files have up-to-date time stamps.',
+    'extractor_mode':'Option flag for data_extractor.x [possible: "xs", "s", "l", "xl"]'
   }
   if LD_dynamics:
     defaults['intruders']=True
@@ -1037,13 +1040,26 @@ def do_calc(INFOS):
           update=True
       if INFOS['settings']['always_update']:
         update=True
+        print 'update is true'
 
       # run extractor
       if update:
         sys.stdout.write('    Data extractor...                                 ')
         sys.stdout.flush()
         os.chdir(path)
-        io=sp.call(sharcpath+'/data_extractor.x -a output.dat > /dev/null 2> /dev/null',shell=True)
+        mapping={'default':'-s',
+                 'small':'-s',
+                 'large':'-l',
+                 'extralarge':'-xl',
+                 'extrasmall':'-xs',
+                 's':'-s',
+                 'xs':'-xs',
+                 'l':'-l',
+                 'xl':'-xl'
+                }
+        opt=mapping[ INFOS['settings']['extractor_mode'].lower() ]
+        #io=sp.call(sharcpath+'/data_extractor.x %s output.dat > /dev/null 2> /dev/null' % opt ,shell=True)
+        io=sp.call(sharcpath+'/data_extractor.x %s output.dat' % opt ,shell=True)
         if io!=0:
           print 'WARNING: extractor call failed for %s! Exit code %i' % (path,io)
         os.chdir(cwd)
