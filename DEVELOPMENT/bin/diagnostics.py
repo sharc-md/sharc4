@@ -78,7 +78,7 @@ AU_TO_FS=0.024188843
 PI = math.pi
 
 version='2.0'
-versiondate=datetime.date(2018,2,1)
+versiondate=datetime.date(2018,10,22)
 
 
 IToMult={
@@ -388,7 +388,8 @@ def print_settings(settings,header='Current settings:'):
     'ekin_step',
     'pop_window',
     'hop_energy',
-    'intruders'
+    'intruders',
+    'extractor_mode'
   ]
   print header
   for i in order:
@@ -1039,6 +1040,7 @@ def do_calc(INFOS):
           update=True
       if INFOS['settings']['always_update']:
         update=True
+        print 'update is true'
 
       # run extractor
       if update:
