@@ -730,6 +730,9 @@ You can also fit a species to the sum of several columns:
 You can even fit a sum of species to a sum of columns:
   T1 T2 = 5 6 7
 
+On the right side, "~" can be used to indicate ranges:
+  T1 T2 = 5~9
+
 Possible input:
 <species1> <species2> ... = <columns1> <column2> ...            Set one mapping
 show                                                            Show mapping
@@ -791,20 +794,32 @@ Each column number (except for \'1\', which denotes the time) must be used at mo
             break
           new_species_group.append(i)
         else:
-          i=int(i)
-          if not i in columns:
-            print '  Column number %i not in data file!' % (i)
+          try:
+            if '~' in i:
+              ii=[]
+              q=i.split('~')
+              for j in range(int(q[0]),int(q[1])+1):
+                ii.append(j)
+            else:
+              ii=[int(i)]
+          except ValueError:
+            print '  Could not understand!'
             valid=False
             break
-          if any( [ i in j for j in columns_groups ] ):
-            print '  Column number %i already assigned!' % (i)
-            valid=False
-            break
-          if i in new_columns_group:
-            print '  Columns number %i used twice!' % (i)
-            valid=False
-            break
-          new_columns_group.append(i)
+          for i in ii:
+            if not i in columns:
+              print '  Column number %i not in data file!' % (i)
+              valid=False
+              break
+            if any( [ i in j for j in columns_groups ] ):
+              print '  Column number %i already assigned!' % (i)
+              valid=False
+              break
+            if i in new_columns_group:
+              print '  Columns number %i used twice!' % (i)
+              valid=False
+              break
+            new_columns_group.append(i)
       if valid:
         species_groups.append(new_species_group)
         columns_groups.append(new_columns_group)
@@ -849,7 +864,7 @@ def wrap_line(line,lenline=150):
 def get_functions_from_maxima(INFOS):
   # write MAXIMA input file
   # system of differential equations
-  string='eq:[\n'
+  string='display2d:false;\neq:[\n'
   for i in range(INFOS['nspec']):
     string+='\'diff(%s(t),t)= ' % (INFOS['specmap'][i])
     nterms=0
@@ -897,7 +912,7 @@ def get_functions_from_maxima(INFOS):
   infile=os.path.join(cwd,'MAXIMA.input')
   writefile(infile,string)
 
-  # call MAXIMA in batch mode
+  # call MAXIMA in interactive batch mode
   string='maxima -b %s' % (infile)
   while True:
     print 'Calling MAXIMA computer algebra system with following command:\n  %s' % (string)
@@ -909,35 +924,53 @@ def get_functions_from_maxima(INFOS):
       path=question('Path to MAXIMA:',str,None,True)
       string=path+' -b %s' % (infile)
   print '\n'
-  outfile=infile=os.path.join(cwd,'MAXIMA.output')
-  errfile=infile=os.path.join(cwd,'MAXIMA.err')
-  stdoutfile=open(outfile,'w')
+  outfile=os.path.join(cwd,'MAXIMA.output')
+  errfile=os.path.join(cwd,'MAXIMA.err')
+  stdoutfile=open(outfile,'wb')
   stderrfile=open(errfile,'w')
-  print 'Running MAXIMA...'
-  p=sp.Popen(string,shell=True,stdout=stdoutfile,stderr=stderrfile)
-  maxwait=30
-  waited=0
+  print '\n\nRunning MAXIMA interactively...'
+  print
+  print '(If MAXIMA takes long, its output will be shown and STDIN switched to MAXIMA.\nPlease try to answer any questions that MAXIMA is prompting,\ne.g., "Is <some constant> positive, negative, or zero?"\nIn this case, answer with "pos;", "neg;", or "zero;")'
+  print
+  print '*'*100
+  p=sp.Popen(string,shell=True,stdout=sp.PIPE,stderr=stderrfile,bufsize=1,stdin=sp.PIPE)
+  isleep=0
   while True:
+    isleep+=1
     try:
-      time.sleep(1)
+      time.sleep(0.5)
+      if isleep>=3:
+        while True:
+          byte=p.stdout.read(1)
+          if byte:
+            sys.stdout.write(byte)
+            sys.stdout.flush()
+            stdoutfile.write(byte)
+          else:
+            break
+      else:
+        print 'waiting ...'
     except KeyboardInterrupt:
       p.kill()
+      print '*'*100
       print '*** MAXIMA execution halted ***\n\n'
       raise
-    waited+=1
     if p.poll() is None:
-      if waited==maxwait:
-        p.kill()
-        print '*** MAXIMA timed out! ***\n\nThis is most probably because the kinetic model specifications do not allow to solve \nthe differential equation system without further assumptions.\nCheck "MAXIMA.output" for further information.\n\nYou might need to reconsider your kinetic model for the computation to succeed.\n\nError: MAXIMA timed out'
-        sys.exit(1)
-      else:
-        print 'waiting...'
+      pass
+    else:
+      break
+  while True:
+    byte=p.stdout.read(1)
+    if byte:
+      stdoutfile.write(byte)
     else:
       break
   p.communicate()
   stdoutfile.close()
   stderrfile.close()
-  print 'Done!'
+  print '*'*100
+  print '\n*** Done! ***'
+
 
   # extract function definitions from MAXIMA output
   out=readfile(outfile)
