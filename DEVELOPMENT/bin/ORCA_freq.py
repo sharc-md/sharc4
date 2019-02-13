@@ -86,9 +86,12 @@ for line in lines:
         elif not line and empty == 0:
             empty += 1
             continue
-        elif line:
+        elif line and 'cm' in line:
             line = line.split()
             freqs.append( line[1] )
+        elif line:
+            empty = 0
+            continue
         elif not line and empty > 0:
             read = False
             freq = False
