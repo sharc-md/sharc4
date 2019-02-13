@@ -40,6 +40,7 @@ import datetime
 from optparse import OptionParser
 import readline
 import time
+import socket
 
 # =========================================================0
 # compatibility stuff
@@ -790,7 +791,7 @@ def setup_input(INFOS):
     s=get_template(INFOS)
     s+='\n\n---\n'
     s+='#Infos:\n'
-    s+='#%s@%s\n' % (os.environ['USER'],os.environ['HOSTNAME'])
+    s+='#%s@%s\n' % (os.environ['USER'],socket.gethostname())
     s+='#Date: %s\n' % (datetime.datetime.now())
     s+='#Current directory: %s\n\n' % (os.getcwd())
     inp.write(s)
@@ -952,7 +953,7 @@ def setup_input(INFOS):
 
   s+='\n\n---\n'
   s+='!Infos:\n'
-  s+='!%s@%s\n' % (os.environ['USER'],os.environ['HOSTNAME'])
+  s+='!%s@%s\n' % (os.environ['USER'],socket.gethostname())
   s+='!Date: %s\n' % (datetime.datetime.now())
   s+='!Current directory: %s\n\n' % (os.getcwd())
 
