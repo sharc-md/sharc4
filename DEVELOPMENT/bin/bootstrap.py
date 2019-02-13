@@ -446,9 +446,9 @@ def get_general():
   # how many runs to do per cycle
   npercycle=int(math.sqrt(INFOS['nboot']))
   npercycle-=npercycle%INFOS['ncpu']
-  #if INFOS['ncpu']==1:
-    #npercycle=1
   INFOS['npercycle']=max(npercycle,INFOS['ncpu'])
+  if INFOS['ncpu']==1:
+    INFOS['npercycle']=1
 
   return INFOS
 
@@ -463,7 +463,10 @@ def do_calc(INFOS):
   #print fitscript
   fit2=''
   output_mode=False
+  nactualcol=0
   for line in fitscript:
+    if '(t) =' in line:
+      nactualcol+=1
     if '>>' in line:
       output_mode=True
     elif '<<' in line:
@@ -524,6 +527,7 @@ def do_calc(INFOS):
   prevdir=os.getcwd()
   while True:
     try:
+      #print datetime.datetime.now(), 'Starting cycle'
       idone_step=0
       indices=[ [ 0 for i in range(INFOS['ntraj']) ] for j in range(INFOS['npercycle']) ]
       for icpu in range(INFOS['npercycle']):
@@ -539,6 +543,10 @@ def do_calc(INFOS):
         if idone>=INFOS['nboot']:
           break
 
+      #print datetime.datetime.now(), 'Finished randint'
+      #print idone,idone_step
+      #print indices
+
       if INFOS['ncpu']>1:
         for icpu in range(INFOS['npercycle']):
           tmpdir=os.path.join(tmproot,'cpu_%i' % icpu)
@@ -553,7 +561,7 @@ def do_calc(INFOS):
         try:
           for icpu in range(idone_step):
             directory=os.path.join(tmproot,'cpu_%i' % icpu)
-            constants=pool.apply_async(make_job , [pop_full,indices[icpu],INFOS['dt'],directory,fit2,INFOS['gnuplot'],idone+icpu-idone_step+1])
+            constants=pool.apply_async(make_job , [pop_full,indices[icpu],INFOS['dt'],directory,fit2,INFOS['gnuplot'],idone+icpu-idone_step+1,nactualcol])
             constants_step.append(constants)
           pool.close()
           pool.join()
@@ -568,11 +576,13 @@ def do_calc(INFOS):
         try:
           for icpu in range(idone_step):
             directory=os.path.join(tmproot,'cpu_%i' % 0)
-            constants=make_job(pop_full,indices[icpu],INFOS['dt'],directory,fit2,INFOS['gnuplot'],idone+icpu-idone_step+1)
+            constants=make_job(pop_full,indices[icpu],INFOS['dt'],directory,fit2,INFOS['gnuplot'],idone+icpu-idone_step+1,nactualcol)
+            #print datetime.datetime.now(), constants
             constants_step.append(constants)
         except Exception, e:
           os.chdir(prevdir)
           raise KeyboardInterrupt
+      #print datetime.datetime.now(), 'Finished gnuplot'
 
       for i in constants_step:
         constants_all.append(i)
@@ -719,14 +729,17 @@ def do_calc(INFOS):
 
 class KeyboardInterruptError(Exception): pass
 
-def make_job(pop_full,indices,dt,directory,fit2,gnuplot,idone):
+def make_job(pop_full,indices,dt,directory,fit2,gnuplot,idone,nactualcol):
   sys.tracebacklimit=0
   #signal.signal(signal.SIGINT, signal.SIG_IGN)
   try:
     # write data
-    string=make_data_string(pop_full,indices,dt)
+    #print datetime.datetime.now(), directory
+    string=make_data_string(pop_full,indices,dt,nactualcol)
+    #print datetime.datetime.now(), 'Finished adding'
     filename=os.path.join(directory,'data')
     writefile(filename,string)
+    #print datetime.datetime.now(), 'Finished writing'
     if DEBUG:
       filename='data_%i.dat' % idone
       writefile(filename,string)
@@ -735,6 +748,7 @@ def make_job(pop_full,indices,dt,directory,fit2,gnuplot,idone):
     writefile(filename,fit2)
     # run gnuplot
     constants=run_gnuplot(directory,'fit.gp',gnuplot)
+    #print datetime.datetime.now(), 'Finished running'
   except KeyboardInterrupt:
     raise KeyboardInterruptError()
   except Exception, problem:
@@ -746,21 +760,25 @@ def make_job(pop_full,indices,dt,directory,fit2,gnuplot,idone):
   return constants
 
 # ======================================================================= #
-def make_data_string(pop_full,indices,dt):
+def make_data_string(pop_full,indices,dt,nactualcol):
   ntraj=len(pop_full)
   steps=len(pop_full[0])
   ncol=len(pop_full[0][0])
   pop=[ [ 0. for i in range(ncol) ] for j in range(steps) ]
-  for istep in range(steps):
-    for icol in range(ncol):
-      for x in indices:
+  #print datetime.datetime.now(), 'Go',ntraj,steps,ncol
+  for x in indices:
+    #print x
+    for istep in range(steps):
+      for icol in range(ncol):
         pop[istep][icol]+=pop_full[x][istep][icol]
+  #print datetime.datetime.now(), 'Done'
   string=''
-  for istep in range(ncol*steps):
+  for istep in range(nactualcol*steps):
     string+='%12.6f ' % (istep*dt)
     for icol in range(ncol):
       string+='%12.6f ' % (pop[istep%steps][icol]/ntraj)
     string+='\n'
+  #print datetime.datetime.now(), 'String done'
   return string
 
 # ======================================================================= #
