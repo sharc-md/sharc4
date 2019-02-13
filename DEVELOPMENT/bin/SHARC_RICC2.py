@@ -191,20 +191,25 @@ IToPol={
         }
 
 
-NUMBERS = {'H':  1, 'He': 2,
-'Li': 3, 'Be': 4, 'B':  5, 'C':  6,  'N': 7,  'O': 8, 'F':  9, 'Ne':10,
+NUMBERS = {'H':1, 'He':2,
+'Li':3, 'Be':4, 'B':5, 'C':6,  'N':7,  'O':8, 'F':9, 'Ne':10,
 'Na':11, 'Mg':12, 'Al':13, 'Si':14,  'P':15,  'S':16, 'Cl':17, 'Ar':18,
-'K': 19, 'Ca':20, 
-'Sc':21, 'Ti':22, 'V': 23, 'Cr':24, 'Mn':25, 'Fe':26, 'Co':27, 'Ni':28, 'Cd':29, 'Zn':30,
-'Ge':31, 'Ga':32, 'As':33, 'Se':34, 'Br':35, 'Kr':36, 
+'K':19, 'Ca':20,
+'Sc':21, 'Ti':22, 'V':23, 'Cr':24, 'Mn':25, 'Fe':26, 'Co':27, 'Ni':28, 'Cu':29, 'Zn':30,
+'Ga':31, 'Ge':32, 'As':33, 'Se':34, 'Br':35, 'Kr':36,
 'Rb':37, 'Sr':38,
 'Y':39,  'Zr':40, 'Nb':41, 'Mo':42, 'Tc':43, 'Ru':44, 'Rh':45, 'Pd':46, 'Ag':47, 'Cd':48,
 'In':49, 'Sn':50, 'Sb':51, 'Te':52,  'I':53, 'Xe':54,
 'Cs':55, 'Ba':56,
 'La':57, 
 'Ce':58, 'Pr':59, 'Nd':60, 'Pm':61, 'Sm':62, 'Eu':63, 'Gd':64, 'Tb':65, 'Dy':66, 'Ho':67, 'Er':68, 'Tm':69, 'Yb':70, 'Lu':71,
-'Hf':72, 'Ta':73,  'W':74, 'Re':75, 'Os':76, 'Ir':77, 'Pt':78, 'Au':79, 'Hg':80,
-'Tl':81, 'Pb':82, 'Bi':83, 'Po':84, 'At':85, 'Rn':86
+         'Hf':72, 'Ta':73,  'W':74, 'Re':75, 'Os':76, 'Ir':77, 'Pt':78, 'Au':79, 'Hg':80,
+'Tl':81, 'Pb':82, 'Bi':83, 'Po':84, 'At':85, 'Rn':86, 
+'Fr':87, 'Ra':88,
+'Ac':89, 
+'Th':90, 'Pa':91,  'U':92, 'Np':93, 'Pu':94, 'Am':95, 'Cm':96, 'Bk':97, 'Cf':98, 'Es':99,'Fm':100,'Md':101,'No':102,'Lr':103,
+        'Rf':104,'Db':105,'Sg':106,'Bh':107,'Hs':108,'Mt':109,'Ds':110,'Rg':111,'Cn':112,
+'Nh':113,'Fl':114,'Mc':115,'Lv':116,'Ts':117,'Og':118
 }
 
 BASISSETS= [
@@ -2737,7 +2742,7 @@ def writegeom(QMin):
   os.chdir(QMin['pwd'])
 
 # ======================================================================= #
-def runProgram(string,workdir):
+def runProgram(string,workdir,outfile,errfile=''):
   prevdir=os.getcwd()
   if DEBUG:
     print workdir
@@ -2746,11 +2751,19 @@ def runProgram(string,workdir):
     starttime=datetime.datetime.now()
     sys.stdout.write('%s\n\t%s' % (string,starttime))
     sys.stdout.flush()
+  stdoutfile=open(os.path.join(workdir,outfile),'w')
+  if errfile:
+    stderrfile=open(os.path.join(workdir,errfile),'w')
+  else:
+    stderrfile=sp.STDOUT
   try:
-    runerror=sp.call(string,shell=True)
+    runerror=sp.call(string,shell=True,stdout=stdoutfile,stderr=stderrfile)
   except OSError:
     print 'Call have had some serious problems:',OSError
     sys.exit(81)
+  stdoutfile.close()
+  if errfile:
+    stderrfile.close()
   if PRINT or DEBUG:
     endtime=datetime.datetime.now()
     sys.stdout.write('\t%s\t\tRuntime: %s\t\tError Code: %i\n\n' % (endtime,endtime-starttime,runerror))
@@ -2851,8 +2864,8 @@ all %s
   # string contains the input for define, now call it
   infile=os.path.join(path,'define.input')
   writefile(infile,string)
-  string='define < define.input &> define.output'
-  runerror=runProgram(string,path)
+  string='define < define.input'
+  runerror=runProgram(string,path,'define.output')
 
   if runerror!=0:
     print 'define call failed! Error Code=%i Path=%s' % (runerror,path)
@@ -3105,8 +3118,8 @@ def get_AO_OVL(path,QMin):
   writefile(tofile,string)
 
   # call dscf
-  string='dscf &> dscf.out'
-  runerror=runProgram(string,path)
+  string='dscf'
+  runerror=runProgram(string,path,'dscf.out')
 
   # get AO overlap matrix from dscf.out
   dscf=readfile(os.path.join(path,'dscf.out'))
@@ -3183,17 +3196,17 @@ b_mo_read=2
   writefile(os.path.join(scradir,'wfovl.inp'),string)
 
   # run wfoverlap
-  string='%s -f wfovl.inp -m %i &> wfovl.out' % (QMin['wfoverlap'],QMin['memory'])
-  runProgram(string,scradir)
+  string='%s -f wfovl.inp -m %i' % (QMin['wfoverlap'],QMin['memory'])
+  runProgram(string,scradir,'wfovl.out')
 
 # ======================================================================= #
 def run_dscf(QMin):
   workdir=os.path.join(QMin['scratchdir'],'JOB')
   if QMin['ncpu']>1:
-    string='dscf_omp &> dscf.out'
+    string='dscf_omp'
   else:
-    string='dscf &> dscf.out'
-  runerror=runProgram(string,workdir)
+    string='dscf'
+  runerror=runProgram(string,workdir,'dscf.out')
   if runerror!=0:
     print 'DSCF calculation crashed! Error code=%i' % (runerror)
     sys.exit(84)
@@ -3214,10 +3227,10 @@ def run_ridft(QMin):
   add_section_to_control(controlfile,'$rik')
 
   if QMin['ncpu']>1:
-    string='ridft_smp &> ridft.out'
+    string='ridft_smp'
   else:
-    string='ridft &> ridft.out'
-  runerror=runProgram(string,workdir)
+    string='ridft'
+  runerror=runProgram(string,workdir,'ridft.out')
   if runerror!=0:
     print 'RIDFT calculation crashed! Error code=%i' % (runerror)
     sys.exit(85)
@@ -3234,8 +3247,8 @@ def run_ridft(QMin):
 # ======================================================================= #
 def run_orca(QMin):
   workdir=os.path.join(QMin['scratchdir'],'JOB')
-  string='orca_2mkl soc -gbw > orca_2mkl.out 2> orca_2mkl.err'
-  runerror=runProgram(string,workdir)
+  string='orca_2mkl soc -gbw'
+  runerror=runProgram(string,workdir,'orca_2mkl.out','orca_2mkl.err')
   if runerror!=0:
     print 'orca_2mkl calculation crashed! Error code=%i' % (runerror)
     sys.exit(86)
@@ -3249,8 +3262,8 @@ soc.soc
 '''
   writefile(os.path.join(workdir,'soc.socinp'),string)
 
-  string='orca_soc soc.socinp -gbw > orca_soc.out 2> orca_soc.err'
-  runerror=runProgram(string,workdir)
+  string='orca_soc soc.socinp -gbw'
+  runerror=runProgram(string,workdir,'orca_soc.out','orca_soc.err')
   if runerror!=0:
     print 'orca_soc calculation crashed! Error code=%i' % (runerror)
     sys.exit(87)
@@ -3289,10 +3302,10 @@ def run_ricc2(QMin):
   itrials=0
   while True:
     if QMin['ncpu']>1:
-      string='ricc2_omp &> ricc2.out'
+      string='ricc2_omp'
     else:
-      string='ricc2 &> ricc2.out'
-    runerror=runProgram(string,workdir)
+      string='ricc2'
+    runerror=runProgram(string,workdir,'ricc2.out')
     if runerror!=0:
       print 'RICC2 calculation crashed! Error code=%i' % (runerror)
       ok=False
@@ -3322,9 +3335,9 @@ def copymolden(QMin):
   string='molden.input\nY\n'
   filename=os.path.join(QMin['scratchdir'],'JOB','tm2molden.input')
   writefile(filename,string)
-  string='tm2molden < tm2molden.input &> tm2molden.output'
+  string='tm2molden < tm2molden.input'
   path=os.path.join(QMin['scratchdir'],'JOB')
-  runProgram(string,path)
+  runProgram(string,path,'tm2molden.output')
 
   if 'molden' in QMin:
     # create directory
@@ -3457,8 +3470,8 @@ def runeverything(tasks, QMin):
 # ======================================================================= #
 def run_theodore(QMin):
   workdir=os.path.join(QMin['scratchdir'],'JOB')
-  string='python2 %s/bin/analyze_tden.py &> theodore.out' % (QMin['theodir'])
-  runerror=runProgram(string,workdir)
+  string='python2 %s/bin/analyze_tden.py' % (QMin['theodir'])
+  runerror=runProgram(string,workdir,'theodore.out')
   if runerror!=0:
     print 'Theodore calculation crashed! Error code=%i' % (runerror)
     sys.exit(90)
