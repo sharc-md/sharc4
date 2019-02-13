@@ -91,6 +91,9 @@ changelogstring='''
 
 01.12.2017:
 - all features of ADF interface, minus SOCs
+
+08.01.2019:
+- added "basis_external" keyword
 '''
 
 # ======================================================================= #
@@ -1546,7 +1549,8 @@ def readQMin(QMinfilename):
               'qmmm_table'              :'GAUSSIAN.qmmm.table',
               'qmmm_ff_file'            :'GAUSSIAN.ff',
               'iop'                     :'',
-              'keys'                    :''
+              'keys'                    :'',
+              'basis_external'          :''
               }
     integers={
               }
@@ -1689,7 +1693,11 @@ def readQMin(QMinfilename):
                 #QMin['template']['qmmm_ff_file']=filename
 
 
-
+    ## read external basis set
+    if QMin['template']['basis_external']:
+      QMin['template']['basis']='gen'
+      QMin['template']['basis_external']=readfile(QMin['template']['basis_external'])
+      
 
 
     ##do logic checks
@@ -2403,7 +2411,11 @@ def writeGAUSSIANinput(QMin):
     for iatom,atom in enumerate(QMin['geo']):
         label=atom[0]
         string+='%4s %16.9f %16.9f %16.9f\n' % (label,atom[1],atom[2],atom[3])
-    string+='\n\n\n'
+    string+='\n'
+    if QMin['template']['basis_external']:
+      for line in QMin['template']['basis_external']:
+        string+=line
+    string+='\n\n'
 
 
     return string
