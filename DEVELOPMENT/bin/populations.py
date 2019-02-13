@@ -658,9 +658,9 @@ def do_calc(INFOS):
   files=[]
   ntraj=0
   print 'Checking the directories...'
-  for idir in INFOS['paths']:
+  for idir in sorted(INFOS['paths']):
     ls=os.listdir(idir)
-    for itraj in ls:
+    for itraj in sorted(ls):
       if not 'TRAJ_' in itraj:
         continue
       path=idir+'/'+itraj
@@ -790,6 +790,7 @@ def do_calc(INFOS):
   # get populations
   width=60
   pop_full=[ [ [0. for j in range(nstates) ] for i in range(nsteps) ] for ifile in files ]
+  traj_per_step=[ 0. for i in range(nsteps) ]
   shortest=9999999.
   longest=0.
   for fileindex,ifile in enumerate(files):
@@ -809,6 +810,8 @@ def do_calc(INFOS):
             vec[state]+=vec2[i].real**2+vec2[i].imag**2
         for istate in range(nstates):
           pop_full[fileindex][istep][istate]+=vec[istate]
+      for itt in range(istep+1):
+        traj_per_step[itt]+=1
       if dt*istep<shortest:
         shortest=dt*istep
       if dt*istep>longest:
@@ -865,6 +868,8 @@ def do_calc(INFOS):
           for i in range(nstates):
             pop_full[fileindex][t][i]+=vec[i]
       lisf.close()
+      for itt in range(t+1):
+        traj_per_step[itt]+=1
       if dt*t<shortest:
         shortest=dt*t
       if dt*t>longest:
@@ -964,6 +969,16 @@ def do_calc(INFOS):
   outf.write(s)
   outf.close()
 
+
+  # print number of trajs
+  outfilename='traj_per_step_'+outfilename
+  s='#%15s %16s\n' % ('Time','Ntraj')
+  for it,n in enumerate(traj_per_step):
+    s+='%16.9f %16.9f\n' % (it*dt,n)
+  outf=open(outfilename,'w')
+  print 'Writing number of trajectories per step to %s ...' % (outfilename)
+  outf.write(s)
+  outf.close()
 
   # save bootstrapping data
   if INFOS['bootstrap']:
