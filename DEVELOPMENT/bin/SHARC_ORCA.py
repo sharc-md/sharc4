@@ -91,6 +91,17 @@ changelogstring='''
 
 11.09.2018: 
 - added "basis_per_element", "basis_per_atom", and "hfexchange" keywords
+
+03.10.2018:
+Update for Orca 4.1:
+- SOC for restricted singlets and triplets
+- gradients for restricted triplets
+- multigrad features
+- orca_fragovl instead of PyQuante
+
+16.10.2018:
+Update for Orca 4.1, after revisions:
+- does not work with Orca 4.0 or lower (orca_fragovl unavailable, engrad/pcgrad files)
 '''
 
 # ======================================================================= #
@@ -1279,8 +1290,8 @@ def execute_tinker(QMin,ff_file_path):
           ' '.join( [ str(QMMM['reorder_input_MM'][i]+1) for i in QMMM['LI_atoms'] ] ) )
     string+='MM %i %i\n' % (-(1+len(QMMM['QM_atoms'])+len(QMMM['linkbonds'])),
                              QMMM['natom_table']+len(QMMM['linkbonds']) )
-    if DEBUG:
-        string+='\nDEBUG\n'
+    #if DEBUG:
+        #string+='\nDEBUG\n'
     if QMin['ncpu']>1:
         string+='\nOPENMP-THREADS %i\n' % QMin['ncpu']
     if len(QMMM['linkbonds'])>0:
@@ -1578,8 +1589,27 @@ def removequotes(string):
 
 # ======================================================================= #
 def getOrcaVersion(path):
-  # TODO
-  pass
+  # run orca with nonexisting file
+  string=os.path.join(path,'orca')+' nonexisting'
+  try:
+      proc=sp.Popen(string,shell=True,stdout=sp.PIPE,stderr=sp.PIPE)
+  except OSError:
+      print 'Call have had some serious problems:',OSError
+      sys.exit(65)
+  comm=proc.communicate()
+
+  # find version string
+  for line in comm[0].split('\n'):
+    if 'Program Version' in line:
+      break
+  else:
+    for line in comm[0].split('\n'):
+      print line
+    print 'Could not find Orca version!'
+    sys.exit(11)
+  s=line.split('-')[0].split()[2].split('.')
+  s=tuple( [int(i) for i in s] )
+  return s
 
 # ======================================================================= #
 def getsh2Orcakey(sh2Orca,key):
@@ -1783,14 +1813,14 @@ def readQMin(QMinfilename):
     if not 'h' in QMin and not 'soc' in QMin:
         QMin['h']=[]
 
-    if  'soc' in QMin:
-        print 'Spin-orbit couplings cannot be computed currently!'
-        sys.exit(31)
+    #if  'soc' in QMin:
+        #print 'Spin-orbit couplings cannot be computed currently!'
+        #sys.exit(31)
 
-    #if 'soc' in QMin and (len(QMin['states'])<3 or QMin['states'][2]<=0):
-        #QMin=removekey(QMin,'soc')
-        #QMin['h']=[]
-        #print 'HINT: No triplet states requested, turning off SOC request.'
+    if 'soc' in QMin and (len(QMin['states'])<3 or QMin['states'][2]<=0):
+        QMin=removekey(QMin,'soc')
+        QMin['h']=[]
+        print 'HINT: No triplet states requested, turning off SOC request.'
 
     if 'samestep' in QMin and 'init' in QMin:
         print '"Init" and "Samestep" cannot be both present in QM.in!'
@@ -1892,9 +1922,13 @@ def readQMin(QMinfilename):
 
     # setup environment for Orca
     QMin['orcadir']=get_sh2Orca_environ(sh2Orca,'orcadir')
-    #QMin['Gversion']=getGaussianVersion(QMin['groot'])
-    #print 'Detected ORCA version %s' % QMin['Gversion']
+    os.environ['LD_LIBRARY_PATH']='%s:' % (QMin['orcadir'])+os.environ['LD_LIBRARY_PATH']
+    QMin['OrcaVersion']=getOrcaVersion(QMin['orcadir'], )
+    print 'Detected ORCA version %s' % (str(QMin['OrcaVersion']))
     os.environ['PATH']='%s:' % (QMin['orcadir']) +os.environ['PATH']
+    if QMin['OrcaVersion']<(4,1):
+      print 'This version of the SHARC-ORCA interface is only compatible to Orca 4.1 or higher!'
+      sys.exit(11)
 
 
     # debug option
@@ -1976,16 +2010,16 @@ def readQMin(QMinfilename):
             else:
                 print 'Give path to wfoverlap.x in ORCA.resources!'
                 sys.exit(44)
-        # PyQuante
-        QMin['pyquante']=get_sh2Orca_environ(sh2Orca,'pyquante',False,False)
-        if QMin['pyquante']==None or not os.path.isdir(QMin['pyquante']):
-            print 'Give path to the PyQuante installation directory in ORCA.resources!'
-            sys.exit(45)
-        #if 'PYTHONPATH' in os.environ:
-            #os.environ['PYTHONPATH']+=os.pathsep + QMin['pyquante']
-        #else:
-            #os.environ['PYTHONPATH']=QMin['pyquante']
-        sys.path.append(QMin['pyquante'])
+        ## PyQuante
+        #QMin['pyquante']=get_sh2Orca_environ(sh2Orca,'pyquante',False,False)
+        #if QMin['pyquante']==None or not os.path.isdir(QMin['pyquante']):
+            #print 'Give path to the PyQuante installation directory in ORCA.resources!'
+            #sys.exit(45)
+        ##if 'PYTHONPATH' in os.environ:
+            ##os.environ['PYTHONPATH']+=os.pathsep + QMin['pyquante']
+        ##else:
+            ##os.environ['PYTHONPATH']=QMin['pyquante']
+        #sys.path.append(QMin['pyquante'])
 
     # memory
     QMin['memory']=100
@@ -2041,7 +2075,7 @@ def readQMin(QMinfilename):
 
     # define classes and defaults
     bools   ={'no_tda'                  :False,
-              'unrestricted_triplets'   :True,
+              'unrestricted_triplets'   :False,
               'qmmm'                    :False
               }
     strings ={'basis'                   :'6-31G',
@@ -2050,7 +2084,7 @@ def readQMin(QMinfilename):
               'dispersion'              :'',
               'grid'                    :'2',
               'gridx'                   :'',
-	      'gridxc'                  :'',
+              'gridxc'                  :'',
               'ri'                      :'',
               'scf'                     :'',
               'qmmm_table'              :'ORCA.qmmm.table',
@@ -2068,7 +2102,8 @@ def readQMin(QMinfilename):
               'theodore_prop'           :['Om','PRNTO','S_HE','Z_HE','RMSeh'],
               'theodore_fragment'       :[],
               'basis_per_element'       :{},
-              'basis_per_atom'          :{}
+              'basis_per_atom'          :{},
+              'range_sep_settings'      :{'do':False, 'mu':0.14, 'scal':1.0, 'ACM1':0.0, 'ACM2':0.0, 'ACM3':1.0}
               }
 
     # create QMin subdictionary
@@ -2151,6 +2186,15 @@ def readQMin(QMinfilename):
                 line2=orig.split(None,2)
                 QMin['template']['basis_per_atom'][int(line2[1])-1]=line2[2]
 
+            # list of floats must be parsed separately
+            elif line[0]=='range_sep_settings':
+                QMin['template']['range_sep_settings']['do']=True
+                QMin['template']['range_sep_settings']['mu']=float(line[1])
+                QMin['template']['range_sep_settings']['scal']=float(line[2])
+                QMin['template']['range_sep_settings']['ACM1']=float(line[3])
+                QMin['template']['range_sep_settings']['ACM2']=float(line[4])
+                QMin['template']['range_sep_settings']['ACM3']=float(line[5])
+
 
     # go through sh2Orca for the theodore settings and QM/MM file names
     for line in sh2Orca:
@@ -2201,12 +2245,20 @@ def readQMin(QMinfilename):
 
     #do logic checks
     if not QMin['template']['unrestricted_triplets']:
-        if len(QMin['states'])>=3 and QMin['states'][2]>0:
-            print 'Currently, triplets can only be computed with the unrestricted_triplets option!'
-            sys.exit(11)
+        if QMin['OrcaVersion']<(4,1):
+          if len(QMin['states'])>=3 and QMin['states'][2]>0:
+              print 'With Orca v<4.1, triplets can only be computed with the unrestricted_triplets option!'
+              sys.exit(11)
         if len(QMin['template']['charge'])>=3 and QMin['template']['charge'][0]!=QMin['template']['charge'][2]:
             print 'Charges of singlets and triplets differ. Please enable the "unrestricted_triplets" option!'
             sys.exit(54)
+    if QMin['template']['unrestricted_triplets'] and 'soc' in QMin:
+        if len(QMin['states'])>=3 and QMin['states'][2]>0:
+            print 'Request "SOC" is not compatible with "unrestricted_triplets"!'
+            sys.exit(55)
+    #if QMin['template']['cosmo'] and 'grad' in QMin: TODO
+        #print 'COSMO is not compatible with gradient calculations!'
+        #sys.exit(62)
 
 
 # --------------------------------------------- QM/MM ----------------------------------
@@ -2324,11 +2376,11 @@ def readQMin(QMinfilename):
         if states_to_do[i]>0:
             states_to_do[i]+=QMin['template']['paddingstates'][i]
     if not QMin['template']['unrestricted_triplets']:
-        if len(QMin['states'])>=3 and QMin['states'][2]>0 and QMin['states'][0]<=1 :
-            if 'soc' in QMin:
-                states_to_do[0]=2
-            else:
-                states_to_do[0]=1
+        if len(QMin['states'])>=3 and QMin['states'][2]>0:
+            states_to_do[0]=max(QMin['states'][0],1)
+            req=max( QMin['states'][0]-1, QMin['states'][2])
+            states_to_do[0]=req+1
+            states_to_do[2]=req
     QMin['states_to_do']=states_to_do
 
     # make the jobs
@@ -2339,8 +2391,10 @@ def readQMin(QMinfilename):
         jobs[2]={'mults':[2],'restr':False}
     if len(QMin['states_to_do'])>=3 and QMin['states_to_do'][2]>0:
         if not QMin['template']['unrestricted_triplets'] and QMin['states_to_do'][0]>0:
-            #jobs[1]['mults'].append(3)
-            jobs[3]={'mults':[1,3],'restr':True}
+            if QMin['OrcaVersion']>=(4,1):
+                jobs[1]['mults'].append(3)
+            else:
+                jobs[3]={'mults':[1,3],'restr':True}
         else:
             jobs[3]={'mults':[3],'restr':False}
     if len(QMin['states_to_do'])>=4:
@@ -2550,25 +2604,28 @@ def generate_joblist(QMin):
     for grad in QMin['gradmap']:
         ijob=QMin['multmap'][grad[0]]
         isgs=False
-        istates=QMin['states_to_do'][grad[0]-1]
         if not QMin['jobs'][ijob]['restr']:
             if grad[1]==1:
                 isgs=True
         else:
             if grad==(1,1):
                 isgs=True
-        if isgs and istates>1:
-            gradjob['grad_%i_%i'%grad]={}
-            gradjob['grad_%i_%i'%grad][grad]={'gs':True}
+        istates=QMin['states_to_do'][grad[0]-1]
+        if QMin['OrcaVersion']<(4,1):
+          if isgs and istates>1:
+              gradjob['grad_%i_%i'%grad]={}
+              gradjob['grad_%i_%i'%grad][grad]={'gs':True}
+          else:
+              n=0
+              for gradx in gradjob['master_%i'%ijob]:
+                  n+=1
+              if n>0:
+                  gradjob['grad_%i_%i'%grad]={}
+                  gradjob['grad_%i_%i'%grad][grad]={'gs':False}
+              else:
+                  gradjob['master_%i'%ijob][grad]={'gs':False}
         else:
-            n=0
-            for gradx in gradjob['master_%i'%ijob]:
-                n+=1
-            if n>0:
-                gradjob['grad_%i_%i'%grad]={}
-                gradjob['grad_%i_%i'%grad][grad]={'gs':False}
-            else:
-                gradjob['master_%i'%ijob][grad]={'gs':False}
+          gradjob['master_%i'%ijob][grad]={'gs':isgs}
     #pprint.pprint(gradjob)
 
     # make map for states onto gradjobs
@@ -2604,9 +2661,10 @@ def generate_joblist(QMin):
                 QMin1=removekey(QMin1,r)
             QMin1['gradmap']=list(gradjob[i])
             QMin1['ncpu']=cpu_per_run[icount]
-            if 3 in QMin['multmap'][-QMin1['IJOB']] and QMin['jobs'][QMin1['IJOB']]['restr']:
-              QMin1['states'][0]=1
-              QMin1['states_to_do'][0]=1
+            if QMin['OrcaVersion']<(4,1):
+              if 3 in QMin['multmap'][-QMin1['IJOB']] and QMin['jobs'][QMin1['IJOB']]['restr']:
+                QMin1['states'][0]=1
+                QMin1['states_to_do'][0]=1
             if QMin1['qmmm']:
               QMin1['qmmm']=True
             icount+=1
@@ -2643,7 +2701,7 @@ def generate_joblist(QMin):
 
 # =============================================================================================== #
 # =============================================================================================== #
-# ======================================= ADF Job Execution ===================================== #
+# ======================================= Orca Job Execution ==================================== #
 # =============================================================================================== #
 # =============================================================================================== #
 
@@ -2804,7 +2862,7 @@ def writeORCAinput(QMin):
     # number of states to calculate
     if restr:
         ncalc=max(states_to_do)
-        sing=states_to_do[0]>0
+        #sing=states_to_do[0]>0
         trip=(len(states_to_do)>=3 and states_to_do[2]>0)
     else:
         ncalc=max(states_to_do)
@@ -2826,21 +2884,23 @@ def writeORCAinput(QMin):
                     #gscorr=True
 
     # gradients
+    multigrad=False
     if 'grad' in QMin and QMin['gradmap']:
         dograd=True
         egrad=()
         for grad in QMin['gradmap']:
             if not (gsmult,1)==grad:
                 egrad=grad
-        #if multigrad_possible:
-            #singgrad=[]
-            #tripgrad=[]
-            #for grad in QMin['gradmap']:
-                #if not (gsmult,1)==grad:
-                    #if grad[0]==gsmult:
-                        #singgrad.append(grad[1]-1)
-                    #if grad[0]==3 and restr:
-                        #tripgrad.append(grad[1])
+        #if len(QMin['gradmap'])>1:
+        if QMin['OrcaVersion']>=(4,1):
+          multigrad=True
+          singgrad=[]
+          tripgrad=[]
+          for grad in QMin['gradmap']:
+              if grad[0]==gsmult:
+                  singgrad.append(grad[1]-1)
+              if grad[0]==3 and restr:
+                  tripgrad.append(grad[1])
     else:
         dograd=False
 
@@ -2893,6 +2953,21 @@ def writeORCAinput(QMin):
     if QMin['template']['hfexchange']>=0.:
       string+='%%method\nScalHFX = %f\nScalDFX = %f\nend\n\n' % (QMin['template']['hfexchange'],1.-QMin['template']['hfexchange'])
 
+    # Range separation
+    if QMin['template']['range_sep_settings']['do']:
+      string+='''%%method
+ RangeSepEXX True
+ RangeSepMu %f
+ RangeSepScal %f
+ ACM %f, %f, %f\nend\n\n
+''' % (QMin['template']['range_sep_settings']['mu'],
+       QMin['template']['range_sep_settings']['scal'],
+       QMin['template']['range_sep_settings']['ACM1'],
+       QMin['template']['range_sep_settings']['ACM2'],
+       QMin['template']['range_sep_settings']['ACM3']
+      )
+
+
     # excited states
     if ncalc>0 and not 'AOoverlap' in QMin:
       string+='%tddft\n'
@@ -2904,16 +2979,31 @@ def writeORCAinput(QMin):
           string+='gridxc %s\n' % (QMin['template']['gridxc'])
       if 'theodore' in QMin:
           string+='tprint 0.0001\n'
+      if restr and trip:
+          string+='triplets true\n'
       string+='nroots %i\n' % (ncalc)
-      if dograd and egrad:
-        string+='iroot %i\n' % (egrad[1]-(gsmult==egrad[0]))
+      if restr and 'soc' in QMin:
+          string+='dosoc true\n'
+          string+='printlevel 3\n'
+      if dograd:
+          if multigrad:
+              if singgrad:
+                  string+='sgradlist '
+                  string+=','.join( [str(i) for i in sorted(singgrad)] )
+                  string+='\n'
+              if tripgrad:
+                  string+='tgradlist '
+                  string+=','.join( [str(i) for i in sorted(tripgrad)] )
+                  string+='\n'
+          elif egrad:
+              string+='iroot %i\n' % (egrad[1]-(gsmult==egrad[0]))
       string+='end\n\n'
 
     # output
     string+='%output\n'
     if 'AOoverlap' in QMin or 'ion' in QMin or 'theodore' in QMin:
       string+='Print[ P_Overlap ] 1\n'
-    if 'master' in QMin and not 'nooverlap' in QMin:
+    if 'master' in QMin or 'theodore' in QMin:
       string+='Print[ P_MOs ] 1\n'
     string+='end\n\n'
 
@@ -2922,6 +3012,10 @@ def writeORCAinput(QMin):
     if 'AOoverlap' in QMin:
       string+='maxiter 0\n'
     string+='end\n\n'
+
+    ## TODO: workaround
+    #if 'soc' in QMin and 'grad' in QMin:
+      #string+='%rel\nonecenter true\nend\n\n'
 
     # charge mult geom
     string+='%coords\nCtyp xyz\nunits bohrs\n'
@@ -2993,7 +3087,7 @@ def runORCA(WORKDIR,orcadir,strip=False):
 # ======================================================================= #
 def stripWORKDIR(WORKDIR):
     ls=os.listdir(WORKDIR)
-    keep=['ORCA.inp$','ORCA.err$','ORCA.log$','ORCA.gbw','ORCA.cis','ORCA.engrad','ORCA.pcgrad','ORCA.molden.input']
+    keep=['ORCA.inp$','ORCA.err$','ORCA.log$','ORCA.gbw','ORCA.cis','ORCA.engrad','ORCA.pcgrad','ORCA.molden.input','ORCA.pc']
     for ifile in ls:
         delete=True
         for k in keep:
@@ -3042,6 +3136,7 @@ def moveOldFiles(QMin):
     #if PRINT:
       #print shorten_DIR(fromfile)+'   =>   '+shorten_DIR(tofile)
     #shutil.copy(fromfile,tofile)
+
     # also remove aoovl files if present
     delete=['AO_overl','AO_overl.mixed']
     for f in delete:
@@ -3081,10 +3176,12 @@ def saveFiles(WORKDIR,QMin):
     # if necessary, extract the MOs and write them to savedir
     if 'ion' in QMin or not 'nooverlap' in QMin:
         mofile=os.path.join(QMin['savedir'],'mos.%i' % job)
+        f=os.path.join(WORKDIR,'ORCA.gbw')
+        string=get_MO_from_gbw(f,QMin)
         #f=os.path.join(WORKDIR,'ORCA.log')
         #string=get_MO_from_stdout(f,QMin)
-        moldenfile=os.path.join(QMin['savedir'],'ORCA.molden.%i' % job)
-        string=make_mos_from_Molden(moldenfile,QMin)
+        #moldenfile=os.path.join(QMin['savedir'],'ORCA.molden.%i' % job)
+        #string=make_mos_from_Molden(moldenfile,QMin)
         writefile(mofile,string)
         if PRINT:
             print shorten_DIR(mofile)
@@ -3131,191 +3228,77 @@ def saveMolden(WORKDIR,QMin):
     if PRINT:
         print shorten_DIR(tofile)
 
+
 # ======================================================================= #
-def make_mos_from_Molden(moldenfile,QMin):
+def get_MO_from_gbw(filename,QMin):
+
+    # run orca_fragovl
+    string='orca_fragovl %s %s' % (filename,filename)
+    try:
+      proc=sp.Popen(string,shell=True,stdout=sp.PIPE,stderr=sp.PIPE)
+    except OSError:
+      print 'Call have had some serious problems:',OSError
+      sys.exit(65)
+    comm=proc.communicate()
+    data=comm[0].split('\n')
+
+    # get size of matrix
+    for line in reversed(data):
+      #print line
+      s=line.split()
+      if len(s)>=1:
+        NAO=int(line.split()[0])+1
+        break
 
     job=QMin['IJOB']
     restr=QMin['jobs'][job]['restr']
 
-    # read file
-    data=readfile(moldenfile)
-
-    # basis info
-    shells={'s': (1,1), 'p': (3,3), 'd': (6,5), 'f':(10,7), 'g':(15,9) }
-    mode={'s':0, 'p':0, 'd':0, 'f':1, 'g':0}    # 0: cartesian, 1: spherical
-    # TODO: ORCA bug, it does not write [7F] into the Molden file
-    for line in data:
-      if '[5d' in line.lower():
-        mode['d']=1
-      if '7f]' in line.lower():
-        mode['f']=1
-      if '[9g]' in line.lower():
-        mode['g']=1
-    NAOs=[0,0]          # 0: with full cart basis, 1: as in Molden
-    aos=[]
-
-    # get basis info
-    for iline,line in enumerate(data):
-      if '[gto]' in line.lower():
-        break
-    else:
-        print 'Could not find basis set in %s!' % (moldenfile)
-        sys.exit(11)
+    # find MO block
+    iline=-1
     while True:
       iline+=1
-      if iline>=len(data):
-        print 'Could not find basis set in %s!' % (moldenfile)
+      if len(data)<=iline:
+        print 'MOs not found!'
         sys.exit(11)
-      line=data[iline].lower()
-      if '[' in line:
+      line=data[iline]
+      if 'FRAGMENT A MOs MATRIX' in line:
         break
-      s=line.split()
-      if len(s)>=1 and s[0] in shells:
-        NAOs[0]+=shells[s[0]][0]
-        NAOs[1]+=shells[s[0]][mode[s[0]]]
-        aos.append(s[0])
-    #print mode
-    #print NAOs
-    #print aos
+    iline+=3
 
-    for iline,line in enumerate(data):
-      if '[mo]' in line.lower():
-        break
-    else:
-        print 'Could not find MO coefficients in %s!' % (moldenfile)
-        sys.exit(11)
+    # formatting
+    nblock=6
+    npre=11
+    ndigits=16
 
-    NAO=NAOs[1]
     # get coefficients for alpha
     NMO_A=NAO
     MO_A=[ [ 0. for i in range(NAO) ] for j in range(NMO_A) ]
     for imo in range(NMO_A):
+      jblock=imo/nblock
+      jcol =imo%nblock
       for iao in range(NAO):
-        jline=iline + 5 + iao + (NAO+4)*imo
+        shift=max(0,len(str(iao))-3)
+        jline=iline + jblock*(NAO+1) + iao
         line=data[jline]
-        MO_A[imo][iao]=float(line.split()[1])
+        val=float( line[npre+shift+jcol*ndigits : npre+shift+ndigits+jcol*ndigits] )
+        MO_A[imo][iao]=val
+    iline+=(NAO/nblock+1)*(NAO+1)
 
     # coefficients for beta
     if not restr:
       NMO_B=NAO
       MO_B=[ [ 0. for i in range(NAO) ] for j in range(NMO_B) ]
       for imo in range(NMO_B):
+        jblock=imo/nblock
+        jcol =imo%nblock
         for iao in range(NAO):
-          jline=iline + 5 + iao + (NAO+4)*imo + (NAO+4)*NMO_A
+          shift=max(0,len(str(iao))-3)
+          jline=iline + jblock*(NAO+1) + iao
           line=data[jline]
-          MO_B[imo][iao]=float(line.split()[1])
-
-    # transform to cartesian AO basis (because AO overlap matrix is in cartesian)
-    if any( [ 1==mode[i] for i in aos ] ):
-      print '  .. transforming to cartesian AO basis'
+          val=float( line[npre+shift+jcol*ndigits : npre+shift+ndigits+jcol*ndigits] )
+          MO_B[imo][iao]=val
 
 
-    d34 =math.sqrt(3./4.)
-    f65 =math.sqrt(6./5.)
-    f38 =math.sqrt(3./8.)
-    f58 =math.sqrt(5./8.)
-    f98 =math.sqrt(9./8.)
-    f920=math.sqrt(9./20.)
-    f340=math.sqrt(3./40.)
-    g2735=math.sqrt(27./35.)
-    g4556=math.sqrt(45./56.)
-    g107 =math.sqrt(10./7.)
-    g956 =math.sqrt(9./56.)
-    g516 =math.sqrt(5./16.)
-    g2728=math.sqrt(27./28.)
-    g1056=math.sqrt(10./56.)
-    g3564=math.sqrt(35./64.)
-    g97  =math.sqrt(9./7.)
-    g2716=math.sqrt(27./16.)
-    g54  =math.sqrt(5./4.)
-    g38  =3./8.
-    g14  =1./4.
-    transform={
-      'd': [ [ (0,-0.5), (3, d34) ],
-             [ (0,-0.5), (3,-d34) ],
-             [ (0, 1.0) ],
-             [ (4, 1.0) ],
-             [ (1, 1.0) ],
-             [ (2, 1.0) ] ],
-      'f': [ [ (1, -f38), (5,-f58) ],      # 5 and 6 are multiplied by -1 by ORCA!
-             [ (2, -f38), (6, f58) ],      # this is already considered here!
-             [ (0,  1.0) ],
-             [ (1,-f340), (5, f98) ],
-             [ (2,-f340), (6,-f98) ],
-             [ (0,-f920), (3, d34) ],
-             [ (1,  f65) ],
-             [ (2,  f65) ],
-             [ (0,-f920), (3,-d34) ],
-             [ (4,  1.0) ] ],
-      'g': [ [ (0,   g38), (3, -g516), (7,-g3564) ],    # 5,6,7,8 multiplied by -1!
-             [ (0,   g38), (3,  g516), (7,-g3564) ],
-             [ (0, 1.000) ],
-             [ (4,-g1056), (8,  -g54) ],
-             [ (1,-g4556), (5,  -f58) ],
-             [ (4,-g1056), (8,   g54) ],
-             [ (2,-g4556), (6,   f58) ],
-             [ (1,  g107) ],
-             [ (2,  g107) ],
-             [ (0,   g14), (7, g2716) ],                # switched sign of 1/4
-             [ (0,-g2735), (3, g2728) ],
-             [ (0,-g2735), (3,-g2728) ],
-             [ (2, -g956), (6,  -f98) ],
-             [ (1, -g956), (5,   f98) ],
-             [ (4,   g97) ] ]
-      }
-    allowed=['s','p','d','f'] # TODO: 'g' does not give correct results yet
-    if any( [ shell not in allowed for shell in aos ] ):
-      print 'Currently, only %s basis functions are supported!' % allowed
-      sys.exit(11)
-
-    tMO_A=[]
-    for imo in range(NMO_A):
-      newmo=[]
-      iao=0
-      for shell in aos:
-        n_cart=shells[shell][0]
-        if mode[shell]==0:
-          for i in range(n_cart):
-            newmo.append( MO_A[imo][iao] )
-            iao+=1
-        else:
-          n_sph=shells[shell][1]
-          new=[ 0. for i in range(n_cart) ]
-          for i in range(n_cart):
-            for j,c in transform[shell][i]:
-              new[i]+=c*MO_A[imo][iao+j]
-          newmo.extend( new )
-          iao+=n_sph
-      tMO_A.append(newmo)
-
-    if not restr:
-      tMO_B=[]
-      for imo in range(NMO_B):
-        newmo=[]
-        iao=0
-        for shell in aos:
-          n_cart=shells[shell][0]
-          if mode[shell]==0:
-            for i in range(n_cart):
-              newmo.append( MO_B[imo][iao] )
-              iao+=1
-          else:
-            n_sph=shells[shell][1]
-            new=[ 0. for i in range(n_cart) ]
-            for i in range(n_cart):
-              for j,c in transform[shell][i]:
-                new[i]+=c*MO_B[imo][iao+j]
-            newmo.extend( new )
-            iao+=n_sph
-        tMO_B.append(newmo)
-
-    MO_A=tMO_A
-    NAO=NAOs[0]
-    if not restr:
-      MO_B=tMO_B
-
-
-    # handle frozen core
     NMO=NMO_A      -  QMin['frozcore']
     if restr:
         NMO=NMO_A      -  QMin['frozcore']
@@ -3326,7 +3309,7 @@ def make_mos_from_Molden(moldenfile,QMin):
     string='''2mocoef
 header
  1
-MO-coefficients from ORCA (converted to cartesian AOs)
+MO-coefficients from Orca
  1
  %i   %i
  a
@@ -3372,119 +3355,6 @@ mocoef
     return string
 
 # ======================================================================= #
-#def get_MO_from_stdout(filename,QMin):
-
-    #job=QMin['IJOB']
-    #restr=QMin['jobs'][job]['restr']
-
-    ## read file
-    #data=readfile(filename)
-
-    ## find MO block
-    #iline=-1
-    #NAO=0
-    #while True:
-      #iline+=1
-      #if len(data)<=iline:
-        #print 'MOs not found!'
-        #sys.exit(11)
-      #line=data[iline]
-      #if '# of contracted basis functions' in line:
-        #NAO=int(line.split()[-1])
-      #if 'MOLECULAR ORBITALS' in line:
-        #break
-    #if NAO==0:
-      #print 'Number of basis functions not found!'
-      #sys.exit(11)
-    #iline+=2
-
-    ## get coefficients for alpha
-    #nblock=6
-    #NMO_A=NAO
-    #MO_A=[ [ 0. for i in range(NAO) ] for j in range(NMO_A) ]
-    #for imo in range(NMO_A):
-      #for iao in range(NAO):
-        #jline=iline + (imo/nblock)*(NAO+4)+4+iao
-        #jcol =imo%nblock
-        #line=data[jline]
-        ##print line
-        ##print len(line), (len(line)-16)/10
-        #s=[ line[16+10*i:26+10*i] for i in range( (len(line)-16)/10 ) ]
-        ##print s
-        ##print jcol,imo,iao
-        #MO_A[imo][iao]=float(s[jcol])
-    #iline=jline+2
-
-    ## coefficients for beta
-    #if not restr:
-      #nblock=6
-      #NMO_B=NAO
-      #MO_B=[ [ 0. for i in range(NAO) ] for j in range(NMO_B) ]
-      #for imo in range(NMO_B):
-        #for iao in range(NAO):
-          #jline=iline + (imo/nblock)*(NAO+4)+4+iao
-          #jcol =imo%nblock        
-          #line=data[jline]
-          #s=[ line[16+10*i:26+10*i] for i in range( (len(line)-16)/10 ) ]
-          #MO_B[imo][iao]=float(s[jcol])
-
-
-    #NMO=NMO_A      -  QMin['frozcore']
-    #if restr:
-        #NMO=NMO_A      -  QMin['frozcore']
-    #else:
-        #NMO=NMO_A+NMO_B-2*QMin['frozcore']
-
-    ## make string
-    #string='''2mocoef
-#header
- #1
-#MO-coefficients from Gaussian
- #1
- #%i   %i
- #a
-#mocoef
-#(*)
-#''' % (NAO,NMO)
-    #x=0
-    #for imo,mo in enumerate(MO_A):
-        #if imo<QMin['frozcore']:
-            #continue
-        #for c in mo:
-            #if x>=3:
-                #string+='\n'
-                #x=0
-            #string+='% 6.12e ' % c
-            #x+=1
-        #if x>0:
-            #string+='\n'
-            #x=0
-    #if not restr:
-        #x=0
-        #for imo,mo in enumerate(MO_B):
-            #if imo<QMin['frozcore']:
-                #continue
-            #for c in mo:
-                #if x>=3:
-                    #string+='\n'
-                    #x=0
-                #string+='% 6.12e ' % c
-                #x+=1
-            #if x>0:
-                #string+='\n'
-                #x=0
-    #string+='orbocc\n(*)\n'
-    #x=0
-    #for i in range(NMO):
-        #if x>=3:
-            #string+='\n'
-            #x=0
-        #string+='% 6.12e ' % (0.0)
-        #x+=1
-
-    #return string
-
-# ======================================================================= #
 def get_dets_from_cis(filename,QMin):
 
     # get general infos
@@ -3493,11 +3363,14 @@ def get_dets_from_cis(filename,QMin):
     mults=QMin['jobs'][job]['mults']
     gsmult=QMin['multmap'][-job][0]
     nstates_to_extract=deepcopy(QMin['states'])
+    nstates_to_skip=[ QMin['states_to_do'][i]-QMin['states'][i] for i in range(len(QMin['states'])) ]
     for i in range(len(nstates_to_extract)):
         if not i+1 in mults:
             nstates_to_extract[i]=0
+            nstates_to_skip[i]=0
         elif i+1==gsmult:
             nstates_to_extract[i]-=1
+    #print job,restr,mults,gsmult,nstates_to_extract
 
     # get infos from logfile
     logfile=os.path.join(os.path.dirname(filename),'ORCA.log')
@@ -3672,6 +3545,26 @@ def get_dets_from_cis(filename,QMin):
             #pprint.pprint(dets3)
             # append
             eigenvectors[mult].append(dets3)
+        # skip extra roots
+        for istate in range(nstates_to_skip[mult-1]):
+            CCfile.read(40)
+            for iocc in range(header[0],header[1]+1):
+              for ivirt in range(header[2],header[3]+1):
+                CCfile.read(8)
+            if not restr:
+              for iocc in range(header[4],header[5]+1):
+                for ivirt in range(header[6],header[7]+1):
+                  CCfile.read(8)
+            if QMin['template']['no_tda']:
+              CCfile.read(40)
+              for iocc in range(header[0],header[1]+1):
+                for ivirt in range(header[2],header[3]+1):
+                  CCfile.read(8)
+              if not restr:
+                for iocc in range(header[4],header[5]+1):
+                  for ivirt in range(header[6],header[7]+1):
+                    CCfile.read(8)
+
 
     strings={}
     for imult,mult in enumerate(mults):
@@ -3715,8 +3608,10 @@ def format_ci_vectors(ci_vectors):
 def saveAOmatrix(WORKDIR,QMin):
     #filename=os.path.join(WORKDIR,'ORCA.log')
     #NAO,Smat=get_smat(filename)
-    filename=os.path.join(WORKDIR,'ORCA.molden.input')
-    NAO,Smat=get_smat_from_Molden(filename)
+    #filename=os.path.join(WORKDIR,'ORCA.molden.input')
+    #NAO,Smat=get_smat_from_Molden(filename)
+    filename=os.path.join(WORKDIR,'ORCA.gbw')
+    NAO,Smat=get_smat_from_gbw(filename)
 
     string='%i %i\n' % (NAO,NAO)
     for irow in range(NAO):
@@ -3763,70 +3658,110 @@ def saveAOmatrix(WORKDIR,QMin):
     #return NAO,ao_ovl
 
 # ======================================================================= #
-def get_smat_from_Molden(file1, file2=''):
+def get_smat_from_gbw(file1, file2=''):
 
-  # read file1
-  molecule=read_molden(file1)
+    if not file2:
+      file2=file1
 
-  # read file2:
-  if file2:
-    molecule.extend(read_molden(file2))
-  #pprint.pprint(molecule)
+    # run orca_fragovl
+    string='orca_fragovl %s %s' % (file1,file2)
+    try:
+      proc=sp.Popen(string,shell=True,stdout=sp.PIPE,stderr=sp.PIPE)
+    except OSError:
+      print 'Call have had some serious problems:',OSError
+      sys.exit(65)
+    comm=proc.communicate()
+    out=comm[0].split('\n')
 
-  # make PyQuante object
-  try:
-    from PyQuante.Ints import getS
-    from PyQuante.Basis.basis import BasisSet
-    from PyQuante.CGBF import CGBF
-    from PyQuante.PGBF import PGBF
-    from PyQuante import Molecule
-    from PyQuante.shell import Shell
-  except ImportError:
-    print 'Could not import PyQuante!'
-    sys.exit(11)
+    # get size of matrix
+    for line in reversed(out):
+      #print line
+      s=line.split()
+      if len(s)>=1:
+        NAO=int(line.split()[0])+1
+        break
 
-  class moldenBasisSet(BasisSet):
-    def __init__(self, molecule):
-      sym2powerlist = {
-          'S' : [(0,0,0)],
-          'P' : [(1,0,0),(0,1,0),(0,0,1)],
-          'D' : [(2,0,0),(0,2,0),(0,0,2),(1,1,0),(1,0,1),(0,1,1)],
-          'F' : [(3,0,0),(0,3,0),(0,0,3),(1,2,0),(2,1,0),(2,0,1),
-                 (1,0,2),(0,1,2),(0,2,1), (1,1,1)],
-          'G' : [(4,0,0),(0,4,0),(0,0,4),(3,1,0),(3,0,1),(1,3,0),
-                 (0,3,1),(1,0,3),(0,1,3),(2,2,0),(2,0,2),(0,2,2),
-                 (2,1,1),(1,2,1),(1,1,2)]
-          }
+    # read matrix
+    nblock=6
+    ao_ovl=[ [ 0. for i in range(NAO) ] for j in range(NAO) ]
+    for x in range(NAO):
+      for y in range(NAO):
+        block=x/nblock
+        xoffset=x%nblock+1
+        yoffset=block*(NAO+1)+y+10
+        ao_ovl[x][y]=float( out[yoffset].split()[xoffset])
+
+    return NAO,ao_ovl
 
 
-      # make molecule
-      atomlist=[]
-      for atom in molecule:
-        atomlist.append( (atom['el'], tuple(atom['coord'])) )
-      target=Molecule('default',atomlist,units='bohr')
 
-      self.bfs=[]
-      self.shells=[]
-      for iatom,atom in enumerate(molecule):
-        for bas in atom['basis']:
-          shell=Shell(bas[0])
-          for power in sym2powerlist[bas[0]]:
-            cgbf = CGBF(target[iatom].pos(), power, target[iatom].atid)
-            for alpha, coef in bas[1:]:
-              angular=sum(power)
-              coef*=alpha**(-(0.75+angular*0.5))  *  2**(-angular)  *  (2.0/math.pi)**(-0.75)
-              cgbf.add_primitive(alpha,coef)
-            cgbf.normalize()
-            self.bfs.append(cgbf)
-            shell.append(cgbf, len(self.bfs)-1)
-          self.shells.append(shell)
 
-  a=moldenBasisSet(molecule)
-  #pprint.pprint(a.__dict__)
 
-  S=getS(a)
-  S=S.tolist()
-  return len(S),S
+# ======================================================================= #
+#def get_smat_from_Molden(file1, file2=''):
+
+  ## read file1
+  #molecule=read_molden(file1)
+
+  ## read file2:
+  #if file2:
+    #molecule.extend(read_molden(file2))
+  ##pprint.pprint(molecule)
+
+  ## make PyQuante object
+  #try:
+    #from PyQuante.Ints import getS
+    #from PyQuante.Basis.basis import BasisSet
+    #from PyQuante.CGBF import CGBF
+    #from PyQuante.PGBF import PGBF
+    #from PyQuante import Molecule
+    #from PyQuante.shell import Shell
+  #except ImportError:
+    #print 'Could not import PyQuante!'
+    #sys.exit(11)
+
+  #class moldenBasisSet(BasisSet):
+    #def __init__(self, molecule):
+      #sym2powerlist = {
+          #'S' : [(0,0,0)],
+          #'P' : [(1,0,0),(0,1,0),(0,0,1)],
+          #'D' : [(2,0,0),(0,2,0),(0,0,2),(1,1,0),(1,0,1),(0,1,1)],
+          #'F' : [(3,0,0),(0,3,0),(0,0,3),(1,2,0),(2,1,0),(2,0,1),
+                 #(1,0,2),(0,1,2),(0,2,1), (1,1,1)],
+          #'G' : [(4,0,0),(0,4,0),(0,0,4),(3,1,0),(3,0,1),(1,3,0),
+                 #(0,3,1),(1,0,3),(0,1,3),(2,2,0),(2,0,2),(0,2,2),
+                 #(2,1,1),(1,2,1),(1,1,2)]
+          #}
+
+
+      ## make molecule
+      #atomlist=[]
+      #for atom in molecule:
+        #atomlist.append( (atom['el'], tuple(atom['coord'])) )
+      #target=Molecule('default',atomlist,units='bohr')
+
+      #self.bfs=[]
+      #self.shells=[]
+      #for iatom,atom in enumerate(molecule):
+        #for bas in atom['basis']:
+          #shell=Shell(bas[0])
+          #for power in sym2powerlist[bas[0]]:
+            #cgbf = CGBF(target[iatom].pos(), power, target[iatom].atid)
+            #for alpha, coef in bas[1:]:
+              #angular=sum(power)
+              #coef*=alpha**(-(0.75+angular*0.5))  *  2**(-angular)  *  (2.0/math.pi)**(-0.75)
+              #cgbf.add_primitive(alpha,coef)
+            #cgbf.normalize()
+            #self.bfs.append(cgbf)
+            #shell.append(cgbf, len(self.bfs)-1)
+          #self.shells.append(shell)
+
+  #a=moldenBasisSet(molecule)
+  ##pprint.pprint(a.__dict__)
+
+  #S=getS(a)
+  #S=S.tolist()
+  #return len(S),S
 
 
 
@@ -4076,7 +4011,7 @@ def run_wfoverlap(QMin,errorcodes):
 
     # do overlap calculations
     if 'overlap' in QMin:
-        get_Double_AOovl_molden(QMin)
+        get_Double_AOovl_gbw(QMin)
         for m in itmult(QMin['states']):
             job=QMin['multmap'][m]
             WORKDIR=os.path.join(QMin['scratchdir'],'WFOVL_%i_%i' % (m,job))
@@ -4176,90 +4111,47 @@ def runWFOVERLAP(WORKDIR,WFOVERLAP,memory=100,ncpu=1):
 
 
 # ======================================================================= #
-def get_Double_AOovl_molden(QMin):
+def get_Double_AOovl_gbw(QMin):
 
   # get geometries
-  filename1=os.path.join(QMin['savedir'],'ORCA.molden.1.old')
-  filename2=os.path.join(QMin['savedir'],'ORCA.molden.1')
+  #filename1=os.path.join(QMin['savedir'],'ORCA.molden.1.old')
+  #filename2=os.path.join(QMin['savedir'],'ORCA.molden.1')
+  filename1=os.path.join(QMin['savedir'],'ORCA.gbw.1.old')
+  filename2=os.path.join(QMin['savedir'],'ORCA.gbw.1')
 
   # 
-  NAO,Smat=get_smat_from_Molden(filename1,filename2)
+  #NAO,Smat=get_smat_from_Molden(filename1,filename2)
+  NAO,Smat=get_smat_from_gbw(filename1,filename2)
 
-  ## Smat is now full matrix NAO*NAO
+  ### Smat is now full matrix NAO*NAO
+  ### we want the lower left quarter, but transposed
+  #string='%i %i\n' % (NAO/2,NAO/2)
+  #for irow in range(NAO/2,NAO):
+      #for icol in range(0,NAO/2):
+          #string+='% .15e ' % (Smat[icol][irow])          # note the exchanged indices => transposition
+      #string+='\n'
+
+  ## Smat is already off-diagonal block matrix NAO*NAO
   ## we want the lower left quarter, but transposed
-  string='%i %i\n' % (NAO/2,NAO/2)
-  for irow in range(NAO/2,NAO):
-      for icol in range(0,NAO/2):
-          string+='% .15e ' % (Smat[icol][irow])          # note the exchanged indices => transposition
+  string='%i %i\n' % (NAO,NAO)
+  for irow in range(0,NAO):
+      for icol in range(0,NAO):
+          string+='% .15e ' % (Smat[irow][icol])          # note the exchanged indices => transposition
       string+='\n'
   filename=os.path.join(QMin['savedir'],'AO_overl.mixed')
   writefile(filename,string)
   return
 
 
-# ======================================================================= #
-#def get_Double_AOovl(QMin):
 
 
-    ## get geometries
-    #filename1=os.path.join(QMin['savedir'],'geom.dat')
-    #oldgeo=get_geometry(filename1)
-    #filename2=os.path.join(QMin['savedir'],'geom.dat.old')
-    #newgeo=get_geometry(filename2)
 
-    ## apply shift
-    #shift=1e-1
-    #for iatom in range(len(oldgeo)):
-        #for ixyz in range(3):
-            #if abs(oldgeo[iatom][1+ixyz]-newgeo[iatom][1+ixyz])<shift:
-                #oldgeo[iatom][1+ixyz]+=shift
-        ##r=math.sqrt( sum( [ (oldgeo[iatom][1+ixyz]-newgeo[iatom][1+ixyz])**2 for ixyz in range(3)] ) )
-        ##for ixyz in range(3):
-            ##if r<shift:
-                ##oldgeo[iatom][1+ixyz]+=shift*math.sqrt(1./3.)
 
-    ## build QMin   # TODO: always singlet for AOoverlaps
-    #QMin1=deepcopy(QMin)
-    #QMin1['geo']=oldgeo+newgeo
-    #QMin1['AOoverlap']=[filename1,filename2]
-    #QMin1['IJOB']=QMin['joblist'][0]
-    #QMin1['natom']=len(newgeo)
-    #QMin1['template']['grid']='1'
-    #QMin1['template']['ri']=''
-    #QMin1['template']['auxbasis']=''
-    #QMin1['template']['functional']='hf'
-    #remove=['nacdr','grad','h','soc','dm','overlap','ion']
-    #for r in remove:
-        #QMin1=removekey(QMin1,r)
 
-    ## run the calculation
-    #WORKDIR=os.path.join(QMin['scratchdir'],'AOoverlap')
-    #err=run_calc(WORKDIR,QMin1)
 
-    ## get output
-    #filename=os.path.join(WORKDIR,'ORCA.log')
-    #NAO,Smat=get_smat(filename)
 
-    ### Smat is now full matrix NAO*NAO
-    ### we want the lower left quarter, but transposed
-    #string='%i %i\n' % (NAO/2,NAO/2)
-    #for irow in range(NAO/2,NAO):
-        #for icol in range(0,NAO/2):
-            #string+='% .15e ' % (Smat[icol][irow])          # note the exchanged indices => transposition
-        #string+='\n'
-    #filename=os.path.join(QMin['savedir'],'AO_overl.mixed')
-    #writefile(filename,string)
 
-    #return
 
-# ======================================================================= #
-#def get_geometry(filename):
-    #data=readfile(filename)
-    #geometry=[]
-    #for line in data:
-      #s=line.split()
-      #geometry.append( [ s[0], float(s[1]), float(s[2]), float(s[3]) ] )
-    #return geometry
 
 
 # =============================================================================================== #
@@ -4284,7 +4176,7 @@ def getQMout(QMin):
 
 
     # Hamiltonian
-    if 'h' in QMin:     # or 'soc' in QMin:
+    if 'h' in QMin or 'soc' in QMin:
         # make Hamiltonian
         if not 'h' in QMout:
             QMout['h']=makecmatrix(nmstates,nmstates)
@@ -4293,12 +4185,12 @@ def getQMout(QMin):
             # first get energies from TAPE21
             logfile=os.path.join(QMin['scratchdir'],'master_%i/ORCA.log' % (job))
             energies=getenergy(logfile,job,QMin)
-            ## also get SO matrix and mapping
-            #if 'soc' in QMin and QMin['jobs'][job]['restr']:
-                #outfile=os.path.join(QMin['scratchdir'],'master_%i/ADF.out' % (job))
-                #submatrix,invstatemap=getsocm(outfile,t21file,job,QMin)
+            #print energies
+            # also get SO matrix and mapping
+            if 'soc' in QMin and QMin['jobs'][job]['restr']:
+                submatrix,invstatemap=getsocm(logfile,job,QMin)
             mults=QMin['multmap'][-job]
-            if 3 in mults:
+            if 3 in mults and QMin['OrcaVersion']<(4,1):
               mults=[3]
             for i in range(nmstates):
                 for j in range(nmstates):
@@ -4308,12 +4200,12 @@ def getQMout(QMin):
                         continue
                     if i==j:
                         QMout['h'][i][j]=energies[(m1,s1)]
-                    #elif 'soc' in QMin and QMin['jobs'][job]['restr']:
-                        #if m1==m2==1:
-                            #continue
-                        #x=invstatemap[(m1,s1,ms1)]
-                        #y=invstatemap[(m2,s2,ms2)]
-                        #QMout['h'][i][j]=submatrix[x-1][y-1]
+                    elif 'soc' in QMin and QMin['jobs'][job]['restr']:
+                        if m1==m2==1:
+                            continue
+                        x=invstatemap[(m1,s1,ms1)]
+                        y=invstatemap[(m2,s2,ms2)]
+                        QMout['h'][i][j]=submatrix[x-1][y-1]
 
     # Dipole Moments
     if 'dm' in QMin:
@@ -4325,7 +4217,7 @@ def getQMout(QMin):
             logfile=os.path.join(QMin['scratchdir'],'master_%i/ORCA.log' % (job))
             dipoles=gettdm(logfile,job,QMin)
             mults=QMin['multmap'][-job]
-            if 3 in mults:
+            if 3 in mults and QMin['OrcaVersion']<(4,1):
               mults=[3]
             for i in range(nmstates):
                 m1,s1,ms1=tuple(QMin['statemap'][i+1])
@@ -4367,13 +4259,22 @@ def getQMout(QMin):
             QMout['pcgrad']=[ [ [ 0. for i in range(3) ] for j in QMin['pointcharges'] ] for k in range(nmstates) ]
         for grad in QMin['gradmap']:
             path,isgs=QMin['jobgrad'][grad]
-            logfile=os.path.join(QMin['scratchdir'],path,'ORCA.engrad')
+            gsmult= QMin['jobs'][int(path.split('_')[1])]['mults'][0]
+            if isgs:
+              fname='.ground'
+              if QMin['states'][gsmult-1]==1:
+                fname=''
+            else:
+              fname='.'+IToMult[grad[0]].lower()+'.root%i' % (grad[1]-(grad[0]==gsmult) )
+            logfile=os.path.join(QMin['scratchdir'],path,'ORCA.engrad'+fname)
             g=getgrad(logfile,QMin)
+            #print g
             if QMin['qmmm']:
-                logfile=os.path.join(QMin['scratchdir'],path,'ORCA.pcgrad')
+                logfile=os.path.join(QMin['scratchdir'],path,'ORCA.pcgrad'+fname)
                 gpc=getpcgrad(logfile,QMin)
             for istate in QMin['statemap']:
                 state=QMin['statemap'][istate]
+                #print grad,istate,state
                 if (state[0],state[1])==grad:
                     QMout['grad'][istate-1]=g
                     if QMin['qmmm']:
@@ -4572,20 +4473,37 @@ def getenergy(logfile,ijob,QMin):
     energies={(gsmult,1): gsenergy}
     for imult in mults:
       nstates=estates_to_extract[imult-1]
+      #print nstates
       if nstates>0:
+        strings=[ ['TD-DFT/TDA',
+                    'TD-DFT',
+                    'RPA',
+                    'CIS'],
+                  ['EXCITED STATES']
+                ]
+        if QMin['OrcaVersion']>=(4,1):
+          if restr:
+            if imult==1:
+                strings.append( ['SINGLETS'] )
+            if imult==3:
+                strings.append( ['TRIPLETS'] )
         for iline,line in enumerate(f):
-          if 'TD-DFT/TDA EXCITED STATES' in line or 'TD-DFT EXCITED STATES' in line or 'RPA EXCITED STATES' in line or 'CIS-EXCITED STATES' in line:
+          if all( [ any( [ i in line for i in st] ) for st in strings] ):
+            #print line
+          #if 'TD-DFT/TDA EXCITED STATES' in line or 'TD-DFT EXCITED STATES' in line or 'RPA EXCITED STATES' in line or 'CIS-EXCITED STATES' in line:
+            #if QMin['OrcaVersion']>=(4,1):
             break
-        finalstring='-EXCITATION SPECTRA'
+        finalstring=['Entering ','-EXCITATION SPECTRA']
         while True:
           iline+=1
           if iline>=len(f):
             print 'Error in parsing excitation energies'
             sys.exit(11)
           line=f[iline]
-          if finalstring in line:
+          if any( [i in line for i in finalstring] ):
             break
           if 'STATE' in line:
+            #print line
             s=line.replace(':',' ').split()
             e=gsenergy+float(s[-2])*rcm_to_Eh
             i=int(s[1])
@@ -4595,110 +4513,71 @@ def getenergy(logfile,ijob,QMin):
     return energies
 
 ## ======================================================================= #
-#def getsocm(outfile,t21file,ijob,QMin):
+def getsocm(outfile,ijob,QMin):
 
-    ## read the ADF standard out into memory
-    #out=readfile(outfile)
-    #if PRINT:
-        #print 'SOC:      '+shorten_DIR(outfile)
-
-    ## open TAPE21
-    #import kf
-    #f=kf.kffile(t21file)
-    #if PRINT:
-        #print 'SOC:      '+shorten_DIR(t21file)
+    # read the standard out into memory
+    out=readfile(outfile)
+    if PRINT:
+        print 'SOC:      '+shorten_DIR(outfile)
 
 
-    ## get number of excitations from TAPE21
-    #if QMin['ADFversion']>=(2017,208):
-        #nrS=int(f.read('Excitations SS A','nr of excenergies')[0])
-        #nrT=int(f.read('Excitations ST A','nr of excenergies')[0])
-    #else:
-        #nrS=int(f.read('All excitations','nr excitations')[0])
-        #nrT=nrS
-    #nrexci=nrS+3*nrT
 
-    ## get GSCORR variable
-    #GSCORR=False
-    #for line in out:
-        #if 'gscorr' in line.lower():
-            #GSCORR=True
-            #break
-    #if GSCORR:
-        #nrexci+=1
+    #get number of states (nsing=ntrip in Orca)
+    for line in out:
+      if 'Number of roots to be determined' in line:
+        nst=int(line.split()[-1])
+        break
+    nrS=nst
+    nrT=nst
 
-    #if QMin['ADFversion'] >= (2017,208):
-        ## read SOC matrix from TAPE21
-        #real_tri=f.read('Excitations SO A','SOmat-R')
-        #imag_tri=f.read('Excitations SO A','SOmat-I')
-        #real=[ [ 0+0j for i in range(nrexci) ] for j in range(nrexci) ]
-        #x=0
-        #y=0
-        #for i in range(len(real_tri)):
-            #if abs(real_tri[i])<1e-15:
-                #real_tri[i]=0.
-            #if abs(imag_tri[i])<1e-15:
-                #imag_tri[i]=0.
-            #real[x][y]=real_tri[i] + (0+1j)*imag_tri[i]
-            #real[y][x]=real_tri[i] + (0-1j)*imag_tri[i]
-            #x+=1
-            #if x>y:
-                #y+=1
-                #x=0
-    #else:
-        ## read real matrix from stdout and make Hermitian
-        #real=readSOC(out,'======  SO matrix real part',nrexci)
-        #imag=readSOC(out,'======  SO matrix imaginary part',nrexci)
-        #for x in range(len(real)):
-            #for y in range(len(real[0])):
-                #if x<y:
-                    #real[x][y]+=(0+1j)*imag[x][y]
-                #else:
-                    #real[x][y]+=(0-1j)*imag[x][y]
+    # make statemap for the state ordering of the SO matrix
+    inv_statemap={}
+    inv_statemap[(1,1,0.0)]=1
+    i=1
+    for x in range(nrS):
+        i+=1
+        inv_statemap[(1,x+2,0.0)] =i
+    spin=[0.0,-1.0,+1.0]
+    for y in range(3):
+        for x in range(nrT):
+            i+=1
+            inv_statemap[(3,x+1, spin[y])]=i
+    #pprint.pprint( inv_statemap)
 
-    ## make statemap for the state ordering of the SO matrix
-    #inv_statemap={}
-    #if GSCORR:
-        #inv_statemap[(1,1,0.0)]=nrexci
-    #i=0
-    #for x in range(nrS):
-        #i+=1
-        #inv_statemap[(1,x+2,0.0)] =i
-    #for x in range(nrT):
-        #i+=3
-        #inv_statemap[(3,x+1, 0.0)]=i-2
-        #inv_statemap[(3,x+1,+1.0)]=i-1
-        #inv_statemap[(3,x+1,-1.0)]=i-0
+    # get matrix
+    iline=-1
+    while True:
+      iline+=1
+      line=out[iline]
+      if 'The full SOC matrix' in line:
+        break
+    iline+=5
+    ncol=6
+    real=[ [ 0+0j for i in range(4*nst+1) ] for j in range(4*nst+1) ]
+    for x in range(len(real)):
+      for y in range(len(real[0])):
+        block=x/ncol
+        xoffset=1+x%ncol
+        yoffset=block*(4*nst+2)+y
+        #print iline,x,y,block,xoffset,yoffset
+        val=float(out[iline+yoffset].split()[xoffset])
+        if abs(val)>1e-16:
+          real[y][x]=val
 
-    #return real,inv_statemap
+    iline+=((4*nst)/ncol+1) * (4*nst+2) + 2
+    for x in range(len(real)):
+      for y in range(len(real[0])):
+        block=x/ncol
+        xoffset=1+x%ncol
+        yoffset=block*(4*nst+2)+y
+        val=float(out[iline+yoffset].split()[xoffset])
+        if abs(val)>1e-16:
+          real[y][x]+=(0+1j)*val
 
-## ======================================================================= #
-#def readSOC(out,string,nrexci):
+    #pprint.pprint( real)
 
-    ## find starting string
-    #iline=-1
-    #while True:
-        #iline+=1
-        #line=out[iline]
-        #if string in line:
-            #break
 
-    ## read
-    #matrix=[ [ 0. for i in range(nrexci) ] for j in range(nrexci) ]
-    #for x in range(nrexci):
-        #for y in range(nrexci):
-            #if x>y:
-                #x1,y1=y,x
-            #else:
-                #x1,y1=x,y
-            #block=  x1/4
-            #xoffset=x1%4+1
-            #yoffset=block*(3+nrexci)+4+y1-block*(block+1)*2
-            #matrix[x][y]=float(out[iline+yoffset].split()[xoffset])
-            #if abs(matrix[x][y])<1e-15:
-                #matrix[x][y]=0.
-
-    #return matrix
+    return real,inv_statemap
 
 # ======================================================================= #
 def gettdm(logfile,ijob,QMin):
@@ -4710,7 +4589,7 @@ def gettdm(logfile,ijob,QMin):
 
     # figure out the excited state settings
     mults=QMin['jobs'][ijob]['mults']
-    if 3 in mults:
+    if 3 in mults and QMin['OrcaVersion']<(4,1):
       mults=[3]
     restr=QMin['jobs'][ijob]['restr']
     gsmult=mults[0]
@@ -4729,15 +4608,12 @@ def gettdm(logfile,ijob,QMin):
       nstates=estates_to_extract[imult-1]
       if nstates>0:
         for iline,line in enumerate(f):
-          if 'ABSORPTION SPECTRUM VIA TRANSITION ELECTRIC DIPOLE MOMENTS' in line:
+          if '  ABSORPTION SPECTRUM VIA TRANSITION ELECTRIC DIPOLE MOMENTS' in line:
             for istate in range(nstates):
               shift=5+istate
               s=f[iline+shift].split()
-              # TODO: can only compute the norm of the TDM vector, but not the components
-              e=float(s[1])*rcm_to_Eh
-              fosc=float(s[3])
-              dm=math.sqrt( 3./2.*fosc/e)
-              dipoles[ (imult,istate+1+(gsmult==imult)) ]=[ dm,0,0 ]
+              dm=[ float(i) for i in s[5:8] ]
+              dipoles[ (imult,istate+1+(gsmult==imult)) ]=dm
     #print dipoles
     return dipoles
 
@@ -4770,7 +4646,7 @@ def getdm(logfile,isgs):
 # ======================================================================= #
 def getgrad(logfile,QMin):
 
-    # read file and check if ego is active
+    # read file
     out=readfile(logfile)
     if PRINT:
         print 'Gradient: '+shorten_DIR(logfile)
@@ -4792,9 +4668,32 @@ def getgrad(logfile,QMin):
     return g
 
 # ======================================================================= #
+def getgrad_from_log(logfile,QMin):
+
+    # read file
+    out=readfile(logfile)
+    if PRINT:
+        print 'Gradient: '+shorten_DIR(logfile)
+
+    # initialize
+    natom=QMin['natom']
+    g=[ [ 0. for i in range(3) ] for j in range(natom) ]
+
+    # find gradients
+    iline=-1
+    while True:
+      iline+=1
+      line=out[iline]
+      if 'ORCA SCF GRADIENT CALCULATION' in line:
+        break
+    
+
+    return g
+
+# ======================================================================= #
 def getpcgrad(logfile,QMin):
 
-    # read file and check if ego is active
+    # read file
     out=readfile(logfile)
     if PRINT:
         print 'Gradient: '+shorten_DIR(logfile)
