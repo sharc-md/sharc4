@@ -1,25 +1,40 @@
 #******************************************
 #
-#SHARC Program Suite
+#    SHARC Program Suite
 #
-#Copyright (c) 2014 University of Vienna
+#    Copyright (c) 2018 University of Vienna
+#
+#    This file is part of SHARC.
+#
+#    SHARC is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    SHARC is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    inside the SHARC manual.  If not, see <http://www.gnu.org/licenses/>.
 #
 #******************************************
 # Makefile for Sharc 
-# Version 1.0
-# Oct-16-2014
+# Version 2.0
+# Feb-01-2018
 #
 # uncomment the following line and comment the 2nd next line to 
 # use the intel fortran compiler.
-# F90 = ifort 
-F90 = gfortran
+F90 = ifort 
+# F90 = gfortran
 
 
 # uncomment the following line and comment the 2nd next line to use intel's MKL
 # Note: you probably need to adjust the search path if you haven't set
 # $(MKLROOT) 
-# LD =  -L$(MKLROOT)/lib/intel64 -lmkl_intel_lp64 -lmkl_core -lmkl_sequential -lpthread -lm
-LD = -lblas -llapack -lfftw3
+LD =  -L$(MKLROOT)/lib/intel64 -lmkl_intel_lp64 -lmkl_core -lmkl_sequential -lpthread -lm
+# LD = -lblas -llapack -lfftw3
 
 
 # works for GFORTRAN and IFORT
@@ -93,7 +108,7 @@ clean:
 	rm -rvf build_info.inc
 
 
-install: all
+install: 
 	cp -f *.x $(EXEDIR)	
 
 # the following lines define the dependencies of the Fortran90 module files
@@ -117,10 +132,10 @@ LASER_calc_fftw.o: LASER_definitions.o
 # do not call this target build_info.inc, because the file should always be updated when compiling
 build_info: 
 	@echo "Updating \"build_info.inc\""
-	@echo "character*8000, parameter :: build_date=\"$(DATE)\"" > build_info.inc
-	@echo "character*8000, parameter :: build_host=\"$(HOST)\"" >> build_info.inc
-	@echo "character*8000, parameter :: build_dir=\"$(COMPILEDIR)\"" >> build_info.inc
-	@echo "character*8000, parameter :: build_compiler=\"$(COMPILER)\"" >> build_info.inc
+	@echo "character*7198, parameter :: build_date=\"$(DATE)\"" > build_info.inc
+	@echo "character*7198, parameter :: build_host=\"$(HOST)\"" >> build_info.inc
+	@echo "character*7198, parameter :: build_dir=\"$(COMPILEDIR)\"" >> build_info.inc
+	@echo "character*7198, parameter :: build_compiler=\"$(COMPILER)\"" >> build_info.inc
 
 %.o: %.f90 
 	$(F90) $(DEBUGFLAGS) $(F90FLAGS) -c $<
