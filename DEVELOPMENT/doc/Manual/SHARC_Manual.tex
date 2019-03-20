@@ -322,6 +322,7 @@ The main features of the \sharc{}2.0 suite are:
     \item \textsc{ADF} 2017+: TD-DFT, TD-DFT+QM/MM
     \item \textsc{Turbomole} 7: ADC(2), CC2
     \item \textsc{Gaussian} 09 and 16: TD-DFT
+    \item \textsc{Orca} 4.1: TD-DFT
     \item Interface for analytical potentials
     \item Interface for linear-vibronic coupling (LVC) models
   \end{itemize}
@@ -379,6 +380,29 @@ These features are new in \sharc\ Version 2.0 (2018):
 \end{itemize}
 
 
+\subsection{New features in \sharc\ Version 2.1}
+
+These features are new in \sharc\ Version 2.1 (2019):
+\begin{itemize}
+  \item Dynamics program \ttt{sharc.x}:
+  \begin{itemize}
+    \item New methods: Rescaling along gradient difference vector.
+  \end{itemize}
+  \item Quantum chemistry interfaces:
+  \begin{itemize}
+    \item \textsc{Molcas}: works with \textsc{Openmolcas} version 18 or \textsc{Molcas} 8.4.
+    \item \textsc{Orca}: new interface, can do TD-DFT; uses \ttt{wfoverlap.x}, has Dyson norms, works with \textsc{TheoDORE}.
+  \end{itemize}
+  \item Auxilliary scripts:
+  \begin{itemize}
+    \item \ttt{make\_fit.py}: new script, more powerful and integrated script for kinetic model fits.
+  \end{itemize}
+\end{itemize}
+
+
+
+
+
 %The following features are planned for future versions:
 %\begin{itemize}
 %  \item QM/MM calculations.
@@ -392,12 +416,9 @@ The following references should be cited when using the \sharc\ suite:
 {
 \newcommand{\enquote}[1]{``#1''}
 \begin{shaded}
-  % \begin{itemize}
-  %   \item \cite{Mai2014WCMS} \bibentry{Mai2014WCMS}
-  % \end{itemize}
   \begin{itemize}
     \item \cite{Richter2011JCTC} \bibentry{Richter2011JCTC}.
-    \item \cite{Mai2015IJQC} \bibentry{Mai2015IJQC}.
+%     \item \cite{Mai2015IJQC} \bibentry{Mai2015IJQC}.
     \item \cite{Mai2018WCMS} \bibentry{Mai2018WCMS}.
     \item \cite{Mai2018SHARC} \bibentry{Mai2018SHARC}.
   \end{itemize}
@@ -434,6 +455,7 @@ The quantum chemistry programs to which interfaces with \sharc\ exist are descri
   \item \textsc{ADF}: \cite{ADF2017},
   \item \textsc{Turbomole}: \cite{TURBOMOLE70},
   \item \textsc{Gaussian}: \cite{Gaussian09, Gaussian16}.
+  \item \textsc{Orca}: \cite{Neese2017WCMS}.
 \end{itemize}
 
 Others:
@@ -1388,7 +1410,7 @@ For full functionality of the \sharc\ suite, several additional programs are rec
   \\
   \textsc{Amber} can be used to prepare initial conditions based on ground state molecular dynamics simulations (instead of using a Wigner distribution), which is especially useful for large systems.
   \medskip
-  \item  The \link{http://orcaforum.cec.mpg.de}{\textsc{Orca}} ab initio package.
+  \item  The \link{https://orcaforum.kofo.mpg.de}{\textsc{Orca}} ab initio package.
   \\
   \textsc{Orca} can be employed as external optimizer. In combination with the \sharc\ interfaces, it is possible to perform optimizations of minima, conical intersections, and crossing points for any method interfaced to \sharc.
 \end{itemize}
@@ -1412,9 +1434,10 @@ Even though \sharc\ comes with two interfaces for analytical potentials (and hen
   \item \link{http://www.scm.com/ADF}{\textsc{Amsterdam Density Functional}} (ADF 2017 needed for overlaps, ADF 2018 for all QM/MM functionality)
   \item \link{http://www.turbomole.com}{\textsc{Turbomole}} (this release was checked against \textsc{Turbomole} 6.6 and 7.0; version 7.1 is currently not supported).
   \begin{itemize}
-    \item \link{http://orcaforum.cec.mpg.de}{\textsc{Orca}} (version 3 or 4) for spin-orbit couplings.
+    \item \link{https://orcaforum.kofo.mpg.de}{\textsc{Orca}} (version 3 or 4) for spin-orbit couplings.
   \end{itemize}
   \item \link{http://www.gaussian.com}{\textsc{Gaussian}} (this release was checked against \textsc{Gaussian} 09 and 16).
+  \item \link{https://orcaforum.kofo.mpg.de}{\textsc{Orca}} (version 4.1 or higher).
 \end{itemize}
 
 See the relevant sections in chapter~\ref{chap:interfaces} for a description of the quantum chemical methods available with each of these programs.
@@ -1425,7 +1448,7 @@ See the relevant sections in chapter~\ref{chap:interfaces} for a description of 
 
 \chapter{Execution}
 
-The \sharc\ suite consists of the main dynamics code \ttt{sharc.x} and a number of auxiliary programs, like setup scripts and analysis tools. Additionally, the suite comes with interfaces to several quantum chemistry software: \textsc{Molpro}, \textsc{Molcas}, \textsc{Columbus}, \textsc{Turbomole}, \textsc{ADF}, and \textsc{Gaussian}. 
+The \sharc\ suite consists of the main dynamics code \ttt{sharc.x} and a number of auxiliary programs, like setup scripts and analysis tools. Additionally, the suite comes with interfaces to several quantum chemistry software: \textsc{Molpro}, \textsc{Molcas}, \textsc{Columbus}, \textsc{Turbomole}, \textsc{ADF}, \textsc{Gaussian}, and \textsc{Orca}. 
 
 In the following, first it is explained how to run a single trajectory by setting up all necessary input for the dynamics code \ttt{sharc.x} manually. Afterwards, the usage of the auxiliary scripts is explained. 
 Detailed infos on the \sharc\ input files is given in chapter~\ref{chap:input}.
@@ -1454,7 +1477,7 @@ In virtually all cases, this task is handled by the \sharc-quantum chemistry int
 
 \verb|$SHARC/<INTERFACE> QM.in |
 \end{example}
-with the corresponding interface name given. Note that the interfaces in all cases need additional input files, which must be present in \ttt{QM/}. Those input files contain the specifications for the quantum chemistry information, e.g., basis set, active and reference space, memory settings, path to the quantum chemistry program, path to scratch directories; or for \ttt{SHARC\_Analytical.py} and \ttt{SHARC\_LVC.py} the parameters for the analytical potentials. For each interface, the input files are slightly different. See sections~\ref{sec:int:molpro}, \ref{sec:int:molcas}, \ref{sec:int:columbus}, \ref{sec:int:analytical}, \ref{sec:int:ricc2}, \ref{sec:int:adf}, \ref{sec:int:lvc}, or \ref{sec:int:gaussian} for the necessary information.
+with the corresponding interface name given. Note that the interfaces in all cases need additional input files, which must be present in \ttt{QM/}. Those input files contain the specifications for the quantum chemistry information, e.g., basis set, active and reference space, memory settings, path to the quantum chemistry program, path to scratch directories; or for \ttt{SHARC\_Analytical.py} and \ttt{SHARC\_LVC.py} the parameters for the analytical potentials. For each interface, the input files are slightly different. See sections~\ref{sec:int:molpro}, \ref{sec:int:molcas}, \ref{sec:int:columbus}, \ref{sec:int:analytical}, \ref{sec:int:ricc2}, \ref{sec:int:adf}, \ref{sec:int:lvc}, \ref{sec:int:gaussian} or \ref{sec:int:orca} for the necessary information.
 
 \subsection{Running the dynamics code}
 
@@ -1563,6 +1586,7 @@ The script \ttt{populations.py} (section~\ref{sec:populations.py}) can calculate
 The script \ttt{transition.py} (section~\ref{sec:transition.py}) can analyze the total number of hops between all pairs of states in an ensemble, allowing to identify relevant relaxation routes in the dynamics.
 Using the script \ttt{make\_fitscript.py} (\ref{sec:make_fitscript.py}), it is possible to make elaborate global fits of chemical kinetics models to the populations data, allowing to extract rate constants from the populations.
 With \ttt{bootstrap.py} (\ref{sec:bootstrap.py}) one can compute errors for these rate constants.
+The fitting and bootstrapping functionalities are also available in the stand-alone script \ttt{make\_fit.py} (\ref{sec:make_fit.py}).
 The script~\ttt{crossing.py} (\ref{sec:crossing.py}) can find and extract notable geometries, e.g., those geometries where a surface hop between two particular states occurred.
 Using \ttt{trajana\_essdyn.py} (\ref{sec:trajana_essdyn.py}) and \ttt{trajana\_nma.py} (\ref{sec:trajana_nma.py}) it is furthermore possible to perform essential dynamics analysis and normal mode analysis.
 Finally, \ttt{data\_collector.py} can merge arbitrary tabulated data from the trajectories and perform various analysis procedures (compute mean/standard deviation, data convolution, summation, integration), which can be used to compute, e.g., time-dependent distribution functions or time-dependent spectra.
@@ -1586,7 +1610,7 @@ The following tables list the auxiliary programs in the \sharc\ suite. The right
   molcas\_input.py      &Prepares \textsc{Molcas} input files and template files for the \textsc{Molcas} interface.             &\ref{sec:molcas_input.py}\\
   ADF\_input.py         &Prepares ADF input files.                     &\ref{sec:ADF_input.py}\\
   ADF\_freq.py          &Converts ADF output files of frequency calculations to Molden format.                     &\ref{sec:ADF_freq.py}\\
-  QMout2LVC.py          &Converts output from a single point calculation to template for the LVC interface.             &\ref{sec:QMout2LVC.py}\\
+  QMout2LVC.py          &Converts output from a single point calculation to template for the LVC interface.             &\ref{sec:setup_LVCparam.py}\\
 \end{tabular}
 
 \subsection{Analysis}
@@ -1599,7 +1623,8 @@ The following tables list the auxiliary programs in the \sharc\ suite. The right
   diagnostics.py        &Checks ensembles for integrity, progress, energy conservation.         &\ref{sec:diagnostics.py}\\
   populations.py        &Calculates ensemble populations.                                       &\ref{sec:populations.py}\\
   transition.py         &Calculates total number of hops within an ensemble.                    &\ref{sec:transition.py}\\
-  make\_fitscript.py    &Creates gnuplot scripts to fit kinetic models to population data.      &\ref{sec:make_fitscript.py}\\
+  make\_fitscript.py    &Performs kinetic model fits and bootstrapping.                         &\ref{sec:make_fit.py}\\
+  make\_fitscript.py    &Creates \textsc{Gnuplot} scripts to fit kinetic models to population data.      &\ref{sec:make_fitscript.py}\\
   bootstrap.py          &Computes errors for kinetic model fits.                                &\ref{sec:bootstrap.py}\\
   crossing.py           &Extracts specific geometries from ensembles.                           &\ref{sec:crossing.py}\\
   geo.py                &Calculates internal coordinates from xyz files.                        &\ref{sec:geo.py}\\
@@ -1619,6 +1644,7 @@ The following tables list the auxiliary programs in the \sharc\ suite. The right
   SHARC\_RICC2.py       &Calculates SOCs, gradients,                         overlaps, and dipole moments at the ADC(2) and CC2 levels of theory (using \textsc{Turbomole}). Symmetry is not supported. For SOCs, only ADC(2) can be used and \textsc{Orca} has to be installed in addition to \textsc{Turbomole}.        &\ref{sec:int:ricc2}\\
   SHARC\_LVC.py         &Calculates SOCs, gradients, nonadiabatic couplings, overlaps, and dipole moments based on linear-vibronic coupling models defined in mass-weighted normal mode coordinates.         &\ref{sec:int:lvc}\\
   SHARC\_GAUSSIAN.py    &Calculates       gradients,                         overlaps,     dipole moments, and Dyson norms at the TD-DFT level of theory (using Gaussian). Symmetry is not supported.  &\ref{sec:int:gaussian}\\
+  SHARC\_ORCA.py        &Calculates SOCs, gradients,                         overlaps,     dipole moments, and Dyson norms at the TD-DFT level of theory with GGA and hybrid functionals (using \textsc{Orca}). Symmetry is not supported.  &\ref{sec:int:orca}\\
 \end{tabular}
 
 
@@ -1728,6 +1754,8 @@ In Table~\ref{tab:input}, all input keywords for the \sharc\ input file are list
   \hline
   rngseed               &\textbf{integer}                    &Seed for the random number generator.\\
                         &\DEFAULT{10997279}                  &{\footnotesize Used for surface hopping and AFSSH decoherence.}\\
+  compatibility         &\$1=\DEFAULT{0}                     &Compatibility mode disabled.\\
+                        &\$1=1                               &Do not draw a second random number per step (for decoherence).\\
   \hline
 
 
@@ -1827,11 +1855,13 @@ In Table~\ref{tab:input}, all input keywords for the \sharc\ input file are list
                         &\$1=none                            &{\footnotesize Kinetic energy is not adjusted. Jumps are never frustrated.}\\
                         &\$1\DEFAULT{=parallel\_vel}         &{\footnotesize Velocity is rescaled to adjust kinetic energy.}\\
                         &\$1=parallel\_nac                   &{\footnotesize Only the velocity component in the direction of $\langle\psi_\alpha|\partial/\partial R|\psi_\beta\rangle$ is rescaled.}\\
+                        &\$1=parallel\_diff                  &{\footnotesize Only the velocity component in the direction of $\Delta\nabla E$ is rescaled.}\\
   \hline
   reflect\_frustrated   &\textbf{string}                     &Reflection of trajectory after frustrated hop.\\
                         &\$1\DEFAULT{=none}                  &{\footnotesize No reflection.}\\
                         &\$1=parallel\_vel                   &{\footnotesize Full velocity vector is reflected.}\\
                         &\$1=parallel\_nac                   &{\footnotesize Only the velocity component in the direction of $\langle\psi_\alpha|\partial/\partial R|\psi_\beta\rangle$ is reflected.}\\
+                        &\$1=parallel\_diff                  &{\footnotesize Only the velocity component in the direction of $\Delta\nabla E$ is reflected.}\\
   \hline
   decoherence\_scheme     &\textbf{string}                     &Method for decoherence correction.\\
                         &\$1\DEFAULT{=none}                  &{\footnotesize No decoherence correction.}\\
@@ -2135,7 +2165,7 @@ The ionization probabilities are treated as one 2D property matrix, hence \ttt{n
 \paragraph{\textsc{TheoDORE}}
 
 The keyword \ttt{theodore} activates (\ttt{notheodore} deactivates) the on-the-fly calculation of wave function descriptors with the \textsc{TheoDORE} program. This can be very useful to track the wave function character of the states on-the-fly.
-The interface must be able to execute and \textsc{TheoDORE} and return its output to \sharc\ (currently, the ADF, \textsc{Gaussian}, and \textsc{Turbomole} interfaces can do this). The keyword \ttt{theodore\_step} can be used to calculate these descriptors only every $n$-th time step. 
+The interface must be able to execute and \textsc{TheoDORE} and return its output to \sharc\ (currently, the ADF, \textsc{Gaussian}, \textsc{Turbomole}, and \textsc{Orca} interfaces can do this). The keyword \ttt{theodore\_step} can be used to calculate these descriptors only every $n$-th time step. 
 
 The \textsc{TheoDORE} descriptors are treated as one 1D property vector for each descriptor, and \ttt{n\_property1d} should be at least as large as the number of descriptors computed by the interface.
 
@@ -2748,6 +2778,7 @@ Table~\ref{tab:interface_files} shows the file names for interface-related input
     MS-CASPT2   &\textsc{Molcas}      &any     &\chk        &\chk        &\chk$^d$    &            &\chk    &\chk$^d$ &\chk &            &     \\
     TD-DFT      &\textsc{ADF}         &any     &\chk$^f$    &\chk$^g$    &\chk        &            &\chk    &         &\chk &\chk        &\chk \\
                 &\textsc{Gaussian}    &any     &            &\chk$^g$    &\chk        &            &\chk    &         &\chk &\chk        &     \\
+                &\textsc{Orca}        &any     &\chk$^f$    &\chk$^g$    &\chk        &            &\chk    &         &\chk &\chk        &\chk \\
     ADC2        &\textsc{Turbomole}   &S, T    &\chk$^f$    &\chk        &\chk        &            &\chk    &         &     &\chk        &     \\
     CC2         &\textsc{Turbomole}   &S, T    &            &\chk$^g$    &\chk        &            &\chk    &         &     &\chk        &     \\
     Analytical  &---                  &any     &\chk        &\chk        &\chk        &            &\chk    &\chk     &     &            &     \\
@@ -2787,6 +2818,8 @@ Table~\ref{tab:interface_files} shows the file names for interface-related input
                         &                          &                          &                                &\ttt{ADF.qmmm.ff}\\
     \textsc{Gaussian}   &\ttt{GAUSSIAN.template}   &\ttt{GAUSSIAN.resources}  &\ttt{GAUSSIAN.chk.init}         &\\
                         &                          &                          &\ttt{GAUSSIAN.chk.<job>.init}   &\\
+    \textsc{Orca}       &\ttt{ORCA.template}       &\ttt{ORCA.resources}      &\ttt{ORCA.gbw.init}             &\\
+                        &                          &                          &\ttt{ORCA.gbw.<job>.init}       &\\
     \textsc{Turbomole}  &\ttt{RICC2.template}      &\ttt{RICC2.resources}     &\ttt{mos.init}                  &\\
     Analytical          &\ttt{Analytical.template} &N/A                       &N/A                             &\\
     LVC                 &\ttt{LVC.template}        &N/A                       &N/A                             &\\
@@ -3116,11 +3149,13 @@ gradaccudefault &(float) Default accuracy for CP-MCSCF.\\
 gradaccumax     &(float) Worst acceptable accuracy for CP-MCSCF.\\
 displ           &Cartesian displacement (in \AA) for numerical differentiation (default 0.005~\AA).\\
 qmmm            &Activates the QM/MM mode. In this case, two more input files need to be present (see below).\\
+pcmset          &Activates the PCM mode. Three arguments follow: the solvent (a string, default ``water''), the AARE value (a float, default 0.4, optional), the RMIN value (a float, default 1.0, optional). Check \textsc{Molcas} manual for details.\\
+pcmstate        &Defines the state for which the PCM charges will be optimized. Followed by two numbers: multiplicity (1=singlet, ...) and state (1=lowest state of that multiplicity). Default is the first state according to the state request.\\
   \hline
   \end{tabular}
 \end{table}
 
-The template file can be setup with the tool \ttt{molcas\_input.py}.
+Simple template files can be setup with the tool \ttt{molcas\_input.py}.
 
 
 \subsection{Resource file: \ttt{MOLCAS.resources}}
@@ -3145,6 +3180,8 @@ scratchdir      &Is a path to the temporary directory. Relative and absolute pat
 savedir         &Is a path to another temporary directory.  Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. The interface will store files needed for restart there.\\
 memory          &The memory usable by \textsc{Molcas}. The interface will set \ttt{\$MOLCASMEM} to this value. The default is 10~MB.\\
 ncpu            &The number of CPUs used by the interface. If zero or negative, one CPU will be used and all subtasks (Hamiltonian, dipole moments, analytical gradients, overlaps) will be done in one \textsc{Molcas} call. If positive, analytical gradients will be calculated by separate calls to \textsc{Molcas}, parallelized over the given number of CPUs. \\
+mpi\_parallel   &Uses MPI parallel MOLCAS runs. The number of cores is dynamically chosen based on the available cores and the number of tasks (energies, gradients, displacements).\\
+schedule\_scaling &Gives the expected parallelizable fraction of the MOLCAS run time (Amdahl's law). With a value close to zero, the interface will try to run all jobs at the same time. With values close to one, jobs will be run sequentially with the maximum number of cores.\\
 delay           &Followed by a float giving the delay in seconds between starting parallel jobs to avoid excessive disk I/O.\\
 always\_orb\_init &Do not use the orbital guesses from previous calculations/time steps, but always use the provided initial orbitals.\\
 always\_guess   &Always use the orbital guess from \textsc{Molcas}'s \ttt{guessorb} module.\\
@@ -4051,7 +4088,7 @@ In the vibronic coupling model the diabatic energy and coupling matrix $\mathbf{
 V_0\mathbf{1}+\mathbf{W}
 \end{equation}
 
-To construct these matrices, the Cartesian coordinate displacements $r_{\alpha}$ are first converted to dimensionless mass-frequency scaled normal coordinates, which are given as
+To construct these matrices, the Cartesian coordinate displacements $r_{\alpha}$ (relative to a reference geometry) are first converted to dimensionless mass-frequency scaled normal coordinates, which are given as
 %
 \begin{equation}
 \label{eq:Qi}
@@ -4152,39 +4189,85 @@ Only the two first lines are mandatory, but then all states will have the same p
 This file can be prepared with \ttt{QMout2LVC.py}.
 
 
-\subsection{Preparing Template Files: \ttt{wigner.py} and \ttt{QMout2LVC.py}}\label{sec:QMout2LVC.py}
+\subsection{Template File Setup: \ttt{wigner.py}, \ttt{setup\_LVCparam.py}, and \ttt{create\_LVCparam}}\label{sec:setup_LVCparam.py}
 
-Both input files can be conveniently created using the \sharc\ tools. \ttt{V0.txt} is created using the \ttt{wigner.py} script, which is also used for initial condition generation. Simply call, e.g.
+\paragraph{Reference potential}
+
+\ttt{V0.txt} is created using the \ttt{wigner.py} script, which is also used for initial condition generation. Simply call, e.g.
 \begin{example}
 \ttt{\$SHARC/wigner.py -l <filename.molden>}
 \end{example}
 Note that this only works if all $3N$ normal modes are present in the file (unfortunately, some programs omit translations and rotations in the output).
 
-To obtain the LVC parameters, it is first necessary to perform a single-point computation at the ground state equilibrium geometry.
-Using the \ttt{QM.in} file, you can specify, which types of properties to compute. For the full LVC model, \ttt{SOC}, \ttt{DM}, \ttt{Grad}, and \ttt{NACDR} are needed, so use
-\begin{example}
-\begin{verbatim}
-3
+\paragraph{Setup for single point calculations}
 
- S    0.00000000    0.00000000   -0.00039079 
- O    0.00000000   -2.38362453    1.36159121 
- O    0.00000000    2.38362453    1.36159120 
-Unit Bohr
-States           4           0           3
- INIT
- SOC
- DM
- Grad
- NACDR
-\end{verbatim}
-\end{example}
+To obtain the LVC parameters, two steps are necessary: (i) running quantum chemistry calculations, and (ii) converting the quantum chemistry output to the LVC parameters.
 
-Copy the \ttt{V0.txt} to the same directory containing the \ttt{QM.out} file of this computation and run
-\begin{example}
-\ttt{\$SHARC/QMout2LVC.py}
-\end{example}
-to create the file \ttt{LVC.template}.
-Note that currently, the script only works for singlets and triplets.
+The first of these steps is carried out with \ttt{setup\_LVCparam.py}.
+It is an interactive script that works very similarly to the other setup scripts (e.g., \ttt{setup\_init.py}, \ttt{setup\_traj.py}).
+The script will ask for the following:
+\begin{itemize}
+  \item Path to the \ttt{V0.txt} file,
+  \item Number of states,
+  \item Which interface to use (in principle, all \sharc-interfaces can be used, but only the ab initio interfaces are useful here),
+  \item Whether spin-orbit couplings should be calculated (only if applicable),
+  \item Whether $\kappa$ parameters should be obtained from analytical gradients or numerical differentiation (depends on availability of analytical gradients),
+  \item Whether $\lambda$ parameters should be obtained from analytical nonadiabatic coupling vectors or numerical differentiation (depends on availability of analytical nonadiabatic coupling vectors),
+  \item Which normal modes to include,
+  \item Which displacement value to use for numerical differentiation (default 0.05 dimensionless mass-frequency scaled units),
+  \item Whether intruder states should be ignored or not,
+  \item Whether one- or two-sided differentiation should be done,
+  \item Interface-specific input for the chosen quantum chemistry interface (see section~\ref{sec:setup_init.py:several}).
+\end{itemize}
+The script will set up a directory (\ttt{DSPL\_RESULTS}) with one subdirectory for each single point calculation.
+If both $\kappa$'s and $\lambda$'s are computed analytically, then only the \ttt{DSPL\_000\_eq} subdirectory will be present.
+Otherwise, for each chosen normal mode 1--2 subdirectories (for one-sided or two-sided differentiation) will be present.
+Additionally, \ttt{displacements.log} presents the most important settings.
+In all cases, \ttt{displacements.json} is also present; this file is crucial to communicate all settings to the read-out script after the single point jobs are finished.
+
+\paragraph{Extracting LVC parameters}
+
+After the single point jobs are finished, run \ttt{create\_LVCparam.py} inside the \ttt{DSPL\_RESULTS} directory.
+This is a fully automatic script that reads \ttt{displacements.json} and the \ttt{QM.out} files in the subdirectories.
+After everything is successfully read, it creates the \ttt{LVC.template} file.
+This file can be used to run SHARC-LVC trajectories.
+
+
+
+
+% \subsection{Preparing Template Files: \ttt{wigner.py} and \ttt{QMout2LVC.py}}\label{sec:QMout2LVC.py}
+% 
+% Both input files can be conveniently created using the \sharc\ tools. \ttt{V0.txt} is created using the \ttt{wigner.py} script, which is also used for initial condition generation. Simply call, e.g.
+% \begin{example}
+% \ttt{\$SHARC/wigner.py -l <filename.molden>}
+% \end{example}
+% Note that this only works if all $3N$ normal modes are present in the file (unfortunately, some programs omit translations and rotations in the output).
+% 
+% To obtain the LVC parameters, it is first necessary to perform a single-point computation at the ground state equilibrium geometry.
+% Using the \ttt{QM.in} file, you can specify, which types of properties to compute. For the full LVC model, \ttt{SOC}, \ttt{DM}, \ttt{Grad}, and \ttt{NACDR} are needed, so use
+% \begin{example}
+% \begin{verbatim}
+% 3
+% 
+%  S    0.00000000    0.00000000   -0.00039079 
+%  O    0.00000000   -2.38362453    1.36159121 
+%  O    0.00000000    2.38362453    1.36159120 
+% Unit Bohr
+% States           4           0           3
+%  INIT
+%  SOC
+%  DM
+%  Grad
+%  NACDR
+% \end{verbatim}
+% \end{example}
+% 
+% Copy the \ttt{V0.txt} to the same directory containing the \ttt{QM.out} file of this computation and run
+% \begin{example}
+% \ttt{\$SHARC/QMout2LVC.py}
+% \end{example}
+% to create the file \ttt{LVC.template}.
+% Note that currently, the script only works for singlets and triplets.
 
 % ========================================================================================================= %
 
@@ -4197,7 +4280,7 @@ Dyson norms can also be computed through the \textsc{WFoverlap} code.
 \textsc{TheoDORE} can be used to perform automatic wave function analysis.
 
 The interface needs two additional input files, a template file for the quantum chemistry (file name is \ttt{GAUSSIAN.template}) and a resource file (\ttt{GAUSSIAN.resources}). 
-If files \ttt{QM/GAUSSIAN.chk.init} or \ttt{QM/GAUSSIAN.chk.<job>.init} are are present, they are used to provide an initial orbital guess for the SCF calculation of the respective job.
+If files \ttt{QM/GAUSSIAN.chk.init} or \ttt{QM/GAUSSIAN.chk.<job>.init} are present, they are used to provide an initial orbital guess for the SCF calculation of the respective job.
 
 \subsection{Template file: \ttt{GAUSSIAN.template}}
 
@@ -4313,6 +4396,194 @@ The first keyword controls the maximum number of CPUs which the interface is all
 The second keyword is the parallel fraction from Amdahl's Law, see Section~\ref{met:amdahl}.
 With a value close to zero, the interface will try to run all jobs at the same time. With values close to one, jobs will be run sequentially with the maximum number of cores.
 Typical values for \ttt{schedule\_scaling} are around 0.90 for both GGA functionals and hybrid functionals,  possibly less for very small computations.
+
+
+
+
+
+
+
+
+
+% ========================================================================================================= %
+
+\section{\textsc{Orca} Interface}\label{sec:int:orca}
+
+The \sharc-\textsc{Orca} interface allows to run \sharc\ simulations with \textsc{Orca}'s TD-DFT functionality.
+The interface is compatible with restricted and unrestricted ground states, but not with symmetry.
+Spin-orbit couplings can be computed and wave function overlaps from the \textsc{WFoverlap} code are available (no nonadiabatic couplings).
+Dyson norms can also be computed through the \textsc{WFoverlap} code.
+\textsc{TheoDORE} can be used to perform automatic wave function analysis.
+Note that the interface only works with \textsc{Orca} 4.1 and newer (you can check by looking whether the program \ttt{orca\_fragovl} is present in the \textsc{Orca} installation).
+
+The \sharc-\textsc{Orca} interface furthermore allows to perform QM/MM dynamics (TDDFT plus force fields), using \textsc{Tinker} for the MM part.
+
+The interface needs two additional input files, a template file for the quantum chemistry (file name is \ttt{ORCA.template}) and a resource file (\ttt{ORCA.resources}). 
+If files \ttt{QM/ORCA.gbw.init} or \ttt{QM/ORCA.gbw.<job>.init} are present, they are used to provide an initial orbital guess for the SCF calculation of the respective job.
+In the case of QM/MM calculations, two more input files are needed: an \textsc{Amber}95 force field file, and \ttt{ORCA.qmmm.table}, which contains the connectivity and force field IDs per atom.
+
+\subsection{Template file: \ttt{ORCA.template}}
+
+This file contains the specifications for the quantum chemistry calculation. Note that this is not a valid \textsc{Orca} input file. The file only contains a number of keywords, given in table~\ref{tab:orca_temp}. The actual input for \textsc{Orca} will be generated automatically through the interface.
+
+A fully commented template file---with all possible options, a comprehensive descriptions, and some practical hints---is located at \ttt{\$SHARC/../examples/SHARC\_ORCA/ORCA.template}.
+For QM/MM calculations, a second example template (along with the QM/MM-specific files) is located at \ttt{\$SHARC/../examples/SHARC\_ORCA\_Tinker/ORCA.template}.
+We recommend that users start from this template file and modify it appropriately for their calculations.
+
+\begin{table}
+  \centering
+  \caption{Keywords for the \ttt{ORCA.template} file.}
+  \label{tab:orca_temp}
+  \small
+  \begin{tabular}{>{\ttfamily}lp{12cm}}
+  \hline
+  Keyword       &Description\\
+  \hline
+basis                   &Gives the basis set for all atoms (default 6-31G).
+\\
+auxbasis                &Gives the auxiliary basis set (default: Orca chooses).
+\\
+basis\_per\_element     &Overrides the basis set for the specified element (argument 1: element symbol, argument 2: basis set). Can be given multiple times.
+\\
+basis\_per\_atom        &Overrides the basis set for the specified atom (argument 1: atom number starting at 1 and only counting QM atoms, argument 2: basis set). Can be given multiple times.
+\\
+functional              &followed by one string giving the exchange-correlation functional. Default is \ttt{PBE}.
+\\
+hfexchange              &Modifies the amount of HF exchange in the functional (give in fraction of 1). Default is whatever the chosen functional uses.
+\\
+dispersion              &Activates dispersion correction. Arguments are written verbatim to \textsc{Orca} input (in \ttt{EmpiricalDispersion=()}). Default is no dispersion. An example argument would be \ttt{GD3}.
+\\
+range\_sep\_settings    &Controls several functional parameters. Is followed by 5 arguments: \ttt{RangeSepMu}, \ttt{RangeSepScal}, \ttt{ACM-A}, \ttt{ACM-B}, \ttt{ACM-C}. Each is a floating point number. See the \textsc{Orca} manual for details on these settings. Note that \ttt{ACM-A} should not be used together with \ttt{hfexchange}.
+\\
+charge                  &Sets the total charge of the system. Can be either followed by a single integer (then the interface will automatically assign the charges to the multiplicities) or by one charge per multiplicity. 
+\\
+grid                    &Followed by a number (e.g., \ttt{grid 4}) defining which integration grid and accuracy to use. For details, see the example template file.
+\\
+gridx                   &To control the exchange grid (\ttt{rijcosx}).
+\\
+gridxc                  &To control the exchange-correlation grid (TDDFT).
+\\
+ri                      &Controls the density fitting scheme. Arguments can be, e.g., \ttt{rijcosx}. If not given, RI is deactivated.
+\\
+keys                    &Arguments are written verbatim to \textsc{Orca} input as separate keywords. Expert option. Note that this can be used to do PCM calculations (but requesting gradients will lead to a crash).
+\\
+no\_tda                 &This keyword deactivates TDA, which the interface requests by default.
+\\
+paddingstates           &Followed by a list of integers, which give the number of extra states to compute by \textsc{Gaussian}, but which are neglected in the output. Should not be changed between time steps, as this will break \textsc{Gaussian}'s restart routines.
+\\
+unrestricted\_triplets  &Requests that the triplets are calculated in a separate job from an unrestricted ground state. Default is to compute triplets as linear response of the restricted singlet ground state.
+\\
+qmmm                    &Activates QM/MM. In this case, the interface will look for two additional input files (see below).\\
+  \hline
+  \end{tabular}
+\end{table}
+
+\subsection{Resource file: \ttt{ORCA.resources}}
+
+The file \ttt{ORCA.resources} contains mainly paths (to the \textsc{Orca} executables, to the scratch directory, etc.) and other resources, plus settings for \ttt{wfoverlap.x} and \textsc{TheoDORE}. This file must reside in the same directory where the interface is started. It uses a simple ``\ttt{keyword argument}'' syntax. Comments using \# and blank lines are possible, the order of keywords is arbitrary. Lines with unknown keywords are ignored, since the interface just searches the file for certain keywords.
+
+Table~\ref{tab:orca_sh2} lists the existing keywords.
+A fully commented resource file with all possible options and comprehensive descriptions is located in \ttt{\$SHARC/../examples/SHARC\_ORCA/}.
+
+\begin{table}
+  \centering
+  \caption{Keywords for the \ttt{ORCA.resources} file.}
+  \label{tab:orca_sh2}
+  \begin{tabular}{>{\ttfamily}lp{12cm}}
+  \hline
+  Keyword       &Description\\
+  \hline
+orcadir                 &Is the path to the \textsc{Orca} installation. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. The interface will automatically update the \ttt{\$LD\_LIBRARY\_PATH}. 
+\\
+scratchdir              &Is a path to the temporary directory. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. If it does not exist, the interface will create it. In any case, the interface will delete this directory after the calculation. 
+\\
+savedir                 &Is a path to another temporary directory.  Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. The interface will store files needed for restart there.
+\\
+memory                  &The memory usable by \textsc{Orca} and \textsc{WFoverlap}. The default is 100~MB. 
+\\
+ncpu                    &The number of CPUs used by the interface. Is overridden by environment variables from queuing engines (e.g., \ttt{\$NSLOTS} or \ttt{\$SLURM\_NTASKS\_PER\_NODE}). Will either be used to run \textsc{Orca} in parallel or to run several independent \textsc{Orca} runs at the same time.
+\\
+schedule\_scaling       &Gives the expected parallelizable fraction of the \textsc{Orca} run time (Amdahl's law). With a value close to zero, the interface will try to run all jobs at the same time. With values close to one, jobs will be run sequentially with the maximum number of cores.
+\\
+delay                   &Followed by a float giving the delay in seconds between starting parallel jobs to avoid excessive disk I/O (usually not necessary).
+\\
+wfoverlap               &Path to the \textsc{WFoverlap} code. Needed for overlap and Dyson norm calculations.
+\\
+wfthres                 &(float) Gives the amount of wave function norm which will be kept in the truncation of the determinant files. Default is 0.99 (i.e., the wave functions in the determinant files will have a norm of 0.99). Note that if hybrid functionals and no TDA are used, the response vector can have a norm larger than one, and wfthres should be increased.
+\\
+numfrozcore             &Number of frozen core orbitals for overlap and Dyson norm calculations. A value of -1 enables automatic frozen core.
+\\
+numocc                  &Number of ignored occupied orbitals in Dyson calculations.
+\\
+nooverlap               &Do not save determinant files for overlap computations.
+\\
+theodir                 &Path to the \textsc{TheoDORE} installation. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. The interface will set \ttt{\$PYTHONPATH} automatically.
+\\
+theodore\_prop          &Followed by a list with the descriptors which \textsc{TheoDORE} should compute. Note that descriptors will only be computed for restricted singlets (and triplets). Instead of a simple list, a Python literal can also be used, as in the \textsc{TheoDORE} input files.
+\\
+theodore\_fragment      &Followed by a list of atom numbers which should constitute a fragment in \textsc{TheoDORE}. For multiple fragments, the keyword can be used multiple times. Instead, the keyword can be followed by a Python literal, as in the \textsc{TheoDORE} input files.
+\\
+always\_orb\_init       &Do not use the orbital guesses from previous calculations/time steps, but always use the provided initial orbitals.
+\\
+always\_guess           &Always use the orbital guess from \textsc{Orca}.
+\\
+  debug                 &Increases the verbosity of the interface (standard out). Does not clean up the scratch directory. Copies all \textsc{Orca} outputs to the save directory.
+\\
+  no\_print             &Reduces interface standard output.
+\\
+qmmm\_table             &Followed by the path to the connection table file, in SHARC-QM/MM format.
+\\
+qmmm\_ff\_file          &Followed by the path to the force field file, in \textsc{Amber}95 format for \textsc{Tinker}.
+\\
+  \hline
+  \end{tabular}
+\end{table}
+
+\paragraph{Parallelization}
+
+\textsc{Orca} usually shows very good parallel scaling for most TD-DFT calculations.
+However, it is more efficient to carry out multiple \textsc{Orca} calculations (different multiplicities, multiple gradients) in parallel, each one using a smaller number of CPUs.
+
+In the \sharc-\textsc{Orca} interface, parallelization is controlled by the keywords \ttt{ncpu} and \ttt{schedule\_scaling}.
+The first keyword controls the maximum number of CPUs which the interface is allowed to use for all \textsc{Orca} runs simultaneously.
+The second keyword is the parallel fraction from Amdahl's Law, see Section~\ref{met:amdahl}.
+With a value close to zero, the interface will try to run all jobs at the same time. With values close to one, jobs will be run sequentially with the maximum number of cores.
+Typical values for \ttt{schedule\_scaling} are around 0.90 for both GGA functionals and hybrid functionals,  possibly less for very small computations.
+
+
+
+
+\subsection{QM/MM force field file}
+
+These force field files should have the format that can be found in the \textsc{Tinker} directory.
+
+
+
+\subsection{QM/MM connection table file: \ttt{ORCA.qmmm.table}}
+
+This file defines which atoms are in the QM or MM region, the atom types (for \textsc{Tinker}), and the connectivity.
+Note that the SHARC-\textsc{Orca} interface uses newly developed routines to setup QM/MM calculations and communicate with \textsc{Tinker}, so this file is not identical to the table files of the ADF or \textsc{Molcas} interfaces.
+
+A sample looks like:
+
+\begin{example}
+\begin{verbatim}
+QM    223        
+QM    222        1  3  4
+QM    136        
+QM     80        
+MM     63        6 7
+MM     64       
+MM     64       
+\end{verbatim}
+\end{example}
+
+Each line corresponds to one atom.
+The example has 7 atoms, the first four in the QM region and the three last ones in the MM region.
+The second column defines the atom types according to the numbering in the used force field file.
+The integers to the right define the connectivity. 
+Note that the interface automatically adds any necessary redundancy to the connectivity table, so it is enough in the table file to define a bond once.
+
 
 
 
@@ -5054,7 +5325,7 @@ For some interfaces, \ttt{setup\_init.py} will ask for files containing initial 
 \paragraph{Resource usage}
 
 For most interfaces, \ttt{setup\_init.py} will ask for the amount of memory and the number of CPU cores to use. For some interfaces, additionally a delay between the start of parallel calculation can be provided (this might be helpful if many calculations starting at the same time is problematic for I/O).
-For the ADF and \ttt{Gaussian} interfaces, furthermore the \ttt{schedule\_scaling} is queried for (see section~\ref{met:amdahl} for details).
+For the \textsc{Molcas}, ADF, \ttt{Gaussian}, and \textsc{Orca} interfaces, furthermore the \ttt{schedule\_scaling} is queried for (see section~\ref{met:amdahl} for details).
 
 \paragraph{Wavefunction overlap program}
 
@@ -5241,7 +5512,7 @@ Enter the filename for the \textsc{Ricc2} template input. This file should conta
 
 \paragraph{Initial orbital coefficient file}
 
-You can provide initial MO coefficients for the \textsc{ADF} calculation. This can provide a small speedup for the calculations and helps to ensure that all calculations are based on the same orbitals.
+You can provide initial MO coefficients for the \textsc{Turbomole} calculation. This can provide a small speedup for the calculations and helps to ensure that all calculations are based on the same orbitals.
 In many cases, no initial orbitals are required.
 
 \paragraph{Resource usage}
@@ -6315,6 +6586,157 @@ The different analysis modes for \ttt{transition.py} are given in Table~\ref{tab
 \end{table}
 
 
+% ========================================================================================================= %
+
+\section{Fitting population data to kinetic models including error estimation: \ttt{make\_fit.py}}\label{sec:make_fit.py}
+
+Often it is interesting to fit some functions to the population data from a trajectory ensemble, in order to provide a way to abstract the data and to obtain some kind of rate constants for population transfer, which allows to compare to experimental works.
+In simple cases, it might be sufficient to fit basic mono- and biexponential functions to the data, which provides the sought-after time constants.
+However, often a more meaningful approach is based on a chemical kinetics model.
+Such a model is specified by a set of chemical species (e.g., electronic states, reactants, products, etc) connected by elementary reactions with associated rate constants, which together form a reaction network graph.
+For an explanation of those graphs, see section~\ref{met:globalfit}.
+
+The script \ttt{make\_fit.py} helps the user in implementing and fitting such global fits to a kinetics model.
+
+The script works in a stand-alone fashion, unlike its predecessors (\ttt{make\_fitscript.py} and \ttt{bootstrap.py}).
+It solves the differential equations numerically using a Runge-Kutta 5th order algorithm and fits the kinetic parameters using a number of different optimization algorithms.
+The script requires Python2 with \textsc{NumPy} and \textsc{SciPy}.
+If these are not available, use \ttt{make\_fitscript.py} and \ttt{bootstrap.py}.
+
+Often, one is also interested in obtaining an estimate of the error associated to these rate constants, e.g., in order to decide whether enough trajectories were computed.
+A possible way to obtain such error estimates is the statistical bootstrapping procedure.
+The idea of bootstrapping is to generate \emph{resamples} of the original ensemble; for an ensemble of $n$ trajectories, one draws $n$ random trajectories with replacement to obtain one resample.
+The resample can then be fitted like the original ensemble to obtain a second estimate of the rate constants. 
+By generating many resamples, one can thus obtain a ``probability'' distribution of the rate constants, from which a statistical error measure can be calculated.
+For details on these statistical measures, see section~\ref{met:bootstrapping}.
+
+The script \ttt{make\_fit.py} implements this resampling--fitting--statistics procedure.
+It is dependent on the output of \ttt{populations.py}, but otherwise works in a stand-alone fashion.
+
+
+
+\subsection{Usage}
+
+The script is interactive, simply start it with no command-line arguments or options:
+\begin{verbatim}
+user@host> $SHARC/make_fit.py
+\end{verbatim}
+
+Before you start the script, you need to prepare a file with the relevant populations data (usually, the output file of \ttt{populations.py} will suffice).
+You also might want to run \ttt{transition.py} first, which can help in developing a suitable kinetic model.
+
+\subsection{Input}
+
+The interactive input for this script consists of specifying the reaction network graph, the initial conditions and the data file.
+Additionally, the user has to specify which species should be fitted to which data columns in the file.
+Optionally, the user can specify the bootstrap settings for estimating errors.
+
+\paragraph{Kinetic model species}
+
+As a first step, the user has to specify the set of species in the model.
+Each species is fully described by its label.
+A label must start with a letter and can be followed by letters, numbers and underscores (although an underscore must not be directly followed by another underscore).
+
+During input, the user can add one or several labels to the set of species, remove labels and display the current set of defined labels.
+It is not possible to add a label twice.
+Once all labels are defined, the keyword \ttt{end} brings the user to the next input section (hence, \ttt{end} is not a valid label).
+
+\paragraph{Kinetic model elementary reactions}
+
+Next, the reactions have to be defined.
+A reaction is specified by its initial species, final species, and reaction rate label.
+Reaction rate labels are under the same restrictions as species labels and must not be already used as a species label.
+Furthermore, initial and final species must be both defined previously and they must be different.
+There can only be one reaction from any species to another species (If a second reaction is defined, the first reaction label is simply overwritten).
+Note that reaction rate labels can be used in several reactions (in this way, different rates can be restricted to be the same).
+
+During input, the user can add and remove reactions and display the currently defined reactions (displayed as a matrix).
+Unlike species labels, only one reaction can be added per line.
+Once all reactions are defined, the keyword \ttt{end} brings the user to the next input section.
+
+\paragraph{Kinetic model initial values}
+
+In order to specify the initial values for each species, the user simply has to define which species have non-zero initial population.
+These species will then be assigned an initial population constant, which can be fitted along with the reaction rates.
+
+During input, the user can add and remove species from the set of species with non-zero initial population.
+Once all reactions are defined, the keyword \ttt{end} brings the user to the next input section.
+
+\paragraph{Operation mode}
+
+The script can either read a \ttt{pop.out} file for a simple global fit, or a \ttt{bootstrap\_data/} directory for a global fit with error estimate.
+If the latter is chosen, the user needs to enter the number of bootstrap cycles.
+
+
+\paragraph{Populations data file}
+
+The user has to specify a path (autocomplete is enabled) to the file containing the population data to which the model functions should be fitted.
+In bootstrap mode, instead the path to the \ttt{bootstrap\_data/} directory (can be prepared with \ttt{populations.py}) needs to be given.
+The script reads the file/files and automatically detects the maximum time and the number of data columns.
+
+The file/files should be formatted as a table, with one time step per line (e.g., an output file of \ttt{populations.py}). 
+On each line, the first number is interpreted as the time in femtoseconds and all consecutive numbers (separated by spaces) as the populations at this time.
+Note that the first entry must be at $t$=0 and all subsequent lines must be in strictly increasing order.
+Time steps can be unevenly spaced if necessary.
+
+\paragraph{Species--Data mapping}
+
+In the next setup section, the user has to specify which functions should be fitted to which data column from the data file.
+In the simplest case, one species is fitted to a single data column (e.g., the species \ttt{S0} is fitted to data column 2).
+However, it is also possible to fit the sum of two species to a column (this can be useful, e.g., to describe biexponential processes) and to fit a species to the sum of several columns (e.g., one can fit to the total triplet population to obtain a total ISC rate constant).
+In general, it is also possible to fit sums of species to sums of columns.
+
+It is not allowed to use one species or one column in more than one mapping.
+However, it is possible to leave species or data columns unused in the global fit. 
+While unused species still affect the outcome (through the reaction network definitions), unused data columns are simply ignored in the fit.
+
+During input, the user can add one mapping per line as well as display the current mappings.
+For the column definitions, ranges can be given with the tilde symbol, e.g., \ttt{5\textasciitilde 9} is interpreted as \ttt{5 6 7 8 9}.
+If a typo is made, the user can reset the mappings and repeat only the mapping input without the need to repeat the previous sections.
+Once all mappings are defined, the keyword \ttt{end} finishes the input section.
+
+\paragraph{Fitting procedure}
+
+In the last section, the user can edit the initial guesses for the rate constants and initial populations.
+To change a value, enter \ttt{label = value}.
+Use \ttt{show} to print the current values for all constants.
+\ttt{end} finishes the guess edit step.
+
+Afterwards, the script asks whether the initial populations should be optimized or not. 
+This is usually only useful if several species have non-zero initial populations.
+If you optimize initial populations, note that their sum might differ from 1 after optimization.
+
+The script also asks whether the rate constants should be constrained to positive values.
+If answered with \ttt{yes}, then the optimized rate constants are restricted to the range 0.000\,001 to infinity (i.e., the time constants are constrained between 1\,000\,000~fs and 0~fs).
+Note that with constraints \textsc{SciPy} uses the Trust Region Reflective algorithm, and the Levenberg-Marquardt algorithm for unconstrained cases.
+
+\subsection{Output}
+
+The script will write the output to standard out.
+It will first print the iterations of the fit, and the obtained results afterwards (all fitted parameters with errors).
+The script will also write two files, \ttt{fit\_results.txt} and \ttt{fit\_results.gp}. 
+The latter is a \textsc{Gnuplot} script that can be used to plot the global fit, which is useful for visual inspection.
+
+Note that the errors printed for normal runs are just the intrinsic fitting errors, which assume that the population data is error-free.
+To obtain realistic fitting errors that take into account the uncertainty due to the finite trajectory ensemble, use the bootstrap mode.
+
+In bootstrap mode, the script initially will perform the same steps as in normal mode, using the average population from the bootstrap directory.
+After writing the fit results and the two files, the script will start performing the bootstrap iterations, writing the fitted parameters in each iteration.
+In this way, the user can monitor the convergence of these values, to decide whether more iterations are required.
+Typically, the values and errors will vary strongly during the first iterations and stabilize later.
+The convergence rate is strongly dependent on the fitting model and the data.
+
+After all iterations are done (or the script is interrupted with \ttt{Ctrl-C}), the script will print a summary of the statistical analysis.
+For each fitting parameter (all time constants and all initial populations), the script will list the arithmetic mean and standard deviation (absolute and relative), the geometric mean and standard deviation (separately for $+$ and $-$, absolute and relative), and the minimum and maximum values.
+The script will also print a histogram with the obtained distribution for each parameter.
+For details on these statistical measures, see section~\ref{met:bootstrapping}.
+
+\ttt{bootstrap.py} also creates an output file  once it is finished.
+The file, \ttt{fit\_bootstrap.txt}, contains the summary of the statistical analysis with the computed statistical measures and the histograms.
+Additionally, at the end this file contains a table with all obtained fitting parameters for resamples (e.g., for further statistical or correlation analysis).
+
+
+
 
 
 
@@ -6411,9 +6833,10 @@ Once all mappings are defined, the keyword \ttt{end} finishes the input section.
 
 Before the script attempts to call \textsc{Maxima}, it prints the command to be executed and asks the user for permission to execute.
 If permission is denied, the user may enter another command to call maxima.
-After permission is granted, the script calls \textsc{Maxima} and waits for up to 30~seconds before killing it (this is an error and the script cannot proceed to generate the output files).
-If \textsc{Maxima} runs for long durations, often this is due to complicated reaction networks which need additional assumptions (e.g., whether certain linear combinations of rate constants are positive, negative or, zero).
-In this cases the script cannot automatically continue, but the user can use the \ttt{MAXIMA.input} and \ttt{MAXIMA.output} files to identify the problem.
+After permission is granted, the script calls \textsc{Maxima}.
+If the call takes more than a few seconds, the standard output of \textsc{Maxima} is printed and standard input is switched to \textsc{Maxima}.
+In this way, the user can answer any questions by \textsc{Maxima} (e.g., whether a constant/combination of constants is larger than zero).
+To answer these questions, type the answer followed by a semi-colon (e.g., \ttt{pos;}).
 
 \subsection{Output}
 
@@ -6514,6 +6937,11 @@ The first file, \ttt{bootstrap\_cycles.out}, is written on-the-fly while the res
 It contains the same tabular output as is shown in standard output, and can be used to visualize the convergence behavior of the parameters. For example, the first parameter can be monitored using \textsc{Gnuplot} with this command: \ttt{plot "bootstrap\_cycles.out" using 1:6:8 w yerrorbars}.
 The scond file, \ttt{bootstrap.out}, is written once the final analysis is complete. It contains the summary of the statistical analysis with the computed statistical measures and the histograms.
 Additionally, at the end this file contains a table with all obtained fitting parameters for resamples (e.g., for further statistical or correlation analysis).
+
+
+
+
+
 
 
 
@@ -7385,7 +7813,7 @@ Active and frozen states are defined with the \ttt{states} and \ttt{actstates} k
 
 \section{Amdahl's Law}\label{met:amdahl}
 
-Some of the interfaces (\ttt{SHARC\_ADF.py} and \ttt{SHARC\_GAUSSIAN.py}) use Amdahl's law to predict the most efficient way to run multiple calculations in parallel, where each calculation itself is parallelized.
+Some of the interfaces (\ttt{SHARC\_MOLCAS.py}, \ttt{SHARC\_ADF.py} \ttt{SHARC\_GAUSSIAN.py}, \ttt{SHARC\_ORCA.py}) use Amdahl's law to predict the most efficient way to run multiple calculations in parallel, where each calculation itself is parallelized.
 For example, in \ttt{SHARC\_GAUSSIAN.py} it might be necessary to compute the gradients of five states, using four CPU cores.
 The most efficient way to run these five jobs depends on how well the \textsc{Gaussian} computation scales with the number of cores---for bad scaling, running four jobs on one core each followed by the fifth job might be best, whereas for good scaling, running each job on four cores subsequently is better because no core is idle at any time.
 In order to automatically distribute the jobs efficiently, the interfaces use Amdahl's law, which can be stated as:
@@ -7414,7 +7842,7 @@ The number of resamples should generally be large (several hundred or thousand r
 
 From the computed list of parameters, error measures can be computed.
 Assume that $\{x_i\}$ is the set of fitting parameters obtained.
-\ttt{bootstrap.py} computes the arithmetic mean and standard deviation like this:
+\ttt{bootstrap.py} and \ttt{make\_fit.py} compute the arithmetic mean and standard deviation like this:
 \begin{align}
   \bar{x}_\text{arith}&=\frac{1}{N}\sum_i^Nx_i,\\
   \sigma_\text{arith}(x)&=\sqrt{\frac{1}{N-1}\sum_i^N(x-\bar{x})^2}.
@@ -7425,8 +7853,8 @@ Because the distribution of $\{x_i\}$ might be skewed (e.g., contains some very 
   \sigma_\text{geom}(x)&=\E^{\sqrt{\frac{1}{N-1}\sum_i^N(\ln(x)-\ln(\bar{x}))^2}}
 \end{align}
 Note that the geometric standard deviation is a dimensionless factor (unlike the arithmetic standard deviation, which has the same dimension as the mean).
-Therefore, within \ttt{bootstrap.py} the geometric errors are always displayed with separate upper and lower bounds as $\bar{x}\substack{+\bar{x}(\sigma(x)-1) \\ -\bar{x}(1/\sigma(x)-1)}$. 
-Note that \ttt{bootstrap.py} will always report one times the standard deviation in the output.
+Therefore, within \ttt{bootstrap.py} and \ttt{make\_fit.py} the geometric errors are always displayed with separate upper and lower bounds as $\bar{x}\substack{+\bar{x}(\sigma(x)-1) \\ -\bar{x}(1/\sigma(x)-1)}$. 
+Note that \ttt{bootstrap.py} and \ttt{make\_fit.py} will always report one times the standard deviation in the output.
 If larger confidence intervals are desired, simply multiply the arithmetic error as usual.
 For the geometric error, use for example $\bar{x}\substack{+\bar{x}(\sigma(x)^2-1) \\ -\bar{x}(1/\sigma(x)^2-1)}$.
 
@@ -7630,29 +8058,33 @@ The excitation selection will select a state $y$ as initial state if $S^{0k}_{xy
 
 \section{Global fits and kinetic models}\label{met:globalfit}
 
-In this section, we specify the basic assumptions of the chemical kinetic models used with the script \ttt{make\_fitscript.py} and the globals fits of these models to data.
+In this section, we specify the basic assumptions of the chemical kinetic models used with the scripts \ttt{make\_fitscript.py} and \ttt{make\_fit.py} and the globals fits of these models to data.
 
 \subsection{Reaction networks}
 
-The kinetic models used by \ttt{make\_fitscript.py} is based on a chemical reaction network, where chemical \textit{species} react via unimolecular \textit{reactions}.
+The kinetic models used by \ttt{make\_fitscript.py} and \ttt{make\_fit.py} are based on a chemical reaction network, where chemical \textit{species} react via unimolecular \textit{reactions}.
 
 The reaction networks allowed in the script are a simple directed graphs, where the species are the vertices and the reactions are the directed edges.
 Each reaction is characterized by an associated rate constant and connects exactly one reactant species to exactly one product species.
 
-In order to obtain rate laws which can analytically be integrated easily, there are a number of restrictions imposed on the network graphs.
+In order to obtain rate laws which can be integrated easily, there are a number of restrictions imposed on the network graphs.
 Some restrictions and possible features of the graphs are depicted exemplarily in Figure~\ref{fig:graph_restrictions}.
 First, each species and each reaction rate needs to have a unique label. 
-There cannot be two species with the same label and there cannot be two reactions with the same reaction rate constant.
+There cannot be two species with the same label, but there can be two reactions with the same reaction rate constant.
 Second, the graph must be a simple directed graph, hence there cannot be any (self-) loops or more than one reaction with the same initial and the same final species.
 All restrictions marked as ``Not allowed'' in the Figure are enforced in the input dialogue of \ttt{make\_fitscript.py}
 However, back reactions are allowed (as a back reaction has a different initial and a different final species as the corresponding reaction).
 Except from these restrictions, the graph may contain combinations of sequential and parallel reactions.
 The graph may also be disjoint, i.e., it can be the union of several independent sub-networks.
+Disjoint graphs with repeated reaction labels can be useful to fit population data from ensembles with identical settings but different initial conditions (in this case, merge the population files with \ttt{paste} before starting the fit.
 
 There are two kinds of cycles possible, called here \textit{parallel pathways} and \textit{closed walks}.
 Parallel pathways are independent sequences of reactions with the same initial and final species (e.g., $A\rightarrow C$ and $A\rightarrow B\rightarrow C$).
 A closed walk is a sequence of reactions where the initial species is equal to the final species.
-These cycles can sometimes lead to problems, either in solving the system of differential equations of the rate laws (for some networks containing cycles, the integrated rate equations cannot be stated in closed form and hence cannot be used with \textsc{Gnuplot}) or in the fitting procedure (rate constants in parallel pathways can be strongly correlated and cause large errors and bad convergence in fitting).
+These cycles can sometimes lead to problems.
+If you use \ttt{make\_fitscript.py}, then it is necessary that the system of differential equations of the rate laws can be integrated in closed form by \textsc{Maxima}.
+Since \ttt{make\_fit.py} solves the differential equation system numerically, it is not necessary that the solution can be given in closed form.
+However, cycles can also lead to problems in the fitting procedure (rate constants in parallel pathways can be strongly correlated and cause large errors and bad convergence in fitting).
 
 \begin{figure}[htb]
   \centering
@@ -7664,7 +8096,7 @@ These cycles can sometimes lead to problems, either in solving the system of dif
 An example reaction network graph is shown in Figure~\ref{fig:example_graph}.
 In this graph, there are 5~species ($S_2$, $S_1$, $S_0$, $T_2$, and $T_1$) and 6~reactions, each with a rate constant ($k_S$, $k_{Rlx}$, $k_{22}$, $k_{11}$, $k_{21}$, $k_{12}$).
 This graph shows some features which are allowed in the reaction networks for \ttt{make\_fitscript.py}: sequential reactions, parallel reactions, back reactions, and converging reaction pathways.
-Note that this reaction network is likely to cause problems in the integrating or fitting steps.
+Note that this reaction network is likely to cause problems in the fitting step (large errors).
 
 \begin{figure}[htb]
   \centering
@@ -8237,7 +8669,7 @@ Most quantum chemistry programs follow different conventions when writing \texts
 The script \ttt{wigner.py} automatically transforms these different conventions; it does so by applying all possible transformations to the input data until it finds one transformation which produces an orthonormal normal mode matrix.
 The latter one is then used for the Wigner sampling.
 
-In order to create an initial condition $(\VEC{R},\VEC{v})$, the following procedure is applied. Initially, $\VEC{R}_0=\VEC{R}_{\text{eq}}$ and $\VEC{v}_0=0$. Then, for each normal mode $i$, two random numbers $P_i$ and $Q_i$ are chosen uniformly from the interval $[-3,3]$. The value of a ground state quantum Wigner distribution for these values is calculated:
+In order to create an initial condition $(\VEC{R},\VEC{v})$, the following procedure is applied. Initially, $\VEC{R}_0=\VEC{R}_{\text{eq}}$ and $\VEC{v}_0=0$. Then, for each normal mode $i$, two random numbers $P_i$ and $Q_i$ are chosen uniformly from the interval $[-5,5]$. The value of a ground state quantum Wigner distribution for these values is calculated:
 \begin{equation}
   W_i=\E^{-(P_i^2+Q_i^2)}.
 \end{equation}

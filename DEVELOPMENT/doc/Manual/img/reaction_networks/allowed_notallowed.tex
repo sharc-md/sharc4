@@ -46,23 +46,23 @@
       \node[draw=none,anchor=north,rectangle] at (0,-1.8) {\begin{tabular}{c}Repeated\\species label\end{tabular}};
     \end{scope}
 
-    \begin{scope}[xshift=3cm, yshift=0cm]
-      \node (A) at (0,0) {A};
-      \node (B) at (-0.5,-1.5) {B};
-      \node (C) at (+0.5,-1.5) {C};
-      \draw[black, thick, ->] (A) to node[draw=none,left,red] {a} (B);
-      \draw[black, thick, ->] (A) to node[draw=none,right,red] {a} (C);
-      \node[draw=none,anchor=north,rectangle] at (0,-1.8) {\begin{tabular}{c}Repeated\\rate label\end{tabular}};
-    \end{scope}
+%     \begin{scope}[xshift=3cm, yshift=0cm]
+%       \node (A) at (0,0) {A};
+%       \node (B) at (-0.5,-1.5) {B};
+%       \node (C) at (+0.5,-1.5) {C};
+%       \draw[black, thick, ->] (A) to node[draw=none,left,red] {a} (B);
+%       \draw[black, thick, ->] (A) to node[draw=none,right,red] {a} (C);
+%       \node[draw=none,anchor=north,rectangle] at (0,-1.8) {\begin{tabular}{c}Repeated\\rate label\end{tabular}};
+%     \end{scope}
 
-    \begin{scope}[xshift=6cm, yshift=0cm]
+    \begin{scope}[xshift=3cm, yshift=0cm]
       \node (A) at (0,0) {\color{red}A};
       \node (B) at (0,-1.5) {B};
       \draw[black, thick, ->] (A) --node[draw=none,right,red] {A} (B);
       \node[draw=none,anchor=north,rectangle] at (0,-1.8) {\begin{tabular}{c}Repeated\\label\end{tabular}};
     \end{scope}
 
-    \begin{scope}[xshift=9cm, yshift=0cm]
+    \begin{scope}[xshift=6cm, yshift=0cm]
       \node (A) at (0,-0.95) {A};
       \draw[red, thick, ->] 
         (A) 
@@ -71,7 +71,7 @@
       \node[draw=none,anchor=north,rectangle] at (0,-1.8) {Loop};
     \end{scope}
 
-    \begin{scope}[xshift=12cm, yshift=0cm]
+    \begin{scope}[xshift=9cm, yshift=0cm]
       \node (A) at (0,0) {A};
       \node (B) at (0,-1.5) {B};
       \draw[red, thick, ->] (A) to[bend left] node[draw=none,right] {a} (B);
@@ -92,6 +92,15 @@
     \end{scope}
 
     \begin{scope}[xshift=3cm, yshift=-4.5cm]
+      \node (A) at (0,0) {A};
+      \node (B) at (-0.5,-1.5) {B};
+      \node (C) at (+0.5,-1.5) {C};
+      \draw[G, thick, ->] (A) to node[draw=none,left] {a} (B);
+      \draw[G, thick, ->] (A) to node[draw=none,right] {a} (C);
+      \node[draw=none,anchor=north,rectangle] at (0,-1.8) {\begin{tabular}{c}Repeated\\rate label\end{tabular}};
+    \end{scope}
+
+    \begin{scope}[xshift=6cm, yshift=-4.5cm]
       \node (A) at (0, 0.5) {A};
       \node (B) at (0,-0.5) {B};
       \node (C) at (0,-1.5) {C};
@@ -100,7 +109,7 @@
       \node[draw=none,anchor=north,rectangle] at (0,-1.8) {\begin{tabular}{c}Sequential\\reactions\end{tabular}};
     \end{scope}
 
-    \begin{scope}[xshift=6cm, yshift=-4.5cm]
+    \begin{scope}[xshift=9cm, yshift=-4.5cm]
       \node (A) at (0,0) {A};
       \node (B) at (-0.5,-1.5) {B};
       \node (C) at (+0.5,-1.5) {C};
@@ -109,7 +118,7 @@
       \node[draw=none,anchor=north,rectangle] at (0,-1.8) {\begin{tabular}{c}Parallel\\reactions\end{tabular}};
     \end{scope}
 
-    \begin{scope}[xshift=9cm, yshift=-4.5cm]
+    \begin{scope}[xshift=12cm, yshift=-4.5cm]
       \node (A) at (-0.5,0) {A};
       \node (C) at (+0.5,0) {C};
       \node (B) at (-0.5,-1.5) {B};
