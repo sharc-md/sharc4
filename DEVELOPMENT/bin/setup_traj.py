@@ -192,7 +192,8 @@ Interfaces={
       'features':        {'overlap': ['wfoverlap'],
                           'dyson':   ['wfoverlap'],
                           'theodore':['theodore'],
-                          'phases':  ['wfoverlap']          }
+                          'phases':  ['wfoverlap'],
+                          'soc':     []}
      }
   }
 
@@ -224,6 +225,11 @@ EkinCorrect={
       'description':      'Adjust kinetic energy only with the component of the velocity vector along the non-adiabatic coupling vector.',
       'description_refl': 'Reflect only the component of the velocity vector along the non-adiabatic coupling vector.',
       'required':   ['nacdr']
+     },
+  4: {'name':             'parallel_diff',
+      'description':      'Adjust kinetic energy only with the component of the velocity vector along the gradient difference vector.',
+      'description_refl': 'Reflect only the component of the velocity vector along the gradient difference vector.',
+      'required':   []
      }
   }
 
@@ -3872,7 +3878,10 @@ def writeSHARCinput(INFOS,initobject,iconddir,istate):
     s+='write_overlap\n'
   if INFOS['write_property1d']:
     s+='write_property1d\n'
-    s+='n_property1d %i\n' % (INFOS['theodore.count'])
+    if 'theodore.count' in INFOS:
+      s+='n_property1d %i\n' % (INFOS['theodore.count'])
+    else:
+      s+='n_property1d %i\n' % (1)
   if INFOS['write_property2d']:
     s+='write_property2d\n'
     s+='n_property2d %i\n' % (1)
