@@ -1169,6 +1169,7 @@ Method is based on L. Sun, W. L. Hase J. Chem. Phys. 133, 044313
       # get random Q and P in the interval [-3,+3]
       # this interval is good for vibrational ground state
       # should be increased for higher states
+      # TODO: needs to be restructured: first obtain temperature, then draw random numbers, then compute wigner probability
       random_Q = random.random()*10.0 - 5.0
       random_P = random.random()*10.0 - 5.0
       # calculate probability for this set of P and Q with Wigner distr.
