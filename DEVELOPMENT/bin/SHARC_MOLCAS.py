@@ -95,6 +95,8 @@ from multiprocessing import Pool
 import time
 from socket import gethostname
 import itertools
+# write debug traces when in pool threads
+import traceback
 
 
 # =========================================================0
@@ -208,6 +210,14 @@ changelogstring='''
 
 29.06.2018:
 - can do nonadiabatic couplings (nacdr keyword)
+
+09.11.2018:
+- can work with MPI parallel MOLCAS
+- new keyword: "mpi_parallel" in resources file activates MPI parallel mode
+- no dynamics scheduling due to integral copying issues (every gradient is run with the same ncpu as the master)
+
+15.11.2018:
+- can now do PCM computations (only numerical gradients)
 '''
 
 # ======================================================================= #
@@ -2055,7 +2065,8 @@ def readQMin(QMinfilename):
     if os.path.isfile(filename):
         sh2cas=readfile(filename)
     else:
-        print 'HINT: reading resources from SH2CAS.inp'
+        print 'Warning: No MOLCAS.resources found!'
+        print 'Reading resources from SH2CAS.inp'
         sh2cas=readfile('SH2CAS.inp')
 
     QMin['pwd']=os.getcwd()
@@ -2156,6 +2167,23 @@ def readQMin(QMinfilename):
             print 'Number of CPUs does not evaluate to numerical value!'
             sys.exit(55)
 
+    QMin['mpi_parallel']=False
+    line=getsh2caskey(sh2cas,'mpi_parallel')
+    if line[0]:
+        QMin['mpi_parallel']=True
+
+
+    QMin['schedule_scaling']=0.6
+    line=getsh2caskey(sh2cas,'schedule_scaling')
+    if line[0]:
+        try:
+            x=float(line[1])
+            if 0<x<=2.:
+                QMin['schedule_scaling']=x
+        except ValueError:
+            print 'Schedule scaling does not evaluate to numerical value!'
+            sys.exit(55)
+
     QMin['Project']='MOLCAS'
     os.environ['Project']=QMin['Project']
 
@@ -2204,8 +2232,11 @@ def readQMin(QMinfilename):
     QMin['template']['displ']=0.005
     QMin['template']['cholesky_accu']=1e-4
     QMin['template']['rasscf_thrs_e']=1e-8
-    QMin['template']['rasscf_thrs_rot']=1e-4
+    QMin['template']['rasscf_thrs_rot']=1e-4            # TODO: apparent default in MOLCAS is 0.1
     QMin['template']['rasscf_thrs_egrd']=1e-4
+    QMin['template']['pcmset']={'solvent':'water', 'aare':0.4,'r-min':1.0,'on':False}
+    QMin['template']['pcmstate']=(QMin['statemap'][1][0],QMin['statemap'][1][1])
+
 
     for line in template:
         orig=re.sub('#.*$','',line).split(None,1)
@@ -2230,6 +2261,16 @@ def readQMin(QMinfilename):
             QMin['template'][line[0]]=line[1]
         elif line[0] in floats:
             QMin['template'][line[0]]=float(line[1])
+        elif 'pcmset' in line[0]:
+            # order: solvent, aare, r-min
+            QMin['template']['pcmset']['on']=True
+            QMin['template']['pcmset']['solvent']=line[1]
+            if len(line)>=3:
+                QMin['template']['pcmset']['aare']=float(line[2])
+            if len(line)>=4:
+                QMin['template']['pcmset']['r-min']=float(line[3])
+        elif 'pcmstate' in line[0]:
+            QMin['template']['pcmstate']=(int(line[1]),int(line[2]))
 
     # roots must be larger or equal to states
     for i,n in enumerate(QMin['template']['roots']):
@@ -2271,6 +2312,9 @@ def readQMin(QMinfilename):
 
 
     # logic checks:
+    if QMin['template']['pcmset']['on']:
+        if QMin['template']['qmmm']:
+            print 'PCM and QM/MM cannot be used together!'
 
     # QM/MM mode needs Tinker
     if QMin['template']['qmmm'] and not 'tinker' in QMin:
@@ -2295,6 +2339,8 @@ def readQMin(QMinfilename):
         if 'dmdr' in QMin or 'socdr' in QMin:
             QMin['gradmode']=2
         elif QMin['template']['cholesky'] and not QMin['template']['cholesky_analytical']:
+            QMin['gradmode']=2
+        elif QMin['template']['pcmset']['on']:
             QMin['gradmode']=2
         elif QMin['method']>0:
             QMin['gradmode']=2
@@ -2411,7 +2457,17 @@ def gettasks(QMin):
             tasks.append(['seward'])
         tasks.append(['espf'])
 
-    for imult,nstates in enumerate(QMin['states']):
+    if QMin['template']['pcmset']['on']:
+        pcm_mult=QMin['template']['pcmstate'][0]
+        list_to_do=[ (pcm_mult-1,QMin['states'][pcm_mult-1]) ]
+        for i,j in enumerate(QMin['states']):
+            if not i+1==pcm_mult:
+                list_to_do.append( (i,j) )
+    else:
+        list_to_do=[ (i,j) for i,j in enumerate(QMin['states'])]
+
+    #for imult,nstates in enumerate(QMin['states']):
+    for imult,nstates in list_to_do:
         if nstates==0:
             continue
 
@@ -2537,6 +2593,8 @@ def writeMOLCASinput(tasks, QMin):
                 string+='BASLIB\n%s\n' % QMin['template']['baslib']
             if QMin['template']['cholesky']:
                 string+='RICD\nCDTHreshold=%f\n' % (QMin['template']['cholesky_accu'])
+            if QMin['template']['pcmset']['on']:
+                string+='RF-INPUT\nPCM-MODEL\nSOLVENT = %s\nAARE = %f\nR-MIN = %f\nEND OF RF-INPUT\n' % (QMin['template']['pcmset']['solvent'],QMin['template']['pcmset']['aare'],QMin['template']['pcmset']['r-min'])
             string+='\n'
 
         elif task[0]=='seward':
@@ -2590,6 +2648,12 @@ def writeMOLCASinput(tasks, QMin):
                 string+='JOBIPH\n'
             elif task[4]:
                 string+='LUMORB\n'
+            if QMin['template']['pcmset']['on']:
+                if task[1]==QMin['template']['pcmstate'][0]:
+                    string+='RFROOT = %i\n' % QMin['template']['pcmstate'][1]
+                else:
+                    string+='NONEQUILIBRIUM\n'
+            string+='\n'
             
             string+='\n'
 
@@ -2620,6 +2684,8 @@ def writeMOLCASinput(tasks, QMin):
             for i in range(task[2]):
                 string+='%i ' % (i+1)
             string+='\nOUTPUT=BRIEF\nPRWF=0.1\n'
+            if QMin['template']['pcmset']['on']:
+                string+='RFPERT\n'
             string+='\n'
 
         elif task[0]=='rassi':
@@ -2726,6 +2792,12 @@ def setupWORKDIR(WORKDIR,tasks,QMin):
         print inputstring
         print 'MOLCAS input written to: %s' % (filename)
 
+    # make subdirs
+    if QMin['mpi_parallel']:
+        for i in range(QMin['ncpu']-1):
+            subdir=os.path.join(WORKDIR,'tmp_%i' % (i+1))
+            os.makedirs(subdir)
+
     # JobIph copying
     copyfiles=set()
     for task in tasks:
@@ -2735,6 +2807,12 @@ def setupWORKDIR(WORKDIR,tasks,QMin):
         if DEBUG:
             print 'Copy:\t%s\n\t==>\n\t%s' % (files,WORKDIR)
         shutil.copy(files,WORKDIR)
+        if QMin['mpi_parallel']:
+            for i in range(QMin['ncpu']-1):
+                subdir=os.path.join(WORKDIR,'tmp_%i' % (i+1))
+                if DEBUG:
+                    print 'Copy:\t%s\n\t==>\n\t%s' % (files,subdir)
+                shutil.copy(files,subdir)
 
     # copy QM/MM related files
     if QMin['template']['qmmm']:
@@ -2753,21 +2831,33 @@ def setupWORKDIR(WORKDIR,tasks,QMin):
             print content
         #shutil.copy(fromfile,tofile)
         writefile(tofile,content)
+        if QMin['mpi_parallel']:
+            for i in range(QMin['ncpu']-1):
+                subdir=os.path.join(WORKDIR,'tmp_%i' % (i+1))
+                tofile=os.path.join(subdir,'MOLCAS.key')
+                if DEBUG:
+                    print 'Copy:\t%s\n\t==>\n\t%s' % (fromfile,tofile)
+                writefile(tofile,content)
 
     # link integral files
     if 'pargrad' in QMin and not QMin['template']['qmmm']:
         copyfiles=[('MOLCAS.RunFile','MOLCAS.RunFile')]
 
-        linkfiles=[('MOLCAS.OneInt','ONEINT')]
+        #linkfiles=[('MOLCAS.OneInt','ONEINT')]
+        linkfiles=[]
+        copyfiles.append( ('MOLCAS.OneInt','ONEINT') )
         if QMin['template']['cholesky']:
             toappend=['ChVec','QVec','ChRed','ChDiag','ChRst','ChMap']
             ls=os.listdir(os.path.join(QMin['scratchdir'],'master'))
             for i in toappend:
                 for f in ls:
                     if i in f:
-                        linkfiles.append( (f,f) )
+                        #linkfiles.append( (f,f) )
+                        copyfiles.append( (f,f) )
         else:
-            linkfiles.append( ('MOLCAS.OrdInt','ORDINT') )
+            #linkfiles.append( ('MOLCAS.OrdInt','ORDINT') )
+            copyfiles.append( ('MOLCAS.OrdInt','ORDINT') )
+
 
         for ifile in copyfiles:
             fromfile=os.path.join(QMin['scratchdir'],'master',ifile[0])
@@ -2778,19 +2868,34 @@ def setupWORKDIR(WORKDIR,tasks,QMin):
             fromfile=os.path.join(QMin['scratchdir'],'master',ifile[0])
             tofile=os.path.join(WORKDIR,ifile[1])
             os.symlink(fromfile,tofile)
+
+        if QMin['mpi_parallel']:
+            for i in range(QMin['ncpu']-1):
+                subdir='tmp_%i' % (i+1)
+
+                for ifile in copyfiles:
+                    fromfile=os.path.join(QMin['scratchdir'],'master',subdir,ifile[0])
+                    tofile=os.path.join(WORKDIR,subdir,ifile[1])
+                    shutil.copy(fromfile,tofile)
+
+                for ifile in linkfiles:
+                    fromfile=os.path.join(QMin['scratchdir'],'master',subdir,ifile[0])
+                    tofile=os.path.join(WORKDIR,subdir,ifile[1])
+                    os.symlink(fromfile,tofile)
     return
 
 
 # ======================================================================= #
-def runMOLCAS(WORKDIR,MOLCAS,strip=False):
+def runMOLCAS(WORKDIR,MOLCAS,ncpu,strip=False):
     prevdir=os.getcwd()
     os.chdir(WORKDIR)
     os.environ['WorkDir']=WORKDIR
+    os.environ['MOLCAS_NPROCS']=str(ncpu)
     path=os.path.join(MOLCAS,'bin/pymolcas')
     if not os.path.isfile(path):
         path=os.path.join(MOLCAS,'bin/molcas.exe')
         if not os.path.isfile(path):
-            print 'ERROR: could not find Molcas driver ("pymolcas" or "molcas.exe")!'
+            print 'ERROR: could not find Molcas driver ("pymolcas" or "molcas.exe") in $MOLCAS/bin!'
             sys.exit(73)
     string=path+' MOLCAS.input'
     stdoutfile=open(os.path.join(WORKDIR,'MOLCAS.out'),'w')
@@ -2823,6 +2928,53 @@ def doDisplacement(QMin,idir,displ):
     QMin1['geo'][iatom][ixyz+1]+=isign*displ
     return QMin1
 
+
+# ======================================================================= #
+
+def parallel_speedup(N,scaling):
+    # computes the parallel speedup from Amdahls law
+    # with scaling being the fraction of parallelizable work and (1-scaling) being the serial part
+    return 1./((1-scaling)+scaling/N)
+
+# ======================================================================= #
+
+def divide_slots(ncpu,ntasks,scaling):
+    # this routine figures out the optimal distribution of the tasks over the CPU cores
+    #   returns the number of rounds (how many jobs each CPU core will contribute to),
+    #   the number of slots which should be set in the Pool,
+    #   and the number of cores for each job.
+    minpar=1
+    ntasks_per_round=ncpu/minpar
+    if ncpu==1:
+        ntasks_per_round=1
+    ntasks_per_round=min(ntasks_per_round,ntasks)
+    optimal={}
+    for i in range(1,1+ntasks_per_round):
+        nrounds=int(math.ceil(float(ntasks)/i))
+        ncores=ncpu/i
+        optimal[i]=nrounds/parallel_speedup(ncores,scaling)
+    #print optimal
+    best=min(optimal,key=optimal.get)
+    nrounds=int(math.ceil(float(ntasks)/best))
+    ncores=ncpu/best
+
+    cpu_per_run=[0 for i in range(ntasks)]
+    if nrounds==1:
+        itask=0
+        for icpu in range(ncpu):
+            cpu_per_run[itask]+=1
+            itask+=1
+            if itask>=ntasks:
+                itask=0
+        nslots=ntasks
+    else:
+        for itask in range(ntasks):
+            cpu_per_run[itask]=ncores
+        nslots=ncpu/ncores
+    #print nrounds,nslots,cpu_per_run
+    return nrounds,nslots,cpu_per_run
+
+
 # ======================================================================= #
 def generate_joblist(QMin):
     '''split the full job into subtasks, each with a QMin dict, a WORKDIR
@@ -2837,7 +2989,13 @@ def generate_joblist(QMin):
         QMin1['master']=[]
         if 'ion' in QMin:
             QMin1['keepintegrals']=[]
+        if QMin['mpi_parallel']:
+            QMin1['ncpu']=QMin['ncpu']
+        else:
+            QMin1['ncpu']=1
+        QMin['nslots_pool']=[1]
         joblist.append({'master':QMin1})
+
 
     elif QMin['gradmode']==1:
         # case of analytical gradients for several states on several cpus
@@ -2849,6 +3007,13 @@ def generate_joblist(QMin):
         QMin1['keepintegrals']=[]
         QMin1['gradmap']=[]
         QMin1['nacmap']=[]
+        if 'ion' in QMin:
+            QMin1['keepintegrals']=[]
+        if QMin['mpi_parallel']:
+            QMin1['ncpu']=QMin['ncpu']
+        else:
+            QMin1['ncpu']=1
+        QMin['nslots_pool']=[1]
         joblist.append({'master':QMin1})
 
         QMin2=deepcopy(QMin)
@@ -2858,17 +3023,33 @@ def generate_joblist(QMin):
         QMin2['gradmode']=0
         QMin2['pargrad']=[]
         QMin2['samestep']=[]
+        ntasks=len(QMin['gradmap'])+len(QMin['nacmap'])
+        if QMin['mpi_parallel']:
+            #nrounds,nslots,cpu_per_run=divide_slots(QMin['ncpu'],ntasks,QMin['schedule_scaling'])
+            nrounds=ntasks
+            nslots=1
+            cpu_per_run=[QMin['ncpu']]*ntasks
+        else:
+            nrounds=1
+            nslots=QMin['ncpu']
+            cpu_per_run=[1]*ntasks
         joblist.append({})
+        icount=0
         for grad in QMin['gradmap']:
             QMin3=deepcopy(QMin2)
             QMin3['gradmap']=[grad]
             QMin3['nacmap']=[]
+            QMin3['ncpu']=cpu_per_run[icount]
+            icount+=1
             joblist[-1]['grad_%i_%i' % grad]=QMin3
         for nac in QMin['nacmap']:
             QMin3=deepcopy(QMin2)
             QMin3['nacmap']=[nac]
             QMin3['gradmap']=[]
+            QMin3['ncpu']=cpu_per_run[icount]
+            icount+=1
             joblist[-1]['nacdr_%i_%i_%i_%i' % nac]=QMin3
+        QMin['nslots_pool'].append(nslots)
 
     elif QMin['gradmode']==2:
         # case of numerical gradients for ALL states, plus optionally gradients of DM and SOC
@@ -2890,6 +3071,13 @@ def generate_joblist(QMin):
             QMin1['soc']=[]
         if 'dmdr' in QMin:
             QMin1['dm']=[]
+        if 'ion' in QMin:
+            QMin1['keepintegrals']=[]
+        if QMin['mpi_parallel']:
+            QMin1['ncpu']=QMin['ncpu']
+        else:
+            QMin1['ncpu']=1
+        QMin['nslots_pool']=[1]
         joblist.append({'master':QMin1})
 
         QMin2=deepcopy(QMin)
@@ -2898,11 +3086,23 @@ def generate_joblist(QMin):
             QMin2=removekey(QMin2,r)
         QMin2['newstep']=[]
         QMin2['gradmap']=[]
+        ntasks=6*QMin['natom']
+        if QMin['mpi_parallel']:
+            #nrounds,nslots,cpu_per_run=divide_slots(QMin['ncpu'],ntasks,QMin['schedule_scaling'])
+            nrounds=ntasks
+            nslots=1
+            cpu_per_run=[QMin['ncpu']]*ntasks
+        else:
+            nrounds=1
+            nslots=QMin['ncpu']
+            cpu_per_run=[1]*ntasks
+        QMin['nslots_pool'].append(nslots)
 
         #if 'socdr' in QMin or 'dmdr' in QMin:
             #idispl=QMin['ncpu']-1
         #else:
             #idispl=0
+        icount=0
         joblist.append({})
         for iatom in range(QMin['natom']):
             for ixyz in range(3):
@@ -2926,13 +3126,15 @@ def generate_joblist(QMin):
                         QMin3['dm']=[]
                     #if 'socdr' in QMin or 'dmdr' in QMin:
                     QMin3['overlap']=[ [j+1,i+1] for i in range(QMin['nmstates']) for j in range(i+1)]
+                    QMin3['ncpu']=cpu_per_run[icount]
+                    icount+=1
 
                     jobname='displ_%i_%i_%s' % (iatom,ixyz,{-1.:'p',1.:'n'}[isign])
                     joblist[-1][jobname]=QMin3
 
     if DEBUG:
         pprint.pprint(joblist,depth=3)
-    return joblist
+    return QMin,joblist
 
 # ======================================================================= #
 def run_calc(WORKDIR,QMin):
@@ -2952,10 +3154,16 @@ def run_calc(WORKDIR,QMin):
                 return 96
         if irun>=10:
             print 'CRASHED:\t%s\tDid not converge. Giving up after 10 tries.' % (WORKDIR)
-        Tasks=gettasks(QMin)
-        setupWORKDIR(WORKDIR,Tasks,QMin)
-        strip=not 'keepintegrals' in QMin
-        err=runMOLCAS(WORKDIR,QMin['molcas'],strip)
+        try:
+            Tasks=gettasks(QMin)
+            setupWORKDIR(WORKDIR,Tasks,QMin)
+            strip=not 'keepintegrals' in QMin
+            err=runMOLCAS(WORKDIR,QMin['molcas'],QMin['ncpu'],strip)
+        except Exception, problem:
+            print '*'*50+'\nException in run_calc(%s)!' % (WORKDIR)
+            traceback.print_exc()
+            print '*'*50+'\n'
+            raise problem
     return err
 
 # ======================================================================= #
@@ -2967,8 +3175,10 @@ def runjobs(joblist,QMin):
     print '>>>>>>>>>>>>> Starting the job execution'
 
     errorcodes={}
-    for jobset in joblist:
-        pool = Pool(processes=QMin['ncpu'])
+    for ijobset,jobset in enumerate(joblist):
+        if not jobset:
+            continue
+        pool = Pool(processes=QMin['nslots_pool'][ijobset])
         for job in jobset:
             QMin1=jobset[job]
             WORKDIR=os.path.join(QMin['scratchdir'],job)
@@ -3438,7 +3648,10 @@ def stripWORKDIR(WORKDIR):
         if delete:
             rmfile=os.path.join(WORKDIR,ifile)
             if not DEBUG:
-                os.remove(rmfile)
+                if os.path.isdir(rmfile):
+                    cleanupSCRATCH(rmfile)
+                else:
+                    os.remove(rmfile)
 
 
 
@@ -3914,7 +4127,7 @@ def main():
     QMin=readQMin(QMinfilename)
 
     # make list of jobs
-    joblist=generate_joblist(QMin)
+    QMin,joblist=generate_joblist(QMin)
 
     # run all MOLCAS jobs
     errorcodes=runjobs(joblist,QMin)
