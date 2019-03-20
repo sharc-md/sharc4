@@ -457,6 +457,8 @@ def get_cycles(rate_matrix):
     for j in range(nspec):
       if rate_matrix[i][j]!='':
         nreact+=1
+  if nreact==0:
+    return -1
   # construct stochiometry matrix
   A=[ [ 0 for i in range(nreact) ] for j in range(nspec) ]
   ireact=0
@@ -586,7 +588,7 @@ Each label must be unique. Enter the labels without quotes.
 
 Possible input:
 + <species1> <species2> <rate_label>       Add a reaction from species1 to species2 with labelled rate constant
-- <rate_label>                             Remove the reaction with the given rate constant
+- <rate_label>                             Remove the reaction(s) with the given rate constant
 show                                       Show the currently defined set of reactions (as directed adjacency matrix)
 end                                        Finish reaction input
 
@@ -612,11 +614,11 @@ Each rate label must be unique.
         print '  Species labels identical! No reaction added.'
         continue
       if s[1] in specmap and s[2] in specmap and not s[3] in specmap:
+        if rate_matrix[specmap[s[1]]][specmap[s[2]]]!='':
+          print 'Please remove rate constant %s first!' % (rate_matrix[specmap[s[1]]][specmap[s[2]]])
+          continue
         if not s[3] in rateset:
           if label_valid(s[3]):
-            if rate_matrix[specmap[s[1]]][specmap[s[2]]]!='':
-              print '  Overwriting rate constant %s with %s!' % (rate_matrix[specmap[s[1]]][specmap[s[2]]],s[3])
-              rateset.remove(rate_matrix[specmap[s[1]]][specmap[s[2]]])
             rateset.add(s[3])
             rate_matrix[specmap[s[1]]][specmap[s[2]]]=s[3]
             rank=get_cycles(rate_matrix)
@@ -625,6 +627,11 @@ Each rate label must be unique.
             print '  Invalid label \'%s\'! Labels must be a letter followed by letters, numbers and single underscores!' % (s[3])
         else:
           print '  Rate label \'%s\' already defined!' % (s[3])
+          anyways=question('Do you want to add it anyways (i.e., use two reactions with same rate constant)?',bool,False)
+          if anyways:
+            rate_matrix[specmap[s[1]]][specmap[s[2]]]=s[3]
+            rank=get_cycles(rate_matrix)
+            print '  Reaction from \'%s\' to \'%s\' with rate label \'%s\' added!' % (s[1],s[2],s[3])
       else:
         if not s[1] in specmap:
           print '  Species \'%s\' not defined!' % (s[1])
@@ -777,8 +784,13 @@ Each column number (except for \'1\', which denotes the time) must be used at mo
       new_columns_group=[]
       for i in s:
         if i=='=':
-          do_species=False
-          continue
+          if not do_species:
+            print 'More than 1 "=" used!'
+            valid=False
+            break
+          else:
+            do_species=False
+            continue
         if do_species:
           if not i in species:
             print '  Species label \'%s\' not defined!' % (i)
