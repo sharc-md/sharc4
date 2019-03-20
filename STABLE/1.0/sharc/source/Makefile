@@ -12,14 +12,14 @@
 # uncomment the following line and comment the 2nd next line to 
 # use the intel fortran compiler.
  F90 = ifort 
-#F90 = gfortran
+# F90 = gfortran
 
 
 # uncomment the following line and comment the 2nd next line to use intel's MKL
 # Note: you probably need to adjust the search path if you haven't set
 # $(MKLROOT) 
- LD =  -L$(MKLROOT)/lib/intel64 -lmkl_intel_lp64 -lmkl_core -lmkl_sequential -lpthread -lm
-#LD = -lblas -llapack -lfftw3
+#  LD =  -L$(MKLROOT)/lib/intel64 -lmkl_intel_lp64 -lmkl_core -lmkl_sequential -lpthread -lm
+LD = -lblas -llapack -lfftw3
 
 
 # works for GFORTRAN and IFORT

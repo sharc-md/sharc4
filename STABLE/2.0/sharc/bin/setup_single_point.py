@@ -2715,7 +2715,7 @@ cd $PRIMARY_DIR
 
 %s
 
-python $SHARC/%s QM.in >> QM.log 2>> QM.err
+$SHARC/%s QM.in >> QM.log 2>> QM.err
 
 ''' % (projname,os.path.abspath(iconddir),intstring,Interfaces[INFOS['interface']]['script'])
 
