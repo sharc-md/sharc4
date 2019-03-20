@@ -173,7 +173,7 @@ endsubroutine
 subroutine lowercase(string)
 ! this subroutine converts all uppercase letters A-Z to lowercase a-z
 implicit none
-character*8000, intent(inout) :: string
+character*255, intent(inout) :: string
 integer :: diff=iachar('A')-iachar('a'), i,ia
 
 do i=1,len(string)

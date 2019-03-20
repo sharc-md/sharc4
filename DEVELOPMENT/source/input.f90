@@ -259,6 +259,26 @@ module input
   ! Parsing is not line by line, but rather option by option
   ! =====================================================
 
+  ! next find compatibility mode
+  line=get_value_from_key('compatibility',io)
+  if (io==0) then
+    call split(line,' ',values,n)
+    read(values(1),*) ctrl%compat_mode
+    deallocate(values)
+    write(u_log,*)
+    write(u_log,'(A)')      '  #############################################'
+    write(u_log,'(A,I3,A)') '  # Compatibility Mode active! Value is = ',ctrl%compat_mode,' #'
+    write(u_log,'(A)')      '  #############################################'
+    write(u_log,*)
+  else
+    ! no keyword => no special actions
+    ctrl%compat_mode=0
+  endif
+
+
+
+
+
   ! next find the number of states
 
     ! look up nstates keyword
@@ -724,7 +744,7 @@ module input
 
     if (ctrl%surf/=0) then   ! not doing SHARC dynamics
       if (ctrl%gradcorrect==1) then
-        write(0,*) 'Info: keyword "gradcorrect" has no effect in FISH dynamics.'
+        write(0,*) 'Info: keyword "gradcorrect" has no effect in dynamics on MCH potentials.'
       endif
       ctrl%gradcorrect=0     ! no need for transformed gradients
     endif
@@ -734,16 +754,17 @@ module input
     endif
     if (ctrl%ekincorrect==2) then ! for kinetic energy correction parallel to nac, we need nacdr
       ctrl%calc_nacdr=0
-!       ctrl%gradcorrect=1
+      ctrl%gradcorrect=1        ! NACs must be transformed
     endif
     if (ctrl%reflect_frustrated==2) then ! for reflection parallel to nac, we need nacdr
       ctrl%calc_nacdr=0
+      ctrl%gradcorrect=1        ! NACs must be transformed
     endif
 ! !     if (ctrl%decoherence==2) then ! for A-FSSH we need nacdr
 ! !       ctrl%calc_nacdr=0
 ! !     endif
 
-    if (ctrl%surf==1) then   ! doing FISH
+    if (ctrl%surf==1) then   ! doing MCH dynamics
       ctrl%calc_grad=1       ! always select grad
     endif
 
@@ -791,6 +812,9 @@ module input
       ctrl%calc_grad=1
       ctrl%eselect_grad=99999.9d0
     endif
+
+
+
 
     ! Flags for switching on/off writing data to output.dat
     !
@@ -895,9 +919,9 @@ module input
       if (printlevel>1) then
         select case (ctrl%surf)
           case (0)
-            write(u_log,'(a)') 'Doing SHARC dynamics.'
+            write(u_log,'(a)') 'Doing SHARC dynamics (on diagonal surfaces).'
           case (1)
-            write(u_log,'(a)') 'Doing FISH dynamics.'
+            write(u_log,'(a)') 'Doing dynamics on MCH surfaces.'
         endselect
         select case (ctrl%coupling)
           case (0)
@@ -1147,6 +1171,11 @@ module input
       elseif (ctrl%decoherence==2) then
         write(u_log,'(a)') 'Decoherence is 2 (A-FSSH by Jain, Alguire, Subotnik)'
         write(u_log,*)
+        if (ctrl%compat_mode==1) then
+          write(u_log,'(a)') 'A-FSSH decoherence scheme cannot be used in compatibility mode = 1 !'
+          write(u_log,*)
+          stop 1
+        endif
       else
         write(u_log,'(a)') 'Decoherence is OFF'
         write(u_log,*)
@@ -1469,8 +1498,8 @@ module input
             stop 1
         endselect
       ! =====================================================
-      case (1)  !FISH
-        if (printlevel>1) write(u_log,'(A)') 'Setting state and coefficients for FISH dynamics.'
+      case (1)  !non-SHARC
+        if (printlevel>1) write(u_log,'(A)') 'Setting state and coefficients for dynamics on MCH surfaces.'
         if (printlevel>1) write(u_log,*)
         line=get_value_from_key('state',io)
         if (io/=0) then

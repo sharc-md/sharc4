@@ -441,6 +441,15 @@ subroutine surface_hopping(traj,ctrl)
       stop 1
   endselect
 
+! ! ! !   ! forced hop to ground state if energy gap to state above is smaller than threshold
+! ! ! !   deltaE=abs(real(traj%H_diag_ss(traj%state_diag,traj%state_diag)-traj%H_diag_ss(1,1))
+! ! ! !   if ( (traj%state_diag==2) .and. (deltaE)<=0.15/au2eV) ) then
+! ! ! !     traj%hopprob_s(1)=1.
+! ! ! !   endif
+! ! ! !   if (traj%state_diag==1) then
+! ! ! !     traj%hopprob_s=0.
+! ! ! !   endif
+
   if (printlevel>2) then
     write(u_log,*) 'Old and new occupancies and hopping probabilities:'
     do istate=1,ctrl%nstates
@@ -664,8 +673,12 @@ subroutine Decoherence(traj,ctrl)
   complex*16 :: cpre(ctrl%nstates)
 
   ! draw a new random number independently of the algorithm
-  call random_number(randnum)
-  traj%randnum2=randnum
+  if (ctrl%compat_mode==0) then
+    call random_number(randnum)
+    traj%randnum2=randnum
+  elseif (ctrl%compat_mode==1) then
+    traj%randnum2=traj%randnum
+  endif
 
   cpre = traj%coeff_diag_s
 

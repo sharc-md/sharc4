@@ -706,6 +706,10 @@ module qm
     ! in first timestep always calculate all gradients
     if (traj%step==0) then
       traj%selg_s=.true.
+      if (ctrl%surf==1) then    ! except if we have non-diagonal dynamics
+        traj%selg_s=.false.
+        traj%selg_s(traj%state_MCH)=.true.
+      endif
     else
       traj%selg_s=.false.
       ! energy-based selection for SHARC
@@ -717,8 +721,8 @@ module qm
           enddo
           traj%selg_s(traj%state_MCH)=.true.
 
-        ! only active state for FISH
-        case (1) ! FISH
+        ! only active state for non-diagonal dynamics
+        case (1) ! non-SHARC
           traj%selg_s(traj%state_MCH)=.true.
 
       endselect
@@ -766,7 +770,7 @@ module qm
       traj%selt_ss=.true.
     else
       traj%selt_ss=.false.
-      ! energy-based selection for SHARC and FISH
+      ! energy-based selection for SHARC and non-SHARC
       if (ctrl%surf==0) then
         E=real(traj%H_diag_ss(traj%state_diag,traj%state_diag))
       elseif (ctrl%surf==1) then
@@ -1122,7 +1126,7 @@ module qm
       if (ctrl%calc_nacdt==1) then
         traj%NACdt_ss(istate,:)=traj%NACdt_ss(istate,:)*traj%phases_s(istate)
       endif
-      if (ctrl%calc_nacdr>=1) then
+      if (ctrl%calc_nacdr>=0) then      ! calc_nacdr=0 computes all nacs
         traj%NACdr_ssad(istate,:,:,:)=traj%NACdr_ssad(istate,:,:,:)*real(traj%phases_s(istate))
       endif
       if (ctrl%calc_overlap==1) then

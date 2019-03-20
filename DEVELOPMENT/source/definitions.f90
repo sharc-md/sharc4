@@ -183,6 +183,10 @@ type ctrl_type
 
   character*1023 :: cwd                     !< working directory for SHARC
   real*8 :: output_version                         !< version as float for checks during writing output
+  integer :: compat_mode                    !< compatibility mode with older versions
+                                            ! currently: 
+                                            ! 0 : no compatibility mode
+                                            ! 1 : in EDC, do not draw a second random number
 
 ! numerical constants
   integer :: natom                          !< number of atoms
@@ -209,7 +213,7 @@ type ctrl_type
   integer :: laser                          !< 0=none, 1=internal, 2=external
   integer :: coupling                       !< 0=ddt, 1=ddr, 2=overlap
   integer :: surf                           !< 0=propagation in diag surfaces (SHARC), 1=on MCH surfaces (regular SH)
-  integer :: decoherence                    !< 0=off, 1=activate energy-based decoherence correction
+  integer :: decoherence                    !< 0=off, 1=EDC, 2=AFSSH
   integer :: ekincorrect                    !< 0=none, 1=adjust momentum along velocity, 2=adjust momentum along nac vector
   integer :: reflect_frustrated             !< 0=none, 1=reflect along velocity, 2=reflect along nac vector
   integer :: gradcorrect                    !< 0=no, 1=include nac vectors in gradient transformation

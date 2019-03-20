@@ -77,6 +77,7 @@ module restart
     ! write ctrl
     write(u,'(A)') trim(ctrl%cwd)
     write(u,*) ctrl%output_version
+    write(u,*) ctrl%compat_mode
     write(u,*) ctrl%natom, '! natom'
     write(u,*) ctrl%maxmult
     write(u,*) (ctrl%nstates_m(imult),imult=1,ctrl%maxmult)
@@ -350,6 +351,7 @@ module restart
     read(u_ctrl,'(A)') ctrl%cwd
     call getcwd(ctrl%cwd)
     read(u_ctrl,*) ctrl%output_version
+    read(u_ctrl,*) ctrl%compat_mode
     read(u_ctrl,*) ctrl%natom
     read(u_ctrl,*) ctrl%maxmult
     allocate( ctrl%nstates_m(ctrl%maxmult) )
