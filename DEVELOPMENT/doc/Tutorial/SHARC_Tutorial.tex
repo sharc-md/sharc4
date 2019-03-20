@@ -5096,7 +5096,7 @@ These are the main differences when using ADC(2) in \textsc{Turbomole} instead o
 
 \section{LVC Models}
 \refermanual{m-sec:int:lvc}
-\refermanual{m-sec:QMout2LVC.py}
+\refermanual{m-sec:setup_LVCparam.py}
 
 The linear-vibronic coupling model interface uses analytical expressions (like the analytical interface).
 However, the LVC interface allows more complicated, realistic models for many-atom molecules, which can be automatically parametrized from a single point calculation.
@@ -5143,6 +5143,29 @@ These are the main differences when using \textsc{Gaussian} instead of \textsc{M
 
 For the reasons mentioned above, the dynamics of \ce{CH2NH2+} cannot be properly described with TD-DFT.
 Users who intend to follow the tutorial with \textsc{Gaussian} instead of \textsc{Molcas} should therefore use a different molecule (\ce{SO2} might work well).
+
+% ======================================================================================================
+
+\section{\textsc{Orca}}
+\refermanual{m-sec:int:orca}
+
+Using \textsc{Orca} in combination with \sharc\ is slightly different from the multi-reference programs explained above, mostly because TD-DFT is a single-reference method.
+This means that TD-DFT is comparably easy to use---there is no active space and no state-averaging (so adding more states to the computation does not affect the lower states).
+On the contrary, TD-DFT will often fail to converge when the energy gap between the ground state and the excited state becomes small.
+Another difference is that the ground state and the excited states are not treated equally---excited-state gradients are more expensive than the ground state gradient, and no transition dipole moments between two excited states can be computed.
+
+These are the main differences when using \textsc{Orca} instead of \textsc{Molcas}:
+\begin{itemize}
+  \item \textsc{Orca} calculations---single points, optimizations, frequency calculations---can be setup with different GUI programs, e.g., \ttt{Gabedit}, or manually.
+  \item The result of \textsc{Orca} frequency calculations (standard output) can be converted to \textsc{Molden} format using \ttt{Orca\_freq.py}.
+  \item Template files for the \sharc-\textsc{Orca} interface should be created by copying and adjusting the documented example in \ttt{\$SHARC/../examples/SHARC\_ORCA/}.
+  \item \textsc{Orca} cannot compute nonadiabatic coupling vectors, so all \sharc-\textsc{Orca} simulations rely on \ttt{wfoverlap.x}.
+  \item The \sharc-\textsc{Orca} interface can carry out QM/MM calculations, with the MM part being computed in \textsc{Tinker}.
+\end{itemize}
+
+For the reasons mentioned above, the dynamics of \ce{CH2NH2+} cannot be properly described with TD-DFT.
+Users who intend to follow the tutorial with \textsc{Orca} instead of \textsc{Molcas} should therefore use a different molecule (\ce{SO2} might work well).
+
 
 
 
