@@ -348,8 +348,8 @@ class lognormal:
     # instead, the function is normalized such that its maximum will have a value of A (at x<=x0)
     return A*x0/x*math.exp( -c/(4.*math.log(2.)) -math.log(2.)*(math.log(x)-math.log(x0))**2/c)
 
-kernels={1: {'f': gauss,       'description': 'Gaussian function',          'factor':1.5},
-         2: {'f': lorentz,     'description': 'Lorentzian function',        'factor':2.5},
+kernels={1: {'f': gauss,       'description': 'Gaussian function',          'factor':1.0},
+         2: {'f': lorentz,     'description': 'Lorentzian function',        'factor':2.0},
          3: {'f': boxfunction, 'description': 'Rectangular window function','factor':0.6},
          4: {'f': lognormal,   'description': 'Log-normal function',        'factor':1.5}}
 
@@ -639,7 +639,12 @@ def get_general():
            'QM/MOLCAS\.resources',
            'QM/RICC2\.template',
            'QM/RICC2\.resources',
+           'QM/ORCA\.template',
+           'QM/ORCA\.resources',
+           'QM/BAGEL\.template',
+           'QM/BAGEL\.resources',
            'QM/.*init',
+           'QM/.*qmmm.*',
            'QM/SCRATCH',
            'QM/SAVE',
            'QM/runQM\.sh',
@@ -648,6 +653,7 @@ def get_general():
            'QM/QM\.log',
            'QM/QM\.err',
            '\./output\.dat',
+           '\./output\.dat\.nc',
            '\./output\.log',
            '\./output\.xyz',
            '\./output\.dat\.ext',
@@ -655,6 +661,8 @@ def get_general():
            '\./geom',
            '\./veloc',
            '\./coeff',
+           '\./atommask',
+           '\./laser',
            '\./restart\.traj',
            '\./restart\.ctrl',
            '\./run\.sh',
