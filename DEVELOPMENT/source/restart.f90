@@ -92,7 +92,10 @@ module restart
     write(u,*) ctrl%eselect_dmgrad
     write(u,*) ctrl%dampeddyn
     write(u,*) ctrl%decoherence_alpha
+    write(u,*) ctrl%force_hop_to_gs
     write(u,*) (ctrl%actstates_s(istate),istate=1,ctrl%nstates)
+    write(u,*) (ctrl%output_steps_stride(istate),istate=1,3)
+    write(u,*) (ctrl%output_steps_limits(istate),istate=1,3)
     write(u,*) ctrl%restart
     write(u,*) ctrl%staterep
     write(u,*) ctrl%initcoeff
@@ -367,8 +370,11 @@ module restart
     read(u_ctrl,*) ctrl%eselect_dmgrad
     read(u_ctrl,*) ctrl%dampeddyn
     read(u_ctrl,*) ctrl%decoherence_alpha
+    read(u_ctrl,*) ctrl%force_hop_to_gs
     allocate( ctrl%actstates_s(ctrl%nstates) )
     read(u_ctrl,*) (ctrl%actstates_s(istate),istate=1,ctrl%nstates)
+    read(u_ctrl,*) (ctrl%output_steps_stride(istate),istate=1,3)
+    read(u_ctrl,*) (ctrl%output_steps_limits(istate),istate=1,3)
     read(u_ctrl,*) ctrl%restart
     read(u_ctrl,*) ctrl%staterep
     read(u_ctrl,*) ctrl%initcoeff

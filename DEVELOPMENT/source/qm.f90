@@ -1084,7 +1084,7 @@ module qm
 
         scalarProd=dcmplx(0.d0,0.d0)
 
-        if (ctrl%calc_nacdr>=1) then
+        if (ctrl%calc_nacdr>=0) then
           do istate=1,ctrl%nstates
             do jstate=1,ctrl%nstates
               scalarProd(istate,jstate)=phase_from_NAC(ctrl%natom, &
@@ -1141,7 +1141,7 @@ module qm
       if (ctrl%calc_nacdt==1) then
         traj%NACdt_ss(:,istate)=traj%NACdt_ss(:,istate)*traj%phases_s(istate)
       endif
-      if (ctrl%calc_nacdr>=1) then
+      if (ctrl%calc_nacdr>=0) then
         traj%NACdr_ssad(:,istate,:,:)=traj%NACdr_ssad(:,istate,:,:)*real(traj%phases_s(istate))
       endif
       if (ctrl%calc_overlap==1) then

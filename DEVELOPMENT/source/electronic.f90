@@ -441,14 +441,19 @@ subroutine surface_hopping(traj,ctrl)
       stop 1
   endselect
 
-! ! ! !   ! forced hop to ground state if energy gap to state above is smaller than threshold
-! ! ! !   deltaE=abs(real(traj%H_diag_ss(traj%state_diag,traj%state_diag)-traj%H_diag_ss(1,1))
-! ! ! !   if ( (traj%state_diag==2) .and. (deltaE)<=0.15/au2eV) ) then
-! ! ! !     traj%hopprob_s(1)=1.
-! ! ! !   endif
-! ! ! !   if (traj%state_diag==1) then
-! ! ! !     traj%hopprob_s=0.
-! ! ! !   endif
+  ! forced hop to ground state if energy gap to state above is smaller than threshold
+  traj%kind_of_jump=0
+  if ( ctrl%force_hop_to_gs>0. ) then
+    deltaE=abs( real(traj%H_diag_ss(traj%state_diag,traj%state_diag) - traj%H_diag_ss(1,1)) )
+    if ( (traj%state_diag/=1).and.(deltaE<=ctrl%force_hop_to_gs) ) then
+      traj%hopprob_s=0.
+      traj%hopprob_s(1)=1.
+      traj%kind_of_jump=4
+    endif
+    if (traj%state_diag==1) then
+      traj%hopprob_s=0.
+    endif
+  endif
 
   if (printlevel>2) then
     write(u_log,*) 'Old and new occupancies and hopping probabilities:'
@@ -461,7 +466,9 @@ subroutine surface_hopping(traj,ctrl)
   call random_number(randnum)
   traj%randnum=randnum
   cumuprob=0.d0
-  traj%kind_of_jump=0
+  if (.not. traj%kind_of_jump==4) then
+    traj%kind_of_jump=0
+  endif
   deltaE=0.d0
 
   stateloop: do istate=1,ctrl%nstates
@@ -536,7 +543,9 @@ subroutine surface_hopping(traj,ctrl)
         traj%state_diag=istate
         traj%Epot=real(traj%H_diag_ss(istate,istate))
       endif
-      traj%kind_of_jump=1
+      if (.not. traj%kind_of_jump==4) then
+        traj%kind_of_jump=1
+      endif
       exit stateloop               ! ************************************************* exit of loop
 
     endif
@@ -567,6 +576,10 @@ subroutine surface_hopping(traj,ctrl)
         write(u_log,'(A)') 'Jump is in resonance with laser.'
         write(u_log,'(A,1X,F16.9,1X,A,1X,F16.9,1X,A)') &
         &'Detuning:',deltaE*au2eV,'eV, Laser Bandwidth:',ctrl%laser_bandwidth*au2eV,'eV'
+      case (4)
+        write(u_log,'(A)') 'Forced hop to ground state.'
+        write(u_log,'(A,1X,I4,1X,A)') 'Old state:',traj%state_diag_old,'(diag)'
+        write(u_log,'(A,1X,I4,1X,A)') 'New state:',traj%state_diag,'(diag)'
     endselect
   endif
 

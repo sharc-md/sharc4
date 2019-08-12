@@ -105,7 +105,7 @@ type trajectory_type
   integer :: time_start                                  !< system time when sharc is started
   integer :: time_last                                   !< system time after completion of the previous timestep
   integer :: time_step                                   !< system time(after timestep) - system time(before timestep)
-  integer :: kind_of_jump                                !< 0=no jump, 1=regular, 2=frustrated, 3=resonant
+  integer :: kind_of_jump                                !< 0=no jump, 1=regular, 2=frustrated, 3=resonant, 4=forced
   integer :: steps_in_gs                                 !< counter for the number of timesteps in the lowest state
   logical :: phases_found                                !< whether wavefunction phases were found in QM.out
 
@@ -204,7 +204,10 @@ type ctrl_type
   real*8 :: eselect_dmgrad                  !< energy difference for neglecting dipole gradients
   real*8 :: dampeddyn                       !< damping factor for kinetic energy
   real*8 :: decoherence_alpha               !< decoherence parameter (a.u.) for energy-based decoherence
+  real*8 :: force_hop_to_gs                 !< if positive, trajectories automatically jump to lowest state if active-lowest gap is below value
   logical,allocatable :: actstates_s(:)     !< mask of the active states
+  integer :: output_steps_stride(3)         !< how often output.dat is written
+  integer :: output_steps_limits(3)         !< switches stride for output.dat writing
 
 ! methods and switches
   logical :: restart                        !< restart yes or no

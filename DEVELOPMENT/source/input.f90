@@ -900,6 +900,34 @@ module input
     endif
 
 
+    ! how often output.dat is written
+    ctrl%output_steps_limits=0
+    ctrl%output_steps_stride=1
+    line=get_value_from_key('output_dat_steps',io)
+    if (io==0) then
+      call split(line,' ',values,n)
+      if (n>=1) then
+        read(values(1),*) i
+        ctrl%output_steps_stride=max(i,1)
+      endif
+      if (n>=3) then
+        read(values(2),*) i
+        ctrl%output_steps_limits(2)=max(i,0)
+        ctrl%output_steps_limits(3)=max(i,0)
+        read(values(3),*) i
+        ctrl%output_steps_stride(2)=max(i,1)
+        ctrl%output_steps_stride(3)=max(i,1)
+      endif
+      if (n>=5) then
+        read(values(4),*) i
+        ctrl%output_steps_limits(3)=max(i,0)
+        read(values(5),*) i
+        ctrl%output_steps_stride(3)=max(i,1)
+      endif
+    endif
+
+
+
     line=get_value_from_key('output_version',io)
     if (io==0) then
       read(line,*) ctrl%output_version
@@ -1036,6 +1064,11 @@ module input
       else
         write(u_log,'(a)') 'Writing property matrices.'
       endif
+      write(u_log,*)
+      do i=1,3
+        write(u_log,'(a,i6,a,i6)') 'Writing to output.dat every ',ctrl%output_steps_stride(i),&
+        &' steps if step is >= ',ctrl%output_steps_limits(i)
+      enddo
       write(u_log,*)
     endif
 
@@ -1233,6 +1266,19 @@ module input
           write(0,*) 'Unknown keyword ',trim(line),' to "hopping_procedure"!'
           stop 1
       endselect
+    endif
+
+    ! force hops to ground state
+    ctrl%force_hop_to_gs=-1.
+    line=get_value_from_key('force_hop_to_gs',io)
+    if (io==0) then
+      read(line,*)ctrl%force_hop_to_gs
+      ctrl%force_hop_to_gs=ctrl%force_hop_to_gs/au2eV
+      if (printlevel>1) then
+        write(u_log,'(a,F6.3,a)') 'Forcing hops to lowest state if active-lowest gap is <='&
+        &,ctrl%force_hop_to_gs*au2eV,'eV'
+        write(u_log,*)
+      endif
     endif
 
     ! TODO: could delete this keyword

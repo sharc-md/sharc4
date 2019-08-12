@@ -205,7 +205,7 @@ subroutine Rescale_velocities(traj,ctrl)
   select case (traj%kind_of_jump)
     case (0)
       if (printlevel>2) write(u_log,'(A)') 'No jump occured.'
-    case (1)
+    case (1,4)
       select case (ctrl%ekincorrect)
         case (0)
           if (printlevel>2) write(u_log,*) 'Velocity is not rescaled after surface hop.'
