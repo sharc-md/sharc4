@@ -202,6 +202,9 @@ changelogstring='''
 08.11.2018:
 - converted to Python3
 - uses KFFile instead of old kf.py
+
+25.04.2019:
+- added fullkernel keyword
 '''
 
 # ======================================================================= #
@@ -544,6 +547,8 @@ def printQMin(QMin):
       parts.append('Total Energy')
   if QMin['template']['cosmo']:
       parts.append('COSMO')
+  if QMin['template']['fullkernel']:
+      parts.append('fullKernel')
   if len(parts)>0:
       string+='\t('
       string+=','.join(parts)
@@ -1723,7 +1728,8 @@ def readQMin(QMinfilename):
               'unrestricted_triplets'   :False,
               'qmmm'                    :False,
               'dvd_mblocksmall'         :False,
-              'functional_xcfun'        :False
+              'functional_xcfun'        :False,
+              'fullkernel'              :False
               }
     strings ={'relativistic'            :'',
               'basis'                   :'SZ',
@@ -1976,6 +1982,9 @@ def readQMin(QMinfilename):
         allowed_functionals=['lda','gga','hybrid','hartreefock']
         if not QMin['template']['functional'].split()[0].lower() in allowed_functionals:
             print('Gradients can only be calculated with these functional classes: %s' % allowed_functionals)
+            sys.exit(63)
+        if QMin['template']['fullkernel']:
+            print('Gradients are not possible with full adiabatic XC kernel')
             sys.exit(63)
 
     # check the connection table file
@@ -2753,7 +2762,7 @@ def writeADFinput(QMin):
     string+='XC\n  %s\n' % QMin['template']['functional']
     if QMin['template']['dispersion']:
         string+='  dispersion %s\n' % QMin['template']['dispersion']
-    if QMin['template']['functional_xcfun']:
+    if QMin['template']['functional_xcfun'] or QMin['template']['fullkernel']:
         string+='  xcfun\n'
     string+='END\n'
     if QMin['template']['totalenergy']:
@@ -2821,6 +2830,8 @@ def writeADFinput(QMin):
             string+='  iterations %i\n' % (max(200,20*ncalc))
         if DEBUG:
             string+='  nto\n'
+        if QMin['template']['fullkernel']:
+            string+='FULLKERNEL\n'
         string+='END\n'
         if QMin['template']['dvd_mblocksmall']:
             string+='MBLOCKSMALL\n'
