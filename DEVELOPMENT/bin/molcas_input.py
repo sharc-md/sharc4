@@ -40,6 +40,7 @@ import datetime
 from optparse import OptionParser
 import readline
 import time
+from socket import gethostname
 
 # =========================================================0
 # compatibility stuff
@@ -922,7 +923,7 @@ MAXITER    = 120
 
   s+='\n\n'
   s+='*     Infos:\n'
-  s+='*     %s at %s\n' % (os.environ['USER'],os.environ['HOSTNAME'])
+  s+='*     %s at %s\n' % (os.environ['USER'],gethostname())
   s+='*     Date: %s\n' % (datetime.datetime.now())
   s+='*     Current directory: %s\n\n' % (os.getcwd())
 
