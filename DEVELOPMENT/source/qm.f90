@@ -106,6 +106,7 @@ module qm
       do i=1,ctrl%nstates
         write(u_log,'(i3,1x,F12.9,1X,F12.9)') i,traj%coeff_diag_s(i)
       enddo
+      write(u_log,*)
     endif
     if (abs(traj%coeff_diag_s(traj%state_diag))<1.d-9) then
       write(0,*) 'Initial state has zero population!'
