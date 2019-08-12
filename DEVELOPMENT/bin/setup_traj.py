@@ -109,7 +109,8 @@ Interfaces={
                           'dyson':   ['wfoverlap'],
                           'nacdr':   ['wfoverlap'],
                           'phases':  ['wfoverlap'],
-                          'soc':     []             }
+                          'soc':     []             },
+      'pysharc':          False
      },
   2: {'script':          'SHARC_COLUMBUS.py',
       'name':            'columbus',
@@ -120,7 +121,8 @@ Interfaces={
                           'dyson':   ['wfoverlap'],
                           'phases':  ['wfoverlap'],
                           'nacdr':   [],
-                          'soc':     []               }
+                          'soc':     []               },
+      'pysharc':          False
      },
   3: {'script':          'SHARC_Analytical.py',
       'name':            'analytical',
@@ -130,7 +132,8 @@ Interfaces={
       'features':        {'overlap': [],
                           'dipolegrad':[],
                           'phases':  [],
-                          'soc':     []             }
+                          'soc':     []             },
+      'pysharc':          False
      },
   4: {'script':          'SHARC_MOLCAS.py',
       'name':            'molcas',
@@ -141,7 +144,8 @@ Interfaces={
                           'dyson':   ['wfoverlap'],
                           'dipolegrad':[],
                           'phases':  [],
-                          'soc':     []             }
+                          'soc':     []             },
+      'pysharc':          False
      },
   5: {'script':          'SHARC_ADF.py',
       'name':            'adf',
@@ -152,7 +156,8 @@ Interfaces={
                           'dyson':   ['wfoverlap'],
                           'theodore':['theodore'],
                           'phases':  ['wfoverlap'],
-                          'soc':     []                 }
+                          'soc':     []                 },
+      'pysharc':          False
      },
   6: {'script':          'SHARC_RICC2.py',
       'name':            'ricc2',
@@ -162,7 +167,8 @@ Interfaces={
       'features':        {'overlap': ['wfoverlap'],
                           'theodore':['theodore'],
                           'phases':  ['wfoverlap'],
-                          'soc':     []                 }
+                          'soc':     []                 },
+      'pysharc':          False
      },
   7: {'script':          'SHARC_LVC.py',
       'name':            'lvc',
@@ -172,7 +178,9 @@ Interfaces={
       'features':        {'overlap': [],
                           'nacdr':   [],
                           'phases':  [],
-                          'soc':     []                 }
+                          'soc':     []                 },
+      'pysharc':          True,
+      'pysharc_driver':   'pysharc_lvc.py'
      },
   8: {'script':          'SHARC_GAUSSIAN.py',
       'name':            'gaussian',
@@ -182,7 +190,8 @@ Interfaces={
       'features':        {'overlap': ['wfoverlap'],
                           'dyson':   ['wfoverlap'],
                           'theodore':['theodore'],
-                          'phases':  ['wfoverlap']        }
+                          'phases':  ['wfoverlap']        },
+      'pysharc':          False
      },
   9: {'script':          'SHARC_ORCA.py',
       'name':            'orca',
@@ -193,7 +202,8 @@ Interfaces={
                           'dyson':   ['wfoverlap'],
                           'theodore':['theodore'],
                           'phases':  ['wfoverlap'],
-                          'soc':     []}
+                          'soc':     []},
+      'pysharc':          False
      }
   }
 
@@ -1262,6 +1272,14 @@ from the initconds.excited files as provided by excite.py.
       print 'Please input one of the following: %s!' % ([i for i in cando])
   INFOS['hopping']=HoppingSchemes[hopping]['name']
 
+  # Forced hops to lowest state
+  print '\nDo you want to perform forced hops to the lowest state based on a energy gap criterion?'
+  print '(Note that this ignores spin multiplicity)'
+  INFOS['force_hops']=question('Forced hops to ground state?',bool, False)
+  if INFOS['force_hops']:
+    INFOS['force_hops_dE']=abs( question('Energy gap threshold for forced hops (eV):',float,[0.1])[0] )
+  else:
+    INFOS['force_hops_dE']=9999.
 
   # Scaling
   print '\nDo you want to scale the energies and gradients?'
@@ -1402,6 +1420,21 @@ Laser files can be created using $SHARC/laser.x
 
 
 
+  # PYSHARC
+  if Interfaces[ INFOS['interface']]['pysharc']:
+    print '\nThe chosen interface can be run very efficiently with PYSHARC.'
+    print 'PYSHARC runs the SHARC dynamics directly within Python (with C and Fortran extension)'
+    print 'with minimal file I/O for maximum performance.'
+    INFOS['pysharc']=question('Setup for PYSHARC?',bool,True)
+  else:
+    INFOS['pysharc']=False
+
+  # NetCDF
+  print '\nSHARC or PYSHARC can produce output in ASCII format (all features supported currently)'
+  print 'or in NetCDF format (more efficient file I/O, some features currently not supported).'
+  INFOS['netcdf']=question('Write output in NetCDF format?',bool,INFOS['pysharc'])
+
+
   # Dynamics options
   string='\n  '+'='*80+'\n'
   string+='||'+centerstring('Content of output.dat files',80)+'||\n'
@@ -1441,6 +1474,19 @@ Laser files can be created using $SHARC/laser.x
   print '\nDo you want to write the overlap matrix to the output.dat file ?'
   INFOS['write_overlap']=question('Write overlap matrix?',bool, (Couplings[INFOS['coupling']]['name']=='overlap') )
 
+
+  print '\nDo you want to modify the output.dat writing stride?'
+  stride=question('Modify stride?',bool,False)
+  if stride:
+    INFOS['stride']=[]
+    stride=question('Enter the  *INITIAL*   output stride (e.g., "1"=write every step)',int,[1])
+    INFOS['stride'].extend(stride)
+    stride=question('Enter the *SUBSEQUENT* output stride (e.g., "10 2"=write every second step starting at step 10)',int,[0,1])
+    INFOS['stride'].extend(stride)
+    stride=question('Enter the   *FINAL*    output stride (e.g., "100 10"=write every tenth step starting at step 100)',int,[0,1])
+    INFOS['stride'].extend(stride)
+  else:
+    INFOS['stride']=[1]
 
 
   # Add some simple keys
@@ -2913,6 +2959,33 @@ def checktemplate_RICC2(filename,INFOS):
 
 # =================================================
 
+def qmmm_job(filename,INFOS):
+  necessary=['qmmm']
+  try:
+    f=open(filename)
+    data=f.readlines()
+    f.close()
+  except IOError:
+    print 'Could not open template file %s' % (filename)
+    return False
+  valid=[]
+  for i in necessary:
+    for l in data:
+      line=l.lower().split()
+      if len(line)==0:
+        continue
+      line=line[0]
+      if i==re.sub('#.*$','',line):
+        valid.append(True)
+        break
+    else:
+      valid.append(False)
+  if not all(valid):
+    return False
+  return True
+
+# =================================================
+
 def get_RICC2(INFOS):
   string='\n  '+'='*80+'\n'
   string+='||'+centerstring('Turbomole RICC2 Interface setup',80)+'||\n'
@@ -2977,6 +3050,33 @@ douglas-kroll                                   # DKH is only used if this keywo
         break
     INFOS['ricc2.template']=filename
   print ''
+
+
+  # QMMM
+  if qmmm_job(INFOS['ricc2.template'],INFOS):
+    print centerstring('Turbomole RICC2+TINKER QM/MM setup',60,'-')+'\n'
+    print 'Your template specifies a QM/MM calculation. Please specify the path to TINKER.' 
+    path=os.getenv('TINKER')
+    if path=='':
+      path=None
+    else:
+      path='$TINKER/'
+    print '\nPlease specify path to TINKER bin/ directory (SHELL variables and ~ can be used, will be expanded when interface is started).\n'
+    INFOS['tinker']=question('Path to TINKER/bin:',str,path)
+    while True:
+      filename=question('Force field file:',str)
+      if not os.path.isfile(filename):
+        print 'File %s does not exist!' % (filename)
+      else:
+        break
+    INFOS['RICC2.fffile']=filename
+    while True:
+      filename=question('Connection table file:',str)
+      if not os.path.isfile(filename):
+        print 'File %s does not exist!' % (filename)
+      else:
+        break
+    INFOS['RICC2.ctfile']=filename
 
 
   print centerstring('Initial wavefunction: MO Guess',60,'-')+'\n'
@@ -3108,6 +3208,12 @@ dipolelevel %i
     string+='theodir %s\n' % (INFOS['ricc2.theodore'])
     string+='theodore_prop %s\n' % (INFOS['theodore.prop'])
     string+='theodore_fragment %s\n' % (INFOS['theodore.frag'])
+  if 'tinker' in INFOS:
+    string+='tinker %s\n' % (INFOS['tinker'])
+  if 'RICC2.fffile' in INFOS:
+    string+='qmmm_ff_file RICC2.qmmm.ff\n'
+  if 'RICC2.ctfile' in INFOS:
+    string+='qmmm_table RICC2.qmmm.table\n'
 
   sh2cc2.write(string)
   sh2cc2.close()
@@ -3119,6 +3225,16 @@ dipolelevel %i
   if INFOS['ricc2.guess']:
     cpfrom1=INFOS['ricc2.guess']
     cpto1='%s/QM/mos.init' % (iconddir)
+    shutil.copy(cpfrom1,cpto1)
+
+  if 'RICC2.fffile' in INFOS:
+    cpfrom1=INFOS['RICC2.fffile']
+    cpto1='%s/QM/RICC2.qmmm.ff' % (iconddir)
+    shutil.copy(cpfrom1,cpto1)
+
+  if 'RICC2.ctfile' in INFOS:
+    cpfrom1=INFOS['RICC2.ctfile']
+    cpto1='%s/QM/RICC2.qmmm.table' % (iconddir)
     shutil.copy(cpfrom1,cpto1)
 
   # runQM.sh
@@ -3835,12 +3951,16 @@ def writeSHARCinput(INFOS,initobject,iconddir,istate):
   if INFOS['decoherence'][1]:
     s+='decoherence_param %s\n' % (INFOS['decoherence'][1])
   s+='hopping_procedure %s\n' % (INFOS['hopping'])
+  if INFOS['force_hops']:
+    s+='force_hops_to_gs %f\n' % (INFOS['force_hops_dE'])
   if INFOS['scaling']:
     s+='scaling %f\n' % (INFOS['scaling'])
   if INFOS['damping']:
     s+='dampeddyn %f\n' % (INFOS['damping'])
   if INFOS['phases_from_interface']:
     s+='phases_from_interface\n'
+  if INFOS['pysharc']:
+    s+='notrack_phase\n'
 
   if INFOS['sel_g']:
     s+='grad_select\n'
@@ -3885,6 +4005,20 @@ def writeSHARCinput(INFOS,initobject,iconddir,istate):
   if INFOS['write_property2d']:
     s+='write_property2d\n'
     s+='n_property2d %i\n' % (1)
+
+  # NetCDF or ASCII
+  if INFOS['netcdf']:
+    out='netcdf'
+  else:
+    out='ascii'
+  s+='output_format %s\n' % out
+
+  # stride
+  if 'stride' in INFOS:
+    s+='output_dat_steps'
+    for i in  INFOS['stride']:
+      s+=' %i' % i
+    s+='\n'
 
   # laser
   if INFOS['laser']:
@@ -3955,6 +4089,14 @@ def writeRunscript(INFOS,iconddir):
   if 'adfrc' in INFOS:
     intstring='. %s\nexport PYTHONPATH=$ADFHOME/scripting:$PYTHONPATH' % (INFOS['adfrc'])
 
+  # ================================
+  if INFOS['pysharc']:
+    driver=Interfaces[ INFOS['interface'] ]['pysharc_driver']
+    exestring='. $SHARC/sharcvars.sh\n$ANACONDA/bin/python2 $SHARC/%s input' % driver
+  else:
+    exestring='$SHARC/sharc.x input'
+
+
   # ================================ for here mode
   if INFOS['here']:
     string='''#!/bin/bash
@@ -3967,8 +4109,8 @@ PRIMARY_DIR=%s/%s
 
 cd $PRIMARY_DIR
 
-$SHARC/sharc.x input
-''' % (projname,intstring,INFOS['cwd'],iconddir)
+%s
+''' % (projname,intstring,INFOS['cwd'],iconddir,exestring)
   #
   # ================================ for remote mode
   else:
@@ -3992,7 +4134,7 @@ echo $HOSTNAME > $PRIMARY_DIR/host_info
 echo $(pwd) >> $PRIMARY_DIR/host_info
 echo $(date) >> $PRIMARY_DIR/host_info
 
-$SHARC/sharc.x input
+%s
 err=$?
 
 cp -r $COPY_DIR/output.* $COPY_DIR/restart.* $COPY_DIR/restart/ $PRIMARY_DIR
@@ -4010,7 +4152,7 @@ in
 dir  = $(pwd)
 " > $PRIMARY_DIR/README
 fi
-''' % (intstring,INFOS['cwd'], iconddir, INFOS['copydir'], iconddir)
+''' % (intstring,INFOS['cwd'], iconddir, INFOS['copydir'], iconddir,exestring)
 
   runscript.write(string)
   runscript.close()
