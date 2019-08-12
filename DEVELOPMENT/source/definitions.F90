@@ -24,9 +24,13 @@
 !> # Module DEFINITIONS
 !> \author Sebastian Mai
 !> \date 10.07.2014, modified 27.02.2017 by Philipp Marquetand
-!> 
+!>                   modified 19.04.2018 by Maximilian F.S.J. Menger:
+!>                        traj%H_MCH_ss, traj%DM_ssd
+!>                        traj%overlaps_ss, traj%grad_MCH_sad
+!>                   are now as well pointer tragets
+!>
 !> This module defines the trajectory and control types.
-!> 
+!>
 !> All arrays defined here have their order and meaning of the
 !> indices in the last part of the name, e.g.:
 !> mass_a is the array containing the masses of all atoms,
@@ -107,18 +111,29 @@ type trajectory_type
   integer :: time_step                                   !< system time(after timestep) - system time(before timestep)
   integer :: kind_of_jump                                !< 0=no jump, 1=regular, 2=frustrated, 3=resonant, 4=forced
   integer :: steps_in_gs                                 !< counter for the number of timesteps in the lowest state
+  integer :: ncids(10)                                   !< NetCDF indices
+  integer :: nc_index                                    !< number of steps written to NetCDF
+
   logical :: phases_found                                !< whether wavefunction phases were found in QM.out
 
   ! nuclear information
   real*8,allocatable :: atomicnumber_a(:)                !< atomic number
   character*2,allocatable :: element_a(:)                !< element descriptor
   real*8,allocatable :: mass_a(:)                        !< atomic mass in a.u. (1 a.u. = rest mass of electron m_e)
+#ifdef __PYSHARC__
+  real*8,pointer :: geom_ad(:,:)                         !< Cartesian coordinates of atom in a.u. (bohr)
+#else
   real*8,allocatable :: geom_ad(:,:)                     !< Cartesian coordinates of atom in a.u. (bohr)
+#endif
   real*8,allocatable :: veloc_ad(:,:)                    !< Cartesian velocity in a.u. (bohr/atu)
   real*8,allocatable :: accel_ad(:,:)                    !< Cartesian acceleration in a.u. (bohr/atu/atu)
 
   ! electronic information
-  complex*16,allocatable :: H_MCH_ss(:,:)                !< MCH Hamiltonian as read from QM.out (no laser)
+#ifdef __PYSHARC__
+  complex*16, pointer :: H_MCH_ss(:,:)                    !< MCH Hamiltonian as read from QM.out (no laser)
+#else
+  complex*16, allocatable :: H_MCH_ss(:,:)                !< MCH Hamiltonian as read from QM.out (no laser)
+#endif
                                                          !< Laser interaction is added during propagation
   complex*16,allocatable :: dH_MCH_ss(:,:)               !< time derivative of MCH Hamiltonian
   complex*16,allocatable :: H_MCH_old_ss(:,:)            !< MCH Hamiltonian of last timestep (no laser)
@@ -127,9 +142,15 @@ type trajectory_type
   complex*16,allocatable :: U_old_ss(:,:)                !< transformation matrix of last timestep
   complex*16,allocatable :: NACdt_ss(:,:)                !< time-derivatives of wavefunctions
   complex*16,allocatable :: NACdt_old_ss(:,:)            !< time-derivatives of wavefunctions of last timestep
-  complex*16,allocatable :: overlaps_ss(:,:)             !< overlaps for LD propagation
-  complex*16,allocatable :: DM_ssd(:,:,:)                !< (transition) dipole moment matrix 
+#ifdef __PYSHARC__
+  complex*16, pointer :: overlaps_ss(:,:)                !< overlaps for LD propagation
+  complex*16, pointer :: DM_ssd(:,:,:)                   !< (transition) dipole moment matrix
                                                          !< transition dipoles between active and inactive states are zero.
+#else
+  complex*16, allocatable :: overlaps_ss(:,:)            !< overlaps for LD propagation
+  complex*16, allocatable :: DM_ssd(:,:,:)               !< (transition) dipole moment matrix
+                                                         !< transition dipoles between active and inactive states are zero.
+#endif
   complex*16,allocatable :: DM_old_ssd(:,:,:)            !< old dipole moment matrix
   complex*16,allocatable :: DM_print_ssd(:,:,:)          !< dipole moment matrix used for the output routines
                                                          !< transition dipoles between active and inactive states are not zero.
@@ -147,9 +168,14 @@ type trajectory_type
 
   ! vector information
   real*8,allocatable :: DMgrad_ssdad(:,:,:,:,:)          !< Cartesian gradient of the dipole moments (bra, ket, polarization, atom, cartesian component of atom displacement)
-  real*8,allocatable :: NACdR_ssad(:,:,:,:)              !< vectorial non-adiabatic couplings in a.u.
+#ifdef __PYSHARC__
+  real*8, pointer :: NACdR_ssad(:,:,:,:)                 !< vectorial non-adiabatic couplings in a.u.
+  real*8, pointer :: grad_MCH_sad(:,:,:)                  !< Cartesian gradient in a.u (hartree/bohr) of all states
+#else
+  real*8, allocatable :: NACdR_ssad(:,:,:,:)              !< vectorial non-adiabatic couplings in a.u.
+  real*8, allocatable :: grad_MCH_sad(:,:,:)              !< Cartesian gradient in a.u (hartree/bohr) of all states
+#endif
   real*8,allocatable :: NACdR_old_ssad(:,:,:,:)          !< vectorial non-adiabatic couplings of last timestep
-  real*8,allocatable :: grad_MCH_sad(:,:,:)              !< Cartesian gradient in a.u (hartree/bohr) of all states
   complex*16,allocatable :: Gmatrix_ssad(:,:,:,:)        !< Cartesian gradient in a.u (hartree/bohr) of the current state in diag basis
   real*8, allocatable :: grad_ad(:,:)                    !< final gradient used in velocity verlet
 
@@ -194,7 +220,7 @@ type ctrl_type
   integer :: maxmult                        !< highest spin quantum number (determines length of nstates_m)
   integer,allocatable :: nstates_m(:)       !< numer of states considered in each multiplicy
   integer :: nstates                        !< total number of states
-  integer :: nsteps                         !< total number of simulation steps 
+  integer :: nsteps                         !< total number of simulation steps
   integer :: nsubsteps                      !< number of steps for the electron propagation
   real*8 :: dtstep                          !< length of timestep in a.u (atu)
   real*8 :: ezero                           !< energy offset in a.u. (e.g. ground state equilibrium energy)
@@ -247,6 +273,7 @@ type ctrl_type
   integer :: track_phase                    !< 0=no, 1=track phase of U matrix through the propagation (turn off only for debugging purposes)
   integer :: track_phase_at_zero            !< 0=nothing, 1=at time zero, get phases from whatever is in the savedir
   integer :: hopping_procedure              !< 0=no hops, 1=hops (standard formula), 2=GFSH
+  integer :: output_format                  !< 0 ASCII, 1 NetCDF
 
 ! thresholds
 !   real*8 :: propag_sharc_UdUdiags=1.d-2           ! Threshold for the size of diagonal elements in UdU (needed for dynamic substeps)        in hartree
@@ -271,7 +298,7 @@ integer :: printlevel
 ! =========================================================== !
 
 real*8,parameter:: au2a=0.529177211d0             !< length
-real*8,parameter:: au2fs=0.024188843d0            !< time 
+real*8,parameter:: au2fs=0.024188843d0            !< time
 real*8,parameter:: au2u=5.4857990943d-4           !< mass
 real*8,parameter:: au2rcm=219474.631370d0         !< energy
 real*8,parameter:: au2eV=27.21138386d0            !< energy
@@ -292,7 +319,7 @@ integer, parameter :: u_dat=3                !< compressed data output file
 integer, parameter :: u_geo=4                !< geometry output file
 integer, parameter :: u_resc=7               !< restart file ctrl
 integer, parameter :: u_rest=8               !< restart file traj
-! 
+!
 integer, parameter :: u_i_input=12           !< trajectory input (control variables, initial state, ...)
 integer, parameter :: u_i_geom=13            !< initial geometry
 integer, parameter :: u_i_veloc=14           !< initial velocity
@@ -484,6 +511,73 @@ integer, parameter :: u_qm_QMout=42          !< here SHARC retrieves the results
 
     endsubroutine
 
+    subroutine deallocate_ctrl(ctrl)
+      implicit none
+      type(ctrl_type), intent(inout) :: ctrl
+
+      if (allocated(ctrl%nstates_m))                  deallocate(ctrl%nstates_m)
+      if (allocated(ctrl%actstates_s))                deallocate(ctrl%actstates_s)
+      if (allocated(ctrl%atommask_a))                 deallocate(ctrl%atommask_a)
+      if (allocated(ctrl%laserfield_td))              deallocate(ctrl%laserfield_td)
+      if (allocated(ctrl%laserenergy_tl))             deallocate(ctrl%laserenergy_tl)
+
+    endsubroutine
+
+    subroutine deallocate_traj(traj)
+
+      implicit none
+      type(trajectory_type), intent(inout) :: traj
+
+#ifdef __PYSHARC__
+    ! Pointer routines
+    if (associated(traj%H_MCH_ss))                  deallocate(traj%H_MCH_ss)
+    if (associated(traj%DM_ssd))                    deallocate(traj%DM_ssd)
+    if (associated(traj%overlaps_ss))               deallocate(traj%overlaps_ss)
+    if (associated(traj%grad_MCH_sad))              deallocate(traj%grad_MCH_sad)
+    if (associated(traj%NACdR_ssad))                deallocate(traj%NACdR_ssad)
+    if (associated(traj%geom_ad))                    deallocate(traj%geom_ad)
+#else
+    if (allocated(traj%H_MCH_ss))                   deallocate(traj%H_MCH_ss)
+    if (allocated(traj%DM_ssd))                     deallocate(traj%DM_ssd)
+    if (allocated(traj%overlaps_ss))                deallocate(traj%overlaps_ss)
+    if (allocated(traj%grad_MCH_sad))               deallocate(traj%grad_MCH_sad)
+    if (allocated(traj%NACdR_ssad))                 deallocate(traj%NACdR_ssad)
+    if (allocated(traj%geom_ad))                    deallocate(traj%geom_ad)
+#endif
+
+    if (allocated(traj%atomicnumber_a))             deallocate(traj%atomicnumber_a)
+    if (allocated(traj%element_a))                  deallocate(traj%element_a)
+    if (allocated(traj%mass_a))                     deallocate(traj%mass_a)
+    if (allocated(traj%veloc_ad))                   deallocate(traj%veloc_ad)
+    if (allocated(traj%accel_ad))                   deallocate(traj%accel_ad)
+    if (allocated(traj%dH_MCH_ss))                  deallocate(traj%dH_MCH_ss)
+    if (allocated(traj%H_MCH_old_ss))               deallocate(traj%H_MCH_old_ss)
+    if (allocated(traj%H_diag_ss))                  deallocate(traj%H_diag_ss)
+    if (allocated(traj%U_ss))                       deallocate(traj%U_ss)
+    if (allocated(traj%U_old_ss))                   deallocate(traj%U_old_ss)
+    if (allocated(traj%NACdt_ss))                   deallocate(traj%NACdt_ss)
+    if (allocated(traj%NACdt_old_ss))               deallocate(traj%NACdt_old_ss)
+    if (allocated(traj%NACdR_old_ssad))             deallocate(traj%NACdR_old_ssad)
+    if (allocated(traj%DM_old_ssd))                 deallocate(traj%DM_old_ssd)
+    if (allocated(traj%DM_print_ssd))               deallocate(traj%DM_print_ssd)
+    if (allocated(traj%Rtotal_ss))                  deallocate(traj%Rtotal_ss)
+    if (allocated(traj%phases_s))                   deallocate(traj%phases_s)
+    if (allocated(traj%phases_old_s))               deallocate(traj%phases_old_s)
+    if (allocated(traj%hopprob_s))                  deallocate(traj%hopprob_s)
+    if (allocated(traj%Property2d_xss))             deallocate(traj%Property2d_xss)
+    if (allocated(traj%Property1d_ys))              deallocate(traj%Property1d_ys)
+    if (allocated(traj%Property2d_labels_x))        deallocate(traj%Property2d_labels_x)
+    if (allocated(traj%Property1d_labels_y))        deallocate(traj%Property1d_labels_y)
+    if (allocated(traj%Gmatrix_ssad))               deallocate(traj%Gmatrix_ssad)
+    if (allocated(traj%grad_ad))                    deallocate(traj%grad_ad)
+    if (allocated(traj%coeff_diag_s))               deallocate(traj%coeff_diag_s)
+    if (allocated(traj%coeff_diag_old_s))           deallocate(traj%coeff_diag_old_s)
+    if (allocated(traj%coeff_MCH_s))                deallocate(traj%coeff_MCH_s)
+    if (allocated(traj%selG_s))                     deallocate(traj%selG_s)
+    if (allocated(traj%selT_ss))                    deallocate(traj%selT_ss)
+  endsubroutine
+
+
 ! =========================================================== !
   !> checks whether all members of ctrl and traj are allocated
   !> also checks for NaNs
@@ -498,14 +592,29 @@ integer, parameter :: u_qm_QMout=42          !< here SHARC retrieves the results
     type(trajectory_type), intent(inout) :: traj
 
     write(u,*) '________________ CHECKING ISALLOCATED ___________________'
+#ifdef __PYSHARC__
+    ! Pointer routines
+    write(u,'(A20,1X,L1)') 'H_MCH_ss',        associated(traj%H_MCH_ss        )
+    write(u,'(A20,1X,L1)') 'DM_ssd',          associated(traj%DM_ssd          )
+    write(u,'(A20,1X,L1)') 'overlaps_ss',     associated(traj%overlaps_ss     )
+    write(u,'(A20,1X,L1)') 'grad_MCH_sad',    associated(traj%grad_MCH_sad    )
+    write(u,'(A20,1X,L1)') 'NACdR_ssad',      associated(traj%NACdR_ssad      )
+    write(u,'(A20,1X,L1)') 'geom_ad',         associated(traj%geom_ad         )
+#else
+    write(u,'(A20,1X,L1)') 'H_MCH_ss',        allocated(traj%H_MCH_ss        )
+    write(u,'(A20,1X,L1)') 'DM_ssd',          allocated(traj%DM_ssd          )
+    write(u,'(A20,1X,L1)') 'overlaps_ss',     allocated(traj%overlaps_ss     )
+    write(u,'(A20,1X,L1)') 'grad_MCH_sad',    allocated(traj%grad_MCH_sad    )
+    write(u,'(A20,1X,L1)') 'NACdR_ssad',      allocated(traj%NACdR_ssad      )
+    write(u,'(A20,1X,L1)') 'geom_ad',         allocated(traj%geom_ad         )
+#endif
+
 
     write(u,'(A20,1X,L1)') 'atomicnumber_a',  allocated(traj%atomicnumber_a  )
     write(u,'(A20,1X,L1)') 'element_a',       allocated(traj%element_a       )
     write(u,'(A20,1X,L1)') 'mass_a',          allocated(traj%mass_a          )
-    write(u,'(A20,1X,L1)') 'geom_ad',         allocated(traj%geom_ad         )
     write(u,'(A20,1X,L1)') 'veloc_ad',        allocated(traj%veloc_ad        )
     write(u,'(A20,1X,L1)') 'accel_ad',        allocated(traj%accel_ad        )
-    write(u,'(A20,1X,L1)') 'H_MCH_ss',        allocated(traj%H_MCH_ss        )
     write(u,'(A20,1X,L1)') 'dH_MCH_ss',       allocated(traj%dH_MCH_ss       )
     write(u,'(A20,1X,L1)') 'H_MCH_old_ss',    allocated(traj%H_MCH_old_ss    )
     write(u,'(A20,1X,L1)') 'H_diag_ss',       allocated(traj%H_diag_ss       )
@@ -513,13 +622,9 @@ integer, parameter :: u_qm_QMout=42          !< here SHARC retrieves the results
     write(u,'(A20,1X,L1)') 'U_old_ss',        allocated(traj%U_old_ss        )
     write(u,'(A20,1X,L1)') 'NACdt_ss',        allocated(traj%NACdt_ss        )
     write(u,'(A20,1X,L1)') 'NACdt_old_ss',    allocated(traj%NACdt_old_ss    )
-    write(u,'(A20,1X,L1)') 'NACdR_ssad',      allocated(traj%NACdR_ssad      )
     write(u,'(A20,1X,L1)') 'NACdR_old_ssad',  allocated(traj%NACdR_old_ssad  )
-    write(u,'(A20,1X,L1)') 'overlaps_ss',     allocated(traj%overlaps_ss     )
-    write(u,'(A20,1X,L1)') 'DM_ssd',          allocated(traj%DM_ssd          )
     write(u,'(A20,1X,L1)') 'DM_old_ssd',      allocated(traj%DM_old_ssd      )
     write(u,'(A20,1X,L1)') 'DM_print_ssd',    allocated(traj%DM_print_ssd    )
-    write(u,'(A20,1X,L1)') 'DM_ssd',          allocated(traj%DM_ssd          )
     write(u,'(A20,1X,L1)') 'Rtotal_ss',       allocated(traj%Rtotal_ss       )
     write(u,'(A20,1X,L1)') 'phases_s',        allocated(traj%phases_s        )
     write(u,'(A20,1X,L1)') 'phases_old_s',    allocated(traj%phases_old_s    )
@@ -528,7 +633,6 @@ integer, parameter :: u_qm_QMout=42          !< here SHARC retrieves the results
     write(u,'(A20,1X,L1)') 'Property1d_ys',   allocated(traj%Property1d_ys      )
     write(u,'(A20,1X,L1)') 'Property2d_labels_x',     allocated(traj%Property2d_labels_x     )
     write(u,'(A20,1X,L1)') 'Property1d_labels_y',     allocated(traj%Property1d_labels_y     )
-    write(u,'(A20,1X,L1)') 'grad_MCH_sad',    allocated(traj%grad_MCH_sad    )
     write(u,'(A20,1X,L1)') 'Gmatrix_ssad',    allocated(traj%Gmatrix_ssad    )
     write(u,'(A20,1X,L1)') 'grad_ad',         allocated(traj%grad_ad         )
     write(u,'(A20,1X,L1)') 'coeff_diag_s',    allocated(traj%coeff_diag_s    )

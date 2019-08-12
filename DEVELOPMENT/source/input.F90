@@ -40,7 +40,11 @@ module input
   !> excluded from initialitzation:
   !> - coefficients will be set after the first QM calculation if generated automatically
   !> - all matrices are only initialized after the initial QM calculation (or the restart)
+#ifdef __PYSHARC__
+  subroutine read_input(nchars,input_name, traj, ctrl)
+#else
   subroutine read_input(traj, ctrl)
+#endif
   use definitions
   use input_list
   use misc
@@ -48,7 +52,10 @@ module input
   use restart
   use string
   implicit none
-
+#ifdef __PYSHARC__
+  integer :: nchars
+  character(len=nchars) :: input_name
+#endif
   type(trajectory_type) :: traj
   type(ctrl_type) :: ctrl
   character*255 :: filename
@@ -63,26 +70,41 @@ module input
   character*8000 :: string1
   character*8000, allocatable :: string2(:)
 
+  
+#ifndef __PYSHARC__
   ! get the input filename from the command line argument
 
-    ! get number of command line arguments
-    narg=iargc()
-    ! input filename must be present as argument
-    if (narg==0) then
-      write(0,*) 'Usage: sharc <inputfile>'
-      stop 1
-    endif
-    call getarg(1,filename)
+  ! get number of command line arguments
+  narg=iargc()
+  ! input filename must be present as argument
+  if (narg==0) then
+    write(0,*) 'Usage: sharc <inputfile>'
+    stop 1
+  endif
+  call getarg(1,filename)
+#endif
 
   ! =====================================================
+#ifdef __PYSHARC__
+  
+  if ( (trim(input_name)=='-v').or.(trim(input_name)=='--version').or.(trim(input_name)=='--info') ) then
+    call write_license(0,version)
+    stop
+  endif
+#else
   if ( (trim(filename)=='-v').or.(trim(filename)=='--version').or.(trim(filename)=='--info') ) then
     call write_license(0,version)
     stop
   endif
+#endif
 
   ! =====================================================
   ! open the input file
+#ifdef __PYSHARC__
+  open(u_i_input,file=input_name, status='old', action='read', iostat=io)
+#else
   open(u_i_input,file=filename, status='old', action='read', iostat=io)
+#endif
   if (io/=0) then
     write(0,*) 'Could not find input file "',trim(filename),'"!'
     stop 1
@@ -208,7 +230,7 @@ module input
     call flush(u_log)
 
     if (ctrl%restart) then
-      close(u_i_input)
+!       close(u_i_input)
       call read_restart(u_resc,u_rest,ctrl,traj)
 
       ! if explicit laser field is used, the simulation time cannot be changed
@@ -277,6 +299,43 @@ module input
 
 
 
+  ! =====================================================
+
+#ifdef __PYSHARC__
+  ctrl%output_format = 1
+#else
+  ctrl%output_format = 0
+#endif
+  line=get_value_from_key('output_format', io)
+  if (io==0) then
+    select case (trim(line))
+      case ('ascii') 
+        ctrl%output_format=0
+      case ('netcdf') 
+#ifdef __PYSHARC__
+        ctrl%output_format=1
+#else
+        write(u_log, '(A)') 'Error: Cannot write NetCDF format. Rebuild pysharc with NetCDF support.'
+        stop 1
+#endif
+      case default
+        write(0,*) 'Unknown keyword ',trim(line),' to "output_format"!'
+        stop 1
+    endselect
+  endif
+  if (printlevel>1) then
+    select case (ctrl%output_format)
+      case (0)
+        write(u_log, '(A)') 'Saving output data in ASCII format (output.dat)'
+        write(u_log, '(A)') 'Use data_extractor.x'
+      case (1)
+        write(u_log, '(A)') 'Saving output data in NetCDF format (output.dat [header] + output.dat.nc)'
+        write(u_log, '(A)') 'Use data_extractor_NetCDF.x'
+    endselect
+    write(u_log, *) 
+  endif
+
+  ! =====================================================
 
 
   ! next find the number of states
@@ -1016,9 +1075,9 @@ module input
           write(u_log,'(a)') 'Doing two QM calculations per step for selection.'
         endif
         if (ctrl%calc_soc==1) then
-          write(u_log,'(a)') 'Calculating Spin-Orbit couplings.'
+          write(u_log,'(a)') 'Calculating spin-orbit couplings.'
         else
-          write(u_log,'(a)') 'Not calculating Spin-Orbit couplings.'
+          write(u_log,'(a)') 'Not calculating spin-orbit couplings.'
         endif
       endif
 
@@ -1028,47 +1087,79 @@ module input
           if (ctrl%nstates_m(i)>0) n=n+1
         enddo
         if (n>1) then
-          write(u_log,'(a)') 'Warning: More than one multiplicity, but Spin-Orbit couplings are disabled.'
+          write(u_log,'(a)') 'Warning: More than one multiplicity, but spin-orbit couplings are disabled.'
         endif
       endif
       write(u_log,*)
 
-!       if (ctrl%write_soc==0) then
-!         write(u_log,'(a)') 'Not writing Spin-Orbit couplings.'
-!       else
-!         write(u_log,'(a)') 'Writing Spin-Orbit couplings.'
-!       endif
+
+
+
+
+
+
     if (printlevel>1) then
       if (ctrl%write_overlap==0) then
         write(u_log,'(a)') 'Not writing overlap matrix.'
       else
         write(u_log,'(a)') 'Writing overlap matrix.'
       endif
+      ! ---------------------
       if (ctrl%write_grad==0) then
         write(u_log,'(a)') 'Not writing gradients.'
       else
         write(u_log,'(a)') 'Writing gradients.'
+        if (ctrl%output_format==1) then
+          write(u_log,'(a)') 'Error: Currently, NetCDF output is not compatible with write_grad'
+          stop 1
+        endif
       endif
+      ! ---------------------
       if (ctrl%write_NACdr==0) then
         write(u_log,'(a)') 'Not writing nonadiabatic couplings.'
       else
         write(u_log,'(a)') 'Writing nonadiabatic couplings.'
+        if (ctrl%output_format==1) then
+          write(u_log,'(a)') 'Error: Currently, NetCDF output is not compatible with write_NACdr'
+          stop 1
+        endif
       endif
+      ! ---------------------
       if (ctrl%write_property1d==0) then
         write(u_log,'(a)') 'Not writing property vectors.'
       else
-        write(u_log,'(a)') 'Writing property vectors.'
+        if (ctrl%theodore==1) then
+          write(u_log,'(a)') 'Writing property vectors (due to TheoDORE being active).'
+        else
+          write(u_log,'(a)') 'Writing property vectors.'
+        endif
+        if (ctrl%output_format==1) then
+          write(u_log,'(a)') 'Error: Currently, NetCDF output is not compatible with write_property1d'
+          stop 1
+        endif
       endif
+      ! ---------------------
       if (ctrl%write_property2d==0) then
         write(u_log,'(a)') 'Not writing property matrices.'
       else
-        write(u_log,'(a)') 'Writing property matrices.'
+        if (ctrl%ionization==1) then
+          write(u_log,'(a)') 'Writing property matrices (due to ionization being active).'
+        else
+          write(u_log,'(a)') 'Writing property matrices.'
+        endif
+        if (ctrl%output_format==1) then
+          write(u_log,'(a)') 'Error: Currently, NetCDF output is not compatible with write_property2d'
+          stop 1
+        endif
       endif
+      ! ---------------------
       write(u_log,*)
-      do i=1,3
-        write(u_log,'(a,i6,a,i6)') 'Writing to output.dat every ',ctrl%output_steps_stride(i),&
-        &' steps if step is >= ',ctrl%output_steps_limits(i)
-      enddo
+        write(u_log,'(a,i6,a,i6)') 'First,   writing to output.dat every ',ctrl%output_steps_stride(1),&
+        &' steps if step is >= ',ctrl%output_steps_limits(1)
+        write(u_log,'(a,i6,a,i6)') 'Then,    writing to output.dat every ',ctrl%output_steps_stride(2),&
+        &' steps if step is >= ',ctrl%output_steps_limits(2)
+        write(u_log,'(a,i6,a,i6)') 'Finally, writing to output.dat every ',ctrl%output_steps_stride(3),&
+        &' steps if step is >= ',ctrl%output_steps_limits(3)
       write(u_log,*)
     endif
 
@@ -1114,7 +1205,7 @@ module input
     endif
 
     if (printlevel>1) then
-      write(u_log,'(a,1x,f6.3)') 'Scaling factor to the hamiltonian and gradients is',ctrl%scalingfactor
+      write(u_log,'(a,1x,f6.3)') 'Scaling factor to the Hamiltonian and gradients is',ctrl%scalingfactor
       write(u_log,*)
     endif
 
@@ -1221,7 +1312,7 @@ module input
     if (io==0) then
       ctrl%track_phase=0
       if (printlevel>1) then
-        write(u_log,'(a)') 'Phase tracking is OFF'
+        write(u_log,'(a)') 'Phase tracking of MCH-diagonal transformation matrix (U) is OFF'
         write(u_log,*)
       endif
     else
@@ -1241,26 +1332,22 @@ module input
           ctrl%hopping_procedure=1
           if (printlevel>1) then
             write(u_log,'(a)') 'Surface Hopping procedure is SHARC (Mai, Marquetand, Gonzalez)'
-            write(u_log,*)
           endif
         case ('sharc') 
           ctrl%hopping_procedure=1
           if (printlevel>1) then
             write(u_log,'(a)') 'Surface Hopping procedure is SHARC (Mai, Marquetand, Gonzalez)'
-            write(u_log,*)
           endif
         case ('gfsh') 
           ctrl%hopping_procedure=2
           if (printlevel>1) then
             write(u_log,'(a)') 'Surface Hopping procedure is GFSH (Wang, Trivedi, Prezhdo)'
-            write(u_log,*)
           endif
         case ('off') 
           ctrl%hopping_procedure=0
           ctrl%ekincorrect=0
           if (printlevel>1) then
             write(u_log,'(a)') 'Surface Hopping is OFF (will stay in initial diagonal state)'
-            write(u_log,*)
           endif
         case default
           write(0,*) 'Unknown keyword ',trim(line),' to "hopping_procedure"!'
@@ -1280,17 +1367,8 @@ module input
         write(u_log,*)
       endif
     endif
+    write(u_log,*)
 
-    ! TODO: could delete this keyword
-    line=get_value_from_key('no_hops',io)
-    if (io==0) then
-      ctrl%hopping_procedure=0  ! negate hopping
-      ctrl%ekincorrect=0        ! negate kinetic energy adjustment at a negated hopping
-      if (printlevel>1) then
-        write(u_log,'(a)') 'Surface Hopping is OFF (will stay in initial diagonal state)'
-        write(u_log,*)
-      endif
-    endif
 
   ! =====================================================
 
@@ -1461,16 +1539,23 @@ module input
     endselect
     deallocate(values)
   endif
-  if (printlevel>2) then
-    write(u_log,*) 'Atom mask:'
-    do i=1,ctrl%natom
-      write(u_log,*) i,traj%element_a(i),ctrl%atommask_a(i)
-    enddo
+  if (printlevel>1) then
+    if (printlevel>2) then
+      write(u_log,*) 'Atom mask:'
+      do i=1,ctrl%natom
+        write(u_log,*) i,traj%element_a(i),ctrl%atommask_a(i)
+      enddo
+    else
+      write(u_log,*) 'Atom mask (only active):'
+      do i=1,ctrl%natom
+        if (ctrl%atommask_a(i)) write(u_log,*) i,traj%element_a(i),ctrl%atommask_a(i)
+      enddo
+    endif
     if (ctrl%ekincorrect==1) then
       write(u_log,*) 'Atom mask will be used for kinetic energy adjustment.'
     endif
     if (ctrl%decoherence==1) then
-      write(u_log,*) 'Atom mask will be used for EDC decoherence.'
+      write(u_log,*) 'Atom mask will be used for kinetic energy in EDC decoherence.'
     endif
     if (ctrl%reflect_frustrated==1) then
       write(u_log,*) 'Atom mask will be used for reflection after frustrated hops.'

@@ -76,6 +76,13 @@ program data_extractor
   integer, parameter :: u_dm_proj=55      !< dip_mom_proj.out
   integer, parameter :: u_proj=56         !< projections.inp
 
+  integer, parameter :: u_classd=61        !< JCP 139, 2111101 (2013), Method 1 (diag)
+  integer, parameter :: u_classm=62        !< JCP 139, 2111101 (2013), Method 1 (MCH)
+  integer, parameter :: u_classdiab=63     !< JCP 139, 2111101 (2013), Method 1 (diabatic)
+  integer, parameter :: u_cmixd=64         !< JCP 139, 2111101 (2013), Method 3 (diag)
+  integer, parameter :: u_cmixm=65         !< JCP 139, 2111101 (2013), Method 3 (MCH)
+  integer, parameter :: u_cmixdiab=66      !< JCP 139, 2111101 (2013), Method 3 (diabatic)
+
 
   !> # Information which is constant throughout all timesteps
   integer :: nstates                      !< total number of states
@@ -115,6 +122,7 @@ program data_extractor
   complex*16, allocatable :: coeff_MCH_s(:)       !< MCH coefficient vector
   complex*16, allocatable :: laser_td(:,:)        !< laser field for all timesteps
   complex*16, allocatable :: coeff_diab_s(:)      !< diabatic coefficient vector
+  real*8,allocatable :: expec_pop(:)                !< spin expectation value per state
   real*8,allocatable :: expec_s(:)                !< spin expectation value per state
   real*8,allocatable :: expec_dm(:)               !< oscillator strength per state
   real*8,allocatable :: expec_dm_mch(:)           !< oscillator strength per state in MCH basis
@@ -137,7 +145,7 @@ program data_extractor
   character*8000, allocatable :: args(:)
   character*8000, allocatable :: values(:)
   character*21 :: string2
-  integer :: i, io, idir,istate,jstate,imult,ims,j,n,iproj
+  integer :: i, io, idir,istate,jstate,kstate,imult,ims,j,n,iproj
   logical :: exists
   logical :: is_integer
   logical :: write_energy
@@ -337,7 +345,7 @@ program data_extractor
 
   if (skip_geom_vel_grad_nac .and. write_dm_proj) then
     write_dm_proj   = .false.
-    write(*,*) 'Skip reading of geometries, switching of writing of dipole moment projections'
+    write(*,*) 'Skip reading of geometries, writing of dipole moment projections switched of'
   endif
   
   deallocate(args)
@@ -502,7 +510,7 @@ program data_extractor
     allocate( hopprob_s(nstates) )
     allocate( A_ss(nstates,nstates) )
     allocate( expec_s(nstates),expec_dm(nstates),expec_dm_mch(nstates),expec_dm_act(nstates) )
-    allocate( expec_ion_diag(nstates),expec_ion_mch(nstates) )
+    allocate( expec_ion_diag(nstates),expec_ion_mch(nstates),expec_pop(nstates) )
     allocate( spin0_s(nstates) )
     if (.not. skip_geom_vel_grad_nac) then
       allocate( geom_ad(natom,3), veloc_ad(natom,3) )
@@ -588,7 +596,7 @@ program data_extractor
     allocate( hopprob_s(nstates) )
     allocate( A_ss(nstates,nstates) )
     allocate( expec_s(nstates),expec_dm(nstates),expec_dm_mch(nstates),expec_dm_act(nstates) )
-    allocate( expec_ion_diag(nstates),expec_ion_mch(nstates) )
+    allocate( expec_ion_diag(nstates),expec_ion_mch(nstates),expec_pop(nstates) )
     allocate( spin0_s(nstates) )
     if (.not. skip_geom_vel_grad_nac) then
       allocate( geom_ad(natom,3), veloc_ad(natom,3) )
@@ -720,12 +728,22 @@ program data_extractor
   if (write_energy)    open(unit=u_ener, file='output_data/energy.out', status='replace', action='write')           ! -e
   if (write_dip)       open(unit=u_dm, file='output_data/fosc.out', status='replace', action='write')               ! -d
   if (write_spin)      open(unit=u_spin, file='output_data/spin.out', status='replace', action='write')             ! -s
+
   if (write_coeffdiag) open(unit=u_coefd, file='output_data/coeff_diag.out', status='replace', action='write')      ! -cd
   if (write_coeffmch)  open(unit=u_coefm, file='output_data/coeff_MCH.out', status='replace', action='write')       ! -cm
+  if (write_coeffdiab) open(unit=u_coefdiab, file='output_data/coeff_diab.out', status='replace', action='write')   ! -cb
+
+  if (write_coeffdiag) open(unit=u_classd, file='output_data/coeff_class_diag.out', status='replace', action='write')      ! -cd
+  if (write_coeffmch)  open(unit=u_classm, file='output_data/coeff_class_MCH.out', status='replace', action='write')       ! -cm
+  if (write_coeffdiab) open(unit=u_classdiab, file='output_data/coeff_class_diab.out', status='replace', action='write')   ! -cb
+
+  if (write_coeffdiag) open(unit=u_cmixd, file='output_data/coeff_mixed_diag.out', status='replace', action='write')      ! -cd
+  if (write_coeffmch)  open(unit=u_cmixm, file='output_data/coeff_mixed_MCH.out', status='replace', action='write')       ! -cm
+  if (write_coeffdiab) open(unit=u_cmixdiab, file='output_data/coeff_mixed_diab.out', status='replace', action='write')   ! -cb
+
   if (write_prob)      open(unit=u_prob, file='output_data/prob.out', status='replace', action='write')             ! -p
   if (write_expec)     open(unit=u_expec, file='output_data/expec.out', status='replace', action='write')           ! -x
   if (write_expecmch)  open(unit=u_expec_mch, file='output_data/expec_MCH.out', status='replace', action='write')   ! -xm
-  if (write_coeffdiab) open(unit=u_coefdiab, file='output_data/coeff_diab.out', status='replace', action='write')   ! -cb
   if (write_dipact)    open(unit=u_fosc_act, file='output_data/fosc_act.out', status='replace', action='write')     ! -da
   if (write_iondiag)   open(unit=u_ion_diag, file='output_data/ion_diag.out', status='replace', action='write')     ! -id
   if (write_ionmch)    open(unit=u_ion_mch, file='output_data/ion_mch.out', status='replace', action='write')       ! -im
@@ -830,18 +848,36 @@ program data_extractor
     write(u_coefd,'(A1,1X,1000(I20,1X))') '#',(i,i=1,2*nstates+2)
     write(u_coefd,'(A1,1X,3(A20,1X))') '#','Time |','Sum c**2 |','=== coeff_diag ===>'
     write(u_coefd,'(A1,1X,3(A20,1X))') '#','[fs] |','[] |','[] |'
+    write(u_classd,'(A1,1X,1000(I20,1X))') '#',(i,i=1,2*nstates+2)
+    write(u_classd,'(A1,1X,3(A20,1X))') '#','Time |','Sum c**2 |','=== coeff_diag ===>'
+    write(u_classd,'(A1,1X,3(A20,1X))') '#','[fs] |','[] |','[] |'
+    write(u_cmixd,'(A1,1X,1000(I20,1X))') '#',(i,i=1,2*nstates+2)
+    write(u_cmixd,'(A1,1X,3(A20,1X))') '#','Time |','Sum c**2 |','=== coeff_diag ===>'
+    write(u_cmixd,'(A1,1X,3(A20,1X))') '#','[fs] |','[] |','[] |'
   endif
   
   if (write_coeffmch) then
     write(u_coefm,'(A1,1X,1000(I20,1X))') '#',(i,i=1,2*nstates+2)
     write(u_coefm,'(A1,1X,3(A20,1X))') '#','Time |','Sum c**2 |','=== coeff_MCH ===>'
     write(u_coefm,'(A1,1X,3(A20,1X))') '#','[fs] |','[] |','[] |'
+    write(u_classm,'(A1,1X,1000(I20,1X))') '#',(i,i=1,2*nstates+2)
+    write(u_classm,'(A1,1X,3(A20,1X))') '#','Time |','Sum c**2 |','=== coeff_MCH ===>'
+    write(u_classm,'(A1,1X,3(A20,1X))') '#','[fs] |','[] |','[] |'
+    write(u_cmixm,'(A1,1X,1000(I20,1X))') '#',(i,i=1,2*nstates+2)
+    write(u_cmixm,'(A1,1X,3(A20,1X))') '#','Time |','Sum c**2 |','=== coeff_MCH ===>'
+    write(u_cmixm,'(A1,1X,3(A20,1X))') '#','[fs] |','[] |','[] |'
   endif
   
   if (write_coeffdiab) then
     write(u_coefdiab,'(A1,1X,1000(I20,1X))') '#',(i,i=1,2*nstates+2)
     write(u_coefdiab,'(A1,1X,3(A20,1X))') '#','Time |','Sum c**2 |','=== coeff_diab ===>'
     write(u_coefdiab,'(A1,1X,3(A20,1X))') '#','[fs] |','[] |','[] |'
+    write(u_classdiab,'(A1,1X,1000(I20,1X))') '#',(i,i=1,2*nstates+2)
+    write(u_classdiab,'(A1,1X,3(A20,1X))') '#','Time |','Sum c**2 |','=== coeff_diab ===>'
+    write(u_classdiab,'(A1,1X,3(A20,1X))') '#','[fs] |','[] |','[] |'
+    write(u_cmixdiab,'(A1,1X,1000(I20,1X))') '#',(i,i=1,2*nstates+2)
+    write(u_cmixdiab,'(A1,1X,3(A20,1X))') '#','Time |','Sum c**2 |','=== coeff_diab ===>'
+    write(u_cmixdiab,'(A1,1X,3(A20,1X))') '#','[fs] |','[] |','[] |'
   endif
   
   if (write_prob) then
@@ -1179,6 +1215,14 @@ program data_extractor
       write(u_coefd,'(2X,1000(ES20.12E3,1X))') &
       &step*dtstep, sumc,&
       (coeff_diag_s(istate),istate=1,nstates)
+      ! write to coeff_class_diag.out
+      write(u_classd,'(2X,1000(ES20.12E3,1X))') &
+      &step*dtstep, 1.d0,&
+      (delta(istate,state_diag),istate=1,nstates)
+      ! write to coeff_mixed_diag.out
+      write(u_cmixd,'(2X,1000(ES20.12E3,1X))') &
+      &step*dtstep, 1.d0,&
+      (delta(istate,state_diag),istate=1,nstates)
     endif
 
 
@@ -1192,6 +1236,29 @@ program data_extractor
       write(u_coefm,'(2X,1000(ES20.12E3,1X))') &
       &step*dtstep, sumc,&
       (coeff_MCH_s(istate),istate=1,nstates)
+      ! write to coeff_class_MCH.out
+      write(u_classm,'(2X,1000(ES20.12E3,1X))') &
+      &step*dtstep, 1.d0,&
+      (real(abs(U_ss(istate,state_diag))**2),istate=1,nstates)
+      ! write to coeff_mixed_MCH.out
+      expec_pop=0.d0
+      do istate=1,nstates
+        expec_pop(istate)=real(abs(U_ss(istate,state_diag))**2)
+      enddo
+      do kstate=1,nstates
+        do istate=1,nstates
+          do jstate=1,nstates
+            if (istate<jstate) then
+              expec_pop(kstate)=expec_pop(kstate)&
+              &+2.d0*real( U_ss(kstate,istate)*conjg(U_ss(kstate,jstate))&
+              &*coeff_diag_s(istate)*conjg(coeff_diag_s(jstate)))
+            endif
+          enddo
+        enddo
+      enddo
+      write(u_cmixm,'(2X,1000(ES20.12E3,1X))') &
+      &step*dtstep, 1.d0,&
+      (expec_pop(istate),istate=1,nstates)
     endif
 
 
@@ -1205,6 +1272,30 @@ program data_extractor
       write(u_coefdiab,'(2X,1000(ES20.12E3,X))') &
       &step*dtstep, sumc,&
       (coeff_diab_s(istate),istate=1,nstates)
+      ! write to coeff_class_diab.out
+      call matmultiply(nstates,ref_ovl_ss,U_ss,A_ss,'nn')
+      write(u_classdiab,'(2X,1000(ES20.12E3,1X))') &
+      &step*dtstep, 1.d0,&
+      (real(abs(A_ss(istate,state_diag))**2),istate=1,nstates)
+      ! write to coeff_mixed_diab.out
+      expec_pop=0.d0
+      do istate=1,nstates
+        expec_pop(istate)=real(abs(A_ss(istate,state_diag))**2)
+      enddo
+      do kstate=1,nstates
+        do istate=1,nstates
+          do jstate=1,nstates
+            if (istate<jstate) then
+              expec_pop(kstate)=expec_pop(kstate)&
+              &+2.d0*real( A_ss(kstate,istate)*conjg(A_ss(kstate,jstate))&
+              &*coeff_diag_s(istate)*conjg(coeff_diag_s(jstate)))
+            endif
+          enddo
+        enddo
+      enddo
+      write(u_cmixdiab,'(2X,1000(ES20.12E3,1X))') &
+      &step*dtstep, 1.d0,&
+      (expec_pop(istate),istate=1,nstates)
     endif
 
 
@@ -1282,9 +1373,9 @@ program data_extractor
     write(u,*) '       -e  : write energy file              (output_data/energy.out)'
     write(u,*) '       -d  : write dipole file              (output_data/fosc.out)'
     write(u,*) '       -sp : write spin expec file          (output_data/spin.out)'
-    write(u,*) '       -cd : write diag coefficient file    (output_data/coeff_diag.out)'
-    write(u,*) '       -cm : write MCH coefficient file     (output_data/coeff_MCH.out)'
-    write(u,*) '       -cb : write diab coefficient file    (output_data/coeff_diab.out)'
+    write(u,*) '       -cd : write diag coefficient file    (output_data/coeff_diag.out, output_data/class_diag.out, output_data/cmix_diag.out)'
+    write(u,*) '       -cm : write MCH coefficient file     (output_data/coeff_MCH.out, output_data/class_MCH.out, output_data/cmix_MCH.out)'
+    write(u,*) '       -cb : write diab coefficient file    (output_data/coeff_diab.out, output_data/class_diab.out, output_data/cmix_diab.out)'
     write(u,*) '       -p  : write hop probability file     (output_data/prob.out)'
     write(u,*) '       -x  : write expec (E,S^2,mu) file    (output_data/expec.out)'
     write(u,*) '       -xm : write MCH expec file           (output_data/expec_MCH.out)'
@@ -1296,6 +1387,18 @@ program data_extractor
     write(u,*) '       -sk : skip reading geometries, velocities, gradients, NACs'
   endsubroutine
 
+
+
+  real*8 function delta(i,j)
+    implicit none
+    integer :: i,j
+    if (i==j) then
+      delta=1.d0
+    else
+      delta=0.d0
+    endif
+    return
+  endfunction
 
 
 endprogram

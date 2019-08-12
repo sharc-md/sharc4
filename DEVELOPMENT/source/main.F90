@@ -25,6 +25,10 @@
 !> \author Sebastian Mai
 !> \date 10.07.2014
 !> 
+!> small modifications using the new defined function in interface.f90
+!> \author Maximilian F.S.J. Menger
+!> \date 19.04.2018
+!> 
 !> This is the main code of SHARC
 !> It contains the following tasks:
 !> - Reading of the input files (in read_input)
@@ -43,6 +47,9 @@
 !>   - writing of output
 !> - Timing
 program sharc
+
+
+#ifndef __PYSHARC__
 use decoherence_afssh
 use definitions
 use electronic
@@ -146,35 +153,49 @@ enddo
 
 
 call write_final(traj)
+    
+#else
+    use memory_module, only: traj, ctrl
+    use qm, only: do_initial_qm, do_qm_calculations, redo_qm_gradients
+    implicit none
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    !> \param i_step Loop variable for the dynamics loop
+    integer :: i_step
+    !> \param time Define the integer function time()
+    integer :: IRestart, IExit, IRedo
+    character*255 :: filename
+    integer :: narg
+    integer, parameter :: iskip = 1 ! do not skip any steps for writeout
+    
+    ! get the input filename from the command line argument
+    ! get number of command line arguments
+    narg=iargc()
+    ! input filename must be present as argument
+    if (narg==0) then
+        write(0,*) 'Usage: sharc <inputfile>'
+        stop 1
+    endif
+    call getarg(1,filename)
+    
+    ! setup sharc
+    call setup_sharc(filename, IRestart)
+    ! do initial qm
+    if (IRestart .eq. 0) then
+      call do_initial_qm(traj,ctrl)
+      call initial_step(IRestart)
+    endif
+    ! everything is set up for the loop
+    do i_step=traj%step+1,ctrl%nsteps
+      call Verlet_xstep(i_step)
+      ! QM Calculation
+      call do_qm_calculations(traj,ctrl)
+      call Verlet_vstep(IRedo)
+      if (IRedo .eq. 1) call redo_qm_gradients(traj,ctrl)
+      call Verlet_finalize(IExit, iskip)
+      if (IExit .eq. 1) exit
+    enddo
+    ! finalize, should also deallocate memory for traj, ctrl!
+    call finalize_sharc(traj)
+#endif
 
 endprogram
