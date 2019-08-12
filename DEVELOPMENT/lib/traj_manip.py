@@ -43,14 +43,14 @@ class trajectory:
         
         #print 'timestep:'
         # the first structure is read in
-        notatend = obconversion.ReadFile(mol, os.path.join(path, 'output.xyz'))
+        notatend = obconversion.ReadFile(mol, path)
         
         self.num_at = mol.NumAtoms()
                 
         # the other structures are read in
         while notatend:
             self.structures += [struc_linalg.structure(str(t) + ' fs')] # define the structure object
-            self.structures[-1].get_mol(mol, os.path.join(path, 'output.xyz')) # read in the data
+            self.structures[-1].get_mol(mol, path) # read in the data
             t = t + self.dt
             
             mol = openbabel.OBMol()

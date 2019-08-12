@@ -454,8 +454,9 @@ def ess_dyn(INFOS):
 #           trajcheck=re.search('TRAJ',str(ls[j]))
 #        if trajcheck !=None:
            print 'Reading trajectory ' + str(files[i]) + ' ...'
-           folder_name = str(files[i])[:-10]
-           trajectory = traj_manip.trajectory(folder_name, ref_struc, dt=dt)
+           #folder_name = str(files[i])[:-10]
+           filepath=files[i]
+           trajectory = traj_manip.trajectory(filepath, ref_struc, dt=dt)
     
            coor_matrix = trajectory.ret_coor_matrix()
            # addition for total variance
