@@ -2016,6 +2016,33 @@ def checktemplate_RICC2(filename,INFOS):
 
 # =================================================
 
+def qmmm_job(filename,INFOS):
+  necessary=['qmmm']
+  try:
+    f=open(filename)
+    data=f.readlines()
+    f.close()
+  except IOError:
+    print 'Could not open template file %s' % (filename)
+    return False
+  valid=[]
+  for i in necessary:
+    for l in data:
+      line=l.lower().split()
+      if len(line)==0:
+        continue
+      line=line[0]
+      if i==re.sub('#.*$','',line):
+        valid.append(True)
+        break
+    else:
+      valid.append(False)
+  if not all(valid):
+    return False
+  return True
+
+# =================================================
+
 def get_RICC2(INFOS):
   string='\n  '+'='*80+'\n'
   string+='||'+centerstring('Turbomole RICC2 Interface setup',80)+'||\n'
@@ -2081,6 +2108,33 @@ douglas-kroll                                   # DKH is only used if this keywo
         break
     INFOS['ricc2.template']=filename
   print ''
+
+
+  # QMMM
+  if qmmm_job(INFOS['ricc2.template'],INFOS):
+    print centerstring('Turbomole RICC2+TINKER QM/MM setup',60,'-')+'\n'
+    print 'Your template specifies a QM/MM calculation. Please specify the path to TINKER.' 
+    path=os.getenv('TINKER')
+    if path=='':
+      path=None
+    else:
+      path='$TINKER/'
+    print '\nPlease specify path to TINKER bin/ directory (SHELL variables and ~ can be used, will be expanded when interface is started).\n'
+    INFOS['tinker']=question('Path to TINKER/bin:',str,path)
+    while True:
+      filename=question('Force field file:',str)
+      if not os.path.isfile(filename):
+        print 'File %s does not exist!' % (filename)
+      else:
+        break
+    INFOS['RICC2.fffile']=filename
+    while True:
+      filename=question('Connection table file:',str)
+      if not os.path.isfile(filename):
+        print 'File %s does not exist!' % (filename)
+      else:
+        break
+    INFOS['RICC2.ctfile']=filename
 
 
   print centerstring('Initial wavefunction: MO Guess',60,'-')+'\n'
@@ -2203,6 +2257,12 @@ dipolelevel 1
     string+='theodir %s\n' % (INFOS['ricc2.theodore'])
     string+='theodore_prop %s\n' % (INFOS['theodore.prop'])
     string+='theodore_fragment %s\n' % (INFOS['theodore.frag'])
+  if 'tinker' in INFOS:
+    string+='tinker %s\n' % (INFOS['tinker'])
+  if 'RICC2.fffile' in INFOS:
+    string+='qmmm_ff_file RICC2.qmmm.ff\n'
+  if 'RICC2.ctfile' in INFOS:
+    string+='qmmm_table RICC2.qmmm.table\n'
   sh2cas.write(string)
   sh2cas.close()
 
@@ -2213,6 +2273,16 @@ dipolelevel 1
   if INFOS['ricc2.guess']:
     cpfrom1=INFOS['ricc2.guess']
     cpto1='%s/mos.init' % (iconddir)
+    shutil.copy(cpfrom1,cpto1)
+
+  if 'RICC2.fffile' in INFOS:
+    cpfrom1=INFOS['RICC2.fffile']
+    cpto1='%s/RICC2.qmmm.ff' % (iconddir)
+    shutil.copy(cpfrom1,cpto1)
+
+  if 'RICC2.ctfile' in INFOS:
+    cpfrom1=INFOS['RICC2.ctfile']
+    cpto1='%s/RICC2.qmmm.table' % (iconddir)
     shutil.copy(cpfrom1,cpto1)
   return
 
