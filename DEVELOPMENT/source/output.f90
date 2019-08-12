@@ -75,6 +75,7 @@ subroutine write_logheader(u,version)
   write(u,*) 'Build host: ',trim(build_host)
   write(u,*) 'Build directory: ',trim(build_dir)
   write(u,*) 'Compiler: ',trim(build_compiler)
+  write(u,*) 'PYSHARC activated: ',trim(use_pysharc)
   write(u,*)
 
   write(u,'(A)')      '<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<============================>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>'

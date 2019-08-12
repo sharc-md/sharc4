@@ -311,7 +311,7 @@ character*20,parameter :: multnames(8)=(/'Singlet','Doublet','Triplet','Quartet'
 !< strings used to represent the multiplicities
 ! =========================================================== !
 
-character*255, parameter :: version='2.0 (March 13, 2017)'    !< string holding the version number
+character*255, parameter :: version='2.1 (August 12, 2019)'    !< string holding the version number
 
 integer, parameter :: u_log=1                !< long output file
 integer, parameter :: u_lis=2                !< short output file

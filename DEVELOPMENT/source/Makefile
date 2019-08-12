@@ -22,6 +22,7 @@ USE_COMPILER := intel
 #mkl,gnu
 USE_LIBS := mkl
 
+#needed for PYSHARC
 ANACONDA := /user/maximilian/anaconda2/
 # =======================================
 
@@ -31,7 +32,7 @@ ANACONDA := /user/maximilian/anaconda2/
 # -------------------------------------- settings ---------------------------------------
 
 # path
-# SHARC_SOURCE := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+SHARC_SOURCE := $(shell pwd)
 
 
 
@@ -165,9 +166,9 @@ DATA_CONVERTER = data_converter.o data_extractor_NetCDFmodule.o definitions_NetC
 # -------------------------------------- rules ---------------------------------------
 
 ifeq ($(USE_PYSHARC),true)
-all: sharc data_extractor diagonalizer laser libsharc data_extractor_NetCDF data_converter
+all: sharc data_extractor diagonalizer laser sharcvars libsharc data_extractor_NetCDF data_converter
 else
-all: sharc data_extractor diagonalizer laser
+all: sharc data_extractor diagonalizer laser sharcvars
 endif
 
 
@@ -200,8 +201,18 @@ laser:  $(LASER)
 
 
 install: all
-	cp -f *.x $(EXEDIR)	
+	cp -f *.x $(EXEDIR)
+	cp -f sharcvars.sh $(EXEDIR)
 
+
+# write sharcvars.sh file
+sharcvars:
+	@echo 'export SHARC=$(SHARC_SOURCE)/../bin' > sharcvars.sh
+	@echo 'export PYSHARC=$(SHARC_SOURCE)/../pysharc' >> sharcvars.sh
+	@echo 'export SHARCLIB=$(SHARC_SOURCE)/../lib' >> sharcvars.sh
+	@echo 'export ANACONDA=$(ANACONDA)' >> sharcvars.sh
+	@echo 'export PYTHONPATH=$$SHARCLIB:$$PYSHARC:$$PYTHONPATH' >> sharcvars.sh
+	@echo 'export LD_LIBRARY_PATH=$$SHARCLIB:$$ANACONDA/lib:$$LD_LIBRARY_PATH' >> sharcvars.sh
 
 
 # do not call this target build_info.inc
@@ -211,6 +222,7 @@ build_info:
 	@echo "character(len=500), parameter :: build_host=\"$(HOST)\"" >> build_info.inc
 	@echo "character(len=500), parameter :: build_dir=\"$(COMPILEDIR)\"" >> build_info.inc
 	@echo "character(len=500), parameter :: build_compiler=\"$(COMPILER)\"" >> build_info.inc
+	@echo "character(len=500), parameter :: use_pysharc=\"$(USE_PYSHARC)\"" >> build_info.inc
 
 
 # clean function
@@ -221,6 +233,7 @@ clean:
 	rm -rvf build_info.inc
 	rm -rvf *.so
 	rm -rvf ../pysharc/lib/libsharc.so
+	rm -rvf sharcvars.sh
 
 test_path:
 	echo $(MAKEFILEPATH)
