@@ -849,18 +849,19 @@ def read_QMin():
   QMin['statemap']=statemap
 
   # find unit keyword
-  factor=1.
+  factor=BOHR_TO_ANG
   for line in qmin:
     s=line.split()
     if len(s)==0:
       continue
     if 'unit' in s[0].lower():
-      if not 'bohr' in s[1].lower():
-        factor=BOHR_TO_ANG
+      if 'bohr' in s[1].lower():
+        factor=1.
   for i in range(QMin['natom']):
     for j in range(3):
       geom[i][j+1]/=factor
   QMin['geom']=geom
+  print geom
 
   # find init, samestep, restart
   for line in qmin[2:]:
