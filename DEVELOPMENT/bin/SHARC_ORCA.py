@@ -2925,6 +2925,11 @@ def writeORCAinput(QMin):
     string+='grid%s ' % QMin['template']['grid']
     if QMin['template']['gridx']:
       string+='gridx%s ' % QMin['template']['gridx']
+# In this way, one can change grid on individual atoms:
+#%method 
+#SpecialGridAtoms 26,15,-1,-4         # for element 26 and, for atom index 1 and 4 (cannot change on atom 0!)
+#SpecialGridIntAcc 7,6,5,5            # size of grid
+#end
  
     if dograd:
       string+='engrad'
@@ -4260,12 +4265,16 @@ def getQMout(QMin):
         for grad in QMin['gradmap']:
             path,isgs=QMin['jobgrad'][grad]
             gsmult= QMin['jobs'][int(path.split('_')[1])]['mults'][0]
+            restr=QMin['jobs'][int(path.split('_')[1])]['restr']
             if isgs:
               fname='.ground'
               if QMin['states'][gsmult-1]==1:
                 fname=''
             else:
-              fname='.'+IToMult[grad[0]].lower()+'.root%i' % (grad[1]-(grad[0]==gsmult) )
+              if restr:
+                fname='.'+IToMult[grad[0]].lower()+'.root%i' % (grad[1]-(grad[0]==gsmult) )
+              else:
+                fname='.singlet.root%i' % (grad[1]-(grad[0]==gsmult) )
             logfile=os.path.join(QMin['scratchdir'],path,'ORCA.engrad'+fname)
             g=getgrad(logfile,QMin)
             #print g
@@ -4298,7 +4307,8 @@ def getQMout(QMin):
                                 de=abs(e1-e2)
                                 j=k
                     QMout['grad'][i]=QMout['grad'][j]
-                    QMout['pcgrad'][i]=QMout['pcgrad'][j]
+                    if QMin['qmmm']:
+                        QMout['pcgrad'][i]=QMout['pcgrad'][j]
 
     # Regular Overlaps
     if 'overlap' in QMin:
