@@ -1062,7 +1062,11 @@ def do_calc(INFOS):
           sys.stdout.write('SKIPPED\n')
         else:
           opt=mapping[ INFOS['settings']['extractor_mode'].lower() ]
-          io=sp.call(sharcpath+'/data_extractor.x %s output.dat > /dev/null 2> /dev/null' % opt ,shell=True)
+          if os.path.isfile('output.dat.nc'):
+            opt+=' -xyz '
+            io=sp.call('. $SHARC/sharcvars.sh;'+sharcpath+'/data_extractor_NetCDF.x %s output.dat > /dev/null 2> /dev/null' % opt ,shell=True)
+          else:
+            io=sp.call(sharcpath+'/data_extractor.x %s output.dat > /dev/null 2> /dev/null' % opt ,shell=True)
           if io!=0:
             print 'WARNING: extractor call failed for %s! Exit code %i' % (path,io)
           os.chdir(cwd)
