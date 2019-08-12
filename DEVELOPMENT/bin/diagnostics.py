@@ -484,7 +484,7 @@ def get_general():
     'hop_energy':'Maximum permissible change in active state energy difference during a surface hop (in eV).',
     'intruders':'Checks if intruder state messages in "output.log" refer to active state.',
     'always_update':'Run data_extractor.x for all trajectories, even if all files have up-to-date time stamps.',
-    'extractor_mode':'Option flag for data_extractor.x [possible: "xs", "s", "l", "xl"]'
+    'extractor_mode':'Option flag for data_extractor.x [possible: "xs", "s", "l", "xl","dont"]. Use "dont" to skip the extractor calls (gives incomplete diagnostics but is very fast)'
   }
   if LD_dynamics:
     defaults['intruders']=True
@@ -1057,12 +1057,16 @@ def do_calc(INFOS):
                  'l':'-l',
                  'xl':'-xl'
                 }
-        opt=mapping[ INFOS['settings']['extractor_mode'].lower() ]
-        io=sp.call(sharcpath+'/data_extractor.x %s output.dat > /dev/null 2> /dev/null' % opt ,shell=True)
-        if io!=0:
-          print 'WARNING: extractor call failed for %s! Exit code %i' % (path,io)
-        os.chdir(cwd)
-        sys.stdout.write('OK\n')
+        if 'dont' in INFOS['settings']['extractor_mode'].lower():
+          os.chdir(cwd)
+          sys.stdout.write('SKIPPED\n')
+        else:
+          opt=mapping[ INFOS['settings']['extractor_mode'].lower() ]
+          io=sp.call(sharcpath+'/data_extractor.x %s output.dat > /dev/null 2> /dev/null' % opt ,shell=True)
+          if io!=0:
+            print 'WARNING: extractor call failed for %s! Exit code %i' % (path,io)
+          os.chdir(cwd)
+          sys.stdout.write('OK\n')
       else:
         pass
 
