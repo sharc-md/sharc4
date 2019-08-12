@@ -2987,23 +2987,23 @@ def get_general():
 
 
   ## -------------------- whether to do gradients or numerical -------------------- ##
-  print centerstring('Analytical gradients', 60, '-')
+  print centerstring('Analytical gradients', 60, '-')+'\n'
 
-  INFOS['ana_grad'] = question('\nDo you want to use analytical gradients for kappa terms?', bool, True)
+  INFOS['ana_grad'] = question('Do you want to use analytical gradients for kappa terms?', bool, True)
 
   print '\nAnalytical gradients for kappas: %r\n' % INFOS['ana_grad']
 
 
   ## -------------------- whether to do gradients or numerical -------------------- ##
-  print centerstring('Analytical nonadiabatic coupling vectors', 60, '-')
+  print centerstring('Analytical nonadiabatic coupling vectors', 60, '-')+'\n'
   if 'nacdr' in Interfaces[num]['features']:
 
-    INFOS['ana_nac'] = question('\nDo you want to use analytical nonadiabatic coupling vectors for lambda terms?', bool, False)
+    INFOS['ana_nac'] = question('Do you want to use analytical nonadiabatic coupling vectors for lambda terms?', bool, False)
 
   else:
     INFOS['ana_nac'] = False
 
-  print '\nAnalytical analytical nonadiabatic coupling vectors for lambdas: %r\n' % INFOS['ana_nac']
+  print '\Do you want to use analytical nonadiabatic coupling vectors for lambdas: %r\n' % INFOS['ana_nac']
   if INFOS['ana_nac']:
     INFOS['needed'].extend(Interfaces[num]['features']['nacdr'])
 
@@ -3089,8 +3089,9 @@ def get_general():
 
       print '''
   Intruder states can be detected by small overlap matrix elements.
-  Affected numerical kappa/lambda terms will be ignored and not written to the parameter file.'''
-      INFOS['ignore_problematic_states'] = not question('\nDo you want to check for intruder states?', bool, True)
+  Affected numerical kappa/lambda terms will be ignored and not written to the parameter file.
+'''
+      INFOS['ignore_problematic_states'] = not question('Do you want to check for intruder states?', bool, True)
 
       print '\nIgnore problematic states: %r\n' % INFOS['ignore_problematic_states']
 
