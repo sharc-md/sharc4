@@ -191,10 +191,10 @@ IToPol={
         }
 
 
-NUMBERS = {'H':1, 'He':2,
-'Li':3, 'Be':4, 'B':5, 'C':6,  'N':7,  'O':8, 'F':9, 'Ne':10,
+NUMBERS = {'H':  1, 'He': 2,
+'Li': 3, 'Be': 4, 'B':  5, 'C':  6,  'N': 7,  'O': 8, 'F':  9, 'Ne':10,
 'Na':11, 'Mg':12, 'Al':13, 'Si':14,  'P':15,  'S':16, 'Cl':17, 'Ar':18,
-'K':19, 'Ca':20,
+'K': 19, 'Ca':20, 
 'Sc':21, 'Ti':22, 'V':23, 'Cr':24, 'Mn':25, 'Fe':26, 'Co':27, 'Ni':28, 'Cu':29, 'Zn':30,
 'Ga':31, 'Ge':32, 'As':33, 'Se':34, 'Br':35, 'Kr':36,
 'Rb':37, 'Sr':38,
@@ -203,7 +203,7 @@ NUMBERS = {'H':1, 'He':2,
 'Cs':55, 'Ba':56,
 'La':57, 
 'Ce':58, 'Pr':59, 'Nd':60, 'Pm':61, 'Sm':62, 'Eu':63, 'Gd':64, 'Tb':65, 'Dy':66, 'Ho':67, 'Er':68, 'Tm':69, 'Yb':70, 'Lu':71,
-         'Hf':72, 'Ta':73,  'W':74, 'Re':75, 'Os':76, 'Ir':77, 'Pt':78, 'Au':79, 'Hg':80,
+'Hf':72, 'Ta':73,  'W':74, 'Re':75, 'Os':76, 'Ir':77, 'Pt':78, 'Au':79, 'Hg':80,
 'Tl':81, 'Pb':82, 'Bi':83, 'Po':84, 'At':85, 'Rn':86, 
 'Fr':87, 'Ra':88,
 'Ac':89, 
@@ -319,6 +319,7 @@ BASISSETS= [
 # conversion factors
 au2a=0.529177211
 rcm_to_Eh=4.556335e-6
+kcal_to_Eh=0.0015936011
 
 # =============================================================================================== #
 # =============================================================================================== #
@@ -576,14 +577,27 @@ def printQMin(QMin):
   print string
 
   string='\nGeometry in Bohrs:\n'
-  for i in range(QMin['natom']):
-    string+='%s ' % (QMin['geo'][i][0])
-    for j in range(3):
-      string+='% 7.4f ' % (QMin['geo'][i][j+1])
-    string+='\n'
+  if DEBUG:
+    for i in range(QMin['natom']):
+      string+='%2s ' % (QMin['geo'][i][0])
+      for j in range(3):
+        string+='% 7.4f ' % (QMin['geo'][i][j+1])
+      string+='\n'
+  else:
+    for i in range(min(QMin['natom'],5)):
+      string+='%2s ' % (QMin['geo'][i][0])
+      for j in range(3):
+        string+='% 7.4f ' % (QMin['geo'][i][j+1])
+      string+='\n'
+    if QMin['natom']>5:
+      string+='..     ...     ...     ...\n'
+      string+='%2s ' % (QMin['geo'][-1][0])
+      for j in range(3):
+        string+='% 7.4f ' % (QMin['geo'][-1][j+1])
+      string+='\n'
   print string
 
-  if 'veloc' in QMin:
+  if 'veloc' in QMin and DEBUG:
     string=''
     for i in range(QMin['natom']):
       string+='%s ' % (QMin['geo'][i][0])
@@ -593,7 +607,7 @@ def printQMin(QMin):
     print string
 
   if 'grad' in QMin:
-    string='Gradients:   '
+    string='Gradients requested:   '
     for i in range(1,QMin['nmstates']+1):
       if i in QMin['grad']:
         string+='X '
@@ -614,10 +628,13 @@ def printQMin(QMin):
     #print string
 
   for i in QMin:
-    if not any( [i==j for j in ['h','dm','soc','dmdr','socdr','theodore','geo','veloc','states','comment','LD_LIBRARY_PATH', 'grad','nacdr','ion','overlap','template'] ] ):
+    if not any( [i==j for j in ['h','dm','soc','dmdr','socdr','theodore','geo','veloc','states','comment','LD_LIBRARY_PATH', 'grad','nacdr','ion','overlap','template','qmmm','geo_orig','pointcharges'] ] ):
       if not any( [i==j for j in ['ionlist','ionmap'] ] ) or DEBUG:
         string=i+': '
         string+=str(QMin[i])
+        print string
+    else:
+        string=i+': ...'
         print string
   print '\n'
   sys.stdout.flush()
@@ -692,6 +709,11 @@ def printgrad(grad,natom,geo):
   string=''
   iszero=True
   for atom in range(natom):
+    if not DEBUG:
+      if atom==5:
+        string+='...\t...\t     ...\t     ...\t     ...\n'
+      if 5<=atom<natom-1:
+        continue
     string+='%i\t%s\t' % (atom+1,geo[atom][0])
     for xyz in range(3):
       if grad[atom][xyz]!=0:
@@ -917,8 +939,9 @@ def get_RICC2out(QMin,QMout,job):
   if 'grad' in QMin:
     # make vectors
     if not 'grad' in QMout:
-      if not 'grad' in QMout:
-        QMout['grad']=[ [ [0.,0.,0.] for i in range(natom) ] for j in range(nmstates) ]
+      QMout['grad']=[ [ [0.,0.,0.] for i in range(natom) ] for j in range(nmstates) ]
+    if QMin['qmmm'] and not 'pcgrad' in QMout:
+      QMout['pcgrad']=[ [ [ 0. for i in range(3) ] for j in QMin['pointcharges'] ] for k in range(nmstates) ]
     # read the elements from ricc2.out
     for i in range(nmstates):
       m1,s1,ms1=tuple(QMin['statemap'][i+1])
@@ -928,6 +951,31 @@ def get_RICC2out(QMin,QMout,job):
         tup=('exgrad',m1,s1)
       if tup in job:
         QMout['grad'][i]=getgrad(ricc2,QMin,i+1)
+        if QMin['qmmm']:
+          QMout['pcgrad'][i]=getpcgrad(QMin)
+    if QMin['neglected_gradient']!='zero' and not 'samestep' in QMin:
+      for i in range(nmstates):
+        m1,s1,ms1=tuple(QMin['statemap'][i+1])
+        if not (m1,s1) in QMin['gradmap']:
+          if QMin['neglected_gradient']=='gs':
+            j=QMin['gsmap'][i+1]-1
+          elif QMin['neglected_gradient']=='closest':
+            e1=QMout['h'][i][i]
+            de=999.
+            for grad in QMin['gradmap']:
+              for k in range(nmstates):
+                m2,s2,ms2=tuple(QMin['statemap'][k+1])
+                if grad==(m2,s2):
+                  break
+              e2=QMout['h'][k][k]
+              if de>abs(e1-e2):
+                de=abs(e1-e2)
+                j=k
+          QMout['grad'][i]=QMout['grad'][j]
+          if QMin['qmmm']:
+              QMout['pcgrad'][i]=QMout['pcgrad'][j]
+
+
 
   return QMout
 
@@ -1238,9 +1286,21 @@ def getgrad(ricc2,QMin,istate):
     grad.append(atom)
   return grad
 
+# ======================================================================= #
+def getpcgrad(QMin):
+  pcgrad=readfile(os.path.join(QMin['scratchdir'],'JOB','pc_grad') )
 
-
-
+  grad=[]
+  iline=0
+  for ipc,pc in enumerate(QMin['pointcharges']):
+    if pc[-1]!=0:
+      g=[]
+      iline+=1
+      s=pcgrad[iline].replace('D','E').split()
+      for i in range(3):
+        g.append(float(s[i]) )
+      grad.append(g)
+  return grad
 
 
 
@@ -1359,7 +1419,7 @@ def writeQMout(QMin,QMout,QMinfilename):
     string+=writeQMoutdmdr(QMin,QMout)
   if 'ion' in QMin:
     string+=writeQMoutprop(QMin,QMout)
-  if 'theodore' in QMin:
+  if 'theodore' in QMin or QMin['template']['qmmm']:
     string+=writeQMoutTHEODORE(QMin,QMout)
   if 'phases' in QMin:
     string+=writeQmoutPhases(QMin,QMout)
@@ -1637,6 +1697,11 @@ def writeQMoutTHEODORE(QMin,QMout):
 
     nmstates=QMin['nmstates']
     nprop=QMin['template']['theodore_n']
+    if QMin['template']['qmmm']:
+        nprop+=len(QMin['qmmm']['MMEnergy_terms'])
+    if nprop<=0:
+        return '\n'
+
     string=''
 
     string+='! %i Property Vectors\n' % (21)
@@ -1644,19 +1709,30 @@ def writeQMoutTHEODORE(QMin,QMout):
 
     string+='! Property Vector Labels (%i strings)\n' % (nprop)
     descriptors=[]
-    for i in QMin['template']['theodore_prop']:
-        descriptors.append('%s' % i)
-        string+=descriptors[-1]+'\n'
-    for i in range(len(QMin['template']['theodore_fragment'])):
-        for j in range(len(QMin['template']['theodore_fragment'])):
-            descriptors.append('Om_{%i,%i}' % (i+1,j+1))
+    if 'theodore' in QMin:
+        for i in QMin['template']['theodore_prop']:
+            descriptors.append('%s' % i)
             string+=descriptors[-1]+'\n'
+        for i in range(len(QMin['template']['theodore_fragment'])):
+            for j in range(len(QMin['template']['theodore_fragment'])):
+                descriptors.append('Om_{%i,%i}' % (i+1,j+1))
+                string+=descriptors[-1]+'\n'
+    if QMin['template']['qmmm']:
+        for label in sorted(QMin['qmmm']['MMEnergy_terms']):
+            descriptors.append(label)
+            string+=label+'\n'
 
     string+='! Property Vectors (%ix%i, real)\n' % (nprop,nmstates)
-    for i in range(nprop):
-        string+='! TheoDORE descriptor %i (%s)\n' % (i+1,descriptors[i])
-        for j in range(nmstates):
-            string+='%s\n' % (eformat(QMout['theodore'][j][i].real,12,3))
+    if 'theodore' in QMin:
+        for i in range(QMin['template']['theodore_n']):
+            string+='! TheoDORE descriptor %i (%s)\n' % (i+1,descriptors[i])
+            for j in range(nmstates):
+                string+='%s\n' % (eformat(QMout['theodore'][j][i].real,12,3))
+    if QMin['template']['qmmm']:
+        for label in sorted(QMin['qmmm']['MMEnergy_terms']):
+            string+='! QM/MM energy contribution (%s)\n' % (label)
+            for j in range(nmstates):
+                string+='%s\n' % (eformat(QMin['qmmm']['MMEnergy_terms'][label],12,3))
     string+='\n'
 
     return string
@@ -1670,6 +1746,520 @@ def writeQmoutPhases(QMin,QMout):
     return string
 
 
+# =============================================================================================== #
+# =============================================================================================== #
+# =========================================== QM/MM ============================================= #
+# =============================================================================================== #
+# =============================================================================================== #
+
+def prepare_QMMM(QMin,table_file):
+    ''' creates dictionary with:
+    MM coordinates (including connectivity and atom types)
+    QM coordinates (including Link atom stuff)
+    point charge data (including redistribution for Link atom neighbors)
+    reorder arrays (for internal processing, all QM, then all LI, then all MM)
+
+    is only allowed to read the following keys from QMin:
+    geo
+    natom
+    QM/MM related infos from template
+    '''
+
+    table=readfile(table_file)
+
+
+    # read table file
+    print '===== Running QM/MM preparation ===='
+    print 'Reading table file ...         ',datetime.datetime.now()
+    QMMM={}
+    QMMM['qmmmtype']=[]
+    QMMM['atomtype']=[]
+    QMMM['connect']=[]
+    allowed=['qm','mm']
+    # read table file
+    for iline,line in enumerate(table):
+        s=line.split()
+        if len(s)==0:
+            continue
+        if not s[0].lower() in allowed:
+            print 'Not allowed QMMM-type "%s" on line %i!' % (s[0],iline+1)
+            sys.exit(11)
+        QMMM['qmmmtype'].append(s[0].lower())
+        QMMM['atomtype'].append(s[1])
+        QMMM['connect'].append( set() )
+        for i in s[2:]:
+            QMMM['connect'][-1].add(int(i)-1)           # internally, atom numbering starts at 0
+    QMMM['natom_table']=len(QMMM['qmmmtype'])
+
+
+    # list of QM and MM atoms
+    QMMM['QM_atoms']=[]
+    QMMM['MM_atoms']=[]
+    for iatom in range(QMMM['natom_table']):
+        if QMMM['qmmmtype'][iatom]=='qm':
+            QMMM['QM_atoms'].append(iatom)
+        elif QMMM['qmmmtype'][iatom]=='mm':
+            QMMM['MM_atoms'].append(iatom)
+
+    # make connections redundant and fill bond array
+    print 'Checking connection table ...  ',datetime.datetime.now()
+    QMMM['bonds']=set()
+    for iatom in range(QMMM['natom_table']):
+        for jatom in QMMM['connect'][iatom]:
+            QMMM['bonds'].add( tuple( sorted([iatom,jatom]) ) )
+            QMMM['connect'][jatom].add(iatom)
+    QMMM['bonds']=sorted(list(QMMM['bonds']))
+
+
+    # find link bonds
+    print 'Finding link bonds ...         ',datetime.datetime.now()
+    QMMM['linkbonds']=[]
+    QMMM['LI_atoms']=[]
+    for i,j in QMMM['bonds']:
+        if QMMM['qmmmtype'][i] != QMMM['qmmmtype'][j]:
+            link={}
+            if QMMM['qmmmtype'][i]=='qm':
+                link['qm']=i
+                link['mm']=j
+            elif QMMM['qmmmtype'][i]=='mm':
+                link['qm']=j
+                link['mm']=i
+            link['scaling']={'qm':0.3,'mm':0.7}
+            link['element']='H'
+            link['atom']=[ link['element'], 0.,0.,0.]
+            for xyz in range(3):
+                link['atom'][xyz+1]+=link['scaling']['mm'] * QMin['geo'][link['mm']][xyz+1]
+                link['atom'][xyz+1]+=link['scaling']['qm'] * QMin['geo'][link['qm']][xyz+1]
+            QMMM['linkbonds'].append( link )
+            QMMM['LI_atoms'].append( QMMM['natom_table']-1+len(QMMM['linkbonds']) )
+            QMMM['atomtype'].append('999')
+            QMMM['connect'].append(set([link['qm'],link['mm']]))
+
+
+    # check link bonds
+    mm_in_links=[]
+    qm_in_links=[]
+    mm_in_link_neighbors=[]
+    for link in QMMM['linkbonds']:
+        mm_in_links.append(link['mm'])
+        qm_in_links.append(link['qm'])
+        for j in QMMM['connect'][link['mm']]:
+            if QMMM['qmmmtype'][j]=='mm':
+                mm_in_link_neighbors.append(j)
+    mm_in_link_neighbors.extend(mm_in_links)
+    # no QM atom is allowed to be bonded to two MM atoms
+    if not len(qm_in_links)==len(set(qm_in_links)):
+        print 'Some QM atom is involved in more than one link bond!'
+        sys.exit(11)
+    # no MM atom is allowed to be bonded to two QM atoms
+    if not len(mm_in_links)==len(set(mm_in_links)):
+        print 'Some MM atom is involved in more than one link bond!'
+        sys.exit(11)
+    # no neighboring MM atoms are allowed to be involved in link bonds
+    if not len(mm_in_link_neighbors)==len(set(mm_in_link_neighbors)):
+        print 'An MM-link atom is bonded to another MM-link atom!'
+        sys.exit(11)
+
+
+    # check geometry and connection table
+    if not QMMM['natom_table']==QMin['natom']:
+        print 'Number of atoms in table file does not match number of atoms in QMin!'
+        sys.exit(11)
+
+
+    # process MM geometry (and convert to angstrom!)
+    QMMM['MM_coords']=[]
+    for atom in QMin['geo']:
+        QMMM['MM_coords'].append( [atom[0]]+[i*au2a for i in atom[1:4]] )
+    for ilink,link in enumerate(QMMM['linkbonds']):
+        QMMM['MM_coords'].append(['HLA']+link['atom'][1:4])
+
+
+    # create reordering dicts
+    print 'Creating reorder mappings ...  ',datetime.datetime.now()
+    QMMM['reorder_input_MM']={}
+    QMMM['reorder_MM_input']={}
+    j=-1
+    for i,t in enumerate(QMMM['qmmmtype']):
+        if t=='qm':
+            j+=1
+            QMMM['reorder_MM_input'][j]=i
+    for ilink,link in enumerate(QMMM['linkbonds']):
+        j+=1
+        QMMM['reorder_MM_input'][j]=QMMM['natom_table']+ilink
+    for i,t in enumerate(QMMM['qmmmtype']):
+        if t=='mm':
+            j+=1
+            QMMM['reorder_MM_input'][j]=i
+    for i in QMMM['reorder_MM_input']:
+        QMMM['reorder_input_MM'][QMMM['reorder_MM_input'][i]]=i
+
+
+    # process QM geometry (including link atoms), QM coords in bohr!
+    QMMM['QM_coords']=[]
+    QMMM['reorder_input_QM']={}
+    QMMM['reorder_QM_input']={}
+    j=-1
+    for iatom in range(QMMM['natom_table']):
+        if QMMM['qmmmtype'][iatom]=='qm':
+            QMMM['QM_coords'].append( deepcopy(QMin['geo'][iatom]) )
+            j+=1
+            QMMM['reorder_input_QM'][iatom]=j
+            QMMM['reorder_QM_input'][j]=iatom
+    for ilink,link in enumerate(QMMM['linkbonds']):
+        QMMM['QM_coords'].append(link['atom'])
+        j+=1
+        QMMM['reorder_input_QM'][-(ilink+1)]=j
+        QMMM['reorder_QM_input'][j]=-(ilink+1)
+
+
+    # process charge redistribution around link bonds
+    # point charges are in input geometry ordering
+    print 'Charge redistribution ...      ',datetime.datetime.now()
+    QMMM['charge_distr']=[]
+    for iatom in range(QMMM['natom_table']):
+        if QMMM['qmmmtype'][iatom]=='qm':
+            QMMM['charge_distr'].append( [(0.,0)] )
+        elif QMMM['qmmmtype'][iatom]=='mm':
+            if iatom in mm_in_links:
+                QMMM['charge_distr'].append( [(0.,0)] )
+            else:
+                QMMM['charge_distr'].append( [(1.,iatom)] )
+    for link in QMMM['linkbonds']:
+        mm_neighbors=[]
+        for j in QMMM['connect'][link['mm']]:
+            if QMMM['qmmmtype'][j]=='mm':
+                mm_neighbors.append(j)
+        if len(mm_neighbors)>0:
+            factor=1./len(mm_neighbors)
+            for j in QMMM['connect'][link['mm']]:
+                if QMMM['qmmmtype'][j]=='mm':
+                    QMMM['charge_distr'][j].append( (factor,link['mm']) )
+
+    #pprint.pprint(QMMM)
+    return QMMM
+
+# ======================================================================= #
+
+def execute_tinker(QMin,ff_file_path):
+    ''' 
+    run tinker to get:
+    * MM energy
+    * MM gradient
+    * point charges
+
+    is only allowed to read the following keys from QMin:
+    qmmm
+    scratchdir
+    savedir
+    tinker
+    '''
+
+    QMMM=QMin['qmmm']
+
+    # prepare Workdir
+    WORKDIR=os.path.join(QMin['scratchdir'],'TINKER')
+    mkdir(WORKDIR)
+
+
+    ### key file
+    ##string='parameters %s\nQMMM %i\nQM %s\n' % (
+          ##ff_file_path,
+          ##QMMM['natom_table']+len(QMMM['linkbonds']),
+          ##' '.join( [ str(QMMM['reorder_input_MM'][i]+1) for i in QMMM['QM_atoms'] ] )
+       ##)
+    ##if len(QMMM['linkbonds'])>0:
+        ##string+='LA %s\n' % (
+          ##' '.join( [ str(QMMM['reorder_input_MM'][i]+1) for i in QMMM['LI_atoms'] ] ) )
+    ##string+='MM %s\n' % (
+          ##' '.join( [ str(QMMM['reorder_input_MM'][i]+1) for i in QMMM['MM_atoms'] ] )  )
+    ##string+='\nDEBUG\n'
+    ##if len(QMMM['linkbonds'])>0:
+        ##string+='atom    999    99    HLA     "Hydrogen Link Atom"        1      1.008     0\n'
+    ##string+='\n'
+    ##filename=os.path.join(WORKDIR,'TINKER.key')
+    ##writefile(filename,string)
+
+
+    print 'Writing TINKER inputs ...      ',datetime.datetime.now()
+    # key file
+    string='parameters %s\nQMMM %i\n' % (ff_file_path, QMMM['natom_table']+len(QMMM['linkbonds']))
+    string+='QM %i %i\n' % (-1,len(QMMM['QM_atoms']))
+    if len(QMMM['linkbonds'])>0:
+        string+='LA %s\n' % (
+          ' '.join( [ str(QMMM['reorder_input_MM'][i]+1) for i in QMMM['LI_atoms'] ] ) )
+    string+='MM %i %i\n' % (-(1+len(QMMM['QM_atoms'])+len(QMMM['linkbonds'])),
+                             QMMM['natom_table']+len(QMMM['linkbonds']) )
+    #if DEBUG:
+        #string+='\nDEBUG\n'
+    if QMin['ncpu']>1:
+        string+='\nOPENMP-THREADS %i\n' % QMin['ncpu']
+    if len(QMMM['linkbonds'])>0:
+        string+='atom    999    99    HLA     "Hydrogen Link Atom"        1      1.008     0\n'
+    #string+='CUTOFF 1.0\n'
+    string+='\n'
+    filename=os.path.join(WORKDIR,'TINKER.key')
+    writefile(filename,string)
+
+
+    # xyz/type/connection file
+    string='%i\n' % (len(QMMM['MM_coords']))
+    for iatom_MM in range(len(QMMM['MM_coords'])):
+        iatom_input=QMMM['reorder_MM_input'][iatom_MM]
+        string+='% 5i  %3s  % 16.12f % 16.12f % 16.12f  %4s  %s\n' % (
+                iatom_MM+1,
+                QMMM['MM_coords'][iatom_input][0],
+                QMMM['MM_coords'][iatom_input][1],
+                QMMM['MM_coords'][iatom_input][2],
+                QMMM['MM_coords'][iatom_input][3],
+                QMMM['atomtype'][iatom_input],
+                ' '.join( [ str(QMMM['reorder_input_MM'][i]+1) for i in sorted(QMMM['connect'][iatom_input]) ] )
+                )
+    filename=os.path.join(WORKDIR,'TINKER.xyz')
+    writefile(filename,string)
+
+
+    # communication file
+    string='SHARC 0 -1\n'
+    for iatom_MM in range(len(QMMM['MM_coords'])):
+        iatom_input=QMMM['reorder_MM_input'][iatom_MM]
+        string+='% 16.12f % 16.12f % 16.12f\n' % tuple( QMMM['MM_coords'][iatom_input][1:4] )
+    filename=os.path.join(WORKDIR,'TINKER.qmmm')
+    writefile(filename,string)
+
+
+    # standard input file
+    string='TINKER.xyz'
+    filename=os.path.join(WORKDIR,'TINKER.in')
+    writefile(filename,string)
+
+
+    # run TINKER
+    runTINKER(WORKDIR,QMin['tinker'],QMin['savedir'],strip=False,ncpu=QMin['ncpu'])
+
+
+    # read out TINKER
+    filename=os.path.join(WORKDIR,'TINKER.qmmm')
+    output=readfile(filename)
+
+    # check success
+    if not 'MMisOK' in output[0]:
+        print 'TINKER run not successful!'
+        sys.exit(11)
+
+    # get MM energy (convert from kcal to Hartree)
+    print 'Searching MMEnergy ...         ',datetime.datetime.now()
+    QMMM['MMEnergy']=float(output[1].split()[-1])*kcal_to_Eh
+
+    # get MM gradient (convert from kcal/mole/A to Eh/bohr)
+    print 'Searching MMGradient ...       ',datetime.datetime.now()
+    QMMM['MMGradient']={}
+    for line in output:
+        if 'MMGradient' in line:
+            s=line.split()
+            iatom_MM=int(s[1])-1
+            iatom_input=QMMM['reorder_MM_input'][iatom_MM]
+            grad=[ float(i)*kcal_to_Eh*au2a for i in s[2:5] ]
+            QMMM['MMGradient'][iatom_input]=grad
+        if 'MMq' in line:
+          break
+
+    # get MM point charges
+    print 'Searching MMpc_raw ...         ',datetime.datetime.now()
+    QMMM['MMpc_raw']={}
+    for i in range(QMMM['natom_table']):
+        QMMM['MMpc_raw'][i]=0.
+    iline=0
+    while True:
+        iline+=1
+        line=output[iline]
+        if 'MMq' in line:
+            break
+    iatom_MM=len(QMMM['QM_atoms'])+len(QMMM['LI_atoms'])-1
+    while True:
+        iline+=1
+        iatom_MM+=1
+        line=output[iline]
+        if 'NMM' in line:
+            break
+        s=line.split()
+        q=float(s[-1])
+        QMMM['MMpc_raw'][QMMM['reorder_MM_input'][iatom_MM]]=q
+
+    # compute actual charges (including redistribution)
+    print 'Redistributing charges ...     ',datetime.datetime.now()
+    QMMM['MMpc']={}
+    for i in range(QMMM['natom_table']):
+        s=0.
+        for factor,iatom in QMMM['charge_distr'][i]:
+            s+=factor * QMMM['MMpc_raw'][iatom]
+        QMMM['MMpc'][i]=s
+
+    # make list of pointcharges without QM atoms and zero-charge MM atoms
+    print 'Finalizing charges ...         ',datetime.datetime.now()
+    QMMM['pointcharges']=[]
+    QMMM['reorder_pc_input']={}
+    ipc=0
+    for iatom_input in QMMM['MMpc']:
+      q=QMMM['MMpc'][iatom_input]
+      if q!=0:
+        atom=QMMM['MM_coords'][iatom_input]
+        QMMM['pointcharges'].append( atom[1:4]+[q] )
+        QMMM['reorder_pc_input'][ipc]=iatom_input
+        ipc+=1
+    #for iatom_input in QMMM['MM_atoms']:
+        #atom=QMMM['MM_coords'][iatom_input]
+        #q=QMMM['MMpc'][iatom_input]
+        #QMMM['pointcharges'].append( atom[1:4]+[q] )
+        #QMMM['reorder_pc_input'][ipc]=iatom
+        #ipc+=1
+
+
+
+
+
+
+    # Get energy components from standard out (debug print)
+    filename=os.path.join(WORKDIR,'TINKER.out')
+    output=readfile(filename)
+    QMMM['MMEnergy_terms']={}
+    for line in output:
+        if 'kcal/mol' in line:
+            s=line.split()
+            #QMMM['MMEnergy_terms'][s[0]]=float(s[-2])*kcal_to_Eh
+            QMMM['MMEnergy_terms'][s[0]]=float(s[2])
+
+    print '===================================='
+    print '\n'
+
+    # DONE! Final results:
+    # QMMM['MMEnergy']
+    # QMMM['MMGradient']
+    # QMMM['MMpc']
+    # QMMM['QM_coords']
+    # QMMM['reorder_input_QM']
+    # QMMM['reorder_QM_input']
+
+    #print '='*60
+    #print 'E:',QMMM['MMEnergy']
+    #print 'Grad:'
+    #pprint.pprint( QMMM['MMGradient'] )
+    #print 'MM coord:'
+    #print str(QMMM['natom_table']) +'\n'
+    #for atom in QMMM['MM_coords']:
+        #print atom[0], atom[1], atom[2], atom[3]
+    #print 'QM coord:'
+    #print str(len(QMMM['QM_coords'])) +'\n'
+    #for atom in QMMM['QM_coords']:
+        #print atom[0], atom[1]*au2a, atom[2]*au2a, atom[3]*au2a
+    #print 'MM pc:'
+    #for iatom,atom in enumerate(QMMM['MM_coords']):
+        #q=QMMM['MMpc'][iatom]
+        #if q!=0.:
+            #print atom[1],atom[2],atom[3],q
+    #pprint.pprint(QMMM['MMEnergy_terms'])
+    #print '='*60
+
+    #pprint.pprint(QMMM)
+    #sys.exit(1)
+    return QMMM
+
+# ======================================================================= #
+def coords_same(coord1,coord2):
+    thres=1e-5
+    s=0.
+    for i in range(3):
+        s+=(coord1[i]-coord2[i])**2
+    s=math.sqrt(s)
+    return s<=thres
+
+# ======================================================================= #
+
+def runTINKER(WORKDIR,tinker,savedir,strip=False,ncpu=1):
+    prevdir=os.getcwd()
+    os.chdir(WORKDIR)
+    string=os.path.join(tinker,'bin','tkr2qm_s')+' '
+    string+=' < TINKER.in'
+    os.environ['OMP_NUM_THREADS']=str(ncpu)
+    if PRINT or DEBUG:
+        starttime=datetime.datetime.now()
+        sys.stdout.write('START:\t%s\t%s\t"%s"\n' % (shorten_DIR(WORKDIR),starttime,shorten_DIR(string)))
+        sys.stdout.flush()
+    stdoutfile=open(os.path.join(WORKDIR,'TINKER.out'),'w')
+    stderrfile=open(os.path.join(WORKDIR,'TINKER.err'),'w')
+    try:
+        runerror=sp.call(string,shell=True,stdout=stdoutfile,stderr=stderrfile)
+    except OSError:
+        print 'Call have had some serious problems:',OSError
+        sys.exit(79)
+    stdoutfile.close()
+    stderrfile.close()
+    if PRINT or DEBUG:
+        endtime=datetime.datetime.now()
+        sys.stdout.write('FINISH:\t%s\t%s\tRuntime: %s\tError Code: %i\n' % (shorten_DIR(WORKDIR),endtime,endtime-starttime,runerror))
+        sys.stdout.flush()
+    if DEBUG and runerror!=0:
+        copydir=os.path.join(savedir,'debug_TINKER_stdout')
+        if not os.path.isdir(copydir):
+            mkdir(copydir)
+        outfile=os.path.join(WORKDIR,'TINKER.out')
+        tofile=os.path.join(copydir,"TINKER_problems.out" )
+        shutil.copy(outfile,tofile)
+        print 'Error in %s! Copied TINKER output to %s' % (WORKDIR,tofile)
+    os.chdir(prevdir)
+    #if strip and not DEBUG and runerror==0:
+        #stripWORKDIR(WORKDIR)
+    return runerror
+
+
+# ======================================================================= #
+
+def transform_QM_QMMM(QMin,QMout):
+
+    # Meta data
+    QMin['natom']=QMin['natom_orig']
+    QMin['geo']=QMin['geo_orig']
+
+    # Hamiltonian
+    if 'h' in QMout:
+        for i in range(QMin['nmstates']):
+            QMout['h'][i][i]+=QMin['qmmm']['MMEnergy']
+
+    ## Gradients
+    if 'grad' in QMout:
+        nmstates=QMin['nmstates']
+        natom=QMin['natom_orig']
+        grad=[ [ [ 0. for i in range(3) ] for j in range(natom) ] for k in range(nmstates) ]
+        # QM gradient
+        for iqm in QMin['qmmm']['reorder_QM_input']:
+            iqmmm=QMin['qmmm']['reorder_QM_input'][iqm]
+            if iqmmm<0:
+                ilink=-iqmmm-1
+                link=QMin['qmmm']['linkbonds'][ilink]
+                for istate in range(nmstates):
+                    for ixyz in range(3):
+                        grad[istate][link['qm']][ixyz]+=QMout['grad'][istate][iqm][ixyz]*link['scaling']['qm']
+                        grad[istate][link['mm']][ixyz]+=QMout['grad'][istate][iqm][ixyz]*link['scaling']['mm']
+            else:
+                for istate in range(nmstates):
+                    for ixyz in range(3):
+                        grad[istate][iqmmm][ixyz]+=QMout['grad'][istate][iqm][ixyz]
+        # PC gradient
+        #for iqm,iqmmm in enumerate(QMin['qmmm']['MM_atoms']):
+        for iqm in QMin['qmmm']['reorder_pc_input']:
+            iqmmm=QMin['qmmm']['reorder_pc_input'][iqm]
+            for istate in range(nmstates):
+                for ixyz in range(3):
+                    grad[istate][iqmmm][ixyz]+=QMout['pcgrad'][istate][iqm][ixyz]
+        # MM gradient
+        for iqmmm in range(QMin['qmmm']['natom_table']):
+            for istate in range(nmstates):
+                for ixyz in range(3):
+                    grad[istate][iqmmm][ixyz]+=QMin['qmmm']['MMGradient'][iqmmm][ixyz]
+        QMout['grad']=grad
+    
+    #pprint.pprint(QMout)
+    return QMin,QMout
 
 # =============================================================================================== #
 # =============================================================================================== #
@@ -1682,6 +2272,7 @@ def get_arch(turbodir):
   string=os.path.join(turbodir,'scripts','sysname')
   proc=sp.Popen( [string], stdout=sp.PIPE)
   output=proc.communicate()[0].strip()
+  print 'Architecture: %s' % output
   return output
 
 # ======================================================================= #
@@ -1940,6 +2531,10 @@ def readQMin(QMinfilename):
     print 'No doublet states supported currently!'
     sys.exit(51)
 
+  if len(QMin['states'])==1 and 'soc' in QMin:
+    QMin=removekey(QMin,'soc')
+    QMin['h']=[]
+
   if 'h' in QMin and 'soc' in QMin:
     QMin=removekey(QMin,'h')
 
@@ -2008,6 +2603,9 @@ def readQMin(QMinfilename):
 
 
 
+
+
+  # --------------------------------------------- Resources ----------------------------------
 
 
   # environment setup
@@ -2183,10 +2781,26 @@ def readQMin(QMinfilename):
     QMin['no_ricc2_restart']=[]
 
 
+  # neglected gradients
+  QMin['neglected_gradient']='zero'
+  if 'grad' in QMin:
+    line=getsh2cc2key(sh2cc2,'neglected_gradient')
+    if line[0]:
+      if line[1].lower().strip()=='zero':
+        QMin['neglected_gradient']='zero'
+      elif line[1].lower().strip()=='gs':
+        QMin['neglected_gradient']='gs'
+      elif line[1].lower().strip()=='closest':
+        QMin['neglected_gradient']='closest'
+      else:
+        print 'Unknown argument to "neglected_gradient"!'
+        sys.exit(46)
 
 
 
 
+
+  # --------------------------------------------- Template ----------------------------------
 
   # open template
   template=readfile('RICC2.template')
@@ -2284,6 +2898,84 @@ def readQMin(QMinfilename):
         QMin['template']['theodore_fragment'].append(l)
 
 
+
+
+# --------------------------------------------- QM/MM ----------------------------------
+
+  # qmmm keyword
+  QMin['qmmm']=False
+  QMin['template']['qmmm']=False
+  i=0
+  for line in template:
+    line=re.sub('#.*$','',line).lower().split()
+    if len(line)<1:
+      continue
+    if line[0]=='qmmm':
+      QMin['qmmm']=True
+
+  # prepare everything
+  if QMin['qmmm']:
+    QMin['template']['qmmm']=True
+
+    # get settings from RICC2.resources
+    # Tinker
+    line=getsh2cc2key(sh2cc2,'tinker')
+    if not line[0]:
+        print 'TINKER path not given!'
+        sys.exit(11)
+    line=os.path.expandvars(line[1].strip())
+    line=os.path.expanduser(line)
+    line=os.path.abspath(line)
+    QMin['tinker']=line
+    if not os.path.isfile(os.path.join(QMin['tinker'],'bin','tkr2qm_s')):
+        print 'TINKER executable at "%s" not found!' % os.path.join(QMin['tinker'],'bin','tkr2qm_s')
+        sys.exit(38)
+
+    # table and ff files
+    for line in sh2cc2:
+      orig=re.sub('#.*$','',line).strip()
+      line=orig.lower().split()
+      if len(line)==0:
+        continue
+      elif line[0]=='qmmm_table':
+        line2=orig.split(None,1)
+        if len(line2)<2:
+          print 'Please specify a connection table file after "qmmm_table"!'
+          sys.exit(53)
+        filename=os.path.abspath(os.path.expandvars(os.path.expanduser(line2[1])))
+        QMin['template']['qmmm_table']=filename
+      elif line[0]=='qmmm_ff_file':
+        line2=orig.split(None,1)
+        if len(line2)<2:
+          print 'Please specify a force field file after "qmmm_ff_file"!'
+          sys.exit(54)
+        filename=os.path.abspath(os.path.expandvars(os.path.expanduser(line2[1])))
+        QMin['template']['qmmm_ff_file']=filename
+
+    # prepare data structures and run Tinker
+    QMin['qmmm']=prepare_QMMM(QMin,QMin['template']['qmmm_table'])
+    QMMMout=execute_tinker(QMin,QMin['template']['qmmm_ff_file'])
+
+    # modify QMin dict
+    QMin['geo_orig']=QMin['geo']
+    QMin['geo']=QMin['qmmm']['QM_coords']
+    QMin['natom_orig']=QMin['natom']
+    QMin['natom']=len(QMin['geo'])
+    QMin['pointcharges']=deepcopy(QMin['qmmm']['pointcharges'])
+    #QMin['pointcharges']=[]
+    #for iatom in range(QMin['qmmm']['natom_table']):
+      #atom=QMin['qmmm']['MM_coords'][iatom]
+    #for iatom,atom in enumerate(QMin['qmmm']['MM_coords']):
+      #QMin['pointcharges'].append( [atom[1],atom[2],atom[3],QMin['qmmm']['MMpc'][iatom]] )
+
+
+
+# --------------------------------------------- logic checks ----------------------------------
+
+
+
+
+
   # logic checks:
 
   # find method
@@ -2343,6 +3035,8 @@ def readQMin(QMinfilename):
   # number of properties/entries calculated by TheoDORE
   if 'theodore' in QMin:
     QMin['template']['theodore_n']=len(QMin['template']['theodore_prop']) + len(QMin['template']['theodore_fragment'])**2
+  else:
+      QMin['template']['theodore_n']=0
 
 
   # Check the save directory
@@ -2440,6 +3134,9 @@ def get_jobs(QMin):
              'static_dm': ['tmexc_soc'],
              'exprop_dm': ['tmexc_soc']
              }
+  if QMin['qmmm']:
+    forbidden['gsgrad'].append('exgrad')
+    forbidden['exgrad'].append('gsgrad')
   priority=['E',
             'tmexc_soc',
             'tmexc_dm',
@@ -2622,18 +3319,25 @@ def gettasks(QMin):
 # =============================================================================================== #
 # =============================================================================================== #
 
-def mkdir(PATH):
-  if os.path.exists(PATH):
-    if os.path.isfile(PATH):
-      print '%s exists and is a file!' % (PATH)
-      sys.exit(74)
+def mkdir(DIR):
+    # mkdir the DIR, or clean it if it exists
+    if os.path.exists(DIR):
+        if os.path.isfile(DIR):
+            print '%s exists and is a file!' % (DIR)
+            sys.exit(84)
+        elif os.path.isdir(DIR):
+            if DEBUG:
+                print 'Remake\t%s' % DIR
+            shutil.rmtree(DIR)
+            os.makedirs(DIR)
     else:
-      ls=os.listdir(PATH)
-      if not ls==[]:
-        print 'INFO: %s exists and is a non-empty directory!' % (PATH)
-        #sys.exit(75)
-  else:
-    os.makedirs(PATH)
+        try:
+            if DEBUG:
+                print 'Make\t%s' % DIR
+            os.makedirs(DIR)
+        except OSError:
+            print 'Can not create %s\n' % (DIR)
+            sys.exit(85)
 
 # ======================================================================= #
 def link(PATH,NAME,crucial=True,force=True):
@@ -2664,6 +3368,15 @@ def link(PATH,NAME,crucial=True,force=True):
     else:
       return
   os.symlink(PATH, NAME)
+
+# ======================================================================= #
+def shorten_DIR(string):
+    maxlen=40
+    front=12
+    if len(string)>maxlen:
+        return string[0:front]+'...'+string[-(maxlen-3-front):]
+    else:
+        return string+' '*(maxlen-len(string))
 
 # ======================================================================= #
 def cleandir(directory):
@@ -2740,6 +3453,15 @@ def writegeom(QMin):
     print 'xyz2col call failed!'
     sys.exit(80)
   os.chdir(QMin['pwd'])
+
+  # QM/MM
+  if QMin['qmmm']:
+    string='$point_charges nocheck\n'
+    for atom in QMin['pointcharges']:
+      string+='%16.12f %16.12f %16.12f %12.9f\n' % (atom[0]/au2a,atom[1]/au2a,atom[2]/au2a,atom[3])
+    string+='$end\n'
+    filename=QMin['scratchdir']+'/JOB/pc'
+    writefile(filename,string)
 
 # ======================================================================= #
 def runProgram(string,workdir,outfile,errfile=''):
@@ -2980,6 +3702,12 @@ def modify_control(QMin):
   #add_option_to_control_section(control,'$ricc2','scs')
   remove_section_in_control(control,'$scfiterlimit')
   add_section_to_control(control,'$scfiterlimit 100')
+
+  # QM/MM point charges
+  if QMin['qmmm']:
+    add_option_to_control_section(control,'$drvopt','point charges')
+    add_section_to_control(control,'$point_charges file=pc')
+    add_section_to_control(control,'$point_charge_gradients file=pc_grad')
   return
 
 # ======================================================================= #
@@ -3047,6 +3775,11 @@ def prep_control(QMin,job):
       os.remove(restartfile)
     except OSError:
       pass
+
+  # D1 and D2 diagnostic
+  if DEBUG and 'E' in job:
+    add_option_to_control_section(control,'$ricc2','d1diag')
+    add_section_to_control(control,'$D2-diagnostic')
 
   return
 
@@ -3458,7 +4191,12 @@ def runeverything(tasks, QMin):
         if QMout['overlap'][i][i].real<0.:
           QMout['phases'][i]=complex(-1.,0.)
 
-  return QMout
+  # transform back from QM to QM/MM
+  if QMin['template']['qmmm']:
+    QMin,QMout=transform_QM_QMMM(QMin,QMout)
+
+
+  return QMin,QMout
 
 
 # =============================================================================================== #
@@ -3606,6 +4344,12 @@ class civfl_ana:
       if 'implicit core' in line:
         s=line.split()
         self.nfrz=int(s[2])
+    if self.nmos==-1:
+      mosfile=os.path.join(self.path,'mos')
+      mos=readfile(mosfile)
+      for line in mos:
+        if "eigenvalue" in line:
+          self.nmos=int(line.split()[0])
     if any( [ self.nmos==-1 , self.nfrz==-1 , self.nocc==-1 ] ):
       print 'Number of orbitals not found: nmos=%i, nfrz=%i, nocc=%i' % (self.nmos,self.nfrz,self.nocc)
       sys.exit(92)
@@ -3636,8 +4380,16 @@ class civfl_ana:
     CCfile.read(8)
     # read number of CSFs from 4 byte
     nentry = struct.unpack('i', CCfile.read(4))[0]
-    # skip 20 byte
-    CCfile.read(20)
+    # skip 4 byte
+    CCfile.read(4)
+    # read 8 byte as long int
+    versioncheck = struct.unpack('l', CCfile.read(8))[0]
+    if versioncheck==0:
+      # skip 16 byte in Turbomole >=7.1
+      CCfile.read(16)
+    else:
+      # skip 8 byte in Turbomole <=7.0
+      CCfile.read(8)
     # checks
     if 'CCS' in method:
       print 'ERROR: preoptimization vector found in file: %s' % (filename)
@@ -3765,7 +4517,7 @@ def main():
     pprint.pprint(Tasks)
 
   # do all runs
-  QMout=runeverything(Tasks,QMin)
+  QMin,QMout=runeverything(Tasks,QMin)
 
   printQMout(QMin,QMout)
 
