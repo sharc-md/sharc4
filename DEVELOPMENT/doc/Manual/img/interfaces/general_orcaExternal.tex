@@ -59,8 +59,9 @@
     },
 }
 
-  \node[anchor=west] (qc1)  at (  6,+2.1) {\textsc{Molpro}};
-  \node[anchor=west] (qc2)  at (  6,+1.5) {\textsc{Molcas}};
+  \node[anchor=west] (qc0)  at (  6,+2.7) {\textsc{Molpro}};
+  \node[anchor=west] (qc1)  at (  6,+2.1) {\textsc{Molcas}};
+  \node[anchor=west] (qc2)  at (  6,+1.5) {\textsc{Bagel}};
   \node[anchor=west] (qc3)  at (  6,+0.9) {\textsc{Columbus}};
   \node[anchor=west] (qc4)  at (  6,+0.3) {Analytical};
   \node[anchor=west] (qc5)  at (  6,-0.3) {ADF};
@@ -148,6 +149,7 @@
   \draw[->] (t2.east) to[bend left] (qc.90);
   \draw[->] (t3.east) to[bend left] (qc.110);
 
+  \draw[<->] (qc.24) -- (qc0.west);
   \draw[<->] (qc.21) -- (qc1.west);
   \draw[<->] (qc.15) -- (qc2.west);
   \draw[<->] (qc.9) -- (qc3.west);

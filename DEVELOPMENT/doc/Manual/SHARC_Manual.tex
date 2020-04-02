@@ -44,6 +44,7 @@
   url,
   framed,
   flafter,
+  placeins,
   microtype}
 \tthdump{
   \DisableLigatures[-]{family=tt*}
@@ -133,17 +134,36 @@
 
 
 
+% Rules before each section
+\tthdump{
+  \usepackage{titlesec}
+  \titleformat{\chapter}[block]
+    {\titleline{\color{B!75}\titlerule[3.2pt]}\addvspace{4pt}\sffamily\LARGE\bfseries}
+    {\thechapter\enspace}{0pt}{}[\vspace{2pt}\titleline{\color{B!75}\titlerule[3.2pt]}]
+  \titleformat{\section}[block]
+    {\titleline{\color{B!50}\titlerule[1.6pt]}\addvspace{1pt}\sffamily\Large\bfseries}
+    {\thesection\enspace}{0pt}{}
+  \titleformat{\subsection}[block]
+    {\titleline{\color{B!15}\titlerule[0.8pt]}\addvspace{1pt}\sffamily\large\bfseries}
+    {\thesubsection\enspace}{0pt}{}
+  \titlespacing*{\section}
+    {0pt}{9ex plus 1ex minus .2ex}{1ex plus .2ex}
+}
+
+
+
+
 % =============================== TITLE ==========================
 %%tth: \title{SHARC: Surface Hopping in the Adiabatic Representation Including Arbitrary Couplings---Manual}
 \newenvironment{tpage}{%
 \KOMAoptions{twoside = false}
 \addtokomafont{title}{\rmfamily}
   \begin{titlepage}
-    \title{\hspace{1cm}\includegraphics[width=0.8\textwidth,keepaspectratio=true]{img/sharc_new.pdf}\\[0.5cm]
-    SHARC2.0:\\ Surface Hopping Including\\ Arbitrary Couplings}
+    \title{\hspace{1cm}\includegraphics[width=0.8\textwidth,keepaspectratio=true]{img/sharc_logo_21.png}\\[0.5cm]
+    SHARC2.1:\\ Surface Hopping Including\\ Arbitrary Couplings}
 %     SHARC: Surface Hopping in the Adiabatic Representation Including Arbitrary Couplings}
-    \subtitle{Manual\\[1cm]Version 2.0}
-    \date{Vienna, \today}
+    \subtitle{Manual\\[1cm]}
+    \date{Vienna, 01.09.2019}
     \author{AG Gonz\'alez\\
 Institute of Theoretical Chemistry\\
 University of Vienna, Austria
@@ -261,7 +281,7 @@ When a molecule is irradiated by light, a number of dynamical processes can take
 
 \begin{figure}[!ht]
   \centering
-  \includegraphics[scale=1.6]{img/jablonski/jablonski.pdf}
+  \includegraphics[scale=1.4]{img/jablonski/jablonski.pdf}
   \caption[Jab{\l}onski diagram showing the conceptual photophysical processes.]{Jab{\l}onski diagram showing the conceptual photophysical processes. Straight arrows show radiative processes: absorption ($h\nu$), fluorescence (F), and phosphorescence (P); wavy arrows show radiationless processes: internal conversion (IC) and intersystem crossing (ISC). }
   \label{fig:jablonski}
 \end{figure}
@@ -307,7 +327,7 @@ The \sharc\ suite of programs is an implementation of the \sharc\ method. Beside
 
 \section{Capabilities}
 
-The main features of the \sharc{}2.0 suite are:
+The main features of the \sharc{} suite are:
 \begin{itemize}
   \item Non-adiabatic dynamics based on the surface hopping methodology able to describe internal conversion and intersystem crossing with any number of states (singlets, doublets, triplets, or higher multiplicities).
   \item Algorithms for stable wave function propagation in the presence of very small or very large couplings.
@@ -386,16 +406,32 @@ These features are new in \sharc\ Version 2.1 (2019):
 \begin{itemize}
   \item Dynamics program \ttt{sharc.x}:
   \begin{itemize}
-    \item New methods: Rescaling along gradient difference vector.
+    \item New methods: Rescaling along gradient difference vector, forced hops to ground state.
+    \item Output: Control of output step, writing to NetCDF format
+  \end{itemize}
+  \item Dynamics program \ttt{pysharc}:
+  \begin{itemize}
+    \item Dynamics driver based on Python with C extension, allows to execute the routines of \ttt{sharc.x} directly within Python, which avoids file-based interface operations. Provides extremely efficient \sharc\ dynamics with LVC models.
+  \end{itemize}
+  \item Data extraction:
+  \begin{itemize}
+    \item New options in \ttt{data\_extractor.x} (e.g., populations according to \cite{Landry2013JCP}).
+    \item New extractor for NetCDF files (\ttt{data\_extractor\_NetCDF.x}).
+    \item Data converter (ASCII to NetCDF) (\ttt{data\_converter.x}), useful for archiving.
   \end{itemize}
   \item Quantum chemistry interfaces:
   \begin{itemize}
-    \item \textsc{Molcas}: works with \textsc{Openmolcas} version 18 or \textsc{Molcas} 8.4.
-    \item \textsc{Orca}: new interface, can do TD-DFT; uses \ttt{wfoverlap.x}, has Dyson norms, works with \textsc{TheoDORE}.
+    \item \textsc{Molcas}: now works with \textsc{Openmolcas} version 18 or \textsc{Molcas} 8.3 and 8.4.
+    \item \textsc{Turbomole}: now works with \textsc{Turbomole} versions 7.1 to 7.4. Can now do QM/MM with \textsc{Tinker}.
+    \item \textsc{Orca}: new interface, can do TD-DFT; uses \ttt{wfoverlap.x}, has Dyson norms, works with \textsc{TheoDORE}, can do QM/MM with \textsc{Tinker}.
+    \item \textsc{Bagel}: new interface, can do CASSCF, CASPT2, (X)MS-CASPT2 with analytical gradients and nonadiabatic couplings, has overlaps and Dyson norms from \ttt{wfoverlap.x}.
+    \item ADF interface: updated for ADF2019 and newer, not backward compatible with older ADF versions.
   \end{itemize}
   \item Auxilliary scripts:
   \begin{itemize}
-    \item \ttt{make\_fit.py}: new script, more powerful and integrated script for kinetic model fits.
+    \item \ttt{sharcvars.sh}, \ttt{sharcvars.csh}: can be sourced to automatically set all relevant environment variables for \ttt{sharc.x}, \ttt{pysharc}, and programs using NetCDF.
+    \item \ttt{make\_fit.py}: new script, more flexible, efficient, and integrated script for kinetic model fitting. Replaces the scripts \ttt{make\_fitscript.py} and \ttt{bootstrap.py}.
+    \item \ttt{setup\_LVCparam.py} and \ttt{create\_LVCparam.py}: new setup scripts to automatically generate LVC models from quantum chemistry calculations (also without nonadiabatic coupling vectors).
   \end{itemize}
 \end{itemize}
 
@@ -417,10 +453,10 @@ The following references should be cited when using the \sharc\ suite:
 \newcommand{\enquote}[1]{``#1''}
 \begin{shaded}
   \begin{itemize}
-    \item \cite{Richter2011JCTC} \bibentry{Richter2011JCTC}.
+%     \item \cite{Richter2011JCTC} \bibentry{Richter2011JCTC}.
 %     \item \cite{Mai2015IJQC} \bibentry{Mai2015IJQC}.
     \item \cite{Mai2018WCMS} \bibentry{Mai2018WCMS}.
-    \item \cite{Mai2018SHARC} \bibentry{Mai2018SHARC}.
+    \item \cite{Mai2019SHARC} \bibentry{Mai2019SHARC}.
   \end{itemize}
 \end{shaded}
 }
@@ -445,6 +481,8 @@ Other features implemented in the \sharc\ suite are described in the following r
   \item Crossing point optimization: \cite{Bearpark1994CPL, Levine2008JPCB}
   \item Computation of ionization spectra: \cite{Ruckenbauer2016SR,Ruckenbauer2016JCP}.
   \item Wave function comparison with overlaps: \cite{Plasser2016JCP}.
+  \item Dynamics with linear vibronic coupling models: \cite{Plasser2018PCCP}.
+  \item Computation of electronic populations: \cite{Landry2013JCP}.
 \end{itemize}
 
 The quantum chemistry programs to which interfaces with \sharc\ exist are described in the following sources:
@@ -452,10 +490,11 @@ The quantum chemistry programs to which interfaces with \sharc\ exist are descri
   \item \textsc{Molpro}: \cite{Werner2012WCMS, Werner2012},
   \item \textsc{Molcas}: \cite{Karlstrom2003CMS, Aquilante2010JCC, Aquilante2015JCC},
   \item \textsc{Columbus}: \cite{Lischka2011WCMS, Lischka2012, Yabushita1999JPCA, Mai2014JCP_reindex},
-  \item \textsc{ADF}: \cite{ADF2017},
+  \item \textsc{ADF}: \cite{ADF2019},
   \item \textsc{Turbomole}: \cite{TURBOMOLE70},
-  \item \textsc{Gaussian}: \cite{Gaussian09, Gaussian16}.
-  \item \textsc{Orca}: \cite{Neese2017WCMS}.
+  \item \textsc{Gaussian}: \cite{Gaussian09, Gaussian16},
+  \item \textsc{Orca}: \cite{Neese2017WCMS},
+  \item \textsc{Bagel}: \cite{Shiozaki2018WCMS}.
 \end{itemize}
 
 Others:
@@ -467,7 +506,7 @@ Others:
 
 \section{Authors}
 
-The current version of the \sharc\ suite has been programmed by Sebastian Mai, Martin Richter, Moritz Heindl, Maximilian F. S. J. Menger, Andrew Atkins, Felix Plasser, and Philipp Marquetand of the AG Gonz\'alez of the Institute of Theoretical Chemistry of the University of Vienna with contributions from Jes\'us Gonz\'alez-V\'azquez, Matthias Ruckenbauer, Markus Oppel, Patrick J.\ Zobel, and Leticia Gonz\'alez.
+The current version of the \sharc\ suite has been programmed by Sebastian Mai, Martin Richter, Moritz Heindl, Maximilian F. S. J. Menger, Andrew Atkins, Felix Plasser, Lea M. Ibele, Simon Kropf, and Philipp Marquetand of the AG Gonz\'alez of the Institute of Theoretical Chemistry of the University of Vienna with contributions from Jes\'us Gonz\'alez-V\'azquez, Matthias Ruckenbauer, Markus Oppel, Patrick J.\ Zobel, and Leticia Gonz\'alez.
 
 \section{Suggestions and Bug Reports}
 
@@ -505,10 +544,10 @@ On the other hand, examples of input files and command lines are marked like thi
 
 \section{How To Obtain}
 
-\sharc\ can be obtained from the \sharc\ homepage \link{http://sharc-md.org}{www.sharc-md.org}. In the Download section, register with your e-mail adress and affiliation. You will receive a download link to the stated e-mail adress. Clicking on the link in the email will download the archive file containing the \sharc\ package. Note that the link is active only for 24 h and the number of downloads is limited.
+\sharc\ can be obtained from the \sharc\ homepage \link{http://sharc-md.org}{www.sharc-md.org}. In the Download section, follow the link to \textsc{Github} to clone or download the latest \sharc\ release version.
 % \todo{From the homepage, also the wfoverlap code is available, required for many functionalities of \sharc.}
 
-Note that you must accept the Terms of Use given in the following section in order to download \sharc.
+Note that you accept the Terms of Use given in the following section when you download \sharc.
 
 \section{Terms of Use}
 
@@ -520,7 +559,7 @@ Note that you must accept the Terms of Use given in the following section in ord
 
 \sharc\ Program Suite
 
-Copyright \textcopyright{}2018, University of Vienna
+Copyright \textcopyright{}2019, University of Vienna
 
 SHARC is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -1273,13 +1312,17 @@ In order to install and run \sharc\ under Linux (Windows and OS X are currently 
 \begin{itemize}
   \item A Fortran90 compiler (This release is tested against \link{https://gcc.gnu.org/fortran/}{GNU Fortran} 4.4.7 and \link{https://software.intel.com/en-us/fortran-compilers}{Intel Fortran} 15.0).
   \item The \link{http://www.netlib.org/blas/}{BLAS}, \link{http://www.netlib.org/lapack/}{LAPACK} and \link{http://http://www.fftw.org/}{FFTW3} libraries.
-  \item \link{https://www.python.org/downloads/release/python-278/}{Python 2} (This release is tested against Python 2.6 and 2.7).
+  \item \link{https://www.python.org/downloads/release/python-2716/}{Python 2} (This release is tested against Python 2.6 and 2.7).
   \item \ttt{make}.
+  \item $[$\link{https://www.python.org/downloads/release/python-374/}{Python 3} if using the \sharc-ADF interface or \ttt{ADF\_freq.py} (This release is tested against Python 3.5 and 3.6).$]$
+  \item $[$\link{https://www.anaconda.com/distribution/}{Anaconda} with several libraries (\ttt{hdf5}, \ttt{hdf5\_hl}, \ttt{netcdf}, \ttt{mfhdf}, \ttt{df}, \ttt{jpeg}) for the \ttt{pysharc} and NetCDF functionalities.$]$
 \end{itemize}
 
-The source code of the  \sharc\ suite is distributed as a tar archive file. In order to install it, first extract the content of the archive to a suitable directory:
+\paragraph{Extracting}
+
+The source code of the  \sharc\ suite is distributed as a zip archive file. In order to install it, first extract the content of the archive to a suitable directory:
 \begin{example}
-\verb|tar -xzvf sharc.tgz|
+\verb|unzip sharc.zip|
 \end{example}
 This should create a new directory called \ttt{sharc/} which contains all the necessary subdirectories and files. 
 In figure~\ref{fig:installation} the directory structure of the complete \sharc\ directory is shown.
@@ -1291,12 +1334,17 @@ In figure~\ref{fig:installation} the directory structure of the complete \sharc\
   \label{fig:installation}
 \end{figure}
 
+
+\paragraph{Compiling and installing (without \ttt{pysharc})}
+
 To compile the Fortran90 programs of the \sharc\ suite, go to the \ttt{source/} directory.
 \begin{example}
 \verb|cd source/|
 \end{example}
-and edit the \ttt{Makefile} by adjusting the \ttt{F90} variable to point to the Fortran compiler of your choice. 
-Issuing the command:
+and edit the \ttt{Makefile} by adjusting the variables in the top part.
+If you only want to install regular \sharc\ (no \ttt{pysharc} or NetCDF), set \ttt{USE\_PYSHARC} to \ttt{false}.
+
+Then, inside \ttt{source/} issuing the command:
 \begin{example}
 \verb|make|
 \end{example}
@@ -1304,12 +1352,39 @@ will compile the source and create all the binaries.
 \begin{example}
 \verb|make install|
 \end{example}
-will copy the binary files into the \ttt{sharc/bin/} directory of the 
+will additionally copy the binary files into the \ttt{sharc/bin/} directory of the 
 \sharc\ distribution, which already contains all the python scripts which
 come with \sharc.
 
-In order to use the \sharc\ suite, set the environment variable \ttt{\$SHARC} to the \ttt{bin/} directory of the \sharc\ installation. This ensures that all programs of the \sharc\ suite find the other executables and all calls are successful. For example, if you have unpacked \sharc\ into your home directory, 
-just set: 
+\paragraph{Compiling and installing (with \ttt{pysharc})}
+
+If you intend to perform computations with \ttt{pysharc} (with LVC models) or with NetCDF functionality, you need to set \ttt{USE\_PYSHARC} to \ttt{true} in \ttt{source/Makefile}.
+Note that in this case, you also need to set a sensible path for the \ttt{ANACONDA} variable.
+
+Due to a number of dependencies, compiling with \ttt{pysharc} is slightly more complicated than without.
+The simplest way to compile both \ttt{pysharc} and the regular executables together is to
+\begin{enumerate}
+  \item run \ttt{make install} in \ttt{pysharc/}, then
+  \item run \ttt{make install} in \ttt{source/}.
+\end{enumerate}
+
+Alternatively, you might want to compile the regular executables without \ttt{pysharc} or NetCDF, and then compile \ttt{pysharc}.
+To do this:
+\begin{enumerate}
+  \item set \ttt{USE\_PYSHARC} to \ttt{false},
+  \item run \ttt{make install} in \ttt{source/},
+  \item run \ttt{make clean} in \ttt{source/},
+  \item set \ttt{USE\_PYSHARC} to \ttt{true},
+  \item run \ttt{make install} in \ttt{pysharc/}.
+\end{enumerate}
+
+
+\paragraph{Environment setup}
+
+
+In order to use the \sharc\ suite, set the environment variable \ttt{\$SHARC} to the \ttt{bin/} directory of the \sharc\ installation. 
+This ensures that all programs of the \sharc\ suite find the other executables and all calls are successful. 
+For example, if you have unpacked \sharc\ into your home directory, just set: 
 \begin{example}
 \verb|export SHARC=~/sharc/bin|\quad (for bourne shell users)
 \end{example}
@@ -1320,6 +1395,17 @@ or
 Note that it is advisable to put this line into your shell's login
 scripts.
 
+More comfortably, in \sharc~2.1, you can simply source either of the \ttt{sharcvars} files (generated by \ttt{make}) that are located in the \ttt{bin/} directory:
+\begin{example}
+\verb|source ~/sharc/bin/sharcvars.sh|\quad (for bourne shell users)
+\end{example}
+or
+\begin{example}
+\verb|source ~/sharc/bin/sharcvars.csh|\quad (for c-shell type users)
+\end{example}
+
+
+
 \subsection{\textsc{WFoverlap} Program}
 
 The \sharc\ package contains as a submodule the program \textsc{WFoverlap}, which is necessary for many functionalities of \sharc.
@@ -1329,8 +1415,39 @@ In order to install and test this program, see section~\ref{sec:int:wfoverlap}.
 
 \sharc\ requires the BLAS, LAPACK and FFTW3 libraries. During the installation, it might be necessary to alter the \ttt{LDFLAGS} string in the \ttt{Makefile}, depending on where the relevant libraries are located on your system. In this way, it is for example possible to use vendor-provided libraries like the \link{https://software.intel.com/en-us/intel-mkl}{Intel MKL}. For more details see the \ttt{INSTALL} file which is included in the \sharc\ distribution.
 
+As specified above, users of \ttt{pysharc} and the NetCDF functions will need additional libraries (\ttt{hdf5}, \ttt{hdf5\_hl}, \ttt{netcdf}, \ttt{mfhdf}, \ttt{df}, \ttt{jpeg}), which can, e.g., be obtained through an \textsc{Anaconda} installation.
+
+
+
+
 
 \subsection{Test Suite}\label{sec:tests.py}
+
+\begin{table}[tb]
+  \centering
+  \caption[Environment variables for \sharc\ test jobs.]{Environment variables for \sharc\ test jobs. These variables need to be set before the test job execution.}
+  \label{tab:test_vars}
+  \begin{tabular}{>{\ttfamily}lp{13cm}}
+  \hline
+  Keyword       &Description\\
+  \hline
+  \$ADF         &Points to the main directory of the ADF installation, which contains the file \ttt{adfrc.sh} and subdirectory \ttt{bin/}.\\
+  \$BAGEL       &Points to the main directory of the \textsc{Bagel} installation, which contains subdirectories \ttt{bin/} and \ttt{lib/}.\\
+  \$COLUMBUS    &Points to the directory containing the \textsc{Columbus} executables, e.g., \ttt{runls}.\\
+  \$GAUSSIAN    &Points to the main directory of the \textsc{Gaussian} installation, which contains the \textsc{Gaussian} executables (e.g., \ttt{g09}/\ttt{g16} or \ttt{l9999.exe}).\\
+  \$MOLCAS      &Points to the main directory of the \textsc{Openmolcas} installation, containing \ttt{molcas.rte} and directories \ttt{basis\_library/} and \ttt{bin/}.\\
+  \$MOLPRO      &Points to the \ttt{bin/} directory of the \textsc{Molpro} installation, which contains the \ttt{molpro.exe} file.\\
+  \$TURBOMOLE   &Points to the main directory of the \textsc{Turbomole} installation, which contains subdirectories like \ttt{basen/}, \ttt{bin/}, or \ttt{scripts/}.\\
+  \$ORCA        &Points to the directory containing the \textsc{Orca} executables, e.g., \ttt{orca}, \ttt{orca\_gtoint}, or \ttt{orca\_fragovl}.\\
+  \$THEODORE    &Points to the main directory of the \textsc{TheoDORE} installation. \ttt{\$THEODORE/bin/} should contain \ttt{analyze\_tden.py}.\\
+  \$TINKER      &Points to the main directory of a \textsc{Molcas}-modified \textsc{Tinker} installation. \ttt{\$TINKER/bin} should contain \ttt{tkr2qm\_s}).\\
+  \$PYQUANTE    &Points to the main directory of \textsc{PyQuante}, containing the \ttt{PyQuante/} subdirectory that can be imported by Python as a module.\\
+  \$molcas      &Should point to the same location as \ttt{\$MOLCAS}, or another \textsc{Molcas} installation. Note that \ttt{\$molcas} is only used by some \textsc{Columbus} test jobs. Also note that \ttt{\$molcas} does not need to point to the \textsc{Molcas} installation interfaced to \textsc{Columbus}.\\
+  \$orca        &Should point to the same location as \ttt{\$ORCA}, or another \textsc{Orca} installation. Note that \ttt{\$orca} is only used by some tests where \textsc{Orca} is used as helper program (e.g., for \ttt{setup\_orca\_opt.py} or spin-orbit calculations with \ttt{SHARC\_RICC2.py}).\\
+  \hline
+  \end{tabular}
+\end{table}
+
 
 After the installation, it is advisable to first execute the test suite of \sharc, which will test the fundamental functionality of SHARC.
 Change to an empty directory and execute
@@ -1354,29 +1471,6 @@ If any of the tests show differences between output and reference output, it is 
 It should be noted that along trajectories, these small changes can add up to notably influence the trajectories, but across the ensemble these small changes will likely cancel out.
 
 
-\begin{table}
-  \centering
-  \caption[Environment variables for \sharc\ test jobs.]{Environment variables for \sharc\ test jobs. These variables need to be set before the test job execution.}
-  \label{tab:test_vars}
-  \begin{tabular}{>{\ttfamily}lp{13cm}}
-  \hline
-  Keyword       &Description\\
-  \hline
-  \$ADF         &Points to the main directory of the ADF installation, which contains the file \ttt{adfrc.sh}.\\
-  \$COLUMBUS    &Points to the directory containing the \textsc{Columbus} executables, e.g., \ttt{runls}.\\
-  \$GAUSSIAN    &Points to the main directory of the \textsc{Gaussian} installation, which contains the \textsc{Gaussian} executables (e.g., \ttt{g09}/\ttt{g16} or \ttt{l9999.exe}).\\
-  \$MOLCAS      &Points to the main directory of the \textsc{Openmolcas} installation, containing \ttt{molcas.rte} and directories \ttt{basis\_library/} and \ttt{bin/}.\\
-  \$MOLPRO      &Points to the \ttt{bin/} directory of the \textsc{Molpro} installation, which contains the \ttt{molpro.exe} file.\\
-  \$TURBOMOLE   &Points to the main directory of the \textsc{Turbomole} installation, which contains subdirectories like \ttt{basen/}, \ttt{bin/}, or \ttt{scripts/}.\\
-  \$ORCA        &Points to the directory containing the \textsc{Orca} executables, e.g., \ttt{orca}, \ttt{orca\_gtoint}, or \ttt{orca\_scf}.\\
-  \$THEODORE    &Points to the main directory of the \textsc{TheoDORE} installation. \ttt{\$THEODORE/bin/} should contain \ttt{analyze\_tden.py}.\\
-  \$TINKER      &Points to the \ttt{bin/} directory of a \textsc{Molcas}-modified \textsc{Tinker} installation. It contains files like \ttt{tkr2qm\_s}.\\
-  \$molcas      &Should point to the same location as \ttt{\$MOLCAS}, or another \textsc{Molcas} installation. Note that \ttt{\$molcas} is only used by some \textsc{Columbus} test jobs. Also note that \ttt{\$molcas} does not need to point to the \textsc{Molcas} installation interfaced to \textsc{Columbus}.\\
-  \hline
-  \end{tabular}
-\end{table}
-
-
 \subsection{Additional Programs}
 
 For full functionality of the \sharc\ suite, several additional programs are recommended (all of these programs are currently freely available, except for \textsc{Amber}):
@@ -1384,25 +1478,22 @@ For full functionality of the \sharc\ suite, several additional programs are rec
 \begin{itemize}
   \item The Python package \link{http://www.numpy.org/}{\textsc{NumPy}}.
   \\
-  Optimally, within your Python installation the \textsc{NumPy} package (which provides many numerical methods, e.g., matrix diagonalization) should be available. If \textsc{NumPy} is not available, the \sharc\ suite is still functional, and the affected scripts will fall back to use a small Fortran code (front-end for LAPACK) within the \sharc\ package. Since in the Python scripts no large-scale matrix calculations are carried out, there should be no significant performance loss if \textsc{NumPy} is not available.
+  Optimally, within your Python installation the \textsc{NumPy} package (which provides many numerical methods, e.g., matrix diagonalization) should be available. If \textsc{NumPy} is not available, some parts of the \sharc\ suite are still functional, and the affected scripts will fall back to use a small Fortran code (front-end for LAPACK) within the \sharc\ package. Since in the Python scripts no large-scale matrix calculations are carried out, there should be no significant performance loss if \textsc{NumPy} is not available.
+  \textsc{NumPy} is mandatory for dynamics with the ADF interface, with LVC models, and all \ttt{pysharc} functionalities.
   \medskip
   \item The Python package \link{https://matplotlib.org/}{\textsc{Matplotlib}}.
   \\
-  If the \textsc{Matplotlib} package, some auxiliary scripts can automatically generate certain plots.
+  If the \textsc{Matplotlib} package, some auxiliary scripts (\ttt{trajana\_nma.py} and \ttt{trajana\_essdyn.py}) can automatically generate certain plots.
   \medskip
   \item The \link{http://www.gnuplot.info/}{\textsc{Gnuplot}} plotting software.
   \\
-  \textsc{Gnuplot} is not strictly necessary, since all output files could be plotted using other plotting programs. However, a number of scripts from the \sharc\ suite automatically generate \textsc{Gnuplot} scripts after data processing, allowing to quickly plot the output files or carry out data fits.
+  \textsc{Gnuplot} is not strictly necessary, since all output files could be plotted using other plotting programs. However, a number of scripts from the \sharc\ suite automatically generate \textsc{Gnuplot} scripts after data processing, allowing to quickly plot the results.
   \medskip
   \item A molecular visualization software able to read xyz files (e.g.\ \link{http://www.cmbi.ru.nl/molden/molden.html}{\textsc{Molden}}, \link{http://gabedit.sourceforge.net/}{\textsc{Gabedit}}, \link{http://molekel.cscs.ch/wiki/pmwiki.php}{\textsc{Molekel}} or \link{http://www.ks.uiuc.edu/Research/vmd/}{VMD}).
   \\
-  Molecular visualization software is needed in order to visualize molecular motion in the dynamics.
+  Molecular visualization software is needed in order to animate molecular motion in the dynamics.
   \medskip
-  \item The \link{http://maxima.sourceforge.net/}{\textsc{Maxima}} computer algebra system.
-  \\
-  The computer algebra system \textsc{Maxima} is necessary for the use of \ttt{make\_fitscript.py}, a program which allows to perform global fits of chemical kinetics models to populations data.
-  \medskip
-  \item The \link{http://theodore-qc.sourceforge.net/}{\textsc{TheoDORE}} wave function analysis suite.
+  \item The \link{http://theodore-qc.sourceforge.net/}{\textsc{TheoDORE}} wave function analysis suite (version 2.0 or higher).
   \\
   The wave function analysis package \textsc{TheoDORE} allows to compute various descriptors of electronic wave functions (supported by some interfaces), which is helpful to follow the state characters along trajectories.
   \medskip
@@ -1427,17 +1518,29 @@ Even though \sharc\ comes with two interfaces for analytical potentials (and hen
   \begin{itemize}
     \item \link{http://dasher.wustl.edu/tinker/}{\textsc{Tinker}}, \link{http://www.molcas.org/documentation/manual/node79.html#SECTION052122010000000000000}{interfaced to \textsc{Openmolcas} 18}, for QM/MM dynamics.
   \end{itemize}
+  \item \link{http://www.molcas.org/}{\textsc{Molcas}} (this release was checked against \textsc{Molcas} 8.3 and 8.4).
+  \begin{itemize}
+    \item \link{http://dasher.wustl.edu/tinker/}{\textsc{Tinker}}, \link{http://www.molcas.org/documentation/manual/node79.html#SECTION052122010000000000000}{interfaced to \textsc{Molcas}}, for QM/MM dynamics.
+  \end{itemize}
   \item \link{http://www.univie.ac.at/columbus/docs_COL70/documentation_main.html}{\textsc{Columbus} 7}
   \begin{itemize}
     \item \link{http://www.univie.ac.at/columbus/docs_COL70/columbus_molcas_link.html}{\textsc{Columbus-Molcas} interface} for spin-orbit couplings.
   \end{itemize}
-  \item \link{http://www.scm.com/ADF}{\textsc{Amsterdam Density Functional}} (ADF 2017 needed for overlaps, ADF 2018 for all QM/MM functionality)
-  \item \link{http://www.turbomole.com}{\textsc{Turbomole}} (this release was checked against \textsc{Turbomole} 6.6 and 7.0; version 7.1 is currently not supported).
+  \item \link{http://www.scm.com/ADF}{\textsc{Amsterdam Density Functional}} (only ADF 2019 or newer)
+  \item \link{http://www.turbomole.com}{\textsc{Turbomole}} (this release was checked against \textsc{Turbomole} 6.6, 7.0, 7.1, 7.2, 7.3, and 7.4).
   \begin{itemize}
-    \item \link{https://orcaforum.kofo.mpg.de}{\textsc{Orca}} (version 3 or 4) for spin-orbit couplings.
+    \item \link{https://orcaforum.kofo.mpg.de}{\textsc{Orca}} (version 3 or 4) for providing spin-orbit integrals.
+    \item \link{http://dasher.wustl.edu/tinker/}{\textsc{Tinker}} (this release was checked against version 6.3.3) for QM/MM dynamics.
   \end{itemize}
   \item \link{http://www.gaussian.com}{\textsc{Gaussian}} (this release was checked against \textsc{Gaussian} 09 and 16).
-  \item \link{https://orcaforum.kofo.mpg.de}{\textsc{Orca}} (version 4.1 or higher).
+  \item \link{https://orcaforum.kofo.mpg.de}{\textsc{Orca}} (version 4.1 or 4.2).
+  \begin{itemize}
+    \item \link{http://dasher.wustl.edu/tinker/}{\textsc{Tinker}} (this release was checked against version 6.3.3) for QM/MM dynamics.
+  \end{itemize}
+  \item \link{https://nubakery.org/index.html}{\textsc{Bagel}} (commit 0ea6b59 from Mar 27, 2019 or newer).
+  \begin{itemize}
+    \item \link{http://pyquante.sourceforge.net/}{PyQuante} for overlap calculations
+  \end{itemize}
 \end{itemize}
 
 See the relevant sections in chapter~\ref{chap:interfaces} for a description of the quantum chemical methods available with each of these programs.
@@ -1448,7 +1551,7 @@ See the relevant sections in chapter~\ref{chap:interfaces} for a description of 
 
 \chapter{Execution}
 
-The \sharc\ suite consists of the main dynamics code \ttt{sharc.x} and a number of auxiliary programs, like setup scripts and analysis tools. Additionally, the suite comes with interfaces to several quantum chemistry software: \textsc{Molpro}, \textsc{Molcas}, \textsc{Columbus}, \textsc{Turbomole}, \textsc{ADF}, \textsc{Gaussian}, and \textsc{Orca}. 
+The \sharc\ suite consists of the main dynamics code \ttt{sharc.x} and a number of auxiliary programs, like setup scripts and analysis tools. Additionally, the suite comes with interfaces to several quantum chemistry software: \textsc{Molpro}, \textsc{Molcas}, \textsc{Columbus}, \textsc{Turbomole}, \textsc{ADF}, \textsc{Gaussian}, \textsc{Orca}, and \textsc{Bagel}.
 
 In the following, first it is explained how to run a single trajectory by setting up all necessary input for the dynamics code \ttt{sharc.x} manually. Afterwards, the usage of the auxiliary scripts is explained. 
 Detailed infos on the \sharc\ input files is given in chapter~\ref{chap:input}.
@@ -1477,7 +1580,7 @@ In virtually all cases, this task is handled by the \sharc-quantum chemistry int
 
 \verb|$SHARC/<INTERFACE> QM.in |
 \end{example}
-with the corresponding interface name given. Note that the interfaces in all cases need additional input files, which must be present in \ttt{QM/}. Those input files contain the specifications for the quantum chemistry information, e.g., basis set, active and reference space, memory settings, path to the quantum chemistry program, path to scratch directories; or for \ttt{SHARC\_Analytical.py} and \ttt{SHARC\_LVC.py} the parameters for the analytical potentials. For each interface, the input files are slightly different. See sections~\ref{sec:int:molpro}, \ref{sec:int:molcas}, \ref{sec:int:columbus}, \ref{sec:int:analytical}, \ref{sec:int:ricc2}, \ref{sec:int:adf}, \ref{sec:int:lvc}, \ref{sec:int:gaussian} or \ref{sec:int:orca} for the necessary information.
+with the corresponding interface name given. Note that the interfaces in all cases need additional input files, which must be present in \ttt{QM/}. Those input files contain the specifications for the quantum chemistry information, e.g., basis set, active and reference space, memory settings, path to the quantum chemistry program, path to scratch directories; or for \ttt{SHARC\_Analytical.py} and \ttt{SHARC\_LVC.py} the parameters for the analytical potentials. For each interface, the input files are slightly different. See sections~\ref{sec:int:molpro}, \ref{sec:int:molcas}, \ref{sec:int:columbus}, \ref{sec:int:analytical}, \ref{sec:int:ricc2}, \ref{sec:int:adf}, \ref{sec:int:lvc}, \ref{sec:int:gaussian}, \ref{sec:int:orca}, or \ref{sec:int:bagel} for the necessary information.
 
 \subsection{Running the dynamics code}
 
@@ -1495,19 +1598,20 @@ This is usually preferable to simply killing \sharc, because the current time st
 
 \subsection{Output files}
 
-Figure~\ref{fig:dir_traj_after} shows the content of a trajectory directory after the execution of \sharc. There will be six new files. These files are \ttt{output.log}, \ttt{output.lis}, \ttt{output.dat} and \ttt{output.xyz}, as well as \ttt{restart.ctrl} and \ttt{restart.traj}.
-
-The file \ttt{output.log} contains mainly a listing of the chosen options and the resulting dynamics settings. At higher print levels, the log file contains also information per time step (useful for debugging). \ttt{output.lis} contains a table with one line per time step, giving active states, energies and expectation values. \ttt{output.dat} contains a list of all important matrices and vectors at each time step. This information can be extracted with \ttt{data\_extractor.x} to yield plottable table files. \ttt{output.xyz} contains the geometries of all time steps (the comments to each geometry give the active state).
-For details about the content of the output files, see chapter~\ref{chap:output}.
-
-The restart files contain the full state of a trajectory and its control variables from the last successful time step. These files are needed in order to restart a trajectory at this time step (either because the calculation failed, or in order to extend the simulation time beyond the original maximum simulation time). 
-
 \begin{figure}[htb]
   \centering
   \includegraphics[scale=1]{img/dir_traj/dir_traj_after.pdf}
   \caption[Files of a \sharc\ dynamics simulation after running.]{Files of a \sharc\ dynamics simulation after running. Directories are in blue, executable scripts in green, regular files in white and optional files in grey. Output files are in yellow.}
   \label{fig:dir_traj_after}
 \end{figure}
+
+Figure~\ref{fig:dir_traj_after} shows the content of a trajectory directory after the execution of \sharc. There will be six new files. These files are \ttt{output.log}, \ttt{output.lis}, \ttt{output.dat} and \ttt{output.xyz}, as well as \ttt{restart.ctrl} and \ttt{restart.traj}.
+
+The file \ttt{output.log} contains mainly a listing of the chosen options and the resulting dynamics settings. At higher print levels, the log file contains also information per time step (useful for debugging). \ttt{output.lis} contains a table with one line per time step, giving active states, energies and expectation values. \ttt{output.dat} contains a list of all important matrices and vectors at each time step. This information can be extracted with \ttt{data\_extractor.x} to yield plottable table files. \ttt{output.xyz} contains the geometries of all time steps (the comments to each geometry give the active state).
+For details about the content of the output files, see chapter~\ref{chap:output}.
+
+The restart files contain the full state of a trajectory and its control variables from the last successful time step. These files are needed in order to restart a trajectory at this time step (either because the calculation failed, or in order to extend the simulation time beyond the original maximum simulation time). 
+The \ttt{restart/} directory contains all persistent files that are needed for the quantum chemistry interfaces (for restarting, but also between all time steps).
 
 
 
@@ -1584,9 +1688,8 @@ Trajectories can also be manually excluded from analysis, by creating a file cal
 After the trajectories were checked and unsuitable ones excluded, the statistical analysis scripts can be used.
 The script \ttt{populations.py} (section~\ref{sec:populations.py}) can calculate average excited-state populations. 
 The script \ttt{transition.py} (section~\ref{sec:transition.py}) can analyze the total number of hops between all pairs of states in an ensemble, allowing to identify relevant relaxation routes in the dynamics.
-Using the script \ttt{make\_fitscript.py} (\ref{sec:make_fitscript.py}), it is possible to make elaborate global fits of chemical kinetics models to the populations data, allowing to extract rate constants from the populations.
-With \ttt{bootstrap.py} (\ref{sec:bootstrap.py}) one can compute errors for these rate constants.
-The fitting and bootstrapping functionalities are also available in the stand-alone script \ttt{make\_fit.py} (\ref{sec:make_fit.py}).
+Using the script \ttt{make\_fit.py} (\ref{sec:make_fit.py}), it is possible to make elaborate global fits of chemical kinetics models to the populations data, allowing to extract rate constants from the populations, and to compute errors for these rate constants.
+The same functionality is also present in the older scripts \ttt{make\_fitscript.py} (\ref{sec:make_fitscript.py}) and \ttt{bootstrap.py} (\ref{sec:bootstrap.py}).
 The script~\ttt{crossing.py} (\ref{sec:crossing.py}) can find and extract notable geometries, e.g., those geometries where a surface hop between two particular states occurred.
 Using \ttt{trajana\_essdyn.py} (\ref{sec:trajana_essdyn.py}) and \ttt{trajana\_nma.py} (\ref{sec:trajana_nma.py}) it is furthermore possible to perform essential dynamics analysis and normal mode analysis.
 Finally, \ttt{data\_collector.py} can merge arbitrary tabulated data from the trajectories and perform various analysis procedures (compute mean/standard deviation, data convolution, summation, integration), which can be used to compute, e.g., time-dependent distribution functions or time-dependent spectra.
@@ -1610,7 +1713,8 @@ The following tables list the auxiliary programs in the \sharc\ suite. The right
   molcas\_input.py      &Prepares \textsc{Molcas} input files and template files for the \textsc{Molcas} interface.             &\ref{sec:molcas_input.py}\\
   ADF\_input.py         &Prepares ADF input files.                     &\ref{sec:ADF_input.py}\\
   ADF\_freq.py          &Converts ADF output files of frequency calculations to Molden format.                     &\ref{sec:ADF_freq.py}\\
-  QMout2LVC.py          &Converts output from a single point calculation to template for the LVC interface.             &\ref{sec:setup_LVCparam.py}\\
+  setup\_LVCparam.py          &Sets up single point calculations for LVC parametrization.             &\ref{sec:setup_LVCparam.py}\\
+  create\_LVCparam.py          &Produces LVC model files from parametrization data.             &\ref{sec:setup_LVCparam.py}\\
 \end{tabular}
 
 \subsection{Analysis}
@@ -1619,11 +1723,13 @@ The following tables list the auxiliary programs in the \sharc\ suite. The right
   spectrum.py           &Generates absorption spectra from initial conditions files.            &\ref{sec:spectrum.py}\\
   retrieve.sh           &\ttt{scp} wrapper to retrieve dynamics output during the simulation.   &\ref{sec:retrieve}\\
   data\_extractor.x     &Extracts plottable results from the \sharc\ output data file.          &\ref{sec:data_extractor.x}\\
+  data\_extractor\_NetCDF.x     &Extracts plottable results from the \sharc\ output data file in NetCDF format.          &\ref{sec:data_extractor_NetCDF.x}\\
+  data\_converter.x     &Converts \ttt{output.dat} files to \ttt{output.dat.nc} files.          &\ref{sec:data_converter.x}\\
   make\_gnuscript.py    &Creates gnuplot scripts to plot trajectory data.                       &\ref{sec:make_gnuscript.py}\\
   diagnostics.py        &Checks ensembles for integrity, progress, energy conservation.         &\ref{sec:diagnostics.py}\\
   populations.py        &Calculates ensemble populations.                                       &\ref{sec:populations.py}\\
   transition.py         &Calculates total number of hops within an ensemble.                    &\ref{sec:transition.py}\\
-  make\_fitscript.py    &Performs kinetic model fits and bootstrapping.                         &\ref{sec:make_fit.py}\\
+  make\_fit.py          &Performs kinetic model fits and bootstrapping.                         &\ref{sec:make_fit.py}\\
   make\_fitscript.py    &Creates \textsc{Gnuplot} scripts to fit kinetic models to population data.      &\ref{sec:make_fitscript.py}\\
   bootstrap.py          &Computes errors for kinetic model fits.                                &\ref{sec:bootstrap.py}\\
   crossing.py           &Extracts specific geometries from ensembles.                           &\ref{sec:crossing.py}\\
@@ -1645,6 +1751,7 @@ The following tables list the auxiliary programs in the \sharc\ suite. The right
   SHARC\_LVC.py         &Calculates SOCs, gradients, nonadiabatic couplings, overlaps, and dipole moments based on linear-vibronic coupling models defined in mass-weighted normal mode coordinates.         &\ref{sec:int:lvc}\\
   SHARC\_GAUSSIAN.py    &Calculates       gradients,                         overlaps,     dipole moments, and Dyson norms at the TD-DFT level of theory (using Gaussian). Symmetry is not supported.  &\ref{sec:int:gaussian}\\
   SHARC\_ORCA.py        &Calculates SOCs, gradients,                         overlaps,     dipole moments, and Dyson norms at the TD-DFT level of theory with GGA and hybrid functionals (using \textsc{Orca}). Symmetry is not supported.  &\ref{sec:int:orca}\\
+  SHARC\_BAGEL.py        &Calculates      gradients, nonadiabatic couplints, overlaps,     dipole moments, and Dyson norms at the CASSCF, CASPT2, MS-CASPT2, and XMS-CASPT2 level of theory (using \textsc{Bagel}). Symmetry is not supported.  &\ref{sec:int:bagel}\\
 \end{tabular}
 
 
@@ -1659,6 +1766,41 @@ The following tables list the auxiliary programs in the \sharc\ suite. The right
   QMout\_print.py       &Script to convert a \ttt{QM.out} file to a table with energies and oscillator strengths.               &\ref{sec:QMout_print.py}\\
   diagonalizer.x        &Helper program for \ttt{excite.py}. Only required if \textsc{NumPy} is not available.                  &\ref{sec:diagonalizer.x}\\
 \end{tabular}
+
+
+% ========================================================================================================= %
+
+\section{The \textsc{Pysharc} dynamics driver}\label{sec:pysharc}
+
+Since \sharc2.1, the suite contains alternative dynamics drivers, besides the regular \ttt{sharc.x} executable, which are based on the \ttt{pysharc} sub-project.
+\ttt{pysharc} is an implementation of the \sharc\ dynamics driver in Python that directly calls the Fortran routines of \ttt{sharc.x} (through the Python-C API via intermediate C routines).
+In this way, both the \ttt{sharc.x} code and the quantum chemistry interface code can be run within the same program, omitting file-based communication between driver and quantum chemistry interface.
+
+The motivation of this is that the omission of file-based communication can save up to a few seconds in each time step.
+Naturally, this is negligible for expensive quantum chemistry where a time step takes several minutes.
+However, for very fast interfaces (analytical models, LVC models), time steps can be reduced from a few seconds to a few milliseconds, providing a dramatic speedup of the \sharc\ simulations which is only limited by the speed of writing the output files.
+Consequently, the use of \ttt{pysharc} is highly advisable for \sharc\ simulations with very fast interfaces.
+Currently, \ttt{pysharc} is only implemented for LVC models, through the driver script named \ttt{pysharc\_lvc.py}.
+
+\ttt{pysharc} is intended to change the \sharc\ workflow as little as possible.
+Basically all features of \ttt{sharc.x} are supported.
+The only change that needs to be applied is to call the \ttt{pysharc} driver instead of \ttt{sharc.x}.
+
+The high efficiency of \ttt{pysharc} is optimally combined with an efficient way of producing output.
+As the default ASCII output format is not optimized for performance, together with \ttt{pysharc} \sharc2.1 contains an implementation that produces NetCDF binary output data files.
+It is advisable that every time \ttt{pysharc} is run, output is written in NetCDF format.
+Details of NetCDF output are documented in Section~\ref{sec:netcdf}
+
+
+
+
+
+
+
+
+
+
+
 
 % ========================================================================================================= %
 % ========================================================================================================= %
@@ -1754,6 +1896,7 @@ In Table~\ref{tab:input}, all input keywords for the \sharc\ input file are list
   \hline
   rngseed               &\textbf{integer}                    &Seed for the random number generator.\\
                         &\DEFAULT{10997279}                  &{\footnotesize Used for surface hopping and AFSSH decoherence.}\\
+  \hline
   compatibility         &\$1=\DEFAULT{0}                     &Compatibility mode disabled.\\
                         &\$1=1                               &Do not draw a second random number per step (for decoherence).\\
   \hline
@@ -1863,7 +2006,7 @@ In Table~\ref{tab:input}, all input keywords for the \sharc\ input file are list
                         &\$1=parallel\_nac                   &{\footnotesize Only the velocity component in the direction of $\langle\psi_\alpha|\partial/\partial R|\psi_\beta\rangle$ is reflected.}\\
                         &\$1=parallel\_diff                  &{\footnotesize Only the velocity component in the direction of $\Delta\nabla E$ is reflected.}\\
   \hline
-  decoherence\_scheme     &\textbf{string}                     &Method for decoherence correction.\\
+  decoherence\_scheme   &\textbf{string}                     &Method for decoherence correction.\\
                         &\$1\DEFAULT{=none}                  &{\footnotesize No decoherence correction.}\\
                         &\$1=edc                             &{\footnotesize Energy-difference based correction.\cite{Granucci2010JCP}}\\
                         &\$1=afssh                           &{\footnotesize Augmented FSSH.\cite{Jain2016JCTC}}\\
@@ -1882,7 +2025,10 @@ In Table~\ref{tab:input}, all input keywords for the \sharc\ input file are list
                         &\$1=gfsh                            &{\footnotesize Global flux SH hopping probabilities.\cite{Wang2014JCTC}}\\
   \hline
   no\_hops              &                                    &Disables surface hopping.\\
-                        &                                    &{\footnotesize \ttt{no\_hops} takes precedence.}\\
+                        &                                    &{\footnotesize \ttt{no\_hops} takes precedence over \ttt{hopping\_procedure}.}\\
+  \hline
+  force\_hop\_to\_gs    &\textbf{float}                      &Activates forced hops to lowest state.\\
+                        &                                    &{\footnotesize hop is forced if lowest--active energy difference $<\$1$}\\
   \hline
   atommask              &\textbf{string}                     &Activates masking of atoms (for EDC, \ttt{parallel\_vel}).\\
                         &\$1\DEFAULT{=none}                  &{\footnotesize No atoms are masked.}\\
@@ -1916,14 +2062,15 @@ In Table~\ref{tab:input}, all input keywords for the \sharc\ input file are list
   eselect               &\textbf{float}                      &Parameter for selection of gradients and NACs (in eV).\\
                         &\DEFAULT{0.5 eV}                    &\\
   \hline
-  select\_directly      &                                    &Do not do a second QM calculation for gradients and NACs.\\
+  \DEFAULT{select\_directly}      &                                    &Do not do a second QM calculation for gradients and NACs.\\
+  noselect\_directly    &                                    &Do a second QM calculation for gradients and NACs.\\
   \hline
 
 
   \multicolumn{3}{|c|}{\cellcolor{black!10}--- Phase tracking keywords ---}\\
   \hline
   \DEFAULT{track\_phase}&                                    &Track the phase of the transformation matrix $\mathbf{U}$.\\
-  notrack\_phase        &                                    &No phase tracking of $\mathbf{U}$ (only for debugging).\\
+  notrack\_phase        &                                    &No phase tracking of $\mathbf{U}$ (can provide very large speedups in \ttt{pysharc}, but check whether results are affected).\\
   \hline
   \DEFAULT{phases\_from\_interface}   &                      &Request phase information from interface.\\
   nophases\_from\_interface           &                      &Try to recover phase information from QM data.\\
@@ -1980,6 +2127,19 @@ In Table~\ref{tab:input}, all input keywords for the \sharc\ input file are list
   write\_property2d                   &\DEFAULT{on if \ttt{ionization}}                      &Writes 2D properties to \ttt{output.dat}.\\
   nowrite\_property2d                 &                      &\\
   \hline
+  output\_dat\_steps                  &\textbf{integer}      &Determines at which steps \ttt{sharc.x} writes to \ttt{output.dat}.\\
+                                      &\$1 (\DEFAULT{1})     &{\footnotesize Stride for writing to \ttt{output.dat} (default every step).}\\
+                                      &\$2 (\DEFAULT{not given})  &{\footnotesize Step at which stride is switched to \$3.}\\
+                                      &\$3 (\DEFAULT{not given})  &{\footnotesize New stride applied if step $\geq$ \$2.}\\
+                                      &\$4 (\DEFAULT{not given})  &{\footnotesize Step at which stride is switched to \$5.}\\
+                                      &\$5 (\DEFAULT{not given})  &{\footnotesize New stride applied if step $\geq$ \$4.}\\
+                                      &                           &{\footnotesize Always give 1, 3, or 5 arguments.}\\
+  \hline
+  output\_format                      &\textbf{string}           &Format of \ttt{output.dat}.\\
+                                      &\$1=\DEFAULT{ascii}       &{\footnotesize as documented in section~\ref{sec:datfile}.}\\
+                                      &\$1=netcdf                &{\footnotesize as documented in section~\ref{sec:netcdf}.}\\
+                                      &                          &{\footnotesize Also deactivates writing of restart files (except last step) and \ttt{output.xyz}.}\\
+  \hline
 
 
 \end{longtable}
@@ -2004,6 +2164,15 @@ Note that none of the auxiliary scripts adds the \ttt{restart} keyword to the in
 The RNG seed is used to initialize the random number generator, which provides the random numbers for the surface hopping procedure (and the AFSSH decoherence scheme). For details how the seed is used internally, see section~\ref{met:seed}.
 
 Note that in the case of a restart, the random number generator is seeded normally, and then the appropriate number of random numbers is drawn so that the random number sequence is consistent.
+
+\paragraph{Compatibility Mode}
+
+With this keyword, one can activate a compatibility mode that allows reproducing results of older versions of SHARC.
+A value of 0 disables compatibility mode.
+
+Currently, the only other option is a value of 1. 
+In this mode, \ttt{sharc.x} draws only one random number for each step, like it was the case in \sharc\ 1.0 (from \sharc\ 2.0, it draws two random numbers per step, one for hopping and one for decoherence schemes).
+This compatibility mode cannot be combined with the A-FSSH decoherence correction.
 
 \paragraph{Geometry Input}
 
@@ -2076,12 +2245,14 @@ As detailed in~\ref{met:gradtra}, the correct transformation of the gradients to
 
 The keyword \ttt{ekincorrect} controls how the kinetic energy is adjusted after a surface hop to preserve total energy. \ttt{ekincorrect none} deactivates the adjustment, so that the total energy is not preserved after a hop. Using this option, jumps can never be frustrated and are always performed according to the hopping probabilities. 
 Using \ttt{ekincorrect parallel\_vel}, the kinetic energy is adjusted by simply rescaling the nuclear velocities so that the new kinetic energy is $E_{\text{tot}}-E_{\text{pot}}$. Jumps are frustrated if the new potential energy would exceed the total energy.
-Finally, using \ttt{ekincorrect parallel\_nac}, the kinetic energy is adjusted by rescaling the component of the nuclear velocities parallel to the nonadiabatic coupling vector between the old and new state. The hop is frustrated if there is not enough kinetic energy in this direction to conserve total energy. Note that \ttt{ekincorrect parallel\_nac} implies the calculation of the nonadiabatic coupling vector, even if they are not used for the wave function propagation.
+Using \ttt{ekincorrect parallel\_nac}, the kinetic energy is adjusted by rescaling the component of the nuclear velocities parallel to the nonadiabatic coupling vector between the old and new state. The hop is frustrated if there is not enough kinetic energy in this direction to conserve total energy. Note that \ttt{ekincorrect parallel\_nac} implies the calculation of the nonadiabatic coupling vector, even if they are not used for the wave function propagation.
+Finally, using \ttt{ekincorrect parallel\_diff}, the kinetic energy is adjusted by rescaling the component of the nuclear velocities parallel to the difference gradient vector between the old and new state. The hop is frustrated if there is not enough kinetic energy in this direction to conserve total energy. 
 
 The keyword \ttt{reflect\_frustrated} furthermore controls whether the velocities are inverted after a frustrated hop.
 With \ttt{reflect\_frustrated none} (the default), after a frustrated hop, the velocity vector is not modified.
 Using \ttt{reflect\_frustrated parallel\_vel}, the full velocity vector is inverted when a frustrated hop is encountered.
 With the third option, \ttt{reflect\_frustrated parallel\_nac}, only the velocity component parallel to the nonadiabatic coupling vector between the active and frustrated states is inverted. This implies the calculation of the nonadiabatic coupling vector, even if they are not used for the wave function propagation.
+With \ttt{reflect\_frustrated parallel\_diff}, only the velocity component parallel to the gradient difference vector between the active and frustrated states is inverted.
 
 \paragraph{Decoherence Correction Scheme}
 
@@ -2104,6 +2275,15 @@ With the default, \ttt{hopping\_procedure sharc}, the standard hopping probabili
 Alternatively, one can use the global flux surface hopping scheme~\cite{Wang2014JCTC}, which might be advantageous in super-exchange situations.
 
 One can also turn off surface hopping with the \ttt{no\_hops} keyword.
+
+\paragraph{Forced Hops to Ground State}
+
+With this option, one can force \sharc\ to hop from the active to the lowest state if the energy gap between these two states falls below a certain threshold. 
+The threshold is given as argument to the \ttt{force\_hop\_to\_gs} keyword (in eV).
+This option is useful for single-reference methods that fail to converge if the ground state-excited state energy gap becomes too small.
+c
+Note that this option forces hops from any higher-lying state to the lowest, independent whether there are other states between the active and the lowest state.
+Also note that once in the lowest state, hopping is completely forbidden if this option is active.
 
 \paragraph{Atom Masking}
 
@@ -2132,14 +2312,18 @@ Selection of gradients is activated by \ttt{grad\_select}, selection for nonadia
 
 The selection procedure picks only states which are closer in energy to the classically occupied state than a given threshold. The threshold is 0.5~eV by default and can be adjusted using the \ttt{eselect} keyword.
 
-By default, if \sharc\ performs such selection it will do two quantum chemistry calls per time step. In the first call, all quantities are requested except for the ones to be selected. The energies are used to determine which gradients and NACs to calculate in a second quantum chemistry call. The keyword \ttt{select\_directly} tells \sharc\ instead to use the energies of the last time step, so that only one call per time step is necessary.
+Since \sharc2.1, by default the \ttt{select\_directly} keyword is active, which tells \sharc\ to use the energies of the last time step for selecting, so that only one call per time step is necessary.
+The alternative (keyword \ttt{noselect\_directly}) is to perform two quantum chemistry calls per time step. In the first call, all quantities are requested except for the ones to be selected. The energies are used to determine which gradients and NACs to calculate in a second quantum chemistry call.
+The option \ttt{select\_directly} is strongly recommended in almost all instances, since for most quantum chemistry programs it is not possible to make sure that the wave function phases from both calls are consistent.
+Additionally, for all interfaces the calculation becomes more expensive with two calls per step.
+
 
 \paragraph{Phase Tracking}
 
 Phase tracking is an important ingredient in \sharc. It is necessary for two reasons: (i) the columns of the transformation matrix $\VEC{U}$ are determined only up to an arbitrary phase factor $\mathrm{e}^{\mathrm{i}\phi}$ (and additional mixing angles in case of degeneracy), and (ii) the wave functions produced by any quantum chemistry code are determined only up to an arbitrary sign.
 Both kind of phases need to be tracked in \sharc\ in order to obtain smoothly varying matrix elements which can be properly integrated.
 
-By default, \sharc\ automatically tracks the phases in the $\VEC{U}$ matrix (explicit keyword: \ttt{track\_phase}), because all required information is always available. This phase tracking can be deactivated with the \ttt{notrack\_phase} keyword, but this option should only be used for debugging purposes.
+By default, \sharc\ automatically tracks the phases in the $\VEC{U}$ matrix (explicit keyword: \ttt{track\_phase}), because all required information is always available. This phase tracking can be deactivated with the \ttt{notrack\_phase} keyword, which can provide a significant speed advantage for \ttt{pysharc} calculations. However, you should check whether your results are affected by \ttt{notrack\_phase}, and revert to \ttt{track\_phase} if they do.
 
 The tracking of the wave function signs depends on the interfaces, because only they have access to the explicit form of the wave functions. \sharc\ by default (explicit keyword: \ttt{phases\_from\_interface}) requests that the interface tracks the signs and reports any sign changes to \sharc. Currently, all interfaces can provide this phase information, but all of them need to perform overlap calculations to do so. The \ttt{nophases\_from\_interface} keyword can be used to deactivate these requests.
 
@@ -2176,6 +2360,29 @@ These keywords are \ttt{write\_grad}, \ttt{write\_nacdr}, \ttt{write\_overlap}, 
 Only \ttt{write\_overlap} is activated by default, because it does not enlarge the data file by much, and contains important information which is read by \ttt{data\_extractor.x}.
 \ttt{write\_grad} and \ttt{write\_nacdr} are turned off by default; they are primarily intended for users who want to keep all quantum chemical data, e.g., for training in machine learning.
 The keywords \ttt{write\_property1d} and \ttt{write\_property2d} are automatically activated if \ttt{theodore} or \ttt{ionization} (respectively) are activated.
+
+\paragraph{Output writing stride}
+
+The keyword \ttt{output\_dat\_steps} can be used to control how often data is written to \ttt{output.dat}.
+This is useful to reduce the amount of data generated by long trajectories (e.g., with the LVC or Analytical interfaces).
+
+In the simplest version, using \ttt{output\_dat\_steps N} will set the output stride to \ttt{N}, so that \ttt{output.dat} is updated every \ttt{N}-th step (i.e., if step modulo \ttt{N} is equal to zero).
+The default is to write every step.
+Because in nonadiabatic dynamics, usually ballistic processes occur rapidly in the beginning and statistical processes occur slowly for longer times, this keyword allows printing more often in the beginning and less often for longer times.
+To use this feature, write \ttt{output\_dat\_steps N1 M2 N2}, which will use \ttt{N1} as the stride if step is larger or equal to zero, and \ttt{N2} as the stride if step is larger or equal to \ttt{M2}.
+One can also use three different strides via \ttt{output\_dat\_steps N1 M2 N2 M3 N3}, but not more than three.
+
+Note that for these numbers \ttt{sharc.x} enforces \ttt{N}$\geq$1 and \ttt{M}$\geq$0, but no particular ordering.
+Hence, it is possible to use longer strides in the beginning and smaller strides later, although this is rarely useful.
+If step is larger/equal to both \ttt{M2} and \ttt{M3}, then \ttt{N3} will be used.
+
+Also note that the data written to \ttt{output.dat} is always simply the data for the respective time step, no average over the last \ttt{N} steps.
+This needs to be kept in mind when analyzing the trajectory plots.
+
+\paragraph{Output format}
+
+See sections~\ref{sec:datfile} and \ref{sec:netcdf} for details.
+
 
 
 
@@ -2451,11 +2658,41 @@ The entry for each time step contains:
   \item nonadiabatic coupling vectors (only if flag is set).
 \end{enumerate}
 
+\section{Data file in NetCDF format}\label{sec:netcdf}
+
+If \ttt{output\_format} is set to \ttt{netcdf}, then only the header will be written to the \ttt{output.dat} file, but no information per time step.
+The latter is instead written in (binary) NetCDF format to \ttt{output.dat.nc}.
+
+This option is intended to provide faster output for fast simulations with \ttt{pysharc}.
+However, it is also an option that leads to less disk memory consumption, and can be used with \ttt{sharc.x}.
+To this end, \ttt{output\_format}=\ttt{netcdf} also deactivates writing of the \ttt{output.xyz} file.
+Also, when NetCDF files are written, no restart files are produced, except on the last time step or in case of errors.
+
+NetCDF output files can be extracted with \ttt{data\_extractor\_NetCDF.x} (see section~\ref{sec:data_extractor_NetCDF.x}).
+This program can also generate the \ttt{output.xyz} for further analysis.
+
+Currently, there are a few limitations in this approach.
+Most importantly, the NetCDF files do not store the property vectors and property matrices that can be stored in the \ttt{output.dat} files.
+Hence, computations with the \ttt{ionization} or \ttt{theodore} keywords should not use the NetCDF format.
+
+
+
+The program \ttt{data\_converter.x} (see section~\ref{sec:data_converter.x}) can be used to convert a \ttt{output.dat} file into a NetCDF file.
+This can be useful when archiving an ensemble of trajectories, as the NetCDF files are much smaller than the ASCII files.
+Note that after conversion, the \ttt{output.xyz} files can be deleted, as they can be regenerated from the NetCDF file.
+
+
+% ========================================================================================================= %
+
+
 \section{XYZ file}\label{sec:xyzfile}
 
 The file \ttt{output.xyz} contains the geometries of all time steps in standard xyz file format. It can be used with visualization programs like \textsc{Molden}, \textsc{Gabedit} or \textsc{Molekel} to create movies of the molecular motion, or with \ttt{geo.py} (see~\ref{sec:geo.py}) to calculate internal coordinates for each time step. Furthermore, \ttt{trajana\_nma.py} (see~\ref{sec:trajana_nma.py}) and \ttt{trajana\_essdyn.py} (see~\ref{sec:trajana_essdyn.py}) read this file.
 
 The comments of the geometries (given in the second line of each geometry block) contain information about the simulation time and the active state (first in diagonal basis, then in MCH basis).
+
+If  \ttt{output\_format}=\ttt{netcdf}, the \ttt{output.xyz} file will be empty.
+Use \ttt{data\_extractor\_NetCDF.x} with the \ttt{-xyz} flag to obtain the \ttt{output.xyz} file.
 
 
 % ========================================================================================================= %
@@ -2774,13 +3011,15 @@ Table~\ref{tab:interface_files} shows the file names for interface-related input
     SA-CASSCF   &\textsc{Molpro}      &any     &\chk        &\chk        &\chk        &\chk        &\chk    &         &\chk &            &     \\
                 &\textsc{Molcas}      &any     &\chk        &\chk        &\chk        &            &\chk    &\chk$^d$ &\chk &            &\chk \\
                 &\textsc{Columbus}    &any     &\chk$^e$    &\chk        &\chk        &\chk$^e$    &\chk    &         &\chk &            &     \\
+                &\textsc{Bagel}       &any     &            &\chk        &\chk        &\chk        &\chk    &         &\chk &            &     \\
     MR-CISD     &\textsc{Columbus}    &any     &\chk$^e$    &\chk        &\chk        &\chk$^e$    &\chk    &         &\chk &            &     \\
     MS-CASPT2   &\textsc{Molcas}      &any     &\chk        &\chk        &\chk$^d$    &            &\chk    &\chk$^d$ &\chk &            &     \\
+    XMS-CASPT2  &\textsc{Bagel}       &any     &            &\chk        &\chk        &\chk        &\chk    &         &\chk &            &     \\
     TD-DFT      &\textsc{ADF}         &any     &\chk$^f$    &\chk$^g$    &\chk        &            &\chk    &         &\chk &\chk        &\chk \\
                 &\textsc{Gaussian}    &any     &            &\chk$^g$    &\chk        &            &\chk    &         &\chk &\chk        &     \\
                 &\textsc{Orca}        &any     &\chk$^f$    &\chk$^g$    &\chk        &            &\chk    &         &\chk &\chk        &\chk \\
-    ADC2        &\textsc{Turbomole}   &S, T    &\chk$^f$    &\chk        &\chk        &            &\chk    &         &     &\chk        &     \\
-    CC2         &\textsc{Turbomole}   &S, T    &            &\chk$^g$    &\chk        &            &\chk    &         &     &\chk        &     \\
+    ADC2        &\textsc{Turbomole}   &S, T    &\chk$^f$    &\chk        &\chk        &            &\chk    &         &     &\chk        &\chk \\
+    CC2         &\textsc{Turbomole}   &S, T    &            &\chk$^g$    &\chk        &            &\chk    &         &     &\chk        &\chk \\
     Analytical  &---                  &any     &\chk        &\chk        &\chk        &            &\chk    &\chk     &     &            &     \\
     LVC         &---                  &any     &\chk        &\chk        &\chk        &\chk        &\chk    &         &     &            &     \\
     \hline
@@ -2814,15 +3053,17 @@ Table~\ref{tab:interface_files} shows the file names for interface-related input
                         &                          &                          &\ttt{mocoef\_mc.init.<job>}     &\\
                         &                          &                          &\ttt{molcas.RasOrb.init}        &\\
                         &                          &                          &\ttt{molcas.RasOrb.init.<job>}  &\\
+    \textsc{Bagel}      &\ttt{BAGEL.template}      &\ttt{BAGEL.resources}     &\ttt{archive.<mult>.init}       &\\
     \textsc{ADF}        &\ttt{ADF.template}        &\ttt{ADF.resources}       &\ttt{ADF.t21.<job>.init}        &\ttt{ADF.qmmm.table}\\
                         &                          &                          &                                &\ttt{ADF.qmmm.ff}\\
     \textsc{Gaussian}   &\ttt{GAUSSIAN.template}   &\ttt{GAUSSIAN.resources}  &\ttt{GAUSSIAN.chk.init}         &\\
                         &                          &                          &\ttt{GAUSSIAN.chk.<job>.init}   &\\
-    \textsc{Orca}       &\ttt{ORCA.template}       &\ttt{ORCA.resources}      &\ttt{ORCA.gbw.init}             &\\
-                        &                          &                          &\ttt{ORCA.gbw.<job>.init}       &\\
-    \textsc{Turbomole}  &\ttt{RICC2.template}      &\ttt{RICC2.resources}     &\ttt{mos.init}                  &\\
-    Analytical          &\ttt{Analytical.template} &N/A                       &N/A                             &\\
-    LVC                 &\ttt{LVC.template}        &N/A                       &N/A                             &\\
+    \textsc{Orca}       &\ttt{ORCA.template}       &\ttt{ORCA.resources}      &\ttt{ORCA.gbw.init}             &\ttt{ORCA.qmmm.table}\\
+                        &                          &                          &\ttt{ORCA.gbw.<job>.init}       &\ttt{ORCA.qmmm.ff}\\
+    \textsc{Turbomole}  &\ttt{RICC2.template}      &\ttt{RICC2.resources}     &\ttt{mos.init}                  &\ttt{RICC2.qmmm.table}\\
+                        &                          &                          &                                &\ttt{RICC2.qmmm.ff}\\
+    Analytical          &\ttt{Analytical.template} &N/A                       &N/A                             &N/A\\
+    LVC                 &\ttt{LVC.template}        &N/A                       &N/A                             &N/A\\
     \hline
   \end{tabular}
 \end{table}
@@ -2865,6 +3106,10 @@ Time-derivative couplings (NACDT) are not supported anymore in the \sharc-\texts
 Wavefunction phases between the CASSCF and MRCI wave functions are automatically adjusted.
 The interface can trivially parallelize the computation of gradients and coupling vectors over several processors.
 Execution of parallel \textsc{Molpro} binaries is currently not supported.
+
+\textbf{Important note:} It appears that in some cases the sign of the nonadiabatic coupling vectors randomly changes along a trajectory ran with \textsc{Molpro}, and that it is not possible to identify this sign change from the MO and CI coefficients.
+Hence, propagation with \ttt{coupling nacdr} is currently discouraged for the \sharc-\textsc{Molpro} interface.
+Alternative possibilities to run \sharc-CASSCF dynamics with nonadiabatic coupling vectors are given by the \textsc{Molcas} (section~\ref{sec:int:molcas}) and \textsc{Bagel} (section~\ref{sec:int:bagel}) interfaces.
 
 The \sharc-\textsc{Molpro} interface needs two additional input files, which should be present in \ttt{QM/}. Those input files are \ttt{MOLPRO.resources}, which contains, e.g., the paths to \textsc{Molpro} and the scratch directory, and \ttt{MOLPRO.template}, which is a keyword-argument input file specifying the CASSCF level of theory. 
 If \ttt{QM/wf.init} is present, it will be used as a \textsc{Molpro} wave function file containing the initial MOs.
@@ -2947,7 +3192,7 @@ A fully commented resource file for this interface with all possible options is 
   \hline
   Keyword       &Description\\
   \hline
-  molpro          &Is followed by a string giving the path to the \textsc{Molpro} executable. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. \\
+  molpro          &Is followed by a string giving the path to the \textsc{Molpro} directory. This directory should contain the executable \ttt{molpro.exe}. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. \\
   scratchdir      &Is a path to the temporary directory. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. If the directory does not exist, the interface will create it. In any case, the interface will delete this directory after the calculation.\\
   savedir         &Is a path to another temporary directory.  Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. The interface will store files needed for restart there.\\
   memory        &(int) Memory for \textsc{Molpro} and \textsc{WFoverlap} in MB.\\
@@ -3101,8 +3346,10 @@ Note that the scratch directory will be deleted after the calculation, only the 
 The \sharc-\textsc{Molcas} interface can be used to conduct excited-state dynamics based on \textsc{Molcas}' CASSCF wave functions, and with CASPT2 or MS-CASPT2 energies (and numerical gradients). 
 RASSCF wave functions are not supported currently. 
 It is important to note that currently, \sharc\ was only tested to work with \textsc{Openmolcas} 18, which is freely available.
-Some versions of \textsc{Molcas} 8 might also work, but no guarantee is given.
-Note that within this Manual, \textsc{Molcas} and \textsc{Openmolcas} are used synonymously.
+\textsc{Molcas} versions 8.3 and 8.4 should also work, but no guarantee is given.
+Note that within this Manual, \textsc{Molcas} and \textsc{Openmolcas} are used synonymously, because from \sharc's viewpoint, they only differ in the driver program (\ttt{pymolcas} or \ttt{molcas.exe}).
+
+\textbf{Important note:} please make sure that a copy of the respective driver program (\ttt{pymolcas} or \ttt{molcas.exe}) is located in the \ttt{\$MOLCAS/bin/} directory, as the interface will search this directory for these programs to distinguish between \textsc{Molcas} and \textsc{Openmolcas}.
 
 The interface uses the modules GATEWAY, SEWARD (integrals), RASSCF (wave function, energies), RASSI (transition dipole moments, spin-orbit couplings, overlaps), MCLR, and ALASKA (gradients). 
 For CASPT2 and MS-CASPT2, numerical gradients can be calculated, where the interface itself controls the calculations at the displaced geometries. 
@@ -3173,8 +3420,8 @@ A fully commented resource file for this interface with all possible options is 
   \hline
   Keyword       &Description\\
   \hline
-molcas          &Is the path to the \textsc{Openmolcas} installation. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. The interface will set \ttt{\$MOLCAS} to this path. If this keyword is not present in \ttt{MOLCAS.resources}, the interface will use the environment variable \ttt{\$MOLCAS}, if it is set.\\
-tinker          &The path to the \textsc{Tinker} installation, usable with \textsc{Molcas}.\\
+molcas          &Is the path to the \textsc{Openmolcas} installation. This directory should contain subdirectories like \ttt{bin/}, \ttt{basis\_library/}, \ttt{data/}, or \ttt{lib/}. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. The interface will set \ttt{\$MOLCAS} to this path. If this keyword is not present in \ttt{MOLCAS.resources}, the interface will use the environment variable \ttt{\$MOLCAS}, if it is set.\\
+tinker          &The path to the \textsc{Tinker} installation directory, usable with \textsc{Molcas}. This directory should contain the \ttt{bin/} subdirectory.\\
 wfoverlap       &Is the path to the \textsc{WFoverlap} executable. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. Only needed for Dyson norm calculations.\\
 scratchdir      &Is a path to the temporary directory. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. If it does not exist, the interface will create it. In any case, the interface will delete this directory after the calculation.\\
 savedir         &Is a path to another temporary directory.  Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. The interface will store files needed for restart there.\\
@@ -3390,7 +3637,7 @@ A fully commented resource file with all possible options is located in \ttt{\$S
   \endlastfoot
 }
 
-columbus        &Path to the \textsc{Columbus} main directory. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used.\\
+columbus        &Path to the \textsc{Columbus} main directory.This directory should contain executables like \ttt{runc}, \ttt{mcscf.x}, \ttt{cidrt.x}, or \ttt{ciudg.x}. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used.\\
 molcas          &Path to the \textsc{Molcas} main directory.  Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. This path is only used for overlap/Dyson calculations (since in this case the interface calls \textsc{Molcas} explicitly). Otherwise \textsc{Columbus} will use the path to \textsc{Molcas} specified during the installation of \textsc{Columbus}.\\
 wfoverlap       &Path to the wave function overlap and Dyson norm code. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. Only necessary if overlaps or Dyson norms are calculated. Needs a suitable code that computes overlaps of CI wave functions.\\
 runc            &Path to the \ttt{runc} script for \textsc{Columbus} execution. Default is \ttt{\$COLUMBUS/runc}. This keyword is intended for users who like to modify \ttt{runc}.\\
@@ -3579,15 +3826,20 @@ The \sharc-ADF interface allows to run \sharc\ simulations with ADF's TD-DFT fun
 The interface is compatible with restricted and unrestricted ground states, but not with symmetry.
 Spin-orbit couplings are obtained with the perturbative ZORA formalism, and wave function overlaps from the \textsc{WFoverlap} code are available (but no nonadiabatic couplings).
 Dyson norms can also be computed through the \textsc{WFoverlap} code.
-\textsc{TheoDORE} can be used to perform automatic wave function analysis.
+\textsc{TheoDORE} (version 2.0 and higher) can be used to perform automatic wave function analysis.
 QM/MM is possible through ADF's internal implementation, but only mechanical embedding is currently available in ADF.
 
 The interface needs two additional input files, a template file for the quantum chemistry (file name is \ttt{ADF.template}) and a resource file (\ttt{ADF.resources}). 
 If files \ttt{QM/ADF.t21.<job>.init} are are present, they are used to provide an initial orbital guess for the SCF calculation of the respective job.
 
-Before running the ADF interface, it is necessary to source one of the \ttt{adfrc} files, so that Python can find the \ttt{kf} module of ADF.
+Before running the ADF interface, it is necessary to source one of the \ttt{adfrc} files, so that Python can find the \ttt{KFFile} module of ADF.
 
-Note that for full functionality of the interface, a very new ADF version is necessary. The computation of wave function overlaps requires at least ADF2017 (Dyson norms work with older ADF). Using the \ttt{dvd\_residu} or \ttt{qmmm\_coupling 2} options (see below) requires at least ADF2017.207 or ADF2018. Using \ttt{rihartreefock} (see below) requires at least ADF2016. 
+Note that since \sharc2.1, only ADF2019 and newer are supported by \ttt{SHARC\_ADF.py}, because older ADF versions do not ship with the \ttt{KFFile} module.
+Also note that \ttt{KFFile} requires Python~3 (version 3.5 or higher), hence \ttt{SHARC\_ADF.py} is a Python~3 script, unlike every other script in the \sharc\ package.
+
+% Note that for full functionality of the interface, a very new ADF version is necessary. The computation of wave function overlaps requires at least ADF2017 (Dyson norms work with older ADF). Using the \ttt{dvd\_residu} or \ttt{qmmm\_coupling 2} options (see below) requires at least ADF2017.207 or ADF2018. Using \ttt{rihartreefock} (see below) requires at least ADF2016. 
+
+
 
 \subsection{Template file: \ttt{ADF.template}}
 
@@ -3656,13 +3908,15 @@ cpks\_eps               &Followed by a float (default 0.0001) giving the converg
 \\
 no\_tda                 &This keyword deactivates TDA, which the interface requests by default.
 \\
+fullkernel              &Uses the full (non-ALDA) kernel in TDDFT. Not compatible with gradients, and automatically activates \ttt{functional\_xcfun}.
+\\
 paddingstates           &Followed by a list of integers, which give the number of extra states to compute by ADF, but which are neglected in the output. Should not be changed between time steps, as this will break ADF's restart routines.
 \\
 dvd\_vectors            &Number of Davidson vectors. Default: min(40,nstates+40).
 \\
 dvd\_tolerance          &Energy convergence criterion for the excited states (in Hartree).
 \\
-dvd\_residu             &Residual norm convergence criterion for the excited states. Only works for ADF version $\geq$2017.207 or ADF2018.
+dvd\_residu             &Residual norm convergence criterion for the excited states. %Only works for ADF version $\geq$2017.207 or ADF2018.
 \\
 dvd\_mblocksmall        &Activates the \ttt{mblocksmall} keyword in the ADF input. This undocumented keyword changes how the Davidson algorithm works. In reduces computation time, but might lead to incomplete convergence in certain cases.
 \\
@@ -3672,7 +3926,8 @@ modifyexcitations       &Followed by an integer, indicating that excitation shou
 \\
 qmmm                    &Activates QM/MM. In this case, the interface will look for two additional input files (see below).
 \\
-qmmm\_coupling          &Followed by an integer (1=mechanical embedding, 2=electrostatic embedding). Default is 1, option 2 only works for ADF version $\geq$2017.207 or ADF2018.\\
+qmmm\_coupling          &Followed by an integer (1=mechanical embedding, 2=electrostatic embedding). Default is 2.
+\\
   \hline
   \end{tabular}
 \end{table}
@@ -3692,7 +3947,7 @@ A fully commented resource file with all possible options and comprehensive desc
   \hline
   Keyword       &Description\\
   \hline
-adfhome                 &Is the path to the \textsc{ADF} installation. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. The interface will set \ttt{\$ADFHOME} to this path, and will set the \ttt{\$ADFBIN}.
+adfhome                 &Is the path to the \textsc{ADF} installation. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. The interface will set \ttt{\$ADFHOME} to this path, and will also set \ttt{\$ADFBIN} to \ttt{\$ADFHOME/bin/}.
 \\
 scmlicense              &Is the path to the \textsc{ADF} license file. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. 
 \\
@@ -3713,6 +3968,8 @@ delay                   &Followed by a float giving the delay in seconds between
 qmmm\_table             &Followed by the path to the connection table file, in ADF format.
 \\
 qmmm\_ff\_file          &Followed by the path to the force field file, in Amber95-like format for ADF.
+\\
+neglected\_gradient     &Decides how not-requested gradients are reported back (Options: \ttt{zero}: default, not-requested gradients are zero; \ttt{gs}: not-requested gradients are equal to ground state gradient; \ttt{closest}: not-requested gradients are equal to closest-energy requested gradient).
 \\
 wfoverlap               &Path to the \textsc{WFoverlap} code. Needed for overlap and Dyson norm calculations.
 \\
@@ -3753,8 +4010,10 @@ The second keyword is the parallel fraction from Amdahl's Law, see Section~\ref{
 With a value close to zero, the interface will try to run all jobs at the same time. With values close to one, jobs will be run sequentially with the maximum number of cores.
 Typical values for \ttt{schedule\_scaling} are 0.95 for GGA functionals, 0.75 for hybrid functionals, and 0.90 for hybrid functions in combination with the \ttt{rihartreefock} option.
 
-Note that it is very advantageous to set \ttt{schedule\_scaling} appropriately if the ADF installation is older than version 2017.207, because in this case all gradients need to be done in separate ADF runs, leading to a relatively large number of ADF runs.
-If one uses ADF2018 (or ADF$\geq$2017.207), then multiple gradients can be computed in one ADF run, so that in many cases only one ADF run is carried out and \ttt{schedule\_scaling} becomes irrelevant.
+Note that when using ADF2019 or newer, multiple gradients can be computed in a single ADF run, so that there will be multiple jobs to schedule only if including several multiplicities (beyond singlet plus triplet).
+If only a single multiplicity is computed (or singlets plus triplets), then the \ttt{schedule\_scaling} keyword does not have any effect.
+% Note that it is very advantageous to set \ttt{schedule\_scaling} appropriately if the ADF installation is older than version 2017.207, because in this case all gradients need to be done in separate ADF runs, leading to a relatively large number of ADF runs.
+% If one uses ADF2018 (or ADF$\geq$2017.207), then multiple gradients can be computed in one ADF run, so that in many cases only one ADF run is carried out and \ttt{schedule\_scaling} becomes irrelevant.
 
 
 
@@ -3890,6 +4149,7 @@ In this case, the \ttt{LINK\_BONDS} section needs to be added:
 \end{example}
 Note how the \ttt{MM\_CONNECTION\_TABLE} block is terminated by \ttt{subend} and then the \ttt{LINK\_BONDS} section starts; the \ttt{LINK\_BONDS} section is not terminated by \ttt{subend} because the interface adds a \ttt{subend} after the file content.
 Within the \ttt{LINK\_BONDS} section, each line has the following structure: (i) atom index of the \ttt{LI} atom; (ii) a \ttt{-} separated by spaces; (iii) atom index of a \ttt{QM} atom bonded to the link atom; (iv) a floating point number giving the parameter $f$; (v) the atomic fragment type of the atom which replaces the \ttt{LI} atom in the QM calculation; (vi) the MM atom type of the replacing atom.
+Note that for ADF the order of (i) and (iii) does not matter, but it does for the interface, and giving the atom index of the \ttt{QM} atom first will currently lead to an error.
 Given these parameters, internally ADF will replace the \ttt{LI} atom by an atom of the specified atomic fragment type, which will be placed on the \ttt{QM}--\ttt{LI} bond where the new bond length is the old bond length divided by $f$.
 
 The file can also be used to override the MM charges for specific atoms:
@@ -3915,6 +4175,9 @@ The same rules regarding the \ttt{subend} as above apply.
 \subsection{Input file generator: \ttt{ADF\_input.py}}\label{sec:ADF_input.py}
 
 In order to quickly setup simple calculations using ADF, the \sharc\ suite contains a small script called \ttt{ADF\_input.py}. It can be used to setup single point calculations, optimizations, and frequency calculations on the DFT and TD-DFT level of theory. Of course, ADF has far more capabilities, but these are not covered by \ttt{ADF\_input.py}. For more complicated inputs, users should manually adjust the generated input or employ \ttt{adfinput}.
+
+Note that the script cannot write template files for \ttt{SHARC\_ADF.py}.
+These templates can better be created by modifying the example template file in \ttt{\$SHARC/../examples/SHARC\_ADF/ADF.template}.
 
 The script interactively asks the user to specify the calculation and writes an input file and optionally a run script.
 
@@ -3967,6 +4230,8 @@ However, the data in \ttt{TAPE21} has a higher numeric precision, so it is recom
 In any case, a file called \ttt{<filename>.molden} is written, containing the frequencies and normal modes.
 This file can then be used with \ttt{wigner.py}.
 
+Note that in \sharc2.1, this script was changed to use the \ttt{KFFile} library of ADF, meaning that (like \ttt{SHARC\_ADF.py}, you will need ADF2019 or newer and Python 3.5 or higher to run it.
+
 
 % ========================================================================================================= %
 
@@ -3977,10 +4242,14 @@ The interface uses the programs \ttt{define}, \ttt{dscf} and \ttt{ricc2}.
 For spin-orbit couplings, \textsc{Orca} needs to be installed in addition to \textsc{Turbomole}.
 Only ADC(2) can be used to calculate spin-orbit couplings, but not CC2 (hence, it is not recommended to perform CC2 calculations with both singlet and triplet states).
 Even with ADC(2), only singlet-triplet SOCs are obtained, but no triplet-triplet SOCs; $S_0$-triplet SOCs are also missing currently.
+\textsc{TheoDORE} (version 2.0 and higher) can be used to perform automatic wave function analysis.
 Wavefunction overlaps are calculated using the \textsc{WFoverlap} code of the Gonz\'alez group.\cite{Plasser2016JCTC}
+
+The \sharc-\textsc{Ricc2} interface furthermore allows to perform QM/MM dynamics (ADC(2) or CC2 plus force fields), using \textsc{Tinker} for the MM part.
 
 The interface needs two additional input files, a template file for the quantum chemistry (file name is \ttt{RICC2.template}) and a general input file (\ttt{RICC2.resources}). 
 If a file \ttt{QM/mos.init} is are present, it is used to provide an initial orbital guess for the SCF calculation.
+In the case of QM/MM calculations, two more input files are needed: an \textsc{Amber}95 force field file, and \ttt{RICC2.qmmm.table}, which contains the connectivity and force field IDs per atom.
 
 
 \subsection{Template file: \ttt{RICC2.template}}
@@ -4005,6 +4274,7 @@ douglas-kroll   &Activates the use of the scalar-relativistic DK Hamiltonian of 
 spin-scaling    &Followed by a string, which is either ``none'', ``scs'' or ``sos''. Using these options, spin-component scaling can be activated. Under certain restrictions (no SOC, no transition dipole moments, no SMP), ``lt-sos'' can be used to perform cheaper ``sos'' calculations.\\
 scf             &Followed by a string which is either ``dscf'' or ``ridft''. Using this option, the SCF program can be chosen. Note that currently, there is no advantage of using ``ridft''.\\
 frozen          &Followed by an integer giving the number of frozen core orbitals in the \ttt{ricc2} calculations. Default is to use frozen core orbitals and let \ttt{define} decide on the number. If frozen core is not wanted, use \ttt{frozen 0} in the template.\\
+qmmm            &Activates QM/MM with electrostatic embedding.\\
   \hline
   \end{tabular}
 \end{table}
@@ -4037,8 +4307,9 @@ A fully commented resource file with all possible options is located in \ttt{\$S
   \hline
   Keyword       &Description\\
   \hline
-turbodir        &Is the path to the \textsc{Turbomole} installation. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. The interface will set \ttt{\$TURBODIR} to this path, and will set the \ttt{\$PATH} correctly (using \textsc{Turbomole}'s \ttt{sysname} tool. If this keyword is not present in \ttt{RICC2.resources}, the interface will use the environment variable \ttt{\$TURBODIR}, if it is set.\\
-orcadir         &Is the path to the \textsc{Orca} installation, which is necessary when spin-orbit couplings are calculated. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. If this keyword is not present in \ttt{RICC2.resources}, the interface will use the environment variable \ttt{\$ORCADIR}, if it is set.\\
+turbodir        &Is the path to the \textsc{Turbomole} installation directory. This directory should contain subdirectories like \ttt{bin/}, \ttt{basen/}, \ttt{cbasen/}, or \ttt{scripts/}. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. The interface will set \ttt{\$TURBODIR} to this path, and will set the \ttt{\$PATH} correctly (using \textsc{Turbomole}'s \ttt{sysname} tool. If this keyword is not present in \ttt{RICC2.resources}, the interface will use the environment variable \ttt{\$TURBODIR}, if it is set.\\
+orcadir         &Is the path to the \textsc{Orca} installation, which is necessary when spin-orbit couplings are calculated. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. If this keyword is not present in \ttt{RICC2.resources}, the interface will use the environment variable \ttt{\$ORCADIR}, if it is set. Note that it is possible that \textsc{Orca}~4.1 or later will not be compatible with mkl files written by \textsc{Turbomole}, so that an older \textsc{Orca} version is required.\\
+tinker                  &The path to the \textsc{Tinker} installation directory. This directory should contain the \ttt{bin/} subdirectory.\\
 scratchdir      &Is a path to the temporary directory. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. If it does not exist, the interface will create it. In any case, the interface will delete this directory after the calculation.\\
 savedir         &Is a path to another temporary directory.  Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. The interface will store files needed for restart there.\\
 memory          &The memory usable by \textsc{Turbomole} and \textsc{WFoverlap}. The default is 100~MB.\\
@@ -4076,44 +4347,57 @@ However, the computation time also depends on whether or not spin-orbit coupling
 
 
 
-% ========================================================================================================= %
 
+\subsection{QM/MM force field file}
+
+These force field files should have the format that can be found in the \textsc{Tinker} directory.
+
+
+
+\subsection{QM/MM connection table file: \ttt{RICC2.qmmm.table}}
+
+This file defines which atoms are in the QM or MM region, the atom types (for \textsc{Tinker}), and the connectivity.
+Note that the \sharc-\textsc{Ricc2} interface uses newly developed routines to setup QM/MM calculations and communicate with \textsc{Tinker}, so this file is not identical to the table files of the ADF or \textsc{Molcas} interfaces (it uses the same routines as the \sharc-\textsc{Orca} interface).
+
+A sample looks like:
+
+\begin{example}
+\begin{verbatim}
+QM    223        
+QM    222        1  3  4
+QM    136        
+QM     80        
+MM     63        6 7
+MM     64       
+MM     64       
+\end{verbatim}
+\end{example}
+
+Each line corresponds to one atom.
+The example has 7 atoms, the first four in the QM region and the three last ones in the MM region.
+The second column defines the atom types according to the numbering in the used force field file.
+The integers to the right define the connectivity. 
+Note that the interface automatically adds any necessary redundancy to the connectivity table, so it is enough in the table file to define a bond once.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+% ========================================================================================================= %
+\tthdump{\FloatBarrier}
 \section{LVC Interface}\label{sec:int:lvc}
 
 The purpose of the LVC interface is to allow performing computationally efficient dynamics using a linear vibronic coupling (LVC) model \cite{Koeppel84ACP}.
-In the vibronic coupling model the diabatic energy and coupling matrix $\mathbf{V}$ is constructed as
-\begin{equation}
-\label{eq:V}
-\mathbf{V}=
-V_0\mathbf{1}+\mathbf{W}
-\end{equation}
-
-To construct these matrices, the Cartesian coordinate displacements $r_{\alpha}$ (relative to a reference geometry) are first converted to dimensionless mass-frequency scaled normal coordinates, which are given as
-%
-\begin{equation}
-\label{eq:Qi}
-Q_i=\sqrt{\omega_i}\sum_\alpha K_{\alpha i}\sqrt{M_\alpha}r_{\alpha}
-\end{equation}
-%
-where $\omega_i$ is the frequency of normal mode $i$, $M_\alpha$ is an atomic mass, and $K_{\alpha i}$ denotes the conversion matrix between mass-weighted Cartesian and normal coordinates.
-Using these coordinates, the harmonic ground state potential is given as
-%
-\begin{equation}
-\label{eq:V0Qi}
-V_0= \sum_i \dfrac{\omega_i}{2}Q_i^2
-.
-\end{equation}
-%
-In the case of the linear vibronic coupling model, one additionally considers the following state-specific terms that constitute the $\mathbf{W}$ matrix.
-%
-\begin{align}
-\label{eq:Wnn}
-W_{nn}&=\epsilon_n + \sum_i\kappa_i^{(n)}Q_i\\
-\label{eq:Wmn}
-W_{mn}&=\eta_{mn}+\sum_j\lambda_j^{(m,n)}Q_j
-\end{align}
-%
-Here the $\epsilon_n$ are the vertical excitation energies, the $\eta_{mn}$ are the SOC constants, and the $\kappa_i^{(n)}$ and $\lambda_j^{(m,n)}$ are termed intrastate and interstate vibronic coupling constant \cite{Koeppel84ACP}.
+The relevant equations can be found in section~\ref{met:lvc}.
 
 \subsection{Input files}
 
@@ -4186,10 +4470,9 @@ DMZ I
 \end{verbatim}
 \end{example}
 Only the two first lines are mandatory, but then all states will have the same potentials (the ground state potential).
-This file can be prepared with \ttt{QMout2LVC.py}.
 
 
-\subsection{Template File Setup: \ttt{wigner.py}, \ttt{setup\_LVCparam.py}, and \ttt{create\_LVCparam}}\label{sec:setup_LVCparam.py}
+\subsection{Template File Setup: \ttt{wigner.py}, \ttt{setup\_LVCparam.py}, and \ttt{create\_LVCparam.py}}\label{sec:setup_LVCparam.py}
 
 \paragraph{Reference potential}
 
@@ -4197,7 +4480,7 @@ This file can be prepared with \ttt{QMout2LVC.py}.
 \begin{example}
 \ttt{\$SHARC/wigner.py -l <filename.molden>}
 \end{example}
-Note that this only works if all $3N$ normal modes are present in the file (unfortunately, some programs omit translations and rotations in the output).
+Note that this best works if all $3N$ normal modes are present in the file. If the translations and rotations are missing, the script will add the necessary number of zero-vector modes.
 
 \paragraph{Setup for single point calculations}
 
@@ -4227,7 +4510,7 @@ In all cases, \ttt{displacements.json} is also present; this file is crucial to 
 
 \paragraph{Extracting LVC parameters}
 
-After the single point jobs are finished, run \ttt{create\_LVCparam.py} inside the \ttt{DSPL\_RESULTS} directory.
+After all jobs are successfully finished (\ttt{QM.out} file present in each directory), run \ttt{create\_LVCparam.py} inside the \ttt{DSPL\_RESULTS} directory.
 This is a fully automatic script that reads \ttt{displacements.json} and the \ttt{QM.out} files in the subdirectories.
 After everything is successfully read, it creates the \ttt{LVC.template} file.
 This file can be used to run SHARC-LVC trajectories.
@@ -4235,49 +4518,15 @@ This file can be used to run SHARC-LVC trajectories.
 
 
 
-% \subsection{Preparing Template Files: \ttt{wigner.py} and \ttt{QMout2LVC.py}}\label{sec:QMout2LVC.py}
-% 
-% Both input files can be conveniently created using the \sharc\ tools. \ttt{V0.txt} is created using the \ttt{wigner.py} script, which is also used for initial condition generation. Simply call, e.g.
-% \begin{example}
-% \ttt{\$SHARC/wigner.py -l <filename.molden>}
-% \end{example}
-% Note that this only works if all $3N$ normal modes are present in the file (unfortunately, some programs omit translations and rotations in the output).
-% 
-% To obtain the LVC parameters, it is first necessary to perform a single-point computation at the ground state equilibrium geometry.
-% Using the \ttt{QM.in} file, you can specify, which types of properties to compute. For the full LVC model, \ttt{SOC}, \ttt{DM}, \ttt{Grad}, and \ttt{NACDR} are needed, so use
-% \begin{example}
-% \begin{verbatim}
-% 3
-% 
-%  S    0.00000000    0.00000000   -0.00039079 
-%  O    0.00000000   -2.38362453    1.36159121 
-%  O    0.00000000    2.38362453    1.36159120 
-% Unit Bohr
-% States           4           0           3
-%  INIT
-%  SOC
-%  DM
-%  Grad
-%  NACDR
-% \end{verbatim}
-% \end{example}
-% 
-% Copy the \ttt{V0.txt} to the same directory containing the \ttt{QM.out} file of this computation and run
-% \begin{example}
-% \ttt{\$SHARC/QMout2LVC.py}
-% \end{example}
-% to create the file \ttt{LVC.template}.
-% Note that currently, the script only works for singlets and triplets.
-
 % ========================================================================================================= %
-
+\tthdump{\FloatBarrier}
 \section{\textsc{Gaussian} Interface}\label{sec:int:gaussian}
 
 The \sharc-\textsc{Gaussian} interface allows to run \sharc\ simulations with \textsc{Gaussian}'s TD-DFT functionality.
 The interface is compatible with restricted and unrestricted ground states, but not with symmetry.
 Spin-orbit couplings cannot be computed, but wave function overlaps from the \textsc{WFoverlap} code are available (no nonadiabatic couplings).
 Dyson norms can also be computed through the \textsc{WFoverlap} code.
-\textsc{TheoDORE} can be used to perform automatic wave function analysis.
+\textsc{TheoDORE} (version 2.0 or higher) can be used to perform automatic wave function analysis.
 
 The interface needs two additional input files, a template file for the quantum chemistry (file name is \ttt{GAUSSIAN.template}) and a resource file (\ttt{GAUSSIAN.resources}). 
 If files \ttt{QM/GAUSSIAN.chk.init} or \ttt{QM/GAUSSIAN.chk.<job>.init} are present, they are used to provide an initial orbital guess for the SCF calculation of the respective job.
@@ -4343,8 +4592,7 @@ A fully commented resource file with all possible options and comprehensive desc
   \hline
   Keyword       &Description\\
   \hline
-groot                   &Is the path to the \textsc{Gaussian} installation. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. The interface will set \ttt{\$GAUSS\_EXEDIR} to this path. 
-Note that this needs to be the path to the directory containing the \textsc{Gaussian} executables, e.g., \ttt{g09}/\ttt{g16}, \ttt{l9999.exe}, etc.
+groot                   &Is the path to the \textsc{Gaussian} installation directory. This directory should contain the \textsc{Gaussian} executables, e.g., \ttt{g09}/\ttt{g16}, \ttt{l9999.exe}, etc. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. The interface will set \ttt{\$GAUSS\_EXEDIR} to this path. 
 \\
 scratchdir              &Is a path to the temporary directory. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. If it does not exist, the interface will create it. In any case, the interface will delete this directory after the calculation. The interface will set \ttt{\$GAUSS\_SCRDIR} to this path.
 \\
@@ -4406,15 +4654,16 @@ Typical values for \ttt{schedule\_scaling} are around 0.90 for both GGA function
 
 
 % ========================================================================================================= %
-
+\tthdump{\FloatBarrier}
 \section{\textsc{Orca} Interface}\label{sec:int:orca}
 
 The \sharc-\textsc{Orca} interface allows to run \sharc\ simulations with \textsc{Orca}'s TD-DFT functionality.
 The interface is compatible with restricted and unrestricted ground states, but not with symmetry.
 Spin-orbit couplings can be computed and wave function overlaps from the \textsc{WFoverlap} code are available (no nonadiabatic couplings).
 Dyson norms can also be computed through the \textsc{WFoverlap} code.
-\textsc{TheoDORE} can be used to perform automatic wave function analysis.
+\textsc{TheoDORE} (version 2.0 or higher) can be used to perform automatic wave function analysis.
 Note that the interface only works with \textsc{Orca} 4.1 and newer (you can check by looking whether the program \ttt{orca\_fragovl} is present in the \textsc{Orca} installation).
+Initial tests on the recently released \textsc{Orca} 4.2 were successful, but if problems are encountered, users should try with \textsc{Orca} 4.1 instead.
 
 The \sharc-\textsc{Orca} interface furthermore allows to perform QM/MM dynamics (TDDFT plus force fields), using \textsc{Tinker} for the MM part.
 
@@ -4429,6 +4678,9 @@ This file contains the specifications for the quantum chemistry calculation. Not
 A fully commented template file---with all possible options, a comprehensive descriptions, and some practical hints---is located at \ttt{\$SHARC/../examples/SHARC\_ORCA/ORCA.template}.
 For QM/MM calculations, a second example template (along with the QM/MM-specific files) is located at \ttt{\$SHARC/../examples/SHARC\_ORCA\_Tinker/ORCA.template}.
 We recommend that users start from this template file and modify it appropriately for their calculations.
+
+Note that for \textsc{Orca} 4.2, when doing TD-DFT gradient calculations with hybrid functions, it might be necessary to add a ``/C'' basis set.
+While there is no special keyword in \ttt{ORCA.template} for this basis set, it can be specified with the general \ttt{key} keyword.
 
 \begin{table}
   \centering
@@ -4493,7 +4745,9 @@ A fully commented resource file with all possible options and comprehensive desc
   \hline
   Keyword       &Description\\
   \hline
-orcadir                 &Is the path to the \textsc{Orca} installation. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. The interface will automatically update the \ttt{\$LD\_LIBRARY\_PATH}. 
+orcadir                 &Is the path to the \textsc{Orca} installation directory. This directory should contain executables like \ttt{orca}, \ttt{orca\_int}, or \ttt{orca\_fragovl}. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. The interface will automatically update the \ttt{\$LD\_LIBRARY\_PATH}. 
+\\
+tinker                  &The path to the \textsc{Tinker} installation directory. This directory should contain the \ttt{bin/} subdirectory.
 \\
 scratchdir              &Is a path to the temporary directory. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. If it does not exist, the interface will create it. In any case, the interface will delete this directory after the calculation. 
 \\
@@ -4535,6 +4789,8 @@ qmmm\_table             &Followed by the path to the connection table file, in S
 \\
 qmmm\_ff\_file          &Followed by the path to the force field file, in \textsc{Amber}95 format for \textsc{Tinker}.
 \\
+neglected\_gradient     &Decides how not-requested gradients are reported back (Options: \ttt{zero}: default, not-requested gradients are zero; \ttt{gs}: not-requested gradients are equal to ground state gradient; \ttt{closest}: not-requested gradients are equal to closest-energy requested gradient).
+\\
   \hline
   \end{tabular}
 \end{table}
@@ -4542,7 +4798,8 @@ qmmm\_ff\_file          &Followed by the path to the force field file, in \texts
 \paragraph{Parallelization}
 
 \textsc{Orca} usually shows very good parallel scaling for most TD-DFT calculations.
-However, it is more efficient to carry out multiple \textsc{Orca} calculations (different multiplicities, multiple gradients) in parallel, each one using a smaller number of CPUs.
+However, it is more efficient to carry out multiple \textsc{Orca} calculations (different multiplicities) in parallel, each one using a smaller number of CPUs.
+Note that \textsc{Orca}~4.1 can compute multiple gradients in one job, so multiple gradients do not induce multiple jobs.
 
 In the \sharc-\textsc{Orca} interface, parallelization is controlled by the keywords \ttt{ncpu} and \ttt{schedule\_scaling}.
 The first keyword controls the maximum number of CPUs which the interface is allowed to use for all \textsc{Orca} runs simultaneously.
@@ -4562,7 +4819,7 @@ These force field files should have the format that can be found in the \textsc{
 \subsection{QM/MM connection table file: \ttt{ORCA.qmmm.table}}
 
 This file defines which atoms are in the QM or MM region, the atom types (for \textsc{Tinker}), and the connectivity.
-Note that the SHARC-\textsc{Orca} interface uses newly developed routines to setup QM/MM calculations and communicate with \textsc{Tinker}, so this file is not identical to the table files of the ADF or \textsc{Molcas} interfaces.
+Note that the \sharc-\textsc{Orca} interface uses newly developed routines to setup QM/MM calculations and communicate with \textsc{Tinker}, so this file is not identical to the table files of the ADF or \textsc{Molcas} interfaces.
 
 A sample looks like:
 
@@ -4590,6 +4847,156 @@ Note that the interface automatically adds any necessary redundancy to the conne
 
 
 
+% ========================================================================================================= %
+\tthdump{\FloatBarrier}
+\section{\textsc{Bagel} Interface}\label{sec:int:bagel}
+
+The \sharc-\textsc{Bagel} interface allows to run \sharc\ simulations with \textsc{Bagel}'s CASSCF, SS-CASPT2, MS-CASPT2, and XMS-CASPT2 functionalities.
+The interface is compatible with all multiplicities, but not with symmetry.
+Note that separate active spaces are used for each multiplicity.
+\textsc{Bagel} features analytical gradients and nonadiabatic couplings for all of these methods, but no spin-orbit coupings.
+Wave function overlaps and Dyson norms can be obtained from the \textsc{WFoverlap} code.
+
+Note that \textsc{Bagel} does not allow extracting the AO overlap matrix that is required for overlap and Dyson norm calculations; hence, the \sharc-\textsc{Bagel} interface computes the AO overlaps through the open-source quantum chemistry code \textsc{PyQuante}.
+Also note that, currently, it is not recommended to work with MS-CASPT2 gradients and XMS-CASPT2 should always be preferred.
+
+The interface needs two additional input files, a template file for the quantum chemistry (file name is \ttt{BAGEL.template}) and a resource file (\ttt{BAGEL.resources}). 
+If files \ttt{QM/archive.<mult>.init} are present, they are used to provide an initial orbital guess for the CASSCF calculation of the respective multiplicity.
+
+Note that when running \textsc{Bagel}, it might be necessary for the user to set \ttt{\$LD\_LIBRARY\_PATH} appropriately, so that all relevant libraries (\ttt{boost}, \ttt{fabric}, ...) can be found.
+
+
+\subsection{Template file: \ttt{BAGEL.template}}
+
+This file contains the specifications for the quantum chemistry calculation. Note that this is not a valid \textsc{Bagel} input file. The file only contains a number of keywords, given in table~\ref{tab:bagel_temp}. The actual input for \textsc{Bagel} will be generated automatically through the interface.
+
+A fully commented template file---with all possible options, a comprehensive descriptions, and some practical hints---is located at \ttt{\$SHARC/../examples/SHARC\_BAGEL/BAGEL.template}.
+For QM/MM calculations, a second example template (along with the QM/MM-specific files) is located at \ttt{\$SHARC/../examples/SHARC\_BAGEL\_Tinker/BAGEL.template}.
+We recommend that users start from this template file and modify it appropriately for their calculations.
+
+\begin{table}
+  \centering
+  \caption{Keywords for the \ttt{BAGEL.template} file.}
+  \label{tab:bagel_temp}
+  \small
+  \begin{tabular}{>{\ttfamily}lp{12cm}}
+  \hline
+  Keyword       &Description\\
+  \hline
+basis                   &Gives the basis set for all atoms (default svp). It is advisable to always specify a basis set file with absolute path.
+\\
+df\_basis               &Gives the auxiliary basis set (default: svp-jkfit). It is advisable to always specify a DF basis set file with absolute path.
+\\
+dkh                     &Activates the (scalar-relativistic) Douglas-Kroll-Hess Hamiltonian.
+\\
+nact                    &Number of active orbitals.
+\\
+nclosed                 &Number of closed-shell orbitals.
+\\
+nstate                  &Number of state-averaging states per multiplicity.
+\\
+method                  &Can be \ttt{casscf}, \ttt{caspt2}, \ttt{ms-caspt2}, or \ttt{xms-caspt2}.
+\\
+shift                   &Level shift for CASPT2 (default: 0.0, give float in Hartree).
+\\
+shift\_imag             &Switches from real to imaginary level shift (use \ttt{shift} to specify the magnitude).
+\\
+orthogonal\_basis       &Switches on the \ttt{orthogonal\_basis} option of \textsc{Bagel}. Is activated automatically for imaginary level shifts.
+\\
+msmr                    &Switches on multi-state-multi-reference treatment in CASPT2. Default is single-state-single-reference (SS-SR).
+\\
+maxiter                 &Iteration limit for energy calculations (SCF, PT2). Default 500. A too high value can slow down the calculation unnecessarily.
+\\
+maxziter                &Iteration limit for Z-vector calculations (gradients, NACME). Default 100. A too high value can slow down the calculation unnecessarily.
+\\
+charge                  &Sets the total charge of the system. Can be either followed by a single integer (then the interface will automatically assign the charges to the multiplicities) or by one charge per multiplicity. 
+\\
+frozen                  &Number of frozen core orbitals for CASPT2 steps. Default is -1, which lets \textsc{Bagel} automatically decide.
+\\
+  \hline
+  \end{tabular}
+\end{table}
+
+
+\subsection{Resource file: \ttt{BAGEL.resources}}
+
+The file \ttt{BAGEL.resources} contains mainly paths (to the \textsc{Bagel} executables, to the scratch directory, etc.) and other resources, plus settings relevant for \ttt{wfoverlap.x}. This file must reside in the same directory where the interface is started. It uses a simple ``\ttt{keyword argument}'' syntax. Comments using \# and blank lines are possible, the order of keywords is arbitrary. Lines with unknown keywords are ignored, since the interface just searches the file for certain keywords.
+
+Table~\ref{tab:bagel_sh2} lists the existing keywords.
+A fully commented resource file with all possible options and comprehensive descriptions is located in \ttt{\$SHARC/../examples/SHARC\_BAGEL/}.
+
+\begin{table}
+  \centering
+  \caption{Keywords for the \ttt{BAGEL.resources} file.}
+  \label{tab:bagel_sh2}
+  \begin{tabular}{>{\ttfamily}lp{12cm}}
+  \hline
+  Keyword       &Description\\
+  \hline
+bagel                   &Is the path to the \textsc{Bagel} installation directory. This directory should contain subdirectories \ttt{bin/} and \ttt{lib/}. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. The interface will automatically update the \ttt{\$LD\_LIBRARY\_PATH}. 
+\\
+scratchdir              &Is a path to the temporary directory. Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. If it does not exist, the interface will create it. In any case, the interface will delete this directory after the calculation. 
+\\
+savedir                 &Is a path to another temporary directory.  Relative and absolute paths, environment variables and \ttt{\textasciitilde} can be used. The interface will store files needed for restart there.
+\\
+pyquante                &Path to the PYQUANTE installation directory. This directory should contain the \ttt{PyQuante/} subdirectory that can be imported by Python as a module. Required for overlap and Dyson calculations.
+\\
+memory                  &The memory usable by \textsc{WFoverlap}. The default is 100~MB. Note that the memory for \textsc{Bagel} cannot be controlled.
+\\
+ncpu                    &The number of CPUs used by the interface. Is overridden by environment variables from queuing engines (e.g., \ttt{\$NSLOTS} or \ttt{\$SLURM\_NTASKS\_PER\_NODE}). Will either be used to run \textsc{Bagel} in parallel or to run several independent \textsc{Bagel} runs at the same time.
+\\
+schedule\_scaling       &Gives the expected parallelizable fraction of the \textsc{Bagel} run time (Amdahl's law). With a value close to zero, the interface will try to run all jobs at the same time. With values close to one, jobs will be run sequentially with the maximum number of cores.
+\\
+mpi\_parallel                     &If given, the interface will call \textsc{Bagel} with \ttt{mpirun -n NCPU}, otherwise it will use OpenMP.
+\\
+delay                   &Followed by a float giving the delay in seconds between starting parallel jobs to avoid excessive disk I/O (usually not necessary).
+\\
+wfoverlap               &Path to the \textsc{WFoverlap} code. Needed for overlap and Dyson norm calculations.
+\\
+numfrozcore             &Number of frozen core orbitals for overlap and Dyson norm calculations. A value of -1 enables automatic frozen core.
+\\
+numocc                  &Number of ignored occupied orbitals in Dyson calculations.
+\\
+nooverlap               &Do not save determinant files for overlap computations.
+\\
+dipolelevel             &Followed by an integer which is either 0, 1, or 2. Controls which dipole moment calculations are skipped by the interface.
+\\
+always\_orb\_init       &Do not use the orbital guesses from previous calculations/time steps, but always use the provided initial orbitals.
+\\
+always\_guess           &Always use the orbital guess from \textsc{Bagel}.
+\\
+  debug                 &Increases the verbosity of the interface (standard out). Does not clean up the scratch directory. Copies all \textsc{Bagel} outputs to the save directory.
+\\
+  no\_print             &Reduces interface standard output.
+\\
+  \hline
+  \end{tabular}
+\end{table}
+
+
+Note that the \ttt{dipolelevel} keyword can have significant impact on the calculation time.
+Generally, in CASPT2 calculations, extra computational effort is required for the calculation of state and transition dipole moments .
+However, dipole moments have only influence in the dynamics simulations if a laser field is present.
+Using the \ttt{dipolelevel} keyword, it is possible to deactivate dipole moment calculations if they are not required.
+There are three different settings for \ttt{dipolelevel}: 
+\begin{itemize}
+  \item \ttt{dipolelevel}=0: The interface will return only dipole moments which can be calculated at no cost (state dipole moments of states where a gradient is calculated; transition dipole moments if nonadiabatic couplings are calculated)
+  \item \ttt{dipolelevel}=1: In addition, the interface will calculate transition dipole moments between $S_0$ and excited singlet states. Use at least this level for the initial condition setup (\ttt{setup\_init.py} takes care of this).
+  \item \ttt{dipolelevel}=2: The interface will calculate all state and transition dipole moments
+\end{itemize}
+If only energies and dipole moments are calculated, \ttt{dipolelevel}=1 is only slightly more expensive than \ttt{dipolelevel}=0, while \ttt{dipolelevel}=2 increases computation time more strongly.
+However, the computation time also depends on whether or not nonadiabatic couplings and gradients are calculated. 
+
+
+\paragraph{Parallelization}
+
+The parallel scaling behavior of \textsc{Bagel} heavily depends on the system (number of atoms, active space, frozen core, ...) and on the parallelization mode (MPI or OpenMP).
+Hence, it is advisable that the optimal settings (number of cores, parallelization mode) are tested before starting dynamics projects.
+Note that the interface can only trivially parallelize \textsc{Bagel} calculations across several independent multiplicities, but not across multiple gradient or nonadiabatic coupling calculations.
+
+
+
+
 
 
 
@@ -4598,7 +5005,7 @@ Note that the interface automatically adds any necessary redundancy to the conne
 
 
 % ========================================================================================================= %
-
+\tthdump{\FloatBarrier}
 \section{The \textsc{WFoverlap} Program}\label{sec:int:wfoverlap}
 
 This section does not describe an interface to \sharc, but rather the \textsc{WFoverlap} program.
@@ -4868,10 +5275,10 @@ The following symbols are used in the determinant string:
 
 Most relevant for \sharc\ users, the \ttt{wfoverlap.x} program \emph{fully considers all determinants inside these files}, without applying any form of truncation. Hence, truncation of long wave functions is done during the creation of the determinant files.
 Most interfaces which write these files have a keyword \ttt{wfthres} in their resource file. This threshold is a number between 0.0 and 1.0, and is the minimum wave function norm to which the wave functions should be truncated. During truncation, the interfaces generally retain the largest-amplitude CI coefficients, and remove determinants with small coefficients, i.e., they find the truncated expansion with the fewest determinants which has a norm above the \ttt{wfthres}.
-Choosing this threshold properly can very strongly affect the computational time spent in the overlap calculation. Generally, for CASSCF wave functions the threshold can be set to 1 (\ttt{SHARC\_MOLPRO.py} and \ttt{SHARC\_MOLCAS.py} always use all determinants and do not have the \ttt{wfthres} option), for TDA-DFT/ADC(2) it should usually be above 0.99, for and for MRCI wave functions it might be necessary to go as low as 0.95, depending on the accuracy and performance needed.
+Choosing this threshold properly can very strongly affect the computational time spent in the overlap calculation. Generally, for CASSCF wave functions the threshold can be set to 1 (\ttt{SHARC\_MOLPRO.py}, \ttt{SHARC\_MOLCAS.py}, and \ttt{SHARC\_BAGEL.py} always use all determinants and do not have the \ttt{wfthres} option), for TDA-DFT/ADC(2) it should usually be well above 0.99, for and for MRCI wave functions it might be necessary to go as low as 0.95, depending on the accuracy and performance needed.
 For TD-DFT calculations without the Tamm-Damcoff approximation, the response vectors are usually normalized to $|\mathbf{X}|^2-|\mathbf{Y}|=1$, but only $\mathbf{X}$ is used in the overlap calculation; since the norm of $\mathbf{X}$ can thus exceed 1, the \ttt{wfthres} should be increased above 1, too.
 As a rule of thumb, the threshold should always be chosen such that each state is represented by at least a few 100 determinants in the file, in order to obtain smoothly varying overlaps.
-If unsure, the user should perform a test calculation, varying the \ttt{wfthres} until a suitable one is found.
+If unsure, the user should perform a test calculation, varying the \ttt{wfthres} until a suitable one is found (i.e., with as many determinants as possible such that the cost of the overlap calculation is bearable).
 
 
 
@@ -5486,7 +5893,7 @@ For \textsc{ADF}, the amount of memory to be used cannot be controlled. However,
 
 \paragraph{Wavefunction overlap program}
 
-See section~\ref{sec:setup_init.py:several}. \ttt{setup\_init.py} will ask for the memory usage of \ttt{wfoverlap.x}. The truncation threshold for TD-DFT can usually be chosen as 0.99--1.00 (depending on the system and functional, but it is recommended that it is high enough that each state is described by around 100 determinants in the generated files). See section~\ref{sec:int:adf} for details.
+See section~\ref{sec:setup_init.py:several}. \ttt{setup\_init.py} will ask for the memory usage of \ttt{wfoverlap.x}. The truncation threshold for TD-DFT can usually be chosen as 0.99--1.00 (depending on the system and functional, but it is recommended that it is high enough that each state is described by at least 100 determinants in the generated files). See section~\ref{sec:int:adf} for details.
 
 \paragraph{\textsc{TheoDORE} setup}
 
@@ -5522,11 +5929,16 @@ Note that the \sharc-\textsc{Ricc2} interface always runs only one \textsc{Turbo
 
 \paragraph{Wavefunction overlap program}
 
-See section~\ref{sec:setup_init.py:several}. \ttt{setup\_init.py} will ask for the memory usage of \ttt{wfoverlap.x}. The truncation threshold can usually be chosen as 0.99--1.00 (depending on the system, but it is recommended that it is high enough that each state is described by around 100 determinants in the generated files). See section~\ref{sec:int:ricc2} for details.
+See section~\ref{sec:setup_init.py:several}. \ttt{setup\_init.py} will ask for the memory usage of \ttt{wfoverlap.x}. The truncation threshold can usually be chosen as 0.99--1.00 (depending on the system, but it is recommended that it is high enough that each state is described by at least 100 determinants in the generated files). See section~\ref{sec:int:ricc2} for details.
 
 \paragraph{\textsc{TheoDORE} setup}
 
 See section~\ref{sec:setup_init.py:several}.
+
+\paragraph{QM/MM}
+
+The script will ask for the two QM/MM-specific input files for the interface, which are called \ttt{RICC2.qmmm.ff} and \ttt{RICC2.qmmm.table}.
+See section~\ref{sec:int:ricc2} for details on these files.
 
 % -----------------------------------------------------------------------------------------
 
@@ -5566,11 +5978,83 @@ The amount of memory and the number of CPU cores are required in this section. I
 
 \paragraph{Wavefunction overlap program}
 
-See section~\ref{sec:setup_init.py:several}. \ttt{setup\_init.py} will ask for the memory usage of \ttt{wfoverlap.x}. The truncation threshold for TD-DFT can usually be chosen as 0.99--1.00 (depending on the system and functional, but it is recommended that it is high enough that each state is described by around 100 determinants in the generated files). See section~\ref{sec:int:gaussian} for details.
+See section~\ref{sec:setup_init.py:several}. \ttt{setup\_init.py} will ask for the memory usage of \ttt{wfoverlap.x}. The truncation threshold for TD-DFT can usually be chosen as 0.99--1.00 (depending on the system and functional, but it is recommended that it is high enough that each state is described by at least 100 determinants in the generated files). See section~\ref{sec:int:gaussian} for details.
 
 \paragraph{\textsc{TheoDORE} setup}
 
 See section~\ref{sec:setup_init.py:several}. 
+
+% -----------------------------------------------------------------------------------------
+
+\subsubsection{Input for \textsc{Orca} interface}\label{sec:setup_init.py:orca}
+
+\paragraph{Path to \textsc{Orca}}
+
+The path to the \textsc{Orca} installation directory needs to be provided.
+Note that this needs to be the path to the directory containing the \textsc{Orca} executables, e.g.,\ttt{orca} or \ttt{orca\_fragovl}.
+For more details, see section~\ref{sec:setup_init.py:several}.
+
+\paragraph{Scratch directory}
+
+See section~\ref{sec:setup_init.py:several}.
+
+\paragraph{Template file}
+
+Enter the filename for the \textsc{Orca} template input. This file should contain at least the basis set, functional, and charge keywords. For details, see the section about the \sharc-\textsc{Orca} interface (\ref{sec:int:orca}). The setup script will check whether the template file contains the necessary entries. 
+
+\paragraph{Initial orbital coefficient file}
+
+You can provide initial MO coefficients for the \textsc{Orca} calculation. This can provide a small speedup for the calculations and helps to ensure that all calculations are based on the same orbitals.
+In many cases, no initial orbitals are required.
+
+\paragraph{Resource usage}
+
+The amount of memory and the number of CPU cores are required in this section. If more than one core is used, also the parallel scaling needs to be specified (see section~\ref{met:amdahl}).
+
+\paragraph{Wavefunction overlap program}
+
+See section~\ref{sec:setup_init.py:several}. \ttt{setup\_init.py} will ask for the memory usage of \ttt{wfoverlap.x}. The truncation threshold for TD-DFT can usually be chosen as 0.99--1.00 (depending on the system and functional, but it is recommended that it is high enough that each state is described by at least 100 determinants in the generated files). See section~\ref{sec:int:orca} for details.
+
+\paragraph{\textsc{TheoDORE} setup}
+
+See section~\ref{sec:setup_init.py:several}. 
+
+\paragraph{QM/MM}
+
+The script will ask for the two QM/MM-specific input files for the interface, which are called \ttt{ORCA.qmmm.ff} and \ttt{ORCA.qmmm.table}.
+See section~\ref{sec:int:orca} for details on these files.
+
+% -----------------------------------------------------------------------------------------
+
+\subsubsection{Input for \textsc{Bagel} interface}\label{sec:setup_init.py:bagel}
+
+\paragraph{Path to \textsc{Bagel}}
+
+The path to the \textsc{Bagel} installation directory needs to be provided.
+Note that this needs to be the path to the main directory of \textsc{Bagel}, with subdirectories like \ttt{bin/} or \ttt{lib/}.
+For more details, see section~\ref{sec:setup_init.py:several}.
+
+\paragraph{Scratch directory}
+
+See section~\ref{sec:setup_init.py:several}.
+
+\paragraph{Template file}
+
+Enter the filename for the \textsc{Bagel} template input. This file should contain at least the basis set, active space, and charge keywords. For details, see the section about the \sharc-\textsc{Bagel} interface (\ref{sec:int:bagel}). The setup script will check whether the template file contains the necessary entries. 
+
+\paragraph{Initial orbital coefficient file}
+
+You can provide initial MO coefficients for the \textsc{Bagel} calculation. This usually provides a drastic speedup for the CASSCF calculations and helps to ensure that all calculations are based on the same active space. In simple cases it might be acceptable to not provide an initial wave function.
+
+\paragraph{Resource usage}
+
+The amount of memory and the number of CPU cores are required in this section. If more than one core is used, also the parallel mode needs to be specified (MPI or OpenMP).
+
+
+\paragraph{Wavefunction overlap program}
+
+See section~\ref{sec:setup_init.py:several}. \ttt{setup\_init.py} will ask for the memory usage of \ttt{wfoverlap.x}. The truncation threshold for TD-DFT can usually be chosen as 0.99--1.00 (depending on the system and functional, but it is recommended that it is high enough that each state is described by at least 100 determinants in the generated files). See section~\ref{sec:int:bagel} for details.
+
 
 % -----------------------------------------------------------------------------------------
 
@@ -6160,120 +6644,9 @@ It is advisable to configure public-key authentification for the hosts running t
 
 \section{Data Extractor: \ttt{data\_extractor.x}}\label{sec:data_extractor.x}
 
-\begin{table}[tb]
-  \centering
-  \caption{Command-line options for \ttt{data\_extractor.x}.}
-  \label{tab:dataextractor_options}
-  \begin{tabular}{>{\ttfamily}lll}
-    \hline
-    \rmfamily Option        &Description      &Default\\
-    \hline
-    -h          &Display help message and quit.                         &---                      \\
-    -e          &Write \ttt{energy.out}                                 &True                     \\
-    -d          &Write \ttt{fosc.out}                                   &True                     \\
-    -da         &Write \ttt{fosc\_act.out}                              &True                     \\
-    -sp         &Write \ttt{spin.out}                                   &True                     \\
-    -cd         &Write \ttt{coeff\_diag.out}                            &True                     \\
-    -cm         &Write \ttt{coeff\_MCH.out}                             &True                     \\
-    -cb         &Write \ttt{coeff\_diab.out}                            &True (if overlaps present) \\
-    -p          &Write \ttt{prob.out}                                   &True                     \\
-    -x          &Write \ttt{expec.out}                                  &True                     \\
-    -xm         &Write \ttt{expec\_MCH.out}                             &True                     \\
-    -id         &Write \ttt{ion\_diag.out}                              &False                    \\
-    -im         &Write \ttt{ion\_MCH.out}                               &False                    \\
-    -z          &\ttt{-e}, \ttt{-cd}, \ttt{-cm}, \ttt{-p}, \ttt{-x}     &---                      \\
-    -s          &All options except \ttt{-id} and \ttt{-im}             &---                      \\
-    -a          &All options                                            &---                      \\
-    \hline
-  \end{tabular}
-\end{table}
+The \ttt{data\_extractor.x} is the primary tool to extract useful, tabular data from the \ttt{output.dat} file that is produced by \ttt{sharc.x}.
+The produced files can then be further processed, e.g., by plotting them or by computing ensemble statistics with \ttt{data\_collector.py} (section~\ref{sec:data_collector.py}).
 
-\begin{table}[tbp]
-  \centering
-  \caption[Content of the files written by \ttt{data\_extractor.x}.]{Content of the files written by \ttt{data\_extractor.x}. $n$ is the total number of states, $j$ is a state index ($j\in\{1..n\}$).}
-  \label{tab:outputdata}
-  \begin{tabular}{>{\ttfamily}lcll}
-    \hline
-    File  &\# Columns     &\multicolumn{2}{l}{Columns}\\
-    \hline
-    energy.out       &$4+n$
-      &$1$ &Time $t$ (fs)\\
-      &&$2$ &Kinetic energy (eV)\\
-      &&$3$ &Potential energy (eV) of active state (diagonal)\\
-      &&$4$ &Total energy (eV)\\
-      &&$4+j$ &Potential energy (eV) of state $j$ (diagonal)\\
-    %
-    fosc.out       &$2+n$
-      &$1$ &Time $t$ (fs)\\
-      &&$2$ &Oscillator strength from lowest to active state (diagonal)\\
-      &&$2+j$ &Oscillator strength from lowest state to state $j$ (diagonal)\\
-    %
-    fosc\_act.out       &$1+2n$
-      &$1$ &Time $t$ (fs)\\
-      &&$1+j$ &$E_j-E_\text{active}$ (in eV, diagonal)\\
-      &&$1+n+j$ &Oscillator strength from active state to state $j$ (diagonal)\\
-    %
-    spin.out       &$2+n$
-      &$1$ &Time $t$ (fs)\\
-      &&$2$ &Total spin expectation value of active state\\
-      &&$2+j$ &Total spin expectation value of state $j$\\
-    %
-    coeff\_diag.out       &$2+2n$
-      &$1$ &Time $t$ (fs)\\
-      &&$2$ &Norm of wave function $\sum_j |c_j^{\text{diag}}|^2$\\
-      &&$1+2j$ &$\Re (c_j^{\text{diag}})$\\
-      &&$2+2j$ &$\Im (c_j^{\text{diag}})$\\
-    %
-    coeff\_MCH.out       &$2+2n$
-      &$1$ &Time $t$ (fs)\\
-      &&$2$ &Norm of wave function $\sum_j |c_j^{\text{MCH}}|^2$\\
-      &&$1+2j$ &$\Re (c_j^{\text{MCH}})$\\
-      &&$2+2j$ &$\Im (c_j^{\text{MCH}})$\\
-    %
-    coeff\_diab.out       &$2+2n$
-      &$1$ &Time $t$ (fs)\\
-      &&$2$ &Norm of wave function $\sum_j |c_j^{\text{diab}}|^2$\\
-      &&$1+2j$ &$\Re (c_j^{\text{diab}})$\\
-      &&$2+2j$ &$\Im (c_j^{\text{diab}})$\\
-    %
-    prob.out       &$2+n$
-      &$1$ &Time $t$ (fs)\\
-      &&$2$ &Random number from surface hopping\\
-      &&$2+j$ &Cumulated hopping probability $\sum_{k=1}^j P_k$\\
-    %
-    expec.out      &$4+3n$
-      &$1$ &Time $t$ (fs)\\
-      &&$2$ &Kinetic energy (eV)\\
-      &&$3$ &Potential energy (eV) of active state (diagonal)\\
-      &&$4$ &Total energy (eV)\\
-      &&$4+j$ &Potential energy (eV) of state $j$ (diagonal)\\
-      &&$4+n+j$ &Total spin expectation value of state $j$ (diagonal)\\
-      &&$4+2n+j$ &Oscillator strength of state $j$ (diagonal)\\
-    %
-    expec\_MCH.out      &$4+3n$
-      &$1$ &Time $t$ (fs)\\
-      &&$2$ &Kinetic energy (eV)\\
-      &&$3$ &Potential energy (eV) of approximate active state (MCH)\\
-      &&$4$ &Total energy (eV)\\
-      &&$4+j$ &Potential energy (eV) of state $j$ (MCH)\\
-      &&$4+n+j$ &Total spin expectation value of state $j$ (MCH)\\
-      &&$4+2n+j$ &Oscillator strength of state $j$ (MCH)\\
-    %
-    ion\_diag.out      &$4+3n$
-      &$1$ &Time $t$ (fs)\\
-      &&$1+j$ &$E_j-E_\text{active}$ (in eV, diagonal)\\
-      &&$1+n+j$ &Dyson norm from active state to state $j$ (diagonal)\\
-    %
-    ion\_MCH.out      &$4+3n$
-      &$1$ &Time $t$ (fs)\\
-      &&$1+j$ &$E_j-E_\text{approximate active}$ (in eV, mCH)\\
-      &&$1+n+j$ &Dyson norm from approximate active state to state $j$ (MCH)\\
-    %
-    \hline
-  \end{tabular}
-\end{table}
-
-The output of \sharc\ is mainly written to \ttt{output.dat}. In order to obtain plottable files in tabular format, the Fortran program \ttt{data\_extractor.x} is used.
 
 \subsection{Usage}
 
@@ -6282,17 +6655,280 @@ The \ttt{data\_extractor.x} is a command line tool, and is called with the \ttt{
 user@host> $SHARC/data_extractor.x [options] output.dat
 \end{verbatim}
 The program will create a directory \ttt{output\_data/} in the current working directory (not necessarily in the directory where \ttt{output.dat} resides). In this directory, several files are written, containing, e.g., the potential energies depending on time, populations depending on time, etc.
-Which files are created can be controlled with the command line options, which are summarized in Table~\ref{tab:dataextractor_options}. For most applications, using the \ttt{-z} or \ttt{-s} flags should be sufficient. The default is equivalent to \ttt{-s}.
+Which files are created can be controlled with the command line options, which are summarized in Table~\ref{tab:dataextractor_options}. For most applications, using the \ttt{-xs} or \ttt{-s} flags should be sufficient. The default is equivalent to \ttt{-s}.
+Note that some options might not be available if the necessary data is not written to \ttt{output.dat} (see write options in Table~\ref{tab:input}).
 
 The program will extract the complete \ttt{output.dat} file until it reaches the EOF. 
 
-The \ttt{data\_extractor.x} program will automatically detect the format of the \ttt{output.dat} file (the first \sharc\ release had a different file format than the current \sharc\ release).
+The \ttt{data\_extractor.x} program will automatically detect the format of the \ttt{output.dat} file (the first \sharc\ release had a different file format than the more recent \sharc\ releases).
 
 \subsection{Output}
 
 After the program finishes, the directory \ttt{output\_data/} contains a number of files. In each file, the number of columns is dependent in the total number $n$ of states $i\in\{1...n\}$. The content of the files is listed in Table~\ref{tab:outputdata}.
 
-The file \ttt{expec.out} contains the information of \ttt{energy.out}, \ttt{spin.out} and \ttt{fosc.out} in one file. The content of \ttt{expec.out} can be conveniently plotted by using \ttt{make\_gnuscript.py} to generate a \textsc{Gnuplot} script.
+The file \ttt{expec.out} contains the information of \ttt{energy.out}, \ttt{spin.out} and \ttt{fosc.out} in one file. The content of \ttt{expec.out} can be conveniently plotted by using \ttt{make\_gnuscript.py} (section~\ref{sec:make_gnuscript.py}) to generate a \textsc{Gnuplot} script.
+
+
+
+\clearpage
+
+\begin{table}[h]
+  \centering
+  \caption{Command-line options for \ttt{data\_extractor.x}.}
+  \label{tab:dataextractor_options}
+  \begin{tabular}{>{\ttfamily}lll}
+    \hline
+    \rmfamily Option        &Description      &Default\\
+    \hline
+    -h          &Display help message and quit.                         &---                      \\
+    -f          &File name (can also be given without file name)        &File name must be given  \\
+    -sk         &skip parsing of geom., vel., grad., NAC.               &False                    \\
+    \hline
+    -e          &Write \ttt{energy.out}                                 &True                     \\
+    -d          &Write \ttt{fosc.out}                                   &True                     \\
+    -da         &Write \ttt{fosc\_act.out}                              &True                     \\
+    -sp         &Write \ttt{spin.out}                                   &True                     \\
+    -cd         &Write \ttt{coeff\_diag.out}, 
+                       \ttt{coeff\_class\_diag.out}, 
+                       \ttt{coeff\_mixed\_diag.out}                     &True                     \\
+    -cm         &Write \ttt{coeff\_MCH.out}, 
+                       \ttt{coeff\_class\_MCH.out}, 
+                       \ttt{coeff\_mixed\_MCH.out}                      &True                     \\
+    -cb         &Write \ttt{coeff\_diab.out}, 
+                       \ttt{coeff\_class\_diab.out}, 
+                       \ttt{coeff\_mixed\_diab.out}                     &True (if overlaps present) \\
+    -p          &Write \ttt{prob.out}                                   &True                     \\
+    -x          &Write \ttt{expec.out}                                  &True                     \\
+    -xm         &Write \ttt{expec\_MCH.out}                             &True                     \\
+    -id         &Write \ttt{ion\_diag.out}                              &False                    \\
+    -im         &Write \ttt{ion\_MCH.out}                               &False                    \\
+    -dd         &Write \ttt{dip\_mom\_diag.out}                         &False                    \\
+%     -dp         &Write \ttt{dip\_mom\_proj.out}                         &False                    \\
+    \hline
+    -xs         &\ttt{-e}, \ttt{, -d}, \ttt{, -cd}, \ttt{, -cm}, \ttt{, -p}, \ttt{, -x}        &\\
+    -s          &\ttt{-sp}, \ttt{, -xm}, \ttt{, -cb}, \ttt{, -da} plus \ttt{-xs}                &Default\\
+    -l          &\ttt{-id}, \ttt{, -im} plus \ttt{-s}                           &\\
+    -xl         &\ttt{-dd} plus \ttt{-l} (i.e., all)               &\\
+    \hline
+  \end{tabular}
+\end{table}
+
+
+
+
+
+% \clearpage
+{
+\begin{longtable}{>{\ttfamily}lcll}
+  \caption[Content of the files written by \ttt{data\_extractor.x}.]{Content of the files written by \ttt{data\_extractor.x}. $n$ is the total number of states, $j$ is a state index ($j\in\{1..n\}$), and $\alpha$ is the active state.} \label{tab:outputdata}\\
+
+% ========================================
+
+    \hline
+    \rmfamily File  &\# Columns     &\multicolumn{2}{l}{Columns}\\
+    \hline
+  \endfirsthead
+
+% ========================================
+
+\tthdump{
+    \multicolumn{4}{c}{{\bfseries \tablename\ \thetable{} \mdseries-- Continued from previous page}} \\
+    \hline
+    \rmfamily File  &\# Columns     &\multicolumn{2}{l}{Columns}\\
+    \hline
+  \endhead
+}
+
+% ========================================
+
+\tthdump{
+    \hline 
+    \multicolumn{4}{r}{{Continued on next page}} \\ 
+%     \hline
+  \endfoot
+}
+  
+% =======================================
+
+\tthdump{
+    \hline
+  \endlastfoot
+}
+
+% ========================================
+
+    energy.out       &$4+n$
+      &$1$ &Time $t$ (fs)\\
+      &&$2$ &Kinetic energy (eV)\\
+      &&$3$ &Potential energy (eV) of active state (diagonal)\\
+      &&$4$ &Total energy (eV)\\
+      &&$4+j$ &Potential energy (eV) of state $j$ (diagonal)\\
+    \hline
+    fosc.out       &$2+n$
+      &$1$ &Time $t$ (fs)\\
+      &&$2$ &Oscillator strength from lowest to active state (diagonal)\\
+      &&$2+j$ &Oscillator strength from lowest state to state $j$ (diagonal)\\
+    \hline
+    fosc\_act.out       &$1+2n$
+      &$1$ &Time $t$ (fs)\\
+      &&$1+j$ &$E_j-E_\text{active}$ (in eV, diagonal)\\
+      &&$1+n+j$ &Oscillator strength from active state to state $j$ (diagonal)\\
+    \hline
+    spin.out       &$2+n$
+      &$1$ &Time $t$ (fs)\\
+      &&$2$ &Total spin expectation value of active state\\
+      &&$2+j$ &Total spin expectation value of state $j$\\
+    \hline
+    coeff\_diag.out       &$2+2n$
+      &$1$ &Time $t$ (fs)\\
+      &&$2$ &Norm of wave function $\sum_j |c_j^{\text{diag}}|^2$\\
+      &&$1+2j$ &$\Re (c_j^{\text{diag}})$\\
+      &&$2+2j$ &$\Im (c_j^{\text{diag}})$\\
+    \hline
+    coeff\_class\_diag.out       &$2+n$
+      &$1$ &Time $t$ (fs)\\
+      &&$2$ &$1$\\
+      &&$2+j$ &$\delta_{j\alpha}$\\
+    \hline
+    coeff\_mixed\_diag.out       &$2+n$
+      &$1$ &Time $t$ (fs)\\
+      &&$2$ &$1$\\
+      &&$2+j$ &$\delta_{j\alpha}$\\
+    \hline
+    coeff\_MCH.out       &$2+2n$
+      &$1$ &Time $t$ (fs)\\
+      &&$2$ &Norm of wave function $\sum_j |c_j^{\text{MCH}}|^2$\\
+      &&$1+2j$ &$\Re (c_j^{\text{MCH}})$\\
+      &&$2+2j$ &$\Im (c_j^{\text{MCH}})$\\
+    \hline
+    coeff\_class\_MCH.out       &$2+n$
+      &$1$ &Time $t$ (fs)\\
+      &&$2$ &$1$\\
+      &&$2+j$ &$|U_{j\alpha}|^2$\\
+    \hline
+    coeff\_mixed\_MCH.out       &$2+n$
+      &$1$ &Time $t$ (fs)\\
+      &&$2$ &$1$\\
+      &&$2+j$ &$|U_{j\alpha}|^2+\sum_{k,l}2\Re(U_{jk}U^*_{jl}c^\text{diag}_{k}c^{\text{diag}*}_{l})$\\
+    \hline
+    coeff\_diab.out       &$2+2n$
+      &$1$ &Time $t$ (fs)\\
+      &&$2$ &Norm of wave function $\sum_j |c_j^{\text{diab}}|^2$\\
+      &&$1+2j$ &$\Re (c_j^{\text{diab}})$\\
+      &&$2+2j$ &$\Im (c_j^{\text{diab}})$\\
+    \hline
+    coeff\_class\_diab.out       &$2+2n$
+      &$1$ &Time $t$ (fs)\\
+      &&$2$ &$1$\\
+      &&$2+j$ &$|T_{j\alpha}|^2$\\
+    \hline
+    coeff\_mixed\_diab.out       &$2+2n$
+      &$1$ &Time $t$ (fs)\\
+      &&$2$ &$1$\\
+      &&$2+j$ &$|T_{j\alpha}|^2+\sum_{k,l}2\Re(T_{jk}T^*_{jl}c^\text{diag}_{k}c^{\text{diag}*}_{l})$\\
+    \hline
+    prob.out       &$2+n$
+      &$1$ &Time $t$ (fs)\\
+      &&$2$ &Random number from surface hopping\\
+      &&$2+j$ &Cumulated hopping probability $\sum_{k=1}^j P_k$\\
+    \hline
+    expec.out      &$4+3n$
+      &$1$ &Time $t$ (fs)\\
+      &&$2$ &Kinetic energy (eV)\\
+      &&$3$ &Potential energy (eV) of active state (diagonal)\\
+      &&$4$ &Total energy (eV)\\
+      &&$4+j$ &Potential energy (eV) of state $j$ (diagonal)\\
+      &&$4+n+j$ &Total spin expectation value of state $j$ (diagonal)\\
+      &&$4+2n+j$ &Oscillator strength of state $j$ (diagonal)\\
+    \hline
+    expec\_MCH.out      &$4+3n$
+      &$1$ &Time $t$ (fs)\\
+      &&$2$ &Kinetic energy (eV)\\
+      &&$3$ &Potential energy (eV) of approximate active state (MCH)\\
+      &&$4$ &Total energy (eV)\\
+      &&$4+j$ &Potential energy (eV) of state $j$ (MCH)\\
+      &&$4+n+j$ &Total spin expectation value of state $j$ (MCH)\\
+      &&$4+2n+j$ &Oscillator strength of state $j$ (MCH)\\
+    \hline
+    ion\_diag.out      &$4+3n$
+      &$1$ &Time $t$ (fs)\\
+      &&$1+j$ &$E_j-E_\text{active}$ (in eV, diagonal)\\
+      &&$1+n+j$ &Dyson norm from active state to state $j$ (diagonal)\\
+    \hline
+    ion\_MCH.out      &$4+3n$
+      &$1$ &Time $t$ (fs)\\
+      &&$1+j$ &$E_j-E_\text{approximate active}$ (in eV, mCH)\\
+      &&$1+n+j$ &Dyson norm from approximate active state to state $j$ (MCH)\\
+    \hline
+    dip\_mom\_diag.out
+      &&&Formatted like a minimal \ttt{output.dat} \\
+      &&&file containing the dipole moment matrices \\
+      &&&in diagonal representation.\\
+    \hline
+
+
+\end{longtable}
+}
+
+
+
+
+
+
+
+% ========================================================================================================= %
+
+\section{Data Extractor for NetCDF: \ttt{data\_extractor\_NetCDF.x}}\label{sec:data_extractor_NetCDF.x}
+
+This program has the same function as the \ttt{data\_extractor.x}.
+While the latter acts on ASCII-formatted \ttt{output.dat} files, the \ttt{data\_extractor\_NetCDF.x} reads only the header from \ttt{output.dat}, but the time step data from \ttt{output.dat.nc}.
+This file is obtained by setting \ttt{output\_format} to \ttt{ascii} in the \sharc\ input file.
+For more details, see Section~\ref{sec:netcdf}.
+
+Note that this program currently does not support a few options of the \ttt{data\_extractor.x}.
+In particular, the options \ttt{-sk}, \ttt{-dd}, \ttt{-id}, and \ttt{-im} are ignored and no corresponding output is produced.
+
+Using the \ttt{-xyz} flag, the \ttt{data\_extractor\_NetCDF.x} can be used to write an \ttt{output.xyz} file from the NetCDF data file.
+
+\subsection{Usage}
+
+The \ttt{data\_extractor\_NetCDF.x} is used in the same way as \ttt{data\_extractor.x}:
+\begin{verbatim}
+user@host> $SHARC/data_extractor_NetCDF.x [options] output.dat
+\end{verbatim}
+Note that both \ttt{output.dat} and \ttt{output.dat.nc} need to be present.
+The file name of \ttt{output.dat.nc} is hardcoded, if your file is called differently, you should set a symbolic link.
+
+\subsection{Output}
+
+Same as \ttt{data\_extractor.x}.
+
+
+
+% ========================================================================================================= %
+
+\section{Data Converter for NetCDF: \ttt{data\_converter.x}}\label{sec:data_converter.x}
+
+This program can be used to convert an \ttt{output.dat} file into a NetCDF file (\ttt{output.dat.nc}).
+This significantly reduces the size of the file, and allows deleting the \ttt{output.xyz} file (its content will be in the NetCDF file).
+
+\subsection{Usage}
+
+The \ttt{data\_converter.x} usage is very simple:
+\begin{verbatim}
+user@host> $SHARC/data_converter.x output.dat
+\end{verbatim}
+
+Note that the \ttt{data\_converter.x} does not modify the \ttt{output.dat} file.
+Hence, in order to save disk space, remove the data (below the header) afterwards:
+\begin{verbatim}
+user@host> sed -i '1,/End of header array data/!d' output.dat
+\end{verbatim}
+
+\subsection{Output}
+
+The program writes a file called \ttt{output.dat.nc}.
+This file can be extracted as usual with \ttt{data\_extractor\_NetCDF.x} (see section~\ref{sec:data_extractor_NetCDF.x}).
 
 
 % ========================================================================================================= %
@@ -6327,11 +6963,13 @@ The created plot script generates four different plots (press ENTER in the comma
 \end{figure}
 Note that by definition the ``oscillator strength'' of the lowest state with itself is exactly zero, hence the lowest state is also light grey. This dual coloring allows for a quick recognition of different types of states in the dynamics, e.g.\ singlets vs.\ triplets or $n\pi^*$ vs.\ $\pi\pi^*$ states.
 
-The second plot shows the population $|c_i^{\text{MCH}}|^2$ of the MCH electronic states over time. The line colors are auto-generated in order to give a large spread of all colors over the excited states, but the colors might be sub-optimal, e.g.\ for printing. In this cases, the user should manually adjust the colors in the generated script.
+The second plot shows the same data again, but using relative energies such that the energy of the lowest state is zero.
 
-The third plot shows the population $|c_i^{\text{diag}}|^2$ of the diagonal electronic states over time. These are the populations which are actually used for surface hopping. However, since these states are spin-mixed, it is usually difficult to interpret these populations.
+The third plot shows the population $|c_i^{\text{MCH}}|^2$ of the MCH electronic states over time. The line colors are auto-generated in order to give a large spread of all colors over the excited states, but the colors might be sub-optimal, e.g.\ for printing. In this cases, the user should manually adjust the colors in the generated script.
 
-The fourth plot shows the surface hopping probabilities over time. The plot is setup in such a way that the visible area corresponding to a certain state is proportional to the probability to hop into the state. Hence, if for a given time step the random number (black circles) lies within a colored area, a surface hop to the corresponding state is performed.
+The fourth plot shows the population $|c_i^{\text{diag}}|^2$ of the diagonal electronic states over time. These are the populations which are actually used for surface hopping. However, since these states are spin-mixed, it is usually difficult to interpret these populations.
+
+The fifth plot shows the surface hopping probabilities over time. The plot is setup in such a way that the visible area corresponding to a certain state is proportional to the probability to hop into the state. Hence, if for a given time step the random number (black circles) lies within a colored area, a surface hop to the corresponding state is performed.
 
 
 
@@ -6400,6 +7038,13 @@ During the check of each trajectory, \ttt{output.lis}, \ttt{output\_data/energie
     pop\_window         &Float          &Maximum permissible drift in total population.\\
     hop\_energy         &Float          &Maximum permissible change in active state energy during a surface hop (in eV).\\
     intruders           &Boolean        &Checks if intruder state messages in "output.log" refer to active state.\\
+    always\_update      &Boolean        &Run the \ttt{data\_extractor.x} always, even if \ttt{output.dat} is older than the produced files.\\
+    extractor\_mode     &String         &Controls command line flags for the \ttt{data\_extractor.x}:\\
+                                       &&\ttt{xs}: Uses the \ttt{-xs} flag.\\
+                                       &&\ttt{s}: Uses the \ttt{-s} flag.\\
+                                       &&\ttt{l}: Uses the \ttt{-l} flag.\\
+                                       &&\ttt{xl}: Uses the \ttt{-xl} flag.\\
+                                       &&\ttt{dont}: \ttt{data\_extractor.x} is never run (this leads to incomplete diagnostics, but is very fast).\\
     \hline
   \end{tabular}
 \end{table}
@@ -6453,11 +7098,11 @@ Additionally, \ttt{populations.py} will ignore trajectories with a \ttt{DONT\_AN
 Using \ttt{populations.py}, there are two basic ways in obtaining the excited-state populations. The first way is to count the number of trajectories for which a certain condition holds. For example, the number of trajectories in each classical state can be obtained in this way. However, it is also possible to count the number of trajectories for which the total spin expectation value is within a certain interval. 
 The second way to obtain populations is to obtain the sum of the absolute squares of the quantum amplitudes over all trajectories. Table~\ref{tab:Populations_modes} contains a list of all possible analysis modes.
 
-\begin{table}
+\begin{table}[tbp]
   \centering
   \caption[Analysis modes for \ttt{populations.py}.]{Analysis modes for \ttt{populations.py}. The last column indicates whether \ttt{data\_extractor.x} has to be run prior to the ensemble analysis.}
   \label{tab:Populations_modes}
-  \begin{tabular}{lp{8.5cm}>{\ttfamily}lc}
+  \begin{tabular}{lp{7.5cm}>{\ttfamily}lc}
     \hline
     Mode        &Description    &\rmfamily From which file?     &Extract?\\
     \hline
@@ -6470,9 +7115,15 @@ The second way to obtain populations is to obtain the sum of the absolute square
     7   &Calculate the sum of the absolute squares of the diagonal coefficients for each state.       &output\_data/coeff\_diag.out&Yes\\
     8   &Calculate the sum of the absolute squares of the MCH coefficients for each state.       &output\_data/coeff\_MCH.out&Yes\\
     9   &Calculate the sum of the absolute squares of the MCH coefficients for each state. Multiplet components are summed up.       &output\_data/coeff\_MCH.out&Yes\\
-   10   &Transform option 1 to MCH basis (trajectory-wise transformation with $\VEC{U}$ matrix).   &output.dat&No\\
-   11   &Transform option 1 to MCH basis (trajectory-wise transformation with $\VEC{U}$ matrix). Multiplet components are summed up.   &output.dat&No\\
-   20   &Calculate the sum of the absolute squares of the diabatic coefficients for each state (Only for trajectories with local diabatization).      &output\_data/coeff\_diab.out&Yes\\
+%    10   &Transform option 1 to MCH basis (trajectory-wise transformation with $\VEC{U}$ matrix).   &output.dat&No\\
+%    11   &Transform option 1 to MCH basis (trajectory-wise transformation with $\VEC{U}$ matrix). Multiplet components are summed up.   &output.dat&No\\
+    12  &Transform option 1 to MCH basis (section~\ref{met:pop}).   &output\_data/coeff\_class\_MCH.out&Yes\\
+    13  &Transform option 1 to MCH basis (section~\ref{met:pop}). Multiplet components are summed up.   &output\_data/coeff\_class\_MCH.out&Yes\\
+    14  &Wigner-transform option 1 to MCH basis (section~\ref{met:pop}).   &output\_data/coeff\_mixed\_MCH.out&Yes\\
+    15  &Wigner-transform option 1 to MCH basis (section~\ref{met:pop}). Multiplet components are summed up.   &output\_data/coeff\_mixed\_MCH.out&Yes\\
+    20  &Calculate the sum of the absolute squares of the diabatic coefficients for each state (Only for trajectories with local diabatization).      &output\_data/coeff\_diab.out&Yes\\
+    21  &Transform option 1 to diabatic basis (section~\ref{met:pop}).   &output\_data/coeff\_class\_diab.out&Yes\\
+    22  &Wigner-transform option 1 to diabatic basis (section~\ref{met:pop}). Multiplet components are summed up.   &output\_data/coeff\_mixed\_diab.out&Yes\\
     \hline
   \end{tabular}
 \end{table}
@@ -6588,7 +7239,7 @@ The different analysis modes for \ttt{transition.py} are given in Table~\ref{tab
 
 % ========================================================================================================= %
 
-\section{Fitting population data to kinetic models including error estimation: \ttt{make\_fit.py}}\label{sec:make_fit.py}
+\section{Fitting population data to kinetic models: \ttt{make\_fit.py}}\label{sec:make_fit.py}
 
 Often it is interesting to fit some functions to the population data from a trajectory ensemble, in order to provide a way to abstract the data and to obtain some kind of rate constants for population transfer, which allows to compare to experimental works.
 In simple cases, it might be sufficient to fit basic mono- and biexponential functions to the data, which provides the sought-after time constants.
@@ -6745,6 +7396,9 @@ Additionally, at the end this file contains a table with all obtained fitting pa
 
 \section{Fitting population data to kinetic models: \ttt{make\_fitscript.py}}\label{sec:make_fitscript.py}
 
+This script has been superseded by \ttt{make\_fit.py} (see section~\ref{sec:make_fit.py}).
+You should use \ttt{make\_fitscript.py} only if \ttt{make\_fit.py} does not work.
+
 Often it is interesting to fit some functions to the population data from a trajectory ensemble, in order to provide a way to abstract the data and to obtain some kind of rate constants for population transfer, which allows to compare to experimental works.
 In simple cases, it might be sufficient to fit basic mono- and biexponential functions to the data, which provides the sought-after time constants.
 However, often a more meaningful approach is based on a chemical kinetics model.
@@ -6854,6 +7508,9 @@ Please do not change the structure of \ttt{model\_fit.gp} if you intend to use t
 % ========================================================================================================= %
 
 \section{Estimating Errors of Fits: \ttt{bootstrap.py}}\label{sec:bootstrap.py}
+
+This script has been superseded by \ttt{make\_fit.py} (see section~\ref{sec:make_fit.py}).
+You should use \ttt{bootstrap.py} only if \ttt{make\_fit.py} does not work.
 
 As was described in section~\ref{sec:make_fitscript.py}, the population data from \ttt{populations.py} can be fitted to a kinetic model to obtain interpretable rate constants.
 Often, one is also interested in obtaining an estimate of the error associated to these rate constants, e.g., in order to decide whether enough trajectories were computed.
@@ -7072,6 +7729,7 @@ Also note that the column for the comment is enlarged by 50 characters.
     -r          &Report $a$, $d$, $p$, $q$, $\phi_2$, $\phi$, $\theta$, $i$, $j$, $k$, and $l$ in Radians         &Degrees\\
     -g FILENAME &Read coordinates from the specified file       &\ttt{output.xyz}\\
     -t FLOAT    &Assumed time step between successive geometries (fs)    &1.0 fs\\
+    -T INTEGER  &Start counting time step                       &0\\
     -w INTEGER  &Width of each column (min=20)                   &20\\
     -p INTEGER  &Precision (Number of decimals, min=width--3)         &4\\
     \hline
@@ -7732,7 +8390,7 @@ The diagonal matrix and the matrix of eigenvectors is written to stdout.
 % ========================================================================================================= %
 % ========================================================================================================= %
 
-\chapter{Methodology}
+\chapter{Methods and Algorithms}
 \label{chap:met}
 
 In this chapter different aspects of \sharc\ simulations are discussed in detail. The topics are ordered alphabetically.
@@ -7859,6 +8517,65 @@ If larger confidence intervals are desired, simply multiply the arithmetic error
 For the geometric error, use for example $\bar{x}\substack{+\bar{x}(\sigma(x)^2-1) \\ -\bar{x}(1/\sigma(x)^2-1)}$.
 
 
+
+% ========================================================================================================= %
+
+\section{Computing electronic populations}\label{met:pop}
+
+The electronic populations from \sharc\ trajectories can be obtained in different ways.
+This is primarily due to the fact that in surface hopping one could either consider the active state or the electronic wave function coefficients.
+This issue is discussed in detail in~\cite{Landry2013JCP}, where it is shown that the optimal way to obtain the electronic populations is actually a combination of both kinds of information in a Wigner-like transformation.
+Hence, there are three options in \sharc: (i) based on classical active state, (ii) based on electronic wave function coefficients, and (iii) based on Wigner-transform.
+Additionally, the populations can be analyzed in different representations (diagonal, MCH, diabatic).
+
+\paragraph{Diagonal representation}
+
+The diagonal representation, there is no basis transformation involved, and hence the equations are very simple.
+For a single trajectory, the three possible populations can be obtained by:
+\begin{equation}
+  p^{\text{diag}(i)}_j=\delta_{j\alpha},
+\end{equation}
+\begin{equation}
+  p^{\text{diag}(ii)}_j=|c^\text{diag}_j|^2,
+\end{equation}
+\begin{equation}
+  p^{\text{diag}(iii)}_j=\delta_{j\alpha},
+\end{equation}
+where $\alpha$ is the active diagonal state.
+
+\paragraph{MCH representation}
+
+To obtain the MCH representation, one needs to transform the populations with the matrix $\VEC{U}$.
+Hence, one obtains:
+\begin{equation}
+  p^{\text{MCH}(i)}_j=|U_{j\alpha}|^2,
+\end{equation}
+\begin{equation}
+  p^{\text{MCH}(ii)}_j=|\sum_k U_{jk}c^\text{diag}_k|^2,
+\end{equation}
+\begin{equation}
+  p^{\text{MCH}(iii)}_j=|U_{j\alpha}|^2+\sum_{k<l}2\Re(U_{jk}U^*_{jl}c^\text{diag}_kc^{\text{diag}*}_l).
+\end{equation}
+
+
+\paragraph{Diabatic representation}
+
+To obtain the diabatic representation, one needs to transform the populations with the appropriate transformation matrix $\VEC{T}$, which in \sharc\ is obtained as the matrix product of reference overlap matrix, time-ordered overlap matrices, and $\VEC{U}$ for the current time step.
+Hence, one obtains:
+\begin{equation}
+  p^{\text{MCH}(i)}_j=|T_{j\alpha}|^2,
+\end{equation}
+\begin{equation}
+  p^{\text{MCH}(ii)}_j=|\sum_k T_{jk}c^\text{diag}_k|^2,
+\end{equation}
+\begin{equation}
+  p^{\text{MCH}(iii)}_j=|T_{j\alpha}|^2+\sum_{k<l}2\Re(T_{jk}T^*_{jl}c^\text{diag}_kc^{\text{diag}*}_l).
+\end{equation}
+
+
+
+
+
 % ========================================================================================================= %
 
 \section{Damping}\label{met:damping}
@@ -7895,7 +8612,7 @@ In this scheme, after the surface hopping procedure, when the system is in state
   c_\alpha^\prime=&
   c_\alpha\cdot\exp
   \left[
-    -\Delta t\frac{|E_\alpha-E_\beta|}{\hbar}
+    -\frac{1}{2}\Delta t\frac{|E_\alpha-E_\beta|}{\hbar}
     \left(
       1+\frac{C}{E_{\text{kin}}}
     \right)^{-1}
@@ -7930,9 +8647,10 @@ Hence, $\VEC{S}^\text{diag}(t,t+\Delta t)$ is the overlap matrix in the diagonal
 We then propagate the auxiliary trajectories for each state $j$, considering that the active state is $\alpha$.
 For this, we need the gradient matrix $\VEC{G}^\text{diag}$ from section~\ref{met:gradtra}.
 We define:
-\begin{align}
-  \sigma_j=|c_j(t)|^2,\\
-\end{align}
+\begin{equation}
+  \sigma_j=|c_j(t)|^2.
+  % TODO: Is there something missing here?
+\end{equation}
 We do the $X$ step of the velocity-Verlet algorithm:
 \begin{align}
   \VEC{a}^j_A(t)&=-\frac{((\VEC{G}^\text{diag})_{jj}-(\VEC{G}^\text{diag})_{\alpha\alpha})_A}{M_A},\\
@@ -7970,9 +8688,9 @@ We compute two rate constants:
   r_2^j&=2|(\VEC{G}^\text{diag})_{\alpha j}\cdot\VEC{D}|,
 \end{align}
 or if no nonadiabatic coupling vectors are available:
-\begin{align}
-  r_2^j&=2\frac{|H^\text{olddiag}_{\alpha j}|}{\Delta t}\frac{\VEC{D}\cdot\VEC{v}}{\VEC{v}\cdot\VEC{v}}.
-\end{align}
+\begin{equation}
+  r_2^j=2\frac{|H^\text{olddiag}_{\alpha j}|}{\Delta t}\frac{\VEC{D}\cdot\VEC{v}}{\VEC{v}\cdot\VEC{v}}.
+\end{equation}
 
 We draw a random number (identical for all states) $r$ between 0 and 1.
 If $r<\Delta t(r^j_1-r^j_2)$, then we collapse state $j$, by setting its coefficient to zero and enlarging the coefficient of the active state such that the total norm is conserved; we also set the moments $\VEC{R}^j$ and $\VEC{v}^j$ to zero.
@@ -8321,10 +9039,12 @@ A pulse $l(t)$ is formed as the product of an envelope function and a field func
 There are two types of envelope function defined in \ttt{laser.x}, which are Gaussian and sinusoidal.
 
 The Gaussian envelope is defined as:
-\begin{align}
-  \mathcal{E}(t)&=\mathcal{E}_0 \E^{-\beta(t-t_c)^2}\label{eq:laser_gauss_1}\\
-  \beta&=\frac{4\ln 2}{\mathrm{FWHM}^2}\label{eq:laser_gauss_2}
-\end{align}
+\begin{equation}
+  \mathcal{E}(t)=\mathcal{E}_0 \E^{-\beta(t-t_c)^2}\label{eq:laser_gauss_1}
+\end{equation}
+\begin{equation}
+  \beta=\frac{4\ln 2}{\mathrm{FWHM}^2}\label{eq:laser_gauss_2}
+\end{equation}
 where $\mathcal{E}_0$ is the peak field strength, FWHM is the full width at half maximum and $t_c$ is the temporal center of the pulse.
 
 The sinusoidal envelope is defined as:
@@ -8422,6 +9142,114 @@ The hop is assumed to be laser-induced if
 where $W$ is a fixed parameter. $W$ can be set using the input keyword \ttt{laserwidth}.
 
 If a hop has been classified as laser-free, the momentum is adjusted according to the equations given in section~\ref{met:ekinadj}.
+
+
+% ========================================================================================================= %
+\section{Linear Vibronic Coupling Models}\label{met:lvc}
+
+In the vibronic coupling model \cite{Koeppel84ACP} the diabatic energy and coupling matrix $\mathbf{V}$ is constructed as
+\begin{equation}
+\label{eq:V}
+\mathbf{V}=
+V_0\mathbf{1}+\mathbf{W},
+\end{equation}
+where $V_0$ is the reference potential and $\mathbf{W}$ includes the state-specific vibronic terms.
+
+Within \sharc, the reference potential is chosen to be harmonic.
+The reference potential is expressed in dimensionless mass-frequency-scaled normal coordinates, which can be computed from the Cartesian coordinates $r_{A}$ as
+%
+\begin{equation}
+\label{eq:Qi}
+Q_i=\sqrt{\omega_i}\sum_A K_{A i}\sqrt{M_A}\left(r_{A}-r_A^\text{ref}\right)
+\end{equation}
+%
+where $\omega_i$ is the frequency of normal mode $i$, $M_A$ is an atomic mass, and $K_{A i}$ denotes the conversion matrix between mass-weighted Cartesian and normal coordinates.
+Using these coordinates, the harmonic reference potential is given as
+%
+\begin{equation}
+\label{eq:V0Qi}
+V_0= \sum_i \dfrac{\omega_i}{2}Q_i^2.
+\end{equation}
+%
+In the case of the linear vibronic coupling model, one additionally considers the following state-specific terms that constitute the $\mathbf{W}$ matrix.
+%
+\begin{align}
+\label{eq:Wnn}
+W_{\alpha\alpha}&=\epsilon_\alpha + \sum_i\kappa_i^{(\alpha)}Q_i,
+\\
+\label{eq:Wmn}
+W_{\alpha\beta}&=\eta_{\alpha\beta}+\sum_i\lambda_i^{(\alpha\beta)}Q_i, \quad \alpha\neq \beta
+\end{align}
+%
+Here the $\epsilon_\alpha$ are the vertical excitation energies, the $\eta_{\alpha\beta}$ are the SOC constants, and the $\kappa_i^{(\alpha)}$ and $\lambda_i^{(\alpha\beta)}$ are termed intrastate and interstate vibronic coupling constant \cite{Koeppel84ACP}.
+
+
+\subsection{Obtaining LVC parameters from ab initio data}
+
+All LVC parameters are either constant or linear, implying that they can be obtained from either a single ab initio computation or from some first derivative.
+The following equations show how the parameters $\epsilon_\alpha$, $\eta_{\alpha\beta}$, $\kappa_i^{(\alpha)}$, and $\lambda_i^{(\alpha\beta)}$ are obtained.
+
+The parameters $\epsilon_\alpha$ are simply the vertical excitation energies at the reference geometry:
+\begin{equation}
+  \epsilon_\alpha = H^\text{MCH}_{\alpha\alpha}(\vec{Q}=0) = H^\text{MCH}_{\alpha\alpha}(\vec{r}^\text{ref})-E^\text{ref},
+\end{equation}
+where $E^\text{ref}$ is some reference energy.
+Likewise, the SOC parameters $\eta_{\alpha\beta}$ are simply the SOC matrix elements at the reference geometry:
+\begin{equation}
+  \eta_{\alpha\beta} = H^\text{MCH}_{\alpha\beta}(\vec{Q}=0) = H^\text{MCH}_{\alpha\beta}(\vec{r}^\text{ref}).
+\end{equation}
+These two equations hold because in the LVC model we assume that at the reference geometry diabatic basis and MCH basis coincide.
+
+The intrastate linear vibronic coupling term $\kappa_i^{(\alpha)}$ is the gradient of the diabatic energy of state $n$.
+Since at the reference geometry, diabatic and MCH basis coincide, this is equivalent to the gradient of the corresponding MCH state.
+This gradient needs only be transformed from Cartesian coordinates into normal mode coordinates:
+\begin{equation}
+  \kappa_i^{(\alpha)} = \frac{1}{\sqrt{\omega_i}}\sum_A \frac{K_{A i}}{\sqrt{M_A}} \left.\frac{\partial H^\text{MCH}_{\alpha\alpha}}{\partial r_A}\right|_{\vec{r}=\vec{r}^\text{ref}}
+\end{equation}
+
+The interstate linear vibronic coupling term $\lambda_i^{(\alpha\beta)}$ is the gradient of the diabatic coupling between states $n$ and $m$.
+If analytical nonadiabatic coupling vectors are available, these parameters can be obtained---similarly as the $\kappa_i^{(\alpha)}$ parameters---by coordinate transformation of the energy-difference-scaled nonadiabatic coupling vector:
+\begin{equation}
+  \lambda_i^{(\alpha\beta)}
+  =
+  \frac{1}{\sqrt{\omega_i}}\sum_A \frac{K_{A i}}{\sqrt{M_A}} 
+  \left(H^\text{MCH}_{\alpha\alpha}(\vec{r}^\text{ref})-H^\text{MCH}_{\beta\beta}(\vec{r}^\text{ref})\right)
+  \left.
+    \left\langle
+      \psi_n\middle|\frac{\partial}{\partial r_A}\middle|\psi_m
+    \right\rangle
+  \right|_{\vec{r}=\vec{r}^\text{ref}}
+\end{equation}
+
+If gradients or nonadiabatic coupling vectors are not available, then the $\kappa_i^{(\alpha)}$ and  $\lambda_i^{(\alpha\beta)}$ parameters can be obtained numerically.
+To this end, one performs ab initio calculations at displaced geometries $\pm\delta Q_i$, where
+\begin{equation}
+  r_A^{\pm i}=r_A^\text{ref} \pm \frac{\delta Q_i K_{A i}}{\sqrt{M_A\omega_i}}.
+\end{equation}
+The ab initio calculations at these geometries provide the energies $H^\text{MCH}_{\alpha\alpha}(r_A^{\pm i})$ and the wave function overlaps $S^{\pm i}_{\alpha\beta}=\langle\psi^\text{MCH}_\alpha(\vec{r}^\text{ref})|\psi^\text{MCH}_\beta(\vec{r}^{\pm i})\rangle$.
+From these data, the $\kappa_i^{(\alpha)}$ values can be computed as:
+\begin{equation}
+  \kappa_i^{(\alpha)}
+  =
+  \frac{1}{2\delta Q_i}
+  \left(
+  (\mathbf{S}^{+i}\mathbf{H}^\text{MCH}(\vec{r}^{+i})(\mathbf{S}^{+i})^T)_{\alpha\alpha}
+  -
+  (\mathbf{S}^{-i}\mathbf{H}^\text{MCH}(\vec{r}^{-i})(\mathbf{S}^{-i})^T)_{\alpha\alpha}
+  \right),
+\end{equation}
+and the $\lambda_i^{(\alpha\beta)}$ as:
+\begin{equation}
+  \lambda_i^{(\alpha\beta)}
+  =
+  \frac{1}{2\delta Q_i}
+  \left(
+  (\mathbf{S}^{+i}\mathbf{H}^\text{MCH}(\vec{r}^{+i})(\mathbf{S}^{+i})^T)_{\alpha\beta}
+  -
+  (\mathbf{S}^{-i}\mathbf{H}^\text{MCH}(\vec{r}^{-i})(\mathbf{S}^{-i})^T)_{\alpha\beta}
+  \right).
+\end{equation}
+
 
 
 % ========================================================================================================= %
@@ -8528,21 +9356,25 @@ A Hermitian matrix $\VEC{H}^{\text{MCH}}$ can always be diagonalized. Its eigenv
   \VEC{H}^{\text{diag}}=\VEC{U}^\dagger\VEC{H}^{\text{MCH}}\VEC{U}.
 \end{equation}
 
-However, the condition that $\VEC{U}$ diagonalizes $\VEC{H}^{\text{MCH}}$ is not sufficient to define $\VEC{U}$ uniquely. Each normalized eigenvector $\VEC{u}$ can be multiplied by a complex number on the unit circle and still remains a normalized eigenvector:
-\begin{align}
+However, the condition that $\VEC{U}$ diagonalizes $\VEC{H}^{\text{MCH}}$ is not sufficient to define $\VEC{U}$ uniquely. Each normalized eigenvector $\VEC{u}$ can be multiplied by a complex number on the unit circle and still remains a normalized eigenvector.
+\begin{equation}
   \VEC{H}\VEC{u}=h\VEC{u}
-  \qquad&\text{and}\qquad
-  \VEC{u}^\dagger\VEC{u}=1\\
-  &\Rightarrow\nonumber\\
+  \qquad\text{and}\qquad
+  \VEC{u}^\dagger\VEC{u}=1
+\end{equation}
+leads to
+\begin{equation}
   \VEC{H}\left(\E^{\I\phi}\VEC{u}\right)
   =\E^{\I\phi}\left(\VEC{H}\VEC{u}\right)
-  &=\E^{\I\phi}h\VEC{u}
-  =h\left(\E^{\I\phi}\VEC{u}\right)\\
-  &\text{and}\nonumber\\
+  =\E^{\I\phi}h\VEC{u}
+  =h\left(\E^{\I\phi}\VEC{u}\right)
+\end{equation}
+and
+\begin{equation}
   \left(\E^{\I\phi}\VEC{u}\right)^\dagger\left(\E^{\I\phi}\VEC{u}\right)
-  =\VEC{u}^\dagger\E^{-\I\phi}&\E^{\I\phi}\VEC{u}
+  =\VEC{u}^\dagger\E^{-\I\phi}\E^{\I\phi}\VEC{u}
   =\VEC{u}^\dagger\VEC{u}=1
-\end{align}
+\end{equation}
 Thus, for all diagonal matrices $\boldsymbol{\Phi}$ with elements 
 %%tth: $\delta_{\beta\alpha}\exp(\I\phi_\beta)$, 
 \tthdump{
@@ -8598,6 +9430,9 @@ Additionally, within the quantum chemistry programs, the phases of the electroni
   \item If the overlap matrix is available, its diagonal contains the necessary phase information.
   \item Otherwise the scalar products of old and new nonadiabatic couplings and the relative phase of SOC matrix elements can be used to construct phase information.
 \end{itemize}
+
+
+
 
 % ========================================================================================================= %
 
@@ -8664,8 +9499,8 @@ The sampling is based on references~\cite{Dahl1988JCP, Schinke1995}.
 
 Besides the equilibrium geometry $\VEC{R}_{\text{eq}}$, the optimization plus frequency calculation provides a set of vibrational frequencies $\{\nu_i\}$ and the corresponding normal mode vectors $\{\VEC{n}_i\}$, where $i$ runs from 1 to $N=3n_{\text{atom}}$.
 
-The normal mode vectors need to be provided in terms of mass-weighted Cartesian normal modes, in units of $[l[\text{a.u.}]\cdot\sqrt{m[\text{a.u.}]}]$.
-Most quantum chemistry programs follow different conventions when writing \textsc{Molden} files. \textsc{Molpro} and \textsc{Molcas} write these files with unweighted Cartesian normal modes, with units of $[l[\text{a.u.}]]$. \textsc{Gaussian}, \textsc{Turbomole}, \textsc{Q-Chem}, \textsc{ADF}, and \textsc{Orca} employ what could be called the "\textsc{Gaussian} convention", which are normalized Cartesian normal modes. \textsc{Columbus} uses yet another convention in the output of their \ttt{suscal.x} module.
+The normal mode vectors need to be provided in terms of mass-weighted Cartesian normal modes, in atomics units (Bohrs times square root of electron mass, i.e., $a_0\cdot\sqrt{m_e}$).
+Most quantum chemistry programs follow different conventions when writing \textsc{Molden} files. \textsc{Molpro} and \textsc{Molcas} write these files with unweighted Cartesian normal modes, with units of $a_0$ (Bohrs). \textsc{Gaussian}, \textsc{Turbomole}, \textsc{Q-Chem}, \textsc{ADF}, and \textsc{Orca} employ what could be called the "\textsc{Gaussian} convention", which are normalized Cartesian normal modes. \textsc{Columbus} uses yet another convention in the output of their \ttt{suscal.x} module.
 The script \ttt{wigner.py} automatically transforms these different conventions; it does so by applying all possible transformations to the input data until it finds one transformation which produces an orthonormal normal mode matrix.
 The latter one is then used for the Wigner sampling.
 
@@ -8673,11 +9508,16 @@ In order to create an initial condition $(\VEC{R},\VEC{v})$, the following proce
 \begin{equation}
   W_i=\E^{-(P_i^2+Q_i^2)}.
 \end{equation}
-$W_i$ is compared to a uniform random $r_i$ number from $[0,1]$. If $W_i>r_i$, then $P_i$ and $Q_i$ are accepted and the coordinates and velocities are updated:
-\begin{align}
-  \VEC{R}_i=&\VEC{R}_{i-1} + \frac{Q}{\sqrt{2\nu_i}}\VEC{n}_i           \label{eq:wigner1}\\
-  \VEC{v}_i=&\VEC{v}_{i-1} + \frac{P\sqrt{\nu_i}}{\sqrt{2}}\VEC{n}_i    \label{eq:wigner2}
-\end{align}
+$W_i$ is compared to a uniform random $r_i$ number from $[0,1]$. If $W_i>r_i$, then $P_i$ and $Q_i$ are accepted.
+Subsequently, the coordinates:
+\begin{equation}
+  \VEC{R}_i=\VEC{R}_{i-1} + \frac{Q}{\sqrt{2\nu_i}}\VEC{n}_i           \label{eq:wigner1}
+\end{equation}
+and velocities
+\begin{equation}
+  \VEC{v}_i=\VEC{v}_{i-1} + \frac{P\sqrt{\nu_i}}{\sqrt{2}}\VEC{n}_i    \label{eq:wigner2}
+\end{equation}
+are updated.
 The random number procedure and updates are repeated for all normal modes, until $(\VEC{R}_N,\VEC{v})_N$ is obtained, which constitutes one initial condition. Finally, the center of mass is restored and translational and rotational components are projected out of $\VEC{v}$. The harmonic potential energy is given by:
 \begin{equation}
   E_{\text{pot}}=\frac{1}{2}\sum\limits_i \nu_iQ_i^2
@@ -8995,7 +9835,6 @@ And in order to have a sufficiently small time step for this to work, the interv
         +\VEC{K}_i
       \right)\Delta\tau
   \right]\\
-  \VEC{H}_i=&
   \VEC{H}^{\text{MCH}}(t) + \frac{i}{n}
   \left(
     \VEC{H}^{\text{MCH}}(t+\Delta t)-\VEC{H}^{\text{MCH}}(t)

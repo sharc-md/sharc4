@@ -80,15 +80,36 @@
 \widowpenalty = 2000 
 \displaywidowpenalty = 2000
 
+
+
+% Rules before each section
+% \tthdump{
+  \usepackage{titlesec}
+  \titleformat{\chapter}[block]
+    {\titleline{\color{B!75}\titlerule[3.2pt]}\addvspace{4pt}\sffamily\LARGE\bfseries}
+    {\thechapter\enspace}{0pt}{}[\vspace{2pt}\titleline{\color{B!75}\titlerule[3.2pt]}]
+  \titleformat{\section}[block]
+    {\titleline{\color{B!50}\titlerule[1.6pt]}\addvspace{1pt}\sffamily\Large\bfseries}
+    {\thesection\enspace}{0pt}{}
+  \titleformat{\subsection}[block]
+    {\titleline{\color{B!15}\titlerule[0.8pt]}\addvspace{1pt}\sffamily\large\bfseries}
+    {\thesubsection\enspace}{0pt}{}
+  \titlespacing*{\section}
+    {0pt}{9ex plus 1ex minus .2ex}{1ex plus .2ex}
+% }
+
+
+
+
 % =============================== TITLE ==========================
 \newenvironment{tpage}{%
 \KOMAoptions{twoside = false}
 \addtokomafont{title}{\rmfamily}
   \begin{titlepage}
-    \title{\hspace{1cm}\includegraphics[width=0.8\textwidth,keepaspectratio=true]{img/sharc_new.pdf}\\[0.5cm]
-    SHARC2.0:\\ Surface Hopping Including\\ Arbitrary Couplings}
-    \subtitle{Tutorial\\[1cm]Version 2.0}
-    \date{Vienna, \today}
+    \title{\hspace{1cm}\includegraphics[width=0.8\textwidth,keepaspectratio=true]{{img/sharc_logo_2.1}.png}\\[0.5cm]
+    SHARC2.1:\\ Surface Hopping Including\\ Arbitrary Couplings}
+    \subtitle{Tutorial\\[1cm]}
+    \date{Vienna, 01.09.2019}
     \author{AG Gonz\'alez\\
 Institute of Theoretical Chemistry\\
 University of Vienna, Austria
@@ -194,7 +215,7 @@ This tutorial will use the interface to \textsc{OpenMolcas}.
 The task of the tutorial is to simulate the excited-state dynamics of the methaniminium cation (\ce{CH2NH2+}) after excitation to the bright excited state.
 
 The employed quantum chemistry method will be CASSCF(6,4)/cc-pVDZ, using the \textsc{Molcas} program package. 
-Note that this level of theory is not sufficient for a serious scientific investigation of this system, and was chosen on purpose for this tutorial because it is fast and easy to use.
+This level of theory is not sufficient for a serious scientific investigation, and was chosen on purpose for this tutorial because it is fast and (relatively) easy to use.
 For this molecule, the method has a certain chance to lead to problematic trajectories; this is also on purpose so that such trajectories can be discussed.
 
 The main goal of the tutorial is to simulate the excitation of the methaniminium cation to the first bright excited state, which is of $\pi\pi^*$ character.
@@ -300,7 +321,7 @@ The corresponding sections are indicated in margin notes on the right (see examp
 
 
 \clearpage
-\section{Optimization and Frequency calculation}
+\section{Optimization and Frequency calculation}\label{tut:optfreq}
 \refermanual{m-sec:molcas_input.py}
 
 The first general step of a dynamics simulation is the setup of the initial conditions.
@@ -336,8 +357,8 @@ The script can also generate a Bash-script to instantly launch the \textsc{Molca
 ||                                                                                ||
 ||                              Author: Sebastian Mai                             ||
 ||                                                                                ||
-||                                   Version:2.0                                  ||
-||                                    01.02.18                                    ||
+||                                   Version:2.1                                  ||
+||                                    01.09.19                                    ||
 ||                                                                                ||
   ================================================================================
 
@@ -644,8 +665,8 @@ Prepare a template file for the \sharc-\textsc{Molcas} interface.
 ||                                                                                ||
 ||                              Author: Sebastian Mai                             ||
 ||                                                                                ||
-||                                   Version:2.0                                  ||
-||                                    01.02.18                                    ||
+||                                   Version:2.1                                  ||
+||                                    01.09.19                                    ||
 ||                                                                                ||
   ================================================================================
 
@@ -752,8 +773,8 @@ This script is also interactive.
 ||                                                                                ||
 ||                              Author: Sebastian Mai                             ||
 ||                                                                                ||
-||                                   Version:2.0                                  ||
-||                                    01.02.18                                    ||
+||                                   Version:2.1                                  ||
+||                                    01.09.19                                    ||
 ||                                                                                ||
   ================================================================================
 
@@ -800,6 +821,8 @@ Please specify the quantum chemistry interface (enter any of the following numbe
 6       TURBOMOLE (ricc2 with CC2 and ADC(2))
 7       LVC Hamiltonian
 8       GAUSSIAN (DFT, TD-DFT)
+9       ORCA (DFT, TD-DFT, HF, CIS)
+10      BAGEL (CASSCF, CASPT2, (X)MS-CASPT2)
 
 Interface number: \textbf{\textcolor{red}{4}}
 
@@ -869,10 +892,10 @@ Initial wavefunction file for Triplets: [MOLCAS.3.RasOrb.init] (autocomplete ena
 Please specify the amount of memory available to MOLCAS (in MB). For calculations including moderately-
 sized CASSCF calculations and less than 150 basis functions, around 2000 MB should be sufficient.
 
-MOLCAS memory: \textbf{\textcolor{red}{500}}
+MOLCAS memory: [1000] \textbf{\textcolor{red}{500}}
 Please specify the number of CPUs to be used by EACH calculation.
 
-Number of CPUs: \textbf{\textcolor{red}{1}}
+Number of CPUs: [1] \textbf{\textcolor{red}{<ENTER>}}
 
   ================================================================================
 ||                                 Run mode setup                                 ||
@@ -950,6 +973,7 @@ Run all initial conditions calculations sequentially:
 user@host> \textbf{\textcolor{red}{sh all_run_init.sh}}
 \end{Verbatim}
 For larger calculations, it is often advantageous to send the scripts \ttt{ICOND\_*/run.sh} to a queueing system to distribute the calculations over a computing cluster.
+However, note that with the \ttt{reference overlap} calculations, \ttt{ICOND\_00000} must be completed before you can send the other calculations.
 
 After the calculations are finished, each subdirectory should contain a file called \ttt{QM.out} holding the Hamiltonian and transition dipole moment matrices.
 
@@ -982,8 +1006,8 @@ Otherwise, the script asks the user to enter the ground states equilibrium energ
 ||                                                                                ||
 ||                              Author: Sebastian Mai                             ||
 ||                                                                                ||
-||                                   Version:2.0                                  ||
-||                                    01.02.18                                    ||
+||                                   Version:2.1                                  ||
+||                                    01.09.19                                    ||
 ||                                                                                ||
   ================================================================================
 
@@ -1251,8 +1275,8 @@ user@host> \textbf{\textcolor{red}{$SHARC/setup_traj.py}}
 ||                                                                                ||
 ||                    Author: Sebastian Mai, Philipp Marquetand                   ||
 ||                                                                                ||
-||                                   Version:2.0                                  ||
-||                                    01.02.18                                    ||
+||                                   Version:2.1                                  ||
+||                                    01.09.19                                    ||
 ||                                                                                ||
   ================================================================================
 
@@ -1449,6 +1473,8 @@ There are several options to that:
 2       Adjust kinetic energy by rescaling the velocity vectors. Often sufficient.
 3       Adjust kinetic energy only with the component of the velocity vector along 
         the non-adiabatic coupling vector.        (not possible)
+4       Adjust kinetic energy only with the component of the velocity vector along
+        the gradient difference vector.
 EkinCorrect: [2] \textbf{\textcolor{red}{<ENTER>}}
 
 If a surface hop is refused (frustrated) due to insufficient energy, the velocity can either be 
@@ -1457,6 +1483,7 @@ left unchanged or reflected:
 2       Reflect the full velocity vector.
 3       Reflect only the component of the velocity vector along the non-adiabatic coupling vector.
         (not possible)
+4       Reflect only the component of the velocity vector along the gradient difference vector.
 Reflect frustrated: [1] \textbf{\textcolor{red}{<ENTER>}}
 
 Please choose a decoherence correction for the diagonal states:
@@ -1470,6 +1497,10 @@ Please choose a surface hopping scheme for the diagonal states:
 2       Standard SHARC surface hopping probabilities (Mai, Marquetand, Gonzalez).
 3       Global flux surface hopping probabilities (Wang, Trivedi, Prezhdo).
 Hopping scheme: [2] \textbf{\textcolor{red}{<ENTER>}}
+
+Do you want to perform forced hops to the lowest state based on a energy gap criterion?
+(Note that this ignores spin multiplicity)
+Forced hops to ground state? [False] \textbf{\textcolor{red}{<ENTER>}}
 
 Do you want to scale the energies and gradients?
 Scaling? [False] \textbf{\textcolor{red}{<ENTER>}}
@@ -1556,6 +1587,10 @@ Number of CPUs: \textbf{\textcolor{red}{1}}
   ================================================================================
 
 
+SHARC or PYSHARC can produce output in ASCII format (all features supported currently)
+or in NetCDF format (more efficient file I/O, some features currently not supported).
+Write output in NetCDF format? [False] \textbf{\textcolor{red}{<ENTER>}}
+
 Do you want to write the gradients to the output.dat file ?
 Write gradients? [False] \textbf{\textcolor{red}{<ENTER>}}
 
@@ -1570,6 +1605,9 @@ Write property vectors? [False] \textbf{\textcolor{red}{<ENTER>}}
 
 Do you want to write the overlap matrix to the output.dat file ?
 Write overlap matrix? [True] \textbf{\textcolor{red}{<ENTER>}}
+
+Do you want to modify the output.dat writing stride?
+Modify stride? [False] \textbf{\textcolor{red}{<ENTER>}}
 
 
   ================================================================================
@@ -1589,11 +1627,10 @@ This script can generate the run scripts for each trajectory in two modes:
 
 Note that in any case this script will setup the input subdirectories in the current working directory.
 
-Do you want to use mode 1 
-(actually perform the calculations in subdirectories of: 
-/user/mai/Documents/NewSHARC/SHARC_2.0/TUTORIAL/2_full/Tutorial/traj)
+In case of mode 1, the calculations will be run in:
+/user/mai/Documents/NewSHARC/SHARC_2.1/TUTORIAL/traj
 
-Calculate here? [True] \textbf{\textcolor{red}{<ENTER>}}
+Use mode 1 (i.e., calculate here)? [True] \textbf{\textcolor{red}{<ENTER>}}
 
 ----------------------Submission script---------------------
 
@@ -1746,15 +1783,16 @@ user@host> \textbf{\textcolor{red}{$SHARC/data_extractor.x output.dat}}
 \end{Verbatim}
 The program creates a subdirectory called \ttt{output\_data/}. With the default settings, the following files will be created:
 \begin{itemize}
-  \item \ttt{coeff\_diab.out} contains the coefficients in the diabatic representation (only approximate).
-  \item \ttt{coeff\_diag.out} contains the coefficients in the diagonal representation.
-  \item \ttt{coeff\_MCH.out} contains the coefficients in the MCH representation.
+  \item \ttt{coeff\_diab.out}, \ttt{coeff\_class\_diab.out}, \ttt{coeff\_mixed\_diab.out} contain the coefficients and populations in the diabatic representation (only approximate).
+  \item \ttt{coeff\_diag.out}, \ttt{coeff\_class\_diag.out}, \ttt{coeff\_mixed\_diag.out} contain the coefficients and populations in the diagonal representation.
+  \item \ttt{coeff\_MCH.out}, \ttt{coeff\_class\_MCH.out}, \ttt{coeff\_mixed\_MCH.out} contain the coefficients and populations in the MCH representation.
   \item \ttt{energy.out} contains kinetic, current potential, total and potential energy of all excited states.
   \item \ttt{fosc.out} contains the oscillator strengths of the current state and all excited states.
+  \item \ttt{fosc\_act.out} contains the oscillator strengths of all states relative to the active state.
   \item \ttt{spin.out} contains the total spin expectation values of the current state and all excited states.
   \item \ttt{prob.out} contains the surface hopping random number and the hopping probabilities in the diagonal representation.
   \item \ttt{expec.out} contains the content of \ttt{energy.out}, \ttt{fosc.out} and \ttt{spin.out} in one file (for plotting).
-  \item \ttt{expec\_MCH.out} is analogue to \ttt{expec.out}, except all data is given in the MCH representation.
+  \item \ttt{expec\_MCH.out} is analogue to \ttt{expec.out}, except all data is given in the MCH representation (except the active state energy).
 \end{itemize}
 
 In order to plot the content of these files in an efficient manner, \ttt{gnuplot} can be used. Use
@@ -1773,6 +1811,12 @@ to plot energies, populations and hopping probabilities (Use \textcolor{red}{\tt
   \includegraphics[width=\textwidth]{figures/energy.png}
   \caption{Plot of the potential energies for trajectory \ttt{TRAJ\_00002/} with 4 singlet and 3 triplet states. Straight arrows indicate hopping events discussed in the text, wiggly arrows indicate problems with energy conservation/continuity. }
   \label{fig:en}
+\end{figure}
+\begin{figure}[tb]
+  \centering
+  \includegraphics[width=\textwidth]{figures/energy_rel.png}
+  \caption{Plot of the \emph{relative} potential energies for trajectory \ttt{TRAJ\_00002/} with 4 singlet and 3 triplet states.  }
+  \label{fig:en_rel}
 \end{figure}
 \begin{figure}[p]
   \centering
@@ -1825,6 +1869,14 @@ However, in systems with larger spin-orbit couplings, such state switches might 
 Ultimately, the user is responsible to check the trajectories for such problematic time steps.
 For the purposes of the tutorial, we will ignore these energy conservation problems.
 Note that this trajectory checking can also be carried out while the trajectories are still running; if a problematic trajectory is encountered, it can be terminated gracefully by creating an empty file called \ttt{STOP} in the run directory of that trajectory.
+
+
+\paragraph{Discussion of Figure~\ref{fig:en_rel}}
+
+In figure~\ref{fig:en_rel}, the same data as in figure~\ref{fig:en} is presented, the only difference being that in figure~\ref{fig:en_rel} all energies are relative to the energy of the lowest state.
+This is often useful if there are strong oscillations in the energies of all states that make it difficult to see the energy gaps between the states.
+
+Note that in this plot, the grey line represents the difference between total energy and energy of the lowest state, and hence does not need to be a straight line.
 
 \paragraph{Discussion of Figure~\ref{fig:cMCH}}
 
@@ -1974,8 +2026,8 @@ user@host> \textbf{\textcolor{red}{$SHARC/diagnostics.py}}
 ||                                                                                ||
 ||                              Author: Sebastian Mai                             ||
 ||                                                                                ||
-||                                   Version:2.0                                  ||
-||                                    01.02.18                                    ||
+||                                   Version:2.1                                  ||
+||                                    01.09.19                                    ||
 ||                                                                                ||
   ================================================================================
 
@@ -2016,6 +2068,7 @@ Current settings:
         missing_output : True
        missing_restart : True
     normal_termination : True
+         always_update : False
            etot_window : 0.2
              etot_step : 0.1
              epot_step : 0.7
@@ -2023,6 +2076,7 @@ Current settings:
             pop_window : 1e-07
             hop_energy : 1.0
              intruders : True
+        extractor_mode : default
 
 ?  [end] \textbf{\textcolor{red}{<ENTER>}}
 #########################Full input#########################
@@ -2221,8 +2275,8 @@ user@host> \textbf{\textcolor{red}{$SHARC/diagnostics.py}}
 ||                                                                                ||
 ||                              Author: Sebastian Mai                             ||
 ||                                                                                ||
-||                                   Version:2.0                                  ||
-||                                    01.02.18                                    ||
+||                                   Version:2.1                                  ||
+||                                    01.09.19                                    ||
 ||                                                                                ||
   ================================================================================
 
@@ -2262,7 +2316,8 @@ end             Save and continue
 Current settings:
         missing_output : True
        missing_restart : True
-    normal_termination : True
+    normal_termination : Truee
+         always_update : False
            etot_window : 0.2
              etot_step : 0.1
              epot_step : 0.7
@@ -2270,6 +2325,7 @@ Current settings:
             pop_window : 1e-07
             hop_energy : 1.0
              intruders : True
+        extractor_mode : default
 
 ?  [end] \textbf{\textcolor{red}{etot_window 3.0}}    \textcolor{blue}{# extremely large thresholds}
 ?  [end] \textbf{\textcolor{red}{etot_step 3.0}}    \textcolor{blue}{# to ignore all problems}
@@ -2354,16 +2410,21 @@ With this, the ensemble is prepared for the ensemble analysis procedures.
 \clearpage
 \subsection{Ensemble Populations}
 \refermanual{m-sec:populations.py}
+\refermanual{m-met:pop}
 
 Among the main results of a \sharc\ simulation are the time-dependent excited-state populations within the simulated ensemble. 
 In order to obtain these populations, the populations of all trajectories have to be summed up and normalized to the number of trajectories.
 
-The script \ttt{populations.py} can be used to calculate various excited-state populations. There are several concepts:
+The script \ttt{populations.py} can be used to calculate various excited-state populations. There are several concepts, e.g.:
 \begin{itemize}
-  \item Count, for each timestep ,the number of trajectories in each classical state. These are the ``classical'' populations.
+  \item Count, for each timestep ,the number of trajectories in each classical state. These are the ``classical'' populations. 
   \item For each timestep, calculate the sum of the squares of the quantum amplitudes of each state. These sums are called the ``quantum'' populations.
   \item Count, for each timestep, the number of trajectories whose expectation values are within a certain interval. This can be used to obtain populations which correspond to certain classes of states (e.g.\ count all trajectories with large oscillator strength to find the approximate $\pi\pi^*$ population).
 \end{itemize}
+
+Note that the rigorous computation of electronic populations including a change of representation is a complex topic, which explains the large number of possible population modes offered by \ttt{populations.py}.
+The modes used below (mode 3 for classical populations and mode 9 for quantum populations) should work in most cases.
+However, when spin-orbit mixing is strong or when looking into diabatic populations, consider using the Wigner-transformed populations after reading the relevant section in the manual.
 
 In the following, an example is given on the usage of \ttt{populations.py}, and subsequently the results of using the different concepts are discussed.
 \begin{Verbatim}[commandchars=\\\{\}]
@@ -2378,8 +2439,8 @@ user@host> \textbf{\textcolor{red}{$SHARC/populations.py}}
 ||                                                                                ||
 ||                              Author: Sebastian Mai                             ||
 ||                                                                                ||
-||                                   Version:2.0                                  ||
-||                                    01.02.18                                    ||
+||                                   Version:2.1                                  ||
+||                                    01.09.19                                    ||
 ||                                                                                ||
   ================================================================================
 
@@ -2405,8 +2466,8 @@ Total number of subdirectories: 9
 
 This script can analyze the classical populations in different ways:
 1  Number of trajectories in each diagonal state                                   from output.lis
-2  Number of trajectories in each MCH state                                        from output.lis
-3  Number of trajectories in each MCH state (multiplets summed up)                 from output.lis
+2  Number of trajectories in each (approximate) MCH state                          from output.lis
+3  Number of trajectories in each (approximate) MCH state (multiplets summed up)   from output.lis
 4  Number of trajectories whose total spin value falls into certain intervals      from output.lis
 5  Number of trajectories whose dipole moment falls into certain intervals         from output.lis
 6  Number of trajectories whose oscillator strength falls into certain intervals   from output_data/fosc.out
@@ -2416,10 +2477,20 @@ It can also sum the quantum amplitudes:
 8  Quantum amplitudes in MCH picture                                         from output_data/coeff_MCH.out
 9  Quantum amplitudes in MCH picture (multiplets summed up)                  from output_data/coeff_MCH.out
 
-It can also transform the classical diagonal populations to MCH basis (might take long):
-10 Transform diagonal populations to MCH states                              from output.dat
-11 Transform diagonal populations to MCH states (multiplets summed up)       from output.dat
-20 Quantum amplitudes in diabatic picture                                    from output_data/coeff_diab.out
+It can also transform the classical diagonal populations to MCH basis:
+12  Transform diagonal classical populations to MCH
+                                                                        from output_data/coeff_class_MCH.out
+13  Transform diagonal classical populations to MCH (multiplets summed up)
+                                                                        from output_data/coeff_class_MCH.out 
+14  Wigner-transform classical diagonal populations to MCH
+                                                                        from output_data/coeff_mixed_MCH.out
+15  Wigner-transform classical diagonal populations to MCH (multiplets summed up)
+                                                                        from output_data/coeff_mixed_MCH.out
+
+It can also compute diabatic populations:
+20 Quantum amplitudes in diabatic picture                              from output_data/coeff_diab.out
+21 Transform diagonal classical populations to diabatic                from output_data/coeff_class_diab.out
+22 Wigner-transform classical diagonal populations to diabatic         from output_data/coeff_mixed_diab.out
 Analyze mode: \textbf{\textcolor{red}{3}}
 
 ----------------------Number of states----------------------
@@ -2526,8 +2597,8 @@ user@host> \textbf{\textcolor{red}{$SHARC/populations.py}}
 
 This script can analyze the classical populations in different ways:
 1  Number of trajectories in each diagonal state                                   from output.lis
-2  Number of trajectories in each MCH state                                        from output.lis
-3  Number of trajectories in each MCH state (multiplets summed up)                 from output.lis
+2  Number of trajectories in each (approximate) MCH state                          from output.lis
+3  Number of trajectories in each (approximate) MCH state (multiplets summed up)   from output.lis
 4  Number of trajectories whose total spin value falls into certain intervals      from output.lis
 5  Number of trajectories whose dipole moment falls into certain intervals         from output.lis
 6  Number of trajectories whose oscillator strength falls into certain intervals   from output_data/fosc.out
@@ -2537,10 +2608,20 @@ It can also sum the quantum amplitudes:
 8  Quantum amplitudes in MCH picture                                         from output_data/coeff_MCH.out
 9  Quantum amplitudes in MCH picture (multiplets summed up)                  from output_data/coeff_MCH.out
 
-It can also transform the classical diagonal populations to MCH basis (might take long):
-10 Transform diagonal populations to MCH states                              from output.dat
-11 Transform diagonal populations to MCH states (multiplets summed up)       from output.dat
-20 Quantum amplitudes in diabatic picture                                    from output_data/coeff_diab.out
+It can also transform the classical diagonal populations to MCH basis:
+12  Transform diagonal classical populations to MCH
+                                                                        from output_data/coeff_class_MCH.out
+13  Transform diagonal classical populations to MCH (multiplets summed up)
+                                                                        from output_data/coeff_class_MCH.out 
+14  Wigner-transform classical diagonal populations to MCH
+                                                                        from output_data/coeff_mixed_MCH.out
+15  Wigner-transform classical diagonal populations to MCH (multiplets summed up)
+                                                                        from output_data/coeff_mixed_MCH.out
+
+It can also compute diabatic populations:
+20 Quantum amplitudes in diabatic picture                              from output_data/coeff_diab.out
+21 Transform diagonal classical populations to diabatic                from output_data/coeff_class_diab.out
+22 Wigner-transform classical diagonal populations to diabatic         from output_data/coeff_mixed_diab.out
 Analyze mode: \textbf{\textcolor{red}{9}}
 
 Run data_extractor.x for each trajectory prior to performing the analysis?
@@ -2584,9 +2665,10 @@ user@host> \textcolor{red}{$SHARC/populations.py}
 ------------------------Analyze Mode------------------------
 
 This script can analyze the classical populations in different ways:
+This script can analyze the classical populations in different ways:
 1  Number of trajectories in each diagonal state                                   from output.lis
-2  Number of trajectories in each MCH state                                        from output.lis
-3  Number of trajectories in each MCH state (multiplets summed up)                 from output.lis
+2  Number of trajectories in each (approximate) MCH state                          from output.lis
+3  Number of trajectories in each (approximate) MCH state (multiplets summed up)   from output.lis
 4  Number of trajectories whose total spin value falls into certain intervals      from output.lis
 5  Number of trajectories whose dipole moment falls into certain intervals         from output.lis
 6  Number of trajectories whose oscillator strength falls into certain intervals   from output_data/fosc.out
@@ -2596,10 +2678,20 @@ It can also sum the quantum amplitudes:
 8  Quantum amplitudes in MCH picture                                         from output_data/coeff_MCH.out
 9  Quantum amplitudes in MCH picture (multiplets summed up)                  from output_data/coeff_MCH.out
 
-It can also transform the classical diagonal populations to MCH basis (might take long):
-10 Transform diagonal populations to MCH states                              from output.dat
-11 Transform diagonal populations to MCH states (multiplets summed up)       from output.dat
-20 Quantum amplitudes in diabatic picture                                    from output_data/coeff_diab.out
+It can also transform the classical diagonal populations to MCH basis:
+12  Transform diagonal classical populations to MCH
+                                                                        from output_data/coeff_class_MCH.out
+13  Transform diagonal classical populations to MCH (multiplets summed up)
+                                                                        from output_data/coeff_class_MCH.out 
+14  Wigner-transform classical diagonal populations to MCH
+                                                                        from output_data/coeff_mixed_MCH.out
+15  Wigner-transform classical diagonal populations to MCH (multiplets summed up)
+                                                                        from output_data/coeff_mixed_MCH.out
+
+It can also compute diabatic populations:
+20 Quantum amplitudes in diabatic picture                              from output_data/coeff_diab.out
+21 Transform diagonal classical populations to diabatic                from output_data/coeff_class_diab.out
+22 Wigner-transform classical diagonal populations to diabatic         from output_data/coeff_mixed_diab.out
 Analyze mode: \textbf{\textcolor{red}{6}}
 
 Run data_extractor.x for each trajectory prior to performing the analysis?
@@ -2649,25 +2741,6 @@ In \ref{fig:pop_class}, the classical populations are given.
 In figure~\ref{fig:pop_quant}, the incoherent sum of the quantum amplitudes is given (obtained by using mode 9 in \ttt{populations.py}).
 In figure~\ref{fig:pop_fosc}, the 5 trajectories are classified depending on their oscillator strengths.
 
-\begin{figure}[ptb]
-  \centering
-  \includegraphics[width=\textwidth]{figures/pop_class.png}
-  \caption{Classical populations for an ensemble of 5 trajectories.}
-  \label{fig:pop_class}
-\end{figure}
-\begin{figure}[ptb]
-  \centering
-  \includegraphics[width=\textwidth]{figures/pop_quant.png}
-  \caption{Quantum populations for an ensemble of 5 trajectories.}
-  \label{fig:pop_quant}
-\end{figure}
-\begin{figure}[ptb]
-  \centering
-  \includegraphics[width=\textwidth]{figures/pop_fosc.png}
-  \caption{Populations classified based on oscillator strength for an ensemble of 5 trajectories.}
-  \label{fig:pop_fosc}
-\end{figure}
-
 
 
 \paragraph{Discussion of Figure~\ref{fig:pop_class}}
@@ -2688,6 +2761,25 @@ Later, the trajectories decay to the ground state, which by definition has an os
 Note that in this example the ground state cannot be distinguished from the triplet state, which has negligible oscillator strength and thus would also be classified into the first class.
 In general, however, classifying the population according to oscillator strength sometimes allows to approximately obtain populations of $\pi\pi^*$ and $n\pi^*$ states.
 
+
+\begin{figure}[ptb]
+  \centering
+  \includegraphics[width=\textwidth]{figures/pop_class.png}
+  \caption{Classical populations for an ensemble of 7 trajectories.}
+  \label{fig:pop_class}
+\end{figure}
+\begin{figure}[ptb]
+  \centering
+  \includegraphics[width=\textwidth]{figures/pop_quant.png}
+  \caption{Quantum populations for an ensemble of 7 trajectories.}
+  \label{fig:pop_quant}
+\end{figure}
+\begin{figure}[ptb]
+  \centering
+  \includegraphics[width=\textwidth]{figures/pop_fosc.png}
+  \caption{Populations classified based on oscillator strength for an ensemble of 7 trajectories.}
+  \label{fig:pop_fosc}
+\end{figure}
 
 
 
@@ -2718,8 +2810,8 @@ user@host> \textcolor{red}{$SHARC/transition.py}
 ||                                                                                ||
 ||                              Author: Sebastian Mai                             ||
 ||                                                                                ||
-||                                   Version:2.0                                  ||
-||                                    01.02.18                                    ||
+||                                   Version:2.1                                  ||
+||                                    01.09.19                                    ||
 ||                                                                                ||
   ================================================================================
 
@@ -2749,6 +2841,8 @@ This script finds the transition matrix:
 This script can also print the transition matrix for each timestep:
 3        In MCH basis                                                    from output.lis
 4        In MCH basis (ignoring hops within one multiplet)               from output.lis
+5        In MCH basis [cumulative]                                       from output.lis
+6        In MCH basis [cumulative] (ignoring hops within one multiplet)  from output.lis
 
 Analyze mode: \textbf{\textcolor{red}{2}}
 
@@ -2848,34 +2942,40 @@ Hence, the population flow in the ensemble is clearly $S_2\rightarrow S_1 \right
 
 
 \clearpage
-\subsection{Fitting Ensemble Populations}
+\subsection{Fitting Ensemble Populations including Error Estimation}
 \refermanual{m-sec:make_fitscript.py}
 \refermanual{m-met:globalfit}
+\refermanual{m-sec:bootstrap.py}
+\refermanual{m-met:bootstrapping}
 
 The results in figure~\ref{fig:pop_class} show that internal conversion is an ultrafast process in \ce{CH2NH2+}.
 However, in order to facilitate comparison to experiments it is useful to obtain a time constant for the relaxation processes.
-\sharc\ allows fitting population data to combinations of unimolecular reactions, using \ttt{make\_fitscript.py}.
+\sharc\ allows fitting population data to combinations of unimolecular reactions, using \ttt{make\_fit.py}.
 Here, we will fit the population data to the kinetic model $S_2\rightarrow S_1 \rightarrow S_0$, which was the result of the population flow analysis.
+
+Besides simply performing the fit, we will also obtain error estimates of the fitted time constants with the same script using the bootstrapping method.
+In this method, based on the original ensemble (of 7 trajectories), ``resample'' ensembles are generated by randomly drawing \emph{with replacement} trajectories from the original ensemble (here, drawing 7 random trajectories).
+Each resample is then fitted in exactly the same way as the original ensemble, and after many resamples a distribution of possible fitting parameters is obtained.
+From this distribution, one can then find error measures for the fitting parameters.
+
+In order to start the script, run:
 \begin{Verbatim}[commandchars=\\\{\}]
-user@host> \textbf{\textcolor{red}{$SHARC/make_fitscript.py}}
+user@host> \textbf{\textcolor{red}{$SHARC/make_fit.py}}
 \end{Verbatim}
+
 
 \begin{oframed}
 \footnotesize\begin{Verbatim}[commandchars=\\\{\}]
   ================================================================================
 ||                                                                                ||
-||             Generate GNUPLOT fitting scripts for SHARC populations             ||
+||                      Direct fitting for SHARC populations                      ||
 ||                                                                                ||
 ||                              Author: Sebastian Mai                             ||
 ||                                                                                ||
-||                                   Version:2.0                                  ||
-||                                    01.02.18                                    ||
+||                                   Version:2.1                                  ||
+||                                    01.09.19                                    ||
 ||                                                                                ||
   ================================================================================
-
-
-This script automatizes the generation of GNUPLOT scripts for fitting of SHARC populations 
-(as generated with populations.py) to general kinetic models based on first-order population transfer.
 
 
 ############################################################
@@ -2902,6 +3002,8 @@ Input: [end] \textbf{\textcolor{red}{+ S0 S1 S23}}     \textcolor{blue}{# multip
 Input: [end] \textbf{\textcolor{red}{<ENTER>}}
 
 Final species set:  ['S0', 'S1', 'S23']
+
+
 
 -----------------Model Elementary Reactions-----------------
 
@@ -2947,16 +3049,30 @@ Input: [end] \textbf{\textcolor{red}{<ENTER>}}
 Final initial species set:  ['S23']
 
 ############################################################
-########################Fitting Data########################
+####################### Fitting Data #######################
 ############################################################
+
+
+-----------------------Operation mode-----------------------
+
+This script can work with the following output:
+* pop.out (file from populations.py)
+* bootstrap_data/ (directory from populations.py)
+Using only the pop.out allows fitting and obtaining time constants.
+Using the bootstrap data instead additionally allows for realistic error estimates.
+
+Do you want to use bootstrap data? [False] \textbf{\textcolor{red}{yes}}
+How many bootstrap samples? [100] \textbf{\textcolor{red}{<ENTER>}}
 
 
 --------------------Population data file--------------------
 
-Please specify the path to the population data file (as generated by populations.py).
+Please specify the path to the bootstrap data directory (as generated by populations.py).
 
-Populations file: [pop.out] (autocomplete enabled) \textbf{\textcolor{red}{<ENTER>}}
+Bootstrap data directory: [bootstrap_data/] (autocomplete enabled) \textbf{\textcolor{red}{<ENTER>}}
   Detected maximal time of   100.0 fs and 8 columns (time plus 7 data columns).
+
+Do you want to write fitting curves for all bootstrap cycles? [False] \textbf{\textcolor{red}{<ENTER>}}
 
 ------------Population-to-Species Mapping for Fit-----------
 
@@ -2969,6 +3085,9 @@ You can also fit a species to the sum of several columns:
   T_all = 5 6 7
 You can even fit a sum of species to a sum of columns:
   T1 T2 = 5 6 7
+
+On the right side, "~" can be used to indicate ranges:
+  T1 T2 = 5~9
 
 Possible input:
 <species1> <species2> ... = <columns1> <column2> ...            Set one mapping
@@ -2991,238 +3110,119 @@ Final mappings:
      S23  =  4  5 
 
 
+############################################################
+##################### Fitting procedure ####################
+############################################################
+
+
+-------------Initial guesses------------
+
+Please check the initial guesses for the parameters
+
+Possible input:
+label = value     Set an initial guess (detects type automatically and computes k=1/t for rates)
+show              Show the currently defined non-zero initial populations
+end               Finish initial condition input
+
+
+  time constant ( k10          ):     100.0000 fs
+  time constant ( k21          ):     120.0000 fs
+  initial pop   ( S23          ):       1.0000
+
+Input: [end] \textbf{\textcolor{red}{<ENTER>}}
+Final guess parameters:
+  time constant ( k10          ):     100.0000 fs
+  time constant ( k21          ):     120.0000 fs
+  initial pop   ( S23          ):       1.0000
+
+
+
+------Optimize initial populations------
+
+Do you want to optimize the initial populations (otherwise only the rates)? [True] \textbf{\textcolor{red}{no}}
+
+
+--------Constrained optimization--------
+
+Do you want to restrict all rates/initial populations to be non-negative? [True] \textbf{\textcolor{red}{<ENTER>}}
+
 #########################Full input#########################
 
-initset                    set(['S23'])
-ngroups                    3
-species_groups             [['S0'], ['S1'], ['S23']]
-rank                       0
-rateset                    set(['k10', 'k21'])
+bootstrap_cycles           100
+bounds                     True
 columns_groups             [[2], [3], [4, 5]]
-ncol                       8
-rate_matrix                [['', '', ''], ['k10', '', ''], ['', 'k21', '']]
-specmap                    {0: 'S0', 1: 'S1', 2: 'S23', 'S1': 1, 'S0': 0, 'S23': 2}
-popfile                    /user/mai/Documents/NewSHARC/SHARC_2.0/TUTORIAL/2_full/Tutorial/traj/pop.out
-nspec                      3
 data                       [ ... ]
+do_bootstrap               True
+initial                    [2]
+initset                    set(['S23'])
 maxtime                    100.0
+ncol                       8
+ngroups                    3
+ninitial                   1
+nrates                     2
+nspec                      3
+ntraj                      7
+opt_init                   False
+p0                         [0.01, 0.008333333333333333]
+popfile                    /user/mai/NewSHARC/SHARC_2.0/TUTORIAL/2_full/Tutorial/traj/bootstrap_data
+rank                       0
+rate_matrix                [['', '', ''], ['k10', '', ''], ['', 'k21', '']]
+ratemap                    {0: 'k10', 1: 'k21', 'k10': 0, 'k21': 1}
+rates                      [[(1, 0)], [(2, 1)]]
+rateset                    set(['k10', 'k21'])
+species_groups             [['S0'], ['S1'], ['S23']]
+specmap                    {0: 'S0', 1: 'S1', 2: 'S23', 'S1': 1, 'S0': 0, 'S23': 2}
+summation                  [[0], [1], [2]]
+write_bootstrap_fits       False
+y0                         [1.0]
 
 Do you want to continue? [True] \textbf{\textcolor{red}{<ENTER>}}
 
-Calling MAXIMA computer algebra system with following command:
-  maxima -b /user/mai/Documents/NewSHARC/SHARC_2.0/TUTORIAL/2_full/Tutorial/traj/MAXIMA.input
-Run this command? [True] \textbf{\textcolor{red}{<ENTER>}}
 
-
-Running MAXIMA...               \textcolor{blue}{# this will only work if you have Maxima installed}
-Done!
-Writing GNUPLOT script to model_fit.gp ...
-Writing GNUPLOT populations data to model_fit.dat ...
-
-**************************************************************
-*                Final Instructions and Hints                *    \textcolor{blue}{# read these hints}
-**************************************************************
-
-* How to run the fit *
-  The fitting script is a script for GNUPLOT. Execute it with:
-    user@host> gnuplot model_fit.gp
-  Note that the file "model_fit.dat" must be present for the GNUPLOT script to work.
-  By pressing ENTER, you can proceed through these stages:
-    1) Initial plot of the population data and the fitting functions using the initial fitting parameters
-    2) Plot of the data and functions (transformed for global fit) before fitting
-    3) Perform the global fit and plot of the data and functions
-    4) Final plot of the population data and the fitting functions, also presenting the final fit parameters
-    5) Write the final plot to "model_fit.png" and write the data to "model_fit.txt"
-
-* Adjust initial parameters *
-  Please adjust the starting guess values of the following fitting parameters:
-    k10
-    k21
-    S23__0
-  in file "model_fit.gp" before running the fitting procedure.
-
-* Fitting of initial populations *
-  The fitting script was setup to only optimize the rate constants in the global fit.
-  If you intend to also optimize the initial populations, please modify the fit command like this:
-    fit F(x) [...] via k10,k21,S23__0
-
-**** Unused species or data columns ****
-  The population data file contains columns which are not used in the global fit:
-    6
-    7
-    8
-  Please ensure that this is in accord with your intentions.
-**************************************************************
-\end{Verbatim}
-\end{oframed}
-
-\normalsize
-
-The script writes two new files, \ttt{model\_fit.gp} and \ttt{model\_fit.dat}.
-The former is a \textsc{Gnuplot} script which can be executed to carry out the population fit.
-You should inspect this file; in particular, note the initial guesses for the fit in a section which looks like this:
-\begin{oframed}
-\footnotesize\begin{Verbatim}[commandchars=\\\{\}]
-# *** Reaction rates initial guesses: ***
-# These are given in units of inverse fs (e.g., time constant of 100 fs is written as 1./100.).
-# TODO: Please change to some suitable values!
-k10 = 1./100.
-k21 = 1./101.
-
-# *** Species population initial guesses: ***
-# TODO: Please change to some suitable values!
-S23__0 = 1./1.
-\end{Verbatim}
-\end{oframed}
-
-\normalsize
-In general, it might be necessary to change these initial parameters in order to make the fit converge, but here in the tutorial, the default values should be fine.
-
-Run \textsc{Gnuplot} to carry out the fit (use \textcolor{red}{\ttt{<ENTER>}} to advance through the script):
-\begin{Verbatim}[commandchars=\\\{\}]
-user@host> \textbf{\textcolor{red}{$SHARC/make_fitscript.py}}
-\end{Verbatim}
-At the end, the script produces a figure, \ttt{model\_fit.png}, which presents the results of the fit.
-The second output file, \ttt{model\_fit.txt}, can be used to prepare visually more appealing plots of the fit for production purposes.
-The result of the fit is shown in Figure~\ref{fig:model_fit}.
-
-\begin{figure}[ptb]
-  \centering
-  \includegraphics[width=\textwidth]{figures/model_fit.png}
-  \caption{Kinetic model fit of the classical populations.}
-  \label{fig:model_fit}
-\end{figure}
-
-\paragraph{Discussion of Figure~\ref{fig:model_fit}}
-
-From the figure, it can be seen that the $S_2\rightarrow S_1$ time constant is 4.2~fs, and the time constant for $S_1\rightarrow S_0$ is 16.5~fs.
-Note that the fit is not very good, because the number of trajectories is low and the relaxation processes in \ce{CH2NH2+} are so fast that first-order reactions are not optimal to describe them.
-For slower processes in larger molecules, these kinetic model fits might work better.
+########################## Fitting #########################
 
 
 
 
 
-% ======================================================================================================
+-------------- Iterations --------------
 
-\clearpage
-\subsection{Fitting Ensemble Populations: Error Estimation}
-\refermanual{m-sec:bootstrap.py}
-\refermanual{m-met:bootstrapping}
-
-In order to obtain error estimates of the time constants fitted using \ttt{make\_fitscript.py}, one can use the bootstrapping method.
-In this method, based on the original ensemble (of 7 trajectories), ``resample'' ensembles are generated by randomly drawing \emph{with replacement} trajectories from the original ensemble (here, drawing 7 random trajectories).
-Each resample is then fitted in exactly the same way as the original ensemble, and after many resamples a distribution of possible fitting parameters is obtained.
-From this distribution, one can then find error measures for the fitting parameters.
-
-Start \ttt{bootstrap.py} by:
-\begin{Verbatim}[commandchars=\\\{\}]
-user@host> \textbf{\textcolor{red}{$SHARC/bootstrap.py}}
-\end{Verbatim}
-
-\begin{oframed}
-\footnotesize\begin{Verbatim}[commandchars=\\\{\}]
-  ================================================================================
-||                                                                                ||
-||                  Bootstrap time constants from SHARC dynamics                  ||
-||                                                                                ||
-||                              Author: Sebastian Mai                             ||
-||                                                                                ||
-||                                   Version:2.0                                  ||
-||                                    01.02.18                                    ||
-||                                                                                ||
-  ================================================================================
+   Iteration     Total nfev        Cost      Cost reduction    Step norm     Optimality   
+       0              1         1.0020e+02                                    4.40e+03    
+       1              2         6.0222e+01      4.00e+01       1.30e-02       1.96e+03    
+       2              3         2.6394e+01      3.38e+01       2.60e-02       6.83e+02    
+       3              4         1.2458e+01      1.39e+01       3.27e-02       1.96e+02    
+       4              5         6.8237e+00      5.63e+00       5.06e-02       5.85e+01    
+       5              6         4.8320e+00      1.99e+00       8.03e-02       2.70e+01    
+       \vdots               \vdots                  \vdots               \vdots             \vdots              \vdots
+      17             18         4.6205e+00      1.73e-08       3.43e-05       1.46e-03    
+`ftol` termination condition is satisfied.
+Function evaluations 18, initial cost 1.0020e+02, final cost 4.6205e+00, first-order optimality 1.46e-03.
 
 
-This script reads ensemble populations (from populations.py) and a kinetic model (from make_fitscript.py)
-and computes statistics on the kinetic model fitting.
-  
--------------------Paths to bootstrap data------------------
+----------- Final parameters -----------
 
-Please enter the path to the directory containing the raw bootstrap data.
-This data can be generated with populations.py
+time constant ( k10          ):      16.4593 fs +/-       0.5543 fs (   3.37 %)
+time constant ( k21          ):       4.1820 fs +/-       0.2735 fs (   6.54 %)
+initial pop   ( S23          ):       1.0000
 
-Path:  [bootstrap_data/] (autocomplete enabled) \textbf{\textcolor{red}{<ENTER>}}
-['pop_1.dat', 'pop_5.dat', 'pop_4.dat', 'pop_6.dat', 'pop_7.dat', 'pop_2.dat', 'pop_3.dat']
-Found 7 bootstrap data files.
+These time constants include errors that assume that the population data
+is free of uncertainty. Bootstrapping analysis is following now.
 
------------------Number of bootstrap cycles-----------------
+Raw data and fitted functions written to "fit_results.txt".
 
-Please enter the number of bootstrapping cycles to be performed.
-Number of bootstrap cycles:  [10] \textbf{\textcolor{red}{500}}
+GNUPLOT script written to "fit_results.gp".
 
-Please enter a random number generator seed (type "!" to initialize the RNG from the system time).
-RNG Seed:  [!] \textbf{\textcolor{red}{1234}}
+####################### Bootstrapping ######################
 
------------------------Fitting script-----------------------
-
-Please provide the path to the desired fitting script.
-This script can be generated with make_fitscript.py, and should subsequently me adjusted (suitable 
-guesses for fitted constants).
-Path:  [model_fit.gp] (autocomplete enabled) \textbf{\textcolor{red}{<ENTER>}}
-
-Please provide the command to execute gnuplot.
-Command:  [gnuplot] (autocomplete enabled) \textbf{\textcolor{red}{<ENTER>}}
-
---------------------Parallel computation--------------------
-
-bootstrap.py can run the fitting (which is done through Gnuplot) on multiple CPU).
-(however, the overhead is currently large, so speedup is limited)
-Number of CPUs to use:  [1] \textbf{\textcolor{red}{<ENTER>}}
-
-#########################Full input#########################
-
-ntraj                   7
-gnuplot                 gnuplot
-fitfile                 /user/mai/Documents/NewSHARC/SHARC_2.0/TUTORIAL/2_full/Tutorial/traj/model_fit.gp
-nboot                   500
-ncpu                    1
-bootstrap_dir           /user/mai/Documents/NewSHARC/SHARC_2.0/TUTORIAL/2_full/Tutorial/traj/bootstrap_data
-ncol                    7
-npercycle               22
-steps                   200
-dt                      0.5
-
-Do you want to do the specified analysis? [True] 
-
->>>>>>>>>>>>> Reading the ensemble data ...
-0 /user/mai/Documents/NewSHARC/SHARC_2.0/TUTORIAL/2_full/Tutorial/traj/bootstrap_data/pop_1.dat
-1 /user/mai/Documents/NewSHARC/SHARC_2.0/TUTORIAL/2_full/Tutorial/traj/bootstrap_data/pop_2.dat
-2 /user/mai/Documents/NewSHARC/SHARC_2.0/TUTORIAL/2_full/Tutorial/traj/bootstrap_data/pop_3.dat
-3 /user/mai/Documents/NewSHARC/SHARC_2.0/TUTORIAL/2_full/Tutorial/traj/bootstrap_data/pop_4.dat
-4 /user/mai/Documents/NewSHARC/SHARC_2.0/TUTORIAL/2_full/Tutorial/traj/bootstrap_data/pop_5.dat
-5 /user/mai/Documents/NewSHARC/SHARC_2.0/TUTORIAL/2_full/Tutorial/traj/bootstrap_data/pop_6.dat
-6 /user/mai/Documents/NewSHARC/SHARC_2.0/TUTORIAL/2_full/Tutorial/traj/bootstrap_data/pop_7.dat
-
->>>>>>>>>>>>> Starting the bootstrapping cycles ...
-             (use Ctrl-C to skip the remaining cycles and go to the final analysis)
-
-Step |       Run Time |    Key: g.Mean     g.Stdv | ...
-=======================================================
-  22 | 0:00:03.216253 | S23__0:   1.00 +/-   0.00 | k10:   15.68 +/-   7.65 | k21:   4.33 +/-   0.93 
-  44 | 0:00:03.169761 | S23__0:   1.00 +/-   0.00 | k10:   16.77 +/-   8.77 | k21:   4.30 +/-   0.96 
-  66 | 0:00:03.117776 | S23__0:   1.00 +/-   0.00 | k10:   18.30 +/-  11.47 | k21:   4.26 +/-   0.94 
-  88 | 0:00:03.256217 | S23__0:   1.00 +/-   0.00 | k10:   17.80 +/-  10.37 | k21:   4.22 +/-   0.90 
- 110 | 0:00:03.252534 | S23__0:   1.00 +/-   0.00 | k10:   18.20 +/-  11.09 | k21:   4.20 +/-   0.96 
- 132 | 0:00:03.259927 | S23__0:   1.00 +/-   0.00 | k10:   18.45 +/-  11.28 | k21:   4.18 +/-   0.94 
- 154 | 0:00:03.295209 | S23__0:   1.00 +/-   0.00 | k10:   18.07 +/-  11.05 | k21:   4.20 +/-   0.97 
- 176 | 0:00:03.131462 | S23__0:   1.00 +/-   0.00 | k10:   18.18 +/-  11.20 | k21:   4.16 +/-   0.96 
- 198 | 0:00:03.241862 | S23__0:   1.00 +/-   0.00 | k10:   17.85 +/-  10.80 | k21:   4.19 +/-   0.98 
- 220 | 0:00:03.218833 | S23__0:   1.00 +/-   0.00 | k10:   17.69 +/-  10.44 | k21:   4.20 +/-   0.97 
- 242 | 0:00:03.381416 | S23__0:   1.00 +/-   0.00 | k10:   18.10 +/-  11.26 | k21:   4.17 +/-   0.99 
- 264 | 0:00:03.197810 | S23__0:   1.00 +/-   0.00 | k10:   18.21 +/-  11.44 | k21:   4.17 +/-   0.99 
- 286 | 0:00:03.264219 | S23__0:   1.00 +/-   0.00 | k10:   18.32 +/-  11.53 | k21:   4.16 +/-   0.99 
- 308 | 0:00:03.188074 | S23__0:   1.00 +/-   0.00 | k10:   18.22 +/-  11.14 | k21:   4.19 +/-   0.98 
- 330 | 0:00:03.201072 | S23__0:   1.00 +/-   0.00 | k10:   18.23 +/-  11.07 | k21:   4.18 +/-   0.98 
- 352 | 0:00:03.258426 | S23__0:   1.00 +/-   0.00 | k10:   18.33 +/-  11.30 | k21:   4.18 +/-   0.98 
- 374 | 0:00:03.262513 | S23__0:   1.00 +/-   0.00 | k10:   18.32 +/-  11.22 | k21:   4.18 +/-   0.98 
- 396 | 0:00:03.201724 | S23__0:   1.00 +/-   0.00 | k10:   18.41 +/-  11.67 | k21:   4.17 +/-   0.99 
- 418 | 0:00:03.307559 | S23__0:   1.00 +/-   0.00 | k10:   18.50 +/-  11.75 | k21:   4.15 +/-   0.99 
- 440 | 0:00:03.274169 | S23__0:   1.00 +/-   0.00 | k10:   18.47 +/-  11.72 | k21:   4.15 +/-   0.98 
- 462 | 0:00:03.382566 | S23__0:   1.00 +/-   0.00 | k10:   18.55 +/-  11.84 | k21:   4.14 +/-   0.98 
- 484 | 0:00:03.272651 | S23__0:   1.00 +/-   0.00 | k10:   18.54 +/-  11.88 | k21:   4.14 +/-   0.98 
- 500 | 0:00:02.428860 | S23__0:   1.00 +/-   0.00 | k10:   18.48 +/-  11.78 | k21:   4.14 +/-   0.97 
-Run time = 0:01:13.782832
+ Cycle          k10          k21          S23  Time
+     1      33.1210       4.2232       1.0000  0:00:00.573773
+     2      16.7930       3.7431       1.0000  0:00:00.681325
+     3      10.7393       5.2129       1.0000  0:00:00.600873
+     4      27.8368       3.4376       1.0000  0:00:00.804838
+     5      11.7184       4.6316       1.0000  0:00:00.920739
+     \vdots             \vdots            \vdots            \vdots                \vdots
+   100      49.7747       3.8927       1.0000  0:00:00.634471
 
 >>>>>>>>>>>>> Finished the bootstrapping cycles ...
 
@@ -3234,100 +3234,135 @@ Run time = 0:01:13.782832
 
 
 
----------------------------------- Analysis for time constant "S23__0" ------------------------------------
+------------------------------------- Analysis for time constant "k10" -------------------------------------
 
-  Arithmetic analysis:              1.000000 +/-     0.000000
-                                           ( +/-       0.00 %)
+    Arithmetic analysis:               19.6161 +/-      10.9649
+                                            ( +/-      55.90 %)
 
-  Geometric analysis:               1.000000  +      0.000000  -     -0.000000
-                                           (  +        0.00 %  -       -0.00 %)
+    Geometric analysis:                17.4018  +       10.3242  -        6.4798
+                                            (  +       59.33 %  -       37.24 %)
 
-  Minimum and maximum:              1.000000      and           1.000000
+    Minimum and maximum:                9.2170      and            54.7688
 
-  Histogram:
-  ==========
-     #                                                            | 500
-     #                                                            | 458
-     #                                                            | 416
-     #                                                            | 375
-     #                                                            | 333
-     #                                                            | 291
-     #                                                            | 250
-     #                                                            | 208
-     #                                                            | 166
-     #                                                            | 125
+    Histogram:
+    ==========
+                             #                                    | 28
+                             #     #                              | 25
+                             #     #                              | 23
+                             #     #                              | 21
+                             #     #                              | 18
+                             #     #                              | 16
+                             #     #                              | 14
+                             #     #     #                        | 11
+                             #     #     #           #            | 9
+                             #     #     #     #     #            | 7
+                       #     #     #     #     #     #            | 4
+                       #     #     #     #     #     #     #      | 2
+        |     |     |     |     |     |     |     |     |     |  
+    4.302 5.690 7.524 9.950 13.16 17.40 23.01 30.43 40.25 53.22
+
+------------------------------------- Analysis for time constant "k21" -------------------------------------
+
+    Arithmetic analysis:                4.2623 +/-       0.9002
+                                            ( +/-      21.12 %)
+
+    Geometric analysis:                 4.1687  +        0.9879  -        0.7987
+                                            (  +       23.70 %  -       19.16 %)
+
+    Minimum and maximum:                2.6746      and             6.1591
+
+    Histogram:
+    ==========
+                                         #                        | 24
+                                         #                        | 22
+                                         #                        | 20
+                                   #     #                        | 18
+                             #     #     #                        | 16
+                             #     #     #     #                  | 14
+                             #     #     #     #     #            | 12
+                             #     #     #     #     #            | 10
+                       #     #     #     #     #     #            | 8
+                       #     #     #     #     #     #            | 6
+                 #     #     #     #     #     #     #            | 4
+                 #     #     #     #     #     #     #            | 2
+        |     |     |     |     |     |     |     |     |     |  
+    2.202 2.502 2.843 3.230 3.669 4.169 4.736 5.381 6.113 6.945
+
+
+
+
+
+
+
+-------------------------------- Analysis for initial population "S23" --------------------------------
+
+    Arithmetic analysis:                1.0000 +/-       0.0000
+                                            ( +/-       0.00 %)
+
+    Geometric analysis:                 1.0000  +        0.0000  -       -0.0000
+                                            (  +        0.00 %  -       -0.00 %)
+
+    Minimum and maximum:                1.0000      and             1.0000
+
+    Histogram:
+    ==========
+     #                                                            | 100
+     #                                                            | 91
      #                                                            | 83
+     #                                                            | 75
+     #                                                            | 66
+     #                                                            | 58
+     #                                                            | 50
      #                                                            | 41
+     #                                                            | 33
+     #                                                            | 25
+     #                                                            | 16
+     #                                                            | 8
         |     |     |     |     |     |     |     |     |     |  
     1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000
 
------------------------------------ Analysis for time constant "k10" --------------------------------------
 
-  Arithmetic analysis:             21.283774 +/-    13.641992
-                                           ( +/-      64.10 %)
+----------- Final parameters -----------
 
-  Geometric analysis:              18.483510  +     11.777237  -      7.193632
-                                           (  +       63.72 %  -       38.92 %)
+time constant ( k10          ):      16.4593 fs +/-      10.9649 fs (  66.62 %)
+time constant ( k21          ):       4.1820 fs +/-       0.9002 fs (  21.52 %)
+initial pop   ( S23          ):       1.0000
 
-  Minimum and maximum:              8.411113      and          89.459494
 
-  Histogram:
-  ==========
-                                   #                              | 157
-                             #     #                              | 143
-                             #     #                              | 130
-                             #     #                              | 117
-                             #     #                              | 104
-                             #     #                              | 91
-                             #     #           #                  | 78
-                             #     #           #                  | 65
-                             #     #           #                  | 52
-                             #     #           #                  | 39
-                             #     #     #     #           #      | 26
-                       #     #     #     #     #           #      | 13
-        |     |     |     |     |     |     |     |     |     |  
-    4.212 5.662 7.610 10.23 13.75 18.48 24.85 33.40 44.89 60.34
-
-    
-    
-    
-    
-    
------------------------------------ Analysis for time constant "k21" --------------------------------------
-
-  Arithmetic analysis:              4.231712 +/-     0.926623
-                                           ( +/-      21.90 %)
-
-  Geometric analysis:               4.136707  +      0.974861  -      0.788939
-                                           (  +       23.57 %  -       19.07 %)
-
-  Minimum and maximum:              2.409199      and           7.829985
-
-  Histogram:
-  ==========
-                                   #                              | 124
-                                   #                              | 113
-                                   #                              | 103
-                                   #     #                        | 93
-                             #     #     #                        | 82
-                             #     #     #     #                  | 72
-                             #     #     #     #                  | 62
-                             #     #     #     #                  | 51
-                       #     #     #     #     #                  | 41
-                       #     #     #     #     #     #            | 31
-                       #     #     #     #     #     #            | 20
-                       #     #     #     #     #     #     #      | 10
-        |     |     |     |     |     |     |     |     |     |  
-    2.193 2.489 2.826 3.209 3.643 4.137 4.697 5.333 6.054 6.874
-
-Output (analysis and full fitted data) written to "bootstrap.out".
-
+Output (analysis and full fitted data) written to "fit_bootstrap.txt".
 \end{Verbatim}
 \end{oframed}
 
 \normalsize
 
-While the script is running, it prints the intermediate results of the bootstrapping procedure.
+Unlike the fitting scripts used in the previous \sharc\ release, \ttt{make\_fit.py} directly carries out the kinetic model fit in one program, without calling \ttt{maxima} or \ttt{gnuplot}.
+It is therefore much faster, and additionally allows fitting of models that are too complex to solve analytically with \ttt{maxima}.
+
+The main results of the script can be found under \ttt{Final parameters}, obtained after 17 iterations.
+The table presents the fitted values of all parameters.
+It can be seen that the $S_2\rightarrow S_1$ time constant is 4.2~fs, and the time constant for $S_1\rightarrow S_0$ is 16.5~fs.
+
+For visual inspection of the fit results, the script writes two new files, \ttt{fit\_results.txt} and \ttt{fit\_results.gp}.
+The former is a simple text file that contains three columns.
+The first column is the time axis of the global fit, i.e., the time axis of the data, but continued to accommodate all data sets to be fitted (in the present case, there are three data sets to be fitted as defined in the Population-to-species mapping).
+The second column is the data and the third column is the fitted kinetic model functions.
+This file can be conveniently plotted with \textsc{Gnuplot}:
+\begin{Verbatim}[commandchars=\\\{\}]
+user@host> \textbf{\textcolor{red}{gnuplot fit_results.gp}}
+\end{Verbatim}
+The result of this plot is shown in Figure~\ref{fig:model_fit}.
+
+
+\paragraph{Discussion of Figure~\ref{fig:model_fit}}
+
+From the figure, it can be seen that the $S_2\rightarrow S_1$ time constant is 4.2~fs, and the time constant for $S_1\rightarrow S_0$ is 16.5~fs.
+Note that the fit is not very good, because the number of trajectories is low and the relaxation processes in \ce{CH2NH2+} are so fast that first-order reactions are not optimal to describe them.
+For slower processes in larger molecules, these kinetic model fits might work better.
+
+\paragraph{Discussion of the bootstrapping results}
+
+Because we provided bootstrapping data to the script, after the main data fit the script automatically continues the run and performs the requested number of bootstrap cycles.
+In each cycle, it will write the parameters fitted for the current cycle.
 Note that if the bootstrapping iterations take too long and the results seem to be converged already, pressing \ttt{Ctrl+C} allows skipping the remaining iterations and directly leads to the final analysis.
 
 The result of the bootstrapping procedure is presented in a summary for each fitting parameter.
@@ -3340,11 +3375,22 @@ For the $S_1\rightarrow S_0$ process, the result is 21.3$\pm$13.6~fs.
 According to the histogram, most of the fits yielded a value between 13 and 20~fs, although there were many fits with values around 30~fs and even some above 50~fs.
 This broad distribution leads to the large error found.
 Clearly, it is due to the small number of trajectories---it is very likely that in some resamples one particular trajectory is missing, which leads to a large change of the fitted parameters.
-Also note that the distribution of this parameter is very skewed (with a long right tail); in this situation it might be preferable to use the results of the geometric analysis (which gives $18.4\substack{+11.8\\-7.2}$~fs).
+Also note that the distribution of this parameter is very skewed (with a long right tail), leading to a strong deviation of the fitted value from the main data (16.5~fs) and the average of the bootstrap results (21.3~fs).
+In this situation, one might want to combine the main data value with the error from bootstrapping (16.5$\pm$13.6~fs) or use the results of the geometric analysis (which gives $18.4\substack{+11.8\\-7.2}$~fs).
 
 Generally, the errors get smaller as more trajectories are employed, and hence, the fitting errors are a good tool to judge whether enough trajectories were computed.
-However, the obtained errors tell nothing about the inherent method error---using surface hopping in combination with a given quantum chemistry method.
-It is not possible to quantify this method error with \ttt{bootstrap.py}; only through comparison with reference data or experiment can the method error be judged.
+For some time constants, it might also be necessary to run the trajectories for longer time to reduce the errors.
+In any case, the obtained errors tell nothing about the inherent method error---using surface hopping in combination with a given quantum chemistry method.
+It is not possible to quantify this method error with \ttt{make\_fit.py}; only through comparison with reference data or experiment can the method error be judged.
+
+
+\begin{figure}[ptb]
+  \centering
+  \includegraphics[width=\textwidth]{figures/fit.png}
+  \caption{Kinetic model fit of the classical populations.}
+  \label{fig:model_fit}
+\end{figure}
+
 
 
 
@@ -3376,8 +3422,8 @@ user@host> \textbf{\textcolor{red}{$SHARC/crossing.py}}
 ||                                                                                ||
 ||                              Author: Sebastian Mai                             ||
 ||                                                                                ||
-||                                   Version:2.0                                  ||
-||                                    01.02.18                                    ||
+||                                   Version:2.1                                  ||
+||                                    01.09.19                                    ||
 ||                                                                                ||
   ================================================================================
 
@@ -3488,8 +3534,8 @@ user@host> \textbf{\textcolor{red}{$SHARC/setup_orca_opt.py}}
 ||                                                                                ||
 ||                      Author: Moritz Heindl, Sebastian Mai                      ||
 ||                                                                                ||
-||                                   Version:2.0                                  ||
-||                                    01.02.18                                    ||
+||                                   Version:2.1                                  ||
+||                                    01.09.19                                    ||
 ||                                                                                ||
   ================================================================================
 
@@ -3732,8 +3778,8 @@ user@host> \textbf{\textcolor{red}{$SHARC/trajana_essdyn.py}}
 ||                                                                                ||
 ||                      Author: Felix Plasser, Andrew Atkins                      ||
 ||                                                                                ||
-||                                   Version:2.0                                  ||
-||                                    01.02.18                                    ||
+||                                   Version:2.1                                  ||
+||                                    01.09.19                                    ||
 ||                                                                                ||
   ================================================================================
 
@@ -3849,8 +3895,8 @@ user@host> \textbf{\textcolor{red}{$SHARC/trajana_nma.py}}
 ||                                                                                ||
 ||                      Author: Felix Plasser, Andrew Atkins                      ||
 ||                                                                                ||
-||                                   Version:2.0                                  ||
-||                                    01.02.18                                    ||
+||                                   Version:2.1                                  ||
+||                                    01.09.19                                    ||
 ||                                                                                ||
   ================================================================================
 
@@ -4000,8 +4046,8 @@ user@host> \textbf{\textcolor{red}{$SHARC/data_collector.py}}
 ||                                                                                ||
 ||                              Author: Sebastian Mai                             ||
 ||                                                                                ||
-||                                   Version:2.0                                  ||
-||                                    01.02.18                                    ||
+||                                   Version:2.1                                  ||
+||                                    01.09.19                                    ||
 ||                                                                                ||
   ================================================================================
 
@@ -4246,8 +4292,8 @@ user@host> \textbf{\textcolor{red}{$SHARC/data_collector.py}}
 ||                                                                                ||
 ||                              Author: Sebastian Mai                             ||
 ||                                                                                ||
-||                                   Version:2.0                                  ||
-||                                    01.02.18                                    ||
+||                                   Version:2.1                                  ||
+||                                    01.09.19                                    ||
 ||                                                                                ||
   ================================================================================
 
@@ -4775,6 +4821,868 @@ The field strength in $z$ direction (the polarization chosen in the input sectio
 
 
 % ======================================================================================================
+
+\section{Setting up LVC models}
+\label{sec:setup_LVC}
+\refermanual{m-sec:int:lvc}
+\refermanual{m-sec:setup_LVCparam.py}
+
+Linear vibronic coupling (LVC) models are analytical model potentials that can be automatically paramatrized from a small number of quantum chemistry calculations.
+Subsequently, running \sharc\ on these model potentials can be an extremely efficient (hundreds of time steps per second with \ttt{pysharc}) way to simulate nonadiabatic dynamics.
+
+In order to setup an LVC model, one has to perform three main steps:
+\begin{enumerate}
+  \item Obtain the reference potential from a frequency calculation,
+  \item Perform quantum chemistry calculations,
+  \item Collect results and derive parameters.
+\end{enumerate}
+Here, we parametrize an LVC model for \ce{CH2NH2+}, using the settings and files from the full tutorial in Chapter~\ref{chap:full}.
+Note that, actually, a harmonic LVC model is a very bad model for this molecule, but for the goals of this tutorial, it is sufficient.
+To continue, we need the \ttt{MOLCAS.freq.molden}, \ttt{MOLCAS.template}, and \ttt{MOLCAS.RasOrb} files obtained in Chapter~\ref{chap:full}.
+
+
+\subsection{Reference potential}
+
+In the LVC models used in \sharc, all diabatic potentials are shifted versions of a harmonic reference potential.
+This harmonic potential is fully specified from a frequency calculation, and is saved in a \ttt{V0.txt} file.
+This file can be generated from \ttt{wigner.py}:
+\begin{Verbatim}[commandchars=\\\{\}]
+user@host> \textbf{\textcolor{red}{$SHARC/wigner.py -l MOLCAS.freq.molden}}
+\end{Verbatim}
+Note how with the \ttt{-l} option, \ttt{wigner.py} does not produce an \ttt{initconds} file, but only the \ttt{V0.txt}.
+
+\subsection{Performing the quantum chemistry calculations}
+
+The quantum chemistry calculations to parametrize the LVC model can be setup with \ttt{setup\_LVCparam.py}:
+\begin{Verbatim}[commandchars=\\\{\}]
+user@host> \textbf{\textcolor{red}{$SHARC/setup_LVCparam.py}}
+\end{Verbatim}
+
+
+\begin{oframed}
+\footnotesize\begin{Verbatim}[commandchars=\\\{\}]
+Script for setup of LVC parametrization started...
+
+  ================================================================================
+||                                                                                ||
+||                     LVC parametrization for SHARC dynamics                     ||
+||                                                                                ||
+||                      Author: Simon Kropf and Sebastian Mai                     ||
+||                                                                                ||
+||                                   Version:2.1                                  ||
+||                                    01.09.19                                    ||
+||                                                                                ||
+  ================================================================================
+
+This script automatizes the setup of excited-state calculations
+in order to parametrize LVC models for SHARC dynamics.
+-------------------------V0.txt file------------------------
+
+Ground-state file "V0.txt" detected. Do you want to use this?
+Use file "V0.txt"? [True] \textbf{\textcolor{red}{<ENTER>}}
+
+File "V0.txt" contains 6 atoms and we will use 12 frequencies/normal modes.
+(others are zero)
+
+----------------------Number of states----------------------
+
+Please enter the number of states as a list of integers
+e.g. 3 0 3 for three singlets, zero doublets and three triplets.
+Number of states: \textbf{\textcolor{red}{2  0  1}}
+
+Number of states: [2, 0, 1]
+Total number of states: 5
+
+-----------Choose the quantum chemistry interface-----------
+
+Please specify the quantum chemistry interface (enter any of the following numbers):
+1       MOLPRO (only CASSCF)
+2       COLUMBUS (CASSCF, RASSCF and MRCISD), using SEWARD integrals
+3       Analytical PESs
+4       MOLCAS (CASSCF, CASPT2, MS-CASPT2)
+5       ADF (DFT, TD-DFT)
+6       TURBOMOLE (ricc2 with CC2 and ADC(2))
+7       LVC Hamiltonian
+8       GAUSSIAN (DFT, TD-DFT)
+9       ORCA (DFT, TD-DFT, HF, CIS)
+10      BAGEL (CASSCF, CASPT2, (X)MS-CASPT2)
+
+Interface number: \textbf{\textcolor{red}{4}}
+The used interface will be: MOLCAS (CASSCF, CASPT2, MS-CASPT2)
+
+-----------------Spin-orbit couplings (SOCs)----------------
+
+Do you want to compute spin-orbit couplings?
+
+Spin-Orbit calculation? [True] \textbf{\textcolor{red}{<ENTER>}}
+Will calculate spin-orbit matrix.
+
+--------------------Analytical gradients--------------------
+
+Do you want to use analytical gradients for kappa terms? [True] \textbf{\textcolor{red}{<ENTER>}}
+
+Analytical gradients for kappas: True
+
+----------Analytical nonadiabatic coupling vectors----------
+
+Do you want to use analytical nonadiabatic coupling vectors for lambda terms? [False] \textbf{\textcolor{red}{<ENTER>}}
+Do you want to use analytical nonadiabatic coupling vectors for lambdas: False
+
+------------------------Normal modes------------------------
+
+Do you want to make LVC parameters for all normal modes? [True] \textbf{\textcolor{red}{<ENTER>}}
+
+We will use the following normal modes: (7~18)
+
+------------------------Displacements-----------------------
+
+Do you want to use other displacements than the default of [0.05]? [False] \textbf{\textcolor{red}{<ENTER>}}
+
+Script will use displacement magnitudes of:
+
+(7~18): 0.05
+ 
+
+-----------------------Intruder states----------------------
+
+  Intruder states can be detected by small overlap matrix elements.
+  Affected numerical kappa/lambda terms will be ignored and not written to the parameter file.
+
+Do you want to check for intruder states? [True] \textbf{\textcolor{red}{<ENTER>}}
+
+Ignore problematic states: False
+
+------------------One-/Two-sided derivation-----------------
+
+One-/Two-sided derivation of normal modes.
+Choose for which normal modes you want to use one-sided derivation (7~18): 
+[None] (range comprehension enabled) \textbf{\textcolor{red}{<ENTER>}}
+
+One-sided derivation will be used on: [None]
+
+
+  ================================================================================
+||                             MOLCAS Interface setup                             ||
+  ================================================================================
+
+
+-----------------------Path to MOLCAS-----------------------
+
+
+Please specify path to MOLCAS directory (SHELL variables and ~ 
+can be used, will be expanded when interface is started).
+
+Path to MOLCAS: [$MOLCAS/] (autocomplete enabled) \textbf{\textcolor{red}{/usr/license/openmolcas/}}
+
+----------------------Scratch directory---------------------
+
+Please specify an appropriate scratch directory. This will be used to temporally store the integrals. 
+The scratch directory will be deleted after the calculation. 
+Remember that this script cannot check whether the path is valid, 
+since you may run the calculations on a different machine. The path will not be expanded by this script.
+Path to scratch directory: (autocomplete enabled) \textbf{\textcolor{red}{$TMPDIR/LVC/}}
+
+-----------------MOLCAS input template file-----------------
+
+Please specify the path to the MOLCAS.template file. This file must contain the following settings:
+
+basis <Basis set>
+ras2 <Number of active orbitals>
+nactel <Number of active electrons>
+inactive <Number of doubly occupied orbitals>
+roots <Number of roots for state-averaging>
+
+The MOLCAS interface will generate the appropriate MOLCAS input automatically.
+
+Valid file "MOLCAS.template" detected. 
+Use this template file? [True] \textbf{\textcolor{red}{<ENTER>}}
+
+---------------Initial wavefunction: MO Guess---------------
+
+Please specify the path to a MOLCAS JobIph file containing suitable starting MOs for the CASSCF calculation. 
+Please note that this script cannot check whether the wavefunction file and the 
+Input template are consistent!
+
+Do you have initial wavefunction files for Singlet, Triplet? [True] \textbf{\textcolor{red}{<ENTER>}}
+JobIph files (1) or RasOrb files (2)? \textbf{\textcolor{red}{2}}
+Initial wavefunction file for Singlets: [MOLCAS.1.RasOrb.init] (autocomplete enabled) \textbf{\textcolor{red}{MOLCAS.RasOrb}}
+Initial wavefunction file for Triplets: [MOLCAS.3.RasOrb.init] (autocomplete enabled) \textbf{\textcolor{red}{MOLCAS.RasOrb}}
+-------------------MOLCAS Ressource usage-------------------
+
+Please specify the amount of memory available to MOLCAS (in MB). For calculations 
+including moderately-sized CASSCF calculations and less than 150 basis functions, 
+around 2000 MB should be sufficient.
+
+MOLCAS memory: [1000] \textbf{\textcolor{red}{500}}
+Please specify the number of CPUs to be used by EACH calculation.
+
+Number of CPUs: [1] \textbf{\textcolor{red}{1}}
+
+  ================================================================================
+||                                 Run mode setup                                 ||
+  ================================================================================
+
+
+-------------------------Run script-------------------------
+
+  This script can generate the run scripts for each initial condition in two modes:
+
+    - In mode 1, the calculation is run in subdirectories of the current directory.
+
+    - In mode 2, the input files are transferred to another directory (e.g. a local
+      scratch directory), the calculation is run there, results are copied back and
+      the temporary directory is deleted. Note that this temporary directory is not
+      the same as the "scratchdir" employed by the interfaces.
+
+  Note that in any case this script will create the input subdirectories in the
+  current working directory.
+
+  In case of mode 1, the calculations will be run in:
+'/user/mai/Documents/NewSHARC/SHARC_2.1/TUTORIAL/LVC/setup'
+
+Use mode 1 (i.e., calculate here)? [True] \textbf{\textcolor{red}{<ENTER>}}
+
+----------------------Submission script---------------------
+
+During the setup, a script for running all initial conditions sequentially in batch
+mode is generated. Additionally, a queue submission script can be generated for all
+initial conditions.
+Generate submission script? [False] \textbf{\textcolor{red}{<ENTER>}}
+
+
+#########################Full input#########################
+
+molcas                    /usr/license/openmolcas
+soc                       True
+ana_nac                   False
+states                    2
+                          0
+                          1
+molcas.jobiph_or_rasorb   2
+v0f                       /user/mai/Documents/NewSHARC/SHARC_2.1/TUTORIAL/LVC/setup/V0.txt
+fmw_normal_modes          7: [...]
+                          8: [...]
+                          9: [...]
+                          10: [...]
+                          11: [...]
+                          12: [...]
+                          13: [...]
+                          14: [...]
+                          15: [...]
+                          16: [...]
+                          .
+                          (2 more)
+                          .
+nstates                   5
+result_path               DSPL_RESULTS
+paths                     0eq: DSPL_000_eq
+                          10n: DSPL_010_n
+                          10p: DSPL_010_p
+                          11n: DSPL_011_n
+                          11p: DSPL_011_p
+                          12n: DSPL_012_n
+                          12p: DSPL_012_p
+                          13n: DSPL_013_n
+                          13p: DSPL_013_p
+                          14n: DSPL_014_n
+                          .
+                          (15 more)
+                          .
+molcas.guess              1: MOLCAS.RasOrb
+                          3: MOLCAS.RasOrb
+scratchdir                $TMPDIR
+ana_grad                  True
+cwd                       /user/mai/Documents/NewSHARC/SHARC_2.1/TUTORIAL/LVC/setup
+molcas.ncpu               1
+molcas.template           MOLCAS.template
+freqencies                7: 0.0044375993
+                          8: 0.0046569568
+                          9: 0.005551635
+                          10: 0.0059837902
+                          11: 0.0064624626
+                          12: 0.0070062134
+                          13: 0.0076503229
+                          14: 0.0085770748
+                          15: 0.0151719177
+                          16: 0.0157797932
+                          .
+                          (2 more)
+                          .
+here                      True
+atoms                     {...}
+                          {...}
+                          {...}
+                          {...}
+                          {...}
+                          {...}
+interface                 4
+qsub                      False
+displacement_magnitudes   7: 0.05
+                          8: 0.05
+                          9: 0.05
+                          10: 0.05
+                          11: 0.05
+                          12: 0.05
+                          13: 0.05
+                          14: 0.05
+                          15: 0.05
+                          16: 0.05
+                          .
+                          (2 more)
+                          .
+normal_modes              7: [...]
+                          8: [...]
+                          9: [...]
+                          10: [...]
+                          11: [...]
+                          12: [...]
+                          13: [...]
+                          14: [...]
+                          15: [...]
+                          16: [...]
+                          .
+                          (2 more)
+                          .
+displacements             10n: [...]
+                          10p: [...]
+                          11n: [...]
+                          11p: [...]
+                          12n: [...]
+                          12p: [...]
+                          13n: [...]
+                          13p: [...]
+                          14n: [...]
+                          14p: [...]
+                          .
+                          (14 more)
+                          .
+molcas.mem                500
+do_overlaps               True
+ignore_problematic_states  False
+Do you want to setup the specified calculations? [True] \textbf{\textcolor{red}{<ENTER>}}
+
+  ================================================================================
+||                            Setting up directories...                           ||
+  ================================================================================
+
+
+Progress: [==================================================] 100%
+\end{Verbatim}
+\end{oframed}
+
+\normalsize
+The script will generate a subdirectory called \ttt{DSPL\_RESULTS}.
+This newly created subdirectory contains the files \ttt{displacements.json}, \ttt{displacements.log}, and \ttt{all\_run\_dspl.sh}.
+The first file saves all settings from \ttt{setup\_LVCparam.py} and is necessary when reading out the results; hence, it should not be touched.
+The second file is a simple summary of the setup, and is only for user inspection.
+The third file can be used to run all quantum chemistry calculations, similar to the cases of \ttt{setup\_init.py} and \ttt{setup\_traj.py}.
+
+Additionally, the directory contains subdirectories \ttt{DSPL\_XXX\_YY} which contain the inputs for the calculations.
+\ttt{DSPL\_000\_eq} is the input for the reference calculation, and this calculation must be carried out first.
+Subsequently, the remaining $6N$ calculations can be run in any order or in parallel.
+Note that only \ttt{DSPL\_000\_eq} will be present if analytical gradients and nonadiabatic couplings are both requested.
+
+
+% ======================================================================================================
+
+\subsection{Extracting the parameters}
+
+Once all \ttt{DSPL\_XXX\_YY} calculations are finished (\ttt{QM.out} present in each directory), the parameters for the LVC model can be extracted.
+To this end, simply start the relevant script:
+\begin{Verbatim}[commandchars=\\\{\}]
+user@host> \textbf{\textcolor{red}{$SHARC/create_LVCparam.py}}
+\end{Verbatim}
+The script is fully automatic, using the settings contained in \ttt{displacements.json}.
+
+The output will look like:
+\begin{oframed}
+\footnotesize\begin{Verbatim}[commandchars=\\\{\}]
+Script for setup of displacements started...
+
+
+  ================================================================================
+||                                                                                ||
+||                             Compute LVC parameters                             ||
+||                                                                                ||
+||                      Author: Simon Kropf and Sebastian Mai                     ||
+||                                                                                ||
+||                                   Version:2.1                                  ||
+||                                    01.09.19                                    ||
+||                                                                                ||
+  ================================================================================
+
+This script automatizes the setup of excited-state calculations for displacements
+for SHARC dynamics.
+
+Data extraction started ...
+Number of states: 5
+Number of atoms: 6
+Kappas: analytical
+Lambdas: numerical
+
+Reading files ...
+
+DSPL_000_eq/QM.out ['h', 'dm', 'grad']
+DSPL_011_p/QM.out ['h', 'overlap']
+DSPL_011_n/QM.out ['h', 'overlap']
+DSPL_010_p/QM.out ['h', 'overlap']
+DSPL_010_n/QM.out ['h', 'overlap']
+DSPL_013_p/QM.out ['h', 'overlap']
+DSPL_013_n/QM.out ['h', 'overlap']
+DSPL_012_p/QM.out ['h', 'overlap']
+DSPL_012_n/QM.out ['h', 'overlap']
+DSPL_015_p/QM.out ['h', 'overlap']
+DSPL_015_n/QM.out ['h', 'overlap']
+DSPL_014_p/QM.out ['h', 'overlap']
+DSPL_014_n/QM.out ['h', 'overlap']
+DSPL_017_p/QM.out ['h', 'overlap']
+DSPL_017_n/QM.out ['h', 'overlap']
+DSPL_016_p/QM.out ['h', 'overlap']
+DSPL_016_n/QM.out ['h', 'overlap']
+DSPL_018_p/QM.out ['h', 'overlap']
+DSPL_018_n/QM.out ['h', 'overlap']
+DSPL_007_p/QM.out ['h', 'overlap']
+DSPL_007_n/QM.out ['h', 'overlap']
+DSPL_009_p/QM.out ['h', 'overlap']
+DSPL_009_n/QM.out ['h', 'overlap']
+DSPL_008_p/QM.out ['h', 'overlap']
+DSPL_008_n/QM.out ['h', 'overlap']
+
+Finished!
+LVC parameters written to file: LVC.template
+\end{Verbatim}
+\end{oframed}
+
+\normalsize
+The obtained LVC parameters are found in \ttt{LVC.template}.
+This file will be needed for setting up the \sharc\ trajectories.
+
+
+% ======================================================================================================
+
+\section{Running \ttt{pysharc} with NetCDF}
+\label{sec:run_LVC}
+\refermanual{m-sec:pysharc}
+
+Setting up trajectories with \ttt{pysharc} is actually very similar to setting up trajectories for regular\ttt{sharc.x}.
+Currently, \ttt{pysharc} trajectories can only be setup for LVC models.
+Here, we will use the LVC model produced in section~\ref{sec:setup_LVC}.
+
+In order to prepare the trajectory setup, do the following steps:
+\begin{enumerate}
+  \item Generate initial conditions using \ttt{wigner.py}. It is strongly advisable to use the same \ttt{molden} file that was used to generate \ttt{V0.txt} for the LVC model.
+  \item Use \ttt{setup\_init.py} to prepare vertical excitation calculations. Use the LVC interface (interface number 7). 
+  \item Run the vertical excitation calculations (they should be very fast).
+  \item Collect vertical excitation information and select initial states using \ttt{excite.py}.
+\end{enumerate}
+At the end of these steps, one should have: \ttt{initconds.excited}, \ttt{V0.txt}, \ttt{LVC.template}.
+Then, one can the trajectories:
+\begin{Verbatim}[commandchars=\\\{\}]
+user@host> \textbf{\textcolor{red}{$SHARC/setup_traj.py}}
+\end{Verbatim}
+
+\begin{oframed}
+\footnotesize\begin{Verbatim}[commandchars=\\\{\}]
+Script for setup of SHARC trajectories started...
+
+
+  ================================================================================
+||                                                                                ||
+||                      Setup trajectories for SHARC dynamics                     ||
+||                                                                                ||
+||                    Author: Sebastian Mai, Philipp Marquetand                   ||
+||                                                                                ||
+||                                   Version:2.1                                  ||
+||                                    01.09.19                                    ||
+||                                                                                ||
+  ================================================================================
+
+
+This script automatizes the setup of the input files for SHARC dynamics.
+  
+
+  ================================================================================
+||                               Initial conditions                               ||
+  ================================================================================
+
+
+
+This script reads the initial conditions (geometries, velocities, initial excited state)
+from the initconds.excited files as provided by excite.py.
+
+Please enter the filename of the initial conditions file.
+Initial conditions filename: [initconds.excited] (autocomplete enabled) \textbf{\textcolor{red}{../initconds.excited}}
+
+File ../initconds.excited contains 20 initial conditions.
+Number of atoms is 6
+Reference energy 0.0000000000 a.u.
+Excited states are in MCH representation.
+
+
+Please enter the number of states as a list of integers
+e.g. 3 0 3 for three singlets, zero doublets and three triplets.
+Number of states: [2 0 1] \textbf{\textcolor{red}{<ENTER>}}
+
+Number of states: [2 0 1]
+Total number of states: 13
+
+Do you want all states to be active? [True] \textbf{\textcolor{red}{<ENTER>}}
+
+Do you want to see the content of the initconds file? [True] \textbf{\textcolor{red}{<ENTER>}}
+Number of initial conditions in file:          20
+Contents of the initconds file:
+
+Legend:
+?       Geometry and Velocity
+.       not selected
+#       selected
+
+State 1:
+             10         20 
+              |          | 
+ 0 | .......... ?????????? 
+State 2:
+             10         20 
+              |          | 
+ 0 | ..#....#.# ?????????? 
+State 3:
+             10         20 
+              |          | 
+ 0 | .......... ?????????? 
+State 4:
+             10         20 
+              |          | 
+ 0 | .......... ?????????? 
+State 5:
+             10         20 
+              |          | 
+ 0 | .......... ?????????? 
+Number of excited states and selections:
+State    #InitCalc       #Selected
+    1           10               0
+    2           10               3
+    3           10               0
+    4           10               0
+    5           10               0
+
+
+Please enter a list specifying for which excited states trajectories should be set-up
+e.g. 6 10 11 to select states 6, 10, and 11.
+States to setup the dynamics: [2] (range comprehension enabled) \textbf{\textcolor{red}{<ENTER>}}
+
+There can be 3 trajectories set up.
+
+Please enter the index of the first initial condition in the initconds file to be setup.
+Starting index: [1] \textbf{\textcolor{red}{<ENTER>}}
+
+There can be 3 trajectories set up, starting in 1 states.
+
+Please enter the total number of trajectories to setup.
+Number of trajectories: [3] \textbf{\textcolor{red}{<ENTER>}}
+
+Please enter a random number generator seed (type "!" to initialize the RNG from the system time).
+RNG Seed:  [!] \textbf{\textcolor{red}{1234}}
+
+
+  ================================================================================
+||                     Choose the quantum chemistry interface                     ||
+  ================================================================================
+
+
+Please specify the quantum chemistry interface (enter any of the following numbers):
+1       MOLPRO (only CASSCF)
+2       COLUMBUS (CASSCF, RASSCF and MRCISD), using SEWARD integrals
+3       Analytical PESs
+4       MOLCAS (CASSCF, CASPT2, MS-CASPT2)
+5       ADF (DFT, TD-DFT)
+6       TURBOMOLE (ricc2 with CC2 and ADC(2))
+7       LVC Hamiltonian
+8       GAUSSIAN (DFT, TD-DFT)
+9       ORCA (DFT, TD-DFT, HF, CIS)
+10      BAGEL (CASSCF, CASPT2, (X)MS-CASPT2)
+
+Interface number: \textbf{\textcolor{red}{7}}
+
+  ================================================================================
+||                        Surface Hopping dynamics settings                       ||
+  ================================================================================
+
+
+-----------------------Simulation time----------------------
+
+Please enter the total simulation time.
+Simulation time (fs): [1000.0] \textbf{\textcolor{red}{<ENTER>}}
+
+Please enter the simulation timestep (0.5 fs recommended).
+Simulation timestep (fs): [0.5] \textbf{\textcolor{red}{<ENTER>}}
+
+Simulation will have 2001 timesteps.
+
+Please enter the number of substeps for propagation (25 recommended).
+Nsubsteps: [25] \textbf{\textcolor{red}{<ENTER>}}
+
+The trajectories can be prematurely terminated after they run for a certain time in the lowest state. 
+Do you want to prematurely terminate trajectories? [False] \textbf{\textcolor{red}{<ENTER>}}
+
+
+----------------------Dynamics settings---------------------
+
+Do you want to perform the dynamics in the diagonal representation (SHARC dynamics) 
+or in the MCH representation (regular surface hopping)?
+SHARC dynamics? [True] \textbf{\textcolor{red}{<ENTER>}}
+Do you want to include spin-orbit couplings in the dynamics?
+
+Spin-Orbit calculation? [True] \textbf{\textcolor{red}{<ENTER>}}
+Will calculate spin-orbit matrix.
+
+
+Please choose the quantities to describe non-adiabatic effects between the states:
+1       DDT     =  < a|d/dt|b >        Hammes-Schiffer-Tully scheme   (not available)
+2       DDR     =  < a|d/dR|b >        Original Tully scheme          
+3       overlap = < a(t0)|b(t) >       Local Diabatization scheme     
+Coupling number: [3] \textbf{\textcolor{red}{<ENTER>}}
+
+For SHARC dynamics, the evaluation of the mixed gradients necessitates to calculate 
+non-adiabatic coupling vectors (Extra computational cost).
+Include non-adiabatic couplings in the gradient transformation? [False] \textbf{\textcolor{red}{yes}}
+
+During a surface hop, the kinetic energy has to be modified in order to conserve total energy. 
+There are several options to that:
+1       Do not conserve total energy. Hops are never frustrated.
+2       Adjust kinetic energy by rescaling the velocity vectors. Often sufficient.
+3       Adjust kinetic energy only with the component of the velocity vector along the 
+        non-adiabatic coupling vector.        (extra computational cost)
+4       Adjust kinetic energy only with the component of the velocity vector along the 
+        gradient difference vector.
+EkinCorrect: [2] \textbf{\textcolor{red}{3}}
+
+If a surface hop is refused (frustrated) due to insufficient energy, 
+the velocity can either be left unchanged or reflected:
+1       Do not reflect at a frustrated hop.
+2       Reflect the full velocity vector.
+3       Reflect only the component of the velocity vector along the non-adiabatic coupling vector.
+        (extra computational cost)
+4       Reflect only the component of the velocity vector along the gradient difference vector.
+Reflect frustrated: [1] \textbf{\textcolor{red}{3}}
+
+Please choose a decoherence correction for the diagonal states:
+1       No decoherence correction.
+2       Energy-based decoherence scheme (Granucci, Persico, Zoccante).
+3       Augmented fewest-switching surface hopping (Jain, Alguire, Subotnik).
+Decoherence scheme: [2] \textbf{\textcolor{red}{3}}
+
+Please choose a surface hopping scheme for the diagonal states:
+1       Surface hops off.
+2       Standard SHARC surface hopping probabilities (Mai, Marquetand, Gonzalez).
+3       Global flux surface hopping probabilities (Wang, Trivedi, Prezhdo).
+Hopping scheme: [2] \textbf{\textcolor{red}{<ENTER>}}
+
+Do you want to perform forced hops to the lowest state based on a energy gap criterion?
+(Note that this ignores spin multiplicity)
+Forced hops to ground state? [False] \textbf{\textcolor{red}{<ENTER>}}
+
+Do you want to scale the energies and gradients?
+Scaling? [False] \textbf{\textcolor{red}{<ENTER>}}
+
+Do you want to damp the dynamics (Kinetic energy is reduced at each timestep by a factor)?
+Damping? [False] \textbf{\textcolor{red}{<ENTER>}}
+
+---------------Selection of Gradients and NACs--------------
+
+In order to speed up calculations, SHARC is able to select which gradients and NAC vectors 
+it has to calculate at a certain timestep. The selection is based on the energy difference 
+between the state under consideration and the classical occupied state.
+
+Select gradients? [False] \textbf{\textcolor{red}{<ENTER>}}
+Select non-adiabatic couplings? [False] \textbf{\textcolor{red}{<ENTER>}}
+
+
+-------------------------Laser file-------------------------
+
+Do you want to include a laser field in the simulation? [False] \textbf{\textcolor{red}{<ENTER>}}
+
+  ================================================================================
+||                               LVC Interface setup                              ||
+  ================================================================================
+
+
+Template filename: (autocomplete enabled) \textbf{\textcolor{red}{../LVC.template}}
+
+
+  ================================================================================
+||                                     PYSHARC                                    ||
+  ================================================================================
+
+
+The chosen interface can be run very efficiently with PYSHARC.
+PYSHARC runs the SHARC dynamics directly within Python (with C and Fortran extension)
+with minimal file I/O for maximum performance.
+Setup for PYSHARC? [True] \textbf{\textcolor{red}{<ENTER>}}   \textcolor{blue}{# activate PySHARC}
+
+  ================================================================================
+||                           Content of output.dat files                          ||
+  ================================================================================
+
+
+SHARC or PYSHARC can produce output in ASCII format (all features supported currently)
+or in NetCDF format (more efficient file I/O, some features currently not supported).
+Write output in NetCDF format? [True] \textbf{\textcolor{red}{<ENTER>}}   \textcolor{blue}{# use efficient output}
+
+Do you want to write the gradients to the output.dat file ?
+Write gradients? [False] \textbf{\textcolor{red}{<ENTER>}}
+
+Do you want to write the non-adiabatic couplings (NACs) to the output.dat file ?
+Write NACs? [False] \textbf{\textcolor{red}{<ENTER>}}
+
+Do you want to write property matrices to the output.dat file  (e.g., Dyson norms)?
+Write property matrices? [False] \textbf{\textcolor{red}{<ENTER>}}
+
+Do you want to write property vectors to the output.dat file  (e.g., TheoDORE results)?
+Write property vectors? [False] \textbf{\textcolor{red}{<ENTER>}}
+
+Do you want to write the overlap matrix to the output.dat file ?
+Write overlap matrix? [True] \textbf{\textcolor{red}{<ENTER>}}
+
+Do you want to modify the output.dat writing stride?
+Modify stride? [False] \textbf{\textcolor{red}{<ENTER>}}
+
+
+  ================================================================================
+||                                 Run mode setup                                 ||
+  ================================================================================
+
+
+-------------------------Run script-------------------------
+
+This script can generate the run scripts for each initial condition in two modes:
+
+  - In mode 1, the calculation is run in subdirectories of the current directory.
+
+  - In mode 2, the input files are transferred to another directory (e.g. a local scratch directory), 
+  the calculation is run there, results are copied back and the temporary directory is deleted. 
+  Note that this temporary directory is not the same as the "scratchdir" employed by the interfaces.
+
+Note that in any case this script will create the input subdirectories in the current working directory. 
+
+In case of mode 1, the calculations will be run in:
+/user/mai/Documents/NewSHARC/SHARC_2.1/TUTORIAL/LVC/run/traj
+
+Use mode 1 (i.e., calculate here)? [True] \textbf{\textcolor{red}{<ENTER>}}
+
+----------------------Submission script---------------------
+
+During the setup, a script for running all initial conditions sequentially in batch mode is generated. 
+Additionally, a queue submission script can be generated for all initial conditions.
+
+Generate submission script? [False] \textbf{\textcolor{red}{<ENTER>}}
+
+
+#########################Full input#########################
+
+soc                        True
+ntraj                      3
+ninit                      20
+pysharc                    True
+write_NAC                  False
+write_property1d           False
+dipolegrad                 False
+states                     [2, 0, 1]
+kill                       False
+LVC.template               ../LVC.template
+nstates                    5
+show_content               True
+eharm                      0.0
+n_issel                    [0, 3, 0, 0, 0]
+nsubstep                   25
+diag                       False
+actstates                  [2, 0, 1]
+ekincorrect                3
+atommaskarray              []
+needed                     []
+copydir                    /user/mai/Documents/NewSHARC/SHARC_2.1/TUTORIAL/LVC/run/traj
+eref                       0.0
+damping                    False
+firstindex                 1
+cwd                        /user/mai/Documents/NewSHARC/SHARC_2.1/TUTORIAL/LVC/run/traj
+qsub                       False
+write_property2d           False
+surf                       diagonal
+initf                      <open file '../initconds.excited', mode 'r' at 0x7fb75e8b5150>
+dtstep                     0.5
+repr                       MCH
+phases_from_interface      False
+reflect                    3
+ion                        False
+statemap                   {1: [1, 1, 0.0], 2: [1, 2, 0.0], 3: [3, 1, -1.0], 4: [3, 1, 0.0], 5: [3, 1, 1.0]}
+here                       True
+interface                  7
+write_overlap              True
+force_hops                 False
+netcdf                     True
+scaling                    False
+laser                      False
+coupling                   3
+hopping                    sharc
+sel_g                      False
+tmax                       1000.0
+stride                     [1]
+write_grad                 False
+force_hops_dE              9999.0
+sel_t                      False
+setupstates                set([2])
+printlevel                 2
+natom                      6
+gradcorrect                True
+decoherence                ['afssh', '']
+isactive                   [True, True, True, True, True]
+
+Do you want to setup the specified calculations? [True] \textbf{\textcolor{red}{<ENTER>}}
+
+
+  ================================================================================
+||                            Setting up directories...                           ||
+  ================================================================================
+
+
+Progress: [==================================================] 100%
+
+3 trajectories setup, last initial condition was 10 in state 2.
+\end{Verbatim}
+\end{oframed}
+
+\normalsize
+Note that in this example, we have used some more advanced surface hopping settings, specifically rescaling along the nonadiabatic coupling vector, reflection at frustrated hops, and AFSSH decoherence.
+These options can be used without limitations in LVC, because nonadiabatic coupling vectors can be easily computed for LVC models.
+Note also that we used a simulation time of 1000~fs to demonstrate the high computational efficiency of the method.
+
+The output of \ttt{setup\_traj.py} is a typical directory structure for \sharc\ trajectories.
+In order to run one of them, change into a trajectory directory and run it:
+\begin{Verbatim}[commandchars=\\\{\}]
+user@host> \textbf{\textcolor{red}{cd Singlet_1/TRAJ_00003}}
+user@host> \textbf{\textcolor{red}{sh run.sh}}
+\end{Verbatim}
+Note that the \ttt{run.sh} script automatically sources \ttt{sharcvars.sh}, so that all necessary paths and libraries are set, and starts \ttt{pysharc\_lvc.py} instead of \ttt{sharc.x}.
+The trajectory should be finished within about a minute (ten to hundred steps per second, mostly dependent on the speed of the file system).
+
+The output of the trajectory is very similar to  a normal trajectory, with the following differences:
+\begin{itemize}
+  \item \ttt{restart.traj} and \ttt{restart.ctrl} are only written when the trajectory is finished, not during the run,
+  \item \ttt{output.xyz} is empty,
+  \item \ttt{output.dat} only contains the file header, but no data,
+  \item \ttt{output.dat.nc} is present (a binary NetCDF file containing the output data).
+\end{itemize}
+To extract the trajectory data, run:
+\begin{Verbatim}[commandchars=\\\{\}]
+user@host> \textbf{\textcolor{red}{$SHARC/data_extractor_NetCDF.x output.dat}}
+\end{Verbatim}
+Note that it might be necessary to source \ttt{sharcvars.sh} prior to running the \ttt{data\_extractor\_NetCDF.x}.
+In order to generate the \ttt{output.xyz} file, run \ttt{data\_extractor\_NetCDF.x} with the \ttt{-xyz} flag.
+
+After the extraction step, the trajectory can be analyzed as usual (\ttt{populations.py}, \ttt{geo.py}, \ttt{data\_collector.py}, ...).
+Note that \ttt{diagnostics.py} automatically chooses the correct data extractor for the trajectories, so it can also be used.
+
+
+% ======================================================================================================
 % ======================================================================================================
 % ======================================================================================================
 
@@ -4799,7 +5707,7 @@ These are the main differences when using \textsc{Molpro} instead of \textsc{Mol
   \item \textsc{Molpro} calculations---single point, optimization, frequencies---can be setup with \ttt{molpro\_input.py}. This also allows preparing \textsc{Molden} files to be used with \ttt{wigner.py}.
   \item \ttt{molpro\_input.py} can write \ttt{MOLPRO.template} files. 
   \item \textsc{Molpro} can state-average over different multiplicities. Therefore, in \ttt{MOLPRO.template} one can define multiple independent CASSCF jobs, each with arbitrary state-averaging schemes. See the example files in \ttt{\$SHARC/../examples/SHARC\_MOLPRO/} for such a template file.
-  \item \textsc{Molpro} can compute nonadiabatic coupling vectors. These can be used in \ttt{sharc.x} for electronic propagation and for the exact transformation of the gradient vectors. Related options can be set during the \ttt{setup\_traj.py} dialogue.
+  \item \textsc{Molpro} can compute nonadiabatic coupling vectors. These can be used in \ttt{sharc.x} for electronic propagation and for the exact transformation of the gradient vectors. Related options can be set during the \ttt{setup\_traj.py} dialogue. \textbf{Note}, however, that \textsc{Molpro} sometimes randomly changes the sign of nonadiabatic coupling vectors in a way that cannot be corrected, so propagating with \ttt{coupling nacdr} is discouraged (use \ttt{coupling overlap}).
   \item Unlike the \textsc{Molcas} interface, the \textsc{Molpro} interface cannot perform CASPT2 or QM/MM calculations.
   \item Only segmented basis sets (e.g., Pople or Ahlrichs) can be used for the \sharc-\textsc{Molpro} interface, while generally contracted basis sets (e.g., Dunning or ANO) cannot be used because \textsc{Molpro} cannot calculate gradients with them.
   \item The \sharc-\textsc{Molpro} interface almost always requires \ttt{wfoverlap.x}, so this should be installed from the \link{https://sharc-md.org/?page_id=309}{\sharc\ homepage}.
@@ -4829,7 +5737,7 @@ These are the main differences when using \textsc{Columbus} instead of \textsc{M
   \item \textsc{Columbus} has a number of hard internal limits: a maximum of 255 basis functions and a maximum of 65535 CSFs in MCSCF (CAS(16,12) or larger will not work).
   \item One can use either of two integral codes: \textsc{Dalton} or \textsc{Molcas}. The former can compute nonadiabatic coupling vectors, whereas the latter can compute spin-orbit couplings. For the latter, the \link{http://www.univie.ac.at/columbus/docs_COL70/columbus_molcas_link.html}{\textsc{Columbus-Molcas} interface} must be installed.
   \item One can use either of two CASSCF codes: \textsc{Columbus} own code or \textsc{Molcas} (faster, but no gradients). For the latter, the \link{http://www.univie.ac.at/columbus/docs_COL70/columbus_molcas_link.html}{\textsc{Columbus-Molcas} interface} must be installed.
-  \item If planning to run CASSCF-based \sharc\ dynamics, we recommend to not use \textsc{Columbus}; instead, use \textsc{Molcas} or \textsc{Molpro}. \textsc{Columbus} should only be used for MRCI-based dynamics.
+  \item If planning to run CASSCF-based \sharc\ dynamics, we recommend to not use \textsc{Columbus}; instead, use \textsc{Molcas}, \textsc{Molpro}, or \textsc{Bagel}. \textsc{Columbus} should only be used for MRCI-based dynamics.
   \item MRCI-based dynamics can be very expensive. Careful setup is required.
   \item Running the \ttt{wfoverlap.x} program with MRCI wave functions can be quite expensive. Hence, users should carefully adjust the related wave function truncation threshold.
 \end{itemize}
@@ -5056,7 +5964,7 @@ Yet another important difference is that spin-orbit couplings can only be comput
 
 These are the main differences when using ADF instead of \textsc{Molcas}:
 \begin{itemize}
-  \item ADF calculations---single points, optimizations, frequency calculations---can be setup with ADF's suite of GUI programs, or with\sharc's \ttt{ADF\_input.py}.
+  \item ADF calculations---single points, optimizations, frequency calculations---can be setup with ADF's suite of GUI programs, or with \sharc's \ttt{ADF\_input.py}.
   \item The result of ADF frequency calculations (standard output or \ttt{TAPE21}) can be converted to \textsc{Molden} format using \ttt{ADF\_freq.py}.
   \item Before starting ADF or any Python script related to ADF, source the relevant \ttt{adfrc.sh} file which came with ADF.
   \item Template files for the \sharc-ADF interface should be created by copying and adjusting the documented example in \ttt{\$SHARC/../examples/SHARC\_ADF/}.
@@ -5066,6 +5974,7 @@ These are the main differences when using ADF instead of \textsc{Molcas}:
 
 For the reasons mentioned above, the dynamics of \ce{CH2NH2+} cannot be properly described with TD-DFT.
 Users who intend to follow the tutorial with ADF instead of \textsc{Molcas} should therefore use a different molecule (\ce{SO2} might work well).
+Alternatively, the \ttt{force\_hops\_to\_gs} option can be used to enable an approximate decay from the $S_1$ to the $S_0$ of  \ce{CH2NH2+}.
 
 % ======================================================================================================
 
@@ -5090,7 +5999,12 @@ These are the main differences when using ADC(2) in \textsc{Turbomole} instead o
   \item Template files for the \sharc-\textsc{Turbomole} interface should be created by copying and adjusting the documented example in \ttt{\$SHARC/../examples/SHARC\_RICC2/}.
   \item \textsc{Turbomole} cannot compute nonadiabatic coupling vectors, so all \sharc-\textsc{Turbomole} simulations rely on \ttt{wfoverlap.x}.
   \item You can set \ttt{\$TURBODIR} to the main path of \textsc{Turbomole} in your Shell profile. \sharc\ scripts will recognize this variable, which will simplify the setup.
+  \item The interface can carry out QM/MM calculations, with the MM part being computed in \textsc{Tinker}.
 \end{itemize}
+
+For the reasons mentioned above, the dynamics of \ce{CH2NH2+} cannot be properly described with ADC(2) or CC2.
+Users who intend to follow the tutorial with \textsc{Turbomole} instead of \textsc{Molcas} should therefore use a different molecule (\ce{SO2} might work well).
+Alternatively, the \ttt{force\_hops\_to\_gs} option can be used to enable an approximate decay from the $S_1$ to the $S_0$ of  \ce{CH2NH2+}.
 
 % ======================================================================================================
 
@@ -5101,25 +6015,8 @@ These are the main differences when using ADC(2) in \textsc{Turbomole} instead o
 The linear-vibronic coupling model interface uses analytical expressions (like the analytical interface).
 However, the LVC interface allows more complicated, realistic models for many-atom molecules, which can be automatically parametrized from a single point calculation.
 
-In the following, a brief tutorial is given how to prepare the template file for the LVC interface for \ce{SO2} (this molecule should work well for LVC simulations) with the help of \textsc{Molpro}.
-\begin{enumerate}
-  \item Perform a frequency calculation for \ce{SO2}, e.g., using MP2 (setup can be done with \ttt{molpro\_input.py}).
-  \item Run \ttt{python \$SHARC/wigner.py -l freq.molden}. This creates a file called \ttt{V0.txt}.
-  \item In order to carry out the required single point calculation:
-  \begin{enumerate}
-    \item Use \ttt{wigner.py} to create a \ttt{initconds} file.
-    \item Use \ttt{molpro\_input.py} to create a template file (use a segmented basis like \ttt{def2-SVP}).
-    \item Use \ttt{setup\_init.py} to create a single point calculation at the equilibrium geometry in \ttt{ICOND\_00000/}.
-    \item In \ttt{ICOND\_00000/QM.in}, add the keywords \ttt{grad} and \ttt{nacdr}. 
-    \item Run the computation in \ttt{ICOND\_00000/}.
-  \end{enumerate}
-  \item Copy \ttt{V0.txt} and \ttt{ICOND\_00000/QM.out} to the same directory and execute \ttt{QMout2LVC.py} there.
-\end{enumerate}
-This creates the file \ttt{LVC.template}, which can be used as any other template file within \sharc.
-
-Note that this mini-tutorial cannot be done with \textsc{Molcas}, because it does not return all $3N$ normal modes in its \textsc{Molden} files (only $3N-6$).
-Among the \sharc\ interfaces, only the \textsc{Columbus} interface and the \textsc{Molpro} interface can be used to compute nonadiabatic coupling vectors and deliver the full $3N$ normal modes.
-However, in systems where nonadiabatic couplings are not relevant (e.g., only one singlet and one triplet, or systems where the nonadiabatic couplings at the equilibrium geometry vanish by symmetry) all interfaces can be used for generating the \ttt{LVC.template} (in this case, do not add the \ttt{nacdr} keyword to \ttt{QM.in}).
+The parametrization of LVC models is described in the specialized tutorial in section~\ref{sec:setup_LVC}.
+Running LVC \sharc\ trajectories efficiently with \ttt{pysharc} is described in the specialized tutorial in section~\ref{sec:run_LVC}.
 
 % ======================================================================================================
 
@@ -5143,6 +6040,7 @@ These are the main differences when using \textsc{Gaussian} instead of \textsc{M
 
 For the reasons mentioned above, the dynamics of \ce{CH2NH2+} cannot be properly described with TD-DFT.
 Users who intend to follow the tutorial with \textsc{Gaussian} instead of \textsc{Molcas} should therefore use a different molecule (\ce{SO2} might work well).
+Alternatively, the \ttt{force\_hops\_to\_gs} option can be used to enable an approximate decay from the $S_1$ to the $S_0$ of  \ce{CH2NH2+}.
 
 % ======================================================================================================
 
@@ -5159,13 +6057,32 @@ These are the main differences when using \textsc{Orca} instead of \textsc{Molca
   \item \textsc{Orca} calculations---single points, optimizations, frequency calculations---can be setup with different GUI programs, e.g., \ttt{Gabedit}, or manually.
   \item The result of \textsc{Orca} frequency calculations (standard output) can be converted to \textsc{Molden} format using \ttt{Orca\_freq.py}.
   \item Template files for the \sharc-\textsc{Orca} interface should be created by copying and adjusting the documented example in \ttt{\$SHARC/../examples/SHARC\_ORCA/}.
-  \item \textsc{Orca} cannot compute nonadiabatic coupling vectors, so all \sharc-\textsc{Orca} simulations rely on \ttt{wfoverlap.x}.
+  \item \textsc{Orca} cannot compute nonadiabatic coupling vectors for TD-DFT, so all \sharc-\textsc{Orca} simulations rely on \ttt{wfoverlap.x}.
   \item The \sharc-\textsc{Orca} interface can carry out QM/MM calculations, with the MM part being computed in \textsc{Tinker}.
 \end{itemize}
 
 For the reasons mentioned above, the dynamics of \ce{CH2NH2+} cannot be properly described with TD-DFT.
 Users who intend to follow the tutorial with \textsc{Orca} instead of \textsc{Molcas} should therefore use a different molecule (\ce{SO2} might work well).
+Alternatively, the \ttt{force\_hops\_to\_gs} option can be used to enable an approximate decay from the $S_1$ to the $S_0$ of  \ce{CH2NH2+}.
 
+% ======================================================================================================
+
+\section{\textsc{Bagel}}
+\refermanual{m-sec:int:bagel}
+
+
+The functionality of the \sharc-\textsc{Bagel} interface is very similar to the \sharc-\textsc{Molcas} interface (but can also do dynamics with analytical gradients and nonadiabatic couplings for different flavors of CASPT2).
+Hence, users who went through the full tutorial in chapter \ref{chap:full} might feel familiar when using \textsc{Bagel} instead.
+
+These are the main differences when using \textsc{Bagel} instead of \textsc{Molcas}:
+\begin{itemize}
+  \item Currently, there is no automatized way to setup \textsc{Bagel} calculations with \sharc\ tools. Please refer to the \textsc{Bagel} manual for doing preparatory calculations and frequency jobs.
+  \item \textsc{Bagel} cannot state-average over different multiplicities. 
+  \item \textsc{Bagel} can compute nonadiabatic coupling vectors. These can be used in \ttt{sharc.x} for electronic propagation and for the exact transformation of the gradient vectors. Related options can be set during the \ttt{setup\_traj.py} dialogue.
+  \item Unlike the \textsc{Molcas} interface, the \textsc{Bagel} interface cannot perform QM/MM calculations.
+  \item The \sharc-\textsc{Bagel} interface almost always requires \ttt{wfoverlap.x}, so this should be installed from the \link{https://sharc-md.org/?page_id=309}{\sharc\ homepage}.
+  \item Overlap calculations require \link{http://pyquante.sourceforge.net/}{PyQuante} to obtain the AO overlap integrals, so this needs to be installed as well.
+\end{itemize}
 
 
 

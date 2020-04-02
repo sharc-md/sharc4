@@ -10,7 +10,7 @@ prestring=r'''\documentclass{book}
 
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
-\usepackage{amsmath,amssymb,xcolor,colortbl}
+\usepackage{amsmath,amssymb,xcolor,colortbl,braket}
 
 \usepackage{pxfonts}
 \renewcommand*{\sfdefault}{lmss}
@@ -132,7 +132,7 @@ while True:
       shstring='convert -density %i -trim %s %s' % (density,filename,newfilename)
       print 'include PDF found: %s' % (filename)
       print '*** '+shstring+'\n'
-      #sp.call(shstring,shell=True)
+      sp.call(shstring,shell=True)
     else:
       newfilename=os.path.join(imagepath,basename+ext)
       print 'include OTHER found: %s' % (filename)
@@ -156,6 +156,7 @@ while True:
       align=False
     iline-=1
     cases=False
+    nonumber=False
     while True:
       labelname=''
       while True:
@@ -167,6 +168,9 @@ while True:
           postline=line[len(preline):-1]
           postline=re.findall(r'}.*$',postline)[0]
           labelname=line[len(preline):-1][0:len(line)-len(preline)-len(postline)-1]
+
+        if r'\nonumber' in line:
+          nonumber=True
 
         if r'\begin{cases}' in line:
           cases=True
@@ -204,6 +208,8 @@ while True:
   \includegraphics{%s}''' % (newfilename)
       if labelname:
         newline+='\label{%s}' % (labelname)
+      elif nonumber:
+        newline+=r'\nonumber'
       newline+=r'''
 \end{equation}
 '''
@@ -216,7 +222,7 @@ while True:
 
   # replace \eqref{} with (\ref{})
   elif r'\eqref' in line:
-    line=re.sub(r'\\eqref{(.*)}',r'(\\ref{\1})',line)
+    line=re.sub(r'\\eqref{(.*?)}',r'(\\ref{\1})',line)
     outf.write(line)
 
 
@@ -245,7 +251,7 @@ os.chdir(temppath)
 shline='pdflatex -interaction=nonstopmode %s > pdflatex.log 2> pdflatex.err' % (eqbasename)
 print 'Running pdflatex'
 print '*** %s\n' % (shline)
-#sp.call(shline,shell=True)
+sp.call(shline,shell=True)
 os.chdir(pwd)
 
 
@@ -255,7 +261,7 @@ shline='convert -density 150 -trim %s %s' % (pdffilename,targetfilename)
 print 'Running convert on all equations'
 print 'This may take some time...'
 print '*** %s\n' % (shline)
-#sp.call(shline,shell=True)
+sp.call(shline,shell=True)
 
 
 # run latex so that the aux, toc and bbl files are there
@@ -265,13 +271,13 @@ if any([not os.path.isfile(basefilename+'_tth.%s' % (i)) for i in ['aux','bbl','
 
   print 'Running pdflatex and bibtex'
   print '*** %s\n' % (shline)
-  #sp.call(shline,shell=True)
+  sp.call(shline,shell=True)
   print '*** %s\n' % (bbline)
-  #sp.call(bbline,shell=True)
+  sp.call(bbline,shell=True)
   print '*** %s\n' % (shline)
-  #sp.call(shline,shell=True)
+  sp.call(shline,shell=True)
   print '*** %s\n' % (shline)
-  #sp.call(shline,shell=True)
+  sp.call(shline,shell=True)
 
 
 
@@ -290,7 +296,7 @@ if not os.path.isfile(basefilename+'_tth.toc'):
 shline='%s %s > tth.log 2> tth.err' % (tthpath,basefilename+'_tth.tex')
 print 'Running tth'
 print '*** %s\n' % (shline)
-#sp.call(shline,shell=True)
+sp.call(shline,shell=True)
 
 
 # post processing starts here
@@ -306,7 +312,7 @@ os.chdir(pwd)
 htmls=''
 
 
-imagepath2='http://sharc-md.org/wp-content/uploads/2018/02'
+imagepath2='http://sharc-md.org/wp-content/uploads/2019/09'
 
 #imagepath2='html/'
 
