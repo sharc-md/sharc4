@@ -2,7 +2,7 @@
 !
 !    SHARC Program Suite
 !
-!    Copyright (c) 2018 University of Vienna
+!    Copyright (c) 2019 University of Vienna
 !
 !    This file is part of SHARC.
 !
@@ -76,12 +76,12 @@ program data_extractor
   integer, parameter :: u_dm_proj=55      !< dip_mom_proj.out
   integer, parameter :: u_proj=56         !< projections.inp
 
-  integer, parameter :: u_classd=61        !< JCP 139, 2111101 (2013), Method 1 (diag)
-  integer, parameter :: u_classm=62        !< JCP 139, 2111101 (2013), Method 1 (MCH)
-  integer, parameter :: u_classdiab=63     !< JCP 139, 2111101 (2013), Method 1 (diabatic)
-  integer, parameter :: u_cmixd=64         !< JCP 139, 2111101 (2013), Method 3 (diag)
-  integer, parameter :: u_cmixm=65         !< JCP 139, 2111101 (2013), Method 3 (MCH)
-  integer, parameter :: u_cmixdiab=66      !< JCP 139, 2111101 (2013), Method 3 (diabatic)
+  integer, parameter :: u_classd=61        !< JCP 139, 211101 (2013), Method 1 (diag)
+  integer, parameter :: u_classm=62        !< JCP 139, 211101 (2013), Method 1 (MCH)
+  integer, parameter :: u_classdiab=63     !< JCP 139, 211101 (2013), Method 1 (diabatic)
+  integer, parameter :: u_cmixd=64         !< JCP 139, 211101 (2013), Method 3 (diag)
+  integer, parameter :: u_cmixm=65         !< JCP 139, 211101 (2013), Method 3 (MCH)
+  integer, parameter :: u_cmixdiab=66      !< JCP 139, 211101 (2013), Method 3 (diabatic)
 
 
   !> # Information which is constant throughout all timesteps
@@ -315,6 +315,9 @@ program data_extractor
       write_prob = .true.
       write_expec = .true.
       skip_geom_vel_grad_nac = .true.
+    elseif (trim(args(i)) == "-xyz") then
+!       write_options%write_geometry = .true.
+      write(0,*) 'Ignoring -xyz option in ASCII mode.'
     elseif (trim(args(i)) == "-h") then
       call print_usage(0)
       stop 
@@ -1373,15 +1376,21 @@ program data_extractor
     write(u,*) '       -e  : write energy file              (output_data/energy.out)'
     write(u,*) '       -d  : write dipole file              (output_data/fosc.out)'
     write(u,*) '       -sp : write spin expec file          (output_data/spin.out)'
-    write(u,*) '       -cd : write diag coefficient file    (output_data/coeff_diag.out, output_data/class_diag.out, output_data/cmix_diag.out)'
-    write(u,*) '       -cm : write MCH coefficient file     (output_data/coeff_MCH.out, output_data/class_MCH.out, output_data/cmix_MCH.out)'
-    write(u,*) '       -cb : write diab coefficient file    (output_data/coeff_diab.out, output_data/class_diab.out, output_data/cmix_diab.out)'
+    write(u,*) '       -cd : write diag coefficient file    (output_data/coeff_diag.out,'
+    write(u,*) '                                             output_data/coeff_class_diag.out,'
+    write(u,*) '                                             output_data/coeff_mixed_diag.out)'
+    write(u,*) '       -cm : write MCH coefficient file     (output_data/coeff_MCH.out,'
+    write(u,*) '                                             output_data/coeff_class_MCH.out,'
+    write(u,*) '                                             output_data/coeff_mixed_MCH.out)'
+    write(u,*) '       -cb : write diab coefficient file    (output_data/coeff_diab.out,'
+    write(u,*) '                                             output_data/coeff_class_diab.out,'
+    write(u,*) '                                             output_data/coeff_mixed_diab.out)'
     write(u,*) '       -p  : write hop probability file     (output_data/prob.out)'
     write(u,*) '       -x  : write expec (E,S^2,mu) file    (output_data/expec.out)'
     write(u,*) '       -xm : write MCH expec file           (output_data/expec_MCH.out)'
     write(u,*) '       -da : write dip of active state file (output_data/fosc_act.out)'
     write(u,*) '       -dd : write dip in diag. represent.  (output_data/dip_mom_diag.out)'
-    write(u,*) '       -dp : write projection of dip diag   (output_data/dip_mom_proj.out)'
+!     write(u,*) '       -dp : write projection of dip diag   (output_data/dip_mom_proj.out)'
     write(u,*) '       -id : write diag ion file            (output_data/ion_diag.out)'
     write(u,*) '       -im : write MCH ion file             (output_data/ion_mch.out)'
     write(u,*) '       -sk : skip reading geometries, velocities, gradients, NACs'

@@ -2,28 +2,43 @@
 #
 #SHARC Program Suite
 #
-#Copyright (c) 2014 University of Vienna
+#    Copyright (c) 2019 University of Vienna
+#
+#    This file is part of SHARC.
+#
+#    SHARC is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    SHARC is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    inside the SHARC manual.  If not, see <http://www.gnu.org/licenses/>.
 #
 #******************************************
 # Makefile for Sharc 
-# Version 1.0
-# Oct-16-2014
+# Version 2.1
+# 1.9.2019
 
 
 # -------------------------------------- configure ---------------------------------------
 
 # =======================================
 #true, false     # also implies NETCDF
-USE_PYSHARC := true
+USE_PYSHARC := false
 
 #intel, gnu
-USE_COMPILER := intel
+USE_COMPILER := gnu
 
 #mkl,gnu
-USE_LIBS := mkl
+USE_LIBS := gnu
 
 #needed for PYSHARC
-ANACONDA := /user/maximilian/anaconda2/
+ANACONDA := 
 # =======================================
 
 
@@ -44,12 +59,12 @@ ifeq ($(USE_PYSHARC),true)
   NETCDF_LIB = -L$(ANACONDA)/lib \
            -lhdf5 \
            -lhdf5_hl \
-           -lnetcdf \
            -lmfhdf \
            -ldf \
            -ljpeg \
            -L../pysharc/lib \
-           -lsharcnc
+           -lsharcnc \
+           -lnetcdf 
 else
   FPREPROCESSOR := 
   NETCDF_LIB = 
@@ -141,6 +156,12 @@ ifeq ($(USE_PYSHARC),true)
 SHARC += interface.o
 endif
 
+ifeq ($(USE_PYSHARC),true)
+SHARCTARGET := sharc2.x
+else
+SHARCTARGET := sharc1.x
+endif
+
 
 DATA_EXTRACTOR =  qm_out.o \
 		  data_extractor.o
@@ -173,7 +194,8 @@ endif
 
 
 sharc: build_info $(TOOLS) $(SHARC) main.o
-	$(F90)    $(TOOLS) $(SHARC) main.o  -o  $@.x $(LD)
+	$(F90)    $(TOOLS) $(SHARC) main.o  -o  $(SHARCTARGET) $(LD)
+	ln -sf $(SHARCTARGET) sharc.x
 
 
 libsharc: build_info   $(TOOLS) $(SHARC)
@@ -203,9 +225,11 @@ laser:  $(LASER)
 install: all
 	cp -f *.x $(EXEDIR)
 	cp -f sharcvars.sh $(EXEDIR)
+	cp -f sharcvars.csh $(EXEDIR)
 
 
 # write sharcvars.sh file
+ifeq ($(USE_PYSHARC),true)
 sharcvars:
 	@echo 'export SHARC=$(SHARC_SOURCE)/../bin' > sharcvars.sh
 	@echo 'export PYSHARC=$(SHARC_SOURCE)/../pysharc' >> sharcvars.sh
@@ -213,6 +237,23 @@ sharcvars:
 	@echo 'export ANACONDA=$(ANACONDA)' >> sharcvars.sh
 	@echo 'export PYTHONPATH=$$SHARCLIB:$$PYSHARC:$$PYTHONPATH' >> sharcvars.sh
 	@echo 'export LD_LIBRARY_PATH=$$SHARCLIB:$$ANACONDA/lib:$$LD_LIBRARY_PATH' >> sharcvars.sh
+	@echo 'setenv SHARC=$(SHARC_SOURCE)/../bin' > sharcvars.csh
+	@echo 'setenv PYSHARC=$(SHARC_SOURCE)/../pysharc' >> sharcvars.csh
+	@echo 'setenv SHARCLIB=$(SHARC_SOURCE)/../lib' >> sharcvars.csh
+	@echo 'setenv ANACONDA=$(ANACONDA)' >> sharcvars.csh
+	@echo 'setenv PYTHONPATH=$$SHARCLIB:$$PYSHARC:$$PYTHONPATH' >> sharcvars.csh
+	@echo 'setenv LD_LIBRARY_PATH=$$SHARCLIB:$$ANACONDA/lib:$$LD_LIBRARY_PATH' >> sharcvars.csh
+else
+sharcvars:
+	@echo 'export SHARC=$(SHARC_SOURCE)/../bin' > sharcvars.sh
+	@echo 'export SHARCLIB=$(SHARC_SOURCE)/../lib' >> sharcvars.sh
+	@echo 'export PYTHONPATH=$$SHARCLIB:$$PYTHONPATH' >> sharcvars.sh
+	@echo 'export LD_LIBRARY_PATH=$$SHARCLIB:$$LD_LIBRARY_PATH' >> sharcvars.sh
+	@echo 'setenv SHARC=$(SHARC_SOURCE)/../bin' > sharcvars.csh
+	@echo 'setenv SHARCLIB=$(SHARC_SOURCE)/../lib' >> sharcvars.csh
+	@echo 'setenv PYTHONPATH=$$SHARCLIB:$$PYTHONPATH' >> sharcvars.csh
+	@echo 'setenv LD_LIBRARY_PATH=$$SHARCLIB:$$LD_LIBRARY_PATH' >> sharcvars.csh
+endif
 
 
 # do not call this target build_info.inc
@@ -233,7 +274,7 @@ clean:
 	rm -rvf build_info.inc
 	rm -rvf *.so
 	rm -rvf ../pysharc/lib/libsharc.so
-	rm -rvf sharcvars.sh
+	rm -rvf sharcvars.*sh
 
 test_path:
 	echo $(MAKEFILEPATH)

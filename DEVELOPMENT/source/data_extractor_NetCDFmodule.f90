@@ -1,3 +1,27 @@
+!******************************************
+!
+!    SHARC Program Suite
+!
+!    Copyright (c) 2019 University of Vienna
+!
+!    This file is part of SHARC.
+!
+!    SHARC is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHARC is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    inside the SHARC manual.  If not, see <http://www.gnu.org/licenses/>.
+!
+!******************************************
+
+
 module data_extractor_NetCDFmodule
   implicit none
 
@@ -88,27 +112,52 @@ contains
 ! -----------------------------------------------------------------------------
 ! -----------------------------------------------------------------------------
 
+!   subroutine print_usage(u)
+!     implicit none
+!     integer :: u
+!     write(u,*) 'Usage: ./data_extractor <flags> -f <data-file>'
+!     write(u,*) '        -a  : write all output files'
+!     write(u,*) '        -s  : standard = write all output files except ionization data'
+!     write(u,*) '        -e  : write energy file              (output_data/energy.out)'
+!     write(u,*) '        -d  : write dipole file              (output_data/fosc.out)'
+!     write(u,*) '        -sp : write spin expec file          (output_data/spin.out)'
+! !     write(u,*) '        -cd : write diag coefficient file    (output_data/coeff_diag.out)'
+! !     write(u,*) '        -cm : write MCH coefficient file     (output_data/coeff_MCH.out)'
+! !     write(u,*) '        -cb : write diab coefficient file    (output_data/coeff_diab.out)'
+!     write(u,*) '        -cd : write diag coefficient file    (output_data/coeff_diag.out, output_data/class_diag.out, output_data/cmix_diag)'
+!     write(u,*) '        -cm : write MCH coefficient file     (output_data/coeff_MCH.out, output_data/class_MCH.out, output_data/cmix_MCH.out)'
+!     write(u,*) '        -cb : write diab coefficient file    (output_data/coeff_diab.out, output_data/class_diab.out, output_data/cmix_diab.out)'
+!     write(u,*) '        -p  : write hop probability file     (output_data/prob.out)'
+!     write(u,*) '        -x  : write expec (E,S^2,mu) file    (output_data/expec.out)'
+!     write(u,*) '        -xm : write MCH expec file           (output_data/expec_MCH.out)'
+!     write(u,*) '        -da : write dip of active state file (output_data/fosc_act.out)'
+! !     write(u,*) '        -id : write diag ion file            (output_data/ion_diag.out)'
+! !     write(u,*) '        -im : write MCH ion file             (output_data/ion_mch.out)'
+!     write(u,*) '        -xyz  : write XYZ geometry file (output.xyz)'
+!   endsubroutine
   subroutine print_usage(u)
     implicit none
     integer :: u
-    write(u,*) 'Usage: ./data_extractor <flags> -f <data-file>'
-    write(u,*) '        -a  : write all output files'
-    write(u,*) '        -s  : standard = write all output files except ionization data'
-    write(u,*) '        -e  : write energy file              (output_data/energy.out)'
-    write(u,*) '        -d  : write dipole file              (output_data/fosc.out)'
-    write(u,*) '        -sp : write spin expec file          (output_data/spin.out)'
-!     write(u,*) '        -cd : write diag coefficient file    (output_data/coeff_diag.out)'
-!     write(u,*) '        -cm : write MCH coefficient file     (output_data/coeff_MCH.out)'
-!     write(u,*) '        -cb : write diab coefficient file    (output_data/coeff_diab.out)'
-    write(u,*) '        -cd : write diag coefficient file    (output_data/coeff_diag.out, output_data/class_diag.out, output_data/cmix_diag)'
-    write(u,*) '        -cm : write MCH coefficient file     (output_data/coeff_MCH.out, output_data/class_MCH.out, output_data/cmix_MCH.out)'
-    write(u,*) '        -cb : write diab coefficient file    (output_data/coeff_diab.out, output_data/class_diab.out, output_data/cmix_diab.out)'
-    write(u,*) '        -p  : write hop probability file     (output_data/prob.out)'
-    write(u,*) '        -x  : write expec (E,S^2,mu) file    (output_data/expec.out)'
-    write(u,*) '        -xm : write MCH expec file           (output_data/expec_MCH.out)'
-    write(u,*) '        -da : write dip of active state file (output_data/fosc_act.out)'
-!     write(u,*) '        -id : write diag ion file            (output_data/ion_diag.out)'
-!     write(u,*) '        -im : write MCH ion file             (output_data/ion_mch.out)'
+    write(u,*) 'Usage: ./data_extractor_NetCDF <flags> <data-file>'
+    write(u,*) '       -xl : extralarge = write all output files'
+    write(u,*) '       -l  : large = write all output files except diagonal dipole and projection'
+    write(u,*) '       -s  : small = write all output files except ionization data, diagonal dipole/projection'
+    write(u,*) '       -xs : extrasmall = energy (-e), coeffdiag (-cd), coeffmch (-cm), prob (-p), expec (-x), dip (-d), skip (-sk)'
+    write(u,*) '       -e  : write energy file              (output_data/energy.out)'
+    write(u,*) '       -d  : write dipole file              (output_data/fosc.out)'
+    write(u,*) '       -sp : write spin expec file          (output_data/spin.out)'
+    write(u,*) '       -cd : write diag coefficient file    (output_data/coeff_diag.out, output_data/class_diag.out, output_data/cmix_diag.out)'
+    write(u,*) '       -cm : write MCH coefficient file     (output_data/coeff_MCH.out, output_data/class_MCH.out, output_data/cmix_MCH.out)'
+    write(u,*) '       -cb : write diab coefficient file    (output_data/coeff_diab.out, output_data/class_diab.out, output_data/cmix_diab.out)'
+    write(u,*) '       -p  : write hop probability file     (output_data/prob.out)'
+    write(u,*) '       -x  : write expec (E,S^2,mu) file    (output_data/expec.out)'
+    write(u,*) '       -xm : write MCH expec file           (output_data/expec_MCH.out)'
+    write(u,*) '       -da : write dip of active state file (output_data/fosc_act.out)'
+!     write(u,*) '       -dd : write dip in diag. represent.  (output_data/dip_mom_diag.out)'
+!     write(u,*) '       -dp : write projection of dip diag   (output_data/dip_mom_proj.out)'
+!     write(u,*) '       -id : write diag ion file            (output_data/ion_diag.out)'
+!     write(u,*) '       -im : write MCH ion file             (output_data/ion_mch.out)'
+!     write(u,*) '       -sk : skip reading geometries, velocities, gradients, NACs'
     write(u,*) '        -xyz  : write XYZ geometry file (output.xyz)'
   endsubroutine
 
@@ -234,13 +283,53 @@ contains
       write_options%write_coeffdiab = .true.
     elseif (trim(args(i)) == "-da") then
       write_options%write_dipact = .true.
+    elseif (trim(args(i)) == "-dd") then
+      write(0,*) 'Ignoring -dd option in NetCDF mode.'
+!       write_dm_diag = .true.
+    elseif (trim(args(i)) == "-dp") then
+      write(0,*) 'Ignoring -dp option in NetCDF mode.'
+!       write_dm_proj = .true.
     elseif (trim(args(i)) == "-id") then
 !       write_options%write_iondiag = .true.
       write(0,*) 'Ignoring -id option in NetCDF mode.'
     elseif (trim(args(i)) == "-im") then
 !       write_options%write_ionmch = .true.
       write(0,*) 'Ignoring -im option in NetCDF mode.'
-    elseif (trim(args(i)) == "-a") then
+    elseif (trim(args(i)) == "-sk") then
+!       skip_geom_vel_grad_nac = .true.
+      write(0,*) 'Ignoring -sk option in NetCDF mode.'
+!     elseif (trim(args(i)) == "-a") then
+!       write_options%write_energy = .true.
+!       write_options%write_dip = .true.
+!       write_options%write_spin = .true.
+!       write_options%write_coeffdiag = .true.
+!       write_options%write_coeffmch = .true.
+!       write_options%write_prob = .true.
+!       write_options%write_expec = .true.
+!       write_options%write_expecmch = .true.
+!       write_options%write_coeffdiab = .true.
+!       write_options%write_dipact = .true.
+! !       write_options%write_iondiag = .true.
+! !       write_options%write_ionmch = .true.
+!     elseif (trim(args(i)) == "-s") then
+!       write_options%write_energy = .true.
+!       write_options%write_dip = .true.
+!       write_options%write_spin = .true.
+!       write_options%write_coeffdiag = .true.
+!       write_options%write_coeffmch = .true.
+!       write_options%write_prob = .true.
+!       write_options%write_expec = .true.
+!       write_options%write_expecmch = .true.
+!       write_options%write_coeffdiab = .true.
+!       write_options%write_dipact = .true.
+!     elseif (trim(args(i)) == "-z") then
+!       write_options%write_energy = .true.
+!       write_options%write_coeffdiag = .true.
+!       write_options%write_coeffmch = .true.
+!       write_options%write_prob = .true.
+!       write_options%write_expec = .true.
+    ! all flags true
+    elseif (trim(args(i)) == "-xl") then
       write_options%write_energy = .true.
       write_options%write_dip = .true.
       write_options%write_spin = .true.
@@ -251,8 +340,25 @@ contains
       write_options%write_expecmch = .true.
       write_options%write_coeffdiab = .true.
       write_options%write_dipact = .true.
-!       write_options%write_iondiag = .true.
-!       write_options%write_ionmch = .true.
+!       write_dm_diag = .true.
+!       write_dm_proj = .true.
+!       write_iondiag = .true.
+!       write_ionmch = .true.
+    ! large set of flags true
+    elseif (trim(args(i)) == "-l") then
+      write_options%write_energy = .true.
+      write_options%write_dip = .true.
+      write_options%write_spin = .true.
+      write_options%write_coeffdiag = .true.
+      write_options%write_coeffmch = .true.
+      write_options%write_prob = .true.
+      write_options%write_expec = .true.
+      write_options%write_expecmch = .true.
+      write_options%write_coeffdiab = .true.
+      write_options%write_dipact = .true.
+!       write_iondiag = .true.
+!       write_ionmch = .true.
+    ! small set of flags true
     elseif (trim(args(i)) == "-s") then
       write_options%write_energy = .true.
       write_options%write_dip = .true.
@@ -262,14 +368,17 @@ contains
       write_options%write_prob = .true.
       write_options%write_expec = .true.
       write_options%write_expecmch = .true.
-      write_options%write_coeffdiab = .true.
+     write_options% write_coeffdiab = .true.
       write_options%write_dipact = .true.
-    elseif (trim(args(i)) == "-z") then
+    ! very small set of flags true
+    elseif (trim(args(i)) == "-xs") then
       write_options%write_energy = .true.
+      write_options%write_dip = .true.
       write_options%write_coeffdiag = .true.
       write_options%write_coeffmch = .true.
       write_options%write_prob = .true.
       write_options%write_expec = .true.
+! ----------------------
     elseif (trim(args(i)) == "-xyz") then
       write_options%write_geometry = .true.
     elseif (trim(args(i)) == "-h") then
@@ -293,8 +402,8 @@ contains
     write_options%write_expecmch  = .true.
     write_options%write_coeffdiab = .true.
     write_options%write_dipact    = .true.
-    write_options%write_iondiag   = .false.
-    write_options%write_ionmch    = .false.
+!     write_options%write_iondiag   = .false.
+!     write_options%write_ionmch    = .false.
   endif
 
   deallocate(args)

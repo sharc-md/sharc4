@@ -2,7 +2,7 @@
 !
 !    SHARC Program Suite
 !
-!    Copyright (c) 2018 University of Vienna
+!    Copyright (c) 2019 University of Vienna
 !
 !    This file is part of SHARC.
 !
@@ -355,8 +355,8 @@ subroutine reflect_nac(natom,veloc_ad,mass_a,nac_ad,Gdiag,Gfrust)
     write(u_log,'(A,4E14.6)') ' sum_Fdiagk, sum_Ffrustk, sum_vk, sum_kk', sum_Fdiagk, sum_Ffrustk, sum_pk,&
     &sum(nac_ad*nac_ad)
   endif
-  write(u_log,'(A,4E14.6)') 'fptmp: pk, pv, pp', sum(mass_ad*veloc_ad*nac_ad),&
-  &sum(mass_ad*veloc_ad*veloc_ad), sum(mass_ad*mass_ad*veloc_ad*veloc_ad)
+!   write(u_log,'(A,4E14.6)') 'fptmp: pk, pv, pp', sum(mass_ad*veloc_ad*nac_ad),&
+!   &sum(mass_ad*veloc_ad*veloc_ad), sum(mass_ad*mass_ad*veloc_ad*veloc_ad)
     
   if ((sum_Fdiagk*sum_Ffrustk<0).and.(sum_Ffrustk*sum_pk<0))then
     if (printlevel>2) write(u_log,*) 'Conditions for reflection fulfilled.'
@@ -366,8 +366,8 @@ subroutine reflect_nac(natom,veloc_ad,mass_a,nac_ad,Gdiag,Gfrust)
       factor = 2 * sum(veloc_ad(iat,:)*nac_ad(iat,:)) / sum(nac_ad(iat,:)*nac_ad(iat,:))
       veloc_ad(iat,:) = veloc_ad(iat,:) - factor * nac_ad(iat,:)
     enddo
-  write(u_log,'(A,4E14.6)') 'fptmp: pk, pv, pp', sum(mass_ad*veloc_ad*nac_ad),&
-  &sum(mass_ad*veloc_ad*veloc_ad), sum(mass_ad*mass_ad*veloc_ad*veloc_ad)
+!     write(u_log,'(A,4E14.6)') 'fptmp: pk, pv, pp', sum(mass_ad*veloc_ad*nac_ad),&
+!     &sum(mass_ad*veloc_ad*veloc_ad), sum(mass_ad*mass_ad*veloc_ad*veloc_ad)
   else
     if (printlevel>2) write(u_log,*) 'Conditions for reflection not fulfilled.'
   endif

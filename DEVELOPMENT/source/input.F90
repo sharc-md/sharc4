@@ -2,7 +2,7 @@
 !
 !    SHARC Program Suite
 !
-!    Copyright (c) 2018 University of Vienna
+!    Copyright (c) 2019 University of Vienna
 !
 !    This file is part of SHARC.
 !
@@ -69,6 +69,7 @@ module input
   integer :: idate,time
   character*8000 :: string1
   character*8000, allocatable :: string2(:)
+  logical :: selectdirectly_bool
 
   
 #ifndef __PYSHARC__
@@ -843,8 +844,16 @@ module input
       ctrl%calc_second=1                                ! do a second interface call
     endif
 
+    selectdirectly_bool=.true.
     line=get_value_from_key('select_directly',io)       ! do not do a second interface call
     if (io==0) then
+      selectdirectly_bool=.true.
+    endif
+    line=get_value_from_key('noselect_directly',io)       ! do a second interface call
+    if (io==0) then
+      selectdirectly_bool=.false.
+    endif
+    if (selectdirectly_bool) then
       if (ctrl%calc_grad==2) ctrl%calc_grad=1
       if (ctrl%calc_nacdr==2) ctrl%calc_nacdr=1
       ctrl%calc_second=0

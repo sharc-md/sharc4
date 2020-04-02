@@ -1,3 +1,27 @@
+!******************************************
+!
+!    SHARC Program Suite
+!
+!    Copyright (c) 2019 University of Vienna
+!
+!    This file is part of SHARC.
+!
+!    SHARC is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHARC is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    inside the SHARC manual.  If not, see <http://www.gnu.org/licenses/>.
+!
+!******************************************
+
+
 !C
 !C @author: Maximilian F.S.J. Menger
 !C @date: 18.04.2018
@@ -1101,9 +1125,9 @@ subroutine initial_step(IRestart)
     use misc, only: set_time
     use nuclear,  only: Calculate_etot
     use qm, only: Mix_gradients, Update_old, do_initial_qm
-    use restart, only: mkdir_restart!, write_restart_ctrl, write_restart_traj 
+    use restart, only: mkdir_restart, write_restart_ctrl!, write_restart_traj 
     use output, only: write_list_header, write_dat, &
-                      write_list_line
+                      write_list_line, write_geom
     implicit none
     __INT__, intent(in)   :: IRestart
 
@@ -1112,9 +1136,13 @@ subroutine initial_step(IRestart)
         call Update_old(traj)
         call Calculate_etot(traj,ctrl)
         call set_time(traj)
-        call write_dat_new(u_dat, traj, ctrl)
+        call write_dat_new(u_dat, traj, ctrl)    
+        if (ctrl%output_format==0) then
+          call write_geom(u_geo,traj,ctrl)
+        endif
         call write_list_line(u_lis,traj,ctrl)
         call mkdir_restart(ctrl)
+        call write_restart_ctrl(u_resc,ctrl)
     end if
 
     return
@@ -1192,8 +1220,8 @@ subroutine Verlet_finalize(IExit, iskip)
     use definitions
     use qm, only: Update_old, Mix_gradients
     use electronic, only: kill_after_relaxation
-    use output, only: allflush, write_dat, write_list_line
-!    use restart, only: write_restart_traj
+    use output, only: allflush, write_dat, write_list_line, write_geom
+   use restart, only: write_restart_traj
     implicit none
 
     __INT__, intent(out) :: IExit ! if IExit = 0 end loop, else continue
@@ -1204,14 +1232,15 @@ subroutine Verlet_finalize(IExit, iskip)
     call Update_old(traj)
     call set_time(traj)
     call write_list_line(u_lis, traj, ctrl)
-!     if (traj%step .eq. 0) then
     call write_dat_new(u_dat, traj, ctrl)
-!      else if (mod(traj%step, iskip) .eq. 0) then
-!         call write_dat_new(u_dat, traj, ctrl)
-!     endif
+
 
     ! write_restart_traj must be the last command
-!    call write_restart_traj(u_rest,ctrl,traj)
+    if (ctrl%output_format==0) then
+      call write_restart_traj(u_rest,ctrl,traj)
+      call write_geom(u_geo,traj,ctrl)
+    endif
+
     call allflush()
     ! kill trajectory 
     call kill_after_relaxation(traj, ctrl)
