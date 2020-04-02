@@ -13,6 +13,7 @@ Fortran code:
 - update cwd after restart
 - write only every nth step (keyword "output_per_nth_step")
 - write restart only at finish (keyword "norestart_per_step" "restart_per_step")
+- option for NO NUCLEAR MOTION: run QM without gradients at t=0 (can be omitted by commenting call from runQM.sh and copying QM.out from initial conditions), then simply reuse (no gradients and overlap are read)
 
 
 

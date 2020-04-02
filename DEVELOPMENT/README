@@ -1,10 +1,27 @@
 ******************************************
 
-SHARC Program Suite
+    SHARC Program Suite
 
-Copyright (c) 2014 University of Vienna
+    Copyright (c) 2019 University of Vienna
+
+
+    This file is part of SHARC.
+
+    SHARC is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    SHARC is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with SHARC.  If not, see <http://www.gnu.org/licenses/>.
 
 ******************************************
+
 Welcome to the SHARC Program Suite
 
 Please refer to the following files for further information:
@@ -16,10 +33,14 @@ Please refer to the following files for further information:
 
 directory structure:
 
-* source:	the (Fortran90) source files
-* bin:    	the compiled executables as well as the python scripts
-* doc:		the documentation (manual and tutorials)
-* tests: 	a test suite to check the installation.  
+* source:       the (Fortran90) source files
+* bin:          the compiled executables as well as the Python scripts
+* doc:          the documentation (manual and tutorial)
+* tests:        a test suite to check the installation.  
+* examples:     documented example inputs for quantum chemistry interfaces
+* pysharc:      source code for the PySHARC extension of SHARC
+* lib:          Python libraries for some SHARC components
+* wfoverlap:    wave function overlap program (with source/ and scripts/ directories)
 
 --
 for further information take a look at:
