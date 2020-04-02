@@ -4,7 +4,7 @@
 #
 #    SHARC Program Suite
 #
-#    Copyright (c) 2018 University of Vienna
+#    Copyright (c) 2019 University of Vienna
 #
 #    This file is part of SHARC.
 #
@@ -122,8 +122,8 @@ if sys.version_info[1]<5:
 
 # ======================================================================= #
 
-version='2.0'
-versiondate=datetime.date(2018,2,1)
+version='2.1'
+versiondate=datetime.date(2019,9,1)
 
 
 changelogstring='''
@@ -1783,7 +1783,7 @@ def prepare_QMMM(QMin,table_file):
             continue
         if not s[0].lower() in allowed:
             print 'Not allowed QMMM-type "%s" on line %i!' % (s[0],iline+1)
-            sys.exit(11)
+            sys.exit(34)
         QMMM['qmmmtype'].append(s[0].lower())
         QMMM['atomtype'].append(s[1])
         QMMM['connect'].append( set() )
@@ -1850,21 +1850,21 @@ def prepare_QMMM(QMin,table_file):
     # no QM atom is allowed to be bonded to two MM atoms
     if not len(qm_in_links)==len(set(qm_in_links)):
         print 'Some QM atom is involved in more than one link bond!'
-        sys.exit(11)
+        sys.exit(35)
     # no MM atom is allowed to be bonded to two QM atoms
     if not len(mm_in_links)==len(set(mm_in_links)):
         print 'Some MM atom is involved in more than one link bond!'
-        sys.exit(11)
+        sys.exit(36)
     # no neighboring MM atoms are allowed to be involved in link bonds
     if not len(mm_in_link_neighbors)==len(set(mm_in_link_neighbors)):
         print 'An MM-link atom is bonded to another MM-link atom!'
-        sys.exit(11)
+        sys.exit(37)
 
 
     # check geometry and connection table
     if not QMMM['natom_table']==QMin['natom']:
         print 'Number of atoms in table file does not match number of atoms in QMin!'
-        sys.exit(11)
+        sys.exit(38)
 
 
     # process MM geometry (and convert to angstrom!)
@@ -2045,7 +2045,7 @@ def execute_tinker(QMin,ff_file_path):
     # check success
     if not 'MMisOK' in output[0]:
         print 'TINKER run not successful!'
-        sys.exit(11)
+        sys.exit(39)
 
     # get MM energy (convert from kcal to Hartree)
     print 'Searching MMEnergy ...         ',datetime.datetime.now()
@@ -2161,7 +2161,7 @@ def execute_tinker(QMin,ff_file_path):
     #print '='*60
 
     #pprint.pprint(QMMM)
-    #sys.exit(1)
+    #sys.exit(40)
     return QMMM
 
 # ======================================================================= #
@@ -2191,7 +2191,7 @@ def runTINKER(WORKDIR,tinker,savedir,strip=False,ncpu=1):
         runerror=sp.call(string,shell=True,stdout=stdoutfile,stderr=stderrfile)
     except OSError:
         print 'Call have had some serious problems:',OSError
-        sys.exit(79)
+        sys.exit(41)
     stdoutfile.close()
     stderrfile.close()
     if PRINT or DEBUG:
@@ -2287,13 +2287,13 @@ def checkscratch(SCRATCHDIR):
     isfile=os.path.isfile(SCRATCHDIR)
     if isfile:
       print '$SCRATCHDIR=%s exists and is a file!' % (SCRATCHDIR)
-      sys.exit(34)
+      sys.exit(42)
   else:
     try:
       os.makedirs(SCRATCHDIR)
     except OSError:
       print 'Can not create SCRATCHDIR=%s\n' % (SCRATCHDIR)
-      sys.exit(35)
+      sys.exit(43)
 
 # ======================================================================= #
 def removequotes(string):
@@ -2331,13 +2331,13 @@ def get_sh2cc2_environ(sh2cc2,key,environ=True,crucial=True):
       if not LINE:
         print 'Either set $%s or give path to %s in SH2COL.inp!' % (key.upper(),key.upper())
         if crucial:
-          sys.exit(36)
+          sys.exit(44)
         else:
           return None
     else:
       print 'Give path to %s in SH2COL.inp!' % (key.upper())
       if crucial:
-        sys.exit(37)
+        sys.exit(45)
       else:
         return None
   LINE=os.path.expandvars(LINE)
@@ -2346,7 +2346,7 @@ def get_sh2cc2_environ(sh2cc2,key,environ=True,crucial=True):
   LINE=removequotes(LINE).strip()
   if containsstring(';',LINE):
     print "$%s contains a semicolon. Do you probably want to execute another command after %s? I can't do that for you..." % (key.upper(),key.upper())
-    sys.exit(38)
+    sys.exit(46)
   return LINE
 
 # ======================================================================= #
@@ -2358,7 +2358,7 @@ def get_pairs(QMinlines,i):
       line=QMinlines[i].lower()
     except IndexError:
       print '"keyword select" has to be completed with an "end" on another line!'
-      sys.exit(39)
+      sys.exit(47)
     if 'end' in line:
       break
     fields=line.split()
@@ -2366,7 +2366,7 @@ def get_pairs(QMinlines,i):
       nacpairs.append([int(fields[0]),int(fields[1])])
     except ValueError:
       print '"nacdr select" is followed by pairs of state indices, each pair on a new line!'
-      sys.exit(40)
+      sys.exit(48)
   return nacpairs,i
 
 # =============================================================================================== #
@@ -2404,11 +2404,11 @@ def readQMin(QMinfilename):
     natom=int(QMinlines[0])
   except ValueError:
     print 'first line must contain the number of atoms!'
-    sys.exit(41)
+    sys.exit(49)
   QMin['natom']=natom
   if len(QMinlines)<natom+4:
     print 'Input file must contain at least:\nnatom\ncomment\ngeometry\nkeyword "states"\nat least one task'
-    sys.exit(42)
+    sys.exit(50)
 
   # Save Comment line
   QMin['comment']=QMinlines[1]
@@ -2420,7 +2420,7 @@ def readQMin(QMinfilename):
   for i in range(2,natom+2):
     if not containsstring('[a-zA-Z][a-zA-Z]?[0-9]*.*[-]?[0-9]+[.][0-9]*.*[-]?[0-9]+[.][0-9]*.*[-]?[0-9]+[.][0-9]*', QMinlines[i]):
       print 'Input file does not comply to xyz file format! Maybe natom is just wrong.'
-      sys.exit(43)
+      sys.exit(51)
     fields=QMinlines[i].split()
     for j in range(1,4):
       fields[j]=float(fields[j])
@@ -2464,7 +2464,7 @@ def readQMin(QMinfilename):
       factor=1.
     else:
       print 'Dont know input unit %s!' % (QMin['unit'][0])
-      sys.exit(44)
+      sys.exit(52)
   else:
     factor=1./au2a
 
@@ -2475,7 +2475,7 @@ def readQMin(QMinfilename):
 
   if not 'states' in QMin:
     print 'Keyword "states" not given!'
-    sys.exit(45)
+    sys.exit(53)
 
   # Calculate states, nstates, nmstates
   for i in range(len(QMin['states'])):
@@ -2499,23 +2499,23 @@ def readQMin(QMinfilename):
   # Various logical checks
   if not 'states' in QMin:
     print 'Number of states not given in QM input file %s!' % (QMinfilename)
-    sys.exit(46)
+    sys.exit(54)
 
   possibletasks=['h','soc','dm','grad','overlap','dmdr','socdr','ion','theodore','phases']
   if not any([i in QMin for i in possibletasks]):
     print 'No tasks found! Tasks are "h", "soc", "dm", "grad","dmdr", "socdr", "overlap" and "ion".'
-    sys.exit(47)
+    sys.exit(55)
 
   if 'samestep' in QMin and 'init' in QMin:
     print '"Init" and "Samestep" cannot be both present in QM.in!'
-    sys.exit(48)
+    sys.exit(56)
 
   if 'phases' in QMin:
     QMin['overlap']=[]
 
   if 'overlap' in QMin and 'init' in QMin:
     print '"overlap" and "phases" cannot be calculated in the first timestep! Delete either "overlap" or "init"'
-    sys.exit(49)
+    sys.exit(57)
 
   if not 'init' in QMin and not 'samestep' in QMin and not 'restart' in QMin:
     QMin['newstep']=[]
@@ -2525,11 +2525,11 @@ def readQMin(QMinfilename):
 
   if len(QMin['states'])>3:
     print 'Higher multiplicities than triplets are not supported!'
-    sys.exit(50)
+    sys.exit(58)
 
   if len(QMin['states'])>1 and QMin['states'][1]>0:
     print 'No doublet states supported currently!'
-    sys.exit(51)
+    sys.exit(59)
 
   if len(QMin['states'])==1 and 'soc' in QMin:
     QMin=removekey(QMin,'soc')
@@ -2540,15 +2540,15 @@ def readQMin(QMinfilename):
 
   if 'nacdt' in QMin or 'nacdr' in QMin:
     print 'Within the SHARC-RICC2 interface, couplings can only be calculated via the overlap method. "nacdr" and "nacdt" are not supported.'
-    sys.exit(52)
+    sys.exit(60)
 
   if 'socdr' in QMin or 'dmdr' in QMin:
     print 'Within the SHARC-RICC2 interface, "dmdr" and "socdr" are not supported.'
-    sys.exit(53)
+    sys.exit(61)
 
   if 'ion' in QMin:
     print 'Ionization probabilities not implemented!'
-    sys.exit(54)
+    sys.exit(62)
 
   if not 'step' in QMin:
     QMin['step']=[0]
@@ -2564,10 +2564,10 @@ def readQMin(QMinfilename):
           QMin['grad'][i]=int(QMin['grad'][i])
         except ValueError:
           print 'Arguments to keyword "grad" must be "all" or a list of integers!'
-          sys.exit(55)
+          sys.exit(63)
         if QMin['grad'][i]>nmstates:
           print 'State for requested gradient does not correspond to any state in QM input file state list!'
-          sys.exit(56)
+          sys.exit(64)
 
   # Process the overlap requests
   # identically to the nac requests
@@ -2577,7 +2577,7 @@ def readQMin(QMinfilename):
       for i in range(len(nacpairs)):
         if nacpairs[i][0]>nmstates or nacpairs[i][1]>nmstates:
           print 'State for requested non-adiabatic couplings does not correspond to any state in QM input file state list!'
-          sys.exit(57)
+          sys.exit(65)
     else:
       QMin['overlap']=[ [j+1,i+1] for i in range(nmstates) for j in range(i+1)]
 
@@ -2630,7 +2630,7 @@ def readQMin(QMinfilename):
       QMin['ncpu']=max(1,QMin['ncpu'])
     except ValueError:
       print 'Number of CPUs does not evaluate to numerical value!'
-      sys.exit(58)
+      sys.exit(66)
   os.environ['OMP_NUM_THREADS']=str(QMin['ncpu'])
   if QMin['ncpu']>1:
     os.environ['PARA_ARCH']='SMP'
@@ -2647,6 +2647,7 @@ def readQMin(QMinfilename):
   if 'soc' in QMin:
     QMin['orcadir']=get_sh2cc2_environ(sh2cc2,'orcadir')
     os.environ['PATH']='%s:' % (QMin['orcadir']) +os.environ['PATH']
+    os.environ['LD_LIBRARY_PATH']='%s:' % (QMin['orcadir'])+os.environ['LD_LIBRARY_PATH']
 
 
   # Set up scratchdir
@@ -2699,7 +2700,7 @@ def readQMin(QMinfilename):
       QMin['memory']=max(100,QMin['memory'])
     except ValueError:
       print 'Run memory does not evaluate to numerical value!'
-      sys.exit(59)
+      sys.exit(67)
   else:
     print 'WARNING: Please set memory in RICC2.resources (in MB)! Using 100 MB default value!'
 
@@ -2714,7 +2715,7 @@ def readQMin(QMinfilename):
     QMin['always_guess']=[]
   if 'always_orb_init' in QMin and 'always_guess' in QMin:
     print 'Keywords "always_orb_init" and "always_guess" cannot be used together!'
-    sys.exit(60)
+    sys.exit(68)
 
 
   # get the nooverlap keyword: no dets will be extracted if present
@@ -2722,7 +2723,7 @@ def readQMin(QMinfilename):
   if line[0]:
     if 'overlap' in QMin or 'phases' in QMin or 'ion' in QMin:
       print '"nooverlap" is incompatible with "overlap" or "phases"!'
-      sys.exit(61)
+      sys.exit(69)
     QMin['nooverlap']=[]
 
 
@@ -2734,7 +2735,7 @@ def readQMin(QMinfilename):
       QMin['dipolelevel']=int(line[1])
     except ValueError:
       print 'Run memory does not evaluate to numerical value!'
-      sys.exit(61)
+      sys.exit(70)
 
 
   # wfoverlaps setting
@@ -2767,12 +2768,12 @@ def readQMin(QMinfilename):
     QMin['theodir']=get_sh2cc2_environ(sh2cc2,'theodir',False,False)
     if QMin['theodir']==None or not os.path.isdir(QMin['theodir']):
       print 'Give path to the TheoDORE installation directory in ADF.resources!'
-      sys.exit(62)
+      sys.exit(71)
     os.environ['THEODIR']=QMin['theodir']
     if 'PYTHONPATH' in os.environ:
-      os.environ['PYTHONPATH']+=os.pathsep + os.path.join(QMin['theodir'],'lib')
+      os.environ['PYTHONPATH']+=os.pathsep + os.path.join(QMin['theodir'],'lib') + os.pathsep + QMin['theodir']
     else:
-      os.environ['PYTHONPATH']=os.path.join(QMin['theodir'],'lib')
+      os.environ['PYTHONPATH']=os.path.join(QMin['theodir'],'lib') + os.pathsep + QMin['theodir']
 
 
   # norestart setting
@@ -2794,7 +2795,7 @@ def readQMin(QMinfilename):
         QMin['neglected_gradient']='closest'
       else:
         print 'Unknown argument to "neglected_gradient"!'
-        sys.exit(46)
+        sys.exit(72)
 
 
 
@@ -2839,7 +2840,7 @@ def readQMin(QMinfilename):
   for i in necessary:
     if not i in QMin['template']:
       print 'Key %s missing in template file!' % (i)
-      sys.exit(63)
+      sys.exit(73)
 
   # make basis set name in correct case, so that Turbomole recognizes them
   for basis in BASISSETS:
@@ -2853,7 +2854,7 @@ def readQMin(QMinfilename):
         break
     if QMin['template']['basislib']:
       print 'Keywords "basislib" and "auxbasis" cannot be used together in template!\nInstead, create a file for the auxbasis in /basislib/cbasen/'
-      sys.exit(64)
+      sys.exit(74)
 
   # go through sh2cc2 for the theodore settings
   for line in sh2cc2:
@@ -2922,14 +2923,14 @@ def readQMin(QMinfilename):
     line=getsh2cc2key(sh2cc2,'tinker')
     if not line[0]:
         print 'TINKER path not given!'
-        sys.exit(11)
+        sys.exit(75)
     line=os.path.expandvars(line[1].strip())
     line=os.path.expanduser(line)
     line=os.path.abspath(line)
     QMin['tinker']=line
     if not os.path.isfile(os.path.join(QMin['tinker'],'bin','tkr2qm_s')):
         print 'TINKER executable at "%s" not found!' % os.path.join(QMin['tinker'],'bin','tkr2qm_s')
-        sys.exit(38)
+        sys.exit(76)
 
     # table and ff files
     for line in sh2cc2:
@@ -2941,14 +2942,14 @@ def readQMin(QMinfilename):
         line2=orig.split(None,1)
         if len(line2)<2:
           print 'Please specify a connection table file after "qmmm_table"!'
-          sys.exit(53)
+          sys.exit(77)
         filename=os.path.abspath(os.path.expandvars(os.path.expanduser(line2[1])))
         QMin['template']['qmmm_table']=filename
       elif line[0]=='qmmm_ff_file':
         line2=orig.split(None,1)
         if len(line2)<2:
           print 'Please specify a force field file after "qmmm_ff_file"!'
-          sys.exit(54)
+          sys.exit(78)
         filename=os.path.abspath(os.path.expandvars(os.path.expanduser(line2[1])))
         QMin['template']['qmmm_ff_file']=filename
 
@@ -2986,19 +2987,19 @@ def readQMin(QMinfilename):
       break
   else:
     print 'Unknown method "%s" given in RICC2.template' % (QMin['template']['method'])
-    sys.exit(65)
+    sys.exit(79)
 
   # find spin-scaling
   allowed_methods=['scs','sos','lt-sos','none']
   if not any ([  QMin['template']['spin-scaling']==i for i in allowed_methods  ]):
     print 'Unknown spin-scaling "%s" given in RICC2.template' % (QMin['template']['spin-scaling'])
-    sys.exit(66)
+    sys.exit(80)
 
   # find SCF program
   allowed_methods=['dscf','ridft']
   if not any ([  QMin['template']['scf']==i for i in allowed_methods  ]):
     print 'Unknown SCF program "%s" given in RICC2.template' % (QMin['template']['scf'])
-    sys.exit(67)
+    sys.exit(81)
 
   # get number of electrons
   nelec=0
@@ -3008,29 +3009,29 @@ def readQMin(QMinfilename):
   QMin['nelec']=nelec
   if nelec%2!=0:
     print 'Currently, only even-electronic systems are possible in SHARC_RICC2.py!'
-    sys.exit(68)
+    sys.exit(82)
 
   # no soc for elements beyond Kr due to ECP
   if 'soc' in QMin and any( [ NUMBERS[atom[0].title()]>36 for atom in QMin['geo'] ] ):
     print 'Spin-orbit couplings for elements beyond Kr do not work due to default ECP usage!'
-    sys.exit(68)
+    sys.exit(83)
 
   # soc and cc2 do not work together
   if 'soc' in QMin and 'cc2' in QMin['template']['method']:
     print 'Currently, spin-orbit coupling is not possible at CC2 level. Please use ADC(2)!'
-    sys.exit(69)
+    sys.exit(84)
 
   # lt-sos-CC2/ADC(2) does not work in certain cases
   if 'lt-sos' in QMin['template']['spin-scaling']:
     if QMin['ncpu']>1:
       print 'NOTE: Laplace-transformed SOS-%s is not fully SMP parallelized.' % (QMin['template']['method'].upper())
-      #sys.exit(70)
+      #sys.exit(85)
     if 'soc' in QMin:
       print 'Laplace-transformed SOS-%s is not compatible with SOC calculation!' % (QMin['template']['method'].upper())
-      sys.exit(71)
+      sys.exit(86)
     if QMin['dipolelevel']==2:
       print 'Laplace-transformed SOS-%s is not compatible with dipolelevel=2!' % (QMin['template']['method'].upper())
-      sys.exit(72)
+      sys.exit(87)
 
   # number of properties/entries calculated by TheoDORE
   if 'theodore' in QMin:
@@ -3076,7 +3077,7 @@ def readQMin(QMinfilename):
           err+=1
   if err>0:
     print '%i files missing in SAVEDIR=%s' % (err,QMin['savedir'])
-    sys.exit(73)
+    sys.exit(88)
 
   if PRINT:
     printQMin(QMin)
@@ -3324,7 +3325,7 @@ def mkdir(DIR):
     if os.path.exists(DIR):
         if os.path.isfile(DIR):
             print '%s exists and is a file!' % (DIR)
-            sys.exit(84)
+            sys.exit(89)
         elif os.path.isdir(DIR):
             if DEBUG:
                 print 'Remake\t%s' % DIR
@@ -3337,14 +3338,14 @@ def mkdir(DIR):
             os.makedirs(DIR)
         except OSError:
             print 'Can not create %s\n' % (DIR)
-            sys.exit(85)
+            sys.exit(90)
 
 # ======================================================================= #
 def link(PATH,NAME,crucial=True,force=True):
   # do not create broken links
   if not os.path.exists(PATH):
     print 'Source %s does not exist, cannot create link!' % (PATH)
-    sys.exit(76)
+    sys.exit(91)
   if os.path.islink(NAME):
     if not os.path.exists(NAME):
       # NAME is a broken link, remove it so that a new link can be made
@@ -3357,14 +3358,14 @@ def link(PATH,NAME,crucial=True,force=True):
       else:
         print '%s exists, cannot create a link of the same name!' % (NAME)
         if crucial:
-          sys.exit(77)
+          sys.exit(92)
         else:
           return
   elif os.path.exists(NAME):
     # NAME is not a link. The interface will not overwrite files/directories with links, even with force=True
     print '%s exists, cannot create a link of the same name!' % (NAME)
     if crucial:
-      sys.exit(78)
+      sys.exit(93)
     else:
       return
   os.symlink(PATH, NAME)
@@ -3433,7 +3434,7 @@ def getmo(mofile,QMin):
     shutil.copy(mofile,tofile)
   else:
     print 'Could not find mocoef-file %s!' % (mofile)
-    sys.exit(79)
+    sys.exit(94)
 
 # ======================================================================= #
 def writegeom(QMin):
@@ -3451,7 +3452,7 @@ def writegeom(QMin):
   error=sp.call('x2t geom.xyz > coord',shell=True)
   if error!=0:
     print 'xyz2col call failed!'
-    sys.exit(80)
+    sys.exit(95)
   os.chdir(QMin['pwd'])
 
   # QM/MM
@@ -3482,7 +3483,7 @@ def runProgram(string,workdir,outfile,errfile=''):
     runerror=sp.call(string,shell=True,stdout=stdoutfile,stderr=stderrfile)
   except OSError:
     print 'Call have had some serious problems:',OSError
-    sys.exit(81)
+    sys.exit(96)
   stdoutfile.close()
   if errfile:
     stderrfile.close()
@@ -3591,7 +3592,7 @@ all %s
 
   if runerror!=0:
     print 'define call failed! Error Code=%i Path=%s' % (runerror,path)
-    sys.exit(82)
+    sys.exit(97)
 
 
   return
@@ -3862,7 +3863,7 @@ def get_AO_OVL(path,QMin):
       break
   else:
     print 'Could not find number of basis functions in dscf.out!'
-    sys.exit(83)
+    sys.exit(98)
   iline=-1
   while True:
     iline+=1
@@ -3942,7 +3943,7 @@ def run_dscf(QMin):
   runerror=runProgram(string,workdir,'dscf.out')
   if runerror!=0:
     print 'DSCF calculation crashed! Error code=%i' % (runerror)
-    sys.exit(84)
+    sys.exit(99)
 
   return
 
@@ -3966,7 +3967,7 @@ def run_ridft(QMin):
   runerror=runProgram(string,workdir,'ridft.out')
   if runerror!=0:
     print 'RIDFT calculation crashed! Error code=%i' % (runerror)
-    sys.exit(85)
+    sys.exit(100)
 
   # remove RI settings from control file
   controlfile=os.path.join(workdir,'control')
@@ -3984,7 +3985,7 @@ def run_orca(QMin):
   runerror=runProgram(string,workdir,'orca_2mkl.out','orca_2mkl.err')
   if runerror!=0:
     print 'orca_2mkl calculation crashed! Error code=%i' % (runerror)
-    sys.exit(86)
+    sys.exit(101)
 
   string='''soc.gbw 
 soc.psoc 
@@ -3999,7 +4000,7 @@ soc.soc
   runerror=runProgram(string,workdir,'orca_soc.out','orca_soc.err')
   if runerror!=0:
     print 'orca_soc calculation crashed! Error code=%i' % (runerror)
-    sys.exit(87)
+    sys.exit(102)
 
   return
 
@@ -4056,7 +4057,7 @@ def run_ricc2(QMin):
     itrials+=1
     if itrials>max(shift_mask):
       print 'Not able to obtain convergence in RICC2. Aborting...'
-      sys.exit(88)
+      sys.exit(103)
     print 'No convergence of excited-state calculations! Restarting with modified number of preoptimization states...'
     change_pre_states(workdir,itrials)
 
@@ -4106,7 +4107,7 @@ def backupdata(backupdir,QMin):
   #runerror=runProgram(string,workdir)
   #if runerror!=0:
     #print 'cioverlap call not successful!'
-    #sys.exit(89)
+    #sys.exit(104)
 
   ## backup dyson.out
   #if 'backup' in QMin:
@@ -4208,11 +4209,12 @@ def runeverything(tasks, QMin):
 # ======================================================================= #
 def run_theodore(QMin):
   workdir=os.path.join(QMin['scratchdir'],'JOB')
-  string='python2 %s/bin/analyze_tden.py' % (QMin['theodir'])
+  #string='python2 %s/bin/analyze_tden.py' % (QMin['theodir'])
+  string=os.path.join(QMin['theodir'],'bin','analyze_tden.py')
   runerror=runProgram(string,workdir,'theodore.out')
   if runerror!=0:
     print 'Theodore calculation crashed! Error code=%i' % (runerror)
-    sys.exit(90)
+    sys.exit(105)
   return
 
 # ======================================================================= #
@@ -4317,7 +4319,7 @@ class civfl_ana:
     self.path=path
     if not imult in [1,3]:
       print 'CCR* file readout implemented only for singlets and triplets!'
-      sys.exit(91)
+      sys.exit(106)
     self.mult=imult
     self.maxsqnorm=maxsqnorm
     self.debug=debug
@@ -4352,7 +4354,7 @@ class civfl_ana:
           self.nmos=int(line.split()[0])
     if any( [ self.nmos==-1 , self.nfrz==-1 , self.nocc==-1 ] ):
       print 'Number of orbitals not found: nmos=%i, nfrz=%i, nocc=%i' % (self.nmos,self.nfrz,self.nocc)
-      sys.exit(92)
+      sys.exit(107)
     self.nvir=self.nmos-self.nocc
 # ================================================== #
   def get_state_dets(self,state):
@@ -4393,7 +4395,7 @@ class civfl_ana:
     # checks
     if 'CCS' in method:
       print 'ERROR: preoptimization vector found in file: %s' % (filename)
-      sys.exit(93)
+      sys.exit(108)
     if not nentry==self.nvir*(self.nocc-self.nfrz):
       print 'ERROR: wrong number of entries found in file: %s' % (filename)
     # get data
@@ -4445,7 +4447,7 @@ class civfl_ana:
   def det_string(self,fromorb,toorb,spin):
     if fromorb>=self.nocc or toorb<self.nocc or fromorb>=self.nmos or toorb>=self.nmos:
       print 'Error generating determinant string!'
-      sys.exit(94)
+      sys.exit(109)
     string='d'*self.nocc+'e'*(self.nmos-self.nocc)
     string=string[:fromorb]+spin[0]+string[fromorb+1:toorb]+spin[1]+string[toorb+1:]
     return string
@@ -4494,7 +4496,7 @@ def main():
       DEBUG=True
   except ValueError:
     print 'PRINT or DEBUG environment variables do not evaluate to logical values!'
-    sys.exit(95)
+    sys.exit(110)
 
   # Process Command line arguments
   if len(sys.argv)!=2:
@@ -4502,7 +4504,7 @@ def main():
     print 'version:',version
     print 'date:',versiondate
     print 'changelog:\n',changelogstring
-    sys.exit(96)
+    sys.exit(111)
   QMinfilename=sys.argv[1]
 
   # Print header

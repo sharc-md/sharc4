@@ -4,7 +4,7 @@
 #
 #    SHARC Program Suite
 #
-#    Copyright (c) 2018 University of Vienna
+#    Copyright (c) 2019 University of Vienna
 #
 #    This file is part of SHARC.
 #
@@ -53,8 +53,8 @@ if sys.version_info[1]<5:
         return False
     return True
 
-version='2.0'
-versiondate=datetime.date(2018,2,1)
+version='2.1'
+versiondate=datetime.date(2019,9,1)
 
 allowedreq=['a','d','r','p','q','x','y','z','5','6','c','i','j','k','l']
 

@@ -4,7 +4,7 @@
 #
 #    SHARC Program Suite
 #
-#    Copyright (c) 2018 University of Vienna
+#    Copyright (c) 2019 University of Vienna
 #
 #    This file is part of SHARC.
 #
@@ -136,7 +136,7 @@ def read_QMout(path,nstates,natom,request):
       while True:
         iline+=1
         if iline>=len(lines):
-          print 'Could not find target %s with flag %i in file %s!' % (t,targets[t]['flag'],f)
+          print 'Could not find target %s with flag %i in file %s!' % (t,targets[t]['flag'],path)
           sys.exit(11)
         line=lines[iline]
         if '! %i' % (targets[t]['flag']) in line:
@@ -152,6 +152,18 @@ def read_QMout(path,nstates,natom,request):
             row=[ complex(float(line[2*i]),float(line[2*i+1])) for i in range(targets[t]['dim'][2]) ]
           elif targets[t]['type']==float:
             row=[ float(line[i]) for i in range(targets[t]['dim'][2]) ]
+          block.append(row)
+        values.append(block)
+      QMout[t]=values
+    else:
+      values=[]
+      for iblocks in range(targets[t]['dim'][0]):
+        block=[]
+        for irow in range(targets[t]['dim'][1]):
+          if targets[t]['type']==complex:
+            row=[ complex(0.,0.) for i in range(targets[t]['dim'][2]) ]
+          elif targets[t]['type']==float:
+            row=[ float(0.) for i in range(targets[t]['dim'][2]) ]
           block.append(row)
         values.append(block)
       QMout[t]=values
@@ -281,6 +293,8 @@ excitation energies and oscillator strengths.
   parser.add_option('-s', dest='s', type=str, nargs=1, default='', help="Number of states (in quotes separated by whitespace)")
   parser.add_option('-n', dest='n', type=int, nargs=1, default=1, help="Number of atoms")
   parser.add_option('-D', dest='D', action='store_true',help="Diagonalize")
+  parser.add_option('-S', dest='S', type=int, nargs=1, default=0, help="Initial state")
+  parser.add_option('-t', dest='t', type=int, nargs=1, default=0, help="0 (default): for QM.out containing h,dm; 1: for QM.out containing only h")
 
   #parser.add_option('-n', dest='n', type=int, nargs=1, default=3, help="Number of geometries to be generated (integer, default=3)")
   #parser.add_option('-r', dest='r', type=int, nargs=1, default=16661, help="Seed for the random number generator (integer, default=16661)")
@@ -291,6 +305,8 @@ excitation energies and oscillator strengths.
   (options, args) = parser.parse_args()
   ezero=options.e
   qminfile=options.i
+  initial=options.S
+  target=options.t
   qmoutfile=args[0]
 
   QMin={'states': 1, 'natom': options.n}
@@ -317,8 +333,16 @@ excitation energies and oscillator strengths.
     statemap[i]=[imult,istate,ims]
     i+=1
   QMin['statemap']=statemap
-
-  QMout=read_QMout(qmoutfile,QMin['nmstates'],QMin['natom'],['h','dm'])
+  
+  if target == 0:
+    target_list = ['h','dm']
+  elif target == 1:
+    target_list = ['h']
+  else:
+    print("Target not defined.")
+    exit()
+  print(qmoutfile,QMin['nmstates'],QMin['natom'],target_list)  
+  QMout=read_QMout(qmoutfile,QMin['nmstates'],QMin['natom'],target_list)
 
   sys.stderr.write( 'Number of states: %s\n' % (states) )
   sys.stderr.write( '%5s  %11s %16s %12s %12s   %6s\n' % ('State','Label','E (E_h)','dE (eV)','f_osc','Spin') )
@@ -338,6 +362,8 @@ excitation energies and oscillator strengths.
     for istate in range(QMin['nmstates']):
       e=QMout['h'][0][istate][istate].real
       energies.append(e)
+    for istate in range(QMin['nmstates']):
+      e=energies[istate]
       # spin
       spin=0.
       ist=0
@@ -350,10 +376,10 @@ excitation energies and oscillator strengths.
           ist=(m,s)
           imax=c
       # fosc
-      dmx=QMout['dm'][0][istate][0].real
-      dmy=QMout['dm'][1][istate][0].real
-      dmz=QMout['dm'][2][istate][0].real
-      f=2./3.*(e-energies[0])*(dmx**2+dmy**2+dmz**2)
+      dmx=QMout['dm'][0][istate][initial].real
+      dmy=QMout['dm'][1][istate][initial].real
+      dmz=QMout['dm'][2][istate][initial].real
+      f=2./3.*(e-energies[initial])*(dmx**2+dmy**2+dmz**2)
       fosc.append(f)
       #else:
         #dmx=dmy=dmz=0.
@@ -366,25 +392,29 @@ excitation energies and oscillator strengths.
       print string
   else:
     for istate in range(QMin['nmstates']):
-      m,s,ms=QMin['statemap'][istate+1]
-      if 2*ms+1!=m:
-        continue
       e=QMout['h'][0][istate][istate].real
       energies.append(e)
-      if m==1 and s>0:
-        dmx=QMout['dm'][0][istate][0].real
-        dmy=QMout['dm'][1][istate][0].real
-        dmz=QMout['dm'][2][istate][0].real
-        f=2./3.*(e-energies[0])*(dmx**2+dmy**2+dmz**2)
-        fosc.append(f)
-      else:
-        dmx=dmy=dmz=0.
-        fosc.append(0.)
+    for istate in range(QMin['nmstates']):
+      e=energies[istate]
+      m,s,ms=QMin['statemap'][istate+1]
+      if -2*ms+1!=m:
+        continue
+      #if m==1 and s>0:
+      dmx=QMout['dm'][0][istate][initial].real
+      dmy=QMout['dm'][1][istate][initial].real
+      dmz=QMout['dm'][2][istate][initial].real
+      f=2./3.*(e-energies[initial])*(dmx**2+dmy**2+dmz**2)
+      fosc.append(f)
+      #else:
+        #dmx=dmy=dmz=0.
+        #fosc.append(0.)
       if ezero!=0.0 or options.E:
         de=(e-ezero)*27.21
       else:
-        de=(e-energies[0])*27.21
+        de=(e-energies[initial])*27.21
       string='%5i %10s%02i %16.10f %12.8f %12.8f   %6.4f' % (istate+1,IToMult[m][0],s-(m<=2),e,de,fosc[-1],m)
+      if istate==initial:
+        string+=' #initial state'
       print string
 
 

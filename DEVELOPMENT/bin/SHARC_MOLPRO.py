@@ -4,7 +4,7 @@
 #
 #    SHARC Program Suite
 #
-#    Copyright (c) 2018 University of Vienna
+#    Copyright (c) 2019 University of Vienna
 #
 #    This file is part of SHARC.
 #
@@ -76,8 +76,8 @@ if sys.version_info[1]<5:
 
 # ======================================================================= #
 
-version='2.0'
-versiondate=datetime.date(2018,2,1)
+version='2.1'
+versiondate=datetime.date(2019,9,1)
 
 
 changelogstring='''
@@ -2051,7 +2051,7 @@ def readQMin(QMinfilename):
   if 'overlap' in QMin or 'ion' in QMin or 'docicas' in QMin:
     #QMin['wfoverlap']=get_sh2pro_environ(sh2pro,'wfoverlap')
     QMin['wfoverlap']=get_sh2pro_environ(sh2pro,'wfoverlap',False,False)
-    if QMin['wfoverlap']==None:
+    if not QMin['wfoverlap']:
       ciopath=os.path.join(os.path.expandvars(os.path.expanduser('$SHARC')),'wfoverlap.x')
       if os.path.isfile(ciopath):
         QMin['wfoverlap']=ciopath
@@ -3537,7 +3537,7 @@ def decompose_csf(ms2,step):
 
     # add determinant to dict if coefficient non-zero
     if num!=0.:
-      dets[tuple(det)]=1.*sign*math.sqrt(coeff)
+      dets[tuple(det)]=-1.*sign*math.sqrt(coeff)
 
   return dets
 
@@ -3781,7 +3781,7 @@ def get_Double_AOovl(QMin):
       break
   else:
     print 'Did not find AO overlap matrix!'
-    sys.exit(99)
+    sys.exit(109)
 
   # detect format
   line=out[iline+1]
@@ -4007,6 +4007,7 @@ def getQMout(QMin):
       g=getnacana(out,nac[0],nac[1],nac[3],natom)
       phase1=allphases[nac[0]][nac[1]-1]
       phase2=allphases[nac[0]][nac[3]-1]
+      #print 'correcting:',nac,phase1,phase2,phase1*phase2
       for iatom in range(natom):
         for ixyz in range(3):
           g[iatom][ixyz]*=phase1*phase2

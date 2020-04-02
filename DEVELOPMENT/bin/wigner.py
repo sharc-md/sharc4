@@ -4,7 +4,7 @@
 #
 #    SHARC Program Suite
 #
-#    Copyright (c) 2018 University of Vienna
+#    Copyright (c) 2019 University of Vienna
 #
 #    This file is part of SHARC.
 #
@@ -76,8 +76,8 @@ U_TO_AMU = 1./5.4857990943e-4            # conversion from g/mol to amu
 ANG_TO_BOHR = 1./0.529177211    #1.889725989      # conversion from Angstrom to bohr
 PI = math.pi
 
-version='2.0'
-versiondate=datetime.date(2018,2,1)
+version='2.1'
+versiondate=datetime.date(2019,9,1)
 
 
 NUMBERS = {'H':1, 'He':2,
@@ -1327,7 +1327,7 @@ def lvc_input(molecule, modes):
     Print an input file for for SHARC_LVC.py
     """
     if not len(modes)==len(modes[0]['move']*3):
-      print 'Error: Less than 3N normal modes in file!'
+      print 'Warning: Less than 3N normal modes in file!'
       print 'For LVC model setup, all 3N modes need to be present.'
       print 'Adding additional rotational and translational null-vectors'
       nr_missing=len(modes[0]['move']*3)-len(modes)

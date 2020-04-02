@@ -4,7 +4,7 @@
 #
 #    SHARC Program Suite
 #
-#    Copyright (c) 2018 University of Vienna
+#    Copyright (c) 2019 University of Vienna
 #
 #    This file is part of SHARC.
 #
@@ -27,7 +27,7 @@
 
 """
 author: Felix Plasser, Andrew Atkins
-version: 2.0
+version: 2.1
 descr: Script for doing essential dynamics analysis.
 """
 
@@ -46,8 +46,8 @@ except ImportError:
     print 'file_handler, vib_molden, traj_manip or struc_linalg not found. They should be part of this package. Check the installation and if $SHARC/../lib is part of the PYTHONPATH environment variable.'
     sys.exit()
 
-version='2.0'
-versiondate=datetime.date(2018,2,1)
+version='2.1'
+versiondate=datetime.date(2019,9,1)
 
 # ======================================================================= #
 def centerstring(string,n,pad=' '):

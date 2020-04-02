@@ -4,7 +4,7 @@
 #
 #    SHARC Program Suite
 #
-#    Copyright (c) 2018 University of Vienna
+#    Copyright (c) 2019 University of Vienna
 #
 #    This file is part of SHARC.
 #
@@ -81,8 +81,8 @@ BOHR_TO_ANG=0.529177211
 AU_TO_FS=0.024188843
 PI = math.pi
 
-version='2.0'
-versiondate=datetime.date(2018,2,1)
+version='2.1'
+versiondate=datetime.date(2019,9,1)
 
 
 IToMult={
@@ -485,8 +485,8 @@ def get_general():
   print centerstring('Analyze Mode',60,'-')
   print '''\nThis script can analyze the classical populations in different ways:
 1       Number of trajectories in each diagonal state                                   from output.lis
-2       Number of trajectories in each MCH state                                        from output.lis
-3       Number of trajectories in each MCH state (multiplets summed up)                 from output.lis
+2       Number of trajectories in each (approximate) MCH state                          from output.lis
+3       Number of trajectories in each (approximate) MCH state (multiplets summed up)   from output.lis
 4       Number of trajectories whose total spin value falls into certain intervals      from output.lis
 5       Number of trajectories whose dipole moment falls into certain intervals         from output.lis
 6       Number of trajectories whose oscillator strength falls into certain intervals   from output_data/fosc.out
@@ -497,16 +497,16 @@ It can also sum the quantum amplitudes:
 9       Quantum amplitudes in MCH picture (multiplets summed up)                        from output_data/coeff_MCH.out
 
 It can also transform the classical diagonal populations to MCH basis:
-12      Transform diagonal populations to MCH states                                    from output_data/coeff_class_MCH.out
-13      Transform diagonal populations to MCH states (multiplets summed up)             from output_data/coeff_class_MCH.out 
-14      Transform diagonal populations to MCH states                                    from output_data/coeff_mixed_MCH.out
-15      Transform diagonal populations to MCH states (multiplets summed up)             from output_data/coeff_mixed_MCH.out '''
+12      Transform diagonal classical populations to MCH                                 from output_data/coeff_class_MCH.out
+13      Transform diagonal classical populations to MCH (multiplets summed up)          from output_data/coeff_class_MCH.out 
+14      Wigner-transform classical diagonal populations to MCH                          from output_data/coeff_mixed_MCH.out
+15      Wigner-transform classical diagonal populations to MCH (multiplets summed up)   from output_data/coeff_mixed_MCH.out '''
   if LD_dynamics:
     print '''
 It can also compute diabatic populations:
 20      Quantum amplitudes in diabatic picture                                          from output_data/coeff_diab.out
-21      Quantum amplitudes in diabatic picture                                          from output_data/coeff_class_diab.out
-22      Quantum amplitudes in diabatic picture                                          from output_data/coeff_mixed_diab.out
+21      Transform diagonal classical populations to diabatic                            from output_data/coeff_class_diab.out
+22      Wigner-transform classical diagonal populations to diabatic                     from output_data/coeff_mixed_diab.out
 '''
     allowed.append(20)
     allowed.append(21)
@@ -896,7 +896,8 @@ def do_calc(INFOS):
             pop_full[fileindex][t][i]+=vec[i]
       lisf.close()
       for itt in range(t+1):
-        traj_per_step[itt]+=1
+        if itt<len(traj_per_step):
+          traj_per_step[itt]+=1
       if dt*t<shortest:
         shortest=dt*t
       if dt*t>longest:
@@ -997,15 +998,6 @@ def do_calc(INFOS):
   outf.close()
 
 
-  # print number of trajs
-  outfilename='traj_per_step_'+outfilename
-  s='#%15s %16s\n' % ('Time','Ntraj')
-  for it,n in enumerate(traj_per_step):
-    s+='%16.9f %16.9f\n' % (it*dt,n)
-  outf=open(outfilename,'w')
-  print 'Writing number of trajectories per step to %s ...' % (outfilename)
-  outf.write(s)
-  outf.close()
 
   # save bootstrapping data
   if INFOS['bootstrap']:
@@ -1056,6 +1048,20 @@ def do_calc(INFOS):
 
   INFOS['outputfile']=outfilename
   INFOS['ntraj']=ntraj
+
+
+  # print number of trajs
+  outfilename='traj_per_step_'+outfilename
+  s='#%15s %16s\n' % ('Time','Ntraj')
+  for it,n in enumerate(traj_per_step):
+    s+='%16.9f %16.9f\n' % (it*dt,n)
+  outf=open(outfilename,'w')
+  print 'Writing number of trajectories per step to %s ...' % (outfilename)
+  outf.write(s)
+  outf.close()
+
+
+
   return INFOS
 
 # ======================================================================================================================
@@ -1233,9 +1239,13 @@ def make_gnuplot(INFOS):
          7: 'Quantum amplitudes (diagonal)',
          8: 'Quantum amplitudes (MCH)',
          9: 'Quantum amplitudes (MCH, multiplets)',
-        10: 'Transformed classical populations (MCH)',
-        11: 'Transformed classical populations (MCH)',
-        20: 'Quantum amplitudes (diabatic)'
+        12: 'Transformed classical populations (MCH)',
+        13: 'Transformed classical populations (MCH, multiplets)',
+        14: 'Wigner-transformed classical populations (MCH)',
+        15: 'Wigner-transformed classical populations (MCH, multiplets)',
+        20: 'Quantum amplitudes (diabatic)',
+        21: 'Transformed classical populations (diabatic)',
+        22: 'Wigner-transformed classical populations (diabatic)'
         }
 
   gnustring='''set title "%s\\n%i Trajectories (Shortest %.1f fs, Longest %.1f fs)"
@@ -1266,11 +1276,11 @@ set out '%s.png'
 
     if INFOS['mode'] in [1,7]:
       gnustring+='u 1:%i w l tit "State %i" lw 2.5 lc rgbcolor "%s"' % (istate+1,istate,R.hexcolor(1,istate) )
-    elif INFOS['mode'] in [2,8,10,20]:
+    elif INFOS['mode'] in [2,8,12,14,20,21,22]:
       mult,state,ms=tuple(INFOS['statemap'][istate][0:3])
       name=IToMult[mult]+' %i' % (state-(mult==1 or mult==2))
       gnustring+='u 1:%i w l tit "%s" lw 2.5 lc rgbcolor "%s"' % (istate+1,name,R.hexcolor(mult,state))
-    elif INFOS['mode'] in [3,9,11]:
+    elif INFOS['mode'] in [3,9,13,15]:
       gnustring+='u 1:%i' % (istate+1)
       for i in INFOS['statemap']:
         if istate==INFOS['statemap'][i][3]:

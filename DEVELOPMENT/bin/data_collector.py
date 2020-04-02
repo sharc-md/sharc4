@@ -4,7 +4,7 @@
 #
 #    SHARC Program Suite
 #
-#    Copyright (c) 2018 University of Vienna
+#    Copyright (c) 2019 University of Vienna
 #
 #    This file is part of SHARC.
 #
@@ -81,8 +81,8 @@ BOHR_TO_ANG=0.529177211
 AU_TO_FS=0.024188843
 PI = math.pi
 
-version='2.0'
-versiondate=datetime.date(2018,2,1)
+version='2.1'
+versiondate=datetime.date(2019,9,1)
 
 
 IToMult={
@@ -1418,8 +1418,11 @@ def do_t_convolution(INFOS,data3):
     for i in range(ny):
       spec[i].f=INFOS['convolute_T']['function']
     allspec.append(spec)
+  #normspec=spectrum(INFOS['convolute_T']['npoints']-1,tmin,tmax,1.0,1)
+  #normspec.f=INFOS['convolute_T']['function']
   width_bar=50
   for it1,t1 in enumerate(data3['times']):
+    #normspec.add(1.,t1)
     done=width_bar*(it1+1)/len(data3['times'])
     sys.stdout.write('\r  Progress: ['+'='*done+' '*(width_bar-done)+'] %3i%%' % (done*100/width_bar))
     for ix1,x1 in enumerate(data3['xvalues']):
@@ -1432,6 +1435,7 @@ def do_t_convolution(INFOS,data3):
     d=[]
     for ix1,x1 in enumerate(data3['xvalues']):
       d.append( [allspec[ix1][i].spec[it1] for i in range(ny)] )
+      #d.append( [allspec[ix1][i].spec[it1]/normspec.spec[it1] for i in range(ny)] )
     data4.append(d)
   # make type3 dictionary:
   data5={}

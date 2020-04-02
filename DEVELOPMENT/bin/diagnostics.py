@@ -4,7 +4,7 @@
 #
 #    SHARC Program Suite
 #
-#    Copyright (c) 2018 University of Vienna
+#    Copyright (c) 2019 University of Vienna
 #
 #    This file is part of SHARC.
 #
@@ -77,8 +77,8 @@ BOHR_TO_ANG=0.529177211
 AU_TO_FS=0.024188843
 PI = math.pi
 
-version='2.0'
-versiondate=datetime.date(2018,10,22)
+version='2.1'
+versiondate=datetime.date(2019,9,1)
 
 
 IToMult={
@@ -761,7 +761,7 @@ def check_consistency(path,trajectories,data,filename):
       if float(x[0]) == 0.:
         prevtime = 0
         tana = 0
-      elif float(x[0]) - deltatime - prevtime == 0.:
+      elif abs(float(x[0]) - deltatime - prevtime) <= 1e-9:
         prevtime = float(x[0])
         tana = prevtime
         pass

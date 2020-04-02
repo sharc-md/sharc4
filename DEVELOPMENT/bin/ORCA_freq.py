@@ -71,7 +71,8 @@ for line in lines:
         intdict={}
     elif read == True and geom == True:
         line = line.strip()
-        if line.startswith( "----" ) or line.startswith( "NO" ):
+        print line
+        if line.startswith( "----" ) or line.startswith( "NO" ) or "ECP" in line:
             continue
         if line:
             line = line.split()

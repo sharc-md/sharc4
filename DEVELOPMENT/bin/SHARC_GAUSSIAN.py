@@ -4,7 +4,7 @@
 #
 #    SHARC Program Suite
 #
-#    Copyright (c) 2018 University of Vienna
+#    Copyright (c) 2019 University of Vienna
 #
 #    This file is part of SHARC.
 #
@@ -79,8 +79,8 @@ if sys.version_info[1]<5:
 
 # ======================================================================= #
 
-version='2.0'
-versiondate=datetime.date(2018,2,1)
+version='2.1'
+versiondate=datetime.date(2019,9,1)
 
 
 
@@ -1511,9 +1511,9 @@ def readQMin(QMinfilename):
             sys.exit(45)
         os.environ['THEODIR']=QMin['theodir']
         if 'PYTHONPATH' in os.environ:
-          os.environ['PYTHONPATH']+=os.pathsep + os.path.join(QMin['theodir'],'lib')
+          os.environ['PYTHONPATH']+=os.pathsep + os.path.join(QMin['theodir'],'lib') + os.pathsep + QMin['theodir']
         else:
-          os.environ['PYTHONPATH']=os.path.join(QMin['theodir'],'lib')
+          os.environ['PYTHONPATH']=os.path.join(QMin['theodir'],'lib') + os.pathsep + QMin['theodir']
 
 
     # neglected gradients
@@ -2406,7 +2406,7 @@ def writeGAUSSIANinput(QMin):
 
     # charge/mult and geometry
     if 'AOoverlap' in QMin:
-      string+='%i %i\n' % (2.*charge,gsmult)
+      string+='%i %i\n' % (2.*charge,1)
     else:
       string+='%i %i\n' % (charge,gsmult)
     for iatom,atom in enumerate(QMin['geo']):
@@ -2578,10 +2578,14 @@ def get_rwfdump(groot,filename,number):
   string='%s/rwfdump %s %s %s' % (groot,os.path.basename(filename),dumpname,number)
   #print string
   try_shells=['sh','bash','csh','tcsh']
+  ok=False
   for shell in try_shells:
     try:
       runerror=sp.call(string,shell=True,executable=shell)
+      ok=True
     except OSError:
+      pass
+  if not ok:
       print 'Gaussian rwfdump has serious problems:',OSError
       sys.exit(68)
   string=readfile(dumpname)
@@ -3098,7 +3102,7 @@ at_lists=%s
 def runTHEODORE(WORKDIR,THEODIR):
     prevdir=os.getcwd()
     os.chdir(WORKDIR)
-    string='python2 '+os.path.join(THEODIR,'bin','analyze_tden.py')
+    string=os.path.join(THEODIR,'bin','analyze_tden.py')
     stdoutfile=open(os.path.join(WORKDIR,'theodore.out'),'w')
     stderrfile=open(os.path.join(WORKDIR,'theodore.err'),'w')
     if PRINT or DEBUG:
@@ -3317,12 +3321,12 @@ def adjust_DFTB_Smat(Smat,NAO,QMin):
       Nb+=nbs[i[0].lower()]
     except KeyError:
       print 'Error: Overlaps with DFTB need further testing!'
-      sys.exit(11)
+      sys.exit(80)
     for j in range(nbs[i[0].lower()]):
       mapping[itot]=ii
       itot+=1
   #print mapping
-  #sys.exit(1)
+  #sys.exit(81)
   # make interatomic overlap blocks unit matrices
   for i in range(Nb):
     ii=mapping[i]
@@ -3887,7 +3891,7 @@ def getsmate(out,s1,s2):
         ilines+=1
         if ilines==len(out):
             print 'Overlap of states %i - %i not found!' % (s1,s2)
-            sys.exit(80)
+            sys.exit(82)
         if containsstring('Overlap matrix <PsiA_i|PsiB_j>', out[ilines]):
             break
     ilines+=1+s1
@@ -3901,7 +3905,7 @@ def getDyson(out,s1,s2):
         ilines+=1
         if ilines==len(out):
             print 'Dyson norm of states %i - %i not found!' % (s1,s2)
-            sys.exit(81)
+            sys.exit(83)
         if containsstring('Dyson norm matrix <PsiA_i|PsiB_j>', out[ilines]):
             break
     ilines+=1+s1
@@ -4009,7 +4013,7 @@ def main():
             DEBUG=True
     except ValueError:
         print 'PRINT or DEBUG environment variables do not evaluate to numerical values!'
-        sys.exit(82)
+        sys.exit(84)
 
     # Process Command line arguments
     if len(sys.argv)!=2:
@@ -4017,7 +4021,7 @@ def main():
         print 'version:',version
         print 'date:',versiondate
         print 'changelog:\n',changelogstring
-        sys.exit(83)
+        sys.exit(85)
     QMinfilename=sys.argv[1]
 
     # Print header

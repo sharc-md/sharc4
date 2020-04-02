@@ -4,7 +4,7 @@
 #
 #    SHARC Program Suite
 #
-#    Copyright (c) 2018 University of Vienna
+#    Copyright (c) 2019 University of Vienna
 #
 #    This file is part of SHARC.
 #
@@ -73,9 +73,9 @@ U_TO_AMU = 1./5.4857990943e-4            # conversion from g/mol to amu
 BOHR_TO_ANG=0.529177211
 PI = math.pi
 
-version='2.0'
-versionneeded=[0.2, 1.0, 2.0, float(version)]
-versiondate=datetime.date(2018,2,1)
+version='2.1'
+versionneeded=[0.2, 1.0, 2.0, 2.1, float(version)]
+versiondate=datetime.date(2019,9,1)
 
 
 IToMult={
@@ -144,6 +144,7 @@ Interfaces={
                           'dyson':   ['wfoverlap'],
                           'dipolegrad':[],
                           'phases':  [],
+                          'nacdr':   [],
                           'soc':     []             },
       'pysharc':          False
      },
@@ -203,6 +204,18 @@ Interfaces={
                           'theodore':['theodore'],
                           'phases':  ['wfoverlap'],
                           'soc':     []},
+      'pysharc':          False
+     },
+  10:{'script':          'SHARC_BAGEL.py',
+      'name':            'bagel',
+      'description':     'BAGEL (CASSCF, CASPT2, (X)MS-CASPT2)',
+      'get_routine':     'get_BAGEL',
+      'prepare_routine': 'prepare_BAGEL',
+      'features':        {'overlap': ['wfoverlap'],
+                          'dyson':   ['wfoverlap'],
+                          'nacdr' : [],
+                          'dipolegrad':[],
+                          'phases':  [],                     },
       'pysharc':          False
      }
   }
@@ -1422,6 +1435,10 @@ Laser files can be created using $SHARC/laser.x
 
   # PYSHARC
   if Interfaces[ INFOS['interface']]['pysharc']:
+    string='\n  '+'='*80+'\n'
+    string+='||'+centerstring('PYSHARC',80)+'||\n'
+    string+='  '+'='*80+'\n'
+    print string
     print '\nThe chosen interface can be run very efficiently with PYSHARC.'
     print 'PYSHARC runs the SHARC dynamics directly within Python (with C and Fortran extension)'
     print 'with minimal file I/O for maximum performance.'
@@ -1429,17 +1446,17 @@ Laser files can be created using $SHARC/laser.x
   else:
     INFOS['pysharc']=False
 
-  # NetCDF
-  print '\nSHARC or PYSHARC can produce output in ASCII format (all features supported currently)'
-  print 'or in NetCDF format (more efficient file I/O, some features currently not supported).'
-  INFOS['netcdf']=question('Write output in NetCDF format?',bool,INFOS['pysharc'])
-
-
   # Dynamics options
   string='\n  '+'='*80+'\n'
   string+='||'+centerstring('Content of output.dat files',80)+'||\n'
   string+='  '+'='*80+'\n'
   print string
+
+  # NetCDF
+  print '\nSHARC or PYSHARC can produce output in ASCII format (all features supported currently)'
+  print 'or in NetCDF format (more efficient file I/O, some features currently not supported).'
+  INFOS['netcdf']=question('Write output in NetCDF format?',bool,INFOS['pysharc'])
+
 
   # options for writing to output.dat
   print '\nDo you want to write the gradients to the output.dat file ?'
@@ -3697,10 +3714,6 @@ A value of 0 means that running in parallel will not make the calculation faster
     INFOS['orca.ciothres']=question('Threshold:',float,[0.99])[0]
     print ''
 
-    # PyQuante
-    print '\n'+centerstring('PyQuante setup',60,'-')+'\n'
-    INFOS['orca.pyquante']=question('Path to PyQuante lib directory:',str,'$PYQUANTE')
-    print ''
 
 
   # TheoDORE
@@ -3771,7 +3784,7 @@ def prepare_ORCA(INFOS,iconddir):
   string='orcadir %s\nscratchdir %s/%s/\nsavedir %s/%s/restart\nncpu %i\nschedule_scaling %f\n' % (INFOS['orcadir'],INFOS['scratchdir'],iconddir,INFOS['copydir'],iconddir,INFOS['orca.ncpu'],INFOS['orca.scaling'])
   string+='memory %i\n' % (INFOS['orca.mem'])
   if 'wfoverlap' in INFOS['needed']:
-    string+='wfoverlap %s\nwfthres %f\npyquante %s\n' % (INFOS['orca.wfoverlap'],INFOS['orca.ciothres'],INFOS['orca.pyquante'])
+    string+='wfoverlap %s\nwfthres %f\n' % (INFOS['orca.wfoverlap'],INFOS['orca.ciothres'])
     #string+='numfrozcore %i\n' %(INFOS['frozcore_number'])
   else:
     string+='nooverlap\n'
@@ -3825,6 +3838,274 @@ exit $err''' % (Interfaces[INFOS['interface']]['script'])
 
 
 
+
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+
+def checktemplate_BAGEL(filename,INFOS):
+  necessary=['basis','df_basis','nact','nclosed']
+  try:
+    f=open(filename)
+    data=f.readlines()
+    f.close()
+  except IOError:
+    print 'Could not open template file %s' % (filename)
+    return False
+  valid=[]
+  for i in necessary:
+    for l in data:
+      if i in re.sub('#.*$','',l):
+        valid.append(True)
+        break
+    else:
+      valid.append(False)
+  if not all(valid):
+    print 'The template %s seems to be incomplete! It should contain: ' % (filename) +str(necessary)
+    return False
+  roots_there=False
+  for l in data:
+    l=re.sub('#.*$','',l).lower().split()
+    if len(l)==0:
+      continue
+    if 'nstate' in l[0]:
+      roots_there=True
+  if not roots_there:
+    for mult,state in enumerate(INFOS['states']):
+      if state<=0:
+        continue
+      valid=[]
+      for l in data:
+        if 'spin' in re.sub('#.*$','',l).lower():
+          f=l.split()
+          if int(f[1])==mult+1:
+            valid.append(True)
+            break
+      else:
+        valid.append(False)
+  if not all(valid):
+    string='The template %s seems to be incomplete! It should contain the keyword "spin" for ' % (filename)
+    for mult,state in enumerate(INFOS['states']):
+      if state<=0:
+        continue
+      string+='%s, ' % (IToMult[mult+1])
+    string=string[:-2]+'!'
+    print string
+    return False
+  return True
+
+# =================================================
+
+def get_BAGEL(INFOS):
+  '''This routine asks for all questions specific to BAGEL:
+  - path to bagel
+  - scratch directory
+  - BAGEL.template
+  - wf.init
+  '''
+
+  string='\n  '+'='*80+'\n'
+  string+='||'+centerstring('BAGEL Interface setup',80)+'||\n'
+  string+='  '+'='*80+'\n\n'
+  print string
+
+  print centerstring('Path to BAGEL',60,'-')+'\n'
+  path=os.getenv('BAGEL')
+  #path=os.path.expanduser(os.path.expandvars(path))
+  if path=='':
+    path=None
+  else:
+    path='$BAGEL/'
+      #print 'Environment variable $MOLCAS detected:\n$MOLCAS=%s\n' % (path)
+      #if question('Do you want to use this MOLCAS installation?',bool,True):
+        #INFOS['molcas']=path
+    #if not 'molcas' in INFOS:
+  print '\nPlease specify path to BAGEL directory (SHELL variables and ~ can be used, will be expanded when interface is started).\n'
+  INFOS['bagel']=question('Path to BAGEL:',str,path)
+  print ''
+
+
+  print centerstring('Scratch directory',60,'-')+'\n'
+  print 'Please specify an appropriate scratch directory. This will be used to temporally store the integrals. The scratch directory will be deleted after the calculation. Remember that this script cannot check whether the path is valid, since you may run the calculations on a different machine. The path will not be expanded by this script.'
+  INFOS['scratchdir']=question('Path to scratch directory:',str)
+  print ''
+
+
+  print centerstring('BAGEL input template file',60,'-')+'\n'
+  print '''Please specify the path to the BAGEL.template file. This file must contain the following settings:
+
+basis <Basis set>
+df_basis <Density fitting basis set>
+nact <Number of active orbitals>
+nclosed <Number of doubly occupied orbitals>
+nstate <Number of states for state-averaging>
+
+The BAGEL interface will generate the appropriate BAGEL input automatically.
+'''
+  if os.path.isfile('BAGEL.template'):
+    if checktemplate_BAGEL('BAGEL.template',INFOS):
+      print 'Valid file "BAGEL.template" detected. '
+      usethisone=question('Use this template file?',bool,True)
+      if usethisone:
+        INFOS['bagel.template']='BAGEL.template'
+  if not 'bagel.template' in INFOS:
+    while True:
+      filename=question('Template filename:',str)
+      if not os.path.isfile(filename):
+        print 'File %s does not exist!' % (filename)
+        continue
+      if checktemplate_BAGEL(filename,INFOS):
+        break
+    INFOS['molcas.template']=filename
+  print ''
+
+  print centerstring('Dipole level',60,'-')+'\n'
+  print 'Please specify the desired amount of calculated dipole moments:\n0 -only dipole moments that are for free are calculated\n1 -calculate all transition dipole moments between the (singlet) ground state and all singlet states for absorption spectra\n2 -calculate all dipole moments'
+  INFOS['dipolelevel']=question('Requested dipole level:',int,[0])[0]
+  print ''
+
+
+  # QMMM 
+#  if check_MOLCAS_qmmm(INFOS['molcas.template']):
+#    print centerstring('MOLCAS+TINKER QM/MM setup',60,'-')+'\n'
+#    print 'Your template specifies a QM/MM calculation. Please specify the path to TINKER.' 
+#    path=os.getenv('TINKER')
+#    if path=='':
+#      path=None
+#    else:
+#      path='$TINKER/'
+#    print '\nPlease specify path to TINKER bin/ directory (SHELL variables and ~ can be used, will be expanded when interface is started).\n'
+#    INFOS['tinker']=question('Path to TINKER/bin:',str,path)
+#    print 'Please give the key and connection table files.'
+ #   while True:
+ ##     filename=question('Key file:',str)
+#      if not os.path.isfile(filename):
+#        print 'File %s does not exist!' % (filename)
+#      else:
+#        break
+#    INFOS['MOLCAS.fffile']=filename
+#    while True:
+#      filename=question('Connection table file:',str)
+#      if not os.path.isfile(filename):
+#        print 'File %s does not exist!' % (filename)
+#      else:
+ #       break
+#    INFOS['MOLCAS.ctfile']=filename
+
+
+
+  print centerstring('Initial wavefunction: MO Guess',60,'-')+'\n'
+  print '''Please specify the path to a MOLCAS JobIph file containing suitable starting MOs for the CASSCF calculation. Please note that this script cannot check whether the wavefunction file and the Input template are consistent!
+'''
+  INFOS['bagel.guess']={}
+  string='Do you have initial wavefunction files for '
+  for mult,state in enumerate(INFOS['states']):
+    if state<=0:
+      continue
+    string+='%s, ' % (IToMult[mult+1])
+  string=string[:-2]+'?'
+  if question(string,bool,True):
+    for mult,state in enumerate(INFOS['states']):
+      if state<=0:
+        continue
+      while True:
+        guess_file='archive.%i.init' % (mult+1)
+        filename=question('Initial wavefunction file for %ss:' % (IToMult[mult+1]),str,guess_file)
+        if os.path.isfile(filename):
+          INFOS['bagel.guess'][mult+1]=filename
+          break
+        else:
+          print 'File not found!'
+  else:
+    print 'WARNING: Remember that CASSCF calculations may run very long and/or yield wrong results without proper starting MOs.'
+    time.sleep(1)
+
+  print centerstring('BAGEL Ressource usage',60,'-')+'\n'#TODO
+
+  print '''Please specify the number of CPUs to be used by EACH calculation.
+'''
+  INFOS['bagel.ncpu']=abs(question('Number of CPUs:',int,[1])[0])
+  
+  if INFOS['bagel.ncpu']>1:
+    INFOS['bagel.mpi']=question('Use MPI mode (no=OpenMP)?',bool,False)
+  else:
+    INFOS['bagel.mpi']=False
+
+
+
+
+
+  ## Ionization
+  #need_wfoverlap=False
+  #print centerstring('Ionization probability by Dyson norms',60,'-')+'\n'
+  #INFOS['ion']=question('Dyson norms?',bool,False)
+  #if 'ion' in INFOS and INFOS['ion']:
+    #need_wfoverlap=True
+
+  # wfoverlap
+  if 'wfoverlap' in INFOS['needed']:
+    print '\n'+centerstring('WFoverlap setup',60,'-')+'\n'
+    INFOS['bagel.wfoverlap']=question('Path to wavefunction overlap executable:',str,'$SHARC/wfoverlap.x')
+    # TODO not asked for: numfrozcore, numocc
+    print '''Please specify the path to the PyQuante directory.
+'''
+    INFOS['bagel.pyq']=question('PyQuante path:',str)
+    print '''Please specify the amount of memory available to wfoverlap.x (in MB). \n (Note that BAGEL's memory cannot be controlled)
+'''
+    INFOS['bagel.mem']=abs(question('wfoverlap.x memory:',int,[1000])[0])
+  else:
+    INFOS['bagel.mem']=1000
+    INFOS['bagel.pyq']=''
+
+  return INFOS
+
+# =================================================
+
+def prepare_BAGEL(INFOS,iconddir):
+  # write BAGEL.resources
+  try:
+    sh2cas=open('%s/QM/BAGEL.resources' % (iconddir), 'w')
+  except IOError:
+    print 'IOError during prepareBAGEL, iconddir=%s' % (iconddir)
+    quit(1)
+  project='BAGEL'
+  string='bagel %s\npyquante %s\nscratchdir %s/%s/\nmemory %i\nncpu %i\ndipolelevel %i\nproject %s' % (INFOS['bagel'],INFOS['bagel.pyq'],INFOS['scratchdir'],iconddir,INFOS['bagel.mem'],INFOS['bagel.ncpu'],INFOS['dipolelevel'],project)
+  
+  if INFOS['bagel.mpi']:
+    string+='mpi\n'
+  if 'wfoverlap' in INFOS['needed']:
+    string+='\nwfoverlap %s\n' % INFOS['bagel.wfoverlap']
+  else:
+    string+='\nnooverlap\n'
+#  if 'tinker' in INFOS:
+#    string+='tinker %s' % (INFOS['tinker'])
+  sh2cas.write(string)
+  sh2cas.close()
+
+  # copy MOs and template
+  cpfrom=INFOS['bagel.template']
+  cpto='%s/QM/BAGEL.template' % (iconddir)
+  shutil.copy(cpfrom,cpto)
+  if not INFOS['bagel.guess']=={}:
+    for i in INFOS['bagel.guess']:
+      cpfrom=INFOS['bagel.guess'][i]
+      cpto='%s/QM/%s.%i.init' % (iconddir,'archive',i)
+      shutil.copy(cpfrom,cpto)
+
+
+  # runQM.sh
+  runname=iconddir+'/QM/runQM.sh'
+  runscript=open(runname,'w')
+  s='''cd QM
+$SHARC/%s QM.in >> QM.log 2>> QM.err
+err=$?
+
+exit $err''' % (Interfaces[INFOS['interface']]['script'])
+  runscript.write(s)
+  runscript.close()
+  os.chmod(runname, os.stat(runname).st_mode | stat.S_IXUSR)
+
+  return
 
 
 
@@ -3952,7 +4233,7 @@ def writeSHARCinput(INFOS,initobject,iconddir,istate):
     s+='decoherence_param %s\n' % (INFOS['decoherence'][1])
   s+='hopping_procedure %s\n' % (INFOS['hopping'])
   if INFOS['force_hops']:
-    s+='force_hops_to_gs %f\n' % (INFOS['force_hops_dE'])
+    s+='force_hop_to_gs %f\n' % (INFOS['force_hops_dE'])
   if INFOS['scaling']:
     s+='scaling %f\n' % (INFOS['scaling'])
   if INFOS['damping']:
@@ -3973,20 +4254,23 @@ def writeSHARCinput(INFOS,initobject,iconddir,istate):
       s+='nac_all\n'
   if 'eselect' in INFOS:
     s+='eselect %f\n' % (INFOS['eselect'])
-  if Interfaces[INFOS['interface']]['script']=='SHARC_COLUMBUS.py':
-    s+='select_directly\n'
-  if Interfaces[INFOS['interface']]['script']=='SHARC_ADF.py':
-    s+='select_directly\n'
-  if Interfaces[INFOS['interface']]['script']=='SHARC_GAUSSIAN.py':
-    s+='select_directly\n'
-  if Interfaces[INFOS['interface']]['script']=='SHARC_RICC2.py':
-    s+='select_directly\n'
-  if Interfaces[INFOS['interface']]['script']=='SHARC_MOLPRO.py':
-    s+='select_directly\n'
-  if Interfaces[INFOS['interface']]['script']=='SHARC_MOLCAS.py':
-    s+='select_directly\n'
-  if Interfaces[INFOS['interface']]['script']=='SHARC_ORCA.py':
-    s+='select_directly\n'
+#  if Interfaces[INFOS['interface']]['script']=='SHARC_COLUMBUS.py':
+#    s+='select_directly\n'
+#  if Interfaces[INFOS['interface']]['script']=='SHARC_ADF.py':
+#    s+='select_directly\n'
+#  if Interfaces[INFOS['interface']]['script']=='SHARC_GAUSSIAN.py':
+#    s+='select_directly\n'
+#  if Interfaces[INFOS['interface']]['script']=='SHARC_RICC2.py':
+#    s+='select_directly\n'
+#  if Interfaces[INFOS['interface']]['script']=='SHARC_MOLPRO.py':
+#    s+='select_directly\n'
+#  if Interfaces[INFOS['interface']]['script']=='SHARC_MOLCAS.py':
+#    s+='select_directly\n'
+#  if Interfaces[INFOS['interface']]['script']=='SHARC_ORCA.py':
+#    s+='select_directly\n'
+  # TODO: maybe could be deactivated in the future for some interfaces
+  s+='select_directly\n'
+
   if not INFOS['soc']:
     s+='nospinorbit\n'
 

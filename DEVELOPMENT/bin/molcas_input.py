@@ -4,7 +4,7 @@
 #
 #    SHARC Program Suite
 #
-#    Copyright (c) 2018 University of Vienna
+#    Copyright (c) 2019 University of Vienna
 #
 #    This file is part of SHARC.
 #
@@ -73,8 +73,8 @@ U_TO_AMU = 1.            # MOLCAS works with g/mol
 BOHR_TO_ANG=0.529177211
 PI = math.pi
 
-version='2.0'
-versiondate=datetime.date(2018,2,1)
+version='2.1'
+versiondate=datetime.date(2019,9,1)
 
 
 NUMBERS = {'H':1, 'He':2,
@@ -221,23 +221,31 @@ MASSES = {'H' :   1.007825 * U_TO_AMU,
 }
 
 
-IToMult={1: 'Singlet',
-         2: 'Doublet',
-         3: 'Triplet',
-         4: 'Quartet',
-         5: 'Quintet',
-         6: 'Sextet',
-         7: 'Septet',
-         8: 'Octet',
-         'Singlet': 1,
-         'Doublet': 2,
-         'Triplet': 3,
-         'Quartet': 4,
-         'Quintet': 5,
-         'Sextet': 6,
-         'Septet': 7,
-         'Octet': 8
-}
+IToMult={
+                 1: 'Singlet', 
+                 2: 'Doublet', 
+                 3: 'Triplet', 
+                 4: 'Quartet', 
+                 5: 'Quintet', 
+                 6: 'Sextet', 
+                 7: 'Septet', 
+                 8: 'Octet', 
+                 9: '9-et', 
+                 10: '10-et', 
+                 11: '11-et', 
+                 12: '12-et', 
+                 13: '13-et', 
+                 14: '14-et', 
+                 15: '15-et', 
+                 'Singlet': 1, 
+                 'Doublet': 2, 
+                 'Triplet': 3, 
+                 'Quartet': 4, 
+                 'Quintet': 5, 
+                 'Sextet': 6, 
+                 'Septet': 7, 
+                 'Octet': 8
+                 }
 
 
 # ======================================================================================================================
