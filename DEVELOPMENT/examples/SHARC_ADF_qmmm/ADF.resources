@@ -1,21 +1,33 @@
-    ## This is a commented version of the ORCA.resources file 
+    ## This is a commented version of the ADF.resources file 
+    ## for version 2.0 of the SHARC_ADF.py interface.
 
-    ## ======== ORCA setup ============
+    ## ======== ADF setup ============
 
-    ## 
-orcadir /usr/license/orca41/orca41/
+    ## Sets the $ADFHOME variable.
+    ## Shell user (~) and variables ($) can be used.
+adfhome $ADFHOME
 
-tinker /user/lea/master/tinker-6.3.3/
+    ## Sets the path to the SCM license.
+    ## Shell user (~) and variables ($) can be used.
+scmlicense $SCMLICENSE
+
+    ## Sets the ADF-own scratch directory (usually defined during ADF installation).
+    ## Should be empty/not existing and must not be identical to scratchdir (see below).
+    ## Shell user (~) and variables ($) can be used.
+#scm_tmpdir $TMPDIR/2/
+
+
 
 
     ## ======== SCRATCH and SAVE ============
 
     ## Sets the path to the scratch directory employed by the interface.
-    ## There, all ORCA and overlap calculations will be launched.
+    ## There, all ADF and overlap calculations will be launched.
+    ## ADF itself employs the scm_tmpdir (see above).
 scratchdir $TMPDIR
 
     ## Sets the path to the save directory.
-    ## There, all chk, fchk, rwf, determinant, MO coefficient, and AO overlap files are stored between time steps.
+    ## There, all TAPE21, determinant, MO coefficient, and AO overlap files are stored between time steps.
     ## Hence, this should be a persistent directory.
     ## Note that the savedir from QM.in takes precedence over the one here.
 savedir ./SAVEDIR
@@ -39,11 +51,43 @@ schedule_scaling 0.5
     ## Time delay in seconds between the launch of parallel ADF jobs.
 delay 0.
 
-    ## Memory for ORCA and the wfoverlaps code .
+    ## Memory for the wfoverlaps code (as ADF memory cannot be controlled).
 memory 1000
 
 
 
+
+    ## ======== QM/MM ============
+
+    ## This keyword sets the path to the connection table file.
+    ##     Example file content:
+    ##     1       SO      QM      2
+    ##     2       C       QM      1       3       4
+    ##     3       HP      QM      2
+    ##     4       CT      QM      2       5       6       7
+    ##     5       H1      QM      4
+    ##     6       H1      QM      4
+    ##     7       CT      LI      4       8       9       10
+    ##     8       HC      MM      7
+    ##     9       HC      MM      7
+    ##     10      HC      MM      7
+    ##     11      OW      MM      12      13
+    ##     12      HW      MM      11
+    ##     13      HW      MM      11
+    ##     14      OW      MM      15      16
+    ##     15      HW      MM      14
+    ##     16      HW      MM      14
+    ##     subend
+    ##
+    ##     link_bonds
+    ##     7 - 4 1.4 H H1
+    ## Note the usage of the "subend" and "link_bonds" lines.
+    ## The link_bonds section is only needed if "LI" atoms are in the connection table.
+qmmm_table    ADF.qmmm.table
+
+    ## This keyword sets the path to the force field file.
+    ## The file needs to be in Amber95 format, see also the ADF documentation.
+qmmm_ff_file  ADF.qmmm.ff
 
 
 
@@ -56,16 +100,16 @@ wfoverlap $SHARC/wfoverlap_ascii.x
 
     ## Truncation threshold for the determinant files.
     ## Note that for non-TDA hybrid TD-DFT, the response vector norm can be larger than 1.0, so give correspondingly larger values.
-wfthres 2.0
+wfthres 0.99
 
     ## Number of frozen core orbitals for overlap and Dyson norm calculations.
     ## All ADF calculations are done with all-electron settings.
     ## A value of -1 will set the number of frozen core orbitals automatically (to ADF's small core convention).
-numfrozcore 0
+numfrozcore 5
 
     ## Number of doubly occupied orbitals for Dyson calculations.
     ## These orbitals are counted from the first nonfrozen orbital.
-numocc 0
+numocc 8
 
     ## Do not store determinant and MO coefficient files in savedir.
     ## Must not be used for dynamics runs.
@@ -77,13 +121,11 @@ numocc 0
     ## ======== TheoDORE ============
 
     ## Path to the TheoDORE installation.
-theodir /user/mai/SHARC/TheoDORE/TheoDORE_1.7.2/
-#theodir /user/plasserf/programs/TheoDORE/GIT/
-
+theodir $THEODORE
 
     ## This keyword defines the properties to be computed by TheoDORE.
     ## The properties can either be given as space-separated items (the interface will reformat this for proper TheoDORE input:
-theodore_prop Om POSi POSf PR CT PRNTO Z_HE RMSeh
+theodore_prop Om POSi POSf PR CT PRNTO S_HE Z_HE RMSeh
         ## Or as Python-style list of strings (e.g., from dens_ana.in):
 #theodore_prop ['Om', 'POSi', 'POSf', 'PR', 'CT', 'MC', 'LC', 'MLCT', 'LMCT', 'LLCT', 'PRNTO', 'Z_HE', 'S_HE', 'RMSeh']
 
@@ -91,7 +133,7 @@ theodore_prop Om POSi POSf PR CT PRNTO Z_HE RMSeh
     ## The fragments can be either specified one by one on separate lines, 
 theodore_fragment 1
 theodore_fragment 2
-theodore_fragment 3
+theodore_fragment 3 4
     ## or as Python-style list of integers (e.g., from dens_ana.in):
 #theodore_fragment [[1,2,3],[4,5,6,7,8,9,10]]
     ## It is strongly advised to not mix these two input styles.
@@ -114,12 +156,7 @@ debug
 #no_print
 
 
-    ## saves the ORCA log file, gbw and cis files within the SAVEDIR
-save_stuff
 
-
-qmmm_table    ORCA.qmmm.table
-qmmm_ff_file  /usr/license/molcas/molcas80/tinker/params/oplsaa.prm
 
 
 # kate: syntax python

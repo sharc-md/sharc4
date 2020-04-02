@@ -52,6 +52,10 @@ charge 0 +1 0 +1 0
 #TODO: solvent? with gradients?
 
 
+    ## uncommenting this keyword activates %rel pictureChange
+picture_change
+
+
 
     ## ======== ACCURACY and CONVERGENCE ============
 
@@ -61,12 +65,17 @@ grid 3     # Options: 1-7
 gridx 3
 gridxc 3
 
+
+    ## used to set the intacc keyword in the %method block
+    ## use a negative value to let ORCA decide
+intacc -1.
+
     ## This keyword sets the density fitting scheme.
     ## this is off by default and can be activated with:
 ri rijcosx
 
-
-
+    ## maximum SCF cycles
+maxiter 700
 
 
 

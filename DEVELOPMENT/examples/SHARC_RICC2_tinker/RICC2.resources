@@ -3,7 +3,10 @@
     ## ======== ORCA setup ============
 
     ## 
-orcadir /usr/license/orca41/orca41/
+    ## Paths to TURBOMOLE and ORCA
+turbodir /usr/license/turbomole/7.0/TURBOMOLE/
+
+orcadir  /usr/license/orca/latest/
 
 tinker /user/lea/master/tinker-6.3.3/
 
@@ -56,7 +59,7 @@ wfoverlap $SHARC/wfoverlap_ascii.x
 
     ## Truncation threshold for the determinant files.
     ## Note that for non-TDA hybrid TD-DFT, the response vector norm can be larger than 1.0, so give correspondingly larger values.
-wfthres 2.0
+wfthres 0.999
 
     ## Number of frozen core orbitals for overlap and Dyson norm calculations.
     ## All ADF calculations are done with all-electron settings.
@@ -114,11 +117,10 @@ debug
 #no_print
 
 
-    ## saves the ORCA log file, gbw and cis files within the SAVEDIR
-save_stuff
 
 
-qmmm_table    ORCA.qmmm.table
+
+qmmm_table    RICC2.qmmm.table
 qmmm_ff_file  /usr/license/molcas/molcas80/tinker/params/oplsaa.prm
 
 
