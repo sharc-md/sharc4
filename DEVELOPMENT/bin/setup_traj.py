@@ -4236,7 +4236,7 @@ def writeSHARCinput(INFOS,initobject,iconddir,istate):
     s+='force_hop_to_gs %f\n' % (INFOS['force_hops_dE'])
   if INFOS['scaling']:
     s+='scaling %f\n' % (INFOS['scaling'])
-  if INFOS['damping']:
+  if INFOS['damping'] is not False:
     s+='dampeddyn %f\n' % (INFOS['damping'])
   if INFOS['phases_from_interface']:
     s+='phases_from_interface\n'

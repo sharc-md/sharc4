@@ -385,9 +385,9 @@ excitation energies and oscillator strengths.
         #dmx=dmy=dmz=0.
         #fosc.append(0.)
       if ezero!=0.0 or options.E:
-        de=(e-ezero)*27.21
+        de=(e-ezero)*HARTREE_TO_EV
       else:
-        de=(e-energies[0])*27.21
+        de=(e-energies[0])*HARTREE_TO_EV
       string='%5i %10s%02i %16.10f %12.8f %12.8f   %6.4f' % (istate+1,IToMult[ist[0]][0],ist[1]-(ist[0]<=2),e,de,fosc[-1],spin)
       print string
   else:
@@ -409,9 +409,9 @@ excitation energies and oscillator strengths.
         #dmx=dmy=dmz=0.
         #fosc.append(0.)
       if ezero!=0.0 or options.E:
-        de=(e-ezero)*27.21
+        de=(e-ezero)*HARTREE_TO_EV
       else:
-        de=(e-energies[initial])*27.21
+        de=(e-energies[initial])*HARTREE_TO_EV
       string='%5i %10s%02i %16.10f %12.8f %12.8f   %6.4f' % (istate+1,IToMult[m][0],s-(m<=2),e,de,fosc[-1],m)
       if istate==initial:
         string+=' #initial state'
