@@ -37,6 +37,9 @@ USE_COMPILER := gnu
 #mkl,gnu
 USE_LIBS := gnu
 
+#Static libraries
+COMP_STATIC := false
+
 #needed for PYSHARC
 ANACONDA := 
 # =======================================
@@ -87,12 +90,24 @@ endif
 
 
 # Note: you probably need to adjust the search path if you haven't set $(MKLROOT) 
+ifeq ($(COMP_STATIC),true)
+ifeq ($(USE_LIBS), mkl)
+ifeq ($(USE_COMPILER), gnu)
+  LD=  -Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_gf_lp64.a ${MKLROOT}/lib/intel64/libmkl_sequential.a ${MKLROOT}/lib/intel64/libmkl_core.a -Wl,--end-group -lpthread -lm -ldl
+else ifeq ($(USE_COMPILER), intel)
+#  LD= -L$(MKLROOT)/lib/intel64 -lmkl_rt -lpthread -lm -lgfortran -static $(NETCDF_LIB)
+  LD=  -Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_intel_lp64.a ${MKLROOT}/lib/intel64/libmkl_sequential.a ${MKLROOT}/lib/intel64/libmkl_core.a -Wl,--end-group -lpthread -lm -ldl
+endif
+else ifeq ($(USE_LIBS), gnu)
+  LD= -llapack -lfftw3 -lblas -lgfortran  -static $(NETCDF_LIB)
+endif
+else 
 ifeq ($(USE_LIBS), mkl)
   LD= -L$(MKLROOT)/lib/intel64 -lmkl_rt -lpthread -lm -lgfortran $(NETCDF_LIB)
-#  LD= -L$(MKLROOT) -lmkl_rt -lpthread -lm -lgfortran $(NETCDF_LIB)
 #   LD= -L$(MKLROOT)/lib/intel64 -lmkl_intel_lp64 -lmkl_core -lmkl_sequential -lpthread -lm -lgfortran $(NETCDF_LIB)
 else ifeq ($(USE_LIBS), gnu)
-  LD= -lblas -llapack -lfftw3 -lgfortran $(NETCDF_LIB)
+  LD= -llapack -lfftw3 -lblas -lgfortran   $(NETCDF_LIB)
+endif
 endif
 
 
