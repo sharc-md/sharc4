@@ -48,7 +48,8 @@ ANACONDA :=
 
 # path
 SHARC_SOURCE := $(shell pwd)
-
+SHARCDIR := $(shell cd ..; pwd)
+#MKLROOT := ${ANACONDA}/lib
 
 
 # -------------------------------------- conditionals ---------------------------------------
@@ -88,6 +89,7 @@ endif
 # Note: you probably need to adjust the search path if you haven't set $(MKLROOT) 
 ifeq ($(USE_LIBS), mkl)
   LD= -L$(MKLROOT)/lib/intel64 -lmkl_rt -lpthread -lm -lgfortran $(NETCDF_LIB)
+#  LD= -L$(MKLROOT) -lmkl_rt -lpthread -lm -lgfortran $(NETCDF_LIB)
 #   LD= -L$(MKLROOT)/lib/intel64 -lmkl_intel_lp64 -lmkl_core -lmkl_sequential -lpthread -lm -lgfortran $(NETCDF_LIB)
 else ifeq ($(USE_LIBS), gnu)
   LD= -lblas -llapack -lfftw3 -lgfortran $(NETCDF_LIB)
@@ -231,26 +233,26 @@ install: all
 # write sharcvars.sh file
 ifeq ($(USE_PYSHARC),true)
 sharcvars:
-	@echo 'export SHARC=$(SHARC_SOURCE)/../bin' > sharcvars.sh
-	@echo 'export PYSHARC=$(SHARC_SOURCE)/../pysharc' >> sharcvars.sh
-	@echo 'export SHARCLIB=$(SHARC_SOURCE)/../lib' >> sharcvars.sh
+	@echo 'export SHARC=$(SHARCDIR)/bin' > sharcvars.sh
+	@echo 'export PYSHARC=$(SHARCDIR)/pysharc' >> sharcvars.sh
+	@echo 'export SHARCLIB=$(SHARCDIR)/lib' >> sharcvars.sh
 	@echo 'export ANACONDA=$(ANACONDA)' >> sharcvars.sh
 	@echo 'export PYTHONPATH=$$SHARCLIB:$$PYSHARC:$$PYTHONPATH' >> sharcvars.sh
 	@echo 'export LD_LIBRARY_PATH=$$SHARCLIB:$$ANACONDA/lib:$$LD_LIBRARY_PATH' >> sharcvars.sh
-	@echo 'setenv SHARC=$(SHARC_SOURCE)/../bin' > sharcvars.csh
-	@echo 'setenv PYSHARC=$(SHARC_SOURCE)/../pysharc' >> sharcvars.csh
-	@echo 'setenv SHARCLIB=$(SHARC_SOURCE)/../lib' >> sharcvars.csh
+	@echo 'setenv SHARC=$(SHARCDIR)/bin' > sharcvars.csh
+	@echo 'setenv PYSHARC=$(SHARCDIR)/pysharc' >> sharcvars.csh
+	@echo 'setenv SHARCLIB=$(SHARCDIR)/lib' >> sharcvars.csh
 	@echo 'setenv ANACONDA=$(ANACONDA)' >> sharcvars.csh
 	@echo 'setenv PYTHONPATH=$$SHARCLIB:$$PYSHARC:$$PYTHONPATH' >> sharcvars.csh
 	@echo 'setenv LD_LIBRARY_PATH=$$SHARCLIB:$$ANACONDA/lib:$$LD_LIBRARY_PATH' >> sharcvars.csh
 else
 sharcvars:
-	@echo 'export SHARC=$(SHARC_SOURCE)/../bin' > sharcvars.sh
-	@echo 'export SHARCLIB=$(SHARC_SOURCE)/../lib' >> sharcvars.sh
+	@echo 'export SHARC=$(SHARCDIR)/bin' > sharcvars.sh
+	@echo 'export SHARCLIB=$(SHARCDIR)/lib' >> sharcvars.sh
 	@echo 'export PYTHONPATH=$$SHARCLIB:$$PYTHONPATH' >> sharcvars.sh
 	@echo 'export LD_LIBRARY_PATH=$$SHARCLIB:$$LD_LIBRARY_PATH' >> sharcvars.sh
-	@echo 'setenv SHARC=$(SHARC_SOURCE)/../bin' > sharcvars.csh
-	@echo 'setenv SHARCLIB=$(SHARC_SOURCE)/../lib' >> sharcvars.csh
+	@echo 'setenv SHARC=$(SHARCDIR)/bin' > sharcvars.csh
+	@echo 'setenv SHARCLIB=$(SHARCDIR)/lib' >> sharcvars.csh
 	@echo 'setenv PYTHONPATH=$$SHARCLIB:$$PYTHONPATH' >> sharcvars.csh
 	@echo 'setenv LD_LIBRARY_PATH=$$SHARCLIB:$$LD_LIBRARY_PATH' >> sharcvars.csh
 endif
