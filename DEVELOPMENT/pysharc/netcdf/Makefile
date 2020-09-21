@@ -30,7 +30,7 @@
 # -------------------------------------- configure ---------------------------------------
 
 # =======================================
-ANACONDA := /user/maximilian/anaconda2/
+ANACONDA := ${HOME}/anaconda3
 # =======================================
 
 
@@ -38,7 +38,7 @@ INC= -I.  -I$(ANACONDA)/include
 OPT= -O3 -Wall
 SHARED= -fPIC
 
-CC=$(ANACONDA)/bin/gcc
+#CC=$(ANACONDA)/bin/gcc
 
 
 OBJ_LIB=nc_basic.o nc_sharc.o
@@ -50,10 +50,12 @@ library=libsharcnc.so
 all: lib
 
 lib: $(OBJ_LIB)
+	[ -d ../lib ] || mkdir ../lib
 	ar -cvq ../lib/$(library) $(OBJ_LIB)
 
 clean:
 	rm ../lib/$(library)
+	rm *.o
 
 %.o: %.c
 	$(CC) $(SHARED) $(INC) $(OPT) -c $<
