@@ -474,13 +474,13 @@ module qm
     use output
     implicit none
     type(trajectory_type) :: traj
-    integer(KIND=2):: status
+    integer(KIND=4):: status        ! TODO: check integer/integer(KIND=2)
     character(255) :: command
-    integer(KIND=2) :: system
+    integer(KIND=4) :: system       ! TODO: check integer/integer(KIND=2)
 
     call flush(u_log)
     command='sh QM/runQM.sh'
-    status=system(command)/2**8
+    status=system(command)          ! TODO: /2**8 factor?
 
     if (status/=0) then
       write(0,*) 
