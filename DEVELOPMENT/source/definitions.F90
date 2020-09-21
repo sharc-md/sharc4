@@ -280,6 +280,12 @@ type ctrl_type
 !   real*8 :: min_dynamic_substep=1.d-5             ! In dynamic substepping, the shortest substep allowed                                        in atomic time units
 !   real*8 :: diagonalize_degeneracy_diff=1.d-9     ! Energy difference threshold for treating states as degenerate                                in hartree
 
+  integer :: do_constraints                    !< 0=none, 1=rattle
+  real*8 :: constraints_tol                    !< tolerance for RATTLE
+  integer :: n_constraints                     !< number of constraints
+  integer, allocatable :: constraints_ca(:,:)  !< atom pairs, first index is constraint, second is atom (1 or 2)
+  real*8, allocatable :: constraints_dist_c(:) !< squared distance for each constraint pair
+
   ! only array in ctrl
   real*8 :: laser_bandwidth                       !< for detecting induced hops (in a.u.)
   integer :: nlasers
@@ -326,6 +332,7 @@ integer, parameter :: u_i_veloc=14           !< initial velocity
 integer, parameter :: u_i_coeff=15           !< initial coefficients
 integer, parameter :: u_i_laser=16           !< numerical laser field
 integer, parameter :: u_i_atommask=17        !< which atoms are active for rescaling/decoherence/...
+integer, parameter :: u_i_rattle=18          !< atoms for constraints
 
 integer, parameter :: u_qm_QMin=41           !< here SHARC writes information for the QM interface (like geometry, number of states, what kind of data is requested)
 integer, parameter :: u_qm_QMout=42          !< here SHARC retrieves the results of the QM run (Hamiltonian, gradients, couplings, etc.)
