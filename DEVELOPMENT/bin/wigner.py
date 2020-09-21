@@ -544,7 +544,7 @@ end                     finish input for non-default masses
     if 'show' in line:
       s='-----------------------\nAtom               Mass\n'
       for i in MASS_LIST:
-        s+='% 4i %18.12f\n' % (i,MASS_LIST[i])
+        s+='% 4i %18.12f\n' % (i,MASS_LIST[i]/U_TO_AMU)
       s+='-----------------------'
       print s
       continue
@@ -1137,6 +1137,8 @@ weighted normal coordinates are then returned'''
     except UnboundLocalError:
       print "The normal mode analysis was unable to diagonalize the normal modes."
       print "Input is therefore neither in cartesian, gaussian-type, Columbus-type, or mass weighted coordinates."
+      if 'MASS_LIST' in globals():
+        print "Hint: When using non-default masses, the frequency calculation also has do be carried out with the same non-default masses. Otherwise, wigner.py is unable to identify the correct normal mode convention."
       exit(1)
     if len(possibleflags) != 1:
       string = '\n'
