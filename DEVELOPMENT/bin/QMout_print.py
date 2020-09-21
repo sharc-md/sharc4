@@ -293,7 +293,7 @@ excitation energies and oscillator strengths.
   parser.add_option('-s', dest='s', type=str, nargs=1, default='', help="Number of states (in quotes separated by whitespace)")
   parser.add_option('-n', dest='n', type=int, nargs=1, default=1, help="Number of atoms")
   parser.add_option('-D', dest='D', action='store_true',help="Diagonalize")
-  parser.add_option('-S', dest='S', type=int, nargs=1, default=0, help="Initial state")
+  parser.add_option('-S', dest='S', type=int, nargs=1, default=1, help="Initial state (Lowest=1)")
   parser.add_option('-t', dest='t', type=int, nargs=1, default=0, help="0 (default): for QM.out containing h,dm; 1: for QM.out containing only h")
 
   #parser.add_option('-n', dest='n', type=int, nargs=1, default=3, help="Number of geometries to be generated (integer, default=3)")
@@ -305,7 +305,7 @@ excitation energies and oscillator strengths.
   (options, args) = parser.parse_args()
   ezero=options.e
   qminfile=options.i
-  initial=options.S
+  initial=options.S-1
   target=options.t
   qmoutfile=args[0]
 
@@ -341,7 +341,7 @@ excitation energies and oscillator strengths.
   else:
     print("Target not defined.")
     exit()
-  print(qmoutfile,QMin['nmstates'],QMin['natom'],target_list)  
+  sys.stderr.write('%s  %i  %i  %s\n' % (qmoutfile,QMin['nmstates'],QMin['natom'],target_list) ) 
   QMout=read_QMout(qmoutfile,QMin['nmstates'],QMin['natom'],target_list)
 
   sys.stderr.write( 'Number of states: %s\n' % (states) )
