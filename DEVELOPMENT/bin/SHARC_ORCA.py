@@ -1937,7 +1937,10 @@ def readQMin(QMinfilename):
 
     # setup environment for Orca
     QMin['orcadir']=get_sh2Orca_environ(sh2Orca,'orcadir')
-    os.environ['LD_LIBRARY_PATH']='%s:' % (QMin['orcadir'])+os.environ['LD_LIBRARY_PATH']
+    if 'LD_LIBRARY_PATH' in os.environ:
+      os.environ['LD_LIBRARY_PATH']='%s:' % (QMin['orcadir'])+os.environ['LD_LIBRARY_PATH']
+    else:
+      os.environ['LD_LIBRARY_PATH']='%s' % (QMin['orcadir'])
     QMin['OrcaVersion']=getOrcaVersion(QMin['orcadir'], )
     print 'Detected ORCA version %s' % (str(QMin['OrcaVersion']))
     os.environ['PATH']='%s:' % (QMin['orcadir']) +os.environ['PATH']
@@ -3314,6 +3317,8 @@ def get_MO_from_gbw(filename,QMin):
     nblock=6
     npre=11
     ndigits=16
+    #default_pos=[14,30,46,62,78,94]
+    default_pos=[ npre+3+ndigits*i for i in range(nblock)] # does not include shift
 
     # get coefficients for alpha
     NMO_A=NAO
@@ -3325,7 +3330,16 @@ def get_MO_from_gbw(filename,QMin):
         shift=max(0,len(str(iao))-3)
         jline=iline + jblock*(NAO+1) + iao
         line=data[jline]
-        val=float( line[npre+shift+jcol*ndigits : npre+shift+ndigits+jcol*ndigits] )
+        # fix too long floats in strings
+        dots=[idx for idx, item in enumerate(line.lower()) if '.' in item]
+        diff=[dots[i]-default_pos[i]-shift for i in range(len(dots))]
+        if jcol==0:
+          pre=0
+        else:
+          pre=diff[jcol-1]
+        post=diff[jcol]
+        # fixed
+        val=float( line[npre+shift+jcol*ndigits+pre : npre+shift+ndigits+jcol*ndigits+post] )
         MO_A[imo][iao]=val
     iline+=(NAO/nblock+1)*(NAO+1)
 
@@ -3340,7 +3354,16 @@ def get_MO_from_gbw(filename,QMin):
           shift=max(0,len(str(iao))-3)
           jline=iline + jblock*(NAO+1) + iao
           line=data[jline]
-          val=float( line[npre+shift+jcol*ndigits : npre+shift+ndigits+jcol*ndigits] )
+          # fix too long floats in strings
+          dots=[idx for idx, item in enumerate(line.lower()) if '.' in item]
+          diff=[dots[i]-default_pos[i]-shift for i in range(len(dots))]
+          if jcol==0:
+            pre=0
+          else:
+            pre=diff[jcol-1]
+          post=diff[jcol]
+          # fixed
+          val=float( line[npre+shift+jcol*ndigits+pre : npre+shift+ndigits+jcol*ndigits+post] )
           MO_B[imo][iao]=val
 
 
