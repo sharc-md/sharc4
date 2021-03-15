@@ -727,14 +727,17 @@ subroutine EDC_step(traj,ctrl)
   use definitions
   use matrix
   use decoherence_afssh
+  use nuclear, only: Calculate_ekin_masked
   implicit none
   type(trajectory_type) :: traj
   type(ctrl_type) :: ctrl
   integer :: istate
-  real*8 :: tau0, tau, sumc
+  real*8 :: tau0, tau, sumc, Ekin_masked
   complex*16 :: c(ctrl%nstates)
 
-  tau0=1.d0 + ctrl%decoherence_alpha/traj%Ekin
+!  tau0=1.d0 + ctrl%decoherence_alpha/traj%Ekin
+  Ekin_masked=Calculate_ekin_masked(ctrl%natom, traj%veloc_ad, traj%mass_a, ctrl%atommask_a)
+  tau0=1.d0 + ctrl%decoherence_alpha/Ekin_masked
 
   sumc=0.d0
   do istate=1,ctrl%nstates
