@@ -237,6 +237,7 @@ type ctrl_type
 
 ! methods and switches
   logical :: restart                        !< restart yes or no
+  logical :: restart_rerun_last_qm_step     !< if true, then qm.f90 will write "restart" instruction
   integer :: staterep                       !< 0=initial state is given in diag representation, 1=in MCH representation
   integer :: initcoeff                      !< 0=initial coefficients are diag, 1=initial coefficients are MCH, 2=auto diag, 3=auto MCH
   integer :: laser                          !< 0=none, 1=internal, 2=external

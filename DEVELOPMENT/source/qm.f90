@@ -547,8 +547,9 @@ module qm
     if ((traj%step==0).and..not.(ctrl%track_phase_at_zero==1)) then
       write(u_qm_qmin,'(A)') 'init'
     endif
-    if (ctrl%restart) then
+    if (ctrl%restart_rerun_last_qm_step) then
       write(u_qm_qmin,'(A)') 'restart'
+      ctrl%restart_rerun_last_qm_step=.false.
     endif
     if (ctrl%calc_soc==1) then
       write(u_qm_qmin,'(A)') 'SOC'

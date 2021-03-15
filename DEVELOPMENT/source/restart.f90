@@ -97,6 +97,7 @@ module restart
     write(u,*) (ctrl%output_steps_stride(istate),istate=1,3)
     write(u,*) (ctrl%output_steps_limits(istate),istate=1,3)
     write(u,*) ctrl%restart
+    write(u,*) ctrl%restart_rerun_last_qm_step
     write(u,*) ctrl%staterep
     write(u,*) ctrl%initcoeff
     write(u,*) ctrl%laser
@@ -121,7 +122,7 @@ module restart
     write(u,*) ctrl%track_phase
     write(u,*) ctrl%track_phase_at_zero
     write(u,*) ctrl%hopping_procedure
-    write(u,*) ctrl%output_format
+    write(u,*) ctrl%output_format, '! output_format'
 
     ! constraints
     write(u,*) ctrl%do_constraints
@@ -392,6 +393,7 @@ module restart
     read(u_ctrl,*) (ctrl%output_steps_stride(istate),istate=1,3)
     read(u_ctrl,*) (ctrl%output_steps_limits(istate),istate=1,3)
     read(u_ctrl,*) ctrl%restart
+    read(u_ctrl,*) ctrl%restart_rerun_last_qm_step
     read(u_ctrl,*) ctrl%staterep
     read(u_ctrl,*) ctrl%initcoeff
     read(u_ctrl,*) ctrl%laser

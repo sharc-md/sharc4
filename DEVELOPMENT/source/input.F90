@@ -119,6 +119,7 @@ module input
 
     ! default is no restart
     ctrl%restart=.false.
+    ctrl%restart_rerun_last_qm_step=.false.
     ! look for restart keyword
     line=get_value_from_key('restart',io)
     if (io==0) then
@@ -257,6 +258,22 @@ module input
             &ctrl%dtstep/ctrl%nsubsteps*au2fs, 'fs step.'
           endif
           write(u_log,*)
+        endif
+      endif
+      line=get_value_from_key('restart_rerun_last_qm_step',io)
+      if (io==0) then
+        ctrl%restart_rerun_last_qm_step=.true.
+        write(u_log,'(a)') 'Assuming that restart/ directory corresponds to upcoming time step)'
+        write(u_log,'(a)') '(e.g., after a crash or job kill).'
+      else
+        line=get_value_from_key('restart_goto_new_qm_step',io)
+        if (io==0) then
+          ctrl%restart_rerun_last_qm_step=.false.
+          write(u_log,'(a)') 'Assuming that restart/ directory corresponds to time step in restart files'
+          write(u_log,'(a)') '(e.g., after using STOP file, killafter mechanism, or reaching time step limit)time step limit).'
+        else
+          write(0,*) 'Please add "restart_rerun_last_qm_step" or "restart_goto_new_qm_step" keyword!'
+          stop
         endif
       endif
 
