@@ -29,9 +29,9 @@
 # 
 # usage 
 import sys
-if sys.version_info[0]!=2:
-  sys.stdout.write('*'*80+'\nThe SHARC suite is not compatible with Python 3! \nUse Python 2 (>2.6)!\n'+'*'*80+'\n')
-  sys.exit(1)
+# if sys.version_info[0]!=2:
+#   sys.stdout.write('*'*80+'\nThe SHARC suite is not compatible with Python 3! \nUse Python 2 (>2.6)!\n'+'*'*80+'\n')
+#   sys.exit(1)
 
 import copy
 import math
@@ -89,7 +89,7 @@ versiondate=datetime.date(2019,8,14)
 
 
 
-INTERFACES=set(['MOLPRO','MOLCAS','COLUMBUS','Analytical','ADF','TURBOMOLE','GAUSSIAN','LVC','scripts','BAGEL','ORCA'])
+INTERFACES=set(['MOLPRO','MOLCAS','COLUMBUS','Analytical','ADF','AMS','TURBOMOLE','GAUSSIAN','LVC','scripts','BAGEL','ORCA'])
 OTHERENVS=set(['THEODORE','orca','TINKER','molcas','PYQUANTE'])
 
 INTERFACES={'MOLPRO':'MOLPRO',
@@ -97,6 +97,7 @@ INTERFACES={'MOLPRO':'MOLPRO',
             'COLUMBUS':'COLUMBUS',
             'Analytical':'Analytical',
             'ADF':'ADF',
+            'AMS':'AMS',
             'TURBOMOLE':'RICC2',
             'GAUSSIAN':'GAUSSIAN',
             'LVC':'LVC',
@@ -478,7 +479,7 @@ def compare_trajectories(INFOS,index):
       try:
         flag=int(a.split()[1])
       except ValueError:
-        pass
+        flag=-1
       continue
     if flag==-1:
       try:
@@ -492,12 +493,13 @@ def compare_trajectories(INFOS,index):
 
     for j,ja in enumerate(a1):
       jb=b1[j]
-      d=abs(ja-jb)
+
+      d=abs(abs(ja)-abs(jb))
       if d>compare[flag][0]:
         count+=1
         sys.stdout.write('*** Value deviation on line %i: %18.12f vs %18.12f\n' % (i, ja,jb))
       if compare[flag][1]:
-        if not sign(ja)==sign(jb):
+        if not sign(ja)==sign(jb) and abs(ja) > 1e-8:
           count+=1
           sys.stdout.write('***  Sign deviation on line %i: %18.12f vs %18.12f\n' % (i, ja,jb))
   return count
