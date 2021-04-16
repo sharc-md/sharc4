@@ -467,6 +467,7 @@ def compare_trajectories(INFOS,index):
   flag=-1
 
   for i in range(nlines):
+    #flag=-1
     try:
       a=outtext[i]
       b=reftext[i]
@@ -476,9 +477,10 @@ def compare_trajectories(INFOS,index):
       if not b[0]=='!':
         return -1
       try:
+        #print a.split()
         flag=int(a.split()[1])
       except ValueError:
-        pass
+        flag=-1
       continue
     if flag==-1:
       try:
@@ -492,12 +494,13 @@ def compare_trajectories(INFOS,index):
 
     for j,ja in enumerate(a1):
       jb=b1[j]
-      d=abs(ja-jb)
+      #print i,flag,compare[flag][0],compare[flag][1],j,ja,jb
+      d=abs(abs(ja)-abs(jb))
       if d>compare[flag][0]:
         count+=1
         sys.stdout.write('*** Value deviation on line %i: %18.12f vs %18.12f\n' % (i, ja,jb))
       if compare[flag][1]:
-        if not sign(ja)==sign(jb):
+        if not sign(ja)==sign(jb) and abs(ja)>1e-8:
           count+=1
           sys.stdout.write('***  Sign deviation on line %i: %18.12f vs %18.12f\n' % (i, ja,jb))
   return count
