@@ -449,6 +449,9 @@ subroutine surface_hopping(traj,ctrl)
       traj%hopprob_s=0.
       traj%hopprob_s(1)=1.
       traj%kind_of_jump=4
+      ! set also populations
+      traj%coeff_diag_s=dcmplx(0.d0,0.d0)
+      traj%coeff_diag_s(1)=dcmplx(1.d0,0.d0)
     endif
     if (traj%state_diag==1) then
       traj%hopprob_s=0.
