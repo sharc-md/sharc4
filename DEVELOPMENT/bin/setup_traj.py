@@ -1329,7 +1329,8 @@ from the initconds.excited files as provided by excite.py.
   if (INFOS['decoherence'][0]=='edc') or (INFOS['ekincorrect']==2) or (INFOS['reflect']==2):
     print '\nDo you want to use an atom mask for velocity rescaling or decoherence?'
     if question('Atom masking?',bool,False):
-      print '\nPlease enter all atom indices (start counting at 1) of the atoms which should be masked. \nRemember that you can also enter ranges (e.g., "-1~-3  5  11~21").'
+      print '\nPlease enter all atom indices (start counting at 1) of the atoms which should considered for velocity rescaling and dechoerence. \nRemember that you can also enter ranges (e.g., "-1~-3  5  11~21").'
+#      print '\nPlease enter all atom indices (start counting at 1) of the atoms which should be masked. \nRemember that you can also enter ranges (e.g., "-1~-3  5  11~21").'
       arr=question('Masked atoms:',int,ranges=True)
       for i in arr:
         if 1<=i<=INFOS['natom']:
@@ -1697,6 +1698,7 @@ ncpu %i
   runname=iconddir+'/QM/runQM.sh'
   runscript=open(runname,'w')
   s='''cd QM
+if [ -f QM.out ]; then rm QM.out; fi
 $SHARC/%s QM.in >> QM.log 2>> QM.err
 err=$?
 
