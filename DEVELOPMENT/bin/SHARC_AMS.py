@@ -57,9 +57,6 @@ import ast
 # =========================================================0
 # compatibility stuff
 
-if sys.version_info[0] != 3:
-    print('This is a script for Python 3.5 or higher!')
-    sys.exit(0)
 if sys.version_info[1] < 5:
     print('This is a script for Python 3.5 or higher!')
     sys.exit(0)
@@ -67,121 +64,10 @@ if sys.version_info[1] < 5:
 # ======================================================================= #
 
 version = '2.1'
-versiondate = datetime.date(2019, 9, 1)
+versiondate = datetime.date(2021, 4, 15)
 
 changelogstring = '''
-30.09.2016:
-- PARTIAL REWORK
-- added capabilities to run unrestricted SHARC AMS dynamics
-- Enabled single multiplicity restricted runs
-
-03.10.2016:
--Fixed instances of duplicate key words
--Removed key words that are not relevant to AMS interface
--Fixed number of core use for gradients when GS gradient is not explicitly calculated
--Changed link routine to same as new SHARC_MOLPRO interface
--Simplified frozen core vairable reading
-
-05.10.2016:
--Fixed minor issue with number of excitations when running unrestricted calculations of doublet or higher than triplet multiplicity
-
-14.10.2016:
--Fixed a minor issue with the CreateQMout subroutine
-
-17.10.2016:
--Fixed the unrestricted multiplicity checking routine
--Added internal checks for charge and multiplicity
--Fixed for singlet runs only that it only calculate singlet excitations in the TD-DFT
--For doublet, quartet etc, fixes charge relative to the atomic charge
--Added atomic charge library
-
-18.10.2016
--Fixed some issues with regards to only singlet runs
-
-28.10.2016
--Added a keyword allowing the use to choose the number of padding states for the TD-DFT
--Modified the gradient routine to initiate a gradient calculation in the initial TD-DFT
--Fixed an issue with regards to using multiple basis sets during the AO overlap calculation
-
-14.11.2016
--Fixed routine for creating the cicoef files so that in an unrestircted case both alpha and beta orbitals are frozen
-
-17.01.2017
--Fixed an indexing error in the get_cicoef module that meant that the CI vector was sometimes truncated too early
--Fixed an indexing error in the overlaps routine for writing QMout
-
-09.02.2017
--Rewrote the routine for get_cicoef so that it is correctly done for the unrestricted case.
-
-**********************
-
-05.05.2017
-- MAJOR REWORK
-- changed template format from AMS style to simple keyword list style. NOT BACKWARD-COMPATIBLE!
-- Multijob capabilities for several independent multiplicities
-- Dyson norms
-- QM/MM capabilities
-- rework of parallel scheduling
-- added all chemical elements
-- rewrote most routines (readQMin, job scheduling, output parsing, overlap file generation)
-- interface to TheoDORE (new request "theodore")
-- can run COSMO (no gradients available)
-
-17.05.2017
-- puts MBLOCKSMALL keyword by default to improve runtime
-
-25.07.2017
-- MBLOCKSMALL is not default anymore (might lead to incomplete convergence)
-- interface detects AMS version
-- for AMS>=2017.208, uses some new features:
-  - different number of singlets and triplets can be requested
-  - residu keyword can be used
-  - multiple gradients can be computed in one AMS run
-  - SOC matrix and gradients (also QM/MM) are read from TAPE21
-
-03.08.2017
-- added the grid_qpnear, grid_per_atom, and fit_per_atom keywords for improved control of numerical accuracy
-
-22.08.2017
-- writes Property matrices (Dyson norms) and vectors (TheoDORE output) in new format into QM.out
-- Dyson norms are now correctly scaled depending on Ms value
-- TheoDORE properties and fragments are now defined in SH2AMS.inp (not backwards compatible)
-- Paths to QM/MM files are now defined in SH2AMS.inp (not backwards compatible)
-
-23.08.2017
-- Resource file is now called "AMS.resources" instead of "SH2AMS.inp" (old filename still works)
-
-13.09.2017
-- Added "define_fragment" keyword, allowing to specify different basis sets
-  for atoms of the same element (together with "basis_per_element")
-
-19.09.2017
-- can extract QM/MM energy components and write to property 1d (automatically, the last 7 entries in property1d are these energies)
-
-20.09.2017
-- stores and reuses atomic fragment files (increases performance for small calculations)
-- AOoverlaps are now possible even if no restricted job is present (by creating fake restricted TAPE21 files)
-
-21.09.2017
-- optimized the get_dets_from_tape21 routine (truncate before making det strings)
-
-22.09.2017
-- Added the "rihf_per_atom" keyword
-
-27.09.2017
-- if excited-state gradients are calculated, corresponding ground-state gradient is automatically returned, too
-- added the "neglected_gradient" keyword (arguments: "zero" (default), "gs", "closest")
-- fixed a bug where excited-state diagonal dipole moments are not read correctly
-
-13.12.2017
-- if an AMS job terminates with error, the standard out is copied to savedir
-
-08.11.2018:
-- converted to Python3
-- uses KFFile instead of old kf.py
-
-25.04.2019:
-- added fullkernel keyword
+12.04.21 copied from SHARC_ADF.py
 '''
 
 # ======================================================================= #
@@ -271,6 +157,7 @@ au2a = 0.529177211
 rcm_to_Eh = 4.556335e-6
 D2au = 0.393430307
 
+
 # =============================================================================================== #
 # =============================================================================================== #
 # =========================================== general routines ================================== #
@@ -278,7 +165,6 @@ D2au = 0.393430307
 # =============================================================================================== #
 
 # ======================================================================= #
-
 
 def readfile(filename):
     try:
@@ -379,31 +265,12 @@ def removekey(d, key):
         return r
     return d
 
-# ======================================================================= #         OK
-
-
-def containsstring(string, line):
-    '''Takes a string (regular expression) and another string. Returns True if the first string is contained in the second string.
-
-    Arguments:
-    1 string: Look for this string
-    2 string: within this string
-
-    Returns:
-    1 boolean'''
-
-    a = re.search(string, line)
-    if a:
-        return True
-    else:
-        return False
-
-
 # =============================================================================================== #
 # =============================================================================================== #
 # ============================= iterator routines  ============================================== #
 # =============================================================================================== #
 # =============================================================================================== #
+
 
 # ======================================================================= #
 def itmult(states):
@@ -446,15 +313,16 @@ def printheader():
         return
     string = '\n'
     string += '  ' + '=' * 80 + '\n'
-    string += '||' + ' ' * 80 + '||\n'
-    string += '||' + ' ' * 29 + 'SHARC - AMS - Interface' + ' ' * 28 + '||\n'
-    string += '||' + ' ' * 80 + '||\n'
-    string += '||' + ' ' * 20 + 'Authors: Andrew Atkins and Sebastian Mai' + ' ' * 20 + '||\n'
-    string += '||' + ' ' * 80 + '||\n'
-    string += '||' + ' ' * (36 - (len(version) + 1) // 2) + 'Version: %s' % (version) + ' ' * (35 - (len(version)) // 2) + '||\n'
-    lens = len(versiondate.strftime("%d.%m.%y"))
-    string += '||' + ' ' * (37 - lens // 2) + 'Date: %s' % (versiondate.strftime("%d.%m.%y")) + ' ' * (37 - (lens + 1) // 2) + '||\n'
-    string += '||' + ' ' * 80 + '||\n'
+    input = [' ',
+             'SHARC - AMS - Interface',
+             ' ',
+             'Authors: Severin Polonius, Andrew Atkins, and Sebastian Mai ',
+             ' ',
+             'Version: %s' % (version),
+             'Date: %s' % (versiondate.strftime("%d.%m.%y")),
+             ' ']
+    for inp in input:
+        string += '||{:^80}||\n'.format(inp)
     string += '  ' + '=' * 80 + '\n\n'
     print(string)
     if DEBUG:
@@ -465,8 +333,8 @@ def printheader():
 
 def printQMin(QMin):
 
-    if not PRINT:
-        return
+    # if not PRINT:
+    #     return
     print('==> QMin Job description for:\n%s' % (QMin['comment']))
 
     string = 'Mode:   '
@@ -1281,7 +1149,7 @@ def get_sh2AMS_environ(sh2AMS, key, environ=True, crucial=True):
                 return None
     LINE = os.path.expandvars(LINE)
     LINE = os.path.expanduser(LINE)
-    if containsstring(';', LINE):
+    if ';' in LINE:
         print("$%s contains a semicolon. Do you probably want to execute another command after %s? I can't do that for you..." % (
             key.upper(), key.upper()))
         sys.exit(21)
@@ -1348,7 +1216,8 @@ def readQMin(QMinfilename):
     QMin['frozcore'] = 0
     QMin['Atomcharge'] = 0
     for i in range(2, natom + 2):
-        if not containsstring('[a-zA-Z][a-zA-Z]?[0-9]*.*[-]?[0-9]+[.][0-9]*.*[-]?[0-9]+[.][0-9]*.*[-]?[0-9]+[.][0-9]*', QMinlines[i]):
+        p = re.compile(r'[a-zA-Z][a-zA-Z]?[0-9]*.*[-]?[0-9]+[.][0-9]*.*[-]?[0-9]+[.][0-9]*.*[-]?[0-9]+[.][0-9]*')
+        if not p.match(QMinlines[i]):
             print('Input file does not comply to xyz file format! Maybe natom is just wrong.')
             sys.exit(26)
         fields = QMinlines[i].split()
@@ -1556,10 +1425,10 @@ def readQMin(QMinfilename):
 
     # globally import KFFile
     global KFFile
-    if QMin['AMSversion'] >= (2017, 0):
+    if QMin['AMSversion'] >= (2020, 100):
         from scm.plams import KFFile
     else:
-        print('AMS 2016 and older are not supported by this script!')
+        print('AMS 2019 and older are not supported by this script!')
         sys.exit(40)
 
     # setup license
@@ -1716,12 +1585,9 @@ def readQMin(QMinfilename):
     if 'grad' in QMin:
         line = getsh2AMSkey(sh2AMS, 'neglected_gradient')
         if line[0]:
-            if line[1].lower().strip() is 'zero':
-                QMin['neglected_gradient'] = 'zero'
-            elif line[1].lower().strip() is 'gs':
-                QMin['neglected_gradient'] = 'gs'
-            elif line[1].lower().strip() is 'closest':
-                QMin['neglected_gradient'] = 'closest'
+            arg = line[1].lower().strip()
+            if arg in ['zero', 'gs', 'closest']:
+                QMin['neglected_gradient'] = arg
             else:
                 print('Unknown argument to "neglected_gradient"!')
                 sys.exit(47)
@@ -1764,7 +1630,7 @@ def readQMin(QMinfilename):
               }
     special = {'basis_per_element': {},
                'define_fragment': {},
-               'paddingstates': [0 for i in QMin['states']],
+               'paddingstates': [0] * len(QMin['states']),
                'charge': [i % 2 for i in range(len(QMin['states']))],
                'qmmm_table': 'AMS.qmmm.table',
                'qmmm_ff_file': 'AMS.qmmm.ff',
@@ -1776,17 +1642,7 @@ def readQMin(QMinfilename):
                }
 
     # create QMin subdictionary
-    QMin['template'] = {}
-    for i in bools:
-        QMin['template'][i] = bools[i]
-    for i in strings:
-        QMin['template'][i] = strings[i]
-    for i in integers:
-        QMin['template'][i] = integers[i]
-    for i in floats:
-        QMin['template'][i] = floats[i]
-    for i in special:
-        QMin['template'][i] = special[i]
+    QMin['template'] = {**bools, **strings, **integers, **floats, **special}
 
     # open template
     template = readfile('AMS.template')
@@ -2081,60 +1937,6 @@ def readQMin(QMinfilename):
                         label = frag_list
             atom_frags.add(label)
         QMin['atom_frags'] = atom_frags
-
-        # s=out[0].split()
-        # nlink=0
-        # nqmatom=0
-        # atom_frags=set()
-        # QMin['frozcore']=0
-        # if 'mm' in s[2].lower():
-        # print 'First atom in %s is an MM atom!' % QMin['template']['qmmm_table']
-        # sys.exit(71)
-        # if 'li' in s[2].lower():
-        # nlink+=1
-        # nqmatom+=1
-        # qm=True
-        # natom_table=1
-        # for iline,line in enumerate(out[1:]):
-        # if 'subend' in line.lower():
-        # break
-        # natom_table+=1
-        # if natom_table>QMin['natom']:
-        # print 'Number of atoms in connection table (>=%i) is inconsistent with %s (%i)!' % (natom_table,QMinfilename,QMin['natom'])
-        # sys.exit(72)
-        # s=line.lower().split()
-        # if not qm and ('qm' in s[2] or 'li' in s[2]):
-        # print 'In %s, all QM/LI atoms must occur consecutively at the beginning!' % QMin['template']['qmmm_table']
-        # sys.exit(73)
-        # if 'mm' in s[2]:
-        # qm=False
-        # if 'li' in s[2]:
-        # nlink+=1
-        # nqmatom+=1
-        # if 'li' in s[2] or 'qm' in s[2]:
-        # QMin['frozcore']+=FROZENS[QMin['geo'][iline][0]]
-        # nqmatom+=1
-        # if natom_table!=QMin['natom']:
-        # print 'Number of atoms in connection table (%i) is inconsistent with %s (%i)!' % (natom_table,QMinfilename,QMin['natom'])
-        # sys.exit(74)
-        # if nlink>0:
-        # links_found=False
-        # for line in out:
-        # if 'link_bonds' in line.lower() and not '!' in line:
-        # links_found=True
-        # if not links_found:
-        # print 'Please add a "link_bonds" block to %s!' % (QMin['template']['qmmm_table'])
-        # print '''Example:
-# ...
-# 6       H1      QM      4
-# 7       CT      LI      4       8       9       10
-# 8       HC      MM      7
-# ...
-    # subend
-
-    # link_bonds
-# 7 - 4 1.4 H H1'''
-        # sys.exit(75)
 
     # number of frozen core orbitals for wfoverlap (no frozen orbitals in AMS!)
     # this call is down here because we need to check for QM/MM in template first
@@ -2449,11 +2251,7 @@ def generate_joblist(QMin):
                     n += 1
                 elif QMin['template']['qmmm']:
                     n += 1
-            if n > 0 and not QMin['AMSversion'] >= (2017, 208):
-                gradjob['grad_%i_%i' % grad] = {}
-                gradjob['grad_%i_%i' % grad][grad] = {'gs': False}
-            else:
-                gradjob['master_%i' % ijob][grad] = {'gs': False}
+            gradjob['master_%i' % ijob][grad] = {'gs': False}
     # pprint.pprint(gradjob)
 
     # make map for states onto gradjobs
@@ -2607,7 +2405,7 @@ def setupWORKDIR(WORKDIR, QMin):
     mkdir(WORKDIR)
 
     # write AMS.input
-    inputstring = writeAMSinput(QMin)
+    inputstring = writeAMSinput(QMin, WORKDIR)
     filename = os.path.join(WORKDIR, 'AMS.run')
     writefile(filename, inputstring)
     if DEBUG:
@@ -2647,9 +2445,7 @@ def setupWORKDIR(WORKDIR, QMin):
 # ======================================================================= #
 
 
-def writeAMSinput(QMin):
-
-    # pprint.pprint(QMin)
+def writeAMSinput(QMin, WORKDIR):
 
     # general setup
     job = QMin['IJOB']
@@ -2715,23 +2511,24 @@ def writeAMSinput(QMin):
         for grad in QMin['gradmap']:
             if not (gsmult, 1) == grad:
                 egrad = grad
-        if QMin['AMSversion'] >= (2017, 208):
-            singgrad = []
-            tripgrad = []
-            for grad in QMin['gradmap']:
-                if not (gsmult, 1) == grad:
-                    if grad[0] == gsmult:
-                        singgrad.append(grad[1] - 1)
-                    if grad[0] == 3 and restr:
-                        tripgrad.append(grad[1])
+        singgrad = []
+        tripgrad = []
+        for grad in QMin['gradmap']:
+            if not (gsmult, 1) == grad:
+                if grad[0] == gsmult:
+                    singgrad.append(grad[1] - 1)
+                if grad[0] == 3 and restr:
+                    tripgrad.append(grad[1])
     else:
         dograd = False
 
     # construct the input string
-    string = ''
+    string = 'Task SinglePoint\n'  # TODO: do we need more task?
 
+    # ---------------- SYSTEM BLOCK ------------------------
+    string += 'SYSTEM\n'
     # geometry data
-    string += 'UNITS\n  length bohr\nEND\nATOMS\n'
+    string += '\tATOMS [Bohr]\n'  # Units in header
     for iatom, atom in enumerate(QMin['geo']):
         fragment = ''
         if 'AOoverlap' in QMin:
@@ -2744,18 +2541,39 @@ def writeAMSinput(QMin):
             for frag in QMin['template']['define_fragment']:
                 if iatom in QMin['template']['define_fragment'][frag]:
                     label = frag
-        string += '  % 3i %4s %16.9f %16.9f %16.9f  %s\n' % (iatom + 1, label, atom[1], atom[2], atom[3], fragment)
-    string += 'END\nSYMMETRY NOSYM\n\n'
-
+        string += '\t  %4s %16.9f %16.9f %16.9f  %s\n' % (label, atom[1], atom[2], atom[3], fragment)
+    string += '\tEND\n'
     # charge, multiplicity, restricted
-    string += 'CHARGE %i %i\n' % (charge, gsmult - 1)
+    string += '\tCHARGE %i\n' % charge
+    if 'AOoverlap' in QMin:
+        string += 'ALLOWCLOSEATOMS True\n'
+    string += 'END\n\n'
+    # ---------------- SYSTEM BLOCK ------------------------
+
+    string += 'USESYMMETRY False\n'  # do not use symmetry
+
     if not restr:
-        string += 'UNRESTRICTED\n'
+        string += 'UNRESTRICTED Yes\n'
     string += '\n'
 
-    # basis set
+    # restart orbitals
+    restart = False
+    if 'master' in QMin:
+        if job in QMin['initorbs']:
+            restart = True
+    elif 'grad' in QMin:
+        restart = True
+    if restart:
+        string += 'EngineRestart %s\n\n' % os.path.join(WORKDIR, 'TAPE21.guess')
+
+    if dograd:
+        string += 'PROPERTIES\n  GRADIENTS  yes\nEND\n'
+
+    # ---------------- ENGINE BLOCK ----------------------------
+    string += 'ENGINE ADF\n\n'  # TODO variable engine -> DFTB, COSMO etc.
+
     if QMin['template']['relativistic']:
-        string += 'RELATIVISTIC %s\n' % QMin['template']['relativistic']
+        string += 'RELATIVITY\nLEVEL %s\nFORMALISM %s\nEND\n\n' % tuple(QMin['template']['relativistic'].split())
     if 'AOoverlap' in QMin:
         string += 'FRAGMENTS\n  f1 %s\n  f2 %s\nEND\n\n' % tuple(QMin['AOoverlap'])
     elif QMin['frags_there']:
@@ -2764,7 +2582,7 @@ def writeAMSinput(QMin):
             string += '  %s t21.%s\n' % (i, i)
         string += 'END\n\n'
     else:
-        string += 'BASIS\n  type %s\n  core None\n  createoutput None\n' % (QMin['template']['basis'])
+        string += 'BASIS\n  type %s\n  core None\n  createoutput False\n' % (QMin['template']['basis'])
         if QMin['template']['basis_path']:
             string += '  path %s\n' % (QMin['template']['basis_path'])
         for i in QMin['template']['basis_per_element']:
@@ -2783,7 +2601,7 @@ def writeAMSinput(QMin):
     string += '\n'
 
     # accuracy
-    if 'beckegrid' in QMin['template']['grid']:
+    if 'beckegrid' in QMin['template']['grid']:  # TODO: beckegrid gives warning
         string += 'BECKEGRID\n  quality %s\n' % (QMin['template']['grid'].split()[1])
         if QMin['template']['qmmm']:
             string += '  qpnear %f\n' % (QMin['template']['grid_qpnear'])
@@ -2792,7 +2610,7 @@ def writeAMSinput(QMin):
             for i in QMin['template']['grid_per_atom']:
                 string += '    %i %s\n' % (i, QMin['template']['grid_per_atom'][i])
             string += '  subend\n'
-        string += 'END\n'
+        string += 'END\n\n'
     elif 'integration' in QMin['template']['grid']:
         string += 'INTEGRATION\n  accint %s\n' % (QMin['template']['grid'].split()[1])
         if QMin['template']['qmmm']:
@@ -2825,20 +2643,18 @@ def writeAMSinput(QMin):
     # excitations
     if ncalc > 0:
         string += 'EXCITATIONS\n'
-        # string+='EXCITATION\n  davidson\n'
         if onlysing:
             string += '  onlysing\n'
         if onlytrip:
             string += '  onlytrip\n'
-        if QMin['AMSversion'] >= (2017, 208) and not onlysing and not onlytrip and restr:
+        if not onlysing and not onlytrip and restr:
             string += '  lowest %i %i\n' % (states_to_do[0], states_to_do[2])
         else:
             string += '  lowest %i\n' % (ncalc)
         if QMin['template']['dvd_vectors'] > 0:
             string += '  vectors %i\n' % (QMin['template']['dvd_vectors'])
         string += '  tolerance %16.12f\n' % (QMin['template']['dvd_tolerance'])
-        if QMin['AMSversion'] >= (2017, 208) and QMin['template']['dvd_residu'] >= 0.:
-            string += '  residu %16.12f\n' % (QMin['template']['dvd_residu'])
+        string += '  residu %16.12f\n' % (QMin['template']['dvd_residu'])
         if QMin['template']['dvd_mblocksmall']:
             string += '  iterations %i\n' % (max(200, 20 * ncalc))
         if DEBUG:
@@ -2860,42 +2676,33 @@ def writeAMSinput(QMin):
 
     # spin-orbit coupling
     if sopert:
-        string += 'SOPERT\n'         # TODO: dont write END for older AMS!
-        if QMin['AMSversion'] >= (2017, 212):
-            string += 'END\n'
+        string += 'SOPERT\n'
+        string += 'END\n'
         if gscorr:
             string += 'GSCORR\n'
         string += 'PRINT SOMATRIX\n\n'
 
     # gradients
-    if dograd:
-        string += 'GRADIENT\n'
-        if egrad:
-            string += 'EXCITEDGO\n'
-            if QMin['AMSversion'] >= (2017, 208):
-                if singgrad:
-                    string += '  sing_grads\n    A'
-                    for i in singgrad:
-                        string += ' %i' % i
-                    string += '\n  subend\n'
-                if tripgrad:
-                    string += '  trip_grads\n    A'
-                    for i in tripgrad:
-                        string += ' %i' % i
-                    string += '\n  subend\n'
-            else:
-                string += '  state A %i\n' % (egrad[1] - (gsmult == egrad[0]))
-                if restr:
-                    if egrad[0] == 1:
-                        string += '  singlet\n'
-                    elif egrad[0] == 3:
-                        string += '  triplet\n'
-            if QMin['AMSversion'] >= (2017, 212):
-                string += '  output 4\n  cpks\n    eps %12.9f\n  subend\n' % QMin['template']['cpks_eps']
-            else:
-                string += '  output = 4\n  cpks eps=%12.9f\n' % QMin['template']['cpks_eps']
-            string += 'END\n'
-        string += '\n'
+    if dograd and egrad:
+        string += 'EXCITEDGO\n'
+        if singgrad:
+            string += '  SING_GRADS\n    A '
+            string += ' '.join([str(i) for i in singgrad])
+            string += '\n  END\n'
+        if tripgrad:
+            string += '  TRIP_GRADS\n    A '
+            string += ' '.join([str(i) for i in tripgrad])
+            string += '\n  END\n'
+        if not (tripgrad or singgrad):
+            string += '  state A %i\n' % (egrad[1] - (gsmult == egrad[0]))
+            if restr:
+                if egrad[0] == 1:
+                    string += '  singlet\n'
+                elif egrad[0] == 3:
+                    string += '  triplet\n'
+        string += '  output 4\n\n  cpks eps={0:.9f}\n'.format(QMin['template']['cpks_eps'])
+        string += 'END\n'
+    string += '\n'
 
     # COSMO
     if QMin['template']['cosmo']:
@@ -2905,13 +2712,13 @@ def writeAMSinput(QMin):
         string += '\nEND\n\n'
 
     # options which are always used
-    savefiles = ['TAPE21']
+    # MARK
+    savefiles = ['info', 'TAPE15']
     if 'ion' in QMin or 'AOoverlap' in QMin:
         savefiles.append('TAPE15')
     string += 'SAVE %s\n' % (' '.join(savefiles))
-    string += 'DEPENDENCY\n'
-    if QMin['AMSversion'] >= (2017, 212):
-        string += 'END\n'
+    string += 'DEPENDENCY\n'  # checks for linear dependencies in basis set
+    string += 'END\n'
     string += 'ALLOW POSHOMO\n'
     if DEBUG:
         string += 'PRINT TIMING\n'
@@ -2924,45 +2731,14 @@ def writeAMSinput(QMin):
         string += 'LINEARSCALING %i\n' % QMin['template']['linearscaling']
     string += '\n'
 
-    # restart orbitals
-    resfile = ''
-    if 'master' in QMin:
-        if job in QMin['initorbs']:
-            resfile = 'TAPE21.guess'
-        else:
-            resfile = ''
-    elif 'grad' in QMin:
-        resfile = 'TAPE21.guess'
-    if resfile:
-        if QMin['AMSversion'] >= (2017, 212):
-            string += 'RESTART\n  file %s\n  nogeo\n  nohes\nEND\n\n' % resfile
-        else:
-            string += 'RESTART %s &\n  nogeo\n  nohes\nEND\n\n' % resfile
-
-    # QM/MM
-    if QMin['template']['qmmm'] and 'AOoverlap' not in QMin:
-        string += 'QMMM\n  newqmmm\n  force_field_file ./AMS.ff\n  level_output 1\n  level_warning 1\n  elstat_coupling_model %i\n  elst_cutoff 999.0\n  vdw_cutoff 999.0\n' % (
-            QMin['template']['qmmm_coupling'])
-        if 'grad' in QMin:
-            string += '  optimize\n    max_steps 0\n    print_cycles 1\n    mm_notconverged 0\n    method skip\n  subend\n'
-        data = readfile(QMin['template']['qmmm_table'])
-        string += '  mm_connection_table\n'
-        for line in data:
-            if not line:
-                continue
-            string += line.strip() + '\n'
-        string += '  subend\nEND\n\n'
-
-    # print information for theodore
-    # if 'theodore' in QMin and 'master' in QMin:
-        # string+='EPRINT\n  sfo eig ovl\nEND\n\n'
-
     # SHARCOVERLAP
     if 'AOoverlap' in QMin:
-        string += 'SHARCOVERLAP\n\n'
-        # string+='CALCOVERLAPONLY\n\n'
+        string += 'SHARCOVERLAP True\n\n'
 
-    # TODO:
+    string += 'ENDENGINE\n'
+# -------------------- ENGINE BLOCK -------------------- #
+
+    # TODO optional:
     # convergence schemes
     # nosharedarrays
 
@@ -2985,7 +2761,7 @@ def shorten_DIR(string):
 def runAMS(WORKDIR, AMS, ncpu, savedir, strip=False):
     prevdir = os.getcwd()
     os.chdir(WORKDIR)
-    string = os.path.join(AMS, 'bin', 'adf') + ' '
+    string = os.path.join(AMS, 'bin', 'ams') + ' '
     string += '-n %i < AMS.run' % (ncpu)
     if PRINT or DEBUG:
         starttime = datetime.datetime.now()
@@ -3000,7 +2776,7 @@ def runAMS(WORKDIR, AMS, ncpu, savedir, strip=False):
         sys.exit(82)
     stdoutfile.close()
     stderrfile.close()
-    if os.path.isfile(os.path.join(WORKDIR, 'TAPE13')):
+    if os.path.isfile(os.path.join(WORKDIR, 'ams.results/TAPE13')):
         runerror = 1
     stderr = readfile(os.path.join(WORKDIR, 'AMS.err'))
     for line in stderr:
@@ -3025,21 +2801,33 @@ def runAMS(WORKDIR, AMS, ncpu, savedir, strip=False):
         elif DEBUG:
             print('Debug mode.')
         print('Copied AMS output to %s' % (tofile))
+    extractAMSresults(WORKDIR)
     os.chdir(prevdir)
     if strip and not DEBUG and runerror == 0:
         stripWORKDIR(WORKDIR)
     return runerror
 
+
 # ======================================================================= #
+def extractAMSresults(WORKDIR):
+    for f in os.listdir(os.path.join(WORKDIR, 'ams.results')):
+        frompath = os.path.join(WORKDIR, 'ams.results', f)
+        if f == 'adf.rkf':
+            f = 'TAPE21'
+        topath = os.path.join(WORKDIR, f)
+        shutil.move(frompath, topath)
+    print("REMOVING", os.path.join(WORKDIR, 'ams.results'))
+    os.rmdir(os.path.join(WORKDIR, 'ams.results/'))
 
 
+# ======================================================================= #
 def stripWORKDIR(WORKDIR):
     ls = os.listdir(WORKDIR)
-    keep = ['AMS.run$', 'AMS.err$', 'AMS.out$', 'TAPE21', 'TAPE15']
+    keep = ['AMS.run$', 'AMS.err$', 'AMS.out$', 'TAPE21', 'TAPE15', 'ams.log', 'ams.rkf']
     for ifile in ls:
         delete = True
         for k in keep:
-            if containsstring(k, ifile):
+            if re.search(k, ifile):
                 delete = False
         if delete:
             rmfile = os.path.join(WORKDIR, ifile)
@@ -4165,34 +3953,23 @@ def getsocm(outfile, t21file, ijob, QMin):
     if GSCORR:
         nrexci += 1
 
-    if QMin['AMSversion'] >= (2017, 208):
-        # read SOC matrix from TAPE21
-        real_tri = f.read('Excitations SO A', 'SOmat-R')
-        imag_tri = f.read('Excitations SO A', 'SOmat-I')
-        real = [[0 + 0j for i in range(nrexci)] for j in range(nrexci)]
-        x = 0
-        y = 0
-        for i in range(len(real_tri)):
-            if abs(real_tri[i]) < 1e-15:
-                real_tri[i] = 0.
-            if abs(imag_tri[i]) < 1e-15:
-                imag_tri[i] = 0.
-            real[x][y] = real_tri[i] + (0 + 1j) * imag_tri[i]
-            real[y][x] = real_tri[i] + (0 - 1j) * imag_tri[i]
-            x += 1
-            if x > y:
-                y += 1
-                x = 0
-    else:
-        # read real matrix from stdout and make Hermitian
-        real = readSOC(out, '======  SO matrix real part', nrexci)
-        imag = readSOC(out, '======  SO matrix imaginary part', nrexci)
-        for x in range(len(real)):
-            for y in range(len(real[0])):
-                if x < y:
-                    real[x][y] += (0 + 1j) * imag[x][y]
-                else:
-                    real[x][y] += (0 - 1j) * imag[x][y]
+    # read SOC matrix from TAPE21
+    real_tri = f.read('Excitations SO A', 'SOmat-R')
+    imag_tri = f.read('Excitations SO A', 'SOmat-I')
+    real = [[0 + 0j for i in range(nrexci)] for j in range(nrexci)]
+    x = 0
+    y = 0
+    for i in range(len(real_tri)):
+        if abs(real_tri[i]) < 1e-15:
+            real_tri[i] = 0.
+        if abs(imag_tri[i]) < 1e-15:
+            imag_tri[i] = 0.
+        real[x][y] = real_tri[i] + (0 + 1j) * imag_tri[i]
+        real[y][x] = real_tri[i] + (0 - 1j) * imag_tri[i]
+        x += 1
+        if x > y:
+            y += 1
+            x = 0
 
     # make statemap for the state ordering of the SO matrix
     inv_statemap = {}
@@ -4514,7 +4291,7 @@ def getsmate(out, s1, s2):
         if ilines == len(out):
             print('Overlap of states %i - %i not found!' % (s1, s2))
             sys.exit(96)
-        if containsstring('Overlap matrix <PsiA_i|PsiB_j>', out[ilines]):
+        if 'Overlap matrix <PsiA_i|PsiB_j>' in out[ilines]:
             break
     ilines += 1 + s1
     f = out[ilines].split()
@@ -4530,7 +4307,7 @@ def getDyson(out, s1, s2):
         if ilines == len(out):
             print('Dyson norm of states %i - %i not found!' % (s1, s2))
             sys.exit(97)
-        if containsstring('Dyson norm matrix <PsiA_i|PsiB_j>', out[ilines]):
+        if 'Dyson norm matrix <PsiA_i|PsiB_j>' in out[ilines]:
             break
     ilines += 1 + s1
     f = out[ilines].split()
@@ -4654,7 +4431,6 @@ def main():
 
     # Read QMinfile
     QMin = readQMin(QMinfilename)
-
     # get the job schedule
     QMin, schedule = generate_joblist(QMin)
     printQMin(QMin)
