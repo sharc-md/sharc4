@@ -873,7 +873,7 @@ def makermatrix(a,b):
 
 # ======================================================================= #
 def getversion(out,MOLCAS):
-    allowedrange=[ (18.0,18.999), (8.29999,8.30001) ]
+    allowedrange=[ (18.0,21.999), (8.29999,8.30001) ]
     # first try to find $MOLCAS/.molcasversion
     molcasversion=os.path.join(MOLCAS,'.molcasversion')
     if os.path.isfile(molcasversion):
@@ -936,6 +936,24 @@ def getcienergy(out,mult,state,version,method,dkh):
         modulestring='&CASPT2'
         spinstring='Spin quantum number'
         energystring='::    MS-CASPT2 Root'
+        stateindex=3
+        enindex=6
+    elif method==3:
+        modulestring='&MCPDFT'
+        spinstring='Spin quantum number'
+        energystring='Total MC-PDFT energy for state'
+        stateindex=5
+        enindex=6
+    elif method==4:
+        modulestring='&MCPDFT'
+        spinstring='Spin quantum number'
+        energystring='::    XMS-PDFT Root'
+        stateindex=3
+        enindex=6
+    elif method==5:
+        modulestring='&MCPDFT'
+        spinstring='Spin quantum number'
+        energystring='::    CMS-PDFT Root'
         stateindex=3
         enindex=6
 
@@ -2073,6 +2091,16 @@ def readQMin(QMinfilename):
 
     QMin['molcas']=get_sh2cas_environ(sh2cas,'molcas')
     os.environ['MOLCAS']=QMin['molcas']
+    
+    driver=get_sh2cas_environ(sh2cas,'driver',crucial=False)
+    if driver=='':
+      driver=os.path.join(QMin['molcas'],'bin','pymolcas')
+      if not os.path.isfile(driver):
+        driver=os.path.join(QMin['molcas'],'bin','molcas.exe')
+        if not os.path.isfile(driver):
+          print 'No driver (pymolcas or molcas.exe) found in $MOLCAS/bin. Please add the path to the driver via the "driver" keyword.'
+          sys.exit(52)
+    QMin['driver']=driver
 
     QMin['tinker']=get_sh2cas_environ(sh2cas,'tinker',crucial=False)
     if QMin['tinker']=='':
@@ -2215,7 +2243,7 @@ def readQMin(QMinfilename):
 
     QMin['template']={}
     integers=['nactel','inactive','ras2','frozen']
-    strings =['basis','method','baslib']
+    strings =['basis','method','baslib','pdft-functional']
     floats=['ipea','imaginary','gradaccumax','gradaccudefault','displ', 'rasscf_thrs_e', 'rasscf_thrs_rot', 'rasscf_thrs_egrd','cholesky_accu']
     booleans=['cholesky','no-douglas-kroll','qmmm','cholesky_analytical']
     for i in booleans:
@@ -2223,6 +2251,7 @@ def readQMin(QMinfilename):
     QMin['template']['roots'] = [0 for i in range(8)]
     QMin['template']['rootpad'] = [0 for i in range(8)]
     QMin['template']['method']='casscf'
+    QMin['template']['pdft-functional']='tpbe'
     QMin['template']['baslib']=''
     QMin['template']['ipea']=0.25
     QMin['template']['imaginary']=0.00
@@ -2322,7 +2351,14 @@ def readQMin(QMinfilename):
         sys.exit(63)
 
     # find method
-    allowed_methods=['casscf','caspt2','ms-caspt2']
+    # allowed_methods=['casscf','caspt2','ms-caspt2']
+    allowed_methods=['casscf','caspt2','ms-caspt2', 'mc-pdft', 'xms-pdft', 'cms-pdft']
+    # 0: casscf
+    # 1: caspt2 (single state)
+    # 2: ms-caspt2
+    # 3: mc-pdft (single state)
+    # 4: xms-pdft
+    # 5: cms-pdft
     for i,m in enumerate(allowed_methods):
         if QMin['template']['method']==m:
             QMin['method']=i
@@ -2342,7 +2378,7 @@ def readQMin(QMinfilename):
             QMin['gradmode']=2
         elif QMin['template']['pcmset']['on']:
             QMin['gradmode']=2
-        elif QMin['method']>0:
+        elif QMin['method'] in [1,2,4,5]:
             QMin['gradmode']=2
         else:
             if QMin['ncpu']>0:
@@ -2500,13 +2536,35 @@ def gettasks(QMin):
         if not 'samestep' in QMin or 'always_orb_init' in QMin:
             jobiph='JobIph' in mofile
             rasorb='RasOrb' in mofile
-            tasks.append(['rasscf',imult+1,QMin['template']['roots'][imult],jobiph,rasorb])
-            if QMin['method']==0:
+            task=['rasscf',imult+1,QMin['template']['roots'][imult],jobiph,rasorb]
+            if QMin['method']==4:
+                task.append( ['XMSI'] )
+            if QMin['method']==5:
+                task.append( ['CMSI'] )
+            tasks.append(task)
+            if jobiph:
+                tasks.append(['rm','JOBOLD'])
+            if QMin['method']==0 or QMin['method']==3:
                 tasks.append(['copy','MOLCAS.JobIph','MOLCAS.%i.JobIph' % (imult+1)])
             if 'ion' in QMin:
                 tasks.append(['copy','MOLCAS.RasOrb','MOLCAS.%i.RasOrb' % (imult+1)])
             if 'molden' in QMin:
                 tasks.append(['copy','MOLCAS.rasscf.molden','MOLCAS.%i.molden' % (imult+1)])
+
+            if QMin['method'] in [3,4,5]:
+                # mc-pdft
+                keys=['KSDFT=%s' % QMin['template']['pdft-functional']]
+                if QMin['method']==3 and 'grad' in QMin:
+                    keys.append( 'GRAD' )
+                else:
+                    keys.append( 'noGrad' )
+                if QMin['method'] in [4,5]:
+                    keys.append( 'MSPDFT' )
+                    keys.append( 'WJOB' )
+                tasks.append(['mcpdft',keys])
+                ## copy JobIphs
+                if QMin['method'] in [4,5]:
+                    tasks.append(['copy','MOLCAS.JobIph','MOLCAS.%i.JobIph' % (imult+1)])
 
         # Gradients
         if QMin['gradmode']==0:
@@ -2516,6 +2574,8 @@ def gettasks(QMin):
                         # SS-CASSCF
                         if 'samestep' in QMin:
                             tasks.append(['rasscf',imult+1,QMin['template']['roots'][imult],True,False])
+                            if QMin['method']==3:
+                                tasks.append(['mcpdft',['KSDFT=%s' % QMin['template']['pdft-functional'], 'GRAD']])
                         tasks.append(['alaska'])
                     else:
                         # SA-CASSCF
@@ -2523,8 +2583,13 @@ def gettasks(QMin):
                         #tasks.append(['rasscf-rlx',imult+1,QMin['template']['roots'][imult],i[1]])
                         #tasks.append(['mclr',QMin['template']['gradaccudefault']])
                         #tasks.append(['alaska'])
-                        tasks.append(['rasscf',imult+1,QMin['template']['roots'][imult],True,False])
-                        tasks.append(['mclr',QMin['template']['gradaccudefault'],'sala=%i' % i[1]])
+                        
+                        if QMin['method']==3:
+                          tasks.append(['rasscf',imult+1,QMin['template']['roots'][imult],True,False,['RLXROOT=%i'%i[1]]])
+                          tasks.append(['mcpdft',['KSDFT=%s' % QMin['template']['pdft-functional'], 'GRAD']])
+                        else:
+                          tasks.append(['rasscf',imult+1,QMin['template']['roots'][imult],True,False])
+                          tasks.append(['mclr',QMin['template']['gradaccudefault'],'sala=%i' % i[1]])
                         tasks.append(['alaska'])
 
         # Nac vectors
@@ -2536,7 +2601,7 @@ def gettasks(QMin):
                     tasks.append(['mclr',QMin['template']['gradaccudefault'],'nac=%i %i' % (i[1],i[3])])
                     tasks.append(['alaska'])
 
-        if QMin['method']>0:
+        if QMin['method']==1 or QMin['method']==2:
             # caspt2
             tasks.append(['caspt2',imult+1,nstates,QMin['method']==2])
             # copy JobIphs
@@ -2619,6 +2684,9 @@ def writeMOLCASinput(tasks, QMin):
         elif task[0]=='copy':
             string+='>> COPY %s %s\n\n' % (task[1],task[2])
 
+        elif task[0]=='rm':
+            string+='>> RM %s\n\n' % (task[1])
+
         elif task[0]=='rasscf':
             nactel=QMin['template']['nactel']
             npad=QMin['template']['rootpad'][task[1]-1]
@@ -2648,6 +2716,9 @@ def writeMOLCASinput(tasks, QMin):
                 string+='JOBIPH\n'
             elif task[4]:
                 string+='LUMORB\n'
+            if len(task)>=6:
+                for a in task[5]:
+                    string+=a+'\n'
             if QMin['template']['pcmset']['on']:
                 if task[1]==QMin['template']['pcmstate'][0]:
                     string+='RFROOT = %i\n' % QMin['template']['pcmstate'][1]
@@ -2687,6 +2758,13 @@ def writeMOLCASinput(tasks, QMin):
             if QMin['template']['pcmset']['on']:
                 string+='RFPERT\n'
             string+='\n'
+
+        elif task[0]=='mcpdft':
+            string+='&MCPDFT\n'
+            for i in task[1]:
+                string+=i+'\n'
+            string+='\n\n'
+
 
         elif task[0]=='rassi':
             string+='&RASSI\nNROFJOBIPHS\n%i' % (len(task[2]))
@@ -2886,17 +2964,15 @@ def setupWORKDIR(WORKDIR,tasks,QMin):
 
 
 # ======================================================================= #
-def runMOLCAS(WORKDIR,MOLCAS,ncpu,strip=False):
+def runMOLCAS(WORKDIR,MOLCAS,driver,ncpu,strip=False):
     prevdir=os.getcwd()
     os.chdir(WORKDIR)
     os.environ['WorkDir']=WORKDIR
     os.environ['MOLCAS_NPROCS']=str(ncpu)
-    path=os.path.join(MOLCAS,'bin/pymolcas')
+    path=driver
     if not os.path.isfile(path):
-        path=os.path.join(MOLCAS,'bin/molcas.exe')
-        if not os.path.isfile(path):
-            print 'ERROR: could not find Molcas driver ("pymolcas" or "molcas.exe") in $MOLCAS/bin!'
-            sys.exit(74)
+      print 'ERROR: could not find Molcas driver ("pymolcas" or "molcas.exe") in $MOLCAS/bin!'
+      sys.exit(74)
     string=path+' MOLCAS.input'
     stdoutfile=open(os.path.join(WORKDIR,'MOLCAS.out'),'w')
     stderrfile=open(os.path.join(WORKDIR,'MOLCAS.err'),'w')
@@ -3158,7 +3234,7 @@ def run_calc(WORKDIR,QMin):
             Tasks=gettasks(QMin)
             setupWORKDIR(WORKDIR,Tasks,QMin)
             strip=not 'keepintegrals' in QMin
-            err=runMOLCAS(WORKDIR,QMin['molcas'],QMin['ncpu'],strip)
+            err=runMOLCAS(WORKDIR,QMin['molcas'],QMin['driver'],QMin['ncpu'],strip)
         except Exception, problem:
             print '*'*50+'\nException in run_calc(%s)!' % (WORKDIR)
             traceback.print_exc()
@@ -3501,10 +3577,10 @@ def verifyQMout(QMout,QMin,out):
 
     refweight_ratio=0.80
 
-    if QMin['method']==0:
+    if QMin['method'] in [0,3,4,5]:
         # CASSCF case
         pass
-    elif QMin['method']>0:
+    elif QMin['method'] in [1,2]:
         # SS-CASPT2 and MS-CASPT2 cases
         refs=[]
         for istate in range(QMin['nmstates']):
@@ -3536,10 +3612,10 @@ def verifyQMout(QMout,QMin,out):
             #print mult,state,refs[istate]
 
         # check the reference weights and set overlap to zero if not acceptable
-        for istate in range(QMin['nmstates']):
-            if refs[istate]<max(refs)*refweight_ratio:
-                QMout['overlap'][istate][istate]=complex(0.,0.)
-                #print 'Set to zero:',istate
+            for istate in range(QMin['nmstates']):
+                if refs[istate]<max(refs)*refweight_ratio:
+                    QMout['overlap'][istate][istate]=complex(0.,0.)
+                    #print 'Set to zero:',istate
 
     return QMout
 

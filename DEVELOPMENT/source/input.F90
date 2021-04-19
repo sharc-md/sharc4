@@ -270,7 +270,7 @@ module input
         if (io==0) then
           ctrl%restart_rerun_last_qm_step=.false.
           write(u_log,'(a)') 'Assuming that restart/ directory corresponds to time step in restart files'
-          write(u_log,'(a)') '(e.g., after using STOP file, killafter mechanism, or reaching time step limit)time step limit).'
+          write(u_log,'(a)') '(e.g., after using STOP file, killafter mechanism, or reaching time step limit).'
         else
           write(0,*) 'Please add "restart_rerun_last_qm_step" or "restart_goto_new_qm_step" keyword!'
           stop

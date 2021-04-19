@@ -38,12 +38,13 @@ import stat
 import shutil
 import subprocess as sp
 import datetime
-import random
+#import random
 from optparse import OptionParser
 import readline
 import time
 import colorsys
 import pprint
+
 
 try:
   import numpy
