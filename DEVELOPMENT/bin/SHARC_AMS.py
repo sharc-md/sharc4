@@ -3363,7 +3363,7 @@ def setupWORKDIR_TH(WORKDIR, QMin):
     # mkdir the WORKDIR, or clean it if it exists, then copy all necessary files from pwd and savedir
 
     # write dens_ana.in
-    inputstring = '''rtype='AMS'
+    inputstring = '''rtype='ADF'
 rfile='TAPE21'
 jmol_orbitals=False
 molden_orbitals=False
@@ -3706,16 +3706,13 @@ def getQMout(QMin):
                         path, isgs = QMin['jobgrad'][(m1, s1)]
                         if not isgs:
                             outfile = os.path.join(QMin['scratchdir'], path, 'AMS.out')
-                            if QMin['AMSversion'] >= (2017, 208):
-                                if QMin['jobs'][job]['restr'] and m1 == 3:
-                                    multstring = '(Singlet-Triplet)'
-                                    state = s1
-                                else:
-                                    multstring = ''
-                                    state = s1 - 1
-                                edm = getedm_multi(outfile, state, multstring)
+                            if QMin['jobs'][job]['restr'] and m1 == 3:
+                                multstring = '(Singlet-Triplet)'
+                                state = s1
                             else:
-                                edm = getedm(outfile)
+                                multstring = ''
+                                state = s1 - 1
+                            edm = getedm_multi(outfile, state, multstring)
                             for ixyz in range(3):
                                 QMout['dm'][ixyz][i][j] = edm[ixyz]
                     if not m1 == m2 == mults[0] or not ms1 == ms2:
@@ -4060,9 +4057,9 @@ def getedm(outfile):
     if PRINT:
         print('Dipoles:  ' + shorten_DIR(outfile))
     for line in out:
-        if 'Excited state dipole moment =' in line:
+        if 'Excited state dipole moment (Debye) =' in line:
             s = line.split()
-            dm = [float(i) * D2au for i in s[5:]]
+            dm = [float(i) * D2au for i in s[6:]]
             return dm
 
 # ======================================================================= #
@@ -4081,11 +4078,12 @@ def getedm_multi(outfile, state, multstring):
                 active = True
             else:
                 active = False
-        if 'Excited state dipole moment =' in line and active:
+        if 'Excited state dipole moment (Debye) =' in line and active:
             s = line.split()
-            dm = [float(i) * D2au for i in s[5:]]
+            dm = [float(i) * D2au for i in s[6:]]
             return dm
-    return [0., 0., 0.]
+    print("Could not find dipole moment for state %i in file %s" % (state, outfile))
+    sys.exit(94)
 
 # ======================================================================= #
 
