@@ -46,33 +46,26 @@ def read_t21(filename):
     try:
         f.sections()
     except IndexError:
-        print('File does not seem to be a TAPE21 file...')
+        print('File does not seem to be a rkf file...')
         return None
 
-    Freq = f.read("Freq", "Frequencies")
+    Freq = f.read("Vibrations", "Frequencies[cm-1]")
 
-    natom = int(f.read("Freq", "nr of atoms"))
+    natom = int(f.read("Geometry", "nr of atoms"))
 
-    fragtype = f.read("Geometry", "fragmenttype").split()
-    atomtype_index = f.read("Geometry", "fragment and atomtype index")[natom:]
-    Atomsymbs = [fragtype[i - 1] for i in atomtype_index]
+    Atomsymbols = f.read("Molecule", "AtomSymbols").split()
 
-    xyz = f.read("Freq", "xyz")
+    xyz = f.read("Geometry", "xyz InputOrder")
     FreqCoord = []
-    x = 0
-    for i in range(natom):
-        atom = [Atomsymbs[i]] + xyz[x:x + 3]
-        FreqCoord.append(atom)
-        x += 3
+    FreqCoord = [[Atomsymbols[n // 3]] + xyz[n:n + 3] for n in range(0, len(xyz), 3)]  # makes chunks of length 3 (i.e. x y z per atom) into list
+    nModes = f.read("Vibrations", "nNormalModes")
 
-    Normalmodes = f.read("Freq", "Normalmodes")
+    # Reads the normal modes
+    # TODO: the excluded rigid normal modes can be found in "Vibrations": "NoWeightRigidMode(i)" i ranging from 1 - 6
     Modes = {}
-    for i in range(3 * natom):
-        m = []
-        for j in range(natom):
-            n = Normalmodes[3 * natom * i + 3 * j:3 * natom * i + 3 * j + 3]
-            m.append(n)
-        Modes[i] = m
+    for i in range(nModes):
+        mode = f.read("Vibrations", "NoWeightNormalMode({})".format(i + 1))  # Lists a normal mode as x0, y0, z0, x1, y1, z1, x2 ....
+        Modes[i] = [mode[n:n + 3] for n in range(0, len(mode), 3)]  # makes chunks of length 3 (i.e. displacements of single atom) into list
 
     Int = {}
 
