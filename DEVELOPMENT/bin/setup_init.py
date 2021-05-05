@@ -23,13 +23,10 @@
 #
 # ******************************************
 
-#!/usr/bin/env python2
-
 # Interactive script for the setup of initial condition excitation calculations for SHARC
 #
 # usage: python setup_init.py
 
-import copy
 import math
 import sys
 import re
@@ -41,7 +38,7 @@ from optparse import OptionParser
 import readline
 import time
 import ast
-import pprint
+import random
 
 # =========================================================
 # compatibility stuff
@@ -219,7 +216,7 @@ class INITCOND:
         while True:
             line = f.readline()
             # if 'Index     %i' % (index) in line:
-            if re.search('Index\s+%i' % (index), line):
+            if re.search(r'Index\s+%i' % (index), line):
                 break
             if line == '\n':
                 continue
@@ -282,19 +279,19 @@ class INITCOND:
 
 
 def check_initcond_version(string, must_be_excited=False):
-    if not 'sharc initial conditions file' in string.lower():
+    if 'sharc initial conditions file' not in string.lower():
         return False
     f = string.split()
     for i, field in enumerate(f):
         if 'version' in field.lower():
             try:
                 v = float(f[i + 1])
-                if not v in versionneeded:
+                if v not in versionneeded:
                     return False
             except IndexError:
                 return False
     if must_be_excited:
-        if not 'excited' in string.lower():
+        if 'excited' not in string.lower():
             return False
     return True
 
@@ -302,11 +299,11 @@ def check_initcond_version(string, must_be_excited=False):
 # ======================================================================================================================
 
 def centerstring(string, n, pad=' '):
-    l = len(string)
-    if l >= n:
+    length = len(string)
+    if length >= n:
         return string
     else:
-        return pad * ((n - l + 1) // 2) + string + pad * ((n - l) // 2)
+        return pad * ((n - length + 1) // 2) + string + pad * ((n - length) // 2)
 
 # ======================================================================================================================
 
@@ -347,7 +344,7 @@ def close_keystrokes():
 
 def question(question, typefunc, default=None, autocomplete=True, ranges=False):
     if typefunc == int or typefunc == float:
-        if not default == None and not isinstance(default, list):
+        if default is not None and not isinstance(default, list):
             print('Default to int or float question must be list!')
             quit(1)
     if typefunc == str and autocomplete:
@@ -358,7 +355,7 @@ def question(question, typefunc, default=None, autocomplete=True, ranges=False):
 
     while True:
         s = question
-        if default != None:
+        if default is not None:
             if typefunc == bool or typefunc == str:
                 s += ' [%s]' % (str(default))
             elif typefunc == int or typefunc == float:
@@ -372,13 +369,13 @@ def question(question, typefunc, default=None, autocomplete=True, ranges=False):
             s += ' (range comprehension enabled)'
         s += ' '
 
-        line = raw_input(s)
+        line = raw_input(s)  # TODO is undefined
         line = re.sub('#.*$', '', line).strip()
         if not typefunc == str:
             line = line.lower()
 
         if line == '' or line == '\n':
-            if default != None:
+            if default is not None:
                 KEYSTROKES.write(line + ' ' * (40 - len(line)) + ' #' + s + '\n')
                 return default
             else:
@@ -394,7 +391,7 @@ def question(question, typefunc, default=None, autocomplete=True, ranges=False):
                 KEYSTROKES.write(line + ' ' * (40 - len(line)) + ' #' + s + '\n')
                 return False
             else:
-                print('I didn''t understand you.')
+                print("I didn't understand you.")
                 continue
 
         if typefunc == str:
@@ -433,7 +430,6 @@ def question(question, typefunc, default=None, autocomplete=True, ranges=False):
                 else:
                     print('Please enter integers!')
                 continue
-
 
 
 # ======================================================================================================================
@@ -780,8 +776,8 @@ def checktemplate_MOLPRO(filename):
         print('Could not open template file %s' % (filename))
         return False
     i = 0
-    for l in data:
-        if necessary[i] in l:
+    for line in data:
+        if necessary[i] in line:
             i += 1
             if i + 1 == len(necessary):
                 return True
@@ -844,7 +840,7 @@ The MOLPRO interface will generate the remaining MOLPRO input automatically.
             usethisone = question('Use this template file?', bool, True)
             if usethisone:
                 INFOS['molpro.template'] = 'MOLPRO.template'
-    if not 'molpro.template' in INFOS:
+    if 'molpro.template' not in INFOS:
         while True:
             filename = question('Template filename:', str)
             if not os.path.isfile(filename):
@@ -949,7 +945,7 @@ def checktemplate_COLUMBUS(TEMPLATE, mult):
         necessary = ['control.run', 'mcscfin', 'tranin', 'propin']
         lof = os.listdir(TEMPLATE)
         for i in necessary:
-            if not i in lof:
+            if i not in lof:
                 # print('Did not find input file %s! Did you prepare the input according to the instructions?' % (i))
                 return None, None, None
         cidrtinthere = False
@@ -1082,7 +1078,7 @@ In order to setup the COLUMBUS input, use COLUMBUS' input facility colinp. For f
             for d in content:
                 template = path + '/' + d
                 socitype, drt, intprog = checktemplate_COLUMBUS(template, mult)
-                if socitype == None:
+                if socitype is None:
                     continue
                 if not d[-1] == '/':
                     d += '/'
@@ -1119,7 +1115,7 @@ In order to setup the COLUMBUS input, use COLUMBUS' input facility colinp. For f
                 j = f[1]
             except (ValueError, IndexError):
                 continue
-            if not m in multmap:
+            if m not in multmap:
                 print('Multiplicity %i not necessary!' % (m))
                 continue
             if not os.path.isdir(path + '/' + j):
@@ -1322,7 +1318,7 @@ def checktemplate_Analytical(filename, req_nstates, eMsg=True):
     variables = set()
     for i in range(2, 2 + natom):
         line = data[i]
-        match = re.match('\s*[a-zA-Z]*\s+[a-zA-Z0][a-zA-Z0-9_]*\s+[a-zA-Z0][a-zA-Z0-9_]*\s+[a-zA-Z0][a-zA-Z0-9_]*', line)
+        match = re.match(r'\s*[a-zA-Z]*\s+[a-zA-Z0][a-zA-Z0-9_]*\s+[a-zA-Z0][a-zA-Z0-9_]*\s+[a-zA-Z0][a-zA-Z0-9_]*', line)
         if not match:
             if eMsg:
                 print('Line %i malformatted!' % (i + 1))
@@ -1330,7 +1326,7 @@ def checktemplate_Analytical(filename, req_nstates, eMsg=True):
         else:
             a = line.split()
             for j in range(3):
-                match = re.match('\s*[a-zA-Z][a-zA-Z0-9_]*', a[j + 1])
+                match = re.match(r'\s*[a-zA-Z][a-zA-Z0-9_]*', a[j + 1])
                 if match:
                     variables.add(a[j + 1])
 
@@ -1402,7 +1398,7 @@ def get_Analytical(INFOS):
             usethisone = question('Use this template file?', bool, True)
             if usethisone:
                 INFOS['analytical.template'] = 'Analytical.template'
-    if not 'analytical.template' in INFOS:
+    if 'analytical.template' not in INFOS:
         while True:
             filename = question('Template filename:', str)
             if not os.path.isfile(filename):
@@ -1445,7 +1441,7 @@ def get_LVC(INFOS):
         usethisone = question('Use this template file?', bool, True)
         if usethisone:
             INFOS['LVC.template'] = 'LVC.template'
-    if not 'LVC.template' in INFOS:
+    if 'LVC.template' not in INFOS:
         while True:
             filename = question('Template filename:', str)
             if not os.path.isfile(filename):
@@ -1499,8 +1495,8 @@ def checktemplate_MOLCAS(filename, INFOS):
         return False
     valid = []
     for i in necessary:
-        for l in data:
-            if i in re.sub('#.*$', '', l):
+        for line in data:
+            if i in re.sub('#.*$', '', line):
                 valid.append(True)
                 break
         else:
@@ -1509,20 +1505,20 @@ def checktemplate_MOLCAS(filename, INFOS):
         print('The template %s seems to be incomplete! It should contain: ' % (filename) + str(necessary))
         return False
     roots_there = False
-    for l in data:
-        l = re.sub('#.*$', '', l).lower().split()
-        if len(l) == 0:
+    for line in data:
+        line = re.sub('#.*$', '', line).lower().split()
+        if len(line) == 0:
             continue
-        if 'roots' in l[0]:
+        if 'roots' in line[0]:
             roots_there = True
     if not roots_there:
         for mult, state in enumerate(INFOS['states']):
             if state <= 0:
                 continue
             valid = []
-            for l in data:
-                if 'spin' in re.sub('#.*$', '', l).lower():
-                    f = l.split()
+            for line in data:
+                if 'spin' in re.sub('#.*$', '', line).lower():
+                    f = line.split()
                     if int(f[1]) == mult + 1:
                         valid.append(True)
                         break
@@ -1594,7 +1590,7 @@ The MOLCAS interface will generate the appropriate MOLCAS input automatically.
             usethisone = question('Use this template file?', bool, True)
             if usethisone:
                 INFOS['molcas.template'] = 'MOLCAS.template'
-    if not 'molcas.template' in INFOS:
+    if 'molcas.template' not in INFOS:
         while True:
             filename = question('Template filename:', str)
             if not os.path.isfile(filename):
@@ -1753,12 +1749,12 @@ def checktemplate_ADF(filename, INFOS):
         return False
     valid = []
     for i in necessary:
-        for l in data:
-            line = l.lower().split()
-            if len(line) == 0:
+        for line in data:
+            linelist = line.lower().split()
+            if len(linelist) == 0:
                 continue
-            line = line[0]
-            if i == re.sub('#.*$', '', line):
+            word = linelist[0]
+            if i == re.sub('#.*$', '', word):
                 valid.append(True)
                 break
         else:
@@ -1782,12 +1778,12 @@ def qmmm_job(filename, INFOS):
         return False
     valid = []
     for i in necessary:
-        for l in data:
-            line = l.lower().split()
-            if len(line) == 0:
+        for line in data:
+            linelist = line.lower().split()
+            if len(linelist) == 0:
                 continue
-            line = line[0]
-            if i == re.sub('#.*$', '', line):
+            word = linelist[0]
+            if i == re.sub('#.*$', '', word):
                 valid.append(True)
                 break
         else:
@@ -1869,7 +1865,7 @@ The ADF interface will generate the appropriate ADF input automatically.
             usethisone = question('Use this template file?', bool, True)
             if usethisone:
                 INFOS['ADF.template'] = 'ADF.template'
-    if not 'ADF.template' in INFOS:
+    if 'ADF.template' not in INFOS:
         while True:
             filename = question('Template filename:', str)
             if not os.path.isfile(filename):
@@ -1976,11 +1972,11 @@ Typical values for ADF are 0.90-0.98 for LDA/GGA functionals and 0.50-0.80 for h
             if (i + 1) % 8 == 0:
                 string += '\n'
         print(string)
-        l = question('TheoDORE properties:', str, 'Om  PRNTO  S_HE  Z_HE  RMSeh')
-        if '[' in l:
-            INFOS['theodore.prop'] = ast.literal_eval(l)
+        line = question('TheoDORE properties:', str, 'Om  PRNTO  S_HE  Z_HE  RMSeh')
+        if '[' in line:
+            INFOS['theodore.prop'] = ast.literal_eval(line)
         else:
-            INFOS['theodore.prop'] = l.split()
+            INFOS['theodore.prop'] = line.split()
         print('')
 
         print('Please give a list of the fragments used for TheoDORE analysis.')
@@ -1990,16 +1986,16 @@ Typical values for ADF are 0.90-0.98 for LDA/GGA functionals and 0.50-0.80 for h
             print('You should only include the atom numbers of QM and link atoms.')
         INFOS['theodore.frag'] = []
         while True:
-            l = question('TheoDORE fragment:', str, 'end')
-            if 'end' in l.lower():
+            line = question('TheoDORE fragment:', str, 'end')
+            if 'end' in line.lower():
                 break
-            if '[' in l:
+            if '[' in line:
                 try:
-                    INFOS['theodore.frag'] = ast.literal_eval(l)
+                    INFOS['theodore.frag'] = ast.literal_eval(line)
                     break
                 except ValueError:
                     continue
-            f = [int(i) for i in l.split()]
+            f = [int(i) for i in line.split()]
             INFOS['theodore.frag'].append(f)
         INFOS['theodore.count'] = len(INFOS['theodore.prop']) + len(INFOS['theodore.frag'])**2
 
@@ -2073,8 +2069,8 @@ def checktemplate_RICC2(filename, INFOS):
         return False
     valid = []
     for i in necessary:
-        for l in data:
-            line = l.lower()
+        for li in data:
+            line = li.lower()
             if i in re.sub('#.*$', '', line):
                 valid.append(True)
                 break
@@ -2099,12 +2095,12 @@ def qmmm_job(filename, INFOS):
         return False
     valid = []
     for i in necessary:
-        for l in data:
-            line = l.lower().split()
-            if len(line) == 0:
+        for line in data:
+            linelist = line.lower().split()
+            if len(linelist) == 0:
                 continue
-            line = line[0]
-            if i == re.sub('#.*$', '', line):
+            word = linelist[0]
+            if i == re.sub('#.*$', '', word):
                 valid.append(True)
                 break
         else:
@@ -2171,7 +2167,7 @@ douglas-kroll                                   # DKH is only used if this keywo
             usethisone = question('Use this template file?', bool, True)
             if usethisone:
                 INFOS['ricc2.template'] = 'RICC2.template'
-    if not 'ricc2.template' in INFOS:
+    if 'ricc2.template' not in INFOS:
         while True:
             filename = question('Template filename:', str)
             if not os.path.isfile(filename):
@@ -2270,11 +2266,11 @@ douglas-kroll                                   # DKH is only used if this keywo
             if (i + 1) % 8 == 0:
                 string += '\n'
         print(string)
-        l = question('TheoDORE properties:', str, 'Om  PRNTO  S_HE  Z_HE  RMSeh')
-        if '[' in l:
-            INFOS['theodore.prop'] = ast.literal_eval(l)
+        line = question('TheoDORE properties:', str, 'Om  PRNTO  S_HE  Z_HE  RMSeh')
+        if '[' in line:
+            INFOS['theodore.prop'] = ast.literal_eval(line)
         else:
-            INFOS['theodore.prop'] = l.split()
+            INFOS['theodore.prop'] = line.split()
         print('')
 
         print('Please give a list of the fragments used for TheoDORE analysis.')
@@ -2282,16 +2278,16 @@ douglas-kroll                                   # DKH is only used if this keywo
         print('Alternatively, enter all atom numbers for one fragment in one line. After defining all fragments, type "end".')
         INFOS['theodore.frag'] = []
         while True:
-            l = question('TheoDORE fragment:', str, 'end')
-            if 'end' in l.lower():
+            line = question('TheoDORE fragment:', str, 'end')
+            if 'end' in line.lower():
                 break
-            if '[' in l:
+            if '[' in line:
                 try:
-                    INFOS['theodore.frag'] = ast.literal_eval(l)
+                    INFOS['theodore.frag'] = ast.literal_eval(line)
                     break
                 except ValueError:
                     continue
-            f = [int(i) for i in l.split()]
+            f = [int(i) for i in line.split()]
             INFOS['theodore.frag'].append(f)
         INFOS['theodore.count'] = len(INFOS['theodore.prop']) + len(INFOS['theodore.frag'])**2
 
@@ -2376,12 +2372,12 @@ def checktemplate_GAUSSIAN(filename, INFOS):
         return False
     valid = []
     for i in necessary:
-        for l in data:
-            line = l.lower().split()
-            if len(line) == 0:
+        for line in data:
+            linelist = line.lower().split()
+            if len(linelist) == 0:
                 continue
-            line = line[0]
-            if i == re.sub('#.*$', '', line):
+            word = linelist[0]
+            if i == re.sub('#.*$', '', word):
                 valid.append(True)
                 break
         else:
@@ -2453,7 +2449,7 @@ The GAUSSIAN interface will generate the appropriate GAUSSIAN input automaticall
             usethisone = question('Use this template file?', bool, True)
             if usethisone:
                 INFOS['GAUSSIAN.template'] = 'GAUSSIAN.template'
-    if not 'GAUSSIAN.template' in INFOS:
+    if 'GAUSSIAN.template' not in INFOS:
         while True:
             filename = question('Template filename:', str)
             if not os.path.isfile(filename):
@@ -2541,11 +2537,11 @@ Typical values for GAUSSIAN are 0.90-0.98.''')
             if (i + 1) % 8 == 0:
                 string += '\n'
         print(string)
-        l = question('TheoDORE properties:', str, 'Om  PRNTO  S_HE  Z_HE  RMSeh')
-        if '[' in l:
-            INFOS['theodore.prop'] = ast.literal_eval(l)
+        line = question('TheoDORE properties:', str, 'Om  PRNTO  S_HE  Z_HE  RMSeh')
+        if '[' in line:
+            INFOS['theodore.prop'] = ast.literal_eval(line)
         else:
-            INFOS['theodore.prop'] = l.split()
+            INFOS['theodore.prop'] = line.split()
         print('')
 
         print('Please give a list of the fragments used for TheoDORE analysis.')
@@ -2555,16 +2551,16 @@ Typical values for GAUSSIAN are 0.90-0.98.''')
             print('You should only include the atom numbers of QM and link atoms.')
         INFOS['theodore.frag'] = []
         while True:
-            l = question('TheoDORE fragment:', str, 'end')
-            if 'end' in l.lower():
+            line = question('TheoDORE fragment:', str, 'end')
+            if 'end' in line.lower():
                 break
-            if '[' in l:
+            if '[' in line:
                 try:
-                    INFOS['theodore.frag'] = ast.literal_eval(l)
+                    INFOS['theodore.frag'] = ast.literal_eval(line)
                     break
                 except ValueError:
                     continue
-            f = [int(i) for i in l.split()]
+            f = [int(i) for i in line.split()]
             INFOS['theodore.frag'].append(f)
         INFOS['theodore.count'] = len(INFOS['theodore.prop']) + len(INFOS['theodore.frag'])**2
 
@@ -2624,12 +2620,12 @@ def checktemplate_ORCA(filename, INFOS):
         return False
     valid = []
     for i in necessary:
-        for l in data:
-            line = l.lower().split()
-            if len(line) == 0:
+        for line in data:
+            linelist = line.lower().split()
+            if len(linelist) == 0:
                 continue
-            line = line[0]
-            if i == re.sub('#.*$', '', line):
+            word = linelist[0]
+            if i == re.sub('#.*$', '', word):
                 valid.append(True)
                 break
         else:
@@ -2653,12 +2649,12 @@ def qmmm_job(filename, INFOS):
         return False
     valid = []
     for i in necessary:
-        for l in data:
-            line = l.lower().split()
-            if len(line) == 0:
+        for line in data:
+            linelist = line.lower().split()
+            if len(linelist) == 0:
                 continue
-            line = line[0]
-            if i == re.sub('#.*$', '', line):
+            word = linelist[0]
+            if i == re.sub('#.*$', '', word):
                 valid.append(True)
                 break
         else:
@@ -2714,7 +2710,7 @@ The ORCA interface will generate the appropriate ORCA input automatically.
             usethisone = question('Use this template file?', bool, True)
             if usethisone:
                 INFOS['ORCA.template'] = 'ORCA.template'
-    if not 'ORCA.template' in INFOS:
+    if 'ORCA.template' not in INFOS:
         while True:
             filename = question('Template filename:', str)
             if not os.path.isfile(filename):
@@ -2823,11 +2819,11 @@ A value of 0 means that running in parallel will not make the calculation faster
             if (i + 1) % 8 == 0:
                 string += '\n'
         print(string)
-        l = question('TheoDORE properties:', str, 'Om  PRNTO  S_HE  Z_HE  RMSeh')
-        if '[' in l:
-            INFOS['theodore.prop'] = ast.literal_eval(l)
+        line = question('TheoDORE properties:', str, 'Om  PRNTO  S_HE  Z_HE  RMSeh')
+        if '[' in line:
+            INFOS['theodore.prop'] = ast.literal_eval(line)
         else:
-            INFOS['theodore.prop'] = l.split()
+            INFOS['theodore.prop'] = line.split()
         print('')
 
         print('Please give a list of the fragments used for TheoDORE analysis.')
@@ -2837,16 +2833,16 @@ A value of 0 means that running in parallel will not make the calculation faster
             print('You should only include the atom numbers of QM and link atoms.')
         INFOS['theodore.frag'] = []
         while True:
-            l = question('TheoDORE fragment:', str, 'end')
-            if 'end' in l.lower():
+            line = question('TheoDORE fragment:', str, 'end')
+            if 'end' in line.lower():
                 break
-            if '[' in l:
+            if '[' in line:
                 try:
-                    INFOS['theodore.frag'] = ast.literal_eval(l)
+                    INFOS['theodore.frag'] = ast.literal_eval(line)
                     break
                 except ValueError:
                     continue
-            f = [int(i) for i in l.split()]
+            f = [int(i) for i in line.split()]
             INFOS['theodore.frag'].append(f)
         INFOS['theodore.count'] = len(INFOS['theodore.prop']) + len(INFOS['theodore.frag'])**2
         if 'ORCA.ctfile' in INFOS:
@@ -2909,7 +2905,6 @@ def prepare_ORCA(INFOS, iconddir):
     return
 
 
-
 # ======================================================================================================================
 # ======================================================================================================================
 # ======================================================================================================================
@@ -2925,8 +2920,8 @@ def checktemplate_BAGEL(filename, INFOS):
         return False
     valid = []
     for i in necessary:
-        for l in data:
-            if i in re.sub('#.*$', '', l):
+        for line in data:
+            if i in re.sub('#.*$', '', line):
                 valid.append(True)
                 break
         else:
@@ -2935,20 +2930,20 @@ def checktemplate_BAGEL(filename, INFOS):
         print('The template %s seems to be incomplete! It should contain: ' % (filename) + str(necessary))
         return False
     roots_there = False
-    for l in data:
-        l = re.sub('#.*$', '', l).lower().split()
-        if len(l) == 0:
+    for line in data:
+        llist = re.sub('#.*$', '', line).lower().split()
+        if len(llist) == 0:
             continue
-        if 'nstate' in l[0]:
+        if 'nstate' in llist[0]:
             roots_there = True
     if not roots_there:
         for mult, state in enumerate(INFOS['states']):
             if state <= 0:
                 continue
             valid = []
-            for l in data:
-                if 'spin' in re.sub('#.*$', '', l).lower():
-                    f = l.split()
+            for line in data:
+                if 'spin' in re.sub('#.*$', '', line).lower():
+                    f = line.split()
                     if int(f[1]) == mult + 1:
                         valid.append(True)
                         break
@@ -3020,7 +3015,7 @@ The BAGEL interface will generate the appropriate BAGEL input automatically.
             usethisone = question('Use this template file?', bool, True)
             if usethisone:
                 INFOS['bagel.template'] = 'BAGEL.template'
-    if not 'bagel.template' in INFOS:
+    if 'bagel.template' not in INFOS:
         while True:
             filename = question('Template filename:', str)
             if not os.path.isfile(filename):
@@ -3165,19 +3160,16 @@ def prepare_BAGEL(INFOS, iconddir):
             shutil.copy(cpfrom, cpto)
     return
 
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
 
-
-
-
-# ======================================================================================================================
-# ======================================================================================================================
-# ======================================================================================================================
-# ======================================================================================================================
-# ======================================================================================================================
-# ======================================================================================================================
-# ======================================================================================================================
-# ======================================================================================================================
-# ======================================================================================================================
 
 def get_runscript_info(INFOS):
     ''''''
@@ -3237,7 +3229,7 @@ def make_directory(iconddir):
             return 0
         else:
             print('\nWARNING: %s/ is not empty!' % (iconddir))
-            if not 'overwrite' in globals():
+            if 'overwrite' not in globals():
                 global overwrite
                 overwrite = question('Do you want to overwrite files in this and all following directories? ', bool, False)
             if overwrite:
@@ -3265,7 +3257,7 @@ def writeQMin(INFOS, iconddir):
     string = '%i\nInitial condition %s\n' % (INFOS['natom'], iconddir)
 
     if icond > 0:
-        searchstring = 'Index\s+%i' % (icond)
+        searchstring = r'Index\s+%i' % (icond)
     else:
         searchstring = 'Equilibrium'
     rewinded = False
