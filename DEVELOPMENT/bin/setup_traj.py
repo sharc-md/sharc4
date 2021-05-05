@@ -215,7 +215,19 @@ Interfaces = {
                       'dipolegrad': [],
                       'phases': [], },
          'pysharc': False
-         }
+         },
+    11: {'script': 'SHARC_AMS.py',
+         'name': 'ams',
+         'description': 'AMS (DFT, TD-DFT)',
+         'get_routine': 'get_AMS',
+         'prepare_routine': 'prepare_AMS',
+         'features': {'overlap': ['wfoverlap'],
+                      'dyson': ['wfoverlap'],
+                      'theodore': ['theodore'],
+                      'phases': ['wfoverlap'],
+                      'soc': []},
+         'pysharc': False
+         },
 }
 
 
@@ -3045,6 +3057,347 @@ def qmmm_job(filename, INFOS):
 # =================================================
 
 
+def checktemplate_AMS(filename, INFOS):
+    necessary = ['basis', 'functional', 'charge']
+    try:
+        f = open(filename)
+        data = f.readlines()
+        f.close()
+    except IOError:
+        print('Could not open template file %s' % (filename))
+        return False
+    valid = []
+    for i in necessary:
+        for li in data:
+            line = li.lower().split()
+            if len(line) == 0:
+                continue
+            line = line[0]
+            if i == re.sub('#.*$', '', line):
+                valid.append(True)
+                break
+        else:
+            valid.append(False)
+    if not all(valid):
+        print('The template %s seems to be incomplete! It should contain: ' % (filename) + str(necessary))
+        return False
+    return True
+
+# =================================================
+
+
+def qmmm_job(filename, INFOS):
+    necessary = ['qmmm']
+    try:
+        f = open(filename)
+        data = f.readlines()
+        f.close()
+    except IOError:
+        print('Could not open template file %s' % (filename))
+        return False
+    valid = []
+    for i in necessary:
+        for li in data:
+            line = li.lower().split()
+            if len(line) == 0:
+                continue
+            line = line[0]
+            if i == re.sub('#.*$', '', line):
+                valid.append(True)
+                break
+        else:
+            valid.append(False)
+    if not all(valid):
+        return False
+    return True
+
+# =================================================
+
+
+def get_AMS(INFOS):
+    '''This routine asks for all questions specific to AMS:
+    - path to AMS
+    - scratch directory
+    - AMS.template
+    - TAPE21
+    '''
+
+    string = '\n  ' + '=' * 80 + '\n'
+    string += '||' + centerstring('AMS Interface setup', 80) + '||\n'
+    string += '  ' + '=' * 80 + '\n\n'
+    print(string)
+
+    print(centerstring('Path to AMS', 60, '-') + '\n')
+    path = os.getenv('AMSHOME')
+    if path:
+        path = '$AMSHOME/'
+    amsbashrc = question('Setup from amsbashrc.sh file?', bool, True)
+    if amsbashrc:
+        if path:
+            path = '$AMSHOME/amsbashrc.sh'
+        print('\nPlease specify path to the amsbashrc.sh file (SHELL variables and ~ can be used, will be expanded when interface is started).\n')
+        path = question('Path to amsbashrc.sh file:', str, path)
+        INFOS['amsbashrc'] = os.path.abspath(os.path.expanduser(os.path.expandvars(path)))
+        print('Will use amsbashrc= %s' % INFOS['amsbashrc'])
+        INFOS['ams'] = '$AMSHOME'
+        INFOS['scmlicense'] = '$SCMLICENSE'
+        print('')
+    else:
+        print('\nPlease specify path to AMS directory (SHELL variables and ~ can be used, will be expanded when interface is started).\n')
+        INFOS['ams'] = question('Path to AMS:', str, path)
+        print('')
+        print(centerstring('Path to AMS license file', 60, '-') + '\n')
+        path = os.getenv('SCMLICENSE')
+        # path=os.path.expanduser(os.path.expandvars(path))
+        if path == '':
+            path = None
+        else:
+            path = '$SCMLICENSE'
+        print('\nPlease specify path to AMS license.txt\n')
+        INFOS['scmlicense'] = question('Path to license:', str, path)
+        print('')
+
+
+    # scratch
+    print(centerstring('Scratch directory', 60, '-') + '\n')
+    print('Please specify an appropriate scratch directory. This will be used to run the AMS calculations. The scratch directory will be deleted after the calculation. Remember that this script cannot check whether the path is valid, since you may run the calculations on a different machine. The path will not be expanded by this script.')
+    INFOS['scratchdir'] = question('Path to scratch directory:', str)
+    print('')
+
+
+    # template file
+    print(centerstring('AMS input template file', 60, '-') + '\n')
+    print('''Please specify the path to the AMS.template file. This file must contain the following keywords:
+
+basis <basis>
+functional <type> <name>
+charge <x> [ <x2> [ <x3> ...] ]
+
+The AMS interface will generate the appropriate AMS input automatically.
+''')
+    if os.path.isfile('AMS.template'):
+        if checktemplate_AMS('AMS.template', INFOS):
+            print('Valid file "AMS.template" detected. ')
+            usethisone = question('Use this template file?', bool, True)
+            if usethisone:
+                INFOS['AMS.template'] = 'AMS.template'
+    if 'AMS.template' not in INFOS:
+        while True:
+            filename = question('Template filename:', str)
+            if not os.path.isfile(filename):
+                print('File %s does not exist!' % (filename))
+                continue
+            if checktemplate_AMS(filename, INFOS):
+                break
+        INFOS['AMS.template'] = filename
+    print('')
+
+
+
+    # QMMM
+    if qmmm_job(INFOS['AMS.template'], INFOS):
+        print(centerstring('AMS QM/MM setup', 60, '-') + '\n')
+        print('Your template specifies a QM/MM calculation. Please give the force field and connection table files.')
+        while True:
+            filename = question('Force field file:', str)
+            if not os.path.isfile(filename):
+                print('File %s does not exist!' % (filename))
+                continue
+            else:
+                break
+        INFOS['AMS.fffile'] = filename
+        while True:
+            filename = question('Connection table file:', str)
+            if not os.path.isfile(filename):
+                print('File %s does not exist!' % (filename))
+                continue
+            else:
+                break
+        INFOS['AMS.ctfile'] = filename
+
+
+    # initial MOs
+    print(centerstring('Initial restart: MO Guess', 60, '-') + '\n')
+    print('''Please specify the path to an AMS TAPE21 file containing suitable starting MOs for the AMS calculation. Please note that this script cannot check whether the wavefunction file and the Input template are consistent!
+''')
+    if question('Do you have a restart file?', bool, True):
+        if True:
+            filename = question('Restart file:', str, 'AMS.t21.init')
+            INFOS['ams.guess'] = filename
+    else:
+        print('WARNING: Remember that the calculations may take longer without an initial guess for the MOs.')
+        # time.sleep(2)
+        INFOS['ams.guess'] = {}
+
+
+
+    # Resources
+    print(centerstring('AMS Ressource usage', 60, '-') + '\n')
+    print('''Please specify the number of CPUs to be used by EACH calculation.
+''')
+    INFOS['ams.ncpu'] = abs(question('Number of CPUs:', int)[0])
+
+    if INFOS['ams.ncpu'] > 1:
+        print('''Please specify how well your job will parallelize.
+A value of 0 means that running in parallel will not make the calculation faster, a value of 1 means that the speedup scales perfectly with the number of cores.
+Typical values for AMS are 0.90-0.98 for LDA/GGA functionals and 0.50-0.80 for hybrids (better if RIHartreeFock is used).''')
+        INFOS['ams.scaling'] = min(1.0, max(0.0, question('Parallel scaling:', float, [0.8])[0]))
+    else:
+        INFOS['ams.scaling'] = 0.9
+
+
+    # Ionization
+    # need_wfoverlap=False
+    # print(centerstring('Ionization probability by Dyson norms',60,'-')+'\n')
+    # INFOS['ion']=question('Dyson norms?',bool,False)
+    # if 'ion' in INFOS and INFOS['ion']:
+        # need_wfoverlap=True
+    # if Couplings[INFOS['coupling']]['name']=='overlap':
+        # need_wfoverlap=True
+
+
+    # Overlaps
+    # if need_wfoverlap:
+    if 'wfoverlap' in INFOS['needed']:
+        print('\n' + centerstring('Wfoverlap code setup', 60, '-') + '\n')
+        INFOS['ams.wfoverlap'] = question('Path to wavefunction overlap executable:', str, '$SHARC/wfoverlap.x')
+        print('')
+        print('''State threshold for choosing determinants to include in the overlaps''')
+        print('''For hybrids (and without TDA) one should consider that the eigenvector X may have a norm larger than 1''')
+        INFOS['ams.ciothres'] = question('Threshold:', float, [0.99])[0]
+        print('')
+        INFOS['ams.mem'] = question('Memory for wfoverlap (MB):', int, [1000])[0]
+        # TODO not asked: numfrozcore and numocc
+
+        # print('Please state the number of core orbitals you wish to freeze for the overlaps (recommended to use for at least the 1s orbital and a negative number uses default values)?')
+        # print('A value of -1 will use the defaults used by AMS for a small frozen core and 0 will turn off the use of frozen cores')
+        # INFOS['frozcore_number']=question('How many orbital to freeze?',int,[-1])[0]
+
+
+    # TheoDORE
+    theodore_spelling = ['Om',
+                         'PRNTO',
+                         'Z_HE', 'S_HE', 'RMSeh',
+                         'POSi', 'POSf', 'POS',
+                         'PRi', 'PRf', 'PR', 'PRh',
+                         'CT', 'CT2', 'CTnt',
+                         'MC', 'LC', 'MLCT', 'LMCT', 'LLCT',
+                         'DEL', 'COH', 'COHh']
+    print('\n' + centerstring('Wave function analysis by TheoDORE', 60, '-') + '\n')
+    # INFOS['theodore']=question('TheoDORE analysis?',bool,False)
+    if 'theodore' in INFOS['needed']:
+
+        INFOS['ams.theodore'] = question('Path to TheoDORE directory:', str, '$THEODIR')
+        print('')
+
+        print('Please give a list of the properties to calculate by TheoDORE.\nPossible properties:')
+        string = ''
+        for i, p in enumerate(theodore_spelling):
+            string += '%s ' % (p)
+            if (i + 1) % 8 == 0:
+                string += '\n'
+        print(string)
+        line = question('TheoDORE properties:', str, 'Om  PRNTO  S_HE  Z_HE  RMSeh')
+        if '[' in line:
+            INFOS['theodore.prop'] = ast.literal_eval(line)
+        else:
+            INFOS['theodore.prop'] = line.split()
+        print('')
+
+        print('Please give a list of the fragments used for TheoDORE analysis.')
+        print('You can use the list-of-lists from dens_ana.in')
+        print('Alternatively, enter all atom numbers for one fragment in one line. After defining all fragments, type "end".')
+        if qmmm_job(INFOS['AMS.template'], INFOS):
+            print('You should only include the atom numbers of QM and link atoms.')
+        INFOS['theodore.frag'] = []
+        while True:
+            line = question('TheoDORE fragment:', str, 'end')
+            if 'end' in line.lower():
+                break
+            if '[' in line:
+                try:
+                    INFOS['theodore.frag'] = ast.literal_eval(line)
+                    break
+                except ValueError:
+                    continue
+            f = [int(i) for i in line.split()]
+            INFOS['theodore.frag'].append(f)
+        INFOS['theodore.count'] = len(INFOS['theodore.prop']) + len(INFOS['theodore.frag'])**2
+        if 'AMS.ctfile' in INFOS:
+            INFOS['theodore.count'] += 7
+
+
+    return INFOS
+
+# =================================================
+
+
+def prepare_AMS(INFOS, iconddir):
+    # write AMS.resources
+    try:
+        sh2cas = open('%s/QM/AMS.resources' % (iconddir), 'w')
+    except IOError:
+        print('IOError during prepareAMS, iconddir=%s' % (iconddir))
+        quit(1)
+#  project='AMS'
+    string = 'amshome %s\nscmlicense %s\nscratchdir %s/%s/\nsavedir %s/%s/restart\nncpu %i\nschedule_scaling %f\n' % (INFOS['ams'], INFOS['scmlicense'], INFOS['scratchdir'], iconddir, INFOS['copydir'], iconddir, INFOS['ams.ncpu'], INFOS['ams.scaling'])
+    if 'wfoverlap' in INFOS['needed']:
+        string += 'wfoverlap %s\nwfthres %f\n' % (INFOS['ams.wfoverlap'], INFOS['ams.ciothres'])
+        string += 'memory %i\n' % (INFOS['ams.mem'])
+        # string+='numfrozcore %i\n' %(INFOS['frozcore_number'])
+    else:
+        string += 'nooverlap\n'
+    if INFOS['theodore']:
+        string += 'theodir %s\n' % (INFOS['ams.theodore'])
+        string += 'theodore_prop %s\n' % (INFOS['theodore.prop'])
+        string += 'theodore_fragment %s\n' % (INFOS['theodore.frag'])
+    if 'AMS.fffile' in INFOS:
+        string += 'qmmm_ff_file AMS.qmmm.ff\n'
+    if 'AMS.ctfile' in INFOS:
+        string += 'qmmm_table AMS.qmmm.table\n'
+    sh2cas.write(string)
+    sh2cas.close()
+
+    # copy MOs and template
+    cpfrom = INFOS['AMS.template']
+    cpto = '%s/QM/AMS.template' % (iconddir)
+    shutil.copy(cpfrom, cpto)
+
+    if INFOS['ams.guess']:
+        cpfrom1 = INFOS['ams.guess']
+        cpto1 = '%s/AMS.t21_init' % (iconddir)
+        shutil.copy(cpfrom1, cpto1)
+
+    if 'AMS.fffile' in INFOS:
+        cpfrom1 = INFOS['AMS.fffile']
+        cpto1 = '%s/QM/AMS.qmmm.ff' % (iconddir)
+        shutil.copy(cpfrom1, cpto1)
+
+    if 'AMS.ctfile' in INFOS:
+        cpfrom1 = INFOS['AMS.ctfile']
+        cpto1 = '%s/QM/AMS.qmmm.table' % (iconddir)
+        shutil.copy(cpfrom1, cpto1)
+
+    # runQM.sh
+    runname = iconddir + '/QM/runQM.sh'
+    runscript = open(runname, 'w')
+    s = '''cd QM
+$SHARC/%s QM.in >> QM.log 2>> QM.err
+err=$?
+
+exit $err''' % (Interfaces[INFOS['interface']]['script'])
+    runscript.write(s)
+    runscript.close()
+    os.chmod(runname, os.stat(runname).st_mode | stat.S_IXUSR)
+
+
+    return
+
+# ==================================================================
+# ==================================================================
+# ==================================================================
+
+
 def get_RICC2(INFOS):
     string = '\n  ' + '=' * 80 + '\n'
     string += '||' + centerstring('Turbomole RICC2 Interface setup', 80) + '||\n'
@@ -4387,6 +4740,8 @@ def writeRunscript(INFOS, iconddir):
     intstring = ''
     if 'adfrc' in INFOS:
         intstring = '. %s\nexport PYTHONPATH=$ADFHOME/scripting:$PYTHONPATH' % (INFOS['adfrc'])
+    elif 'amsbashrc' in INFOS:
+        intstring = '. %s\nexport PYTHONPATH=$AMSHOME/scripting:$PYTHONPATH' % (INFOS['amsbashrc'])
 
     # ================================
     if INFOS['pysharc']:
