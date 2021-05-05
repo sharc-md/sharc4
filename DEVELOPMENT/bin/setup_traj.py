@@ -506,10 +506,11 @@ def check_initcond_version(string, must_be_excited=False):
 # ======================================================================================================================
 
 def centerstring(string, n, pad=' '):
-    if len(string) >= n:
+    length = len(string)
+    if length >= n:
         return string
     else:
-        return pad * ((n - l + 1) / 2) + string + pad * ((n - l) / 2)
+        return pad * ((n - length + 1) // 2) + string + pad * ((n - length) // 2)
 
 
 def displaywelcome():
@@ -661,14 +662,14 @@ class init_string:
         self.nst = 0
         self.width = 100
         self.group = 10
-        self.groups = (self.width - 1) / self.group + 1
+        self.groups = (self.width - 1) // self.group + 1
         self.nrow = 1
         self.lastrow = 0
 
     def add(self, s):
         self.strings.append(s)
         self.nst += 1
-        self.nrow = (self.nst - 1) / self.width + 1
+        self.nrow = (self.nst - 1) // self.width + 1
         self.lastrow = self.nst % self.width
         if self.lastrow == 0:
             self.lastrow = self.width
@@ -1107,7 +1108,7 @@ from the initconds.excited files as provided by excite.py.
             continue
         break
     INFOS['dtstep'] = dt
-    print('\nSimulation will have %i timesteps.' % (num2 / dt + 1))
+    print('\nSimulation will have %i timesteps.' % (num2 // dt + 1))
 
 
     # number of substeps
@@ -1400,7 +1401,7 @@ from the initconds.excited files as provided by excite.py.
 Laser files can be created using $SHARC/laser.x
 ''')
         if os.path.isfile('laser'):
-            if check_laserfile('laser', INFOS['tmax'] / INFOS['dtstep'] * INFOS['nsubstep'] + 1, INFOS['dtstep'] / INFOS['nsubstep']):
+            if check_laserfile('laser', INFOS['tmax'] // INFOS['dtstep'] * INFOS['nsubstep'] + 1, INFOS['dtstep'] / INFOS['nsubstep']):
                 print('Valid laser file "laser" detected. ')
                 usethisone = question('Use this laser file?', bool, True)
                 if usethisone:
@@ -1411,7 +1412,7 @@ Laser files can be created using $SHARC/laser.x
                 if not os.path.isfile(filename):
                     print('File %s does not exist!' % (filename))
                     continue
-                if check_laserfile(filename, INFOS['tmax'] / INFOS['dtstep'] * INFOS['nsubstep'] + 1, INFOS['dtstep'] / INFOS['nsubstep']):
+                if check_laserfile(filename, INFOS['tmax'] // INFOS['dtstep'] * INFOS['nsubstep'] + 1, INFOS['dtstep'] / INFOS['nsubstep']):
                     break
             INFOS['laserfile'] = filename
         # only the analytical interface can do dipole gradients
@@ -1802,7 +1803,7 @@ def checktemplate_COLUMBUS(TEMPLATE, mult):
             cidrtin.readline()
             nelec = int(cidrtin.readline().split()[0])
             if mult <= maxmult and (mult + nelec) % 2 != 0:
-                return 1, (mult + 1) / 2, INTPROG    # socinr=1, single=-1, isc=0
+                return 1, (mult + 1) // 2, INTPROG    # socinr=1, single=-1, isc=0
             else:
                 return None, None, None
         else:
@@ -4889,7 +4890,7 @@ def setup_all(INFOS):
             idone += 1
 
             done = idone * width / ntraj
-            sys.stdout.write('\rProgress: [' + '=' * done + ' ' * (width - done) + '] %3i%%' % (done * 100 / width))
+            sys.stdout.write('\rProgress: [' + '=' * done + ' ' * (width - done) + '] %3i%%' % (done * 100 // width))
 
             dirname = get_iconddir(istate, INFOS) + '/TRAJ_%05i/' % (icond)
             io = make_directory(dirname)
