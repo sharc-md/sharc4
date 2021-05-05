@@ -4889,7 +4889,7 @@ def setup_all(INFOS):
 
             idone += 1
 
-            done = idone * width / ntraj
+            done = idone * width // ntraj
             sys.stdout.write('\rProgress: [' + '=' * done + ' ' * (width - done) + '] %3i%%' % (done * 100 // width))
 
             dirname = get_iconddir(istate, INFOS) + '/TRAJ_%05i/' % (icond)
