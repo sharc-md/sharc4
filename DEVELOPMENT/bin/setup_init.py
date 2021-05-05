@@ -369,7 +369,7 @@ def question(question, typefunc, default=None, autocomplete=True, ranges=False):
             s += ' (range comprehension enabled)'
         s += ' '
 
-        line = raw_input(s)  # TODO is undefined
+        line = input(s)
         line = re.sub('#.*$', '', line).strip()
         if not typefunc == str:
             line = line.lower()
