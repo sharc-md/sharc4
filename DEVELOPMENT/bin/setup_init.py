@@ -312,14 +312,16 @@ def displaywelcome():
     print('Script for setup of initial conditions started...\n')
     string = '\n'
     string += '  ' + '=' * 80 + '\n'
-    string += '||' + centerstring('', 80) + '||\n'
-    string += '||' + centerstring('Setup initial conditions for SHARC dynamics', 80) + '||\n'
-    string += '||' + centerstring('', 80) + '||\n'
-    string += '||' + centerstring('Author: Sebastian Mai', 80) + '||\n'
-    string += '||' + centerstring('', 80) + '||\n'
-    string += '||' + centerstring('Version:' + version, 80) + '||\n'
-    string += '||' + centerstring(versiondate.strftime("%d.%m.%y"), 80) + '||\n'
-    string += '||' + centerstring('', 80) + '||\n'
+    input = [' ',
+             'Setup trajectories for SHARC dynamics',
+             ' ',
+             'Authors: Sebastian Mai, Severin Polonius',
+             ' ',
+             'Version: %s' % (version),
+             'Date: %s' % (versiondate.strftime("%d.%m.%y")),
+             ' ']
+    for inp in input:
+        string += '||{:^80}||\n'.format(inp)
     string += '  ' + '=' * 80 + '\n\n'
     string += '''
 This script automatizes the setup of excited-state calculations for initial conditions
