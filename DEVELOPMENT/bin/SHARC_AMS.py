@@ -1194,7 +1194,6 @@ def readQMin(QMinfilename):
 
     QMinlines = readfile(QMinfilename)
     QMin = {}
-
     # Get natom
     try:
         natom = int(QMinlines[0])
@@ -1216,8 +1215,7 @@ def readQMin(QMinfilename):
     QMin['frozcore'] = 0
     QMin['Atomcharge'] = 0
     for i in range(2, natom + 2):
-        p = re.compile(r'[a-zA-Z][a-zA-Z]?[0-9]*.*[-]?[0-9]+[.][0-9]*.*[-]?[0-9]+[.][0-9]*.*[-]?[0-9]+[.][0-9]*')
-        if not p.match(QMinlines[i]):
+        if re.search(r'[a-zA-Z][a-zA-Z]?[0-9]*.*[-]?[0-9]+[.][0-9]*.*[-]?[0-9]+[.][0-9]*.*[-]?[0-9]+[.][0-9]*', QMinlines[i]) is None:
             print('Input file does not comply to xyz file format! Maybe natom is just wrong.')
             sys.exit(26)
         fields = QMinlines[i].split()
