@@ -472,7 +472,7 @@ def get_general():
         break
     INFOS['geom_location'] = path
     geometry_data = readfile(INFOS['geom_location'])
-    ngeoms = len(geometry_data) / (natom + 2)
+    ngeoms = len(geometry_data) // (natom + 2)
     if ngeoms > 1:
         print('Number of geometries: %i' % (ngeoms))
     INFOS['ngeom'] = ngeoms
@@ -852,7 +852,7 @@ def checktemplate_COLUMBUS(TEMPLATE, mult):
             cidrtin.readline()
             nelec = int(cidrtin.readline().split()[0])
             if mult <= maxmult and (mult + nelec) % 2 != 0:
-                return 1, (mult + 1) / 2, INTPROG    # socinr=1, single=-1, isc=0
+                return 1, (mult + 1) // 2, INTPROG    # socinr=1, single=-1, isc=0
             else:
                 return None, None, None
         else:
