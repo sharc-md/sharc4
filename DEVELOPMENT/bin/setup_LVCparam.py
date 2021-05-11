@@ -2393,7 +2393,7 @@ def get_GAUSSIAN(INFOS):
     # template file
     print('{:-^60}'.format('GAUSSIAN input template file') + '\n')
     print('''Please specify the path to the GAUSSIAN.template file. This file must contain the following keywords:
-  
+
 basis <basis>
 functional <type> <name>
 charge <x> [ <x2> [ <x3> ...] ]
