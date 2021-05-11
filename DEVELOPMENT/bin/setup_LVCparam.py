@@ -720,11 +720,11 @@ Interfaces = {
                      'soc': []},
         'pysharc': False
         },
-    5: {'script': 'SHARC_ADF.py',
-        'name': 'adf',
-        'description': 'ADF (DFT, TD-DFT)',
-        'get_routine': 'get_ADF',
-        'prepare_routine': 'prepare_ADF',
+    5: {'script': 'SHARC_AMS.py',
+        'name': 'ams',
+        'description': 'AMS (DFT, TD-DFT)',
+        'get_routine': 'get_AMS',
+        'prepare_routine': 'prepare_AMS',
         'features': {'overlap': ['wfoverlap'],
                      'dyson': ['wfoverlap'],
                      'theodore': ['theodore'],
@@ -973,7 +973,7 @@ def checktemplate_COLUMBUS(TEMPLATE, mult):
         necessary = ['control.run', 'mcscfin', 'tranin', 'propin']
         lof = os.listdir(TEMPLATE)
         for i in necessary:
-            if not i in lof:
+            if i not in lof:
                 # print('Did not find input file %s! Did you prepare the input according to the instructions?' % (i))
                 return None, None, None
         cidrtinthere = False
@@ -1012,7 +1012,7 @@ def checktemplate_COLUMBUS(TEMPLATE, mult):
             cidrtin.readline()
             nelec = int(cidrtin.readline().split()[0])
             if mult <= maxmult and (mult + nelec) % 2 != 0:
-                return 1, (mult + 1) / 2, INTPROG    # socinr=1, single=-1, isc=0
+                return 1, (mult + 1) // 2, INTPROG    # socinr=1, single=-1, isc=0
             else:
                 return None, None, None
         else:
@@ -1106,7 +1106,7 @@ In order to setup the COLUMBUS input, use COLUMBUS' input facility colinp. For f
             for d in content:
                 template = path + '/' + d
                 socitype, drt, intprog = checktemplate_COLUMBUS(template, mult)
-                if socitype == None:
+                if socitype is None:
                     continue
                 if not d[-1] == '/':
                     d += '/'
@@ -1143,7 +1143,7 @@ In order to setup the COLUMBUS input, use COLUMBUS' input facility colinp. For f
                 j = f[1]
             except (ValueError, IndexError):
                 continue
-            if not m in multmap:
+            if m not in multmap:
                 print('Multiplicity %i not necessary!' % (m))
                 continue
             if not os.path.isdir(path + '/' + j):
@@ -1346,7 +1346,7 @@ def checktemplate_Analytical(filename, req_nstates, eMsg=True):
     variables = set()
     for i in range(2, 2 + natom):
         line = data[i]
-        match = re.match('\s*[a-zA-Z]*\s+[a-zA-Z0][a-zA-Z0-9_]*\s+[a-zA-Z0][a-zA-Z0-9_]*\s+[a-zA-Z0][a-zA-Z0-9_]*', line)
+        match = re.match(r'\s*[a-zA-Z]*\s+[a-zA-Z0][a-zA-Z0-9_]*\s+[a-zA-Z0][a-zA-Z0-9_]*\s+[a-zA-Z0][a-zA-Z0-9_]*', line)
         if not match:
             if eMsg:
                 print('Line %i malformatted!' % (i + 1))
@@ -1354,7 +1354,7 @@ def checktemplate_Analytical(filename, req_nstates, eMsg=True):
         else:
             a = line.split()
             for j in range(3):
-                match = re.match('\s*[a-zA-Z][a-zA-Z0-9_]*', a[j + 1])
+                match = re.match(r'\s*[a-zA-Z][a-zA-Z0-9_]*', a[j + 1])
                 if match:
                     variables.add(a[j + 1])
 
@@ -1766,7 +1766,7 @@ def prepare_MOLCAS(INFOS, iconddir):
 # ======================================================================================================================
 
 
-def checktemplate_ADF(filename, INFOS):
+def checktemplate_AMS(filename, INFOS):
     necessary = ['basis', 'functional', 'charge']
     try:
         f = open(filename)
@@ -1823,46 +1823,46 @@ def qmmm_job(filename, INFOS):
 # =================================================
 
 
-def get_ADF(INFOS):
-    '''This routine asks for all questions specific to ADF:
-    - path to ADF
+def get_AMS(INFOS):
+    '''This routine asks for all questions specific to AMS:
+    - path to AMS
     - scratch directory
-    - ADF.template
+    - AMS.template
     - TAPE21
     '''
 
     string = '\n  ' + '=' * 80 + '\n'
-    string += '||' + '{:^80}'.format('ADF Interface setup') + '||\n'
+    string += '||' + '{:^80}'.format('AMS Interface setup') + '||\n'
     string += '  ' + '=' * 80 + '\n\n'
     print(string)
 
-    print('{:-^60}'.format('Path to ADF') + '\n')
-    path = os.getenv('ADFHOME')
+    print('{:-^60}'.format('Path to AMS') + '\n')
+    path = os.getenv('AMSHOME')
     if path:
-        path = '$ADFHOME/'
-    adfrc = question('Setup from adfrc.sh file?', bool, True)
-    if adfrc:
+        path = '$AMSHOME/'
+    amsbashrc = question('Setup from amsbashrc.sh file?', bool, True)
+    if amsbashrc:
         if path:
-            path = '$ADFHOME/adfrc.sh'
-        print('\nPlease specify path to the adfrc.sh file (SHELL variables and ~ can be used, will be expanded when interface is started).\n')
-        path = question('Path to adfrc.sh file:', str, path)
-        INFOS['adfrc'] = os.path.abspath(os.path.expanduser(os.path.expandvars(path)))
-        print('Will use adfrc= %s' % INFOS['adfrc'])
-        INFOS['adf'] = '$ADFHOME'
+            path = '$AMSHOME/amsbashrc.sh'
+        print('\nPlease specify path to the amsbashrc.sh file (SHELL variables and ~ can be used, will be expanded when interface is started).\n')
+        path = question('Path to amsbashrc.sh file:', str, path)
+        INFOS['amsbashrc'] = os.path.abspath(os.path.expanduser(os.path.expandvars(path)))
+        print('Will use amsbashrc= %s' % INFOS['amsbashrc'])
+        INFOS['ams'] = '$AMSHOME'
         INFOS['scmlicense'] = '$SCMLICENSE'
         print('')
     else:
-        print('\nPlease specify path to ADF directory (SHELL variables and ~ can be used, will be expanded when interface is started).\n')
-        INFOS['adf'] = question('Path to ADF:', str, path)
+        print('\nPlease specify path to AMS directory (SHELL variables and ~ can be used, will be expanded when interface is started).\n')
+        INFOS['ams'] = question('Path to AMS:', str, path)
         print('')
-        print('{:-^60}'.format('Path to ADF license file') + '\n')
+        print('{:-^60}'.format('Path to AMS license file') + '\n')
         path = os.getenv('SCMLICENSE')
         # path=os.path.expanduser(os.path.expandvars(path))
         if path == '':
             path = None
         else:
             path = '$SCMLICENSE'
-        print('\nPlease specify path to ADF license.txt\n')
+        print('\nPlease specify path to AMS license.txt\n')
         INFOS['scmlicense'] = question('Path to license:', str, path)
         print('')
 
@@ -1872,42 +1872,42 @@ def get_ADF(INFOS):
 
     # scratch
     print('{:-^60}'.format('Scratch directory') + '\n')
-    print('Please specify an appropriate scratch directory. This will be used to run the ADF calculations. The scratch directory will be deleted after the calculation. Remember that this script cannot check whether the path is valid, since you may run the calculations on a different machine. The path will not be expanded by this script.')
+    print('Please specify an appropriate scratch directory. This will be used to run the AMS calculations. The scratch directory will be deleted after the calculation. Remember that this script cannot check whether the path is valid, since you may run the calculations on a different machine. The path will not be expanded by this script.')
     INFOS['scratchdir'] = question('Path to scratch directory:', str)
     print('')
 
 
     # template file
-    print('{:-^60}'.format('ADF input template file') + '\n')
-    print('''Please specify the path to the ADF.template file. This file must contain the following keywords:
+    print('{:-^60}'.format('AMS input template file') + '\n')
+    print('''Please specify the path to the AMS.template file. This file must contain the following keywords:
 
 basis <basis>
 functional <type> <name>
 charge <x> [ <x2> [ <x3> ...] ]
 
-The ADF interface will generate the appropriate ADF input automatically.
+The AMS interface will generate the appropriate AMS input automatically.
 ''')
-    if os.path.isfile('ADF.template'):
-        if checktemplate_ADF('ADF.template', INFOS):
-            print('Valid file "ADF.template" detected. ')
+    if os.path.isfile('AMS.template'):
+        if checktemplate_AMS('AMS.template', INFOS):
+            print('Valid file "AMS.template" detected. ')
             usethisone = question('Use this template file?', bool, True)
             if usethisone:
-                INFOS['ADF.template'] = 'ADF.template'
-    if 'ADF.template' not in INFOS:
+                INFOS['AMS.template'] = 'AMS.template'
+    if 'AMS.template' not in INFOS:
         while True:
             filename = question('Template filename:', str)
             if not os.path.isfile(filename):
                 print('File %s does not exist!' % (filename))
                 continue
-            if checktemplate_ADF(filename, INFOS):
+            if checktemplate_AMS(filename, INFOS):
                 break
-        INFOS['ADF.template'] = filename
+        INFOS['AMS.template'] = filename
     print('')
 
 
     # QMMM
-    if qmmm_job(INFOS['ADF.template'], INFOS):
-        print('{:-^60}'.format('ADF QM/MM setup') + '\n')
+    if qmmm_job(INFOS['AMS.template'], INFOS):
+        print('{:-^60}'.format('AMS QM/MM setup') + '\n')
         print('Your template specifies a QM/MM calculation. Please give the force field and connection table files.')
         while True:
             filename = question('Force field file:', str)
@@ -1915,46 +1915,46 @@ The ADF interface will generate the appropriate ADF input automatically.
                 print('File %s does not exist!' % (filename))
             else:
                 break
-        INFOS['ADF.fffile'] = filename
+        INFOS['AMS.fffile'] = filename
         while True:
             filename = question('Connection table file:', str)
             if not os.path.isfile(filename):
                 print('File %s does not exist!' % (filename))
             else:
                 break
-        INFOS['ADF.ctfile'] = filename
+        INFOS['AMS.ctfile'] = filename
 
 
     # initial MOs
     print('{:-^60}'.format('Initial restart: MO Guess') + '\n')
-    print('''Please specify the path to an ADF TAPE21 file containing suitable starting MOs for the ADF calculation. Please note that this script cannot check whether the wavefunction file and the Input template are consistent!
+    print('''Please specify the path to an AMS rkf engine file containing suitable starting MOs for the AMS calculation. Please note that this script cannot check whether the wavefunction file and the Input template are consistent!
 ''')
     if question('Do you have a restart file?', bool, True):
         if True:
             while True:
-                filename = question('Restart file:', str, 'ADF.t21.init')
+                filename = question('Restart file:', str, 'AMS.t21.init')
                 if os.path.isfile(filename):
-                    INFOS['adf.guess'] = filename
+                    INFOS['ams.guess'] = filename
                     break
                 else:
                     print('Could not find file "%s"!' % (filename))
     else:
-        INFOS['adf.guess'] = {}
+        INFOS['ams.guess'] = {}
 
 
     # Resources
-    print('{:-^60}'.format('ADF Ressource usage') + '\n')
+    print('{:-^60}'.format('AMS Ressource usage') + '\n')
     print('''Please specify the number of CPUs to be used by EACH calculation.
 ''')
-    INFOS['adf.ncpu'] = abs(question('Number of CPUs:', int)[0])
+    INFOS['ams.ncpu'] = abs(question('Number of CPUs:', int)[0])
 
-    if INFOS['adf.ncpu'] > 1:
+    if INFOS['ams.ncpu'] > 1:
         print('''Please specify how well your job will parallelize.
 A value of 0 means that running in parallel will not make the calculation faster, a value of 1 means that the speedup scales perfectly with the number of cores.
-Typical values for ADF are 0.90-0.98 for LDA/GGA functionals and 0.50-0.80 for hybrids (better if RIHartreeFock is used).''')
-        INFOS['adf.scaling'] = min(1.0, max(0.0, question('Parallel scaling:', float, [0.8])[0]))
+Typical values for AMS are 0.90-0.98 for LDA/GGA functionals and 0.50-0.80 for hybrids (better if RIHartreeFock is used).''')
+        INFOS['ams.scaling'] = min(1.0, max(0.0, question('Parallel scaling:', float, [0.8])[0]))
     else:
-        INFOS['adf.scaling'] = 0.9
+        INFOS['ams.scaling'] = 0.9
 
 
     # Ionization
@@ -1963,17 +1963,17 @@ Typical values for ADF are 0.90-0.98 for LDA/GGA functionals and 0.50-0.80 for h
     # if INFOS['ion']:
     if 'wfoverlap' in INFOS['needed']:
         print('\n' + '{:-^60}'.format('WFoverlap setup') + '\n')
-        INFOS['adf.wfoverlap'] = question('Path to wavefunction overlap executable:', str, '$SHARC/wfoverlap.x')
+        INFOS['ams.wfoverlap'] = question('Path to wavefunction overlap executable:', str, '$SHARC/wfoverlap.x')
         print('')
         print('State threshold for choosing determinants to include in the overlaps')
         print('For hybrids (and without TDA) one should consider that the eigenvector X may have a norm larger than 1')
-        INFOS['adf.ciothres'] = question('Threshold:', float, [0.998])[0]
+        INFOS['ams.ciothres'] = question('Threshold:', float, [0.998])[0]
         print('')
-        INFOS['adf.mem'] = question('Memory for wfoverlap (MB):', int, [1000])[0]
+        INFOS['ams.mem'] = question('Memory for wfoverlap (MB):', int, [1000])[0]
         # TODO not asked: numfrozcore and numocc
 
         # print('Please state the number of core orbitals you wish to freeze for the overlaps (recommended to use for at least the 1s orbital and a negative number uses default values)?')
-        # print('A value of -1 will use the defaults used by ADF for a small frozen core and 0 will turn off the use of frozen cores')
+        # print('A value of -1 will use the defaults used by AMS for a small frozen core and 0 will turn off the use of frozen cores')
         #INFOS['frozcore_number']=question('How many orbital to freeze?',int,[-1])[0]
 
 
@@ -1990,7 +1990,7 @@ Typical values for ADF are 0.90-0.98 for LDA/GGA functionals and 0.50-0.80 for h
     if 'theodore' in INFOS['needed']:
         print('\n' + '{:-^60}'.format('Wave function analysis by TheoDORE') + '\n')
 
-        INFOS['adf.theodore'] = question('Path to TheoDORE directory:', str, '$THEODIR')
+        INFOS['ams.theodore'] = question('Path to TheoDORE directory:', str, '$THEODIR')
         print('')
 
         print('Please give a list of the properties to calculate by TheoDORE.\nPossible properties:')
@@ -2010,7 +2010,7 @@ Typical values for ADF are 0.90-0.98 for LDA/GGA functionals and 0.50-0.80 for h
         print('Please give a list of the fragments used for TheoDORE analysis.')
         print('You can use the list-of-lists from dens_ana.in')
         print('Alternatively, enter all atom numbers for one fragment in one line. After defining all fragments, type "end".')
-        if qmmm_job(INFOS['ADF.template'], INFOS):
+        if qmmm_job(INFOS['AMS.template'], INFOS):
             print('You should only include the atom numbers of QM and link atoms.')
         INFOS['theodore.frag'] = []
         while True:
@@ -2033,50 +2033,50 @@ Typical values for ADF are 0.90-0.98 for LDA/GGA functionals and 0.50-0.80 for h
 # =================================================
 
 
-def prepare_ADF(INFOS, iconddir):
-    # write ADF.resources
+def prepare_AMS(INFOS, iconddir):
+    # write AMS.resources
     try:
-        sh2cas = open('%s/ADF.resources' % (iconddir), 'w')
+        sh2cas = open('%s/AMS.resources' % (iconddir), 'w')
     except IOError:
-        print('IOError during prepareADF, iconddir=%s' % (iconddir))
+        print('IOError during prepareAMS, iconddir=%s' % (iconddir))
         quit(1)
-#  project='ADF'
-    string = 'adfhome %s\nscmlicense %s\nscratchdir %s/%s/\nncpu %i\nschedule_scaling %f\n' % (INFOS['adf'], INFOS['scmlicense'], INFOS['scratchdir'], iconddir, INFOS['adf.ncpu'], INFOS['adf.scaling'])
+#  project='AMS'
+    string = 'amshome %s\nscmlicense %s\nscratchdir %s/%s/\nncpu %i\nschedule_scaling %f\n' % (INFOS['ams'], INFOS['scmlicense'], INFOS['scratchdir'], iconddir, INFOS['ams.ncpu'], INFOS['ams.scaling'])
     if 'wfoverlap' in INFOS['needed']:
-        string += 'wfoverlap %s\nwfthres %f\n' % (INFOS['adf.wfoverlap'], INFOS['adf.ciothres'])
-        string += 'memory %i\n' % (INFOS['adf.mem'])
+        string += 'wfoverlap %s\nwfthres %f\n' % (INFOS['ams.wfoverlap'], INFOS['ams.ciothres'])
+        string += 'memory %i\n' % (INFOS['ams.mem'])
         #string+='numfrozcore %i\n' %(INFOS['frozcore_number'])
     else:
         string += 'nooverlap\n'
     if 'theodore' in INFOS['needed']:
-        string += 'theodir %s\n' % (INFOS['adf.theodore'])
+        string += 'theodir %s\n' % (INFOS['ams.theodore'])
         string += 'theodore_prop %s\n' % (INFOS['theodore.prop'])
         string += 'theodore_fragment %s\n' % (INFOS['theodore.frag'])
-    if 'ADF.fffile' in INFOS:
-        string += 'qmmm_ff_file ADF.qmmm.ff\n'
-    if 'ADF.ctfile' in INFOS:
-        string += 'qmmm_table ADF.qmmm.table\n'
+    if 'AMS.fffile' in INFOS:
+        string += 'qmmm_ff_file AMS.qmmm.ff\n'
+    if 'AMS.ctfile' in INFOS:
+        string += 'qmmm_table AMS.qmmm.table\n'
     sh2cas.write(string)
     sh2cas.close()
 
     # copy MOs and template
-    cpfrom = INFOS['ADF.template']
-    cpto = '%s/ADF.template' % (iconddir)
+    cpfrom = INFOS['AMS.template']
+    cpto = '%s/AMS.template' % (iconddir)
     shutil.copy(cpfrom, cpto)
 
-    if INFOS['adf.guess']:
-        cpfrom1 = INFOS['adf.guess']
-        cpto1 = '%s/ADF.t21_init' % (iconddir)
+    if INFOS['ams.guess']:
+        cpfrom1 = INFOS['ams.guess']
+        cpto1 = '%s/AMS.t21_init' % (iconddir)
         shutil.copy(cpfrom1, cpto1)
 
-    if 'ADF.fffile' in INFOS:
-        cpfrom1 = INFOS['ADF.fffile']
-        cpto1 = '%s/ADF.qmmm.ff' % (iconddir)
+    if 'AMS.fffile' in INFOS:
+        cpfrom1 = INFOS['AMS.fffile']
+        cpto1 = '%s/AMS.qmmm.ff' % (iconddir)
         shutil.copy(cpfrom1, cpto1)
 
-    if 'ADF.ctfile' in INFOS:
-        cpfrom1 = INFOS['ADF.ctfile']
-        cpto1 = '%s/ADF.qmmm.table' % (iconddir)
+    if 'AMS.ctfile' in INFOS:
+        cpfrom1 = INFOS['AMS.ctfile']
+        cpto1 = '%s/AMS.qmmm.table' % (iconddir)
         shutil.copy(cpfrom1, cpto1)
 
     return
@@ -2396,7 +2396,7 @@ def get_GAUSSIAN(INFOS):
   
 basis <basis>
 functional <type> <name>
-charge <x> [ <x2> [ <x3> ...] ] 
+charge <x> [ <x2> [ <x3> ...] ]
 
 The GAUSSIAN interface will generate the appropriate GAUSSIAN input automatically.
 ''')
@@ -3703,8 +3703,8 @@ def write_runscript(INFOS, displacement_dir):
 
 
     intstring = ''
-    if 'adfrc' in INFOS:
-        intstring = '. %s\nexport PYTHONPATH=$ADFHOME/scripting:$PYTHONPATH' % (INFOS['adfrc'])
+    if 'amsbashrc' in INFOS:
+        intstring = '. %s\nexport PYTHONPATH=$AMSHOME/scripting:$PYTHONPATH' % (INFOS['amsbashrc'])
 
 
     refstring = ''
@@ -3867,9 +3867,9 @@ def setup_all(INFOS):
             displacement_dir = INFOS['result_path'] + '/' + INFOS['paths'][displacement_key]
 
             dispacements_done += 1
-            done = dispacements_done * width_progressbar / number_of_displacements
+            done = dispacements_done * width_progressbar // number_of_displacements
 
-            sys.stdout.write('\rProgress: [' + '=' * done + ' ' * (width_progressbar - done) + '] %3i%%' % (done * 100 / width_progressbar))
+            sys.stdout.write('\rProgress: [' + '=' * done + ' ' * (width_progressbar - done) + '] %3i%%' % (done * 100 // width_progressbar))
             sys.stdout.flush()
 
             if make_directory(displacement_dir) != 0:
