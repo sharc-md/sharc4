@@ -193,20 +193,7 @@ University of Vienna, Austria
 
 \chapter{Before you Start}
 
-In this tutorial, the steps necessary to perform non-adiabatic dynamics with the \sharc\ dynamics suite are explained. 
-The tutorial consists of four tutorial sections. 
-
-% \textbf{The first part} contains the full tutorial presenting a complete dynamics study including initial condition generation, ensemble management, and trajectory analysis (with plotting of the results and a brief discussion). 
-% This tutorial will use the interface to \textsc{OpenMolcas}.
-% \textbf{Note that \textsc{OpenMolcas} is freely available.}
-% % version compatible with \sharc\ from the \link{https://sharc-md.org/?page_id=335}{\todo{\sharc\ homepage}}.}
-
-% \textbf{The second part} is a collection of more specialized tutorials showing some advanced usage aspects in detail.
-
-% \textbf{The third part} contains general information for what is different if using the other quantum chemistry interfaces besides the one for \textsc{Molcas}.
-
-% \textbf{The fourth part} is a quick tutorial, just presenting the files necessary to run a single \sharc\ trajectory, without initial condition generation, ensemble management, or analysis.
-
+In this tutorial, the steps necessary to perform non-adiabatic dynamics with the \sharc\ dynamics suite using AMS are explained. Additionally, common analysis workflows are demonstrated and the setup of a parametrized LVC model is shown. 
 
 
 \section{Description of the model system}
@@ -326,7 +313,7 @@ However, usually it is advisable to calculate the frequencies at the same level 
 For sulfur dioxide in our example, we will do the frequency calculation with the quantum chemistry method specified above: (DFT PBE/DZP). 
 
 Create an empty directory. 
-Prepare a \ttt{ams.run} file to start a geometry optimization and calculation of the normal modes.
+Prepare an \ttt{ams.run} file to start a geometry optimization and calculation of the normal modes.
 \begin{Verbatim}[commandchars=\\\{\}]
 user@host> \textbf{\textcolor{red}{mkdir Opt_Freq}}
 user@host> \textbf{\textcolor{red}{cd Opt_Freq}}
@@ -374,8 +361,8 @@ Execute the run script to start the \textsc{AMS} optimization and frequency calc
 \begin{Verbatim}[commandchars=\\\{\}]
 user@host> \textbf{\textcolor{red}{sh ams.run > AMS.log &}}
 \end{Verbatim}
-This will produce the files \ttt{AMS.log}, \ttt{ams.results/} and \ttt{MOLCAS.RasOrb}. 
-The first file contains (among other things) the ground state minimum energy (should be $-0.623091626908486$ Hartree) and the vibrational wavenumbers. 
+This will produce the file \ttt{AMS.log} and the directory \ttt{ams.results/}. 
+The file contains (among other things) the ground state minimum energy (should be $-0.623091626908486$ Hartree) and the vibrational wavenumbers. 
 Check for any imaginary frequencies.
 There should be a block like this in you output.
 \begin{oframed}
@@ -401,14 +388,14 @@ There should be a block like this in you output.
 
 \normalsize
 The \ttt{ams.results/} folder contains all fragment calculations as well as the general calculation file \ttt{ams.rkf} and the engine specific binary file \ttt{adf.rkf}, which contains the normal modes next to other informations about the calculation and results. 
-We will generate the \ttt{AMS.freq.molden} from the \ttt{adf.rkf} file with the help of another \sharc script.
+We will generate the \ttt{AMS.freq.molden} from the \ttt{adf.rkf} file with the help of another \sharc\ script.
 
 \begin{Verbatim}[commandchars=\\\{\}]
   user@host> \textbf{\textcolor{red}{$SHARC/AMS_freq.py ams.results/adf.rkf}}
   user@host> \textbf{\textcolor{red}{mv ams.results/adf.rkf.molden AMS.freq.molden}}
 \end{Verbatim}
 
-As the \textsc{Molcas} calculation produces also several other output files, it is recommended that for the following steps you switch to a different directory:
+As the tutorial will produce many other output files and directories, it is recommended that for the following steps you switch to a different directory:
 \begin{Verbatim}[commandchars=\\\{\}]
 user@host> \textbf{\textcolor{red}{mkdir ../Tutorial/}}
 user@host> \textbf{\textcolor{red}{cp AMS.freq.molden ams.run ../Tutorial/.}}
@@ -431,10 +418,10 @@ user@host> \textbf{\textcolor{red}{cd ../Tutorial/}}
 \refermanual{m-met:wigner}
 
 In the next step, the initial coordinates and velocities for the trajectories have to be generated.
-Here, this task is acomplished by sampling randomly from the Wigner distribution of the ground state nuclear wavefunction (in the harmonic approximation), which can be calculated from the vibrational frequencies and normal modes.
+Here, this task is accomplished by sampling randomly from the Wigner distribution of the ground state nuclear wave function (in the harmonic approximation), which can be calculated from the vibrational frequencies and normal modes.
 This task is performed by the non-interactive script \ttt{wigner.py}, which can be executed by typing
 \begin{Verbatim}[commandchars=\\\{\}]
-user@host> \textbf{\textcolor{red}{$SHARC/wigner.py -n 20 MOLCAS.freq.molden}}
+user@host> \textbf{\textcolor{red}{$SHARC/wigner.py -n 20 AMS.freq.molden}}
 \end{Verbatim}
 The \ttt{-n} option is necessary to specify the number of initial conditions to be generated. 
 Here, we generate 20 initial conditions. 
@@ -503,7 +490,7 @@ Note that it is also possible to simply specify the initial state for each initi
 
 \subsection{\textsc{AMS} input template}
 
-The computations which are setup by \ttt{setup\_init.py} utilize the \sharc\ interfaces to call the respective quantum chemistry program (\textsc{Molcas} here).
+The computations which are setup by \ttt{setup\_init.py} utilize the \sharc\ interfaces to call the respective quantum chemistry program (\textsc{AMS} here).
 The \sharc-\textsc{AMS} interface requires a template file which specifies the level of theory.
 Thus, before proceeding to setup the initial calculations, we need to prepare the \textsc{AMS} template file.
 
@@ -835,7 +822,7 @@ Script will use initial conditions 1 to 10 (10 in total).
 
 Please enter the number of states as a list of integers
 e.g. 3 0 3 for three singlets, zero doublets and three triplets.
-Number of states: \textbf{\textcolor{red}{3  0  3}}     \textcolor{blue}{# this could differ from the number of SA roots in MOLCAS.template}
+Number of states: \textbf{\textcolor{red}{3  0  3}}     \textcolor{blue}{# this could differ from the number of SA roots in AMS.template}
 
 Number of states: [3, 0, 3]
 Total number of states: 12
@@ -855,6 +842,7 @@ Please specify the quantum chemistry interface (enter any of the following numbe
 10	BAGEL (CASSCF, CASPT2, (X)MS-CASPT2)
 
 Interface number: \textbf{\textcolor{red}{5}}
+The used interface will be: AMS (DFT, TD-DFT)
 
 -----------------Spin-orbit couplings (SOCs)----------------
 
@@ -1268,12 +1256,12 @@ user@host> \textbf{\textcolor{red}{$SHARC/spectrum.py -o spectrum.out -e 3 6}}
 user@host> \textbf{\textcolor{red}{gnuplot spectrum.gp}}
 \end{Verbatim}
 
-In figure~\ref{fig:spectrum} (\ttt{soectrum.out.png}) the result of this convolution is shown. Note that on CASSCF level of theory, the excitation energy of ethylene is reproduced quite badly and the number of initial conditions is too low to reliably sample the ground state Wigner distribution.
+In figure~\ref{fig:spectrum} (\ttt{soectrum.out.png}) the result of this convolution is shown.
 
 \begin{figure}[h]
   \centering
   \includegraphics[width=0.75\textwidth]{figures/spectrum.png}
-  \caption{Absorption spectrum based on 10 initial conditions (Since there are 20 initial conditions in \ttt{initconds.excited}, the title lists 20 instead of 10).}
+  \caption{Absorption spectrum of \ce{SO2} based on 10 initial conditions (Since there are 20 initial conditions in \ttt{initconds.excited}, the title lists 20 instead of 10).}
   \label{fig:spectrum}
 \end{figure}
 
@@ -1299,7 +1287,7 @@ For this, create a new directory:
 user@host> \textbf{\textcolor{red}{mkdir traj}}
 user@host> \textbf{\textcolor{red}{cd traj}}
 \end{Verbatim}
-Make sure that you have all required files (\ttt{initconds.excited}, \ttt{MOLCAS.template}, \ttt{MOLCAS.RasOrb}) in this directory.
+Make sure that you have all required files (\ttt{initconds.excited}, \ttt{AMS.template}) in this directory.
 Then start the setup script:
 \begin{Verbatim}[commandchars=\\\{\}]
 user@host> \textbf{\textcolor{red}{$SHARC/setup_traj.py}}
@@ -1480,6 +1468,7 @@ Please specify the quantum chemistry interface (enter any of the following numbe
 8       GAUSSIAN (DFT, TD-DFT)
 
 Interface number: \textbf{\textcolor{red}{5}}
+The used interface will be: AMS (DFT, TD-DFT)
 
   ================================================================================
 ||                        Surface Hopping dynamics settings                       ||
@@ -1877,13 +1866,13 @@ to plot energies, populations and hopping probabilities (Use \textcolor{red}{\tt
 \begin{figure}[tb]
   \centering
   \includegraphics[width=\textwidth]{figures/energy.png}
-  \caption{Plot of the potential energies for trajectory \ttt{TRAJ\_00002/} with 4 singlet and 3 triplet states. Straight arrows indicate hopping events discussed in the text, wiggly arrows indicate problems with energy conservation/continuity. }
+  \caption{Plot of the potential energies for trajectory \ttt{TRAJ\_00002/} with 3 singlet and 3 triplet states.}
   \label{fig:en}
 \end{figure}
 \begin{figure}[tb]
   \centering
   \includegraphics[width=\textwidth]{figures/energy_rel.png}
-  \caption{Plot of the \emph{relative} potential energies for trajectory \ttt{TRAJ\_00002/} with 4 singlet and 3 triplet states.  }
+  \caption{Plot of the \emph{relative} potential energies for trajectory \ttt{TRAJ\_00002/} with 3 singlet and 3 triplet states.  }
   \label{fig:en_rel}
 \end{figure}
 \begin{figure}[p]
@@ -1914,29 +1903,18 @@ The inner color encodes the oscillator strength of the state at each instant of 
 Dark states are \textcolor{black!20}{light grey}, while brighter states are given in \textcolor{black!40}{grey}, \textcolor{black!70}{dark grey}, \textcolor{red!60!green}{orange}, \textcolor{red}{red}, \textcolor{red!50!blue}{magenta} or \textcolor{blue}{blue}, in order of increasing oscillator strength. 
 The outer color encodes the total spin expectation value. 
 Singlets are \textcolor{blue}{blue}, triplets \textcolor{red}{red} and states with mixed singlet-triplet character are \textcolor{green!90!black}{green}. 
-Since in the methaniminium cation spin-orbit coupling is negligible, in the figure only blue and red contours are visible.
 
 In the figure, the trajectory starts in the bright singlet state slightly above 4~eV (the $S_1$).
 The ground state (grey/blue line), the $T_1$ and $T_2$ (grey/red lines) are at lower energies, whereas the $T_3$ (grey/red line) and the $S_2$ (red/blue line) are at higher energies.
-% All important nonadiabatic events occur within the first 25~fs.
-In the figure, there are multiple hopping events with six after 86~fs are marked with straight arrows (see the \ttt{output.lis} file for all hoppings and timestamps). The increased activity in the end of the trajectory suggests that the system has not yet reach an equilibrium. 
+In the figure, there are multiple hopping events with six after 86~fs (see the \ttt{output.lis} file for all hoppings and timestamps).
 It can be seen that the trajectory stays within the $S_1$ state until it hops to the $T_2$ state at 45~fs. 
-The system stays in this state although crossing with the $S_1$ at 60~fs and later hops to the $T_2$ and back at 86~fs and 96~fs, respectively.
-It can be seen that the trajectory briefly switches to the $S_4$ state but quickly returns to $S_3$.
-Subsequently, it changes to $S_1$ and then to $S_0$ (at 17.0~fs).
+The system stays in this state although crossing with the $S_1$ at 60~fs. It later hops to the $T_3$ and back at 86~fs and 96~fs, respectively.
 
-% In the figure, four wiggly arrows indicate possible problems in the trajectory.
-% Three of these arrows (at 17.0~fs, 29.0~fs, and 41.0~fs) point to time steps where the total energy was not well conserved.
-In general, this can have different reasons (e.g., wrong gradients, too large time steps, convergence problems), but here all three cases are due to abrupt changes in the active space because the highest singlet state crossed with another state.
+In our case the the total energy is stable and well-behaved. If there would be some inconsistencies, that can have different reasons (e.g., wrong gradients, too large time steps, convergence problems), but here all three cases are due to abrupt changes in the active space because the highest singlet state crossed with another state.
 Often, this problem can be circumvented by a good choice of the active space and the number of roots for state averaging.
-The fourth wiggly arrow (at 43.0~fs) points to a time step where the same problem happens to the triplet states; note how the $T_3$ energy suddenly changes.
-Since in \textsc{Molcas} each multiplicity uses its own active space, this does not affect the singlet states and thus the trajectory.
-However, in systems with larger spin-orbit couplings, such state switches might lead to unphysical population transfer to the triplet states.
 
 Ultimately, the user is responsible to check the trajectories for such problematic time steps.
-% For the purposes of the tutorial, we will ignore these energy conservation problems.
 Note that this trajectory checking can also be carried out while the trajectories are still running; if a problematic trajectory is encountered, it can be terminated gracefully by creating an empty file called \ttt{STOP} in the run directory of that trajectory.
-% POSSIBLY RUN THE SIMULATION LONGER!!!!
 
 \paragraph{Discussion of Figure~\ref{fig:en_rel}}
 
@@ -1952,7 +1930,7 @@ The system starts with 100\% of the population in the $S_1$.
 Around 5~fs, the population is increasingly transferred to the $S_2$ up to almost 50\%. 
 At this point the decoherence correction that is employed in the computation is forcing the population into the $S_1$ again.
 Then, at 45~fs population flows consistently to the $T_2$ with all three magnetic quantum numbers until the end of the simulation. 
-There are two sharp switches between the population of the $T_2$ and the $T_3$ and back in the end. 
+There are two sharp switches between the population of the $T_2$ and the $T_3$ and back in the end, which is an unavoided crossing. 
 The remaining $S_1$ population switches to $S_2$. These sharp switches can be explained with the crossings that were visible in figure~\ref{fig:en} and \ref{fig:en_rel}. 
 It is therefore generally instructive to observe the correlation between the population transfers in figure~\ref{fig:cMCH} with the hopping events in figure~\ref{fig:en}.
 
@@ -1984,16 +1962,17 @@ This corresponds to the near-complete population transfer during the crossing of
 \refermanual{m-met:geo}
 
 The file \ttt{output.xyz} contains the cartesian coordinates of all timesteps. 
-Oftentimes, one is interested in the variation of certain internal coordinates (like bond lengths, angles, etc.) during the dynamics. 
+Oftens, one is interested in the variation of certain internal coordinates (like bond lengths, angles, etc.) during the dynamics. 
 The \sharc\ tool \ttt{geo.py} can quickly calculate these values. 
 Invoke the program and enter the internal coordinate specifications:
 \begin{Verbatim}[commandchars=\\\{\}]
   user@host> \textbf{\textcolor{red}{$SHARC/geo.py -g output.xyz -t 0.5 > Geo.out}}
-
+\end{Verbatim}
 \begin{oframed}
 \footnotesize\begin{Verbatim}[commandchars=\\\{\}]
 Enter the internal coordinate specifications:
 \textcolor{red}{r 1 2}
+\textcolor{red}{r 3 2}
 \textcolor{red}{end}
 Number of internal coordinate requests:   2
 Number of geometries:    200
@@ -2008,12 +1987,20 @@ The \ttt{-g} option specifies the filename of the input xyz geometry file, while
 The file \ttt{Geo.out} contains a table with the specified internal coordinates:
 \begin{oframed}
 \footnotesize\begin{Verbatim}[commandchars=\\\{\}]
-#                  1|                   2|                   3|
-#               time|             r  1  2|       d  6  1  2  5|
-              0.0000               1.3024              16.2632 
-              0.5000               1.3135              18.5857 
-              1.0000               1.3293              20.6828 
-                   \vdots                    \vdots                    \vdots
+#                  1|                   2|                   3|                   4|
+#               time|             r  1  2|             r  3  2|          a  1  2  3|
+              0.0000               1.4666               1.4647             121.1881 
+              0.5000               1.4643               1.4641             121.1223
+              1.0000               1.4629               1.4642             121.0364
+              1.5000               1.4623               1.4652             120.9306
+              2.0000               1.4625               1.4671             120.8051
+              2.5000               1.4636               1.4698             120.6605
+              3.0000               1.4656               1.4734             120.4969
+              3.5000               1.4683               1.4776             120.3085
+              4.0000               1.4718               1.4827             120.1043
+              4.5000               1.4760               1.4884             119.8859
+
+                    \vdots              \vdots               \vdots                \vdots
 \end{Verbatim}
 \end{oframed}
 
@@ -2024,24 +2011,30 @@ user@host> \textcolor{red}{gnuplot}
 The file \ttt{Geo.out} contains a table with the specified internal coordinates:
 \begin{oframed}
 \footnotesize\begin{Verbatim}[commandchars=\\\{\}]
-gnuplot> \textcolor{red}{p "Geo.out" u 1:2 w l}     \textcolor{blue}{# Plot column 2 versus 1}
-gnuplot> \textcolor{red}{p "Geo.out" u 1:3 w l}     \textcolor{blue}{# Plot column 3 versus 1}
+gnuplot> \textcolor{red}{p "Geo.out" u 1:2 w l, "Geo.out" u 1:3 w l}     \textcolor{blue}{# Plot column 2 and 3 versus 1}
+gnuplot> \textcolor{red}{p "Geo.out" u 1:4 w l}     \textcolor{blue}{# Plot column 4 versus 1}
 \end{Verbatim}
 \end{oframed}
 
 \normalsize
-The results are shown in figures \ref{fig:cc} and \ref{fig:dih}.
+The results are shown in figures \ref{fig:so} and \ref{fig:so_angle}.
 
 \paragraph{Discussion of the internal coordinates} 
 
-In figures~\ref{fig:so} the \ce{SO} bond length is plotted over time. It can be easily seen that after the transition ot the $T_2$ state, the bond stretches to over 1.75~\angstrom and continues.
-This is could indicate a dissociation of the molecule in this trajectory.
+In figures~\ref{fig:so} the \ce{SO} bond length is plotted over time. It can be easily seen that after the vibrations of the molecule is dominated by the asymmetric streching of the of the two \ce{SO} bonds. The \ce{OSO} bond angle seems to change its frequency after the transition to the triplet states, as the bond angle increases faster after 60~fs than it decreased before.
 
 \begin{figure}[htb]
   \centering
   \includegraphics[width=\textwidth]{figures/SO.png}
   \caption{Value of the \ce{SO} bond length during the simulation.}
   \label{fig:so}
+\end{figure}
+
+\begin{figure}[htb]
+  \centering
+  \includegraphics[width=\textwidth]{figures/SO_angle.png}
+  \caption{Value of the \ce{OSO} angle during the simulation.}
+  \label{fig:so_angle}
 \end{figure}
 
 In order to confirm these findings, it is recommended that you load \ttt{output.xyz} into \textsc{Molden} (or another program) to watch the trajectory as a movie.
@@ -2057,7 +2050,7 @@ In order to confirm these findings, it is recommended that you load \ttt{output.
 \clearpage
 \section{Analyzing the Ensemble}\label{sec:analyze_ensemble}
 
-For these analysis the tutorial assumes that you ran all nine trajectories (\ttt{TRAJ\_00002/} to \ttt{TRAJ\_00009/}).
+For these analysis the tutorial assumes that you ran all six trajectories (\ttt{TRAJ\_00002/} to \ttt{TRAJ\_00010/}).
 
 \subsection{Ensemble Diagnostics}
 \refermanual{m-sec:diagnostics.py}
@@ -2263,7 +2256,9 @@ Do you want to flag the trajectories? [True] \textbf{\textcolor{red}{no}}
 \normalsize
 
 In the output, \ttt{diagnostics.py} prints for each directory a summary of the performed checks and their results.
-For example, for trajectory \ttt{Singlet\_1/TRAJ\_00002/}, the script reports that all output and restart files are there, and that the trajectory ran for 100 out of 100~fs (finished). In our case everything is fine with all trajectories.
+For example, for trajectory \ttt{Singlet\_1/TRAJ\_00002/}, the script reports that all output and restart files are there, and that the trajectory ran for the full 100~fs (finished). 
+This is true for all the trajectories in our case.
+
 However, the script may also report that there is a problem with the potential energy.
 This occurs when during a hop the potential energy changed by a large amount (it prints the first time that any problem occurs, there might be more problems occurring later).
 Such hops across large energy differences might be suspicious because they should be physically unlikely (nonadiabatic coupling becomes stronger the closer two states are).
@@ -2272,14 +2267,14 @@ The script may also report that the potential energy changed by a large amount w
 This could be a sign of an active space switch which leads to a large change in all state energies.
 The user is invited to generate the energy plot for such a trajectory and inspect this situation.
 
-Furthermore, he script may report that the total energy changed too much within one step.
+Furthermore, the script may report that the total energy changed too much within one step.
 A possible reason could be that the computed gradient was incorrect.
 It is possible to distinguish between these cases by checking whether potential and total energy both show the sudden change (then it is likely a problem with the energy computation) or whether only the total energy changes while the potential energies are smooth (then it is likely a problem with the gradients).
 
 For trajectories, the script may report \ttt{CRASHED}, which is most likely due to unlikely convergence problems within \textsc{AMS}.
 
-Note that a large number of reported problems is often a sign that the method is badly chosen, e.g., functional, basis set, state-averaging, etc. 
-It may also be possible that your system cannot be well described with DFT because of a multireference character. 
+Note that a large number of reported problems is often a sign that the method is badly chosen, e.g., functional, basis set, etc. 
+It may also be possible that your system cannot be well described with DFT because of multireference character. 
 It is ultimately in the responsibility of the user to check and avoid these problems, or to judge whether these problems can be ignored because they do not affect the conclusions drawn from the simulations.
 
 For the tutorial, everything worked out just fine. 
@@ -3156,7 +3151,7 @@ Output (analysis and full fitted data) written to "fit_bootstrap.txt".
 Unlike the fitting scripts used in the previous \sharc\ release, \ttt{make\_fit.py} directly carries out the kinetic model fit in one program, without calling \ttt{maxima} or \ttt{gnuplot}.
 It is therefore much faster, and additionally allows fitting of models that are too complex to solve analytically with \ttt{maxima}.
 
-The main results of the script can be found under \ttt{Final parameters}, obtained after 7 iterations.
+The main results of the script can be found under \ttt{Final parameters}, obtained after 8 iterations.
 The table presents the fitted values of all parameters.
 It can be seen that the $S\rightarrow T$ time constant is 900~fs with a huge and unphysical error (negative constant is in range). This can be explained with the fact that the transition $S\rightarrow T$ is not completed in any trajetory in 100~fs simulation time. Therefore, the constant is fitted to be essentially infinite or in our case all 900~fs. A more realistic rate constant can be found at the \ttt{Geometric analysis}. In any case, this result suggests that for a correct analysis of the transition $S\rightarrow T$ one has to increase the simulation time and/or ensemble size.
 
@@ -3186,7 +3181,7 @@ The result of the bootstrapping procedure is presented in a summary for each fit
 Note that by default also the initial populations are treated as fitting parameters, even if they are fixed in the shown example.
 
 The results show that the $S\rightarrow T$ relaxation process in the trajectories had a time constant of 4502$\pm$5172~fs (using the arithmetic analysis). 
-The histogram of the frequency of different time constants gives for information on this (note: the buckets are not well chosen in this example, so have a glance at the bootstrapping cycles). It can be seen that the time constants are either below 500~fs, around 900~fs or above 10000~fs. The reason for this lies in the composition of the individual samples. If a sample contains no triplet state (quite possible at only six states in the sample), then it will never make the $S\rightarrow T$ and the rate constant will be infinite (here a very high value). The other two rate constant values are obtained from samples with atleast one triplet state in them. Looking at these different sample compositions, the unphysically large error can be explained. Again, it can be resolved with a loarger ensemble (more trajectories).
+The histogram of the frequency of different time constants gives for information on this (note: the buckets are not well chosen in this example, so have a glance at the bootstrapping cycles). It can be seen that the time constants are either below 500~fs, around 900~fs or above 10000~fs. The reason for this lies in the composition of the individual samples. If a sample contains no triplet state (quite possible at only six states in the sample), then it will never make the $S\rightarrow T$ transition and the rate constant will be infinite (here a very high value). The other two rate constant values are obtained from samples with atleast one triplet state in them. Looking at these different sample compositions, the unphysically large error can be explained. Again, it can be resolved with a loarger ensemble (more trajectories).
 
 Generally, the errors get smaller as more trajectories are employed, and hence, the fitting errors are a good tool to judge whether enough trajectories were computed.
 For some time constants, it might also be necessary to run the trajectories for longer time to reduce the errors.
@@ -3258,7 +3253,7 @@ Total number of subdirectories: 9
 ------------------------Analyze Mode------------------------
 
 This script can find geometries where:
-1        A change of MCH state occured (ignoring hops within one multiplet)               from output.lis
+1        A change of MCH state occured (ignoring hops within one multiplet)
 
 Analyze mode: \textbf{\textcolor{red}{1}}
 
@@ -3315,8 +3310,8 @@ Writing to crossing.xyz ...
 \end{oframed}
 
 \normalsize
-The script writes a files called \ttt{crossing.xyz}, which contains all geometries (9 geometries in this example) where a hop from the $S_1$ to the $S_0$ occurred.
-This file can in turn be analyzed with \ttt{geo.py} in order to calculate internal coordinates (e.g., to find whether a bond or angle controls access to the $S_1/S_0$ crossing seam, or how many different pathways allow this transition). 
+The script writes a files called \ttt{crossing.xyz}, which contains all geometries (6 geometries in this example) where a hop from the $S_1$ to the $T_2$ occurred.
+This file can in turn be analyzed with \ttt{geo.py} in order to calculate internal coordinates (e.g., to find whether a bond or angle controls access to the $S_1/T_2$ crossing seam, or how many different pathways allow this transition). 
 
 % ======================================================================================================
 
@@ -3368,6 +3363,7 @@ Please specify the quantum chemistry interface (enter any of the following numbe
 8       GAUSSIAN (DFT, TD-DFT)
 
 Interface number: \textbf{\textcolor{red}{5}}
+The used interface will be: AMS (DFT, TD-DFT)
 
 --------------------------Geometry--------------------------
 
@@ -3380,7 +3376,7 @@ Number of geometries: 9
 
 Please enter the number of states as a list of integers
 e.g. 3 0 3 for three singlets, zero doublets and three triplets.
-Number of states: \textbf{\textcolor{red}{4  0  3}}
+Number of states: \textbf{\textcolor{red}{3  0  3}}
 
 Number of states: [3, 0, 3]
 Total number of states: 12
@@ -3424,7 +3420,8 @@ Maximum allowed step:  [0.3] \textbf{\textcolor{red}{<ENTER>}}
 ------------------------Path to AMS-------------------------
 Setup from amsbashrc.sh file? [True] \textbf{\textcolor{red}{<ENTER>}}
 
-Please specify path to the amsbashrc.sh file (SHELL variables and ~ can be used, will be expanded when interface is started).
+Please specify path to the amsbashrc.sh file (SHELL variables and ~ can be used, will be expanded when 
+interface is started).
 
 Path to amsbashrc.sh file: [$AMSHOME/amsbashrc.sh] \textbf{\textcolor{red}{<ENTER>}}
 Will use amsbashrc= /usr/license/adf/ams2020.102/amsbashrc.sh
@@ -3437,23 +3434,22 @@ Remember that this script cannot check whether the path is valid, since you may
 run the calculations on a different machine. The path will not be expanded by this script.
 Path to scratch directory: (autocomplete enabled) \textbf{\textcolor{red}{$TMPDIR}}
 
------------------MOLCAS input template file-----------------
+------------------AMS input template file-------------------
 
-Please specify the path to the MOLcas.template file. This file must contain the following settings:
+Please specify the path to the AMS.template file. This file must contain the following keywords:
 
-basis <Basis set>
-ras2 <Number of active orbitals>
-nactel <Number of active electrons>
-inactive <Number of doubly occupied orbitals>
-roots <Number of roots for state-averaging>
+basis <basis>
+functional <type> <name>
+charge <x> [ <x2> [ <x3> ...] ]
 
-The MOLCAS interface will generate the appropriate MOLCAS input automatically.
+The AMS interface will generate the appropriate AMS input automatically.
 
 Template filename: (autocomplete enabled) \textbf{\textcolor{red}{../AMS.template}}
 
 -----------------Initial restart: MO Guess------------------
 
-Please specify the path to an rkf file containing suitable starting MOs for the AMS calculation. Please note that this script cannot check whether the wavefunction file and the Input template are consistent!
+Please specify the path to an rkf file containing suitable starting MOs for the AMS calculation. Please 
+note that this script cannot check whether the wavefunction file and the Input template are consistent!
 
 Do you have a restart file? [True] \textbf{\textcolor{red}{no}}
 
@@ -3488,7 +3484,18 @@ ngeom                      4.0
 natom                      3
 states                     [3, 0, 3]
 nstates                    12
-statemap                   {1: [1, 1, 0.0], 2: [1, 2, 0.0], 3: [1, 3, 0.0], 4: [3, 1, -1.0], 5: [3, 2, -1.0], 6: [3, 3, -1.0], 7: [3, 1, 0.0], 8: [3, 2, 0.0], 9: [3, 3, 0.0], 10: [3, 1, 1.0], 11: [3, 2, 1.0], 12: [3, 3, 1.0]}
+statemap                   {1: [1, 1, 0.0], 
+                            2: [1, 2, 0.0], 
+                            3: [1, 3, 0.0], 
+                            4: [3, 1, -1.0], 
+                            5: [3, 2, -1.0], 
+                            6: [3, 3, -1.0], 
+                            7: [3, 1, 0.0], 
+                            8: [3, 2, 0.0], 
+                            9: [3, 3, 0.0], 
+                            10: [3, 1, 1.0], 
+                            11: [3, 2, 1.0], 
+                            12: [3, 3, 1.0]}
 maxmult                    3
 opttype                    cross
 cas.root1                  2
@@ -3518,8 +3525,8 @@ Do you want to setup the specified calculations? [True] \textbf{\textcolor{red}{
 \end{oframed}
 
 \normalsize
-The script will create 9 subdirectories in the given setup directory, \ttt{orca\_opt/}.
-Each of these 9 directories will contain the input files for an optimization using \textsc{Orca}'s external optimizer feature, where the energies and gradients will be provided by \ttt{\$SHARC/orca\_External} (this is done automatically), which itself calls the \textsc{Molcas} interface to do the computations.
+The script will create 6 subdirectories in the given setup directory, \ttt{orca\_opt/}.
+Each of these 6 directories will contain the input files for an optimization using \textsc{Orca}'s external optimizer feature, where the energies and gradients will be provided by \ttt{\$SHARC/orca\_External} (this is done automatically), which itself calls the \textsc{AMS} interface to do the computations.
 
 In order to run one of these optimizations, execute:
 \begin{Verbatim}[commandchars=\\\{\}]
@@ -3613,23 +3620,19 @@ Name for subdirectory? [essdyn] (autocomplete enabled) \textbf{\textcolor{red}{<
 
 Preparing essential dynamics analysis ...
 Checking the directories...
-Singlet_2//TRAJ_00005         OK
-Singlet_2//TRAJ_00004         OK
-Singlet_2//TRAJ_00008         OK
-Singlet_2//TRAJ_00009         DETECTED FILE dont_analyze
-Singlet_2//TRAJ_00002         OK
-Singlet_2//TRAJ_00006         OK
-Singlet_2//TRAJ_00010         DETECTED FILE dont_analyze
-Singlet_2//TRAJ_00007         OK
-Singlet_2//TRAJ_00003         OK
-Number of trajectories: 7
-Reading trajectory Singlet_2//TRAJ_00005/output.xyz ...
-Reading trajectory Singlet_2//TRAJ_00004/output.xyz ...
-Reading trajectory Singlet_2//TRAJ_00008/output.xyz ...
-Reading trajectory Singlet_2//TRAJ_00002/output.xyz ...
-Reading trajectory Singlet_2//TRAJ_00006/output.xyz ...
-Reading trajectory Singlet_2//TRAJ_00007/output.xyz ...
-Reading trajectory Singlet_2//TRAJ_00003/output.xyz ...
+Singlet_1//TRAJ_00002         OK
+Singlet_1//TRAJ_00003         OK
+Singlet_1//TRAJ_00004         OK
+Singlet_1//TRAJ_00005         OK
+Singlet_1//TRAJ_00007         OK
+Singlet_1//TRAJ_00010         OK
+Number of trajectories: 6
+Reading trajectory Singlet_1//TRAJ_00002/output.xyz ...
+Reading trajectory Singlet_1//TRAJ_00003/output.xyz ...
+Reading trajectory Singlet_1//TRAJ_00004/output.xyz ...
+Reading trajectory Singlet_1//TRAJ_00005/output.xyz ...
+Reading trajectory Singlet_1//TRAJ_00007/output.xyz ...
+Reading trajectory Singlet_1//TRAJ_00010/output.xyz ...
 Processing data ...
 \end{Verbatim}
 \end{oframed}
@@ -3712,8 +3715,8 @@ Number of time steps:  [201] \textbf{\textcolor{red}{<ENTER>}}
 
 Length of time step:  [0.5] \textbf{\textcolor{red}{<ENTER>}}
 
--------------------Automatic plot creation------------------
 \textbf{\textcolor{blue}{# make sure to have matplotlib installed to see this prompt}}
+-------------------Automatic plot creation------------------
 Do you want to automatically create plots of your data? [False] yes 
 
 -------------Non-totally symmetric normal modes-------------
@@ -3799,7 +3802,7 @@ The first step is to compute this bond length for each trajectory.
 This can be achieved with \ttt{geo.py} and a simple Bash loop:
 \begin{Verbatim}[commandchars=\\\{\}]
 user@host> \textbf{\textcolor{red}{echo "r 1 2" > Geo.inp}}
-user@host> \textbf{\textcolor{red}{for i in Singlet_2/TRAJ_000*}}
+user@host> \textbf{\textcolor{red}{for i in Singlet_1/TRAJ_000*}}
 > \textbf{\textcolor{red}{do}}
 > \textbf{\textcolor{red}{$SHARC/geo.py -t 0.5 -g $i/output.xyz < Geo.inp > $i/Geo.out;}}
 > \textbf{\textcolor{red}{done}}
@@ -3956,7 +3959,9 @@ Do you want to output as Type2 dataset? [False] \textbf{\textcolor{red}{<ENTER>}
 
 paths                      ['Singlet_1/']
 statistics                 {}
-allfiles                   ['Singlet_1//TRAJ_00002/./Geo.out', 'Singlet_1//TRAJ_00003/./Geo.out', 'Singlet_1//TRAJ_00004/./Geo.out', 'Singlet_1//TRAJ_00005/./Geo.out', 'Singlet_1//TRAJ_00007/./Geo.out', 'Singlet_1//TRAJ_00010/./Geo.out']
+allfiles                   ['Singlet_1//TRAJ_00002/./Geo.out', 'Singlet_1//TRAJ_00003/./Geo.out',
+                            'Singlet_1//TRAJ_00004/./Geo.out', 'Singlet_1//TRAJ_00005/./Geo.out',
+                            'Singlet_1//TRAJ_00007/./Geo.out', 'Singlet_1//TRAJ_00010/./Geo.out']
 colX                       [2]
 filepath                   ./Geo.out
 averaging                  {}
@@ -3972,7 +3977,9 @@ type3_to_type2             False
 integrate_X                {}
 sum_Y                      False
 integrate_T                False
-convolute_X                {'function': <__main__.gauss instance at 0x7fc7c22bcfa0>, 'npoints': 50, 'xrange': [1.5]}
+convolute_X                {'function': <__main__.gauss instance at 0x7fc7c22bcfa0>, 
+                            'npoints': 50, 
+                            'xrange': [1.5]}
 
 Do you want to do the specified analysis? [True] 
 
@@ -4027,14 +4034,14 @@ In order to do so, do not apply convolution in X direction, and then ask for an 
 \begin{figure}[p]
   \centering
   \includegraphics[width=0.7\textwidth]{figures/coll_1_2.png}
-  \caption{All \ce{S=O} bond lengths from the 6 trajectories.}
+  \caption{All \ce{SO} bond lengths from the 6 trajectories.}
   \label{fig:coll_1_2}
 \end{figure}
 
 \begin{figure}[p]
   \centering
   \includegraphics[width=0.7\textwidth]{figures/coll_1_2_cX.png}
-  \caption{Convolution of the \ce{S=O} bond lengths from the 6 trajectories.}
+  \caption{Convolution of the \ce{SO} bond lengths from the 6 trajectories.}
   \label{fig:coll_1_2_cX}
 \end{figure}
 
@@ -4199,7 +4206,12 @@ Do you want to output as Type2 dataset? [False] \textbf{\textcolor{red}{<ENTER>}
 
 paths                      ['Singlet_1/']
 statistics                 {}
-allfiles                   ['Singlet_1//TRAJ_00002/output_data/fosc_act.out', 'Singlet_1//TRAJ_00003/output_data/fosc_act.out', 'Singlet_1//TRAJ_00004/output_data/fosc_act.out', 'Singlet_1//TRAJ_00005/output_data/fosc_act.out', 'Singlet_1//TRAJ_00007/output_data/fosc_act.out', 'Singlet_1//TRAJ_00010/output_data/fosc_act.out']
+allfiles                   ['Singlet_1//TRAJ_00002/output_data/fosc_act.out',
+                            'Singlet_1//TRAJ_00003/output_data/fosc_act.out',
+                            'Singlet_1//TRAJ_00004/output_data/fosc_act.out', 
+                            'Singlet_1//TRAJ_00005/output_data/fosc_act.out', 
+                            'Singlet_1//TRAJ_00007/output_data/fosc_act.out', 
+                            'Singlet_1//TRAJ_00010/output_data/fosc_act.out']
 colX                       [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
 filepath                   output_data/fosc_act.out
 averaging                  {}
@@ -4215,7 +4227,9 @@ type3_to_type2             False
 integrate_X                {}
 sum_Y                      True
 integrate_T                False
-convolute_X                {'function': <__main__.gauss instance at 0x7fb48fc36b40>, 'npoints': 50, 'xrange': [1.5]}
+convolute_X                {'function': <__main__.gauss instance at 0x7fb48fc36b40>, 
+                            'npoints': 50, 
+                            'xrange': [1.5]}
 
 Do you want to do the specified analysis? [True] 
 
@@ -4237,7 +4251,8 @@ Convoluting data (along X column) ...
 
 Summing all Y values ...
   Progress: [==================================================] 100%
->>>> Writing output to file "collected_data_1_2345678910111213_141516171819202122232425_sy_cX_sY.type3.txt"...
+>>>> Writing output to file "collected_data_1_2345678910111213_141516171819202122232425_sy_cX_sY.type3.txt"
+...
 
 
 Finished!
@@ -4349,7 +4364,7 @@ Please specify the quantum chemistry interface (enter any of the following numbe
 10	BAGEL (CASSCF, CASPT2, (X)MS-CASPT2)
 
 Interface number: \textbf{\textcolor{red}{5}}
-The used interface will be: MOLCAS (CASSCF, CASPT2, MS-CASPT2)
+The used interface will be: AMS (DFT, TD-DFT)
 
 -----------------Spin-orbit couplings (SOCs)----------------
 
@@ -4410,7 +4425,8 @@ One-sided derivation will be used on: [None]
 
 Setup from amsbashrc.sh file? [True] \textbf{\textcolor{red}{<ENTER>}}
 
-Please specify path to the amsbashrc.sh file (SHELL variables and ~ can be used, will be expanded when interface is started).
+Please specify path to the amsbashrc.sh file (SHELL variables and ~ can be used, will be expanded when 
+interface is started).
 
 Path to amsbashrc.sh file: [$AMSHOME/amsbashrc.sh] (autocomplete enabled) \textbf{\textcolor{red}{<ENTER>}}
 
@@ -4437,7 +4453,8 @@ Use this template file? [True] \textbf{\textcolor{red}{<ENTER>}}
 
 -----------------Initial restart: MO Guess------------------
 
-Please specify the path to an AMS rkf engine file containing suitable starting MOs for the AMS calculation. Please note that this script cannot check whether the wavefunction file and the Input template are consistent!
+Please specify the path to an AMS rkf engine file containing suitable starting MOs for the AMS calculation. 
+Please note that this script cannot check whether the wavefunction file and the Input template are consistent!
 
 Do you have a restart file? [True] \textbf{\textcolor{red}{no}}
 --------------------AMS Ressource usage---------------------
@@ -4490,9 +4507,12 @@ Generate submission script? [False] \textbf{\textcolor{red}{<ENTER>}}
 #########################Full input#########################
 
 v0f                       /user/severin/workdir/ams_sharc_tutorial2/Tutorial/LVC/V0.txt
-atoms                     {'atom': 'O', 'e-': 8, 'coords [bohr]': (1.85081016, -0.12565904, 0.05565681), 'mass (amu)': 29156.946371987007}
-                          {'atom': 'S', 'e-': 16, 'coords [bohr]': (4.61375846, -0.24577894, -0.13448766), 'mass (amu)': 58281.52006736897}
-                          {'atom': 'O', 'e-': 8, 'coords [bohr]': (5.74691718, -1.59710862, -2.27346244), 'mass (amu)': 29156.946371987007}
+atoms                     {'atom': 'O', 'e-': 8, 'coords [bohr]': (1.85081016, -0.12565904, 0.05565681), 
+                           'mass (amu)': 29156.946371987007}
+                          {'atom': 'S', 'e-': 16, 'coords [bohr]': (4.61375846, -0.24577894, -0.13448766), 
+                          'mass (amu)': 58281.52006736897}
+                          {'atom': 'O', 'e-': 8, 'coords [bohr]': (5.74691718, -1.59710862, -2.27346244), 
+                          'mass (amu)': 29156.946371987007}
 normal_modes              7: [...]
                           8: [...]
                           9: [...]
