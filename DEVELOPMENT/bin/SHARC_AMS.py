@@ -2570,6 +2570,7 @@ def writeAMSinput(QMin, WORKDIR):
     # ---------------- ENGINE BLOCK ----------------------------
     string += 'ENGINE ADF\n\n'  # TODO variable engine -> DFTB, COSMO etc.
 
+    string += 'SYMMETRY NoSym\n'  # do not use symmetry
     if QMin['template']['relativistic']:
         string += 'RELATIVITY\nLEVEL %s\nFORMALISM %s\nEND\n\n' % tuple(QMin['template']['relativistic'].split())
     if 'AOoverlap' in QMin:
