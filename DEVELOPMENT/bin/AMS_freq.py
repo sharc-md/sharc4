@@ -23,8 +23,6 @@
 #
 # ******************************************
 
-
-from scm.plams import KFFile
 import sys
 import os
 
@@ -34,8 +32,13 @@ except ImportError:
     print('The kffile module required to read AMS binary files needs numpy. Please install numpy and then try again')
     sys.exit()
 
-adf = os.path.expandvars('$AMSHOME')
-sys.path.append(adf + '/scripting')
+ams = os.path.expandvars('$AMSHOME')   # is variable does not exist, its name is given
+if ams == '$AMSHOME':
+    print('$AMSHOME variable is not set')
+    sys.exit(29)
+sys.path.append(ams + '/scripting')
+
+from scm.plams import KFFile  # import KFFile after $PYTHONPATH is expanded
 
 # ================================================
 
