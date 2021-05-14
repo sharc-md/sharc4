@@ -129,8 +129,7 @@ fit zlmfit normal         # Options: basic, normal, good, verygood, excellent
     ## See the ADF manual for more details.
 #exactdensity
 
-    ## This keyword activates the use of the new HF exchange scheme (ADF>=2016).
-    ## The default is to not use the new scheme (even when using ADF>=2017, where it is the default).
+    ## The default is to not use the new scheme.
     ## The new scheme might be faster and better parallelized, but benchmarking is advisable.
     ## Note that energies (SCF+Davidson) usually take much longer than gradients (CPKS+integration).
 rihartreefock normal     # Options: basic, normal, good, verygood, excellent
@@ -183,7 +182,6 @@ dvd_tolerance 1e-6
     ## Sets the davidson residual tolerance (norm of the residual vectors).
     ## Can significantly accelerate the Davidson procedure (if set to ~sqrt(dvd_tolerance) or slightly below ).
     ## Default is the same value as dvd_tolerance.
-    ## Only works for ADF >=2017.207
 dvd_residu 1e-3
 
     ## This keyword activates the "MBLOCKSMALL" keyword in the ADF input.
@@ -240,7 +238,7 @@ dvd_residu 1e-3
 ##
 ## BASIS block: automatically sets "core none", "createoutput none"
 ##
-## EXCITATIONS block: always "davidson", automatically uses "onlysing", "onlytrip", "lowest", and requests different numbers of singlets/triplets for ADF>=2017.207
+## EXCITATIONS block: always "davidson", automatically uses "onlysing", "onlytrip", "lowest", and requests different numbers of singlets/triplets.
 ##
 ## SOPERT keyword: automatic, if SOC requested and triplets present
 ##
@@ -248,7 +246,7 @@ dvd_residu 1e-3
 ##
 ## GRADIENT keyword: Uses this undocumented keyword in place of a GEOMETRY block
 ##
-## EXCITEDGO block: Used automatically, cpks eps is always set to 0.0001, sing_grads/trip_grads are used for ADF>=2017.207
+## EXCITEDGO block: Used automatically, cpks eps is always set to 0.0001, sing_grads/trip_grads are used.
 ##
 ## SAVE keyword: saves TAPE21, and TAPE15 for overlap and Dyson calculations
 ##
