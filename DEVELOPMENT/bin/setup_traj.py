@@ -4386,9 +4386,7 @@ def writeRunscript(INFOS, iconddir):
 
     # ================================
     intstring = ''
-    if 'adfrc' in INFOS:
-        intstring = '. %s\nexport PYTHONPATH=$ADFHOME/scripting:$PYTHONPATH' % (INFOS['adfrc'])
-    elif 'amsbashrc' in INFOS:
+    if 'amsbashrc' in INFOS:
         intstring = '. %s\nexport PYTHONPATH=$AMSHOME/scripting:$PYTHONPATH' % (INFOS['amsbashrc'])
 
     # ================================
