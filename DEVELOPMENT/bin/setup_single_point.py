@@ -1749,7 +1749,7 @@ Typical values for ADF are 0.90-0.98 for LDA/GGA functionals and 0.50-0.80 for h
     print ''
     print '''State threshold for choosing determinants to include in the overlaps'''
     print '''For hybrids (and without TDA) one should consider that the eigenvector X may have a norm larger than 1'''
-    INFOS['adf.ciothres']=question('Threshold:',float,[0.99])[0]
+    INFOS['adf.ciothres']=question('Threshold:',float,[0.998])[0]
     print ''
     INFOS['adf.mem']=question('Memory for wfoverlap (MB):',int,[1000])[0]
     # TODO not asked: numfrozcore and numocc
@@ -2004,7 +2004,7 @@ douglas-kroll                                   # DKH is only used if this keywo
     INFOS['ricc2.wfpath']=question('Path to wfoverlap executable:',str,'$SHARC/wfoverlap.x')
     print ''
     print '''Give threshold for choosing determinants to include in the overlaps'''
-    INFOS['ricc2.wfthres']=question('Threshold:',float,[0.99])[0]
+    INFOS['ricc2.wfthres']=question('Threshold:',float,[0.998])[0]
 
 
 
@@ -2250,7 +2250,7 @@ Typical values for GAUSSIAN are 0.90-0.98.'''
     print ''
     print 'State threshold for choosing determinants to include in the overlaps'
     print 'For hybrids without TDA one should consider that the eigenvector X may have a norm larger than 1'
-    INFOS['gaussian.ciothres']=question('Threshold:',float,[0.99])[0]
+    INFOS['gaussian.ciothres']=question('Threshold:',float,[0.998])[0]
     print ''
     # TODO not asked: numfrozcore and numocc
 
@@ -2533,7 +2533,7 @@ A value of 0 means that running in parallel will not make the calculation faster
     print ''
     print 'State threshold for choosing determinants to include in the overlaps'
     print 'For hybrids (and without TDA) one should consider that the eigenvector X may have a norm larger than 1'
-    INFOS['orca.ciothres']=question('Threshold:',float,[0.99])[0]
+    INFOS['orca.ciothres']=question('Threshold:',float,[0.998])[0]
     print ''
 
     # PyQuante

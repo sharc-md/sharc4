@@ -1232,7 +1232,7 @@ In order to setup the COLUMBUS input, use COLUMBUS' input facility colinp. For f
     if 'wfoverlap' in INFOS['needed']:
         print('\n' + '{:-^60}'.format('WFoverlap setup') + '\n')
         INFOS['columbus.dysonpath'] = question('Path to wavefunction overlap executable:', str, '$SHARC/wfoverlap.x')
-        INFOS['columbus.ciothres'] = question('Determinant screening threshold:', float, [0.99])[0]
+        INFOS['columbus.ciothres'] = question('Determinant screening threshold:', float, [0.998])[0]
         INFOS['columbus.numfrozcore'] = question('Number of frozen core orbitals for overlaps (-1=as in template):', int, [-1])[0]
         if 'ion' in INFOS and INFOS['ion']:
             INFOS['columbus.numocc'] = question('Number of doubly occupied orbitals for Dyson:', int, [0])[0]
