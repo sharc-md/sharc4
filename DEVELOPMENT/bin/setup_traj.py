@@ -146,7 +146,7 @@ Interfaces = {
                      'soc': []},
         'pysharc': False
         },
-    11: {'script': 'SHARC_AMS.py',
+    5: {'script': 'SHARC_AMS.py',
          'name': 'ams',
          'description': 'AMS (DFT, TD-DFT)',
          'get_routine': 'get_AMS',
