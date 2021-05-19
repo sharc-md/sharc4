@@ -201,7 +201,7 @@ user@host> \textbf{\textcolor{red}{mkdir Tutorial}}
 user@host> \textbf{\textcolor{red}{cd Tutorial/}}
 \end{Verbatim}
 
-
+\clearpage
 \section{Description of the model system}
 \label{sec:model_system}
 
@@ -211,7 +211,24 @@ The employed quantum chemistry method will be TDDFT with PBE/DZP, using the \tex
 This level of theory is not sufficient for a serious scientific investigation, and was chosen on purpose for this tutorial because it is fast and easy to use.
 
 The main goal of this tutorial is showcasing an exemplary workflow with \sharc\ using \textsc{AMS}. 
-The sulfur dioxide molecule presents a simple yet interesting model system. It undergoes intersystem crossing and will populate a triplet state with increasing simulation time.
+The sulfur dioxide molecule presents a simple yet interesting model system for its photodynamics at energies of about 4.0~eV.
+% In fact, this dynamics has been studied since the 1930s, but the absorption spectrum and ultrafast dynamics has not been understood until the 2010s \cite{Wilkinson2014JCP, Leveque2014JCP_ISC, Mai2014JCP_SO2}.
+There are 5 excited states present at this energy---2 singlet states ($^1B_1$, $^1A_2$) and 3 triplet states ($^3B_1$, $^3A_2$, $^3B_2$).
+A 1D cut through the 3D PESs of these states is shown in Figure~\ref{fig:PES_1D}, showing that there are several crossings between the singlet and triplet states.
+Figure~\ref{fig:PES_2D} additionally shows a 2D cut through the PESs, illustrating the different conical intersections that arise between the states.
+With this second figure, the dynamics can be sufficiently explained, so that we are able to recognize the features in the results of our dynamics simulations. 
+The system will be initially excited about 4~eV into the dark blue (${}^1A''$) state, which is the first singlet (excitation in Figure~\ref{fig:PES_1D}). 
+From there, the wavepacket relaxes down the singlet PES. 
+Portions of this wavepacket with come close to or collide with the conical intersection (CI) with the second singlet (${}^1A''$ in light blue) may perform a hop or transfer a portion of the population. 
+The population of the second singlet will, however, relax back to the CI and transfer back to the first singlet PES. This can lead to a sharp increase in the $S_2$ population with an oscillatory decrease to the $S_1$. The next important points of the $S_1$ PES are the crossing regions with the triplet states. 
+These can be better identified in Figure~\ref{fig:PES_1D}. 
+The presence of these crossings in principle makes it possible that a part of the wave packet converts to a triplet, a process that is called intersystem crossing (ISC) and which is only possible due to the relativistic spin-orbit couplings. 
+The energy of the first and second triplet state is generally lower, than that of the singlets.
+So we can expect the wave packet to fully transfer into a triplet state on a sufficiently long timescale.
+Altogether, these dynamics of \ce{SO2} are relatively complex for such a small molecule and make it an interesting system for a more detailed investigation.  
+
+% Until a few years ago, it was not clear whether in \ce{SO2} ISC occurs at all, which triplet state is involved, and how fast ISC happens.
+% These questions were only recently answered by a collaboration of pump-probe spectroscopy \cite{Wilkinson2014JCP}, quantum dynamics simulations \cite{Leveque2014JCP_ISC}, and surface hopping computations \cite{Mai2014JCP_SO2}.
 
 In the following, an overview over the employed method and the initial nuclear coordinates are given:
 
@@ -242,6 +259,16 @@ O     0.     -1.3      -0.65
 \end{minipage}
 \end{example}
 
+\begin{figure}[p]
+  \centering
+   \includegraphics[width=0.9\textwidth]{img/pes/pes.pdf}
+   \caption{1D PES scan along the bending angle of \ce{SO2} for the 5 relevant \textbf{diabatic} states.}\label{fig:PES_1D} 
+\end{figure}
+\begin{figure}[p]
+  \centering
+  \includegraphics[height=12cm]{figures/plot_2D_trim.png}
+  \caption{2D PES scan along bending angle and asymmetric stretch of \ce{SO2} for the 5 relevant \textbf{adiabatic} (but spin-diabatic) states, showing the two conical intersections between the two $^1A''$ states and between the two $^3A''$ states.}\label{fig:PES_2D}
+\end{figure}
 
 
 
@@ -1954,8 +1981,8 @@ The system starts with 100\% of the population in the $S_1$.
 Around 5~fs, the population is increasingly transferred to the $S_2$ up to almost 50\%. 
 From this point, as no hop occured, the decoherence correction that is employed in the computation is forcing the population into the $S_1$ again.
 Then, at 45~fs population flows consistently to the $T_2$ with all three magnetic quantum numbers until the end of the simulation. 
-There are two sharp switches between the population of the $T_2$ and the $T_3$ and back in the end, which is an unavoided crossing of the uncoupled ${}^3B_2$ and ${}^3B_1$ states. 
-The remaining $S_1$ population switches to $S_2$. These sharp switches can be explained with the crossings that were visible in figure~\ref{fig:en} and \ref{fig:en_rel}. 
+There are two very fast population transfers between the $T_2$ and the $T_3$ state and back in the end, which is an unavoided crossing of the uncoupled ${}^3B_2$ and ${}^3B_1$ states. 
+These fast transfers can be explained with the crossings that are visible in figure~\ref{fig:en} and \ref{fig:en_rel}.
 It is therefore generally instructive to observe the correlation between the population transfers in figure~\ref{fig:cMCH} with the hopping events in figure~\ref{fig:en}.
 
 
@@ -2722,7 +2749,11 @@ In figure~\ref{fig:pop_fosc}, the 6 trajectories are classified depending on the
 
 \paragraph{Discussion of Figure~\ref{fig:pop_class}}
 
-In figure~\ref{fig:pop_class} it can be seen that in the first 15~fs population is transferred form $S_1$ to $S_2$, before the decoherence correction forces the ensemble into the $S_1$ state again. Afterwards, one trajectory transitions from the initial $S_1$ state to the $T_2$ state with a brief section in the $T_3$ due to an unavoided crossing.
+In figure~\ref{fig:pop_class} it can be seen that in the first 15~fs population is transferred form $S_1$ to $S_2$.
+This results from the collision of the wavepacket with the CI of the $S_2$ state, that was described in Figure~\ref{fig:PES_2D} earlier.
+Afterwards, the decoherence correction forces the ensemble into the $S_1$ state again.
+This is reasonable, since the $S_2$ state has a higher potential energy than the $S_1$. 
+One trajectory transitions from the initial $S_1$ state to the $T_2$ state with a brief section in the $T_3$ due to an unavoided crossing.
 
 \paragraph{Discussion of Figure~\ref{fig:pop_quant}}
 
@@ -2739,7 +2770,13 @@ In general, however, classifying the population according to oscillator strength
 
 \paragraph{Discussion of Figure~\ref{fig:pop_diab}}
 
-In figure~\ref{fig:pop_diab}, it can be seen that the population shifts from the ${}^1B_1$ state to the ${}^1A_2$ state in the beginning. After 45~fs, the ${}^3B_2$ state (all three magnetic quantum numbers) are increasingly populated.
+In figure~\ref{fig:pop_diab}, it can be seen that the population shifts from the ${}^1B_1$ state to the ${}^1A_2$ state in the beginning. 
+The reason for this is the connection between the two diabatic states, ${}^1B_1$ and ${}^1A_2$ in Figure~\ref{fig:PES_1D}, and the first two singlet adiabatic states in Figure~\ref{fig:PES_2D}.
+The two diabatic states can be respresented as the two diabatic ones, as the parts besides the intersection with lower, first singlet, and higher energy, second singlet. 
+Therefore, we excite into the first singlet state, corresponding to the ${}^1B_1$ state, and the wave packet stays there as it relaxes to lower energies.
+However, the portion of the first singlet corresponds to the ${}^1A_2$ state.
+This explains the population shifts that we see in the figure with the diabatic quantum amplitudes.
+After 45~fs, the ${}^3B_2$ state (all three magnetic quantum numbers) are increasingly populated.
 
 \begin{figure}[ptb]
   \centering
@@ -4409,8 +4446,20 @@ In order to setup an LVC model, one has to perform three main steps:
 \end{enumerate}
 Here, we parametrize an LVC model for \ce{SO2}, using the settings and files from before.
 Note that a harmonic LVC model is not a very good model for all molecular systems, but for the goals of this tutorial, it is sufficient.
-To continue, we need the \ttt{AMS.freq.molden} and the \ttt{AMS.template} files obtained in Chapter~\ref{chap:full}.
-
+To continue, we need the \ttt{AMS.freq.molden} and the \ttt{AMS.template} files obtained in Chapter~\ref{chap:full}. 
+Copy both of them into the directory, where you want to perform your LVC calculations.
+As we want to really tightly converge the calculation on which the LVC will be parametrized on, edit the following lines in your \ttt{AMS.template}.
+\begin{oframed}
+  \footnotesize\begin{Verbatim}[commandchars=\\\{\}]
+    \vdots      \vdots
+    dvd_tolerance \textbf{\textcolor{red}{1e-9}}
+    dvd_residu \textbf{\textcolor{red}{1e-6}}
+    grid beckegrid \textbf{\textcolor{red}{verygood}}     # Options: basic, normal, good, verygood, excellent
+    fit zlmfit \textbf{\textcolor{red}{verygood}}         # Options: basic, normal, good, verygood, excellent
+  \end{Verbatim}
+\end{oframed}
+This will aleviate any numerical noise that might enter the parametrization.
+Note, that even though this calculation might take longer, we only need to perform it once and it will increase the quality of all LVC (in some cases many thousand) calculations that follow.
 
 \subsection{Reference potential}
 
@@ -4761,20 +4810,18 @@ This file will be needed for setting up the \sharc\ trajectories.
 
 
 \clearpage
-\section{Running \ttt{pysharc} with NetCDF}
+\section{Running the LVC trajectories}
 \label{sec:run_LVC}
-\refermanual{m-sec:pysharc}
+% \refermanual{m-sec:pysharc}
 
-Setting up trajectories with \ttt{pysharc} is actually very similar to setting up trajectories for regular \ttt{sharc.x}.
-Currently, \ttt{pysharc} trajectories can only be setup for LVC models.
-Here, we will use the LVC model produced in section~\ref{sec:setup_LVC}.
-
-In order to prepare the trajectory setup, do the following steps:
+The LVC model is very powerfull and its evaluations are very inexpensive.
+We will demonstrate this by setting up trajectories from 200 initial conditions with 700~fs simulation time.
+In order to prepare the trajectory setup, do the following steps (similar to before):
 \begin{enumerate}
   \item Generate initial conditions using \ttt{wigner.py}. It is strongly advisable to use the same \ttt{molden} file that was used to generate \ttt{V0.txt} for the LVC model.
   \item Use \ttt{setup\_init.py} to prepare vertical excitation calculations. Use the LVC interface (interface number 7). 
-  \item Run the vertical excitation calculations (they should be very fast).
   \item Collect vertical excitation information and select initial states using \ttt{excite.py}.
+  \item Run the vertical excitation calculations (they should be very fast).
 \end{enumerate}
 At the end of these steps, one should have: \ttt{initconds.excited}, \ttt{V0.txt}, \ttt{LVC.template}.
 Then, one can the trajectories:
@@ -4834,8 +4881,8 @@ Number of initial conditions in file:          20
 Number of excited states and selections:
 State    #InitCalc       #Selected
     1          181               0
-    2          181             121
-    3          181              39
+    2          181             136
+    3          181              65
     4          181               0
     5          181               0
     6          181               0
@@ -4850,15 +4897,15 @@ Please enter a list specifying for which excited states trajectories should be s
 e.g. 3 9 12 to select states 3, 9, and 12.
 States to setup the dynamics: [2 3] (range comprehension enabled) \textbf{\textcolor{red}{2}}
 
-There can be 121 trajectories set up.
+There can be 136 trajectories set up.
 
 Please enter the index of the first initial condition in the initconds file to be setup.
 Starting index: [1] \textbf{\textcolor{red}{<ENTER>}}
 
-There can be 121 trajectories set up, starting in 1 states.
+There can be 136 trajectories set up, starting in 1 states.
 
 Please enter the total number of trajectories to setup.
-Number of trajectories: [121] \textbf{\textcolor{red}{<ENTER>}}
+Number of trajectories: [136] \textbf{\textcolor{red}{<ENTER>}}
 
 Please enter a random number generator seed (type "!" to initialize the RNG from the system time).
 RNG Seed:  [!] \textbf{\textcolor{red}{1234}}
@@ -4949,7 +4996,7 @@ Please choose a decoherence correction for the diagonal states:
 1       No decoherence correction.
 2       Energy-based decoherence scheme (Granucci, Persico, Zoccante).
 3       Augmented fewest-switching surface hopping (Jain, Alguire, Subotnik).
-Decoherence scheme: [2] \textbf{\textcolor{red}{3}}
+Decoherence scheme: [2] \textbf{\textcolor{red}{<ENTER>}}
 
 Please choose a surface hopping scheme for the diagonal states:
 1       Surface hops off.
@@ -5071,10 +5118,10 @@ statemap                   {1: [1, 1, 0.0], 2: [1, 2, 0.0], 3: [1, 3, 0.0], 4: [
 actstates                  [3, 0, 3]
 isactive                   [True, True, True, True, True, True, True, True, True, True, True, True]
 show_content               False
-n_issel                    [0, 121, 39, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+n_issel                    [0, 136, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 setupstates                {2}
 firstindex                 1
-ntraj                      121
+ntraj                      136
 interface                  7
 needed                     []
 tmax                       700.0
@@ -5088,7 +5135,7 @@ phases_from_interface      False
 gradcorrect                True
 ekincorrect                3
 reflect                    3
-decoherence                ['afssh', '']
+decoherence                ['ebds', '']
 hopping                    sharc
 force_hops                 False
 force_hops_dE              9999.0
@@ -5100,7 +5147,7 @@ sel_t                      False
 laser                      False
 dipolegrad                 False
 ion                        False
-LVC.template               ../../DSPL_RESULTS/LVC.template
+LVC.template               ../DSPL_RESULTS/LVC.template
 pysharc                    False
 netcdf                     False
 write_grad                 False
@@ -5110,9 +5157,9 @@ write_property1d           False
 write_overlap              True
 stride                     [1]
 printlevel                 2
-cwd                        /user/severin/workdir/ams_sharc_tutorial2/Tutorial/LVC/NetCDF/traj
+cwd                        /user/severin/workdir/ams_sharc_tutorial2/Tutorial/LVC/traj
 here                       True
-copydir                    /user/severin/workdir/ams_sharc_tutorial2/Tutorial/LVC/NetCDF/traj
+copydir                    /user/severin/workdir/ams_sharc_tutorial2/Tutorial/LVC/traj
 qsub                       False
 
 Do you want to setup the specified calculations? [True] \textbf{\textcolor{red}{<ENTER>}}
@@ -5125,14 +5172,14 @@ Do you want to setup the specified calculations? [True] \textbf{\textcolor{red}{
 
 Progress: [==================================================] 100%
 
-121 trajectories setup, last initial condition was 198 in state 2.
+136 trajectories setup, last initial condition was 198 in state 2.
 \end{Verbatim}
 \end{oframed}
 
 \normalsize
 Note that in this example, we have used some more advanced surface hopping settings, specifically rescaling along the nonadiabatic coupling vector, reflection at frustrated hops, and AFSSH decoherence.
 These options can be used without limitations in LVC, because nonadiabatic coupling vectors can be easily computed for LVC models.
-Note also that we will simulate 121 trajectories for 700~fs to demonstrate the high computational efficiency of the method.
+Note also that we will simulate 136 trajectories for 700~fs to demonstrate the high computational efficiency of the method (almost 2 million single points).
 
 The output of \ttt{setup\_traj.py} is a typical directory structure for \sharc\ trajectories.
 In order to run one of them, change into a trajectory directory and run it:
@@ -5141,6 +5188,7 @@ user@host> \textbf{\textcolor{red}{cd Singlet_1/TRAJ_00022}}
 user@host> \textbf{\textcolor{red}{sh run.sh}}
 \end{Verbatim}
 The trajectory should be finished within about a minute (ten to hundred steps per second, mostly dependent on the speed of the file system).
+You can also run all of them in sequence with the \ttt{all_run_traj.sh} in the \ttt{Singlet_1} folder.
 
 The output of the trajectory is very similar to  a normal trajectory, with the following differences:
 \begin{itemize}
