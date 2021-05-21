@@ -519,7 +519,7 @@ def nm_analysis(INFOS):
           continue
         path=idir+'/'+itraj
         s=path+' '*(width-len(path))
-        pathfile=path+'/output.xyz'
+        pathfile=path+'/output.xyz'  # TODO let user choose file name
         if not os.path.isfile(pathfile):
           s+='%s NOT FOUND' % (pathfile)
           print s
@@ -561,8 +561,8 @@ def nm_analysis(INFOS):
 #           trajcheck=re.search('TRAJ',str(ls[j]))
 #        if trajcheck !=None:
            print 'Reading trajectory ' + str(files[i]) + ' ...'
-           folder_name = str(files[i])[:-10]
-           trajectory = traj_manip.trajectory(os.path.join(folder_name, 'output.xyz'), ref_struc, dt=dt)
+           folder_name = str(files[i])
+           trajectory = traj_manip.trajectory(folder_name, ref_struc, dt=dt)
     
            # actual normal mode analysis
            try:

@@ -627,8 +627,8 @@ def get_general():
           allfiles[line]+=1
         else:
           allfiles[line]=1
-  exclude=['QM/ADF\.template',
-           'QM/ADF\.resources',
+  exclude=['QM/AMS\.template',
+           'QM/AMS\.resources',
            'QM/Analytical\.template',
            'QM/COLUMBUS\.resources',
            'QM/GAUSSIAN\.template',

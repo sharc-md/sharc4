@@ -1405,9 +1405,9 @@ def readQMin(QMinfilename):
     link(QMin['savedir'], os.path.join(QMin['pwd'], 'SAVE'), False, False)
 
     # setup environment for AMS
-    QMin['AMSHOME'] = get_sh2AMS_environ(sh2AMS, 'adfhome')
-    if not os.path.isfile(os.path.join(QMin['AMSHOME'], 'bin', 'adf')):
-        print('AMS executable at "%s" not found!' % os.path.join(QMin['AMSHOME'], 'bin', 'adf'))
+    QMin['AMSHOME'] = get_sh2AMS_environ(sh2AMS, 'amshome')
+    if not os.path.isfile(os.path.join(QMin['AMSHOME'], 'bin', 'ams')):
+        print('AMS executable at "%s" not found!' % os.path.join(QMin['AMSHOME'], 'bin', 'ams'))
         sys.exit(39)
     os.environ['AMSHOME'] = QMin['AMSHOME']
     os.environ['AMSBIN'] = QMin['AMSHOME'] + '/bin'
@@ -1656,7 +1656,7 @@ def readQMin(QMinfilename):
         elif line[0] in strings:
             QMin['template'][line[0]] = orig.split(None, 1)[1]
         elif line[0] in integers:
-            QMin['template'][line[0]] = int(float(line[1]))
+            QMin['template'][line[0]] = int(float(line[1]))  # TODO not sure if this is 100% save
         elif line[0] in floats:
             QMin['template'][line[0]] = float(line[1])
         elif line[0] in special:
@@ -1728,7 +1728,6 @@ def readQMin(QMinfilename):
                             compatible = False
                     if not compatible:
                         print('WARNING: Charges from template not compatible with multiplicities!  (this is probably OK if you use QM/MM)')
-                        # sys.exit(53)
                 else:
                     print('Length of "charge" does not match length of "states"!')
                     sys.exit(54)
@@ -1911,9 +1910,6 @@ def readQMin(QMinfilename):
                 n = int(s[0])
                 link_atoms[n - 1] = s[4]
 
-        # print qm_atoms
-        # print link_atoms
-        # print mm_atoms
         QMin['frozcore'] = 0
         atom_frags = set()
         for i in qm_atoms:
@@ -3362,7 +3358,7 @@ def setupWORKDIR_TH(WORKDIR, QMin):
     # mkdir the WORKDIR, or clean it if it exists, then copy all necessary files from pwd and savedir
 
     # write dens_ana.in
-    inputstring = '''rtype='ADF'
+    inputstring = '''rtype='AMS'
 rfile='TAPE21'
 jmol_orbitals=False
 molden_orbitals=False

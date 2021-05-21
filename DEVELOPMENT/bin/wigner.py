@@ -1047,7 +1047,7 @@ weighted normal coordinates are then returned'''
   modes_2 = copy.deepcopy(modes)
   modes_3 = copy.deepcopy(modes)
   allmodes = [modes_1,modes_2,modes_3,modes]
-  normformat = ["gaussian-type (Gaussian, Turbomole, Q-Chem, ADF, Orca)","cartesian (Molpro, Molcas)","columbus-type (Columbus)","mass-weighted"]
+  normformat = ["gaussian-type (Gaussian, Turbomole, Q-Chem, AMS, Orca)","cartesian (Molpro, Molcas)","columbus-type (Columbus)","mass-weighted"]
 
   #apply transformations to normal modes
   for imode in range(nmodes):
@@ -1396,7 +1396,7 @@ as described in [2] (non-fixed energy, independent mode sampling).
   parser.add_option('-l', dest='lvc', action='store_true', help='Generate input for SHARC_LVC.py (V0.txt) rather than initconds')
 
   parser.add_option('-r', dest='r', type=int, nargs=1, default=16661, help="Seed for the random number generator (integer, default=16661)")
-  parser.add_option('-f', dest='f', type=int, nargs=1, default='0', help="Define the type of read normal modes. 0 for automatic assignement, 1 for gaussian-type normal modes (Gaussian, Turbomole, Q-Chem, ADF, Orca), 2 for cartesian normal modes (Molcas, Molpro), 3 for Columbus-type (Columbus), or 4 for mass-weighted. (integer, default=0)")
+  parser.add_option('-f', dest='f', type=int, nargs=1, default='0', help="Define the type of read normal modes. 0 for automatic assignement, 1 for gaussian-type normal modes (Gaussian, Turbomole, Q-Chem, AMS, Orca), 2 for cartesian normal modes (Molcas, Molpro), 3 for Columbus-type (Columbus), or 4 for mass-weighted. (integer, default=0)")
   
   parser.add_option('--keep_trans_rot', dest='KTR', action='store_true',help="Keep translational and rotational components")
   parser.add_option('--use_eq_geom',    dest='UEG', action='store_true',help="For all samples, use the equilibrium geometry (only sample velocities)")
