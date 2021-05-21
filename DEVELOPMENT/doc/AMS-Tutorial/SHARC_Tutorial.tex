@@ -2582,82 +2582,8 @@ Writing to pop_quant.out ...
 \end{oframed}
 
 \normalsize
-Third, we obtain the number of trajectories whose oscillator strength falls into one of these intervals: $0<f_\text{osc}<10^{-4}$, $10^{-4}<f_\text{osc}<1^{-1}$ and $10^{-1}<f_\text{osc}$. Rerun \ttt{populations.py} again.
-\begin{Verbatim}[commandchars=\\\{\}]
-user@host> \textcolor{red}{$SHARC/populations.py}
-\end{Verbatim}
 
-\begin{oframed}
-\footnotesize\begin{Verbatim}[commandchars=\\\{\}]
-\vdots            \vdots            \vdots            \vdots            \vdots            \vdots            \vdots            
-
-------------------------Analyze Mode------------------------
-
-This script can analyze the classical populations in different ways:
-This script can analyze the classical populations in different ways:
-1  Number of trajectories in each diagonal state                                   from output.lis
-2  Number of trajectories in each (approximate) MCH state                          from output.lis
-3  Number of trajectories in each (approximate) MCH state (multiplets summed up)   from output.lis
-4  Number of trajectories whose total spin value falls into certain intervals      from output.lis
-5  Number of trajectories whose dipole moment falls into certain intervals         from output.lis
-6  Number of trajectories whose oscillator strength falls into certain intervals   from output_data/fosc.out
-
-It can also sum the quantum amplitudes:
-7  Quantum amplitudes in diagonal picture                                    from output_data/coeff_diag.out
-8  Quantum amplitudes in MCH picture                                         from output_data/coeff_MCH.out
-9  Quantum amplitudes in MCH picture (multiplets summed up)                  from output_data/coeff_MCH.out
-
-It can also transform the classical diagonal populations to MCH basis:
-12  Transform diagonal classical populations to MCH
-                                                                        from output_data/coeff_class_MCH.out
-13  Transform diagonal classical populations to MCH (multiplets summed up)
-                                                                        from output_data/coeff_class_MCH.out 
-14  Wigner-transform classical diagonal populations to MCH
-                                                                        from output_data/coeff_mixed_MCH.out
-15  Wigner-transform classical diagonal populations to MCH (multiplets summed up)
-                                                                        from output_data/coeff_mixed_MCH.out
-
-It can also compute diabatic populations:
-20 Quantum amplitudes in diabatic picture                              from output_data/coeff_diab.out
-21 Transform diagonal classical populations to diabatic                from output_data/coeff_class_diab.out
-22 Wigner-transform classical diagonal populations to diabatic         from output_data/coeff_mixed_diab.out
-Analyze mode: \textbf{\textcolor{red}{6}}
-
-Run data_extractor.x for each trajectory prior to performing the analysis?
-For many or long trajectories, this might take some time.
-Run data_extractor.x? [True] \textbf{\textcolor{red}{no}}          \textcolor{blue}{# Was already done above}
-
-\vdots            \vdots            \vdots            \vdots            \vdots            \vdots            \vdots            
-
---------------------------Intervals-------------------------
-
-Please enter the interval limits, all on one line.
-Interval limits:  \textbf{\textcolor{red}{1e-4  1e-1}}          \textcolor{blue}{# Outer limits 0 and infinity are automatically assumed}
-
-\vdots            \vdots            \vdots            \vdots            \vdots            \vdots            \vdots            
-
-------------------Setup for bootstrapping?------------------
-
-The population data can be analyzed by fitting with a kinetic model (via make_fitscript.py). 
-In order to estimate errors for these time constants (via bootstrapping), 
-additional data needs to be saved here.
-Save data for bootstrapping? [False] \textbf{\textcolor{red}{<ENTER>}}
-
------------------------Gnuplot script-----------------------
-
-Gnuplot script? [False] \textbf{\textcolor{red}{yes}}
-Gnuplot script filename? [populations.gp] (autocomplete enabled) \textbf{\textcolor{red}{pop_fosc.gp}}
-
-\vdots            \vdots            \vdots            \vdots            \vdots            \vdots            \vdots            
-
-Overwrite pop.out?  [False] \textbf{\textcolor{red}{<ENTER>}}
-
-Please enter the output filename:  (autocomplete enabled) \textbf{\textcolor{red}{pop_fosc.out}}
-Writing to pop_fosc.out ...
-\end{Verbatim}
-\end{oframed}
-
-Fourth, we will obtain the populations of the diabatic states during the simulations. for this we start the \ttt{populations.py} script again.
+Third, we will obtain the populations of the diabatic states during the simulations. for this we start the \ttt{populations.py} script again.
 \begin{Verbatim}[commandchars=\\\{\}]
   user@host> \textcolor{red}{$SHARC/populations.py}
 \end{Verbatim}
@@ -2759,15 +2685,6 @@ One trajectory transitions from the initial $S_1$ state to the $T_2$ state with 
 
 In figure~\ref{fig:pop_quant} the quantum populations are shown. For sufficiently large ensembles, figure~\ref{fig:pop_class} should closely follow figure~\ref{fig:pop_quant}. Consistency between the classical and quantum populations is ensured by using a decoherence correction (input option in \ttt{setup\_traj.py}).
 
-\paragraph{Discussion of Figure~\ref{fig:pop_fosc}}
-
-In figure~\ref{fig:pop_fosc} the ensemble population was classified according to the oscillator strength of the classically populated state. 
-The chosen interval limits were 0.000001 and 0.0001, giving three classes of states (below 0.0000001, between 0.000001 and 0.0001, and above 0.0001). 
-Initially, all trajectories are classified into the third class. 
-During the dynamics, the dissociations/torsions/hops reduce the oscillator strength, so that the trajectories are classified into the second class.
-Later, some trajectories transition on to the triplet state which has an even lower oscillator strength (first class). However, also the singlet states have oscillator strengths below 0.000001 a some parts of the simulation, so that there is no clear separation between them and the triplet states. 
-In general, however, classifying the population according to oscillator strength sometimes allows to approximately obtain populations of $\pi\pi^*$ and $n\pi^*$ states.
-
 \paragraph{Discussion of Figure~\ref{fig:pop_diab}}
 
 In figure~\ref{fig:pop_diab}, it can be seen that the population shifts from the ${}^1B_1$ state to the ${}^1A_2$ state in the beginning. 
@@ -2792,22 +2709,10 @@ After 45~fs, the ${}^3B_2$ state (all three magnetic quantum numbers) are increa
 \end{figure}
 \begin{figure}[ptb]
   \centering
-  \includegraphics[width=0.8\textwidth]{figures/pop_fosc.png}
-  \caption{Populations classified based on oscillator strength for an ensemble of 6 trajectories.}
-  \label{fig:pop_fosc}
-\end{figure}
-\begin{figure}[ptb]
-  \centering
   \includegraphics[width=0.8\textwidth]{figures/pop_diab.png}
   \caption{Populations of the diabatic states for an ensemble of 6 trajectories.}
   \label{fig:pop_diab}
 \end{figure}
-
-
-
-
-
-
 
 
 % ======================================================================================================
@@ -3934,7 +3839,7 @@ These files contain the coordinates of the trajectory converted to normal mode c
 \begin{figure}[ptb]
   \centering
   \includegraphics[width=0.7\textwidth]{figures/nma.png}
-  \caption{Total activity of the normal modes of \ce{SO2}, where mode 1 shows the highest activity.}
+  \caption{Total activity of the normal modes of \ce{SO2}. Plotted is the relative activity in percent against the three normal modes. Mode 1 shows the highest activity with almost 70\%.}
   \label{fig:nma}
 \end{figure}
 
@@ -4211,11 +4116,11 @@ In order to do so, do not apply convolution in X direction, and then ask for an 
 % ======================================================================================================
 
 \clearpage
-\subsection{Transient Spectra}
+\subsection{Ultrafast Time-Resolved Emission Spectrum}
 \refermanual{m-sec:data_collector.py}
 
-Using \ttt{data\_collector.py}, it is also possible to compute transient absorption spectra, given that enough states were included in the simulations.
-Here, we will simulate the transient emission spectrum for \ce{SO2}, although the spectrum could be incomplete due to the missing of higher excited states.
+Using \ttt{data\_collector.py}, it is also possible to compute ultrafast time-resolve emission spectra.
+Here, we will simulate the emission spectrum for \ce{SO2}.
 
 Again, start the \ttt{data\_collector.py} to merge and post-process the data:
 \begin{Verbatim}[commandchars=\\\{\}]
@@ -4413,17 +4318,17 @@ Finished!
 \end{oframed}
 
 \normalsize
-The last of the four produced output files contains the total transient absorption spectrum.
+The last of the four produced output files contains the total emission spectrum.
 You can print it in the same way as the convoluted bond lengths in Figure~\ref{fig:coll_1_2_cX}.
-The simulated transient absorption spectrum is presented in Figure~\ref{fig:TAS}.
+The simulated spectrum is presented in Figure~\ref{fig:emission_spec}.
 
 Using \ttt{data\_collector.py}, it is also possible to convolute the spectrum with an instrument response function, or to integrate it along the time or energy axes.
 
 \begin{figure}[h]
   \centering
-  \includegraphics[width=0.9\textwidth]{figures/TAS.png}
-  \caption{Simulated transient absorption spectrum of \ce{SO2}. Ground state bleech (negative absorption) is shown in red, and excited-state absorption (positive absorption) is shown in blue.}
-  \label{fig:TAS}
+  \includegraphics[width=0.9\textwidth]{figures/emission_spec.png}
+  \caption{Simulated ultrafast time-resolved emission spectrum of \ce{SO2}. Ground state bleech (negative absorption) is shown in red, and excited-state absorption (positive absorption) is shown in blue.}
+  \label{fig:emission_spec}
 \end{figure}
 
 
