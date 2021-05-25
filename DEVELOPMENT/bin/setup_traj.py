@@ -146,9 +146,9 @@ Interfaces = {
                      'soc': []},
         'pysharc': False
         },
-    5: {'script': 'SHARC_AMS.py',
-         'name': 'ams',
-         'description': 'AMS (DFT, TD-DFT)',
+    5: {'script': 'SHARC_AMS-ADF.py',
+         'name': 'ams-adf',
+         'description': 'AMS-ADF (DFT, TD-DFT)',
          'get_routine': 'get_AMS',
          'prepare_routine': 'prepare_AMS',
          'features': {'overlap': ['wfoverlap'],
@@ -2766,7 +2766,7 @@ def get_AMS(INFOS):
     '''This routine asks for all questions specific to AMS:
     - path to AMS
     - scratch directory
-    - AMS.template
+    - AMS-ADF.template
     - TAPE21
     '''
 
@@ -2815,7 +2815,7 @@ def get_AMS(INFOS):
 
     # template file
     print(centerstring('AMS input template file', 60, '-') + '\n')
-    print('''Please specify the path to the AMS.template file. This file must contain the following keywords:
+    print('''Please specify the path to the AMS-ADF.template file. This file must contain the following keywords:
 
 basis <basis>
 functional <type> <name>
@@ -2823,13 +2823,13 @@ charge <x> [ <x2> [ <x3> ...] ]
 
 The AMS interface will generate the appropriate AMS input automatically.
 ''')
-    if os.path.isfile('AMS.template'):
-        if checktemplate_AMS('AMS.template', INFOS):
-            print('Valid file "AMS.template" detected. ')
+    if os.path.isfile('AMS-ADF.template'):
+        if checktemplate_AMS('AMS-ADF.template', INFOS):
+            print('Valid file "AMS-ADF.template" detected. ')
             usethisone = question('Use this template file?', bool, True)
             if usethisone:
-                INFOS['AMS.template'] = 'AMS.template'
-    if 'AMS.template' not in INFOS:
+                INFOS['AMS-ADF.template'] = 'AMS-ADF.template'
+    if 'AMS-ADF.template' not in INFOS:
         while True:
             filename = question('Template filename:', str)
             if not os.path.isfile(filename):
@@ -2837,13 +2837,13 @@ The AMS interface will generate the appropriate AMS input automatically.
                 continue
             if checktemplate_AMS(filename, INFOS):
                 break
-        INFOS['AMS.template'] = filename
+        INFOS['AMS-ADF.template'] = filename
     print('')
 
 
 
     # QMMM
-    if qmmm_job(INFOS['AMS.template'], INFOS):
+    if qmmm_job(INFOS['AMS-ADF.template'], INFOS):
         print(centerstring('AMS QM/MM setup', 60, '-') + '\n')
         print('Your template specifies a QM/MM calculation. Please give the force field and connection table files.')
         while True:
@@ -2955,7 +2955,7 @@ Typical values for AMS are 0.90-0.98 for LDA/GGA functionals and 0.50-0.80 for h
         print('Please give a list of the fragments used for TheoDORE analysis.')
         print('You can use the list-of-lists from dens_ana.in')
         print('Alternatively, enter all atom numbers for one fragment in one line. After defining all fragments, type "end".')
-        if qmmm_job(INFOS['AMS.template'], INFOS):
+        if qmmm_job(INFOS['AMS-ADF.template'], INFOS):
             print('You should only include the atom numbers of QM and link atoms.')
         INFOS['theodore.frag'] = []
         while True:
@@ -2981,9 +2981,9 @@ Typical values for AMS are 0.90-0.98 for LDA/GGA functionals and 0.50-0.80 for h
 
 
 def prepare_AMS(INFOS, iconddir):
-    # write AMS.resources
+    # write AMS-ADF.resources
     try:
-        sh2cas = open('%s/QM/AMS.resources' % (iconddir), 'w')
+        sh2cas = open('%s/QM/AMS-ADF.resources' % (iconddir), 'w')
     except IOError:
         print('IOError during prepareAMS, iconddir=%s' % (iconddir))
         quit(1)
@@ -3007,8 +3007,8 @@ def prepare_AMS(INFOS, iconddir):
     sh2cas.close()
 
     # copy MOs and template
-    cpfrom = INFOS['AMS.template']
-    cpto = '%s/QM/AMS.template' % (iconddir)
+    cpfrom = INFOS['AMS-ADF.template']
+    cpto = '%s/QM/AMS-ADF.template' % (iconddir)
     shutil.copy(cpfrom, cpto)
 
     if INFOS['ams.guess']:

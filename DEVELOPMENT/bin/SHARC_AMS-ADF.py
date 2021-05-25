@@ -57,10 +57,13 @@ import ast
 # =========================================================0
 # compatibility stuff
 
-if sys.version_info[1] < 5:
+if sys.version_info[0] < 3:
     print('This is a script for Python 3.5 or higher!')
     sys.exit(0)
 
+if sys.version_info[1] < 5:
+    print('This is a script for Python 3.5 or higher!')
+    sys.exit(0)
 # ======================================================================= #
 
 version = '2.1'
@@ -1137,13 +1140,13 @@ def get_sh2AMS_environ(sh2AMS, key, environ=True, crucial=True):
             LINE = os.getenv(key.upper())
             if not LINE:
                 if crucial:
-                    print('Either set $%s or give path to %s in AMS.resources!' % (key.upper(), key.upper()))
+                    print('Either set $%s or give path to %s in AMS-ADF.resources!' % (key.upper(), key.upper()))
                     sys.exit(19)
                 else:
                     return None
         else:
             if crucial:
-                print('Give path to %s in AMS.resources!' % (key.upper()))
+                print('Give path to %s in AMS-ADF.resources!' % (key.upper()))
                 sys.exit(20)
             else:
                 return None
@@ -1365,12 +1368,12 @@ def readQMin(QMinfilename):
                     sys.exit(38)
 
 
-# --------------------------------------------- AMS.resources ----------------------------------
+# --------------------------------------------- AMS-ADF.resources ----------------------------------
 
     QMin['pwd'] = os.getcwd()
 
-    # open AMS.resources
-    filename = 'AMS.resources'
+    # open AMS-ADF.resources
+    filename = 'AMS-ADF.resources'
     if os.path.isfile(filename):
         sh2AMS = readfile(filename)
     else:
@@ -1423,10 +1426,10 @@ def readQMin(QMinfilename):
 
     # globally import KFFile
     global KFFile
-    if QMin['AMSversion'] >= (2020, 100):
+    if QMin['AMSversion'][0] >= 2018:
         from scm.plams import KFFile
     else:
-        print('AMS 2019 and older are not supported by this script!')
+        print('AMS 2018 and older are not supported by this script!')
         sys.exit(40)
 
     # setup license
@@ -1542,7 +1545,7 @@ def readQMin(QMinfilename):
             if os.path.isfile(ciopath):
                 QMin['wfoverlap'] = ciopath
             else:
-                print('Give path to wfoverlap.x in AMS.resources!')
+                print('Give path to wfoverlap.x in AMS-ADF.resources!')
                 sys.exit(45)
 
     # memory
@@ -1566,7 +1569,7 @@ def readQMin(QMinfilename):
     if 'theodore' in QMin:
         QMin['theodir'] = get_sh2AMS_environ(sh2AMS, 'theodir', False, False)
         if QMin['theodir'] is None or not os.path.isdir(QMin['theodir']):
-            print('Give path to the TheoDORE installation directory in AMS.resources!')
+            print('Give path to the TheoDORE installation directory in AMS-ADF.resources!')
             sys.exit(46)
         os.environ['THEODIR'] = QMin['theodir']
         if 'PYTHONPATH' in os.environ:
@@ -1643,7 +1646,7 @@ def readQMin(QMinfilename):
     QMin['template'] = {**bools, **strings, **integers, **floats, **special}
 
     # open template
-    template = readfile('AMS.template')
+    template = readfile('AMS-ADF.template')
 
     # go through template
     for line in template:
@@ -1656,7 +1659,7 @@ def readQMin(QMinfilename):
         elif line[0] in strings:
             QMin['template'][line[0]] = orig.split(None, 1)[1]
         elif line[0] in integers:
-            QMin['template'][line[0]] = int(float(line[1]))  # TODO not sure if this is 100% save
+            QMin['template'][line[0]] = int(float(line[1]))
         elif line[0] in floats:
             QMin['template'][line[0]] = float(line[1])
         elif line[0] in special:
@@ -1785,43 +1788,11 @@ def readQMin(QMinfilename):
                         frag_list.append(int(i))
                     QMin['template']['theodore_fragment'].append(frag_list)
 
-            # qmmm_table is a filename which needs to be checked
-            elif line[0] == 'qmmm_table':
-                line2 = orig.split(None, 1)
-                if len(line2) < 2:
-                    print('Please specify a connection table file after "qmmm_table"!')
-                    sys.exit(55)
-                filename = os.path.abspath(os.path.expandvars(os.path.expanduser(line2[1])))
-                QMin['template']['qmmm_table'] = filename
-
-            # qmmm_ff_file is a filename which needs to be checked
-            elif line[0] == 'qmmm_ff_file':
-                line2 = orig.split(None, 1)
-                if len(line2) < 2:
-                    print('Please specify a force field file after "qmmm_ff_file"!')
-                    sys.exit(56)
-                filename = os.path.abspath(os.path.expandvars(os.path.expanduser(line2[1])))
-                QMin['template']['qmmm_ff_file'] = filename
-
     # do logic checks
     if QMin['template']['unrestricted_triplets'] and 'soc' in QMin:
         if len(QMin['states']) >= 3 and QMin['states'][2] > 0:
             print('Request "SOC" is not compatible with "unrestricted_triplets"!')
             sys.exit(57)
-    if QMin['template']['qmmm']:
-        filename = QMin['template']['qmmm_table']
-        if not os.path.isfile(filename):
-            print('Connection table file "%s" does not exist!' % filename)
-            sys.exit(58)
-        filename = QMin['template']['qmmm_ff_file']
-        if not os.path.isfile(filename):
-            print('Force field file "%s" does not exist!' % filename)
-            sys.exit(59)
-        print('HINT: For QM/MM calculations, you have to specify in the template file the charge for the *QM region only*!')
-        print('The automatic assignment of total charge might not work if the MM part is not neutral!\n')
-    # if QMin['template']['qmmm'] and QMin['template']['define_fragment']:
-        # print '"define_fragment" key cannot be used with QM/MM!'
-        # sys.exit(60)
     if 'soc' in QMin and not QMin['template']['relativistic']:
         print('You have to use a relativistic Hamiltonian (e.g., ZORA) for spin-orbit couplings!')
         sys.exit(61)
@@ -1843,94 +1814,6 @@ def readQMin(QMinfilename):
         if QMin['template']['fullkernel']:
             print('Gradients are not possible with full adiabatic XC kernel')
             sys.exit(66)
-
-    # check the connection table file
-    if QMin['template']['qmmm']:
-        out = readfile(QMin['template']['qmmm_table'])
-        link_atoms = {}
-        qm_atoms = {}
-        mm_atoms = {}
-        found_mm = False
-        iatom = -1
-        for iline, line in enumerate(out):
-            line2 = re.sub('!.*$', '', line).strip()
-            if not line2:
-                continue
-            iatom += 1
-            if 'subend' in line.lower():
-                break
-            s = line.split()
-            if 'qm' in s[2].lower():
-                if found_mm:
-                    print('In %s, all QM/LI atoms must occur consecutively at the beginning!' %
-                          QMin['template']['qmmm_table'])
-                    sys.exit(67)
-                qm_atoms[iatom] = QMin['geo'][iatom][0]
-            elif 'li' in s[2].lower():
-                if found_mm:
-                    print('In %s, all QM/LI atoms must occur consecutively at the beginning!' %
-                          QMin['template']['qmmm_table'])
-                    sys.exit(68)
-                link_atoms[iatom] = ''
-            elif 'mm' in s[2].lower():
-                found_mm = True
-                mm_atoms[iatom] = s[1]
-        nlink = len(link_atoms)
-        nqmatom = len(qm_atoms) + nlink
-        natom_table = nqmatom + len(mm_atoms)
-        if natom_table != QMin['natom']:
-            print('Number of atoms in connection table (%i) is inconsistent with %s (%i)!' %
-                  (natom_table, QMinfilename, QMin['natom']))
-            sys.exit(69)
-        if nlink > 0:
-            links_found = False
-            for iline, line in enumerate(out):
-                if 'link_bonds' in line.lower() and '!' not in line:
-                    links_found = True
-                    break
-            if not links_found:
-                print('Please add a "link_bonds" block to %s!' % (QMin['template']['qmmm_table']))
-                print('''Example:
-...
-6       H1      QM      4
-7       CT      LI      4       8       9       10
-8       HC      MM      7
-...
-  subend
-
-  link_bonds
-7 - 4 1.4 H H1''')
-                sys.exit(70)
-            while True:
-                iline += 1
-                if iline >= len(out) or '!' in out[iline]:
-                    break
-                line = out[iline]
-                s = line.split()
-                n = int(s[0])
-                link_atoms[n - 1] = s[4]
-
-        QMin['frozcore'] = 0
-        atom_frags = set()
-        for i in qm_atoms:
-            QMin['frozcore'] += FROZENS[qm_atoms[i]]
-            atom_frags.add(qm_atoms[i])
-        for i in link_atoms:
-            QMin['frozcore'] += FROZENS[link_atoms[i]]
-            atom_frags.add(link_atoms[i])
-        QMin['atom_frags'] = atom_frags
-
-    # find which atomic fragments are used
-    else:
-        atom_frags = set()
-        for iatom, atom in enumerate(QMin['geo']):
-            label = atom[0]
-            if QMin['template']['define_fragment']:
-                for frag_list in QMin['template']['define_fragment']:
-                    if iatom in QMin['template']['define_fragment'][frag_list]:
-                        label = frag_list
-            atom_frags.add(label)
-        QMin['atom_frags'] = atom_frags
 
     # number of frozen core orbitals for wfoverlap (no frozen orbitals in AMS!)
     # this call is down here because we need to check for QM/MM in template first
@@ -2237,16 +2120,6 @@ def generate_joblist(QMin):
                 isgs = True
         if isgs:
             gradjob['master_%i' % ijob][grad] = {'gs': True}
-        else:
-            # in QM/MM, one cannot combine gs and es gradient in master
-            n = 0
-            for gradx in gradjob['master_%i' % ijob]:
-                if gradjob['master_%i' % ijob][gradx]['gs'] is False:
-                    n += 1
-                elif QMin['template']['qmmm']:
-                    n += 1
-            gradjob['master_%i' % ijob][grad] = {'gs': False}
-    # pprint.pprint(gradjob)
 
     # make map for states onto gradjobs
     jobgrad = {}
@@ -2427,12 +2300,6 @@ def setupWORKDIR(WORKDIR, QMin):
             fromfile = os.path.join(QMin['savedir'], 'frag.t21.%s' % i)
             tofile = os.path.join(WORKDIR, 't21.%s' % i)
             shutil.copy(fromfile, tofile)
-
-    # force field file copying
-    if QMin['template']['qmmm']:
-        fromfile = QMin['template']['qmmm_ff_file']
-        tofile = os.path.join(WORKDIR, 'AMS.ff')
-        shutil.copy(fromfile, tofile)
 
     return
 
