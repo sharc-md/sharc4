@@ -1693,34 +1693,6 @@ def checktemplate_AMS(filename, INFOS):
 # =================================================
 
 
-def qmmm_job(filename, INFOS):
-    necessary = ['qmmm']
-    try:
-        f = open(filename)
-        data = f.readlines()
-        f.close()
-    except IOError:
-        print('Could not open template file %s' % (filename))
-        return False
-    valid = []
-    for i in necessary:
-        for l in data:
-            line = l.lower().split()
-            if len(line) == 0:
-                continue
-            line = line[0]
-            if i == re.sub('#.*$', '', line):
-                valid.append(True)
-                break
-        else:
-            valid.append(False)
-    if not all(valid):
-        return False
-    return True
-
-# =================================================
-
-
 def get_AMS(INFOS):
     '''This routine asks for all questions specific to AMS:
     - path to AMS
@@ -1798,29 +1770,6 @@ The AMS interface will generate the appropriate AMS input automatically.
                 break
         INFOS['AMS-ADF.template'] = filename
     print('')
-
-
-
-    # QMMM
-    if qmmm_job(INFOS['AMS-ADF.template'], INFOS):
-        print('{:-^60}'.format('AMS QM/MM setup') + '\n')
-        print('Your template specifies a QM/MM calculation. Please give the force field and connection table files.')
-        while True:
-            filename = question('Force field file:', str)
-            if not os.path.isfile(filename):
-                print('File %s does not exist!' % (filename))
-                continue
-            else:
-                break
-        INFOS['AMS.fffile'] = filename
-        while True:
-            filename = question('Connection table file:', str)
-            if not os.path.isfile(filename):
-                print('File %s does not exist!' % (filename))
-                continue
-            else:
-                break
-        INFOS['AMS.ctfile'] = filename
 
 
     # initial MOs
@@ -1914,8 +1863,6 @@ Typical values for AMS are 0.90-0.98 for LDA/GGA functionals and 0.50-0.80 for h
         print('Please give a list of the fragments used for TheoDORE analysis.')
         print('You can use the list-of-lists from dens_ana.in')
         print('Alternatively, enter all atom numbers for one fragment in one line. After defining all fragments, type "end".')
-        if qmmm_job(INFOS['AMS-ADF.template'], INFOS):
-            print('You should only include the atom numbers of QM and link atoms.')
         INFOS['theodore.frag'] = []
         while True:
             li = question('TheoDORE fragment:', str, 'end')

@@ -408,8 +408,6 @@ def printQMin(QMin):
         parts.append(QMin['template']['dispersion'].split()[0].upper())
     if QMin['template']['modifyexcitations']:
         parts.append('modifyexcitations(%i)' % QMin['template']['modifyexcitations'])
-    if QMin['template']['qmmm']:
-        parts.append('QM/MM')
     if QMin['template']['totalenergy']:
         parts.append('Total Energy')
     if QMin['template']['cosmo']:
@@ -761,7 +759,7 @@ def writeQMout(QMin, QMout, QMinfilename):
         string += writeQMoutdmdr(QMin, QMout)
     if 'ion' in QMin:
         string += writeQMoutprop(QMin, QMout)
-    if 'theodore' in QMin or QMin['template']['qmmm']:
+    if 'theodore' in QMin:
         string += writeQMoutTHEODORE(QMin, QMout)
     if 'phases' in QMin:
         string += writeQmoutPhases(QMin, QMout)
@@ -989,8 +987,6 @@ def writeQMoutTHEODORE(QMin, QMout):
 
     nmstates = QMin['nmstates']
     nprop = QMin['template']['theodore_n']
-    if QMin['template']['qmmm']:
-        nprop += 7
     if nprop <= 0:
         return '\n'
 
@@ -1009,10 +1005,6 @@ def writeQMoutTHEODORE(QMin, QMout):
             for j in range(len(QMin['template']['theodore_fragment'])):
                 descriptors.append('Om_{%i,%i}' % (i + 1, j + 1))
                 string += descriptors[-1] + '\n'
-    if QMin['template']['qmmm']:
-        for label in QMout['qmmm_energies']:
-            descriptors.append(label)
-            string += label + '\n'
 
     string += '! Property Vectors (%ix%i, real)\n' % (nprop, nmstates)
     if 'theodore' in QMin:
@@ -1020,11 +1012,6 @@ def writeQMoutTHEODORE(QMin, QMout):
             string += '! TheoDORE descriptor %i (%s)\n' % (i + 1, descriptors[i])
             for j in range(nmstates):
                 string += '%s\n' % (eformat(QMout['theodore'][j][i].real, 12, 3))
-    if QMin['template']['qmmm']:
-        for label in QMout['qmmm_energies']:
-            string += '! QM/MM energy contribution (%s)\n' % (label)
-            for j in range(nmstates):
-                string += '%s\n' % (eformat(QMout['qmmm_energies'][label], 12, 3))
     string += '\n'
 
     return string
@@ -1621,7 +1608,6 @@ def readQMin(QMinfilename):
                 'modifyexcitations': 0,
                 'scf_iterations': 100,
                 'linearscaling': 0,
-                'qmmm_coupling': 2
                 }
     floats = {'dvd_tolerance': 1e-6,
               'dvd_residu': -1.0,
@@ -1633,8 +1619,6 @@ def readQMin(QMinfilename):
                'define_fragment': {},
                'paddingstates': [0] * len(QMin['states']),
                'charge': [i % 2 for i in range(len(QMin['states']))],
-               'qmmm_table': 'AMS.qmmm.table',
-               'qmmm_ff_file': 'AMS.qmmm.ff',
                'theodore_prop': ['Om', 'PRNTO', 'S_HE', 'Z_HE', 'RMSeh'],
                'theodore_fragment': [],
                'grid_per_atom': {},
@@ -1833,8 +1817,6 @@ def readQMin(QMinfilename):
 
     # check and process the grid_per_atom and fit_per_atom keys
     nmax = QMin['natom']
-    if QMin['template']['qmmm']:
-        nmax = nqmatom
     grid_map = {}
     for quality in QMin['template']['grid_per_atom']:
         for i in QMin['template']['grid_per_atom'][quality]:
@@ -2465,8 +2447,6 @@ def writeAMSinput(QMin, WORKDIR):
     # accuracy
     if 'beckegrid' in QMin['template']['grid']:  # TODO: beckegrid gives warning
         string += 'BECKEGRID\n  quality %s\n' % (QMin['template']['grid'].split()[1])
-        if QMin['template']['qmmm']:
-            string += '  qpnear %f\n' % (QMin['template']['grid_qpnear'])
         if QMin['template']['grid_per_atom']:
             string += '  atomdepquality\n'
             for i in QMin['template']['grid_per_atom']:
@@ -2475,8 +2455,6 @@ def writeAMSinput(QMin, WORKDIR):
         string += 'END\n\n'
     elif 'integration' in QMin['template']['grid']:
         string += 'INTEGRATION\n  accint %s\n' % (QMin['template']['grid'].split()[1])
-        if QMin['template']['qmmm']:
-            string += '  qpnear %f\n' % (QMin['template']['grid_qpnear'])
         string += 'END\n'
     if 'zlmfit' in QMin['template']['fit']:
         string += 'ZLMFIT\n  quality %s\n' % QMin['template']['fit'].split()[1]
@@ -3696,12 +3674,6 @@ def getQMout(QMin):
                     for j in range(QMin['template']['theodore_n']):
                         QMout['theodore'][i][j] = props[(m1, s1)][j]
 
-    # QM/MM energy terms
-    if QMin['template']['qmmm']:
-        job = QMin['joblist'][0]
-        outfile = os.path.join(QMin['scratchdir'], 'master_%i/AMS.out' % (job))
-        QMout['qmmm_energies'] = get_qmmm_energies(outfile, QMin['template']['qmmm_coupling'])
-
     endtime = datetime.datetime.now()
     if PRINT:
         print("Readout Runtime: %s" % (endtime - starttime))
@@ -3964,20 +3936,7 @@ def getgrad(outfile, isgs, QMin):
 
     # get number of atoms
     natom = QMin['natom']
-    if QMin['template']['qmmm']:
-        # get qmmm atom type map
-        atomtypes = []
-        for iline, line in enumerate(out):
-            if 'Atomic QMMM info' in line:
-                for iatom in range(natom):
-                    a = out[iline + 5 + iatom].split()[1]
-                    atomtypes.append(a)
-        nqmatom = 0
-        for a in atomtypes:
-            if 'QM' in a or 'LI' in a:
-                nqmatom += 1
-    else:
-        nqmatom = natom
+    nqmatom = natom
 
     # initialize
     g = [[0. for i in range(3)] for j in range(natom)]
@@ -3996,23 +3955,6 @@ def getgrad(outfile, isgs, QMin):
                 for i in range(3):
                     g[iatom][i] = float(s[2 + i]) * au2a
 
-    # get MM gradient
-    if QMin['template']['qmmm']:
-        string = 'Q M / M M      F O R C E S'
-        shift = 10
-        if QMin['template']['qmmm_coupling'] == 2:
-            shift += 2
-        for iline, line in enumerate(out):
-            if string in line:
-                if QMin['template']['qmmm_coupling'] == 2 and 'include the electrostatic interaction' not in out[iline + 4]:
-                    continue
-                for iatom in range(natom):
-                    if 'QM' in out[iline + shift + iatom]:
-                        continue
-                    s = out[iline + shift + iatom].split()
-                    for i in range(3):
-                        g[iatom][i] = -float(s[4 + i])
-                break
     return g
 
 # ======================================================================= #
@@ -4043,20 +3985,7 @@ def getgrad_fromTAPE21(t21file, outfile, mult, state, QMin):
 
     # get number of atoms
     natom = QMin['natom']
-    if QMin['template']['qmmm']:
-        # get qmmm atom type map
-        atomtypes = []
-        for iline, line in enumerate(out):
-            if 'Atomic QMMM info' in line:
-                for iatom in range(natom):
-                    a = out[iline + 5 + iatom].split()[1]
-                    atomtypes.append(a)
-        nqmatom = 0
-        for a in atomtypes:
-            if 'QM' in a or 'LI' in a:
-                nqmatom += 1
-    else:
-        nqmatom = natom
+    nqmatom = natom
 
     # get multiplicity info
     job = QMin['multmap'][mult]
@@ -4088,58 +4017,8 @@ def getgrad_fromTAPE21(t21file, outfile, mult, state, QMin):
             iatom += 1
             ixyz = 0
 
-    # get MM gradient
-    if QMin['template']['qmmm']:
-        if string == 'GeoOpt':
-            substring = 'QMMM Gradients_CART'
-        else:
-            substring = 'QMMM Gradients_CART %i' % (state)
-        g1 = f.read(string, substring)
-        for iatom in range(natom):
-            if 'QM' in atomtypes[iatom]:
-                continue
-            for ixyz in range(3):
-                g[iatom][ixyz] = -g1[3 * iatom + ixyz]
     return g
 
-
-# ======================================================================= #
-def get_qmmm_energies(outfile, coupling):
-
-    out = readfile(outfile)
-    if PRINT:
-        print('QMMM:     ' + shorten_DIR(outfile))
-
-    if coupling == 1:
-        startstring = 'Q M / M M      E N E R G Y'
-        shift = 2
-    elif coupling == 2:
-        startstring = 'These results include the electrostatic interaction between QM and MM systems'
-        shift = 0
-
-    toextract = {'bond_mm': (5, 2),
-                 'angle_mm': (6, 2),
-                 'torsion_mm': (7, 2),
-                 'VdW_mm': (10, 4),
-                 'elstat_mm': (11, 2),
-                 'VdW_qmmm': (10, 5),
-                 'elstat_qmmm': (11, 3)
-                 }
-
-    iline = -1
-    while True:
-        iline += 1
-        if startstring in out[iline]:
-            break
-    iline += shift
-
-    energies = {}
-    for label in toextract:
-        t = toextract[label]
-        e = float(out[iline + t[0]].split()[t[1]])
-        energies[label] = e
-
-    return energies
 
 # ======================================================================= #
 
