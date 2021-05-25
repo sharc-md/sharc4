@@ -3203,7 +3203,7 @@ def setupWORKDIR_TH(WORKDIR, QMin):
     # mkdir the WORKDIR, or clean it if it exists, then copy all necessary files from pwd and savedir
 
     # write dens_ana.in
-    inputstring = '''rtype='AMS'
+    inputstring = '''rtype='ADF'
 rfile='TAPE21'
 jmol_orbitals=False
 molden_orbitals=False
