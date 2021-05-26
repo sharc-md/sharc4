@@ -46,10 +46,11 @@
 % }
 \makeatletter
 % \tthdump{
-  \newcommand*{\link}{\begingroup\@makeother\#\@link}
-  \newcommand*{\@link}[2]{%
-    \href{#1}{\ExternalLink\ifthenelse{\equal{#2}{}}{#1}{#2}}%
-    \endgroup}
+  \newcommand{\link}[2]{\href{#1}{#2}}
+%   \newcommand*{\link}{\begingroup\@makeother\#\@link}
+%   \newcommand*{\@link}[2]{%
+%     \href{#1}{\ExternalLink\ifthenelse{\equal{#2}{}}{#1}{#2}}%
+%     \endgroup}
 % }
 \makeatother
 %%tth: \newcommand{\link}[2]{\href{#1}{#2}}
@@ -84,18 +85,38 @@
 
 % Rules before each section
 % \tthdump{
-  \usepackage{titlesec}
-  \titleformat{\chapter}[block]
-    {\titleline{\color{B!75}\titlerule[3.2pt]}\addvspace{4pt}\sffamily\LARGE\bfseries}
-    {\thechapter\enspace}{0pt}{}[\vspace{2pt}\titleline{\color{B!75}\titlerule[3.2pt]}]
-  \titleformat{\section}[block]
-    {\titleline{\color{B!50}\titlerule[1.6pt]}\addvspace{1pt}\sffamily\Large\bfseries}
-    {\thesection\enspace}{0pt}{}
-  \titleformat{\subsection}[block]
-    {\titleline{\color{B!15}\titlerule[0.8pt]}\addvspace{1pt}\sffamily\large\bfseries}
-    {\thesubsection\enspace}{0pt}{}
-  \titlespacing*{\section}
-    {0pt}{9ex plus 1ex minus .2ex}{1ex plus .2ex}
+
+% \makeatletter
+% \renewcommand{\sectionlinesformat}[4]{%
+% \ifstr{#1}{section}{%
+%   \textcolor{B!50}{\rule{\linewidth}{1.6pt}}\par%
+%   \parbox[t]{\linewidth}{\raggedsection\@hangfrom{\hskip #2#3}{#4}\par\kern-.75\ht\strutbox}%
+% }%
+% }%
+% \makeatother
+
+\makeatletter
+% \renewcommand\chapterlinesformat[3]{%
+% \ifstr{#1}{chapter}
+%   {A\\*\rule{\textwidth}{1pt}\vskip9pt}{}% insert dot and rule before chapter titles
+% \@hangfrom{#2}{#3}%
+% }
+\makeatother
+
+
+
+%   \usepackage{titlesec}
+%   \titleformat{\chapter}[block]
+%     {\titleline{\color{B!75}\titlerule[3.2pt]}\addvspace{4pt}\sffamily\LARGE\bfseries}
+%     {\thechapter\enspace}{0pt}{}[\vspace{2pt}\titleline{\color{B!75}\titlerule[3.2pt]}]
+%   \titleformat{\section}[block]
+%     {\titleline{\color{B!50}\titlerule[1.6pt]}\addvspace{1pt}\sffamily\Large\bfseries}
+%     {\thesection\enspace}{0pt}{}
+%   \titleformat{\subsection}[block]
+%     {\titleline{\color{B!15}\titlerule[0.8pt]}\addvspace{1pt}\sffamily\large\bfseries}
+%     {\thesubsection\enspace}{0pt}{}
+%   \titlespacing*{\section}
+%     {0pt}{9ex plus 1ex minus .2ex}{1ex plus .2ex}
 % }
 
 
@@ -107,9 +128,9 @@
 \addtokomafont{title}{\rmfamily}
   \begin{titlepage}
     \title{\hspace{1cm}\includegraphics[width=0.8\textwidth,keepaspectratio=true]{{img/sharc_logo_2.1}.png}\\[0.5cm]
-    SHARC2.1:\\ Surface Hopping Including\\ Arbitrary Couplings}
+    SHARC2.1.1:\\ Surface Hopping Including\\ Arbitrary Couplings}
     \subtitle{Tutorial\\[1cm]}
-    \date{Vienna, 01.09.2019}
+    \date{Vienna, 28.04.2021}
     \author{AG Gonz\'alez\\
 Institute of Theoretical Chemistry\\
 University of Vienna, Austria
@@ -129,9 +150,13 @@ University of Vienna, Austria
 
 
 % =============================== HEADER AND FOOT ==========================
-\usepackage[automark]{scrpage2}
-\pagestyle{scrheadings}
-\clearscrheadfoot
+  \usepackage[automark]{scrlayer-scrpage}
+  \pagestyle{scrheadings}
+  \clearscrheadfoot
+%   \clearpairofpagestyles% removes the default content of header and footer
+%\usepackage[automark]{scrpage2}
+%\pagestyle{scrheadings}
+%\clearscrheadfoot
 % \lehead{\leftmark}
 % \rehead{\rightmark}
 % \lohead{\leftmark}
