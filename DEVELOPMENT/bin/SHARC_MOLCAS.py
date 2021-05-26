@@ -97,6 +97,8 @@ from socket import gethostname
 import itertools
 # write debug traces when in pool threads
 import traceback
+# for diabatization
+import numpy as np
 
 
 # =========================================================0
@@ -218,6 +220,9 @@ changelogstring='''
 
 15.11.2018:
 - can now do PCM computations (only numerical gradients)
+
+25.05.2021:
+- numerical gradients with diabatization (diab_num_grad keyword)
 '''
 
 # ======================================================================= #
@@ -2245,7 +2250,7 @@ def readQMin(QMinfilename):
     integers=['nactel','inactive','ras2','frozen']
     strings =['basis','method','baslib','pdft-functional']
     floats=['ipea','imaginary','gradaccumax','gradaccudefault','displ', 'rasscf_thrs_e', 'rasscf_thrs_rot', 'rasscf_thrs_egrd','cholesky_accu']
-    booleans=['cholesky','no-douglas-kroll','qmmm','cholesky_analytical']
+    booleans=['cholesky','no-douglas-kroll','qmmm','cholesky_analytical','diab_num_grad']
     for i in booleans:
         QMin['template'][i]=False
     QMin['template']['roots'] = [0 for i in range(8)]
@@ -2256,6 +2261,7 @@ def readQMin(QMinfilename):
     QMin['template']['ipea']=0.25
     QMin['template']['imaginary']=0.00
     QMin['template']['frozen']=-1
+    QMin['template']['iterations']=[200,100]
     QMin['template']['gradaccumax']=1.e-2
     QMin['template']['gradaccudefault']=1.e-4
     QMin['template']['displ']=0.005
@@ -2282,6 +2288,11 @@ def readQMin(QMinfilename):
                 QMin['template']['rootpad'][i]=int(n)
         elif 'baslib' in line[0]:
             QMin['template']['baslib']=os.path.abspath(orig[1])
+        elif 'iterations' in line[0]:
+            if len(line)>=3:
+                QMin['template']['iterations']=[ int(i) for i in line[-2:]]
+            elif len(line)==2:
+                QMin['template']['iterations'][0]=int(line[-1])
         elif line[0] in integers:
             QMin['template'][line[0]]=int(line[1])
         elif line[0] in booleans:
@@ -2692,11 +2703,13 @@ def writeMOLCASinput(tasks, QMin):
             npad=QMin['template']['rootpad'][task[1]-1]
             if (nactel-task[1])%2==0:
                 nactel-=1
-            string+='&RASSCF\nSPIN=%i\nNACTEL=%i 0 0\nINACTIVE=%i\nRAS2=%i\n' % (
+            string+='&RASSCF\nSPIN=%i\nNACTEL=%i 0 0\nINACTIVE=%i\nRAS2=%i\nITERATIONS=%i,%i\n' % (
                     task[1],
                     nactel,
                     QMin['template']['inactive'],
-                    QMin['template']['ras2'])
+                    QMin['template']['ras2'],
+                    QMin['template']['iterations'][0],
+                    QMin['template']['iterations'][1])
             if npad==0:
                 string+='CIROOT=%i %i 1\n' % (task[2],task[2])
             else:
@@ -3333,6 +3346,81 @@ def collectOutputs(joblist,QMin,errorcodes):
     return QMout
 
 # ======================================================================= #
+
+def phase_correction(matrix):
+  length = len(matrix)
+  phase_corrected_matrix = [[.0 for x in range(length)] for x in range(length)]
+
+  for i in range(length):
+    diag = matrix[i][i].real
+
+    # look if diag is significant and negative & switch phase
+    if diag ** 2 > 0.5 and diag < 0:
+      for j in range(length):
+        phase_corrected_matrix[j][i] = matrix[j][i] * -1
+    # otherwise leave values as is
+    else:
+      for j in range(length):
+        phase_corrected_matrix[j][i] = matrix[j][i]
+
+  return phase_corrected_matrix
+# ======================================================================= #
+
+
+def loewdin_orthonormalization(A):
+  '''
+  returns loewdin orthonormalized matrix
+  '''
+
+  # S = A^T * A
+  S = np.dot(A.T, A)
+  
+  # S^d = U^T * S * U
+  S_diag_only, U = np.linalg.eigh(S)
+  
+  # calculate the inverse sqrt of the diagonal matrix
+  S_diag_only_inverse_sqrt = [1. / (float(d) ** 0.5) for d in S_diag_only]
+  S_diag_inverse_sqrt = np.diag(S_diag_only_inverse_sqrt)
+  
+  # calculate inverse sqrt of S
+  S_inverse_sqrt = np.dot(np.dot(U, S_diag_inverse_sqrt), U.T)
+  
+  # calculate loewdin orthonormalized matrix
+  A_lo = np.dot(A, S_inverse_sqrt)
+
+  # normalize A_lo
+  A_lo = A_lo.T
+  length = len(A_lo)
+  A_lon = np.zeros((length, length), dtype = np.complex)
+
+  for i in range(length):
+    norm_of_col = np.linalg.norm(A_lo[i])
+    A_lon[i] = [e / (norm_of_col ** 0.5) for e in A_lo[i]][0]
+
+  return A_lon.T
+
+# ======================================================================= #
+
+def calculate_W_dQi(H, S, e_ref):
+  '''
+  Return diabatized H and S
+  '''
+
+  # get diagonal of Hamiltonian
+  H = np.diag([e - e_ref for e in np.diag(H)])
+
+  # do phase correction if necessary
+  if any([x for x in np.diag(S) if x < 0]):
+    S = phase_correction(S)
+
+  # do loewdin orthonorm. on overlap matrix
+  U = loewdin_orthonormalization(np.matrix(S))
+
+  return np.dot(np.dot(U.T, H), U), U
+
+
+
+# ======================================================================= #
 def overlapsign(x):
     overlapthreshold=0.8
     if abs(x)<overlapthreshold:
@@ -3407,15 +3495,37 @@ def arrangeQMout(QMin,QMoutall,QMoutDyson):
                     namep='displ_%i_%i_p' % (iatom,xyz)
                     namen='displ_%i_%i_n' % (iatom,xyz)
                     displ=QMin['displ']
+                    
+                    # diabatization 
+                    if 'diab_num_grad' in QMin:
+                        Hmaster = QMoutall['master']['h']
+                        Hpos = deepcopy(QMoutall[namep]['h'])
+                        Spos = deepcopy(QMoutall[namep]['overlap'])
+                        Hneg = deepcopy(QMoutall[namen]['h'])
+                        Sneg = deepcopy(QMoutall[namen]['overlap'])
+                        Hpos, Spos = calculate_W_dQi(Hpos, Spos, QMout['h'][0][0])
+                        Hneg, Sneg = calculate_W_dQi(Hneg, Sneg, QMout['h'][0][0])
+                        QMoutall[namep]['h_diab'] = Hpos
+                        QMoutall[namep]['s_diab'] = Spos
+                        QMoutall[namen]['h_diab'] = Hneg
+                        QMoutall[namen]['s_diab'] = Sneg
+                    else:
+                        Hmaster = QMoutall['master']['h']
+                        Hpos = QMoutall[namep]['h']
+                        Hneg = QMoutall[namen]['h']
+                        Spos = QMoutall[namep]['overlap']
+                        Sneg = QMoutall[namen]['overlap']
+                    
+                    
                     for istate in range(QMin['nmstates']):
 
-                        enc=QMoutall['master']['h'][istate][istate].real
+                        enc=Hmaster[istate][istate].real
 
-                        enp=QMoutall[namep]['h'][istate][istate].real
-                        ovp=QMoutall[namep]['overlap'][istate][istate].real
+                        enp=Hpos[istate][istate].real
+                        ovp=Spos[istate][istate].real
 
-                        enn=QMoutall[namen]['h'][istate][istate].real
-                        ovn=QMoutall[namen]['overlap'][istate][istate].real
+                        enn=Hneg[istate][istate].real
+                        ovn=Sneg[istate][istate].real
 
                         g=numdiff(enp,enn,enc,displ,ovp,ovp,ovn,ovn,iatom,xyz)
                         grad[istate][iatom][xyz]=g
@@ -3450,15 +3560,35 @@ def arrangeQMout(QMin,QMoutall,QMoutDyson):
                         if istate==jstate:
                             continue
 
-                        enc=QMoutall['master']['h'][istate][jstate]
+                        # diabatization 
+                        if 'diab_num_grad' in QMin:
+                            Hmaster = QMoutall['master']['h']
+                            
+                            Hpos = deepcopy(QMoutall[namep]['h'])
+                            Hpos = np.array(Hpos) - np.diag([e - QMout['h'][0][0] for e in np.diag(Hpos)])
+                            Spos = QMoutall[namep]['s_diab']
+                            Hpos = np.dot(np.dot(Spos.T, H), Spos)
+                            
+                            Hneg = deepcopy(QMoutall[namen]['h'])
+                            Hneg = np.array(Hneg) - np.diag([e - QMout['h'][0][0] for e in np.diag(Hneg)])
+                            Sneg = QMoutall[namen]['s_diab']
+                            Hneg = np.dot(np.dot(Sneg.T, H), Sneg)
+                        else:
+                            Hmaster = QMoutall['master']['h']
+                            Hpos = QMoutall[namep]['h']
+                            Hneg = QMoutall[namen]['h']
+                            Spos = QMoutall[namep]['overlap']
+                            Sneg = QMoutall[namen]['overlap']
 
-                        enp=QMoutall[namep]['h'][istate][jstate]
-                        o1p=QMoutall[namep]['overlap'][istate][istate].real
-                        o2p=QMoutall[namep]['overlap'][jstate][jstate].real
+                        enc=Hmaster[istate][jstate]
 
-                        enn=QMoutall[namen]['h'][istate][jstate]
-                        o1n=QMoutall[namen]['overlap'][istate][istate].real
-                        o2n=QMoutall[namen]['overlap'][jstate][jstate].real
+                        enp=Hpos[istate][jstate]
+                        o1p=Spos[istate][istate].real
+                        o2p=Spos[jstate][jstate].real
+
+                        enn=Hneg[istate][jstate]
+                        o1n=Sneg[istate][istate].real
+                        o2n=Sneg[jstate][jstate].real
 
                         g=numdiff(enp,enn,enc,displ,o1p,o2p,o1n,o2n,iatom,xyz)
                         socdr[istate][jstate][iatom][xyz]=g
@@ -3475,15 +3605,35 @@ def arrangeQMout(QMin,QMoutall,QMoutDyson):
                     for istate in range(QMin['nmstates']):
                         for jstate in range(QMin['nmstates']):
 
-                            enc=QMoutall['master']['dm'][ipol][istate][jstate].real
+                            # diabatization 
+                            if 'diab_num_grad' in QMin:
+                                Hmaster = QMoutall['master']['dm'][ipol]
+                                
+                                Hpos = deepcopy(QMoutall[namep]['dm'][ipol])
+                                Hpos = np.array(Hpos) - np.diag([e - QMout['h'][0][0] for e in np.diag(Hpos)])
+                                Spos = QMoutall[namep]['s_diab']
+                                Hpos = np.dot(np.dot(Spos.T, H), Spos)
+                                
+                                Hneg = deepcopy(QMoutall[namen]['dm'][ipol])
+                                Hneg = np.array(Hneg) - np.diag([e - QMout['h'][0][0] for e in np.diag(Hneg)])
+                                Sneg = QMoutall[namen]['s_diab']
+                                Hneg = np.dot(np.dot(Sneg.T, H), Sneg)
+                            else:
+                                Hmaster = QMoutall['master']['dm'][ipol]
+                                Hpos = QMoutall[namep]['dm'][ipol]
+                                Hneg = QMoutall[namen]['dm'][ipol]
+                                Spos = QMoutall[namep]['overlap']
+                                Sneg = QMoutall[namen]['overlap']
 
-                            enp=QMoutall[namep]['dm'][ipol][istate][jstate].real
-                            o1p=QMoutall[namep]['overlap'][istate][istate].real
-                            o2p=QMoutall[namep]['overlap'][jstate][jstate].real
+                            enc=Hmaster[istate][jstate].real
 
-                            enn=QMoutall[namen]['dm'][ipol][istate][jstate].real
-                            o1n=QMoutall[namen]['overlap'][istate][istate].real
-                            o2n=QMoutall[namen]['overlap'][jstate][jstate].real
+                            enp=Hpos[istate][jstate].real
+                            o1p=Spos[istate][istate].real
+                            o2p=Spos[jstate][jstate].real
+
+                            enn=Hneg[istate][jstate].real
+                            o1n=Sneg[istate][istate].real
+                            o2n=Sneg[jstate][jstate].real
 
                             g=numdiff(enp,enn,enc,displ,o1p,o2p,o1n,o2n,iatom,xyz)
                             dmdr[ipol][istate][jstate][iatom][xyz]=g
