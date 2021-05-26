@@ -100,10 +100,11 @@
 }
 \makeatletter
 \tthdump{
-  \newcommand*{\link}{\begingroup\@makeother\#\@link}
-  \newcommand*{\@link}[2]{%
-    \href{#1}{\ExternalLink\ifthenelse{\equal{#2}{}}{#1}{#2}}%
-    \endgroup}
+  \newcommand{\link}[2]{\href{#1}{#2}}
+%   \newcommand*{\link}{\begingroup\@makeother\#\@link}
+%   \newcommand*{\@link}[2]{%
+%     \href{#1}{\ExternalLink\ifthenelse{\equal{#2}{}}{#1}{#2}}%
+%     \endgroup}
 }
 \makeatother
 %%tth: \newcommand{\link}[2]{\href{#1}{#2}}
@@ -149,11 +150,11 @@
 % \makeatother
 
 \makeatletter
-\renewcommand\chapterlinesformat[3]{%
-\ifstr{#1}{chapter}
-  {A\\*\rule{\textwidth}{1pt}\vskip9pt}{}% insert dot and rule before chapter titles
-\@hangfrom{#2}{#3}%
-}
+% \renewcommand\chapterlinesformat[3]{%
+% \ifstr{#1}{chapter}
+%   {A\\*\rule{\textwidth}{1pt}\vskip9pt}{}% insert dot and rule before chapter titles
+% \@hangfrom{#2}{#3}%
+% }
 \makeatother
 
 
@@ -182,10 +183,10 @@
 \addtokomafont{title}{\rmfamily}
   \begin{titlepage}
     \title{\hspace{1cm}\includegraphics[width=0.8\textwidth,keepaspectratio=true]{img/sharc_logo_21.png}\\[0.5cm]
-    SHARC2.1:\\ Surface Hopping Including\\ Arbitrary Couplings}
+    SHARC2.1.1:\\ Surface Hopping Including\\ Arbitrary Couplings}
 %     SHARC: Surface Hopping in the Adiabatic Representation Including Arbitrary Couplings}
     \subtitle{Manual\\[1cm]}
-    \date{Vienna, 01.09.2019}
+    \date{Vienna, 28.04.2021}
     \author{AG Gonz\'alez\\
 Institute of Theoretical Chemistry\\
 University of Vienna, Austria
@@ -459,6 +460,17 @@ These features are new in \sharc\ Version 2.1 (2019):
 \end{itemize}
 
 
+\subsection{New features in \sharc\ Version 2.1.1}
+
+These features are new in \sharc\ Version 2.1.1 (2021):
+\begin{itemize}
+  \item Dynamics program \ttt{sharc.x}:
+  \begin{itemize}
+    \item RATTLE algorithm for constraint bond lengths
+    \item Keyword for restart control
+    \item Bug fixes
+  \end{itemize}
+\end{itemize}
 
 
 
@@ -1539,11 +1551,11 @@ Even though \sharc\ comes with two interfaces for analytical potentials (and hen
   \item \link{http://www.molpro.net/}{\textsc{Molpro}} (this release was checked against \textsc{Molpro} 2010 and 2012).
   \item \link{https://gitlab.com/Molcas/OpenMolcas/}{\textsc{Openmolcas}} (this release was checked against \textsc{Openmolcas} 18).
   \begin{itemize}
-    \item \link{http://dasher.wustl.edu/tinker/}{\textsc{Tinker}}, \link{http://www.molcas.org/documentation/manual/node79.html#SECTION052122010000000000000}{interfaced to \textsc{Openmolcas} 18}, for QM/MM dynamics.
+    \item \link{http://dasher.wustl.edu/tinker/}{\textsc{Tinker}}, \link{http://www.molcas.org/documentation/manual/node79.html\#SECTION052122010000000000000}{interfaced to \textsc{Openmolcas} 18}, for QM/MM dynamics.
   \end{itemize}
   \item \link{http://www.molcas.org/}{\textsc{Molcas}} (this release was checked against \textsc{Molcas} 8.3 and 8.4).
   \begin{itemize}
-    \item \link{http://dasher.wustl.edu/tinker/}{\textsc{Tinker}}, \link{http://www.molcas.org/documentation/manual/node79.html#SECTION052122010000000000000}{interfaced to \textsc{Molcas}}, for QM/MM dynamics.
+    \item \link{http://dasher.wustl.edu/tinker/}{\textsc{Tinker}}, \link{http://www.molcas.org/documentation/manual/node79.html\#SECTION052122010000000000000}{interfaced to \textsc{Molcas}}, for QM/MM dynamics.
   \end{itemize}
   \item \link{http://www.univie.ac.at/columbus/docs_COL70/documentation_main.html}{\textsc{Columbus} 7}
   \begin{itemize}
@@ -1917,6 +1929,10 @@ In Table~\ref{tab:input}, all input keywords for the \sharc\ input file are list
   \DEFAULT{norestart}   &                                    &Dynamics is initialized from input files.\\
                         &                                    &{\footnotesize \ttt{norestart} takes precedence.}\\
   \hline
+  restart\_rerun\_last\_qm\_step  &                          &Use when restarting after non-graceful stop/crash.\\
+  restart\_goto\_new\_qm\_step    &                          &Use when restarting after reaching time limit, using \ttt{STOP} file, or \ttt{killafter} keyword.\\
+                                  &                          &{\footnotesize No default, an error is raised if neither is present during restart.}\\
+  \hline
   rngseed               &\textbf{integer}                    &Seed for the random number generator.\\
                         &\DEFAULT{10997279}                  &{\footnotesize Used for surface hopping and AFSSH decoherence.}\\
   \hline
@@ -2200,6 +2216,13 @@ There are two keywords controlling trajectory restarting. The keyword \ttt{resta
 When restarting, all control variables are read from the restart file instead of the input file. The only exceptions are \ttt{nsteps} and \ttt{tmax}. In this way, a trajectory which ran for the full simulation time can easily be restarted to extend the simulation time.
 
 Note that none of the auxiliary scripts adds the \ttt{restart} keyword to the input file. The user has to manually add the restart file to the input files of the relevant trajectories.
+
+In order to ensure synchronicity of the restart files of \ttt{sharc.x} and the \ttt{restart/} directory (managed by the interfaces), either one of two keywords must be present when restarting, either \ttt{restart\_rerun\_last\_qm\_step} or \ttt{restart\_goto\_new\_qm\_step}.
+The \ttt{restart\_rerun\_last\_qm\_step} keyword should be used if the restart is after a non-graceful crash/kill of the simulation (e.g., due to queueing system time limits). 
+It tells the interface that the current time step was already attempted before the restart and the \ttt{restart/} directory is one time step ahead of the information in the restart files.
+The \ttt{restart\_goto\_new\_qm\_step} keyword on the contrary should be used after the simulation was gracefully stopped (e.g., after reaching \ttt{tmax}/\ttt{nsteps}, after using the \ttt{STOP} file, or after using the \ttt{killafter} mechanism).
+In this case, restart files and \ttt{restart/} directory are consistent and the simulation continues as if no stop-and-restart were performed.
+
 
 \paragraph{RNG Seed}
 
@@ -3819,7 +3842,7 @@ Here, the first line gives the number of atoms and the second line the number of
 
 On the remaining lines, each Cartesian component of the atomic coordinates is associated to a variable name, which can be used in the analytical expressions. If a zero (\ttt{0}) is given instead of a variable name, then the corresponding Cartesian coordinate is neglected. In the above example, the variable name \ttt{xI} is associated with the $x$ coordinate of the first atom given in \ttt{QM.in}. The $y$ and $z$ coordinates of the first atom are neglected.
 
-All variable names must be \link{https://docs.python.org/2/reference/lexical_analysis.html#identifiers}{valid Python identifiers} and must not start with an underscore. Hence, all strings starting with a letter, followed by an arbitrary number of letters, digits and underscores, are valid. It is not allowed to use a variable name twice.
+All variable names must be \link{https://docs.python.org/2/reference/lexical_analysis.html\#identifiers}{valid Python identifiers} and must not start with an underscore. Hence, all strings starting with a letter, followed by an arbitrary number of letters, digits and underscores, are valid. It is not allowed to use a variable name twice.
 
 Note that the file header also contains the atom labels, which are just used for cross-checking against the atom labels in \ttt{QM.in}.
 

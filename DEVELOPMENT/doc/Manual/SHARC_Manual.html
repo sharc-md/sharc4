@@ -5,275 +5,13 @@
 <div class="p"><!----></div>
 <div class="p"><!----></div>
 <div class="p"><!----></div>
-<h1>Contents </h1><a href="#tth_chAp1">1&nbsp; Introduction</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc1.1">1.1&nbsp; Capabilities</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc1.1.1">1.1.1&nbsp; New features in  S<span style="font-size:x-small">HARC</span>&nbsp;Version 2.0</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc1.1.2">1.1.2&nbsp; New features in  S<span style="font-size:x-small">HARC</span>&nbsp;Version 2.1</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc1.2">1.2&nbsp; References</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc1.3">1.3&nbsp; Authors</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc1.4">1.4&nbsp; Suggestions and Bug Reports</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc1.5">1.5&nbsp; Notation in this Manual</a>
-<a href="#tth_chAp2">2&nbsp; Installation</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc2.1">2.1&nbsp; How To Obtain</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc2.2">2.2&nbsp; Terms of Use</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc2.3">2.3&nbsp; Installation</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc2.3.1">2.3.1&nbsp;  WF<span style="font-size:x-small">OVERLAP</span> Program</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc2.3.2">2.3.2&nbsp; Libraries</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc2.3.3">2.3.3&nbsp; Test Suite</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc2.3.4">2.3.4&nbsp; Additional Programs</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc2.3.5">2.3.5&nbsp; Quantum Chemistry Programs</a>
-<a href="#tth_chAp3">3&nbsp; Execution</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc3.1">3.1&nbsp; Running a single trajectory</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc3.1.1">3.1.1&nbsp; Input files</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc3.1.2">3.1.2&nbsp; Running the dynamics code</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc3.1.3">3.1.3&nbsp; Output files</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc3.2">3.2&nbsp; Typical workflow for an ensemble of trajectories</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc3.2.1">3.2.1&nbsp; Initial condition generation</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc3.2.2">3.2.2&nbsp; Running the dynamics simulations</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc3.2.3">3.2.3&nbsp; Analysis of the dynamics results</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc3.3">3.3&nbsp; Auxilliary Programs and Scripts</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc3.3.1">3.3.1&nbsp; Setup</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc3.3.2">3.3.2&nbsp; Analysis</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc3.3.3">3.3.3&nbsp; Interfaces</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc3.3.4">3.3.4&nbsp; Others</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc3.4">3.4&nbsp; The  P<span style="font-size:x-small">YSHARC</span> dynamics driver</a>
-<a href="#tth_chAp4">4&nbsp; Input files</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc4.1">4.1&nbsp; Main input file</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc4.1.1">4.1.1&nbsp; General remarks</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc4.1.2">4.1.2&nbsp; Input keywords</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc4.1.3">4.1.3&nbsp; Detailed Description of the Keywords</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc4.1.4">4.1.4&nbsp; Example</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc4.2">4.2&nbsp; Geometry file</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc4.3">4.3&nbsp; Velocity file</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc4.4">4.4&nbsp; Coefficient file</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc4.5">4.5&nbsp; Laser file</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc4.6">4.6&nbsp; Atom mask file</a>
-<a href="#tth_chAp5">5&nbsp; Output files</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc5.1">5.1&nbsp; Log file</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc5.2">5.2&nbsp; Listing file</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc5.3">5.3&nbsp; Data file</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc5.3.1">5.3.1&nbsp; Specification of the data file</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc5.4">5.4&nbsp; Data file in NetCDF format</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc5.5">5.5&nbsp; XYZ file</a>
-<a href="#tth_chAp6">6&nbsp; Interfaces</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.1">6.1&nbsp; Interface Specifications</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.1.1">6.1.1&nbsp; <b><tt>QM.in</tt></b> Specification</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.1.2">6.1.2&nbsp; <b><tt>QM.out</tt></b> Specification</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.1.3">6.1.3&nbsp; Further Specifications</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.1.4">6.1.4&nbsp; Save Directory Specification</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.2">6.2&nbsp; Overview over Interfaces</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.2.1">6.2.1&nbsp; Example Directory</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.3">6.3&nbsp; MOLPRO Interface</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.3.1">6.3.1&nbsp; Template file: <b><tt>MOLPRO.template</tt></b></a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.3.2">6.3.2&nbsp; Resource file: <b><tt>MOLPRO.resources</tt></b></a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.3.3">6.3.3&nbsp; Error checking</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.3.4">6.3.4&nbsp; Things to keep in mind</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.3.5">6.3.5&nbsp; Molpro input generator: <b><tt>molpro_input.py</tt></b></a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.4">6.4&nbsp; MOLCAS Interface</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.4.1">6.4.1&nbsp; Template file: <b><tt>MOLCAS.template</tt></b></a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.4.2">6.4.2&nbsp; Resource file: <b><tt>MOLCAS.resources</tt></b></a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.4.3">6.4.3&nbsp; Template file generator: <b><tt>molcas_input.py</tt></b></a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.4.4">6.4.4&nbsp; QM/MM key file: <b><tt>MOLCAS.qmmm.key</tt></b></a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.4.5">6.4.5&nbsp; QM/MM connection table file: <b><tt>MOLCAS.qmmm.table</tt></b></a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.5">6.5&nbsp; COLUMBUS Interface</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.5.1">6.5.1&nbsp; Template input</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.5.2">6.5.2&nbsp; Resource file: <b><tt>COLUMBUS.resources</tt></b></a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.5.3">6.5.3&nbsp; Template setup</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.6">6.6&nbsp; Analytical PESs Interface</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.6.1">6.6.1&nbsp; Parametrization</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.6.2">6.6.2&nbsp; Template file: <b><tt>Analytical.template</tt></b></a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.7">6.7&nbsp; ADF Interface</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.7.1">6.7.1&nbsp; Template file: <b><tt>ADF.template</tt></b></a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.7.2">6.7.2&nbsp; Resource file: <b><tt>ADF.resources</tt></b></a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.7.3">6.7.3&nbsp; QM/MM force field file: <b><tt>ADF.qmmm.ff</tt></b></a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.7.4">6.7.4&nbsp; QM/MM connection table file: <b><tt>ADF.qmmm.table</tt></b></a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.7.5">6.7.5&nbsp; Input file generator: <b><tt>ADF_input.py</tt></b></a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.7.6">6.7.6&nbsp; Frequencies converter: <b><tt>ADF_freq.py</tt></b></a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.8">6.8&nbsp; RICC2 Interface</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.8.1">6.8.1&nbsp; Template file: <b><tt>RICC2.template</tt></b></a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.8.2">6.8.2&nbsp; Resource file: <b><tt>RICC2.resources</tt></b></a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.8.3">6.8.3&nbsp; QM/MM force field file</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.8.4">6.8.4&nbsp; QM/MM connection table file: <b><tt>RICC2.qmmm.table</tt></b></a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.9">6.9&nbsp; LVC Interface</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.9.1">6.9.1&nbsp; Input files</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.9.2">6.9.2&nbsp; Template File Setup: <b><tt>wigner.py</tt></b>, <b><tt>setup_LVCparam.py</tt></b>, and <b><tt>create_LVCparam.py</tt></b></a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.10">6.10&nbsp;  G<span style="font-size:x-small">AUSSIAN</span> Interface</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.10.1">6.10.1&nbsp; Template file: <b><tt>GAUSSIAN.template</tt></b></a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.10.2">6.10.2&nbsp; Resource file: <b><tt>GAUSSIAN.resources</tt></b></a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.11">6.11&nbsp;  O<span style="font-size:x-small">RCA</span> Interface</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.11.1">6.11.1&nbsp; Template file: <b><tt>ORCA.template</tt></b></a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.11.2">6.11.2&nbsp; Resource file: <b><tt>ORCA.resources</tt></b></a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.11.3">6.11.3&nbsp; QM/MM force field file</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.11.4">6.11.4&nbsp; QM/MM connection table file: <b><tt>ORCA.qmmm.table</tt></b></a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.12">6.12&nbsp;  B<span style="font-size:x-small">AGEL</span> Interface</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.12.1">6.12.1&nbsp; Template file: <b><tt>BAGEL.template</tt></b></a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.12.2">6.12.2&nbsp; Resource file: <b><tt>BAGEL.resources</tt></b></a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.13">6.13&nbsp; The  WF<span style="font-size:x-small">OVERLAP</span> Program</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.13.1">6.13.1&nbsp; Installation</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.13.2">6.13.2&nbsp; Workflow</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.13.3">6.13.3&nbsp; Calling the program</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.13.4">6.13.4&nbsp; Input data</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.13.5">6.13.5&nbsp; Output</a>
-<a href="#tth_chAp7">7&nbsp; Auxilliary Scripts</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.1">7.1&nbsp; Wigner Distribution Sampling: <b><tt>wigner.py</tt></b></a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.1.1">7.1.1&nbsp; Usage</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.1.2">7.1.2&nbsp; Normal mode types</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.1.3">7.1.3&nbsp; Non-default masses</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.1.4">7.1.4&nbsp; Sampling at finite temperatures</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.1.5">7.1.5&nbsp; Output</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.2">7.2&nbsp;  A<span style="font-size:x-small">MBER</span> Trajectory Sampling: <b><tt>amber_to_initconds.py</tt></b></a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.2.1">7.2.1&nbsp; Usage</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.2.2">7.2.2&nbsp; Time Step</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.2.3">7.2.3&nbsp; Atom Types and Masses</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.2.4">7.2.4&nbsp; Output</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.3">7.3&nbsp;  S<span style="font-size:x-small">HARC</span>&nbsp;Trajectory Sampling: <b><tt>sharctraj_to_initconds.py</tt></b></a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.3.1">7.3.1&nbsp; Usage</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.3.2">7.3.2&nbsp; Random Picking of Time Step</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.3.3">7.3.3&nbsp; Output</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.4">7.4&nbsp; Setup of Initial Calculations: <b><tt>setup_init.py</tt></b></a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.4.1">7.4.1&nbsp; Usage</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.4.2">7.4.2&nbsp; Input</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.4.3">7.4.3&nbsp; Interface-specific input</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.4.4">7.4.4&nbsp; Input for Run Scripts</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.4.5">7.4.5&nbsp; Output</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.5">7.5&nbsp; Excitation Selection: <b><tt>excite.py</tt></b></a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.5.1">7.5.1&nbsp; Usage</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.5.2">7.5.2&nbsp; Input</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.5.3">7.5.3&nbsp; Matrix diagonalization</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.5.4">7.5.4&nbsp; Output</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.5.5">7.5.5&nbsp; Specification of the <b><tt>initconds.excited</tt></b> file format</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.6">7.6&nbsp; Setup of Trajectories: <b><tt>setup_traj.py</tt></b></a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.6.1">7.6.1&nbsp; Input</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.6.2">7.6.2&nbsp; Interface-specific input</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.6.3">7.6.3&nbsp; Output control</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.6.4">7.6.4&nbsp; Run script setup</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.6.5">7.6.5&nbsp; Output</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.7">7.7&nbsp; Laser field generation: <b><tt>laser.x</tt></b></a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.7.1">7.7.1&nbsp; Usage</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.7.2">7.7.2&nbsp; Input</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.8">7.8&nbsp; Calculation of Absorption Spectra: <b><tt>spectrum.py</tt></b></a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.8.1">7.8.1&nbsp; Input</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.8.2">7.8.2&nbsp; Output</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.8.3">7.8.3&nbsp; Error Analysis</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.9">7.9&nbsp; File transfer: <b><tt>retrieve.sh</tt></b></a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.10">7.10&nbsp; Data Extractor: <b><tt>data_extractor.x</tt></b></a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.10.1">7.10.1&nbsp; Usage</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.10.2">7.10.2&nbsp; Output</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.11">7.11&nbsp; Data Extractor for NetCDF: <b><tt>data_extractor_NetCDF.x</tt></b></a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.11.1">7.11.1&nbsp; Usage</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.11.2">7.11.2&nbsp; Output</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.12">7.12&nbsp; Data Converter for NetCDF: <b><tt>data_converter.x</tt></b></a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.12.1">7.12.1&nbsp; Usage</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.12.2">7.12.2&nbsp; Output</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.13">7.13&nbsp; Plotting the Extracted Data: <b><tt>make_gnuscript.py</tt></b></a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.14">7.14&nbsp; Ensemble Diagnostics Tool: <b><tt>diagnostics.py</tt></b></a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.14.1">7.14.1&nbsp; Usage</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.14.2">7.14.2&nbsp; Input</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.15">7.15&nbsp; Calculation of Ensemble Populations: <b><tt>populations.py</tt></b></a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.15.1">7.15.1&nbsp; Usage</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.15.2">7.15.2&nbsp; Output</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.16">7.16&nbsp; Calculation of Numbers of Hops: <b><tt>transition.py</tt></b></a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.16.1">7.16.1&nbsp; Usage</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.17">7.17&nbsp; Fitting population data to kinetic models: <b><tt>make_fit.py</tt></b></a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.17.1">7.17.1&nbsp; Usage</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.17.2">7.17.2&nbsp; Input</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.17.3">7.17.3&nbsp; Output</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.18">7.18&nbsp; Fitting population data to kinetic models: <b><tt>make_fitscript.py</tt></b></a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.18.1">7.18.1&nbsp; Usage</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.18.2">7.18.2&nbsp; Input</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.18.3">7.18.3&nbsp; Output</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.19">7.19&nbsp; Estimating Errors of Fits: <b><tt>bootstrap.py</tt></b></a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.19.1">7.19.1&nbsp; Usage</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.19.2">7.19.2&nbsp; Input</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.19.3">7.19.3&nbsp; Output</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.20">7.20&nbsp; Obtaining Special Geometries: <b><tt>crossing.py</tt></b></a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.20.1">7.20.1&nbsp; Usage</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.20.2">7.20.2&nbsp; Output</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.21">7.21&nbsp; Internal Coordinates Analysis: <b><tt>geo.py</tt></b></a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.21.1">7.21.1&nbsp; Input</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.21.2">7.21.2&nbsp; Options</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.22">7.22&nbsp; Essential Dynamics Analysis: <b><tt>trajana_essdyn.py</tt></b></a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.22.1">7.22.1&nbsp; Usage</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.22.2">7.22.2&nbsp; Input</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.22.3">7.22.3&nbsp; Output</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.23">7.23&nbsp; Normal Mode Analysis: <b><tt>trajana_nma.py</tt></b></a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.23.1">7.23.1&nbsp; Usage</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.23.2">7.23.2&nbsp; Input</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.23.3">7.23.3&nbsp; Output</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.24">7.24&nbsp; General Data Analysis: <b><tt>data_collector.py</tt></b></a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.24.1">7.24.1&nbsp; Usage</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.24.2">7.24.2&nbsp; Input</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.24.3">7.24.3&nbsp; Output</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.25">7.25&nbsp; Optimizations: <b><tt>orca_External</tt></b> and <b><tt>setup_orca_opt.py</tt></b></a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.25.1">7.25.1&nbsp; Usage</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.25.2">7.25.2&nbsp; Input</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.25.3">7.25.3&nbsp; Output</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.25.4">7.25.4&nbsp; Description of <b><tt>orca_External</tt></b></a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.26">7.26&nbsp; Single Point Calculations: <b><tt>setup_single_point.py</tt></b></a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.26.1">7.26.1&nbsp; Usage</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.26.2">7.26.2&nbsp; Input</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.26.3">7.26.3&nbsp; Output</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.27">7.27&nbsp; Format Data from <b><tt>QM.out</tt></b> Files: <b><tt>QMout_print.py</tt></b></a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.27.1">7.27.1&nbsp; Usage</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.27.2">7.27.2&nbsp; Output</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.28">7.28&nbsp; Diagonalization Helper: <b><tt>diagonalizer.x</tt></b></a>
-<a href="#tth_chAp8">8&nbsp; Methods and Algorithms</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.1">8.1&nbsp; Absorption Spectrum</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.2">8.2&nbsp; Active and inactive states</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.3">8.3&nbsp; Amdahl's Law</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.4">8.4&nbsp; Bootstrapping for Population Fits</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.5">8.5&nbsp; Computing electronic populations</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.6">8.6&nbsp; Damping</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.7">8.7&nbsp; Decoherence</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.7.1">8.7.1&nbsp; Energy-based decoherence</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.7.2">8.7.2&nbsp; Augmented FSSH decoherence</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.8">8.8&nbsp; Essential Dynamics Analysis</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.9">8.9&nbsp; Excitation Selection</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.9.1">8.9.1&nbsp; Excitation Selection with Diabatization</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.10">8.10&nbsp; Global fits and kinetic models</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.10.1">8.10.1&nbsp; Reaction networks</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.10.2">8.10.2&nbsp; Kinetic models</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.10.3">8.10.3&nbsp; Global fit</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.11">8.11&nbsp; Gradient transformation</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.11.1">8.11.1&nbsp; Dipole moment derivatives</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.12">8.12&nbsp; Internal coordinates definitions</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.13">8.13&nbsp; Kinetic energy adjustments</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.13.1">8.13.1&nbsp; Reflection for frustrated hops</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.14">8.14&nbsp; Laser fields</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.14.1">8.14.1&nbsp; Form of the laser field</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.14.2">8.14.2&nbsp; Envelope functions</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.14.3">8.14.3&nbsp; Field functions</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.14.4">8.14.4&nbsp; Chirped pulses</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.14.5">8.14.5&nbsp; Quadratic chirp without Fourier transform</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.15">8.15&nbsp; Laser interactions</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.15.1">8.15.1&nbsp; Surface Hopping with laser fields</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.16">8.16&nbsp; Linear Vibronic Coupling Models</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.16.1">8.16.1&nbsp; Obtaining LVC parameters from ab initio data</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.17">8.17&nbsp; Normal Mode Analysis</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.18">8.18&nbsp; Optimization of Crossing Points</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.19">8.19&nbsp; Phase tracking</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.19.1">8.19.1&nbsp; Phase tracking of the transformation matrix</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.19.2">8.19.2&nbsp; Tracking of the phase of the MCH wave functions</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.20">8.20&nbsp; Random initial velocities</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.21">8.21&nbsp; Representations</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.21.1">8.21.1&nbsp; Current state in MCH representation</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.22">8.22&nbsp; Sampling from Wigner Distribution</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.22.1">8.22.1&nbsp; Sampling at Non-zero Temperature</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.23">8.23&nbsp; Scaling</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.24">8.24&nbsp; Seeding of the RNG</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.25">8.25&nbsp; Selection of gradients and nonadiabatic couplings</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.26">8.26&nbsp; State ordering</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.27">8.27&nbsp; Surface Hopping</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.28">8.28&nbsp; Velocity Verlet</a>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.29">8.29&nbsp; Wavefunction propagation</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.29.1">8.29.1&nbsp; Propagation using nonadiabatic couplings</a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.29.2">8.29.2&nbsp; Propagation using overlap matrices</a>
+<h1>Contents </h1><a href="#tth_chAp1">1&nbsp; Introduction</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc1.1">1.1&nbsp; Capabilities</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc1.1.1">1.1.1&nbsp; New features in  S<span style="font-size:x-small">HARC</span>&nbsp;Version 2.0</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc1.1.2">1.1.2&nbsp; New features in  S<span style="font-size:x-small">HARC</span>&nbsp;Version 2.1</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc1.1.3">1.1.3&nbsp; New features in  S<span style="font-size:x-small">HARC</span>&nbsp;Version 2.1.1</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc1.2">1.2&nbsp; References</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc1.3">1.3&nbsp; Authors</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc1.4">1.4&nbsp; Suggestions and Bug Reports</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc1.5">1.5&nbsp; Notation in this Manual</a><a href="#tth_chAp2">2&nbsp; Installation</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc2.1">2.1&nbsp; How To Obtain</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc2.2">2.2&nbsp; Terms of Use</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc2.3">2.3&nbsp; Installation</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc2.3.1">2.3.1&nbsp;  WF<span style="font-size:x-small">OVERLAP</span> Program</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc2.3.2">2.3.2&nbsp; Libraries</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc2.3.3">2.3.3&nbsp; Test Suite</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc2.3.4">2.3.4&nbsp; Additional Programs</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc2.3.5">2.3.5&nbsp; Quantum Chemistry Programs</a><a href="#tth_chAp3">3&nbsp; Execution</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc3.1">3.1&nbsp; Running a single trajectory</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc3.1.1">3.1.1&nbsp; Input files</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc3.1.2">3.1.2&nbsp; Running the dynamics code</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc3.1.3">3.1.3&nbsp; Output files</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc3.2">3.2&nbsp; Typical workflow for an ensemble of trajectories</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc3.2.1">3.2.1&nbsp; Initial condition generation</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc3.2.2">3.2.2&nbsp; Running the dynamics simulations</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc3.2.3">3.2.3&nbsp; Analysis of the dynamics results</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc3.3">3.3&nbsp; Auxilliary Programs and Scripts</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc3.3.1">3.3.1&nbsp; Setup</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc3.3.2">3.3.2&nbsp; Analysis</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc3.3.3">3.3.3&nbsp; Interfaces</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc3.3.4">3.3.4&nbsp; Others</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc3.4">3.4&nbsp; The  P<span style="font-size:x-small">YSHARC</span> dynamics driver</a><a href="#tth_chAp4">4&nbsp; Input files</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc4.1">4.1&nbsp; Main input file</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc4.1.1">4.1.1&nbsp; General remarks</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc4.1.2">4.1.2&nbsp; Input keywords</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc4.1.3">4.1.3&nbsp; Detailed Description of the Keywords</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc4.1.4">4.1.4&nbsp; Example</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc4.2">4.2&nbsp; Geometry file</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc4.3">4.3&nbsp; Velocity file</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc4.4">4.4&nbsp; Coefficient file</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc4.5">4.5&nbsp; Laser file</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc4.6">4.6&nbsp; Atom mask file</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc4.7">4.7&nbsp; RATTLE file</a><a href="#tth_chAp5">5&nbsp; Output files</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc5.1">5.1&nbsp; Log file</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc5.2">5.2&nbsp; Listing file</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc5.3">5.3&nbsp; Data file</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc5.3.1">5.3.1&nbsp; Specification of the data file</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc5.4">5.4&nbsp; Data file in NetCDF format</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc5.5">5.5&nbsp; XYZ file</a><a href="#tth_chAp6">6&nbsp; Interfaces</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.1">6.1&nbsp; Interface Specifications</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.1.1">6.1.1&nbsp; <b><tt>QM.in</tt></b> Specification</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.1.2">6.1.2&nbsp; <b><tt>QM.out</tt></b> Specification</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.1.3">6.1.3&nbsp; Further Specifications</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.1.4">6.1.4&nbsp; Save Directory Specification</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.2">6.2&nbsp; Overview over Interfaces</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.2.1">6.2.1&nbsp; Example Directory</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.3">6.3&nbsp; MOLPRO Interface</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.3.1">6.3.1&nbsp; Template file: <b><tt>MOLPRO.template</tt></b></a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.3.2">6.3.2&nbsp; Resource file: <b><tt>MOLPRO.resources</tt></b></a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.3.3">6.3.3&nbsp; Error checking</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.3.4">6.3.4&nbsp; Things to keep in mind</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.3.5">6.3.5&nbsp; Molpro input generator: <b><tt>molpro_input.py</tt></b></a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.4">6.4&nbsp; MOLCAS Interface</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.4.1">6.4.1&nbsp; Template file: <b><tt>MOLCAS.template</tt></b></a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.4.2">6.4.2&nbsp; Resource file: <b><tt>MOLCAS.resources</tt></b></a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.4.3">6.4.3&nbsp; Template file generator: <b><tt>molcas_input.py</tt></b></a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.4.4">6.4.4&nbsp; QM/MM key file: <b><tt>MOLCAS.qmmm.key</tt></b></a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.4.5">6.4.5&nbsp; QM/MM connection table file: <b><tt>MOLCAS.qmmm.table</tt></b></a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.5">6.5&nbsp; COLUMBUS Interface</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.5.1">6.5.1&nbsp; Template input</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.5.2">6.5.2&nbsp; Resource file: <b><tt>COLUMBUS.resources</tt></b></a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.5.3">6.5.3&nbsp; Template setup</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.6">6.6&nbsp; Analytical PESs Interface</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.6.1">6.6.1&nbsp; Parametrization</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.6.2">6.6.2&nbsp; Template file: <b><tt>Analytical.template</tt></b></a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.7">6.7&nbsp; ADF Interface</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.7.1">6.7.1&nbsp; Template file: <b><tt>ADF.template</tt></b></a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.7.2">6.7.2&nbsp; Resource file: <b><tt>ADF.resources</tt></b></a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.7.3">6.7.3&nbsp; QM/MM force field file: <b><tt>ADF.qmmm.ff</tt></b></a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.7.4">6.7.4&nbsp; QM/MM connection table file: <b><tt>ADF.qmmm.table</tt></b></a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.7.5">6.7.5&nbsp; Input file generator: <b><tt>ADF_input.py</tt></b></a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.7.6">6.7.6&nbsp; Frequencies converter: <b><tt>ADF_freq.py</tt></b></a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.8">6.8&nbsp; RICC2 Interface</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.8.1">6.8.1&nbsp; Template file: <b><tt>RICC2.template</tt></b></a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.8.2">6.8.2&nbsp; Resource file: <b><tt>RICC2.resources</tt></b></a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.8.3">6.8.3&nbsp; QM/MM force field file</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.8.4">6.8.4&nbsp; QM/MM connection table file: <b><tt>RICC2.qmmm.table</tt></b></a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.9">6.9&nbsp; LVC Interface</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.9.1">6.9.1&nbsp; Input files</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.9.2">6.9.2&nbsp; Template File Setup: <b><tt>wigner.py</tt></b>, <b><tt>setup_LVCparam.py</tt></b>, and <b><tt>create_LVCparam.py</tt></b></a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.10">6.10&nbsp;  G<span style="font-size:x-small">AUSSIAN</span> Interface</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.10.1">6.10.1&nbsp; Template file: <b><tt>GAUSSIAN.template</tt></b></a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.10.2">6.10.2&nbsp; Resource file: <b><tt>GAUSSIAN.resources</tt></b></a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.11">6.11&nbsp;  O<span style="font-size:x-small">RCA</span> Interface</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.11.1">6.11.1&nbsp; Template file: <b><tt>ORCA.template</tt></b></a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.11.2">6.11.2&nbsp; Resource file: <b><tt>ORCA.resources</tt></b></a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.11.3">6.11.3&nbsp; QM/MM force field file</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.11.4">6.11.4&nbsp; QM/MM connection table file: <b><tt>ORCA.qmmm.table</tt></b></a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.12">6.12&nbsp;  B<span style="font-size:x-small">AGEL</span> Interface</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.12.1">6.12.1&nbsp; Template file: <b><tt>BAGEL.template</tt></b></a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.12.2">6.12.2&nbsp; Resource file: <b><tt>BAGEL.resources</tt></b></a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.13">6.13&nbsp; The  WF<span style="font-size:x-small">OVERLAP</span> Program</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.13.1">6.13.1&nbsp; Installation</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.13.2">6.13.2&nbsp; Workflow</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.13.3">6.13.3&nbsp; Calling the program</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.13.4">6.13.4&nbsp; Input data</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.13.5">6.13.5&nbsp; Output</a><a href="#tth_chAp7">7&nbsp; Auxilliary Scripts</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.1">7.1&nbsp; Wigner Distribution Sampling: <b><tt>wigner.py</tt></b></a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.1.1">7.1.1&nbsp; Usage</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.1.2">7.1.2&nbsp; Normal mode types</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.1.3">7.1.3&nbsp; Non-default masses</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.1.4">7.1.4&nbsp; Sampling at finite temperatures</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.1.5">7.1.5&nbsp; Output</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.2">7.2&nbsp;  A<span style="font-size:x-small">MBER</span> Trajectory Sampling: <b><tt>amber_to_initconds.py</tt></b></a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.2.1">7.2.1&nbsp; Usage</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.2.2">7.2.2&nbsp; Time Step</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.2.3">7.2.3&nbsp; Atom Types and Masses</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.2.4">7.2.4&nbsp; Output</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.3">7.3&nbsp;  S<span style="font-size:x-small">HARC</span>&nbsp;Trajectory Sampling: <b><tt>sharctraj_to_initconds.py</tt></b></a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.3.1">7.3.1&nbsp; Usage</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.3.2">7.3.2&nbsp; Random Picking of Time Step</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.3.3">7.3.3&nbsp; Output</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.4">7.4&nbsp; Setup of Initial Calculations: <b><tt>setup_init.py</tt></b></a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.4.1">7.4.1&nbsp; Usage</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.4.2">7.4.2&nbsp; Input</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.4.3">7.4.3&nbsp; Interface-specific input</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.4.4">7.4.4&nbsp; Input for Run Scripts</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.4.5">7.4.5&nbsp; Output</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.5">7.5&nbsp; Excitation Selection: <b><tt>excite.py</tt></b></a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.5.1">7.5.1&nbsp; Usage</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.5.2">7.5.2&nbsp; Input</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.5.3">7.5.3&nbsp; Matrix diagonalization</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.5.4">7.5.4&nbsp; Output</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.5.5">7.5.5&nbsp; Specification of the <b><tt>initconds.excited</tt></b> file format</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.6">7.6&nbsp; Setup of Trajectories: <b><tt>setup_traj.py</tt></b></a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.6.1">7.6.1&nbsp; Input</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.6.2">7.6.2&nbsp; Interface-specific input</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.6.3">7.6.3&nbsp; Output control</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.6.4">7.6.4&nbsp; Run script setup</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.6.5">7.6.5&nbsp; Output</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.7">7.7&nbsp; Laser field generation: <b><tt>laser.x</tt></b></a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.7.1">7.7.1&nbsp; Usage</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.7.2">7.7.2&nbsp; Input</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.8">7.8&nbsp; Calculation of Absorption Spectra: <b><tt>spectrum.py</tt></b></a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.8.1">7.8.1&nbsp; Input</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.8.2">7.8.2&nbsp; Output</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.8.3">7.8.3&nbsp; Error Analysis</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.9">7.9&nbsp; File transfer: <b><tt>retrieve.sh</tt></b></a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.10">7.10&nbsp; Data Extractor: <b><tt>data_extractor.x</tt></b></a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.10.1">7.10.1&nbsp; Usage</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.10.2">7.10.2&nbsp; Output</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.11">7.11&nbsp; Data Extractor for NetCDF: <b><tt>data_extractor_NetCDF.x</tt></b></a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.11.1">7.11.1&nbsp; Usage</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.11.2">7.11.2&nbsp; Output</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.12">7.12&nbsp; Data Converter for NetCDF: <b><tt>data_converter.x</tt></b></a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.12.1">7.12.1&nbsp; Usage</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.12.2">7.12.2&nbsp; Output</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.13">7.13&nbsp; Plotting the Extracted Data: <b><tt>make_gnuscript.py</tt></b></a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.14">7.14&nbsp; Ensemble Diagnostics Tool: <b><tt>diagnostics.py</tt></b></a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.14.1">7.14.1&nbsp; Usage</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.14.2">7.14.2&nbsp; Input</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.15">7.15&nbsp; Calculation of Ensemble Populations: <b><tt>populations.py</tt></b></a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.15.1">7.15.1&nbsp; Usage</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.15.2">7.15.2&nbsp; Output</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.16">7.16&nbsp; Calculation of Numbers of Hops: <b><tt>transition.py</tt></b></a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.16.1">7.16.1&nbsp; Usage</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.17">7.17&nbsp; Fitting population data to kinetic models: <b><tt>make_fit.py</tt></b></a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.17.1">7.17.1&nbsp; Usage</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.17.2">7.17.2&nbsp; Input</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.17.3">7.17.3&nbsp; Output</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.18">7.18&nbsp; Fitting population data to kinetic models: <b><tt>make_fitscript.py</tt></b></a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.18.1">7.18.1&nbsp; Usage</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.18.2">7.18.2&nbsp; Input</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.18.3">7.18.3&nbsp; Output</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.19">7.19&nbsp; Estimating Errors of Fits: <b><tt>bootstrap.py</tt></b></a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.19.1">7.19.1&nbsp; Usage</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.19.2">7.19.2&nbsp; Input</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.19.3">7.19.3&nbsp; Output</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.20">7.20&nbsp; Obtaining Special Geometries: <b><tt>crossing.py</tt></b></a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.20.1">7.20.1&nbsp; Usage</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.20.2">7.20.2&nbsp; Output</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.21">7.21&nbsp; Internal Coordinates Analysis: <b><tt>geo.py</tt></b></a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.21.1">7.21.1&nbsp; Input</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.21.2">7.21.2&nbsp; Options</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.22">7.22&nbsp; Essential Dynamics Analysis: <b><tt>trajana_essdyn.py</tt></b></a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.22.1">7.22.1&nbsp; Usage</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.22.2">7.22.2&nbsp; Input</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.22.3">7.22.3&nbsp; Output</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.23">7.23&nbsp; Normal Mode Analysis: <b><tt>trajana_nma.py</tt></b></a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.23.1">7.23.1&nbsp; Usage</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.23.2">7.23.2&nbsp; Input</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.23.3">7.23.3&nbsp; Output</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.24">7.24&nbsp; General Data Analysis: <b><tt>data_collector.py</tt></b></a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.24.1">7.24.1&nbsp; Usage</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.24.2">7.24.2&nbsp; Input</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.24.3">7.24.3&nbsp; Output</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.25">7.25&nbsp; Optimizations: <b><tt>orca_External</tt></b> and <b><tt>setup_orca_opt.py</tt></b></a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.25.1">7.25.1&nbsp; Usage</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.25.2">7.25.2&nbsp; Input</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.25.3">7.25.3&nbsp; Output</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.25.4">7.25.4&nbsp; Description of <b><tt>orca_External</tt></b></a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.26">7.26&nbsp; Single Point Calculations: <b><tt>setup_single_point.py</tt></b></a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.26.1">7.26.1&nbsp; Usage</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.26.2">7.26.2&nbsp; Input</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.26.3">7.26.3&nbsp; Output</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.27">7.27&nbsp; Format Data from <b><tt>QM.out</tt></b> Files: <b><tt>QMout_print.py</tt></b></a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.27.1">7.27.1&nbsp; Usage</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.27.2">7.27.2&nbsp; Output</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc7.28">7.28&nbsp; Diagonalization Helper: <b><tt>diagonalizer.x</tt></b></a><a href="#tth_chAp8">8&nbsp; Methods and Algorithms</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.1">8.1&nbsp; Absorption Spectrum</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.2">8.2&nbsp; Active and inactive states</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.3">8.3&nbsp; Amdahl's Law</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.4">8.4&nbsp; Bootstrapping for Population Fits</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.5">8.5&nbsp; Computing electronic populations</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.6">8.6&nbsp; Damping</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.7">8.7&nbsp; Decoherence</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.7.1">8.7.1&nbsp; Energy-based decoherence</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.7.2">8.7.2&nbsp; Augmented FSSH decoherence</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.8">8.8&nbsp; Essential Dynamics Analysis</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.9">8.9&nbsp; Excitation Selection</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.9.1">8.9.1&nbsp; Excitation Selection with Diabatization</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.10">8.10&nbsp; Global fits and kinetic models</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.10.1">8.10.1&nbsp; Reaction networks</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.10.2">8.10.2&nbsp; Kinetic models</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.10.3">8.10.3&nbsp; Global fit</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.11">8.11&nbsp; Gradient transformation</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.11.1">8.11.1&nbsp; Dipole moment derivatives</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.12">8.12&nbsp; Internal coordinates definitions</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.13">8.13&nbsp; Kinetic energy adjustments</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.13.1">8.13.1&nbsp; Reflection for frustrated hops</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.14">8.14&nbsp; Laser fields</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.14.1">8.14.1&nbsp; Form of the laser field</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.14.2">8.14.2&nbsp; Envelope functions</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.14.3">8.14.3&nbsp; Field functions</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.14.4">8.14.4&nbsp; Chirped pulses</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.14.5">8.14.5&nbsp; Quadratic chirp without Fourier transform</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.15">8.15&nbsp; Laser interactions</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.15.1">8.15.1&nbsp; Surface Hopping with laser fields</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.16">8.16&nbsp; Linear Vibronic Coupling Models</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.16.1">8.16.1&nbsp; Obtaining LVC parameters from ab initio data</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.17">8.17&nbsp; Normal Mode Analysis</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.18">8.18&nbsp; Optimization of Crossing Points</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.19">8.19&nbsp; Phase tracking</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.19.1">8.19.1&nbsp; Phase tracking of the transformation matrix</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.19.2">8.19.2&nbsp; Tracking of the phase of the MCH wave functions</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.20">8.20&nbsp; Random initial velocities</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.21">8.21&nbsp; Representations</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.21.1">8.21.1&nbsp; Current state in MCH representation</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.22">8.22&nbsp; Sampling from Wigner Distribution</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.22.1">8.22.1&nbsp; Sampling at Non-zero Temperature</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.23">8.23&nbsp; Scaling</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.24">8.24&nbsp; Seeding of the RNG</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.25">8.25&nbsp; Selection of gradients and nonadiabatic couplings</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.26">8.26&nbsp; State ordering</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.27">8.27&nbsp; Surface Hopping</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.28">8.28&nbsp; Velocity Verlet</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.29">8.29&nbsp; Wavefunction propagation</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.29.1">8.29.1&nbsp; Propagation using nonadiabatic couplings</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc8.29.2">8.29.2&nbsp; Propagation using overlap matrices</a>
 <div class="p"><!----></div>
 <div class="p"><!----></div>
  <a id="tth_chAp1"></a><h1>
 Chapter 1 Introduction</h1>
 <div class="p"><!----></div>
-When a molecule is irradiated by light, a number of dynamical processes can take place, in which the molecule redistributes the energy among different electronic and vibrational degrees of freedom. Kasha's rule <a href="#Kasha1950DFS" id="CITEKasha1950DFS" class="tth_citation">[1</a>] states that radiationless transfer from higher excited singlet states to the lowest-lying excited singlet state (S<sub>1</sub>) is faster than fluorescence (F). This radiationless transfer is called internal conversion (IC) and involves a changes between electronic states of the same multiplicity. If a transition occurs between electronic states of different spin, the process is called intersystem crossing (ISC). A typical ISC process is from a singlet to a triplet state, and once the lowest triplet is populated, phosphorescence (P) can take place. In figure&nbsp;<a href="#fig:jablonski"> 1.1</a>, radiative (F and P) and radiationless (IC and ISC) processes are summarized in a so-called Jablonski diagram.
+When a molecule is irradiated by light, a number of dynamical processes can take place, in which the molecule redistributes the energy among different electronic and vibrational degrees of freedom. Kasha's rule <a href="#Kasha1950DFS" id="CITEKasha1950DFS" class="tth_citation">[1</a>] states that radiationless transfer from higher excited singlet states to the lowest-lying excited singlet state (S<sub>1</sub>) is faster than fluorescence (F). This radiationless transfer is called internal conversion (IC) and involves a changes between electronic states of the same multiplicity. If a transition occurs between electronic states of different spin, the process is called intersystem crossing (ISC). A typical ISC process is from a singlet to a triplet state, and once the lowest triplet is populated, phosphorescence (P) can take place. In figure&nbsp;<a href="#fig:jablonski">1.1</a>, radiative (F and P) and radiationless (IC and ISC) processes are summarized in a so-called Jablonski diagram.
 <div class="p"><!----></div>
 <div class="p"><!----></div>
 <a id="tth_fIg1.1">
@@ -581,6 +319,27 @@ These features are new in  S<span style="font-size:x-small">HARC</span>&nbsp;Ver
 <div class="p"><!----></div>
 </li>
 <li> <b><tt>setup_LVCparam.py</tt></b> and <b><tt>create_LVCparam.py</tt></b>: new setup scripts to automatically generate LVC models from quantum chemistry calculations (also without nonadiabatic coupling vectors).
+<div class="p"><!----></div>
+</li>
+</ul>
+<div class="p"><!----></div>
+</li>
+</ul>
+<div class="p"><!----></div>
+     <a id="tth_sEc1.1.3"></a><h3>
+1.1.3&nbsp;&nbsp;New features in  S<span style="font-size:x-small">HARC</span>&nbsp;Version 2.1.1</h3>
+<div class="p"><!----></div>
+These features are new in  S<span style="font-size:x-small">HARC</span>&nbsp;Version 2.1.1 (2021):
+<ul>
+<li> Dynamics program <b><tt>sharc.x</tt></b>:
+<ul>
+<li> RATTLE algorithm for constraint bond lengths
+<div class="p"><!----></div>
+</li>
+<li> Keyword for restart control
+<div class="p"><!----></div>
+</li>
+<li> Bug fixes
 <div class="p"><!----></div>
 </li>
 </ul>
@@ -1424,7 +1183,7 @@ In order to install and run  S<span style="font-size:x-small">HARC</span>&nbsp;u
 <li> [<a href="https://www.python.org/downloads/release/python-374/">Python 3</a> if using the  S<span style="font-size:x-small">HARC</span>-ADF interface or <b><tt>ADF_freq.py</tt></b> (This release is tested against Python 3.5 and 3.6).]
 <div class="p"><!----></div>
 </li>
-<li> [<a href="https://www.anaconda.com/distribution/">Anaconda</a> with several libraries (<b><tt>hdf5</tt></b>, <b><tt>hdf5_hl</tt></b>, <b><tt>netcdf</tt></b>, <b><tt>mfhdf</tt></b>, <b><tt>df</tt></b>, <b><tt>jpeg</tt></b>) for the <b><tt>pysharc</tt></b> and NetCDF functionalities.]
+<li> [<a href="https://www.anaconda.com/distribution/">Anaconda</a> with several libraries (<b><tt>hdf5</tt></b>, <b><tt>hdf5_hl</tt></b>, <b><tt>netcdf</tt></b>, <b><tt>mfhdf</tt></b>, <b><tt>df</tt></b>, <b><tt>jpeg</tt></b>, <b><tt>gcc</tt></b>) for the <b><tt>pysharc</tt></b> and NetCDF functionalities.]
 <div class="p"><!----></div>
 </li>
 </ul>
@@ -1434,7 +1193,7 @@ In order to install and run  S<span style="font-size:x-small">HARC</span>&nbsp;u
 The source code of the   S<span style="font-size:x-small">HARC</span>&nbsp;suite is distributed as a zip archive file. In order to install it, first extract the content of the archive to a suitable directory:
 <tt>unzip&nbsp;sharc.zip</tt>
 This should create a new directory called <b><tt>sharc/</tt></b> which contains all the necessary subdirectories and files. 
-In figure&nbsp;<a href="#fig:installation"> 2.1</a> the directory structure of the complete  S<span style="font-size:x-small">HARC</span>&nbsp;directory is shown.
+In figure&nbsp;<a href="#fig:installation">2.1</a> the directory structure of the complete  S<span style="font-size:x-small">HARC</span>&nbsp;directory is shown.
 <div class="p"><!----></div>
 <div class="p"><!----></div>
 <a id="tth_fIg2.1">
@@ -1522,7 +1281,8 @@ In order to install and test this program, see section&nbsp;<a href="#sec:int:wf
 <div class="p"><!----></div>
  S<span style="font-size:x-small">HARC</span>&nbsp;requires the BLAS, LAPACK and FFTW3 libraries. During the installation, it might be necessary to alter the <b><tt>LDFLAGS</tt></b> string in the <b><tt>Makefile</tt></b>, depending on where the relevant libraries are located on your system. In this way, it is for example possible to use vendor-provided libraries like the <a href="https://software.intel.com/en-us/intel-mkl">Intel MKL</a>. For more details see the <b><tt>INSTALL</tt></b> file which is included in the  S<span style="font-size:x-small">HARC</span>&nbsp;distribution.
 <div class="p"><!----></div>
-As specified above, users of <b><tt>pysharc</tt></b> and the NetCDF functions will need additional libraries (<b><tt>hdf5</tt></b>, <b><tt>hdf5_hl</tt></b>, <b><tt>netcdf</tt></b>, <b><tt>mfhdf</tt></b>, <b><tt>df</tt></b>, <b><tt>jpeg</tt></b>), which can, e.g., be obtained through an  A<span style="font-size:x-small">NACONDA</span> installation.
+As specified above, users of <b><tt>pysharc</tt></b> and the NetCDF functions will need additional libraries (<b><tt>hdf5</tt></b>, <b><tt>hdf5_hl</tt></b>, <b><tt>netcdf</tt></b>, <b><tt>mfhdf</tt></b>, <b><tt>df</tt></b>, <b><tt>jpeg</tt></b>), which can, e.g., be obtained through an  A<span style="font-size:x-small">NACONDA</span> installation (packages <b><tt>hdf5</tt></b>, <b><tt>netcdf4</tt></b>, <b><tt>jpeg</tt></b>, <b><tt>gcc</tt></b>).
+<div class="p"><!----></div>
 <div class="p"><!----></div>
      <a id="tth_sEc2.3.3"></a><h3>
 2.3.3&nbsp;&nbsp;Test Suite</h3><a id="sec:tests.py">
@@ -1555,7 +1315,7 @@ Change to an empty directory and execute
 <tt>$SHARC/tests.py</tt>
 The interactive script will first verify the Python installation (no message will appear if the Python installation is fine). 
 Subsequently, the script prompts the user to enter which tests should be executed. 
-The script will also ask for a number of environment variables, which are listed in Table&nbsp;<a href="#tab:test_vars"> 2.1</a>.
+The script will also ask for a number of environment variables, which are listed in Table&nbsp;<a href="#tab:test_vars">2.1</a>.
 <div class="p"><!----></div>
 Their is at least one test for each of the auxiliary scripts and interfaces. 
 Tests whose names start with <b><tt>scripts_</tt></b> test the functionality of the auxiliary programs in the  S<span style="font-size:x-small">HARC</span>&nbsp;suite.
@@ -1711,7 +1471,7 @@ All relevant theoretical background is given in chapter&nbsp;<a href="#chap:met"
      <a id="tth_sEc3.1.1"></a><h3>
 3.1.1&nbsp;&nbsp;Input files</h3>
 <div class="p"><!----></div>
- S<span style="font-size:x-small">HARC</span>&nbsp;requires a number of input files, which contain the settings for the dynamics simulation (<b><tt>input</tt></b>), the initial geometry (<b><tt>geom</tt></b>), the initial velocity (<b><tt>veloc</tt></b>), the initial coefficients (<b><tt>coeff</tt></b>) and the laser field (<b><tt>laser</tt></b>). Only the first two (<b><tt>input</tt></b>, <b><tt>geom</tt></b>) are mandatory, the others are optional. The necessary files are shown in figure&nbsp;<a href="#fig:dir_traj"> 3.1</a>. 
+ S<span style="font-size:x-small">HARC</span>&nbsp;requires a number of input files, which contain the settings for the dynamics simulation (<b><tt>input</tt></b>), the initial geometry (<b><tt>geom</tt></b>), the initial velocity (<b><tt>veloc</tt></b>), the initial coefficients (<b><tt>coeff</tt></b>) and the laser field (<b><tt>laser</tt></b>). Only the first two (<b><tt>input</tt></b>, <b><tt>geom</tt></b>) are mandatory, the others are optional. The necessary files are shown in figure&nbsp;<a href="#fig:dir_traj">3.1</a>. 
 The content of the main input file is explained in detail in section&nbsp;<a href="#sec:inputfile">4.1</a>, the geometry file is specified in section&nbsp;<a href="#sec:geomfile">4.2</a>. The specifications of the velocity, coefficient and laser files are given in sections&nbsp;<a href="#sec:velocfile">4.3</a>, <a href="#sec:coefffile">4.4</a> and <a href="#sec:laserfile">4.5</a>, respectively.
 <div class="p"><!----></div>
 <div class="p"><!----></div>
@@ -1751,7 +1511,7 @@ This is usually preferable to simply killing  S<span style="font-size:x-small">H
 </a>
 </div>
 <div class="p"><!----></div>
-Figure&nbsp;<a href="#fig:dir_traj_after"> 3.2</a> shows the content of a trajectory directory after the execution of  S<span style="font-size:x-small">HARC</span>. There will be six new files. These files are <b><tt>output.log</tt></b>, <b><tt>output.lis</tt></b>, <b><tt>output.dat</tt></b> and <b><tt>output.xyz</tt></b>, as well as <b><tt>restart.ctrl</tt></b> and <b><tt>restart.traj</tt></b>.
+Figure&nbsp;<a href="#fig:dir_traj_after">3.2</a> shows the content of a trajectory directory after the execution of  S<span style="font-size:x-small">HARC</span>. There will be six new files. These files are <b><tt>output.log</tt></b>, <b><tt>output.lis</tt></b>, <b><tt>output.dat</tt></b> and <b><tt>output.xyz</tt></b>, as well as <b><tt>restart.ctrl</tt></b> and <b><tt>restart.traj</tt></b>.
 <div class="p"><!----></div>
 The file <b><tt>output.log</tt></b> contains mainly a listing of the chosen options and the resulting dynamics settings. At higher print levels, the log file contains also information per time step (useful for debugging). <b><tt>output.lis</tt></b> contains a table with one line per time step, giving active states, energies and expectation values. <b><tt>output.dat</tt></b> contains a list of all important matrices and vectors at each time step. This information can be extracted with <b><tt>data_extractor.x</tt></b> to yield plottable table files. <b><tt>output.xyz</tt></b> contains the geometries of all time steps (the comments to each geometry give the active state).
 For details about the content of the output files, see chapter&nbsp;<a href="#chap:output">5</a>.
@@ -1767,7 +1527,7 @@ The <b><tt>restart/</tt></b> directory contains all persistent files that are ne
 Usually, one is not interested in running only a single trajectory, since a single trajectory cannot reproduce the branching of a wave packet into different reaction channels. In order to do so, within surface hopping an ensemble of independent trajectories is employed. 
 <div class="p"><!----></div>
 When dealing with a (possibly large) ensemble of trajectories, setup and analysis need to be automatized. Hence, the  S<span style="font-size:x-small">HARC</span>&nbsp;suite contains a number of scripts fulfilling different tasks in the usual workflow of setting up ensembles of trajectories.
-The typical workflow is given schematically in figure&nbsp;<a href="#fig:workflow"> 3.3</a>.
+The typical workflow is given schematically in figure&nbsp;<a href="#fig:workflow">3.3</a>.
 <div class="p"><!----></div>
 <div class="p"><!----></div>
 <a id="tth_fIg3.3">
@@ -1787,7 +1547,7 @@ Many such sets are needed in order to setup physically sound dynamics simulation
 <div class="p"><!----></div>
 Currently, within the  S<span style="font-size:x-small">HARC</span>&nbsp;suite, initial geometries and velocities can be generated based on a quantum harmonic oscillator Wigner distribution. The theoretical background is given in section&nbsp;<a href="#met:wigner">8.22</a>. The calculation is performed by <b><tt>wigner.py</tt></b>, which is explained in section&nbsp;<a href="#sec:wigner.py">7.1</a>. 
 <div class="p"><!----></div>
-As given in figure&nbsp;<a href="#fig:workflow"> 3.3</a>, <b><tt>wigner.py</tt></b> needs as input the result of a frequency calculation in  M<span style="font-size:x-small">OLDEN</span> format. The calculation can be performed by any quantum chemistry program and any method the user sees fit (there are some scripts which can aid in the frequency calculation, see sections&nbsp;<a href="#sec:molpro_input.py">6.3.5</a>, <a href="#sec:molcas_input.py">6.4.3</a>, <a href="#sec:ADF_freq.py">6.7.6</a>). 
+As given in figure&nbsp;<a href="#fig:workflow">3.3</a>, <b><tt>wigner.py</tt></b> needs as input the result of a frequency calculation in  M<span style="font-size:x-small">OLDEN</span> format. The calculation can be performed by any quantum chemistry program and any method the user sees fit (there are some scripts which can aid in the frequency calculation, see sections&nbsp;<a href="#sec:molpro_input.py">6.3.5</a>, <a href="#sec:molcas_input.py">6.4.3</a>, <a href="#sec:ADF_freq.py">6.7.6</a>). 
 <b><tt>wigner.py</tt></b> produces the file <b><tt>initconds</tt></b>, which contains a list of initial conditions ready for further processing.
 <div class="p"><!----></div>
 Alternatively, initial geometries and velocities can be extracted from molecular dynamics simulations in the ground state.
@@ -1971,7 +1731,7 @@ The input file is read by  S<span style="font-size:x-small">HARC</span>&nbsp;by 
      <a id="tth_sEc4.1.2"></a><h3>
 4.1.2&nbsp;&nbsp;Input keywords</h3>
 <div class="p"><!----></div>
-In Table&nbsp;<a href="#tab:input"> 4.1</a>, all input keywords for the  S<span style="font-size:x-small">HARC</span>&nbsp;input file are listed.
+In Table&nbsp;<a href="#tab:input">4.1</a>, all input keywords for the  S<span style="font-size:x-small">HARC</span>&nbsp;input file are listed.
 <div class="p"><!----></div>
 <div class="p"><!----></div>
 <a id="tth_tAb4.1">
@@ -2000,6 +1760,9 @@ In Table&nbsp;<a href="#tab:input"> 4.1</a>, all input keywords for the  S<span 
 <tr><td align="left">restart               </td><td align="left"></td><td align="left">Dynamics is resumed from restart files.</td></tr>
 <tr><td align="left"><b><span style="color:#00BF28">norestart</span></b>   </td><td align="left"></td><td align="left">Dynamics is initialized from input files.</td></tr>
 <tr><td align="left"></td><td align="left"></td><td align="left"><span class="footnotesize"><b><tt>norestart</tt></b> takes precedence.</span></td></tr>
+<tr><td align="left">restart_rerun_last_qm_step  </td><td align="left"></td><td align="left">Use when restarting after non-graceful stop/crash.</td></tr>
+<tr><td align="left">restart_goto_new_qm_step    </td><td align="left"></td><td align="left">Use when restarting after reaching time limit, using <b><tt>STOP</tt></b> file, or <b><tt>killafter</tt></b> keyword.</td></tr>
+<tr><td align="left"></td><td align="left"></td><td align="left"><span class="footnotesize">No default, an error is raised if neither is present during restart.</span></td></tr>
 <tr><td align="left">rngseed               </td><td align="left"><b>integer</b>                    </td><td align="left">Seed for the random number generator.</td></tr>
 <tr><td align="left"></td><td align="left"><b><span style="color:#00BF28">10997279</span></b>                  </td><td align="left"><span class="footnotesize">Used for surface hopping and AFSSH decoherence.</span></td></tr>
 <tr><td align="left">compatibility         </td><td align="left">$1=<b><span style="color:#00BF28">0</span></b>                     </td><td align="left">Compatibility mode disabled.</td></tr>
@@ -2015,6 +1778,8 @@ In Table&nbsp;<a href="#tab:input"> 4.1</a>, all input keywords for the  S<span 
 <tr><td align="left"></td><td align="left"><b><span style="color:#00BF28">"laser"</span></b>                   </td><td align="left"><span class="footnotesize">Only read if <b><tt>laser external</tt></b>.</span></td></tr>
 <tr><td align="left">atommaskfile          </td><td align="left"><b>quoted string</b>              </td><td align="left">File containing the atom mask.</td></tr>
 <tr><td align="left"></td><td align="left"><b><span style="color:#00BF28">&#228;tommask"</span></b>                </td><td align="left"><span class="footnotesize">Only read if <b><tt>atommask external</tt></b>.</span></td></tr>
+<tr><td align="left">rattlefile          </td><td align="left"><b>quoted string</b>              </td><td align="left">File containing the list of bond length constraints.</td></tr>
+<tr><td align="left"></td><td align="left"><b><span style="color:#00BF28">"rattle"</span></b>                </td><td align="left"><span class="footnotesize">Only read if <b><tt>rattle</tt></b>.</span></td></tr>
 <tr><td colspan="3" align="center">- Trajectory initialization keywords -</td></tr>
 <tr><td align="left">veloc                 </td><td align="left"><b>string</b>                     </td><td align="left">Sets the initial velocities.</td></tr>
 <tr><td align="left"></td><td align="left">$1<b><span style="color:#00BF28">=zero</span></b>                  </td><td align="left"><span class="footnotesize">Initial velocities are zero.</span></td></tr>
@@ -2093,6 +1858,12 @@ In Table&nbsp;<a href="#tab:input"> 4.1</a>, all input keywords for the  S<span 
 <tr><td align="left">atommask              </td><td align="left"><b>string</b>                     </td><td align="left">Activates masking of atoms (for EDC, <b><tt>parallel_vel</tt></b>).</td></tr>
 <tr><td align="left"></td><td align="left">$1<b><span style="color:#00BF28">=none</span></b>                  </td><td align="left"><span class="footnotesize">No atoms are masked.</span></td></tr>
 <tr><td align="left"></td><td align="left">$1=external                        </td><td align="left"><span class="footnotesize">Atom mask is read from external file.</span></td></tr>
+<tr><td colspan="3" align="center">- Thermostats and constraints -</td></tr>
+<tr><td align="left">rattle           </td><td align="left"></td><td align="left">Enables bond length constraints through RATTLE.</td></tr>
+<tr><td align="left"><b><span style="color:#00BF28">norattle</span></b></td><td align="left"></td><td align="left">No RATTLE.</td></tr>
+<tr><td align="left"></td><td align="left"></td><td align="left"><span class="footnotesize"><b><tt>norattle</tt></b> takes precedence.</span></td></tr>
+<tr><td align="left">rattletolerance    </td><td align="left"><b>float</b>                      </td><td align="left">Convergence criterion for RATTLE.</td></tr>
+<tr><td align="left"></td><td align="left"><b><span style="color:#00BF28">1e-7</span></b>                       </td><td align="left"><span class="footnotesize">$1 &gt; 0.0</span></td></tr>
 <tr><td colspan="3" align="center">- Energy control keywords -</td></tr>
 <tr><td align="left">ezero                 </td><td align="left"><b>float</b>                      </td><td align="left">Energy shift for Hamiltonian diagonal elements (Hartree).</td></tr>
 <tr><td align="left"></td><td align="left"><b><span style="color:#00BF28">0.0</span></b>                       </td><td align="left"><span class="footnotesize">Is not determined automatically!</span></td></tr>
@@ -2174,6 +1945,12 @@ There are two keywords controlling trajectory restarting. The keyword <b><tt>res
 When restarting, all control variables are read from the restart file instead of the input file. The only exceptions are <b><tt>nsteps</tt></b> and <b><tt>tmax</tt></b>. In this way, a trajectory which ran for the full simulation time can easily be restarted to extend the simulation time.
 <div class="p"><!----></div>
 Note that none of the auxiliary scripts adds the <b><tt>restart</tt></b> keyword to the input file. The user has to manually add the restart file to the input files of the relevant trajectories.
+<div class="p"><!----></div>
+In order to ensure synchronicity of the restart files of <b><tt>sharc.x</tt></b> and the <b><tt>restart/</tt></b> directory (managed by the interfaces), either one of two keywords must be present when restarting, either <b><tt>restart_rerun_last_qm_step</tt></b> or <b><tt>restart_goto_new_qm_step</tt></b>.
+The <b><tt>restart_rerun_last_qm_step</tt></b> keyword should be used if the restart is after a non-graceful crash/kill of the simulation (e.g., due to queueing system time limits). 
+It tells the interface that the current time step was already attempted before the restart and the <b><tt>restart/</tt></b> directory is one time step ahead of the information in the restart files.
+The <b><tt>restart_goto_new_qm_step</tt></b> keyword on the contrary should be used after the simulation was gracefully stopped (e.g., after reaching <b><tt>tmax</tt></b>/<b><tt>nsteps</tt></b>, after using the <b><tt>STOP</tt></b> file, or after using the <b><tt>killafter</tt></b> mechanism).
+In this case, restart files and <b><tt>restart/</tt></b> directory are consistent and the simulation continues as if no stop-and-restart were performed.
 <div class="p"><!----></div>
 <b>RNG Seed&nbsp;&nbsp;</b>
 <div class="p"><!----></div>
@@ -2309,6 +2086,17 @@ The <b><tt>atommask</tt></b> keyword can then be used to exclude certain atoms f
 <div class="p"><!----></div>
 Note that the <b><tt>atommask</tt></b> keyword has no effect on <b><tt>ekincorrect parallel_nac</tt></b>, <b><tt>reflect_frustrated parallel_nac</tt></b>, and <b><tt>decoherence_scheme afssh</tt></b>, because these procedures are size consistent by themselves.
 <div class="p"><!----></div>
+<b>Bond length constraints with RATTLE&nbsp;&nbsp;</b>
+<div class="p"><!----></div>
+One can use the RATTLE algorithm to constrain the length of some bonds (or generally, interatomic distances) to some fixed value.
+The <b><tt>rattle</tt></b> keyword can be used to activate this option.
+<div class="p"><!----></div>
+Activating <b><tt>rattle</tt></b> requires providing a file with the list of atom pairs whose distance should be fixed.
+The format for this file is described in section&nbsp;<a href="#sec:rattlefile">4.7</a>. 
+<div class="p"><!----></div>
+One can also use the <b><tt>rattletolerance</tt></b> keyword to modify the convergence criterion of the RATTLE linear equation solver.
+However, for most purposes, the default should be acceptable.
+<div class="p"><!----></div>
 <b>Reference Energy&nbsp;&nbsp;</b>
 <div class="p"><!----></div>
 The keyword <b><tt>ezero</tt></b> gives the energy shift for the diagonal elements of the Hamiltonian. The shift should be chosen so that the shifted diagonal elements are reasonably small (large diagonal elements in the Hamiltonian lead to rapidly changing coefficients, requiring extremely short subtime steps). 
@@ -2332,6 +2120,10 @@ Since  S<span style="font-size:x-small">HARC</span>2.1, by default the <b><tt>se
 The alternative (keyword <b><tt>noselect_directly</tt></b>) is to perform two quantum chemistry calls per time step. In the first call, all quantities are requested except for the ones to be selected. The energies are used to determine which gradients and NACs to calculate in a second quantum chemistry call.
 The option <b><tt>select_directly</tt></b> is strongly recommended in almost all instances, since for most quantum chemistry programs it is not possible to make sure that the wave function phases from both calls are consistent.
 Additionally, for all interfaces the calculation becomes more expensive with two calls per step.
+<div class="p"><!----></div>
+Note that some interface may (for some electronic structure methods) compute the gradients numerically.
+In this case, the interface will automatically compute the gradients of all states together.
+Therefore, <b><tt>grad_select</tt></b> offers no advantage for numerical gradient runs and it is strongly suggested to use the default option <b><tt>grad_all</tt></b>.
 <div class="p"><!----></div>
 <b>Phase Tracking&nbsp;&nbsp;</b>
 <div class="p"><!----></div>
@@ -2503,6 +2295,23 @@ Example:
 &nbsp;F
 &nbsp;F
 ...
+</pre>
+<div class="p"><!----></div>
+ <a id="tth_sEc4.7"></a><h2>
+4.7&nbsp;&nbsp;RATTLE file</h2><a id="sec:rattlefile">
+</a>
+<div class="p"><!----></div>
+The RATTLE file contains a list of all the atom pairs whose interatomic distance should be fixed by the RATTLE algorithm.
+In the file, each line should contain two integer numbers that indicate the atom indices of one atom pair.
+Atom indices start at 1.
+Optionally, some lines can also have a third entry, which is a float with the desired interatomic distance in Bohr units.
+If the third entry is not give, then the distance is fixed to the value that is found in the initial geometry file.
+<div class="p"><!----></div>
+Example:
+<pre>
+1&nbsp;3
+2&nbsp;4&nbsp;&nbsp;2.05
+2&nbsp;5
 </pre>
 <div class="p"><!----></div>
 <div class="p"><!----></div>
@@ -2830,7 +2639,7 @@ NACDR&nbsp;select
 &nbsp;&nbsp;end
 </pre>
 <div class="p"><!----></div>
-There exist two types of keywords, <i>control</i> keywords and <i>request</i> keywords. Control keywords pass some information to the interface. Request keywords tell the interface to provide a quantity in the <b><tt>QM.out</tt></b> file. Table&nbsp;<a href="#tab:int_ctrl"> 6.1</a> contains all control keywords while table&nbsp;<a href="#tab:int_req"> 6.2</a> lists all request keywords.
+There exist two types of keywords, <i>control</i> keywords and <i>request</i> keywords. Control keywords pass some information to the interface. Request keywords tell the interface to provide a quantity in the <b><tt>QM.out</tt></b> file. Table&nbsp;<a href="#tab:int_ctrl">6.1</a> contains all control keywords while table&nbsp;<a href="#tab:int_req">6.2</a> lists all request keywords.
 <div class="p"><!----></div>
 <div class="p"><!----></div>
 <a id="tth_tAb6.1">
@@ -2852,7 +2661,7 @@ There exist two types of keywords, <i>control</i> keywords and <i>request</i> ke
 <div class="p"><!----></div>
 <div class="p"><!----></div>
 <a id="tth_tAb6.2">
-</a>   <div style="text-align:center">  <div style="text-align:center">Table 6.2: Request keywords for  S<span style="font-size:x-small">HARC</span>&nbsp;interfaces. See Table&nbsp;<a href="#tab:interfaces"> 6.3</a> for which interfaces can fulfill these requests.</div>
+</a>   <div style="text-align:center">  <div style="text-align:center">Table 6.2: Request keywords for  S<span style="font-size:x-small">HARC</span>&nbsp;interfaces. See Table&nbsp;<a href="#tab:interfaces">6.3</a> for which interfaces can fulfill these requests.</div>
   <a id="tab:int_req">
 </a>
 <table>
@@ -3042,8 +2851,8 @@ The interfaces must be able to save all information necessary for restart to a g
 <div class="p"><!----></div>
 The  S<span style="font-size:x-small">HARC</span>&nbsp;suite comes with a number of interfaces to different quantum chemistry programs.
 Their capabilities and usage are explained in the following sections.
-Table&nbsp;<a href="#tab:interfaces"> 6.3</a> gives an overview over the capabilities of the interfaces.
-Table&nbsp;<a href="#tab:interface_files"> 6.4</a> shows the file names for interface-related input files of the different interfaces.
+Table&nbsp;<a href="#tab:interfaces">6.3</a> gives an overview over the capabilities of the interfaces.
+Table&nbsp;<a href="#tab:interface_files">6.4</a> shows the file names for interface-related input files of the different interfaces.
 <div class="p"><!----></div>
 <div class="p"><!----></div>
 <a id="tth_tAb6.3">
@@ -3194,7 +3003,7 @@ Remember that <b><tt>molpro_input.py</tt></b> cannot create multi-job templates 
 <div class="p"><!----></div>
 The interface requires some additional information beyond the content of <b><tt>QM.in</tt></b>. This information is given in the file <b><tt>MOLPRO.resources</tt></b>, which must reside in the directory where the interface is started. This file uses a simple "<b><tt>keyword argument</tt></b>" syntax. Comments using # and blank lines are possible, the order of keywords is arbitrary. Lines with unknown keywords are ignored, since the interface just searches the file for certain keywords.
 <div class="p"><!----></div>
-Table&nbsp;<a href="#tab:molpro_sh2"> 6.5</a> lists the existing keywords.
+Table&nbsp;<a href="#tab:molpro_sh2">6.5</a> lists the existing keywords.
 A fully commented resource file for this interface with all possible options is located in <b><tt>$SHARC/../examples/SHARC_MOLPRO/</tt></b>.
 <div class="p"><!----></div>
 <div class="p"><!----></div>
@@ -3354,7 +3163,7 @@ The interface needs two additional input files, a template file for the quantum 
      <a id="tth_sEc6.4.1"></a><h3>
 6.4.1&nbsp;&nbsp;Template file: <b><tt>MOLCAS.template</tt></b></h3>
 <div class="p"><!----></div>
-This file contains the specifications for the wave function. Note that this is not a valid  M<span style="font-size:x-small">OLCAS</span> input file. No sections like <b><tt>$GATEWAY</tt></b>, etc., can be used. The file only contains a number of keywords, given in table&nbsp;<a href="#tab:molcas_temp"> 6.6</a>.
+This file contains the specifications for the wave function. Note that this is not a valid  M<span style="font-size:x-small">OLCAS</span> input file. No sections like <b><tt>$GATEWAY</tt></b>, etc., can be used. The file only contains a number of keywords, given in table&nbsp;<a href="#tab:molcas_temp">6.6</a>.
 The actual input files are automatically generated.
 <div class="p"><!----></div>
 A fully commented template file with all possible options is located in <b><tt>$SHARC/../examples/SHARC_MOLCAS/</tt></b>.
@@ -3395,7 +3204,7 @@ Simple template files can be setup with the tool <b><tt>molcas_input.py</tt></b>
 <div class="p"><!----></div>
 The file <b><tt>MOLCAS.resources</tt></b> contains mainly paths (to the  M<span style="font-size:x-small">OLCAS</span> executables, to the scratch directory, etc.). This file must reside in the same directory where the interface is started. It uses a simple "<b><tt>keyword argument</tt></b>" syntax. Comments using # and blank lines are possible, the order of keywords is arbitrary. Lines with unknown keywords are ignored, since the interface just searches the file for certain keywords.
 <div class="p"><!----></div>
-Table&nbsp;<a href="#tab:molcas_sh2"> 6.7</a> lists the existing keywords.
+Table&nbsp;<a href="#tab:molcas_sh2">6.7</a> lists the existing keywords.
 A fully commented resource file for this interface with all possible options is located in <b><tt>$SHARC/../examples/SHARC_MOLCAS/</tt></b>.
 <div class="p"><!----></div>
 <div class="p"><!----></div>
@@ -3425,7 +3234,7 @@ Note that the interface sets all environment variables necessary to run  M<span 
 <div class="p"><!----></div>
 Some explanations on parallelization: There are two parallel modes in which the interface can act. In the first mode, the wave function and expectation values are calculated serially first, and then all analytical gradients are computed in parallel, over the given number of CPUs. If the number of CPUs is one, then still the interface prepares independent computations for each gradient, and runs those sequentially on one CPU. If the given number of CPUs is negative or zero, then the gradients are not prepared as separate  M<span style="font-size:x-small">OLCAS</span> calculations, but together with the other quantities. The latter variant has less overhead, but is only recommended if the user is sure that the gradient calculations (MCLR) will converge in virtually all cases. If MCLR does not converge occasionally, it is advisable to use NCPU=1 instead of NCPU &#8804; 0.
 <div class="p"><!----></div>
-In the second parallelization mode, used for numerical gradients, the central point is calculated first and then all displacements are computed in parallel. This mode will be used for gradients on CASPT2, MS-CASPT2 and Cholesky-CASSCF level as well as for spin-orbit/dipole moment derivatives on all levels. In this mode there is no distinction between NCPU=1 and NCPU &#8804; 0. 
+In the second parallelization mode, used for numerical gradients, the central point is calculated first and then all displacements are computed in parallel. This mode will be used for gradients on CASPT2, MS-CASPT2 and Cholesky-CASSCF level as well as for spin-orbit/dipole moment derivatives on all levels. In this mode there is no distinction between NCPU=1 and NCPU &#8804; 0. Note that numerical gradients are always automatically computed for all states or state-pairs. Hence, in numerical-gradient mode there is no advantage of using the <b><tt>grad_select</tt></b> keyword in <b><tt>sharc.x</tt></b>. Also note that the  S<span style="font-size:x-small">HARC</span>- M<span style="font-size:x-small">OLCAS</span> interface currently does not handle multiple jobs in the same time step correctly. Accordingly, for CASPT2 dynamics, one needs to employ the <b><tt>select_directly</tt></b> and <b><tt>grad_all</tt></b> keywords.
 <div class="p"><!----></div>
      <a id="tth_sEc6.4.3"></a><h3>
 6.4.3&nbsp;&nbsp;Template file generator: <b><tt>molcas_input.py</tt></b></h3><a id="sec:molcas_input.py">
@@ -3583,7 +3392,7 @@ Request first transition moments and interstate couplings (or alternatively full
      <a id="tth_sEc6.5.2"></a><h3>
 6.5.2&nbsp;&nbsp;Resource file: <b><tt>COLUMBUS.resources</tt></b></h3>
 <div class="p"><!----></div>
-Beyond the information from <b><tt>QM.in</tt></b> the interface needs additional input, which is read from the file <b><tt>COLUMBUS.resources</tt></b>. Table&nbsp;<a href="#tab:columbus_sh2"> 6.8</a> lists the keywords which can be given in the file.
+Beyond the information from <b><tt>QM.in</tt></b> the interface needs additional input, which is read from the file <b><tt>COLUMBUS.resources</tt></b>. Table&nbsp;<a href="#tab:columbus_sh2">6.8</a> lists the keywords which can be given in the file.
 A fully commented resource file with all possible options is located in <b><tt>$SHARC/../examples/SHARC_COLUMBUS/</tt></b>.
 <div class="p"><!----></div>
 <div class="p"><!----></div>
@@ -3629,7 +3438,7 @@ columbus        </td><td align="left">Path to the  C<span style="font-size:x-sma
 6.5.3&nbsp;&nbsp;Template setup</h3><a id="int:col:template">
 </a>
 <div class="p"><!----></div>
-The template directory contains several subdirectories with input for different multiplicities. An example is given in figure&nbsp;<a href="#fig:dirs_COLtemp"> 6.2</a>. In <b><tt>COLUMBUS.resources</tt></b>, the user has to associate each multiplicity to a subdirectory. The line "<b><tt>DIR 1 Sing_Trip</tt></b>" would make the interface use the input files from the subdirectory <b><tt>Sing_Trip</tt></b> when calculating singlet states (the <b><tt>1</tt></b> refers to singlet calculations). All calculations using a particular input subdirectory are called a job.
+The template directory contains several subdirectories with input for different multiplicities. An example is given in figure&nbsp;<a href="#fig:dirs_COLtemp">6.2</a>. In <b><tt>COLUMBUS.resources</tt></b>, the user has to associate each multiplicity to a subdirectory. The line "<b><tt>DIR 1 Sing_Trip</tt></b>" would make the interface use the input files from the subdirectory <b><tt>Sing_Trip</tt></b> when calculating singlet states (the <b><tt>1</tt></b> refers to singlet calculations). All calculations using a particular input subdirectory are called a job.
 <div class="p"><!----></div>
 Additionally, the user must specify which job(s) provide the MO coefficients (e.g., the calculation for doublet states could be based on the same MOs as the singlet and triplet calculation). The line "<b><tt>MOCOEF Doub_Quar Sing_Trip</tt></b>" would tell the interface to do a MCSCF calculation in the <b><tt>Sing_Trip</tt></b> job, and reuse the MOs when doing the <b><tt>Doub_Quar</tt></b> job without reoptimizing the MOs.
 <div class="p"><!----></div>
@@ -3834,7 +3643,7 @@ Also note that <b><tt>KFFile</tt></b> requires Python&nbsp;3 (version 3.5 or hig
      <a id="tth_sEc6.7.1"></a><h3>
 6.7.1&nbsp;&nbsp;Template file: <b><tt>ADF.template</tt></b></h3>
 <div class="p"><!----></div>
-This file contains the specifications for the quantum chemistry calculation. Note that this is not a valid  ADF input file. The file only contains a number of keywords, given in table&nbsp;<a href="#tab:adf_temp"> 6.9</a>. The actual input for  ADF will be generated automatically through the interface.
+This file contains the specifications for the quantum chemistry calculation. Note that this is not a valid  ADF input file. The file only contains a number of keywords, given in table&nbsp;<a href="#tab:adf_temp">6.9</a>. The actual input for  ADF will be generated automatically through the interface.
 In order to enable many functionalities of ADF and to allow fine-tuning of the performance for large calculations, the template has a relatively large number of keywords.
 <div class="p"><!----></div>
 A fully commented template file-with all possible options, a comprehensive descriptions, and some practical hints-is located in <b><tt>$SHARC/../examples/SHARC_ADF/ADF.template</tt></b>.
@@ -3924,7 +3733,7 @@ We recommend that users start from this template file and modify it appropriatel
 <div class="p"><!----></div>
 The file <b><tt>ADF.resources</tt></b> contains mainly paths (to the  ADF executables, to the scratch directory, etc.) and other resources, plus settings for <b><tt>wfoverlap.x</tt></b> and  T<span style="font-size:x-small">HEO</span>DORE. This file must reside in the same directory where the interface is started. It uses a simple "<b><tt>keyword argument</tt></b>" syntax. Comments using # and blank lines are possible, the order of keywords is arbitrary. Lines with unknown keywords are ignored, since the interface just searches the file for certain keywords.
 <div class="p"><!----></div>
-Table&nbsp;<a href="#tab:adf_sh2"> 6.10</a> lists the existing keywords.
+Table&nbsp;<a href="#tab:adf_sh2">6.10</a> lists the existing keywords.
 A fully commented resource file with all possible options and comprehensive descriptions is located in <b><tt>$SHARC/../examples/SHARC_ADF/</tt></b>.
 <div class="p"><!----></div>
 <div class="p"><!----></div>
@@ -4205,7 +4014,7 @@ In the case of QM/MM calculations, two more input files are needed: an  A<span s
      <a id="tth_sEc6.8.1"></a><h3>
 6.8.1&nbsp;&nbsp;Template file: <b><tt>RICC2.template</tt></b></h3>
 <div class="p"><!----></div>
-This file contains the specifications for the quantum chemistry calculation. Note that this is not a valid  T<span style="font-size:x-small">URBOMOLE</span> input file. The file only contains a number of keywords, given in table&nbsp;<a href="#tab:ricc2_temp"> 6.11</a>. The actual input for  T<span style="font-size:x-small">URBOMOLE</span> will be generated automatically through <b><tt>define</tt></b>.
+This file contains the specifications for the quantum chemistry calculation. Note that this is not a valid  T<span style="font-size:x-small">URBOMOLE</span> input file. The file only contains a number of keywords, given in table&nbsp;<a href="#tab:ricc2_temp">6.11</a>. The actual input for  T<span style="font-size:x-small">URBOMOLE</span> will be generated automatically through <b><tt>define</tt></b>.
 A fully commented template file with all possible options is located in <b><tt>$SHARC/../examples/SHARC_RICC2/</tt></b>.
 <div class="p"><!----></div>
 <div class="p"><!----></div>
@@ -4242,7 +4051,7 @@ See the  T<span style="font-size:x-small">URBOMOLE</span> directory structure to
 <div class="p"><!----></div>
 The file <b><tt>RICC2.resources</tt></b> contains mainly paths (to the  T<span style="font-size:x-small">URBOMOLE</span> and  O<span style="font-size:x-small">RCA</span> executables, to the scratch directory, etc.). This file must reside in the same directory where the interface is started. It uses a simple "<b><tt>keyword argument</tt></b>" syntax. Comments using # and blank lines are possible, the order of keywords is arbitrary. Lines with unknown keywords are ignored, since the interface just searches the file for certain keywords.
 <div class="p"><!----></div>
-Table&nbsp;<a href="#tab:ricc2_sh2"> 6.12</a> lists the existing keywords.
+Table&nbsp;<a href="#tab:ricc2_sh2">6.12</a> lists the existing keywords.
 A fully commented resource file with all possible options is located in <b><tt>$SHARC/../examples/SHARC_RICC2/</tt></b>.
 <div class="p"><!----></div>
 <div class="p"><!----></div>
@@ -4479,7 +4288,7 @@ If files <b><tt>QM/GAUSSIAN.chk.init</tt></b> or <b><tt>QM/GAUSSIAN.chk.&lt;job&
      <a id="tth_sEc6.10.1"></a><h3>
 6.10.1&nbsp;&nbsp;Template file: <b><tt>GAUSSIAN.template</tt></b></h3>
 <div class="p"><!----></div>
-This file contains the specifications for the quantum chemistry calculation. Note that this is not a valid  G<span style="font-size:x-small">AUSSIAN</span> input file. The file only contains a number of keywords, given in table&nbsp;<a href="#tab:gauss_temp"> 6.13</a>. The actual input for  G<span style="font-size:x-small">AUSSIAN</span> will be generated automatically through the interface.
+This file contains the specifications for the quantum chemistry calculation. Note that this is not a valid  G<span style="font-size:x-small">AUSSIAN</span> input file. The file only contains a number of keywords, given in table&nbsp;<a href="#tab:gauss_temp">6.13</a>. The actual input for  G<span style="font-size:x-small">AUSSIAN</span> will be generated automatically through the interface.
 <div class="p"><!----></div>
 A fully commented template file-with all possible options, a comprehensive descriptions, and some practical hints-is located in <b><tt>$SHARC/../examples/SHARC_GAUSSIAN/GAUSSIAN.template</tt></b>.
 We recommend that users start from this template file and modify it appropriately for their calculations.
@@ -4525,7 +4334,7 @@ We recommend that users start from this template file and modify it appropriatel
 <div class="p"><!----></div>
 The file <b><tt>GAUSSIAN.resources</tt></b> contains mainly paths (to the  G<span style="font-size:x-small">AUSSIAN</span> executables, to the scratch directory, etc.) and other resources, plus settings for <b><tt>wfoverlap.x</tt></b> and  T<span style="font-size:x-small">HEO</span>DORE. This file must reside in the same directory where the interface is started. It uses a simple "<b><tt>keyword argument</tt></b>" syntax. Comments using # and blank lines are possible, the order of keywords is arbitrary. Lines with unknown keywords are ignored, since the interface just searches the file for certain keywords.
 <div class="p"><!----></div>
-Table&nbsp;<a href="#tab:gauss_sh2"> 6.14</a> lists the existing keywords.
+Table&nbsp;<a href="#tab:gauss_sh2">6.14</a> lists the existing keywords.
 A fully commented resource file with all possible options and comprehensive descriptions is located in <b><tt>$SHARC/../examples/SHARC_GAUSSIAN/</tt></b>.
 <div class="p"><!----></div>
 <div class="p"><!----></div>
@@ -4607,7 +4416,7 @@ In the case of QM/MM calculations, two more input files are needed: an  A<span s
      <a id="tth_sEc6.11.1"></a><h3>
 6.11.1&nbsp;&nbsp;Template file: <b><tt>ORCA.template</tt></b></h3>
 <div class="p"><!----></div>
-This file contains the specifications for the quantum chemistry calculation. Note that this is not a valid  O<span style="font-size:x-small">RCA</span> input file. The file only contains a number of keywords, given in table&nbsp;<a href="#tab:orca_temp"> 6.15</a>. The actual input for  O<span style="font-size:x-small">RCA</span> will be generated automatically through the interface.
+This file contains the specifications for the quantum chemistry calculation. Note that this is not a valid  O<span style="font-size:x-small">RCA</span> input file. The file only contains a number of keywords, given in table&nbsp;<a href="#tab:orca_temp">6.15</a>. The actual input for  O<span style="font-size:x-small">RCA</span> will be generated automatically through the interface.
 <div class="p"><!----></div>
 A fully commented template file-with all possible options, a comprehensive descriptions, and some practical hints-is located at <b><tt>$SHARC/../examples/SHARC_ORCA/ORCA.template</tt></b>.
 For QM/MM calculations, a second example template (along with the QM/MM-specific files) is located at <b><tt>$SHARC/../examples/SHARC_ORCA_Tinker/ORCA.template</tt></b>.
@@ -4666,7 +4475,7 @@ While there is no special keyword in <b><tt>ORCA.template</tt></b> for this basi
 <div class="p"><!----></div>
 The file <b><tt>ORCA.resources</tt></b> contains mainly paths (to the  O<span style="font-size:x-small">RCA</span> executables, to the scratch directory, etc.) and other resources, plus settings for <b><tt>wfoverlap.x</tt></b> and  T<span style="font-size:x-small">HEO</span>DORE. This file must reside in the same directory where the interface is started. It uses a simple "<b><tt>keyword argument</tt></b>" syntax. Comments using # and blank lines are possible, the order of keywords is arbitrary. Lines with unknown keywords are ignored, since the interface just searches the file for certain keywords.
 <div class="p"><!----></div>
-Table&nbsp;<a href="#tab:orca_sh2"> 6.16</a> lists the existing keywords.
+Table&nbsp;<a href="#tab:orca_sh2">6.16</a> lists the existing keywords.
 A fully commented resource file with all possible options and comprehensive descriptions is located in <b><tt>$SHARC/../examples/SHARC_ORCA/</tt></b>.
 <div class="p"><!----></div>
 <div class="p"><!----></div>
@@ -4786,7 +4595,7 @@ Note that when running  B<span style="font-size:x-small">AGEL</span>, it might b
      <a id="tth_sEc6.12.1"></a><h3>
 6.12.1&nbsp;&nbsp;Template file: <b><tt>BAGEL.template</tt></b></h3>
 <div class="p"><!----></div>
-This file contains the specifications for the quantum chemistry calculation. Note that this is not a valid  B<span style="font-size:x-small">AGEL</span> input file. The file only contains a number of keywords, given in table&nbsp;<a href="#tab:bagel_temp"> 6.17</a>. The actual input for  B<span style="font-size:x-small">AGEL</span> will be generated automatically through the interface.
+This file contains the specifications for the quantum chemistry calculation. Note that this is not a valid  B<span style="font-size:x-small">AGEL</span> input file. The file only contains a number of keywords, given in table&nbsp;<a href="#tab:bagel_temp">6.17</a>. The actual input for  B<span style="font-size:x-small">AGEL</span> will be generated automatically through the interface.
 <div class="p"><!----></div>
 A fully commented template file-with all possible options, a comprehensive descriptions, and some practical hints-is located at <b><tt>$SHARC/../examples/SHARC_BAGEL/BAGEL.template</tt></b>.
 For QM/MM calculations, a second example template (along with the QM/MM-specific files) is located at <b><tt>$SHARC/../examples/SHARC_BAGEL_Tinker/BAGEL.template</tt></b>.
@@ -4837,7 +4646,7 @@ We recommend that users start from this template file and modify it appropriatel
 <div class="p"><!----></div>
 The file <b><tt>BAGEL.resources</tt></b> contains mainly paths (to the  B<span style="font-size:x-small">AGEL</span> executables, to the scratch directory, etc.) and other resources, plus settings relevant for <b><tt>wfoverlap.x</tt></b>. This file must reside in the same directory where the interface is started. It uses a simple "<b><tt>keyword argument</tt></b>" syntax. Comments using # and blank lines are possible, the order of keywords is arbitrary. Lines with unknown keywords are ignored, since the interface just searches the file for certain keywords.
 <div class="p"><!----></div>
-Table&nbsp;<a href="#tab:bagel_sh2"> 6.18</a> lists the existing keywords.
+Table&nbsp;<a href="#tab:bagel_sh2">6.18</a> lists the existing keywords.
 A fully commented resource file with all possible options and comprehensive descriptions is located in <b><tt>$SHARC/../examples/SHARC_BAGEL/</tt></b>.
 <div class="p"><!----></div>
 <div class="p"><!----></div>
@@ -4990,7 +4799,7 @@ will run a couple of tests to check if the program is working correctly (alterna
      <a id="tth_sEc6.13.2"></a><h3>
 6.13.2&nbsp;&nbsp;Workflow</h3>
 <div class="p"><!----></div>
-The workflow of the overlap program is shown in Figure&nbsp;<a href="#fig:work"> 6.3</a>.
+The workflow of the overlap program is shown in Figure&nbsp;<a href="#fig:work">6.3</a>.
 Four pieces of input, as shown on top, have to be given:
 <ul>
 <li> Overlaps between the two sets of AOs used to construct the bra and ket wavefunctions,
@@ -5102,11 +4911,11 @@ b_det=dets_b
 ao_read=2
 same_aos
 </pre>
-The full list of keywords is given in Table&nbsp;<a href="#tab:key_wfo"> 6.19</a>.
+The full list of keywords is given in Table&nbsp;<a href="#tab:key_wfo">6.19</a>.
 <div class="p"><!----></div>
      <a id="tth_sEc6.13.4"></a><h3>
 6.13.4&nbsp;&nbsp;Input data</h3>
-Typically, three types of input need to be provided: AO overlaps, MO coefficients, and a combined file with determinant information and CI coefficients (cf.&nbsp;Figure&nbsp;<a href="#fig:work"> 6.3</a>).
+Typically, three types of input need to be provided: AO overlaps, MO coefficients, and a combined file with determinant information and CI coefficients (cf.&nbsp;Figure&nbsp;<a href="#fig:work">6.3</a>).
 The file formats are explained here.
 Within  S<span style="font-size:x-small">HARC</span>, these files are automatically extracted or converted by the interfaces, so the user does not need to create them.
 <div class="p"><!----></div>
@@ -5184,7 +4993,7 @@ Usually, the output of <b><tt>wfoverlap.x</tt></b> is automatically extracted by
 <div class="p"><!----></div>
 <b>Wavefunction overlaps&nbsp;&nbsp;</b>
 <div class="p"><!----></div>
-The output first lists some information about the wavefunction structure and about the computational time taken for the individual steps (cf. Figure&nbsp;<a href="#fig:work"> 6.3</a>).
+The output first lists some information about the wavefunction structure and about the computational time taken for the individual steps (cf. Figure&nbsp;<a href="#fig:work">6.3</a>).
 <div class="p"><!----></div>
 A typical result of a wavefunction overlap computation is shown here:
 <pre>
@@ -5303,7 +5112,7 @@ The argument is the filename of the file containing the information about the vi
 </li>
 </ul>
 </td></tr></table><!--vbox-->
-</td><td></td></tr></table><!--hboxt-->The script accepts a number of command-line options, specified in table&nbsp;<a href="#tab:wigner_opts"> 7.1</a>.
+</td><td></td></tr></table><!--hboxt-->The script accepts a number of command-line options, specified in table&nbsp;<a href="#tab:wigner_opts">7.1</a>.
 <div class="p"><!----></div>
 <a id="tth_tAb7.1">
 </a>   <div style="text-align:center">  <div style="text-align:center">Table 7.1: Command-line options for script <b><tt>wigner.py</tt></b>.</div>
@@ -5400,7 +5209,7 @@ With the restart files prepared, call <b><tt>amber_to_initconds.py</tt></b> like
 <pre>
 user@host&#62;&nbsp;$SHARC/amber_to_initconds.py&nbsp;[options]&nbsp;md.prmtop&nbsp;md.rst_0&nbsp;md.rst_5000&nbsp;md.rst_10000&nbsp;...
 </pre>
-The possible options are shown in Table&nbsp;<a href="#tab:amber_opts"> 7.2</a>.
+The possible options are shown in Table&nbsp;<a href="#tab:amber_opts">7.2</a>.
 <div class="p"><!----></div>
 <div class="p"><!----></div>
 <a id="tth_tAb7.2">
@@ -5466,7 +5275,7 @@ Alternatively, with the <b><tt>-give_TRAJ_paths</tt></b> option, one can also do
 <pre>
 user@host&#62;&nbsp;$SHARC/sharctraj_to_initconds.py&nbsp;--give_TRAJ_paths&nbsp;[options]&nbsp;TRAJ_00001&nbsp;TRAJ_00002&nbsp;...
 </pre>
-The possible options are shown in Table&nbsp;<a href="#tab:sharctraj_opts"> 7.3</a>.
+The possible options are shown in Table&nbsp;<a href="#tab:sharctraj_opts">7.3</a>.
 <div class="p"><!----></div>
 <div class="p"><!----></div>
 <a id="tth_tAb7.3">
@@ -5973,7 +5782,7 @@ The calculations in each directory can be simply executed by starting <b><tt>run
 Alternatively, each run script can be sent to a queueing system (you might need to adapt this script to you cluster system).
 Note that if reference overlaps were requested, the calculation in <b><tt>ICOND_00000/</tt></b> must be finished before starting any of the other calculations.
 <div class="p"><!----></div>
-In figure&nbsp;<a href="#fig:dirs_init"> 7.1</a>, the directory tree structure setup by <b><tt>setup_init.py</tt></b> is given.
+In figure&nbsp;<a href="#fig:dirs_init">7.1</a>, the directory tree structure setup by <b><tt>setup_init.py</tt></b> is given.
 <div class="p"><!----></div>
 <div class="p"><!----></div>
 <a id="tth_fIg7.1">
@@ -6087,7 +5896,7 @@ The fourth option can only be used if the existing state information is kept. In
 <div class="p"><!----></div>
 This option allows to exclude excited states from the selection procedure if they are outside a given energy window. This option is only available if excited state information exists, but not if a dummy list of states is generated (because the dummy states have no defined excitation energy).
 <div class="p"><!----></div>
-For the stochastic selection procedure, states outside the excitation window do not count for the determination of p<sub>max</sub> (see equation&nbsp;(<a href="#eq:exc_prob"> 8.45</a>)). This allows to excite, e.g., to a dark n&#960;<sup>*</sup> state despite the presence of a much brighter &#960;&#960;<sup>*</sup> state.
+For the stochastic selection procedure, states outside the excitation window do not count for the determination of p<sub>max</sub> (see equation&nbsp;(<a href="#eq:exc_prob">8.45</a>)). This allows to excite, e.g., to a dark n&#960;<sup>*</sup> state despite the presence of a much brighter &#960;&#960;<sup>*</sup> state.
 <div class="p"><!----></div>
 For the keep-flags option, this option can be used to count the number of excited states in the energy window.
 <div class="p"><!----></div>
@@ -6097,7 +5906,7 @@ Here the user can specify the list of desired initial states.
 If reference overlaps are present in the excitation calculations, then the user can choose to specify the initial state in terms of diabatized states (as defined by the overlap with the reference, where the diabatized states are identical to the computed states).
 See section&nbsp;<a href="#met:exc_diabatic">8.9.1</a> for how the diabatization is carried out.
 <div class="p"><!----></div>
-For the stochastic selection procedure, the user can instead exclude certain states from the procedure. Excluded states do not count for the determination of p<sub>max</sub> (see equation&nbsp;(<a href="#eq:exc_prob"> 8.45</a>)).
+For the stochastic selection procedure, the user can instead exclude certain states from the procedure. Excluded states do not count for the determination of p<sub>max</sub> (see equation&nbsp;(<a href="#eq:exc_prob">8.45</a>)).
 <div class="p"><!----></div>
 If the number of states per multiplicity is known, <b><tt>excite.py</tt></b> will print a table giving for each state index the multiplicity, quantum number and M<sub>s</sub> value.
 <div class="p"><!----></div>
@@ -6394,7 +6203,7 @@ For each trajectory, a <b><tt>run.sh</tt></b> script will be created, which can 
 Note that this is intended for small test trajectories, and should not be used for expensive production trajectories.
 For the latter, <b><tt>setup_traj.py</tt></b> can optionally create a script <b><tt>all_qsub_traj.sh</tt></b>, which can be executed to submit all trajectories to a queueing system. You might need to adapt also this script to your cluster setup.
 <div class="p"><!----></div>
-The full directory structure created by <b><tt>setup_traj.py</tt></b> is given in figure&nbsp;<a href="#fig:dirs_traj"> 7.2</a>.
+The full directory structure created by <b><tt>setup_traj.py</tt></b> is given in figure&nbsp;<a href="#fig:dirs_traj">7.2</a>.
 <div class="p"><!----></div>
 <div class="p"><!----></div>
  <a id="tth_sEc7.7"></a><h2>
@@ -6454,9 +6263,9 @@ There are two input lines for the field strength <i>E</i><sub>0</sub>, the first
 <div class="p"><!----></div>
 This option depends on the type of envelope chosen. While in both cases all 5 numbers need to be entered, for a Gaussian pulse only the first and third number have an effect. For a sinusoidal pulse all but the first number has an effect.
 <div class="p"><!----></div>
-For a Gaussian pulse, the first argument corresponds to FWHM in equation&nbsp;(<a href="#eq:laser_gauss_2"> 8.71</a>) and the third argument to t<sub>c</sub> in &nbsp;(<a href="#eq:laser_gauss_1"> 8.70</a>).
+For a Gaussian pulse, the first argument corresponds to FWHM in equation&nbsp;(<a href="#eq:laser_gauss_2">8.71</a>) and the third argument to t<sub>c</sub> in &nbsp;(<a href="#eq:laser_gauss_1">8.70</a>).
 <div class="p"><!----></div>
-For a sinusoidal pulse, the second, third, fourth and fifth argument correspond to t<sub>0</sub>, t<sub>c</sub>, t<sub>c2</sub> and t<sub>e</sub>, respectively, in equation&nbsp;(<a href="#eq:laser_sinus"> 8.72</a>).
+For a sinusoidal pulse, the second, third, fourth and fifth argument correspond to t<sub>0</sub>, t<sub>c</sub>, t<sub>c2</sub> and t<sub>e</sub>, respectively, in equation&nbsp;(<a href="#eq:laser_sinus">8.72</a>).
 <div class="p"><!----></div>
 <b>Central frequency&nbsp;&nbsp;</b>
 <div class="p"><!----></div>
@@ -6468,7 +6277,7 @@ The total phase &#981; is given in multiples of &#960;. For example, the input "
 <div class="p"><!----></div>
 <b>Chirp parameters&nbsp;&nbsp;</b>
 <div class="p"><!----></div>
-There are four lines giving the chirp parameters b<sub>1</sub>, b<sub>2</sub>, b<sub>3</sub> and b<sub>4</sub>. See equation&nbsp;(<a href="#eq:laser_chirp"> 8.74</a>) for the meaning of these parameters.
+There are four lines giving the chirp parameters b<sub>1</sub>, b<sub>2</sub>, b<sub>3</sub> and b<sub>4</sub>. See equation&nbsp;(<a href="#eq:laser_chirp">8.74</a>) for the meaning of these parameters.
 <div class="p"><!----></div>
 <div class="p"><!----></div>
  <a id="tth_sEc7.8"></a><h2>
@@ -6477,7 +6286,7 @@ There are four lines giving the chirp parameters b<sub>1</sub>, b<sub>2</sub>, b
 <div class="p"><!----></div>
 Aside from setting up trajectories, the <b><tt>initconds.excited</tt></b> files can also be used to generate absorption spectra based on the excitation energies and oscillator strengths in the file. The script <b><tt>spectrum.py</tt></b> calculates Gaussian, Lorentzian, or Log-normal convolutions of these data in order to obtain spectra. See section&nbsp;<a href="#met:spectrum">8.1</a> for further details.
 <div class="p"><!----></div>
-<b><tt>spectrum.py</tt></b> evaluates the absorption spectrum on a grid for all states it finds in an initial conditions file. Using command-line options, some initial conditions can be omitted in the convolution, see table&nbsp;<a href="#tab:spectrum_opts"> 7.4</a>.
+<b><tt>spectrum.py</tt></b> evaluates the absorption spectrum on a grid for all states it finds in an initial conditions file. Using command-line options, some initial conditions can be omitted in the convolution, see table&nbsp;<a href="#tab:spectrum_opts">7.4</a>.
 <div class="p"><!----></div>
      <a id="tth_sEc7.8.1"></a><h3>
 7.8.1&nbsp;&nbsp;Input</h3>
@@ -6487,7 +6296,7 @@ The script is executed with the initial conditions file as argument:
 user@host&#62;&nbsp;$SHARC/spectrum.py&nbsp;[OPTIONS]&nbsp;initconds.excited
 </pre>
 <div class="p"><!----></div>
-The script accepts a number of command-line options, which are given in table&nbsp;<a href="#tab:spectrum_opts"> 7.4</a>.
+The script accepts a number of command-line options, which are given in table&nbsp;<a href="#tab:spectrum_opts">7.4</a>.
 <div class="p"><!----></div>
 <a id="tth_tAb7.4">
 </a>   <div style="text-align:center">  <div style="text-align:center">Table 7.4: Command-line options for script <b><tt>spectrum.py</tt></b>.</div>
@@ -6570,8 +6379,8 @@ The <b><tt>data_extractor.x</tt></b> is a command line tool, and is called with 
 user@host&#62;&nbsp;$SHARC/data_extractor.x&nbsp;[options]&nbsp;output.dat
 </pre>
 The program will create a directory <b><tt>output_data/</tt></b> in the current working directory (not necessarily in the directory where <b><tt>output.dat</tt></b> resides). In this directory, several files are written, containing, e.g., the potential energies depending on time, populations depending on time, etc.
-Which files are created can be controlled with the command line options, which are summarized in Table&nbsp;<a href="#tab:dataextractor_options"> 7.5</a>. For most applications, using the <b><tt>-xs</tt></b> or <b><tt>-s</tt></b> flags should be sufficient. The default is equivalent to <b><tt>-s</tt></b>.
-Note that some options might not be available if the necessary data is not written to <b><tt>output.dat</tt></b> (see write options in Table&nbsp;<a href="#tab:input"> 4.1</a>).
+Which files are created can be controlled with the command line options, which are summarized in Table&nbsp;<a href="#tab:dataextractor_options">7.5</a>. For most applications, using the <b><tt>-xs</tt></b> or <b><tt>-s</tt></b> flags should be sufficient. The default is equivalent to <b><tt>-s</tt></b>.
+Note that some options might not be available if the necessary data is not written to <b><tt>output.dat</tt></b> (see write options in Table&nbsp;<a href="#tab:input">4.1</a>).
 <div class="p"><!----></div>
 The program will extract the complete <b><tt>output.dat</tt></b> file until it reaches the EOF. 
 <div class="p"><!----></div>
@@ -6580,7 +6389,7 @@ The <b><tt>data_extractor.x</tt></b> program will automatically detect the forma
      <a id="tth_sEc7.10.2"></a><h3>
 7.10.2&nbsp;&nbsp;Output</h3>
 <div class="p"><!----></div>
-After the program finishes, the directory <b><tt>output_data/</tt></b> contains a number of files. In each file, the number of columns is dependent in the total number n of states i &#8712; {1...n}. The content of the files is listed in Table&nbsp;<a href="#tab:outputdata"> 7.6</a>.
+After the program finishes, the directory <b><tt>output_data/</tt></b> contains a number of files. In each file, the number of columns is dependent in the total number n of states i &#8712; {1...n}. The content of the files is listed in Table&nbsp;<a href="#tab:outputdata">7.6</a>.
 <div class="p"><!----></div>
 The file <b><tt>expec.out</tt></b> contains the information of <b><tt>energy.out</tt></b>, <b><tt>spin.out</tt></b> and <b><tt>fosc.out</tt></b> in one file. The content of <b><tt>expec.out</tt></b> can be conveniently plotted by using <b><tt>make_gnuscript.py</tt></b> (section&nbsp;<a href="#sec:make_gnuscript.py">7.13</a>) to generate a  G<span style="font-size:x-small">NUPLOT</span> script.
 <div class="p"><!----></div>
@@ -6808,7 +6617,7 @@ This can also be accomplished in one step using a pipe, e.g.:
 user@host&#62;&nbsp;$SHARC/make_gnuscript.py&nbsp;3&nbsp;0&nbsp;2&nbsp;|&nbsp;gnuplot
 </pre>
 <div class="p"><!----></div>
-The created plot script generates four different plots (press ENTER in the command-line where you started  G<span style="font-size:x-small">NUPLOT</span> to go to the next plot). The first plot shows the potential energy of all states in the dynamics over time in the diagonal representation. The currently occupied state is marked with black circles. A thin black line gives the total energy (sum of the kinetic energy and the potential energy of the currently occupied state). Each state is colored, with one color as contour and one color at the core of the line. The contour color represents the total spin expectation value of the state. The core color represents the oscillator strength of the state with the lowest state. See figure&nbsp;<a href="#fig:colors"> 7.3</a> for the relevant color code.
+The created plot script generates four different plots (press ENTER in the command-line where you started  G<span style="font-size:x-small">NUPLOT</span> to go to the next plot). The first plot shows the potential energy of all states in the dynamics over time in the diagonal representation. The currently occupied state is marked with black circles. A thin black line gives the total energy (sum of the kinetic energy and the potential energy of the currently occupied state). Each state is colored, with one color as contour and one color at the core of the line. The contour color represents the total spin expectation value of the state. The core color represents the oscillator strength of the state with the lowest state. See figure&nbsp;<a href="#fig:colors">7.3</a> for the relevant color code.
 <div class="p"><!----></div>
 <a id="tth_fIg7.3">
 </a>   <div style="text-align:center">  <img src="http://sharc-md.org/wp-content/uploads/2019/09/colors.png">  
@@ -6864,7 +6673,7 @@ Unlike the ensemble analysis scripts (these are <b><tt>populations.py</tt></b>, 
 <b>Settings&nbsp;&nbsp;</b>
 <div class="p"><!----></div>
 The settings for the diagnostics run can be modified with a simple menu, which can be navigated with the commands <b><tt>show</tt></b>, <b><tt>help</tt></b>, <b><tt>end</tt></b>, and where the settings can be modified with <b><tt>&lt;key&#62; &lt;value&#62;</tt></b> (e.g., <b><tt>hop_energy 0.2</tt></b> sets the corresponding option to 0.2&nbsp;eV).
-A list of the settings is given in Table&nbsp;<a href="#tab:diagnostics"> 7.7</a>.
+A list of the settings is given in Table&nbsp;<a href="#tab:diagnostics">7.7</a>.
 <div class="p"><!----></div>
 Generally, the keywords <b><tt>missing_output</tt></b>, <b><tt>missing_restart</tt></b>, and <b><tt>normal_termination</tt></b> should always be left at <b><tt>True</tt></b>, since checking them is cheap and the obtained information is important.
 Note that <b><tt>data_extractor.x</tt></b> is always run for all trajectories, except if <b><tt>output.dat</tt></b> is older than the files in <b><tt>output_data/</tt></b>.
@@ -6945,7 +6754,7 @@ Additionally, <b><tt>populations.py</tt></b> will ignore trajectories with a <b>
 <b>Analysis mode&nbsp;&nbsp;</b>
 <div class="p"><!----></div>
 Using <b><tt>populations.py</tt></b>, there are two basic ways in obtaining the excited-state populations. The first way is to count the number of trajectories for which a certain condition holds. For example, the number of trajectories in each classical state can be obtained in this way. However, it is also possible to count the number of trajectories for which the total spin expectation value is within a certain interval. 
-The second way to obtain populations is to obtain the sum of the absolute squares of the quantum amplitudes over all trajectories. Table&nbsp;<a href="#tab:Populations_modes"> 7.8</a> contains a list of all possible analysis modes.
+The second way to obtain populations is to obtain the sum of the absolute squares of the quantum amplitudes over all trajectories. Table&nbsp;<a href="#tab:Populations_modes">7.8</a> contains a list of all possible analysis modes.
 <div class="p"><!----></div>
 <div class="p"><!----></div>
 <a id="tth_tAb7.8">
@@ -7066,7 +6875,7 @@ Additionally, <b><tt>transition.py</tt></b> will ignore trajectories with a <b><
 <div class="p"><!----></div>
 <b>Analysis mode&nbsp;&nbsp;</b>
 <div class="p"><!----></div>
-The different analysis modes for <b><tt>transition.py</tt></b> are given in Table&nbsp;<a href="#tab:Transition_modes"> 7.9</a>.
+The different analysis modes for <b><tt>transition.py</tt></b> are given in Table&nbsp;<a href="#tab:Transition_modes">7.9</a>.
 <div class="p"><!----></div>
 <div class="p"><!----></div>
 <a id="tth_tAb7.9">
@@ -7494,14 +7303,14 @@ All geometries are in the end written to an output file, by default <b><tt>cross
 <pre>
 user@host&#62;&nbsp;$SHARC/geo.py&nbsp;[options]&nbsp;&lt;&nbsp;Geo.inp&nbsp;&#62;&nbsp;Geo.out
 </pre>
-By default, the coordinates are read from <b><tt>output.xyz</tt></b>, but this can be changed with the <b><tt>-g</tt></b> option (see table&nbsp;<a href="#tab:Geo_options"> 7.11</a>). Note that the internal coordinate specifications are read from standard input and the result table is written to standard out. 
+By default, the coordinates are read from <b><tt>output.xyz</tt></b>, but this can be changed with the <b><tt>-g</tt></b> option (see table&nbsp;<a href="#tab:Geo_options">7.11</a>). Note that the internal coordinate specifications are read from standard input and the result table is written to standard out. 
 <div class="p"><!----></div>
      <a id="tth_sEc7.21.1"></a><h3>
 7.21.1&nbsp;&nbsp;Input</h3>
 <div class="p"><!----></div>
 The specifications for the desired internal coordinates are read from standard input. It follows a simple syntax, where each internal coordinate is specified by a single line of input. Each line starts with a one-letter key which specifies the type of internal coordinate (e.g.&nbsp;bond length, angle, dihedral, ...). The key is followed by a list of integers, specifying which atoms should be measured. As a simple example, <b><tt>r 1 2</tt></b> specifies the bond length (<b><tt>r</tt></b> is the key for bond lengths) between atoms 1 and 2. Note that the numbering of the atoms starts with 1. Each line of input is checked for consistency (whether any atom index is larger than the number of atoms, repeated atom indices, misspelled keys, wrong number of atom indices, ...), and erroneous lines are ignored (this is indicate by an error message).
 <div class="p"><!----></div>
-Table&nbsp;<a href="#tab:Geo_input"> 7.10</a> lists the available types of internal coordinates. The output is a table, where the first column is the time (Actually, the geometries are just enumerated starting with zero, and the number multiplied by the time step from the <b><tt>-t</tt></b> option). The successive columns in the output table list the results of the internal coordinates calculations. Each request generates at least one column, see table&nbsp;<a href="#tab:Geo_input"> 7.10</a>. 
+Table&nbsp;<a href="#tab:Geo_input">7.10</a> lists the available types of internal coordinates. The output is a table, where the first column is the time (Actually, the geometries are just enumerated starting with zero, and the number multiplied by the time step from the <b><tt>-t</tt></b> option). The successive columns in the output table list the results of the internal coordinates calculations. Each request generates at least one column, see table&nbsp;<a href="#tab:Geo_input">7.10</a>. 
 <div class="p"><!----></div>
 Note that for most internal coordinates, the order of the atoms is crucial, since e.g.&nbsp;a<sub>123</sub> &#8800; a<sub>213</sub>. This also holds for the Cremer-Pople parameter requests. For these input lines, the atoms should be listed in the order they appear in the ring (clockwise or counter-clockwise).
 <div class="p"><!----></div>
@@ -7549,7 +7358,7 @@ Currently, this is only possible if both rings have the same number of atoms (3,
      <a id="tth_sEc7.21.2"></a><h3>
 7.21.2&nbsp;&nbsp;Options</h3>
 <div class="p"><!----></div>
-<b><tt>geo.py</tt></b> accepts a number of command-line options, see table&nbsp;<a href="#tab:Geo_options"> 7.11</a>. All options have sensible defaults. However, especially if long comments should be written to the output file, it might be necessary to increase the field width. Note that the minimum column width is 20 so that the table header can be printed correctly.
+<b><tt>geo.py</tt></b> accepts a number of command-line options, see table&nbsp;<a href="#tab:Geo_options">7.11</a>. All options have sensible defaults. However, especially if long comments should be written to the output file, it might be necessary to increase the field width. Note that the minimum column width is 20 so that the table header can be printed correctly.
 Also note that the column for the comment is enlarged by 50 characters.
 <div class="p"><!----></div>
 <div class="p"><!----></div>
@@ -7786,7 +7595,7 @@ Keep in mind that in general, each trajectory could have different time steps at
 We refer to this kind of data set (independent trajectories with possibly different time axes) as <b><tt>Type1</tt></b> data set.
 As will be described below, in <b><tt>data_collector.py</tt></b>, during certain processing steps the format of the data set is changed, which will create <b><tt>Type2</tt></b> or <b><tt>Type3</tt></b> data sets.
 <div class="p"><!----></div>
-Once this data set is collected from the files (where too short or commented lines are ignored), <b><tt>data_collector.py</tt></b> allows for a number of subsequent processing steps, which are summarized in Figure&nbsp;<a href="#fig:data_collector"> 7.4</a>.
+Once this data set is collected from the files (where too short or commented lines are ignored), <b><tt>data_collector.py</tt></b> allows for a number of subsequent processing steps, which are summarized in Figure&nbsp;<a href="#fig:data_collector">7.4</a>.
 <div class="p"><!----></div>
 <div class="p"><!----></div>
 <a id="tth_fIg7.4">
@@ -8072,7 +7881,7 @@ Note that in each iteration, a line starting with <b><tt> </tt></b> is written, 
 7.25.4&nbsp;&nbsp;Description of <b><tt>orca_External</tt></b></h3>
 <div class="p"><!----></div>
 <b><tt>orca_External</tt></b> provides a connection between the external optimizer of  O<span style="font-size:x-small">RCA</span> and any of the  S<span style="font-size:x-small">HARC</span>&nbsp;interfaces.
-In figure&nbsp;<a href="#fig:interface_orcaExt"> 7.5</a>, the file communication between  O<span style="font-size:x-small">RCA</span>, <b><tt>orca_External</tt></b>, and the interfaces is presented.
+In figure&nbsp;<a href="#fig:interface_orcaExt">7.5</a>, the file communication between  O<span style="font-size:x-small">RCA</span>, <b><tt>orca_External</tt></b>, and the interfaces is presented.
 <div class="p"><!----></div>
 <div class="p"><!----></div>
 <a id="tth_fIg7.5">
@@ -8158,7 +7967,7 @@ With the script <b><tt>QMout_print.py</tt></b> one can print a table with energi
 <pre>
 user@host&#62;&nbsp;$SHARC/QMout_print.py&nbsp;[options]&nbsp;QM.out
 </pre>
-The options are summarized in Table&nbsp;<a href="#tab:QMoutprint_options"> 7.12</a>
+The options are summarized in Table&nbsp;<a href="#tab:QMoutprint_options">7.12</a>
 <div class="p"><!----></div>
 <div class="p"><!----></div>
 <a id="tth_tAb7.12">
@@ -8573,7 +8382,7 @@ The reaction networks allowed in the script are a simple directed graphs, where 
 Each reaction is characterized by an associated rate constant and connects exactly one reactant species to exactly one product species.
 <div class="p"><!----></div>
 In order to obtain rate laws which can be integrated easily, there are a number of restrictions imposed on the network graphs.
-Some restrictions and possible features of the graphs are depicted exemplarily in Figure&nbsp;<a href="#fig:graph_restrictions"> 8.1</a>.
+Some restrictions and possible features of the graphs are depicted exemplarily in Figure&nbsp;<a href="#fig:graph_restrictions">8.1</a>.
 First, each species and each reaction rate needs to have a unique label. 
 There cannot be two species with the same label, but there can be two reactions with the same reaction rate constant.
 Second, the graph must be a simple directed graph, hence there cannot be any (self-) loops or more than one reaction with the same initial and the same final species.
@@ -8599,7 +8408,7 @@ However, cycles can also lead to problems in the fitting procedure (rate constan
 </a>
 </div>
 <div class="p"><!----></div>
-An example reaction network graph is shown in Figure&nbsp;<a href="#fig:example_graph"> 8.2</a>.
+An example reaction network graph is shown in Figure&nbsp;<a href="#fig:example_graph">8.2</a>.
 In this graph, there are 5&nbsp;species (S<sub>2</sub>, S<sub>1</sub>, S<sub>0</sub>, T<sub>2</sub>, and T<sub>1</sub>) and 6&nbsp;reactions, each with a rate constant (k<sub>S</sub>, k<sub>Rlx</sub>, k<sub>22</sub>, k<sub>11</sub>, k<sub>21</sub>, k<sub>12</sub>).
 This graph shows some features which are allowed in the reaction networks for <b><tt>make_fitscript.py</tt></b>: sequential reactions, parallel reactions, back reactions, and converging reaction pathways.
 Note that this reaction network is likely to cause problems in the fitting step (large errors).
@@ -8627,7 +8436,7 @@ In order to construct <b>A</b>, start with <b>A</b>=0 and, for each reaction fro
 In order to integrate this system of equations, in practice one also needs to define initial conditions. 
 In the present context, the initial conditions are fully specified by <b>s</b>(t=0)=<b>s</b><sub>0</sub>, where <b>s</b><sub>0</sub> are constant expressions defined by the user.
 <div class="p"><!----></div>
-Solving&nbsp;(<a href="#eq:rate_law"> 8.48</a>) yields (in not too complicated cases) the closed-form expressions for the functions <b>s</b>(t), which contain as parameters all rate constants k and all initial values <b>s</b><sub>0</sub>.
+Solving&nbsp;(<a href="#eq:rate_law">8.48</a>) yields (in not too complicated cases) the closed-form expressions for the functions <b>s</b>(t), which contain as parameters all rate constants k and all initial values <b>s</b><sub>0</sub>.
 <div class="p"><!----></div>
      <a id="tth_sEc8.10.3"></a><h3>
 8.10.3&nbsp;&nbsp;Global fit</h3>
@@ -8699,7 +8508,7 @@ The dihedral angle is defined via the vectors <b>w</b><sub>1</sub> and <b>w</b><
 <div class="p"><!----></div>
 <table border="0" width="100%"><tr><td><img src="http://sharc-md.org/wp-content/uploads/2019/09/equation-71.png">
 </td><td width="1%">(8.54)</td></tr></table>
-The dihedral is given as the angle between <b>w</b><sub>1</sub> and <b>w</b><sub>2</sub> according to equation&nbsp;(<a href="#eq:angle"> 8.53</a>).
+The dihedral is given as the angle between <b>w</b><sub>1</sub> and <b>w</b><sub>2</sub> according to equation&nbsp;(<a href="#eq:angle">8.53</a>).
 In order to distinguish left- and right-handed rotation, also the vector <b>Q</b>=<b>w</b><sub>1</sub>&times;<b>w</b><sub>2</sub> is computed, and if the angle between <b>Q</b> and <b>v</b><sub>bc</sub> is larger than 90<sup>&#176;</sup> then the value of the dihedral is multiplied by -1.
 <div class="p"><!----></div>
 <b>Pyramidalization angle&nbsp;&nbsp;</b>
@@ -8834,7 +8643,7 @@ The sinusoidal envelope is defined as:
 <table border="0" width="100%"><tr><td><img src="http://sharc-md.org/wp-content/uploads/2019/09/equation-89.png"><a id="eq:laser_sinus">
 </a>
 </td><td width="1%">(8.72)</td></tr></table>
-where again <i>E</i><sub>0</sub> is the peak field strength, t<sub>0</sub> and t<sub>c</sub> define the interval where the field strength increases, and t<sub>c2</sub> and t<sub>e</sub> define the interval where the field strength decreases. Figure&nbsp;<a href="#fig:laser_envelope"> 8.3</a> shows the general form of the envelope functions and the meaning of the temporal parameters t<sub>0</sub>, t<sub>c</sub>, t<sub>2c</sub> and t<sub>e</sub>.
+where again <i>E</i><sub>0</sub> is the peak field strength, t<sub>0</sub> and t<sub>c</sub> define the interval where the field strength increases, and t<sub>c2</sub> and t<sub>e</sub> define the interval where the field strength decreases. Figure&nbsp;<a href="#fig:laser_envelope">8.3</a> shows the general form of the envelope functions and the meaning of the temporal parameters t<sub>0</sub>, t<sub>c</sub>, t<sub>2c</sub> and t<sub>e</sub>.
 <div class="p"><!----></div>
 <div class="p"><!----></div>
 <a id="tth_fIg8.3">
@@ -8889,7 +8698,7 @@ Other chirps are only possible with the Fourier transformation.
 8.15&nbsp;&nbsp;Laser interactions</h2><a id="met:laser">
 </a>
 <div class="p"><!----></div>
-The laser field &#1013; is included in the propagation of the electronic wave function. In each substep of the propagation, the interaction of the laser field with the dipole moments is included in the Hamiltonian. The contribution <b>V</b><sub>i</sub> is in each time step added to the Hamiltonian in equations&nbsp;(<a href="#eq:ham_propn"> 8.146</a>) or (<a href="#eq:ham_propl"> 8.151</a>), respectively:
+The laser field &#1013; is included in the propagation of the electronic wave function. In each substep of the propagation, the interaction of the laser field with the dipole moments is included in the Hamiltonian. The contribution <b>V</b><sub>i</sub> is in each time step added to the Hamiltonian in equations&nbsp;(<a href="#eq:ham_propn">8.146</a>) or (<a href="#eq:ham_propl">8.151</a>), respectively:
 <div class="p"><!----></div>
 <table border="0" width="100%"><tr><td><img src="http://sharc-md.org/wp-content/uploads/2019/09/equation-97.png">
 </td><td width="1%">(8.80)</td></tr></table>
@@ -9234,9 +9043,9 @@ For a given mode i, the probability to be in any given vibrational state j (j=0 
 <table border="0" width="100%"><tr><td><img src="http://sharc-md.org/wp-content/uploads/2019/09/equation-140.png">
 </td><td width="1%">(8.123)</td></tr></table>
 where y is &#957;<sub>i</sub> divided by k<sub>B</sub>T.
-In order to find the vibrational state for mode i, a random number is drawn (from [0,1]) and used as in equation&nbsp;(<a href="#eq:cumuprob"> 8.129</a>).
+In order to find the vibrational state for mode i, a random number is drawn (from [0,1]) and used as in equation&nbsp;(<a href="#eq:cumuprob">8.129</a>).
 <div class="p"><!----></div>
-The displacements and velocity contributions for mode i in state j are then obtained as in equations&nbsp;(<a href="#eq:wigner1"> 8.120</a>) and (<a href="#eq:wigner2"> 8.121</a>), except that the Wigner distribution for state j is calculated as:
+The displacements and velocity contributions for mode i in state j are then obtained as in equations&nbsp;(<a href="#eq:wigner1">8.120</a>) and (<a href="#eq:wigner2">8.121</a>), except that the Wigner distribution for state j is calculated as:
 <div class="p"><!----></div>
 <table border="0" width="100%"><tr><td><img src="http://sharc-md.org/wp-content/uploads/2019/09/equation-141.png">
 </td><td width="1%">(8.124)</td></tr></table>
@@ -9426,7 +9235,7 @@ or
 <table border="0" width="100%"><tr><td><img src="http://sharc-md.org/wp-content/uploads/2019/09/equation-158.png"><a id="eq:ddr">
 </a>
 </td><td width="1%">(8.141)</td></tr></table>
-In equation&nbsp;(<a href="#eq:ddt"> 8.140</a>), the time-derivative couplings are directly calculated by the quantum chemistry program (use <b><tt>coupling ddt</tt></b> in the  S<span style="font-size:x-small">HARC</span>&nbsp;input), while in&nbsp;(<a href="#eq:ddr"> 8.141</a>) the matrix <b>K</b><sup>MCH</sup>(t) is obtained from the scalar product of the nuclear velocity and the nonadiabatic coupling vectors (use <b><tt>coupling ddr</tt></b> in the input).
+In equation&nbsp;(<a href="#eq:ddt">8.140</a>), the time-derivative couplings are directly calculated by the quantum chemistry program (use <b><tt>coupling ddt</tt></b> in the  S<span style="font-size:x-small">HARC</span>&nbsp;input), while in&nbsp;(<a href="#eq:ddr">8.141</a>) the matrix <b>K</b><sup>MCH</sup>(t) is obtained from the scalar product of the nuclear velocity and the nonadiabatic coupling vectors (use <b><tt>coupling ddr</tt></b> in the input).
 <div class="p"><!----></div>
 The propagation matrix can then be written as 
 <div class="p"><!----></div>
