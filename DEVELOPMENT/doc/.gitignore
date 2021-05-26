@@ -8,3 +8,6 @@
 *.synctex
 *.toc
 *.log
+*.out
+*.lof
+*.lot

@@ -1,0 +1,46 @@
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{mystuff}[2012/08/07 Colors and Stuff for Computer Course]
+
+\RequirePackage{xcolor}
+
+\definecolor{W}{HTML}{FFFFFF}
+
+\definecolor{BL}{HTML}{0099e6}
+\definecolor{B}{HTML}{0063A6}
+\definecolor{V}{HTML}{660099}
+\definecolor{BD}{HTML}{00334d}
+
+\definecolor{RL}{HTML}{d65454}
+\definecolor{R}{HTML}{893636}
+\definecolor{RD}{HTML}{3d1818}
+
+\definecolor{GL}{HTML}{10d05d}
+\definecolor{G}{HTML}{009933}
+\definecolor{GD}{HTML}{004d1a}
+
+\definecolor{Y}{HTML}{EEEE4D}
+\definecolor{O}{HTML}{FF884D}
+\definecolor{O2}{HTML}{FFA500}
+\definecolor{T}{HTML}{4DC0FF}
+\definecolor{OL}{HTML}{FFAA80}
+\definecolor{P}{HTML}{DD88BB}
+
+
+\definecolor{TUR}{HTML}{40E0D0}
+\definecolor{BRO}{HTML}{A52A2A}
+\definecolor{SKY}{HTML}{87CEEB}
+
+
+% code so that I can put full citations anywhere with \bibentry{}
+\RequirePackage{bibentry}
+\nobibliography*
+\makeatletter
+\renewcommand\bibentry[1]{\nocite{#1}{\frenchspacing
+  \@nameuse{BR@r@#1\@extra@b@citeb}}}
+\makeatother
+
+
+% Do not break the page before a list starts
+\makeatletter
+\@beginparpenalty=10000
+\makeatother
