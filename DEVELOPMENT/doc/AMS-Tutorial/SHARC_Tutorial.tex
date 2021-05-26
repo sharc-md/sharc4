@@ -191,18 +191,7 @@ University of Vienna, Austria
 % ========================================================================================================= %
 % ========================================================================================================= %
 
-\chapter{Before you Start}
-
-In this tutorial, the steps necessary to perform non-adiabatic dynamics with the \sharc\ dynamics suite using \textsc{AMS}, in particular \textsc{ADF}, are explained. Additionally, common analysis workflows are demonstrated and the setup of a parametrized LVC model is shown. 
-
-As the tutorial will produce many output files and directories, it is recommended that you work in a separate directory for it:
-\begin{Verbatim}[commandchars=\\\{\}]
-user@host> \textbf{\textcolor{red}{mkdir Tutorial}}
-user@host> \textbf{\textcolor{red}{cd Tutorial/}}
-\end{Verbatim}
-
-\clearpage
-\section{Description of the model system}
+\chapter{Description of the model system}
 \label{sec:model_system}
 
 The task of the tutorial is to simulate the excited-state dynamics of the sulfur dioxide (\ce{SO2}) after excitation to the lowest bright excited state.
@@ -210,7 +199,7 @@ The task of the tutorial is to simulate the excited-state dynamics of the sulfur
 The employed quantum chemistry method will be TDDFT with PBE/DZP, using the \textsc{AMS} program package. 
 This level of theory is not sufficient for a serious scientific investigation, and was chosen on purpose for this tutorial because it is fast and easy to use.
 
-The main goal of this tutorial is showcasing an exemplary workflow with \sharc\ using \textsc{AMS}. 
+The main goal of this tutorial is showcasing an exemplary workflow with \sharc\ using \textsc{AMS} with \textsc{ADF}. 
 The sulfur dioxide molecule presents a simple yet interesting model system for its photodynamics at energies of about 4.0~eV.
 % In fact, this dynamics has been studied since the 1930s, but the absorption spectrum and ultrafast dynamics has not been understood until the 2010s \cite{Wilkinson2014JCP, Leveque2014JCP_ISC, Mai2014JCP_SO2}.
 There are 5 excited states present at this energy---2 singlet states ($^1B_1$, $^1A_2$) and 3 triplet states ($^3B_1$, $^3A_2$, $^3B_2$).
@@ -218,8 +207,8 @@ A 1D cut through the 3D PESs of these states is shown in Figure~\ref{fig:PES_1D}
 Figure~\ref{fig:PES_2D} additionally shows a 2D cut through the PESs, illustrating the different conical intersections that arise between the states.
 With this second figure, the dynamics can be sufficiently explained, so that we are able to recognize the features in the results of our dynamics simulations. 
 The system will be initially excited about 4~eV into the dark blue (${}^1A''$) state, which is the first singlet (excitation in Figure~\ref{fig:PES_1D}). 
-From there, the wavepacket relaxes down the singlet PES. 
-Portions of this wavepacket with come close to or collide with the conical intersection (CI) with the second singlet (${}^1A''$ in light blue) may perform a hop or transfer a portion of the population. 
+From there, the wave packet relaxes down the singlet PES. 
+Portions of this wave packet come close to or collide with the conical intersection (CI) with the second singlet (${}^1A''$ in light blue) may perform a hop or transfer a portion of the population. 
 The population of the second singlet will, however, relax back to the CI and transfer back to the first singlet PES. This can lead to a sharp increase in the $S_2$ population with an oscillatory decrease to the $S_1$. The next important points of the $S_1$ PES are the crossing regions with the triplet states. 
 These can be better identified in Figure~\ref{fig:PES_1D}. 
 The presence of these crossings in principle makes it possible that a part of the wave packet converts to a triplet, a process that is called intersystem crossing (ISC) and which is only possible due to the relativistic spin-orbit couplings. 
@@ -281,12 +270,19 @@ O     0.     -1.3      -0.65
 % ======================================================================================================
 
 \chapter{Full Tutorial}\label{chap:full}
+\section{Before you Start}
 
-This tutorial presents all steps of an excited-state dynamics study. 
+In this tutorial, the steps necessary to perform non-adiabatic dynamics with the \sharc\ dynamics suite using \textsc{AMS}, in particular \textsc{ADF}, are explained.
 These steps include preparation tasks like optimization and frequency calculation, generation of the Wigner distribution of initial conditions, calculation of the excited states of these initial conditions, and initial state selection. 
 Subsequently, it will be shown how to setup the input files for an ensemble of trajectories and how they are executed.
 Furthermore, the tutorial presents some trajectory analysis steps, including plotting of energies, populations, etc.\ of a single trajectory, calculation of internal coordinates, or of ensemble populations.
+Also, the setup of a parametrized LVC model is shown.
 
+As the tutorial will produce many output files and directories, it is recommended that you work in a separate directory for it:
+\begin{Verbatim}[commandchars=\\\{\}]
+user@host> \textbf{\textcolor{red}{mkdir Tutorial}}
+user@host> \textbf{\textcolor{red}{cd Tutorial/}}
+\end{Verbatim}
 
 \section{Important}
 
@@ -431,9 +427,9 @@ We will generate the \ttt{AMS.freq.molden} from the \ttt{adf.rkf} file with the 
   user@host> \textbf{\textcolor{red}{mv ams.results/adf.rkf.molden AMS.freq.molden}}
 \end{Verbatim}
 
-Copy the \ttt{ams.run} and \ttt{AMS.freq.molden} files into the Tutorial folder and change to it for the next steps.
+Copy the \ttt{AMS.freq.molden} file into the Tutorial folder and change to it for the next steps.
 \begin{Verbatim}[commandchars=\\\{\}]
-user@host> \textbf{\textcolor{red}{cp AMS.freq.molden ams.run ../Tutorial/.}}
+user@host> \textbf{\textcolor{red}{cp AMS.freq.molden ../Tutorial/.}}
 user@host> \textbf{\textcolor{red}{cd ../Tutorial/}}
 \end{Verbatim}
 
@@ -471,7 +467,7 @@ Random number generator seed = 16661
 Temperature                  = 0.000000
 
 ***************************************************                 \textcolor{blue}{# We did not include the rigid modes}
-WARNING: Less than 3*N_atom normal modes, but no [N_FREQ] keyword!  \textcolor{blue}{# as their are not needed.} 
+WARNING: Less than 3*N_atom normal modes, but no [N_FREQ] keyword!  \textcolor{blue}{# as they are not needed.} 
 ***************************************************                 \textcolor{blue}{# You can ignore this warning.}
 
 
@@ -797,17 +793,17 @@ dvd_residu 1e-3
 \end{Verbatim}
 \end{oframed}
 
-However, you only need to type the following into your \ttt{AMS-ADF.template file}
+However, you only need to type the following into your \ttt{AMS-ADF.template} file.
 \begin{oframed}
   \begin{Verbatim}[commandchars=\\\{\}]
 relativistic scalar zora 
 basis DZP
 functional gga pbe
 dispersion grimme3 bjdamp
-charge 0 +1 0 +1 0
+charge 0 +1 0
 scf_iterations 200
 cpks_eps 0.0001
-paddingstates 1 0 0 0 0
+paddingstates 1 0 0
 dvd_vectors 60
 dvd_tolerance 1e-6
 dvd_residu 1e-3
@@ -949,7 +945,7 @@ Template filename: (autocomplete enabled) \textbf{\textcolor{red}{../AMS-ADF.tem
 
 ------------------Initial restart: MO Guess-----------------
 
-Please specify the path to an AMS rkf engine file (e.g., ams.rfk) containing suitable starting MOs for the 
+Please specify the path to an AMS rkf engine file (e.g., adf.rfk) containing suitable starting MOs for the 
 AMS calculation. Please note that this script cannot check whether the wavefunction file and the Input 
 template are consistent!
 
@@ -959,7 +955,7 @@ Do you have a restart file? [True] \textbf{\textcolor{red}{no}}
 
 Please specify the number of CPUs to be used by EACH calculation.
 
-Number of CPUs: \textbf{\textcolor{red}{1}}
+Number of CPUs: \textbf{\textcolor{red}{1}}  \textcolor{blue}{# \ce{SO2} is so small that multiple CPUs will not accelerate the computation notably.}
 
 -----------------------WFoverlap setup----------------------
 
@@ -967,7 +963,7 @@ Path to wavefunction overlap executable: [$SHARC/wfoverlap.x] (autocomplete enab
 
 State threshold for choosing determinants to include in the overlaps
 For hybrids (and without TDA) one should consider that the eigenvector X may have a norm larger than 1
-Threshold: [0.99] \textbf{\textcolor{red}{0.997}} 
+Threshold: [0.998] \textbf{\textcolor{red}{<ENTER>}} 
 
 Memory for wfoverlap (MB): [1000] \textbf{\textcolor{red}{500}}
 
@@ -1020,11 +1016,11 @@ ams                        $AMSHOME
 scmlicense                 $SCMLICENSE
 scratchdir                 $TMPDIR/Tutorial/Init
 AMS-ADF.template               ../AMS-ADF.template
-ams.guess                  {}
+ams.guess                  \{\}
 ams.ncpu                   1
 ams.scaling                0.9
 ams.wfoverlap              $SHARC/wfoverlap.x
-ams.ciothres               0.997
+ams.ciothres               0.998
 ams.mem                    500
 here                       True
 qsub                       False
@@ -1164,18 +1160,18 @@ From which state should the excitation originate (for computation of excitation 
 and oscillator strength)?
 Lower state for excitation? [1] \textbf{\textcolor{red}{<ENTER>}}
 #State  Mult    M_s     Quant    \textcolor{blue}{# Here the states are listed.}
-1	       1	    +0.0	  1
-2	       1	    +0.0	  2
-3	       1	    +0.0	  3
-4	       3	    -1.0	  1
-5	       3	    -1.0	  2
-6	       3	    -1.0	  3
-7	       3	    +0.0	  1
-8	       3	    +0.0	  2
-9	       3	    +0.0	  3
-10	     3	    +1.0	  1
-11	     3	    +1.0	  2
-12	     3	    +1.0	  3
+1       1      +0.0     1
+2       1      +0.0     2
+3       1      +0.0     3
+4       3      -1.0     1
+5       3      -1.0     2
+6       3      -1.0     3
+7       3      +0.0     1
+8       3      +0.0     2
+9       3      +0.0     3
+10      3      +1.0     1
+11      3      +1.0     2
+12      3      +1.0     3
 
 Do you want to include all states in the selection? [True] \textbf{\textcolor{red}{<ENTER>}}
 
@@ -1307,6 +1303,7 @@ user@host> \textbf{\textcolor{red}{gnuplot spectrum.gp}}
 \end{Verbatim}
 
 In figure~\ref{fig:spectrum} (\ttt{spectrum.out.png}) the result of this convolution is shown.
+Note that the strucuture of the spectrum is misleading, since classical nuclei do not allow the computation of vibrational structure.
 
 \begin{figure}[h]
   \centering
@@ -1667,7 +1664,8 @@ Template filename: (autocomplete enabled) \textbf{\textcolor{red}{../AMS-ADF.tem
 
 ------------------Initial restart: MO Guess-----------------
 
-Please specify the path to an AMS TAPE21 file containing suitable starting MOs for the AMS calculation. 
+Please specify the path to an AMS engine file (e.g. adf.rkf) containing suitable starting MOs for the 
+AMS calculation. 
 Please note that this script cannot check whether the wavefunction file and the Input template are 
 consistent!
 
@@ -1685,11 +1683,9 @@ Path to wavefunction overlap executable: [$SHARC/wfoverlap.x] (autocomplete enab
 
 State threshold for choosing determinants to include in the overlaps
 For hybrids (and without TDA) one should consider that the eigenvector X may have a norm larger than 1
-Threshold: [0.99] \textbf{\textcolor{red}{0.997}}
+Threshold: [0.998] \textbf{\textcolor{red}{<ENTER>}}
 
 Memory for wfoverlap (MB): [1000] \textbf{\textcolor{red}{500}}
-
--------------Wave function analysis by TheoDORE-------------
 
   ================================================================================
 ||                           Content of output.dat files                          ||
@@ -1802,11 +1798,11 @@ ams                        $AMSHOME
 scmlicense                 $SCMLICENSE
 scratchdir                 $TMPDIR/Tutorial/Traj_WORK/
 AMS-ADF.template               ../AMS-ADF.template
-ams.guess                  {}
+ams.guess                  \{\}
 ams.ncpu                   1
 ams.scaling                0.9
 ams.wfoverlap              $SHARC/wfoverlap.x
-ams.ciothres               0.997
+ams.ciothres               0.998
 ams.mem                    500
 pysharc                    False
 netcdf                     False
@@ -1912,7 +1908,7 @@ to create a \ttt{gnuplot} script with the correct state numbering and labeling. 
 \begin{Verbatim}[commandchars=\\\{\}]
 user@host> \textbf{\textcolor{red}{gnuplot plot.gp}}
 \end{Verbatim}
-to plot energies, populations and hopping probabilities (Use \textcolor{red}{\ttt{<ENTER>}} to continue with the next plot). In figures~\ref{fig:en}, \ref{fig:cMCH}, \ref{fig:cDIAG} and~\ref{fig:prob} the output for trajectory \ttt{TRAJ\_00002/} for the first 100~fs is given.
+to plot energies, populations and hopping probabilities (Use \textbf{\textcolor{red}{\ttt{<ENTER>}}} to continue with the next plot). In figures~\ref{fig:en}, \ref{fig:cMCH}, \ref{fig:cDIAG} and~\ref{fig:prob} the output for trajectory \ttt{TRAJ\_00002/} for the first 100~fs is given.
 
 
 \begin{figure}[tb]
@@ -1962,7 +1958,7 @@ In the figure, there are multiple hopping events with six after 86~fs (see the \
 It can be seen that the trajectory stays within the $S_1$ state until it hops to the $T_2$ state at 45~fs. 
 The system stays in this state although crossing with the $S_1$ at 60~fs. It later hops to the $T_3$ and back at 86~fs and 96~fs, respectively.
 
-In our case the the total energy is stable and well-behaved. If there would be some inconsistencies, that can have different reasons (e.g., wrong gradients, too large time steps, convergence problems). The small inconsistencies with the total energies in this case (slight changes) indicate that the gradient selection threshold that is too loose. 
+In our case, the total energy is stable and well-behaved. If there would be some inconsistencies, that can have different reasons (e.g., wrong gradients, too large time steps, convergence problems). The small inconsistencies with the total energies in this case (slight changes) indicate that the gradient selection threshold that is too loose. 
 
 Ultimately, the user is responsible to check the trajectories for such problematic time steps.
 Note that this trajectory checking can also be carried out while the trajectories are still running; if a problematic trajectory is encountered, it can be terminated gracefully by creating an empty file called \ttt{STOP} in the run directory of that trajectory.
@@ -2022,10 +2018,10 @@ Invoke the program and enter the internal coordinate specifications:
 \begin{oframed}
 \footnotesize\begin{Verbatim}[commandchars=\\\{\}]
 Enter the internal coordinate specifications:
-\textcolor{red}{r 1 2}
-\textcolor{red}{r 3 2}
-\textcolor{red}{a 1 2 3}
-\textcolor{red}{end}
+\textbf{\textcolor{red}{r 1 2}}
+\textbf{\textcolor{red}{r 3 2}}
+\textbf{\textcolor{red}{a 1 2 3}}
+\textbf{\textcolor{red}{end}}
 Number of internal coordinate requests:   2
 Number of geometries:    200
 FINISHED!
@@ -2058,13 +2054,13 @@ The file \ttt{Geo.out} contains a table with the specified internal coordinates:
 
 Use \textsc{Gnuplot} to plot this table. 
 \begin{Verbatim}[commandchars=\\\{\}]
-user@host> \textcolor{red}{gnuplot}
+user@host> \textbf{\textcolor{red}{gnuplot}}
 \end{Verbatim}
 The file \ttt{Geo.out} contains a table with the specified internal coordinates:
 \begin{oframed}
 \footnotesize\begin{Verbatim}[commandchars=\\\{\}]
-gnuplot> \textcolor{red}{p "Geo.out" u 1:2 w l, "Geo.out" u 1:3 w l}     \textcolor{blue}{# Plot column 2 and 3 versus 1}
-gnuplot> \textcolor{red}{p "Geo.out" u 1:4 w l}     \textcolor{blue}{# Plot column 4 versus 1}
+gnuplot> \textbf{\textcolor{red}{p "Geo.out" u 1:2 w l, "Geo.out" u 1:3 w l}}     \textcolor{blue}{# Plot column 2 and 3 versus 1}
+gnuplot> \textbf{\textcolor{red}{p "Geo.out" u 1:4 w l}}     \textcolor{blue}{# Plot column 4 versus 1}
 \end{Verbatim}
 \end{oframed}
 
@@ -2583,9 +2579,17 @@ Writing to pop_quant.out ...
 
 \normalsize
 
-Third, we will obtain the populations of the diabatic states during the simulations. for this we start the \ttt{populations.py} script again.
+Third, we will obtain the populations of the diabatic states during the simulations. For this, we create symbolic links to the corresponding \ttt{ICOND} folder.
 \begin{Verbatim}[commandchars=\\\{\}]
-  user@host> \textcolor{red}{$SHARC/populations.py}
+user@host> \textbf{\textcolor{red}{for i in Singlet_1/TRAJ_00*; do num=${i: -5}; ln -sf ../../../init/ICOND_$num/ $i/Reference; done}}
+\end{Verbatim}
+We run the \ttt{data\_extractor.x} for every trajectory again, so that the \ttt{output\_data/coeff\_diab.out} will be created (you may also do this from the \ttt{populations.py} script)
+\begin{Verbatim}[commandchars=\\\{\}]
+  user@host> \textbf{\textcolor{red}{for i in Singlet_1/TRAJ_00*; do cd $i; $SHARC/data_extractor.x output.dat; cd -; done}}
+\end{Verbatim}
+Wait for the extraction to complete and start the \ttt{populations.py} script again. 
+\begin{Verbatim}[commandchars=\\\{\}]
+  user@host> \textbf{\textcolor{red}{$SHARC/populations.py}}
 \end{Verbatim}
 
 \begin{oframed}
@@ -2661,9 +2665,9 @@ Third, we will obtain the populations of the diabatic states during the simulati
 \normalsize
 Use the produced \textsc{Gnuplot} scripts to plot the obtained populations.
 \begin{Verbatim}[commandchars=\\\{\}]
-user@host> \textcolor{red}{gnuplot pop_class.gp}
-user@host> \textcolor{red}{gnuplot pop_quant.gp}
-user@host> \textcolor{red}{gnuplot pop_fosc.gp}
+user@host> \textbf{\textcolor{red}{gnuplot pop_class.gp}}
+user@host> \textbf{\textcolor{red}{gnuplot pop_quant.gp}}
+user@host> \textbf{\textcolor{red}{gnuplot pop_fosc.gp}}
 \end{Verbatim}
 
 This will create the files \ttt{pop\_class.gp.png}, \ttt{pop\_quant.gp.png} and \ttt{pop\_fosc.gp.png}. They are shown in figures~\ref{fig:pop_class}, \ref{fig:pop_quant} and \ref{fig:pop_fosc}. 
@@ -2675,7 +2679,7 @@ In figure~\ref{fig:pop_fosc}, the 6 trajectories are classified depending on the
 
 \paragraph{Discussion of Figure~\ref{fig:pop_class}}
 
-In figure~\ref{fig:pop_class} it can be seen that in the first 15~fs population is transferred form $S_1$ to $S_2$.
+In figure~\ref{fig:pop_class} it can be seen that in the first 15~fs population is transferred from $S_1$ to $S_2$.
 This results from the collision of the wavepacket with the CI of the $S_2$ state, that was described in Figure~\ref{fig:PES_2D} earlier.
 Afterwards, the decoherence correction forces the ensemble into the $S_1$ state again.
 This is reasonable, since the $S_2$ state has a higher potential energy than the $S_1$. 
@@ -2683,7 +2687,7 @@ One trajectory transitions from the initial $S_1$ state to the $T_2$ state with 
 
 \paragraph{Discussion of Figure~\ref{fig:pop_quant}}
 
-In figure~\ref{fig:pop_quant} the quantum populations are shown. For sufficiently large ensembles, figure~\ref{fig:pop_class} should closely follow figure~\ref{fig:pop_quant}. Consistency between the classical and quantum populations is ensured by using a decoherence correction (input option in \ttt{setup\_traj.py}).
+In figure~\ref{fig:pop_quant} the quantum populations are shown. For sufficiently large ensembles, figure~\ref{fig:pop_class} should closely follow figure~\ref{fig:pop_quant}. Consistency between the classical and quantum populations is ensured by using a decoherence correction (input option in \ttt{setup\_traj.py}). In general it is strongly recommended to use a decoherence correction.
 
 \paragraph{Discussion of Figure~\ref{fig:pop_diab}}
 
@@ -2726,7 +2730,7 @@ In order to quantify this population flow, one can use \ttt{transition.py}.
 This script counts the number of hops in all trajectories.
 
 \begin{Verbatim}[commandchars=\\\{\}]
-user@host> \textcolor{red}{$SHARC/transition.py}
+user@host> \textbf{\textcolor{red}{$SHARC/transition.py}}
 \end{Verbatim}
 
 \begin{oframed}
@@ -2805,7 +2809,6 @@ Singlet_1//TRAJ_00007         OK
 Singlet_1//TRAJ_00010         OK
 Number of trajectories: 6
 Number of steps: 201
-
 
 ***************************Results**************************
 Full transition matrix:
@@ -3236,10 +3239,10 @@ Note that by default also the initial populations are treated as fitting paramet
 
 The results show that the $S\rightarrow T$ relaxation process in the trajectories had a time constant of 4502$\pm$5172~fs (using the arithmetic analysis). 
 The histogram of the frequency of different time constants gives for information on this (note: the buckets are not well chosen in this example, so have a glance at the bootstrapping cycles). It can be seen that the time constants can be partitioned being either below 500~fs, around 900~fs or above 10000~fs. 
-The reason for this lies in the composition of the individual samples, which is differs a lot due to the small ensemble size. 
+The reason for this lies in the composition of the individual samples, which differs a lot due to the small ensemble size. 
 If a sample contains no triplet state (quite possible at only six states in the sample), then it will never make the $S\rightarrow T$ transition and the rate constant will be infinite (here a very high value). 
-The other two rate constant values are obtained from samples with atleast one triplet state in them. Looking at these different sample compositions, the unphysically large error can be explained. 
-Again, it can be resolved with a loarger ensemble (more trajectories).
+The other two rate constant values are obtained from samples with at least one triplet state in them. Looking at these different sample compositions, the unphysically large error can be explained. 
+Again, it can be resolved with a larger ensemble (more trajectories).
 
 Generally, the errors get smaller as more trajectories are employed, and hence, the fitting errors are a good tool to judge whether enough trajectories were computed.
 For some time constants, it might also be necessary to run the trajectories for longer time to reduce the errors.
@@ -3542,18 +3545,18 @@ ngeom                      4.0
 natom                      3
 states                     [3, 0, 3]
 nstates                    12
-statemap                   {1: [1, 1, 0.0], 
-                            2: [1, 2, 0.0], 
-                            3: [1, 3, 0.0], 
-                            4: [3, 1, -1.0], 
-                            5: [3, 2, -1.0], 
-                            6: [3, 3, -1.0], 
-                            7: [3, 1, 0.0], 
-                            8: [3, 2, 0.0], 
-                            9: [3, 3, 0.0], 
-                            10: [3, 1, 1.0], 
-                            11: [3, 2, 1.0], 
-                            12: [3, 3, 1.0]}
+statemap                   \{1: [1, 1, 0.0], 
+                           2: [1, 2, 0.0], 
+                           3: [1, 3, 0.0], 
+                           4: [3, 1, -1.0], 
+                           5: [3, 2, -1.0], 
+                           6: [3, 3, -1.0], 
+                           7: [3, 1, 0.0], 
+                           8: [3, 2, 0.0], 
+                           9: [3, 3, 0.0], 
+                           10: [3, 1, 1.0], 
+                           11: [3, 2, 1.0], 
+                           12: [3, 3, 1.0]\}
 maxmult                    3
 opttype                    cross
 cas.root1                  2
@@ -3567,7 +3570,7 @@ ams                        $AMSHOME
 scmlicense                 $SCMLICENSE
 scratchdir                 $TMPDIR
 AMS-ADF.template               ../AMS-ADF.template
-ams.guess                  {}
+ams.guess                  \{\}
 ams.ncpu                   1
 ams.scaling                0.9
 theodore                   False
@@ -3773,7 +3776,7 @@ Number of time steps:  [201] \textbf{\textcolor{red}{<ENTER>}}
 
 Length of time step:  [0.5] \textbf{\textcolor{red}{<ENTER>}}
 
-\textbf{\textcolor{blue}{# make sure to have matplotlib installed to see this prompt}}
+\textcolor{blue}{# make sure to have matplotlib installed to see this prompt}
 -------------------Automatic plot creation------------------
 Do you want to automatically create plots of your data? [False] yes 
 
@@ -4016,28 +4019,28 @@ Do you want to output as Type2 dataset? [False] \textbf{\textcolor{red}{<ENTER>}
 #########################Full input#########################
 
 paths                      ['Singlet_1/']
-statistics                 {}
+statistics                 \{\}
 allfiles                   ['Singlet_1//TRAJ_00002/./Geo.out', 'Singlet_1//TRAJ_00003/./Geo.out',
                             'Singlet_1//TRAJ_00004/./Geo.out', 'Singlet_1//TRAJ_00005/./Geo.out',
                             'Singlet_1//TRAJ_00007/./Geo.out', 'Singlet_1//TRAJ_00010/./Geo.out']
 colX                       [2]
 filepath                   ./Geo.out
-averaging                  {}
+averaging                  \{\}
 colT                       1
 colY                       [0]
 synchronizing              True
-smoothing                  {}
+smoothing                  \{\}
 nX                         1
 nY                         1
-convolute_T                {}
+convolute_T                \{\}
 ncol                       2
 type3_to_type2             False
-integrate_X                {}
+integrate_X                \{\}
 sum_Y                      False
 integrate_T                False
-convolute_X                {'function': <__main__.gauss instance at 0x7fc7c22bcfa0>, 
+convolute_X                \{'function': <__main__.gauss instance at 0x7fc7c22bcfa0>, 
                             'npoints': 50, 
-                            'xrange': [1.5]}
+                            'xrange': [1.5]\}
 
 Do you want to do the specified analysis? [True] 
 
@@ -4263,7 +4266,7 @@ Do you want to output as Type2 dataset? [False] \textbf{\textcolor{red}{<ENTER>}
 #########################Full input#########################
 
 paths                      ['Singlet_1/']
-statistics                 {}
+statistics                 \{\}
 allfiles                   ['Singlet_1//TRAJ_00002/output_data/fosc_act.out',
                             'Singlet_1//TRAJ_00003/output_data/fosc_act.out',
                             'Singlet_1//TRAJ_00004/output_data/fosc_act.out', 
@@ -4272,22 +4275,22 @@ allfiles                   ['Singlet_1//TRAJ_00002/output_data/fosc_act.out',
                             'Singlet_1//TRAJ_00010/output_data/fosc_act.out']
 colX                       [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
 filepath                   output_data/fosc_act.out
-averaging                  {}
+averaging                  \{\}
 colT                       1
 colY                       [14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25]
 synchronizing              True
-smoothing                  {}
+smoothing                  \{\}
 nX                         12
 nY                         12
-convolute_T                {}
+convolute_T                \{\}
 ncol                       25
 type3_to_type2             False
-integrate_X                {}
+integrate_X                \{\}
 sum_Y                      True
 integrate_T                False
-convolute_X                {'function': <__main__.gauss instance at 0x7fb48fc36b40>, 
+convolute_X                \{'function': <__main__.gauss instance at 0x7fb48fc36b40>, 
                             'npoints': 50, 
-                            'xrange': [1.5]}
+                            'xrange': [1.5]\}
 
 Do you want to do the specified analysis? [True] 
 
@@ -4719,7 +4722,7 @@ This file will be needed for setting up the \sharc\ trajectories.
 \label{sec:run_LVC}
 % \refermanual{m-sec:pysharc}
 
-The LVC model is very powerfull and its evaluations are very inexpensive.
+The LVC model is very powerful and its evaluations are very inexpensive.
 We will demonstrate this by setting up trajectories from 200 initial conditions with 700~fs simulation time.
 In order to prepare the trajectory setup, do the following steps (similar to before):
 \begin{enumerate}
@@ -5019,7 +5022,18 @@ eharm                      0.0
 initf                      <_io.TextIOWrapper name='../initconds.excited' mode='r' encoding='ANSI_X3.4-1968'>
 states                     [3, 0, 3]
 nstates                    12
-statemap                   {1: [1, 1, 0.0], 2: [1, 2, 0.0], 3: [1, 3, 0.0], 4: [3, 1, -1.0], 5: [3, 2, -1.0], 6: [3, 3, -1.0], 7: [3, 1, 0.0], 8: [3, 2, 0.0], 9: [3, 3, 0.0], 10: [3, 1, 1.0], 11: [3, 2, 1.0], 12: [3, 3, 1.0]}
+statemap                   \{1: [1, 1, 0.0], 
+                           2: [1, 2, 0.0], 
+                           3: [1, 3, 0.0], 
+                           4: [3, 1, -1.0], 
+                           5: [3, 2, -1.0], 
+                           6: [3, 3, -1.0], 
+                           7: [3, 1, 0.0], 
+                           8: [3, 2, 0.0], 
+                           9: [3, 3, 0.0], 
+                           10: [3, 1, 1.0], 
+                           11: [3, 2, 1.0], 
+                           12: [3, 3, 1.0]\}
 actstates                  [3, 0, 3]
 isactive                   [True, True, True, True, True, True, True, True, True, True, True, True]
 show_content               False
@@ -5093,7 +5107,7 @@ user@host> \textbf{\textcolor{red}{cd Singlet_1/TRAJ_00022}}
 user@host> \textbf{\textcolor{red}{sh run.sh}}
 \end{Verbatim}
 The trajectory should be finished within about a minute (ten to hundred steps per second, mostly dependent on the speed of the file system).
-You can also run all of them in sequence with the \ttt{all_run_traj.sh} in the \ttt{Singlet_1} folder.
+You can also run all of them in sequence with the \ttt{all\_run\_traj.sh} in the \ttt{Singlet\_1} folder.
 
 The output of the trajectory is very similar to  a normal trajectory, with the following differences:
 \begin{itemize}

@@ -2816,7 +2816,7 @@ The AMS interface will generate the appropriate AMS input automatically.
    
     # initial MOs
     print(centerstring('Initial restart: MO Guess', 60, '-') + '\n')
-    print('''Please specify the path to an AMS TAPE21 file containing suitable starting MOs for the AMS calculation. Please note that this script cannot check whether the wavefunction file and the Input template are consistent!
+    print('''Please specify the path to an AMS engine file (e.g. adf.rkf) containing suitable starting MOs for the AMS calculation. Please note that this script cannot check whether the wavefunction file and the Input template are consistent!
 ''')
     if question('Do you have a restart file?', bool, True):
         if True:
