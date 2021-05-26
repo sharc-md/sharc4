@@ -34,6 +34,11 @@ rasscf_thrs_e           1e-8
 rasscf_thrs_rot         1e-4
 rasscf_thrs_egrd        1e-4
 
+    ## Number of iterations
+    ## First argument is used for the SCF iterations
+    ## Second (optional) argument is used for the Super-CI iterations
+    ## Defaults are 200 100
+iterations               200 100
 
     ## ======== METHOD settings ============
 
