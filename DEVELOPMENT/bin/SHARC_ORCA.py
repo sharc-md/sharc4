@@ -2129,6 +2129,7 @@ def readQMin(QMinfilename):
               'theodore_prop'           :['Om','PRNTO','S_HE','Z_HE','RMSeh'],
               'theodore_fragment'       :[],
               'basis_per_element'       :{},
+              'ecp_per_element'         :{},
               'basis_per_atom'          :{},
               'range_sep_settings'      :{'do':False, 'mu':0.14, 'scal':1.0, 'ACM1':0.0, 'ACM2':0.0, 'ACM3':1.0}
               }
@@ -2208,7 +2209,12 @@ def readQMin(QMinfilename):
                 line2=orig.split(None,2)
                 QMin['template']['basis_per_element'][line2[1]]=line2[2]
 
-            # basis_per_element can occur several times
+            # ecp_per_element can occur several times
+            elif line[0]=='ecp_per_element':
+                line2=orig.split(None,2)
+                QMin['template']['ecp_per_element'][line2[1]]=line2[2]
+
+            # basis_per_atom can occur several times
             elif line[0]=='basis_per_atom':
                 line2=orig.split(None,2)
                 QMin['template']['basis_per_atom'][int(line2[1])-1]=line2[2]
@@ -2973,7 +2979,17 @@ def writeORCAinput(QMin):
       string+='%basis\n'
       for i in QMin['template']['basis_per_element']:
         string+='newgto %s "%s" end\n' % (i,QMin['template']['basis_per_element'][i])
-      string+='end\n\n'
+      if not QMin['template']['ecp_per_element']:
+        string+='end\n\n'
+
+    # ECP basis sets
+    if QMin['template']['ecp_per_element']:
+      if QMin['template']['basis_per_element']:
+        for i in QMin['template']['ecp_per_element']:
+          string+='newECP %s "%s" end\n' % (i,QMin['template']['ecp_per_element'][i])
+        string+='end\n\n'
+      else:
+        print("ECP defined without additional basis. Not implemented.")
 
     # frozen core
     if QMin['frozcore']>0:
