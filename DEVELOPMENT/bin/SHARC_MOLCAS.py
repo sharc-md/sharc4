@@ -97,6 +97,8 @@ from socket import gethostname
 import itertools
 # write debug traces when in pool threads
 import traceback
+# for diabatization
+import numpy as np
 
 
 # =========================================================0
@@ -218,6 +220,9 @@ changelogstring='''
 
 15.11.2018:
 - can now do PCM computations (only numerical gradients)
+
+25.05.2021:
+- numerical gradients with diabatization (diab_num_grad keyword)
 '''
 
 # ======================================================================= #
@@ -873,7 +878,7 @@ def makermatrix(a,b):
 
 # ======================================================================= #
 def getversion(out,MOLCAS):
-    allowedrange=[ (18.0,18.999), (8.29999,8.30001) ]
+    allowedrange=[ (18.0,21.999), (8.29999,8.30001) ]
     # first try to find $MOLCAS/.molcasversion
     molcasversion=os.path.join(MOLCAS,'.molcasversion')
     if os.path.isfile(molcasversion):
@@ -936,6 +941,24 @@ def getcienergy(out,mult,state,version,method,dkh):
         modulestring='&CASPT2'
         spinstring='Spin quantum number'
         energystring='::    MS-CASPT2 Root'
+        stateindex=3
+        enindex=6
+    elif method==3:
+        modulestring='&MCPDFT'
+        spinstring='Spin quantum number'
+        energystring='Total MC-PDFT energy for state'
+        stateindex=5
+        enindex=6
+    elif method==4:
+        modulestring='&MCPDFT'
+        spinstring='Spin quantum number'
+        energystring='::    XMS-PDFT Root'
+        stateindex=3
+        enindex=6
+    elif method==5:
+        modulestring='&MCPDFT'
+        spinstring='Spin quantum number'
+        energystring='::    CMS-PDFT Root'
         stateindex=3
         enindex=6
 
@@ -2073,6 +2096,16 @@ def readQMin(QMinfilename):
 
     QMin['molcas']=get_sh2cas_environ(sh2cas,'molcas')
     os.environ['MOLCAS']=QMin['molcas']
+    
+    driver=get_sh2cas_environ(sh2cas,'driver',crucial=False)
+    if driver=='':
+      driver=os.path.join(QMin['molcas'],'bin','pymolcas')
+      if not os.path.isfile(driver):
+        driver=os.path.join(QMin['molcas'],'bin','molcas.exe')
+        if not os.path.isfile(driver):
+          print 'No driver (pymolcas or molcas.exe) found in $MOLCAS/bin. Please add the path to the driver via the "driver" keyword.'
+          sys.exit(52)
+    QMin['driver']=driver
 
     QMin['tinker']=get_sh2cas_environ(sh2cas,'tinker',crucial=False)
     if QMin['tinker']=='':
@@ -2215,18 +2248,20 @@ def readQMin(QMinfilename):
 
     QMin['template']={}
     integers=['nactel','inactive','ras2','frozen']
-    strings =['basis','method','baslib']
+    strings =['basis','method','baslib','pdft-functional']
     floats=['ipea','imaginary','gradaccumax','gradaccudefault','displ', 'rasscf_thrs_e', 'rasscf_thrs_rot', 'rasscf_thrs_egrd','cholesky_accu']
-    booleans=['cholesky','no-douglas-kroll','qmmm','cholesky_analytical']
+    booleans=['cholesky','no-douglas-kroll','qmmm','cholesky_analytical','diab_num_grad']
     for i in booleans:
         QMin['template'][i]=False
     QMin['template']['roots'] = [0 for i in range(8)]
     QMin['template']['rootpad'] = [0 for i in range(8)]
     QMin['template']['method']='casscf'
+    QMin['template']['pdft-functional']='tpbe'
     QMin['template']['baslib']=''
     QMin['template']['ipea']=0.25
     QMin['template']['imaginary']=0.00
     QMin['template']['frozen']=-1
+    QMin['template']['iterations']=[200,100]
     QMin['template']['gradaccumax']=1.e-2
     QMin['template']['gradaccudefault']=1.e-4
     QMin['template']['displ']=0.005
@@ -2253,6 +2288,11 @@ def readQMin(QMinfilename):
                 QMin['template']['rootpad'][i]=int(n)
         elif 'baslib' in line[0]:
             QMin['template']['baslib']=os.path.abspath(orig[1])
+        elif 'iterations' in line[0]:
+            if len(line)>=3:
+                QMin['template']['iterations']=[ int(i) for i in line[-2:]]
+            elif len(line)==2:
+                QMin['template']['iterations'][0]=int(line[-1])
         elif line[0] in integers:
             QMin['template'][line[0]]=int(line[1])
         elif line[0] in booleans:
@@ -2322,7 +2362,14 @@ def readQMin(QMinfilename):
         sys.exit(63)
 
     # find method
-    allowed_methods=['casscf','caspt2','ms-caspt2']
+    # allowed_methods=['casscf','caspt2','ms-caspt2']
+    allowed_methods=['casscf','caspt2','ms-caspt2', 'mc-pdft', 'xms-pdft', 'cms-pdft']
+    # 0: casscf
+    # 1: caspt2 (single state)
+    # 2: ms-caspt2
+    # 3: mc-pdft (single state)
+    # 4: xms-pdft
+    # 5: cms-pdft
     for i,m in enumerate(allowed_methods):
         if QMin['template']['method']==m:
             QMin['method']=i
@@ -2342,7 +2389,7 @@ def readQMin(QMinfilename):
             QMin['gradmode']=2
         elif QMin['template']['pcmset']['on']:
             QMin['gradmode']=2
-        elif QMin['method']>0:
+        elif QMin['method'] in [1,2,4,5]:
             QMin['gradmode']=2
         else:
             if QMin['ncpu']>0:
@@ -2500,13 +2547,35 @@ def gettasks(QMin):
         if not 'samestep' in QMin or 'always_orb_init' in QMin:
             jobiph='JobIph' in mofile
             rasorb='RasOrb' in mofile
-            tasks.append(['rasscf',imult+1,QMin['template']['roots'][imult],jobiph,rasorb])
-            if QMin['method']==0:
+            task=['rasscf',imult+1,QMin['template']['roots'][imult],jobiph,rasorb]
+            if QMin['method']==4:
+                task.append( ['XMSI'] )
+            if QMin['method']==5:
+                task.append( ['CMSI'] )
+            tasks.append(task)
+            if jobiph:
+                tasks.append(['rm','JOBOLD'])
+            if QMin['method']==0 or QMin['method']==3:
                 tasks.append(['copy','MOLCAS.JobIph','MOLCAS.%i.JobIph' % (imult+1)])
             if 'ion' in QMin:
                 tasks.append(['copy','MOLCAS.RasOrb','MOLCAS.%i.RasOrb' % (imult+1)])
             if 'molden' in QMin:
                 tasks.append(['copy','MOLCAS.rasscf.molden','MOLCAS.%i.molden' % (imult+1)])
+
+            if QMin['method'] in [3,4,5]:
+                # mc-pdft
+                keys=['KSDFT=%s' % QMin['template']['pdft-functional']]
+                if QMin['method']==3 and 'grad' in QMin:
+                    keys.append( 'GRAD' )
+                else:
+                    keys.append( 'noGrad' )
+                if QMin['method'] in [4,5]:
+                    keys.append( 'MSPDFT' )
+                    keys.append( 'WJOB' )
+                tasks.append(['mcpdft',keys])
+                ## copy JobIphs
+                if QMin['method'] in [4,5]:
+                    tasks.append(['copy','MOLCAS.JobIph','MOLCAS.%i.JobIph' % (imult+1)])
 
         # Gradients
         if QMin['gradmode']==0:
@@ -2516,6 +2585,8 @@ def gettasks(QMin):
                         # SS-CASSCF
                         if 'samestep' in QMin:
                             tasks.append(['rasscf',imult+1,QMin['template']['roots'][imult],True,False])
+                            if QMin['method']==3:
+                                tasks.append(['mcpdft',['KSDFT=%s' % QMin['template']['pdft-functional'], 'GRAD']])
                         tasks.append(['alaska'])
                     else:
                         # SA-CASSCF
@@ -2523,8 +2594,13 @@ def gettasks(QMin):
                         #tasks.append(['rasscf-rlx',imult+1,QMin['template']['roots'][imult],i[1]])
                         #tasks.append(['mclr',QMin['template']['gradaccudefault']])
                         #tasks.append(['alaska'])
-                        tasks.append(['rasscf',imult+1,QMin['template']['roots'][imult],True,False])
-                        tasks.append(['mclr',QMin['template']['gradaccudefault'],'sala=%i' % i[1]])
+                        
+                        if QMin['method']==3:
+                          tasks.append(['rasscf',imult+1,QMin['template']['roots'][imult],True,False,['RLXROOT=%i'%i[1]]])
+                          tasks.append(['mcpdft',['KSDFT=%s' % QMin['template']['pdft-functional'], 'GRAD']])
+                        else:
+                          tasks.append(['rasscf',imult+1,QMin['template']['roots'][imult],True,False])
+                          tasks.append(['mclr',QMin['template']['gradaccudefault'],'sala=%i' % i[1]])
                         tasks.append(['alaska'])
 
         # Nac vectors
@@ -2536,7 +2612,7 @@ def gettasks(QMin):
                     tasks.append(['mclr',QMin['template']['gradaccudefault'],'nac=%i %i' % (i[1],i[3])])
                     tasks.append(['alaska'])
 
-        if QMin['method']>0:
+        if QMin['method']==1 or QMin['method']==2:
             # caspt2
             tasks.append(['caspt2',imult+1,nstates,QMin['method']==2])
             # copy JobIphs
@@ -2619,16 +2695,21 @@ def writeMOLCASinput(tasks, QMin):
         elif task[0]=='copy':
             string+='>> COPY %s %s\n\n' % (task[1],task[2])
 
+        elif task[0]=='rm':
+            string+='>> RM %s\n\n' % (task[1])
+
         elif task[0]=='rasscf':
             nactel=QMin['template']['nactel']
             npad=QMin['template']['rootpad'][task[1]-1]
             if (nactel-task[1])%2==0:
                 nactel-=1
-            string+='&RASSCF\nSPIN=%i\nNACTEL=%i 0 0\nINACTIVE=%i\nRAS2=%i\n' % (
+            string+='&RASSCF\nSPIN=%i\nNACTEL=%i 0 0\nINACTIVE=%i\nRAS2=%i\nITERATIONS=%i,%i\n' % (
                     task[1],
                     nactel,
                     QMin['template']['inactive'],
-                    QMin['template']['ras2'])
+                    QMin['template']['ras2'],
+                    QMin['template']['iterations'][0],
+                    QMin['template']['iterations'][1])
             if npad==0:
                 string+='CIROOT=%i %i 1\n' % (task[2],task[2])
             else:
@@ -2648,6 +2729,9 @@ def writeMOLCASinput(tasks, QMin):
                 string+='JOBIPH\n'
             elif task[4]:
                 string+='LUMORB\n'
+            if len(task)>=6:
+                for a in task[5]:
+                    string+=a+'\n'
             if QMin['template']['pcmset']['on']:
                 if task[1]==QMin['template']['pcmstate'][0]:
                     string+='RFROOT = %i\n' % QMin['template']['pcmstate'][1]
@@ -2687,6 +2771,13 @@ def writeMOLCASinput(tasks, QMin):
             if QMin['template']['pcmset']['on']:
                 string+='RFPERT\n'
             string+='\n'
+
+        elif task[0]=='mcpdft':
+            string+='&MCPDFT\n'
+            for i in task[1]:
+                string+=i+'\n'
+            string+='\n\n'
+
 
         elif task[0]=='rassi':
             string+='&RASSI\nNROFJOBIPHS\n%i' % (len(task[2]))
@@ -2886,17 +2977,15 @@ def setupWORKDIR(WORKDIR,tasks,QMin):
 
 
 # ======================================================================= #
-def runMOLCAS(WORKDIR,MOLCAS,ncpu,strip=False):
+def runMOLCAS(WORKDIR,MOLCAS,driver,ncpu,strip=False):
     prevdir=os.getcwd()
     os.chdir(WORKDIR)
     os.environ['WorkDir']=WORKDIR
     os.environ['MOLCAS_NPROCS']=str(ncpu)
-    path=os.path.join(MOLCAS,'bin/pymolcas')
+    path=driver
     if not os.path.isfile(path):
-        path=os.path.join(MOLCAS,'bin/molcas.exe')
-        if not os.path.isfile(path):
-            print 'ERROR: could not find Molcas driver ("pymolcas" or "molcas.exe") in $MOLCAS/bin!'
-            sys.exit(74)
+      print 'ERROR: could not find Molcas driver ("pymolcas" or "molcas.exe") in $MOLCAS/bin!'
+      sys.exit(74)
     string=path+' MOLCAS.input'
     stdoutfile=open(os.path.join(WORKDIR,'MOLCAS.out'),'w')
     stderrfile=open(os.path.join(WORKDIR,'MOLCAS.err'),'w')
@@ -3158,7 +3247,7 @@ def run_calc(WORKDIR,QMin):
             Tasks=gettasks(QMin)
             setupWORKDIR(WORKDIR,Tasks,QMin)
             strip=not 'keepintegrals' in QMin
-            err=runMOLCAS(WORKDIR,QMin['molcas'],QMin['ncpu'],strip)
+            err=runMOLCAS(WORKDIR,QMin['molcas'],QMin['driver'],QMin['ncpu'],strip)
         except Exception, problem:
             print '*'*50+'\nException in run_calc(%s)!' % (WORKDIR)
             traceback.print_exc()
@@ -3257,6 +3346,81 @@ def collectOutputs(joblist,QMin,errorcodes):
     return QMout
 
 # ======================================================================= #
+
+def phase_correction(matrix):
+  length = len(matrix)
+  phase_corrected_matrix = [[.0 for x in range(length)] for x in range(length)]
+
+  for i in range(length):
+    diag = matrix[i][i].real
+
+    # look if diag is significant and negative & switch phase
+    if diag ** 2 > 0.5 and diag < 0:
+      for j in range(length):
+        phase_corrected_matrix[j][i] = matrix[j][i] * -1
+    # otherwise leave values as is
+    else:
+      for j in range(length):
+        phase_corrected_matrix[j][i] = matrix[j][i]
+
+  return phase_corrected_matrix
+# ======================================================================= #
+
+
+def loewdin_orthonormalization(A):
+  '''
+  returns loewdin orthonormalized matrix
+  '''
+
+  # S = A^T * A
+  S = np.dot(A.T, A)
+  
+  # S^d = U^T * S * U
+  S_diag_only, U = np.linalg.eigh(S)
+  
+  # calculate the inverse sqrt of the diagonal matrix
+  S_diag_only_inverse_sqrt = [1. / (float(d) ** 0.5) for d in S_diag_only]
+  S_diag_inverse_sqrt = np.diag(S_diag_only_inverse_sqrt)
+  
+  # calculate inverse sqrt of S
+  S_inverse_sqrt = np.dot(np.dot(U, S_diag_inverse_sqrt), U.T)
+  
+  # calculate loewdin orthonormalized matrix
+  A_lo = np.dot(A, S_inverse_sqrt)
+
+  # normalize A_lo
+  A_lo = A_lo.T
+  length = len(A_lo)
+  A_lon = np.zeros((length, length), dtype = np.complex)
+
+  for i in range(length):
+    norm_of_col = np.linalg.norm(A_lo[i])
+    A_lon[i] = [e / (norm_of_col ** 0.5) for e in A_lo[i]][0]
+
+  return A_lon.T
+
+# ======================================================================= #
+
+def calculate_W_dQi(H, S, e_ref):
+  '''
+  Return diabatized H and S
+  '''
+
+  # get diagonal of Hamiltonian
+  H = np.diag([e - e_ref for e in np.diag(H)])
+
+  # do phase correction if necessary
+  if any([x for x in np.diag(S) if x < 0]):
+    S = phase_correction(S)
+
+  # do loewdin orthonorm. on overlap matrix
+  U = loewdin_orthonormalization(np.matrix(S))
+
+  return np.dot(np.dot(U.T, H), U), U
+
+
+
+# ======================================================================= #
 def overlapsign(x):
     overlapthreshold=0.8
     if abs(x)<overlapthreshold:
@@ -3331,15 +3495,37 @@ def arrangeQMout(QMin,QMoutall,QMoutDyson):
                     namep='displ_%i_%i_p' % (iatom,xyz)
                     namen='displ_%i_%i_n' % (iatom,xyz)
                     displ=QMin['displ']
+                    
+                    # diabatization 
+                    if 'diab_num_grad' in QMin:
+                        Hmaster = QMoutall['master']['h']
+                        Hpos = deepcopy(QMoutall[namep]['h'])
+                        Spos = deepcopy(QMoutall[namep]['overlap'])
+                        Hneg = deepcopy(QMoutall[namen]['h'])
+                        Sneg = deepcopy(QMoutall[namen]['overlap'])
+                        Hpos, Spos = calculate_W_dQi(Hpos, Spos, QMout['h'][0][0])
+                        Hneg, Sneg = calculate_W_dQi(Hneg, Sneg, QMout['h'][0][0])
+                        QMoutall[namep]['h_diab'] = Hpos
+                        QMoutall[namep]['s_diab'] = Spos
+                        QMoutall[namen]['h_diab'] = Hneg
+                        QMoutall[namen]['s_diab'] = Sneg
+                    else:
+                        Hmaster = QMoutall['master']['h']
+                        Hpos = QMoutall[namep]['h']
+                        Hneg = QMoutall[namen]['h']
+                        Spos = QMoutall[namep]['overlap']
+                        Sneg = QMoutall[namen]['overlap']
+                    
+                    
                     for istate in range(QMin['nmstates']):
 
-                        enc=QMoutall['master']['h'][istate][istate].real
+                        enc=Hmaster[istate][istate].real
 
-                        enp=QMoutall[namep]['h'][istate][istate].real
-                        ovp=QMoutall[namep]['overlap'][istate][istate].real
+                        enp=Hpos[istate][istate].real
+                        ovp=Spos[istate][istate].real
 
-                        enn=QMoutall[namen]['h'][istate][istate].real
-                        ovn=QMoutall[namen]['overlap'][istate][istate].real
+                        enn=Hneg[istate][istate].real
+                        ovn=Sneg[istate][istate].real
 
                         g=numdiff(enp,enn,enc,displ,ovp,ovp,ovn,ovn,iatom,xyz)
                         grad[istate][iatom][xyz]=g
@@ -3374,15 +3560,35 @@ def arrangeQMout(QMin,QMoutall,QMoutDyson):
                         if istate==jstate:
                             continue
 
-                        enc=QMoutall['master']['h'][istate][jstate]
+                        # diabatization 
+                        if 'diab_num_grad' in QMin:
+                            Hmaster = QMoutall['master']['h']
+                            
+                            Hpos = deepcopy(QMoutall[namep]['h'])
+                            Hpos = np.array(Hpos) - np.diag([e - QMout['h'][0][0] for e in np.diag(Hpos)])
+                            Spos = QMoutall[namep]['s_diab']
+                            Hpos = np.dot(np.dot(Spos.T, H), Spos)
+                            
+                            Hneg = deepcopy(QMoutall[namen]['h'])
+                            Hneg = np.array(Hneg) - np.diag([e - QMout['h'][0][0] for e in np.diag(Hneg)])
+                            Sneg = QMoutall[namen]['s_diab']
+                            Hneg = np.dot(np.dot(Sneg.T, H), Sneg)
+                        else:
+                            Hmaster = QMoutall['master']['h']
+                            Hpos = QMoutall[namep]['h']
+                            Hneg = QMoutall[namen]['h']
+                            Spos = QMoutall[namep]['overlap']
+                            Sneg = QMoutall[namen]['overlap']
 
-                        enp=QMoutall[namep]['h'][istate][jstate]
-                        o1p=QMoutall[namep]['overlap'][istate][istate].real
-                        o2p=QMoutall[namep]['overlap'][jstate][jstate].real
+                        enc=Hmaster[istate][jstate]
 
-                        enn=QMoutall[namen]['h'][istate][jstate]
-                        o1n=QMoutall[namen]['overlap'][istate][istate].real
-                        o2n=QMoutall[namen]['overlap'][jstate][jstate].real
+                        enp=Hpos[istate][jstate]
+                        o1p=Spos[istate][istate].real
+                        o2p=Spos[jstate][jstate].real
+
+                        enn=Hneg[istate][jstate]
+                        o1n=Sneg[istate][istate].real
+                        o2n=Sneg[jstate][jstate].real
 
                         g=numdiff(enp,enn,enc,displ,o1p,o2p,o1n,o2n,iatom,xyz)
                         socdr[istate][jstate][iatom][xyz]=g
@@ -3399,15 +3605,35 @@ def arrangeQMout(QMin,QMoutall,QMoutDyson):
                     for istate in range(QMin['nmstates']):
                         for jstate in range(QMin['nmstates']):
 
-                            enc=QMoutall['master']['dm'][ipol][istate][jstate].real
+                            # diabatization 
+                            if 'diab_num_grad' in QMin:
+                                Hmaster = QMoutall['master']['dm'][ipol]
+                                
+                                Hpos = deepcopy(QMoutall[namep]['dm'][ipol])
+                                Hpos = np.array(Hpos) - np.diag([e - QMout['h'][0][0] for e in np.diag(Hpos)])
+                                Spos = QMoutall[namep]['s_diab']
+                                Hpos = np.dot(np.dot(Spos.T, H), Spos)
+                                
+                                Hneg = deepcopy(QMoutall[namen]['dm'][ipol])
+                                Hneg = np.array(Hneg) - np.diag([e - QMout['h'][0][0] for e in np.diag(Hneg)])
+                                Sneg = QMoutall[namen]['s_diab']
+                                Hneg = np.dot(np.dot(Sneg.T, H), Sneg)
+                            else:
+                                Hmaster = QMoutall['master']['dm'][ipol]
+                                Hpos = QMoutall[namep]['dm'][ipol]
+                                Hneg = QMoutall[namen]['dm'][ipol]
+                                Spos = QMoutall[namep]['overlap']
+                                Sneg = QMoutall[namen]['overlap']
 
-                            enp=QMoutall[namep]['dm'][ipol][istate][jstate].real
-                            o1p=QMoutall[namep]['overlap'][istate][istate].real
-                            o2p=QMoutall[namep]['overlap'][jstate][jstate].real
+                            enc=Hmaster[istate][jstate].real
 
-                            enn=QMoutall[namen]['dm'][ipol][istate][jstate].real
-                            o1n=QMoutall[namen]['overlap'][istate][istate].real
-                            o2n=QMoutall[namen]['overlap'][jstate][jstate].real
+                            enp=Hpos[istate][jstate].real
+                            o1p=Spos[istate][istate].real
+                            o2p=Spos[jstate][jstate].real
+
+                            enn=Hneg[istate][jstate].real
+                            o1n=Sneg[istate][istate].real
+                            o2n=Sneg[jstate][jstate].real
 
                             g=numdiff(enp,enn,enc,displ,o1p,o2p,o1n,o2n,iatom,xyz)
                             dmdr[ipol][istate][jstate][iatom][xyz]=g
@@ -3501,10 +3727,10 @@ def verifyQMout(QMout,QMin,out):
 
     refweight_ratio=0.80
 
-    if QMin['method']==0:
+    if QMin['method'] in [0,3,4,5]:
         # CASSCF case
         pass
-    elif QMin['method']>0:
+    elif QMin['method'] in [1,2]:
         # SS-CASPT2 and MS-CASPT2 cases
         refs=[]
         for istate in range(QMin['nmstates']):
@@ -3536,10 +3762,10 @@ def verifyQMout(QMout,QMin,out):
             #print mult,state,refs[istate]
 
         # check the reference weights and set overlap to zero if not acceptable
-        for istate in range(QMin['nmstates']):
-            if refs[istate]<max(refs)*refweight_ratio:
-                QMout['overlap'][istate][istate]=complex(0.,0.)
-                #print 'Set to zero:',istate
+            for istate in range(QMin['nmstates']):
+                if refs[istate]<max(refs)*refweight_ratio:
+                    QMout['overlap'][istate][istate]=complex(0.,0.)
+                    #print 'Set to zero:',istate
 
     return QMout
 

@@ -1,0 +1,128 @@
+\documentclass[10pt]{article}
+
+\usepackage{tikz,graphicx,pgfplots,amsmath}
+\usepackage{libertine}
+\usepackage[libertine]{newtxmath}
+\usepackage[scaled=0.95]{inconsolata}
+\usepackage{microtype}
+\usepackage{mycolors}
+\usepackage{sfmath}
+\usepackage[version=3]{mhchem}
+\usepackage[active,tightpage]{preview}
+
+
+\PreviewEnvironment{tikzpicture}
+\setlength\PreviewBorder{1pt}
+\setlength{\textwidth}{246pt}
+
+
+\pgfplotsset{every tick label/.append style={/pgf/number format/1000 sep={}}}
+\pgfplotsset{compat=1.3}
+\usetikzlibrary{plotmarks,fit,positioning}
+\usetikzlibrary{calc}
+\usetikzlibrary{trees}
+
+
+\newcommand*\phantomas[3][c]{% 
+   \ifmmode 
+     \makebox[\widthof{$#2$}][#1]{$#3$}% 
+   \else 
+     \makebox[\widthof{#2}][#1]{#3}% 
+   \fi 
+} 
+
+
+\begin{document}
+
+% \tikzstyle{every node}=[draw=black,thick,anchor=west,rectangle,rounded corners]
+% \tikzstyle{dir}=[draw=B,fill=B!30,font=\bfseries\ttfamily]
+% \tikzstyle{sh}=[draw=G,fill=G!30,font=\ttfamily]
+% \tikzstyle{maybe}=[draw=black!30,font=\ttfamily\color{black!30}]
+\begin{tikzpicture}[>=stealth]
+    \begin{axis}[anchor=east,
+      width=10cm, height=5cm,
+      scale only axis,
+      xmin=80, xmax=140, 
+      ymin=2.8, ymax=4.7,
+      xlabel={\small O--S--O Angle ($^\circ$)},
+      ylabel={\small Energy (eV)}, 
+      xtick={80,85,...,140}, 
+      ytick={3.0,3.5,...,5.0},
+      xticklabel style={/pgf/number format/fixed,/pgf/number format/zerofill,/pgf/number format/precision=0},
+      yticklabel style={/pgf/number format/fixed,/pgf/number format/zerofill,/pgf/number format/precision=1},
+      legend style={legend pos=south east}
+      ]
+
+
+        \addplot[RL, no markers, line width=2pt] 
+          table[
+            x expr=\thisrowno{0},
+            y expr=(\thisrowno{4}+548.657357657)*27.21
+            ] {data/en_nonrel.out};
+
+        \addplot[G, no markers, line width=2pt] 
+          table[
+            x expr=\thisrowno{0},
+            y expr=(\thisrowno{5}+548.657357657)*27.21
+            ] {data/en_nonrel.out};
+
+        \addplot[O, no markers, line width=2pt] 
+          table[
+            x expr=\thisrowno{0},
+            y expr=(\thisrowno{6}+548.657357657)*27.21
+            ] {data/en_nonrel.out};
+
+        \addplot[B, no markers, line width=4pt] 
+          table[
+            x expr=\thisrowno{0},
+            y expr=(\thisrowno{2}+548.657357657)*27.21
+            ] {data/en_nonrel.out};
+
+        \addplot[T, no markers, line width=4pt] 
+          table[
+            x expr=\thisrowno{0},
+            y expr=(\thisrowno{3}+548.657357657)*27.21
+            ] {data/en_nonrel.out};
+
+        \addplot[T, no markers, line width=4pt] 
+          table[
+            x expr=\thisrowno{0},
+            y expr=(\thisrowno{3}+548.657357657)*27.21
+            ] {data/en_nonrel.out};
+
+
+        \node[anchor=north, inner sep=1pt] at (axis cs: 126,4.55) {\color{B}  $^1A_2$};
+        \node[anchor=north, inner sep=1pt] at (axis cs: 105,4.2) {\color{T}  $^1B_1$};
+        \node[anchor=north, inner sep=1pt] at (axis cs: 103,3.05) {\color{RL} $^3A_2$};
+        \node[anchor=north, inner sep=1pt] at (axis cs: 130,3.05) {\color{O}  $^3B_1$};
+        \node[anchor=north, inner sep=1pt] at (axis cs: 110,3.2) {\color{G}  $^3B_2$};
+    \end{axis}
+  \begin{axis}[anchor=east,
+      width=10cm, height=5cm,
+      scale only axis,
+      xmin=80, xmax=140, 
+      ymin=2.8, ymax=4.7,
+      xlabel={},
+      ylabel={}, 
+      xtick=\empty, 
+      ytick=\empty,
+      stack plots=y
+      ]
+
+    \addplot+[solid, T!100, ultra thick, no markers]
+      table[
+        x index=0, 
+        y expr=(\thisrowno{3}+548.657357657)*27.21
+      ] {figures/en_nonrel.out};
+
+    \addplot+[solid, T!100, thick, no markers, fill=T!50, opacity=0.7,fill opacity=0.7, smooth]
+      table[
+        x index=0, 
+        y expr=0.3*exp(-0.1*(x-119.5)*(x-119.5))
+      ] {figures/en_nonrel.out}\closedcycle;
+
+    \draw[->,>=stealth, ultra thick, black] (axis cs: 119.5,2.8) --node[midway, right] {$h\nu$} (axis cs: 119.5,3.7);
+
+  \end{axis}
+  \end{tikzpicture}
+\end{document}

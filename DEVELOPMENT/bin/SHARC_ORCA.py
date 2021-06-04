@@ -1937,7 +1937,10 @@ def readQMin(QMinfilename):
 
     # setup environment for Orca
     QMin['orcadir']=get_sh2Orca_environ(sh2Orca,'orcadir')
-    os.environ['LD_LIBRARY_PATH']='%s:' % (QMin['orcadir'])+os.environ['LD_LIBRARY_PATH']
+    if 'LD_LIBRARY_PATH' in os.environ:
+      os.environ['LD_LIBRARY_PATH']='%s:' % (QMin['orcadir'])+os.environ['LD_LIBRARY_PATH']
+    else:
+      os.environ['LD_LIBRARY_PATH']='%s' % (QMin['orcadir'])
     QMin['OrcaVersion']=getOrcaVersion(QMin['orcadir'], )
     print 'Detected ORCA version %s' % (str(QMin['OrcaVersion']))
     os.environ['PATH']='%s:' % (QMin['orcadir']) +os.environ['PATH']
@@ -2114,7 +2117,8 @@ def readQMin(QMinfilename):
               'scf'                     :'',
               'qmmm_table'              :'ORCA.qmmm.table',
               'qmmm_ff_file'            :'ORCA.ff',
-              'keys'                    :''
+              'keys'                    :'',
+              'paste_input_file'        :''
               }
     integers={
               'frozen'                  :-1,
@@ -2274,6 +2278,13 @@ def readQMin(QMinfilename):
 
 
 
+    if QMin['template']['paste_input_file']:
+        path=os.path.expandvars(os.path.expanduser(QMin['template']['paste_input_file']))
+        if os.path.isfile(path):
+            QMin['template']['paste_input_file']=readfile(path)
+        else:
+            print 'Additional input file %s not found!' % path
+            sys.exit(62)
 
 
     #do logic checks
@@ -2433,7 +2444,8 @@ def readQMin(QMinfilename):
     if len(QMin['states_to_do'])>=4:
         for imult,nstate in enumerate(QMin['states_to_do'][3:]):
             if nstate>0:
-                jobs[len(jobs)+1]={'mults':[imult+4],'restr':False}
+                # jobs[len(jobs)+1]={'mults':[imult+4],'restr':False}
+                jobs[imult+4]={'mults':[imult+4],'restr':False}
     QMin['jobs']=jobs
 
     # make the multmap (mapping between multiplicity and job)
@@ -2866,7 +2878,26 @@ def setupWORKDIR(WORKDIR,QMin):
 
 # ======================================================================= #
 def writeORCAinput(QMin):
+    # split gradmap into smaller chunks
+    Nmax_gradlist=255
+    gradmaps=[ sorted(QMin['gradmap'])[i:i+Nmax_gradlist] for i in range(0,len(QMin['gradmap']),Nmax_gradlist) ]
 
+    # make multi-job input
+    string=''
+    for ichunk,chunk in enumerate(gradmaps):
+        if ichunk>=1:
+            string+='\n\n$new_job\n\n%base "ORCA"\n\n'
+        QMin_copy=deepcopy(QMin)
+        QMin_copy['gradmap']=chunk
+        string+=ORCAinput_string(QMin_copy)
+    if not gradmaps:
+        string+=ORCAinput_string(QMin)
+    return string
+
+
+
+# ======================================================================= #
+def ORCAinput_string(QMin):
     #pprint.pprint(QMin)
 
     # general setup
@@ -3022,6 +3053,13 @@ def writeORCAinput(QMin):
   intacc %3.1f\nend\n\n''' % (QMin['template']['intacc'])
 
 
+    # Gaussian point charge scheme
+    if 'cpcm' in QMin['template']['keys'].lower():
+      string+='''%cpcm
+  surfacetype vdw_gaussian\nend\n\n'''
+
+
+
     # excited states
     if ncalc>0 and not 'AOoverlap' in QMin:
       string+='%tddft\n'
@@ -3098,6 +3136,11 @@ def writeORCAinput(QMin):
     if QMin['qmmm']:
       string+='%pointcharges "ORCA.pc"\n\n'
 
+    if QMin['template']['paste_input_file']:
+      string+='\n'
+      for line in QMin['template']['paste_input_file']:
+        string+=line
+      string+='\n'
 
     return string
 
@@ -3330,6 +3373,8 @@ def get_MO_from_gbw(filename,QMin):
     nblock=6
     npre=11
     ndigits=16
+    #default_pos=[14,30,46,62,78,94]
+    default_pos=[ npre+3+ndigits*i for i in range(nblock)] # does not include shift
 
     # get coefficients for alpha
     NMO_A=NAO
@@ -3341,9 +3386,18 @@ def get_MO_from_gbw(filename,QMin):
         shift=max(0,len(str(iao))-3)
         jline=iline + jblock*(NAO+1) + iao
         line=data[jline]
-        val=float( line[npre+shift+jcol*ndigits : npre+shift+ndigits+jcol*ndigits] )
+        # fix too long floats in strings
+        dots=[idx for idx, item in enumerate(line.lower()) if '.' in item]
+        diff=[dots[i]-default_pos[i]-shift for i in range(len(dots))]
+        if jcol==0:
+          pre=0
+        else:
+          pre=diff[jcol-1]
+        post=diff[jcol]
+        # fixed
+        val=float( line[npre+shift+jcol*ndigits+pre : npre+shift+ndigits+jcol*ndigits+post] )
         MO_A[imo][iao]=val
-    iline+=(NAO/nblock+1)*(NAO+1)
+    iline+=((NAO-1)/nblock+1)*(NAO+1)
 
     # coefficients for beta
     if not restr:
@@ -3356,7 +3410,16 @@ def get_MO_from_gbw(filename,QMin):
           shift=max(0,len(str(iao))-3)
           jline=iline + jblock*(NAO+1) + iao
           line=data[jline]
-          val=float( line[npre+shift+jcol*ndigits : npre+shift+ndigits+jcol*ndigits] )
+          # fix too long floats in strings
+          dots=[idx for idx, item in enumerate(line.lower()) if '.' in item]
+          diff=[dots[i]-default_pos[i]-shift for i in range(len(dots))]
+          if jcol==0:
+            pre=0
+          else:
+            pre=diff[jcol-1]
+          post=diff[jcol]
+          # fixed
+          val=float( line[npre+shift+jcol*ndigits+pre : npre+shift+ndigits+jcol*ndigits+post] )
           MO_B[imo][iao]=val
 
 
@@ -4185,8 +4248,9 @@ def get_Double_AOovl_gbw(QMin):
   # get geometries
   #filename1=os.path.join(QMin['savedir'],'ORCA.molden.1.old')
   #filename2=os.path.join(QMin['savedir'],'ORCA.molden.1')
-  filename1=os.path.join(QMin['savedir'],'ORCA.gbw.1.old')
-  filename2=os.path.join(QMin['savedir'],'ORCA.gbw.1')
+  job=sorted(QMin['jobs'].keys())[0]
+  filename1=os.path.join(QMin['savedir'],'ORCA.gbw.%i.old' % job)
+  filename2=os.path.join(QMin['savedir'],'ORCA.gbw.%i' % job)
 
   # 
   #NAO,Smat=get_smat_from_Molden(filename1,filename2)
@@ -4298,7 +4362,8 @@ def getQMout(QMin):
                         continue
                     if i==j:
                         # TODO: does not work with restricted triplet
-                        isgs= (s1==1)
+                        #isgs= (s1==1)
+                        isgs= (QMin['gsmap'][i+1]==i+1)
                         if isgs:
                             logfile=os.path.join(QMin['scratchdir'],'master_%i/ORCA.log' % (job))
                         elif (m1,s1) in QMin['gradmap']:

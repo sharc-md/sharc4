@@ -431,7 +431,6 @@ def get_general():
     print 'Found %i subdirectories in total.\n' % count
     paths.append(path)
   INFOS['paths']=paths
-  print INFOS
   print 'Total number of subdirectories: %i\n' % (count)
 
 
@@ -449,7 +448,6 @@ def get_general():
       if 'nstates' in line.lower():
         guessstates=[]
         l=re.sub('#.*$','',line).strip().split()
-        print l
         for i in range(1,len(l)):
           guessstates.append(int(l[i]))
       if 'coupling' in line.lower():

@@ -52,6 +52,7 @@ import itertools
 # parallel calculations
 from multiprocessing import Pool
 import time
+import traceback
 
 
 # =========================================================0
@@ -398,7 +399,7 @@ def printheader():
 
   Takes nothing, returns nothing.'''
 
-  print starttime,os.environ['HOSTNAME'],os.getcwd()
+  print starttime,gethostname(),os.getcwd()
   if not PRINT:
     return
   string='\n'
@@ -1972,6 +1973,12 @@ def readQMin(QMinfilename):
   # MOLPRO path
   QMin['molpro']=get_sh2pro_environ(sh2pro,'molpro',False)
 
+  # MOLPRO extra arguments
+  QMin['molpro_arguments']=''
+  line=getsh2prokey(sh2pro,'molpro_arguments')
+  if line[0]:
+      QMin['molpro_arguments']=line[1].strip()
+
 
   # Set up scratchdir
   line=get_sh2pro_environ(sh2pro,'scratchdir',False,False)
@@ -2524,47 +2531,53 @@ def runjobs(joblist,QMin):
 
 # ======================================================================= #
 def run_calc(WORKDIR,QMin):
-  for irun in range(5):
-    Tasks=gettasks(QMin)
-    setupWORKDIR(WORKDIR,Tasks,QMin)
-    strip=not 'integrals' in QMin
-    err=runMOLPRO(WORKDIR,QMin['molpro'],strip)
-
-    if 'grad' in QMin or 'nacdr' in QMin:
-      out=readfile(os.path.join(WORKDIR,'MOLPRO.out'))
-      conv=getCPstatus(out)
-      if conv==0.:
+  try:
+    for irun in range(5):
+      Tasks=gettasks(QMin)
+      setupWORKDIR(WORKDIR,Tasks,QMin)
+      strip=not 'integrals' in QMin
+      err=runMOLPRO(WORKDIR,QMin['molpro'],strip,QMin['molpro_arguments'])
+  
+      if 'grad' in QMin or 'nacdr' in QMin:
+        out=readfile(os.path.join(WORKDIR,'MOLPRO.out'))
+        conv=getCPstatus(out)
+        if conv==0.:
+          break
+        elif conv==-1:
+          return 97
+        elif conv<=QMin['template']['gradaccumax']:
+          QMin['template']['gradaccudefault']=1.1*conv
+        elif conv>QMin['template']['gradaccumax']:
+          print 'CRASHED:\t%s\tCP-MCSCF did not converge.' % (WORKDIR)
+          return 96
+  
+      elif 'master' in QMin:
+        out=readfile(os.path.join(WORKDIR,'MOLPRO.out'))
+        errors=findCICASerrors(out)
+        if 'excessgrad' in errors:
+          if 'pspace_mc' in QMin:
+            QMin['pspace_mc']*=4.
+          else:
+            QMin['pspace_mc']=1.
+        if 'convrefci' in errors:
+          if 'pspace_ci' in QMin:
+            QMin['pspace_ci']*=4.
+          else:
+            QMin['pspace_ci']=1.
+        if len(errors)==0:
+          break
+  
+      else:
         break
-      elif conv==-1:
-        return 97
-      elif conv<=QMin['template']['gradaccumax']:
-        QMin['template']['gradaccudefault']=1.1*conv
-      elif conv>QMin['template']['gradaccumax']:
-        print 'CRASHED:\t%s\tCP-MCSCF did not converge.' % (WORKDIR)
-        return 96
-
-    elif 'master' in QMin:
-      out=readfile(os.path.join(WORKDIR,'MOLPRO.out'))
-      errors=findCICASerrors(out)
-      if 'excessgrad' in errors:
-        if 'pspace_mc' in QMin:
-          QMin['pspace_mc']*=4.
-        else:
-          QMin['pspace_mc']=1.
-      if 'convrefci' in errors:
-        if 'pspace_ci' in QMin:
-          QMin['pspace_ci']*=4.
-        else:
-          QMin['pspace_ci']=1.
-      if len(errors)==0:
-        break
-
     else:
-      break
-  else:
-    print 'CRASHED:\t%s\tDid not converge.' % (WORKDIR)
-    return 96
-  return err
+      print 'CRASHED:\t%s\tDid not converge.' % (WORKDIR)
+      return 96
+    return err
+  except Exception, problem:
+      print '*'*50+'\nException in run_calc(%s)!' % (WORKDIR)
+      traceback.print_exc()
+      print '*'*50+'\n'
+      raise problem
 
 # ======================================================================= #
 def gettasks(QMin):
@@ -2842,11 +2855,11 @@ def writeMOLPROinput(tasks, QMin):
 
     # force for grad =============================================================================== #
     elif task[0]=='forcegrad':
-      string+='{force\nsamc,%i.2\n};\n\n' % (5000+task[1][0]*100+task[1][1])
+      string+='{force;\nsamc,%i.2\n};\n\n' % (5000+task[1][0]*100+task[1][1])
 
     # force for nac ================================================================================== #
     elif task[0]=='forcenac':
-      string+='{force\nsamc,%i.2\n};\n\n' % (5020+task[1][0]*100+10*task[1][1]+task[1][3])
+      string+='{force;\nsamc,%i.2\n};\n\n' % (5020+task[1][0]*100+10*task[1][1]+task[1][3])
 
     else: # ========================================================================================== #
       print 'Unknown task %s found in writeMOLPROinput!' % task
@@ -2941,11 +2954,13 @@ def writeMOLPROinput(tasks, QMin):
 
 
 # ======================================================================= #
-def runMOLPRO(WORKDIR,MOLPRO,strip=False):
+def runMOLPRO(WORKDIR,MOLPRO,strip=False,arguments=''):
   prevdir=os.getcwd()
   os.chdir(WORKDIR)
   os.environ['WorkDir']=WORKDIR
   string=os.path.join(MOLPRO,'molpro')+' '
+  if arguments:
+    string+=' '+arguments+' '
   string+='-W./ -I./ -d./ MOLPRO.input'
   stdoutfile=open(os.path.join(WORKDIR,'MOLPRO.out'),'w')
   stderrfile=open(os.path.join(WORKDIR,'MOLPRO.err'),'w')
