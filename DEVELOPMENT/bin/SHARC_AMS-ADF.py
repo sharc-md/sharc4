@@ -1798,7 +1798,15 @@ def readQMin(QMinfilename):
         if QMin['template']['fullkernel']:
             print('Gradients are not possible with full adiabatic XC kernel')
             sys.exit(66)
-
+    atom_frags = set()
+    for iatom, atom in enumerate(QMin['geo']):
+        label = atom[0]
+        if QMin['template']['define_fragment']:
+            for frag_list in QMin['template']['define_fragment']:
+                if iatom in QMin['template']['define_fragment'][frag_list]:
+                    label = frag_list
+        atom_frags.add(label)
+    QMin['atom_frags'] = atom_frags
     # number of frozen core orbitals for wfoverlap (no frozen orbitals in AMS!)
     # this call is down here because we need to check for QM/MM in template first
     line = getsh2AMSkey(sh2AMS, 'numfrozcore')
@@ -2102,6 +2110,15 @@ def generate_joblist(QMin):
                 isgs = True
         if isgs:
             gradjob['master_%i' % ijob][grad] = {'gs': True}
+        else:
+            # in QM/MM, one cannot combine gs and es gradient in master
+            n = 0
+            for gradx in gradjob['master_%i' % ijob]:
+                if gradjob['master_%i' % ijob][gradx]['gs'] is False:
+                    n += 1
+                elif QMin['template']['qmmm']:
+                    n += 1
+            gradjob['master_%i' % ijob][grad] = {'gs': False}
 
     # make map for states onto gradjobs
     jobgrad = {}
