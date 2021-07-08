@@ -38,12 +38,13 @@ import stat
 import shutil
 import subprocess as sp
 import datetime
-import random
+#import random
 from optparse import OptionParser
 import readline
 import time
 import colorsys
 import pprint
+
 
 try:
   import numpy
@@ -626,8 +627,8 @@ def get_general():
           allfiles[line]+=1
         else:
           allfiles[line]=1
-  exclude=['QM/ADF\.template',
-           'QM/ADF\.resources',
+  exclude=['QM/AMS-ADF\.template',
+           'QM/AMS-ADF\.resources',
            'QM/Analytical\.template',
            'QM/COLUMBUS\.resources',
            'QM/GAUSSIAN\.template',

@@ -461,6 +461,7 @@ def get_general():
 
 
   # get guessstates from SHARC input of first subdirectory
+  # TODO: fetching settings from input fails in some cases where paths contain no trajectories
   ls=os.listdir(INFOS['paths'][0])
   for i in ls:
     if 'TRAJ' in i:

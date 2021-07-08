@@ -4,3 +4,7 @@
 header.py
 header
 header.f90
+.vscode
+sharcvars.*
+build_info.inc
+*.tmp

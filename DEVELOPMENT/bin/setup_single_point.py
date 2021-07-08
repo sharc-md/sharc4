@@ -149,11 +149,11 @@ Interfaces={
                           'soc':     []             },
       'pysharc':          False
      },
-  5: {'script':          'SHARC_ADF.py',
-      'name':            'adf',
-      'description':     'ADF (DFT, TD-DFT)',
-      'get_routine':     'get_ADF',
-      'prepare_routine': 'prepare_ADF',
+  5: {'script':          'SHARC_AMS-ADF.py',
+      'name':            'ams-adf',
+      'description':     'AMS-ADF (DFT, TD-DFT)',
+      'get_routine':     'get_AMS',
+      'prepare_routine': 'prepare_AMS',
       'features':        {'overlap': ['wfoverlap'],
                           'dyson':   ['wfoverlap'],
                           'theodore':['theodore'],
@@ -1544,7 +1544,7 @@ project %s''' % (INFOS['molcas'],
 # ======================================================================================================================
 # ======================================================================================================================
 
-def checktemplate_ADF(filename,INFOS):
+def checktemplate_AMS(filename,INFOS):
   necessary=['basis','functional','charge']
   try:
     f=open(filename)
@@ -1572,142 +1572,92 @@ def checktemplate_ADF(filename,INFOS):
 
 # =================================================
 
-def qmmm_job(filename,INFOS):
-  necessary=['qmmm']
-  try:
-    f=open(filename)
-    data=f.readlines()
-    f.close()
-  except IOError:
-    print 'Could not open template file %s' % (filename)
-    return False
-  valid=[]
-  for i in necessary:
-    for l in data:
-      line=l.lower().split()
-      if len(line)==0:
-        continue
-      line=line[0]
-      if i==re.sub('#.*$','',line):
-        valid.append(True)
-        break
-    else:
-      valid.append(False)
-  if not all(valid):
-    return False
-  return True
-
-# =================================================
-
-def get_ADF(INFOS):
-  '''This routine asks for all questions specific to ADF:
-  - path to ADF
+def get_AMS(INFOS):
+  '''This routine asks for all questions specific to AMS:
+  - path to AMS
   - scratch directory
-  - ADF.template
+  - AMS-ADF.template
   - TAPE21
   '''
 
   string='\n  '+'='*80+'\n'
-  string+='||'+centerstring('ADF Interface setup',80)+'||\n'
+  string+='||'+centerstring('AMS Interface setup',80)+'||\n'
   string+='  '+'='*80+'\n\n'
   print string
 
-  print centerstring('Path to ADF',60,'-')+'\n'
-  path=os.getenv('ADFHOME')
+  print centerstring('Path to AMS',60,'-')+'\n'
+  path=os.getenv('AMSHOME')
   if path:
-    path='$ADFHOME/'
-  adfrc=question('Setup from adfrc.sh file?',bool,True)
-  if adfrc:
+    path='$AMSHOME/'
+  amsbashrc=question('Setup from amsbashrc.sh file?',bool,True)
+  if amsbashrc:
     if path:
-      path='$ADFHOME/adfrc.sh'
-    print '\nPlease specify path to the adfrc.sh file (SHELL variables and ~ can be used, will be expanded when interface is started).\n'
-    path=question('Path to adfrc.sh file:',str,path)
-    INFOS['adfrc']=os.path.abspath(os.path.expanduser(os.path.expandvars(path)))
-    print 'Will use adfrc= %s' % INFOS['adfrc']
-    INFOS['adf']='$ADFHOME'
+      path='$AMSHOME/amsbashrc.sh'
+    print '\nPlease specify path to the amsbashrc.sh file (SHELL variables and ~ can be used, will be expanded when interface is started).\n'
+    path=question('Path to amsbashrc.sh file:',str,path)
+    INFOS['amsbashrc']=os.path.abspath(os.path.expanduser(os.path.expandvars(path)))
+    print 'Will use amsbashrc= %s' % INFOS['amsbashrc']
+    INFOS['adf']='$AMSHOME'
     INFOS['scmlicense']='$SCMLICENSE'
     print ''
   else:
-    print '\nPlease specify path to ADF directory (SHELL variables and ~ can be used, will be expanded when interface is started).\n'
-    INFOS['adf']=question('Path to ADF:',str,path)
+    print '\nPlease specify path to AMS directory (SHELL variables and ~ can be used, will be expanded when interface is started).\n'
+    INFOS['adf']=question('Path to AMS:',str,path)
     print ''
-    print centerstring('Path to ADF license file',60,'-')+'\n'
+    print centerstring('Path to AMS license file',60,'-')+'\n'
     path=os.getenv('SCMLICENSE')
     #path=os.path.expanduser(os.path.expandvars(path))
     if path=='':
       path=None
     else:
       path='$SCMLICENSE'
-    print'\nPlease specify path to ADF license.txt\n'
+    print'\nPlease specify path to AMS license.txt\n'
     INFOS['scmlicense']=question('Path to license:',str,path)
     print ''
 
 
   # scratch
   print centerstring('Scratch directory',60,'-')+'\n'
-  print 'Please specify an appropriate scratch directory. This will be used to run the ADF calculations. The scratch directory will be deleted after the calculation. Remember that this script cannot check whether the path is valid, since you may run the calculations on a different machine. The path will not be expanded by this script.'
+  print 'Please specify an appropriate scratch directory. This will be used to run the AMS calculations. The scratch directory will be deleted after the calculation. Remember that this script cannot check whether the path is valid, since you may run the calculations on a different machine. The path will not be expanded by this script.'
   INFOS['scratchdir']=question('Path to scratch directory:',str)
   print ''
 
 
   # template file
-  print centerstring('ADF input template file',60,'-')+'\n'
-  print '''Please specify the path to the ADF.template file. This file must contain the following keywords:
+  print centerstring('AMS input template file',60,'-')+'\n'
+  print '''Please specify the path to the AMS-ADF.template file. This file must contain the following keywords:
 
 basis <basis>
 functional <type> <name>
 charge <x> [ <x2> [ <x3> ...] ]
 
-The ADF interface will generate the appropriate ADF input automatically.
+The AMS interface will generate the appropriate AMS input automatically.
 '''
-  if os.path.isfile('ADF.template'):
-    if checktemplate_ADF('ADF.template',INFOS):
-      print 'Valid file "ADF.template" detected. '
+  if os.path.isfile('AMS-ADF.template'):
+    if checktemplate_AMS('AMS-ADF.template',INFOS):
+      print 'Valid file "AMS-ADF.template" detected. '
       usethisone=question('Use this template file?',bool,True)
       if usethisone:
-        INFOS['ADF.template']='ADF.template'
-  if not 'ADF.template' in INFOS:
+        INFOS['AMS-ADF.template']='AMS-ADF.template'
+  if not 'AMS-ADF.template' in INFOS:
     while True:
       filename=question('Template filename:',str)
       if not os.path.isfile(filename):
         print 'File %s does not exist!' % (filename)
         continue
-      if checktemplate_ADF(filename,INFOS):
+      if checktemplate_AMS(filename,INFOS):
         break
-    INFOS['ADF.template']=filename
+    INFOS['AMS-ADF.template']=filename
   print ''
-
-
-
-  # QMMM
-  if qmmm_job(INFOS['ADF.template'],INFOS):
-    print centerstring('ADF QM/MM setup',60,'-')+'\n'
-    print 'Your template specifies a QM/MM calculation. Please give the force field and connection table files.'
-    while True:
-      filename=question('Force field file:',str)
-      if not os.path.isfile(filename):
-        print 'File %s does not exist!' % (filename)
-        continue
-      else:
-        break
-    INFOS['ADF.fffile']=filename
-    while True:
-      filename=question('Connection table file:',str)
-      if not os.path.isfile(filename):
-        print 'File %s does not exist!' % (filename)
-        continue
-      else:
-        break
-    INFOS['ADF.ctfile']=filename
 
 
   # initial MOs
   print centerstring('Initial restart: MO Guess',60,'-')+'\n'
-  print '''Please specify the path to an ADF TAPE21 file containing suitable starting MOs for the ADF calculation. Please note that this script cannot check whether the wavefunction file and the Input template are consistent!
+  print '''Please specify the path to an AMS engine file (adf.rkf) containing suitable starting MOs for the AMS calculation. Please note that this script cannot check whether the wavefunction file and the Input template are consistent!
 '''
   if question('Do you have a restart file?',bool,True):
      if True:
-       filename=question('Restart file:',str,'ADF.t21.init')
+       filename=question('Restart file:',str,'AMS.t21.init')
        INFOS['adf.guess']=filename
   else:
     print 'WARNING: Remember that the calculations may take longer without an initial guess for the MOs.'
@@ -1717,7 +1667,7 @@ The ADF interface will generate the appropriate ADF input automatically.
 
 
   # Resources
-  print centerstring('ADF Ressource usage',60,'-')+'\n'
+  print centerstring('AMS Ressource usage',60,'-')+'\n'
   print '''Please specify the number of CPUs to be used by EACH calculation.
 '''
   INFOS['adf.ncpu']=abs(question('Number of CPUs:',int)[0])
@@ -1725,7 +1675,7 @@ The ADF interface will generate the appropriate ADF input automatically.
   if INFOS['adf.ncpu']>1:
     print '''Please specify how well your job will parallelize.
 A value of 0 means that running in parallel will not make the calculation faster, a value of 1 means that the speedup scales perfectly with the number of cores.
-Typical values for ADF are 0.90-0.98 for LDA/GGA functionals and 0.50-0.80 for hybrids (better if RIHartreeFock is used).'''
+Typical values for AMS are 0.90-0.98 for LDA/GGA functionals and 0.50-0.80 for hybrids (better if RIHartreeFock is used).'''
     INFOS['adf.scaling']=min(1.0,max(0.0,question('Parallel scaling:',float,[0.8])[0] ))
   else:
     INFOS['adf.scaling']=0.9
@@ -1749,13 +1699,13 @@ Typical values for ADF are 0.90-0.98 for LDA/GGA functionals and 0.50-0.80 for h
     print ''
     print '''State threshold for choosing determinants to include in the overlaps'''
     print '''For hybrids (and without TDA) one should consider that the eigenvector X may have a norm larger than 1'''
-    INFOS['adf.ciothres']=question('Threshold:',float,[0.99])[0]
+    INFOS['adf.ciothres']=question('Threshold:',float,[0.998])[0]
     print ''
     INFOS['adf.mem']=question('Memory for wfoverlap (MB):',int,[1000])[0]
     # TODO not asked: numfrozcore and numocc
 
     #print 'Please state the number of core orbitals you wish to freeze for the overlaps (recommended to use for at least the 1s orbital and a negative number uses default values)?'
-    #print 'A value of -1 will use the defaults used by ADF for a small frozen core and 0 will turn off the use of frozen cores'
+    #print 'A value of -1 will use the defaults used by AMS for a small frozen core and 0 will turn off the use of frozen cores'
     #INFOS['frozcore_number']=question('How many orbital to freeze?',int,[-1])[0]
 
 
@@ -1792,8 +1742,6 @@ Typical values for ADF are 0.90-0.98 for LDA/GGA functionals and 0.50-0.80 for h
     print 'Please give a list of the fragments used for TheoDORE analysis.'
     print 'You can use the list-of-lists from dens_ana.in'
     print 'Alternatively, enter all atom numbers for one fragment in one line. After defining all fragments, type "end".'
-    if qmmm_job(INFOS['ADF.template'],INFOS):
-      print 'You should only include the atom numbers of QM and link atoms.'
     INFOS['theodore.frag']=[]
     while True:
       l=question('TheoDORE fragment:',str,'end')
@@ -1816,14 +1764,14 @@ Typical values for ADF are 0.90-0.98 for LDA/GGA functionals and 0.50-0.80 for h
 
 # =================================================
 
-def prepare_ADF(INFOS,iconddir):
-  # write ADF.resources
+def prepare_AMS(INFOS,iconddir):
+  # write AMS-ADF.resources
   try:
-    sh2cas=open('%s/ADF.resources' % (iconddir), 'w')
+    sh2cas=open('%s/AMS-ADF.resources' % (iconddir), 'w')
   except IOError:
-    print 'IOError during prepareADF, iconddir=%s' % (iconddir)
+    print 'IOError during prepareAMS, iconddir=%s' % (iconddir)
     quit(1)
-#  project='ADF'
+#  project='AMS'
   string='adfhome %s\nscmlicense %s\nscratchdir %s/%s/\nsavedir %s/%s/restart\nncpu %i\nschedule_scaling %f\n' % (INFOS['adf'],INFOS['scmlicense'],INFOS['scratchdir'],iconddir,INFOS['copydir'],iconddir,INFOS['adf.ncpu'],INFOS['adf.scaling'])
   if 'wfoverlap' in INFOS['needed']:
     string+='wfoverlap %s\nwfthres %f\n' % (INFOS['adf.wfoverlap'],INFOS['adf.ciothres'])
@@ -1835,31 +1783,31 @@ def prepare_ADF(INFOS,iconddir):
     string+='theodir %s\n' % (INFOS['adf.theodore'])
     string+='theodore_prop %s\n' % (INFOS['theodore.prop'])
     string+='theodore_fragment %s\n' % (INFOS['theodore.frag'])
-  if 'ADF.fffile' in INFOS:
-    string+='qmmm_ff_file ADF.qmmm.ff\n'
-  if 'ADF.ctfile' in INFOS:
-    string+='qmmm_table ADF.qmmm.table\n'
+  if 'AMS.fffile' in INFOS:
+    string+='qmmm_ff_file AMS.qmmm.ff\n'
+  if 'AMS.ctfile' in INFOS:
+    string+='qmmm_table AMS.qmmm.table\n'
   sh2cas.write(string)
   sh2cas.close()
 
   # copy MOs and template
-  cpfrom=INFOS['ADF.template']
-  cpto='%s/ADF.template' % (iconddir)
+  cpfrom=INFOS['AMS-ADF.template']
+  cpto='%s/AMS-ADF.template' % (iconddir)
   shutil.copy(cpfrom,cpto)
 
   if INFOS['adf.guess']:
     cpfrom1=INFOS['adf.guess']
-    cpto1='%s/ADF.t21_init' % (iconddir)
+    cpto1='%s/AMS.t21_init' % (iconddir)
     shutil.copy(cpfrom1,cpto1)
 
-  if 'ADF.fffile' in INFOS:
-    cpfrom1=INFOS['ADF.fffile']
-    cpto1='%s/ADF.qmmm.ff' % (iconddir)
+  if 'AMS.fffile' in INFOS:
+    cpfrom1=INFOS['AMS.fffile']
+    cpto1='%s/AMS.qmmm.ff' % (iconddir)
     shutil.copy(cpfrom1,cpto1)
 
-  if 'ADF.ctfile' in INFOS:
-    cpfrom1=INFOS['ADF.ctfile']
-    cpto1='%s/ADF.qmmm.table' % (iconddir)
+  if 'AMS.ctfile' in INFOS:
+    cpfrom1=INFOS['AMS.ctfile']
+    cpto1='%s/AMS.qmmm.table' % (iconddir)
     shutil.copy(cpfrom1,cpto1)
 
 
@@ -2004,7 +1952,7 @@ douglas-kroll                                   # DKH is only used if this keywo
     INFOS['ricc2.wfpath']=question('Path to wfoverlap executable:',str,'$SHARC/wfoverlap.x')
     print ''
     print '''Give threshold for choosing determinants to include in the overlaps'''
-    INFOS['ricc2.wfthres']=question('Threshold:',float,[0.99])[0]
+    INFOS['ricc2.wfthres']=question('Threshold:',float,[0.998])[0]
 
 
 
@@ -2250,7 +2198,7 @@ Typical values for GAUSSIAN are 0.90-0.98.'''
     print ''
     print 'State threshold for choosing determinants to include in the overlaps'
     print 'For hybrids without TDA one should consider that the eigenvector X may have a norm larger than 1'
-    INFOS['gaussian.ciothres']=question('Threshold:',float,[0.99])[0]
+    INFOS['gaussian.ciothres']=question('Threshold:',float,[0.998])[0]
     print ''
     # TODO not asked: numfrozcore and numocc
 
@@ -2533,7 +2481,7 @@ A value of 0 means that running in parallel will not make the calculation faster
     print ''
     print 'State threshold for choosing determinants to include in the overlaps'
     print 'For hybrids (and without TDA) one should consider that the eigenvector X may have a norm larger than 1'
-    INFOS['orca.ciothres']=question('Threshold:',float,[0.99])[0]
+    INFOS['orca.ciothres']=question('Threshold:',float,[0.998])[0]
     print ''
 
     # PyQuante
@@ -2987,8 +2935,8 @@ def writeRunscript(INFOS,iconddir):
 
   # ================================ 
   intstring=''
-  if 'adfrc' in INFOS:
-    intstring='. %s\nexport PYTHONPATH=$ADFHOME/scripting:$PYTHONPATH' % (INFOS['adfrc'])
+  if 'amsbashrc' in INFOS:
+    intstring='. %s\nexport PYTHONPATH=$AMSHOME/scripting:$PYTHONPATH' % (INFOS['amsbashrc'])
 
 
   string='''#!/bin/bash

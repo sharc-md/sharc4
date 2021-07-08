@@ -100,10 +100,11 @@
 }
 \makeatletter
 \tthdump{
-  \newcommand*{\link}{\begingroup\@makeother\#\@link}
-  \newcommand*{\@link}[2]{%
-    \href{#1}{\ExternalLink\ifthenelse{\equal{#2}{}}{#1}{#2}}%
-    \endgroup}
+  \newcommand{\link}[2]{\href{#1}{#2}}
+%   \newcommand*{\link}{\begingroup\@makeother\#\@link}
+%   \newcommand*{\@link}[2]{%
+%     \href{#1}{\ExternalLink\ifthenelse{\equal{#2}{}}{#1}{#2}}%
+%     \endgroup}
 }
 \makeatother
 %%tth: \newcommand{\link}[2]{\href{#1}{#2}}
@@ -134,20 +135,42 @@
 
 
 
-% Rules before each section
+% Rules before each section     
+% TODO: does not work with scrlayer-scrpage package. 
+% TODO: rewrite line code with KOMA
 \tthdump{
-  \usepackage{titlesec}
-  \titleformat{\chapter}[block]
-    {\titleline{\color{B!75}\titlerule[3.2pt]}\addvspace{4pt}\sffamily\LARGE\bfseries}
-    {\thechapter\enspace}{0pt}{}[\vspace{2pt}\titleline{\color{B!75}\titlerule[3.2pt]}]
-  \titleformat{\section}[block]
-    {\titleline{\color{B!50}\titlerule[1.6pt]}\addvspace{1pt}\sffamily\Large\bfseries}
-    {\thesection\enspace}{0pt}{}
-  \titleformat{\subsection}[block]
-    {\titleline{\color{B!15}\titlerule[0.8pt]}\addvspace{1pt}\sffamily\large\bfseries}
-    {\thesubsection\enspace}{0pt}{}
-  \titlespacing*{\section}
-    {0pt}{9ex plus 1ex minus .2ex}{1ex plus .2ex}
+
+% \makeatletter
+% \renewcommand{\sectionlinesformat}[4]{%
+% \ifstr{#1}{section}{%
+%   \textcolor{B!50}{\rule{\linewidth}{1.6pt}}\par%
+%   \parbox[t]{\linewidth}{\raggedsection\@hangfrom{\hskip #2#3}{#4}\par\kern-.75\ht\strutbox}%
+% }%
+% }%
+% \makeatother
+
+\makeatletter
+% \renewcommand\chapterlinesformat[3]{%
+% \ifstr{#1}{chapter}
+%   {A\\*\rule{\textwidth}{1pt}\vskip9pt}{}% insert dot and rule before chapter titles
+% \@hangfrom{#2}{#3}%
+% }
+\makeatother
+
+
+
+%   \usepackage{titlesec}
+%   \titleformat{\chapter}[block]
+%     {\titleline{\color{B!75}\titlerule[3.2pt]}\addvspace{4pt}\sffamily\LARGE\bfseries}
+%     {\thechapter\enspace}{0pt}{}[\vspace{2pt}\titleline{\color{B!75}\titlerule[3.2pt]}]
+%   \titleformat{\section}[block]
+%     {\titleline{\color{B!50}\titlerule[1.6pt]}\addvspace{1pt}\sffamily\Large\bfseries}
+%     {\thesection\enspace}{0pt}{}
+%   \titleformat{\subsection}[block]
+%     {\titleline{\color{B!15}\titlerule[0.8pt]}\addvspace{1pt}\sffamily\large\bfseries}
+%     {\thesubsection\enspace}{0pt}{}
+%   \titlespacing*{\section}
+%     {0pt}{9ex plus 1ex minus .2ex}{1ex plus .2ex}
 }
 
 
@@ -160,10 +183,10 @@
 \addtokomafont{title}{\rmfamily}
   \begin{titlepage}
     \title{\hspace{1cm}\includegraphics[width=0.8\textwidth,keepaspectratio=true]{img/sharc_logo_21.png}\\[0.5cm]
-    SHARC2.1:\\ Surface Hopping Including\\ Arbitrary Couplings}
+    SHARC2.1.1:\\ Surface Hopping Including\\ Arbitrary Couplings}
 %     SHARC: Surface Hopping in the Adiabatic Representation Including Arbitrary Couplings}
     \subtitle{Manual\\[1cm]}
-    \date{Vienna, 01.09.2019}
+    \date{Vienna, 28.04.2021}
     \author{AG Gonz\'alez\\
 Institute of Theoretical Chemistry\\
 University of Vienna, Austria
@@ -179,9 +202,10 @@ University of Vienna, Austria
 
 % =============================== HEADER AND FOOT ==========================
 \tthdump{
-  \usepackage[automark]{scrpage2}
+  \usepackage[automark]{scrlayer-scrpage}
   \pagestyle{scrheadings}
   \clearscrheadfoot
+%   \clearpairofpagestyles% removes the default content of header and footer
 }
 
 % =============================== KEYWORDS ==========================
@@ -436,6 +460,17 @@ These features are new in \sharc\ Version 2.1 (2019):
 \end{itemize}
 
 
+\subsection{New features in \sharc\ Version 2.1.1}
+
+These features are new in \sharc\ Version 2.1.1 (2021):
+\begin{itemize}
+  \item Dynamics program \ttt{sharc.x}:
+  \begin{itemize}
+    \item RATTLE algorithm for constraint bond lengths
+    \item Keyword for restart control
+    \item Bug fixes
+  \end{itemize}
+\end{itemize}
 
 
 
@@ -1315,7 +1350,7 @@ In order to install and run \sharc\ under Linux (Windows and OS X are currently 
   \item \link{https://www.python.org/downloads/release/python-2716/}{Python 2} (This release is tested against Python 2.6 and 2.7).
   \item \ttt{make}.
   \item $[$\link{https://www.python.org/downloads/release/python-374/}{Python 3} if using the \sharc-ADF interface or \ttt{ADF\_freq.py} (This release is tested against Python 3.5 and 3.6).$]$
-  \item $[$\link{https://www.anaconda.com/distribution/}{Anaconda} with several libraries (\ttt{hdf5}, \ttt{hdf5\_hl}, \ttt{netcdf}, \ttt{mfhdf}, \ttt{df}, \ttt{jpeg}) for the \ttt{pysharc} and NetCDF functionalities.$]$
+  \item $[$\link{https://www.anaconda.com/distribution/}{Anaconda} with several libraries (\ttt{hdf5}, \ttt{hdf5\_hl}, \ttt{netcdf}, \ttt{mfhdf}, \ttt{df}, \ttt{jpeg}, \ttt{gcc}) for the \ttt{pysharc} and NetCDF functionalities.$]$
 \end{itemize}
 
 \paragraph{Extracting}
@@ -1415,9 +1450,9 @@ In order to install and test this program, see section~\ref{sec:int:wfoverlap}.
 
 \sharc\ requires the BLAS, LAPACK and FFTW3 libraries. During the installation, it might be necessary to alter the \ttt{LDFLAGS} string in the \ttt{Makefile}, depending on where the relevant libraries are located on your system. In this way, it is for example possible to use vendor-provided libraries like the \link{https://software.intel.com/en-us/intel-mkl}{Intel MKL}. For more details see the \ttt{INSTALL} file which is included in the \sharc\ distribution.
 
-As specified above, users of \ttt{pysharc} and the NetCDF functions will need additional libraries (\ttt{hdf5}, \ttt{hdf5\_hl}, \ttt{netcdf}, \ttt{mfhdf}, \ttt{df}, \ttt{jpeg}), which can, e.g., be obtained through an \textsc{Anaconda} installation.
+As specified above, users of \ttt{pysharc} and the NetCDF functions will need additional libraries (\ttt{hdf5}, \ttt{hdf5\_hl}, \ttt{netcdf}, \ttt{mfhdf}, \ttt{df}, \ttt{jpeg}), which can, e.g., be obtained through an \textsc{Anaconda} installation (packages \ttt{hdf5}, \ttt{netcdf4}, \ttt{jpeg}, \ttt{gcc}).
 
-
+% hdf5_hl is not in Max's Anaconda installation?? mfhdf neither. df? 
 
 
 
@@ -1516,11 +1551,11 @@ Even though \sharc\ comes with two interfaces for analytical potentials (and hen
   \item \link{http://www.molpro.net/}{\textsc{Molpro}} (this release was checked against \textsc{Molpro} 2010 and 2012).
   \item \link{https://gitlab.com/Molcas/OpenMolcas/}{\textsc{Openmolcas}} (this release was checked against \textsc{Openmolcas} 18).
   \begin{itemize}
-    \item \link{http://dasher.wustl.edu/tinker/}{\textsc{Tinker}}, \link{http://www.molcas.org/documentation/manual/node79.html#SECTION052122010000000000000}{interfaced to \textsc{Openmolcas} 18}, for QM/MM dynamics.
+    \item \link{http://dasher.wustl.edu/tinker/}{\textsc{Tinker}}, \link{http://www.molcas.org/documentation/manual/node79.html\#SECTION052122010000000000000}{interfaced to \textsc{Openmolcas} 18}, for QM/MM dynamics.
   \end{itemize}
   \item \link{http://www.molcas.org/}{\textsc{Molcas}} (this release was checked against \textsc{Molcas} 8.3 and 8.4).
   \begin{itemize}
-    \item \link{http://dasher.wustl.edu/tinker/}{\textsc{Tinker}}, \link{http://www.molcas.org/documentation/manual/node79.html#SECTION052122010000000000000}{interfaced to \textsc{Molcas}}, for QM/MM dynamics.
+    \item \link{http://dasher.wustl.edu/tinker/}{\textsc{Tinker}}, \link{http://www.molcas.org/documentation/manual/node79.html\#SECTION052122010000000000000}{interfaced to \textsc{Molcas}}, for QM/MM dynamics.
   \end{itemize}
   \item \link{http://www.univie.ac.at/columbus/docs_COL70/documentation_main.html}{\textsc{Columbus} 7}
   \begin{itemize}
@@ -1894,6 +1929,10 @@ In Table~\ref{tab:input}, all input keywords for the \sharc\ input file are list
   \DEFAULT{norestart}   &                                    &Dynamics is initialized from input files.\\
                         &                                    &{\footnotesize \ttt{norestart} takes precedence.}\\
   \hline
+  restart\_rerun\_last\_qm\_step  &                          &Use when restarting after non-graceful stop/crash.\\
+  restart\_goto\_new\_qm\_step    &                          &Use when restarting after reaching time limit, using \ttt{STOP} file, or \ttt{killafter} keyword.\\
+                                  &                          &{\footnotesize No default, an error is raised if neither is present during restart.}\\
+  \hline
   rngseed               &\textbf{integer}                    &Seed for the random number generator.\\
                         &\DEFAULT{10997279}                  &{\footnotesize Used for surface hopping and AFSSH decoherence.}\\
   \hline
@@ -1918,6 +1957,9 @@ In Table~\ref{tab:input}, all input keywords for the \sharc\ input file are list
   \hline
   atommaskfile          &\textbf{quoted string}              &File containing the atom mask.\\
                         &\DEFAULT{"atommask"}                &{\footnotesize Only read if \ttt{atommask external}.}\\
+  \hline
+  rattlefile          &\textbf{quoted string}              &File containing the list of bond length constraints.\\
+                        &\DEFAULT{"rattle"}                &{\footnotesize Only read if \ttt{rattle}.}\\
   \hline
 
 
@@ -2034,6 +2076,22 @@ In Table~\ref{tab:input}, all input keywords for the \sharc\ input file are list
                         &\$1\DEFAULT{=none}                  &{\footnotesize No atoms are masked.}\\
                         &\$1=external                        &{\footnotesize Atom mask is read from external file.}\\
   \hline
+
+
+  \multicolumn{3}{|c|}{\cellcolor{black!10}--- Thermostats and constraints ---}\\
+  \hline  
+  rattle           &                                    &Enables bond length constraints through RATTLE.\\
+  \DEFAULT{norattle}&                                   &No RATTLE.\\
+                        &                               &{\footnotesize \ttt{norattle} takes precedence.}\\
+  \hline
+  rattletolerance    &\textbf{float}                      &Convergence criterion for RATTLE.\\
+                        &\DEFAULT{1e-7}                       &{\footnotesize \$1$>0.0$}\\
+  \hline
+
+
+
+
+
 
 
   \multicolumn{3}{|c|}{\cellcolor{black!10}--- Energy control keywords ---}\\
@@ -2158,6 +2216,13 @@ There are two keywords controlling trajectory restarting. The keyword \ttt{resta
 When restarting, all control variables are read from the restart file instead of the input file. The only exceptions are \ttt{nsteps} and \ttt{tmax}. In this way, a trajectory which ran for the full simulation time can easily be restarted to extend the simulation time.
 
 Note that none of the auxiliary scripts adds the \ttt{restart} keyword to the input file. The user has to manually add the restart file to the input files of the relevant trajectories.
+
+In order to ensure synchronicity of the restart files of \ttt{sharc.x} and the \ttt{restart/} directory (managed by the interfaces), either one of two keywords must be present when restarting, either \ttt{restart\_rerun\_last\_qm\_step} or \ttt{restart\_goto\_new\_qm\_step}.
+The \ttt{restart\_rerun\_last\_qm\_step} keyword should be used if the restart is after a non-graceful crash/kill of the simulation (e.g., due to queueing system time limits). 
+It tells the interface that the current time step was already attempted before the restart and the \ttt{restart/} directory is one time step ahead of the information in the restart files.
+The \ttt{restart\_goto\_new\_qm\_step} keyword on the contrary should be used after the simulation was gracefully stopped (e.g., after reaching \ttt{tmax}/\ttt{nsteps}, after using the \ttt{STOP} file, or after using the \ttt{killafter} mechanism).
+In this case, restart files and \ttt{restart/} directory are consistent and the simulation continues as if no stop-and-restart were performed.
+
 
 \paragraph{RNG Seed}
 
@@ -2293,6 +2358,19 @@ The \ttt{atommask} keyword can then be used to exclude certain atoms from the th
 
 Note that the \ttt{atommask} keyword has no effect on \ttt{ekincorrect parallel\_nac}, \ttt{reflect\_frustrated parallel\_nac}, and \ttt{decoherence\_scheme afssh}, because these procedures are size consistent by themselves.
 
+\paragraph{Bond length constraints with RATTLE}
+
+One can use the RATTLE algorithm to constrain the length of some bonds (or generally, interatomic distances) to some fixed value.
+The \ttt{rattle} keyword can be used to activate this option.
+
+Activating \ttt{rattle} requires providing a file with the list of atom pairs whose distance should be fixed.
+The format for this file is described in section~\ref{sec:rattlefile}. 
+
+One can also use the \ttt{rattletolerance} keyword to modify the convergence criterion of the RATTLE linear equation solver.
+However, for most purposes, the default should be acceptable.
+
+
+
 \paragraph{Reference Energy}
 
 The keyword \ttt{ezero} gives the energy shift for the diagonal elements of the Hamiltonian. The shift should be chosen so that the shifted diagonal elements are reasonably small (large diagonal elements in the Hamiltonian lead to rapidly changing coefficients, requiring extremely short subtime steps). 
@@ -2317,6 +2395,9 @@ The alternative (keyword \ttt{noselect\_directly}) is to perform two quantum che
 The option \ttt{select\_directly} is strongly recommended in almost all instances, since for most quantum chemistry programs it is not possible to make sure that the wave function phases from both calls are consistent.
 Additionally, for all interfaces the calculation becomes more expensive with two calls per step.
 
+Note that some interface may (for some electronic structure methods) compute the gradients numerically.
+In this case, the interface will automatically compute the gradients of all states together.
+Therefore, \ttt{grad\_select} offers no advantage for numerical gradient runs and it is strongly suggested to use the default option \ttt{grad\_all}.
 
 \paragraph{Phase Tracking}
 
@@ -2505,6 +2586,24 @@ Example:
 ...
 \end{verbatim}
 \end{example}
+
+\section{RATTLE file}\label{sec:rattlefile}
+
+The RATTLE file contains a list of all the atom pairs whose interatomic distance should be fixed by the RATTLE algorithm.
+In the file, each line should contain two integer numbers that indicate the atom indices of one atom pair.
+Atom indices start at 1.
+Optionally, some lines can also have a third entry, which is a float with the desired interatomic distance in Bohr units.
+If the third entry is not give, then the distance is fixed to the value that is found in the initial geometry file.
+
+Example:
+\begin{example}
+\begin{verbatim}
+1 3
+2 4  2.05
+2 5
+\end{verbatim}
+\end{example}
+
 
 
 % ========================================================================================================= %
@@ -3442,7 +3541,8 @@ Note that the interface sets all environment variables necessary to run \textsc{
 
 Some explanations on parallelization: There are two parallel modes in which the interface can act. In the first mode, the wave function and expectation values are calculated serially first, and then all analytical gradients are computed in parallel, over the given number of CPUs. If the number of CPUs is one, then still the interface prepares independent computations for each gradient, and runs those sequentially on one CPU. If the given number of CPUs is negative or zero, then the gradients are not prepared as separate \textsc{Molcas} calculations, but together with the other quantities. The latter variant has less overhead, but is only recommended if the user is sure that the gradient calculations (MCLR) will converge in virtually all cases. If MCLR does not converge occasionally, it is advisable to use NCPU=1 instead of NCPU$\leq$0.
 
-In the second parallelization mode, used for numerical gradients, the central point is calculated first and then all displacements are computed in parallel. This mode will be used for gradients on CASPT2, MS-CASPT2 and Cholesky-CASSCF level as well as for spin-orbit/dipole moment derivatives on all levels. In this mode there is no distinction between NCPU=1 and NCPU$\leq$0. 
+In the second parallelization mode, used for numerical gradients, the central point is calculated first and then all displacements are computed in parallel. This mode will be used for gradients on CASPT2, MS-CASPT2 and Cholesky-CASSCF level as well as for spin-orbit/dipole moment derivatives on all levels. In this mode there is no distinction between NCPU=1 and NCPU$\leq$0. Note that numerical gradients are always automatically computed for all states or state-pairs. Hence, in numerical-gradient mode there is no advantage of using the \ttt{grad\_select} keyword in \ttt{sharc.x}. Also note that the \sharc-\textsc{Molcas} interface currently does not handle multiple jobs in the same time step correctly. Accordingly, for CASPT2 dynamics, one needs to employ the \ttt{select\_directly} and \ttt{grad\_all} keywords.
+
 
 
 \subsection{Template file generator: \ttt{molcas\_input.py}}\label{sec:molcas_input.py}
@@ -3742,7 +3842,7 @@ Here, the first line gives the number of atoms and the second line the number of
 
 On the remaining lines, each Cartesian component of the atomic coordinates is associated to a variable name, which can be used in the analytical expressions. If a zero (\ttt{0}) is given instead of a variable name, then the corresponding Cartesian coordinate is neglected. In the above example, the variable name \ttt{xI} is associated with the $x$ coordinate of the first atom given in \ttt{QM.in}. The $y$ and $z$ coordinates of the first atom are neglected.
 
-All variable names must be \link{https://docs.python.org/2/reference/lexical_analysis.html#identifiers}{valid Python identifiers} and must not start with an underscore. Hence, all strings starting with a letter, followed by an arbitrary number of letters, digits and underscores, are valid. It is not allowed to use a variable name twice.
+All variable names must be \link{https://docs.python.org/2/reference/lexical_analysis.html\#identifiers}{valid Python identifiers} and must not start with an underscore. Hence, all strings starting with a letter, followed by an arbitrary number of letters, digits and underscores, are valid. It is not allowed to use a variable name twice.
 
 Note that the file header also contains the atom labels, which are just used for cross-checking against the atom labels in \ttt{QM.in}.
 
