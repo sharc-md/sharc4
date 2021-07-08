@@ -4442,7 +4442,7 @@ def getQMout(QMin):
         if QMin['qmmm'] and not 'pcgrad' in QMout:
             QMout['pcgrad']=[ [ [ 0. for i in range(3) ] for j in QMin['pointcharges'] ] for k in range(nmstates) ]
         if QMin['template']['cobramm']:
-	    ncharges=len(readfile("charge.dat"))-1
+            ncharges=len(readfile("charge.dat"))-1
             QMout['pcgrad']=[ [ [ 0. for i in range(3) ] for j in range(ncharges) ] for k in range(nmstates) ]
         for grad in QMin['gradmap']:
             path,isgs=QMin['jobgrad'][grad]
@@ -4471,8 +4471,8 @@ def getQMout(QMin):
                     if QMin['qmmm']:
                         QMout['pcgrad'][istate-1]=gpc
 	    if QMin['template']['cobramm']:
-		logfile=os.path.join(QMin['scratchdir'],path,'ORCA.pcgrad'+fname)
-                gpc=getpcgrad(logfile,QMin)
+            logfile=os.path.join(QMin['scratchdir'],path,'ORCA.pcgrad'+fname)
+            gpc=getpcgrad(logfile,QMin)
             for istate in QMin['statemap']:
                 state=QMin['statemap'][istate]
                 #print grad,istate,state
