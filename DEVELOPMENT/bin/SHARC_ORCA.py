@@ -102,6 +102,9 @@ Update for Orca 4.1:
 16.10.2018:
 Update for Orca 4.1, after revisions:
 - does not work with Orca 4.0 or lower (orca_fragovl unavailable, engrad/pcgrad files)
+
+11.10.2020:
+- COBRAMM can be used for QM/MM calculations
 '''
 
 # ======================================================================= #
@@ -793,6 +796,9 @@ def writeQMout(QMin,QMout,QMinfilename):
         string+=writeQMoutTHEODORE(QMin,QMout)
     if 'phases' in QMin:
         string+=writeQmoutPhases(QMin,QMout)
+    if 'grad' in QMin:
+       if QMin['template']['cobramm']:
+          writeQMoutgradcobramm(QMin,QMout)
     string+=writeQMouttime(QMin,QMout)
     outfile=os.path.join(QMin['pwd'],outfilename)
     writefile(outfile,string)
@@ -885,6 +891,38 @@ def writeQMoutgrad(QMin,QMout):
     string+='\n'
     return string
 
+# =================================== #
+
+def writeQMoutgradcobramm(QMin,QMout):
+    '''Generates a string with the Gradient vectors in SHARC format.
+
+    The string starts with a ! followed by a flag specifying the type of data. On the next line, natom and 3 are written, followed by the gradient, with one line per atom and a blank line at the end. Each MS component shows up (nmstates gradients are written).
+
+    Arguments:
+    1 dictionary: QMin
+    2 dictionary: QMout
+
+    Returns:
+    1 string: multiline string with the Gradient vectors'''
+
+    states=QMin['states']
+    nstates=QMin['nstates']
+    nmstates=QMin['nmstates']
+    natom=len(QMout['pcgrad'][0])
+    string=''
+    #string+='! %i Gradient Vectors (%ix%ix3, real)\n' % (3,nmstates,natom)
+    i=0
+    for imult,istate,ims in itnmstates(states):
+        string+='%i %i ! %i %i %i\n' % (natom,3,imult,istate,ims)
+        for atom in range(natom):
+            for xyz in range(3):
+		print((eformat(QMout['pcgrad'][i][atom][xyz],9,3)), i, atom)
+                string+='%s ' % (eformat(QMout['pcgrad'][i][atom][xyz],9,3))
+            string+='\n'
+        #string+='\n'
+        i+=1
+    string+='\n'
+    writefile("grad_charges", string)
 # ======================================================================= #
 def writeQMoutnacsmat(QMin,QMout):
     '''Generates a string with the adiabatic-diabatic transformation matrix in SHARC format.
@@ -2101,6 +2139,7 @@ def readQMin(QMinfilename):
     bools   ={'no_tda'                  :False,
               'unrestricted_triplets'   :False,
               'qmmm'                    :False,
+              'cobramm'                 :False,
               'picture_change'          :False
               }
     strings ={'basis'                   :'6-31G',
@@ -2118,7 +2157,7 @@ def readQMin(QMinfilename):
               }
     integers={
               'frozen'                  :-1,
-              'maxiter'                 :700,
+              'maxiter'                 :700
               }
     floats  ={
               'hfexchange'              :-1.,
@@ -2836,6 +2875,15 @@ def setupWORKDIR(WORKDIR,QMin):
             print inputstring
             print 'Point charges written to: %s' % (filename)
             print '===================================================================='
+    #if QMin['template']['cobramm']:
+    #    inputstring=write_pc_cobramm(QMin)
+    #    filename=os.path.join(WORKDIR,'charge.dat')
+    #    writefile(filename,inputstring)
+    if QMin['template']['cobramm']:
+         currentDirectory=os.getcwd()
+         fromfile=os.path.join(currentDirectory,'charge.dat')
+         tofile=tofile=os.path.join(WORKDIR,'charge.dat')  
+         shutil.copy(fromfile,tofile)
 
     # wf file copying
     if 'master' in QMin:
@@ -3023,6 +3071,7 @@ def writeORCAinput(QMin):
       if restr and 'soc' in QMin:
           string+='dosoc true\n'
           string+='printlevel 3\n'
+      #string+="dotrans all\n" #TODO
       if dograd:
           if multigrad:
               if singgrad:
@@ -3082,6 +3131,8 @@ def writeORCAinput(QMin):
     if QMin['qmmm']:
       string+='%pointcharges "ORCA.pc"\n\n'
 
+    if QMin['template']['cobramm']:
+      string+='%pointcharges "charge.dat"\n\n'
 
     return string
 
@@ -3091,6 +3142,14 @@ def write_pccoord_file(QMin):
   for atom in QMin['pointcharges']:
     string+='%f %f %f %f\n' % (atom[3],atom[0],atom[1],atom[2])
   return string
+
+#def write_pc_cobramm(QMin):
+#    cobcharges=open('charges.dat', 'r')
+#    charges=cobcharges.readlines()
+#    string='%i\n' % len(charges)
+#    for atom in charges:
+#        string+='%f %f %f %f\n' % (atom[3],atom[0],atom[1],atom[2])
+#    return string 
 
 # ======================================================================= #
 def shorten_DIR(string):
@@ -3726,14 +3785,6 @@ def get_smat_from_gbw(file1, file2=''):
         NAO=int(line.split()[0])+1
         break
 
-    # find start of matrix
-    iline=-1
-    while True:
-      iline+=1
-      line=out[iline]
-      if 'FRAGMENT-FRAGMENT OVERLAP MATRIX' in line:
-        break
-
     # read matrix
     nblock=6
     ao_ovl=[ [ 0. for i in range(NAO) ] for j in range(NAO) ]
@@ -3741,7 +3792,7 @@ def get_smat_from_gbw(file1, file2=''):
       for y in range(NAO):
         block=x/nblock
         xoffset=x%nblock+1
-        yoffset=block*(NAO+1)+y+3+iline
+        yoffset=block*(NAO+1)+y+10
         ao_ovl[x][y]=float( out[yoffset].split()[xoffset])
 
     return NAO,ao_ovl
@@ -3822,61 +3873,61 @@ def get_smat_from_gbw(file1, file2=''):
 
 
 
-## ======================================================================= #
-#def read_molden(filename):
-  #data=readfile(filename)
+# ======================================================================= #
+def read_molden(filename):
+  data=readfile(filename)
 
-  #molecule=[]
-  ## get geometry
-  #for iline,line in enumerate(data):
-    #if '[atoms]' in line.lower():
-      #break
-  #else:
-    #print 'No geometry found in %s!' % (filename)
-    #sys.exit(91)
+  molecule=[]
+  # get geometry
+  for iline,line in enumerate(data):
+    if '[atoms]' in line.lower():
+      break
+  else:
+    print 'No geometry found in %s!' % (filename)
+    sys.exit(91)
 
-  #if 'au' in line.lower():
-    #factor=1.
-  #elif 'angstrom' in line.lower():
-    #factor=au2a
+  if 'au' in line.lower():
+    factor=1.
+  elif 'angstrom' in line.lower():
+    factor=au2a
 
-  #while True:
-    #iline+=1
-    #line=data[iline]
-    #if '[' in line:
-      #break
-    #s=line.lower().split()
-    #atom={'el':s[0],'coord':[float(i)*factor for i in s[3:6]],'basis':[]}
-    #molecule.append(atom)
+  while True:
+    iline+=1
+    line=data[iline]
+    if '[' in line:
+      break
+    s=line.lower().split()
+    atom={'el':s[0],'coord':[float(i)*factor for i in s[3:6]],'basis':[]}
+    molecule.append(atom)
 
-  ## get basis set
-  #for iline,line in enumerate(data):
-    #if '[gto]' in line.lower():
-      #break
-  #else:
-    #print 'No geometry found in %s!' % (filename)
-    #sys.exit(92)
+  # get basis set
+  for iline,line in enumerate(data):
+    if '[gto]' in line.lower():
+      break
+  else:
+    print 'No geometry found in %s!' % (filename)
+    sys.exit(92)
 
-  #shells={'s': 1, 'p':3, 'd':6, 'f':10, 'g':15}
-  #while True:
-    #iline+=1
-    #line=data[iline]
-    #if '[' in line:
-      #break
-    #s=line.lower().split()
-    #if len(s)==0:
-      #continue
-    #if not s[0] in shells:
-      #iatom=int(s[0])-1
-    #else:
-      #newbf=[s[0].upper()]
-      #nprim=int(s[1])
-      #for iprim in range(nprim):
-        #iline+=1
-        #s=data[iline].split()
-        #newbf.append( (float(s[0]),float(s[1]) ) )
-      #molecule[iatom]['basis'].append(newbf)
-  #return molecule
+  shells={'s': 1, 'p':3, 'd':6, 'f':10, 'g':15}
+  while True:
+    iline+=1
+    line=data[iline]
+    if '[' in line:
+      break
+    s=line.lower().split()
+    if len(s)==0:
+      continue
+    if not s[0] in shells:
+      iatom=int(s[0])-1
+    else:
+      newbf=[s[0].upper()]
+      nprim=int(s[1])
+      for iprim in range(nprim):
+        iline+=1
+        s=data[iline].split()
+        newbf.append( (float(s[0]),float(s[1]) ) )
+      molecule[iatom]['basis'].append(newbf)
+  return molecule
 
 
 
@@ -4310,6 +4361,9 @@ def getQMout(QMin):
             QMout['grad']=[ [ [ 0. for i in range(3) ] for j in range(natom) ] for k in range(nmstates) ]
         if QMin['qmmm'] and not 'pcgrad' in QMout:
             QMout['pcgrad']=[ [ [ 0. for i in range(3) ] for j in QMin['pointcharges'] ] for k in range(nmstates) ]
+        if QMin['template']['cobramm']:
+	    ncharges=len(readfile("charge.dat"))-1
+            QMout['pcgrad']=[ [ [ 0. for i in range(3) ] for j in range(ncharges) ] for k in range(nmstates) ]
         for grad in QMin['gradmap']:
             path,isgs=QMin['jobgrad'][grad]
             gsmult= QMin['jobs'][int(path.split('_')[1])]['mults'][0]
@@ -4336,6 +4390,20 @@ def getQMout(QMin):
                     QMout['grad'][istate-1]=g
                     if QMin['qmmm']:
                         QMout['pcgrad'][istate-1]=gpc
+	    if QMin['template']['cobramm']:
+		logfile=os.path.join(QMin['scratchdir'],path,'ORCA.pcgrad'+fname)
+                gpc=getpcgrad(logfile,QMin)
+            for istate in QMin['statemap']:
+                state=QMin['statemap'][istate]
+                #print grad,istate,state
+                if (state[0],state[1])==grad:
+                    QMout['grad'][istate-1]=g
+                    if QMin['template']['cobramm']:
+                        QMout['pcgrad'][istate-1]=gpc
+            ##if QMin['template']['cobramm']:
+	    ##    gradfromorca=os.path.join(QMin['scratchdir'],path,'ORCA.pcgrad')
+            ##    gradforcobramm=os.path.join(QMin['scratchdir'],path,'grad_charges')
+            ##    shutil.move(gradfromorca,gradforcobramm)
         if QMin['neglected_gradient']!='zero':
             for i in range(nmstates):
                 m1,s1,ms1=tuple(QMin['statemap'][i+1])
@@ -4671,7 +4739,7 @@ def gettdm(logfile,ijob,QMin):
       if not imult+1 in mults:
         estates_to_extract[imult]=0
 
-
+    #print "getting cool dipoles"
     # extract transition dipole moments
     dipoles={}
     for imult in mults:
@@ -4681,6 +4749,7 @@ def gettdm(logfile,ijob,QMin):
       if nstates>0:
         for iline,line in enumerate(f):
           if '  ABSORPTION SPECTRUM VIA TRANSITION ELECTRIC DIPOLE MOMENTS' in line:
+            #print line
             for istate in range(nstates):
               shift=5+istate
               s=f[iline+shift].split()
@@ -4785,17 +4854,24 @@ def getpcgrad(logfile,QMin):
     if PRINT:
         print 'Gradient: '+shorten_DIR(logfile)
 
-    # initialize
-    natom=len(QMin['pointcharges'])
-    g=[ [ 0. for i in range(3) ] for j in range(natom) ]
-
-    # get gradient
-    for iatom in range(natom):
-        for ixyz in range(3):
-          s=out[iatom+1].split()
-          g[iatom][ixyz]=float(s[ixyz])
+    ## initialize
+   # natom=len(QMin['pointcharges'])
+   # g=[ [ 0. for i in range(3) ] for j in range(natom) ]
+   
+    ## get gradient
+   # for iatom in range(natom):
+   #     for ixyz in range(3):
+   #       s=out[iatom+1].split()
+   #       g[iatom][ixyz]=float(s[ixyz])
+   # return g
+    g=[]
+    for iatom in range(len(out)-1):
+	atom_grad=[0. for i in range(3)]
+	s=out[iatom+1].split()
+	for ixyz in range(3):
+		atom_grad[ixyz]=float(s[ixyz])
+   	g.append(atom_grad)
     return g
-
 
 ## ======================================================================= #
 #def get_qmmm_energies(outfile,coupling):

@@ -218,6 +218,9 @@ changelogstring='''
 
 15.11.2018:
 - can now do PCM computations (only numerical gradients)
+
+11.10.2020:
+- COBRAMM can be used for QM/MM calculation
 '''
 
 # ======================================================================= #
@@ -529,6 +532,8 @@ def printQMin(QMin):
       string+=')'
   if QMin['template']['qmmm']:
       string+='\t+Tinker'
+  if 'cobramm' in QMin:
+      string+='\t+COBRAMM'
   print string
   # say, if CAS(n-1,m) is used for any multiplicity
   oddmults=False
@@ -646,6 +651,8 @@ def printtasks(tasks):
             print 'RASSI\t%s\tStates: %s' % ({'soc':'Spin-Orbit Coupling','dm':'Dipole Moments','overlap':'Overlaps'}[task[1]],task[2])
         elif task[0]=='espf':
             print 'ESPF'
+        elif task[0]=='cobramm':
+            print 'COBRAMM'
         else:
             print task
     print '\n'
@@ -873,7 +880,7 @@ def makermatrix(a,b):
 
 # ======================================================================= #
 def getversion(out,MOLCAS):
-    allowedrange=[ (18.0,18.999), (8.29999,8.30001) ]
+    allowedrange=[ (18.0,21.999), (8.29999,8.30001) ]
     # first try to find $MOLCAS/.molcasversion
     molcasversion=os.path.join(MOLCAS,'.molcasversion')
     if os.path.isfile(molcasversion):
@@ -1170,6 +1177,50 @@ def getgrad(out,mult,state,QMin,version):
         print 'Gradient of state %i in mult %i not found!' % (state,mult)
         sys.exit(24)
 
+
+# ======================================================================= #
+def getefield(out, mult, state, QMin):
+
+    roots = QMin['template']['roots']
+    ssgrad = roots[mult-1] == 1          # for SS-CASSCF no MCLR is needed
+
+    rasscf, mclr, alaska = False, False, False
+    multfound, statefound = False, False
+    efield = []
+
+    for i, line in enumerate(out):
+        if '&RASSCF' in line:
+            rasscf, mclr, alaska = True, False, False
+        elif '&MCLR' in line:
+            rasscf, mclr, alaska = False, True, False
+        elif '&ALASKA' in line and multfound and statefound:
+            rasscf, mclr, alaska = False, False, True
+        elif 'Spin quantum number' in line and rasscf:
+            if int(round(float(line.split()[3])*2))+1 == mult:
+                multfound = True
+            else:
+                multfound = False
+            if ssgrad:
+                statefound = True
+            else:
+                statefound = False
+        elif ' Lagrangian multipliers are calculated for state no.' in line and mclr and multfound:
+            if int(line.split()[7].strip()) == state:
+                statefound = True
+        elif mclr and multfound and statefound:
+            if 'Electric field:' in line:
+                natomMM, efield = 0, []
+                while True:
+                    try:
+                        efield.append([float(out[i+2+natomMM].split()[1+xyz]) for xyz in range(3)])
+                    except IndexError:
+                        break
+                    natomMM += 1
+                return efield
+    else:
+        print 'Electric field of state %i in mult %i not found!' % (state, mult)
+        sys.exit(24)
+
 # ======================================================================= #
 def getnacdr(out,mult,state,state2,QMin,version):
 
@@ -1389,6 +1440,16 @@ def getQMout(out,QMin):
                     gradatom.append([0.,0.,0.])
                 grad.append(gradatom)
         QMout['grad']=grad
+    # EField:  returns the electric field computed at given points, for COBRAMM QM/MM
+    if 'grad' in QMin and QMin['template']['cobramm']:
+        efield = []
+        for i in QMin['statemap']:
+            mult, state, ms = tuple(QMin['statemap'][i])
+            if (mult, state) in QMin['gradmap']:
+                efield.append(getefield(out, mult, state, QMin))
+            else:
+                efield.append([])
+        QMout['efield'] = efield
     # NACdr:  returns a list of nmstates x nmstates vectors
     if 'nacdr' in QMin:
         nacdr=[ [ [ [ 0. for i in range(3) ] for j in range(natom) ] for k in range(nmstates) ] for l in range(nmstates) ]
@@ -2217,7 +2278,7 @@ def readQMin(QMinfilename):
     integers=['nactel','inactive','ras2','frozen']
     strings =['basis','method','baslib']
     floats=['ipea','imaginary','gradaccumax','gradaccudefault','displ', 'rasscf_thrs_e', 'rasscf_thrs_rot', 'rasscf_thrs_egrd','cholesky_accu']
-    booleans=['cholesky','no-douglas-kroll','qmmm','cholesky_analytical']
+    booleans=['cholesky','no-douglas-kroll','qmmm','cholesky_analytical','cobramm']
     for i in booleans:
         QMin['template'][i]=False
     QMin['template']['roots'] = [0 for i in range(8)]
@@ -2316,6 +2377,10 @@ def readQMin(QMinfilename):
         if QMin['template']['qmmm']:
             print 'PCM and QM/MM cannot be used together!'
 
+    if QMin['template']['pcmset']['on']:
+        if QMin['template']['cobramm']:
+            print 'PCM and QM/MM cannot be used together!'
+
     # QM/MM mode needs Tinker
     if QMin['template']['qmmm'] and not 'tinker' in QMin:
         print 'Please set $TINKER or give path to tinker in MOLCAS.resources!'
@@ -2376,7 +2441,7 @@ def readQMin(QMinfilename):
         sys.exit(67)
 
 
-    # QM/MM setup
+    # QM/MM Tinker setup
     if QMin['template']['qmmm']:
         QMin['active_qmmm_atoms'] = []
         keycontent=readfile('MOLCAS.qmmm.key')
@@ -2595,6 +2660,10 @@ def writeMOLCASinput(tasks, QMin):
                 string+='RICD\nCDTHreshold=%f\n' % (QMin['template']['cholesky_accu'])
             if QMin['template']['pcmset']['on']:
                 string+='RF-INPUT\nPCM-MODEL\nSOLVENT = %s\nAARE = %f\nR-MIN = %f\nEND OF RF-INPUT\n' % (QMin['template']['pcmset']['solvent'],QMin['template']['pcmset']['aare'],QMin['template']['pcmset']['r-min'])
+            #if 'cobramm' in QMin['template']:
+            if QMin['template']['cobramm']:
+                with open("charge.dat", "r") as fin:
+                    string += fin.read() + "\n"
             string+='\n'
 
         elif task[0]=='seward':
@@ -2608,7 +2677,7 @@ def writeMOLCASinput(tasks, QMin):
             if QMin['template']['cholesky']:
                 string+='DOANA\n'
             string+='\n'
-
+        
         elif task[0]=='espf':
             string+='&ESPF\nEXTERNAL=TINKER\n\n'
 
@@ -3344,6 +3413,20 @@ def arrangeQMout(QMin,QMoutall,QMoutDyson):
                         g=numdiff(enp,enn,enc,displ,ovp,ovp,ovn,ovn,iatom,xyz)
                         grad[istate][iatom][xyz]=g
             QMout['grad']=grad
+
+    if 'grad' in QMin and QMin['template']['cobramm']:
+        if QMin['gradmode'] == 1:
+            with open("efield.dat", "w") as f:
+                for i in sorted(QMin['statemap']):
+                    mult, state, ms = tuple(QMin['statemap'][i])
+                    if (mult, state) in QMin['gradmap']:
+                        name = 'grad_%i_%i' % (mult, state)
+                        efield = QMoutall[name]['efield'][i - 1]
+                        f.write("{0} 3 ! {1} {2}\n".format(len(efield), mult, state))
+                        for e in efield:
+                            f.write("{0:20.10f} {1:20.10f} {2:20.10f}\n".format(*e))
+                    else:
+                        f.write("{0} 3 ! {1} {2}\n".format(0, mult, state))
 
     if 'nacdr' in QMin:
         QMout['nacdr']=[ [ [ [ 0. for i in range(3) ] for j in range(QMin['natom']) ] for k in range(QMin['nmstates']) ] for l in range(QMin['nmstates']) ]
