@@ -960,7 +960,7 @@ flagged as valid initial states for the dynamics.
 Note that this is applied to all initial conditions.'''
         if INFOS['diabatize']:
             print '\nNOTE: These numbers are interpreted as diabatic states.\nThe diabatic basis is the set of states computed in ICOND_00000/.\nPlease carefully analyze these states to decide which diabatic states to request.'
-            #print 'NOTE: You can only enter one initial state.'
+            # print 'NOTE: You can only enter one initial state.'
         if 'states' in INFOS:
             diago = (INFOS['repr'] == 'diag')
             print print_statemap(get_statemap(INFOS['states']), diag=diago)
@@ -972,7 +972,7 @@ Note that this is applied to all initial conditions.'''
                 continue
             # if INFOS['diabatize']:
                 # if len(allowed_states)>1:
-                #print 'Only one initial state allowed!'
+                # print 'Only one initial state allowed!'
                 # continue
             break
         INFOS['allowed'] = set(allowed_states)
@@ -1090,7 +1090,7 @@ def get_QMout(INFOS, initlist):
         done = width_bar * (icond) / INFOS['ninit']
         sys.stdout.write('\r  Progress: [' + '=' * done + ' ' * (width_bar - done) + '] %3i%%' % (done * 100 / width_bar))
         if not os.path.isfile(qmfilename):
-            #print 'No QM.out for ICOND_%05i!' % (icond)
+            # print 'No QM.out for ICOND_%05i!' % (icond)
             continue
         ncond += 1
         H, DM, P, Smat = extractQMout(qmfilename, INFOS['ion'], INFOS['diabatize'])
@@ -1105,13 +1105,13 @@ def get_QMout(INFOS, initlist):
                     Smat[i][j] = Smat[i][j].real**2 / N
                     #string+='%5.3f  ' % Smat[i][j]
                 # string+='\n'
-            #print string
+            # print string
             Diabmap = {}
             for i in range(len(Smat)):
                 j = Smat[i].index(max(Smat[i]))
                 if Smat[i][j] >= thres:
                     Diabmap[i] = j
-            #print icond,Diabmap
+            # print icond,Diabmap
         # generate list of excited states
         estates = []
         for istate in range(len(H)):
@@ -1161,7 +1161,7 @@ def excite(INFOS, initlist):
                 elif INFOS['excite'] == 2:
                     if INFOS['diabatize']:
                         Diabmap = icond.Diabmap
-                        #print i,Diabmap
+                        # print i,Diabmap
                         allowed = []
                         for q in INFOS['allowed']:
                             if q - 1 in Diabmap:
