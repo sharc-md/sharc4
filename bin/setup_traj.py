@@ -147,17 +147,17 @@ Interfaces = {
         'pysharc': False
         },
     5: {'script': 'SHARC_AMS-ADF.py',
-         'name': 'ams-adf',
-         'description': 'AMS-ADF (DFT, TD-DFT)',
-         'get_routine': 'get_AMS',
-         'prepare_routine': 'prepare_AMS',
-         'features': {'overlap': ['wfoverlap'],
-                      'dyson': ['wfoverlap'],
-                      'theodore': ['theodore'],
-                      'phases': ['wfoverlap'],
-                      'soc': []},
-         'pysharc': False
-         },
+        'name': 'ams-adf',
+        'description': 'AMS-ADF (DFT, TD-DFT)',
+        'get_routine': 'get_AMS',
+        'prepare_routine': 'prepare_AMS',
+        'features': {'overlap': ['wfoverlap'],
+                     'dyson': ['wfoverlap'],
+                     'theodore': ['theodore'],
+                     'phases': ['wfoverlap'],
+                     'soc': []},
+        'pysharc': False
+        },
     6: {'script': 'SHARC_RICC2.py',
         'name': 'ricc2',
         'description': 'TURBOMOLE (ricc2 with CC2 and ADC(2))',
@@ -2813,7 +2813,7 @@ The AMS interface will generate the appropriate AMS input automatically.
         INFOS['AMS-ADF.template'] = filename
     print('')
 
-   
+
     # initial MOs
     print(centerstring('Initial restart: MO Guess', 60, '-') + '\n')
     print('''Please specify the path to an AMS engine file (e.g. adf.rkf) containing suitable starting MOs for the AMS calculation. Please note that this script cannot check whether the wavefunction file and the Input template are consistent!
