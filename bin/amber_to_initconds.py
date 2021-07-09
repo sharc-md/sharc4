@@ -843,7 +843,7 @@ def get_atoms_from_prmtop(filename):
                         el = q
                         break
             atoms.append(el)
-            #print iatom,el
+            # print iatom,el
     print
     return atoms
 
@@ -891,7 +891,7 @@ def get_coords(INFOS):
             num = NUMBERS[symb]
             vel = [0., 0., 0.]
             mass = get_mass(symb, iatom + 1, MASSLIST)
-            #print iatom,symb,num,xyz,mass
+            # print iatom,symb,num,xyz,mass
             atomlist.append(ATOM(symb, num, xyz, mass, vel))
         iline += 1
         colcount = 0
@@ -904,7 +904,7 @@ def get_coords(INFOS):
             s = line.split()
             vel = [float(i) * AMBERVEL_TO_AU for i in s[colcount:colcount + 3]]
             colcount += 3
-            #print iatom,vel
+            # print iatom,vel
             for i in range(3):
                 atomlist[iatom].coord[i] -= dt * vel[i]
             atomlist[iatom].veloc = vel
@@ -1038,9 +1038,9 @@ Number of geometries         = %i''' % (INFOS['filename_prmtop'],
                                         )
 
 
-    #print 'Generating %i initial conditions' % amount
+    # print 'Generating %i initial conditions' % amount
     molecule, ic_list = get_coords(INFOS)
-    #print 'Writing output to initconds'
+    # print 'Writing output to initconds'
     outfile = open(INFOS['outfile'], 'w')
     outstring = create_initial_conditions_string(molecule, ic_list)
     outfile.write(outstring)
