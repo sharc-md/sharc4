@@ -637,7 +637,7 @@ def get_MOLPRO(INFOS):
     - scratch directory
     - MOLPRO.template
     - wf.init
-    ''' 
+    '''
 
     string = '\n  ' + '=' * 80 + '\n'
     string += '||' + '{:^80}'.format('MOLPRO Interface setup') + '||\n'
