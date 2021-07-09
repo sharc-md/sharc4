@@ -2303,6 +2303,12 @@ def readQMin(QMinfilename):
     #if QMin['template']['cosmo'] and 'grad' in QMin: TODO
         #print 'COSMO is not compatible with gradient calculations!'
         #sys.exit(65)
+    if QMin['template']['ecp_per_element'] and 'soc' in QMin:
+        if len(QMin['states'])>=3 and QMin['states'][2]>0:
+            print 'Request "SOC" is not compatible with using ECPs!'
+            sys.exit(64)
+
+
 
 
 # --------------------------------------------- QM/MM ----------------------------------
