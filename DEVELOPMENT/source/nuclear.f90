@@ -91,6 +91,7 @@ subroutine VelocityVerlet_xstep(traj,ctrl)
       enddo
     case (1) ! Langevin thermostat
       traj%thermostat_random=gaussian_random(ctrl%natom,real(0,8),ctrl%temperature) !ctrl%temperature is variance here
+      !write(u_log,*) traj%thermostat_random
       do iatom=1,ctrl%natom
         b=1/(1+ctrl%thermostat_const(1)*ctrl%dtstep/(2*traj%mass_a(iatom)))
         do idir=1,3                 ! propagate positions according to Langevin equation

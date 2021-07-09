@@ -2117,7 +2117,7 @@ module input
             write(u_log,'(a)') 'No thermostat will be applied.'
           case (1)
             write(u_log,'(a)') 'Langevin thermostat will be applied.'
-            write(u_log,'(a)') 'Temperature (in K) and friction coeffitient (in fs^-1): '
+            write(u_log,'(a)') 'Temperature (in K) and friction coeffitient (in m_e*fs^-1): '
         endselect
       endif
     endif
