@@ -596,7 +596,7 @@ def do_calc(INFOS):
                 string += ipath + xyz[start + 1]
                 string += ' ' + ' '.join(xyz[start + 2:stop])
             oldstate = state
-    #print string
+    # print string
 
     print ''
     outfilename = 'crossing.xyz'
