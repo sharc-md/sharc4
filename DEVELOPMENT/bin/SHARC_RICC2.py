@@ -150,6 +150,9 @@ changelogstring='''
 24.08.2017:
 - numfrozcore in resources file can now be used to override number of frozen cores for overlaps
 - added Theodore capabilities (compute descriptors, OmFrag, and NTOs (also activate MOLDEN key for that))
+
+11.11.2020:
+- COBRAMM can be used for QM/MM calculations
 '''
 
 # ======================================================================= #
@@ -628,7 +631,7 @@ def printQMin(QMin):
     #print string
 
   for i in QMin:
-    if not any( [i==j for j in ['h','dm','soc','dmdr','socdr','theodore','geo','veloc','states','comment','LD_LIBRARY_PATH', 'grad','nacdr','ion','overlap','template','qmmm','geo_orig','pointcharges'] ] ):
+    if not any( [i==j for j in ['h','dm','soc','dmdr','socdr','theodore','geo','veloc','states','comment','LD_LIBRARY_PATH', 'grad','nacdr','ion','overlap','template','qmmm','cobramm','geo_orig','pointcharges'] ] ):
       if not any( [i==j for j in ['ionlist','ionmap'] ] ) or DEBUG:
         string=i+': '
         string+=str(QMin[i])
@@ -941,7 +944,20 @@ def get_RICC2out(QMin,QMout,job):
     if not 'grad' in QMout:
       QMout['grad']=[ [ [0.,0.,0.] for i in range(natom) ] for j in range(nmstates) ]
     if QMin['qmmm'] and not 'pcgrad' in QMout:
-      QMout['pcgrad']=[ [ [ 0. for i in range(3) ] for j in QMin['pointcharges'] ] for k in range(nmstates) ]
+      ncharges=len(readfile('charge.dat'))
+      QMout['pcgrad']=[ [ [0.,0.,0.] for i in range(ncharges) ] for j in range(nmstates) ]
+     #QMout['pcgrad']=[ [ [ 0. for i in range(3) ] for j in QMin['pointcharges'] ] for k in range(nmstates) ]
+    if QMin['cobramm'] and not 'pcgrad' in QMout:
+       ncharges=len(readfile('charge.dat'))#-4
+       #print ncharges,"tot"
+       QMout['pcgrad']=[ [ [ 0. for i in range(3) ] for j in range(ncharges) ] for k in range(nmstates) ]
+       print QMout['pcgrad']
+#      pcgrad=os.path.join(QMin['scratchdir'],'JOB','pc_grad')
+#      specify_state=os.path.join(QMin['scratchdir'],'JOB','pc_grad.old.%s') % (nmstates)#% (mult,nexc)
+    #shutil.copy(pcbrad,specify_state)
+#      shutil.move(pcgrad,specify_state)
+#    if QMin['cobramm'] and not 'pcgrad' in QMout: ##21.09.20
+#      QMout['pcgrad']=[ [ [ 0. for i in range(3) ] for j in QMin['pointcharges'] ] for k in range(nmstates) ]
     # read the elements from ricc2.out
     for i in range(nmstates):
       m1,s1,ms1=tuple(QMin['statemap'][i+1])
@@ -952,7 +968,17 @@ def get_RICC2out(QMin,QMout,job):
       if tup in job:
         QMout['grad'][i]=getgrad(ricc2,QMin,i+1)
         if QMin['qmmm']:
-          QMout['pcgrad'][i]=getpcgrad(QMin)
+          QMout['pcgrad'][i-1]=getpcgrad(QMin)
+        if QMin['cobramm']:
+          logfile=os.path.join(QMin['scratchdir'],'JOB','pc_grad')
+          getcobrammpcgrad(logfile,QMin)
+          #gpc=getcobrammpcgrad(logfile,QMin)
+          #QMout['pcgrad'][i]=gpc
+          #print QMout['pcgrad'][i]
+          pcgradold=os.path.join(QMin['scratchdir'],'JOB','pc_grad')
+          specify_state=os.path.join(QMin['scratchdir'],'JOB','pc_grad.%s.%s') % (m1,s1)#% (mult,nexc)
+    #shutil.copy(pcbrad,specify_state)
+          shutil.copy(pcgradold,specify_state)
     if QMin['neglected_gradient']!='zero' and not 'samestep' in QMin:
       for i in range(nmstates):
         m1,s1,ms1=tuple(QMin['statemap'][i+1])
@@ -1301,7 +1327,102 @@ def getpcgrad(QMin):
         g.append(float(s[i]) )
       grad.append(g)
   return grad
+# ======================================================================= #
+def getcobrammpcgrad(logfile,QMin):
 
+  #  # read file
+  #  out=readfile(logfile)
+  #  if PRINT:
+  #      print 'Gradient: '+shorten_DIR(logfile)
+
+ #   gradpc=[]
+ #   iline=0
+ #   ncharges=(readfile(('charge.dat') ))
+##    for ipc,pc in enumerate('charge.dat'):
+ #   for iatom in range(len('charge.dat')):
+##      if pc[-1]!=0:
+ #       g=[]
+ #       iline+=1
+ #       s=out[iline].replace('D','E').split()
+ #       for i in range(3):
+ #         g.append(float(s[i]) ) 
+ #       gradpc.append(g)
+ #   print gradpc
+ #   return gradpc
+ # #  gradpc=[]
+ #  # for iatom in range(len(out)-1):
+ # #      atom_grad=[0. for i in range(3)]
+ ##       s=out[iatom+1].replace('D','E').split()
+ # #      for ixyz in range(3):
+##                if ixyz != '$end':
+##                    continue
+##                atom_grad[ixyz]=float(s[ixyz])
+##        gradpc.append(atom_grad)
+##    print gradpc
+##    return gradpc
+
+    out=readfile(logfile)
+    states=QMin['states']
+    nstates=QMin['nstates']
+    nmstates=QMin['nmstates']
+    
+    ncharges=len(out)
+    gradpc=[]
+    out.pop(0)
+    out.pop(-1)
+    ncharges=len(out)
+    string=''
+    #icharge=0
+    for pc in range(ncharges):
+      q=[]
+      xyz=out[pc].replace('D','E').split()
+      #icharge+=1
+      for i in range(3):
+        q.append(float(xyz[i]))
+      gradpc.append(q)
+    filecharges=open("grad_charges", "a")
+    string+='%i %i !\n' % (ncharges,3)
+    #string+='%i %i ! %i %i %i\n' % (natom,3,imult,istate,ims)
+    for atom in range(ncharges):
+      for xyz in range(3): 
+        string+='%s ' % (eformat((gradpc[atom][xyz]),9,3))
+      string+="\n"
+    filecharges.write(string)
+    
+# ======================================================================= #
+
+def writeQMoutgradcobramm(QMin,QMout):
+    '''Generates a string with the Gradient vectors in SHARC format.
+
+    The string starts with a ! followed by a flag specifying the type of data. On the next line, natom and 3 are written, followed by      the gradient, with one line per atom and a blank line at the end. Each MS component shows up (nmstates gradients are written).
+
+    Arguments:
+    1 dictionary: QMin
+    2 dictionary: QMout
+
+    Returns:
+    1 string: multiline string with the Gradient vectors'''
+    ncharges=len(readfile(os.path.join(QMin['scratchdir'],'JOB','pc_grad') ))-2
+    states=QMin['states']
+    nstates=QMin['nstates']
+    nmstates=QMin['nmstates']
+    natom=len(QMout['pcgrad'][0])
+    print QMout['pcgrad'][1]
+    string=''
+    print natom
+    #string+='! %i Gradient Vectors (%ix%ix3, real)\n' % (3,nmstates,natom)
+    i=0
+    for imult,istate,ims in itnmstates(states):
+        string+='%i %i ! %i %i %i\n' % (natom,3,imult,istate,ims)
+        for atom in range(natom):
+            for xyz in range(3):
+                print((QMout['pcgrad'][i][atom],9,3), i, atom)
+                string+='%s ' % (eformat(QMout['pcgrad'][i][atom][xyz],9,3))
+            string+='\n'
+        #string+='\n'
+        i+=1
+    string+='\n'
+    writefile("grad_charges", string)
 
 
 # ======================================================================= #
@@ -1423,6 +1544,8 @@ def writeQMout(QMin,QMout,QMinfilename):
     string+=writeQMoutTHEODORE(QMin,QMout)
   if 'phases' in QMin:
     string+=writeQmoutPhases(QMin,QMout)
+  #if  QMin['template']['cobramm']:
+  #  writeQMoutgradcobramm(QMin,QMout)
   string+=writeQMouttime(QMin,QMout)
   outfile=os.path.join(QMin['pwd'],outfilename)
   writefile(outfile,string)
@@ -2913,6 +3036,18 @@ def readQMin(QMinfilename):
       continue
     if line[0]=='qmmm':
       QMin['qmmm']=True
+ 
+  QMin['cobramm']=False
+  QMin['template']['cobramm']=False
+  i=0
+  for line in template:
+    line=re.sub('#.*$','',line).lower().split()
+    if len(line)<1:
+      continue
+    if line[0]=='cobramm':
+      QMin['cobramm']=True
+  if QMin['cobramm']:
+    QMin['template']['cobramm']=True
 
   # prepare everything
   if QMin['qmmm']:
@@ -3138,6 +3273,10 @@ def get_jobs(QMin):
   if QMin['qmmm']:
     forbidden['gsgrad'].append('exgrad')
     forbidden['exgrad'].append('gsgrad')
+  if QMin['cobramm']:  ##21.09.20#
+    forbidden['gsgrad'].append('exgrad')
+    forbidden['exgrad'].append('gsgrad')
+  
   priority=['E',
             'tmexc_soc',
             'tmexc_dm',
@@ -3464,6 +3603,30 @@ def writegeom(QMin):
     filename=QMin['scratchdir']+'/JOB/pc'
     writefile(filename,string)
 
+  # COBRAMM
+  if QMin['cobramm']:
+    ##chargefiles='charge.dat'
+    ##tocharge=os.path.join(QMin['scratchdir']+'/JOB/point_charges')
+    ##shutil.copy(chargefiles,tocharge)
+    cobcharges=open('charge.dat', 'r')
+    charges=cobcharges.read()
+    only_atom=charges.split()
+    only_atom.pop(0)
+    filename=QMin['scratchdir']+'/JOB/point_charges'
+    string='$point_charges nocheck\n'
+    string+=charges
+    #counter=0
+    #for atom in only_atom:
+    #   	string+=atom
+    #    string+=' '
+    #    counter+=1
+    #    if counter == 4:
+    #      string+='\n'
+    #      counter=0
+    #    #string+='\n'
+    string+='$end'
+    writefile(filename,string)
+
 # ======================================================================= #
 def runProgram(string,workdir,outfile,errfile=''):
   prevdir=os.getcwd()
@@ -3711,6 +3874,14 @@ def modify_control(QMin):
     add_section_to_control(control,'$point_charge_gradients file=pc_grad')
   return
 
+  #COBRAMM
+  if QMin['cobramm']:
+    add_option_to_control_section(control,'$drvopt','point charges')
+    add_section_to_control(control,'$point_charges file=point_charges') #inserire nome file quando deciso
+    add_section_to_control(control,'$point_charge_gradients file=pc_grad')
+  return
+
+
 # ======================================================================= #
 def prep_control(QMin,job):
   # prepares the control file to calculate grad, soc, dm
@@ -3759,6 +3930,11 @@ def prep_control(QMin,job):
     string='static relaxed operators=diplen'
     add_option_to_control_section(control,'$response',string)
 
+  if QMin['cobramm']:
+    add_option_to_control_section(control,'$drvopt',' point charges')
+    add_section_to_control(control,'$point_charges file=point_charges') #inserire nome file quando deciso
+    add_section_to_control(control,'$point_charge_gradients file=pc_grad')
+
   # add gradients
   for j in job:
     if 'gsgrad' in j:
@@ -3768,6 +3944,7 @@ def prep_control(QMin,job):
       string='xgrad states=(a{%i} %i)' % (j[1],j[2]-(j[1]==1))
       add_option_to_control_section(control,'$excitations',string)
 
+    
   # ricc2 restart
   if not 'E' in job and not 'no_ricc2_restart' in QMin:
     add_option_to_control_section(control,'$ricc2','restart')
@@ -4209,8 +4386,7 @@ def runeverything(tasks, QMin):
 # ======================================================================= #
 def run_theodore(QMin):
   workdir=os.path.join(QMin['scratchdir'],'JOB')
-  #string='python2 %s/bin/analyze_tden.py' % (QMin['theodir'])
-  string=os.path.join(QMin['theodir'],'bin','analyze_tden.py')
+  string='python2 %s/bin/analyze_tden.py' % (QMin['theodir'])
   runerror=runProgram(string,workdir,'theodore.out')
   if runerror!=0:
     print 'Theodore calculation crashed! Error code=%i' % (runerror)
