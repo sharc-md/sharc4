@@ -27,6 +27,7 @@ Important:
 
 Makefile:
 - output.f90 needs to be compiled every time, so that the build info is always up-to-date               DONE
+- add logic to clone or pull the repository for wfoverlap and install it (treat as submodule of SHARC)
 
 
 Tutorial:
