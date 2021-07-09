@@ -1,9 +1,0 @@
-                                         #Use file "initconds"? [True] 
-                                         #Initial condition range: [1 1] 
-2                                        #Number of states: 
-                                         #Spin-Orbit calculation? [True] 
-3                                        #Interface number: 
-                                         #Use this template file? [True] 
-y                                        #Calculate here? [False] 
-                                         #Generate submission script? [False] 
-                                         #Do you want to setup the specified calculations? [True] 
