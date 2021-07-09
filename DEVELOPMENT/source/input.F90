@@ -2099,6 +2099,106 @@ module input
 
   ! =====================================================
 
+  ! check for thermostat
+  line=get_value_from_key('thermostat',io)
+    if (io==0) then
+      select case (trim(line))
+        case ('none')
+          ctrl%thermostat=0
+        case ('langevin')
+          ctrl%thermostat=1
+        case default
+          ctrl%thermostat=0
+      endselect
+    else
+      ctrl%thermostat=0
+    endif
+
+   if (printlevel>0) then
+      write(u_log,*) '============================================================='
+      write(u_log,*) '                       Thermostat'
+      write(u_log,*) '============================================================='
+      if (printlevel>1) then
+        select case (ctrl%thermostat)
+          case (0)
+            write(u_log,'(a)') 'No thermostat will be applied.'
+          case (1)
+            write(u_log,'(a)') 'Langevin thermostat will be applied.'
+            write(u_log,'(a)') 'Temperature (in K) and friction coeffitient (in m_e*fs^-1): '
+        endselect
+      endif
+    endif
+
+
+    ! set up values needed for thermostat
+    if (ctrl%thermostat/=0) then
+
+      ! random number seed for thermostat
+      line=get_value_from_key('rngseed',io)
+      if (io==0) then
+        read(line,*) traj%rngseed_thermostat !for now: use same rngseed for thermostat as given for initial velocities. Maybe change later.
+      else
+        traj%rngseed_thermostat=1099279      ! some prime number
+      endif
+      call init_random_seed_thermostat(traj%rngseed_thermostat)
+     ! call srand(traj%rngseed_thermostat) alternatively
+      if (ctrl%thermostat==1) then
+        allocate (traj%thermostat_random(2*((3*ctrl%natom+1)/2))) ! allocate randomnes for all atoms in all directions
+      endif
+
+      ! restart with same random number sequence?
+      ! default is restarting with same random number sequence
+      ctrl%restart_thermostat_random=.true.
+      ! look for norestart_thermostat_random keyword
+      line=get_value_from_key('norestart_thermostat_random',io)
+      if (io==0) then
+        ctrl%restart_thermostat_random=.false.
+      endif
+
+      ! get temperature
+      line=get_value_from_key('temperature',io)
+      if (io==0) then
+        read(line,*) ctrl%temperature
+      else
+        ctrl%temperature=293.15 !default temperature
+      endif
+      write(u_log,'(1x,F11.4)') ctrl%temperature
+
+
+      ! get constants needed for thermostat
+      if (ctrl%thermostat==1) allocate(ctrl%thermostat_const(1)) !allocate right amount of thermostat constants
+      line=get_value_from_key('thermostat_const',io) !provide in fs^-1
+      if (io==0) then
+        call split(line,' ',values,n)
+        if (n/=size(ctrl%thermostat_const)) then
+          write(0,*) 'Wrong number of thermostat constants!'
+          stop 1
+        else
+          do i=1,n
+            read(values(i),*) a
+            ctrl%thermostat_const = a  ! set the thermostat constants
+            if (printlevel>1) then
+              write(u_log,'(1x,ES11.4)') ctrl%thermostat_const(i)
+            endif
+          enddo
+        endif
+        deallocate(values)
+      else
+        write(0,*) 'No thermostat constants given!'
+        stop 1
+      endif
+
+      if (ctrl%thermostat==1) then !save variance in ctrl%temperature
+        ctrl%temperature=2*ctrl%thermostat_const(1)*1.38064852e-23*ctrl%temperature*2.2937126583579e+17*ctrl%dtstep ! var=2*alpha*k_bT*dt (1 J = 2.29...e+17 a.u.)
+      endif
+    endif
+
+    if (printlevel>0) then
+      write(u_log,*)
+    endif
+
+  ! =====================================================
+
 !   ! check for floquet keyword
 !     if (printlevel>1) then
 !       write(u_log,*) '============================================================='
@@ -2138,6 +2238,8 @@ module input
     ! geometry is read in bohrs, as specified in the COLUMBUS geom format
     ! velocity is read in as bohrs/atu
     ! laser field must be in a.u.
+    ! langevin friction coefficient in a.u.^-1
+    if (ctrl%thermostat==1) ctrl%thermostat_const(1)=ctrl%thermostat_const(1)*au2fs
 
   ! =====================================================
     ! write some basic information into the data file
