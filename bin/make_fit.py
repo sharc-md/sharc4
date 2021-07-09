@@ -532,7 +532,7 @@ def check_pop_file(content):
         # check data
         d = [float(i) for i in s]
         # if any( [i<0. for i in d] ):
-        #print '  Negative populations detected!'
+        # print '  Negative populations detected!'
         # return False,0,0,[]
         col = len(d)
         if ncol == -1:
@@ -1344,7 +1344,7 @@ def make_fit(INFOS):
         for igroup in range(INFOS['ngroups']):
             cols = INFOS['columns_groups'][igroup]
             for istep in range(nsteps):
-                #print istep+igroup*nsteps
+                # print istep+igroup*nsteps
                 for col in cols:
                     Ydata[istep + igroup * nsteps] += INFOS['data'][istep][col - 1]
                 Tdata[istep + igroup * nsteps] = Tdata1[istep] + igroup * INFOS['maxtime']
@@ -1366,7 +1366,7 @@ def make_fit(INFOS):
         OPT = spopt.curve_fit(F.call_array, Tdata, Ydata, p0=p0, bounds=bounds, sigma=Yerr, absolute_sigma=Yerr_absol, verbose=2)
     popt = OPT[0].tolist()
     OPT_orig = deepcopy(OPT)
-    #print popt
+    # print popt
 
 
 
