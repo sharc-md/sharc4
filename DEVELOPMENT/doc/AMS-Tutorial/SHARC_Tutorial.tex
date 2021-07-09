@@ -420,17 +420,15 @@ There should be a block like this in you output.
 
 \normalsize
 The \ttt{ams.results/} folder contains all fragment calculations as well as the general calculation file \ttt{ams.rkf} and the engine specific binary file \ttt{adf.rkf}, which contains the normal modes next to other informations about the calculation and results. 
-We will generate the \ttt{AMS.freq.molden} from the \ttt{adf.rkf} file with the help of another \sharc\ script.
+We will generate the \ttt{AMS.freq.molden} from the \ttt{adf.rkf} file with the help of another \sharc\ script and copy it as \ttt{AMS.freq.molden} into the Tutorial folder and change to it for the next steps.
 
 \begin{Verbatim}[commandchars=\\\{\}]
-  user@host> \textbf{\textcolor{red}{$SHARC/AMS_freq.py ams.results/adf.rkf}}
-  user@host> \textbf{\textcolor{red}{mv ams.results/adf.rkf.molden AMS.freq.molden}}
+  user@host> \textbf{\textcolor{red}{$SHARC/AMS-ADF_freq.py ams.results/adf.rkf}}
+  user@host> \textbf{\textcolor{red}{cp ams.results/adf.rkf.molden ../AMS.freq.molden}}
 \end{Verbatim}
-
-Copy the \ttt{AMS.freq.molden} file into the Tutorial folder and change to it for the next steps.
+Go back up to the \ttt{Tutorial} folder to continue.
 \begin{Verbatim}[commandchars=\\\{\}]
-user@host> \textbf{\textcolor{red}{cp AMS.freq.molden ../Tutorial/.}}
-user@host> \textbf{\textcolor{red}{cd ../Tutorial/}}
+user@host> \textbf{\textcolor{red}{cd ..}}
 \end{Verbatim}
 
 
@@ -1679,7 +1677,7 @@ Number of CPUs: \textbf{\textcolor{red}{1}}
 
 --------------------Wfoverlap code setup--------------------
 
-Path to wavefunction overlap executable: [$SHARC/wfoverlap.x] (autocomplete enabled) 
+Path to wavefunction overlap executable: [$SHARC/wfoverlap.x] (autocomplete enabled) \textbf{\textcolor{red}{<ENTER>}
 
 State threshold for choosing determinants to include in the overlaps
 For hybrids (and without TDA) one should consider that the eigenvector X may have a norm larger than 1
