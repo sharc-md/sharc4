@@ -182,10 +182,10 @@ class output_dat:
             if 'Step' in self.data[iline]:
                 self.startlines.append(iline)
         self.current = 0
-        #print self.states
-        #print self.nmstates
-        #print self.startlines
-        #print self.current
+        # print self.states
+        # print self.nmstates
+        # print self.startlines
+        # print self.current
 
     def __iter__(self):
         return self
@@ -251,7 +251,7 @@ def centerstring(string, n, pad=' '):
 
 
 def displaywelcome():
-    #print 'Script for setup of initial conditions started...\n'
+    # print 'Script for setup of initial conditions started...\n'
     string = '\n'
     string += '  ' + '=' * 80 + '\n'
     string += '||' + centerstring('', 80) + '||\n'
@@ -616,7 +616,7 @@ def check_files(path, trajectories, INFOS):
         missing = True
         print s
         # continue
-    #print INFOS['settings']['missing_output']
+    # print INFOS['settings']['missing_output']
 
 
     # check for restart files
@@ -1159,7 +1159,7 @@ def do_calc(INFOS):
     nhisto = 5
     hist = histogram([maxtime / nhisto * i for i in range(1, 1 + nhisto)])
     hist_data = [0] * (nhisto + 1)
-    #print hist
+    # print hist
 
     for itraj in trajsorted:
         if all([trajectories[itraj]['files'][i] for i in ['output.log', 'output.dat', 'output.lis', 'output.xyz']]) and not trajectories[itraj]['error']:
