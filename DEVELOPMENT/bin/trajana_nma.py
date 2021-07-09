@@ -561,8 +561,8 @@ def nm_analysis(INFOS):
 #           trajcheck=re.search('TRAJ',str(ls[j]))
 #        if trajcheck !=None:
            print 'Reading trajectory ' + str(files[i]) + ' ...'
-           folder_name = str(files[i])
-           trajectory = traj_manip.trajectory(folder_name, ref_struc, dt=dt)
+           folder_name = str(files[i])[:-10]
+           trajectory = traj_manip.trajectory(files[i], ref_struc, dt=dt)
     
            # actual normal mode analysis
            try:
