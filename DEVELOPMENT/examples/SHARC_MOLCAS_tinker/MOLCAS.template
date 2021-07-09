@@ -68,7 +68,7 @@ qmmm
 # Gradient accuracty settings
 #gradaccudefault 1.e-04
 #gradaccumax     1.e-02
-
+#iterations      200 100
 
 
 

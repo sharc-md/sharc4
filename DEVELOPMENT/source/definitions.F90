@@ -247,7 +247,7 @@ type ctrl_type
   integer :: laser                          !< 0=none, 1=internal, 2=external
   integer :: coupling                       !< 0=ddt, 1=ddr, 2=overlap
   integer :: surf                           !< 0=propagation in diag surfaces (SHARC), 1=on MCH surfaces (regular SH)
-  integer :: decoherence                    !< 0=off, 1=EDC, 2=AFSSH
+  integer :: decoherence                    !< 0=off, 1=EDC, 2=AFSSH, -1=EDC legacy
   integer :: ekincorrect                    !< 0=none, 1=adjust momentum along velocity, 2=adjust momentum along nac vector
   integer :: reflect_frustrated             !< 0=none, 1=reflect along velocity, 2=reflect along nac vector
   integer :: gradcorrect                    !< 0=no, 1=include nac vectors in gradient transformation

@@ -91,7 +91,7 @@ class table_maker:
     """
     Class for writing output in columns.
     """
-    def __init__(self, col_widths, cut=True, replace_list=[]):
+    def __init__(self, col_widths, cut=False, replace_list=[]):
         """
         Enter the widths of the columns in list <col_widths>.
         <replace_list> contains a double, list of items to be replaced,
@@ -109,6 +109,7 @@ class table_maker:
         """
         plus_string = '#'
         for i, word in enumerate(words):
+            plus_string+=' '
             if self.cut:
                 plus_string += str(word)[:(self.col_widths[i]-1)].ljust(self.col_widths[i])
             else:
@@ -125,6 +126,7 @@ class table_maker:
         """
         plus_string = ' '
         for i, word in enumerate(words):
+            plus_string+=' '
             if self.cut:
                 plus_string += str(word)[:(self.col_widths[i]-1)].ljust(self.col_widths[i])
             else:

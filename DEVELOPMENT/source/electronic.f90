@@ -449,6 +449,9 @@ subroutine surface_hopping(traj,ctrl)
       traj%hopprob_s=0.
       traj%hopprob_s(1)=1.
       traj%kind_of_jump=4
+      ! set also populations
+      traj%coeff_diag_s=dcmplx(0.d0,0.d0)
+      traj%coeff_diag_s(1)=dcmplx(1.d0,0.d0)
     endif
     if (traj%state_diag==1) then
       traj%hopprob_s=0.
@@ -695,7 +698,7 @@ subroutine Decoherence(traj,ctrl)
 
   cpre = traj%coeff_diag_s
 
-  if (ctrl%decoherence==1) then
+  if ( (ctrl%decoherence==1) .or. (ctrl%decoherence==-1) ) then
     if (printlevel>2) then
       write(u_log,*) '============================================================='
       write(u_log,*) '              Decoherence (Granucci & Persico)'
@@ -746,7 +749,12 @@ subroutine EDC_step(traj,ctrl)
 !       c(istate)=traj%coeff_diag_s(istate) * exp( -ctrl%dtstep / tau)
       ! Equation in "Critical appraisal ..." paper is wrong, exp() should be applied to populations,
       ! not coefficients, so for coefficients we need to add a factor of 1/2
-      c(istate)=traj%coeff_diag_s(istate) * exp( -0.5d0*ctrl%dtstep / tau)
+      if (ctrl%decoherence==1) then
+        c(istate)=traj%coeff_diag_s(istate) * exp( -0.5d0*ctrl%dtstep / tau)
+     elseif (ctrl%decoherence==-1) then
+        ! old variant of EDC with wrong equation, use keyword "edc_legacy"
+        c(istate)=traj%coeff_diag_s(istate) * exp( -1.0d0*ctrl%dtstep / tau)
+     endif
       sumc=sumc+abs(c(istate))**2
     endif
   enddo

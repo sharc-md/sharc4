@@ -1296,6 +1296,8 @@ module input
           ctrl%decoherence=1
         case ('afssh') 
           ctrl%decoherence=2
+        case('edc_legacy')
+          ctrl%decoherence=-1
         case default
           write(0,*) 'Unknown keyword ',trim(line),' to "decoherence_scheme"!'
           stop 1
@@ -1313,7 +1315,12 @@ module input
     endif
 
     if (printlevel>1) then
-      if (ctrl%decoherence==1) then
+      if (ctrl%decoherence==-1) then
+        write(u_log,'(a)') 'Decoherence is 1 (EDC by Granucci, Persico, Zoccante)'
+        write(u_log,'(a)') '(legacy version with equation from original paper)'
+        write(u_log,'(a,1x,f6.3,1x,a)') 'Decoherence constant is',ctrl%decoherence_alpha,'Hartree'
+        write(u_log,*)
+      elseif (ctrl%decoherence==1) then
         write(u_log,'(a)') 'Decoherence is 1 (EDC by Granucci, Persico, Zoccante)'
         write(u_log,'(a,1x,f6.3,1x,a)') 'Decoherence constant is',ctrl%decoherence_alpha,'Hartree'
         write(u_log,*)
