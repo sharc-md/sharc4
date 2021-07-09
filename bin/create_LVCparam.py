@@ -536,7 +536,7 @@ def write_LVC_template(INFOS):
 
                     # writes lambd to result string
                     if lambd ** 2 > pthresh:
-                        #lambda_str_list.append('%3i %3i %5i % .5e\n' % (imult, istate, int(normal_mode), lambd))
+                        # lambda_str_list.append('%3i %3i %5i % .5e\n' % (imult, istate, int(normal_mode), lambd))
                         lambda_str_list.append('%3i %3i %3i %3i % .5e\n' % (imult, istate, jstate, int(normal_mode), lambd))
                         nlambda += 1
 
