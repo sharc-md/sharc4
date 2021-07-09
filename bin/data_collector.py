@@ -629,13 +629,13 @@ def get_general():
             for i in lstraj:
                 if i.lower() in forbidden:
                     s += 'DETECTED FILE %s' % (i.lower())
-                    #print s
+                    # print s
                     valid = False
                     break
             if not valid:
                 continue
             s += 'OK'
-            #print s
+            # print s
             ntraj += 1
             dirs.append(path)
     print 'Number of trajectories: %i' % (ntraj)
@@ -838,7 +838,7 @@ def get_general():
                     print 'Choose one of the following: %s' % (list(kernels))
             w = question('Choose width of the smoothing function (in units of the X columns):', float, [1.0])[0]
             INFOS['convolute_X'] = {'function': kernels[kern]['f'](w)}
-            #print 'Choose the size of the grid along X:'
+            # print 'Choose the size of the grid along X:'
             INFOS['convolute_X']['npoints'] = question('Size of the grid along X:', int, [25])[0]
             print '\nChoose minimum and maximum of the grid along X:'
             print 'Enter either a single number a (X grid from  xmin-a*width  to  xmax+a*width)'
@@ -914,7 +914,7 @@ def get_general():
                     print 'Choose one of the following: %s' % (list(kernels))
             w = question('Choose width of the smoothing function (in units of the T column):', float, [25.0])[0]
             INFOS['convolute_T'] = {'function': kernels[kern]['f'](w)}
-            #print 'Choose the size of the grid along X:'
+            # print 'Choose the size of the grid along X:'
             INFOS['convolute_T']['npoints'] = question('Size of the grid along T:', int, [200])[0]
             print '\nChoose minimum and maximum of the grid along T:'
             print 'Enter either a single number a (T grid from  xmin-a*width  to  xmax+a*width)'
@@ -1077,7 +1077,7 @@ def do_calc(INFOS):
 
     print
     print 'Finished!'
-    #print 'Writing output to file "%s"...\n' % filename
+    # print 'Writing output to file "%s"...\n' % filename
     # if outindex==1:
     # writefile(filename,stringType1(data1,INFOS))
     # elif outindex==2:
@@ -1114,7 +1114,7 @@ def collect_data(INFOS):
     for it1, f in enumerate(INFOS['allfiles']):
         done = width_bar * (it1 + 1) / len(INFOS['allfiles'])
         sys.stdout.write('\r  Progress: [' + '=' * done + ' ' * (width_bar - done) + '] %3i%%' % (done * 100 / width_bar))
-        #print '  ... %s' % f
+        # print '  ... %s' % f
         data1[f] = []
         text = readfile(f)
         iline = -1
@@ -1161,7 +1161,7 @@ def smoothing_xy(INFOS, data1):
         done = width_bar * (it1 + 1) / len(data1)
         sys.stdout.write('\r  Progress: [' + '=' * done + ' ' * (width_bar - done) + '] %3i%%' % (done * 100 / width_bar))
         sys.stdout.flush()
-        #print '  ... %s' % key
+        # print '  ... %s' % key
         data2[key] = []
         for T in data1[key]:
             t = T[0]
@@ -1197,7 +1197,7 @@ def synchronize(INFOS, data1):
     for ik, key in enumerate(sorted(data1)):
         done = width_bar * (ik + 1) / len(data1)
         sys.stdout.write('\r  Progress: [' + '=' * done + ' ' * (width_bar - done) + '] %3i%%' % (done * 100 / width_bar))
-        #print '  ... %s' % traj
+        # print '  ... %s' % traj
         iterator = iter(data1[key])
         t = min(times) - 1.
         for it1, t1 in enumerate(times):
