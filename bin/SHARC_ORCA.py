@@ -4585,8 +4585,8 @@ def getQMout(QMin):
                     if QMin['qmmm']:
                         QMout['pcgrad'][istate - 1] = gpc
             if QMin['template']['cobramm']:
-            logfile = os.path.join(QMin['scratchdir'], path, 'ORCA.pcgrad' + fname)
-            gpc = getpcgrad(logfile, QMin)
+                logfile = os.path.join(QMin['scratchdir'], path, 'ORCA.pcgrad' + fname)
+                gpc = getpcgrad(logfile, QMin)
             for istate in QMin['statemap']:
                 state = QMin['statemap'][istate]
                 # print grad,istate,state
