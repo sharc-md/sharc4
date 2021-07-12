@@ -25,6 +25,8 @@
 
 #!/usr/bin/env python2
 
+# TODO: transfer plotting function from make_fitscript.py (prettier plots)
+
 # Modules:
 # Operating system, isfile and related routines, move files, create directories
 import sys
