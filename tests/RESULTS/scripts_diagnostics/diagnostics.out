@@ -5,8 +5,8 @@
 ||                                                                                ||
 ||                     Author: Sebastian Mai and Moritz Heindl                    ||
 ||                                                                                ||
-||                                   Version:2.0                                  ||
-||                                    22.10.18                                    ||
+||                                   Version:2.1                                  ||
+||                                    01.09.19                                    ||
 ||                                                                                ||
   ================================================================================
 
@@ -27,10 +27,8 @@ Path:  [end] (autocomplete enabled) ['TRAJ_00015']
 Found 1 subdirectories in total.
 
 Path:  [end] (autocomplete enabled) 
-{'paths': ['Singlet_1/']}
 Total number of subdirectories: 1
 
-['nstates', '2', '0', '2']
 ---------------------Diagnostic settings--------------------
 
 Please, adjust the diagnostic settings according to your preferences.

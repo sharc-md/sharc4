@@ -23,6 +23,7 @@
 #
 # ******************************************
 
+from scm.plams import KFFile  # import KFFile after $PYTHONPATH is expanded
 import sys
 import os
 
@@ -38,7 +39,6 @@ if ams == '$AMSHOME':
     sys.exit(29)
 sys.path.append(ams + '/scripting')
 
-from scm.plams import KFFile  # import KFFile after $PYTHONPATH is expanded
 
 # ================================================
 
