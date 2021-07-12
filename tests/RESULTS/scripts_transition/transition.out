@@ -1,4 +1,4 @@
-[?1034hScript for hop counting started...
+Script for hop counting started...
 
 
   ================================================================================
@@ -7,8 +7,8 @@
 ||                                                                                ||
 ||                              Author: Sebastian Mai                             ||
 ||                                                                                ||
-||                                   Version:2.0                                  ||
-||                                    01.02.18                                    ||
+||                                   Version:2.1                                  ||
+||                                    01.09.19                                    ||
 ||                                                                                ||
   ================================================================================
 
@@ -21,7 +21,7 @@ to produce a matrix with the transition counts.
 Please enter the paths to all directories containing the "TRAJ_0XXXX" directories.
 E.g. S_2 and S_3. 
 Please enter one path at a time, and type "end" to finish the list.
-Path:  [end] (autocomplete enabled) ['KEYSTROKES.transition', 'KEYSTROKES.tmp', 'TRAJ_00001', 'run.out', 'run.sh', 'run.err', 'transition.out']
+Path:  [end] (autocomplete enabled) ['KEYSTROKES.transition', 'TRAJ_00001', 'run.sh', 'run.out', 'run.err', 'transition.out', 'KEYSTROKES.tmp']
 Found 1 subdirectories in total.
 
 Path:  [end] (autocomplete enabled) 
