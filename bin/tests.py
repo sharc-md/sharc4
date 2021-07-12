@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 # ******************************************
 #
@@ -23,8 +23,6 @@
 #
 # ******************************************
 
-#!/usr/bin/env python2
-
 # Script to test whether a correct python version is installed, and to run the test calculations.
 #
 # usage
@@ -46,25 +44,6 @@ import filecmp
 import time
 
 # =========================================================0
-# compatibility stuff
-
-if sys.version_info[1] < 6:
-    sys.stdout.write('*' * 80 + '\nThe SHARC suite is not tested to work with Python versions older than 2.6!\nProceed at your own risk.\nSome scripts might work, while other won''t.\nWe recommend you to install a more recent version of Python 2.\n' + '*' * 80 + '\n')
-    time.sleep(5)
-
-if sys.version_info[1] < 5:
-    def any(iterable):
-        for element in iterable:
-            if element:
-                return True
-        return False
-
-    def all(iterable):
-        for element in iterable:
-            if not element:
-                return False
-        return True
-
 try:
     import numpy
 except ImportError:
@@ -78,10 +57,6 @@ Setup and Dynamics with ADF interface not possible.
 Normal mode analysis not possible.
 Essential dynamics analysis not possible.''' + '*' * 80 + '\n')
     time.sleep(5)
-
-
-
-
 
 
 version = '2.1'
@@ -111,29 +86,21 @@ INTERFACES = {'MOLPRO': 'MOLPRO',
 # ======================================================================================================================
 
 
-def centerstring(string, n, pad=' '):
-    l = len(string)
-    if l >= n:
-        return string
-    else:
-        return pad * ((n - l + 1) / 2) + string + pad * ((n - l) / 2)
-
-
 def displaywelcome():
     string = '\n'
     string += '  ' + '=' * 80 + '\n'
-    string += '||' + centerstring('', 80) + '||\n'
-    string += '||' + centerstring('SHARC Test suite run script', 80) + '||\n'
-    string += '||' + centerstring('', 80) + '||\n'
-    string += '||' + centerstring('Author: Sebastian Mai', 80) + '||\n'
-    string += '||' + centerstring('', 80) + '||\n'
-    string += '||' + centerstring('Version:' + version, 80) + '||\n'
-    string += '||' + centerstring(versiondate.strftime("%d.%m.%y"), 80) + '||\n'
-    string += '||' + centerstring('', 80) + '||\n'
+    string += '||' + '{:^80}'.format('') + '||\n'
+    string += '||' + '{:^80}'.format('SHARC Test suite run script') + '||\n'
+    string += '||' + '{:^80}'.format('') + '||\n'
+    string += '||' + '{:^80}'.format('Author: Sebastian Mai') + '||\n'
+    string += '||' + '{:^80}'.format('') + '||\n'
+    string += '||' + '{:^80}'.format('Version:' + version) + '||\n'
+    string += '||' + '{:^80}'.format(versiondate.strftime("%d.%m.%y")) + '||\n'
+    string += '||' + '{:^80}'.format('') + '||\n'
     string += '  ' + '=' * 80 + '\n\n'
     string += '''
 This script collects a number of environment variables and subsequently runs
-the calculations in the SHARC test suite. After the runs, the output is checked 
+the calculations in the SHARC test suite. After the runs, the output is checked
 against the reference outputs.
   '''
     sys.stdout.write(string + '\n')
@@ -157,8 +124,8 @@ def close_keystrokes():
 
 def question(question, typefunc, default=None, autocomplete=True, ranges=False):
     if typefunc == int or typefunc == float:
-        if not default == None and not isinstance(default, list):
-            print 'Default to int or float question must be list!'
+        if default is not None and not isinstance(default, list):
+            print('Default to int or float question must be list!')
             quit(1)
     if typefunc == str and autocomplete:
         readline.set_completer_delims(' \t\n;')
@@ -168,7 +135,7 @@ def question(question, typefunc, default=None, autocomplete=True, ranges=False):
 
     while True:
         s = question
-        if default != None:
+        if default is not None:
             if typefunc == bool or typefunc == str:
                 s += ' [%s]' % (str(default))
             elif typefunc == int or typefunc == float:
@@ -182,13 +149,13 @@ def question(question, typefunc, default=None, autocomplete=True, ranges=False):
             s += ' (range comprehension enabled)'
         s += ' '
 
-        line = raw_input(s)
+        line = input(s)
         line = re.sub('#.*$', '', line).strip()
         if not typefunc == str:
             line = line.lower()
 
         if line == '' or line == '\n':
-            if default != None:
+            if default is not None:
                 KEYSTROKES.write(line + ' ' * (40 - len(line)) + ' #' + s + '\n')
                 return default
             else:
@@ -204,7 +171,7 @@ def question(question, typefunc, default=None, autocomplete=True, ranges=False):
                 KEYSTROKES.write(line + ' ' * (40 - len(line)) + ' #' + s + '\n')
                 return False
             else:
-                print 'I didn''t understand you.'
+                print('I didn''t understand you.')
                 continue
 
         if typefunc == str:
@@ -220,7 +187,7 @@ def question(question, typefunc, default=None, autocomplete=True, ranges=False):
                 KEYSTROKES.write(line + ' ' * (40 - len(line)) + ' #' + s + '\n')
                 return f
             except ValueError:
-                print 'Please enter floats!'
+                print('Please enter floats!')
                 continue
 
         if typefunc == int:
@@ -239,9 +206,9 @@ def question(question, typefunc, default=None, autocomplete=True, ranges=False):
                 return out
             except ValueError:
                 if ranges:
-                    print 'Please enter integers or ranges of integers (e.g. "-3~-1  2  5~7")!'
+                    print('Please enter integers or ranges of integers (e.g. "-3~-1  2  5~7")!')
                 else:
-                    print 'Please enter integers!'
+                    print('Please enter integers!')
                 continue
 
 # ======================================================================================================================
@@ -249,7 +216,7 @@ def question(question, typefunc, default=None, autocomplete=True, ranges=False):
 
 def env_or_question(varname, setenv=False):
     path = os.getenv(varname)
-    if path != None and path != '':
+    if path is not None and path != '':
         path = os.path.expanduser(os.path.expandvars(path))
         sys.stdout.write('\nEnvironment variable $%s detected:\n$%s=%s\n\n' % (varname, varname, path))
         if question('Do you want to use this?', bool, True):
@@ -273,7 +240,7 @@ def get_infos():
 
     # get SHARC path, if not there
     string = '\n  ' + '=' * 80 + '\n'
-    string += '||' + centerstring('SHARC path', 80) + '||\n'
+    string += '||' + '{:^80}'.format('SHARC path') + '||\n'
     string += '  ' + '=' * 80 + '\n'
     sys.stdout.write(string + '\n')
     INFOS['sharc'] = env_or_question('SHARC', setenv=True)
@@ -283,19 +250,19 @@ def get_infos():
     ls = os.listdir(INFOS['sharc'])
     necessary = ['sharc.x', 'data_extractor.x', 'wigner.py', 'setup_init.py', 'setup_traj.py']
     for i in necessary:
-        if not i in ls:
+        if i not in ls:
             sys.stdout.write('Missing directory "%s" in $SHARC path' % (i))
             quit(1)
     ls = os.listdir(INFOS['sharc'] + '/..')
     necessary = ['tests']
     for i in necessary:
-        if not i in ls:
+        if i not in ls:
             sys.stdout.write('Missing directory "%s" in $SHARC/.. path' % (i))
             quit(1)
 
     # get list of available test jobs
     string = '\n  ' + '=' * 80 + '\n'
-    string += '||' + centerstring('Tests to run', 80) + '||\n'
+    string += '||' + '{:^80}'.format('Tests to run') + '||\n'
     string += '  ' + '=' * 80 + '\n'
     sys.stdout.write(string + '\n')
     ls = os.listdir(INFOS['sharc'] + '/../tests/INPUT')
@@ -316,8 +283,7 @@ def get_infos():
 
     # specify the jobs which should be run
     jobs = question('Which jobs should be run (enter the corresponding numbers)?', int, [i + 1 for i in range(len(testlist))], ranges=True)
-    jobs = list(set(jobs))
-    jobs.sort()
+    jobs = sorted(set(jobs))
     INFOS['joblist'] = [testlist[j - 1][0] for j in jobs if 0 < j <= len(testlist)]
     INFOS['interfaces'] = set([testlist[j - 1][1] for j in jobs if 0 < j <= len(testlist)])
     INFOS['otherenvs'] = set()
@@ -328,18 +294,18 @@ def get_infos():
 
     # collect environment variables
     string = '\n  ' + '=' * 80 + '\n'
-    string += '||' + centerstring('Environment variables: Paths', 80) + '||\n'
+    string += '||' + '{:^80}'.format('Environment variables: Paths') + '||\n'
     string += '  ' + '=' * 80 + '\n'
     sys.stdout.write(string + '\n')
     for interface in INTERFACES:
-        if interface in INFOS['interfaces'] and not interface in ['Analytical', 'scripts', 'LVC']:
+        if interface in INFOS['interfaces'] and interface not in ['Analytical', 'scripts', 'LVC']:
             INFOS[interface] = env_or_question(interface, setenv=True)
     for i in INFOS['otherenvs']:
         INFOS[i] = env_or_question(i, setenv=True)
 
     # get scratch directory
     string = '\n  ' + '=' * 80 + '\n'
-    string += '||' + centerstring('Scratch directory', 80) + '||\n'
+    string += '||' + '{:^80}'.format('Scratch directory') + '||\n'
     string += '  ' + '=' * 80 + '\n'
     sys.stdout.write(string + '\n')
     INFOS['SCRADIR'] = env_or_question('SCRADIR', setenv=True)
@@ -353,7 +319,7 @@ def get_infos():
 
 def run_tests(INFOS):
     string = '\n  ' + '=' * 80 + '\n'
-    string += '||' + centerstring('Running test jobs...', 80) + '||\n'
+    string += '||' + '{:^80}'.format('Running test jobs...') + '||\n'
     string += '  ' + '=' * 80 + '\n'
     sys.stdout.write(string + '\n')
 
@@ -523,7 +489,7 @@ def compare_trajectories(INFOS, index):
 
 def run_diff(INFOS):
     string = '\n  ' + '=' * 80 + '\n'
-    string += '||' + centerstring('Test job analysis', 80) + '||\n'
+    string += '||' + '{:^80}'.format('Test job analysis') + '||\n'
     string += '  ' + '=' * 80
     sys.stdout.write(string + '\n')
 
@@ -553,7 +519,7 @@ def run_diff(INFOS):
             INFOS['result'].append('%i Differences detected.' % count)
 
     string = '\n  ' + '=' * 80 + '\n'
-    string += '||' + centerstring('Summary', 80) + '||\n'
+    string += '||' + '{:^80}'.format('Summary') + '||\n'
     string += '  ' + '=' * 80
     sys.stdout.write(string + '\n')
     for index, job in enumerate(INFOS['joblist']):
