@@ -496,7 +496,7 @@ def run_diff(INFOS):
     INFOS['result'] = []
 
     for index, job in enumerate(INFOS['joblist']):
-        sys.stdout.write('\n' + centerstring(job, 60, '-') + '\n')
+        sys.stdout.write('\n' + '{:-^60}'.format(job) + '\n')
 
         if INFOS['joberrors'][index] != 0:
             sys.stdout.write('Job did not finish successfully. Error code: %i\n' % (INFOS['joberrors'][index]))
@@ -578,7 +578,7 @@ def main():
 
     INFOS = get_infos()
 
-    sys.stdout.write('\n' + centerstring('Full input', 60, '#') + '\n\n')
+    sys.stdout.write('\n' + '{:#^60}'.format('Full input') + '\n\n')
     for item in INFOS:
         sys.stdout.write(str(item) + ' ' * (15 - len(item)) + str(INFOS[item]) + '\n')
     sys.stdout.write('\n')
