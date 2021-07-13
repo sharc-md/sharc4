@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 # ******************************************
 #
@@ -22,8 +22,6 @@
 #    inside the SHARC manual.  If not, see <http://www.gnu.org/licenses/>.
 #
 # ******************************************
-
-#!/usr/bin/env python2
 
 # Interactive script for the setup of dynamics calculations for SHARC
 #
@@ -52,26 +50,6 @@ except ImportError:
     NONUMPY = True
 
 # =========================================================0
-# compatibility stuff
-
-if sys.version_info[0] != 2:
-    print 'This is a script for Python 2!'
-    sys.exit(0)
-
-if sys.version_info[1] < 5:
-    def any(iterable):
-        for element in iterable:
-            if element:
-                return True
-        return False
-
-    def all(iterable):
-        for element in iterable:
-            if not element:
-                return False
-        return True
-
-
 # some constants
 DEBUG = False
 CM_TO_HARTREE = 1. / 219474.6  # 4.556335252e-6 # conversion factor from cm-1 to Hartree
@@ -134,7 +112,7 @@ def readfile(filename):
         out = f.readlines()
         f.close()
     except IOError:
-        print 'File %s does not exist!' % (filename)
+        print('File %s does not exist!' % (filename))
         sys.exit(12)
     return out
 
@@ -151,10 +129,10 @@ def writefile(filename, content):
         elif isinstance(content, str):
             f.write(content)
         else:
-            print 'Content %s cannot be written to file!' % (content)
+            print('Content %s cannot be written to file!' % (content))
         f.close()
     except IOError:
-        print 'Could not write to file %s!' % (filename)
+        print('Could not write to file %s!' % (filename))
         sys.exit(13)
 
 # ======================================================================= #
@@ -164,20 +142,20 @@ def mkdir(DIR):
     # mkdir the DIR, or clean it if it exists
     if os.path.exists(DIR):
         if os.path.isfile(DIR):
-            print '%s exists and is a file!' % (DIR)
+            print('%s exists and is a file!' % (DIR))
             sys.exit(69)
         elif os.path.isdir(DIR):
             if DEBUG:
-                print 'Remake\t%s' % DIR
+                print('Remake\t%s' % DIR)
             shutil.rmtree(DIR)
             os.makedirs(DIR)
     else:
         try:
             if DEBUG:
-                print 'Make\t%s' % DIR
+                print('Make\t%s' % DIR)
             os.makedirs(DIR)
         except OSError:
-            print 'Can not create %s\n' % (DIR)
+            print('Can not create %s\n' % (DIR))
             sys.exit(70)
 
 # ======================================================================================================================
@@ -213,10 +191,10 @@ class output_dat:
             if 'Step' in self.data[iline]:
                 self.startlines.append(iline)
         self.current = 0
-        # print self.states
-        # print self.nmstates
-        # print self.startlines
-        # print self.current
+        # print(self.states)
+        # print(self.nmstates)
+        # print(self.startlines)
+        # print(self.current)
 
     def __iter__(self):
         return self
@@ -242,7 +220,7 @@ class output_dat:
         while True:
             index += 1
             if index > len(self.data) or index == self.startlines[iline + 1]:
-                print 'Error reading timestep %i in file %s' % (current, self.filename)
+                print('Error reading timestep %i in file %s' % (current, self.filename))
                 sys.exit(11)
             line = self.data[index]
             if 'states (diag, MCH)' in line:
@@ -282,23 +260,23 @@ def centerstring(string, n, pad=' '):
 
 
 def displaywelcome():
-    print 'Script for population computation started...\n'
+    print('Script for population computation started...\n')
     string = '\n'
     string += '  ' + '=' * 80 + '\n'
-    string += '||' + centerstring('', 80) + '||\n'
-    string += '||' + centerstring('Reading populations from SHARC dynamics', 80) + '||\n'
-    string += '||' + centerstring('', 80) + '||\n'
-    string += '||' + centerstring('Author: Sebastian Mai', 80) + '||\n'
-    string += '||' + centerstring('', 80) + '||\n'
+    string += '||' + '{:^80}'.format('') + '||\n'
+    string += '||' + '{:^80}'.format('Reading populations from SHARC dynamics') + '||\n'
+    string += '||' + '{:^80}'.format('') + '||\n'
+    string += '||' + '{:^80}'.format('Author: Sebastian Mai') + '||\n'
+    string += '||' + '{:^80}'.format('') + '||\n'
     string += '||' + centerstring('Version:' + version, 80) + '||\n'
-    string += '||' + centerstring(versiondate.strftime("%d.%m.%y"), 80) + '||\n'
-    string += '||' + centerstring('', 80) + '||\n'
+    string += '||' + '{:^80}'.format(versiondate.strftime("%d.%m.%y")) + '||\n'
+    string += '||' + '{:^80}'.format('') + '||\n'
     string += '  ' + '=' * 80 + '\n\n'
     string += '''
-This script calculates ensemble populations 
+This script calculates ensemble populations
 (e.g. based on the classically occupied state or based on the quantum amplitudes).
   '''
-    print string
+    print(string)
 
 # ======================================================================================================================
 # ======================================================================================================================
@@ -319,8 +297,8 @@ def close_keystrokes():
 
 def question(question, typefunc, default=None, autocomplete=True, ranges=False):
     if typefunc == int or typefunc == float:
-        if not default == None and not isinstance(default, list):
-            print 'Default to int or float question must be list!'
+        if default is not None and not isinstance(default, list):
+            print('Default to int or float question must be list!')
             quit(1)
     if typefunc == str and autocomplete:
         readline.set_completer_delims(' \t\n;')
@@ -330,7 +308,7 @@ def question(question, typefunc, default=None, autocomplete=True, ranges=False):
 
     while True:
         s = question
-        if default != None:
+        if default is not None:
             if typefunc == bool or typefunc == str:
                 s += ' [%s]' % (str(default))
             elif typefunc == int or typefunc == float:
@@ -344,13 +322,13 @@ def question(question, typefunc, default=None, autocomplete=True, ranges=False):
             s += ' (range comprehension enabled)'
         s += ' '
 
-        line = raw_input(s)
-        line = re.sub('#.*$', '', line).strip()
+        line = input(s)
+        line = re.sub(r'#.*$', '', line).strip()
         if not typefunc == str:
             line = line.lower()
 
         if line == '' or line == '\n':
-            if default != None:
+            if default is not None:
                 KEYSTROKES.write(line + ' ' * (40 - len(line)) + ' #' + s + '\n')
                 return default
             else:
@@ -366,7 +344,7 @@ def question(question, typefunc, default=None, autocomplete=True, ranges=False):
                 KEYSTROKES.write(line + ' ' * (40 - len(line)) + ' #' + s + '\n')
                 return False
             else:
-                print 'I didn''t understand you.'
+                print('I didn''t understand you.')
                 continue
 
         if typefunc == str:
@@ -382,7 +360,7 @@ def question(question, typefunc, default=None, autocomplete=True, ranges=False):
                 KEYSTROKES.write(line + ' ' * (40 - len(line)) + ' #' + s + '\n')
                 return f
             except ValueError:
-                print 'Please enter floats!'
+                print('Please enter floats!')
                 continue
 
         if typefunc == int:
@@ -401,9 +379,9 @@ def question(question, typefunc, default=None, autocomplete=True, ranges=False):
                 return out
             except ValueError:
                 if ranges:
-                    print 'Please enter integers or ranges of integers (e.g. "-3~-1  2  5~7")!'
+                    print('Please enter integers or ranges of integers (e.g. "-3~-1  2  5~7")!')
                 else:
-                    print 'Please enter integers!'
+                    print('Please enter integers!')
                 continue
 
 # ======================================================================================================================
@@ -443,34 +421,34 @@ def get_general():
 
     INFOS = {}
 
-    print centerstring('Paths to trajectories', 60, '-')
-    print '\nPlease enter the paths to all directories containing the "TRAJ_0XXXX" directories.\nE.g. Sing_2/ and Sing_3/. \nPlease enter one path at a time, and type "end" to finish the list.'
+    print('{:-^60}'.format('Paths to trajectories'))
+    print('\nPlease enter the paths to all directories containing the "TRAJ_0XXXX" directories.\nE.g. Sing_2/ and Sing_3/. \nPlease enter one path at a time, and type "end" to finish the list.')
     count = 0
     paths = []
     while True:
         path = question('Path: ', str, 'end')
         if path == 'end':
             if len(paths) == 0:
-                print 'No path yet!'
+                print('No path yet!')
                 continue
-            print ''
+            print('')
             break
         path = os.path.expanduser(os.path.expandvars(path))
         if not os.path.isdir(path):
-            print 'Does not exist or is not a directory: %s' % (path)
+            print('Does not exist or is not a directory: %s' % (path))
             continue
         if path in paths:
-            print 'Already included.'
+            print('Already included.')
             continue
         ls = os.listdir(path)
-        print ls
+        print(ls)
         for i in ls:
             if 'TRAJ' in i:
                 count += 1
-        print 'Found %i subdirectories in total.\n' % count
+        print('Found %i subdirectories in total.\n' % count)
         paths.append(path)
     INFOS['paths'] = paths
-    print 'Total number of subdirectories: %i\n' % (count)
+    print('Total number of subdirectories: %i\n' % (count))
 
 
     # get guessstates from SHARC input of first subdirectory
@@ -487,7 +465,7 @@ def get_general():
         for line in inputfile:
             if 'nstates' in line.lower():
                 guessstates = []
-                l = re.sub('#.*$', '', line).strip().split()
+                l = re.sub(r'#.*$', '', line).strip().split()
                 for i in range(1, len(l)):
                     guessstates.append(int(l[i]))
             if 'coupling' in line.lower():
@@ -496,8 +474,8 @@ def get_general():
 
 
     allowed = [i for i in range(1, 16)]
-    print centerstring('Analyze Mode', 60, '-')
-    print '''\nThis script can analyze the classical populations in different ways:
+    print('{:-^60}'.format('Analyze Mode'))
+    print('''\nThis script can analyze the classical populations in different ways:
 1       Number of trajectories in each diagonal state                                   from output.lis
 2       Number of trajectories in each (approximate) MCH state                          from output.lis
 3       Number of trajectories in each (approximate) MCH state (multiplets summed up)   from output.lis
@@ -512,35 +490,35 @@ It can also sum the quantum amplitudes:
 
 It can also transform the classical diagonal populations to MCH basis:
 12      Transform diagonal classical populations to MCH                                 from output_data/coeff_class_MCH.out
-13      Transform diagonal classical populations to MCH (multiplets summed up)          from output_data/coeff_class_MCH.out 
+13      Transform diagonal classical populations to MCH (multiplets summed up)          from output_data/coeff_class_MCH.out
 14      Wigner-transform classical diagonal populations to MCH                          from output_data/coeff_mixed_MCH.out
-15      Wigner-transform classical diagonal populations to MCH (multiplets summed up)   from output_data/coeff_mixed_MCH.out '''
+15      Wigner-transform classical diagonal populations to MCH (multiplets summed up)   from output_data/coeff_mixed_MCH.out ''')
     if LD_dynamics:
-        print '''
+        print('''
 It can also compute diabatic populations:
 20      Quantum amplitudes in diabatic picture                                          from output_data/coeff_diab.out
 21      Transform diagonal classical populations to diabatic                            from output_data/coeff_class_diab.out
 22      Wigner-transform classical diagonal populations to diabatic                     from output_data/coeff_mixed_diab.out
-'''
+''')
         allowed.append(20)
         allowed.append(21)
         allowed.append(22)
     while True:
         num = question('Analyze mode:', int)[0]
-        if not num in allowed:
-            print 'Please enter one of the following integers: %s!' % (allowed)
+        if num not in allowed:
+            print('Please enter one of the following integers: %s!' % (allowed))
             continue
-        if guessstates != None and len(guessstates) == 1 and num == 4:
-            print 'Only singlet states, analysis unnecessary.'
+        if guessstates is not None and len(guessstates) == 1 and num == 4:
+            print('Only singlet states, analysis unnecessary.')
             continue
         break
     INFOS['mode'] = num
-    print ''
+    print('')
 
 
 
     if INFOS['mode'] in [6, 7, 8, 9, 12, 13, 14, 15, 20, 21, 22]:
-        print 'Run data_extractor.x for each trajectory prior to performing the analysis?\nFor many or long trajectories, this might take some time.'
+        print('Run data_extractor.x for each trajectory prior to performing the analysis?\nFor many or long trajectories, this might take some time.')
         run_extractor = question('Run data_extractor.x?', bool, True)
         if run_extractor:
             run_full = not question('Run data_extractor.x only if output.dat newer than output_data/', bool, True)
@@ -556,17 +534,17 @@ It can also compute diabatic populations:
 
     if INFOS['mode'] in [1, 2, 3, 7, 8, 9, 12, 13, 14, 15, 20, 21, 22]:
 
-        print centerstring('Number of states', 60, '-')
-        print '\nPlease enter the number of states as a list of integers\ne.g. 3 0 3 for three singlets, zero doublets and three triplets.'
+        print('{:-^60}'.format('Number of states'))
+        print('\nPlease enter the number of states as a list of integers\ne.g. 3 0 3 for three singlets, zero doublets and three triplets.')
         while True:
             states = question('Number of states:', int, guessstates)
             if len(states) == 0:
                 continue
             if any(i < 0 for i in states):
-                print 'Number of states must be positive!'
+                print('Number of states must be positive!')
                 continue
             break
-        print ''
+        print('')
         nstates = 0
         nmstates = 0
         for mult, i in enumerate(states):
@@ -585,8 +563,8 @@ It can also compute diabatic populations:
 
 
     if INFOS['mode'] in [4, 5, 6]:
-        print centerstring('Intervals', 60, '-')
-        print '\nPlease enter the interval limits, all on one line.'
+        print('{:-^60}'.format('Intervals'))
+        print('\nPlease enter the interval limits, all on one line.')
         if INFOS['mode'] in [4]:
             guess = []
             for i in range(len(guessstates) - 1):
@@ -595,36 +573,36 @@ It can also compute diabatic populations:
             guess = None
         limits = question('Interval limits: ', float, guess)
         INFOS['histo'] = histogram(limits)
-    print ''
+    print('')
 
-    print centerstring('Normalization', 60, '-') + '\n'
+    print('{:-^60}'.format('Normalization') + '\n')
     INFOS['normalize'] = question('Normalize the populations?', bool, True)
-    print ''
+    print('')
 
-    print centerstring('Simulation time', 60, '-')
-    print '\nUp to which simulation time should the analysis be performed? (Trajectories which are shorter are continued with their last values.)'
+    print('{:-^60}'.format('Simulation time'))
+    print('\nUp to which simulation time should the analysis be performed? (Trajectories which are shorter are continued with their last values.)')
     while True:
         time = question('Simulation time (in fs): ', float, [1000.])[0]
         if time < 0.:
-            print 'Time must be positive!'
+            print('Time must be positive!')
             continue
         break
     INFOS['maxtime'] = time
-    print ''
+    print('')
 
 
-    print centerstring('Setup for bootstrapping?', 60, '-') + '\n'
-    print '\nThe population data can be analyzed by fitting with a kinetic model (via make_fitscript.py). In order to estimate errors for these time constants (via bootstrapping), additional data needs to be saved here.'
+    print('{:-^60}'.format('Setup for bootstrapping?') + '\n')
+    print('\nThe population data can be analyzed by fitting with a kinetic model (via make_fitscript.py). In order to estimate errors for these time constants (via bootstrapping), additional data needs to be saved here.')
     INFOS['bootstrap'] = question('Save data for bootstrapping?', bool, False)
     if INFOS['bootstrap']:
         INFOS['bootstrap_dir'] = question('Directory for data?', str, 'bootstrap_data/')
 
 
-    print centerstring('Gnuplot script', 60, '-') + '\n'
+    print('{:-^60}'.format('Gnuplot script') + '\n')
     INFOS['gnuplot'] = question('Gnuplot script?', bool, False)
     if INFOS['gnuplot']:
         INFOS['gnuplot_out'] = question('Gnuplot script filename?', str, 'populations.gp')
-    print ''
+    print('')
 
     return INFOS
 
@@ -640,24 +618,24 @@ def do_calc(INFOS):
     # run the data extractor, if necessary
     if INFOS['run_extractor']:
         # first check whether $SHARC contains the exctractor
-        print 'Running data_extractor...'
+        print('Running data_extractor...')
         sharcpath = os.getenv('SHARC')
-        if sharcpath == None:
-            print 'Please set $SHARC to the directory containing the SHARC executables!'
+        if sharcpath is None:
+            print('Please set $SHARC to the directory containing the SHARC executables!')
             sys.exit(1)
         else:
             if not os.path.isfile(sharcpath + '/data_extractor.x'):
-                print '$SHARC does not contain data_extractor.x!'
+                print('$SHARC does not contain data_extractor.x!')
                 sys.exit(1)
             else:
                 cwd = os.getcwd()
                 for idir in INFOS['paths']:
                     ls = os.listdir(idir)
                     for itraj in ls:
-                        if not 'TRAJ_' in itraj:
+                        if 'TRAJ_' not in itraj:
                             continue
                         path = idir + '/' + itraj
-                        print path
+                        print(path)
                         # check whether output_data/expec.out is newer than output.dat
                         update = False
                         if not os.path.isfile(path + '/output_data/expec.out'):
@@ -674,21 +652,21 @@ def do_calc(INFOS):
                             else:
                                 io = sp.call(sharcpath + '/data_extractor.x -xs output.dat > /dev/null 2> /dev/null', shell=True)
                             if io != 0:
-                                print 'WARNING: extractor call failed for %s! Exit code %i' % (path, io)
+                                print('WARNING: extractor call failed for %s! Exit code %i' % (path, io))
                             os.chdir(cwd)
                         else:
                             pass
-        print 'Extraction finished!\n'
+        print('Extraction finished!\n')
 
     width = 30
     # prepare the list of output.lis files
     files = []
     ntraj = 0
-    print 'Checking the directories...'
+    print('Checking the directories...')
     for idir in sorted(INFOS['paths']):
         ls = os.listdir(idir)
         for itraj in sorted(ls):
-            if not 'TRAJ_' in itraj:
+            if 'TRAJ_' not in itraj:
                 continue
             path = idir + '/' + itraj
             s = path + ' ' * (width - len(path))
@@ -714,25 +692,25 @@ def do_calc(INFOS):
                 pathfile = path + '/output.dat'
             if not os.path.isfile(pathfile):
                 s += '%s NOT FOUND' % (pathfile)
-                print s
+                print(s)
                 continue
             lstraj = os.listdir(path)
             valid = True
             for i in lstraj:
                 if i.lower() in forbidden:
                     s += 'DETECTED FILE %s' % (i.lower())
-                    print s
+                    print(s)
                     valid = False
                     break
             if not valid:
                 continue
             s += 'OK'
-            print s
+            print(s)
             ntraj += 1
             files.append(pathfile)
-    print 'Number of trajectories: %i' % (ntraj)
+    print('Number of trajectories: %i' % (ntraj))
     if ntraj == 0:
-        print 'No valid trajectories found, exiting...'
+        print('No valid trajectories found, exiting...')
         sys.exit(0)
 
     # get timestep
@@ -775,7 +753,7 @@ def do_calc(INFOS):
             elif INFOS['mode'] in [6, 7, 8, 9, 12, 13, 14, 15, 20, 21, 22]:
                 dt = (float(f[0]) - t0) / N
             if dt == 0.:
-                print 'ERROR: Timestep is zero.'
+                print('ERROR: Timestep is zero.')
                 quit(1)
             lisf.close()
             break
@@ -819,7 +797,7 @@ def do_calc(INFOS):
             statemap[i] = [imult, istate, ims, instate]
             i += 1
         INFOS['statemap'] = statemap
-    print 'Found dt=%f, nsteps=%i, nstates=%i\n' % (dt, nsteps, nstates)
+    print('Found dt=%f, nsteps=%i, nstates=%i\n' % (dt, nsteps, nstates))
     INFOS['nstates'] = nstates
 
     # get populations
@@ -833,7 +811,7 @@ def do_calc(INFOS):
             output_current = output_dat(ifile)
             istep = -1
             for istep, U, state_diag in output_current:
-                # print istep,state_diag
+                # print(istep,state_diag)
                 vec2 = [U[i][state_diag - 1] for i in range(len(U))]
                 vec = [0. for i in range(nstates)]
                 if INFOS['mode'] in [10]:
@@ -852,11 +830,11 @@ def do_calc(INFOS):
             if dt * istep > longest:
                 longest = dt * istep
             if istep == -1:
-                print '%s' % (ifile) + ' ' * (width - len(ifile)) + ' %i\tZero Timesteps found!' % (t)
+                print('%s' % (ifile) + ' ' * (width - len(ifile)) + ' %i\tZero Timesteps found!' % (t))
                 ntraj -= 1
                 continue
             else:
-                print '%s' % (ifile) + ' ' * (width - len(ifile)) + ' %i' % (istep)
+                print('%s' % (ifile) + ' ' * (width - len(ifile)) + ' %i' % (istep))
             while istep + 1 < nsteps:
                 istep += 1
                 if INFOS['mode'] in [10, 11]:
@@ -918,11 +896,11 @@ def do_calc(INFOS):
             if dt * t > longest:
                 longest = dt * t
             if t == -1:
-                print '%s' % (ifile) + ' ' * (width - len(ifile)) + '%i\tZero Timesteps found!' % (t)
+                print('%s' % (ifile) + ' ' * (width - len(ifile)) + '%i\tZero Timesteps found!' % (t))
                 ntraj -= 1
                 continue
             else:
-                print '%s' % (ifile) + ' ' * (width - len(ifile)) + '%i' % (t)
+                print('%s' % (ifile) + ' ' * (width - len(ifile)) + '%i' % (t))
             while t + 1 < nsteps:
                 t += 1
                 if INFOS['mode'] in [1, 2, 3, 4, 5, 6]:
@@ -930,9 +908,9 @@ def do_calc(INFOS):
                 elif INFOS['mode'] in [7, 8, 9, 12, 13, 14, 15, 20, 21, 22]:
                     for i in range(nstates):
                         pop_full[fileindex][t][i] += vec[i]
-    print 'Shortest trajectory: %f' % (shortest)
-    print 'Longest trajectory: %f' % (longest)
-    print 'Number of trajectories: %i' % (ntraj)
+    print('Shortest trajectory: %f' % (shortest))
+    print('Longest trajectory: %f' % (longest))
+    print('Number of trajectories: %i' % (ntraj))
     INFOS['shortest'] = shortest
     INFOS['longest'] = longest
 
@@ -983,16 +961,16 @@ def do_calc(INFOS):
         s += '\n'
     # print s
 
-    print ''
+    print('')
     outfilename = 'pop.out'
     if os.path.isfile(outfilename):
         overw = question('Overwrite %s? ' % (outfilename), bool, False)
-        print ''
+        print('')
         if overw:
             try:
                 outf = open(outfilename, 'w')
             except IOError:
-                print 'Could not open: %s' % (outfilename)
+                print('Could not open: %s' % (outfilename))
                 outf = None
         else:
             outf = None
@@ -1002,13 +980,13 @@ def do_calc(INFOS):
                 try:
                     outf = open(outfilename, 'w')
                 except IOError:
-                    print 'Could not open: %s' % (outfilename)
+                    print('Could not open: %s' % (outfilename))
                     continue
                 break
     else:
         outf = open(outfilename, 'w')
 
-    print 'Writing to %s ...' % (outfilename)
+    print('Writing to %s ...' % (outfilename))
     outf.write(s)
     outf.close()
 
@@ -1016,7 +994,7 @@ def do_calc(INFOS):
 
     # save bootstrapping data
     if INFOS['bootstrap']:
-        print 'Writing to %s ...' % (INFOS['bootstrap_dir'])
+        print('Writing to %s ...' % (INFOS['bootstrap_dir']))
         mkdir(INFOS['bootstrap_dir'])
         for fileindex, ifile in enumerate(files):
             filename = os.path.join(INFOS['bootstrap_dir'], 'pop_%i.dat' % (fileindex + 1))
@@ -1065,13 +1043,13 @@ def do_calc(INFOS):
     INFOS['ntraj'] = ntraj
 
 
-    # print number of trajs
+    # print(number of trajs)
     outfilename = 'traj_per_step_' + outfilename
     s = '#%15s %16s\n' % ('Time', 'Ntraj')
     for it, n in enumerate(traj_per_step):
         s += '%16.9f %16.9f\n' % (it * dt, n)
     outf = open(outfilename, 'w')
-    print 'Writing number of trajectories per step to %s ...' % (outfilename)
+    print('Writing number of trajectories per step to %s ...' % (outfilename))
     outf.write(s)
     outf.close()
 
@@ -1103,7 +1081,7 @@ class rgbcolor:
   R=rgbcolor(a)
   for index,num in enumerate(a):
     for el in range(num):
-      print index,el,R.hexcolor(index+1,el+1)
+      print(index,el,R.hexcolor(index+1,el+1))
   print 2,1,R.hexcolor(2,1)
 
                               .--------- running index over the groups
@@ -1324,7 +1302,7 @@ set out '%s.png'
     out = open(INFOS['gnuplot_out'], 'w')
     out.write(gnustring)
     out.close()
-    print 'Gnuplot script written to "%s"' % (INFOS['gnuplot_out'])
+    print('Gnuplot script written to "%s"' % (INFOS['gnuplot_out']))
 
 
 # ======================================================================================================================
@@ -1346,12 +1324,12 @@ This interactive program reads information from output.lis files or output_data/
 
     INFOS = get_general()
 
-    print centerstring('Full input', 60, '#') + '\n'
+    print(centerstring('Full input', 60, '#') + '\n')
     for item in INFOS:
-        print item, ' ' * (25 - len(item)), INFOS[item]
-    print ''
+        print(item, ' ' * (25 - len(item)), INFOS[item])
+    print('')
     calc = question('Do you want to do the specified analysis?', bool, True)
-    print ''
+    print('')
 
     if calc:
         INFOS = do_calc(INFOS)
@@ -1368,5 +1346,5 @@ if __name__ == '__main__':
     try:
         main()
     except KeyboardInterrupt:
-        print '\nCtrl+C makes me a sad SHARC ;-(\n'
+        print('\nCtrl+C makes me a sad SHARC ;-(\n')
         quit(0)
