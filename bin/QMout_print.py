@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 # ******************************************
 #
@@ -23,17 +23,13 @@
 #
 # ******************************************
 
-#!/usr/bin/env python2
-
 # Script for printing excitation energies, oscillator strengths and other quantities from QM.out file
 #
 # usage python QMout_print.py [options] <QM.out>
 
 import math
-import cmath
 import sys
 import os
-import pprint
 from optparse import OptionParser
 
 try:
@@ -44,25 +40,6 @@ except ImportError:
     NONUMPY = True
 
 # =========================================================0
-# compatibility stuff
-
-if sys.version_info[0] != 2:
-    print 'This is a script for Python 2!'
-    sys.exit(0)
-
-if sys.version_info[1] < 5:
-    def any(iterable):
-        for element in iterable:
-            if element:
-                return True
-        return False
-
-    def all(iterable):
-        for element in iterable:
-            if not element:
-                return False
-        return True
-
 # some constants
 DEBUG = False
 CM_TO_HARTREE = 1. / 219474.6  # 4.556335252e-6 # conversion factor from cm-1 to Hartree
@@ -100,7 +77,7 @@ def readfile(filename):
         out = f.readlines()
         f.close()
     except IOError:
-        print 'File %s could not be read!' % (filename)
+        print('File %s could not be read!' % (filename))
         sys.exit(12)
     return out
 
@@ -142,7 +119,7 @@ def read_QMout(path, nstates, natom, request):
             while True:
                 iline += 1
                 if iline >= len(lines):
-                    print 'Could not find target %s with flag %i in file %s!' % (t, targets[t]['flag'], path)
+                    print('Could not find target %s with flag %i in file %s!' % (t, targets[t]['flag'], path))
                     sys.exit(11)
                 line = lines[iline]
                 if '! %i' % (targets[t]['flag']) in line:
@@ -205,7 +182,7 @@ class diagonalizer:
         exe = os.getenv('SHARC')
         exe = os.path.expanduser(os.path.expandvars(exe)) + '/diagonalizer.x'
         if not os.path.isfile(exe):
-            print 'SHARC auxilliary diagonalizer not found at %s!' % (exe)
+            print('SHARC auxilliary diagonalizer not found at %s!' % (exe))
             sys.exit(1)
         self.exe = exe
 
@@ -252,7 +229,7 @@ def transform(H, DM, P):
                         UDMU[xyz][a][b] += temp[a][i] * U[i][b]
         DM = UDMU
 
-        if P != None:
+        if P is not None:
             UPU = [[0. for i in range(len(H))] for j in range(len(H))]
             for a in range(len(H)):
                 for b in range(len(H)):
@@ -279,7 +256,7 @@ def transform(H, DM, P):
             UDMU[xyz] = numpy.dot(Ucon, numpy.dot(DM[xyz], U))
         DM = UDMU
 
-        if P != None:
+        if P is not None:
             UPU = numpy.dot(Ucon, numpy.dot(P, U))
             P = UPU
 
@@ -402,7 +379,7 @@ excitation energies and oscillator strengths.
             else:
                 de = (e - energies[0]) * HARTREE_TO_EV
             string = '%5i %10s%02i %16.10f %12.8f %12.8f   %6.4f' % (istate + 1, IToMult[ist[0]][0], ist[1] - (ist[0] <= 2), e, de, fosc[-1], spin)
-            print string
+            print(string)
     else:
         for istate in range(QMin['nmstates']):
             e = QMout['h'][0][istate][istate].real
@@ -428,7 +405,7 @@ excitation energies and oscillator strengths.
             string = '%5i %10s%02i %16.10f %12.8f %12.8f   %6.4f' % (istate + 1, IToMult[m][0], s - (m <= 2), e, de, fosc[-1], m)
             if istate == initial:
                 string += ' #initial state'
-            print string
+            print(string)
 
 
 
