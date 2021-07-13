@@ -130,15 +130,7 @@ def writefile(filename, content):
         print('Could not write to file %s!' % (filename))
         sys.exit(13)
 
-# ======================================================================================================================
 
-
-def centerstring(string, n, pad=' '):
-    l = len(string)
-    if l >= n:
-        return string
-    else:
-        return pad * ((n - l + 1) / 2) + string + pad * ((n - l) / 2)
 
 # ======================================================================================================================
 
@@ -151,7 +143,7 @@ def displaywelcome():
     string += '||' + '{:^80}'.format('') + '||\n'
     string += '||' + '{:^80}'.format('Author: Sebastian Mai') + '||\n'
     string += '||' + '{:^80}'.format('') + '||\n'
-    string += '||' + centerstring('Version:' + version, 80) + '||\n'
+    string += '||' + '{:^80}'.format('Version:' + version) + '||\n'
     string += '||' + '{:^80}'.format(versiondate.strftime("%d.%m.%y")) + '||\n'
     string += '||' + '{:^80}'.format('') + '||\n'
     string += '  ' + '=' * 80 + '\n\n'
@@ -527,9 +519,9 @@ def get_infos():
 
     INFOS = {}
 
-    print(centerstring('', 60, '#'))
-    print(centerstring(' Kinetics Model ', 60, '#'))
-    print(centerstring('', 60, '#') + '\n\n')
+    print('{:#^60}'.format(''))
+    print('{:#^60}'.format(' Kinetics Model '))
+    print('{:#^60}'.format('') + '\n\n')
     # =========================== Define the kinetic model species ==================================
     print('{:-^60}'.format('Model Species') + '\n')
     print('''First, please specify the set of species used in your model kinetics.
@@ -733,9 +725,9 @@ end               Finish initial condition input
 
 
 
-    print(centerstring('', 60, '#'))
-    print(centerstring(' Fitting Data ', 60, '#'))
-    print(centerstring('', 60, '#') + '\n\n')
+    print('{:#^60}'.format(''))
+    print('{:#^60}'.format(' Fitting Data '))
+    print('{:#^60}'.format('') + '\n\n')
 
     # =========================== Bootstrapping or not ==================================
     print('{:-^60}'.format('Operation mode') + '\n')
@@ -964,9 +956,9 @@ Each column number (except for \'1\', which denotes the time) must be used at mo
 
 
     print('\n')
-    print(centerstring('', 60, '#'))
-    print(centerstring(' Fitting procedure ', 60, '#'))
-    print(centerstring('', 60, '#'))
+    print('{:#^60}'.format(''))
+    print('{:#^60}'.format(' Fitting procedure '))
+    print('{:#^60}'.format(''))
 
     # =========================== Initial guesses ==================================
 
@@ -1262,7 +1254,7 @@ def create_bootstrap_data(Tdata1, RNGarray, INFOS):
 
 def make_fit(INFOS):
 
-    print('\n' + centerstring(' Fitting ', 60, '#') + '\n')
+    print('\n' + '{:#^60}'.format(' Fitting ') + '\n')
 
     # rate guesses
     p0 = deepcopy(INFOS['p0'])
@@ -1405,7 +1397,7 @@ data to this script (bootstrapping data can be prepared with populations.py).'''
 
     if INFOS['do_bootstrap']:
         verbose = False
-        print('\n' + centerstring(' Bootstrapping ', 60, '#') + '\n')
+        print('\n' + '{:#^60}'.format(' Bootstrapping ') + '\n')
         if INFOS['write_bootstrap_fits']:
             print('Writing individual results to %s/fit_results_%%i.txt ...\n' % (INFOS['popfile']))
 
@@ -1427,7 +1419,7 @@ data to this script (bootstrapping data can be prepared with populations.py).'''
         for iboot in range(INFOS['bootstrap_cycles']):
             try:
                 if verbose:
-                    print('\n' + centerstring(' Cycle %i ' % (iboot + 1), 30, '.') + '\n')
+                    print('\n{:.^30}'.format(' Cycle %i ' % (iboot + 1)) + '\n')
                     verb = 2
                 else:
                     verb = 0
@@ -1508,9 +1500,9 @@ data to this script (bootstrapping data can be prepared with populations.py).'''
         final_errors = {}
         for ikey, key in enumerate(const_names):
             if key in INFOS['ratemap']:
-                string = '\n' + centerstring(' Analysis for time constant "%s" ' % key, 110, '-') + '\n'
+                string = '\n{:-^110}'.format(' Analysis for time constant "%s" ' % key) + '\n'
             elif key in INFOS['specmap']:
-                string = '\n' + centerstring(' Analysis for initial population "%s" ' % key, 105, '-') + '\n'
+                string = '\n{:-^105}'.format(' Analysis for initial population "%s" ' % key) + '\n'
 
             data = []
             for i in results:
@@ -1718,7 +1710,7 @@ def gnuplot_string(INFOS, const_values):
     # header
     string = '#\n'
     string += '# +' + '-' * 60 + '+\n'
-    string += '# |' + centerstring('Fit plotting script', 60, ' ') + '|\n'
+    string += '# |' + '{: ^60}'.format('Fit plotting script') + '|\n'
     string += '# +' + '-' * 60 + '+\n#\n#\n'
 
     # add as comment the definitions of the kinetic model
@@ -1821,7 +1813,7 @@ GNUPLOT script which allows to fit the model parameters to the populations
     INFOS = get_infos()
 
     # echo input
-    print('\n\n' + centerstring('Full input', 60, '#') + '\n')
+    print('\n\n' + '{:#^60}'.format('Full input') + '\n')
     for item in sorted(INFOS):
         if not item == 'data':
             print(item, ' ' * (25 - len(item)), INFOS[item])

@@ -228,11 +228,11 @@ def measuretime():
 
     endtime = datetime.datetime.now()
     runtime = endtime - starttime
-    hours = runtime.seconds / 3600
-    minutes = runtime.seconds / 60 - hours * 60
+    hours = runtime.seconds // 3600
+    minutes = runtime.seconds // 60 - hours * 60
     seconds = runtime.seconds % 60
     print('==> Runtime:\n%i Days\t%i Hours\t%i Minutes\t%i Seconds\n\n' % (runtime.days, hours, minutes, seconds))
-    total_seconds = runtime.days * 24 * 3600 + runtime.seconds + runtime.microseconds / 1.e6
+    total_seconds = runtime.days * 24 * 3600 + runtime.seconds + runtime.microseconds // 1.e6
     return total_seconds
 
 # ======================================================================= #
@@ -327,9 +327,9 @@ def printheader():
     string += '||' + ' ' * 80 + '||\n'
     string += '||' + ' ' * 20 + 'Authors: Moritz Heindl and Sebastian Mai' + ' ' * 20 + '||\n'
     string += '||' + ' ' * 80 + '||\n'
-    string += '||' + ' ' * (36 - (len(version) + 1) / 2) + 'Version: %s' % (version) + ' ' * (35 - (len(version)) / 2) + '||\n'
+    string += '||' + ' ' * (36 - (len(version) + 1) // 2) + 'Version: %s' % (version) + ' ' * (35 - (len(version)) // 2) + '||\n'
     lens = len(versiondate.strftime("%d.%m.%y"))
-    string += '||' + ' ' * (37 - lens / 2) + 'Date: %s' % (versiondate.strftime("%d.%m.%y")) + ' ' * (37 - (lens + 1) / 2) + '||\n'
+    string += '||' + ' ' * (37 - lens // 2) + 'Date: %s' % (versiondate.strftime("%d.%m.%y")) + ' ' * (37 - (lens + 1) // 2) + '||\n'
     string += '||' + ' ' * 80 + '||\n'
     string += '  ' + '=' * 80 + '\n\n'
     print(string)
@@ -513,7 +513,7 @@ def printcomplexmatrix(matrix, states):
     for i in range(len(states)):
         nmstates += states[i] * (i + 1)
     string = 'Real Part:\n'
-    string += '-' * (11 * nmstates + nmstates / 3)
+    string += '-' * (11 * nmstates + nmstates // 3)
     string += '\n'
     istate = 0
     for imult, i, ms in itnmstates(states):
@@ -529,13 +529,13 @@ def printcomplexmatrix(matrix, states):
             jstate += 1
         string += '\n'
         if i == states[imult - 1]:
-            string += '-' * (11 * nmstates + nmstates / 3)
+            string += '-' * (11 * nmstates + nmstates // 3)
             string += '\n'
         istate += 1
     print(string)
     imag = False
     string = 'Imaginary Part:\n'
-    string += '-' * (11 * nmstates + nmstates / 3)
+    string += '-' * (11 * nmstates + nmstates // 3)
     string += '\n'
     istate = 0
     for imult, i, ms in itnmstates(states):
@@ -552,7 +552,7 @@ def printcomplexmatrix(matrix, states):
             jstate += 1
         string += '\n'
         if i == states[imult - 1]:
-            string += '-' * (11 * nmstates + nmstates / 3)
+            string += '-' * (11 * nmstates + nmstates // 3)
             string += '\n'
         istate += 1
     string += '\n'
@@ -2007,7 +2007,7 @@ def readQMin(QMinfilename):
         QMin['backup'] = backupdir
 
     if DEBUG:
-        print('======= DEBUG print(for QMin ======='))
+        print('======= DEBUG print(for QMin =======')
         pprint.pprint(QMin)
         print('====================================')
     return QMin
@@ -2031,19 +2031,19 @@ def divide_slots(ncpu, ntasks, scaling):
     #   the number of slots which should be set in the Pool,
     #   and the number of cores for each job.
     minpar = 1
-    ntasks_per_round = ncpu / minpar
+    ntasks_per_round = ncpu // minpar
     if ncpu == 1:
         ntasks_per_round = 1
     ntasks_per_round = min(ntasks_per_round, ntasks)
     optimal = {}
     for i in range(1, 1 + ntasks_per_round):
-        nrounds = int(math.ceil(float(ntasks) / i))
-        ncores = ncpu / i
+        nrounds = int(math.ceil(float(ntasks) // i))
+        ncores = ncpu // i
         optimal[i] = nrounds / parallel_speedup(ncores, scaling)
     # print(optimal)
     best = min(optimal, key=optimal.get)
-    nrounds = int(math.ceil(float(ntasks) / best))
-    ncores = ncpu / best
+    nrounds = int(math.ceil(float(ntasks) // best))
+    ncores = ncpu // best
 
     cpu_per_run = [0 for i in range(ntasks)]
     if nrounds == 1:
@@ -2057,7 +2057,7 @@ def divide_slots(ncpu, ntasks, scaling):
     else:
         for itask in range(ntasks):
             cpu_per_run[itask] = ncores
-        nslots = ncpu / ncores
+        nslots = ncpu // ncores
     # print(nrounds,nslots,cpu_per_run)
     return nrounds, nslots, cpu_per_run
 
@@ -3228,9 +3228,9 @@ def get_Double_AOovl_molden(QMin):
 
     # Smat is now full matrix NAO*NAO
     # we want the lower left quarter, but transposed
-    string = '%i %i\n' % (NAO / 2, NAO / 2)
-    for irow in range(NAO / 2, NAO):
-        for icol in range(0, NAO / 2):
+    string = '%i %i\n' % (NAO // 2, NAO // 2)
+    for irow in range(NAO // 2, NAO):
+        for icol in range(0, NAO // 2):
             string += '% .15e ' % (Smat[icol][irow])  # note the exchanged indices => transposition
         string += '\n'
     filename = os.path.join(QMin['savedir'], 'AO_overl.mixed')

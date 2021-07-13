@@ -270,11 +270,11 @@ def measuretime():
 
     endtime = datetime.datetime.now()
     runtime = endtime - starttime
-    hours = runtime.seconds / 3600
-    minutes = runtime.seconds / 60 - hours * 60
+    hours = runtime.seconds // 3600
+    minutes = runtime.seconds // 60 - hours * 60
     seconds = runtime.seconds % 60
     print('==> Runtime:\n%i Days\t%i Hours\t%i Minutes\t%i Seconds\n\n' % (runtime.days, hours, minutes, seconds))
-    total_seconds = runtime.days * 24 * 3600 + runtime.seconds + runtime.microseconds / 1.e6
+    total_seconds = runtime.days * 24 * 3600 + runtime.seconds + runtime.microseconds // 1.e6
     return total_seconds
 
 # ======================================================================= #
@@ -368,9 +368,9 @@ def printheader():
     string += '||' + ' ' * 80 + '||\n'
     string += '||' + ' ' * 14 + 'Authors: Sebastian Mai, Lea Ibele, and Moritz Heindl' + ' ' * 14 + '||\n'
     string += '||' + ' ' * 80 + '||\n'
-    string += '||' + ' ' * (36 - (len(version) + 1) / 2) + 'Version: %s' % (version) + ' ' * (35 - (len(version)) / 2) + '||\n'
+    string += '||' + ' ' * (36 - (len(version) + 1) // 2) + 'Version: %s' % (version) + ' ' * (35 - (len(version)) // 2) + '||\n'
     lens = len(versiondate.strftime("%d.%m.%y"))
-    string += '||' + ' ' * (37 - lens / 2) + 'Date: %s' % (versiondate.strftime("%d.%m.%y")) + ' ' * (37 - (lens + 1) / 2) + '||\n'
+    string += '||' + ' ' * (37 - lens // 2) + 'Date: %s' % (versiondate.strftime("%d.%m.%y")) + ' ' * (37 - (lens + 1) // 2) + '||\n'
     string += '||' + ' ' * 80 + '||\n'
     string += '  ' + '=' * 80 + '\n\n'
     print(string)
@@ -532,7 +532,7 @@ def printcomplexmatrix(matrix, states):
     for i in range(len(states)):
         nmstates += states[i] * (i + 1)
     string = 'Real Part:\n'
-    string += '-' * (11 * nmstates + nmstates / 3)
+    string += '-' * (11 * nmstates + nmstates // 3)
     string += '\n'
     istate = 0
     for imult, i, ms in itnmstates(states):
@@ -548,13 +548,13 @@ def printcomplexmatrix(matrix, states):
             jstate += 1
         string += '\n'
         if i == states[imult - 1]:
-            string += '-' * (11 * nmstates + nmstates / 3)
+            string += '-' * (11 * nmstates + nmstates // 3)
             string += '\n'
         istate += 1
     print(string)
     imag = False
     string = 'Imaginary Part:\n'
-    string += '-' * (11 * nmstates + nmstates / 3)
+    string += '-' * (11 * nmstates + nmstates // 3)
     string += '\n'
     istate = 0
     for imult, i, ms in itnmstates(states):
@@ -571,7 +571,7 @@ def printcomplexmatrix(matrix, states):
             jstate += 1
         string += '\n'
         if i == states[imult - 1]:
-            string += '-' * (11 * nmstates + nmstates / 3)
+            string += '-' * (11 * nmstates + nmstates // 3)
             string += '\n'
         istate += 1
     string += '\n'
@@ -2694,19 +2694,19 @@ def divide_slots(ncpu, ntasks, scaling):
     #   the number of slots which should be set in the Pool,
     #   and the number of cores for each job.
     minpar = 1
-    ntasks_per_round = ncpu / minpar
+    ntasks_per_round = ncpu // minpar
     if ncpu == 1:
         ntasks_per_round = 1
     ntasks_per_round = min(ntasks_per_round, ntasks)
     optimal = {}
     for i in range(1, 1 + ntasks_per_round):
-        nrounds = int(math.ceil(float(ntasks) / i))
-        ncores = ncpu / i
-        optimal[i] = nrounds / parallel_speedup(ncores, scaling)
+        nrounds = int(math.ceil(float(ntasks) // i))
+        ncores = ncpu // i
+        optimal[i] = nrounds // parallel_speedup(ncores, scaling)
     # print optimal
     best = min(optimal, key=optimal.get)
-    nrounds = int(math.ceil(float(ntasks) / best))
-    ncores = ncpu / best
+    nrounds = int(math.ceil(float(ntasks) // best))
+    ncores = ncpu // best
 
     cpu_per_run = [0 for i in range(ntasks)]
     if nrounds == 1:
@@ -2720,7 +2720,7 @@ def divide_slots(ncpu, ntasks, scaling):
     else:
         for itask in range(ntasks):
             cpu_per_run[itask] = ncores
-        nslots = ncpu / ncores
+        nslots = ncpu // ncores
     # print nrounds,nslots,cpu_per_run
     return nrounds, nslots, cpu_per_run
 
@@ -3507,7 +3507,7 @@ def get_MO_from_gbw(filename, QMin):
     NMO_A = NAO
     MO_A = [[0. for i in range(NAO)] for j in range(NMO_A)]
     for imo in range(NMO_A):
-        jblock = imo / nblock
+        jblock = imo // nblock
         jcol = imo % nblock
         for iao in range(NAO):
             shift = max(0, len(str(iao)) - 3)
@@ -3524,14 +3524,14 @@ def get_MO_from_gbw(filename, QMin):
             # fixed
             val = float(line[npre + shift + jcol * ndigits + pre: npre + shift + ndigits + jcol * ndigits + post])
             MO_A[imo][iao] = val
-    iline += ((NAO - 1) / nblock + 1) * (NAO + 1)
+    iline += ((NAO - 1) // nblock + 1) * (NAO + 1)
 
     # coefficients for beta
     if not restr:
         NMO_B = NAO
         MO_B = [[0. for i in range(NAO)] for j in range(NMO_B)]
         for imo in range(NMO_B):
-            jblock = imo / nblock
+            jblock = imo // nblock
             jcol = imo % nblock
             for iao in range(NAO):
                 shift = max(0, len(str(iao)) - 3)
@@ -3675,7 +3675,7 @@ def get_dets_from_cis(filename, QMin):
                 print('Number of orbitals in %s not consistent' % filename)
                 sys.exit(85)
         if QMin['template']['no_tda']:
-            nstates_onfile = nvec / 2
+            nstates_onfile = nvec // 2
         else:
             nstates_onfile = nvec
 
@@ -3945,7 +3945,7 @@ def get_smat_from_gbw(file1, file2=''):
     ao_ovl = [[0. for i in range(NAO)] for j in range(NAO)]
     for x in range(NAO):
         for y in range(NAO):
-            block = x / nblock
+            block = x // nblock
             xoffset = x % nblock + 1
             yoffset = block * (NAO + 1) + y + 10
             ao_ovl[x][y] = float(out[yoffset].split()[xoffset])
@@ -4856,7 +4856,7 @@ def getsocm(outfile, ijob, QMin):
     real = [[0 + 0j for i in range(4 * nst + 1)] for j in range(4 * nst + 1)]
     for x in range(len(real)):
         for y in range(len(real[0])):
-            block = x / ncol
+            block = x // ncol
             xoffset = 1 + x % ncol
             yoffset = block * (4 * nst + 2) + y
             # print iline,x,y,block,xoffset,yoffset
@@ -4864,10 +4864,10 @@ def getsocm(outfile, ijob, QMin):
             if abs(val) > 1e-16:
                 real[y][x] = val
 
-    iline += ((4 * nst) / ncol + 1) * (4 * nst + 2) + 2
+    iline += ((4 * nst) // ncol + 1) * (4 * nst + 2) + 2
     for x in range(len(real)):
         for y in range(len(real[0])):
-            block = x / ncol
+            block = x // ncol
             xoffset = 1 + x % ncol
             yoffset = block * (4 * nst + 2) + y
             val = float(out[iline + yoffset].split()[xoffset])

@@ -229,13 +229,6 @@ IToMult = {
 # ======================================================================================================================
 # ======================================================================================================================
 
-def centerstring(string, n, pad=' '):
-    l = len(string)
-    if l >= n:
-        return string
-    else:
-        return pad * ((n - l + 1) / 2) + string + pad * ((n - l) / 2)
-
 
 def displaywelcome():
     string = '\n'
@@ -245,7 +238,7 @@ def displaywelcome():
     string += '||' + '{:^80}'.format('') + '||\n'
     string += '||' + '{:^80}'.format('Author: Sebastian Mai') + '||\n'
     string += '||' + '{:^80}'.format('') + '||\n'
-    string += '||' + centerstring('Version:' + version, 80) + '||\n'
+    string += '||' + '{:^80}'.format('Version:' + version) + '||\n'
     string += '||' + '{:^80}'.format(versiondate.strftime("%d.%m.%y")) + '||\n'
     string += '||' + '{:^80}'.format('') + '||\n'
     string += '  ' + '=' * 80 + '\n\n'
@@ -744,7 +737,7 @@ def setup_input(INFOS):
         s = 'basis %s\n' % (INFOS['basis'])
         s += 'ras2 %i\n' % (INFOS['cas.norb'])
         s += 'nactel %i\n' % (INFOS['cas.nact'])
-        s += 'inactive %i\n' % ((INFOS['nelec'] - INFOS['cas.nact']) / 2)
+        s += 'inactive %i\n' % ((INFOS['nelec'] - INFOS['cas.nact']) // 2)
         s += 'roots'
         for i, n in enumerate(INFOS['cas.nstates']):
             s += ' %i ' % (n)
@@ -827,7 +820,7 @@ RAS2   = %i
 CIROOT = %i,%i,1
 ''' % (mult,
             INFOS['cas.nact'],
-            (INFOS['nelec'] - INFOS['cas.nact']) / 2,
+            (INFOS['nelec'] - INFOS['cas.nact']) // 2,
             INFOS['cas.norb'],
             nstate, nstate)
         if INFOS['ctype'] == 1:
@@ -1048,17 +1041,17 @@ mkdir -p $WorkDir
 
 
 def warnings(INFOS):
-    print(centerstring(' WARNINGS ', 62, '*'))
+    print('{:*^60}'.format(' WARNINGS '))
     print('*' + ' ' * 60 + '*')
     if INFOS['ctype'] == 1:
         if INFOS['DK']:
-            print('*' + centerstring('Douglas-Kroll: Will not do SCF!', 60, ' ') + '*')
+            print('*' + '{: ^60}'.format('Douglas-Kroll: Will not do SCF!') + '*')
             print('*' + ' ' * 60 + '*')
         if INFOS['nelec'] % 2 != 0:
-            print('*' + centerstring('Odd number of electrons: Will not do SCF!', 60, ' ') + '*')
+            print('*' + '{: ^60}'.format('Odd number of electrons: Will not do SCF!') + '*')
             print('*' + ' ' * 60 + '*')
         if INFOS['charge'] != 0:
-            print('*' + centerstring('Nonzero charge: Will not do SCF!', 60, ' ') + '*')
+            print('*' + '{: ^60}'.format('Nonzero charge: Will not do SCF!') + '*')
             print('*' + ' ' * 60 + '*')
     print('*' + ' ' * 60 + '*')
     print('*' * 62)
@@ -1085,7 +1078,7 @@ This interactive program prepares a MOLCAS input file for ground state optimizat
 
     INFOS = get_infos()
 
-    print(centerstring('Full input', 60, '#') + '\n')
+    print('{:#^60}'.format('Full input') + '\n')
     for item in INFOS:
         print(item, ' ' * (15 - len(item)), INFOS[item])
     print('')

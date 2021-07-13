@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 # ******************************************
 #
@@ -22,8 +22,6 @@
 #    inside the SHARC manual.  If not, see <http://www.gnu.org/licenses/>.
 #
 # ******************************************
-
-#!/usr/bin/env python2
 
 #    ====================================================================
 # ||                                                                       ||
@@ -79,28 +77,6 @@ import ast
 import string
 
 # =========================================================0
-# compatibility stuff
-
-if sys.version_info[0] != 2:
-    print('This is a script for Python 2!')
-    sys.exit(0)
-
-if sys.version_info[1] < 5:
-    def any(iterable):
-        for element in iterable:
-            if element:
-                return True
-        return False
-
-    def all(iterable):
-        for element in iterable:
-            if not element:
-                return False
-        return True
-
-
-
-# ======================================================================= #
 
 version = '0.1'
 versiondate = datetime.date(2020, 11, 11)
@@ -247,11 +223,11 @@ def measuretime():
     endtime = datetime.datetime.now()
     runtime = endtime - starttime
     if PRINT or DEBUG:
-        hours = runtime.seconds / 3600
-        minutes = runtime.seconds / 60 - hours * 60
+        hours = runtime.seconds // 3600
+        minutes = runtime.seconds // 60 - hours * 60
         seconds = runtime.seconds % 60
         print('==> Runtime:\n%i Days\t%i Hours\t%i Minutes\t%i Seconds\n\n' % (runtime.days, hours, minutes, seconds))
-    total_seconds = runtime.days * 24 * 3600 + runtime.seconds + runtime.microseconds / 1.e6
+    total_seconds = runtime.days * 24 * 3600 + runtime.seconds + runtime.microseconds // 1.e6
     return total_seconds
 
 # ======================================================================= #
@@ -375,9 +351,9 @@ def printheader():
     string += '||' + ' ' * 80 + '||\n'
     string += '||' + ' ' * 29 + 'Author: ' + ' Davide Avagliano ' + ' ' * 20 + '||\n'
     string += '||' + ' ' * 80 + '||\n'
-    string += '||' + ' ' * (36 - (len(version) + 1) / 2) + 'Version: %s' % (version) + ' ' * (35 - (len(version)) / 2) + '||\n'
+    string += '||' + ' ' * (36 - (len(version) + 1) // 2) + 'Version: %s' % (version) + ' ' * (35 - (len(version)) // 2) + '||\n'
     lens = len(versiondate.strftime("%d.%m.%y"))
-    string += '||' + ' ' * (37 - lens / 2) + 'Date: %s' % (versiondate.strftime("%d.%m.%y")) + ' ' * (37 - (lens + 1) / 2) + '||\n'
+    string += '||' + ' ' * (37 - lens // 2) + 'Date: %s' % (versiondate.strftime("%d.%m.%y")) + ' ' * (37 - (lens + 1) // 2) + '||\n'
     string += '||' + ' ' * 80 + '||\n'
     string += '  ' + '=' * 80 + '\n\n'
     print(string)

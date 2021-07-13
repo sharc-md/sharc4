@@ -361,11 +361,11 @@ def measuretime():
     endtime = datetime.datetime.now()
     runtime = endtime - starttime
     if PRINT or DEBUG:
-        hours = runtime.seconds / 3600
-        minutes = runtime.seconds / 60 - hours * 60
+        hours = runtime.seconds // 3600
+        minutes = runtime.seconds // 60 - hours * 60
         seconds = runtime.seconds % 60
         print('==> Runtime:\n%i Days\t%i Hours\t%i Minutes\t%i Seconds\n\n' % (runtime.days, hours, minutes, seconds))
-    total_seconds = runtime.days * 24 * 3600 + runtime.seconds + runtime.microseconds / 1.e6
+    total_seconds = runtime.days * 24 * 3600 + runtime.seconds + runtime.microseconds // 1.e6
     return total_seconds
 
 # ======================================================================= #
@@ -460,9 +460,9 @@ def printheader():
     string += '||' + ' ' * 80 + '||\n'
     string += '||' + ' ' * 19 + 'Authors: Sebastian Mai and Martin Richter' + ' ' * 20 + '||\n'
     string += '||' + ' ' * 80 + '||\n'
-    string += '||' + ' ' * (36 - (len(version) + 1) / 2) + 'Version: %s' % (version) + ' ' * (35 - (len(version)) / 2) + '||\n'
+    string += '||' + ' ' * (36 - (len(version) + 1) // 2) + 'Version: %s' % (version) + ' ' * (35 - (len(version)) // 2) + '||\n'
     lens = len(versiondate.strftime("%d.%m.%y"))
-    string += '||' + ' ' * (37 - lens / 2) + 'Date: %s' % (versiondate.strftime("%d.%m.%y")) + ' ' * (37 - (lens + 1) / 2) + '||\n'
+    string += '||' + ' ' * (37 - lens // 2) + 'Date: %s' % (versiondate.strftime("%d.%m.%y")) + ' ' * (37 - (lens + 1) // 2) + '||\n'
     string += '||' + ' ' * 80 + '||\n'
     string += '  ' + '=' * 80 + '\n\n'
     print(string)
@@ -678,7 +678,7 @@ def printcomplexmatrix(matrix, states):
     for i in range(len(states)):
         nmstates += states[i] * (i + 1)
     string = 'Real Part:\n'
-    string += '-' * (11 * nmstates + nmstates / 3)
+    string += '-' * (11 * nmstates + nmstates // 3)
     string += '\n'
     istate = 0
     for imult, i, ms in itnmstates(states):
@@ -694,13 +694,13 @@ def printcomplexmatrix(matrix, states):
             jstate += 1
         string += '\n'
         if i == states[imult - 1]:
-            string += '-' * (11 * nmstates + nmstates / 3)
+            string += '-' * (11 * nmstates + nmstates // 3)
             string += '\n'
         istate += 1
     print(string)
     imag = False
     string = 'Imaginary Part:\n'
-    string += '-' * (11 * nmstates + nmstates / 3)
+    string += '-' * (11 * nmstates + nmstates // 3)
     string += '\n'
     istate = 0
     for imult, i, ms in itnmstates(states):
@@ -717,7 +717,7 @@ def printcomplexmatrix(matrix, states):
             jstate += 1
         string += '\n'
         if i == states[imult - 1]:
-            string += '-' * (11 * nmstates + nmstates / 3)
+            string += '-' * (11 * nmstates + nmstates // 3)
             string += '\n'
         istate += 1
     string += '\n'
@@ -1049,11 +1049,11 @@ def getcidm(out, mult, state1, state2, pol, version):
         if statesstring in line:
             nstates = int(line.split()[-1])
             if len(jobiphmult) == 2:
-                stateshift = nstates / 2
+                stateshift = nstates // 2
             else:
                 stateshift = 0
         if matrixstring in line:
-            block = (stateshift + state2 - 1) / 4
+            block = (stateshift + state2 - 1) // 4
             rowshift = 3 + stateshift + state1 + (6 + nstates) * block
             colshift = 1 + (stateshift + state2 - 1) % 4
 
@@ -1379,9 +1379,9 @@ def getsmate(out, mult, state1, state2, states):
             nstates = int(line.split()[-1])
         if matrixstring in line:
             rowshift = 1
-            for i in range(nstates / 2 + state2 - 1):
-                rowshift += i / 5 + 1
-            rowshift += 1 + (state1 - 1) / 5
+            for i in range(nstates // 2 + state2 - 1):
+                rowshift += i // 5 + 1
+            rowshift += 1 + (state1 - 1) // 5
             colshift = (state1 - 1) % 5
 
             return float(out[iline + jline + rowshift + 1].split()[colshift])
@@ -3160,19 +3160,19 @@ def divide_slots(ncpu, ntasks, scaling):
     #   the number of slots which should be set in the Pool,
     #   and the number of cores for each job.
     minpar = 1
-    ntasks_per_round = ncpu / minpar
+    ntasks_per_round = ncpu // minpar
     if ncpu == 1:
         ntasks_per_round = 1
     ntasks_per_round = min(ntasks_per_round, ntasks)
     optimal = {}
     for i in range(1, 1 + ntasks_per_round):
-        nrounds = int(math.ceil(float(ntasks) / i))
-        ncores = ncpu / i
+        nrounds = int(math.ceil(float(ntasks) // i))
+        ncores = ncpu // i
         optimal[i] = nrounds / parallel_speedup(ncores, scaling)
     # print optimal
     best = min(optimal, key=optimal.get)
-    nrounds = int(math.ceil(float(ntasks) / best))
-    ncores = ncpu / best
+    nrounds = int(math.ceil(float(ntasks) // best))
+    ncores = ncpu // best
 
     cpu_per_run = [0 for i in range(ntasks)]
     if nrounds == 1:
@@ -3186,7 +3186,7 @@ def divide_slots(ncpu, ntasks, scaling):
     else:
         for itask in range(ntasks):
             cpu_per_run[itask] = ncores
-        nslots = ncpu / ncores
+        nslots = ncpu // ncores
     # print(nrounds,nslots,cpu_per_run)
     return nrounds, nslots, cpu_per_run
 
@@ -3870,7 +3870,7 @@ def getcaspt2transform(out, mult):
             t = [[0. for x in range(nstates)] for y in range(nstates)]
             for x in range(nstates):
                 for y in range(nstates):
-                    lineshift = i + y + 1 + x / 5 * (nstates + 1)
+                    lineshift = i + y + 1 + x // 5 * (nstates + 1)
                     indexshift = x % 5
                     t[x][y] = float(out[lineshift].split()[indexshift])
             return t

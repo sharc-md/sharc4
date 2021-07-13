@@ -582,7 +582,7 @@ def do_calc(INFOS):
             break
 
         # get number of steps
-        nsteps = int(INFOS['maxtime'] / dt) + 1
+        nsteps = int(INFOS['maxtime'] // dt) + 1
         print('Number of steps: %i' % (nsteps))
 
 

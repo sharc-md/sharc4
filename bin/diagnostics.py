@@ -198,34 +198,9 @@ class output_dat:
         return current, U, state_diag
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 # ======================================================================================================================
 # ======================================================================================================================
 # ======================================================================================================================
-
-def centerstring(string, n, pad=' '):
-    l = len(string)
-    if l >= n:
-        return string
-    else:
-        return pad * ((n - l + 1) / 2) + string + pad * ((n - l) / 2)
 
 
 def displaywelcome():
@@ -237,7 +212,7 @@ def displaywelcome():
     string += '||' + '{:^80}'.format('') + '||\n'
     string += '||' + '{:^80}'.format('Author: Sebastian Mai and Moritz Heindl') + '||\n'
     string += '||' + '{:^80}'.format('') + '||\n'
-    string += '||' + centerstring('Version:' + version, 80) + '||\n'
+    string += '||' + '{:^80}'.format('Version:' + version) + '||\n'
     string += '||' + '{:^80}'.format(versiondate.strftime("%d.%m.%y")) + '||\n'
     string += '||' + '{:^80}'.format('') + '||\n'
     string += '  ' + '=' * 80 + '\n\n'
@@ -987,7 +962,7 @@ def do_calc(INFOS):
                 continue
             path = os.path.join(idir, itraj)
             trajectories[path] = {}
-            print(centerstring(' ' + path + ' ', 80, '~') + '\n')
+            print('{:~^80}\n'.format(' ' + path + ' '))
             trajectories[path]['error'] = False
             trajectories[path]['filelength'] = ''
 
@@ -1123,7 +1098,7 @@ def do_calc(INFOS):
     # pprint.pprint(trajectories)
     # print(a summarizing table)
     trajsorted = sorted(trajectories, key=lambda x: trajectories[x]['tana'])
-    print('\n\n' + centerstring(' Summary ', 80, '=') + '\n')
+    print('\n\n{:=^80}\n'.format(' Summary '))
 
     print('%30s %6s %6s %6s %6s' % ('Trajectory', 'Files?', 'Status', 'Length', 'T_use'))
     print('%30s %6s %6s %6s %6s\n' % ('', '', '', '(fs)', '(fs)'))
@@ -1235,7 +1210,7 @@ This interactive program reads trajectory files and checks their validity.
 
     INFOS = get_general()
 
-    print(centerstring('Full input', 60, '#') + '\n')
+    print('{:#^60}'.format('Full input') + '\n')
     for item in INFOS:
         print(item, ' ' * (25 - len(item)), INFOS[item])
     print('')

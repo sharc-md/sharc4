@@ -438,14 +438,6 @@ def check_initcond_version(string, must_be_excited=False):
 
 # ======================================================================================================================
 
-def centerstring(string, n, pad=' '):
-    l = len(string)
-    if l >= n:
-        return string
-    else:
-        return pad * ((n - l + 1) / 2) + string + pad * ((n - l) / 2)
-
-
 def displaywelcome():
     print('Script for setup of SHARC trajectories started...\n')
     string = '\n'
@@ -455,7 +447,7 @@ def displaywelcome():
     string += '||' + '{:^80}'.format('') + '||\n'
     string += '||' + '{:^80}'.format('Author: Davide Avagliano') + '||\n'
     string += '||' + '{:^80}'.format('') + '||\n'
-    string += '||' + centerstring('Version:' + version, 80) + '||\n'
+    string += '||' + '{:^80}'.format('Version:' + version) + '||\n'
     string += '||' + '{:^80}'.format(versiondate.strftime("%d.%m.%y")) + '||\n'
     string += '||' + '{:^80}'.format('') + '||\n'
     string += '  ' + '=' * 80 + '\n\n'
@@ -593,14 +585,14 @@ class init_string:
         self.nst = 0
         self.width = 100
         self.group = 10
-        self.groups = (self.width - 1) / self.group + 1
+        self.groups = (self.width - 1) // self.group + 1
         self.nrow = 1
         self.lastrow = 0
 
     def add(self, s):
         self.strings.append(s)
         self.nst += 1
-        self.nrow = (self.nst - 1) / self.width + 1
+        self.nrow = (self.nst - 1) // self.width + 1
         self.lastrow = self.nst % self.width
         if self.lastrow == 0:
             self.lastrow = self.width
@@ -612,7 +604,7 @@ class init_string:
         self.lastrow = 0
 
     def __str__(self):
-        nw = int(math.log(self.nst) / math.log(10) + 1.1)
+        nw = int(math.log(self.nst) // math.log(10) + 1.1)
         s = ' ' * (nw + 2)
         fs = '%%%ii' % (nw)
         for i in range(self.groups):
@@ -1164,7 +1156,7 @@ interface <name of the interface for QM calculation>
             continue
         break
     INFOS['dtstep'] = dt
-    print('\nSimulation will have %i timesteps.' % (num2 / dt + 1))
+    print('\nSimulation will have %i timesteps.' % (num2 // dt + 1))
 
 
     # number of substeps
@@ -1456,7 +1448,7 @@ interface <name of the interface for QM calculation>
 Laser files can be created using $SHARC/laser.x
 ''')
         if os.path.isfile('laser'):
-            if check_laserfile('laser', INFOS['tmax'] / INFOS['dtstep'] * INFOS['nsubstep'] + 1, INFOS['dtstep'] / INFOS['nsubstep']):
+            if check_laserfile('laser', INFOS['tmax'] // INFOS['dtstep'] * INFOS['nsubstep'] + 1, INFOS['dtstep'] // INFOS['nsubstep']):
                 print('Valid laser file "laser" detected. ')
                 usethisone = question('Use this laser file?', bool, True)
                 if usethisone:
@@ -1467,7 +1459,7 @@ Laser files can be created using $SHARC/laser.x
                 if not os.path.isfile(filename):
                     print('File %s does not exist!' % (filename))
                     continue
-                if check_laserfile(filename, INFOS['tmax'] / INFOS['dtstep'] * INFOS['nsubstep'] + 1, INFOS['dtstep'] / INFOS['nsubstep']):
+                if check_laserfile(filename, INFOS['tmax'] // INFOS['dtstep'] * INFOS['nsubstep'] + 1, INFOS['dtstep'] // INFOS['nsubstep']):
                     break
             INFOS['laserfile'] = filename
         # only the analytical interface can do dipole gradients
@@ -1922,7 +1914,7 @@ def checktemplate_COLUMBUS(TEMPLATE, mult):
             cidrtin.readline()
             nelec = int(cidrtin.readline().split()[0])
             if mult <= maxmult and (mult + nelec) % 2 != 0:
-                return 1, (mult + 1) / 2, INTPROG    # socinr=1, single=-1, isc=0
+                return 1, (mult + 1) // 2, INTPROG    # socinr=1, single=-1, isc=0
             else:
                 return None, None, None
         else:
@@ -4103,8 +4095,8 @@ def setup_all(INFOS):
 
             idone += 1
 
-            done = idone * width / ntraj
-            sys.stdout.write('\rProgress: [' + '=' * done + ' ' * (width - done) + '] %3i%%' % (done * 100 / width))
+            done = idone * width // ntraj
+            sys.stdout.write('\rProgress: [' + '=' * done + ' ' * (width - done) + '] %3i%%' % (done * 100 // width))
 
             dirname = get_iconddir(istate, INFOS) + '/TRAJ_%05i/' % (icond)
             io = make_directory(dirname)
@@ -4185,7 +4177,7 @@ This interactive program prepares SHARC dynamics calculations.
     INFOS = get_general()
     INFOS = get_runscript_info(INFOS)
 
-    print('\n' + centerstring('Full input', 60, '#') + '\n')
+    print('\n' + '{:#^60}'.format('Full input') + '\n')
     for item in INFOS:
         if 'initlist' not in item:
             print(item, ' ' * (25 - len(item)), INFOS[item])

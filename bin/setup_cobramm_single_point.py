@@ -201,16 +201,6 @@ def writefile(filename, content):
 # ======================================================================= #
 
 
-def centerstring(string, n, pad=' '):
-    l = len(string)
-    if l >= n:
-        return string
-    else:
-        return pad * ((n - l + 1) / 2) + string + pad * ((n - l) / 2)
-
-# ======================================================================= #
-
-
 def displaywelcome():
     print('Script for QM/MM single point setup with SHARC/COBRAMM started...\n')  # change
     string = '\n'
@@ -220,7 +210,7 @@ def displaywelcome():
     string += '||' + '{:^80}'.format('') + '||\n'
     string += '||' + '{:^80}'.format('Author: Davide Avagliano') + '||\n'
     string += '||' + '{:^80}'.format('') + '||\n'
-    string += '||' + centerstring('Version:' + version, 80) + '||\n'
+    string += '||' + '{:^80}'.format('Version:' + version) + '||\n'
     string += '||' + '{:^80}'.format(versiondate.strftime("%d.%m.%y")) + '||\n'
     string += '||' + '{:^80}'.format('') + '||\n'
     string += '  ' + '=' * 80 + '\n\n'
@@ -399,7 +389,7 @@ def get_general():
         break
     INFOS['geom_location'] = path
     geometry_data = readfile(INFOS['geom_location'])
-    ngeoms = len(geometry_data) / (natom + 2)
+    ngeoms = len(geometry_data) // (natom + 2)
     if ngeoms > 1:
         print('Number of geometries: %i' % (ngeoms))
     INFOS['ngeom'] = ngeoms
@@ -864,7 +854,7 @@ def checktemplate_COLUMBUS(TEMPLATE, mult):
             cidrtin.readline()
             nelec = int(cidrtin.readline().split()[0])
             if mult <= maxmult and (mult + nelec) % 2 != 0:
-                return 1, (mult + 1) / 2, INTPROG    # socinr=1, single=-1, isc=0
+                return 1, (mult + 1) // 2, INTPROG    # socinr=1, single=-1, isc=0
             else:
                 return None, None, None
         else:
@@ -2828,7 +2818,7 @@ This interactive program prepares SHARC/COBRAMM single point calculations.
     INFOS = globals()[Interfaces[INFOS['interface']]['get_routine']](INFOS)
     INFOS = get_runscript_info(INFOS)
 
-    print('\n' + centerstring('Full input', 60, '#') + '\n')
+    print('\n' + '{:#^60}'.format('Full input') + '\n')
     for item in INFOS:
         print(item, ' ' * (25 - len(item)), INFOS[item])
     print('')

@@ -372,14 +372,6 @@ class spectrum:
 # ======================================================================================================================
 
 
-def centerstring(string, n, pad=' '):
-    l = len(string)
-    if l >= n:
-        return string
-    else:
-        return pad * ((n - l + 1) / 2) + string + pad * ((n - l) / 2)
-
-
 def displaywelcome():
     print('Script for data collecting started...\n')
     string = '\n'
@@ -389,7 +381,7 @@ def displaywelcome():
     string += '||' + '{:^80}'.format('') + '||\n'
     string += '||' + '{:^80}'.format('Author: Sebastian Mai') + '||\n'
     string += '||' + '{:^80}'.format('') + '||\n'
-    string += '||' + centerstring('Version:' + version, 80) + '||\n'
+    string += '||' + '{:^80}'.format('Version:' + version) + '||\n'
     string += '||' + '{:^80}'.format(versiondate.strftime("%d.%m.%y")) + '||\n'
     string += '||' + '{:^80}'.format('') + '||\n'
     string += '  ' + '=' * 80 + '\n\n'
@@ -1090,7 +1082,7 @@ def collect_data(INFOS):
     maxcol = max([INFOS['colT']] + [abs(i) for i in INFOS['colX']] + [abs(i) for i in INFOS['colY']])
     width_bar = 50
     for it1, f in enumerate(INFOS['allfiles']):
-        done = width_bar * (it1 + 1) / len(INFOS['allfiles'])
+        done = width_bar * (it1 + 1) // len(INFOS['allfiles'])
         sys.stdout.write('\r  Progress: [' + '=' * done + ' ' * (width_bar - done) + '] %3i%%' % (done * 100 / width_bar))
         # print('  ... %s' % f)
         data1[f] = []
@@ -1172,8 +1164,8 @@ def synchronize(INFOS, data1):
     data2 = [[] for i in times]
     width_bar = 50
     for ik, key in enumerate(sorted(data1)):
-        done = width_bar * (ik + 1) / len(data1)
-        sys.stdout.write('\r  Progress: [' + '=' * done + ' ' * (width_bar - done) + '] %3i%%' % (done * 100 / width_bar))
+        done = width_bar * (ik + 1) // len(data1)
+        sys.stdout.write('\r  Progress: [' + '=' * done + ' ' * (width_bar - done) + '] %3i%%' % (done * 100 // width_bar))
         # print('  ... %s' % traj)
         iterator = iter(data1[key])
         t = min(times) - 1.
@@ -1196,7 +1188,7 @@ def synchronize(INFOS, data1):
     # find extrema of data
     data3['tmin'] = min(times)
     data3['tmax'] = max(times)
-    nx = len(data2[0][0]) / 2
+    nx = len(data2[0][0]) // 2
     for it1, t1 in enumerate(times):
         xmin = data2[it1][0][0]
         xmax = xmin
@@ -1249,8 +1241,8 @@ def calc_average(INFOS, data2):
     ndata = []
     width_bar = 50
     for it1, t1 in enumerate(data2['times']):
-        done = width_bar * (it1 + 1) / len(data2['times'])
-        sys.stdout.write('\r  Progress: [' + '=' * done + ' ' * (width_bar - done) + '] %3i%%' % (done * 100 / width_bar))
+        done = width_bar * (it1 + 1) // len(data2['times'])
+        sys.stdout.write('\r  Progress: [' + '=' * done + ' ' * (width_bar - done) + '] %3i%%' % (done * 100 // width_bar))
         T = data2['data'][it1]
         means = []
         stdevs = []
@@ -1309,8 +1301,8 @@ def calc_statistics(INFOS, data2):
     arrays = [[] for i in data2['data'][0][0]]
     width_bar = 50
     for it1, t1 in enumerate(data2['times']):
-        done = width_bar * (it1 + 1) / len(data2['times'])
-        sys.stdout.write('\r  Progress: [' + '=' * done + ' ' * (width_bar - done) + '] %3i%%' % (done * 100 / width_bar))
+        done = width_bar * (it1 + 1) // len(data2['times'])
+        sys.stdout.write('\r  Progress: [' + '=' * done + ' ' * (width_bar - done) + '] %3i%%' % (done * 100 // width_bar))
         T = data2['data'][it1]
         means = []
         stdevs = []
@@ -1380,9 +1372,9 @@ def do_x_convolution(INFOS, data2):
     data3 = []
     width_bar = 50
     for it1, t1 in enumerate(data2['times']):
-        done = width_bar * (it1 + 1) / len(data2['times'])
-        sys.stdout.write('\r  Progress: [' + '=' * done + ' ' * (width_bar - done) + '] %3i%%' % (done * 100 / width_bar))
-        ny = len(data2['data'][it1][0]) / 2
+        done = width_bar * (it1 + 1) // len(data2['times'])
+        sys.stdout.write('\r  Progress: [' + '=' * done + ' ' * (width_bar - done) + '] %3i%%' % (done * 100 // width_bar))
+        ny = len(data2['data'][it1][0]) // 2
         spec = [spectrum(INFOS['convolute_X']['npoints'] - 1, xmin, xmax, 1.0, 1) for i in range(ny)]
         for i in range(ny):
             spec[i].f = INFOS['convolute_X']['function']
@@ -1441,8 +1433,8 @@ def do_t_convolution(INFOS, data3):
     width_bar = 50
     for it1, t1 in enumerate(data3['times']):
         # normspec.add(1.,t1)
-        done = width_bar * (it1 + 1) / len(data3['times'])
-        sys.stdout.write('\r  Progress: [' + '=' * done + ' ' * (width_bar - done) + '] %3i%%' % (done * 100 / width_bar))
+        done = width_bar * (it1 + 1) // len(data3['times'])
+        sys.stdout.write('\r  Progress: [' + '=' * done + ' ' * (width_bar - done) + '] %3i%%' % (done * 100 // width_bar))
         for ix1, x1 in enumerate(data3['xvalues']):
             for i in range(ny):
                 allspec[ix1][i].add(data3['data'][it1][ix1][i], t1)
@@ -1475,8 +1467,8 @@ def integrate_T(INFOS, data3):
     data4 = copy.deepcopy(data3)
     width_bar = 50
     for it1, t1 in enumerate(data3['times']):
-        done = width_bar * (it1 + 1) / len(data3['times'])
-        sys.stdout.write('\r  Progress: [' + '=' * done + ' ' * (width_bar - done) + '] %3i%%' % (done * 100 / width_bar))
+        done = width_bar * (it1 + 1) // len(data3['times'])
+        sys.stdout.write('\r  Progress: [' + '=' * done + ' ' * (width_bar - done) + '] %3i%%' % (done * 100 // width_bar))
         if it1 == 0:
             continue
         for ix1, x1 in enumerate(data3['xvalues']):
@@ -1497,8 +1489,8 @@ def integrate_X(INFOS, data3):
     width_bar = 50
     data = []
     for it1, t1 in enumerate(data3['times']):
-        done = width_bar * (it1 + 1) / len(data3['times'])
-        sys.stdout.write('\r  Progress: [' + '=' * done + ' ' * (width_bar - done) + '] %3i%%' % (done * 100 / width_bar))
+        done = width_bar * (it1 + 1) // len(data3['times'])
+        sys.stdout.write('\r  Progress: [' + '=' * done + ' ' * (width_bar - done) + '] %3i%%' % (done * 100 // width_bar))
         ny = len(data3['data'][it1][0])
         d = [[0. for i in range(ny)] for j in range(3)]
         for ix1, x1 in enumerate(data3['xvalues']):
@@ -1531,8 +1523,8 @@ def do_y_summation(INFOS, data3):
     width_bar = 50
     data = []
     for it1, t1 in enumerate(data3['times']):
-        done = width_bar * (it1 + 1) / len(data3['times'])
-        sys.stdout.write('\r  Progress: [' + '=' * done + ' ' * (width_bar - done) + '] %3i%%' % (done * 100 / width_bar))
+        done = width_bar * (it1 + 1) // len(data3['times'])
+        sys.stdout.write('\r  Progress: [' + '=' * done + ' ' * (width_bar - done) + '] %3i%%' % (done * 100 // width_bar))
         ny = len(data3['data'][it1][0])
         d = [[0.] for j in data3['xvalues']]
         for ix1, x1 in enumerate(data3['xvalues']):
@@ -1769,7 +1761,7 @@ This interactive program reads table information from SHARC trajectories.
 
     INFOS = get_general()
 
-    print('\n\n' + centerstring('Full input', 60, '#') + '\n')
+    print('\n\n{:#^80}\n'.format('Full input'))
     for item in INFOS:
         print(item, ' ' * (25 - len(item)), INFOS[item])
     print('')

@@ -169,7 +169,7 @@ def printcomplexmatrix(matrix, states):
     for i in range(len(states)):
         nmstates += states[i] * (i + 1)
     string = 'Real Part:\n'
-    string += '-' * (11 * nmstates + nmstates / 3)
+    string += '-' * (11 * nmstates + nmstates // 3)
     string += '\n'
     istate = 0
     for imult, i, ms in itnmstates(states):
@@ -185,13 +185,13 @@ def printcomplexmatrix(matrix, states):
             jstate += 1
         string += '\n'
         if i == states[imult - 1]:
-            string += '-' * (11 * nmstates + nmstates / 3)
+            string += '-' * (11 * nmstates + nmstates // 3)
             string += '\n'
         istate += 1
     print(string)
     imag = False
     string = 'Imaginary Part:\n'
-    string += '-' * (11 * nmstates + nmstates / 3)
+    string += '-' * (11 * nmstates + nmstates // 3)
     string += '\n'
     istate = 0
     for imult, i, ms in itnmstates(states):
@@ -208,7 +208,7 @@ def printcomplexmatrix(matrix, states):
             jstate += 1
         string += '\n'
         if i == states[imult - 1]:
-            string += '-' * (11 * nmstates + nmstates / 3)
+            string += '-' * (11 * nmstates + nmstates // 3)
             string += '\n'
         istate += 1
     string += '\n'

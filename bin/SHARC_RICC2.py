@@ -379,11 +379,11 @@ def measuretime():
     endtime = datetime.datetime.now()
     runtime = endtime - starttime
     if PRINT or DEBUG:
-        hours = runtime.seconds / 3600
-        minutes = runtime.seconds / 60 - hours * 60
+        hours = runtime.seconds // 3600
+        minutes = runtime.seconds // 60 - hours * 60
         seconds = runtime.seconds % 60
         print('==> Runtime:\n%i Days\t%i Hours\t%i Minutes\t%i Seconds\n\n' % (runtime.days, hours, minutes, seconds))
-    total_seconds = runtime.days * 24 * 3600 + runtime.seconds + runtime.microseconds / 1.e6
+    total_seconds = runtime.days * 24 * 3600 + runtime.seconds + runtime.microseconds // 1.e6
     return total_seconds
 
 # ======================================================================= #
@@ -476,9 +476,9 @@ def printheader():
     string += '||' + ' ' * 80 + '||\n'
     string += '||' + ' ' * 29 + 'Author: Sebastian Mai' + ' ' * 30 + '||\n'
     string += '||' + ' ' * 80 + '||\n'
-    string += '||' + ' ' * (36 - (len(version) + 1) / 2) + 'Version: %s' % (version) + ' ' * (35 - (len(version)) / 2) + '||\n'
+    string += '||' + ' ' * (36 - (len(version) + 1) // 2) + 'Version: %s' % (version) + ' ' * (35 - (len(version)) // 2) + '||\n'
     lens = len(versiondate.strftime("%d.%m.%y"))
-    string += '||' + ' ' * (37 - lens / 2) + 'Date: %s' % (versiondate.strftime("%d.%m.%y")) + ' ' * (37 - (lens + 1) / 2) + '||\n'
+    string += '||' + ' ' * (37 - lens // 2) + 'Date: %s' % (versiondate.strftime("%d.%m.%y")) + ' ' * (37 - (lens + 1) // 2) + '||\n'
     string += '||' + ' ' * 80 + '||\n'
     string += '  ' + '=' * 80 + '\n\n'
     print(string)
@@ -644,7 +644,7 @@ def printcomplexmatrix(matrix, states):
     for i in range(len(states)):
         nmstates += states[i] * (i + 1)
     string = 'Real Part:\n'
-    string += '-' * (11 * nmstates + nmstates / 3)
+    string += '-' * (11 * nmstates + nmstates // 3)
     string += '\n'
     istate = 0
     for imult, i, ms in itnmstates(states):
@@ -660,13 +660,13 @@ def printcomplexmatrix(matrix, states):
             jstate += 1
         string += '\n'
         if i == states[imult - 1]:
-            string += '-' * (11 * nmstates + nmstates / 3)
+            string += '-' * (11 * nmstates + nmstates // 3)
             string += '\n'
         istate += 1
     print(string)
     imag = False
     string = 'Imaginary Part:\n'
-    string += '-' * (11 * nmstates + nmstates / 3)
+    string += '-' * (11 * nmstates + nmstates // 3)
     string += '\n'
     istate = 0
     for imult, i, ms in itnmstates(states):
@@ -683,7 +683,7 @@ def printcomplexmatrix(matrix, states):
             jstate += 1
         string += '\n'
         if i == states[imult - 1]:
-            string += '-' * (11 * nmstates + nmstates / 3)
+            string += '-' * (11 * nmstates + nmstates // 3)
             string += '\n'
         istate += 1
     string += '\n'
@@ -4134,9 +4134,9 @@ def get_AO_OVL(path, QMin):
     # hence, the off-diagonal block must be transposed
 
     # write AO overlap matrix to savedir
-    string = '%i %i\n' % (nbas / 2, nbas / 2)
-    for irow in range(nbas / 2, nbas):
-        for icol in range(0, nbas / 2):
+    string = '%i %i\n' % (nbas // 2, nbas // 2)
+    for irow in range(nbas // 2, nbas):
+        for icol in range(0, nbas // 2):
             string += '% .15e ' % (ao_ovl[icol][irow])          # note the exchanged indices => transposition
         string += '\n'
     filename = os.path.join(QMin['savedir'], 'ao_ovl')

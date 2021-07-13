@@ -304,11 +304,11 @@ def measuretime():
     endtime = datetime.datetime.now()
     runtime = endtime - starttime
     if PRINT or DEBUG:
-        hours = runtime.seconds / 3600
-        minutes = runtime.seconds / 60 - hours * 60
+        hours = runtime.seconds // 3600
+        minutes = runtime.seconds // 60 - hours * 60
         seconds = runtime.seconds % 60
         print('==> Runtime:\n%i Days\t%i Hours\t%i Minutes\t%i Seconds\n\n' % (runtime.days, hours, minutes, seconds))
-    total_seconds = runtime.days * 24 * 3600 + runtime.seconds + runtime.microseconds / 1.e6
+    total_seconds = runtime.days * 24 * 3600 + runtime.seconds + runtime.microseconds // 1.e6
     return total_seconds
 
 # ======================================================================= #
@@ -401,9 +401,9 @@ def printheader():
     string += '||' + ' ' * 80 + '||\n'
     string += '||' + ' ' * 29 + 'Author: Sebastian Mai' + ' ' * 30 + '||\n'
     string += '||' + ' ' * 80 + '||\n'
-    string += '||' + ' ' * (36 - (len(version) + 1) / 2) + 'Version: %s' % (version) + ' ' * (35 - (len(version)) / 2) + '||\n'
+    string += '||' + ' ' * (36 - (len(version) + 1) // 2) + 'Version: %s' % (version) + ' ' * (35 - (len(version)) // 2) + '||\n'
     lens = len(versiondate.strftime("%d.%m.%y"))
-    string += '||' + ' ' * (37 - lens / 2) + 'Date: %s' % (versiondate.strftime("%d.%m.%y")) + ' ' * (37 - (lens + 1) / 2) + '||\n'
+    string += '||' + ' ' * (37 - lens // 2) + 'Date: %s' % (versiondate.strftime("%d.%m.%y")) + ' ' * (37 - (lens + 1) // 2) + '||\n'
     string += '||' + ' ' * 80 + '||\n'
     string += '  ' + '=' * 80 + '\n\n'
     print(string)
@@ -562,7 +562,7 @@ def printcomplexmatrix(matrix, states):
     for i in range(len(states)):
         nmstates += states[i] * (i + 1)
     string = 'Real Part:\n'
-    string += '-' * (11 * nmstates + nmstates / 3)
+    string += '-' * (11 * nmstates + nmstates // 3)
     string += '\n'
     istate = 0
     for imult, i, ms in itnmstates(states):
@@ -578,13 +578,13 @@ def printcomplexmatrix(matrix, states):
             jstate += 1
         string += '\n'
         if i == states[imult - 1]:
-            string += '-' * (11 * nmstates + nmstates / 3)
+            string += '-' * (11 * nmstates + nmstates // 3)
             string += '\n'
         istate += 1
     print(string)
     imag = False
     string = 'Imaginary Part:\n'
-    string += '-' * (11 * nmstates + nmstates / 3)
+    string += '-' * (11 * nmstates + nmstates // 3)
     string += '\n'
     istate = 0
     for imult, i, ms in itnmstates(states):
@@ -601,7 +601,7 @@ def printcomplexmatrix(matrix, states):
             jstate += 1
         string += '\n'
         if i == states[imult - 1]:
-            string += '-' * (11 * nmstates + nmstates / 3)
+            string += '-' * (11 * nmstates + nmstates // 3)
             string += '\n'
         istate += 1
     string += '\n'
@@ -990,7 +990,7 @@ def getsocme(out, istate, jstate, QMin):
 
     rcm_to_Eh = 4.556335e-6
     # get a single matrix element
-    block = (j) / 10
+    block = (j) // 10
     yoffset = (i) * 3 + block * (3 * nmstates + 3)
     xoffset = (j) % 10
     # block=(j)/8
@@ -3262,14 +3262,14 @@ def saveAOovl(WORKDIR, QMin):
                 AOovl[-1].append(float(y))
         elif formatting == 1:
             iline += 1
-            for x in range((nao - 1) / 10 + 1):
+            for x in range((nao - 1) // 10 + 1):
                 iline += 1
                 line = out[iline]
                 s = line.split()
                 for y in s:
                     AOovl[-1].append(float(y))
         elif formatting == 0:
-            for x in range((nao - 1) / q + 1):
+            for x in range((nao - 1) // q + 1):
                 iline += 1
                 line = out[iline]
                 s = line.split()
@@ -3384,7 +3384,7 @@ def get_MO_from_out(out):
     for iline, line in enumerate(out):
         if 'NATURAL ORBITALS' in line:
             break
-    iline += 7 + (norb) / 10
+    iline += 7 + (norb) // 10
 
     # extract the closed and active orbitals (the others are never occupied anyways)
     orbitals = []
@@ -3918,14 +3918,14 @@ def get_Double_AOovl(QMin):
                 AOovl[-1].append(float(y))
         elif formatting == 1:
             iline += 1
-            for x in range((nao - 1) / 10 + 1):
+            for x in range((nao - 1) // 10 + 1):
                 iline += 1
                 line = out[iline]
                 s = line.split()
                 for y in s:
                     AOovl[-1].append(float(y))
         elif formatting == 0:
-            for x in range((nao - 1) / q + 1):
+            for x in range((nao - 1) // q + 1):
                 iline += 1
                 line = out[iline]
                 s = line.split()
@@ -3935,15 +3935,15 @@ def get_Double_AOovl(QMin):
 
     # get off-diagonal block of AO matrix
     AOovl2 = []
-    for irow in range(nao / 2):
+    for irow in range(nao // 2):
         # AOovl2.append( AOovl[nao/2+irow][:nao/2])  # lower left block
-        AOovl2.append(AOovl[irow][nao / 2:])         # upper right block
+        AOovl2.append(AOovl[irow][nao // 2:])         # upper right block
 
     # format string
     # IMPORTANT: upper right block should not be transposed
-    string = '%i %i\n' % (nao / 2, nao / 2)
-    for irow in range(nao / 2):
-        for icol in range(nao / 2):
+    string = '%i %i\n' % (nao // 2, nao // 2)
+    for irow in range(nao // 2):
+        for icol in range(nao // 2):
             string += '%11.8f ' % (AOovl2[irow][icol])
         string += '\n'
 

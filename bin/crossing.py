@@ -79,14 +79,6 @@ versiondate = datetime.date(2019, 9, 1)
 # ======================================================================================================================
 
 
-def centerstring(string, n, pad=' '):
-    l = len(string)
-    if l >= n:
-        return string
-    else:
-        return pad * ((n - l + 1) / 2) + string + pad * ((n - l) / 2)
-
-
 def displaywelcome():
     print('Script for hopping geometry extraction started...\n')
     string = '\n'
@@ -96,7 +88,7 @@ def displaywelcome():
     string += '||' + '{:^80}'.format('') + '||\n'
     string += '||' + '{:^80}'.format('Author: Sebastian Mai') + '||\n'
     string += '||' + '{:^80}'.format('') + '||\n'
-    string += '||' + centerstring('Version:' + version, 80) + '||\n'
+    string += '||' + '{:^80}'.format('Version:' + version) + '||\n'
     string += '||' + '{:^80}'.format(versiondate.strftime("%d.%m.%y")) + '||\n'
     string += '||' + '{:^80}'.format('') + '||\n'
     string += '  ' + '=' * 80 + '\n\n'
@@ -628,7 +620,7 @@ This interactive program creates files containing geometries from trajectories a
 
     INFOS = get_general()
 
-    print(centerstring('Full input', 60, '#') + '\n')
+    print('{:#^60}\n'.format('Full input'))
     for item in INFOS:
         if not item == 'statemap':
             print(item, ' ' * (25 - len(item)), INFOS[item])

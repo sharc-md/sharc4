@@ -280,15 +280,6 @@ def check_initcond_version(string, must_be_excited=False):
 
 # ======================================================================================================================
 
-def centerstring(string, n, pad=' '):
-    l = len(string)
-    if l >= n:
-        return string
-    else:
-        return pad * ((n - l + 1) / 2) + string + pad * ((n - l) / 2)
-
-# ======================================================================================================================
-
 
 def displaywelcome():
     print('Script for setup of initial conditions started...\n')
@@ -299,7 +290,7 @@ def displaywelcome():
     string += '||' + '{:^80}'.format('') + '||\n'
     string += '||' + '{:^80}'.format('Author: Davide Avagliano') + '||\n'
     string += '||' + '{:^80}'.format('') + '||\n'
-    string += '||' + centerstring('Version:' + version, 80) + '||\n'
+    string += '||' + '{:^80}'.format('Version:' + version) + '||\n'
     string += '||' + '{:^80}'.format(versiondate.strftime("%d.%m.%y")) + '||\n'
     string += '||' + '{:^80}'.format('') + '||\n'
     string += '  ' + '=' * 80 + '\n\n'
@@ -1074,7 +1065,7 @@ def checktemplate_COLUMBUS(TEMPLATE, mult):
             cidrtin.readline()
             nelec = int(cidrtin.readline().split()[0])
             if mult <= maxmult and (mult + nelec) % 2 != 0:
-                return 1, (mult + 1) / 2, INTPROG    # socinr=1, single=-1, isc=0
+                return 1, (mult + 1) // 2, INTPROG    # socinr=1, single=-1, isc=0
             else:
                 return None, None, None
         else:
@@ -3076,8 +3067,8 @@ def setup_all(INFOS):
         for icond in range(INFOS['irange'][0], INFOS['irange'][1] + 1):
             iconddir = 'ICOND_%05i/' % (icond)
             idone += 1
-            done = idone * width / ninit
-            sys.stdout.write('\rProgress: [' + '=' * done + ' ' * (width - done) + '] %3i%%' % (done * 100 / width))
+            done = idone * width // ninit
+            sys.stdout.write('\rProgress: [' + '=' * done + ' ' * (width - done) + '] %3i%%' % (done * 100 // width))
             sys.stdout.flush()
 
             io = make_directory(iconddir)
@@ -3132,7 +3123,7 @@ Afterwards, it asks for the interface used and goes through the preparation depe
     INFOS = globals()[Interfaces[INFOS['interface']]['get_routine']](INFOS)
     INFOS = get_runscript_info(INFOS)
 
-    print('\n' + centerstring('Full input', 60, '#') + '\n')
+    print('\n' + '{:#^60}'.format('Full input') + '\n')
     for item in INFOS:
         print(item, ' ' * (25 - len(item)), INFOS[item])
     print('')

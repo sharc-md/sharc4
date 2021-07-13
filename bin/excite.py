@@ -304,15 +304,6 @@ def check_initcond_version(string, must_be_excited=False):
 
 # ======================================================================================================================
 
-def centerstring(string, n, pad=' '):
-    l = len(string)
-    if l >= n:
-        return string
-    else:
-        return pad * ((n - l + 1) / 2) + string + pad * ((n - l) / 2)
-
-# ======================================================================================================================
-
 
 def displaywelcome():
     string = '\n'
@@ -322,7 +313,7 @@ def displaywelcome():
     string += '||' + '{:^80}'.format('') + '||\n'
     string += '||' + '{:^80}'.format('Author: Sebastian Mai') + '||\n'
     string += '||' + '{:^80}'.format('') + '||\n'
-    string += '||' + centerstring('Version:' + version, 80) + '||\n'
+    string += '||' + '{:^80}'.format('Version:' + version) + '||\n'
     string += '||' + '{:^80}'.format(versiondate.strftime("%d.%m.%y")) + '||\n'
     string += '||' + '{:^80}'.format('') + '||\n'
     string += '  ' + '=' * 80 + '\n\n'
@@ -1026,8 +1017,8 @@ def get_initconds(INFOS):
         initcond = INITCOND()
         initcond.init_from_file(INFOS['initf'], INFOS['eref'], icond)
         initlist.append(initcond)
-        done = width_bar * (icond) / INFOS['ninit']
-        sys.stdout.write('\r  Progress: [' + '=' * done + ' ' * (width_bar - done) + '] %3i%%' % (done * 100 / width_bar))
+        done = width_bar * (icond) // INFOS['ninit']
+        sys.stdout.write('\r  Progress: [' + '=' * done + ' ' * (width_bar - done) + '] %3i%%' % (done * 100 // width_bar))
     print('\nNumber of initial conditions in file:       %5i' % (INFOS['ninit']))
     return initlist
 
@@ -1042,8 +1033,8 @@ def make_list(INFOS, initlist):
         for istate in range(INFOS['nstates']):
             estates.append(STATE(i=istate + 1))
         initlist[icond - 1].addstates(estates)
-        done = width_bar * (icond) / INFOS['ninit']
-        sys.stdout.write('\r  Progress: [' + '=' * done + ' ' * (width_bar - done) + '] %3i%%' % (done * 100 / width_bar))
+        done = width_bar * (icond) // INFOS['ninit']
+        sys.stdout.write('\r  Progress: [' + '=' * done + ' ' * (width_bar - done) + '] %3i%%' % (done * 100 // width_bar))
     print('\nNumber of initial conditions where states were added:   %5i' % (INFOS['ninit']))
     return initlist
 
@@ -1064,8 +1055,8 @@ def get_QMout(INFOS, initlist):
     for icond in range(1, INFOS['ninit'] + 1):
         # look for a QM.out file
         qmfilename = INFOS['iconddir'] + '/ICOND_%05i/QM.out' % (icond)
-        done = width_bar * (icond) / INFOS['ninit']
-        sys.stdout.write('\r  Progress: [' + '=' * done + ' ' * (width_bar - done) + '] %3i%%' % (done * 100 / width_bar))
+        done = width_bar * (icond) // INFOS['ninit']
+        sys.stdout.write('\r  Progress: [' + '=' * done + ' ' * (width_bar - done) + '] %3i%%' % (done * 100 // width_bar))
         if not os.path.isfile(qmfilename):
             # print('No QM.out for ICOND_%05i!' % (icond))
             continue
@@ -1127,8 +1118,8 @@ def excite(INFOS, initlist):
         width_bar = 50
         nselected = 0
         for i, icond in enumerate(initlist):
-            done = width_bar * (i + 1) / len(initlist)
-            sys.stdout.write('\r  Progress: [' + '=' * done + ' ' * (width_bar - done) + '] %3i%%' % (done * 100 / width_bar))
+            done = width_bar * (i + 1) // len(initlist)
+            sys.stdout.write('\r  Progress: [' + '=' * done + ' ' * (width_bar - done) + '] %3i%%' % (done * 100 // width_bar))
             if icond.statelist == []:
                 continue
             else:
@@ -1274,7 +1265,7 @@ information to determine which initial conditions are bright enough for a dynami
     INFOS = {}
     INFOS = get_infos(INFOS)
 
-    print('\n\n' + centerstring('Full input', 60, '#') + '\n')
+    print('\n\n' + '{:#^60}'.format('Full input') + '\n')
     for item in INFOS:
         if not item == 'equi':
             print(item, ' ' * (25 - len(item)), INFOS[item])

@@ -847,8 +847,8 @@ def setup_input(INFOS):
     # ============================ CASSCF
     elif INFOS['ltype'] == 4 or INFOS['ltype'] == 5:
         s += '{casscf\n'
-        s += 'frozen,0\nclosed,%i\n' % ((INFOS['nelec'] - INFOS['cas.nact']) / 2)
-        s += 'occ,%i\n' % (INFOS['cas.norb'] + (INFOS['nelec'] - INFOS['cas.nact']) / 2)
+        s += 'frozen,0\nclosed,%i\n' % ((INFOS['nelec'] - INFOS['cas.nact']) // 2)
+        s += 'occ,%i\n' % (INFOS['cas.norb'] + (INFOS['nelec'] - INFOS['cas.nact']) // 2)
         if INFOS['ctype'] < 3:
             s += '!start,2140.2       ! uncomment if restarting\n'
             s += 'orbital,2140.2\n'
@@ -896,8 +896,8 @@ def setup_input(INFOS):
                 [',nodc', ''][INFOS['cas.opt_ci']])
         s += '{optg,maxit=50,startcmd=casscf,gradient=1e-4};\n\n'
         s += '{casscf\n'
-        s += 'frozen,0\nclosed,%i\n' % ((INFOS['nelec'] - INFOS['cas.nact']) / 2)
-        s += 'occ,%i\n' % (INFOS['cas.norb'] + (INFOS['nelec'] - INFOS['cas.nact']) / 2)
+        s += 'frozen,0\nclosed,%i\n' % ((INFOS['nelec'] - INFOS['cas.nact']) // 2)
+        s += 'occ,%i\n' % (INFOS['cas.norb'] + (INFOS['nelec'] - INFOS['cas.nact']) // 2)
         for i, n in enumerate(INFOS['cas.nstates']):
             if n == 0:
                 continue
@@ -919,7 +919,7 @@ def setup_input(INFOS):
         for i, n in enumerate(INFOS['cas.nstates']):
             if n == 0:
                 continue
-            s += '{ci\nmaxiter,250,1000\norbital,2140.2\nsave,%i.2\nnoexc\ncore,%i\n' % (6001 + i, (INFOS['nelec'] - INFOS['cas.nact']) / 2)
+            s += '{ci\nmaxiter,250,1000\norbital,2140.2\nsave,%i.2\nnoexc\ncore,%i\n' % (6001 + i, (INFOS['nelec'] - INFOS['cas.nact']) // 2)
             s += 'wf,%i,%i,%i\nstate,%i\n}\n\n' % (INFOS['nelec'], 1, i, n)
         s += '{ci\nhlsmat,amfi'
         for i, n in enumerate(INFOS['cas.nstates']):
@@ -948,8 +948,8 @@ def get_template(INFOS):
     s += '''closed %i
 occ %i
 nelec %i
-roots''' % ((INFOS['nelec'] - INFOS['cas.nact']) / 2,
-            (INFOS['nelec'] - INFOS['cas.nact']) / 2 + INFOS['cas.norb'],
+roots''' % ((INFOS['nelec'] - INFOS['cas.nact']) // 2,
+            (INFOS['nelec'] - INFOS['cas.nact']) // 2 + INFOS['cas.norb'],
             INFOS['nelec'])
     for i in INFOS['cas.nstates']:
         s += ' %i' % (i)

@@ -411,9 +411,9 @@ def get_initconds(INFOS):
                 statelist.append([])
             statelist[i].append(state)
         idone += 1
-        if done < idone * width / imax:
-            done = idone * width / imax
-            sys.stdout.write('\rProgress: [' + '=' * done + ' ' * (width - done) + '] %3i%%' % (done * 100 / width))
+        if done < idone * width // imax:
+            done = idone * width // imax
+            sys.stdout.write('\rProgress: [' + '=' * done + ' ' * (width - done) + '] %3i%%' % (done * 100 // width))
             sys.stdout.flush()
 
     if len(statelist) != INFOS['nstate']:
@@ -445,9 +445,9 @@ def make_spectra(statelist, INFOS):
     for istate, states in enumerate(statelist):
         for icond, cond in enumerate(states):
             idone += 1
-            if done < idone * width / imax:
-                done = idone * width / imax
-                sys.stdout.write('\rProgress: [' + '=' * done + ' ' * (width - done) + '] %3i%%' % (done * 100 / width))
+            if done < idone * width // imax:
+                done = idone * width // imax
+                sys.stdout.write('\rProgress: [' + '=' * done + ' ' * (width - done) + '] %3i%%' % (done * 100 // width))
                 sys.stdout.flush()
 
             if not INFOS['selected'] or cond.Excited:
@@ -502,9 +502,9 @@ def make_spectra_bootstrap(statelist, INFOS):
                         spec.add(cond.Fosc, cond.Eexc)
         allspec.append(spec)
         idone += 1
-        if done < idone * width / imax:
-            done = idone * width / imax
-            sys.stdout.write('\rProgress: [' + '=' * done + ' ' * (width - done) + '] %3i%%' % (done * 100 / width))
+        if done < idone * width // imax:
+            done = idone * width // imax
+            sys.stdout.write('\rProgress: [' + '=' * done + ' ' * (width - done) + '] %3i%%' % (done * 100 // width))
             sys.stdout.flush()
     sys.stdout.write('\n')
 
@@ -519,7 +519,7 @@ def make_spectra_bootstrap(statelist, INFOS):
         mean_spec.spec[ipt] = mean_geom(data)
         stdev = stdev_geom(data, mean_spec.spec[ipt])
         stdev_specp.spec[ipt] = mean_spec.spec[ipt] * (stdev**power - 1.)
-        stdev_specm.spec[ipt] = mean_spec.spec[ipt] * (1. / stdev**power - 1.)
+        stdev_specm.spec[ipt] = mean_spec.spec[ipt] * (1. // stdev**power - 1.)
 
     allspec = [mean_spec, stdev_specp, stdev_specm] + allspec
 
