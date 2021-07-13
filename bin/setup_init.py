@@ -372,7 +372,7 @@ def question(question, typefunc, default=None, autocomplete=True, ranges=False):
         s += ' '
 
         line = input(s)
-        line = re.sub('#.*$', '', line).strip()
+        line = re.sub(r'#.*$', '', line).strip()
         if not typefunc == str:
             line = line.lower()
 
@@ -1259,7 +1259,7 @@ def check_Analytical_block(data, identifier, nstates, eMsg):
             if eMsg:
                 print('No matrix %s defined!' % (identifier))
             return False
-        line = re.sub('#.*$', '', data[iline]).split()
+        line = re.sub(r'#.*$', '', data[iline]).split()
         if line == []:
             continue
         ident = identifier.split()
@@ -1326,7 +1326,7 @@ def checktemplate_Analytical(filename, req_nstates, eMsg=True):
         iline += 1
         if iline == len(data):
             break
-        line = re.sub('#.*$', '', data[iline]).split()
+        line = re.sub(r'#.*$', '', data[iline]).split()
         if line == []:
             continue
         if 'variables' in line[0].lower():
@@ -1336,12 +1336,12 @@ def checktemplate_Analytical(filename, req_nstates, eMsg=True):
                     if eMsg:
                         print('Non-terminated variables block!')
                     return False
-                line = re.sub('#.*$', '', data[iline]).split()
+                line = re.sub(r'#.*$', '', data[iline]).split()
                 if line == []:
                     continue
                 if 'end' in line[0].lower():
                     break
-                match = re.match('[a-zA-Z][a-zA-Z0-9_]*', line[0])
+                match = re.match(r'[a-zA-Z][a-zA-Z0-9_]*', line[0])
                 if not match:
                     if eMsg:
                         print('Invalid variable name: %s' % (line[0]))
@@ -1486,7 +1486,7 @@ def checktemplate_MOLCAS(filename, INFOS):
     valid = []
     for i in necessary:
         for line in data:
-            if i in re.sub('#.*$', '', line):
+            if i in re.sub(r'#.*$', '', line):
                 valid.append(True)
                 break
         else:
@@ -1496,7 +1496,7 @@ def checktemplate_MOLCAS(filename, INFOS):
         return False
     roots_there = False
     for line in data:
-        line = re.sub('#.*$', '', line).lower().split()
+        line = re.sub(r'#.*$', '', line).lower().split()
         if len(line) == 0:
             continue
         if 'roots' in line[0]:
@@ -1507,7 +1507,7 @@ def checktemplate_MOLCAS(filename, INFOS):
                 continue
             valid = []
             for line in data:
-                if 'spin' in re.sub('#.*$', '', line).lower():
+                if 'spin' in re.sub(r'#.*$', '', line).lower():
                     f = line.split()
                     if int(f[1]) == mult + 1:
                         valid.append(True)
@@ -1744,7 +1744,7 @@ def checktemplate_AMS(filename, INFOS):
             if len(linelist) == 0:
                 continue
             word = linelist[0]
-            if i == re.sub('#.*$', '', word):
+            if i == re.sub(r'#.*$', '', word):
                 valid.append(True)
                 break
         else:
@@ -2007,7 +2007,7 @@ def checktemplate_RICC2(filename, INFOS):
     for i in necessary:
         for li in data:
             line = li.lower()
-            if i in re.sub('#.*$', '', line):
+            if i in re.sub(r'#.*$', '', line):
                 valid.append(True)
                 break
         else:
@@ -2036,7 +2036,7 @@ def qmmm_job(filename, INFOS):
             if len(linelist) == 0:
                 continue
             word = linelist[0]
-            if i == re.sub('#.*$', '', word):
+            if i == re.sub(r'#.*$', '', word):
                 valid.append(True)
                 break
         else:
@@ -2313,7 +2313,7 @@ def checktemplate_GAUSSIAN(filename, INFOS):
             if len(linelist) == 0:
                 continue
             word = linelist[0]
-            if i == re.sub('#.*$', '', word):
+            if i == re.sub(r'#.*$', '', word):
                 valid.append(True)
                 break
         else:
@@ -2561,7 +2561,7 @@ def checktemplate_ORCA(filename, INFOS):
             if len(linelist) == 0:
                 continue
             word = linelist[0]
-            if i == re.sub('#.*$', '', word):
+            if i == re.sub(r'#.*$', '', word):
                 valid.append(True)
                 break
         else:
@@ -2590,7 +2590,7 @@ def qmmm_job(filename, INFOS):
             if len(linelist) == 0:
                 continue
             word = linelist[0]
-            if i == re.sub('#.*$', '', word):
+            if i == re.sub(r'#.*$', '', word):
                 valid.append(True)
                 break
         else:
@@ -2857,7 +2857,7 @@ def checktemplate_BAGEL(filename, INFOS):
     valid = []
     for i in necessary:
         for line in data:
-            if i in re.sub('#.*$', '', line):
+            if i in re.sub(r'#.*$', '', line):
                 valid.append(True)
                 break
         else:
@@ -2867,7 +2867,7 @@ def checktemplate_BAGEL(filename, INFOS):
         return False
     roots_there = False
     for line in data:
-        llist = re.sub('#.*$', '', line).lower().split()
+        llist = re.sub(r'#.*$', '', line).lower().split()
         if len(llist) == 0:
             continue
         if 'nstate' in llist[0]:
@@ -2878,7 +2878,7 @@ def checktemplate_BAGEL(filename, INFOS):
                 continue
             valid = []
             for line in data:
-                if 'spin' in re.sub('#.*$', '', line).lower():
+                if 'spin' in re.sub(r'#.*$', '', line).lower():
                     f = line.split()
                     if int(f[1]) == mult + 1:
                         valid.append(True)
