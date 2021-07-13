@@ -1151,7 +1151,7 @@ def cleandir(directory):
                 print('Could not remove file from directory: %s' % (path))
         else:
             if DEBUG:
-                print ''
+                print('')
             cleandir(path)
             os.rmdir(path)
             if DEBUG:
