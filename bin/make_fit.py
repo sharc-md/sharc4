@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 # ******************************************
 #
@@ -23,24 +23,18 @@
 #
 # ******************************************
 
-#!/usr/bin/env python2
-
 # TODO: transfer plotting function from make_fitscript.py (prettier plots)
 
 # Modules:
 # Operating system, isfile and related routines, move files, create directories
 import sys
-if sys.version_info[0] != 2:
-    sys.stdout.write('The SHARC suite is not compatible with Python 3! Use Python 2 (>2.6)!')
-    sys.exit(0)
-
 import os
 import shutil
 # External Calls
 import subprocess as sp
 # Regular expressions
 import re
-# debug print for dicts and arrays
+# debug print(for dicts and arrays)
 import pprint
 # sqrt and other math
 import math
@@ -65,27 +59,6 @@ except ImportError:
     NUMPY = False
 
 # =========================================================0
-# compatibility stuff
-
-if sys.version_info[0] != 2:
-    print 'This is a script for Python 2!'
-    sys.exit(0)
-
-if sys.version_info[1] < 5:
-    def any(iterable):
-        for element in iterable:
-            if element:
-                return True
-        return False
-
-    def all(iterable):
-        for element in iterable:
-            if not element:
-                return False
-        return True
-
-
-# ======================================================================= #
 
 version = '2.1'
 versiondate = datetime.date(2019, 9, 1)
@@ -134,7 +107,7 @@ def readfile(filename):
         out = f.readlines()
         f.close()
     except IOError:
-        print 'File %s does not exist!' % (filename)
+        print('File %s does not exist!' % (filename))
         sys.exit(12)
     return out
 
@@ -151,10 +124,10 @@ def writefile(filename, content):
         elif isinstance(content, str):
             f.write(content)
         else:
-            print 'Content %s cannot be written to file!' % (content)
+            print('Content %s cannot be written to file!' % (content))
         f.close()
     except IOError:
-        print 'Could not write to file %s!' % (filename)
+        print('Could not write to file %s!' % (filename))
         sys.exit(13)
 
 # ======================================================================================================================
@@ -173,21 +146,21 @@ def centerstring(string, n, pad=' '):
 def displaywelcome():
     string = '\n'
     string += '  ' + '=' * 80 + '\n'
-    string += '||' + centerstring('', 80) + '||\n'
-    string += '||' + centerstring('Direct fitting for SHARC populations', 80) + '||\n'
-    string += '||' + centerstring('', 80) + '||\n'
-    string += '||' + centerstring('Author: Sebastian Mai', 80) + '||\n'
-    string += '||' + centerstring('', 80) + '||\n'
+    string += '||' + '{:^80}'.format('') + '||\n'
+    string += '||' + '{:^80}'.format('Direct fitting for SHARC populations') + '||\n'
+    string += '||' + '{:^80}'.format('') + '||\n'
+    string += '||' + '{:^80}'.format('Author: Sebastian Mai') + '||\n'
+    string += '||' + '{:^80}'.format('') + '||\n'
     string += '||' + centerstring('Version:' + version, 80) + '||\n'
-    string += '||' + centerstring(versiondate.strftime("%d.%m.%y"), 80) + '||\n'
-    string += '||' + centerstring('', 80) + '||\n'
+    string += '||' + '{:^80}'.format(versiondate.strftime("%d.%m.%y")) + '||\n'
+    string += '||' + '{:^80}'.format('') + '||\n'
     string += '  ' + '=' * 80 + '\n\n'
     string += '''
-This script fits SHARC populations (as generated with populations.py) 
+This script fits SHARC populations (as generated with populations.py)
 to general kinetic models based on first-order population transfer.
 
 '''
-    print string
+    print(string)
 
 # ======================================================================================================================
 # ======================================================================================================================
@@ -213,7 +186,7 @@ class rgbcolor:
   R=rgbcolor(a)
   for index,num in enumerate(a):
     for el in range(num):
-      print index,el,R.hexcolor(index+1,el+1)
+      print(index,el,R.hexcolor(index+1,el+1))
   print 2,1,R.hexcolor(2,1)
 
   Output:
@@ -329,8 +302,8 @@ def close_keystrokes():
 
 def question(question, typefunc, default=None, autocomplete=True, ranges=False):
     if typefunc == int or typefunc == float:
-        if not default == None and not isinstance(default, list):
-            print 'Default to int or float question must be list!'
+        if default is not None and not isinstance(default, list):
+            print('Default to int or float question must be list!')
             quit(1)
     if typefunc == str and autocomplete:
         readline.set_completer_delims(' \t\n;')
@@ -340,7 +313,7 @@ def question(question, typefunc, default=None, autocomplete=True, ranges=False):
 
     while True:
         s = question
-        if default != None:
+        if default is not None:
             if typefunc == bool or typefunc == str:
                 s += ' [%s]' % (str(default))
             elif typefunc == int or typefunc == float:
@@ -354,13 +327,13 @@ def question(question, typefunc, default=None, autocomplete=True, ranges=False):
             s += ' (range comprehension enabled)'
         s += ' '
 
-        line = raw_input(s)
-        line = re.sub('#.*$', '', line).strip()
+        line = input(s)
+        line = re.sub(r'#.*$', '', line).strip()
         if not typefunc == str:
             line = line.lower()
 
         if line == '' or line == '\n':
-            if default != None:
+            if default is not None:
                 KEYSTROKES.write(line + ' ' * (40 - len(line)) + ' #' + s + '\n')
                 return default
             else:
@@ -376,7 +349,7 @@ def question(question, typefunc, default=None, autocomplete=True, ranges=False):
                 KEYSTROKES.write(line + ' ' * (40 - len(line)) + ' #' + s + '\n')
                 return False
             else:
-                print 'I didn''t understand you.'
+                print('I didn''t understand you.')
                 continue
 
         if typefunc == str:
@@ -392,7 +365,7 @@ def question(question, typefunc, default=None, autocomplete=True, ranges=False):
                 KEYSTROKES.write(line + ' ' * (40 - len(line)) + ' #' + s + '\n')
                 return f
             except ValueError:
-                print 'Please enter floats!'
+                print('Please enter floats!')
                 continue
 
         if typefunc == int:
@@ -411,9 +384,9 @@ def question(question, typefunc, default=None, autocomplete=True, ranges=False):
                 return out
             except ValueError:
                 if ranges:
-                    print 'Please enter integers or ranges of integers (e.g. "-3~-1  2  5~7")!'
+                    print('Please enter integers or ranges of integers (e.g. "-3~-1  2  5~7")!')
                 else:
-                    print 'Please enter integers!'
+                    print('Please enter integers!')
                 continue
 
 # ======================================================================================================================
@@ -427,7 +400,7 @@ def label_valid(label):
         return False
     if label == 'F' or label == 'x':
         return False
-    if re.match('^[a-zA-Z][a-zA-Z0-9_]*$', label) == None:
+    if re.match(r'^[a-zA-Z][a-zA-Z0-9_]*$', label) is None:
         return False
     else:
         return True
@@ -498,10 +471,10 @@ def get_cycles(rate_matrix):
         rank, null = nullspace(A)
         nullrank = len(A[0]) - rank
         if nullrank > 0:
-            print '  The reaction network contains %i %s!' % (nullrank, ['cycles', 'cycle'][nullrank == 1])
+            print('  The reaction network contains %i %s!' % (nullrank, ['cycles', 'cycle'][nullrank == 1]))
         return nullrank
     else:
-        print '  Hint: Cannot check for cycles without NUMPY!'
+        print('  Hint: Cannot check for cycles without NUMPY!')
         return -1
 
 # ===================================================
@@ -515,32 +488,32 @@ def check_pop_file(content):
     ncol = -1
     maxtime = -1.
     for line in content:
-        line = re.sub('#.*$', '', line)
+        line = re.sub(r'#.*$', '', line)
         if line == '\n':
             continue
         s = line.split()
         # check time
         time = float(s[0])
         if maxtime == -1. and time != 0.:
-            print '  Time does not start at zero!'
+            print('  Time does not start at zero!')
             return False, 0, 0, []
         if time < 0.:
-            print '  Negative times detected!'
+            print('  Negative times detected!')
             return False, 0, 0, []
         if time < maxtime:
-            print '  Times not ordered!'
+            print('  Times not ordered!')
             return False, 0, 0, []               # TODO: maybe this check is not necessary
         maxtime = time
         # check data
         d = [float(i) for i in s]
         # if any( [i<0. for i in d] ):
-        # print '  Negative populations detected!'
+        # print('  Negative populations detected!')
         # return False,0,0,[]
         col = len(d)
         if ncol == -1:
             ncol = col
         elif ncol != col:
-            print '  Inconsistent number of columns detected!'
+            print('  Inconsistent number of columns detected!')
             if ncol > col:
                 ncol = col
         data.append(d)
@@ -554,12 +527,12 @@ def get_infos():
 
     INFOS = {}
 
-    print centerstring('', 60, '#')
-    print centerstring(' Kinetics Model ', 60, '#')
-    print centerstring('', 60, '#') + '\n\n'
+    print(centerstring('', 60, '#'))
+    print(centerstring(' Kinetics Model ', 60, '#'))
+    print(centerstring('', 60, '#') + '\n\n')
     # =========================== Define the kinetic model species ==================================
-    print centerstring('Model Species', 60, '-') + '\n'
-    print '''First, please specify the set of species used in your model kinetics.
+    print('{:-^60}'.format('Model Species') + '\n')
+    print('''First, please specify the set of species used in your model kinetics.
 
 Possible input:
 + <label> <label> ...   Adds one or several species to the set
@@ -568,38 +541,38 @@ show                    Show the currently defined set of species
 end                     Finish species input
 
 Each label must be unique. Enter the labels without quotes.
-'''
+''')
     species = []
     while True:
         line = question('Input:', str, 'end', False)
         s = line.split()
         if 'end' in s[0].lower():
             if len(species) == 0:
-                print '  No species added yet!'
+                print('  No species added yet!')
             else:
                 break
         elif 'show' in s[0].lower():
-            print '  Current set:  %s\n' % (species)
+            print('  Current set:  %s\n' % (species))
         elif '+' in s[0]:
             for i in s[1:]:
                 if i in species:
-                    print '  Species \'%s\' already in set!' % (i)
+                    print('  Species \'%s\' already in set!' % (i))
                 else:
                     if label_valid(i):
                         species.append(i)
-                        print '  Species \'%s\' added!' % (i)
+                        print('  Species \'%s\' added!' % (i))
                     else:
-                        print '  Invalid label \'%s\'! Labels must be a letter followed by letters, \n  numbers and single underscores! "F" and "x" are reserved!' % (i)
+                        print('  Invalid label \'%s\'! Labels must be a letter followed by letters, \n  numbers and single underscores! "F" and "x" are reserved!' % (i))
         elif '-' in s[0]:
             for i in s[1:]:
                 if i in species:
                     species.remove(i)
-                    print '  Species \'%s\' removed!' % (i)
+                    print('  Species \'%s\' removed!' % (i))
                 else:
-                    print '  Species \'%s\' not in set!' % (i)
+                    print('  Species \'%s\' not in set!' % (i))
         else:
-            print '  I did not understand you.'
-    print '\nFinal species set:  %s\n' % (species)
+            print('  I did not understand you.')
+    print('\nFinal species set:  %s\n' % (species))
     nspec = len(species)
     specmap = {}
     for i in range(len(species)):
@@ -610,8 +583,8 @@ Each label must be unique. Enter the labels without quotes.
 
 
     # =========================== Define the kinetic model reactions ==================================
-    print centerstring('Model Elementary Reactions', 60, '-') + '\n'
-    print '''Second, please specify the set of elementary reactions in your model kinetics.
+    print('{:-^60}'.format('Model Elementary Reactions') + '\n')
+    print('''Second, please specify the set of elementary reactions in your model kinetics.
 
 Possible input:
 + <species1> <species2> <rate_label>       Add a reaction from species1 to species2 with labelled rate constant
@@ -620,7 +593,7 @@ show                                       Show the currently defined set of rea
 end                                        Finish reaction input
 
 Each rate label must be unique.
-'''
+''')
     rate_matrix = [['' for i in range(nspec)] for j in range(nspec)]
     rateset = set()
     while True:
@@ -628,44 +601,44 @@ Each rate label must be unique.
         s = line.split()
         if 'end' in s[0].lower():
             if len(rateset) == 0:
-                print '  No reactions added yet!'
+                print('  No reactions added yet!')
             else:
                 break
         elif 'show' in s[0].lower():
-            print print_reactions(rate_matrix, specmap)
+            print(print_reactions(rate_matrix, specmap))
         elif '+' in s[0]:
             if len(s) < 4:
-                print 'Please write "+ species1 species2 ratelabel"!'
+                print('Please write "+ species1 species2 ratelabel"!')
                 continue
             if s[1] == s[2]:
-                print '  Species labels identical! No reaction added.'
+                print('  Species labels identical! No reaction added.')
                 continue
             if s[1] in specmap and s[2] in specmap and not s[3] in specmap:
                 if rate_matrix[specmap[s[1]]][specmap[s[2]]] != '':
-                    print 'Please remove rate constant %s first!' % (rate_matrix[specmap[s[1]]][specmap[s[2]]])
+                    print('Please remove rate constant %s first!' % (rate_matrix[specmap[s[1]]][specmap[s[2]]]))
                     continue
                 if not s[3] in rateset:
                     if label_valid(s[3]):
                         rateset.add(s[3])
                         rate_matrix[specmap[s[1]]][specmap[s[2]]] = s[3]
                         rank = get_cycles(rate_matrix)
-                        print '  Reaction from \'%s\' to \'%s\' with rate label \'%s\' added!' % (s[1], s[2], s[3])
+                        print('  Reaction from \'%s\' to \'%s\' with rate label \'%s\' added!' % (s[1], s[2], s[3]))
                     else:
-                        print '  Invalid label \'%s\'! Labels must be a letter followed by letters, numbers and single underscores!' % (s[3])
+                        print('  Invalid label \'%s\'! Labels must be a letter followed by letters, numbers and single underscores!' % (s[3]))
                 else:
-                    print '  Rate label \'%s\' already defined!' % (s[3])
+                    print('  Rate label \'%s\' already defined!' % (s[3]))
                     #anyways=question('Do you want to add it anyways (i.e., use two reactions with same rate constant)?',bool,False)
                     # if anyways:
                     rate_matrix[specmap[s[1]]][specmap[s[2]]] = s[3]
                     rank = get_cycles(rate_matrix)
-                    print '  Reaction from \'%s\' to \'%s\' with rate label \'%s\' added!' % (s[1], s[2], s[3])
+                    print('  Reaction from \'%s\' to \'%s\' with rate label \'%s\' added!' % (s[1], s[2], s[3]))
             else:
                 if not s[1] in specmap:
-                    print '  Species \'%s\' not defined!' % (s[1])
+                    print('  Species \'%s\' not defined!' % (s[1]))
                 if not s[2] in specmap:
-                    print '  Species \'%s\' not defined!' % (s[2])
+                    print('  Species \'%s\' not defined!' % (s[2]))
                 if s[3] in specmap:
-                    print '  Label \'%s\' already used for a species!' % (s[3])
+                    print('  Label \'%s\' already used for a species!' % (s[3]))
         elif '-' in s[0]:
             if s[1] in rateset:
                 rateset.remove(s[1])
@@ -675,11 +648,11 @@ Each rate label must be unique.
                             rate_matrix[i][j] = ''
                             rank = get_cycles(rate_matrix)
             else:
-                print '  Rate label \'%s\' not defined!' % (s[1])
+                print('  Rate label \'%s\' not defined!' % (s[1]))
         else:
-            print '  I did not understand you.'
-    print '\nFinal reaction network:'
-    print print_reactions(rate_matrix, specmap)
+            print('  I did not understand you.')
+    print('\nFinal reaction network:')
+    print(print_reactions(rate_matrix, specmap))
     INFOS['rateset'] = rateset
     INFOS['rate_matrix'] = rate_matrix
     INFOS['rank'] = rank
@@ -709,45 +682,45 @@ Each rate label must be unique.
 
 
     # =========================== Define the kinetic model initial conditions ==================================
-    print centerstring('Model Initial Conditions', 60, '-') + '\n'
-    print '''Third, please specify species with non-zero initial populations.
+    print('{:-^60}'.format('Model Initial Conditions') + '\n')
+    print('''Third, please specify species with non-zero initial populations.
 
 Possible input:
 + <species>       Declare species to have non-zero initial population
 - <species>       Remove species from the set of non-zero initial populations
 show              Show the currently defined non-zero initial populations
 end               Finish initial condition input
-'''
+''')
     initset = set()
     while True:
         line = question('Input:', str, 'end', False)
         s = line.split()
         if 'end' in s[0].lower():
             if len(initset) == 0:
-                print '  No species with non-zero initial population yet!'
+                print('  No species with non-zero initial population yet!')
             else:
                 break
         elif 'show' in s[0].lower():
-            print '  Current set:  %s\n' % (list(initset))
+            print('  Current set:  %s\n' % (list(initset)))
         elif '+' in s[0]:
             for i in s[1:]:
                 if i not in specmap:
-                    print '  Species \'%s\' not defined!' % (i)
+                    print('  Species \'%s\' not defined!' % (i))
                 elif i in initset:
-                    print '  Species \'%s\' already in set!' % (i)
+                    print('  Species \'%s\' already in set!' % (i))
                 else:
                     initset.add(i)
-                    print '  Species \'%s\' added!' % (i)
+                    print('  Species \'%s\' added!' % (i))
         elif '-' in s[0]:
             for i in s[1:]:
                 if i in initset:
                     initset.remove(i)
-                    print '  Species \'%s\' removed!' % (i)
+                    print('  Species \'%s\' removed!' % (i))
                 else:
-                    print '  Species \'%s\' not in set!' % (i)
+                    print('  Species \'%s\' not in set!' % (i))
         else:
-            print '  I did not understand you.'
-    print '\nFinal initial species set:  %s\n' % (list(initset))
+            print('  I did not understand you.')
+    print('\nFinal initial species set:  %s\n' % (list(initset)))
     INFOS['initset'] = initset
 
     #
@@ -760,18 +733,18 @@ end               Finish initial condition input
 
 
 
-    print centerstring('', 60, '#')
-    print centerstring(' Fitting Data ', 60, '#')
-    print centerstring('', 60, '#') + '\n\n'
+    print(centerstring('', 60, '#'))
+    print(centerstring(' Fitting Data ', 60, '#'))
+    print(centerstring('', 60, '#') + '\n\n')
 
     # =========================== Bootstrapping or not ==================================
-    print centerstring('Operation mode', 60, '-') + '\n'
-    print '''This script can work with the following output:
+    print('{:-^60}'.format('Operation mode') + '\n')
+    print('''This script can work with the following output:
 * pop.out (file from populations.py)
 * bootstrap_data/ (directory from populations.py)
 Using only the pop.out allows fitting and obtaining time constants.
 Using the bootstrap data instead additionally allows for realistic error estimates.
-'''
+''')
     INFOS['do_bootstrap'] = question('Do you want to use bootstrap data?', bool, False)
 
     if INFOS['do_bootstrap']:
@@ -780,13 +753,13 @@ Using the bootstrap data instead additionally allows for realistic error estimat
 
 
     # =========================== Define the data file ==================================
-    print '\n' + centerstring('Population data file', 60, '-') + '\n'
+    print('\n' + '{:-^60}'.format('Population data file') + '\n')
     if INFOS['do_bootstrap']:
-        print '''Please specify the path to the bootstrap data directory (as generated by populations.py).\n'''
+        print('''Please specify the path to the bootstrap data directory (as generated by populations.py).\n''')
         while True:
             bsdir = question('Bootstrap data directory:', str, 'bootstrap_data/', True)
             if not os.path.isdir(bsdir):
-                print '  Directory not found!'
+                print('  Directory not found!')
                 continue
             ls = os.listdir(bsdir)
             VALID = True
@@ -794,13 +767,13 @@ Using the bootstrap data instead additionally allows for realistic error estimat
             NCOL = []
             DATA = []
             for i in ls:
-                if not 'pop_' in i:
+                if 'pop_' not in i:
                     continue
                 popfile = os.path.join(bsdir, i)
                 content = readfile(popfile)
                 valid, maxtime, ncol, data = check_pop_file(content)
                 if not valid:
-                    print '  File format not valid (%s)!' % popfile
+                    print('  File format not valid (%s)!' % popfile)
                     VALID = False
                 else:
                     MAXTIME.append(maxtime)
@@ -810,40 +783,40 @@ Using the bootstrap data instead additionally allows for realistic error estimat
                 continue
             s = set(MAXTIME)
             if len(s) > 1:
-                print 'Bootstrap files have different maximum time!'
+                print('Bootstrap files have different maximum time!')
                 continue
             s = set(NCOL)
             if len(s) > 1:
-                print 'Bootstrap files have different number of columns'
+                print('Bootstrap files have different number of columns')
                 continue
             s = set([len(i) for i in DATA])
             if len(s) > 1:
-                print 'Bootstrap files have different number of time steps!'
+                print('Bootstrap files have different number of time steps!')
                 continue
             maxtime = MAXTIME[0]
             ncol = NCOL[0]
             data = DATA
             popfile = bsdir
             INFOS['ntraj'] = len(DATA)
-            print '  Detected maximal time of %7.1f fs and %i columns (time plus %i data columns).' % (maxtime, ncol, ncol - 1)
+            print('  Detected maximal time of %7.1f fs and %i columns (time plus %i data columns).' % (maxtime, ncol, ncol - 1))
             break
 
         print
         INFOS['write_bootstrap_fits'] = question('Do you want to write fitting curves for all bootstrap cycles?', bool, False)
     else:
-        print '''Please specify the path to the population data file (as generated by populations.py).\n'''
+        print('''Please specify the path to the population data file (as generated by populations.py).\n''')
         while True:
             popfile = question('Populations file:', str, 'pop.out', True)
             if not os.path.isfile(popfile):
-                print '  File not found!'
+                print('  File not found!')
                 continue
             content = readfile(popfile)
             valid, maxtime, ncol, data = check_pop_file(content)
             if not valid:
-                print '  File format not valid!'
+                print('  File format not valid!')
                 continue
             else:
-                print '  Detected maximal time of %7.1f fs and %i columns (time plus %i data columns).' % (maxtime, ncol, ncol - 1)
+                print('  Detected maximal time of %7.1f fs and %i columns (time plus %i data columns).' % (maxtime, ncol, ncol - 1))
                 break
     INFOS['maxtime'] = maxtime
     INFOS['ncol'] = ncol
@@ -851,8 +824,8 @@ Using the bootstrap data instead additionally allows for realistic error estimat
     INFOS['popfile'] = os.path.abspath(popfile)
 
     # =========================== Define the data -- species mapping ==================================
-    print '\n' + centerstring('Population-to-Species Mapping for Fit', 60, '-') + '\n'
-    print '''Please specify which model species should be fitted to which data file columns.
+    print('\n' + '{:-^60}'.format('Population-to-Species Mapping for Fit') + '\n')
+    print('''Please specify which model species should be fitted to which data file columns.
 For example, you can fit the label 'S0' to column 2:
   S0 = 2
 You can also fit the sum of two species to a column:
@@ -873,10 +846,10 @@ reset                                                           Redo the mapping
 
 Each species label must be used at most once.
 Each column number (except for \'1\', which denotes the time) must be used at most once.
-'''
-    print 'Set of species:        %s' % (species)
+''')
+    print('Set of species:        %s' % (species))
     columns = [i for i in range(2, ncol + 1)]
-    print 'Set of column numbers: %s' % (columns)
+    print('Set of column numbers: %s' % (columns))
 
     species_groups = []
     columns_groups = []
@@ -886,11 +859,11 @@ Each column number (except for \'1\', which denotes the time) must be used at mo
         s = line.split()
         if 'end' in s[0].lower():
             if ngroups == 0:
-                print '  No valid input yet!'
+                print('  No valid input yet!')
             else:
                 break
         elif 'show' in s[0].lower():
-            print '  Current mapping groups:'
+            print('  Current mapping groups:')
             for i in range(ngroups):
                 string = '    '
                 for j in species_groups[i]:
@@ -898,10 +871,10 @@ Each column number (except for \'1\', which denotes the time) must be used at mo
                 string += ' = '
                 for j in columns_groups[i]:
                     string += ' %i ' % (j)
-                print string
+                print(string)
         elif ' = ' in line:
             if s[0] == '=' or s[-1] == '=':
-                print '  Invalid input! Put species labels to the left of \'=\' and column number to the right!'
+                print('  Invalid input! Put species labels to the left of \'=\' and column number to the right!')
                 continue
             do_species = True
             valid = True
@@ -910,23 +883,23 @@ Each column number (except for \'1\', which denotes the time) must be used at mo
             for i in s:
                 if i == '=':
                     if not do_species:
-                        print 'More than 1 "=" used!'
+                        print('More than 1 "=" used!')
                         valid = False
                         break
                     else:
                         do_species = False
                         continue
                 if do_species:
-                    if not i in species:
-                        print '  Species label \'%s\' not defined!' % (i)
+                    if i not in species:
+                        print('  Species label \'%s\' not defined!' % (i))
                         valid = False
                         break
                     if any([i in j for j in species_groups]):
-                        print '  Species label \'%s\' already assigned!' % (i)
+                        print('  Species label \'%s\' already assigned!' % (i))
                         valid = False
                         break
                     if i in new_species_group:
-                        print '  Species label \'%s\' used twice!' % (i)
+                        print('  Species label \'%s\' used twice!' % (i))
                         valid = False
                         break
                     new_species_group.append(i)
@@ -940,20 +913,20 @@ Each column number (except for \'1\', which denotes the time) must be used at mo
                         else:
                             ii = [int(i)]
                     except ValueError:
-                        print '  Could not understand!'
+                        print('  Could not understand!')
                         valid = False
                         break
                     for i in ii:
-                        if not i in columns:
-                            print '  Column number %i not in data file!' % (i)
+                        if i not in columns:
+                            print('  Column number %i not in data file!' % (i))
                             valid = False
                             break
                         if any([i in j for j in columns_groups]):
-                            print '  Column number %i already assigned!' % (i)
+                            print('  Column number %i already assigned!' % (i))
                             valid = False
                             break
                         if i in new_columns_group:
-                            print '  Columns number %i used twice!' % (i)
+                            print('  Columns number %i used twice!' % (i))
                             valid = False
                             break
                         new_columns_group.append(i)
@@ -965,8 +938,8 @@ Each column number (except for \'1\', which denotes the time) must be used at mo
             species_groups = []
             columns_groups = []
             ngroups = 0
-            print '  Mappings reset! Please repeat input!'
-    print 'Final mappings:'
+            print('  Mappings reset! Please repeat input!')
+    print('Final mappings:')
     for i in range(ngroups):
         string = '    '
         for j in species_groups[i]:
@@ -974,7 +947,7 @@ Each column number (except for \'1\', which denotes the time) must be used at mo
         string += ' = '
         for j in columns_groups[i]:
             string += ' %i ' % (j)
-        print string
+        print(string)
     INFOS['species_groups'] = species_groups
     INFOS['columns_groups'] = columns_groups
     INFOS['ngroups'] = ngroups
@@ -990,24 +963,24 @@ Each column number (except for \'1\', which denotes the time) must be used at mo
     INFOS['summation'] = summation
 
 
-    print '\n'
-    print centerstring('', 60, '#')
-    print centerstring(' Fitting procedure ', 60, '#')
-    print centerstring('', 60, '#')
+    print('\n')
+    print(centerstring('', 60, '#'))
+    print(centerstring(' Fitting procedure ', 60, '#'))
+    print(centerstring('', 60, '#'))
 
     # =========================== Initial guesses ==================================
 
-    print '\n\n' + centerstring('Initial guesses', 40, '-') + '\n'
+    print('\n\n' + '{:-^40}'.format('Initial guesses') + '\n')
 
     def print_guesses(INFOS, y0, p0):
         for i in range(INFOS['nrates']):
             name = INFOS['ratemap'][i]
             t = p0[i]
-            print '  time constant ( %-12s ): %12.4f fs' % (name, 1. / t)
+            print('  time constant ( %-12s ): %12.4f fs' % (name, 1. / t))
         for i in range(INFOS['ninitial']):
             name = INFOS['specmap'][INFOS['initial'][i]]
             t = y0[i]
-            print '  initial pop   ( %-12s ): %12.4f' % (name, t)
+            print('  initial pop   ( %-12s ): %12.4f' % (name, t))
         print
 
     # rate guesses
@@ -1016,13 +989,13 @@ Each column number (except for \'1\', which denotes the time) must be used at mo
     # initial guesses
     y0 = [1. for i in range(INFOS['ninitial'])]
 
-    print '''Please check the initial guesses for the parameters
+    print('''Please check the initial guesses for the parameters
 
 Possible input:
 label = value     Set an initial guess (detects type automatically and computes k=1/t for rates)
 show              Show the currently defined non-zero initial populations
 end               Finish initial condition input
-'''
+''')
 
     print_guesses(INFOS, y0, p0)
     while True:
@@ -1034,7 +1007,7 @@ end               Finish initial condition input
             break
         elif '=' in line:
             if len(s) != 3:
-                print '  Format must be "label = value" (including spaces)'
+                print('  Format must be "label = value" (including spaces)')
                 continue
             if s[0] in INFOS['ratemap']:
                 val = 1. / float(s[2])
@@ -1042,29 +1015,29 @@ end               Finish initial condition input
                 p0[ind] = val
             elif s[0] in INFOS['specmap']:
                 if not s[0] in INFOS['initset']:
-                    print '  Initial population of "%s" cannot be non-zero.' % (s[0])
+                    print('  Initial population of "%s" cannot be non-zero.' % (s[0]))
                     continue
                 val = float(s[2])
                 ind = INFOS['specmap'][s[0]]
                 ind = INFOS['initial'].index(ind)
                 y0[ind] = val
             else:
-                print '  Unknown label "%s"' % (s[0])
+                print('  Unknown label "%s"' % (s[0]))
                 continue
         else:
-            print '  Could not understand!'
+            print('  Could not understand!')
     INFOS['p0'] = p0
     INFOS['y0'] = y0
-    print 'Final guess parameters:'
+    print('Final guess parameters:')
     print_guesses(INFOS, y0, p0)
 
     # =========================== Optimize initial pops ==================================
-    print '\n\n' + centerstring('Optimize initial populations', 40, '-') + '\n'
+    print('\n\n' + '{:-^40}'.format('Optimize initial populations') + '\n')
     INFOS['opt_init'] = question('Do you want to optimize the initial populations (otherwise only the rates)?', bool, True)
 
     # =========================== Positive rates ==================================
 
-    print '\n\n' + centerstring('Constrained optimization', 40, '-') + '\n'
+    print('\n\n' + '{:-^40}'.format('Constrained optimization') + '\n')
     INFOS['bounds'] = question('Do you want to restrict all rates/initial populations to be non-negative?', bool, True)
 
 
@@ -1088,7 +1061,7 @@ class globalfunction():
         for j in sumdefs:
             for i in j:
                 if not 0 <= i < self.nspecies:
-                    print 'Illegal summation definition: %s' % (ratedefs)
+                    print('Illegal summation definition: %s' % (ratedefs))
                     sys.exit(1)
         self.sumdefs = sumdefs
 
@@ -1096,17 +1069,17 @@ class globalfunction():
         for j in ratedefs:
             for i in j:
                 if not 0 <= i[0] < self.nspecies:
-                    print 'Illegal rate definition: %s' % (ratedefs)
+                    print('Illegal rate definition: %s' % (ratedefs))
                     sys.exit(1)
                 if not 0 <= i[1] < self.nspecies:
-                    print 'Illegal rate definition: %s' % (ratedefs)
+                    print('Illegal rate definition: %s' % (ratedefs))
                     sys.exit(1)
         self.ratedefs = ratedefs
         self.nrates = len(ratedefs)
 
         # make initial rate matrix
         if not len(p0) == self.nrates:
-            print 'Initial parameters must have same length as rate definitions!'
+            print('Initial parameters must have same length as rate definitions!')
             sys.exit(1)
         self.p = p0
         self.set_ratematrix(p0)
@@ -1114,14 +1087,14 @@ class globalfunction():
         # check initial definitions
         for i in initialdefs:
             if not 0 <= i < self.nspecies:
-                print 'Illegal initial definition: %s' % (ratedefs)
+                print('Illegal initial definition: %s' % (ratedefs))
                 sys.exit(1)
         self.initdefs = initialdefs
         self.ninit = len(self.initdefs)
 
         # check initial data
         if not self.ninit == len(y0):
-            print 'Initial data must have same length as initial definitions!'
+            print('Initial data must have same length as initial definitions!')
             sys.exit(1)
         self.y0 = y0
         self.set_initvector(self.y0)
@@ -1177,7 +1150,7 @@ class globalfunction():
                         interpol = RK.dense_output()
                     except RuntimeError:
                         if not t == self.tmax:
-                            print 'Error 1'
+                            print('Error 1')
                             sys.exit(1)
                         else:
                             break
@@ -1204,7 +1177,7 @@ class globalfunction():
         # evaluate
         state = int(t // self.tmax)
         tnew = t % self.tmax
-        if not tnew in self.vals:
+        if tnew not in self.vals:
             self.fill_vals([tnew])
         s = 0.
         for i in self.sumdefs[state]:
@@ -1213,7 +1186,7 @@ class globalfunction():
 
     # ------------------------------------------------
     def call_array(self, T, *params):
-        # print parameters
+        # print(parameters)
         #string='Parameters: '
         # for i in list(params):
         #string+='%12.9f  ' % i
@@ -1237,7 +1210,7 @@ class globalfunction():
         for t in T:
             state = int(t // self.tmax)
             tnew = t % self.tmax
-            if not tnew in self.vals:
+            if tnew not in self.vals:
                 missingT.append(tnew)
         if missingT:
             self.fill_vals(missingT)
@@ -1289,7 +1262,7 @@ def create_bootstrap_data(Tdata1, RNGarray, INFOS):
 
 def make_fit(INFOS):
 
-    print '\n' + centerstring(' Fitting ', 60, '#') + '\n'
+    print('\n' + centerstring(' Fitting ', 60, '#') + '\n')
 
     # rate guesses
     p0 = deepcopy(INFOS['p0'])
@@ -1319,7 +1292,7 @@ def make_fit(INFOS):
             for line in data:
                 Tdata2.append(line[0])
             if not Tdata1 == Tdata2:
-                print 'Time data inconsistent!'
+                print('Time data inconsistent!')
                 sys.exit(1)
 
         RNGarray = [i for i in range(INFOS['ntraj'])]
@@ -1346,7 +1319,7 @@ def make_fit(INFOS):
         for igroup in range(INFOS['ngroups']):
             cols = INFOS['columns_groups'][igroup]
             for istep in range(nsteps):
-                # print istep+igroup*nsteps
+                # print(istep+igroup*nsteps)
                 for col in cols:
                     Ydata[istep + igroup * nsteps] += INFOS['data'][istep][col - 1]
                 Tdata[istep + igroup * nsteps] = Tdata1[istep] + igroup * INFOS['maxtime']
@@ -1360,7 +1333,7 @@ def make_fit(INFOS):
 
 
 
-    print '\n' + centerstring(' Iterations ', 40, '-') + '\n'
+    print('\n' + '{:-^40}'.format(' Iterations ') + '\n')
     # get optimal parameters
     if INFOS['opt_init']:
         OPT = spopt.curve_fit(F.call_array, Tdata, Ydata, p0=p0 + y0, bounds=bounds, sigma=Yerr, absolute_sigma=Yerr_absol, verbose=2)
@@ -1368,11 +1341,11 @@ def make_fit(INFOS):
         OPT = spopt.curve_fit(F.call_array, Tdata, Ydata, p0=p0, bounds=bounds, sigma=Yerr, absolute_sigma=Yerr_absol, verbose=2)
     popt = OPT[0].tolist()
     OPT_orig = deepcopy(OPT)
-    # print popt
+    # print(popt)
 
 
 
-    print '\n\n' + centerstring(' Final parameters ', 40, '-') + '\n'
+    print('\n\n' + '{:-^40}'.format(' Final parameters ') + '\n')
 
     const_names = []
     const_values = []
@@ -1383,7 +1356,7 @@ def make_fit(INFOS):
         const_values.append(t)
         dt = np.sqrt(OPT[1][i][i]) / OPT[0][i]**2
         perc = dt / t * 100.
-        print 'time constant ( %-12s ): %12.4f fs +/- %12.4f fs (%7.2f %%)' % (name, t, dt, perc)
+        print('time constant ( %-12s ): %12.4f fs +/- %12.4f fs (%7.2f %%)' % (name, t, dt, perc))
     for i in range(INFOS['ninitial']):
         name = INFOS['specmap'][INFOS['initial'][i]]
         const_names.append(name)
@@ -1392,37 +1365,37 @@ def make_fit(INFOS):
             t = OPT[0][ind]
             dt = np.sqrt(OPT[1][ind][ind])
             perc = dt / t * 100.
-            print 'initial pop   ( %-12s ): %12.4f    +/- %12.4f    (%7.2f %%)' % (name, t, dt, perc)
+            print('initial pop   ( %-12s ): %12.4f    +/- %12.4f    (%7.2f %%)' % (name, t, dt, perc))
         else:
             t = y0[i]
-            print 'initial pop   ( %-12s ): %12.4f' % (name, t)
+            print('initial pop   ( %-12s ): %12.4f' % (name, t))
         const_values.append(t)
     print
     if INFOS['do_bootstrap']:
-        print '''These time constants include errors that assume that the population data
-is free of uncertainty. Bootstrapping analysis is following now.'''
-        # print '''These time constants include errors estimated from the standard deviation
-# of the original population data. Bootstrapping analysis is following now.'''
+        print('''These time constants include errors that assume that the population data
+is free of uncertainty. Bootstrapping analysis is following now.''')
+        # print('''These time constants include errors estimated from the standard deviation
+# of the original population data. Bootstrapping analysis is following now.''')
     else:
-        print '''These time constants include errors that assume that the population data
+        print('''These time constants include errors that assume that the population data
 is free of uncertainty. If you want to compute a more accurate error estimate, provide bootstrapping
-data to this script (bootstrapping data can be prepared with populations.py).'''
+data to this script (bootstrapping data can be prepared with populations.py).''')
 
 
-    # print function values and data together
+    # print(function values and data together)
     string = ''
     for it, T in enumerate(Tdata):
         string += '%12.9f %12.9f %12.9f' % (T, Ydata[it], F(T, *popt))
         if Yerr:
             string += '   %12.9f' % (Yerr[it])
         string += '\n'
-    print '\nRaw data and fitted functions written to "fit_results.txt".'
+    print('\nRaw data and fitted functions written to "fit_results.txt".')
     writefile('fit_results.txt', string)
 
 
     # make gnuplot script
     string = gnuplot_string(INFOS, const_values)
-    print '\nGNUPLOT script written to "fit_results.gp".'
+    print('\nGNUPLOT script written to "fit_results.gp".')
     writefile('fit_results.gp', string)
 
     sys.stdout.flush()
@@ -1432,9 +1405,9 @@ data to this script (bootstrapping data can be prepared with populations.py).'''
 
     if INFOS['do_bootstrap']:
         verbose = False
-        print '\n' + centerstring(' Bootstrapping ', 60, '#') + '\n'
+        print('\n' + centerstring(' Bootstrapping ', 60, '#') + '\n')
         if INFOS['write_bootstrap_fits']:
-            print 'Writing individual results to %s/fit_results_%%i.txt ...\n' % (INFOS['popfile'])
+            print('Writing individual results to %s/fit_results_%%i.txt ...\n' % (INFOS['popfile']))
 
         p0 = popt[:INFOS['nrates']]
         if INFOS['opt_init']:
@@ -1449,12 +1422,12 @@ data to this script (bootstrapping data can be prepared with populations.py).'''
             for i in const_names:
                 string += '%12s ' % i
             string += ' Time'
-            print string
+            print(string)
         begintime = datetime.datetime.now()
         for iboot in range(INFOS['bootstrap_cycles']):
             try:
                 if verbose:
-                    print '\n' + centerstring(' Cycle %i ' % (iboot + 1), 30, '.') + '\n'
+                    print('\n' + centerstring(' Cycle %i ' % (iboot + 1), 30, '.') + '\n')
                     verb = 2
                 else:
                     verb = 0
@@ -1480,7 +1453,7 @@ data to this script (bootstrapping data can be prepared with populations.py).'''
                     dt = np.sqrt(OPT[1][i][i]) / OPT[0][i]**2
                     perc = dt / t * 100.
                     if verbose:
-                        print 'time constant ( %-12s ): %12.4f fs +/- %12.4f fs (%7.2f %%)' % (name, t, dt, perc)
+                        print('time constant ( %-12s ): %12.4f fs +/- %12.4f fs (%7.2f %%)' % (name, t, dt, perc))
                     else:
                         string += '%12.4f ' % (t)
                     R[name] = t
@@ -1492,13 +1465,13 @@ data to this script (bootstrapping data can be prepared with populations.py).'''
                         dt = np.sqrt(OPT[1][ind][ind])
                         perc = dt / t * 100.
                         if verbose:
-                            print 'initial pop   ( %-12s ): %12.4f    +/- %12.4f    (%7.2f %%)' % (name, t, dt, perc)
+                            print('initial pop   ( %-12s ): %12.4f    +/- %12.4f    (%7.2f %%)' % (name, t, dt, perc))
                         else:
                             string += '%12.4f ' % (t)
                     else:
                         t = y0[i]
                         if verbose:
-                            print 'initial pop   ( %-12s ): %12.4f' % (name, t)
+                            print('initial pop   ( %-12s ): %12.4f' % (name, t))
                         else:
                             string += '%12.4f ' % (t)
                     R[name] = t
@@ -1507,9 +1480,9 @@ data to this script (bootstrapping data can be prepared with populations.py).'''
                 begintime = datetime.datetime.now()
                 if not verbose:
                     string += ' %s' % deltatime
-                    print string
+                    print(string)
                 else:
-                    print 'Time: ', deltatime
+                    print('Time: ', deltatime)
 
                 if INFOS['write_bootstrap_fits']:
                     string = ''
@@ -1523,13 +1496,13 @@ data to this script (bootstrapping data can be prepared with populations.py).'''
 
                 sys.stdout.flush()
             except KeyboardInterrupt:
-                print 'Aborted, going to final analysis...'
+                print('Aborted, going to final analysis...')
                 time.sleep(0.5)
                 break
 
 
         # final analysis
-        print '\n>>>>>>>>>>>>> Finished the bootstrapping cycles ...'
+        print('\n>>>>>>>>>>>>> Finished the bootstrapping cycles ...')
         string_all = ''
 
         final_errors = {}
@@ -1571,7 +1544,7 @@ data to this script (bootstrapping data can be prepared with populations.py).'''
                      mini,
                      maxi
                      )
-            print string
+            print(string)
             string_all += string + '\n'
 
             # make histogram
@@ -1610,12 +1583,12 @@ data to this script (bootstrapping data can be prepared with populations.py).'''
                     string += ' %5.1f' % (i)
                 else:
                     string += ' %5i' % (i)
-            print string
+            print(string)
             string_all += string + '\n'
 
 
 
-        print '\n\n' + centerstring(' Final parameters ', 40, '-') + '\n'
+        print('\n\n' + '{:-^40}'.format(' Final parameters ') + '\n')
 
         const_names = []
         for i in range(INFOS['nrates']):
@@ -1624,7 +1597,7 @@ data to this script (bootstrapping data can be prepared with populations.py).'''
             t = 1. / OPT_orig[0][i]
             dt = final_errors[name]
             perc = dt / t * 100.
-            print 'time constant ( %-12s ): %12.4f fs +/- %12.4f fs (%7.2f %%)' % (name, t, dt, perc)
+            print('time constant ( %-12s ): %12.4f fs +/- %12.4f fs (%7.2f %%)' % (name, t, dt, perc))
         for i in range(INFOS['ninitial']):
             name = INFOS['specmap'][INFOS['initial'][i]]
             const_names.append(name)
@@ -1633,10 +1606,10 @@ data to this script (bootstrapping data can be prepared with populations.py).'''
                 t = OPT_orig[0][ind]
                 dt = final_errors[name]
                 perc = dt / t * 100.
-                print 'initial pop   ( %-12s ): %12.4f    +/- %12.4f    (%7.2f %%)' % (name, t, dt, perc)
+                print('initial pop   ( %-12s ): %12.4f    +/- %12.4f    (%7.2f %%)' % (name, t, dt, perc))
             else:
                 t = y0[i]
-                print 'initial pop   ( %-12s ): %12.4f' % (name, t)
+                print('initial pop   ( %-12s ): %12.4f' % (name, t))
         print
 
 
@@ -1654,7 +1627,7 @@ data to this script (bootstrapping data can be prepared with populations.py).'''
             string += '\n'
         string_all += string
 
-        print '\nOutput (analysis and full fitted data) written to "fit_bootstrap.txt".'
+        print('\nOutput (analysis and full fitted data) written to "fit_bootstrap.txt".')
         writefile('fit_bootstrap.txt', string_all)
 
 
@@ -1835,7 +1808,7 @@ def main():
     usage = '''
 python make_fit.py
 
-This interactive script lets the user specify a kinetic model and a populations.py output file and produces a 
+This interactive script lets the user specify a kinetic model and a populations.py output file and produces a
 GNUPLOT script which allows to fit the model parameters to the populations
 '''
     description = ''
@@ -1848,17 +1821,17 @@ GNUPLOT script which allows to fit the model parameters to the populations
     INFOS = get_infos()
 
     # echo input
-    print '\n\n' + centerstring('Full input', 60, '#') + '\n'
+    print('\n\n' + centerstring('Full input', 60, '#') + '\n')
     for item in sorted(INFOS):
         if not item == 'data':
-            print item, ' ' * (25 - len(item)), INFOS[item]
+            print(item, ' ' * (25 - len(item)), INFOS[item])
         elif item == 'data':
-            print item, ' ' * (25 - len(item)), '[ ... ]'
-    print ''
+            print(item, ' ' * (25 - len(item)), '[ ... ]')
+    print('')
     go_on = question('Do you want to continue?', bool, True)
     if not go_on:
         quit(0)
-    print ''
+    print('')
 
     # do work
     # functionstring=get_functions_from_maxima(INFOS)
@@ -1877,5 +1850,5 @@ if __name__ == '__main__':
     try:
         main()
     except KeyboardInterrupt:
-        print '\nCtrl+C makes me a sad SHARC ;-(\n'
+        print('\nCtrl+C makes me a sad SHARC ;-(\n')
         quit(0)
