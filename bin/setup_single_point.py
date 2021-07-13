@@ -1097,7 +1097,7 @@ def checktemplate_Analytical(filename, req_nstates, eMsg=True, dipolegrad=False)
     variables = set()
     for i in range(2, 2 + natom):
         line = data[i]
-        match = re.match('\\s*[a-zA-Z]*\\s+[a-zA-Z0][a-zA-Z0-9_]*\\s+[a-zA-Z0][a-zA-Z0-9_]*\\s+[a-zA-Z0][a-zA-Z0-9_]*', line)
+        match = re.match(r'\s*[a-zA-Z]*\\s+[a-zA-Z0][a-zA-Z0-9_]*\\s+[a-zA-Z0][a-zA-Z0-9_]*\\s+[a-zA-Z0][a-zA-Z0-9_]*', line)
         if not match:
             if eMsg:
                 print('Line %i malformatted!' % (i + 1))
@@ -1105,7 +1105,7 @@ def checktemplate_Analytical(filename, req_nstates, eMsg=True, dipolegrad=False)
         else:
             a = line.split()
             for j in range(3):
-                match = re.match('\\s*[a-zA-Z][a-zA-Z0-9_]*', a[j + 1])
+                match = re.match(r'\s*[a-zA-Z][a-zA-Z0-9_]*', a[j + 1])
                 if match:
                     variables.add(a[j + 1])
 
@@ -1130,7 +1130,7 @@ def checktemplate_Analytical(filename, req_nstates, eMsg=True, dipolegrad=False)
                     continue
                 if 'end' in line[0].lower():
                     break
-                match = re.match('[a-zA-Z][a-zA-Z0-9_]*', line[0])
+                match = re.match(r'[a-zA-Z][a-zA-Z0-9_]*', line[0])
                 if not match:
                     if eMsg:
                         print('Invalid variable name: %s' % (line[0]))
