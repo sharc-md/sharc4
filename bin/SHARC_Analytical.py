@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 # ******************************************
 #
@@ -23,8 +23,6 @@
 #
 # ******************************************
 
-#!/usr/bin/env python2
-
 # This script calculates QC results for a model system
 #
 # Reads QM.in
@@ -47,29 +45,6 @@ except ImportError:
     import subprocess as sp
     NONUMPY = True
 
-
-# =========================================================
-# compatibility stuff
-
-if sys.version_info[0] != 2:
-    print('This is a script for Python 2!')
-    sys.exit(0)
-
-if sys.version_info[1] < 4:
-    print('INFO: Script is not tested for Python <2.4! Proceed at own risk!')
-
-if sys.version_info[1] < 5:
-    def any(iterable):
-        for element in iterable:
-            if element:
-                return True
-        return False
-
-    def all(iterable):
-        for element in iterable:
-            if not element:
-                return False
-        return True
 
 # =========================================================
 # some constants
