@@ -23,9 +23,14 @@
 #
 # ******************************************
 
-from scm.plams import KFFile  # import KFFile after $PYTHONPATH is expanded
 import sys
 import os
+
+try:
+    from scm.plams import KFFile  # import KFFile after $PYTHONPATH is expanded
+except ImportError:
+    print('The kffile module is required to read AMS binary files. Please install scm.plams')
+    sys.exit()
 
 try:
     import numpy
