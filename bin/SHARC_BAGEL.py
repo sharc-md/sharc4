@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 # ******************************************
 #
@@ -23,18 +23,12 @@
 #
 # ******************************************
 
-#!/usr/bin/env python2
-
-import itertools
-from math import sqrt
-import ast
 import traceback
 from socket import gethostname
 import time
 from multiprocessing import Pool
 from copy import deepcopy
 import datetime
-import cmath
 import math
 import pprint
 import re
@@ -53,7 +47,7 @@ PRINT = True
 # External Calls to MOLCAS
 # Command line arguments
 # Regular expressions
-# debug print for dicts and arrays
+# debug print(for dicts and arrays)
 # sqrt and other math
 # runtime measurement
 # copy of arrays of arrays
@@ -64,26 +58,6 @@ PRINT = True
 
 
 # =========================================================0
-# compatibility stuff
-
-if sys.version_info[0] != 2:
-    print 'This is a script for Python 2!'
-    sys.exit(0)
-
-if sys.version_info[1] < 5:
-    def any(iterable):
-        for element in iterable:
-            if element:
-                return True
-        return False
-
-    def all(iterable):
-        for element in iterable:
-            if not element:
-                return False
-        return True
-
-# ======================================================================= #
 
 version = '1.0'
 versiondate = datetime.date(2019, 5, 27)
@@ -194,7 +168,7 @@ def readfile(filename):
         out = f.readlines()
         f.close()
     except IOError:
-        print 'File %s does not exist!' % (filename)
+        print('File %s does not exist!' % (filename))
         sys.exit(12)
     return out
 
@@ -211,11 +185,11 @@ def writefile(filename, content):
         elif isinstance(content, str):
             f.write(content)
         else:
-            print 'Content %s cannot be written to file!' % (content)
+            print('Content %s cannot be written to file!' % (content))
             sys.exit(13)
         f.close()
     except IOError:
-        print 'Could not write to file %s!' % (filename)
+        print('Could not write to file %s!' % (filename))
         sys.exit(14)
 
 
@@ -224,7 +198,7 @@ def eformat(f, prec, exp_digits):
     '''Formats a float f into scientific notation with prec number of decimals and exp_digits number of exponent digits.
 
     String looks like:
-    [ -][0-9]\.[0-9]*E[+-][0-9]*
+    [ -][0-9]\\.[0-9]*E[+-][0-9]*
 
     Arguments:
     1 float: Number to format
@@ -257,7 +231,7 @@ def measuretime():
     hours = runtime.seconds / 3600
     minutes = runtime.seconds / 60 - hours * 60
     seconds = runtime.seconds % 60
-    print '==> Runtime:\n%i Days\t%i Hours\t%i Minutes\t%i Seconds\n\n' % (runtime.days, hours, minutes, seconds)
+    print('==> Runtime:\n%i Days\t%i Hours\t%i Minutes\t%i Seconds\n\n' % (runtime.days, hours, minutes, seconds))
     total_seconds = runtime.days * 24 * 3600 + runtime.seconds + runtime.microseconds / 1.e6
     return total_seconds
 
@@ -331,7 +305,7 @@ def itnmstates(states):
 
 # =============================================================================================== #
 # =============================================================================================== #
-# =========================================== print routines ==================================== #
+# =========================================== print(routines ==================================== #)
 # =============================================================================================== #
 # =============================================================================================== #
 
@@ -343,7 +317,7 @@ def printheader():
 
     Takes nothing, returns nothing.'''
 
-    print starttime, gethostname(), os.getcwd()
+    print(starttime, gethostname(), os.getcwd())
     if not PRINT:
         return
     string = '\n'
@@ -358,9 +332,9 @@ def printheader():
     string += '||' + ' ' * (37 - lens / 2) + 'Date: %s' % (versiondate.strftime("%d.%m.%y")) + ' ' * (37 - (lens + 1) / 2) + '||\n'
     string += '||' + ' ' * 80 + '||\n'
     string += '  ' + '=' * 80 + '\n\n'
-    print string
+    print(string)
     if DEBUG:
-        print changelogstring
+        print(changelogstring)
 
 # ======================================================================= #
 
@@ -369,7 +343,7 @@ def printQMin(QMin):
 
     if not PRINT:
         return
-    print '==> QMin Job description for:\n%s' % (QMin['comment'])
+    print('==> QMin Job description for:\n%s' % (QMin['comment']))
 
     string = 'Mode:   '
     if 'init' in QMin:
@@ -408,17 +382,17 @@ def printQMin(QMin):
         string += '\tTheoDORE'
     if 'phases' in QMin:
         string += '\tPhases'
-    print string
+    print(string)
 
     string = 'States:        '
     for i in itmult(QMin['states']):
         string += '% 2i %7s  ' % (QMin['states'][i - 1], IToMult[i])
-    print string
+    print(string)
 
     string = 'Charges:       '
     for i in itmult(QMin['states']):
         string += '%+2i %7s  ' % (QMin['chargemap'][i], '')
-    print string
+    print(string)
 
 
     string = 'Method: \t'
@@ -441,7 +415,7 @@ def printQMin(QMin):
     if QMin['template']['dkh'] == "true":
         string += '\t(Douglas-Kroll)'
 
-    print string
+    print(string)
 
     string = 'Found Geo'
     if 'veloc' in QMin:
@@ -449,7 +423,7 @@ def printQMin(QMin):
     else:
         string += '! '
     string += 'NAtom is %i.\n' % (QMin['natom'])
-    print string
+    print(string)
 
     string = 'Geometry in Bohrs (%i atoms):\n' % QMin['natom']
     if DEBUG:
@@ -470,7 +444,7 @@ def printQMin(QMin):
             for j in range(3):
                 string += '% 7.4f ' % (QMin['geo'][-1][j + 1])
             string += '\n'
-    print string
+    print(string)
 
     if 'veloc' in QMin and DEBUG:
         string = ''
@@ -479,7 +453,7 @@ def printQMin(QMin):
             for j in range(3):
                 string += '% 7.4f ' % (QMin['veloc'][i][j])
             string += '\n'
-        print string
+        print(string)
 
     if 'grad' in QMin:
         string = 'Gradients requested:   '
@@ -489,7 +463,7 @@ def printQMin(QMin):
             else:
                 string += '. '
         string += '\n'
-        print string
+        print(string)
 
     if 'nacdr' in QMin:
         string = 'Non-adiabatic couplings:\n'
@@ -500,7 +474,7 @@ def printQMin(QMin):
                 else:
                     string += '. '
             string += '\n'
-        print string
+        print(string)
 
     if 'overlap' in QMin:
         string = 'Overlaps:\n'
@@ -511,9 +485,9 @@ def printQMin(QMin):
                 else:
                     string += '. '
         string += '\n'
-        print string
+        print(string)
 
-    print 'State map:'
+    print('State map:')
     pprint.pprint(QMin['statemap'])
     print
 
@@ -522,8 +496,8 @@ def printQMin(QMin):
             if not any([i == j for j in ['ionlist']]) or DEBUG:
                 string = i + ': '
                 string += str(QMin[i])
-                print string
-    print '\n'
+                print(string)
+    print('\n')
     sys.stdout.flush()
 
 
@@ -558,7 +532,7 @@ def printcomplexmatrix(matrix, states):
             string += '-' * (11 * nmstates + nmstates / 3)
             string += '\n'
         istate += 1
-    print string
+    print(string)
     imag = False
     string = 'Imaginary Part:\n'
     string += '-' * (11 * nmstates + nmstates / 3)
@@ -583,7 +557,7 @@ def printcomplexmatrix(matrix, states):
         istate += 1
     string += '\n'
     if imag:
-        print string
+        print(string)
 
 # ======================================================================= #
 
@@ -615,9 +589,9 @@ def printgrad(grad, natom, geo):
                 string += '% .5f\t% .5f\t\t' % (g.real, g.imag)
         string += '\n'
     if iszero:
-        print '\t\t...is identical zero...\n'
+        print('\t\t...is identical zero...\n')
     else:
-        print string
+        print(string)
 
 # ======================================================================= #
 
@@ -637,13 +611,13 @@ def printtheodore(matrix, QMin):
         for i in matrix[istate - 1]:
             string += '%6.4f ' % i.real
         string += '\n'
-    print string
+    print(string)
 
 # ======================================================================= #
 
 
 def printQMout(QMin, QMout):
-    '''If PRINT, prints a summary of all requested QM output values. Matrices are formatted using printcomplexmatrix, vectors using printgrad. 
+    '''If PRINT, prints a summary of all requested QM output values. Matrices are formatted using printcomplexmatrix, vectors using printgrad.
 
     Arguments:
     1 dictionary: QMin
@@ -657,84 +631,84 @@ def printQMout(QMin, QMout):
     nstates = QMin['nstates']
     nmstates = QMin['nmstates']
     natom = QMin['natom']
-    print '\n\n>>>>>>>>>>>>> Results\n'
+    print('\n\n>>>>>>>>>>>>> Results\n')
     # Hamiltonian matrix, real or complex
     if 'h' in QMin or 'soc' in QMin:
         eshift = math.ceil(QMout['h'][0][0].real)
-        print '=> Hamiltonian Matrix:\nDiagonal Shift: %9.2f' % (eshift)
+        print('=> Hamiltonian Matrix:\nDiagonal Shift: %9.2f' % (eshift))
         matrix = deepcopy(QMout['h'])
         for i in range(nmstates):
             matrix[i][i] -= eshift
         printcomplexmatrix(matrix, states)
     # Dipole moment matrices
     if 'dm' in QMin:
-        print '=> Dipole Moment Matrices:\n'
+        print('=> Dipole Moment Matrices:\n')
         for xyz in range(3):
-            print 'Polarisation %s:' % (IToPol[xyz])
+            print('Polarisation %s:' % (IToPol[xyz]))
             matrix = QMout['dm'][xyz]
             printcomplexmatrix(matrix, states)
     # Gradients
     if 'grad' in QMin:
-        print '=> Gradient Vectors:\n'
+        print('=> Gradient Vectors:\n')
         istate = 0
         for imult, i, ms in itnmstates(states):
-            print '%s\t%i\tMs= % .1f:' % (IToMult[imult], i, ms)
+            print('%s\t%i\tMs= % .1f:' % (IToMult[imult], i, ms))
             printgrad(QMout['grad'][istate], natom, QMin['geo'])
             istate += 1
     # Nonadiabatic couplings
     if 'nacdr' in QMin:
-        print '=> Analytical Non-adiabatic coupling vectors:\n'
+        print('=> Analytical Non-adiabatic coupling vectors:\n')
         istate = 0
         for imult, i, msi in itnmstates(states):
             jstate = 0
             for jmult, j, msj in itnmstates(states):
                 if imult == jmult and msi == msj:
-                    print '%s\tStates %i - %i\tMs= % .1f:' % (IToMult[imult], i, j, msi)
+                    print('%s\tStates %i - %i\tMs= % .1f:' % (IToMult[imult], i, j, msi))
                     printgrad(QMout['nacdr'][istate][jstate], natom, QMin['geo'])
                 jstate += 1
             istate += 1
     # Overlaps
     if 'overlap' in QMin:
-        print '=> Overlap matrix:\n'
+        print('=> Overlap matrix:\n')
         matrix = QMout['overlap']
         printcomplexmatrix(matrix, states)
         if 'phases' in QMout:
-            print '=> Wavefunction Phases:\n'
+            print('=> Wavefunction Phases:\n')
             for i in range(nmstates):
-                print '% 3.1f % 3.1f' % (QMout['phases'][i].real, QMout['phases'][i].imag)
-            print '\n'
+                print('% 3.1f % 3.1f' % (QMout['phases'][i].real, QMout['phases'][i].imag))
+            print('\n')
     # Spin-orbit coupling derivatives
     if 'socdr' in QMin:
-        print '=> Spin-Orbit Gradient Vectors:\n'
+        print('=> Spin-Orbit Gradient Vectors:\n')
         istate = 0
         for imult, i, ims in itnmstates(states):
             jstate = 0
             for jmult, j, jms in itnmstates(states):
-                print '%s\t%i\tMs= % .1f -- %s\t%i\tMs= % .1f:' % (IToMult[imult], i, ims, IToMult[jmult], j, jms)
+                print('%s\t%i\tMs= % .1f -- %s\t%i\tMs= % .1f:' % (IToMult[imult], i, ims, IToMult[jmult], j, jms))
                 printgrad(QMout['socdr'][istate][jstate], natom, QMin['geo'])
                 jstate += 1
             istate += 1
     # Dipole moment derivatives
     if 'dmdr' in QMin:
-        print '=> Dipole moment derivative vectors:\n'
+        print('=> Dipole moment derivative vectors:\n')
         istate = 0
         for imult, i, msi in itnmstates(states):
             jstate = 0
             for jmult, j, msj in itnmstates(states):
                 if imult == jmult and msi == msj:
                     for ipol in range(3):
-                        print '%s\tStates %i - %i\tMs= % .1f\tPolarization %s:' % (IToMult[imult], i, j, msi, IToPol[ipol])
+                        print('%s\tStates %i - %i\tMs= % .1f\tPolarization %s:' % (IToMult[imult], i, j, msi, IToPol[ipol]))
                         printgrad(QMout['dmdr'][ipol][istate][jstate], natom, QMin['geo'])
                 jstate += 1
             istate += 1
     # Property matrix (dyson norms)
     if 'ion' in QMin and 'prop' in QMout:
-        print '=> Property matrix:\n'
+        print('=> Property matrix:\n')
         matrix = QMout['prop']
         printcomplexmatrix(matrix, states)
     # TheoDORE
     if 'theodore' in QMin:
-        print '=> TheoDORE results:\n'
+        print('=> TheoDORE results:\n')
         matrix = QMout['theodore']
         printtheodore(matrix, QMin)
     sys.stdout.flush()
@@ -786,7 +760,7 @@ def makermatrix(a, b):
 
 # ======================================================================= #
 def writeQMout(QMin, QMout, QMinfilename):
-    '''Writes the requested quantities to the file which SHARC reads in. The filename is QMinfilename with everything after the first dot replaced by "out". 
+    '''Writes the requested quantities to the file which SHARC reads in. The filename is QMinfilename with everything after the first dot replaced by "out".
 
     Arguments:
     1 dictionary: QMin
@@ -799,7 +773,7 @@ def writeQMout(QMin, QMout, QMinfilename):
     else:
         outfilename = QMinfilename[:k] + '.out'
     if PRINT:
-        print '===> Writing output to file %s in SHARC Format\n' % (outfilename)
+        print('===> Writing output to file %s in SHARC Format\n' % (outfilename))
     string = ''
     if 'h' in QMin or 'soc' in QMin:
         string += writeQMoutsoc(QMin, QMout)
@@ -1040,7 +1014,7 @@ def writeQMoutprop(QMin, QMout):
 
     nmstates = QMin['nmstates']
 
-    # print property matrix (flag 11) for backwards compatibility
+    # print(property matrix (flag 11) for backwards compatibility)
     string = ''
     string += '! %i Property Matrix (%ix%i, complex)\n' % (11, nmstates, nmstates)
     string += '%i %i\n' % (nmstates, nmstates)
@@ -1050,7 +1024,7 @@ def writeQMoutprop(QMin, QMout):
         string += '\n'
     string += '\n'
 
-    # print property matrices (flag 20) in new format
+    # print(property matrices (flag 20) in new format)
     string += '! %i Property Matrices\n' % (20)
     string += '%i    ! number of property matrices\n' % (1)
 
@@ -1160,13 +1134,13 @@ def checkscratch(SCRATCHDIR):
     if exist:
         isfile = os.path.isfile(SCRATCHDIR)
         if isfile:
-            print '$SCRATCHDIR=%s exists and is a file!' % (SCRATCHDIR)
+            print('$SCRATCHDIR=%s exists and is a file!' % (SCRATCHDIR))
             sys.exit(15)
     else:
         try:
             os.makedirs(SCRATCHDIR)
         except OSError:
-            print 'Can not create SCRATCHDIR=%s\n' % (SCRATCHDIR)
+            print('Can not create SCRATCHDIR=%s\n' % (SCRATCHDIR))
             sys.exit(16)
 
 # ======================================================================= #
@@ -1191,7 +1165,7 @@ def getBAGELversion(BAGELBIN):
             x = s[-1].split('.')
             return (int(x[0]), int(x[1]))
     else:
-        print 'WARNING: Could not detect BAGEL version!'
+        print('WARNING: Could not detect BAGEL version!')
         return (1900, 0)
 
 # ======================================================================= #
@@ -1225,20 +1199,20 @@ def get_sh2BAGEL_environ(sh2BAGEL, key, environ=True, crucial=True):
             LINE = os.getenv(key.upper())
             if not LINE:
                 if crucial:
-                    print 'Either set $%s or give path to %s in BAGEL.resources!' % (key.upper(), key.upper())
+                    print('Either set $%s or give path to %s in BAGEL.resources!' % (key.upper(), key.upper()))
                     sys.exit(17)
                 else:
                     return None
         else:
             if crucial:
-                print 'Give path to %s in BAGEL.resources!' % (key.upper())
+                print('Give path to %s in BAGEL.resources!' % (key.upper()))
                 sys.exit(18)
             else:
                 return None
     LINE = os.path.expandvars(LINE)
     LINE = os.path.expanduser(LINE)
     if containsstring(';', LINE):
-        print "$%s contains a semicolon. Do you probably want to execute another command after %s? I can't do that for you..." % (key.upper(), key.upper())
+        print("$%s contains a semicolon. Do you probably want to execute another command after %s? I can't do that for you..." % (key.upper(), key.upper()))
         sys.exit(19)
     return LINE
 
@@ -1252,7 +1226,7 @@ def get_pairs(QMinlines, i):
         try:
             line = QMinlines[i].lower()
         except IndexError:
-            print '"keyword select" has to be completed with an "end" on another line!'
+            print('"keyword select" has to be completed with an "end" on another line!')
             sys.exit(20)
         if 'end' in line:
             break
@@ -1260,7 +1234,7 @@ def get_pairs(QMinlines, i):
         try:
             nacpairs.append([int(fields[0]), int(fields[1])])
         except ValueError:
-            print '"nacdr select" is followed by pairs of state indices, each pair on a new line!'
+            print('"nacdr select" is followed by pairs of state indices, each pair on a new line!')
             sys.exit(21)
     return nacpairs, i
 
@@ -1268,7 +1242,7 @@ def get_pairs(QMinlines, i):
 
 
 def readQMin(QMinfilename):
-    '''Reads the time-step dependent information from QMinfilename. 
+    '''Reads the time-step dependent information from QMinfilename.
 
     Arguments:
     1 string: name of the QMin file
@@ -1286,11 +1260,11 @@ def readQMin(QMinfilename):
     try:
         natom = int(QMinlines[0])
     except ValueError:
-        print 'first line must contain the number of atoms!'
+        print('first line must contain the number of atoms!')
         sys.exit(22)
     QMin['natom'] = natom
     if len(QMinlines) < natom + 4:
-        print 'Input file must contain at least:\nnatom\ncomment\ngeometry\nkeyword "states"\nat least one task'
+        print('Input file must contain at least:\nnatom\ncomment\ngeometry\nkeyword "states"\nat least one task')
         sys.exit(23)
 
     # Save Comment line
@@ -1304,7 +1278,7 @@ def readQMin(QMinfilename):
     QMin['Atomcharge'] = 0
     for i in range(2, natom + 2):
         if not containsstring('[a-zA-Z][a-zA-Z]?[0-9]*.*[-]?[0-9]+[.][0-9]*.*[-]?[0-9]+[.][0-9]*.*[-]?[0-9]+[.][0-9]*', QMinlines[i]):
-            print 'Input file does not comply to xyz file format! Maybe natom is just wrong.'
+            print('Input file does not comply to xyz file format! Maybe natom is just wrong.')
             sys.exit(24)
         fields = QMinlines[i].split()
         fields[0] = fields[0].title()
@@ -1338,7 +1312,7 @@ def readQMin(QMinfilename):
         else:
             args = line.lower().split()[1:]
         if key in QMin:
-            print 'Repeated keyword %s in line %i in input file! Check your input!' % (key, i + 1)
+            print('Repeated keyword %s in line %i in input file! Check your input!' % (key, i + 1))
             continue  # only first instance of key in QM.in takes effect
         if len(args) >= 1 and args[0] == 'select':
             pairs, i = get_pairs(QMinlines, i)
@@ -1352,7 +1326,7 @@ def readQMin(QMinfilename):
         elif QMin['unit'][0] == 'bohr':
             factor = 1.
         else:
-            print 'Dont know input unit %s!' % (QMin['unit'][0])
+            print('Dont know input unit %s!' % (QMin['unit'][0]))
             sys.exit(25)
     else:
         factor = 1. / au2a
@@ -1363,8 +1337,8 @@ def readQMin(QMinfilename):
 
 
 
-    if not 'states' in QMin:
-        print 'Number of states not given in QM input file %s!' % (QMinfilename)
+    if 'states' not in QMin:
+        print('Number of states not given in QM input file %s!' % (QMinfilename))
         sys.exit(26)
     # Calculate states, nstates, nmstates
     for i in range(len(QMin['states'])):
@@ -1389,55 +1363,55 @@ def readQMin(QMinfilename):
     # Various logical checks
     possibletasks = ['h', 'soc', 'dm', 'grad', 'overlap', 'dmdr', 'socdr', 'ion', 'theodore', 'phases']
     if not any([i in QMin for i in possibletasks]):
-        print 'No tasks found! Tasks are %s.' % possibletasks
+        print('No tasks found! Tasks are %s.' % possibletasks)
         sys.exit(27)
 
-    if not 'h' in QMin:  # and not 'soc' in QMin:
+    if 'h' not in QMin:  # and not 'soc' in QMin:
         QMin['h'] = []
 
 #    if 'h' in QMin and 'soc' in QMin:
 #        QMin=removekey(QMin,'h')
 
     if 'soc' in QMin:
-        print 'Spin-orbit couplings ("soc") are not (yet) implemented'
+        print('Spin-orbit couplings ("soc") are not (yet) implemented')
         sys.exit(28)
 
 #    if 'soc' in QMin and (len(QMin['states'])<3 or QMin['states'][2]<=0):
 #        QMin=removekey(QMin,'soc')
 #        QMin['h']=[]
-#        print 'HINT: No triplet states requested, turning off SOC request.'
+#        print('HINT: No triplet states requested, turning off SOC request.')
 
     if 'samestep' in QMin and 'init' in QMin:
-        print '"Init" and "Samestep" cannot be both present in QM.in!'
+        print('"Init" and "Samestep" cannot be both present in QM.in!')
         sys.exit(29)
 
     if 'restart' in QMin and 'init' in QMin:
-        print '"Init" and "Restart" cannot be both present in QM.in!'
+        print('"Init" and "Restart" cannot be both present in QM.in!')
         sys.exit(30)
 
     if 'phases' in QMin:
         QMin['overlap'] = []
 
     if 'overlap' in QMin and 'init' in QMin:
-        print '"overlap" and "phases" cannot be calculated in the first timestep! Delete either "overlap" or "init"'
+        print('"overlap" and "phases" cannot be calculated in the first timestep! Delete either "overlap" or "init"')
         sys.exit(31)
 
-    if not 'init' in QMin and not 'samestep' in QMin and not 'restart' in QMin:
+    if 'init' not in QMin and 'samestep' not in QMin and 'restart' not in QMin:
         QMin['newstep'] = []
 
     if not any([i in QMin for i in ['h', 'soc', 'dm', 'grad']]) and 'overlap' in QMin:
         QMin['h'] = []
 
     if 'nacdt' in QMin:
-        print 'Within the SHARC-BAGEL interface, "nacdt" couplings are not supported.'
+        print('Within the SHARC-BAGEL interface, "nacdt" couplings are not supported.')
         sys.exit(32)
 
     if 'dmdr' in QMin:
-        print 'Dipole derivatives ("dmdr") not currently supported'
+        print('Dipole derivatives ("dmdr") not currently supported')
         sys.exit(33)
 
     if 'socdr' in QMin:
-        print 'Spin-orbit coupling derivatives ("socdr") are not implemented'
+        print('Spin-orbit coupling derivatives ("socdr") are not implemented')
         sys.exit(34)
 
 
@@ -1451,10 +1425,10 @@ def readQMin(QMinfilename):
                 try:
                     QMin['grad'][i] = int(QMin['grad'][i])
                 except ValueError:
-                    print 'Arguments to keyword "grad" must be "all" or a list of integers!'
+                    print('Arguments to keyword "grad" must be "all" or a list of integers!')
                     sys.exit(35)
                 if QMin['grad'][i] > nmstates:
-                    print 'State for requested gradient does not correspond to any state in QM input file state list!'
+                    print('State for requested gradient does not correspond to any state in QM input file state list!')
                     sys.exit(36)
 
     # Process the non-adiabatic coupling requests
@@ -1464,7 +1438,7 @@ def readQMin(QMinfilename):
             nacpairs = QMin['nacdr']
             for i in range(len(nacpairs)):
                 if nacpairs[i][0] > nmstates or nacpairs[i][1] > nmstates:
-                    print 'State for requested non-adiabatic couplings does not correspond to any state in QM input file state list!'
+                    print('State for requested non-adiabatic couplings does not correspond to any state in QM input file state list!')
                     sys.exit(37)
         else:
             QMin['nacdr'] = [[j + 1, i + 1] for i in range(nmstates) for j in range(i)]
@@ -1484,13 +1458,13 @@ def readQMin(QMinfilename):
     if os.path.isfile(filename):
         sh2BAGEL = readfile(filename)
     else:
-        print 'No BAGEL.resources file found!'
+        print('No BAGEL.resources file found!')
         sys.exit(38)
 
 
     # Set up scratchdir
     line = get_sh2BAGEL_environ(sh2BAGEL, 'scratchdir', False, False)
-    if line == None:
+    if line is None:
         line = QMin['pwd'] + '/SCRATCHDIR/'
     line = os.path.expandvars(line)
     line = os.path.expanduser(line)
@@ -1507,7 +1481,7 @@ def readQMin(QMinfilename):
         line = QMin['savedir'][0]
     else:
         line = get_sh2BAGEL_environ(sh2BAGEL, 'savedir', False, False)
-        if line == None:
+        if line is None:
             line = QMin['pwd'] + '/SAVEDIR/'
     line = os.path.expandvars(line)
     line = os.path.expanduser(line)
@@ -1523,7 +1497,7 @@ def readQMin(QMinfilename):
     # setup environment for BAGEL
     QMin['BAGEL'] = get_sh2BAGEL_environ(sh2BAGEL, 'bagel')
     if not os.path.isfile(os.path.join(QMin['BAGEL'], 'bin', 'BAGEL')):
-        print 'BAGEL executable at "%s" not found!' % os.path.join(QMin['BAGEL'], 'bin', 'BAGEL')
+        print('BAGEL executable at "%s" not found!' % os.path.join(QMin['BAGEL'], 'bin', 'BAGEL'))
         sys.exit(39)
     os.environ['LD_LIBRARY_PATH'] = os.environ['LD_LIBRARY_PATH'] + ':%s' % (QMin['BAGEL'] + '/lib')
 
@@ -1557,14 +1531,14 @@ def readQMin(QMinfilename):
         try:
             QMin['ncpu'] = int(line[1])
         except ValueError:
-            print 'Number of CPUs does not evaluate to numerical value!'
+            print('Number of CPUs does not evaluate to numerical value!')
             sys.exit(40)
-    if os.environ.get('NSLOTS') != None:
+    if os.environ.get('NSLOTS') is not None:
         QMin['ncpu'] = int(os.environ.get('NSLOTS'))
-        print 'Detected $NSLOTS variable. Will use ncpu=%i' % (QMin['ncpu'])
-    elif os.environ.get('SLURM_NTASKS_PER_NODE') != None:
+        print('Detected $NSLOTS variable. Will use ncpu=%i' % (QMin['ncpu']))
+    elif os.environ.get('SLURM_NTASKS_PER_NODE') is not None:
         QMin['ncpu'] = int(os.environ.get('SLURM_NTASKS_PER_NODE'))
-        print 'Detected $SLURM_NTASKS_PER_NODE variable. Will use ncpu=%i' % (QMin['ncpu'])
+        print('Detected $SLURM_NTASKS_PER_NODE variable. Will use ncpu=%i' % (QMin['ncpu']))
     QMin['ncpu'] = max(1, QMin['ncpu'])
 
     QMin['mpi'] = False
@@ -1579,7 +1553,7 @@ def readQMin(QMinfilename):
         try:
             QMin['delay'] = float(line[1])
         except ValueError:
-            print 'Submit delay does not evaluate to numerical value!'
+            print('Submit delay does not evaluate to numerical value!')
             sys.exit(41)
 
 
@@ -1591,7 +1565,7 @@ def readQMin(QMinfilename):
             if 0 < x <= 2.:
                 QMin['schedule_scaling'] = x
         except ValueError:
-            print '"schedule_scaling" does not evaluate to numerical value!'
+            print('"schedule_scaling" does not evaluate to numerical value!')
             sys.exit(42)
 
 
@@ -1604,7 +1578,7 @@ def readQMin(QMinfilename):
     if line[0]:
         QMin['always_guess'] = []
     if 'always_orb_init' in QMin and 'always_guess' in QMin:
-        print 'Keywords "always_orb_init" and "always_guess" cannot be used together!'
+        print('Keywords "always_orb_init" and "always_guess" cannot be used together!')
         sys.exit(43)
 
 
@@ -1612,28 +1586,28 @@ def readQMin(QMinfilename):
     if 'overlap' in QMin or 'ion' in QMin:
         # wfoverlap
         QMin['wfoverlap'] = get_sh2BAGEL_environ(sh2BAGEL, 'wfoverlap', False, False)
-        if QMin['wfoverlap'] == None:
+        if QMin['wfoverlap'] is None:
             ciopath = os.path.join(os.path.expandvars(os.path.expanduser('$SHARC')), 'wfoverlap.x')
             if os.path.isfile(ciopath):
                 QMin['wfoverlap'] = ciopath
             else:
-                print 'Give path to wfoverlap.x in BAGEL.resources!'
+                print('Give path to wfoverlap.x in BAGEL.resources!')
                 sys.exit(44)
 
         # PyQuante
         QMin['pyquante'] = get_sh2BAGEL_environ(sh2BAGEL, 'pyquante', False, False)
-        if QMin['pyquante'] == None or not os.path.isdir(QMin['pyquante']):
-            print 'Give path to the PyQuante installation directory in BAGEL.resources!'
+        if QMin['pyquante'] is None or not os.path.isdir(QMin['pyquante']):
+            print('Give path to the PyQuante installation directory in BAGEL.resources!')
             sys.exit(45)
         if 'PYTHONPATH' in os.environ:
-           #     os.environ['PYTHONPATH']=os.path.join(QMin['pyquante']) + os.pathsep + os.environ['PYTHONPATH']
+            # os.environ['PYTHONPATH']=os.path.join(QMin['pyquante']) + os.pathsep + os.environ['PYTHONPATH']
 
-            #os.pathsep + QMin['pyquante']
-            #    print "already pypath"
-            #    print os.environ['PYTHONPATH']
+            # os.pathsep + QMin['pyquante']
+            #    print("already pypath")
+            #    print(os.environ['PYTHONPATH'])
             # else:
             #    os.environ['PYTHONPATH']=QMin['pyquante']
-            #    print "no pypath"
+            #    print("no pypath")
             sys.path.append(QMin['pyquante'])
 
     # memory cannot set memory! #TODO
@@ -1672,7 +1646,7 @@ def readQMin(QMinfilename):
             elif line[1].lower().strip() == 'closest':
                 QMin['neglected_gradient'] = 'closest'
             else:
-                print 'Unknown argument to "neglected_gradient"!'
+                print('Unknown argument to "neglected_gradient"!')
                 sys.exit(46)
 
 
@@ -1750,11 +1724,11 @@ def readQMin(QMinfilename):
                 if len(line) == 2:
                     charge = int(float(line[1]))
                     if (QMin['Atomcharge'] + charge) % 2 == 1 and len(QMin['states']) > 1:
-                        print 'HINT: Charge shifted by -1 to be compatible with multiplicities.'
+                        print('HINT: Charge shifted by -1 to be compatible with multiplicities.')
                         charge -= 1
                     QMin['template']['charge'] = [i % 2 + charge for i in range(len(QMin['states']))]
-                    print 'HINT: total charge per multiplicity automatically assigned, please check (%s).' % QMin['template']['charge']
-                    print 'You can set the charge in the template manually for each multiplicity ("charge 0 +1 0 ...")\n'
+                    print('HINT: total charge per multiplicity automatically assigned, please check (%s).' % QMin['template']['charge'])
+                    print('You can set the charge in the template manually for each multiplicity ("charge 0 +1 0 ...")\n')
                 elif len(line) - 1 >= len(QMin['states']):
                     QMin['template']['charge'] = [int(float(line[1 + i])) for i in range(len(QMin['states']))]
                     compatible = True
@@ -1762,28 +1736,28 @@ def readQMin(QMinfilename):
                         if not (QMin['Atomcharge'] + cha + imult) % 2 == 0:
                             compatible = False
                     if not compatible:
-                        print 'WARNING: Charges from template not compatible with multiplicities!  (this is probably OK if you use QM/MM)'
+                        print('WARNING: Charges from template not compatible with multiplicities!  (this is probably OK if you use QM/MM)')
                         sys.exit(47)
 #                else:
-#                    print 'Length of "charge" does not match length of "states"!'
+#                    print('Length of "charge" does not match length of "states"!')
 #                    sys.exit(48)
             elif line[0] == 'nstate':
                 rootstates = [int(x) for x in line[1:]]
                 while rootstates[-1] == 0:
                     rootstates.pop()
                 if len(QMin['states']) != len(rootstates):
-                    print 'WARNING: Different set of multiplicities specified in input and BAGEL.template, exiting'
+                    print('WARNING: Different set of multiplicities specified in input and BAGEL.template, exiting')
                     sys.exit(48)
                 for i in range(len(QMin['states'])):
                     if QMin['states'][i] > rootstates[i]:
-                        print 'WARNING: Requesting more states in input than are calculated in the QM call!'
+                        print('WARNING: Requesting more states in input than are calculated in the QM call!')
                         sys.exit(49)
                 QMin['template']['nstate'] = rootstates
 
 
 
     if QMin['template']['shift_imag'] == "true" and QMin['template']['orthogonal_basis'] == "false":
-        print 'Use of the imaginary shift is only possible in the orthogonal basis. The corresponding keyword has been set'
+        print('Use of the imaginary shift is only possible in the orthogonal basis. The corresponding keyword has been set')
         QMin['template']['orthogonal_basis'] = "true"
 
 
@@ -1818,13 +1792,13 @@ def readQMin(QMinfilename):
     # check what type of caspt2 was requested
     QMin['template']['method'] = QMin['template']['method'].lower()
     if QMin['template']['method'] == 'caspt2' and any([True if x > 1 else False for x in QMin['states']]):
-        print 'CASPT2 nuclear gradients are not implemented in BAGEL for SS-CASPT2 with multiple reference states'
+        print('CASPT2 nuclear gradients are not implemented in BAGEL for SS-CASPT2 with multiple reference states')
         sys.exit(50)
     elif QMin['template']['method'] == 'ms-caspt2':
         QMin['template']['method'] = 'caspt2'
         QMin['template']['xms'] = 'false'
         QMin['template']['ms'] = 'true'
-        print 'MS-CASPT2 gradients do not seem to be stable at the moment, violating total energy conversion throughout the dynamics in coupling regions. If static properties are of interest, it is sufficient to comment out the exit statement after this comment.'
+        print('MS-CASPT2 gradients do not seem to be stable at the moment, violating total energy conversion throughout the dynamics in coupling regions. If static properties are of interest, it is sufficient to comment out the exit statement after this comment.')
         # sys.exit()
     elif QMin['template']['method'] == 'xms-caspt2':
         QMin['template']['method'] = 'caspt2'
@@ -1875,8 +1849,7 @@ def readQMin(QMinfilename):
     joblist = set()
     for i in jobs:
         joblist.add(i)
-    joblist = list(joblist)
-    joblist.sort()
+    joblist = sorted(joblist)
     QMin['joblist'] = joblist
     njobs = len(joblist)
     QMin['njobs'] = njobs
@@ -1899,9 +1872,9 @@ def readQMin(QMinfilename):
 
     # need NAC calculation for transition dipole moments  and grads for static
     if QMin['dipolelevel'] > 0:
-        if not 'grad' in QMin and QMin['dipolelevel'] == 2:
+        if 'grad' not in QMin and QMin['dipolelevel'] == 2:
             QMin['grad'] = []
-        if not 'nacdr' in QMin:
+        if 'nacdr' not in QMin:
             QMin['nacdr'] = []
 
     # get the set of states for which gradients actually need to be calculated
@@ -1981,7 +1954,7 @@ def readQMin(QMinfilename):
             if os.path.isfile(filename):
                 initorbs[job] = filename
         if 'always_orb_init' in QMin and len(initorbs) < njobs:
-            print 'Initial orbitals missing for some jobs!'
+            print('Initial orbitals missing for some jobs!')
             sys.exit(52)
         QMin['initorbs'] = initorbs
     elif 'newstep' in QMin:
@@ -1990,7 +1963,7 @@ def readQMin(QMinfilename):
             if os.path.isfile(filename):
                 initorbs[job] = filename + '.old.archive'     # file will be moved to .old
             else:
-                print 'File %s missing in savedir!' % (filename)
+                print('File %s missing in savedir!' % (filename))
                 sys.exit(53)
         QMin['initorbs'] = initorbs
     elif 'samestep' in QMin:
@@ -1999,7 +1972,7 @@ def readQMin(QMinfilename):
             if os.path.isfile(filename):
                 initorbs[job] = filename
             else:
-                print 'File %s missing in savedir!' % (filename)
+                print('File %s missing in savedir!' % (filename))
                 sys.exit(54)
         QMin['initorbs'] = initorbs
     elif 'restart' in QMin:
@@ -2008,7 +1981,7 @@ def readQMin(QMinfilename):
             if os.path.isfile(filename):
                 initorbs[job] = filename
             else:
-                print 'File %s missing in savedir!' % (filename)
+                print('File %s missing in savedir!' % (filename))
                 sys.exit(55)
         QMin['initorbs'] = initorbs
 
@@ -2034,9 +2007,9 @@ def readQMin(QMinfilename):
         QMin['backup'] = backupdir
 
     if DEBUG:
-        print '======= DEBUG print for QMin ======='
+        print('======= DEBUG print(for QMin ======='))
         pprint.pprint(QMin)
-        print '===================================='
+        print('====================================')
     return QMin
 
 # =============================================================================================== #
@@ -2067,7 +2040,7 @@ def divide_slots(ncpu, ntasks, scaling):
         nrounds = int(math.ceil(float(ntasks) / i))
         ncores = ncpu / i
         optimal[i] = nrounds / parallel_speedup(ncores, scaling)
-    # print optimal
+    # print(optimal)
     best = min(optimal, key=optimal.get)
     nrounds = int(math.ceil(float(ntasks) / best))
     ncores = ncpu / best
@@ -2085,7 +2058,7 @@ def divide_slots(ncpu, ntasks, scaling):
         for itask in range(ntasks):
             cpu_per_run[itask] = ncores
         nslots = ncpu / ncores
-    # print nrounds,nslots,cpu_per_run
+    # print(nrounds,nslots,cpu_per_run)
     return nrounds, nslots, cpu_per_run
 
 # =============================================================================================== #
@@ -2158,7 +2131,7 @@ def runjobs(schedule, QMin):
     if 'newstep' in QMin:
         moveOldFiles(QMin)
 
-    print '>>>>>>>>>>>>> Starting the BAGEL job execution'
+    print('>>>>>>>>>>>>> Starting the BAGEL job execution')
     errorcodes = {}
     for ijobset, jobset in enumerate(schedule):
         if not jobset:
@@ -2184,12 +2157,12 @@ def runjobs(schedule, QMin):
             j = 0
             string += '\n'
     if any((i != 0 for i in errorcodes.values())):
-        print 'Some subprocesses did not finish successfully!'
-        print 'See %s:%s for error messages in BAGEL output.' % (gethostname(), QMin['scratchdir'])
+        print('Some subprocesses did not finish successfully!')
+        print('See %s:%s for error messages in BAGEL output.' % (gethostname(), QMin['scratchdir']))
         sys.exit(56)
     print
     if PRINT:
-        print '>>>>>>>>>>>>> Saving files'
+        print('>>>>>>>>>>>>> Saving files')
         starttime = datetime.datetime.now()
 
     for ijobset, jobset in enumerate(schedule):
@@ -2198,13 +2171,13 @@ def runjobs(schedule, QMin):
         for job in jobset:
             if 'master' in job:
                 WORKDIR = os.path.join(QMin['scratchdir'], job)
-                if not 'samestep' in QMin:
+                if 'samestep' not in QMin:
                     saveFiles(WORKDIR, jobset[job])
                 if 'ion' in QMin and ijobset == 0:
                     saveAOmatrix(WORKDIR, QMin, job)
     if PRINT:
         endtime = datetime.datetime.now()
-        print 'Saving Runtime: %s' % (endtime - starttime)
+        print('Saving Runtime: %s' % (endtime - starttime))
     print
 
     return errorcodes
@@ -2217,10 +2190,10 @@ def run_calc(WORKDIR, QMin):
         setupWORKDIR(WORKDIR, QMin)
         strip = False
         err = runBAGEL(WORKDIR, QMin['BAGEL'], QMin['ncpu'], QMin['mpi'], QMin['savedir'], strip)
-    except Exception, problem:
-        print '*' * 50 + '\nException in run_calc(%s)!' % (WORKDIR)
+    except Exception as problem:
+        print('*' * 50 + '\nException in run_calc(%s)!' % (WORKDIR))
         traceback.print_exc()
-        print '*' * 50 + '\n'
+        print('*' * 50 + '\n')
         raise problem
 
     return err
@@ -2233,21 +2206,21 @@ def setupWORKDIR(WORKDIR, QMin):
     # then put the BAGEL.input file
 
     # setup the directory
-    # print "\n new working directory", WORKDIR, "\n"
+    # print("\n new working directory", WORKDIR, "\n")
     mkdir(WORKDIR)
     # write BAGEL.input
     inputstring = writeBAGELinput(QMin)
     # for string in inputstrings:
-    #  print string
+    #  print(string)
 
     filename = os.path.join(WORKDIR, 'BAGEL.run')
     writefile(filename, inputstring)
 
     if DEBUG:
-        print '================== DEBUG input file for WORKDIR %s =================' % (shorten_DIR(WORKDIR))
-        print inputstring
-        print 'BAGEL input written to: %s' % (filename)
-        print '===================================================================='
+        print('================== DEBUG input file for WORKDIR %s =================' % (shorten_DIR(WORKDIR)))
+        print(inputstring)
+        print('BAGEL input written to: %s' % (filename))
+        print('====================================================================')
 
     # wf file copying
     if 'master' in QMin:
@@ -2256,7 +2229,7 @@ def setupWORKDIR(WORKDIR, QMin):
         if job in QMin['initorbs']:
             fromfile = QMin['initorbs'][job]
             tofile = os.path.join(WORKDIR, 'archive.archive')
-            print 'copying from file ', fromfile, ' to file ', tofile
+            print('copying from file ', fromfile, ' to file ', tofile)
             shutil.copy(fromfile, tofile)
     elif 'grad' in QMin:
         job = QMin['IJOB']
@@ -2481,19 +2454,19 @@ def runBAGEL(WORKDIR, BAGEL, ncpu, mpi, savedir, strip=False):
 
     prevdir = os.getcwd()
     os.chdir(WORKDIR)
-    # print ncpu
-    if mpi == True:
+    # print(ncpu)
+    if mpi:
         string = 'mpirun -n ' + str(ncpu) + ' ' + os.path.join(BAGEL, 'bin', 'BAGEL') + ' '
         os.environ['OMP_NUM_THREADS'] = '1'
         os.environ['MKL_NUM_THREADS'] = '1'
         os.environ['BAGEL_NUM_THREADS'] = '1'
-        print "\nRunning with MPI (mpirun -n %i)" % (ncpu)
+        print("\nRunning with MPI (mpirun -n %i)" % (ncpu))
     else:
         string = os.path.join(BAGEL, 'bin', 'BAGEL') + ' '
         os.environ['OMP_NUM_THREADS'] = str(ncpu)
         os.environ['MKL_NUM_THREADS'] = str(ncpu)
         os.environ['BAGEL_NUM_THREADS'] = str(ncpu)
-        print "\nRunning with OpenMP (%i cores)" % (ncpu)
+        print("\nRunning with OpenMP (%i cores)" % (ncpu))
     if PRINT or DEBUG:
         starttime = datetime.datetime.now()
         sys.stdout.write('START:\t%s\t%s\t"%s"\n' % (shorten_DIR(WORKDIR), starttime, shorten_DIR(string)))
@@ -2505,7 +2478,7 @@ def runBAGEL(WORKDIR, BAGEL, ncpu, mpi, savedir, strip=False):
     try:
         runerror = sp.call(string, shell=True, stdout=stdoutfile, stderr=stderrfile)
     except OSError:
-        print 'Call have had some serious problems:', OSError
+        print('Call have had some serious problems:', OSError)
         sys.exit(57)
 
     stdoutfile.close()
@@ -2527,7 +2500,7 @@ def runBAGEL(WORKDIR, BAGEL, ncpu, mpi, savedir, strip=False):
         outfile = os.path.join(WORKDIR, 'BAGEL.out')
         tofile = os.path.join(copydir, "BAGEL_problems_%s.out" % (os.path.basename(WORKDIR)))
         shutil.copy(outfile, tofile)
-        print 'Error in %s! Copied BAGEL output to %s' % (WORKDIR, tofile)
+        print('Error in %s! Copied BAGEL output to %s' % (WORKDIR, tofile))
     os.chdir(prevdir)
     # strip=False
     if strip and not DEBUG and runerror == 0:
@@ -2556,36 +2529,36 @@ def stripWORKDIR(WORKDIR):
 def moveOldFiles(QMin):
     # moves all relevant files in the savedir to old files (per job)
     if PRINT:
-        print '>>>>>>>>>>>>> Moving old files'
+        print('>>>>>>>>>>>>> Moving old files')
     basenames = ['archive', 'orbitals.molden']
-    if not 'nooverlap' in QMin:
+    if 'nooverlap' not in QMin:
         basenames.append('mos')
     for job in QMin['joblist']:
         for base in basenames:
             fromfile = os.path.join(QMin['savedir'], '%s.%i' % (base, job))
             if not os.path.isfile(fromfile):
-                print 'File %s not found, cannot move to OLD!' % (fromfile)
+                print('File %s not found, cannot move to OLD!' % (fromfile))
                 sys.exit(58)
             if base == 'archive':
                 tofile = os.path.join(QMin['savedir'], '%s.%i.old.archive' % (base, job))
             else:
                 tofile = os.path.join(QMin['savedir'], '%s.%i.old' % (base, job))
             if PRINT:
-                print shorten_DIR(fromfile) + '   =>   ' + shorten_DIR(tofile)
+                print(shorten_DIR(fromfile) + '   =>   ' + shorten_DIR(tofile))
             shutil.copy(fromfile, tofile)
     # moves all relevant files in the savedir to old files (per mult)
     basenames = []
-    if not 'nooverlap' in QMin:
+    if 'nooverlap' not in QMin:
         basenames = ['dets']
     for job in itmult(QMin['states']):
         for base in basenames:
             fromfile = os.path.join(QMin['savedir'], '%s.%i' % (base, job))
             if not os.path.isfile(fromfile):
-                print 'File %s not found, cannot move to OLD!' % (fromfile)
+                print('File %s not found, cannot move to OLD!' % (fromfile))
                 sys.exit(59)
             tofile = os.path.join(QMin['savedir'], '%s.%i.old' % (base, job))
             if PRINT:
-                print shorten_DIR(fromfile) + '   =>   ' + shorten_DIR(tofile)
+                print(shorten_DIR(fromfile) + '   =>   ' + shorten_DIR(tofile))
             shutil.copy(fromfile, tofile)
     # also remove aoovl files if present
     delete = ['AO_overl', 'AO_overl.mixed']
@@ -2594,7 +2567,7 @@ def moveOldFiles(QMin):
         if os.path.isfile(rmfile):
             os.remove(rmfile)
             if PRINT:
-                print 'rm ' + rmfile
+                print('rm ' + rmfile)
     print
 
 # ======================================================================= #
@@ -2612,25 +2585,25 @@ def saveFiles(WORKDIR, QMin):
     tofile = os.path.join(QMin['savedir'], 'orbitals.molden.%i' % (job))
     shutil.copy(fromfile, tofile)
     if PRINT:
-        print shorten_DIR(tofile)
+        print(shorten_DIR(tofile))
 
     # if necessary, extract the MOs and write them to savedir
-    if 'ion' in QMin or not 'nooverlap' in QMin:
+    if 'ion' in QMin or 'nooverlap' not in QMin:
         f = os.path.join(WORKDIR, 'orbitals.molden.%i' % job)
         string = make_mos_from_Molden(f, QMin)
         mofile = os.path.join(QMin['savedir'], 'mos.%i' % job)
         writefile(mofile, string)
         if PRINT:
-            print shorten_DIR(mofile)
+            print(shorten_DIR(mofile))
 
     # if necessary, extract the CI coefficients and write them to savedir
-    if 'ion' in QMin or not 'nooverlap' in QMin:
+    if 'ion' in QMin or 'nooverlap' not in QMin:
         f = os.path.join(WORKDIR, 'BAGEL.out')
         strings = get_dets_from_cores(f, QMin)
         for f in strings:
             writefile(f, strings[f])
             if PRINT:
-                print shorten_DIR(f)
+                print(shorten_DIR(f))
 
 # ======================================================================= #
 
@@ -2705,12 +2678,12 @@ def make_mos_from_Molden(moldenfile, QMin):
         if '[gto]' in line.lower():
             break
     else:
-        print 'Could not find basis set in %s!' % (moldenfile)
+        print('Could not find basis set in %s!' % (moldenfile))
         sys.exit(60)
     while True:
         iline += 1
         if iline >= len(data):
-            print 'Could not find basis set in %s!' % (moldenfile)
+            print('Could not find basis set in %s!' % (moldenfile))
             sys.exit(61)
         line = data[iline].lower()
         if '[' in line:
@@ -2726,7 +2699,7 @@ def make_mos_from_Molden(moldenfile, QMin):
         if '[mo]' in line.lower():
             break
     else:
-        print 'Could not find MO coefficients in %s!' % (moldenfile)
+        print('Could not find MO coefficients in %s!' % (moldenfile))
         sys.exit(62)
 
     NAO = NAOs[1]
@@ -2740,7 +2713,7 @@ def make_mos_from_Molden(moldenfile, QMin):
             MO_A[imo][iao] = float(line.split()[1])
 
     if any([1 == mode[i] for i in aos]):
-        print '  .. transforming to cartesian AO basis'
+        print('  .. transforming to cartesian AO basis')
 
 
     d34 = math.sqrt(3. / 4.)
@@ -2864,7 +2837,7 @@ def get_dets_from_cores(filename, QMin):
         if len(line.strip()) == 0 and readrot:
             totrot.append(rot)
             readrot = False
-        if read and not 'Reference calculation' in line:
+        if read and 'Reference calculation' not in line:
             ci_vec[line.split()[0].replace('2', '3').replace('a', '2').replace('b', '1').replace('.', '0')] = line.split()[1]
 
         if readrot:
@@ -2889,7 +2862,7 @@ def get_dets_from_cores(filename, QMin):
 
     # rotate states to get caspt2-ci-coeffs
     if QMin['template']['method'] == 'caspt2' and len(totrot) > 0:
-        # print "rot start"
+        # print("rot start")
         for j in range(len(totrot)):
             mats = [totrot[j]]
             newstates = []
@@ -2910,7 +2883,7 @@ def get_dets_from_cores(filename, QMin):
 #          cisum=0
 #          for entry in m:
 #            cisum+=m[entry]**2
-#          print cisum
+#          print(cisum)
     else:
         newstates = casscf
 
@@ -2937,7 +2910,7 @@ def get_dets_from_cores(filename, QMin):
         break  # break after first configuration
     # construct string for det file
     nalpha = na + nclosed
-    # print "hupdidupi", nclosed, nact, nvirt
+    # print("hupdidupi", nclosed, nact, nvirt)
     s = '%i %i %i\n' % (len(newstates), nclosed + nact + nvirt, len(used_dets))
 
     # adapt sign of the configurations to be consistent with the wfoverlap convention
@@ -2968,20 +2941,20 @@ def mkdir(DIR):
     # mkdir the DIR, or clean it if it exists
     if os.path.exists(DIR):
         if os.path.isfile(DIR):
-            print '%s exists and is a file!' % (DIR)
+            print('%s exists and is a file!' % (DIR))
             sys.exit(63)
         elif os.path.isdir(DIR):
             if DEBUG:
-                print 'Remake\t%s' % DIR
+                print('Remake\t%s' % DIR)
             shutil.rmtree(DIR)
             os.makedirs(DIR)
     else:
         try:
             if DEBUG:
-                print 'Make\t%s' % DIR
+                print('Make\t%s' % DIR)
             os.makedirs(DIR)
         except OSError:
-            print 'Can not create %s\n' % (DIR)
+            print('Can not create %s\n' % (DIR))
             sys.exit(64)
 
 # ======================================================================= #
@@ -2990,7 +2963,7 @@ def mkdir(DIR):
 def link(PATH, NAME, crucial=True, force=True):
     # do not create broken links
     if not os.path.exists(PATH) and crucial:
-        print 'Source %s does not exist, cannot create link!' % (PATH)
+        print('Source %s does not exist, cannot create link!' % (PATH))
         sys.exit(65)
     if os.path.islink(NAME):
         if not os.path.exists(NAME):
@@ -3002,14 +2975,14 @@ def link(PATH, NAME, crucial=True, force=True):
                 # remove the link if forced to
                 os.remove(NAME)
             else:
-                print '%s exists, cannot create a link of the same name!' % (NAME)
+                print('%s exists, cannot create a link of the same name!' % (NAME))
                 if crucial:
                     sys.exit(66)
                 else:
                     return
     elif os.path.exists(NAME):
         # NAME is not a link. The interface will not overwrite files/directories with links, even with force=True
-        print '%s exists, cannot create a link of the same name!' % (NAME)
+        print('%s exists, cannot create a link of the same name!' % (NAME))
         if crucial:
             sys.exit(67)
         else:
@@ -3026,12 +2999,12 @@ def link(PATH, NAME, crucial=True, force=True):
 def run_theodore(QMin, errorcodes):
 
     if 'theodore' in QMin:
-        print '>>>>>>>>>>>>> Starting the TheoDORE job execution'
+        print('>>>>>>>>>>>>> Starting the TheoDORE job execution')
 
         for ijob in QMin['jobs']:
             if not QMin['jobs'][ijob]['restr']:
                 if DEBUG:
-                    print 'Skipping Job %s because it is unrestricted.' % (ijob)
+                    print('Skipping Job %s because it is unrestricted.' % (ijob))
                 continue
             WORKDIR = os.path.join(QMin['scratchdir'], 'master_%i' % ijob)
             setupWORKDIR_TH(WORKDIR, QMin)
@@ -3048,9 +3021,9 @@ def run_theodore(QMin, errorcodes):
                 if j == 4:
                     j = 0
                     string += '\n'
-        print string
+        print(string)
         if any((i != 0 for i in errorcodes.values())):
-            print 'Some subprocesses did not finish successfully!'
+            print('Some subprocesses did not finish successfully!')
             sys.exit(68)
 
         print ''
@@ -3080,10 +3053,10 @@ at_lists=%s
     filename = os.path.join(WORKDIR, 'dens_ana.in')
     writefile(filename, inputstring)
     if DEBUG:
-        print '================== DEBUG input file for WORKDIR %s =================' % (shorten_DIR(WORKDIR))
-        print inputstring
-        print 'TheoDORE input written to: %s' % (filename)
-        print '===================================================================='
+        print('================== DEBUG input file for WORKDIR %s =================' % (shorten_DIR(WORKDIR)))
+        print(inputstring)
+        print('TheoDORE input written to: %s' % (filename))
+        print('====================================================================')
 
     return
 
@@ -3103,7 +3076,7 @@ def runTHEODORE(WORKDIR, THEODIR):
     try:
         runerror = sp.call(string, shell=True, stdout=stdoutfile, stderr=stderrfile)
     except OSError:
-        print 'Call have had some serious problems:', OSError
+        print('Call have had some serious problems:', OSError)
         sys.exit(69)
     stdoutfile.close()
     stderrfile.close()
@@ -3123,7 +3096,7 @@ def runTHEODORE(WORKDIR, THEODIR):
 
 def run_wfoverlap(QMin, errorcodes):
 
-    print '>>>>>>>>>>>>> Starting the WFOVERLAP job execution'
+    print('>>>>>>>>>>>>> Starting the WFOVERLAP job execution')
 
     # do Dyson calculations
     if 'ion' in QMin:
@@ -3161,9 +3134,9 @@ def run_wfoverlap(QMin, errorcodes):
             if j == 4:
                 j = 0
                 string += '\n'
-    print string
+    print(string)
     if any((i != 0 for i in errorcodes.values())):
-        print 'Some subprocesses did not finish successfully!'
+        print('Some subprocesses did not finish successfully!')
         sys.exit(70)
 
     print ''
@@ -3184,7 +3157,7 @@ def setupWORKDIR_WF(WORKDIR, QMin, files):
 a_mo=mo.a
 b_mo=mo.b
 a_det=det.a
-b_det=det.b 
+b_det=det.b
 a_mo_read=0
 b_mo_read=0
 ao_read=0
@@ -3197,10 +3170,10 @@ ao_read=0
     filename = os.path.join(WORKDIR, 'wfovl.inp')
     writefile(filename, inputstring)
     if DEBUG:
-        print '================== DEBUG input file for WORKDIR %s =================' % (shorten_DIR(WORKDIR))
-        print inputstring
-        print 'wfoverlap input written to: %s' % (filename)
-        print '===================================================================='
+        print('================== DEBUG input file for WORKDIR %s =================' % (shorten_DIR(WORKDIR)))
+        print(inputstring)
+        print('wfoverlap input written to: %s' % (filename))
+        print('====================================================================')
 
     # link input files from save
     linkfiles = ['aoovl', 'det.a', 'det.b', 'mo.a', 'mo.b']
@@ -3228,7 +3201,7 @@ def runWFOVERLAP(WORKDIR, WFOVERLAP, memory=100, ncpu=1):
     try:
         runerror = sp.call(string, shell=True, stdout=stdoutfile, stderr=stderrfile)
     except OSError:
-        print 'Call have had some serious problems:', OSError
+        print('Call have had some serious problems:', OSError)
         sys.exit(71)
     stdoutfile.close()
     stderrfile.close()
@@ -3286,7 +3259,7 @@ def get_smat_from_Molden(file1, file2=''):
         from PyQuante import Molecule
         from PyQuante.shell import Shell
     except ImportError:
-        print 'Could not import PyQuante!'
+        print('Could not import PyQuante!')
         sys.exit(72)
 
     class moldenBasisSet(BasisSet):
@@ -3344,7 +3317,7 @@ def read_molden(filename):
         if '[atoms]' in line.lower():
             break
     else:
-        print 'No geometry found in %s!' % (filename)
+        print('No geometry found in %s!' % (filename))
         sys.exit(73)
 
     if 'au' in line.lower():
@@ -3366,7 +3339,7 @@ def read_molden(filename):
         if '[gto]' in line.lower():
             break
     else:
-        print 'No basis set found in %s!' % (filename)
+        print('No basis set found in %s!' % (filename))
         sys.exit(74)
 
     shells = {'s': 1, 'p': 3, 'd': 6, 'f': 10, 'g': 15}
@@ -3409,7 +3382,7 @@ def saveAOmatrix(WORKDIR, QMin, job):
     filename = os.path.join(QMin['savedir'], 'AO_overl')
     writefile(filename, string)
     if PRINT:
-        print shorten_DIR(filename)
+        print(shorten_DIR(filename))
 
 
 
@@ -3426,7 +3399,7 @@ def saveAOmatrix(WORKDIR, QMin, job):
 def getQMout(QMin):
 
     if PRINT:
-        print '>>>>>>>>>>>>> Reading output files'
+        print('>>>>>>>>>>>>> Reading output files')
     starttime = datetime.datetime.now()
 
     QMout = {}
@@ -3439,7 +3412,7 @@ def getQMout(QMin):
     # Hamiltonian
     if 'h' in QMin or 'soc' in QMin:
         # make Hamiltonian
-        if not 'h' in QMout:
+        if 'h' not in QMout:
             QMout['h'] = makecmatrix(nmstates, nmstates)
         # go through all jobs
         for job in joblist:
@@ -3447,17 +3420,19 @@ def getQMout(QMin):
             corefile = os.path.join(QMin['scratchdir'], 'master_%i/BAGEL.out' % (job))
             energies = getenergy(corefile, job, QMin)
             mults = QMin['multmap'][-job]
+
             for i in range(nmstates):
                 for j in range(nmstates):
                     m1, s1, ms1 = tuple(QMin['statemap'][i + 1])
                     m2, s2, ms2 = tuple(QMin['statemap'][j + 1])
-                    if not m1 in mults or not m2 in mults:
+                    if m1 not in mults or m2 not in mults:
                         continue
                     if i == j:
                         QMout['h'][i][j] = energies[(m1, s1)]
                     elif 'soc' in QMin and QMin['jobs'][job]['restr']:
                         if m1 == m2 == 1:
                             continue
+                        # TODO: invstatemap and submatrix are not defined
                         x = invstatemap[(m1, s1, ms1)]
                         y = invstatemap[(m2, s2, ms2)]
                         QMout['h'][i][j] = submatrix[x - 1][y - 1]
@@ -3465,7 +3440,7 @@ def getQMout(QMin):
     # Dipole Moments
     if 'dm' in QMin:
         # make matrix
-        if not 'dm' in QMout:
+        if 'dm' not in QMout:
             QMout['dm'] = [makecmatrix(nmstates, nmstates) for i in range(3)]
         complete = {}
         # get permanent and transition dipole moments from all master files
@@ -3534,7 +3509,7 @@ def getQMout(QMin):
 
     # NACdr
     if 'nacdr' in QMin:
-        if not 'nacdr' in QMout:
+        if 'nacdr' not in QMout:
             nacdr = [[[[0. for i in range(3)] for j in range(natom)] for k in range(nmstates)] for l in range(nmstates)]
         nacs = {}
         for job in joblist:
@@ -3565,14 +3540,14 @@ def getQMout(QMin):
 
     # Regular Overlaps
     if 'overlap' in QMin:
-        if not 'overlap' in QMout:
+        if 'overlap' not in QMout:
             QMout['overlap'] = makecmatrix(nmstates, nmstates)
         for mult in itmult(QMin['states']):
             job = QMin['multmap'][mult]
             outfile = os.path.join(QMin['scratchdir'], 'WFOVL_%i_%i/wfovl.out' % (mult, job))
             out = readfile(outfile)
             if PRINT:
-                print 'Overlaps: ' + shorten_DIR(outfile)
+                print('Overlaps: ' + shorten_DIR(outfile))
             for i in range(nmstates):
                 for j in range(nmstates):
                     m1, s1, ms1 = tuple(QMin['statemap'][i + 1])
@@ -3585,7 +3560,7 @@ def getQMout(QMin):
 
     # Phases from overlaps
     if 'phases' in QMin:
-        if not 'phases' in QMout:
+        if 'phases' not in QMout:
             QMout['phases'] = [complex(1., 0.) for i in range(nmstates)]
         if 'overlap' in QMout:
             for i in range(nmstates):
@@ -3594,13 +3569,13 @@ def getQMout(QMin):
 
     # Dyson norms
     if 'ion' in QMin:
-        if not 'prop' in QMout:
+        if 'prop' not in QMout:
             QMout['prop'] = makecmatrix(nmstates, nmstates)
         for ion in QMin['ionmap']:
             outfile = os.path.join(QMin['scratchdir'], 'Dyson_%i_%i_%i_%i/wfovl.out' % ion)
             out = readfile(outfile)
             if PRINT:
-                print 'Dyson:    ' + shorten_DIR(outfile)
+                print('Dyson:    ' + shorten_DIR(outfile))
             for i in range(nmstates):
                 for j in range(nmstates):
                     m1, s1, ms1 = tuple(QMin['statemap'][i + 1])
@@ -3623,7 +3598,7 @@ def getQMout(QMin):
 
     # TheoDORE
     if 'theodore' in QMin:
-        if not 'theodore' in QMout:
+        if 'theodore' not in QMout:
             QMout['theodore'] = makecmatrix(QMin['template']['theodore_n'], nmstates)
         for job in joblist:
             if not QMin['jobs'][job]['restr']:
@@ -3645,7 +3620,7 @@ def getQMout(QMin):
 
     endtime = datetime.datetime.now()
     if PRINT:
-        print "Readout Runtime: %s" % (endtime - starttime)
+        print("Readout Runtime: %s" % (endtime - starttime))
 
     if DEBUG:
         copydir = os.path.join(QMin['savedir'], 'debug_BAGEL_stdout')
@@ -3686,7 +3661,7 @@ def getenergy(corefile, ijob, QMin):
 
     f = readfile(corefile)
     if PRINT:
-        print 'Energy:   ' + shorten_DIR(corefile)
+        print('Energy:   ' + shorten_DIR(corefile))
 
     # figure out the excited state settings
     mults = QMin['jobs'][ijob]['mults']
@@ -3732,7 +3707,7 @@ def getenergy(corefile, ijob, QMin):
                     if '* ci vector' in line and ' 0,' in line:
                         for i in range(nstates):
                             if i == 0:
-                                # print "line that failes: ", line
+                                # print("line that failes: ", line)
                                 if '*' in f[iline - nstates - 1 + i]:
                                     energies = {(gsmult, 1): float(f[iline - nstates - 1 + i].split()[3])}
                                 else:
@@ -3751,7 +3726,7 @@ def getdm(QMin, job):
 
     cores = os.path.join(QMin['scratchdir'], 'master_%i/BAGEL.out' % (job))
     if PRINT:
-        print 'Dipoles:  ' + shorten_DIR(cores)
+        print('Dipoles:  ' + shorten_DIR(cores))
     out = readfile(cores)
     if QMin['template']['method'] == 'casscf':
         getstring = 'Permanent dipole moment: Relaxed'
@@ -3770,7 +3745,7 @@ def getdm(QMin, job):
     # if only one state is requested in casscf, the dipole moment is not printed in the bagel output!
     if QMin['template']['method'] == 'casscf' and QMin['states'][job - 1] == 1:
         dipoles = [[0.0, 0.0, 0.0]]
-        print "\nBAGEL does not compute Dipole moments in the case of a single state casscf calculation! The dipole moment was set to zero!\n"
+        print("\nBAGEL does not compute Dipole moments in the case of a single state casscf calculation! The dipole moment was set to zero!\n")
 
     return dipoles
 
@@ -3839,7 +3814,7 @@ def getnacdr(mult, QMin):
 
     # out=readfile(outfile)
     # if PRINT:
-    # print 'QMMM:     '+shorten_DIR(outfile)
+    # print('QMMM:     '+shorten_DIR(outfile))
 
     # if coupling==1:
     #startstring='Q M / M M      E N E R G Y'
@@ -3878,7 +3853,7 @@ def getsmate(out, s1, s2):
     while True:
         ilines += 1
         if ilines == len(out):
-            print 'Overlap of states %i - %i not found!' % (s1, s2)
+            print('Overlap of states %i - %i not found!' % (s1, s2))
             sys.exit(75)
         if containsstring('Overlap matrix <PsiA_i|PsiB_j>', out[ilines]):
             break
@@ -3894,7 +3869,7 @@ def getDyson(out, s1, s2):
     while True:
         ilines += 1
         if ilines == len(out):
-            print 'Dyson norm of states %i - %i not found!' % (s1, s2)
+            print('Dyson norm of states %i - %i not found!' % (s1, s2))
             sys.exit(76)
         if containsstring('Dyson norm matrix <PsiA_i|PsiB_j>', out[ilines]):
             break
@@ -3908,7 +3883,7 @@ def getDyson(out, s1, s2):
 def get_theodore(sumfile, omffile, QMin):
     out = readfile(sumfile)
     if PRINT:
-        print 'TheoDORE: ' + shorten_DIR(sumfile)
+        print('TheoDORE: ' + shorten_DIR(sumfile))
     props = {}
     for line in out[2:]:
         s = line.replace('(', ' ').replace(')', ' ').split()
@@ -3920,7 +3895,7 @@ def get_theodore(sumfile, omffile, QMin):
 
     out = readfile(omffile)
     if PRINT:
-        print 'TheoDORE: ' + shorten_DIR(omffile)
+        print('TheoDORE: ' + shorten_DIR(omffile))
     for line in out[1:]:
         s = line.replace('(', ' ').replace(')', ' ').split()
         if len(s) == 0:
@@ -3955,20 +3930,20 @@ def cleandir(directory):
         path = directory + '/' + data
         if os.path.isfile(path) or os.path.islink(path):
             if DEBUG:
-                print 'rm %s' % (path)
+                print('rm %s' % (path))
             try:
                 os.remove(path)
             except OSError:
-                print 'Could not remove file from directory: %s' % (path)
+                print('Could not remove file from directory: %s' % (path))
         else:
             if DEBUG:
                 print ''
             cleandir(path)
             os.rmdir(path)
             if DEBUG:
-                print 'rm %s' % (path)
+                print('rm %s' % (path))
     if PRINT:
-        print '===> Cleaning up directory %s' % (directory)
+        print('===> Cleaning up directory %s' % (directory))
 
 # ======================================================================= #
 
@@ -3978,7 +3953,7 @@ def backupdata(backupdir, QMin):
     ls = os.listdir(QMin['savedir'])
     for f in ls:
         ff = QMin['savedir'] + '/' + f
-        if os.path.isfile(ff) and not 'old' in ff:
+        if os.path.isfile(ff) and 'old' not in ff:
             step = int(QMin['step'][0])
             fdest = backupdir + '/' + f + '.stp' + str(step)
             shutil.copy(ff, fdest)
@@ -4004,15 +3979,15 @@ def main():
             global DEBUG
             DEBUG = True
     except ValueError:
-        print 'PRINT or DEBUG environment variables do not evaluate to numerical values!'
+        print('PRINT or DEBUG environment variables do not evaluate to numerical values!')
         sys.exit(77)
 
     # Process Command line arguments
     if len(sys.argv) != 2:
-        print 'Usage:\n./SHARC_BAGEL.py <QMin>\n'
-        print 'version:', version
-        print 'date:', versiondate
-        print 'changelog:\n', changelogstring
+        print('Usage:\n./SHARC_BAGEL.py <QMin>\n')
+        print('version:', version)
+        print('date:', versiondate)
+        print('changelog:\n', changelogstring)
         sys.exit(78)
     QMinfilename = sys.argv[1]
 
@@ -4064,8 +4039,8 @@ def main():
             cleandir(QMin['savedir'])
 
     print
-    print datetime.datetime.now()
-    print '#================ END ================#'
+    print(datetime.datetime.now())
+    print('#================ END ================#')
 
 
 if __name__ == '__main__':
