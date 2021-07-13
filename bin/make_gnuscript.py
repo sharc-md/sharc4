@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 # ******************************************
 #
@@ -23,8 +23,6 @@
 #
 # ******************************************
 
-#!/usr/bin/env python2
-
 # ======================================================================= #
 # Modules:
 # Operating system, isfile and related routines, move files, create directories
@@ -35,7 +33,7 @@ import subprocess as sp
 import sys
 # Regular expressions
 import re
-# debug print for dicts and arrays
+# debug print(for dicts and arrays)
 import pprint
 # sqrt and other math
 import math
@@ -47,27 +45,6 @@ from copy import deepcopy
 import colorsys
 
 # =========================================================0
-# compatibility stuff
-
-if sys.version_info[0] != 2:
-    print 'This is a script for Python 2!'
-    sys.exit(0)
-
-if sys.version_info[1] < 5:
-    def any(iterable):
-        for element in iterable:
-            if element:
-                return True
-        return False
-
-    def all(iterable):
-        for element in iterable:
-            if not element:
-                return False
-        return True
-
-# ======================================================================= #
-
 version = '2.1'
 versiondate = datetime.date(2019, 9, 1)
 
@@ -151,7 +128,7 @@ class rgbcolor:
   R=rgbcolor(a)
   for index,num in enumerate(a):
     for el in range(num):
-      print index,el,R.hexcolor(index+1,el+1)
+      print(index,el,R.hexcolor(index+1,el+1))
   print 2,1,R.hexcolor(2,1)
 
   Output:
@@ -228,10 +205,10 @@ class rgbcolor:
 def main():
 
     if len(sys.argv) == 1:
-        print 'Usage:\n./make_gnuscript.py <S> <D> <T> <Q> <5> <6> <7> <8>\n'
+        print('Usage:\n./make_gnuscript.py <S> <D> <T> <Q> <5> <6> <7> <8>\n')
         quit(1)
     if len(sys.argv) > 9:
-        print 'Only multiplicities up to octets are supported!'
+        print('Only multiplicities up to octets are supported!')
         quit(1)
     states = sys.argv[1:]
     for i in range(len(states)):
@@ -316,7 +293,7 @@ def main():
     gnustring += '""\t\tu 1:($1>0 ? $2 : 1/0)\ttitle "Random number" \t\t\tlc rgbcolor "black"\tw lp'
     gnustring += '\n\npause -1\n\n'
 
-    print gnustring
+    print(gnustring)
 
 # ======================================================================= #
 
