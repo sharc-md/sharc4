@@ -182,7 +182,7 @@ def mean_std_from_file(file, out_dir, col_list=None, num_steps=None):
     plot_array = numpy.array(read_list, float).transpose()
 
     if col_list is None:
-        for i in range(numpy.size(plot_array, 0) / 2 - 1):
+        for i in range(numpy.size(plot_array, 0) // 2 - 1):
             pylab.figure(figsize=(figwidth, .75 * figwidth))
             pylab.plot(plot_array[0].tolist(), plot_array[2 + 2 * i].tolist(), color=[0., 0., 0.], linewidth=1)
             plot_std(plot_array[2 + 2 * i].tolist(), plot_array[3 + 2 * i].tolist(), plot_array[0].tolist())
