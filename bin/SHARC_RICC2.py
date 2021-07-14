@@ -940,9 +940,7 @@ def get_RICC2out(QMin, QMout, job):
         if 'grad' not in QMout:
             QMout['grad'] = [[[0., 0., 0.] for i in range(natom)] for j in range(nmstates)]
         if QMin['qmmm'] and 'pcgrad' not in QMout:
-            ncharges = len(readfile('charge.dat'))
-            QMout['pcgrad'] = [[[0., 0., 0.] for i in range(ncharges)] for j in range(nmstates)]
-            # QMout['pcgrad']=[ [ [ 0. for i in range(3) ] for j in QMin['pointcharges'] ] for k in range(nmstates) ]
+            QMout['pcgrad'] = [[[0. for i in range(3)] for j in QMin['pointcharges']] for k in range(nmstates)]
         if QMin['cobramm'] and 'pcgrad' not in QMout:
             ncharges = len(readfile('charge.dat'))  # -4
             # print(ncharges,"tot")
