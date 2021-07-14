@@ -2473,7 +2473,7 @@ def getsh2cc2key(sh2cc2, key):
     while True:
         i += 1
         try:
-            line = re.sub('#.*$', '', sh2cc2[i])
+            line = re.sub(r'#.*$', '', sh2cc2[i])
         except IndexError:
             break
         line = line.strip().split(None, 1)
@@ -2933,7 +2933,7 @@ def readQMin(QMinfilename):
     if 'theodore' in QMin:
         QMin['theodir'] = get_sh2cc2_environ(sh2cc2, 'theodir', False, False)
         if QMin['theodir'] is None or not os.path.isdir(QMin['theodir']):
-            print('Give path to the TheoDORE installation directory in ADF.resources!')
+            print('Give path to the TheoDORE installation directory in TURBOMOLE.resources!')
             sys.exit(71)
         os.environ['THEODIR'] = QMin['theodir']
         if 'PYTHONPATH' in os.environ:
@@ -4650,7 +4650,7 @@ class civfl_ana:
         # skip 8 byte
         CCfile.read(8)
         # read method from 8 byte
-        method = struct.unpack('8s', CCfile.read(8))[0]
+        method = str(struct.unpack('8s', CCfile.read(8))[0])
         # skip 8 byte
         CCfile.read(8)
         # read number of CSFs from 4 byte

@@ -1170,7 +1170,7 @@ def synchronize(INFOS, data1):
         iterator = iter(data1[key])
         t = min(times) - 1.
         for it1, t1 in enumerate(times):
-            if t < t1:
+            if t is not None and t < t1:
                 try:
                     T = next(iterator)
                     t = T[0]
@@ -1181,7 +1181,6 @@ def synchronize(INFOS, data1):
             else:
                 d = tuple([float('NaN') for i in T[1:]])
             data2[it1].append(d)
-    print
     # convert to dict
     data3 = {'times': times,
              'data': data2}

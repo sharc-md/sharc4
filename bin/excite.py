@@ -185,7 +185,7 @@ class INITCOND:
         while True:
             line = f.readline()
             # if 'Index     %i' % (index) in line:
-            if re.search(r'Index\\s+%i' % (index), line):
+            if re.search(r'Index\s+%i' % (index), line):
                 break
             if line == '\n':
                 continue
