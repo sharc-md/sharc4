@@ -1683,20 +1683,15 @@ def getOrcaVersion(path):
     except OSError:
         print('Call have had some serious problems:', OSError)
         sys.exit(25)
-    comm = proc.communicate()
-
+    comm = proc.communicate()[0].decode()
     # find version string
-    for line in comm[0].split('\n'):
+    for line in comm.split('\n'):
         if 'Program Version' in line:
-            break
-    else:
-        for line in comm[0].split('\n'):
-            print(line)
-        print('Could not find Orca version!')
-        sys.exit(26)
-    s = line.split('-')[0].split()[2].split('.')
-    s = tuple([int(i) for i in s])
-    return s
+            s = line.split('-')[0].split()[2].split('.')
+            s = tuple([int(i) for i in s])
+            return s
+    print('Could not find Orca version!')
+    sys.exit(26)
 
 # ======================================================================= #
 
@@ -3246,7 +3241,6 @@ def ORCAinput_string(QMin):
         for line in QMin['template']['paste_input_file']:
             string += line
         string += '\n'
-
     return string
 
 # ======================================================================= #
@@ -3470,9 +3464,8 @@ def get_MO_from_gbw(filename, QMin):
     except OSError:
         print('Call have had some serious problems:', OSError)
         sys.exit(80)
-    comm = proc.communicate()
-    data = comm[0].split('\n')
-
+    comm = proc.communicate()[0].decode()
+    data = comm.split('\n')
     # get size of matrix
     for line in reversed(data):
         # print line
@@ -3929,8 +3922,8 @@ def get_smat_from_gbw(file1, file2=''):
     except OSError:
         print('Call have had some serious problems:', OSError)
         sys.exit(89)
-    comm = proc.communicate()
-    out = comm[0].split('\n')
+    comm = proc.communicate()[0].decode()
+    out = comm.split('\n')
 
     # get size of matrix
     for line in reversed(out):
