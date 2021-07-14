@@ -338,17 +338,15 @@ def printheader():
         return
     string = '\n'
     string += '  ' + '=' * 80 + '\n'
-    string += '||' + ' ' * 80 + '||\n'
-    string += '||' + ' ' * 26 + 'SHARC - GAUSSIAN - Interface' + ' ' * 26 + '||\n'
-    string += '||' + ' ' * 80 + '||\n'
-    string += '||' + ' ' * 15 + 'Authors: Sebastian Mai and Maximilian F.S.J. Menger' + ' ' * 14 + '||\n'
-    string += '||' + ' ' * 80 + '||\n'
-    string += '||' + ' ' * (36 - (len(version) + 1) // 2) + 'Version: %s' % (version) + ' ' * (35 - (len(version)) // 2) + '||\n'
-    lens = len(versiondate.strftime("%d.%m.%y"))
-    string += '||' + ' ' * (37 - lens // 2) + 'Date: %s' % (versiondate.strftime("%d.%m.%y")) + ' ' * (37 - (lens + 1) // 2) + '||\n'
-    string += '||' + ' ' * 80 + '||\n'
+    string += '||' + '{:^80}'.format('') + '||\n'
+    string += '||' + '{:^80}'.format('SHARC - GAUSSIAN - Interface') + '||\n'
+    string += '||' + '{:^80}'.format('') + '||\n'
+    string += '||' + '{:^80}'.format('Authors: Sebastian Mai and Maximilian F.S.J. Menger') + '||\n'
+    string += '||' + '{:^80}'.format('') + '||\n'
+    string += '||' + '{:^80}'.format('Version:' + version) + '||\n'
+    string += '||' + '{:^80}'.format(versiondate.strftime("%d.%m.%y")) + '||\n'
+    string += '||' + '{:^80}'.format('') + '||\n'
     string += '  ' + '=' * 80 + '\n\n'
-    print(string)
     if DEBUG:
         print(changelogstring)
 

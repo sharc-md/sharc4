@@ -64,15 +64,14 @@ versiondate = datetime.date(2019, 8, 14)
 
 
 
-INTERFACES = set(['MOLPRO', 'MOLCAS', 'COLUMBUS', 'Analytical', 'AMS-ADF', 'TURBOMOLE', 'GAUSSIAN', 'LVC', 'scripts', 'BAGEL', 'ORCA'])
+INTERFACES = set(['MOLPRO', 'MOLCAS', 'COLUMBUS', 'Analytical', 'AMS-ADF', 'TURBOMOLE', 'GAUSSIAN', 'LVC', 'scripts', 'BAGEL', 'ORCA'])  # TODO: ???
 OTHERENVS = set(['THEODORE', 'orca', 'TINKER', 'molcas', 'PYQUANTE'])
 
 INTERFACES = {'MOLPRO': 'MOLPRO',
               'MOLCAS': 'MOLCAS',
               'COLUMBUS': 'COLUMBUS',
               'Analytical': 'Analytical',
-              'ADF': 'ADF',
-              'AMS': 'AMS',
+              'AMS': 'AMS-ADF',
               'TURBOMOLE': 'RICC2',
               'GAUSSIAN': 'GAUSSIAN',
               'LVC': 'LVC',

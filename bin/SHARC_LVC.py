@@ -36,6 +36,7 @@ import os
 import sys
 import math
 import time
+time.clock = lambda: time.clock_gettime(time.CLOCK_THREAD_CPUTIME_ID)
 (tc, tt) = (time.clock(), time.time())
 
 try:
@@ -1003,7 +1004,7 @@ def read_V0(QMin, SH2LVC, fname='V0.txt'):
     if tmp == []:
         print('No normal modes given in %s!' % fname)
         sys.exit(23)
-    SH2LVC['V'] = [map(float, line.split()) for line in tmp]  # transformation matrix
+    SH2LVC['V'] = [list(map(float, line.split())) for line in tmp]  # transformation matrix
 
     return disp
 

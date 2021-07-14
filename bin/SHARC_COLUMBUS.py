@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 # ******************************************
 #
@@ -22,8 +22,6 @@
 #    inside the SHARC manual.  If not, see <http://www.gnu.org/licenses/>.
 #
 # ******************************************
-
-#!/usr/bin/env python2
 
 #  ====================================================================
 # ||                                                                    ||
@@ -96,28 +94,6 @@ from socket import gethostname
 
 
 # =========================================================0
-# compatibility stuff
-
-if sys.version_info[0] != 2:
-    print('This is a script for Python 2!')
-    sys.exit(0)
-
-if sys.version_info[1] < 5:
-    def any(iterable):
-        for element in iterable:
-            if element:
-                return True
-        return False
-
-    def all(iterable):
-        for element in iterable:
-            if not element:
-                return False
-        return True
-
-
-
-# ======================================================================= #
 
 version = '2.1'
 versiondate = datetime.date(2019, 9, 1)
@@ -202,7 +178,7 @@ changelogstring = '''
 starttime = datetime.datetime.now()
 
 # global variables for printing (PRINT gives formatted output, DEBUG gives raw output)
-DEBUG = False
+DEBUG = True
 PRINT = True
 
 # hash table for conversion of multiplicity to the keywords used in COLUMBUS
@@ -669,16 +645,16 @@ def printheader():
         return
     string = '\n'
     string += '  ' + '=' * 80 + '\n'
-    string += '||' + ' ' * 80 + '||\n'
-    string += '||' + ' ' * 25 + 'SHARC - COLUMBUS 7 - Interface' + ' ' * 25 + '||\n'
-    string += '||' + ' ' * 80 + '||\n'
-    string += '||' + ' ' * 29 + 'Author: Sebastian Mai' + ' ' * 30 + '||\n'
-    string += '||' + ' ' * 80 + '||\n'
-    string += '||' + ' ' * (36 - (len(version) + 1) / 2) + 'Version: %s' % (version) + ' ' * (35 - (len(version)) / 2) + '||\n'
-    lens = len(versiondate.strftime("%d.%m.%y"))
-    string += '||' + ' ' * (37 - lens / 2) + 'Date: %s' % (versiondate.strftime("%d.%m.%y")) + ' ' * (37 - (lens + 1) / 2) + '||\n'
-    string += '||' + ' ' * 80 + '||\n'
+    string += '||' + '{:^80}'.format('') + '||\n'
+    string += '||' + '{:^80}'.format('SHARC - COLUMBUS 7 - Interface') + '||\n'
+    string += '||' + '{:^80}'.format('') + '||\n'
+    string += '||' + '{:^80}'.format('Author: Sebastian Mai') + '||\n'
+    string += '||' + '{:^80}'.format('') + '||\n'
+    string += '||' + '{:^80}'.format('Version:' + version) + '||\n'
+    string += '||' + '{:^80}'.format(versiondate.strftime("%d.%m.%y")) + '||\n'
+    string += '||' + '{:^80}'.format('') + '||\n'
     string += '  ' + '=' * 80 + '\n\n'
+    string = '\n'
     print(string)
     if DEBUG:
         print(changelogstring)
@@ -3558,6 +3534,8 @@ def runCOLUMBUS(QMin):
             os.path.join(QMin['scratchdir'], 'JOB/LISTINGS')]
         maxsize = 3 * 1024**2
         for d in dirs:
+            if not os.path.isdir(d):
+                continue
             ls = os.listdir(d)
             if DEBUG:
                 print(d)
