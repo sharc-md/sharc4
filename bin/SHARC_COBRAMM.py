@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 # ******************************************
 #
@@ -22,8 +22,6 @@
 #    inside the SHARC manual.  If not, see <http://www.gnu.org/licenses/>.
 #
 # ******************************************
-
-#!/usr/bin/env python2
 
 #    ====================================================================
 # ||                                                                       ||
@@ -61,7 +59,7 @@ import sys
 import shutil
 # Regular expressions
 import re
-# debug print for dicts and arrays
+# debug print(for dicts and arrays)
 import pprint
 # sqrt and other math
 import math
@@ -79,28 +77,6 @@ import ast
 import string
 
 # =========================================================0
-# compatibility stuff
-
-if sys.version_info[0] != 2:
-    print 'This is a script for Python 2!'
-    sys.exit(0)
-
-if sys.version_info[1] < 5:
-    def any(iterable):
-        for element in iterable:
-            if element:
-                return True
-        return False
-
-    def all(iterable):
-        for element in iterable:
-            if not element:
-                return False
-        return True
-
-
-
-# ======================================================================= #
 
 version = '0.1'
 versiondate = datetime.date(2020, 11, 11)
@@ -109,12 +85,12 @@ versiondate = datetime.date(2020, 11, 11)
 changelogstring = '''
 14.01.2020:     Initial version 0.1
 QM/MM single point calculation:
- - QM/MM setup from COBRAMM 
+ - QM/MM setup from COBRAMM
  - QM energy and gradient from SHARC interfaces
  - MM energy from AMBER
  - QM/MM energy from COMBRAMM (subtractive scheme + electrostatic embedding)
 
-- File needed for COBRAMM: 
+- File needed for COBRAMM:
  - real.top
  - model-H.top
  - real_layers.xyz
@@ -181,7 +157,7 @@ def readfile(filename):
         out = f.readlines()
         f.close()
     except IOError:
-        print 'File %s does not exist!' % (filename)
+        print('File %s does not exist!' % (filename))
         sys.exit(12)
     return out
 
@@ -198,10 +174,10 @@ def writefile(filename, content):
         elif isinstance(content, str):
             f.write(content)
         else:
-            print 'Content %s cannot be written to file!' % (content)
+            print('Content %s cannot be written to file!' % (content))
         f.close()
     except IOError:
-        print 'Could not write to file %s!' % (filename)
+        print('Could not write to file %s!' % (filename))
         sys.exit(13)
 
 # ======================================================================= #
@@ -216,7 +192,7 @@ def eformat(f, prec, exp_digits):
     '''Formats a float f into scientific notation with prec number of decimals and exp_digits number of exponent digits.
 
     String looks like:
-    [ -][0-9]\.[0-9]*E[+-][0-9]*
+    [ -][0-9]\\.[0-9]*E[+-][0-9]*
 
     Arguments:
     1 float: Number to format
@@ -247,11 +223,11 @@ def measuretime():
     endtime = datetime.datetime.now()
     runtime = endtime - starttime
     if PRINT or DEBUG:
-        hours = runtime.seconds / 3600
-        minutes = runtime.seconds / 60 - hours * 60
+        hours = runtime.seconds // 3600
+        minutes = runtime.seconds // 60 - hours * 60
         seconds = runtime.seconds % 60
-        print '==> Runtime:\n%i Days\t%i Hours\t%i Minutes\t%i Seconds\n\n' % (runtime.days, hours, minutes, seconds)
-    total_seconds = runtime.days * 24 * 3600 + runtime.seconds + runtime.microseconds / 1.e6
+        print('==> Runtime:\n%i Days\t%i Hours\t%i Minutes\t%i Seconds\n\n' % (runtime.days, hours, minutes, seconds))
+    total_seconds = runtime.days * 24 * 3600 + runtime.seconds + runtime.microseconds // 1.e6
     return total_seconds
 
 # ======================================================================= #
@@ -296,7 +272,7 @@ def containsstring(string, line):
 def link(PATH, NAME, crucial=True, force=True):
     # do not create broken links
     if not os.path.exists(PATH) and crucial:
-        print 'Source %s does not exist, cannot create link!' % (PATH)
+        print('Source %s does not exist, cannot create link!' % (PATH))
         sys.exit(95)
     if os.path.islink(NAME):
         if not os.path.exists(NAME):
@@ -308,14 +284,14 @@ def link(PATH, NAME, crucial=True, force=True):
                 # remove the link if forced to
                 os.remove(NAME)
             else:
-                print '%s exists, cannot create a link of the same name!' % (NAME)
+                print('%s exists, cannot create a link of the same name!' % (NAME))
                 if crucial:
                     sys.exit(96)
                 else:
                     return
     elif os.path.exists(NAME):
         # NAME is not a link. The interface will not overwrite files/directories with links, even with force=True
-        print '%s exists, cannot create a link of the same name!' % (NAME)
+        print('%s exists, cannot create a link of the same name!' % (NAME))
         if crucial:
             sys.exit(97)
         else:
@@ -355,7 +331,7 @@ def itnmstates(states):
 
 # =============================================================================================== #
 # =============================================================================================== #
-# =========================================== print routines ==================================== #
+# =========================================== print(routines ==================================== #)
 # =============================================================================================== #
 # =============================================================================================== #
 
@@ -365,7 +341,7 @@ def printheader():
 
     Takes nothing, returns nothing.'''
 
-    print starttime, gethostname(), os.getcwd()
+    print(starttime, gethostname(), os.getcwd())
     if not PRINT:
         return
     string = '\n'
@@ -375,14 +351,14 @@ def printheader():
     string += '||' + ' ' * 80 + '||\n'
     string += '||' + ' ' * 29 + 'Author: ' + ' Davide Avagliano ' + ' ' * 20 + '||\n'
     string += '||' + ' ' * 80 + '||\n'
-    string += '||' + ' ' * (36 - (len(version) + 1) / 2) + 'Version: %s' % (version) + ' ' * (35 - (len(version)) / 2) + '||\n'
+    string += '||' + ' ' * (36 - (len(version) + 1) // 2) + 'Version: %s' % (version) + ' ' * (35 - (len(version)) // 2) + '||\n'
     lens = len(versiondate.strftime("%d.%m.%y"))
-    string += '||' + ' ' * (37 - lens / 2) + 'Date: %s' % (versiondate.strftime("%d.%m.%y")) + ' ' * (37 - (lens + 1) / 2) + '||\n'
+    string += '||' + ' ' * (37 - lens // 2) + 'Date: %s' % (versiondate.strftime("%d.%m.%y")) + ' ' * (37 - (lens + 1) // 2) + '||\n'
     string += '||' + ' ' * 80 + '||\n'
     string += '  ' + '=' * 80 + '\n\n'
-    print string
+    print(string)
     if DEBUG:
-        print changelogstring
+        print(changelogstring)
 
 # ======================================================================= #
 
@@ -393,17 +369,17 @@ def printQMin(QMin):  # cambiare qua per il log che dipende da interfaccia
         pprint.pprint(QMin)
     if not PRINT:
         return
-    print '==> QM/MM Job description for:\n%s' % (QMin['comment'])
+    print('==> QM/MM Job description for:\n%s' % (QMin['comment']))
 
     string = 'Tasks: QM/MM calculation \n'
 
     string += 'QM: SHARC/%s interface \n' % (QMin['template']['interface'])
     string += 'MM: COMBRAMM/AMBER interface \n'
     string += 'QM/MM: COBRAMM'
-    print string
+    print(string)
 
     string = '%s QM Job description in ./QM.log file \nCOBRAMM QM/MM Job detail in ./cobramm.log file' % (QMin['template']['interface'])
-    print string
+    print(string)
 
 
 
@@ -415,7 +391,7 @@ def printQMin(QMin):  # cambiare qua per il log che dipende da interfaccia
     else:
         string += '! '
     string += 'NAtom is %i.\n' % (QMin['natom'])
-    print string
+    print(string)
 
     string = '\nGeometry in Bohrs:\n'
     if DEBUG:
@@ -436,7 +412,7 @@ def printQMin(QMin):  # cambiare qua per il log che dipende da interfaccia
             for j in range(3):
                 string += '% 7.4f ' % (QMin['geo'][-1][j + 1])
             string += '\n'
-    print string
+    print(string)
 
     if 'veloc' in QMin and DEBUG:
         string = ''
@@ -445,17 +421,17 @@ def printQMin(QMin):  # cambiare qua per il log che dipende da interfaccia
             for j in range(3):
                 string += '% 7.4f ' % (QMin['veloc'][i][j])
             string += '\n'
-        print string
+        print(string)
 
-     # if 'grad' in QMin:
-#    string='Gradients requested:   '
-     #   for i in range(1,QMin['nmstates']+1):
-    #    if i in QMin['grad']:
-     #       string+='X '
-     #     else:
-     #       string+='. '
-     #   string+='\n'
-     #   print string
+    # if 'grad' in QMin:
+    #    string='Gradients requested:   '
+    #    for i in range(1,QMin['nmstates']+1):
+    #        if i in QMin['grad']:
+    #           string+='X '
+    #        else:
+    #           string+='. '
+    #   string+='\n'
+    #   print(string)
 
     # if 'overlap' in QMin:
         # string='Overlaps:\n'
@@ -466,18 +442,18 @@ def printQMin(QMin):  # cambiare qua per il log che dipende da interfaccia
         # else:
         #string+='. '
         # string+='\n'
-        # print string
+        # print(string)
 
     for i in QMin:
         if not any([i == j for j in ['geo', 'veloc', 'comment', 'LD_LIBRARY_PATH', 'grad', 'template', 'force_field']]):
             if not any([i == j for j in ['ionlist', 'ionmap']]) or DEBUG:
                 string = i + ': '
                 string += str(QMin[i])
-                print string
+                print(string)
         else:
             string = i + ': ...'
-            print string
-    print '\n'
+            print(string)
+    print('\n')
     sys.stdout.flush()
 
 
@@ -530,7 +506,7 @@ def makermatrix(a, b):
 def get_COBRAMMout(QMin):
 
     if PRINT:
-        print '-----  Summary of QM/MM excited states calculation -----'
+        print('-----  Summary of QM/MM excited states calculation -----')
 
         with open(QMin['scratchdir'] + '/QMMM/cobramm.log', 'r') as cobralog:
             states = QMin['states'][0]
@@ -541,19 +517,19 @@ def get_COBRAMMout(QMin):
 
             line_number = 0
             lines = cobralog.readlines()
-            # print lines
+            # print(lines)
             for line in lines:
                 line_number += 1
                 if 'QM/MM ENERGIES' in line:
-                    print "found QM/MM!!!!\n\n"
-                    print inizio, fine
+                    print("found QM/MM!!!!\n\n")
+                    print(inizio, fine)
                     break
                 inizio = line_number
                 inizio += -1
                 fine = line_number
                 fine += 5 + numstates * 12
             for i in range(inizio, fine):
-                print lines[i]
+                print(lines[i])
     # return QMout
 # =============================================================================================== #
 # =============================================================================================== #
@@ -579,13 +555,13 @@ def checkscratch(SCRATCHDIR):
     if exist:
         isfile = os.path.isfile(SCRATCHDIR)
         if isfile:
-            print '$SCRATCHDIR=%s exists and is a file!' % (SCRATCHDIR)
+            print('$SCRATCHDIR=%s exists and is a file!' % (SCRATCHDIR))
             sys.exit(42)
     else:
         try:
             os.makedirs(SCRATCHDIR)
         except OSError:
-            print 'Can not create SCRATCHDIR=%s\n' % (SCRATCHDIR)
+            print('Can not create SCRATCHDIR=%s\n' % (SCRATCHDIR))
             sys.exit(43)
 
 # ======================================================================= #
@@ -628,13 +604,13 @@ def get_sh2cbm_environ(sh2cbm, key, environ=True, crucial=True):
         if environ:
             LINE = os.getenv(key.upper())
             if not LINE:
-                print 'Either set $%s or give path to %s in SH2CBM.inp!' % (key.upper(), key.upper())
+                print('Either set $%s or give path to %s in SH2CBM.inp!' % (key.upper(), key.upper()))
                 if crucial:
                     sys.exit(44)
                 else:
                     return None
         else:
-            print 'Give path to %s in SH2CBM.inp!' % (key.upper())
+            print('Give path to %s in SH2CBM.inp!' % (key.upper()))
             if crucial:
                 sys.exit(45)
             else:
@@ -644,7 +620,7 @@ def get_sh2cbm_environ(sh2cbm, key, environ=True, crucial=True):
     LINE = os.path.abspath(LINE)
     LINE = removequotes(LINE).strip()
     if containsstring(';', LINE):
-        print "$%s contains a semicolon. Do you probably want to execute another command after %s? I can't do that for you..." % (key.upper(), key.upper())
+        print("$%s contains a semicolon. Do you probably want to execute another command after %s? I can't do that for you..." % (key.upper(), key.upper()))
         sys.exit(46)
     return LINE
 
@@ -658,7 +634,7 @@ def get_pairs(QMinlines, i):
         try:
             line = QMinlines[i].lower()
         except IndexError:
-            print '"keyword select" has to be completed with an "end" on another line!'
+            print('"keyword select" has to be completed with an "end" on another line!')
             sys.exit(47)
         if 'end' in line:
             break
@@ -666,7 +642,7 @@ def get_pairs(QMinlines, i):
         try:
             nacpairs.append([int(fields[0]), int(fields[1])])
         except ValueError:
-            print '"nacdr select" is followed by pairs of state indices, each pair on a new line!'
+            print('"nacdr select" is followed by pairs of state indices, each pair on a new line!')
             sys.exit(48)
     return nacpairs, i
 
@@ -704,11 +680,11 @@ def readQMin(QMinfilename):
     try:
         natom = int(QMinlines[0])
     except ValueError:
-        print 'first line must contain the number of atoms!'
+        print('first line must contain the number of atoms!')
         sys.exit(49)
     QMin['natom'] = natom
     if len(QMinlines) < natom + 4:
-        print 'Input file must contain at least:\nnatom\ncomment\ngeometry\nkeyword "states"\nat least one task'
+        print('Input file must contain at least:\nnatom\ncomment\ngeometry\nkeyword "states"\nat least one task')
         sys.exit(50)
 
     # Save Comment line
@@ -720,7 +696,7 @@ def readQMin(QMinfilename):
     hasveloc = True
     for i in range(2, natom + 2):
         if not containsstring('[a-zA-Z][a-zA-Z]?[0-9]*.*[-]?[0-9]+[.][0-9]*.*[-]?[0-9]+[.][0-9]*.*[-]?[0-9]+[.][0-9]*', QMinlines[i]):
-            print 'Input file does not comply to xyz file format! Maybe natom is just wrong.'
+            print('Input file does not comply to xyz file format! Maybe natom is just wrong.')
             sys.exit(51)
         fields = QMinlines[i].split()
         for j in range(1, 4):
@@ -754,7 +730,7 @@ def readQMin(QMinfilename):
         else:
             args = line.lower().split()[1:]
         if key in QMin:
-            print 'Repeated keyword %s in line %i in input file! Check your input!' % (key, i + 1)
+            print('Repeated keyword %s in line %i in input file! Check your input!' % (key, i + 1))
             continue  # only first instance of key in QM.in takes effect
         if len(args) >= 1 and 'select' in args[0]:
             pairs, i = get_pairs(QMinlines, i)
@@ -768,7 +744,7 @@ def readQMin(QMinfilename):
         elif QMin['unit'][0] == 'bohr':
             factor = 1.
         else:
-            print 'Dont know input unit %s!' % (QMin['unit'][0])
+            print('Dont know input unit %s!' % (QMin['unit'][0]))
             sys.exit(52)
     else:
         factor = 1. / au2a
@@ -793,7 +769,7 @@ def readQMin(QMinfilename):
     if os.path.isfile(filename):
         sh2cbm = readfile(filename)
     else:
-        print 'HINT: reading resources from SH2CBM.inp'
+        print('HINT: reading resources from SH2CBM.inp')
         sh2cbm = readfile('SH2CBM.inp')
 
     # ncpus for SMP-parallel turbomole and wfoverlap
@@ -805,7 +781,7 @@ def readQMin(QMinfilename):
             QMin['ncpu'] = int(line[1])
             QMin['ncpu'] = max(1, QMin['ncpu'])
         except ValueError:
-            print 'Number of CPUs does not evaluate to numerical value!'
+            print('Number of CPUs does not evaluate to numerical value!')
             sys.exit(66)
     os.environ['OMP_NUM_THREADS'] = str(QMin['ncpu'])
     if QMin['ncpu'] > 1:
@@ -827,7 +803,7 @@ def readQMin(QMinfilename):
 
     # Set up scratchdir
     line = get_sh2cbm_environ(sh2cbm, 'scratchdir', False, False)
-    if line == None:
+    if line is None:
         line = QMin['pwd'] + '/SCRATCHDIR/'
     line = os.path.expandvars(line)
     line = os.path.expanduser(line)
@@ -842,7 +818,7 @@ def readQMin(QMinfilename):
         line = QMin['savedirmm'][0]
     else:
         line = get_sh2cbm_environ(sh2cbm, 'savedirmm', False, False)
-        if line == None:
+        if line is None:
             line = QMin['pwd'] + '/SAVEDIRQMMM/'
     line = os.path.expandvars(line)
     line = os.path.expanduser(line)
@@ -874,10 +850,10 @@ def readQMin(QMinfilename):
             QMin['memory'] = int(line[1])
             QMin['memory'] = max(100, QMin['memory'])
         except ValueError:
-            print 'Run memory does not evaluate to numerical value!'
+            print('Run memory does not evaluate to numerical value!')
             sys.exit(67)
     else:
-        print 'WARNING: Please set mm_memory in COBRAMM.resources (in MB)! Using 100 MB default value!'
+        print('WARNING: Please set mm_memory in COBRAMM.resources (in MB)! Using 100 MB default value!')
 
     # memory QM
 #  QMin['QMmemory']=100
@@ -887,10 +863,10 @@ def readQMin(QMinfilename):
 #      QMin['QMmemory']=int(line[1])
 #      QMin['QMmemory']=max(100,QMin['qm_memory'])
 #    except ValueError:
-#      print 'Run memory does not evaluate to numerical value!'
+#      print('Run memory does not evaluate to numerical value!')
 #      sys.exit(67)
 #  else:
-#    print 'WARNING: Please set qm_memory in COBRAMM.resources (in MB)! Using 100 MB default value!'
+#    print('WARNING: Please set qm_memory in COBRAMM.resources (in MB)! Using 100 MB default value!')
 
 
 
@@ -912,17 +888,18 @@ def readQMin(QMinfilename):
             continue
         elif line[0] in strings:
             QMin['template'][line[0]] = line[1]
+        # TODO: sander is not defined -> ask Davide Avagliano
         elif line[0] in sander:
             QMin['template'][line[0]] = line[1]
 
 
     necessary = ['interface']
     for i in necessary:
-        if not i in QMin['template']:
-            print 'Key %s missing in template file!' % (i)
+        if i not in QMin['template']:
+            print('Key %s missing in template file!' % (i))
             sys.exit(73)
 
-     # make interface name correct
+    # make interface name correct
     for interface in INTERFACES:
         if QMin['template']['interface'].lower() == interface.lower():
             QMin['template']['interface'] = interface
@@ -937,7 +914,7 @@ def readQMin(QMinfilename):
             QMin['jobtype'] = t
             break
     else:
-        print 'Unknown job type "%s" for COBRAMM given in COBRAMM.template' % (QMin['template']['jobtype'])
+        print('Unknown job type "%s" for COBRAMM given in COBRAMM.template' % (QMin['template']['jobtype']))
         sys.exit(79)
 
 
@@ -957,31 +934,31 @@ def readQMin(QMinfilename):
         err = 0
     elif 'overlap' in QMin:
         if 'newstep' in QMin:
-            if not 'real.crd' in ls:
-                print 'File "real.crd" missing in SAVEDIRQMMM!'
+            if 'real.crd' not in ls:
+                print('File "real.crd" missing in SAVEDIRQMMM!')
                 err += 1
 #      if not 'real.top' in ls:
-#        print 'File "real.top" missing in SAVEDIR!'
+#        print('File "real.top" missing in SAVEDIR!')
 #        err+=1
 #      if not 'model-H.top' in ls:
-#        print 'File "model-H.top" missing in SAVEDIR!'
+#        print('File "model-H.top" missing in SAVEDIR!')
 #        err+=1
 #      if not 'real_layers.xzy' in ls:
-#        print 'File "real_layers.xyz" missing in SAVEDIR!'
+#        print('File "real_layers.xyz" missing in SAVEDIR!')
 #        err+=1
 
             for imult, nstates in enumerate(QMin['states']):
                 if nstates < 1:
                     continue
                 # if not 'dets.%i' % (imult+1) in ls:
-                #   print 'File "dets.%i.old" missing in SAVEDIR!' % (imult+1)
+                #   print('File "dets.%i.old" missing in SAVEDIR!' % (imult+1))
                 #   err+=1
                 elif 'samestep' in QMin or 'restart' in QMin:
-                    if not 'real.crd.old' in ls:
-                        print 'File "real.crd" missing in SAVEDIRQMMM!'
+                    if 'real.crd.old' not in ls:
+                        print('File "real.crd" missing in SAVEDIRQMMM!')
                         err += 1
-                if err > 0:  # print '%i files missing in SAVEDIRQMMM=%s' % (err,QMin['savedirmm'])
-                    print '%i files missing in SAVEDIRQMMM=%s' % (err, QMin['savedirmm'])
+                if err > 0:  # print('%i files missing in SAVEDIRQMMM=%s' % (err,QMin['savedirmm']))
+                    print('%i files missing in SAVEDIRQMMM=%s' % (err, QMin['savedirmm']))
                     sys.exit(88)
 
     if PRINT:
@@ -1011,7 +988,7 @@ def gettasks(QMin):
     # if 'overlap' in QMin:
     # tasks.append(['mkdir',QMin['scratchdir']+'/QMMM/SAVE/'])
     #  tasks.append(['movetosave'])
-    if not 'samestep' in QMin and not 'init' in QMin and not 'restart' in QMin:
+    if 'samestep' not in QMin and 'init' not in QMin and 'restart' not in QMin:
         tasks.append(['movetoold'])
 
     if 'backupmm' in QMin:
@@ -1056,20 +1033,20 @@ def mkdir(DIR):
     # mkdir the DIR, or clean it if it exists
     if os.path.exists(DIR):
         if os.path.isfile(DIR):
-            print '%s exists and is a file!' % (DIR)
+            print('%s exists and is a file!' % (DIR))
             sys.exit(89)
         elif os.path.isdir(DIR):
             if DEBUG:
-                print 'Remake\t%s' % DIR
+                print('Remake\t%s' % DIR)
             shutil.rmtree(DIR)
             os.makedirs(DIR)
     else:
         try:
             if DEBUG:
-                print 'Make\t%s' % DIR
+                print('Make\t%s' % DIR)
             os.makedirs(DIR)
         except OSError:
-            print 'Can not create %s\n' % (DIR)
+            print('Can not create %s\n' % (DIR))
             sys.exit(90)
 
 # ======================================================================= #
@@ -1078,7 +1055,7 @@ def mkdir(DIR):
 def link(PATH, NAME, crucial=True, force=True):
     # do not create broken links
     if not os.path.exists(PATH):
-        print 'Source %s does not exist, cannot create link!' % (PATH)
+        print('Source %s does not exist, cannot create link!' % (PATH))
         sys.exit(91)
     if os.path.islink(NAME):
         if not os.path.exists(NAME):
@@ -1090,14 +1067,14 @@ def link(PATH, NAME, crucial=True, force=True):
                 # remove the link if forced to
                 os.remove(NAME)
             else:
-                print '%s exists, cannot create a link of the same name!' % (NAME)
+                print('%s exists, cannot create a link of the same name!' % (NAME))
                 if crucial:
                     sys.exit(92)
                 else:
                     return
     elif os.path.exists(NAME):
         # NAME is not a link. The interface will not overwrite files/directories with links, even with force=True
-        print '%s exists, cannot create a link of the same name!' % (NAME)
+        print('%s exists, cannot create a link of the same name!' % (NAME))
         if crucial:
             sys.exit(93)
         else:
@@ -1120,7 +1097,7 @@ def write_input(QMin):
     string += '\n?sander\n'
     filename = os.path.join(QMin['scratchdir'] + '/QMMM', 'cobram.command')
     writefile(filename, string)
-    print 'command written'
+    print('command written')
     # return string
 
 
@@ -1138,25 +1115,25 @@ def shorten_DIR(string):
 
 def cleandir(directory):
     if DEBUG:
-        print '===> Cleaning up directory %s\n' % (directory)
+        print('===> Cleaning up directory %s\n' % (directory))
     for data in os.listdir(directory):
         path = directory + '/' + data
         if os.path.isfile(path) or os.path.islink(path):
             if DEBUG:
-                print 'rm %s' % (path)
+                print('rm %s' % (path))
             try:
                 os.remove(path)
             except OSError:
-                print 'Could not remove file from directory: %s' % (path)
+                print('Could not remove file from directory: %s' % (path))
         else:
             if DEBUG:
-                print ''
+                print('')
             cleandir(path)
             os.rmdir(path)
             if DEBUG:
-                print 'rm %s' % (path)
+                print('rm %s' % (path))
     if DEBUG:
-        print '\n'
+        print('\n')
 
 # ======================================================================= #
 
@@ -1172,13 +1149,13 @@ def movetoold(QMin):
         f2 = savedirmm + '/' + f
         if os.path.isfile(f2):
             if any([i in f for i in saveable]):
-                if not 'old' in f:
+                if 'old' not in f:
                     fdest = f2 + '.old'
                     shutil.move(f2, fdest)
     # if 'overlap' in QMin:
     #  saved=QMin['pwd']+'/SAVE'
     #  ls_save=saved #os.listdir(QMin['pwd']+'/SAVE/')
-    #  print ls_save
+    #  print(ls_save)
     #  for files in ls_save:
     #      ftomove=saved+'/'+files
     #      fin=QMin['scratchdir']+'/QMMM/SAVE/'+files
@@ -1255,7 +1232,7 @@ def write_crd(QMin):
             string += '\n'
         counter += 1
     writefile(fname, string)
-    print 'real.crd written'
+    print('real.crd written')
 
 
 
@@ -1263,7 +1240,7 @@ def write_crd(QMin):
 def runProgram(string, workdir):
     prevdir = os.getcwd()
     if DEBUG:
-        print workdir
+        print(workdir)
     os.chdir(workdir)
     if PRINT or DEBUG:
         starttime = datetime.datetime.now()
@@ -1272,7 +1249,7 @@ def runProgram(string, workdir):
     try:
         runerror = sp.call(string, shell=True)
     except OSError:
-        print 'Call have had some serious problems:', OSError
+        print('Call have had some serious problems:', OSError)
         sys.exit(81)
     if PRINT or DEBUG:
         endtime = datetime.datetime.now()
@@ -1289,9 +1266,9 @@ def run_cobramm(QMin):
     workdir = os.path.join(QMin['scratchdir'], 'QMMM')
     string = 'cobram.py > cobramm.log'
     runerror = runProgram(string, workdir)
-    print 'COBRAMM QM/MM setup and calculation started:'
+    print('COBRAMM QM/MM setup and calculation started:')
     if runerror != 0:
-        print 'COBRAMM calculation crashed! Error code=%i' % (runerror)
+        print('COBRAMM calculation crashed! Error code=%i' % (runerror))
         sys.exit(99)
 
     return
@@ -1304,7 +1281,7 @@ def backupdata(backupdir, QMin):
     ls = os.listdir(QMin['savedirmm'])
     for f in ls:
         ff = QMin['savedirmm'] + '/' + f
-        if os.path.isfile(ff) and not 'old' in ff:
+        if os.path.isfile(ff) and 'old' not in ff:
             fdest = backupdir + '/' + f
             shutil.copy(ff, fdest)
 
@@ -1314,12 +1291,12 @@ def backupdata(backupdir, QMin):
 def runeverything(tasks, QMin):
 
     if PRINT or DEBUG:
-        print '=============> Entering RUN section <=============\n\n'
+        print('=============> Entering RUN section <=============\n\n')
 
     QMout = {}
     for task in tasks:
         if DEBUG:
-            print task
+            print(task)
         if task[0] == 'copyfile':
             copy_file(QMin)
         # if task[0]=='save_data':
@@ -1382,15 +1359,15 @@ def main():
             global DEBUG
             DEBUG = True
     except ValueError:
-        print 'PRINT or DEBUG environment variables do not evaluate to logical values!'
+        print('PRINT or DEBUG environment variables do not evaluate to logical values!')
         sys.exit(110)
 
     # Process Command line arguments
     if len(sys.argv) != 2:
-        print 'Usage:\n./SHARC_COMBRAMM.py <QMin>\n'
-        print 'version:', version
-        print 'date:', versiondate
-        print 'changelog:\n', changelogstring
+        print('Usage:\n./SHARC_COMBRAMM.py <QMin>\n')
+        print('version:', version)
+        print('date:', versiondate)
+        print('changelog:\n', changelogstring)
         sys.exit(111)
     QMinfilename = sys.argv[1]
 
@@ -1418,8 +1395,8 @@ def main():
     # writeQMout(QMin,QMout,QMinfilename)
 
     if PRINT or DEBUG:
-        print datetime.datetime.now()
-        print '#================ END ================#'
+        print(datetime.datetime.now())
+        print('#================ END ================#')
 
 
 if __name__ == '__main__':

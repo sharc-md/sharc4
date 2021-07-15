@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 # ******************************************
 #
@@ -23,8 +23,6 @@
 #
 # ******************************************
 
-#!/usr/bin/env python2
-
 # Script for the calculation of Wigner distributions from molden frequency files
 #
 # usage python wigner.py [-n <NUMBER>] <MOLDEN-FILE>
@@ -40,28 +38,6 @@ from optparse import OptionParser
 
 
 # =========================================================
-# compatibility stuff
-
-if sys.version_info[0] != 2:
-    print 'This is a script for Python 2!'
-    sys.exit(0)
-
-if sys.version_info[1] < 5:
-    def any(iterable):
-        for element in iterable:
-            if element:
-                return True
-        return False
-
-    def all(iterable):
-        for element in iterable:
-            if not element:
-                return False
-        return True
-
-
-# =========================================================
-
 # some constants
 DEBUG = False
 CM_TO_HARTREE = 1. / 219474.6  # 4.556335252e-6 # conversion factor from cm-1 to Hartree
@@ -354,7 +330,7 @@ def readfile(filename):
         out = f.readlines()
         f.close()
     except IOError:
-        print 'File %s does not exist!' % (filename)
+        print('File %s does not exist!' % (filename))
         sys.exit(13)
     return out
 
@@ -371,11 +347,11 @@ def writefile(filename, content):
         elif isinstance(content, str):
             f.write(content)
         else:
-            print 'Content %s cannot be written to file!' % (content)
+            print('Content %s cannot be written to file!' % (content))
             sys.exit(14)
         f.close()
     except IOError:
-        print 'Could not write to file %s!' % (filename)
+        print('Could not write to file %s!' % (filename))
         sys.exit(15)
 
 # ======================================================================================================================
@@ -392,7 +368,7 @@ def try_read(l, index, typefunc, default):
     except IndexError:
         return typefunc(default)
     except ValueError:
-        print 'Could not initialize object!'
+        print('Could not initialize object!')
         quit(1)
 
 # ======================================================================================================================
@@ -505,7 +481,7 @@ class INITCOND:
         while True:
             line = f.readline()
             # if 'Index     %i' % (index) in line:
-            if re.search('Index\s+%i' % (index), line):
+            if re.search(r'Index\\s+%i' % (index), line):
                 break
         f.readline()        # skip one line, where "Atoms" stands
         atomlist = []
@@ -620,7 +596,7 @@ from the initial condition's velocities."""
         com2 = get_center_of_mass(ic2)
         # calculate velocity of center of mass and remove it
         v_com = [(com2[xyz] - com[xyz]) / dt for xyz in range(3)]
-        print v_com
+        print(v_com)
 
 
 def det(m):
@@ -717,7 +693,7 @@ def remove_rotations(ic):
             for xyz in range(3):
                 ic[i].veloc[xyz] -= v_rot[xyz]  # remove rotational velocity
     else:
-        print 'WARNING: moment of inertia tensor is not invertible'
+        print('WARNING: moment of inertia tensor is not invertible')
 
 # ======================================================================================================================
 # ======================================================================================================================
@@ -725,16 +701,16 @@ def remove_rotations(ic):
 
 
 def ask_for_masses():
-    print '''
+    print('''
 Option -m used, please enter non-default masses:
 + number mass           add non-default mass <mass> for atom <number> (counting starts at 1)
 - number                remove non-default mass for atom <number> (default mass will be used)
 show                    show non-default atom masses
 end                     finish input for non-default masses
-'''
+''')
     MASS_LIST = {}
     while True:
-        line = raw_input()
+        line = input()
         if 'end' in line:
             break
         if 'show' in line:
@@ -742,7 +718,7 @@ end                     finish input for non-default masses
             for i in MASS_LIST:
                 s += '% 4i %18.12f\n' % (i, MASS_LIST[i])
             s += '-----------------------'
-            print s
+            print(s)
             continue
         if '+' in line:
             f = line.split()
@@ -776,7 +752,7 @@ def read_mass_from_prmtop(filename, masses):
     while True:
         iline += 1
         if iline >= len(data):
-            print 'Could not find masses in %s' % (filename)
+            print('Could not find masses in %s' % (filename))
             sys.exit(1)
         line = data[iline]
         if 'FLAG MASS' in line:
@@ -792,7 +768,7 @@ def read_mass_from_prmtop(filename, masses):
         s = line.split()
         for i in s:
             iatom += 1
-            if not iatom in masses:
+            if iatom not in masses:
                 masses[iatom] = float(i) * U_TO_AMU
     return masses
 
@@ -806,7 +782,7 @@ def get_mass(symb, number, MASSLIST):
         try:
             return MASSES[symb]
         except KeyError:
-            print 'No default mass for atom %s' % (symb)
+            print('No default mass for atom %s' % (symb))
             sys.exit(1)
 
 # ======================================================================================================================
@@ -818,7 +794,7 @@ def get_atoms_from_prmtop(filename):
     while True:
         iline += 1
         if iline >= len(data):
-            print 'Could not find atoms in %s' % (filename)
+            print('Could not find atoms in %s' % (filename))
             sys.exit(1)
         line = data[iline]
         if 'FLAG ATOMIC_NUMBER' in line:
@@ -836,14 +812,14 @@ def get_atoms_from_prmtop(filename):
             iatom += 1
             n = int(i)
             if n <= 0:
-                el = raw_input('\nElement for atom number %i:\n' % (iatom))[0:2].title()
+                el = input('\nElement for atom number %i:\n' % (iatom))[0:2].title()
             else:
                 for q in NUMBERS:
                     if n == NUMBERS[q]:
                         el = q
                         break
             atoms.append(el)
-            # print iatom,el
+            # print(iatom,el)
     print
     return atoms
 
@@ -891,7 +867,7 @@ def get_coords(INFOS):
             num = NUMBERS[symb]
             vel = [0., 0., 0.]
             mass = get_mass(symb, iatom + 1, MASSLIST)
-            # print iatom,symb,num,xyz,mass
+            # print(iatom,symb,num,xyz,mass)
             atomlist.append(ATOM(symb, num, xyz, mass, vel))
         iline += 1
         colcount = 0
@@ -904,7 +880,7 @@ def get_coords(INFOS):
             s = line.split()
             vel = [float(i) * AMBERVEL_TO_AU for i in s[colcount:colcount + 3]]
             colcount += 3
-            # print iatom,vel
+            # print(iatom,vel)
             for i in range(3):
                 atomlist[iatom].coord[i] -= dt * vel[i]
             atomlist[iatom].veloc = vel
@@ -922,7 +898,7 @@ def get_coords(INFOS):
         else:
             sys.stdout.write('(Saved for initconds)')
             ic_list.append(INITCOND(atomlist, 0., 0.))
-        print ''
+        print('')
 
 
 
@@ -1005,7 +981,7 @@ The data is then transformed and written to initconds format.
     # arg processing
     (options, args) = parser.parse_args()
     if len(args) == 0:
-        print usage
+        print(usage)
         quit(1)
 
     # options
@@ -1013,7 +989,7 @@ The data is then transformed and written to initconds format.
     INFOS['filename_prmtop'] = args[0]
     INFOS['filename_rsts'] = args[1:]
     if not options.t:
-        print 'ERROR: please specify the length of the time step employed in Amber with the -t option!\nThis is necessary to correctly convert the Amber data (leapfrog-style) to SHARC data (velocity-Verlet style).'
+        print('ERROR: please specify the length of the time step employed in Amber with the -t option!\nThis is necessary to correctly convert the Amber data (leapfrog-style) to SHARC data (velocity-Verlet style).')
         sys.exit(1)
     else:
         INFOS['timestep'] = options.t
@@ -1027,7 +1003,7 @@ The data is then transformed and written to initconds format.
 
 
 
-    print '''Initial condition generation started...
+    print('''Initial condition generation started...
 prmtop file                  = "%s"
 rst files                    = "%s"
 OUTPUT file                  = "%s"
@@ -1035,12 +1011,12 @@ Number of geometries         = %i''' % (INFOS['filename_prmtop'],
                                         INFOS['filename_rsts'],
                                         INFOS['outfile'],
                                         len(INFOS['filename_rsts'])
-                                        )
+                                        ))
 
 
-    # print 'Generating %i initial conditions' % amount
+    # print('Generating %i initial conditions' % amount)
     molecule, ic_list = get_coords(INFOS)
-    # print 'Writing output to initconds'
+    # print('Writing output to initconds')
     outfile = open(INFOS['outfile'], 'w')
     outstring = create_initial_conditions_string(molecule, ic_list)
     outfile.write(outstring)

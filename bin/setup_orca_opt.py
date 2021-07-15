@@ -49,20 +49,6 @@ if sys.version_info[0] != 3:
     print('This is a script for Python 3!')
     sys.exit(0)
 
-if sys.version_info[1] < 5:
-    def any(iterable):
-        for element in iterable:
-            if element:
-                return True
-        return False
-
-    def all(iterable):
-        for element in iterable:
-            if not element:
-                return False
-        return True
-
-
 # some constants
 DEBUG = False
 CM_TO_HARTREE = 1. / 219474.6  # 4.556335252e-6 # conversion factor from cm-1 to Hartree
@@ -280,7 +266,7 @@ def displaywelcome():
     string += '||' + '{:^80}'.format('') + '||\n'
     string += '  ' + '=' * 80 + '\n\n'
     string += '''
-This script automatizes the setup of the input files ORCA+SHARC optimizations. 
+This script automatizes the setup of the input files ORCA+SHARC optimizations.
   '''
     print(string)
 
@@ -1214,7 +1200,7 @@ def checktemplate_Analytical(filename, req_nstates, eMsg=True, dipolegrad=False)
     variables = set()
     for i in range(2, 2 + natom):
         line = data[i]
-        match = re.match('\s*[a-zA-Z]*\s+[a-zA-Z0][a-zA-Z0-9_]*\s+[a-zA-Z0][a-zA-Z0-9_]*\s+[a-zA-Z0][a-zA-Z0-9_]*', line)
+        match = re.match(r'\s*[a-zA-Z]*\\s+[a-zA-Z0][a-zA-Z0-9_]*\\s+[a-zA-Z0][a-zA-Z0-9_]*\\s+[a-zA-Z0][a-zA-Z0-9_]*', line)
         if not match:
             if eMsg:
                 print('Line %i malformatted!' % (i + 1))
@@ -1222,7 +1208,7 @@ def checktemplate_Analytical(filename, req_nstates, eMsg=True, dipolegrad=False)
         else:
             a = line.split()
             for j in range(3):
-                match = re.match('\s*[a-zA-Z][a-zA-Z0-9_]*', a[j + 1])
+                match = re.match(r'\s*[a-zA-Z][a-zA-Z0-9_]*', a[j + 1])
                 if match:
                     variables.add(a[j + 1])
 
@@ -1247,7 +1233,7 @@ def checktemplate_Analytical(filename, req_nstates, eMsg=True, dipolegrad=False)
                     continue
                 if 'end' in line[0].lower():
                     break
-                match = re.match('[a-zA-Z][a-zA-Z0-9_]*', line[0])
+                match = re.match(r'[a-zA-Z][a-zA-Z0-9_]*', line[0])
                 if not match:
                     if eMsg:
                         print('Invalid variable name: %s' % (line[0]))
@@ -2255,10 +2241,10 @@ def get_GAUSSIAN(INFOS):
     # template file
     print('{:-^60}'.format('GAUSSIAN input template file') + '\n')
     print('''Please specify the path to the GAUSSIAN.template file. This file must contain the following keywords:
-  
+
 basis <basis>
 functional <type> <name>
-charge <x> [ <x2> [ <x3> ...] ] 
+charge <x> [ <x2> [ <x3> ...] ]
 
 The GAUSSIAN interface will generate the appropriate GAUSSIAN input automatically.
 ''')

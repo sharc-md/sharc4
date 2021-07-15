@@ -1,10 +1,17 @@
+#!/usr/bin/env python3
+
+# script written by Dr. Davide Avagliano for the use of COBRAMM in SHARC
+
+import sys
+
+
 def readfile(filename):
     try:
         f = open(filename)
         out = f.readlines()
         f.close()
     except IOError:
-        print 'File %s does not exist!' % (filename)
+        print('File %s does not exist!' % (filename))
         sys.exit(13)
     return out
 
@@ -21,11 +28,11 @@ def writefile(filename, content):
         elif isinstance(content, str):
             f.write(content)
         else:
-            print 'Content %s cannot be written to file!' % (content)
+            print('Content %s cannot be written to file!' % (content))
             sys.exit(14)
         f.close()
     except IOError:
-        print 'Could not write to file %s!' % (filename)
+        print('Could not write to file %s!' % (filename))
         sys.exit(15)
 
 
@@ -39,11 +46,11 @@ for i in range(len(original)):
         geom_veloc = []
         for j in range(qmatoms):
             line = original[i + 1 + j].split()
-        #    print line
+        #    print(line)
             geom_veloc.append(line[6:9])
-    #  print geom_veloc
+    #  print(geom_veloc)
         velocities.append(geom_veloc)
-# print velocities[0]
+# print(velocities[0])
 number = 0
 outputstring = ""
 for i in range(len(new)):

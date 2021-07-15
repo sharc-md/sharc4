@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 # ******************************************
 #
@@ -23,8 +23,6 @@
 #
 # ******************************************
 
-#!/usr/bin/env python2
-
 # Script for the calculation of Wigner distributions from molden frequency files
 #
 # usage
@@ -43,27 +41,6 @@ import time
 from socket import gethostname
 
 # =========================================================0
-# compatibility stuff
-
-if sys.version_info[0] != 2:
-    print 'This is a script for Python 2!'
-    sys.exit(0)
-
-if sys.version_info[1] < 5:
-    def any(iterable):
-        for element in iterable:
-            if element:
-                return True
-        return False
-
-    def all(iterable):
-        for element in iterable:
-            if not element:
-                return False
-        return True
-
-
-
 # some constants
 DEBUG = False
 CM_TO_HARTREE = 1. / 219474.6  # 4.556335252e-6 # conversion factor from cm-1 to Hartree
@@ -252,32 +229,25 @@ IToMult = {
 # ======================================================================================================================
 # ======================================================================================================================
 
-def centerstring(string, n, pad=' '):
-    l = len(string)
-    if l >= n:
-        return string
-    else:
-        return pad * ((n - l + 1) / 2) + string + pad * ((n - l) / 2)
-
 
 def displaywelcome():
     string = '\n'
     string += '  ' + '=' * 80 + '\n'
-    string += '||' + centerstring('', 80) + '||\n'
-    string += '||' + centerstring('MOLCAS Input file generator', 80) + '||\n'
-    string += '||' + centerstring('', 80) + '||\n'
-    string += '||' + centerstring('Author: Sebastian Mai', 80) + '||\n'
-    string += '||' + centerstring('', 80) + '||\n'
-    string += '||' + centerstring('Version:' + version, 80) + '||\n'
-    string += '||' + centerstring(versiondate.strftime("%d.%m.%y"), 80) + '||\n'
-    string += '||' + centerstring('', 80) + '||\n'
+    string += '||' + '{:^80}'.format('') + '||\n'
+    string += '||' + '{:^80}'.format('MOLCAS Input file generator') + '||\n'
+    string += '||' + '{:^80}'.format('') + '||\n'
+    string += '||' + '{:^80}'.format('Author: Sebastian Mai') + '||\n'
+    string += '||' + '{:^80}'.format('') + '||\n'
+    string += '||' + '{:^80}'.format('Version:' + version) + '||\n'
+    string += '||' + '{:^80}'.format(versiondate.strftime("%d.%m.%y")) + '||\n'
+    string += '||' + '{:^80}'.format('') + '||\n'
     string += '  ' + '=' * 80 + '\n\n'
     string += '''
 This script allows to quickly create MOLCAS input files for single-points calculations
-on the SA-CASSCF and (MS-)CASPT2 levels of theory. 
+on the SA-CASSCF and (MS-)CASPT2 levels of theory.
 It also generates MOLCAS.template files to be used with the SHARC-MOLCAS Interface.
   '''
-    print string
+    print(string)
 
 # ======================================================================================================================
 # ======================================================================================================================
@@ -298,8 +268,8 @@ def close_keystrokes():
 
 def question(question, typefunc, default=None, autocomplete=True, ranges=False):
     if typefunc == int or typefunc == float:
-        if not default == None and not isinstance(default, list):
-            print 'Default to int or float question must be list!'
+        if default is not None and not isinstance(default, list):
+            print('Default to int or float question must be list!')
             quit(1)
     if typefunc == str and autocomplete:
         readline.set_completer_delims(' \t\n;')
@@ -309,7 +279,7 @@ def question(question, typefunc, default=None, autocomplete=True, ranges=False):
 
     while True:
         s = question
-        if default != None:
+        if default is not None:
             if typefunc == bool or typefunc == str:
                 s += ' [%s]' % (str(default))
             elif typefunc == int or typefunc == float:
@@ -323,13 +293,13 @@ def question(question, typefunc, default=None, autocomplete=True, ranges=False):
             s += ' (range comprehension enabled)'
         s += ' '
 
-        line = raw_input(s)
-        line = re.sub('#.*$', '', line).strip()
+        line = input(s)
+        line = re.sub(r'#.*$', '', line).strip()
         if not typefunc == str:
             line = line.lower()
 
         if line == '' or line == '\n':
-            if default != None:
+            if default is not None:
                 KEYSTROKES.write(line + ' ' * (40 - len(line)) + ' #' + s + '\n')
                 return default
             else:
@@ -345,7 +315,7 @@ def question(question, typefunc, default=None, autocomplete=True, ranges=False):
                 KEYSTROKES.write(line + ' ' * (40 - len(line)) + ' #' + s + '\n')
                 return False
             else:
-                print 'I didn''t understand you.'
+                print('I didn''t understand you.')
                 continue
 
         if typefunc == str:
@@ -361,7 +331,7 @@ def question(question, typefunc, default=None, autocomplete=True, ranges=False):
                 KEYSTROKES.write(line + ' ' * (40 - len(line)) + ' #' + s + '\n')
                 return f
             except ValueError:
-                print 'Please enter floats!'
+                print('Please enter floats!')
                 continue
 
         if typefunc == int:
@@ -380,9 +350,9 @@ def question(question, typefunc, default=None, autocomplete=True, ranges=False):
                 return out
             except ValueError:
                 if ranges:
-                    print 'Please enter integers or ranges of integers (e.g. "-3~-1  2  5~7")!'
+                    print('Please enter integers or ranges of integers (e.g. "-3~-1  2  5~7")!')
                 else:
-                    print 'Please enter integers!'
+                    print('Please enter integers!')
                 continue
 
 # ======================================================================================================================
@@ -394,17 +364,17 @@ def show_massses(masslist):
     s = 'Number\tType\tMass\n'
     for i, atom in enumerate(masslist):
         s += '%i\t%2s\t%12.9f %s\n' % (i + 1, atom[0], atom[1], ['', '*    '][atom[1] != MASSES[atom[0]]])
-    print s
+    print(s)
 
 
 def ask_for_masses(masslist):
-    print '''
+    print('''
 Please enter non-default masses:
 + number mass           use non-default mass <mass> for atom <number>
 - number                remove non-default mass for atom <number> (default mass will reinstated)
 show                    show atom masses
 end                     finish input for non-default masses
-'''
+''')
     show_massses(masslist)
     while True:
         line = question('Change an atoms mass:', str, 'end', False)
@@ -423,7 +393,7 @@ end                     finish input for non-default masses
             except ValueError:
                 continue
             if not 0 <= num <= len(masslist):
-                print 'Atom %i does not exist!' % (num)
+                print('Atom %i does not exist!' % (num))
                 continue
             masslist[num - 1][1] = mass
             continue
@@ -436,7 +406,7 @@ end                     finish input for non-default masses
             except ValueError:
                 continue
             if not 0 <= num <= len(masslist):
-                print 'Atom %i does not exist!' % (num)
+                print('Atom %i does not exist!' % (num))
                 continue
             masslist[num - 1][1] = MASSES[masslist[num - 1][0]]
             continue
@@ -463,17 +433,17 @@ def get_infos():
     INFOS = {}
 
     # Type of calculation
-    print centerstring('Type of calculation', 60, '-')
-    print '''\nThis script generates input for the following types of calculations:
+    print('{:-^60}'.format('Type of calculation'))
+    print('''\nThis script generates input for the following types of calculations:
   1       Single point calculations (RASSCF, CASPT2)
   2       Optimizations & Frequency calculations (RASSCF, CASPT2)
   3       MOLCAS.template file for SHARC dynamics (SA-CASSCF)
 Please enter the number corresponding to the type of calculation.
-'''
+''')
     while True:
         ctype = question('Type of calculation:', int)[0]
-        if not ctype in [1, 2, 3]:
-            print 'Enter an integer (1-3)!'
+        if ctype not in [1, 2, 3]:
+            print('Enter an integer (1-3)!')
             continue
         break
     INFOS['ctype'] = ctype
@@ -481,7 +451,7 @@ Please enter the number corresponding to the type of calculation.
     if ctype == 2:
         freq = question('Frequency calculation?', bool, True)
     INFOS['freq'] = freq
-    print ''
+    print('')
 
 
     guessnact = None
@@ -494,16 +464,16 @@ Please enter the number corresponding to the type of calculation.
 
 
     # Geometry
-    print centerstring('Geometry', 60, '-')
+    print('{:-^60}'.format('Geometry'))
     if ctype == 3:
-        print '\nNo geometry necessary for MOLCAS.template generation\n'
+        print('\nNo geometry necessary for MOLCAS.template generation\n')
         INFOS['geom'] = None
         # see whether a MOLCAS.input file is there, where we can take the number of electrons from
         nelec = 0
         try:
             molproinput = open('MOLCAS.input', 'r')
             for line in molproinput:
-                # print line.strip()
+                # print(line.strip())
                 if 'basis' in line.lower():
                     guessbase = line.split()[-1]
                 if 'nactel' in line.lower():
@@ -523,17 +493,17 @@ Please enter the number corresponding to the type of calculation.
                         guessstates.pop()
                     else:
                         break
-                # print guessnorb,guessnact,guessninact,guessnelec
-                if guessninact != None and guessnact != None:
+                # print(guessnorb,guessnact,guessninact,guessnelec)
+                if guessninact is not None and guessnact is not None:
                     guessnelec = [2 * guessninact + guessnact]
-                if guessnorb != None:
+                if guessnorb is not None:
                     guessnorb = [guessnorb]
-                if guessnact != None:
+                if guessnact is not None:
                     guessnact = [guessnact]
-                if guessninact != None:
+                if guessninact is not None:
                     guessninact = [guessninact]
-                # print guessnorb,guessnact,guessninact,guessnelec
-            except:
+                # print(guessnorb,guessnact,guessninact,guessnelec)
+            except BaseException:
                 pass
         except (IOError, ValueError):
             pass
@@ -541,25 +511,25 @@ Please enter the number corresponding to the type of calculation.
         while True:
             nelec = question('Number of electrons: ', int, guessnelec, False)[0]
             if nelec <= 0:
-                print 'Enter a positive number!'
+                print('Enter a positive number!')
                 continue
             break
         INFOS['nelec'] = nelec
     else:
-        print '\nPlease specify the geometry file (xyz format, Angstroms):'
+        print('\nPlease specify the geometry file (xyz format, Angstroms):')
         while True:
             path = question('Geometry filename:', str, 'geom.xyz')
             try:
                 gf = open(path, 'r')
             except IOError:
-                print 'Could not open: %s' % (path)
+                print('Could not open: %s' % (path))
                 continue
             g = gf.readlines()
             gf.close()
             try:
                 natom = int(g[0])
             except ValueError:
-                print 'Malformatted: %s' % (path)
+                print('Malformatted: %s' % (path))
                 continue
             geom = []
             ncharge = 0
@@ -568,36 +538,36 @@ Please enter the number corresponding to the type of calculation.
                 try:
                     line = g[i + 2].split()
                 except IndexError:
-                    print 'Malformatted: %s' % (path)
+                    print('Malformatted: %s' % (path))
                     fine = False
                 try:
-                    line[0] = re.sub('[0-9]', '', line[0])
+                    line[0] = re.sub(r'[0-9]', '', line[0])
                     atom = [line[0], float(line[1]), float(line[2]), float(line[3])]
                 except (IndexError, ValueError):
-                    print 'Malformatted: %s' % (path)
+                    print('Malformatted: %s' % (path))
                     fine = False
                     continue
                 geom.append(atom)
                 try:
                     ncharge += NUMBERS[atom[0].title()]
                 except KeyError:
-                    print 'Atom type %s not supported!' % (atom[0])
+                    print('Atom type %s not supported!' % (atom[0]))
                     fine = False
             if not fine:
                 continue
             else:
                 break
-        print 'Number of atoms: %i\nNuclear charge: %i\n' % (natom, ncharge)
+        print('Number of atoms: %i\nNuclear charge: %i\n' % (natom, ncharge))
         INFOS['geom'] = geom
         INFOS['ncharge'] = ncharge
         INFOS['natom'] = natom
-        print 'Enter the total (net) molecular charge:'
+        print('Enter the total (net) molecular charge:')
         while True:
             charge = question('Charge:', int, [0])[0]
             break
         INFOS['charge'] = charge
         INFOS['nelec'] = ncharge - charge
-        print 'Number of electrons: %i\n' % (ncharge - charge)
+        print('Number of electrons: %i\n' % (ncharge - charge))
 
     # Masses
     if INFOS['freq']:
@@ -613,30 +583,30 @@ Please enter the number corresponding to the type of calculation.
         INFOS['masslist'] = masslist
 
     # Level of theory
-    print '\n' + centerstring('Level of theory', 60, '-')
-    print '''\nSupported by this script are:
+    print('\n' + '{:-^60}'.format('Level of theory'))
+    print('''\nSupported by this script are:
   1       RASSCF
   2       CASPT2 %s
-''' % (['', '(Only numerical gradients)'][INFOS['freq']])
+''' % (['', '(Only numerical gradients)'][INFOS['freq']]))
     # if ctype==3:
     # ltype=1
-    # print 'Choosing RASSCF for MOLCAS.template generation.'
+    # print('Choosing RASSCF for MOLCAS.template generation.')
     # else:
     while True:
         ltype = question('Level of theory:', int)[0]
-        if not ltype in [1, 2]:
-            print 'Enter an integer (1-2)!'
+        if ltype not in [1, 2]:
+            print('Enter an integer (1-2)!')
             continue
         break
     INFOS['ltype'] = ltype
 
 
     # basis set
-    print '\nPlease enter the basis set.'
-    print '''Common available basis sets:
+    print('\nPlease enter the basis set.')
+    print('''Common available basis sets:
   Pople:     6-31G**, 6-311G, 6-31+G, 6-31G(d,p), ...    %s
-  Dunning:   cc-pVXZ, aug-cc-pVXZ, cc-pVXZ-DK, ...    
-  ANO:       ANO-S-vdzp, ANO-L, ANO-RCC                   ''' % (['', '(Not available)'][ctype == 3])
+  Dunning:   cc-pVXZ, aug-cc-pVXZ, cc-pVXZ-DK, ...
+  ANO:       ANO-S-vdzp, ANO-L, ANO-RCC                   ''' % (['', '(Not available)'][ctype == 3]))
     basis = question('Basis set:', str, guessbase, False)
     INFOS['basis'] = basis
     INFOS['cholesky'] = question('Use Cholesky decomposition?', bool, False)
@@ -647,66 +617,66 @@ Please enter the number corresponding to the type of calculation.
 
     # CASSCF
     if ltype >= 1:
-        print '\n' + centerstring('CASSCF Settings', 60, '-') + '\n'
+        print('\n' + '{:-^60}'.format('CASSCF Settings') + '\n')
         while True:
             nact = question('Number of active electrons:', int, guessnact)[0]
             if nact <= 0:
-                print 'Enter a positive number larger than zero!'
+                print('Enter a positive number larger than zero!')
                 continue
             if INFOS['nelec'] < nact:
-                print 'Number of active electrons cannot be larger than total number of electrons!'
+                print('Number of active electrons cannot be larger than total number of electrons!')
                 continue
             if (INFOS['nelec'] - nact) % 2 != 0:
-                print 'nelec-nact must be even!'
+                print('nelec-nact must be even!')
                 continue
             break
         INFOS['cas.nact'] = nact
         while True:
             norb = question('Number of active orbitals:', int, guessnorb)[0]
             if norb <= 0:
-                print 'Enter a positive number!'
+                print('Enter a positive number!')
                 continue
             if 2 * norb <= nact:
-                print 'norb must be larger than nact/2!'
+                print('norb must be larger than nact/2!')
                 continue
             break
         INFOS['cas.norb'] = norb
 
     if ltype >= 1:
-        print 'Please enter the number of states for state-averaging as a list of integers\ne.g. 3 0 2 for three singlets, zero doublets and two triplets.'
+        print('Please enter the number of states for state-averaging as a list of integers\ne.g. 3 0 2 for three singlets, zero doublets and two triplets.')
         while True:
             states = question('Number of states:', int, guessstates)
             maxmult = len(states)
             for i in range(maxmult):
                 n = states[i]
                 if (not i % 2 == INFOS['nelec'] % 2) and int(n) > 0:
-                    print 'Nelec is %i. Ignoring states with mult=%i!' % (INFOS['nelec'], i + 1)
+                    print('Nelec is %i. Ignoring states with mult=%i!' % (INFOS['nelec'], i + 1))
                     states[i] = 0
                 if n < 0:
                     states[i] = 0
             if sum(states) == 0:
-                print 'No states!'
+                print('No states!')
                 continue
             break
         s = 'Accepted number of states:'
         for i in states:
             s += ' %i' % (i)
-        print s
+        print(s)
         INFOS['maxmult'] = len(states)
         INFOS['cas.nstates'] = states
         if ctype == 2:
-            print '\nPlease specify the state to optimize\ne.g. 3 2 for the second triplet state.'
+            print('\nPlease specify the state to optimize\ne.g. 3 2 for the second triplet state.')
             while True:
                 rmult, rstate = tuple(question('Root:', int, [1, 1]))
                 if not 1 <= rmult <= INFOS['maxmult']:
-                    print '%i must be between 1 and %i!' % (rmult, INFOS['maxmult'])
+                    print('%i must be between 1 and %i!' % (rmult, INFOS['maxmult']))
                     continue
                 if not 1 <= rstate <= states[rmult - 1]:
-                    print 'Only %i states of mult %i' % (states[rmult - 1], rmult)
+                    print('Only %i states of mult %i' % (states[rmult - 1], rmult))
                     continue
                 break
             INFOS['opt.root'] = [rmult, rstate]
-            print 'Optimization: Only performing one RASSCF for %ss.' % (IToMult[rmult])
+            print('Optimization: Only performing one RASSCF for %ss.' % (IToMult[rmult]))
             for imult in range(len(INFOS['cas.nstates'])):
                 if INFOS['cas.nstates'][imult] == 0:
                     continue
@@ -715,10 +685,10 @@ Please enter the number corresponding to the type of calculation.
             s = 'Accepted number of states:'
             for i in INFOS['cas.nstates']:
                 s += ' %i' % (i)
-            print s
+            print(s)
 
     if ltype > 1:
-        print '\n' + centerstring('CASPT2 Settings', 60, '-') + '\n'
+        print('\n' + '{:-^60}'.format('CASPT2 Settings') + '\n')
         if ctype == 1:
             INFOS['pt2.multi'] = question('Multi-state CASPT2?', bool, True)
         else:
@@ -730,14 +700,14 @@ Please enter the number corresponding to the type of calculation.
 
 
 
-    print '\n' + centerstring('Further Settings', 60, '-') + '\n'
+    print('\n' + '{:-^60}'.format('Further Settings') + '\n')
 
     if ctype == 1 and maxmult > 1:
         INFOS['soc'] = question('Do Spin-Orbit RASSI?', bool, False)
     else:
         INFOS['soc'] = False
 
-    print ''
+    print('')
 
     return INFOS
 
@@ -754,11 +724,11 @@ def setup_input(INFOS):
         inpf = 'MOLCAS.template'
     else:
         inpf = 'MOLCAS.input'
-    print 'Writing input to %s' % (inpf)
+    print('Writing input to %s' % (inpf))
     try:
         inp = open(inpf, 'w')
     except IOError:
-        print 'Could not open %s for write!' % (inpf)
+        print('Could not open %s for write!' % (inpf))
         quit(1)
 
 
@@ -767,7 +737,7 @@ def setup_input(INFOS):
         s = 'basis %s\n' % (INFOS['basis'])
         s += 'ras2 %i\n' % (INFOS['cas.norb'])
         s += 'nactel %i\n' % (INFOS['cas.nact'])
-        s += 'inactive %i\n' % ((INFOS['nelec'] - INFOS['cas.nact']) / 2)
+        s += 'inactive %i\n' % ((INFOS['nelec'] - INFOS['cas.nact']) // 2)
         s += 'roots'
         for i, n in enumerate(INFOS['cas.nstates']):
             s += ' %i ' % (n)
@@ -850,7 +820,7 @@ RAS2   = %i
 CIROOT = %i,%i,1
 ''' % (mult,
             INFOS['cas.nact'],
-            (INFOS['nelec'] - INFOS['cas.nact']) / 2,
+            (INFOS['nelec'] - INFOS['cas.nact']) // 2,
             INFOS['cas.norb'],
             nstate, nstate)
         if INFOS['ctype'] == 1:
@@ -955,36 +925,36 @@ def set_runscript(INFOS):
         # no run script for template generation
         return
 
-    print ''
+    print('')
     if not question('Runscript?', bool, True):
         return
-    print ''
+    print('')
 
     # MOLCAS executable
-    print centerstring('Path to MOLCAS', 60, '-') + '\n'
+    print('{:-^60}'.format('Path to MOLCAS') + '\n')
     path = os.getenv('MOLCAS')
-    if path != None:
+    if path is not None:
         path = os.path.expanduser(os.path.expandvars(path))
-        print 'Environment variable $MOLCAS detected:\n$MOLCAS=%s\n' % (path)
+        print('Environment variable $MOLCAS detected:\n$MOLCAS=%s\n' % (path))
         if question('Do you want to use this MOLCAS installation?', bool, True):
             INFOS['molcas'] = path
-    if not 'molcas' in INFOS:
-        print '\nPlease specify path to MOLCAS directory (SHELL variables and ~ can be used, will be expanded when interface is started).\n'
+    if 'molcas' not in INFOS:
+        print('\nPlease specify path to MOLCAS directory (SHELL variables and ~ can be used, will be expanded when interface is started).\n')
         INFOS['molcas'] = question('Path to MOLCAS:', str)
-    print ''
+    print('')
 
 
     # Scratch directory
-    print centerstring('Scratch directory', 60, '-') + '\n'
-    print 'Please specify an appropriate scratch directory. This will be used to run the calculation. Remember that this script cannot check whether the path is valid, since you may run the calculation on a different machine. The path will not be expanded by this script.'
+    print('{:-^60}'.format('Scratch directory') + '\n')
+    print('Please specify an appropriate scratch directory. This will be used to run the calculation. Remember that this script cannot check whether the path is valid, since you may run the calculation on a different machine. The path will not be expanded by this script.')
     INFOS['scratchdir'] = question('Path to scratch directory:', str) + '/WORK'
-    print ''
+    print('')
     # Keep scratch directory
     INFOS['delete_scratch'] = question('Delete scratch directory after calculation?', bool, False)
 
     # Memory
-    print '\n' + centerstring('Memory', 60, '-')
-    print '\nRecommendation: for small systems: 100-300 MB, for medium-sized systems: 1000-2000 MB\n'
+    print('\n' + '{:-^60}'.format('Memory'))
+    print('\nRecommendation: for small systems: 100-300 MB, for medium-sized systems: 1000-2000 MB\n')
     mem = abs(question('Memory in MB: ', int, [500])[0])
     # always give at least 50 MB
     mem = max(mem, 50)
@@ -1039,7 +1009,7 @@ mkdir -p $WorkDir
     elif os.path.isfile(os.path.join(INFOS['molcas'], 'bin', 'molcas.exe')):
         string += '\n$MOLCAS/bin/molcas.exe MOLCAS.input &> $CurrDir/MOLCAS.log\n\n'
     else:
-        print 'Could not find MOLCAS driver in %s' % os.path.join(INFOS['molcas'], 'bin')
+        print('Could not find MOLCAS driver in %s' % os.path.join(INFOS['molcas'], 'bin'))
         sys.exit(1)
 
     for imult, nstate in enumerate(INFOS['cas.nstates']):
@@ -1055,11 +1025,11 @@ mkdir -p $WorkDir
 
 
     runscript = 'run_MOLCAS.sh'
-    print 'Writing run script %s' % (runscript)
+    print('Writing run script %s' % (runscript))
     try:
         runf = open(runscript, 'w')
     except IOError:
-        print 'Could not write %s' (runscript)
+        print('Could not write %s' (runscript))
         return
     runf.write(string)
     runf.close()
@@ -1071,20 +1041,20 @@ mkdir -p $WorkDir
 
 
 def warnings(INFOS):
-    print centerstring(' WARNINGS ', 62, '*')
-    print '*' + ' ' * 60 + '*'
+    print('{:*^60}'.format(' WARNINGS '))
+    print('*' + ' ' * 60 + '*')
     if INFOS['ctype'] == 1:
         if INFOS['DK']:
-            print '*' + centerstring('Douglas-Kroll: Will not do SCF!', 60, ' ') + '*'
-            print '*' + ' ' * 60 + '*'
+            print('*' + '{: ^60}'.format('Douglas-Kroll: Will not do SCF!') + '*')
+            print('*' + ' ' * 60 + '*')
         if INFOS['nelec'] % 2 != 0:
-            print '*' + centerstring('Odd number of electrons: Will not do SCF!', 60, ' ') + '*'
-            print '*' + ' ' * 60 + '*'
+            print('*' + '{: ^60}'.format('Odd number of electrons: Will not do SCF!') + '*')
+            print('*' + ' ' * 60 + '*')
         if INFOS['charge'] != 0:
-            print '*' + centerstring('Nonzero charge: Will not do SCF!', 60, ' ') + '*'
-            print '*' + ' ' * 60 + '*'
-    print '*' + ' ' * 60 + '*'
-    print '*' * 62
+            print('*' + '{: ^60}'.format('Nonzero charge: Will not do SCF!') + '*')
+            print('*' + ' ' * 60 + '*')
+    print('*' + ' ' * 60 + '*')
+    print('*' * 62)
 
 # ======================================================================================================================
 # ======================================================================================================================
@@ -1108,14 +1078,14 @@ This interactive program prepares a MOLCAS input file for ground state optimizat
 
     INFOS = get_infos()
 
-    print centerstring('Full input', 60, '#') + '\n'
+    print('{:#^60}'.format('Full input') + '\n')
     for item in INFOS:
-        print item, ' ' * (15 - len(item)), INFOS[item]
-    print ''
+        print(item, ' ' * (15 - len(item)), INFOS[item])
+    print('')
 
     setup_input(INFOS)
     set_runscript(INFOS)
-    print '\nFinished\n'
+    print('\nFinished\n')
 
     close_keystrokes()
 
@@ -1128,5 +1098,5 @@ if __name__ == '__main__':
     try:
         main()
     except KeyboardInterrupt:
-        print '\nCtrl+C makes me a sad SHARC ;-(\n'
+        print('\nCtrl+C makes me a sad SHARC ;-(\n')
         quit(0)

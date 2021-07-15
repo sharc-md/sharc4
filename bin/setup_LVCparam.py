@@ -1379,7 +1379,7 @@ def checktemplate_Analytical(filename, req_nstates, eMsg=True):
                     continue
                 if 'end' in line[0].lower():
                     break
-                match = re.match('[a-zA-Z][a-zA-Z0-9_]*', line[0])
+                match = re.match(r'[a-zA-Z][a-zA-Z0-9_]*', line[0])
                 if not match:
                     if eMsg:
                         print('Invalid variable name: %s' % (line[0]))

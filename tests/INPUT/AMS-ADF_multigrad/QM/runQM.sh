@@ -1,5 +1,5 @@
 cd QM
-$SHARC/SHARC_AMS.py QM.in >> QM.log 2>> QM.err
+$SHARC/SHARC_AMS-ADF.py QM.in >> QM.log 2>> QM.err
 err=$?
 
 # rm *.xml

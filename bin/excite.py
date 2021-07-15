@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 # ******************************************
 #
@@ -23,22 +23,14 @@
 #
 # ******************************************
 
-#!/usr/bin/env python2
-
 # Script for the calculation of Wigner distributions from molden frequency files
 #
-# usage
-import sys
-if sys.version_info[0] != 2:
-    sys.stdout.write('The SHARC suite is not compatible with Python 3! Use Python 2 (>2.6)!')
-    sys.exit(0)
-
 
 import copy
 import math
 import re
 import os
-import stat
+import sys
 import shutil
 import random
 import datetime
@@ -54,21 +46,6 @@ except ImportError:
     NONUMPY = True
 
 # =========================================================0
-# compatibility stuff
-
-if sys.version_info[1] < 5:
-    def any(iterable):
-        for element in iterable:
-            if element:
-                return True
-        return False
-
-    def all(iterable):
-        for element in iterable:
-            if not element:
-                return False
-        return True
-
 # some constants
 DEBUG = False
 CM_TO_HARTREE = 1. / 219474.6  # 4.556335252e-6 # conversion factor from cm-1 to Hartree
@@ -95,7 +72,7 @@ def try_read(l, index, typefunc, default):
     except IndexError:
         return typefunc(default)
     except ValueError:
-        print 'Could not initialize object!'
+        print('Could not initialize object!')
         quit(1)
 
 # ======================================================================================================================
@@ -208,12 +185,12 @@ class INITCOND:
         while True:
             line = f.readline()
             # if 'Index     %i' % (index) in line:
-            if re.search('Index\s+%i' % (index), line):
+            if re.search(r'Index\s+%i' % (index), line):
                 break
             if line == '\n':
                 continue
             if line == '':
-                print 'Initial condition %i not found in file %s' % (index, f.name)
+                print('Initial condition %i not found in file %s' % (index, f.name))
                 quit(1)
         f.readline()        # skip one line, where "Atoms" stands
         atomlist = []
@@ -308,31 +285,22 @@ def print_statemap(statemap, diag=False):
 
 
 def check_initcond_version(string, must_be_excited=False):
-    if not 'sharc initial conditions file' in string.lower():
+    if 'sharc initial conditions file' not in string.lower():
         return False
     f = string.split()
     for i, field in enumerate(f):
         if 'version' in field.lower():
             try:
                 v = float(f[i + 1])
-                if not v in versionneeded:
+                if v not in versionneeded:
                     return False
             except IndexError:
                 return False
     if must_be_excited:
-        if not 'excited' in string.lower():
+        if 'excited' not in string.lower():
             return False
     return True
 
-
-# ======================================================================================================================
-
-def centerstring(string, n, pad=' '):
-    l = len(string)
-    if l >= n:
-        return string
-    else:
-        return pad * ((n - l + 1) / 2) + string + pad * ((n - l) / 2)
 
 # ======================================================================================================================
 
@@ -340,21 +308,21 @@ def centerstring(string, n, pad=' '):
 def displaywelcome():
     string = '\n'
     string += '  ' + '=' * 80 + '\n'
-    string += '||' + centerstring('', 80) + '||\n'
-    string += '||' + centerstring('Excite initial conditions for SHARC', 80) + '||\n'
-    string += '||' + centerstring('', 80) + '||\n'
-    string += '||' + centerstring('Author: Sebastian Mai', 80) + '||\n'
-    string += '||' + centerstring('', 80) + '||\n'
-    string += '||' + centerstring('Version:' + version, 80) + '||\n'
-    string += '||' + centerstring(versiondate.strftime("%d.%m.%y"), 80) + '||\n'
-    string += '||' + centerstring('', 80) + '||\n'
+    string += '||' + '{:^80}'.format('') + '||\n'
+    string += '||' + '{:^80}'.format('Excite initial conditions for SHARC') + '||\n'
+    string += '||' + '{:^80}'.format('') + '||\n'
+    string += '||' + '{:^80}'.format('Author: Sebastian Mai') + '||\n'
+    string += '||' + '{:^80}'.format('') + '||\n'
+    string += '||' + '{:^80}'.format('Version:' + version) + '||\n'
+    string += '||' + '{:^80}'.format(versiondate.strftime("%d.%m.%y")) + '||\n'
+    string += '||' + '{:^80}'.format('') + '||\n'
     string += '  ' + '=' * 80 + '\n\n'
     string += '''
 This script automatizes to read-out the results of initial excited-state calculations for SHARC.
-It calculates oscillator strength (in MCH and diagonal basis) and stochastically 
+It calculates oscillator strength (in MCH and diagonal basis) and stochastically
 determines initial states for trajectories.
   '''
-    print string
+    print(string)
 
 # ======================================================================================================================
 # ======================================================================================================================
@@ -375,8 +343,8 @@ def close_keystrokes():
 
 def question(question, typefunc, default=None, autocomplete=True, ranges=False):
     if typefunc == int or typefunc == float:
-        if not default == None and not isinstance(default, list):
-            print 'Default to int or float question must be list!'
+        if default is not None and not isinstance(default, list):
+            print('Default to int or float question must be list!')
             quit(1)
     if typefunc == str and autocomplete:
         readline.set_completer_delims(' \t\n;')
@@ -386,7 +354,7 @@ def question(question, typefunc, default=None, autocomplete=True, ranges=False):
 
     while True:
         s = question
-        if default != None:
+        if default is not None:
             if typefunc == bool or typefunc == str:
                 s += ' [%s]' % (str(default))
             elif typefunc == int or typefunc == float:
@@ -400,13 +368,13 @@ def question(question, typefunc, default=None, autocomplete=True, ranges=False):
             s += ' (range comprehension enabled)'
         s += ' '
 
-        line = raw_input(s)
-        line = re.sub('#.*$', '', line).strip()
+        line = input(s)
+        line = re.sub(r'#.*$', '', line).strip()
         if not typefunc == str:
             line = line.lower()
 
         if line == '' or line == '\n':
-            if default != None:
+            if default is not None:
                 KEYSTROKES.write(line + ' ' * (40 - len(line)) + ' #' + s + '\n')
                 return default
             else:
@@ -422,7 +390,7 @@ def question(question, typefunc, default=None, autocomplete=True, ranges=False):
                 KEYSTROKES.write(line + ' ' * (40 - len(line)) + ' #' + s + '\n')
                 return False
             else:
-                print 'I didn''t understand you.'
+                print('I didn''t understand you.')
                 continue
 
         if typefunc == str:
@@ -438,7 +406,7 @@ def question(question, typefunc, default=None, autocomplete=True, ranges=False):
                 KEYSTROKES.write(line + ' ' * (40 - len(line)) + ' #' + s + '\n')
                 return f
             except ValueError:
-                print 'Please enter floats!'
+                print('Please enter floats!')
                 continue
 
         if typefunc == int:
@@ -457,9 +425,9 @@ def question(question, typefunc, default=None, autocomplete=True, ranges=False):
                 return out
             except ValueError:
                 if ranges:
-                    print 'Please enter integers or ranges of integers (e.g. "-3~-1  2  5~7")!'
+                    print('Please enter integers or ranges of integers (e.g. "-3~-1  2  5~7")!')
                 else:
-                    print 'Please enter integers!'
+                    print('Please enter integers!')
                 continue
 
 
@@ -473,10 +441,10 @@ def read_matrix(qmout, i, filename):
         n1 = int(line[0])
         n2 = int(line[1])
     except ValueError:
-        print 'Could not read number of states of matrix in %s' % (filename)
+        print('Could not read number of states of matrix in %s' % (filename))
         return None
     if not n1 == n2:
-        print 'Non-square matrix in %s!' % (filename)
+        print('Non-square matrix in %s!' % (filename))
         return None
     i += 1
     A = []
@@ -491,7 +459,7 @@ def read_matrix(qmout, i, filename):
             A.append(a)
             i += 1
     except (ValueError, IndexError):
-        print 'Matrix malformatted in %s' % (filename)
+        print('Matrix malformatted in %s' % (filename))
         return None
     return A
 
@@ -504,7 +472,7 @@ def find_flag(qmout, flag, filename):
         while not '! %i' % (flag) in qmout[i]:
             i += 1
     except IndexError:
-        print 'No matrix with flag %i in %s!' % (flag, filename)
+        print('No matrix with flag %i in %s!' % (flag, filename))
         return None
     return i
 
@@ -518,30 +486,30 @@ def extractQMout(filename, readP=False, readS=False):
         qmout = qmoutf.readlines()
         qmoutf.close()
     except IOError:
-        print 'Could not find %s!' % (filename)
+        print('Could not find %s!' % (filename))
         return None, None, None, None
 
     i = find_flag(qmout, 1, filename)
-    if i == None:
+    if i is None:
         return None, None, None, None
     H = read_matrix(qmout, i + 1, filename)
 
     i = find_flag(qmout, 2, filename)
-    if i == None:
+    if i is None:
         DM = None
     else:
         # return H,None,None
         DM = []
         for idir in range(3):
             DM.append(read_matrix(qmout, i + 1, filename))
-            if DM[-1] == None:
+            if DM[-1] is None:
                 DM = None
                 break
             i += len(DM[-1]) + 1
 
     if readP:
         i = find_flag(qmout, 11, filename)
-        if i == None:
+        if i is None:
             return H, DM, None, None
         P = read_matrix(qmout, i + 1, filename)
     else:
@@ -549,7 +517,7 @@ def extractQMout(filename, readP=False, readS=False):
 
     if readS:
         i = find_flag(qmout, 6, filename)
-        if i == None:
+        if i is None:
             return H, DM, P, None
         S = read_matrix(qmout, i + 1, filename)
     else:
@@ -565,7 +533,7 @@ class diagonalizer:
         exe = os.getenv('SHARC')
         exe = os.path.expanduser(os.path.expandvars(exe)) + '/diagonalizer.x'
         if not os.path.isfile(exe):
-            print 'SHARC auxilliary diagonalizer not found at %s!' % (exe)
+            print('SHARC auxilliary diagonalizer not found at %s!' % (exe))
             sys.exit(1)
         self.exe = exe
 
@@ -611,7 +579,7 @@ def transform(H, DM, P):
                         UDMU[xyz][a][b] += temp[a][i] * U[i][b]
         DM = UDMU
 
-        if P != None:
+        if P is not None:
             UPU = [[0. for i in range(len(H))] for j in range(len(H))]
             for a in range(len(H)):
                 for b in range(len(H)):
@@ -638,7 +606,7 @@ def transform(H, DM, P):
             UDMU[xyz] = numpy.dot(Ucon, numpy.dot(DM[xyz], U))
         DM = UDMU
 
-        if P != None:
+        if P is not None:
             UPU = numpy.dot(Ucon, numpy.dot(P, U))
             P = UPU
 
@@ -652,14 +620,14 @@ def transform(H, DM, P):
 def get_infos(INFOS):
     '''This routine asks for the paths of the initconds file and ICONDS directory, for energy window and the representation.'''
 
-    print centerstring('Initial conditions file', 60, '-') + '\n'
+    print('{:-^60}'.format('Initial conditions file') + '\n')
     # open the initconds file
     try:
         initfile = 'initconds'
         initf = open(initfile)
         line = initf.readline()
         if check_initcond_version(line):
-            print 'Initial conditions file "initconds" detected. Do you want to use this?'
+            print('Initial conditions file "initconds" detected. Do you want to use this?')
             if not question('Use file "initconds"?', bool, True):
                 initf.close()
                 raise IOError
@@ -667,27 +635,27 @@ def get_infos(INFOS):
             initf.close()
             raise IOError
     except IOError:
-        print '\nIf you do not have an initial conditions file, prepare one with wigner.py!\n'
-        print 'Please enter the filename of the initial conditions file.'
+        print('\nIf you do not have an initial conditions file, prepare one with wigner.py!\n')
+        print('Please enter the filename of the initial conditions file.')
         while True:
             initfile = question('Initial conditions filename:', str, 'initconds')
             initfile = os.path.expanduser(os.path.expandvars(initfile))
             if os.path.isdir(initfile):
-                print 'Is a directory: %s' % (initfile)
+                print('Is a directory: %s' % (initfile))
                 continue
             if not os.path.isfile(initfile):
-                print 'File does not exist: %s' % (initfile)
+                print('File does not exist: %s' % (initfile))
                 continue
             try:
                 initf = open(initfile, 'r')
             except IOError:
-                print 'Could not open: %s' % (initfile)
+                print('Could not open: %s' % (initfile))
                 continue
             line = initf.readline()
             if check_initcond_version(line):
                 break
             else:
-                print 'File does not contain initial conditions!'
+                print('File does not contain initial conditions!')
                 continue
     # read the header
     INFOS['ninit'] = int(initf.readline().split()[1])
@@ -712,7 +680,7 @@ def get_infos(INFOS):
         if 'Equilibrium' in line:
             break
         if line == '':
-            print 'File malformatted! No equilibrium geometry!'
+            print('File malformatted! No equilibrium geometry!')
             quit(1)
     equi = []
     for i in range(INFOS['natom']):
@@ -723,26 +691,26 @@ def get_infos(INFOS):
     INFOS['equi'] = equi
     initf.seek(0)                 # rewind the initf file
     INFOS['initf'] = initf
-    print '\nFile "%s" contains %i initial conditions.' % (initfile, INFOS['ninit'])
-    print 'Number of atoms is %i\n' % (INFOS['natom'])
+    print('\nFile "%s" contains %i initial conditions.' % (initfile, INFOS['ninit']))
+    print('Number of atoms is %i\n' % (INFOS['natom']))
 
 
-    print centerstring('Generate excited state lists', 60, '-') + '\n'
-    print '''Using the following options, excited state lists can be added to the initial conditions:
+    print('{:-^60}'.format('Generate excited state lists') + '\n')
+    print('''Using the following options, excited state lists can be added to the initial conditions:
 
 1       Generate a list of dummy states
-2       Read excited-state information from ab initio calculations (from setup_init.py)'''
+2       Read excited-state information from ab initio calculations (from setup_init.py)''')
     allowed = [1, 2]
     guess_gen = [2]
     if any([i in INFOS['repr'].lower() for i in ['mch', 'diag']]):
         allowed.append(3)
-        print '3       Keep existing excited-state information'
+        print('3       Keep existing excited-state information')
         guess_gen = [3]
-    print ''
+    print('')
     while True:
         INFOS['gen_list'] = question('How should the excited-state lists be generated?', int, guess_gen)[0]
         if not INFOS['gen_list'] in allowed:
-            print 'Please give one of the following integer: %s' % (allowed)
+            print('Please give one of the following integer: %s' % (allowed))
             continue
         break
 
@@ -758,13 +726,13 @@ def get_infos(INFOS):
 
 
     if INFOS['read_QMout']:
-        print 'Please enter the path to the directory containing the ICOND subdirectories.'
+        print('Please enter the path to the directory containing the ICOND subdirectories.')
         while True:
             path = question('Path to ICOND directories:', str)
             path = os.path.expanduser(os.path.expandvars(path))
             path = os.path.abspath(path)
             if not os.path.isdir(path):
-                print 'Is not a directory or does not exist: %s' % (path)
+                print('Is not a directory or does not exist: %s' % (path))
                 continue
             else:
                 ls = os.listdir(path)
@@ -773,53 +741,53 @@ def get_infos(INFOS):
                     if 'ICOND' in i:
                         n += 1
                 if n == 0:
-                    print 'Does not contain any ICOND directories: %s' % (path)
+                    print('Does not contain any ICOND directories: %s' % (path))
                     continue
                 else:
                     break
-        print '\n%s\nDirectory contains %i subdirectories.' % (path, n)
+        print('\n%s\nDirectory contains %i subdirectories.' % (path, n))
         if n < INFOS['ninit'] + 1:
-            print 'There are more initial conditions in %s.' % (initfile)
+            print('There are more initial conditions in %s.' % (initfile))
         INFOS['iconddir'] = path
         INFOS['ncond'] = n
-        print ''
+        print('')
 
 
     if INFOS['make_list']:
-        print '\nPlease enter the number of states as a list of integers\ne.g. 3 0 3 for three singlets, zero doublets and three triplets.'
+        print('\nPlease enter the number of states as a list of integers\ne.g. 3 0 3 for three singlets, zero doublets and three triplets.')
         while True:
             states = question('Number of states:', int)
             if len(states) == 0:
                 continue
             if any(i < 0 for i in states):
-                print 'Number of states must be positive!'
+                print('Number of states must be positive!')
                 continue
             break
-        print ''
+        print('')
         nstates = 0
         for mult, i in enumerate(states):
             nstates += (mult + 1) * i
-        print 'Number of states: ' + str(states)
-        print 'Total number of states: %i\n' % (nstates)
-        print ''
+        print('Number of states: ' + str(states))
+        print('Total number of states: %i\n' % (nstates))
+        print('')
         INFOS['states'] = states
         INFOS['nstates'] = nstates
 
 
     if INFOS['make_list'] or INFOS['read_QMout']:
-        print centerstring('Excited-state representation', 60, '-')
+        print('{:-^60}'.format('Excited-state representation'))
         if INFOS['read_QMout']:
-            print '''\nThis script can calculate the excited-state energies and oscillator strengths in two representations.
+            print('''\nThis script can calculate the excited-state energies and oscillator strengths in two representations.
 These representations are:
 - MCH representation: Only the diagonal elements of the Hamiltonian are taken into account. The states are the spin-free states as calculated in the quantum chemistry code. This option is usually sufficient for systems with small SOC (below 300 cm^-1).
 - diagonal representation: The Hamiltonian including spin-orbit coupling is diagonalized. The states are spin-corrected, fully adiabatic. Note that for this the excited-state calculations have to include spin-orbit couplings. This is usually not necessary for systems with small SOC.
-'''
+''')
         else:
-            print '''\nThis script needs to set the electronic state representation.
+            print('''\nThis script needs to set the electronic state representation.
 There are two representations:
 - MCH representation: Only the diagonal elements of the Hamiltonian are taken into account. The states are the spin-free states as calculated in the quantum chemistry code. This option is usually sufficient for systems with small SOC (below 300 cm^-1).
 - diagonal representation: The Hamiltonian including spin-orbit coupling is diagonalized. The states are spin-corrected, fully adiabatic. Note that for this the excited-state calculations have to include spin-orbit couplings. This is usually not necessary for systems with small SOC.
-'''
+''')
         INFOS['diag'] = question('Do you want to use the diagonal representation (yes=diag, no=MCH)?', bool)
         if INFOS['diag'] and INFOS['read_QMout']:
             qmfilename = INFOS['iconddir'] + '/ICOND_00000/QM.in'
@@ -831,12 +799,12 @@ There are two representations:
                         soc_there = True
                 qmfile.close()
                 if not soc_there:
-                    print '\nDiagonal representation specified, but \n%s\n says there are no SOCs in the QM.out files.\nUsing MCH representation.' % (qmfilename)
+                    print('\nDiagonal representation specified, but \n%s\n says there are no SOCs in the QM.out files.\nUsing MCH representation.' % (qmfilename))
                     INFOS['diag'] = False
                     time.sleep(2)
             else:
-                print 'Could not determine whether calculations include SOC.'
-        print ''
+                print('Could not determine whether calculations include SOC.')
+        print('')
         if INFOS['diag']:
             INFOS['repr'] = 'diag'
         else:
@@ -848,7 +816,7 @@ There are two representations:
             if os.path.isfile(qmfilename):
                 qmfile = open(qmfilename, 'r')
                 for line in qmfile:
-                    if re.search('^\s?ion\s?', line.lower()):
+                    if re.search(r'^\\s?ion\\s?', line.lower()):
                         INFOS['ion'] = question('Use ionization probabilities instead of dipole moments?', bool, False)
                     if 'states' in line.lower():
                         states = []
@@ -857,11 +825,11 @@ There are two representations:
                             states.append(int(l[i]))
                         INFOS['states'] = states
                 qmfile.close()
-            if not 'ion' in INFOS:
+            if 'ion' not in INFOS:
                 INFOS['ion'] = False
 
 
-        print '\n' + centerstring('Reference energy', 60, '-') + '\n'
+        print('\n' + '{:-^60}'.format('Reference energy') + '\n')
         if INFOS['read_QMout']:
             qmfilename = INFOS['iconddir'] + '/ICOND_00000/QM.out'
         if INFOS['make_list']:
@@ -870,49 +838,49 @@ There are two representations:
                 while True:
                     qmfilename = question('Path to the QM.out file of the calculation:', str)
                     if not os.path.isfile(qmfilename):
-                        print 'File %s does not exist!' % (qmfilename)
+                        print('File %s does not exist!' % (qmfilename))
                         continue
                     break
             else:
                 qmfilename = ''
         if os.path.isfile(qmfilename):
             H, DM, P, Smat = extractQMout(qmfilename)
-            if H != None:
+            if H is not None:
                 if INFOS['diag']:
                     H, DM, P = transform(H, DM, P)
                 INFOS['eref'] = H[0][0].real
-                print 'Reference energy read from file \n%s' % (qmfilename)
-                print 'E_ref= %16.12f' % (INFOS['eref'])
+                print('Reference energy read from file \n%s' % (qmfilename))
+                print('E_ref= %16.12f' % (INFOS['eref']))
         else:
-            print '\nPlease enter the ground state equilibrium energy in hartree.'
+            print('\nPlease enter the ground state equilibrium energy in hartree.')
             INFOS['eref'] = question('Reference energy (hartree): ', float)[0]
-        print ''
+        print('')
 
 
 
 
-    print '\n' + centerstring('Excited-state selection', 60, '-') + '\n'
-    print '''Using the following options, the excited states can be flagged as valid initial states for dynamics:
+    print('\n' + '{:-^60}'.format('Excited-state selection') + '\n')
+    print('''Using the following options, the excited states can be flagged as valid initial states for dynamics:
 
 1       Unselect all initial states
-2       Provide a list of desired initial states'''
+2       Provide a list of desired initial states''')
     allowed = [1, 2]
     guess_gen = [2]
     if not INFOS['make_list']:
-        print '3       Simulate delta-pulse excitation based on excitation energies and oscillator strengths'
+        print('3       Simulate delta-pulse excitation based on excitation energies and oscillator strengths')
         allowed.append(3)
         guess_gen = [3]
     if not INFOS['make_list'] and not INFOS['read_QMout']:
-        print '4       Keep selection (i.e., only print statistics on the excited states and exit)'
+        print('4       Keep selection (i.e., only print statistics on the excited states and exit)')
         allowed.append(4)
-    print ''
+    print('')
     while True:
         INFOS['excite'] = question('How should the excited states be flagged?', int, guess_gen)[0]
         if not INFOS['excite'] in allowed:
-            print 'Please give one of the following integer: %s' % (allowed)
+            print('Please give one of the following integer: %s' % (allowed))
             continue
         break
-    print ''
+    print('')
 
 
 
@@ -922,18 +890,18 @@ There are two representations:
 
 
     if INFOS['excite'] == 3 or (INFOS['excite'] == 2 and not INFOS['make_list']) or INFOS['excite'] == 4:
-        print '\n' + centerstring('Excitation window', 60, '-')
+        print('\n' + '{:-^60}'.format('Excitation window'))
         if INFOS['excite'] == 4:
-            print '\nEnter the energy window for counting.'
+            print('\nEnter the energy window for counting.')
         else:
-            print '\nEnter the energy window for exciting the trajectories.'
+            print('\nEnter the energy window for exciting the trajectories.')
         while True:
             erange = question('Range (eV):', float, [0., 10.])
             if erange[0] >= erange[1]:
-                print 'Range empty!'
+                print('Range empty!')
                 continue
             break
-        print '\nScript will allow excitations only between %f eV and %f eV.\n' % (erange[0], erange[1])
+        print('\nScript will allow excitations only between %f eV and %f eV.\n' % (erange[0], erange[1]))
         erange[0] /= HARTREE_TO_EV
         erange[1] /= HARTREE_TO_EV
         INFOS['erange'] = erange
@@ -943,45 +911,45 @@ There are two representations:
 
     INFOS['diabatize'] = False
     if INFOS['excite'] == 2:
-        print '\n' + centerstring('Considered states', 60, '-')
+        print('\n' + '{:-^60}'.format('Considered states'))
 
         if INFOS['read_QMout'] and INFOS['repr'] == 'MCH':
             qmfilename = INFOS['iconddir'] + '/ICOND_00001/QM.in'
             if os.path.isfile(qmfilename):
                 qmfile = open(qmfilename, 'r')
                 for line in qmfile:
-                    if re.search('^\s?overlap\s?', line.lower()):
-                        print '\nThe vertical excitation calculations were done with overlaps with a reference.\nReference overlaps can be used to obtain diabatic states.\n'
+                    if re.search(r'^\\s?overlap\\s?', line.lower()):
+                        print('\nThe vertical excitation calculations were done with overlaps with a reference.\nReference overlaps can be used to obtain diabatic states.\n')
                         INFOS['diabatize'] = question('Do you want to specify the initial states in a diabatic picture?', bool, False)
                 qmfile.close()
 
-        print '''\nPlease give a list of all states which should be 
+        print('''\nPlease give a list of all states which should be
 flagged as valid initial states for the dynamics.
-Note that this is applied to all initial conditions.'''
+Note that this is applied to all initial conditions.''')
         if INFOS['diabatize']:
-            print '\nNOTE: These numbers are interpreted as diabatic states.\nThe diabatic basis is the set of states computed in ICOND_00000/.\nPlease carefully analyze these states to decide which diabatic states to request.'
-            # print 'NOTE: You can only enter one initial state.'
+            print('\nNOTE: These numbers are interpreted as diabatic states.\nThe diabatic basis is the set of states computed in ICOND_00000/.\nPlease carefully analyze these states to decide which diabatic states to request.')
+            # print('NOTE: You can only enter one initial state.')
         if 'states' in INFOS:
             diago = (INFOS['repr'] == 'diag')
-            print print_statemap(get_statemap(INFOS['states']), diag=diago)
+            print(print_statemap(get_statemap(INFOS['states']), diag=diago))
 
         while True:
             allowed_states = question('List of initial states:', int, ranges=True)
             if any([i <= 0 for i in allowed_states]):
-                print 'State indices must be positive!'
+                print('State indices must be positive!')
                 continue
             # if INFOS['diabatize']:
                 # if len(allowed_states)>1:
-                # print 'Only one initial state allowed!'
+                # print('Only one initial state allowed!')
                 # continue
             break
         INFOS['allowed'] = set(allowed_states)
-        if not 'erange' in INFOS:
+        if 'erange' not in INFOS:
             INFOS['erange'] = [float('-inf'), float('inf')]
 
     if INFOS['read_QMout']:
-        print centerstring('Considered states', 60, '-') + '\n'
-        print 'From which state should the excitation originate (for computation of excitation energies and oscillator strength)?'
+        print('{:-^60}'.format('Considered states') + '\n')
+        print('From which state should the excitation originate (for computation of excitation energies and oscillator strength)?')
         INFOS['initstate'] = question('Lower state for excitation?', int, [1])[0] - 1
     else:
         INFOS['initstate'] = 0
@@ -989,19 +957,19 @@ Note that this is applied to all initial conditions.'''
     if INFOS['excite'] == 3:
         if 'states' in INFOS:
             diago = (INFOS['repr'] == 'diag')
-            print print_statemap(get_statemap(INFOS['states']), diag=diago)
+            print(print_statemap(get_statemap(INFOS['states']), diag=diago))
         allstates = question('Do you want to include all states in the selection?', bool, True)
         if allstates:
             INFOS['allowed'] = set()
         else:
-            print '\nPlease enter the states which you want to EXCLUDE from the selection procedure.'
+            print('\nPlease enter the states which you want to EXCLUDE from the selection procedure.')
             a = question('Excluded states:', int, ranges=True)
             INFOS['allowed'] = set([-i for i in a])
-        print ''
+        print('')
 
     if INFOS['excite'] == 3:
-        print centerstring('Random number seed', 60, '-') + '\n'
-        print 'Please enter a random number generator seed (type "!" to initialize the RNG from the system time).'
+        print('{:-^60}'.format('Random number seed') + '\n')
+        print('Please enter a random number generator seed (type "!" to initialize the RNG from the system time).')
         while True:
             line = question('RNG Seed: ', str, '!', False)
             if line == '!':
@@ -1011,10 +979,10 @@ Note that this is applied to all initial conditions.'''
                 rngseed = int(line)
                 random.seed(rngseed)
             except ValueError:
-                print 'Please enter an integer or "!".'
+                print('Please enter an integer or "!".')
                 continue
             break
-        print ''
+        print('')
 
 
     if INFOS['excite'] == 4:
@@ -1031,7 +999,7 @@ Note that this is applied to all initial conditions.'''
 def get_initconds(INFOS):
     ''''''
 
-    print 'Reading initial condition file ...'
+    print('Reading initial condition file ...')
     if not INFOS['read_QMout'] and not INFOS['make_list']:
         INFOS['initf'].seek(0)
         while True:
@@ -1049,25 +1017,25 @@ def get_initconds(INFOS):
         initcond = INITCOND()
         initcond.init_from_file(INFOS['initf'], INFOS['eref'], icond)
         initlist.append(initcond)
-        done = width_bar * (icond) / INFOS['ninit']
-        sys.stdout.write('\r  Progress: [' + '=' * done + ' ' * (width_bar - done) + '] %3i%%' % (done * 100 / width_bar))
-    print '\nNumber of initial conditions in file:       %5i' % (INFOS['ninit'])
+        done = width_bar * (icond) // INFOS['ninit']
+        sys.stdout.write('\r  Progress: [' + '=' * done + ' ' * (width_bar - done) + '] %3i%%' % (done * 100 // width_bar))
+    print('\nNumber of initial conditions in file:       %5i' % (INFOS['ninit']))
     return initlist
 
 # ======================================================================================================================
 
 
 def make_list(INFOS, initlist):
-    print '\nMaking dummy states ...'
+    print('\nMaking dummy states ...')
     width_bar = 50
     for icond in range(1, INFOS['ninit'] + 1):
         estates = []
         for istate in range(INFOS['nstates']):
             estates.append(STATE(i=istate + 1))
         initlist[icond - 1].addstates(estates)
-        done = width_bar * (icond) / INFOS['ninit']
-        sys.stdout.write('\r  Progress: [' + '=' * done + ' ' * (width_bar - done) + '] %3i%%' % (done * 100 / width_bar))
-    print '\nNumber of initial conditions where states were added:   %5i' % (INFOS['ninit'])
+        done = width_bar * (icond) // INFOS['ninit']
+        sys.stdout.write('\r  Progress: [' + '=' * done + ' ' * (width_bar - done) + '] %3i%%' % (done * 100 // width_bar))
+    print('\nNumber of initial conditions where states were added:   %5i' % (INFOS['ninit']))
     return initlist
 
 # ======================================================================================================================
@@ -1076,9 +1044,9 @@ def make_list(INFOS, initlist):
 def get_QMout(INFOS, initlist):
     ''''''
 
-    print '\nReading QM.out data ...'
+    print('\nReading QM.out data ...')
     if NONUMPY and INFOS['diag']:
-        print 'NUMPY not found, will use external SHARC diagonalizer...'
+        print('NUMPY not found, will use external SHARC diagonalizer...')
         global diagon
         diagon = diagonalizer()
     ncond = 0
@@ -1087,10 +1055,10 @@ def get_QMout(INFOS, initlist):
     for icond in range(1, INFOS['ninit'] + 1):
         # look for a QM.out file
         qmfilename = INFOS['iconddir'] + '/ICOND_%05i/QM.out' % (icond)
-        done = width_bar * (icond) / INFOS['ninit']
-        sys.stdout.write('\r  Progress: [' + '=' * done + ' ' * (width_bar - done) + '] %3i%%' % (done * 100 / width_bar))
+        done = width_bar * (icond) // INFOS['ninit']
+        sys.stdout.write('\r  Progress: [' + '=' * done + ' ' * (width_bar - done) + '] %3i%%' % (done * 100 // width_bar))
         if not os.path.isfile(qmfilename):
-            # print 'No QM.out for ICOND_%05i!' % (icond)
+            # print('No QM.out for ICOND_%05i!' % (icond))
             continue
         ncond += 1
         H, DM, P, Smat = extractQMout(qmfilename, INFOS['ion'], INFOS['diabatize'])
@@ -1105,13 +1073,13 @@ def get_QMout(INFOS, initlist):
                     Smat[i][j] = Smat[i][j].real**2 / N
                     #string+='%5.3f  ' % Smat[i][j]
                 # string+='\n'
-            # print string
+            # print(string)
             Diabmap = {}
             for i in range(len(Smat)):
                 j = Smat[i].index(max(Smat[i]))
                 if Smat[i][j] >= thres:
                     Diabmap[i] = j
-            # print icond,Diabmap
+            # print(icond,Diabmap)
         # generate list of excited states
         estates = []
         for istate in range(len(H)):
@@ -1124,7 +1092,7 @@ def get_QMout(INFOS, initlist):
         initlist[icond - 1].addstates(estates)
         if INFOS['diabatize']:
             initlist[icond - 1].Diabmap = Diabmap
-    print '\nNumber of initial conditions with QM.out:   %5i' % (ncond)
+    print('\nNumber of initial conditions with QM.out:   %5i' % (ncond))
     return initlist
 
 # ======================================================================================================================
@@ -1146,12 +1114,12 @@ def excite(INFOS, initlist):
                             if jstate.Prob > maxprob:
                                 maxprob = jstate.Prob
         # set the excitation flags
-        print '\nSelecting initial states ...'
+        print('\nSelecting initial states ...')
         width_bar = 50
         nselected = 0
         for i, icond in enumerate(initlist):
-            done = width_bar * (i + 1) / len(initlist)
-            sys.stdout.write('\r  Progress: [' + '=' * done + ' ' * (width_bar - done) + '] %3i%%' % (done * 100 / width_bar))
+            done = width_bar * (i + 1) // len(initlist)
+            sys.stdout.write('\r  Progress: [' + '=' * done + ' ' * (width_bar - done) + '] %3i%%' % (done * 100 // width_bar))
             if icond.statelist == []:
                 continue
             else:
@@ -1161,7 +1129,7 @@ def excite(INFOS, initlist):
                 elif INFOS['excite'] == 2:
                     if INFOS['diabatize']:
                         Diabmap = icond.Diabmap
-                        # print i,Diabmap
+                        # print(i,Diabmap)
                         allowed = []
                         for q in INFOS['allowed']:
                             if q - 1 in Diabmap:
@@ -1186,7 +1154,7 @@ def excite(INFOS, initlist):
                                 jstate.Excited = False
                         else:
                             jstate.Excited = False
-        print '\nNumber of initial states:                   %5i' % (nselected)
+        print('\nNumber of initial states:                   %5i' % (nselected))
 
     # statistics
     maxprob = 0.
@@ -1209,10 +1177,10 @@ def excite(INFOS, initlist):
                     ninrange[j] += 1
                 if jstate.Excited:
                     nexc[j] += 1
-    print '\nNumber of initial conditions excited:'
-    print 'State   Selected   InRange   Total'
+    print('\nNumber of initial conditions excited:')
+    print('State   Selected   InRange   Total')
     for i in range(len(ntotal)):
-        print '  % 3i       % 4i      % 4i    % 4i' % (i + 1, nexc[i], ninrange[i], ntotal[i])
+        print('  % 3i       % 4i      % 4i    % 4i' % (i + 1, nexc[i], ninrange[i], ntotal[i]))
     return initlist
 
 # ======================================================================================================================
@@ -1224,12 +1192,12 @@ def writeoutput(initlist, INFOS):
     outfilename = INFOS['initf'].name + '.excited'
     if os.path.isfile(outfilename):
         overw = question('Overwrite %s? ' % (outfilename), bool, False)
-        print ''
+        print('')
         if overw:
             try:
                 outf = open(outfilename, 'w')
             except IOError:
-                print 'Could not open: %s' % (outfilename)
+                print('Could not open: %s' % (outfilename))
                 outf = None
         else:
             outf = None
@@ -1239,13 +1207,13 @@ def writeoutput(initlist, INFOS):
                 try:
                     outf = open(outfilename, 'w')
                 except IOError:
-                    print 'Could not open: %s' % (outfilename)
+                    print('Could not open: %s' % (outfilename))
                     continue
                 break
     else:
         outf = open(outfilename, 'w')
 
-    print 'Writing output to %s ...' % (outfilename)
+    print('Writing output to %s ...' % (outfilename))
 
     string = '''SHARC Initial conditions file, version %s   <Excited>
 Ninit     %i
@@ -1297,15 +1265,15 @@ information to determine which initial conditions are bright enough for a dynami
     INFOS = {}
     INFOS = get_infos(INFOS)
 
-    print '\n\n' + centerstring('Full input', 60, '#') + '\n'
+    print('\n\n' + '{:#^60}'.format('Full input') + '\n')
     for item in INFOS:
         if not item == 'equi':
-            print item, ' ' * (25 - len(item)), INFOS[item]
-    print ''
+            print(item, ' ' * (25 - len(item)), INFOS[item])
+    print('')
     go_on = question('Do you want to continue?', bool, True)
     if not go_on:
         quit(0)
-    print ''
+    print('')
 
     initlist = get_initconds(INFOS)
 
@@ -1318,7 +1286,7 @@ information to determine which initial conditions are bright enough for a dynami
     if not INFOS['excite'] == 4:
         writeoutput(initlist, INFOS)
     else:
-        print 'Nothing done, will not write output.'
+        print('Nothing done, will not write output.')
 
     close_keystrokes()
 
@@ -1329,5 +1297,5 @@ if __name__ == '__main__':
     try:
         main()
     except KeyboardInterrupt:
-        print '\nCtrl+C makes me a sad SHARC ;-(\n'
+        print('\nCtrl+C makes me a sad SHARC ;-(\n')
         quit(0)

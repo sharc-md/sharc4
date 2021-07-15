@@ -212,7 +212,7 @@ def eformat(f, prec, exp_digits):
     '''Formats a float f into scientific notation with prec number of decimals and exp_digits number of exponent digits.
 
     String looks like:
-    [ -][0-9]\.[0-9]*E[+-][0-9]*
+    [ -][0-9]\\.[0-9]*E[+-][0-9]*
 
     Arguments:
     1 float: Number to format
@@ -1414,7 +1414,11 @@ def readQMin(QMinfilename):
     # globally import KFFile
     global KFFile
     if QMin['AMSversion'][0] >= 2018:
-        from scm.plams import KFFile
+        try:
+            from scm.plams import KFFile
+        except ImportError:
+            print("scm.plams module not found")
+            sys.exit(39)
     else:
         print('AMS 2018 and older are not supported by this script!')
         sys.exit(40)
@@ -1910,8 +1914,7 @@ def readQMin(QMinfilename):
     joblist = set()
     for i in jobs:
         joblist.add(i)
-    joblist = list(joblist)
-    joblist.sort()
+    joblist = sorted(joblist)
     QMin['joblist'] = joblist
     njobs = len(joblist)
     QMin['njobs'] = njobs

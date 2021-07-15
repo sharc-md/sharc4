@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 # ******************************************
 #
@@ -23,8 +23,6 @@
 #
 # ******************************************
 
-#!/usr/bin/env python2
-
 # Script for obtaining geometries where surface hops occured
 #
 # usage: python crossing.py
@@ -44,26 +42,6 @@ import readline
 import time
 
 # =========================================================0
-# compatibility stuff
-
-if sys.version_info[0] != 2:
-    print 'This is a script for Python 2!'
-    sys.exit(0)
-
-if sys.version_info[1] < 5:
-    def any(iterable):
-        for element in iterable:
-            if element:
-                return True
-        return False
-
-    def all(iterable):
-        for element in iterable:
-            if not element:
-                return False
-        return True
-
-
 # some constants
 DEBUG = False
 CM_TO_HARTREE = 1. / 219474.6  # 4.556335252e-6 # conversion factor from cm-1 to Hartree
@@ -101,32 +79,24 @@ versiondate = datetime.date(2019, 9, 1)
 # ======================================================================================================================
 
 
-def centerstring(string, n, pad=' '):
-    l = len(string)
-    if l >= n:
-        return string
-    else:
-        return pad * ((n - l + 1) / 2) + string + pad * ((n - l) / 2)
-
-
 def displaywelcome():
-    print 'Script for hopping geometry extraction started...\n'
+    print('Script for hopping geometry extraction started...\n')
     string = '\n'
     string += '  ' + '=' * 80 + '\n'
-    string += '||' + centerstring('', 80) + '||\n'
-    string += '||' + centerstring('Reading hopping geometries from SHARC dynamics', 80) + '||\n'
-    string += '||' + centerstring('', 80) + '||\n'
-    string += '||' + centerstring('Author: Sebastian Mai', 80) + '||\n'
-    string += '||' + centerstring('', 80) + '||\n'
-    string += '||' + centerstring('Version:' + version, 80) + '||\n'
-    string += '||' + centerstring(versiondate.strftime("%d.%m.%y"), 80) + '||\n'
-    string += '||' + centerstring('', 80) + '||\n'
+    string += '||' + '{:^80}'.format('') + '||\n'
+    string += '||' + '{:^80}'.format('Reading hopping geometries from SHARC dynamics') + '||\n'
+    string += '||' + '{:^80}'.format('') + '||\n'
+    string += '||' + '{:^80}'.format('Author: Sebastian Mai') + '||\n'
+    string += '||' + '{:^80}'.format('') + '||\n'
+    string += '||' + '{:^80}'.format('Version:' + version) + '||\n'
+    string += '||' + '{:^80}'.format(versiondate.strftime("%d.%m.%y")) + '||\n'
+    string += '||' + '{:^80}'.format('') + '||\n'
     string += '  ' + '=' * 80 + '\n\n'
     string += '''
-This script reads output.lis files and output.xyz files to produce a list of 
+This script reads output.lis files and output.xyz files to produce a list of
 all geometries where certain surface hops (or other events) occured.
   '''
-    print string
+    print(string)
 
 # ======================================================================================================================
 # ======================================================================================================================
@@ -147,8 +117,8 @@ def close_keystrokes():
 
 def question(question, typefunc, default=None, autocomplete=True, ranges=False):
     if typefunc == int or typefunc == float:
-        if not default == None and not isinstance(default, list):
-            print 'Default to int or float question must be list!'
+        if default is not None and not isinstance(default, list):
+            print('Default to int or float question must be list!')
             quit(1)
     if typefunc == str and autocomplete:
         readline.set_completer_delims(' \t\n;')
@@ -158,7 +128,7 @@ def question(question, typefunc, default=None, autocomplete=True, ranges=False):
 
     while True:
         s = question
-        if default != None:
+        if default is not None:
             if typefunc == bool or typefunc == str:
                 s += ' [%s]' % (str(default))
             elif typefunc == int or typefunc == float:
@@ -172,13 +142,13 @@ def question(question, typefunc, default=None, autocomplete=True, ranges=False):
             s += ' (range comprehension enabled)'
         s += ' '
 
-        line = raw_input(s)
-        line = re.sub('#.*$', '', line).strip()
+        line = input(s)
+        line = re.sub(r'#.*$', '', line).strip()
         if not typefunc == str:
             line = line.lower()
 
         if line == '' or line == '\n':
-            if default != None:
+            if default is not None:
                 KEYSTROKES.write(line + ' ' * (40 - len(line)) + ' #' + s + '\n')
                 return default
             else:
@@ -194,7 +164,7 @@ def question(question, typefunc, default=None, autocomplete=True, ranges=False):
                 KEYSTROKES.write(line + ' ' * (40 - len(line)) + ' #' + s + '\n')
                 return False
             else:
-                print 'I didn''t understand you.'
+                print('I didn''t understand you.')
                 continue
 
         if typefunc == str:
@@ -210,7 +180,7 @@ def question(question, typefunc, default=None, autocomplete=True, ranges=False):
                 KEYSTROKES.write(line + ' ' * (40 - len(line)) + ' #' + s + '\n')
                 return f
             except ValueError:
-                print 'Please enter floats!'
+                print('Please enter floats!')
                 continue
 
         if typefunc == int:
@@ -229,9 +199,9 @@ def question(question, typefunc, default=None, autocomplete=True, ranges=False):
                 return out
             except ValueError:
                 if ranges:
-                    print 'Please enter integers or ranges of integers (e.g. "-3~-1  2  5~7")!'
+                    print('Please enter integers or ranges of integers (e.g. "-3~-1  2  5~7")!')
                 else:
-                    print 'Please enter integers!'
+                    print('Please enter integers!')
                 continue
 
 # ======================================================================================================================
@@ -288,34 +258,34 @@ def get_general():
     INFOS = {}
 
     # Path to trajectories
-    print centerstring('Paths to trajectories', 60, '-')
-    print '\nPlease enter the paths to all directories containing the "TRAJ_0XXXX" directories.\nE.g. S_2 and S_3. \nPlease enter one path at a time, and type "end" to finish the list.'
+    print('{:-^60}'.format('Paths to trajectories'))
+    print('\nPlease enter the paths to all directories containing the "TRAJ_0XXXX" directories.\nE.g. S_2 and S_3. \nPlease enter one path at a time, and type "end" to finish the list.')
     count = 0
     paths = []
     while True:
         path = question('Path: ', str, 'end')
         if path == 'end':
             if len(paths) == 0:
-                print 'No path yet!'
+                print('No path yet!')
                 continue
-            print ''
+            print('')
             break
         path = os.path.expanduser(os.path.expandvars(path))
         if not os.path.isdir(path):
-            print 'Does not exist or is not a directory: %s' % (path)
+            print('Does not exist or is not a directory: %s' % (path))
             continue
         if path in paths:
-            print 'Already included.'
+            print('Already included.')
             continue
         ls = os.listdir(path)
-        print ls
+        print(ls)
         for i in ls:
             if 'TRAJ' in i:
                 count += 1
-        print 'Found %i subdirectories in total.\n' % count
+        print('Found %i subdirectories in total.\n' % count)
         paths.append(path)
     INFOS['paths'] = paths
-    print 'Total number of subdirectories: %i\n' % (count)
+    print('Total number of subdirectories: %i\n' % (count))
 
 
     # get guessstates from SHARC input of first subdirectory
@@ -336,24 +306,24 @@ def get_general():
 
 
     # Analyze mode
-    print centerstring('Analyze Mode', 60, '-')
-    print '''\nThis script can find geometries where:
+    print('{:-^60}'.format('Analyze Mode'))
+    print('''\nThis script can find geometries where:
 1        A change of MCH state occured (ignoring hops within one multiplet)               from output.lis
-'''
+''')
     while True:
         num = question('Analyze mode:', int)[0]
         if not 1 <= num <= 1:
-            print 'Please enter an integer between 1 and 1!'
+            print('Please enter an integer between 1 and 1!')
             continue
         break
     INFOS['mode'] = num
-    print ''
+    print('')
 
 
     # Run data extractor
     if INFOS['mode'] in []:
-        print 'Run data_extractor.x for each trajectory prior to performing the analysis?\nFor many or long trajectories, this might take some time.'
-        run_extractor = yesnoquestion('Run data_extractor.x?')
+        print('Run data_extractor.x for each trajectory prior to performing the analysis?\nFor many or long trajectories, this might take some time.')
+        run_extractor = question('Run data_extractor.x?', bool, True)
     else:
         run_extractor = False
     INFOS['run_extractor'] = run_extractor
@@ -361,17 +331,17 @@ def get_general():
 
     # Number of states
     if INFOS['mode'] in [1]:
-        print centerstring('Number of states', 60, '-')
-        print '\nPlease enter the number of states as a list of integers\ne.g. 3 0 3 for three singlets, zero doublets and three triplets.'
+        print('{:-^60}'.format('Number of states'))
+        print('\nPlease enter the number of states as a list of integers\ne.g. 3 0 3 for three singlets, zero doublets and three triplets.')
         while True:
             states = question('Number of states:', int, guessstates)
             if len(states) == 0:
                 continue
             if any(i < 0 for i in states):
-                print 'Number of states must be positive!'
+                print('Number of states must be positive!')
                 continue
             break
-        print ''
+        print('')
         nstates = 0
         nmstates = 0
         for mult, i in enumerate(states):
@@ -391,11 +361,11 @@ def get_general():
 
     # Intervals
     if INFOS['mode'] in []:
-        print centerstring('Intervals', 60, '-')
-        print '\nPlease enter the interval limits, all on one line.'
+        print('{:-^60}'.format('Intervals'))
+        print('\nPlease enter the interval limits, all on one line.')
         while True:
-            nst = raw_input('Interval limits: ')
-            nst = re.sub('#.*$', '', nst)
+            nst = input('Interval limits: ')
+            nst = re.sub(r'#.*$', '', nst)
             nst = nst.split()
             if len(nst) == 0:
                 continue
@@ -404,71 +374,71 @@ def get_general():
                 for i in nst:
                     limits.append(float(i))
             except ValueError:
-                print 'Please enter a list of floats!'
+                print('Please enter a list of floats!')
                 continue
             break
         INFOS['histo'] = histogram(limits)
-    print ''
+    print('')
 
 
     # States involved in hopping and direction
     if INFOS['mode'] in [1]:
         INFOS['fromstates'] = []
-        print centerstring('States involved in surface hop', 60, '-') + '\n'
-        print 'In this analysis mode, all geometries are fetched where a trajectory switches from a given MCH state to another given MCH state.\n\nPlease enter the old MCH state involved as "mult state", e.g., "1 1" for S0, "1 2" for S1, or "3 1" for T1:'
+        print('{:-^60}'.format('States involved in surface hop') + '\n')
+        print('In this analysis mode, all geometries are fetched where a trajectory switches from a given MCH state to another given MCH state.\n\nPlease enter the old MCH state involved as "mult state", e.g., "1 1" for S0, "1 2" for S1, or "3 1" for T1:')
         while True:
             state = question('State 1:', int)
             if len(state) >= 2:
                 rmult, rstate = tuple(state[0:2])
             else:
-                print 'Please enter two numbers (mult state)!'
+                print('Please enter two numbers (mult state)!')
                 continue
             if rmult > len(INFOS['states']):
-                print '%i is larger than maxmult (%i)!' % (rmult, len(INFOS['states']))
+                print('%i is larger than maxmult (%i)!' % (rmult, len(INFOS['states'])))
                 continue
             if rmult <= 0 or rstate <= 0:
-                print 'Multiplicity and state must be larger than 0!'
+                print('Multiplicity and state must be larger than 0!')
                 continue
             if rstate > INFOS['states'][rmult - 1]:
-                print 'Only %i states of mult %i' % (INFOS['states'][rmult - 1], rmult)
+                print('Only %i states of mult %i' % (INFOS['states'][rmult - 1], rmult))
                 continue
             break
         INFOS['fromstates'].append([rmult, rstate])
 
         INFOS['tostates'] = []
-        print '\nPlease enter the new MCH state involved (mult state):'
+        print('\nPlease enter the new MCH state involved (mult state):')
         while True:
             state = question('State 2:', int)
             if len(state) >= 2:
                 rmult, rstate = tuple(state[0:2])
             else:
-                print 'Please enter two numbers (mult state)!'
+                print('Please enter two numbers (mult state)!')
                 continue
             if rmult > len(INFOS['states']):
-                print '%i is larger than maxmult (%i)!' % (rmult, len(INFOS['states']))
+                print('%i is larger than maxmult (%i)!' % (rmult, len(INFOS['states'])))
                 continue
             if rmult <= 0 or rstate <= 0:
-                print 'Multiplicity and state must be larger than 0!'
+                print('Multiplicity and state must be larger than 0!')
                 continue
             if rstate > INFOS['states'][rmult - 1]:
-                print 'Only %i states of mult %i' % (INFOS['states'][rmult - 1], rmult)
+                print('Only %i states of mult %i' % (INFOS['states'][rmult - 1], rmult))
                 continue
             break
         INFOS['tostates'].append([rmult, rstate])
 
-        print '''\nDirection:
+        print('''\nDirection:
 1       Forwards
 2       Backwards
 3       Two-way
-'''
+''')
         while True:
             num = question('Direction mode:', int, [3])[0]
             if not 1 <= num <= 3:
-                print 'Please enter an integer between 1 and 3!'
+                print('Please enter an integer between 1 and 3!')
                 continue
             break
         INFOS['dirmode'] = num
-        print ''
+        print('')
         if num == 1:
             pass
         elif num == 2:
@@ -491,41 +461,40 @@ def do_calc(INFOS):
     # run the data extractor, if necessary
     if INFOS['run_extractor']:
         # first check whether $SHARC contains the exctractor
-        print 'Running data_extractor...'
+        print('Running data_extractor...')
         sharcpath = os.getenv('SHARC')
-        if sharcpath == None:
-            print 'Please set $SHARC to the directory containing the SHARC executables!'
+        if sharcpath is None:
+            print('Please set $SHARC to the directory containing the SHARC executables!')
             sys.exit(1)
         else:
             if not os.path.isfile(sharcpath + '/data_extractor.x'):
-                print '$SHARC does not contain data_extractor.x!'
+                print('$SHARC does not contain data_extractor.x!')
                 sys.exit(1)
             else:
                 cwd = os.getcwd()
                 for idir in INFOS['paths']:
                     ls = os.listdir(idir)
                     for itraj in ls:
-                        if not 'TRAJ_' in itraj:
+                        if 'TRAJ_' not in itraj:
                             continue
                         path = idir + '/' + itraj
-                        print path
+                        print(path)
                         os.chdir(path)
                         io = sp.call(sharcpath + '/data_extractor.x output.dat > /dev/null 2> /dev/null', shell=True)
                         if io != 0:
-                            print 'WARNING: extractor call failed for %s!' % (path)
+                            print('WARNING: extractor call failed for %s!' % (path))
                         os.chdir(cwd)
-        print 'Extraction finished!\n'
+        print('Extraction finished!\n')
 
     width = 30
     # prepare the list of output.lis files
     files = []
     ntraj = 0
-    print 'Checking the directories...'
+    print('Checking the directories...')
     for idir in INFOS['paths']:
-        ls = os.listdir(idir)
-        ls.sort()
+        ls = sorted(os.listdir(idir))
         for itraj in ls:
-            if not 'TRAJ_' in itraj:
+            if 'TRAJ_' not in itraj:
                 continue
             path = idir + '/' + itraj
             s = path + ' ' * (width - len(path))
@@ -533,30 +502,30 @@ def do_calc(INFOS):
                 pathfile = path + '/output.lis'
             if not os.path.isfile(pathfile):
                 s += '%s NOT FOUND' % (pathfile)
-                print s
+                print(s)
                 continue
             pathfile = path + '/output.xyz'
             if not os.path.isfile(pathfile):
                 s += '%s NOT FOUND' % (pathfile)
-                print s
+                print(s)
                 continue
             lstraj = os.listdir(path)
             valid = True
             for i in lstraj:
                 if i.lower() in forbidden:
                     s += 'DETECTED FILE %s' % (i.lower())
-                    print s
+                    print(s)
                     valid = False
                     break
             if not valid:
                 continue
             s += 'OK'
-            print s
+            print(s)
             ntraj += 1
             files.append(path)
-    print 'Number of trajectories: %i' % (ntraj)
+    print('Number of trajectories: %i' % (ntraj))
     if ntraj == 0:
-        print 'No trajectories found, exiting...'
+        print('No trajectories found, exiting...')
         sys.exit(0)
 
     # loop over the permissible trajectories
@@ -572,7 +541,7 @@ def do_calc(INFOS):
             natom = int(xyz[0].split()[0])
         except IndexError:
             # looks like the file is empty
-            print 'Empty xyz file in %s' % (ipath)
+            print('Empty xyz file in %s' % (ipath))
         # go through the lis file line by line, skipping commented lines
         oldstate = -1
         for line in lis:
@@ -596,18 +565,18 @@ def do_calc(INFOS):
                 string += ipath + xyz[start + 1]
                 string += ' ' + ' '.join(xyz[start + 2:stop])
             oldstate = state
-    # print string
+    # print(string)
 
-    print ''
+    print('')
     outfilename = 'crossing.xyz'
     if os.path.isfile(outfilename):
         overw = question('Overwrite %s? ' % (outfilename), bool, False)
-        print ''
+        print('')
         if overw:
             try:
                 outf = open(outfilename, 'w')
             except IOError:
-                print 'Could not open: %s' % (outfilename)
+                print('Could not open: %s' % (outfilename))
                 outf = None
         else:
             outf = None
@@ -617,13 +586,13 @@ def do_calc(INFOS):
                 try:
                     outf = open(outfilename, 'w')
                 except IOError:
-                    print 'Could not open: %s' % (outfilename)
+                    print('Could not open: %s' % (outfilename))
                     continue
                 break
     else:
         outf = open(outfilename, 'w')
 
-    print 'Writing to %s ...' % (outfilename)
+    print('Writing to %s ...' % (outfilename))
     outf.write(string)
     outf.close()
 
@@ -651,13 +620,13 @@ This interactive program creates files containing geometries from trajectories a
 
     INFOS = get_general()
 
-    print centerstring('Full input', 60, '#') + '\n'
+    print('{:#^60}\n'.format('Full input'))
     for item in INFOS:
         if not item == 'statemap':
-            print item, ' ' * (25 - len(item)), INFOS[item]
-    print ''
+            print(item, ' ' * (25 - len(item)), INFOS[item])
+    print('')
     calc = question('Do you want to do the specified analysis?', bool, True)
-    print ''
+    print('')
 
     if calc:
         do_calc(INFOS)
@@ -671,5 +640,5 @@ if __name__ == '__main__':
     try:
         main()
     except KeyboardInterrupt:
-        print '\nCtrl+C makes me a sad SHARC ;-(\n'
+        print('\nCtrl+C makes me a sad SHARC ;-(\n')
         quit(0)

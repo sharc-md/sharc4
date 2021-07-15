@@ -669,7 +669,7 @@ class init_string:
         self.lastrow = 0
 
     def __str__(self):
-        nw = int(math.log(self.nst) / math.log(10) + 1.1)
+        nw = int(math.log(self.nst) // math.log(10) + 1.1)
         s = ' ' * (nw + 2)
         fs = '%%%ii' % (nw)
         for i in range(self.groups):
@@ -1389,7 +1389,7 @@ from the initconds.excited files as provided by excite.py.
 Laser files can be created using $SHARC/laser.x
 ''')
         if os.path.isfile('laser'):
-            if check_laserfile('laser', INFOS['tmax'] // INFOS['dtstep'] * INFOS['nsubstep'] + 1, INFOS['dtstep'] / INFOS['nsubstep']):
+            if check_laserfile('laser', INFOS['tmax'] // INFOS['dtstep'] * INFOS['nsubstep'] + 1, INFOS['dtstep'] // INFOS['nsubstep']):
                 print('Valid laser file "laser" detected. ')
                 usethisone = question('Use this laser file?', bool, True)
                 if usethisone:
@@ -1400,7 +1400,7 @@ Laser files can be created using $SHARC/laser.x
                 if not os.path.isfile(filename):
                     print('File %s does not exist!' % (filename))
                     continue
-                if check_laserfile(filename, INFOS['tmax'] // INFOS['dtstep'] * INFOS['nsubstep'] + 1, INFOS['dtstep'] / INFOS['nsubstep']):
+                if check_laserfile(filename, INFOS['tmax'] // INFOS['dtstep'] * INFOS['nsubstep'] + 1, INFOS['dtstep'] // INFOS['nsubstep']):
                     break
             INFOS['laserfile'] = filename
         # only the analytical interface can do dipole gradients
@@ -2197,7 +2197,7 @@ def checktemplate_Analytical(filename, req_nstates, eMsg=True, dipolegrad=False)
                     continue
                 if 'end' in line[0].lower():
                     break
-                match = re.match('[a-zA-Z][a-zA-Z0-9_]*', line[0])
+                match = re.match(r'[a-zA-Z][a-zA-Z0-9_]*', line[0])
                 if not match:
                     if eMsg:
                         print('Invalid variable name: %s' % (line[0]))

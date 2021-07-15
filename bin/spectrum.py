@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 # ******************************************
 #
@@ -23,44 +23,20 @@
 #
 # ******************************************
 
-#!/usr/bin/env python2
-
 # Script for the calculation of Wigner distributions from molden frequency files
 #
 # usage python wigner.py [-n <NUMBER>] <MOLDEN-FILE>
 
-import copy
 import math
-import cmath
 import random
 import sys
 import datetime
 from optparse import OptionParser
 import colorsys
 import re
-import pprint
 
 
 # =========================================================0
-# compatibility stuff
-
-if sys.version_info[0] != 2:
-    print 'This is a script for Python 2!'
-    quit(0)
-
-if sys.version_info[1] < 5:
-    def any(iterable):
-        for element in iterable:
-            if element:
-                return True
-        return False
-
-    def all(iterable):
-        for element in iterable:
-            if not element:
-                return False
-        return True
-
 # some constants
 DEBUG = False
 CM_TO_HARTREE = 1. / 219474.6  # 4.556335252e-6 # conversion factor from cm-1 to Hartree
@@ -164,7 +140,7 @@ def try_read(l, index, typefunc, default):
     except IndexError:
         return typefunc(default)
     except ValueError:
-        print 'Could not initialize object!'
+        print('Could not initialize object!')
         quit(1)
 
 # ======================================================================================================================
@@ -277,12 +253,12 @@ class INITCOND:
         while True:
             line = f.readline()
             # if 'Index     %i' % (index) in line:
-            if re.search('Index\s+%i' % (index), line):
+            if re.search('Index\\s+%i' % (index), line):
                 break
             if line == '\n':
                 continue
             if line == '':
-                print 'Initial condition %i not found in file %s' % (index, f.name)
+                print('Initial condition %i not found in file %s' % (index, f.name))
                 quit(1)
         f.readline()        # skip one line, where "Atoms" stands
         atomlist = []
@@ -338,22 +314,21 @@ class INITCOND:
 
 
 def check_initcond_version(string, must_be_excited=False):
-    if not 'sharc initial conditions file' in string.lower():
+    if 'sharc initial conditions file' not in string.lower():
         return False
     f = string.split()
     for i, field in enumerate(f):
         if 'version' in field.lower():
             try:
                 v = float(f[i + 1])
-                if not v in versionneeded:
+                if v not in versionneeded:
                     return False
             except IndexError:
                 return False
     if must_be_excited:
-        if not 'excited' in string.lower():
+        if 'excited' not in string.lower():
             return False
     return True
-
 
 
 # ======================================================================================================================
@@ -366,20 +341,20 @@ def get_initconds(INFOS):
     try:
         initf = open(INFOS['filename'], 'r')
     except IOError:
-        print 'Could not open file %s!' % (INFOS['filename'])
+        print('Could not open file %s!' % (INFOS['filename']))
         quit(1)
 
     line = initf.readline()
     if not check_initcond_version(line):
-        print 'File malformatted!'
+        print('File malformatted!')
         quit(1)
-    if not 'Excited' in line:
-        print 'File is no output of excite.py!'
+    if 'Excited' not in line:
+        print('File is no output of excite.py!')
         quit(1)
     try:
         INFOS['ninit'] = int(initf.readline().split()[1])
     except ValueError:
-        print 'Could not read number of initial conditions!'
+        print('Could not read number of initial conditions!')
         quit(1)
     initf.readline()    # skip natom
     INFOS['repr'] = initf.readline().split()[1]
@@ -390,10 +365,10 @@ def get_initconds(INFOS):
     try:
         INFOS['eref'] = float(initf.readline().split()[1])
     except ValueError:
-        print 'Could not read reference energy!'
+        print('Could not read reference energy!')
         quit(1)
     if INFOS['eref'] == 0.:
-        print 'WARNING: Reference energy is zero.'
+        print('WARNING: Reference energy is zero.')
 
     sys.stdout.write('Number of initial conditions: %i\n' % (INFOS['ninit']))
     sys.stdout.write('Reference energy %16.10f\n' % (INFOS['eref']))
@@ -408,7 +383,7 @@ def get_initconds(INFOS):
             INFOS['nstate'] = 0
             for mult, n in enumerate(INFOS['states']):
                 INFOS['nstate'] += (mult + 1) * n
-        except:
+        except BaseException:
             pass
 
 
@@ -436,9 +411,9 @@ def get_initconds(INFOS):
                 statelist.append([])
             statelist[i].append(state)
         idone += 1
-        if done < idone * width / imax:
-            done = idone * width / imax
-            sys.stdout.write('\rProgress: [' + '=' * done + ' ' * (width - done) + '] %3i%%' % (done * 100 / width))
+        if done < idone * width // imax:
+            done = idone * width // imax
+            sys.stdout.write('\rProgress: [' + '=' * done + ' ' * (width - done) + '] %3i%%' % (done * 100 // width))
             sys.stdout.flush()
 
     if len(statelist) != INFOS['nstate']:
@@ -470,9 +445,9 @@ def make_spectra(statelist, INFOS):
     for istate, states in enumerate(statelist):
         for icond, cond in enumerate(states):
             idone += 1
-            if done < idone * width / imax:
-                done = idone * width / imax
-                sys.stdout.write('\rProgress: [' + '=' * done + ' ' * (width - done) + '] %3i%%' % (done * 100 / width))
+            if done < idone * width // imax:
+                done = idone * width // imax
+                sys.stdout.write('\rProgress: [' + '=' * done + ' ' * (width - done) + '] %3i%%' % (done * 100 // width))
                 sys.stdout.flush()
 
             if not INFOS['selected'] or cond.Excited:
@@ -495,7 +470,7 @@ def make_spectra_bootstrap(statelist, INFOS):
     ncond = len(statelist[0])
     for states in statelist:
         if not ncond == len(states):
-            print 'Error: Bootstrapping not possible for non-rectangular initconds file!'
+            print('Error: Bootstrapping not possible for non-rectangular initconds file!')
             return
 
     # make list of admissible initial conditions
@@ -527,9 +502,9 @@ def make_spectra_bootstrap(statelist, INFOS):
                         spec.add(cond.Fosc, cond.Eexc)
         allspec.append(spec)
         idone += 1
-        if done < idone * width / imax:
-            done = idone * width / imax
-            sys.stdout.write('\rProgress: [' + '=' * done + ' ' * (width - done) + '] %3i%%' % (done * 100 / width))
+        if done < idone * width // imax:
+            done = idone * width // imax
+            sys.stdout.write('\rProgress: [' + '=' * done + ' ' * (width - done) + '] %3i%%' % (done * 100 // width))
             sys.stdout.flush()
     sys.stdout.write('\n')
 
@@ -544,16 +519,13 @@ def make_spectra_bootstrap(statelist, INFOS):
         mean_spec.spec[ipt] = mean_geom(data)
         stdev = stdev_geom(data, mean_spec.spec[ipt])
         stdev_specp.spec[ipt] = mean_spec.spec[ipt] * (stdev**power - 1.)
-        stdev_specm.spec[ipt] = mean_spec.spec[ipt] * (1. / stdev**power - 1.)
+        stdev_specm.spec[ipt] = mean_spec.spec[ipt] * (1. // stdev**power - 1.)
 
     allspec = [mean_spec, stdev_specp, stdev_specm] + allspec
 
 
     print_spectra(allspec, INFOS['bootstrapfile'])
 
-
-
-    # return speclist
 
 # ======================================== #
 def mean_geom(data):
@@ -874,7 +846,7 @@ set out '%s.png'
     out = open(outputfile, 'w')
     out.write(gnustring)
     out.close()
-    print 'Gnuplot script written to "%s"' % (outputfile)
+    print('Gnuplot script written to "%s"' % (outputfile))
 
 # ======================================================================================================================
 # ======================================================================================================================
@@ -919,7 +891,7 @@ date %s
 
 
     if len(args) <= 0:
-        print 'Please give the filename of the initconds.excited file!\n' + usage
+        print('Please give the filename of the initconds.excited file!\n' + usage)
         quit(1)
     filename = args[0]
     INFOS = {}
@@ -975,13 +947,13 @@ date %s
 
         if INFOS['bootstraps'] > 0:
             make_spectra_bootstrap(statelist, INFOS)
-    print '\nOutput spectrum written to "%s".' % (outputfile)
+    print('\nOutput spectrum written to "%s".' % (outputfile))
 
     INFOS['outputfile'] = outputfile
     if options.gp != '':
         make_gnuplot(options.gp, INFOS)
 
-    print ''
+    print('')
 
     # save the shell command
     command = 'python ' + ' '.join(sys.argv)

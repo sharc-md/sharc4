@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 # ******************************************
 #
@@ -23,8 +23,6 @@
 #
 # ******************************************
 
-#!/usr/bin/env python2
-
 import os
 import sys
 import math
@@ -34,25 +32,6 @@ import datetime
 from optparse import OptionParser
 
 # =========================================================0
-# compatibility stuff
-
-if sys.version_info[0] != 2:
-    print 'This is a script for Python 2!'
-    sys.exit(0)
-
-if sys.version_info[1] < 5:
-    def any(iterable):
-        for element in iterable:
-            if element:
-                return True
-        return False
-
-    def all(iterable):
-        for element in iterable:
-            if not element:
-                return False
-        return True
-
 version = '2.1'
 versiondate = datetime.date(2019, 9, 1)
 
@@ -241,7 +220,7 @@ def project(atoms, n):
 
 
 def getz(atoms):
-    '''Uses the above routines to calculate the relative z coordinates relative to a 
+    '''Uses the above routines to calculate the relative z coordinates relative to a
   mean plane of the atoms.'''
     atoms = translate(atoms)
     # N=len(atoms)
@@ -290,7 +269,7 @@ def dih(a, b, c, d):
     Q = rcross3d(q1, q2)
     if Q == [0., 0., 0.]:
         sign = 1.
-    elif rangle3d(Q, r2) < 90. * [deg2rad, 1.][Radians == None]:
+    elif rangle3d(Q, r2) < 90. * [deg2rad, 1.][Radians is None]:
         sign = 1.
     else:
         sign = -1.
@@ -731,20 +710,20 @@ Calculates internal coordinates from xyz files.
 Geo.py Version %s Date %s
 
 This command line tool calculates internal coordinates (see below) for
-xyz files with several consecutive geometries, like from a molecular 
+xyz files with several consecutive geometries, like from a molecular
 dynamics simulation.
 
-The program can calculate bond lengths, bond angles, dihedral angles 
-and pyramidalization angles. For example, a pyramidalization angle for 
-a C-NH2 group would be defined as the angle between the C-N bond and 
-the NH2 plane. Inter-ring angles, angles between the mean plane of two 
+The program can calculate bond lengths, bond angles, dihedral angles
+and pyramidalization angles. For example, a pyramidalization angle for
+a C-NH2 group would be defined as the angle between the C-N bond and
+the NH2 plane. Inter-ring angles, angles between the mean plane of two
 rings, can be computed for pairs of 3-, 4-, 5-, and 6-membered rings.
 
-Additionally, Cremer-Pople parameters for 5- and 6-membered rings can be 
-calculated [1]. For 6-membered rings, also the Boeyens classification 
+Additionally, Cremer-Pople parameters for 5- and 6-membered rings can be
+calculated [1]. For 6-membered rings, also the Boeyens classification
 symbols [2] can be generated. For 5-membered rings, the classification
 symbols are inspired by the Boeyens scheme.
-The program can also output x, y or z coordinates of single atoms. 
+The program can also output x, y or z coordinates of single atoms.
 
 Internal coordinates are specified on STDIN, with one coordinate per line.
 Each line consists of a one-letter key followed by a number of atom indices,
@@ -816,9 +795,9 @@ J. Cryst. Mol. Struct., 1977, 8, 317-320.
     iline = 0
     while not answered:
         try:
-            s = raw_input()
+            s = input()
             iline += 1
-            s = re.sub('#.*$', '', s)
+            s = re.sub(r'#.*$', '', s)
             if 'end' in s:
                 answered = True
                 continue
@@ -833,7 +812,7 @@ J. Cryst. Mol. Struct., 1977, 8, 317-320.
         except IndexError:
             pass
 
-    print tableheader(req)
+    print(tableheader(req))
     sys.stderr.write('Number of internal coordinate requests: % 3i\n' % (len(req)))
 
     line = 0
@@ -865,7 +844,7 @@ J. Cryst. Mol. Struct., 1977, 8, 317-320.
 
         formatstring = '%%%i.%if ' % (f, p)
         s = calculate(g, req, comm)
-        print formatstring % ((t + Tshift) * dt) + s
+        print(formatstring % ((t + Tshift) * dt) + s)
         t += 1
         sys.stderr.write('\rNumber of geometries: % 6i' % (t))
 
@@ -877,5 +856,5 @@ if __name__ == '__main__':
     try:
         main()
     except KeyboardInterrupt:
-        print '\nExited without writing...\n'
+        print('\nExited without writing...\n')
         quit(0)
