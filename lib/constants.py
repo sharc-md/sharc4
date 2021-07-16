@@ -1,5 +1,4 @@
-from bin.SHARC_ORCA import ATOMCHARGE
-
+#/usr/bin/env python3
 
 IToMult = {
     1: 'Singlet',

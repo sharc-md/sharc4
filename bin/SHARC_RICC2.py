@@ -2426,7 +2426,7 @@ def get_arch(turbodir):
     os.environ['TURBODIR'] = turbodir
     string = os.path.join(turbodir, 'scripts', 'sysname')
     proc = sp.Popen([string], stdout=sp.PIPE)
-    output = proc.communicate()[0].strip()
+    output = proc.communicate()[0].decode().strip()
     print('Architecture: %s' % output)
     return output
 
