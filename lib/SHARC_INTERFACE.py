@@ -25,21 +25,25 @@
 
 # IMPORTS
 # external
-from bin.SHARC_RICC2 import theo_float
 from copy import deepcopy
 from datetime import date, datetime
 import math
 import sys
 import os
+import re
+from typing import List, Tuple, Dict
 import shutil
 import subprocess as sp
 from abc import ABC, abstractmethod, abstractproperty
 
 # internal
+from error import Error
 from printing import printcomplexmatrix, printgrad, printtheodore
 from utils import itnmstates, eformat, readfile, writefile, containsstring, makecmatrix, safe_cast, link, mkdir, clock
 from constants import *
 
+# NOTE: Error handling especially import for processes in pools (error_callback)
+# NOTE: gradient calculation necessitates multiple parallel calls (either inside interface) or one interface = one calculation (i.e. interface spawns multiple instances of itself)
 
 class INTERFACE(ABC):
     _QMin = {}
@@ -75,10 +79,73 @@ class INTERFACE(ABC):
     @abstractmethod
     def readQMin(self, QMinfilename):
         pass
+
+    @abstractmethod
+    def read_template(self, template_filename):
+        pass
+
+    @abstractmethod
+    def read_resources(self, resource_filename):
+        pass
+
+    @abstractmethod
+    def set_requests(self, QMinfilename):
+        pass
+
+    @abstractmethod
+    def set_coords(self, xyz):
+        pass
+
+    @abstractmethod
+    def run(self):
+        pass
+
+    @abstractmethod
+    def get_QMout(self):
+        pass
     # ============================ Implemented public methods ========================
 
+    def setup_mol(self, QMinfilename):
+        self._QMin['atomlist'] = INTERFACE.read_atomlist(QMinfilename)
+        self._QMin['elements'] = set(self._QMin['atomlist'])
+        self._QMin['natom'] = len(self._QMin['atomlist'])
+        return
+
+    def set_coords(self, xyz):
+        lines = readfile(xyz)
+        self._QMin["geom"] = list(map(INTERFACE._parse_xyz, lines))
+
+    @staticmethod
+    def set_coords(xyz):
+        lines = readfile(xyz)
+        try:
+            natom = int(lines[0])
+        except ValueError:
+            raise Error('first line must contain the number of atoms!', 2)
+        return [[x[0], *x[1]] for x in map(INTERFACE._parse_xyz, lines[2:natom + 2])]
+
+    @staticmethod
+    def read_atomlist(QMinfilename) -> List[str]:
+        QMinlines = readfile(QMinfilename)
+
+        try:
+            natom = int(QMinlines[0])
+        except ValueError:
+            raise Error('first line must contain the number of atoms!', 2)
+        if len(QMinlines) < natom + 4:
+            raise Error('Input file must contain at least:\nnatom\ncomment\ngeometry\nkeyword "states"\nat least one task', 3)
+        atomlist = list(map(lambda x: INTERFACE._parse_xyz(x)[1], (QMinlines[2:natom + 2])))
+        return atomlist
+    
     # ======================================================================= #
 
+    @staticmethod
+    def _parse_xyz(line) -> Tuple[str, List[float]]:
+        match = re.match(r'([a-zA-Z]{1,2}\d?)((\s+-?\d+\.\d*){3,6})', line)
+        if match:
+            return match[1], list(map(float, match[2].split()))
+        else:
+            raise Error(f"line is not xyz\n\n{line}", 43)
 
     @staticmethod
     def _get_pairs(QMinlines, i):
@@ -88,16 +155,14 @@ class INTERFACE(ABC):
             try:
                 line = QMinlines[i].lower()
             except IndexError:
-                print('"keyword select" has to be completed with an "end" on another line!')
-                sys.exit(47)
+                raise Error('"keyword select" has to be completed with an "end" on another line!', 47)
             if 'end' in line:
                 break
             fields = line.split()
             try:
                 nacpairs.append([int(fields[0]), int(fields[1])])
             except ValueError:
-                print('"nacdr select" is followed by pairs of state indices, each pair on a new line!')
-                sys.exit(48)
+                raise Error('"nacdr select" is followed by pairs of state indices, each pair on a new line!', 48)
         return nacpairs, i
 
     # ======================================================================= #
@@ -114,14 +179,12 @@ class INTERFACE(ABC):
         if exist:
             isfile = os.path.isfile(SCRATCHDIR)
             if isfile:
-                print('$SCRATCHDIR=%s exists and is a file!' % (SCRATCHDIR))
-                sys.exit(42)
+                raise Error('$SCRATCHDIR=%s exists and is a file!' % (SCRATCHDIR), 42)
         else:
             try:
                 os.makedirs(SCRATCHDIR)
             except OSError:
-                print('Can not create SCRATCHDIR=%s\n' % (SCRATCHDIR))
-                sys.exit(43)
+                raise Error('Can not create SCRATCHDIR=%s\n' % (SCRATCHDIR), 43)
 
     @staticmethod
     def removequotes(string):
@@ -139,8 +202,7 @@ class INTERFACE(ABC):
         while True:
             ilines += 1
             if ilines == len(out):
-                print('Overlap of states %i - %i not found!' % (s1, s2))
-                sys.exit(32)
+                raise Error('Overlap of states %i - %i not found!' % (s1, s2), 32)
             if containsstring('Overlap matrix <PsiA_i|PsiB_j>', out[ilines]):
                 break
         ilines += 1 + s1
@@ -175,8 +237,7 @@ class INTERFACE(ABC):
         try:
             runerror = sp.call(string, shell=True, stdout=stdoutfile, stderr=stderrfile)
         except OSError:
-            print('Call have had some serious problems:', OSError)
-            sys.exit(96)
+            raise Error('Call have had some serious problems:', OSError, 96)
         stdoutfile.close()
         if errfile:
             stderrfile.close()
@@ -201,8 +262,7 @@ class INTERFACE(ABC):
         os.chdir(QMin['scratchdir'] + '/JOB')
         error = sp.call('x2t geom.xyz > coord', shell=True)
         if error != 0:
-            print('xyz2col call failed!')
-            sys.exit(95)
+            raise Error('xyz2col call failed!', 95)
         os.chdir(QMin['pwd'])
 
         # QM/MM
@@ -325,8 +385,7 @@ class INTERFACE(ABC):
         string = 'python2 %s/bin/analyze_tden.py' % (QMin['theodir'])
         runerror = self.runProgram(string, workdir, 'theodore.out')
         if runerror != 0:
-            print('Theodore calculation crashed! Error code=%i' % (runerror))
-            sys.exit(105)
+            raise Error('Theodore calculation crashed! Error code=%i' % (runerror), 105)
         return
 
     def setupWORKDIR_TH(self):
@@ -459,8 +518,7 @@ class INTERFACE(ABC):
             if len(s) == 0:
                 continue
             if not s[0].lower() in allowed:
-                print('Not allowed QMMM-type "%s" on line %i!' % (s[0], iline + 1))
-                sys.exit(34)
+                raise Error('Not allowed QMMM-type "%s" on line %i!' % (s[0], iline + 1), 34)
             QMMM['qmmmtype'].append(s[0].lower())
             QMMM['atomtype'].append(s[1])
             QMMM['connect'].append(set())
@@ -526,22 +584,18 @@ class INTERFACE(ABC):
         mm_in_link_neighbors.extend(mm_in_links)
         # no QM atom is allowed to be bonded to two MM atoms
         if not len(qm_in_links) == len(set(qm_in_links)):
-            print('Some QM atom is involved in more than one link bond!')
-            sys.exit(35)
+            raise Error('Some QM atom is involved in more than one link bond!', 35)
         # no MM atom is allowed to be bonded to two QM atoms
         if not len(mm_in_links) == len(set(mm_in_links)):
-            print('Some MM atom is involved in more than one link bond!')
-            sys.exit(36)
+            raise Error('Some MM atom is involved in more than one link bond!', 36)
         # no neighboring MM atoms are allowed to be involved in link bonds
         if not len(mm_in_link_neighbors) == len(set(mm_in_link_neighbors)):
-            print('An MM-link atom is bonded to another MM-link atom!')
-            sys.exit(37)
+            raise Error('An MM-link atom is bonded to another MM-link atom!', 37)
 
 
         # check geometry and connection table
         if not QMMM['natom_table'] == QMin['natom']:
-            print('Number of atoms in table file does not match number of atoms in QMin!')
-            sys.exit(38)
+            raise Error('Number of atoms in table file does not match number of atoms in QMin!', 38)
 
 
         # process MM geometry (and convert to angstrom!)

@@ -3,6 +3,7 @@ import re
 import sys
 import os
 import shutil
+from error import Error
 import subprocess as sp
 
 # ======================================================================= #
@@ -11,11 +12,11 @@ import subprocess as sp
 def readfile(filename):
     try:
         f = open(filename)
+    except IOError as e:
+        raise Error(f'File {filename} does not exist!', 1)
+    else:
         out = f.readlines()
         f.close()
-    except IOError:
-        print('File %s does not exist!' % (filename))
-        sys.exit(12)
     return out
 
 # ======================================================================= #
