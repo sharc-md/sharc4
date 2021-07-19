@@ -35,8 +35,7 @@ def writefile(filename, content):
             print('Content %s cannot be written to file!' % (content))
         f.close()
     except IOError:
-        print('Could not write to file %s!' % (filename))
-        sys.exit(13)
+        raise Error('Could not write to file %s!' % (filename), 13)
 
 # ======================================================================= #
 
@@ -45,8 +44,7 @@ def mkdir(DIR):
     # mkdir the DIR, or clean it if it exists
     if os.path.exists(DIR):
         if os.path.isfile(DIR):
-            print('%s exists and is a file!' % (DIR))
-            sys.exit(89)
+            raise Error('%s exists and is a file!' % (DIR), 89)
         elif os.path.isdir(DIR):
             shutil.rmtree(DIR)
             os.makedirs(DIR)
@@ -54,16 +52,14 @@ def mkdir(DIR):
         try:
             os.makedirs(DIR)
         except OSError:
-            print('Can not create %s\n' % (DIR))
-            sys.exit(90)
+            raise Error('Can not create %s\n' % (DIR), 90)
 # ======================================================================= #
 
 
 def link(PATH, NAME, crucial=True, force=True):
     # do not create broken links
     if not os.path.exists(PATH):
-        print('Source %s does not exist, cannot create link!' % (PATH))
-        sys.exit(91)
+        raise Error('Source %s does not exist, cannot create link!' % (PATH), 91)
     if os.path.islink(NAME):
         if not os.path.exists(NAME):
             # NAME is a broken link, remove it so that a new link can be made
@@ -152,8 +148,7 @@ def getmo(mofile, scratchdir):
         tofile = os.path.join(scratchdir, 'JOB', 'mos')
         shutil.copy(mofile, tofile)
     else:
-        print('Could not find mocoef-file %s!' % (mofile))
-        sys.exit(94)
+        raise Error('Could not find mocoef-file %s!' % (mofile), 94)
 
 
 def isbinary(path):
