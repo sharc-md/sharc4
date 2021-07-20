@@ -31,7 +31,6 @@ import math
 import sys
 import os
 import re
-from typing import List, Tuple, Dict
 import shutil
 import subprocess as sp
 from abc import ABC, abstractmethod, abstractproperty
@@ -45,13 +44,15 @@ from constants import *
 # NOTE: Error handling especially import for processes in pools (error_callback)
 # NOTE: gradient calculation necessitates multiple parallel calls (either inside interface) or one interface = one calculation (i.e. interface spawns multiple instances of itself)
 
+
 class INTERFACE(ABC):
     _QMin = {}
     _QMout = {}
+    _setup_mol = False
 
-    def __init__(self, PRINT=False, DEBUG=False):
-        self.PRINT = PRINT
-        self.DEBUG = DEBUG
+    # TODO: set Debug and Print flag
+    # TODO: set persistant flag for file-io vs in-core
+    def __init__(self):
         self.clock = clock()
 
     # ================== abstract methods and properties ===================
@@ -105,10 +106,44 @@ class INTERFACE(ABC):
         pass
     # ============================ Implemented public methods ========================
 
-    def setup_mol(self, QMinfilename):
-        self._QMin['atomlist'] = INTERFACE.read_atomlist(QMinfilename)
-        self._QMin['elements'] = set(self._QMin['atomlist'])
-        self._QMin['natom'] = len(self._QMin['atomlist'])
+    def setup_mol(self, QMinfilename: str):
+        QMin = self._QMin
+        QMinlines = readfile(QMinfilename)
+        QMin['elements'] = INTERFACE.read_elements(QMinlines)
+        QMin['Atomcharge'] = sum(map(lambda x: ATOMCHARGE[x], QMin['elements']))
+        QMin['natom'] = len(QMin['elements'])
+
+        # replaces all comments with white space. filters all empty lines
+        filtered = filter(lambda x: not re.match(r'^\s*$', x),
+                          map(lambda x: re.sub(r'#.*$', '', x), QMinlines[QMin['natom'] + 2:]))
+        
+        # naively parse all key argument pairs from QM.in
+        for line in filtered:
+            llist = line.split(None, 1)
+            key = llist[0].lower()
+            if key == 'states':
+                try:
+                    QMin['states'] = list(map(int, llist[1].split()))
+                except (ValueError, IndexError):
+                    # get traceback of currently handled exception
+                    tb = sys.exc_info()[2]
+                    raise Error('Keyword "states" has to be followed by integers!', 37).with_traceback(tb)
+                reduc = 0
+                for i in reversed(QMin['states']):
+                    if i == 0:
+                        reduc += 1
+                    else:
+                        break
+                for i in range(reduc):
+                    del QMin['states'][-1]
+                nstates = 0
+                nmstates = 0
+                for i in range(len(QMin['states'])):
+                    nstates += QMin['states'][i]
+                    nmstates += QMin['states'][i] * (i + 1)
+                QMin['nstates'] = nstates
+                QMin['nmstates'] = nmstates
+        # NOTE: Quantity requests (tasks) are dealt with later and potentially re-assigned
         return
 
     def set_coords(self, xyz):
@@ -125,8 +160,7 @@ class INTERFACE(ABC):
         return [[x[0], *x[1]] for x in map(INTERFACE._parse_xyz, lines[2:natom + 2])]
 
     @staticmethod
-    def read_atomlist(QMinfilename) -> List[str]:
-        QMinlines = readfile(QMinfilename)
+    def read_elements(QMinlines: list[str]) -> list[str]:
 
         try:
             natom = int(QMinlines[0])
@@ -136,11 +170,11 @@ class INTERFACE(ABC):
             raise Error('Input file must contain at least:\nnatom\ncomment\ngeometry\nkeyword "states"\nat least one task', 3)
         atomlist = list(map(lambda x: INTERFACE._parse_xyz(x)[1], (QMinlines[2:natom + 2])))
         return atomlist
-    
+
     # ======================================================================= #
 
     @staticmethod
-    def _parse_xyz(line) -> Tuple[str, List[float]]:
+    def _parse_xyz(line) -> tuple[str, list[float]]:
         match = re.match(r'([a-zA-Z]{1,2}\d?)((\s+-?\d+\.\d*){3,6})', line)
         if match:
             return match[1], list(map(float, match[2].split()))

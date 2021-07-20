@@ -5,11 +5,15 @@ import os
 import shutil
 from error import Error
 import subprocess as sp
+from globals import DEBUG, PRINT
+
 
 # ======================================================================= #
 
 
-def readfile(filename):
+def readfile(filename) -> list[str]:
+    '''reads file from path and returns list of lines.
+    Preferrably used for small files (for larger ones use buffer).'''
     try:
         f = open(filename)
     except IOError as e:
@@ -87,7 +91,7 @@ def link(PATH, NAME, crucial=True, force=True):
 # ======================================================================= #
 
 
-def shorten_DIR(string):
+def shorten_DIR(string) -> str:
     maxlen = 40
     front = 12
     if len(string) > maxlen:
@@ -98,7 +102,7 @@ def shorten_DIR(string):
 # ======================================================================= #
 
 
-def cleandir(directory, PRINT=True, DEBUG=False):
+def cleandir(directory):
     for data in os.listdir(directory):
         path = directory + '/' + data
         if os.path.isfile(path) or os.path.islink(path):
@@ -151,12 +155,12 @@ def getmo(mofile, scratchdir):
         raise Error('Could not find mocoef-file %s!' % (mofile), 94)
 
 
-def isbinary(path):
+def isbinary(path) -> bool:
     return (re.search(r':.* text', sp.Popen(["file", '-L', path], stdout=sp.PIPE).stdout.read()) is None)
 
 
 # ======================================================================= #
-def eformat(f, prec, exp_digits):
+def eformat(f, prec, exp_digits) -> str:
     '''Formats a float f into scientific notation with prec number of decimals and exp_digits number of exponent digits.
 
     String looks like:
@@ -178,7 +182,7 @@ def eformat(f, prec, exp_digits):
 # ======================================================================= #
 
 
-def removekey(d, key):
+def removekey(d, key) -> dict:
     '''Removes an entry from a dictionary and returns the dictionary.
 
     Arguments:
@@ -197,7 +201,7 @@ def removekey(d, key):
 # ======================================================================= #         OK
 
 
-def containsstring(string, line):
+def containsstring(string, line) -> bool:
     '''Takes a string (regular expression) and another string. Returns True if the first string is contained in the second string.
 
     Arguments:
@@ -221,7 +225,7 @@ class clock:
         self._verbose = verbose
 
     @property
-    def starttime(self) -> None:
+    def starttime(self) -> datetime.datetime:
         return self._starttime
 
     @starttime.setter
