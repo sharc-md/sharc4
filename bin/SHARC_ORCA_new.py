@@ -34,7 +34,6 @@ from functools import reduce
 from SHARC_INTERFACE import INTERFACE
 from utils import *
 from constants import au2a, kcal_to_Eh, NUMBERS, BASISSETS, IToMult, rcm_to_Eh
-from parse_template import TemplateParser
 
 authors = 'Sebastian Mai, Severin Polonius'
 version = '3.0'
@@ -68,6 +67,8 @@ changelogstring = '''
 11.11.2020:
 - COBRAMM can be used for QM/MM calculations
 '''
+
+
 class ORCA(INTERFACE):
 
     _version = version
@@ -94,9 +95,10 @@ class ORCA(INTERFACE):
     def read_template(self, template_filename='ORCA.template'):
         '''reads the template file
         has to be called after setup_mol!'''
+
+        if not self._read_resources:
+            raise Error('Interface is nor set up correctly. Call read_resources with the .resources file first!', 23)
         QMin = self._QMin
-        if not self._setup_mol:
-            raise Error('Interface is nor set up for this template. Call setup_mol with the QM.in file first!', 23)
         # define keywords and defaults
         bools = {'no_tda': False,
                  'unrestricted_triplets': False,
@@ -128,58 +130,84 @@ class ORCA(INTERFACE):
         }
         special = {'paddingstates': [0 for i in QMin['states']],
                    'charge': [i % 2 for i in range(len(QMin['states']))],
-                   'theodore_prop': ['Om', 'PRNTO', 'S_HE', 'Z_HE', 'RMSeh'],
-                   'theodore_fragment': [],
+
                    'basis_per_element': {},
                    'ecp_per_element': {},
                    'basis_per_atom': {},
-                   'range_sep_settings': {'do': False, 'mu': 0.14, 'scal': 1.0, 'ACM1': 0.0, 'ACM2': 0.0, 'ACM3': 1.0}
+                   'range_sep_settings': {'do': False, 'mu': 0.14, 'scal': 1.0, 'ACM1': 0.0, 'ACM2': 0.0, 'ACM3': 1.0},
+                   'paste_input_file': ''
                    }
-        template_parser = TemplateParser(QMin['nstates'], QMin['Atomcharge'])
-        # prepare dict with parsers for every value type
-        bool_parser = {k: lambda x: True for k in bools}
-        string_parser = {k: lambda x: x for k in strings}
-        integer_parser = {k: lambda x: int(float(x)) for k in integers}
-        float_parser = {k: lambda x: float(x) for k in floats}
-        special_parser = {k: lambda x: getattr(template_parser, k)(x) for k in special}
-
-        parsers = {**bool_parser, **string_parser, **integer_parser, **float_parser, **special_parser}
-        defaults = {**bools, **strings, **integers, **floats, **special}
-        # open template file
         lines = readfile(template_filename)
-        # replaces all comments with white space. filters all empty lines
-        filtered = filter(lambda x: not re.match(r'^\s*$', x), map(lambda x: re.sub(r'#.*$', '', x), lines))
+        QMin['template'] = {**bools, **strings, **integers, **floats, **special,
+                            **self.parse_keywords(bools, strings, integers, floats, special, lines)}
 
-        # split line into key and args, calls parser for args and adds key: parser(args) to dict
-        def _parse_to_dict(d: dict, line: str) -> dict:
-            llist = line.split(None, 1)
-            key = llist[0].lower()
-            args = ' '
-            if len(llist) == 2:
-                args = llist[1]
-            try:
-                if key in d and isinstance(d[key], dict):
-                    d[key].update(parsers[key](args))
-                else:
-                    d[key] = parsers[key](args)
-            except Error:
-                raise
-            except Exception:
-                type, val, tb = sys.exc_info()
-                raise Error(f'Something went wrong while parsing the keyword: {key} {args} from {template_filename}:\n\
-                    {type}: {val}\nPlease consult the examples folder in the $SHARCDIR for more information!').with_traceback(tb)
-            return d
-        QMin['template'] = {**defaults, **reduce(_parse_to_dict, filtered)}
+        # do logic checks
+        if not QMin['template']['unrestricted_triplets']:
+            if QMin['OrcaVersion'] < (4, 1):
+                if len(QMin['states']) >= 3 and QMin['states'][2] > 0:
+                    raise Error('With Orca v<4.1, triplets can only be computed with the unrestricted_triplets option!', 62)
+            if len(QMin['template']['charge']) >= 3 and QMin['template']['charge'][0] != QMin['template']['charge'][2]:
+                raise Error('Charges of singlets and triplets differ. Please enable the "unrestricted_triplets" option!', 63)
+        if QMin['template']['unrestricted_triplets'] and 'soc' in QMin:
+            if len(QMin['states']) >= 3 and QMin['states'][2] > 0:
+                raise Error('Request "SOC" is not compatible with "unrestricted_triplets"!', 64)
+        if QMin['template']['ecp_per_element'] and 'soc' in QMin:
+            if len(QMin['states']) >= 3 and QMin['states'][2] > 0:
+                raise Error('Request "SOC" is not compatible with using ECPs!', 64)
+
         return
 
 
-    def main(self):
-        raise NotImplementedError
+    def read_resources(self, resources_filename="ORCA.resources"):
+
+        if not self._setup_mol:
+            raise Error('Interface is nor set up for this template. Call setup_mol with the QM.in file first!', 23)
+        QMin = self._QMin
+
+        pwd = os.getcwd()
+        QMin['pwd'] = pwd
+
+        strings = {'orcadir': '',
+                   'tinker': '',
+                   'scratchdir': '',
+                   'savedir': '',  # NOTE: savedir from QMin
+                   'theodir': '',
+                   'wfoverlap': '$SHARC/wfoverlap.x',
+                   'qmmm_table': '',
+                   'qmmm_ff_file': ''
+                   }
+        bools = {'debug': False,
+                 'save_stuff': False,
+                 'no_print': False,
+                 'no_overlap': False,
+                 'always_orb_init': False,
+                 'always_guess': False,
+                 }
+        integers = {'ncpu': 1,
+                    'memory': 100,
+                    'numfrozcore': 0,
+                    'numocc': 0
+                    }
+        floats = {'delay': 0.0,
+                  'schedule_scaling': 0.9,
+                  'wfthres': 0.99
+                  }
+        special = {
+            'neglect_gradient': 'zero',
+            'theodore_prop': ['Om', 'PRNTO', 'S_HE', 'Z_HE', 'RMSeh'],
+            'theodore_fragment': [],
+        }
+        lines = readfile(resources_filename)
+        # assign defaults first, which get updated by the parsed entries, which are updated by the entries that were already in QMin
+        QMin['resources'] = {**bools, **strings, **integers, **floats, **special,
+                             **self.parse_keywords(bools, strings, integers, floats, special, lines)}
+        # reassign QMin after losing the reference
+        QMin['OrcaVersion'] = self._getOrcaVersion(QMin['orcadir'])
+
+        self._read_resources = True
+        return
 
     def readQMin(self, QMinfilename):
-        raise NotImplementedError
-
-    def read_resources(self, resource_filename):
         raise NotImplementedError
 
     def set_requests(self, QMinfilename):
@@ -193,3 +221,24 @@ class ORCA(INTERFACE):
 
     def get_QMout(self):
         raise NotImplementedError
+
+    def main(self):
+        raise NotImplementedError
+
+    @staticmethod
+    def _getOrcaVersion(path):
+        # run orca with nonexisting file
+        string = os.path.join(path, 'orca') + ' nonexisting'
+        try:
+            proc = sp.Popen(string, shell=True, stdout=sp.PIPE, stderr=sp.PIPE)
+        except OSError:
+            ty, val, tb = sys.exc_info()
+            raise Error(f'Orca call has had some serious problems:\n {ty.__name__}: {val}', 25).with_traceback(tb)
+        comm = proc.communicate()[0].decode()
+        # find version string
+        for line in comm.split('\n'):
+            if 'Program Version' in line:
+                s = line.split('-')[0].split()[2].split('.')
+                s = tuple(int(i) for i in s)
+                return s
+        raise Error('Could not find Orca version!', 26)

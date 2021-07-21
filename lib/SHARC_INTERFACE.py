@@ -32,28 +32,33 @@ import sys
 import os
 import re
 import shutil
+import numpy as np
 import subprocess as sp
 from abc import ABC, abstractmethod, abstractproperty
+from functools import reduce, multidispatch
 
 # internal
 from error import Error
 from printing import printcomplexmatrix, printgrad, printtheodore
 from utils import itnmstates, eformat, readfile, writefile, containsstring, makecmatrix, safe_cast, link, mkdir, clock
 from constants import *
+from parse_keywords import KeywordParser
 
 # NOTE: Error handling especially import for processes in pools (error_callback)
 # NOTE: gradient calculation necessitates multiple parallel calls (either inside interface) or one interface = one calculation (i.e. interface spawns multiple instances of itself)
-
+# NOTE: logic checks in read_template and read_resources and in run() if required (LVC won't need check in run())
 
 class INTERFACE(ABC):
     _QMin = {}
     _QMout = {}
     _setup_mol = False
+    _read_resources = True
 
     # TODO: set Debug and Print flag
     # TODO: set persistant flag for file-io vs in-core
     def __init__(self):
         self.clock = clock()
+        self.printheader()
 
     # ================== abstract methods and properties ===================
 
@@ -75,26 +80,18 @@ class INTERFACE(ABC):
 
     @abstractmethod
     def main(self):
-        pass
+        pass        
 
     @abstractmethod
     def readQMin(self, QMinfilename):
-        pass
+        pass                        
 
     @abstractmethod
     def read_template(self, template_filename):
         pass
 
     @abstractmethod
-    def read_resources(self, resource_filename):
-        pass
-
-    @abstractmethod
-    def set_requests(self, QMinfilename):
-        pass
-
-    @abstractmethod
-    def set_coords(self, xyz):
+    def read_resources(self, resources_filename):
         pass
 
     @abstractmethod
@@ -116,7 +113,7 @@ class INTERFACE(ABC):
         # replaces all comments with white space. filters all empty lines
         filtered = filter(lambda x: not re.match(r'^\s*$', x),
                           map(lambda x: re.sub(r'#.*$', '', x), QMinlines[QMin['natom'] + 2:]))
-        
+
         # naively parse all key argument pairs from QM.in
         for line in filtered:
             llist = line.split(None, 1)
@@ -143,12 +140,122 @@ class INTERFACE(ABC):
                     nmstates += QMin['states'][i] * (i + 1)
                 QMin['nstates'] = nstates
                 QMin['nmstates'] = nmstates
+        self._setup_mol = True
         # NOTE: Quantity requests (tasks) are dealt with later and potentially re-assigned
         return
 
+    # enables function overloads for different types (call detects type and calls corresponding version of function)
+    @multidispatch(str)
     def set_coords(self, xyz):
         lines = readfile(xyz)
-        self._QMin["geom"] = list(map(INTERFACE._parse_xyz, lines))
+        self._QMin["coords"] = np.asarray(list(map(lambda x: INTERFACE._parse_xyz(x)[1], lines)), dtype=float)
+
+    @multidispatch(list)
+    def set_coords(self, xyz):
+        self._QMin["coords"] = np.asarray(xyz)
+
+    @multidispatch(np.ndarray)
+    def set_coords(self, xyz):
+        self._QMin["coords"] = xyz
+    
+    @multidispatch(str)
+    def set_requests(self, QMinfilename):
+        return
+        
+    @multidispatch(dict)
+    def set_requests(self, requests):
+        self._QMin.update(requests)
+
+    # NOTE: generalize the parsing of keyword based input files, with lines as input
+    def parse_keywords(self, bools: dict[bool], strings: dict[str], integers: dict[int], floats: dict[float], special: dict, lines: list[str]) -> dict:
+        '''
+        Returns the parsed arguments of a set of lines as a dict with the help of the functions declared in parse_template.py.
+
+                Parameters:
+                        bools (dict[bool]): Dictionary with all keywords and their defaults with type bool
+                        strings (dict[str]): Dictionary with all keywords and their defaults with type string
+                        integers (dict[int]): Dictionary with all keywords and their defaults with type int
+                        floats (dict[float]): Dictionary with all keywords and their defaults with type float
+                        special (dict): Dictionary with all keywords and their defaults with complex type
+                        lines (list[str]): lines to parse
+
+                Returns:
+                        keyword_dict (dict): dict with parsed keywords
+        '''
+        QMin = self._QMin
+        template_parser = KeywordParser(len(QMin['states']), QMin['Atomcharge'])
+        # prepare dict with parsers for every value type
+        bool_parser = {k: lambda x: True for k in bools}
+        string_parser = {k: lambda x: x for k in strings}
+        integer_parser = {k: lambda x: int(float(x)) for k in integers}
+        float_parser = {k: lambda x: float(x) for k in floats}
+        special_parser = {k: getattr(template_parser, k) for k in special}
+
+        def parse(d: dict, line: str) -> dict:
+            return self._parse_to_dict(d, line, {**bool_parser, **string_parser, **integer_parser, **float_parser, **special_parser})
+        # replaces all comments with white space. filters all empty lines
+        filtered = filter(lambda x: not re.match(r'^\s*$', x), map(lambda x: re.sub(r'#.*$', '', x), lines))
+
+        # concat all lines for select keyword
+
+        return reduce(parse, filtered, {})
+
+    def parse_resources(self, bools: dict[bool], strings: dict[str], integers: dict[int], floats: dict[float], special: dict, resources_filename) -> dict:
+        '''
+        Returns the parsed arguments of the .resources file as a dict with the help of the functions declared in parse_resources.py.
+
+                Parameters:
+                        bools (dict[bool]): Dictionary with all keywords and their defaults with type bool
+                        strings (dict[string]): Dictionary with all keywords and their defaults with type string
+                        integers (dict[int]): Dictionary with all keywords and their defaults with type int
+                        floats (dict[float]): Dictionary with all keywords and their defaults with type float
+                        special (dict): Dictionary with all keywords and their defaults with complex type
+                        resources_filename (str): path to .resources file
+
+                Returns:
+                        resources_dict (dict): dict with parsed .resources file
+        '''
+
+        resources_parser = ResourcesParser()
+        bool_parser = {k: lambda x: True for k in bools}
+        string_parser = {k: lambda x: x for k in strings}
+        integer_parser = {k: lambda x: int(float(x)) for k in integers}
+        float_parser = {k: lambda x: float(x) for k in floats}
+        special_parser = {k: getattr(resources_parser, k) for k in special}
+
+        def parse(d: dict, line: str) -> dict:
+            return self._parse_to_dict(d, line, {**bool_parser, **string_parser, **integer_parser, **float_parser, **special_parser})
+        # NOTE: Why is theodore stuff in resources but stored in template?
+        # NOTE: some logic check can only be performed if whole QMin was read
+        lines = readfile(resources_filename)
+        # replaces all comments with white space. filters all empty lines
+        filtered = filter(lambda x: not re.match(r'^\s*$', x), map(lambda x: re.sub(r'#.*$', '', x), lines))
+        return reduce(parse, filtered, {})
+
+    # split line into key and args, calls parser for args and adds key: parser(args) to dict
+    # NOTE: select block keywords should be also parsible
+    @staticmethod
+    def _parse_to_dict(d: dict, line: str, parsers: dict) -> dict:
+        llist = line.strip().split(None, 1)
+        key = llist[0].lower()
+        args = ' '
+        if len(llist) == 2:
+            args = llist[1]
+        try:
+            if key in d:
+                if isinstance(d[key], dict):
+                    d[key].update(parsers[key](args))
+                elif isinstance(d[key], list):
+                    d[key].append(parsers[key](args))
+            else:
+                d[key] = parsers[key](args)
+        except Error:
+            raise
+        except Exception:
+            ty, val, tb = sys.exc_info()
+            raise Error(f'Something went wrong while parsing the keyword: {key} {args}:\n\
+                {ty.__name__}: {val}\nPlease consult the examples folder in the $SHARCDIR for more information!').with_traceback(tb)
+        return d
 
     @staticmethod
     def set_coords(xyz):
@@ -168,7 +275,7 @@ class INTERFACE(ABC):
             raise Error('first line must contain the number of atoms!', 2)
         if len(QMinlines) < natom + 4:
             raise Error('Input file must contain at least:\nnatom\ncomment\ngeometry\nkeyword "states"\nat least one task', 3)
-        atomlist = list(map(lambda x: INTERFACE._parse_xyz(x)[1], (QMinlines[2:natom + 2])))
+        atomlist = list(map(lambda x: INTERFACE._parse_xyz(x)[0], (QMinlines[2:natom + 2])))
         return atomlist
 
     # ======================================================================= #
