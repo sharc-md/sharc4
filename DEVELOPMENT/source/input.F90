@@ -2134,11 +2134,16 @@ module input
     if (ctrl%thermostat/=0) then
 
       ! random number seed for thermostat
-      line=get_value_from_key('rngseed',io)
+      line=get_value_from_key('rngseed_thermostat',io)
       if (io==0) then
-        read(line,*) traj%rngseed_thermostat !for now: use same rngseed for thermostat as given for initial velocities. Maybe change later.
+        read(line,*) traj%rngseed_thermostat
       else
-        traj%rngseed_thermostat=1099279      ! some prime number
+        line=get_value_from_key('rngseed',io)
+        if (io==0) then
+          read(line,*) traj%rngseed_thermostat !for now: use same rngseed for thermostat as given for initial velocities. Maybe change later.
+        else
+          traj%rngseed_thermostat=1099279      ! some prime number
+        endif
       endif
       call init_random_seed_thermostat(traj%rngseed_thermostat)
      ! call srand(traj%rngseed_thermostat) alternatively
