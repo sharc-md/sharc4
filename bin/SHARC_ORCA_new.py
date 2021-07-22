@@ -97,7 +97,7 @@ class ORCA(INTERFACE):
         has to be called after setup_mol!'''
 
         if not self._read_resources:
-            raise Error('Interface is nor set up correctly. Call read_resources with the .resources file first!', 23)
+            raise Error('Interface is not set up correctly. Call read_resources with the .resources file first!', 23)
         QMin = self._QMin
         # define keywords and defaults
         bools = {'no_tda': False,
@@ -155,13 +155,14 @@ class ORCA(INTERFACE):
             if len(QMin['states']) >= 3 and QMin['states'][2] > 0:
                 raise Error('Request "SOC" is not compatible with using ECPs!', 64)
 
+        self._read_template = True
         return
 
 
     def read_resources(self, resources_filename="ORCA.resources"):
 
         if not self._setup_mol:
-            raise Error('Interface is nor set up for this template. Call setup_mol with the QM.in file first!', 23)
+            raise Error('Interface is not set up for this template. Call setup_mol with the QM.in file first!', 23)
         QMin = self._QMin
 
         pwd = os.getcwd()
@@ -172,7 +173,7 @@ class ORCA(INTERFACE):
                    'scratchdir': '',
                    'savedir': '',  # NOTE: savedir from QMin
                    'theodir': '',
-                   'wfoverlap': '$SHARC/wfoverlap.x',
+                   'wfoverlap': os.path.join(os.path.expandvars(os.path.expanduser('$SHARC')), 'wfoverlap.x'),
                    'qmmm_table': '',
                    'qmmm_ff_file': ''
                    }
@@ -202,22 +203,36 @@ class ORCA(INTERFACE):
         QMin['resources'] = {**bools, **strings, **integers, **floats, **special,
                              **self.parse_keywords(bools, strings, integers, floats, special, lines)}
         # reassign QMin after losing the reference
-        QMin['OrcaVersion'] = self._getOrcaVersion(QMin['orcadir'])
+        QMin['OrcaVersion'] = self._getOrcaVersion(QMin['resources']['orcadir'])
+
+        #NOTE: This is reall optional
+        if os.environ.get('NSLOTS') is not None:
+            QMin['ncpu'] = int(os.environ.get('NSLOTS'))
+            print('Detected $NSLOTS variable. Will use ncpu=%i' % (QMin['ncpu']))
+        elif os.environ.get('SLURM_NTASKS_PER_NODE') is not None:
+            QMin['ncpu'] = int(os.environ.get('SLURM_NTASKS_PER_NODE'))
+            print('Detected $SLURM_NTASKS_PER_NODE variable. Will use ncpu=%i' % (QMin['ncpu']))
+        QMin['ncpu'] = max(1, QMin['ncpu'])
+
+        if 0 < QMin['schedule_scaling'] <= 1.:
+            QMin['schedule_scaling'] = 0.9
+        if 'always_orb_init' in QMin and 'always_guess' in QMin:
+            print('Keywords "always_orb_init" and "always_guess" cannot be used together!')
+            sys.exit(53)
 
         self._read_resources = True
         return
 
-    def readQMin(self, QMinfilename):
-        raise NotImplementedError
 
     def set_requests(self, QMinfilename):
         raise NotImplementedError
 
-    def set_coords(self, xyz):
-        raise NotImplementedError
-
     def run(self):
-        raise NotImplementedError
+
+        QMin = self._QMin
+        # TODO: specific logic checks!!!
+        if 'nacdt' in QMin or 'nacdr' in QMin:
+            raise Error('Within the SHARC-ORCA interface couplings can only be calculated via the overlap method. "nacdr" and "nacdt" are not supported.', 44)
 
     def get_QMout(self):
         raise NotImplementedError

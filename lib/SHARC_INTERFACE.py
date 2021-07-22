@@ -32,15 +32,16 @@ import sys
 import os
 import re
 import shutil
+import ast
 import numpy as np
 import subprocess as sp
 from abc import ABC, abstractmethod, abstractproperty
-from functools import reduce, multidispatch
+from functools import reduce, singledispatchmethod
 
 # internal
 from error import Error
 from printing import printcomplexmatrix, printgrad, printtheodore
-from utils import itnmstates, eformat, readfile, writefile, containsstring, makecmatrix, safe_cast, link, mkdir, clock
+from utils import itnmstates, eformat, removekey, readfile, writefile, containsstring, makecmatrix, safe_cast, link, mkdir, clock
 from constants import *
 from parse_keywords import KeywordParser
 
@@ -48,11 +49,15 @@ from parse_keywords import KeywordParser
 # NOTE: gradient calculation necessitates multiple parallel calls (either inside interface) or one interface = one calculation (i.e. interface spawns multiple instances of itself)
 # NOTE: logic checks in read_template and read_resources and in run() if required (LVC won't need check in run())
 
+
 class INTERFACE(ABC):
     _QMin = {}
     _QMout = {}
+
+    # internal status indicators
     _setup_mol = False
-    _read_resources = True
+    _read_resources = False
+    _read_template = False
 
     # TODO: set Debug and Print flag
     # TODO: set persistant flag for file-io vs in-core
@@ -80,11 +85,11 @@ class INTERFACE(ABC):
 
     @abstractmethod
     def main(self):
-        pass        
+        pass
 
     @abstractmethod
-    def readQMin(self, QMinfilename):
-        pass                        
+    def read_requests(self, QMinfilename):
+        pass
 
     @abstractmethod
     def read_template(self, template_filename):
@@ -145,28 +150,149 @@ class INTERFACE(ABC):
         return
 
     # enables function overloads for different types (call detects type and calls corresponding version of function)
-    @multidispatch(str)
+    @singledispatchmethod
     def set_coords(self, xyz):
-        lines = readfile(xyz)
-        self._QMin["coords"] = np.asarray(list(map(lambda x: INTERFACE._parse_xyz(x)[1], lines)), dtype=float)
+        raise NotImplementedError("'set_coords' is only implemented for str, list[list[float]] or numpy.ndarray type")
 
-    @multidispatch(list)
-    def set_coords(self, xyz):
+    @set_coords.register
+    def _(self, xyz: str):
+        lines = readfile(xyz)
+        try:
+            natom = int(lines[0])
+        except ValueError:
+            raise Error('first line must contain the number of atoms!', 2)
+        self._QMin["coords"] = np.asarray(list(map(lambda x: INTERFACE._parse_xyz(x)[1], lines[2:natom + 2])), dtype=float)
+
+    @set_coords.register
+    def _(self, xyz: list):
         self._QMin["coords"] = np.asarray(xyz)
 
-    @multidispatch(np.ndarray)
-    def set_coords(self, xyz):
+    @set_coords.register
+    def _(self, xyz: np.ndarray):
         self._QMin["coords"] = xyz
-    
-    @multidispatch(str)
-    def set_requests(self, QMinfilename):
-        return
-        
-    @multidispatch(dict)
+
+    @singledispatchmethod
     def set_requests(self, requests):
+        raise NotImplementedError("'set_requests' is only implemented for str or dict type!")
+
+    @set_requests.register
+    def _(self, requests: str):
+        raise NotImplementedError()
+
+    @set_requests.register
+    def _(self, requests: dict):
         self._QMin.update(requests)
 
+    def read_requests(self, requests_filename: str = "QM.in"):
+        if not self._read_template:
+            raise Error('Interface is not set up correctly. Call read_resources with the .template file first!', 23)
+        QMin = self._QMin
+
+        lines = readfile(requests_filename)
+        filtered = filter(lambda x: not re.match(r'^\s*$', x), map(lambda x: re.sub(r'#.*$', '', x).strip(), lines[QMin['natom'] + 2:]))
+        file_str = '\n'.join(filtered)
+
+        def format_match(x: re.Match) -> str:
+            return re.sub(r'\n+', "','", "['{}']".format(x.group(3)))
+        lines = re.sub(r'(s(elect|tart).*\n)([^end]+)(\nend)',
+                       format_match,
+                       file_str).split('\n')
+        
+        def parse(line: str):
+            llist = line.split(None, 1)
+            if len(llist) == 1:
+                return llist[0], True
+            args = llist[1]
+            if args[0] == '[':
+                args = ast.literal_eval(args)
+                if type(args[0]) == str:
+                    args = list(map(lambda x: [int(i) for i in x.split()], args))
+                return llist[0], args
+            args = args.split()
+            if len(args) == 1:
+                args = args[0]
+            return llist[0], args
+                
+        self._QMin = {**dict(map(parse, lines)), **QMin}
+        QMin = self._QMin
+
+        possibletasks = {'h', 'soc', 'dm', 'grad', 'overlap', 'dmdr', 'socdr', 'ion', 'theodore', 'phases'}
+        tasks = possibletasks & QMin.keys()
+        if len(tasks) == 0:
+            raise Error(f'No tasks found! Tasks are {possibletasks}.', 39)
+
+        if 'h' not in tasks and 'soc' not in tasks:
+            QMin['h'] = True
+        
+        if 'soc' in tasks and (len(QMin['states']) < 3 or QMin['states'][2] <= 0):
+            del QMin['soc']
+            QMin['h'] = True
+            print('HINT: No triplet states requested, turning off SOC request.')
+            
+        if 'samestep' in tasks and 'init' in tasks:
+            raise Error('"Init" and "Samestep" cannot be both present in QM.in!', 41)
+
+        if 'restart' in tasks and 'init' in tasks:
+            raise Error('"Init" and "Samestep" cannot be both present in QM.in!', 42)
+
+        if 'phases' in tasks:
+            QMin['overlap'] = True
+
+        if 'overlap' in tasks and 'init' in tasks:
+            raise Error('"overlap" and "phases" cannot be calculated in the first timestep! Delete either "overlap" or "init"', 43)
+
+        if tasks.isdisjoint({'init', 'samestep', 'restart'}):
+            QMin['newstep'] = True
+
+        if not tasks.isdisjoint({'h', 'soc', 'dm', 'grad'}) and 'overlap' in tasks:
+            QMin['h'] = True
+
+        if 'dmdr' in tasks:
+            raise Error('Dipole derivatives ("dmdr") not currently supported', 45)
+
+        if 'socdr' in tasks:
+            raise Error('Spin-orbit coupling derivatives ("socdr") are not implemented', 46)
+
+
+        # Check for correct gradient list
+        if 'grad' in tasks:
+            grad = QMin['grad']
+            print(grad)
+            if grad is True or grad == 'all':
+                grad = [i + 1 for i in range(QMin['nmstates'])]
+                # pass
+            else:
+                grad = [grad]
+                print(grad)
+                try:
+                    grad = [int(i) for i in grad]
+                except ValueError:
+                    raise Error('Arguments to keyword "grad" must be "all" or a list of integers!', 47)
+                if len(grad) > QMin['nmstates']:
+                    raise Error('State for requested gradient does not correspond to any state in QM input file state list!', 48)
+            QMin['grad'] = grad
+
+        # wfoverlap settings
+        if 'overlap' in QMin or 'ion' in QMin:
+            # WFoverlap
+            if not os.path.isfile(QMin['wfoverlap']):
+                print('Give path to wfoverlap.x in ORCA.resources!')
+                sys.exit(54)
+        
+        if 'theodore' in QMin:
+            if QMin['theodir'] is not None and not os.path.isdir(QMin['theodir']):
+                print('Give path to the TheoDORE installation directory in ORCA.resources!')
+                sys.exit(56)
+            os.environ['THEODIR'] = QMin['theodir']
+            if 'PYTHONPATH' in os.environ:
+                os.environ['PYTHONPATH'] = os.path.join(QMin['theodir'], 'lib') + os.pathsep + QMin['theodir'] + os.pathsep + os.environ['PYTHONPATH']
+                # print os.environ['PYTHONPATH']
+            else:
+                os.environ['PYTHONPATH'] = os.path.join(QMin['theodir'], 'lib') + os.pathsep + QMin['theodir']
+
     # NOTE: generalize the parsing of keyword based input files, with lines as input
+
+
     def parse_keywords(self, bools: dict[bool], strings: dict[str], integers: dict[int], floats: dict[float], special: dict, lines: list[str]) -> dict:
         '''
         Returns the parsed arguments of a set of lines as a dict with the help of the functions declared in parse_template.py.
@@ -191,49 +317,25 @@ class INTERFACE(ABC):
         float_parser = {k: lambda x: float(x) for k in floats}
         special_parser = {k: getattr(template_parser, k) for k in special}
 
-        def parse(d: dict, line: str) -> dict:
-            return self._parse_to_dict(d, line, {**bool_parser, **string_parser, **integer_parser, **float_parser, **special_parser})
         # replaces all comments with white space. filters all empty lines
-        filtered = filter(lambda x: not re.match(r'^\s*$', x), map(lambda x: re.sub(r'#.*$', '', x), lines))
+        filtered = filter(lambda x: not re.match(r'^\s*$', x), map(lambda x: re.sub(r'#.*$', '', x).strip(), lines))
 
-        # concat all lines for select keyword
+        # concat all lines for select keyword:
+        # 1 join lines to full file string, 2 match all select/start ... end blocks, 3 replace all \n with ',' in the matches, 4 return matches between [' and ']
+        file_str = '\n'.join(filtered)
 
-        return reduce(parse, filtered, {})
-
-    def parse_resources(self, bools: dict[bool], strings: dict[str], integers: dict[int], floats: dict[float], special: dict, resources_filename) -> dict:
-        '''
-        Returns the parsed arguments of the .resources file as a dict with the help of the functions declared in parse_resources.py.
-
-                Parameters:
-                        bools (dict[bool]): Dictionary with all keywords and their defaults with type bool
-                        strings (dict[string]): Dictionary with all keywords and their defaults with type string
-                        integers (dict[int]): Dictionary with all keywords and their defaults with type int
-                        floats (dict[float]): Dictionary with all keywords and their defaults with type float
-                        special (dict): Dictionary with all keywords and their defaults with complex type
-                        resources_filename (str): path to .resources file
-
-                Returns:
-                        resources_dict (dict): dict with parsed .resources file
-        '''
-
-        resources_parser = ResourcesParser()
-        bool_parser = {k: lambda x: True for k in bools}
-        string_parser = {k: lambda x: x for k in strings}
-        integer_parser = {k: lambda x: int(float(x)) for k in integers}
-        float_parser = {k: lambda x: float(x) for k in floats}
-        special_parser = {k: getattr(resources_parser, k) for k in special}
+        def format_match(x: re.Match) -> str:
+            return re.sub(r'\n+', "','", "['{}']".format(x.group(3)))
+        lines = re.sub(r'(s(elect|tart).*\n)([^end]+)(\nend)',
+                       format_match,
+                       file_str).split('\n')
 
         def parse(d: dict, line: str) -> dict:
             return self._parse_to_dict(d, line, {**bool_parser, **string_parser, **integer_parser, **float_parser, **special_parser})
-        # NOTE: Why is theodore stuff in resources but stored in template?
-        # NOTE: some logic check can only be performed if whole QMin was read
-        lines = readfile(resources_filename)
-        # replaces all comments with white space. filters all empty lines
-        filtered = filter(lambda x: not re.match(r'^\s*$', x), map(lambda x: re.sub(r'#.*$', '', x), lines))
-        return reduce(parse, filtered, {})
+
+        return reduce(parse, lines, {})
 
     # split line into key and args, calls parser for args and adds key: parser(args) to dict
-    # NOTE: select block keywords should be also parsible
     @staticmethod
     def _parse_to_dict(d: dict, line: str, parsers: dict) -> dict:
         llist = line.strip().split(None, 1)
@@ -243,10 +345,11 @@ class INTERFACE(ABC):
             args = llist[1]
         try:
             if key in d:
-                if isinstance(d[key], dict):
-                    d[key].update(parsers[key](args))
-                elif isinstance(d[key], list):
-                    d[key].append(parsers[key](args))
+                dk = d[key]
+                if isinstance(dk, dict):
+                    dk.update(parsers[key](args))
+                elif isinstance(dk, list):
+                    dk.extend(parsers[key](args))
             else:
                 d[key] = parsers[key](args)
         except Error:
@@ -258,7 +361,7 @@ class INTERFACE(ABC):
         return d
 
     @staticmethod
-    def set_coords(xyz):
+    def read_coords(xyz):
         lines = readfile(xyz)
         try:
             natom = int(lines[0])

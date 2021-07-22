@@ -132,6 +132,8 @@ Date: 20.07.2021
         res = []
         if args[0] == '[':
             res = ast.literal_eval(args)
+            if type(res[0]) == str:
+                res = list(map(lambda x: [int(i) for i in x.split()], res))
         else:
-            res = [int(x) for x in args.split()]
+            res = [[int(x) for x in args.split()]]
         return res
