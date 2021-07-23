@@ -41,7 +41,7 @@ from functools import reduce, singledispatchmethod
 # internal
 from error import Error
 from printing import printcomplexmatrix, printgrad, printtheodore
-from utils import itnmstates, eformat, removekey, readfile, writefile, containsstring, makecmatrix, safe_cast, link, mkdir, clock
+from utils import itnmstates, eformat, itmult, readfile, writefile, containsstring, makecmatrix, safe_cast, link, mkdir, clock
 from constants import *
 from parse_keywords import KeywordParser
 
@@ -197,7 +197,7 @@ class INTERFACE(ABC):
         lines = re.sub(r'(s(elect|tart).*\n)([^end]+)(\nend)',
                        format_match,
                        file_str).split('\n')
-        
+
         def parse(line: str):
             llist = line.split(None, 1)
             if len(llist) == 1:
@@ -212,7 +212,8 @@ class INTERFACE(ABC):
             if len(args) == 1:
                 args = args[0]
             return llist[0], args
-                
+
+        # NOTE: old QMin read stuff is not overwritten. Problem with states?
         self._QMin = {**dict(map(parse, lines)), **QMin}
         QMin = self._QMin
 
@@ -223,12 +224,12 @@ class INTERFACE(ABC):
 
         if 'h' not in tasks and 'soc' not in tasks:
             QMin['h'] = True
-        
+
         if 'soc' in tasks and (len(QMin['states']) < 3 or QMin['states'][2] <= 0):
             del QMin['soc']
             QMin['h'] = True
             print('HINT: No triplet states requested, turning off SOC request.')
-            
+
         if 'samestep' in tasks and 'init' in tasks:
             raise Error('"Init" and "Samestep" cannot be both present in QM.in!', 41)
 
@@ -257,13 +258,11 @@ class INTERFACE(ABC):
         # Check for correct gradient list
         if 'grad' in tasks:
             grad = QMin['grad']
-            print(grad)
             if grad is True or grad == 'all':
                 grad = [i + 1 for i in range(QMin['nmstates'])]
                 # pass
             else:
                 grad = [grad]
-                print(grad)
                 try:
                     grad = [int(i) for i in grad]
                 except ValueError:
@@ -275,23 +274,184 @@ class INTERFACE(ABC):
         # wfoverlap settings
         if 'overlap' in QMin or 'ion' in QMin:
             # WFoverlap
-            if not os.path.isfile(QMin['wfoverlap']):
+            
+            if not os.path.isfile(QMin['resources']['wfoverlap']):
                 print('Give path to wfoverlap.x in ORCA.resources!')
                 sys.exit(54)
-        
+
         if 'theodore' in QMin:
-            if QMin['theodir'] is not None and not os.path.isdir(QMin['theodir']):
+            if QMin['resources']['theodir'] is not None and not os.path.isdir(QMin['resources']['theodir']):
                 print('Give path to the TheoDORE installation directory in ORCA.resources!')
                 sys.exit(56)
-            os.environ['THEODIR'] = QMin['theodir']
+            os.environ['THEODIR'] = QMin['resources']['theodir']
             if 'PYTHONPATH' in os.environ:
-                os.environ['PYTHONPATH'] = os.path.join(QMin['theodir'], 'lib') + os.pathsep + QMin['theodir'] + os.pathsep + os.environ['PYTHONPATH']
+                os.environ['PYTHONPATH'] = os.path.join(QMin['resources']['theodir'], 'lib') + os.pathsep + QMin['resources']['theodir'] + os.pathsep + os.environ['PYTHONPATH']
                 # print os.environ['PYTHONPATH']
             else:
-                os.environ['PYTHONPATH'] = os.path.join(QMin['theodir'], 'lib') + os.pathsep + QMin['theodir']
+                os.environ['PYTHONPATH'] = os.path.join(QMin['theodir'], 'lib') + os.pathsep + QMin['resources']['theodir']
 
     # NOTE: generalize the parsing of keyword based input files, with lines as input
 
+    def setup_run(self):
+        QMin = self._QMin
+        # obtain the statemap
+        QMin['statemap'] = {i+1: [*v] for i, v in enumerate(itnmstates(QMin['states']))}
+
+        # obtain the states to actually compute
+        states_to_do = [v + QMin['template']['paddingstates'][i] for i, v in enumerate(QMin['states']) if v > 0]
+        if not QMin['template']['unrestricted_triplets']:
+            if len(QMin['states']) >= 3 and QMin['states'][2] > 0:
+                states_to_do[0] = max(QMin['states'][0], 1)
+                req = max(QMin['states'][0] - 1, QMin['states'][2])
+                states_to_do[0] = req + 1
+                states_to_do[2] = req
+        QMin['states_to_do'] = states_to_do
+
+        # make the jobs
+        jobs = {}
+        if QMin['states_to_do'][0] > 0:
+            jobs[1] = {'mults': [1], 'restr': True}
+        if len(QMin['states_to_do']) >= 2 and QMin['states_to_do'][1] > 0:
+            jobs[2] = {'mults': [2], 'restr': False}
+        if len(QMin['states_to_do']) >= 3 and QMin['states_to_do'][2] > 0:
+            if not QMin['template']['unrestricted_triplets'] and QMin['states_to_do'][0] > 0:
+                if QMin['OrcaVersion'] >= (4, 1):
+                    jobs[1]['mults'].append(3)
+                else:
+                    jobs[3] = {'mults': [1, 3], 'restr': True}
+            else:
+                jobs[3] = {'mults': [3], 'restr': False}
+        if len(QMin['states_to_do']) >= 4:
+            for imult, nstate in enumerate(QMin['states_to_do'][3:]):
+                if nstate > 0:
+                    # jobs[len(jobs)+1]={'mults':[imult+4],'restr':False}
+                    jobs[imult + 4] = {'mults': [imult + 4], 'restr': False}
+        QMin['jobs'] = jobs
+
+        # make the multmap (mapping between multiplicity and job)
+        # multmap[imult]=ijob
+        # multmap[-ijob]=[imults]
+        multmap = {}
+        for ijob, job in jobs.items():
+            for imult in job['mults']:
+                multmap[imult] = ijob
+            multmap[-(ijob)] = job['mults']
+        multmap[1] = 1
+        QMin['multmap'] = multmap
+
+        # get the joblist
+        QMin['joblist'] = sorted(jobs.keys())
+        QMin['njobs'] = len(QMin['joblist'])
+
+        # make the gsmap
+        gsmap = {}
+        for i in range(QMin['nmstates']):
+            m1, s1, ms1 = tuple(QMin['statemap'][i + 1])
+            gs = (m1, 1, ms1)
+            job = QMin['multmap'][m1]
+            if m1 == 3 and QMin['jobs'][job]['restr']:
+                gs = (1, 1, 0.0)
+            for j in range(QMin['nmstates']):
+                m2, s2, ms2 = tuple(QMin['statemap'][j + 1])
+                if (m2, s2, ms2) == gs:
+                    break
+            gsmap[i + 1] = j + 1
+        QMin['gsmap'] = gsmap
+
+        # get the set of states for which gradients actually need to be calculated
+        gradmap = set()
+        if 'grad' in QMin:
+            gradmap = {tuple(QMin['statemap'][i][0:2]) for i in QMin['grad']}
+        QMin['gradmap'] = sorted(gradmap)
+
+        # make the chargemap
+        QMin['chargemap'] = {i + 1: c for i, c in enumerate(QMin['template']['charge'])}
+
+        # make the ionmap
+        if 'ion' in QMin:
+            ionmap = []
+            for m1 in itmult(QMin['states']):
+                job1 = QMin['multmap'][m1]
+                el1 = QMin['chargemap'][m1]
+                for m2 in itmult(QMin['states']):
+                    if m1 >= m2:
+                        continue
+                    job2 = QMin['multmap'][m2]
+                    el2 = QMin['chargemap'][m2]
+                    # print m1,job1,el1,m2,job2,el2
+                    if abs(m1 - m2) == 1 and abs(el1 - el2) == 1:
+                        ionmap.append((m1, job1, m2, job2))
+            QMin['ionmap'] = ionmap
+
+        # number of properties/entries calculated by TheoDORE
+        if 'theodore' in QMin:
+            QMin['resources']['theodore_n'] = len(QMin['resources']['theodore_prop']) + len(QMin['resources']['theodore_fragment'])**2
+        else:
+            QMin['resources']['theodore_n'] = 0
+
+    # --------------------------------------------- File setup ----------------------------------
+
+        # check for initial orbitals
+        initorbs = {}
+        if 'always_guess' in QMin:
+            QMin['initorbs'] = {}
+        elif 'init' in QMin or 'always_orb_init' in QMin:
+            for job in QMin['joblist']:
+                filename = os.path.join(QMin['pwd'], 'ORCA.gbw.init')
+                if os.path.isfile(filename):
+                    initorbs[job] = filename
+            for job in QMin['joblist']:
+                filename = os.path.join(QMin['pwd'], 'ORCA.gbw.%i.init' % (job))
+                if os.path.isfile(filename):
+                    initorbs[job] = filename
+            if 'always_orb_init' in QMin and len(initorbs) < QMin['njobs']:
+                print('Initial orbitals missing for some jobs!')
+                sys.exit(70)
+            QMin['initorbs'] = initorbs
+        elif 'newstep' in QMin:
+            for job in QMin['joblist']:
+                filename = os.path.join(QMin['savedir'], f'ORCA.gbw.{job}')
+                if os.path.isfile(filename):
+                    initorbs[job] = filename + '.old'     # file will be moved to .old
+                else:
+                    print(f'File {filename} missing in savedir!')
+                    sys.exit(71)
+            QMin['initorbs'] = initorbs
+        elif 'samestep' in QMin:
+            for job in QMin['joblist']:
+                filename = os.path.join(QMin['savedir'], f'ORCA.gbw.{job}')
+                if os.path.isfile(filename):
+                    initorbs[job] = filename
+                else:
+                    print(f'File {filename} missing in savedir!')
+                    sys.exit(72)
+            QMin['initorbs'] = initorbs
+        elif 'restart' in QMin:
+            for job in QMin['joblist']:
+                filename = os.path.join(QMin['savedir'], 'ORCA.gbw.{job}.old' % (job))
+                if os.path.isfile(filename):
+                    initorbs[job] = filename
+                else:
+                    print(f'File {filename} missing in savedir!')
+                    sys.exit(73)
+            QMin['initorbs'] = initorbs
+
+
+        # make name for backup directory
+        if 'backup' in QMin:
+            backupdir = QMin['savedir'] + '/backup'
+            backupdir1 = backupdir
+            i = 0
+            while os.path.isdir(backupdir1):
+                i += 1
+                if 'step' in QMin:
+                    backupdir1 = backupdir + '/step%s_%i' % (QMin['step'][0], i)
+                else:
+                    backupdir1 = backupdir + '/calc_%i' % (i)
+            QMin['backup'] = backupdir
+
+
+        return QMin
 
     def parse_keywords(self, bools: dict[bool], strings: dict[str], integers: dict[int], floats: dict[float], special: dict, lines: list[str]) -> dict:
         '''
@@ -334,6 +494,101 @@ class INTERFACE(ABC):
             return self._parse_to_dict(d, line, {**bool_parser, **string_parser, **integer_parser, **float_parser, **special_parser})
 
         return reduce(parse, lines, {})
+
+    def generate_joblist(self):
+        QMin = self._QMin
+        # sort the gradients into the different jobs
+        gradjob = {}
+        for ijob in QMin['joblist']:
+            gradjob[f'master_{ijob}'] = {}
+        for grad in QMin['gradmap']:
+            ijob = QMin['multmap'][grad[0]]
+            isgs = False
+            if not QMin['jobs'][ijob]['restr']:
+                if grad[1] == 1:
+                    isgs = True
+            else:
+                if grad == (1, 1):
+                    isgs = True
+            istates = QMin['states_to_do'][grad[0] - 1]
+            if QMin['OrcaVersion'] < (4, 1):
+                if isgs and istates > 1:
+                    gradjob['grad_%i_%i' % grad] = {}
+                    gradjob['grad_%i_%i' % grad][grad] = {'gs': True}
+                else:
+                    n = len(gradjob['master_%i' % ijob])
+                    if n > 0:
+                        gradjob['grad_%i_%i' % grad] = {}
+                        gradjob['grad_%i_%i' % grad][grad] = {'gs': False}
+                    else:
+                        gradjob['master_%i' % ijob][grad] = {'gs': False}
+            else:
+                gradjob['master_%i' % ijob][grad] = {'gs': isgs}
+        # make map for states onto gradjobs
+        jobgrad = {}
+        for job in gradjob:
+            for state in gradjob[job]:
+                jobgrad[state] = (job, gradjob[job][state]['gs'])
+        QMin['jobgrad'] = jobgrad
+
+        schedule = []
+        QMin['nslots_pool'] = []
+
+        # add the master calculations
+        ntasks = 0
+        for i in gradjob:
+            if 'master' in i:
+                ntasks += 1
+        nrounds, nslots, cpu_per_run = self.divide_slots(QMin['ncpu'], ntasks, QMin['schedule_scaling'])
+        QMin['nslots_pool'].append(nslots)
+        schedule.append({})
+        icount = 0
+        for i in sorted(gradjob):
+            if 'master' in i:
+                QMin1 = deepcopy(QMin)
+                QMin1['master'] = True
+                QMin1['IJOB'] = int(i.split('_')[1])
+                remove = ['gradmap', 'ncpu']
+                for r in remove:
+                    QMin1 = removekey(QMin1, r)
+                QMin1['gradmap'] = list(gradjob[i])
+                QMin1['ncpu'] = cpu_per_run[icount]
+                if QMin['OrcaVersion'] < (4, 1):
+                    if 3 in QMin['multmap'][-QMin1['IJOB']] and QMin['jobs'][QMin1['IJOB']]['restr']:
+                        QMin1['states'][0] = 1
+                        QMin1['states_to_do'][0] = 1
+                if QMin1['qmmm']:
+                    QMin1['qmmm'] = True
+                icount += 1
+                schedule[-1][i] = QMin1
+
+        # add the gradient calculations
+        ntasks = 0
+        for i in gradjob:
+            if 'grad' in i:
+                ntasks += 1
+        if ntasks > 0:
+            nrounds, nslots, cpu_per_run = divide_slots(QMin['ncpu'], ntasks, QMin['schedule_scaling'])
+            QMin['nslots_pool'].append(nslots)
+            schedule.append({})
+            icount = 0
+            for i in gradjob:
+                if 'grad' in i:
+                    QMin1 = deepcopy(QMin)
+                    mult = list(gradjob[i])[0][0]
+                    QMin1['IJOB'] = QMin['multmap'][mult]
+                    remove = ['gradmap', 'ncpu', 'h', 'soc', 'dm', 'overlap', 'ion', 'always_guess', 'always_orb_init', 'init']
+                    for r in remove:
+                        QMin1 = removekey(QMin1, r)
+                    QMin1['gradmap'] = list(gradjob[i])
+                    QMin1['ncpu'] = cpu_per_run[icount]
+                    QMin1['gradonly'] = []
+                    if QMin1['qmmm']:
+                        QMin1['qmmm'] = True
+                    icount += 1
+                    schedule[-1][i] = QMin1
+
+        return QMin, schedule
 
     # split line into key and args, calls parser for args and adds key: parser(args) to dict
     @staticmethod
