@@ -3026,7 +3026,7 @@ def run_theodore(QMin, errorcodes):
             print('Some subprocesses did not finish successfully!')
             sys.exit(68)
 
-        print ''
+        print('')
 
     return errorcodes
 
@@ -3139,7 +3139,7 @@ def run_wfoverlap(QMin, errorcodes):
         print('Some subprocesses did not finish successfully!')
         sys.exit(70)
 
-    print ''
+    print('')
 
     return errorcodes
 
@@ -3937,7 +3937,7 @@ def cleandir(directory):
                 print('Could not remove file from directory: %s' % (path))
         else:
             if DEBUG:
-                print ''
+                print('')
             cleandir(path)
             os.rmdir(path)
             if DEBUG:
