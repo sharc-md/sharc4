@@ -25,10 +25,16 @@
 
 # IMPORTS
 # external
+import pprint
 import sys
 import re
+import time
 import datetime
+import traceback
 from functools import reduce
+from multiprocessing import Pool
+from copy import deepcopy
+from socket import gethostname
 
 # internal
 from SHARC_INTERFACE import INTERFACE
@@ -202,24 +208,29 @@ class ORCA(INTERFACE):
         # assign defaults first, which get updated by the parsed entries, which are updated by the entries that were already in QMin
         QMin['resources'] = {**bools, **strings, **integers, **floats, **special,
                              **self.parse_keywords(bools, strings, integers, floats, special, lines)}
+        paths = {k: QMin['resources'][k] for k in strings.keys()}
+        for k, v in paths.items():
+            vlist = map(lambda x: os.path.expanduser(os.path.expandvars(x)) if len(x) != 0 and x[0] == '$' else x, v.split('/'))
+            QMin['resources'][k] = '/'.join(vlist)
+
         # reassign QMin after losing the reference
         QMin['OrcaVersion'] = self._getOrcaVersion(QMin['resources']['orcadir'])
 
-        #NOTE: This is reall optional
+        # NOTE: This is reall optional
+        ncpu = QMin['resources']['ncpu']
         if os.environ.get('NSLOTS') is not None:
-            QMin['ncpu'] = int(os.environ.get('NSLOTS'))
-            print('Detected $NSLOTS variable. Will use ncpu=%i' % (QMin['ncpu']))
+            ncpu = int(os.environ.get('NSLOTS'))
+            print(f'Detected $NSLOTS variable. Will use ncpu={ncpu}')
         elif os.environ.get('SLURM_NTASKS_PER_NODE') is not None:
-            QMin['ncpu'] = int(os.environ.get('SLURM_NTASKS_PER_NODE'))
-            print('Detected $SLURM_NTASKS_PER_NODE variable. Will use ncpu=%i' % (QMin['ncpu']))
-        QMin['ncpu'] = max(1, QMin['ncpu'])
+            ncpu = int(os.environ.get('SLURM_NTASKS_PER_NODE'))
+            print('Detected $SLURM_NTASKS_PER_NODE variable. Will use ncpu={ncpu}')
+        QMin['resources']['ncpu'] = max(1, ncpu)
 
-        if 0 < QMin['schedule_scaling'] <= 1.:
-            QMin['schedule_scaling'] = 0.9
+        if 0 < QMin['resources']['schedule_scaling'] <= 1.:
+            QMin['resources']['schedule_scaling'] = 0.9
         if 'always_orb_init' in QMin and 'always_guess' in QMin:
-            print('Keywords "always_orb_init" and "always_guess" cannot be used together!')
-            sys.exit(53)
-
+            raise Error('Keywords "always_orb_init" and "always_guess" cannot be used together!', 53)
+        self._QMin = {**QMin['resources'], **QMin}
         self._read_resources = True
         return
 
@@ -227,12 +238,415 @@ class ORCA(INTERFACE):
     def set_requests(self, QMinfilename):
         raise NotImplementedError
 
+    def moveOldFiles(self):
+
+        def move(fromf, tof):
+            if not os.path.isfile(fromf):
+                raise Error(f'File {fromf} not found, cannot move to {tof}!', 78)
+            if PRINT:
+                print(shorten_DIR(fromf) + '   =>   ' + shorten_DIR(tof))
+            shutil.copy(fromf, tof)
+
+        QMin = self._QMin
+
+        if self._PRINT:
+            print('>' * 15, 'Moving old Files')
+        basenames = ['ORCA.gbw', 'ORCA.molden']
+        if 'nooverlap' not in QMin:
+            basenames.append('mos')
+        step = QMin['step']
+        for job in QMin['joblist']:
+            for base in basenames:
+                fromfile = os.path.join(QMin['savedir'], f'{base}.{job}')
+                tofile = os.path.join(QMin['savedir'], f'{base}_{step}.{job}')
+                move(fromfile, tofile)
+        if 'nooverlap' in QMin:
+            for job in itmult(QMin['states']):
+                fromfile = os.path.join(QMin['savedir'], f'dets.{job}')
+                tofile = os.path.join(QMin['savedir'], f'dets_{step}.{job}')
+                move(fromfile, tofile)
+
+        for f in ['AO_overl', 'AO_overl.mixed']:
+            rmfile = os.path.join(QMin['savedir'], f)
+            if os.path.isfile(rmfile):
+                os.remove(rmfile)
+                if PRINT:
+                    print('rm ' + rmfile)
+        return
+
+    def runjobs(self, schedule):
+
+        def error_handler(e: BaseException, WORKDIR):
+            print('*' * 50 + '\nException in run_calc(%s)!' % (WORKDIR))
+            traceback.print_exc()
+            print('*' * 50 + '\n')
+            raise e
+        QMin = self._QMin
+        if 'newstep' in QMin:
+            self.moveOldFiles()
+        print('>' * 15, 'Starting the ORCA job execution')
+        errorcodes = {}
+        for ijobset, jobset in enumerate(schedule):
+            if not jobset:
+                continue
+            pool = Pool(processes=QMin['nslots_pool'][ijobset])
+            for job in jobset:
+                QMin1 = jobset[job]
+                WORKDIR = os.path.join(QMin['scratchdir'], job)
+                errorcodes[job] = pool.apply_async(ORCA.runORCA, [WORKDIR, QMin1], error_callback=lambda e: error_handler(e, WORKDIR))
+                time.sleep(QMin['delay'])
+        string = 'Error Codes:\n'
+        success = True
+        for j, job in enumerate(errorcodes):
+            code = errorcodes.get()
+            if code != 0:
+                success = False
+            string += '\t{}\t{}'.format(job + ' ' * (10 - len(job)), code)
+            if (j + 1) % 4 == 0:
+                string += '\n'
+        print(string)
+        if not success:
+            raise Error('Some subprocesses did not finish successfully!\n\
+                See {}:{} for error messages in ORCA output.'.format(gethostname(), QMin['scratchdir']), 75)
+
+
+    @staticmethod
+    def runORCA(WORKDIR, QMin):
+        ORCA.setupWORKDIR(WORKDIR, QMin)
+        orcadir = QMin['orcadir']
+        prevdir = os.getcwd()
+        os.chdir(WORKDIR)
+        string = os.path.join(orcadir, 'orca') + ' ORCA.inp'
+        if PRINT or DEBUG:
+            starttime = datetime.datetime.now()
+            sys.stdout.write('START:\t%s\t%s\t"%s"\n' % (shorten_DIR(WORKDIR), starttime, shorten_DIR(string)))
+            sys.stdout.flush()
+        stdoutfile = open(os.path.join(WORKDIR, 'ORCA.log'), 'w')
+        stderrfile = open(os.path.join(WORKDIR, 'ORCA.err'), 'w')
+        try:
+            runerror = sp.call(string, shell=True, stdout=stdoutfile, stderr=stderrfile)
+        except OSError:
+            raise Error('Call have had some serious problems:', OSError, 76)
+        stdoutfile.close()
+        stderrfile.close()
+        if PRINT or DEBUG:
+            endtime = datetime.datetime.now()
+            sys.stdout.write('FINISH:\t%s\t%s\tRuntime: %s\tError Code: %i\n' % (shorten_DIR(WORKDIR), endtime, endtime - starttime, runerror))
+            sys.stdout.flush()
+        os.chdir(prevdir)
+        if not DEBUG and runerror == 0:
+            keep = ['ORCA.inp$', 'ORCA.err$', 'ORCA.log$', 'ORCA.gbw', 'ORCA.cis', 'ORCA.engrad', 'ORCA.pcgrad', 'ORCA.molden.input', 'ORCA.pc']
+            INTERFACE.stripWORKDIR(WORKDIR, keep)
+        return runerror
+
+    @staticmethod
+    def setupWORKDIR(WORKDIR, QMin):
+        # mkdir the WORKDIR, or clean it if it exists, then copy all necessary files from pwd and savedir
+        # then put the ORCA.inp file
+
+        # setup the directory
+        mkdir(WORKDIR)
+
+        # write ORCA.inp
+        inputstring = ORCA.writeORCAinput(QMin)
+        filename = os.path.join(WORKDIR, 'ORCA.inp')
+        writefile(filename, inputstring)
+        if DEBUG:
+            print('================== DEBUG input file for WORKDIR %s =================' % (shorten_DIR(WORKDIR)))
+            print(inputstring)
+            print('ORCA input written to: %s' % (filename))
+            print('====================================================================')
+        # write point charges
+        if QMin['qmmm']:
+            inputstring = ORCA.write_pccoord_file(QMin)
+            filename = os.path.join(WORKDIR, 'ORCA.pc')
+            writefile(filename, inputstring)
+            if DEBUG:
+                print('================== DEBUG input file for WORKDIR %s =================' % (shorten_DIR(WORKDIR)))
+                print(inputstring)
+                print('Point charges written to: %s' % (filename))
+                print('====================================================================')
+        if QMin['template']['cobramm']:
+            currentDirectory = os.getcwd()
+            fromfile = os.path.join(currentDirectory, 'charge.dat')
+            tofile = tofile = os.path.join(WORKDIR, 'charge.dat')
+            shutil.copy(fromfile, tofile)
+
+        # wf file copying
+        if 'master' in QMin:
+            job = QMin['IJOB']
+            if job in QMin['initorbs']:
+                fromfile = QMin['initorbs'][job]
+                tofile = os.path.join(WORKDIR, 'ORCA.gbw')
+                shutil.copy(fromfile, tofile)
+        elif 'grad' in QMin:
+            job = QMin['IJOB']
+            fromfile = os.path.join(QMin['scratchdir'], 'master_%i' % job, 'ORCA.gbw')
+            tofile = os.path.join(WORKDIR, 'ORCA.gbw')
+            shutil.copy(fromfile, tofile)
+
+        return
+
+    def writeORCAinput(QMin):
+        # split gradmap into smaller chunks
+        Nmax_gradlist = 255
+        print('GRADMAP', QMin['gradmap'])
+        gradmaps = [sorted(QMin['gradmap'])[i:i + Nmax_gradlist] for i in range(0, len(QMin['gradmap']), Nmax_gradlist)]
+
+        # make multi-job input
+        string = ''
+        for ichunk, chunk in enumerate(gradmaps):
+            if ichunk >= 1:
+                string += '\n\n$new_job\n\n%base "ORCA"\n\n'
+            QMin_copy = deepcopy(QMin)
+            QMin_copy['gradmap'] = chunk
+            string += ORCA.ORCAinput_string(QMin_copy)
+        if not gradmaps:
+            string += ORCA.ORCAinput_string(QMin)
+        return string
+
+
+    # ======================================================================= #
+
+
+    @staticmethod
+    def ORCAinput_string(QMin):
+        # pprint.pprint(QMin)
+
+        # general setup
+        job = QMin['IJOB']
+        gsmult = QMin['multmap'][-job][0]
+        restr = QMin['jobs'][job]['restr']
+        charge = QMin['chargemap'][gsmult]
+
+        # excited states to calculate
+        states_to_do = QMin['states_to_do']
+        for imult in range(len(states_to_do)):
+            if not imult + 1 in QMin['multmap'][-job]:
+                states_to_do[imult] = 0
+        states_to_do[gsmult - 1] -= 1
+
+        # do minimum number of states for gradient jobs
+        if 'gradonly' in QMin:
+            gradmult = QMin['gradmap'][0][0]
+            gradstat = QMin['gradmap'][0][1]
+            for imult in range(len(states_to_do)):
+                if imult + 1 == gradmult:
+                    states_to_do[imult] = gradstat - (gradmult == gsmult)
+                else:
+                    states_to_do[imult] = 0
+
+        # number of states to calculate
+        if restr:
+            ncalc = max(states_to_do)
+            trip = (len(states_to_do) >= 3 and states_to_do[2] > 0)
+        else:
+            ncalc = max(states_to_do)
+
+        # gradients
+        multigrad = False
+        if 'grad' in QMin and QMin['gradmap']:
+            dograd = True
+            egrad = ()
+            for grad in QMin['gradmap']:
+                if not (gsmult, 1) == grad:
+                    egrad = grad
+            if QMin['OrcaVersion'] >= (4, 1):
+                multigrad = True
+                singgrad = []
+                tripgrad = []
+                for grad in QMin['gradmap']:
+                    if grad[0] == gsmult:
+                        singgrad.append(grad[1] - 1)
+                    if grad[0] == 3 and restr:
+                        tripgrad.append(grad[1])
+        else:
+            dograd = False
+
+        # construct the input string
+        string = ''
+
+        # main line
+        string += '! '
+
+        keys = ['basis',
+                'auxbasis',
+                'functional',
+                'dispersion',
+                'ri',
+                'keys']
+        for i in keys:
+            string += '%s ' % (QMin['template'][i])
+        string += 'nousesym '
+
+        string += 'grid%s ' % QMin['template']['grid']
+        if QMin['template']['gridx']:
+            string += 'gridx%s ' % QMin['template']['gridx']
+    # In this way, one can change grid on individual atoms:
+    # %method
+    # SpecialGridAtoms 26,15,-1,-4         # for element 26 and, for atom index 1 and 4 (cannot change on atom 0!)
+    # SpecialGridIntAcc 7,6,5,5            # size of grid
+    # end
+
+        if dograd:
+            string += 'engrad'
+        string += '\n'
+
+        # cpu cores
+        if QMin['ncpu'] > 1 and 'AOoverlap' not in QMin:
+            string += '%pal\n  nprocs %i\nend\n\n' % (QMin['ncpu'])
+        string += '%maxcore %i\n\n' % (QMin['memory'])
+
+        # basis sets
+        if QMin['template']['basis_per_element']:
+            string += '%basis\n'
+            for i in QMin['template']['basis_per_element']:
+                string += 'newgto %s "%s" end\n' % (i, QMin['template']['basis_per_element'][i])
+            if not QMin['template']['ecp_per_element']:
+                string += 'end\n\n'
+
+        # ECP basis sets
+        if QMin['template']['ecp_per_element']:
+            if QMin['template']['basis_per_element']:
+                for i in QMin['template']['ecp_per_element']:
+                    string += 'newECP %s "%s" end\n' % (i, QMin['template']['ecp_per_element'][i])
+                string += 'end\n\n'
+            else:
+                print("ECP defined without additional basis. Not implemented.")
+
+        # frozen core
+        if QMin['frozcore'] > 0:
+            string += '%%method\nfrozencore -%i\nend\n\n' % (2 * QMin['frozcore'])
+        else:
+            string += '%method\nfrozencore FC_NONE\nend\n\n'
+
+        # hf exchange
+        if QMin['template']['hfexchange'] >= 0.:
+            # string+='%%method\nScalHFX = %f\nScalDFX = %f\nend\n\n' % (QMin['template']['hfexchange'],1.-QMin['template']['hfexchange'])
+            string += '%%method\nScalHFX = %f\nend\n\n' % (QMin['template']['hfexchange'])
+
+        # Range separation
+        if QMin['template']['range_sep_settings']['do']:
+            string += '''%%method
+    RangeSepEXX True
+    RangeSepMu %f
+    RangeSepScal %f
+    ACM %f, %f, %f\nend\n\n
+    ''' % (QMin['template']['range_sep_settings']['mu'],
+                QMin['template']['range_sep_settings']['scal'],
+                QMin['template']['range_sep_settings']['ACM1'],
+                QMin['template']['range_sep_settings']['ACM2'],
+                QMin['template']['range_sep_settings']['ACM3']
+           )
+
+        # Intacc
+        if QMin['template']['intacc'] > 0.:
+            string += '''%%method
+    intacc %3.1f\nend\n\n''' % (QMin['template']['intacc'])
+
+
+        # Gaussian point charge scheme
+        if 'cpcm' in QMin['template']['keys'].lower():
+            string += '''%cpcm
+    surfacetype vdw_gaussian\nend\n\n'''
+
+
+        # excited states
+        if ncalc > 0 and 'AOoverlap' not in QMin:
+            string += '%tddft\n'
+            if not QMin['template']['no_tda']:
+                string += 'tda true\n'
+            else:
+                string += 'tda false\n'
+            if QMin['template']['gridxc']:
+                string += 'gridxc %s\n' % (QMin['template']['gridxc'])
+            if 'theodore' in QMin:
+                string += 'tprint 0.0001\n'
+            if restr and trip:
+                string += 'triplets true\n'
+            string += 'nroots %i\n' % (ncalc)
+            if restr and 'soc' in QMin:
+                string += 'dosoc true\n'
+                string += 'printlevel 3\n'
+            # string+="dotrans all\n" #TODO
+            if dograd:
+                if multigrad:
+                    if singgrad:
+                        string += 'sgradlist '
+                        string += ','.join([str(i) for i in sorted(singgrad)])
+                        string += '\n'
+                    if tripgrad:
+                        string += 'tgradlist '
+                        string += ','.join([str(i) for i in sorted(tripgrad)])
+                        string += '\n'
+                elif egrad:
+                    string += 'iroot %i\n' % (egrad[1] - (gsmult == egrad[0]))
+            string += 'end\n\n'
+
+        # output
+        string += '%output\n'
+        if 'AOoverlap' in QMin or 'ion' in QMin or 'theodore' in QMin:
+            string += 'Print[ P_Overlap ] 1\n'
+        if 'master' in QMin or 'theodore' in QMin:
+            string += 'Print[ P_MOs ] 1\n'
+        string += 'end\n\n'
+
+        # scf
+        string += '%scf\n'
+        if 'AOoverlap' in QMin:
+            string += 'maxiter 0\n'
+        else:
+            string += 'maxiter %i\n' % (QMin['template']['maxiter'])
+        string += 'end\n\n'
+
+        # rel
+        if QMin['template']['picture_change']:
+            string += '%rel\nPictureChange true\nend\n\n'
+
+
+        # TODO: workaround
+        # if 'soc' in QMin and 'grad' in QMin:
+            # string+='%rel\nonecenter true\nend\n\n'
+
+        # charge mult geom
+        string += '%coords\nCtyp xyz\nunits bohrs\n'
+        if 'AOoverlap' in QMin:
+            string += 'charge %i\n' % (2. * charge)
+        else:
+            string += 'charge %i\n' % (charge)
+        string += 'mult %i\n' % (gsmult)
+        string += 'coords\n'
+        for iatom, atom in enumerate(QMin['geo']):
+            label = atom[0]
+            string += '%4s %16.9f %16.9f %16.9f' % (label, atom[1], atom[2], atom[3])
+            if iatom in QMin['template']['basis_per_atom']:
+                string += ' newgto "%s" end' % (QMin['template']['basis_per_atom'][iatom])
+            string += '\n'
+        string += 'end\nend\n\n'
+
+        # point charges
+        if QMin['qmmm']:
+            string += '%pointcharges "ORCA.pc"\n\n'
+        elif QMin['template']['cobramm']:
+            string += '%pointcharges "charge.dat"\n\n'
+        if QMin['template']['paste_input_file']:
+            string += '\n'
+            for line in QMin['template']['paste_input_file']:
+                string += line
+            string += '\n'
+        return string
+
     def run(self):
 
         QMin = self._QMin
         # TODO: specific logic checks!!!
         if 'nacdt' in QMin or 'nacdr' in QMin:
             raise Error('Within the SHARC-ORCA interface couplings can only be calculated via the overlap method. "nacdr" and "nacdt" are not supported.', 44)
+
+        schedule = self.generate_joblist()
+        self.printQMin()
+        pprint.pprint(schedule, depth=3)
+        self.runjobs(schedule)
 
     def get_QMout(self):
         raise NotImplementedError

@@ -37,11 +37,12 @@ import numpy as np
 import subprocess as sp
 from abc import ABC, abstractmethod, abstractproperty
 from functools import reduce, singledispatchmethod
+import pprint
 
 # internal
 from error import Error
 from printing import printcomplexmatrix, printgrad, printtheodore
-from utils import itnmstates, eformat, itmult, readfile, writefile, containsstring, makecmatrix, safe_cast, link, mkdir, clock
+from utils import itnmstates, eformat, itmult, readfile, writefile, removekey, containsstring, makecmatrix, safe_cast, link, mkdir, clock
 from constants import *
 from parse_keywords import KeywordParser
 
@@ -58,13 +59,16 @@ class INTERFACE(ABC):
     _setup_mol = False
     _read_resources = False
     _read_template = False
+    _DEBUG = False
+    _PRINT = True
 
     # TODO: set Debug and Print flag
     # TODO: set persistant flag for file-io vs in-core
-    def __init__(self):
+    def __init__(self, debug=False, print=True):
         self.clock = clock()
         self.printheader()
-
+        self._DEBUG = debug
+        self._PRINT = print
     # ================== abstract methods and properties ===================
 
     @abstractproperty
@@ -111,8 +115,10 @@ class INTERFACE(ABC):
     def setup_mol(self, QMinfilename: str):
         QMin = self._QMin
         QMinlines = readfile(QMinfilename)
+        QMin['comment'] = QMinlines[1]
         QMin['elements'] = INTERFACE.read_elements(QMinlines)
         QMin['Atomcharge'] = sum(map(lambda x: ATOMCHARGE[x], QMin['elements']))
+        QMin['frozcore'] = sum(map(lambda x: FROZENS[x], QMin['elements']))
         QMin['natom'] = len(QMin['elements'])
 
         # replaces all comments with white space. filters all empty lines
@@ -230,10 +236,10 @@ class INTERFACE(ABC):
             QMin['h'] = True
             print('HINT: No triplet states requested, turning off SOC request.')
 
-        if 'samestep' in tasks and 'init' in tasks:
+        if 'samestep' in QMin and 'init' in QMin:
             raise Error('"Init" and "Samestep" cannot be both present in QM.in!', 41)
 
-        if 'restart' in tasks and 'init' in tasks:
+        if 'restart' in QMin and 'init' in QMin:
             raise Error('"Init" and "Samestep" cannot be both present in QM.in!', 42)
 
         if 'phases' in tasks:
@@ -242,7 +248,8 @@ class INTERFACE(ABC):
         if 'overlap' in tasks and 'init' in tasks:
             raise Error('"overlap" and "phases" cannot be calculated in the first timestep! Delete either "overlap" or "init"', 43)
 
-        if tasks.isdisjoint({'init', 'samestep', 'restart'}):
+        if QMin.keys().isdisjoint({'init', 'samestep', 'restart'}):
+            print('ADSFASDFSDAFASDFSADFSADFSAD')
             QMin['newstep'] = True
 
         if not tasks.isdisjoint({'h', 'soc', 'dm', 'grad'}) and 'overlap' in tasks:
@@ -274,7 +281,7 @@ class INTERFACE(ABC):
         # wfoverlap settings
         if 'overlap' in QMin or 'ion' in QMin:
             # WFoverlap
-            
+
             if not os.path.isfile(QMin['resources']['wfoverlap']):
                 print('Give path to wfoverlap.x in ORCA.resources!')
                 sys.exit(54)
@@ -295,7 +302,7 @@ class INTERFACE(ABC):
     def setup_run(self):
         QMin = self._QMin
         # obtain the statemap
-        QMin['statemap'] = {i+1: [*v] for i, v in enumerate(itnmstates(QMin['states']))}
+        QMin['statemap'] = {i + 1: [*v] for i, v in enumerate(itnmstates(QMin['states']))}
 
         # obtain the states to actually compute
         states_to_do = [v + QMin['template']['paddingstates'][i] for i, v in enumerate(QMin['states']) if v > 0]
@@ -557,18 +564,18 @@ class INTERFACE(ABC):
                     if 3 in QMin['multmap'][-QMin1['IJOB']] and QMin['jobs'][QMin1['IJOB']]['restr']:
                         QMin1['states'][0] = 1
                         QMin1['states_to_do'][0] = 1
-                if QMin1['qmmm']:
+                if QMin1['template']['qmmm']:
                     QMin1['qmmm'] = True
                 icount += 1
                 schedule[-1][i] = QMin1
-
+        print('NSLOTSPOOL:', QMin['nslots_pool'])
         # add the gradient calculations
         ntasks = 0
         for i in gradjob:
             if 'grad' in i:
                 ntasks += 1
         if ntasks > 0:
-            nrounds, nslots, cpu_per_run = divide_slots(QMin['ncpu'], ntasks, QMin['schedule_scaling'])
+            nrounds, nslots, cpu_per_run = self.divide_slots(QMin['ncpu'], ntasks, QMin['schedule_scaling'])
             QMin['nslots_pool'].append(nslots)
             schedule.append({})
             icount = 0
@@ -583,7 +590,7 @@ class INTERFACE(ABC):
                     QMin1['gradmap'] = list(gradjob[i])
                     QMin1['ncpu'] = cpu_per_run[icount]
                     QMin1['gradonly'] = []
-                    if QMin1['qmmm']:
+                    if QMin1['template']['qmmm']:
                         QMin1['qmmm'] = True
                     icount += 1
                     schedule[-1][i] = QMin1
@@ -745,6 +752,53 @@ class INTERFACE(ABC):
             sys.stdout.write('\t%s\t\tRuntime: %s\t\tError Code: %i\n\n' % (endtime, endtime - starttime, runerror))
         os.chdir(prevdir)
         return runerror
+
+    @staticmethod
+    def parallel_speedup(N, scaling):
+        # computes the parallel speedup from Amdahls law
+        # with scaling being the fraction of parallelizable work and (1-scaling) being the serial part
+        return 1. / ((1 - scaling) + scaling / N)
+
+    @staticmethod
+    def divide_slots(ncpu, ntasks, scaling):
+        # this routine figures out the optimal distribution of the tasks over the CPU cores
+        #   returns the number of rounds (how many jobs each CPU core will contribute to),
+        #   the number of slots which should be set in the Pool,
+        #   and the number of cores for each job.
+        ntasks_per_round = min(ncpu, ntasks)
+        optimal = {}
+        for i in range(1, 1 + ntasks_per_round):
+            nrounds = int(math.ceil(float(ntasks) // i))
+            ncores = ncpu // i
+            optimal[i] = nrounds // INTERFACE.parallel_speedup(ncores, scaling)
+        # print optimal
+        best = min(optimal, key=optimal.get)
+        nrounds = int(math.ceil(float(ntasks) // best))
+        ncores = ncpu // best
+
+        cpu_per_run = [0] * ntasks
+        if nrounds == 1:
+            itask = 0
+            for icpu in range(ncpu):
+                cpu_per_run[itask] += 1
+                itask += 1
+                if itask >= ntasks:
+                    itask = 0
+            nslots = ntasks
+        else:
+            for itask in range(ntasks):
+                cpu_per_run[itask] = ncores
+            nslots = ncpu // ncores
+        # print nrounds,nslots,cpu_per_run
+        return nrounds, nslots, cpu_per_run
+
+
+    def stripWORKDIR(WORKDIR, keep):
+        for ifile in os.listdir(WORKDIR):
+            if any([containsstring(k, ifile) for k in keep]):
+                break
+            rmfile = os.path.join(WORKDIR, ifile)
+            os.remove(rmfile)
 
     def writegeom(self):
         QMin = self._QMin
@@ -1216,6 +1270,15 @@ class INTERFACE(ABC):
 
         # pprint.pprint(QMout)
         return
+
+
+    @staticmethod
+    def write_pccoord_file(pointcharges):
+        '''Writes pointcharges as file'''
+        string = '%i\n' % len(pointcharges)
+        for atom in pointcharges:
+            string += f'{atom[3]} {atom[0]} {atom[1]} {atom[2]}\n'
+        return string
     # ============================PRINTING ROUTINES========================== #
 
 
@@ -1236,6 +1299,154 @@ class INTERFACE(ABC):
                  f'  {rule}']
         lines[1:-1] = map(lambda s: '||{:^80}||'.format(s), lines[1:-1])
         print(*lines, sep='\n')
+
+
+    def printQMin(self):
+
+        QMin = self._QMin
+        PRINT = self._PRINT
+        DEBUG = self._DEBUG
+        if not PRINT:
+            return
+        print('==> QMin Job description for:\n%s' % (QMin['comment']))
+
+        string = 'Mode:   '
+        if 'init' in QMin:
+            string += '\tINIT'
+        if 'restart' in QMin:
+            string += '\tRESTART'
+        if 'samestep' in QMin:
+            string += '\tSAMESTEP'
+        if 'newstep' in QMin:
+            string += '\tNEWSTEP'
+
+        string += '\nTasks:  '
+        if 'h' in QMin:
+            string += '\tH'
+        if 'soc' in QMin:
+            string += '\tSOC'
+        if 'dm' in QMin:
+            string += '\tDM'
+        if 'grad' in QMin:
+            string += '\tGrad'
+        if 'nacdr' in QMin:
+            string += '\tNac(ddr)'
+        if 'nacdt' in QMin:
+            string += '\tNac(ddt)'
+        if 'overlap' in QMin:
+            string += '\tOverlap'
+        if 'angular' in QMin:
+            string += '\tAngular'
+        if 'ion' in QMin:
+            string += '\tDyson'
+        if 'dmdr' in QMin:
+            string += '\tDM-Grad'
+        if 'socdr' in QMin:
+            string += '\tSOC-Grad'
+        if 'theodore' in QMin:
+            string += '\tTheoDORE'
+        if 'phases' in QMin:
+            string += '\tPhases'
+        print(string)
+
+        string = 'States:        '
+        for i in itmult(QMin['states']):
+            string += '% 2i %7s  ' % (QMin['states'][i - 1], IToMult[i])
+        print(string)
+
+        string = 'Charges:       '
+        for i in itmult(QMin['states']):
+            string += '%+2i %7s  ' % (QMin['chargemap'][i], '')
+        print(string)
+
+        string = 'Restricted:    '
+        for i in itmult(QMin['states']):
+            string += '%5s       ' % (QMin['jobs'][QMin['multmap'][i]]['restr'])
+        print(string)
+
+        string = 'Method: \t'
+        if QMin['template']['no_tda']:
+            string += 'TD-'
+        else:
+            string += 'TDA-'
+        string += QMin['template']['functional'].split()[0].upper()
+        string += '/%s' % (QMin['template']['basis'])
+        parts = []
+        if QMin['template']['dispersion']:
+            parts.append(QMin['template']['dispersion'].split()[0].upper())
+        if QMin['template']['qmmm']:
+            parts.append('QM/MM')
+        if len(parts) > 0:
+            string += '\t('
+            string += ','.join(parts)
+            string += ')'
+        print(string)
+        # TODO: remove after implementing QMMM
+        QMin['geo_orig'] = QMin['coords']
+        QMin['natom_orig'] = QMin['natom']
+        QMin['frozcore_orig'] = QMin['frozcore']
+        QMin['Atomcharge_orig'] = QMin['Atomcharge']
+        string = 'Found Geo'
+        if 'veloc' in QMin:
+            string += ' and Veloc! '
+        else:
+            string += '! '
+        string += 'NAtom is %i.\n' % (QMin['natom'])
+        print(string)
+
+        string = 'Geometry in Bohrs (%i atoms):\n' % QMin['natom']
+        if DEBUG:
+            for i in range(QMin['natom_orig']):
+                string += '%2s ' % (QMin['elements'][i])
+                for j in range(3):
+                    string += '% 7.4f ' % (QMin['geo_orig'][i][j])
+                string += '\n'
+        else:
+            for i in range(min(QMin['natom_orig'], 5)):
+                string += '%2s ' % (QMin['elements'][i])
+                for j in range(3):
+                    string += '% 7.4f ' % (QMin['geo_orig'][i][j])
+                string += '\n'
+            if QMin['natom_orig'] > 5:
+                string += '..     ...     ...     ...\n'
+                string += '%2s ' % (QMin['elements'][-1])
+                for j in range(3):
+                    string += '% 7.4f ' % (QMin['geo_orig'][-1][j ])
+                string += '\n'
+        print(string)
+
+        if 'veloc' in QMin and DEBUG:
+            string = ''
+            for i in range(QMin['natom_orig']):
+                string += '%s ' % (QMin['geo_orig'][i][0])
+                for j in range(3):
+                    string += '% 7.4f ' % (QMin['veloc'][i][j])
+                string += '\n'
+            print(string)
+
+        if 'grad' in QMin:
+            string = 'Gradients requested:   '
+            for i in range(1, QMin['nmstates'] + 1):
+                if i in QMin['grad']:
+                    string += 'X '
+                else:
+                    string += '. '
+            string += '\n'
+            print(string)
+
+        print('State map:')
+        pprint.pprint(QMin['statemap'])
+        print
+
+        for i in sorted(QMin):
+            if not any([i == j for j in ['h', 'dm', 'soc', 'dmdr', 'socdr', 'theodore', 'geo', 'veloc', 'states', 'comment', 'grad', 'nacdr', 'ion', 'overlap', 'template', 'statemap', 'pointcharges', 'geo_orig', 'qmmm']]):
+                if not any([i == j for j in ['ionlist']]) or DEBUG:
+                    string = i + ': '
+                    string += str(QMin[i])
+                    print(string)
+        print('\n')
+        sys.stdout.flush()
+
 
     def printQMout(self, QMin, QMout):
         '''If PRINT, prints a summary of all requested QM output values. Matrices are formatted using printcomplexmatrix, vectors using printgrad.
