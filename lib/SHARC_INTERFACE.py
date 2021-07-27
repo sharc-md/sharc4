@@ -42,7 +42,7 @@ import pprint
 # internal
 from error import Error
 from printing import printcomplexmatrix, printgrad, printtheodore
-from utils import itnmstates, eformat, itmult, readfile, writefile, removekey, containsstring, makecmatrix, safe_cast, link, mkdir, clock
+from utils import *
 from constants import *
 from parse_keywords import KeywordParser
 
@@ -302,10 +302,11 @@ class INTERFACE(ABC):
     def setup_run(self):
         QMin = self._QMin
         # obtain the statemap
+        print(QMin['states'])
         QMin['statemap'] = {i + 1: [*v] for i, v in enumerate(itnmstates(QMin['states']))}
 
         # obtain the states to actually compute
-        states_to_do = [v + QMin['template']['paddingstates'][i] for i, v in enumerate(QMin['states']) if v > 0]
+        states_to_do = [v + QMin['template']['paddingstates'][i] if v > 0 else v for i, v in enumerate(QMin['states'])]
         if not QMin['template']['unrestricted_triplets']:
             if len(QMin['states']) >= 3 and QMin['states'][2] > 0:
                 states_to_do[0] = max(QMin['states'][0], 1)
@@ -395,6 +396,10 @@ class INTERFACE(ABC):
             QMin['resources']['theodore_n'] = len(QMin['resources']['theodore_prop']) + len(QMin['resources']['theodore_fragment'])**2
         else:
             QMin['resources']['theodore_n'] = 0
+
+        # TODO: QMMM
+        QMin['qmmm'] = False
+
 
     # --------------------------------------------- File setup ----------------------------------
 
@@ -568,7 +573,6 @@ class INTERFACE(ABC):
                     QMin1['qmmm'] = True
                 icount += 1
                 schedule[-1][i] = QMin1
-        print('NSLOTSPOOL:', QMin['nslots_pool'])
         # add the gradient calculations
         ntasks = 0
         for i in gradjob:
@@ -594,8 +598,7 @@ class INTERFACE(ABC):
                         QMin1['qmmm'] = True
                     icount += 1
                     schedule[-1][i] = QMin1
-
-        return QMin, schedule
+        return schedule
 
     # split line into key and args, calls parser for args and adds key: parser(args) to dict
     @staticmethod
@@ -942,48 +945,152 @@ class INTERFACE(ABC):
         return
 
     def setupWORKDIR_TH(self):
+        raise NotImplementedError()
+
+    @staticmethod
+    def get_theodore(sumfile, omffile):
+
+        def theo_float(i):
+            return safe_cast(i, float, 0.)
+        out = readfile(sumfile)
+        if PRINT:
+            print('TheoDORE: ' + shorten_DIR(sumfile))
+        props = {}
+        for line in out[2:]:
+            s = line.replace('(', ' ').replace(')', ' ').split()
+            if len(s) == 0:
+                continue
+            n = int(s[0])
+            m = int(s[1])
+            props[(m, n + (m == 1))] = [theo_float(i) for i in s[5:]]
+
+        out = readfile(omffile)
+        if PRINT:
+            print('TheoDORE: ' + shorten_DIR(omffile))
+        for line in out[1:]:
+            s = line.replace('(', ' ').replace(')', ' ').split()
+            if len(s) == 0:
+                continue
+            n = int(s[0])
+            m = int(s[1])
+            props[(m, n + (m == 1))].extend([theo_float(i) for i in s[4:]])
+
+        return props
+
+    def run_wfoverlap(self, errorcodes):
         QMin = self._QMin
+        print('>>>>>>>>>>>>> Starting the WFOVERLAP job execution')
+
+        # do Dyson calculations
+        if 'ion' in QMin:
+            for ionpair in QMin['ionmap']:
+                WORKDIR = os.path.join(QMin['scratchdir'], 'Dyson_%i_%i_%i_%i' % ionpair)
+                files = {'aoovl': 'AO_overl',
+                         'det.a': 'dets.%i' % ionpair[0],
+                         'det.b': 'dets.%i' % ionpair[2],
+                         'mo.a': 'mos.%i' % ionpair[1],
+                         'mo.b': 'mos.%i' % ionpair[3]}
+                INTERFACE.setupWORKDIR_WF(WORKDIR, QMin, files, self._DEBUG)
+                errorcodes['Dyson_%i_%i_%i_%i' % ionpair] = INTERFACE.runWFOVERLAP(WORKDIR, QMin['wfoverlap'], memory=QMin['memory'], ncpu=QMin['ncpu'])
+
+        # do overlap calculations
+        if 'overlap' in QMin:
+            self.get_Double_AOovl()
+            for m in itmult(QMin['states']):
+                job = QMin['multmap'][m]
+                WORKDIR = os.path.join(QMin['scratchdir'], 'WFOVL_%i_%i' % (m, job))
+                files = {'aoovl': 'AO_overl.mixed',
+                         'det.a': 'dets.%i.old' % m,
+                         'det.b': 'dets.%i' % m,
+                         'mo.a': 'mos.%i.old' % job,
+                         'mo.b': 'mos.%i' % job}
+                INTERFACE.setupWORKDIR_WF(WORKDIR, QMin, files, self._DEBUG)
+                errorcodes['WFOVL_%i_%i' % (m, job)] = INTERFACE.runWFOVERLAP(WORKDIR, QMin['wfoverlap'], memory=QMin['memory'], ncpu=QMin['ncpu'])
+
+        # Error code handling
+        j = 0
+        string = 'Error Codes:\n'
+        for i in errorcodes:
+            if 'Dyson' in i or 'WFOVL' in i:
+                string += '\t%s\t%i' % (i + ' ' * (10 - len(i)), errorcodes[i])
+                j += 1
+                if j == 4:
+                    j = 0
+                    string += '\n'
+        print(string)
+        if any((i != 0 for i in errorcodes.values())):
+            print('Some subprocesses did not finish successfully!')
+            sys.exit(100)
+
+        print('')
+
+        return errorcodes
+    # ======================================================================= #
+
+
+    def setupWORKDIR_WF(WORKDIR, QMin, files, DEBUG=False):
         # mkdir the WORKDIR, or clean it if it exists, then copy all necessary files from pwd and savedir
 
-        WORKDIR = os.path.join(QMin['scratchdir'], 'JOB')
-        # write dens_ana.in
-        inputstring = '''rtype='ricc2'
-    rfile='ricc2.out'
-    mo_file='molden.input'
-    jmol_orbitals=False
-    molden_orbitals=%s
-    read_binary=True
-    comp_ntos=True
-    alphabeta=False
-    Om_formula=2
-    eh_pop=1
-    print_OmFrag=True
-    output_file='tden_summ.txt'
-    prop_list=%s
-    at_lists=%s
-    ''' % (('molden' in QMin),
-            str(QMin['template']['theodore_prop']),
-            str(QMin['template']['theodore_fragment']))
+        # setup the directory
+        mkdir(WORKDIR)
 
-        filename = os.path.join(WORKDIR, 'dens_ana.in')
+        # write wfovl.inp
+        inputstring = '''mix_aoovl=aoovl
+    a_mo=mo.a
+    b_mo=mo.b
+    a_det=det.a
+    b_det=det.b
+    a_mo_read=0
+    b_mo_read=0
+    ao_read=0
+    '''
+        if 'ion' in QMin:
+            if QMin['ndocc'] > 0:
+                inputstring += 'ndocc=%i\n' % (QMin['ndocc'])
+        if QMin['ncpu'] >= 8:
+            inputstring += 'force_direct_dets\n'
+        filename = os.path.join(WORKDIR, 'wfovl.inp')
         writefile(filename, inputstring)
+        if DEBUG:
+            print('================== DEBUG input file for WORKDIR %s =================' % (shorten_DIR(WORKDIR)))
+            print(inputstring)
+            print('wfoverlap input written to: %s' % (filename))
+            print('====================================================================')
+
+        # link input files from save
+        linkfiles = ['aoovl', 'det.a', 'det.b', 'mo.a', 'mo.b']
+        for f in linkfiles:
+            fromfile = os.path.join(QMin['savedir'], files[f])
+            tofile = os.path.join(WORKDIR, f)
+            link(fromfile, tofile)
+
         return
 
-    def get_theodore(self):
-        QMin = self._QMin
-        QMout = self._QMout
-        if 'theodore' not in QMout:
-            QMout['theodore'] = makecmatrix(QMin['template']['theodore_n'], QMin['nmstates'])
-            sumfile = os.path.join(QMin['scratchdir'], 'JOB/tden_summ.txt')
-            omffile = os.path.join(QMin['scratchdir'], 'JOB/OmFrag.txt')
-            props = self.get_props(sumfile, omffile, QMin)
-            for i in range(QMin['nmstates']):
-                m1, s1, ms1 = tuple(QMin['statemap'][i + 1])
-                if (m1, s1) in props:
-                    for j in range(QMin['template']['theodore_n']):
-                        QMout['theodore'][i][j] = props[(m1, s1)][j]
-        return QMout
-
+    @staticmethod
+    def runWFOVERLAP(WORKDIR, WFOVERLAP, memory=100, ncpu=1):
+        prevdir = os.getcwd()
+        os.chdir(WORKDIR)
+        string = WFOVERLAP + ' -m %i' % (memory) + ' -f wfovl.inp'
+        stdoutfile = open(os.path.join(WORKDIR, 'wfovl.out'), 'w')
+        stderrfile = open(os.path.join(WORKDIR, 'wfovl.err'), 'w')
+        os.environ['OMP_NUM_THREADS'] = str(ncpu)
+        if PRINT or DEBUG:
+            starttime = datetime.datetime.now()
+            sys.stdout.write('START:\t%s\t%s\t"%s"\n' % (shorten_DIR(WORKDIR), starttime, shorten_DIR(string)))
+            sys.stdout.flush()
+        try:
+            runerror = sp.call(string, shell=True, stdout=stdoutfile, stderr=stderrfile)
+        except OSError:
+            print('Call have had some serious problems:', OSError)
+            sys.exit(101)
+        stdoutfile.close()
+        stderrfile.close()
+        if PRINT or DEBUG:
+            endtime = datetime.datetime.now()
+            sys.stdout.write('FINISH:\t%s\t%s\tRuntime: %s\tError Code: %i\n' % (shorten_DIR(WORKDIR), endtime, endtime - starttime, runerror))
+            sys.stdout.flush()
+        os.chdir(prevdir)
+        return runerror
     # ======================================================================= #
 
     @staticmethod
@@ -1014,6 +1121,8 @@ class INTERFACE(ABC):
 
     # ======================================================================= #
 
+    def get_Double_AOovl(self):
+        raise NotImplementedError("Implement into derived interface!")
 
     def copy_ntos(self):
         QMin = self._QMin
@@ -1411,7 +1520,7 @@ class INTERFACE(ABC):
                 string += '..     ...     ...     ...\n'
                 string += '%2s ' % (QMin['elements'][-1])
                 for j in range(3):
-                    string += '% 7.4f ' % (QMin['geo_orig'][-1][j ])
+                    string += '% 7.4f ' % (QMin['geo_orig'][-1][j])
                 string += '\n'
         print(string)
 
@@ -1448,16 +1557,16 @@ class INTERFACE(ABC):
         sys.stdout.flush()
 
 
-    def printQMout(self, QMin, QMout):
+    def printQMout(self, QMout):
         '''If PRINT, prints a summary of all requested QM output values. Matrices are formatted using printcomplexmatrix, vectors using printgrad.
 
         Arguments:
         1 dictionary: QMin
         2 dictionary: QMout'''
-
+        QMin = self._QMin
         # if DEBUG:
         # pprint.pprint(QMout)
-        if not self.PRINT:
+        if not self._PRINT:
             return
         states = QMin['states']
         nstates = QMin['nstates']
