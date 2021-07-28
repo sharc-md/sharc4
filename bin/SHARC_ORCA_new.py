@@ -39,10 +39,11 @@ from socket import gethostname
 
 # internal
 from SHARC_INTERFACE import INTERFACE
+from globals import DEBUG, PRINT
 from utils import *
-from constants import au2a, kcal_to_Eh, NUMBERS, BASISSETS, IToMult, rcm_to_Eh
+from constants import IToMult, rcm_to_Eh
 
-authors = 'Sebastian Mai, Severin Polonius'
+authors = 'Sebastian Mai, Lea Ibele, Moritz Heindl and Severin Polonius'
 version = '3.0'
 versiondate = datetime.datetime(2021, 7, 15)
 
@@ -428,7 +429,6 @@ class ORCA(INTERFACE):
 
     @staticmethod
     def ORCAinput_string(QMin):
-        # pprint.pprint(QMin)
 
         # general setup
         job = QMin['IJOB']
@@ -670,8 +670,17 @@ class ORCA(INTERFACE):
         errorcodes = self.run_theodore(errorcodes)
         print('ERRORCODES', errorcodes)
 
-        QMout = self.getQMout()
-        self.printQMout(QMout)
+        self._QMout = self.getQMout()
+
+        if 'backup' in QMin:
+            self.backupdata(QMin['backup'])
+
+        self._QMout['runtime'] = self.clock.measuretime()
+        # Remove Scratchfiles from SCRATCHDIR
+        if not self._DEBUG:
+            cleandir(QMin['scratchdir'])
+            if 'cleanup' in QMin:
+                cleandir(QMin['savedir'])
 
     def run_theodore(self, errorcodes):
         QMin = self._QMin
@@ -776,12 +785,6 @@ class ORCA(INTERFACE):
         os.chdir(prevdir)
         return runerror
 
-
-    def get_QMout(self):
-        raise NotImplementedError
-
-    def main(self):
-        raise NotImplementedError
 
     @staticmethod
     def _getOrcaVersion(path):
@@ -1953,3 +1956,8 @@ class ORCA(INTERFACE):
         return float(f[s2 + 1])
 
     # ======================================================================= #
+
+
+if __name__ == '__main__':
+    orca = ORCA(DEBUG, PRINT)
+    orca.main()

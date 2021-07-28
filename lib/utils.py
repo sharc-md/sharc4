@@ -241,7 +241,7 @@ class clock:
         1 float: runtime in seconds'''
 
         endtime = datetime.datetime.now()
-        runtime = endtime - self.starttime
+        runtime = endtime - self._starttime
         if self._verbose:
             hours = runtime.seconds // 3600
             minutes = runtime.seconds // 60 - hours * 60
@@ -286,7 +286,7 @@ def itnmstates(states):
 # =============================================================================================== #
 
 # ======================================================================= #         OK
-def makecmatrix(a, b):
+def makecmatrix(a, b) -> list[list[complex]]:
     '''Initialises a complex axb matrix.
 
     Arguments:
@@ -296,12 +296,12 @@ def makecmatrix(a, b):
     Returns;
     1 list of list of complex'''
 
-    return [[complex(0., 0.) for i in range(a)] for j in range(b)]
+    return [[complex(0., 0.)] * a] * b
 
 # ======================================================================= #         OK
 
 
-def makermatrix(a, b):
+def makermatrix(a, b) -> list[list[float]]:
     '''Initialises a real axb matrix.
 
     Arguments:
@@ -311,7 +311,7 @@ def makermatrix(a, b):
     Returns;
     1 list of list of real'''
 
-    return [[0. for i in range(a)] for j in range(b)]
+    return [[0.] * a] * b
 
 
 def safe_cast(val, type, fallback=None):

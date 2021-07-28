@@ -37,7 +37,9 @@ import numpy as np
 import subprocess as sp
 from abc import ABC, abstractmethod, abstractproperty
 from functools import reduce, singledispatchmethod
+from socket import gethostname
 import pprint
+from textwrap import wrap
 
 # internal
 from error import Error
@@ -65,8 +67,8 @@ class INTERFACE(ABC):
     # TODO: set Debug and Print flag
     # TODO: set persistant flag for file-io vs in-core
     def __init__(self, debug=False, print=True):
-        self.clock = clock()
-        self.printheader()
+        self.clock = clock(verbose=print)
+        # self.printheader()
         self._DEBUG = debug
         self._PRINT = print
     # ================== abstract methods and properties ===================
@@ -87,9 +89,46 @@ class INTERFACE(ABC):
     def changelogstring(self) -> str:
         return 'This is the changelog string'
 
-    @abstractmethod
+    @property
+    def QMin(self) -> dict:
+        return self._QMin
+
+    @QMin.setter
+    def QMin(self, value: dict) -> None:
+        self._QMin = value
+
+    @property
+    def QMout(self) -> dict:
+        return self._QMout
+
+    @QMout.setter
+    def QMout(self, value: dict) -> None:
+        self._QMout = value
+
     def main(self):
-        pass
+
+        name = self.__class__.__name__
+        args = sys.argv
+        if len(args) != 2:
+            print('Usage:', f'./SHARC_{name} <QMin>',
+                  f'version: {self.version}',
+                  f'date: {self.versiondate}',
+                  f'changelog: {self.changelogstring}', sep='\n')
+            sys.exit(106)
+        QMinfilename = sys.argv[1]
+        pwd = os.getcwd()
+        self.printheader()
+        self.setup_mol(os.path.join(pwd, QMinfilename))
+        self.read_resources(os.path.join(pwd, f"{name}.resources"))
+        self.read_template(os.path.join(pwd, f"{name}.template"))
+        self.set_coords(os.path.join(pwd, QMinfilename))
+        self.read_requests(os.path.join(pwd, QMinfilename))
+        self.setup_run()
+        self.run()
+        if PRINT or DEBUG:
+            self.printQMout()
+        self.writeQMout()
+
 
     @abstractmethod
     def read_requests(self, QMinfilename):
@@ -107,13 +146,11 @@ class INTERFACE(ABC):
     def run(self):
         pass
 
-    @abstractmethod
-    def get_QMout(self):
-        pass
-    # ============================ Implemented public methods ========================
+        # ============================ Implemented public methods ========================
 
     def setup_mol(self, QMinfilename: str):
         QMin = self._QMin
+        self._QMinfilename = QMinfilename
         QMinlines = readfile(QMinfilename)
         QMin['comment'] = QMinlines[1]
         QMin['elements'] = INTERFACE.read_elements(QMinlines)
@@ -302,7 +339,6 @@ class INTERFACE(ABC):
     def setup_run(self):
         QMin = self._QMin
         # obtain the statemap
-        print(QMin['states'])
         QMin['statemap'] = {i + 1: [*v] for i, v in enumerate(itnmstates(QMin['states']))}
 
         # obtain the states to actually compute
@@ -1139,7 +1175,7 @@ class INTERFACE(ABC):
             if m > 1 and ms != float(m - 1) / 2:
                 continue
             f = os.path.join(QMin['scratchdir'], 'JOB', 'nto_%i-%i-a.mld' % (s - (m == 1), m))
-            fdest = moldendir + '/step_%s__nto_%i_%i.molden' % (QMin['step'][0], m, s)
+            fdest = moldendir + '/step_%s__nto_%i_%i.molden' % (QMin['step'], m, s)
             shutil.copy(f, fdest)
 
 
@@ -1395,7 +1431,8 @@ class INTERFACE(ABC):
         '''Prints the formatted header of the log file. Prints version number and version date
         Takes nothing, returns nothing.'''
 
-        rule = '=' * 80
+        print(self.clock.starttime, gethostname(), os.getcwd())
+        rule = '=' * 76
         lines = [f'  {rule}',
                  '',
                  f'SHARC - {self.__class__.__name__} - Interface',
@@ -1406,8 +1443,11 @@ class INTERFACE(ABC):
                  'Date: {:%d.%m.%Y}'.format(self.versiondate),
                  '',
                  f'  {rule}']
-        lines[1:-1] = map(lambda s: '||{:^80}||'.format(s), lines[1:-1])
+        # wraps Authors line in case its too long
+        lines[4:5] = wrap(lines[4], width=70)
+        lines[1:-1] = map(lambda s: '||{:^76}||'.format(s), lines[1:-1])
         print(*lines, sep='\n')
+        print('\n')
 
 
     def printQMin(self):
@@ -1545,7 +1585,6 @@ class INTERFACE(ABC):
 
         print('State map:')
         pprint.pprint(QMin['statemap'])
-        print
 
         for i in sorted(QMin):
             if not any([i == j for j in ['h', 'dm', 'soc', 'dmdr', 'socdr', 'theodore', 'geo', 'veloc', 'states', 'comment', 'grad', 'nacdr', 'ion', 'overlap', 'template', 'statemap', 'pointcharges', 'geo_orig', 'qmmm']]):
@@ -1557,15 +1596,14 @@ class INTERFACE(ABC):
         sys.stdout.flush()
 
 
-    def printQMout(self, QMout):
+    def printQMout(self):
         '''If PRINT, prints a summary of all requested QM output values. Matrices are formatted using printcomplexmatrix, vectors using printgrad.
 
         Arguments:
         1 dictionary: QMin
         2 dictionary: QMout'''
         QMin = self._QMin
-        # if DEBUG:
-        # pprint.pprint(QMout)
+        QMout = self._QMout
         if not self._PRINT:
             return
         states = QMin['states']
@@ -1694,7 +1732,7 @@ class INTERFACE(ABC):
 # =========================================== QMout writing ===================================== #
 # =============================================================================================== #
 # =============================================================================================== #
-    def writeQMout(self, QMinfilename):
+    def writeQMout(self):
         '''Writes the requested quantities to the file which SHARC reads in. The filename is QMinfilename with everything after the first dot replaced by "out".
 
         Arguments:
@@ -1702,13 +1740,13 @@ class INTERFACE(ABC):
         2 dictionary: QMout
         3 string: QMinfilename'''
         QMin = self._QMin
-        QMout = self._QMout
+        QMinfilename = self._QMinfilename
         k = QMinfilename.find('.')
         if k == -1:
             outfilename = QMinfilename + '.out'
         else:
             outfilename = QMinfilename[:k] + '.out'
-        if self.PRINT:
+        if self._PRINT:
             print('===> Writing output to file %s in SHARC Format\n' % (outfilename))
         string = ''
         if 'h' in QMin or 'soc' in QMin:
@@ -2184,11 +2222,11 @@ class INTERFACE(ABC):
         for f in ls:
             ff = self._QMin['savedir'] + '/' + f
             if os.path.isfile(ff) and 'old' not in ff:
-                step = int(self._QMin['step'][0])
+                step = int(self._QMin['step'])
                 fdest = backupdir + '/' + f + '.stp' + str(step)
                 shutil.copy(ff, fdest)
         # save molden files
         if 'molden' in QMin:
-            ff = os.path.join(QMin['savedir'], 'MOLDEN', 'step_%s.molden' % (QMin['step'][0]))
-            fdest = os.path.join(backupdir, 'step_%s.molden' % (QMin['step'][0]))
+            ff = os.path.join(QMin['savedir'], 'MOLDEN', 'step_%s.molden' % (QMin['step']))
+            fdest = os.path.join(backupdir, 'step_%s.molden' % (QMin['step']))
             shutil.copy(ff, fdest)
