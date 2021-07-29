@@ -129,11 +129,6 @@ class INTERFACE(ABC):
             self.printQMout()
         self.writeQMout()
 
-
-    @abstractmethod
-    def read_requests(self, QMinfilename):
-        pass
-
     @abstractmethod
     def read_template(self, template_filename):
         pass
