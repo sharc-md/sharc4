@@ -199,7 +199,7 @@ class INTERFACE(ABC):
             natom = int(lines[0])
         except ValueError:
             raise Error('first line must contain the number of atoms!', 2)
-        self._QMin["coords"] = np.asarray(list(map(lambda x: INTERFACE._parse_xyz(x)[1], lines[2:natom + 2])), dtype=float)
+        self._QMin["coords"] = np.asarray([INTERFACE._parse_xyz(x)[1] for x in lines[2:natom + 2]], dtype=float)
 
     @set_coords.register
     def _(self, xyz: list):
@@ -207,6 +207,8 @@ class INTERFACE(ABC):
 
     @set_coords.register
     def _(self, xyz: np.ndarray):
+        if xyz.shape != (self._QMin['natoms'], 3):
+            raise Error(f"Shape of coords does not match current system: {xyz.shape} {(self._QMin['natoms'], 3)}")
         self._QMin["coords"] = xyz
 
     @singledispatchmethod
@@ -683,7 +685,7 @@ class INTERFACE(ABC):
     def _parse_xyz(line) -> tuple[str, list[float]]:
         match = re.match(r'([a-zA-Z]{1,2}\d?)((\s+-?\d+\.\d*){3,6})', line)
         if match:
-            return match[1], list(map(float, match[2].split()))
+            return match[1], list(map(float, match[2].split()[:3]))
         else:
             raise Error(f"line is not xyz\n\n{line}", 43)
 

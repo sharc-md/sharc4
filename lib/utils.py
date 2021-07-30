@@ -246,7 +246,8 @@ class clock:
             hours = runtime.seconds // 3600
             minutes = runtime.seconds // 60 - hours * 60
             seconds = runtime.seconds % 60
-            print('==> Runtime:\n%i Days\t%i Hours\t%i Minutes\t%i Seconds\n\n' % (runtime.days, hours, minutes, seconds))
+            microseconds = runtime.microseconds
+            print('==> Runtime:\n%i Days\t%i Hours\t%i Minutes\t%i.%f Seconds\n\n' % (runtime.days, hours, minutes, seconds, microseconds))
         return runtime.days * 24 * 3600 + runtime.seconds + runtime.microseconds // 1.e6
 
 
