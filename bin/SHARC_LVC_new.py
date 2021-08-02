@@ -34,18 +34,12 @@
 from os import stat
 from posixpath import join
 import sys
-import math
 import time
 import datetime
 import numpy as np
-from functools import reduce
-from itertools import islice
-
-from numpy import linalg
 
 # internal
 from SHARC_INTERFACE import INTERFACE
-from globals import DEBUG, PRINT
 from utils import *
 from constants import U_TO_AMU
 
@@ -82,26 +76,16 @@ class LVC(INTERFACE):
 
     def read_template(self, template_filename='LVC.template'):
         QMin = self._QMin
-        lines = readfile(template_filename)
         r3N = 3 * QMin['natom']
         nmstates = QMin['nmstates']
-        # removes all comments and empty lines
-        filtered = filter(lambda x: not re.match(r'^\s*$', x), map(lambda x: re.sub(r'#.*$', '', x).strip(), lines))
-        file_str = '\n'.join(filtered)
 
-        def format_match(x: re.Match) -> str:
-            return '\n{} {}'.format(x.group(1), re.sub(r'\n+', ",", "{}".format(x.group(4))))
-        lines = re.sub(r'\n([a-zA-Z]{3,}(\s[IR])?)(\n\d+)?((\s*(-?\d+(\.\d+(e[-+]\d+)?)?))+)',
-                       format_match, file_str).split('\n')
-
-        V0file = lines[0]
-        self.read_V0(V0file)
-        states = [int(s) for s in lines[1].split()]
+        f = open(os.path.abspath(template_filename), 'r')
+        V0file = f.readline()[:-1]
+        self.read_V0(os.path.abspath(V0file))
+        states = [int(s) for s in f.readline().split()]
         if states != QMin['states']:
             print(f'states from QM.in and nstates from LVC.template are inconsistent! {QMin["states"]} != {states}')
             sys.exit(25)
-
-        lines = map(lambda x: (' '.join(x[0]), x[1:]), [[y.split() for y in x.split(',')] for x in lines[2:]])
 
         self._H = {im: np.zeros((n, n), dtype=float) for im, n in enumerate(states) if n != 0}
         self._H_i = {im: np.zeros((n, n, r3N), dtype=float) for im, n in enumerate(states) if n != 0}
@@ -114,32 +98,66 @@ class LVC(INTERFACE):
         xyz = {'X': 0, 'Y': 1, 'Z': 2}
         soc_real = True
         dipole_real = True
-        for name, val in lines:
-            # NOTE: possibly assign whole arry with index accessor (numpy)
-            if name == 'epsilon':
-                for im, s, v in map(lambda v: [int(v[0]) - 1, int(v[1]) - 1, float(v[2])], val):
-                    self._epsilon[im][s] += v
-            elif name == 'kappa':
-                for im, s, i, v in map(lambda v: [int(v[0]) - 1, int(v[1]) - 1, int(v[2]) - 1, float(v[3])], val):
-                    self._H_i[im][s, s, i] = v
-            elif name == 'lambda':
-                for im, si, sj, i, v in map(lambda v: [int(v[0]) - 1, int(v[1]) - 1, int(v[2]) - 1, int(v[3]) - 1 , float(v[4])], val):
-                    self._H_i[im][si, sj, i] = v
+        line = f.readline()
+        # NOTE: possibly assign whole arry with index accessor (numpy)
+        if line == 'epsilon\n':
+            z = int(f.readline()[:-1])
+
+            def a(x):
+                v = f.readline().split()
+                return (int(v[0]) - 1, int(v[1]) - 1, float(v[2]))
+            # for im, s, v in map(lambda v: [int(v[0]) - 1, int(v[1]) - 1, float(v[2])], [f.readline().split() for _ in range(z)]):
+            for im, s, v in map(a, range(z)):
+                self._epsilon[im][s] += v
+        if f.readline() == 'kappa\n':
+            z = int(f.readline()[:-1])
+
+            def b(_):
+                v = f.readline().split()
+                return (int(v[0]) - 1, int(v[1]) - 1, int(v[2]) - 1, float(v[3]))
+            # for im, s, i, v in map(lambda v: [int(v[0]) - 1, int(v[1]) - 1, int(v[2]) - 1, float(v[3])], [f.readline().split() for _ in range(z)]):
+            for im, s, i, v in map(b, range(z)):
+                self._H_i[im][s, s, i] = v
+        if f.readline() == 'lambda\n':
+            z = int(f.readline()[:-1])
+            
+            def c(_):
+                v = f.readline().split()
+                return (int(v[0]) - 1, int(v[1]) - 1, int(v[2]) - 1, int(v[3]) - 1, float(v[4]))
+            # for im, si, sj, i, v in map(lambda v: [int(v[0]) - 1, int(v[1]) - 1, int(v[2]) - 1, int(v[3]) - 1, float(v[4])], [f.readline().split() for _ in range(z)]):
+            for im, si, sj, i, v in map(c, range(z)):
+                self._H_i[im][si, sj, i] = v
+        line = f.readline()
+        while len(line) != 0:
+            factor = 1j if line[-2] == 'I' else 1
+            if line[:3] == 'SOC':
+                if factor != 1:
+                    soc_real = False
+                line = f.readline()
+                i = 0
+                while len(line.split()) == nmstates:
+                    self._soc[i, :] += np.asarray(line.split(), dtype=float) * factor
+                    i += 1
+                    line = f.readline()
+            elif line[:2] == 'DM':
+                j = xyz[line[2]]
+                if factor != 1:
+                    dipole_real = False
+                line = f.readline()
+                i = 0
+                while len(line.split()) == nmstates:
+                    self._dipole[j, i, :] += np.asarray(line.split(), dtype=float) * factor
+                    i += 1
+                    line = f.readline()
             else:
-                mat = np.asarray(val, dtype=float)
-                factor = 1j if name[-1] == 'I' else 1
-                if name[:3] == 'SOC':
-                    if factor != 1:
-                        soc_real = False
-                    self._soc += mat * factor
-                else:
-                    if factor != 1:
-                        dipole_real = False
-                    self._dipole[xyz[name[2]], :, :] = mat * factor
-            if soc_real:
-                self._soc = self._soc.astype(float)
-            if dipole_real:
-                self._dipole = self._dipole.astype(float)
+                line = f.readline()
+        f.close()
+        # setting type as necessary (converting type through view and reshape is a lot faster that simple astype assignemnt)
+        if soc_real:
+            self._soc = np.reshape(self._soc.view(float), self._soc.shape + (2,))[:, :, 0]
+        if dipole_real:
+            self._dipole = np.reshape(self._dipole.view(float), self._dipole.shape + (2,))[:, :, :, 0]
+        # timing (BIG): 0.59
         return
 
     def read_V0(self, filename):
@@ -167,8 +185,10 @@ class LVC(INTERFACE):
     def run(self):
         # displacements
         self.clock.starttime = datetime.datetime.now()
+        S = time.time_ns()
+        nmstates = self._QMin['nmstates']
+        Hd = np.zeros((nmstates, nmstates), dtype=complex)
         states = self._QMin['states']
-        print([x.shape for x in [self._Om, self._Km, self._Q, self._disp]])
         self._Q += np.sqrt(self._Om) * (self._Km @ (self._QMin['coords'].flatten() - self._disp.flatten()))
         V0 = 0.5 * (self._Om @ self._Q)
         print(V0)
@@ -177,16 +197,25 @@ class LVC(INTERFACE):
             if n == 0:
                 continue
             H = self._H[im]
-            np.fill_diagonal(H, self._epsilon[im] + V0)
+            np.einsum('ii->i', H)[:] = self._epsilon[im] + V0
             H += self._H_i[im] @ self._Q
             # print(H)
             stop = start + n
-            self._eV[im], self._U[start:stop, start:stop] = np.linalg.eigh(H, UPLO='U')
+            np.einsum('ii->i', Hd)[start:stop], self._U[start:stop, start:stop] = np.linalg.eigh(H, UPLO='U')
             for s1 in map(lambda x: start + n * (x + 1), range(im)):  # fills in blocks for other magnetic quantum numbers
                 s2 = s1 + n
-                print(s1, s2)
                 self._U[s1:s2, s1:s2] = self._U[start:stop, start:stop]
+                np.einsum('ii->i', Hd)[s1:s2] = np.einsum('ii->i', Hd)[start:stop]
             start = stop
-            self._Hd = 0
+        Hd += self._U.T @ self._soc @ self._U
+        dE = {}
+        dQ = np.sqrt(self._Om) * self._Km
+        dV0 = self._Om @ dQ
+        for im, H in self._H_i.items():
+            print(self._H_i[im].shape, dQ.shape)
+            dE[im] =  np.einsum('ijk,kl', self._H_i[im], dQ)
+            np.einsum('iij->ij', dE[im])[:, :] += dV0 
+        
+        print('run:', (time.time_ns() - S) * 1.e-9)
         self.clock.measuretime()
         return

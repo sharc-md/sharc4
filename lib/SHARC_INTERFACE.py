@@ -682,8 +682,8 @@ class INTERFACE(ABC):
     # ======================================================================= #
 
     @staticmethod
-    def _parse_xyz(line) -> tuple[str, list[float]]:
-        match = re.match(r'([a-zA-Z]{1,2}\d?)((\s+-?\d+\.\d*){3,6})', line)
+    def _parse_xyz(line: str) -> tuple[str, list[float]]:
+        match = re.match(r'([a-zA-Z]{1,2}\d?)((\s+-?\d+\.\d*){3,6})', line.strip())
         if match:
             return match[1], list(map(float, match[2].split()[:3]))
         else:
