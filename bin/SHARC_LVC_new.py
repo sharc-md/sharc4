@@ -265,8 +265,8 @@ class LVC(INTERFACE):
                     s2 = s1 + n
                     grad[s1:s2, :] += grad[start:stop, :]
                 start = stop
-        
-        self._U.tofile(os.path.join(self._QMin['savedir'], 'U.out')) # writes a binary file (can be read with numpy.fromfile())
+
+        self._U.tofile(os.path.join(self._QMin['savedir'], 'U.out'))  # writes a binary file (can be read with numpy.fromfile())
         # print(np.reshape(grad.view(float), (13,3,3,2))[:,:,:,0])
         # OVERLAP
 
@@ -280,7 +280,7 @@ class LVC(INTERFACE):
         Hd += self._U.T @ self._soc @ self._U
         self._QMout['h'] = Hd.tolist()
         self._QMout['dm'] = np.einsum('ni,kij,jm->knm', self._U.T, self._dipole, self._U).tolist()
-        self._QMout['grad'] = grad.reshape((nmstates,self._QMin['natom'],3)).tolist()
+        self._QMout['grad'] = grad.reshape((nmstates, self._QMin['natom'], 3)).tolist()
         self.QMout['nacdr'] = nacdr.reshape((nmstates, nmstates, self._QMin['natom'], 3)).tolist()
         self._QMout['runtime'] = self.clock.measuretime()
         return
@@ -305,6 +305,7 @@ class LVC(INTERFACE):
         # if PRINT or DEBUG:
         #     self.printQMout()
         self.writeQMout()
+
 
 if __name__ == '__main__':
     lvc = LVC(DEBUG, PRINT)
