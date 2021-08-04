@@ -51,12 +51,14 @@ changelogstring = '''
 '''
 np.set_printoptions(linewidth=400)
 
+
 class LVC(INTERFACE):
 
     _version = version
     _versiondate = versiondate
     _authors = authors
     _changelogstring = changelogstring
+    _read_resources = True
 
     @property
     def version(self):
@@ -76,6 +78,8 @@ class LVC(INTERFACE):
 
     def read_template(self, template_filename='LVC.template'):
         QMin = self._QMin
+        QMin['template'] = {'qmmm': False, 'cobramm': False}
+
         r3N = 3 * QMin['natom']
         nmstates = QMin['nmstates']
 
@@ -93,7 +97,7 @@ class LVC(INTERFACE):
         self._eV = {im: np.zeros(n, dtype=float) for im, n in enumerate(states) if n != 0}
         self._dipole = np.zeros((3, nmstates, nmstates), dtype=complex)
         self._soc = np.zeros((nmstates, nmstates), dtype=complex)
-        self._U = np.zeros((nmstates, nmstates), dtype=complex)
+        self._U = np.zeros((nmstates, nmstates), dtype=float)
         self._Q = np.zeros(r3N, float)
         xyz = {'X': 0, 'Y': 1, 'Z': 2}
         soc_real = True
@@ -120,13 +124,14 @@ class LVC(INTERFACE):
                 self._H_i[im][s, s, i] = v
         if f.readline() == 'lambda\n':
             z = int(f.readline()[:-1])
-            
+
             def c(_):
                 v = f.readline().split()
                 return (int(v[0]) - 1, int(v[1]) - 1, int(v[2]) - 1, int(v[3]) - 1, float(v[4]))
             # for im, si, sj, i, v in map(lambda v: [int(v[0]) - 1, int(v[1]) - 1, int(v[2]) - 1, int(v[3]) - 1, float(v[4])], [f.readline().split() for _ in range(z)]):
             for im, si, sj, i, v in map(c, range(z)):
                 self._H_i[im][si, sj, i] = v
+                self._H_i[im][sj, si, i] = v
         line = f.readline()
         while len(line) != 0:
             factor = 1j if line[-2] == 'I' else 1
@@ -158,8 +163,22 @@ class LVC(INTERFACE):
         if dipole_real:
             self._dipole = np.reshape(self._dipole.view(float), self._dipole.shape + (2,))[:, :, :, 0]
         # timing (BIG): 0.59
+
+        if 'init' in QMin:
+            INTERFACE.checkscratch(QMin['savedir'])
+        if 'init' not in QMin and 'samestep' not in QMin and 'restart' not in QMin:
+            fromfile = os.path.join(QMin['savedir'], 'U.out')
+            if not os.path.isfile(fromfile):
+                print('ERROR: savedir does not contain U.out! Maybe you need to add "init" to QM.in.')
+                sys.exit(17)
+            tofile = os.path.join(QMin['savedir'], 'Uold.out')
+            shutil.copy(fromfile, tofile)
+
+
+        self._read_template = True
         return
 
+    # TODO: rework to buffer files
     def read_V0(self, filename):
         QMin = self.QMin
         lines = readfile(filename)
@@ -175,7 +194,7 @@ class LVC(INTERFACE):
         it += QMin['natom'] + 1
         self._Om = np.asarray(lines[it].split(), dtype=float)
         it += 2
-        self._Km = np.asarray([x.split() for x in lines[it:]], dtype=float) * self._Msa
+        self._Km = np.asarray([x.split() for x in lines[it:]], dtype=float).T * self._Msa
         return
 
 
@@ -183,39 +202,110 @@ class LVC(INTERFACE):
         return
 
     def run(self):
-        # displacements
         self.clock.starttime = datetime.datetime.now()
-        S = time.time_ns()
         nmstates = self._QMin['nmstates']
-        Hd = np.zeros((nmstates, nmstates), dtype=complex)
+        Hd = np.zeros((nmstates, nmstates), dtype=self._soc.dtype)
         states = self._QMin['states']
-        self._Q += np.sqrt(self._Om) * (self._Km @ (self._QMin['coords'].flatten() - self._disp.flatten()))
-        V0 = 0.5 * (self._Om @ self._Q)
-        print(V0)
+        r3N = 3 * self._QMin['natom']
+        # Build full H and diagonalize
+        self._Q = np.sqrt(self._Om) * (self._Km @ (self._QMin['coords'].flatten() - self._disp.flatten()))
+        self._V = self._Om * self._Q
+        V0 = 0.5 * (self._V) @ self._Q
         start = 0  # starting index for blocks
-        for im, n in enumerate(states):
-            if n == 0:
-                continue
+        for im, n in filter(lambda x: x[1] != 0, enumerate(states)):
             H = self._H[im]
             np.einsum('ii->i', H)[:] = self._epsilon[im] + V0
             H += self._H_i[im] @ self._Q
-            # print(H)
             stop = start + n
-            np.einsum('ii->i', Hd)[start:stop], self._U[start:stop, start:stop] = np.linalg.eigh(H, UPLO='U')
+            np.einsum('ii->i', Hd)[start:stop], self._U[start:stop, start:stop] = np.linalg.eigh(H)
             for s1 in map(lambda x: start + n * (x + 1), range(im)):  # fills in blocks for other magnetic quantum numbers
                 s2 = s1 + n
                 self._U[s1:s2, s1:s2] = self._U[start:stop, start:stop]
                 np.einsum('ii->i', Hd)[s1:s2] = np.einsum('ii->i', Hd)[start:stop]
             start = stop
-        Hd += self._U.T @ self._soc @ self._U
-        dE = {}
-        dQ = np.sqrt(self._Om) * self._Km
-        dV0 = self._Om @ dQ
-        for im, H in self._H_i.items():
-            print(self._H_i[im].shape, dQ.shape)
-            dE[im] =  np.einsum('ijk,kl', self._H_i[im], dQ)
-            np.einsum('iij->ij', dE[im])[:, :] += dV0 
+
+        # GRADS and NACS
+        if self._QMin['nacdr']:
+            # Build full derivative matrix
+            start = 0  # starting index for blocks
+            dE = np.zeros((nmstates * nmstates, r3N), Hd.dtype)
+            dE[::nmstates + 1, :] += self._V  # fills diagonal on matrix with shape (nmstates,nmstates, r3N)
+            dE = dE.reshape((nmstates, nmstates, r3N))
+            for im, n in filter(lambda x: x[1] != 0, enumerate(states)):
+                stop = start + n
+                dE[start:stop, start:stop, :] += self._H_i[im]
+                for s1 in map(lambda x: start + n * (x + 1), range(im)):  # fills in blocks for other magnetic quantum numbers
+                    s2 = s1 + n
+                    dE[s1:s2, s1:s2, :] = dE[start:stop, start:stop, :]
+                start = stop
+            dE = np.einsum('ni,ijl,jm,l->nml', self._U.T, dE, self._U, np.sqrt(self._Om))
+            dE = np.einsum('ij,kli->klj', self._Km, dE)
+            grad = np.einsum('nnl->nl', dE)
+            start = 0  # starting index for blocks
+            eV = Hd.flat[::nmstates + 1]
+            nacdr = np.zeros((nmstates, nmstates, r3N), dE.dtype)
+            for im, n in filter(lambda x: x[1] != 0, enumerate(states)):
+                stop = start + n
+                tmp = np.full((n, n), eV[start:stop]).T
+                tmp -= eV[start:stop]
+                idx = tmp != 0. + 0j
+                tmp[idx] **= -1
+                nacdr[start:stop, start:stop, :] = np.einsum('ij,ijk->ijk', tmp.T, dE[start:stop, start:stop, :])
+                for s1 in map(lambda x: start + n * (x + 1), range(im)):  # fills in blocks for other magnetic quantum numbers
+                    s2 = s1 + n
+                    nacdr[s1:s2, s1:s2, :] = nacdr[start:stop, start:stop, :]
+                start = stop
+        else:
+            grad = np.full((nmstates, r3N), self._V)
+            start = 0
+            for im, n in filter(lambda x: x[1] != 0, enumerate(states)):
+                stop = start + n
+                grad[start: stop, :] += np.einsum('iik,k->ik', self._H_i[im], self._Q)
+                for s1 in map(lambda x: start + n * (x + 1), range(im)):  # fills in blocks for other magnetic quantum numbers
+                    s2 = s1 + n
+                    grad[s1:s2, :] += grad[start:stop, :]
+                start = stop
         
-        print('run:', (time.time_ns() - S) * 1.e-9)
-        self.clock.measuretime()
+        self._U.tofile(os.path.join(self._QMin['savedir'], 'U.out')) # writes a binary file (can be read with numpy.fromfile())
+        # print(np.reshape(grad.view(float), (13,3,3,2))[:,:,:,0])
+        # OVERLAP
+
+        if 'overlap' in self._QMin:
+            if 'init' in self._QMin:
+                overlap = np.identity(nmstates, dtype=float)
+            else:
+                overlap = np.fromfile('Uold.out') @ self._U
+            self._QMout['overlap'] = overlap
+
+        Hd += self._U.T @ self._soc @ self._U
+        self._QMout['h'] = Hd.tolist()
+        self._QMout['dm'] = np.einsum('ni,kij,jm->knm', self._U.T, self._dipole, self._U).tolist()
+        self._QMout['grad'] = grad.reshape((nmstates,self._QMin['natom'],3)).tolist()
+        self.QMout['nacdr'] = nacdr.reshape((nmstates, nmstates, self._QMin['natom'], 3)).tolist()
+        self._QMout['runtime'] = self.clock.measuretime()
         return
+
+    def main(self):
+        name = self.__class__.__name__
+        args = sys.argv
+        if len(args) != 2:
+            print('Usage:', f'./SHARC_{name} <QMin>',
+                  f'version: {self.version}',
+                  f'date: {self.versiondate}',
+                  f'changelog: {self.changelogstring}', sep='\n')
+            sys.exit(106)
+        QMinfilename = sys.argv[1]
+        pwd = os.getcwd()
+        self.printheader()
+        self.setup_mol(os.path.join(pwd, QMinfilename))
+        self.read_template(os.path.join(pwd, f"{name}.template"))
+        self.set_coords(os.path.join(pwd, QMinfilename))
+        self.read_requests(os.path.join(pwd, QMinfilename))
+        self.run()
+        # if PRINT or DEBUG:
+        #     self.printQMout()
+        self.writeQMout()
+
+if __name__ == '__main__':
+    lvc = LVC(DEBUG, PRINT)
+    lvc.main()

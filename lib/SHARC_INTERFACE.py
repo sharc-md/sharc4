@@ -71,6 +71,7 @@ class INTERFACE(ABC):
         # self.printheader()
         self._DEBUG = debug
         self._PRINT = print
+        self._QMin['pwd'] = os.getcwd()
     # ================== abstract methods and properties ===================
 
     @abstractproperty
@@ -183,6 +184,18 @@ class INTERFACE(ABC):
                     nmstates += QMin['states'][i] * (i + 1)
                 QMin['nstates'] = nstates
                 QMin['nmstates'] = nmstates
+            elif key == 'unit':
+                unit = llist[1].strip().lower()
+                if unit in ['bohr', 'angstrom']:
+                    QMin['unit'] = unit
+                    self._factor = 1. if unit == 'bohr' else 1. / BOHR_TO_ANG
+                else:
+                    raise Error('unknown unit specified in QMin', 23)
+            elif key == 'savedir':
+                QMin[key] = llist[1].strip()
+        if 'savedir' not in QMin:
+            QMin['savedir'] = './SAVEDIR/'
+        QMin['savedir'] = os.path.abspath(os.path.expanduser(os.path.expandvars(QMin['savedir'])))
         self._setup_mol = True
         # NOTE: Quantity requests (tasks) are dealt with later and potentially re-assigned
         return
@@ -199,17 +212,17 @@ class INTERFACE(ABC):
             natom = int(lines[0])
         except ValueError:
             raise Error('first line must contain the number of atoms!', 2)
-        self._QMin["coords"] = np.asarray([INTERFACE._parse_xyz(x)[1] for x in lines[2:natom + 2]], dtype=float)
+        self._QMin["coords"] = np.asarray([INTERFACE._parse_xyz(x)[1] for x in lines[2:natom + 2]], dtype=float) * self._factor
 
     @set_coords.register
     def _(self, xyz: list):
-        self._QMin["coords"] = np.asarray(xyz)
+        self._QMin["coords"] = np.asarray(xyz) * self._factor
 
     @set_coords.register
     def _(self, xyz: np.ndarray):
         if xyz.shape != (self._QMin['natoms'], 3):
             raise Error(f"Shape of coords does not match current system: {xyz.shape} {(self._QMin['natoms'], 3)}")
-        self._QMin["coords"] = xyz
+        self._QMin["coords"] = xyz * self._factor
 
     @singledispatchmethod
     def set_requests(self, requests):
@@ -225,7 +238,7 @@ class INTERFACE(ABC):
 
     def read_requests(self, requests_filename: str = "QM.in"):
         if not self._read_template:
-            raise Error('Interface is not set up correctly. Call read_resources with the .template file first!', 23)
+            raise Error('Interface is not set up correctly. Call read_template with the .template file first!', 23)
         QMin = self._QMin
 
         lines = readfile(requests_filename)
@@ -241,22 +254,22 @@ class INTERFACE(ABC):
         def parse(line: str):
             llist = line.split(None, 1)
             if len(llist) == 1:
-                return llist[0], True
+                return llist[0].lower(), True
             args = llist[1]
             if args[0] == '[':
                 args = ast.literal_eval(args)
                 if type(args[0]) == str:
                     args = list(map(lambda x: [int(i) for i in x.split()], args))
-                return llist[0], args
+                return llist[0].lower(), args
             args = args.split()
             if len(args) == 1:
                 args = args[0]
-            return llist[0], args
+            return llist[0].lower(), args
 
         # NOTE: old QMin read stuff is not overwritten. Problem with states?
         self._QMin = {**dict(map(parse, lines)), **QMin}
         QMin = self._QMin
-
+        print(QMin)
         possibletasks = {'h', 'soc', 'dm', 'grad', 'overlap', 'dmdr', 'socdr', 'ion', 'theodore', 'phases'}
         tasks = possibletasks & QMin.keys()
         if len(tasks) == 0:
@@ -1754,6 +1767,8 @@ class INTERFACE(ABC):
             string += self.writeQMoutgrad()
         if 'overlap' in QMin:
             string += self.writeQMoutnacsmat()
+        if 'nacdr' in QMin:
+            string += self.writeQMoutnacana()
         if 'socdr' in QMin:
             string += self.writeQMoutsocdr()
         if 'dmdr' in QMin:
