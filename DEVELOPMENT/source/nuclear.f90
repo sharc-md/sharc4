@@ -42,6 +42,7 @@ module nuclear
 subroutine VelocityVerlet_xstep(traj,ctrl)
   use definitions
   use matrix
+  use ziggurat
   implicit none
   type(trajectory_type) :: traj
   type(ctrl_type) :: ctrl
@@ -90,11 +91,10 @@ subroutine VelocityVerlet_xstep(traj,ctrl)
         enddo
       enddo
     case (1) ! Langevin thermostat
-      traj%thermostat_random=gaussian_random(ctrl%natom,real(0,8),ctrl%temperature) !ctrl%temperature is variance here
-      !write(u_log,*) traj%thermostat_random
       do iatom=1,ctrl%natom
         b=1/(1+ctrl%thermostat_const(1)*ctrl%dtstep/(2*traj%mass_a(iatom)))
         do idir=1,3                 ! propagate positions according to Langevin equation
+          traj%thermostat_random(3*(iatom-1)+idir)=rnor()*ctrl%temperature !ctrl%temperature is sqrt(variance) here
           traj%accel_ad(iatom,idir)=&
           &-traj%grad_ad(iatom,idir)/traj%mass_a(iatom)
 
@@ -557,30 +557,5 @@ subroutine Damp_velocities(traj,ctrl)
   traj%veloc_ad=traj%veloc_ad*sqrt(ctrl%dampeddyn)
 
 endsubroutine
-
-! ===========================================================
-
-!> returns 3*natoms gaussian distributed random numbers with mean=mu and variance=var
-function gaussian_random(natoms,mu,var)
-  use definitions
-  implicit none
-  integer,intent(in) :: natoms
-  integer :: i
-  real*8,intent(in) :: mu, var
-  real*8 :: gaussian_random(2*((natoms*3+1)/2))   !note:fortran integer division -> truncation
-  real*8 :: theta,r
-  
-  do i=1,(3*natoms+1)/2
-    theta=rand()
-    r=rand()
-    theta=2*pi*rand()
-    r=sqrt(-2*log(rand())*var)
-    gaussian_random(2*i-1)=r*dcos(theta) +mu
-    gaussian_random(2*i)=r*dsin(theta) +mu
-  end do
-
-  return
-endfunction
-
 
 endmodule

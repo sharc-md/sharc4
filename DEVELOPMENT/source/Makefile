@@ -29,19 +29,19 @@
 
 # =======================================
 #true, false     # also implies NETCDF
-USE_PYSHARC := false
+USE_PYSHARC := true
 
 #intel, gnu
 USE_COMPILER := gnu
 
 #mkl,gnu
-USE_LIBS := gnu
+USE_LIBS := mkl
 
 #Static libraries
 COMP_STATIC := false
 
 #needed for PYSHARC
-ANACONDA := 
+ANACONDA := /user/brigitta/anaconda3/envs/sharc
 # =======================================
 
 
@@ -52,7 +52,7 @@ ANACONDA :=
 # path
 SHARC_SOURCE := $(shell pwd)
 SHARCDIR := $(shell cd ..; pwd)
-#MKLROOT := ${ANACONDA}/lib
+MKLROOT := ${ANACONDA}/lib
 
 
 # -------------------------------------- conditionals ---------------------------------------
@@ -79,12 +79,12 @@ ifeq ($(USE_COMPILER), )
   USE_COMPILER:=gnu
 endif
 ifeq ($(USE_COMPILER), gnu)
-  CC :=gcc
-  F90 :=gfortran 
+  #CC :=gcc
+  #F90 :=gfortran 
   EXTRAFLAGS := -ffree-line-length-none 
 else ifeq ($(USE_COMPILER), intel)
-  CC:=icc
-  F90:=ifort 
+  #CC:=icc
+  #F90:=ifort 
   EXTRAFLAGS :=
 endif
 
@@ -93,18 +93,22 @@ endif
 ifeq ($(COMP_STATIC),true)
 ifeq ($(USE_LIBS), mkl)
 ifeq ($(USE_COMPILER), gnu)
-  LD=  -Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_gf_lp64.a ${MKLROOT}/lib/intel64/libmkl_sequential.a ${MKLROOT}/lib/intel64/libmkl_core.a -Wl,--end-group -lpthread -lm -ldl
+  #LD=  -Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_gf_lp64.a ${MKLROOT}/lib/intel64/libmkl_sequential.a ${MKLROOT}/lib/intel64/libmkl_core.a -Wl,--end-group -lpthread -lm -ldl
+  LD= -L$(MKLROOT) -lpthread -lm -ldl
 else ifeq ($(USE_COMPILER), intel)
 #  LD= -L$(MKLROOT)/lib/intel64 -lmkl_rt -lpthread -lm -lgfortran -static $(NETCDF_LIB)
-  LD=  -Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_intel_lp64.a ${MKLROOT}/lib/intel64/libmkl_sequential.a ${MKLROOT}/lib/intel64/libmkl_core.a -Wl,--end-group -lpthread -lm -ldl
+  #LD=  -Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_intel_lp64.a ${MKLROOT}/lib/intel64/libmkl_sequential.a ${MKLROOT}/lib/intel64/libmkl_core.a -Wl,--end-group -lpthread -lm -ldl
+   LD= -L$(MKLROOT) -lmkl_rt -lpthread -lm -lgfortran -static  $(NETCDF_LIB)
+#  LD= -L$(MKLROOT) -lmkl_rt -lpthread -lm -lgfortran $(NETCDF_LIB)
 endif
 else ifeq ($(USE_LIBS), gnu)
   LD= -llapack -lfftw3 -lblas -lgfortran  -static $(NETCDF_LIB)
 endif
 else 
 ifeq ($(USE_LIBS), mkl)
-  LD= -L$(MKLROOT)/lib/intel64 -lmkl_rt -lpthread -lm -lgfortran $(NETCDF_LIB)
+  #LD= -L$(MKLROOT)/lib/intel64 -lmkl_rt -lpthread -lm -lgfortran $(NETCDF_LIB)
 #   LD= -L$(MKLROOT)/lib/intel64 -lmkl_intel_lp64 -lmkl_core -lmkl_sequential -lpthread -lm -lgfortran $(NETCDF_LIB)
+  LD= -L$(MKLROOT) -lmkl_rt -lpthread -lm -lgfortran $(NETCDF_LIB)
 else ifeq ($(USE_LIBS), gnu)
   LD= -llapack -lfftw3 -lblas -lgfortran   $(NETCDF_LIB)
 endif
@@ -168,7 +172,8 @@ SHARC  =  misc.o \
 	  qm.o \
 	  electronic_laser.o \
 	  input.o \
-	  decoherence_afssh.o
+	  decoherence_afssh.o \
+          ziggurat.o
 ifeq ($(USE_PYSHARC),true)
 SHARC += interface.o
 endif
@@ -187,7 +192,6 @@ LASER=  LASER_definitions.o \
 	LASER_calc_fftw.o \
 	LASER_input.o \
 	LASER_main.o 
-
 
 DIAGONALIZER = string.o \
 	      matrix.o \
@@ -318,16 +322,16 @@ main.o: output.o qm.o restart.o misc.o electronic_laser.o input.o decoherence_af
 endif
 
 interface.o: electronic.o definitions.o definitions_NetCDF.o output.o qm.o restart.o misc.o electronic_laser.o input.o decoherence_afssh.o
-misc.o: definitions.o
+misc.o: definitions.o ziggurat.o
 output.o: $(TOOLS) build_info misc.o
-nuclear.o: $(TOOLS)
+nuclear.o: $(TOOLS) ziggurat.o
 electronic.o: nuclear.o $(TOOLS) decoherence_afssh.o
 electronic_laser.o: electronic.o $(TOOLS)
 input.o: $(TOOLS) output.o restart.o misc.o
 qm.o: $(TOOLS) electronic.o qm_out.o restart.o
 qm_out.o: $(TOOLS)
 restart.o: $(TOOLS) misc.o decoherence_afssh.o
-decoherence_afssh.o: $(TOOLS) definitions.o 
+decoherence_afssh.o: $(TOOLS) definitions.o
 
 LASER_input.o: LASER_definitions.o 
 LASER_calc_fftw.o: LASER_definitions.o

@@ -345,6 +345,7 @@ module restart
     use matrix
     use misc
     use decoherence_afssh
+    use ziggurat
     implicit none
     integer :: u_ctrl,u_traj
     type(trajectory_type) :: traj
@@ -640,15 +641,18 @@ module restart
     
     ! set up thermostat randomnes
     if (ctrl%thermostat==1 .and. ctrl%restart_thermostat_random .eqv. .true.) then
-       ! call the old random number generator (used for thermostat) until it is in the same status as before the restart
-       call init_random_seed_thermostat(traj%rngseed_thermostat)
-       !call srand(traj%RNGseed_thermostat) alternatively (if like this in input.F90)
-       do i=1,2*((3*ctrl%natom+1)/2)*traj%step
-         dummy_randnum=rand()
+       ! initialte and call the ziggurat random number generator (used for thermostat) until it is in the same status as before the restart
+       call zigset(traj%rngseed_thermostat+37+17**2)
+       do i=1,3*ctrl%natom*traj%step
+         dummy_randnum=rnor()
        enddo
-       
-       allocate (traj%thermostat_random(2*((3*ctrl%natom+1)/2))) ! allocate randomnes for all atoms in all directions
-     endif
+       allocate (traj%thermostat_random(3*ctrl%natom)) ! allocate randomnes for all atoms in all directions
+    else if (ctrl%thermostat==1 .and. ctrl%restart_thermostat_random .eqv. .false.)  then
+       ! initialte the ziggurat random number generator (used for thermostat),
+       ! starts from random seed given in restart.traj! (only use this option for when manually given new random seed in restart.traj!)
+       call zigset(traj%rngseed_thermostat+37+17**2)
+       allocate (traj%thermostat_random(3*ctrl%natom)) ! allocate randomnes for all atoms in all directions
+    endif
 
     ! since the relaxation check is done after writing the restart file,
     ! add one to the relaxation counter

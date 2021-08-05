@@ -51,6 +51,7 @@ module input
   use output
   use restart
   use string
+  use ziggurat !temporary
   implicit none
 #ifdef __PYSHARC__
   integer :: nchars
@@ -2140,21 +2141,23 @@ module input
       else
         line=get_value_from_key('rngseed',io)
         if (io==0) then
-          read(line,*) traj%rngseed_thermostat !for now: use same rngseed for thermostat as given for initial velocities. Maybe change later.
+          read(line,*) traj%rngseed_thermostat !if not specified: use same rngseed for thermostat as given for initial velocities.
         else
           traj%rngseed_thermostat=1099279      ! some prime number
         endif
       endif
-      call init_random_seed_thermostat(traj%rngseed_thermostat)
-     ! call srand(traj%rngseed_thermostat) alternatively
+      !initiate ziggurat prng (do only once!)
+      call zigset(traj%rngseed_thermostat+37+17**2)
       if (ctrl%thermostat==1) then
-        allocate (traj%thermostat_random(2*((3*ctrl%natom+1)/2))) ! allocate randomnes for all atoms in all directions
+        allocate (traj%thermostat_random(3*ctrl%natom)) ! allocate randomnes for all atoms in all directions
       endif
 
       ! restart with same random number sequence?
       ! default is restarting with same random number sequence
       ctrl%restart_thermostat_random=.true.
       ! look for norestart_thermostat_random keyword
+      ! if given: when restarting it starts from random seed given in restart.traj!
+      ! (so only use this option for when manually given new random seed in restart.traj!)
       line=get_value_from_key('norestart_thermostat_random',io)
       if (io==0) then
         ctrl%restart_thermostat_random=.false.
@@ -2168,7 +2171,6 @@ module input
         ctrl%temperature=293.15 !default temperature
       endif
       write(u_log,'(1x,F11.4)') ctrl%temperature
-
 
       ! get constants needed for thermostat
       if (ctrl%thermostat==1) allocate(ctrl%thermostat_const(1)) !allocate right amount of thermostat constants
@@ -2193,8 +2195,10 @@ module input
         stop 1
       endif
 
-      if (ctrl%thermostat==1) then !save variance in ctrl%temperature
-        ctrl%temperature=2*ctrl%thermostat_const(1)*1.38064852e-23*ctrl%temperature*2.2937126583579e+17*ctrl%dtstep ! var=2*alpha*k_bT*dt (1 J = 2.29...e+17 a.u.)
+      if (ctrl%thermostat==1) then !save sqrt(variance) in ctrl%temperature
+        ctrl%temperature=sqrt(2*ctrl%thermostat_const(1)*1.38064852e-23*ctrl%temperature*2.2937126583579e+17*ctrl%dtstep) ! var=2*alpha*k_bT*dt (1 J = 2.29...e+17 a.u.)
+        !write(u_log,*) 'thermostat_faketemp'
+        !write(u_log,*) ctrl%temperature
       endif
     endif
 
