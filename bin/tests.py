@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 
 # ******************************************
 #
@@ -475,11 +475,11 @@ def compare_trajectories(INFOS, index):
             d = abs(abs(ja) - abs(jb))
             if d > compare[flag][0]:
                 count += 1
-                sys.stdout.write('*** Value deviation on line %i: %18.12f vs %18.12f\n' % (i, ja, jb))
+                sys.stdout.write('*** Value deviation on line %i: %18.12f vs %18.12f\n' % (i+1, ja, jb))
             if compare[flag][1]:
                 if not sign(ja) == sign(jb) and abs(ja) > 1e-8:
                     count += 1
-                    sys.stdout.write('***  Sign deviation on line %i: %18.12f vs %18.12f\n' % (i, ja, jb))
+                    sys.stdout.write('***  Sign deviation on line %i: %18.12f vs %18.12f\n' % (i+1, ja, jb))
     return count
 
 # ======================================================================================================================
