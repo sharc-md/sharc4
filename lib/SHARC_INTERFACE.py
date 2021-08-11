@@ -163,27 +163,7 @@ class INTERFACE(ABC):
             llist = line.split(None, 1)
             key = llist[0].lower()
             if key == 'states':
-                try:
-                    QMin['states'] = list(map(int, llist[1].split()))
-                except (ValueError, IndexError):
-                    # get traceback of currently handled exception
-                    tb = sys.exc_info()[2]
-                    raise Error('Keyword "states" has to be followed by integers!', 37).with_traceback(tb)
-                reduc = 0
-                for i in reversed(QMin['states']):
-                    if i == 0:
-                        reduc += 1
-                    else:
-                        break
-                for i in range(reduc):
-                    del QMin['states'][-1]
-                nstates = 0
-                nmstates = 0
-                for i in range(len(QMin['states'])):
-                    nstates += QMin['states'][i]
-                    nmstates += QMin['states'][i] * (i + 1)
-                QMin['nstates'] = nstates
-                QMin['nmstates'] = nmstates
+                QMin.update(self.parseStates(llist[1]))
             elif key == 'unit':
                 unit = llist[1].strip().lower()
                 if unit in ['bohr', 'angstrom']:
@@ -200,7 +180,33 @@ class INTERFACE(ABC):
         # NOTE: Quantity requests (tasks) are dealt with later and potentially re-assigned
         return
 
+    @staticmethod
+    def parseStates(states: str) -> dict:
+        res = {}
+        try:
+            res['states'] = list(map(int, states.split()))
+        except (ValueError, IndexError):
+            # get traceback of currently handled exception
+            tb = sys.exc_info()[2]
+            raise Error('Keyword "states" has to be followed by integers!', 37).with_traceback(tb)
+        reduc = 0
+        for i in reversed(res['states']):
+            if i == 0:
+                reduc += 1
+            else:
+                break
+        for i in range(reduc):
+            del res['states'][-1]
+        nstates = 0
+        nmstates = 0
+        for i in range(len(res['states'])):
+            nstates += res['states'][i]
+            nmstates += res['states'][i] * (i + 1)
+        res['nstates'] = nstates
+        res['nmstates'] = nmstates
+        return res
     # enables function overloads for different types (call detects type and calls corresponding version of function)
+
     @singledispatchmethod
     def set_coords(self, xyz):
         raise NotImplementedError("'set_coords' is only implemented for str, list[list[float]] or numpy.ndarray type")
@@ -233,8 +239,17 @@ class INTERFACE(ABC):
         raise NotImplementedError()
 
     @set_requests.register
-    def _(self, requests: dict):
+    def _(self, requests: dict[str]):
+        # logic for raw tasks object from pysharc interface
+        if 'tasks' in requests and type(requests['tasks']) is str:
+            requests.update({k.lower(): True for k in requests['tasks'].split()})
+            del requests['tasks']
+        for task in ['nacdr', 'overlap', 'grad', 'ion']:
+            if task in requests and type(requests[task]) is str:
+                requests[task] = [int(i) for i in requests[task].split()]
+
         self._QMin.update(requests)
+        self._request_logic()
 
     def read_requests(self, requests_filename: str = "QM.in"):
         if not self._read_template:
@@ -268,6 +283,9 @@ class INTERFACE(ABC):
 
         # NOTE: old QMin read stuff is not overwritten. Problem with states?
         self._QMin = {**dict(map(parse, lines)), **QMin}
+        self._request_logic()
+
+    def _request_logic(self):
         QMin = self._QMin
         print(QMin)
         possibletasks = {'h', 'soc', 'dm', 'grad', 'overlap', 'dmdr', 'socdr', 'ion', 'theodore', 'phases'}
@@ -296,7 +314,6 @@ class INTERFACE(ABC):
             raise Error('"overlap" and "phases" cannot be calculated in the first timestep! Delete either "overlap" or "init"', 43)
 
         if QMin.keys().isdisjoint({'init', 'samestep', 'restart'}):
-            print('ADSFASDFSDAFASDFSADFSADFSAD')
             QMin['newstep'] = True
 
         if not tasks.isdisjoint({'h', 'soc', 'dm', 'grad'}) and 'overlap' in tasks:

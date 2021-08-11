@@ -321,3 +321,7 @@ def safe_cast(val, type, fallback=None):
         return type(val)
     except ValueError:
         return fallback
+
+
+def list2dict(ls: list) -> dict:
+    return {i: value for i, value in enumerate(ls)}
