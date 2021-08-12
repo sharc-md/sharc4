@@ -27,11 +27,14 @@
 # EXTERNAL
 import os
 import sys
+import time
 import numpy as np
 from typing import Any, Union
+from optparse import OptionParser
+from constants import IAn2AName
 
 # INTERNAL
-import sharc
+import sharc.sharc as sharc
 from factory import factory
 from SHARC_INTERFACE import INTERFACE
 from error import Error
@@ -64,41 +67,41 @@ class QMOUT():
 
     def printAll(self):
         self._QMout.printAll()
-    
+
 
     def set_props(self, data: dict, icall):
-            """ set QMout """
-            # set hamiltonian, dm only in first call
-            if icall == 1:
-                if 'h' in data:
-                    self._QMout.set_hamiltonian(data['h'])
-                if 'dm' in data:
-                    self._QMout.set_dipolemoment(data['dm'])
+        """ set QMout """
+        # set hamiltonian, dm only in first call
+        if icall == 1:
+            if 'h' in data:
+                self._QMout.set_hamiltonian(data['h'])
+            if 'dm' in data:
+                self._QMout.set_dipolemoment(data['dm'])
 
-            if 'overlap' in data:
-                if not isinstance(data['overlap'], type([])):
-                    # assumes type is numpy array
-                    data['overlap'] = [list(ele) for ele in data['overlap']]
-                self._QMout.set_overlap(data['overlap'])
+        if 'overlap' in data:
+            if not isinstance(data['overlap'], type([])):
+                # assumes type is numpy array
+                data['overlap'] = [list(ele) for ele in data['overlap']]
+            self._QMout.set_overlap(data['overlap'])
 
-            if 'grad' in data:
-                if isinstance(data['grad'], type([])):
-                    self._QMout.set_gradient(list2dict(data['grad']), icall)
-                else:
-                    if data['grad'] is None:
-                        data['grad'] = {}
-                    self._QMout.set_gradient(data['grad'], icall)
-            if 'nacdr' in data:
-                if isinstance(data['nacdr'], type([])):
-                    nacdr = {}
-                    for i, ele in enumerate(data['nacdr']):
-                        nacdr[i] = list2dict(ele)
-                    self._QMout.set_nacdr(nacdr, icall)
+        if 'grad' in data:
+            if isinstance(data['grad'], type([])):
+                self._QMout.set_gradient(list2dict(data['grad']), icall)
+            else:
+                if data['grad'] is None:
+                    data['grad'] = {}
+                self._QMout.set_gradient(data['grad'], icall)
+        if 'nacdr' in data:
+            if isinstance(data['nacdr'], type([])):
+                nacdr = {}
+                for i, ele in enumerate(data['nacdr']):
+                    nacdr[i] = list2dict(ele)
+                self._QMout.set_nacdr(nacdr, icall)
 
-                else:
-                    self._QMout.set_nacdr(data['nacdr'], icall)
+            else:
+                self._QMout.set_nacdr(data['nacdr'], icall)
 
-            return
+        return
 
 
 def setup_sharc(inp_file: str) -> int:
@@ -106,8 +109,8 @@ def setup_sharc(inp_file: str) -> int:
     return sharc.setup_sharc(inp_file)
 
 
-def set_qmout(qmout: QMOUT):
-    return sharc.set_qmout(qmout)
+def set_qmout(qmout: QMOUT, icall: int):
+    return sharc.set_qmout(qmout, icall)
 
 
 def get_constants() -> dict:
@@ -130,7 +133,7 @@ def get_all_tasks(icall: int) -> dict:
     return sharc.get_all_tasks(icall)
 
 
-def get_crd(unit: int) -> list[list[float]]:
+def get_crd(unit: int = 0) -> list[list[float]]:
     '''returns coordinates in specified unit (0 = Bohr, 1 = Angstrom)'''
     return sharc.get_crd(unit)
 
@@ -143,20 +146,20 @@ def initial_qm_post():
     return sharc.initial_qm_post()
 
 
-def initial_step():
-    return sharc.initial_step()
+def initial_step(IRestart: int):
+    return sharc.initial_step(IRestart)
 
 
-def verlet_xstep():
-    return sharc.verlet_xstep()
+def verlet_xstep(istep: int):
+    return sharc.verlet_xstep(istep)
 
 
-def verlet_ystep():
-    return sharc.verlet_ystep()
+def verlet_vstep():
+    return sharc.verlet_vstep()
 
 
-def verlet_finalize():
-    return sharc.verlet_finalize()
+def verlet_finalize(iskip=1):
+    return sharc.verlet_finalize(iskip)
 
 
 def finalize_sharc():
@@ -181,35 +184,84 @@ def do_qm_calc(i: INTERFACE, qmout: QMOUT):
     safe(i.run())
     qmout.set_props(i._QMout, icall)
 
-    isecond = set_qmout(qmout)
+    isecond = set_qmout(qmout._QMout, icall)
     if isecond == 1:
         icall = 2
         i.set_requests(get_all_tasks(icall))
         i.set_coords(get_crd())
-        sharc.set_qmout(i._QMout, icall)
+        qmout.set_props(i._QMout, icall)
+        set_qmout(qmout._QMout, icall)
     return
 
 
 def main():
-    args = sys.argv
+    start = time.time_ns()
+    parser = OptionParser()
+
+    parser.add_option('-i', '--interface', dest='name', help='Name of the Interface you want to use.')
+    parser.add_option('-v', '--verbose', dest='verbose', action='store_true', default=False, help='sets verbosity, i.e. print and debug option')
+    parser.add_option('-d', '--debug', dest='debug', action='store_true', default=False, help='debug flag for printing')
+    parser.add_option('-p', '--print', dest='print', action='store_true', default=False, help='flag for printing')
+
+    (options, args) = parser.parse_args()
+
+    if options.verbose:
+        options.print = True
+        options.debug = True
+    if not options.name:
+        raise Error('please specifiy the interface with "-i <name>"')
     if len(args) == 0:
         print("call with path to input file for SHARC")
         exit(0)
     inp_file = args[0]
     param = args[0:-1]
-    interface = factory(name)
+    interface = factory(options.name)
 
-    i: INTERFACE = interface()
-
-    i.printheader()
-
+    i: INTERFACE = interface(options.debug, options.print)
+    i.set_unit('bohr')
+    if options.print:
+        i.printheader()
     IRestart = setup_sharc(inp_file)
     basic_info = get_basic_info()
     basic_info.update(i.parseStates(basic_info['states']))
     QMout = QMOUT(i.__class__.__name__, basic_info['NAtoms'], basic_info['nmstates'])
-
-
+    if IRestart != 0:
+        basic_info['restart'] = True
+    else:
+        basic_info['init'] = True
+    i._QMin.update({k.lower(): v for k, v in basic_info.items()})
+    i._QMin['natom'] = basic_info['NAtoms']
+    i._QMin['elements'] = [IAn2AName[x] for x in basic_info['IAn']]
+    i.read_resources()
+    i.read_template()
     if IRestart == 0:
         initial_qm_pre()
-        i.run()
+        do_qm_calc(i, QMout)
         initial_qm_post()
+        initial_step(IRestart)
+    for istep in range(basic_info['istep'] + 1, basic_info['NSteps'] + 1):
+        verlet_xstep(istep)
+        do_qm_calc(i, QMout)
+        crd = get_crd()
+        IRedo = verlet_vstep()
+
+        if IRedo == 1:
+            # calculate gradients numerically by setting up 6N calculations
+            # TODO what if I want to get gradients only ? i.e. samestep
+            # possibly skip whole Hamiltonian build in LVC -> major timesave
+            i.set_requests(get_all_tasks(3))
+            i.set_coords(crd)
+            safe(i.run())
+            QMout.set_gradient(list2dict(i._QMout['grad']), 3)
+            set_qmout(QMout._QMout, 3)
+        iexit = verlet_finalize(1)
+        if iexit == 1:
+            break
+
+    finalize_sharc()
+    stop = time.time_ns()
+    print('Timing:', (stop - start)*10e-6)
+
+
+if __name__ == '__main__':
+    main()

@@ -91,7 +91,6 @@ class LVC(INTERFACE):
             print(f'states from QM.in and nstates from LVC.template are inconsistent! {QMin["states"]} != {states}')
             sys.exit(25)
 
-        self._H = {im: np.zeros((n, n), dtype=float) for im, n in enumerate(states) if n != 0}
         self._H_i = {im: np.zeros((n, n, r3N), dtype=float) for im, n in enumerate(states) if n != 0}
         self._epsilon = {im: np.zeros(n, dtype=float) for im, n in enumerate(states) if n != 0}
         self._eV = {im: np.zeros(n, dtype=float) for im, n in enumerate(states) if n != 0}
@@ -164,17 +163,8 @@ class LVC(INTERFACE):
             self._dipole = np.reshape(self._dipole.view(float), self._dipole.shape + (2,))[:, :, :, 0]
         # timing (BIG): 0.59
 
-        if 'init' in QMin:
-            INTERFACE.checkscratch(QMin['savedir'])
-        if 'init' not in QMin and 'samestep' not in QMin and 'restart' not in QMin:
-            fromfile = os.path.join(QMin['savedir'], 'U.out')
-            if not os.path.isfile(fromfile):
-                print('ERROR: savedir does not contain U.out! Maybe you need to add "init" to QM.in.')
-                sys.exit(17)
-            tofile = os.path.join(QMin['savedir'], 'Uold.out')
-            shutil.copy(fromfile, tofile)
-
-
+        if 'init' in self._QMin:
+            INTERFACE.checkscratch(self._QMin['savedir'])
         self._read_template = True
         return
 
@@ -198,12 +188,20 @@ class LVC(INTERFACE):
         return
 
 
-    def read_resources(self, resources_filename):
-        return
+    def read_resources(self, resources_filename="LVC.resources"):
+        pass
 
     def run(self):
         self.clock.starttime = datetime.datetime.now()
         nmstates = self._QMin['nmstates']
+        self._U = np.zeros((nmstates, nmstates), dtype=float)
+        # if 'init' not in self._QMin and 'samestep' not in self._QMin and 'restart' not in self._QMin:
+        #     fromfile = os.path.join(self._QMin['savedir'], 'U.out')
+        #     if not os.path.isfile(fromfile):
+        #         print(f'ERROR: savedir does not contain U.out! Maybe you need to add "init" to QM.in.\n{fromfile}')
+        #         sys.exit(17)
+        #     tofile = os.path.join(self._QMin['savedir'], 'Uold.out')
+        #     shutil.copy(fromfile, tofile)
         Hd = np.zeros((nmstates, nmstates), dtype=self._soc.dtype)
         states = self._QMin['states']
         r3N = 3 * self._QMin['natom']
@@ -213,11 +211,11 @@ class LVC(INTERFACE):
         V0 = 0.5 * (self._V) @ self._Q
         start = 0  # starting index for blocks
         for im, n in filter(lambda x: x[1] != 0, enumerate(states)):
-            H = self._H[im]
+            H = np.zeros((n, n), dtype=float)
             np.einsum('ii->i', H)[:] = self._epsilon[im] + V0
             H += self._H_i[im] @ self._Q
             stop = start + n
-            np.einsum('ii->i', Hd)[start:stop], self._U[start:stop, start:stop] = np.linalg.eigh(H)
+            np.einsum('ii->i', Hd)[start:stop], self._U[start:stop, start:stop] = np.linalg.eigh(H, UPLO='U')
             for s1 in map(lambda x: start + n * (x + 1), range(im)):  # fills in blocks for other magnetic quantum numbers
                 s2 = s1 + n
                 self._U[s1:s2, s1:s2] = self._U[start:stop, start:stop]
@@ -225,7 +223,7 @@ class LVC(INTERFACE):
             start = stop
 
         # GRADS and NACS
-        if self._QMin['nacdr']:
+        if 'nacdr' in self._QMin:
             # Build full derivative matrix
             start = 0  # starting index for blocks
             dE = np.zeros((nmstates * nmstates, r3N), Hd.dtype)
@@ -265,23 +263,27 @@ class LVC(INTERFACE):
                     s2 = s1 + n
                     grad[s1:s2, :] += grad[start:stop, :]
                 start = stop
-
-        self._U.tofile(os.path.join(self._QMin['savedir'], 'U.out'))  # writes a binary file (can be read with numpy.fromfile())
-        # print(np.reshape(grad.view(float), (13,3,3,2))[:,:,:,0])
+        if self._persistent:
+            self._Uold = self._U
+        else:
+            self._U.tofile(os.path.join(self._QMin['savedir'], 'Uold.out'))  # writes a binary file (can be read with numpy.fromfile())
         # OVERLAP
 
         if 'overlap' in self._QMin:
             if 'init' in self._QMin:
                 overlap = np.identity(nmstates, dtype=float)
+            elif self._persistent:
+                overlap = self._Uold.T @ self._U
             else:
-                overlap = np.fromfile('Uold.out') @ self._U
+                overlap = np.fromfile(os.path.join(self._QMin['savedir'], 'Uold.out'), dtype=float).reshape(self._U.shape).T @ self._U
             self._QMout['overlap'] = overlap
 
         Hd += self._U.T @ self._soc @ self._U
         self._QMout['h'] = Hd.tolist()
         self._QMout['dm'] = np.einsum('ni,kij,jm->knm', self._U.T, self._dipole, self._U).tolist()
         self._QMout['grad'] = grad.reshape((nmstates, self._QMin['natom'], 3)).tolist()
-        self.QMout['nacdr'] = nacdr.reshape((nmstates, nmstates, self._QMin['natom'], 3)).tolist()
+        if 'nacdr' in self._QMin:
+            self.QMout['nacdr'] = nacdr.reshape((nmstates, nmstates, self._QMin['natom'], 3)).tolist()
         self._QMout['runtime'] = self.clock.measuretime()
         return
 

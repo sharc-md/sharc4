@@ -28,9 +28,9 @@ from SHARC_INTERFACE import INTERFACE
 
 
 def factory(name: str) -> INTERFACE:
+    if name.upper() not in ['LVC', 'ORCA', 'MOLCAS', 'BAGEL', 'MOLPRO', 'COLUMBUS', 'AMS-ADF', 'RICC2', 'GAUSSIAN']:
+        raise Error(f'Interface with name "{name}" does not exist!')
     interface_mod = import_module('SHARC_{}_new'.format(name.upper()))
-    
-    
     interface = getattr(interface_mod, name.upper())
     if issubclass(interface, INTERFACE):
         return interface

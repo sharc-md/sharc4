@@ -66,11 +66,12 @@ class INTERFACE(ABC):
 
     # TODO: set Debug and Print flag
     # TODO: set persistant flag for file-io vs in-core
-    def __init__(self, debug=False, print=True):
+    def __init__(self, debug=False, print=True, persistent=False):
         self.clock = clock(verbose=print)
         # self.printheader()
         self._DEBUG = debug
         self._PRINT = print
+        self._persistent = persistent
         self._QMin['pwd'] = os.getcwd()
     # ================== abstract methods and properties ===================
 
@@ -165,12 +166,7 @@ class INTERFACE(ABC):
             if key == 'states':
                 QMin.update(self.parseStates(llist[1]))
             elif key == 'unit':
-                unit = llist[1].strip().lower()
-                if unit in ['bohr', 'angstrom']:
-                    QMin['unit'] = unit
-                    self._factor = 1. if unit == 'bohr' else 1. / BOHR_TO_ANG
-                else:
-                    raise Error('unknown unit specified in QMin', 23)
+                self.set_unit(llist[1].strip().lower())
             elif key == 'savedir':
                 QMin[key] = llist[1].strip()
         if 'savedir' not in QMin:
@@ -179,6 +175,13 @@ class INTERFACE(ABC):
         self._setup_mol = True
         # NOTE: Quantity requests (tasks) are dealt with later and potentially re-assigned
         return
+
+    def set_unit(self, unit: str):
+        if unit in ['bohr', 'angstrom']:
+            self._QMin['unit'] = unit
+            self._factor = 1. if unit == 'bohr' else 1. / BOHR_TO_ANG
+        else:
+            raise Error('unknown unit specified', 23)
 
     @staticmethod
     def parseStates(states: str) -> dict:
@@ -239,7 +242,9 @@ class INTERFACE(ABC):
         raise NotImplementedError()
 
     @set_requests.register
-    def _(self, requests: dict[str]):
+    def _(self, requests: dict):
+        # delete all old requests
+        self._reset_requests()
         # logic for raw tasks object from pysharc interface
         if 'tasks' in requests and type(requests['tasks']) is str:
             requests.update({k.lower(): True for k in requests['tasks'].split()})
@@ -252,6 +257,8 @@ class INTERFACE(ABC):
         self._request_logic()
 
     def read_requests(self, requests_filename: str = "QM.in"):
+        # delete all old requests
+        self._reset_requests()
         if not self._read_template:
             raise Error('Interface is not set up correctly. Call read_template with the .template file first!', 23)
         QMin = self._QMin
@@ -285,9 +292,13 @@ class INTERFACE(ABC):
         self._QMin = {**dict(map(parse, lines)), **QMin}
         self._request_logic()
 
+    def _reset_requests(self):
+        for k in ['init', 'samestep', 'newstep', 'restart', 'cleanup', 'backup', 'h', 'soc', 'dm', 'grad', 'overlap', 'dmdr', 'socdr', 'ion', 'theodore', 'phases']:
+            if k in self._QMin:
+                del self._QMin[k]
+
     def _request_logic(self):
         QMin = self._QMin
-        print(QMin)
         possibletasks = {'h', 'soc', 'dm', 'grad', 'overlap', 'dmdr', 'socdr', 'ion', 'theodore', 'phases'}
         tasks = possibletasks & QMin.keys()
         if len(tasks) == 0:
@@ -312,7 +323,6 @@ class INTERFACE(ABC):
 
         if 'overlap' in tasks and 'init' in tasks:
             raise Error('"overlap" and "phases" cannot be calculated in the first timestep! Delete either "overlap" or "init"', 43)
-
         if QMin.keys().isdisjoint({'init', 'samestep', 'restart'}):
             QMin['newstep'] = True
 
@@ -333,7 +343,6 @@ class INTERFACE(ABC):
                 grad = [i + 1 for i in range(QMin['nmstates'])]
                 # pass
             else:
-                grad = [grad]
                 try:
                     grad = [int(i) for i in grad]
                 except ValueError:
@@ -343,7 +352,7 @@ class INTERFACE(ABC):
             QMin['grad'] = grad
 
         # wfoverlap settings
-        if 'overlap' in QMin or 'ion' in QMin:
+        if ('overlap' in QMin or 'ion' in QMin) and self.__class__.__name__ != 'LVC':
             # WFoverlap
 
             if not os.path.isfile(QMin['resources']['wfoverlap']):
