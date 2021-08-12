@@ -195,13 +195,6 @@ class LVC(INTERFACE):
         self.clock.starttime = datetime.datetime.now()
         nmstates = self._QMin['nmstates']
         self._U = np.zeros((nmstates, nmstates), dtype=float)
-        # if 'init' not in self._QMin and 'samestep' not in self._QMin and 'restart' not in self._QMin:
-        #     fromfile = os.path.join(self._QMin['savedir'], 'U.out')
-        #     if not os.path.isfile(fromfile):
-        #         print(f'ERROR: savedir does not contain U.out! Maybe you need to add "init" to QM.in.\n{fromfile}')
-        #         sys.exit(17)
-        #     tofile = os.path.join(self._QMin['savedir'], 'Uold.out')
-        #     shutil.copy(fromfile, tofile)
         Hd = np.zeros((nmstates, nmstates), dtype=self._soc.dtype)
         states = self._QMin['states']
         r3N = 3 * self._QMin['natom']
@@ -210,6 +203,7 @@ class LVC(INTERFACE):
         self._V = self._Om * self._Q
         V0 = 0.5 * (self._V) @ self._Q
         start = 0  # starting index for blocks
+        # TODO what if I want to get gradients only ? i.e. samestep
         for im, n in filter(lambda x: x[1] != 0, enumerate(states)):
             H = np.zeros((n, n), dtype=float)
             np.einsum('ii->i', H)[:] = self._epsilon[im] + V0
@@ -263,6 +257,7 @@ class LVC(INTERFACE):
                     s2 = s1 + n
                     grad[s1:s2, :] += grad[start:stop, :]
                 start = stop
+        
         if self._persistent:
             self._Uold = self._U
         else:
