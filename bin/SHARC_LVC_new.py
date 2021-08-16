@@ -31,10 +31,7 @@
 
 # IMPORTS
 # external
-from os import stat
-from posixpath import join
 import sys
-import time
 import datetime
 import numpy as np
 
@@ -79,7 +76,6 @@ class LVC(INTERFACE):
     def read_template(self, template_filename='LVC.template'):
         QMin = self._QMin
         QMin['template'] = {'qmmm': False, 'cobramm': False}
-
         r3N = 3 * QMin['natom']
         nmstates = QMin['nmstates']
 
@@ -220,7 +216,7 @@ class LVC(INTERFACE):
         if 'nacdr' in self._QMin:
             # Build full derivative matrix
             start = 0  # starting index for blocks
-            dE = np.zeros((nmstates * nmstates, r3N), Hd.dtype)
+            dE = np.zeros((nmstates * nmstates, r3N), float)
             dE[::nmstates + 1, :] += self._V  # fills diagonal on matrix with shape (nmstates,nmstates, r3N)
             dE = dE.reshape((nmstates, nmstates, r3N))
             for im, n in filter(lambda x: x[1] != 0, enumerate(states)):
@@ -230,19 +226,25 @@ class LVC(INTERFACE):
                     s2 = s1 + n
                     dE[s1:s2, s1:s2, :] = dE[start:stop, start:stop, :]
                 start = stop
-            dE = np.einsum('ni,ijl,jm,l->nml', self._U.T, dE, self._U, np.sqrt(self._Om))
-            dE = np.einsum('ij,kli->klj', self._Km, dE)
+            dE = np.einsum('ijr,in->njr', dE, self._U, casting='no', optimize=True)
+            dE = np.einsum('njr,jm->nmr', dE, self._U, casting='no', optimize=True)
+            dE = np.einsum('mnr,r->nmr', dE, np.sqrt(self._Om), casting='no', optimize=True)
+            dE = np.einsum('ij,kli->klj', self._Km, dE, casting='no', optimize=True)
             grad = np.einsum('nnl->nl', dE)
             start = 0  # starting index for blocks
-            eV = Hd.flat[::nmstates + 1]
-            nacdr = np.zeros((nmstates, nmstates, r3N), dE.dtype)
+            if Hd.dtype == complex:
+                eV = np.reshape(Hd.view(float), (nmstates * nmstates, 2))[:: nmstates + 1, 0]
+            else:
+                eV = Hd.flat[:: nmstates + 1]
+            nacdr = np.zeros((nmstates, nmstates, r3N), float)
+            cast = complex if Hd.dtype == complex else float
             for im, n in filter(lambda x: x[1] != 0, enumerate(states)):
                 stop = start + n
                 tmp = np.full((n, n), eV[start:stop]).T
                 tmp -= eV[start:stop]
-                idx = tmp != 0. + 0j
+                idx = tmp != cast(0) 
                 tmp[idx] **= -1
-                nacdr[start:stop, start:stop, :] = np.einsum('ij,ijk->ijk', tmp.T, dE[start:stop, start:stop, :])
+                nacdr[start:stop, start:stop, :] = np.einsum('ij,ijk->ijk', tmp.T, dE[start:stop, start:stop, :], casting='no', optimize=True)
                 for s1 in map(lambda x: start + n * (x + 1), range(im)):  # fills in blocks for other magnetic quantum numbers
                     s2 = s1 + n
                     nacdr[s1:s2, s1:s2, :] = nacdr[start:stop, start:stop, :]
@@ -252,17 +254,11 @@ class LVC(INTERFACE):
             start = 0
             for im, n in filter(lambda x: x[1] != 0, enumerate(states)):
                 stop = start + n
-                grad[start: stop, :] += np.einsum('iik,k->ik', self._H_i[im], self._Q)
+                grad[start: stop, :] += np.einsum('iik,k->ik', self._H_i[im], self._Q, casting='no', optimize=True)
                 for s1 in map(lambda x: start + n * (x + 1), range(im)):  # fills in blocks for other magnetic quantum numbers
                     s2 = s1 + n
                     grad[s1:s2, :] += grad[start:stop, :]
                 start = stop
-        
-        if self._persistent:
-            self._Uold = self._U
-        else:
-            self._U.tofile(os.path.join(self._QMin['savedir'], 'Uold.out'))  # writes a binary file (can be read with numpy.fromfile())
-        # OVERLAP
 
         if 'overlap' in self._QMin:
             if 'init' in self._QMin:
@@ -273,9 +269,14 @@ class LVC(INTERFACE):
                 overlap = np.fromfile(os.path.join(self._QMin['savedir'], 'Uold.out'), dtype=float).reshape(self._U.shape).T @ self._U
             self._QMout['overlap'] = overlap
 
+        if self._persistent:
+            self._Uold = np.copy(self._U)
+        else:
+            self._U.tofile(os.path.join(self._QMin['savedir'], 'Uold.out'))  # writes a binary file (can be read with numpy.fromfile())
+        # OVERLAP
         Hd += self._U.T @ self._soc @ self._U
         self._QMout['h'] = Hd.tolist()
-        self._QMout['dm'] = np.einsum('ni,kij,jm->knm', self._U.T, self._dipole, self._U).tolist()
+        self._QMout['dm'] = np.einsum('ni,kij,jm->knm', self._U.T, self._dipole, self._U, casting='no', optimize='optimal').tolist()
         self._QMout['grad'] = grad.reshape((nmstates, self._QMin['natom'], 3)).tolist()
         if 'nacdr' in self._QMin:
             self.QMout['nacdr'] = nacdr.reshape((nmstates, nmstates, self._QMin['natom'], 3)).tolist()

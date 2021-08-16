@@ -85,14 +85,14 @@ class QMOUT():
             self._QMout.set_overlap(data['overlap'])
 
         if 'grad' in data:
-            if isinstance(data['grad'], type([])):
+            if isinstance(data['grad'], list):
                 self._QMout.set_gradient(list2dict(data['grad']), icall)
             else:
                 if data['grad'] is None:
                     data['grad'] = {}
                 self._QMout.set_gradient(data['grad'], icall)
         if 'nacdr' in data:
-            if isinstance(data['nacdr'], type([])):
+            if isinstance(data['nacdr'], list):
                 nacdr = {}
                 for i, ele in enumerate(data['nacdr']):
                     nacdr[i] = list2dict(ele)
@@ -217,7 +217,7 @@ def main():
     param = args[0:-1]
     interface = factory(options.name)
 
-    i: INTERFACE = interface(options.debug, options.print)
+    i: INTERFACE = interface(options.debug, options.print, persistent=True)
     i.set_unit('bohr')
     if options.print:
         i.printheader()
@@ -260,8 +260,12 @@ def main():
 
     finalize_sharc()
     stop = time.time_ns()
-    print('Timing:', (stop - start)*10e-6)
+    print('Timing:', (stop - start) * 1e-6, 'ms')
 
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        print('\nCtrl+C makes me a sad SHARC ;-(\n')
+        exit(1)

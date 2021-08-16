@@ -251,7 +251,10 @@ class INTERFACE(ABC):
             del requests['tasks']
         for task in ['nacdr', 'overlap', 'grad', 'ion']:
             if task in requests and type(requests[task]) is str:
-                requests[task] = [int(i) for i in requests[task].split()]
+                if task == requests[task].lower() or requests[task] == 'all':
+                    requests[task] = True
+                else:
+                    requests[task] = [int(i) for i in requests[task].split()]
 
         self._QMin.update(requests)
         self._request_logic()
