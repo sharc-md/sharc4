@@ -398,10 +398,7 @@ class INTERFACE(ABC):
             jobs[2] = {'mults': [2], 'restr': False}
         if len(QMin['states_to_do']) >= 3 and QMin['states_to_do'][2] > 0:
             if not QMin['template']['unrestricted_triplets'] and QMin['states_to_do'][0] > 0:
-                if QMin['OrcaVersion'] >= (4, 1):
-                    jobs[1]['mults'].append(3)
-                else:
-                    jobs[3] = {'mults': [1, 3], 'restr': True}
+                jobs[1]['mults'].append(3)
             else:
                 jobs[3] = {'mults': [3], 'restr': False}
         if len(QMin['states_to_do']) >= 4:
@@ -474,55 +471,6 @@ class INTERFACE(ABC):
 
         # TODO: QMMM
         QMin['qmmm'] = False
-
-
-    # --------------------------------------------- File setup ----------------------------------
-
-        # check for initial orbitals
-        initorbs = {}
-        if 'always_guess' in QMin:
-            QMin['initorbs'] = {}
-        elif 'init' in QMin or 'always_orb_init' in QMin:
-            for job in QMin['joblist']:
-                filename = os.path.join(QMin['pwd'], 'ORCA.gbw.init')
-                if os.path.isfile(filename):
-                    initorbs[job] = filename
-            for job in QMin['joblist']:
-                filename = os.path.join(QMin['pwd'], 'ORCA.gbw.%i.init' % (job))
-                if os.path.isfile(filename):
-                    initorbs[job] = filename
-            if 'always_orb_init' in QMin and len(initorbs) < QMin['njobs']:
-                print('Initial orbitals missing for some jobs!')
-                sys.exit(70)
-            QMin['initorbs'] = initorbs
-        elif 'newstep' in QMin:
-            for job in QMin['joblist']:
-                filename = os.path.join(QMin['savedir'], f'ORCA.gbw.{job}')
-                if os.path.isfile(filename):
-                    initorbs[job] = filename + '.old'     # file will be moved to .old
-                else:
-                    print(f'File {filename} missing in savedir!')
-                    sys.exit(71)
-            QMin['initorbs'] = initorbs
-        elif 'samestep' in QMin:
-            for job in QMin['joblist']:
-                filename = os.path.join(QMin['savedir'], f'ORCA.gbw.{job}')
-                if os.path.isfile(filename):
-                    initorbs[job] = filename
-                else:
-                    print(f'File {filename} missing in savedir!')
-                    sys.exit(72)
-            QMin['initorbs'] = initorbs
-        elif 'restart' in QMin:
-            for job in QMin['joblist']:
-                filename = os.path.join(QMin['savedir'], 'ORCA.gbw.{job}.old' % (job))
-                if os.path.isfile(filename):
-                    initorbs[job] = filename
-                else:
-                    print(f'File {filename} missing in savedir!')
-                    sys.exit(73)
-            QMin['initorbs'] = initorbs
-
 
         # make name for backup directory
         if 'backup' in QMin:
@@ -598,19 +546,7 @@ class INTERFACE(ABC):
                 if grad == (1, 1):
                     isgs = True
             istates = QMin['states_to_do'][grad[0] - 1]
-            if QMin['OrcaVersion'] < (4, 1):
-                if isgs and istates > 1:
-                    gradjob['grad_%i_%i' % grad] = {}
-                    gradjob['grad_%i_%i' % grad][grad] = {'gs': True}
-                else:
-                    n = len(gradjob['master_%i' % ijob])
-                    if n > 0:
-                        gradjob['grad_%i_%i' % grad] = {}
-                        gradjob['grad_%i_%i' % grad][grad] = {'gs': False}
-                    else:
-                        gradjob['master_%i' % ijob][grad] = {'gs': False}
-            else:
-                gradjob['master_%i' % ijob][grad] = {'gs': isgs}
+            gradjob['master_%i' % ijob][grad] = {'gs': isgs}
         # make map for states onto gradjobs
         jobgrad = {}
         for job in gradjob:
@@ -640,10 +576,6 @@ class INTERFACE(ABC):
                     QMin1 = removekey(QMin1, r)
                 QMin1['gradmap'] = list(gradjob[i])
                 QMin1['ncpu'] = cpu_per_run[icount]
-                if QMin['OrcaVersion'] < (4, 1):
-                    if 3 in QMin['multmap'][-QMin1['IJOB']] and QMin['jobs'][QMin1['IJOB']]['restr']:
-                        QMin1['states'][0] = 1
-                        QMin1['states_to_do'][0] = 1
                 if QMin1['template']['qmmm']:
                     QMin1['qmmm'] = True
                 icount += 1

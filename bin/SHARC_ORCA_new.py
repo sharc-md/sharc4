@@ -389,6 +389,53 @@ class ORCA(INTERFACE):
             fromfile = os.path.join(currentDirectory, 'charge.dat')
             tofile = tofile = os.path.join(WORKDIR, 'charge.dat')
             shutil.copy(fromfile, tofile)
+    # --------------------------------------------- File setup ----------------------------------
+
+        # check for initial orbitals
+        initorbs = {}
+        if 'always_guess' in QMin:
+            QMin['initorbs'] = {}
+        elif 'init' in QMin or 'always_orb_init' in QMin:
+            for job in QMin['joblist']:
+                filename = os.path.join(QMin['pwd'], 'ORCA.gbw.init')
+                if os.path.isfile(filename):
+                    initorbs[job] = filename
+            for job in QMin['joblist']:
+                filename = os.path.join(QMin['pwd'], 'ORCA.gbw.%i.init' % (job))
+                if os.path.isfile(filename):
+                    initorbs[job] = filename
+            if 'always_orb_init' in QMin and len(initorbs) < QMin['njobs']:
+                print('Initial orbitals missing for some jobs!')
+                sys.exit(70)
+            QMin['initorbs'] = initorbs
+        elif 'newstep' in QMin:
+            for job in QMin['joblist']:
+                filename = os.path.join(QMin['savedir'], f'ORCA.gbw.{job}')
+                if os.path.isfile(filename):
+                    initorbs[job] = filename + '.old'     # file will be moved to .old
+                else:
+                    print(f'File {filename} missing in savedir!')
+                    sys.exit(71)
+            QMin['initorbs'] = initorbs
+        elif 'samestep' in QMin:
+            for job in QMin['joblist']:
+                filename = os.path.join(QMin['savedir'], f'ORCA.gbw.{job}')
+                if os.path.isfile(filename):
+                    initorbs[job] = filename
+                else:
+                    print(f'File {filename} missing in savedir!')
+                    sys.exit(72)
+            QMin['initorbs'] = initorbs
+        elif 'restart' in QMin:
+            for job in QMin['joblist']:
+                filename = os.path.join(QMin['savedir'], 'ORCA.gbw.{job}.old' % (job))
+                if os.path.isfile(filename):
+                    initorbs[job] = filename
+                else:
+                    print(f'File {filename} missing in savedir!')
+                    sys.exit(73)
+            QMin['initorbs'] = initorbs
+
 
         # wf file copying
         if 'master' in QMin:
