@@ -33,6 +33,7 @@ import os
 import re
 import shutil
 import ast
+from time import time
 import numpy as np
 import subprocess as sp
 from abc import ABC, abstractmethod, abstractproperty
@@ -49,7 +50,8 @@ from constants import *
 from parse_keywords import KeywordParser
 
 # NOTE: Error handling especially import for processes in pools (error_callback)
-# NOTE: gradient calculation necessitates multiple parallel calls (either inside interface) or one interface = one calculation (i.e. interface spawns multiple instances of itself)
+# NOTE: gradient calculation necessitates multiple parallel calls (either inside interface) or
+# one interface = one calculation (i.e. interface spawns multiple instances of itself)
 # NOTE: logic checks in read_template and read_resources and in run() if required (LVC won't need check in run())
 
 
@@ -73,6 +75,7 @@ class INTERFACE(ABC):
         self._PRINT = print
         self._persistent = persistent
         self._QMin['pwd'] = os.getcwd()
+
     # ================== abstract methods and properties ===================
 
     @abstractproperty
@@ -112,10 +115,14 @@ class INTERFACE(ABC):
         name = self.__class__.__name__
         args = sys.argv
         if len(args) != 2:
-            print('Usage:', f'./SHARC_{name} <QMin>',
-                  f'version: {self.version}',
-                  f'date: {self.versiondate}',
-                  f'changelog: {self.changelogstring}', sep='\n')
+            print(
+                'Usage:',
+                f'./SHARC_{name} <QMin>',
+                f'version: {self.version}',
+                f'date: {self.versiondate}',
+                f'changelog: {self.changelogstring}',
+                sep='\n'
+            )
             sys.exit(106)
         QMinfilename = sys.argv[1]
         pwd = os.getcwd()
@@ -156,8 +163,9 @@ class INTERFACE(ABC):
         QMin['natom'] = len(QMin['elements'])
 
         # replaces all comments with white space. filters all empty lines
-        filtered = filter(lambda x: not re.match(r'^\s*$', x),
-                          map(lambda x: re.sub(r'#.*$', '', x), QMinlines[QMin['natom'] + 2:]))
+        filtered = filter(
+            lambda x: not re.match(r'^\s*$', x), map(lambda x: re.sub(r'#.*$', '', x), QMinlines[QMin['natom'] + 2:])
+        )
 
         # naively parse all key argument pairs from QM.in
         for line in filtered:
@@ -208,6 +216,7 @@ class INTERFACE(ABC):
         res['nstates'] = nstates
         res['nmstates'] = nmstates
         return res
+
     # enables function overloads for different types (call detects type and calls corresponding version of function)
 
     @singledispatchmethod
@@ -221,7 +230,8 @@ class INTERFACE(ABC):
             natom = int(lines[0])
         except ValueError:
             raise Error('first line must contain the number of atoms!', 2)
-        self._QMin["coords"] = np.asarray([INTERFACE._parse_xyz(x)[1] for x in lines[2:natom + 2]], dtype=float) * self._factor
+        self._QMin["coords"
+                   ] = np.asarray([INTERFACE._parse_xyz(x)[1] for x in lines[2:natom + 2]], dtype=float) * self._factor
 
     @set_coords.register
     def _(self, xyz: list):
@@ -267,14 +277,16 @@ class INTERFACE(ABC):
         QMin = self._QMin
 
         lines = readfile(requests_filename)
-        filtered = filter(lambda x: not re.match(r'^\s*$', x), map(lambda x: re.sub(r'#.*$', '', x).strip(), lines[QMin['natom'] + 2:]))
+        filtered = filter(
+            lambda x: not re.match(r'^\s*$', x),
+            map(lambda x: re.sub(r'#.*$', '', x).strip(), lines[QMin['natom'] + 2:])
+        )
         file_str = '\n'.join(filtered)
 
         def format_match(x: re.Match) -> str:
             return re.sub(r'\n+', "','", "['{}']".format(x.group(3)))
-        lines = re.sub(r'(s(elect|tart).*\n)([^end]+)(\nend)',
-                       format_match,
-                       file_str).split('\n')
+
+        lines = re.sub(r'(s(elect|tart).*\n)([^end]+)(\nend)', format_match, file_str).split('\n')
 
         def parse(line: str):
             llist = line.split(None, 1)
@@ -296,7 +308,10 @@ class INTERFACE(ABC):
         self._request_logic()
 
     def _reset_requests(self):
-        for k in ['init', 'samestep', 'newstep', 'restart', 'cleanup', 'backup', 'h', 'soc', 'dm', 'grad', 'overlap', 'dmdr', 'socdr', 'ion', 'theodore', 'phases']:
+        for k in [
+            'init', 'samestep', 'newstep', 'restart', 'cleanup', 'backup', 'h', 'soc', 'dm', 'grad', 'overlap', 'dmdr',
+            'socdr', 'ion', 'theodore', 'phases'
+        ]:
             if k in self._QMin:
                 del self._QMin[k]
 
@@ -325,7 +340,10 @@ class INTERFACE(ABC):
             QMin['overlap'] = True
 
         if 'overlap' in tasks and 'init' in tasks:
-            raise Error('"overlap" and "phases" cannot be calculated in the first timestep! Delete either "overlap" or "init"', 43)
+            raise Error(
+                '"overlap" and "phases" cannot be calculated in the first timestep! Delete either "overlap" or "init"',
+                43
+            )
         if QMin.keys().isdisjoint({'init', 'samestep', 'restart'}):
             QMin['newstep'] = True
 
@@ -337,7 +355,6 @@ class INTERFACE(ABC):
 
         if 'socdr' in tasks:
             raise Error('Spin-orbit coupling derivatives ("socdr") are not implemented', 46)
-
 
         # Check for correct gradient list
         if 'grad' in tasks:
@@ -351,7 +368,9 @@ class INTERFACE(ABC):
                 except ValueError:
                     raise Error('Arguments to keyword "grad" must be "all" or a list of integers!', 47)
                 if len(grad) > QMin['nmstates']:
-                    raise Error('State for requested gradient does not correspond to any state in QM input file state list!', 48)
+                    raise Error(
+                        'State for requested gradient does not correspond to any state in QM input file state list!', 48
+                    )
             QMin['grad'] = grad
 
         # wfoverlap settings
@@ -368,10 +387,13 @@ class INTERFACE(ABC):
                 sys.exit(56)
             os.environ['THEODIR'] = QMin['resources']['theodir']
             if 'PYTHONPATH' in os.environ:
-                os.environ['PYTHONPATH'] = os.path.join(QMin['resources']['theodir'], 'lib') + os.pathsep + QMin['resources']['theodir'] + os.pathsep + os.environ['PYTHONPATH']
+                os.environ['PYTHONPATH'] = os.path.join(
+                    QMin['resources']['theodir'], 'lib'
+                ) + os.pathsep + QMin['resources']['theodir'] + os.pathsep + os.environ['PYTHONPATH']
                 # print os.environ['PYTHONPATH']
             else:
-                os.environ['PYTHONPATH'] = os.path.join(QMin['theodir'], 'lib') + os.pathsep + QMin['resources']['theodir']
+                os.environ['PYTHONPATH'] = os.path.join(QMin['theodir'],
+                                                        'lib') + os.pathsep + QMin['resources']['theodir']
 
     # NOTE: generalize the parsing of keyword based input files, with lines as input
 
@@ -465,7 +487,8 @@ class INTERFACE(ABC):
 
         # number of properties/entries calculated by TheoDORE
         if 'theodore' in QMin:
-            QMin['resources']['theodore_n'] = len(QMin['resources']['theodore_prop']) + len(QMin['resources']['theodore_fragment'])**2
+            QMin['resources']['theodore_n'] = len(QMin['resources']['theodore_prop']
+                                                  ) + len(QMin['resources']['theodore_fragment'])**2
         else:
             QMin['resources']['theodore_n'] = 0
 
@@ -485,16 +508,26 @@ class INTERFACE(ABC):
                     backupdir1 = backupdir + '/calc_%i' % (i)
             QMin['backup'] = backupdir
 
-
         return QMin
 
-    def parse_keywords(self, bools: dict[bool], strings: dict[str], integers: dict[int], floats: dict[float], special: dict, lines: list[str]) -> dict:
+    def parse_keywords(
+        self,
+        lines: list[str],
+        bools: dict[str, bool] = {},
+        strings: dict[str, str] = {},
+        paths: dict[str, str] = {},
+        integers: dict[str, int] = {},
+        floats: dict[str, float] = {},
+        special: dict[str] = {}
+    ) -> dict:
         '''
-        Returns the parsed arguments of a set of lines as a dict with the help of the functions declared in parse_template.py.
+        Returns the parsed arguments of a set of lines as a dict with the help of the functions declared in
+        parse_template.py.
 
                 Parameters:
                         bools (dict[bool]): Dictionary with all keywords and their defaults with type bool
                         strings (dict[str]): Dictionary with all keywords and their defaults with type string
+                        paths (dict[str]): Dictionary with all keywords and their defaults that are paths
                         integers (dict[int]): Dictionary with all keywords and their defaults with type int
                         floats (dict[float]): Dictionary with all keywords and their defaults with type float
                         special (dict): Dictionary with all keywords and their defaults with complex type
@@ -508,6 +541,7 @@ class INTERFACE(ABC):
         # prepare dict with parsers for every value type
         bool_parser = {k: lambda x: True for k in bools}
         string_parser = {k: lambda x: x for k in strings}
+        path_parser = {k: lambda x: template_parser.path(x) for k in strings}
         integer_parser = {k: lambda x: int(float(x)) for k in integers}
         float_parser = {k: lambda x: float(x) for k in floats}
         special_parser = {k: getattr(template_parser, k) for k in special}
@@ -516,19 +550,56 @@ class INTERFACE(ABC):
         filtered = filter(lambda x: not re.match(r'^\s*$', x), map(lambda x: re.sub(r'#.*$', '', x).strip(), lines))
 
         # concat all lines for select keyword:
-        # 1 join lines to full file string, 2 match all select/start ... end blocks, 3 replace all \n with ',' in the matches, 4 return matches between [' and ']
+        # 1 join lines to full file string,
+        # 2 match all select/start ... end blocks,
+        # 3 replace all \n with ',' in the matches,
+        # 4 return matches between [' and ']
         file_str = '\n'.join(filtered)
 
         def format_match(x: re.Match) -> str:
             return re.sub(r'\n+', "','", "['{}']".format(x.group(3)))
-        lines = re.sub(r'(s(elect|tart).*\n)([^end]+)(\nend)',
-                       format_match,
-                       file_str).split('\n')
+
+        lines = re.sub(r'(s(elect|tart).*\n)([^end]+)(\nend)', format_match, file_str).split('\n')
 
         def parse(d: dict, line: str) -> dict:
-            return self._parse_to_dict(d, line, {**bool_parser, **string_parser, **integer_parser, **float_parser, **special_parser})
+            return self._parse_to_dict(
+                d, line, {
+                    **bool_parser,
+                    **string_parser,
+                    **integer_parser,
+                    **float_parser,
+                    **special_parser
+                }
+            )
 
         return reduce(parse, lines, {})
+
+    # split line into key and args, calls parser for args and adds key: parser(args) to dict
+    @staticmethod
+    def _parse_to_dict(d: dict, line: str, parsers: dict) -> dict:
+        llist = line.strip().split(None, 1)
+        key = llist[0].lower()
+        args = ' '
+        if len(llist) == 2:
+            args = llist[1]
+        try:
+            if key in d:
+                dk = d[key]
+                if isinstance(dk, dict):
+                    dk.update(parsers[key](args))
+                elif isinstance(dk, list):
+                    dk.extend(parsers[key](args))
+            else:
+                d[key] = parsers[key](args)
+        except Error:
+            raise
+        except Exception:
+            ty, val, tb = sys.exc_info()
+            raise Error(
+                f'Something went wrong while parsing the keyword: {key} {args}:\n\
+                {ty.__name__}: {val}\nPlease consult the examples folder in the $SHARCDIR for more information!'
+            ).with_traceback(tb)
+        return d
 
     def generate_joblist(self):
         QMin = self._QMin
@@ -595,7 +666,9 @@ class INTERFACE(ABC):
                     QMin1 = deepcopy(QMin)
                     mult = list(gradjob[i])[0][0]
                     QMin1['IJOB'] = QMin['multmap'][mult]
-                    remove = ['gradmap', 'ncpu', 'h', 'soc', 'dm', 'overlap', 'ion', 'always_guess', 'always_orb_init', 'init']
+                    remove = [
+                        'gradmap', 'ncpu', 'h', 'soc', 'dm', 'overlap', 'ion', 'always_guess', 'always_orb_init', 'init'
+                    ]
                     for r in remove:
                         QMin1 = removekey(QMin1, r)
                     QMin1['gradmap'] = list(gradjob[i])
@@ -606,31 +679,6 @@ class INTERFACE(ABC):
                     icount += 1
                     schedule[-1][i] = QMin1
         return schedule
-
-    # split line into key and args, calls parser for args and adds key: parser(args) to dict
-    @staticmethod
-    def _parse_to_dict(d: dict, line: str, parsers: dict) -> dict:
-        llist = line.strip().split(None, 1)
-        key = llist[0].lower()
-        args = ' '
-        if len(llist) == 2:
-            args = llist[1]
-        try:
-            if key in d:
-                dk = d[key]
-                if isinstance(dk, dict):
-                    dk.update(parsers[key](args))
-                elif isinstance(dk, list):
-                    dk.extend(parsers[key](args))
-            else:
-                d[key] = parsers[key](args)
-        except Error:
-            raise
-        except Exception:
-            ty, val, tb = sys.exc_info()
-            raise Error(f'Something went wrong while parsing the keyword: {key} {args}:\n\
-                {ty.__name__}: {val}\nPlease consult the examples folder in the $SHARCDIR for more information!').with_traceback(tb)
-        return d
 
     @staticmethod
     def read_coords(xyz):
@@ -649,7 +697,9 @@ class INTERFACE(ABC):
         except ValueError:
             raise Error('first line must contain the number of atoms!', 2)
         if len(QMinlines) < natom + 4:
-            raise Error('Input file must contain at least:\nnatom\ncomment\ngeometry\nkeyword "states"\nat least one task', 3)
+            raise Error(
+                'Input file must contain at least:\nnatom\ncomment\ngeometry\nkeyword "states"\nat least one task', 3
+            )
         atomlist = list(map(lambda x: INTERFACE._parse_xyz(x)[0], (QMinlines[2:natom + 2])))
         return atomlist
 
@@ -683,10 +733,10 @@ class INTERFACE(ABC):
 
     # ======================================================================= #
 
-
     @staticmethod
     def checkscratch(SCRATCHDIR):
-        '''Checks whether SCRATCHDIR is a file or directory. If a file, it quits with exit code 1, if its a directory, it passes. If SCRATCHDIR does not exist, tries to create it.
+        '''Checks whether SCRATCHDIR is a file or directory. If a file, it quits with exit code 1,
+        if its a directory, it passes. If SCRATCHDIR does not exist, tries to create it.
 
         Arguments:
         1 string: path to SCRATCHDIR'''
@@ -736,13 +786,13 @@ class INTERFACE(ABC):
 
     def runProgram(self, string, workdir, outfile, errfile=''):
         prevdir = os.getcwd()
-        PRINT = self.PRINT
-        DEBUG = self.DEBUG
+        PRINT = self._PRINT
+        DEBUG = self._DEBUG
         if DEBUG:
             print(workdir)
         os.chdir(workdir)
         if PRINT or DEBUG:
-            starttime = datetime.datetime.now()
+            starttime = time()
             sys.stdout.write('%s\n\t%s' % (string, starttime))
             sys.stdout.flush()
         stdoutfile = open(os.path.join(workdir, outfile), 'w')
@@ -751,17 +801,22 @@ class INTERFACE(ABC):
         else:
             stderrfile = sp.STDOUT
         try:
-            runerror = sp.call(string, shell=True, stdout=stdoutfile, stderr=stderrfile)
+            exit_code = sp.call(string, shell=True, stdout=stdoutfile, stderr=stderrfile)
         except OSError:
-            raise Error('Call have had some serious problems:', OSError, 96)
+            t, v, tb = sys.exc_info()
+            raise Error(f'Call has had some serious problems:\nWORKDIR:{workdir}\n{t}: {v}', 96).with_traceback(tb)
         stdoutfile.close()
         if errfile:
             stderrfile.close()
         if PRINT or DEBUG:
-            endtime = datetime.datetime.now()
-            sys.stdout.write('\t%s\t\tRuntime: %s\t\tError Code: %i\n\n' % (endtime, endtime - starttime, runerror))
+            endtime = time()
+            sys.stdout.write(
+                '\t{:%d.%m.%Y %H:%M}\t\tRuntime: {:3f}s\t\tExit Code: {}\n\n'.format(
+                    datetime.datetime.now(), endtime - starttime, exit_code
+                )
+            )
         os.chdir(prevdir)
-        return runerror
+        return exit_code
 
     @staticmethod
     def parallel_speedup(N, scaling):
@@ -801,7 +856,6 @@ class INTERFACE(ABC):
             nslots = ncpu // ncores
         # print nrounds,nslots,cpu_per_run
         return nrounds, nslots, cpu_per_run
-
 
     def stripWORKDIR(WORKDIR, keep):
         for ifile in os.listdir(WORKDIR):
@@ -893,9 +947,19 @@ class INTERFACE(ABC):
         link(os.path.join(savedir, 'mos.old'), os.path.join(scradir, 'mos.a'), crucial=True, force=True)
         link(os.path.join(savedir, 'mos'), os.path.join(scradir, 'mos.b'), crucial=True, force=True)
         if QMin['template']['method'] == 'cc2':
-            link(os.path.join(savedir, 'dets_left.%i.old' % (mult)), os.path.join(scradir, 'dets.a'), crucial=True, force=True)
+            link(
+                os.path.join(savedir, 'dets_left.%i.old' % (mult)),
+                os.path.join(scradir, 'dets.a'),
+                crucial=True,
+                force=True
+            )
         else:
-            link(os.path.join(savedir, 'dets.%i.old' % (mult)), os.path.join(scradir, 'dets.a'), crucial=True, force=True)
+            link(
+                os.path.join(savedir, 'dets.%i.old' % (mult)),
+                os.path.join(scradir, 'dets.a'),
+                crucial=True,
+                force=True
+            )
         link(os.path.join(savedir, 'dets.%i' % (mult)), os.path.join(scradir, 'dets.b'), crucial=True, force=True)
 
         # write input file for wfoverlap
@@ -956,9 +1020,9 @@ class INTERFACE(ABC):
 
     @staticmethod
     def get_theodore(sumfile, omffile):
-
         def theo_float(i):
             return safe_cast(i, float, 0.)
+
         out = readfile(sumfile)
         if PRINT:
             print('TheoDORE: ' + shorten_DIR(sumfile))
@@ -992,13 +1056,17 @@ class INTERFACE(ABC):
         if 'ion' in QMin:
             for ionpair in QMin['ionmap']:
                 WORKDIR = os.path.join(QMin['scratchdir'], 'Dyson_%i_%i_%i_%i' % ionpair)
-                files = {'aoovl': 'AO_overl',
-                         'det.a': 'dets.%i' % ionpair[0],
-                         'det.b': 'dets.%i' % ionpair[2],
-                         'mo.a': 'mos.%i' % ionpair[1],
-                         'mo.b': 'mos.%i' % ionpair[3]}
+                files = {
+                    'aoovl': 'AO_overl',
+                    'det.a': 'dets.%i' % ionpair[0],
+                    'det.b': 'dets.%i' % ionpair[2],
+                    'mo.a': 'mos.%i' % ionpair[1],
+                    'mo.b': 'mos.%i' % ionpair[3]
+                }
                 INTERFACE.setupWORKDIR_WF(WORKDIR, QMin, files, self._DEBUG)
-                errorcodes['Dyson_%i_%i_%i_%i' % ionpair] = INTERFACE.runWFOVERLAP(WORKDIR, QMin['wfoverlap'], memory=QMin['memory'], ncpu=QMin['ncpu'])
+                errorcodes[
+                    'Dyson_%i_%i_%i_%i' % ionpair
+                ] = INTERFACE.runWFOVERLAP(WORKDIR, QMin['wfoverlap'], memory=QMin['memory'], ncpu=QMin['ncpu'])
 
         # do overlap calculations
         if 'overlap' in QMin:
@@ -1006,13 +1074,17 @@ class INTERFACE(ABC):
             for m in itmult(QMin['states']):
                 job = QMin['multmap'][m]
                 WORKDIR = os.path.join(QMin['scratchdir'], 'WFOVL_%i_%i' % (m, job))
-                files = {'aoovl': 'AO_overl.mixed',
-                         'det.a': 'dets.%i.old' % m,
-                         'det.b': 'dets.%i' % m,
-                         'mo.a': 'mos.%i.old' % job,
-                         'mo.b': 'mos.%i' % job}
+                files = {
+                    'aoovl': 'AO_overl.mixed',
+                    'det.a': 'dets.%i.old' % m,
+                    'det.b': 'dets.%i' % m,
+                    'mo.a': 'mos.%i.old' % job,
+                    'mo.b': 'mos.%i' % job
+                }
                 INTERFACE.setupWORKDIR_WF(WORKDIR, QMin, files, self._DEBUG)
-                errorcodes['WFOVL_%i_%i' % (m, job)] = INTERFACE.runWFOVERLAP(WORKDIR, QMin['wfoverlap'], memory=QMin['memory'], ncpu=QMin['ncpu'])
+                errorcodes[
+                    'WFOVL_%i_%i' % (m, job)
+                ] = INTERFACE.runWFOVERLAP(WORKDIR, QMin['wfoverlap'], memory=QMin['memory'], ncpu=QMin['ncpu'])
 
         # Error code handling
         j = 0
@@ -1032,8 +1104,8 @@ class INTERFACE(ABC):
         print('')
 
         return errorcodes
-    # ======================================================================= #
 
+    # ======================================================================= #
 
     def setupWORKDIR_WF(WORKDIR, QMin, files, DEBUG=False):
         # mkdir the WORKDIR, or clean it if it exists, then copy all necessary files from pwd and savedir
@@ -1094,10 +1166,14 @@ class INTERFACE(ABC):
         stderrfile.close()
         if PRINT or DEBUG:
             endtime = datetime.datetime.now()
-            sys.stdout.write('FINISH:\t%s\t%s\tRuntime: %s\tError Code: %i\n' % (shorten_DIR(WORKDIR), endtime, endtime - starttime, runerror))
+            sys.stdout.write(
+                'FINISH:\t%s\t%s\tRuntime: %s\tError Code: %i\n' %
+                (shorten_DIR(WORKDIR), endtime, endtime - starttime, runerror)
+            )
             sys.stdout.flush()
         os.chdir(prevdir)
         return runerror
+
     # ======================================================================= #
 
     @staticmethod
@@ -1107,6 +1183,7 @@ class INTERFACE(ABC):
 
         def theo_float(x):
             return safe_cast(x, float, 0.)
+
         for line in out[2:]:
             s = line.replace('(', ' ').replace(')', ' ').split()
             if len(s) == 0:
@@ -1149,13 +1226,11 @@ class INTERFACE(ABC):
             fdest = moldendir + '/step_%s__nto_%i_%i.molden' % (QMin['step'], m, s)
             shutil.copy(f, fdest)
 
-
 # =============================================================================================== #
 # =============================================================================================== #
 # =========================================== QM/MM ============================================= #
 # =============================================================================================== #
 # =============================================================================================== #
-
 
     def prepare_QMMM(self, table_file):
         ''' creates dictionary with:
@@ -1171,7 +1246,6 @@ class INTERFACE(ABC):
         '''
         QMin = self._QMin
         table = readfile(table_file)
-
 
         # read table file
         print('===== Running QM/MM preparation ====')
@@ -1192,9 +1266,8 @@ class INTERFACE(ABC):
             QMMM['atomtype'].append(s[1])
             QMMM['connect'].append(set())
             for i in s[2:]:
-                QMMM['connect'][-1].add(int(i) - 1)           # internally, atom numbering starts at 0
+                QMMM['connect'][-1].add(int(i) - 1)    # internally, atom numbering starts at 0
         QMMM['natom_table'] = len(QMMM['qmmmtype'])
-
 
         # list of QM and MM atoms
         QMMM['QM_atoms'] = []
@@ -1213,7 +1286,6 @@ class INTERFACE(ABC):
                 QMMM['bonds'].add(tuple(sorted([iatom, jatom])))
                 QMMM['connect'][jatom].add(iatom)
         QMMM['bonds'] = sorted(list(QMMM['bonds']))
-
 
         # find link bonds
         print('Finding link bonds ...         ', datetime.now())
@@ -1239,7 +1311,6 @@ class INTERFACE(ABC):
                 QMMM['atomtype'].append('999')
                 QMMM['connect'].append(set([link['qm'], link['mm']]))
 
-
         # check link bonds
         mm_in_links = []
         qm_in_links = []
@@ -1261,11 +1332,9 @@ class INTERFACE(ABC):
         if not len(mm_in_link_neighbors) == len(set(mm_in_link_neighbors)):
             raise Error('An MM-link atom is bonded to another MM-link atom!', 37)
 
-
         # check geometry and connection table
         if not QMMM['natom_table'] == QMin['natom']:
             raise Error('Number of atoms in table file does not match number of atoms in QMin!', 38)
-
 
         # process MM geometry (and convert to angstrom!)
         QMMM['MM_coords'] = []
@@ -1273,7 +1342,6 @@ class INTERFACE(ABC):
             QMMM['MM_coords'].append([atom[0]] + [i * au2a for i in atom[1:4]])
         for ilink, link in enumerate(QMMM['linkbonds']):
             QMMM['MM_coords'].append(['HLA'] + link['atom'][1:4])
-
 
         # create reordering dicts
         print('Creating reorder mappings ...  ', datetime.now())
@@ -1294,7 +1362,6 @@ class INTERFACE(ABC):
         for i in QMMM['reorder_MM_input']:
             QMMM['reorder_input_MM'][QMMM['reorder_MM_input'][i]] = i
 
-
         # process QM geometry (including link atoms), QM coords in bohr!
         QMMM['QM_coords'] = []
         QMMM['reorder_input_QM'] = {}
@@ -1311,7 +1378,6 @@ class INTERFACE(ABC):
             j += 1
             QMMM['reorder_input_QM'][-(ilink + 1)] = j
             QMMM['reorder_QM_input'][j] = -(ilink + 1)
-
 
         # process charge redistribution around link bonds
         # point charges are in input geometry ordering
@@ -1387,7 +1453,6 @@ class INTERFACE(ABC):
         # pprint.pprint(QMout)
         return
 
-
     @staticmethod
     def write_pccoord_file(pointcharges):
         '''Writes pointcharges as file'''
@@ -1395,8 +1460,8 @@ class INTERFACE(ABC):
         for atom in pointcharges:
             string += f'{atom[3]} {atom[0]} {atom[1]} {atom[2]}\n'
         return string
-    # ============================PRINTING ROUTINES========================== #
 
+    # ============================PRINTING ROUTINES========================== #
 
     def printheader(self):
         '''Prints the formatted header of the log file. Prints version number and version date
@@ -1404,22 +1469,15 @@ class INTERFACE(ABC):
 
         print(self.clock.starttime, gethostname(), os.getcwd())
         rule = '=' * 76
-        lines = [f'  {rule}',
-                 '',
-                 f'SHARC - {self.__class__.__name__} - Interface',
-                 '',
-                 f'Authors: {self.authors}',
-                 '',
-                 f'Version: {self.version}',
-                 'Date: {:%d.%m.%Y}'.format(self.versiondate),
-                 '',
-                 f'  {rule}']
+        lines = [
+            f'  {rule}', '', f'SHARC - {self.__class__.__name__} - Interface', '', f'Authors: {self.authors}', '',
+            f'Version: {self.version}', 'Date: {:%d.%m.%Y}'.format(self.versiondate), '', f'  {rule}'
+        ]
         # wraps Authors line in case its too long
         lines[4:5] = wrap(lines[4], width=70)
         lines[1:-1] = map(lambda s: '||{:^76}||'.format(s), lines[1:-1])
         print(*lines, sep='\n')
         print('\n')
-
 
     def printQMin(self):
 
@@ -1558,7 +1616,14 @@ class INTERFACE(ABC):
         pprint.pprint(QMin['statemap'])
 
         for i in sorted(QMin):
-            if not any([i == j for j in ['h', 'dm', 'soc', 'dmdr', 'socdr', 'theodore', 'geo', 'veloc', 'states', 'comment', 'grad', 'nacdr', 'ion', 'overlap', 'template', 'statemap', 'pointcharges', 'geo_orig', 'qmmm']]):
+            if not any(
+                [
+                    i == j for j in [
+                        'h', 'dm', 'soc', 'dmdr', 'socdr', 'theodore', 'geo', 'veloc', 'states', 'comment', 'grad',
+                        'nacdr', 'ion', 'overlap', 'template', 'statemap', 'pointcharges', 'geo_orig', 'qmmm'
+                    ]
+                ]
+            ):
                 if not any([i == j for j in ['ionlist']]) or DEBUG:
                     string = i + ': '
                     string += str(QMin[i])
@@ -1566,9 +1631,9 @@ class INTERFACE(ABC):
         print('\n')
         sys.stdout.flush()
 
-
     def printQMout(self):
-        '''If PRINT, prints a summary of all requested QM output values. Matrices are formatted using printcomplexmatrix, vectors using printgrad.
+        '''If PRINT, prints a summary of all requested QM output values.
+        Matrices are formatted using printcomplexmatrix, vectors using printgrad.
 
         Arguments:
         1 dictionary: QMin
@@ -1635,7 +1700,10 @@ class INTERFACE(ABC):
                 for jmult, j, msj in itnmstates(states):
                     if imult == jmult and msi == msj:
                         for ipol in range(3):
-                            print('%s\tStates %i - %i\tMs= % .1f\tPolarization %s:' % (IToMult[imult], i, j, msi, IToPol[ipol]))
+                            print(
+                                '%s\tStates %i - %i\tMs= % .1f\tPolarization %s:' %
+                                (IToMult[imult], i, j, msi, IToPol[ipol])
+                            )
                             printgrad(QMout['dmdr'][ipol][istate][jstate], natom, QMin['geo'])
                     jstate += 1
                 istate += 1
@@ -1653,7 +1721,8 @@ class INTERFACE(ABC):
 
     # ======================================================================= #
     def printgrad(self, grad, natom, geo):
-        '''Prints a gradient or nac vector. Also prints the atom elements. If the gradient is identical zero, just prints one line.
+        '''Prints a gradient or nac vector. Also prints the atom elements.
+        If the gradient is identical zero, just prints one line.
 
         Arguments:
         1 list of list of float: gradient
@@ -1679,7 +1748,6 @@ class INTERFACE(ABC):
         else:
             print(string)
 
-
     def printtheodore(matrix, QMin):
         string = '%6s ' % 'State'
         for i in QMin['template']['theodore_prop']:
@@ -1698,13 +1766,17 @@ class INTERFACE(ABC):
         print(string)
 
     # ======================================================================= #
+
+
 # =============================================================================================== #
 # =============================================================================================== #
 # =========================================== QMout writing ===================================== #
 # =============================================================================================== #
 # =============================================================================================== #
+
     def writeQMout(self):
-        '''Writes the requested quantities to the file which SHARC reads in. The filename is QMinfilename with everything after the first dot replaced by "out".
+        '''Writes the requested quantities to the file which SHARC reads in.
+        The filename is QMinfilename with everything after the first dot replaced by "out".
 
         Arguments:
         1 dictionary: QMin
@@ -1751,7 +1823,9 @@ class INTERFACE(ABC):
     def writeQMoutsoc(self):
         '''Generates a string with the Spin-Orbit Hamiltonian in SHARC format.
 
-        The string starts with a ! followed by a flag specifying the type of data. In the next line, the dimensions of the matrix are given, followed by nmstates blocks of nmstates elements. Blocks are separated by a blank line.
+        The string starts with a ! followed by a flag specifying the type of data.
+        In the next line, the dimensions of the matrix are given, followed by nmstates blocks of nmstates elements.
+        Blocks are separated by a blank line.
 
         Arguments:
         1 dictionary: QMin
@@ -1774,11 +1848,12 @@ class INTERFACE(ABC):
 
     # ======================================================================= #
 
-
     def writeQMoutdm(self):
         '''Generates a string with the Dipole moment matrices in SHARC format.
 
-        The string starts with a ! followed by a flag specifying the type of data. In the next line, the dimensions of the matrix are given, followed by nmstates blocks of nmstates elements. Blocks are separated by a blank line. The string contains three such matrices.
+        The string starts with a ! followed by a flag specifying the type of data.
+        In the next line, the dimensions of the matrix are given, followed by nmstates blocks of nmstates elements.
+        Blocks are separated by a blank line. The string contains three such matrices.
 
         Arguments:
         1 dictionary: QMin
@@ -1795,7 +1870,9 @@ class INTERFACE(ABC):
             string += '%i %i\n' % (nmstates, nmstates)
             for i in range(nmstates):
                 for j in range(nmstates):
-                    string += '%s %s ' % (eformat(QMout['dm'][xyz][i][j].real, 12, 3), eformat(QMout['dm'][xyz][i][j].imag, 12, 3))
+                    string += '%s %s ' % (
+                        eformat(QMout['dm'][xyz][i][j].real, 12, 3), eformat(QMout['dm'][xyz][i][j].imag, 12, 3)
+                    )
                 string += '\n'
             string += ''
         return string
@@ -1815,7 +1892,9 @@ class INTERFACE(ABC):
             j = 0
             for jmult, jstate, jms in itnmstates(states):
                 for ipol in range(3):
-                    string += '%i %i ! m1 %i s1 %i ms1 %i   m2 %i s2 %i ms2 %i   pol %i\n' % (natom, 3, imult, istate, ims, jmult, jstate, jms, ipol)
+                    string += '%i %i ! m1 %i s1 %i ms1 %i   m2 %i s2 %i ms2 %i   pol %i\n' % (
+                        natom, 3, imult, istate, ims, jmult, jstate, jms, ipol
+                    )
                     for atom in range(natom):
                         for xyz in range(3):
                             string += '%s ' % (eformat(QMout['dmdr'][ipol][i][j][atom][xyz], 12, 3))
@@ -1827,7 +1906,6 @@ class INTERFACE(ABC):
         return string
 
     # ======================================================================= #
-
 
     def writeQMoutsocdr(self):
 
@@ -1842,10 +1920,15 @@ class INTERFACE(ABC):
         for imult, istate, ims in itnmstates(states):
             j = 0
             for jmult, jstate, jms in itnmstates(states):
-                string += '%i %i ! m1 %i s1 %i ms1 %i   m2 %i s2 %i ms2 %i\n' % (natom, 3, imult, istate, ims, jmult, jstate, jms)
+                string += '%i %i ! m1 %i s1 %i ms1 %i   m2 %i s2 %i ms2 %i\n' % (
+                    natom, 3, imult, istate, ims, jmult, jstate, jms
+                )
                 for atom in range(natom):
                     for xyz in range(3):
-                        string += '%s %s ' % (eformat(QMout['socdr'][i][j][atom][xyz].real, 12, 3), eformat(QMout['socdr'][i][j][atom][xyz].imag, 12, 3))
+                        string += '%s %s ' % (
+                            eformat(QMout['socdr'][i][j][atom][xyz].real, 12,
+                                    3), eformat(QMout['socdr'][i][j][atom][xyz].imag, 12, 3)
+                        )
                 string += '\n'
                 string += ''
                 j += 1
@@ -1856,7 +1939,9 @@ class INTERFACE(ABC):
     def writeQMoutang(self):
         '''Generates a string with the Dipole moment matrices in SHARC format.
 
-        The string starts with a ! followed by a flag specifying the type of data. In the next line, the dimensions of the matrix are given, followed by nmstates blocks of nmstates elements. Blocks are separated by a blank line. The string contains three such matrices.
+        The string starts with a ! followed by a flag specifying the type of data.
+        In the next line, the dimensions of the matrix are given, followed by nmstates blocks of nmstates elements.
+        Blocks are separated by a blank line. The string contains three such matrices.
 
         Arguments:
         1 dictionary: QMin
@@ -1877,18 +1962,22 @@ class INTERFACE(ABC):
             string += '%i %i\n' % (nmstates, nmstates)
             for i in range(nmstates):
                 for j in range(nmstates):
-                    string += '%s %s ' % (eformat(QMout['angular'][xyz][i][j].real, 12, 3), eformat(QMout['angular'][xyz][i][j].imag, 12, 3))
+                    string += '%s %s ' % (
+                        eformat(QMout['angular'][xyz][i][j].real, 12,
+                                3), eformat(QMout['angular'][xyz][i][j].imag, 12, 3)
+                    )
                 string += '\n'
             string += ''
         return string
 
     # ======================================================================= #
 
-
     def writeQMoutgrad(self):
         '''Generates a string with the Gradient vectors in SHARC format.
 
-        The string starts with a ! followed by a flag specifying the type of data. On the next line, natom and 3 are written, followed by the gradient, with one line per atom and a blank line at the end. Each MS component shows up (nmstates gradients are written).
+        The string starts with a ! followed by a flag specifying the type of data.
+        On the next line, natom and 3 are written, followed by the gradient, with one line per atom and
+        a blank line at the end. Each MS component shows up (nmstates gradients are written).
 
         Arguments:
         1 dictionary: QMin
@@ -1918,11 +2007,12 @@ class INTERFACE(ABC):
 
     # ======================================================================= #
 
-
     def writeQMoutnacnum(self):
         '''Generates a string with the NAC matrix in SHARC format.
 
-        The string starts with a ! followed by a flag specifying the type of data. In the next line, the dimensions of the matrix are given, followed by nmstates blocks of nmstates elements. Blocks are separated by a blank line.
+        The string starts with a ! followed by a flag specifying the type of data.
+        In the next line, the dimensions of the matrix are given, followed by nmstates blocks of nmstates elements.
+        Blocks are separated by a blank line.
 
         Arguments:
         1 dictionary: QMin
@@ -1942,7 +2032,9 @@ class INTERFACE(ABC):
         string += '%i %i\n' % (nmstates, nmstates)
         for i in range(nmstates):
             for j in range(nmstates):
-                string += '%s %s ' % (eformat(QMout['nacdt'][i][j].real, 12, 3), eformat(QMout['nacdt'][i][j].imag, 12, 3))
+                string += '%s %s ' % (
+                    eformat(QMout['nacdt'][i][j].real, 12, 3), eformat(QMout['nacdt'][i][j].imag, 12, 3)
+                )
             string += '\n'
         string += ''
         # also write wavefunction phases
@@ -1954,11 +2046,12 @@ class INTERFACE(ABC):
 
     # ======================================================================= #
 
-
     def writeQMoutnacana(self):
         '''Generates a string with the NAC vectors in SHARC format.
 
-        The string starts with a ! followed by a flag specifying the type of data. On the next line, natom and 3 are written, followed by the gradient, with one line per atom and a blank line at the end. Each MS component shows up (nmstates x nmstates vectors are written).
+        The string starts with a ! followed by a flag specifying the type of data.
+        On the next line, natom and 3 are written, followed by the gradient, with one line per atom and
+         a blank line at the end. Each MS component shows up (nmstates x nmstates vectors are written).
 
         Arguments:
         1 dictionary: QMin
@@ -1980,7 +2073,9 @@ class INTERFACE(ABC):
             j = 0
             for jmult, jstate, jms in itnmstates(states):
                 # string+='%i %i ! %i %i %i %i %i %i\n' % (natom,3,imult,istate,ims,jmult,jstate,jms)
-                string += '%i %i ! m1 %i s1 %i ms1 %i   m2 %i s2 %i ms2 %i\n' % (natom, 3, imult, istate, ims, jmult, jstate, jms)
+                string += '%i %i ! m1 %i s1 %i ms1 %i   m2 %i s2 %i ms2 %i\n' % (
+                    natom, 3, imult, istate, ims, jmult, jstate, jms
+                )
                 for atom in range(natom):
                     for xyz in range(3):
                         string += '%s ' % (eformat(QMout['nacdr'][i][j][atom][xyz], 12, 3))
@@ -1992,11 +2087,12 @@ class INTERFACE(ABC):
 
     # ======================================================================= #
 
-
     def writeQMoutnacsmat(self):
         '''Generates a string with the adiabatic-diabatic transformation matrix in SHARC format.
 
-        The string starts with a ! followed by a flag specifying the type of data. In the next line, the dimensions of the matrix are given, followed by nmstates blocks of nmstates elements. Blocks are separated by a blank line.
+        The string starts with a ! followed by a flag specifying the type of data.
+        In the next line, the dimensions of the matrix are given, followed by nmstates blocks of nmstates elements.
+        Blocks are separated by a blank line.
 
         Arguments:
         1 dictionary: QMin
@@ -2016,18 +2112,20 @@ class INTERFACE(ABC):
         string += '%i %i\n' % (nmstates, nmstates)
         for j in range(nmstates):
             for i in range(nmstates):
-                string += '%s %s ' % (eformat(QMout['overlap'][j][i].real, 12, 3), eformat(QMout['overlap'][j][i].imag, 12, 3))
+                string += '%s %s ' % (
+                    eformat(QMout['overlap'][j][i].real, 12, 3), eformat(QMout['overlap'][j][i].imag, 12, 3)
+                )
             string += '\n'
         string += '\n'
         return string
 
     # ======================================================================= #
 
-
     def writeQMouttime(self):
         '''Generates a string with the quantum mechanics total runtime in SHARC format.
 
-        The string starts with a ! followed by a flag specifying the type of data. In the next line, the runtime is given
+        The string starts with a ! followed by a flag specifying the type of data.
+        In the next line, the runtime is given.
 
         Arguments:
         1 dictionary: QMin
@@ -2042,11 +2140,12 @@ class INTERFACE(ABC):
 
     # ======================================================================= #
 
-
     def writeQMoutprop(self):
         '''Generates a string with the Spin-Orbit Hamiltonian in SHARC format.
 
-        The string starts with a ! followed by a flag specifying the type of data. In the next line, the dimensions of the matrix are given, followed by nmstates blocks of nmstates elements. Blocks are separated by a blank line.
+        The string starts with a ! followed by a flag specifying the type of data.
+        In the next line, the dimensions of the matrix are given, followed by nmstates blocks of nmstates elements.
+        Blocks are separated by a blank line.
 
         Arguments:
         1 dictionary: QMin
@@ -2066,7 +2165,9 @@ class INTERFACE(ABC):
         string += '%i %i\n' % (nmstates, nmstates)
         for i in range(nmstates):
             for j in range(nmstates):
-                string += '%s %s ' % (eformat(QMout['prop'][i][j].real, 12, 3), eformat(QMout['prop'][i][j].imag, 12, 3))
+                string += '%s %s ' % (
+                    eformat(QMout['prop'][i][j].real, 12, 3), eformat(QMout['prop'][i][j].imag, 12, 3)
+                )
             string += '\n'
         string += '\n'
 
@@ -2081,13 +2182,14 @@ class INTERFACE(ABC):
         string += '%i %i   ! Dyson norms\n' % (nmstates, nmstates)
         for i in range(nmstates):
             for j in range(nmstates):
-                string += '%s %s ' % (eformat(QMout['prop'][i][j].real, 12, 3), eformat(QMout['prop'][i][j].imag, 12, 3))
+                string += '%s %s ' % (
+                    eformat(QMout['prop'][i][j].real, 12, 3), eformat(QMout['prop'][i][j].imag, 12, 3)
+                )
             string += '\n'
         string += '\n'
         return string
 
     # ======================================================================= #
-
 
     def writeQMoutTHEODORE(self):
 
@@ -2137,7 +2239,6 @@ class INTERFACE(ABC):
 
     # ======================================================================= #
 
-
     def writeQmoutPhases(self):
 
         QMin = self._QMin
@@ -2147,12 +2248,12 @@ class INTERFACE(ABC):
             string += '%s %s\n' % (eformat(QMout['phases'][i].real, 9, 3), eformat(QMout['phases'][i].imag, 9, 3))
         return string
 
-
-
     def writeQMoutgradcobramm(self):
         '''Generates a string with the Gradient vectors in SHARC format.
 
-        The string starts with a ! followed by a flag specifying the type of data. On the next line, natom and 3 are written, followed by      the gradient, with one line per atom and a blank line at the end. Each MS component shows up (nmstates gradients are written).
+        The string starts with a ! followed by a flag specifying the type of data.
+        On the next line, natom and 3 are written, followed by the gradient, with one line per atom and
+        a blank line at the end. Each MS component shows up (nmstates gradients are written).
 
         Arguments:
         1 dictionary: QMin
@@ -2184,9 +2285,7 @@ class INTERFACE(ABC):
         string += '\n'
         writefile("grad_charges", string)
 
-
     # ======================================================================= #
-
 
     def backupdata(self, backupdir):
         # save all files in savedir, except which have 'old' in their name

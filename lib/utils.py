@@ -3,6 +3,7 @@ import re
 import sys
 import os
 import shutil
+from dataclasses import dataclass
 from error import Error
 import subprocess as sp
 from globals import DEBUG, PRINT
@@ -202,7 +203,8 @@ def removekey(d, key) -> dict:
 
 
 def containsstring(string, line) -> bool:
-    '''Takes a string (regular expression) and another string. Returns True if the first string is contained in the second string.
+    '''Takes a string (regular expression) and another string.
+    Returns True if the first string is contained in the second string.
 
     Arguments:
     1 string: Look for this string
@@ -248,7 +250,8 @@ class clock:
             seconds = runtime.seconds % 60
             # seconds += 1.e-3 * runtime.milliseconds
             seconds += 1.e-6 * runtime.microseconds
-            print('==> Runtime:\t%i Days\t%i Hours\t%i Minutes\t%f Seconds\n\n' % (runtime.days, hours, minutes, seconds))
+            print('==> Runtime:\t%i Days\t%i Hours\t%i Minutes\t%f Seconds\n\n' %
+                  (runtime.days, hours, minutes, seconds))
         return runtime.days * 24 * 3600 + runtime.seconds + runtime.microseconds // 1.e6
 
 
@@ -325,3 +328,26 @@ def safe_cast(val, type, fallback=None):
 
 def list2dict(ls: list) -> dict:
     return {i: value for i, value in enumerate(ls)}
+
+
+@dataclass
+class MMATOM:
+    id: int
+    qm: bool
+    symbol: str
+    xyz: list[float, float, float]
+    type: int
+    bonds: set[int]
+
+    def __str__(self):
+        return '{:n} {} {: 8.12} {: 8.12} {: 8.12} {} {}'.format(self.id + 1, self.symbol, *self.xyz, self.type,
+                                                                 ' '.join(map(lambda x: str(x), self.bonds)))
+
+    def __gt__(self, other):
+        return self.id > other.id
+
+    def __lt__(self, other):
+        return self.id < other.id
+
+    def __eq__(self, other):
+        return self.id == other.id

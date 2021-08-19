@@ -43,7 +43,6 @@ from utils import list2dict
 
 class QMOUT():
     '''Wrapper for C-object used in sharc QMout'''
-
     def __init__(self, interface: str, natoms: int, nmstates: int):
         self._QMout = sharc.QMout(interface, natoms, nmstates)
 
@@ -67,7 +66,6 @@ class QMOUT():
 
     def printAll(self):
         self._QMout.printAll()
-
 
     def set_props(self, data: dict, icall):
         """ set QMout """
@@ -199,7 +197,14 @@ def main():
     parser = OptionParser()
 
     parser.add_option('-i', '--interface', dest='name', help='Name of the Interface you want to use.')
-    parser.add_option('-v', '--verbose', dest='verbose', action='store_true', default=False, help='sets verbosity, i.e. print and debug option')
+    parser.add_option(
+        '-v',
+        '--verbose',
+        dest='verbose',
+        action='store_true',
+        default=False,
+        help='sets verbosity, i.e. print and debug option'
+    )
     parser.add_option('-d', '--debug', dest='debug', action='store_true', default=False, help='debug flag for printing')
     parser.add_option('-p', '--print', dest='print', action='store_true', default=False, help='flag for printing')
 

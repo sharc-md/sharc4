@@ -108,54 +108,67 @@ class ORCA(INTERFACE):
             raise Error('Interface is not set up correctly. Call read_resources with the .resources file first!', 23)
         QMin = self._QMin
         # define keywords and defaults
-        bools = {'no_tda': False,
-                 'unrestricted_triplets': False,
-                 'qmmm': False,
-                 'cobramm': False,
-                 'picture_change': False
-                 }
-        strings = {'basis': '6-31G',
-                   'auxbasis': '',
-                   'functional': 'PBE',
-                   'dispersion': '',
-                   'grid': '2',
-                   'gridx': '',
-                   'gridxc': '',
-                   'ri': '',
-                   'scf': '',
-                   'qmmm_table': 'ORCA.qmmm.table',
-                   'qmmm_ff_file': 'ORCA.ff',
-                   'keys': '',
-                   'paste_input_file': ''
-                   }
-        integers = {
-            'frozen': -1,
-            'maxiter': 700
+        bools = {
+            'no_tda': False,
+            'unrestricted_triplets': False,
+            'qmmm': False,
+            'cobramm': False,
+            'picture_change': False
         }
-        floats = {
-            'hfexchange': -1.,
-            'intacc': -1.
+        strings = {
+            'basis': '6-31G',
+            'auxbasis': '',
+            'functional': 'PBE',
+            'dispersion': '',
+            'grid': '2',
+            'gridx': '',
+            'gridxc': '',
+            'ri': '',
+            'scf': '',
+            'keys': '',
         }
-        special = {'paddingstates': [0 for i in QMin['states']],
-                   'charge': [i % 2 for i in range(len(QMin['states']))],
-
-                   'basis_per_element': {},
-                   'ecp_per_element': {},
-                   'basis_per_atom': {},
-                   'range_sep_settings': {'do': False, 'mu': 0.14, 'scal': 1.0, 'ACM1': 0.0, 'ACM2': 0.0, 'ACM3': 1.0},
-                   'paste_input_file': ''
-                   }
+        paths = {'qmmm_ff_file': 'ORCA.ff', 'qmmm_table': 'ORCA.qmmm.table'}
+        integers = {'frozen': -1, 'maxiter': 700}
+        floats = {'hfexchange': -1., 'intacc': -1.}
+        special = {
+            'paddingstates': [0 for i in QMin['states']],
+            'charge': [i % 2 for i in range(len(QMin['states']))],
+            'basis_per_element': {},
+            'ecp_per_element': {},
+            'basis_per_atom': {},
+            'range_sep_settings': {
+                'do': False,
+                'mu': 0.14,
+                'scal': 1.0,
+                'ACM1': 0.0,
+                'ACM2': 0.0,
+                'ACM3': 1.0
+            },
+            'paste_input_file': ''
+        }
         lines = readfile(template_filename)
-        QMin['template'] = {**bools, **strings, **integers, **floats, **special,
-                            **self.parse_keywords(bools, strings, integers, floats, special, lines)}
+        QMin['template'] = {
+            **bools,
+            **strings,
+            **integers,
+            **floats,
+            **special,
+            **self.parse_keywords(
+                lines, bools=bools, strings=strings, paths=paths, integers=integers, floats=floats, special=special
+            )
+        }
 
         # do logic checks
         if not QMin['template']['unrestricted_triplets']:
             if QMin['OrcaVersion'] < (4, 1):
                 if len(QMin['states']) >= 3 and QMin['states'][2] > 0:
-                    raise Error('With Orca v<4.1, triplets can only be computed with the unrestricted_triplets option!', 62)
+                    raise Error(
+                        'With Orca v<4.1, triplets can only be computed with the unrestricted_triplets option!', 62
+                    )
             if len(QMin['template']['charge']) >= 3 and QMin['template']['charge'][0] != QMin['template']['charge'][2]:
-                raise Error('Charges of singlets and triplets differ. Please enable the "unrestricted_triplets" option!', 63)
+                raise Error(
+                    'Charges of singlets and triplets differ. Please enable the "unrestricted_triplets" option!', 63
+                )
         if QMin['template']['unrestricted_triplets'] and 'soc' in QMin:
             if len(QMin['states']) >= 3 and QMin['states'][2] > 0:
                 raise Error('Request "SOC" is not compatible with "unrestricted_triplets"!', 64)
@@ -166,7 +179,6 @@ class ORCA(INTERFACE):
         self._read_template = True
         return
 
-
     def read_resources(self, resources_filename="ORCA.resources"):
 
         if not self._setup_mol:
@@ -176,31 +188,26 @@ class ORCA(INTERFACE):
         pwd = os.getcwd()
         QMin['pwd'] = pwd
 
-        strings = {'orcadir': '',
-                   'tinker': '',
-                   'scratchdir': '',
-                   'savedir': '',  # NOTE: savedir from QMin
-                   'theodir': '',
-                   'wfoverlap': os.path.join(os.path.expandvars(os.path.expanduser('$SHARC')), 'wfoverlap.x'),
-                   'qmmm_table': '',
-                   'qmmm_ff_file': ''
-                   }
-        bools = {'debug': False,
-                 'save_stuff': False,
-                 'no_print': False,
-                 'nooverlap': False,
-                 'always_orb_init': False,
-                 'always_guess': False,
-                 }
-        integers = {'ncpu': 1,
-                    'memory': 100,
-                    'numfrozcore': 0,
-                    'numocc': 0
-                    }
-        floats = {'delay': 0.0,
-                  'schedule_scaling': 0.9,
-                  'wfthres': 0.99
-                  }
+        paths = {
+            'orcadir': '',
+            'tinker': '',
+            'scratchdir': '',
+            'savedir': '',    # NOTE: savedir from QMin
+            'theodir': '',
+            'wfoverlap': os.path.join(os.path.expandvars(os.path.expanduser('$SHARC')), 'wfoverlap.x'),
+            'qmmm_table': '',
+            'qmmm_ff_file': ''
+        }
+        bools = {
+            'debug': False,
+            'save_stuff': False,
+            'no_print': False,
+            'nooverlap': False,
+            'always_orb_init': False,
+            'always_guess': False,
+        }
+        integers = {'ncpu': 1, 'memory': 100, 'numfrozcore': 0, 'numocc': 0}
+        floats = {'delay': 0.0, 'schedule_scaling': 0.9, 'wfthres': 0.99}
         special = {
             'neglect_gradient': 'zero',
             'theodore_prop': ['Om', 'PRNTO', 'S_HE', 'Z_HE', 'RMSeh'],
@@ -208,11 +215,26 @@ class ORCA(INTERFACE):
         }
         lines = readfile(resources_filename)
         # assign defaults first, which get updated by the parsed entries, which are updated by the entries that were already in QMin
-        QMin['resources'] = {**bools, **strings, **integers, **floats, **special,
-                             **self.parse_keywords(bools, strings, integers, floats, special, lines)}
-        paths = {k: QMin['resources'][k] for k in strings.keys()}
+        QMin['resources'] = {
+            **bools,
+            **paths,
+            **integers,
+            **floats,
+            **special,
+            **self.parse_keywords(
+                lines,
+                bools=bools,
+                paths=paths,
+                integers=integers,
+                floats=floats,
+                special=special,
+            )
+        }
+        paths = {k: QMin['resources'][k] for k in paths.keys()}
         for k, v in paths.items():
-            vlist = map(lambda x: os.path.expanduser(os.path.expandvars(x)) if len(x) != 0 and x[0] == '$' else x, v.split('/'))
+            vlist = map(
+                lambda x: os.path.expanduser(os.path.expandvars(x)) if len(x) != 0 and x[0] == '$' else x, v.split('/')
+            )
             QMin['resources'][k] = '/'.join(vlist)
 
         # reassign QMin after losing the reference
@@ -237,7 +259,6 @@ class ORCA(INTERFACE):
         return
 
     def moveOldFiles(self):
-
         def move(fromf, tof):
             if not os.path.isfile(fromf):
                 raise Error(f'File {fromf} not found, cannot move to {tof}!', 78)
@@ -273,12 +294,12 @@ class ORCA(INTERFACE):
         return
 
     def runjobs(self, schedule):
-
         def error_handler(e: BaseException, WORKDIR):
             print('*' * 50 + '\nException in run_calc(%s)!' % (WORKDIR))
             print(str(e), e.__traceback__)
             print('*' * 50 + '\n')
             return
+
         QMin = self._QMin
         if 'newstep' in QMin:
             self.moveOldFiles()
@@ -291,7 +312,9 @@ class ORCA(INTERFACE):
             for job in jobset:
                 QMin1 = jobset[job]
                 WORKDIR = os.path.join(QMin['scratchdir'], job)
-                errorcodes[job] = pool.apply_async(ORCA.runORCA, [WORKDIR, QMin1], error_callback=lambda e: error_handler(e, WORKDIR)).get()
+                errorcodes[job] = pool.apply_async(
+                    ORCA.runORCA, [WORKDIR, QMin1], error_callback=lambda e: error_handler(e, WORKDIR)
+                ).get()
                 time.sleep(QMin['delay'])
         string = 'Error Codes:\n'
         success = True
@@ -304,8 +327,10 @@ class ORCA(INTERFACE):
                 string += '\n'
         print(string)
         if not success:
-            raise Error('Some subprocesses did not finish successfully!\n\
-                See {}:{} for error messages in ORCA output.'.format(gethostname(), QMin['scratchdir']), 75)
+            raise Error(
+                'Some subprocesses did not finish successfully!\n\
+                See {}:{} for error messages in ORCA output.'.format(gethostname(), QMin['scratchdir']), 75
+            )
         if PRINT:
             print('>>>>>>>>>>>>> Saving files')
             starttime = datetime.datetime.now()
@@ -349,11 +374,17 @@ class ORCA(INTERFACE):
         stderrfile.close()
         if PRINT or DEBUG:
             endtime = datetime.datetime.now()
-            sys.stdout.write('FINISH:\t%s\t%s\tRuntime: %s\tError Code: %i\n' % (shorten_DIR(WORKDIR), endtime, endtime - starttime, runerror))
+            sys.stdout.write(
+                'FINISH:\t%s\t%s\tRuntime: %s\tError Code: %i\n' %
+                (shorten_DIR(WORKDIR), endtime, endtime - starttime, runerror)
+            )
             sys.stdout.flush()
         os.chdir(prevdir)
         if not DEBUG and runerror == 0:
-            keep = ['ORCA.inp$', 'ORCA.err$', 'ORCA.log$', 'ORCA.gbw', 'ORCA.cis', 'ORCA.engrad', 'ORCA.pcgrad', 'ORCA.molden.input', 'ORCA.pc']
+            keep = [
+                'ORCA.inp$', 'ORCA.err$', 'ORCA.log$', 'ORCA.gbw', 'ORCA.cis', 'ORCA.engrad', 'ORCA.pcgrad',
+                'ORCA.molden.input', 'ORCA.pc'
+            ]
             INTERFACE.stripWORKDIR(WORKDIR, keep)
         return runerror
 
@@ -389,9 +420,10 @@ class ORCA(INTERFACE):
             fromfile = os.path.join(currentDirectory, 'charge.dat')
             tofile = tofile = os.path.join(WORKDIR, 'charge.dat')
             shutil.copy(fromfile, tofile)
+
     # --------------------------------------------- File setup ----------------------------------
 
-        # check for initial orbitals
+    # check for initial orbitals
         initorbs = {}
         if 'always_guess' in QMin:
             QMin['initorbs'] = {}
@@ -412,7 +444,7 @@ class ORCA(INTERFACE):
             for job in QMin['joblist']:
                 filename = os.path.join(QMin['savedir'], f'ORCA.gbw.{job}')
                 if os.path.isfile(filename):
-                    initorbs[job] = filename + '.old'     # file will be moved to .old
+                    initorbs[job] = filename + '.old'    # file will be moved to .old
                 else:
                     print(f'File {filename} missing in savedir!')
                     sys.exit(71)
@@ -435,7 +467,6 @@ class ORCA(INTERFACE):
                     print(f'File {filename} missing in savedir!')
                     sys.exit(73)
             QMin['initorbs'] = initorbs
-
 
         # wf file copying
         if 'master' in QMin:
@@ -470,9 +501,7 @@ class ORCA(INTERFACE):
             string += ORCA.ORCAinput_string(QMin)
         return string
 
-
     # ======================================================================= #
-
 
     @staticmethod
     def ORCAinput_string(QMin):
@@ -533,12 +562,7 @@ class ORCA(INTERFACE):
         # main line
         string += '! '
 
-        keys = ['basis',
-                'auxbasis',
-                'functional',
-                'dispersion',
-                'ri',
-                'keys']
+        keys = ['basis', 'auxbasis', 'functional', 'dispersion', 'ri', 'keys']
         for i in keys:
             string += '%s ' % (QMin['template'][i])
         string += 'nousesym '
@@ -546,6 +570,7 @@ class ORCA(INTERFACE):
         string += 'grid%s ' % QMin['template']['grid']
         if QMin['template']['gridx']:
             string += 'gridx%s ' % QMin['template']['gridx']
+
     # In this way, one can change grid on individual atoms:
     # %method
     # SpecialGridAtoms 26,15,-1,-4         # for element 26 and, for atom index 1 and 4 (cannot change on atom 0!)
@@ -596,24 +621,21 @@ class ORCA(INTERFACE):
     RangeSepMu %f
     RangeSepScal %f
     ACM %f, %f, %f\nend\n\n
-    ''' % (QMin['template']['range_sep_settings']['mu'],
-                QMin['template']['range_sep_settings']['scal'],
-                QMin['template']['range_sep_settings']['ACM1'],
-                QMin['template']['range_sep_settings']['ACM2'],
+    ''' % (
+                QMin['template']['range_sep_settings']['mu'], QMin['template']['range_sep_settings']['scal'],
+                QMin['template']['range_sep_settings']['ACM1'], QMin['template']['range_sep_settings']['ACM2'],
                 QMin['template']['range_sep_settings']['ACM3']
-           )
+            )
 
         # Intacc
         if QMin['template']['intacc'] > 0.:
             string += '''%%method
     intacc %3.1f\nend\n\n''' % (QMin['template']['intacc'])
 
-
         # Gaussian point charge scheme
         if 'cpcm' in QMin['template']['keys'].lower():
             string += '''%cpcm
     surfacetype vdw_gaussian\nend\n\n'''
-
 
         # excited states
         if ncalc > 0 and 'AOoverlap' not in QMin:
@@ -667,10 +689,9 @@ class ORCA(INTERFACE):
         if QMin['template']['picture_change']:
             string += '%rel\nPictureChange true\nend\n\n'
 
-
         # TODO: workaround
         # if 'soc' in QMin and 'grad' in QMin:
-            # string+='%rel\nonecenter true\nend\n\n'
+        # string+='%rel\nonecenter true\nend\n\n'
 
         # charge mult geom
         string += '%coords\nCtyp xyz\nunits bohrs\n'
@@ -705,7 +726,10 @@ class ORCA(INTERFACE):
         QMin = self._QMin
         # TODO: specific logic checks!!!
         if 'nacdt' in QMin or 'nacdr' in QMin:
-            raise Error('Within the SHARC-ORCA interface couplings can only be calculated via the overlap method. "nacdr" and "nacdt" are not supported.', 44)
+            raise Error(
+                'Within the SHARC-ORCA interface couplings can only be calculated via the overlap method. "nacdr" and "nacdt" are not supported.',
+                44
+            )
 
         schedule = self.generate_joblist()
         # self.printQMin()
@@ -773,7 +797,6 @@ class ORCA(INTERFACE):
 
         return errorcodes
 
-
     def setupWORKDIR_TH(self, WORKDIR):
         # mkdir the WORKDIR, or clean it if it exists, then copy all necessary files from pwd and savedir
         QMin = self._QMin
@@ -827,11 +850,13 @@ class ORCA(INTERFACE):
         stderrfile.close()
         if PRINT or DEBUG:
             endtime = datetime.datetime.now()
-            sys.stdout.write('FINISH:\t%s\t%s\tRuntime: %s\tError Code: %i\n' % (shorten_DIR(WORKDIR), endtime, endtime - starttime, runerror))
+            sys.stdout.write(
+                'FINISH:\t%s\t%s\tRuntime: %s\tError Code: %i\n' %
+                (shorten_DIR(WORKDIR), endtime, endtime - starttime, runerror)
+            )
             sys.stdout.flush()
         os.chdir(prevdir)
         return runerror
-
 
     @staticmethod
     def _getOrcaVersion(path):
@@ -882,6 +907,7 @@ class ORCA(INTERFACE):
                 writefile(f, strings[f])
                 if PRINT:
                     print(shorten_DIR(f))
+
     # ======================================================================= #
 
     @staticmethod
@@ -932,8 +958,8 @@ class ORCA(INTERFACE):
         shutil.copy(fromfile, tofile)
         if PRINT:
             print(shorten_DIR(tofile))
-    # ======================================================================= #
 
+    # ======================================================================= #
 
     @staticmethod
     def get_smat_from_gbw(file1, file2=''):
@@ -1012,7 +1038,7 @@ class ORCA(INTERFACE):
         npre = 11
         ndigits = 16
         # default_pos=[14,30,46,62,78,94]
-        default_pos = [npre + 3 + ndigits * i for i in range(nblock)]  # does not include shift
+        default_pos = [npre + 3 + ndigits * i for i in range(nblock)]    # does not include shift
 
         # get coefficients for alpha
         NMO_A = NAO
@@ -1033,7 +1059,7 @@ class ORCA(INTERFACE):
                     pre = diff[jcol - 1]
                 post = diff[jcol]
                 # fixed
-                val = float(line[npre + shift + jcol * ndigits + pre: npre + shift + ndigits + jcol * ndigits + post])
+                val = float(line[npre + shift + jcol * ndigits + pre:npre + shift + ndigits + jcol * ndigits + post])
                 MO_A[imo][iao] = val
         iline += ((NAO - 1) // nblock + 1) * (NAO + 1)
 
@@ -1057,9 +1083,10 @@ class ORCA(INTERFACE):
                         pre = diff[jcol - 1]
                     post = diff[jcol]
                     # fixed
-                    val = float(line[npre + shift + jcol * ndigits + pre: npre + shift + ndigits + jcol * ndigits + post])
+                    val = float(
+                        line[npre + shift + jcol * ndigits + pre:npre + shift + ndigits + jcol * ndigits + post]
+                    )
                     MO_B[imo][iao] = val
-
 
         NMO = NMO_A - QMin['frozcore']
         if restr:
@@ -1190,7 +1217,6 @@ class ORCA(INTERFACE):
             else:
                 nstates_onfile = nvec
 
-
         # get ground state configuration
         # make step vectors (0:empty, 1:alpha, 2:beta, 3:docc)
         if restr:
@@ -1295,7 +1321,12 @@ class ORCA(INTERFACE):
                     else:
                         if any([key[i] != 1 for i in range(QMin['frozcore'])]):
                             problem = True
-                        if any([key[i] != 2 for i in range(nocc_A + nvir_A + QMin['frozcore'], nocc_A + nvir_A + 2 * QMin['frozcore'])]):
+                        if any(
+                            [
+                                key[i] != 2 for i in
+                                range(nocc_A + nvir_A + QMin['frozcore'], nocc_A + nvir_A + 2 * QMin['frozcore'])
+                            ]
+                        ):
                             problem = True
                     if problem:
                         print('WARNING: Non-occupied orbital inside frozen core! Skipping ...')
@@ -1304,7 +1335,8 @@ class ORCA(INTERFACE):
                     if restr:
                         key2 = key[QMin['frozcore']:]
                     else:
-                        key2 = key[QMin['frozcore']:QMin['frozcore'] + nocc_A + nvir_A] + key[nocc_A + nvir_A + 2 * QMin['frozcore']:]
+                        key2 = key[QMin['frozcore']:QMin['frozcore'] + nocc_A + nvir_A] + key[nocc_A + nvir_A +
+                                                                                              2 * QMin['frozcore']:]
                     dets3[key2] = dets2[key]
                 # pprint.pprint(dets3)
                 # append
@@ -1328,7 +1360,6 @@ class ORCA(INTERFACE):
                         for iocc in range(header[4], header[5] + 1):
                             for ivirt in range(header[6], header[7] + 1):
                                 CCfile.read(8)
-
 
         strings = {}
         for imult, mult in enumerate(mults):
@@ -1384,7 +1415,7 @@ class ORCA(INTERFACE):
         string = '%i %i\n' % (NAO, NAO)
         for irow in range(0, NAO):
             for icol in range(0, NAO):
-                string += '% .15e ' % (Smat[irow][icol])          # note the exchanged indices => transposition
+                string += '% .15e ' % (Smat[irow][icol])    # note the exchanged indices => transposition
             string += '\n'
         filename = os.path.join(QMin['savedir'], 'AO_overl.mixed')
         writefile(filename, string)
@@ -1407,8 +1438,6 @@ class ORCA(INTERFACE):
         nmstates = QMin['nmstates']
         natom = QMin['natom']
         joblist = QMin['joblist']
-
-
 
         # Hamiltonian
         if 'h' in QMin or 'soc' in QMin:
@@ -1695,7 +1724,6 @@ class ORCA(INTERFACE):
 
     # ======================================================================= #
 
-
     def getenergy(self, logfile, ijob):
 
         QMin = self._QMin
@@ -1734,12 +1762,7 @@ class ORCA(INTERFACE):
             nstates = estates_to_extract[imult - 1]
             # print nstates
             if nstates > 0:
-                strings = [['TD-DFT/TDA',
-                            'TD-DFT',
-                            'RPA',
-                            'CIS'],
-                           ['EXCITED STATES']
-                           ]
+                strings = [['TD-DFT/TDA', 'TD-DFT', 'RPA', 'CIS'], ['EXCITED STATES']]
                 if QMin['OrcaVersion'] >= (4, 1):
                     if restr:
                         if imult == 1:
@@ -1832,11 +1855,9 @@ class ORCA(INTERFACE):
                 if abs(val) > 1e-16:
                     real[y][x] += (0 + 1j) * val
 
-
         return real, inv_statemap
 
     # ======================================================================= #
-
 
     def gettdm(self, logfile, ijob):
 
@@ -1880,7 +1901,6 @@ class ORCA(INTERFACE):
 
     # ======================================================================= #
 
-
     @staticmethod
     def getdm(logfile, isgs):
 
@@ -1908,7 +1928,6 @@ class ORCA(INTERFACE):
                 return dm
 
     # ======================================================================= #
-
 
     @staticmethod
     def getgrad(logfile, natom):
@@ -1948,9 +1967,7 @@ class ORCA(INTERFACE):
 
         return g
 
-
     # ======================================================================= #
-
 
     @staticmethod
     def getpcgrad(logfile):
@@ -1970,7 +1987,6 @@ class ORCA(INTERFACE):
         return g
 
     # ======================================================================= #
-
 
     @staticmethod
     def getsmate(out, s1, s2):

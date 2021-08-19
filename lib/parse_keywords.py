@@ -4,7 +4,7 @@ import os
 import ast
 
 from error import Error
-from utils import readfile
+from utils import readfile, MMATOM
 
 
 class KeywordParser:
@@ -61,8 +61,10 @@ Date: 20.07.2021
                     compatible = False
                     break
             if not compatible:
-                print('WARNING: Charges from template not compatible with multiplicities!  \
-                    (this is probably OK if you use QM/MM)')
+                print(
+                    'WARNING: Charges from template not compatible with multiplicities!  \
+                    (this is probably OK if you use QM/MM)'
+                )
             return res
         else:
             raise Error('Length of "charge" does not match length of "states"!', 61)
@@ -74,18 +76,15 @@ Date: 20.07.2021
 
     ecp_per_element = basis_per_element
 
-
     @staticmethod
     def basis_per_atom(args: str) -> dict:
         key, value = args.split(None, 1)
         return {int(key) - 1: value}
 
-
     @staticmethod
     def range_sep_settings(args: str) -> dict:
         alist = args.split()
         return {'do': True, 'mu': alist[0], 'scal': alist[1], 'ACM1': alist[2], 'ACM2': alist[3], 'ACM3': alist[4]}
-
 
     @staticmethod
     def paste_input_file(args: str) -> list[str]:
@@ -97,7 +96,7 @@ Date: 20.07.2021
 
     @staticmethod
     def path(args: str) -> str:
-        path = os.path.abspath(os.path.expanduser(os.path.expandvars(args)))
+        path = os.path.expanduser(os.path.expandvars(args))
         if os.path.exists(path):
             return path
         else:
@@ -113,12 +112,10 @@ Date: 20.07.2021
 
     @staticmethod
     def theodore_prop(args: str) -> list[str]:
-        theodore_spelling = {'Om', 'PRNTO', 'Z_HE', 'S_HE',
-                             'RMSeh', 'POSi', 'POSf', 'POS',
-                             'PRi', 'PRf', 'PR', 'PRh',
-                             'CT', 'CT2', 'CTnt',
-                             'MC', 'LC', 'MLCT', 'LMCT', 'LLCT',
-                             'DEL', 'COH', 'COHh'}
+        theodore_spelling = {
+            'Om', 'PRNTO', 'Z_HE', 'S_HE', 'RMSeh', 'POSi', 'POSf', 'POS', 'PRi', 'PRf', 'PR', 'PRh', 'CT', 'CT2',
+            'CTnt', 'MC', 'LC', 'MLCT', 'LMCT', 'LLCT', 'DEL', 'COH', 'COHh'
+        }
         t_lower = {k.lower(): k for k in theodore_spelling}
         res = []
         if args[0] == '[':
@@ -132,8 +129,13 @@ Date: 20.07.2021
         res = []
         if args[0] == '[':
             res = ast.literal_eval(args)
-            if type(res[0]) == str:
+            if isinstance(res[0], str):
                 res = list(map(lambda x: [int(i) for i in x.split()], res))
         else:
             res = [[int(x) for x in args.split()]]
         return res
+
+    @staticmethod
+    def qmmm_table(args: str) -> list[list]:
+        path = os.path.abspath(os.path.expanduser(os.path.expanduser(args)))
+        return [[x[0]] + [int(y) for y in x[0:]] for x in map(lambda x: x.split(), readfile(path))]

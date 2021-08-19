@@ -105,7 +105,7 @@ class LVC(INTERFACE):
             def a(x):
                 v = f.readline().split()
                 return (int(v[0]) - 1, int(v[1]) - 1, float(v[2]))
-            # for im, s, v in map(lambda v: [int(v[0]) - 1, int(v[1]) - 1, float(v[2])], [f.readline().split() for _ in range(z)]):
+
             for im, s, v in map(a, range(z)):
                 self._epsilon[im][s] += v
         if f.readline() == 'kappa\n':
@@ -114,7 +114,7 @@ class LVC(INTERFACE):
             def b(_):
                 v = f.readline().split()
                 return (int(v[0]) - 1, int(v[1]) - 1, int(v[2]) - 1, float(v[3]))
-            # for im, s, i, v in map(lambda v: [int(v[0]) - 1, int(v[1]) - 1, int(v[2]) - 1, float(v[3])], [f.readline().split() for _ in range(z)]):
+
             for im, s, i, v in map(b, range(z)):
                 self._H_i[im][s, s, i] = v
         if f.readline() == 'lambda\n':
@@ -123,7 +123,7 @@ class LVC(INTERFACE):
             def c(_):
                 v = f.readline().split()
                 return (int(v[0]) - 1, int(v[1]) - 1, int(v[2]) - 1, int(v[3]) - 1, float(v[4]))
-            # for im, si, sj, i, v in map(lambda v: [int(v[0]) - 1, int(v[1]) - 1, int(v[2]) - 1, int(v[3]) - 1, float(v[4])], [f.readline().split() for _ in range(z)]):
+
             for im, si, sj, i, v in map(c, range(z)):
                 self._H_i[im][si, sj, i] = v
                 self._H_i[im][sj, si, i] = v
@@ -152,11 +152,12 @@ class LVC(INTERFACE):
             else:
                 line = f.readline()
         f.close()
-        # setting type as necessary (converting type through view and reshape is a lot faster that simple astype assignemnt)
+        # setting type as necessary (converting type through view and reshape is a lot faster that simple astype
+        # assignemnt)
         if soc_real:
-            self._soc = np.reshape(self._soc.view(float), self._soc.shape + (2,))[:, :, 0]
+            self._soc = np.reshape(self._soc.view(float), self._soc.shape + (2, ))[:, :, 0]
         if dipole_real:
-            self._dipole = np.reshape(self._dipole.view(float), self._dipole.shape + (2,))[:, :, :, 0]
+            self._dipole = np.reshape(self._dipole.view(float), self._dipole.shape + (2, ))[:, :, :, 0]
         # timing (BIG): 0.59
 
         if 'init' in self._QMin:
@@ -170,7 +171,9 @@ class LVC(INTERFACE):
         lines = readfile(filename)
         it = 1
         elem = QMin['elements']
-        rM = list(map(lambda x: [x[0]] + [float(y) for y in x[2:]], map(lambda x: x.split(), lines[it:it + QMin['natom']])))
+        rM = list(
+            map(lambda x: [x[0]] + [float(y) for y in x[2:]], map(lambda x: x.split(), lines[it:it + QMin['natom']]))
+        )
         if [x[0] for x in rM] != elem:
             raise Error(f'inconsistent atom labels in Qm.in and {filename}:\n{rM[:,0]}\n{elem}')
         rM = np.asarray([x[1:] for x in rM], dtype=float)
@@ -182,7 +185,6 @@ class LVC(INTERFACE):
         it += 2
         self._Km = np.asarray([x.split() for x in lines[it:]], dtype=float).T * self._Msa
         return
-
 
     def read_resources(self, resources_filename="LVC.resources"):
         pass
@@ -198,7 +200,7 @@ class LVC(INTERFACE):
         self._Q = np.sqrt(self._Om) * (self._Km @ (self._QMin['coords'].flatten() - self._disp.flatten()))
         self._V = self._Om * self._Q
         V0 = 0.5 * (self._V) @ self._Q
-        start = 0  # starting index for blocks
+        start = 0    # starting index for blocks
         # TODO what if I want to get gradients only ? i.e. samestep
         for im, n in filter(lambda x: x[1] != 0, enumerate(states)):
             H = np.zeros((n, n), dtype=float)
@@ -206,7 +208,9 @@ class LVC(INTERFACE):
             H += self._H_i[im] @ self._Q
             stop = start + n
             np.einsum('ii->i', Hd)[start:stop], self._U[start:stop, start:stop] = np.linalg.eigh(H, UPLO='U')
-            for s1 in map(lambda x: start + n * (x + 1), range(im)):  # fills in blocks for other magnetic quantum numbers
+            for s1 in map(
+                lambda x: start + n * (x + 1), range(im)
+            ):    # fills in blocks for other magnetic quantum numbers
                 s2 = s1 + n
                 self._U[s1:s2, s1:s2] = self._U[start:stop, start:stop]
                 np.einsum('ii->i', Hd)[s1:s2] = np.einsum('ii->i', Hd)[start:stop]
@@ -215,14 +219,16 @@ class LVC(INTERFACE):
         # GRADS and NACS
         if 'nacdr' in self._QMin:
             # Build full derivative matrix
-            start = 0  # starting index for blocks
+            start = 0    # starting index for blocks
             dE = np.zeros((nmstates * nmstates, r3N), float)
-            dE[::nmstates + 1, :] += self._V  # fills diagonal on matrix with shape (nmstates,nmstates, r3N)
+            dE[::nmstates + 1, :] += self._V    # fills diagonal on matrix with shape (nmstates,nmstates, r3N)
             dE = dE.reshape((nmstates, nmstates, r3N))
             for im, n in filter(lambda x: x[1] != 0, enumerate(states)):
                 stop = start + n
                 dE[start:stop, start:stop, :] += self._H_i[im]
-                for s1 in map(lambda x: start + n * (x + 1), range(im)):  # fills in blocks for other magnetic quantum numbers
+                for s1 in map(
+                    lambda x: start + n * (x + 1), range(im)
+                ):    # fills in blocks for other magnetic quantum numbers
                     s2 = s1 + n
                     dE[s1:s2, s1:s2, :] = dE[start:stop, start:stop, :]
                 start = stop
@@ -231,21 +237,25 @@ class LVC(INTERFACE):
             dE = np.einsum('mnr,r->nmr', dE, np.sqrt(self._Om), casting='no', optimize=True)
             dE = np.einsum('ij,kli->klj', self._Km, dE, casting='no', optimize=True)
             grad = np.einsum('nnl->nl', dE)
-            start = 0  # starting index for blocks
+            start = 0    # starting index for blocks
             if Hd.dtype == complex:
-                eV = np.reshape(Hd.view(float), (nmstates * nmstates, 2))[:: nmstates + 1, 0]
+                eV = np.reshape(Hd.view(float), (nmstates * nmstates, 2))[::nmstates + 1, 0]
             else:
-                eV = Hd.flat[:: nmstates + 1]
+                eV = Hd.flat[::nmstates + 1]
             nacdr = np.zeros((nmstates, nmstates, r3N), float)
             cast = complex if Hd.dtype == complex else float
             for im, n in filter(lambda x: x[1] != 0, enumerate(states)):
                 stop = start + n
                 tmp = np.full((n, n), eV[start:stop]).T
                 tmp -= eV[start:stop]
-                idx = tmp != cast(0) 
+                idx = tmp != cast(0)
                 tmp[idx] **= -1
-                nacdr[start:stop, start:stop, :] = np.einsum('ij,ijk->ijk', tmp.T, dE[start:stop, start:stop, :], casting='no', optimize=True)
-                for s1 in map(lambda x: start + n * (x + 1), range(im)):  # fills in blocks for other magnetic quantum numbers
+                nacdr[start:stop, start:stop, :] = np.einsum(
+                    'ij,ijk->ijk', tmp.T, dE[start:stop, start:stop, :], casting='no', optimize=True
+                )
+                for s1 in map(
+                    lambda x: start + n * (x + 1), range(im)
+                ):    # fills in blocks for other magnetic quantum numbers
                     s2 = s1 + n
                     nacdr[s1:s2, s1:s2, :] = nacdr[start:stop, start:stop, :]
                 start = stop
@@ -254,8 +264,10 @@ class LVC(INTERFACE):
             start = 0
             for im, n in filter(lambda x: x[1] != 0, enumerate(states)):
                 stop = start + n
-                grad[start: stop, :] += np.einsum('iik,k->ik', self._H_i[im], self._Q, casting='no', optimize=True)
-                for s1 in map(lambda x: start + n * (x + 1), range(im)):  # fills in blocks for other magnetic quantum numbers
+                grad[start:stop, :] += np.einsum('iik,k->ik', self._H_i[im], self._Q, casting='no', optimize=True)
+                for s1 in map(
+                    lambda x: start + n * (x + 1), range(im)
+                ):    # fills in blocks for other magnetic quantum numbers
                     s2 = s1 + n
                     grad[s1:s2, :] += grad[start:stop, :]
                 start = stop
@@ -266,17 +278,22 @@ class LVC(INTERFACE):
             elif self._persistent:
                 overlap = self._Uold.T @ self._U
             else:
-                overlap = np.fromfile(os.path.join(self._QMin['savedir'], 'Uold.out'), dtype=float).reshape(self._U.shape).T @ self._U
+                overlap = np.fromfile(os.path.join(self._QMin['savedir'], 'Uold.out'),
+                                      dtype=float).reshape(self._U.shape).T @ self._U
             self._QMout['overlap'] = overlap
 
         if self._persistent:
             self._Uold = np.copy(self._U)
         else:
-            self._U.tofile(os.path.join(self._QMin['savedir'], 'Uold.out'))  # writes a binary file (can be read with numpy.fromfile())
+            self._U.tofile(
+                os.path.join(self._QMin['savedir'], 'Uold.out')
+            )    # writes a binary file (can be read with numpy.fromfile())
         # OVERLAP
         Hd += self._U.T @ self._soc @ self._U
         self._QMout['h'] = Hd.tolist()
-        self._QMout['dm'] = np.einsum('ni,kij,jm->knm', self._U.T, self._dipole, self._U, casting='no', optimize='optimal').tolist()
+        self._QMout['dm'] = np.einsum(
+            'ni,kij,jm->knm', self._U.T, self._dipole, self._U, casting='no', optimize='optimal'
+        ).tolist()
         self._QMout['grad'] = grad.reshape((nmstates, self._QMin['natom'], 3)).tolist()
         if 'nacdr' in self._QMin:
             self.QMout['nacdr'] = nacdr.reshape((nmstates, nmstates, self._QMin['natom'], 3)).tolist()
@@ -287,10 +304,14 @@ class LVC(INTERFACE):
         name = self.__class__.__name__
         args = sys.argv
         if len(args) != 2:
-            print('Usage:', f'./SHARC_{name} <QMin>',
-                  f'version: {self.version}',
-                  f'date: {self.versiondate}',
-                  f'changelog: {self.changelogstring}', sep='\n')
+            print(
+                'Usage:',
+                f'./SHARC_{name} <QMin>',
+                f'version: {self.version}',
+                f'date: {self.versiondate}',
+                f'changelog: {self.changelogstring}',
+                sep='\n'
+            )
             sys.exit(106)
         QMinfilename = sys.argv[1]
         pwd = os.getcwd()
