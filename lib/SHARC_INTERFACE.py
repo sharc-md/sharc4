@@ -508,8 +508,6 @@ class INTERFACE(ABC):
                     backupdir1 = backupdir + '/calc_%i' % (i)
             QMin['backup'] = backupdir
 
-        return QMin
-
     def parse_keywords(
         self,
         lines: list[str],
@@ -536,16 +534,6 @@ class INTERFACE(ABC):
                 Returns:
                         keyword_dict (dict): dict with parsed keywords
         '''
-        QMin = self._QMin
-        template_parser = KeywordParser(len(QMin['states']), QMin['Atomcharge'])
-        # prepare dict with parsers for every value type
-        bool_parser = {k: lambda x: True for k in bools}
-        string_parser = {k: lambda x: x for k in strings}
-        path_parser = {k: lambda x: template_parser.path(x) for k in strings}
-        integer_parser = {k: lambda x: int(float(x)) for k in integers}
-        float_parser = {k: lambda x: float(x) for k in floats}
-        special_parser = {k: getattr(template_parser, k) for k in special}
-
         # replaces all comments with white space. filters all empty lines
         filtered = filter(lambda x: not re.match(r'^\s*$', x), map(lambda x: re.sub(r'#.*$', '', x).strip(), lines))
 
@@ -555,6 +543,18 @@ class INTERFACE(ABC):
         # 3 replace all \n with ',' in the matches,
         # 4 return matches between [' and ']
         file_str = '\n'.join(filtered)
+        if not file_str or file_str.isspace():  # check is there is only whitespace left!
+            return {}
+
+        QMin = self._QMin
+        template_parser = KeywordParser(len(QMin['states']), QMin['Atomcharge'])
+        # prepare dict with parsers for every value type
+        bool_parser = {k: lambda x: True for k in bools}
+        string_parser = {k: lambda x: x for k in strings}
+        path_parser = {k: lambda x: template_parser.path(x) for k in paths}
+        integer_parser = {k: lambda x: int(float(x)) for k in integers}
+        float_parser = {k: lambda x: float(x) for k in floats}
+        special_parser = {k: getattr(template_parser, k) for k in special}
 
         def format_match(x: re.Match) -> str:
             return re.sub(r'\n+', "','", "['{}']".format(x.group(3)))
@@ -566,6 +566,7 @@ class INTERFACE(ABC):
                 d, line, {
                     **bool_parser,
                     **string_parser,
+                    **path_parser,
                     **integer_parser,
                     **float_parser,
                     **special_parser
@@ -1773,6 +1774,7 @@ class INTERFACE(ABC):
 # =========================================== QMout writing ===================================== #
 # =============================================================================================== #
 # =============================================================================================== #
+
 
     def writeQMout(self):
         '''Writes the requested quantities to the file which SHARC reads in.

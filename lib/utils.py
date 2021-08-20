@@ -301,7 +301,7 @@ def makecmatrix(a, b) -> list[list[complex]]:
     Returns;
     1 list of list of complex'''
 
-    return [[complex(0., 0.)] * a] * b
+    return [x[:] for x in [[complex(0., 0.)] * a] * b]  # make shallow copies (otherwise same object is referenced)
 
 # ======================================================================= #         OK
 
@@ -316,7 +316,7 @@ def makermatrix(a, b) -> list[list[float]]:
     Returns;
     1 list of list of real'''
 
-    return [[0.] * a] * b
+    return [x[:] for x in [[0.] * a] * b]  # make shallow copies (otherwise same object is referenced)
 
 
 def safe_cast(val, type, fallback=None):
@@ -340,8 +340,8 @@ class MMATOM:
     bonds: set[int]
 
     def __str__(self):
-        return '{:n} {} {: 8.12} {: 8.12} {: 8.12} {} {}'.format(self.id + 1, self.symbol, *self.xyz, self.type,
-                                                                 ' '.join(map(lambda x: str(x), self.bonds)))
+        return '{: <5}  {: <4}  {: <16.12} {: <16.12} {: <16.12} {} {}'.format(self.id + 1, self.symbol, *self.xyz, self.type,
+                                                                               ' '.join(map(lambda x: str(x + 1), self.bonds)))
 
     def __gt__(self, other):
         return self.id > other.id

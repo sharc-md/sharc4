@@ -96,11 +96,11 @@ Date: 20.07.2021
 
     @staticmethod
     def path(args: str) -> str:
-        path = os.path.expanduser(os.path.expandvars(args))
-        if os.path.exists(path):
+        path = os.path.abspath(os.path.expanduser(os.path.expandvars(args)))
+        if '$' not in path:
             return path
         else:
-            raise Error(f'Path: {path} does not exist!\nPath generated from: {args}', 67)
+            raise Error(f'Path: {path} invalid!\nPath generated from: {args}', 67)
 
     @staticmethod
     def neglect_gradient(args: str) -> str:
@@ -138,4 +138,8 @@ Date: 20.07.2021
     @staticmethod
     def qmmm_table(args: str) -> list[list]:
         path = os.path.abspath(os.path.expanduser(os.path.expanduser(args)))
-        return [[x[0]] + [int(y) for y in x[0:]] for x in map(lambda x: x.split(), readfile(path))]
+        if os.path.isfile(path):
+            with open(path, 'r') as f:
+                return [[x[0], int(x[1])] + [int(y) - 1 for y in x[2:]] for x in map(lambda x: x.split(), f)]
+        else:
+            raise Error(f'File {path} does not exist!', 1)
