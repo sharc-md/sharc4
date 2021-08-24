@@ -61,13 +61,13 @@ def printcomplexmatrix(matrix, states):
 # ======================================================================= #
 
 
-def printgrad(grad, natom, geo, DEBUG=False):
+def printgrad(grad, natom, elements, DEBUG=False):
     '''Prints a gradient or nac vector. Also prints the atom elements. If the gradient is identical zero, just prints one line.
 
     Arguments:
     1 list of list of float: gradient
     2 integer: natom
-    3 list of list: geometry specs'''
+    3 list: element name'''
 
     string = ''
     iszero = True
@@ -77,7 +77,7 @@ def printgrad(grad, natom, geo, DEBUG=False):
                 string += '...\t...\t     ...\t     ...\t     ...\n'
             if 5 <= atom < natom - 1:
                 continue
-        string += '%i\t%s\t' % (atom + 1, geo[atom][0])
+        string += '%i\t%s\t' % (atom + 1, elements[atom])
         for xyz in range(3):
             if grad[atom][xyz] != 0:
                 iszero = False
