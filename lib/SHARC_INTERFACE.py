@@ -867,14 +867,10 @@ class INTERFACE(ABC):
 
     def writegeom(self):
         QMin = self._QMin
-        factor = au2a
         fname = QMin['scratchdir'] + '/JOB/geom.xyz'
         string = '%i\n\n' % (QMin['natom'])
-        for atom in QMin['geo']:
-            string += atom[0]
-            for xyz in range(1, 4):
-                string += '  %f' % (atom[xyz] * factor)
-            string += '\n'
+        for i, el in enumerate(QMin['elements']):
+            string += '{el}  {: 12.12} {: 12.12} {: 12.12}\n'.format(el, *map(lambda x: x * au2a, QMin['coords'].tolist()))
         writefile(fname, string)
 
         os.chdir(QMin['scratchdir'] + '/JOB')
@@ -1669,7 +1665,7 @@ class INTERFACE(ABC):
             istate = 0
             for imult, i, ms in itnmstates(states):
                 print('%s\t%i\tMs= % .1f:' % (IToMult[imult], i, ms))
-                printgrad(QMout['grad'][istate], natom, QMin['geo'])
+                printgrad(QMout['grad'][istate], natom, QMin['elements'])
                 istate += 1
         # Overlaps
         if 'overlap' in QMin:
@@ -1810,12 +1806,12 @@ class INTERFACE(ABC):
             string += self.writeQMoutdmdr()
         if 'ion' in QMin:
             string += self.writeQMoutprop()
-        if 'theodore' in QMin or QMin['template']['qmmm']:
+        if 'theodore' in QMin or 'qmmm' in QMin['template'] and QMin['template']['qmmm']:
             string += self.writeQMoutTHEODORE()
         if 'phases' in QMin:
             string += self.writeQmoutPhases()
         if 'grad' in QMin:
-            if QMin['template']['cobramm']:
+            if 'cobramm' in QMin['template'] and QMin['template']['cobramm']:
                 self.writeQMoutgradcobramm()
         string += self.writeQMouttime()
         outfile = os.path.join(QMin['pwd'], outfilename)

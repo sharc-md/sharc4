@@ -8,7 +8,6 @@ from error import Error
 import subprocess as sp
 from globals import DEBUG, PRINT
 
-
 # ======================================================================= #
 
 
@@ -23,6 +22,7 @@ def readfile(filename) -> list[str]:
         out = f.readlines()
         f.close()
     return out
+
 
 # ======================================================================= #
 
@@ -42,6 +42,7 @@ def writefile(filename, content):
     except IOError:
         raise Error('Could not write to file %s!' % (filename), 13)
 
+
 # ======================================================================= #
 
 
@@ -58,6 +59,8 @@ def mkdir(DIR):
             os.makedirs(DIR)
         except OSError:
             raise Error('Can not create %s\n' % (DIR), 90)
+
+
 # ======================================================================= #
 
 
@@ -89,6 +92,7 @@ def link(PATH, NAME, crucial=True, force=True):
             return
     os.symlink(PATH, NAME)
 
+
 # ======================================================================= #
 
 
@@ -99,6 +103,7 @@ def shorten_DIR(string) -> str:
         return string[0:front] + '...' + string[-(maxlen - 3 - front):]
     else:
         return string + ' ' * (maxlen - len(string))
+
 
 # ======================================================================= #
 
@@ -199,6 +204,7 @@ def removekey(d, key) -> dict:
         return r
     return d
 
+
 # ======================================================================= #         OK
 
 
@@ -214,6 +220,7 @@ def containsstring(string, line) -> bool:
     1 boolean'''
 
     return bool(re.search(string, line))
+
 
 # ======================================================================= #
 
@@ -231,7 +238,7 @@ class clock:
         return self._starttime
 
     @starttime.setter
-    def starttime(self, value: datetime):
+    def starttime(self, value):
         self._starttime = value
 
     def measuretime(self):
@@ -250,8 +257,9 @@ class clock:
             seconds = runtime.seconds % 60
             # seconds += 1.e-3 * runtime.milliseconds
             seconds += 1.e-6 * runtime.microseconds
-            print('==> Runtime:\t%i Days\t%i Hours\t%i Minutes\t%f Seconds\n\n' %
-                  (runtime.days, hours, minutes, seconds))
+            print(
+                '==> Runtime:\t%i Days\t%i Hours\t%i Minutes\t%f Seconds\n\n' % (runtime.days, hours, minutes, seconds)
+            )
         return runtime.days * 24 * 3600 + runtime.seconds + runtime.microseconds // 1.e6
 
 
@@ -261,6 +269,7 @@ class clock:
 # =============================================================================================== #
 # =============================================================================================== #
 
+
 # ======================================================================= #
 def itmult(states):
 
@@ -269,6 +278,7 @@ def itmult(states):
             continue
         yield i + 1
     return
+
 
 # ======================================================================= #
 
@@ -290,6 +300,7 @@ def itnmstates(states):
 # =============================================================================================== #
 # =============================================================================================== #
 
+
 # ======================================================================= #         OK
 def makecmatrix(a, b) -> list[list[complex]]:
     '''Initialises a complex axb matrix.
@@ -301,7 +312,8 @@ def makecmatrix(a, b) -> list[list[complex]]:
     Returns;
     1 list of list of complex'''
 
-    return [x[:] for x in [[complex(0., 0.)] * a] * b]  # make shallow copies (otherwise same object is referenced)
+    return [x[:] for x in [[complex(0., 0.)] * a] * b]    # make shallow copies (otherwise same object is referenced)
+
 
 # ======================================================================= #         OK
 
@@ -316,7 +328,7 @@ def makermatrix(a, b) -> list[list[float]]:
     Returns;
     1 list of list of real'''
 
-    return [x[:] for x in [[0.] * a] * b]  # make shallow copies (otherwise same object is referenced)
+    return [x[:] for x in [[0.] * a] * b]    # make shallow copies (otherwise same object is referenced)
 
 
 def safe_cast(val, type, fallback=None):
@@ -340,8 +352,9 @@ class MMATOM:
     bonds: set[int]
 
     def __str__(self):
-        return '{: <5}  {: <4}  {: <16.12} {: <16.12} {: <16.12} {} {}'.format(self.id + 1, self.symbol, *self.xyz, self.type,
-                                                                               ' '.join(map(lambda x: str(x + 1), self.bonds)))
+        return '{: >5}  {: <4}  {: <16.12f} {: <16.12f} {: <16.12f} {:>4}  {}'.format(
+            self.id + 1, self.symbol, *self.xyz, self.type, ' '.join(map(lambda x: str(x + 1), sorted(self.bonds)))
+        )
 
     def __gt__(self, other):
         return self.id > other.id
