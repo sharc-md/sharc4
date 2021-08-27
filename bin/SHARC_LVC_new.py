@@ -38,7 +38,8 @@ import numpy as np
 # internal
 from SHARC_INTERFACE import INTERFACE
 from utils import *
-from constants import U_TO_AMU
+from constants import U_TO_AMU, MASSES
+from kabsch import kabsch_w as kabsch
 
 authors = 'Sebastian Mai and Severin Polonius'
 version = '3.0'
@@ -56,6 +57,7 @@ class LVC(INTERFACE):
     _authors = authors
     _changelogstring = changelogstring
     _read_resources = True
+    _do_kabsch = True
 
     @property
     def version(self):
@@ -82,7 +84,8 @@ class LVC(INTERFACE):
         f = open(os.path.abspath(template_filename), 'r')
         V0file = f.readline()[:-1]
         self.read_V0(os.path.abspath(V0file))
-        states = [int(s) for s in f.readline().split()]
+        parsed_states = INTERFACE.parseStates(f.readline())
+        states = parsed_states['states']
         if states != QMin['states']:
             print(f'states from QM.in and nstates from LVC.template are inconsistent! {QMin["states"]} != {states}')
             sys.exit(25)
@@ -177,7 +180,7 @@ class LVC(INTERFACE):
         if [x[0] for x in rM] != elem:
             raise Error(f'inconsistent atom labels in Qm.in and {filename}:\n{rM[:,0]}\n{elem}')
         rM = np.asarray([x[1:] for x in rM], dtype=float)
-        self._disp = rM[:, :-1]
+        self._ref_coords = rM[:, :-1]
         tmp = np.sqrt(rM[:, -1] * U_TO_AMU)
         self._Msa = np.asarray([tmp, tmp, tmp]).flatten(order='F')
         it += QMin['natom'] + 1
@@ -189,6 +192,7 @@ class LVC(INTERFACE):
     def read_resources(self, resources_filename="LVC.resources"):
         pass
 
+    # NOTE: potentially do kabsch on reference coords and normal modes (if nmstates**2 > 3*natom)
     def run(self):
         self.clock.starttime = datetime.datetime.now()
         nmstates = self._QMin['nmstates']
@@ -196,8 +200,14 @@ class LVC(INTERFACE):
         Hd = np.zeros((nmstates, nmstates), dtype=self._soc.dtype)
         states = self._QMin['states']
         r3N = 3 * self._QMin['natom']
+        coords: np.ndarray = self._QMin['coords']
+        if self._do_kabsch:
+            weights = [MASSES[i] for i in self._QMin['elements']]
+            R, com_ref, com_coords = kabsch(self._ref_coords, coords, weights)
+            coords_old = coords.copy()
+            coords = (coords - com_coords) @ R.T + com_ref
         # Build full H and diagonalize
-        self._Q = np.sqrt(self._Om) * (self._Km @ (self._QMin['coords'].flatten() - self._disp.flatten()))
+        self._Q = np.sqrt(self._Om) * (self._Km @ (coords.flatten() - self._ref_coords.flatten()))
         self._V = self._Om * self._Q
         V0 = 0.5 * (self._V) @ self._Q
         start = 0    # starting index for blocks
@@ -291,12 +301,23 @@ class LVC(INTERFACE):
         # OVERLAP
         Hd += self._U.T @ self._soc @ self._U
         self._QMout['h'] = Hd.tolist()
-        self._QMout['dm'] = np.einsum(
-            'ni,kij,jm->knm', self._U.T, self._dipole, self._U, casting='no', optimize='optimal'
-        ).tolist()
-        self._QMout['grad'] = grad.reshape((nmstates, self._QMin['natom'], 3)).tolist()
-        if 'nacdr' in self._QMin:
-            self.QMout['nacdr'] = nacdr.reshape((nmstates, nmstates, self._QMin['natom'], 3)).tolist()
+        if self._do_kabsch:
+            coords = coords_old
+            dipole = np.einsum('ni,kij,jm->knm', self._U.T, self._dipole, self._U, casting='no', optimize='optimal')
+            self._QMout['dm'] = (np.einsum('inm,ji->jnm', dipole, R)).tolist()
+            grad = grad.reshape((nmstates, self._QMin['natom'], 3))
+            self._QMout['grad'] = (np.einsum('mni,ij-> mnj', grad, R)).tolist()
+            if 'nacdr' in self._QMin:
+                nacdr = nacdr.reshape((nmstates, nmstates, self._QMin['natom'], 3))
+                self._QMout['nacdr'] = (np.einsum('mnki,ij->mnkj', nacdr, R)).tolist()
+        else:
+            self._QMout['dm'] = np.einsum(
+                'ni,kij,jm->knm', self._U.T, self._dipole, self._U, casting='no', optimize='optimal'
+            ).tolist()
+            self._QMout['grad'] = grad.reshape((nmstates, self._QMin['natom'], 3)).tolist()
+            if 'nacdr' in self._QMin:
+                self.QMout['nacdr'] = nacdr.reshape((nmstates, nmstates, self._QMin['natom'], 3)).tolist()
+
         self._QMout['runtime'] = self.clock.measuretime()
         return
 

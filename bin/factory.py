@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-
 # ******************************************
 #
 #    SHARC Program Suite
@@ -25,8 +24,6 @@
 from importlib import import_module
 from error import Error
 from SHARC_INTERFACE import INTERFACE
-
-
 def factory(name: str) -> INTERFACE:
     if name.upper() not in ['LVC', 'ORCA', 'MOLCAS', 'BAGEL', 'MOLPRO', 'COLUMBUS', 'AMS-ADF', 'RICC2', 'GAUSSIAN']:
         raise Error(f'Interface with name "{name}" does not exist!')
