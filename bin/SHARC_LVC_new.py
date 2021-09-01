@@ -57,7 +57,8 @@ class LVC(INTERFACE):
     _authors = authors
     _changelogstring = changelogstring
     _read_resources = True
-    _do_kabsch = True
+    _do_kabsch = False
+    _step = 0
 
     @property
     def version(self):
@@ -200,10 +201,19 @@ class LVC(INTERFACE):
         Hd = np.zeros((nmstates, nmstates), dtype=self._soc.dtype)
         states = self._QMin['states']
         r3N = 3 * self._QMin['natom']
-        coords: np.ndarray = self._QMin['coords']
+        coords: np.ndarray = self._QMin['coords'].copy()
+        weights = [MASSES[i] for i in self._QMin['elements']]
+        R, com_ref, com_coords = kabsch(self._ref_coords, coords, weights)
+        print('STEP:', self._step)
+        print('R:\n', R)
+        print('com_ref:\n', com_ref)
+        print('com_coords:\n', com_coords)
         if self._do_kabsch:
             weights = [MASSES[i] for i in self._QMin['elements']]
             R, com_ref, com_coords = kabsch(self._ref_coords, coords, weights)
+            print('R:\n', R)
+            print('com_ref:\n', com_ref)
+            print('com_coords:\n', com_coords)
             coords_old = coords.copy()
             coords = (coords - com_coords) @ R.T + com_ref
         # Build full H and diagonalize
@@ -213,8 +223,7 @@ class LVC(INTERFACE):
         start = 0    # starting index for blocks
         # TODO what if I want to get gradients only ? i.e. samestep
         for im, n in filter(lambda x: x[1] != 0, enumerate(states)):
-            H = np.zeros((n, n), dtype=float)
-            np.einsum('ii->i', H)[:] = self._epsilon[im] + V0
+            H = np.diag(self._epsilon[im] + V0)
             H += self._H_i[im] @ self._Q
             stop = start + n
             np.einsum('ii->i', Hd)[start:stop], self._U[start:stop, start:stop] = np.linalg.eigh(H, UPLO='U')
@@ -270,16 +279,23 @@ class LVC(INTERFACE):
                     nacdr[s1:s2, s1:s2, :] = nacdr[start:stop, start:stop, :]
                 start = stop
         else:
-            grad = np.full((nmstates, r3N), self._V)
+            grad = np.zeros((nmstates, r3N))
             start = 0
             for im, n in filter(lambda x: x[1] != 0, enumerate(states)):
                 stop = start + n
-                grad[start:stop, :] += np.einsum('iik,k->ik', self._H_i[im], self._Q, casting='no', optimize=True)
+                g = grad[start:stop, :]
+                h = self._H_i[im].copy()
+                np.einsum('iik->ik', h)[:, :] += self._V[None, ...]
+                u = self._U[start:stop, start:stop]
+                hd = np.einsum('im,ijk,jm->mk', u, h, u, casting='no', optimize=True)
+                if im == 0:
+                    print(hd)
+                g += np.einsum('ik,k,kl->il', hd, np.sqrt(self._Om), self._Km, casting='no', optimize=True)
                 for s1 in map(
                     lambda x: start + n * (x + 1), range(im)
                 ):    # fills in blocks for other magnetic quantum numbers
                     s2 = s1 + n
-                    grad[s1:s2, :] += grad[start:stop, :]
+                    grad[s1:s2, :] += g
                 start = stop
 
         if 'overlap' in self._QMin:
@@ -302,7 +318,7 @@ class LVC(INTERFACE):
         Hd += self._U.T @ self._soc @ self._U
         self._QMout['h'] = Hd.tolist()
         if self._do_kabsch:
-            coords = coords_old
+            self._QMin['coords'] = coords_old
             dipole = np.einsum('ni,kij,jm->knm', self._U.T, self._dipole, self._U, casting='no', optimize='optimal')
             self._QMout['dm'] = (np.einsum('inm,ji->jnm', dipole, R)).tolist()
             grad = grad.reshape((nmstates, self._QMin['natom'], 3))
@@ -319,6 +335,7 @@ class LVC(INTERFACE):
                 self.QMout['nacdr'] = nacdr.reshape((nmstates, nmstates, self._QMin['natom'], 3)).tolist()
 
         self._QMout['runtime'] = self.clock.measuretime()
+        self._step += 1
         return
 
     def main(self):

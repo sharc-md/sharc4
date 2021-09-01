@@ -164,12 +164,9 @@ def finalize_sharc():
     return sharc.finalize_sharc()
 
 
-name = "lvc"
-
-
 def safe(func: callable):
     try:
-        func
+        func()
     except Error:
         finalize_sharc()
         raise
@@ -179,7 +176,7 @@ def do_qm_calc(i: INTERFACE, qmout: QMOUT):
     icall = 1
     i.set_requests(get_all_tasks(icall))
     i.set_coords(get_crd())
-    safe(i.run())
+    safe(i.run)
     qmout.set_props(i._QMout, icall)
 
     isecond = set_qmout(qmout._QMout, icall)
@@ -250,13 +247,13 @@ def main():
         crd = get_crd()
         IRedo = verlet_vstep()
 
-        if IRedo == 1:
+        if False: # IRedo == 1:
             # calculate gradients numerically by setting up 6N calculations
             # TODO what if I want to get gradients only ? i.e. samestep
             # possibly skip whole Hamiltonian build in LVC -> major timesave
             i.set_requests(get_all_tasks(3))
             i.set_coords(crd)
-            safe(i.run())
+            safe(i.run)
             QMout.set_gradient(list2dict(i._QMout['grad']), 3)
             set_qmout(QMout._QMout, 3)
         iexit = verlet_finalize(1)

@@ -3,7 +3,7 @@ import numpy as np
 
 from error import Error
 
-def kabsch(a, b) -> np.ndarray:
+def kabsch(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     """Estimate a rotation to optimally align two sets of vectors.
     Find a rotation between frames A and B which best aligns a set of
     vectors `a` and `b` observed in these frames. The following loss
@@ -23,10 +23,8 @@ def kabsch(a, b) -> np.ndarray:
         Vector components observed in another frame B. Each row of `b`
         denotes a vector.
     """
-    a = np.asarray(a)
     if a.ndim != 2 or a.shape[-1] != 3:
         raise ValueError("Expected input `a` to have shape (N, 3), " "got {}".format(a.shape))
-    b = np.asarray(b)
     if b.ndim != 2 or b.shape[-1] != 3:
         raise ValueError("Expected input `b` to have shape (N, 3), " "got {}.".format(b.shape))
 
@@ -56,7 +54,7 @@ def kabsch(a, b) -> np.ndarray:
     return B, a_s, b_s
 
 
-def kabsch_w(a, b, weights) -> np.ndarray:
+def kabsch_w(a: np.ndarray, b: np.ndarray, weights) -> np.ndarray:
     """Estimate a rotation to optimally align two sets of vectors.
     Find a rotation between frames A and B which best aligns a set of
     vectors `a` and `b` observed in these frames. The following loss
@@ -78,10 +76,8 @@ def kabsch_w(a, b, weights) -> np.ndarray:
     weights : array_like shape (N,), optional
         Weights describing the relative importance of the vector
         observations."""
-    a = np.asarray(a)
     if a.ndim != 2 or a.shape[-1] != 3:
         raise Error("Expected input `a` to have shape (N, 3), " "got {}".format(a.shape))
-    b = np.asarray(b)
     if b.ndim != 2 or b.shape[-1] != 3:
         raise Error("Expected input `b` to have shape (N, 3), " "got {}.".format(b.shape))
 
