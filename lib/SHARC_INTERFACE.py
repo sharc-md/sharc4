@@ -858,6 +858,7 @@ class INTERFACE(ABC):
         # print nrounds,nslots,cpu_per_run
         return nrounds, nslots, cpu_per_run
 
+    @staticmethod
     def stripWORKDIR(WORKDIR, keep):
         for ifile in os.listdir(WORKDIR):
             if any([containsstring(k, ifile) for k in keep]):
@@ -892,9 +893,6 @@ class INTERFACE(ABC):
 
         # COBRAMM
         if QMin['cobramm']:
-            # chargefiles='charge.dat'
-            # tocharge=os.path.join(QMin['scratchdir']+'/JOB/point_charges')
-            # shutil.copy(chargefiles,tocharge)
             cobcharges = open('charge.dat', 'r')
             charges = cobcharges.read()
             only_atom = charges.split()
@@ -902,15 +900,6 @@ class INTERFACE(ABC):
             filename = QMin['scratchdir'] + '/JOB/point_charges'
             string = '$point_charges nocheck\n'
             string += charges
-            # counter=0
-            # for atom in only_atom:
-            #   	string+=atom
-            #    string+=' '
-            #    counter+=1
-            #    if counter == 4:
-            #      string+='\n'
-            #      counter=0
-            #    #string+='\n'
             string += '$end'
             writefile(filename, string)
 
