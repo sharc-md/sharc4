@@ -2932,7 +2932,7 @@ The BAGEL interface will generate the appropriate BAGEL input automatically.
                 continue
             if checktemplate_BAGEL(filename, INFOS):
                 break
-        INFOS['molcas.template'] = filename
+        INFOS['bagel.template'] = filename
     print('')
 
     print('{:-^60}'.format('Dipole level') + '\n')
