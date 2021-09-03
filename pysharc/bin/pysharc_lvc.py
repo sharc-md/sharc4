@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 # ******************************************
 #
@@ -24,7 +24,6 @@
 # ******************************************
 
 
-#!/usr/bin/env python2
 """
 
 Standalone script for performing SHARC/LVC dynamics.
