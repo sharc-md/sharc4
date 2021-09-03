@@ -57,7 +57,7 @@ class LVC(INTERFACE):
     _authors = authors
     _changelogstring = changelogstring
     _read_resources = True
-    _do_kabsch = False
+    _do_kabsch = True
     _step = 0
 
     @property
@@ -102,7 +102,7 @@ class LVC(INTERFACE):
         soc_real = True
         dipole_real = True
         line = f.readline()
-        # NOTE: possibly assign whole arry with index accessor (numpy)
+        # NOTE: possibly assign whole array with index accessor (numpy)
         if line == 'epsilon\n':
             z = int(f.readline()[:-1])
 
@@ -162,7 +162,6 @@ class LVC(INTERFACE):
             self._soc = np.reshape(self._soc.view(float), self._soc.shape + (2, ))[:, :, 0]
         if dipole_real:
             self._dipole = np.reshape(self._dipole.view(float), self._dipole.shape + (2, ))[:, :, :, 0]
-        # timing (BIG): 0.59
 
         if 'init' in self._QMin:
             INTERFACE.checkscratch(self._QMin['savedir'])
@@ -202,18 +201,9 @@ class LVC(INTERFACE):
         states = self._QMin['states']
         r3N = 3 * self._QMin['natom']
         coords: np.ndarray = self._QMin['coords'].copy()
-        weights = [MASSES[i] for i in self._QMin['elements']]
-        R, com_ref, com_coords = kabsch(self._ref_coords, coords, weights)
-        print('STEP:', self._step)
-        print('R:\n', R)
-        print('com_ref:\n', com_ref)
-        print('com_coords:\n', com_coords)
         if self._do_kabsch:
             weights = [MASSES[i] for i in self._QMin['elements']]
             R, com_ref, com_coords = kabsch(self._ref_coords, coords, weights)
-            print('R:\n', R)
-            print('com_ref:\n', com_ref)
-            print('com_coords:\n', com_coords)
             coords_old = coords.copy()
             coords = (coords - com_coords) @ R.T + com_ref
         # Build full H and diagonalize
