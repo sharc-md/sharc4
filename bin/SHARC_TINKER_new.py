@@ -79,24 +79,6 @@ class TINKER(INTERFACE):
     #       only vdW-Terms are considered
     #       potentially abuse resources, template file...
     # TODO: warnings for unsupported settings, i.e. nacs, socs etc
-    # TODO: write .key, .in, xyz
-    # TODO: QM.in only for coords
-    '''
-    3
-
-    O       0.00000000      -0.50988030      -0.80750292
-    H       0.00000000       0.05602171      -1.54130310
-    H       0.00000000       0.00000000       0.00000000
-
-    '''
-    # TODO: template: not sure how to indicate qm and mm either with new atom type (-1) or directly
-    '''
-    qmmm start
-    qm  6 2 3
-    mm 21 1
-    mm 21 1
-    end
-    '''
 
     def setup_mol(self, QMinfilename: str):
         super().setup_mol(QMinfilename)
@@ -111,7 +93,7 @@ class TINKER(INTERFACE):
 
     def _request_logic(self):
         QMin = self._QMin
-        possibletasks = {'h', 'soc', 'grad'}
+        possibletasks = {'h', 'grad'}
         tasks = possibletasks & QMin.keys()
 
         if len(tasks) == 0:
@@ -242,7 +224,7 @@ class TINKER(INTERFACE):
                 i + 1, atom.symbol, *atom.xyz, atom.type,
                 ' '.join(map(lambda x: str(self._perm[x][0] + 1), atom.bonds))
             )
-
+        input_str += '\n'
         writefile(os.path.join(WORKDIR, 'TINKER.xyz'), input_str)
 
         ## TINKER.xyz
@@ -296,10 +278,24 @@ class TINKER(INTERFACE):
         output.close()
         if 'dm' in QMin and QMin['dm']:
             dm = np.zeros((3), float)
-            for i, q in QMout['raw_pc']:
+            for i, q in enumerate(QMout['raw_pc']):
                 dm += q * QMin['coords'][i]
             QMout['dm'] = dm.tolist()
         QMout['runtime'] = self.clock.measuretime()
+
+        # read additional free energy components
+        with open(os.path.join(WORKDIR, 'TINKER.qmmm'), 'r') as f:
+            parse = False
+            for line in f:
+                if parse:
+                    try:
+                        llist = f.readline().split()
+                        QMout[llist[0]] = float(llist[2])
+                    except (IndexError, ValueError):
+                        break
+                if 'and the MM contributions to the gradient' not in line:
+                    parse = True
+
 
     def setup_run(self):
         QMin = self._QMin

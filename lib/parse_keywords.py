@@ -97,13 +97,12 @@ Date: 20.07.2021
     @staticmethod
     def path(args: str) -> str:
         path = os.path.abspath(os.path.expanduser(os.path.expandvars(args)))
-        if '$' not in path:
-            return path
-        else:
-            raise Error(f'Path: {path} invalid!\nPath generated from: {args}', 67)
+        if '$' in path:
+            raise Error(f'Path: {path} contains undefined env variables!\nPath generated from: {args}', 67)
+        return path
 
     @staticmethod
-    def neglect_gradient(args: str) -> str:
+    def neglected_gradient(args: str) -> str:
         args = args.lower()
         if args in {'zero', 'gs', 'closest'}:
             return args

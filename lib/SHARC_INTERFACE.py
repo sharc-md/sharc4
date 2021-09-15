@@ -56,8 +56,6 @@ from parse_keywords import KeywordParser
 
 
 class INTERFACE(ABC):
-    _QMin = {}
-    _QMout = {}
 
     # internal status indicators
     _setup_mol = False
@@ -69,6 +67,8 @@ class INTERFACE(ABC):
     # TODO: set Debug and Print flag
     # TODO: set persistant flag for file-io vs in-core
     def __init__(self, debug=False, print=True, persistent=False):
+        self._QMin = {}
+        self._QMout = {}
         self.clock = clock(verbose=print)
         # self.printheader()
         self._DEBUG = debug
@@ -112,8 +112,8 @@ class INTERFACE(ABC):
 
     def main(self):
 
-        name = self.__class__.__name__
         args = sys.argv
+        name = self.__class__.__name__
         if len(args) != 2:
             print(
                 'Usage:',
@@ -136,6 +136,7 @@ class INTERFACE(ABC):
         self.run()
         if PRINT or DEBUG:
             self.printQMout()
+        self._QMout['runtime'] = self.clock.measuretime()
         self.writeQMout()
 
     @abstractmethod
@@ -143,18 +144,96 @@ class INTERFACE(ABC):
         pass
 
     @abstractmethod
-    def read_resources(self, resources_filename):
-        pass
-
-    @abstractmethod
     def run(self):
         pass
 
+    @abstractmethod
+    def read_resources(self, resources_filename):
+        if not self._setup_mol:
+            raise Error('Interface is not set up for this template. Call setup_mol with the QM.in file first!', 23)
+        QMin = self._QMin
+
+        pwd = os.getcwd()
+        QMin['pwd'] = pwd
+
+        paths = {
+            'orcadir': '',
+            'tinkerdir': '',
+            'scratchdir': '',
+            'savedir': '',    # NOTE: savedir from QMin
+            'theodir': '',
+            'wfoverlap': os.path.join(os.path.expandvars(os.path.expanduser('$SHARC')), 'wfoverlap.x'),
+        }
+        bools = {
+            'debug': False,
+            'save_stuff': False,
+            'no_print': False,
+            'nooverlap': False,
+            'always_orb_init': False,
+            'always_guess': False,
+        }
+        integers = {'ncpu': 1, 'memory': 100, 'numfrozcore': -1, 'numocc': 0, 'theodore_n': 0}
+        floats = {'delay': 0.0, 'schedule_scaling': 0.9, 'wfthres': 0.99}
+        special = {
+            'neglected_gradient': 'zero',
+            'theodore_prop': ['Om', 'PRNTO', 'S_HE', 'Z_HE', 'RMSeh'],
+            'theodore_fragment': [],
+        }
+        lines = readfile(resources_filename)
+        # assign defaults first, which get updated by the parsed entries, which are updated by the entries that were already in QMin
+        QMin['resources'] = {
+            **bools,
+            **paths,
+            **integers,
+            **floats,
+            **special,
+            **self.parse_keywords(
+                lines,
+                bools=bools,
+                paths=paths,
+                integers=integers,
+                floats=floats,
+                special=special,
+            )
+        }
+        self._DEBUG = QMin['resources']['debug']
+        self._PRINT = QMin['resources']['no_print'] is False
+
+        # NOTE: This is reall optional
+        ncpu = QMin['resources']['ncpu']
+        if os.environ.get('NSLOTS') is not None:
+            ncpu = int(os.environ.get('NSLOTS'))
+            print(f'Detected $NSLOTS variable. Will use ncpu={ncpu}')
+        elif os.environ.get('SLURM_NTASKS_PER_NODE') is not None:
+            ncpu = int(os.environ.get('SLURM_NTASKS_PER_NODE'))
+            print('Detected $SLURM_NTASKS_PER_NODE variable. Will use ncpu={ncpu}')
+        QMin['resources']['ncpu'] = max(1, ncpu)
+
+        if 0 > QMin['resources']['schedule_scaling'] or QMin['resources']['schedule_scaling'] > 1.:
+            QMin['resources']['schedule_scaling'] = 0.9
+        if 'always_orb_init' in QMin and 'always_guess' in QMin:
+            raise Error('Keywords "always_orb_init" and "always_guess" cannot be used together!', 53)
+
+        if QMin['resources']['numfrozcore'] >= 0:
+            QMin['frozcore'] = QMin['resources']['numfrozcore']
+
+        if QMin['resources']['numocc'] <= 0:
+            QMin['numocc'] = 0
+        else:
+            QMin['numocc'] = max(0, QMin['resources']['numocc'] - QMin['frozcore'])
+        # number of properties/entries calculated by TheoDORE
+        if 'theodore' in QMin:
+            QMin['resources']['theodore_n'] = len(QMin['resources']['theodore_prop']
+                                                  ) + len(QMin['resources']['theodore_fragment'])**2
+        else:
+            QMin['resources']['theodore_n'] = 0
+        self._QMin = {**QMin['resources'], **QMin}
+        return
         # ============================ Implemented public methods ========================
 
     def setup_mol(self, QMinfilename: str):
-        QMin = self._QMin
         self._QMinfilename = QMinfilename
+        QMin = self._QMin
         QMinlines = readfile(QMinfilename)
         QMin['comment'] = QMinlines[1]
         QMin['elements'] = INTERFACE.read_elements(QMinlines)
@@ -180,6 +259,8 @@ class INTERFACE(ABC):
         if 'savedir' not in QMin:
             QMin['savedir'] = './SAVEDIR/'
         QMin['savedir'] = os.path.abspath(os.path.expanduser(os.path.expandvars(QMin['savedir'])))
+        if '$' in QMin['savedir']:
+            raise Error(f'undefined env variable in "savedir"! {QMin["savedir"]}')
         self._setup_mol = True
         # NOTE: Quantity requests (tasks) are dealt with later and potentially re-assigned
         return
@@ -303,20 +384,31 @@ class INTERFACE(ABC):
                 args = args[0]
             return llist[0].lower(), args
 
-        # NOTE: old QMin read stuff is not overwritten. Problem with states?
         self._QMin = {**dict(map(parse, lines)), **QMin}
+        QMin = self._QMin
+        # NOTE: old QMin read stuff is not overwritten. Problem with states?
+        if 'step' not in QMin:
+            QMin['step'] = -1
+        else:
+            QMin['step'] = int(QMin['step'])
+            assert QMin['step'] >= 0
         self._request_logic()
 
     def _reset_requests(self):
         for k in [
             'init', 'samestep', 'newstep', 'restart', 'cleanup', 'backup', 'h', 'soc', 'dm', 'grad', 'overlap', 'dmdr',
-            'socdr', 'ion', 'theodore', 'phases'
+            'nac', 'nacdr', 'socdr', 'ion', 'theodore', 'phases'
         ]:
             if k in self._QMin:
                 del self._QMin[k]
 
     def _request_logic(self):
         QMin = self._QMin
+
+        # prepare savedir
+        if not os.path.isdir(QMin['savedir']):
+            mkdir(QMin['savedir'])
+
         possibletasks = {'h', 'soc', 'dm', 'grad', 'overlap', 'dmdr', 'socdr', 'ion', 'theodore', 'phases'}
         tasks = possibletasks & QMin.keys()
         if len(tasks) == 0:
@@ -329,6 +421,32 @@ class INTERFACE(ABC):
             del QMin['soc']
             QMin['h'] = True
             print('HINT: No triplet states requested, turning off SOC request.')
+
+        # remove old keywords:
+        for i in ['restart', 'init', 'samestep', 'newstep']:
+            removekey(QMin, i)
+        if QMin['step'] == 0:
+            QMin['init'] = True
+        else:
+            # get highest step indicator from savedir -> default is -1
+            last_step = reduce(
+                lambda x, y: max(x, y),
+                map(
+                    int,
+                    filter(
+                        lambda x: bool(re.match('^[0-9]+$', x)),
+                        map(lambda x: x.split('.')[-1], os.listdir(QMin['savedir']))
+                    )
+                ), -1
+            )
+            if last_step == QMin['step']:
+                QMin['samestep'] = True
+            elif last_step + 1 == QMin['step']:
+                QMin['newstep'] = True
+            else:
+                raise Error(
+                    f'Determined last step ({last_step}) from savedir and specified step ({QMin["step"]}) do not fit!'
+                )
 
         if 'samestep' in QMin and 'init' in QMin:
             raise Error('"Init" and "Samestep" cannot be both present in QM.in!', 41)
@@ -378,13 +496,11 @@ class INTERFACE(ABC):
             # WFoverlap
 
             if not os.path.isfile(QMin['resources']['wfoverlap']):
-                print('Give path to wfoverlap.x in ORCA.resources!')
-                sys.exit(54)
+                raise Error('Give path to wfoverlap.x in resources file!', 54)
 
         if 'theodore' in QMin:
             if QMin['resources']['theodir'] is not None and not os.path.isdir(QMin['resources']['theodir']):
-                print('Give path to the TheoDORE installation directory in ORCA.resources!')
-                sys.exit(56)
+                raise Error('Give path to the TheoDORE installation directory in resources file!', 56)
             os.environ['THEODIR'] = QMin['resources']['theodir']
             if 'PYTHONPATH' in os.environ:
                 os.environ['PYTHONPATH'] = os.path.join(
@@ -507,6 +623,9 @@ class INTERFACE(ABC):
                 else:
                     backupdir1 = backupdir + '/calc_%i' % (i)
             QMin['backup'] = backupdir
+
+        if self._PRINT:
+            self.printQMin()
 
     def parse_keywords(
         self,
@@ -820,7 +939,7 @@ class INTERFACE(ABC):
         return exit_code
 
     @staticmethod
-    def parallel_speedup(N, scaling):
+    def parallel_speedup(N, scaling) -> float:
         # computes the parallel speedup from Amdahls law
         # with scaling being the fraction of parallelizable work and (1-scaling) being the serial part
         return 1. / ((1 - scaling) + scaling / N)
@@ -834,10 +953,9 @@ class INTERFACE(ABC):
         ntasks_per_round = min(ncpu, ntasks)
         optimal = {}
         for i in range(1, 1 + ntasks_per_round):
-            nrounds = int(math.ceil(float(ntasks) // i))
+            nrounds = int(math.ceil(ntasks / i))
             ncores = ncpu // i
-            optimal[i] = nrounds // INTERFACE.parallel_speedup(ncores, scaling)
-        # print optimal
+            optimal[i] = nrounds / INTERFACE.parallel_speedup(ncores, scaling)
         best = min(optimal, key=optimal.get)
         nrounds = int(math.ceil(float(ntasks) // best))
         ncores = ncpu // best
@@ -855,7 +973,6 @@ class INTERFACE(ABC):
             for itask in range(ntasks):
                 cpu_per_run[itask] = ncores
             nslots = ncpu // ncores
-        # print nrounds,nslots,cpu_per_run
         return nrounds, nslots, cpu_per_run
 
     @staticmethod
@@ -1086,8 +1203,7 @@ class INTERFACE(ABC):
                     string += '\n'
         print(string)
         if any((i != 0 for i in errorcodes.values())):
-            print('Some subprocesses did not finish successfully!')
-            sys.exit(100)
+            raise Error('Some subprocesses did not finish successfully!', 100)
 
         print('')
 
@@ -1102,18 +1218,10 @@ class INTERFACE(ABC):
         mkdir(WORKDIR)
 
         # write wfovl.inp
-        inputstring = '''mix_aoovl=aoovl
-    a_mo=mo.a
-    b_mo=mo.b
-    a_det=det.a
-    b_det=det.b
-    a_mo_read=0
-    b_mo_read=0
-    ao_read=0
-    '''
+        inputstring = 'mix_aoovl=aoovl\na_mo=mo.a\nb_mo=mo.b\na_det=det.a\nb_det=det.b\na_mo_read=0\nb_mo_read=0\nao_read=0'
         if 'ion' in QMin:
-            if QMin['ndocc'] > 0:
-                inputstring += 'ndocc=%i\n' % (QMin['ndocc'])
+            if QMin['numocc'] > 0:
+                inputstring += 'numocc=%i\n' % (QMin['numocc'])
         if QMin['ncpu'] >= 8:
             inputstring += 'force_direct_dets\n'
         filename = os.path.join(WORKDIR, 'wfovl.inp')
@@ -1147,9 +1255,8 @@ class INTERFACE(ABC):
             sys.stdout.flush()
         try:
             runerror = sp.call(string, shell=True, stdout=stdoutfile, stderr=stderrfile)
-        except OSError:
-            print('Call have had some serious problems:', OSError)
-            sys.exit(101)
+        except OSError as e:
+            raise Error(f'Call have had some serious problems:\n\t{e}', 101)
         stdoutfile.close()
         stderrfile.close()
         if PRINT or DEBUG:
@@ -1446,7 +1553,7 @@ class INTERFACE(ABC):
         '''Writes pointcharges as file'''
         string = '%i\n' % len(pointcharges)
         for atom in pointcharges:
-            string += f'{atom[3]} {atom[0]} {atom[1]} {atom[2]}\n'
+            string += '{: 10.8} {: 12.12} {: 12.12} {: 12.12}\n'.format(atom[3], *map(lambda x: x*BOHR_TO_ANG, atom[:3]))
         return string
 
     # ============================PRINTING ROUTINES========================== #
@@ -1474,7 +1581,8 @@ class INTERFACE(ABC):
         DEBUG = self._DEBUG
         if not PRINT:
             return
-        print('==> QMin Job description for:\n%s' % (QMin['comment']))
+        if 'comment' in QMin:
+            print('==> QMin Job description for:\n%s' % (QMin['comment']))
 
         string = 'Mode:   '
         if 'init' in QMin:
@@ -1656,7 +1764,7 @@ class INTERFACE(ABC):
             istate = 0
             for imult, i, ms in itnmstates(states):
                 print('%s\t%i\tMs= % .1f:' % (IToMult[imult], i, ms))
-                printgrad(QMout['grad'][istate], natom, QMin['elements'])
+                printgrad(QMout['grad'][istate], natom, QMin['elements'], self._DEBUG)
                 istate += 1
         # Overlaps
         if 'overlap' in QMin:
@@ -1738,12 +1846,12 @@ class INTERFACE(ABC):
 
     def printtheodore(matrix, QMin):
         string = '%6s ' % 'State'
-        for i in QMin['template']['theodore_prop']:
+        for i in QMin['resources']['theodore_prop']:
             string += '%6s ' % i
-        for i in range(len(QMin['template']['theodore_fragment'])):
-            for j in range(len(QMin['template']['theodore_fragment'])):
+        for i in range(len(QMin['resources']['theodore_fragment'])):
+            for j in range(len(QMin['resources']['theodore_fragment'])):
                 string += '  Om%1i%1i ' % (i + 1, j + 1)
-        string += '\n' + '-------' * (1 + QMin['template']['theodore_n']) + '\n'
+        string += '\n' + '-------' * (1 + QMin['resources']['theodore_n']) + '\n'
         istate = 0
         for imult, i, ms in itnmstates(QMin['states']):
             istate += 1
@@ -1772,7 +1880,7 @@ class INTERFACE(ABC):
         3 string: QMinfilename'''
         QMin = self._QMin
         QMinfilename = self._QMinfilename
-        k = QMinfilename.find('.')
+        k = QMinfilename.rfind('.')
         if k == -1:
             outfilename = QMinfilename + '.out'
         else:
@@ -2184,7 +2292,7 @@ class INTERFACE(ABC):
         QMin = self._QMin
         QMout = self._QMout
         nmstates = QMin['nmstates']
-        nprop = QMin['template']['theodore_n']
+        nprop = QMin['resources']['theodore_n']
         if QMin['template']['qmmm']:
             nprop += len(QMin['qmmm']['MMEnergy_terms'])
         if nprop <= 0:
@@ -2198,11 +2306,11 @@ class INTERFACE(ABC):
         string += '! Property Vector Labels (%i strings)\n' % (nprop)
         descriptors = []
         if 'theodore' in QMin:
-            for i in QMin['template']['theodore_prop']:
+            for i in QMin['resources']['theodore_prop']:
                 descriptors.append('%s' % i)
                 string += descriptors[-1] + '\n'
-            for i in range(len(QMin['template']['theodore_fragment'])):
-                for j in range(len(QMin['template']['theodore_fragment'])):
+            for i in range(len(QMin['resources']['theodore_fragment'])):
+                for j in range(len(QMin['resources']['theodore_fragment'])):
                     descriptors.append('Om_{%i,%i}' % (i + 1, j + 1))
                     string += descriptors[-1] + '\n'
         if QMin['template']['qmmm']:
@@ -2212,7 +2320,7 @@ class INTERFACE(ABC):
 
         string += '! Property Vectors (%ix%i, real)\n' % (nprop, nmstates)
         if 'theodore' in QMin:
-            for i in range(QMin['template']['theodore_n']):
+            for i in range(QMin['resources']['theodore_n']):
                 string += '! TheoDORE descriptor %i (%s)\n' % (i + 1, descriptors[i])
                 for j in range(nmstates):
                     string += '%s\n' % (eformat(QMout['theodore'][j][i].real, 12, 3))

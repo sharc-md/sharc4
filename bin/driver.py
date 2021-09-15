@@ -234,8 +234,7 @@ def main():
     i._QMin.update({k.lower(): v for k, v in basic_info.items()})
     i._QMin['natom'] = basic_info['NAtoms']
     i._QMin['elements'] = [IAn2AName[x] for x in basic_info['IAn']]
-    i.read_resources()
-    i.read_template()
+    i.setup_run()
     if IRestart == 0:
         initial_qm_pre()
         do_qm_calc(i, QMout)
