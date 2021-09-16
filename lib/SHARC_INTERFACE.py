@@ -447,7 +447,6 @@ class INTERFACE(ABC):
                 raise Error(
                     f'Determined last step ({last_step}) from savedir and specified step ({QMin["step"]}) do not fit!'
                 )
-
         if 'samestep' in QMin and 'init' in QMin:
             raise Error('"Init" and "Samestep" cannot be both present in QM.in!', 41)
 
@@ -979,7 +978,7 @@ class INTERFACE(ABC):
     def stripWORKDIR(WORKDIR, keep):
         for ifile in os.listdir(WORKDIR):
             if any([containsstring(k, ifile) for k in keep]):
-                break
+                continue
             rmfile = os.path.join(WORKDIR, ifile)
             os.remove(rmfile)
 
@@ -1156,17 +1155,17 @@ class INTERFACE(ABC):
     def run_wfoverlap(self, errorcodes):
         QMin = self._QMin
         print('>>>>>>>>>>>>> Starting the WFOVERLAP job execution')
-
+        step = QMin['step']
         # do Dyson calculations
         if 'ion' in QMin:
             for ionpair in QMin['ionmap']:
                 WORKDIR = os.path.join(QMin['scratchdir'], 'Dyson_%i_%i_%i_%i' % ionpair)
                 files = {
                     'aoovl': 'AO_overl',
-                    'det.a': 'dets.%i' % ionpair[0],
-                    'det.b': 'dets.%i' % ionpair[2],
-                    'mo.a': 'mos.%i' % ionpair[1],
-                    'mo.b': 'mos.%i' % ionpair[3]
+                    'det.a': f'dets.{ionpair[0]}.{step}',
+                    'det.b': f'dets.{ionpair[2]}.{step}',
+                    'mo.a': f'mos.{ionpair[1]}.{step}',
+                    'mo.b': f'mos.{ionpair[3]}.{step}'
                 }
                 INTERFACE.setupWORKDIR_WF(WORKDIR, QMin, files, self._DEBUG)
                 errorcodes[
@@ -1181,10 +1180,10 @@ class INTERFACE(ABC):
                 WORKDIR = os.path.join(QMin['scratchdir'], 'WFOVL_%i_%i' % (m, job))
                 files = {
                     'aoovl': 'AO_overl.mixed',
-                    'det.a': 'dets.%i.old' % m,
-                    'det.b': 'dets.%i' % m,
-                    'mo.a': 'mos.%i.old' % job,
-                    'mo.b': 'mos.%i' % job
+                    'det.a': f'dets.{m}.{step - 1}',
+                    'det.b': f'dets.{m}.{step}',
+                    'mo.a': f'mos.{job}.{step - 1}',
+                    'mo.b': f'mos.{job}.{step}'
                 }
                 INTERFACE.setupWORKDIR_WF(WORKDIR, QMin, files, self._DEBUG)
                 errorcodes[
@@ -1553,7 +1552,7 @@ class INTERFACE(ABC):
         '''Writes pointcharges as file'''
         string = '%i\n' % len(pointcharges)
         for atom in pointcharges:
-            string += '{: 10.8} {: 12.12} {: 12.12} {: 12.12}\n'.format(atom[3], *map(lambda x: x*BOHR_TO_ANG, atom[:3]))
+            string += '{: 10.8} {: 12.12} {: 12.12} {: 12.12}\n'.format(atom[3], *map(lambda x: x * BOHR_TO_ANG, atom[:3]))
         return string
 
     # ============================PRINTING ROUTINES========================== #
@@ -1861,14 +1860,12 @@ class INTERFACE(ABC):
             string += '\n'
         print(string)
 
-    # ======================================================================= #
-
-
 # =============================================================================================== #
 # =============================================================================================== #
 # =========================================== QMout writing ===================================== #
 # =============================================================================================== #
 # =============================================================================================== #
+
 
     def writeQMout(self):
         '''Writes the requested quantities to the file which SHARC reads in.

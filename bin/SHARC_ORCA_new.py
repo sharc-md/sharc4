@@ -188,40 +188,40 @@ class ORCA(INTERFACE):
         self._read_resources = True
         return
 
-    def moveOldFiles(self):
-        def move(fromf, tof):
-            if not os.path.isfile(fromf):
-                raise Error(f'File {fromf} not found, cannot move to {tof}!', 78)
-            if PRINT:
-                print(shorten_DIR(fromf) + '   =>   ' + shorten_DIR(tof))
-            shutil.copy(fromf, tof)
+    # def moveOldFiles(self):
+    #     def move(fromf, tof):
+    #         if not os.path.isfile(fromf):
+    #             raise Error(f'File {fromf} not found, cannot move to {tof}!', 78)
+    #         if PRINT:
+    #             print(shorten_DIR(fromf) + '   =>   ' + shorten_DIR(tof))
+    #         shutil.copy(fromf, tof)
 
-        QMin = self._QMin
+    #     QMin = self._QMin
 
-        if self._PRINT:
-            print('>' * 15, 'Moving old Files')
-        basenames = ['ORCA.gbw', 'ORCA.molden']
-        if QMin['nooverlap']:
-            basenames.append('mos')
-        step = QMin['step']
-        for job in QMin['joblist']:
-            for base in basenames:
-                fromfile = os.path.join(QMin['savedir'], f'{base}_{job}.{step-1}')
-                tofile = os.path.join(QMin['savedir'], f'{base}_{job}.{step}')
-                move(fromfile, tofile)
-        if QMin['nooverlap']:
-            for job in itmult(QMin['states']):
-                fromfile = os.path.join(QMin['savedir'], f'dets_{job}.{step-1}')
-                tofile = os.path.join(QMin['savedir'], f'dets_{job}.{step}')
-                move(fromfile, tofile)
+    #     if self._PRINT:
+    #         print('>' * 15, 'Moving old Files')
+    #     basenames = ['ORCA.gbw', 'ORCA.molden']
+    #     if QMin['nooverlap']:
+    #         basenames.append('mos')
+    #     step = QMin['step']
+    #     for job in QMin['joblist']:
+    #         for base in basenames:
+    #             fromfile = os.path.join(QMin['savedir'], f'{base}_{job}.{step-1}')
+    #             tofile = os.path.join(QMin['savedir'], f'{base}_{job}.{step}')
+    #             move(fromfile, tofile)
+    #     if QMin['nooverlap']:
+    #         for job in itmult(QMin['states']):
+    #             fromfile = os.path.join(QMin['savedir'], f'dets_{job}.{step-1}')
+    #             tofile = os.path.join(QMin['savedir'], f'dets_{job}.{step}')
+    #             move(fromfile, tofile)
 
-        for f in ['AO_overl', 'AO_overl.mixed']:
-            rmfile = os.path.join(QMin['savedir'], f)
-            if os.path.isfile(rmfile):
-                os.remove(rmfile)
-                if PRINT:
-                    print('rm ' + rmfile)
-        return
+    #     for f in ['AO_overl', 'AO_overl.mixed']:
+    #         rmfile = os.path.join(QMin['savedir'], f)
+    #         if os.path.isfile(rmfile):
+    #             os.remove(rmfile)
+    #             if PRINT:
+    #                 print('rm ' + rmfile)
+    #     return
 
     def runjobs(self, schedule):
         def error_handler(e: BaseException, WORKDIR):
@@ -231,8 +231,6 @@ class ORCA(INTERFACE):
             return
 
         QMin = self._QMin
-        if 'newstep' in QMin:
-            self.moveOldFiles()
         print('>' * 15, 'Starting the ORCA job execution')
         errorcodes = {}
         for ijobset, jobset in enumerate(schedule):
@@ -373,9 +371,9 @@ class ORCA(INTERFACE):
             QMin['initorbs'] = initorbs
         elif 'newstep' in QMin:
             for job in QMin['joblist']:
-                filename = os.path.join(QMin['savedir'], f'ORCA.gbw.{job}')
+                filename = os.path.join(QMin['savedir'], f'ORCA.gbw.{job}.{step}')
                 if os.path.isfile(filename):
-                    initorbs[job] = os.path.join(QMin['savedir'], f'ORCA.gbw_{job}.{step}')
+                    initorbs[job] = os.path.join(QMin['savedir'], f'ORCA.gbw.{job}.{step}')
                 else:
                     print(f'File {filename} missing in savedir!')
                     sys.exit(71)
@@ -802,7 +800,7 @@ class ORCA(INTERFACE):
         job = QMin['IJOB']
         step = QMin['step']
         fromfile = os.path.join(WORKDIR, 'ORCA.gbw')
-        tofile = os.path.join(QMin['savedir'], 'ORCA.gbw.{}'.format(job))
+        tofile = os.path.join(QMin['savedir'], f'ORCA.gbw.{job}.{step}')
         shutil.copy(fromfile, tofile)
         if PRINT:
             print(shorten_DIR(tofile))
@@ -811,7 +809,7 @@ class ORCA(INTERFACE):
         ORCA.saveMolden(WORKDIR, QMin)
 
         # if necessary, extract the MOs and write them to savedir
-        if 'ion' in QMin or QMin['nooverlap']:
+        if 'ion' in QMin or not QMin['nooverlap']:
             mofile = os.path.join(QMin['savedir'], f'mos.{job}.{step}')
             f = os.path.join(WORKDIR, 'ORCA.gbw')
             string = ORCA.get_MO_from_gbw(f, QMin)
@@ -820,7 +818,7 @@ class ORCA(INTERFACE):
                 print(shorten_DIR(mofile))
 
         # if necessary, extract the TDDFT coefficients and write them to savedir
-        if 'ion' in QMin or QMin['nooverlap']:
+        if 'ion' in QMin or not QMin['nooverlap']:
             f = os.path.join(WORKDIR, 'ORCA.cis')
             strings = ORCA.get_dets_from_cis(f, QMin)
             for f in strings:
@@ -832,10 +830,6 @@ class ORCA(INTERFACE):
 
     @staticmethod
     def saveAOmatrix(WORKDIR, QMin):
-        # filename=os.path.join(WORKDIR,'ORCA.log')
-        # NAO,Smat=get_smat(filename)
-        # filename=os.path.join(WORKDIR,'ORCA.molden.input')
-        # NAO,Smat=get_smat_from_Molden(filename)
         filename = os.path.join(WORKDIR, 'ORCA.gbw')
         NAO, Smat = ORCA.get_smat_from_gbw(filename)
 
@@ -856,6 +850,7 @@ class ORCA(INTERFACE):
         # run orca_2mkl
         prevdir = os.getcwd()
         os.chdir(WORKDIR)
+        step = QMin['step']
         string = 'orca_2mkl ORCA -molden'
         stdoutfile = open(os.path.join(WORKDIR, 'orca_2mkl.out'), 'w')
         stderrfile = open(os.path.join(WORKDIR, 'orca_2mkl.err'), 'w')
@@ -873,7 +868,7 @@ class ORCA(INTERFACE):
 
         job = QMin['IJOB']
         fromfile = os.path.join(WORKDIR, 'ORCA.molden.input')
-        tofile = os.path.join(QMin['savedir'], 'ORCA.molden.{}'.format(job))
+        tofile = os.path.join(QMin['savedir'], f'ORCA.molden.{job}.{step}')
         shutil.copy(fromfile, tofile)
         if PRINT:
             print(shorten_DIR(tofile))
@@ -1250,8 +1245,7 @@ class ORCA(INTERFACE):
                     if restr:
                         key2 = key[QMin['frozcore']:]
                     else:
-                        key2 = key[QMin['frozcore']:QMin['frozcore'] + nocc_A + nvir_A] + key[nocc_A + nvir_A +
-                                                                                              2 * QMin['frozcore']:]
+                        key2 = key[QMin['frozcore']:QMin['frozcore'] + nocc_A + nvir_A] + key[nocc_A + nvir_A + 2 * QMin['frozcore']:]
                     dets3[key2] = dets2[key]
                 # append
                 eigenvectors[mult].append(dets3)
@@ -1319,8 +1313,8 @@ class ORCA(INTERFACE):
         # get geometries
         job = sorted(QMin['jobs'].keys())[0]
         step = QMin['step']
-        filename1 = os.path.join(QMin['savedir'], f'ORCA.gbw_{step - 1}.{job}')
-        filename2 = os.path.join(QMin['savedir'], f'ORCA.gbw_{step}.{job}')
+        filename1 = os.path.join(QMin['savedir'], f'ORCA.gbw.{job}.{step - 1}')
+        filename2 = os.path.join(QMin['savedir'], f'ORCA.gbw.{job}.{step}')
 
         # NAO,Smat=get_smat_from_Molden(filename1,filename2)
         NAO, Smat = ORCA.get_smat_from_gbw(filename1, filename2)
@@ -1495,7 +1489,6 @@ class ORCA(INTERFACE):
                                     j = k
                         QMout['grad'][i] = QMout['grad'][j]
                         if 'pointcharges' in QMin:
-                        # if QMin['qmmm']:
                             QMout['pcgrad'][i] = QMout['pcgrad'][j]
 
         # Regular Overlaps
@@ -1504,7 +1497,7 @@ class ORCA(INTERFACE):
                 QMout['overlap'] = makecmatrix(nmstates, nmstates)
             for mult in itmult(QMin['states']):
                 job = QMin['multmap'][mult]
-                outfile = os.path.join(QMin['scratchdir'], 'WFOVL_{}{}/wfovl.out'.format(mult, job))
+                outfile = os.path.join(QMin['scratchdir'], 'WFOVL_{}_{}/wfovl.out'.format(mult, job))
                 out = readfile(outfile)
                 if PRINT:
                     print('Overlaps: ' + shorten_DIR(outfile))
@@ -1532,7 +1525,7 @@ class ORCA(INTERFACE):
             if 'prop' not in QMout:
                 QMout['prop'] = makecmatrix(nmstates, nmstates)
             for ion in QMin['ionmap']:
-                outfile = os.path.join(QMin['scratchdir'], 'Dyson_{}{}{}{}/wfovl.out'.format(*ion))
+                outfile = os.path.join(QMin['scratchdir'], 'Dyson_{}_{}_{}_{}/wfovl.out'.format(*ion))
                 out = readfile(outfile)
                 if PRINT:
                     print('Dyson:    ' + shorten_DIR(outfile))
@@ -1571,8 +1564,8 @@ class ORCA(INTERFACE):
                         ns += QMin['states'][i - 1] - (i == gsmult)
                     if ns == 0:
                         continue
-                sumfile = os.path.join(QMin['scratchdir'], 'master_%i/tden_summ.txt' % job)
-                omffile = os.path.join(QMin['scratchdir'], 'master_%i/OmFrag.txt' % job)
+                sumfile = os.path.join(QMin['scratchdir'], f'master_{job}/tden_summ.txt')
+                omffile = os.path.join(QMin['scratchdir'], f'master_{job}/OmFrag.txt')
                 props = ORCA.get_theodore(sumfile, omffile)
                 for i in range(nmstates):
                     m1, s1, ms1 = tuple(QMin['statemap'][i + 1])
@@ -1595,46 +1588,46 @@ class ORCA(INTERFACE):
             if not os.path.isdir(copydir):
                 mkdir(copydir)
             for job in joblist:
-                outfile = os.path.join(QMin['scratchdir'], 'master_%i/ORCA.log' % (job))
-                shutil.copy(outfile, os.path.join(copydir, "ORCA_%i.log" % job))
+                outfile = os.path.join(QMin['scratchdir'], f'master_{job}/ORCA.log')
+                shutil.copy(outfile, os.path.join(copydir, f'ORCA_{job}.log'))
                 if QMin['jobs'][job]['restr'] and 'theodore' in QMin:
-                    outfile = os.path.join(QMin['scratchdir'], 'master_%i/tden_summ.txt' % job)
+                    outfile = os.path.join(QMin['scratchdir'], f'master_{job}/tden_summ.txt')
                     try:
-                        shutil.copy(outfile, os.path.join(copydir, 'THEO_%i.out' % (job)))
+                        shutil.copy(outfile, os.path.join(copydir, f'THEO_{job}.out'))
                     except IOError:
                         pass
-                    outfile = os.path.join(QMin['scratchdir'], 'master_%i/OmFrag.txt' % job)
+                    outfile = os.path.join(QMin['scratchdir'], f'master_{job}/OmFrag.txt')
                     try:
-                        shutil.copy(outfile, os.path.join(copydir, 'THEO_OMF_%i.out' % (job)))
+                        shutil.copy(outfile, os.path.join(copydir, f'THEO_OMF_{job}.out'))
                     except IOError:
                         pass
             if 'grad' in QMin:
                 for grad in QMin['gradmap']:
                     path, isgs = QMin['jobgrad'][grad]
                     outfile = os.path.join(QMin['scratchdir'], path, 'ORCA.log')
-                    shutil.copy(outfile, os.path.join(copydir, "ORCA_GRAD_%i_%i.log" % grad))
+                    shutil.copy(outfile, os.path.join(copydir, f"ORCA_GRAD_{grad[0]}_{grad[1]}.log"))
             if 'overlap' in QMin:
                 for mult in itmult(QMin['states']):
                     job = QMin['multmap'][mult]
-                    outfile = os.path.join(QMin['scratchdir'], 'WFOVL_%i_%i/wfovl.out' % (mult, job))
-                    shutil.copy(outfile, os.path.join(copydir, 'WFOVL_%i_%i.out' % (mult, job)))
+                    outfile = os.path.join(QMin['scratchdir'], f'WFOVL_{mult}_{job}/wfovl.out')
+                    shutil.copy(outfile, os.path.join(copydir, f'WFOVL_{mult}_{job}.out'))
             if 'ion' in QMin:
                 for ion in QMin['ionmap']:
-                    outfile = os.path.join(QMin['scratchdir'], 'Dyson_%i_%i_%i_%i/wfovl.out' % ion)
-                    shutil.copy(outfile, os.path.join(copydir, 'Dyson_%i_%i_%i_%i.out' % ion))
+                    outfile = os.path.join(QMin['scratchdir'], 'Dyson_{}_{}_{}_{}/wfovl.out'.format(*ion))
+                    shutil.copy(outfile, os.path.join(copydir, 'Dyson_{}_{}_{}_{}.out'.format(*ion)))
 
         if QMin['save_stuff']:
             copydir = os.path.join(QMin['savedir'], 'save_stuff')
             if not os.path.isdir(copydir):
                 mkdir(copydir)
             for job in joblist:
-                outfile = os.path.join(QMin['scratchdir'], 'master_%i/ORCA.log' % (job))
-                shutil.copy(outfile, os.path.join(copydir, "ORCA_%i.log" % job))
-                outfile = os.path.join(QMin['scratchdir'], 'master_%i/ORCA.gbw' % (job))
-                shutil.copy(outfile, os.path.join(copydir, "ORCA_%i.gbw" % job))
-                outfile = os.path.join(QMin['scratchdir'], 'master_%i/ORCA.cis' % (job))
+                outfile = os.path.join(QMin['scratchdir'], f'master_{job}/ORCA.log')
+                shutil.copy(outfile, os.path.join(copydir, f'ORCA_{job}.log'))
+                outfile = os.path.join(QMin['scratchdir'], f'master_{job}/ORCA.gbw')
+                shutil.copy(outfile, os.path.join(copydir, f'ORCA_{job}.gbw'))
+                outfile = os.path.join(QMin['scratchdir'], f'master_{job}/ORCA.cis')
                 if os.path.isfile(outfile):
-                    shutil.copy(outfile, os.path.join(copydir, "ORCA_%i.cis" % job))
+                    shutil.copy(outfile, os.path.join(copydir, f'ORCA_{job}.cis'))
 
         return QMout
 
