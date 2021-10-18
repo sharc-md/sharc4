@@ -177,6 +177,7 @@ def do_qm_calc(i: INTERFACE, qmout: QMOUT):
     i.set_requests(get_all_tasks(icall))
     i.set_coords(get_crd())
     safe(i.run)
+    i.write_step_file()
     qmout.set_props(i._QMout, icall)
 
     isecond = set_qmout(qmout._QMout, icall)
@@ -224,13 +225,13 @@ def main():
     if options.print:
         i.printheader()
     IRestart = setup_sharc(inp_file)
+
     basic_info = get_basic_info()
     basic_info.update(i.parseStates(basic_info['states']))
     QMout = QMOUT(i.__class__.__name__, basic_info['NAtoms'], basic_info['nmstates'])
-    if IRestart != 0:
-        basic_info['restart'] = True
-    else:
-        basic_info['init'] = True
+
+    basic_info['step'] = basic_info['istep']
+
     i._QMin.update({k.lower(): v for k, v in basic_info.items()})
     i._QMin['natom'] = basic_info['NAtoms']
     i._QMin['elements'] = [IAn2AName[x] for x in basic_info['IAn']]
@@ -246,7 +247,7 @@ def main():
         crd = get_crd()
         IRedo = verlet_vstep()
 
-        if False: # IRedo == 1:
+        if False:  # IRedo == 1:
             # calculate gradients numerically by setting up 6N calculations
             # TODO what if I want to get gradients only ? i.e. samestep
             # possibly skip whole Hamiltonian build in LVC -> major timesave

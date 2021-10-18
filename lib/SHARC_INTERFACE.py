@@ -134,6 +134,7 @@ class INTERFACE(ABC):
         self.read_requests(os.path.join(pwd, QMinfilename))
         self.setup_run()
         self.run()
+        self.write_step_file()
         if PRINT or DEBUG:
             self.printQMout()
         self._QMout['runtime'] = self.clock.measuretime()
@@ -387,11 +388,6 @@ class INTERFACE(ABC):
         self._QMin = {**dict(map(parse, lines)), **QMin}
         QMin = self._QMin
         # NOTE: old QMin read stuff is not overwritten. Problem with states?
-        if 'step' not in QMin:
-            QMin['step'] = -1
-        else:
-            QMin['step'] = int(QMin['step'])
-            assert QMin['step'] >= 0
         self._request_logic()
 
     def _reset_requests(self):
@@ -425,33 +421,39 @@ class INTERFACE(ABC):
         # remove old keywords:
         for i in ['restart', 'init', 'samestep', 'newstep']:
             removekey(QMin, i)
-        if QMin['step'] == 0:
-            QMin['init'] = True
-        else:
-            # get highest step indicator from savedir -> default is -1
-            last_step = reduce(
-                lambda x, y: max(x, y),
-                map(
-                    int,
-                    filter(
-                        lambda x: bool(re.match('^[0-9]+$', x)),
-                        map(lambda x: x.split('.')[-1], os.listdir(QMin['savedir']))
-                    )
-                ), -1
-            )
-            if last_step == QMin['step']:
-                QMin['samestep'] = True
-            elif last_step + 1 == QMin['step']:
+        # check for savedir and STEP file
+        last_step = None
+        stepfile = os.path.join(QMin['savedir'], 'STEP')
+        if os.path.isfile(stepfile):
+            try:
+                last_step = int(readfile(stepfile)[0])
+            except (IndexError, ValueError):
+                print(f'Warning: "STEP" file found in {stepfile}\nLast step index could not be read!\n')
+        # checking scheme: determined last step in combination with specified step variable
+        # (-1 -> newstep; None -> newstep)
+        if 'step' not in QMin:
+            if last_step is not None:
                 QMin['newstep'] = True
+                QMin['step'] = last_step + 1
+            else:
+                QMin['init'] = True
+                QMin['step'] = 0
+        else:
+            QMin['step'] = int(QMin['step'])
+            if last_step is None:
+                if QMin['step'] == 0:
+                    QMin['init'] = True
+                else:
+                    raise Error(f'Specified step ({QMin["step"]}) could not be restarted from!\nCheck your savedir and "STEP" file in {QMin["savedir"]}')
+            elif QMin['step'] == -1:
+                QMin['newstep'] = True
+                QMin['step'] = last_step + 1
+            elif QMin['step'] == last_step:
+                QMin['samestep'] = True
             else:
                 raise Error(
-                    f'Determined last step ({last_step}) from savedir and specified step ({QMin["step"]}) do not fit!'
+                    f'Determined last step ({last_step}) from savedir and specified step ({QMin["step"]}) do not fit!\nPrepare your savedir and "STEP" file accordingly before starting again or choose "step -1" if you want to proceed from last successful step!'
                 )
-        if 'samestep' in QMin and 'init' in QMin:
-            raise Error('"Init" and "Samestep" cannot be both present in QM.in!', 41)
-
-        if 'restart' in QMin and 'init' in QMin:
-            raise Error('"Init" and "Samestep" cannot be both present in QM.in!', 42)
 
         if 'phases' in tasks:
             QMin['overlap'] = True
@@ -461,8 +463,6 @@ class INTERFACE(ABC):
                 '"overlap" and "phases" cannot be calculated in the first timestep! Delete either "overlap" or "init"',
                 43
             )
-        if QMin.keys().isdisjoint({'init', 'samestep', 'restart'}):
-            QMin['newstep'] = True
 
         if not tasks.isdisjoint({'h', 'soc', 'dm', 'grad'}) and 'overlap' in tasks:
             QMin['h'] = True
@@ -719,6 +719,15 @@ class INTERFACE(ABC):
                 {ty.__name__}: {val}\nPlease consult the examples folder in the $SHARCDIR for more information!'
             ).with_traceback(tb)
         return d
+
+    def write_step_file(self):
+        QMin = self.QMin
+        if 'cleanup' in QMin:
+            return
+        savedir = QMin['savedir']
+        stepfile = os.path.join(savedir, 'STEP')
+        writefile(stepfile, str(QMin['step']))
+
 
     def generate_joblist(self):
         QMin = self._QMin
@@ -1552,7 +1561,9 @@ class INTERFACE(ABC):
         '''Writes pointcharges as file'''
         string = '%i\n' % len(pointcharges)
         for atom in pointcharges:
-            string += '{: 10.8} {: 12.12} {: 12.12} {: 12.12}\n'.format(atom[3], *map(lambda x: x * BOHR_TO_ANG, atom[:3]))
+            string += '{: 10.8} {: 12.12} {: 12.12} {: 12.12}\n'.format(
+                atom[3], *map(lambda x: x * BOHR_TO_ANG, atom[:3])
+            )
         return string
 
     # ============================PRINTING ROUTINES========================== #
@@ -1859,6 +1870,7 @@ class INTERFACE(ABC):
                 string += '%6.4f ' % i.real
             string += '\n'
         print(string)
+
 
 # =============================================================================================== #
 # =============================================================================================== #

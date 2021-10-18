@@ -188,46 +188,11 @@ class ORCA(INTERFACE):
         self._read_resources = True
         return
 
-    # def moveOldFiles(self):
-    #     def move(fromf, tof):
-    #         if not os.path.isfile(fromf):
-    #             raise Error(f'File {fromf} not found, cannot move to {tof}!', 78)
-    #         if PRINT:
-    #             print(shorten_DIR(fromf) + '   =>   ' + shorten_DIR(tof))
-    #         shutil.copy(fromf, tof)
-
-    #     QMin = self._QMin
-
-    #     if self._PRINT:
-    #         print('>' * 15, 'Moving old Files')
-    #     basenames = ['ORCA.gbw', 'ORCA.molden']
-    #     if QMin['nooverlap']:
-    #         basenames.append('mos')
-    #     step = QMin['step']
-    #     for job in QMin['joblist']:
-    #         for base in basenames:
-    #             fromfile = os.path.join(QMin['savedir'], f'{base}_{job}.{step-1}')
-    #             tofile = os.path.join(QMin['savedir'], f'{base}_{job}.{step}')
-    #             move(fromfile, tofile)
-    #     if QMin['nooverlap']:
-    #         for job in itmult(QMin['states']):
-    #             fromfile = os.path.join(QMin['savedir'], f'dets_{job}.{step-1}')
-    #             tofile = os.path.join(QMin['savedir'], f'dets_{job}.{step}')
-    #             move(fromfile, tofile)
-
-    #     for f in ['AO_overl', 'AO_overl.mixed']:
-    #         rmfile = os.path.join(QMin['savedir'], f)
-    #         if os.path.isfile(rmfile):
-    #             os.remove(rmfile)
-    #             if PRINT:
-    #                 print('rm ' + rmfile)
-    #     return
-
     def runjobs(self, schedule):
         def error_handler(e: BaseException, WORKDIR):
-            print('*' * 50 + '\nException in run_calc(%s)!' % (WORKDIR))
-            print(str(e), e.__traceback__)
-            print('*' * 50 + '\n')
+            sys.stderr.write('\n' + '*' * 50 + '\nException in run_calc(%s)!\n' % (WORKDIR))
+            sys.stderr.write(f'{str(e)} {e.__traceback__}')
+            sys.stderr.write('\n' + '*' * 50 + '\n')
             return
 
         QMin = self._QMin
@@ -244,6 +209,7 @@ class ORCA(INTERFACE):
                     ORCA.runORCA, [WORKDIR, QMin1], error_callback=lambda e: error_handler(e, WORKDIR)
                 ).get()
                 time.sleep(QMin['delay'])
+            pool.close()
         string = 'Error Codes:\n'
         success = True
         for j, job in enumerate(errorcodes):
@@ -255,6 +221,8 @@ class ORCA(INTERFACE):
                 string += '\n'
         print(string)
         if not success:
+            print('Some subprocesses did not finish successfully!\n\
+                See {}:{} for error messages in ORCA output.'.format(gethostname(), QMin['scratchdir']))
             raise Error(
                 'Some subprocesses did not finish successfully!\n\
                 See {}:{} for error messages in ORCA output.'.format(gethostname(), QMin['scratchdir']), 75
@@ -297,13 +265,19 @@ class ORCA(INTERFACE):
         try:
             runerror = sp.call(string, shell=True, stdout=stdoutfile, stderr=stderrfile)
         except OSError:
-            raise Error('Call have had some serious problems:', OSError, 76)
+            raise Error('ORCA call have had some serious problems:', OSError, 76)
         stdoutfile.close()
         stderrfile.close()
+        with open(os.path.join(WORKDIR, 'ORCA.log')) as f:
+            lines = f.readlines()
+            if 'ORCA TERMINATED NORMALLY' not in lines[-2]:
+                runerror = 1
         if PRINT or DEBUG:
             endtime = datetime.datetime.now()
             sys.stdout.write(
-                'FINISH:\t{}\t{}\tRuntime: {}\tError Code: {}\n'.format(shorten_DIR(WORKDIR), endtime, endtime - starttime, runerror)
+                'FINISH:\t{}\t{}\tRuntime: {}\tError Code: {}\n'.format(
+                    shorten_DIR(WORKDIR), endtime, endtime - starttime, runerror
+                )
             )
             sys.stdout.flush()
         os.chdir(prevdir)
@@ -339,7 +313,9 @@ class ORCA(INTERFACE):
             filename = os.path.join(WORKDIR, 'ORCA.pc')
             writefile(filename, inputstring)
             if DEBUG:
-                print('================== DEBUG input file for WORKDIR {} ================='.format(shorten_DIR(WORKDIR)))
+                print(
+                    '================== DEBUG input file for WORKDIR {} ================='.format(shorten_DIR(WORKDIR))
+                )
                 print(inputstring)
                 print('Point charges written to: {}'.format(filename))
                 print('====================================================================')
@@ -354,9 +330,9 @@ class ORCA(INTERFACE):
     # check for initial orbitals
         initorbs = {}
         step = QMin['step']
-        if 'always_guess' in QMin:
+        if 'always_guess' in QMin and QMin['always_guess']:
             QMin['initorbs'] = {}
-        elif 'init' in QMin or 'always_orb_init' in QMin:
+        elif 'init' in QMin or QMin['always_orb_init']:
             for job in QMin['joblist']:
                 filename = os.path.join(QMin['pwd'], 'ORCA.gbw.init')
                 if os.path.isfile(filename):
@@ -365,18 +341,16 @@ class ORCA(INTERFACE):
                 filename = os.path.join(QMin['pwd'], f'ORCA.gbw.{job}.init')
                 if os.path.isfile(filename):
                     initorbs[job] = filename
-            if 'always_orb_init' in QMin and len(initorbs) < QMin['njobs']:
-                print('Initial orbitals missing for some jobs!')
-                sys.exit(70)
+            if QMin['always_orb_init'] and len(initorbs) < QMin['njobs']:
+                raise Error('Initial orbitals missing for some jobs!', 70)
             QMin['initorbs'] = initorbs
         elif 'newstep' in QMin:
             for job in QMin['joblist']:
-                filename = os.path.join(QMin['savedir'], f'ORCA.gbw.{job}.{step}')
+                filename = os.path.join(QMin['savedir'], f'ORCA.gbw.{job}.{step-1}')
                 if os.path.isfile(filename):
-                    initorbs[job] = os.path.join(QMin['savedir'], f'ORCA.gbw.{job}.{step}')
+                    initorbs[job] = os.path.join(QMin['savedir'], f'ORCA.gbw.{job}.{step-1}')
                 else:
-                    print(f'File {filename} missing in savedir!')
-                    sys.exit(71)
+                    raise Error(f'File {filename} missing in savedir!', 71)
             QMin['initorbs'] = initorbs
         elif 'samestep' in QMin:
             for job in QMin['joblist']:
@@ -384,8 +358,7 @@ class ORCA(INTERFACE):
                 if os.path.isfile(filename):
                     initorbs[job] = filename
                 else:
-                    print(f'File {filename} missing in savedir!')
-                    sys.exit(72)
+                    raise Error(f'File {filename} missing in savedir!', 72)
             QMin['initorbs'] = initorbs
         elif 'restart' in QMin:
             for job in QMin['joblist']:
@@ -393,10 +366,8 @@ class ORCA(INTERFACE):
                 if os.path.isfile(filename):
                     initorbs[job] = filename
                 else:
-                    print(f'File {filename} missing in savedir!')
-                    sys.exit(73)
+                    raise Error(f'File {filename} missing in savedir!', 73)
             QMin['initorbs'] = initorbs
-
         # wf file copying
         if 'master' in QMin:
             job = QMin['IJOB']
@@ -495,12 +466,11 @@ class ORCA(INTERFACE):
             string += f'{QMin["template"][i]} '
         string += 'nousesym '
 
-
-    # In this way, one can change grid on individual atoms:
-    # %method
-    # SpecialGridAtoms 26,15,-1,-4         # for element 26 and, for atom index 1 and 4 (cannot change on atom 0!)
-    # SpecialGridIntAcc 7,6,5,5            # size of grid
-    # end
+        # In this way, one can change grid on individual atoms:
+        # %method
+        # SpecialGridAtoms 26,15,-1,-4         # for element 26 and, for atom index 1 and 4 (cannot change on atom 0!)
+        # SpecialGridIntAcc 7,6,5,5            # size of grid
+        # end
 
         if dograd:
             string += 'engrad'
@@ -707,8 +677,7 @@ class ORCA(INTERFACE):
                         string += '\n'
             print(string)
             if any((i != 0 for i in errorcodes.values())):
-                print('Some subprocesses did not finish successfully!')
-                sys.exit(98)
+                raise Error('Some subprocesses did not finish successfully!', 98)
 
             print('')
 
@@ -761,15 +730,15 @@ class ORCA(INTERFACE):
         try:
             runerror = sp.call(string, shell=True, stdout=stdoutfile, stderr=stderrfile)
         except OSError:
-            print('Call have had some serious problems:', OSError)
-            sys.exit(99)
+            raise Error('Call have had some serious problems:', OSError, 99)
         stdoutfile.close()
         stderrfile.close()
         if PRINT or DEBUG:
             endtime = datetime.datetime.now()
             sys.stdout.write(
-                'FINISH:\t{}\t{}\tRuntime: {}\tError Code: {}\n'.format
-                (shorten_DIR(WORKDIR), endtime, endtime - starttime, runerror)
+                'FINISH:\t{}\t{}\tRuntime: {}\tError Code: {}\n'.format(
+                    shorten_DIR(WORKDIR), endtime, endtime - starttime, runerror
+                )
             )
             sys.stdout.flush()
         os.chdir(prevdir)
@@ -857,8 +826,7 @@ class ORCA(INTERFACE):
         try:
             runerror = sp.call(string, shell=True, stdout=stdoutfile, stderr=stderrfile)
         except OSError:
-            print('Call have had some serious problems:', OSError)
-            sys.exit(79)
+            raise Error('Call have had some serious problems:', OSError, 79)
         stdoutfile.close()
         stderrfile.close()
         if PRINT or DEBUG:
@@ -886,8 +854,7 @@ class ORCA(INTERFACE):
         try:
             proc = sp.Popen(string, shell=True, stdout=sp.PIPE, stderr=sp.PIPE)
         except OSError:
-            print('Call have had some serious problems:', OSError)
-            sys.exit(89)
+            raise Error('Call have had some serious problems:', OSError, 89)
         comm = proc.communicate()[0].decode()
         out = comm.split('\n')
 
@@ -920,8 +887,7 @@ class ORCA(INTERFACE):
         try:
             proc = sp.Popen(string, shell=True, stdout=sp.PIPE, stderr=sp.PIPE)
         except OSError:
-            print('Call have had some serious problems:', OSError)
-            sys.exit(80)
+            raise Error('Call have had some serious problems:', OSError, 80)
         comm = proc.communicate()[0].decode()
         data = comm.split('\n')
         # get size of matrix
@@ -940,8 +906,7 @@ class ORCA(INTERFACE):
         while True:
             iline += 1
             if len(data) <= iline:
-                print('MOs not found!')
-                sys.exit(81)
+                raise Error('MOs not found!', 81)
             line = data[iline]
             if 'FRAGMENT A MOs MATRIX' in line:
                 break
@@ -1113,18 +1078,14 @@ class ORCA(INTERFACE):
             nvec = struct.unpack('i', CCfile.read(4))[0]
             header = [struct.unpack('i', CCfile.read(4))[0] for i in range(8)]
             if infos['NOA'] != header[1] - header[0] + 1:
-                print(f'Number of orbitals in {filename} not consistent')
-                sys.exit(82)
+                raise Error(f'Number of orbitals in {filename} not consistent', 82)
             if infos['NVA'] != header[3] - header[2] + 1:
-                print(f'Number of orbitals in {filename} not consistent')
-                sys.exit(83)
+                raise Error(f'Number of orbitals in {filename} not consistent', 83)
             if not restr:
                 if infos['NOB'] != header[5] - header[4] + 1:
-                    print(f'Number of orbitals in {filename} not consistent')
-                    sys.exit(84)
+                    raise Error(f'Number of orbitals in {filename} not consistent', 84)
                 if infos['NVB'] != header[7] - header[6] + 1:
-                    print(f'Number of orbitals in {filename} not consistent')
-                    sys.exit(85)
+                    raise Error(f'Number of orbitals in {filename} not consistent', 85)
             if QMin['template']['no_tda']:
                 nstates_onfile = nvec // 2
             else:
@@ -1245,7 +1206,8 @@ class ORCA(INTERFACE):
                     if restr:
                         key2 = key[QMin['frozcore']:]
                     else:
-                        key2 = key[QMin['frozcore']:QMin['frozcore'] + nocc_A + nvir_A] + key[nocc_A + nvir_A + 2 * QMin['frozcore']:]
+                        key2 = key[QMin['frozcore']:QMin['frozcore'] + nocc_A + nvir_A] + key[nocc_A + nvir_A +
+                                                                                              2 * QMin['frozcore']:]
                     dets3[key2] = dets2[key]
                 # append
                 eigenvectors[mult].append(dets3)
@@ -1688,8 +1650,7 @@ class ORCA(INTERFACE):
                 while True:
                     iline += 1
                     if iline >= len(f):
-                        print('Error in parsing excitation energies')
-                        sys.exit(102)
+                        raise Error('Error in parsing excitation energies', 102)
                     line = f[iline]
                     if any([i in line for i in finalstring]):
                         break
@@ -1902,8 +1863,7 @@ class ORCA(INTERFACE):
         while True:
             ilines += 1
             if ilines == len(out):
-                print('Overlap of states %i - %i not found!' % (s1, s2))
-                sys.exit(103)
+                raise Error('Overlap of states %i - %i not found!' % (s1, s2), 103)
             if containsstring('Overlap matrix <PsiA_i|PsiB_j>', out[ilines]):
                 break
         ilines += 1 + s1
@@ -1918,8 +1878,7 @@ class ORCA(INTERFACE):
         while True:
             ilines += 1
             if ilines == len(out):
-                print('Dyson norm of states %i - %i not found!' % (s1, s2))
-                sys.exit(104)
+                raise Error('Dyson norm of states %i - %i not found!' % (s1, s2), 104)
             if containsstring('Dyson norm matrix <PsiA_i|PsiB_j>', out[ilines]):
                 break
         ilines += 1 + s1
