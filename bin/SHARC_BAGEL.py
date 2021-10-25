@@ -59,9 +59,13 @@ PRINT = True
 
 # =========================================================0
 
-version = '1.0'
-versiondate = datetime.date(2019, 5, 27)
+version = '1.1'
+versiondate = datetime.date(2021, 10, 25)
 changelogstring = '''
+25.10.2021: 
+- removed PyQuante dependency in get_smat_from_Molden
+- rewrote get_smat_from_Molden with pyscf
+
 '''
 # ======================================================================= #
 # holds the system time when the script was started
@@ -1886,8 +1890,7 @@ def readQMin(QMinfilename):
         for i in QMin['grad']:
             gradmap.add(tuple(statemap[i][0:2]))
             #gradmap.add(      (statemap[i][0],1) )
-    gradmap = list(gradmap)
-    gradmap.sort()
+    gradmap = sorted(gradmap)
     QMin['gradmap'] = gradmap
 
 
@@ -3242,129 +3245,26 @@ def get_Double_AOovl_molden(QMin):
 
 def get_smat_from_Molden(file1, file2=''):
 
-    # read file1
-    molecule = read_molden(file1)
-
-    # read file2:
-    if file2:
-        molecule.extend(read_molden(file2))
-    # pprint.pprint(molecule)
-
-    # make PyQuante object
     try:
-        from PyQuante.Ints import getS
-        from PyQuante.Basis.basis import BasisSet
-        from PyQuante.CGBF import CGBF
-        from PyQuante.PGBF import PGBF
-        from PyQuante import Molecule
-        from PyQuante.shell import Shell
+        from pyscf.gto import mole
+        from pyscf.tools.molden import load
     except ImportError:
-        print('Could not import PyQuante!')
+        print('Could not import pyscf!')
         sys.exit(72)
+    # read file1
+    mol, mo_energy, mo_coeff, mo_occ, irrep_labels, spins = load(file1)
+    # read file2:
+    mol2 = None
+    if file2:
+        mol2, mo_energy, mo_coeff, mo_occ, irrep_labels, spins = load(file2)
+        mol = mole.conc_mol(mol, mol2)
 
-    class moldenBasisSet(BasisSet):
-        def __init__(self, molecule):
-            sym2powerlist = {
-                'S': [(0, 0, 0)],
-                'P': [(1, 0, 0), (0, 1, 0), (0, 0, 1)],
-                'D': [(2, 0, 0), (0, 2, 0), (0, 0, 2), (1, 1, 0), (1, 0, 1), (0, 1, 1)],
-                'F': [(3, 0, 0), (0, 3, 0), (0, 0, 3), (1, 2, 0), (2, 1, 0), (2, 0, 1),
-                      (1, 0, 2), (0, 1, 2), (0, 2, 1), (1, 1, 1)],
-                'G': [(4, 0, 0), (0, 4, 0), (0, 0, 4), (3, 1, 0), (3, 0, 1), (1, 3, 0),
-                      (0, 3, 1), (1, 0, 3), (0, 1, 3), (2, 2, 0), (2, 0, 2), (0, 2, 2),
-                      (2, 1, 1), (1, 2, 1), (1, 1, 2)]
-            }
+    S = mol.intor('int1e_ovlp').tolist()
 
-
-            # make molecule
-            atomlist = []
-            for atom in molecule:
-                atomlist.append((atom['el'], tuple(atom['coord'])))
-            target = Molecule('default', atomlist, units='bohr')
-
-            self.bfs = []
-            self.shells = []
-            for iatom, atom in enumerate(molecule):
-                for bas in atom['basis']:
-                    shell = Shell(bas[0])
-                    for power in sym2powerlist[bas[0]]:
-                        cgbf = CGBF(target[iatom].pos(), power, target[iatom].atid)
-                        for alpha, coef in bas[1:]:
-                            angular = sum(power)
-                            #coef*=alpha**(-(0.75+angular*0.5))  *  2**(-angular)  *  (2.0/math.pi)**(-0.75)
-                            cgbf.add_primitive(alpha, coef)
-                        cgbf.normalize()
-                        self.bfs.append(cgbf)
-                        shell.append(cgbf, len(self.bfs) - 1)
-                    self.shells.append(shell)
-
-    a = moldenBasisSet(molecule)
-    # pprint.pprint(a.__dict__)
-
-    S = getS(a)
-    S = S.tolist()
     return len(S), S
 
-# ======================================================================= #
-
-
-def read_molden(filename):
-    data = readfile(filename)
-
-    molecule = []
-    # get geometry
-    for iline, line in enumerate(data):
-        if '[atoms]' in line.lower():
-            break
-    else:
-        print('No geometry found in %s!' % (filename))
-        sys.exit(73)
-
-    if 'au' in line.lower():
-        factor = 1.
-    elif 'angs' in line.lower():
-        factor = 1 / au2a
-
-    while True:
-        iline += 1
-        line = data[iline]
-        if '[' in line:
-            break
-        s = line.lower().split()
-        atom = {'el': s[0], 'coord': [float(i) * factor for i in s[3:6]], 'basis': []}
-        molecule.append(atom)
-
-    # get basis set
-    for iline, line in enumerate(data):
-        if '[gto]' in line.lower():
-            break
-    else:
-        print('No basis set found in %s!' % (filename))
-        sys.exit(74)
-
-    shells = {'s': 1, 'p': 3, 'd': 6, 'f': 10, 'g': 15}
-    while True:
-        iline += 1
-        line = data[iline]
-        if '[' in line:
-            break
-        s = line.lower().split()
-        if len(s) == 0:
-            continue
-        if not s[0] in shells:
-            iatom = int(s[0]) - 1
-        else:
-            newbf = [s[0].upper()]
-            nprim = int(s[1])
-            for iprim in range(nprim):
-                iline += 1
-                s = data[iline].split()
-                newbf.append((float(s[0]), float(s[1])))
-            molecule[iatom]['basis'].append(newbf)
-    return molecule
 
 # ======================================================================= #
-
 
 def saveAOmatrix(WORKDIR, QMin, job):
     for i in range(5):
