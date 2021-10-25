@@ -191,6 +191,9 @@ class LVC(INTERFACE):
 
     def read_resources(self, resources_filename="LVC.resources"):
         pass
+    
+    def setup_run(self):
+        pass
 
     # NOTE: potentially do kabsch on reference coords and normal modes (if nmstates**2 > 3*natom)
     def run(self):
@@ -345,7 +348,7 @@ class LVC(INTERFACE):
         pwd = os.getcwd()
         self.printheader()
         self.setup_mol(os.path.join(pwd, QMinfilename))
-        self.read_template(os.path.join(pwd, f"{name}.template"))
+        self.read_template()
         self.set_coords(os.path.join(pwd, QMinfilename))
         self.read_requests(os.path.join(pwd, QMinfilename))
         self.run()

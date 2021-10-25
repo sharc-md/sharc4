@@ -3084,9 +3084,9 @@ def ORCAinput_string(QMin):
     for i in keys:
         string += '%s ' % (i)
 
-    string += 'grid%s ' % QMin['template']['grid']
-    if QMin['template']['gridx']:
-        string += 'gridx%s ' % QMin['template']['gridx']
+    # string += 'grid%s ' % QMin['template']['grid']
+    # if QMin['template']['gridx']:
+    #     string += 'gridx%s ' % QMin['template']['gridx']
 # In this way, one can change grid on individual atoms:
 # %method
 # SpecialGridAtoms 26,15,-1,-4         # for element 26 and, for atom index 1 and 4 (cannot change on atom 0!)
@@ -3165,8 +3165,8 @@ def ORCAinput_string(QMin):
             string += 'tda true\n'
         else:
             string += 'tda false\n'
-        if QMin['template']['gridxc']:
-            string += 'gridxc %s\n' % (QMin['template']['gridxc'])
+        # if QMin['template']['gridxc']:
+        #     string += 'gridxc %s\n' % (QMin['template']['gridxc'])
         if 'theodore' in QMin:
             string += 'tprint 0.0001\n'
         if restr and trip:
@@ -4437,6 +4437,7 @@ def getQMout(QMin):
             # first get energies from TAPE21
             logfile = os.path.join(QMin['scratchdir'], 'master_%i/ORCA.log' % (job))
             energies = getenergy(logfile, job, QMin)
+            print(energies)
             # print energies
             # also get SO matrix and mapping
             if 'soc' in QMin and QMin['jobs'][job]['restr']:
@@ -4530,6 +4531,8 @@ def getQMout(QMin):
             g = getgrad(logfile, QMin)
             # print g
             if QMin['qmmm']:
+                if isgs:
+                    fname = ''
                 logfile = os.path.join(QMin['scratchdir'], path, 'ORCA.pcgrad' + fname)
                 gpc = getpcgrad(logfile, QMin)
             for istate in QMin['statemap']:
@@ -4796,7 +4799,7 @@ def getenergy(logfile, ijob, QMin):
                 if 'STATE' in line:
                     # print line
                     s = line.replace(':', ' ').split()
-                    e = gsenergy + float(s[-2]) * rcm_to_Eh
+                    e = gsenergy + float(s[3])
                     i = int(s[1])
                     if i > nstates:
                         break

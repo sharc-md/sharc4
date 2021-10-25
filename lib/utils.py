@@ -129,20 +129,6 @@ def cleandir(directory):
         print('===> Cleaning up directory %s' % (directory))
 
 
-def movetoold(savedir):
-    # rename all files in savedir
-    saveable = ['dets', 'mos', 'coord']
-    ls = os.listdir(savedir)
-    if ls == []:
-        return
-    for f in ls:
-        f2 = savedir + '/' + f
-        if os.path.isfile(f2):
-            if any([i in f for i in saveable]):
-                if 'old' not in f:
-                    fdest = f2 + '.old'
-                    shutil.move(f2, fdest)
-
 
 def save_data(scratchdir, savedir):
     # copy files to savedir

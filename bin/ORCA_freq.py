@@ -127,9 +127,9 @@ for line in lines:
             continue
         if line.startswith("----"):
             continue
-        if 'Mode' in line:
+        if 'Mode' in line or 'cm**-1' in line:
             continue
-        if 'The first' in line or 'APPROXIMATE' in line:
+        if 'The first' in line or 'APPROXIMATE' in line or '* The' in line:
             intensity = False
             read = False
             continue

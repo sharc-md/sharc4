@@ -97,12 +97,12 @@ def printgrad(grad, natom, elements, DEBUG=False):
 
 def printtheodore(matrix, QMin):
     string = '%6s ' % 'State'
-    for i in QMin['template']['theodore_prop']:
+    for i in QMin['resources']['theodore_prop']:
         string += '%6s ' % i
-    for i in range(len(QMin['template']['theodore_fragment'])):
-        for j in range(len(QMin['template']['theodore_fragment'])):
+    for i in range(len(QMin['resources']['theodore_fragment'])):
+        for j in range(len(QMin['resources']['theodore_fragment'])):
             string += '  Om%1i%1i ' % (i + 1, j + 1)
-    string += '\n' + '-------' * (1 + QMin['template']['theodore_n']) + '\n'
+    string += '\n' + '-------' * (1 + QMin['resources']['theodore_n']) + '\n'
     istate = 0
     for imult, i, ms in itnmstates(QMin['states']):
         istate += 1

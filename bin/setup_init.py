@@ -3224,11 +3224,11 @@ def writeQMin(INFOS, iconddir):
 
     if ('refov' in INFOS and INFOS['refov']):
         if icond == 0:
-            string += 'init\nsavedir ./SAVE/\n'
+            string += 'step 0\nsavedir ./SAVE/\n'
         else:
             string += 'overlap\ncleanup\nsavedir ./SAVE/\n'
     else:
-        string += 'init\ncleanup\n'
+        string += 'step 0\ncleanup\n'
 
     if INFOS['soc']:
         string += '\nSOC\n'
