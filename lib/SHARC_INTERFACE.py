@@ -70,7 +70,6 @@ class INTERFACE(ABC):
         self._QMin = {}
         self._QMout = {}
         self.clock = clock(verbose=print)
-        # self.printheader()
         self._DEBUG = debug
         self._PRINT = print
         self._persistent = persistent
@@ -158,8 +157,7 @@ class INTERFACE(ABC):
         QMin['pwd'] = pwd
 
         paths = {
-            'orcadir': '',
-            'tinkerdir': '',
+            self.__class__.__name__.lower() + 'dir': '',
             'scratchdir': '',
             'savedir': '',    # NOTE: savedir from QMin
             'theodir': '',
@@ -661,7 +659,7 @@ class INTERFACE(ABC):
         # 3 replace all \n with ',' in the matches,
         # 4 return matches between [' and ']
         file_str = '\n'.join(filtered)
-        if not file_str or file_str.isspace():    # check is there is only whitespace left!
+        if not file_str or file_str.isspace():    # check if there is only whitespace left!
             return {}
 
         QMin = self._QMin
@@ -1328,243 +1326,6 @@ class INTERFACE(ABC):
             f = os.path.join(QMin['scratchdir'], 'JOB', 'nto_%i-%i-a.mld' % (s - (m == 1), m))
             fdest = moldendir + '/step_%s__nto_%i_%i.molden' % (QMin['step'], m, s)
             shutil.copy(f, fdest)
-
-# =============================================================================================== #
-# =============================================================================================== #
-# =========================================== QM/MM ============================================= #
-# =============================================================================================== #
-# =============================================================================================== #
-
-    def prepare_QMMM(self, table_file):
-        ''' creates dictionary with:
-        MM coordinates (including connectivity and atom types)
-        QM coordinates (including Link atom stuff)
-        point charge data (including redistribution for Link atom neighbors)
-        reorder arrays (for internal processing, all QM, then all LI, then all MM)
-
-        is only allowed to read the following keys from QMin:
-        geo
-        natom
-        QM/MM related infos from template
-        '''
-        QMin = self._QMin
-        table = readfile(table_file)
-
-        # read table file
-        print('===== Running QM/MM preparation ====')
-        print('Reading table file ...         ', datetime.now())
-        QMMM = {}
-        QMMM['qmmmtype'] = []
-        QMMM['atomtype'] = []
-        QMMM['connect'] = []
-        allowed = ['qm', 'mm']
-        # read table file
-        for iline, line in enumerate(table):
-            s = line.split()
-            if len(s) == 0:
-                continue
-            if not s[0].lower() in allowed:
-                raise Error('Not allowed QMMM-type "%s" on line %i!' % (s[0], iline + 1), 34)
-            QMMM['qmmmtype'].append(s[0].lower())
-            QMMM['atomtype'].append(s[1])
-            QMMM['connect'].append(set())
-            for i in s[2:]:
-                QMMM['connect'][-1].add(int(i) - 1)    # internally, atom numbering starts at 0
-        QMMM['natom_table'] = len(QMMM['qmmmtype'])
-
-        # list of QM and MM atoms
-        QMMM['QM_atoms'] = []
-        QMMM['MM_atoms'] = []
-        for iatom in range(QMMM['natom_table']):
-            if QMMM['qmmmtype'][iatom] == 'qm':
-                QMMM['QM_atoms'].append(iatom)
-            elif QMMM['qmmmtype'][iatom] == 'mm':
-                QMMM['MM_atoms'].append(iatom)
-
-        # make connections redundant and fill bond array
-        print('Checking connection table ...  ', datetime.now())
-        QMMM['bonds'] = set()
-        for iatom in range(QMMM['natom_table']):
-            for jatom in QMMM['connect'][iatom]:
-                QMMM['bonds'].add(tuple(sorted([iatom, jatom])))
-                QMMM['connect'][jatom].add(iatom)
-        QMMM['bonds'] = sorted(list(QMMM['bonds']))
-
-        # find link bonds
-        print('Finding link bonds ...         ', datetime.now())
-        QMMM['linkbonds'] = []
-        QMMM['LI_atoms'] = []
-        for i, j in QMMM['bonds']:
-            if QMMM['qmmmtype'][i] != QMMM['qmmmtype'][j]:
-                link = {}
-                if QMMM['qmmmtype'][i] == 'qm':
-                    link['qm'] = i
-                    link['mm'] = j
-                elif QMMM['qmmmtype'][i] == 'mm':
-                    link['qm'] = j
-                    link['mm'] = i
-                link['scaling'] = {'qm': 0.3, 'mm': 0.7}
-                link['element'] = 'H'
-                link['atom'] = [link['element'], 0., 0., 0.]
-                for xyz in range(3):
-                    link['atom'][xyz + 1] += link['scaling']['mm'] * QMin['geo'][link['mm']][xyz + 1]
-                    link['atom'][xyz + 1] += link['scaling']['qm'] * QMin['geo'][link['qm']][xyz + 1]
-                QMMM['linkbonds'].append(link)
-                QMMM['LI_atoms'].append(QMMM['natom_table'] - 1 + len(QMMM['linkbonds']))
-                QMMM['atomtype'].append('999')
-                QMMM['connect'].append(set([link['qm'], link['mm']]))
-
-        # check link bonds
-        mm_in_links = []
-        qm_in_links = []
-        mm_in_link_neighbors = []
-        for link in QMMM['linkbonds']:
-            mm_in_links.append(link['mm'])
-            qm_in_links.append(link['qm'])
-            for j in QMMM['connect'][link['mm']]:
-                if QMMM['qmmmtype'][j] == 'mm':
-                    mm_in_link_neighbors.append(j)
-        mm_in_link_neighbors.extend(mm_in_links)
-        # no QM atom is allowed to be bonded to two MM atoms
-        if not len(qm_in_links) == len(set(qm_in_links)):
-            raise Error('Some QM atom is involved in more than one link bond!', 35)
-        # no MM atom is allowed to be bonded to two QM atoms
-        if not len(mm_in_links) == len(set(mm_in_links)):
-            raise Error('Some MM atom is involved in more than one link bond!', 36)
-        # no neighboring MM atoms are allowed to be involved in link bonds
-        if not len(mm_in_link_neighbors) == len(set(mm_in_link_neighbors)):
-            raise Error('An MM-link atom is bonded to another MM-link atom!', 37)
-
-        # check geometry and connection table
-        if not QMMM['natom_table'] == QMin['natom']:
-            raise Error('Number of atoms in table file does not match number of atoms in QMin!', 38)
-
-        # process MM geometry (and convert to angstrom!)
-        QMMM['MM_coords'] = []
-        for atom in QMin['geo']:
-            QMMM['MM_coords'].append([atom[0]] + [i * au2a for i in atom[1:4]])
-        for ilink, link in enumerate(QMMM['linkbonds']):
-            QMMM['MM_coords'].append(['HLA'] + link['atom'][1:4])
-
-        # create reordering dicts
-        print('Creating reorder mappings ...  ', datetime.now())
-        QMMM['reorder_input_MM'] = {}
-        QMMM['reorder_MM_input'] = {}
-        j = -1
-        for i, t in enumerate(QMMM['qmmmtype']):
-            if t == 'qm':
-                j += 1
-                QMMM['reorder_MM_input'][j] = i
-        for ilink, link in enumerate(QMMM['linkbonds']):
-            j += 1
-            QMMM['reorder_MM_input'][j] = QMMM['natom_table'] + ilink
-        for i, t in enumerate(QMMM['qmmmtype']):
-            if t == 'mm':
-                j += 1
-                QMMM['reorder_MM_input'][j] = i
-        for i in QMMM['reorder_MM_input']:
-            QMMM['reorder_input_MM'][QMMM['reorder_MM_input'][i]] = i
-
-        # process QM geometry (including link atoms), QM coords in bohr!
-        QMMM['QM_coords'] = []
-        QMMM['reorder_input_QM'] = {}
-        QMMM['reorder_QM_input'] = {}
-        j = -1
-        for iatom in range(QMMM['natom_table']):
-            if QMMM['qmmmtype'][iatom] == 'qm':
-                QMMM['QM_coords'].append(deepcopy(QMin['geo'][iatom]))
-                j += 1
-                QMMM['reorder_input_QM'][iatom] = j
-                QMMM['reorder_QM_input'][j] = iatom
-        for ilink, link in enumerate(QMMM['linkbonds']):
-            QMMM['QM_coords'].append(link['atom'])
-            j += 1
-            QMMM['reorder_input_QM'][-(ilink + 1)] = j
-            QMMM['reorder_QM_input'][j] = -(ilink + 1)
-
-        # process charge redistribution around link bonds
-        # point charges are in input geometry ordering
-        print('Charge redistribution ...      ', datetime.now())
-        QMMM['charge_distr'] = []
-        for iatom in range(QMMM['natom_table']):
-            if QMMM['qmmmtype'][iatom] == 'qm':
-                QMMM['charge_distr'].append([(0., 0)])
-            elif QMMM['qmmmtype'][iatom] == 'mm':
-                if iatom in mm_in_links:
-                    QMMM['charge_distr'].append([(0., 0)])
-                else:
-                    QMMM['charge_distr'].append([(1., iatom)])
-        for link in QMMM['linkbonds']:
-            mm_neighbors = []
-            for j in QMMM['connect'][link['mm']]:
-                if QMMM['qmmmtype'][j] == 'mm':
-                    mm_neighbors.append(j)
-            if len(mm_neighbors) > 0:
-                factor = 1. / len(mm_neighbors)
-                for j in QMMM['connect'][link['mm']]:
-                    if QMMM['qmmmtype'][j] == 'mm':
-                        QMMM['charge_distr'][j].append((factor, link['mm']))
-
-        # pprint.pprint(QMMM)
-        return QMMM
-
-    def transform_QM_QMMM(self):
-        QMin = self._QMin
-        QMout = self._QMout
-        # Meta data
-        QMin['natom'] = QMin['natom_orig']
-        QMin['geo'] = QMin['geo_orig']
-
-        # Hamiltonian
-        if 'h' in QMout:
-            for i in range(QMin['nmstates']):
-                QMout['h'][i][i] += QMin['qmmm']['MMEnergy']
-
-        # Gradients
-        if 'grad' in QMout:
-            nmstates = QMin['nmstates']
-            natom = QMin['natom_orig']
-            grad = [[[0. for i in range(3)] for j in range(natom)] for k in range(nmstates)]
-            # QM gradient
-            for iqm in QMin['qmmm']['reorder_QM_input']:
-                iqmmm = QMin['qmmm']['reorder_QM_input'][iqm]
-                if iqmmm < 0:
-                    ilink = -iqmmm - 1
-                    link = QMin['qmmm']['linkbonds'][ilink]
-                    for istate in range(nmstates):
-                        for ixyz in range(3):
-                            grad[istate][link['qm']][ixyz] += QMout['grad'][istate][iqm][ixyz] * link['scaling']['qm']
-                            grad[istate][link['mm']][ixyz] += QMout['grad'][istate][iqm][ixyz] * link['scaling']['mm']
-                else:
-                    for istate in range(nmstates):
-                        for ixyz in range(3):
-                            grad[istate][iqmmm][ixyz] += QMout['grad'][istate][iqm][ixyz]
-            # PC gradient
-            # for iqm,iqmmm in enumerate(QMin['qmmm']['MM_atoms']):
-            for iqm in QMin['qmmm']['reorder_pc_input']:
-                iqmmm = QMin['qmmm']['reorder_pc_input'][iqm]
-                for istate in range(nmstates):
-                    for ixyz in range(3):
-                        grad[istate][iqmmm][ixyz] += QMout['pcgrad'][istate][iqm][ixyz]
-            # MM gradient
-            for iqmmm in range(QMin['qmmm']['natom_table']):
-                for istate in range(nmstates):
-                    for ixyz in range(3):
-                        grad[istate][iqmmm][ixyz] += QMin['qmmm']['MMGradient'][iqmmm][ixyz]
-            QMout['grad'] = grad
-
-        # pprint.pprint(QMout)
-        return
-
-    @staticmethod
-    def write_pccoord_file(pointcharges):
-        '''Writes pointcharges as file'''
-        string = '%i\n' % len(pointcharges)
-        for atom in pointcharges:
-            string += '{: 10.8} {: 12.12} {: 12.12} {: 12.12}\n'.format(
-                atom[3], *map(lambda x: x * BOHR_TO_ANG, atom[:3])
-            )
-        return string
 
     # ============================PRINTING ROUTINES========================== #
 
