@@ -1,7 +1,7 @@
 # /usr/bin/env python3
 # conversion factors
 au2a = 0.529177211
-ANG_TO_BOHR = 0.529177211
+ANG_TO_BOHR = 1 / 0.529177211
 rcm_to_Eh = 4.556335e-6
 kcal_to_Eh = 0.0015936011
 D2au = 0.393430307
