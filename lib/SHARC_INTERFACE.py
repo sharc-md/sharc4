@@ -67,7 +67,9 @@ class INTERFACE(ABC):
     # TODO: set Debug and Print flag
     # TODO: set persistant flag for file-io vs in-core
     def __init__(self, debug=False, print=True, persistent=False):
+        # all the input and info for the calculation is stored here
         self._QMin = {}
+        # all the output from the calculation will be stored here
         self._QMout = {}
         self.clock = clock(verbose=print)
         self._DEBUG = debug
@@ -110,6 +112,10 @@ class INTERFACE(ABC):
         self._QMout = value
 
     def main(self):
+        '''
+        main routine for all interfaces.
+        This routine containes all functions that will be accessed when any interface is calculating a single point. All of these functions have to be defined in the derived class if not available in this base class
+        '''
 
         args = sys.argv
         name = self.__class__.__name__
@@ -126,14 +132,23 @@ class INTERFACE(ABC):
         QMinfilename = sys.argv[1]
         pwd = os.getcwd()
         self.printheader()
+        # set up the system (i.e. molecule, states, unit...)
         self.setup_mol(os.path.join(pwd, QMinfilename))
+        # read in the resources available for this computation (program path, cores, memory)
         self.read_resources(os.path.join(pwd, f"{name}.resources"))
+        # read in the specific template file for the interface with all keywords
         self.read_template(os.path.join(pwd, f"{name}.template"))
+        # set the coordinates of the molecular system
         self.set_coords(os.path.join(pwd, QMinfilename))
+        # read the property requests that have to be calculated
         self.read_requests(os.path.join(pwd, QMinfilename))
+        # setup the folders for the computation
         self.setup_run()
+        # perform the calculation and parse the output, do subsequent calculations with other tools
         self.run()
+        # writes a STEP file in the SAVEDIR (marks this step as succesfull)
         self.write_step_file()
+        # printing and output generation
         if PRINT or DEBUG:
             self.printQMout()
         self._QMout['runtime'] = self.clock.measuretime()
@@ -149,6 +164,10 @@ class INTERFACE(ABC):
 
     @abstractmethod
     def read_resources(self, resources_filename):
+        '''
+        a template for the read resources method.
+        This function might already be sufficient for an interface to use but can be extended by calling this function as `super.read_resources()`.
+        '''
         if not self._setup_mol:
             raise Error('Interface is not set up for this template. Call setup_mol with the QM.in file first!', 23)
         QMin = self._QMin
@@ -198,7 +217,7 @@ class INTERFACE(ABC):
         self._DEBUG = QMin['resources']['debug']
         self._PRINT = QMin['resources']['no_print'] is False
 
-        # NOTE: This is reall optional
+        # NOTE: This is really optional
         ncpu = QMin['resources']['ncpu']
         if os.environ.get('NSLOTS') is not None:
             ncpu = int(os.environ.get('NSLOTS'))
@@ -231,6 +250,10 @@ class INTERFACE(ABC):
         # ============================ Implemented public methods ========================
 
     def setup_mol(self, QMinfilename: str):
+        '''
+        Sets up the molecular system from a `QM.in` file.
+        parses the elements, states, and savedir and prepare the QMin object accordingly.
+        '''
         self._QMinfilename = QMinfilename
         QMin = self._QMin
         QMinlines = readfile(QMinfilename)
@@ -1095,32 +1118,12 @@ class INTERFACE(ABC):
         string = '%s -f wfovl.inp -m %i' % (QMin['wfoverlap'], QMin['memory'])
         self.runProgram(string, scradir, 'wfovl.out')
 
-    def copymolden(self):
-        QMin = self._QMin
-        # run tm2molden in scratchdir
-        string = 'molden.input\nY\n'
-        filename = os.path.join(QMin['scratchdir'], 'JOB', 'tm2molden.input')
-        writefile(filename, string)
-        string = 'tm2molden < tm2molden.input'
-        path = os.path.join(QMin['scratchdir'], 'JOB')
-        self.runProgram(string, path, 'tm2molden.output')
-
-        if 'molden' in QMin:
-            # create directory
-            moldendir = QMin['savedir'] + '/MOLDEN/'
-            if not os.path.isdir(moldendir):
-                mkdir(moldendir)
-
-            # save the molden.input file
-            f = QMin['scratchdir'] + '/JOB/molden.input'
-            fdest = moldendir + '/step_%s.molden' % (QMin['step'][0])
-            shutil.copy(f, fdest)
 
     # ======================================================================= #
     def run_theodore(self):
         QMin = self._QMin
         workdir = os.path.join(QMin['scratchdir'], 'JOB')
-        string = 'python2 %s/bin/analyze_tden.py' % (QMin['theodir'])
+        string = 'python %s/bin/analyze_tden.py' % (QMin['theodir'])
         runerror = self.runProgram(string, workdir, 'theodore.out')
         if runerror != 0:
             raise Error('Theodore calculation crashed! Error code=%i' % (runerror), 105)
