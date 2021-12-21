@@ -471,6 +471,8 @@ class INTERFACE(ABC):
                 QMin['step'] = last_step + 1
             elif QMin['step'] == last_step:
                 QMin['samestep'] = True
+            elif QMin['step'] == last_step + 1:
+                QMin['newstep'] = True
             else:
                 raise Error(
                     f'Determined last step ({last_step}) from savedir and specified step ({QMin["step"]}) do not fit!\nPrepare your savedir and "STEP" file accordingly before starting again or choose "step -1" if you want to proceed from last successful step!'
