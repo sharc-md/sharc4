@@ -334,7 +334,7 @@ class INTERFACE(ABC):
         except ValueError:
             raise Error('first line must contain the number of atoms!', 2)
         self._QMin["coords"
-                   ] = np.asarray([INTERFACE._parse_xyz(x)[1] for x in lines[2:natom + 2]], dtype=float) * self._factor
+                   ] = np.asarray([parse_xyz(x)[1] for x in lines[2:natom + 2]], dtype=float) * self._factor
 
     @set_coords.register
     def _(self, xyz: list):
