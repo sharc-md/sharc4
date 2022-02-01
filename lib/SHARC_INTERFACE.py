@@ -838,7 +838,7 @@ class INTERFACE(ABC):
             natom = int(lines[0])
         except ValueError:
             raise Error('first line must contain the number of atoms!', 2)
-        return [[x[0], *x[1]] for x in map(INTERFACE._parse_xyz, lines[2:natom + 2])]
+        return [[x[0], *x[1]] for x in map(parse_xyz, lines[2:natom + 2])]
 
     @staticmethod
     def read_elements(QMinlines: list[str]) -> list[str]:
@@ -851,18 +851,11 @@ class INTERFACE(ABC):
             raise Error(
                 'Input file must contain at least:\nnatom\ncomment\ngeometry\nkeyword "states"\nat least one task', 3
             )
-        atomlist = list(map(lambda x: INTERFACE._parse_xyz(x)[0], (QMinlines[2:natom + 2])))
+        atomlist = list(map(lambda x: parse_xyz(x)[0], (QMinlines[2:natom + 2])))
         return atomlist
 
     # ======================================================================= #
 
-    @staticmethod
-    def _parse_xyz(line: str) -> tuple[str, list[float]]:
-        match = re.match(r'([a-zA-Z]{1,2}\d?)((\s+-?\d+\.\d*){3,6})', line.strip())
-        if match:
-            return match[1], list(map(float, match[2].split()[:3]))
-        else:
-            raise Error(f"line is not xyz\n\n{line}", 43)
 
     @staticmethod
     def _get_pairs(QMinlines, i):
