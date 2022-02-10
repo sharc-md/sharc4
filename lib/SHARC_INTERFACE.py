@@ -43,11 +43,14 @@ import pprint
 from textwrap import wrap
 
 # internal
-from error import Error
+from error import Error, exception_hook
 from printing import printcomplexmatrix, printgrad, printtheodore
 from utils import *
 from constants import *
 from parse_keywords import KeywordParser
+
+
+sys.excepthook = exception_hook
 
 # NOTE: Error handling especially import for processes in pools (error_callback)
 # NOTE: gradient calculation necessitates multiple parallel calls (either inside interface) or
@@ -119,6 +122,7 @@ class INTERFACE(ABC):
 
         args = sys.argv
         name = self.__class__.__name__
+        self.printheader()
         if len(args) != 2:
             print(
                 'Usage:',
@@ -131,7 +135,6 @@ class INTERFACE(ABC):
             sys.exit(106)
         QMinfilename = sys.argv[1]
         pwd = os.getcwd()
-        self.printheader()
         # set up the system (i.e. molecule, states, unit...)
         self.setup_mol(os.path.join(pwd, QMinfilename))
         # read in the resources available for this computation (program path, cores, memory)
@@ -706,13 +709,17 @@ class INTERFACE(ABC):
             else:
                 d[key] = parsers[key](args)
         except Error:
-            raise
-        except Exception:
             ty, val, tb = sys.exc_info()
             raise Error(
                 f'Something went wrong while parsing the keyword: {key} {args}:\n\
                 {ty.__name__}: {val}\nPlease consult the examples folder in the $SHARCDIR for more information!'
-            ).with_traceback(tb)
+            ).with_traceback(None)
+        except KeyError as e:
+            ty, val, tb = sys.exc_info()
+            keys = '\n    '.join(parsers.keys())
+            available_keys = f'Available Keywords:\n    {keys}'
+            raise Error(f'The keyword {val} is not known!'
+                        + f'\nPlease consult the examples folder in the $SHARCDIR for more information!\n{available_keys}', 34)
         return d
 
     def write_step_file(self):
@@ -1448,10 +1455,7 @@ class INTERFACE(ABC):
     def printQMout(self):
         '''If PRINT, prints a summary of all requested QM output values.
         Matrices are formatted using printcomplexmatrix, vectors using printgrad.
-
-        Arguments:
-        1 dictionary: QMin
-        2 dictionary: QMout'''
+        '''
         QMin = self._QMin
         QMout = self._QMout
         if not self._PRINT:
