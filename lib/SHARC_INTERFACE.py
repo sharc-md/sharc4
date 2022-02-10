@@ -540,37 +540,11 @@ class INTERFACE(ABC):
         # obtain the statemap
         QMin['statemap'] = {i + 1: [*v] for i, v in enumerate(itnmstates(QMin['states']))}
 
-        # obtain the states to actually compute
-        states_to_do = [v + QMin['template']['paddingstates'][i] if v > 0 else v for i, v in enumerate(QMin['states'])]
-        if not QMin['template']['unrestricted_triplets']:
-            if len(QMin['states']) >= 3 and QMin['states'][2] > 0:
-                states_to_do[0] = max(QMin['states'][0], 1)
-                req = max(QMin['states'][0] - 1, QMin['states'][2])
-                states_to_do[0] = req + 1
-                states_to_do[2] = req
-        QMin['states_to_do'] = states_to_do
-
+        self._states_to_do() # can be different in interface -> general method here with possibility to overwrite
         # make the jobs
-        jobs = {}
-        if QMin['states_to_do'][0] > 0:
-            jobs[1] = {'mults': [1], 'restr': True}
-        if len(QMin['states_to_do']) >= 2 and QMin['states_to_do'][1] > 0:
-            jobs[2] = {'mults': [2], 'restr': False}
-        if len(QMin['states_to_do']) >= 3 and QMin['states_to_do'][2] > 0:
-            if not QMin['template']['unrestricted_triplets'] and QMin['states_to_do'][0] > 0:
-                jobs[1]['mults'].append(3)
-            else:
-                jobs[3] = {'mults': [3], 'restr': False}
-        if len(QMin['states_to_do']) >= 4:
-            for imult, nstate in enumerate(QMin['states_to_do'][3:]):
-                if nstate > 0:
-                    # jobs[len(jobs)+1]={'mults':[imult+4],'restr':False}
-                    jobs[imult + 4] = {'mults': [imult + 4], 'restr': False}
-        QMin['jobs'] = jobs
-
+        self._jobs()
+        jobs = QMin['jobs']
         # make the multmap (mapping between multiplicity and job)
-        # multmap[imult]=ijob
-        # multmap[-ijob]=[imults]
         multmap = {}
         for ijob, job in jobs.items():
             for imult in job['mults']:
@@ -630,8 +604,6 @@ class INTERFACE(ABC):
         else:
             QMin['resources']['theodore_n'] = 0
 
-        # TODO: QMMM
-        QMin['qmmm'] = False
 
         # make name for backup directory
         if 'backup' in QMin:
@@ -856,6 +828,36 @@ class INTERFACE(ABC):
 
     # ======================================================================= #
 
+    def _jobs(self):
+        QMin = self.QMin
+        jobs = {}
+        if QMin['states_to_do'][0] > 0:
+            jobs[1] = {'mults': [1], 'restr': True}
+        if len(QMin['states_to_do']) >= 2 and QMin['states_to_do'][1] > 0:
+            jobs[2] = {'mults': [2], 'restr': False}
+        if len(QMin['states_to_do']) >= 3 and QMin['states_to_do'][2] > 0:
+            if not QMin['template']['unrestricted_triplets'] and QMin['states_to_do'][0] > 0:
+                jobs[1]['mults'].append(3)
+            else:
+                jobs[3] = {'mults': [3], 'restr': False}
+        if len(QMin['states_to_do']) >= 4:
+            for imult, nstate in enumerate(QMin['states_to_do'][3:]):
+                if nstate > 0:
+                    # jobs[len(jobs)+1]={'mults':[imult+4],'restr':False}
+                    jobs[imult + 4] = {'mults': [imult + 4], 'restr': False}
+        QMin['jobs'] = jobs
+
+    def _states_to_do(self):
+        QMin = self.QMin
+        # obtain the states to actually compute
+        states_to_do = [v + QMin['template']['paddingstates'][i] if v > 0 else v for i, v in enumerate(QMin['states'])]
+        if not QMin['template']['unrestricted_triplets']:
+            if len(QMin['states']) >= 3 and QMin['states'][2] > 0:
+                states_to_do[0] = max(QMin['states'][0], 1)
+                req = max(QMin['states'][0] - 1, QMin['states'][2])
+                states_to_do[0] = req + 1
+                states_to_do[2] = req
+        QMin['states_to_do'] = states_to_do
 
     @staticmethod
     def _get_pairs(QMinlines, i):
