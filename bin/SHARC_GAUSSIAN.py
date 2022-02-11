@@ -25,22 +25,27 @@
 
 # IMPORTS
 # external
-from os import stat
+from itertools import chain
+import pprint
 import sys
 import math
-from telnetlib import GA
 import time
 import datetime
-import struct
 from multiprocessing import Pool
 from copy import deepcopy
 from socket import gethostname
+import traceback
+
+from zmq import error
 
 # internal
 from SHARC_INTERFACE import INTERFACE
 from globals import DEBUG, PRINT
 from utils import *
-from constants import IToMult, au2eV, D2au
+from constants import IToMult, au2eV
+from error import Error, exception_hook
+
+sys.excepthook = exception_hook
 
 authors = 'Sebastian Mai, Maximilian F.S.J. Menger and Severin Polonius'
 version = '3.0'
@@ -59,6 +64,7 @@ changelogstring = '''
 
 10.02.2022:
 - ported to new interface class
+- groot -> gaussiandir (consistency)
 '''
 
 
@@ -93,7 +99,7 @@ class GAUSSIAN(INTERFACE):
             raise Error('Interface is not set up correctly. Call read_resources with the .resources file first!', 23)
         QMin = self._QMin
         # define classes and defaults
-        bools = {'denfit': False, 'no_tda': False, 'unrestricted_triplets': False}
+        bools = {'denfit': False, 'no_tda': False, 'unrestricted_triplets': False, 'qmmm': False}
         strings = {
             'basis': '6-31G',
             'functional': 'PBEPBE',
@@ -112,8 +118,6 @@ class GAUSSIAN(INTERFACE):
         special = {
             'paddingstates': [0 for i in QMin['states']],
             'charge': [i % 2 for i in range(len(QMin['states']))],
-            'theodore_prop': ['Om', 'PRNTO', 'S_HE', 'Z_HE', 'RMSeh'],
-            'theodore_fragment': []
         }
 
         lines = readfile(template_filename)
@@ -134,15 +138,16 @@ class GAUSSIAN(INTERFACE):
         # do logic checks
         if not QMin['template']['unrestricted_triplets']:
             if len(QMin['template']['charge']) >= 3 and QMin['template']['charge'][0] != QMin['template']['charge'][2]:
-                print('Charges of singlets and triplets differ. Please enable the "unrestricted_triplets" option!')
-                sys.exit(54)
+                raise Error(
+                    'Charges of singlets and triplets differ. Please enable the "unrestricted_triplets" option!', 54
+                )
 
         self._read_template = True
         return
 
     def read_resources(self, resources_filename="ORCA.resources"):
         super().read_resources(resources_filename)
-        QMin = self.QMin
+        QMin = self._QMin
         QMin['Gversion'] = GAUSSIAN.getVersion(QMin['gaussiandir'])
 
         os.environ['g%sroot' % QMin['Gversion']] = QMin['gaussiandir']
@@ -163,11 +168,10 @@ class GAUSSIAN(INTERFACE):
             if i in ls:
                 return tries[i]
         else:
-            print('Found no executable (possible names: %s) in $gaussiandir!' % (list(tries)))
-        sys.exit(17)
+            raise Error('Found no executable (possible names: %s) in $gaussiandir!' % (list(tries)), 17)
 
     def _jobs(self):
-        QMin = self.QMin
+        QMin = self._QMin
         # make the jobs
         jobs = {}
         if QMin['states_to_do'][0] > 0:
@@ -187,7 +191,7 @@ class GAUSSIAN(INTERFACE):
         QMin['jobs'] = jobs
 
     def _states_to_do(self):
-        QMin = self.QMin
+        QMin = self._QMin
         # obtain the states to actually compute
         states_to_do = deepcopy(QMin['states'])
         for i in range(len(QMin['states'])):
@@ -205,6 +209,7 @@ class GAUSSIAN(INTERFACE):
     def _initorbs(QMin):
         # check for initial orbitals
         initorbs = {}
+        step = QMin['step']
         if 'always_guess' in QMin:
             QMin['initorbs'] = {}
         elif 'init' in QMin or 'always_orb_init' in QMin:
@@ -213,43 +218,39 @@ class GAUSSIAN(INTERFACE):
                 if os.path.isfile(filename):
                     initorbs[job] = filename
             for job in QMin['joblist']:
-                filename = os.path.join(QMin['pwd'], 'GAUSSIAN.chk.%i.init' % (job))
+                filename = os.path.join(QMin['pwd'], f'GAUSSIAN.chk.{job}.init')
                 if os.path.isfile(filename):
                     initorbs[job] = filename
             if 'always_orb_init' in QMin and len(initorbs) < QMin['njobs']:
-                print('Initial orbitals missing for some jobs!')
-                sys.exit(59)
+                raise Error('Initial orbitals missing for some jobs!', 59)
             QMin['initorbs'] = initorbs
         elif 'newstep' in QMin:
             for job in QMin['joblist']:
-                filename = os.path.join(QMin['savedir'], 'GAUSSIAN.chk.%i' % (job))
+                filename = os.path.join(QMin['savedir'], f'GAUSSIAN.chk.{job}.{step-1}')
                 if os.path.isfile(filename):
-                    initorbs[job] = filename + '.old'    # file will be moved to .old
+                    initorbs[job] = filename
                 else:
-                    print('File %s missing in savedir!' % (filename))
-                    sys.exit(60)
+                    raise Error('File %s missing in savedir!' % (filename), 60)
             QMin['initorbs'] = initorbs
         elif 'samestep' in QMin:
             for job in QMin['joblist']:
-                filename = os.path.join(QMin['savedir'], 'GAUSSIAN.chk.%i' % (job))
+                filename = os.path.join(QMin['savedir'], f'GAUSSIAN.chk.{job}.{step}')
                 if os.path.isfile(filename):
                     initorbs[job] = filename
                 else:
-                    print('File %s missing in savedir!' % (filename))
-                    sys.exit(61)
+                    raise Error('File %s missing in savedir!' % (filename), 61)
             QMin['initorbs'] = initorbs
         elif 'restart' in QMin:
             for job in QMin['joblist']:
-                filename = os.path.join(QMin['savedir'], 'GAUSSIAN.chk.%i.old' % (job))
+                filename = os.path.join(QMin['savedir'], f'GAUSSIAN.chk.{job}.{step}')
                 if os.path.isfile(filename):
                     initorbs[job] = filename
                 else:
-                    print('File %s missing in savedir!' % (filename))
-                    sys.exit(62)
+                    raise Error('File %s missing in savedir!' % (filename), 62)
             QMin['initorbs'] = initorbs
 
-    @staticmethod
-    def _generate_joblist(QMin):
+    def generate_joblist(self):
+        QMin = self._QMin
         # sort the gradients into the different jobs
         gradjob = {}
         for ijob in QMin['joblist']:
@@ -338,10 +339,10 @@ class GAUSSIAN(INTERFACE):
                     icount += 1
                     schedule[-1][i] = QMin1
 
-        return QMin, schedule
+        return schedule
 
     def _backupdir(self):
-        QMin = self.QMin
+        QMin = self._QMin
         # make name for backup directory
         if 'backup' in QMin:
             backupdir = QMin['savedir'] + '/backup'
@@ -362,12 +363,49 @@ class GAUSSIAN(INTERFACE):
 # =============================================================================================== #
 # =============================================================================================== #
 
+    def run(self):
+        QMin = self._QMin
+        # get the job schedule
+        schedule = self.generate_joblist()
+        self.printQMin()
+        if DEBUG:
+            pprint.pprint(schedule, depth=1)
+        errorcodes = {}
+        # run all the ADF jobs
+        errorcodes = self.runjobs(schedule)
+
+        # do all necessary overlap and Dyson calculations
+        errorcodes = self.run_wfoverlap(errorcodes)
+
+        # do all necessary Theodore calculations
+        errorcodes = self.run_theodore(errorcodes)
+
+        # read all the output files
+        self.getQMout()
+
+
+        # backup data if requested
+        if 'backup' in QMin:
+            self.backupdata(QMin['backup'])
+
+        # Measure time
+        runtime = self.clock.measuretime()
+        self._QMout['runtime'] = runtime
+
+        # Write QMout
+        self.writeQMout()
+
+        # Remove Scratchfiles from SCRATCHDIR
+        if not DEBUG:
+            cleandir(QMin['scratchdir'])
+            if 'cleanup' in QMin:
+                cleandir(QMin['savedir'])
+
+        print(datetime.datetime.now())
+        print('#================ END ================#')
 
     def runjobs(self, schedule):
-        QMin = self.QMin
-
-        if 'newstep' in QMin:
-            self.moveOldFiles(QMin)
+        QMin = self._QMin
 
         print('>>>>>>>>>>>>> Starting the GAUSSIAN job execution')
 
@@ -398,9 +436,7 @@ class GAUSSIAN(INTERFACE):
         print(string)
         if any((i != 0 for i in errorcodes.values())):
             print('Some subprocesses did not finish successfully!')
-            print('See %s:%s for error messages in GAUSSIAN output.' % (gethostname(), QMin['scratchdir']))
-            sys.exit(64)
-        print
+            raise Error('See %s:%s for error messages in GAUSSIAN output.' % (gethostname(), QMin['scratchdir']), 64)
 
         if PRINT:
             print('>>>>>>>>>>>>> Saving files')
@@ -434,7 +470,7 @@ class GAUSSIAN(INTERFACE):
             err = 0
         except Exception as problem:
             print('*' * 50 + '\nException in run_calc(%s)!' % (WORKDIR))
-            GAUSSIAN.traceback.print_exc()
+            traceback.print_exc()
             print('*' * 50 + '\n')
             raise problem
 
@@ -446,7 +482,6 @@ class GAUSSIAN(INTERFACE):
         # mkdir the WORKDIR, or clean it if it exists, then copy all necessary files from pwd and savedir
         # then put the GAUSSIAN.com file
         GAUSSIAN._initorbs(QMin)
-        GAUSSIAN._generate_joblist()
         # setup the directory
         mkdir(WORKDIR)
 
@@ -483,9 +518,9 @@ class GAUSSIAN(INTERFACE):
 
     # ======================================================================= #
 
+    @staticmethod
     def writeGAUSSIANinput(QMin):
 
-        # pprint.pprint(QMin)
 
         # general setup
         job = QMin['IJOB']
@@ -625,9 +660,8 @@ class GAUSSIAN(INTERFACE):
             string += '%i %i\n' % (2. * charge, 1)
         else:
             string += '%i %i\n' % (charge, gsmult)
-        for iatom, atom in enumerate(QMin['geo']):
-            label = atom[0]
-            string += '%4s %16.9f %16.9f %16.9f\n' % (label, atom[1], atom[2], atom[3])
+        for label, coords in zip(QMin['elements'], QMin['coords']):
+            string += '%4s %16.9f %16.9f %16.9f\n' % (label, coords[0], coords[1], coords[2])
         string += '\n'
         if QMin['template']['functional'].lower() == 'dftba':
             string += '@GAUSS_EXEDIR:dftba.prm\n'
@@ -664,16 +698,10 @@ class GAUSSIAN(INTERFACE):
         try:
             runerror = sp.call(string, shell=True, stdout=stdoutfile, stderr=stderrfile)
         except OSError:
-            print('Call have had some serious problems:', OSError)
-            sys.exit(65)
+            raise Error('Call have had some serious problems:', OSError, 65)
         stdoutfile.close()
         stderrfile.close()
-        # stderr=readfile(os.path.join(WORKDIR,'ADF.err'))
-        # for line in stderr:
-        # if 'error' in line.lower():
-        #sys.stdout.write('ERROR: \t%s\t"%s"\n' % (shorten_DIR(WORKDIR),line.strip()))
-        # runerror+=1
-        # break
+
         if PRINT or DEBUG:
             endtime = datetime.datetime.now()
             sys.stdout.write(
@@ -703,60 +731,12 @@ class GAUSSIAN(INTERFACE):
 
     # ======================================================================= #
 
-    def moveOldFiles(QMin):
-        # moves all relevant files in the savedir to old files (per job)
-        if PRINT:
-            print('>>>>>>>>>>>>> Moving old files')
-        basenames = ['GAUSSIAN.chk']
-        if 'nooverlap' not in QMin:
-            basenames.append('mos')
-        for job in QMin['joblist']:
-            for base in basenames:
-                fromfile = os.path.join(QMin['savedir'], '%s.%i' % (base, job))
-                if not os.path.isfile(fromfile):
-                    print('File %s not found, cannot move to OLD!' % (fromfile))
-                    sys.exit(66)
-                tofile = os.path.join(QMin['savedir'], '%s.%i.old' % (base, job))
-                if PRINT:
-                    print(shorten_DIR(fromfile) + '   =>   ' + shorten_DIR(tofile))
-                shutil.copy(fromfile, tofile)
-        # moves all relevant files in the savedir to old files (per mult)
-        basenames = []
-        if 'nooverlap' not in QMin:
-            basenames = ['dets']
-        for job in itmult(QMin['states']):
-            for base in basenames:
-                fromfile = os.path.join(QMin['savedir'], '%s.%i' % (base, job))
-                if not os.path.isfile(fromfile):
-                    print('File %s not found, cannot move to OLD!' % (fromfile))
-                    sys.exit(67)
-                tofile = os.path.join(QMin['savedir'], '%s.%i.old' % (base, job))
-                if PRINT:
-                    print(shorten_DIR(fromfile) + '   =>   ' + shorten_DIR(tofile))
-                shutil.copy(fromfile, tofile)
-        # geometry file
-        fromfile = os.path.join(QMin['savedir'], 'geom.dat')
-        tofile = os.path.join(QMin['savedir'], 'geom.dat.old')
-        if PRINT:
-            print(shorten_DIR(fromfile) + '   =>   ' + shorten_DIR(tofile))
-        shutil.copy(fromfile, tofile)
-        # also remove aoovl files if present
-        delete = ['AO_overl', 'AO_overl.mixed']
-        for f in delete:
-            rmfile = os.path.join(QMin['savedir'], f)
-            if os.path.isfile(rmfile):
-                os.remove(rmfile)
-                if PRINT:
-                    print('rm ' + rmfile)
-
-    # ======================================================================= #
-
+    @staticmethod
     def saveGeometry(QMin):
         string = ''
-        for atom in QMin['geo']:
-            label = atom[0]
-            string += '%4s %16.9f %16.9f %16.9f\n' % (label, atom[1], atom[2], atom[3])
-        filename = os.path.join(QMin['savedir'], 'geom.dat')
+        for label, atom in zip(QMin['elements'], QMin['coords']):
+            string += '%4s %16.9f %16.9f %16.9f\n' % (label, atom[0], atom[1], atom[2])
+        filename = os.path.join(QMin['savedir'], f'geom.dat.{QMin["step"]}')
         writefile(filename, string)
         if PRINT:
             print(shorten_DIR(filename))
@@ -769,23 +749,24 @@ class GAUSSIAN(INTERFACE):
 
         # copy the TAPE21 from master directories
         job = QMin['IJOB']
+        step = QMin['step']
         fromfile = os.path.join(WORKDIR, 'GAUSSIAN.chk')
-        tofile = os.path.join(QMin['savedir'], 'GAUSSIAN.chk.%i' % (job))
+        tofile = os.path.join(QMin['savedir'], f'GAUSSIAN.chk.{job}.{step}')
         shutil.copy(fromfile, tofile)
         if PRINT:
             print(shorten_DIR(tofile))
 
         # if necessary, extract the MOs and write them to savedir
-        if 'ion' in QMin or 'nooverlap' not in QMin:
+        if 'ion' in QMin or not QMin['nooverlap']:
             f = os.path.join(WORKDIR, 'GAUSSIAN.chk')
             string = GAUSSIAN.get_MO_from_chk(f, QMin)
-            mofile = os.path.join(QMin['savedir'], 'mos.%i' % job)
+            mofile = os.path.join(QMin['savedir'], f'mos.{job}.{step}')
             writefile(mofile, string)
             if PRINT:
                 print(shorten_DIR(mofile))
 
         # if necessary, extract the TDDFT coefficients and write them to savedir
-        if 'ion' in QMin or 'nooverlap' not in QMin:
+        if 'ion' in QMin or not QMin['nooverlap']:
             f = os.path.join(WORKDIR, 'GAUSSIAN.chk')
             strings = GAUSSIAN.get_dets_from_chk(f, QMin)
             for f in strings:
@@ -812,8 +793,7 @@ class GAUSSIAN(INTERFACE):
             except OSError:
                 pass
         if not ok:
-            print('Gaussian rwfdump has serious problems:', OSError)
-            sys.exit(68)
+            raise Error('Gaussian rwfdump has serious problems:', OSError, 68)
         string = readfile(dumpname)
         os.chdir(prevdir)
         return string
@@ -857,8 +837,7 @@ class GAUSSIAN(INTERFACE):
                 for i in s:
                     mocoef_B.append(float(i.replace('D', 'E')))
             if not NAO == int(math.sqrt(len(mocoef_B))):
-                print('Problem in orbital reading!')
-                sys.exit(69)
+                raise Error('Problem in orbital reading!', 69)
             NMO_B = NAO
             MO_B = [mocoef_B[NAO * i:NAO * (i + 1)] for i in range(NAO)]
 
@@ -1039,7 +1018,6 @@ class GAUSSIAN(INTERFACE):
                         for ivirt in range(nvir_B):
                             index = iocc * nvir_B + ivirt + nvir_A * nocc_A
                             dets[(iocc, ivirt, 2)] = eig[index]
-                # pprint.pprint(dets)
                 # truncate vectors
                 norm = 0.
                 for k in sorted(dets, key=lambda x: dets[x]**2, reverse=True):
@@ -1051,7 +1029,6 @@ class GAUSSIAN(INTERFACE):
                         del dets[k]
                         continue
                     norm += dets[k]**2
-                # pprint.pprint(dets)
                 # create strings and expand singlets
                 dets2 = {}
                 if restr:
@@ -1085,7 +1062,6 @@ class GAUSSIAN(INTERFACE):
                             key[2 * infos['NFC'] + nocc_A + nvir_A + iocc] = 0
                             key[2 * infos['NFC'] + nocc_A + nvir_A + nocc_B + ivirt] = 2
                             dets2[tuple(key)] = dets[(iocc, ivirt, dummy)]
-                # pprint.pprint(dets2)
                 # remove frozen core
                 dets3 = {}
                 for key in dets2:
@@ -1113,13 +1089,13 @@ class GAUSSIAN(INTERFACE):
                         key2 = key[QMin['frozcore']:QMin['frozcore'] + nocc_A + nvir_A] + key[nocc_A + nvir_A +
                                                                                               2 * QMin['frozcore']:]
                     dets3[key2] = dets2[key]
-                # pprint.pprint(dets3)
                 # append
                 eigenvectors[mult].append(dets3)
 
         strings = {}
+        step = QMin['step']
         for imult, mult in enumerate(mults):
-            filename = os.path.join(QMin['savedir'], 'dets.%i' % mult)
+            filename = os.path.join(QMin['savedir'], f'dets.{mult}.{step}')
             strings[filename] = GAUSSIAN.format_ci_vectors(eigenvectors[mult])
 
         return strings
@@ -1215,112 +1191,80 @@ class GAUSSIAN(INTERFACE):
     # =============================================================================================== #
     # =============================================================================================== #
 
-    def run_wfoverlap(QMin, errorcodes):
+    # ======================================================================= #
 
-        print('>>>>>>>>>>>>> Starting the WFOVERLAP job execution')
+    def run_theodore(self, errorcodes):
+        QMin = self._QMin
 
-        # do Dyson calculations
-        if 'ion' in QMin:
-            for ionpair in QMin['ionmap']:
-                WORKDIR = os.path.join(QMin['scratchdir'], 'Dyson_%i_%i_%i_%i' % ionpair)
-                files = {
-                    'aoovl': 'AO_overl',
-                    'det.a': 'dets.%i' % ionpair[0],
-                    'det.b': 'dets.%i' % ionpair[2],
-                    'mo.a': 'mos.%i' % ionpair[1],
-                    'mo.b': 'mos.%i' % ionpair[3]
-                }
-                GAUSSIAN.setupWORKDIR_WF(WORKDIR, QMin, files)
-                errorcodes[
-                    'Dyson_%i_%i_%i_%i' % ionpair
-                ] = GAUSSIAN.runWFOVERLAP(WORKDIR, QMin['wfoverlap'], memory=QMin['memory'], ncpu=QMin['ncpu'])
+        if 'theodore' in QMin:
+            print('>>>>>>>>>>>>> Starting the TheoDORE job execution')
 
-        # do overlap calculations
-        if 'overlap' in QMin:
-            GAUSSIAN.get_Double_AOovl(QMin)
-            for m in itmult(QMin['states']):
-                job = QMin['multmap'][m]
-                WORKDIR = os.path.join(QMin['scratchdir'], 'WFOVL_%i_%i' % (m, job))
-                files = {
-                    'aoovl': 'AO_overl.mixed',
-                    'det.a': 'dets.%i.old' % m,
-                    'det.b': 'dets.%i' % m,
-                    'mo.a': 'mos.%i.old' % job,
-                    'mo.b': 'mos.%i' % job
-                }
-                GAUSSIAN.setupWORKDIR_WF(WORKDIR, QMin, files)
-                errorcodes[
-                    'WFOVL_%i_%i' % (m, job)
-                ] = GAUSSIAN.runWFOVERLAP(WORKDIR, QMin['wfoverlap'], memory=QMin['memory'], ncpu=QMin['ncpu'])
+            for ijob in QMin['jobs']:
+                if not QMin['jobs'][ijob]['restr']:
+                    if DEBUG:
+                        print('Skipping Job %s because it is unrestricted.' % (ijob))
+                    continue
+                else:
+                    mults = QMin['jobs'][ijob]['mults']
+                    gsmult = mults[0]
+                    ns = 0
+                    for i in mults:
+                        ns += QMin['states'][i - 1] - (i == gsmult)
+                    if ns == 0:
+                        if DEBUG:
+                            print('Skipping Job %s because it contains no excited states.' % (ijob))
+                        continue
+                WORKDIR = os.path.join(QMin['scratchdir'], 'master_%i' % ijob)
+                self.setupWORKDIR_TH(WORKDIR)
+                os.environ
+                errorcodes['theodore_%i' % ijob] = GAUSSIAN.runTHEODORE(WORKDIR, QMin['theodir'])
 
-        # Error code handling
-        j = 0
-        string = 'Error Codes:\n'
-        for i in errorcodes:
-            if 'Dyson' in i or 'WFOVL' in i:
-                string += '\t%s\t%i' % (i + ' ' * (10 - len(i)), errorcodes[i])
-                j += 1
-                if j == 4:
-                    j = 0
-                    string += '\n'
-        print(string)
-        if any((i != 0 for i in errorcodes.values())):
-            print('Some subprocesses did not finish successfully!')
-            sys.exit(78)
+            # Error code handling
+            j = 0
+            string = 'Error Codes:\n'
+            for i in errorcodes:
+                if 'theodore' in i:
+                    string += '\t%s\t%i' % (i + ' ' * (10 - len(i)), errorcodes[i])
+                    j += 1
+                    if j == 4:
+                        j = 0
+                        string += '\n'
+            print(string)
+            if any((i != 0 for i in errorcodes.values())):
+                print('Some subprocesses did not finish successfully!')
+                sys.exit(76)
 
-        print('')
+            print('')
 
         return errorcodes
 
-    # ======================================================================= #
 
-    def setupWORKDIR_WF(WORKDIR, QMin, files):
+    def setupWORKDIR_TH(self, WORKDIR):
+        QMin = self._QMin
         # mkdir the WORKDIR, or clean it if it exists, then copy all necessary files from pwd and savedir
 
-        # setup the directory
-        mkdir(WORKDIR)
+        # write dens_ana.in
+        inputstring = 'rtype="cclib"\nrfile="GAUSSIAN.log"\njmol_orbitals=False\nmolden_orbitals=False\nOm_formula=2\neh_pop=1\ncomp_ntos=True\nprint_OmFrag=True\noutput_file="tden_summ.txt"\nprop_list=%s\nat_lists=%s' % (
+            str(QMin['theodore_prop']), str(QMin['theodore_fragment'])
+        )
 
-        # write wfovl.inp
-        inputstring = '''mix_aoovl=aoovl
-    a_mo=mo.a
-    b_mo=mo.b
-    a_det=det.a
-    b_det=det.b
-    a_mo_read=0
-    b_mo_read=0
-    ao_read=0
-    '''
-        if 'ion' in QMin:
-            if QMin['ndocc'] > 0:
-                inputstring += 'ndocc=%i\n' % (QMin['ndocc'])
-        if QMin['ncpu'] >= 8:
-            inputstring += 'force_direct_dets\n'
-        filename = os.path.join(WORKDIR, 'wfovl.inp')
+        filename = os.path.join(WORKDIR, 'dens_ana.in')
         writefile(filename, inputstring)
         if DEBUG:
             print('================== DEBUG input file for WORKDIR %s =================' % (shorten_DIR(WORKDIR)))
             print(inputstring)
-            print('wfoverlap input written to: %s' % (filename))
+            print('TheoDORE input written to: %s' % (filename))
             print('====================================================================')
 
-        # link input files from save
-        linkfiles = ['aoovl', 'det.a', 'det.b', 'mo.a', 'mo.b']
-        for f in linkfiles:
-            fromfile = os.path.join(QMin['savedir'], files[f])
-            tofile = os.path.join(WORKDIR, f)
-            link(fromfile, tofile)
-
         return
-
-    # ======================================================================= #
-
-    def runWFOVERLAP(WORKDIR, WFOVERLAP, memory=100, ncpu=1):
+    
+    @staticmethod
+    def runTHEODORE(WORKDIR, THEODIR):
         prevdir = os.getcwd()
         os.chdir(WORKDIR)
-        string = WFOVERLAP + ' -m %i' % (memory) + ' -f wfovl.inp'
-        stdoutfile = open(os.path.join(WORKDIR, 'wfovl.out'), 'w')
-        stderrfile = open(os.path.join(WORKDIR, 'wfovl.err'), 'w')
-        os.environ['OMP_NUM_THREADS'] = str(ncpu)
+        string = os.path.join(THEODIR, 'bin', 'analyze_tden.py')
+        stdoutfile = open(os.path.join(WORKDIR, 'theodore.out'), 'w')
+        stderrfile = open(os.path.join(WORKDIR, 'theodore.err'), 'w')
         if PRINT or DEBUG:
             starttime = datetime.datetime.now()
             sys.stdout.write('START:\t%s\t%s\t"%s"\n' % (shorten_DIR(WORKDIR), starttime, shorten_DIR(string)))
@@ -1329,27 +1273,24 @@ class GAUSSIAN(INTERFACE):
             runerror = sp.call(string, shell=True, stdout=stdoutfile, stderr=stderrfile)
         except OSError:
             print('Call have had some serious problems:', OSError)
-            sys.exit(79)
+            sys.exit(77)
         stdoutfile.close()
         stderrfile.close()
         if PRINT or DEBUG:
             endtime = datetime.datetime.now()
-            sys.stdout.write(
-                'FINISH:\t%s\t%s\tRuntime: %s\tError Code: %i\n' %
-                (shorten_DIR(WORKDIR), endtime, endtime - starttime, runerror)
-            )
+            sys.stdout.write('FINISH:\t%s\t%s\tRuntime: %s\tError Code: %i\n' % (shorten_DIR(WORKDIR), endtime, endtime - starttime, runerror))
             sys.stdout.flush()
         os.chdir(prevdir)
         return runerror
 
     # ======================================================================= #
-    @staticmethod
-    def get_Double_AOovl(QMin):
+    def get_Double_AOovl(self):
+        QMin = self._QMin
 
         # get geometries
-        filename1 = os.path.join(QMin['savedir'], 'geom.dat')
+        filename1 = os.path.join(QMin['savedir'], f'geom.dat.{QMin["step"]-1}')
         oldgeo = GAUSSIAN.get_geometry(filename1)
-        filename2 = os.path.join(QMin['savedir'], 'geom.dat.old')
+        filename2 = os.path.join(QMin['savedir'], f'geom.dat.{QMin["step"]}')
         newgeo = GAUSSIAN.get_geometry(filename2)
 
         # apply shift
@@ -1360,7 +1301,8 @@ class GAUSSIAN(INTERFACE):
 
         # build QMin   # TODO: always singlet for AOoverlaps
         QMin1 = deepcopy(QMin)
-        QMin1['geo'] = oldgeo + newgeo
+        QMin1['elements'] = [x[0] for x in chain(oldgeo, newgeo)]
+        QMin1['coords'] = [x[1:] for x in chain(oldgeo, newgeo)]
         QMin1['AOoverlap'] = [filename1, filename2]
         QMin1['IJOB'] = QMin['joblist'][0]
         QMin1['natom'] = len(newgeo)
@@ -1420,8 +1362,7 @@ class GAUSSIAN(INTERFACE):
             try:
                 Nb += nbs[i[0].lower()]
             except KeyError:
-                print('Error: Overlaps with DFTB need further testing!')
-                sys.exit(80)
+                raise Error('Error: Overlaps with DFTB need further testing!', 80)
             for j in range(nbs[i[0].lower()]):
                 mapping[itot] = ii
                 itot += 1
@@ -1448,14 +1389,14 @@ class GAUSSIAN(INTERFACE):
     # =============================================================================================== #
     # =============================================================================================== #
 
-    @staticmethod
-    def getQMout(QMin):
+    def getQMout(self):
+        QMin = self._QMin
 
         if PRINT:
             print('>>>>>>>>>>>>> Reading output files')
         starttime = datetime.datetime.now()
 
-        QMout = {}
+        QMout = self._QMout
         states = QMin['states']
         nstates = QMin['nstates']
         nmstates = QMin['nmstates']
@@ -1467,7 +1408,6 @@ class GAUSSIAN(INTERFACE):
         # KS orbital energies: "522R"
         # geometry SEEMS TO BE in "507R"
         # 1TDM might be in "633R"
-
         # Hamiltonian
         if 'h' in QMin:    # or 'soc' in QMin:
             # make Hamiltonian
@@ -1631,7 +1571,7 @@ class GAUSSIAN(INTERFACE):
         # TheoDORE
         if 'theodore' in QMin:
             if 'theodore' not in QMout:
-                QMout['theodore'] = makecmatrix(QMin['template']['theodore_n'], nmstates)
+                QMout['theodore'] = makecmatrix(QMin['theodore_n'], nmstates)
             for job in joblist:
                 if not QMin['jobs'][job]['restr']:
                     continue
@@ -1649,7 +1589,7 @@ class GAUSSIAN(INTERFACE):
                 for i in range(nmstates):
                     m1, s1, ms1 = tuple(QMin['statemap'][i + 1])
                     if (m1, s1) in props:
-                        for j in range(QMin['template']['theodore_n']):
+                        for j in range(QMin['theodore_n']):
                             QMout['theodore'][i][j] = props[(m1, s1)][j]
 
         endtime = datetime.datetime.now()
@@ -1689,7 +1629,7 @@ class GAUSSIAN(INTERFACE):
                     outfile = os.path.join(QMin['scratchdir'], 'Dyson_%i_%i_%i_%i/wfovl.out' % ion)
                     shutil.copy(outfile, os.path.join(copydir, 'Dyson_%i_%i_%i_%i.out' % ion))
 
-        return QMout
+        return
 
     # ======================================================================= #
 
@@ -1842,8 +1782,7 @@ class GAUSSIAN(INTERFACE):
         while True:
             ilines += 1
             if ilines == len(out):
-                print('Overlap of states %i - %i not found!' % (s1, s2))
-                sys.exit(82)
+                raise Error('Overlap of states %i - %i not found!' % (s1, s2), 82)
             if containsstring('Overlap matrix <PsiA_i|PsiB_j>', out[ilines]):
                 break
         ilines += 1 + s1
@@ -1858,8 +1797,7 @@ class GAUSSIAN(INTERFACE):
         while True:
             ilines += 1
             if ilines == len(out):
-                print('Dyson norm of states %i - %i not found!' % (s1, s2))
-                sys.exit(83)
+                raise Error('Dyson norm of states %i - %i not found!' % (s1, s2), 83)
             if containsstring('Dyson norm matrix <PsiA_i|PsiB_j>', out[ilines]):
                 break
         ilines += 1 + s1
@@ -1905,3 +1843,7 @@ class GAUSSIAN(INTERFACE):
             props[(m, n + (m == 1))].extend([theo_float(i) for i in s[2:]])
 
         return props
+
+if __name__ == '__main__':
+    gaussian = GAUSSIAN(DEBUG, PRINT)
+    gaussian.main()

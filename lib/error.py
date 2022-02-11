@@ -27,7 +27,8 @@ class Error(Exception):
 
 def exception_hook(ty, val, tb):
     if ty == Error:
-        print(val, file=sys.stderr)
+        print(tb, val, file=sys.stderr)
+        sys_excepthook(ty, val, tb)
         sys.exit(val.code)
     else:
         sys_excepthook(ty, val, tb)

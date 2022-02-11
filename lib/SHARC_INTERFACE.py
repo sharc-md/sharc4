@@ -242,12 +242,6 @@ class INTERFACE(ABC):
             QMin['numocc'] = 0
         else:
             QMin['numocc'] = max(0, QMin['resources']['numocc'] - QMin['frozcore'])
-        # number of properties/entries calculated by TheoDORE
-        if 'theodore' in QMin:
-            QMin['resources']['theodore_n'] = len(QMin['resources']['theodore_prop']
-                                                  ) + len(QMin['resources']['theodore_fragment'])**2
-        else:
-            QMin['resources']['theodore_n'] = 0
         self._QMin = {**QMin['resources'], **QMin}
         return
         # ============================ Implemented public methods ========================
@@ -524,7 +518,7 @@ class INTERFACE(ABC):
                 raise Error('Give path to wfoverlap.x in resources file!', 54)
 
         if 'theodore' in QMin:
-            if QMin['resources']['theodir'] is not None and not os.path.isdir(QMin['resources']['theodir']):
+            if QMin['resources']['theodir'] is None or not os.path.isdir(QMin['resources']['theodir']):
                 raise Error('Give path to the TheoDORE installation directory in resources file!', 56)
             os.environ['THEODIR'] = QMin['resources']['theodir']
             if 'PYTHONPATH' in os.environ:
@@ -602,11 +596,13 @@ class INTERFACE(ABC):
 
         # number of properties/entries calculated by TheoDORE
         if 'theodore' in QMin:
-            QMin['resources']['theodore_n'] = len(QMin['resources']['theodore_prop']
+            QMin['theodore_n'] = len(QMin['resources']['theodore_prop']
                                                   ) + len(QMin['resources']['theodore_fragment'])**2
         else:
-            QMin['resources']['theodore_n'] = 0
+            QMin['theodore_n'] = 0
 
+        # TODO: QMMM
+        QMin['qmmm'] = False
 
         # make name for backup directory
         if 'backup' in QMin:
@@ -1167,7 +1163,60 @@ class INTERFACE(ABC):
         return props
 
     def run_wfoverlap(self, errorcodes):
-        raise NotImplementedError("")
+        QMin = self._QMin
+        print('>>>>>>>>>>>>> Starting the WFOVERLAP job execution')
+        step = QMin['step']
+        # do Dyson calculations
+        if 'ion' in QMin:
+            for ionpair in QMin['ionmap']:
+                WORKDIR = os.path.join(QMin['scratchdir'], 'Dyson_%i_%i_%i_%i' % ionpair)
+                files = {
+                    'aoovl': 'AO_overl',
+                    'det.a': f'dets.{ionpair[0]}.{step}',
+                    'det.b': f'dets.{ionpair[2]}.{step}',
+                    'mo.a': f'mos.{ionpair[1]}.{step}',
+                    'mo.b': f'mos.{ionpair[3]}.{step}'
+                }
+                INTERFACE.setupWORKDIR_WF(WORKDIR, QMin, files, self._DEBUG)
+                errorcodes[
+                    'Dyson_%i_%i_%i_%i' % ionpair
+                ] = INTERFACE.runWFOVERLAP(WORKDIR, QMin['wfoverlap'], memory=QMin['memory'], ncpu=QMin['ncpu'])
+
+        # do overlap calculations
+        if 'overlap' in QMin:
+            self.get_Double_AOovl()
+            for m in itmult(QMin['states']):
+                job = QMin['multmap'][m]
+                WORKDIR = os.path.join(QMin['scratchdir'], 'WFOVL_%i_%i' % (m, job))
+                files = {
+                    'aoovl': 'AO_overl.mixed',
+                    'det.a': f'dets.{m}.{step - 1}',
+                    'det.b': f'dets.{m}.{step}',
+                    'mo.a': f'mos.{job}.{step - 1}',
+                    'mo.b': f'mos.{job}.{step}'
+                }
+                INTERFACE.setupWORKDIR_WF(WORKDIR, QMin, files, self._DEBUG)
+                errorcodes[
+                    'WFOVL_%i_%i' % (m, job)
+                ] = INTERFACE.runWFOVERLAP(WORKDIR, QMin['wfoverlap'], memory=QMin['memory'], ncpu=QMin['ncpu'])
+
+        # Error code handling
+        j = 0
+        string = 'Error Codes:\n'
+        for i in errorcodes:
+            if 'Dyson' in i or 'WFOVL' in i:
+                string += '\t%s\t%i' % (i + ' ' * (10 - len(i)), errorcodes[i])
+                j += 1
+                if j == 4:
+                    j = 0
+                    string += '\n'
+        print(string)
+        if any((i != 0 for i in errorcodes.values())):
+            raise Error('Some subprocesses did not finish successfully!', 100)
+
+        print('')
+
+        return errorcodes
 
     # ======================================================================= #
 

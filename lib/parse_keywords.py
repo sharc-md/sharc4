@@ -4,7 +4,7 @@ import os
 import ast
 
 from error import Error
-from utils import readfile, MMATOM
+from utils import readfile
 
 
 class KeywordParser:
