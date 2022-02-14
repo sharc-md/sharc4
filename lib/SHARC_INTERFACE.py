@@ -43,11 +43,14 @@ import pprint
 from textwrap import wrap
 
 # internal
-from error import Error
+from error import Error, exception_hook
 from printing import printcomplexmatrix, printgrad, printtheodore
 from utils import *
 from constants import *
 from parse_keywords import KeywordParser
+
+
+sys.excepthook = exception_hook
 
 # NOTE: Error handling especially import for processes in pools (error_callback)
 # NOTE: gradient calculation necessitates multiple parallel calls (either inside interface) or
@@ -119,6 +122,7 @@ class INTERFACE(ABC):
 
         args = sys.argv
         name = self.__class__.__name__
+        self.printheader()
         if len(args) != 2:
             print(
                 'Usage:',
@@ -131,7 +135,6 @@ class INTERFACE(ABC):
             sys.exit(106)
         QMinfilename = sys.argv[1]
         pwd = os.getcwd()
-        self.printheader()
         # set up the system (i.e. molecule, states, unit...)
         self.setup_mol(os.path.join(pwd, QMinfilename))
         # read in the resources available for this computation (program path, cores, memory)
@@ -239,12 +242,6 @@ class INTERFACE(ABC):
             QMin['numocc'] = 0
         else:
             QMin['numocc'] = max(0, QMin['resources']['numocc'] - QMin['frozcore'])
-        # number of properties/entries calculated by TheoDORE
-        if 'theodore' in QMin:
-            QMin['resources']['theodore_n'] = len(QMin['resources']['theodore_prop']
-                                                  ) + len(QMin['resources']['theodore_fragment'])**2
-        else:
-            QMin['resources']['theodore_n'] = 0
         self._QMin = {**QMin['resources'], **QMin}
         return
         # ============================ Implemented public methods ========================
@@ -521,7 +518,7 @@ class INTERFACE(ABC):
                 raise Error('Give path to wfoverlap.x in resources file!', 54)
 
         if 'theodore' in QMin:
-            if QMin['resources']['theodir'] is not None and not os.path.isdir(QMin['resources']['theodir']):
+            if QMin['resources']['theodir'] is None or not os.path.isdir(QMin['resources']['theodir']):
                 raise Error('Give path to the TheoDORE installation directory in resources file!', 56)
             os.environ['THEODIR'] = QMin['resources']['theodir']
             if 'PYTHONPATH' in os.environ:
@@ -540,37 +537,11 @@ class INTERFACE(ABC):
         # obtain the statemap
         QMin['statemap'] = {i + 1: [*v] for i, v in enumerate(itnmstates(QMin['states']))}
 
-        # obtain the states to actually compute
-        states_to_do = [v + QMin['template']['paddingstates'][i] if v > 0 else v for i, v in enumerate(QMin['states'])]
-        if not QMin['template']['unrestricted_triplets']:
-            if len(QMin['states']) >= 3 and QMin['states'][2] > 0:
-                states_to_do[0] = max(QMin['states'][0], 1)
-                req = max(QMin['states'][0] - 1, QMin['states'][2])
-                states_to_do[0] = req + 1
-                states_to_do[2] = req
-        QMin['states_to_do'] = states_to_do
-
+        self._states_to_do() # can be different in interface -> general method here with possibility to overwrite
         # make the jobs
-        jobs = {}
-        if QMin['states_to_do'][0] > 0:
-            jobs[1] = {'mults': [1], 'restr': True}
-        if len(QMin['states_to_do']) >= 2 and QMin['states_to_do'][1] > 0:
-            jobs[2] = {'mults': [2], 'restr': False}
-        if len(QMin['states_to_do']) >= 3 and QMin['states_to_do'][2] > 0:
-            if not QMin['template']['unrestricted_triplets'] and QMin['states_to_do'][0] > 0:
-                jobs[1]['mults'].append(3)
-            else:
-                jobs[3] = {'mults': [3], 'restr': False}
-        if len(QMin['states_to_do']) >= 4:
-            for imult, nstate in enumerate(QMin['states_to_do'][3:]):
-                if nstate > 0:
-                    # jobs[len(jobs)+1]={'mults':[imult+4],'restr':False}
-                    jobs[imult + 4] = {'mults': [imult + 4], 'restr': False}
-        QMin['jobs'] = jobs
-
+        self._jobs()
+        jobs = QMin['jobs']
         # make the multmap (mapping between multiplicity and job)
-        # multmap[imult]=ijob
-        # multmap[-ijob]=[imults]
         multmap = {}
         for ijob, job in jobs.items():
             for imult in job['mults']:
@@ -625,10 +596,10 @@ class INTERFACE(ABC):
 
         # number of properties/entries calculated by TheoDORE
         if 'theodore' in QMin:
-            QMin['resources']['theodore_n'] = len(QMin['resources']['theodore_prop']
+            QMin['theodore_n'] = len(QMin['resources']['theodore_prop']
                                                   ) + len(QMin['resources']['theodore_fragment'])**2
         else:
-            QMin['resources']['theodore_n'] = 0
+            QMin['theodore_n'] = 0
 
         # TODO: QMMM
         QMin['qmmm'] = False
@@ -734,13 +705,17 @@ class INTERFACE(ABC):
             else:
                 d[key] = parsers[key](args)
         except Error:
-            raise
-        except Exception:
             ty, val, tb = sys.exc_info()
             raise Error(
                 f'Something went wrong while parsing the keyword: {key} {args}:\n\
                 {ty.__name__}: {val}\nPlease consult the examples folder in the $SHARCDIR for more information!'
-            ).with_traceback(tb)
+            ).with_traceback(None)
+        except KeyError as e:
+            ty, val, tb = sys.exc_info()
+            keys = '\n    '.join(parsers.keys())
+            available_keys = f'Available Keywords:\n    {keys}'
+            raise Error(f'The keyword {val} is not known!'
+                        + f'\nPlease consult the examples folder in the $SHARCDIR for more information!\n{available_keys}', 34)
         return d
 
     def write_step_file(self):
@@ -856,6 +831,36 @@ class INTERFACE(ABC):
 
     # ======================================================================= #
 
+    def _jobs(self):
+        QMin = self.QMin
+        jobs = {}
+        if QMin['states_to_do'][0] > 0:
+            jobs[1] = {'mults': [1], 'restr': True}
+        if len(QMin['states_to_do']) >= 2 and QMin['states_to_do'][1] > 0:
+            jobs[2] = {'mults': [2], 'restr': False}
+        if len(QMin['states_to_do']) >= 3 and QMin['states_to_do'][2] > 0:
+            if not QMin['template']['unrestricted_triplets'] and QMin['states_to_do'][0] > 0:
+                jobs[1]['mults'].append(3)
+            else:
+                jobs[3] = {'mults': [3], 'restr': False}
+        if len(QMin['states_to_do']) >= 4:
+            for imult, nstate in enumerate(QMin['states_to_do'][3:]):
+                if nstate > 0:
+                    # jobs[len(jobs)+1]={'mults':[imult+4],'restr':False}
+                    jobs[imult + 4] = {'mults': [imult + 4], 'restr': False}
+        QMin['jobs'] = jobs
+
+    def _states_to_do(self):
+        QMin = self.QMin
+        # obtain the states to actually compute
+        states_to_do = [v + QMin['template']['paddingstates'][i] if v > 0 else v for i, v in enumerate(QMin['states'])]
+        if not QMin['template']['unrestricted_triplets']:
+            if len(QMin['states']) >= 3 and QMin['states'][2] > 0:
+                states_to_do[0] = max(QMin['states'][0], 1)
+                req = max(QMin['states'][0] - 1, QMin['states'][2])
+                states_to_do[0] = req + 1
+                states_to_do[2] = req
+        QMin['states_to_do'] = states_to_do
 
     @staticmethod
     def _get_pairs(QMinlines, i):
@@ -1158,7 +1163,60 @@ class INTERFACE(ABC):
         return props
 
     def run_wfoverlap(self, errorcodes):
-        raise NotImplementedError("")
+        QMin = self._QMin
+        print('>>>>>>>>>>>>> Starting the WFOVERLAP job execution')
+        step = QMin['step']
+        # do Dyson calculations
+        if 'ion' in QMin:
+            for ionpair in QMin['ionmap']:
+                WORKDIR = os.path.join(QMin['scratchdir'], 'Dyson_%i_%i_%i_%i' % ionpair)
+                files = {
+                    'aoovl': 'AO_overl',
+                    'det.a': f'dets.{ionpair[0]}.{step}',
+                    'det.b': f'dets.{ionpair[2]}.{step}',
+                    'mo.a': f'mos.{ionpair[1]}.{step}',
+                    'mo.b': f'mos.{ionpair[3]}.{step}'
+                }
+                INTERFACE.setupWORKDIR_WF(WORKDIR, QMin, files, self._DEBUG)
+                errorcodes[
+                    'Dyson_%i_%i_%i_%i' % ionpair
+                ] = INTERFACE.runWFOVERLAP(WORKDIR, QMin['wfoverlap'], memory=QMin['memory'], ncpu=QMin['ncpu'])
+
+        # do overlap calculations
+        if 'overlap' in QMin:
+            self.get_Double_AOovl()
+            for m in itmult(QMin['states']):
+                job = QMin['multmap'][m]
+                WORKDIR = os.path.join(QMin['scratchdir'], 'WFOVL_%i_%i' % (m, job))
+                files = {
+                    'aoovl': 'AO_overl.mixed',
+                    'det.a': f'dets.{m}.{step - 1}',
+                    'det.b': f'dets.{m}.{step}',
+                    'mo.a': f'mos.{job}.{step - 1}',
+                    'mo.b': f'mos.{job}.{step}'
+                }
+                INTERFACE.setupWORKDIR_WF(WORKDIR, QMin, files, self._DEBUG)
+                errorcodes[
+                    'WFOVL_%i_%i' % (m, job)
+                ] = INTERFACE.runWFOVERLAP(WORKDIR, QMin['wfoverlap'], memory=QMin['memory'], ncpu=QMin['ncpu'])
+
+        # Error code handling
+        j = 0
+        string = 'Error Codes:\n'
+        for i in errorcodes:
+            if 'Dyson' in i or 'WFOVL' in i:
+                string += '\t%s\t%i' % (i + ' ' * (10 - len(i)), errorcodes[i])
+                j += 1
+                if j == 4:
+                    j = 0
+                    string += '\n'
+        print(string)
+        if any((i != 0 for i in errorcodes.values())):
+            raise Error('Some subprocesses did not finish successfully!', 100)
+
+        print('')
+
+        return errorcodes
 
     # ======================================================================= #
 
@@ -1446,10 +1504,7 @@ class INTERFACE(ABC):
     def printQMout(self):
         '''If PRINT, prints a summary of all requested QM output values.
         Matrices are formatted using printcomplexmatrix, vectors using printgrad.
-
-        Arguments:
-        1 dictionary: QMin
-        2 dictionary: QMout'''
+        '''
         QMin = self._QMin
         QMout = self._QMout
         if not self._PRINT:

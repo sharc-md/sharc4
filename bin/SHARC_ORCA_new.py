@@ -343,7 +343,7 @@ class ORCA(INTERFACE):
             for job in QMin['joblist']:
                 filename = os.path.join(QMin['savedir'], f'ORCA.gbw.{job}.{step-1}')
                 if os.path.isfile(filename):
-                    initorbs[job] = os.path.join(QMin['savedir'], f'ORCA.gbw.{job}.{step-1}')
+                    initorbs[job] = filename
                 else:
                     raise Error(f'File {filename} missing in savedir!', 71)
             QMin['initorbs'] = initorbs
@@ -635,61 +635,7 @@ class ORCA(INTERFACE):
             if 'cleanup' in QMin:
                 cleandir(QMin['savedir'])
 
-    def run_wfoverlap(self, errorcodes):
-        QMin = self._QMin
-        print('>>>>>>>>>>>>> Starting the WFOVERLAP job execution')
-        step = QMin['step']
-        # do Dyson calculations
-        if 'ion' in QMin:
-            for ionpair in QMin['ionmap']:
-                WORKDIR = os.path.join(QMin['scratchdir'], 'Dyson_%i_%i_%i_%i' % ionpair)
-                files = {
-                    'aoovl': 'AO_overl',
-                    'det.a': f'dets.{ionpair[0]}.{step}',
-                    'det.b': f'dets.{ionpair[2]}.{step}',
-                    'mo.a': f'mos.{ionpair[1]}.{step}',
-                    'mo.b': f'mos.{ionpair[3]}.{step}'
-                }
-                INTERFACE.setupWORKDIR_WF(WORKDIR, QMin, files, self._DEBUG)
-                errorcodes[
-                    'Dyson_%i_%i_%i_%i' % ionpair
-                ] = INTERFACE.runWFOVERLAP(WORKDIR, QMin['wfoverlap'], memory=QMin['memory'], ncpu=QMin['ncpu'])
 
-        # do overlap calculations
-        if 'overlap' in QMin:
-            self.get_Double_AOovl()
-            for m in itmult(QMin['states']):
-                job = QMin['multmap'][m]
-                WORKDIR = os.path.join(QMin['scratchdir'], 'WFOVL_%i_%i' % (m, job))
-                files = {
-                    'aoovl': 'AO_overl.mixed',
-                    'det.a': f'dets.{m}.{step - 1}',
-                    'det.b': f'dets.{m}.{step}',
-                    'mo.a': f'mos.{job}.{step - 1}',
-                    'mo.b': f'mos.{job}.{step}'
-                }
-                INTERFACE.setupWORKDIR_WF(WORKDIR, QMin, files, self._DEBUG)
-                errorcodes[
-                    'WFOVL_%i_%i' % (m, job)
-                ] = INTERFACE.runWFOVERLAP(WORKDIR, QMin['wfoverlap'], memory=QMin['memory'], ncpu=QMin['ncpu'])
-
-        # Error code handling
-        j = 0
-        string = 'Error Codes:\n'
-        for i in errorcodes:
-            if 'Dyson' in i or 'WFOVL' in i:
-                string += '\t%s\t%i' % (i + ' ' * (10 - len(i)), errorcodes[i])
-                j += 1
-                if j == 4:
-                    j = 0
-                    string += '\n'
-        print(string)
-        if any((i != 0 for i in errorcodes.values())):
-            raise Error('Some subprocesses did not finish successfully!', 100)
-
-        print('')
-
-        return errorcodes
 
     # ======================================================================= #
 
