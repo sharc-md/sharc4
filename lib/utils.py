@@ -6,10 +6,13 @@ import shutil
 from dataclasses import dataclass
 from error import Error
 import subprocess as sp
-from globals import DEBUG, PRINT
 
 # ======================================================================= #
-
+def get_bool_from_env(name: str, default=False):
+    var = default
+    if name in os.environ and os.environ[name].lower() in [name, "false"]:
+        var = os.environ[name] == "true"
+    return var
 
 def readfile(filename) -> list[str]:
     '''reads file from path and returns list of lines.

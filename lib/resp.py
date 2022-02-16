@@ -914,6 +914,7 @@ class Resp:
         Vnuc = np.sum(Z[..., None] * self.r_inv, axis=0)
         self.Fesp_s_i = np.full((len(densities), self.ngp), Vnuc[None, ...], dtype=float)
         fakemol = gto.fakemol_for_charges(self.mk_grid)
+        # NOTE This could be very big (fakemol could be broken up into multiple pieces)
         ints = df.incore.aux_e2(mol, fakemol)
         Vele = np.einsum('ijp,nji->np', ints, densities)
         self.Fesp_s_i -= Vele

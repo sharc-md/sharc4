@@ -152,7 +152,7 @@ class INTERFACE(ABC):
         # writes a STEP file in the SAVEDIR (marks this step as succesfull)
         self.write_step_file()
         # printing and output generation
-        if PRINT or DEBUG:
+        if self._PRINT or self._DEBUG:
             self.printQMout()
         self._QMout['runtime'] = self.clock.measuretime()
         self.writeQMout()
@@ -217,6 +217,7 @@ class INTERFACE(ABC):
                 special=special,
             )
         }
+        print('DEBUG:', QMin['resources']['debug'])
         self._DEBUG = QMin['resources']['debug']
         self._PRINT = QMin['resources']['no_print'] is False
 
@@ -410,20 +411,18 @@ class INTERFACE(ABC):
 
     def _reset_requests(self):
         for k in [
-            'init', 'samestep', 'newstep', 'restart', 'cleanup', 'backup', 'h', 'soc', 'dm', 'grad', 'overlap', 'dmdr',
-            'nac', 'nacdr', 'socdr', 'ion', 'theodore', 'phases'
+            'init', 'samestep', 'newstep', 'restart', 'cleanup', 'backup', 'h', 'soc', 'dm', 'grad', 'overlap', 'dmdr', 'nac', 'nacdr', 'socdr', 'ion', 'theodore', 'phases', 'multipolar_fit'
         ]:
             if k in self._QMin:
                 del self._QMin[k]
 
     def _request_logic(self):
         QMin = self._QMin
-
         # prepare savedir
         if not os.path.isdir(QMin['savedir']):
             mkdir(QMin['savedir'])
 
-        possibletasks = {'h', 'soc', 'dm', 'grad', 'overlap', 'dmdr', 'socdr', 'ion', 'theodore', 'phases'}
+        possibletasks = {'h', 'soc', 'dm', 'grad', 'overlap', 'dmdr', 'socdr', 'ion', 'theodore', 'phases', 'multipolar_fit'}
         tasks = possibletasks & QMin.keys()
         if len(tasks) == 0:
             raise Error(f'No tasks found! Tasks are {possibletasks}.', 39)
@@ -498,7 +497,6 @@ class INTERFACE(ABC):
             grad = QMin['grad']
             if grad is True or grad == 'all':
                 grad = [i + 1 for i in range(QMin['nmstates'])]
-                # pass
             else:
                 try:
                     grad = [int(i) for i in grad]
@@ -509,6 +507,23 @@ class INTERFACE(ABC):
                         'State for requested gradient does not correspond to any state in QM input file state list!', 48
                     )
             QMin['grad'] = grad
+
+        # Check for correct density list
+        if 'multipolar_fit' in tasks:
+            mf = QMin['multipolar_fit']
+            if mf is True or mf == 'all':
+                mf = [i + 1 for i in range(QMin['nmstates'])]
+            else:
+                try:
+                    grad = [int(i) for i in mf]
+                except ValueError:
+                    raise Error('Arguments to keyword "multipolar_fit" must be "all" or a list of integers!', 49)
+                if len(grad) > QMin['nmstates']:
+                    raise Error(
+                        'State for requested gradient does not correspond to any state in QM input file state list!', 50
+                    )
+            QMin['multipolar_fit'] = sorted(mf)
+
 
         # wfoverlap settings
         if ('overlap' in QMin or 'ion' in QMin) and self.__class__.__name__ != 'LVC':
@@ -529,8 +544,6 @@ class INTERFACE(ABC):
             else:
                 os.environ['PYTHONPATH'] = os.path.join(QMin['theodir'],
                                                         'lib') + os.pathsep + QMin['resources']['theodir']
-
-    # NOTE: generalize the parsing of keyword based input files, with lines as input
 
     def setup_run(self):
         QMin = self._QMin
@@ -574,6 +587,9 @@ class INTERFACE(ABC):
         if 'grad' in QMin:
             gradmap = {tuple(QMin['statemap'][i][0:2]) for i in QMin['grad']}
         QMin['gradmap'] = sorted(gradmap)
+
+        if 'multipolar_fit' in QMin:
+            QMin['densmap'] = [(j, i) for j in QMin['multipolar_fit'] for i in QMin['multipolar_fit']]
 
         # make the chargemap
         QMin['chargemap'] = {i + 1: c for i, c in enumerate(QMin['template']['charge'])}
@@ -742,8 +758,7 @@ class INTERFACE(ABC):
             else:
                 if grad == (1, 1):
                     isgs = True
-            istates = QMin['states_to_do'][grad[0] - 1]
-            gradjob['master_%i' % ijob][grad] = {'gs': isgs}
+            gradjob[f'master_{ijob}'][grad] = {'gs': isgs}
         # make map for states onto gradjobs
         jobgrad = {}
         for job in gradjob:

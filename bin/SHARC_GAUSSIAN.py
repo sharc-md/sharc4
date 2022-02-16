@@ -36,11 +36,9 @@ from copy import deepcopy
 from socket import gethostname
 import traceback
 
-from zmq import error
 
 # internal
 from SHARC_INTERFACE import INTERFACE
-from globals import DEBUG, PRINT
 from utils import *
 from constants import IToMult, au2eV
 from error import Error, exception_hook
@@ -269,10 +267,7 @@ class GAUSSIAN(INTERFACE):
                 gradjob['grad_%i_%i' % grad] = {}
                 gradjob['grad_%i_%i' % grad][grad] = {'gs': True}
             else:
-                n = 0
-                for gradx in gradjob['master_%i' % ijob]:
-                    n += 1
-                if n > 0:
+                if len(gradjob['master_%i' % ijob]) > 0:
                     gradjob['grad_%i_%i' % grad] = {}
                     gradjob['grad_%i_%i' % grad][grad] = {'gs': False}
                 else:
@@ -287,6 +282,32 @@ class GAUSSIAN(INTERFACE):
 
         schedule = []
         QMin['nslots_pool'] = []
+        pprint.pprint(jobgrad)
+        densjob = {}
+        if 'multipolar_fit' in QMin:
+            jobdens = {}
+            # detect the jobs for the gradients and add extra ones
+            for state in QMin['multipolar_fit']:
+                if state in jobgrad:
+                    if jobgrad[state][1]:  # this is a gs only calculation
+                        continue
+                    j = jobgrad[state][0]
+                    jobdens[state] = j
+                    if 'master' in j:  # parse excited-state, scf and gs2es densities from master
+                        densjob[j] = {'scf': True, 'es': True, 'gses': True}
+                    else:
+                        densjob[j] = {'scf': False, 'es': True, 'gses': False}
+                else:
+                    jobdens[state] = f'dens_{state}'
+                    densjob[f'dens_{state}'] = {'scf': False, 'es': True, 'gses': False}
+            # check if scf and gses will be read from grad calculation -> read from master
+            if not any(x['scf'] and x['gses'] for x in densjob.values()):
+                j = 'master_{}'.format(QMin['joblist'][0])
+                del densjob[jobdens[1]]
+                densjob[j] = {'scf': True, 'es': True, 'gses': True}
+                jobdens[1] = j
+            QMin['jobdens'] = jobdens
+            
 
         # add the master calculations
         ntasks = 0
@@ -318,6 +339,9 @@ class GAUSSIAN(INTERFACE):
         for i in gradjob:
             if 'grad' in i:
                 ntasks += 1
+        for i in densjob:
+            if 'dens' in i:
+                ntasks += 1
         if ntasks > 0:
             nrounds, nslots, cpu_per_run = INTERFACE.divide_slots(QMin['ncpu'], ntasks, QMin['schedule_scaling'])
             QMin['nslots_pool'].append(nslots)
@@ -338,7 +362,18 @@ class GAUSSIAN(INTERFACE):
                     QMin1['gradonly'] = []
                     icount += 1
                     schedule[-1][i] = QMin1
-
+            for i in densjob:
+                if 'dens' in i:
+                    QMin1 = deepcopy(QMin)
+                    remove = [
+                        'gradmap', 'ncpu', 'h', 'soc', 'dm', 'overlap', 'ion', 'always_guess', 'always_orb_init', 'init'
+                    ]
+                    for r in remove:
+                        QMin1 = removekey(QMin1, r)
+                    QMin1['ncpu'] = cpu_per_run[icount]
+                    QMin1['densonly'] = True
+                    icount += 1
+                    schedule[-1][i] = QMin1
         return schedule
 
     def _backupdir(self):
@@ -363,15 +398,19 @@ class GAUSSIAN(INTERFACE):
 # =============================================================================================== #
 # =============================================================================================== #
 
+ 
     def run(self):
         QMin = self._QMin
+        DEBUG = self._DEBUG
         # get the job schedule
         schedule = self.generate_joblist()
         self.printQMin()
         if DEBUG:
-            pprint.pprint(schedule, depth=1)
+            print('SCHEDULE:')
+            pprint.pprint(schedule, depth=2)
         errorcodes = {}
-        # run all the ADF jobs
+
+        # run all the jobs
         errorcodes = self.runjobs(schedule)
 
         # do all necessary overlap and Dyson calculations
@@ -438,7 +477,7 @@ class GAUSSIAN(INTERFACE):
             print('Some subprocesses did not finish successfully!')
             raise Error('See %s:%s for error messages in GAUSSIAN output.' % (gethostname(), QMin['scratchdir']), 64)
 
-        if PRINT:
+        if self._PRINT:
             print('>>>>>>>>>>>>> Saving files')
             starttime = datetime.datetime.now()
         for ijobset, jobset in enumerate(schedule):
@@ -452,7 +491,7 @@ class GAUSSIAN(INTERFACE):
                     if 'ion' in QMin and ijobset == 0:
                         GAUSSIAN.saveAOmatrix(WORKDIR, QMin)
         GAUSSIAN.saveGeometry(QMin)
-        if PRINT:
+        if self._PRINT:
             endtime = datetime.datetime.now()
             print('Saving Runtime: %s' % (endtime - starttime))
         print
@@ -489,7 +528,7 @@ class GAUSSIAN(INTERFACE):
         inputstring = GAUSSIAN.writeGAUSSIANinput(QMin)
         filename = os.path.join(WORKDIR, 'GAUSSIAN.com')
         writefile(filename, inputstring)
-        if DEBUG:
+        if QMin['DEBUG']:
             print('================== DEBUG input file for WORKDIR %s =================' % (shorten_DIR(WORKDIR)))
             print(inputstring)
             print('GAUSSIAN input written to: %s' % (filename))
@@ -683,7 +722,7 @@ class GAUSSIAN(INTERFACE):
             return string + ' ' * (maxlen - len(string))
 
     # ======================================================================= #
-
+    @staticmethod
     def runGaussian(WORKDIR, GAUSS_EXE, strip=False):
         prevdir = os.getcwd()
         os.chdir(WORKDIR)
@@ -715,7 +754,7 @@ class GAUSSIAN(INTERFACE):
         return runerror
 
     # ======================================================================= #
-
+    @staticmethod
     def stripWORKDIR(WORKDIR):
         ls = os.listdir(WORKDIR)
         keep = ['GAUSSIAN.com$', 'GAUSSIAN.err$', 'GAUSSIAN.log$', 'GAUSSIAN.chk', 'GAUSSIAN.fchk', 'GAUSSIAN.rwf']
@@ -1201,7 +1240,7 @@ class GAUSSIAN(INTERFACE):
 
             for ijob in QMin['jobs']:
                 if not QMin['jobs'][ijob]['restr']:
-                    if DEBUG:
+                    if self._DEBUG:
                         print('Skipping Job %s because it is unrestricted.' % (ijob))
                     continue
                 else:
@@ -1211,7 +1250,7 @@ class GAUSSIAN(INTERFACE):
                     for i in mults:
                         ns += QMin['states'][i - 1] - (i == gsmult)
                     if ns == 0:
-                        if DEBUG:
+                        if self._DEBUG:
                             print('Skipping Job %s because it contains no excited states.' % (ijob))
                         continue
                 WORKDIR = os.path.join(QMin['scratchdir'], 'master_%i' % ijob)
@@ -1844,6 +1883,8 @@ class GAUSSIAN(INTERFACE):
 
         return props
 
+
 if __name__ == '__main__':
-    gaussian = GAUSSIAN(DEBUG, PRINT)
+
+    gaussian = GAUSSIAN(get_bool_from_env('DEBUG', False), get_bool_from_env('PRINT'))
     gaussian.main()
