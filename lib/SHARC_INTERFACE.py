@@ -46,6 +46,7 @@ from textwrap import wrap
 from error import Error, exception_hook
 from printing import printcomplexmatrix, printgrad, printtheodore
 from utils import *
+from globals import DEBUG, PRINT
 from constants import *
 from parse_keywords import KeywordParser
 
@@ -76,6 +77,8 @@ class INTERFACE(ABC):
         self._QMout = {}
         self.clock = clock(verbose=print)
         self._DEBUG = debug
+        DEBUG.set(debug)
+        PRINT.set(print)
         self._PRINT = print
         self._persistent = persistent
         self._QMin['pwd'] = os.getcwd()
@@ -220,6 +223,8 @@ class INTERFACE(ABC):
         print('DEBUG:', QMin['resources']['debug'])
         self._DEBUG = QMin['resources']['debug']
         self._PRINT = QMin['resources']['no_print'] is False
+        DEBUG.set(self._DEBUG)
+        PRINT.set(self._PRINT)
 
         # NOTE: This is really optional
         ncpu = QMin['resources']['ncpu']

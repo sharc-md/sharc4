@@ -40,6 +40,7 @@ import traceback
 # internal
 from SHARC_INTERFACE import INTERFACE
 from utils import *
+from globals import DEBUG, PRINT
 from constants import IToMult, au2eV
 from error import Error, exception_hook
 
@@ -528,7 +529,7 @@ class GAUSSIAN(INTERFACE):
         inputstring = GAUSSIAN.writeGAUSSIANinput(QMin)
         filename = os.path.join(WORKDIR, 'GAUSSIAN.com')
         writefile(filename, inputstring)
-        if QMin['DEBUG']:
+        if DEBUG:
             print('================== DEBUG input file for WORKDIR %s =================' % (shorten_DIR(WORKDIR)))
             print(inputstring)
             print('GAUSSIAN input written to: %s' % (filename))
