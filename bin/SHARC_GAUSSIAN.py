@@ -281,36 +281,48 @@ class GAUSSIAN(INTERFACE):
                 jobgrad[state] = (job, gradjob[job][state]['gs'])
         QMin['jobgrad'] = jobgrad
 
-        schedule = []
-        QMin['nslots_pool'] = []
-        pprint.pprint(jobgrad)
+
         densjob = {}
         if 'multipolar_fit' in QMin:
             jobdens = {}
-            # detect the jobs for the gradients and add extra ones
-            for state in QMin['multipolar_fit']:
-                if state in jobgrad:
-                    if jobgrad[state][1]:  # this is a gs only calculation
+            # detect where the densities will be calculated
+            # gs and first es always accessible from master if gs is not other mult
+            for dens in QMin['densmap']:
+                ijob = QMin['multmap'][dens[0]]
+                gsmult = QMin['multmap'][-ijob][0]
+                if gsmult == dens[0] and dens[1] == 2:
+                    jobdens[dens] = f'master_{ijob}'
+                    densjob[f'master_{ijob}'] = {'scf': True, 'es': True, 'gses': True}
+                elif dens in jobgrad:
+                    if jobgrad[dens][1]:  # this is a gs only calculation
+                        jobdens[dens] = f'master_{ijob}'
                         continue
-                    j = jobgrad[state][0]
-                    jobdens[state] = j
-                    if 'master' in j:  # parse excited-state, scf and gs2es densities from master
+                    j = jobgrad[dens][0]
+                    jobdens[dens] = j
+                    if 'master' in j:  # parse excited-state from gradient calc
                         densjob[j] = {'scf': True, 'es': True, 'gses': True}
                     else:
                         densjob[j] = {'scf': False, 'es': True, 'gses': False}
+                elif dens[1] == 1:
+                    jobdens[dens] = f'master_{ijob}'
+                    if dens[0] == 3 and QMin['jobs'][ijob]['restr']:
+                        densjob[f'master_{ijob}'] = {'scf': False, 'es': True, 'gses': True}
+                    else:
+                        densjob[f'master_{ijob}'] = {'scf': True, 'es': True, 'gses': True}
                 else:
-                    jobdens[state] = f'dens_{state}'
-                    densjob[f'dens_{state}'] = {'scf': False, 'es': True, 'gses': False}
-            # check if scf and gses will be read from grad calculation -> read from master
-            if not any(x['scf'] and x['gses'] for x in densjob.values()):
-                j = 'master_{}'.format(QMin['joblist'][0])
-                del densjob[jobdens[1]]
-                densjob[j] = {'scf': True, 'es': True, 'gses': True}
-                jobdens[1] = j
+                    jobdens[dens] = f'dens_{dens[0]}_{dens[1]}'
+                    densjob[f'dens_{dens[0]}_{dens[1]}'] = {'scf': False, 'es': True, 'gses': False}
+                    
             QMin['jobdens'] = jobdens
             
 
+        pprint.pprint(QMin['multmap'], stream=sys.stderr)
+        pprint.pprint(densjob, stream=sys.stderr)
+        pprint.pprint(jobdens, stream=sys.stderr)
+
         # add the master calculations
+        schedule = []
+        QMin['nslots_pool'] = []
         ntasks = 0
         for i in gradjob:
             if 'master' in i:
@@ -329,7 +341,10 @@ class GAUSSIAN(INTERFACE):
                     QMin1 = removekey(QMin1, r)
                 QMin1['gradmap'] = list(gradjob[i])
                 QMin1['ncpu'] = cpu_per_run[icount]
+                # get the rootstate for the multiplicity as the first excited state
+                QMin1['rootstate'] = min(1, QMin['states'][QMin['multmap'][-QMin1['IJOB']][-1] - 1] - 1)
                 if 3 in QMin['multmap'][-QMin1['IJOB']] and QMin['jobs'][QMin1['IJOB']]['restr']:
+                    QMin1['rootstate'] = 1
                     QMin1['states'][0] = 1
                     QMin1['states_to_do'][0] = 1
                 icount += 1
@@ -351,7 +366,7 @@ class GAUSSIAN(INTERFACE):
             for i in gradjob:
                 if 'grad' in i:
                     QMin1 = deepcopy(QMin)
-                    mult = list(gradjob[i])[0][0]
+                    mult, state = (int(x) for x in i.split('_')[1:])
                     QMin1['IJOB'] = QMin['multmap'][mult]
                     remove = [
                         'gradmap', 'ncpu', 'h', 'soc', 'dm', 'overlap', 'ion', 'always_guess', 'always_orb_init', 'init'
@@ -361,17 +376,23 @@ class GAUSSIAN(INTERFACE):
                     QMin1['gradmap'] = list(gradjob[i])
                     QMin1['ncpu'] = cpu_per_run[icount]
                     QMin1['gradonly'] = []
+                    QMin1['rootstate'] = state - 1 # 1 is first excited state of mult
                     icount += 1
                     schedule[-1][i] = QMin1
+
             for i in densjob:
                 if 'dens' in i:
                     QMin1 = deepcopy(QMin)
+                    mult, state = (int(x) for x in i.split('_')[1:])
+
+                    QMin1['IJOB'] = QMin['multmap'][mult]
                     remove = [
                         'gradmap', 'ncpu', 'h', 'soc', 'dm', 'overlap', 'ion', 'always_guess', 'always_orb_init', 'init'
                     ]
                     for r in remove:
                         QMin1 = removekey(QMin1, r)
                     QMin1['ncpu'] = cpu_per_run[icount]
+                    QMin1['rootstate'] = state - 1 # 1 is first excited state of mult
                     QMin1['densonly'] = True
                     icount += 1
                     schedule[-1][i] = QMin1
@@ -410,7 +431,6 @@ class GAUSSIAN(INTERFACE):
             print('SCHEDULE:')
             pprint.pprint(schedule, depth=2)
         errorcodes = {}
-
         # run all the jobs
         errorcodes = self.runjobs(schedule)
 
@@ -616,12 +636,9 @@ class GAUSSIAN(INTERFACE):
         # gscorr=True
 
         # gradients
-        if QMin['gradmap']:
+        if 'gradmap' in QMin:
             dograd = True
-            egrad = ()
-            for grad in QMin['gradmap']:
-                if not (gsmult, 1) == grad:
-                    egrad = grad
+            root = QMin['rootstate']
             # if multigrad_possible:
             # singgrad=[]
             # tripgrad=[]
@@ -633,6 +650,13 @@ class GAUSSIAN(INTERFACE):
             # tripgrad.append(grad[1])
         else:
             dograd = False
+        
+        dodens = False
+        if 'multipolar_fit' in QMin:
+            dodens = True
+            print(job, gsmult, QMin['rootstate'], file=sys.stderr)
+            root = QMin['rootstate']
+
 
         # construct the input string TODO
         string = ''
@@ -666,12 +690,15 @@ class GAUSSIAN(INTERFACE):
                 s = 'tda'
             else:
                 s = 'td'
-            s += '(nstates=%i%s' % (ncalc, mults_td)
-            if dograd and egrad:
-                s += ',root=%i' % (egrad[1] - (gsmult == egrad[0]))
-            if 'master' not in QMin and 'grad' in QMin:
-                s += ',read'
-            s += ')'
+            if 'master' in QMin:
+                s += '(nstates=%i%s' % (ncalc, mults_td)
+            else:
+                s += '(read'
+            if dograd and root > 0:
+                s += f',root={root}'
+            elif dodens and root > 0:
+                s += f',root={root}'
+            s += ') density=Current'
             data.append(s)
         if QMin['template']['scrf']:
             s = ','.join(QMin['template']['scrf'].split())
@@ -684,14 +711,15 @@ class GAUSSIAN(INTERFACE):
             data.append('iop(%s)' % s)
         if QMin['template']['keys']:
             data.extend([QMin['template']['keys']])
+        if 'densonly' in QMin:
+            data.append('Guess=read')
         if 'theodore' in QMin:
             data.append('pop=full')
             data.append('IOP(9/40=3)')
-            data.append('GFPRINT')
+        data.append('GFPRINT')
         string += '#'
         for i in data:
             string += i + '\n'
-
         # title
         string += '\nSHARC-GAUSSIAN job\n\n'
 
@@ -957,6 +985,7 @@ class GAUSSIAN(INTERFACE):
 
         # get infos from logfile
         logfile = os.path.join(os.path.dirname(filename), 'GAUSSIAN.log')
+        print(job, logfile, file=sys.stderr)
         data = readfile(logfile)
         infos = {}
         for iline, line in enumerate(data):

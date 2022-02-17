@@ -592,9 +592,11 @@ class INTERFACE(ABC):
         if 'grad' in QMin:
             gradmap = {tuple(QMin['statemap'][i][0:2]) for i in QMin['grad']}
         QMin['gradmap'] = sorted(gradmap)
-
+        
+        densmap = set()
         if 'multipolar_fit' in QMin:
-            QMin['densmap'] = [(j, i) for j in QMin['multipolar_fit'] for i in QMin['multipolar_fit']]
+            densmap = {tuple(QMin['statemap'][i][0:2]) for i in QMin['multipolar_fit']}
+        QMin['densmap'] = sorted(densmap)
 
         # make the chargemap
         QMin['chargemap'] = {i + 1: c for i, c in enumerate(QMin['template']['charge'])}
