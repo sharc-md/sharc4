@@ -180,7 +180,10 @@ def read_QMout(path, nstates, natom, request):
                          'dim': (nstates, nstates, natom, 3)},
                'overlap': {'flag': 6,
                            'type': complex,
-                           'dim': (nstates, nstates)}
+                           'dim': (nstates, nstates)},
+               'multipolar_fit': {'flag': 22,
+                                    'type': float,
+                                    'dim': (nstates, nstates, natom, 10)}
                }
 
     # read QM.out
