@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from error import Error
 from time import process_time_ns as t
 from itertools import chain
+from utils import swap_rows_and_cols, build_basis_dict
+from constants import IAn2AName as CHARGEATOM, ATOMIC_RADII
 
 import sys
 import numpy as np
@@ -17,293 +19,11 @@ import h5py
 
 au2a = 0.52917721092
 np.set_printoptions(threshold=sys.maxsize, linewidth=10000, precision=5)
-ATOMIC_RADII = {
-    'H': 1.20,
-    'He': 1.40,
-    'Li': 0.76,
-    'Be': 0.59,
-    'B': 1.92,
-    'C': 1.5,    # 1.70, 
-    'N': 1.55,
-    'O': 1.4,    # 1.52, 
-    'F': 1.47,
-    'Ne': 1.54,
-    'Na': 1.02,
-    'Mg': 0.86,
-    'Al': 1.84,
-    'Si': 2.10,
-    'P': 1.80,
-    'S': 1.80,
-    'Cl': 1.81,
-    'Ar': 1.88,
-    'K': 1.38,
-    'Ca': 1.14,
-    'Sc': 2.11,
-    'Ti': 2.00,
-    'V': 2.00,
-    'Cr': 2.00,
-    'Mn': 2.00,
-    'Fe': 2.00,
-    'Co': 2.00,
-    'Ni': 1.63,
-    'Cu': 1.40,
-    'Zn': 1.39,
-    'Ga': 1.87,
-    'Ge': 2.11,
-    'As': 1.85,
-    'Se': 1.90,
-    'Br': 1.85,
-    'Kr': 2.02,
-    'Rb': 3.03,
-    'Sr': 2.49,
-    'Y': 2.00,
-    'Zr': 2.00,
-    'Nb': 2.00,
-    'Mo': 2.00,
-    'Tc': 2.00,
-    'Ru': 2.00,
-    'Rh': 2.00,
-    'Pd': 1.63,
-    'Ag': 1.72,
-    'Cd': 1.58,
-    'In': 1.93,
-    'Sn': 2.17,
-    'Sb': 2.06,
-    'Te': 2.06,
-    'I': 1.98,
-    'Xe': 2.16,
-    'Cs': 1.67,
-    'Ba': 1.49,
-    'La': 2.00,
-    'Ce': 2.00,
-    'Pr': 2.00,
-    'Nd': 2.00,
-    'Pm': 2.00,
-    'Sm': 2.00,
-    'Eu': 2.00,
-    'Gd': 2.00,
-    'Tb': 2.00,
-    'Dy': 2.00,
-    'Ho': 2.00,
-    'Er': 2.00,
-    'Tm': 2.00,
-    'Yb': 2.00,
-    'Lu': 2.00,
-    'Hf': 2.00,
-    'Ta': 2.00,
-    'W': 2.00,
-    'Re': 2.00,
-    'Os': 2.00,
-    'Ir': 2.00,
-    'Pt': 1.75,
-    'Au': 1.66,
-    'Hg': 1.55,
-    'Tl': 1.96,
-    'Pb': 2.02,
-    'Bi': 2.07,
-    'Po': 1.97,
-    'At': 2.02,
-    'Rn': 2.20,
-    'Fr': 3.48,
-    'Ra': 2.83,
-    'Ac': 2.00,
-    'Th': 2.00,
-    'Pa': 2.00,
-    'U': 1.86,
-    'Np': 2.00,
-    'Pu': 2.00,
-    'Am': 2.00,
-    'Cm': 2.00,
-    'Bk': 2.00,
-    'Cf': 2.00,
-    'Es': 2.00,
-    'Fm': 2.00,
-    'Md': 2.00,
-    'No': 2.00,
-    'Lr': 2.00,
-    'Rf': 2.00,
-    'Db': 2.00,
-    'Sg': 2.00,
-    'Bh': 2.00,
-    'Hs': 2.00,
-    'Mt': 2.00,
-    'Ds': 2.00,
-    'Rg': 2.00,
-    'Cn': 2.00,
-    'Uut': 2.00,
-    'Fl': 2.00,
-    'Uup': 2.00,
-    'Lv': 2.00,
-    'Uus': 2.00,
-    'Uuo': 2.00
-}
-
-ATOMCHARGE = {
-    'H': 1,
-    'He': 2,
-    'Li': 3,
-    'Be': 4,
-    'B': 5,
-    'C': 6,
-    'N': 7,
-    'O': 8,
-    'F': 9,
-    'Ne': 10,
-    'Na': 11,
-    'Mg': 12,
-    'Al': 13,
-    'Si': 14,
-    'P': 15,
-    'S': 16,
-    'Cl': 17,
-    'Ar': 18,
-    'K': 19,
-    'Ca': 20,
-    'Sc': 21,
-    'Ti': 22,
-    'V': 23,
-    'Cr': 24,
-    'Mn': 25,
-    'Fe': 26,
-    'Co': 27,
-    'Ni': 28,
-    'Cu': 29,
-    'Zn': 30,
-    'Ga': 31,
-    'Ge': 32,
-    'As': 33,
-    'Se': 34,
-    'Br': 35,
-    'Kr': 36,
-    'Rb': 37,
-    'Sr': 38,
-    'Y': 39,
-    'Zr': 40,
-    'Nb': 41,
-    'Mo': 42,
-    'Tc': 43,
-    'Ru': 44,
-    'Rh': 45,
-    'Pd': 46,
-    'Ag': 47,
-    'Cd': 48,
-    'In': 49,
-    'Sn': 50,
-    'Sb': 51,
-    'Te': 52,
-    'I': 53,
-    'Xe': 54,
-    'Cs': 55,
-    'Ba': 56,
-    'La': 57,
-    'Ce': 58,
-    'Pr': 59,
-    'Nd': 60,
-    'Pm': 61,
-    'Sm': 62,
-    'Eu': 63,
-    'Gd': 64,
-    'Tb': 65,
-    'Dy': 66,
-    'Ho': 67,
-    'Er': 68,
-    'Tm': 69,
-    'Yb': 70,
-    'Lu': 71,
-    'Hf': 72,
-    'Ta': 73,
-    'W': 74,
-    'Re': 75,
-    'Os': 76,
-    'Ir': 77,
-    'Pt': 78,
-    'Au': 79,
-    'Hg': 80,
-    'Tl': 81,
-    'Pb': 82,
-    'Bi': 83,
-    'Po': 84,
-    'At': 85,
-    'Rn': 86,
-    'Fr': 87,
-    'Ra': 88,
-    'Ac': 89,
-    'Th': 90,
-    'Pa': 91,
-    'U': 92,
-    'Np': 93,
-    'Pu': 94,
-    'Am': 95,
-    'Cm': 96,
-    'Bk': 97,
-    'Cf': 98,
-    'Es': 99,
-    'Fm': 100,
-    'Md': 101,
-    'No': 102,
-    'Lr': 103,
-    'Rf': 104,
-    'Db': 105,
-    'Sg': 106,
-    'Bh': 107,
-    'Hs': 108,
-    'Mt': 109,
-    'Ds': 110,
-    'Rg': 111,
-    'Cn': 112,
-    'Nh': 113,
-    'Fl': 114,
-    'Mc': 115,
-    'Lv': 116,
-    'Ts': 117,
-    'Og': 118
-}
-
-CHARGEATOM = {v: k for k, v in ATOMCHARGE.items()}
 
 
 def get_resp_grid(atom_symbols: list[str], coords: np.ndarray):
     atom_radii = np.fromiter(map(lambda x: ATOMIC_RADII[x], atom_symbols), dtype=float)
     return mk_layers(coords, atom_radii)
-
-
-def build_basis_dict(
-    atom_symbols: list, shell_types, n_prim, s_a_map, prim_exp, contr_coeff, ps_contr_coeff=None
-) -> dict:
-    # print(atom_symbols, shell_types, n_prim, s_a_map, prim_exp, contr_coeff, ps_contr_coeff)
-    n_a = {i + 1: f'{a.upper()}{i+1}' for i, a in enumerate(atom_symbols)}
-    basis = {k: [] for k in n_a.values()}
-    it = 0
-    for st, np, a in zip(shell_types, n_prim, s_a_map):
-
-        shell = list(map(lambda x: (prim_exp[x], contr_coeff[x]), range(it, it + np)))
-        if ps_contr_coeff and ps_contr_coeff[it] != 0.:
-            shell2 = list(map(lambda x: (prim_exp[x], ps_contr_coeff[x]), range(it, it + np)))
-            basis[n_a[a]].append([0, *shell])
-            basis[n_a[a]].append([abs(st), *shell2])
-        else:
-            basis[n_a[a]].append([abs(st), *shell])
-        it += np
-    return basis
-
-
-def swap_rows_and_cols(atom_symbols, basis_dict, matrix):
-    # if there are any d-orbitals they need to be swapped!!!
-    # from gauss order: z2, xz, yz, x2-y2, xy
-    # to   pyscf order: xy, yz, z2, xz, x2-y2
-    swaps = [[0, 2], [1, 3], [1, 4], [0, 1]]
-    swaps_r = [[2, 0], [3, 1], [4, 1], [1, 0]]
-    it = 0
-    for i, a in enumerate(atom_symbols):
-        key = f'{a.upper()}{i+1}'
-        for shell in basis_dict[key]:
-            if shell[0] == 2:
-                for swap, swap_r in zip(swaps, swaps_r):
-                    s1 = [x + it for x in swap]
-                    s2 = [x + it for x in swap_r]
-                    matrix[s1, :] = matrix[s2, :]
-                    matrix[:, s1] = matrix[:, s2]
-            it += 2 * shell[0] + 1
 
 
 @dataclass(init=True, eq=True)
@@ -352,9 +72,15 @@ class Cube:
 
 
 class Resp:
-    def __init__(self, coords: np.ndarray, atom_symbols: np.ndarray):
+    def __init__(self, coords: np.ndarray, atom_symbols: list[str]):
         """
         creates an object with a fitting grid and precalculated properties for the molecule.
+
+        Parameters:
+        ----------
+        coords: ndarray array with shape (natom,3) unit has to be Bohr
+
+        atom_symbols: list[str] with atom symbols order corresponding to coords 
         """
         self.beta = 0.0005
         self.coords = coords
@@ -363,7 +89,7 @@ class Resp:
         self.natom = coords.shape[0]
         self.ngp = self.mk_grid.shape[0]
         # Build 1/|R_A - r_i| m_A_i
-        self.R_alpha: np.ndarray = self.coords[:, None, :] - np.full((self.natom, self.ngp, 3), self.mk_grid)    # rA-ri
+        self.R_alpha: np.ndarray = np.full((self.natom, self.ngp, 3), self.mk_grid) - self.coords[:, None, :]  # rA-ri
         self.r_inv: np.ndarray = 1 / np.sqrt(np.sum((self.R_alpha)**2, axis=2))    # 1 / |ri-rA|
 
     @classmethod
@@ -441,6 +167,37 @@ class Resp:
                 coords.extend(map(float, f.readline().split()))
         coords = np.asarray(coords).reshape((-1, 3))
         return cls(coords, atom_symbols)
+
+    def prepare(self, basis, cart_basis=False):
+        natom = len(self.atom_symbols)
+        atoms = [[f'{s.upper()}{j+1}', c.tolist()] for j, s, c in zip(range(natom), self.atom_symbols, self.coords)]
+        mol = gto.Mole(atom=atoms, basis=basis, unit='BOHR', symmetry=False, cart=cart_basis)
+        mol.build()
+        Z = mol.atom_charges()
+        self.Vnuc = np.sum(Z[..., None] * self.r_inv, axis=0)
+        fakemol = gto.fakemol_for_charges(self.mk_grid)
+        # NOTE This could be very big (fakemol could be broken up into multiple pieces)
+        # NOTE the value of these integrals is not affected by the atom charge
+        self.ints = df.incore.aux_e2(mol, fakemol)
+
+    def multipoles_from_dens(self, dm: np.ndarray, include_core_charges: bool, order=2):
+        if not (0 < order <= 2):
+            raise Error("Specify order in the range of 0 - 2")
+        n_fits = sum([1, 3, 6][:order + 1])
+        Fesp_i = np.copy(self.Vnuc) if include_core_charges else np.zeros((self.ngp), dtype=float)
+        Vele = np.einsum('ijp,ij->p', self.ints, dm)
+        Fesp_i[...] -= Vele
+        fits = np.empty((self.natom, n_fits))
+        R_alpha = self.R_alpha
+        r_inv = self.r_inv
+        mp = self.fit_monopoles(Fesp_i)
+        Fesp_i_res = Fesp_i - mp @ r_inv
+        self.r_inv3 = self.rinv3 if 'rinv3' in self.__dict__ else r_inv**3
+        dp = self.fit_dipoles(Fesp_i_res).reshape((3, -1))
+        Fesp_i_res = Fesp_i_res - np.einsum('xi,inx,in->n', dp, R_alpha, self.r_inv3)
+        qp = self.fit_quadrupoles(Fesp_i_res).reshape((6, -1))
+        fits = np.vstack((mp, dp, qp)).T
+        return fits
 
     # NOTE: This works but the density of core electron is not well represented!!!
     def ESP_from_cubes(self, cube_list: list[str]):
@@ -912,7 +669,19 @@ class Resp:
         print()
         Z = mol.atom_charges()
         Vnuc = np.sum(Z[..., None] * self.r_inv, axis=0)
-        self.Fesp_s_i = np.full((len(densities), self.ngp), Vnuc[None, ...], dtype=float)
+        n_states = int(gs) + int(es)
+        n_tdm = n_g2e
+        if gs or es:
+            for_states = np.full((n_states, self.ngp), Vnuc[None, ...], dtype=float)
+            if gses:
+                for_tdm = np.zeros((n_tdm, self.ngp), dtype=float)
+                self.Fesp_s_i = np.concatenate((for_states, for_tdm), axis=0)
+            else:
+                self.Fesp_s_i = for_states
+        elif gses:
+            self.Fesp_s_i = np.zeros((n_tdm, self.ngp), dtype=float)
+
+
         fakemol = gto.fakemol_for_charges(self.mk_grid)
         # NOTE This could be very big (fakemol could be broken up into multiple pieces)
         ints = df.incore.aux_e2(mol, fakemol)
@@ -928,14 +697,14 @@ class Resp:
         for s, Fesp_i in enumerate(self.Fesp_s_i):
             mp = self.fit_monopoles(Fesp_i)
             Fesp_i_res = Fesp_i - mp @ r_inv
-            r_inv3 = r_inv**3
+            self.r_inv3 = self.rinv3 if 'rinv3' in self.__dict__ else r_inv**3
             dp = self.fit_dipoles(Fesp_i_res).reshape((3, -1))
-            Fesp_i_res = Fesp_i_res - np.einsum('xi,inx,in->n', dp, R_alpha, r_inv3)
+            Fesp_i_res = Fesp_i_res - np.einsum('xi,inx,in->n', dp, R_alpha, self.r_inv3)
             qp = self.fit_quadrupoles(Fesp_i_res).reshape((6, -1))
             self.fits[s, ...] = np.vstack((mp, dp, qp)).T
             dip = np.sum(self.coords.T * mp, axis=1)
             dip += np.sum(dp, axis=1)
-            print(dip)
+        return self.fits
 
     def fit_monopoles(self, Fesp_i):
         natom = self.natom
@@ -975,8 +744,7 @@ class Resp:
         # Build 1/|R_A - r_i| m_A_i
         R_alpha = self.R_alpha
 
-        r_inv = self.r_inv
-        r_inv3 = r_inv**3
+        r_inv3 = self.r_inv3
 
         tmp = np.vstack((R_alpha[:, :, 0] * r_inv3, R_alpha[:, :, 1] * r_inv3, R_alpha[:, :, 2] * r_inv3))    # m_A_i
         # build A
@@ -1009,7 +777,7 @@ class Resp:
         R_alpha = self.R_alpha
 
         r_inv = self.r_inv
-        r_inv5 = r_inv**5
+        r_inv5 = self.rinv5 if 'rinv5' in self.__dict__ else r_inv**5
         r_inv5_2 = 0.5 * r_inv5
         # order xx, yy, zz, xy, xz, yz
         tmp = np.vstack(
