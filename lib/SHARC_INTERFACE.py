@@ -2162,8 +2162,10 @@ class INTERFACE(ABC):
             for j, (jmult, jstate, jms) in zip(range(nmstates), itnmstates(states)):
                 string += f'{natom} 10 ! m1 {imult} s1 {istate} ms1 {ims: 3.1f}   m2 {jmult} s2 {jstate} ms2 {jms: 3.1f}\n'
 
-                if (imult, istate, jmult, jstate) in fits or (jmult, jstate, imult, istate) in fits:
+                if (imult, istate, jmult, jstate) in fits:
                     entry = fits[(imult, istate, jmult, jstate)]
+                elif (jmult, jstate, imult, istate) in fits:
+                    entry = fits[(jmult, jstate, imult, istate)]
                 else:
                     entry = np.zeros((natom, 10))
                 string += "\n".join(map(lambda x: " ".join(map(lambda y: '{: 10.8f}'.format(y), x)), entry)) + '\n'

@@ -6,6 +6,7 @@ import shutil
 from dataclasses import dataclass
 from error import Error
 import subprocess as sp
+from globals import DEBUG, PRINT
 
 # ======================================================================= #
 def get_bool_from_env(name: str, default=False):

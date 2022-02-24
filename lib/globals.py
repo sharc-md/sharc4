@@ -29,9 +29,10 @@ class Print(object):
 
     def __bool__(self):
         return self.val
-        
+
     def set(self, val):
         self.val = val
+
 
 DEBUG = Debug()
 

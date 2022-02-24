@@ -34,7 +34,6 @@ import datetime
 from multiprocessing import Pool
 from copy import deepcopy
 from socket import gethostname
-from tkinter import N
 import traceback
 import numpy as np
 
@@ -421,9 +420,9 @@ class GAUSSIAN(INTERFACE):
 # =============================================================================================== #
 # =============================================================================================== #
 
+
     def run(self):
         QMin = self._QMin
-        DEBUG = self._DEBUG
         # get the job schedule
         schedule = self.generate_joblist()
         self.printQMin()
@@ -432,13 +431,13 @@ class GAUSSIAN(INTERFACE):
             pprint.pprint(schedule, depth=2)
         errorcodes = {}
         # run all the jobs
-        # errorcodes = self.runjobs(schedule)
+        errorcodes = self.runjobs(schedule)
 
-        # # do all necessary overlap and Dyson calculations
-        # errorcodes = self.run_wfoverlap(errorcodes)
+        # do all necessary overlap and Dyson calculations
+        errorcodes = self.run_wfoverlap(errorcodes)
 
-        # # do all necessary Theodore calculations
-        # errorcodes = self.run_theodore(errorcodes)
+        # do all necessary Theodore calculations
+        errorcodes = self.run_theodore(errorcodes)
 
         # read all the output files
         self.getQMout()
@@ -453,7 +452,6 @@ class GAUSSIAN(INTERFACE):
         # Write QMout
         self.writeQMout()
 
-        exit()
         # Remove Scratchfiles from SCRATCHDIR
         if not DEBUG:
             cleandir(QMin['scratchdir'])
@@ -586,6 +584,12 @@ class GAUSSIAN(INTERFACE):
         restr = QMin['jobs'][job]['restr']
         charge = QMin['chargemap'][gsmult]
 
+        # determine the root in case it was not determined in schedule jobs
+        if 'rootstate' not in QMin:
+            QMin['rootstate'] = min(1, QMin['states'][QMin['multmap'][-QMin['IJOB']][-1] - 1] - 1)
+            if 3 in QMin['multmap'][-QMin['IJOB']] and QMin['jobs'][QMin['IJOB']]['restr']:
+                QMin['rootstate'] = 1
+
         # excited states to calculate
         states_to_do = QMin['states_to_do']
         for imult in range(len(states_to_do)):
@@ -622,14 +626,12 @@ class GAUSSIAN(INTERFACE):
         if 'gradmap' in QMin:
             dograd = True
             root = QMin['rootstate']
-
         else:
             dograd = False
 
         dodens = False
         if 'multipolar_fit' in QMin:
             dodens = True
-            print(job, gsmult, QMin['rootstate'], file=sys.stderr)
             root = QMin['rootstate']
 
         # construct the input string TODO
@@ -960,7 +962,6 @@ class GAUSSIAN(INTERFACE):
 
         # get infos from logfile
         logfile = os.path.join(os.path.dirname(filename), 'GAUSSIAN.log')
-        print(job, logfile, file=sys.stderr)
         data = readfile(logfile)
         infos = {}
         for iline, line in enumerate(data):
@@ -1861,6 +1862,7 @@ class GAUSSIAN(INTERFACE):
         except OSError:
             print('Call have had some serious problems:', OSError)
             sys.exit(77)
+        print('Generated .fchk file in', workdir)
         os.chdir(prevdir)
 
     @staticmethod
@@ -1931,7 +1933,6 @@ class GAUSSIAN(INTERFACE):
         densities = []
         atom_symbols = QMin['elements']
         for dens, flags in densjobs:
-            print(dens, flags, file=sys.stderr)
             scf, es, gses = map(flags.get, ('scf', 'es', 'gses'))
             fchkfile = os.path.join(QMin['scratchdir'], dens, 'GAUSSIAN.fchk')
 
@@ -1998,7 +1999,6 @@ class GAUSSIAN(INTERFACE):
                         new_dens += 1
                     i += n_lines
                 i += 1
-            print(new_dens, file=sys.stderr)
         # read densities
         return densities
 
@@ -2114,6 +2114,7 @@ class GAUSSIAN(INTERFACE):
             props[(m, n + (m == 1))].extend([theo_float(i) for i in s[2:]])
 
         return props
+
 
 if __name__ == '__main__':
 
