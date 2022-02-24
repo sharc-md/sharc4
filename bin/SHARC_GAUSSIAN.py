@@ -35,14 +35,15 @@ from multiprocessing import Pool
 from copy import deepcopy
 from socket import gethostname
 import traceback
-
-from zmq import error
+import numpy as np
 
 # internal
+from resp import Resp
+from tdm import es2es_tdm
 from SHARC_INTERFACE import INTERFACE
-from globals import DEBUG, PRINT
 from utils import *
-from constants import IToMult, au2eV
+from globals import DEBUG, PRINT
+from constants import IToMult, au2eV, IAn2AName
 from error import Error, exception_hook
 
 sys.excepthook = exception_hook
@@ -269,10 +270,7 @@ class GAUSSIAN(INTERFACE):
                 gradjob['grad_%i_%i' % grad] = {}
                 gradjob['grad_%i_%i' % grad][grad] = {'gs': True}
             else:
-                n = 0
-                for gradx in gradjob['master_%i' % ijob]:
-                    n += 1
-                if n > 0:
+                if len(gradjob['master_%i' % ijob]) > 0:
                     gradjob['grad_%i_%i' % grad] = {}
                     gradjob['grad_%i_%i' % grad][grad] = {'gs': False}
                 else:
@@ -285,10 +283,43 @@ class GAUSSIAN(INTERFACE):
                 jobgrad[state] = (job, gradjob[job][state]['gs'])
         QMin['jobgrad'] = jobgrad
 
+        densjob = {}
+        if 'multipolar_fit' in QMin:
+            jobdens = {}
+            # detect where the densities will be calculated
+            # gs and first es always accessible from master if gs is not other mult
+            for dens in QMin['densmap']:
+                ijob = QMin['multmap'][dens[0]]
+                gsmult = QMin['multmap'][-ijob][0]
+                if gsmult == dens[0] and dens[1] == 2:
+                    jobdens[dens] = f'master_{ijob}'
+                    densjob[f'master_{ijob}'] = {'scf': True, 'es': True, 'gses': True}
+                elif dens in jobgrad:
+                    if jobgrad[dens][1]:    # this is a gs only calculation
+                        jobdens[dens] = f'master_{ijob}'
+                        continue
+                    j = jobgrad[dens][0]
+                    jobdens[dens] = j
+                    if 'master' in j:    # parse excited-state from gradient calc
+                        densjob[j] = {'scf': True, 'es': True, 'gses': True}
+                    else:
+                        densjob[j] = {'scf': False, 'es': True, 'gses': False}
+                elif dens[1] == 1:
+                    jobdens[dens] = f'master_{ijob}'
+                    if dens[0] == 3 and QMin['jobs'][ijob]['restr']:
+                        # gs already read by from singlet calc, gses for singlet to triplet = 0
+                        densjob[f'master_{ijob}'] = {'scf': False, 'es': True, 'gses': True}
+                    else:
+                        densjob[f'master_{ijob}'] = {'scf': True, 'es': True, 'gses': True}
+                else:
+                    jobdens[dens] = f'dens_{dens[0]}_{dens[1]}'
+                    densjob[f'dens_{dens[0]}_{dens[1]}'] = {'scf': False, 'es': True, 'gses': False}
+
+            QMin['jobdens'] = jobdens
+            QMin['densjob'] = densjob
+        # add the master calculations
         schedule = []
         QMin['nslots_pool'] = []
-
-        # add the master calculations
         ntasks = 0
         for i in gradjob:
             if 'master' in i:
@@ -307,7 +338,10 @@ class GAUSSIAN(INTERFACE):
                     QMin1 = removekey(QMin1, r)
                 QMin1['gradmap'] = list(gradjob[i])
                 QMin1['ncpu'] = cpu_per_run[icount]
+                # get the rootstate for the multiplicity as the first excited state
+                QMin1['rootstate'] = min(1, QMin['states'][QMin['multmap'][-QMin1['IJOB']][-1] - 1] - 1)
                 if 3 in QMin['multmap'][-QMin1['IJOB']] and QMin['jobs'][QMin1['IJOB']]['restr']:
+                    QMin1['rootstate'] = 1
                     QMin1['states'][0] = 1
                     QMin1['states_to_do'][0] = 1
                 icount += 1
@@ -318,6 +352,9 @@ class GAUSSIAN(INTERFACE):
         for i in gradjob:
             if 'grad' in i:
                 ntasks += 1
+        for i in densjob:
+            if 'dens' in i:
+                ntasks += 1
         if ntasks > 0:
             nrounds, nslots, cpu_per_run = INTERFACE.divide_slots(QMin['ncpu'], ntasks, QMin['schedule_scaling'])
             QMin['nslots_pool'].append(nslots)
@@ -326,8 +363,10 @@ class GAUSSIAN(INTERFACE):
             for i in gradjob:
                 if 'grad' in i:
                     QMin1 = deepcopy(QMin)
-                    mult = list(gradjob[i])[0][0]
-                    QMin1['IJOB'] = QMin['multmap'][mult]
+                    mult, state = (int(x) for x in i.split('_')[1:])
+                    ijob = QMin['multmap'][mult]
+                    QMin1['IJOB'] = ijob
+                    gsmult = QMin['multmap'][-ijob][0]
                     remove = [
                         'gradmap', 'ncpu', 'h', 'soc', 'dm', 'overlap', 'ion', 'always_guess', 'always_orb_init', 'init'
                     ]
@@ -336,9 +375,27 @@ class GAUSSIAN(INTERFACE):
                     QMin1['gradmap'] = list(gradjob[i])
                     QMin1['ncpu'] = cpu_per_run[icount]
                     QMin1['gradonly'] = []
+                    QMin1['rootstate'] = state - 1 if gsmult == mult else state    # 1 is first excited state of mult
                     icount += 1
                     schedule[-1][i] = QMin1
 
+            for i in densjob:
+                if 'dens' in i:
+                    QMin1 = deepcopy(QMin)
+                    mult, state = (int(x) for x in i.split('_')[1:])
+                    ijob = QMin['multmap'][mult]
+                    QMin1['IJOB'] = ijob
+                    gsmult = QMin['multmap'][-ijob][0]
+                    remove = [
+                        'gradmap', 'ncpu', 'h', 'soc', 'dm', 'overlap', 'ion', 'always_guess', 'always_orb_init', 'init'
+                    ]
+                    for r in remove:
+                        QMin1 = removekey(QMin1, r)
+                    QMin1['ncpu'] = cpu_per_run[icount]
+                    QMin1['rootstate'] = state - 1 if gsmult == mult else state    # 1 is first excited state of mult
+                    QMin1['densonly'] = True
+                    icount += 1
+                    schedule[-1][i] = QMin1
         return schedule
 
     def _backupdir(self):
@@ -363,15 +420,17 @@ class GAUSSIAN(INTERFACE):
 # =============================================================================================== #
 # =============================================================================================== #
 
+
     def run(self):
         QMin = self._QMin
         # get the job schedule
         schedule = self.generate_joblist()
         self.printQMin()
         if DEBUG:
-            pprint.pprint(schedule, depth=1)
+            print('SCHEDULE:')
+            pprint.pprint(schedule, depth=2)
         errorcodes = {}
-        # run all the ADF jobs
+        # run all the jobs
         errorcodes = self.runjobs(schedule)
 
         # do all necessary overlap and Dyson calculations
@@ -382,8 +441,6 @@ class GAUSSIAN(INTERFACE):
 
         # read all the output files
         self.getQMout()
-
-
         # backup data if requested
         if 'backup' in QMin:
             self.backupdata(QMin['backup'])
@@ -438,7 +495,7 @@ class GAUSSIAN(INTERFACE):
             print('Some subprocesses did not finish successfully!')
             raise Error('See %s:%s for error messages in GAUSSIAN output.' % (gethostname(), QMin['scratchdir']), 64)
 
-        if PRINT:
+        if self._PRINT:
             print('>>>>>>>>>>>>> Saving files')
             starttime = datetime.datetime.now()
         for ijobset, jobset in enumerate(schedule):
@@ -452,7 +509,7 @@ class GAUSSIAN(INTERFACE):
                     if 'ion' in QMin and ijobset == 0:
                         GAUSSIAN.saveAOmatrix(WORKDIR, QMin)
         GAUSSIAN.saveGeometry(QMin)
-        if PRINT:
+        if self._PRINT:
             endtime = datetime.datetime.now()
             print('Saving Runtime: %s' % (endtime - starttime))
         print
@@ -502,7 +559,7 @@ class GAUSSIAN(INTERFACE):
                 fromfile = QMin['initorbs'][job]
                 tofile = os.path.join(WORKDIR, 'GAUSSIAN.chk')
                 shutil.copy(fromfile, tofile)
-        elif 'grad' in QMin:
+        elif 'grad' in QMin or 'densonly' in QMin:
             job = QMin['IJOB']
             fromfile = os.path.join(QMin['scratchdir'], 'master_%i' % job, 'GAUSSIAN.chk')
             tofile = os.path.join(WORKDIR, 'GAUSSIAN.chk')
@@ -521,12 +578,17 @@ class GAUSSIAN(INTERFACE):
     @staticmethod
     def writeGAUSSIANinput(QMin):
 
-
         # general setup
         job = QMin['IJOB']
         gsmult = QMin['multmap'][-job][0]
         restr = QMin['jobs'][job]['restr']
         charge = QMin['chargemap'][gsmult]
+
+        # determine the root in case it was not determined in schedule jobs
+        if 'rootstate' not in QMin:
+            QMin['rootstate'] = min(1, QMin['states'][QMin['multmap'][-QMin['IJOB']][-1] - 1] - 1)
+            if 3 in QMin['multmap'][-QMin['IJOB']] and QMin['jobs'][QMin['IJOB']]['restr']:
+                QMin['rootstate'] = 1
 
         # excited states to calculate
         states_to_do = QMin['states_to_do']
@@ -560,39 +622,17 @@ class GAUSSIAN(INTERFACE):
             ncalc = max(states_to_do)
             mults_td = ''
 
-        # whether to do SOC
-        # sopert=False
-        # gscorr=False
-        # if 'soc' in QMin:
-        # if restr:
-        # nsing=QMin['states'][0]
-        # if len(QMin['states'])>=3:
-        # ntrip=QMin['states'][2]
-        # else:
-        # ntrip=0
-        # if nsing+ntrip>=2 and ntrip>=1:
-        # sopert=True
-        # if nsing>=1:
-        # gscorr=True
-
         # gradients
-        if QMin['gradmap']:
+        if 'gradmap' in QMin:
             dograd = True
-            egrad = ()
-            for grad in QMin['gradmap']:
-                if not (gsmult, 1) == grad:
-                    egrad = grad
-            # if multigrad_possible:
-            # singgrad=[]
-            # tripgrad=[]
-            # for grad in QMin['gradmap']:
-            # if not (gsmult,1)==grad:
-            # if grad[0]==gsmult:
-            # singgrad.append(grad[1]-1)
-            # if grad[0]==3 and restr:
-            # tripgrad.append(grad[1])
+            root = QMin['rootstate']
         else:
             dograd = False
+
+        dodens = False
+        if 'multipolar_fit' in QMin:
+            dodens = True
+            root = QMin['rootstate']
 
         # construct the input string TODO
         string = ''
@@ -626,12 +666,15 @@ class GAUSSIAN(INTERFACE):
                 s = 'tda'
             else:
                 s = 'td'
-            s += '(nstates=%i%s' % (ncalc, mults_td)
-            if dograd and egrad:
-                s += ',root=%i' % (egrad[1] - (gsmult == egrad[0]))
-            if 'master' not in QMin and 'grad' in QMin:
-                s += ',read'
-            s += ')'
+            if 'master' in QMin:
+                s += '(nstates=%i%s' % (ncalc, mults_td)
+            else:
+                s += '(read'
+            if dograd and root > 0:
+                s += f',root={root}'
+            elif dodens and root > 0:
+                s += f',root={root}'
+            s += ') density=Current'
             data.append(s)
         if QMin['template']['scrf']:
             s = ','.join(QMin['template']['scrf'].split())
@@ -644,14 +687,16 @@ class GAUSSIAN(INTERFACE):
             data.append('iop(%s)' % s)
         if QMin['template']['keys']:
             data.extend([QMin['template']['keys']])
+        if 'densonly' in QMin:
+            data.append('pop=Regular') # otherwise CI density will not be printed
+            data.append('Guess=read')
         if 'theodore' in QMin:
             data.append('pop=full')
             data.append('IOP(9/40=3)')
-            data.append('GFPRINT')
+        data.append('GFPRINT')
         string += '#'
         for i in data:
             string += i + '\n'
-
         # title
         string += '\nSHARC-GAUSSIAN job\n\n'
 
@@ -683,7 +728,7 @@ class GAUSSIAN(INTERFACE):
             return string + ' ' * (maxlen - len(string))
 
     # ======================================================================= #
-
+    @staticmethod
     def runGaussian(WORKDIR, GAUSS_EXE, strip=False):
         prevdir = os.getcwd()
         os.chdir(WORKDIR)
@@ -715,7 +760,7 @@ class GAUSSIAN(INTERFACE):
         return runerror
 
     # ======================================================================= #
-
+    @staticmethod
     def stripWORKDIR(WORKDIR):
         ls = os.listdir(WORKDIR)
         keep = ['GAUSSIAN.com$', 'GAUSSIAN.err$', 'GAUSSIAN.log$', 'GAUSSIAN.chk', 'GAUSSIAN.fchk', 'GAUSSIAN.rwf']
@@ -1201,7 +1246,7 @@ class GAUSSIAN(INTERFACE):
 
             for ijob in QMin['jobs']:
                 if not QMin['jobs'][ijob]['restr']:
-                    if DEBUG:
+                    if self._DEBUG:
                         print('Skipping Job %s because it is unrestricted.' % (ijob))
                     continue
                 else:
@@ -1211,7 +1256,7 @@ class GAUSSIAN(INTERFACE):
                     for i in mults:
                         ns += QMin['states'][i - 1] - (i == gsmult)
                     if ns == 0:
-                        if DEBUG:
+                        if self._DEBUG:
                             print('Skipping Job %s because it contains no excited states.' % (ijob))
                         continue
                 WORKDIR = os.path.join(QMin['scratchdir'], 'master_%i' % ijob)
@@ -1238,7 +1283,6 @@ class GAUSSIAN(INTERFACE):
 
         return errorcodes
 
-
     def setupWORKDIR_TH(self, WORKDIR):
         QMin = self._QMin
         # mkdir the WORKDIR, or clean it if it exists, then copy all necessary files from pwd and savedir
@@ -1257,7 +1301,7 @@ class GAUSSIAN(INTERFACE):
             print('====================================================================')
 
         return
-    
+
     @staticmethod
     def runTHEODORE(WORKDIR, THEODIR):
         prevdir = os.getcwd()
@@ -1278,7 +1322,10 @@ class GAUSSIAN(INTERFACE):
         stderrfile.close()
         if PRINT or DEBUG:
             endtime = datetime.datetime.now()
-            sys.stdout.write('FINISH:\t%s\t%s\tRuntime: %s\tError Code: %i\n' % (shorten_DIR(WORKDIR), endtime, endtime - starttime, runerror))
+            sys.stdout.write(
+                'FINISH:\t%s\t%s\tRuntime: %s\tError Code: %i\n' %
+                (shorten_DIR(WORKDIR), endtime, endtime - starttime, runerror)
+            )
             sys.stdout.flush()
         os.chdir(prevdir)
         return runerror
@@ -1568,6 +1615,79 @@ class GAUSSIAN(INTERFACE):
                             factor = (-ms1 + 1. + (m1 - 1.) / 2.) / m1
                         QMout['prop'][i][j] = GAUSSIAN.getDyson(out, s1, s2) * factor
 
+        # multipolar_density fits
+        if 'multipolar_fit' in QMin:
+            if 'multipolar_fit' not in QMout:
+                QMout['multipolar_fit'] = {}
+
+            for dens in QMin['densjob']:
+                workdir = os.path.join(QMin['scratchdir'], dens)
+                self.get_fchk(workdir)
+            # sort densjobs
+            density_map = {}    # map for (mult, state, state): position in densities
+            sorted_denjobs = []
+            jobfiles = set()
+            i = 0
+            for dens in QMin['densmap']:
+                job = QMin['jobdens'][dens]
+                if job not in jobfiles:
+                    jobfiles.add(job)
+                    flags = QMin['densjob'][job]
+                    sorted_denjobs.append((job, flags))
+                    scf, es, gses = map(flags.get, ('scf', 'es', 'gses'))
+                    if scf:
+                        density_map[(*dens, *dens)] = i
+                        i += 1
+                    if es:
+                        edens = (dens[0], dens[1] + 1) if scf else dens
+                        density_map[(*edens, *edens)] = i
+                        i += 1
+                    if gses:
+                        # determine the excited states for this multiplicity
+                        nstates = QMin['states'][dens[0] - 1]
+                        ijob = QMin['multmap'][dens[0]]
+                        gsmult = QMin['multmap'][-ijob][0]
+                        first = 2
+                        if gsmult != dens[0]:
+                            first = 1
+                        last = nstates
+                        for es in range(first, last + 1):
+                            state = dens[1]
+                            density_map[(gsmult, 1, dens[0], es)] = i
+                            i += 1
+
+            # read basis
+            fchkfile = os.path.join(QMin['scratchdir'], sorted_denjobs[0][0], 'GAUSSIAN.fchk')
+            basis, n_bf = self.get_basis(fchkfile)
+            # collect all densities from the file in densjob (file: bools) and jobdens (state: file)
+            densities = self.get_dens_from_fchks(sorted_denjobs, basis, n_bf)
+
+            fits = Resp(QMin['coords'], QMin['elements'])
+            fits.prepare(basis)  # the charge of the atom does not affect
+            fits_map = {}
+            for i, d_i in enumerate(QMin['densmap']):
+                # do gs density
+                key = (*d_i, *d_i)
+                fits_map[key] = fits.multipoles_from_dens(densities[density_map[key]], include_core_charges=True)
+
+                for d_j in QMin['densmap'][i + 1:]:
+                    if d_i[0] != d_j[0]:
+                        continue
+                    # do gses and eses density
+                    key = (*d_i, *d_j)
+                    if key in density_map:
+                        fits_map[key] = fits.multipoles_from_dens(densities[density_map[key]],
+                                                                  include_core_charges=False)
+                    else:
+                        ijob = QMin['multmap'][dens[0]]  # the multiplicity is the same -> ijob same
+                        gsmult = QMin['multmap'][-ijob][0]
+                        dmI = densities[density_map[(gsmult, 1, *d_i)]]
+                        dmJ = densities[density_map[(gsmult, 1, *d_j)]]
+                        trans_dens = es2es_tdm(dmI, dmJ)
+                        fits_map[key] = fits.multipoles_from_dens(trans_dens, include_core_charges=False)
+            QMout['multipolar_fit'] = fits_map
+
+
         # TheoDORE
         if 'theodore' in QMin:
             if 'theodore' not in QMout:
@@ -1732,6 +1852,157 @@ class GAUSSIAN(INTERFACE):
         return dipoles
 
     # ======================================================================= #
+    @staticmethod
+    def get_fchk(workdir):
+        prevdir = os.getcwd()
+        os.chdir(workdir)
+        string = 'formchk GAUSSIAN.chk'
+        try:
+            runerror = sp.call(string, shell=True, stdout=sys.stdout, stderr=sys.stderr)
+        except OSError:
+            print('Call have had some serious problems:', OSError)
+            sys.exit(77)
+        print('Generated .fchk file in', workdir)
+        os.chdir(prevdir)
+
+    @staticmethod
+    def get_basis(fchkfile: str):
+        n_bf = 0
+        f = open(fchkfile, 'r')
+        lines = f.readlines()
+        f.close()
+        shell_types = []
+        n_prim = []
+        s_a_map = []
+        prim_exp = []
+        contr_coeff = []
+        ps_contr_coeff = None
+        atom_symbols = []
+        i = 0
+        while i != len(lines):
+            if 'Atomic numbers' in lines[i]:
+                natom = int(lines[i].split()[-1])
+                n_lines = ((natom - 1) // 6 + 1)
+                i += 1
+                atom_symbols = list(
+                    map(lambda x: IAn2AName[int(x)], chain(*map(lambda x: x.split(), lines[i:i + n_lines])))
+                )
+            if 'Number of basis functions' in lines[i]:
+                n_bf = int(lines[i].split()[-1])
+            if 'Shell types' in lines[i]:
+                n = int(lines[i].split()[-1])
+                n_lines = (n - 1) // 6 + 1
+                i += 1
+                shell_types = list(map(int, chain(*map(lambda x: x.split(), lines[i:i + n_lines]))))
+                i += n_lines
+            if 'Number of primitives per shell' in lines[i]:
+                n = int(lines[i].split()[-1])
+                n_lines = (n - 1) // 6 + 1
+                i += 1
+                n_prim = list(map(int, chain(*map(lambda x: x.split(), lines[i:i + n_lines]))))
+                i += n_lines
+            if 'Shell to atom map' in lines[i]:
+                n = int(lines[i].split()[-1])
+                n_lines = (n - 1) // 6 + 1
+                i += 1
+                s_a_map = list(map(int, chain(*map(lambda x: x.split(), lines[i:i + n_lines]))))
+                i += n_lines
+            if 'Primitive exponents' in lines[i]:
+                n = int(lines[i].split()[-1])
+                n_lines = (n - 1) // 5 + 1
+                i += 1
+                prim_exp = list(map(float, chain(*map(lambda x: x.split(), lines[i:i + n_lines]))))
+                i += n_lines
+            if 'Contraction coefficients' in lines[i]:
+                n = int(lines[i].split()[-1])
+                n_lines = (n - 1) // 5 + 1
+                i += 1
+                contr_coeff = list(map(float, chain(*map(lambda x: x.split(), lines[i:i + n_lines]))))
+                i += n_lines
+                if 'P(S=P) Contraction coefficients' in lines[i]:
+                    n = int(lines[i].split()[-1])
+                    n_lines = (n - 1) // 5 + 1
+                    i += 1
+                    ps_contr_coeff = list(map(float, chain(*map(lambda x: x.split(), lines[i:i + n_lines]))))
+                break
+            i += 1
+        return build_basis_dict(atom_symbols, shell_types, n_prim, s_a_map, prim_exp, contr_coeff, ps_contr_coeff), n_bf
+
+    def get_dens_from_fchks(self, densjobs: list[tuple[str, dict[str, bool]]], basis, n_bf):
+        QMin = self._QMin
+        densities = []
+        atom_symbols = QMin['elements']
+        for dens, flags in densjobs:
+            scf, es, gses = map(flags.get, ('scf', 'es', 'gses'))
+            fchkfile = os.path.join(QMin['scratchdir'], dens, 'GAUSSIAN.fchk')
+
+            f = open(fchkfile, 'r')
+            lines = f.readlines()
+            f.close()
+            new_dens = 0
+            i = 0
+            while i < len(lines):
+                if scf and 'SCF Density' in lines[i]:
+                    n = int(lines[i].split()[-1])
+                    n_lines = (n - 1) // 5 + 1
+                    i += 1
+                    d = np.fromiter(
+                        map(float, chain(*map(lambda x: x.split(), lines[i:i + n_lines]))), dtype=float, count=n
+                    )
+                    # d is triangular -> fold into full matrix (assuming lower triangular)
+                    d_tril = np.zeros((n_bf, n_bf))
+                    idx = np.tril_indices(n_bf)
+                    d_tril[idx] = d
+                    density = d_tril.T + d_tril
+                    np.fill_diagonal(density, np.diag(d_tril))
+                    swap_rows_and_cols(atom_symbols, basis, density)
+                    densities.append(density)
+                    new_dens += 1
+                    i += n_lines
+                if es and 'CI Density' in lines[i]:
+                    n = int(lines[i].split()[-1])
+                    n_lines = (n - 1) // 5 + 1
+                    i += 1
+                    d = np.fromiter(
+                        map(float, chain(*map(lambda x: x.split(), lines[i:i + n_lines]))), dtype=float, count=n
+                    )
+                    # d is triangular -> fold into full matrix (assuming lower triangular)
+                    d_tril = np.zeros((n_bf, n_bf))
+                    idx = np.tril_indices(n_bf)
+                    d_tril[idx] = d
+                    density = d_tril.T + d_tril
+                    np.fill_diagonal(density, np.diag(d_tril))
+                    swap_rows_and_cols(atom_symbols, basis, density)
+                    densities.append(density)
+                    new_dens += 1
+                    i += n_lines
+                if 'Excited state NLR' in lines[i]:
+                    i += 1
+                    n_es = int(lines[i].split()[-1])
+                    i += 1
+                    n_g2e = int(lines[i].split()[-1])
+                    i += 1
+                    if n_es != 0:
+                        i += 1
+                if gses and 'G to E trans densities' in lines[i]:
+                    n = int(lines[i].split()[-1])
+                    n_lines = (n - 1) // 5 + 1
+                    i += 1
+                    d = np.fromiter(
+                        map(float, chain(*map(lambda x: x.split(), lines[i:i + n_lines]))), dtype=float, count=n
+                    ).reshape((2 * n_g2e, n_bf, n_bf))
+                    # d = np.zeros((2*n_g2e, n_bf, n_bf), dtype=float)
+                    for i_d in range(0, 2 * n_g2e, 2):
+                        tmp = d[i_d, ...]
+                        swap_rows_and_cols(atom_symbols, basis, tmp)
+                        densities.append(tmp)
+                        new_dens += 1
+                    i += n_lines
+                i += 1
+        # read densities
+        return densities
+
+    # ======================================================================= #
 
     def getdm(logfile):
 
@@ -1844,6 +2115,8 @@ class GAUSSIAN(INTERFACE):
 
         return props
 
+
 if __name__ == '__main__':
-    gaussian = GAUSSIAN(DEBUG, PRINT)
+
+    gaussian = GAUSSIAN(get_bool_from_env('DEBUG', False), get_bool_from_env('PRINT'))
     gaussian.main()

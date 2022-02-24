@@ -2329,7 +2329,7 @@ def get_GAUSSIAN(INFOS):
         # print('')
     # else:
     print('\nPlease specify path to GAUSSIAN directory (SHELL variables and ~ can be used, will be expanded when interface is started).\n')
-    INFOS['groot'] = question('Path to GAUSSIAN:', str, path)
+    INFOS['gaussiandir'] = question('Path to GAUSSIAN:', str, path)
     print('')
 
 
@@ -2485,7 +2485,7 @@ def prepare_GAUSSIAN(INFOS, iconddir):
         print('IOError during prepareGAUSSIAN, iconddir=%s' % (iconddir))
         quit(1)
 #  project='GAUSSIAN'
-    string = 'groot %s\nscratchdir %s/%s/\nncpu %i\nschedule_scaling %f\n' % (INFOS['groot'], INFOS['scratchdir'], iconddir, INFOS['gaussian.ncpu'], INFOS['gaussian.scaling'])
+    string = 'gaussiandir %s\nscratchdir %s/%s/\nncpu %i\nschedule_scaling %f\n' % (INFOS['gaussiandir'], INFOS['scratchdir'], iconddir, INFOS['gaussian.ncpu'], INFOS['gaussian.scaling'])
     string += 'memory %i\n' % (INFOS['gaussian.mem'])
     if 'wfoverlap' in INFOS['needed']:
         string += 'wfoverlap %s\nwfthres %f\n' % (INFOS['gaussian.wfoverlap'], INFOS['gaussian.ciothres'])
@@ -3352,7 +3352,8 @@ def get_general():
         # output to user
         print('\nOne-sided derivation will be used on: %s\n' % (reduce_big_list_to_short_str(one_sided_derivations.keys())))
 
-
+    ###----------------------Multipolar fit -----------------------------##
+    INFOS['multipolar_fit'] = question('Do you want to fit an atomwise multipolar density representation for each state?', bool, False)
 
 
 
@@ -3627,6 +3628,10 @@ def write_QM_in(INFOS, displacement_key, displacement_value, displacement_dir):
     # if theodore set it
     if displacement_key is None and 'theodore' in INFOS and INFOS['theodore']:
         string += 'theodore\n'
+    
+    # if multipolar fit is requested
+    if displacement_key is None and INFOS['multipolar_fit']:
+        string += 'multipolar_fit all\n'
 
     qmin.write(string)
     qmin.close()
