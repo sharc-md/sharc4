@@ -493,7 +493,6 @@ def write_LVC_template(INFOS):
             # get hamiltonian & overlap matrix from QM.out
             path = os.path.join(INFOS['paths'][str(normal_mode) + 'p'], 'QM.out')
             requests = ['h', 'overlap']
-            print(path, requests)
             pos_H, pos_S = read_QMout(path, INFOS['nstates'], len(INFOS['atoms']), requests).values()
 
             # check diagonal of S & print warning
@@ -626,7 +625,6 @@ def main():
     displacement_info_filename = os.path.join(sys.argv[1], 'displacements.json') if is_other_dir else 'displacements.json'
 
     try:
-        print(os.listdir(os.getcwd()))
         with open(displacement_info_filename, 'r') as displacement_info:
             INFOS = json_load_byteified(displacement_info)
             displacement_info.close()
