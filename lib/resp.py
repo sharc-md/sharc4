@@ -7,12 +7,11 @@ from dataclasses import dataclass
 from error import Error
 from time import process_time_ns as t
 from itertools import chain
-from utils import swap_rows_and_cols, build_basis_dict
+from utils import euclidean_distance_einsum, swap_rows_and_cols, build_basis_dict
 from constants import IAn2AName as CHARGEATOM, ATOMIC_RADII
 
 import sys
 import numpy as np
-from scipy.spatial import distance_matrix
 from asa_grid import mk_layers
 from pyscf import gto, tools, df, scf
 import h5py
@@ -254,7 +253,7 @@ class Resp:
         print('pre loop: {:8.8f}ms'.format((s2 - s1) * 1e-6))
         s1 = s2
         for i, mk_point in enumerate(self.mk_grid):
-            dist = 1 / distance_matrix(mk_point[None, ...], cube_grid, p=2, threshold=1e8)
+            dist = 1 / euclidean_distance_einsum(mk_point[None, ...], cube_grid)
             Vele[..., i] += voxelV * np.einsum('sx,x->s', densities, dist.flat, optimize=True)
             self.Fesp_s_i[..., i] -= Vele[..., i]
         s2 = t()

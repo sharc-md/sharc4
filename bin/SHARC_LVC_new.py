@@ -80,6 +80,7 @@ class LVC(INTERFACE):
         QMin = self._QMin
         QMin['template'] = {'qmmm': False, 'cobramm': False}
         r3N = 3 * QMin['natom']
+        natom = QMin['natom']
         nmstates = QMin['nmstates']
 
         f = open(os.path.abspath(template_filename), 'r')
@@ -153,6 +154,17 @@ class LVC(INTERFACE):
                     self._dipole[j, i, :] += np.asarray(line.split(), dtype=float) * factor
                     i += 1
                     line = f.readline()
+            elif 'Multipolar Density Fit' in line:
+                n_fits = f.readline()
+                self._fits = {im: np.zeros((n, n, natom, 10), dtype=float) for im, n in enumerate(states) if n != 0}
+                def d(_):
+                    v = f.readline().split()
+                    return (int(v[0]) - 1, int(v[1]) - 1, int(v[2]) - 1, int(v[3]), v[4:])
+
+                for im, si, sj, i, v in map(d, range(n_fits)):
+                    n = len(v)
+                    self._fits[im][si, sj, i, :n] = [float(x) for x in v]
+                    self._fits[im][sj, si, i, :n] = [float(x) for x in v]
             else:
                 line = f.readline()
         f.close()
@@ -191,7 +203,7 @@ class LVC(INTERFACE):
 
     def read_resources(self, resources_filename="LVC.resources"):
         pass
-    
+
     def setup_run(self):
         pass
 
@@ -204,6 +216,8 @@ class LVC(INTERFACE):
         states = self._QMin['states']
         r3N = 3 * self._QMin['natom']
         coords: np.ndarray = self._QMin['coords'].copy()
+        if self._QMin['point_charges']:
+            pass
         if self._do_kabsch:
             weights = [MASSES[i] for i in self._QMin['elements']]
             R, com_ref, com_coords = kabsch(self._ref_coords, coords, weights)
@@ -218,6 +232,9 @@ class LVC(INTERFACE):
         for im, n in filter(lambda x: x[1] != 0, enumerate(states)):
             H = np.diag(self._epsilon[im] + V0)
             H += self._H_i[im] @ self._Q
+            # sum over all positions and point charges with distances
+            # precalculated dist matrix
+            # contract with point charges
             stop = start + n
             np.einsum('ii->i', Hd)[start:stop], self._U[start:stop, start:stop] = np.linalg.eigh(H, UPLO='U')
             for s1 in map(
@@ -352,6 +369,7 @@ class LVC(INTERFACE):
         self.set_coords(os.path.join(pwd, QMinfilename))
         self.read_requests(os.path.join(pwd, QMinfilename))
         self.run()
+        self.write_step_file()
         # if PRINT or DEBUG:
         #     self.printQMout()
         self.writeQMout()
