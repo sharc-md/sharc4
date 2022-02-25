@@ -43,11 +43,14 @@ import pprint
 from textwrap import wrap
 
 # internal
-from error import Error
+from error import Error, exception_hook
 from printing import printcomplexmatrix, printgrad, printtheodore
 from utils import *
+from globals import DEBUG, PRINT
 from constants import *
 from parse_keywords import KeywordParser
+
+sys.excepthook = exception_hook
 
 # NOTE: Error handling especially import for processes in pools (error_callback)
 # NOTE: gradient calculation necessitates multiple parallel calls (either inside interface) or
@@ -67,11 +70,14 @@ class INTERFACE(ABC):
     # TODO: set Debug and Print flag
     # TODO: set persistant flag for file-io vs in-core
     def __init__(self, debug=False, print=True, persistent=False):
+        # all the input and info for the calculation is stored here
         self._QMin = {}
+        # all the output from the calculation will be stored here
         self._QMout = {}
         self.clock = clock(verbose=print)
-        # self.printheader()
         self._DEBUG = debug
+        DEBUG.set(debug)
+        PRINT.set(print)
         self._PRINT = print
         self._persistent = persistent
         self._QMin['pwd'] = os.getcwd()
@@ -111,9 +117,14 @@ class INTERFACE(ABC):
         self._QMout = value
 
     def main(self):
+        '''
+        main routine for all interfaces.
+        This routine containes all functions that will be accessed when any interface is calculating a single point. All of these functions have to be defined in the derived class if not available in this base class
+        '''
 
         args = sys.argv
         name = self.__class__.__name__
+        self.printheader()
         if len(args) != 2:
             print(
                 'Usage:',
@@ -126,16 +137,24 @@ class INTERFACE(ABC):
             sys.exit(106)
         QMinfilename = sys.argv[1]
         pwd = os.getcwd()
-        self.printheader()
+        # set up the system (i.e. molecule, states, unit...)
         self.setup_mol(os.path.join(pwd, QMinfilename))
+        # read in the resources available for this computation (program path, cores, memory)
         self.read_resources(os.path.join(pwd, f"{name}.resources"))
+        # read in the specific template file for the interface with all keywords
         self.read_template(os.path.join(pwd, f"{name}.template"))
+        # set the coordinates of the molecular system
         self.set_coords(os.path.join(pwd, QMinfilename))
+        # read the property requests that have to be calculated
         self.read_requests(os.path.join(pwd, QMinfilename))
+        # setup the folders for the computation
         self.setup_run()
+        # perform the calculation and parse the output, do subsequent calculations with other tools
         self.run()
+        # writes a STEP file in the SAVEDIR (marks this step as succesfull)
         self.write_step_file()
-        if PRINT or DEBUG:
+        # printing and output generation
+        if self._PRINT or self._DEBUG:
             self.printQMout()
         self._QMout['runtime'] = self.clock.measuretime()
         self.writeQMout()
@@ -150,6 +169,10 @@ class INTERFACE(ABC):
 
     @abstractmethod
     def read_resources(self, resources_filename):
+        '''
+        a template for the read resources method.
+        This function might already be sufficient for an interface to use but can be extended by calling this function as `super.read_resources()`.
+        '''
         if not self._setup_mol:
             raise Error('Interface is not set up for this template. Call setup_mol with the QM.in file first!', 23)
         QMin = self._QMin
@@ -158,8 +181,7 @@ class INTERFACE(ABC):
         QMin['pwd'] = pwd
 
         paths = {
-            'orcadir': '',
-            'tinkerdir': '',
+            self.__class__.__name__.lower() + 'dir': '',
             'scratchdir': '',
             'savedir': '',    # NOTE: savedir from QMin
             'theodir': '',
@@ -197,10 +219,13 @@ class INTERFACE(ABC):
                 special=special,
             )
         }
+        print('DEBUG:', QMin['resources']['debug'])
         self._DEBUG = QMin['resources']['debug']
         self._PRINT = QMin['resources']['no_print'] is False
+        DEBUG.set(self._DEBUG)
+        PRINT.set(self._PRINT)
 
-        # NOTE: This is reall optional
+        # NOTE: This is really optional
         ncpu = QMin['resources']['ncpu']
         if os.environ.get('NSLOTS') is not None:
             ncpu = int(os.environ.get('NSLOTS'))
@@ -222,17 +247,15 @@ class INTERFACE(ABC):
             QMin['numocc'] = 0
         else:
             QMin['numocc'] = max(0, QMin['resources']['numocc'] - QMin['frozcore'])
-        # number of properties/entries calculated by TheoDORE
-        if 'theodore' in QMin:
-            QMin['resources']['theodore_n'] = len(QMin['resources']['theodore_prop']
-                                                  ) + len(QMin['resources']['theodore_fragment'])**2
-        else:
-            QMin['resources']['theodore_n'] = 0
         self._QMin = {**QMin['resources'], **QMin}
         return
         # ============================ Implemented public methods ========================
 
     def setup_mol(self, QMinfilename: str):
+        '''
+        Sets up the molecular system from a `QM.in` file.
+        parses the elements, states, and savedir and prepare the QMin object accordingly.
+        '''
         self._QMinfilename = QMinfilename
         QMin = self._QMin
         QMinlines = readfile(QMinfilename)
@@ -312,8 +335,7 @@ class INTERFACE(ABC):
             natom = int(lines[0])
         except ValueError:
             raise Error('first line must contain the number of atoms!', 2)
-        self._QMin["coords"
-                   ] = np.asarray([INTERFACE._parse_xyz(x)[1] for x in lines[2:natom + 2]], dtype=float) * self._factor
+        self._QMin["coords"] = np.asarray([parse_xyz(x)[1] for x in lines[2:natom + 2]], dtype=float) * self._factor
 
     @set_coords.register
     def _(self, xyz: list):
@@ -393,19 +415,20 @@ class INTERFACE(ABC):
     def _reset_requests(self):
         for k in [
             'init', 'samestep', 'newstep', 'restart', 'cleanup', 'backup', 'h', 'soc', 'dm', 'grad', 'overlap', 'dmdr',
-            'nac', 'nacdr', 'socdr', 'ion', 'theodore', 'phases'
+            'nac', 'nacdr', 'socdr', 'ion', 'theodore', 'phases', 'multipolar_fit'
         ]:
             if k in self._QMin:
                 del self._QMin[k]
 
     def _request_logic(self):
         QMin = self._QMin
-
         # prepare savedir
         if not os.path.isdir(QMin['savedir']):
             mkdir(QMin['savedir'])
 
-        possibletasks = {'h', 'soc', 'dm', 'grad', 'overlap', 'dmdr', 'socdr', 'ion', 'theodore', 'phases'}
+        possibletasks = {
+            'h', 'soc', 'dm', 'grad', 'overlap', 'dmdr', 'socdr', 'ion', 'theodore', 'phases', 'multipolar_fit'
+        }
         tasks = possibletasks & QMin.keys()
         if len(tasks) == 0:
             raise Error(f'No tasks found! Tasks are {possibletasks}.', 39)
@@ -444,12 +467,16 @@ class INTERFACE(ABC):
                 if QMin['step'] == 0:
                     QMin['init'] = True
                 else:
-                    raise Error(f'Specified step ({QMin["step"]}) could not be restarted from!\nCheck your savedir and "STEP" file in {QMin["savedir"]}')
+                    raise Error(
+                        f'Specified step ({QMin["step"]}) could not be restarted from!\nCheck your savedir and "STEP" file in {QMin["savedir"]}'
+                    )
             elif QMin['step'] == -1:
                 QMin['newstep'] = True
                 QMin['step'] = last_step + 1
             elif QMin['step'] == last_step:
                 QMin['samestep'] = True
+            elif QMin['step'] == last_step + 1:
+                QMin['newstep'] = True
             else:
                 raise Error(
                     f'Determined last step ({last_step}) from savedir and specified step ({QMin["step"]}) do not fit!\nPrepare your savedir and "STEP" file accordingly before starting again or choose "step -1" if you want to proceed from last successful step!'
@@ -478,7 +505,6 @@ class INTERFACE(ABC):
             grad = QMin['grad']
             if grad is True or grad == 'all':
                 grad = [i + 1 for i in range(QMin['nmstates'])]
-                # pass
             else:
                 try:
                     grad = [int(i) for i in grad]
@@ -490,6 +516,22 @@ class INTERFACE(ABC):
                     )
             QMin['grad'] = grad
 
+        # Check for correct density list
+        if 'multipolar_fit' in tasks:
+            mf = QMin['multipolar_fit']
+            if mf is True or mf == 'all':
+                mf = [i + 1 for i in range(QMin['nmstates'])]
+            else:
+                try:
+                    grad = [int(i) for i in mf]
+                except ValueError:
+                    raise Error('Arguments to keyword "multipolar_fit" must be "all" or a list of integers!', 49)
+                if len(grad) > QMin['nmstates']:
+                    raise Error(
+                        'State for requested gradient does not correspond to any state in QM input file state list!', 50
+                    )
+            QMin['multipolar_fit'] = sorted(mf)
+
         # wfoverlap settings
         if ('overlap' in QMin or 'ion' in QMin) and self.__class__.__name__ != 'LVC':
             # WFoverlap
@@ -498,7 +540,7 @@ class INTERFACE(ABC):
                 raise Error('Give path to wfoverlap.x in resources file!', 54)
 
         if 'theodore' in QMin:
-            if QMin['resources']['theodir'] is not None and not os.path.isdir(QMin['resources']['theodir']):
+            if QMin['resources']['theodir'] is None or not os.path.isdir(QMin['resources']['theodir']):
                 raise Error('Give path to the TheoDORE installation directory in resources file!', 56)
             os.environ['THEODIR'] = QMin['resources']['theodir']
             if 'PYTHONPATH' in os.environ:
@@ -510,44 +552,16 @@ class INTERFACE(ABC):
                 os.environ['PYTHONPATH'] = os.path.join(QMin['theodir'],
                                                         'lib') + os.pathsep + QMin['resources']['theodir']
 
-    # NOTE: generalize the parsing of keyword based input files, with lines as input
-
     def setup_run(self):
         QMin = self._QMin
         # obtain the statemap
         QMin['statemap'] = {i + 1: [*v] for i, v in enumerate(itnmstates(QMin['states']))}
 
-        # obtain the states to actually compute
-        states_to_do = [v + QMin['template']['paddingstates'][i] if v > 0 else v for i, v in enumerate(QMin['states'])]
-        if not QMin['template']['unrestricted_triplets']:
-            if len(QMin['states']) >= 3 and QMin['states'][2] > 0:
-                states_to_do[0] = max(QMin['states'][0], 1)
-                req = max(QMin['states'][0] - 1, QMin['states'][2])
-                states_to_do[0] = req + 1
-                states_to_do[2] = req
-        QMin['states_to_do'] = states_to_do
-
+        self._states_to_do()    # can be different in interface -> general method here with possibility to overwrite
         # make the jobs
-        jobs = {}
-        if QMin['states_to_do'][0] > 0:
-            jobs[1] = {'mults': [1], 'restr': True}
-        if len(QMin['states_to_do']) >= 2 and QMin['states_to_do'][1] > 0:
-            jobs[2] = {'mults': [2], 'restr': False}
-        if len(QMin['states_to_do']) >= 3 and QMin['states_to_do'][2] > 0:
-            if not QMin['template']['unrestricted_triplets'] and QMin['states_to_do'][0] > 0:
-                jobs[1]['mults'].append(3)
-            else:
-                jobs[3] = {'mults': [3], 'restr': False}
-        if len(QMin['states_to_do']) >= 4:
-            for imult, nstate in enumerate(QMin['states_to_do'][3:]):
-                if nstate > 0:
-                    # jobs[len(jobs)+1]={'mults':[imult+4],'restr':False}
-                    jobs[imult + 4] = {'mults': [imult + 4], 'restr': False}
-        QMin['jobs'] = jobs
-
+        self._jobs()
+        jobs = QMin['jobs']
         # make the multmap (mapping between multiplicity and job)
-        # multmap[imult]=ijob
-        # multmap[-ijob]=[imults]
         multmap = {}
         for ijob, job in jobs.items():
             for imult in job['mults']:
@@ -581,6 +595,11 @@ class INTERFACE(ABC):
             gradmap = {tuple(QMin['statemap'][i][0:2]) for i in QMin['grad']}
         QMin['gradmap'] = sorted(gradmap)
 
+        densmap = set()
+        if 'multipolar_fit' in QMin:
+            densmap = {tuple(QMin['statemap'][i][0:2]) for i in QMin['multipolar_fit']}
+        QMin['densmap'] = sorted(densmap)
+
         # make the chargemap
         QMin['chargemap'] = {i + 1: c for i, c in enumerate(QMin['template']['charge'])}
 
@@ -602,10 +621,10 @@ class INTERFACE(ABC):
 
         # number of properties/entries calculated by TheoDORE
         if 'theodore' in QMin:
-            QMin['resources']['theodore_n'] = len(QMin['resources']['theodore_prop']
-                                                  ) + len(QMin['resources']['theodore_fragment'])**2
+            QMin['theodore_n'] = len(QMin['resources']['theodore_prop']
+                                     ) + len(QMin['resources']['theodore_fragment'])**2
         else:
-            QMin['resources']['theodore_n'] = 0
+            QMin['theodore_n'] = 0
 
         # TODO: QMMM
         QMin['qmmm'] = False
@@ -661,7 +680,7 @@ class INTERFACE(ABC):
         # 3 replace all \n with ',' in the matches,
         # 4 return matches between [' and ']
         file_str = '\n'.join(filtered)
-        if not file_str or file_str.isspace():    # check is there is only whitespace left!
+        if not file_str or file_str.isspace():    # check if there is only whitespace left!
             return {}
 
         QMin = self._QMin
@@ -711,13 +730,19 @@ class INTERFACE(ABC):
             else:
                 d[key] = parsers[key](args)
         except Error:
-            raise
-        except Exception:
             ty, val, tb = sys.exc_info()
             raise Error(
                 f'Something went wrong while parsing the keyword: {key} {args}:\n\
                 {ty.__name__}: {val}\nPlease consult the examples folder in the $SHARCDIR for more information!'
-            ).with_traceback(tb)
+            ).with_traceback(None)
+        except KeyError as e:
+            ty, val, tb = sys.exc_info()
+            keys = '\n    '.join(parsers.keys())
+            available_keys = f'Available Keywords:\n    {keys}'
+            raise Error(
+                f'The keyword {val} is not known!' +
+                f'\nPlease consult the examples folder in the $SHARCDIR for more information!\n{available_keys}', 34
+            )
         return d
 
     def write_step_file(self):
@@ -727,7 +752,6 @@ class INTERFACE(ABC):
         savedir = QMin['savedir']
         stepfile = os.path.join(savedir, 'STEP')
         writefile(stepfile, str(QMin['step']))
-
 
     def generate_joblist(self):
         QMin = self._QMin
@@ -744,8 +768,7 @@ class INTERFACE(ABC):
             else:
                 if grad == (1, 1):
                     isgs = True
-            istates = QMin['states_to_do'][grad[0] - 1]
-            gradjob['master_%i' % ijob][grad] = {'gs': isgs}
+            gradjob[f'master_{ijob}'][grad] = {'gs': isgs}
         # make map for states onto gradjobs
         jobgrad = {}
         for job in gradjob:
@@ -815,7 +838,7 @@ class INTERFACE(ABC):
             natom = int(lines[0])
         except ValueError:
             raise Error('first line must contain the number of atoms!', 2)
-        return [[x[0], *x[1]] for x in map(INTERFACE._parse_xyz, lines[2:natom + 2])]
+        return [[x[0], *x[1]] for x in map(parse_xyz, lines[2:natom + 2])]
 
     @staticmethod
     def read_elements(QMinlines: list[str]) -> list[str]:
@@ -828,18 +851,41 @@ class INTERFACE(ABC):
             raise Error(
                 'Input file must contain at least:\nnatom\ncomment\ngeometry\nkeyword "states"\nat least one task', 3
             )
-        atomlist = list(map(lambda x: INTERFACE._parse_xyz(x)[0], (QMinlines[2:natom + 2])))
+        atomlist = list(map(lambda x: parse_xyz(x)[0], (QMinlines[2:natom + 2])))
         return atomlist
 
     # ======================================================================= #
 
-    @staticmethod
-    def _parse_xyz(line: str) -> tuple[str, list[float]]:
-        match = re.match(r'([a-zA-Z]{1,2}\d?)((\s+-?\d+\.\d*){3,6})', line.strip())
-        if match:
-            return match[1], list(map(float, match[2].split()[:3]))
-        else:
-            raise Error(f"line is not xyz\n\n{line}", 43)
+    def _jobs(self):
+        QMin = self.QMin
+        jobs = {}
+        if QMin['states_to_do'][0] > 0:
+            jobs[1] = {'mults': [1], 'restr': True}
+        if len(QMin['states_to_do']) >= 2 and QMin['states_to_do'][1] > 0:
+            jobs[2] = {'mults': [2], 'restr': False}
+        if len(QMin['states_to_do']) >= 3 and QMin['states_to_do'][2] > 0:
+            if not QMin['template']['unrestricted_triplets'] and QMin['states_to_do'][0] > 0:
+                jobs[1]['mults'].append(3)
+            else:
+                jobs[3] = {'mults': [3], 'restr': False}
+        if len(QMin['states_to_do']) >= 4:
+            for imult, nstate in enumerate(QMin['states_to_do'][3:]):
+                if nstate > 0:
+                    # jobs[len(jobs)+1]={'mults':[imult+4],'restr':False}
+                    jobs[imult + 4] = {'mults': [imult + 4], 'restr': False}
+        QMin['jobs'] = jobs
+
+    def _states_to_do(self):
+        QMin = self.QMin
+        # obtain the states to actually compute
+        states_to_do = [v + QMin['template']['paddingstates'][i] if v > 0 else v for i, v in enumerate(QMin['states'])]
+        if not QMin['template']['unrestricted_triplets']:
+            if len(QMin['states']) >= 3 and QMin['states'][2] > 0:
+                states_to_do[0] = max(QMin['states'][0], 1)
+                req = max(QMin['states'][0] - 1, QMin['states'][2])
+                states_to_do[0] = req + 1
+                states_to_do[2] = req
+        QMin['states_to_do'] = states_to_do
 
     @staticmethod
     def _get_pairs(QMinlines, i):
@@ -1097,32 +1143,11 @@ class INTERFACE(ABC):
         string = '%s -f wfovl.inp -m %i' % (QMin['wfoverlap'], QMin['memory'])
         self.runProgram(string, scradir, 'wfovl.out')
 
-    def copymolden(self):
-        QMin = self._QMin
-        # run tm2molden in scratchdir
-        string = 'molden.input\nY\n'
-        filename = os.path.join(QMin['scratchdir'], 'JOB', 'tm2molden.input')
-        writefile(filename, string)
-        string = 'tm2molden < tm2molden.input'
-        path = os.path.join(QMin['scratchdir'], 'JOB')
-        self.runProgram(string, path, 'tm2molden.output')
-
-        if 'molden' in QMin:
-            # create directory
-            moldendir = QMin['savedir'] + '/MOLDEN/'
-            if not os.path.isdir(moldendir):
-                mkdir(moldendir)
-
-            # save the molden.input file
-            f = QMin['scratchdir'] + '/JOB/molden.input'
-            fdest = moldendir + '/step_%s.molden' % (QMin['step'][0])
-            shutil.copy(f, fdest)
-
     # ======================================================================= #
     def run_theodore(self):
         QMin = self._QMin
         workdir = os.path.join(QMin['scratchdir'], 'JOB')
-        string = 'python2 %s/bin/analyze_tden.py' % (QMin['theodir'])
+        string = 'python %s/bin/analyze_tden.py' % (QMin['theodir'])
         runerror = self.runProgram(string, workdir, 'theodore.out')
         if runerror != 0:
             raise Error('Theodore calculation crashed! Error code=%i' % (runerror), 105)
@@ -1329,243 +1354,6 @@ class INTERFACE(ABC):
             fdest = moldendir + '/step_%s__nto_%i_%i.molden' % (QMin['step'], m, s)
             shutil.copy(f, fdest)
 
-# =============================================================================================== #
-# =============================================================================================== #
-# =========================================== QM/MM ============================================= #
-# =============================================================================================== #
-# =============================================================================================== #
-
-    def prepare_QMMM(self, table_file):
-        ''' creates dictionary with:
-        MM coordinates (including connectivity and atom types)
-        QM coordinates (including Link atom stuff)
-        point charge data (including redistribution for Link atom neighbors)
-        reorder arrays (for internal processing, all QM, then all LI, then all MM)
-
-        is only allowed to read the following keys from QMin:
-        geo
-        natom
-        QM/MM related infos from template
-        '''
-        QMin = self._QMin
-        table = readfile(table_file)
-
-        # read table file
-        print('===== Running QM/MM preparation ====')
-        print('Reading table file ...         ', datetime.now())
-        QMMM = {}
-        QMMM['qmmmtype'] = []
-        QMMM['atomtype'] = []
-        QMMM['connect'] = []
-        allowed = ['qm', 'mm']
-        # read table file
-        for iline, line in enumerate(table):
-            s = line.split()
-            if len(s) == 0:
-                continue
-            if not s[0].lower() in allowed:
-                raise Error('Not allowed QMMM-type "%s" on line %i!' % (s[0], iline + 1), 34)
-            QMMM['qmmmtype'].append(s[0].lower())
-            QMMM['atomtype'].append(s[1])
-            QMMM['connect'].append(set())
-            for i in s[2:]:
-                QMMM['connect'][-1].add(int(i) - 1)    # internally, atom numbering starts at 0
-        QMMM['natom_table'] = len(QMMM['qmmmtype'])
-
-        # list of QM and MM atoms
-        QMMM['QM_atoms'] = []
-        QMMM['MM_atoms'] = []
-        for iatom in range(QMMM['natom_table']):
-            if QMMM['qmmmtype'][iatom] == 'qm':
-                QMMM['QM_atoms'].append(iatom)
-            elif QMMM['qmmmtype'][iatom] == 'mm':
-                QMMM['MM_atoms'].append(iatom)
-
-        # make connections redundant and fill bond array
-        print('Checking connection table ...  ', datetime.now())
-        QMMM['bonds'] = set()
-        for iatom in range(QMMM['natom_table']):
-            for jatom in QMMM['connect'][iatom]:
-                QMMM['bonds'].add(tuple(sorted([iatom, jatom])))
-                QMMM['connect'][jatom].add(iatom)
-        QMMM['bonds'] = sorted(list(QMMM['bonds']))
-
-        # find link bonds
-        print('Finding link bonds ...         ', datetime.now())
-        QMMM['linkbonds'] = []
-        QMMM['LI_atoms'] = []
-        for i, j in QMMM['bonds']:
-            if QMMM['qmmmtype'][i] != QMMM['qmmmtype'][j]:
-                link = {}
-                if QMMM['qmmmtype'][i] == 'qm':
-                    link['qm'] = i
-                    link['mm'] = j
-                elif QMMM['qmmmtype'][i] == 'mm':
-                    link['qm'] = j
-                    link['mm'] = i
-                link['scaling'] = {'qm': 0.3, 'mm': 0.7}
-                link['element'] = 'H'
-                link['atom'] = [link['element'], 0., 0., 0.]
-                for xyz in range(3):
-                    link['atom'][xyz + 1] += link['scaling']['mm'] * QMin['geo'][link['mm']][xyz + 1]
-                    link['atom'][xyz + 1] += link['scaling']['qm'] * QMin['geo'][link['qm']][xyz + 1]
-                QMMM['linkbonds'].append(link)
-                QMMM['LI_atoms'].append(QMMM['natom_table'] - 1 + len(QMMM['linkbonds']))
-                QMMM['atomtype'].append('999')
-                QMMM['connect'].append(set([link['qm'], link['mm']]))
-
-        # check link bonds
-        mm_in_links = []
-        qm_in_links = []
-        mm_in_link_neighbors = []
-        for link in QMMM['linkbonds']:
-            mm_in_links.append(link['mm'])
-            qm_in_links.append(link['qm'])
-            for j in QMMM['connect'][link['mm']]:
-                if QMMM['qmmmtype'][j] == 'mm':
-                    mm_in_link_neighbors.append(j)
-        mm_in_link_neighbors.extend(mm_in_links)
-        # no QM atom is allowed to be bonded to two MM atoms
-        if not len(qm_in_links) == len(set(qm_in_links)):
-            raise Error('Some QM atom is involved in more than one link bond!', 35)
-        # no MM atom is allowed to be bonded to two QM atoms
-        if not len(mm_in_links) == len(set(mm_in_links)):
-            raise Error('Some MM atom is involved in more than one link bond!', 36)
-        # no neighboring MM atoms are allowed to be involved in link bonds
-        if not len(mm_in_link_neighbors) == len(set(mm_in_link_neighbors)):
-            raise Error('An MM-link atom is bonded to another MM-link atom!', 37)
-
-        # check geometry and connection table
-        if not QMMM['natom_table'] == QMin['natom']:
-            raise Error('Number of atoms in table file does not match number of atoms in QMin!', 38)
-
-        # process MM geometry (and convert to angstrom!)
-        QMMM['MM_coords'] = []
-        for atom in QMin['geo']:
-            QMMM['MM_coords'].append([atom[0]] + [i * au2a for i in atom[1:4]])
-        for ilink, link in enumerate(QMMM['linkbonds']):
-            QMMM['MM_coords'].append(['HLA'] + link['atom'][1:4])
-
-        # create reordering dicts
-        print('Creating reorder mappings ...  ', datetime.now())
-        QMMM['reorder_input_MM'] = {}
-        QMMM['reorder_MM_input'] = {}
-        j = -1
-        for i, t in enumerate(QMMM['qmmmtype']):
-            if t == 'qm':
-                j += 1
-                QMMM['reorder_MM_input'][j] = i
-        for ilink, link in enumerate(QMMM['linkbonds']):
-            j += 1
-            QMMM['reorder_MM_input'][j] = QMMM['natom_table'] + ilink
-        for i, t in enumerate(QMMM['qmmmtype']):
-            if t == 'mm':
-                j += 1
-                QMMM['reorder_MM_input'][j] = i
-        for i in QMMM['reorder_MM_input']:
-            QMMM['reorder_input_MM'][QMMM['reorder_MM_input'][i]] = i
-
-        # process QM geometry (including link atoms), QM coords in bohr!
-        QMMM['QM_coords'] = []
-        QMMM['reorder_input_QM'] = {}
-        QMMM['reorder_QM_input'] = {}
-        j = -1
-        for iatom in range(QMMM['natom_table']):
-            if QMMM['qmmmtype'][iatom] == 'qm':
-                QMMM['QM_coords'].append(deepcopy(QMin['geo'][iatom]))
-                j += 1
-                QMMM['reorder_input_QM'][iatom] = j
-                QMMM['reorder_QM_input'][j] = iatom
-        for ilink, link in enumerate(QMMM['linkbonds']):
-            QMMM['QM_coords'].append(link['atom'])
-            j += 1
-            QMMM['reorder_input_QM'][-(ilink + 1)] = j
-            QMMM['reorder_QM_input'][j] = -(ilink + 1)
-
-        # process charge redistribution around link bonds
-        # point charges are in input geometry ordering
-        print('Charge redistribution ...      ', datetime.now())
-        QMMM['charge_distr'] = []
-        for iatom in range(QMMM['natom_table']):
-            if QMMM['qmmmtype'][iatom] == 'qm':
-                QMMM['charge_distr'].append([(0., 0)])
-            elif QMMM['qmmmtype'][iatom] == 'mm':
-                if iatom in mm_in_links:
-                    QMMM['charge_distr'].append([(0., 0)])
-                else:
-                    QMMM['charge_distr'].append([(1., iatom)])
-        for link in QMMM['linkbonds']:
-            mm_neighbors = []
-            for j in QMMM['connect'][link['mm']]:
-                if QMMM['qmmmtype'][j] == 'mm':
-                    mm_neighbors.append(j)
-            if len(mm_neighbors) > 0:
-                factor = 1. / len(mm_neighbors)
-                for j in QMMM['connect'][link['mm']]:
-                    if QMMM['qmmmtype'][j] == 'mm':
-                        QMMM['charge_distr'][j].append((factor, link['mm']))
-
-        # pprint.pprint(QMMM)
-        return QMMM
-
-    def transform_QM_QMMM(self):
-        QMin = self._QMin
-        QMout = self._QMout
-        # Meta data
-        QMin['natom'] = QMin['natom_orig']
-        QMin['geo'] = QMin['geo_orig']
-
-        # Hamiltonian
-        if 'h' in QMout:
-            for i in range(QMin['nmstates']):
-                QMout['h'][i][i] += QMin['qmmm']['MMEnergy']
-
-        # Gradients
-        if 'grad' in QMout:
-            nmstates = QMin['nmstates']
-            natom = QMin['natom_orig']
-            grad = [[[0. for i in range(3)] for j in range(natom)] for k in range(nmstates)]
-            # QM gradient
-            for iqm in QMin['qmmm']['reorder_QM_input']:
-                iqmmm = QMin['qmmm']['reorder_QM_input'][iqm]
-                if iqmmm < 0:
-                    ilink = -iqmmm - 1
-                    link = QMin['qmmm']['linkbonds'][ilink]
-                    for istate in range(nmstates):
-                        for ixyz in range(3):
-                            grad[istate][link['qm']][ixyz] += QMout['grad'][istate][iqm][ixyz] * link['scaling']['qm']
-                            grad[istate][link['mm']][ixyz] += QMout['grad'][istate][iqm][ixyz] * link['scaling']['mm']
-                else:
-                    for istate in range(nmstates):
-                        for ixyz in range(3):
-                            grad[istate][iqmmm][ixyz] += QMout['grad'][istate][iqm][ixyz]
-            # PC gradient
-            # for iqm,iqmmm in enumerate(QMin['qmmm']['MM_atoms']):
-            for iqm in QMin['qmmm']['reorder_pc_input']:
-                iqmmm = QMin['qmmm']['reorder_pc_input'][iqm]
-                for istate in range(nmstates):
-                    for ixyz in range(3):
-                        grad[istate][iqmmm][ixyz] += QMout['pcgrad'][istate][iqm][ixyz]
-            # MM gradient
-            for iqmmm in range(QMin['qmmm']['natom_table']):
-                for istate in range(nmstates):
-                    for ixyz in range(3):
-                        grad[istate][iqmmm][ixyz] += QMin['qmmm']['MMGradient'][iqmmm][ixyz]
-            QMout['grad'] = grad
-
-        # pprint.pprint(QMout)
-        return
-
-    @staticmethod
-    def write_pccoord_file(pointcharges):
-        '''Writes pointcharges as file'''
-        string = '%i\n' % len(pointcharges)
-        for atom in pointcharges:
-            string += '{: 10.8} {: 12.12} {: 12.12} {: 12.12}\n'.format(
-                atom[3], *map(lambda x: x * BOHR_TO_ANG, atom[:3])
-            )
-        return string
-
     # ============================PRINTING ROUTINES========================== #
 
     def printheader(self):
@@ -1740,10 +1528,7 @@ class INTERFACE(ABC):
     def printQMout(self):
         '''If PRINT, prints a summary of all requested QM output values.
         Matrices are formatted using printcomplexmatrix, vectors using printgrad.
-
-        Arguments:
-        1 dictionary: QMin
-        2 dictionary: QMout'''
+        '''
         QMin = self._QMin
         QMout = self._QMout
         if not self._PRINT:
@@ -1878,7 +1663,6 @@ class INTERFACE(ABC):
 # =============================================================================================== #
 # =============================================================================================== #
 
-
     def writeQMout(self):
         '''Writes the requested quantities to the file which SHARC reads in.
         The filename is QMinfilename with everything after the first dot replaced by "out".
@@ -1919,7 +1703,9 @@ class INTERFACE(ABC):
             string += self.writeQmoutPhases()
         if 'grad' in QMin:
             if 'cobramm' in QMin['template'] and QMin['template']['cobramm']:
-                self.writeQMoutgradcobramm()
+                string += self.writeQMoutgradcobramm()
+        if 'multipolar_fit' in QMin:
+            string += self.writeQMoutmultipolarfit()
         string += self.writeQMouttime()
         outfile = os.path.join(QMin['pwd'], outfilename)
         writefile(outfile, string)
@@ -2351,6 +2137,41 @@ class INTERFACE(ABC):
         string = '! 7 Phases\n%i ! for all nmstates\n' % (QMin['nmstates'])
         for i in range(QMin['nmstates']):
             string += '%s %s\n' % (eformat(QMout['phases'][i].real, 9, 3), eformat(QMout['phases'][i].imag, 9, 3))
+        return string
+
+    def writeQMoutmultipolarfit(self):
+        '''Generates a string with the fitted RESP charges for each pair of states specified.
+
+        The string starts with a ! followed by a flag specifying the type of data.
+        Each line starts with the atom number (starting at 1), state i and state j. 
+        If i ==j: fit for single state, else fit for transition multipoles.
+        One line per atom and a blank line at the end.
+
+        Returns:
+        1 string: multiline string with the Gradient vectors'''
+
+        QMin = self._QMin
+        QMout = self._QMout
+        states = QMin['states']
+        nmstates = QMin['nmstates']
+        natom = QMin['natom']
+        fits = QMout['multipolar_fit']
+        string = f'! 22 Atomwise multipolar density representation fits for states ({nmstates}x{nmstates}x{natom}x10)\n'
+
+        for i, (imult, istate, ims) in zip(range(nmstates), itnmstates(states)):
+            for j, (jmult, jstate, jms) in zip(range(nmstates), itnmstates(states)):
+                string += f'{natom} 10 ! m1 {imult} s1 {istate} ms1 {ims: 3.1f}   m2 {jmult} s2 {jstate} ms2 {jms: 3.1f}\n'
+
+                if (imult, istate, jmult, jstate) in fits:
+                    entry = fits[(imult, istate, jmult, jstate)]
+                elif (jmult, jstate, imult, istate) in fits:
+                    entry = fits[(jmult, jstate, imult, istate)]
+                else:
+                    entry = np.zeros((natom, 10))
+                string += "\n".join(map(lambda x: " ".join(map(lambda y: '{: 10.8f}'.format(y), x)), entry)) + '\n'
+                
+
+                string += ''
         return string
 
     def writeQMoutgradcobramm(self):

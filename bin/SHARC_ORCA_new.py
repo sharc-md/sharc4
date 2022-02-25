@@ -45,31 +45,26 @@ version = '3.0'
 versiondate = datetime.datetime(2021, 7, 15)
 
 changelogstring = '''
-12.02.2016:     Initial version 0.1
-- CC2 and ADC(2) from Turbomole
-- SOC from Orca call
-- only singlets and triplets
-  => Doublets and Dyson could be added later
+16.05.2018: INITIAL VERSION
+- functionality as SHARC_GAUSSIAN.py, minus restricted triplets
+- QM/MM capabilities in combination with TINKER
+- AO overlaps computed by PyQuante (only up to f functions)
 
-15.03.2016:     0.1.1
-- ridft can be used for the SCF calculation, but dscf has to be run afterwards anyways (for SOC and overlaps).
-- Laplace-transformed SOS-CC2/ADC(2) can be used ("spin-scaling lt-sos"), but does not work for soc or trans-dm
-- if ricc2 does not converge, it is rerun with different combinations of npre and nstart (until convergence or too many tries)
+11.09.2018:
+- added "basis_per_element", "basis_per_atom", and "hfexchange" keywords
 
-07.03.2017:
-- wfthres is now interpreted as in other interfaces (default is 0.99 now)
+03.10.2018:
+Update for Orca 4.1:
+- SOC for restricted singlets and triplets
+- gradients for restricted triplets
+- multigrad features
+- orca_fragovl instead of PyQuante
 
-25.04.2017:
-- can use external basis set libraries
+16.10.2018:
+Update for Orca 4.1, after revisions:
+- does not work with Orca 4.0 or lower (orca_fragovl unavailable, engrad/pcgrad files)
 
-23.08.2017
-- Resource file is now called "RICC2.resources" instead of "SH2CC2.inp" (old filename still works)
-
-24.08.2017:
-- numfrozcore in resources file can now be used to override number of frozen cores for overlaps
-- added Theodore capabilities (compute descriptors, OmFrag, and NTOs (also activate MOLDEN key for that))
-
-11.11.2020:
+11.10.2020:
 - COBRAMM can be used for QM/MM calculations
 '''
 
@@ -348,7 +343,7 @@ class ORCA(INTERFACE):
             for job in QMin['joblist']:
                 filename = os.path.join(QMin['savedir'], f'ORCA.gbw.{job}.{step-1}')
                 if os.path.isfile(filename):
-                    initorbs[job] = os.path.join(QMin['savedir'], f'ORCA.gbw.{job}.{step-1}')
+                    initorbs[job] = filename
                 else:
                     raise Error(f'File {filename} missing in savedir!', 71)
             QMin['initorbs'] = initorbs
@@ -639,6 +634,10 @@ class ORCA(INTERFACE):
             cleandir(QMin['scratchdir'])
             if 'cleanup' in QMin:
                 cleandir(QMin['savedir'])
+
+
+
+    # ======================================================================= #
 
     def run_theodore(self, errorcodes):
         QMin = self._QMin

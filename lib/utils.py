@@ -9,7 +9,11 @@ import subprocess as sp
 from globals import DEBUG, PRINT
 
 # ======================================================================= #
-
+def get_bool_from_env(name: str, default=False):
+    var = default
+    if name in os.environ and os.environ[name].lower() in [name, "false"]:
+        var = os.environ[name] == "true"
+    return var
 
 def readfile(filename) -> list[str]:
     '''reads file from path and returns list of lines.
@@ -24,6 +28,12 @@ def readfile(filename) -> list[str]:
     return out
 
 
+def parse_xyz(line: str) -> tuple[str, list[float]]:
+    match = re.match(r'([a-zA-Z]{1,2}\d?)((\s+-?\d+\.\d*){3,6})', line.strip())
+    if match:
+        return match[1], list(map(float, match[2].split()[:3]))
+    else:
+        raise Error(f"line is not xyz\n\n{line}", 43)
 # ======================================================================= #
 
 
@@ -327,6 +337,42 @@ def safe_cast(val, type, fallback=None):
 def list2dict(ls: list) -> dict:
     return {i: value for i, value in enumerate(ls)}
 
+
+def build_basis_dict(
+    atom_symbols: list, shell_types, n_prim, s_a_map, prim_exp, contr_coeff, ps_contr_coeff=None
+) -> dict:
+    # print(atom_symbols, shell_types, n_prim, s_a_map, prim_exp, contr_coeff, ps_contr_coeff)
+    n_a = {i + 1: f'{a.upper()}{i+1}' for i, a in enumerate(atom_symbols)}
+    basis = {k: [] for k in n_a.values()}
+    it = 0
+    for st, np, a in zip(shell_types, n_prim, s_a_map):
+
+        shell = list(map(lambda x: (prim_exp[x], contr_coeff[x]), range(it, it + np)))
+        if ps_contr_coeff and ps_contr_coeff[it] != 0.:
+            shell2 = list(map(lambda x: (prim_exp[x], ps_contr_coeff[x]), range(it, it + np)))
+            basis[n_a[a]].append([0, *shell])
+            basis[n_a[a]].append([abs(st), *shell2])
+        else:
+            basis[n_a[a]].append([abs(st), *shell])
+        it += np
+    return basis
+
+
+def swap_rows_and_cols(atom_symbols, basis_dict, matrix, swaps=[[0, 2], [1, 3], [1, 4], [0, 1]], swaps_r=[[2, 0], [3, 1], [4, 1], [1, 0]]):
+    # if there are any d-orbitals they need to be swapped!!!
+    # from gauss order: z2, xz, yz, x2-y2, xy
+    # to   pyscf order: xy, yz, z2, xz, x2-y2
+    it = 0
+    for i, a in enumerate(atom_symbols):
+        key = f'{a.upper()}{i+1}'
+        for shell in basis_dict[key]:
+            if shell[0] == 2:
+                for swap, swap_r in zip(swaps, swaps_r):
+                    s1 = [x + it for x in swap]
+                    s2 = [x + it for x in swap_r]
+                    matrix[s1, :] = matrix[s2, :]
+                    matrix[:, s1] = matrix[:, s2]
+            it += 2 * shell[0] + 1
 
 @dataclass
 class MMATOM:
