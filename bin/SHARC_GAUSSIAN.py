@@ -421,7 +421,7 @@ class GAUSSIAN(INTERFACE):
 # =============================================================================================== #
 
 
-    def run(self):
+    def run(self, writeQMout=True):
         QMin = self._QMin
         # get the job schedule
         schedule = self.generate_joblist()
@@ -450,7 +450,8 @@ class GAUSSIAN(INTERFACE):
         self._QMout['runtime'] = runtime
 
         # Write QMout
-        self.writeQMout()
+        if writeQMout:
+            self.writeQMout()
 
         # Remove Scratchfiles from SCRATCHDIR
         if not DEBUG:
