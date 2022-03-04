@@ -382,11 +382,11 @@ def euclidean_distance_einsum(X, Y):
     Parameters
     ----------
     X : array, (n_samples x d_dimensions)
-    Y : array, (n_samples x d_dimensions)
+    Y : array, (m_samples x d_dimensions)
 
     Returns
     -------
-    D : array, (n_samples, n_samples)
+    D : array, (n_samples, m_samples)
     """
     XX = np.einsum('ij,j-> i', X, X)[:, np.newaxis]
     YY = np.einsum('ij,j-> i', Y, Y)
