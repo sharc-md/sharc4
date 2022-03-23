@@ -24,52 +24,6 @@ def get_resp_grid(atom_symbols: list[str], coords: np.ndarray, density=1, shells
     atom_radii = np.fromiter(map(lambda x: ATOMIC_RADII[x], atom_symbols), dtype=float)
     return mk_layers(coords, atom_radii, density, shells)
 
-
-@dataclass(init=True, eq=True)
-class Cube:
-    n1: int
-    n2: int
-    n3: int
-
-    x0: float
-    x1: float
-    x2: float
-    x3: float
-
-    y0: float
-    y1: float
-    y2: float
-    y3: float
-
-    z0: float
-    z1: float
-    z2: float
-    z3: float
-
-    def get_points(self) -> np.ndarray:
-        return np.asarray([p for p in self.points()], dtype=float)
-
-    def points(self):
-        point = np.array([self.x0, self.y0, self.z0])
-        shift1 = np.array([self.x1, self.y1, self.z1])
-        shift2 = np.array([self.x2, self.y2, self.z2])
-        shift3 = np.array([self.x3, self.y3, self.z3])
-        for p in range(self.n1):
-            s1 = p * shift1
-            for q in range(self.n2):
-                s2 = q * shift2
-                for r in range(self.n3):
-                    yield point + r * shift3 + s2 + s1
-
-    def volume(self):
-        s = self
-        d = s.x1 * s.y2 * s.z3 + s.x2 * s.y3 * s.z1 + s.x3 * s.y1 * s.z2 - s.x3 * s.y2 * s.z1 - s.x1 * s.y3 * s.z2 - s.x2 * s.y1 * s.z3
-        return d
-
-    def n_points(self):
-        return self.n1 * self.n2 * self.n3
-
-
 class Resp:
     def __init__(self, coords: np.ndarray, atom_symbols: list[str], density=1, shells=[1.4, 1.6, 1.8, 2.0]):
         """
