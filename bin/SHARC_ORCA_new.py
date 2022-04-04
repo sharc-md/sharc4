@@ -624,7 +624,6 @@ class ORCA(INTERFACE):
                 'Within the SHARC-ORCA interface couplings can only be calculated via the overlap method. "nacdr" and "nacdt" are not supported.',
                 44
             )
-        print(QMin['point_charges'])
         schedule = self.generate_joblist()
         errorcodes = self.runjobs(schedule)
         errorcodes = self.run_wfoverlap(errorcodes)
@@ -1888,5 +1887,5 @@ class ORCA(INTERFACE):
 
 
 if __name__ == '__main__':
-    orca = ORCA(DEBUG, PRINT)
+    orca = ORCA()
     orca.main()

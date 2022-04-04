@@ -47,7 +47,7 @@ versiondate = datetime.datetime(2021, 7, 29)
 
 changelogstring = '''
 '''
-# np.set_printoptions(linewidth=400, precision=3, formatter={'float': lambda x: f'{x: 8.5}'})
+np.set_printoptions(linewidth=400, precision=3, formatter={'float': lambda x: f'{x: 8.5}'})
 
 
 class LVC(INTERFACE):
@@ -58,6 +58,7 @@ class LVC(INTERFACE):
     _changelogstring = changelogstring
     _read_resources = True
     _do_kabsch = True
+    _diagonalize = True
     _step = 0
 
     @property
@@ -165,8 +166,12 @@ class LVC(INTERFACE):
 
                 for im, si, sj, i, v in map(d, range(n_fits)):
                     n = len(v)
-                    self._fits[im][si, sj, i, :n] = [float(x) for x in v]
-                    self._fits[im][sj, si, i, :n] = [float(x) for x in v]
+                    # n = 1
+                    # if si != sj:
+                    #     continue
+                    dens = [float(x) for x in v[:n]]
+                    self._fits[im][si, sj, i, :n] = dens
+                    self._fits[im][sj, si, i, :n] = dens
             else:
                 line = f.readline()
         f.close()
@@ -266,16 +271,24 @@ class LVC(INTERFACE):
                 # fits (si,sj, atom, expansion)
                 H += np.einsum('ijay,bx,yab->ij', self._fits[im], self.pc_chrg, mult_prefactors)
             stop = start + n
-            np.einsum('ii->i', Hd)[start:stop], self._U[start:stop, start:stop] = np.linalg.eigh(H, UPLO='U')
+            if self._diagonalize:
+                eigen_values, self._U[start:stop, start:stop] = np.linalg.eigh(H, UPLO='U')
+                np.einsum('ii->i', Hd)[start:stop] = eigen_values
+            else:
+                self._U[start:stop, start:stop] = np.identity(n, dtype=float)
+                Hd[start:stop, start:stop] = H
 
             for s1 in map(
                 lambda x: start + n * (x + 1), range(im)
             ):    # fills in blocks for other magnetic quantum numbers
                 s2 = s1 + n
                 self._U[s1:s2, s1:s2] = self._U[start:stop, start:stop]
-                np.einsum('ii->i', Hd)[s1:s2] = np.einsum('ii->i', Hd)[start:stop]
-            start = stop
+                if self._diagonalize:
+                    np.einsum('ii->i', Hd)[s1:s2] = eigen_values
+                else:
+                    Hd[s1:s2, s1:s2] = H
 
+            start = stop
         # GRADS and NACS
         if 'nacdr' in self._QMin:
             # Build full derivative matrix
@@ -419,7 +432,7 @@ class LVC(INTERFACE):
             else:
                 overlap = np.fromfile(os.path.join(self._QMin['savedir'], 'Uold.out'),
                                       dtype=float).reshape(self._U.shape).T @ self._U
-            self._QMout['overlap'] = overlap
+            self._QMout['overlap'] = overlap.tolist()
 
         if self._persistent:
             self._Uold = np.copy(self._U)
@@ -485,5 +498,5 @@ class LVC(INTERFACE):
 
 
 if __name__ == '__main__':
-    lvc = LVC(DEBUG, PRINT)
+    lvc = LVC()
     lvc.main()

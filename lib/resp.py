@@ -3,18 +3,13 @@
 # Short program to evaluate partial charges with the restircted electrostatic potential fit
 # Source Phys.Chem.Chem.Phys.,2019,21, 4082--4095 cp/c8cp06567e and TheJournalofPhysicalChemistry,Vol.97,No.40,199 10.1021/j100142a004
 #  gaussian can do RESP
-from dataclasses import dataclass
 from error import Error
-from time import process_time_ns as t
-from itertools import chain
-from utils import euclidean_distance_einsum, swap_rows_and_cols, build_basis_dict
-from constants import IAn2AName as CHARGEATOM, ATOMIC_RADII
+from constants import ATOMIC_RADII
 
 import sys
 import numpy as np
 from asa_grid import mk_layers
-from pyscf import gto, tools, df, scf
-import h5py
+from pyscf import gto, df
 
 au2a = 0.52917721092
 np.set_printoptions(threshold=sys.maxsize, linewidth=10000, precision=5)
@@ -58,7 +53,7 @@ class Resp:
         self.ints = df.incore.aux_e2(mol, fakemol)
 
     def multipoles_from_dens(self, dm: np.ndarray, include_core_charges: bool, order=2):
-        if not (0 < order <= 2):
+        if not (0 <= order <= 2):
             raise Error("Specify order in the range of 0 - 2")
         n_fits = sum([1, 3, 6][:order + 1])
         Fesp_i = np.copy(self.Vnuc) if include_core_charges else np.zeros((self.ngp), dtype=float)
@@ -68,13 +63,37 @@ class Resp:
         R_alpha = self.R_alpha
         r_inv = self.r_inv
         mp = self.fit_monopoles(Fesp_i)
+        if order == 0:
+            return mp.reshape((self.natom, 1))
         Fesp_i_res = Fesp_i - mp @ r_inv
         self.r_inv3 = self.rinv3 if 'rinv3' in self.__dict__ else r_inv**3
         dp = self.fit_dipoles(Fesp_i_res).reshape((3, -1))
-        Fesp_i_res = Fesp_i_res - np.einsum('xi,inx,in->n', dp, R_alpha, self.r_inv3)
+        if order == 1:
+            return np.vstack((mp, dp)).T
+        P = np.einsum('xi,inx->in', dp, R_alpha)
+        Fesp_i_res = Fesp_i_res - np.einsum('in,in->n', P, self.r_inv3)
         qp = self.fit_quadrupoles(Fesp_i_res).reshape((6, -1))
         fits = np.vstack((mp, dp, qp)).T
         return fits
+
+    @staticmethod
+    def _fit(A, B, beta=0.0005, b=0.1, restraint=True):
+        Q1 = np.linalg.solve(A, B)
+        if not restraint:
+            return Q1
+        Q2 = np.ones(Q1.shape, float)
+
+        def get_rest(Q):
+            return beta / (np.sqrt(Q**2 + b**2))
+
+        vget_rest = np.vectorize(get_rest, cache=True)
+        while np.linalg.norm(Q1 - Q2) >= 0.00001:
+            Q1 = Q2.copy()
+            rest = vget_rest(Q1)
+            B_rest = B
+            A_rest = A + np.diag(rest)
+            Q2 = np.linalg.solve(A_rest, B_rest)
+        return Q2
 
     def fit_monopoles(self, Fesp_i):
         natom = self.natom
@@ -92,25 +111,10 @@ class Resp:
         B[:natom] += b
         B[natom] = 0    # TODO reintroduce charge!!
 
-        Q1 = np.linalg.solve(A, B)
-        Q2 = np.ones(natom + 1, float)
-
-        def get_rest(Q):
-            return self.beta / (np.sqrt(Q**2 + 0.1**2))    # b = 0.1
-
-        vget_rest = np.vectorize(get_rest, cache=True)
-
-        while np.linalg.norm(Q1 - Q2) >= 0.00001:
-            Q1 = Q2.copy()
-            rest = vget_rest(Q1)
-            B_rest = B
-            A_rest = A + np.diag(rest)
-            Q2 = np.linalg.solve(A_rest, B_rest)
-
-        return Q2[:natom]
+        charges = self._fit(A, B, self.beta, 0.1, False)
+        return charges[:natom]
 
     def fit_dipoles(self, Fesp_i: np.ndarray):
-        natom = self.natom
         # Build 1/|R_A - r_i| m_A_i
         R_alpha = self.R_alpha
 
@@ -123,23 +127,7 @@ class Resp:
         # build B'
         B = tmp @ Fesp_i    # v_A
 
-        Q1: np.ndarray = np.linalg.solve(A, B)
-        Q2 = np.ones(Q1.shape, float)
-
-        def get_rest(Q):
-            return self.beta / (np.sqrt(Q**2 + 0.1**2))    # b = 0.1
-
-        vget_rest = np.vectorize(get_rest)
-
-        while np.linalg.norm(Q1 - Q2) >= 0.00001:
-            Q1 = Q2.copy()
-            rest = vget_rest(Q1)
-            rest[:natom] = 0.
-            B_rest = B
-            A_rest = A + np.diag(rest)
-            Q2 = np.linalg.solve(A_rest, B_rest)
-
-        return Q2
+        return self._fit(A, B, self.beta, 0.1, False)
 
     def fit_quadrupoles(self, Fesp_i):
         natom = self.natom
@@ -163,25 +151,9 @@ class Resp:
         # build B'
         B = tmp @ Fesp_i    # v_A
 
-        Q1 = np.linalg.solve(A, B)
-        Q2 = np.ones(Q1.shape, float)
-
-        def get_rest(Q):
-            return self.beta / (np.sqrt(Q**2 + 0.1**2))    # b = 0.1
-
-        vget_rest = np.vectorize(get_rest)
-
-        while np.linalg.norm(Q1 - Q2) >= 0.00001:
-            Q1 = Q2.copy()
-            rest = vget_rest(Q1)
-            rest[:natom] = 0.
-            B_rest = B
-            A_rest = A + np.diag(rest)
-            Q2 = np.linalg.solve(A_rest, B_rest)
-
+        quadrupoles = self._fit(A, B, self.beta, 0.1, False)
         # make traceless (Source: Sebastian)
-        quad = Q2.reshape((-1, natom))
-        traces = np.sum(quad[:3, :], axis=0)
-        quad[:3, :] -= 1 / 3 * traces[None, ...]
-        Q2 = quad.flatten()
-        return Q2
+        quad_mat = quadrupoles.reshape((-1, natom))
+        traces = np.sum(quad_mat[:3, :], axis=0)
+        quad_mat[:3, :] -= 1 / 3 * traces[None, ...]
+        return quad_mat.flatten()
