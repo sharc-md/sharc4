@@ -49,7 +49,6 @@ changelogstring = '''
 '''
 np.set_printoptions(linewidth=400, precision=3, formatter={'float': lambda x: f'{x: 8.5}'})
 
-
 class LVC(INTERFACE):
 
     _version = version
@@ -463,8 +462,6 @@ class LVC(INTERFACE):
                 self._QMout['grad'] = nacdr.reshape((nmstates, nmstates, self._QMin['natom'], 3)).tolist()
             if do_pc:
                 self._QMout['pc_grad'] = self.pc_grad.tolist()
-
-
 
         self._QMout['runtime'] = self.clock.measuretime()
         self._step += 1

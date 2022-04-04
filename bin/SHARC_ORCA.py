@@ -640,8 +640,6 @@ class ORCA(INTERFACE):
             if 'cleanup' in QMin:
                 cleandir(QMin['savedir'])
 
-
-
     # ======================================================================= #
 
     def run_theodore(self, errorcodes):
