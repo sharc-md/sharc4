@@ -3598,7 +3598,7 @@ def write_QM_in(INFOS, displacement_key, displacement_value, displacement_dir):
 
     # eq: init ; displacement: overlap + cleanup
     if displacement_key is None:
-        string += 'init\n'
+        string += 'step 0\n'
     else:
         string += 'overlap\n'
         string += 'cleanup\n'

@@ -142,3 +142,7 @@ Date: 20.07.2021
                 return [[*x[0:2], int(x[2])] + [int(y) - 1 for y in x[3:]] for x in map(lambda x: x.split(), f)]
         else:
             raise Error(f'File {path} does not exist!', 1)
+    
+    @staticmethod
+    def resp_shells(args: str) -> list[int]:
+        return ast.literal_eval(args)

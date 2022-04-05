@@ -252,7 +252,6 @@ class clock:
             hours = runtime.seconds // 3600
             minutes = runtime.seconds // 60 - hours * 60
             seconds = runtime.seconds % 60
-            # seconds += 1.e-3 * runtime.milliseconds
             seconds += 1.e-6 * runtime.microseconds
             print(
                 '==> Runtime:\t%i Days\t%i Hours\t%i Minutes\t%f Seconds\n\n' % (runtime.days, hours, minutes, seconds)
@@ -280,7 +279,7 @@ def itmult(states):
 # ======================================================================= #
 
 
-def itnmstates(states):
+def itnmstates(states: list[int]):
 
     for i in range(len(states)):
         if states[i] < 1:
@@ -382,11 +381,11 @@ def euclidean_distance_einsum(X, Y):
     Parameters
     ----------
     X : array, (n_samples x d_dimensions)
-    Y : array, (n_samples x d_dimensions)
+    Y : array, (m_samples x d_dimensions)
 
     Returns
     -------
-    D : array, (n_samples, n_samples)
+    D : array, (n_samples, m_samples)
     """
     XX = np.einsum('ij,j-> i', X, X)[:, np.newaxis]
     YY = np.einsum('ij,j-> i', Y, Y)
@@ -415,3 +414,28 @@ class MMATOM:
 
     def __eq__(self, other):
         return self.id == other.id
+
+
+def get_rot(theta: float, axis: int) -> np.ndarray:
+    """Creates a rotation matrix 3x3 around given axis
+    Parameters:
+    theta: degree of rotation in degree
+    axis: axis of rotation
+    """
+    if axis not in {0,1,2}:
+        raise ValueError('axis not in {0,1,2}!')
+    rad = np.radians(theta)
+    c, s = np.cos(rad), np.sin(rad)
+    R = np.zeros((3,3))
+    R[axis,axis] = 1.
+    if axis == 0:
+        R[1:,1:] = np.array(((c,-s),(s, c)))
+        return R
+    elif axis == 1:
+        R[0,0] = c
+        R[0,-1] = -s
+        R[-1,0] = s
+        R[-1,-1] = c
+    else:
+        R[:-1,:-1] = np.array(((c,-s),(s, c)))
+    return R
