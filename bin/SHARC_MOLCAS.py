@@ -73,6 +73,7 @@
 # Operating system, isfile and related routines, move files, create directories
 import os
 import shutil
+from sre_parse import State
 # External Calls to MOLCAS
 import subprocess as sp
 # Command line arguments
@@ -97,6 +98,9 @@ import itertools
 import traceback
 # for diabatization
 import numpy as np
+
+from resp import Resp
+from pyscf import tools, gto, df
 
 
 # =========================================================0
@@ -1386,6 +1390,40 @@ def getsmate(out, mult, state1, state2, states):
 
             return float(out[iline + jline + rowshift + 1].split()[colshift])
 
+    
+def getdensity(QMin, mult, state1, state2, Resp):
+    trd_file = os.path.join(QMin['scratchdir'],'master','TRD_%i_%03i_%03i' % (mult, state1, state2))
+    #path = os.path.join(QMin['scratchdir'],'master', 'MOLCAS.%imolden' % (mult))
+    with open(trd_file, 'r') as f:
+        line = f.readline()
+        if 'Transition density file' not in line:
+            raise ValueError('This is not a TRD file')
+        while line:
+            if 'Inactive orbitals' in line:
+                line = f.readline()
+                n_inact = int(line)
+            elif 'Active orbitals' in line:
+                line = f.readline()
+                n_act = int(line)
+            elif 'Active TRD1' in line:
+                f.readline()  # skips the next line
+                n_ele = n_act**2
+                n_lines = (n_ele - 1)//5 + 1
+                data = ''
+                for _ in range(n_lines):
+                    data += f.readline()[:-1]
+                data = data.replace('D', 'E')
+                entries = [float(data[j:j+19]) for j in range(0, n_ele*19, 19)]
+                inactive_block = np.eye(n_inact, dtype=float) * 2
+                active_block = np.array(entries).reshape((n_act, n_act))
+                density = np.zeros((n_act + n_inact, n_act + n_inact))
+                density[:n_inact, :n_inact] = inactive_block
+                density[n_inact:, n_inact:] = active_block
+                return density
+            line = f.readline()
+    return np.zeros((QMin['nstates'], 10))
+    
+
 # ======================================================================= #
 
 
@@ -1521,6 +1559,49 @@ def getQMout(out, QMin):
                 else:
                     nac[istate][jstate] = complex(0.0)
         QMout['overlap'] = nac
+    # densities
+    if 'densities' in QMin:
+        densities = [[[[0. for i in range(10)] for j in range(natom)] for k in range(nmstates)] for l in range(nmstates)]
+        #from resp import Resp
+        coords = np.array([atom[1:] for atom in QMin['geo']], dtype=float)
+        symbols = np.array([atom[0] for atom in QMin['geo']], dtype=float)
+        fit = Resp(coords, symbols)
+        first_state = QMin['statemap'][0]
+        first_mult, _, _ = tuple(first_state)
+        molden_file = os.path.join(QMin['scratchdir'],'master', 'MOLCAS.%imolden' % (first_mult))
+        mol, _, mo_coeff, _, _, _ = tools.molden.load(molden_file)
+        mol.build()
+        Z = mol.atom_charges()
+        fit.Vnuc = np.sum(Z[..., None] * fit.r_inv, axis=0)
+        fakemol = gto.fakemol_for_charges(fit.mk_grid)
+        # NOTE This could be very big (fakemol could be broken up into multiple pieces)
+        # NOTE the value of these integrals is not affected by the atom charge
+        fit.ints = df.incore.aux_e2(mol, fakemol)
+
+        #R = Resp(coords, symbols, densitiy, shells)
+        old_mult = first_mult
+        for i, (i1) in enumerate(QMin['statemap']):
+            mult1, state1, ms1 = tuple(i1)
+            if mult1 != old_mult:
+                molden_file = os.path.join(QMin['scratchdir'],'master', 'MOLCAS.%imolden' % (mult1))
+                _, _, mo_coeff, _, _, _ = tools.molden.load(molden_file)
+                old_mult = mult1
+                # read new molden file
+            # get mo_coeff for mult
+            for j, j1 in enumerate(QMin['statemap']):
+                mult2, state2, ms2 = tuple(QMin['statemap'][j1])
+                if i >= j and mult1 == mult2 and ms1 == ms2 and ms1 == float((mult1-1)/2):
+                    print(f' i would print something here: {i+1,j+1}')
+                    density_mo = getdensity(QMin, mult1, state1, state2)
+                    # transform to AO
+                    mo_coeff[0,:]
+                    density_ao = mo_coeff.T @ density_mo @ mo_coeff
+                    # density_ao = np.einsum('ia,ij,jb->ab', mo_coeff, density_mo, mo_coeff)
+                    densities[i][j] = density_ao
+                    densities[j][i] = density_ao
+        QMout['densities'] = densities
+
+
     # Phases from overlaps
     if 'phases' in QMin:
         if 'phases' not in QMout:
@@ -2072,9 +2153,9 @@ def readQMin(QMinfilename):
         print('Number of states not given in QM input file %s!' % (QMinfilename))
         sys.exit(40)
 
-    possibletasks = ['h', 'soc', 'dm', 'grad', 'overlap', 'dmdr', 'socdr', 'ion', 'phases']
+    possibletasks = ['h', 'soc', 'dm', 'grad', 'overlap', 'dmdr', 'socdr', 'ion', 'phases', 'densities']
     if not any([i in QMin for i in possibletasks]):
-        print('No tasks found! Tasks are "h", "soc", "dm", "grad","dmdr", "socdr", "overlap" and "ion".')
+        print('No tasks found! Tasks are "h", "soc", "dm", "grad","dmdr", "socdr", "overlap", "ion" and "densities".')
         sys.exit(41)
 
     if 'samestep' in QMin and 'init' in QMin:
@@ -2105,11 +2186,17 @@ def readQMin(QMinfilename):
         print('Within the SHARC-MOLCAS interface, "nacdt" is not supported.')
         sys.exit(45)
 
+    if 'densities' in QMin:
+        QMin['molden']=[]
+
     if 'molden' in QMin:
         os.environ['MOLCAS_MOLDEN'] = 'ON'
         if 'samestep' in QMin:
             print('HINT: Not producing Molden files in "samestep" mode!')
             del QMin['molden']
+            if 'densities' in QMin:
+                print('Samestep and densities are currently imcompatible!')
+                sys.exit(46)
 
     # if 'ion' in QMin:
         # print('Ionization probabilities not implemented!')
@@ -2250,15 +2337,15 @@ def readQMin(QMinfilename):
 
 
     # Set up scratchdir
-    line = get_sh2cas_environ(sh2cas, 'scratchdir', False, False)
-    if line is None:
-        line = QMin['pwd'] + '/SCRATCHDIR/'
-    line = os.path.expandvars(line)
-    line = os.path.expanduser(line)
-    line = os.path.abspath(line)
-    # checkscratch(line)
-    QMin['scratchdir'] = line
-
+    # line = get_sh2cas_environ(sh2cas, 'scratchdir', False, False)
+    # if line is None:
+    #     line = QMin['pwd'] + '/SCRATCHDIR/'
+    # line = os.path.expandvars(line)
+    # line = os.path.expanduser(line)
+    # line = os.path.abspath(line)
+    # # checkscratch(line)
+    # QMin['scratchdir'] = line
+    QMin['scratchdir'] = '/public/manganese/scratch/tmp/lehrner.391868/WORK'
 
     # Set up savedir
     if 'savedir' in QMin:
@@ -2631,7 +2718,7 @@ def gettasks(QMin):
     for imult, nstates in list_to_do:
         if nstates == 0:
             continue
-
+ 
         # find the correct initial MO file
         mofile = ''
         if 'always_guess' not in QMin:
@@ -2732,6 +2819,7 @@ def gettasks(QMin):
             # copy JobIphs
             tasks.append(['copy', 'MOLCAS.JobMix', 'MOLCAS.%i.JobIph' % (imult + 1)])
 
+
         # RASSI for overlaps
         if 'overlap' in QMin:
             if 'displacement' in QMin:
@@ -2740,12 +2828,22 @@ def gettasks(QMin):
                 tasks.append(['link', os.path.join(QMin['savedir'], 'MOLCAS.%i.JobIph.old' % (imult + 1)), 'JOB001'])
             tasks.append(['link', 'MOLCAS.%i.JobIph' % (imult + 1), 'JOB002'])
             tasks.append(['rassi', 'overlap', [nstates, nstates]])
+            for i in range(nstates):
+                for j in range(i+1):
+                    print(f'TRD_{imult}_{i:0>3}_{j:0>3}', file=sys.stderr)
+                    tasks.append(['copy', 'TRD2_%03i_%03i' % (i+nstates+1, j+nstates+1) ,'TRD_%i_%03i_%03i' % (imult+1, i+1, j+1)])
 
         # RASSI for Dipole moments only if overlap-RASSI is not needed
-        elif 'dm' in QMin or 'ion' in QMin:
+        elif 'dm' in QMin or 'ion' in QMin or 'densities' in QMin:
             tasks.append(['link', 'MOLCAS.%i.JobIph' % (imult + 1), 'JOB001'])
             tasks.append(['rassi', 'dm', [nstates]])
-
+            #for i in enumerate(QMin['statemap']):
+                #for j in enumerate(i):
+                    #print(f'TRD_{imult}_{i:0>3}_{j:0>3}', file=sys.stderr)
+            for i in range(nstates):
+                for j in range(i+1):
+                    tasks.append(['copy', 'TRD2_%03i_%03i' % (i+1, j+1) ,'TRD_%i_%03i_%03i' % (imult+1, i+1, j+1)])
+                    print(f'TRD_{imult}_{i:0>3}_{j:0>3}', file=sys.stderr)
 
     # SOC
     if 'soc' in QMin:
@@ -2813,6 +2911,7 @@ def writeMOLCASinput(tasks, QMin):
             string += '>> COPY %s %s\n\n' % (name, task[2])
 
         elif task[0] == 'copy':
+            print('I DID COPY A THING:  %s %s' % (task[1], task[2]), file=sys.stderr)
             string += '>> COPY %s %s\n\n' % (task[1], task[2])
 
         elif task[0] == 'rm':
@@ -2913,11 +3012,14 @@ def writeMOLCASinput(tasks, QMin):
                 # smallest value printed by MOLCAS is 0.00001
                 string += 'CIPR\nTHRS=0.000005d0\n'
             if task[1] == 'dm':
-                pass
+                if 'densities' in QMin:
+                    string += 'TRD1\n'
             elif task[1] == 'soc':
                 string += 'SPINORBIT\nSOCOUPLING=0.0d0\nEJOB\n'
             elif task[1] == 'overlap':
                 string += 'OVERLAPS\n'
+                if 'densities' in QMin:
+                    string += 'TRD1\n'
             string += '\n'
 
         elif task[0] == 'mclr':
@@ -4032,7 +4134,7 @@ def moveJobIphs(QMin):
 
 def stripWORKDIR(WORKDIR):
     ls = os.listdir(WORKDIR)
-    keep = ['MOLCAS.out', 'MOLCAS\\.[1-9]\\.JobIph', 'MOLCAS\\.[1-9]\\.RasOrb', 'MOLCAS\\.[1-9]\\.molden']
+    keep = ['MOLCAS.out', 'MOLCAS\\.[1-9]\\.JobIph', 'MOLCAS\\.[1-9]\\.RasOrb', 'MOLCAS\\.[1-9]\\.molden', 'TRD_[1-9]_[0-9]{1,3}_[0-9]{1,3}']
     for ifile in ls:
         delete = True
         for k in keep:
@@ -4532,7 +4634,7 @@ def main():
     QMin, joblist = generate_joblist(QMin)
 
     # run all MOLCAS jobs
-    errorcodes = runjobs(joblist, QMin)
+    # errorcodes = runjobs(joblist, QMin)
 
     # get output
     QMoutall = collectOutputs(joblist, QMin, errorcodes)
@@ -4557,7 +4659,7 @@ def main():
     if not DEBUG:
         cleanupSCRATCH(QMin['scratchdir'])
         if 'cleanup' in QMin:
-            cleanupSCRATCH(QMin['savedir'])
+           cleanupSCRATCH(QMin['savedir'])
     if PRINT or DEBUG:
         print('#================ END ================#')
 
