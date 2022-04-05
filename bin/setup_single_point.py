@@ -420,6 +420,7 @@ def get_general():
     while True:
         path = question('Geometry filename:', str, 'geom.xyz')
         try:
+            path = os.path.expanduser(os.path.expandvars(path))
             gf = open(path, 'r')
         except IOError:
             print('Could not open: %s' % (path))
