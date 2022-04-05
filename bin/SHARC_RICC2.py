@@ -1325,6 +1325,10 @@ class RICC2(INTERFACE):
             stop1string = 'total wall-time'
         findstring = 'cartesian gradient of the energy (hartree/bohr)'
 
+        # invert search for triplets
+        if m1 == 3:
+            start1string, stopstring = stopstring, start1string
+
         # find correct section
         iline = -1
         while True:
@@ -1341,10 +1345,15 @@ class RICC2(INTERFACE):
 
         # find gradient
         while True:
-            iline += 1
-            if iline == len(ricc2):
-                print('Could not find gradient of istate=%i, Fail=2' % (istate))
-                sys.exit(31)
+            if m1 == 1:
+                # search forward for singlet-singlet transitions
+                iline += 1
+            elif m1 == 3:
+                # search backward from the end for triplet-triplet transitions
+                iline += -1
+            if iline + 2 == len(ricc2) or iline == -1:
+                print('Could not find transition dipole moment of istate=%i,jstate=%i, Fail=5' % (istate, jstate))
+                sys.exit(26)
             line = ricc2[iline]
             if findstring in line:
                 break
