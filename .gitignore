@@ -8,3 +8,5 @@ header.f90
 sharcvars.*
 build_info.inc
 *.tmp
+wfoverlap/
+

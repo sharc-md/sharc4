@@ -1310,7 +1310,7 @@ def make_dyn_file(ic_list, filename):
     fl = open(filename, 'w')
     string = ''
     for i, ic in enumerate(ic_list):
-        string += '%i\n%i\n' % (ic.natom, i)
+        string += '%i\nICOND %i\n' % (ic.natom, i+1)
         for atom in ic.atomlist:
             string += '%s' % (atom.symb)
             for j in range(3):
