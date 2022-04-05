@@ -1756,6 +1756,10 @@ module input
           write(0,*) 'Initial state can''t be larger than nstates=',ctrl%nstates,'!'
           stop 1
         endif
+        if (j<=0) then
+           write(0,*) 'Initial state can''t be zero or negative!'
+           stop 1
+        endif
         if (n==1) then
           write(0,*) 'Please specify representation of initial state!'
           stop 1
@@ -1804,6 +1808,10 @@ module input
         if (j>ctrl%nstates) then
           write(0,*) 'Initial state can''t be larger than nstates=',ctrl%nstates,'!'
           stop 1
+        endif
+        if (j<=0) then
+           write(0,*) 'Initial state can''t be zero or negative!'
+           stop 1
         endif
         traj%state_MCH=j
         ctrl%staterep=1
