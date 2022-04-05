@@ -303,8 +303,8 @@ class ORCA(INTERFACE):
             print('====================================================================')
         # write point charges
         # if QMin['qmmm']:
-        if 'pointcharges' in QMin:
-            inputstring = ORCA.write_pccoord_file(QMin['pointcharges'])
+        if 'point_charges' in QMin:
+            inputstring = ORCA.write_pccoord_file(QMin['point_charges'])
             filename = os.path.join(WORKDIR, 'ORCA.pc')
             writefile(filename, inputstring)
             if DEBUG:
@@ -395,6 +395,12 @@ class ORCA(INTERFACE):
             string += ORCA.ORCAinput_string(QMin)
         return string
 
+    @staticmethod
+    def write_pccoord_file(pc):
+        string = '%i\n' % len(pc)
+        for atom in pc:
+            string += '%f %f %f %f\n' % (atom[3], atom[0], atom[1], atom[2])
+        return string
     # ======================================================================= #
 
     @staticmethod
@@ -598,7 +604,7 @@ class ORCA(INTERFACE):
         string += 'end\nend\n\n'
 
         # point charges
-        if 'pointcharges' in QMin:
+        if 'point_charges' in QMin:
             string += '%pointcharges "ORCA.pc"\n\n'
         elif QMin['template']['cobramm']:
             string += '%pointcharges "charge.dat"\n\n'
@@ -618,7 +624,6 @@ class ORCA(INTERFACE):
                 'Within the SHARC-ORCA interface couplings can only be calculated via the overlap method. "nacdr" and "nacdt" are not supported.',
                 44
             )
-
         schedule = self.generate_joblist()
         errorcodes = self.runjobs(schedule)
         errorcodes = self.run_wfoverlap(errorcodes)
@@ -634,8 +639,6 @@ class ORCA(INTERFACE):
             cleandir(QMin['scratchdir'])
             if 'cleanup' in QMin:
                 cleandir(QMin['savedir'])
-
-
 
     # ======================================================================= #
 
@@ -1388,8 +1391,8 @@ class ORCA(INTERFACE):
             if 'grad' not in QMout:
                 QMout['grad'] = [[[0. for i in range(3)] for j in range(natom)] for k in range(nmstates)]
             # if QMin['qmmm'] and 'pcgrad' not in QMout:
-            if 'pointcharges' in QMin and 'pcgrad' not in QMout:
-                QMout['pcgrad'] = [[[0. for i in range(3)] for j in QMin['pointcharges']] for k in range(nmstates)]
+            if 'point_charges' in QMin and 'pcgrad' not in QMout:
+                QMout['pcgrad'] = [[[0. for i in range(3)] for j in QMin['point_charges']] for k in range(nmstates)]
             if QMin['template']['cobramm']:
                 ncharges = len(readfile("charge.dat")) - 1
                 QMout['pcgrad'] = [[[0. for i in range(3)] for j in range(ncharges)] for k in range(nmstates)]
@@ -1409,9 +1412,7 @@ class ORCA(INTERFACE):
                 logfile = os.path.join(QMin['scratchdir'], path, 'ORCA.engrad' + fname)
                 g = ORCA.getgrad(logfile, natom)
                 # if QMin['qmmm']:
-                if 'pointcharges' in QMin:
-                    if isgs:
-                        fname = ''
+                if 'point_charges' in QMin:
                     logfile = os.path.join(QMin['scratchdir'], path, 'ORCA.pcgrad' + fname)
                     gpc = ORCA.getpcgrad(logfile)
                 for istate in QMin['statemap']:
@@ -1419,7 +1420,7 @@ class ORCA(INTERFACE):
                     if (state[0], state[1]) == grad:
                         QMout['grad'][istate - 1] = g
                         # if QMin['qmmm']:
-                        if 'pointcharges' in QMin:
+                        if 'point_charges' in QMin:
                             QMout['pcgrad'][istate - 1] = gpc
                 if QMin['template']['cobramm']:
                     logfile = os.path.join(QMin['scratchdir'], path, 'ORCA.pcgrad' + fname)
@@ -1449,7 +1450,7 @@ class ORCA(INTERFACE):
                                     de = abs(e1 - e2)
                                     j = k
                         QMout['grad'][i] = QMout['grad'][j]
-                        if 'pointcharges' in QMin:
+                        if 'point_charges' in QMin:
                             QMout['pcgrad'][i] = QMout['pcgrad'][j]
 
         # Regular Overlaps
@@ -1846,12 +1847,8 @@ class ORCA(INTERFACE):
             print('Gradient: ' + shorten_DIR(logfile))
 
         g = []
-        for iatom in range(len(out) - 1):
-            atom_grad = [0. for i in range(3)]
-            s = out[iatom + 1].split()
-            for ixyz in range(3):
-                atom_grad[ixyz] = float(s[ixyz])
-            g.append(atom_grad)
+        for iatom in out[1:]:
+            g.append([float(x) for x in iatom.split()])
         return g
 
     # ======================================================================= #
@@ -1888,5 +1885,5 @@ class ORCA(INTERFACE):
 
 
 if __name__ == '__main__':
-    orca = ORCA(DEBUG, PRINT)
+    orca = ORCA()
     orca.main()
