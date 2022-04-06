@@ -195,12 +195,13 @@ class INTERFACE(ABC):
             'always_orb_init': False,
             'always_guess': False,
         }
-        integers = {'ncpu': 1, 'memory': 100, 'numfrozcore': -1, 'numocc': 0, 'theodore_n': 0}
-        floats = {'delay': 0.0, 'schedule_scaling': 0.9, 'wfthres': 0.99}
+        integers = {'ncpu': 1, 'memory': 100, 'numfrozcore': -1, 'numocc': 0, 'theodore_n': 0, 'resp_layers': 4, 'resp_tdm_fit_order': 2}
+        floats = {'delay': 0.0, 'schedule_scaling': 0.9, 'wfthres': 0.99, 'resp_density': 1., 'resp_first_layer': 1.4}
         special = {
             'neglected_gradient': 'zero',
             'theodore_prop': ['Om', 'PRNTO', 'S_HE', 'Z_HE', 'RMSeh'],
             'theodore_fragment': [],
+            'resp_shells': False  # default calculated from other values = [1.4, 1.6, 1.8, 2.0]
         }
         lines = readfile(resources_filename)
         # assign defaults first, which get updated by the parsed entries, which are updated by the entries that were already in QMin
@@ -222,8 +223,10 @@ class INTERFACE(ABC):
         print('DEBUG:', QMin['resources']['debug'])
         self._DEBUG = QMin['resources']['debug']
         self._PRINT = QMin['resources']['no_print'] is False
-        DEBUG.set(self._DEBUG)
-        PRINT.set(self._PRINT)
+        if not DEBUG:
+            DEBUG.set(self._DEBUG)
+        if not PRINT:
+            PRINT.set(self._PRINT)
 
         # NOTE: This is really optional
         ncpu = QMin['resources']['ncpu']
@@ -247,6 +250,15 @@ class INTERFACE(ABC):
             QMin['numocc'] = 0
         else:
             QMin['numocc'] = max(0, QMin['resources']['numocc'] - QMin['frozcore'])
+
+        # construct shells
+        shells, first, nlayers = map(QMin['resources'].get, ('resp_shells', 'resp_first_layer', 'resp_layers'))
+        if not shells:
+            if DEBUG:
+                print(f"Calculating resp layers as: {first} + 4/sqrt({nlayers})")
+            incr = 0.4 / math.sqrt(nlayers)
+            QMin['resources']['resp_shells'] = [first + incr * x for x in range(nlayers)]
+
         self._QMin = {**QMin['resources'], **QMin}
         return
         # ============================ Implemented public methods ========================
@@ -551,6 +563,9 @@ class INTERFACE(ABC):
             else:
                 os.environ['PYTHONPATH'] = os.path.join(QMin['theodir'],
                                                         'lib') + os.pathsep + QMin['resources']['theodir']
+        if 'pc_file' in QMin:
+            QMin['point_charges'] = [[float(x[0])*self._factor, float(x[1])*self._factor, float(x[2])*self._factor, float(x[3])] for x in map(lambda x: x.split(), readfile(QMin['pc_file']))]
+
 
     def setup_run(self):
         QMin = self._QMin
@@ -1037,42 +1052,6 @@ class INTERFACE(ABC):
             rmfile = os.path.join(WORKDIR, ifile)
             os.remove(rmfile)
 
-    def writegeom(self):
-        QMin = self._QMin
-        fname = QMin['scratchdir'] + '/JOB/geom.xyz'
-        string = '%i\n\n' % (QMin['natom'])
-        for i, el in enumerate(QMin['elements']):
-            string += '{}  {: 12.12} {: 12.12} {: 12.12}\n'.format(
-                el, *map(lambda x: x * au2a, QMin['coords'].tolist())
-            )
-        writefile(fname, string)
-
-        os.chdir(QMin['scratchdir'] + '/JOB')
-        error = sp.call('x2t geom.xyz > coord', shell=True)
-        if error != 0:
-            raise Error('xyz2col call failed!', 95)
-        os.chdir(QMin['pwd'])
-
-        # QM/MM
-        if QMin['qmmm']:
-            string = '$point_charges nocheck\n'
-            for atom in QMin['pointcharges']:
-                string += '%16.12f %16.12f %16.12f %12.9f\n' % (atom[0] / au2a, atom[1] / au2a, atom[2] / au2a, atom[3])
-            string += '$end\n'
-            filename = QMin['scratchdir'] + '/JOB/pc'
-            writefile(filename, string)
-
-        # COBRAMM
-        if QMin['cobramm']:
-            cobcharges = open('charge.dat', 'r')
-            charges = cobcharges.read()
-            only_atom = charges.split()
-            only_atom.pop(0)
-            filename = QMin['scratchdir'] + '/JOB/point_charges'
-            string = '$point_charges nocheck\n'
-            string += charges
-            string += '$end'
-            writefile(filename, string)
 
     def get_wfovlout(self, path, mult):
 
@@ -1663,6 +1642,7 @@ class INTERFACE(ABC):
 # =============================================================================================== #
 # =============================================================================================== #
 
+
     def writeQMout(self):
         '''Writes the requested quantities to the file which SHARC reads in.
         The filename is QMinfilename with everything after the first dot replaced by "out".
@@ -2143,7 +2123,7 @@ class INTERFACE(ABC):
         '''Generates a string with the fitted RESP charges for each pair of states specified.
 
         The string starts with a ! followed by a flag specifying the type of data.
-        Each line starts with the atom number (starting at 1), state i and state j. 
+        Each line starts with the atom number (starting at 1), state i and state j.
         If i ==j: fit for single state, else fit for transition multipoles.
         One line per atom and a blank line at the end.
 
@@ -2162,14 +2142,15 @@ class INTERFACE(ABC):
             for j, (jmult, jstate, jms) in zip(range(nmstates), itnmstates(states)):
                 string += f'{natom} 10 ! m1 {imult} s1 {istate} ms1 {ims: 3.1f}   m2 {jmult} s2 {jstate} ms2 {jms: 3.1f}\n'
 
+                entry = np.zeros((natom, 10))
                 if (imult, istate, jmult, jstate) in fits:
-                    entry = fits[(imult, istate, jmult, jstate)]
+                    fit = fits[(imult, istate, jmult, jstate)]
+                    entry[:, :fit.shape[1]] = fit  # cath cases where fit is not full order
                 elif (jmult, jstate, imult, istate) in fits:
-                    entry = fits[(jmult, jstate, imult, istate)]
-                else:
-                    entry = np.zeros((natom, 10))
+                    fit = fits[(jmult, jstate, imult, istate)]
+                    entry[:, :fit.shape[1]] = fit  # cath cases where fit is not full order
                 string += "\n".join(map(lambda x: " ".join(map(lambda y: '{: 10.8f}'.format(y), x)), entry)) + '\n'
-                
+
 
                 string += ''
         return string

@@ -301,7 +301,12 @@ class GAUSSIAN(INTERFACE):
                     j = jobgrad[dens][0]
                     jobdens[dens] = j
                     if 'master' in j:    # parse excited-state from gradient calc
-                        densjob[j] = {'scf': True, 'es': True, 'gses': True}
+                        if dens[0] == 3 and QMin['jobs'][ijob]['restr']:
+                            # gs already read by from singlet calc, gses for singlet to triplet = 0
+                            densjob[j] = {'scf': False, 'es': True, 'gses': True}
+                        else:
+                            densjob[j] = {'scf': True, 'es': True, 'gses': True}
+                            print(f'master_{j}', {'scf': True, 'es': True, 'gses': True}, file=sys.stderr)
                     else:
                         densjob[j] = {'scf': False, 'es': True, 'gses': False}
                 elif dens[1] == 1:
@@ -317,6 +322,7 @@ class GAUSSIAN(INTERFACE):
 
             QMin['jobdens'] = jobdens
             QMin['densjob'] = densjob
+            pprint.pprint(densjob, stream=sys.stderr)
         # add the master calculations
         schedule = []
         QMin['nslots_pool'] = []
@@ -1663,7 +1669,7 @@ class GAUSSIAN(INTERFACE):
             # collect all densities from the file in densjob (file: bools) and jobdens (state: file)
             densities = self.get_dens_from_fchks(sorted_denjobs, basis, n_bf)
 
-            fits = Resp(QMin['coords'], QMin['elements'])
+            fits = Resp(QMin['coords'], QMin['elements'], QMin['resp_density'], QMin['resp_shells'])
             fits.prepare(basis)  # the charge of the atom does not affect
             fits_map = {}
             for i, d_i in enumerate(QMin['densmap']):
@@ -1678,14 +1684,14 @@ class GAUSSIAN(INTERFACE):
                     key = (*d_i, *d_j)
                     if key in density_map:
                         fits_map[key] = fits.multipoles_from_dens(densities[density_map[key]],
-                                                                  include_core_charges=False)
+                                                                  include_core_charges=False, order=QMin['resp_tdm_fit_order'])
                     else:
                         ijob = QMin['multmap'][dens[0]]  # the multiplicity is the same -> ijob same
                         gsmult = QMin['multmap'][-ijob][0]
                         dmI = densities[density_map[(gsmult, 1, *d_i)]]
                         dmJ = densities[density_map[(gsmult, 1, *d_j)]]
                         trans_dens = es2es_tdm(dmI, dmJ)
-                        fits_map[key] = fits.multipoles_from_dens(trans_dens, include_core_charges=False)
+                        fits_map[key] = fits.multipoles_from_dens(trans_dens, include_core_charges=False, order=QMin['resp_tdm_fit_order'])
             QMout['multipolar_fit'] = fits_map
 
 
@@ -1992,7 +1998,6 @@ class GAUSSIAN(INTERFACE):
                     d = np.fromiter(
                         map(float, chain(*map(lambda x: x.split(), lines[i:i + n_lines]))), dtype=float, count=n
                     ).reshape((2 * n_g2e, n_bf, n_bf))
-                    # d = np.zeros((2*n_g2e, n_bf, n_bf), dtype=float)
                     for i_d in range(0, 2 * n_g2e, 2):
                         tmp = d[i_d, ...]
                         swap_rows_and_cols(atom_symbols, basis, tmp)

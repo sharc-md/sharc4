@@ -116,7 +116,18 @@ def printtheodore(matrix, QMin):
 
 def printheader(content):
     '''Prints the formatted header of the log file. Prints version number and version date
-    Takes nothing, returns nothing.'''
+    Takes nothing, returns nothing.
+    Wraps the specified content lines in as :
+      ================================================================================
+    ||                                                                                ||
+    ||                                 content line 1                                 ||
+    ||                                 content line 2                                 ||
+    ||                                 content line 3                                 ||
+    ||                                 content line 4                                 ||
+    ||                                 content line 5                                 ||
+    ||                                                                                ||
+      ================================================================================
+    '''
 
     rule = '=' * 76
     lines = [rule, '', *content, '', rule]
