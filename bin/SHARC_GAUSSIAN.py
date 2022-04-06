@@ -459,10 +459,10 @@ class GAUSSIAN(INTERFACE):
         self.writeQMout()
 
         # Remove Scratchfiles from SCRATCHDIR
-        # if not DEBUG:
-        #     cleandir(QMin['scratchdir'])
-        #     if 'cleanup' in QMin:
-        #         cleandir(QMin['savedir'])
+        if not DEBUG:
+            cleandir(QMin['scratchdir'])
+            if 'cleanup' in QMin:
+                cleandir(QMin['savedir'])
 
         print(datetime.datetime.now())
         print('#================ END ================#')
