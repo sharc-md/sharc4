@@ -564,7 +564,7 @@ class INTERFACE(ABC):
                 os.environ['PYTHONPATH'] = os.path.join(QMin['theodir'],
                                                         'lib') + os.pathsep + QMin['resources']['theodir']
         if 'pc_file' in QMin:
-            QMin['point_charges'] = [[float(num) for num in line.split()] for line in readfile(QMin['pc_file'])]
+            QMin['point_charges'] = [[float(x[0])*self._factor, float(x[1])*self._factor, float(x[2])*self._factor, float(x[3])] for x in map(lambda x: x.split(), readfile(QMin['pc_file']))]
 
 
     def setup_run(self):

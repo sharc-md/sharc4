@@ -111,7 +111,7 @@ class Resp:
         B[:natom] += b
         B[natom] = 0    # TODO reintroduce charge!!
 
-        charges = self._fit(A, B, self.beta, 0.1, False)
+        charges = self._fit(A, B, self.beta, 0.1)
         return charges[:natom]
 
     def fit_dipoles(self, Fesp_i: np.ndarray):
@@ -127,7 +127,7 @@ class Resp:
         # build B'
         B = tmp @ Fesp_i    # v_A
 
-        return self._fit(A, B, self.beta, 0.1, False)
+        return self._fit(A, B, self.beta, 0.1)
 
     def fit_quadrupoles(self, Fesp_i):
         natom = self.natom
@@ -151,7 +151,7 @@ class Resp:
         # build B'
         B = tmp @ Fesp_i    # v_A
 
-        quadrupoles = self._fit(A, B, self.beta, 0.1, False)
+        quadrupoles = self._fit(A, B, self.beta, 0.1)
         # make traceless (Source: Sebastian)
         quad_mat = quadrupoles.reshape((-1, natom))
         traces = np.sum(quad_mat[:3, :], axis=0)
