@@ -436,14 +436,14 @@ class GAUSSIAN(INTERFACE):
             print('SCHEDULE:')
             pprint.pprint(schedule, depth=2)
         errorcodes = {}
-        # # run all the jobs
-        # errorcodes = self.runjobs(schedule)
+        # run all the jobs
+        errorcodes = self.runjobs(schedule)
 
-        # # do all necessary overlap and Dyson calculations
-        # errorcodes = self.run_wfoverlap(errorcodes)
+        # do all necessary overlap and Dyson calculations
+        errorcodes = self.run_wfoverlap(errorcodes)
 
-        # # do all necessary Theodore calculations
-        # errorcodes = self.run_theodore(errorcodes)
+        # do all necessary Theodore calculations
+        errorcodes = self.run_theodore(errorcodes)
 
         # read all the output files
         self.getQMout()
