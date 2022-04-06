@@ -301,7 +301,12 @@ class GAUSSIAN(INTERFACE):
                     j = jobgrad[dens][0]
                     jobdens[dens] = j
                     if 'master' in j:    # parse excited-state from gradient calc
-                        densjob[j] = {'scf': True, 'es': True, 'gses': True}
+                        if dens[0] == 3 and QMin['jobs'][ijob]['restr']:
+                            # gs already read by from singlet calc, gses for singlet to triplet = 0
+                            densjob[j] = {'scf': False, 'es': True, 'gses': True}
+                        else:
+                            densjob[j] = {'scf': True, 'es': True, 'gses': True}
+                            print(f'master_{j}', {'scf': True, 'es': True, 'gses': True}, file=sys.stderr)
                     else:
                         densjob[j] = {'scf': False, 'es': True, 'gses': False}
                 elif dens[1] == 1:
@@ -317,6 +322,7 @@ class GAUSSIAN(INTERFACE):
 
             QMin['jobdens'] = jobdens
             QMin['densjob'] = densjob
+            pprint.pprint(densjob, stream=sys.stderr)
         # add the master calculations
         schedule = []
         QMin['nslots_pool'] = []
@@ -430,14 +436,14 @@ class GAUSSIAN(INTERFACE):
             print('SCHEDULE:')
             pprint.pprint(schedule, depth=2)
         errorcodes = {}
-        # run all the jobs
-        errorcodes = self.runjobs(schedule)
+        # # run all the jobs
+        # errorcodes = self.runjobs(schedule)
 
-        # do all necessary overlap and Dyson calculations
-        errorcodes = self.run_wfoverlap(errorcodes)
+        # # do all necessary overlap and Dyson calculations
+        # errorcodes = self.run_wfoverlap(errorcodes)
 
-        # do all necessary Theodore calculations
-        errorcodes = self.run_theodore(errorcodes)
+        # # do all necessary Theodore calculations
+        # errorcodes = self.run_theodore(errorcodes)
 
         # read all the output files
         self.getQMout()
