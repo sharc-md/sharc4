@@ -212,7 +212,7 @@ class QMMM(INTERFACE):
             self.mms_interface: INTERFACE = factory(QMin['template']['mm-program']
                                                     )(self._DEBUG, self._PRINT, self._persistent)
 
-            mmsdir = os.path.join(QMin['savedir'], 'mms_' + QMin['template']['mm-program'].upper())
+            mmsdir = os.path.join(QMin['savedir'], 'MMS_' + QMin['template']['mm-program'].upper())
             if not os.path.isdir(mmsdir):
                 mkdir(mmsdir)
 
