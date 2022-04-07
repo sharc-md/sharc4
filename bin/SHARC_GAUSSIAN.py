@@ -301,7 +301,12 @@ class GAUSSIAN(INTERFACE):
                     j = jobgrad[dens][0]
                     jobdens[dens] = j
                     if 'master' in j:    # parse excited-state from gradient calc
-                        densjob[j] = {'scf': True, 'es': True, 'gses': True}
+                        if dens[0] == 3 and QMin['jobs'][ijob]['restr']:
+                            # gs already read by from singlet calc, gses for singlet to triplet = 0
+                            densjob[j] = {'scf': False, 'es': True, 'gses': True}
+                        else:
+                            densjob[j] = {'scf': True, 'es': True, 'gses': True}
+                            print(f'master_{j}', {'scf': True, 'es': True, 'gses': True}, file=sys.stderr)
                     else:
                         densjob[j] = {'scf': False, 'es': True, 'gses': False}
                 elif dens[1] == 1:
@@ -317,6 +322,7 @@ class GAUSSIAN(INTERFACE):
 
             QMin['jobdens'] = jobdens
             QMin['densjob'] = densjob
+            pprint.pprint(densjob, stream=sys.stderr)
         # add the master calculations
         schedule = []
         QMin['nslots_pool'] = []
@@ -453,10 +459,10 @@ class GAUSSIAN(INTERFACE):
         self.writeQMout()
 
         # Remove Scratchfiles from SCRATCHDIR
-        # if not DEBUG:
-        #     cleandir(QMin['scratchdir'])
-        #     if 'cleanup' in QMin:
-        #         cleandir(QMin['savedir'])
+        if not DEBUG:
+            cleandir(QMin['scratchdir'])
+            if 'cleanup' in QMin:
+                cleandir(QMin['savedir'])
 
         print(datetime.datetime.now())
         print('#================ END ================#')
