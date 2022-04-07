@@ -32,13 +32,17 @@
 # IMPORTS
 # external
 import numpy as np
+from openmm.app import Simulation, AmberInpcrdFile, AmberPrmtopFile
+from openmm import VerletIntegrator, System, State, NonbondedForce
+from openmm.unit import Quantity, bohr, kilocalories_per_mole
 
 # internal
 from SHARC_INTERFACE import INTERFACE
 from utils import *
+from constants import kcal_to_Eh as kcal_per_mole_to_Eh
 
-authors = 'Sebastian Mai and Severin Polonius'
-version = '3.0'
+__author__ = 'Sebastian Mai and Severin Polonius'
+__version__ = '3.0'
 versiondate = datetime.datetime(2022, 4, 8)
 
 changelogstring = '''
@@ -48,9 +52,9 @@ np.set_printoptions(linewidth=400)
 
 class OpenMM(INTERFACE):
 
-    _version = version
+    _version = __version__
     _versiondate = versiondate
-    _authors = authors
+    _authors = __author__
     _changelogstring = changelogstring
     _read_resources = True
 
@@ -72,13 +76,41 @@ class OpenMM(INTERFACE):
 
     # TODO: warnings for unsupported settings, i.e. nacs, socs etc
     def run(self):
-        pass
+        self.simulation.context.setPositions(Quantity(self.coords, unit=bohr))
+        self.simulation.step(1)
+        state: State = self.simulation.context.getState(getForces=True, getEnergy=True, getParameters=True)
+        self.simulation.topology
+        gradients: np.ndarray = -state.getForces(asNumpy=True
+                                                 ).value_in_unit(kilocalories_per_mole / bohr) / kcal_per_mole_to_Eh
+        energy: float = state.getPotentialEnergy().value_in_unit(kilocalories_per_mole) / kcal_per_mole_to_Eh
+        state.getParameters()
+
+        self._QMout['h'] = [[energy]]
+        self._QMout['grad'] = [gradients]
+        self._QMout['multipolar_fit'] = self._charges
 
     def read_template(self, template_filename):
-        pass
-    
+        QMin = self._QMin
+        paths = {'prmtop': '',
+                 'inpcrd': ''}
+        lines = readfile(template_filename)
+        special = {}
+        QMin['template'] = {**paths, **self.parse_keywords(lines, paths=paths, special=special)}
+
     def setup_run(self):
-        pass
-    
+        QMin = self._QMin
+        prmtop = AmberPrmtopFile(QMin['prmtop'])
+        self.coords = AmberInpcrdFile(QMin['inpcrd']).getPositions(asNumpy=True).value_in_unit(bohr)
+        # standard params
+        # nonbondedMethod=ff.NoCutoff, nonbondedCutoff=1.0*u.nanometer, constraints=None, rigidWater=True, implicitSolvent=None, implicitSolventSaltConc=0.0*(u.moles/u.liter), implicitSolventKappa=None, temperature=298.15*u.kelvin, soluteDielectric=1.0, solventDielectric=78.5, removeCMMotion=True, hydrogenMass=None, ewaldErrorTolerance=0.0005, switchDistance=0.0*u.nanometer, gbsaModel='ACE'
+        system: System = prmtop.createSystem(nonbondedCutoff=1 * 1e9)
+        integrator = VerletIntegrator(0.0)
+        self.simulation = Simulation(prmtop.topology, system, integrator, platformProperties={'Threads': QMin['ncpu']})
+        nonbonded = [f for f in system.getForces() if isinstance(f, NonbondedForce)][0]
+        self._charges = []
+        for i in range(system.getNumParticles()):
+            charge, _, _ = nonbonded.getParticleParameters(i)
+            self._charges.append(charge._value)
+
     def _request_logic(self):
         pass
