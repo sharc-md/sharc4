@@ -306,7 +306,6 @@ class GAUSSIAN(INTERFACE):
                             densjob[j] = {'scf': False, 'es': True, 'gses': True}
                         else:
                             densjob[j] = {'scf': True, 'es': True, 'gses': True}
-                            print(f'master_{j}', {'scf': True, 'es': True, 'gses': True}, file=sys.stderr)
                     else:
                         densjob[j] = {'scf': False, 'es': True, 'gses': False}
                 elif dens[1] == 1:
@@ -322,7 +321,6 @@ class GAUSSIAN(INTERFACE):
 
             QMin['jobdens'] = jobdens
             QMin['densjob'] = densjob
-            pprint.pprint(densjob, stream=sys.stderr)
         # add the master calculations
         schedule = []
         QMin['nslots_pool'] = []
@@ -437,13 +435,13 @@ class GAUSSIAN(INTERFACE):
             pprint.pprint(schedule, depth=2)
         errorcodes = {}
         # run all the jobs
-        errorcodes = self.runjobs(schedule)
+        # errorcodes = self.runjobs(schedule)
 
-        # do all necessary overlap and Dyson calculations
-        errorcodes = self.run_wfoverlap(errorcodes)
+        # # do all necessary overlap and Dyson calculations
+        # errorcodes = self.run_wfoverlap(errorcodes)
 
-        # do all necessary Theodore calculations
-        errorcodes = self.run_theodore(errorcodes)
+        # # do all necessary Theodore calculations
+        # errorcodes = self.run_theodore(errorcodes)
 
         # read all the output files
         self.getQMout()
@@ -458,11 +456,11 @@ class GAUSSIAN(INTERFACE):
         # Write QMout
         self.writeQMout()
 
-        # Remove Scratchfiles from SCRATCHDIR
-        if not DEBUG:
-            cleandir(QMin['scratchdir'])
-            if 'cleanup' in QMin:
-                cleandir(QMin['savedir'])
+        # # Remove Scratchfiles from SCRATCHDIR
+        # if not DEBUG:
+        #     cleandir(QMin['scratchdir'])
+        #     if 'cleanup' in QMin:
+        #         cleandir(QMin['savedir'])
 
         print(datetime.datetime.now())
         print('#================ END ================#')
@@ -1626,12 +1624,12 @@ class GAUSSIAN(INTERFACE):
             if 'multipolar_fit' not in QMout:
                 QMout['multipolar_fit'] = {}
 
-            for dens in QMin['densjob']:
-                workdir = os.path.join(QMin['scratchdir'], dens)
-                self.get_fchk(workdir)
+            # for dens in QMin['densjob']:
+            #     workdir = os.path.join(QMin['scratchdir'], dens)
+            #     self.get_fchk(workdir)
             # sort densjobs
             density_map = {}    # map for (mult, state, state): position in densities
-            sorted_denjobs = []
+            sorted_densjobs = []
             jobfiles = set()
             i = 0
             for dens in QMin['densmap']:
@@ -1639,7 +1637,7 @@ class GAUSSIAN(INTERFACE):
                 if job not in jobfiles:
                     jobfiles.add(job)
                     flags = QMin['densjob'][job]
-                    sorted_denjobs.append((job, flags))
+                    sorted_densjobs.append((job, flags))
                     scf, es, gses = map(flags.get, ('scf', 'es', 'gses'))
                     if scf:
                         density_map[(*dens, *dens)] = i
@@ -1661,19 +1659,28 @@ class GAUSSIAN(INTERFACE):
                             state = dens[1]
                             density_map[(gsmult, 1, dens[0], es)] = i
                             i += 1
+            print('density_map',file=sys.stderr)
+            pprint.pprint(density_map, sys.stderr)
+            print('sorted_densjobs',file=sys.stderr)
+            pprint.pprint(sorted_densjobs, sys.stderr)
+            print('densmap',file=sys.stderr)
+            pprint.pprint(QMin['densmap'], sys.stderr)
+            print('densjob',file=sys.stderr)
+            pprint.pprint(QMin['densjob'], sys.stderr)
 
             # read basis
-            fchkfile = os.path.join(QMin['scratchdir'], sorted_denjobs[0][0], 'GAUSSIAN.fchk')
+            fchkfile = os.path.join(QMin['scratchdir'], sorted_densjobs[0][0], 'GAUSSIAN.fchk')
             basis, n_bf = self.get_basis(fchkfile)
             # collect all densities from the file in densjob (file: bools) and jobdens (state: file)
-            densities = self.get_dens_from_fchks(sorted_denjobs, basis, n_bf)
-
+            densities = self.get_dens_from_fchks(sorted_densjobs, basis, n_bf)
+            print(len(densities), file=sys.stderr)
             fits = Resp(QMin['coords'], QMin['elements'], QMin['resp_density'], QMin['resp_shells'])
             fits.prepare(basis)  # the charge of the atom does not affect
             fits_map = {}
             for i, d_i in enumerate(QMin['densmap']):
                 # do gs density
                 key = (*d_i, *d_i)
+                print(key, density_map[key], file=sys.stderr)
                 fits_map[key] = fits.multipoles_from_dens(densities[density_map[key]], include_core_charges=True)
 
                 for d_j in QMin['densmap'][i + 1:]:
@@ -1681,6 +1688,7 @@ class GAUSSIAN(INTERFACE):
                         continue
                     # do gses and eses density
                     key = (*d_i, *d_j)
+                    print('inner', key, density_map[key], file=sys.stderr)
                     if key in density_map:
                         fits_map[key] = fits.multipoles_from_dens(densities[density_map[key]],
                                                                   include_core_charges=False, order=QMin['resp_tdm_fit_order'])
@@ -1941,7 +1949,7 @@ class GAUSSIAN(INTERFACE):
         for dens, flags in densjobs:
             scf, es, gses = map(flags.get, ('scf', 'es', 'gses'))
             fchkfile = os.path.join(QMin['scratchdir'], dens, 'GAUSSIAN.fchk')
-
+            scf_read = es_read = gses_read = False
             f = open(fchkfile, 'r')
             lines = f.readlines()
             f.close()
@@ -1965,7 +1973,9 @@ class GAUSSIAN(INTERFACE):
                     densities.append(density)
                     new_dens += 1
                     i += n_lines
+                    scf_read = True
                 if es and 'CI Density' in lines[i]:
+                    print('reading CI dens for', new_dens, file=sys.stderr)
                     n = int(lines[i].split()[-1])
                     n_lines = (n - 1) // 5 + 1
                     i += 1
@@ -1982,6 +1992,7 @@ class GAUSSIAN(INTERFACE):
                     densities.append(density)
                     new_dens += 1
                     i += n_lines
+                    es_read = True
                 if 'Excited state NLR' in lines[i]:
                     i += 1
                     n_es = int(lines[i].split()[-1])
@@ -2003,7 +2014,14 @@ class GAUSSIAN(INTERFACE):
                         densities.append(tmp)
                         new_dens += 1
                     i += n_lines
+                    gses_read = True
                 i += 1
+            if scf and not scf_read:
+                raise Error(f'Missing "SCF Density" in checkpoint file for job {dens}!\nfchk-file:  {fchkfile}', 33)
+            if es and not es_read:
+                raise Error(f'Missing "CI Density" in checkpoint file for job {dens}!\nfchk-file:  {fchkfile}', 33)
+            if gses and not gses_read:
+                raise Error(f'Missing "G to E trans densities" in checkpoint file for job {dens}!\nfchk-file:  {fchkfile}', 33)
         # read densities
         return densities
 
