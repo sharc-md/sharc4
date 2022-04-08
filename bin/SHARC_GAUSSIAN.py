@@ -435,13 +435,13 @@ class GAUSSIAN(INTERFACE):
             pprint.pprint(schedule, depth=2)
         errorcodes = {}
         # run all the jobs
-        # errorcodes = self.runjobs(schedule)
+        errorcodes = self.runjobs(schedule)
 
-        # # do all necessary overlap and Dyson calculations
-        # errorcodes = self.run_wfoverlap(errorcodes)
+        # do all necessary overlap and Dyson calculations
+        errorcodes = self.run_wfoverlap(errorcodes)
 
-        # # do all necessary Theodore calculations
-        # errorcodes = self.run_theodore(errorcodes)
+        # do all necessary Theodore calculations
+        errorcodes = self.run_theodore(errorcodes)
 
         # read all the output files
         self.getQMout()
@@ -456,11 +456,11 @@ class GAUSSIAN(INTERFACE):
         # Write QMout
         self.writeQMout()
 
-        # # Remove Scratchfiles from SCRATCHDIR
-        # if not DEBUG:
-        #     cleandir(QMin['scratchdir'])
-        #     if 'cleanup' in QMin:
-        #         cleandir(QMin['savedir'])
+        # Remove Scratchfiles from SCRATCHDIR
+        if not DEBUG:
+            cleandir(QMin['scratchdir'])
+            if 'cleanup' in QMin:
+                cleandir(QMin['savedir'])
 
         print(datetime.datetime.now())
         print('#================ END ================#')
