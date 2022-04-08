@@ -98,6 +98,7 @@ import itertools
 import traceback
 # for diabatization
 import numpy as np
+from constants import *
 
 from resp import Resp
 from pyscf import tools, gto, df
@@ -1391,7 +1392,7 @@ def getsmate(out, mult, state1, state2, states):
             return float(out[iline + jline + rowshift + 1].split()[colshift])
 
     
-def getdensity(QMin, mult, state1, state2, Resp):
+def getdensity(QMin, mult, state1, state2):
     trd_file = os.path.join(QMin['scratchdir'],'master','TRD_%i_%03i_%03i' % (mult, state1, state2))
     #path = os.path.join(QMin['scratchdir'],'master', 'MOLCAS.%imolden' % (mult))
     with open(trd_file, 'r') as f:
@@ -1415,6 +1416,8 @@ def getdensity(QMin, mult, state1, state2, Resp):
                 data = data.replace('D', 'E')
                 entries = [float(data[j:j+19]) for j in range(0, n_ele*19, 19)]
                 inactive_block = np.eye(n_inact, dtype=float) * 2
+                if state1 != state2:
+                    inactive_block *= 0
                 active_block = np.array(entries).reshape((n_act, n_act))
                 density = np.zeros((n_act + n_inact, n_act + n_inact))
                 density[:n_inact, :n_inact] = inactive_block
@@ -1560,15 +1563,15 @@ def getQMout(out, QMin):
                     nac[istate][jstate] = complex(0.0)
         QMout['overlap'] = nac
     # densities
-    if 'densities' in QMin:
+    if 'multipolar_fit' in QMin:
         densities = [[[[0. for i in range(10)] for j in range(natom)] for k in range(nmstates)] for l in range(nmstates)]
         #from resp import Resp
         coords = np.array([atom[1:] for atom in QMin['geo']], dtype=float)
-        symbols = np.array([atom[0] for atom in QMin['geo']], dtype=float)
+        symbols = [atom[0] for atom in QMin['geo']]
         fit = Resp(coords, symbols)
-        first_state = QMin['statemap'][0]
+        first_state = QMin['statemap'][QMin['states'][0]]
         first_mult, _, _ = tuple(first_state)
-        molden_file = os.path.join(QMin['scratchdir'],'master', 'MOLCAS.%imolden' % (first_mult))
+        molden_file = os.path.join(QMin['scratchdir'],'master', 'MOLCAS.%i.molden' % (first_mult))
         mol, _, mo_coeff, _, _, _ = tools.molden.load(molden_file)
         mol.build()
         Z = mol.atom_charges()
@@ -1578,12 +1581,11 @@ def getQMout(out, QMin):
         # NOTE the value of these integrals is not affected by the atom charge
         fit.ints = df.incore.aux_e2(mol, fakemol)
 
-        #R = Resp(coords, symbols, densitiy, shells)
         old_mult = first_mult
-        for i, (i1) in enumerate(QMin['statemap']):
+        for i, i1 in enumerate(QMin['statemap'].values()):
             mult1, state1, ms1 = tuple(i1)
             if mult1 != old_mult:
-                molden_file = os.path.join(QMin['scratchdir'],'master', 'MOLCAS.%imolden' % (mult1))
+                molden_file = os.path.join(QMin['scratchdir'],'master', 'MOLCAS.%i.molden' % (mult1))
                 _, _, mo_coeff, _, _, _ = tools.molden.load(molden_file)
                 old_mult = mult1
                 # read new molden file
@@ -1594,12 +1596,14 @@ def getQMout(out, QMin):
                     print(f' i would print something here: {i+1,j+1}')
                     density_mo = getdensity(QMin, mult1, state1, state2)
                     # transform to AO
-                    mo_coeff[0,:]
-                    density_ao = mo_coeff.T @ density_mo @ mo_coeff
-                    # density_ao = np.einsum('ia,ij,jb->ab', mo_coeff, density_mo, mo_coeff)
-                    densities[i][j] = density_ao
-                    densities[j][i] = density_ao
-        QMout['densities'] = densities
+                    mo_coeff_block = mo_coeff[:, :density_mo.shape[1]]
+                    # TODO: should the density be transposed?
+                    density_ao = mo_coeff_block @ density_mo @ mo_coeff_block.T
+                    multipolar_fit = fit.multipoles_from_dens(density_ao, include_core_charges=i==j)
+                    densities[i][j] = multipolar_fit
+                    densities[j][i] = multipolar_fit
+                    # also assign these values to the other states that have the same mult and state, but different ms's
+        QMout['multipolar_fit'] = densities
 
 
     # Phases from overlaps
@@ -1654,6 +1658,8 @@ def writeQMout(QMin, QMout, QMinfilename):
         string += writeQMoutprop(QMin, QMout)
     if 'phases' in QMin:
         string += writeQmoutPhases(QMin, QMout)
+    if 'multipolar_fit' in QMin:
+        string += writeQMoutmultipolarfit(QMin, QMout)
     string += writeQMouttime(QMin, QMout)
     outfile = os.path.join(QMin['pwd'], outfilename)
     writefile(outfile, string)
@@ -1750,7 +1756,7 @@ def writeQMoutgrad(QMin, QMout):
         i += 1
     return string
 
-# ======================================================================= #
+# ===================================QMout==================================== #
 
 
 def writeQMoutnacana(QMin, QMout):
@@ -1920,6 +1926,30 @@ def writeQmoutPhases(QMin, QMout):
         string += '%s %s\n' % (eformat(QMout['phases'][i].real, 9, 3), eformat(QMout['phases'][i].imag, 9, 3))
     return string
 
+def writeQMoutmultipolarfit(QMin, QMout):
+    '''Generates a string with the fitted RESP charges for each pair of states specified.
+
+    The string starts with a ! followed by a flag specifying the type of data.
+    Each line starts with the atom number (starting at 1), state i and state j. 
+    If i ==j: fit for single state, else fit for transition multipoles.
+    One line per atom and a blank line at the end.
+
+    Returns:
+    1 string: multiline string with the Gradient vectors'''
+
+    states = QMin['states']
+    nmstates = QMin['nmstates']
+    natom = QMin['natom']
+    fits = QMout['multipolar_fit']
+    string = f'! 22 Atomwise multipolar density representation fits for states ({nmstates}x{nmstates}x{natom}x10)\n'
+
+    for i, (imult, istate, ims) in zip(range(nmstates), itnmstates(states)):
+        for j, (jmult, jstate, jms) in zip(range(nmstates), itnmstates(states)):
+            string += f'{natom} 10 ! m1 {imult} s1 {istate} ms1 {ims: 3.1f}   m2 {jmult} s2 {jstate} ms2 {jms: 3.1f}\n'
+            entry = fits[i][j]
+            string += "\n".join(map(lambda x: " ".join(map(lambda y: '{: 10.8f}'.format(y), x)), entry)) + '\n'
+            string += ''
+    return string
 
 # =============================================================================================== #
 # =============================================================================================== #
@@ -2153,7 +2183,7 @@ def readQMin(QMinfilename):
         print('Number of states not given in QM input file %s!' % (QMinfilename))
         sys.exit(40)
 
-    possibletasks = ['h', 'soc', 'dm', 'grad', 'overlap', 'dmdr', 'socdr', 'ion', 'phases', 'densities']
+    possibletasks = ['h', 'soc', 'dm', 'grad', 'overlap', 'dmdr', 'socdr', 'ion', 'phases', 'multipolar_fit']
     if not any([i in QMin for i in possibletasks]):
         print('No tasks found! Tasks are "h", "soc", "dm", "grad","dmdr", "socdr", "overlap", "ion" and "densities".')
         sys.exit(41)
@@ -2186,7 +2216,7 @@ def readQMin(QMinfilename):
         print('Within the SHARC-MOLCAS interface, "nacdt" is not supported.')
         sys.exit(45)
 
-    if 'densities' in QMin:
+    if 'multipolar_fit' in QMin:
         QMin['molden']=[]
 
     if 'molden' in QMin:
@@ -2194,8 +2224,8 @@ def readQMin(QMinfilename):
         if 'samestep' in QMin:
             print('HINT: Not producing Molden files in "samestep" mode!')
             del QMin['molden']
-            if 'densities' in QMin:
-                print('Samestep and densities are currently imcompatible!')
+            if 'multipolar_fit' in QMin:
+                print('Samestep and multipolar_fit are currently imcompatible!')
                 sys.exit(46)
 
     # if 'ion' in QMin:
@@ -2337,15 +2367,15 @@ def readQMin(QMinfilename):
 
 
     # Set up scratchdir
-    # line = get_sh2cas_environ(sh2cas, 'scratchdir', False, False)
-    # if line is None:
-    #     line = QMin['pwd'] + '/SCRATCHDIR/'
-    # line = os.path.expandvars(line)
-    # line = os.path.expanduser(line)
-    # line = os.path.abspath(line)
-    # # checkscratch(line)
-    # QMin['scratchdir'] = line
-    QMin['scratchdir'] = '/public/manganese/scratch/tmp/lehrner.391868/WORK'
+    line = get_sh2cas_environ(sh2cas, 'scratchdir', False, False)
+    if line is None:
+        line = QMin['pwd'] + '/SCRATCHDIR/'
+    line = os.path.expandvars(line)
+    line = os.path.expanduser(line)
+    line = os.path.abspath(line)
+     # checkscratch(line)
+    QMin['scratchdir'] = line
+   
 
     # Set up savedir
     if 'savedir' in QMin:
@@ -2826,24 +2856,22 @@ def gettasks(QMin):
                 tasks.append(['link', os.path.join(QMin['savedir'], 'MOLCAS.%i.JobIph.master' % (imult + 1)), 'JOB001'])
             else:
                 tasks.append(['link', os.path.join(QMin['savedir'], 'MOLCAS.%i.JobIph.old' % (imult + 1)), 'JOB001'])
-            tasks.append(['link', 'MOLCAS.%i.JobIph' % (imult + 1), 'JOB002'])
-            tasks.append(['rassi', 'overlap', [nstates, nstates]])
-            for i in range(nstates):
-                for j in range(i+1):
-                    print(f'TRD_{imult}_{i:0>3}_{j:0>3}', file=sys.stderr)
-                    tasks.append(['copy', 'TRD2_%03i_%03i' % (i+nstates+1, j+nstates+1) ,'TRD_%i_%03i_%03i' % (imult+1, i+1, j+1)])
+            if 'multipolar_fit' in QMin:
+                tasks.append(['link', 'MOLCAS.%i.JobIph' % (imult + 1), 'JOB002'])
+                tasks.append(['rassi', 'overlap', [nstates, nstates]])
+                for i in range(nstates):
+                    for j in range(i+1):
+                        #print(f'TRD_{imult}_{i:0>3}_{j:0>3}', file=sys.stderr)
+                        tasks.append(['copy', 'TRD2_%03i_%03i' % (i+nstates+1, j+nstates+1) ,'TRD_%i_%03i_%03i' % (imult+1, i+1, j+1)])
 
         # RASSI for Dipole moments only if overlap-RASSI is not needed
-        elif 'dm' in QMin or 'ion' in QMin or 'densities' in QMin:
+        elif 'dm' in QMin or 'ion' in QMin or 'multipolar_fit' in QMin:
             tasks.append(['link', 'MOLCAS.%i.JobIph' % (imult + 1), 'JOB001'])
             tasks.append(['rassi', 'dm', [nstates]])
-            #for i in enumerate(QMin['statemap']):
-                #for j in enumerate(i):
-                    #print(f'TRD_{imult}_{i:0>3}_{j:0>3}', file=sys.stderr)
             for i in range(nstates):
                 for j in range(i+1):
                     tasks.append(['copy', 'TRD2_%03i_%03i' % (i+1, j+1) ,'TRD_%i_%03i_%03i' % (imult+1, i+1, j+1)])
-                    print(f'TRD_{imult}_{i:0>3}_{j:0>3}', file=sys.stderr)
+                    #print(f'TRD_{imult}_{i:0>3}_{j:0>3}', file=sys.stderr)
 
     # SOC
     if 'soc' in QMin:
@@ -2911,7 +2939,7 @@ def writeMOLCASinput(tasks, QMin):
             string += '>> COPY %s %s\n\n' % (name, task[2])
 
         elif task[0] == 'copy':
-            print('I DID COPY A THING:  %s %s' % (task[1], task[2]), file=sys.stderr)
+            #print('I DID COPY A THING:  %s %s' % (task[1], task[2]), file=sys.stderr)
             string += '>> COPY %s %s\n\n' % (task[1], task[2])
 
         elif task[0] == 'rm':
@@ -3012,13 +3040,13 @@ def writeMOLCASinput(tasks, QMin):
                 # smallest value printed by MOLCAS is 0.00001
                 string += 'CIPR\nTHRS=0.000005d0\n'
             if task[1] == 'dm':
-                if 'densities' in QMin:
+                if 'multipolar_fit' in QMin:
                     string += 'TRD1\n'
             elif task[1] == 'soc':
                 string += 'SPINORBIT\nSOCOUPLING=0.0d0\nEJOB\n'
             elif task[1] == 'overlap':
                 string += 'OVERLAPS\n'
-                if 'densities' in QMin:
+                if 'multipolar_fit' in QMin:
                     string += 'TRD1\n'
             string += '\n'
 
@@ -3506,7 +3534,7 @@ def runjobs(joblist, QMin):
             WORKDIR = os.path.join(QMin['scratchdir'], job)
 
             errorcodes[job] = pool.apply_async(run_calc, [WORKDIR, QMin1])
-            # errorcodes[job]=run_calc(WORKDIR,QMin1)
+            #errorcodes[job]=run_calc(WORKDIR,QMin1)
             time.sleep(QMin['delay'])
         pool.close()
         pool.join()
@@ -3529,13 +3557,13 @@ def runjobs(joblist, QMin):
         print(string)
         j = 0
         string = 'Error Codes:\n\n'
-        for i in errorcodes:
-            string += '\t%s\t%i' % (i + ' ' * (10 - len(i)), errorcodes[i])
-            j += 1
-            if j == 4:
-                j = 0
-                string += '\n'
-        print(string)
+    for i in errorcodes:
+        string += '\t%s\t%i' % (i + ' ' * (10 - len(i)), errorcodes[i])
+        j += 1
+        if j == 4:
+            j = 0
+            string += '\n'
+    print(string)
 
     if any((i != 0 for i in errorcodes.values())):
         print('Some subprocesses did not finish successfully!')
@@ -3704,6 +3732,8 @@ def arrangeQMout(QMin, QMoutall, QMoutDyson):
         QMout['dm'] = QMoutall['master']['dm']
     if 'overlap' in QMin:
         QMout['overlap'] = QMoutall['master']['overlap']
+    if 'multipolar_fit' in QMin:
+        QMout['multipolar_fit'] = QMoutall['master']['multipolar_fit']
     # Phases from overlaps
     if 'phases' in QMin:
         if 'phases' not in QMout:
@@ -4634,8 +4664,8 @@ def main():
     QMin, joblist = generate_joblist(QMin)
 
     # run all MOLCAS jobs
-    # errorcodes = runjobs(joblist, QMin)
-
+    errorcodes = runjobs(joblist, QMin)
+    
     # get output
     QMoutall = collectOutputs(joblist, QMin, errorcodes)
 
@@ -4666,10 +4696,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-
-
-
-
-
-# kate: indent-width 4
