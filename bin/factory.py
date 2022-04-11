@@ -33,7 +33,7 @@ AVAILABLE_INTERFACES = [
 def factory(name: str) -> INTERFACE:
     if name.upper() not in AVAILABLE_INTERFACES:
         raise Error(f'Interface with name "{name}" does not exist!')
-    interface_mod = import_module('SHARC_{}_new'.format(name.upper()))
+    interface_mod = import_module('SHARC_{}'.format(name.upper()))
     interface = getattr(interface_mod, name.upper())
     if issubclass(interface, INTERFACE):
         return interface
