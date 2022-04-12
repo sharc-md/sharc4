@@ -127,10 +127,18 @@ module restart
     ! thermostat
     write(u,*) ctrl%thermostat
     if (ctrl%thermostat/=0) then
-      write(u,*) ctrl%temperature
-      if (ctrl%thermostat==1) then   !Langevin: only 1 Thermostat constant
-        write(u,*) ctrl%thermostat_const(1)
+      write(u,*) ctrl%ntempregions
+      call vecwrite(ctrl%ntempregions, ctrl%temperature, u, 'temperature','ES24.16E3')
+      !write(u,*) ctrl%temperature
+      call matwrite(ctrl%ntempregions, ctrl%thermostat_const, u, 'thermostat_const','ES24.16E3')
+      if (ctrl%ntempregions>1) then
+        do iatom=1,ctrl%natom
+          write(u,*) ctrl%tempregion(iatom)
+        enddo
       endif
+      !if (ctrl%thermostat==1) then   !Langevin: only 1 Thermostat constant
+        !write(u,*) ctrl%thermostat_const(1)
+      !endif
       write(u,*) ctrl%restart_thermostat_random
     endif
 
@@ -166,8 +174,13 @@ module restart
     write(u,*) ctrl%n_property1d
     write(u,*) ctrl%n_property2d
     
+    ! write atom mask for decoherence, rescaling, ...
     do iatom=1,ctrl%natom
       write(u,*) ctrl%atommask_a(iatom)
+    enddo
+    ! write atom mask for freezing atoms
+    do iatom=1,ctrl%natom
+      write(u,*) ctrl%atommask_b(iatom)
     enddo
     
     close(u)
@@ -435,11 +448,22 @@ module restart
     ! thermostat
     read(u_ctrl,*) ctrl%thermostat
     if (ctrl%thermostat/=0) then
-      read(u_ctrl,*) ctrl%temperature
-      if (ctrl%thermostat==1) then   !Langevin: only 1 Thermostat constant
-        allocate(ctrl%thermostat_const(1))
-        read(u_ctrl,*) ctrl%thermostat_const(1)
+      read(u_ctrl,*) ctrl%ntempregions
+      allocate(ctrl%temperature(ctrl%ntempregions))
+      if (ctrl%thermostat==1) then
+        allocate(ctrl%thermostat_const(ctrl%ntempregions,1))
       endif
+      allocate(ctrl%tempregion(ctrl%natom))
+      call vecread(ctrl%ntempregions, ctrl%temperature, u_ctrl, string)
+      call matread(ctrl%ntempregions, ctrl%thermostat_const, u_ctrl, string)
+      do iatom=1,ctrl%natom
+        read(u_ctrl,*) ctrl%tempregion(iatom)
+      enddo
+      !read(u_ctrl,*) ctrl%temperature
+      !if (ctrl%thermostat==1) then   !Langevin: only 1 Thermostat constant
+      !  allocate(ctrl%thermostat_const(1))
+      !  read(u_ctrl,*) ctrl%thermostat_const(1)
+      !endif
       read(u_ctrl,*) ctrl%restart_thermostat_random
     endif
 
@@ -483,9 +507,15 @@ module restart
     read(u_ctrl,*) ctrl%n_property1d
     read(u_ctrl,*) ctrl%n_property2d
     
+    !read in atom mask for decoherence, rescaling, ...
     allocate( ctrl%atommask_a(ctrl%natom))
     do iatom=1,ctrl%natom
       read(u_ctrl,*) ctrl%atommask_a(iatom)
+    enddo
+    !read in atom mask for freezing atoms
+    allocate( ctrl%atommask_b(ctrl%natom))
+    do iatom=1,ctrl%natom
+      read(u_ctrl,*) ctrl%atommask_b(iatom)
     enddo
     
     close(u_ctrl)

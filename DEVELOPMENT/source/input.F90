@@ -1490,8 +1490,6 @@ module input
       ctrl%n_constraints=0
     endif
 
-  
-
 
 
 
@@ -1723,6 +1721,100 @@ module input
     endif
     if (ctrl%reflect_frustrated==1) then
       write(u_log,*) 'Atom mask will be used for reflection after frustrated hops.'
+    endif
+  endif
+
+  ! =====================================================
+
+  ! process the atom mask for freezing atoms, i.e. excluding them from dynamics
+  allocate( ctrl%atommask_b(ctrl%natom))
+  ctrl%atommask_b=.true.
+  line=get_value_from_key('freeze',io)
+  if (io==0) then
+    call split(line,' ',values,n)
+    select case (trim(values(1)))
+      ! initial frozen atoms in input
+      case ('last') !initialize as last [n] atoms frozen
+          if (n==2) then
+            read(values(2),*) k
+            do i=ctrl%natom-k+1,ctrl%natom
+                ctrl%atommask_b(i) = .false.
+            enddo
+          else
+            write(0,*) 'Specify how many atoms should be frozen: freeze last [n]!'
+            stop 1
+          endif
+      case ('atoms') !initialize as given atoms [at1 at2 ... ] frozen
+          if (n>=2) then
+            do i=2,n
+              read(values(i),*) k
+              ctrl%atommask_b(k) = .false.
+            enddo
+          else
+            write(0,*) 'Specify which atoms should be frozen (atom numbers)!'
+            stop 1
+          endif
+      ! initialize frozen atoms from file
+      case ('file')
+          if (n==2) then
+            call get_quoted(line,geomfilename)
+            filename=trim(geomfilename)
+            !read(values(2),*) filename
+            if (filename(1:3)=='qm/') then !change qm/ folder to QM/
+              filename='QM'//filename(3:)
+            endif
+          else if (n==1) then
+            filename='frozen'
+          else
+            write(0,*) 'Specify only 1 filename to read frozen atoms from!'
+            stop 1
+          endif
+          open(u_i_frozen,file=filename, status='old', action='read', iostat=io)
+
+          if (printlevel>1) write(u_log,'(3A)') 'Reading atom mask for dynamics (active/frozen atoms) from file "',trim(filename),'"'
+          if (io/=0) then
+            write(0,*) 'Could not find atom mask for freezing atoms file!'
+            stop 1
+          endif
+          if (filename=='QM/real_layers.xyz') then !read from real_layers file
+            write(0,*) 'still need to implement reading from QM/real_layers.xyz'
+            stop 1
+            do i=1,ctrl%natom
+              read(u_i_frozen,*) line
+              call split(line,' ',values,n)
+              !write(0,*) line
+              !write(0,*) values(5)
+              !write(0,*) trim(values(2))
+              !write(0,*) trim(values(-1))
+              if (trim(values(5))=='L') then
+                ctrl%atommask_b(i)=.false.
+              endif 
+            enddo
+          else !read from file with T/F in each line (for each atom)
+            do i=1,ctrl%natom
+              read(u_i_frozen,*) ctrl%atommask_b(i)
+            enddo
+          endif
+          close(u_i_frozen)
+      case ('none')
+          continue
+      case default
+        write(0,*) 'Unknown option for keyword freeze!'
+        stop 1
+    endselect
+    deallocate(values)
+  endif
+  if (printlevel>1) then
+    if (printlevel>2) then
+      write(u_log,*) 'Atom mask for dynamics (atoms active or frozen):'
+      do i=1,ctrl%natom
+        write(u_log,*) i,traj%element_a(i),ctrl%atommask_b(i)
+      enddo
+    else
+      write(u_log,*) 'Atom mask for dynamics (only active, not frozen):'
+      do i=1,ctrl%natom
+        if (ctrl%atommask_b(i)) write(u_log,*) i,traj%element_a(i),ctrl%atommask_b(i)
+      enddo
     endif
   endif
 
@@ -2100,14 +2192,17 @@ module input
 
   ! =====================================================
 
-  ! check for thermostat
-  line=get_value_from_key('thermostat',io)
+  ! check for thermostat keywords
+
+    line=get_value_from_key('thermostat',io)
     if (io==0) then
       select case (trim(line))
         case ('none')
           ctrl%thermostat=0
         case ('langevin')
           ctrl%thermostat=1
+       ! case ('multi-langevin')
+        !  ctrl%thermostat=2
         case default
           ctrl%thermostat=0
       endselect
@@ -2116,19 +2211,19 @@ module input
     endif
 
    if (printlevel>0) then
-      write(u_log,*) '============================================================='
-      write(u_log,*) '                       Thermostat'
-      write(u_log,*) '============================================================='
-      if (printlevel>1) then
-        select case (ctrl%thermostat)
-          case (0)
-            write(u_log,'(a)') 'No thermostat will be applied.'
-          case (1)
-            write(u_log,'(a)') 'Langevin thermostat will be applied.'
-            write(u_log,'(a)') 'Temperature (in K) and friction coeffitient (in m_e*fs^-1): '
-        endselect
-      endif
-    endif
+     write(u_log,*) '============================================================='
+     write(u_log,*) '                       Thermostat'
+     write(u_log,*) '============================================================='
+     if (printlevel>1) then
+       select case (ctrl%thermostat)
+         case (0)
+           write(u_log,'(a)') 'No thermostat will be applied.'
+         case (1)
+           write(u_log,'(a)') 'Langevin thermostat will be applied.'
+           !write(u_log,'(a)') 'Temperature (in K) and friction coeffitient (in fs^-1): '
+       endselect
+     endif
+   endif
 
 
     ! set up values needed for thermostat
@@ -2163,40 +2258,189 @@ module input
         ctrl%restart_thermostat_random=.false.
       endif
 
-      ! get temperature
-      line=get_value_from_key('temperature',io)
-      if (io==0) then
-        read(line,*) ctrl%temperature
-      else
-        ctrl%temperature=293.15 !default temperature
-      endif
-      write(u_log,'(1x,F11.4)') ctrl%temperature
-
-      ! get constants needed for thermostat
-      if (ctrl%thermostat==1) allocate(ctrl%thermostat_const(1)) !allocate right amount of thermostat constants
-      line=get_value_from_key('thermostat_const',io) !provide in fs^-1
+      ! specify number of thermostat regions (regions with different thermostat conditions)
+      ! if input as file: specify temperature and thermostat constants
+      allocate(ctrl%tempregion(ctrl%natom))
+      line=get_value_from_key('thermostatregions',io)
       if (io==0) then
         call split(line,' ',values,n)
-        if (n/=size(ctrl%thermostat_const)) then
-          write(0,*) 'Wrong number of thermostat constants!'
-          stop 1
-        else
-          do i=1,n
-            read(values(i),*) a
-            ctrl%thermostat_const = a  ! set the thermostat constants
-            if (printlevel>1) then
-              write(u_log,'(1x,ES11.4)') ctrl%thermostat_const(i)
+        select case (trim(values(1)))
+          case('one')
+            ! if 1, then there are no multiple thermostatting regions
+            ctrl%ntempregions=1
+          case('file')
+            ! if file, then read from specified file
+            !write(0,*) 'Reading thermostat regions and conditions from file not possible yet!'
+            !stop 1
+            if (n==2) then
+              call get_quoted(line,geomfilename)
+              filename=trim(geomfilename)
+            else if (n==1) then
+              filename = 'thermostat_setting'
+            else
+              write(0,*) 'Specify only 1 filename to read thermostat settings from!'
+              stop 1
             endif
-          enddo
-        endif
+            open(u_i_thermostat,file=filename, status='old', action='read', iostat=io)
+            if (printlevel>1) write(u_log,'(3A)') 'Reading thermostat settings from file "',trim(filename),'"'
+            if (io/=0) then
+              write(0,*) 'Could not find thermostat file!'
+              stop 1
+            endif
+            ! read content of file
+            read(u_i_thermostat,*) ctrl%ntempregions
+            allocate(ctrl%temperature(ctrl%ntempregions)) ! allocate temperature (as many as temperature regions present)
+            if (ctrl%thermostat==1) then
+              allocate(ctrl%thermostat_const(ctrl%ntempregions,1)) !allocate right amount of thermostat constants
+            endif
+            do i=1,ctrl%ntempregions
+              read(u_i_thermostat,*) ctrl%temperature(i) ! set temperatures
+            enddo
+            do i=1,ctrl%ntempregions
+              read(u_i_thermostat,*) line
+              deallocate(values)
+              call split(line,' ',values,n)
+              if (n/=size(ctrl%thermostat_const,2)) then
+                write(0,*) 'Wrong number of thermostat constants!'
+                stop 1
+              else
+                if (ctrl%thermostat==1) then
+                read(values(1),*) ctrl%thermostat_const(i,1)
+                endif
+              endif
+            enddo
+            do i=1,ctrl%natom
+              read(u_i_thermostat,*) ctrl%tempregion(i) ! set thermostat regions
+            enddo
+            close(u_i_thermostat)
+          case('first')
+            if (n==1) then
+              write (0,*) 'Specify how many atoms should be in first thermostat region!'
+              stop 1
+            endif
+            ! first (n) atoms belong to region 1 and the remainder to region 2
+            ctrl%ntempregions=2
+            !allocate(ctrl%tempregion(ctrl%natom))
+            read(values(2),*) k
+            do i=1,k
+              ctrl%tempregion(i)=1
+            enddo
+            do i=k+1,ctrl%natom
+              ctrl%tempregion(i)=2
+            enddo
+          case('atomlist')
+            ! set region number for all atoms separately
+            if ((n-1)==ctrl%natom) then
+              !set tempregion array
+              do i=2,n
+                read(values(i),*) a
+                ctrl%tempregion(i-1) = a  ! set the thermostat constants
+                if (printlevel>1) then
+                endif
+              enddo
+              !set ntempregions as max entry of array
+              ctrl%ntempregions = maxval(ctrl%tempregion)
+            else
+              write(0,*) 'Provide number of thermostat region for every atom!'
+              stop 1
+            endif
+          case default
+            write(0,*) 'thermostatregions input not correctly given'
+            stop 1 
+        endselect
         deallocate(values)
       else
-        write(0,*) 'No thermostat constants given!'
-        stop 1
+        ctrl%ntempregions=1
       endif
 
+      if (ctrl%ntempregions==1) then
+        do i=1,ctrl%natom
+          ctrl%tempregion(i)=1
+        enddo
+      endif
+
+             !if (ctrl%thermostat==1)
+              ! allocate(ctrl%temperature(1))
+               !allocate(ctrl%thermostat_const(1)) !allocate right amount of thermostat constants
+             !endif
+
+      ! get temperature (unless already read from external file)
+      if (.not. allocated(ctrl%temperature)) then
+        allocate(ctrl%temperature(ctrl%ntempregions)) ! allocate temperature (as many as temperature regions present)
+        line=get_value_from_key('temperature',io)
+        if (io==0) then
+          call split(line,' ',values,n)
+          if (n/=ctrl%ntempregions) then
+            write(0,*) 'Wrong number of temperatures given!'
+            stop 1
+          else
+            do i=1,n
+              read(values(i),*) a
+              ctrl%temperature(i) = a  ! set the thermostat constants
+              !read(line,*) ctrl%temperature
+            enddo
+          endif
+          deallocate(values)
+        else
+          if (ctrl%ntempregions > 1) write(u_log,'(a)') 'Warning: multiple thermostat regions, but not multiple temperatures given!'
+          do i=1,ctrl%ntempregions
+            ctrl%temperature(i)=293.15 !default temperature for all regions
+          enddo
+        endif
+      endif
+
+      ! get constants needed for thermostat (unless already read from external file)
+      if (.not. allocated(ctrl%thermostat_const)) then
+        if (ctrl%thermostat==1) then
+          allocate(ctrl%thermostat_const(ctrl%ntempregions,1)) !allocate right amount of thermostat constants
+        endif
+        line=get_value_from_key('thermostat_const',io) !provide in fs^-1
+        if (io==0) then
+          call split(line,' ',values,n)
+          if (n/=size(ctrl%thermostat_const)) then
+            write(0,*) 'Wrong number of thermostat constants!'
+            stop 1
+          else
+            if (ctrl%thermostat==1) then
+              do i=1,n
+                read(values(i),*) a
+                ctrl%thermostat_const(i,1) = a  ! set the thermostat constants
+              enddo
+            endif
+          endif
+          deallocate(values)
+        else
+          write(0,*) 'No thermostat constants given!'
+          stop 1
+        endif
+      endif
+
+      ! print quantities for thermostat
+      if (printlevel>0) then
+        if (ctrl%ntempregions>1) write (u_log,'(a)') 'Multiple thermostat conditions regions.'
+        if (printlevel>1) then
+          write(u_log,'(a)',advance='NO') 'Number of thermostat conditions region(s):'
+          write(u_log,*) ctrl%ntempregions
+          do i=1,ctrl%ntempregions
+            write(u_log,*) i,'. region:'
+            write(u_log,'(1x,F11.4,a)') ctrl%temperature(i),' K'
+            if (ctrl%thermostat==1) write (u_log,'(1x,a)',advance='NO')  'Friction coefficient (fs^-1): '
+            write(u_log,*) (ctrl%thermostat_const(i,j), j=1,size(ctrl%thermostat_const,2))
+            !write(u_log,'(a)') ' fs^-1'
+          enddo
+          write (u_log,'(a)') 'Region of atoms: (atom region)'
+          do i=1,ctrl%natom
+            write (u_log,*) i,ctrl%tempregion(i)
+          enddo
+        endif
+      endif
+
+      ! modifications of thermostat quantities useful for later
       if (ctrl%thermostat==1) then !save sqrt(variance) in ctrl%temperature
-        ctrl%temperature=sqrt(2*ctrl%thermostat_const(1)*1.38064852e-23*ctrl%temperature*2.2937126583579e+17*ctrl%dtstep) ! var=2*alpha*k_bT*dt (1 J = 2.29...e+17 a.u.)
+        do i=1,ctrl%ntempregions
+          ! var=2*alpha*k_bT*dt (1 J = 2.29...e+17 a.u.)
+          ctrl%temperature(i)=sqrt(2*ctrl%thermostat_const(i,1)*1.38064852e-23*ctrl%temperature(i)*2.2937126583579e+17*ctrl%dtstep)
+        enddo
         !write(u_log,*) 'thermostat_faketemp'
         !write(u_log,*) ctrl%temperature
       endif
@@ -2248,7 +2492,11 @@ module input
     ! velocity is read in as bohrs/atu
     ! laser field must be in a.u.
     ! langevin friction coefficient in a.u.^-1
-    if (ctrl%thermostat==1) ctrl%thermostat_const(1)=ctrl%thermostat_const(1)*au2fs
+    if (ctrl%thermostat==1) then
+      do i=1,ctrl%ntempregions
+        ctrl%thermostat_const(ctrl%ntempregions,1)=ctrl%thermostat_const(ctrl%ntempregions,1)*au2fs
+      enddo
+    endif
 
   ! =====================================================
     ! write some basic information into the data file

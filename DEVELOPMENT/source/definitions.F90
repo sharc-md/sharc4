@@ -221,6 +221,7 @@ type ctrl_type
 ! numerical constants
   integer :: natom                          !< number of atoms
   logical,allocatable :: atommask_a(:)      !< atoms which are considered for decoherence, rescaling, ...
+  logical,allocatable :: atommask_b(:)      !< atoms which are considered for verlocity verlet (-> use to freeze atoms)
   integer :: maxmult                        !< highest spin quantum number (determines length of nstates_m)
   integer,allocatable :: nstates_m(:)       !< numer of states considered in each multiplicy
   integer :: nstates                        !< total number of states
@@ -301,8 +302,11 @@ type ctrl_type
   complex*16, allocatable :: laserenergy_tl(:,:)  !< momentary central energy of laser (for detecting induced hops)
 
   ! thermostat
-  real*8 :: temperature                     !< temperature used for thermostat
-  real*8,allocatable :: thermostat_const(:) !< constants needed for thermostat. Langevin: friction coeffitient
+  !real*8 :: temperature                      !< temperature used for thermostat
+  integer :: ntempregions                     !< number of regions with different thermostat conditions
+  integer,allocatable :: tempregion(:)        !< array of thermostat region number for each atom
+  real*8,allocatable :: temperature(:)        !< temperature(s) used for thermostat
+  real*8,allocatable :: thermostat_const(:,:) !< constants needed for thermostat. Langevin: friction coeffitient
 
 endtype
 
@@ -345,6 +349,8 @@ integer, parameter :: u_i_coeff=15           !< initial coefficients
 integer, parameter :: u_i_laser=16           !< numerical laser field
 integer, parameter :: u_i_atommask=17        !< which atoms are active for rescaling/decoherence/...
 integer, parameter :: u_i_rattle=18          !< atoms for constraints
+integer, parameter :: u_i_frozen=19          !< which atoms are active for verlocity verlet (i.e. not frozen)
+integer, parameter :: u_i_thermostat=20      !< thermostat settings (number of regions, temperatures, constants, regions)
 
 integer, parameter :: u_qm_QMin=41           !< here SHARC writes information for the QM interface (like geometry, number of states, what kind of data is requested)
 integer, parameter :: u_qm_QMout=42          !< here SHARC retrieves the results of the QM run (Hamiltonian, gradients, couplings, etc.)
@@ -537,8 +543,11 @@ integer, parameter :: u_qm_QMout=42          !< here SHARC retrieves the results
       if (allocated(ctrl%nstates_m))                  deallocate(ctrl%nstates_m)
       if (allocated(ctrl%actstates_s))                deallocate(ctrl%actstates_s)
       if (allocated(ctrl%atommask_a))                 deallocate(ctrl%atommask_a)
+      if (allocated(ctrl%atommask_b))                 deallocate(ctrl%atommask_b)
       if (allocated(ctrl%laserfield_td))              deallocate(ctrl%laserfield_td)
       if (allocated(ctrl%laserenergy_tl))             deallocate(ctrl%laserenergy_tl)
+      if (allocated(ctrl%tempregion))                 deallocate(ctrl%tempregion)
+      if (allocated(ctrl%temperature))                deallocate(ctrl%temperature)
       if (allocated(ctrl%thermostat_const))           deallocate(ctrl%thermostat_const)
 
     endsubroutine
