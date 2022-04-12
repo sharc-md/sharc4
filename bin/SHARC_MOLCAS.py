@@ -2856,9 +2856,9 @@ def gettasks(QMin):
                 tasks.append(['link', os.path.join(QMin['savedir'], 'MOLCAS.%i.JobIph.master' % (imult + 1)), 'JOB001'])
             else:
                 tasks.append(['link', os.path.join(QMin['savedir'], 'MOLCAS.%i.JobIph.old' % (imult + 1)), 'JOB001'])
+            tasks.append(['link', 'MOLCAS.%i.JobIph' % (imult + 1), 'JOB002'])
+            tasks.append(['rassi', 'overlap', [nstates, nstates]])
             if 'multipolar_fit' in QMin:
-                tasks.append(['link', 'MOLCAS.%i.JobIph' % (imult + 1), 'JOB002'])
-                tasks.append(['rassi', 'overlap', [nstates, nstates]])
                 for i in range(nstates):
                     for j in range(i+1):
                         #print(f'TRD_{imult}_{i:0>3}_{j:0>3}', file=sys.stderr)
@@ -2868,10 +2868,11 @@ def gettasks(QMin):
         elif 'dm' in QMin or 'ion' in QMin or 'multipolar_fit' in QMin:
             tasks.append(['link', 'MOLCAS.%i.JobIph' % (imult + 1), 'JOB001'])
             tasks.append(['rassi', 'dm', [nstates]])
-            for i in range(nstates):
-                for j in range(i+1):
-                    tasks.append(['copy', 'TRD2_%03i_%03i' % (i+1, j+1) ,'TRD_%i_%03i_%03i' % (imult+1, i+1, j+1)])
-                    #print(f'TRD_{imult}_{i:0>3}_{j:0>3}', file=sys.stderr)
+            if 'multipolar_fit' in QMin:
+                for i in range(nstates):
+                    for j in range(i+1):
+                        tasks.append(['copy', 'TRD2_%03i_%03i' % (i+1, j+1) ,'TRD_%i_%03i_%03i' % (imult+1, i+1, j+1)])
+                        #print(f'TRD_{imult}_{i:0>3}_{j:0>3}', file=sys.stderr)
 
     # SOC
     if 'soc' in QMin:
@@ -3240,6 +3241,8 @@ def runMOLCAS(WORKDIR, MOLCAS, driver, ncpu, strip=False):
     if not os.path.isfile(path):
         print('ERROR: could not find Molcas driver ("pymolcas" or "molcas.exe") in $MOLCAS/bin!')
         sys.exit(74)
+    if 'pymolcas' in path:
+      path='python ' + path
     string = path + ' MOLCAS.input'
     stdoutfile = open(os.path.join(WORKDIR, 'MOLCAS.out'), 'w')
     stderrfile = open(os.path.join(WORKDIR, 'MOLCAS.err'), 'w')
