@@ -20,7 +20,7 @@ def get_resp_grid(atom_symbols: list[str], coords: np.ndarray, density=1, shells
     return mk_layers(coords, atom_radii, density, shells)
 
 class Resp:
-    def __init__(self, coords: np.ndarray, atom_symbols: list[str], density=1, shells=[1.4, 1.6, 1.8, 2.0]):
+    def __init__(self, coords: np.ndarray, atom_symbols: list[str], density=1, shells=[1.4, 1.6, 1.8, 2.0], custom_grid: np.ndarray=None):
         """
         creates an object with a fitting grid and precalculated properties for the molecule.
 
@@ -28,12 +28,21 @@ class Resp:
         ----------
         coords: ndarray array with shape (natom,3) unit has to be Bohr
 
-        atom_symbols: list[str] with atom symbols order corresponding to coords 
+        atom_symbols: list[str] with atom symbols order corresponding to coord
+
+        density: int specifying the surface density on the spheres in the Merz-Kollman scheme
+
+        shells: list[int] with factors for each shell in the Merz-Kollman scheme
+
+        custom_grid: ndarray[natoms, 3] defining a grid to fit on to
         """
         self.beta = 0.0005
         self.coords = coords
         self.atom_symbols = atom_symbols
-        self.mk_grid = get_resp_grid(atom_symbols, coords * au2a, density, shells) / au2a
+        self.mk_grid = custom_grid
+        if self.mk_grid is None:
+            self.mk_grid = get_resp_grid(atom_symbols, coords * au2a, density, shells) / au2a
+        assert len(self.mk_grid.shape) == 2 and self.mk_grid.shape[1] == 3
         self.natom = coords.shape[0]
         self.ngp = self.mk_grid.shape[0]
         # Build 1/|R_A - r_i| m_A_i
