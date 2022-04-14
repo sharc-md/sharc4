@@ -93,13 +93,13 @@ class TINKER(INTERFACE):
 
     def _request_logic(self):
         QMin = self._QMin
-        possibletasks = {'h', 'grad'}
+        possibletasks = {'h', 'grad', 'dm', 'overlap', 'phases'}
         tasks = possibletasks & QMin.keys()
 
         if len(tasks) == 0:
             raise Error(f'No tasks found! Tasks are {possibletasks}.', 39)
 
-        not_allowed = {'soc', 'dm', 'overlap', 'dmdr', 'socdr', 'ion', 'nacdr', 'theodore', 'phases'}
+        not_allowed = {'soc', 'dmdr', 'socdr', 'ion', 'nacdr', 'theodore'}
         if not QMin.keys().isdisjoint(not_allowed):
             raise Error('Cannot perform tasks: {}'.format(' '.join(QMin.keys() & not_allowed)), 13)
 
@@ -279,8 +279,8 @@ class TINKER(INTERFACE):
         if 'dm' in QMin and QMin['dm']:
             dm = np.zeros((3), float)
             for i, q in enumerate(QMout['raw_pc']):
-                dm += q * QMin['coords'][i]
-            QMout['dm'] = dm.tolist()
+                dm += q * QMin['coords'][i, :]
+            QMout['dm'] = [[[x]] for x in dm.tolist()]
         QMout['runtime'] = self.clock.measuretime()
 
         # read additional free energy components
@@ -295,7 +295,8 @@ class TINKER(INTERFACE):
                         break
                 if 'and the MM contributions to the gradient' not in line:
                     parse = True
-
+        self._QMout['overlap'] = [[1.]]
+        self._QMout['phases'] = [complex(1., 0.)]
 
     def setup_run(self):
         QMin = self._QMin

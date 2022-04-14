@@ -26,15 +26,18 @@ from error import Error
 from SHARC_INTERFACE import INTERFACE
 
 AVAILABLE_INTERFACES = [
-    'LVC', 'ORCA', 'MOLCAS', 'BAGEL', 'MOLPRO', 'COLUMBUS', 'AMS-ADF', 'RICC2', 'GAUSSIAN', 'TINKER', 'QMMM', 'MNDO'
+    'LVC', 'ORCA', 'MOLCAS', 'BAGEL', 'MOLPRO', 'COLUMBUS', 'AMS-ADF', 'RICC2', 'GAUSSIAN', 'TINKER', 'QMMM', 'MNDO', 'OpenMM'
 ]
 
 
 def factory(name: str) -> INTERFACE:
-    if name.upper() not in AVAILABLE_INTERFACES:
+    try:
+        ind = [i.upper() for i in AVAILABLE_INTERFACES].index(name.upper())
+    except ValueError:
         raise Error(f'Interface with name "{name}" does not exist!')
-    interface_mod = import_module('SHARC_{}'.format(name.upper()))
-    interface = getattr(interface_mod, name.upper())
+    int_name = AVAILABLE_INTERFACES[ind]
+    interface_mod = import_module('SHARC_{}'.format(int_name))
+    interface = getattr(interface_mod, int_name)
     if issubclass(interface, INTERFACE):
         return interface
     else:
