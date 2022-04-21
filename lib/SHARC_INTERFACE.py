@@ -203,6 +203,9 @@ class INTERFACE(ABC):
             'theodore_fragment': [],
             'resp_shells': False  # default calculated from other values = [1.4, 1.6, 1.8, 2.0]
         }
+        strings = {
+            'resp_grid': 'lebedev'
+        }
         lines = readfile(resources_filename)
         # assign defaults first, which get updated by the parsed entries, which are updated by the entries that were already in QMin
         QMin['resources'] = {
@@ -211,6 +214,7 @@ class INTERFACE(ABC):
             **integers,
             **floats,
             **special,
+            **strings,
             **self.parse_keywords(
                 lines,
                 bools=bools,
@@ -218,6 +222,7 @@ class INTERFACE(ABC):
                 integers=integers,
                 floats=floats,
                 special=special,
+                strings=strings
             )
         }
         print('DEBUG:', QMin['resources']['debug'])
@@ -258,6 +263,10 @@ class INTERFACE(ABC):
                 print(f"Calculating resp layers as: {first} + 4/sqrt({nlayers})")
             incr = 0.4 / math.sqrt(nlayers)
             QMin['resources']['resp_shells'] = [first + incr * x for x in range(nlayers)]
+        
+        if QMin['resources']['resp_grid'] not in ['lebedev', 'random', 'golden_spiral', 'gamess', 'marcus_deserno']:
+            raise Error(f"specified grid {QMin['resources']['resp_grid']} not available.\n Possible options are 'lebedev', 'random', 'golden_spiral', 'gamess', 'marcus_deserno'", 35)
+        
 
         self._QMin = {**QMin['resources'], **QMin}
         return

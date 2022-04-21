@@ -21,10 +21,13 @@ Shrake, Rupley J Mol Biol. 79 (2): 351-71
 #  grid_mesh : 2d array, shape=[n_points, 3]
 
 import numpy as np
-from bisect import bisect_left
+from lebedev_grids import LEBEDEV
+
+lebedev = LEBEDEV()
+lebedev_grid = lebedev.load
 
 
-def sphere_grid2(radius, n_points) -> np.ndarray:
+def random_sphere(n_points, radius=1) -> np.ndarray:
     # https://stackoverflow.com/questions/9600801/evenly-distributing-n-points-on-a-sphere
 
     indices = np.arange(0, n_points, dtype=float) + 0.5
@@ -36,7 +39,7 @@ def sphere_grid2(radius, n_points) -> np.ndarray:
     return np.asarray([x, y, z]).transpose()
 
 
-def sphere_grid(n_points) -> np.ndarray:    # golden sprial from stack overflow
+def golden_sphere(n_points) -> np.ndarray:    # golden sprial from stack overflow
     #
     #  Compute the coordinates of points on a sphere using the
     #  Golden Section Spiral algorithm.
@@ -55,7 +58,7 @@ def sphere_grid(n_points) -> np.ndarray:    # golden sprial from stack overflow
     return np.asarray([np.cos(phi) * r, y, np.sin(phi) * r]).transpose()
 
 
-def surface(n):    # from psi4.vdw_surface.py
+def gamess_surface(n):
     """Computes approximately n points on unit sphere. Code adapted from GAMESS.
 
     Parameters
@@ -110,63 +113,7 @@ def markus_deserno(n):
     return np.array(points)
 
 
-# variable to store grid
-global lebedev_grid
-lebedev_grid = None
-LEBEDEV_NPOINTS = {
-    6: 3,
-    14: 5,
-    26: 7,
-    38: 9,
-    50: 11,
-    74: 13,
-    86: 15,
-    110: 17,
-    146: 19,
-    170: 21,
-    194: 23,
-    230: 25,
-    266: 27,
-    302: 29,
-    350: 31,
-    434: 35,
-    590: 41,
-    770: 47,
-    974: 53,
-    1202: 59,
-    1454: 65,
-    1730: 71,
-    2030: 77,
-    2354: 83,
-    2702: 89,
-    3074: 95,
-    3470: 101,
-    3890: 107,
-    4334: 113,
-    4802: 119,
-    5294: 125,
-    5810: 131,
-}
-LEBEDEV_NPOINTS_k = sorted(LEBEDEV_NPOINTS.keys())
-
-
-def lebedev(n, grid=lebedev_grid):
-    max_n = LEBEDEV_NPOINTS_k[-1]
-    if 0 > n > max_n:
-        raise ValueError(f'No Lebedev grid for {n} points!')
-    # bisect search for in LEBEDEV_NPOINTS dict
-    index = bisect_left(LEBEDEV_NPOINTS_k, n)
-    print(LEBEDEV_NPOINTS_k)
-    n_points = LEBEDEV_NPOINTS_k[index]
-    # load the closest (rounded upwards) grid from files
-    if grid is None or len(lebedev_grid) != n:
-        degree = LEBEDEV_NPOINTS[n_points]
-        grid = np.load(f'/user/severin/workdir/grid/src/grid/data/lebedev/lebedev_{degree}_{n_points}.npz')['points']
-        print(f'lebedev_{degree}_{n_points}')
-    return grid
-
-
-def shrake_rupley(xyz: np.ndarray, atom_radii: np.ndarray, out_points: np.ndarray, n_points=0) -> np.ndarray:
+def shrake_rupley(xyz: np.ndarray, atom_radii: np.ndarray, out_points: np.ndarray, n_points=0, grid=lebedev_grid) -> np.ndarray:
     # prepare variables
     n_atoms = int(xyz.shape[0])
     neighbor_indices = np.zeros((n_atoms), dtype=float)
@@ -180,7 +127,7 @@ def shrake_rupley(xyz: np.ndarray, atom_radii: np.ndarray, out_points: np.ndarra
     for i in range(n_atoms):
         rad_i = atom_radii[i]
         # centered_sphere_points = surface(int(4.0 * np.pi * atom_radii[i]**2))
-        centered_sphere_points = lebedev(int(4.0 * np.pi * atom_radii[i]**2))
+        centered_sphere_points = grid(int(4.0 * np.pi * atom_radii[i]**2))
         r_i = xyz[i, :]
 
         n_neighbor_indices = 0
@@ -232,13 +179,27 @@ def shrake_rupley(xyz: np.ndarray, atom_radii: np.ndarray, out_points: np.ndarra
     return n_out_points
 
 
-def mk_layers(xyz: np.ndarray, atom_radii, density=1, shells=[1.4, 1.6, 1.8, 2.0]) -> np.ndarray:
+def mk_layers(xyz: np.ndarray, atom_radii: list[float], density=1, shells=[1.4, 1.6, 1.8, 2.0], grid='lebedev') -> np.ndarray:
+    """
+    returns the Merz-Kollmann layers for a molecule
+    ------
+    Parameters:
+
+    xyz: ndarray  cartesian coordinates of each atom in the molecule
+    atom_radii: list[float] list of the van-der-Waals radii of each atom (same order as xyz)
+    density: float  surface density of each calculated sphere (density of 1. -> 4*pi*r^2)
+    shells: list[float] give the scaling factors for each shell
+    grid: str specify a quadrature function from 'lebedev', 'random', 'golden_spiral', 'gamess', 'marcus_deserno' 
+    """
     n_points = int(
         4 * np.pi * density * (sum(map(lambda x: (x * 2.)**2, shells))) * xyz.shape[0]
     )    # surface density of 1: 4*pi*r^2 with r_max = 2. -> 16.*pi
     mk_layers_points = np.ndarray((n_points, 3), dtype=float)
+    grid_functions = {'lebedev': lebedev_grid, 'random': random_sphere, 'golden_spiral': golden_sphere, 'gamess': gamess_surface, 'marcus_deserno': markus_deserno}
+    assert grid in grid_functions
+    grid = grid_functions[grid]
     # potentially parallelizable! every layer is one process
     n_points = 0
     for y in shells:
-        n_points = shrake_rupley(xyz, y * atom_radii, mk_layers_points, n_points)
+        n_points = shrake_rupley(xyz, y * atom_radii, mk_layers_points, n_points, grid)
     return mk_layers_points[:n_points, :]

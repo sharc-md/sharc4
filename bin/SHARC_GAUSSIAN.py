@@ -1665,8 +1665,7 @@ class GAUSSIAN(INTERFACE):
             basis, n_bf = self.get_basis(fchkfile)
             # collect all densities from the file in densjob (file: bools) and jobdens (state: file)
             densities = self.get_dens_from_fchks(sorted_densjobs, basis, n_bf)
-            print(len(densities), file=sys.stderr)
-            fits = Resp(QMin['coords'], QMin['elements'], QMin['resp_density'], QMin['resp_shells'])
+            fits = Resp(QMin['coords'], QMin['elements'], QMin['resp_density'], QMin['resp_shells'], grid=QMin['resp_grid'])
             fits.prepare(basis, QMin['statemap'][1][0] - 1)  # the charge of the atom does not affect
             fits_map = {}
             for i, d_i in enumerate(QMin['densmap']):
@@ -1965,7 +1964,6 @@ class GAUSSIAN(INTERFACE):
                     i += n_lines
                     scf_read = True
                 if es and 'CI Density' in lines[i]:
-                    print('reading CI dens for', new_dens, file=sys.stderr)
                     n = int(lines[i].split()[-1])
                     n_lines = (n - 1) // 5 + 1
                     i += 1
