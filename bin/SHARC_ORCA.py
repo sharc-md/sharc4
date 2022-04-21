@@ -624,21 +624,9 @@ class ORCA(INTERFACE):
                 'Within the SHARC-ORCA interface couplings can only be calculated via the overlap method. "nacdr" and "nacdt" are not supported.',
                 44
             )
-        schedule = self.generate_joblist()
-        errorcodes = self.runjobs(schedule)
+        errorcodes = self.runjobs(QMin['schedule'])
         errorcodes = self.run_wfoverlap(errorcodes)
         errorcodes = self.run_theodore(errorcodes)
-
-        self._QMout = self.getQMout()
-
-        if 'backup' in QMin:
-            self.backupdata(QMin['backup'])
-
-        # Remove Scratchfiles from SCRATCHDIR
-        if not self._DEBUG:
-            cleandir(QMin['scratchdir'])
-            if 'cleanup' in QMin:
-                cleandir(QMin['savedir'])
 
     # ======================================================================= #
 
