@@ -141,7 +141,7 @@ Date: 20.07.2021
         path = os.path.abspath(os.path.expanduser(os.path.expanduser(args)))
         if os.path.isfile(path):
             with open(path, 'r') as f:
-                return [[*x[0:2], int(x[2])] + [int(y) - 1 for y in x[3:]] for x in map(lambda x: x.split(), f)]
+                return [[*x[0:2]] + [int(x[2])] + [int(y) - 1 for y in x[3:]] for x in map(lambda x: x.split(), f)]
         else:
             raise Error(f'File {path} does not exist!', 1)
     

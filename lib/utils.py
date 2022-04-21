@@ -57,18 +57,18 @@ def writefile(filename, content):
 # ======================================================================= #
 
 
-def mkdir(DIR):
+def mkdir(DIR, crucial=True, force=True):
     # mkdir the DIR, or clean it if it exists
     if os.path.exists(DIR):
-        if os.path.isfile(DIR):
+        if os.path.isfile(DIR) and crucial:
             raise Error('%s exists and is a file!' % (DIR), 89)
-        elif os.path.isdir(DIR):
+        elif os.path.isdir(DIR) and force:
             shutil.rmtree(DIR)
             os.makedirs(DIR)
     else:
         try:
             os.makedirs(DIR)
-        except OSError:
+        except OSError and crucial:
             raise Error('Can not create %s\n' % (DIR), 90)
 
 
@@ -393,7 +393,7 @@ def euclidean_distance_einsum(X, Y):
     return np.sqrt(XX + YY - XY)
 
 @dataclass
-class MMATOM:
+class ATOM:
     id: int
     qm: bool
     symbol: str

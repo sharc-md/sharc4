@@ -178,7 +178,7 @@ class INTERFACE(ABC):
         pass
 
     @abstractmethod
-    def run(self):
+    def run(self, writeQMout=True):
         pass
 
     @abstractmethod
@@ -323,6 +323,9 @@ class INTERFACE(ABC):
         if 'savedir' not in QMin:
             QMin['savedir'] = './SAVEDIR/'
         QMin['savedir'] = os.path.abspath(os.path.expanduser(os.path.expandvars(QMin['savedir'])))
+        if 'unit' not in QMin:
+            print('Warning: no "unit" specified in QMin! Assuming Bohr')
+            self.set_unit('bohr')
         if '$' in QMin['savedir']:
             raise Error(f'undefined env variable in "savedir"! {QMin["savedir"]}')
         self._setup_mol = True
@@ -405,7 +408,9 @@ class INTERFACE(ABC):
             del requests['tasks']
         for task in ['nacdr', 'overlap', 'grad', 'ion']:
             if task in requests and type(requests[task]) is str:
-                if task == requests[task].lower() or requests[task] == 'all':
+                if requests[task] == '':  # removes task from dict if {'task': ''}
+                    del requests[task]
+                elif task == requests[task].lower() or requests[task] == 'all':
                     requests[task] = True
                 else:
                     requests[task] = [int(i) for i in requests[task].split()]
@@ -451,6 +456,7 @@ class INTERFACE(ABC):
         QMin = self._QMin
         # NOTE: old QMin read stuff is not overwritten. Problem with states?
         self._request_logic()
+        self._step_logic()
 
     def _reset_requests(self):
         for k in [
@@ -460,27 +466,8 @@ class INTERFACE(ABC):
             if k in self._QMin:
                 del self._QMin[k]
 
-    def _request_logic(self):
+    def _step_logic(self):
         QMin = self._QMin
-        # prepare savedir
-        if not os.path.isdir(QMin['savedir']):
-            mkdir(QMin['savedir'])
-
-        possibletasks = {
-            'h', 'soc', 'dm', 'grad', 'overlap', 'dmdr', 'socdr', 'ion', 'theodore', 'phases', 'multipolar_fit'
-        }
-        tasks = possibletasks & QMin.keys()
-        if len(tasks) == 0:
-            raise Error(f'No tasks found! Tasks are {possibletasks}.', 39)
-
-        if 'h' not in tasks and 'soc' not in tasks:
-            QMin['h'] = True
-
-        if 'soc' in tasks and (len(QMin['states']) < 3 or QMin['states'][2] <= 0):
-            del QMin['soc']
-            QMin['h'] = True
-            print('HINT: No triplet states requested, turning off SOC request.')
-
         # remove old keywords:
         for i in ['restart', 'init', 'samestep', 'newstep']:
             removekey(QMin, i)
@@ -521,6 +508,28 @@ class INTERFACE(ABC):
                 raise Error(
                     f'Determined last step ({last_step}) from savedir and specified step ({QMin["step"]}) do not fit!\nPrepare your savedir and "STEP" file accordingly before starting again or choose "step -1" if you want to proceed from last successful step!'
                 )
+
+
+    def _request_logic(self):
+        QMin = self._QMin
+        # prepare savedir
+        if not os.path.isdir(QMin['savedir']):
+            mkdir(QMin['savedir'])
+
+        possibletasks = {
+            'h', 'soc', 'dm', 'grad', 'overlap', 'dmdr', 'socdr', 'ion', 'theodore', 'phases', 'multipolar_fit'
+        }
+        tasks = possibletasks & QMin.keys()
+        if len(tasks) == 0:
+            raise Error(f'No tasks found! Tasks are {possibletasks}.', 39)
+
+        if 'h' not in tasks and 'soc' not in tasks:
+            QMin['h'] = True
+
+        if 'soc' in tasks and (len(QMin['states']) < 3 or QMin['states'][2] <= 0):
+            del QMin['soc']
+            QMin['h'] = True
+            print('HINT: No triplet states requested, turning off SOC request.')
 
         if 'phases' in tasks:
             QMin['overlap'] = True
