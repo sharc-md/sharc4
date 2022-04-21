@@ -40,6 +40,8 @@ Date: 20.07.2021
 
     def charge(self, args: str) -> list[int]:
         alist = args.split()
+        if len(alist) < self.nmult:
+            raise Error('specify charge for each multiplicity!')
         res = []
         try:
             res = list(map(lambda x: int(float(x)), alist))

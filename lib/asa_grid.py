@@ -3,7 +3,7 @@
 https://github.com/mdtraj/mdtraj/blob/0dde9a64563faeec742b563e25deea988edf3c70/mdtraj/geometry/src/sasa.cpp
 based on c++ in MDtraj code with GNU license
 Singh, Kollman J. Comp. Chem. 1984, 5, 129 - 145
-Shrake, Rupley J Mol Biol. 79 (2): 351–71
+Shrake, Rupley J Mol Biol. 79 (2): 351-71
 """
 
 #  Calculate the accessible surface area of each atom in a single snapshot
@@ -21,6 +21,7 @@ Shrake, Rupley J Mol Biol. 79 (2): 351–71
 #  grid_mesh : 2d array, shape=[n_points, 3]
 
 import numpy as np
+from bisect import bisect_left
 
 
 def sphere_grid2(radius, n_points) -> np.ndarray:
@@ -109,6 +110,62 @@ def markus_deserno(n):
     return np.array(points)
 
 
+# variable to store grid
+global lebedev_grid
+lebedev_grid = None
+LEBEDEV_NPOINTS = {
+    6: 3,
+    14: 5,
+    26: 7,
+    38: 9,
+    50: 11,
+    74: 13,
+    86: 15,
+    110: 17,
+    146: 19,
+    170: 21,
+    194: 23,
+    230: 25,
+    266: 27,
+    302: 29,
+    350: 31,
+    434: 35,
+    590: 41,
+    770: 47,
+    974: 53,
+    1202: 59,
+    1454: 65,
+    1730: 71,
+    2030: 77,
+    2354: 83,
+    2702: 89,
+    3074: 95,
+    3470: 101,
+    3890: 107,
+    4334: 113,
+    4802: 119,
+    5294: 125,
+    5810: 131,
+}
+LEBEDEV_NPOINTS_k = sorted(LEBEDEV_NPOINTS.keys())
+
+
+def lebedev(n, grid=lebedev_grid):
+    max_n = LEBEDEV_NPOINTS_k[-1]
+    if 0 > n > max_n:
+        raise ValueError(f'No Lebedev grid for {n} points!')
+    # bisect search for in LEBEDEV_NPOINTS dict
+    index = bisect_left(LEBEDEV_NPOINTS_k, n)
+    print(LEBEDEV_NPOINTS_k)
+    n_points = LEBEDEV_NPOINTS_k[index]
+    # load the closest (rounded upwards) grid from files
+    if grid is None or len(lebedev_grid) != n:
+        degree = LEBEDEV_NPOINTS[n_points]
+        grid = np.load(f'/user/severin/workdir/grid/src/grid/data/lebedev/lebedev_{degree}_{n_points}.npz')['points']
+        print(f'lebedev_{degree}_{n_points}')
+    return grid
+
+
 def shrake_rupley(xyz: np.ndarray, atom_radii: np.ndarray, out_points: np.ndarray, n_points=0) -> np.ndarray:
     # prepare variables
     n_atoms = int(xyz.shape[0])
@@ -122,7 +179,8 @@ def shrake_rupley(xyz: np.ndarray, atom_radii: np.ndarray, out_points: np.ndarra
     n_out_points = n_points
     for i in range(n_atoms):
         rad_i = atom_radii[i]
-        centered_sphere_points = surface(int(4.0 * np.pi * atom_radii[i]**2))
+        # centered_sphere_points = surface(int(4.0 * np.pi * atom_radii[i]**2))
+        centered_sphere_points = lebedev(int(4.0 * np.pi * atom_radii[i]**2))
         r_i = xyz[i, :]
 
         n_neighbor_indices = 0

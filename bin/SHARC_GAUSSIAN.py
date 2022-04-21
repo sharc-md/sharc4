@@ -435,13 +435,13 @@ class GAUSSIAN(INTERFACE):
             pprint.pprint(schedule, depth=2)
         errorcodes = {}
         # run all the jobs
-        # errorcodes = self.runjobs(schedule)
+        errorcodes = self.runjobs(schedule)
 
         # # do all necessary overlap and Dyson calculations
-        # errorcodes = self.run_wfoverlap(errorcodes)
+        errorcodes = self.run_wfoverlap(errorcodes)
 
         # # do all necessary Theodore calculations
-        # errorcodes = self.run_theodore(errorcodes)
+        errorcodes = self.run_theodore(errorcodes)
 
         # read all the output files
         self.getQMout()
@@ -457,10 +457,10 @@ class GAUSSIAN(INTERFACE):
         self.writeQMout()
 
         # # Remove Scratchfiles from SCRATCHDIR
-        # if not DEBUG:
-        #     cleandir(QMin['scratchdir'])
-        #     if 'cleanup' in QMin:
-        #         cleandir(QMin['savedir'])
+        if not DEBUG:
+            cleandir(QMin['scratchdir'])
+            if 'cleanup' in QMin:
+                cleandir(QMin['savedir'])
 
         print(datetime.datetime.now())
         print('#================ END ================#')
@@ -1624,9 +1624,9 @@ class GAUSSIAN(INTERFACE):
             if 'multipolar_fit' not in QMout:
                 QMout['multipolar_fit'] = {}
 
-            # for dens in QMin['densjob']:
-            #     workdir = os.path.join(QMin['scratchdir'], dens)
-            #     self.get_fchk(workdir)
+            for dens in QMin['densjob']:
+                workdir = os.path.join(QMin['scratchdir'], dens)
+                self.get_fchk(workdir)
             # sort densjobs
             density_map = {}    # map for (mult, state, state): position in densities
             sorted_densjobs = []
@@ -1659,14 +1659,6 @@ class GAUSSIAN(INTERFACE):
                             state = dens[1]
                             density_map[(gsmult, 1, dens[0], es)] = i
                             i += 1
-            print('density_map',file=sys.stderr)
-            pprint.pprint(density_map, sys.stderr)
-            print('sorted_densjobs',file=sys.stderr)
-            pprint.pprint(sorted_densjobs, sys.stderr)
-            print('densmap',file=sys.stderr)
-            pprint.pprint(QMin['densmap'], sys.stderr)
-            print('densjob',file=sys.stderr)
-            pprint.pprint(QMin['densjob'], sys.stderr)
 
             # read basis
             fchkfile = os.path.join(QMin['scratchdir'], sorted_densjobs[0][0], 'GAUSSIAN.fchk')
@@ -1675,12 +1667,11 @@ class GAUSSIAN(INTERFACE):
             densities = self.get_dens_from_fchks(sorted_densjobs, basis, n_bf)
             print(len(densities), file=sys.stderr)
             fits = Resp(QMin['coords'], QMin['elements'], QMin['resp_density'], QMin['resp_shells'])
-            fits.prepare(basis)  # the charge of the atom does not affect
+            fits.prepare(basis, QMin['statemap'][1][0] - 1)  # the charge of the atom does not affect
             fits_map = {}
             for i, d_i in enumerate(QMin['densmap']):
                 # do gs density
                 key = (*d_i, *d_i)
-                print(key, density_map[key], file=sys.stderr)
                 fits_map[key] = fits.multipoles_from_dens(densities[density_map[key]], include_core_charges=True)
 
                 for d_j in QMin['densmap'][i + 1:]:
@@ -1688,7 +1679,6 @@ class GAUSSIAN(INTERFACE):
                         continue
                     # do gses and eses density
                     key = (*d_i, *d_j)
-                    print('inner', key, density_map[key], file=sys.stderr)
                     if key in density_map:
                         fits_map[key] = fits.multipoles_from_dens(densities[density_map[key]],
                                                                   include_core_charges=False, order=QMin['resp_tdm_fit_order'])
@@ -2009,7 +1999,7 @@ class GAUSSIAN(INTERFACE):
                         map(float, chain(*map(lambda x: x.split(), lines[i:i + n_lines]))), dtype=float, count=n
                     ).reshape((2 * n_g2e, n_bf, n_bf))
                     for i_d in range(0, 2 * n_g2e, 2):
-                        tmp = d[i_d, ...]
+                        tmp = (d[i_d, ...] + d[i_d + 1, ...]) * math.sqrt(2)
                         swap_rows_and_cols(atom_symbols, basis, tmp)
                         densities.append(tmp)
                         new_dens += 1

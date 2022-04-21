@@ -2141,14 +2141,15 @@ class INTERFACE(ABC):
         for i, (imult, istate, ims) in zip(range(nmstates), itnmstates(states)):
             for j, (jmult, jstate, jms) in zip(range(nmstates), itnmstates(states)):
                 string += f'{natom} 10 ! m1 {imult} s1 {istate} ms1 {ims: 3.1f}   m2 {jmult} s2 {jstate} ms2 {jms: 3.1f}\n'
-
                 entry = np.zeros((natom, 10))
-                if (imult, istate, jmult, jstate) in fits:
+                if ims != jms or imult != jmult:
+                    pass  # ensures that entry stays full of zeros
+                elif (imult, istate, jmult, jstate) in fits:
                     fit = fits[(imult, istate, jmult, jstate)]
-                    entry[:, :fit.shape[1]] = fit  # cath cases where fit is not full order
+                    entry[:, :fit.shape[1]] = fit  # catch cases where fit is not full order
                 elif (jmult, jstate, imult, istate) in fits:
                     fit = fits[(jmult, jstate, imult, istate)]
-                    entry[:, :fit.shape[1]] = fit  # cath cases where fit is not full order
+                    entry[:, :fit.shape[1]] = fit  # catch cases where fit is not full order
                 string += "\n".join(map(lambda x: " ".join(map(lambda y: '{: 10.8f}'.format(y), x)), entry)) + '\n'
 
 

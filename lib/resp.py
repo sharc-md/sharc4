@@ -43,16 +43,17 @@ class Resp:
         if self.mk_grid is None:
             self.mk_grid = get_resp_grid(atom_symbols, coords * au2a, density, shells) / au2a
         assert len(self.mk_grid.shape) == 2 and self.mk_grid.shape[1] == 3
+        np.savetxt('/user/severin/workdir/calculations/Li/GAUSSIAN/STO-3G/sharc/grid.txt', self.mk_grid)
         self.natom = coords.shape[0]
         self.ngp = self.mk_grid.shape[0]
         # Build 1/|R_A - r_i| m_A_i
         self.R_alpha: np.ndarray = np.full((self.natom, self.ngp, 3), self.mk_grid) - self.coords[:, None, :]  # rA-ri
         self.r_inv: np.ndarray = 1 / np.sqrt(np.sum((self.R_alpha)**2, axis=2))    # 1 / |ri-rA|
 
-    def prepare(self, basis, cart_basis=False):
+    def prepare(self, basis, spin, cart_basis=False):
         natom = len(self.atom_symbols)
         atoms = [[f'{s.upper()}{j+1}', c.tolist()] for j, s, c in zip(range(natom), self.atom_symbols, self.coords)]
-        mol = gto.Mole(atom=atoms, basis=basis, unit='BOHR', symmetry=False, cart=cart_basis)
+        mol = gto.Mole(atom=atoms, basis=basis, unit='BOHR', spin=spin, symmetry=False, cart=cart_basis)
         mol.build()
         Z = mol.atom_charges()
         self.Vnuc = np.sum(Z[..., None] * self.r_inv, axis=0)
@@ -136,7 +137,7 @@ class Resp:
         # build B'
         B = tmp @ Fesp_i    # v_A
 
-        return self._fit(A, B, self.beta, 0.1)
+        return self._fit(A, B, self.beta, 0.1, False)
 
     def fit_quadrupoles(self, Fesp_i):
         natom = self.natom
