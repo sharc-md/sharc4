@@ -75,22 +75,28 @@ class QMMM(INTERFACE):
         QMin = self._QMin
 
         special = {'qmmm_table': ''}
-        strings = {'qm-program': '',
-                   'mm-program': '',
-                   'embedding': 'subtractive'
-                   }
-        paths = {'mms-dir': '',  # paths to prepared calculations
-                 'mml-dir': '',
-                 'qm-dir': ''}
+        strings = {'qm-program': '', 'mm-program': '', 'embedding': 'subtractive'}
+        paths = {
+            'mms-dir': '',    # paths to prepared calculations
+            'mml-dir': '',
+            'qm-dir': ''
+        }
         bools = {'mm_dipole': False}
 
         lines = readfile(template_filename)
-        QMin['template'] = {**bools, **self.parse_keywords(lines, paths=paths, bools=bools, special=special, strings=strings)}
+        QMin['template'] = {
+            **bools,
+            **self.parse_keywords(lines, paths=paths, bools=bools, special=special, strings=strings)
+        }
 
         # check
         allowed_embeddings = ['additive', 'subtractive']
         if QMin['template']['embedding'] not in allowed_embeddings:
-            raise Error('Chosen embedding "{}" is not available (available: {}}'.format(QMin['template']['embedding'], ', '.join(allowed_embeddings)))
+            raise Error(
+                'Chosen embedding "{}" is not available (available: {}}'.format(
+                    QMin['template']['embedding'], ', '.join(allowed_embeddings)
+                )
+            )
 
         required: set = {'qm-program', 'mm-program', 'qmmm_table', 'mml-dir', 'qm-dir'}
         if QMin['template']['embedding'] == 'subtractive':
@@ -219,7 +225,9 @@ class QMMM(INTERFACE):
             # setup mol for mms
 
             mms_el = [a.symbol for a in QMin['atoms'] if a.qm]
-            mms_el += [QMin['atoms'][x[1]].symbol for x in self._linkatoms]  # add symbols of link atoms (original element -> proper bonded terms in MM calc)
+            mms_el += [
+                QMin['atoms'][x[1]].symbol for x in self._linkatoms
+            ]    # add symbols of link atoms (original element -> proper bonded terms in MM calc)
             mms_QMin = self.mms_interface._QMin
             mms_QMin['elements'] = mms_el
             mms_QMin['Atomcharge'] = sum((ATOMCHARGE[x] for x in mms_el))
@@ -257,8 +265,8 @@ class QMMM(INTERFACE):
 
         # set qm requests: grad, nac, soc,
         possible = [
-            'cleanup', 'backup', 'h', 'soc', 'dm', 'grad', 'overlap', 'dmdr',
-            'nac', 'nacdr', 'socdr', 'ion', 'theodore', 'phases', 'step'
+            'cleanup', 'backup', 'h', 'soc', 'dm', 'grad', 'overlap', 'dmdr', 'nac', 'nacdr', 'socdr', 'ion',
+            'theodore', 'phases', 'step'
         ]
         for i in filter(lambda x: x in QMin, possible):
             self.qm_interface._QMin[i] = QMin[i]
@@ -279,7 +287,8 @@ class QMMM(INTERFACE):
         # calc mm
         print('-' * 80, f'{"running MM INTERFACE (large system)":^80}', '-' * 80, sep='\n')
         self.mml_interface.run(writeQMout=False)
-        raw_pc = self.mml_interface._QMout['raw_pc']  # is analogous to the density fit from QM interfaces -> generated upon same request
+        raw_pc = self.mml_interface._QMout[
+            'raw_pc']    # is analogous to the density fit from QM interfaces -> generated upon same request
 
         # redistribution of mm pc of link atom (charge is not the same in qm calc but pc would be too close)
         p = self._perm
@@ -307,7 +316,6 @@ class QMMM(INTERFACE):
         self.getQMout()
         print(datetime.datetime.now())
         print('#================ END ================#')
-
 
     def getQMout(self):
         qm_QMout = self.qm_interface._QMout
@@ -339,8 +347,8 @@ class QMMM(INTERFACE):
 
             if QMin['embedding'] == 'subtractive':
                 mms_grad = self.mms_interface.QMout['grad']
-                for k in mms_grad:  # loop over atoms
-                    add_to_xyz(mm_grad[k], mms_grad[k], fac=-1.)  # check if id is the same in both calcs
+                for k in mms_grad:    # loop over atoms
+                    add_to_xyz(mm_grad[k], mms_grad[k], fac=-1.)    # check if id is the same in both calcs
 
             grad = {}
 
@@ -354,7 +362,7 @@ class QMMM(INTERFACE):
                         add_to_xyz(grad[i][mm_id], qm_grad_in, self._mm_s)
                         add_to_xyz(grad[i][qm_id], qm_grad_in, self._qm_s)
 
-            if 'pcgrad' in qm_QMout:  # apply pc grad
+            if 'pcgrad' in qm_QMout:    # apply pc grad
                 for i, grad_i in enumerate(qm_QMout['pcgrad']):
                     for n, grad_in in enumerate(grad_i):
                         atom_id = sorted_pc_ids[n]
@@ -386,7 +394,7 @@ class QMMM(INTERFACE):
                     mm_dm_i: float = self.mml_interface._QMout['dm'][i]
                     for dm_in in dm_i:
                         for dm_inm in dm_in:
-                            dm_inm += mm_dm_i  # add mm dipole moment to all states
+                            dm_inm += mm_dm_i    # add mm dipole moment to all states
         if 'overlap' in QMin:
             QMout['overlap'] = self.qm_interface._QMout['overlap']
 
