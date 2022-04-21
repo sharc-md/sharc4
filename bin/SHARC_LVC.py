@@ -213,6 +213,9 @@ class LVC(INTERFACE):
     def setup_run(self):
         pass
 
+    def getQMout(self):
+        return self._QMout
+
     # NOTE: potentially do kabsch on reference coords and normal modes (if nmstates**2 > 3*natom)
     def run(self):
         do_pc = 'point_charges' in self._QMin

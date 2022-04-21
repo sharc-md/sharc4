@@ -147,10 +147,18 @@ class INTERFACE(ABC):
         self.set_coords(os.path.join(pwd, QMinfilename))
         # read the property requests that have to be calculated
         self.read_requests(os.path.join(pwd, QMinfilename))
-        # setup the folders for the computation
+        # setup internal state for the computation
         self.setup_run()
         # perform the calculation and parse the output, do subsequent calculations with other tools
-        self.run()
+        if not self._QMin['dry_run']:
+            self.run()
+        else:
+            print('Warning: performing a dry run with old calculation results!\nResults taken from', self._QMin['scratchdir'])
+
+        self.getQMout()
+        # backup data if requested
+        if 'backup' in self._QMin:
+            self.backupdata(self._QMin['backup'])
         # writes a STEP file in the SAVEDIR (marks this step as succesfull)
         self.write_step_file()
         # printing and output generation
@@ -159,12 +167,22 @@ class INTERFACE(ABC):
         self._QMout['runtime'] = self.clock.measuretime()
         self.writeQMout()
 
+        # Remove Scratchfiles from SCRATCHDIR
+        if not self._DEBUG and not self._QMin['dry_run']:
+            cleandir(self._QMin['scratchdir'])
+            if 'cleanup' in self._QMin:
+                cleandir(self._QMin['savedir'])
+
     @abstractmethod
     def read_template(self, template_filename):
         pass
 
     @abstractmethod
     def run(self):
+        pass
+
+    @abstractmethod
+    def getQMout(self):
         pass
 
     @abstractmethod
@@ -194,6 +212,7 @@ class INTERFACE(ABC):
             'nooverlap': False,
             'always_orb_init': False,
             'always_guess': False,
+            'dry_run': False
         }
         integers = {'ncpu': 1, 'memory': 100, 'numfrozcore': -1, 'numocc': 0, 'theodore_n': 0, 'resp_layers': 4, 'resp_tdm_fit_order': 2}
         floats = {'delay': 0.0, 'schedule_scaling': 0.9, 'wfthres': 0.99, 'resp_density': 1., 'resp_first_layer': 1.4}
@@ -567,6 +586,7 @@ class INTERFACE(ABC):
             QMin['point_charges'] = [[float(x[0])*self._factor, float(x[1])*self._factor, float(x[2])*self._factor, float(x[3])] for x in map(lambda x: x.split(), readfile(QMin['pc_file']))]
 
 
+
     def setup_run(self):
         QMin = self._QMin
         # obtain the statemap
@@ -656,7 +676,13 @@ class INTERFACE(ABC):
                 else:
                     backupdir1 = backupdir + '/calc_%i' % (i)
             QMin['backup'] = backupdir
-
+        
+        #TODO this needs to be called before every run !!!
+        # joblist is dependend on the requests set before every run()
+        self.generate_joblist()
+        if DEBUG:
+            print('SCHEDULE:')
+            pprint.pprint(QMin['schedule'], depth=2)
         if self._PRINT:
             self.printQMin()
 
@@ -844,7 +870,8 @@ class INTERFACE(ABC):
                         QMin1['qmmm'] = True
                     icount += 1
                     schedule[-1][i] = QMin1
-        return schedule
+        QMin['schedule'] = schedule
+        return
 
     @staticmethod
     def read_coords(xyz):
