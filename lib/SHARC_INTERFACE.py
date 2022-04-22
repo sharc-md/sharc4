@@ -150,10 +150,10 @@ class INTERFACE(ABC):
         # setup internal state for the computation
         self.setup_run()
         # perform the calculation and parse the output, do subsequent calculations with other tools
-        if not self._QMin['dry_run']:
-            self.run()
-        else:
+        if 'dry_run' in self._QMin and self._QMin['dry_run']:
             print('Warning: performing a dry run with old calculation results!\nResults taken from', self._QMin['scratchdir'])
+        else:
+            self.run()
 
         self.getQMout()
         # backup data if requested
@@ -168,8 +168,9 @@ class INTERFACE(ABC):
         self.writeQMout()
 
         # Remove Scratchfiles from SCRATCHDIR
-        if not self._DEBUG and not self._QMin['dry_run']:
-            cleandir(self._QMin['scratchdir'])
+        if not self._DEBUG and ('dry_run' not in self._QMin or not self._QMin['dry_run']):
+            if 'scratchdir' in self._QMin:
+                cleandir(self._QMin['scratchdir'])
             if 'cleanup' in self._QMin:
                 cleandir(self._QMin['savedir'])
 
@@ -178,7 +179,7 @@ class INTERFACE(ABC):
         pass
 
     @abstractmethod
-    def run(self, writeQMout=True):
+    def run(self):
         pass
 
     @abstractmethod
@@ -247,10 +248,8 @@ class INTERFACE(ABC):
         print('DEBUG:', QMin['resources']['debug'])
         self._DEBUG = QMin['resources']['debug']
         self._PRINT = QMin['resources']['no_print'] is False
-        if not DEBUG:
-            DEBUG.set(self._DEBUG)
-        if not PRINT:
-            PRINT.set(self._PRINT)
+        DEBUG.set(self._DEBUG)
+        PRINT.set(self._PRINT)
 
         # NOTE: This is really optional
         ncpu = QMin['resources']['ncpu']

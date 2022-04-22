@@ -266,6 +266,7 @@ class TINKER(INTERFACE):
         if grad[0][0]:
             QMout['grad'] = grad
 
+        # TODO: TINKER need to return the charges properly!!! its has all the info on the whole system!
         if line_lst[0] == 'MMq':
             QMout['raw_pc'] = {
                 i: float(v[-1])

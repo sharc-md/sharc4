@@ -93,6 +93,9 @@ class OpenMM(INTERFACE):
         self._QMout['overlap'] = [[1.]]
         self._QMout['phases'] = [complex(1., 0.)]
 
+    def getQMout(self):
+        return self._QMout
+
     def read_template(self, template_filename='OpenMM.template'):
         QMin = self._QMin
         paths = {'prmtop': ''}

@@ -25,13 +25,10 @@
 
 # IMPORTS
 # EXTERNAL
-import os
-import sys
 import time
-import numpy as np
 from typing import Any, Union
 from optparse import OptionParser
-from constants import IAn2AName, ATOMCHARGE
+from constants import IAn2AName, ATOMCHARGE, FROZENS
 
 # INTERNAL
 import sharc.sharc as sharc
@@ -235,6 +232,7 @@ def main():
     derived_int._QMin['natom'] = basic_info['NAtoms']
     derived_int._QMin['elements'] = [IAn2AName[x] for x in basic_info['IAn']]
     derived_int._QMin['Atomcharge'] = sum(map(lambda x: ATOMCHARGE[x], derived_int._QMin['elements']))
+    derived_int._QMin['frozcore'] = sum(map(lambda x: FROZENS[x], derived_int._QMin['elements']))
     derived_int._setup_mol = True
     derived_int.read_template()
     derived_int.read_resources()

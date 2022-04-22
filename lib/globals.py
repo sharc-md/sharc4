@@ -4,7 +4,7 @@
 
 class Debug(object):
     
-    val = True
+    val = False
 
     def __new__(cls):
         if not hasattr(cls, 'instance'):
