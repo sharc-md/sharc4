@@ -25,13 +25,10 @@
 
 # IMPORTS
 # EXTERNAL
-import os
-import sys
 import time
-import numpy as np
 from typing import Any, Union
 from optparse import OptionParser
-from constants import IAn2AName
+from constants import IAn2AName, ATOMCHARGE, FROZENS
 
 # INTERNAL
 import sharc.sharc as sharc
@@ -81,7 +78,6 @@ class QMOUT():
                 # assumes type is numpy array
                 data['overlap'] = [list(ele) for ele in data['overlap']]
             self._QMout.set_overlap(data['overlap'])
-
         if 'grad' in data:
             if isinstance(data['grad'], list):
                 self._QMout.set_gradient(list2dict(data['grad']), icall)
@@ -235,6 +231,9 @@ def main():
     derived_int._QMin.update({k.lower(): v for k, v in basic_info.items()})
     derived_int._QMin['natom'] = basic_info['NAtoms']
     derived_int._QMin['elements'] = [IAn2AName[x] for x in basic_info['IAn']]
+    derived_int._QMin['Atomcharge'] = sum(map(lambda x: ATOMCHARGE[x], derived_int._QMin['elements']))
+    derived_int._QMin['frozcore'] = sum(map(lambda x: FROZENS[x], derived_int._QMin['elements']))
+    derived_int._setup_mol = True
     derived_int.read_template()
     derived_int.read_resources()
     derived_int.setup_run()
@@ -268,7 +267,7 @@ def main():
 
     finalize_sharc()
     stop = time.time_ns()
-    print('Timing per step (LVC):', lvc_time / basic_info['NSteps'] * 1e-6, 'ms')
+    print(f'Timing per step ({derived_int.__class__.__name__}):', lvc_time / basic_info['NSteps'] * 1e-6, 'ms')
     print('Timing:', (stop - start) * 1e-6, 'ms')
 
 

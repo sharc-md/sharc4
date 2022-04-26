@@ -150,10 +150,10 @@ class INTERFACE(ABC):
         # setup internal state for the computation
         self.setup_run()
         # perform the calculation and parse the output, do subsequent calculations with other tools
-        if not self._QMin['dry_run']:
-            self.run()
-        else:
+        if 'dry_run' in self._QMin and self._QMin['dry_run']:
             print('Warning: performing a dry run with old calculation results!\nResults taken from', self._QMin['scratchdir'])
+        else:
+            self.run()
 
         self.getQMout()
         # backup data if requested
@@ -168,8 +168,9 @@ class INTERFACE(ABC):
         self.writeQMout()
 
         # Remove Scratchfiles from SCRATCHDIR
-        if not self._DEBUG and not self._QMin['dry_run']:
-            cleandir(self._QMin['scratchdir'])
+        if not self._DEBUG and ('dry_run' not in self._QMin or not self._QMin['dry_run']):
+            if 'scratchdir' in self._QMin:
+                cleandir(self._QMin['scratchdir'])
             if 'cleanup' in self._QMin:
                 cleandir(self._QMin['savedir'])
 
@@ -222,6 +223,9 @@ class INTERFACE(ABC):
             'theodore_fragment': [],
             'resp_shells': False  # default calculated from other values = [1.4, 1.6, 1.8, 2.0]
         }
+        strings = {
+            'resp_grid': 'lebedev'
+        }
         lines = readfile(resources_filename)
         # assign defaults first, which get updated by the parsed entries, which are updated by the entries that were already in QMin
         QMin['resources'] = {
@@ -230,6 +234,7 @@ class INTERFACE(ABC):
             **integers,
             **floats,
             **special,
+            **strings,
             **self.parse_keywords(
                 lines,
                 bools=bools,
@@ -237,15 +242,14 @@ class INTERFACE(ABC):
                 integers=integers,
                 floats=floats,
                 special=special,
+                strings=strings
             )
         }
         print('DEBUG:', QMin['resources']['debug'])
         self._DEBUG = QMin['resources']['debug']
         self._PRINT = QMin['resources']['no_print'] is False
-        if not DEBUG:
-            DEBUG.set(self._DEBUG)
-        if not PRINT:
-            PRINT.set(self._PRINT)
+        DEBUG.set(self._DEBUG)
+        PRINT.set(self._PRINT)
 
         # NOTE: This is really optional
         ncpu = QMin['resources']['ncpu']
@@ -277,6 +281,10 @@ class INTERFACE(ABC):
                 print(f"Calculating resp layers as: {first} + 4/sqrt({nlayers})")
             incr = 0.4 / math.sqrt(nlayers)
             QMin['resources']['resp_shells'] = [first + incr * x for x in range(nlayers)]
+        
+        if QMin['resources']['resp_grid'] not in ['lebedev', 'random', 'golden_spiral', 'gamess', 'marcus_deserno']:
+            raise Error(f"specified grid {QMin['resources']['resp_grid']} not available.\n Possible options are 'lebedev', 'random', 'golden_spiral', 'gamess', 'marcus_deserno'", 35)
+        
 
         self._QMin = {**QMin['resources'], **QMin}
         return
@@ -314,6 +322,9 @@ class INTERFACE(ABC):
         if 'savedir' not in QMin:
             QMin['savedir'] = './SAVEDIR/'
         QMin['savedir'] = os.path.abspath(os.path.expanduser(os.path.expandvars(QMin['savedir'])))
+        if 'unit' not in QMin:
+            print('Warning: no "unit" specified in QMin! Assuming Bohr')
+            self.set_unit('bohr')
         if '$' in QMin['savedir']:
             raise Error(f'undefined env variable in "savedir"! {QMin["savedir"]}')
         self._setup_mol = True
@@ -396,7 +407,9 @@ class INTERFACE(ABC):
             del requests['tasks']
         for task in ['nacdr', 'overlap', 'grad', 'ion']:
             if task in requests and type(requests[task]) is str:
-                if task == requests[task].lower() or requests[task] == 'all':
+                if requests[task] == '':  # removes task from dict if {'task': ''}
+                    del requests[task]
+                elif task == requests[task].lower() or requests[task] == 'all':
                     requests[task] = True
                 else:
                     requests[task] = [int(i) for i in requests[task].split()]
@@ -442,6 +455,7 @@ class INTERFACE(ABC):
         QMin = self._QMin
         # NOTE: old QMin read stuff is not overwritten. Problem with states?
         self._request_logic()
+        self._step_logic()
 
     def _reset_requests(self):
         for k in [
@@ -451,27 +465,8 @@ class INTERFACE(ABC):
             if k in self._QMin:
                 del self._QMin[k]
 
-    def _request_logic(self):
+    def _step_logic(self):
         QMin = self._QMin
-        # prepare savedir
-        if not os.path.isdir(QMin['savedir']):
-            mkdir(QMin['savedir'])
-
-        possibletasks = {
-            'h', 'soc', 'dm', 'grad', 'overlap', 'dmdr', 'socdr', 'ion', 'theodore', 'phases', 'multipolar_fit'
-        }
-        tasks = possibletasks & QMin.keys()
-        if len(tasks) == 0:
-            raise Error(f'No tasks found! Tasks are {possibletasks}.', 39)
-
-        if 'h' not in tasks and 'soc' not in tasks:
-            QMin['h'] = True
-
-        if 'soc' in tasks and (len(QMin['states']) < 3 or QMin['states'][2] <= 0):
-            del QMin['soc']
-            QMin['h'] = True
-            print('HINT: No triplet states requested, turning off SOC request.')
-
         # remove old keywords:
         for i in ['restart', 'init', 'samestep', 'newstep']:
             removekey(QMin, i)
@@ -512,6 +507,28 @@ class INTERFACE(ABC):
                 raise Error(
                     f'Determined last step ({last_step}) from savedir and specified step ({QMin["step"]}) do not fit!\nPrepare your savedir and "STEP" file accordingly before starting again or choose "step -1" if you want to proceed from last successful step!'
                 )
+
+
+    def _request_logic(self):
+        QMin = self._QMin
+        # prepare savedir
+        if not os.path.isdir(QMin['savedir']):
+            mkdir(QMin['savedir'])
+
+        possibletasks = {
+            'h', 'soc', 'dm', 'grad', 'overlap', 'dmdr', 'socdr', 'ion', 'theodore', 'phases', 'multipolar_fit'
+        }
+        tasks = possibletasks & QMin.keys()
+        if len(tasks) == 0:
+            raise Error(f'No tasks found! Tasks are {possibletasks}.', 39)
+
+        if 'h' not in tasks and 'soc' not in tasks:
+            QMin['h'] = True
+
+        if 'soc' in tasks and (len(QMin['states']) < 3 or QMin['states'][2] <= 0):
+            del QMin['soc']
+            QMin['h'] = True
+            print('HINT: No triplet states requested, turning off SOC request.')
 
         if 'phases' in tasks:
             QMin['overlap'] = True
@@ -2168,14 +2185,15 @@ class INTERFACE(ABC):
         for i, (imult, istate, ims) in zip(range(nmstates), itnmstates(states)):
             for j, (jmult, jstate, jms) in zip(range(nmstates), itnmstates(states)):
                 string += f'{natom} 10 ! m1 {imult} s1 {istate} ms1 {ims: 3.1f}   m2 {jmult} s2 {jstate} ms2 {jms: 3.1f}\n'
-
                 entry = np.zeros((natom, 10))
-                if (imult, istate, jmult, jstate) in fits:
+                if ims != jms or imult != jmult:
+                    pass  # ensures that entry stays full of zeros
+                elif (imult, istate, jmult, jstate) in fits:
                     fit = fits[(imult, istate, jmult, jstate)]
-                    entry[:, :fit.shape[1]] = fit  # cath cases where fit is not full order
+                    entry[:, :fit.shape[1]] = fit  # catch cases where fit is not full order
                 elif (jmult, jstate, imult, istate) in fits:
                     fit = fits[(jmult, jstate, imult, istate)]
-                    entry[:, :fit.shape[1]] = fit  # cath cases where fit is not full order
+                    entry[:, :fit.shape[1]] = fit  # catch cases where fit is not full order
                 string += "\n".join(map(lambda x: " ".join(map(lambda y: '{: 10.8f}'.format(y), x)), entry)) + '\n'
 
 

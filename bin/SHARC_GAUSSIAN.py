@@ -1598,9 +1598,9 @@ class GAUSSIAN(INTERFACE):
             if 'multipolar_fit' not in QMout:
                 QMout['multipolar_fit'] = {}
 
-            # for dens in QMin['densjob']:
-            #     workdir = os.path.join(QMin['scratchdir'], dens)
-            #     self.get_fchk(workdir)
+            for dens in QMin['densjob']:
+                workdir = os.path.join(QMin['scratchdir'], dens)
+                self.get_fchk(workdir)
             # sort densjobs
             density_map = {}    # map for (mult, state, state): position in densities
             sorted_densjobs = []
@@ -1969,7 +1969,7 @@ class GAUSSIAN(INTERFACE):
                         map(float, chain(*map(lambda x: x.split(), lines[i:i + n_lines]))), dtype=float, count=n
                     ).reshape((2 * n_g2e, n_bf, n_bf))
                     for i_d in range(0, 2 * n_g2e, 2):
-                        tmp = d[i_d, ...]
+                        tmp = (d[i_d, ...] + d[i_d + 1, ...]) * math.sqrt(2)
                         swap_rows_and_cols(atom_symbols, basis, tmp)
                         densities.append(tmp)
                         new_dens += 1
