@@ -107,7 +107,6 @@ class OpenMM(INTERFACE):
 
     def read_resources(self, resources_filename='OpenMM.resources'):
         super().read_resources(resources_filename)
-        QMin = self._QMin
         self._read_resources = True
 
     def setup_run(self):
