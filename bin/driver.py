@@ -173,6 +173,7 @@ def do_qm_calc(i: INTERFACE, qmout: QMOUT):
     i.set_requests(get_all_tasks(icall))
     i.set_coords(get_crd())
     safe(i.run)
+    i.getQMout()
     i.write_step_file()
     qmout.set_props(i._QMout, icall)
 
