@@ -348,8 +348,6 @@ class QMMM(INTERFACE):
         # Hamiltonian
         if 'h' in qm_QMout:
             QMout['h'] = deepcopy(qm_QMout['h'])
-            with open('qm_ene.dat', 'a') as f:
-                f.write(f'{self._pc_mm[0][1]: 12.8f}  ' + ' '.join(map(lambda x: '{: 12.8f}'.format(x), [QMout['h'][z][z].real for z in range(len(QMout['h']))])) + f'{mm_e: 12.8f}\n')
             for i in range(QMin['nmstates']):
                 QMout['h'][i][i] += mm_e
 
