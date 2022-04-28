@@ -152,6 +152,7 @@ class INTERFACE(ABC):
         # perform the calculation and parse the output, do subsequent calculations with other tools
         if 'dry_run' in self._QMin and self._QMin['dry_run']:
             print('Warning: performing a dry run with old calculation results!\nResults taken from', self._QMin['scratchdir'])
+            self.dry_run()
         else:
             self.run()
 
@@ -185,6 +186,9 @@ class INTERFACE(ABC):
     @abstractmethod
     def getQMout(self):
         pass
+
+    def dry_run(self):
+        raise NotImplementedError("Cannot perform dryrun! Dryrun method not implemented")
 
     @abstractmethod
     def read_resources(self, resources_filename):
@@ -601,47 +605,8 @@ class INTERFACE(ABC):
                                                         'lib') + os.pathsep + QMin['resources']['theodir']
         if 'pc_file' in QMin:
             QMin['point_charges'] = [[float(x[0])*self._factor, float(x[1])*self._factor, float(x[2])*self._factor, float(x[3])] for x in map(lambda x: x.split(), readfile(QMin['pc_file']))]
-
-
-
-    def setup_run(self):
-        QMin = self._QMin
-        # obtain the statemap
-        QMin['statemap'] = {i + 1: [*v] for i, v in enumerate(itnmstates(QMin['states']))}
-
-        self._states_to_do()    # can be different in interface -> general method here with possibility to overwrite
-        # make the jobs
-        self._jobs()
-        jobs = QMin['jobs']
-        # make the multmap (mapping between multiplicity and job)
-        multmap = {}
-        for ijob, job in jobs.items():
-            for imult in job['mults']:
-                multmap[imult] = ijob
-            multmap[-(ijob)] = job['mults']
-        multmap[1] = 1
-        QMin['multmap'] = multmap
-
-        # get the joblist
-        QMin['joblist'] = sorted(jobs.keys())
-        QMin['njobs'] = len(QMin['joblist'])
-
-        # make the gsmap
-        gsmap = {}
-        for i in range(QMin['nmstates']):
-            m1, s1, ms1 = tuple(QMin['statemap'][i + 1])
-            gs = (m1, 1, ms1)
-            job = QMin['multmap'][m1]
-            if m1 == 3 and QMin['jobs'][job]['restr']:
-                gs = (1, 1, 0.0)
-            for j in range(QMin['nmstates']):
-                m2, s2, ms2 = tuple(QMin['statemap'][j + 1])
-                if (m2, s2, ms2) == gs:
-                    break
-            gsmap[i + 1] = j + 1
-        QMin['gsmap'] = gsmap
-
-        # get the set of states for which gradients actually need to be calculated
+         
+         # get the set of states for which gradients actually need to be calculated
         gradmap = set()
         if 'grad' in QMin:
             gradmap = {tuple(QMin['statemap'][i][0:2]) for i in QMin['grad']}
@@ -652,8 +617,6 @@ class INTERFACE(ABC):
             densmap = {tuple(QMin['statemap'][i][0:2]) for i in QMin['multipolar_fit']}
         QMin['densmap'] = sorted(densmap)
 
-        # make the chargemap
-        QMin['chargemap'] = {i + 1: c for i, c in enumerate(QMin['template']['charge'])}
 
         # make the ionmap
         if 'ion' in QMin:
@@ -694,14 +657,48 @@ class INTERFACE(ABC):
                     backupdir1 = backupdir + '/calc_%i' % (i)
             QMin['backup'] = backupdir
         
-        #TODO this needs to be called before every run !!!
-        # joblist is dependend on the requests set before every run()
-        self.generate_joblist()
-        if DEBUG:
-            print('SCHEDULE:')
-            pprint.pprint(QMin['schedule'], depth=2)
-        if self._PRINT:
-            self.printQMin()
+
+
+    def setup_run(self):
+        QMin = self._QMin
+        # obtain the statemap
+        QMin['statemap'] = {i + 1: [*v] for i, v in enumerate(itnmstates(QMin['states']))}
+
+        # make the chargemap
+        QMin['chargemap'] = {i + 1: c for i, c in enumerate(QMin['template']['charge'])}
+        self._states_to_do()    # can be different in interface -> general method here with possibility to overwrite
+        # make the jobs
+        self._jobs()
+        jobs = QMin['jobs']
+        # make the multmap (mapping between multiplicity and job)
+        multmap = {}
+        for ijob, job in jobs.items():
+            for imult in job['mults']:
+                multmap[imult] = ijob
+            multmap[-(ijob)] = job['mults']
+        multmap[1] = 1
+        QMin['multmap'] = multmap
+
+        # get the joblist
+        QMin['joblist'] = sorted(jobs.keys())
+        QMin['njobs'] = len(QMin['joblist'])
+
+        # make the gsmap
+        gsmap = {}
+        for i in range(QMin['nmstates']):
+            m1, s1, ms1 = tuple(QMin['statemap'][i + 1])
+            gs = (m1, 1, ms1)
+            job = QMin['multmap'][m1]
+            if m1 == 3 and QMin['jobs'][job]['restr']:
+                gs = (1, 1, 0.0)
+            for j in range(QMin['nmstates']):
+                m2, s2, ms2 = tuple(QMin['statemap'][j + 1])
+                if (m2, s2, ms2) == gs:
+                    break
+            gsmap[i + 1] = j + 1
+        QMin['gsmap'] = gsmap
+
+       
 
     def parse_keywords(
         self,

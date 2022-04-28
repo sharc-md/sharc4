@@ -25,7 +25,6 @@
 
 # IMPORTS
 # external
-from curses import raw
 import datetime
 import numpy as np
 from copy import deepcopy
@@ -155,6 +154,8 @@ class QMMM(INTERFACE):
 
     def setup_run(self):
         QMin = self._QMin
+        # obtain the statemap
+        QMin['statemap'] = {i + 1: [*v] for i, v in enumerate(itnmstates(QMin['states']))}
         if 'savedir' not in QMin:
             print('savedir not specified in QM.in, setting savedir to current directory!')
             QMin['savedir'] = os.getcwd()
@@ -171,11 +172,13 @@ class QMMM(INTERFACE):
         if not os.path.isdir(qm_savedir):
             mkdir(qm_savedir)
         self.qm_interface._QMin['savedir'] = qm_savedir
+        self.qm_interface._QMin['scratchdir'] = os.path.join(QMin['scratchdir'], 'QM_' + QMin['template']['qm-program'].upper())
 
         mml_savedir = os.path.join(QMin['savedir'], 'MML_' + QMin['template']['mm-program'].upper())
         if not os.path.isdir(mml_savedir):
             mkdir(mml_savedir)
         self.mml_interface._QMin['savedir'] = mml_savedir
+        self.mml_interface._QMin['scratchdir'] = os.path.join(QMin['scratchdir'], 'MML_' + QMin['template']['mm-program'].upper())
 
         # prepare info for both interfaces
         el = QMin['elements']
@@ -227,7 +230,7 @@ class QMMM(INTERFACE):
             if not os.path.isdir(mms_savedir):
                 mkdir(mms_savedir)
             self.mms_interface._QMin['savedir'] = mms_savedir
-
+            self.mms_interface._QMin['scratchdir'] = os.path.join(QMin['scratchdir'], 'MMS_' + QMin['template']['mm-program'].upper())
             # setup mol for mms
 
             mms_el = [a.symbol for a in QMin['atoms'] if a.qm]
@@ -257,7 +260,6 @@ class QMMM(INTERFACE):
         QMin = self._QMin
         p = self._perm
         # set coords
-        self.qm_interface._QMin['grad'] = QMin['grad']
         qm_coords = np.array([QMin['coords'][p[i][1]].copy() for i in range(self._num_qm)])
         if len(self._linkatoms) > 0:
             # get linkatom coords
@@ -280,6 +282,7 @@ class QMMM(INTERFACE):
         for i in filter(lambda x: x in QMin, possible):
             self.qm_interface._QMin[i] = QMin[i]
         self.qm_interface._request_logic()
+        self.qm_interface._step_logic()
 
         # set mm requests
         possible = ['cleanup', 'backup', 'h', 'dm', 'step']
@@ -319,6 +322,7 @@ class QMMM(INTERFACE):
                 self.mms_interface.run()
                 self.mms_interface.getQMout()
 
+
         # calc qm
         print('-' * 80, f'{"running QM INTERFACE":^80}', '-' * 80, sep='\n')
         # pc: list[list[float]] = each pc is x, y, z, qpc[p[mmid][1]][3] = 0.  # set the charge of the mm atom to zero
@@ -328,6 +332,7 @@ class QMMM(INTERFACE):
         with InDir(QMin['template']['qm-dir']) as _:
             self.qm_interface.run()
             self.qm_interface.getQMout()
+            self.qm_interface.write_step_file()
 
         print(datetime.datetime.now())
         print('#================ END ================#')
@@ -375,8 +380,8 @@ class QMMM(INTERFACE):
                         add_to_xyz(grad[i][qm_id], qm_grad_in, self._qm_s)
 
             mm_links = set(mm for _, mm in self._linkatoms)  # set of all mm_ids in link bonds (deleted in point charges!)
-            if 'pcgrad' in qm_QMout:    # apply pc grad
-                for i, grad_i in enumerate(qm_QMout['pcgrad']):
+            if 'pc_grad' in qm_QMout:    # apply pc grad
+                for i, grad_i in enumerate(qm_QMout['pc_grad']):
                     # mm_ids stay in order even after grouping qm_ids at the fron and deleting link mm atoms
                     # -> get all residual mm ids in order for correct order in pcgrad
                     for grad_in, mm_id in zip(grad_i, filter(lambda i: i not in mm_links, self.mm_ids)):

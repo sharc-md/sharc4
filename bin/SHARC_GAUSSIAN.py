@@ -427,7 +427,11 @@ class GAUSSIAN(INTERFACE):
 
 
     def run(self):
-        
+        self.generate_joblist()
+        if DEBUG:
+            print('SCHEDULE:')
+            pprint.pprint(self._QMin['schedule'], depth=2)
+ 
         errorcodes = {}
         # run all the jobs
         errorcodes = self.runjobs(self._QMin['schedule'])
