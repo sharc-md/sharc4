@@ -191,6 +191,7 @@ class QMMM(INTERFACE):
         qm_QMin['frozcore'] = sum(map(lambda x: FROZENS[x], qm_el))
         qm_QMin['natom'] = self._num_qm + n_link
         qm_QMin['states'] = QMin['states']
+        qm_QMin['statemap'] = QMin['statemap']
         qm_QMin['nmstates'] = QMin['nmstates']
         qm_QMin['unit'] = QMin['unit']
         self.qm_interface._setup_mol = True
