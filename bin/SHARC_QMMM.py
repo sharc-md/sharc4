@@ -143,6 +143,7 @@ class QMMM(INTERFACE):
 
         # map storing the permutations (map[x][0] is old->new, map[x][1] is new->old)
         self._perm = [[0, 0] for _ in range(len(QMin['atoms']))]
+        print(self._perm)
         for i, id in enumerate(self.qm_ids + self.mm_ids):
             self._perm[i][1] = id
             self._perm[id][0] = i
@@ -273,7 +274,7 @@ class QMMM(INTERFACE):
         else:
             self.qm_interface._QMin['coords'] = qm_coords
 
-        self.mml_interface._QMin['coords'] = np.array([QMin['coords'][p[i][1]].copy() for i in range(QMin['natom'])])
+        self.mml_interface._QMin['coords'] = QMin['coords'].copy()
 
         # set qm requests: grad, nac, soc,
         possible = [
@@ -306,12 +307,12 @@ class QMMM(INTERFACE):
             raw_pc = self.mml_interface._QMout['multipolar_fit']
 
         # redistribution of mm pc of link atom (charge is not the same in qm calc but pc would be too close)
-        self._pc_mm = [[*QMin['coords'][p[i][1], :].tolist(), raw_pc[i]] for i in range(self._num_qm, QMin['natom'])]  # shallow copy
-        for qmid, mmid in self._linkatoms:
+        self._pc_mm = [[*QMin['coords'][i, :].tolist(), raw_pc[i]] for i in self.mm_ids]  # shallow copy
+        for _, mmid in self._linkatoms:
             atom: ATOM = QMin['atoms'][mmid]
             # -> redistribute charge to neighboring atoms (look in old ORCA line 1300)
-            neighbor_ids = [x for x in atom.bonds if x != qmid]
-            chrg = raw_pc[p[mmid][1]] / len(neighbor_ids)
+            neighbor_ids = [x.id for x in map(lambda y: QMin['atoms'][y], atom.bonds) if not x.qm]
+            chrg = raw_pc[mmid] / len(neighbor_ids)
             for nb in neighbor_ids:
                 self._pc_mm[p[nb][1]] += chrg
             del self._pc_mm[p[mmid][1]]
@@ -364,9 +365,9 @@ class QMMM(INTERFACE):
 
             if QMin['template']['embedding'] == 'subtractive':
                 mms_grad = self.mms_interface.QMout['grad'][0]
-                for k in range(len(mms_grad[0])):    # loop over atoms
+                for atom in range(len(mms_grad[0])):    # loop over atoms
                     for qm_grad_i in qm_grad:
-                        add_to_xyz(qm_grad_i[k], mms_grad[k], fac=-1.)    # check if id is the same in both calcs
+                        add_to_xyz(qm_grad_i[atom], mms_grad[atom], fac=-1.)    # check if id is the same in both calcs
 
             grad = {}
 
@@ -382,7 +383,6 @@ class QMMM(INTERFACE):
 
             mm_links = set(mm for _, mm in self._linkatoms)  # set of all mm_ids in link bonds (deleted in point charges!)
             if 'pc_grad' in qm_QMout:    # apply pc grad
-                print(qm_QMout['pc_grad'])
                 for i, grad_i in enumerate(qm_QMout['pc_grad']):
                     # mm_ids stay in order even after grouping qm_ids at the fron and deleting link mm atoms
                     # -> get all residual mm ids in order for correct order in pcgrad
