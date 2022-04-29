@@ -34,7 +34,7 @@ from SHARC_INTERFACE import INTERFACE
 from factory import factory
 from utils import *
 from constants import ATOMCHARGE, FROZENS
-
+from itertools import chain
 
 authors = 'Sebastian Mai and Severin Polonius'
 version = '3.0'
@@ -133,6 +133,9 @@ class QMMM(INTERFACE):
             self.qm_ids.append(i.id) if i.qm else self.mm_ids.append(i.id)
         self._num_qm = len(self.qm_ids)
         self._num_mm = len(self.mm_ids)
+        self.mm_links = set(
+            mm for _, mm in self._linkatoms
+        )    # set of all mm_ids in link bonds (deleted in point charges!)
 
         # check of linkatoms: map linkatoms to sets of unique qm and mm ids: decreased number -> Error
         if len(self._linkatoms) > len(set(map(lambda x: x[0], self._linkatoms))):
@@ -140,14 +143,6 @@ class QMMM(INTERFACE):
         if len(self._linkatoms) > len(set(map(lambda x: x[1], self._linkatoms))):
             raise Error('Some MM atom is involved in more than one link bond!', 23)
         self._linkatoms = list(self._linkatoms)
-
-        # map storing the permutations (map[x][0] is old->new, map[x][1] is new->old)
-        self._perm = [[0, 0] for _ in range(len(QMin['atoms']))]
-        print(self._perm)
-        for i, id in enumerate(self.qm_ids + self.mm_ids):
-            self._perm[i][1] = id
-            self._perm[id][0] = i
-        self._read_template = True
 
     def read_resources(self, resources_filename='QMMM.resources'):
         super().read_resources(resources_filename)
@@ -173,13 +168,17 @@ class QMMM(INTERFACE):
         if not os.path.isdir(qm_savedir):
             mkdir(qm_savedir)
         self.qm_interface._QMin['savedir'] = qm_savedir
-        self.qm_interface._QMin['scratchdir'] = os.path.join(QMin['scratchdir'], 'QM_' + QMin['template']['qm-program'].upper())
+        self.qm_interface._QMin['scratchdir'] = os.path.join(
+            QMin['scratchdir'], 'QM_' + QMin['template']['qm-program'].upper()
+        )
 
         mml_savedir = os.path.join(QMin['savedir'], 'MML_' + QMin['template']['mm-program'].upper())
         if not os.path.isdir(mml_savedir):
             mkdir(mml_savedir)
         self.mml_interface._QMin['savedir'] = mml_savedir
-        self.mml_interface._QMin['scratchdir'] = os.path.join(QMin['scratchdir'], 'MML_' + QMin['template']['mm-program'].upper())
+        self.mml_interface._QMin['scratchdir'] = os.path.join(
+            QMin['scratchdir'], 'MML_' + QMin['template']['mm-program'].upper()
+        )
 
         # prepare info for both interfaces
         el = QMin['elements']
@@ -232,7 +231,9 @@ class QMMM(INTERFACE):
             if not os.path.isdir(mms_savedir):
                 mkdir(mms_savedir)
             self.mms_interface._QMin['savedir'] = mms_savedir
-            self.mms_interface._QMin['scratchdir'] = os.path.join(QMin['scratchdir'], 'MMS_' + QMin['template']['mm-program'].upper())
+            self.mms_interface._QMin['scratchdir'] = os.path.join(
+                QMin['scratchdir'], 'MMS_' + QMin['template']['mm-program'].upper()
+            )
             # setup mol for mms
 
             mms_el = [a.symbol for a in QMin['atoms'] if a.qm]
@@ -260,9 +261,8 @@ class QMMM(INTERFACE):
 
     def run(self):
         QMin = self._QMin
-        p = self._perm
         # set coords
-        qm_coords = np.array([QMin['coords'][p[i][1]].copy() for i in range(self._num_qm)])
+        qm_coords = np.array([QMin['coords'][self.qm_ids[i]].copy() for i in range(self._num_qm)])
         if len(self._linkatoms) > 0:
             # get linkatom coords
             def get_link_coord(link: tuple) -> np.ndarray[float]:
@@ -307,15 +307,16 @@ class QMMM(INTERFACE):
             raw_pc = self.mml_interface._QMout['multipolar_fit']
 
         # redistribution of mm pc of link atom (charge is not the same in qm calc but pc would be too close)
-        self._pc_mm = [[*QMin['coords'][i, :].tolist(), raw_pc[i]] for i in self.mm_ids]  # shallow copy
         for _, mmid in self._linkatoms:
             atom: ATOM = QMin['atoms'][mmid]
             # -> redistribute charge to neighboring atoms (look in old ORCA line 1300)
             neighbor_ids = [x.id for x in map(lambda y: QMin['atoms'][y], atom.bonds) if not x.qm]
             chrg = raw_pc[mmid] / len(neighbor_ids)
             for nb in neighbor_ids:
-                self._pc_mm[p[nb][1]] += chrg
-            del self._pc_mm[p[mmid][1]]
+                raw_pc[nb] += chrg
+        self._pc_mm = [
+            [*QMin['coords'][i, :].tolist(), raw_pc[i]] for i in self.mm_ids if i not in self.mm_links
+        ]    # shallow copy
 
         if QMin['template']['embedding'] == 'subtractive':
             print('-' * 80, f'{"running MM INTERFACE (small system)":^80}', '-' * 80, sep='\n')
@@ -323,7 +324,6 @@ class QMMM(INTERFACE):
             with InDir(QMin['template']['mms-dir']) as _:
                 self.mms_interface.run()
                 self.mms_interface.getQMout()
-
 
         # calc qm
         print('-' * 80, f'{"running QM INTERFACE":^80}', '-' * 80, sep='\n')
@@ -365,7 +365,7 @@ class QMMM(INTERFACE):
 
             if QMin['template']['embedding'] == 'subtractive':
                 mms_grad = self.mms_interface.QMout['grad'][0]
-                for atom in range(len(mms_grad[0])):    # loop over atoms
+                for atom in range(len(mms_grad)):    # loop over atoms
                     for qm_grad_i in qm_grad:
                         add_to_xyz(qm_grad_i[atom], mms_grad[atom], fac=-1.)    # check if id is the same in both calcs
 
@@ -375,18 +375,17 @@ class QMMM(INTERFACE):
                 grad[i] = deepcopy(mm_grad)
                 for n, qm_grad_in in enumerate(qm_grad_i):
                     if n < self._num_qm:    # pure qm atoms
-                        add_to_xyz(grad[i][self._perm[n][1]], qm_grad_in)
+                        add_to_xyz(grad[i][self.qm_ids[n]], qm_grad_in)
                     else:    # linkatoms come after qm atoms
                         qm_id, mm_id = self._linkatoms[n - self._num_qm]
                         add_to_xyz(grad[i][mm_id], qm_grad_in, self._mm_s)
                         add_to_xyz(grad[i][qm_id], qm_grad_in, self._qm_s)
 
-            mm_links = set(mm for _, mm in self._linkatoms)  # set of all mm_ids in link bonds (deleted in point charges!)
             if 'pc_grad' in qm_QMout:    # apply pc grad
                 for i, grad_i in enumerate(qm_QMout['pc_grad']):
                     # mm_ids stay in order even after grouping qm_ids at the fron and deleting link mm atoms
                     # -> get all residual mm ids in order for correct order in pcgrad
-                    for grad_in, mm_id in zip(grad_i, filter(lambda i: i not in mm_links, self.mm_ids)):
+                    for grad_in, mm_id in zip(grad_i, filter(lambda i: i not in self.mm_links, self.mm_ids)):
                         add_to_xyz(grad[i][mm_id], grad_in)
 
             self._QMout['grad'] = grad
@@ -400,7 +399,7 @@ class QMMM(INTERFACE):
             for i, s_i in enumerate(self.qm_interface._QMout['nacdr']):
                 for s_j in s_i:
                     for n in range(self._num_qm):
-                        add_to_xyz(s_j[n], nacdr[i][n][self._perm[1][n]])
+                        add_to_xyz(s_j[n], nacdr[i][n][self.qm_ids[n]])
                     for n in range(self._num_qm, len(s_j)):    # linkatoms come after qm atoms
                         qm_id, mm_id = self._linkatoms[n - self._num_qm]
                         n = nacdr[i][n]
@@ -424,12 +423,9 @@ class QMMM(INTERFACE):
             if i in qm_QMout:
                 QMout[i] = qm_QMout[i]
 
-        for i in ['ea', 'ev', 'eb', 'ed', 'ec']:
-            if i in self.mml_interface._QMout:
-                QMout[i] = self.mml_interface._QMout[i]
-    
     def create_restart_files(self):
         pass
+
 
 if __name__ == "__main__":
     try:

@@ -344,28 +344,7 @@ class LVC(INTERFACE):
             dE = np.einsum('mnr,r->nmr', dE, np.sqrt(self._Om), casting='no', optimize=True)
             dE = np.einsum('ij,kli->klj', self._Km, dE, casting='no', optimize=True)
             grad = np.einsum('nnl->nl', dE)    # gradients in cartesian basis
-            start = 0    # starting index for blocks
-            if Hd.dtype == complex:
-                eV = np.reshape(Hd.view(float), (nmstates * nmstates, 2))[::nmstates + 1, 0]
-            else:
-                eV = Hd.flat[::nmstates + 1]
-            nacdr = np.zeros((nmstates, nmstates, r3N), float)
-            cast = complex if Hd.dtype == complex else float
-            for im, n in filter(lambda x: x[1] != 0, enumerate(states)):
-                stop = start + n
-                tmp = np.full((n, n), eV[start:stop]).T
-                tmp -= eV[start:stop]
-                idx = tmp != cast(0)
-                tmp[idx] **= -1
-                nacdr[start:stop, start:stop, :] = np.einsum(
-                    'ij,ijk->ijk', tmp.T, dE[start:stop, start:stop, :], casting='no', optimize=True
-                )
-                for s1 in map(
-                    lambda x: start + n * (x + 1), range(im)
-                ):    # fills in blocks for other magnetic quantum numbers
-                    s2 = s1 + n
-                    nacdr[s1:s2, s1:s2, :] = nacdr[start:stop, start:stop, :]
-                start = stop
+            nacdr = dE
         else:
             grad = np.zeros((nmstates, r3N))
             start = 0
@@ -461,6 +440,30 @@ class LVC(INTERFACE):
                     self.pc_grad[s1:s2, ...] += self.pc_grad[start:stop, ...]
                     if 'nacdr' in self._QMin:
                         nacdr[s1:s2, s1:s2, ...] += nacdr[start:stop, start:stop, ...]
+                start = stop
+        
+        # do the energy weighting of the nacdrs
+        if 'nacdr' in self._QMin:
+            start = 0    # starting index for blocks
+            if Hd.dtype == complex:
+                eV = np.reshape(Hd.view(float), (nmstates * nmstates, 2))[::nmstates + 1, 0]
+            else:
+                eV = Hd.flat[::nmstates + 1]
+            cast = complex if Hd.dtype == complex else float
+            for im, n in filter(lambda x: x[1] != 0, enumerate(states)):
+                stop = start + n
+                tmp = np.full((n, n), eV[start:stop]).T
+                tmp -= eV[start:stop]
+                idx = tmp != cast(0)
+                tmp[idx] **= -1
+                nacdr[start:stop, start:stop, :] = np.einsum(
+                    'ji,ijk->ijk', tmp, nacdr[start:stop, start:stop, :], casting='no', optimize=True
+                )
+                for s1 in map(
+                    lambda x: start + n * (x + 1), range(im)
+                ):    # fills in blocks for other magnetic quantum numbers
+                    s2 = s1 + n
+                    nacdr[s1:s2, s1:s2, :] = nacdr[start:stop, start:stop, :]
                 start = stop
 
         if 'overlap' in self._QMin:
