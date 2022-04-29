@@ -237,6 +237,7 @@ def main():
     derived_int._setup_mol = True
     derived_int.read_template()
     derived_int.read_resources()
+    derived_int._step_logic()
     derived_int.setup_run()
     if IRestart == 0:
         initial_qm_pre()
@@ -262,10 +263,12 @@ def main():
             safe(i.run)
             QMout.set_gradient(list2dict(i._QMout['grad']), 3)
             set_qmout(QMout._QMout, 3)
+        derived_int._QMin['step'] += 1
         iexit = verlet_finalize(1)
         if iexit == 1:
             break
-
+    
+    derived_int.create_restart_files()
     finalize_sharc()
     stop = time.time_ns()
     print(f'Timing per step ({derived_int.__class__.__name__}):', lvc_time / basic_info['NSteps'] * 1e-6, 'ms')

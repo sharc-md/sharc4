@@ -187,6 +187,10 @@ class INTERFACE(ABC):
     def getQMout(self):
         pass
 
+    @abstractmethod
+    def create_restart_files(self):
+        pass
+
     def dry_run(self):
         raise NotImplementedError("Cannot perform dryrun! Dryrun method not implemented")
 
@@ -807,6 +811,10 @@ class INTERFACE(ABC):
         savedir = QMin['savedir']
         stepfile = os.path.join(savedir, 'STEP')
         writefile(stepfile, str(QMin['step']))
+
+    @abstractmethod
+    def create_restart_files(self):
+        pass
 
     def generate_joblist(self):
         QMin = self._QMin

@@ -382,6 +382,7 @@ class QMMM(INTERFACE):
 
             mm_links = set(mm for _, mm in self._linkatoms)  # set of all mm_ids in link bonds (deleted in point charges!)
             if 'pc_grad' in qm_QMout:    # apply pc grad
+                print(qm_QMout['pc_grad'])
                 for i, grad_i in enumerate(qm_QMout['pc_grad']):
                     # mm_ids stay in order even after grouping qm_ids at the fron and deleting link mm atoms
                     # -> get all residual mm ids in order for correct order in pcgrad
