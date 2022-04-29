@@ -151,6 +151,8 @@ class OpenMM(INTERFACE):
         if not QMin.keys().isdisjoint(not_allowed):
             raise Error('Cannot perform tasks: {}'.format(' '.join(QMin.keys() & not_allowed)), 13)
 
+    def create_restart_files(self):
+        pass
 
 if __name__ == "__main__":
     omm = OpenMM()

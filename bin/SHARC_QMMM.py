@@ -427,7 +427,9 @@ class QMMM(INTERFACE):
         for i in ['ea', 'ev', 'eb', 'ed', 'ec']:
             if i in self.mml_interface._QMout:
                 QMout[i] = self.mml_interface._QMout[i]
-
+    
+    def create_restart_files(self):
+        pass
 
 if __name__ == "__main__":
     try:
