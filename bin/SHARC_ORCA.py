@@ -223,10 +223,15 @@ class ORCA(INTERFACE):
                 'Some subprocesses did not finish successfully!\n\
                 See {}:{} for error messages in ORCA output.'.format(gethostname(), QMin['scratchdir']), 75
             )
+        self.create_restart_files()
+        return errorcodes
+
+    def create_restart_files(self):
+        QMin = self._QMin
         if PRINT:
             print('>>>>>>>>>>>>> Saving files')
             starttime = datetime.datetime.now()
-        for ijobset, jobset in enumerate(schedule):
+        for ijobset, jobset in enumerate(QMin['schedule']):
             if not jobset:
                 continue
             for ijob, job in enumerate(jobset):
@@ -243,7 +248,6 @@ class ORCA(INTERFACE):
         if PRINT:
             endtime = datetime.datetime.now()
             print(f'Saving Runtime: {endtime - starttime}')
-        return errorcodes
 
     @staticmethod
     def runORCA(WORKDIR, QMin):

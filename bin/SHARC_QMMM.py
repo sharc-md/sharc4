@@ -143,6 +143,7 @@ class QMMM(INTERFACE):
         if len(self._linkatoms) > len(set(map(lambda x: x[1], self._linkatoms))):
             raise Error('Some MM atom is involved in more than one link bond!', 23)
         self._linkatoms = list(self._linkatoms)
+        self._read_template = True
 
     def read_resources(self, resources_filename='QMMM.resources'):
         super().read_resources(resources_filename)
@@ -349,15 +350,17 @@ class QMMM(INTERFACE):
             xyz1[1] += xyz2[1] * fac
             xyz1[2] += xyz2[2] * fac
 
-        mm_e = self.mml_interface._QMout['h'][0][0]
+        mm_e = float(self.mml_interface._QMout['h'][0][0])
+        print('MMl:', self.mml_interface._QMout['h'][0][0])
         if QMin['template']['embedding'] == 'subtractive':
-            mm_e -= self.mms_interface.QMout['h'][0][0]
+            mm_e -= float(self.mms_interface._QMout['h'][0][0])
+            print('MMS:', self.mms_interface._QMout['h'][0][0])
         # Hamiltonian
         if 'h' in qm_QMout:
             QMout['h'] = deepcopy(qm_QMout['h'])
+            print('QM:', self.qm_interface._QMout['h'][0][0])
             for i in range(QMin['nmstates']):
                 QMout['h'][i][i] += mm_e
-
         # gen output
         if 'grad' in QMin:
             qm_grad = self.qm_interface._QMout['grad']
@@ -417,6 +420,7 @@ class QMMM(INTERFACE):
                             dm_inm += mm_dm_i[0][0]    # add mm dipole moment to all states
         if 'overlap' in QMin:
             QMout['overlap'] = self.qm_interface._QMout['overlap']
+        print('GES:', QMout['h'][0][0])
 
         # potentially print out other contributions and properties...
         for i in ['ion', 'prop', 'theodore']:
@@ -424,7 +428,10 @@ class QMMM(INTERFACE):
                 QMout[i] = qm_QMout[i]
 
     def create_restart_files(self):
-        pass
+        self.qm_interface.create_restart_files()
+        self.mml_interface.create_restart_files()
+        if self._QMin['embedding'] == 'subtractive':
+            self.mml_interface.create_restart_files()
 
 
 if __name__ == "__main__":
