@@ -247,6 +247,7 @@ def main():
     lvc_time = 0.
     for istep in range(basic_info['istep'] + 1, basic_info['NSteps'] + 1):
         verlet_xstep(istep)
+        derived_int._QMin['step'] += 1
         s1 = time.perf_counter_ns()
         do_qm_calc(derived_int, QMout)
         s2 = time.perf_counter_ns()
@@ -263,7 +264,6 @@ def main():
             safe(i.run)
             QMout.set_gradient(list2dict(i._QMout['grad']), 3)
             set_qmout(QMout._QMout, 3)
-        derived_int._QMin['step'] += 1
         iexit = verlet_finalize(1)
         if iexit == 1:
             break
