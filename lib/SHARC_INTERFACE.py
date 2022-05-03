@@ -151,7 +151,10 @@ class INTERFACE(ABC):
         self.setup_run()
         # perform the calculation and parse the output, do subsequent calculations with other tools
         if 'dry_run' in self._QMin and self._QMin['dry_run']:
-            print('Warning: performing a dry run with old calculation results!\nResults taken from', self._QMin['scratchdir'])
+            print(
+                'Warning: performing a dry run with old calculation results!\nResults taken from',
+                self._QMin['scratchdir']
+            )
             self.dry_run()
         else:
             self.run()
@@ -223,17 +226,23 @@ class INTERFACE(ABC):
             'always_guess': False,
             'dry_run': False
         }
-        integers = {'ncpu': 1, 'memory': 100, 'numfrozcore': -1, 'numocc': 0, 'theodore_n': 0, 'resp_layers': 4, 'resp_tdm_fit_order': 2}
+        integers = {
+            'ncpu': 1,
+            'memory': 100,
+            'numfrozcore': -1,
+            'numocc': 0,
+            'theodore_n': 0,
+            'resp_layers': 4,
+            'resp_tdm_fit_order': 2
+        }
         floats = {'delay': 0.0, 'schedule_scaling': 0.9, 'wfthres': 0.99, 'resp_density': 1., 'resp_first_layer': 1.4}
         special = {
             'neglected_gradient': 'zero',
             'theodore_prop': ['Om', 'PRNTO', 'S_HE', 'Z_HE', 'RMSeh'],
             'theodore_fragment': [],
-            'resp_shells': False  # default calculated from other values = [1.4, 1.6, 1.8, 2.0]
+            'resp_shells': False    # default calculated from other values = [1.4, 1.6, 1.8, 2.0]
         }
-        strings = {
-            'resp_grid': 'lebedev'
-        }
+        strings = {'resp_grid': 'lebedev'}
         lines = readfile(resources_filename)
         # assign defaults first, which get updated by the parsed entries, which are updated by the entries that were already in QMin
         QMin['resources'] = {
@@ -244,13 +253,7 @@ class INTERFACE(ABC):
             **special,
             **strings,
             **self.parse_keywords(
-                lines,
-                bools=bools,
-                paths=paths,
-                integers=integers,
-                floats=floats,
-                special=special,
-                strings=strings
+                lines, bools=bools, paths=paths, integers=integers, floats=floats, special=special, strings=strings
             )
         }
         print('DEBUG:', QMin['resources']['debug'])
@@ -289,10 +292,12 @@ class INTERFACE(ABC):
                 print(f"Calculating resp layers as: {first} + 4/sqrt({nlayers})")
             incr = 0.4 / math.sqrt(nlayers)
             QMin['resources']['resp_shells'] = [first + incr * x for x in range(nlayers)]
-        
+
         if QMin['resources']['resp_grid'] not in ['lebedev', 'random', 'golden_spiral', 'gamess', 'marcus_deserno']:
-            raise Error(f"specified grid {QMin['resources']['resp_grid']} not available.\n Possible options are 'lebedev', 'random', 'golden_spiral', 'gamess', 'marcus_deserno'", 35)
-        
+            raise Error(
+                f"specified grid {QMin['resources']['resp_grid']} not available.\n Possible options are 'lebedev', 'random', 'golden_spiral', 'gamess', 'marcus_deserno'",
+                35
+            )
 
         self._QMin = {**QMin['resources'], **QMin}
         return
@@ -415,7 +420,7 @@ class INTERFACE(ABC):
             del requests['tasks']
         for task in ['nacdr', 'overlap', 'grad', 'ion']:
             if task in requests and type(requests[task]) is str:
-                if requests[task] == '':  # removes task from dict if {'task': ''}
+                if requests[task] == '':    # removes task from dict if {'task': ''}
                     del requests[task]
                 elif task == requests[task].lower() or requests[task] == 'all':
                     requests[task] = True
@@ -516,7 +521,6 @@ class INTERFACE(ABC):
                     f'Determined last step ({last_step}) from savedir and specified step ({QMin["step"]}) do not fit!\nPrepare your savedir and "STEP" file accordingly before starting again or choose "step -1" if you want to proceed from last successful step!'
                 )
 
-
     def _request_logic(self):
         QMin = self._QMin
         # prepare savedir
@@ -608,9 +612,14 @@ class INTERFACE(ABC):
                 os.environ['PYTHONPATH'] = os.path.join(QMin['theodir'],
                                                         'lib') + os.pathsep + QMin['resources']['theodir']
         if 'pc_file' in QMin:
-            QMin['point_charges'] = [[float(x[0])*self._factor, float(x[1])*self._factor, float(x[2])*self._factor, float(x[3])] for x in map(lambda x: x.split(), readfile(QMin['pc_file']))]
-         
-         # get the set of states for which gradients actually need to be calculated
+            QMin['point_charges'] = [
+                [float(x[0]) * self._factor,
+                 float(x[1]) * self._factor,
+                 float(x[2]) * self._factor,
+                 float(x[3])] for x in map(lambda x: x.split(), readfile(QMin['pc_file']))
+            ]
+
+        # get the set of states for which gradients actually need to be calculated
         gradmap = set()
         if 'grad' in QMin:
             gradmap = {tuple(QMin['statemap'][i][0:2]) for i in QMin['grad']}
@@ -620,7 +629,6 @@ class INTERFACE(ABC):
         if 'multipolar_fit' in QMin:
             densmap = {tuple(QMin['statemap'][i][0:2]) for i in QMin['multipolar_fit']}
         QMin['densmap'] = sorted(densmap)
-
 
         # make the ionmap
         if 'ion' in QMin:
@@ -660,8 +668,6 @@ class INTERFACE(ABC):
                 else:
                     backupdir1 = backupdir + '/calc_%i' % (i)
             QMin['backup'] = backupdir
-        
-
 
     def setup_run(self):
         QMin = self._QMin
@@ -701,8 +707,6 @@ class INTERFACE(ABC):
                     break
             gsmap[i + 1] = j + 1
         QMin['gsmap'] = gsmap
-
-       
 
     def parse_keywords(
         self,
@@ -1100,7 +1104,6 @@ class INTERFACE(ABC):
                 continue
             rmfile = os.path.join(WORKDIR, ifile)
             os.remove(rmfile)
-
 
     def get_wfovlout(self, path, mult):
 
@@ -1691,7 +1694,6 @@ class INTERFACE(ABC):
 # =============================================================================================== #
 # =============================================================================================== #
 
-
     def writeQMout(self):
         '''Writes the requested quantities to the file which SHARC reads in.
         The filename is QMinfilename with everything after the first dot replaced by "out".
@@ -2192,15 +2194,14 @@ class INTERFACE(ABC):
                 string += f'{natom} 10 ! m1 {imult} s1 {istate} ms1 {ims: 3.1f}   m2 {jmult} s2 {jstate} ms2 {jms: 3.1f}\n'
                 entry = np.zeros((natom, 10))
                 if ims != jms or imult != jmult:
-                    pass  # ensures that entry stays full of zeros
+                    pass    # ensures that entry stays full of zeros
                 elif (imult, istate, jmult, jstate) in fits:
                     fit = fits[(imult, istate, jmult, jstate)]
-                    entry[:, :fit.shape[1]] = fit  # catch cases where fit is not full order
+                    entry[:, :fit.shape[1]] = fit    # catch cases where fit is not full order
                 elif (jmult, jstate, imult, istate) in fits:
                     fit = fits[(jmult, jstate, imult, istate)]
-                    entry[:, :fit.shape[1]] = fit  # catch cases where fit is not full order
+                    entry[:, :fit.shape[1]] = fit    # catch cases where fit is not full order
                 string += "\n".join(map(lambda x: " ".join(map(lambda y: '{: 10.8f}'.format(y), x)), entry)) + '\n'
-
 
                 string += ''
         return string

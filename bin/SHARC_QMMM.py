@@ -280,7 +280,7 @@ class QMMM(INTERFACE):
         # set qm requests: grad, nac, soc,
         possible = [
             'cleanup', 'backup', 'h', 'soc', 'dm', 'grad', 'overlap', 'dmdr', 'nac', 'nacdr', 'socdr', 'ion',
-            'theodore', 'phases', 'step'
+            'theodore', 'phases', 'step', 'restart'
         ]
         for i in filter(lambda x: x in QMin, possible):
             self.qm_interface._QMin[i] = QMin[i]
@@ -351,14 +351,11 @@ class QMMM(INTERFACE):
             xyz1[2] += xyz2[2] * fac
 
         mm_e = float(self.mml_interface._QMout['h'][0][0])
-        print('MMl:', self.mml_interface._QMout['h'][0][0])
         if QMin['template']['embedding'] == 'subtractive':
             mm_e -= float(self.mms_interface._QMout['h'][0][0])
-            print('MMS:', self.mms_interface._QMout['h'][0][0])
         # Hamiltonian
         if 'h' in qm_QMout:
             QMout['h'] = deepcopy(qm_QMout['h'])
-            print('QM:', self.qm_interface._QMout['h'][0][0])
             for i in range(QMin['nmstates']):
                 QMout['h'][i][i] += mm_e
         # gen output
@@ -420,7 +417,6 @@ class QMMM(INTERFACE):
                             dm_inm += mm_dm_i[0][0]    # add mm dipole moment to all states
         if 'overlap' in QMin:
             QMout['overlap'] = self.qm_interface._QMout['overlap']
-        print('GES:', QMout['h'][0][0])
 
         # potentially print out other contributions and properties...
         for i in ['ion', 'prop', 'theodore']:
@@ -430,7 +426,7 @@ class QMMM(INTERFACE):
     def create_restart_files(self):
         self.qm_interface.create_restart_files()
         self.mml_interface.create_restart_files()
-        if self._QMin['embedding'] == 'subtractive':
+        if self._QMin['template']['embedding'] == 'subtractive':
             self.mml_interface.create_restart_files()
 
 
