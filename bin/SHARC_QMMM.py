@@ -360,7 +360,7 @@ class QMMM(INTERFACE):
                 QMout['h'][i][i] += mm_e
         # gen output
         if 'grad' in QMin:
-            qm_grad = self.qm_interface._QMout['grad']
+            qm_grad = qm_QMout['grad']
             mm_grad = self.mml_interface._QMout['grad'][0]
 
             if QMin['template']['embedding'] == 'subtractive':

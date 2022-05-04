@@ -39,7 +39,7 @@ import numpy as np
 from SHARC_INTERFACE import INTERFACE
 from utils import *
 from constants import U_TO_AMU, MASSES
-from kabsch import kabsch_w as kabsch
+from kabsch import kabsch as kabsch
 
 authors = 'Sebastian Mai and Severin Polonius'
 version = '3.0'
@@ -166,7 +166,7 @@ class LVC(INTERFACE):
 
                 for im, si, sj, i, v in map(d, range(n_fits)):
                     n = len(v)
-                    # n = 1
+                    n = 4
                     # if si != sj:
                     #     continue
                     dens = [float(x) for x in v[:n]]
@@ -242,6 +242,14 @@ class LVC(INTERFACE):
         if not tasks.isdisjoint({'h', 'soc', 'dm', 'grad'}) and 'overlap' in tasks:
             QMin['h'] = True
 
+        if 'pc_file' in QMin:
+            QMin['point_charges'] = [
+                [float(x[0]) * self._factor,
+                 float(x[1]) * self._factor,
+                 float(x[2]) * self._factor,
+                 float(x[3])] for x in map(lambda x: x.split(), readfile(QMin['pc_file']))
+            ]
+
     def getQMout(self):
         return self._QMout
 
@@ -257,7 +265,7 @@ class LVC(INTERFACE):
         coords: np.ndarray = self._QMin['coords'].copy()
         if self._do_kabsch:
             weights = [MASSES[i] for i in self._QMin['elements']]
-            self._R, self._com_ref, self._com_coords = kabsch(self._ref_coords, coords, weights)
+            self._R, self._com_ref, self._com_coords = kabsch(self._ref_coords, coords)  #, weights)
             coords_old = coords.copy()
             coords = (coords - self._com_coords) @ self._R.T + self._com_ref
         if do_pc:
@@ -419,9 +427,7 @@ class LVC(INTERFACE):
                     'xyab,by,ijay->ijabx', mult_prefactors_deriv, self.pc_chrg, self._fits[im]
                 )
                 atom_derivative = np.einsum('ijabx->ijax', derivative)
-                pc_derivative = np.einsum(
-                    'ijabx->ijbx', -derivative
-                )    # np.einsum('xyab,by,ijay->ijbx', -mult_prefactors_deriv, self.pc_chrg, self._fits[im])
+                pc_derivative = -np.einsum('ijabx->ijbx', derivative)
                 del derivative
                 pc_derivative_trans = np.einsum('ijbx,im,jn->mnbx', pc_derivative, u, u)
                 self.pc_grad[start:stop, ...] += np.einsum('mmbx->mbx', pc_derivative_trans)
@@ -436,12 +442,12 @@ class LVC(INTERFACE):
                 for s1 in map(lambda x: start + n * (x + 1), range(im)):
                     s2 = s1 + n
                     # add diagonal to grad and off diagonals to nacdr
-                    grad[s1:s2, ...] += grad[start:stop, ...]
-                    self.pc_grad[s1:s2, ...] += self.pc_grad[start:stop, ...]
+                    grad[s1:s2, ...] = grad[start:stop, ...]
+                    self.pc_grad[s1:s2, ...] = self.pc_grad[start:stop, ...]
                     if 'nacdr' in self._QMin:
-                        nacdr[s1:s2, s1:s2, ...] += nacdr[start:stop, start:stop, ...]
+                        nacdr[s1:s2, s1:s2, ...] = nacdr[start:stop, start:stop, ...]
                 start = stop
-        
+
         # do the energy weighting of the nacdrs
         if 'nacdr' in self._QMin:
             start = 0    # starting index for blocks
