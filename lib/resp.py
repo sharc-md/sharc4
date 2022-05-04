@@ -147,7 +147,7 @@ class Resp:
         # build B'
         B = tmp @ Fesp_i    # v_A
 
-        return self._fit(A, B, self.beta, 0.1)
+        return self._fit(A, B, self.beta, 0.1, False)
 
     def fit_quadrupoles(self, Fesp_i):
         natom = self.natom
@@ -171,7 +171,7 @@ class Resp:
         # build B'
         B = tmp @ Fesp_i    # v_A
 
-        quadrupoles = self._fit(A, B, self.beta, 0.1)
+        quadrupoles = self._fit(A, B, self.beta, 0.1, False)
         # make traceless (Source: Sebastian)
         quad_mat = quadrupoles.reshape((-1, natom))
         traces = np.sum(quad_mat[:3, :], axis=0)

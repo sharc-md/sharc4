@@ -425,13 +425,12 @@ class GAUSSIAN(INTERFACE):
 # =============================================================================================== #
 # =============================================================================================== #
 
-
     def run(self):
         self.generate_joblist()
         if DEBUG:
             print('SCHEDULE:')
             pprint.pprint(self._QMin['schedule'], depth=2)
- 
+
         errorcodes = {}
         # run all the jobs
         errorcodes = self.runjobs(self._QMin['schedule'])
@@ -442,6 +441,11 @@ class GAUSSIAN(INTERFACE):
         # do all necessary Theodore calculations
         errorcodes = self.run_theodore(errorcodes)
 
+    def dry_run(self):
+        self.generate_joblist()
+        if DEBUG:
+            print('SCHEDULE:')
+            pprint.pprint(self._QMin['schedule'], depth=2)
 
     def runjobs(self, schedule):
         QMin = self._QMin
@@ -476,11 +480,15 @@ class GAUSSIAN(INTERFACE):
         if any((i != 0 for i in errorcodes.values())):
             print('Some subprocesses did not finish successfully!')
             raise Error('See %s:%s for error messages in GAUSSIAN output.' % (gethostname(), QMin['scratchdir']), 64)
+        self.create_restart_files()
+        return errorcodes
 
+    def create_restart_files(self):
+        QMin = self._QMin
         if self._PRINT:
             print('>>>>>>>>>>>>> Saving files')
             starttime = datetime.datetime.now()
-        for ijobset, jobset in enumerate(schedule):
+        for ijobset, jobset in enumerate(QMin['schedule']):
             if not jobset:
                 continue
             for job in jobset:
@@ -495,8 +503,6 @@ class GAUSSIAN(INTERFACE):
             endtime = datetime.datetime.now()
             print('Saving Runtime: %s' % (endtime - starttime))
         print
-
-        return errorcodes
 
     # ======================================================================= #
 
@@ -670,7 +676,7 @@ class GAUSSIAN(INTERFACE):
         if QMin['template']['keys']:
             data.extend([QMin['template']['keys']])
         if 'densonly' in QMin:
-            data.append('pop=Regular') # otherwise CI density will not be printed
+            data.append('pop=Regular')    # otherwise CI density will not be printed
             data.append('Guess=read')
         if 'theodore' in QMin:
             data.append('pop=full')
@@ -1643,7 +1649,7 @@ class GAUSSIAN(INTERFACE):
             # collect all densities from the file in densjob (file: bools) and jobdens (state: file)
             densities = self.get_dens_from_fchks(sorted_densjobs, basis, n_bf)
             fits = Resp(QMin['coords'], QMin['elements'], QMin['resp_density'], QMin['resp_shells'])
-            fits.prepare(basis)  # the charge of the atom does not affect
+            fits.prepare(basis, QMin['statemap'][1][0] - 1)    # the charge of the atom does not affect
             fits_map = {}
             for i, d_i in enumerate(QMin['densmap']):
                 # do gs density
@@ -1656,15 +1662,18 @@ class GAUSSIAN(INTERFACE):
                     # do gses and eses density
                     key = (*d_i, *d_j)
                     if key in density_map:
-                        fits_map[key] = fits.multipoles_from_dens(densities[density_map[key]],
-                                                                  include_core_charges=False, order=QMin['resp_tdm_fit_order'])
+                        fits_map[key] = fits.multipoles_from_dens(
+                            densities[density_map[key]], include_core_charges=False, order=QMin['resp_tdm_fit_order']
+                        )
                     else:
-                        ijob = QMin['multmap'][dens[0]]  # the multiplicity is the same -> ijob same
+                        ijob = QMin['multmap'][dens[0]]    # the multiplicity is the same -> ijob same
                         gsmult = QMin['multmap'][-ijob][0]
                         dmI = densities[density_map[(gsmult, 1, *d_i)]]
                         dmJ = densities[density_map[(gsmult, 1, *d_j)]]
                         trans_dens = es2es_tdm(dmI, dmJ)
-                        fits_map[key] = fits.multipoles_from_dens(trans_dens, include_core_charges=False, order=QMin['resp_tdm_fit_order'])
+                        fits_map[key] = fits.multipoles_from_dens(
+                            trans_dens, include_core_charges=False, order=QMin['resp_tdm_fit_order']
+                        )
             QMout['multipolar_fit'] = fits_map
 
         # TheoDORE
@@ -1985,7 +1994,9 @@ class GAUSSIAN(INTERFACE):
             if es and not es_read:
                 raise Error(f'Missing "CI Density" in checkpoint file for job {dens}!\nfchk-file:  {fchkfile}', 33)
             if gses and not gses_read:
-                raise Error(f'Missing "G to E trans densities" in checkpoint file for job {dens}!\nfchk-file:  {fchkfile}', 33)
+                raise Error(
+                    f'Missing "G to E trans densities" in checkpoint file for job {dens}!\nfchk-file:  {fchkfile}', 33
+                )
         # read densities
         return densities
 
@@ -2101,7 +2112,6 @@ class GAUSSIAN(INTERFACE):
             props[(m, n + (m == 1))].extend([theo_float(i) for i in s[2:]])
 
         return props
-
 
 if __name__ == '__main__':
 

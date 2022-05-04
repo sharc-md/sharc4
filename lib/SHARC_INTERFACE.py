@@ -340,6 +340,9 @@ class INTERFACE(ABC):
             self.set_unit('bohr')
         if '$' in QMin['savedir']:
             raise Error(f'undefined env variable in "savedir"! {QMin["savedir"]}')
+
+        # obtain the statemap
+        QMin['statemap'] = {i + 1: [*v] for i, v in enumerate(itnmstates(QMin['states']))}
         self._setup_mol = True
         # NOTE: Quantity requests (tasks) are dealt with later and potentially re-assigned
         return
@@ -671,8 +674,6 @@ class INTERFACE(ABC):
 
     def setup_run(self):
         QMin = self._QMin
-        # obtain the statemap
-        QMin['statemap'] = {i + 1: [*v] for i, v in enumerate(itnmstates(QMin['states']))}
 
         # make the chargemap
         QMin['chargemap'] = {i + 1: c for i, c in enumerate(QMin['template']['charge'])}
