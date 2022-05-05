@@ -4,7 +4,7 @@ import os
 import ast
 
 from error import Error
-from utils import readfile, MMATOM
+from utils import readfile
 
 
 class KeywordParser:
@@ -40,6 +40,8 @@ Date: 20.07.2021
 
     def charge(self, args: str) -> list[int]:
         alist = args.split()
+        if len(alist) < self.nmult:
+            raise Error('specify charge for each multiplicity!')
         res = []
         try:
             res = list(map(lambda x: int(float(x)), alist))
@@ -139,6 +141,10 @@ Date: 20.07.2021
         path = os.path.abspath(os.path.expanduser(os.path.expanduser(args)))
         if os.path.isfile(path):
             with open(path, 'r') as f:
-                return [[*x[0:2], int(x[2])] + [int(y) - 1 for y in x[3:]] for x in map(lambda x: x.split(), f)]
+                return [[*x[0:2]] + [int(x[2])] + [int(y) - 1 for y in x[3:]] for x in map(lambda x: x.split(), f)]
         else:
             raise Error(f'File {path} does not exist!', 1)
+    
+    @staticmethod
+    def resp_shells(args: str) -> list[int]:
+        return ast.literal_eval(args)

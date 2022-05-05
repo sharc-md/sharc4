@@ -1,3 +1,4 @@
+from textwrap import wrap
 from utils import itnmstates
 
 
@@ -111,3 +112,28 @@ def printtheodore(matrix, QMin):
             string += '%6.4f ' % i.real
         string += '\n'
     print(string)
+
+
+def printheader(content):
+    '''Prints the formatted header of the log file. Prints version number and version date
+    Takes nothing, returns nothing.
+    Wraps the specified content lines in as :
+      ================================================================================
+    ||                                                                                ||
+    ||                                 content line 1                                 ||
+    ||                                 content line 2                                 ||
+    ||                                 content line 3                                 ||
+    ||                                 content line 4                                 ||
+    ||                                 content line 5                                 ||
+    ||                                                                                ||
+      ================================================================================
+    '''
+
+    rule = '=' * 76
+    lines = [rule, '', *content, '', rule]
+
+    # wraps Authors line in case its too long
+    lines[4:5] = wrap(lines[4], width=70)
+    lines[1:-1] = map(lambda s: '||{:^76}||'.format(s), lines[1:-1])
+    print(*lines, sep='\n')
+    print('\n')

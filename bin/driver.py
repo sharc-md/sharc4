@@ -25,13 +25,10 @@
 
 # IMPORTS
 # EXTERNAL
-import os
-import sys
 import time
-import numpy as np
 from typing import Any, Union
 from optparse import OptionParser
-from constants import IAn2AName
+from constants import IAn2AName, ATOMCHARGE, FROZENS
 
 # INTERNAL
 import sharc.sharc as sharc
@@ -81,7 +78,6 @@ class QMOUT():
                 # assumes type is numpy array
                 data['overlap'] = [list(ele) for ele in data['overlap']]
             self._QMout.set_overlap(data['overlap'])
-
         if 'grad' in data:
             if isinstance(data['grad'], list):
                 self._QMout.set_gradient(list2dict(data['grad']), icall)
@@ -177,6 +173,7 @@ def do_qm_calc(i: INTERFACE, qmout: QMOUT):
     i.set_requests(get_all_tasks(icall))
     i.set_coords(get_crd())
     safe(i.run)
+    i.getQMout()
     i.write_step_file()
     qmout.set_props(i._QMout, icall)
 
@@ -220,30 +217,41 @@ def main():
     param = args[0:-1]
     interface = factory(options.name)
 
-    i: INTERFACE = interface(options.debug, options.print, persistent=True)
-    i.set_unit('bohr')
+    derived_int: INTERFACE = interface(options.debug, options.print, persistent=True)
+    derived_int.set_unit('bohr')
     if options.print:
-        i.printheader()
+        derived_int.printheader()
     IRestart = setup_sharc(inp_file)
 
     basic_info = get_basic_info()
-    basic_info.update(i.parseStates(basic_info['states']))
-    QMout = QMOUT(i.__class__.__name__, basic_info['NAtoms'], basic_info['nmstates'])
+    basic_info.update(derived_int.parseStates(basic_info['states']))
+    QMout = QMOUT(derived_int.__class__.__name__, basic_info['NAtoms'], basic_info['nmstates'])
 
     basic_info['step'] = basic_info['istep']
 
-    i._QMin.update({k.lower(): v for k, v in basic_info.items()})
-    i._QMin['natom'] = basic_info['NAtoms']
-    i._QMin['elements'] = [IAn2AName[x] for x in basic_info['IAn']]
-    i.setup_run()
+    derived_int._QMin.update({k.lower(): v for k, v in basic_info.items()})
+    derived_int._QMin['natom'] = basic_info['NAtoms']
+    derived_int._QMin['elements'] = [IAn2AName[x] for x in basic_info['IAn']]
+    derived_int._QMin['Atomcharge'] = sum(map(lambda x: ATOMCHARGE[x], derived_int._QMin['elements']))
+    derived_int._QMin['frozcore'] = sum(map(lambda x: FROZENS[x], derived_int._QMin['elements']))
+    derived_int._setup_mol = True
+    derived_int.read_template()
+    derived_int.read_resources()
+    derived_int._step_logic()
+    derived_int.setup_run()
     if IRestart == 0:
         initial_qm_pre()
-        do_qm_calc(i, QMout)
+        do_qm_calc(derived_int, QMout)
         initial_qm_post()
         initial_step(IRestart)
+    lvc_time = 0.
     for istep in range(basic_info['istep'] + 1, basic_info['NSteps'] + 1):
         verlet_xstep(istep)
-        do_qm_calc(i, QMout)
+        derived_int._QMin['step'] += 1
+        s1 = time.perf_counter_ns()
+        do_qm_calc(derived_int, QMout)
+        s2 = time.perf_counter_ns()
+        lvc_time += s2 - s1
         crd = get_crd()
         IRedo = verlet_vstep()
 
@@ -259,9 +267,11 @@ def main():
         iexit = verlet_finalize(1)
         if iexit == 1:
             break
-
+    
+    derived_int.create_restart_files()
     finalize_sharc()
     stop = time.time_ns()
+    print(f'Timing per step ({derived_int.__class__.__name__}):', lvc_time / basic_info['NSteps'] * 1e-6, 'ms')
     print('Timing:', (stop - start) * 1e-6, 'ms')
 
 
