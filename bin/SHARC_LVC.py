@@ -39,7 +39,7 @@ import numpy as np
 from SHARC_INTERFACE import INTERFACE
 from utils import *
 from constants import U_TO_AMU, MASSES
-from kabsch import kabsch as kabsch
+from kabsch import kabsch_w as kabsch
 
 authors = 'Sebastian Mai and Severin Polonius'
 version = '3.0'
@@ -166,9 +166,6 @@ class LVC(INTERFACE):
 
                 for im, si, sj, i, v in map(d, range(n_fits)):
                     n = len(v)
-                    n = 4
-                    # if si != sj:
-                    #     continue
                     dens = [float(x) for x in v[:n]]
                     self._fits[im][si, sj, i, :n] = dens
                     self._fits[im][sj, si, i, :n] = dens
@@ -265,7 +262,7 @@ class LVC(INTERFACE):
         coords: np.ndarray = self._QMin['coords'].copy()
         if self._do_kabsch:
             weights = [MASSES[i] for i in self._QMin['elements']]
-            self._R, self._com_ref, self._com_coords = kabsch(self._ref_coords, coords)  #, weights)
+            self._R, self._com_ref, self._com_coords = kabsch(self._ref_coords, coords, weights)
             coords_old = coords.copy()
             coords = (coords - self._com_coords) @ self._R.T + self._com_ref
         if do_pc:
@@ -391,7 +388,7 @@ class LVC(INTERFACE):
                     -5 * R_sq[..., 2] * R[..., 0] * r_inv7_2,  # -5Rz2Rx/2R7
                     R[..., 1] * (-4 * R_sq[..., 0] + R_sq[..., 1] + R_sq[..., 2]) * r_inv7_2,  # Ry(-5Rx2+R2)/2R7
                     R[..., 2] * (-4 * R_sq[..., 0] + R_sq[..., 1] + R_sq[..., 2]) * r_inv7_2,  # Rz(-5Rx2+R2)/2R7
-                    -5 * R[..., 0] * R[..., 1] * R[..., 2] * r_inv7_2,  # -RxRyRz/2R7
+                    -5 * R[..., 0] * R[..., 1] * R[..., 2] * r_inv7_2,  # -5RxRyRz/2R7
                     # derivatives in y direction
                     -R[..., 1] * r_inv3,  # -Ry/R^3
                     -3 * R[..., 0] * R[..., 1] * r_inv5,  # -3RxRy/R5
