@@ -96,6 +96,60 @@ class Resp:
         fits = np.vstack((mp, dp, qp)).T
         return fits
 
+    def multipoles_from_dens_direct(self, dm: np.ndarray, include_core_charges: bool, **kwargs):
+        n_fits = 10
+        natom = self.natom
+        Vnuc = np.copy(self.Vnuc) if include_core_charges else np.zeros((self.ngp), dtype=float)
+        Vele = np.einsum('ijp,ij->p', self.ints, dm)
+        Fesp_i = Vnuc - Vele
+        R_alpha = self.R_alpha
+        r_inv = self.r_inv
+        R_alpha = self.R_alpha
+        self.r_inv3 = self.rinv3 if 'rinv3' in self.__dict__ else r_inv**3
+        self.r_inv5_2 = self.rinv5_2 if 'rinv5_2' in self.__dict__ else r_inv**5 * 0.5
+
+        tmp = np.vstack(
+            (
+                self.r_inv,
+                R_alpha[:, :, 0] * self.r_inv3,
+                R_alpha[:, :, 1] * self.r_inv3,
+                R_alpha[:, :, 2] * self.r_inv3,
+                R_alpha[:, :, 0] * R_alpha[:, :, 0] * self.r_inv5_2,
+                R_alpha[:, :, 1] * R_alpha[:, :, 1] * self.r_inv5_2,
+                R_alpha[:, :, 2] * R_alpha[:, :, 2] * self.r_inv5_2,
+                R_alpha[:, :, 0] * R_alpha[:, :, 1] * self.r_inv5_2,
+                R_alpha[:, :, 0] * R_alpha[:, :, 2] * self.r_inv5_2,
+                R_alpha[:, :, 1] * R_alpha[:, :, 2] * self.r_inv5_2
+            )
+        )    # m_A_i
+        a = tmp @ tmp.T
+        A = np.zeros((natom * 10 + 1, natom * 10 + 1))
+        A[:-1, :-1] += a
+        A[:natom, -1] = 1.
+        A[-1, :natom] = 1.
+
+        b = tmp @ Fesp_i    # v_A
+        B = np.zeros((natom * 10 + 1))
+        B[:-1] += b
+        B[-1] = 0.    # TODO reintroduce charge!!
+
+        Q1 = np.linalg.solve(A, B)
+        Q2 = np.ones(Q1.shape, float)
+
+        def get_rest(Q, b=0.1):
+            return self.beta / (np.sqrt(Q**2 + b**2))
+
+        vget_rest = np.vectorize(get_rest, cache=True)
+        rest = np.zeros((B.shape))
+        while np.linalg.norm(Q1 - Q2) >= 0.00001:
+            Q1 = Q2.copy()
+            # rest[:natom] = vget_rest(Q1[:natom])
+            rest = vget_rest(Q1[:-1])
+            B_rest = B
+            A_rest = A + np.diag(rest)
+            Q2 = np.linalg.solve(A_rest, B_rest)
+        return Q2[:-1].reshape((10, -1)).T
+
     @staticmethod
     def _fit(A, B, beta=0.0005, b=0.1, restraint=True):
         Q1 = np.linalg.solve(A, B)
@@ -147,7 +201,7 @@ class Resp:
         # build B'
         B = tmp @ Fesp_i    # v_A
 
-        return self._fit(A, B, self.beta, 0.1, False)
+        return self._fit(A, B, self.beta, 0.1, True)
 
     def fit_quadrupoles(self, Fesp_i):
         natom = self.natom
@@ -171,7 +225,7 @@ class Resp:
         # build B'
         B = tmp @ Fesp_i    # v_A
 
-        quadrupoles = self._fit(A, B, self.beta, 0.1, False)
+        quadrupoles = self._fit(A, B, self.beta, 0.1, True)
         # make traceless (Source: Sebastian)
         quad_mat = quadrupoles.reshape((-1, natom))
         traces = np.sum(quad_mat[:3, :], axis=0)

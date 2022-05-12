@@ -34,7 +34,7 @@
 import numpy as np
 from openmm.app import Simulation, AmberPrmtopFile
 from openmm import System, State, NonbondedForce, Platform, CustomIntegrator
-from openmm.unit import Quantity, bohr, picosecond, nanometer
+from openmm.unit import Quantity, bohr, picosecond, nanometer, hartree, moles
 
 # internal
 from SHARC_INTERFACE import INTERFACE

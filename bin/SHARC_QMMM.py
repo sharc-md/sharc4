@@ -34,7 +34,6 @@ from SHARC_INTERFACE import INTERFACE
 from factory import factory
 from utils import *
 from constants import ATOMCHARGE, FROZENS
-from itertools import chain
 
 authors = 'Sebastian Mai and Severin Polonius'
 version = '3.0'
@@ -209,14 +208,14 @@ class QMMM(INTERFACE):
         self.mml_interface._setup_mol = True
 
         # read template and resources
-        print('-' * 80, f'{"preparing QM INTERFACE (" + qm_name + ")":^80}', '-' * 80, sep='\n')
+        # print('-' * 80, f'{"preparing QM INTERFACE (" + qm_name + ")":^80}', '-' * 80, sep='\n')
         with InDir(QMin['template']['qm-dir']) as _:
             self.qm_interface.read_resources()
             qm_QMin['savedir'] = qm_savedir    # overwrite savedir
             self.qm_interface.read_template()
             self.qm_interface.setup_run()
 
-        print('-' * 80, f'{"preparing MM INTERFACE (large system) (" + mml_name + ")":^80}', '-' * 80, sep='\n')
+        # print('-' * 80, f'{"preparing MM INTERFACE (large system) (" + mml_name + ")":^80}', '-' * 80, sep='\n')
         with InDir(QMin['template']['mml-dir']) as _:
             self.mml_interface.read_resources()
             mml_QMin['savedir'] = mml_savedir    # overwrite savedir
@@ -251,7 +250,7 @@ class QMMM(INTERFACE):
             mms_QMin['unit'] = QMin['unit']
             self.mms_interface._setup_mol = True
 
-            print('-' * 80, f'{"preparing MM INTERFACE (small system) (" + mms_name + ")":^80}', '-' * 80, sep='\n')
+            # print('-' * 80, f'{"preparing MM INTERFACE (small system) (" + mms_name + ")":^80}', '-' * 80, sep='\n')
             # read template and resources
             with InDir(QMin['template']['mms-dir']) as _:
                 self.mms_interface.read_resources()
@@ -300,7 +299,7 @@ class QMMM(INTERFACE):
         self.mml_interface._request_logic()
 
         # calc mm
-        print('-' * 80, f'{"running MM INTERFACE (large system)":^80}', '-' * 80, sep='\n')
+        # print('-' * 80, f'{"running MM INTERFACE (large system)":^80}', '-' * 80, sep='\n')
         with InDir(QMin['template']['mml-dir']) as _:
             self.mml_interface.run()
             self.mml_interface.getQMout()
@@ -320,14 +319,14 @@ class QMMM(INTERFACE):
         ]    # shallow copy
 
         if QMin['template']['embedding'] == 'subtractive':
-            print('-' * 80, f'{"running MM INTERFACE (small system)":^80}', '-' * 80, sep='\n')
+            # print('-' * 80, f'{"running MM INTERFACE (small system)":^80}', '-' * 80, sep='\n')
             self.mms_interface._QMin['coords'] = qm_coords
             with InDir(QMin['template']['mms-dir']) as _:
                 self.mms_interface.run()
                 self.mms_interface.getQMout()
 
         # calc qm
-        print('-' * 80, f'{"running QM INTERFACE":^80}', '-' * 80, sep='\n')
+        # print('-' * 80, f'{"running QM INTERFACE":^80}', '-' * 80, sep='\n')
         # pc: list[list[float]] = each pc is x, y, z, qpc[p[mmid][1]][3] = 0.  # set the charge of the mm atom to zero
         self.qm_interface._QMin['point_charges'] = self._pc_mm
         # TODO indicator to include pointcharges?
@@ -337,8 +336,8 @@ class QMMM(INTERFACE):
             self.qm_interface.getQMout()
             self.qm_interface.write_step_file()
 
-        print(datetime.datetime.now())
-        print('#================ END ================#')
+        # print(datetime.datetime.now())
+        # print('#================ END ================#')
 
     def getQMout(self):
         qm_QMout = self.qm_interface._QMout
