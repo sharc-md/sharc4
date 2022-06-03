@@ -74,8 +74,6 @@ subroutine VelocityVerlet_xstep(traj,ctrl)
       iA=ctrl%constraints_ca(iconstr,1)
       iB=ctrl%constraints_ca(iconstr,2)
       initdistvec(iconstr,:) = traj%geom_ad(iA,:)-traj%geom_ad(iB,:)
-      ! temporary: change constraint to get 0.01 a.u. bigger in each step (fake scan)
-      !ctrl%constraints_dist_c(iconstr)=ctrl%constraints_dist_c(iconstr)+0.01
     enddo
   endif
 

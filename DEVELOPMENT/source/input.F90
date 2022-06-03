@@ -2244,7 +2244,7 @@ module input
       !initiate ziggurat prng (do only once!)
       call zigset(traj%rngseed_thermostat+37+17**2)
       if (ctrl%thermostat==1) then
-        allocate (traj%thermostat_random(3*ctrl%natom)) ! allocate randomnes for all atoms in all directions
+        allocate (traj%thermostat_random(3*ctrl%natom)) ! allocate randomness for all atoms in all directions
       endif
 
       ! restart with same random number sequence?

@@ -456,9 +456,11 @@ module restart
       allocate(ctrl%tempregion(ctrl%natom))
       call vecread(ctrl%ntempregions, ctrl%temperature, u_ctrl, string)
       call matread(ctrl%ntempregions, ctrl%thermostat_const, u_ctrl, string)
-      do iatom=1,ctrl%natom
-        read(u_ctrl,*) ctrl%tempregion(iatom)
-      enddo
+      if (ctrl%ntempregions>1) then
+        do iatom=1,ctrl%natom
+          read(u_ctrl,*) ctrl%tempregion(iatom)
+        enddo
+      endif
       !read(u_ctrl,*) ctrl%temperature
       !if (ctrl%thermostat==1) then   !Langevin: only 1 Thermostat constant
       !  allocate(ctrl%thermostat_const(1))
@@ -669,19 +671,19 @@ module restart
       call random_number(dummy_randnum)
     enddo
     
-    ! set up thermostat randomnes
+    ! set up thermostat randomness
     if (ctrl%thermostat==1 .and. ctrl%restart_thermostat_random .eqv. .true.) then
        ! initialte and call the ziggurat random number generator (used for thermostat) until it is in the same status as before the restart
        call zigset(traj%rngseed_thermostat+37+17**2)
        do i=1,3*ctrl%natom*traj%step
          dummy_randnum=rnor()
        enddo
-       allocate (traj%thermostat_random(3*ctrl%natom)) ! allocate randomnes for all atoms in all directions
+       allocate (traj%thermostat_random(3*ctrl%natom)) ! allocate randomness for all atoms in all directions
     else if (ctrl%thermostat==1 .and. ctrl%restart_thermostat_random .eqv. .false.)  then
        ! initialte the ziggurat random number generator (used for thermostat),
        ! starts from random seed given in restart.traj! (only use this option for when manually given new random seed in restart.traj!)
        call zigset(traj%rngseed_thermostat+37+17**2)
-       allocate (traj%thermostat_random(3*ctrl%natom)) ! allocate randomnes for all atoms in all directions
+       allocate (traj%thermostat_random(3*ctrl%natom)) ! allocate randomness for all atoms in all directions
     endif
 
     ! since the relaxation check is done after writing the restart file,
