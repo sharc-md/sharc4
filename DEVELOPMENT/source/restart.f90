@@ -460,6 +460,10 @@ module restart
         do iatom=1,ctrl%natom
           read(u_ctrl,*) ctrl%tempregion(iatom)
         enddo
+      else if (ctrl%ntempregions==1) then
+         do iatom=1,ctrl%natom
+          ctrl%tempregion(iatom)=1
+        enddo
       endif
       !read(u_ctrl,*) ctrl%temperature
       !if (ctrl%thermostat==1) then   !Langevin: only 1 Thermostat constant
