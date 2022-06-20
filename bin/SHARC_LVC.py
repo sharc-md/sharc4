@@ -509,7 +509,7 @@ class LVC(INTERFACE):
             ).tolist()
             self._QMout['grad'] = grad.reshape((nmstates, self._QMin['natom'], 3)).tolist()
             if 'nacdr' in self._QMin:
-                self._QMout['grad'] = nacdr.reshape((nmstates, nmstates, self._QMin['natom'], 3)).tolist()
+                self._QMout['nacdr'] = nacdr.reshape((nmstates, nmstates, self._QMin['natom'], 3)).tolist()
             if do_pc:
                 self._QMout['pc_grad'] = self.pc_grad.tolist()
 
