@@ -97,7 +97,6 @@ class Resp:
         return fits
 
     def multipoles_from_dens_direct(self, dm: np.ndarray, include_core_charges: bool, **kwargs):
-        n_fits = 10
         natom = self.natom
         Vnuc = np.copy(self.Vnuc) if include_core_charges else np.zeros((self.ngp), dtype=float)
         Vele = np.einsum('ijp,ij->p', self.ints, dm)
@@ -143,11 +142,20 @@ class Resp:
         rest = np.zeros((B.shape))
         while np.linalg.norm(Q1 - Q2) >= 0.00001:
             Q1 = Q2.copy()
-            # rest[:natom] = vget_rest(Q1[:natom])
-            rest = vget_rest(Q1[:-1])
+            rest = vget_rest(Q1)
+            rest[-1] = 0.
             B_rest = B
             A_rest = A + np.diag(rest)
             Q2 = np.linalg.solve(A_rest, B_rest)
+
+        # print('ESP quality check:')
+        # Fesp_reproduced = np.einsum('ai,a->i', tmp, Q2[:-1])
+        # Fesp_diff = Fesp_i - Fesp_reproduced
+        # print('mean deviation:', np.mean(Fesp_diff))
+        # print('absmean deviation:', np.mean(np.abs(Fesp_diff)))
+        # print('max deviation:', np.amax(Fesp_diff))
+        # print('min deviation:', np.amin(Fesp_diff))
+        # print('std deviation:', np.std(Fesp_diff))
         return Q2[:-1].reshape((10, -1)).T
 
     @staticmethod

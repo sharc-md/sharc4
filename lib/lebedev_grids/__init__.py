@@ -68,7 +68,6 @@ class LEBEDEV(object):
         if self.grid is None or len(self.grid) != n_points:
             degree = LEBEDEV_NPOINTS[n_points]
             self.grid = np.load(f'{grids_path}/lebedev_{degree}_{n_points}.npy')
-            print(f'lebedev_{degree}_{n_points}')
         return self.grid
 
 
