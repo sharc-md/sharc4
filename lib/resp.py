@@ -14,6 +14,21 @@ from pyscf import gto, df
 au2a = 0.52917721092
 np.set_printoptions(threshold=sys.maxsize, linewidth=10000, precision=5)
 
+# Transformation matrix to transform cartesian multipoles to spherical mutlipoles
+# source:  A. J. Stone, The Theory of Intermolecular Forces (Oxford University Press, Oxford, 1997).
+f = 1 / np.sqrt(3)
+f2 = 2 * f
+Cartesian2sperical = np.empty((9, 10), dtype=float)
+Cartesian2sperical[0] = [1., 0., 0., 0., 0., 0., 0., 0., 0., 0.]
+Cartesian2sperical[1] = [0., 0., 0., 1., 0., 0., 0., 0., 0., 0.]
+Cartesian2sperical[2] = [0., 1., 0., 0., 0., 0., 0., 0., 0., 0.]
+Cartesian2sperical[3] = [0., 0., 1., 0., 0., 0., 0., 0., 0., 0.]
+Cartesian2sperical[4] = [0., 0., 0., 0., 0., 0., 1., 0., 0., 0.]
+Cartesian2sperical[5] = [0., 0., 0., 0., 0., 0., 0., 0., f2, 0.]
+Cartesian2sperical[6] = [0., 0., 0., 0., 0., 0., 0., 0., 0., f2]
+Cartesian2sperical[7] = [0., 0., 0., 0., f, -f, 0., 0., 0., 0.]
+Cartesian2sperical[8] = [0., 0., 0., 0., 0., 0., 0., f2, 0., 0.]
+
 
 def get_resp_grid(atom_symbols: list[str], coords: np.ndarray, density=1, shells=[1.4, 1.6, 1.8, 2.0], grid='lebedev'):
     atom_radii = np.fromiter(map(lambda x: ATOMIC_RADII[x], atom_symbols), dtype=float)
@@ -72,7 +87,7 @@ class Resp:
         # NOTE the value of these integrals is not affected by the atom charge
         self.ints = df.incore.aux_e2(mol, fakemol)
 
-    def multipoles_from_dens(self, dm: np.ndarray, include_core_charges: bool, order=2):
+    def multipoles_from_dens_indirect(self, dm: np.ndarray, include_core_charges: bool, order=2):
         if not (0 <= order <= 2):
             raise Error("Specify order in the range of 0 - 2")
         n_fits = sum([1, 3, 6][:order + 1])
@@ -96,7 +111,7 @@ class Resp:
         fits = np.vstack((mp, dp, qp)).T
         return fits
 
-    def multipoles_from_dens_direct(self, dm: np.ndarray, include_core_charges: bool, **kwargs):
+    def multipoles_from_dens(self, dm: np.ndarray, include_core_charges: bool, **kwargs):
         n_fits = 10
         natom = self.natom
         Vnuc = np.copy(self.Vnuc) if include_core_charges else np.zeros((self.ngp), dtype=float)
@@ -106,20 +121,15 @@ class Resp:
         r_inv = self.r_inv
         R_alpha = self.R_alpha
         self.r_inv3 = self.rinv3 if 'rinv3' in self.__dict__ else r_inv**3
-        self.r_inv5_2 = self.rinv5_2 if 'rinv5_2' in self.__dict__ else r_inv**5 * 0.5
+        self.r_inv5 = self.rinv5_2 if 'rinv5_2' in self.__dict__ else r_inv**5
 
         tmp = np.vstack(
             (
-                self.r_inv,
-                R_alpha[:, :, 0] * self.r_inv3,
-                R_alpha[:, :, 1] * self.r_inv3,
-                R_alpha[:, :, 2] * self.r_inv3,
-                R_alpha[:, :, 0] * R_alpha[:, :, 0] * self.r_inv5_2,
-                R_alpha[:, :, 1] * R_alpha[:, :, 1] * self.r_inv5_2,
-                R_alpha[:, :, 2] * R_alpha[:, :, 2] * self.r_inv5_2,
-                R_alpha[:, :, 0] * R_alpha[:, :, 1] * self.r_inv5_2,
-                R_alpha[:, :, 0] * R_alpha[:, :, 2] * self.r_inv5_2,
-                R_alpha[:, :, 1] * R_alpha[:, :, 2] * self.r_inv5_2
+                self.r_inv, R_alpha[:, :, 0] * self.r_inv3, R_alpha[:, :, 1] * self.r_inv3,
+                R_alpha[:, :, 2] * self.r_inv3, R_alpha[:, :, 0] * R_alpha[:, :, 0] * self.r_inv5 * 0.5,
+                R_alpha[:, :, 1] * R_alpha[:, :, 1] * self.r_inv5 * 0.5, R_alpha[:, :, 2] * R_alpha[:, :, 2] *
+                self.r_inv5 * 0.5, R_alpha[:, :, 0] * R_alpha[:, :, 1] * self.r_inv5,
+                R_alpha[:, :, 0] * R_alpha[:, :, 2] * self.r_inv5, R_alpha[:, :, 1] * R_alpha[:, :, 2] * self.r_inv5
             )
         )    # m_A_i
         a = tmp @ tmp.T
@@ -144,11 +154,19 @@ class Resp:
         while np.linalg.norm(Q1 - Q2) >= 0.00001:
             Q1 = Q2.copy()
             # rest[:natom] = vget_rest(Q1[:natom])
-            rest = vget_rest(Q1[:-1])
+            rest = vget_rest(Q1)
+            rest[-1] = 0
             B_rest = B
             A_rest = A + np.diag(rest)
             Q2 = np.linalg.solve(A_rest, B_rest)
-        return Q2[:-1].reshape((10, -1)).T
+
+        res = Q2[:-1].reshape((10, -1)).T
+        
+        # make traceless (Source: Sebastian)
+        traces = np.sum(res[:, 4:7], axis=1)
+        res[:, 4:7] -= 1 / 3 * traces[None, ...]
+        
+        return res
 
     @staticmethod
     def _fit(A, B, beta=0.0005, b=0.1, restraint=True):
