@@ -590,10 +590,17 @@ class LVC(INTERFACE):
                             num_deriv_atom[im][
                                 ..., a,
                                 x] += f * np.einsum('ijay,bx,yab->ij', self._fits[im], self.pc_chrg, mult_prefactors)
+                    rot = np.zeros((3,3))
+                    m = (x + 1) % 3
+                    n = (x + 2) % 3
+                    s = 1
+                    # s *= 0.0001 * weights[a] * 1/(np.sqrt(sum((coords[a] - self._com_ref)**2)))
+                    rot[m,n] = -s
+                    rot[n,m] =  s
                     for im, n in filter(lambda x: x[1] != 0, enumerate(states)):
                         stop = start + n
                         fits = self._fits[im][..., 1:].copy()
-                        rot = rot_deriv * multiplier2
+                        # rot = rot_deriv * multiplier2
                         fits[..., :3] = np.einsum('ijay,yx->ijax', fits[..., :3], rot)
                         quad = np.zeros((*[*fits.shape][:-1], 3, 3))
                         # [0,1,2,0,0,1],[0,1,2,1,2,2]
@@ -604,6 +611,7 @@ class LVC(INTERFACE):
                         fits[..., 3:] = quad[..., [0, 1, 2, 0, 0, 1], [0, 1, 2, 1, 2, 2]]
                         fits_deriv2[im][..., a, x] += f * fits
                         
+
             for im, _ in filter(lambda x: x[1] != 0, enumerate(states)):
                 # print(num_deriv_atom[im][..., 1, 0])
                 num_deriv_atom[im] *= multiplier
@@ -623,6 +631,11 @@ class LVC(INTERFACE):
             # I[2, 1] = I[1, 2]
             # g = grad.reshape(nmstates, self._QMin['natom'], 3)
             # grad = np.einsum('iax,xv->iav', g, self._R).reshape((nmstates, -1))
+
+
+            angular = np.cross(-self.pc_coord_diff, (coords_old - self._com_coords))
+            pc_mult_prefactors_deriv = np.einsum('xyab,b->xyab', mult_prefactors_deriv, self.pc_chrg.flat)
+            torque = np.einsum('xyab,abx->xya', pc_mult_prefactors_deriv, angular)
             start = 0
             for im, n in filter(lambda x: x[1] != 0, enumerate(states)):
                 stop = start + n
@@ -652,7 +665,8 @@ class LVC(INTERFACE):
                 # print(der_rot[0,0,1,0,0])
                 assert np.allclose(derivative_v @ self._Trot.T, derivative, 1e-8)
                 atom_derivative_ana = np.einsum('ijabx->ijax', derivative_v)
-                rot_deriv_ana = np.einsum('yab,ijaymx,b->ijmx', mult_prefactors[1:, ...], fits_deriv[im], self.pc_chrg.flat)
+                rot_deriv_ana = np.einsum('yab,ijaymx,b->ijmx', mult_prefactors[1:, ...], fits_deriv2[im], self.pc_chrg.flat)
+                rot_deriv_torque = np.einsum('xya,ijay->ijax', torque, self._fits[im])
                 atom_derivative_ana = atom_derivative_ana + rot_deriv_ana @ self._Trot
                 # atom_derivative_ana = atom_derivative_ana
 
@@ -668,9 +682,11 @@ class LVC(INTERFACE):
                     print(atom_derivative_ana[..., a, 0])
                     print("rot deriv")
                     print((rot_deriv_ana@ self._Trot)[..., a, 0])
+                    print('torque')
+                    print(rot_deriv_torque[..., a, 0])
                     print()
                 # print( np.sum(np.abs(num_deriv_atom[im] - atom_derivative_ana)))
-                # assert np.allclose(num_deriv_atom[im], atom_derivative_ana, rtol=1e-8)
+                assert np.allclose(num_deriv_atom[im], atom_derivative_ana, rtol=1e-8)
                 # atom_derivative += np.einsum('yab,xijay,by->ijax', mult_prefactors_v[1:, ...], fits_deriv[:, im - 1, ...], self.pc_chrg)
                 pc_derivative = -np.einsum('ijabx->ijbx', derivative_v) @ self._Trot.T
                 # derivative: np.ndarray = np.einsum('xyab,ijay->ijabx', mult_prefactors_deriv, self._fits[im])
