@@ -29,19 +29,19 @@
 
 # =======================================
 #true, false     # also implies NETCDF
-USE_PYSHARC := false
+USE_PYSHARC := true
 
 #intel, gnu
-USE_COMPILER := gnu
+USE_COMPILER := intel
 
 #mkl,gnu
-USE_LIBS := gnu
+USE_LIBS := mkl
 
 #Static libraries
 COMP_STATIC := false
 
 #needed for PYSHARC
-ANACONDA := 
+ANACONDA := ${CONDA_PREFIX}
 # =======================================
 
 
@@ -52,7 +52,7 @@ ANACONDA :=
 # path
 SHARC_SOURCE := $(shell pwd)
 SHARCDIR := $(shell cd ..; pwd)
-#MKLROOT := ${ANACONDA}/lib
+MKLROOT := ${ANACONDA}/lib
 
 
 # -------------------------------------- conditionals ---------------------------------------
@@ -103,7 +103,7 @@ else ifeq ($(USE_LIBS), gnu)
 endif
 else 
 ifeq ($(USE_LIBS), mkl)
-  LD= -L$(MKLROOT)/lib/intel64 -lmkl_rt -lpthread -lm -lgfortran $(NETCDF_LIB)
+  LD= -L$(MKLROOT) -lmkl_rt -lpthread -lm -lgfortran $(NETCDF_LIB)
 #   LD= -L$(MKLROOT)/lib/intel64 -lmkl_intel_lp64 -lmkl_core -lmkl_sequential -lpthread -lm -lgfortran $(NETCDF_LIB)
 else ifeq ($(USE_LIBS), gnu)
   LD= -llapack -lfftw3 -lblas -lgfortran   $(NETCDF_LIB)
@@ -259,7 +259,7 @@ sharcvars:
 	@echo 'setenv SHARCLIB=$(SHARCDIR)/lib' >> sharcvars.csh
 	@echo 'setenv ANACONDA=$(ANACONDA)' >> sharcvars.csh
 	@echo 'setenv PYTHONPATH=$$SHARCLIB:$$PYSHARC:$$PYTHONPATH' >> sharcvars.csh
-	@echo 'setenv LD_LIBRARY_PATH=$$SHARCLIB:$$ANACONDA/lib:$$LD_LIBRARY_PATH' >> sharcvars.csh
+	@echo 'setenv LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$$SHARCLIB:$$ANACONDA/lib' >> sharcvars.csh
 else
 sharcvars:
 	@echo 'export SHARC=$(SHARCDIR)/bin' > sharcvars.sh
@@ -269,7 +269,7 @@ sharcvars:
 	@echo 'setenv SHARC=$(SHARCDIR)/bin' > sharcvars.csh
 	@echo 'setenv SHARCLIB=$(SHARCDIR)/lib' >> sharcvars.csh
 	@echo 'setenv PYTHONPATH=$$SHARCLIB:$$PYTHONPATH' >> sharcvars.csh
-	@echo 'setenv LD_LIBRARY_PATH=$$SHARCLIB:$$LD_LIBRARY_PATH' >> sharcvars.csh
+	@echo 'setenv LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$$SHARCLIB:$$ANACONDA/lib' >> sharcvars.csh
 endif
 
 
