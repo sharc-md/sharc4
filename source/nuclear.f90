@@ -571,10 +571,10 @@ function gaussian_random(natoms,mu,var)
   real*8 :: theta,r
   
   do i=1,(3*natoms+1)/2
-    theta=rand()
-    r=rand()
-    theta=2*pi*rand()
-    r=sqrt(-2*log(rand())*var)
+    call random_number(theta)
+    call random_number(r)
+    theta=2*pi*theta
+    r=sqrt(-2*log(r)*var)
     gaussian_random(2*i-1)=r*dcos(theta) +mu
     gaussian_random(2*i)=r*dsin(theta) +mu
   end do
