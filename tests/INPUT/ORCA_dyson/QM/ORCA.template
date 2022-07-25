@@ -1,0 +1,6 @@
+basis 6-31G*
+auxbasis def2-SVP/C
+functional pbe
+dispersion D3
+charge 0 +1 0 +1 0
+

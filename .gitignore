@@ -1,4 +1,5 @@
 *.[ox]
+*.so
 *.mod
 *.pyc
 header.py
@@ -8,3 +9,6 @@ header.f90
 sharcvars.*
 build_info.inc
 *.tmp
+bin/pysharc_*.py
+wfoverlap/
+
