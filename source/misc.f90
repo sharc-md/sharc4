@@ -169,17 +169,19 @@ character*1024    :: sharcfacts(n_sharcfacts)   !< array containing the fun fact
     implicit none
     integer,intent(in) :: rngseed
     integer :: i
-    integer :: seed
+    ! integer :: seed
+    real*8 :: r
 
     ! calculate a seed from rngseed
-    seed=rngseed+37+17**2
+    ! seed=rngseed+37+17**2
     do i=1,3
     ! initialize with the first seed (low quality)
-      call srand(seed)
+      ! call random_seed(put=seed)
+      call random_number(r)
     ! calculate some with the random number generator and reseed
-      seed=int(65536*(rand()-0.5d0))
+      ! seed=int(65536*(r-0.5d0))
     enddo
-    call srand(seed)
+    ! call srand(seed)
 !     deallocate(seed)
 
   endsubroutine

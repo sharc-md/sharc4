@@ -3,7 +3,7 @@
 https://github.com/mdtraj/mdtraj/blob/0dde9a64563faeec742b563e25deea988edf3c70/mdtraj/geometry/src/sasa.cpp
 based on c++ in MDtraj code with GNU license
 Singh, Kollman J. Comp. Chem. 1984, 5, 129 - 145
-Shrake, Rupley J Mol Biol. 79 (2): 351–71
+Shrake, Rupley J Mol Biol. 79 (2): 351-71
 """
 
 #  Calculate the accessible surface area of each atom in a single snapshot
@@ -21,9 +21,13 @@ Shrake, Rupley J Mol Biol. 79 (2): 351–71
 #  grid_mesh : 2d array, shape=[n_points, 3]
 
 import numpy as np
+from lebedev_grids import LEBEDEV
+
+lebedev = LEBEDEV()
+lebedev_grid = lebedev.load
 
 
-def sphere_grid2(radius, n_points) -> np.ndarray:
+def random_sphere(n_points, radius=1) -> np.ndarray:
     # https://stackoverflow.com/questions/9600801/evenly-distributing-n-points-on-a-sphere
 
     indices = np.arange(0, n_points, dtype=float) + 0.5
@@ -35,7 +39,7 @@ def sphere_grid2(radius, n_points) -> np.ndarray:
     return np.asarray([x, y, z]).transpose()
 
 
-def sphere_grid(n_points) -> np.ndarray:    # golden sprial from stack overflow
+def golden_sphere(n_points) -> np.ndarray:    # golden sprial from stack overflow
     #
     #  Compute the coordinates of points on a sphere using the
     #  Golden Section Spiral algorithm.
@@ -54,7 +58,7 @@ def sphere_grid(n_points) -> np.ndarray:    # golden sprial from stack overflow
     return np.asarray([np.cos(phi) * r, y, np.sin(phi) * r]).transpose()
 
 
-def surface(n):    # from psi4.vdw_surface.py
+def gamess_surface(n):
     """Computes approximately n points on unit sphere. Code adapted from GAMESS.
 
     Parameters
@@ -109,7 +113,7 @@ def markus_deserno(n):
     return np.array(points)
 
 
-def shrake_rupley(xyz: np.ndarray, atom_radii: np.ndarray, out_points: np.ndarray, n_points=0) -> np.ndarray:
+def shrake_rupley(xyz: np.ndarray, atom_radii: np.ndarray, out_points: np.ndarray, n_points=0, grid=lebedev_grid) -> np.ndarray:
     # prepare variables
     n_atoms = int(xyz.shape[0])
     neighbor_indices = np.zeros((n_atoms), dtype=float)
@@ -122,7 +126,8 @@ def shrake_rupley(xyz: np.ndarray, atom_radii: np.ndarray, out_points: np.ndarra
     n_out_points = n_points
     for i in range(n_atoms):
         rad_i = atom_radii[i]
-        centered_sphere_points = surface(int(4.0 * np.pi * atom_radii[i]**2))
+        # centered_sphere_points = surface(int(4.0 * np.pi * atom_radii[i]**2))
+        centered_sphere_points = grid(int(4.0 * np.pi * atom_radii[i]**2))
         r_i = xyz[i, :]
 
         n_neighbor_indices = 0
@@ -174,13 +179,27 @@ def shrake_rupley(xyz: np.ndarray, atom_radii: np.ndarray, out_points: np.ndarra
     return n_out_points
 
 
-def mk_layers(xyz: np.ndarray, atom_radii, density=1, shells=[1.4, 1.6, 1.8, 2.0]) -> np.ndarray:
+def mk_layers(xyz: np.ndarray, atom_radii: list[float], density=1, shells=[1.4, 1.6, 1.8, 2.0], grid='lebedev') -> np.ndarray:
+    """
+    returns the Merz-Kollmann layers for a molecule
+    ------
+    Parameters:
+
+    xyz: ndarray  cartesian coordinates of each atom in the molecule
+    atom_radii: list[float] list of the van-der-Waals radii of each atom (same order as xyz)
+    density: float  surface density of each calculated sphere (density of 1. -> 4*pi*r^2)
+    shells: list[float] give the scaling factors for each shell
+    grid: str specify a quadrature function from 'lebedev', 'random', 'golden_spiral', 'gamess', 'marcus_deserno' 
+    """
     n_points = int(
         4 * np.pi * density * (sum(map(lambda x: (x * 2.)**2, shells))) * xyz.shape[0]
     )    # surface density of 1: 4*pi*r^2 with r_max = 2. -> 16.*pi
     mk_layers_points = np.ndarray((n_points, 3), dtype=float)
+    grid_functions = {'lebedev': lebedev_grid, 'random': random_sphere, 'golden_spiral': golden_sphere, 'gamess': gamess_surface, 'marcus_deserno': markus_deserno}
+    assert grid in grid_functions
+    grid = grid_functions[grid]
     # potentially parallelizable! every layer is one process
     n_points = 0
     for y in shells:
-        n_points = shrake_rupley(xyz, y * atom_radii, mk_layers_points, n_points)
+        n_points = shrake_rupley(xyz, y * atom_radii, mk_layers_points, n_points, grid)
     return mk_layers_points[:n_points, :]

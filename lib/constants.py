@@ -10,6 +10,7 @@ CM_TO_HARTREE = 1. / 219474.6
 HARTREE_TO_EV = 27.211396132
 U_TO_AMU = 1. / 5.4857990943e-4
 BOHR_TO_ANG = 0.529177211
+kJpermol_to_Eh = kj2Eh = 2625.4996394799    # kJ/mol -> Hartree
 
 IToMult = {
     1: 'Singlet',

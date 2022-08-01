@@ -147,10 +147,22 @@ class INTERFACE(ABC):
         self.set_coords(os.path.join(pwd, QMinfilename))
         # read the property requests that have to be calculated
         self.read_requests(os.path.join(pwd, QMinfilename))
-        # setup the folders for the computation
+        # setup internal state for the computation
         self.setup_run()
         # perform the calculation and parse the output, do subsequent calculations with other tools
-        self.run()
+        if 'dry_run' in self._QMin and self._QMin['dry_run']:
+            print(
+                'Warning: performing a dry run with old calculation results!\nResults taken from',
+                self._QMin['scratchdir']
+            )
+            self.dry_run()
+        else:
+            self.run()
+
+        self.getQMout()
+        # backup data if requested
+        if 'backup' in self._QMin:
+            self.backupdata(self._QMin['backup'])
         # writes a STEP file in the SAVEDIR (marks this step as succesfull)
         self.write_step_file()
         # printing and output generation
@@ -159,6 +171,13 @@ class INTERFACE(ABC):
         self._QMout['runtime'] = self.clock.measuretime()
         self.writeQMout()
 
+        # Remove Scratchfiles from SCRATCHDIR
+        if not self._DEBUG and ('dry_run' not in self._QMin or not self._QMin['dry_run']):
+            if 'scratchdir' in self._QMin:
+                cleandir(self._QMin['scratchdir'])
+            if 'cleanup' in self._QMin:
+                cleandir(self._QMin['savedir'])
+
     @abstractmethod
     def read_template(self, template_filename):
         pass
@@ -166,6 +185,17 @@ class INTERFACE(ABC):
     @abstractmethod
     def run(self):
         pass
+
+    @abstractmethod
+    def getQMout(self):
+        pass
+
+    @abstractmethod
+    def create_restart_files(self):
+        pass
+
+    def dry_run(self):
+        raise NotImplementedError("Cannot perform dryrun! Dryrun method not implemented")
 
     @abstractmethod
     def read_resources(self, resources_filename):
@@ -194,15 +224,25 @@ class INTERFACE(ABC):
             'nooverlap': False,
             'always_orb_init': False,
             'always_guess': False,
+            'dry_run': False
         }
-        integers = {'ncpu': 1, 'memory': 100, 'numfrozcore': -1, 'numocc': 0, 'theodore_n': 0, 'resp_layers': 4, 'resp_tdm_fit_order': 2}
+        integers = {
+            'ncpu': 1,
+            'memory': 100,
+            'numfrozcore': -1,
+            'numocc': 0,
+            'theodore_n': 0,
+            'resp_layers': 4,
+            'resp_tdm_fit_order': 2
+        }
         floats = {'delay': 0.0, 'schedule_scaling': 0.9, 'wfthres': 0.99, 'resp_density': 1., 'resp_first_layer': 1.4}
         special = {
             'neglected_gradient': 'zero',
             'theodore_prop': ['Om', 'PRNTO', 'S_HE', 'Z_HE', 'RMSeh'],
             'theodore_fragment': [],
-            'resp_shells': False  # default calculated from other values = [1.4, 1.6, 1.8, 2.0]
+            'resp_shells': False    # default calculated from other values = [1.4, 1.6, 1.8, 2.0]
         }
+        strings = {'resp_grid': 'lebedev'}
         lines = readfile(resources_filename)
         # assign defaults first, which get updated by the parsed entries, which are updated by the entries that were already in QMin
         QMin['resources'] = {
@@ -211,22 +251,16 @@ class INTERFACE(ABC):
             **integers,
             **floats,
             **special,
+            **strings,
             **self.parse_keywords(
-                lines,
-                bools=bools,
-                paths=paths,
-                integers=integers,
-                floats=floats,
-                special=special,
+                lines, bools=bools, paths=paths, integers=integers, floats=floats, special=special, strings=strings
             )
         }
         print('DEBUG:', QMin['resources']['debug'])
         self._DEBUG = QMin['resources']['debug']
         self._PRINT = QMin['resources']['no_print'] is False
-        if not DEBUG:
-            DEBUG.set(self._DEBUG)
-        if not PRINT:
-            PRINT.set(self._PRINT)
+        DEBUG.set(self._DEBUG)
+        PRINT.set(self._PRINT)
 
         # NOTE: This is really optional
         ncpu = QMin['resources']['ncpu']
@@ -258,6 +292,12 @@ class INTERFACE(ABC):
                 print(f"Calculating resp layers as: {first} + 4/sqrt({nlayers})")
             incr = 0.4 / math.sqrt(nlayers)
             QMin['resources']['resp_shells'] = [first + incr * x for x in range(nlayers)]
+
+        if QMin['resources']['resp_grid'] not in ['lebedev', 'random', 'golden_spiral', 'gamess', 'marcus_deserno']:
+            raise Error(
+                f"specified grid {QMin['resources']['resp_grid']} not available.\n Possible options are 'lebedev', 'random', 'golden_spiral', 'gamess', 'marcus_deserno'",
+                35
+            )
 
         self._QMin = {**QMin['resources'], **QMin}
         return
@@ -295,8 +335,14 @@ class INTERFACE(ABC):
         if 'savedir' not in QMin:
             QMin['savedir'] = './SAVEDIR/'
         QMin['savedir'] = os.path.abspath(os.path.expanduser(os.path.expandvars(QMin['savedir'])))
+        if 'unit' not in QMin:
+            print('Warning: no "unit" specified in QMin! Assuming Bohr')
+            self.set_unit('bohr')
         if '$' in QMin['savedir']:
             raise Error(f'undefined env variable in "savedir"! {QMin["savedir"]}')
+
+        # obtain the statemap
+        QMin['statemap'] = {i + 1: [*v] for i, v in enumerate(itnmstates(QMin['states']))}
         self._setup_mol = True
         # NOTE: Quantity requests (tasks) are dealt with later and potentially re-assigned
         return
@@ -377,7 +423,9 @@ class INTERFACE(ABC):
             del requests['tasks']
         for task in ['nacdr', 'overlap', 'grad', 'ion']:
             if task in requests and type(requests[task]) is str:
-                if task == requests[task].lower() or requests[task] == 'all':
+                if requests[task] == '':    # removes task from dict if {'task': ''}
+                    del requests[task]
+                elif task == requests[task].lower() or requests[task] == 'all':
                     requests[task] = True
                 else:
                     requests[task] = [int(i) for i in requests[task].split()]
@@ -423,6 +471,7 @@ class INTERFACE(ABC):
         QMin = self._QMin
         # NOTE: old QMin read stuff is not overwritten. Problem with states?
         self._request_logic()
+        self._step_logic()
 
     def _reset_requests(self):
         for k in [
@@ -432,27 +481,8 @@ class INTERFACE(ABC):
             if k in self._QMin:
                 del self._QMin[k]
 
-    def _request_logic(self):
+    def _step_logic(self):
         QMin = self._QMin
-        # prepare savedir
-        if not os.path.isdir(QMin['savedir']):
-            mkdir(QMin['savedir'])
-
-        possibletasks = {
-            'h', 'soc', 'dm', 'grad', 'overlap', 'dmdr', 'socdr', 'ion', 'theodore', 'phases', 'multipolar_fit'
-        }
-        tasks = possibletasks & QMin.keys()
-        if len(tasks) == 0:
-            raise Error(f'No tasks found! Tasks are {possibletasks}.', 39)
-
-        if 'h' not in tasks and 'soc' not in tasks:
-            QMin['h'] = True
-
-        if 'soc' in tasks and (len(QMin['states']) < 3 or QMin['states'][2] <= 0):
-            del QMin['soc']
-            QMin['h'] = True
-            print('HINT: No triplet states requested, turning off SOC request.')
-
         # remove old keywords:
         for i in ['restart', 'init', 'samestep', 'newstep']:
             removekey(QMin, i)
@@ -493,6 +523,27 @@ class INTERFACE(ABC):
                 raise Error(
                     f'Determined last step ({last_step}) from savedir and specified step ({QMin["step"]}) do not fit!\nPrepare your savedir and "STEP" file accordingly before starting again or choose "step -1" if you want to proceed from last successful step!'
                 )
+
+    def _request_logic(self):
+        QMin = self._QMin
+        # prepare savedir
+        if not os.path.isdir(QMin['savedir']):
+            mkdir(QMin['savedir'])
+
+        possibletasks = {
+            'h', 'soc', 'dm', 'grad', 'overlap', 'dmdr', 'socdr', 'ion', 'theodore', 'phases', 'multipolar_fit'
+        }
+        tasks = possibletasks & QMin.keys()
+        if len(tasks) == 0:
+            raise Error(f'No tasks found! Tasks are {possibletasks}.', 39)
+
+        if 'h' not in tasks and 'soc' not in tasks:
+            QMin['h'] = True
+
+        if 'soc' in tasks and (len(QMin['states']) < 3 or QMin['states'][2] <= 0):
+            del QMin['soc']
+            QMin['h'] = True
+            print('HINT: No triplet states requested, turning off SOC request.')
 
         if 'phases' in tasks:
             QMin['overlap'] = True
@@ -564,45 +615,12 @@ class INTERFACE(ABC):
                 os.environ['PYTHONPATH'] = os.path.join(QMin['theodir'],
                                                         'lib') + os.pathsep + QMin['resources']['theodir']
         if 'pc_file' in QMin:
-            QMin['point_charges'] = [[float(x[0])*self._factor, float(x[1])*self._factor, float(x[2])*self._factor, float(x[3])] for x in map(lambda x: x.split(), readfile(QMin['pc_file']))]
-
-
-    def setup_run(self):
-        QMin = self._QMin
-        # obtain the statemap
-        QMin['statemap'] = {i + 1: [*v] for i, v in enumerate(itnmstates(QMin['states']))}
-
-        self._states_to_do()    # can be different in interface -> general method here with possibility to overwrite
-        # make the jobs
-        self._jobs()
-        jobs = QMin['jobs']
-        # make the multmap (mapping between multiplicity and job)
-        multmap = {}
-        for ijob, job in jobs.items():
-            for imult in job['mults']:
-                multmap[imult] = ijob
-            multmap[-(ijob)] = job['mults']
-        multmap[1] = 1
-        QMin['multmap'] = multmap
-
-        # get the joblist
-        QMin['joblist'] = sorted(jobs.keys())
-        QMin['njobs'] = len(QMin['joblist'])
-
-        # make the gsmap
-        gsmap = {}
-        for i in range(QMin['nmstates']):
-            m1, s1, ms1 = tuple(QMin['statemap'][i + 1])
-            gs = (m1, 1, ms1)
-            job = QMin['multmap'][m1]
-            if m1 == 3 and QMin['jobs'][job]['restr']:
-                gs = (1, 1, 0.0)
-            for j in range(QMin['nmstates']):
-                m2, s2, ms2 = tuple(QMin['statemap'][j + 1])
-                if (m2, s2, ms2) == gs:
-                    break
-            gsmap[i + 1] = j + 1
-        QMin['gsmap'] = gsmap
+            QMin['point_charges'] = [
+                [float(x[0]) * self._factor,
+                 float(x[1]) * self._factor,
+                 float(x[2]) * self._factor,
+                 float(x[3])] for x in map(lambda x: x.split(), readfile(QMin['pc_file']))
+            ]
 
         # get the set of states for which gradients actually need to be calculated
         gradmap = set()
@@ -614,9 +632,6 @@ class INTERFACE(ABC):
         if 'multipolar_fit' in QMin:
             densmap = {tuple(QMin['statemap'][i][0:2]) for i in QMin['multipolar_fit']}
         QMin['densmap'] = sorted(densmap)
-
-        # make the chargemap
-        QMin['chargemap'] = {i + 1: c for i, c in enumerate(QMin['template']['charge'])}
 
         # make the ionmap
         if 'ion' in QMin:
@@ -657,8 +672,42 @@ class INTERFACE(ABC):
                     backupdir1 = backupdir + '/calc_%i' % (i)
             QMin['backup'] = backupdir
 
-        if self._PRINT:
-            self.printQMin()
+    def setup_run(self):
+        QMin = self._QMin
+
+        # make the chargemap
+        QMin['chargemap'] = {i + 1: c for i, c in enumerate(QMin['template']['charge'])}
+        self._states_to_do()    # can be different in interface -> general method here with possibility to overwrite
+        # make the jobs
+        self._jobs()
+        jobs = QMin['jobs']
+        # make the multmap (mapping between multiplicity and job)
+        multmap = {}
+        for ijob, job in jobs.items():
+            for imult in job['mults']:
+                multmap[imult] = ijob
+            multmap[-(ijob)] = job['mults']
+        multmap[1] = 1
+        QMin['multmap'] = multmap
+
+        # get the joblist
+        QMin['joblist'] = sorted(jobs.keys())
+        QMin['njobs'] = len(QMin['joblist'])
+
+        # make the gsmap
+        gsmap = {}
+        for i in range(QMin['nmstates']):
+            m1, s1, ms1 = tuple(QMin['statemap'][i + 1])
+            gs = (m1, 1, ms1)
+            job = QMin['multmap'][m1]
+            if m1 == 3 and QMin['jobs'][job]['restr']:
+                gs = (1, 1, 0.0)
+            for j in range(QMin['nmstates']):
+                m2, s2, ms2 = tuple(QMin['statemap'][j + 1])
+                if (m2, s2, ms2) == gs:
+                    break
+            gsmap[i + 1] = j + 1
+        QMin['gsmap'] = gsmap
 
     def parse_keywords(
         self,
@@ -768,6 +817,10 @@ class INTERFACE(ABC):
         stepfile = os.path.join(savedir, 'STEP')
         writefile(stepfile, str(QMin['step']))
 
+    @abstractmethod
+    def create_restart_files(self):
+        pass
+
     def generate_joblist(self):
         QMin = self._QMin
         # sort the gradients into the different jobs
@@ -844,7 +897,8 @@ class INTERFACE(ABC):
                         QMin1['qmmm'] = True
                     icount += 1
                     schedule[-1][i] = QMin1
-        return schedule
+        QMin['schedule'] = schedule
+        return
 
     @staticmethod
     def read_coords(xyz):
@@ -1051,7 +1105,6 @@ class INTERFACE(ABC):
                 continue
             rmfile = os.path.join(WORKDIR, ifile)
             os.remove(rmfile)
-
 
     def get_wfovlout(self, path, mult):
 
@@ -1642,7 +1695,6 @@ class INTERFACE(ABC):
 # =============================================================================================== #
 # =============================================================================================== #
 
-
     def writeQMout(self):
         '''Writes the requested quantities to the file which SHARC reads in.
         The filename is QMinfilename with everything after the first dot replaced by "out".
@@ -2141,16 +2193,16 @@ class INTERFACE(ABC):
         for i, (imult, istate, ims) in zip(range(nmstates), itnmstates(states)):
             for j, (jmult, jstate, jms) in zip(range(nmstates), itnmstates(states)):
                 string += f'{natom} 10 ! m1 {imult} s1 {istate} ms1 {ims: 3.1f}   m2 {jmult} s2 {jstate} ms2 {jms: 3.1f}\n'
-
                 entry = np.zeros((natom, 10))
-                if (imult, istate, jmult, jstate) in fits:
+                if ims != jms or imult != jmult:
+                    pass    # ensures that entry stays full of zeros
+                elif (imult, istate, jmult, jstate) in fits:
                     fit = fits[(imult, istate, jmult, jstate)]
-                    entry[:, :fit.shape[1]] = fit  # cath cases where fit is not full order
+                    entry[:, :fit.shape[1]] = fit    # catch cases where fit is not full order
                 elif (jmult, jstate, imult, istate) in fits:
                     fit = fits[(jmult, jstate, imult, istate)]
-                    entry[:, :fit.shape[1]] = fit  # cath cases where fit is not full order
+                    entry[:, :fit.shape[1]] = fit    # catch cases where fit is not full order
                 string += "\n".join(map(lambda x: " ".join(map(lambda y: '{: 10.8f}'.format(y), x)), entry)) + '\n'
-
 
                 string += ''
         return string

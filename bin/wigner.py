@@ -498,33 +498,37 @@ def determine_state(mode):
             break
 
 
-def wigner(Q, P, mode):
+def wigner(Q, P, mode, n=None):
     """This function calculates the Wigner distribution for
 a single one-dimensional harmonic oscillator.
 Q contains the dimensionless coordinate of the
 oscillator and P contains the corresponding momentum.
 n is the number of the vibrational state (default 0).
 The function returns a probability for this set of parameters."""
-    if temperature == 0:
-        n = 0
-    else:
-        n = determine_state(mode)
-        # square of the factorial becomes to large to handle. Keep in mind,
-        # that the harmonic approximation is most likely not valid at these
-        # excited states
-        if n > 500:
-            if high_temp:
-                n = -1
-                print('Highest considered vibrational state reached! Discarding this probability.')
-            else:
-                print(
-                    'The calculated excited vibrational state for this normal mode exceeds the limit of the calculation.\nThe harmonic approximation is not valid for high vibrational states of low-frequency normal modes. The vibrational state ',
-                    n,
-                    ' was set to 150. If you want to discard these states instead (due to oversampling of state nr 150), use the -T option.'
-                )
-                n = 500
+
+    if n is None:
+        if temperature == 0:
+            n = 0
+        else:
+            n = determine_state(mode)
+            # square of the factorial becomes to large to handle. Keep in mind,
+            # that the harmonic approximation is most likely not valid at these
+            # excited states
+            if n > 500:
+                if high_temp:
+                    n = -1
+                    print('Highest considered vibrational state reached! Discarding this probability.')
+                else:
+                    print(
+                        'The calculated excited vibrational state for this normal mode exceeds the limit of the calculation.\nThe harmonic approximation is not valid for high vibrational states of low-frequency normal modes. The vibrational state ',
+                        n,
+                        ' was set to 150. If you want to discard these states instead (due to oversampling of state nr 150), use the -T option.'
+                    )
+                    n = 500
     if n == 0:    # vibrational ground state
         return (math.exp(-Q**2) * math.exp(-P**2), 0.)
+        # TODO: see eq (6) of Zobel 10.1039/C8CP03273D for a better way to sample the canonical ensemble of an harmonic oscillator
+        # TODO: alternatively, one could implement a Husimi distirbution inside the current function
     # TODO: what about n==-1 ??
     else:    # vibrational excited state
         rhosquare = 2.0 * (P**2 + Q**2)
@@ -893,7 +897,7 @@ def sample_initial_condition(molecule, modes):
     Epot = 0.0
     for atom in atomlist:
         atom.veloc = [0.0, 0.0, 0.0]    # initialise velocity lists
-    for mode in modes:    # for each uncoupled harmonatomlist oscillator
+    for imode, mode in enumerate(modes):    # for each uncoupled harmonatomlist oscillator
         while True:
             # get random Q and P in the interval [-5,+5]
             # this interval is good for vibrational ground state
@@ -901,8 +905,13 @@ def sample_initial_condition(molecule, modes):
             # TODO: needs to be restructured: first obtain temperature, then draw random numbers, then compute wigner probability
             random_Q = random.random() * 10.0 - 5.0
             random_P = random.random() * 10.0 - 5.0
+            # check for predefined vibrational state
+            if vibstate is not None:
+                n = vibstate[imode]
+            else:
+                n = None
             # calculate probability for this set of P and Q with Wigner distr.
-            probability = wigner(random_Q, random_P, mode)
+            probability = wigner(random_Q, random_P, mode, n=n)
             if probability[0] > 1. or probability[0] < 0.:
                 if temperature == 0:
                     print('WARNING: wrong probability %f detected!' % (probability[0]))
@@ -1014,6 +1023,19 @@ as a list containing all initial condition objects."""
     ic_list = []
     width = 50
     idone = 0
+
+    # check if number of quantum numbers is ok
+    if vibstate is not None:
+        nvib = len(vibstate)
+        if nvib < len(modes):
+            print(
+                "ERROR: not enough quantum numbers given to -v! There should be at least %i quantum numbers." %
+                (len(modes))
+            )
+            sys.exit(1)
+        elif nvib > len(modes):
+            print("WARNING: too many quantum numbers given to -v! The last ones will be ignored.")
+
     for i in range(1, amount + 1):    # for each requested initial condition
         # sample the initial condition
         ic = sample_initial_condition(molecule, modes)
@@ -1036,7 +1058,7 @@ def make_dyn_file(ic_list, filename):
     fl = open(filename, 'w')
     string = ''
     for i, ic in enumerate(ic_list):
-        string += '%i\nICOND %i\n' % (ic.natom, i+1)
+        string += '%i\nICOND %i\n' % (ic.natom, i + 1)
         for atom in ic.atomlist:
             string += '%s' % (atom.symb)
             for j in range(3):
@@ -1130,6 +1152,16 @@ as described in [2] (non-fixed energy, independent mode sampling).
         '-T', dest='T', action='store_true', help="Discard high vibrational states in the temperature sampling "
     )
     parser.add_option(
+        '-v',
+        dest='v',
+        type=str,
+        nargs=1,
+        default=None,
+        help="""Give an explicit list of vibrational states for all modes (e.g., '0 0 1 0 0 ...'). 
+        The string should contain one number for each considered mode after removing low-frequency/zero-norm modes. 
+        If used, temperature is ignored. """
+    )
+    parser.add_option(
         '-L',
         dest='L',
         type=float,
@@ -1172,7 +1204,11 @@ as described in [2] (non-fixed energy, independent mode sampling).
         type=int,
         nargs=1,
         default='0',
-        help="Define the type of read normal modes. 0 for automatic assignement, 1 for gaussian-type normal modes (Gaussian, Turbomole, Q-Chem, AMS, Orca), 2 for cartesian normal modes (Molcas, Molpro), 3 for Columbus-type (Columbus), or 4 for mass-weighted. (integer, default=0)"
+        help="""Define the type of read normal modes. 
+        0 for automatic assignement, 
+        1 for gaussian-type normal modes (Gaussian, Turbomole, Q-Chem, AMS, Orca), 
+        2 for cartesian normal modes (Molcas, Molpro), 3 for Columbus-type (Columbus), 
+        or 4 for mass-weighted. (integer, default=0)"""
     )
 
     parser.add_option(
@@ -1239,6 +1275,12 @@ Temperature                  = %f''' % (filename, outfile, options.n, options.r,
         high_temp = True
     else:
         high_temp = False
+
+    global vibstate
+    if options.v:
+        vibstate = [max(0, int(i)) for i in options.v.split()]
+    else:
+        vibstate = None
 
     global whichatoms
     whichatoms = []

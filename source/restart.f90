@@ -644,7 +644,7 @@ module restart
        call init_random_seed_thermostat(traj%rngseed_thermostat)
        !call srand(traj%RNGseed_thermostat) alternatively (if like this in input.F90)
        do i=1,2*((3*ctrl%natom+1)/2)*traj%step
-         dummy_randnum=rand()
+         call random_number(dummy_randnum)
        enddo
        
        allocate (traj%thermostat_random(2*((3*ctrl%natom+1)/2))) ! allocate randomnes for all atoms in all directions

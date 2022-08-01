@@ -37,6 +37,7 @@ from socket import gethostname
 # internal
 from SHARC_INTERFACE import INTERFACE
 from globals import DEBUG, PRINT
+import pprint
 from utils import *
 from constants import IToMult, rcm_to_Eh
 
@@ -222,10 +223,15 @@ class ORCA(INTERFACE):
                 'Some subprocesses did not finish successfully!\n\
                 See {}:{} for error messages in ORCA output.'.format(gethostname(), QMin['scratchdir']), 75
             )
+        self.create_restart_files()
+        return errorcodes
+
+    def create_restart_files(self):
+        QMin = self._QMin
         if PRINT:
             print('>>>>>>>>>>>>> Saving files')
             starttime = datetime.datetime.now()
-        for ijobset, jobset in enumerate(schedule):
+        for ijobset, jobset in enumerate(QMin['schedule']):
             if not jobset:
                 continue
             for ijob, job in enumerate(jobset):
@@ -242,7 +248,6 @@ class ORCA(INTERFACE):
         if PRINT:
             endtime = datetime.datetime.now()
             print(f'Saving Runtime: {endtime - starttime}')
-        return errorcodes
 
     @staticmethod
     def runORCA(WORKDIR, QMin):
@@ -624,21 +629,13 @@ class ORCA(INTERFACE):
                 'Within the SHARC-ORCA interface couplings can only be calculated via the overlap method. "nacdr" and "nacdt" are not supported.',
                 44
             )
-        schedule = self.generate_joblist()
-        errorcodes = self.runjobs(schedule)
+        self.generate_joblist()
+        if self._PRINT:
+            print('SCHEDULE:')
+            pprint.pprint(QMin['schedule'], depth=3)
+        errorcodes = self.runjobs(QMin['schedule'])
         errorcodes = self.run_wfoverlap(errorcodes)
         errorcodes = self.run_theodore(errorcodes)
-
-        self._QMout = self.getQMout()
-
-        if 'backup' in QMin:
-            self.backupdata(QMin['backup'])
-
-        # Remove Scratchfiles from SCRATCHDIR
-        if not self._DEBUG:
-            cleandir(QMin['scratchdir'])
-            if 'cleanup' in QMin:
-                cleandir(QMin['savedir'])
 
     # ======================================================================= #
 
@@ -1307,7 +1304,7 @@ class ORCA(INTERFACE):
             print('>>>>>>>>>>>>> Reading output files')
         starttime = datetime.datetime.now()
 
-        QMout = {}
+        QMout = self._QMout
         nmstates = QMin['nmstates']
         natom = QMin['natom']
         joblist = QMin['joblist']
@@ -1401,9 +1398,7 @@ class ORCA(INTERFACE):
                 gsmult = QMin['jobs'][int(path.split('_')[1])]['mults'][0]
                 restr = QMin['jobs'][int(path.split('_')[1])]['restr']
                 if isgs:
-                    fname = '.ground'
-                    if QMin['states'][gsmult - 1] == 1:
-                        fname = ''
+                    fname = ''
                 else:
                     if restr:
                         fname = '.' + IToMult[grad[0]].lower() + '.root{}'.format(grad[1] - (grad[0] == gsmult))

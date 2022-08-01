@@ -5,9 +5,28 @@ import os
 import shutil
 import numpy as np
 from dataclasses import dataclass
-from error import Error
+from error import Error, exception_hook
 import subprocess as sp
 from globals import DEBUG, PRINT
+
+
+
+class InDir():
+    "small context to perform part of code in other directory"
+    old = ''
+
+    def __init__(self, dir: str):
+        self.old = os.getcwd()
+        self.dir = dir
+
+    def __enter__(self):
+        os.chdir(self.dir)
+        return self
+
+    def __exit__(self, exc_type, exc_value, exc_traceback):
+        os.chdir(self.old)
+        if exc_type is not None:
+            exception_hook(exc_type, exc_value, exc_traceback)
 
 # ======================================================================= #
 def get_bool_from_env(name: str, default=False):
@@ -15,6 +34,7 @@ def get_bool_from_env(name: str, default=False):
     if name in os.environ and os.environ[name].lower() in [name, "false"]:
         var = os.environ[name] == "true"
     return var
+
 
 def readfile(filename) -> list[str]:
     '''reads file from path and returns list of lines.
@@ -35,6 +55,8 @@ def parse_xyz(line: str) -> tuple[str, list[float]]:
         return match[1], list(map(float, match[2].split()[:3]))
     else:
         raise Error(f"line is not xyz\n\n{line}", 43)
+
+
 # ======================================================================= #
 
 
@@ -57,19 +79,21 @@ def writefile(filename, content):
 # ======================================================================= #
 
 
-def mkdir(DIR):
+def mkdir(DIR, crucial=True, force=True):
     # mkdir the DIR, or clean it if it exists
     if os.path.exists(DIR):
-        if os.path.isfile(DIR):
+        if os.path.isfile(DIR) and crucial:
             raise Error('%s exists and is a file!' % (DIR), 89)
-        elif os.path.isdir(DIR):
+        elif os.path.isdir(DIR) and force:
             shutil.rmtree(DIR)
             os.makedirs(DIR)
     else:
         try:
             os.makedirs(DIR)
         except OSError:
-            raise Error('Can not create %s\n' % (DIR), 90)
+            if crucial:
+                raise Error('Can not create %s\n' % (DIR), 90)
+            
 
 
 # ======================================================================= #
@@ -120,6 +144,8 @@ def shorten_DIR(string) -> str:
 
 
 def cleandir(directory):
+    if not os.path.isdir(directory):
+        return
     for data in os.listdir(directory):
         path = directory + '/' + data
         if os.path.isfile(path) or os.path.islink(path):
@@ -138,7 +164,6 @@ def cleandir(directory):
                 print('rm %s' % (path))
     if PRINT:
         print('===> Cleaning up directory %s' % (directory))
-
 
 
 def save_data(scratchdir, savedir):
@@ -358,7 +383,9 @@ def build_basis_dict(
     return basis
 
 
-def swap_rows_and_cols(atom_symbols, basis_dict, matrix, swaps=[[0, 2], [1, 3], [1, 4], [0, 1]], swaps_r=[[2, 0], [3, 1], [4, 1], [1, 0]]):
+def swap_rows_and_cols(
+    atom_symbols, basis_dict, matrix, swaps=[[0, 2], [1, 3], [1, 4], [0, 1]], swaps_r=[[2, 0], [3, 1], [4, 1], [1, 0]]
+):
     # if there are any d-orbitals they need to be swapped!!!
     # from gauss order: z2, xz, yz, x2-y2, xy
     # to   pyscf order: xy, yz, z2, xz, x2-y2
@@ -373,6 +400,7 @@ def swap_rows_and_cols(atom_symbols, basis_dict, matrix, swaps=[[0, 2], [1, 3], 
                     matrix[s1, :] = matrix[s2, :]
                     matrix[:, s1] = matrix[:, s2]
             it += 2 * shell[0] + 1
+
 
 def euclidean_distance_einsum(X, Y):
     """Efficiently calculates the euclidean distance
@@ -392,8 +420,9 @@ def euclidean_distance_einsum(X, Y):
     XY = 2 * np.dot(X, Y.T)
     return np.sqrt(XX + YY - XY)
 
+
 @dataclass
-class MMATOM:
+class ATOM:
     id: int
     qm: bool
     symbol: str
@@ -422,20 +451,20 @@ def get_rot(theta: float, axis: int) -> np.ndarray:
     theta: degree of rotation in degree
     axis: axis of rotation
     """
-    if axis not in {0,1,2}:
+    if axis not in {0, 1, 2}:
         raise ValueError('axis not in {0,1,2}!')
     rad = np.radians(theta)
     c, s = np.cos(rad), np.sin(rad)
-    R = np.zeros((3,3))
-    R[axis,axis] = 1.
+    R = np.zeros((3, 3))
+    R[axis, axis] = 1.
     if axis == 0:
-        R[1:,1:] = np.array(((c,-s),(s, c)))
+        R[1:, 1:] = np.array(((c, -s), (s, c)))
         return R
     elif axis == 1:
-        R[0,0] = c
-        R[0,-1] = -s
-        R[-1,0] = s
-        R[-1,-1] = c
+        R[0, 0] = c
+        R[0, -1] = -s
+        R[-1, 0] = s
+        R[-1, -1] = c
     else:
-        R[:-1,:-1] = np.array(((c,-s),(s, c)))
+        R[:-1, :-1] = np.array(((c, -s), (s, c)))
     return R
