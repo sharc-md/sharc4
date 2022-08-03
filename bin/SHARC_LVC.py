@@ -48,7 +48,7 @@ versiondate = datetime.datetime(2021, 7, 29)
 
 changelogstring = '''
 '''
-np.set_printoptions(linewidth=400, precision=3, formatter={'float': lambda x: f'{x: 8.5}'})
+np.set_printoptions(linewidth=400, formatter={'float': lambda x: f'{x: 9.7}'})
 
 
 class LVC(INTERFACE):
@@ -257,9 +257,7 @@ class LVC(INTERFACE):
         pc_coord_diff = np.full((coords.shape[0], pc_coords.shape[0], 3), coords[:, None, :]) - pc_coords
         # print(self.pc_coord_diff[1,0,0])
         # precalculated dist matrix
-        pc_inv_dist_A_B = 1 / np.sqrt(
-            np.sum((pc_coord_diff)**2, axis=2)
-        )    # distance matrix n_coord (A), n_pc (B)
+        pc_inv_dist_A_B = 1 / np.sqrt(np.sum((pc_coord_diff)**2, axis=2))    # distance matrix n_coord (A), n_pc (B)
         R = pc_coord_diff
         r_inv3 = pc_inv_dist_A_B**3
         r_inv5 = pc_inv_dist_A_B**5
@@ -283,9 +281,7 @@ class LVC(INTERFACE):
     @staticmethod
     def get_mult_prefactors_deriv(coords, pc_coords):
         pc_coord_diff = np.full((coords.shape[0], pc_coords.shape[0], 3), coords[:, None, :]) - pc_coords
-        pc_inv_dist_A_B = 1 / np.sqrt(
-            np.sum((pc_coord_diff)**2, axis=2)
-        )    # distance matrix n_coord (A), n_pc (B)
+        pc_inv_dist_A_B = 1 / np.sqrt(np.sum((pc_coord_diff)**2, axis=2))    # distance matrix n_coord (A), n_pc (B)
         R = pc_coord_diff
         r_inv3 = pc_inv_dist_A_B**3
         r_inv5 = pc_inv_dist_A_B**5
@@ -331,18 +327,6 @@ class LVC(INTERFACE):
         ).reshape((3, 10, coords.shape[0], pc_coords.shape[0]))
 
     @staticmethod
-    def rotate_multipoles2(q, Trot):
-        res = q.copy()
-        res[..., 1:4] = res[..., 1:4] @ Trot
-        quad = np.zeros((*[*res.shape][:-1], 3, 3))
-        # [0,1,2,0,0,1],[0,1,2,1,2,2]
-        quad[..., [0, 1, 2, 0, 0, 1], [0, 1, 2, 1, 2, 2]] = res[..., 4:]
-        quad[..., [1, 2, 2], [0, 0, 1]] = quad[..., [0, 0, 1], [1, 2, 2]]
-        quad = Trot.T @ quad @ Trot
-        res[..., 4:] = quad[..., [0, 1, 2, 0, 0, 1], [0, 1, 2, 1, 2, 2]]
-        return res
-
-    @staticmethod
     def rotate_multipoles(q, Trot):
         res = q.copy()
         res[..., 1:4] = res[..., 1:4] @ Trot
@@ -368,25 +352,19 @@ class LVC(INTERFACE):
         coords: np.ndarray = self._QMin['coords'].copy()
         if self._do_kabsch:
             weights = [MASSES[i] for i in self._QMin['elements']]
-            # quaternion = get_rot_quaternion(self._ref_coords - self._com_ref, coords - self._com_coords)
-            # self._Trot = quaternionRot_to_cartesianRot(quaternion)
             self._Trot, self._com_ref, self._com_coords = kabsch(self._ref_coords, coords, weights)
             self._fits_rot = {im: self.rotate_multipoles(fits, self._Trot) for im, fits in self._fits.items()}
-            # coords_old = coords.copy()
-            coords_v = (coords - self._com_coords) @ self._Trot.T + self._com_ref
+            coords_ref_basis = (coords - self._com_coords) @ self._Trot.T + self._com_ref
         if do_pc:
             pc = np.array(self.QMin['point_charges'])    # pc: list[list[float]] = each pc is x, y, z, q
             pc_coord = pc[:, :3]    # n_pc, 3
-            # if self._do_kabsch:
-            #     pc_coord = (pc_coord - self._com_coords) @ self._Trot.T + self._com_ref
             self.pc_chrg = pc[:, 3].reshape((-1, 1))    # n_pc, 1
             mult_prefactors = self.get_mult_prefactors(coords, pc_coord)
-
-            # pc_coord_v = (pc_coord - self._com_coords) @ self._Trot.T + self._com_ref
-            # mult_prefactors_v = self.get_mult_prefactors(coords_v, pc_coord_v)
+            mult_prefactors_pc = np.einsum('b,yab->yab', self.pc_chrg.flat, mult_prefactors)
+            del mult_prefactors
 
         # Build full H and diagonalize
-        self._Q = np.sqrt(self._Om) * (self._Km @ (coords_v.flatten() - self._ref_coords.flatten()))
+        self._Q = np.sqrt(self._Om) * (self._Km @ (coords_ref_basis.flatten() - self._ref_coords.flatten()))
         self._V = self._Om * self._Q
         V0 = 0.5 * (self._V) @ self._Q
         start = 0    # starting index for blocks
@@ -395,12 +373,8 @@ class LVC(INTERFACE):
             H = np.diag(self._epsilon[im] + V0)
             H += self._H_i[im] @ self._Q
             if do_pc:
-                # fits (si,sj, atom, expansion)
-                # ref = np.array([[-0.028401,  0.01892], [ 0.01892, -0.0062336]])
-                # ene = np.einsum('ijay,bx,yab->ij', self._fits_rot[im], self.pc_chrg, mult_prefactors)
-                # ene_v = np.einsum('ijay,bx,yab->ij', self._fits[im], self.pc_chrg, mult_prefactors_v)
                 # assert np.allclose(ene, ene_v, rtol=1e-8)
-                H += np.einsum('ijay,bx,yab->ij', self._fits_rot[im], self.pc_chrg, mult_prefactors)
+                H += np.einsum('ijay,yab->ij', self._fits_rot[im], mult_prefactors_pc)
             stop = start + n
             if self._diagonalize:
                 eigen_values, self._U[start:stop, start:stop] = np.linalg.eigh(H, UPLO='U')
@@ -443,85 +417,114 @@ class LVC(INTERFACE):
             grad = np.einsum('nnl->nl', dE)    # gradients in cartesian basis
             nacdr = dE
         else:
+
+            shift = 0.0005
+            multiplier = 1 / (2 * shift)
+            weights = [MASSES[i] for i in self._QMin['elements']]
+            num_deriv = {
+                im: np.zeros((n, n, self._QMin['natom'], 3))
+                for im, n in filter(lambda x: x[1] != 0, enumerate(states))
+            }
+
+            for a in range(self._QMin['natom']):
+                for x in range(3):
+                    for f, m in [(1, multiplier), (-1, -multiplier)]:
+                        c = np.copy(coords)
+                        c[a, x] += f * shift
+                        Trot, com_ref, com_c = kabsch(self._ref_coords, c, weights)
+                        c_rot = (c - com_c) @ Trot.T + com_ref
+                        # print((c_rot.flatten() - self._ref_coords.flatten())[:3])
+                        Q = np.sqrt(self._Om) * (self._Km @ (c_rot.flatten() - self._ref_coords.flatten()))
+                        V = self._Om * Q
+                        V0 = 0.5 * (V) @ Q
+                        mp = self.get_mult_prefactors(c, pc_coord)
+                        start = 0
+                        for im, n in filter(lambda z: z[1] != 0, enumerate(states)):
+                            fits_rot = self.rotate_multipoles(self._fits[im], Trot)
+                            stop = start + n
+                            H = np.diag(self._epsilon[im] + V0)
+                            H += self._H_i[im] @ Q
+                            u = self._U[start:stop, start:stop]
+                            H += np.einsum('ijay,yab,b->ij', fits_rot, mp, self.pc_chrg.flat)
+                            # hd = np.einsum('in,ij,jm->nm', u, H, u, casting='no', optimize=True)
+                            num_deriv[im][..., a, x] += m * H
+            #                 for s1 in map(
+            #                     lambda z: start + n * (z + 1), range(im)
+            #                 ):    # fills in blocks for other magnetic quantum numbers
+            #                     s2 = s1 + n
+            #                     grad[s1:s2, s1:s2, a, x] += m * hd
+            #                 start = stop
+
+            # grad = np.einsum('iiax->iax', grad)
+            # grad.reshape((nmstates, -1))
+            # print(grad[0,:3])
+            # coords_deriv = np.zeros((self._QMin['natom'], 3, self._QMin['natom'], 3))
+            # for a in range(self._QMin['natom']):
+            #     for x in range(3):
+            #         for f, m in [(1, multiplier), (-1, -multiplier)]:
+            #             c = np.copy(coords)
+            #             c[a, x] += f * shift
+            #             Trot, com_c, com_ref = kabsch(self._ref_coords, c, weights)
+            #             coords_deriv[..., a, x] += m * (c - com_c) @ Trot.T + com_ref
+            #             # coords_deriv[..., a, x] += m * ( - com_c) @ Trot.T + com_ref
+
+            # coords_deriv = coords_deriv.reshape((r3N, r3N))
+
             grad = np.zeros((nmstates, r3N))
-            start = 0
-            for im, n in filter(lambda x: x[1] != 0, enumerate(states)):
-                stop = start + n
-                g = grad[start:stop, :]
-                h = self._H_i[im].copy()
-                np.einsum('iik->ik', h)[:, :] += self._V[None, ...]
-                u = self._U[start:stop, start:stop]
-                hd = np.einsum('im,ijk,jm->mk', u, h, u, casting='no', optimize=True)
-                g += np.einsum('ik,k,kl->il', hd, np.sqrt(self._Om), self._Km, casting='no', optimize=True)
-                for s1 in map(
-                    lambda x: start + n * (x + 1), range(im)
-                ):    # fills in blocks for other magnetic quantum numbers
-                    s2 = s1 + n
-                    grad[s1:s2, :] += g
-                start = stop
+            # # start = 0
+            # for im, n in filter(lambda x: x[1] != 0, enumerate(states)):
+            #     stop = start + n
+            #     g = grad2[start:stop, :]
+            #     h = self._H_i[im].copy()
+            #     np.einsum('iik->ik', h)[:, :] += self._V[None, ...]
+            #     u = self._U[start:stop, start:stop]
+            #     hd = np.einsum('im,ijk,jm->mk', u, h, u, casting='no', optimize=True)
+            #     g += np.einsum('ik,k,kl->il', hd, np.sqrt(self._Om), self._Km, casting='no', optimize=True)
+            #     # g = np.einsum('il,lm->im', g, coords_deriv)
+            #     grad2[start:stop, :] = g
+            #     for s1 in map(
+            #         lambda x: start + n * (x + 1), range(im)
+            #     ):    # fills in blocks for other magnetic quantum numbers
+            #         s2 = s1 + n
+            #         grad2[s1:s2, :] += g
+            #     start = stop
+            # print(num_deriv[0][0, 0, :])
 
         if do_pc:
             self.pc_grad = np.zeros((nmstates, self.pc_chrg.shape[0], 3))
-            
-            mult_prefactors_deriv = self.get_mult_prefactors_deriv(coords, pc_coord)
-            # mult_prefactors_deriv_v = self.get_mult_prefactors_deriv(coords_v, pc_coord_v)
 
-            shift = 0.05
+            mult_prefactors_deriv = self.get_mult_prefactors_deriv(coords, pc_coord)
+
+            shift = 0.0005
             multiplier = 1 / (2 * shift)
             weights = [MASSES[i] for i in self._QMin['elements']]
+
             fits_deriv = {
                 im: np.zeros((n, n, self._QMin['natom'], 9, self._QMin['natom'], 3))
                 for im, n in filter(lambda x: x[1] != 0, enumerate(states))
             }
 
-            
-            coords_deriv = np.zeros((self._QMin['natom'], 3, self._QMin['natom'], 3))
-            T_deriv = np.zeros((self._QMin['natom'], 3, 10, self._QMin['natom'], self.pc_chrg.shape[0]))
+            # num_deriv = {im: np.zeros((n, n, self._QMin['natom'], 3))
+            #     for im, n in filter(lambda x: x[1] != 0, enumerate(states))}
 
             for a in range(self._QMin['natom']):
                 for x in range(3):
-                    for f in [1, -1]:
-                        c = np.copy(coords)
-                        c[a, x] += f * shift
-                        Trot, com_coords, com_c = kabsch(coords, c, weights)
-                        c_rot = (c - com_c[None, ...]) @ Trot.T + com_coords[None, ...]
-                        coords_deriv[a, x, ...] += f * multiplier * (c_rot)
-                        T_deriv[a,x, ...] += f * multiplier * self.get_mult_prefactors(c_rot, pc_coord)
-                        for im, n in filter(lambda x: x[1] != 0, enumerate(states)):
-                            fits_rot = self.rotate_multipoles(self._fits_rot[im], Trot)
-                            fits_deriv[im][..., a, x] += f * fits_rot[..., 1:]
-
-            for im, _ in filter(lambda x: x[1] != 0, enumerate(states)):
-                fits_deriv[im] *= multiplier
-            
-
-            # t = coords_deriv.copy().reshape(r3N, r3N)
-            # np.savetxt('coords_deriv.txt', t)
-            
-            fits_deriv2 = {
-                im: np.zeros((n, n, self._QMin['natom'], 9, self._QMin['natom'], 3))
-                for im, n in filter(lambda x: x[1] != 0, enumerate(states))
-            }
-
-            for a in range(self._QMin['natom']):
-                for x in range(3):
-                    for f in [1, -1]:
+                    for f, m in [(1, multiplier), (-1, -multiplier)]:
                         c = np.copy(coords)
                         c[a, x] += f * shift
                         Trot, _, _ = kabsch(self._ref_coords, c, weights)
                         for im, n in filter(lambda x: x[1] != 0, enumerate(states)):
                             fits_rot = self.rotate_multipoles(self._fits[im], Trot)
-                            fits_deriv2[im][..., a, x] += f * multiplier * fits_rot[..., 1:]
-            # t = fits_deriv2[0][0,0, ...].copy().reshape((-1, r3N))
-            # np.savetxt('fits_deriv.txt', t)
-
-
+                            fits_deriv[im][..., a, x] += m * fits_rot[..., 1:]
+                            # mp = self.get_mult_prefactors(c, pc_coord)
+                            # num_deriv[im][..., a, x] += m * np.einsum('ijay,yab,b->ij', fits_rot, mp, self.pc_chrg.flat)
 
             mult_prefactors_deriv_pc = np.einsum('xyab,b->xyab', mult_prefactors_deriv, self.pc_chrg.flat)
+            del mult_prefactors_deriv
 
-            grad = grad.reshape((nmstates, self._QMin['natom'], 3))
-            grad = np.einsum('mni,ij-> mnj', grad, self._Trot)
-            grad = grad.reshape((nmstates, -1))
+            # grad = grad.reshape((nmstates, self._QMin['natom'], 3))
+            # grad = np.einsum('mni,ij-> mnj', grad, self._Trot)
+            # grad = grad.reshape((nmstates, -1))
             start = 0
             for im, n in filter(lambda x: x[1] != 0, enumerate(states)):
                 stop = start + n
@@ -529,28 +532,26 @@ class LVC(INTERFACE):
                 u = self._U[start:stop, start:stop]
 
                 derivative: np.ndarray = np.einsum('xyab,ijay->ijabx', mult_prefactors_deriv_pc, self._fits_rot[im])
-                # derivative_v: np.ndarray = np.einsum('xyab,b,ijay->ijabx', mult_prefactors_deriv_v, self.pc_chrg.flat, self._fits[im])
-                # assert np.allclose(derivative, derivative_v @ self._Trot, rtol=1e-8)
-                derivative: np.ndarray = derivative
 
-                atom_derivative_ana = np.einsum('ijabx->ijax', derivative)
+                # atom_derivative_ana = np.einsum('ijabx->ijax', derivative)
 
-                rot_deriv_ana = np.einsum(
-                    'yab,ijaymx,b->ijmx', mult_prefactors[1:, ...], fits_deriv2[im], self.pc_chrg.flat
-                )
-                coord_deriv_ana = np.einsum('xyab,czax,ijay->ijcz', mult_prefactors_deriv_pc, coords_deriv, self._fits_rot[im])
-                T_deriv_ana = np.einsum('cxyab,ijay,b->ijcx', T_deriv, self._fits_rot[im], self.pc_chrg.flat)
-                atom_derivative_ana += rot_deriv_ana 
+                # rot_deriv_ana = np.einsum(
+                #     'yab,ijaymx->ijmx', mult_prefactors_pc[1:, ...], fits_deriv[im]
+                # )
+                # atom_derivative_ana += rot_deriv_ana
 
-                atom_derivative = atom_derivative_ana
+                # atom_derivative = atom_derivative_ana
+                atom_derivative = num_deriv[im]
                 pc_derivative = -np.einsum('ijabx->ijbx', derivative)
+                # print(pc_derivative[0,0,:])
                 del derivative
-                # del derivative_v
                 pc_derivative_trans = np.einsum('ijbx,im,jn->mnbx', pc_derivative, u, u)
                 self.pc_grad[start:stop, ...] += np.einsum('mmbx->mbx', pc_derivative_trans)
                 atom_derivative = np.einsum('ijax,im,jn->mnax', atom_derivative, u, u).reshape((n, n, -1))
+                # atom_derivative = atom_derivative.reshape((n, n, -1))
 
-                grad[start:stop, ...] += np.einsum('mmk->mk', atom_derivative)
+                grad[start:stop, ...] = np.einsum('mmk->mk', atom_derivative)
+                # print(grad[start:stop, :3])
 
                 np.einsum('iik->ik', atom_derivative)[...] = np.zeros(
                     (n, self.QMin['natom'] * 3), dtype=float
