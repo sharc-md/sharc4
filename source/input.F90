@@ -2500,7 +2500,7 @@ module input
   ! set values for additional restrictive potentials
   ! set values for restrictive droplet potential
   if (ctrl%restrictive_potential==1 .or. ctrl%restrictive_potential==3) then
-    line=get_value_from_key('restrictied_droplet_force',io)
+    line=get_value_from_key('restricted_droplet_force',io)
       if (io==0) then
         read(line,*) ctrl%restricted_droplet_force
       else
