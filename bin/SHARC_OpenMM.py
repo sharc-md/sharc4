@@ -31,10 +31,10 @@
 
 # IMPORTS
 # external
+import time
 import numpy as np
 from openmm.app import Simulation, AmberPrmtopFile
 from openmm import System, State, NonbondedForce, Platform, CustomIntegrator
-from openmm.unit import Quantity, bohr, picosecond, nanometer, hartree, moles
 
 # internal
 from SHARC_INTERFACE import INTERFACE
@@ -74,15 +74,18 @@ class OpenMM(INTERFACE):
         return self._authors
 
     def run(self):
-        self.simulation.context.setPositions(Quantity(self._QMin['coords'], unit=bohr))
-        self.simulation.context.setVelocities(
-            Quantity(np.zeros(self._QMin['coords'].shape), unit=nanometer / picosecond)
-        )
+        # s1 = time.perf_counter_ns()
+        self.simulation.context.setPositions(self._QMin['coords']*(au2a/10))
+        # print("         MM 0: ", (time.perf_counter_ns() - s1) * 1e-6)
+        # self.simulation.context.setVelocities(np.zeros(self._QMin['coords'].shape)))
         state: State = self.simulation.context.getState(getForces=True, getEnergy=True)
+        # print("         MM 1: ", (time.perf_counter_ns() - s1) * 1e-6)
         gradients: np.ndarray = -state.getForces(
             asNumpy=True
         ) / kJpermol_to_Eh * 0.1 * au2a    # kJ/(mol*nm) -> Hartree/bohr
+        # print("         MM 2: ", (time.perf_counter_ns() - s1) * 1e-6)
         energy: float = state.getPotentialEnergy()._value / kJpermol_to_Eh    # kJ/mol -> Hartree
+        # print("         MM 3: ", (time.perf_counter_ns() - s1) * 1e-6)
 
         self._QMout['h'] = [[energy]]
         self._QMout['grad'] = [gradients.tolist()]
@@ -92,6 +95,9 @@ class OpenMM(INTERFACE):
             self._QMout['dm'] = np.einsum('ix,i->x', self._QMin['coords'], chrg).reshape((3, 1, 1)).tolist()
         self._QMout['overlap'] = [[1.]]
         self._QMout['phases'] = [complex(1., 0.)]
+        # s2 = time.perf_counter_ns()
+        # print('Timing: MM', (s2 - s1) * 1e-6, 'ms')
+
 
     def getQMout(self):
         return self._QMout

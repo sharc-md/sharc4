@@ -31,9 +31,9 @@
 
 # IMPORTS
 # external
-from gettext import dpgettext
 import sys
 import datetime
+import time
 import numpy as np
 
 # internal
@@ -41,7 +41,6 @@ from SHARC_INTERFACE import INTERFACE
 from utils import *
 from constants import U_TO_AMU, MASSES
 from kabsch import kabsch_w as kabsch
-from resp import Cartesian2sperical
 
 authors = 'Sebastian Mai and Severin Polonius'
 version = '3.0'
@@ -339,6 +338,7 @@ class LVC(INTERFACE):
 
     # NOTE: potentially do kabsch on reference coords and normal modes (if nmstates**2 > 3*natom)
     def run(self):
+        # s1_time = time.perf_counter_ns()
         do_pc = 'point_charges' in self._QMin
         self.clock.starttime = datetime.datetime.now()
         nmstates = self._QMin['nmstates']
@@ -361,7 +361,7 @@ class LVC(INTERFACE):
             mult_prefactors = self.get_mult_prefactors(pc_coord_diff)
             mult_prefactors_pc = np.einsum('b,yab->yab', self.pc_chrg.flat, mult_prefactors)
             del mult_prefactors
-
+        # print("         LVC prep: ", (time.perf_counter_ns() - s1_time) * 1e-6)
         # Build full H and diagonalize
         self._Q = np.sqrt(self._Om) * (self._Km @ (coords_ref_basis.flatten() - self._ref_coords.flatten()))
         self._V = self._Om * self._Q
@@ -393,6 +393,7 @@ class LVC(INTERFACE):
                     Hd[s1:s2, s1:s2] = H
 
             start = stop
+        # print("         LVC ene: ", (time.perf_counter_ns() - s1_time) * 1e-6)
         grad = np.zeros((nmstates, r3N))
 
         if do_pc:
@@ -409,18 +410,9 @@ class LVC(INTERFACE):
                 for im, n in filter(lambda x: x[1] != 0, enumerate(states))
             }
 
-            for a in range(self._QMin['natom']):
-                for x in range(3):
-                    for f, m in [(1, multiplier), (-1, -multiplier)]:
-                        c = np.copy(coords)
-                        c[a, x] += f * shift
-                        Trot, _, _ = kabsch(self._ref_coords, c, weights)
-                        for im, n in filter(lambda x: x[1] != 0, enumerate(states)):
-                            fits_rot = self.rotate_multipoles(self._fits[im], Trot)
-                            fits_deriv[im][..., a, x] += m * fits_rot[..., 1:]
-
             mult_prefactors_deriv_pc = np.einsum('xyab,b->xyab', mult_prefactors_deriv, self.pc_chrg.flat)
             del mult_prefactors_deriv
+        # print("         LVC dm+df: ", (time.perf_counter_ns() - s1_time) * 1e-6)
 
         # numerically calculate the derivatives of the coordinates in the reference system with respect ot the sharc coords
         shift = 0.0005
@@ -436,7 +428,12 @@ class LVC(INTERFACE):
                     Trot, com_ref, com_c = kabsch(self._ref_coords, c, weights)
                     c_rot = (c - com_c) @ Trot.T + com_ref
                     coords_deriv[..., a * (self._QMin['natom'] - 1) + x] += (m * c_rot).flat
+                    if do_pc:
+                        for im, n in filter(lambda x: x[1] != 0, enumerate(states)):
+                            fits_rot = self.rotate_multipoles(self._fits[im], Trot)
+                            fits_deriv[im][..., a, x] += m * fits_rot[..., 1:]
 
+        # print("         LVC dc: ", (time.perf_counter_ns() - s1_time) * 1e-6)
         # calculate the derivative of the normal mode coords
         dQ_dr = np.sqrt(self._Om)[..., None] * (self._Km @ coords_deriv)
 
@@ -536,6 +533,7 @@ class LVC(INTERFACE):
                     if do_pc:
                         self.pc_grad[s1:s2, ...] = self.pc_grad[start:stop, ...]
                 start = stop
+        # print("         LVC grad: ", (time.perf_counter_ns() - s1_time) * 1e-6)
 
         if 'overlap' in self._QMin:
             if 'init' in self._QMin:
@@ -584,6 +582,8 @@ class LVC(INTERFACE):
 
         # self._QMout['runtime'] = self.clock.measuretime()
         self._step += 1
+        # s2_time = time.perf_counter_ns()
+        # print('Timing: LVC', (s2_time - s1_time) * 1e-6, 'ms')
         return
 
     def create_restart_files(self):
