@@ -52,6 +52,7 @@ module input
   use restart
   use string
   use ziggurat !temporary
+  use restrictive_potential
   implicit none
 #ifdef __PYSHARC__
   integer :: nchars
@@ -2201,7 +2202,6 @@ module input
   ! =====================================================
 
   ! check for thermostat keywords
-
     line=get_value_from_key('thermostat',io)
     if (io==0) then
       select case (trim(line))
@@ -2457,6 +2457,152 @@ module input
     if (printlevel>0) then
       write(u_log,*)
     endif
+
+  ! =====================================================
+
+  ! check for restrictive potential
+  line=get_value_from_key('restrictive_potential',io)
+  if (io==0) then
+    select case (trim(line))
+      case ('none')
+        ctrl%restrictive_potential=0
+      case ('droplet')
+        ctrl%restrictive_potential=1
+      case ('tether')
+        ctrl%restrictive_potential=2
+      case ('droplet_tether')
+        ctrl%restrictive_potential=3
+    endselect
+  else
+    ctrl%restrictive_potential=0
+  endif
+
+   if (printlevel>0 .and. ctrl%restrictive_potential/=0) then
+      write(u_log,*) '============================================================='
+      write(u_log,*) '             Additional restrictive potential'
+      write(u_log,*) '============================================================='
+      if (printlevel>1) then
+        select case (ctrl%restrictive_potential)
+          case (0)
+          case (1)
+            write(u_log,'(a)') 'Restricted droplet potential will be applied:'
+            write(u_log,'(a)') 'Radius (in a.u.) and force constant:'
+          case (2)
+            write(u_log,'(a)') 'Tethering of atoms will be applied:'
+            write(u_log,'(a)') 'Force constant:'
+          case (3)
+            write(u_log,'(a)') 'Restricted droplet potential and tethering of atoms will be applied:'
+            write(u_log,'(a)') 'Droplet radius (in a.u.) and force constants (droplet potential and tethering):'
+        endselect
+      endif
+    endif
+
+  ! set values for additional restrictive potentials
+  ! set values for restrictive droplet potential
+  if (ctrl%restrictive_potential==1 .or. ctrl%restrictive_potential==3) then
+    line=get_value_from_key('restrictied_droplet_force',io)
+      if (io==0) then
+        read(line,*) ctrl%restricted_droplet_force
+      else
+        write(0,*) 'No force constant for restrictive droplet potental given!'
+        stop 1
+      endif
+    line=get_value_from_key('restricted_droplet_radius',io)
+       if (io==0) then
+        read(line,*) ctrl%restricted_droplet_radius
+      else
+        ctrl%restricted_droplet_radius=12 ! default radius of inner solvation shell in Angstrom
+      endif
+    if (printlevel>1) then
+      write(u_log,'(1x,F7.2,4x,ES11.4)') ctrl%restricted_droplet_radius, ctrl%restricted_droplet_force
+    endif
+    ctrl%restricted_droplet_radius= ctrl%restricted_droplet_radius/au2a ! in atomic units
+
+    allocate(ctrl%sel_restricted_droplet(ctrl%natom))
+    line=get_value_from_key('restricted_droplet_atoms',io)
+    ctrl%sel_restricted_droplet=.true.
+      if (io==0) then
+        call split(line,' ',values,n)
+        select case (trim(values(1)))
+        !select case (trim(line))
+          case ('all')
+            !ctrl%sel_restricted_droplet=.true.
+          case ('noH')
+            do i = 1,ctrl%natom
+              if (nint(traj%mass_a(i))==1) ctrl%sel_restricted_droplet=.false.
+            enddo
+          case ('list')
+            line=get_value_from_key('restricted_droplet_atoms_list',io)
+            if (n>=2) then
+              do i=2,n
+                read(values(i),*) k
+                ctrl%sel_restricted_droplet(k) = .false.
+              enddo
+            else
+              write(0,*) 'Specify which atoms should be restricted in droplet (atom numbers)!'
+              stop 1
+            endif
+            !add option to now read list given in input file
+          case ('file')
+            if (n==2) then
+              call get_quoted(line,geomfilename)
+              filename=trim(geomfilename)
+              !read(values(2),*) filename
+              if (filename(1:3)=='qm/') then !change qm/ folder to QM/
+                filename='QM'//filename(3:)
+              endif
+            else if (n==1) then
+              filename='droplet'
+            else
+              write(0,*) 'Specify only 1 filename to read restricted droplet atoms from!'
+              stop 1
+            endif
+            open(u_i_droplet,file=filename, status='old', action='read', iostat=io)
+         
+            if (printlevel>1) write(u_log,'(3A)') 'Reading atom mask for restricted droplet from file "',trim(filename),'"'
+            if (io/=0) then
+              write(0,*) 'Could not find file for restricted droplet atoms!'
+              stop 1
+            endif
+            !read from file with T/F in each line (for each atom)
+            do i=1,ctrl%natom
+              read(u_i_droplet,*) ctrl%sel_restricted_droplet(i)
+            enddo
+            close(u_i_droplet)
+        endselect
+      endif
+    endif
+   ! set values for tethering atom
+    if (ctrl%restrictive_potential==2 .or. ctrl%restrictive_potential==3) then
+      line=get_value_from_key('tethering_force',io)
+      if (io==0) then
+        read(line,*) ctrl%tethering_force
+        if (printlevel>1) write(u_log,'(1x,ES11.4)') ctrl%tethering_force
+      else
+        write(0,*) 'No force constant for tethering of atom given!'
+        stop 1
+      endif
+      line=get_value_from_key('tether_at',io)
+      if (io==0) then
+        call split(line,' ',values,n)
+        allocate(ctrl%tether_at(n))
+        do i=1,n
+          read(values(i),*) a
+          ctrl%tether_at(i) = a
+        enddo
+        deallocate(values)
+        if (printlevel>1) then
+          write(u_log,'(a)') 'Atoms to be tethered: '
+          write(u_log, *) ctrl%tether_at(:)
+        endif
+      else
+        write(0,*) 'No atom specified for tethering!'
+        stop 1
+      endif
+      allocate(traj%tethering_pos(3))
+      !use center of mass at time 0 of specified tether atoms as center of tethering potential
+      traj%tethering_pos(:) = calc_centerofmass(traj,ctrl)
+   endif
 
   ! =====================================================
 

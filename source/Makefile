@@ -41,11 +41,8 @@ USE_LIBS := mkl
 COMP_STATIC := false
 
 #needed for PYSHARC
-<<<<<<< HEAD:DEVELOPMENT/source/Makefile
-ANACONDA := /user/brigitta/anaconda3/envs/sharc
-=======
-ANACONDA := ${CONDA_PREFIX}
->>>>>>> develop:source/Makefile
+ANACONDA := 
+#ANACONDA := ${CONDA_PREFIX}
 # =======================================
 
 
@@ -56,7 +53,7 @@ ANACONDA := ${CONDA_PREFIX}
 # path
 SHARC_SOURCE := $(shell pwd)
 SHARCDIR := $(shell cd ..; pwd)
-MKLROOT := ${ANACONDA}/lib
+#MKLROOT := ${ANACONDA}/lib
 
 
 # -------------------------------------- conditionals ---------------------------------------
@@ -83,12 +80,12 @@ ifeq ($(USE_COMPILER), )
   USE_COMPILER:=gnu
 endif
 ifeq ($(USE_COMPILER), gnu)
-  #CC :=gcc
-  #F90 :=gfortran 
+  CC :=gcc
+  F90 :=gfortran 
   EXTRAFLAGS := -ffree-line-length-none 
 else ifeq ($(USE_COMPILER), intel)
-  #CC:=icc
-  #F90:=ifort 
+  CC:=icc
+  F90:=ifort 
   EXTRAFLAGS :=
 endif
 
@@ -110,11 +107,7 @@ else ifeq ($(USE_LIBS), gnu)
 endif
 else 
 ifeq ($(USE_LIBS), mkl)
-<<<<<<< HEAD:DEVELOPMENT/source/Makefile
   #LD= -L$(MKLROOT)/lib/intel64 -lmkl_rt -lpthread -lm -lgfortran $(NETCDF_LIB)
-=======
-  LD= -L$(MKLROOT) -lmkl_rt -lpthread -lm -lgfortran $(NETCDF_LIB)
->>>>>>> develop:source/Makefile
 #   LD= -L$(MKLROOT)/lib/intel64 -lmkl_intel_lp64 -lmkl_core -lmkl_sequential -lpthread -lm -lgfortran $(NETCDF_LIB)
   LD= -L$(MKLROOT) -lmkl_rt -lpthread -lm -lgfortran $(NETCDF_LIB)
 else ifeq ($(USE_LIBS), gnu)
@@ -181,7 +174,9 @@ SHARC  =  misc.o \
 	  electronic_laser.o \
 	  input.o \
 	  decoherence_afssh.o \
-          ziggurat.o
+          ziggurat.o \
+          restrictive_potential.o
+
 ifeq ($(USE_PYSHARC),true)
 SHARC += interface.o
 endif
@@ -335,11 +330,12 @@ output.o: $(TOOLS) build_info misc.o
 nuclear.o: $(TOOLS) ziggurat.o
 electronic.o: nuclear.o $(TOOLS) decoherence_afssh.o
 electronic_laser.o: electronic.o $(TOOLS)
-input.o: $(TOOLS) output.o restart.o misc.o
-qm.o: $(TOOLS) electronic.o qm_out.o restart.o
+input.o: $(TOOLS) output.o restart.o misc.o restrictive_potential.o
+qm.o: $(TOOLS) electronic.o qm_out.o restart.o restrictive_potential.o
 qm_out.o: $(TOOLS)
 restart.o: $(TOOLS) misc.o decoherence_afssh.o
 decoherence_afssh.o: $(TOOLS) definitions.o
+restrictive_potential.o: $(TOOLS) definitions.o
 
 LASER_input.o: LASER_definitions.o 
 LASER_calc_fftw.o: LASER_definitions.o
