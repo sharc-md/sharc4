@@ -552,6 +552,15 @@ It can also compute diabatic populations:
             statemap[i] = [imult, istate, ims, instate]
             i += 1
         INFOS['statemap'] = statemap
+        # make a compact statemap as well, without the M_S components
+        statemap = {}
+        i = 1
+        for imult in range(len(INFOS['states'])):
+            for istate in range(INFOS['states'][imult]):
+                statemap[i] = [imult+1,istate+1]
+                i += 1
+        INFOS['statemap_compact'] = statemap
+
 
 
     if INFOS['mode'] in [4, 5, 6]:
@@ -930,7 +939,7 @@ def do_calc(INFOS):
             string = '%s %i %i' % (IToMult[mult][0:3], state, ms)
             s += '%16s ' % (string)
         elif INFOS['mode'] in [3, 9, 11, 13, 15]:
-            mult, state = tuple(INFOS['statemap'][i + 1][0:2])
+            mult, state = tuple(INFOS['statemap_compact'][i + 1])
             # INstateToMultState(i+1,INFOS['states'])
             string = '%s %i' % (IToMult[mult][0:3], state)
             s += '%16s ' % (string)

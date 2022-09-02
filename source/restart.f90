@@ -127,10 +127,18 @@ module restart
     ! thermostat
     write(u,*) ctrl%thermostat
     if (ctrl%thermostat/=0) then
-      write(u,*) ctrl%temperature
-      if (ctrl%thermostat==1) then   !Langevin: only 1 Thermostat constant
-        write(u,*) ctrl%thermostat_const(1)
+      write(u,*) ctrl%ntempregions
+      call vecwrite(ctrl%ntempregions, ctrl%temperature, u, 'temperature','ES24.16E3')
+      !write(u,*) ctrl%temperature
+      call matwrite(ctrl%ntempregions, ctrl%thermostat_const, u, 'thermostat_const','ES24.16E3')
+      if (ctrl%ntempregions>1) then
+        do iatom=1,ctrl%natom
+          write(u,*) ctrl%tempregion(iatom)
+        enddo
       endif
+      !if (ctrl%thermostat==1) then   !Langevin: only 1 Thermostat constant
+        !write(u,*) ctrl%thermostat_const(1)
+      !endif
       write(u,*) ctrl%restart_thermostat_random
     endif
 
@@ -166,8 +174,13 @@ module restart
     write(u,*) ctrl%n_property1d
     write(u,*) ctrl%n_property2d
     
+    ! write atom mask for decoherence, rescaling, ...
     do iatom=1,ctrl%natom
       write(u,*) ctrl%atommask_a(iatom)
+    enddo
+    ! write atom mask for freezing atoms
+    do iatom=1,ctrl%natom
+      write(u,*) ctrl%atommask_b(iatom)
     enddo
     
     close(u)
@@ -345,6 +358,7 @@ module restart
     use matrix
     use misc
     use decoherence_afssh
+    use ziggurat
     implicit none
     integer :: u_ctrl,u_traj
     type(trajectory_type) :: traj
@@ -434,11 +448,28 @@ module restart
     ! thermostat
     read(u_ctrl,*) ctrl%thermostat
     if (ctrl%thermostat/=0) then
-      read(u_ctrl,*) ctrl%temperature
-      if (ctrl%thermostat==1) then   !Langevin: only 1 Thermostat constant
-        allocate(ctrl%thermostat_const(1))
-        read(u_ctrl,*) ctrl%thermostat_const(1)
+      read(u_ctrl,*) ctrl%ntempregions
+      allocate(ctrl%temperature(ctrl%ntempregions))
+      if (ctrl%thermostat==1) then
+        allocate(ctrl%thermostat_const(ctrl%ntempregions,1))
       endif
+      allocate(ctrl%tempregion(ctrl%natom))
+      call vecread(ctrl%ntempregions, ctrl%temperature, u_ctrl, string)
+      call matread(ctrl%ntempregions, ctrl%thermostat_const, u_ctrl, string)
+      if (ctrl%ntempregions>1) then
+        do iatom=1,ctrl%natom
+          read(u_ctrl,*) ctrl%tempregion(iatom)
+        enddo
+      else if (ctrl%ntempregions==1) then
+         do iatom=1,ctrl%natom
+          ctrl%tempregion(iatom)=1
+        enddo
+      endif
+      !read(u_ctrl,*) ctrl%temperature
+      !if (ctrl%thermostat==1) then   !Langevin: only 1 Thermostat constant
+      !  allocate(ctrl%thermostat_const(1))
+      !  read(u_ctrl,*) ctrl%thermostat_const(1)
+      !endif
       read(u_ctrl,*) ctrl%restart_thermostat_random
     endif
 
@@ -482,9 +513,15 @@ module restart
     read(u_ctrl,*) ctrl%n_property1d
     read(u_ctrl,*) ctrl%n_property2d
     
+    !read in atom mask for decoherence, rescaling, ...
     allocate( ctrl%atommask_a(ctrl%natom))
     do iatom=1,ctrl%natom
       read(u_ctrl,*) ctrl%atommask_a(iatom)
+    enddo
+    !read in atom mask for freezing atoms
+    allocate( ctrl%atommask_b(ctrl%natom))
+    do iatom=1,ctrl%natom
+      read(u_ctrl,*) ctrl%atommask_b(iatom)
     enddo
     
     close(u_ctrl)
@@ -638,17 +675,20 @@ module restart
       call random_number(dummy_randnum)
     enddo
     
-    ! set up thermostat randomnes
+    ! set up thermostat randomness
     if (ctrl%thermostat==1 .and. ctrl%restart_thermostat_random .eqv. .true.) then
-       ! call the old random number generator (used for thermostat) until it is in the same status as before the restart
-       call init_random_seed_thermostat(traj%rngseed_thermostat)
-       !call srand(traj%RNGseed_thermostat) alternatively (if like this in input.F90)
-       do i=1,2*((3*ctrl%natom+1)/2)*traj%step
-         call random_number(dummy_randnum)
+       ! initialte and call the ziggurat random number generator (used for thermostat) until it is in the same status as before the restart
+       call zigset(traj%rngseed_thermostat+37+17**2)
+       do i=1,3*ctrl%natom*traj%step
+         dummy_randnum=rnor()
        enddo
-       
-       allocate (traj%thermostat_random(2*((3*ctrl%natom+1)/2))) ! allocate randomnes for all atoms in all directions
-     endif
+       allocate (traj%thermostat_random(3*ctrl%natom)) ! allocate randomness for all atoms in all directions
+    else if (ctrl%thermostat==1 .and. ctrl%restart_thermostat_random .eqv. .false.)  then
+       ! initialte the ziggurat random number generator (used for thermostat),
+       ! starts from random seed given in restart.traj! (only use this option for when manually given new random seed in restart.traj!)
+       call zigset(traj%rngseed_thermostat+37+17**2)
+       allocate (traj%thermostat_random(3*ctrl%natom)) ! allocate randomness for all atoms in all directions
+    endif
 
     ! since the relaxation check is done after writing the restart file,
     ! add one to the relaxation counter

@@ -161,6 +161,18 @@ end subroutine get_trajstep
 
 ! ------------------------------------------------------
 
+subroutine get_state_diag(StateDiag)
+    use memory_module
+    implicit none
+    __INT__, intent(out) :: StateDiag
+
+    StateDiag = traj%state_diag
+
+    return
+end subroutine get_state_diag
+
+! ------------------------------------------------------
+
 subroutine get_element_name(NAtoms, ATyp)
     use iso_c_binding
     use memory_module

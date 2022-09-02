@@ -162,32 +162,6 @@ character*1024    :: sharcfacts(n_sharcfacts)   !< array containing the fun fact
 
 ! ===================================================
 
-!> Initializes the second (old) random number generator 
-!> sould maybe be replace by other "better" PRNG
-!> \param rngseed a single input seed which is used to generate the actual seed
-  subroutine init_random_seed_thermostat(rngseed)
-    implicit none
-    integer,intent(in) :: rngseed
-    integer :: i
-    ! integer :: seed
-    real*8 :: r
-
-    ! calculate a seed from rngseed
-    ! seed=rngseed+37+17**2
-    do i=1,3
-    ! initialize with the first seed (low quality)
-      ! call random_seed(put=seed)
-      call random_number(r)
-    ! calculate some with the random number generator and reseed
-      ! seed=int(65536*(r-0.5d0))
-    enddo
-    ! call srand(seed)
-!     deallocate(seed)
-
-  endsubroutine
-
-! ===================================================
-
 !> Checks whether the file "STOP" exists in the CWD
   logical function check_stop(cwd)
     use definitions
