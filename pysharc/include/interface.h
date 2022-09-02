@@ -52,6 +52,7 @@ void get_constants_(double * consts);
 void get_natoms_(int * natoms);
 void get_nsteps_(int * nsteps);
 void get_trajstep_(int * nsteps);
+void get_state_diag_(int * statediag);
 // GET COORDINATES
 void get_current_coordinates_(int * NAtoms,double * Crd, int * Ang);
 void get_element_name_(int * NAtoms, char * value); 

@@ -457,7 +457,11 @@ def eformat(f, prec, exp_digits):
     1 string: formatted number'''
 
     s = "% .*e" % (prec, f)
-    mantissa, exp = s.split('e')
+    try:
+        mantissa, exp = s.split('e')
+    except BaseException:
+        print(f, s)
+        raise
     return "%sE%+0*d" % (mantissa, exp_digits + 1, int(exp))
 
 
@@ -847,7 +851,7 @@ class func_mat:
     def split_strings(self, n, strings):
         a = []
         for i in range(n):
-            s = strings[i].strip().split(',')
+            s = strings[i].strip().split(';')
             if any([j.strip() == '' for j in s[0:i + 1]]):
                 print('Matrix elements missing in definition!')
                 sys.exit(17)
@@ -959,21 +963,21 @@ def read_QMin():
         if nstates == 0:
             continue
         for ims in range(imult + 1):
-            ms = ims - imult // 2.
+            ms = ims - imult / 2.
             for istate in range(nstates):
                 statemap[i] = [imult + 1, istate + 1, ms]
                 i += 1
     QMin['statemap'] = statemap
 
     # find unit keyword
-    factor = 1.
+    factor = BOHR_TO_ANG
     for line in qmin:
         s = line.split()
         if len(s) == 0:
             continue
         if 'unit' in s[0].lower():
-            if 'bohr' not in s[1].lower():
-                factor = BOHR_TO_ANG
+            if 'bohr' in s[1].lower():
+                factor = 1.
     for i in range(QMin['natom']):
         for j in range(3):
             geom[i][j + 1] /= factor
@@ -1008,6 +1012,20 @@ def read_QMin():
         tofile = os.path.join(QMin['savedir'], 'geom_old.out')
         shutil.copy(fromfile, tofile)
 
+
+    # find forbidden keywords and optional keywords
+    for line in qmin:
+        s = line.lower().split()
+        if len(s) == 0:
+            continue
+        for t in ['h', 'soc', 'nacdr', 'dm', 'grad', 'overlap', 'phases', 'dmdr']:
+            if s[0] in t:
+                QMin[s[0]] = []
+        if 'nacdt' in s[0]:
+            print('NACDT is not supported!')
+            sys.exit(19)
+    QMin['pwd'] = os.getcwd()
+
     # read old geometry from savedir/geom_old.out
     try:
         filename = os.path.join(QMin['savedir'], 'geom_old.out')
@@ -1028,25 +1046,6 @@ def read_QMin():
     QMin['geom'] = geom
     QMin['geomold'] = geomold
 
-    # find forbidden keywords and optional keywords
-    for line in qmin:
-        s = line.lower().split()
-        if len(s) == 0:
-            continue
-        if 'nacdt' in s[0] or 'nacdr' in s[0]:
-            print('NACDR and NACDT are not supported!')
-            sys.exit(19)
-        if 'dmdr' in s[0]:
-            QMin['dmdr'] = []
-
-
-    # add request keywords
-    QMin['soc'] = []
-    QMin['dm'] = []
-    QMin['grad'] = []
-    QMin['overlap'] = []
-    QMin['phases'] = []
-    QMin['pwd'] = os.getcwd()
     return QMin
 
 # =========================================================
@@ -1256,6 +1255,33 @@ def getQMout(QMin, SH2ANA):
                 ggrad[-1].append([Dmatrix[i][i].real for i in range(QMin['nmstates'])])
     # rearrange gradients
     grad = [[[ggrad[iatom][idir][istate] for idir in range(3)] for iatom in range(QMin['natom'])] for istate in range(QMin['nmstates'])]
+
+    if 'nacdr' in QMin:
+        nonac = [[0., 0., 0.] for iat in range(QMin['natom'])]
+        QMout['nacdr'] = [[nonac for istate in range(QMin['nmstates'])] for jstate in range(QMin['nmstates'])]
+        # get derivative
+        dderiv = []
+        for iatom in range(QMin['natom']):
+            dderiv.append([])
+            for idir in range(3):
+                if SH2ANA['gvar'][iatom][idir] == '0':
+                    dderiv[-1].append([[0. for i in range(QMin['nmstates'])] for j in range(QMin['nmstates'])])
+                else:
+                    v = SH2ANA['gvar'][iatom][idir]
+                    Dmatrix = transform(SH2ANA['deriv'][v], U)
+                    #print(Dmatrix, Dmatrix.shape)
+                    #print(QMin['nmstates'])
+                    dderiv[-1].append([[Dmatrix[i][j].real for i in range(QMin['nmstates'])] for j in range(QMin['nmstates'])])
+        # rearrange derivative
+        #print(len(dderiv), dderiv)
+        deriv = [[[[dderiv[iatom][idir][istate][jstate] for idir in range(3)]for iatom in range(QMin['natom'])] for istate in range(QMin['nmstates'])] for jstate in range(QMin['nmstates'])]
+
+        for istate in range(QMin['nmstates']):
+                for jstate in range(istate):
+                    Einv = (Hd[jstate][jstate] - Hd[istate][istate]) ** (-1.)
+                    # construct nacs
+                    QMout['nacdr'][istate][jstate] = [[c * Einv for c in d] for d in deriv[istate][jstate]]
+                    QMout['nacdr'][jstate][istate] = [[-c * Einv for c in d] for d in deriv[istate][jstate]]
 
     # transform dipole matrices
     dipole = []

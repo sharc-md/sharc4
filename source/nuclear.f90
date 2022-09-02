@@ -42,13 +42,15 @@ module nuclear
 subroutine VelocityVerlet_xstep(traj,ctrl)
   use definitions
   use matrix
+  use ziggurat
   implicit none
   type(trajectory_type) :: traj
   type(ctrl_type) :: ctrl
   integer :: iatom, idir
 
   ! variables for thermostat
-  real*8 :: b
+  integer :: iregion
+  real*8,allocatable :: b(:)
 
   ! variables for constraints
   real*8 :: initdistvec(ctrl%n_constraints,3)
@@ -79,6 +81,7 @@ subroutine VelocityVerlet_xstep(traj,ctrl)
   select case (ctrl%thermostat)
     case (0) ! no thermostat
       do iatom=1,ctrl%natom
+        if (ctrl%atommask_b(iatom) .eqv. .false.) cycle ! skip for frozen atoms
         do idir=1,3
           traj%accel_ad(iatom,idir)=&
           &-traj%grad_ad(iatom,idir)/traj%mass_a(iatom)
@@ -90,21 +93,26 @@ subroutine VelocityVerlet_xstep(traj,ctrl)
         enddo
       enddo
     case (1) ! Langevin thermostat
-      traj%thermostat_random=gaussian_random(ctrl%natom,real(0,8),ctrl%temperature) !ctrl%temperature is variance here
-      !write(u_log,*) traj%thermostat_random
+      allocate(b(ctrl%ntempregions))
+      do iregion=1,ctrl%ntempregions
+        b(iregion)=1/(1+ctrl%thermostat_const(iregion,1)*ctrl%dtstep*0.5d0)
+      enddo
       do iatom=1,ctrl%natom
-        b=1/(1+ctrl%thermostat_const(1)*ctrl%dtstep/(2*traj%mass_a(iatom)))
+        if (ctrl%atommask_b(iatom) .eqv. .false.) cycle ! skip for frozen atoms
+        !b=1/(1+ctrl%thermostat_const(1)*ctrl%dtstep/(2*traj%mass_a(iatom)))
         do idir=1,3                 ! propagate positions according to Langevin equation
+          traj%thermostat_random(3*(iatom-1)+idir)=rnor()*ctrl%temperature(ctrl%tempregion(iatom)) !ctrl%temperature is sqrt(variance) here
           traj%accel_ad(iatom,idir)=&
           &-traj%grad_ad(iatom,idir)/traj%mass_a(iatom)
 
           traj%geom_ad(iatom,idir)=&
           & traj%geom_ad(iatom,idir)&
-          &+b*traj%veloc_ad(iatom,idir)*ctrl%dtstep&
-          &+0.5d0*b*traj%accel_ad(iatom,idir)*ctrl%dtstep**2&
-          &+0.5d0*b*traj%thermostat_random(3*(iatom-1)+idir)*ctrl%dtstep/traj%mass_a(iatom)
+          &+b(ctrl%tempregion(iatom))*traj%veloc_ad(iatom,idir)*ctrl%dtstep&
+          &+0.5d0*b(ctrl%tempregion(iatom))*traj%accel_ad(iatom,idir)*ctrl%dtstep**2&
+          &+0.5d0*b(ctrl%tempregion(iatom))*traj%thermostat_random(3*(iatom-1)+idir)*ctrl%dtstep/sqrt(traj%mass_a(iatom))
         enddo
       enddo
+      deallocate(b)
   end select
 
   ! carry out RATTLE
@@ -121,6 +129,12 @@ subroutine VelocityVerlet_xstep(traj,ctrl)
           ! define the atomic id of the atoms that have fixed distance
           iA=ctrl%constraints_ca(iconstr,1)
           iB=ctrl%constraints_ca(iconstr,2)
+          !if ((ctrl%atommask_b(iA) .eqv. .false.) .or. (ctrl%atommask_b(iB) .eqv. .false.)) then
+          !  check_constraints(iconstr) = .TRUE.
+          !  if (printlevel>2) then
+          !    write(u_log,*) 'constraint over frozen: is skipped'
+          !  cycle
+          !endif
           ! compute the relative position of the two constrained atoms, and the relative norm squared
           relpos = traj%geom_ad(iA,:) - traj%geom_ad(iB,:)
           D2t = DOT_PRODUCT(relpos, relpos)
@@ -178,7 +192,8 @@ subroutine VelocityVerlet_vstep(traj,ctrl)
   integer :: iatom, idir
 
   ! variables for thermostat
-  real*8 :: a, b
+  integer :: iregion
+  real*8,allocatable :: a(:), b(:)
 
   ! variables for constraints
   logical :: check_constraints(ctrl%n_constraints)
@@ -198,6 +213,7 @@ subroutine VelocityVerlet_vstep(traj,ctrl)
   select case (ctrl%thermostat)
     case (0) ! no thermostat
       do iatom=1,ctrl%natom
+        if (ctrl%atommask_b(iatom) .eqv. .false.) cycle ! skip for frozen atoms
         do idir=1,3
           traj%accel_ad(iatom,idir)=0.5d0*(traj%accel_ad(iatom,idir)&
           &-traj%grad_ad(iatom,idir)/traj%mass_a(iatom) )
@@ -208,20 +224,28 @@ subroutine VelocityVerlet_vstep(traj,ctrl)
         enddo
       enddo
     case (1) ! Langevin thermostat
+      allocate(a(ctrl%ntempregions))
+      allocate(b(ctrl%ntempregions))
+      do iregion=1,ctrl%ntempregions
+        a(iregion)=ctrl%thermostat_const(iregion,1)*ctrl%dtstep*0.5d0
+        b(iregion)=1/(1+a(iregion))
+        a(iregion)=(1-a(iregion))*b(iregion)
+      enddo
       do iatom=1,ctrl%natom
-        a=ctrl%thermostat_const(1)*ctrl%dtstep/(2*traj%mass_a(iatom))
-        b=1/(1+a)
-        a=(1-a)*b
+        if (ctrl%atommask_b(iatom) .eqv. .false.) cycle ! skip for frozen atoms
+        !a=ctrl%thermostat_const(1)*ctrl%dtstep/(2*traj%mass_a(iatom))
         do idir=1,3
-          traj%accel_ad(iatom,idir)=0.5d0*(a*traj%accel_ad(iatom,idir)&
+          traj%accel_ad(iatom,idir)=0.5d0*(a(ctrl%tempregion(iatom))*traj%accel_ad(iatom,idir)&
           &-traj%grad_ad(iatom,idir)/traj%mass_a(iatom) )
     
           traj%veloc_ad(iatom,idir)=&
-          & a*traj%veloc_ad(iatom,idir)&
+          & a(ctrl%tempregion(iatom))*traj%veloc_ad(iatom,idir)&
           &+traj%accel_ad(iatom,idir)*ctrl%dtstep&
-          &+b*traj%thermostat_random(3*(iatom-1)+idir)/traj%mass_a(iatom)
+          &+b(ctrl%tempregion(iatom))*traj%thermostat_random(3*(iatom-1)+idir)/sqrt(traj%mass_a(iatom))
         enddo
       enddo
+      deallocate(a)
+      deallocate(b)
   endselect    
 
   ! carry out RATTLE
@@ -557,30 +581,5 @@ subroutine Damp_velocities(traj,ctrl)
   traj%veloc_ad=traj%veloc_ad*sqrt(ctrl%dampeddyn)
 
 endsubroutine
-
-! ===========================================================
-
-!> returns 3*natoms gaussian distributed random numbers with mean=mu and variance=var
-function gaussian_random(natoms,mu,var)
-  use definitions
-  implicit none
-  integer,intent(in) :: natoms
-  integer :: i
-  real*8,intent(in) :: mu, var
-  real*8 :: gaussian_random(2*((natoms*3+1)/2))   !note:fortran integer division -> truncation
-  real*8 :: theta,r
-  
-  do i=1,(3*natoms+1)/2
-    call random_number(theta)
-    call random_number(r)
-    theta=2*pi*theta
-    r=sqrt(-2*log(r)*var)
-    gaussian_random(2*i-1)=r*dcos(theta) +mu
-    gaussian_random(2*i)=r*dsin(theta) +mu
-  end do
-
-  return
-endfunction
-
 
 endmodule
