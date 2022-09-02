@@ -966,6 +966,7 @@ module qm
   subroutine Mix_gradients(traj,ctrl)
     use definitions
     use matrix
+    use restrictive_potential
     implicit none
     type(trajectory_type) :: traj
     type(ctrl_type) :: ctrl
@@ -1056,6 +1057,9 @@ module qm
       ! TODO: print gradient for printlevel>4
     endif
 
+   ! apply additional restrictive potentials
+   if (ctrl%restrictive_potential==1 .or. ctrl%restrictive_potential==3) call restrict_droplet(traj,ctrl)
+   if (ctrl%restrictive_potential==2 .or. ctrl%restrictive_potential==3) call tether_atom(traj,ctrl)
   endsubroutine
 
 ! ===========================================================
