@@ -183,6 +183,19 @@ module restart
       write(u,*) ctrl%atommask_b(iatom)
     enddo
     
+    ! write restrictive potentials info
+    write(u,*) ctrl%restrictive_potential
+    if (ctrl%restrictive_potential==1 .or. ctrl%restrictive_potential==3) then
+      write(u,*) ctrl%restricted_droplet_force
+      write(u,*) ctrl%restricted_droplet_radius
+      do iatom=1,ctrl%natom
+        write(u,*) ctrl%sel_restricted_droplet(iatom)
+      enddo
+    endif
+    if (ctrl%restrictive_potential==2 .or. ctrl%restrictive_potential==3) then
+      write(u,*) ctrl%tethering_force
+      !call vecwrite(size(ctrl%tether_at), ctrl%tether_at,  u, 'tether atoms','I5')
+    endif
     close(u)
 
   endsubroutine
@@ -523,6 +536,21 @@ module restart
     do iatom=1,ctrl%natom
       read(u_ctrl,*) ctrl%atommask_b(iatom)
     enddo
+    
+    !read restrictive potential infos
+    read(u_ctrl, *) ctrl%restrictive_potential
+    if (ctrl%restrictive_potential==1 .or. ctrl%restrictive_potential==3) then
+      read(u_ctrl,*) ctrl%restricted_droplet_force
+      read(u_ctrl,*) ctrl%restricted_droplet_radius
+      allocate( ctrl%sel_restricted_droplet(ctrl%natom))
+      do iatom=1,ctrl%natom
+        read(u_ctrl,*) ctrl%sel_restricted_droplet(iatom)
+      enddo
+    endif
+    if (ctrl%restrictive_potential==2 .or. ctrl%restrictive_potential==3) then
+      read(u_ctrl,*) ctrl%tethering_force
+      !call vecread(size(ctrl%tether_at), ctrl%tether_at,  u, 'tether atoms','I5')
+    endif
     
     close(u_ctrl)
 
