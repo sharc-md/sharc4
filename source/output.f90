@@ -330,7 +330,7 @@ subroutine write_list_line(u, traj, ctrl)
       &'#','Surface Hop: new state=',traj%state_diag,'old state=',traj%state_diag_old,'randnum=',traj%randnum
   endselect
 
-  write(u,'(1X,I9,3X,F12.5,3X,2(I5,3X),6(F12.6,3X),I10)') &
+  write(u,'(1X,I9,3X,F12.2,3X,2(I5,3X),6(F12.6,3X),I10)') &
   &traj%step, ctrl%dtstep*au2fs*traj%step, &
   &traj%state_diag, traj%state_MCH, &
   &traj%Ekin*au2eV, traj%Epot*au2eV, traj%Etot*au2eV, &

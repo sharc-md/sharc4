@@ -6,7 +6,7 @@
 !
 !    This file is part of SHARC.
 !
-!    SHARC is free software: you can redistribute it and/or modify
+!    SHARC is free sftware: you can redistribute it and/or modify
 !    it under the terms of the GNU General Public License as published by
 !    the Free Software Foundation, either version 3 of the License, or
 !    (at your option) any later version.
@@ -45,16 +45,19 @@ subroutine restrict_droplet(traj,ctrl)
   implicit none
   type(trajectory_type) :: traj
   type(ctrl_type) :: ctrl
-  real*8 :: radius
+  real*8 :: radius, dist, force
   integer :: iatom, idir
-
   do iatom=1,ctrl%natom
     if (ctrl%sel_restricted_droplet(iatom) .eqv. .true.) then
       radius = sqrt(traj%geom_ad(iatom,1)**2 + traj%geom_ad(iatom,2)**2 + traj%geom_ad(iatom,3)**2)
-      if (radius >= ctrl%restricted_droplet_radius) then
+      ! droplet_radius - radius -> inverse distance for inverse force
+      dist = radius - ctrl%restricted_droplet_radius
+      ! droplet_radius - radius -> inverse distance for inverse force
+      if (dist > 0.) then
+        force = ctrl%restricted_droplet_force * dist
         do idir=1,3
-          traj%grad_ad(iatom,idir) = traj%grad_ad(iatom,idir) -ctrl%restricted_droplet_force * traj%geom_ad(iatom,idir) *&
-            &(radius-ctrl%restricted_droplet_radius)**(-3) /radius
+          ! add force * direction (normalized distance)
+          traj%grad_ad(iatom,idir) = traj%grad_ad(iatom,idir) + force * (traj%geom_ad(iatom,idir)/radius)
         enddo
       endif
     endif
