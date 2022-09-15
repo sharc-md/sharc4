@@ -1526,9 +1526,9 @@ module input
       if (printlevel>1) then
         write(u_log,'(3a)') 'Reading from geometry file: "',trim(geomfilename),'"'
         write(u_log,*) 'Geometry (Bohr):'
-        write(u_log,'(A2,1X,3(A9,1X),3X,A3,1X,A12)') 'El','x','y','z','#','mass'
+        write(u_log,'(A2,1X,3(A9,1X),3X,A3,1X,A12)') 'El','hihi','y','z','#','mass'
         do i=1,ctrl%natom
-          write(u_log,'(A2,1X,3(F9.6,1X),3X,F4.0,1X,F12.6)') traj%element_a(i),&
+          write(u_log,'(A2,1X,3(F10.6,1X),3X,F4.0,1X,F12.6)') traj%element_a(i),&
           &(traj%geom_ad(i,j),j=1,3),traj%atomicnumber_a(i),traj%mass_a(i)
         enddo
       endif
@@ -2500,7 +2500,7 @@ module input
   ! set values for additional restrictive potentials
   ! set values for restrictive droplet potential
   if (ctrl%restrictive_potential==1 .or. ctrl%restrictive_potential==3) then
-    line=get_value_from_key('restrictied_droplet_force',io)
+    line=get_value_from_key('restricted_droplet_force',io)
       if (io==0) then
         read(line,*) ctrl%restricted_droplet_force
       else
@@ -2527,6 +2527,9 @@ module input
         !select case (trim(line))
           case ('all')
             !ctrl%sel_restricted_droplet=.true.
+            do i = 1,ctrl%natom
+              ctrl%sel_restricted_droplet(i)=.true.
+            enddo
           case ('noH')
             do i = 1,ctrl%natom
               if (nint(traj%mass_a(i))==1) ctrl%sel_restricted_droplet=.false.
