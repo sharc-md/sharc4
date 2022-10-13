@@ -134,6 +134,8 @@ for line in lines:
             read = False
             continue
         l = line.replace(':', '').strip().split()
+        if len(l) < 5:
+            continue
         intdict[int(l[0])] = float(l[2])
 
 
