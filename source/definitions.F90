@@ -196,6 +196,8 @@ type trajectory_type
   ! Thermostat randomness
   real*8,allocatable :: thermostat_random(:)
 
+  ! tethering position
+  real*8,allocatable :: tethering_pos(:)
 endtype
 
 ! =========================================================== !
@@ -221,6 +223,7 @@ type ctrl_type
 ! numerical constants
   integer :: natom                          !< number of atoms
   logical,allocatable :: atommask_a(:)      !< atoms which are considered for decoherence, rescaling, ...
+  logical,allocatable :: atommask_b(:)      !< atoms which are considered for verlocity verlet (-> use to freeze atoms)
   integer :: maxmult                        !< highest spin quantum number (determines length of nstates_m)
   integer,allocatable :: nstates_m(:)       !< numer of states considered in each multiplicy
   integer :: nstates                        !< total number of states
@@ -254,6 +257,7 @@ type ctrl_type
   integer :: dipolegrad                     !< 0=no, 1=include dipole gradients in gradient transformation
   integer :: thermostat                     !< 0=none, 1=Langevin thermostat
   logical :: restart_thermostat_random      !< F=no, T=yes (default) to use same random number sequence if restarted
+  integer :: restrictive_potential          !< 0=none, 1=restricted droplet, 2=tethering of an atom, 3=restricted atom + tethering
 
   integer :: calc_soc                       !< request SOC, otherwise only the diagonal elements of H (plus any laser interactions) are taken into account\n 0=no soc, 1=soc enabled
   integer :: calc_grad                      !< request gradients:   \n        0=all in step 1, 1=select in step 1, 2=select in step 2
@@ -301,9 +305,18 @@ type ctrl_type
   complex*16, allocatable :: laserenergy_tl(:,:)  !< momentary central energy of laser (for detecting induced hops)
 
   ! thermostat
-  real*8 :: temperature                     !< temperature used for thermostat
-  real*8,allocatable :: thermostat_const(:) !< constants needed for thermostat. Langevin: friction coeffitient
+  !real*8 :: temperature                      !< temperature used for thermostat
+  integer :: ntempregions                     !< number of regions with different thermostat conditions
+  integer,allocatable :: tempregion(:)        !< array of thermostat region number for each atom
+  real*8,allocatable :: temperature(:)        !< temperature(s) used for thermostat
+  real*8,allocatable :: thermostat_const(:,:) !< constants needed for thermostat. Langevin: friction coeffitient
 
+  ! restrictive potentials
+  real*8 :: restricted_droplet_force        !< force constant for restricted droplet potential
+  real*8 :: restricted_droplet_radius       !< radius of primary water sphere for restricted droplet potential
+  real*8 :: tethering_force                 !< force constant for tethering of atom
+  logical,allocatable :: sel_restricted_droplet(:)       !< selection mask for restricted droplet
+  integer,allocatable :: tether_at(:)                    !< selection of indices for tethering of center of mass of these atoms
 endtype
 
 ! =========================================================== !
@@ -345,6 +358,9 @@ integer, parameter :: u_i_coeff=15           !< initial coefficients
 integer, parameter :: u_i_laser=16           !< numerical laser field
 integer, parameter :: u_i_atommask=17        !< which atoms are active for rescaling/decoherence/...
 integer, parameter :: u_i_rattle=18          !< atoms for constraints
+integer, parameter :: u_i_frozen=19          !< which atoms are active for verlocity verlet (i.e. not frozen)
+integer, parameter :: u_i_thermostat=20      !< thermostat settings (number of regions, temperatures, constants, regions)
+integer, parameter :: u_i_droplet=21         !< which atoms are part of the restrictive droplet (i.e. feel the corresponding potential)
 
 integer, parameter :: u_qm_QMin=41           !< here SHARC writes information for the QM interface (like geometry, number of states, what kind of data is requested)
 integer, parameter :: u_qm_QMout=42          !< here SHARC retrieves the results of the QM run (Hamiltonian, gradients, couplings, etc.)
@@ -537,10 +553,14 @@ integer, parameter :: u_qm_QMout=42          !< here SHARC retrieves the results
       if (allocated(ctrl%nstates_m))                  deallocate(ctrl%nstates_m)
       if (allocated(ctrl%actstates_s))                deallocate(ctrl%actstates_s)
       if (allocated(ctrl%atommask_a))                 deallocate(ctrl%atommask_a)
+      if (allocated(ctrl%atommask_b))                 deallocate(ctrl%atommask_b)
       if (allocated(ctrl%laserfield_td))              deallocate(ctrl%laserfield_td)
       if (allocated(ctrl%laserenergy_tl))             deallocate(ctrl%laserenergy_tl)
+      if (allocated(ctrl%tempregion))                 deallocate(ctrl%tempregion)
+      if (allocated(ctrl%temperature))                deallocate(ctrl%temperature)
       if (allocated(ctrl%thermostat_const))           deallocate(ctrl%thermostat_const)
-
+      if (allocated(ctrl%sel_restricted_droplet))     deallocate(ctrl%sel_restricted_droplet)
+      if (allocated(ctrl%tether_at))                  deallocate(ctrl%tether_at)
     endsubroutine
 
     subroutine deallocate_traj(traj)
@@ -596,6 +616,7 @@ integer, parameter :: u_qm_QMout=42          !< here SHARC retrieves the results
     if (allocated(traj%selG_s))                     deallocate(traj%selG_s)
     if (allocated(traj%selT_ss))                    deallocate(traj%selT_ss)
     if (allocated(traj%thermostat_random))          deallocate(traj%thermostat_random)
+    if (allocated(traj%tethering_pos))              deallocate(traj%tethering_pos)
   endsubroutine
 
 

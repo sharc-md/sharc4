@@ -51,6 +51,8 @@ module input
   use output
   use restart
   use string
+  use ziggurat !temporary
+  use restrictive_potential
   implicit none
 #ifdef __PYSHARC__
   integer :: nchars
@@ -1489,8 +1491,6 @@ module input
       ctrl%n_constraints=0
     endif
 
-  
-
 
 
 
@@ -1526,9 +1526,9 @@ module input
       if (printlevel>1) then
         write(u_log,'(3a)') 'Reading from geometry file: "',trim(geomfilename),'"'
         write(u_log,*) 'Geometry (Bohr):'
-        write(u_log,'(A2,1X,3(A9,1X),3X,A3,1X,A12)') 'El','x','y','z','#','mass'
+        write(u_log,'(A2,1X,3(A9,1X),3X,A3,1X,A12)') 'El','hihi','y','z','#','mass'
         do i=1,ctrl%natom
-          write(u_log,'(A2,1X,3(F9.6,1X),3X,F4.0,1X,F12.6)') traj%element_a(i),&
+          write(u_log,'(A2,1X,3(F10.6,1X),3X,F4.0,1X,F12.6)') traj%element_a(i),&
           &(traj%geom_ad(i,j),j=1,3),traj%atomicnumber_a(i),traj%mass_a(i)
         enddo
       endif
@@ -1722,6 +1722,100 @@ module input
     endif
     if (ctrl%reflect_frustrated==1) then
       write(u_log,*) 'Atom mask will be used for reflection after frustrated hops.'
+    endif
+  endif
+
+  ! =====================================================
+
+  ! process the atom mask for freezing atoms, i.e. excluding them from dynamics
+  allocate( ctrl%atommask_b(ctrl%natom))
+  ctrl%atommask_b=.true.
+  line=get_value_from_key('freeze',io)
+  if (io==0) then
+    call split(line,' ',values,n)
+    select case (trim(values(1)))
+      ! initial frozen atoms in input
+      case ('last') !initialize as last [n] atoms frozen
+          if (n==2) then
+            read(values(2),*) k
+            do i=ctrl%natom-k+1,ctrl%natom
+                ctrl%atommask_b(i) = .false.
+            enddo
+          else
+            write(0,*) 'Specify how many atoms should be frozen: freeze last [n]!'
+            stop 1
+          endif
+      case ('atoms') !initialize as given atoms [at1 at2 ... ] frozen
+          if (n>=2) then
+            do i=2,n
+              read(values(i),*) k
+              ctrl%atommask_b(k) = .false.
+            enddo
+          else
+            write(0,*) 'Specify which atoms should be frozen (atom numbers)!'
+            stop 1
+          endif
+      ! initialize frozen atoms from file
+      case ('file')
+          if (n==2) then
+            call get_quoted(line,geomfilename)
+            filename=trim(geomfilename)
+            !read(values(2),*) filename
+            if (filename(1:3)=='qm/') then !change qm/ folder to QM/
+              filename='QM'//filename(3:)
+            endif
+          else if (n==1) then
+            filename='frozen'
+          else
+            write(0,*) 'Specify only 1 filename to read frozen atoms from!'
+            stop 1
+          endif
+          open(u_i_frozen,file=filename, status='old', action='read', iostat=io)
+
+          if (printlevel>1) write(u_log,'(3A)') 'Reading atom mask for dynamics (active/frozen atoms) from file "',trim(filename),'"'
+          if (io/=0) then
+            write(0,*) 'Could not find atom mask for freezing atoms file!'
+            stop 1
+          endif
+          if (filename=='QM/real_layers.xyz') then !read from real_layers file
+            write(0,*) 'still need to implement reading from QM/real_layers.xyz'
+            stop 1
+            do i=1,ctrl%natom
+              read(u_i_frozen,*) line
+              call split(line,' ',values,n)
+              !write(0,*) line
+              !write(0,*) values(5)
+              !write(0,*) trim(values(2))
+              !write(0,*) trim(values(-1))
+              if (trim(values(5))=='L') then
+                ctrl%atommask_b(i)=.false.
+              endif 
+            enddo
+          else !read from file with T/F in each line (for each atom)
+            do i=1,ctrl%natom
+              read(u_i_frozen,*) ctrl%atommask_b(i)
+            enddo
+          endif
+          close(u_i_frozen)
+      case ('none')
+          continue
+      case default
+        write(0,*) 'Unknown option for keyword freeze!'
+        stop 1
+    endselect
+    deallocate(values)
+  endif
+  if (printlevel>1) then
+    if (printlevel>2) then
+      write(u_log,*) 'Atom mask for dynamics (atoms active or frozen):'
+      do i=1,ctrl%natom
+        write(u_log,*) i,traj%element_a(i),ctrl%atommask_b(i)
+      enddo
+    else
+      write(u_log,*) 'Atom mask for dynamics (only active, not frozen):'
+      do i=1,ctrl%natom
+        if (ctrl%atommask_b(i)) write(u_log,*) i,traj%element_a(i),ctrl%atommask_b(i)
+      enddo
     endif
   endif
 
@@ -2107,14 +2201,16 @@ module input
 
   ! =====================================================
 
-  ! check for thermostat
-  line=get_value_from_key('thermostat',io)
+  ! check for thermostat keywords
+    line=get_value_from_key('thermostat',io)
     if (io==0) then
       select case (trim(line))
         case ('none')
           ctrl%thermostat=0
         case ('langevin')
           ctrl%thermostat=1
+       ! case ('multi-langevin')
+        !  ctrl%thermostat=2
         case default
           ctrl%thermostat=0
       endselect
@@ -2123,87 +2219,393 @@ module input
     endif
 
    if (printlevel>0) then
-      write(u_log,*) '============================================================='
-      write(u_log,*) '                       Thermostat'
-      write(u_log,*) '============================================================='
-      if (printlevel>1) then
-        select case (ctrl%thermostat)
-          case (0)
-            write(u_log,'(a)') 'No thermostat will be applied.'
-          case (1)
-            write(u_log,'(a)') 'Langevin thermostat will be applied.'
-            write(u_log,'(a)') 'Temperature (in K) and friction coeffitient (in m_e*fs^-1): '
-        endselect
-      endif
-    endif
+     write(u_log,*) '============================================================='
+     write(u_log,*) '                       Thermostat'
+     write(u_log,*) '============================================================='
+     if (printlevel>1) then
+       select case (ctrl%thermostat)
+         case (0)
+           write(u_log,'(a)') 'No thermostat will be applied.'
+         case (1)
+           write(u_log,'(a)') 'Langevin thermostat will be applied.'
+           !write(u_log,'(a)') 'Temperature (in K) and friction coeffitient (in fs^-1): '
+       endselect
+     endif
+   endif
 
 
     ! set up values needed for thermostat
     if (ctrl%thermostat/=0) then
 
       ! random number seed for thermostat
-      line=get_value_from_key('rngseed',io)
+      line=get_value_from_key('rngseed_thermostat',io)
       if (io==0) then
-        read(line,*) traj%rngseed_thermostat !for now: use same rngseed for thermostat as given for initial velocities. Maybe change later.
+        read(line,*) traj%rngseed_thermostat
       else
-        traj%rngseed_thermostat=1099279      ! some prime number
+        line=get_value_from_key('rngseed',io)
+        if (io==0) then
+          read(line,*) traj%rngseed_thermostat !if not specified: use same rngseed for thermostat as given for initial velocities.
+        else
+          traj%rngseed_thermostat=1099279      ! some prime number
+        endif
       endif
-      call init_random_seed_thermostat(traj%rngseed_thermostat)
-     ! call srand(traj%rngseed_thermostat) alternatively
+      !initiate ziggurat prng (do only once!)
+      call zigset(traj%rngseed_thermostat+37+17**2)
       if (ctrl%thermostat==1) then
-        allocate (traj%thermostat_random(2*((3*ctrl%natom+1)/2))) ! allocate randomnes for all atoms in all directions
+        allocate (traj%thermostat_random(3*ctrl%natom)) ! allocate randomness for all atoms in all directions
       endif
 
       ! restart with same random number sequence?
       ! default is restarting with same random number sequence
       ctrl%restart_thermostat_random=.true.
       ! look for norestart_thermostat_random keyword
+      ! if given: when restarting it starts from random seed given in restart.traj!
+      ! (so only use this option for when manually given new random seed in restart.traj!)
       line=get_value_from_key('norestart_thermostat_random',io)
       if (io==0) then
         ctrl%restart_thermostat_random=.false.
       endif
 
-      ! get temperature
-      line=get_value_from_key('temperature',io)
-      if (io==0) then
-        read(line,*) ctrl%temperature
-      else
-        ctrl%temperature=293.15 !default temperature
-      endif
-      write(u_log,'(1x,F11.4)') ctrl%temperature
-
-
-      ! get constants needed for thermostat
-      if (ctrl%thermostat==1) allocate(ctrl%thermostat_const(1)) !allocate right amount of thermostat constants
-      line=get_value_from_key('thermostat_const',io) !provide in fs^-1
+      ! specify number of thermostat regions (regions with different thermostat conditions)
+      ! if input as file: specify temperature and thermostat constants
+      allocate(ctrl%tempregion(ctrl%natom))
+      line=get_value_from_key('thermostatregions',io)
       if (io==0) then
         call split(line,' ',values,n)
-        if (n/=size(ctrl%thermostat_const)) then
-          write(0,*) 'Wrong number of thermostat constants!'
-          stop 1
-        else
-          do i=1,n
-            read(values(i),*) a
-            ctrl%thermostat_const = a  ! set the thermostat constants
-            if (printlevel>1) then
-              write(u_log,'(1x,ES11.4)') ctrl%thermostat_const(i)
+        select case (trim(values(1)))
+          case('one')
+            ! if 1, then there are no multiple thermostatting regions
+            ctrl%ntempregions=1
+          case('file')
+            ! if file, then read from specified file
+            !write(0,*) 'Reading thermostat regions and conditions from file not possible yet!'
+            !stop 1
+            if (n==2) then
+              call get_quoted(line,geomfilename)
+              filename=trim(geomfilename)
+            else if (n==1) then
+              filename = 'thermostat_setting'
+            else
+              write(0,*) 'Specify only 1 filename to read thermostat settings from!'
+              stop 1
             endif
-          enddo
-        endif
+            open(u_i_thermostat,file=filename, status='old', action='read', iostat=io)
+            if (printlevel>1) write(u_log,'(3A)') 'Reading thermostat settings from file "',trim(filename),'"'
+            if (io/=0) then
+              write(0,*) 'Could not find thermostat file!'
+              stop 1
+            endif
+            ! read content of file
+            read(u_i_thermostat,*) ctrl%ntempregions
+            allocate(ctrl%temperature(ctrl%ntempregions)) ! allocate temperature (as many as temperature regions present)
+            if (ctrl%thermostat==1) then
+              allocate(ctrl%thermostat_const(ctrl%ntempregions,1)) !allocate right amount of thermostat constants
+            endif
+            do i=1,ctrl%ntempregions
+              read(u_i_thermostat,*) ctrl%temperature(i) ! set temperatures
+            enddo
+            do i=1,ctrl%ntempregions
+              read(u_i_thermostat,*) line
+              deallocate(values)
+              call split(line,' ',values,n)
+              if (n/=size(ctrl%thermostat_const,2)) then
+                write(0,*) 'Wrong number of thermostat constants!'
+                stop 1
+              else
+                if (ctrl%thermostat==1) then
+                read(values(1),*) ctrl%thermostat_const(i,1)
+                endif
+              endif
+            enddo
+            do i=1,ctrl%natom
+              read(u_i_thermostat,*) ctrl%tempregion(i) ! set thermostat regions
+            enddo
+            close(u_i_thermostat)
+          case('first')
+            if (n==1) then
+              write (0,*) 'Specify how many atoms should be in first thermostat region!'
+              stop 1
+            endif
+            ! first (n) atoms belong to region 1 and the remainder to region 2
+            ctrl%ntempregions=2
+            !allocate(ctrl%tempregion(ctrl%natom))
+            read(values(2),*) k
+            do i=1,k
+              ctrl%tempregion(i)=1
+            enddo
+            do i=k+1,ctrl%natom
+              ctrl%tempregion(i)=2
+            enddo
+          case('atomlist')
+            ! set region number for all atoms separately
+            if ((n-1)==ctrl%natom) then
+              !set tempregion array
+              do i=2,n
+                read(values(i),*) a
+                ctrl%tempregion(i-1) = a  ! set the thermostat constants
+                if (printlevel>1) then
+                endif
+              enddo
+              !set ntempregions as max entry of array
+              ctrl%ntempregions = maxval(ctrl%tempregion)
+            else
+              write(0,*) 'Provide number of thermostat region for every atom!'
+              stop 1
+            endif
+          case default
+            write(0,*) 'thermostatregions input not correctly given'
+            stop 1 
+        endselect
         deallocate(values)
       else
-        write(0,*) 'No thermostat constants given!'
-        stop 1
+        ctrl%ntempregions=1
       endif
 
-      if (ctrl%thermostat==1) then !save variance in ctrl%temperature
-        ctrl%temperature=2*ctrl%thermostat_const(1)*1.38064852e-23*ctrl%temperature*2.2937126583579e+17*ctrl%dtstep ! var=2*alpha*k_bT*dt (1 J = 2.29...e+17 a.u.)
+      if (ctrl%ntempregions==1) then
+        do i=1,ctrl%natom
+          ctrl%tempregion(i)=1
+        enddo
+      endif
+
+             !if (ctrl%thermostat==1)
+              ! allocate(ctrl%temperature(1))
+               !allocate(ctrl%thermostat_const(1)) !allocate right amount of thermostat constants
+             !endif
+
+      ! get temperature (unless already read from external file)
+      if (.not. allocated(ctrl%temperature)) then
+        allocate(ctrl%temperature(ctrl%ntempregions)) ! allocate temperature (as many as temperature regions present)
+        line=get_value_from_key('temperature',io)
+        if (io==0) then
+          call split(line,' ',values,n)
+          if (n/=ctrl%ntempregions) then
+            write(0,*) 'Wrong number of temperatures given!'
+            stop 1
+          else
+            do i=1,n
+              read(values(i),*) a
+              ctrl%temperature(i) = a  ! set the thermostat constants
+              !read(line,*) ctrl%temperature
+            enddo
+          endif
+          deallocate(values)
+        else
+          if (ctrl%ntempregions > 1) write(u_log,'(a)') 'Warning: multiple thermostat regions, but not multiple temperatures given!'
+          do i=1,ctrl%ntempregions
+            ctrl%temperature(i)=293.15 !default temperature for all regions
+          enddo
+        endif
+      endif
+
+      ! get constants needed for thermostat (unless already read from external file)
+      if (.not. allocated(ctrl%thermostat_const)) then
+        if (ctrl%thermostat==1) then
+          allocate(ctrl%thermostat_const(ctrl%ntempregions,1)) !allocate right amount of thermostat constants
+        endif
+        line=get_value_from_key('thermostat_const',io) !provide in fs^-1
+        if (io==0) then
+          call split(line,' ',values,n)
+          if (n/=size(ctrl%thermostat_const)) then
+            write(0,*) 'Wrong number of thermostat constants!'
+            stop 1
+          else
+            if (ctrl%thermostat==1) then
+              do i=1,n
+                read(values(i),*) a
+                ctrl%thermostat_const(i,1) = a  ! set the thermostat constants
+              enddo
+            endif
+          endif
+          deallocate(values)
+        else
+          write(0,*) 'No thermostat constants given!'
+          stop 1
+        endif
+      endif
+
+      ! print quantities for thermostat
+      if (printlevel>0) then
+        if (ctrl%ntempregions>1) write (u_log,'(a)') 'Multiple thermostat conditions regions.'
+        if (printlevel>1) then
+          write(u_log,'(a)',advance='NO') 'Number of thermostat conditions region(s):'
+          write(u_log,*) ctrl%ntempregions
+          do i=1,ctrl%ntempregions
+            write(u_log,*) i,'. region:'
+            write(u_log,'(1x,F11.4,a)') ctrl%temperature(i),' K'
+            if (ctrl%thermostat==1) write (u_log,'(1x,a)',advance='NO')  'Friction coefficient (fs^-1): '
+            write(u_log,*) (ctrl%thermostat_const(i,j), j=1,size(ctrl%thermostat_const,2))
+            !write(u_log,'(a)') ' fs^-1'
+          enddo
+          write (u_log,'(a)') 'Region of atoms: (atom region)'
+          do i=1,ctrl%natom
+            write (u_log,*) i,ctrl%tempregion(i)
+          enddo
+        endif
+      endif
+
+      ! modifications of thermostat quantities useful for later
+      if (ctrl%thermostat==1) then !save sqrt(variance) in ctrl%temperature
+        do i=1,ctrl%ntempregions
+          ! var=2*alpha*k_bT*dt (1 J = 2.29...e+17 a.u.)
+          ctrl%temperature(i)=sqrt(2*ctrl%thermostat_const(i,1)*1.38064852e-23*ctrl%temperature(i)*2.2937126583579e+17*ctrl%dtstep)
+        enddo
+        !write(u_log,*) 'thermostat_faketemp'
+        !write(u_log,*) ctrl%temperature
       endif
     endif
 
     if (printlevel>0) then
       write(u_log,*)
     endif
+
+  ! =====================================================
+
+  ! check for restrictive potential
+  line=get_value_from_key('restrictive_potential',io)
+  if (io==0) then
+    select case (trim(line))
+      case ('none')
+        ctrl%restrictive_potential=0
+      case ('droplet')
+        ctrl%restrictive_potential=1
+      case ('tether')
+        ctrl%restrictive_potential=2
+      case ('droplet_tether')
+        ctrl%restrictive_potential=3
+    endselect
+  else
+    ctrl%restrictive_potential=0
+  endif
+
+   if (printlevel>0 .and. ctrl%restrictive_potential/=0) then
+      write(u_log,*) '============================================================='
+      write(u_log,*) '             Additional restrictive potential'
+      write(u_log,*) '============================================================='
+      if (printlevel>1) then
+        select case (ctrl%restrictive_potential)
+          case (0)
+          case (1)
+            write(u_log,'(a)') 'Restricted droplet potential will be applied:'
+            write(u_log,'(a)') 'Radius (in a.u.) and force constant:'
+          case (2)
+            write(u_log,'(a)') 'Tethering of atoms will be applied:'
+            write(u_log,'(a)') 'Force constant:'
+          case (3)
+            write(u_log,'(a)') 'Restricted droplet potential and tethering of atoms will be applied:'
+            write(u_log,'(a)') 'Droplet radius (in a.u.) and force constants (droplet potential and tethering):'
+        endselect
+      endif
+    endif
+
+  ! set values for additional restrictive potentials
+  ! set values for restrictive droplet potential
+  if (ctrl%restrictive_potential==1 .or. ctrl%restrictive_potential==3) then
+    line=get_value_from_key('restricted_droplet_force',io)
+      if (io==0) then
+        read(line,*) ctrl%restricted_droplet_force
+      else
+        write(0,*) 'No force constant for restrictive droplet potental given!'
+        stop 1
+      endif
+    line=get_value_from_key('restricted_droplet_radius',io)
+       if (io==0) then
+        read(line,*) ctrl%restricted_droplet_radius
+      else
+        ctrl%restricted_droplet_radius=12 ! default radius of inner solvation shell in Angstrom
+      endif
+    if (printlevel>1) then
+      write(u_log,'(1x,F7.2,4x,ES11.4)') ctrl%restricted_droplet_radius, ctrl%restricted_droplet_force
+    endif
+    ctrl%restricted_droplet_radius= ctrl%restricted_droplet_radius/au2a ! in atomic units
+
+    allocate(ctrl%sel_restricted_droplet(ctrl%natom))
+    line=get_value_from_key('restricted_droplet_atoms',io)
+    ctrl%sel_restricted_droplet=.true.
+      if (io==0) then
+        call split(line,' ',values,n)
+        select case (trim(values(1)))
+        !select case (trim(line))
+          case ('all')
+            !ctrl%sel_restricted_droplet=.true.
+            do i = 1,ctrl%natom
+              ctrl%sel_restricted_droplet(i)=.true.
+            enddo
+          case ('noH')
+            do i = 1,ctrl%natom
+              if (nint(traj%mass_a(i))==1) ctrl%sel_restricted_droplet=.false.
+            enddo
+          case ('list')
+            line=get_value_from_key('restricted_droplet_atoms_list',io)
+            if (n>=2) then
+              do i=2,n
+                read(values(i),*) k
+                ctrl%sel_restricted_droplet(k) = .false.
+              enddo
+            else
+              write(0,*) 'Specify which atoms should be restricted in droplet (atom numbers)!'
+              stop 1
+            endif
+            !add option to now read list given in input file
+          case ('file')
+            if (n==2) then
+              call get_quoted(line,geomfilename)
+              filename=trim(geomfilename)
+              !read(values(2),*) filename
+              if (filename(1:3)=='qm/') then !change qm/ folder to QM/
+                filename='QM'//filename(3:)
+              endif
+            else if (n==1) then
+              filename='droplet'
+            else
+              write(0,*) 'Specify only 1 filename to read restricted droplet atoms from!'
+              stop 1
+            endif
+            open(u_i_droplet,file=filename, status='old', action='read', iostat=io)
+         
+            if (printlevel>1) write(u_log,'(3A)') 'Reading atom mask for restricted droplet from file "',trim(filename),'"'
+            if (io/=0) then
+              write(0,*) 'Could not find file for restricted droplet atoms!'
+              stop 1
+            endif
+            !read from file with T/F in each line (for each atom)
+            do i=1,ctrl%natom
+              read(u_i_droplet,*) ctrl%sel_restricted_droplet(i)
+            enddo
+            close(u_i_droplet)
+        endselect
+      endif
+    endif
+   ! set values for tethering atom
+    if (ctrl%restrictive_potential==2 .or. ctrl%restrictive_potential==3) then
+      line=get_value_from_key('tethering_force',io)
+      if (io==0) then
+        read(line,*) ctrl%tethering_force
+        if (printlevel>1) write(u_log,'(1x,ES11.4)') ctrl%tethering_force
+      else
+        write(0,*) 'No force constant for tethering of atom given!'
+        stop 1
+      endif
+      line=get_value_from_key('tether_at',io)
+      if (io==0) then
+        call split(line,' ',values,n)
+        allocate(ctrl%tether_at(n))
+        do i=1,n
+          read(values(i),*) a
+          ctrl%tether_at(i) = a
+        enddo
+        deallocate(values)
+        if (printlevel>1) then
+          write(u_log,'(a)') 'Atoms to be tethered: '
+          write(u_log, *) ctrl%tether_at(:)
+        endif
+      else
+        write(0,*) 'No atom specified for tethering!'
+        stop 1
+      endif
+      allocate(traj%tethering_pos(3))
+      !use center of mass at time 0 of specified tether atoms as center of tethering potential
+      traj%tethering_pos(:) = calc_centerofmass(traj,ctrl)
+   endif
 
   ! =====================================================
 
@@ -2247,7 +2649,11 @@ module input
     ! velocity is read in as bohrs/atu
     ! laser field must be in a.u.
     ! langevin friction coefficient in a.u.^-1
-    if (ctrl%thermostat==1) ctrl%thermostat_const(1)=ctrl%thermostat_const(1)*au2fs
+    if (ctrl%thermostat==1) then
+      do i=1,ctrl%ntempregions
+        ctrl%thermostat_const(ctrl%ntempregions,1)=ctrl%thermostat_const(ctrl%ntempregions,1)*au2fs
+      enddo
+    endif
 
   ! =====================================================
     ! write some basic information into the data file

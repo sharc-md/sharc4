@@ -52,7 +52,7 @@ ANACONDA := ${CONDA_PREFIX}
 # path
 SHARC_SOURCE := $(shell pwd)
 SHARCDIR := $(shell cd ..; pwd)
-MKLROOT := ${ANACONDA}/lib
+#MKLROOT := ${ANACONDA}/lib
 
 
 # -------------------------------------- conditionals ---------------------------------------
@@ -93,18 +93,22 @@ endif
 ifeq ($(COMP_STATIC),true)
 ifeq ($(USE_LIBS), mkl)
 ifeq ($(USE_COMPILER), gnu)
-  LD=  -Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_gf_lp64.a ${MKLROOT}/lib/intel64/libmkl_sequential.a ${MKLROOT}/lib/intel64/libmkl_core.a -Wl,--end-group -lpthread -lm -ldl
+  #LD=  -Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_gf_lp64.a ${MKLROOT}/lib/intel64/libmkl_sequential.a ${MKLROOT}/lib/intel64/libmkl_core.a -Wl,--end-group -lpthread -lm -ldl
+  LD= -L$(MKLROOT) -lpthread -lm -ldl
 else ifeq ($(USE_COMPILER), intel)
 #  LD= -L$(MKLROOT)/lib/intel64 -lmkl_rt -lpthread -lm -lgfortran -static $(NETCDF_LIB)
-  LD=  -Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_intel_lp64.a ${MKLROOT}/lib/intel64/libmkl_sequential.a ${MKLROOT}/lib/intel64/libmkl_core.a -Wl,--end-group -lpthread -lm -ldl
+  #LD=  -Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_intel_lp64.a ${MKLROOT}/lib/intel64/libmkl_sequential.a ${MKLROOT}/lib/intel64/libmkl_core.a -Wl,--end-group -lpthread -lm -ldl
+   LD= -L$(MKLROOT) -lmkl_rt -lpthread -lm -lgfortran -static  $(NETCDF_LIB)
+#  LD= -L$(MKLROOT) -lmkl_rt -lpthread -lm -lgfortran $(NETCDF_LIB)
 endif
 else ifeq ($(USE_LIBS), gnu)
   LD= -llapack -lfftw3 -lblas -lgfortran  -static $(NETCDF_LIB)
 endif
 else 
 ifeq ($(USE_LIBS), mkl)
-  LD= -L$(MKLROOT) -lmkl_rt -lpthread -lm -lgfortran $(NETCDF_LIB)
+  #LD= -L$(MKLROOT)/lib/intel64 -lmkl_rt -lpthread -lm -lgfortran $(NETCDF_LIB)
 #   LD= -L$(MKLROOT)/lib/intel64 -lmkl_intel_lp64 -lmkl_core -lmkl_sequential -lpthread -lm -lgfortran $(NETCDF_LIB)
+  LD= -L$(MKLROOT) -lmkl_rt -lpthread -lm -lgfortran $(NETCDF_LIB)
 else ifeq ($(USE_LIBS), gnu)
   LD= -llapack -lfftw3 -lblas -lgfortran   $(NETCDF_LIB)
 endif
@@ -168,7 +172,10 @@ SHARC  =  misc.o \
 	  qm.o \
 	  electronic_laser.o \
 	  input.o \
-	  decoherence_afssh.o
+	  decoherence_afssh.o \
+          ziggurat.o \
+          restrictive_potential.o
+
 ifeq ($(USE_PYSHARC),true)
 SHARC += interface.o
 endif
@@ -187,7 +194,6 @@ LASER=  LASER_definitions.o \
 	LASER_calc_fftw.o \
 	LASER_input.o \
 	LASER_main.o 
-
 
 DIAGONALIZER = string.o \
 	      matrix.o \
@@ -253,7 +259,7 @@ sharcvars:
 	@echo 'export SHARCLIB=$(SHARCDIR)/lib' >> sharcvars.sh
 	@echo 'export ANACONDA=$(ANACONDA)' >> sharcvars.sh
 	@echo 'export PYTHONPATH=$$SHARCLIB:$$PYSHARC:$$PYTHONPATH' >> sharcvars.sh
-	@echo 'export LD_LIBRARY_PATH=$$SHARCLIB:$$ANACONDA/lib:$$LD_LIBRARY_PATH' >> sharcvars.sh
+	@echo 'export LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$$SHARCLIB:$$ANACONDA/lib' >> sharcvars.sh
 	@echo 'setenv SHARC=$(SHARCDIR)/bin' > sharcvars.csh
 	@echo 'setenv PYSHARC=$(SHARCDIR)/pysharc' >> sharcvars.csh
 	@echo 'setenv SHARCLIB=$(SHARCDIR)/lib' >> sharcvars.csh
@@ -265,7 +271,7 @@ sharcvars:
 	@echo 'export SHARC=$(SHARCDIR)/bin' > sharcvars.sh
 	@echo 'export SHARCLIB=$(SHARCDIR)/lib' >> sharcvars.sh
 	@echo 'export PYTHONPATH=$$SHARCLIB:$$PYTHONPATH' >> sharcvars.sh
-	@echo 'export LD_LIBRARY_PATH=$$SHARCLIB:$$LD_LIBRARY_PATH' >> sharcvars.sh
+	@echo 'export LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$$SHARCLIB:$$ANACONDA/lib' >> sharcvars.sh
 	@echo 'setenv SHARC=$(SHARCDIR)/bin' > sharcvars.csh
 	@echo 'setenv SHARCLIB=$(SHARCDIR)/lib' >> sharcvars.csh
 	@echo 'setenv PYTHONPATH=$$SHARCLIB:$$PYTHONPATH' >> sharcvars.csh
@@ -318,16 +324,17 @@ main.o: output.o qm.o restart.o misc.o electronic_laser.o input.o decoherence_af
 endif
 
 interface.o: electronic.o definitions.o definitions_NetCDF.o output.o qm.o restart.o misc.o electronic_laser.o input.o decoherence_afssh.o
-misc.o: definitions.o
+misc.o: definitions.o ziggurat.o
 output.o: $(TOOLS) build_info misc.o
-nuclear.o: $(TOOLS)
+nuclear.o: $(TOOLS) ziggurat.o
 electronic.o: nuclear.o $(TOOLS) decoherence_afssh.o
 electronic_laser.o: electronic.o $(TOOLS)
-input.o: $(TOOLS) output.o restart.o misc.o
-qm.o: $(TOOLS) electronic.o qm_out.o restart.o
+input.o: $(TOOLS) output.o restart.o misc.o restrictive_potential.o
+qm.o: $(TOOLS) electronic.o qm_out.o restart.o restrictive_potential.o
 qm_out.o: $(TOOLS)
 restart.o: $(TOOLS) misc.o decoherence_afssh.o
-decoherence_afssh.o: $(TOOLS) definitions.o 
+decoherence_afssh.o: $(TOOLS) definitions.o
+restrictive_potential.o: $(TOOLS) definitions.o
 
 LASER_input.o: LASER_definitions.o 
 LASER_calc_fftw.o: LASER_definitions.o

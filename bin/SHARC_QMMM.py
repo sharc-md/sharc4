@@ -27,13 +27,13 @@
 # external
 import datetime
 import numpy as np
-from copy import deepcopy
 
 # internal
 from SHARC_INTERFACE import INTERFACE
 from factory import factory
 from utils import *
 from constants import ATOMCHARGE, FROZENS
+from copy import deepcopy
 
 authors = 'Sebastian Mai and Severin Polonius'
 version = '3.0'
@@ -257,10 +257,15 @@ class QMMM(INTERFACE):
                 mms_QMin['savedir'] = mms_savedir    # overwrite savedir
                 self.mms_interface.read_template()
                 self.mms_interface.setup_run()
+            
+            self._qm_interface_QMin_backup = deepcopy(self.qm_interface._QMin)
         return
 
     def run(self):
         QMin = self._QMin
+
+        # reset qm_interface_ QMin
+        self.qm_interface._QMin = deepcopy(self._qm_interface_QMin_backup)
         # set coords
         qm_coords = np.array([QMin['coords'][self.qm_ids[i]].copy() for i in range(self._num_qm)])
         if len(self._linkatoms) > 0:
@@ -338,8 +343,11 @@ class QMMM(INTERFACE):
 
         # print(datetime.datetime.now())
         # print('#================ END ================#')
+        # s2 = time.perf_counter_ns()
+        # print('Timing: QMMM', (s2 - s1) * 1e-6, 'ms')
 
     def getQMout(self):
+        # s1 = time.perf_counter_ns()
         qm_QMout = self.qm_interface._QMout
         QMin = self._QMin
         QMout = self._QMout
@@ -354,9 +362,10 @@ class QMMM(INTERFACE):
             mm_e -= float(self.mms_interface._QMout['h'][0][0])
         # Hamiltonian
         if 'h' in qm_QMout:
-            QMout['h'] = deepcopy(qm_QMout['h'])
+            QMout['h'] = [[j for j in i] for i in qm_QMout['h']]
             for i in range(QMin['nmstates']):
                 QMout['h'][i][i] += mm_e
+        # print('     getQMout ene', (time.perf_counter_ns() - s1) * 1e-6, 'ms')
         # gen output
         if 'grad' in QMin:
             qm_grad = qm_QMout['grad']
@@ -369,9 +378,10 @@ class QMMM(INTERFACE):
                         add_to_xyz(qm_grad_i[atom], mms_grad[atom], fac=-1.)    # check if id is the same in both calcs
 
             grad = {}
+            # print('     getQMout grad1', (time.perf_counter_ns() - s1) * 1e-6, 'ms')
 
             for i, qm_grad_i in enumerate(qm_grad):
-                grad[i] = deepcopy(mm_grad)
+                grad[i] = [[x[0], x[1], x[2]] for x in mm_grad]
                 for n, qm_grad_in in enumerate(qm_grad_i):
                     if n < self._num_qm:    # pure qm atoms
                         add_to_xyz(grad[i][self.qm_ids[n]], qm_grad_in)
@@ -379,6 +389,7 @@ class QMMM(INTERFACE):
                         qm_id, mm_id = self._linkatoms[n - self._num_qm]
                         add_to_xyz(grad[i][mm_id], qm_grad_in, self._mm_s)
                         add_to_xyz(grad[i][qm_id], qm_grad_in, self._qm_s)
+            # print('     getQMout grad2', (time.perf_counter_ns() - s1) * 1e-6, 'ms')
 
             if 'pc_grad' in qm_QMout:    # apply pc grad
                 for i, grad_i in enumerate(qm_QMout['pc_grad']):
@@ -388,6 +399,7 @@ class QMMM(INTERFACE):
                         add_to_xyz(grad[i][mm_id], grad_in)
 
             self._QMout['grad'] = grad
+        # print('     getQMout pcgrad', (time.perf_counter_ns() - s1) * 1e-6, 'ms')
 
         if 'nacdr' in QMin:
             # nacs would have to inserted in the whole system matrix only for qm atoms
@@ -405,6 +417,7 @@ class QMMM(INTERFACE):
                         add_to_xyz(n[mm_id], s_j[n], self._mm_s)
                         add_to_xyz(n[qm_id], s_j[n], self._qm_s)
             QMout['nacdr'] = nacdr
+        # print('     getQMout nac', (time.perf_counter_ns() - s1) * 1e-6, 'ms')
 
         if 'dm' in QMin:
             QMout['dm'] = self.qm_interface._QMout['dm']

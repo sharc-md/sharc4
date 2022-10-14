@@ -128,6 +128,7 @@ Interfaces = {
                      'dyson': ['wfoverlap'],
                      'dipolegrad': [],
                      'phases': [],
+                     'nacdr': [],
                      'soc': []},
         'pysharc': False
         },
