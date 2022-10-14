@@ -37,9 +37,8 @@ from socket import gethostname
 # internal
 from SHARC_INTERFACE import INTERFACE
 from globals import DEBUG, PRINT
-import pprint
 from utils import *
-from constants import IToMult, rcm_to_Eh
+from constants import IToMult, au2a
 
 authors = 'Sebastian Mai, Lea Ibele, Moritz Heindl and Severin Polonius'
 version = '3.0'
@@ -387,29 +386,27 @@ class ORCA(INTERFACE):
         # split gradmap into smaller chunks
         Nmax_gradlist = 255
         gradmaps = [sorted(QMin['gradmap'])[i:i + Nmax_gradlist] for i in range(0, len(QMin['gradmap']), Nmax_gradlist)]
-
         # make multi-job input
         string = ''
         for ichunk, chunk in enumerate(gradmaps):
             if ichunk >= 1:
                 string += '\n\n$new_job\n\n%base "ORCA"\n\n'
-            QMin_copy = deepcopy(QMin)
-            QMin_copy['gradmap'] = chunk
-            string += ORCA.ORCAinput_string(QMin_copy)
+            string += ORCA.ORCAinput_string(QMin, chunk)
         if not gradmaps:
-            string += ORCA.ORCAinput_string(QMin)
+            string += ORCA.ORCAinput_string(QMin, QMin['gradmap'])
         return string
 
     @staticmethod
     def write_pccoord_file(pc):
         string = '%i\n' % len(pc)
         for atom in pc:
-            string += '%f %f %f %f\n' % (atom[3], atom[0], atom[1], atom[2])
+            # ORCA.pc file has to be in Angstrom units!
+            string += '%f %f %f %f\n' % (atom[3], atom[0] * au2a, atom[1] * au2a, atom[2] * au2a)
         return string
     # ======================================================================= #
 
     @staticmethod
-    def ORCAinput_string(QMin):
+    def ORCAinput_string(QMin, gradmap):
 
         # general setup
         job = QMin['IJOB']
@@ -426,8 +423,8 @@ class ORCA(INTERFACE):
 
         # do minimum number of states for gradient jobs
         if 'gradonly' in QMin:
-            gradmult = QMin['gradmap'][0][0]
-            gradstat = QMin['gradmap'][0][1]
+            gradmult = gradmap[0][0]
+            gradstat = gradmap[0][1]
             for imult in range(len(states_to_do)):
                 if imult + 1 == gradmult:
                     states_to_do[imult] = gradstat - (gradmult == gsmult)
@@ -443,17 +440,17 @@ class ORCA(INTERFACE):
 
         # gradients
         multigrad = False
-        if 'grad' in QMin and QMin['gradmap']:
+        if 'grad' in QMin and gradmap:
             dograd = True
             egrad = ()
-            for grad in QMin['gradmap']:
+            for grad in gradmap:
                 if not (gsmult, 1) == grad:
                     egrad = grad
             if QMin['OrcaVersion'] >= (4, 1):
                 multigrad = True
                 singgrad = []
                 tripgrad = []
-                for grad in QMin['gradmap']:
+                for grad in gradmap:
                     if grad[0] == gsmult:
                         singgrad.append(grad[1] - 1)
                     if grad[0] == 3 and restr:
@@ -630,9 +627,9 @@ class ORCA(INTERFACE):
                 44
             )
         self.generate_joblist()
-        if self._PRINT:
-            print('SCHEDULE:')
-            pprint.pprint(QMin['schedule'], depth=3)
+        # if self._PRINT:
+        #     print('SCHEDULE:')
+        #     pprint.pprint(QMin['schedule'], depth=3)
         errorcodes = self.runjobs(QMin['schedule'])
         errorcodes = self.run_wfoverlap(errorcodes)
         errorcodes = self.run_theodore(errorcodes)
@@ -1049,6 +1046,8 @@ class ORCA(INTERFACE):
         for iline, line in enumerate(data):
             if '# of contracted basis functions' in line:
                 infos['nbsuse'] = int(line.split()[-1])
+            elif 'Number of basis functions' in line:
+                infos['nbsuse'] = int(line.split()[-1])
             if 'Orbital ranges used for CIS calculation:' in line:
                 s = data[iline + 1].replace('.', ' ').split()
                 infos['NFC'] = int(s[3])
@@ -1061,6 +1060,14 @@ class ORCA(INTERFACE):
                     s = data[iline + 2].replace('.', ' ').split()
                     infos['NOB'] = int(s[4]) - int(s[3]) + 1
                     infos['NVB'] = int(s[7]) - int(s[6]) + 1
+            elif 'DFT components:' in line:
+                infos['NFC'] = 0
+                nele_a = int(float(data[iline + 1].split()[-2]))
+                nele_b = int(float(data[iline + 2].split()[-2]))
+                infos['NOA'] = int(nele_a / 2. + float(gsmult - 1) / 2.)
+                infos['NOB'] = int(nele_b / 2. - float(gsmult - 1) / 2.)
+                infos['NVA'] = infos['nbsuse'] - infos['NOA']
+                infos['NVB'] = infos['nbsuse'] - infos['NOB']
 
         if 'NOA' not in infos:
             nstates_onfile = 0
@@ -1071,24 +1078,11 @@ class ORCA(INTERFACE):
             infos['NVA'] = infos['nbsuse'] - infos['NOA']
             infos['NVB'] = infos['nbsuse'] - infos['NOB']
             infos['NFC'] = 0
-        else:
-            # get all info from cis file
+
+        if any(v != 0 for v in nstates_to_extract):
             CCfile = open(filename, 'rb')
             nvec = struct.unpack('i', CCfile.read(4))[0]
-            header = [struct.unpack('i', CCfile.read(4))[0] for i in range(8)]
-            if infos['NOA'] != header[1] - header[0] + 1:
-                raise Error(f'Number of orbitals in {filename} not consistent', 82)
-            if infos['NVA'] != header[3] - header[2] + 1:
-                raise Error(f'Number of orbitals in {filename} not consistent', 83)
-            if not restr:
-                if infos['NOB'] != header[5] - header[4] + 1:
-                    raise Error(f'Number of orbitals in {filename} not consistent', 84)
-                if infos['NVB'] != header[7] - header[6] + 1:
-                    raise Error(f'Number of orbitals in {filename} not consistent', 85)
-            if QMin['template']['no_tda']:
-                nstates_onfile = nvec // 2
-            else:
-                nstates_onfile = nvec
+            header = [struct.unpack('i', CCfile.read(4))[0] for _ in range(8)]
 
         # get ground state configuration
         # make step vectors (0:empty, 1:alpha, 2:beta, 3:docc)

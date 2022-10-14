@@ -33,7 +33,6 @@
 # external
 import sys
 import datetime
-import time
 import numpy as np
 
 # internal
@@ -58,7 +57,7 @@ class LVC(INTERFACE):
     _authors = authors
     _changelogstring = changelogstring
     _read_resources = True
-    _do_kabsch = True
+    # _do_kabsch = True
     _diagonalize = True
     _step = 0
 
@@ -347,12 +346,13 @@ class LVC(INTERFACE):
         states = self._QMin['states']
         r3N = 3 * self._QMin['natom']
         coords: np.ndarray = self._QMin['coords'].copy()
-        if self._do_kabsch:
+        coords_ref_basis = coords
+        # kabsch is only necessary with point charges
+        if do_pc:
             weights = [MASSES[i] for i in self._QMin['elements']]
             self._Trot, self._com_ref, self._com_coords = kabsch(self._ref_coords, coords, weights)
             self._fits_rot = {im: self.rotate_multipoles(fits, self._Trot) for im, fits in self._fits.items()}
             coords_ref_basis = (coords - self._com_coords) @ self._Trot.T + self._com_ref
-        if do_pc:
             pc = np.array(self.QMin['point_charges'])    # pc: list[list[float]] = each pc is x, y, z, q
             pc_coord = pc[:, :3]    # n_pc, 3
             self.pc_chrg = pc[:, 3].reshape((-1, 1))    # n_pc, 1
@@ -361,7 +361,6 @@ class LVC(INTERFACE):
             mult_prefactors = self.get_mult_prefactors(pc_coord_diff)
             mult_prefactors_pc = np.einsum('b,yab->yab', self.pc_chrg.flat, mult_prefactors)
             del mult_prefactors
-        # print("         LVC prep: ", (time.perf_counter_ns() - s1_time) * 1e-6)
         # Build full H and diagonalize
         self._Q = np.sqrt(self._Om) * (self._Km @ (coords_ref_basis.flatten() - self._ref_coords.flatten()))
         self._V = self._Om * self._Q
@@ -393,7 +392,6 @@ class LVC(INTERFACE):
                     Hd[s1:s2, s1:s2] = H
 
             start = stop
-        # print("         LVC ene: ", (time.perf_counter_ns() - s1_time) * 1e-6)
         grad = np.zeros((nmstates, r3N))
 
         if do_pc:
@@ -412,30 +410,29 @@ class LVC(INTERFACE):
 
             mult_prefactors_deriv_pc = np.einsum('xyab,b->xyab', mult_prefactors_deriv, self.pc_chrg.flat)
             del mult_prefactors_deriv
-        # print("         LVC dm+df: ", (time.perf_counter_ns() - s1_time) * 1e-6)
 
         # numerically calculate the derivatives of the coordinates in the reference system with respect ot the sharc coords
-        shift = 0.0005
-        multiplier = 1 / (2 * shift)
-        weights = [MASSES[i] for i in self._QMin['elements']]
+            shift = 0.0005
+            multiplier = 1 / (2 * shift)
+            weights = [MASSES[i] for i in self._QMin['elements']]
 
-        coords_deriv = np.zeros((r3N, r3N))
-        for a in range(self._QMin['natom']):
-            for x in range(3):
-                for f, m in [(1, multiplier), (-1, -multiplier)]:
-                    c = np.copy(coords)
-                    c[a, x] += f * shift
-                    Trot, com_ref, com_c = kabsch(self._ref_coords, c, weights)
-                    c_rot = (c - com_c) @ Trot.T + com_ref
-                    coords_deriv[..., a * (self._QMin['natom'] - 1) + x] += (m * c_rot).flat
-                    if do_pc:
-                        for im, n in filter(lambda x: x[1] != 0, enumerate(states)):
-                            fits_rot = self.rotate_multipoles(self._fits[im], Trot)
-                            fits_deriv[im][..., a, x] += m * fits_rot[..., 1:]
+            coords_deriv = np.zeros((r3N, r3N))
+            for a in range(self._QMin['natom']):
+                for x in range(3):
+                    for f, m in [(1, multiplier), (-1, -multiplier)]:
+                        c = np.copy(coords)
+                        c[a, x] += f * shift
+                        Trot, com_ref, com_c = kabsch(self._ref_coords, c, weights)
+                        c_rot = (c - com_c) @ Trot.T + com_ref
+                        coords_deriv[..., a * (self._QMin['natom'] - 1) + x] += (m * c_rot).flat
+                        if do_pc:
+                            for im, n in filter(lambda x: x[1] != 0, enumerate(states)):
+                                fits_rot = self.rotate_multipoles(self._fits[im], Trot)
+                                fits_deriv[im][..., a, x] += m * fits_rot[..., 1:]
 
-        # print("         LVC dc: ", (time.perf_counter_ns() - s1_time) * 1e-6)
-        # calculate the derivative of the normal mode coords
-        dQ_dr = np.sqrt(self._Om)[..., None] * (self._Km @ coords_deriv)
+            dQ_dr = np.sqrt(self._Om)[..., None] * (self._Km @ coords_deriv)
+        else:
+            dQ_dr = np.sqrt(self._Om)[..., None] * self._Km
 
         # GRADS and NACS
         if 'nacdr' in self._QMin:
@@ -506,12 +503,14 @@ class LVC(INTERFACE):
                 grad_lvc = np.full((n, r3N), self._V[None, ...])
                 if self._diagonalize:
                     grad_lvc += np.einsum('ijk,in,jn->nk', self._H_i[im], u, u, casting='no', optimize=True)
-                    fits_r = np.einsum('ijay,in,jn->nay', self._fits_rot[im], u, u, casting='no', optimize=True)
-                    dfits = np.einsum('ijaymx,in,jn->naymx', fits_deriv[im], u, u, casting='no', optimize=True)
+                    if do_pc:
+                        fits_r = np.einsum('ijay,in,jn->nay', self._fits_rot[im], u, u, casting='no', optimize=True)
+                        dfits = np.einsum('ijaymx,in,jn->naymx', fits_deriv[im], u, u, casting='no', optimize=True)
                 else:
                     grad_lvc += np.einsum('iik->ik', self._H_i[im])
-                    fits_r = np.einsum('iiay->iay', self._fits_rot[im])
-                    dfits = np.einsum('iiaymx->iaymx', fits_deriv[im])
+                    if do_pc:
+                        fits_r = np.einsum('iiay->iay', self._fits_rot[im])
+                        dfits = np.einsum('iiaymx->iaymx', fits_deriv[im])
                 grad_lvc = grad_lvc @ dQ_dr
                 if do_pc:
                     # calculate derivative of electrostic interaction
@@ -533,7 +532,6 @@ class LVC(INTERFACE):
                     if do_pc:
                         self.pc_grad[s1:s2, ...] = self.pc_grad[start:stop, ...]
                 start = stop
-        # print("         LVC grad: ", (time.perf_counter_ns() - s1_time) * 1e-6)
 
         if 'overlap' in self._QMin:
             if 'init' in self._QMin:
@@ -558,32 +556,21 @@ class LVC(INTERFACE):
         # OVERLAP
         Hd += self._U.T @ self._soc @ self._U
         self._QMout['h'] = Hd.tolist()
-        if self._do_kabsch:
+        if do_pc:
             self._QMin['coords'] = self._QMin['coords']
             dipole = np.einsum('ni,kij,jm->knm', self._U.T, self._dipole, self._U, casting='no', optimize='optimal')
             self._QMout['dm'] = (np.einsum('inm,ij->jnm', dipole, self._Trot)).tolist()
-            grad = grad.reshape((nmstates, self._QMin['natom'], 3))
-            # self._QMout['grad'] = (np.einsum('mni,ij-> mnj', grad, self._Trot)).tolist()
-            self._QMout['grad'] = grad.tolist()
-            if 'nacdr' in self._QMin:
-                nacdr = nacdr.reshape((nmstates, nmstates, self._QMin['natom'], 3))
-                self._QMout['nacdr'] = nacdr.tolist()
-            if do_pc:
-                self._QMout['pc_grad'] = self.pc_grad.tolist()
+            self._QMout['pc_grad'] = self.pc_grad.tolist()
         else:
             self._QMout['dm'] = np.einsum(
                 'ni,kij,jm->knm', self._U.T, self._dipole, self._U, casting='no', optimize='optimal'
             ).tolist()
-            self._QMout['grad'] = grad.reshape((nmstates, self._QMin['natom'], 3)).tolist()
-            if 'nacdr' in self._QMin:
-                self._QMout['nacdr'] = nacdr.reshape((nmstates, nmstates, self._QMin['natom'], 3)).tolist()
-            if do_pc:
-                self._QMout['pc_grad'] = self.pc_grad.tolist()
 
-        # self._QMout['runtime'] = self.clock.measuretime()
+        self._QMout['grad'] = grad.reshape((nmstates, self._QMin['natom'], 3)).tolist()
+        if 'nacdr' in self._QMin:
+            self._QMout['nacdr'] = nacdr.reshape((nmstates, nmstates, self._QMin['natom'], 3)).tolist()
+
         self._step += 1
-        # s2_time = time.perf_counter_ns()
-        # print('Timing: LVC', (s2_time - s1_time) * 1e-6, 'ms')
         return
 
     def create_restart_files(self):

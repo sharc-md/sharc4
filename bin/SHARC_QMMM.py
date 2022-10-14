@@ -26,7 +26,6 @@
 # IMPORTS
 # external
 import datetime
-import time
 import numpy as np
 
 # internal
@@ -34,6 +33,7 @@ from SHARC_INTERFACE import INTERFACE
 from factory import factory
 from utils import *
 from constants import ATOMCHARGE, FROZENS
+from copy import deepcopy
 
 authors = 'Sebastian Mai and Severin Polonius'
 version = '3.0'
@@ -257,11 +257,15 @@ class QMMM(INTERFACE):
                 mms_QMin['savedir'] = mms_savedir    # overwrite savedir
                 self.mms_interface.read_template()
                 self.mms_interface.setup_run()
+            
+            self._qm_interface_QMin_backup = deepcopy(self.qm_interface._QMin)
         return
 
     def run(self):
-        # s1 = time.perf_counter_ns()
         QMin = self._QMin
+
+        # reset qm_interface_ QMin
+        self.qm_interface._QMin = deepcopy(self._qm_interface_QMin_backup)
         # set coords
         qm_coords = np.array([QMin['coords'][self.qm_ids[i]].copy() for i in range(self._num_qm)])
         if len(self._linkatoms) > 0:
