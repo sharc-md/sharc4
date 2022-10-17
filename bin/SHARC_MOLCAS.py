@@ -3554,7 +3554,6 @@ def runjobs(joblist, QMin):
         print('')
     for i in errorcodes:
         errorcodes[i] = errorcodes[i].get()
-    errorcodes['master'] = 0
 
     if PRINT:
         string = '  ' + '=' * 40 + '\n'
