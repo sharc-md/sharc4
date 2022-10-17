@@ -899,7 +899,7 @@ def makermatrix(a, b):
 
 # ======================================================================= #
 def getversion(out, MOLCAS):
-    allowedrange = [(18.0, 21.999), (8.29999, 8.30001)]
+    allowedrange = [(18.0, 22.999), (8.29999, 8.30001)]
     # first try to find $MOLCAS/.molcasversion
     molcasversion = os.path.join(MOLCAS, '.molcasversion')
     if os.path.isfile(molcasversion):
@@ -1592,7 +1592,9 @@ def getQMout(out, QMin):
             # get mo_coeff for mult
             for j, j1 in enumerate(QMin['statemap']):
                 mult2, state2, ms2 = tuple(QMin['statemap'][j1])
-                if i >= j and mult1 == mult2 and ms1 == ms2 and ms1 == float((mult1-1)/2):
+                #TODO: only fit one multiplet component and insert into all component blocks
+                #if i >= j and mult1 == mult2 and ms1 == ms2 and ms1 == float((mult1-1)/2):
+                if i >= j and mult1 == mult2 and ms1 == ms2:
                     print(f' i would print something here: {i+1,j+1}')
                     density_mo = getdensity(QMin, mult1, state1, state2)
                     # transform to AO
@@ -2225,7 +2227,7 @@ def readQMin(QMinfilename):
             print('HINT: Not producing Molden files in "samestep" mode!')
             del QMin['molden']
             if 'multipolar_fit' in QMin:
-                print('Samestep and multipolar_fit are currently imcompatible!')
+                print('Samestep and multipolar_fit are currently incompatible!')
                 sys.exit(46)
 
     # if 'ion' in QMin:
@@ -3536,7 +3538,7 @@ def runjobs(joblist, QMin):
             QMin1 = jobset[job]
             WORKDIR = os.path.join(QMin['scratchdir'], job)
 
-            errorcodes[job] = pool.apply_async(run_calc, [WORKDIR, QMin1])
+            # errorcodes[job] = pool.apply_async(run_calc, [WORKDIR, QMin1])
             #errorcodes[job]=run_calc(WORKDIR,QMin1)
             time.sleep(QMin['delay'])
         pool.close()
@@ -3547,9 +3549,9 @@ def runjobs(joblist, QMin):
             saveJobIphs(WORKDIR, jobset['master'])
 
         print('')
-
     for i in errorcodes:
         errorcodes[i] = errorcodes[i].get()
+    errorcodes['master'] = 0
 
     if PRINT:
         string = '  ' + '=' * 40 + '\n'
