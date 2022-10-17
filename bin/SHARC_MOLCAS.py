@@ -1564,6 +1564,7 @@ def getQMout(out, QMin):
         QMout['overlap'] = nac
     # densities
     if 'multipolar_fit' in QMin:
+        print("Starting multipolar fit procedure")
         densities = [[[[0. for i in range(10)] for j in range(natom)] for k in range(nmstates)] for l in range(nmstates)]
         #from resp import Resp
         coords = np.array([atom[1:] for atom in QMin['geo']], dtype=float)
@@ -1572,6 +1573,7 @@ def getQMout(out, QMin):
         first_state = QMin['statemap'][QMin['states'][0]]
         first_mult, _, _ = tuple(first_state)
         molden_file = os.path.join(QMin['scratchdir'],'master', 'MOLCAS.%i.molden' % (first_mult))
+        print("Loading basis set information, building Mol object and calculating integrals")
         mol, _, mo_coeff, _, _, _ = tools.molden.load(molden_file)
         mol.build()
         Z = mol.atom_charges()
@@ -1580,10 +1582,11 @@ def getQMout(out, QMin):
         # NOTE This could be very big (fakemol could be broken up into multiple pieces)
         # NOTE the value of these integrals is not affected by the atom charge
         fit.ints = df.incore.aux_e2(mol, fakemol)
-
+        print("Set up done. Starting loop over multiplicities")
         old_mult = first_mult
         for i, i1 in enumerate(QMin['statemap'].values()):
             mult1, state1, ms1 = tuple(i1)
+            print("Starting fits for mult", mult1, "and state", state1)
             if mult1 != old_mult:
                 molden_file = os.path.join(QMin['scratchdir'],'master', 'MOLCAS.%i.molden' % (mult1))
                 _, _, mo_coeff, _, _, _ = tools.molden.load(molden_file)
@@ -1595,7 +1598,7 @@ def getQMout(out, QMin):
                 #TODO: only fit one multiplet component and insert into all component blocks
                 #if i >= j and mult1 == mult2 and ms1 == ms2 and ms1 == float((mult1-1)/2):
                 if i >= j and mult1 == mult2 and ms1 == ms2:
-                    print(f' i would print something here: {i+1,j+1}')
+                    print(f' getting and fitting density for states: {i+1,j+1}')
                     density_mo = getdensity(QMin, mult1, state1, state2)
                     # transform to AO
                     mo_coeff_block = mo_coeff[:, :density_mo.shape[1]]
@@ -3538,7 +3541,7 @@ def runjobs(joblist, QMin):
             QMin1 = jobset[job]
             WORKDIR = os.path.join(QMin['scratchdir'], job)
 
-            # errorcodes[job] = pool.apply_async(run_calc, [WORKDIR, QMin1])
+            errorcodes[job] = pool.apply_async(run_calc, [WORKDIR, QMin1])
             #errorcodes[job]=run_calc(WORKDIR,QMin1)
             time.sleep(QMin['delay'])
         pool.close()
