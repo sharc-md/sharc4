@@ -1381,12 +1381,12 @@ class ORCA(INTERFACE):
         if 'grad' in QMin:
             if 'grad' not in QMout:
                 QMout['grad'] = [[[0. for i in range(3)] for j in range(natom)] for k in range(nmstates)]
-            # if QMin['qmmm'] and 'pcgrad' not in QMout:
-            if 'point_charges' in QMin and 'pcgrad' not in QMout:
-                QMout['pcgrad'] = [[[0. for i in range(3)] for j in QMin['point_charges']] for k in range(nmstates)]
+            # if QMin['qmmm'] and 'pc_grad' not in QMout:
+            if 'point_charges' in QMin and 'pc_grad' not in QMout:
+                QMout['pc_grad'] = [[[0. for i in range(3)] for j in QMin['point_charges']] for k in range(nmstates)]
             if QMin['template']['cobramm']:
                 ncharges = len(readfile("charge.dat")) - 1
-                QMout['pcgrad'] = [[[0. for i in range(3)] for j in range(ncharges)] for k in range(nmstates)]
+                QMout['pc_grad'] = [[[0. for i in range(3)] for j in range(ncharges)] for k in range(nmstates)]
             for grad in QMin['gradmap']:
                 path, isgs = QMin['jobgrad'][grad]
                 gsmult = QMin['jobs'][int(path.split('_')[1])]['mults'][0]
@@ -1410,16 +1410,16 @@ class ORCA(INTERFACE):
                         QMout['grad'][istate - 1] = g
                         # if QMin['qmmm']:
                         if 'point_charges' in QMin:
-                            QMout['pcgrad'][istate - 1] = gpc
-                if QMin['template']['cobramm']:
-                    logfile = os.path.join(QMin['scratchdir'], path, 'ORCA.pcgrad' + fname)
-                    gpc = ORCA.getpcgrad(logfile)
-                for istate in QMin['statemap']:
-                    state = QMin['statemap'][istate]
-                    if (state[0], state[1]) == grad:
-                        QMout['grad'][istate - 1] = g
-                        if QMin['template']['cobramm']:
-                            QMout['pcgrad'][istate - 1] = gpc
+                            QMout['pc_grad'][istate - 1] = gpc
+                # if QMin['template']['cobramm']:
+                #     logfile = os.path.join(QMin['scratchdir'], path, 'ORCA.pcgrad' + fname)
+                #     gpc = ORCA.getpcgrad(logfile)
+                # for istate in QMin['statemap']:
+                #     state = QMin['statemap'][istate]
+                #     if (state[0], state[1]) == grad:
+                #         QMout['grad'][istate - 1] = g
+                #         if QMin['template']['cobramm']:
+                #             QMout['pcgrad'][istate - 1] = gpc
             if QMin['neglected_gradient'] != 'zero':
                 for i in range(nmstates):
                     m1, s1, ms1 = tuple(QMin['statemap'][i + 1])
@@ -1440,7 +1440,7 @@ class ORCA(INTERFACE):
                                     j = k
                         QMout['grad'][i] = QMout['grad'][j]
                         if 'point_charges' in QMin:
-                            QMout['pcgrad'][i] = QMout['pcgrad'][j]
+                            QMout['pc_grad'][i] = QMout['pc_grad'][j]
 
         # Regular Overlaps
         if 'overlap' in QMin:

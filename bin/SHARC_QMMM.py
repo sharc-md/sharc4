@@ -397,6 +397,8 @@ class QMMM(INTERFACE):
                     # -> get all residual mm ids in order for correct order in pcgrad
                     for grad_in, mm_id in zip(grad_i, filter(lambda i: i not in self.mm_links, self.mm_ids)):
                         add_to_xyz(grad[i][mm_id], grad_in)
+            else:
+                print("Warning: No 'pc_grad' in QMout of QM interface!")
 
             self._QMout['grad'] = grad
         # print('     getQMout pcgrad', (time.perf_counter_ns() - s1) * 1e-6, 'ms')
