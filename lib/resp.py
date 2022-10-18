@@ -163,7 +163,7 @@ class Resp:
         
         # make traceless (Source: Sebastian)
         traces = np.sum(res[:, 4:7], axis=1)
-        res[:, 4:7] -= 1 / 3 * traces[None, ...]
+        res[:, 4:7] -= 1 / 3 * traces[..., None]
         
         return res
 
