@@ -1598,7 +1598,7 @@ def getQMout(out, QMin):
                 #TODO: only fit one multiplet component and insert into all component blocks
                 #if i >= j and mult1 == mult2 and ms1 == ms2 and ms1 == float((mult1-1)/2):
                 if i >= j and mult1 == mult2 and ms1 == ms2:
-                    print(f' getting and fitting density for states: {i+1,j+1}')
+                    print(f' getting and fitting density for states: {i+1,j+1} ({mult1}, {state1}, {ms1}, {mult2}, {state2}, {ms2})')
                     density_mo = getdensity(QMin, mult1, state1, state2)
                     # transform to AO
                     mo_coeff_block = mo_coeff[:, :density_mo.shape[1]]
