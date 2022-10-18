@@ -391,7 +391,7 @@ class LVC(INTERFACE):
                 else:
                     Hd[s1:s2, s1:s2] = H
 
-            start = stop
+            start += n * (im + 1)
         grad = np.zeros((nmstates, r3N))
 
         if do_pc:
@@ -491,7 +491,7 @@ class LVC(INTERFACE):
                     grad[s1:s2, ...] = grad[start:stop, ...]
                     if do_pc:
                         self.pc_grad[s1:s2, ...] = self.pc_grad[start:stop, ...]
-                start = stop
+                start += n * (im + 1)
 
         # calculate only gradients
         else:
@@ -531,7 +531,7 @@ class LVC(INTERFACE):
                     grad[s1:s2, ...] = grad_lvc
                     if do_pc:
                         self.pc_grad[s1:s2, ...] = self.pc_grad[start:stop, ...]
-                start = stop
+                start += n * (im + 1)
 
         if 'overlap' in self._QMin:
             if 'init' in self._QMin:
