@@ -599,6 +599,7 @@ class LVC(INTERFACE):
         self.set_coords(os.path.join(pwd, QMinfilename))
         self.read_requests(os.path.join(pwd, QMinfilename))
         self.run()
+        self._QMout['runtime'] = self.clock.measuretime()
         self.write_step_file()
         # if PRINT or DEBUG:
         #     self.printQMout()
