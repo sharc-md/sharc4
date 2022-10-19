@@ -244,8 +244,8 @@ def main():
     derived_int._QMin['Atomcharge'] = sum(map(lambda x: ATOMCHARGE[x], derived_int._QMin['elements']))
     derived_int._QMin['frozcore'] = sum(map(lambda x: FROZENS[x], derived_int._QMin['elements']))
     derived_int._setup_mol = True
-    derived_int.read_template()
     derived_int.read_resources()
+    derived_int.read_template()
     derived_int._step_logic()
     derived_int.setup_run()
     if IRestart == 0:

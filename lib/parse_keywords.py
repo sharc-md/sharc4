@@ -48,7 +48,7 @@ Date: 20.07.2021
         except (ValueError, IndexError):
             raise Error('Keyword "charge" only accepts integers (i.e charge -1)')
         if len(res) == 1:
-            charge = int(float(alist[1]))
+            charge = int(float(alist[0]))
             if (self.atomcharge + charge) % 2 == 1 and self.nmult > 1:
                 print('HINT: Charge shifted by -1 to be compatible with multiplicities.')
                 charge -= 1
