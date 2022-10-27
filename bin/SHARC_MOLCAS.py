@@ -2928,7 +2928,10 @@ def writeMOLCASinput(tasks, QMin):
         elif task[0] == 'seward':
             string += '&SEWARD\n'
             if not QMin['template']['no-douglas-kroll']:
-                string += 'R02O\nRELINT\nEXPERT\n'
+                if QMin['version'] >= 22.06:
+                    string += 'R02O02\nRELINT\nEXPERT\n'
+                else:
+                    string += 'R02O\nRELINT\nEXPERT\n'
             # if 'soc' in QMin and QMin['version']<=8.0:
                 # string+='AMFI\n'
             # if 'soc' in QMin:
