@@ -1666,7 +1666,7 @@ class GAUSSIAN(INTERFACE):
                             densities[density_map[key]], include_core_charges=False, order=QMin['resp_tdm_fit_order']
                         )
                     else:
-                        ijob = QMin['multmap'][dens[0]]    # the multiplicity is the same -> ijob same
+                        ijob = QMin['multmap'][d_i[0]]    # the multiplicity is the same -> ijob same
                         gsmult = QMin['multmap'][-ijob][0]
                         dmI = densities[density_map[(gsmult, 1, *d_i)]]
                         dmJ = densities[density_map[(gsmult, 1, *d_j)]]

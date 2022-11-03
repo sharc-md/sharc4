@@ -181,6 +181,7 @@ class Resp:
         while np.linalg.norm(Q1 - Q2) >= 0.00001:
             Q1 = Q2.copy()
             rest = vget_rest(Q1)
+            rest[-1] = 0.
             B_rest = B
             A_rest = A + np.diag(rest)
             Q2 = np.linalg.solve(A_rest, B_rest)
