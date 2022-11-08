@@ -58,7 +58,7 @@ class LVC(INTERFACE):
     _authors = authors
     _changelogstring = changelogstring
     _read_resources = True
-    # _do_kabsch = True
+    _do_kabsch = False
     _diagonalize = True
     _step = 0
 
@@ -340,6 +340,10 @@ class LVC(INTERFACE):
     def run(self):
         # s1_time = time.perf_counter_ns()
         do_pc = 'point_charges' in self._QMin
+        weights = [MASSES[i] for i in self._QMin['elements']]
+
+        # conditionally turn on kabsch as flag (do_pc for additional logic)
+        do_kabsch = True if do_pc else self._do_kabsch
         self.clock.starttime = datetime.datetime.now()
         nmstates = self._QMin['nmstates']
         self._U = np.zeros((nmstates, nmstates), dtype=float)
@@ -348,12 +352,26 @@ class LVC(INTERFACE):
         r3N = 3 * self._QMin['natom']
         coords: np.ndarray = self._QMin['coords'].copy()
         coords_ref_basis = coords
-        # kabsch is only necessary with point charges
-        if do_pc:
-            weights = [MASSES[i] for i in self._QMin['elements']]
+        if do_kabsch:
             self._Trot, self._com_ref, self._com_coords = kabsch(self._ref_coords, coords, weights)
-            self._fits_rot = {im: self.rotate_multipoles(fits, self._Trot) for im, fits in self._fits.items()}
             coords_ref_basis = (coords - self._com_coords) @ self._Trot.T + self._com_ref
+        # sanity check for coordinates - check if centre of mass is conserved
+        elif self._QMin['step'] == 0:
+            self._Trot, self._com_ref, self._com_coords = kabsch(self._ref_coords, coords, weights)
+            if not np.allclose(self._com_ref, self._com_coords, rtol=1e-3) or \
+               not np.allclose(np.diag(self._Trot), np.ones(3, dtype=float), rtol=1e-5):
+                print(coords, file=sys.stderr)
+                print(self._Trot, file=sys.stderr)
+                print(self._com_ref, self._com_coords, file=sys.stderr)
+                print(np.allclose(self._com_ref, self._com_coords, rtol=1e-3), np.allclose(np.diag(self._Trot), np.ones(3, dtype=float), rtol=1e-5), file=sys.stderr)
+                raise Error('Misaligned geometry without activated Kabsch algorithm! -> check you input structure or activate Kabsch', 39)
+
+        # kabsch is necessary with point charges
+        if do_pc:
+            # weights = [MASSES[i] for i in self._QMin['elements']]
+            # self._Trot, self._com_ref, self._com_coords = kabsch(self._ref_coords, coords, weights)
+            self._fits_rot = {im: self.rotate_multipoles(fits, self._Trot) for im, fits in self._fits.items()}
+            # coords_ref_basis = (coords - self._com_coords) @ self._Trot.T + self._com_ref
             pc = np.array(self.QMin['point_charges'])    # pc: list[list[float]] = each pc is x, y, z, q
             pc_coord = pc[:, :3]    # n_pc, 3
             self.pc_chrg = pc[:, 3].reshape((-1, 1))    # n_pc, 1
@@ -395,27 +413,23 @@ class LVC(INTERFACE):
             start += n * (im + 1)
         grad = np.zeros((nmstates, r3N))
 
-        if do_pc:
-            self.pc_grad = np.zeros((nmstates, self.pc_chrg.shape[0], 3))
+        if do_kabsch:
+            if do_pc:
+                self.pc_grad = np.zeros((nmstates, self.pc_chrg.shape[0], 3))
 
-            mult_prefactors_deriv = self.get_mult_prefactors_deriv(pc_coord_diff)
+                mult_prefactors_deriv = self.get_mult_prefactors_deriv(pc_coord_diff)
 
-            shift = 0.0005
-            multiplier = 1 / (2 * shift)
-            weights = [MASSES[i] for i in self._QMin['elements']]
+                fits_deriv = {
+                    im: np.zeros((n, n, self._QMin['natom'], 9, self._QMin['natom'], 3))
+                    for im, n in filter(lambda x: x[1] != 0, enumerate(states))
+                }
 
-            fits_deriv = {
-                im: np.zeros((n, n, self._QMin['natom'], 9, self._QMin['natom'], 3))
-                for im, n in filter(lambda x: x[1] != 0, enumerate(states))
-            }
-
-            mult_prefactors_deriv_pc = np.einsum('xyab,b->xyab', mult_prefactors_deriv, self.pc_chrg.flat)
-            del mult_prefactors_deriv
+                mult_prefactors_deriv_pc = np.einsum('xyab,b->xyab', mult_prefactors_deriv, self.pc_chrg.flat)
+                del mult_prefactors_deriv
 
         # numerically calculate the derivatives of the coordinates in the reference system with respect ot the sharc coords
             shift = 0.0005
             multiplier = 1 / (2 * shift)
-            weights = [MASSES[i] for i in self._QMin['elements']]
 
             coords_deriv = np.zeros((r3N, r3N))
             for a in range(self._QMin['natom']):
@@ -432,6 +446,7 @@ class LVC(INTERFACE):
                                 fits_deriv[im][..., a, x] += m * fits_rot[..., 1:]
 
             dQ_dr = np.sqrt(self._Om)[..., None] * (self._Km @ coords_deriv)
+            del coords_deriv
         else:
             dQ_dr = np.sqrt(self._Om)[..., None] * self._Km
 
@@ -557,15 +572,17 @@ class LVC(INTERFACE):
         # OVERLAP
         Hd += self._U.T @ self._soc @ self._U
         self._QMout['h'] = Hd.tolist()
+        dipole = np.einsum('ni,kij,jm->knm', self._U.T, self._dipole, self._U, casting='no', optimize='optimal')
+        if do_kabsch:
+            self._QMin['coords'] = self._QMin['coords']
+            self._QMout['dm'] = (np.einsum('inm,ij->jnm', dipole, self._Trot)).tolist()
+
         if do_pc:
             self._QMin['coords'] = self._QMin['coords']
-            dipole = np.einsum('ni,kij,jm->knm', self._U.T, self._dipole, self._U, casting='no', optimize='optimal')
             self._QMout['dm'] = (np.einsum('inm,ij->jnm', dipole, self._Trot)).tolist()
             self._QMout['pc_grad'] = self.pc_grad.tolist()
         else:
-            self._QMout['dm'] = np.einsum(
-                'ni,kij,jm->knm', self._U.T, self._dipole, self._U, casting='no', optimize='optimal'
-            ).tolist()
+            self._QMout['dm'] = dipole.tolist()
 
         self._QMout['grad'] = grad.reshape((nmstates, self._QMin['natom'], 3)).tolist()
         if 'nacdr' in self._QMin:
