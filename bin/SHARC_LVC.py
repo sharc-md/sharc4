@@ -31,13 +31,14 @@
 
 # IMPORTS
 # external
+import os
 import sys
 import datetime
 import numpy as np
 
 # internal
 from SHARC_INTERFACE import INTERFACE
-from utils import *
+from utils import readfile, mkdir, Error
 from constants import U_TO_AMU, MASSES
 from kabsch import kabsch_w as kabsch
 
