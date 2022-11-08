@@ -207,7 +207,15 @@ class LVC(INTERFACE):
         return
 
     def read_resources(self, resources_filename="LVC.resources"):
-        pass
+        if not os.path.isfile(resources_filename):
+            print("Warning!: LVC.resources not found; continuuing without further settings.")
+            return
+        lines = readfile(resources_filename)
+        bools = {'do_kabsch': False}
+        integers = {'ncpu': 1}
+        resources = {**bools, **integers, **self.parse_keywords(lines, bools=bools, integers=integers)}
+        self._QMin['ncpu'], self._do_kabsch = map(resources.get, ['ncpu', 'do_kabsch'])
+
 
     def setup_run(self):
         pass
