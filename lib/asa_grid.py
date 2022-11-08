@@ -113,7 +113,7 @@ def markus_deserno(n):
     return np.array(points)
 
 
-def shrake_rupley(xyz: np.ndarray, atom_radii: np.ndarray, out_points: np.ndarray, n_points=0, grid=lebedev_grid) -> np.ndarray:
+def shrake_rupley(xyz: np.ndarray, atom_radii: np.ndarray, out_points: np.ndarray, density=1, n_points=0, grid=lebedev_grid) -> np.ndarray:
     # prepare variables
     n_atoms = int(xyz.shape[0])
     neighbor_indices = np.zeros((n_atoms), dtype=float)
@@ -127,7 +127,7 @@ def shrake_rupley(xyz: np.ndarray, atom_radii: np.ndarray, out_points: np.ndarra
     for i in range(n_atoms):
         rad_i = atom_radii[i]
         # centered_sphere_points = surface(int(4.0 * np.pi * atom_radii[i]**2))
-        centered_sphere_points = grid(int(4.0 * np.pi * atom_radii[i]**2))
+        centered_sphere_points = grid(int(4.0 * np.pi * atom_radii[i]**2 * density))
         r_i = xyz[i, :]
 
         n_neighbor_indices = 0
@@ -201,5 +201,5 @@ def mk_layers(xyz: np.ndarray, atom_radii: list[float], density=1, shells=[1.4, 
     # potentially parallelizable! every layer is one process
     n_points = 0
     for y in shells:
-        n_points = shrake_rupley(xyz, y * atom_radii, mk_layers_points, n_points, grid)
+        n_points = shrake_rupley(xyz, y * atom_radii, mk_layers_points, density=density, n_points=n_points, grid=grid)
     return mk_layers_points[:n_points, :]
