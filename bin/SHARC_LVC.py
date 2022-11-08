@@ -360,10 +360,6 @@ class LVC(INTERFACE):
             self._Trot, self._com_ref, self._com_coords = kabsch(self._ref_coords, coords, weights)
             if not np.allclose(self._com_ref, self._com_coords, rtol=1e-3) or \
                not np.allclose(np.diag(self._Trot), np.ones(3, dtype=float), rtol=1e-5):
-                print(coords, file=sys.stderr)
-                print(self._Trot, file=sys.stderr)
-                print(self._com_ref, self._com_coords, file=sys.stderr)
-                print(np.allclose(self._com_ref, self._com_coords, rtol=1e-3), np.allclose(np.diag(self._Trot), np.ones(3, dtype=float), rtol=1e-5), file=sys.stderr)
                 raise Error('Misaligned geometry without activated Kabsch algorithm! -> check you input structure or activate Kabsch', 39)
 
         # kabsch is necessary with point charges
