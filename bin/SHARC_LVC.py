@@ -443,7 +443,7 @@ class LVC(INTERFACE):
                         c[a, x] += f * shift
                         Trot, com_ref, com_c = kabsch(self._ref_coords, c, weights)
                         c_rot = (c - com_c) @ Trot.T + com_ref
-                        coords_deriv[..., a * (self._QMin['natom'] - 1) + x] += (m * c_rot).flat
+                        coords_deriv[..., a * 3 + x] += (m * c_rot).flat
                         if do_pc:
                             for im, n in filter(lambda x: x[1] != 0, enumerate(states)):
                                 fits_rot = self.rotate_multipoles(self._fits[im], Trot)
