@@ -43,6 +43,7 @@ subroutine VelocityVerlet_xstep(traj,ctrl)
   use definitions
   use matrix
   use ziggurat
+  use misc
   implicit none
   type(trajectory_type) :: traj
   type(ctrl_type) :: ctrl
@@ -97,11 +98,25 @@ subroutine VelocityVerlet_xstep(traj,ctrl)
       do iregion=1,ctrl%ntempregions
         b(iregion)=1/(1+ctrl%thermostat_const(iregion,1)*ctrl%dtstep*0.5d0)
       enddo
+      ! create randomness vector
       do iatom=1,ctrl%natom
         if (ctrl%atommask_b(iatom) .eqv. .false.) cycle ! skip for frozen atoms
         !b=1/(1+ctrl%thermostat_const(1)*ctrl%dtstep/(2*traj%mass_a(iatom)))
         do idir=1,3                 ! propagate positions according to Langevin equation
           traj%thermostat_random(3*(iatom-1)+idir)=rnor()*ctrl%temperature(ctrl%tempregion(iatom)) !ctrl%temperature is sqrt(variance) here
+        enddo
+      enddo
+      if (ctrl%remove_trans_rot) then !remove total trans and rot components from randomness
+        write(*,*) 'random before'
+        write(*,*) traj%thermostat_random
+        call remove_trans_rot_components(traj%thermostat_random, ctrl)
+        write(*,*) 'random after'
+        write(*,*) traj%thermostat_random
+      endif
+      !propagate positions with thermostat
+      do iatom=1,ctrl%natom
+        if (ctrl%atommask_b(iatom) .eqv. .false.) cycle ! skip for frozen atoms    
+        do idir=1,3
           traj%accel_ad(iatom,idir)=&
           &-traj%grad_ad(iatom,idir)/traj%mass_a(iatom)
 
@@ -581,5 +596,48 @@ subroutine Damp_velocities(traj,ctrl)
   traj%veloc_ad=traj%veloc_ad*sqrt(ctrl%dampeddyn)
 
 endsubroutine
+
+! ===========================================================
+
+!> projects out the total translational and rotational (ctrl%rotation_tot) components from a 3*natom (3*iatom+idir) vector
+subroutine remove_trans_rot_components(vect,ctrl)
+  use definitions
+  implicit none
+  type(ctrl_type), intent(in) :: ctrl
+  real*8, intent(inout) :: vect(3*ctrl%natom)
+  real*8 :: temp(3*ctrl%natom)
+  real*8 :: x(3)
+  integer :: iatom, idir
+
+  temp(:) = vect(:)
+
+  ! translational components of vect
+  do idir=1,3
+    do iatom=1,ctrl%natom
+      x(idir) = x(idir) + temp(3*(iatom-1)+idir)
+    enddo
+  enddo
+  x = x / ctrl%natom
+  write(*,*) 'removed transl:'
+  write(*,*) x
+
+  do idir=1,3
+    do iatom=1,ctrl%natom
+      vect(3*(iatom-1)+idir) =  vect(3*(iatom-1)+idir) - x(idir)
+    enddo
+  enddo
+
+  ! rotational components of vect
+  do idir=1,3
+
+    write(*,*) 'removed rot:'
+    write(*,*) dot_product(temp, ctrl%rotation_tot(:,idir)) * ctrl%rotation_tot(:,idir)
+
+    vect(:) =  vect(:) - dot_product(temp, ctrl%rotation_tot(:,idir)) * ctrl%rotation_tot(:,idir)
+  enddo
+
+endsubroutine
+
+! ===========================================================
 
 endmodule

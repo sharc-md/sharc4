@@ -140,6 +140,7 @@ module restart
         !write(u,*) ctrl%thermostat_const(1)
       !endif
       write(u,*) ctrl%restart_thermostat_random
+      write(u,*) ctrl%remove_trans_rot
     endif
 
     ! constraints
@@ -484,6 +485,7 @@ module restart
       !  read(u_ctrl,*) ctrl%thermostat_const(1)
       !endif
       read(u_ctrl,*) ctrl%restart_thermostat_random
+      read(u_ctrl,*) ctrl%remove_trans_rot
     endif
 
 
@@ -716,6 +718,11 @@ module restart
        ! starts from random seed given in restart.traj! (only use this option for when manually given new random seed in restart.traj!)
        call zigset(traj%rngseed_thermostat+37+17**2)
        allocate (traj%thermostat_random(3*ctrl%natom)) ! allocate randomness for all atoms in all directions
+    endif
+    ! compute total rotational component
+    if(ctrl%thermostat/=0 .and. ctrl%remove_trans_rot) then
+       allocate(ctrl%rotation_tot(3*ctrl%natom,3))
+       call get_rotation_tot(ctrl,traj)
     endif
 
     ! since the relaxation check is done after writing the restart file,
