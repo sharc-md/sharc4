@@ -373,23 +373,30 @@ class QMMM(INTERFACE):
 
             if QMin['template']['embedding'] == 'subtractive':
                 mms_grad = self.mms_interface.QMout['grad'][0]
-                for atom in range(len(mms_grad)):    # loop over atoms
-                    for qm_grad_i in qm_grad:
-                        add_to_xyz(qm_grad_i[atom], mms_grad[atom], fac=-1.)    # check if id is the same in both calcs
+
+                for n, qm_id in enumerate(self.qm_ids):    # loop over qm atoms
+                    # add to qm_id in big mm list
+                    add_to_xyz(mm_grad[qm_id], mms_grad[n], fac=-1.)
 
             grad = {}
             # print('     getQMout grad1', (time.perf_counter_ns() - s1) * 1e-6, 'ms')
 
             for i, qm_grad_i in enumerate(qm_grad):
+                # init gradient as mm_gradient
                 grad[i] = [[x[0], x[1], x[2]] for x in mm_grad]
-                for n, qm_grad_in in enumerate(qm_grad_i):
-                    if n < self._num_qm:    # pure qm atoms
-                        add_to_xyz(grad[i][self.qm_ids[n]], qm_grad_in)
-                    else:    # linkatoms come after qm atoms
-                        qm_id, mm_id = self._linkatoms[n - self._num_qm]
-                        add_to_xyz(grad[i][mm_id], qm_grad_in, self._mm_s)
-                        add_to_xyz(grad[i][qm_id], qm_grad_in, self._qm_s)
+
+                # add gradient of all qm atoms for each state
+                for n, qm_id in enumerate(self.qm_ids):
+                    add_to_xyz(grad[i][qm_id], qm_grad_i[n])
+
+                # linkatoms come after qm atoms
+                for n, link_id in enumerate(self._linkatoms):
+                    qm_id, mm_id = self._linkatoms[n]
+                    qm_grad_in = qm_grad_i[n + self._num_qm]
+                    add_to_xyz(grad[i][mm_id], qm_grad_in, self._mm_s)
+                    add_to_xyz(grad[i][qm_id], qm_grad_in, self._qm_s)
             # print('     getQMout grad2', (time.perf_counter_ns() - s1) * 1e-6, 'ms')
+
 
             if 'pc_grad' in qm_QMout:    # apply pc grad
                 for i, grad_i in enumerate(qm_QMout['pc_grad']):

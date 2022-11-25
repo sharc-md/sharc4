@@ -329,9 +329,8 @@ class ORCA(INTERFACE):
     # check for initial orbitals
         initorbs = {}
         step = QMin['step']
-        if 'always_guess' in QMin and QMin['always_guess']:
-            QMin['initorbs'] = {}
-        elif 'init' in QMin or QMin['always_orb_init']:
+        # if 'always_guess' in QMin and QMin['always_guess']:
+        if 'init' in QMin or QMin['always_orb_init']:
             for job in QMin['joblist']:
                 filename = os.path.join(QMin['pwd'], 'ORCA.gbw.init')
                 if os.path.isfile(filename):
@@ -342,7 +341,6 @@ class ORCA(INTERFACE):
                     initorbs[job] = filename
             if QMin['always_orb_init'] and len(initorbs) < QMin['njobs']:
                 raise Error('Initial orbitals missing for some jobs!', 70)
-            QMin['initorbs'] = initorbs
         elif 'newstep' in QMin:
             for job in QMin['joblist']:
                 filename = os.path.join(QMin['savedir'], f'ORCA.gbw.{job}.{step-1}')
@@ -350,7 +348,6 @@ class ORCA(INTERFACE):
                     initorbs[job] = filename
                 else:
                     raise Error(f'File {filename} missing in savedir!', 71)
-            QMin['initorbs'] = initorbs
         elif 'samestep' in QMin:
             for job in QMin['joblist']:
                 filename = os.path.join(QMin['savedir'], f'ORCA.gbw.{job}.{step}')
@@ -358,7 +355,6 @@ class ORCA(INTERFACE):
                     initorbs[job] = filename
                 else:
                     raise Error(f'File {filename} missing in savedir!', 72)
-            QMin['initorbs'] = initorbs
         elif 'restart' in QMin:
             for job in QMin['joblist']:
                 filename = os.path.join(QMin['savedir'], f'ORCA.gbw.{job}.{step}')
@@ -366,7 +362,7 @@ class ORCA(INTERFACE):
                     initorbs[job] = filename
                 else:
                     raise Error(f'File {filename} missing in savedir!', 73)
-            QMin['initorbs'] = initorbs
+        QMin['initorbs'] = initorbs
         # wf file copying
         if 'master' in QMin:
             job = QMin['IJOB']
