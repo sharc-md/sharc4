@@ -327,6 +327,7 @@ class INTERFACE(ABC):
             llist = line.split(None, 1)
             key = llist[0].lower()
             if key == 'states':
+                # also does update nmstates, nstates, statemap
                 QMin.update(self.parseStates(llist[1]))
             elif key == 'unit':
                 self.set_unit(llist[1].strip().lower())
@@ -342,7 +343,6 @@ class INTERFACE(ABC):
             raise Error(f'undefined env variable in "savedir"! {QMin["savedir"]}')
 
         # obtain the statemap
-        QMin['statemap'] = {i + 1: [*v] for i, v in enumerate(itnmstates(QMin['states']))}
         self._setup_mol = True
         # NOTE: Quantity requests (tasks) are dealt with later and potentially re-assigned
         return
@@ -376,6 +376,7 @@ class INTERFACE(ABC):
         for i in range(len(res['states'])):
             nstates += res['states'][i]
             nmstates += res['states'][i] * (i + 1)
+        res['statemap'] = {i + 1: [*v] for i, v in enumerate(itnmstates(res['states']))}
         res['nstates'] = nstates
         res['nmstates'] = nmstates
         return res
