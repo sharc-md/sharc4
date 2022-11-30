@@ -409,14 +409,15 @@ def euclidean_distance_einsum(X, Y):
     Parameters
     ----------
     X : array, (n_samples x d_dimensions)
-    Y : array, (m_samples x d_dimensions)
+    Y : array, (n_samples x d_dimensions)
 
     Returns
     -------
-    D : array, (n_samples, m_samples)
+    D : array, (n_samples, n_samples)
     """
-    XX = np.einsum('ij,j-> i', X, X)[:, np.newaxis]
-    YY = np.einsum('ij,j-> i', Y, Y)
+    XX = np.einsum('ij,ij-> i', X, X)[:, np.newaxis]
+    YY = np.einsum('ij,ij-> i', Y, Y)
+#    XY = 2 * np.einsum('ij,kj->ik', X, Y)
     XY = 2 * np.dot(X, Y.T)
     return np.sqrt(XX + YY - XY)
 
