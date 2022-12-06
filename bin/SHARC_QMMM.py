@@ -257,7 +257,7 @@ class QMMM(INTERFACE):
                 mms_QMin['savedir'] = mms_savedir    # overwrite savedir
                 self.mms_interface.read_template()
                 self.mms_interface.setup_run()
-            
+
             self._qm_interface_QMin_backup = deepcopy(self.qm_interface._QMin)
         return
 
@@ -397,7 +397,6 @@ class QMMM(INTERFACE):
                     add_to_xyz(grad[i][qm_id], qm_grad_in, self._qm_s)
             # print('     getQMout grad2', (time.perf_counter_ns() - s1) * 1e-6, 'ms')
 
-
             if 'pc_grad' in qm_QMout:    # apply pc grad
                 for i, grad_i in enumerate(qm_QMout['pc_grad']):
                     # mm_ids stay in order even after grouping qm_ids at the fron and deleting link mm atoms
@@ -417,14 +416,14 @@ class QMMM(INTERFACE):
                 for _ in range(QMin['nmstates'])
             ]
             for i, s_i in enumerate(self.qm_interface._QMout['nacdr']):
-                for s_j in s_i:
-                    for n in range(self._num_qm):
-                        add_to_xyz(s_j[n], nacdr[i][n][self.qm_ids[n]])
-                    for n in range(self._num_qm, len(s_j)):    # linkatoms come after qm atoms
-                        qm_id, mm_id = self._linkatoms[n - self._num_qm]
-                        n = nacdr[i][n]
-                        add_to_xyz(n[mm_id], s_j[n], self._mm_s)
-                        add_to_xyz(n[qm_id], s_j[n], self._qm_s)
+                for j, s_j in enumerate(s_i):
+                    for n, qm_id in enumerate(self.qm_ids):
+                        add_to_xyz(nacdr[i][j][qm_id], s_j[n])
+                    for n, link_id in enumerate(self._linkatoms):    # linkatoms come after qm atoms
+                        qm_id, mm_id = self._linkatoms[n]
+                        nac = nacdr[i][j]
+                        add_to_xyz(nac[mm_id], s_j[n + self._num_qm], self._mm_s)
+                        add_to_xyz(nac[qm_id], s_j[n + self._num_qm], self._qm_s)
             QMout['nacdr'] = nacdr
         # print('     getQMout nac', (time.perf_counter_ns() - s1) * 1e-6, 'ms')
 
