@@ -107,11 +107,12 @@ subroutine VelocityVerlet_xstep(traj,ctrl)
         enddo
       enddo
       if (ctrl%remove_trans_rot) then !remove total trans and rot components from randomness
-        write(*,*) 'random before'
-        write(*,*) traj%thermostat_random
-        call remove_trans_rot_components(traj%thermostat_random, ctrl)
-        write(*,*) 'random after'
-        write(*,*) traj%thermostat_random
+        !call get_rotation_tot(ctrl,traj)
+        !write(*,*) 'random before'
+        !write(*,*) traj%thermostat_random
+        call remove_trans_rot_components(traj%thermostat_random, ctrl, traj)
+        !write(*,*) 'random after'
+        !write(*,*) traj%thermostat_random
       endif
       !propagate positions with thermostat
       do iatom=1,ctrl%natom
@@ -600,40 +601,41 @@ endsubroutine
 ! ===========================================================
 
 !> projects out the total translational and rotational (ctrl%rotation_tot) components from a 3*natom (3*iatom+idir) vector
-subroutine remove_trans_rot_components(vect,ctrl)
+subroutine remove_trans_rot_components(vect,ctrl,traj)
   use definitions
   implicit none
   type(ctrl_type), intent(in) :: ctrl
+  type(trajectory_type), intent(in) :: traj
   real*8, intent(inout) :: vect(3*ctrl%natom)
   real*8 :: temp(3*ctrl%natom)
   real*8 :: x(3)
   integer :: iatom, idir
 
   temp(:) = vect(:)
+  x = 0.
 
   ! translational components of vect
   do idir=1,3
     do iatom=1,ctrl%natom
-      x(idir) = x(idir) + temp(3*(iatom-1)+idir)
+      x(idir) = x(idir) + temp(3*(iatom-1)+idir) * traj%mass_a(iatom) 
     enddo
   enddo
-  x = x / ctrl%natom
-  write(*,*) 'removed transl:'
-  write(*,*) x
+  x = x / dot_product(traj%mass_a,traj%mass_a)
+  !write(*,*) 'removed transl:'
+  !write(*,*) x
 
   do idir=1,3
     do iatom=1,ctrl%natom
-      vect(3*(iatom-1)+idir) =  vect(3*(iatom-1)+idir) - x(idir)
+      vect(3*(iatom-1)+idir) =  vect(3*(iatom-1)+idir) - x(idir) * traj%mass_a(iatom)
     enddo
   enddo
 
   ! rotational components of vect
   do idir=1,3
-
-    write(*,*) 'removed rot:'
-    write(*,*) dot_product(temp, ctrl%rotation_tot(:,idir)) * ctrl%rotation_tot(:,idir)
-
+    !write(*,*) 'removed rot:'
+    !write(*,*) dot_product(temp, ctrl%rotation_tot(:,idir)) * ctrl%rotation_tot(:,idir)
     vect(:) =  vect(:) - dot_product(temp, ctrl%rotation_tot(:,idir)) * ctrl%rotation_tot(:,idir)
+    ! also *sqrt(m_i)
   enddo
 
 endsubroutine

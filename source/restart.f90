@@ -195,7 +195,8 @@ module restart
     endif
     if (ctrl%restrictive_potential==2 .or. ctrl%restrictive_potential==3) then
       write(u,*) ctrl%tethering_force
-      !call vecwrite(size(ctrl%tether_at), ctrl%tether_at,  u, 'tether atoms','I5')
+      write(u,*) ctrl%tethering_radius
+      write(u,*) (ctrl%tether_at(iatom),iatom=1,size(ctrl%tether_at))
     endif
     close(u)
 
@@ -352,6 +353,10 @@ module restart
       enddo
     endif
 
+    if (ctrl%restrictive_potential==2 .or. ctrl%restrictive_potential==3) then
+      call vecwrite(3, traj%tethering_pos,  u, 'Tethering position','ES24.16E3')
+    endif
+
     close(u)
 
   endsubroutine
@@ -370,6 +375,7 @@ module restart
   subroutine read_restart(u_ctrl,u_traj,ctrl,traj)
     use definitions
     use matrix
+    use string
     use misc
     use decoherence_afssh
     use ziggurat
@@ -379,7 +385,8 @@ module restart
     type(ctrl_type) :: ctrl
 
     integer :: imult, iatom, i,j,k, istate,ilaser,iconstr
-    character(8000) :: string
+    character(8000) :: line
+    character*8000, allocatable :: values(:)
     real*8 :: dummy_randnum
     integer :: time
 
@@ -468,8 +475,8 @@ module restart
         allocate(ctrl%thermostat_const(ctrl%ntempregions,1))
       endif
       allocate(ctrl%tempregion(ctrl%natom))
-      call vecread(ctrl%ntempregions, ctrl%temperature, u_ctrl, string)
-      call matread(ctrl%ntempregions, ctrl%thermostat_const, u_ctrl, string)
+      call vecread(ctrl%ntempregions, ctrl%temperature, u_ctrl, line)
+      call matread(ctrl%ntempregions, ctrl%thermostat_const, u_ctrl, line)
       if (ctrl%ntempregions>1) then
         do iatom=1,ctrl%natom
           read(u_ctrl,*) ctrl%tempregion(iatom)
@@ -513,9 +520,9 @@ module restart
       read(u_ctrl,*) ctrl%nlasers
       allocate( ctrl%laserfield_td(ctrl%nsteps*ctrl%nsubsteps+1,3) )
       allocate( ctrl%laserenergy_tl(ctrl%nsteps*ctrl%nsubsteps+1,ctrl%nlasers) )
-      call vec3read(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_td, u_ctrl, string)
+      call vec3read(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_td, u_ctrl, line)
       do ilaser=1,ctrl%nlasers
-        call vecread(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserenergy_tl(:,ilaser), u_ctrl, string)
+        call vecread(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserenergy_tl(:,ilaser), u_ctrl, line)
       enddo
     endif
     
@@ -551,7 +558,13 @@ module restart
     endif
     if (ctrl%restrictive_potential==2 .or. ctrl%restrictive_potential==3) then
       read(u_ctrl,*) ctrl%tethering_force
-      !call vecread(size(ctrl%tether_at), ctrl%tether_at,  u, 'tether atoms','I5')
+      read(u_ctrl,*) ctrl%tethering_radius
+      !read(u_ctrl,*) (ctrl%tether_at(iatom),iatom=1,size(ctrl%tether_at))
+      call split(line,' ',values,k)
+      do i=1,k
+        read(values(i),*) ctrl%tether_at(i)
+      enddo
+      deallocate(values)
     endif
     
     close(u_ctrl)
@@ -596,33 +609,33 @@ module restart
     read(u_traj,*) (traj%atomicnumber_a(iatom),iatom=1,ctrl%natom)
     read(u_traj,*) (traj%element_a(iatom),iatom=1,ctrl%natom)
     read(u_traj,*) (traj%mass_a(iatom),iatom=1,ctrl%natom)
-    call vec3read(ctrl%natom, traj%geom_ad,  u_traj, string)
-    call vec3read(ctrl%natom, traj%veloc_ad, u_traj, string)
-    call vec3read(ctrl%natom, traj%accel_ad, u_traj, string)
+    call vec3read(ctrl%natom, traj%geom_ad,  u_traj, line)
+    call vec3read(ctrl%natom, traj%veloc_ad, u_traj, line)
+    call vec3read(ctrl%natom, traj%accel_ad, u_traj, line)
 
-    call matread(ctrl%nstates, traj%H_MCH_ss,     u_traj,   string)
-    call matread(ctrl%nstates, traj%dH_MCH_ss,    u_traj,   string)
-    call matread(ctrl%nstates, traj%H_MCH_old_ss, u_traj,   string)
-    call matread(ctrl%nstates, traj%H_diag_ss,    u_traj,   string)
-    call matread(ctrl%nstates, traj%U_ss,         u_traj,   string)
-    call matread(ctrl%nstates, traj%U_old_ss,     u_traj,   string)
-    call matread(ctrl%nstates, traj%NACdt_ss,     u_traj,   string)
-    call matread(ctrl%nstates, traj%NACdt_old_ss, u_traj,   string)
-    call matread(ctrl%nstates, traj%overlaps_ss,  u_traj,   string)
-    call matread(ctrl%nstates, traj%DM_ssd(:,:,1),  u_traj, string)
-    call matread(ctrl%nstates, traj%DM_ssd(:,:,2),  u_traj, string)
-    call matread(ctrl%nstates, traj%DM_ssd(:,:,3),  u_traj, string)
-    call matread(ctrl%nstates, traj%DM_old_ssd(:,:,1),  u_traj, string)
-    call matread(ctrl%nstates, traj%DM_old_ssd(:,:,2),  u_traj, string)
-    call matread(ctrl%nstates, traj%DM_old_ssd(:,:,3),  u_traj, string)
-    call matread(ctrl%nstates, traj%DM_print_ssd(:,:,1),  u_traj, string)
-    call matread(ctrl%nstates, traj%DM_print_ssd(:,:,2),  u_traj, string)
-    call matread(ctrl%nstates, traj%DM_print_ssd(:,:,3),  u_traj, string)
-!     call matread(ctrl%nstates, traj%Property_ss,  u_traj,   string)
-    call matread(ctrl%nstates, traj%Rtotal_ss,    u_traj,   string)
-    call vecread(ctrl%nstates, traj%phases_s, u_traj,       string)
-    call vecread(ctrl%nstates, traj%phases_old_s, u_traj,   string)
-    call vecread(ctrl%nstates, traj%hopprob_s, u_traj,      string)
+    call matread(ctrl%nstates, traj%H_MCH_ss,     u_traj,   line)
+    call matread(ctrl%nstates, traj%dH_MCH_ss,    u_traj,   line)
+    call matread(ctrl%nstates, traj%H_MCH_old_ss, u_traj,   line)
+    call matread(ctrl%nstates, traj%H_diag_ss,    u_traj,   line)
+    call matread(ctrl%nstates, traj%U_ss,         u_traj,   line)
+    call matread(ctrl%nstates, traj%U_old_ss,     u_traj,   line)
+    call matread(ctrl%nstates, traj%NACdt_ss,     u_traj,   line)
+    call matread(ctrl%nstates, traj%NACdt_old_ss, u_traj,   line)
+    call matread(ctrl%nstates, traj%overlaps_ss,  u_traj,   line)
+    call matread(ctrl%nstates, traj%DM_ssd(:,:,1),  u_traj, line)
+    call matread(ctrl%nstates, traj%DM_ssd(:,:,2),  u_traj, line)
+    call matread(ctrl%nstates, traj%DM_ssd(:,:,3),  u_traj, line)
+    call matread(ctrl%nstates, traj%DM_old_ssd(:,:,1),  u_traj, line)
+    call matread(ctrl%nstates, traj%DM_old_ssd(:,:,2),  u_traj, line)
+    call matread(ctrl%nstates, traj%DM_old_ssd(:,:,3),  u_traj, line)
+    call matread(ctrl%nstates, traj%DM_print_ssd(:,:,1),  u_traj, line)
+    call matread(ctrl%nstates, traj%DM_print_ssd(:,:,2),  u_traj, line)
+    call matread(ctrl%nstates, traj%DM_print_ssd(:,:,3),  u_traj, line)
+!     call matread(ctrl%nstates, traj%Property_ss,  u_traj,   line)
+    call matread(ctrl%nstates, traj%Rtotal_ss,    u_traj,   line)
+    call vecread(ctrl%nstates, traj%phases_s, u_traj,       line)
+    call vecread(ctrl%nstates, traj%phases_old_s, u_traj,   line)
+    call vecread(ctrl%nstates, traj%hopprob_s, u_traj,      line)
     read(u_traj,*) traj%randnum
     read(u_traj,*) traj%randnum2
 
@@ -630,7 +643,7 @@ module restart
       do i=1,ctrl%nstates
         do j=1,ctrl%nstates
           do k=1,3
-            call vec3read(ctrl%natom,traj%DMgrad_ssdad(i,j,k,:,:),u_traj,string)
+            call vec3read(ctrl%natom,traj%DMgrad_ssdad(i,j,k,:,:),u_traj,line)
           enddo
         enddo
       enddo
@@ -638,28 +651,28 @@ module restart
     if (ctrl%calc_nacdr>-1) then
       do i=1,ctrl%nstates
         do j=1,ctrl%nstates
-          call vec3read(ctrl%natom,traj%NACdr_ssad(i,j,:,:),u_traj,string)
+          call vec3read(ctrl%natom,traj%NACdr_ssad(i,j,:,:),u_traj,line)
         enddo
       enddo
       do i=1,ctrl%nstates
         do j=1,ctrl%nstates
-          call vec3read(ctrl%natom,traj%NACdr_old_ssad(i,j,:,:),u_traj,string)
+          call vec3read(ctrl%natom,traj%NACdr_old_ssad(i,j,:,:),u_traj,line)
         enddo
       enddo
     endif
     do i=1,ctrl%nstates
-      call vec3read(ctrl%natom,traj%grad_mch_sad(i,:,:),u_traj,string)
+      call vec3read(ctrl%natom,traj%grad_mch_sad(i,:,:),u_traj,line)
     enddo
     do i=1,ctrl%nstates
       do j=1,ctrl%nstates
-        call vec3read(ctrl%natom,traj%Gmatrix_ssad(i,j,:,:),u_traj,string)
+        call vec3read(ctrl%natom,traj%Gmatrix_ssad(i,j,:,:),u_traj,line)
       enddo
     enddo
-    call vec3read(ctrl%natom,traj%grad_ad(:,:),u_traj,string)
+    call vec3read(ctrl%natom,traj%grad_ad(:,:),u_traj,line)
 
-    call vecread(ctrl%nstates, traj%coeff_diag_s, u_traj, string)
-    call vecread(ctrl%nstates, traj%coeff_diag_old_s, u_traj, string)
-    call vecread(ctrl%nstates, traj%coeff_mch_s, u_traj, string)
+    call vecread(ctrl%nstates, traj%coeff_diag_s, u_traj, line)
+    call vecread(ctrl%nstates, traj%coeff_diag_old_s, u_traj, line)
+    call vecread(ctrl%nstates, traj%coeff_mch_s, u_traj, line)
 
     read(u_traj,*) (traj%selg_s(i),i=1,ctrl%nstates)
     do i=1,ctrl%nstates
@@ -672,13 +685,13 @@ module restart
     endif
     read(u_traj,*) traj%phases_found
 
-    call vecread(ctrl%n_property1d, traj%Property1d_labels_y, u_traj, string)
-    call vecread(ctrl%n_property2d, traj%Property2d_labels_x, u_traj, string)
+    call vecread(ctrl%n_property1d, traj%Property1d_labels_y, u_traj, line)
+    call vecread(ctrl%n_property2d, traj%Property2d_labels_x, u_traj, line)
     do i=1,ctrl%n_property1d
-      call vecread(ctrl%nstates, traj%Property1d_ys(i,:), u_traj, string)
+      call vecread(ctrl%nstates, traj%Property1d_ys(i,:), u_traj, line)
     enddo
     do i=1,ctrl%n_property2d
-      call matread(ctrl%nstates, traj%Property2d_xss(i,:,:), u_traj, string)
+      call matread(ctrl%nstates, traj%Property2d_xss(i,:,:), u_traj, line)
     enddo
 
     ! read restart info for the auxilliary trajectories
@@ -688,15 +701,19 @@ module restart
         read(u_traj,*) traj%auxtrajs_s(i)%istate
         read(u_traj,*) traj%auxtrajs_s(i)%rate1
         read(u_traj,*) traj%auxtrajs_s(i)%rate2
-        call vec3read(ctrl%natom, traj%auxtrajs_s(i)%geom_ad,   u_traj, string)
-        call vec3read(ctrl%natom, traj%auxtrajs_s(i)%veloc_ad,  u_traj, string)
-        call vec3read(ctrl%natom, traj%auxtrajs_s(i)%accel_ad,  u_traj, string)
-        call vec3read(ctrl%natom, traj%auxtrajs_s(i)%grad_ad,   u_traj, string)
-        call vec3read(ctrl%natom, traj%auxtrajs_s(i)%geom_tmp_ad,   u_traj, string)
-        call vec3read(ctrl%natom, traj%auxtrajs_s(i)%veloc_tmp_ad,  u_traj, string)
+        call vec3read(ctrl%natom, traj%auxtrajs_s(i)%geom_ad,   u_traj, line)
+        call vec3read(ctrl%natom, traj%auxtrajs_s(i)%veloc_ad,  u_traj, line)
+        call vec3read(ctrl%natom, traj%auxtrajs_s(i)%accel_ad,  u_traj, line)
+        call vec3read(ctrl%natom, traj%auxtrajs_s(i)%grad_ad,   u_traj, line)
+        call vec3read(ctrl%natom, traj%auxtrajs_s(i)%geom_tmp_ad,   u_traj, line)
+        call vec3read(ctrl%natom, traj%auxtrajs_s(i)%veloc_tmp_ad,  u_traj, line)
       enddo
     endif
 
+    !read tethering position
+    if (ctrl%restrictive_potential==2 .or. ctrl%restrictive_potential==3) then
+      call vecread(3, traj%tethering_pos,  u_traj, line)
+    endif
     close(u_traj)
 
     ! call the random number generator until it is in the same status as before the restart

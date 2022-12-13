@@ -317,6 +317,7 @@ type ctrl_type
   real*8 :: restricted_droplet_force        !< force constant for restricted droplet potential
   real*8 :: restricted_droplet_radius       !< radius of primary water sphere for restricted droplet potential
   real*8 :: tethering_force                 !< force constant for tethering of atom
+  real*8 :: tethering_radius                !< radius of beyond which tethering potential is not zero
   logical,allocatable :: sel_restricted_droplet(:)       !< selection mask for restricted droplet
   integer,allocatable :: tether_at(:)                    !< selection of indices for tethering of center of mass of these atoms
 endtype

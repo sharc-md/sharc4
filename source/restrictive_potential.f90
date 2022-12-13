@@ -69,18 +69,20 @@ subroutine tether_atom(traj,ctrl)
   implicit none
   type(trajectory_type) :: traj
   type(ctrl_type) :: ctrl
-  integer :: iatom, idir
-  real*8 :: centerofmass_diff(3), mass
+  integer :: i, iatom, idir
+  real*8 :: radius, dist, force
   
-  do iatom=1,size(ctrl%tether_at)
-    mass = mass + traj%mass_a(ctrl%tether_at(iatom))
-  enddo
-  centerofmass_diff(:) = abs(calc_centerofmass(traj,ctrl) - traj%tethering_pos(:)) /mass
-  do iatom=1,size(ctrl%tether_at)
-    do idir = 1,3
-      traj%grad_ad(ctrl%tether_at(iatom),idir) = traj%grad_ad(ctrl%tether_at(iatom),idir) +ctrl%tethering_force*&
-        &traj%mass_a(ctrl%tether_at(iatom)) * centerofmass_diff(idir)
-    enddo
+  do i=1,size(ctrl%tether_at)
+    iatom = ctrl%tether_at(i)
+    radius = sqrt((traj%geom_ad(iatom,1) - traj%tethering_pos(1))**2 + (traj%geom_ad(iatom,2) - traj%tethering_pos(2))**2 +&
+            & (traj%geom_ad(iatom,3) - traj%tethering_pos(3))**2)
+    dist = radius - ctrl%tethering_radius
+    if (dist > 0.) then
+      force = ctrl%tethering_force * dist / radius
+      do idir=1,3
+        traj%grad_ad(iatom,idir) = traj%grad_ad(iatom,idir) + force * (traj%geom_ad(iatom,idir)-traj%tethering_pos(idir))
+      enddo
+    endif
   enddo
 
 endsubroutine
