@@ -41,8 +41,7 @@ USE_LIBS := mkl
 COMP_STATIC := false
 
 #needed for PYSHARC
-ANACONDA := /user/brigitta/anaconda3/envs/wrk
-#ANACONDA := ${CONDA_PREFIX}
+ANACONDA := ${CONDA_PREFIX}
 # =======================================
 
 
@@ -260,7 +259,7 @@ sharcvars:
 	@echo 'export SHARCLIB=$(SHARCDIR)/lib' >> sharcvars.sh
 	@echo 'export ANACONDA=$(ANACONDA)' >> sharcvars.sh
 	@echo 'export PYTHONPATH=$$SHARCLIB:$$PYSHARC:$$PYTHONPATH' >> sharcvars.sh
-	@echo 'export LD_LIBRARY_PATH=$$SHARCLIB:$$ANACONDA/lib:$$LD_LIBRARY_PATH' >> sharcvars.sh
+	@echo 'export LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$$SHARCLIB:$$ANACONDA/lib' >> sharcvars.sh
 	@echo 'setenv SHARC=$(SHARCDIR)/bin' > sharcvars.csh
 	@echo 'setenv PYSHARC=$(SHARCDIR)/pysharc' >> sharcvars.csh
 	@echo 'setenv SHARCLIB=$(SHARCDIR)/lib' >> sharcvars.csh
@@ -272,7 +271,7 @@ sharcvars:
 	@echo 'export SHARC=$(SHARCDIR)/bin' > sharcvars.sh
 	@echo 'export SHARCLIB=$(SHARCDIR)/lib' >> sharcvars.sh
 	@echo 'export PYTHONPATH=$$SHARCLIB:$$PYTHONPATH' >> sharcvars.sh
-	@echo 'export LD_LIBRARY_PATH=$$SHARCLIB:$$LD_LIBRARY_PATH' >> sharcvars.sh
+	@echo 'export LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$$SHARCLIB:$$ANACONDA/lib' >> sharcvars.sh
 	@echo 'setenv SHARC=$(SHARCDIR)/bin' > sharcvars.csh
 	@echo 'setenv SHARCLIB=$(SHARCDIR)/lib' >> sharcvars.csh
 	@echo 'setenv PYTHONPATH=$$SHARCLIB:$$PYTHONPATH' >> sharcvars.csh

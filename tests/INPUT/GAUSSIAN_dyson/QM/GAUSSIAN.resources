@@ -1,4 +1,4 @@
-groot $GAUSSIAN
+gaussiandir $GAUSSIAN
 scratchdir $SCRADIR/WORK
 ncpu 1
 memory 1000

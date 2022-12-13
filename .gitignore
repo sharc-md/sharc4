@@ -1,6 +1,6 @@
 *.[ox]
-*.so
-*.mod
+**/*.so
+*mod
 *.pyc
 header.py
 header

@@ -29,1280 +29,605 @@
 # Calculates SOC matrix, dipole moments, gradients, nacs and overlaps
 # Writes these back to QM.out
 
-from copy import deepcopy
-import shutil
-import datetime
+# IMPORTS
+# external
 import os
 import sys
-import math
-import time
-time.clock = lambda: time.clock_gettime(time.CLOCK_THREAD_CPUTIME_ID)
-(tc, tt) = (time.clock(), time.time())
+import datetime
+import numpy as np
 
-try:
-    # Importing numpy takes about 100 ms, which is ~50% of the execution time!
-    import numpy
-    NONUMPY = False
-except ImportError:
-    import subprocess as sp
-    NONUMPY = True
+# internal
+from SHARC_INTERFACE import INTERFACE
+from utils import readfile, mkdir, Error
+from constants import U_TO_AMU, MASSES
+from kabsch import kabsch_w as kabsch
 
-print("Import: CPU time: % .3f s, wall time: %.3f s" % (time.clock() - tc, time.time() - tt))
+authors = 'Sebastian Mai and Severin Polonius'
+version = '3.0'
+versiondate = datetime.datetime(2021, 7, 29)
 
-# =========================================================
-# some constants
-PRINT = True
-DEBUG = False
-CM_TO_HARTREE = 1. / 219474.6
-HARTREE_TO_EV = 27.211396132
-U_TO_AMU = 1. / 5.4857990943e-4
-BOHR_TO_ANG = 0.529177211
-PI = math.pi
-
-version = '2.1'
-versiondate = datetime.date(2019, 9, 1)
+changelogstring = '''
+'''
+np.set_printoptions(linewidth=400, formatter={'float': lambda x: f'{x: 9.7}'})
 
 
-# hash table for conversion of multiplicity to the keywords used in MOLPRO
-IToMult = {
-    1: 'Singlet',
-    2: 'Doublet',
-    3: 'Triplet',
-    4: 'Quartet',
-    5: 'Quintet',
-    6: 'Sextet',
-    7: 'Septet',
-    8: 'Octet',
-    'Singlet': 1,
-    'Doublet': 2,
-    'Triplet': 3,
-    'Quartet': 4,
-    'Quintet': 5,
-    'Sextet': 6,
-    'Septet': 7,
-    'Octet': 8
-}
+class LVC(INTERFACE):
 
-# hash table for conversion of polarisations to the keywords used in MOLPRO
-IToPol = {
-    0: 'X',
-    1: 'Y',
-    2: 'Z',
-    'X': 0,
-    'Y': 1,
-    'Z': 2
-}
+    _version = version
+    _versiondate = versiondate
+    _authors = authors
+    _changelogstring = changelogstring
+    _read_resources = True
+    _do_kabsch = False
+    _diagonalize = True
+    _step = 0
 
-# =========================================================
-# =========================================================
-# =========================================================
+    @property
+    def version(self):
+        return self._version
 
-# ======================================================================= #
+    @property
+    def versiondate(self):
+        return self._versiondate
 
+    @property
+    def changelogstring(self):
+        return self._changelogstring
 
-def checkscratch(SCRATCHDIR):
-    '''Checks whether SCRATCHDIR is a file or directory. If a file, it quits with exit code 1, if its a directory, it passes. If SCRATCHDIR does not exist, tries to create it.
+    @property
+    def authors(self):
+        return self._authors
 
-    Arguments:
-    1 string: path to SCRATCHDIR'''
+    def read_template(self, template_filename='LVC.template'):
+        QMin = self._QMin
+        QMin['template'] = {'qmmm': False, 'cobramm': False}
+        r3N = 3 * QMin['natom']
+        natom = QMin['natom']
+        nmstates = QMin['nmstates']
 
-    exist = os.path.exists(SCRATCHDIR)
-    if exist:
-        isfile = os.path.isfile(SCRATCHDIR)
-        if isfile:
-            print('$SCRATCHDIR=%s exists and is a file!' % (SCRATCHDIR))
-            sys.exit(12)
-    else:
-        try:
-            os.makedirs(SCRATCHDIR)
-        except OSError:
-            print('Can not create SCRATCHDIR=%s\n' % (SCRATCHDIR))
-            sys.exit(13)
+        f = open(os.path.abspath(template_filename), 'r')
+        V0file = f.readline()[:-1]
+        self.read_V0(os.path.abspath(V0file))
+        parsed_states = INTERFACE.parseStates(f.readline())
+        states = parsed_states['states']
+        if states != QMin['states']:
+            print(f'states from QM.in and nstates from LVC.template are inconsistent! {QMin["states"]} != {states}')
+            sys.exit(25)
 
-# ======================================================================= #
+        self._H_i = {im: np.zeros((n, n, r3N), dtype=float) for im, n in enumerate(states) if n != 0}
+        self._epsilon = {im: np.zeros(n, dtype=float) for im, n in enumerate(states) if n != 0}
+        self._eV = {im: np.zeros(n, dtype=float) for im, n in enumerate(states) if n != 0}
+        self._dipole = np.zeros((3, nmstates, nmstates), dtype=complex)
+        self._soc = np.zeros((nmstates, nmstates), dtype=complex)
+        self._U = np.zeros((nmstates, nmstates), dtype=float)
+        self._Q = np.zeros(r3N, float)
+        xyz = {'X': 0, 'Y': 1, 'Z': 2}
+        soc_real = True
+        dipole_real = True
+        line = f.readline()
+        # NOTE: possibly assign whole array with index accessor (numpy)
+        if line == 'epsilon\n':
+            z = int(f.readline()[:-1])
 
+            def a(x):
+                v = f.readline().split()
+                return (int(v[0]) - 1, int(v[1]) - 1, float(v[2]))
 
-def itnmstates(states):
-    '''Takes an array of the number of states in each multiplicity and generates an iterator over all states specified. Iterates also over all MS values of all states.
+            for im, s, v in map(a, range(z)):
+                self._epsilon[im][s] += v
+        if f.readline() == 'kappa\n':
+            z = int(f.readline()[:-1])
 
-    Example:
-    [3,0,3] yields 12 iterations with
-    1,1,0
-    1,2,0
-    1,3,0
-    3,1,-1
-    3,2,-1
-    3,3,-1
-    3,1,0
-    3,2,0
-    3,3,0
-    3,1,1
-    3,2,1
-    3,3,1
+            def b(_):
+                v = f.readline().split()
+                return (int(v[0]) - 1, int(v[1]) - 1, int(v[2]) - 1, float(v[3]))
 
-    Arguments:
-    1 list of integers: States specification
+            for im, s, i, v in map(b, range(z)):
+                self._H_i[im][s, s, i] = v
+        if f.readline() == 'lambda\n':
+            z = int(f.readline()[:-1])
 
-    Returns:
-    1 integer: multiplicity
-    2 integer: state
-    3 float: MS value'''
+            def c(_):
+                v = f.readline().split()
+                return (int(v[0]) - 1, int(v[1]) - 1, int(v[2]) - 1, int(v[3]) - 1, float(v[4]))
 
-    for i in range(len(states)):
-        if states[i] < 1:
-            continue
-        for k in range(i + 1):
-            for j in range(states[i]):
-                yield i + 1, j + 1, k - i / 2.
-    return
+            for im, si, sj, i, v in map(c, range(z)):
+                self._H_i[im][si, sj, i] = v
+                self._H_i[im][sj, si, i] = v
+        line = f.readline()
+        while len(line) != 0:
+            factor = 1j if line[-2] == 'I' else 1
+            if line[:3] == 'SOC':
+                if factor != 1:
+                    soc_real = False
+                line = f.readline()
+                i = 0
+                while len(line.split()) == nmstates:
+                    self._soc[i, :] += np.asarray(line.split(), dtype=float) * factor
+                    i += 1
+                    line = f.readline()
+            elif line[:2] == 'DM':
+                j = xyz[line[2]]
+                if factor != 1:
+                    dipole_real = False
+                line = f.readline()
+                i = 0
+                while len(line.split()) == nmstates:
+                    self._dipole[j, i, :] += np.asarray(line.split(), dtype=float) * factor
+                    i += 1
+                    line = f.readline()
+            elif 'Multipolar Density Fit' in line:
+                line = f.readline()
+                n_fits = int(line)
+                self._fits = {im: np.zeros((n, n, natom, 10), dtype=float) for im, n in enumerate(states) if n != 0}
 
-# ======================================================================= #
+                def d(_):
+                    v = f.readline().split()
+                    return (int(v[0]) - 1, int(v[1]) - 1, int(v[2]) - 1, int(v[3]), v[4:])
 
-
-def printcomplexmatrix(matrix, states):
-    '''Prints a formatted matrix. Zero elements are not printed, blocks of different mult and MS are delimited by dashes. Also prints a matrix with the imaginary parts, of any one element has non-zero imaginary part.
-
-    Arguments:
-    1 list of list of complex: the matrix
-    2 list of integers: states specs'''
-
-    nmstates = 0
-    for i in range(len(states)):
-        nmstates += states[i] * (i + 1)
-    string = 'Real Part:\n'
-    string += '-' * (11 * nmstates + nmstates // 3)
-    string += '\n'
-    istate = 0
-    for imult, i, ms in itnmstates(states):
-        jstate = 0
-        string += '|'
-        for jmult, j, ms2 in itnmstates(states):
-            if matrix[istate][jstate].real == 0.:
-                string += ' ' * 11
+                for im, si, sj, i, v in map(d, range(n_fits)):
+                    n = len(v)
+                    dens = np.array([float(x) for x in v[:n]])
+                    self._fits[im][si, sj, i, :n] = dens
+                    self._fits[im][sj, si, i, :n] = dens
             else:
-                string += '% .3e ' % (matrix[istate][jstate].real)
-            if j == states[jmult - 1]:
-                string += '|'
-            jstate += 1
-        string += '\n'
-        if i == states[imult - 1]:
-            string += '-' * (11 * nmstates + nmstates // 3)
-            string += '\n'
-        istate += 1
-    print(string)
-    imag = False
-    string = 'Imaginary Part:\n'
-    string += '-' * (11 * nmstates + nmstates // 3)
-    string += '\n'
-    istate = 0
-    for imult, i, ms in itnmstates(states):
-        jstate = 0
-        string += '|'
-        for jmult, j, ms2 in itnmstates(states):
-            if matrix[istate][jstate].imag == 0.:
-                string += ' ' * 11
-            else:
-                imag = True
-                string += '% .3e ' % (matrix[istate][jstate].imag)
-            if j == states[jmult - 1]:
-                string += '|'
-            jstate += 1
-        string += '\n'
-        if i == states[imult - 1]:
-            string += '-' * (11 * nmstates + nmstates // 3)
-            string += '\n'
-        istate += 1
-    string += '\n'
-    if imag:
-        print(string)
+                line = f.readline()
+        f.close()
+        # setting type as necessary (converting type through view and reshape is a lot faster that simple astype
+        # assignemnt)
+        if soc_real:
+            self._soc = np.reshape(self._soc.view(float), self._soc.shape + (2, ))[:, :, 0]
+        if dipole_real:
+            self._dipole = np.reshape(self._dipole.view(float), self._dipole.shape + (2, ))[:, :, :, 0]
 
-# ======================================================================= #
-
-
-def printgrad(grad, natom, geo, prnorm=False):
-    '''Prints a gradient or nac vector. Also prints the atom elements. If the gradient is identical zero, just prints one line.
-
-    Arguments:
-    1 list of list of float: gradient
-    2 integer: natom
-    3 list of list: geometry specs'''
-
-    norm = 0.
-    string = ''
-    iszero = True
-    for atom in range(natom):
-        string += '%i\t%s\t' % (atom + 1, geo[atom][0])
-        for xyz in range(3):
-            norm += grad[atom][xyz] * grad[atom][xyz]
-            if grad[atom][xyz] != 0:
-                iszero = False
-            string += '% .5f\t' % (grad[atom][xyz])
-        string += '\n'
-    if prnorm:
-        print('Norm: %.6f' % norm)
-    if iszero:
-        print('\t\t...is identical zero...\n')
-    else:
-        print(string)
-
-# ======================================================================= #
-
-
-def printQMout(QMin, QMout):
-    '''If PRINT, prints a summary of all requested QM output values. Matrices are formatted using printcomplexmatrix, vectors using printgrad.
-
-    Arguments:
-    1 dictionary: QMin
-    2 dictionary: QMout'''
-
-    if DEBUG:
-        print(QMout)
-    if not PRINT:
+        if 'init' in self._QMin:
+            INTERFACE.checkscratch(self._QMin['savedir'])
+        self._read_template = True
         return
-    states = QMin['states']
-    nstates = QMin['nstates']
-    nmstates = QMin['nmstates']
-    natom = QMin['natom']
-    print('===> Results:\n')
-    # Hamiltonian matrix, real or complex
-    if 'h' in QMin or 'soc' in QMin:
-        eshift = math.ceil(QMout['h'][0][0].real)
-        print('=> Hamiltonian Matrix:\nDiagonal Shift: %9.2f' % (eshift))
-        matrix = deepcopy(QMout['h'])
-        for i in range(nmstates):
-            matrix[i][i] -= eshift
-        printcomplexmatrix(matrix, states)
-    # Dipole moment matrices
-    if 'dm' in QMin:
-        print('=> Dipole Moment Matrices:\n')
-        for xyz in range(3):
-            print('Polarisation %s:' % (IToPol[xyz]))
-            matrix = QMout['dm'][xyz]
-            printcomplexmatrix(matrix, states)
-    # Gradients
-    if 'grad' in QMin:
-        print('=> Gradient Vectors:\n')
-        istate = 0
-        for imult, i, ms in itnmstates(states):
-            print('%s\t%i\tMs= % .1f:' % (IToMult[imult], i, ms))
-            printgrad(QMout['grad'][istate], natom, QMin['geom'])
-            istate += 1
-    # Non-adiabatic couplings
-    if 'nacdt' in QMin:
-        print('=> Numerical Non-adiabatic couplings:\n')
-        matrix = QMout['nacdt']
-        printcomplexmatrix(matrix, states)
-        matrix = deepcopy(QMout['mrcioverlap'])
-        for i in range(nmstates):
-            for j in range(nmstates):
-                matrix[i][j] = complex(matrix[i][j])
-        print('=> MRCI overlaps:\n')
-        printcomplexmatrix(matrix, states)
-        if 'phases' in QMout:
-            print('=> Wavefunction Phases:\n%i\n' % (nmstates))
-            for i in range(nmstates):
-                print('% 3.1f % 3.1f' % (QMout['phases'][i].real, QMout['phases'][i].imag))
-            print('\n')
-    if 'nacdr' in QMin:
-        print('=> Analytical Non-adiabatic coupling vectors:\n')
-        istate = 0
-        for imult, i, msi in itnmstates(states):
-            jstate = 0
-            for jmult, j, msj in itnmstates(states):
-                if imult == jmult and msi == msj:
-                    print('%s\tStates %i - %i\tMs= % .1f:' % (IToMult[imult], i, j, msi))
-                    printgrad(QMout['nacdr'][istate][jstate], natom, QMin['geom'], True)
-                jstate += 1
-            istate += 1
-    if 'dmdr' in QMin:
-        print('=> Dipole moment derivative vectors:\n')
-        istate = 0
-        for imult, i, msi in itnmstates(states):
-            jstate = 0
-            for jmult, j, msj in itnmstates(states):
-                if imult == jmult and msi == msj:
-                    for ipol in range(3):
-                        print('%s\tStates %i - %i\tMs= % .1f\tPolarization %s:' % (IToMult[imult], i, j, msi, IToPol[ipol]))
-                        printgrad(QMout['dmdr'][istate][jstate][ipol], natom, QMin['geom'])
-                jstate += 1
-            istate += 1
-    if 'overlap' in QMin:
-        print('=> Overlap matrix:\n')
-        matrix = QMout['overlap']
-        printcomplexmatrix(matrix, states)
-        if 'phases' in QMout:
-            print('=> Wavefunction Phases:\n%i\n' % (nmstates))
-            for i in range(nmstates):
-                print('% 3.1f % 3.1f' % (QMout['phases'][i].real, QMout['phases'][i].imag))
-            print('\n')
-    # Angular momentum matrices
-    if 'angular' in QMin:
-        print('=> Angular Momentum Matrices:\n')
-        for xyz in range(3):
-            print('Polarisation %s:' % (IToPol[xyz]))
-            matrix = QMout['angular'][xyz]
-            printcomplexmatrix(matrix, states)
-    sys.stdout.flush()
 
-# =========================================================
-# =========================================================
-# =========================================================
-# diagonalization and transformation stuff
-
-
-class diagonalizer:
-    def __init__(self):
-        exe = os.getenv('SHARC')
-        exe = os.path.expanduser(os.path.expandvars(exe)) + '/diagonalizer.x'
-        if not os.path.isfile(exe):
-            print('SHARC auxilliary diagonalizer not found at %s!' % (exe))
-            sys.exit(14)
-        self.exe = exe
-
-    def eigh(self, H):
-        STDIN = 'C %i %i\nTitle\n' % (len(H), len(H))
-        for x in H:
-            for y in x:
-                STDIN += '%20.13f %20.13f ' % (y.real, y.imag)
-            STDIN += '\n'
-        proc = sp.Popen(self.exe, stdin=sp.PIPE, stdout=sp.PIPE)
-        STDOUT = proc.communicate(input=STDIN)[0].split('\n')
-        shift = 1
-        for ix in range(len(H)):
-            line = STDOUT[shift + ix].split()
-            for iy in range(len(H)):
-                assert abs(float(line[1 + 2 * iy])) <= 1.e-10
-                H[ix][iy] = float(line[0 + 2 * iy])
-        U = [[0. for i in range(len(H))] for j in range(len(H))]
-        shift = 2 + len(H)
-        for ix in range(len(H)):
-            line = STDOUT[shift + ix].split()
-            for iy in range(len(H)):
-                assert abs(float(line[1 + 2 * iy])) <= 1.e-10
-                U[ix][iy] = float(line[0 + 2 * iy])
-        return H, U
-
-# =========================================================
-
-
-def diagonalize(A):
-    if NONUMPY:
-        diagon = diagonalizer()
-    else:
-        diagon = numpy.linalg
-
-    # diagonalize Hamiltonian
-    Hd, U = diagon.eigh(A)
-    if not NONUMPY:
-        Hd = numpy.diag(Hd)
-
-    return Hd, U
-
-# =========================================================
-
-
-def transform(A, U):
-    '''returns U^T.A.U'''
-
-    if NONUMPY:
-        temp = [[0. for i in range(len(U))] for j in range(len(U))]
-        B = [[0. for i in range(len(U))] for j in range(len(U))]
-        for a in range(len(U)):
-            for b in range(len(U)):
-                for i in range(len(U)):
-                    temp[a][b] += U[i][a].conjugate() * A[i][b]
-        for a in range(len(U)):
-            for b in range(len(U)):
-                for i in range(len(U)):
-                    B[a][b] += temp[a][i] * U[i][b]
-    else:
-        #Ucon=[ [ U[i][j].conjugate() for i in range(len(U)) ] for j in range(len(U)) ]
-        B = numpy.dot(numpy.array(U).T, numpy.dot(A, U))
-
-    return B
-
-# =============================================================================================== #
-# =============================================================================================== #
-# =========================================== QMout writing ===================================== #
-# =============================================================================================== #
-# =============================================================================================== #
-
-
-# ======================================================================= #
-def eformat(f, prec, exp_digits):
-    '''Formats a float f into scientific notation with prec number of decimals and exp_digits number of exponent digits.
-
-    String looks like:
-    [ -][0-9]\\.[0-9]*E[+-][0-9]*
-
-    Arguments:
-    1 float: Number to format
-    2 integer: Number of decimals
-    3 integer: Number of exponent digits
-
-    Returns:
-    1 string: formatted number'''
-
-    s = "% .*e" % (prec, f)
-    try:
-        mantissa, exp = s.split('e')
-    except BaseException:
-        print(f, s)
-        raise
-    return "%sE%+0*d" % (mantissa, exp_digits + 1, int(exp))
-
-
-# ======================================================================= #
-def writeQMout(QMin, QMout, QMinfilename):
-    '''Writes the requested quantities to the file which SHARC reads in. The filename is QMinfilename with everything after the first dot replaced by "out".
-
-    Arguments:
-    1 dictionary: QMin
-    2 dictionary: QMout
-    3 string: QMinfilename'''
-
-    os.chdir(QMin['pwd'])
-    k = QMinfilename.find('.')
-    if k == -1:
-        outfilename = QMinfilename + '.out'
-    else:
-        outfilename = QMinfilename[:k] + '.out'
-    if PRINT:
-        print('===> Writing output to file %s in SHARC Format\n' % (outfilename))
-    string = ''
-    for iatom in range(QMin['natom']):
-        string += QMin['geom'][iatom][0]
-        for i in range(3):
-            string += ' %12.9f ' % (QMin['geom'][iatom][i + 1])
-        string += '\n'
-    string += '\n'
-    if 'h' in QMin or 'soc' in QMin:
-        string += writeQMoutsoc(QMin, QMout)
-    if 'dm' in QMin:
-        string += writeQMoutdm(QMin, QMout)
-    if 'angular' in QMin:
-        string += writeQMoutang(QMin, QMout)
-    if 'grad' in QMin:
-        string += writeQMoutgrad(QMin, QMout)
-    if 'nacdr' in QMin:
-        string += writeQMoutnacana(QMin, QMout)
-    if 'overlap' in QMin:
-        string += writeQMoutnacsmat(QMin, QMout)
-    if 'ion' in QMin:
-        string += writeQMoutprop(QMin, QMout)
-    if 'dmdr' in QMin:
-        string += writeQMoutDMgrad(QMin, QMout)
-    string += writeQMouttime(QMin, QMout)
-    try:
-        outfile = open(outfilename, 'w')
-        outfile.write(string)
-        outfile.close()
-    except IOError:
-        print('Could not write QM output!')
-        sys.exit(15)
-    if 'backup' in QMin:
-        try:
-            outfile = open(QMin['backup'] + '/' + outfilename, 'w')
-            outfile.write(string)
-            outfile.close()
-        except IOError:
-            print('WARNING: Could not write QM output backup!')
-    return
-
-# ======================================================================= #
-
-
-def writeQMoutsoc(QMin, QMout):
-    '''Generates a string with the Spin-Orbit Hamiltonian in SHARC format.
-
-    The string starts with a ! followed by a flag specifying the type of data. In the next line, the dimensions of the matrix are given, followed by nmstates blocks of nmstates elements. Blocks are separated by a blank line.
-
-    Arguments:
-    1 dictionary: QMin
-    2 dictionary: QMout
-
-    Returns:
-    1 string: multiline string with the SOC matrix'''
-
-    states = QMin['states']
-    nstates = QMin['nstates']
-    nmstates = QMin['nmstates']
-    natom = QMin['natom']
-    string = ''
-    string += '! %i Hamiltonian Matrix (%ix%i, complex)\n' % (1, nmstates, nmstates)
-    string += '%i %i\n' % (nmstates, nmstates)
-    for i in range(nmstates):
-        for j in range(nmstates):
-            string += '%s %s ' % (eformat(QMout['h'][i][j].real, 12, 3), eformat(QMout['h'][i][j].imag, 12, 3))
-        string += '\n'
-    string += '\n'
-    return string
-
-# ======================================================================= #
-
-
-def writeQMoutdm(QMin, QMout):
-    '''Generates a string with the Dipole moment matrices in SHARC format.
-
-    The string starts with a ! followed by a flag specifying the type of data. In the next line, the dimensions of the matrix are given, followed by nmstates blocks of nmstates elements. Blocks are separated by a blank line. The string contains three such matrices.
-
-    Arguments:
-    1 dictionary: QMin
-    2 dictionary: QMout
-
-    Returns:
-    1 string: multiline string with the DM matrices'''
-
-    states = QMin['states']
-    nstates = QMin['nstates']
-    nmstates = QMin['nmstates']
-    natom = QMin['natom']
-    string = ''
-    string += '! %i Dipole Moment Matrices (3x%ix%i, complex)\n' % (2, nmstates, nmstates)
-    for xyz in range(3):
-        string += '%i %i\n' % (nmstates, nmstates)
-        for i in range(nmstates):
-            for j in range(nmstates):
-                string += '%s %s ' % (eformat(QMout['dm'][xyz][i][j].real, 12, 3), eformat(QMout['dm'][xyz][i][j].imag, 12, 3))
-            string += '\n'
-        string += ''
-    return string
-
-# ======================================================================= #
-
-
-def writeQMoutang(QMin, QMout):
-    '''Generates a string with the Dipole moment matrices in SHARC format.
-
-    The string starts with a ! followed by a flag specifying the type of data. In the next line, the dimensions of the matrix are given, followed by nmstates blocks of nmstates elements. Blocks are separated by a blank line. The string contains three such matrices.
-
-    Arguments:
-    1 dictionary: QMin
-    2 dictionary: QMout
-
-    Returns:
-    1 string: multiline string with the DM matrices'''
-
-    states = QMin['states']
-    nstates = QMin['nstates']
-    nmstates = QMin['nmstates']
-    natom = QMin['natom']
-    string = ''
-    string += '! %i Angular Momentum Matrices (3x%ix%i, complex)\n' % (9, nmstates, nmstates)
-    for xyz in range(3):
-        string += '%i %i\n' % (nmstates, nmstates)
-        for i in range(nmstates):
-            for j in range(nmstates):
-                string += '%s %s ' % (eformat(QMout['angular'][xyz][i][j].real, 12, 3), eformat(QMout['angular'][xyz][i][j].imag, 12, 3))
-            string += '\n'
-        string += ''
-    return string
-
-# ======================================================================= #
-
-
-def writeQMoutgrad(QMin, QMout):
-    '''Generates a string with the Gradient vectors in SHARC format.
-
-    The string starts with a ! followed by a flag specifying the type of data. On the next line, natom and 3 are written, followed by the gradient, with one line per atom and a blank line at the end. Each MS component shows up (nmstates gradients are written).
-
-    Arguments:
-    1 dictionary: QMin
-    2 dictionary: QMout
-
-    Returns:
-    1 string: multiline string with the Gradient vectors'''
-
-    states = QMin['states']
-    nstates = QMin['nstates']
-    nmstates = QMin['nmstates']
-    natom = QMin['natom']
-    string = ''
-    string += '! %i Gradient Vectors (%ix%ix3, real)\n' % (3, nmstates, natom)
-    i = 0
-    for imult, istate, ims in itnmstates(states):
-        string += '%i %i ! m1 %i s1 %i ms1 %i\n' % (natom, 3, imult, istate, ims)
-        for atom in range(natom):
-            for xyz in range(3):
-                string += '%s ' % (eformat(QMout['grad'][i][atom][xyz], 12, 3))
-            string += '\n'
-        string += ''
-        i += 1
-    return string
-
-# ======================================================================= #
-
-
-def writeQMoutnacnum(QMin, QMout):
-    '''Generates a string with the NAC matrix in SHARC format.
-
-    The string starts with a ! followed by a flag specifying the type of data. In the next line, the dimensions of the matrix are given, followed by nmstates blocks of nmstates elements. Blocks are separated by a blank line.
-
-    Arguments:
-    1 dictionary: QMin
-    2 dictionary: QMout
-
-    Returns:
-    1 string: multiline string with the NAC matrix'''
-
-    states = QMin['states']
-    nstates = QMin['nstates']
-    nmstates = QMin['nmstates']
-    natom = QMin['natom']
-    string = ''
-    string += '! %i Non-adiabatic couplings (ddt) (%ix%i, complex)\n' % (4, nmstates, nmstates)
-    string += '%i %i\n' % (nmstates, nmstates)
-    for i in range(nmstates):
-        for j in range(nmstates):
-            string += '%s %s ' % (eformat(QMout['nacdt'][i][j].real, 12, 3), eformat(QMout['nacdt'][i][j].imag, 12, 3))
-        string += '\n'
-    string += ''
-    # also write wavefunction phases
-    string += '! %i Wavefunction phases (%i, complex)\n' % (7, nmstates)
-    for i in range(nmstates):
-        string += '%s %s\n' % (eformat(QMout['phases'][i], 12, 3), eformat(0., 12, 3))
-    string += '\n\n'
-    return string
-
-# ======================================================================= #
-
-
-def writeQMoutnacana(QMin, QMout):
-    '''Generates a string with the NAC vectors in SHARC format.
-
-    The string starts with a ! followed by a flag specifying the type of data. On the next line, natom and 3 are written, followed by the gradient, with one line per atom and a blank line at the end. Each MS component shows up (nmstates x nmstates vectors are written).
-
-    Arguments:
-    1 dictionary: QMin
-    2 dictionary: QMout
-
-    Returns:
-    1 string: multiline string with the NAC vectors'''
-
-    states = QMin['states']
-    nstates = QMin['nstates']
-    nmstates = QMin['nmstates']
-    natom = QMin['natom']
-    string = ''
-    string += '! %i Non-adiabatic couplings (ddr) (%ix%ix%ix3, real)\n' % (5, nmstates, nmstates, natom)
-    i = 0
-    for imult, istate, ims in itnmstates(states):
-        j = 0
-        for jmult, jstate, jms in itnmstates(states):
-            string += '%i %i ! m1 %i s1 %i ms1 %i   m2 %i s2 %i ms2 %i\n' % (natom, 3, imult, istate, ims, jmult, jstate, jms)
-            for atom in range(natom):
-                for xyz in range(3):
-                    string += '%s ' % (eformat(QMout['nacdr'][i][j][atom][xyz], 12, 3))
-                string += '\n'
-            string += ''
-            j += 1
-        i += 1
-    return string
-
-# ======================================================================= #
-
-
-def writeQMoutDMgrad(QMin, QMout):
-
-    states = QMin['states']
-    nstates = QMin['nstates']
-    nmstates = QMin['nmstates']
-    natom = QMin['natom']
-    string = ''
-    string += '! %i Dipole moment derivatives (%ix%ix3x%ix3, real)\n' % (12, nmstates, nmstates, natom)
-    i = 0
-    for imult, istate, ims in itnmstates(states):
-        j = 0
-        for jmult, jstate, jms in itnmstates(states):
-            for ipol in range(3):
-                string += '%i %i ! m1 %i s1 %i ms1 %i   m2 %i s2 %i ms2 %i   pol %i\n' % (natom, 3, imult, istate, ims, jmult, jstate, jms, ipol)
-                for atom in range(natom):
-                    for xyz in range(3):
-                        string += '%s ' % (eformat(QMout['dmdr'][i][j][ipol][atom][xyz], 12, 3))
-                    string += '\n'
-                string += ''
-            j += 1
-        i += 1
-    return string
-
-# ======================================================================= #
-
-
-def writeQMoutnacsmat(QMin, QMout):
-    '''Generates a string with the adiabatic-diabatic transformation matrix in SHARC format.
-
-    The string starts with a ! followed by a flag specifying the type of data. In the next line, the dimensions of the matrix are given, followed by nmstates blocks of nmstates elements. Blocks are separated by a blank line.
-
-    Arguments:
-    1 dictionary: QMin
-    2 dictionary: QMout
-
-    Returns:
-    1 string: multiline string with the transformation matrix'''
-
-    states = QMin['states']
-    nstates = QMin['nstates']
-    nmstates = QMin['nmstates']
-    natom = QMin['natom']
-    string = ''
-    string += '! %i Overlap matrix (%ix%i, complex)\n' % (6, nmstates, nmstates)
-    string += '%i %i\n' % (nmstates, nmstates)
-    for j in range(nmstates):
-        for i in range(nmstates):
-            string += '%s %s ' % (eformat(QMout['overlap'][j][i].real, 12, 3), eformat(QMout['overlap'][j][i].imag, 12, 3))
-        string += '\n'
-    string += '\n'
-    return string
-
-# ======================================================================= #
-
-
-def writeQMouttime(QMin, QMout):
-    '''Generates a string with the quantum mechanics total runtime in SHARC format.
-
-    The string starts with a ! followed by a flag specifying the type of data. In the next line, the runtime is given
-
-    Arguments:
-    1 dictionary: QMin
-    2 dictionary: QMout
-
-    Returns:
-    1 string: multiline string with the runtime'''
-
-    string = '! 8 Runtime\n%s\n' % (eformat(QMout['runtime'], 9, 3))
-    return string
-
-# ======================================================================= #
-
-
-def writeQMoutprop(QMin, QMout):
-    '''Generates a string with the Spin-Orbit Hamiltonian in SHARC format.
-
-    The string starts with a ! followed by a flag specifying the type of data. In the next line, the dimensions of the matrix are given, followed by nmstates blocks of nmstates elements. Blocks are separated by a blank line.
-
-    Arguments:
-    1 dictionary: QMin
-    2 dictionary: QMout
-
-    Returns:
-    1 string: multiline string with the SOC matrix'''
-
-    states = QMin['states']
-    nstates = QMin['nstates']
-    nmstates = QMin['nmstates']
-    natom = QMin['natom']
-    string = ''
-    string += '! %i Property Matrix (%ix%i, complex)\n' % (11, nmstates, nmstates)
-    string += '%i %i\n' % (nmstates, nmstates)
-    for i in range(nmstates):
-        for j in range(nmstates):
-            string += '%s %s ' % (eformat(QMout['prop'][i][j].real, 12, 3), eformat(QMout['prop'][i][j].imag, 12, 3))
-        string += '\n'
-    string += '\n'
-    return string
-
-
-# =========================================================
-def read_QMin():
-    # reads the geometry, unit keyword, nstates keyword
-    # does not read the request keywords, since it calculates by default all quantities
-    QMin = {}
-    f = open('QM.in')
-    qmin = f.readlines()
-    f.close()
-
-    QMin['natom'] = int(qmin[0])
-    QMin['comment'] = qmin[1]
-
-    # get geometry
-    line = qmin[2].split()[1:4]
-    geom = [[float(line[i]) for i in range(3)]]
-
-    geom = []
-    for i in range(2, QMin['natom'] + 2):
-        line = qmin[i].split()
-        for j in range(3):
-            line[j + 1] = float(line[j + 1])
-        geom.append(line)
-
-    # find states keyword
-    for line in qmin:
-        s = line.split()
-        if len(s) == 0:
-            continue
-        if 'states' in s[0].lower():
-            states = []
-            for iatom in range(len(s) - 1):
-                states.append(int(s[iatom + 1]))
-            break
-    else:
-        print('No state keyword given!')
-        sys.exit(16)
-    nstates = 0
-    nmstates = 0
-    for mult, i in enumerate(states):
-        nstates += i
-        nmstates += (mult + 1) * i
-    QMin['states'] = states
-    QMin['nstates'] = nstates
-    QMin['nmstates'] = nmstates
-    QMin['nmult'] = 0
-    statemap = {}
-    i = 1
-    for imult, nstates in enumerate(states):
-        if nstates == 0:
-            continue
-        QMin['nmult'] += 1
-        for ims in range(imult + 1):
-            ms = ims - imult / 2.
-            for istate in range(nstates):
-                statemap[i] = [imult + 1, istate + 1, ms]
-                i += 1
-    QMin['statemap'] = statemap
-
-    # find unit keyword
-    factor = BOHR_TO_ANG
-    for line in qmin:
-        s = line.split()
-        if len(s) == 0:
-            continue
-        if 'unit' in s[0].lower():
-            if 'bohr' in s[1].lower():
-                factor = 1.
-    for i in range(QMin['natom']):
-        for j in range(3):
-            geom[i][j + 1] /= factor
-    QMin['geom'] = geom
-    print(geom)
-
-    # find init, samestep, restart
-    for line in qmin[2:]:
-        line = line.split('#')[0]
-        s = line.split()
-        if len(s) == 0:
-            continue
-        if 'init' in s[0].lower():
-            QMin['init'] = []
-        if 'samestep' in s[0].lower():
-            QMin['samestep'] = []
-        if 'restart' in s[0].lower():
-            QMin['restart'] = []
-
-    # find savedir
-    QMin['savedir'] = './SAVEDIR/'
-    for line in qmin:
-        s = line.split()
-        if len(s) == 0:
-            continue
-        if 'savedir' in s[0].lower():
-            QMin['savedir'] = s[1]
-    QMin['savedir'] = os.path.abspath(os.path.expanduser(os.path.expandvars(QMin['savedir'])))
-
-    if 'init' in QMin:
-        checkscratch(QMin['savedir'])
-    if 'init' not in QMin and 'samestep' not in QMin and 'restart' not in QMin:
-        fromfile = os.path.join(QMin['savedir'], 'U.out')
-        if not os.path.isfile(fromfile):
-            print('ERROR: savedir does not contain U.out! Maybe you need to add "init" to QM.in.')
-            sys.exit(17)
-        tofile = os.path.join(QMin['savedir'], 'Uold.out')
-        shutil.copy(fromfile, tofile)
-
-
-    # find forbidden keywords and optional keywords
-    for line in qmin:
-        s = line.lower().split()
-        if len(s) == 0:
-            continue
-        for t in ['h', 'soc', 'nacdr', 'dm', 'grad', 'overlap']:
-            if s[0] in t:
-                QMin[s[0]] = []
-        if 'nacdt' in s[0]:
-            print('NACDT is not supported!')
-            sys.exit(18)
-        if 'dmdr' in s[0]:
-            print('DMDR is not supported!')
-            sys.exit(19)
-
-    QMin['pwd'] = os.getcwd()
-    return QMin
-
-# =========================================================
-
-
-def find_lines(nlines, match, strings):
-    smatch = match.lower().split()
-    iline = -1
-    while True:
-        iline += 1
-        if iline == len(strings):
-            return []
-        line = strings[iline].lower().split()
-        if tuple(line) == tuple(smatch):
-            return strings[iline + 1:iline + nlines + 1]
-
-# =========================================================
-
-
-def read_LVC_mat(nmstates, header, rfile):
-    mat = [[complex(0., 0.) for i in range(nmstates)] for j in range(nmstates)]
-
-    # real part
-    tmp = find_lines(nmstates, header + ' R', rfile)
-    if not tmp == []:
-        for i, line in enumerate(tmp):
-            for j, val in enumerate(line.split()):
-                mat[i][j] += float(val)
-
-    # imaginary part
-    tmp = find_lines(nmstates, header + ' I', rfile)
-    if not tmp == []:
-        for i, line in enumerate(tmp):
-            for j, val in enumerate(line.split()):
-                mat[i][j] += float(val) * 1j
-
-    return mat
-# =========================================================
-
-
-def read_V0(QMin, SH2LVC, fname='V0.txt'):
-    """"
-    Reads information about the ground-state potential from V0.txt.
-    Returns the displacement vector.
-    """
-    try:
-        f = open(fname)
-    except IOError:
-        print('Input file %s not found.' % fname)
-        sys.exit(20)
-    v0 = f.readlines()
-    f.close()
-
-    # read the coordinates and compute Cartesian displacements
-    disp = []  # displacement as one 3N-vector
-    SH2LVC['Ms'] = []  # Squareroot masses in a.u.
-    geom = QMin['geom']
-    tmp = find_lines(QMin['natom'], 'Geometry', v0)
-    for i in range(QMin['natom']):
-        s = tmp[i].lower().split()
-        if s[0] != geom[i][0].lower():
-            print(s[0], geom[i][0])
-            print('Inconsistent atom labels in QM.in and %s!' % fname)
-            sys.exit(21)
-        disp += [geom[i][1] - float(s[2]), geom[i][2] - float(s[3]), geom[i][3] - float(s[4])]
-        SH2LVC['Ms'] += 3 * [(float(s[5]) * U_TO_AMU)**.5]
-
-    # Frequencies (a.u.)
-    tmp = find_lines(1, 'Frequencies', v0)
-    if tmp == []:
-        print('No Frequencies defined in %s!' % fname)
-        sys.exit(22)
-    SH2LVC['Om'] = [float(o) for o in tmp[0].split()]
-
-    # Normal modes in mass-weighted coordinates
-    tmp = find_lines(len(SH2LVC['Om']), 'Mass-weighted normal modes', v0)
-    if tmp == []:
-        print('No normal modes given in %s!' % fname)
-        sys.exit(23)
-    SH2LVC['V'] = [list(map(float, line.split())) for line in tmp]  # transformation matrix
-
-    return disp
-
-# =========================================================
-
-
-def read_SH2LVC(QMin, fname='LVC.template'):
-    # reads LVC.template, deletes comments and blank lines
-    SH2LVC = {}
-    try:
-        f = open(fname)
-    except IOError:
-        try:
-            f = open('SH2LVC.inp')
-        except IOError:
-            print('Input file "LVC.template" not found.')
-            sys.exit(24)
-    sh2lvc = f.readlines()
-    f.close()
-
-    disp = read_V0(QMin, SH2LVC, sh2lvc[0].strip())
-
-    # check nstates
-    states = [int(s) for s in sh2lvc[1].split()]
-    if not states == QMin['states']:
-        print('states from QM.in and nstates from LVC.template are inconsistent!', QMin['states'], states)
-        sys.exit(25)
-    nstates = QMin['nstates']
-    nmstates = QMin['nmstates']
-    nmult = len(states)
-    r3N = range(3 * QMin['natom'])
-    Om = SH2LVC['Om']
-
-    # Transform the coordinates to dimensionless mass-weighted normal modes
-    MR = [SH2LVC['Ms'][i] * disp[i] for i in r3N]
-    MRV = [0. for i in r3N]
-    for i in r3N:
-        MRV[i] = sum(MR[j] * SH2LVC['V'][j][i] for j in r3N)
-    Q = [MRV[i] * Om[i]**0.5 for i in r3N]
-
-    # Compute the ground state potential and gradient
-    V0 = sum(0.5 * Om[i] * Q[i] * Q[i] for i in r3N)
-    HMCH = [[[0. for istate in range(states[imult])] for jstate in range(states[imult])] for imult in range(nmult)]
-    for imult in range(nmult):
-        for istate in range(states[imult]):
-            HMCH[imult][istate][istate] = V0
-
-    dHMCH = [[[[0. for istate in range(states[imult])] for jstate in range(states[imult])] for imult in range(nmult)] for i in r3N]
-    for i in r3N:
-        for imult in range(nmult):
-            for istate in range(states[imult]):
-                dHMCH[i][imult][istate][istate] = Om[i] * Q[i]
-
-    # Add the vertical energies (epsilon)
-    # Enter in separate lines as:
-    # <n_epsilon>
-    # <mult> <state> <epsilon>
-    # <mult> <state> <epsilon>
-
-    tmp = find_lines(1, 'epsilon', sh2lvc)
-    if not tmp == []:
-        eps = []
-        neps = int(tmp[0])
-        tmp = find_lines(neps + 1, 'epsilon', sh2lvc)
-        for line in tmp[1:]:
-            words = line.split()
-            eps.append((int(words[0]) - 1, int(words[1]) - 1, float(words[-1])))
-
-        for e in eps:
-            (imult, istate, val) = e
-            HMCH[imult][istate][istate] += val
-
-    # for imult in range(nmult): print(numpy.array(HMCH[imult]))
-
-    # Add the intrastate LVC constants (kappa)
-    # Enter in separate lines as:
-    # <n_kappa>
-    # <mult> <state> <mode> <kappa>
-    # <mult> <state> <mode> <kappa>
-
-    tmp = find_lines(1, 'kappa', sh2lvc)
-    if not tmp == []:
-        kappa = []
-        nkappa = int(tmp[0])
-        tmp = find_lines(nkappa + 1, 'kappa', sh2lvc)
-        for line in tmp[1:]:
-            words = line.split()
-            kappa.append((int(words[0]) - 1, int(words[1]) - 1, int(words[2]) - 1, float(words[-1])))
-
-        for k in kappa:
-            (imult, istate, i, val) = k
-            HMCH[imult][istate][istate] += val * Q[i]
-            dHMCH[i][imult][istate][istate] += val
-
-    # Add the interstate LVC constants (lambda)
-    # Enter in separate lines as:
-    # <n_lambda>
-    # <mult> <state1> <state2> <mode> <lambda>
-    # <mult> <state1> <state2> <mode> <lambda>
-
-    tmp = find_lines(1, 'lambda', sh2lvc)
-    if not tmp == []:
-        lam = []
-        nlam = int(tmp[0])
-        tmp = find_lines(nlam + 1, 'lambda', sh2lvc)
-        for line in tmp[1:]:
-            words = line.split()
-            lam.append((int(words[0]) - 1, int(words[1]) - 1, int(words[2]) - 1, int(words[3]) - 1, float(words[-1])))
-
-        for l in lam:
-            (imult, istate, jstate, i, val) = l
-            HMCH[imult][istate][jstate] += val * Q[i]
-            HMCH[imult][jstate][istate] += val * Q[i]
-            dHMCH[i][imult][istate][jstate] += val
-            dHMCH[i][imult][jstate][istate] += val
-
-    SH2LVC['H'] = HMCH
-    SH2LVC['dH'] = dHMCH
-
-    SH2LVC['dipole'] = {}
-    SH2LVC['dipole'][1] = read_LVC_mat(nmstates, 'DMX', sh2lvc)
-    SH2LVC['dipole'][2] = read_LVC_mat(nmstates, 'DMY', sh2lvc)
-    SH2LVC['dipole'][3] = read_LVC_mat(nmstates, 'DMZ', sh2lvc)
-
-    # obtain the SOC matrix
-    SH2LVC['soc'] = read_LVC_mat(nmstates, 'SOC', sh2lvc)
-
-    return SH2LVC, QMin
-
-# ============================================================================
-# ============================================================================
-# ============================================================================
-
-
-def getQMout(QMin, SH2LVC):
-    '''Calculates the MCH Hamiltonian, SOC matrix ,overlap matrix, gradients, DM'''
-
-    QMout = {}
-
-    nmult = len(QMin['states'])
-    r3N = range(3 * QMin['natom'])
-
-    # Diagonalize Hamiltonian and expand to the full ms-basis
-    U = [[0. for i in range(QMin['nmstates'])] for j in range(QMin['nmstates'])]
-    Hd = [[0. for i in range(QMin['nmstates'])] for j in range(QMin['nmstates'])]
-    dHfull = [[[0. for i in range(QMin['nmstates'])] for j in range(QMin['nmstates'])] for iQ in r3N]
-    offs = 0
-    for imult in range(nmult):
-        dim = QMin['states'][imult]
-        if not dim == 0:
-            Hdtmp, Utmp = diagonalize(SH2LVC['H'][imult])
-            for ms in range(imult + 1):
-                for i in range(dim):
-                    Hd[i + offs][i + offs] = Hdtmp[i][i]
-                    U[i + offs][offs:offs + dim] = Utmp[i]
-                    for iQ in r3N:
-                        dHfull[iQ][i + offs][offs:offs + dim] = SH2LVC['dH'][iQ][imult][i]
-                offs += dim
-#  print("QMout1: CPU time: % .3f s, wall time: %.3f s"%(time.clock() - tc, time.time() - tt))
-
-    # Transform the gradients to the MCH basis
-    dE = [[[0. for iQ in range(3 * QMin['natom'])] for istate in range(QMin['nmstates'])] for jstate in range(QMin['nmstates'])]
-    for iQ in r3N:
-        dEmat = transform(dHfull[iQ], U)
-        for istate in range(QMin['nmstates']):
-            for jstate in range(QMin['nmstates']):
-                dE[istate][jstate][iQ] = dEmat[istate][jstate]
-#  print("QMout2: CPU time: % .3f s, wall time: %.3f s"%(time.clock() - tc, time.time() - tt))
-
-    # Convert the gradient to Cartesian coordinates
-    #   -> It would be more efficent to do this only for unique Ms values
-    VOdE = [0. for i in r3N]
-    grad = []
-    for istate in range(QMin['nmstates']):
-        OdE = [0. for iQ in r3N]
-        for iQ in r3N:
-            if abs(SH2LVC['Om'][iQ]) > 1.e-8:
-                OdE[iQ] = dE[istate][istate][iQ] * SH2LVC['Om'][iQ]**0.5
-        if NONUMPY:
-            for iQ in r3N:
-                VOdE[iQ] = sum(SH2LVC['V'][iQ][jQ] * OdE[jQ] for jQ in r3N)
-        else:
-            VOdE = numpy.dot(SH2LVC['V'], OdE)
-
-        grad.append([])
-        for iat in range(QMin['natom']):
-            grad[-1].append([VOdE[3 * iat] * SH2LVC['Ms'][3 * iat], VOdE[3 * iat + 1] * SH2LVC['Ms'][3 * iat + 1], VOdE[3 * iat + 2] * SH2LVC['Ms'][3 * iat + 2]])
-#  print("QMout3: CPU time: % .3f s, wall time: %.3f s"%(time.clock() - tc, time.time() - tt))
-
-    if 'nacdr' in QMin:
-        nonac = [[0., 0., 0.] for iat in range(QMin['natom'])]
-        QMout['nacdr'] = [[nonac for istate in range(QMin['nmstates'])] for jstate in range(QMin['nmstates'])]
-        istate = - 1
-        for imult, ist, ims in itnmstates(QMin['states']):
-            istate += 1
-
-            jstate = - 1
-            for jmult, jst, jms in itnmstates(QMin['states']):
-                jstate += 1
-
-                if imult == jmult and ims == jms and istate < jstate:
-                    OdE = [0. for iQ in r3N]
-                    for iQ in r3N:
-                        if abs(SH2LVC['Om'][iQ]) > 1.e-8:
-                            OdE[iQ] = dE[istate][jstate][iQ] * SH2LVC['Om'][iQ]**0.5
-                    if NONUMPY:
-                        for iQ in r3N:
-                            VOdE[iQ] = sum(SH2LVC['V'][iQ][jQ] * OdE[jQ] for jQ in r3N)
-                    else:
-                        VOdE = numpy.dot(SH2LVC['V'], OdE)
-
-                    deriv = []
-                    for iat in range(QMin['natom']):
-                        deriv.append([VOdE[3 * iat] * SH2LVC['Ms'][3 * iat], VOdE[3 * iat + 1] * SH2LVC['Ms'][3 * iat + 1], VOdE[3 * iat + 2] * SH2LVC['Ms'][3 * iat + 2]])
-
-                    Einv = (Hd[jstate][jstate] - Hd[istate][istate]) ** (-1.)
-
-                    QMout['nacdr'][istate][jstate] = [[c * Einv for c in d] for d in deriv]
-                    QMout['nacdr'][jstate][istate] = [[-c * Einv for c in d] for d in deriv]
-
-    # transform dipole matrices
-    dipole = []
-    for idir in range(3):
-        Dmatrix = transform(SH2LVC['dipole'][idir + 1], U)
-        dipole.append(Dmatrix)
-
-    # get overlap matrix
-    if 'overlap' in QMin:
-        Uoldfile = os.path.join(QMin['savedir'], 'Uold.out')
-        if 'init' in QMin:
-            overlap = [[float(i == j) for i in range(QMin['nmstates'])] for j in range(QMin['nmstates'])]
-        else:
-            Uold = [[float(v) for v in line.split()] for line in open(Uoldfile, 'r').readlines()]
-            if NONUMPY:
-                overlap = [[0. for i in range(QMin['nmstates'])] for j in range(QMin['nmstates'])]
-                rS = range(QMin['nmstates'])
-                for a in rS:
-                    for b in rS:
-                        for i in rS:
-                            overlap[a][b] += Uold[i][a] * U[i][b]
+    # TODO: rework to buffer files
+    def read_V0(self, filename):
+        QMin = self.QMin
+        lines = readfile(filename)
+        it = 1
+        elem = QMin['elements']
+        rM = list(
+            map(lambda x: [x[0]] + [float(y) for y in x[2:]], map(lambda x: x.split(), lines[it:it + QMin['natom']]))
+        )
+        if [x[0] for x in rM] != elem:
+            raise Error(f'inconsistent atom labels in QM.in and {filename}:\n{rM[0]}\n{elem}')
+        rM = np.asarray([x[1:] for x in rM], dtype=float)
+        self._ref_coords = rM[:, :-1]
+        tmp = np.sqrt(rM[:, -1] * U_TO_AMU)
+        self._Msa = np.asarray([tmp, tmp, tmp]).flatten(order='F')
+        it += QMin['natom'] + 1
+        self._Om = np.asarray(lines[it].split(), dtype=float)
+        it += 2
+        self._Km = np.asarray([x.split() for x in lines[it:]], dtype=float).T * self._Msa
+        return
+
+    def read_resources(self, resources_filename="LVC.resources"):
+        if not os.path.isfile(resources_filename):
+            print("Warning!: LVC.resources not found; continuuing without further settings.")
+            return
+        lines = readfile(resources_filename)
+        bools = {'do_kabsch': False}
+        integers = {'ncpu': 1}
+        resources = {**bools, **integers, **self.parse_keywords(lines, bools=bools, integers=integers)}
+        self._QMin['ncpu'], self._do_kabsch = map(resources.get, ['ncpu', 'do_kabsch'])
+
+
+    def setup_run(self):
+        pass
+
+    def _request_logic(self):
+        QMin = self._QMin
+        # prepare savedir
+        if not os.path.isdir(QMin['savedir']):
+            mkdir(QMin['savedir'])
+
+        possibletasks = {'h', 'soc', 'dm', 'grad', 'overlap'}
+        tasks = possibletasks & QMin.keys()
+        if len(tasks) == 0:
+            raise Error(f'No tasks found! Tasks are {possibletasks}.', 39)
+
+        if 'h' not in tasks and 'soc' not in tasks:
+            QMin['h'] = True
+
+        if 'soc' in tasks and (len(QMin['states']) < 3 or QMin['states'][2] <= 0):
+            del QMin['soc']
+            QMin['h'] = True
+            print('HINT: No triplet states requested, turning off SOC request.')
+
+        if 'overlap' in tasks and 'init' in tasks:
+            raise Error(
+                '"overlap" and "phases" cannot be calculated in the first timestep! Delete either "overlap" or "init"',
+                43
+            )
+
+        if not tasks.isdisjoint({'h', 'soc', 'dm', 'grad'}) and 'overlap' in tasks:
+            QMin['h'] = True
+
+        if 'pc_file' in QMin:
+            QMin['point_charges'] = [
+                [float(x[0]) * self._factor,
+                 float(x[1]) * self._factor,
+                 float(x[2]) * self._factor,
+                 float(x[3])] for x in map(lambda x: x.split(), readfile(QMin['pc_file']))
+            ]
+
+    def getQMout(self):
+        return self._QMout
+
+    @staticmethod
+    def get_mult_prefactors(pc_coord_diff):
+        # precalculated dist matrix
+        pc_inv_dist_A_B = 1 / np.sqrt(np.sum((pc_coord_diff)**2, axis=2))    # distance matrix n_coord (A), n_pc (B)
+        R = pc_coord_diff
+        r_inv3 = pc_inv_dist_A_B**3
+        r_inv5 = pc_inv_dist_A_B**5
+        # full stack of factors for the multipole expansion
+        # .,   x, y, z,   xx, yy, zz, xy, xz, yz
+        return np.stack(
+            (
+                pc_inv_dist_A_B,    # .
+                R[..., 0] * r_inv3,    # x
+                R[..., 1] * r_inv3,    # y
+                R[..., 2] * r_inv3,    # z
+                R[..., 0] * R[..., 0] * r_inv5 * 0.5,    # xx
+                R[..., 1] * R[..., 1] * r_inv5 * 0.5,    # yy
+                R[..., 2] * R[..., 2] * r_inv5 * 0.5,    # zz
+                R[..., 0] * R[..., 1] * r_inv5,    # xy
+                R[..., 0] * R[..., 2] * r_inv5,    # xz
+                R[..., 1] * R[..., 2] * r_inv5    # yz
+            )
+        )
+
+    @staticmethod
+    def get_mult_prefactors_deriv(pc_coord_diff):
+        pc_inv_dist_A_B = 1 / np.sqrt(np.sum((pc_coord_diff)**2, axis=2))    # distance matrix n_coord (A), n_pc (B)
+        R = pc_coord_diff
+        r_inv3 = pc_inv_dist_A_B**3
+        r_inv5 = pc_inv_dist_A_B**5
+        r_inv7 = pc_inv_dist_A_B**7
+        R_sq = R**2
+        # full stack of factors for the multipole expansion
+        # order 0,   x, y, z,   xx, yy, zz, xy, xz, yz
+        return np.stack(
+            (   # derivatives in x direction
+                -R[..., 0] * r_inv3,  # -Rx/R^3
+                (-2 * R_sq[..., 0] + R_sq[..., 1] + R_sq[..., 2]) * r_inv5,  # (-2Rx2+Ry2+Rz2)/R5
+                -3 * R[..., 1] * R[..., 0] * r_inv5,  # -3RyRx/R5
+                -3 * R[..., 2] * R[..., 0] * r_inv5,  # -3RzRx/R5
+                -R[..., 0] * (1.5 * R_sq[..., 0] - (R_sq[..., 1] + R_sq[..., 2])) * r_inv7,  # -Rx(5Rx2-2R2)/2R7
+                -2.5 * R_sq[..., 1] * R[..., 0] * r_inv7,  # -5Ry2Rx/2R7
+                -2.5 * R_sq[..., 2] * R[..., 0] * r_inv7,  # -5Rz2Rx/2R7
+                R[..., 1] * (-4 * R_sq[..., 0] + R_sq[..., 1] + R_sq[..., 2]) * r_inv7,  # Ry(-4Rx2+R2)/R7
+                R[..., 2] * (-4 * R_sq[..., 0] + R_sq[..., 1] + R_sq[..., 2]) * r_inv7,  # Rz(-4Rx2+R2)/R7
+                -5 * R[..., 0] * R[..., 1] * R[..., 2] * r_inv7,  # -5RxRyRz/R7
+                # derivatives in y direction
+                -R[..., 1] * r_inv3,  # -Ry/R^3
+                -3 * R[..., 0] * R[..., 1] * r_inv5,  # -3RxRy/R5
+                (-2 * R_sq[..., 1] + R_sq[..., 0] + R_sq[..., 2]) * r_inv5,  # (-2Ry2+Rx2+Rz2)/R5
+                -3 * R[..., 2] * R[..., 1] * r_inv5,  # -3RzRy/R5
+                -2.5 * R_sq[..., 0] * R[..., 1] * r_inv7,  # -5Rx2Ry/2R7
+                -R[..., 1] * (1.5 * R_sq[..., 1] - (R_sq[..., 0] + R_sq[..., 2])) * r_inv7,  # -Ry(5Ry2-2R2)/2R7
+                -2.5 * R_sq[..., 2] * R[..., 1] * r_inv7,  # -5Rz2Ry/2R7
+                R[..., 0] * (-4 * R_sq[..., 1] + R_sq[..., 0] + R_sq[..., 2]) * r_inv7,  # Rx(-4Ry2+R2)/R7
+                -5 * R[..., 0] * R[..., 1] * R[..., 2] * r_inv7,  # -5RxRyRz/R7
+                R[..., 2] * (-4 * R_sq[..., 1] + R_sq[..., 0] + R_sq[..., 2]) * r_inv7,  # Rz(-4Ry2+R2)/R7
+                # derivatives in z direction
+                -R[..., 2] * r_inv3,  # -Rz/R^3
+                -3 * R[..., 0] * R[..., 2] * r_inv5,  # -3RxRz/R5
+                -3 * R[..., 1] * R[..., 2] * r_inv5,  # -3RyRz/R5
+                (-2 * R_sq[..., 2] + R_sq[..., 1] + R_sq[..., 0]) * r_inv5,  # (-2Rz2+Rx2+Rz2)/R5
+                -2.5 * R_sq[..., 0] * R[..., 2] * r_inv7,  # -5Rx2Rz/2R7
+                -2.5 * R_sq[..., 1] * R[..., 2] * r_inv7,  # -5Ry2Rz/2R7
+                -R[..., 2] * (1.5 * R_sq[..., 2] - (R_sq[..., 1] + R_sq[..., 0])) * r_inv7,  # -Rz(5Rz2-2R2)/2R7
+                -5 * R[..., 0] * R[..., 1] * R[..., 2] * r_inv7,  # -5RxRyRz/R7
+                R[..., 0] * (-4 * R_sq[..., 2] + R_sq[..., 1] + R_sq[..., 0]) * r_inv7,  # Rx(-5Rz2+R2)/R7
+                R[..., 1] * (-4 * R_sq[..., 2] + R_sq[..., 1] + R_sq[..., 0]) * r_inv7,  # Ry(-5Rz2+R2)/R7
+            )
+        ).reshape((3, 10, pc_coord_diff.shape[0], pc_coord_diff.shape[1]))
+
+    @staticmethod
+    def rotate_multipoles(q, Trot):
+        res = q.copy()
+        res[..., 1:4] = res[..., 1:4] @ Trot
+        quad = np.zeros((*[*res.shape][:-1], 3, 3))
+        # [0,1,2,0,0,1],[0,1,2,1,2,2]
+        quad[..., [0, 1, 2], [0, 1, 2]] = res[..., 4:7]
+        quad[..., [0, 0, 1], [1, 2, 2]] = 0.5 * res[..., 7:]
+        quad[..., [1, 2, 2], [0, 0, 1]] = quad[..., [0, 0, 1], [1, 2, 2]]
+        quad = Trot.T @ quad @ Trot
+        res[..., 4:7] = quad[..., [0, 1, 2], [0, 1, 2]]
+        res[..., 7:] = 2 * quad[..., [0, 0, 1], [1, 2, 2]]
+        return res
+
+    # NOTE: potentially do kabsch on reference coords and normal modes (if nmstates**2 > 3*natom)
+    def run(self):
+        # s1_time = time.perf_counter_ns()
+        do_pc = 'point_charges' in self._QMin
+        weights = [MASSES[i] for i in self._QMin['elements']]
+
+        # conditionally turn on kabsch as flag (do_pc for additional logic)
+        do_kabsch = True if do_pc else self._do_kabsch
+        self.clock.starttime = datetime.datetime.now()
+        nmstates = self._QMin['nmstates']
+        self._U = np.zeros((nmstates, nmstates), dtype=float)
+        Hd = np.zeros((nmstates, nmstates), dtype=self._soc.dtype)
+        states = self._QMin['states']
+        r3N = 3 * self._QMin['natom']
+        coords: np.ndarray = self._QMin['coords'].copy()
+        coords_ref_basis = coords
+        if do_kabsch:
+            self._Trot, self._com_ref, self._com_coords = kabsch(self._ref_coords, coords, weights)
+            coords_ref_basis = (coords - self._com_coords) @ self._Trot.T + self._com_ref
+        # sanity check for coordinates - check if centre of mass is conserved
+        elif self._QMin['step'] == 0:
+            self._Trot, self._com_ref, self._com_coords = kabsch(self._ref_coords, coords, weights)
+            if not np.allclose(self._com_ref, self._com_coords, rtol=1e-3) or \
+               not np.allclose(np.diag(self._Trot), np.ones(3, dtype=float), rtol=1e-5):
+                raise Error('Misaligned geometry without activated Kabsch algorithm! -> check you input structure or activate Kabsch', 39)
+
+        # kabsch is necessary with point charges
+        if do_pc:
+            # weights = [MASSES[i] for i in self._QMin['elements']]
+            # self._Trot, self._com_ref, self._com_coords = kabsch(self._ref_coords, coords, weights)
+            self._fits_rot = {im: self.rotate_multipoles(fits, self._Trot) for im, fits in self._fits.items()}
+            # coords_ref_basis = (coords - self._com_coords) @ self._Trot.T + self._com_ref
+            pc = np.array(self.QMin['point_charges'])    # pc: list[list[float]] = each pc is x, y, z, q
+            pc_coord = pc[:, :3]    # n_pc, 3
+            self.pc_chrg = pc[:, 3].reshape((-1, 1))    # n_pc, 1
+            # matrix of position differences (for gradient calc) n_coord (A), n_pc (B), 3
+            pc_coord_diff = np.full((coords.shape[0], pc_coord.shape[0], 3), coords[:, None, :]) - pc_coord
+            mult_prefactors = self.get_mult_prefactors(pc_coord_diff)
+            mult_prefactors_pc = np.einsum('b,yab->yab', self.pc_chrg.flat, mult_prefactors)
+            del mult_prefactors
+        # Build full H and diagonalize
+        self._Q = np.sqrt(self._Om) * (self._Km @ (coords_ref_basis.flatten() - self._ref_coords.flatten()))
+        self._V = self._Om * self._Q
+        V0 = 0.5 * (self._V) @ self._Q
+        start = 0    # starting index for blocks
+        # TODO what if I want to get gradients only ? i.e. samestep
+        for im, n in filter(lambda x: x[1] != 0, enumerate(states)):
+            H = np.diag(self._epsilon[im] + V0)
+            H += self._H_i[im] @ self._Q
+            if do_pc:
+                # assert np.allclose(ene, ene_v, rtol=1e-8)
+                H += np.einsum('ijay,yab->ij', self._fits_rot[im], mult_prefactors_pc, casting='no', optimize=True)
+            stop = start + n
+            if self._diagonalize:
+                eigen_values, self._U[start:stop, start:stop] = np.linalg.eigh(H, UPLO='U')
+                np.einsum('ii->i', Hd)[start:stop] = eigen_values
             else:
-                overlap = numpy.dot(numpy.array(Uold).T, U)
-        QMout['overlap'] = overlap
+                self._U[start:stop, start:stop] = np.identity(n, dtype=float)
+                Hd[start:stop, start:stop] = H
+
+            for s1 in map(
+                lambda x: start + n * (x + 1), range(im)
+            ):    # fills in blocks for other magnetic quantum numbers
+                s2 = s1 + n
+                self._U[s1:s2, s1:s2] = self._U[start:stop, start:stop]
+                if self._diagonalize:
+                    np.einsum('ii->i', Hd)[s1:s2] = eigen_values
+                else:
+                    Hd[s1:s2, s1:s2] = H
+
+            start += n * (im + 1)
+        grad = np.zeros((nmstates, r3N))
+
+        if do_kabsch:
+            if do_pc:
+                self.pc_grad = np.zeros((nmstates, self.pc_chrg.shape[0], 3))
+
+                mult_prefactors_deriv = self.get_mult_prefactors_deriv(pc_coord_diff)
+
+                fits_deriv = {
+                    im: np.zeros((n, n, self._QMin['natom'], 9, self._QMin['natom'], 3))
+                    for im, n in filter(lambda x: x[1] != 0, enumerate(states))
+                }
+
+                mult_prefactors_deriv_pc = np.einsum('xyab,b->xyab', mult_prefactors_deriv, self.pc_chrg.flat)
+                del mult_prefactors_deriv
+
+        # numerically calculate the derivatives of the coordinates in the reference system with respect ot the sharc coords
+            shift = 0.0005
+            multiplier = 1 / (2 * shift)
+
+            coords_deriv = np.zeros((r3N, r3N))
+            for a in range(self._QMin['natom']):
+                for x in range(3):
+                    for f, m in [(1, multiplier), (-1, -multiplier)]:
+                        c = np.copy(coords)
+                        c[a, x] += f * shift
+                        Trot, com_ref, com_c = kabsch(self._ref_coords, c, weights)
+                        c_rot = (c - com_c) @ Trot.T + com_ref
+                        coords_deriv[..., a * 3 + x] += (m * c_rot).flat
+                        if do_pc:
+                            for im, n in filter(lambda x: x[1] != 0, enumerate(states)):
+                                fits_rot = self.rotate_multipoles(self._fits[im], Trot)
+                                fits_deriv[im][..., a, x] += m * fits_rot[..., 1:]
+
+            dQ_dr = np.sqrt(self._Om)[..., None] * (self._Km @ coords_deriv)
+            del coords_deriv
+        else:
+            dQ_dr = np.sqrt(self._Om)[..., None] * self._Km
+
+        # GRADS and NACS
+        if 'nacdr' in self._QMin:
+            # Build full derivative matrix
+            start = 0    # starting index for blocks
+            nacdr = np.zeros((nmstates, nmstates, r3N), float)
+            nacdr = nacdr.reshape((nmstates, nmstates, r3N))
+            for im, n in filter(lambda x: x[1] != 0, enumerate(states)):
+                stop = start + n
+                u = self._U[start:stop, start:stop]
+                dlvc = np.zeros((n, n, r3N))
+                np.einsum('iik->ik',
+                          dlvc)[...] += self._V[None,
+                                                ...]    # fills diagonal on matrix with shape (nmstates,nmstates, r3N)
+                dlvc += self._H_i[im]
+                dlvc = np.einsum('ijk,kl->ijl', dlvc, dQ_dr, casting='no', optimize=True)
+                if do_pc:
+                    # calculate derivative of electrostic interaction
+                    dcoulomb: np.ndarray = np.einsum('xyab,ijay->ijabx', mult_prefactors_deriv_pc, self._fits_rot[im])
+                    # add derivative to lvc derivative summed ofe all point charges
+                    dlvc += np.einsum('ijabx->ijax', dcoulomb).reshape((n, n, r3N))
+                    # add the derivative of the multipoles
+                    dlvc += np.einsum(
+                        'yab,ijaymx->ijmx', mult_prefactors_pc[1:, ...], fits_deriv[im], casting='no', optimize=True
+                    ).reshape((n, n, r3N))
+                    # calculate the pc derivatives
+                    pc_derivative = -np.einsum('ijabx->ijbx', dcoulomb)
+                    del dcoulomb
+                    if self._diagonalize:
+                        pc_derivative = np.einsum('ijbx,im,jn->mnbx', pc_derivative, u, u, casting='no', optimize=True)
+                    self.pc_grad[start:stop, ...] += np.einsum('mmbx->mbx', pc_derivative)
+
+                # transform gradients to adiabatic basis
+                if self._diagonalize:
+                    dlvc = np.einsum('ijk,im,jn->mnk', dlvc, u, u, casting='no', optimize=True)
+
+                nacdr[start:stop, start:stop, ...] = dlvc
+                grad[start:stop, ...] = np.einsum('iik->ik', dlvc)
+                if Hd.dtype == complex:
+                    eV = np.reshape(Hd.view(float), (nmstates * nmstates, 2))[::nmstates + 1, 0]
+                else:
+                    eV = Hd.flat[::nmstates + 1]
+                cast = complex if Hd.dtype == complex else float
+                # energy weighting of the nacs
+                tmp = np.full((n, n), eV[start:stop]).T
+                tmp -= eV[start:stop]
+                idx = tmp != cast(0)
+                tmp[idx] **= -1
+                nacdr[start:stop, start:stop, :] = np.einsum(
+                    'ji,ijk->ijk', tmp, nacdr[start:stop, start:stop, :], casting='no', optimize=True
+                )
+                # fills in blocks for other magnetic quantum numbers
+                for s1 in map(lambda x: start + n * (x + 1), range(im)):
+                    s2 = s1 + n
+                    nacdr[s1:s2, s1:s2, :] = nacdr[start:stop, start:stop, :]
+                    grad[s1:s2, ...] = grad[start:stop, ...]
+                    if do_pc:
+                        self.pc_grad[s1:s2, ...] = self.pc_grad[start:stop, ...]
+                start += n * (im + 1)
+
+        # calculate only gradients
+        else:
+            grad = np.zeros((nmstates, r3N))
+            start = 0
+            for im, n in filter(lambda x: x[1] != 0, enumerate(states)):
+                stop = start + n
+                u = self._U[start:stop, start:stop]
+                grad_lvc = np.full((n, r3N), self._V[None, ...])
+                if self._diagonalize:
+                    grad_lvc += np.einsum('ijk,in,jn->nk', self._H_i[im], u, u, casting='no', optimize=True)
+                    if do_pc:
+                        fits_r = np.einsum('ijay,in,jn->nay', self._fits_rot[im], u, u, casting='no', optimize=True)
+                        dfits = np.einsum('ijaymx,in,jn->naymx', fits_deriv[im], u, u, casting='no', optimize=True)
+                else:
+                    grad_lvc += np.einsum('iik->ik', self._H_i[im])
+                    if do_pc:
+                        fits_r = np.einsum('iiay->iay', self._fits_rot[im])
+                        dfits = np.einsum('iiaymx->iaymx', fits_deriv[im])
+                grad_lvc = grad_lvc @ dQ_dr
+                if do_pc:
+                    # calculate derivative of electrostic interaction
+                    dcoulomb: np.ndarray = np.einsum('xyab,iay->iabx', mult_prefactors_deriv_pc, fits_r)
+                    # add derivative to lvc derivative summed ofe all point charges
+                    grad_lvc += np.einsum('iabx->iax', dcoulomb).reshape((n, r3N))
+                    # add the derivative of the multipoles
+                    grad_lvc += np.einsum(
+                        'yab,iaymx->imx', mult_prefactors_pc[1:, ...], dfits, casting='no', optimize=True
+                    ).reshape((n, r3N))
+                    # calculate the pc derivatives
+                    self.pc_grad[start:stop, ...] = -np.einsum('iabx->ibx', dcoulomb)
+                    del dcoulomb
+                grad[start:stop, ...] = grad_lvc
+                # fills in blocks for other magnetic quantum numbers
+                for s1 in map(lambda x: start + n * (x + 1), range(im)):
+                    s2 = s1 + n
+                    grad[s1:s2, ...] = grad_lvc
+                    if do_pc:
+                        self.pc_grad[s1:s2, ...] = self.pc_grad[start:stop, ...]
+                start += n * (im + 1)
+
+        if 'overlap' in self._QMin:
+            if 'init' in self._QMin:
+                overlap = np.identity(nmstates, dtype=float)
+            elif 'restart' in self._QMin:
+                overlap = np.fromfile(
+                    os.path.join(self._QMin['savedir'], f'U_{self._QMin["step"]-1}.out'), dtype=float
+                ).reshape(self._U.shape).T @ self._U
+            elif self._persistent:
+                overlap = self._Uold.T @ self._U
+            else:
+                overlap = np.fromfile(os.path.join(self._QMin['savedir'], 'Uold.out'),
+                                      dtype=float).reshape(self._U.shape).T @ self._U
+            self._QMout['overlap'] = overlap.tolist()
+
+        if self._persistent:
+            self._Uold = np.copy(self._U)
+        else:
+            self._U.tofile(
+                os.path.join(self._QMin['savedir'], 'Uold.out')
+            )    # writes a binary file (can be read with numpy.fromfile())
+        # OVERLAP
+        Hd += self._U.T @ self._soc @ self._U
+        self._QMout['h'] = Hd.tolist()
+        dipole = np.einsum('ni,kij,jm->knm', self._U.T, self._dipole, self._U, casting='no', optimize='optimal')
+        if do_kabsch:
+            self._QMin['coords'] = self._QMin['coords']
+            self._QMout['dm'] = (np.einsum('inm,ij->jnm', dipole, self._Trot)).tolist()
+
+        if do_pc:
+            self._QMin['coords'] = self._QMin['coords']
+            self._QMout['dm'] = (np.einsum('inm,ij->jnm', dipole, self._Trot)).tolist()
+            self._QMout['pc_grad'] = self.pc_grad.tolist()
+        else:
+            self._QMout['dm'] = dipole.tolist()
+
+        self._QMout['grad'] = grad.reshape((nmstates, self._QMin['natom'], 3)).tolist()
+        if 'nacdr' in self._QMin:
+            self._QMout['nacdr'] = nacdr.reshape((nmstates, nmstates, self._QMin['natom'], 3)).tolist()
+
+        self._step += 1
+        return
+
+    def create_restart_files(self):
+        self._U.tofile(
+            os.path.join(self._QMin['savedir'], f'U_{self._QMin["step"]}.out')
+        )    # writes a binary file (can be read with numpy.fromfile())
+
+    def main(self):
+        name = self.__class__.__name__
+        args = sys.argv
+        if len(args) != 2:
+            print(
+                'Usage:',
+                f'./SHARC_{name} <QMin>',
+                f'version: {self.version}',
+                f'date: {self.versiondate}',
+                f'changelog: {self.changelogstring}',
+                sep='\n'
+            )
+            sys.exit(106)
+        QMinfilename = sys.argv[1]
+        pwd = os.getcwd()
+        self.printheader()
+        self.setup_mol(os.path.join(pwd, QMinfilename))
+        self.read_template()
+        self.set_coords(os.path.join(pwd, QMinfilename))
+        self.read_requests(os.path.join(pwd, QMinfilename))
+        self.run()
+        self._QMout['runtime'] = self.clock.measuretime()
+        self.write_step_file()
+        # if PRINT or DEBUG:
+        #     self.printQMout()
+        self.writeQMout()
 
 
-    Ufile = os.path.join(QMin['savedir'], 'U.out')
-    f = open(Ufile, 'w')
-    for line in U:
-        for c in line:
-            f.write(str(c) + ' ')
-        f.write('\n')
-    f.close()
-
-    # transform SOC matrix
-    SO = transform(SH2LVC['soc'], U)
-    for i in range(QMin['nmstates']):
-        SO[i][i] = complex(0., 0.)
-    Hfull = [[Hd[i][j] + SO[i][j] for i in range(QMin['nmstates'])] for j in range(QMin['nmstates'])]
-
-    # assign QMout elements
-    QMout['h'] = Hfull
-    QMout['dm'] = dipole
-    QMout['grad'] = grad
-    # QMout['dmdr']=dmdr
-    QMout['runtime'] = 0.
-
-    # pprint.pprint(QMout,width=192)
-
-    return QMout
-
-# ============================================================================
-
-
-def main():
-
-    QMin = read_QMin()
-    SH2LVC, QMin = read_SH2LVC(QMin)
-    print("SH2LVC: CPU time: % .3f s, wall time: %.3f s" % (time.clock() - tc, time.time() - tt))
-
-    QMout = getQMout(QMin, SH2LVC)
-    print("QMout:  CPU time: % .3f s, wall time: %.3f s" % (time.clock() - tc, time.time() - tt))
-
-    # This print(routine takes about 10 ms, i.e. ~5% of the total execution time)
-    printQMout(QMin, QMout)
-    # print("Print:  CPU time: % .3f s, wall time: %.3f s"%(time.clock() - tc, time.time() - tt))
-
-    # Write QMout
-    writeQMout(QMin, QMout, 'QM.in')
-    print("Write:  CPU time: % .3f s, wall time: %.3f s" % (time.clock() - tc, time.time() - tt))
-
-    print("Final:  CPU time: % .3f s, wall time: %.3f s" % (time.clock() - tc, time.time() - tt))
-    print('#================ END ================#')
-
-
-# ============================================================================
 if __name__ == '__main__':
-    try:
-        main()
-    except KeyboardInterrupt:
-        print('\nCtrl+C makes me a sad SHARC ;-(\n')
-        sys.exit(0)
+    lvc = LVC()
+    lvc.main()
