@@ -2452,6 +2452,24 @@ module input
         !write(u_log,*) 'thermostat_faketemp'
         !write(u_log,*) ctrl%temperature
       endif
+
+      ! check whether to project out total translational and rotational components
+      ! default is false, no components are removed
+      ctrl%remove_trans_rot = .false.
+      line=get_value_from_key('remove_trans_rot',io)
+      if (io==0) then
+        ctrl%remove_trans_rot = .true.
+          if (printlevel>0) then
+            write (u_log,'(a)') 'Total translational and rotational components will be removed in each step'
+          endif
+      endif
+      if (ctrl%remove_trans_rot) then
+         allocate(ctrl%rotation_tot(3*ctrl%natom,3))
+         call get_rotation_tot(ctrl,traj)
+         !write(*,*) 'rotation_tot'
+         !write(*,*) ctrl%rotation_tot
+      endif
+
     endif
 
     if (printlevel>0) then
@@ -2486,13 +2504,14 @@ module input
           case (0)
           case (1)
             write(u_log,'(a)') 'Restricted droplet potential will be applied:'
-            write(u_log,'(a)') 'Radius (in a.u.) and force constant:'
+            write(u_log,'(a)') 'Radius (in Angstrom) and force constant:'
           case (2)
             write(u_log,'(a)') 'Tethering of atoms will be applied:'
-            write(u_log,'(a)') 'Force constant:'
+            write(u_log,'(a)') 'Force constant and radius (in Angstrom):'
           case (3)
             write(u_log,'(a)') 'Restricted droplet potential and tethering of atoms will be applied:'
-            write(u_log,'(a)') 'Droplet radius (in a.u.) and force constants (droplet potential and tethering):'
+            write(u_log,'(a)') 'Droplet radius (in Angstrom) and force constants (droplet potential and tethering) and&
+                    &tethering radius (in Angstrom):'
         endselect
       endif
     endif
@@ -2585,6 +2604,16 @@ module input
         write(0,*) 'No force constant for tethering of atom given!'
         stop 1
       endif
+      line=get_value_from_key('tethering_radius',io)
+      if (io==0) then
+        read(line,*) ctrl%tethering_radius
+      else
+        ctrl%tethering_radius=0. ! default radius beyond which tethering potential activated is 0
+      endif
+      if (printlevel>1) then
+        write(u_log,'(1x,F7.2,4x,ES11.4)') ctrl%tethering_radius
+      endif
+      ctrl%tethering_radius= ctrl%tethering_radius/au2a ! in atomic units
       line=get_value_from_key('tether_at',io)
       if (io==0) then
         call split(line,' ',values,n)
@@ -2603,8 +2632,28 @@ module input
         stop 1
       endif
       allocate(traj%tethering_pos(3))
-      !use center of mass at time 0 of specified tether atoms as center of tethering potential
-      traj%tethering_pos(:) = calc_centerofmass(traj,ctrl)
+      line=get_value_from_key('tethering_position',io)
+      if (io==0) then
+        call split(line,' ',values,n)
+        if (n==3) then
+          do i=1,n
+             read(values(i),*) a
+             traj%tethering_pos = a
+          enddo
+        else
+          write(0,*) 'Tethering position specified needs to have 3 coordinates!'
+          stop 1
+        endif
+        if (printlevel>1) then
+          write(u_log,'(a)') 'Tethering to position'
+          write(u_log,'(1x,ES11.4)') traj%tethering_pos
+        endif
+        traj%tethering_pos = traj%tethering_pos/au2a ! in atomic units
+      else
+        !use center of mass at time 0 of specified tether atoms as center of tethering potential
+        traj%tethering_pos(:) = calc_centerofmass(traj,ctrl)
+         write(u_log,'(a)') 'Tethering to center of mass at start'
+      endif
    endif
 
   ! =====================================================
@@ -2741,6 +2790,78 @@ module input
     hash_input=temp
 
   endfunction
+
+! ===================================================
+
+!> calculates 3 vectors (as one big matrix 3*Natoms x 3) in directions of the total rotations of the system
+!> orthonormalize translat. and rot. vectors of system ->
+!> substract translat. and other-direction rot. components from angular momentum derivatives for this
+!> and normalize (total translation vectors just in x-dir (1 0 0 1 0 0 ...), y/z analogous)
+!  subroutine get_rotation_tot(ctrl,traj)
+!    use definitions
+!    implicit none
+!    type(trajectory_type) :: traj
+!    type(ctrl_type) :: ctrl
+!    integer :: iatom
+!    real*8 :: d1, d2, d3, d4
+!
+!    ! set up angular momentum derivative vector nL_x nL_y nL_x
+!    ! indices: ctrl%rotation_tot(3*(iatom-1)+idir,jdir) with atom iatom, atomic coord. direction idir, global direction jdir 
+!    do iatom=1,ctrl%natom
+!      ctrl%rotation_tot(3*(iatom-1)+1,1) = 0. 
+!      ctrl%rotation_tot(3*(iatom-1)+2,1) = -traj%mass_a(iatom)*traj%geom_ad(iatom,3)
+!      ctrl%rotation_tot(3*(iatom-1)+3,1) = traj%mass_a(iatom)*traj%geom_ad(iatom,2)
+!      ctrl%rotation_tot(3*(iatom-1)+1,2) = traj%mass_a(iatom)*traj%geom_ad(iatom,3)
+!      ctrl%rotation_tot(3*(iatom-1)+2,2) = 0.
+!      ctrl%rotation_tot(3*(iatom-1)+3,2) = -traj%mass_a(iatom)*traj%geom_ad(iatom,1)
+!      ctrl%rotation_tot(3*(iatom-1)+1,3) = -traj%mass_a(iatom)*traj%geom_ad(iatom,2)
+!      ctrl%rotation_tot(3*(iatom-1)+2,3) = traj%mass_a(iatom)*traj%geom_ad(iatom,1)
+!      ctrl%rotation_tot(3*(iatom-1)+3,3) = 0.
+!    enddo
+!    ! create corresp. dot products to subtract projected translational components
+!    d1 = dot_product(traj%mass_a,traj%geom_ad(:,1))/ctrl%natom
+!    d2 = dot_product(traj%mass_a,traj%geom_ad(:,2))/ctrl%natom
+!    d3 = dot_product(traj%mass_a,traj%geom_ad(:,3))/ctrl%natom
+!
+!    !rot_x
+!    ! subtract projected translational components
+!    do iatom=1,ctrl%natom
+!      ctrl%rotation_tot(3*(iatom-1)+2,1) = ctrl%rotation_tot(3*(iatom-1)+2,1) - d3
+!      ctrl%rotation_tot(3*(iatom-1)+3,1) = ctrl%rotation_tot(3*(iatom-1)+3,1) + d2
+!    enddo
+!    !normalize
+!    ctrl%rotation_tot(:,1) = ctrl%rotation_tot(:,1) / sqrt(dot_product(ctrl%rotation_tot(:,1),ctrl%rotation_tot(:,1)))
+!
+!    ! nL_y*rot_x and nL_z*rot_x
+!    d4 = dot_product(ctrl%rotation_tot(:,2), ctrl%rotation_tot(:,1))
+!
+!    !rot_y
+!    ! subtract projected translational components
+!    do iatom=1,ctrl%natom
+!      ctrl%rotation_tot(3*(iatom-1)+1,2) = ctrl%rotation_tot(3*(iatom-1)+1,2) + d3
+!      ctrl%rotation_tot(3*(iatom-1)+3,2) = ctrl%rotation_tot(3*(iatom-1)+3,2) - d1
+!    enddo
+!    ! subtract projected other rotational components
+!    ctrl%rotation_tot(:,2) = ctrl%rotation_tot(:,2) - d4 * ctrl%rotation_tot(:,1)
+!    !normalize
+!    ctrl%rotation_tot(:,2) = ctrl%rotation_tot(:,2) / sqrt(dot_product(ctrl%rotation_tot(:,2),ctrl%rotation_tot(:,2)))
+!    
+!    ! nL_z*rot_y
+!    d3 = dot_product(ctrl%rotation_tot(:,3), ctrl%rotation_tot(:,1))
+!    d4 = dot_product(ctrl%rotation_tot(:,3),  ctrl%rotation_tot(:,2))
+!
+!    !rot_z
+!    ! subtract projected translational components
+!    do iatom=1,ctrl%natom
+!      ctrl%rotation_tot(3*(iatom-1)+1,3) = ctrl%rotation_tot(3*(iatom-1)+1,3) - d2
+!      ctrl%rotation_tot(3*(iatom-1)+2,3) = ctrl%rotation_tot(3*(iatom-1)+2,3) + d1
+!    enddo
+!    ! subtract projected other rotational components
+!    ctrl%rotation_tot(:,3) = ctrl%rotation_tot(:,3) - d3 * ctrl%rotation_tot(:,1) - d4 * ctrl%rotation_tot(:,2)
+!    !normalize
+!    ctrl%rotation_tot(:,3) = ctrl%rotation_tot(:,3) / sqrt(dot_product(ctrl%rotation_tot(:,3),ctrl%rotation_tot(:,3)))
+!
+!  endsubroutine
 
 ! =================================================================== !
 

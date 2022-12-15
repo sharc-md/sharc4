@@ -324,15 +324,15 @@ main.o: output.o qm.o restart.o misc.o electronic_laser.o input.o decoherence_af
 endif
 
 interface.o: electronic.o definitions.o definitions_NetCDF.o output.o qm.o restart.o misc.o electronic_laser.o input.o decoherence_afssh.o
-misc.o: definitions.o ziggurat.o
+misc.o: definitions.o
 output.o: $(TOOLS) build_info misc.o
-nuclear.o: $(TOOLS) ziggurat.o
+nuclear.o: $(TOOLS) ziggurat.o misc.o
 electronic.o: nuclear.o $(TOOLS) decoherence_afssh.o
 electronic_laser.o: electronic.o $(TOOLS)
 input.o: $(TOOLS) output.o restart.o misc.o restrictive_potential.o
 qm.o: $(TOOLS) electronic.o qm_out.o restart.o restrictive_potential.o
 qm_out.o: $(TOOLS)
-restart.o: $(TOOLS) misc.o decoherence_afssh.o
+restart.o: $(TOOLS) misc.o decoherence_afssh.o ziggurat.o
 decoherence_afssh.o: $(TOOLS) definitions.o
 restrictive_potential.o: $(TOOLS) definitions.o
 
