@@ -2475,6 +2475,9 @@ def readQMin(QMinfilename):
         print('Keywords "always_orb_init" and "always_guess" cannot be used together!')
         sys.exit(58)
 
+    QMin['dryrun'] = True if getsh2caskey(sh2cas, 'dryrun') else False
+    print('WARNING!!: DRYRUN is', QMin['dryrun'], file=sys.stderr)
+
     # open template
     template = readfile('MOLCAS.template')
 
@@ -4686,8 +4689,12 @@ def main():
     QMin, joblist = generate_joblist(QMin)
 
     # run all MOLCAS jobs
-    errorcodes = runjobs(joblist, QMin)
-    
+    if QMin['dryrun']:
+        errorcodes = []
+        print("Performing a dryrun! Skipping actual calculation! I hope all output files are present...")
+    else:
+        errorcodes = runjobs(joblist, QMin)
+
     # get output
     QMoutall = collectOutputs(joblist, QMin, errorcodes)
 
