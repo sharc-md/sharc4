@@ -45,7 +45,7 @@ from textwrap import wrap
 # internal
 from error import Error, exception_hook
 from printing import printcomplexmatrix, printgrad, printtheodore
-from utils import clock, readfile, writefile, IToPol, IToMult, itnmstates, mkdir, shorten_DIR, safe_cast, cleandir, parse_xyz, eformat, itmult, link, makecmatrix, removekey
+from utils import clock, readfile, writefile, itnmstates, mkdir, shorten_DIR, safe_cast, cleandir, parse_xyz, eformat, itmult, link, makecmatrix, removekey
 from constants import FROZENS, ATOMCHARGE, BOHR_TO_ANG
 from globals import DEBUG, PRINT
 from parse_keywords import KeywordParser
