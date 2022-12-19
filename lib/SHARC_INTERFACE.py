@@ -1876,10 +1876,7 @@ class INTERFACE(ABC):
 
         QMin = self._QMin
         QMout = self._QMout
-        states = QMin['states']
-        nstates = QMin['nstates']
         nmstates = QMin['nmstates']
-        natom = QMin['natom']
         string = ''
         string += '! %i Angular Momentum Matrices (3x%ix%i, complex)\n' % (9, nmstates, nmstates)
         for xyz in range(3):
@@ -1913,7 +1910,6 @@ class INTERFACE(ABC):
         QMin = self._QMin
         QMout = self._QMout
         states = QMin['states']
-        nstates = QMin['nstates']
         nmstates = QMin['nmstates']
         natom = QMin['natom']
         string = ''
@@ -1947,10 +1943,7 @@ class INTERFACE(ABC):
 
         QMin = self._QMin
         QMout = self._QMout
-        states = QMin['states']
-        nstates = QMin['nstates']
         nmstates = QMin['nmstates']
-        natom = QMin['natom']
         string = ''
         string += '! %i Non-adiabatic couplings (ddt) (%ix%i, complex)\n' % (4, nmstates, nmstates)
         string += '%i %i\n' % (nmstates, nmstates)
@@ -1987,7 +1980,6 @@ class INTERFACE(ABC):
         QMin = self._QMin
         QMout = self._QMout
         states = QMin['states']
-        nstates = QMin['nstates']
         nmstates = QMin['nmstates']
         natom = QMin['natom']
         string = ''
@@ -2027,10 +2019,7 @@ class INTERFACE(ABC):
 
         QMin = self._QMin
         QMout = self._QMout
-        states = QMin['states']
-        nstates = QMin['nstates']
         nmstates = QMin['nmstates']
-        natom = QMin['natom']
         string = ''
         string += '! %i Overlap matrix (%ix%i, complex)\n' % (6, nmstates, nmstates)
         string += '%i %i\n' % (nmstates, nmstates)
@@ -2080,10 +2069,7 @@ class INTERFACE(ABC):
 
         QMin = self._QMin
         QMout = self._QMout
-        states = QMin['states']
-        nstates = QMin['nstates']
         nmstates = QMin['nmstates']
-        natom = QMin['natom']
         string = ''
         string += '! %i Property Matrix (%ix%i, complex)\n' % (11, nmstates, nmstates)
         string += '%i %i\n' % (nmstates, nmstates)
@@ -2189,7 +2175,13 @@ class INTERFACE(ABC):
         nmstates = QMin['nmstates']
         natom = QMin['natom']
         fits = QMout['multipolar_fit']
-        string = f'! 22 Atomwise multipolar density representation fits for states ({nmstates}x{nmstates}x{natom}x10)\n'
+        resp_layers = QMin['resp_layers']
+        resp_density = QMin['resp_density']
+        resp_flayer = QMin['resp_first_layer']
+        resp_order = QMin['resp_tdm_fit_order']
+        resp_grid = QMin['resp_grid']
+        setting_str = f' settings [order grid firstlayer density layers] {resp_order} {resp_grid} {resp_flayer} {resp_density} {resp_layers}'
+        string = f'! 22 Atomwise multipolar density representation fits for states ({nmstates}x{nmstates}x{natom}x10) {setting_str}\n'
 
         for i, (imult, istate, ims) in zip(range(nmstates), itnmstates(states)):
             for j, (jmult, jstate, jms) in zip(range(nmstates), itnmstates(states)):
@@ -2223,10 +2215,7 @@ class INTERFACE(ABC):
         1 string: multiline string with the Gradient vectors'''
         QMin = self._QMin
         QMout = self._QMout
-        ncharges = len(readfile(os.path.join(QMin['scratchdir'], 'JOB', 'pc_grad'))) - 2
         states = QMin['states']
-        nstates = QMin['nstates']
-        nmstates = QMin['nmstates']
         natom = len(QMout['pcgrad'][0])
         print(QMout['pcgrad'][1])
         string = ''

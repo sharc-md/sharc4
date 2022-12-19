@@ -1566,10 +1566,9 @@ def getQMout(out, QMin):
     if 'multipolar_fit' in QMin:
         print("Starting multipolar fit procedure")
         densities = [[[[0. for i in range(10)] for j in range(natom)] for k in range(nmstates)] for l in range(nmstates)]
-        #from resp import Resp
         coords = np.array([atom[1:] for atom in QMin['geo']], dtype=float)
         symbols = [atom[0] for atom in QMin['geo']]
-        fit = Resp(coords, symbols)
+        fit = Resp(coords, symbols, density=QMin['resp_density'], shells=QMin['resp_shells'], grid=QMin['resp_grid'])
         first_state = QMin['statemap'][QMin['states'][0]]
         first_mult, _, _ = tuple(first_state)
         molden_file = os.path.join(QMin['scratchdir'],'master', 'MOLCAS.%i.molden' % (first_mult))
@@ -1946,7 +1945,13 @@ def writeQMoutmultipolarfit(QMin, QMout):
     nmstates = QMin['nmstates']
     natom = QMin['natom']
     fits = QMout['multipolar_fit']
-    string = f'! 22 Atomwise multipolar density representation fits for states ({nmstates}x{nmstates}x{natom}x10)\n'
+    resp_layers = QMin['resp_layers']
+    resp_density = QMin['resp_density']
+    resp_flayer = QMin['resp_first_layer']
+    resp_order = QMin['resp_tdm_fit_order']
+    resp_grid = QMin['resp_grid']
+    setting_str = f' settings [order grid firstlayer density layers] {resp_order} {resp_grid} {resp_flayer} {resp_density} {resp_layers}'
+    string = f'! 22 Atomwise multipolar density representation fits for states ({nmstates}x{nmstates}x{natom}x10) {setting_str}\n'
 
     for i, (imult, istate, ims) in zip(range(nmstates), itnmstates(states)):
         for j, (jmult, jstate, jms) in zip(range(nmstates), itnmstates(states)):
@@ -2475,7 +2480,44 @@ def readQMin(QMinfilename):
         print('Keywords "always_orb_init" and "always_guess" cannot be used together!')
         sys.exit(58)
 
+    QMin['dry_run'] = True if getsh2caskey(sh2cas, 'dry_run') else False
+    print('WARNING!!: DRYRUN is', QMin['dry_run'], file=sys.stderr)
+
+    # RESP settings
+    QMin['resp_layers'] = 20
+    QMin['resp_density'] = 1.
+    QMin['resp_first_layer'] = 1.7
+    QMin['resp_tdm_fit_order'] = 2
+    QMin['resp_grid'] = 'lebedev'
+
+    grids = ['lebedev', 'random', 'golden_spiral', 'gamess', 'marcus_deserno']
+
+
+    def valid_grid(grid):
+        if grid in grids:
+            return grid
+        else:
+            raise ValueError('grid specified for RESP fit is not in', grids)
+
+    resp_settings = {'resp_layers': int, 'resp_density': float, 'resp_first_layer': float, 'resp_tdm_fit_order': int, 'resp_grid': valid_grid}
+    for key, parser in resp_settings.items():
+        try:
+            line = getsh2caskey(sh2cas, key)
+            print(line, file=sys.stderr)
+            if line[0]:
+                QMin[key] = parser(line[1].strip())
+        except ValueError as e:
+            raise ValueError(f'Failed to parse {key} in resources file: {e}')
+
+    first, nlayers = map(QMin.get, ('resp_first_layer', 'resp_layers'))
+    if DEBUG:
+        print(f"Calculating resp layers as: {first} + 4/sqrt({nlayers})")
+    incr = 0.4 / math.sqrt(nlayers)
+    QMin['resp_shells'] = [first + incr * x for x in range(nlayers)]
+
+
     # open template
+    # -----------------------------------------------------------------------------------------------
     template = readfile('MOLCAS.template')
 
     QMin['template'] = {}
@@ -4686,8 +4728,15 @@ def main():
     QMin, joblist = generate_joblist(QMin)
 
     # run all MOLCAS jobs
-    errorcodes = runjobs(joblist, QMin)
-    
+    if QMin['dry_run']:
+        print("Performing a dryrun! Skipping actual calculation! I hope all output files are present...")
+        errorcodes = {job: 0 for jobset in joblist if jobset for job in jobset}
+        for jobset in joblist:
+            for job in jobset:
+                errorcodes[job] = 0
+    else:
+        errorcodes = runjobs(joblist, QMin)
+
     # get output
     QMoutall = collectOutputs(joblist, QMin, errorcodes)
 

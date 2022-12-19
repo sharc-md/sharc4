@@ -370,16 +370,16 @@ def build_basis_dict(
     n_a = {i + 1: f'{a.upper()}{i+1}' for i, a in enumerate(atom_symbols)}
     basis = {k: [] for k in n_a.values()}
     it = 0
-    for st, np, a in zip(shell_types, n_prim, s_a_map):
+    for st, n_p, a in zip(shell_types, n_prim, s_a_map):
 
-        shell = list(map(lambda x: (prim_exp[x], contr_coeff[x]), range(it, it + np)))
+        shell = list(map(lambda x: (prim_exp[x], contr_coeff[x]), range(it, it + n_p)))
         if ps_contr_coeff and ps_contr_coeff[it] != 0.:
-            shell2 = list(map(lambda x: (prim_exp[x], ps_contr_coeff[x]), range(it, it + np)))
+            shell2 = list(map(lambda x: (prim_exp[x], ps_contr_coeff[x]), range(it, it + n_p)))
             basis[n_a[a]].append([0, *shell])
             basis[n_a[a]].append([abs(st), *shell2])
         else:
             basis[n_a[a]].append([abs(st), *shell])
-        it += np
+        it += n_p
     return basis
 
 

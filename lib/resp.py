@@ -4,6 +4,7 @@
 # Source Phys.Chem.Chem.Phys.,2019,21, 4082--4095 cp/c8cp06567e and TheJournalofPhysicalChemistry,Vol.97,No.40,199 10.1021/j100142a004
 #  gaussian can do RESP
 from error import Error
+from globals import DEBUG
 from constants import ATOMIC_RADII
 
 import sys
@@ -71,6 +72,7 @@ class Resp:
         assert len(self.mk_grid.shape) == 2 and self.mk_grid.shape[1] == 3
         self.natom = coords.shape[0]
         self.ngp = self.mk_grid.shape[0]
+        print("Done initializing grid. grid points", self.ngp)
         # Build 1/|R_A - r_i| m_A_i
         self.R_alpha: np.ndarray = np.full((self.natom, self.ngp, 3), self.mk_grid) - self.coords[:, None, :]    # rA-ri
         self.r_inv: np.ndarray = 1 / np.sqrt(np.sum((self.R_alpha)**2, axis=2))    # 1 / |ri-rA|
@@ -85,7 +87,9 @@ class Resp:
         fakemol = gto.fakemol_for_charges(self.mk_grid)
         # NOTE This could be very big (fakemol could be broken up into multiple pieces)
         # NOTE the value of these integrals is not affected by the atom charge
+        print("starting to evaluate integrals")
         self.ints = df.incore.aux_e2(mol, fakemol)
+        print("done")
 
     def multipoles_from_dens_indirect(self, dm: np.ndarray, include_core_charges: bool, order=2):
         if not (0 <= order <= 2):
@@ -132,6 +136,7 @@ class Resp:
                 R_alpha[:, :, 0] * R_alpha[:, :, 2] * self.r_inv5, R_alpha[:, :, 1] * R_alpha[:, :, 2] * self.r_inv5
             )
         )    # m_A_i
+        # tmp = tmp[:n_fits]
         a = tmp @ tmp.T
         A = np.zeros((natom * 10 + 1, natom * 10 + 1))
         A[:-1, :-1] += a
@@ -159,12 +164,29 @@ class Resp:
             A_rest = A + np.diag(rest)
             Q2 = np.linalg.solve(A_rest, B_rest)
 
+        fit_esp = np.einsum('x,xi->i', Q2[:-1], tmp)
+        residual_ESP = fit_esp - Fesp_i
         res = Q2[:-1].reshape((10, -1)).T
-        
+
+        print(
+            f'Fit done!, MEAN: {np.mean(residual_ESP): 10.6e}, ABS.MEAN: {np.mean(np.abs(residual_ESP)): 10.6e}, RMSD: {np.sqrt(np.mean(residual_ESP**2)): 10.8e}'
+        )
+        if DEBUG:
+            dist = np.min(np.linalg.norm(R_alpha, axis=2), axis=0)
+            print("DEBUG on: generating file with ESP data [RESP_fit_data.txt]! [num ref_esp fit_esp dist x y z]")
+            with open('RESP_fit_data.txt', 'w') as f:
+                f.write(
+                    f"# {'num [AU]':<9s}  {'ref_esp':<12s} {'fit_esp':<12s} {'dist':<12s} {'x':<12s} {'y':<12s} {'z':<12s}\n"
+                )
+                for i, vals in enumerate(
+                    zip(fit_esp, Fesp_i, dist, self.mk_grid[:, 0], self.mk_grid[:, 1], self.mk_grid[:, 2])
+                ):
+                    f.write(f"{i:5d}      " + " ".join(map(lambda x: f'{x: 12.8f}', vals)) + "\n")
+
         # make traceless (Source: Sebastian)
         traces = np.sum(res[:, 4:7], axis=1)
         res[:, 4:7] -= 1 / 3 * traces[..., None]
-        
+
         return res
 
     @staticmethod
