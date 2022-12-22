@@ -28,6 +28,10 @@
 from itertools import chain
 import pprint
 import sys
+import os
+import shutil
+import subprocess as sp
+import re
 import math
 import time
 import datetime
@@ -41,7 +45,7 @@ import numpy as np
 from resp import Resp
 from tdm import es2es_tdm
 from SHARC_INTERFACE import INTERFACE
-from utils import *
+from utils import mkdir, readfile, containsstring, shorten_DIR, makermatrix, makecmatrix, build_basis_dict, swap_rows_and_cols, removekey, writefile, itmult, safe_cast, get_bool_from_env
 from globals import DEBUG, PRINT
 from constants import IToMult, au2eV, IAn2AName
 from error import Error, exception_hook
@@ -314,7 +318,7 @@ class GAUSSIAN(INTERFACE):
                         # gs already read by from singlet calc, gses for singlet to triplet = 0
                         densjob[f'master_{ijob}'] = {'scf': False, 'es': True, 'gses': True}
                     else:
-                        densjob[f'master_{ijob}'] = {'scf': True, 'es': True, 'gses': True}
+                        densjob[f'master_{ijob}'] = {'scf': True, 'es': False, 'gses': False}
                 else:
                     jobdens[dens] = f'dens_{dens[0]}_{dens[1]}'
                     densjob[f'dens_{dens[0]}_{dens[1]}'] = {'scf': False, 'es': True, 'gses': False}
@@ -1646,15 +1650,19 @@ class GAUSSIAN(INTERFACE):
             # read basis
             fchkfile = os.path.join(QMin['scratchdir'], sorted_densjobs[0][0], 'GAUSSIAN.fchk')
             basis, n_bf = self.get_basis(fchkfile)
+            ECPs = self.parse_ecp(fchkfile)
             # collect all densities from the file in densjob (file: bools) and jobdens (state: file)
             densities = self.get_dens_from_fchks(sorted_densjobs, basis, n_bf)
             fits = Resp(QMin['coords'], QMin['elements'], QMin['resp_density'], QMin['resp_shells'])
-            fits.prepare(basis, QMin['statemap'][1][0] - 1)    # the charge of the atom does not affect
+            gsmult = QMin['statemap'][1][0]
+            charge = QMin['chargemap'][gsmult]
+            pprint.pprint(ECPs)
+            fits.prepare(basis, gsmult - 1, charge, ecps=ECPs)    # the charge of the atom does not affect integrals
             fits_map = {}
             for i, d_i in enumerate(QMin['densmap']):
                 # do gs density
                 key = (*d_i, *d_i)
-                fits_map[key] = fits.multipoles_from_dens(densities[density_map[key]], include_core_charges=True)
+                fits_map[key] = fits.multipoles_from_dens(densities[density_map[key]], include_core_charges=True, order=QMin['resp_fit_order'], charge=QMin['chargemap'][d_i[0]])
 
                 for d_j in QMin['densmap'][i + 1:]:
                     if d_i[0] != d_j[0]:
@@ -1663,7 +1671,7 @@ class GAUSSIAN(INTERFACE):
                     key = (*d_i, *d_j)
                     if key in density_map:
                         fits_map[key] = fits.multipoles_from_dens(
-                            densities[density_map[key]], include_core_charges=False, order=QMin['resp_tdm_fit_order']
+                            densities[density_map[key]], include_core_charges=False, order=QMin['resp_fit_order']
                         )
                     else:
                         ijob = QMin['multmap'][d_i[0]]    # the multiplicity is the same -> ijob same
@@ -1672,7 +1680,7 @@ class GAUSSIAN(INTERFACE):
                         dmJ = densities[density_map[(gsmult, 1, *d_j)]]
                         trans_dens = es2es_tdm(dmI, dmJ)
                         fits_map[key] = fits.multipoles_from_dens(
-                            trans_dens, include_core_charges=False, order=QMin['resp_tdm_fit_order']
+                            trans_dens, include_core_charges=False, order=QMin['resp_fit_order']
                         )
             QMout['multipolar_fit'] = fits_map
 
@@ -1846,7 +1854,7 @@ class GAUSSIAN(INTERFACE):
         os.chdir(workdir)
         string = 'formchk GAUSSIAN.chk'
         try:
-            runerror = sp.call(string, shell=True, stdout=sys.stdout, stderr=sys.stderr)
+            sp.call(string, shell=True, stdout=sys.stdout, stderr=sys.stderr)
         except OSError:
             print('Call have had some serious problems:', OSError)
             sys.exit(77)
@@ -1915,6 +1923,83 @@ class GAUSSIAN(INTERFACE):
                 break
             i += 1
         return build_basis_dict(atom_symbols, shell_types, n_prim, s_a_map, prim_exp, contr_coeff, ps_contr_coeff), n_bf
+
+
+    @staticmethod
+    def parse_ecp(fchkfile: str):
+        props = {
+            'Number of atoms': None,
+            'Atomic numbers': None,
+            'ECP-MaxLECP': None,
+            'ECP-KFirst': None,
+            'ECP-KLast': None,
+            'ECP-LMax': None,
+            'ECP-LPSkip': None,
+            'ECP-RNFroz': None,
+            'ECP-NLP': None,
+            'ECP-CLP1': None,
+            'ECP-ZLP': None
+        }
+
+        with open(fchkfile, 'r') as f:
+            line = f.readline()
+
+            def parse_num(llst):
+                return int(llst[-1])
+
+            def parse_array(n, t, buf):
+                types = {'I': int, 'R': float, 'C': str}
+                npl = 6 if t == 'I' else 5
+                nl = (n - 1) // npl + 1
+                return np.fromiter(
+                    chain(*map(lambda x: x.split(), map(lambda _: buf.readline(), range(nl)))), count=n, dtype=types[t]
+                )
+
+            while line:
+                for k in filter(lambda k: props[k] is None, props.keys()):
+                    if k in line:
+                        llst = line.split()
+                        n = parse_num(llst)
+                        if llst[-2] == 'N=':
+                            props[k] = parse_array(n, llst[-3], f)
+                        else:
+                            props[k] = n
+                # ----------------------------
+                line = f.readline()
+
+        # ++++++++++++++++++ Start making things
+        natom = props['Number of atoms']
+        skips = props['ECP-LPSkip'] == 0
+        kfirst = props['ECP-KFirst'].reshape((-1, natom))[:, skips]
+        klast = props['ECP-KLast'].reshape((-1, natom))[:, skips]
+        lmax = props['ECP-LMax'][skips]
+        froz = props['ECP-RNFroz'][skips].astype(int)
+        nlp = props['ECP-NLP']
+        clp1 = props['ECP-CLP1']
+        zlp = props['ECP-ZLP']
+
+        atom_ids = np.where(skips)[0]
+        symbols = [IAn2AName[props['Atomic numbers'][x]] for x in atom_ids]
+        fun_sym = 'SPDFGHIJKLMNOTU'
+
+        ECPs = {}
+        # loop over all atoms
+        for (i, a), s, lm in zip(enumerate(atom_ids), symbols, lmax):
+            ecp_string = f'{s} nelec {froz[i]: d}\n'
+
+            # build the momentum list (with highest momentum first labeled as u1)
+            funs = [fun_sym[x] for x in reversed(range(lm))]
+            funs.append('ul')
+
+            # loop over all angular momentums
+            for j, (fi, la, fun) in enumerate(zip(kfirst[:, i], klast[:, i], reversed(funs))):
+                ecp_string += f'{s} {fun}\n'
+                for y in range(fi - 1, la):
+                    ecp_string += f'{nlp[y]:2d}    {zlp[y]: 12.7f}       {clp1[y]: 12.7f}\n'
+            ECPs[a] = ecp_string
+
+        return ECPs
+
 
     def get_dens_from_fchks(self, densjobs: list[tuple[str, dict[str, bool]]], basis, n_bf):
         QMin = self._QMin
@@ -2112,6 +2197,7 @@ class GAUSSIAN(INTERFACE):
             props[(m, n + (m == 1))].extend([theo_float(i) for i in s[2:]])
 
         return props
+
 
 if __name__ == '__main__':
 

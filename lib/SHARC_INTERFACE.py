@@ -233,7 +233,7 @@ class INTERFACE(ABC):
             'numocc': 0,
             'theodore_n': 0,
             'resp_layers': 4,
-            'resp_tdm_fit_order': 2
+            'resp_fit_order': 2
         }
         floats = {'delay': 0.0, 'schedule_scaling': 0.9, 'wfthres': 0.99, 'resp_density': 1., 'resp_first_layer': 1.4}
         special = {
@@ -2178,7 +2178,7 @@ class INTERFACE(ABC):
         resp_layers = QMin['resp_layers']
         resp_density = QMin['resp_density']
         resp_flayer = QMin['resp_first_layer']
-        resp_order = QMin['resp_tdm_fit_order']
+        resp_order = QMin['resp_fit_order']
         resp_grid = QMin['resp_grid']
         setting_str = f' settings [order grid firstlayer density layers] {resp_order} {resp_grid} {resp_flayer} {resp_density} {resp_layers}'
         string = f'! 22 Atomwise multipolar density representation fits for states ({nmstates}x{nmstates}x{natom}x10) {setting_str}\n'

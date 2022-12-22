@@ -77,10 +77,38 @@ class Resp:
         self.R_alpha: np.ndarray = np.full((self.natom, self.ngp, 3), self.mk_grid) - self.coords[:, None, :]    # rA-ri
         self.r_inv: np.ndarray = 1 / np.sqrt(np.sum((self.R_alpha)**2, axis=2))    # 1 / |ri-rA|
 
-    def prepare(self, basis, spin, cart_basis=False):
+    def prepare(self, basis, spin, charge, ecps={}, cart_basis=False):
+        """
+        Prepares the gto.Mole object and 3c2e integrals
+
+        Sets up the gto.Mole object for calculations and also precalcualtes all 3d2e integrals for the evaluation of ESPs.
+
+        Parameters
+        ----------
+        basis : pyscf basis object
+            the basis of the molecule in the pyscf format
+        spin : int
+            spin of the molecule (does not affect integrals)
+        charge : int
+            charge of the molecule (does not affect the integrals)
+        ecps : dict[int, str]
+            dictionary of with atom index as key and value is the ECP in NWChem format as string
+        cart_basis : bool
+            boolean to switch to cartesian basis
+        """
         natom = len(self.atom_symbols)
         atoms = [[f'{s.upper()}{j+1}', c.tolist()] for j, s, c in zip(range(natom), self.atom_symbols, self.coords)]
-        mol = gto.Mole(atom=atoms, basis=basis, unit='BOHR', spin=spin, symmetry=False, cart=cart_basis)
+        mol = gto.Mole(
+            atom=atoms,
+            basis=basis,
+            unit='BOHR',
+            spin=spin,
+            charge=charge,
+            symmetry=False,
+            cart=cart_basis,
+            ecp={f'{self.atom_symbols[n]}{n+1}': ecp_string
+                 for n, ecp_string in ecps.items()}
+        )
         mol.build()
         Z = mol.atom_charges()
         self.Vnuc = np.sum(Z[..., None] * self.r_inv, axis=0)
@@ -88,7 +116,7 @@ class Resp:
         # NOTE This could be very big (fakemol could be broken up into multiple pieces)
         # NOTE the value of these integrals is not affected by the atom charge
         print("starting to evaluate integrals")
-        self.ints = df.incore.aux_e2(mol, fakemol)
+        self.ints = df.incore.aux_e2(mol, fakemol, intor='int3c2e')
         print("done")
 
     def multipoles_from_dens_indirect(self, dm: np.ndarray, include_core_charges: bool, order=2):
@@ -115,40 +143,68 @@ class Resp:
         fits = np.vstack((mp, dp, qp)).T
         return fits
 
-    def multipoles_from_dens(self, dm: np.ndarray, include_core_charges: bool, **kwargs):
-        n_fits = 10
+    def multipoles_from_dens(self, dm: np.ndarray, include_core_charges: bool, order=2, charge=0, **kwargs):
+        """
+        fits RESP charges onto a density matrix in AO basis up to given order (all at once)
+
+        calculates the electrostatic potential of the density at the grid points with 2e3c integrals using pyscf.
+        uses this ESP as a reference for the RESP fitting procedure.
+
+        Parameters
+        ----------
+        dm : np.ndarray
+            density matrix in AO basis
+        include_core_charges : bool
+            whether to include nuclear charges of the atoms (turn off for transition densities)
+        order : int
+            fitting order (0: monopoles, 2: dipoles, 3: quadrupoles)
+        """
+        if not (0 <= order <= 2):
+            raise Error("Specify order in the range of 0 - 2")
+        n_fits = sum([1, 3, 6][:order + 1])
         natom = self.natom
         Vnuc = np.copy(self.Vnuc) if include_core_charges else np.zeros((self.ngp), dtype=float)
         Vele = np.einsum('ijp,ij->p', self.ints, dm)
         Fesp_i = Vnuc - Vele
         R_alpha = self.R_alpha
         r_inv = self.r_inv
-        R_alpha = self.R_alpha
         self.r_inv3 = self.rinv3 if 'rinv3' in self.__dict__ else r_inv**3
         self.r_inv5 = self.rinv5_2 if 'rinv5_2' in self.__dict__ else r_inv**5
 
-        tmp = np.vstack(
-            (
-                self.r_inv, R_alpha[:, :, 0] * self.r_inv3, R_alpha[:, :, 1] * self.r_inv3,
-                R_alpha[:, :, 2] * self.r_inv3, R_alpha[:, :, 0] * R_alpha[:, :, 0] * self.r_inv5 * 0.5,
-                R_alpha[:, :, 1] * R_alpha[:, :, 1] * self.r_inv5 * 0.5, R_alpha[:, :, 2] * R_alpha[:, :, 2] *
-                self.r_inv5 * 0.5, R_alpha[:, :, 0] * R_alpha[:, :, 1] * self.r_inv5,
-                R_alpha[:, :, 0] * R_alpha[:, :, 2] * self.r_inv5, R_alpha[:, :, 1] * R_alpha[:, :, 2] * self.r_inv5
-            )
-        )    # m_A_i
+        if order == 2:
+            tmp = np.vstack(
+                (
+                    self.r_inv, R_alpha[:, :, 0] * self.r_inv3, R_alpha[:, :, 1] * self.r_inv3,
+                    R_alpha[:, :, 2] * self.r_inv3, R_alpha[:, :, 0] * R_alpha[:, :, 0] * self.r_inv5 * 0.5,
+                    R_alpha[:, :, 1] * R_alpha[:, :, 1] * self.r_inv5 * 0.5, R_alpha[:, :, 2] * R_alpha[:, :, 2] *
+                    self.r_inv5 * 0.5, R_alpha[:, :, 0] * R_alpha[:, :, 1] * self.r_inv5,
+                    R_alpha[:, :, 0] * R_alpha[:, :, 2] * self.r_inv5, R_alpha[:, :, 1] * R_alpha[:, :, 2] * self.r_inv5
+                )
+            )    # m_A_i
+        elif order == 1:
+            tmp = np.vstack(
+                (
+                    self.r_inv, R_alpha[:, :, 0] * self.r_inv3, R_alpha[:, :, 1] * self.r_inv3,
+                    R_alpha[:, :, 2] * self.r_inv3
+                )
+            )    # m_A_i
+        elif order == 0:
+            tmp = self.r_inv    # m_A_i
         # tmp = tmp[:n_fits]
+        n_af = natom * n_fits
+        dim = n_af + 1
         a = tmp @ tmp.T
-        A = np.zeros((natom * 10 + 1, natom * 10 + 1))
+        A = np.zeros((dim, dim))
         A[:-1, :-1] += a
         A[:natom, -1] = 1.
         A[-1, :natom] = 1.
 
         b = tmp @ Fesp_i    # v_A
-        B = np.zeros((natom * 10 + 1))
+        B = np.zeros((dim))
         B[:-1] += b
-        B[-1] = 0.    # TODO reintroduce charge!!
+        B[-1] = float(charge)    # TODO reintroduce charge!!
 
-        Q1 = np.linalg.solve(A, B)
+        Q1 = np.linalg.solve(A, B)[:n_af]
         Q2 = np.ones(Q1.shape, float)
 
         def get_rest(Q, b=0.1):
@@ -159,14 +215,15 @@ class Resp:
         while np.linalg.norm(Q1 - Q2) >= 0.00001:
             Q1 = Q2.copy()
             rest = vget_rest(Q1)
-            rest[-1] = 0.
-            B_rest = B
-            A_rest = A + np.diag(rest)
-            Q2 = np.linalg.solve(A_rest, B_rest)
+            # rest[-1] = 0.
+            # B_rest = B
+            A_rest = np.copy(A)
+            np.einsum('ii->i', A_rest)[:n_af] += rest
+            Q2 = np.linalg.solve(A_rest, B)[:n_af]
 
-        fit_esp = np.einsum('x,xi->i', Q2[:-1], tmp)
+        fit_esp = np.einsum('x,xi->i', Q2, tmp)
         residual_ESP = fit_esp - Fesp_i
-        res = Q2[:-1].reshape((10, -1)).T
+        res = Q2.reshape((n_fits, -1)).T
 
         print(
             f'Fit done!, MEAN: {np.mean(residual_ESP): 10.6e}, ABS.MEAN: {np.mean(np.abs(residual_ESP)): 10.6e}, RMSD: {np.sqrt(np.mean(residual_ESP**2)): 10.8e}'
