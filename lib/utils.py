@@ -428,12 +428,11 @@ class ATOM:
     qm: bool
     symbol: str
     xyz: list[float, float, float]
-    type: int
     bonds: set[int]
 
     def __str__(self):
-        return '{: >5}  {: <4}  {: <16.12f} {: <16.12f} {: <16.12f} {:>4}  {}'.format(
-            self.id + 1, self.symbol, *self.xyz, self.type, ' '.join(map(lambda x: str(x + 1), sorted(self.bonds)))
+        return '{: >5}  {: <4}  {: <16.12f} {: <16.12f} {: <16.12f}  {}'.format(
+            self.id + 1, self.symbol, *self.xyz, ' '.join(map(lambda x: str(x + 1), sorted(self.bonds)))
         )
 
     def __gt__(self, other):

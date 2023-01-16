@@ -140,8 +140,14 @@ Date: 20.07.2021
     def qmmm_table(args: str) -> list[list]:
         path = os.path.abspath(os.path.expanduser(os.path.expanduser(args)))
         if os.path.isfile(path):
+            res = []
             with open(path, 'r') as f:
-                return [[*x[0:2]] + [int(x[2])] + [int(y) - 1 for y in x[3:]] for x in map(lambda x: x.split(), f)]
+                test = f.readline().split()
+                if len(test) != 2:
+                    print("Warning: You might use an old QMMM.table file!\nnew format <qm/mm> <symbol> <bond1> <bond2>...")
+                res.append([test[0], test[1], *map(lambda x: int(x) - 1, test[2:])])
+                res.extend([[*x[0:2]] + [int(y) - 1 for y in x[2:]] for x in map(lambda x: x.split(), f)])
+            return res
         else:
             raise Error(f'File {path} does not exist!', 1)
 

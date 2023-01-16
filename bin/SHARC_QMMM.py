@@ -109,7 +109,7 @@ class QMMM(INTERFACE):
             )
 
         QMin['atoms'] = [
-            ATOM(i, v[0].lower() == 'qm', v[1], [0., 0., 0.], v[2], set(v[3:]))
+            ATOM(i, v[0].lower() == 'qm',  v[1], [0., 0., 0.], set(v[2:]))
             for i, v in enumerate(QMin['template']['qmmm_table'])
         ]
 
