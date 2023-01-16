@@ -5,7 +5,6 @@
 #  gaussian can do RESP
 from error import Error
 from globals import DEBUG
-from constants import ATOMIC_RADII
 
 import sys
 import numpy as np
@@ -31,8 +30,7 @@ Cartesian2sperical[7] = [0., 0., 0., 0., f, -f, 0., 0., 0., 0.]
 Cartesian2sperical[8] = [0., 0., 0., 0., 0., 0., 0., f2, 0., 0.]
 
 
-def get_resp_grid(atom_symbols: list[str], coords: np.ndarray, density=1, shells=[1.4, 1.6, 1.8, 2.0], grid='lebedev'):
-    atom_radii = np.fromiter(map(lambda x: ATOMIC_RADII[x], atom_symbols), dtype=float)
+def get_resp_grid(atom_radii: list[int], coords: np.ndarray, density=1, shells=[1.4, 1.6, 1.8, 2.0], grid='lebedev'):
     return mk_layers(coords, atom_radii, density, shells, grid)
 
 
@@ -41,6 +39,7 @@ class Resp:
         self,
         coords: np.ndarray,
         atom_symbols: list[str],
+        atom_radii: list[float],
         density=1,
         shells=[1.4, 1.6, 1.8, 2.0],
         custom_grid: np.ndarray = None,
@@ -68,7 +67,7 @@ class Resp:
         self.atom_symbols = atom_symbols
         self.mk_grid = custom_grid
         if self.mk_grid is None:
-            self.mk_grid = get_resp_grid(atom_symbols, coords * au2a, density, shells, grid) / au2a
+            self.mk_grid = get_resp_grid(atom_radii, coords * au2a, density, shells, grid) / au2a
         assert len(self.mk_grid.shape) == 2 and self.mk_grid.shape[1] == 3
         self.natom = coords.shape[0]
         self.ngp = self.mk_grid.shape[0]

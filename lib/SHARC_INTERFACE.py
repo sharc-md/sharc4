@@ -149,6 +149,9 @@ class INTERFACE(ABC):
         self.read_requests(os.path.join(pwd, QMinfilename))
         # setup internal state for the computation
         self.setup_run()
+
+        if PRINT or DEBUG:
+            pprint.pprint(self.QMin)
         # perform the calculation and parse the output, do subsequent calculations with other tools
         if 'dry_run' in self._QMin and self._QMin['dry_run']:
             print(
@@ -240,7 +243,9 @@ class INTERFACE(ABC):
             'neglected_gradient': 'zero',
             'theodore_prop': ['Om', 'PRNTO', 'S_HE', 'Z_HE', 'RMSeh'],
             'theodore_fragment': [],
-            'resp_shells': False    # default calculated from other values = [1.4, 1.6, 1.8, 2.0]
+            'resp_shells': False,    # default calculated from other values = [1.4, 1.6, 1.8, 2.0]
+            'resp_vdw_radii_symbol': {},
+            'resp_vdw_radii': []
         }
         strings = {'resp_grid': 'lebedev'}
         lines = readfile(resources_filename)
@@ -287,6 +292,18 @@ class INTERFACE(ABC):
 
         # construct shells
         shells, first, nlayers = map(QMin['resources'].get, ('resp_shells', 'resp_first_layer', 'resp_layers'))
+
+        # collect vdw radii for atoms from settings
+        if QMin['resources']['resp_vdw_radii']:
+            if len(QMin['resources']['resp_vdw_radii']) != len(QMin['elements']):
+                raise Error("specify 'resp_vdw_radii' for all atoms!")
+        else:
+            # populate vdW radii
+            for e in QMin['elements']:
+                if e not in QMin['resources']['resp_vdw_radii_symbol']:
+                    QMin['resources']['resp_vdw_radii_symbol'][e] = ATOMIC_RADII[e]
+            QMin['resources']['resp_vdw_radii'] = [QMin['resources']['resp_vdw_radii_symbol'][s] for s in QMin['elements']]
+
         if not shells:
             if DEBUG:
                 print(f"Calculating resp layers as: {first} + 4/sqrt({nlayers})")
@@ -1539,9 +1556,6 @@ class INTERFACE(ABC):
             string += '\n'
             print(string)
 
-        print('State map:')
-        pprint.pprint(QMin['statemap'])
-
         for i in sorted(QMin):
             if not any(
                 [
@@ -2161,7 +2175,7 @@ class INTERFACE(ABC):
     def writeQMoutmultipolarfit(self):
         '''Generates a string with the fitted RESP charges for each pair of states specified.
 
-        The string starts with a ! followed by a flag specifying the type of data.
+        The string starts with a! followed by a flag specifying the type of data.
         Each line starts with the atom number (starting at 1), state i and state j.
         If i ==j: fit for single state, else fit for transition multipoles.
         One line per atom and a blank line at the end.

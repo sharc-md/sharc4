@@ -194,6 +194,7 @@ def mk_layers(xyz: np.ndarray, atom_radii: list[float], density=1, shells=[1.4, 
     n_points = int(
         4 * np.pi * density * (sum(map(lambda x: (x * 2.)**2, shells))) * xyz.shape[0]
     )    # surface density of 1: 4*pi*r^2 with r_max = 2. -> 16.*pi
+    atom_radii_array = np.array(atom_radii)
     mk_layers_points = np.ndarray((n_points, 3), dtype=float)
     grid_functions = {'lebedev': lebedev_grid, 'random': random_sphere, 'golden_spiral': golden_sphere, 'gamess': gamess_surface, 'marcus_deserno': markus_deserno}
     assert grid in grid_functions
@@ -201,5 +202,5 @@ def mk_layers(xyz: np.ndarray, atom_radii: list[float], density=1, shells=[1.4, 
     # potentially parallelizable! every layer is one process
     n_points = 0
     for y in shells:
-        n_points = shrake_rupley(xyz, y * atom_radii, mk_layers_points, density=density, n_points=n_points, grid=grid)
+        n_points = shrake_rupley(xyz, y * atom_radii_array, mk_layers_points, density=density, n_points=n_points, grid=grid)
     return mk_layers_points[:n_points, :]

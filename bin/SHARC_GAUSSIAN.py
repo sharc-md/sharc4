@@ -297,6 +297,7 @@ class GAUSSIAN(INTERFACE):
                 gsmult = QMin['multmap'][-ijob][0]
                 if gsmult == dens[0] and dens[1] == 2:
                     jobdens[dens] = f'master_{ijob}'
+                    # check if only ground state is asked
                     densjob[f'master_{ijob}'] = {'scf': True, 'es': True, 'gses': True}
                 elif dens in jobgrad:
                     if jobgrad[dens][1]:    # this is a gs only calculation
@@ -309,7 +310,10 @@ class GAUSSIAN(INTERFACE):
                             # gs already read by from singlet calc, gses for singlet to triplet = 0
                             densjob[j] = {'scf': False, 'es': True, 'gses': True}
                         else:
-                            densjob[j] = {'scf': True, 'es': True, 'gses': True}
+                            if QMin['states'][gsmult - 1] == 1:
+                                densjob[j] = {'scf': True, 'es': False, 'gses': False}
+                            else:
+                                densjob[j] = {'scf': True, 'es': True, 'gses': True}
                     else:
                         densjob[j] = {'scf': False, 'es': True, 'gses': False}
                 elif dens[1] == 1:
@@ -1653,7 +1657,7 @@ class GAUSSIAN(INTERFACE):
             ECPs = self.parse_ecp(fchkfile)
             # collect all densities from the file in densjob (file: bools) and jobdens (state: file)
             densities = self.get_dens_from_fchks(sorted_densjobs, basis, n_bf)
-            fits = Resp(QMin['coords'], QMin['elements'], QMin['resp_density'], QMin['resp_shells'])
+            fits = Resp(QMin['coords'], QMin['elements'], QMin['resp_vdw_radii'], QMin['resp_density'], QMin['resp_shells'])
             gsmult = QMin['statemap'][1][0]
             charge = QMin['chargemap'][gsmult]
             pprint.pprint(ECPs)
@@ -1940,28 +1944,29 @@ class GAUSSIAN(INTERFACE):
             'ECP-CLP1': None,
             'ECP-ZLP': None
         }
+        types = {'I': int, 'R': float, 'C': str}
 
         with open(fchkfile, 'r') as f:
             line = f.readline()
 
-            def parse_num(llst):
-                return int(llst[-1])
+            def parse_num(llst, cast):
+                return cast(llst[-1])
 
-            def parse_array(n, t, buf):
-                types = {'I': int, 'R': float, 'C': str}
-                npl = 6 if t == 'I' else 5
+            def parse_array(n, cast, buf):
+                npl = 6 if cast == int else 5
                 nl = (n - 1) // npl + 1
                 return np.fromiter(
-                    chain(*map(lambda x: x.split(), map(lambda _: buf.readline(), range(nl)))), count=n, dtype=types[t]
+                    chain(*map(lambda x: x.split(), map(lambda _: buf.readline(), range(nl)))), count=n, dtype=cast
                 )
 
             while line:
                 for k in filter(lambda k: props[k] is None, props.keys()):
                     if k in line:
-                        llst = line.split()
-                        n = parse_num(llst)
-                        if llst[-2] == 'N=':
-                            props[k] = parse_array(n, llst[-3], f)
+                        llst = line[len(k):].split()
+                        cast = types[llst[0]]
+                        n = parse_num(llst, cast)
+                        if llst[1] == 'N=':
+                            props[k] = parse_array(int(llst[-1]), cast, f)
                         else:
                             props[k] = n
                 # ----------------------------
@@ -2066,6 +2071,7 @@ class GAUSSIAN(INTERFACE):
                     d = np.fromiter(
                         map(float, chain(*map(lambda x: x.split(), lines[i:i + n_lines]))), dtype=float, count=n
                     ).reshape((2 * n_g2e, n_bf, n_bf))
+                    #TODO average over the two density matrices: X+Y + X-Y /2 = X
                     for i_d in range(0, 2 * n_g2e, 2):
                         tmp = (d[i_d, ...] + d[i_d + 1, ...]) * math.sqrt(2)
                         swap_rows_and_cols(atom_symbols, basis, tmp)

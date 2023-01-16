@@ -144,7 +144,27 @@ Date: 20.07.2021
                 return [[*x[0:2]] + [int(x[2])] + [int(y) - 1 for y in x[3:]] for x in map(lambda x: x.split(), f)]
         else:
             raise Error(f'File {path} does not exist!', 1)
-    
+
     @staticmethod
     def resp_shells(args: str) -> list[int]:
         return ast.literal_eval(args)
+
+    @staticmethod
+    def resp_vdw_radii_symbol(args: str) -> dict[str, float]:
+        res = {}
+        if args[0] == '[':
+            lst = [x.split() for x in ast.literal_eval(args)]
+            res = {x[0]: float(x[1]) for x in lst}
+        else:
+            lst = args.split()
+            res = {lst[i]: float(lst[i + 1]) for i in range(0, len(lst), 2)}
+        return res
+
+    @staticmethod
+    def resp_vdw_radii(args: str) -> list[float]:
+        if args[0] == '[':
+            res = ast.literal_eval(args)
+        else:
+            res = args.split()
+        return [float(x) for x in res]
+
