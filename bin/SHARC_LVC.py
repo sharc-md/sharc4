@@ -194,8 +194,9 @@ class LVC(INTERFACE):
         rM = list(
             map(lambda x: [x[0]] + [float(y) for y in x[2:]], map(lambda x: x.split(), lines[it:it + QMin['natom']]))
         )
-        if [x[0] for x in rM] != elem:
-            raise Error(f'inconsistent atom labels in QM.in and {filename}:\n{rM[0]}\n{elem}')
+        v0_elem = [x[0] for x in rM]
+        if v0_elem != elem:
+            raise Error(f'inconsistent atom labels in QM.in and {filename}:\n{elem}\n{v0_elem}')
         rM = np.asarray([x[1:] for x in rM], dtype=float)
         self._ref_coords = rM[:, :-1]
         tmp = np.sqrt(rM[:, -1] * U_TO_AMU)
