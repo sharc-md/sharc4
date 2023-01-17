@@ -25,13 +25,16 @@
 
 # IMPORTS
 # external
+import os
 import datetime
 import numpy as np
 
 # internal
 from SHARC_INTERFACE import INTERFACE
 from factory import factory
-from utils import *
+from utils import ATOM, mkdir, readfile, InDir, itnmstates
+from error import Error
+from globals import DEBUG, PRINT
 from constants import ATOMCHARGE, FROZENS
 from copy import deepcopy
 
@@ -92,7 +95,7 @@ class QMMM(INTERFACE):
         allowed_embeddings = ['additive', 'subtractive']
         if QMin['template']['embedding'] not in allowed_embeddings:
             raise Error(
-                'Chosen embedding "{}" is not available (available: {}}'.format(
+                'Chosen embedding "{}" is not available (available: {})'.format(
                     QMin['template']['embedding'], ', '.join(allowed_embeddings)
                 )
             )
@@ -109,7 +112,7 @@ class QMMM(INTERFACE):
             )
 
         QMin['atoms'] = [
-            ATOM(i, v[0].lower() == 'qm',  v[1], [0., 0., 0.], set(v[2:]))
+            ATOM(i, v[0].lower() == 'qm', v[1], [0., 0., 0.], set(v[2:]))
             for i, v in enumerate(QMin['template']['qmmm_table'])
         ]
 
