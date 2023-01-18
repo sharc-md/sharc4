@@ -10,24 +10,9 @@ import sys
 import numpy as np
 from asa_grid import mk_layers
 from pyscf import gto, df
+from constants import au2a
 
-au2a = 0.52917721092
 np.set_printoptions(threshold=sys.maxsize, linewidth=10000, precision=5)
-
-# Transformation matrix to transform cartesian multipoles to spherical mutlipoles
-# source:  A. J. Stone, The Theory of Intermolecular Forces (Oxford University Press, Oxford, 1997).
-f = 1 / np.sqrt(3)
-f2 = 2 * f
-Cartesian2sperical = np.empty((9, 10), dtype=float)
-Cartesian2sperical[0] = [1., 0., 0., 0., 0., 0., 0., 0., 0., 0.]
-Cartesian2sperical[1] = [0., 0., 0., 1., 0., 0., 0., 0., 0., 0.]
-Cartesian2sperical[2] = [0., 1., 0., 0., 0., 0., 0., 0., 0., 0.]
-Cartesian2sperical[3] = [0., 0., 1., 0., 0., 0., 0., 0., 0., 0.]
-Cartesian2sperical[4] = [0., 0., 0., 0., 0., 0., 1., 0., 0., 0.]
-Cartesian2sperical[5] = [0., 0., 0., 0., 0., 0., 0., 0., f2, 0.]
-Cartesian2sperical[6] = [0., 0., 0., 0., 0., 0., 0., 0., 0., f2]
-Cartesian2sperical[7] = [0., 0., 0., 0., f, -f, 0., 0., 0., 0.]
-Cartesian2sperical[8] = [0., 0., 0., 0., 0., 0., 0., f2, 0., 0.]
 
 
 def get_resp_grid(atom_radii: list[int], coords: np.ndarray, density=1, shells=[1.4, 1.6, 1.8, 2.0], grid='lebedev'):
@@ -118,30 +103,6 @@ class Resp:
         print("starting to evaluate integrals")
         self.ints = df.incore.aux_e2(mol, fakemol, intor='int3c2e')
         print("done")
-
-    def multipoles_from_dens_indirect(self, dm: np.ndarray, include_core_charges: bool, order=2):
-        if not (0 <= order <= 2):
-            raise Error("Specify order in the range of 0 - 2")
-        n_fits = sum([1, 3, 6][:order + 1])
-        Fesp_i = np.copy(self.Vnuc) if include_core_charges else np.zeros((self.ngp), dtype=float)
-        Vele = np.einsum('ijp,ij->p', self.ints, dm)
-        Fesp_i[...] -= Vele
-        fits = np.empty((self.natom, n_fits))
-        R_alpha = self.R_alpha
-        r_inv = self.r_inv
-        mp = self.fit_monopoles(Fesp_i)
-        if order == 0:
-            return mp.reshape((self.natom, 1))
-        Fesp_i_res = Fesp_i - mp @ r_inv
-        self.r_inv3 = self.rinv3 if 'rinv3' in self.__dict__ else r_inv**3
-        dp = self.fit_dipoles(Fesp_i_res).reshape((3, -1))
-        if order == 1:
-            return np.vstack((mp, dp)).T
-        P = np.einsum('xi,inx->in', dp, R_alpha)
-        Fesp_i_res = Fesp_i_res - np.einsum('in,in->n', P, self.r_inv3)
-        qp = self.fit_quadrupoles(Fesp_i_res).reshape((6, -1))
-        fits = np.vstack((mp, dp, qp)).T
-        return fits
 
     def multipoles_from_dens(self, dm: np.ndarray, include_core_charges: bool, order=2, charge=0, **kwargs):
         """
@@ -251,91 +212,3 @@ class Resp:
         res[:, 4:7] -= 1 / 3 * traces[..., None]
 
         return res
-
-    @staticmethod
-    def _fit(A, B, beta=0.0005, b=0.1, restraint=True):
-        Q1 = np.linalg.solve(A, B)
-        if not restraint:
-            return Q1
-        Q2 = np.ones(Q1.shape, float)
-
-        def get_rest(Q):
-            return beta / (np.sqrt(Q**2 + b**2))
-
-        vget_rest = np.vectorize(get_rest, cache=True)
-        while np.linalg.norm(Q1 - Q2) >= 0.00001:
-            Q1 = Q2.copy()
-            rest = vget_rest(Q1)
-            rest[-1] = 0.
-            A_rest = A + np.diag(rest)
-            Q2 = np.linalg.solve(A_rest, B)
-        return Q2
-
-    def fit_monopoles(self, Fesp_i):
-        natom = self.natom
-        # build B
-        if self.weights is not None:
-            a = np.einsum('ag,g,bg->ab', self.r_inv, self.weights, self.r_inv)    # contract over ngp -> m_A_A
-            b = np.einsum('ag,g,g->a', self.r_inv, self.weights, Fesp_i)    # v_A
-        else:
-            a = np.einsum('ag,bg->ab', self.r_inv, self.r_inv)    # contract over ngp -> m_A_A
-            b = np.einsum('ag,g->a', self.r_inv, Fesp_i)    # v_A
-        # build A
-        # q_A
-        A = np.zeros((natom + 1, natom + 1))
-        A[:natom, :natom] += a
-        A[:natom, natom] = 1
-        A[natom, :natom] = 1
-
-        B = np.zeros((natom + 1))
-        B[:natom] += b
-        B[natom] = 0    # TODO reintroduce charge!!
-
-        charges = self._fit(A, B, self.beta, 0.1)
-        return charges[:natom]
-
-    def fit_dipoles(self, Fesp_i: np.ndarray):
-        # Build 1/|R_A - r_i| m_A_i
-        R_alpha = self.R_alpha
-
-        r_inv3 = self.r_inv3
-
-        tmp = np.vstack((R_alpha[:, :, 0] * r_inv3, R_alpha[:, :, 1] * r_inv3, R_alpha[:, :, 2] * r_inv3))    # m_A_i
-        if self.weights is not None:
-            A = np.einsum('ag,g,bg->ab', tmp, self.weights, tmp)    # contract over ngp -> m_A_A
-            B = np.einsum('ag,g,g->a', tmp, self.weights, Fesp_i)    # v_A
-        else:
-            A = np.einsum('ag,bg->ab', tmp, tmp)    # contract over ngp -> m_A_A
-            B = np.einsum('ag,g->a', tmp, Fesp_i)    # v_A
-
-        return self._fit(A, B, self.beta, 0.1, True)
-
-    def fit_quadrupoles(self, Fesp_i):
-        natom = self.natom
-        # Build 1/|R_A - r_i| m_A_i
-        R_alpha = self.R_alpha
-
-        r_inv = self.r_inv
-        r_inv5 = self.rinv5 if 'rinv5' in self.__dict__ else r_inv**5
-        r_inv5_2 = 0.5 * r_inv5
-        # order xx, yy, zz, xy, xz, yz
-        tmp = np.vstack(
-            (
-                R_alpha[:, :, 0] * R_alpha[:, :, 0] * r_inv5_2, R_alpha[:, :, 1] * R_alpha[:, :, 1] * r_inv5_2,
-                R_alpha[:, :, 2] * R_alpha[:, :, 2] * r_inv5_2, R_alpha[:, :, 0] * R_alpha[:, :, 1] * r_inv5_2,
-                R_alpha[:, :, 0] * R_alpha[:, :, 2] * r_inv5_2, R_alpha[:, :, 1] * R_alpha[:, :, 2] * r_inv5_2
-            )
-        )    # m_A_i
-        if self.weights is not None:
-            A = np.einsum('ag,g,bg->ab', tmp, self.weights, tmp)    # contract over ngp -> m_A_A
-            B = np.einsum('ag,g,g->a', tmp, self.weights, Fesp_i)    # v_A
-        else:
-            A = np.einsum('ag,bg->ab', tmp, tmp)    # contract over ngp -> m_A_A
-            B = np.einsum('ag,g->a', tmp, Fesp_i)    # v_A
-
-        quadrupoles = self._fit(A, B, self.beta, 0.1, True)
-        # make traceless (Source: Sebastian)
-        quad_mat = quadrupoles.reshape((-1, natom))
-        traces = np.sum(quad_mat[:3, :], axis=0)
-        quad_mat[:3, :] -= 1 / 3 * traces[None, ...]
-        return quad_mat.flatten()
