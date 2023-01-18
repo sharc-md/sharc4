@@ -47,6 +47,7 @@ class LEBEDEV(object):
     Class to hold the grid and prevent reloading in loop
     """
     grid = None
+    weights = None
 
     def load(self, n_points: int) -> np.ndarray:
         """
@@ -67,7 +68,9 @@ class LEBEDEV(object):
         # load the closest (rounded upwards) grid from files
         if self.grid is None or len(self.grid) != n_points:
             degree = LEBEDEV_NPOINTS[n_points]
-            self.grid = np.load(f'{grids_path}/lebedev_{degree}_{n_points}.npy')
-        return self.grid
+            npzarchive = np.load(f'{grids_path}/lebedev_{degree}_{n_points}.npz')
+            self.grid = npzarchive['coordinates']
+            self.weights = npzarchive['weights']
+        return self.grid, self.weights
 
 

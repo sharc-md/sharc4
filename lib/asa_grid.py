@@ -113,7 +113,7 @@ def markus_deserno(n):
     return np.array(points)
 
 
-def shrake_rupley(xyz: np.ndarray, atom_radii: np.ndarray, out_points: np.ndarray, density=1, n_points=0, grid=lebedev_grid) -> np.ndarray:
+def shrake_rupley(xyz: np.ndarray, atom_radii: np.ndarray, out_points: np.ndarray, density=1, n_points=0, grid=lebedev_grid, weights=None) -> np.ndarray:
     # prepare variables
     n_atoms = int(xyz.shape[0])
     neighbor_indices = np.zeros((n_atoms), dtype=float)
@@ -127,7 +127,12 @@ def shrake_rupley(xyz: np.ndarray, atom_radii: np.ndarray, out_points: np.ndarra
     for i in range(n_atoms):
         rad_i = atom_radii[i]
         # centered_sphere_points = surface(int(4.0 * np.pi * atom_radii[i]**2))
-        centered_sphere_points = grid(int(4.0 * np.pi * atom_radii[i]**2 * density))
+        if weights is not None:
+            centered_sphere_points, weights_sphere_points = grid(int(4.0 * np.pi * atom_radii[i]**2 * density))
+            # full = np.c_[centered_sphere_points, weights_sphere_points]
+            # print(full)
+        else:
+            centered_sphere_points = grid(int(4.0 * np.pi * atom_radii[i]**2 * density))
         r_i = xyz[i, :]
 
         n_neighbor_indices = 0
@@ -174,6 +179,9 @@ def shrake_rupley(xyz: np.ndarray, atom_radii: np.ndarray, out_points: np.ndarra
 
             if is_accessible:
                 out_points[n_out_points] = r_j
+                if weights is not None:
+                    # print(j, full[j, ...])
+                    weights[n_out_points] = weights_sphere_points[j]
                 n_out_points += 1
 
     return n_out_points
@@ -198,9 +206,14 @@ def mk_layers(xyz: np.ndarray, atom_radii: list[float], density=1, shells=[1.4, 
     mk_layers_points = np.ndarray((n_points, 3), dtype=float)
     grid_functions = {'lebedev': lebedev_grid, 'random': random_sphere, 'golden_spiral': golden_sphere, 'gamess': gamess_surface, 'marcus_deserno': markus_deserno}
     assert grid in grid_functions
+
+    weights = None
+    if grid == 'lebedev':
+        weights = np.ndarray((n_points), dtype=float)
     grid = grid_functions[grid]
     # potentially parallelizable! every layer is one process
     n_points = 0
     for y in shells:
-        n_points = shrake_rupley(xyz, y * atom_radii_array, mk_layers_points, density=density, n_points=n_points, grid=grid)
-    return mk_layers_points[:n_points, :]
+        n_points = shrake_rupley(xyz, y * atom_radii_array, mk_layers_points, density=density, n_points=n_points, grid=grid, weights=weights)
+        # print(np.c_[mk_layers_points, weights][:n_points, ...])
+    return mk_layers_points[:n_points, :], weights[:n_points] if weights is not None else None

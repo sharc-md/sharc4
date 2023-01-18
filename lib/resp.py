@@ -67,7 +67,8 @@ class Resp:
         self.atom_symbols = atom_symbols
         self.mk_grid = custom_grid
         if self.mk_grid is None:
-            self.mk_grid = get_resp_grid(atom_radii, coords * au2a, density, shells, grid) / au2a
+            self.mk_grid, self.weights = get_resp_grid(atom_radii, coords * au2a, density, shells, grid)
+            self.mk_grid /= au2a  # convert back to Bohr
         assert len(self.mk_grid.shape) == 2 and self.mk_grid.shape[1] == 3
         self.natom = coords.shape[0]
         self.ngp = self.mk_grid.shape[0]
@@ -192,13 +193,19 @@ class Resp:
         # tmp = tmp[:n_fits]
         n_af = natom * n_fits
         dim = n_af + 1
-        a = tmp @ tmp.T
+
+        if self.weights is not None:
+            a = np.einsum('ag,g,bg->ab', tmp, self.weights, tmp)
+            b = np.einsum('ag,g,g->a', tmp, self.weights, Fesp_i)    # v_A
+        else:
+            a = np.einsum('ag,bg->ab', tmp, tmp)
+            b = np.einsum('ag,g->a', tmp, Fesp_i)    # v_A
+
         A = np.zeros((dim, dim))
         A[:-1, :-1] += a
         A[:natom, -1] = 1.
         A[-1, :natom] = 1.
 
-        b = tmp @ Fesp_i    # v_A
         B = np.zeros((dim))
         B[:-1] += b
         B[-1] = float(charge)    # TODO reintroduce charge!!
@@ -260,17 +267,20 @@ class Resp:
             Q1 = Q2.copy()
             rest = vget_rest(Q1)
             rest[-1] = 0.
-            B_rest = B
             A_rest = A + np.diag(rest)
-            Q2 = np.linalg.solve(A_rest, B_rest)
+            Q2 = np.linalg.solve(A_rest, B)
         return Q2
 
     def fit_monopoles(self, Fesp_i):
         natom = self.natom
         # build B
-        b = self.r_inv @ Fesp_i    # v_A
+        if self.weights is not None:
+            a = np.einsum('ag,g,bg->ab', self.r_inv, self.weights, self.r_inv)    # contract over ngp -> m_A_A
+            b = np.einsum('ag,g,g->a', self.r_inv, self.weights, Fesp_i)    # v_A
+        else:
+            a = np.einsum('ag,bg->ab', self.r_inv, self.r_inv)    # contract over ngp -> m_A_A
+            b = np.einsum('ag,g->a', self.r_inv, Fesp_i)    # v_A
         # build A
-        a = self.r_inv @ self.r_inv.T    # contract over ngp -> m_A_A
         # q_A
         A = np.zeros((natom + 1, natom + 1))
         A[:natom, :natom] += a
@@ -291,11 +301,12 @@ class Resp:
         r_inv3 = self.r_inv3
 
         tmp = np.vstack((R_alpha[:, :, 0] * r_inv3, R_alpha[:, :, 1] * r_inv3, R_alpha[:, :, 2] * r_inv3))    # m_A_i
-        # build A
-        A = tmp @ tmp.T    # contract over ngp -> m_A_A
-
-        # build B'
-        B = tmp @ Fesp_i    # v_A
+        if self.weights is not None:
+            A = np.einsum('ag,g,bg->ab', tmp, self.weights, tmp)    # contract over ngp -> m_A_A
+            B = np.einsum('ag,g,g->a', tmp, self.weights, Fesp_i)    # v_A
+        else:
+            A = np.einsum('ag,bg->ab', tmp, tmp)    # contract over ngp -> m_A_A
+            B = np.einsum('ag,g->a', tmp, Fesp_i)    # v_A
 
         return self._fit(A, B, self.beta, 0.1, True)
 
@@ -315,11 +326,12 @@ class Resp:
                 R_alpha[:, :, 0] * R_alpha[:, :, 2] * r_inv5_2, R_alpha[:, :, 1] * R_alpha[:, :, 2] * r_inv5_2
             )
         )    # m_A_i
-        # build A
-        A = tmp @ tmp.T    # contract over ngp -> m_A_A
-
-        # build B'
-        B = tmp @ Fesp_i    # v_A
+        if self.weights is not None:
+            A = np.einsum('ag,g,bg->ab', tmp, self.weights, tmp)    # contract over ngp -> m_A_A
+            B = np.einsum('ag,g,g->a', tmp, self.weights, Fesp_i)    # v_A
+        else:
+            A = np.einsum('ag,bg->ab', tmp, tmp)    # contract over ngp -> m_A_A
+            B = np.einsum('ag,g->a', tmp, Fesp_i)    # v_A
 
         quadrupoles = self._fit(A, B, self.beta, 0.1, True)
         # make traceless (Source: Sebastian)
