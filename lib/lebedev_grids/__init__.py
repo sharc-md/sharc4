@@ -69,7 +69,7 @@ class LEBEDEV(object):
         if self.grid is None or len(self.grid) != n_points:
             degree = LEBEDEV_NPOINTS[n_points]
             npzarchive = np.load(f'{grids_path}/lebedev_{degree}_{n_points}.npz')
-            self.grid = npzarchive['coordinates']
+            self.grid = npzarchive['points']
             self.weights = npzarchive['weights']
         return self.grid, self.weights
 

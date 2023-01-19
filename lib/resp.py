@@ -51,6 +51,7 @@ class Resp:
         self.coords = coords
         self.atom_symbols = atom_symbols
         self.mk_grid = custom_grid
+        self.weights = None
         if self.mk_grid is None:
             self.mk_grid, self.weights = get_resp_grid(atom_radii, coords * au2a, density, shells, grid)
             self.mk_grid /= au2a  # convert back to Bohr
@@ -96,6 +97,7 @@ class Resp:
         )
         mol.build()
         Z = mol.atom_charges()
+        self.Sao = mol.intor('int1e_ovlp')
         self.Vnuc = np.sum(Z[..., None] * self.r_inv, axis=0)
         fakemol = gto.fakemol_for_charges(self.mk_grid)
         # NOTE This could be very big (fakemol could be broken up into multiple pieces)
@@ -125,6 +127,10 @@ class Resp:
         n_fits = sum([1, 3, 6][:order + 1])
         natom = self.natom
         Vnuc = np.copy(self.Vnuc) if include_core_charges else np.zeros((self.ngp), dtype=float)
+        #check dm matrix
+        print("check dm matrix")
+        print("n elec:", np.einsum('ij,ij', self.Sao, dm))
+
         Vele = np.einsum('ijp,ij->p', self.ints, dm)
         Fesp_i = Vnuc - Vele
         R_alpha = self.R_alpha
@@ -172,25 +178,30 @@ class Resp:
         B[-1] = float(charge)    # TODO reintroduce charge!!
 
         Q1 = np.linalg.solve(A, B)[:n_af]
+        print("ESP charges", Q1.reshape((n_fits, -1)).T.flatten())
         Q2 = np.ones(Q1.shape, float)
+        beta_au = self.beta * au2a**2   # needs to be 1/au**2
 
         def get_rest(Q, b=0.1):
-            return self.beta / (np.sqrt(Q**2 + b**2))
+            return beta_au / (np.sqrt(Q**2 + b**2))
 
         vget_rest = np.vectorize(get_rest, cache=True)
         rest = np.zeros((B.shape))
         while np.linalg.norm(Q1 - Q2) >= 0.00001:
             Q1 = Q2.copy()
-            rest = vget_rest(Q1)
+            rest = vget_rest(Q1) * au2a**2
+            print(rest)
             # rest[-1] = 0.
             # B_rest = B
             A_rest = np.copy(A)
             np.einsum('ii->i', A_rest)[:n_af] += rest
+            print(A_rest)
             Q2 = np.linalg.solve(A_rest, B)[:n_af]
 
         fit_esp = np.einsum('x,xi->i', Q2, tmp)
         residual_ESP = fit_esp - Fesp_i
         res = Q2.reshape((n_fits, -1)).T
+        print(res.flatten())
 
         print(
             f'Fit done!, MEAN: {np.mean(residual_ESP): 10.6e}, ABS.MEAN: {np.mean(np.abs(residual_ESP)): 10.6e}, RMSD: {np.sqrt(np.mean(residual_ESP**2)): 10.8e}'
@@ -203,7 +214,7 @@ class Resp:
                     f"# {'num [AU]':<9s}  {'ref_esp':<12s} {'fit_esp':<12s} {'dist':<12s} {'x':<12s} {'y':<12s} {'z':<12s}\n"
                 )
                 for i, vals in enumerate(
-                    zip(fit_esp, Fesp_i, dist, self.mk_grid[:, 0], self.mk_grid[:, 1], self.mk_grid[:, 2])
+                    zip(Fesp_i, fit_esp, dist, self.mk_grid[:, 0], self.mk_grid[:, 1], self.mk_grid[:, 2])
                 ):
                     f.write(f"{i:5d}      " + " ".join(map(lambda x: f'{x: 12.8f}', vals)) + "\n")
 

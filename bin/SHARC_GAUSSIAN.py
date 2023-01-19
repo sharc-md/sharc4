@@ -1657,7 +1657,7 @@ class GAUSSIAN(INTERFACE):
             ECPs = self.parse_ecp(fchkfile)
             # collect all densities from the file in densjob (file: bools) and jobdens (state: file)
             densities = self.get_dens_from_fchks(sorted_densjobs, basis, n_bf)
-            fits = Resp(QMin['coords'], QMin['elements'], QMin['resp_vdw_radii'], QMin['resp_density'], QMin['resp_shells'])
+            fits = Resp(QMin['coords'], QMin['elements'], QMin['resp_vdw_radii'], QMin['resp_density'], QMin['resp_shells'], grid=QMin['resp_grid'])
             gsmult = QMin['statemap'][1][0]
             charge = QMin['chargemap'][gsmult]
             pprint.pprint(ECPs)
@@ -1974,6 +1974,9 @@ class GAUSSIAN(INTERFACE):
 
         # ++++++++++++++++++ Start making things
         natom = props['Number of atoms']
+        if props['ECP-NLP'] is None:
+            print("no ECPS found!")
+            return {}
         skips = props['ECP-LPSkip'] == 0
         kfirst = props['ECP-KFirst'].reshape((-1, natom))[:, skips]
         klast = props['ECP-KLast'].reshape((-1, natom))[:, skips]

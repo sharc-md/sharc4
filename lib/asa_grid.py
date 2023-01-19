@@ -22,6 +22,7 @@ Shrake, Rupley J Mol Biol. 79 (2): 351-71
 
 import numpy as np
 from lebedev_grids import LEBEDEV
+from utils import euclidean_distance_einsum
 
 lebedev = LEBEDEV()
 lebedev_grid = lebedev.load
@@ -114,6 +115,74 @@ def markus_deserno(n):
 
 
 def shrake_rupley(xyz: np.ndarray, atom_radii: np.ndarray, out_points: np.ndarray, density=1, n_points=0, grid=lebedev_grid, weights=None) -> np.ndarray:
+    natoms = int(xyz.shape[0])
+    n_out_points = n_points
+    for i in range(natoms):
+        print("sphere check")
+        if weights is not None:
+            print("weights")
+            sphere_grid, sphere_weights = grid(int(4.0 * np.pi * atom_radii[i]**2 * density))
+            sum_w = sum(sphere_weights)
+            print(sphere_weights @ sphere_grid / sum_w)
+        else:
+            sphere_grid = grid(int(4.0 * np.pi * atom_radii[i]**2 * density))
+            print(np.sum(sphere_grid, axis=0) / sphere_grid.shape[0])
+
+        print()
+        sphere_grid = sphere_grid * atom_radii[i] + xyz[i, :]  # scale an shift center
+        dist = euclidean_distance_einsum(xyz, sphere_grid)
+        invalid = np.concatenate([np.where(dist[iv, :] < v - 0.01)[0] for iv, v in enumerate(atom_radii)]).reshape((-1))
+        invalid = np.sort(np.unique(invalid, axis=0))
+        idx = np.ones(dist.shape[1], bool)
+        idx[invalid] = 0
+        last_new = n_out_points + sphere_grid.shape[0] - len(invalid)
+        out_points[n_out_points:last_new, :] = sphere_grid[idx, :]
+        if weights is not None:
+            print("weights")
+            weights[n_out_points:last_new] = sphere_weights[idx]
+        n_out_points = last_new
+
+    return n_out_points
+
+
+def shrake_rupley3(xyz: np.ndarray, atom_radii: np.ndarray, out_points: np.ndarray, density=1, n_points=0, grid=lebedev_grid, weights=None) -> np.ndarray:
+
+    natoms = int(xyz.shape[0])
+    surface_points = []
+    n_out_points = n_points
+    # loop over atomic coordinates
+    for i in range(natoms):
+        # calculate approximate number of ESP grid points
+        n_dots = int(density * 4.0 * np.pi * np.power(atom_radii[i], 2))
+        # generate an array of n_points in a unit sphere around the atom
+        if weights is not None:
+            dots, weights_sphere_points = grid(n_dots)
+        else:
+            dots = grid(n_dots)
+
+        # scale the unit sphere by the VDW radius and translate
+        dots = xyz[i] + atom_radii[i] * dots
+        for j in range(len(dots)):
+            save = True
+            for k in range(len(xyz)):
+                if i == k:
+                    continue
+                # exclude points within the scaled VDW radius of other atoms
+                d = np.linalg.norm(dots[j] - xyz[k])
+                if d < atom_radii[i]:
+                    save = False
+                    break
+            if save:
+                out_points[n_out_points] = dots[j]
+                if weights is not None:
+                    weights[n_out_points] = weights_sphere_points[j]
+                n_out_points += 1
+                surface_points.append(dots[j])
+
+    return n_out_points
+
+
+def shrake_rupley2(xyz: np.ndarray, atom_radii: np.ndarray, out_points: np.ndarray, density=1, n_points=0, grid=lebedev_grid, weights=None) -> np.ndarray:
     # prepare variables
     n_atoms = int(xyz.shape[0])
     neighbor_indices = np.zeros((n_atoms), dtype=float)
@@ -150,13 +219,6 @@ def shrake_rupley(xyz: np.ndarray, atom_radii: np.ndarray, out_points: np.ndarra
             elif r2 < rad_cutoff2:
                 neighbor_indices[n_neighbor_indices] = j
                 n_neighbor_indices += 1
-        # heuristic norm: number of atoms that would fit inside a box with max cutoff for this atom
-        # if all atoms have a bond length of 1 angstrom (spheres) and are packaged at 100% efficiency
-        # n = factor_packaging * (max_rad + rad_i)**3
-        # if n_neighbor_indices > n:
-        #     print(n_neighbor_indices, n)
-        #     continue
-        # center the sphere points on atom i
         centered_sphere_points = rad_i * centered_sphere_points + r_i
 
         k_closest_neighbor = 0
