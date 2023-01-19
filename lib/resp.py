@@ -54,7 +54,7 @@ class Resp:
         self.weights = None
         if self.mk_grid is None:
             self.mk_grid, self.weights = get_resp_grid(atom_radii, coords * au2a, density, shells, grid)
-            self.mk_grid /= au2a  # convert back to Bohr
+            self.mk_grid /= au2a    # convert back to Bohr
         assert len(self.mk_grid.shape) == 2 and self.mk_grid.shape[1] == 3
         self.natom = coords.shape[0]
         self.ngp = self.mk_grid.shape[0]
@@ -127,7 +127,7 @@ class Resp:
         n_fits = sum([1, 3, 6][:order + 1])
         natom = self.natom
         Vnuc = np.copy(self.Vnuc) if include_core_charges else np.zeros((self.ngp), dtype=float)
-        #check dm matrix
+        # check dm matrix
         print("check dm matrix")
         print("n elec:", np.einsum('ij,ij', self.Sao, dm))
 
@@ -157,7 +157,6 @@ class Resp:
             )    # m_A_i
         elif order == 0:
             tmp = self.r_inv    # m_A_i
-        # tmp = tmp[:n_fits]
         n_af = natom * n_fits
         dim = n_af + 1
 
@@ -175,12 +174,11 @@ class Resp:
 
         B = np.zeros((dim))
         B[:-1] += b
-        B[-1] = float(charge)    # TODO reintroduce charge!!
+        B[-1] = float(charge)
 
         Q1 = np.linalg.solve(A, B)[:n_af]
-        print("ESP charges", Q1.reshape((n_fits, -1)).T.flatten())
         Q2 = np.ones(Q1.shape, float)
-        beta_au = self.beta * au2a**2   # needs to be 1/au**2
+        beta_au = self.beta * au2a**2    # needs to be 1/au**2
 
         def get_rest(Q, b=0.1):
             return beta_au / (np.sqrt(Q**2 + b**2))
@@ -190,18 +188,13 @@ class Resp:
         while np.linalg.norm(Q1 - Q2) >= 0.00001:
             Q1 = Q2.copy()
             rest = vget_rest(Q1) * au2a**2
-            print(rest)
-            # rest[-1] = 0.
-            # B_rest = B
             A_rest = np.copy(A)
             np.einsum('ii->i', A_rest)[:n_af] += rest
-            print(A_rest)
             Q2 = np.linalg.solve(A_rest, B)[:n_af]
 
         fit_esp = np.einsum('x,xi->i', Q2, tmp)
         residual_ESP = fit_esp - Fesp_i
         res = Q2.reshape((n_fits, -1)).T
-        print(res.flatten())
 
         print(
             f'Fit done!, MEAN: {np.mean(residual_ESP): 10.6e}, ABS.MEAN: {np.mean(np.abs(residual_ESP)): 10.6e}, RMSD: {np.sqrt(np.mean(residual_ESP**2)): 10.8e}'

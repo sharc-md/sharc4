@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-""" 
+"""
 https://github.com/mdtraj/mdtraj/blob/0dde9a64563faeec742b563e25deea988edf3c70/mdtraj/geometry/src/sasa.cpp
 based on c++ in MDtraj code with GNU license
 Singh, Kollman J. Comp. Chem. 1984, 5, 129 - 145
@@ -114,22 +114,24 @@ def markus_deserno(n):
     return np.array(points)
 
 
-def shrake_rupley(xyz: np.ndarray, atom_radii: np.ndarray, out_points: np.ndarray, density=1, n_points=0, grid=lebedev_grid, weights=None) -> np.ndarray:
+def shrake_rupley(
+    xyz: np.ndarray,
+    atom_radii: np.ndarray,
+    out_points: np.ndarray,
+    density=1,
+    n_points=0,
+    grid=lebedev_grid,
+    weights=None
+) -> np.ndarray:
     natoms = int(xyz.shape[0])
     n_out_points = n_points
     for i in range(natoms):
-        print("sphere check")
         if weights is not None:
-            print("weights")
             sphere_grid, sphere_weights = grid(int(4.0 * np.pi * atom_radii[i]**2 * density))
-            sum_w = sum(sphere_weights)
-            print(sphere_weights @ sphere_grid / sum_w)
         else:
             sphere_grid = grid(int(4.0 * np.pi * atom_radii[i]**2 * density))
-            print(np.sum(sphere_grid, axis=0) / sphere_grid.shape[0])
 
-        print()
-        sphere_grid = sphere_grid * atom_radii[i] + xyz[i, :]  # scale an shift center
+        sphere_grid = sphere_grid * atom_radii[i] + xyz[i, :]    # scale an shift center
         dist = euclidean_distance_einsum(xyz, sphere_grid)
         invalid = np.concatenate([np.where(dist[iv, :] < v - 0.01)[0] for iv, v in enumerate(atom_radii)]).reshape((-1))
         invalid = np.sort(np.unique(invalid, axis=0))
@@ -138,118 +140,15 @@ def shrake_rupley(xyz: np.ndarray, atom_radii: np.ndarray, out_points: np.ndarra
         last_new = n_out_points + sphere_grid.shape[0] - len(invalid)
         out_points[n_out_points:last_new, :] = sphere_grid[idx, :]
         if weights is not None:
-            print("weights")
             weights[n_out_points:last_new] = sphere_weights[idx]
         n_out_points = last_new
 
     return n_out_points
 
 
-def shrake_rupley3(xyz: np.ndarray, atom_radii: np.ndarray, out_points: np.ndarray, density=1, n_points=0, grid=lebedev_grid, weights=None) -> np.ndarray:
-
-    natoms = int(xyz.shape[0])
-    surface_points = []
-    n_out_points = n_points
-    # loop over atomic coordinates
-    for i in range(natoms):
-        # calculate approximate number of ESP grid points
-        n_dots = int(density * 4.0 * np.pi * np.power(atom_radii[i], 2))
-        # generate an array of n_points in a unit sphere around the atom
-        if weights is not None:
-            dots, weights_sphere_points = grid(n_dots)
-        else:
-            dots = grid(n_dots)
-
-        # scale the unit sphere by the VDW radius and translate
-        dots = xyz[i] + atom_radii[i] * dots
-        for j in range(len(dots)):
-            save = True
-            for k in range(len(xyz)):
-                if i == k:
-                    continue
-                # exclude points within the scaled VDW radius of other atoms
-                d = np.linalg.norm(dots[j] - xyz[k])
-                if d < atom_radii[i]:
-                    save = False
-                    break
-            if save:
-                out_points[n_out_points] = dots[j]
-                if weights is not None:
-                    weights[n_out_points] = weights_sphere_points[j]
-                n_out_points += 1
-                surface_points.append(dots[j])
-
-    return n_out_points
-
-
-def shrake_rupley2(xyz: np.ndarray, atom_radii: np.ndarray, out_points: np.ndarray, density=1, n_points=0, grid=lebedev_grid, weights=None) -> np.ndarray:
-    # prepare variables
-    n_atoms = int(xyz.shape[0])
-    neighbor_indices = np.zeros((n_atoms), dtype=float)
-    # loop over all atoms
-    atom_radii2 = atom_radii**2
-    is_accessible = True
-    # factor_packaging = (3.) / (4. * PI)
-    # # max_rad + rad of spheres to accounbt for half spheres
-    # max_rad = np.max(atom_radii) + 1.
-    n_out_points = n_points
-    for i in range(n_atoms):
-        rad_i = atom_radii[i]
-        # centered_sphere_points = surface(int(4.0 * np.pi * atom_radii[i]**2))
-        if weights is not None:
-            centered_sphere_points, weights_sphere_points = grid(int(4.0 * np.pi * atom_radii[i]**2 * density))
-            # full = np.c_[centered_sphere_points, weights_sphere_points]
-            # print(full)
-        else:
-            centered_sphere_points = grid(int(4.0 * np.pi * atom_radii[i]**2 * density))
-        r_i = xyz[i, :]
-
-        n_neighbor_indices = 0
-        for j in range(n_atoms):
-            if i == j:
-                continue
-
-            rad_cutoff2 = (rad_i + atom_radii[j])**2
-            r2 = np.sum((r_i - xyz[j, :])**2, 0)
-            if r2 < 1e-10:
-                print("ERROR: THIS CODE IS KNOWN TO FAIL WHEN ATOMS ARE VIRTUALLY")
-                print("ON TOP OF ONE ANOTHER. YOU SUPPLIED TWO ATOMS %f", np.sqrt(r2))
-                print("APART. QUITTING NOW")
-                raise ValueError
-            elif r2 < rad_cutoff2:
-                neighbor_indices[n_neighbor_indices] = j
-                n_neighbor_indices += 1
-        centered_sphere_points = rad_i * centered_sphere_points + r_i
-
-        k_closest_neighbor = 0
-        for j in range(centered_sphere_points.shape[0]):
-            is_accessible = True
-            r_j = centered_sphere_points[j, :]
-            # iterate through the sphere points by cycling through them
-            # in a circle, startin with k_closest_neighbor and the wrapping
-            # around
-            for k in range(k_closest_neighbor, n_neighbor_indices + k_closest_neighbor):
-                k_prime = k % n_neighbor_indices
-                index = int(neighbor_indices[k_prime])
-                r2 = atom_radii2[index]
-                r_jk2 = np.sum((r_j - xyz[index, :])**2, 0)
-
-                if r_jk2 < r2:
-                    k_closest_neighbor = k
-                    is_accessible = False
-                    break
-
-            if is_accessible:
-                out_points[n_out_points] = r_j
-                if weights is not None:
-                    # print(j, full[j, ...])
-                    weights[n_out_points] = weights_sphere_points[j]
-                n_out_points += 1
-
-    return n_out_points
-
-
-def mk_layers(xyz: np.ndarray, atom_radii: list[float], density=1, shells=[1.4, 1.6, 1.8, 2.0], grid='lebedev') -> np.ndarray:
+def mk_layers(
+    xyz: np.ndarray, atom_radii: list[float], density=1, shells=[1.4, 1.6, 1.8, 2.0], grid='lebedev'
+) -> np.ndarray:
     """
     returns the Merz-Kollmann layers for a molecule
     ------
@@ -266,7 +165,13 @@ def mk_layers(xyz: np.ndarray, atom_radii: list[float], density=1, shells=[1.4, 
     )    # surface density of 1: 4*pi*r^2 with r_max = 2. -> 16.*pi
     atom_radii_array = np.array(atom_radii)
     mk_layers_points = np.ndarray((n_points, 3), dtype=float)
-    grid_functions = {'lebedev': lebedev_grid, 'random': random_sphere, 'golden_spiral': golden_sphere, 'gamess': gamess_surface, 'marcus_deserno': markus_deserno}
+    grid_functions = {
+        'lebedev': lebedev_grid,
+        'random': random_sphere,
+        'golden_spiral': golden_sphere,
+        'gamess': gamess_surface,
+        'marcus_deserno': markus_deserno
+    }
     assert grid in grid_functions
 
     weights = None
@@ -276,6 +181,7 @@ def mk_layers(xyz: np.ndarray, atom_radii: list[float], density=1, shells=[1.4, 
     # potentially parallelizable! every layer is one process
     n_points = 0
     for y in shells:
-        n_points = shrake_rupley(xyz, y * atom_radii_array, mk_layers_points, density=density, n_points=n_points, grid=grid, weights=weights)
-        # print(np.c_[mk_layers_points, weights][:n_points, ...])
+        n_points = shrake_rupley(
+            xyz, y * atom_radii_array, mk_layers_points, density=density, n_points=n_points, grid=grid, weights=weights
+        )
     return mk_layers_points[:n_points, :], weights[:n_points] if weights is not None else None
