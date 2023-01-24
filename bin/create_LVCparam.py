@@ -381,7 +381,9 @@ def write_LVC_template(INFOS):
     if 'multipolar_fit' in INFOS and INFOS['multipolar_fit']:
         requests.append('multipolar_fit')
     path = os.path.join(INFOS['paths']['0eq'], 'QM.out')
+    print("reading QMout_eq at:", path)
     QMout_eq = read_QMout(path, INFOS['nstates'], len(INFOS['atoms']), requests)
+    print(", ".join(requests))
 
     # ------------------ epsilon ----------------------
     epsilon_str_list = []
