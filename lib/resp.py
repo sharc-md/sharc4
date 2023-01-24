@@ -28,7 +28,8 @@ class Resp:
         density=1,
         shells=[1.4, 1.6, 1.8, 2.0],
         custom_grid: np.ndarray = None,
-        grid='lebedev'
+        grid='lebedev',
+        beta=0.0005
     ):
         """
         creates an object with a fitting grid and precalculated properties for the molecule.
@@ -46,8 +47,10 @@ class Resp:
         custom_grid: ndarray[natoms, 3] defining a grid to fit on to (overwrites grid keyword)
 
         grid: string specify a quadrature function from 'lebedev', 'random', 'golden_spiral', 'gamess', 'marcus_deserno'
+
+        beta: the beta parameter of the RESP model (default: 0.0005)
         """
-        self.beta = 0.0005
+        self.beta = beta
         self.coords = coords
         self.atom_symbols = atom_symbols
         self.mk_grid = custom_grid
@@ -178,7 +181,8 @@ class Resp:
 
         Q1 = np.linalg.solve(A, B)[:n_af]
         Q2 = np.ones(Q1.shape, float)
-        beta_au = self.beta * au2a**2    # needs to be 1/au**2
+        #  beta_au = self.beta * au2a**2    # needs to be 1/au**2
+        beta_au = self.beta    # needs to be 1/au**2
 
         def get_rest(Q, b=0.1):
             return beta_au / (np.sqrt(Q**2 + b**2))

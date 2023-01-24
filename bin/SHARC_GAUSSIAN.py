@@ -1657,7 +1657,15 @@ class GAUSSIAN(INTERFACE):
             ECPs = self.parse_ecp(fchkfile)
             # collect all densities from the file in densjob (file: bools) and jobdens (state: file)
             densities = self.get_dens_from_fchks(sorted_densjobs, basis, n_bf)
-            fits = Resp(QMin['coords'], QMin['elements'], QMin['resp_vdw_radii'], QMin['resp_density'], QMin['resp_shells'], grid=QMin['resp_grid'])
+            fits = Resp(
+                QMin['coords'],
+                QMin['elements'],
+                QMin['resp_vdw_radii'],
+                QMin['resp_density'],
+                QMin['resp_shells'],
+                grid=QMin['resp_grid'],
+                beta=QMin['resp_beta']
+            )
             gsmult = QMin['statemap'][1][0]
             charge = QMin['chargemap'][gsmult]
             pprint.pprint(ECPs)
@@ -1666,7 +1674,12 @@ class GAUSSIAN(INTERFACE):
             for i, d_i in enumerate(QMin['densmap']):
                 # do gs density
                 key = (*d_i, *d_i)
-                fits_map[key] = fits.multipoles_from_dens(densities[density_map[key]], include_core_charges=True, order=QMin['resp_fit_order'], charge=QMin['chargemap'][d_i[0]])
+                fits_map[key] = fits.multipoles_from_dens(
+                    densities[density_map[key]],
+                    include_core_charges=True,
+                    order=QMin['resp_fit_order'],
+                    charge=QMin['chargemap'][d_i[0]]
+                )
 
                 for d_j in QMin['densmap'][i + 1:]:
                     if d_i[0] != d_j[0]:
@@ -1928,7 +1941,6 @@ class GAUSSIAN(INTERFACE):
             i += 1
         return build_basis_dict(atom_symbols, shell_types, n_prim, s_a_map, prim_exp, contr_coeff, ps_contr_coeff), n_bf
 
-
     @staticmethod
     def parse_ecp(fchkfile: str):
         props = {
@@ -2007,7 +2019,6 @@ class GAUSSIAN(INTERFACE):
             ECPs[a] = ecp_string
 
         return ECPs
-
 
     def get_dens_from_fchks(self, densjobs: list[tuple[str, dict[str, bool]]], basis, n_bf):
         QMin = self._QMin
@@ -2206,7 +2217,6 @@ class GAUSSIAN(INTERFACE):
             props[(m, n + (m == 1))].extend([theo_float(i) for i in s[2:]])
 
         return props
-
 
 if __name__ == '__main__':
 

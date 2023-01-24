@@ -71,6 +71,7 @@ class LEBEDEV(object):
             npzarchive = np.load(f'{grids_path}/lebedev_{degree}_{n_points}.npz')
             self.grid = npzarchive['points']
             self.weights = npzarchive['weights']
+            self.weights *= n_points
         return self.grid, self.weights
 
 

@@ -1568,13 +1568,17 @@ def getQMout(out, QMin):
         densities = [[[[0. for i in range(10)] for j in range(natom)] for k in range(nmstates)] for l in range(nmstates)]
         coords = np.array([atom[1:] for atom in QMin['geo']], dtype=float)
         symbols = [atom[0] for atom in QMin['geo']]
-        fit = Resp(coords, symbols, density=QMin['resp_density'], shells=QMin['resp_shells'], grid=QMin['resp_grid'])
+        if 'resp_radii' not in QMin:
+            QMin['resp_radii'] = [ATOMIC_RADII[s] for s in symbols]
+
+        fit = Resp(coords, symbols, QMin['resp_radii'], density=QMin['resp_density'], shells=QMin['resp_shells'], grid=QMin['resp_grid'])
         first_state = QMin['statemap'][QMin['states'][0]]
         first_mult, _, _ = tuple(first_state)
         molden_file = os.path.join(QMin['scratchdir'],'master', 'MOLCAS.%i.molden' % (first_mult))
         print("Loading basis set information, building Mol object and calculating integrals")
         mol, _, mo_coeff, _, _, _ = tools.molden.load(molden_file)
         mol.build()
+        fit.Sao = mol.intor('int1e_ovlp')
         Z = mol.atom_charges()
         fit.Vnuc = np.sum(Z[..., None] * fit.r_inv, axis=0)
         fakemol = gto.fakemol_for_charges(fit.mk_grid)
@@ -2480,7 +2484,7 @@ def readQMin(QMinfilename):
         print('Keywords "always_orb_init" and "always_guess" cannot be used together!')
         sys.exit(58)
 
-    QMin['dry_run'] = True if getsh2caskey(sh2cas, 'dry_run') else False
+    QMin['dry_run'] = True if getsh2caskey(sh2cas, 'dry_run')[0] else False
     print('WARNING!!: DRYRUN is', QMin['dry_run'], file=sys.stderr)
 
     # RESP settings
@@ -2499,16 +2503,18 @@ def readQMin(QMinfilename):
         else:
             raise ValueError('grid specified for RESP fit is not in', grids)
 
-    resp_settings = {'resp_layers': int, 'resp_density': float, 'resp_first_layer': float, 'resp_tdm_fit_order': int, 'resp_grid': valid_grid}
+    resp_settings = {'resp_layers': int, 'resp_density': float, 'resp_first_layer': float, 'resp_tdm_fit_order': int, 'resp_grid': valid_grid, 'resp_radii': str}
     for key, parser in resp_settings.items():
         try:
             line = getsh2caskey(sh2cas, key)
-            print(line, file=sys.stderr)
             if line[0]:
                 QMin[key] = parser(line[1].strip())
         except ValueError as e:
             raise ValueError(f'Failed to parse {key} in resources file: {e}')
-
+    if 'resp_radii' in QMin:
+        QMin['resp_radii'] = [float(i) for i in QMin['resp_radii'].split()]
+        print("USING WESP radii")
+        print(QMin['resp_radii'])
     first, nlayers = map(QMin.get, ('resp_first_layer', 'resp_layers'))
     if DEBUG:
         print(f"Calculating resp layers as: {first} + 4/sqrt({nlayers})")
