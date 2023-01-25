@@ -40,7 +40,7 @@ Date: 20.07.2021
 
     def charge(self, args: str) -> list[int]:
         alist = args.split()
-        if len(alist) < self.nmult:
+        if len(alist) == 0:
             raise Error('specify charge for each multiplicity!')
         res = []
         try:
