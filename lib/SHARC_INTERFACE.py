@@ -30,6 +30,7 @@ from datetime import date, datetime
 import math
 import sys
 import os
+import glob
 import re
 import shutil
 import ast
@@ -2265,3 +2266,16 @@ class INTERFACE(ABC):
             ff = os.path.join(QMin['savedir'], 'MOLDEN', 'step_%s.molden' % (QMin['step']))
             fdest = os.path.join(backupdir, 'step_%s.molden' % (QMin['step']))
             shutil.copy(ff, fdest)
+
+    def remove_old_restart_files(self, retain=5):
+        savedir = self._QMin['savedir']
+        step = self._QMin['step']
+        if step - retain < 1:
+            return
+        
+        pattern = os.path.join(savedir, "*." + str(step - retain))
+        for file in glob.glob(pattern):
+            os.remove(file)
+
+            
+

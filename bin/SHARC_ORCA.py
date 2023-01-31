@@ -223,6 +223,7 @@ class ORCA(INTERFACE):
                 See {}:{} for error messages in ORCA output.'.format(gethostname(), QMin['scratchdir']), 75
             )
         self.create_restart_files()
+        self.remove_old_restart_files()
         return errorcodes
 
     def create_restart_files(self):
