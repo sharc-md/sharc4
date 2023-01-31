@@ -110,6 +110,7 @@ class QMMM(INTERFACE):
                     '", "'.join(filter(lambda x: x not in QMin['template'], required)), template_filename
                 ), 78
             )
+        QMin['template']['qmmm'] = True  # this is a qmmm interface
 
         QMin['atoms'] = [
             ATOM(i, v[0].lower() == 'qm', v[1], [0., 0., 0.], set(v[2:]))
@@ -363,6 +364,8 @@ class QMMM(INTERFACE):
         mm_e = float(self.mml_interface._QMout['h'][0][0])
         if QMin['template']['embedding'] == 'subtractive':
             mm_e -= float(self.mms_interface._QMout['h'][0][0])
+
+        QMout['qmmm'] = {'MMEnergy_terms': {'MM Energy': mm_e}}
         # Hamiltonian
         if 'h' in qm_QMout:
             QMout['h'] = [[j for j in i] for i in qm_QMout['h']]

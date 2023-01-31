@@ -2123,7 +2123,7 @@ class INTERFACE(ABC):
         nmstates = QMin['nmstates']
         nprop = QMin['resources']['theodore_n']
         if QMin['template']['qmmm']:
-            nprop += len(QMin['qmmm']['MMEnergy_terms'])
+            nprop += len(QMout['qmmm']['MMEnergy_terms'])
         if nprop <= 0:
             return '\n'
 
@@ -2143,7 +2143,7 @@ class INTERFACE(ABC):
                     descriptors.append('Om_{%i,%i}' % (i + 1, j + 1))
                     string += descriptors[-1] + '\n'
         if QMin['template']['qmmm']:
-            for label in sorted(QMin['qmmm']['MMEnergy_terms']):
+            for label in sorted(QMout['qmmm']['MMEnergy_terms']):
                 descriptors.append(label)
                 string += label + '\n'
 
@@ -2154,10 +2154,10 @@ class INTERFACE(ABC):
                 for j in range(nmstates):
                     string += '%s\n' % (eformat(QMout['theodore'][j][i].real, 12, 3))
         if QMin['template']['qmmm']:
-            for label in sorted(QMin['qmmm']['MMEnergy_terms']):
+            for label in sorted(QMout['qmmm']['MMEnergy_terms']):
                 string += '! QM/MM energy contribution (%s)\n' % (label)
                 for j in range(nmstates):
-                    string += '%s\n' % (eformat(QMin['qmmm']['MMEnergy_terms'][label], 12, 3))
+                    string += '%s\n' % (eformat(QMout['qmmm']['MMEnergy_terms'][label], 12, 3))
         string += '\n'
 
         return string
