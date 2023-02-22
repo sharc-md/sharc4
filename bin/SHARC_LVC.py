@@ -618,6 +618,7 @@ class LVC(INTERFACE):
         pwd = os.getcwd()
         self.printheader()
         self.setup_mol(os.path.join(pwd, QMinfilename))
+        self.read_resources()
         self.read_template()
         self.set_coords(os.path.join(pwd, QMinfilename))
         self.read_requests(os.path.join(pwd, QMinfilename))
