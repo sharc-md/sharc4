@@ -260,14 +260,15 @@ class ORCA(INTERFACE):
             starttime = datetime.datetime.now()
             sys.stdout.write('START:\t{}\t{}\t"{}"\n'.format(shorten_DIR(WORKDIR), starttime, shorten_DIR(string)))
             sys.stdout.flush()
-        stdoutfile = open(os.path.join(WORKDIR, 'ORCA.log'), 'w')
-        stderrfile = open(os.path.join(WORKDIR, 'ORCA.err'), 'w')
+        stdoutfile = open('ORCA.log', 'w')
+        stderrfile = open('ORCA.err', 'w')
         try:
             runerror = sp.call(string, shell=True, stdout=stdoutfile, stderr=stderrfile)
         except OSError:
             raise Error('ORCA call have had some serious problems:', OSError, 76)
         stdoutfile.close()
         stderrfile.close()
+        os.chdir(prevdir)
         with open(os.path.join(WORKDIR, 'ORCA.log')) as f:
             lines = f.readlines()
             if 'ORCA TERMINATED NORMALLY' not in lines[-2]:
