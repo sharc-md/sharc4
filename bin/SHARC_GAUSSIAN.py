@@ -1618,7 +1618,7 @@ class GAUSSIAN(INTERFACE):
 
             for dens in QMin['densjob']:
                 workdir = os.path.join(QMin['scratchdir'], dens)
-                self.get_fchk(workdir)
+                self.get_fchk(workdir, QMin['gaussiandir'])
             # sort densjobs
             density_map = {}    # map for (mult, state, state): position in densities
             sorted_densjobs = []
@@ -1866,12 +1866,12 @@ class GAUSSIAN(INTERFACE):
 
     # ======================================================================= #
     @staticmethod
-    def get_fchk(workdir):
+    def get_fchk(workdir, gaussiandir=''):
         prevdir = os.getcwd()
         os.chdir(workdir)
-        string = 'formchk GAUSSIAN.chk'
+        string = os.path.join(gaussiandir, 'formchk') + ' GAUSSIAN.chk'
         try:
-            sp.call(string, shell=True, stdout=sys.stdout, stderr=sys.stderr)
+            sp.call(string, shell=True, stdout=sys.stderr, stderr=sys.stderr)
         except OSError:
             print('Call have had some serious problems:', OSError)
             sys.exit(77)
