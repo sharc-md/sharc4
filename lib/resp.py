@@ -189,12 +189,17 @@ class Resp:
 
         vget_rest = np.vectorize(get_rest, cache=True)
         rest = np.zeros((B.shape))
-        while np.linalg.norm(Q1 - Q2) >= 0.00001:
+        max_iterations = 500
+        iteration = 0
+        while np.linalg.norm(Q1 - Q2) >= 0.00001 and iteration < max_iterations:
             Q1 = Q2.copy()
             rest = vget_rest(Q1) * au2a**2
             A_rest = np.copy(A)
             np.einsum('ii->i', A_rest)[:n_af] += rest
             Q2 = np.linalg.solve(A_rest, B)[:n_af]
+            iteration += 1
+        print("exciting RESP fitting loop after", iteration, " iterations. Norm", np.linalg.norm(Q1 - Q2))
+            
 
         fit_esp = np.einsum('x,xi->i', Q2, tmp)
         residual_ESP = fit_esp - Fesp_i
