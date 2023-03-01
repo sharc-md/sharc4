@@ -23,6 +23,8 @@ Shrake, Rupley J Mol Biol. 79 (2): 351-71
 import numpy as np
 from lebedev_grids import LEBEDEV
 from utils import euclidean_distance_einsum
+from functools import reduce
+from itertools import chain
 
 lebedev = LEBEDEV()
 lebedev_grid = lebedev.load
@@ -158,12 +160,12 @@ def mk_layers(
     atom_radii: list[float] list of the van-der-Waals radii of each atom (same order as xyz)
     density: float  surface density of each calculated sphere (density of 1. -> 4*pi*r^2)
     shells: list[float] give the scaling factors for each shell
-    grid: str specify a quadrature function from 'lebedev', 'random', 'golden_spiral', 'gamess', 'marcus_deserno' 
+    grid: str specify a quadrature function from 'lebedev', 'random', 'golden_spiral', 'gamess', 'marcus_deserno'
     """
-    n_points = int(
-        4 * np.pi * density * (sum(map(lambda x: (x * 2.)**2, shells))) * xyz.shape[0]
-    )    # surface density of 1: 4*pi*r^2 with r_max = 2. -> 16.*pi
+    # guess the number of points generously (lebedev grid requires more points than density!!
+    n_points = 2 * int(reduce(lambda acc, x: acc + 4 * np.pi * density * x**2, chain(*map(lambda x: [x * s for s in shells], atom_radii))))
     atom_radii_array = np.array(atom_radii)
+    # allocate the memory for the points
     mk_layers_points = np.ndarray((n_points, 3), dtype=float)
     grid_functions = {
         'lebedev': lebedev_grid,

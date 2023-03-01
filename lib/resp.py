@@ -99,11 +99,8 @@ class Resp:
                  for n, ecp_string in ecps.items()}
         )
         mol.build()
-        print(mol.ao_labels())
-        print(mol._basis)
         Z = mol.atom_charges()
         self.Sao = mol.intor('int1e_ovlp')
-        print(self.Sao)
         self.Vnuc = np.sum(Z[..., None] * self.r_inv, axis=0)
         fakemol = gto.fakemol_for_charges(self.mk_grid)
         # NOTE This could be very big (fakemol could be broken up into multiple pieces)
@@ -202,7 +199,6 @@ class Resp:
             Q2 = np.linalg.solve(A_rest, B)[:n_af]
             iteration += 1
         print("exciting RESP fitting loop after", iteration, " iterations. Norm", np.linalg.norm(Q1 - Q2))
-            
 
         fit_esp = np.einsum('x,xi->i', Q2, tmp)
         residual_ESP = fit_esp - Fesp_i

@@ -10,7 +10,6 @@ import subprocess as sp
 from globals import DEBUG, PRINT
 
 
-
 class InDir():
     "small context to perform part of code in other directory"
     old = ''
@@ -94,7 +93,6 @@ def mkdir(DIR, crucial=True, force=True):
         except OSError:
             if crucial:
                 raise Error('Can not create %s\n' % (DIR), 90)
-
 
 
 # ======================================================================= #
@@ -382,106 +380,17 @@ def build_basis_dict(
             basis[n_a[a]].append([abs(st), *shell])
         it += n_p
     #  for i in basis.keys():
-        #  basis[i] = sorted(basis[i], key=lambda x: x[0])
+    #  basis[i] = sorted(basis[i], key=lambda x: x[0])
     return basis
 
 
-def swap_Sao(
-    atom_symbols, basis_dict, matrix, cartesian_d=False, cartesian_f=False, p_eq_s=False
-):
+def get_pyscf_order(atom_symbols, basis_dict, cartesian_d=False, cartesian_f=False):
     # Sources:
     # GAUSSIAN: https://gaussian.com/interfacing/
     # pyscf:  https://pyscf.org/user/gto.html#ordering-of-basis-function
     #  return matrix
 
-    # in the case of P(S=P) coefficients the order is 1S, 2S, 2Px, 2Py, 2Pz, 3S
-    print("swap_rows_and_cols:", atom_symbols, cartesian_d, cartesian_f, p_eq_s)
-
-    # if there are any d-orbitals they need to be swapped!!!
-    if cartesian_d:
-        # in the case of a cartesian basis the ordering is
-        # gauss order:     xx, yy, zz, xy, xz, yz
-        # pyscf order:     xx, xy, xz, yy, yz, zz
-        d_order = [0, 3, 5, 1, 2, 4]
-        #  d_order = [0, 1, 2, 3, 4, 5]
-        nd = 6
-    else:
-        # from gauss order: z2, xz, yz, x2-y2, xy
-        # to   pyscf order: xy, yz, z2, xz, x2-y2
-        d_order = [4, 2, 0, 1, 3]
-        nd = 5
-
-    if cartesian_f:
-        # F shells cartesian:
-        # gauss order: xxx, yyy, zzz, xyy, xxy, xxz, xzz, yzz, yyz, xyz
-        # pyscf order: xxx, xxy, xxz, xyy, xyz, xzz, yyy, yyz, yzz, zzz
-        f_order = [0, 4, 5, 3, 9, 6, 1, 8, 7, 2]
-        nf = 10
-    else:
-        # F shells spherical:
-        # gauss order: zzz, xzz, yzz, xxz-yyz, xyz, xxx-xyy, xxy
-        # pyscf order: xxy, xyz, yzz, zzz, xzz, xxz-yyz, xxx-xyy
-        f_order = [6, 4, 2, 0, 1, 3, 5]
-        nf = 7
-
-    # compile the new_order for the whole matrix
-    new_order = []
-    it = 0
-    for i, a in enumerate(atom_symbols):
-        key = f'{a.upper()}{i+1}'
-        #       s  p  d  f
-        n_bf = [0, 0, 0, 0]
-
-        # count the shells for each angular momentun
-        for shell in basis_dict[key]:
-            n_bf[shell[0]] += 1
-
-        if False:
-            print("p_eq_s", key)
-            s, p = n_bf[0:2]
-            s_order = [0] + [1 + 4 * n for n in range(s - 1)]
-            sp_order = s_order + [n for n in range(2, p * 3 + s) if (n - 1) % 4 != 0]
-            print("p_eq_s", sp_order, len(sp_order))
-            # offset new_order with iterator
-            new_order.extend([it + n for n in sp_order])
-        else:
-            s, p = n_bf[0:2]
-            new_order.extend([it + n for n in range(s + p * 3)])
-
-        print("n_bf", n_bf)
-        it += s + p * 3
-        assert it == len(new_order)
-
-        # do d shells
-        for x in range(n_bf[2]):
-            new_order.extend([it + n for n in d_order])
-            it += nd
-
-        # do f shells
-        for x in range(n_bf[3]):
-            new_order.extend([it + n for n in f_order])
-            it += nf
-        assert it == len(new_order)
-
-    print("reordering atomic orbitals according to")
-    print(new_order)
-    if len(new_order) != len(matrix):
-        raise Error("The list with the new order of the AOs has a different length!", 45)
-
-
-    # reordering of matrix in numpy shorthand (not in-place)
-    return matrix[:, new_order][new_order, :]
-
-def swap_rows_and_cols(
-    atom_symbols, basis_dict, matrix, cartesian_d=False, cartesian_f=False, p_eq_s=False
-):
-    # Sources:
-    # GAUSSIAN: https://gaussian.com/interfacing/
-    # pyscf:  https://pyscf.org/user/gto.html#ordering-of-basis-function
-    #  return matrix
-
-    # in the case of P(S=P) coefficients the order is 1S, 2S, 2Px, 2Py, 2Pz, 3S
-    print("swap_rows_and_cols:", atom_symbols, cartesian_d, cartesian_f, p_eq_s)
+    # in the case of P(S=P) coefficients the order is 1S, 2S, 2Px, 2Py, 2Pz, 3S in gaussian and pyscf
 
     # if there are any d-orbitals they need to be swapped!!!
     if cartesian_d:
@@ -521,20 +430,11 @@ def swap_rows_and_cols(
         # count the shells for each angular momentun
         for shell in basis_dict[key]:
             n_bf[shell[0]] += 1
+        print("n_bf for", key, n_bf)
 
-        if False:
-            print("p_eq_s", key)
-            s, p = n_bf[0:2]
-            s_order = [0] + [1 + 4 * n for n in range(s - 1)]
-            sp_order = s_order + [n for n in range(2, p * 3 + s) if (n - 1) % 4 != 0]
-            print("p_eq_s", sp_order, len(sp_order))
-            # offset new_order with iterator
-            new_order.extend([it + n for n in sp_order])
-        else:
-            s, p = n_bf[0:2]
-            new_order.extend([it + n for n in range(s + p * 3)])
+        s, p = n_bf[0:2]
+        new_order.extend([it + n for n in range(s + p * 3)])
 
-        print("n_bf", n_bf)
         it += s + p * 3
         assert it == len(new_order)
 
@@ -549,61 +449,8 @@ def swap_rows_and_cols(
             it += nf
         assert it == len(new_order)
 
-    print("reordering atomic orbitals according to")
-    print(new_order)
-    if len(new_order) != len(matrix):
-        raise Error("The list with the new order of the AOs has a different length!", 45)
+    return new_order
 
-
-    # reordering of matrix in numpy shorthand (not in-place)
-    return matrix[:, new_order][new_order, :]
-
-    # ------------------------------------------------------------------
-    # OLD ROUTINE
-    #  swaps_d = [[1, 3], [2, 4], [4, 5]] if cartesian_d else [[0, 2], [1, 3], [1, 4], [0, 1]]  # swaps for d shells
-    #  swaps_d_r = [reversed(s) for s in swaps_d]
-
-    #  swaps_f = [[7, 8], [4, 9], [9, 1], [5, 6], [2, 6], [6, 9]] if cartesian_f else [[5, 6], [5, 3], [0, 3], [1, 4]]
-    #  swaps_f_r = [reversed(s) for s in swaps_f]
-    #  it = 0
-    #  for i, a in enumerate(atom_symbols):
-        #  key = f'{a.upper()}{i+1}'
-        #  if p_eq_s:
-            #  # count p and s shells
-            #  s = 0
-            #  p = 0
-            #  for shell in basis_dict[key]:
-                #  if shell[0] == 0:
-                    #  s += 1
-                #  elif shell[0] == 1:
-                    #  p += 1
-            #  #  new_order2 = [0, 1, 2, 3, 4]
-            #  #  new_order3 = [0, 1, 5, 2, 3, 4, 6, 7, 8]
-            #  #  new_order4 = [0, 1, 5, 9, 2, 3, 4, 6, 7, 8, 10, 11, 12]
-            #  s_order = [0] + [1 + 4 * n for n in range(s - 1)]
-            #  new_order = s_order + [n for n in range(2, p * 3 + 2) if (n - 1) % 4 != 0]
-            #  # offset new_order with iterator
-            #  new_order = [it + n for n in new_order]
-            #  matrix[:, new_order][new_order]
-
-        #  for shell in basis_dict[key]:
-            #  if shell[0] == 2:
-                #  for swap, swap_r in zip(swaps_d, swaps_d_r):
-                    #  s1 = [x + it for x in swap]
-                    #  s2 = [x + it for x in swap_r]
-                    #  matrix[s1, :] = matrix[s2, :]
-                    #  matrix[:, s1] = matrix[:, s2]
-            #  elif shell[0] == 3:
-                #  for swap, swap_r in zip(swaps_f, swaps_f_r):
-                    #  s1 = [x + it for x in swap]
-                    #  s2 = [x + it for x in swap_r]
-                    #  matrix[s1, :] = matrix[s2, :]
-                    #  matrix[:, s1] = matrix[:, s2]
-            #  it += 2 * shell[0] + 1
-            #  if cartesian_d and shell[0] == 2:
-                #  it += 1
-            #  if cartesian_f and shell[2] == 3:
-                #  it += 3
 
 def get_cart2sph_matrix(angular_m: int, n_ao: int, atom_symbols: list[str], basis_dict) -> np.ndarray:
     from pyscf import gto
@@ -628,15 +475,13 @@ def get_cart2sph_matrix(angular_m: int, n_ao: int, atom_symbols: list[str], basi
                 n = 2 * shell[0] + 1
                 blocks.append(np.eye(n, dtype=float))
     return block_diag(*blocks)
-                
 
-
-            # increment iterator accordingly assuming just the specified angular momentum is cartesian
-            #  it += 2 * shell[0] + 1
-            #  if angular_m == 2:
-                #  it += 1
-            #  if angular_m == 3:
-                #  it += 3
+    # increment iterator accordingly assuming just the specified angular momentum is cartesian
+    #  it += 2 * shell[0] + 1
+    #  if angular_m == 2:
+    #  it += 1
+    #  if angular_m == 3:
+    #  it += 3
 
 
 def euclidean_distance_einsum(X, Y):
@@ -654,7 +499,7 @@ def euclidean_distance_einsum(X, Y):
     """
     XX = np.einsum('ij,ij-> i', X, X)[:, np.newaxis]
     YY = np.einsum('ij,ij-> i', Y, Y)
-#    XY = 2 * np.einsum('ij,kj->ik', X, Y)
+    #    XY = 2 * np.einsum('ij,kj->ik', X, Y)
     XY = 2 * np.dot(X, Y.T)
     return np.sqrt(XX + YY - XY)
 
