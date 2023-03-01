@@ -45,7 +45,8 @@ import numpy as np
 from resp import Resp
 from tdm import es2es_tdm
 from SHARC_INTERFACE import INTERFACE
-from utils import mkdir, readfile, containsstring, shorten_DIR, makermatrix, makecmatrix, build_basis_dict, swap_rows_and_cols, removekey, writefile, itmult, safe_cast, get_bool_from_env
+from utils import mkdir, readfile, containsstring, shorten_DIR, makermatrix, makecmatrix, build_basis_dict, get_pyscf_order, removekey, writefile, itmult, safe_cast, get_bool_from_env, get_cart2sph_matrix
+from utils import swap_Sao
 from globals import DEBUG, PRINT
 from constants import IToMult, au2eV, IAn2AName
 from error import Error, exception_hook
@@ -1653,10 +1654,26 @@ class GAUSSIAN(INTERFACE):
                             i += 1
             # read basis
             fchkfile = os.path.join(QMin['scratchdir'], sorted_densjobs[0][0], 'GAUSSIAN.fchk')
-            basis, n_bf = self.get_basis(fchkfile)
+            basis, n_bf, cartesian_d, cartesian_f, p_eq_s_shell = self.get_basis(fchkfile)
+            pprint.pprint(basis)
+            print("basis information: P(S=P):", p_eq_s_shell, " cartesian d:", cartesian_d, "cartesian_f", cartesian_f)
             ECPs = self.parse_ecp(fchkfile)
             # collect all densities from the file in densjob (file: bools) and jobdens (state: file)
-            densities = self.get_dens_from_fchks(sorted_densjobs, basis, n_bf)
+            densities = self.get_dens_from_fchks(sorted_densjobs, basis, n_bf, cartesian_d=cartesian_d, cartesian_f=cartesian_f, p_eq_s_shell=p_eq_s_shell)
+            #  after reordering the densities on needs to align the d and f orbitals for spherical or cartesian basis
+            #  if cartesian_d != cartesian_f:
+                #  nao = len(densities[0])
+                #  # change both to spherical
+                #  cartesian_basis = False
+                #  cart2sph_matrix = get_cart2sph_matrix(3 if cartesian_f else 2, nao, QMin['elements'], basis)
+                #  for i in range(len(densities)):
+                    #  print(np.linalg.norm(densities[i]))
+                    #  densities[i] = cart2sph_matrix.T @ densities[i] @ cart2sph_matrix
+                    #  print(np.linalg.norm(densities[i]))
+                    
+            #  else:
+                #  cartesian_basis = cartesian_d
+            cartesian_basis = cartesian_d
             fits = Resp(
                 QMin['coords'],
                 QMin['elements'],
@@ -1669,7 +1686,21 @@ class GAUSSIAN(INTERFACE):
             gsmult = QMin['statemap'][1][0]
             charge = QMin['chargemap'][gsmult]
             pprint.pprint(ECPs)
-            fits.prepare(basis, gsmult - 1, charge, ecps=ECPs)    # the charge of the atom does not affect integrals
+            fits.prepare(basis, gsmult - 1, charge, ecps=ECPs, cart_basis=cartesian_basis)    # the charge of the atom does not affect integrals
+            ao_sqrt_norms = np.sqrt(np.diag(fits.Sao))
+            print(ao_sqrt_norms.shape)
+            Sao_gauss = swap_Sao(QMin['elements'], basis, (fits.Sao / ao_sqrt_norms[:, None]) / ao_sqrt_norms[None, :], True, False, False)
+            print(np.einsum('ij,ij', Sao_gauss, densities[0]))
+            for i in range(len(densities)):
+                densities[i] = get_pyscf_order(QMin['elements'], basis, densities[i], cartesian_d, cartesian_f, p_eq_s_shell)
+            print(np.einsum('ij,ij', (fits.Sao / ao_sqrt_norms[:, None]) / ao_sqrt_norms[None, :], densities[0]))
+            for i in range(len(densities)):
+                print(np.linalg.norm(densities[i]))
+                densities[i] = (densities[i] * ao_sqrt_norms[:, None]) * ao_sqrt_norms[None, :]
+                print(np.linalg.norm(densities[i]))
+                    
+            
+
             fits_map = {}
             for i, d_i in enumerate(QMin['densmap']):
                 # do gs density
@@ -1880,6 +1911,8 @@ class GAUSSIAN(INTERFACE):
 
     @staticmethod
     def get_basis(fchkfile: str):
+        cartesian = False
+        p_eq_s = False
         n_bf = 0
         f = open(fchkfile, 'r')
         lines = f.readlines()
@@ -1902,6 +1935,10 @@ class GAUSSIAN(INTERFACE):
                 )
             if 'Number of basis functions' in lines[i]:
                 n_bf = int(lines[i].split()[-1])
+            if 'Pure/Cartesian d shells' in lines[i]:
+                cartesian_d = int(lines[i].split()[-1]) == 1
+            if 'Pure/Cartesian f shells' in lines[i]:
+                cartesian_f = int(lines[i].split()[-1]) == 1
             if 'Shell types' in lines[i]:
                 n = int(lines[i].split()[-1])
                 n_lines = (n - 1) // 6 + 1
@@ -1933,13 +1970,14 @@ class GAUSSIAN(INTERFACE):
                 contr_coeff = list(map(float, chain(*map(lambda x: x.split(), lines[i:i + n_lines]))))
                 i += n_lines
                 if 'P(S=P) Contraction coefficients' in lines[i]:
+                    p_eq_s = True
                     n = int(lines[i].split()[-1])
                     n_lines = (n - 1) // 5 + 1
                     i += 1
                     ps_contr_coeff = list(map(float, chain(*map(lambda x: x.split(), lines[i:i + n_lines]))))
                 break
             i += 1
-        return build_basis_dict(atom_symbols, shell_types, n_prim, s_a_map, prim_exp, contr_coeff, ps_contr_coeff), n_bf
+        return build_basis_dict(atom_symbols, shell_types, n_prim, s_a_map, prim_exp, contr_coeff, ps_contr_coeff), n_bf, cartesian_d, cartesian_f, p_eq_s
 
     @staticmethod
     def parse_ecp(fchkfile: str):
@@ -2020,7 +2058,7 @@ class GAUSSIAN(INTERFACE):
 
         return ECPs
 
-    def get_dens_from_fchks(self, densjobs: list[tuple[str, dict[str, bool]]], basis, n_bf):
+    def get_dens_from_fchks(self, densjobs: list[tuple[str, dict[str, bool]]], basis, n_bf, cartesian_d=False, cartesian_f=False, p_eq_s_shell=False):
         QMin = self._QMin
         densities = []
         atom_symbols = QMin['elements']
@@ -2047,7 +2085,7 @@ class GAUSSIAN(INTERFACE):
                     d_tril[idx] = d
                     density = d_tril.T + d_tril
                     np.fill_diagonal(density, np.diag(d_tril))
-                    swap_rows_and_cols(atom_symbols, basis, density)
+                    #  swap_rows_and_cols(atom_symbols, basis, density, cartesian_d=cartesian_d, cartesian_f=cartesian_f, p_eq_s=p_eq_s_shell)
                     densities.append(density)
                     new_dens += 1
                     i += n_lines
@@ -2065,7 +2103,7 @@ class GAUSSIAN(INTERFACE):
                     d_tril[idx] = d
                     density = d_tril.T + d_tril
                     np.fill_diagonal(density, np.diag(d_tril))
-                    swap_rows_and_cols(atom_symbols, basis, density)
+                    #  swap_rows_and_cols(atom_symbols, basis, density, cartesian_d=cartesian_d, cartesian_f=cartesian_f, p_eq_s=p_eq_s_shell)
                     densities.append(density)
                     new_dens += 1
                     i += n_lines
@@ -2088,7 +2126,7 @@ class GAUSSIAN(INTERFACE):
                     #TODO average over the two density matrices: X+Y + X-Y /2 = X
                     for i_d in range(0, 2 * n_g2e, 2):
                         tmp = (d[i_d, ...] + d[i_d + 1, ...]) * math.sqrt(2)
-                        swap_rows_and_cols(atom_symbols, basis, tmp)
+                        #  swap_rows_and_cols(atom_symbols, basis, tmp, cartesian_d=cartesian_d, cartesian_f=cartesian_f, p_eq_s=p_eq_s_shell)
                         densities.append(tmp)
                         new_dens += 1
                     i += n_lines
