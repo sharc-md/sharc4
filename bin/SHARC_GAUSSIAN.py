@@ -907,7 +907,7 @@ class GAUSSIAN(INTERFACE):
                 if x >= 3:
                     string += '\n'
                     x = 0
-                string += '% 6.12e ' % c
+                string += '% 40.30f ' % c
                 x += 1
             if x > 0:
                 string += '\n'
@@ -921,7 +921,7 @@ class GAUSSIAN(INTERFACE):
                     if x >= 3:
                         string += '\n'
                         x = 0
-                    string += '% 6.12e ' % c
+                    string += '% 40.30f ' % c
                     x += 1
                 if x > 0:
                     string += '\n'
@@ -932,7 +932,7 @@ class GAUSSIAN(INTERFACE):
             if x >= 3:
                 string += '\n'
                 x = 0
-            string += '% 6.12e ' % (0.0)
+            string += '% 40.30f ' % (0.0)
             x += 1
 
         return string
@@ -1043,6 +1043,8 @@ class GAUSSIAN(INTERFACE):
                 # get X vector
                 for i in range(len(eig)):
                     eig[i] = (eig[i] + eigl[i]) / 2.
+                    #tomislav
+                    #eig[i] = eigl[i]
                 # make dictionary
                 dets = {}
                 if restr:
@@ -1168,9 +1170,11 @@ class GAUSSIAN(INTERFACE):
                     string += 'd'
             for istate in range(len(ci_vectors)):
                 if det in ci_vectors[istate]:
-                    string += ' %11.7f ' % ci_vectors[istate][det]
+                    #string += ' %20.15f ' % ci_vectors[istate][det]
+                    string += ' %40.30f ' % ci_vectors[istate][det]
                 else:
-                    string += ' %11.7f ' % 0.
+                    #string += ' %20.15f ' % 0.
+                    string += ' %40.30f ' % 0.
             string += '\n'
         return string
 

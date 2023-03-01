@@ -1,0 +1,5 @@
+number_of_fragments 2
+eci_level 1 2
+eet_effects FRET DEXTER CT
+gradient
+site_interfaces GAUSSIAN GAUSSIAN
