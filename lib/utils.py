@@ -385,9 +385,24 @@ def build_basis_dict(
 
 
 def get_pyscf_order(atom_symbols, basis_dict, cartesian_d=False, cartesian_f=False):
-    # Sources:
-    # GAUSSIAN: https://gaussian.com/interfacing/
-    # pyscf:  https://pyscf.org/user/gto.html#ordering-of-basis-function
+    """
+    Generates the reorder list to reorder atomic orbitals (from GAUSSIAN) to pyscf.
+
+    Sources:
+    GAUSSIAN: https://gaussian.com/interfacing/
+    pyscf:  https://pyscf.org/user/gto.html#ordering-of-basis-function
+
+    Parameters
+    ----------
+    atom_symbols : list[str]
+        list of element symbols for all atoms (same order as AOs)
+    basis_dict : dict[str, list]
+        basis set for each atom in pyscf format
+    cartesian_d : bool
+        whether the d-orbitals are cartesian
+    cartesian_f : bool
+        whether the f-orbitals are cartesian
+    """
     #  return matrix
 
     # in the case of P(S=P) coefficients the order is 1S, 2S, 2Px, 2Py, 2Pz, 3S in gaussian and pyscf
