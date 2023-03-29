@@ -45,7 +45,7 @@ import numpy as np
 from resp import Resp
 from tdm import es2es_tdm
 from SHARC_INTERFACE import INTERFACE
-from utils import mkdir, readfile, containsstring, shorten_DIR, makermatrix, makecmatrix, build_basis_dict, get_pyscf_order, removekey, writefile, itmult, safe_cast, get_bool_from_env, get_cart2sph_matrix
+from utils import mkdir, readfile, containsstring, shorten_DIR, makermatrix, makecmatrix, build_basis_dict, get_pyscf_order_from_gaussian, removekey, writefile, itmult, safe_cast, get_bool_from_env, get_cart2sph_matrix
 from globals import DEBUG, PRINT
 from constants import IToMult, au2eV, IAn2AName
 from error import Error, exception_hook
@@ -1697,7 +1697,7 @@ class GAUSSIAN(INTERFACE):
             # obtain normalization coefficients of pyscf overlap
             ao_sqrt_norms = np.sqrt(np.diag(fits.Sao))
             # obtain new order of the AO orbitals
-            new_order = get_pyscf_order(QMin['elements'], basis, cartesian_d=cartesian_d, cartesian_f=cartesian_f)
+            new_order = get_pyscf_order_from_gaussian(QMin['elements'], basis, cartesian_d=cartesian_d, cartesian_f=cartesian_f)
             print("reordering atomic orbitals according to")
             print(new_order)
             if len(new_order) != len(densities[0]):

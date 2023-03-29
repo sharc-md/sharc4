@@ -384,7 +384,79 @@ def build_basis_dict(
     return basis
 
 
-def get_pyscf_order(atom_symbols, basis_dict, cartesian_d=False, cartesian_f=False):
+def get_pyscf_order_from_orca(atom_symbols, basis_dict):
+    """
+    Generates the reorder list to reorder atomic orbitals (from ORCA) to pyscf.
+
+    Sources:
+    ORCA: https://orcaforum.kofo.mpg.de/viewtopic.php?f=8&p=23158&t=5433&sid=f41177ec0888075a3b1e7fa438b77bd2
+    pyscf:  https://pyscf.org/user/gto.html#ordering-of-basis-function
+
+    Parameters
+    ----------
+    atom_symbols : list[str]
+        list of element symbols for all atoms (same order as AOs)
+    basis_dict : dict[str, list]
+        basis set for each atom in pyscf format
+    """
+    #  return matrix
+
+    # in the case of P(S=P) coefficients the order is 1S, 2S, 2Px, 2Py, 2Pz, 3S in gaussian and pyscf
+    # from orca order: z, x, y
+    # to  pyscf order: x, y, z
+    p_order = [1, 2, 0]
+    np = 3
+
+    # from orca order: z2, xz, yz, x2-y2, xy
+    # to  pyscf order: xy, yz, z2, xz, x2-y2
+    d_order = [4, 2, 0, 1, 3]
+    nd = 5
+
+    # F shells spherical:
+    # orca  order: zzz, xzz, yzz, xxz-yyz, xyz, xxx-xyy, xxy
+    # pyscf order: xxy, xyz, yzz, zzz, xzz, xxz-yyz, xxx-xyy
+    f_order = [6, 4, 2, 0, 1, 3, 5]
+    nf = 7
+
+    # compile the new_order for the whole matrix
+    new_order = []
+    it = 0
+    for i, a in enumerate(atom_symbols):
+        key = f'{a}{i+1}'
+        #       s  p  d  f
+        n_bf = [0, 0, 0, 0]
+
+        # count the shells for each angular momentun
+        for shell in basis_dict[key]:
+            n_bf[shell[0]] += 1
+        print("n_bf for", key, n_bf)
+
+        s, p = n_bf[0:2]
+        new_order.extend([it + n for n in range(s)])
+
+        it += s
+        assert it == len(new_order)
+
+        # do p shells
+        for x in range(p):
+            new_order.extend([it + n for n in p_order])
+            it += np
+
+        # do d shells
+        for x in range(n_bf[2]):
+            new_order.extend([it + n for n in d_order])
+            it += nd
+
+        # do f shells
+        for x in range(n_bf[3]):
+            new_order.extend([it + n for n in f_order])
+            it += nf
+        assert it == len(new_order)
+
+    return new_order
+
+
+def get_pyscf_order_from_gaussian(atom_symbols, basis_dict, cartesian_d=False, cartesian_f=False):
     """
     Generates the reorder list to reorder atomic orbitals (from GAUSSIAN) to pyscf.
 
@@ -465,6 +537,8 @@ def get_pyscf_order(atom_symbols, basis_dict, cartesian_d=False, cartesian_f=Fal
         assert it == len(new_order)
 
     return new_order
+
+
 
 
 def get_cart2sph_matrix(angular_m: int, n_ao: int, atom_symbols: list[str], basis_dict) -> np.ndarray:
