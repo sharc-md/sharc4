@@ -109,7 +109,7 @@ class Resp:
         self.ints = df.incore.aux_e2(mol, fakemol, intor='int3c2e')
         print("done")
 
-    def multipoles_from_dens(self, dm: np.ndarray, include_core_charges: bool, order=2, charge=0, **kwargs):
+    def one_shot_fit(self, dm: np.ndarray, include_core_charges: bool, order=2, charge=0, **kwargs):
         """
         fits RESP charges onto a density matrix in AO basis up to given order (all at once)
 
@@ -144,18 +144,25 @@ class Resp:
         if order == 2:
             tmp = np.vstack(
                 (
-                    self.r_inv, R_alpha[:, :, 0] * self.r_inv3, R_alpha[:, :, 1] * self.r_inv3,
-                    R_alpha[:, :, 2] * self.r_inv3, R_alpha[:, :, 0] * R_alpha[:, :, 0] * self.r_inv5 * 0.5,
-                    R_alpha[:, :, 1] * R_alpha[:, :, 1] * self.r_inv5 * 0.5, R_alpha[:, :, 2] * R_alpha[:, :, 2] *
-                    self.r_inv5 * 0.5, R_alpha[:, :, 0] * R_alpha[:, :, 1] * self.r_inv5,
-                    R_alpha[:, :, 0] * R_alpha[:, :, 2] * self.r_inv5, R_alpha[:, :, 1] * R_alpha[:, :, 2] * self.r_inv5
+                    self.r_inv,  # .
+                    R_alpha[:, :, 0] * self.r_inv3,   # x
+                    R_alpha[:, :, 1] * self.r_inv3,   # y
+                    R_alpha[:, :, 2] * self.r_inv3,   # z
+                    R_alpha[:, :, 0] * R_alpha[:, :, 0] * self.r_inv5 * 0.5,  # xx
+                    R_alpha[:, :, 1] * R_alpha[:, :, 1] * self.r_inv5 * 0.5,  # yy
+                    R_alpha[:, :, 2] * R_alpha[:, :, 2] * self.r_inv5 * 0.5,  # zz
+                    R_alpha[:, :, 0] * R_alpha[:, :, 1] * self.r_inv5,  # xy
+                    R_alpha[:, :, 0] * R_alpha[:, :, 2] * self.r_inv5,  # xz
+                    R_alpha[:, :, 1] * R_alpha[:, :, 2] * self.r_inv5   # yz
                 )
             )    # m_A_i
         elif order == 1:
             tmp = np.vstack(
                 (
-                    self.r_inv, R_alpha[:, :, 0] * self.r_inv3, R_alpha[:, :, 1] * self.r_inv3,
-                    R_alpha[:, :, 2] * self.r_inv3
+                    self.r_inv,  # .
+                    R_alpha[:, :, 0] * self.r_inv3,  # x
+                    R_alpha[:, :, 1] * self.r_inv3,  # y
+                    R_alpha[:, :, 2] * self.r_inv3   # z
                 )
             )    # m_A_i
         elif order == 0:
@@ -179,31 +186,74 @@ class Resp:
         B[:-1] += b
         B[-1] = float(charge)
 
-        Q1 = np.linalg.solve(A, B)[:n_af]
-        Q2 = np.ones(Q1.shape, float)
-        #  beta_au = self.beta * au2a**2    # needs to be 1/au**2
         beta_au = self.beta    # needs to be 1/au**2
+        #  beta_au = 0.05    # needs to be 1/au**2
 
         def get_rest(Q, b=0.1):
-            return beta_au / (np.sqrt(Q**2 + b**2))
-
+            return -beta_au / (np.sqrt(Q**2 + b**2))
         vget_rest = np.vectorize(get_rest, cache=True)
+
+        # solve ESP monopoles
+        A_mon = np.copy(A[:natom + 1, :natom + 1])
+        A_mon[-1, :natom] = 1.
+        B_mon = np.copy(B[:natom + 1])
+        B_mon[-1] = float(charge)
+        Q_last = np.linalg.solve(A_mon, B_mon)[:natom]
+        print("ESP Monopoles", file=sys.stderr)
+        print(Q_last, file=sys.stderr)
+        Q_new = np.ones(Q_last.shape, dtype=float)
+
+        max_iterations = 500
+        iteration = 0
+        while np.linalg.norm(Q_last - Q_new) >= 0.00001 and iteration < max_iterations:
+            #  rest = vget_rest(Q_last) * au2a**2
+            rest = vget_rest(Q_last, b=0.1)
+            Q_last = Q_new.copy()
+            A_rest = np.copy(A_mon)
+            B_rest = np.copy(B_mon)
+            # add restraint to B
+            #  B_rest[:n_af] += target * rest
+            np.einsum('ii->i', A_rest)[:natom] -= rest
+            Q_new = np.linalg.solve(A_rest, B_rest)[:natom]
+            iteration += 1
+
+        target = np.zeros(n_af, dtype=float)
+        # potentially alter targets
+        # restrain to RESP monopoles
+        target[:natom] = Q_new
+        print("TARGET CHARGES", file=sys.stderr)
+        print(target.reshape((n_fits, -1)).T, file=sys.stderr)
+
+
+        # set initial guess to resp monopoles
+        Q_last = np.zeros((n_af), dtype=float)
+        Q_last[:natom] = Q_new
+        #  Q_last = np.linalg.solve(A, B)[:n_af]
+        Q_new = np.ones(Q_last.shape, float)
+
         rest = np.zeros((B.shape))
         max_iterations = 500
         iteration = 0
-        while np.linalg.norm(Q1 - Q2) >= 0.00001 and iteration < max_iterations:
-            Q1 = Q2.copy()
-            rest = vget_rest(Q1) * au2a**2
+        while np.linalg.norm(Q_last - Q_new) >= 0.00001 and iteration < max_iterations:
+            #  rest = vget_rest(Q_last) * au2a**2
+            rest = vget_rest(Q_last, b=0.1)
+            Q_last = Q_new.copy()
             A_rest = np.copy(A)
-            np.einsum('ii->i', A_rest)[:n_af] += rest
-            Q2 = np.linalg.solve(A_rest, B)[:n_af]
+            B_rest = np.copy(B)
+            # add restraint to B
+            np.einsum('ii->i', A_rest)[:n_af] -= rest
+            B_rest[:n_af] += target * rest
+            Q_new = np.linalg.solve(A_rest, B_rest)[:n_af]
             iteration += 1
-        print("exciting RESP fitting loop after", iteration, " iterations. Norm", np.linalg.norm(Q1 - Q2))
+        print("exciting RESP fitting loop after", iteration, " iterations. Norm", np.linalg.norm(Q_last - Q_new))
+        print("exciting RESP fitting loop after", iteration, " iterations. Norm", np.linalg.norm(Q_last - Q_new), file=sys.stderr)
 
-        fit_esp = np.einsum('x,xi->i', Q2, tmp)
+        fit_esp = np.einsum('x,xi->i', Q_new, tmp)
         residual_ESP = fit_esp - Fesp_i
-        res = Q2.reshape((n_fits, -1)).T
+        res = Q_new.reshape((n_fits, -1)).T
 
+        print(
+            f'Fit done!, MEAN: {np.mean(residual_ESP): 10.6e}, ABS.MEAN: {np.mean(np.abs(residual_ESP)): 10.6e}, RMSD: {np.sqrt(np.mean(residual_ESP**2)): 10.8e}', file=sys.stderr)
         print(
             f'Fit done!, MEAN: {np.mean(residual_ESP): 10.6e}, ABS.MEAN: {np.mean(np.abs(residual_ESP)): 10.6e}, RMSD: {np.sqrt(np.mean(residual_ESP**2)): 10.8e}'
         )
@@ -224,3 +274,112 @@ class Resp:
         res[:, 4:7] -= 1 / 3 * traces[..., None]
 
         return res
+
+    def sequential_multipoles(self, dm: np.ndarray, include_core_charges=True, charge=0, order=2):
+        if not (0 <= order <= 2):
+            raise Error("Specify order in the range of 0 - 2")
+        n_fits = sum([1, 3, 6][:order + 1])
+        natom = self.natom
+        Vnuc = np.copy(self.Vnuc) if include_core_charges else np.zeros((self.ngp), dtype=float)
+        # check dm matrix
+        print("check dm matrix")
+        print("n elec:", np.einsum('ij,ij', self.Sao, dm))
+
+        Vele = np.einsum('ijp,ij->p', self.ints, dm)
+        Fesp_i = Vnuc - Vele
+        R_alpha = self.R_alpha
+        r_inv = self.r_inv
+
+        # fit monopoles
+        monopoles, Fres = self.fit(r_inv, Fesp_i, 1, natom, charge)
+
+        if order == 0:
+            return monopoles
+
+        if not hasattr(self, "r_inv3"):
+            self.r_inv3 = r_inv**3
+
+        # fit dipoles
+        tmp = np.vstack(
+            (
+                R_alpha[:, :, 0] * self.r_inv3, R_alpha[:, :, 1] * self.r_inv3,
+                R_alpha[:, :, 2] * self.r_inv3
+            )
+        )    # m_A_i
+        dipoles, Fres = self.fit(tmp, Fres, 3, natom, charge=None)
+
+
+        if order == 1:
+            return np.hstack((monopoles, dipoles))
+
+        if not hasattr(self, "r_inv5"):
+            self.r_inv5 = r_inv**5
+
+        tmp = np.vstack(
+            (
+                R_alpha[:, :, 0] * R_alpha[:, :, 0] * self.r_inv5 * 0.5,
+                R_alpha[:, :, 1] * R_alpha[:, :, 1] * self.r_inv5 * 0.5, R_alpha[:, :, 2] * R_alpha[:, :, 2] *
+                self.r_inv5 * 0.5, R_alpha[:, :, 0] * R_alpha[:, :, 1] * self.r_inv5,
+                R_alpha[:, :, 0] * R_alpha[:, :, 2] * self.r_inv5, R_alpha[:, :, 1] * R_alpha[:, :, 2] * self.r_inv5
+            )
+        )    # m_A_i
+
+        quadrupoles, Fres = self.fit(tmp, Fres, 6, natom, charge=None)
+        return np.hstack((monopoles, dipoles, quadrupoles))
+
+
+    @staticmethod
+    def fit(tmp, Fesp_i, n_fits, natom, charge=None, beta=0.0005, b=0.1, weights=None):
+        n_af = natom * n_fits
+        dim = n_af + 1
+
+        if weights is not None:
+            a = np.einsum('ag,g,bg->ab', tmp, weights, tmp)
+            b = np.einsum('ag,g,g->a', tmp, weights, Fesp_i)    # v_A
+        else:
+            a = np.einsum('ag,bg->ab', tmp, tmp)
+            b = np.einsum('ag,g->a', tmp, Fesp_i)    # v_A
+
+        if charge:
+            A = np.zeros((dim, dim))
+            A[:-1, :-1] += a
+            A[:natom, -1] = 1.
+            A[-1, :natom] = 1.
+
+            B = np.zeros((dim))
+            B[:-1] += b
+            B[-1] = float(charge)
+        else:
+            A = a
+            B = b
+
+        def get_rest(Q, b=0.1):
+            return -beta / (np.sqrt(Q**2 + b**2))
+        vget_rest = np.vectorize(get_rest, cache=True)
+
+        Q_last = np.linalg.solve(A, B)[:n_af]
+        Q_new = np.ones(Q_last.shape)
+        max_iterations = 500
+        iteration = 0
+        while np.linalg.norm(Q_last - Q_new) >= 0.00001 and iteration < max_iterations:
+            #  rest = vget_rest(Q_last) * au2a**2
+            rest = vget_rest(Q_last, b=0.1)
+            Q_last = Q_new.copy()
+            A_rest = np.copy(A)
+            #  B_rest = np.copy(B)
+            # add restraint to B
+            np.einsum('ii->i', A_rest)[:n_af] -= rest
+            #  B_rest[:n_af] += target * rest
+            Q_new = np.linalg.solve(A_rest, B)[:n_af]
+            iteration += 1
+        print("exciting RESP fitting loop after", iteration, " iterations. Norm", np.linalg.norm(Q_last - Q_new))
+        print("exciting RESP fitting loop after", iteration, " iterations. Norm", np.linalg.norm(Q_last - Q_new), file=sys.stderr)
+
+        fit_esp = np.einsum('x,xi->i', Q_new, tmp)
+        residual_ESP = fit_esp - Fesp_i
+        res = Q_new.reshape((n_fits, -1)).T
+
+        return res, residual_ESP
+
+    multipoles_from_dens = sequential_multipoles
+    #  multipoles_from_dens = one_shot_fit
