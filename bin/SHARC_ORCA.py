@@ -809,7 +809,7 @@ class ORCA(INTERFACE):
     # ======================================================================= #
     @staticmethod
     def saveMolden(WORKDIR, QMin):
-
+        WORKDIR = os.path.abspath(os.path.expandvars(WORKDIR))
         # run orca_2mkl
         prevdir = os.getcwd()
         os.chdir(WORKDIR)

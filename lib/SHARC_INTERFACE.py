@@ -152,7 +152,8 @@ class INTERFACE(ABC):
         self.setup_run()
 
         if PRINT or DEBUG:
-            pprint.pprint(self.QMin)
+            #  pprint.pprint(self.QMin)
+            pass
         # perform the calculation and parse the output, do subsequent calculations with other tools
         if 'dry_run' in self._QMin and self._QMin['dry_run']:
             print(
@@ -316,6 +317,8 @@ class INTERFACE(ABC):
                 f"specified grid {QMin['resources']['resp_grid']} not available.\n Possible options are 'lebedev', 'random', 'golden_spiral', 'gamess', 'marcus_deserno'",
                 35
             )
+
+        QMin['resources']['scratchdir'] = os.path.expandvars(os.path.expanduser(QMin['resources']['scratchdir']))
 
         self._QMin = {**QMin['resources'], **QMin}
         return
@@ -864,6 +867,8 @@ class INTERFACE(ABC):
         QMin['jobgrad'] = jobgrad
 
         schedule = []
+        if 'schedule' in QMin:
+            del QMin['schedule']
         QMin['nslots_pool'] = []
 
         # add the master calculations
@@ -1327,6 +1332,7 @@ class INTERFACE(ABC):
 
     @staticmethod
     def runWFOVERLAP(WORKDIR, WFOVERLAP, memory=100, ncpu=1):
+        WORKDIR = os.path.abspath(os.path.expandvars(WORKDIR))
         prevdir = os.getcwd()
         os.chdir(WORKDIR)
         string = WFOVERLAP + ' -m %i' % (memory) + ' -f wfovl.inp'
@@ -2232,7 +2238,6 @@ class INTERFACE(ABC):
         QMout = self._QMout
         states = QMin['states']
         natom = len(QMout['pcgrad'][0])
-        print(QMout['pcgrad'][1])
         string = ''
         print(natom)
         # string+='! %i Gradient Vectors (%ix%ix3, real)\n' % (3,nmstates,natom)
