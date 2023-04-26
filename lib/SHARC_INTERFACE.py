@@ -229,7 +229,8 @@ class INTERFACE(ABC):
             'nooverlap': False,
             'always_orb_init': False,
             'always_guess': False,
-            'dry_run': False
+            'dry_run': False,
+            'resp_mk_radii': True  # use radii fo original Merz-Kollmann-Singh scheme for HCNOSP
         }
         integers = {
             'ncpu': 1,
@@ -303,7 +304,11 @@ class INTERFACE(ABC):
             # populate vdW radii
             for e in QMin['elements']:
                 if e not in QMin['resources']['resp_vdw_radii_symbol']:
-                    QMin['resources']['resp_vdw_radii_symbol'][e] = ATOMIC_RADII[e]
+                    if QMin['resources']['resp_mk_radii'] and e in MK_RADII:
+                        # use MK Radii for HCNOSP
+                        QMin['resources']['resp_vdw_radii_symbol'][e] = MK_RADII[e]
+                    else:
+                        QMin['resources']['resp_vdw_radii_symbol'][e] = ATOMIC_RADII[e]
             QMin['resources']['resp_vdw_radii'] = [QMin['resources']['resp_vdw_radii_symbol'][s] for s in QMin['elements']]
 
         if not shells:
