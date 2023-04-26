@@ -2488,9 +2488,9 @@ def readQMin(QMinfilename):
     print('WARNING!!: DRYRUN is', QMin['dry_run'], file=sys.stderr)
 
     # RESP settings
-    QMin['resp_layers'] = 20
-    QMin['resp_density'] = 1.
-    QMin['resp_first_layer'] = 1.7
+    QMin['resp_layers'] = 4
+    QMin['resp_density'] = 20
+    QMin['resp_first_layer'] = 1.4
     QMin['resp_tdm_fit_order'] = 2
     QMin['resp_grid'] = 'lebedev'
 
