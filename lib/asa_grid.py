@@ -130,8 +130,10 @@ def shrake_rupley(
     for i in range(natoms):
         if weights is not None:
             sphere_grid, sphere_weights = grid(int(4.0 * np.pi * atom_radii[i]**2 * density))
+            #  sphere_grid, sphere_weights = grid(int(4.0 * np.pi * density))
         else:
-            sphere_grid = grid(int(4.0 * np.pi * atom_radii[i]**2 * density))
+            #  sphere_grid = grid(int(4.0 * np.pi * atom_radii[i]**2 * density))asa
+            sphere_grid = grid(int(4.0 * np.pi * density))
 
         sphere_grid = sphere_grid * atom_radii[i] + xyz[i, :]    # scale an shift center
         dist = euclidean_distance_einsum(xyz, sphere_grid)
