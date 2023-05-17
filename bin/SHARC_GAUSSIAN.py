@@ -2137,9 +2137,9 @@ class GAUSSIAN(INTERFACE):
                     d = np.fromiter(
                         map(float, chain(*map(lambda x: x.split(), lines[i:i + n_lines]))), dtype=float, count=n
                     ).reshape((2 * n_g2e, n_bf, n_bf))
-                    #TODO average over the two density matrices: X+Y + X-Y /2 = X
                     for i_d in range(0, 2 * n_g2e, 2):
-                        tmp = (d[i_d, ...] + d[i_d + 1, ...]) * math.sqrt(2)
+                        #  tmp = (d[i_d, ...] + d[i_d + 1, ...]) / 2
+                        tmp = d[i_d, ...] 
                         densities.append(tmp)
                         new_dens += 1
                     i += n_lines
