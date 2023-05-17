@@ -199,6 +199,7 @@ class LVC(INTERFACE):
             raise Error(f'inconsistent atom labels in QM.in and {filename}:\n{elem}\n{v0_elem}')
         rM = np.asarray([x[1:] for x in rM], dtype=float)
         self._ref_coords = rM[:, :-1]
+        self._masses = rM[:, -1]
         tmp = np.sqrt(rM[:, -1] * U_TO_AMU)
         self._Msa = np.asarray([tmp, tmp, tmp]).flatten(order='F')
         it += QMin['natom'] + 1
@@ -349,7 +350,7 @@ class LVC(INTERFACE):
     def run(self):
         # s1_time = time.perf_counter_ns()
         do_pc = 'point_charges' in self._QMin
-        weights = [MASSES[i] for i in self._QMin['elements']]
+        weights = self._masses
 
         # conditionally turn on kabsch as flag (do_pc for additional logic)
         do_kabsch = True if do_pc else self._do_kabsch
