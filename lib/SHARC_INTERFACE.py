@@ -326,6 +326,8 @@ class INTERFACE(ABC):
         QMin['resources']['scratchdir'] = os.path.expandvars(os.path.expanduser(QMin['resources']['scratchdir']))
 
         self._QMin = {**QMin['resources'], **QMin}
+        if DEBUG:
+            pprint.pprint(QMin)
         return
         # ============================ Implemented public methods ========================
 
