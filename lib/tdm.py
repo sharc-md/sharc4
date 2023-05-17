@@ -11,13 +11,9 @@ def es2es_tdm(tdmI, tdmJ, Sao) -> np.ndarray:
     """
     Compute approximate transition density with respect to a reference excited state.
     This is computed analogously to the electron/hole densities:
-    D^IJ = (D^I0)^T * D^J0 - D^J0 * (D^I0)^T
+    D^IJ = (D^0I)^T * D^0J - D^0J * (D^0I)^T
     """
 
-    #  DIJ_elec = np.einsum('ni,nk,ml,mj->ij', tdmI, Sao, Sao, tdmJ, optimize=True, casting='no')
-    #  DIJ_elec = np.einsum('ij,ik,kl->jl', tdmI, Sao, tdmJ, optimize=True, casting='no')
-    #  DIJ_hole = np.einsum('ni,ik,jl,mj->nm', tdmI, Sao, Sao, tdmJ, optimize=True, casting='no')
-    #  DIJ_hole = np.einsum('ij,ik,lk->jl', tdmJ, Sao, tdmI, optimize=True, casting='no')
     DIJ_elec = tdmI.T @ Sao @ tdmJ
     DIJ_hole = tdmJ @ Sao @ tdmI.T
 
