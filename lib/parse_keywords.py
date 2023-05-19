@@ -72,6 +72,19 @@ Date: 20.07.2021
             raise Error('Length of "charge" does not match length of "states"!', 61)
 
     @staticmethod
+    def bool(args):
+        value = args.split(None, 1)
+        if len(value) == 0:
+            return True
+        elif value[0].lower() == "true":
+            return True
+        elif value[0].lower() == "false":
+            return False
+        else:
+            raise Error("boolean argument must be either 'True' or 'False' or no argument", 72)
+
+
+    @staticmethod
     def basis_per_element(args: str) -> dict:
         key, value = args.split(None, 1)
         return {key: value}
@@ -173,4 +186,3 @@ Date: 20.07.2021
         else:
             res = args.split()
         return [float(x) for x in res]
-

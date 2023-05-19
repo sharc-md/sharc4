@@ -241,7 +241,7 @@ class INTERFACE(ABC):
             'resp_layers': 4,
             'resp_fit_order': 2
         }
-        floats = {'delay': 0.0, 'schedule_scaling': 0.9, 'wfthres': 0.99, 'resp_density': 1., 'resp_first_layer': 1.4, 'resp_beta': 0.0005}
+        floats = {'delay': 0.0, 'schedule_scaling': 0.9, 'wfthres': 0.99, 'resp_density': 20., 'resp_first_layer': 1.4, 'resp_beta': 0.0005}
         special = {
             'neglected_gradient': 'zero',
             'theodore_prop': ['Om', 'PRNTO', 'S_HE', 'Z_HE', 'RMSeh'],
@@ -779,7 +779,7 @@ class INTERFACE(ABC):
         QMin = self._QMin
         template_parser = KeywordParser(len(QMin['states']), QMin['Atomcharge'])
         # prepare dict with parsers for every value type
-        bool_parser = {k: lambda x: True for k in bools}
+        bool_parser = {k: lambda x: template_parser.bool(x) for k in bools}
         string_parser = {k: lambda x: x for k in strings}
         path_parser = {k: lambda x: template_parser.path(x) for k in paths}
         integer_parser = {k: lambda x: int(float(x)) for k in integers}

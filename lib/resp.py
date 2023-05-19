@@ -12,7 +12,7 @@ from asa_grid import mk_layers
 from pyscf import gto, df
 from constants import au2a
 
-np.set_printoptions(threshold=sys.maxsize, linewidth=10000, precision=5)
+np.set_printoptions(threshold=sys.maxsize, linewidth=10000, precision=1, formatter={'float': lambda x: f"{x: 1.0f}"})
 
 
 def get_resp_grid(atom_radii: list[int], coords: np.ndarray, density=1, shells=[1.4, 1.6, 1.8, 2.0], grid='lebedev'):
@@ -278,7 +278,6 @@ class Resp:
     def sequential_multipoles(self, dm: np.ndarray, include_core_charges=True, charge=0, order=2):
         if not (0 <= order <= 2):
             raise Error("Specify order in the range of 0 - 2")
-        n_fits = sum([1, 3, 6][:order + 1])
         natom = self.natom
         Vnuc = np.copy(self.Vnuc) if include_core_charges else np.zeros((self.ngp), dtype=float)
         # check dm matrix
@@ -291,7 +290,7 @@ class Resp:
         r_inv = self.r_inv
 
         # fit monopoles
-        monopoles, Fres = self.fit(r_inv, Fesp_i, 1, natom, charge)
+        monopoles, Fres = self.fit(r_inv, Fesp_i, 1, natom, charge=charge, weights=self.weights)
 
         if order == 0:
             return monopoles
@@ -306,7 +305,7 @@ class Resp:
                 R_alpha[:, :, 2] * self.r_inv3
             )
         )    # m_A_i
-        dipoles, Fres = self.fit(tmp, Fres, 3, natom, charge=None)
+        dipoles, Fres = self.fit(tmp, Fres, 3, natom, weights=self.weights, charge=None)
 
 
         if order == 1:
@@ -324,12 +323,13 @@ class Resp:
             )
         )    # m_A_i
 
-        quadrupoles, Fres = self.fit(tmp, Fres, 6, natom, charge=None)
+        quadrupoles, Fres = self.fit(tmp, Fres, 6, natom, charge=None, weights=self.weights, traceless_quad=True)
+
         return np.hstack((monopoles, dipoles, quadrupoles))
 
 
     @staticmethod
-    def fit(tmp, Fesp_i, n_fits, natom, charge=None, beta=0.0005, b=0.1, weights=None):
+    def fit(tmp, Fesp_i, n_fits, natom, charge=None, beta=0.0005, b_par=0.1, weights=None, traceless_quad=False):
         n_af = natom * n_fits
         dim = n_af + 1
 
@@ -349,12 +349,25 @@ class Resp:
             B = np.zeros((dim))
             B[:-1] += b
             B[-1] = float(charge)
+        elif traceless_quad:
+            # traceless_quadrupoles constraint for every atom
+            dim = n_af + natom
+            A = np.zeros((dim, dim))
+            A[:n_af, :n_af] = a
+            B = np.zeros((dim))
+            B[:n_af] = b
+
+            for ia in range(natom):
+                idx = [ia + j * natom for j in range(3)]
+                A[idx, n_af + ia] = 1.
+                A[n_af + ia, idx] = 1.
+                B[n_af + ia] = 0.
         else:
             A = a
             B = b
 
-        def get_rest(Q, b=0.1):
-            return -beta / (np.sqrt(Q**2 + b**2))
+        def get_rest(Q):
+            return -beta / (np.sqrt(Q**2 + b_par**2))
         vget_rest = np.vectorize(get_rest, cache=True)
 
         Q_last = np.linalg.solve(A, B)[:n_af]
@@ -362,14 +375,11 @@ class Resp:
         max_iterations = 500
         iteration = 0
         while np.linalg.norm(Q_last - Q_new) >= 0.00001 and iteration < max_iterations:
-            #  rest = vget_rest(Q_last) * au2a**2
-            rest = vget_rest(Q_last, b=0.1)
+            rest = vget_rest(Q_last)
             Q_last = Q_new.copy()
             A_rest = np.copy(A)
-            #  B_rest = np.copy(B)
             # add restraint to B
             np.einsum('ii->i', A_rest)[:n_af] -= rest
-            #  B_rest[:n_af] += target * rest
             Q_new = np.linalg.solve(A_rest, B)[:n_af]
             iteration += 1
         print("exciting RESP fitting loop after", iteration, " iterations. Norm", np.linalg.norm(Q_last - Q_new))

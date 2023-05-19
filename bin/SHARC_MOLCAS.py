@@ -1569,6 +1569,7 @@ def getQMout(out, QMin):
         coords = np.array([atom[1:] for atom in QMin['geo']], dtype=float)
         symbols = [atom[0] for atom in QMin['geo']]
         if 'resp_radii' not in QMin:
+            print("using standard radii, Merz-Kollman")
             QMin['resp_radii'] = [ATOMIC_RADII[s] for s in symbols]
 
         fit = Resp(coords, symbols, QMin['resp_radii'], density=QMin['resp_density'], shells=QMin['resp_shells'], grid=QMin['resp_grid'])
