@@ -1570,7 +1570,8 @@ def getQMout(out, QMin):
         symbols = [atom[0] for atom in QMin['geo']]
         if 'resp_radii' not in QMin:
             print("using standard radii, Merz-Kollman")
-            QMin['resp_radii'] = [ATOMIC_RADII[s] for s in symbols]
+            QMin['resp_radii'] = [MK_RADII[s] if s in MK_RADII else ATOMIC_RADII[s] for s in symbols]
+            print(QMin['resp_radii'])
 
         fit = Resp(coords, symbols, QMin['resp_radii'], density=QMin['resp_density'], shells=QMin['resp_shells'], grid=QMin['resp_grid'])
         first_state = QMin['statemap'][QMin['states'][0]]
@@ -2514,7 +2515,7 @@ def readQMin(QMinfilename):
             raise ValueError(f'Failed to parse {key} in resources file: {e}')
     if 'resp_radii' in QMin:
         QMin['resp_radii'] = [float(i) for i in QMin['resp_radii'].split()]
-        print("USING WESP radii")
+        print("USING CUSTOM radii")
         print(QMin['resp_radii'])
     first, nlayers = map(QMin.get, ('resp_first_layer', 'resp_layers'))
     if DEBUG:
