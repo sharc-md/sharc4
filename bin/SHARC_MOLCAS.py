@@ -2491,7 +2491,7 @@ def readQMin(QMinfilename):
 
     # RESP settings
     QMin['resp_layers'] = 4
-    QMin['resp_density'] = 20
+    QMin['resp_density'] = 10
     QMin['resp_first_layer'] = 1.4
     QMin['resp_tdm_fit_order'] = 2
     QMin['resp_grid'] = 'lebedev'

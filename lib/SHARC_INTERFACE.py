@@ -241,7 +241,7 @@ class INTERFACE(ABC):
             'resp_layers': 4,
             'resp_fit_order': 2
         }
-        floats = {'delay': 0.0, 'schedule_scaling': 0.9, 'wfthres': 0.99, 'resp_density': 20., 'resp_first_layer': 1.4, 'resp_beta': 0.0005}
+        floats = {'delay': 0.0, 'schedule_scaling': 0.9, 'wfthres': 0.99, 'resp_density': 10., 'resp_first_layer': 1.4, 'resp_beta': 0.0005}
         special = {
             'neglected_gradient': 'zero',
             'theodore_prop': ['Om', 'PRNTO', 'S_HE', 'Z_HE', 'RMSeh'],

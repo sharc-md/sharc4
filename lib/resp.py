@@ -290,7 +290,7 @@ class Resp:
         r_inv = self.r_inv
 
         # fit monopoles
-        monopoles, Fres = self.fit(r_inv, Fesp_i, 1, natom, charge=charge, weights=self.weights)
+        monopoles, Fres = self.fit(r_inv, Fesp_i, 1, natom, beta=0.0005, charge=charge, weights=self.weights)
 
         if order == 0:
             return monopoles
@@ -305,7 +305,7 @@ class Resp:
                 R_alpha[:, :, 2] * self.r_inv3
             )
         )    # m_A_i
-        dipoles, Fres = self.fit(tmp, Fres, 3, natom, weights=self.weights, charge=None)
+        dipoles, Fres = self.fit(tmp, Fres, 3, natom, beta=0.0015, weights=self.weights, charge=None)
 
 
         if order == 1:
@@ -323,7 +323,7 @@ class Resp:
             )
         )    # m_A_i
 
-        quadrupoles, Fres = self.fit(tmp, Fres, 6, natom, charge=None, weights=self.weights, traceless_quad=True)
+        quadrupoles, Fres = self.fit(tmp, Fres, 6, natom, beta=0.003, charge=None, weights=self.weights, traceless_quad=True)
 
         return np.hstack((monopoles, dipoles, quadrupoles))
 
