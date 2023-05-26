@@ -30,9 +30,12 @@ import math
 import time
 import datetime
 import struct
+import json
 from multiprocessing import Pool
 from copy import deepcopy
 from socket import gethostname
+from typing import Dict, List, Tuple
+import numpy as np
 
 # internal
 from SHARC_INTERFACE import INTERFACE
@@ -75,6 +78,7 @@ class ORCA(INTERFACE):
     _versiondate = versiondate
     _authors = authors
     _changelogstring = changelogstring
+    _n2l = {"s": 0, "p": 1, "d": 2, "f": 3, "g": 4}
 
     @property
     def version(self):
@@ -1867,6 +1871,152 @@ class ORCA(INTERFACE):
         return float(f[s2 + 1])
 
     # ======================================================================= #
+
+    @staticmethod
+    def get_basis(json_file: str) -> Dict[str,List]:
+        """
+        Return basis set from orca_2json
+            Args:   json_file: Path to orca_2json output
+        """
+
+        with open(json_file, "r", encoding="utf-8") as file:
+            orca_json = json.load(file)
+        orca_atom_info = orca_json["Molecule"]["Atoms"]
+
+        pyscf_basis = {}
+        atoms = ''
+        atom_symbols = []
+        for ia, a_info in enumerate(orca_atom_info):
+            label = a_info["ElementLabel"]
+            atom_symbols.append(label)
+            atoms += f"{label}{ia+1} "
+            for c in a_info["Coords"]:
+                atoms += f"{c: f} "
+            atoms += ";"
+            basis = []
+            if label in pyscf_basis:
+                continue
+            for bf in a_info["BasisFunctions"]:
+                e = bf["Exponents"]
+                c = bf["Coefficients"]
+                basis.append([ORCA._n2l[bf["Shell"]], *zip(e, c)])
+            pyscf_basis[f"{label}{ia+1}"] = basis
+
+        return pyscf_basis
+    
+    @staticmethod
+    def _get_basis(json_dict: Dict[str, List]) -> Dict[str,List]:
+        """
+        Return basis set from orca_2json
+            Args:   json_dict: orca_2json dictionary
+        """
+        orca_atom_info = json_dict["Molecule"]["Atoms"]
+
+        pyscf_basis = {}
+        atoms = ''
+        atom_symbols = []
+        for ia, a_info in enumerate(orca_atom_info):
+            label = a_info["ElementLabel"]
+            atom_symbols.append(label)
+            atoms += f"{label}{ia+1} "
+            for c in a_info["Coords"]:
+                atoms += f"{c: f} "
+            atoms += ";"
+            basis = []
+            if label in pyscf_basis:
+                continue
+            for bf in a_info["BasisFunctions"]:
+                e = bf["Exponents"]
+                c = bf["Coefficients"]
+                basis.append([ORCA._n2l[bf["Shell"]], *zip(e, c)])
+            pyscf_basis[f"{label}{ia+1}"] = basis
+
+        return pyscf_basis
+    
+    @staticmethod
+    def get_pyscf_order_from_orca(atom_symbols: List[str], basis_dict: Dict[str, List[int, Tuple]]) -> List[int]:
+        """
+        Generates the reorder list to reorder atomic orbitals (from ORCA) to pyscf.
+
+        Sources:
+        ORCA: https://orcaforum.kofo.mpg.de/viewtopic.php?f=8&p=23158&t=5433&sid=f41177ec0888075a3b1e7fa438b77bd2
+        pyscf:  https://pyscf.org/user/gto.html#ordering-of-basis-function
+
+        Parameters
+        ----------
+        atom_symbols : list[str]
+            list of element symbols for all atoms (same order as AOs)
+        basis_dict : dict[str, list]
+            basis set for each atom in pyscf format
+        """
+        #  return matrix
+
+        # in the case of P(S=P) coefficients the order is 1S, 2S, 2Px, 2Py, 2Pz, 3S in gaussian and pyscf
+        # from orca order: z, x, y
+        # to  pyscf order: x, y, z
+        p_order = [1, 2, 0]
+        np = 3
+
+        # from orca order: z2, xz, yz, x2-y2, xy
+        # to  pyscf order: xy, yz, z2, xz, x2-y2
+        d_order = [4, 2, 0, 1, 3]
+        nd = 5
+
+        # F shells spherical:
+        # orca  order: zzz, xzz, yzz, xxz-yyz, xyz, xxx-xyy, xxy
+        # pyscf order: xxy, xyz, yzz, zzz, xzz, xxz-yyz, xxx-xyy
+        f_order = [6, 4, 2, 0, 1, 3, 5]
+        nf = 7
+
+        # compile the new_order for the whole matrix
+        new_order = []
+        it = 0
+        for i, a in enumerate(atom_symbols):
+            key = f'{a}{i+1}'
+            #       s  p  d  f
+            n_bf = [0, 0, 0, 0]
+
+            # count the shells for each angular momentun
+            for shell in basis_dict[key]:
+                n_bf[shell[0]] += 1
+
+            s, p = n_bf[0:2]
+            new_order.extend([it + n for n in range(s)])
+
+            it += s
+            assert it == len(new_order)
+
+            # do p shells
+            for x in range(p):
+                new_order.extend([it + n for n in p_order])
+                it += np
+
+            # do d shells
+            for x in range(n_bf[2]):
+                new_order.extend([it + n for n in d_order])
+                it += nd
+
+            # do f shells
+            for x in range(n_bf[3]):
+                new_order.extend([it + n for n in f_order])
+                it += nf
+            assert it == len(new_order)
+
+        return new_order
+    
+    @staticmethod
+    def get_dens_matrices(json_file: str) -> Tuple[np.ndarray, np.ndarray]:
+        with open(json_file, "r", encoding="utf-8") as file:
+            orca_json = json.load(file)
+        dens_relaxed, dens_unrelaxed = np.array(orca_json["Molecule"]["Densities"]["cisp"]), np.array(orca_json["Molecule"]["Densities"]["scfp"])
+
+        atom_symbols = [at["ElementLabel"] for at in orca_json["Molecule"]["Atoms"]]
+        basis = ORCA._get_basis(orca_json)
+        new_order = ORCA.get_pyscf_order_from_orca(atom_symbols, basis)
+        dens_relaxed = dens_relaxed[new_order, :][:, new_order]
+        dens_unrelaxed = dens_unrelaxed[new_order, :][:, new_order]
+
+        return (dens_relaxed, dens_unrelaxed)
 
 
 if __name__ == '__main__':
