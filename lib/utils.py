@@ -456,7 +456,7 @@ def get_pyscf_order_from_orca(atom_symbols, basis_dict):
     return new_order
 
 
-def get_pyscf_order_from_gaussian(atom_symbols, basis_dict, cartesian_d=False, cartesian_f=False):
+def get_pyscf_order_from_gaussian(atom_symbols, basis_dict, cartesian_d=False, cartesian_f=False, p_eq_s=False):
     """
     Generates the reorder list to reorder atomic orbitals (from GAUSSIAN) to pyscf.
 
@@ -506,24 +506,55 @@ def get_pyscf_order_from_gaussian(atom_symbols, basis_dict, cartesian_d=False, c
         f_order = [6, 4, 2, 0, 1, 3, 5]
         nf = 7
 
+    # G shells cartesian, not needed anyway
+    # pyscf order: xxxx,xxxy,xxxz,xxyy,xxyz,xxzz,xyyy,xyyz,xyzz,xzzz,yyyy,yyyz,yyzz,yzzz,zzzz
+    g_order = [8, 6, 4, 2, 0, 1, 3, 5, 7]
+    ng = 9
+
+    # H shells cartesian coordinates, not needed anyway
+    # pyscf order: xxxxx,xxxxy,xxxxz,xxxyy,xxxyz,xxxzz,xxyyy,xxyyz,xxyzz,xxzzz,xyyyy,xyyyz,xyyzz,xyzzz,xzzzz,yyyyy,yyyyz,yyyzz,yyzzz,yzzzz,zzzzz
+    h_order = [10, 8, 6, 4, 2, 0, 1, 3, 5, 7, 9]
+    nh = 11
+
+    # I shells cartesian coordinates, not needed anyway
+    # pyscf order: xxxxxx,xxxxxy,xxxxxz,xxxxyy,xxxxyz,xxxxzz,xxxyyy,xxxyyz,xxxyzz,xxxzzz,xxyyyy,xxyyyz,xxyyzz,xxyzzz,xxzzzz,xyyyyy,xyyyyz,xyyyzz,xyyzzz,xyzzzz,xzzzzz,yyyyyy,yyyyyz,yyyyzz,yyyzzz,yyzzzz,yzzzzz,zzzzzz
+    i_order = [12, 10, 8, 6, 4, 2, 0, 1, 3, 5, 7, 9, 11]
+    ni = 13
+
     # compile the new_order for the whole matrix
     new_order = []
     it = 0
     for i, a in enumerate(atom_symbols):
         key = f'{a.upper()}{i+1}'
-        #       s  p  d  f
-        n_bf = [0, 0, 0, 0]
+        #       s  p  d  f  g  h  i
+        n_bf = [0, 0, 0, 0, 0, 0, 0]
 
         # count the shells for each angular momentun
         for shell in basis_dict[key]:
             n_bf[shell[0]] += 1
-        print("n_bf for", key, n_bf)
+        #print("n_bf for", key, n_bf)
 
-        s, p = n_bf[0:2]
-        new_order.extend([it + n for n in range(s + p * 3)])
+        if p_eq_s:
+            #print("p_eq_s", key)
+            s, p = n_bf[0:2]
+            #print("nbf s:", s, " p", p)
+            if s == p:
+                s_order = [4 * n for n in range(s)]
+                sp_order = s_order + [n for n in range(1, p * 3 + s) if (n) % 4 != 0]
+            elif p == 0:
+                s_order = [x for x in range(s)]
+                sp_order = s_order
+            else:
+                s_order = [0] + [1 + 4 * n for n in range(s - 1)]
+                sp_order = s_order + [n for n in range(2, p * 3 + s) if (n - 1) % 4 != 0]
+            #print("p_eq_s", sp_order, len(sp_order))
+            # offset new_order with iterator
+            new_order.extend([it + n for n in sp_order])
+        else:
+            s, p = n_bf[0:2]
+            new_order.extend([it + n for n in range(s + p * 3)])
 
         it += s + p * 3
-        assert it == len(new_order)
 
         # do d shells
         for x in range(n_bf[2]):
@@ -534,6 +565,21 @@ def get_pyscf_order_from_gaussian(atom_symbols, basis_dict, cartesian_d=False, c
         for x in range(n_bf[3]):
             new_order.extend([it + n for n in f_order])
             it += nf
+        # do g shells
+        for x in range(n_bf[4]):
+            new_order.extend([it + n for n in g_order])
+            it += ng
+        
+        # do h shells
+        for x in range(n_bf[5]):
+            new_order.extend([it + n for n in h_order])
+            it += nh
+        
+        # do i shells
+        for x in range(n_bf[6]):
+            new_order.extend([it + n for n in i_order])
+            it += ni
+        
         assert it == len(new_order)
 
     return new_order
