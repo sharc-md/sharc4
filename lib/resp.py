@@ -28,8 +28,7 @@ class Resp:
         density=1,
         shells=[1.4, 1.6, 1.8, 2.0],
         custom_grid: np.ndarray = None,
-        grid='lebedev',
-        beta=0.0005
+        grid='lebedev'
     ):
         """
         creates an object with a fitting grid and precalculated properties for the molecule.
@@ -50,7 +49,6 @@ class Resp:
 
         beta: the beta parameter of the RESP model (default: 0.0005)
         """
-        self.beta = beta
         self.coords = coords
         self.atom_symbols = atom_symbols
         self.mk_grid = custom_grid
@@ -107,6 +105,7 @@ class Resp:
         # NOTE the value of these integrals is not affected by the atom charge
         print("starting to evaluate integrals")
         self.ints = df.incore.aux_e2(mol, fakemol, intor='int3c2e')
+        self.mol = mol
         print("done")
 
     def one_shot_fit(self, dm: np.ndarray, include_core_charges: bool, order=2, charge=0, **kwargs):
@@ -133,7 +132,6 @@ class Resp:
         # check dm matrix
         print("check dm matrix")
         print("n elec:", np.einsum('ij,ij', self.Sao, dm))
-
         Vele = np.einsum('ijp,ij->p', self.ints, dm)
         Fesp_i = Vnuc - Vele
         R_alpha = self.R_alpha
@@ -275,7 +273,7 @@ class Resp:
 
         return res
 
-    def sequential_multipoles(self, dm: np.ndarray, include_core_charges=True, charge=0, order=2):
+    def sequential_multipoles(self, dm: np.ndarray, include_core_charges=True, charge=0, order=2, betas=[0.0005, 0.0015, 0.003]):
         if not (0 <= order <= 2):
             raise Error("Specify order in the range of 0 - 2")
         natom = self.natom
@@ -290,7 +288,7 @@ class Resp:
         r_inv = self.r_inv
 
         # fit monopoles
-        monopoles, Fres = self.fit(r_inv, Fesp_i, 1, natom, beta=0.0005, charge=charge, weights=self.weights)
+        monopoles, Fres = self.fit(r_inv, Fesp_i, 1, natom, beta=betas[0], charge=charge, weights=self.weights)
 
         if order == 0:
             return monopoles
@@ -305,7 +303,7 @@ class Resp:
                 R_alpha[:, :, 2] * self.r_inv3
             )
         )    # m_A_i
-        dipoles, Fres = self.fit(tmp, Fres, 3, natom, beta=0.0015, weights=self.weights, charge=None)
+        dipoles, Fres = self.fit(tmp, Fres, 3, natom, beta=betas[1], weights=self.weights, charge=None)
 
 
         if order == 1:
@@ -323,7 +321,7 @@ class Resp:
             )
         )    # m_A_i
 
-        quadrupoles, Fres = self.fit(tmp, Fres, 6, natom, beta=0.003, charge=None, weights=self.weights, traceless_quad=True)
+        quadrupoles, Fres = self.fit(tmp, Fres, 6, natom, beta=betas[2], charge=None, weights=self.weights, traceless_quad=True)
 
         return np.hstack((monopoles, dipoles, quadrupoles))
 
@@ -340,7 +338,7 @@ class Resp:
             a = np.einsum('ag,bg->ab', tmp, tmp)
             b = np.einsum('ag,g->a', tmp, Fesp_i)    # v_A
 
-        if charge:
+        if charge is not None:
             A = np.zeros((dim, dim))
             A[:-1, :-1] += a
             A[:natom, -1] = 1.
