@@ -241,14 +241,15 @@ class INTERFACE(ABC):
             'resp_layers': 4,
             'resp_fit_order': 2
         }
-        floats = {'delay': 0.0, 'schedule_scaling': 0.9, 'wfthres': 0.99, 'resp_density': 10., 'resp_first_layer': 1.4, 'resp_beta': 0.0005}
+        floats = {'delay': 0.0, 'schedule_scaling': 0.9, 'wfthres': 0.99, 'resp_density': 10., 'resp_first_layer': 1.4}
         special = {
             'neglected_gradient': 'zero',
             'theodore_prop': ['Om', 'PRNTO', 'S_HE', 'Z_HE', 'RMSeh'],
             'theodore_fragment': [],
             'resp_shells': False,    # default calculated from other values = [1.4, 1.6, 1.8, 2.0]
             'resp_vdw_radii_symbol': {},
-            'resp_vdw_radii': []
+            'resp_vdw_radii': [],
+            'resp_betas': [0.0005, 0.0015, 0.003]
         }
         strings = {'resp_grid': 'lebedev'}
         lines = readfile(resources_filename)
@@ -310,6 +311,10 @@ class INTERFACE(ABC):
                     else:
                         QMin['resources']['resp_vdw_radii_symbol'][e] = ATOMIC_RADII[e]
             QMin['resources']['resp_vdw_radii'] = [QMin['resources']['resp_vdw_radii_symbol'][s] for s in QMin['elements']]
+        if QMin['resources']['resp_betas']:
+            if len(QMin['resources']['resp_betas']) != QMin['resources']['resp_fit_order'] + 1:
+                raise Error(f"specify one beta parameter for each multipole order (order + 1)!\n needed {QMin['resources']['resp_fit_order']+1:d}", 35)
+            print("using non-default beta parameters for resp fit", QMin['resources']['resp_betas'])
 
         if not shells:
             if DEBUG:

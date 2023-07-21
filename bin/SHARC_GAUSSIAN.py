@@ -1685,8 +1685,7 @@ class GAUSSIAN(INTERFACE):
                 QMin['resp_vdw_radii'],
                 QMin['resp_density'],
                 QMin['resp_shells'],
-                grid=QMin['resp_grid'],
-                beta=QMin['resp_beta']
+                grid=QMin['resp_grid']
             )
             gsmult = QMin['statemap'][1][0]
             charge = QMin['chargemap'][gsmult]
@@ -1708,6 +1707,7 @@ class GAUSSIAN(INTERFACE):
                 densities[i] = (densities[i] / ao_sqrt_norms[:, None]) / ao_sqrt_norms[None, :]
 
             fits_map = {}
+            D = fits.mol.intor('int1e_r')
             for i, d_i in enumerate(QMin['densmap']):
                 # do gs density
                 key = (*d_i, *d_i)
@@ -1715,7 +1715,8 @@ class GAUSSIAN(INTERFACE):
                     densities[density_map[key]],
                     include_core_charges=True,
                     order=QMin['resp_fit_order'],
-                    charge=QMin['chargemap'][d_i[0]]
+                    charge=QMin['chargemap'][d_i[0]],
+                    betas=QMin['resp_betas']
                 )
 
                 for d_j in QMin['densmap'][i + 1:]:
@@ -1725,8 +1726,11 @@ class GAUSSIAN(INTERFACE):
                     key = (*d_i, *d_j)
                     if key in density_map:
                         fits_map[key] = fits.multipoles_from_dens(
-                            densities[density_map[key]], include_core_charges=False, order=QMin['resp_fit_order']
+                            densities[density_map[key]], include_core_charges=False, order=QMin['resp_fit_order'],
+                            betas=QMin['resp_betas']
                         )
+                        print(f"check: {key[0]}_{key[1]}->{key[2]}_{key[3]} transition dipole from real density",(-np.einsum('xij,ij->x', D, densities[density_map[key]])).tolist())
+                        #  np.savetxt("_".join(map(str, key))+"_trans_dens", densities[density_map[key]])
                     else:
                         ijob = QMin['multmap'][d_i[0]]    # the multiplicity is the same -> ijob same
                         gsmult = QMin['multmap'][-ijob][0]
@@ -1734,8 +1738,11 @@ class GAUSSIAN(INTERFACE):
                         dmJ = densities[density_map[(gsmult, 1, *d_j)]]
                         trans_dens = es2es_tdm(dmI, dmJ, fits.Sao)
                         fits_map[key] = fits.multipoles_from_dens(
-                            trans_dens, include_core_charges=False, order=QMin['resp_fit_order']
+                            trans_dens, include_core_charges=False, order=QMin['resp_fit_order'],
+                            betas=QMin['resp_betas']
                         )
+                        #  np.savetxt("_".join(map(str, key))+"_trans_dens", trans_dens)
+                        print(f"check: {key[0]}_{key[1]}->{key[2]}_{key[3]} transition dipole from appr. density",(-np.einsum('xij,ij->x', D, trans_dens)).tolist())
             QMout['multipolar_fit'] = fits_map
 
         # TheoDORE
@@ -2139,7 +2146,7 @@ class GAUSSIAN(INTERFACE):
                     ).reshape((2 * n_g2e, n_bf, n_bf))
                     for i_d in range(0, 2 * n_g2e, 2):
                         #  tmp = (d[i_d, ...] + d[i_d + 1, ...]) / 2
-                        tmp = d[i_d, ...] 
+                        tmp = d[i_d, ...] * math.sqrt(2)
                         densities.append(tmp)
                         new_dens += 1
                     i += n_lines
