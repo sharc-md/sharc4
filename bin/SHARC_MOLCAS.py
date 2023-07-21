@@ -1571,7 +1571,7 @@ def getQMout(out, QMin):
         if 'resp_radii' not in QMin:
             print("using standard radii, Merz-Kollman")
             QMin['resp_radii'] = [MK_RADII[s] if s in MK_RADII else ATOMIC_RADII[s] for s in symbols]
-            print(QMin['resp_radii'])
+            print("using radii for RESP fit:", QMin['resp_radii'])
 
         fit = Resp(coords, symbols, QMin['resp_radii'], density=QMin['resp_density'], shells=QMin['resp_shells'], grid=QMin['resp_grid'])
         first_state = QMin['statemap'][QMin['states'][0]]
