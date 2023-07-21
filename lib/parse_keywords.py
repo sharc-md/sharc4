@@ -186,3 +186,11 @@ Date: 20.07.2021
         else:
             res = args.split()
         return [float(x) for x in res]
+
+    @staticmethod
+    def resp_betas(args: str) -> list[float]:
+        if args[0] == '[':
+            res = ast.literal_eval(args)
+        else:
+            res = args.split()
+        return [float(x) for x in res]
