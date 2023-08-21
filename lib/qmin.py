@@ -3,12 +3,8 @@ import os
 import re
 import sys
 from collections import UserDict
-from typing import List, Union
 
-import numpy as np
-from constants import ATOMCHARGE, BOHR_TO_ANG, FROZENS
 from error import Error
-from utils import itmult, itnmstates, parse_xyz, readfile
 
 __all__ = ["QMin"]
 
@@ -18,15 +14,6 @@ logging.basicConfig(
     style="{",
 )
 logger = logging.getLogger(__name__)
-
-
-def expand_path(path: str) -> str:
-    """
-    Expand variables in path, error out if variable is not resolvable
-    """
-    expand = os.path.abspath(os.path.expanduser(os.path.expandvars(path)))
-    assert "$" not in expand, f"Undefined env variable in {expand}"
-    return expand
 
 
 class QMinBase(UserDict):
@@ -431,7 +418,6 @@ Control:
 Backwards: 
 {self.backwards}"""
 
- 
 
 if __name__ == "__main__":
     pass
