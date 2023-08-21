@@ -1,4 +1,5 @@
 import logging
+import os
 from collections import UserDict
 
 from error import Error
