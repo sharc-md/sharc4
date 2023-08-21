@@ -216,11 +216,14 @@ class INTERFACE(ABC):
         QMin['pwd'] = pwd
 
         paths = {
+            # TODO: would generate "ricc2dir" for Turbomole currently
+            # TODO: would also not load orcadir in the Turbomole interface
             self.__class__.__name__.lower() + 'dir': '',
-            'scratchdir': '',
-            'savedir': '',    # NOTE: savedir from QMin
+            'scratchdir': '',       # NOTE: there should be a default
+            'savedir': '',          # NOTE: savedir from QMin has priority, which defaults to ./SAVEDIR
             'theodir': '',
             'wfoverlap': os.path.join(os.path.expandvars(os.path.expanduser('$SHARC')), 'wfoverlap.x'),
+            'molcas_driver': ''     # NOTE: would be nicer in derived
         }
         bools = {
             'debug': False,
@@ -235,8 +238,8 @@ class INTERFACE(ABC):
         integers = {
             'ncpu': 1,
             'memory': 100,
-            'numfrozcore': -1,
-            'numocc': 0,
+            'numfrozcore': -1,      # NOTE: could be renamed to refer to wfoverlap
+            'numocc': 0,            # NOTE: could be renamed to refer to wfoverlap
             'theodore_n': 0,
             'resp_layers': 4,
             'resp_fit_order': 2
@@ -271,7 +274,10 @@ class INTERFACE(ABC):
         DEBUG.set(self._DEBUG)
         PRINT.set(self._PRINT)
 
-        # NOTE: This is really optional
+        # get number of CPUs from resource or environment
+        # NOTE: This is really optional.
+        # NOTE: Could enable env variable expansion here, then users can choose
+        # to use $NSLOTS, $SLURM_NTASKS_PER_NODE, etc in the resource file
         ncpu = QMin['resources']['ncpu']
         if os.environ.get('NSLOTS') is not None:
             ncpu = int(os.environ.get('NSLOTS'))
@@ -281,19 +287,22 @@ class INTERFACE(ABC):
             print('Detected $SLURM_NTASKS_PER_NODE variable. Will use ncpu={ncpu}')
         QMin['resources']['ncpu'] = max(1, ncpu)
 
+        # NOTE: This is interface specific, but irrelevant for most interfaces
         if 0 > QMin['resources']['schedule_scaling'] or QMin['resources']['schedule_scaling'] > 1.:
             QMin['resources']['schedule_scaling'] = 0.9
         if 'always_orb_init' in QMin and 'always_guess' in QMin:
             raise Error('Keywords "always_orb_init" and "always_guess" cannot be used together!', 53)
 
+        # NOTE: these are supposed to only affect wfoverlap calculations (Dyson),
+        # so do not mix up with interface-specific frozen core options
         if QMin['resources']['numfrozcore'] >= 0:
             QMin['frozcore'] = QMin['resources']['numfrozcore']
-
         if QMin['resources']['numocc'] <= 0:
             QMin['numocc'] = 0
         else:
             QMin['numocc'] = max(0, QMin['resources']['numocc'] - QMin['frozcore'])
 
+        # TODO: do only if RESP requested
         # construct shells
         shells, first, nlayers = map(QMin['resources'].get, ('resp_shells', 'resp_first_layer', 'resp_layers'))
 
@@ -321,7 +330,6 @@ class INTERFACE(ABC):
                 print(f"Calculating resp layers as: {first} + 4/sqrt({nlayers})")
             incr = 0.4 / math.sqrt(nlayers)
             QMin['resources']['resp_shells'] = [first + incr * x for x in range(nlayers)]
-
         if QMin['resources']['resp_grid'] not in ['lebedev', 'random', 'golden_spiral', 'gamess', 'marcus_deserno']:
             raise Error(
                 f"specified grid {QMin['resources']['resp_grid']} not available.\n Possible options are 'lebedev', 'random', 'golden_spiral', 'gamess', 'marcus_deserno'",
@@ -376,6 +384,8 @@ class INTERFACE(ABC):
             raise Error(f'undefined env variable in "savedir"! {QMin["savedir"]}')
 
         # obtain the statemap
+        # NOTE: this could be moved to parseStates
+        QMin['statemap'] = {i + 1: [*v] for i, v in enumerate(itnmstates(QMin['states']))}
         self._setup_mol = True
         # NOTE: Quantity requests (tasks) are dealt with later and potentially re-assigned
         return
@@ -560,10 +570,17 @@ class INTERFACE(ABC):
 
     def _request_logic(self):
         QMin = self._QMin
+
+        # TODO: general things that could be taken from MOLCAS interface
+        # - maximum multiplicity?
+        # - molden request (needed for RESP in MOLCAS, but that is specific)
+        # - 
+
         # prepare savedir
         if not os.path.isdir(QMin['savedir']):
             mkdir(QMin['savedir'])
 
+        # TODO: add nacdr
         possibletasks = {
             'h', 'soc', 'dm', 'grad', 'overlap', 'dmdr', 'socdr', 'ion', 'theodore', 'phases', 'multipolar_fit'
         }
@@ -571,9 +588,14 @@ class INTERFACE(ABC):
         if len(tasks) == 0:
             raise Error(f'No tasks found! Tasks are {possibletasks}.', 39)
 
+        # NOTE: This might not be necessary in all interfaces
+        # is only there to ensure that all input for energy calculations is always written
         if 'h' not in tasks and 'soc' not in tasks:
             QMin['h'] = True
 
+        # TODO: This is only correct for single-ref interfaces
+        # Actual code would be more complicated and should be left to the interfaces
+        # Here, checking for len<3 is enough. Also change HINT
         if 'soc' in tasks and (len(QMin['states']) < 3 or QMin['states'][2] <= 0):
             del QMin['soc']
             QMin['h'] = True
@@ -582,18 +604,20 @@ class INTERFACE(ABC):
         if 'phases' in tasks:
             QMin['overlap'] = True
 
+        # TODO: Is "init" regenerated from step logic here already?
         if 'overlap' in tasks and 'init' in tasks:
             raise Error(
                 '"overlap" and "phases" cannot be calculated in the first timestep! Delete either "overlap" or "init"',
                 43
             )
 
+        # NOTE: Superfluous because above is ensured that h or soc are present
         if not tasks.isdisjoint({'h', 'soc', 'dm', 'grad'}) and 'overlap' in tasks:
             QMin['h'] = True
 
+        # TODO: automatic from feature list
         if 'dmdr' in tasks:
             raise Error('Dipole derivatives ("dmdr") not currently supported', 45)
-
         if 'socdr' in tasks:
             raise Error('Spin-orbit coupling derivatives ("socdr") are not implemented', 46)
 
@@ -612,6 +636,8 @@ class INTERFACE(ABC):
                         'State for requested gradient does not correspond to any state in QM input file state list!', 48
                     )
             QMin['grad'] = grad
+    
+        # TODO: there should also be a check for the nac list
 
         # Check for correct density list
         if 'multipolar_fit' in tasks:
@@ -630,6 +656,8 @@ class INTERFACE(ABC):
             QMin['multipolar_fit'] = sorted(mf)
 
         # wfoverlap settings
+        # TODO: This should be generalized. Each interface object should have an
+        # attribute that announces which methods it can do (for setup scripts)
         if ('overlap' in QMin or 'ion' in QMin) and self.__class__.__name__ != 'LVC':
             # WFoverlap
 
@@ -640,6 +668,9 @@ class INTERFACE(ABC):
             if QMin['resources']['theodir'] is None or not os.path.isdir(QMin['resources']['theodir']):
                 raise Error('Give path to the TheoDORE installation directory in resources file!', 56)
             os.environ['THEODIR'] = QMin['resources']['theodir']
+            # NOTE: might be safer to set environment only when about to execute TheoDORE
+            # This could be done without modifying the environment of the current process
+            # https://stackoverflow.com/questions/2231227/python-subprocess-popen-with-a-modified-environment
             if 'PYTHONPATH' in os.environ:
                 os.environ['PYTHONPATH'] = os.path.join(
                     QMin['resources']['theodir'], 'lib'
@@ -648,6 +679,9 @@ class INTERFACE(ABC):
             else:
                 os.environ['PYTHONPATH'] = os.path.join(QMin['theodir'],
                                                         'lib') + os.pathsep + QMin['resources']['theodir']
+
+        # TODO: crosscheck with qmmm or cobramm keywords. Move code to other qmmm-
+        # related code pieces in this routine
         if 'pc_file' in QMin:
             QMin['point_charges'] = [
                 [float(x[0]) * self._factor,
@@ -661,7 +695,9 @@ class INTERFACE(ABC):
         if 'grad' in QMin:
             gradmap = {tuple(QMin['statemap'][i][0:2]) for i in QMin['grad']}
         QMin['gradmap'] = sorted(gradmap)
+        # TODO: same for nacmap
 
+        # TODO: shouldn't the densmap also contain state pairs (transition densities)?
         densmap = set()
         if 'multipolar_fit' in QMin:
             densmap = {tuple(QMin['statemap'][i][0:2]) for i in QMin['multipolar_fit']}
@@ -855,6 +891,27 @@ class INTERFACE(ABC):
     def create_restart_files(self):
         pass
 
+    # TODO: joblist generation is interface specific
+    # ORCA: multigrad, singleref, fullruns
+    # GAUSSIAN: singlegrad, singleref, fullruns
+    # Turbomole: singlegrad, singleref, extra (multiple executables)
+    # AMS: multigrad, singleref, fullruns
+    # MOLCAS: singlegrad, multiref, sequential, separateSA
+    # MOLPRO: singlegrad, multiref, sequential, combinedSA
+    # BAGEL: singlegrad, multiref, fullruns(?), combinedSA(?)
+    # COLUMBUS (via runc): multigrad, multiref, fullruns, combinedSA
+    # 
+    # fullruns: descriptive input file for full run (E+grad+others)
+    # sequential: procedural input file with control over workflow 
+    # singleref: single-reference method with reference states and response states
+    # multiref: multi-reference methods where all states are equal
+    # singlegrad: for fullruns: one input file can only compute one gradient
+    # multigrad: for fullruns: one input file can compute multiple gradients
+    # separateSA: each multiplicity has a separate active space
+    # combinedSA: several multiplicities may be treated together
+    # => further details may differ between programs (e.g., ricc2 cannot do SOC and grad together)
+    # => other interfaces might not need any joblist (LVC)
+    # hence: make abstractmethod
     def generate_joblist(self):
         QMin = self._QMin
         # sort the gradients into the different jobs
@@ -961,6 +1018,8 @@ class INTERFACE(ABC):
 
     # ======================================================================= #
 
+    # TODO: specific code. This works for all singleref interfaces, 
+    # but is different for multiref interfaces (depending on separateSA or combinedSA)
     def _jobs(self):
         QMin = self.QMin
         jobs = {}
@@ -980,18 +1039,27 @@ class INTERFACE(ABC):
                     jobs[imult + 4] = {'mults': [imult + 4], 'restr': False}
         QMin['jobs'] = jobs
 
+    # TODO: specific code. Intended for singleref interfaces,
+    # works differently for multiref interfaces (COLUMBUS actually could use both approaches)
     def _states_to_do(self):
         QMin = self.QMin
         # obtain the states to actually compute
-        states_to_do = [v + QMin['template']['paddingstates'][i] if v > 0 else v for i, v in enumerate(QMin['states'])]
-        if not QMin['template']['unrestricted_triplets']:
-            if len(QMin['states']) >= 3 and QMin['states'][2] > 0:
-                states_to_do[0] = max(QMin['states'][0], 1)
-                req = max(QMin['states'][0] - 1, QMin['states'][2])
-                states_to_do[0] = req + 1
-                states_to_do[2] = req
+        if 'paddingstates' in QMin['template']:
+            states_to_do = [v + QMin['template']['paddingstates'][i] if v > 0 else v for i, v in enumerate(QMin['states'])]
+        else:
+            states_to_do = [v for i, v in enumerate(QMin['states'])]
+        # TODO: unrestricted_triplets is only for single-ref interfaces
+        # TODO: and the following logic is only for those where nsing=ntrip
+        if 'unrestricted_triplets' in QMin['template']:
+            if not QMin['template']['unrestricted_triplets']:
+                if len(QMin['states']) >= 3 and QMin['states'][2] > 0:
+                    states_to_do[0] = max(QMin['states'][0], 1)
+                    req = max(QMin['states'][0] - 1, QMin['states'][2])
+                    states_to_do[0] = req + 1
+                    states_to_do[2] = req
         QMin['states_to_do'] = states_to_do
 
+    # currently unused if I see correctly. Add "nacdr" to request handling
     @staticmethod
     def _get_pairs(QMinlines, i):
         nacpairs = []
@@ -1012,9 +1080,11 @@ class INTERFACE(ABC):
 
     # ======================================================================= #
 
+    # TODO: could be merged/combined with mkdir() routine in utils.py
+    # or moved to utils.py
     @staticmethod
     def checkscratch(SCRATCHDIR):
-        '''Checks whether SCRATCHDIR is a file or directory. If a file, it quits with exit code 1,
+        '''Checks whether SCRATCHDIR is a file or directory. If a file, it quits with exit code,
         if its a directory, it passes. If SCRATCHDIR does not exist, tries to create it.
 
         Arguments:
@@ -1031,6 +1101,7 @@ class INTERFACE(ABC):
             except OSError:
                 raise Error('Can not create SCRATCHDIR=%s\n' % (SCRATCHDIR), 43)
 
+    # TODO: move to utils.py?
     @staticmethod
     def removequotes(string):
         if string.startswith("'") and string.endswith("'"):
@@ -1506,15 +1577,20 @@ class INTERFACE(ABC):
         print(string)
 
         string = 'Method: \t'
-        if QMin['template']['no_tda']:
-            string += 'TD-'
-        else:
-            string += 'TDA-'
-        string += QMin['template']['functional'].split()[0].upper()
+        if 'no_tda' in QMin['template']:
+            if QMin['template']['no_tda']:
+                string += 'TD-'
+            else:
+                string += 'TDA-'
+        if 'functional' in QMin['template']:
+            string += QMin['template']['functional'].split()[0].upper()
+        if 'method' in QMin['template']:
+            string += QMin['template']['method'].split()[0].upper()
         string += '/%s' % (QMin['template']['basis'])
         parts = []
-        if QMin['template']['dispersion']:
-            parts.append(QMin['template']['dispersion'].split()[0].upper())
+        if 'dispersion' in QMin['template']:
+            if QMin['template']['dispersion']:
+                parts.append(QMin['template']['dispersion'].split()[0].upper())
         if QMin['template']['qmmm']:
             parts.append('QM/MM')
         if len(parts) > 0:

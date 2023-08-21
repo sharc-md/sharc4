@@ -37,6 +37,16 @@ Date: 20.07.2021
             if i < 0:
                 raise Error('paddingstate specification cannot be negative!', 59)
         return res
+    rootpad = paddingstates
+
+    def roots(self, args: str) -> list[int]:
+        alist = args.split()
+        res = []
+        if len(alist) >= self.nmult:
+            res = list(map(int, alist))
+        else:
+            raise Error('Length of "roots" does not match length of "states"!', 58)
+        return res
 
     def charge(self, args: str) -> list[int]:
         alist = args.split()
@@ -72,6 +82,29 @@ Date: 20.07.2021
             raise Error('Length of "charge" does not match length of "states"!', 61)
 
     @staticmethod
+    def pcmset(args: str) -> dict:
+        alist = args.split()
+        res = {}
+        res['on'] = True
+        res['solvent'] = alist[0]
+        if len(alist)>=2:
+            res['aare'] = float(alist[1])
+        if len(alist)>=3:
+            res['r-min'] = float(alist[2])
+        return res
+
+    @staticmethod
+    def pcmstate(args: str) -> list:
+        alist = args.split()
+        return [int(alist[0]), int(alist[1])]
+
+    @staticmethod
+    def iterations(args: str) -> list:
+        alist = args.split()
+        if len(alist)==1:
+            return [int(alist[0]), int(alist[0])]
+        else:
+            return [int(alist[0]), int(alist[1])]
     def bool(args):
         value = args.split(None, 1)
         if len(value) == 0:

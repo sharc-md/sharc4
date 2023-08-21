@@ -96,7 +96,7 @@ class GAUSSIAN(INTERFACE):
     def authors(self):
         return self._authors
 
-    def read_template(self, template_filename='ORCA.template'):
+    def read_template(self, template_filename='GAUSSIAN.template'):
         '''reads the template file
         has to be called after setup_mol!'''
 
@@ -150,7 +150,7 @@ class GAUSSIAN(INTERFACE):
         self._read_template = True
         return
 
-    def read_resources(self, resources_filename="ORCA.resources"):
+    def read_resources(self, resources_filename="GAUSSIAN.resources"):
         super().read_resources(resources_filename)
         QMin = self._QMin
         QMin['Gversion'] = GAUSSIAN.getVersion(QMin['gaussiandir'])
