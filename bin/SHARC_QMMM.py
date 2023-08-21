@@ -25,15 +25,18 @@
 
 # IMPORTS
 # external
+import os
 import datetime
 import numpy as np
-from copy import deepcopy
 
 # internal
 from SHARC_INTERFACE import INTERFACE
 from factory import factory
-from utils import *
+from utils import ATOM, mkdir, readfile, InDir, itnmstates
+from error import Error
+from globals import DEBUG, PRINT
 from constants import ATOMCHARGE, FROZENS
+from copy import deepcopy
 
 authors = 'Sebastian Mai and Severin Polonius'
 version = '3.0'
@@ -92,7 +95,7 @@ class QMMM(INTERFACE):
         allowed_embeddings = ['additive', 'subtractive']
         if QMin['template']['embedding'] not in allowed_embeddings:
             raise Error(
-                'Chosen embedding "{}" is not available (available: {}}'.format(
+                'Chosen embedding "{}" is not available (available: {})'.format(
                     QMin['template']['embedding'], ', '.join(allowed_embeddings)
                 )
             )
@@ -107,9 +110,10 @@ class QMMM(INTERFACE):
                     '", "'.join(filter(lambda x: x not in QMin['template'], required)), template_filename
                 ), 78
             )
+        QMin['template']['qmmm'] = True  # this is a qmmm interface
 
         QMin['atoms'] = [
-            ATOM(i, v[0].lower() == 'qm', v[1], [0., 0., 0.], v[2], set(v[3:]))
+            ATOM(i, v[0].lower() == 'qm', v[1], [0., 0., 0.], set(v[2:]))
             for i, v in enumerate(QMin['template']['qmmm_table'])
         ]
 
@@ -257,10 +261,15 @@ class QMMM(INTERFACE):
                 mms_QMin['savedir'] = mms_savedir    # overwrite savedir
                 self.mms_interface.read_template()
                 self.mms_interface.setup_run()
+
+            self._qm_interface_QMin_backup = deepcopy(self.qm_interface._QMin)
         return
 
     def run(self):
         QMin = self._QMin
+
+        # reset qm_interface_ QMin
+        self.qm_interface._QMin = deepcopy(self._qm_interface_QMin_backup)
         # set coords
         qm_coords = np.array([QMin['coords'][self.qm_ids[i]].copy() for i in range(self._num_qm)])
         if len(self._linkatoms) > 0:
@@ -338,8 +347,11 @@ class QMMM(INTERFACE):
 
         # print(datetime.datetime.now())
         # print('#================ END ================#')
+        # s2 = time.perf_counter_ns()
+        # print('Timing: QMMM', (s2 - s1) * 1e-6, 'ms')
 
     def getQMout(self):
+        # s1 = time.perf_counter_ns()
         qm_QMout = self.qm_interface._QMout
         QMin = self._QMin
         QMout = self._QMout
@@ -352,11 +364,14 @@ class QMMM(INTERFACE):
         mm_e = float(self.mml_interface._QMout['h'][0][0])
         if QMin['template']['embedding'] == 'subtractive':
             mm_e -= float(self.mms_interface._QMout['h'][0][0])
+
+        QMout['qmmm'] = {'MMEnergy_terms': {'MM Energy': mm_e}}
         # Hamiltonian
         if 'h' in qm_QMout:
-            QMout['h'] = deepcopy(qm_QMout['h'])
+            QMout['h'] = [[j for j in i] for i in qm_QMout['h']]
             for i in range(QMin['nmstates']):
                 QMout['h'][i][i] += mm_e
+        # print('     getQMout ene', (time.perf_counter_ns() - s1) * 1e-6, 'ms')
         # gen output
         if 'grad' in QMin:
             qm_grad = qm_QMout['grad']
@@ -364,21 +379,29 @@ class QMMM(INTERFACE):
 
             if QMin['template']['embedding'] == 'subtractive':
                 mms_grad = self.mms_interface.QMout['grad'][0]
-                for atom in range(len(mms_grad)):    # loop over atoms
-                    for qm_grad_i in qm_grad:
-                        add_to_xyz(qm_grad_i[atom], mms_grad[atom], fac=-1.)    # check if id is the same in both calcs
+
+                for n, qm_id in enumerate(self.qm_ids):    # loop over qm atoms
+                    # add to qm_id in big mm list
+                    add_to_xyz(mm_grad[qm_id], mms_grad[n], fac=-1.)
 
             grad = {}
+            # print('     getQMout grad1', (time.perf_counter_ns() - s1) * 1e-6, 'ms')
 
             for i, qm_grad_i in enumerate(qm_grad):
-                grad[i] = deepcopy(mm_grad)
-                for n, qm_grad_in in enumerate(qm_grad_i):
-                    if n < self._num_qm:    # pure qm atoms
-                        add_to_xyz(grad[i][self.qm_ids[n]], qm_grad_in)
-                    else:    # linkatoms come after qm atoms
-                        qm_id, mm_id = self._linkatoms[n - self._num_qm]
-                        add_to_xyz(grad[i][mm_id], qm_grad_in, self._mm_s)
-                        add_to_xyz(grad[i][qm_id], qm_grad_in, self._qm_s)
+                # init gradient as mm_gradient
+                grad[i] = [[x[0], x[1], x[2]] for x in mm_grad]
+
+                # add gradient of all qm atoms for each state
+                for n, qm_id in enumerate(self.qm_ids):
+                    add_to_xyz(grad[i][qm_id], qm_grad_i[n])
+
+                # linkatoms come after qm atoms
+                for n, link_id in enumerate(self._linkatoms):
+                    qm_id, mm_id = self._linkatoms[n]
+                    qm_grad_in = qm_grad_i[n + self._num_qm]
+                    add_to_xyz(grad[i][mm_id], qm_grad_in, self._mm_s)
+                    add_to_xyz(grad[i][qm_id], qm_grad_in, self._qm_s)
+            # print('     getQMout grad2', (time.perf_counter_ns() - s1) * 1e-6, 'ms')
 
             if 'pc_grad' in qm_QMout:    # apply pc grad
                 for i, grad_i in enumerate(qm_QMout['pc_grad']):
@@ -386,8 +409,11 @@ class QMMM(INTERFACE):
                     # -> get all residual mm ids in order for correct order in pcgrad
                     for grad_in, mm_id in zip(grad_i, filter(lambda i: i not in self.mm_links, self.mm_ids)):
                         add_to_xyz(grad[i][mm_id], grad_in)
+            else:
+                print("Warning: No 'pc_grad' in QMout of QM interface!")
 
             self._QMout['grad'] = grad
+        # print('     getQMout pcgrad', (time.perf_counter_ns() - s1) * 1e-6, 'ms')
 
         if 'nacdr' in QMin:
             # nacs would have to inserted in the whole system matrix only for qm atoms
@@ -396,15 +422,16 @@ class QMMM(INTERFACE):
                 for _ in range(QMin['nmstates'])
             ]
             for i, s_i in enumerate(self.qm_interface._QMout['nacdr']):
-                for s_j in s_i:
-                    for n in range(self._num_qm):
-                        add_to_xyz(s_j[n], nacdr[i][n][self.qm_ids[n]])
-                    for n in range(self._num_qm, len(s_j)):    # linkatoms come after qm atoms
-                        qm_id, mm_id = self._linkatoms[n - self._num_qm]
-                        n = nacdr[i][n]
-                        add_to_xyz(n[mm_id], s_j[n], self._mm_s)
-                        add_to_xyz(n[qm_id], s_j[n], self._qm_s)
+                for j, s_j in enumerate(s_i):
+                    for n, qm_id in enumerate(self.qm_ids):
+                        add_to_xyz(nacdr[i][j][qm_id], s_j[n])
+                    for n, link_id in enumerate(self._linkatoms):    # linkatoms come after qm atoms
+                        qm_id, mm_id = self._linkatoms[n]
+                        nac = nacdr[i][j]
+                        add_to_xyz(nac[mm_id], s_j[n + self._num_qm], self._mm_s)
+                        add_to_xyz(nac[qm_id], s_j[n + self._num_qm], self._qm_s)
             QMout['nacdr'] = nacdr
+        # print('     getQMout nac', (time.perf_counter_ns() - s1) * 1e-6, 'ms')
 
         if 'dm' in QMin:
             QMout['dm'] = self.qm_interface._QMout['dm']

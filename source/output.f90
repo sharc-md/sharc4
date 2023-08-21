@@ -330,7 +330,7 @@ subroutine write_list_line(u, traj, ctrl)
       &'#','Surface Hop: new state=',traj%state_diag,'old state=',traj%state_diag_old,'randnum=',traj%randnum
   endselect
 
-  write(u,'(1X,I9,3X,F12.5,3X,2(I5,3X),6(F12.6,3X),I10)') &
+  write(u,'(1X,I9,3X,F12.2,3X,2(I5,3X),6(F12.6,3X),I10)') &
   &traj%step, ctrl%dtstep*au2fs*traj%step, &
   &traj%state_diag, traj%state_MCH, &
   &traj%Ekin*au2eV, traj%Epot*au2eV, traj%Etot*au2eV, &
@@ -394,7 +394,7 @@ subroutine write_dat_initial(u, ctrl, traj)
     ! header for SHARC v2.0
     write(u,'(a14,f5.1)') 'SHARC_version ',  ctrl%output_version
     write(u,*) 'maxmult',          ctrl%maxmult
-    write(u,*) 'nstates_m',        ctrl%nstates_m
+    write(u,'(1X,A9,64(1X,I4))') 'nstates_m',        ctrl%nstates_m
     write(u,*) 'natom',            ctrl%natom
     write(u,*) 'dtstep',           ctrl%dtstep 
     write(u,*) 'nsteps',           ctrl%nsteps

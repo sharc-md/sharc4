@@ -13,15 +13,25 @@ def kabsch(a: np.ndarray, b: np.ndarray) -> np.ndarray:
         L(C) = \\frac{1}{2} \\sum_{i = 1}^{n} w_i \\lVert \\mathbf{a}_i -
         C \\mathbf{b}_i \\rVert^2 ,
     where :math:`w_i`'s are the `weights` corresponding to each vector.
-    The rotation is estimated with Kabsch algorithm [1]_.
+    The rotation is estimated with Kabsch algorithm.
     Parameters
     ----------
     a : array_like, shape (N, 3)
-        Vector components observed in initial frame A. Each row of `a`
+        Vector components observed in reference frame A. Each row of `a`
         denotes a vector.
     b : array_like, shape (N, 3)
         Vector components observed in another frame B. Each row of `b`
         denotes a vector.
+
+    Returns
+    ----------
+    B : rotation matrix in cartesian coordinates that rotates `a` onto `b`
+    a_s : center of mass of `a`
+    b_s : center of mass of `b`
+
+    B, a_s, b_s = kabsch(a, b)                     
+    a_in_frame_of_b = (a - a_s) @ B + b_s
+    b_in_frame_of_a = (b - b_s) @ B.T + a_s
     """
     if a.ndim != 2 or a.shape[-1] != 3:
         raise ValueError("Expected input `a` to have shape (N, 3), " "got {}".format(a.shape))
@@ -37,7 +47,7 @@ def kabsch(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     a_s = sum(a) / a.shape[0]
     b_s = sum(b) / b.shape[0]
 
-    #shift b to a
+    # shift b to a
     B = np.einsum('ji,jk->ik', a - a_s, b - b_s)
     # B = a.T @ (b + (a_s - b_s))
     u, s, vT = np.linalg.svd(B)
@@ -64,18 +74,29 @@ def kabsch_w(a: np.ndarray, b: np.ndarray, weights) -> np.ndarray:
         L(C) = \\frac{1}{2} \\sum_{i = 1}^{n} w_i \\lVert \\mathbf{a}_i -
         C \\mathbf{b}_i \\rVert^2 ,
     where :math:`w_i`'s are the `weights` corresponding to each vector.
-    The rotation is estimated with Kabsch algorithm [1]_.
+    The rotation is estimated with Kabsch algorithm.
     Parameters
     ----------
     a : array_like, shape (N, 3)
-        Vector components observed in initial frame A. Each row of `a`
+        Vector components observed in reference frame A. Each row of `a`
         denotes a vector.
     b : array_like, shape (N, 3)
         Vector components observed in another frame B. Each row of `b`
         denotes a vector.
     weights : array_like shape (N,), optional
         Weights describing the relative importance of the vector
-        observations."""
+        observations.
+
+    Returns
+    ----------
+    B : rotation matrix in cartesian coordinates that rotates `a` onto `b`
+    a_s : center of mass of `a` with weights
+    b_s : center of mass of `b` with weights
+
+    B, a_s, b_s = kabsch(a, b, weights)                     
+    a_in_frame_of_b = (a - a_s) @ B + b_s
+    b_in_frame_of_a = (b - b_s) @ B.T + a_s
+    """
     if a.ndim != 2 or a.shape[-1] != 3:
         raise Error("Expected input `a` to have shape (N, 3), " "got {}".format(a.shape))
     if b.ndim != 2 or b.shape[-1] != 3:

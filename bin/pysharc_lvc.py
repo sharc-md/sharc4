@@ -38,7 +38,7 @@ from __future__ import print_function
 import shutil
 import sys
 import os
-import time
+
 import numpy
 import numpy as np
 
@@ -569,15 +569,12 @@ def main():
 
     """
 
-    start = time.time_ns()
     inp_file, param = getCommandoLine()
     # init SHARC_LVC class
     lvc = SHARC_LVC()
     # run sharc dynamics
     lvc.run_sharc(inp_file, param)
 
-    stop = time.time_ns()
-    print('Timing:', (stop - start)*1e-6)
 
 if __name__ == "__main__":
     main()

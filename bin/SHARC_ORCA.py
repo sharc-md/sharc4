@@ -37,9 +37,8 @@ from socket import gethostname
 # internal
 from SHARC_INTERFACE import INTERFACE
 from globals import DEBUG, PRINT
-import pprint
 from utils import *
-from constants import IToMult, rcm_to_Eh
+from constants import IToMult, au2a
 
 authors = 'Sebastian Mai, Lea Ibele, Moritz Heindl and Severin Polonius'
 version = '3.0'
@@ -224,6 +223,7 @@ class ORCA(INTERFACE):
                 See {}:{} for error messages in ORCA output.'.format(gethostname(), QMin['scratchdir']), 75
             )
         self.create_restart_files()
+        self.remove_old_restart_files()
         return errorcodes
 
     def create_restart_files(self):
@@ -260,14 +260,15 @@ class ORCA(INTERFACE):
             starttime = datetime.datetime.now()
             sys.stdout.write('START:\t{}\t{}\t"{}"\n'.format(shorten_DIR(WORKDIR), starttime, shorten_DIR(string)))
             sys.stdout.flush()
-        stdoutfile = open(os.path.join(WORKDIR, 'ORCA.log'), 'w')
-        stderrfile = open(os.path.join(WORKDIR, 'ORCA.err'), 'w')
+        stdoutfile = open('ORCA.log', 'w')
+        stderrfile = open('ORCA.err', 'w')
         try:
             runerror = sp.call(string, shell=True, stdout=stdoutfile, stderr=stderrfile)
         except OSError:
             raise Error('ORCA call have had some serious problems:', OSError, 76)
         stdoutfile.close()
         stderrfile.close()
+        os.chdir(prevdir)
         with open(os.path.join(WORKDIR, 'ORCA.log')) as f:
             lines = f.readlines()
             if 'ORCA TERMINATED NORMALLY' not in lines[-2]:
@@ -330,9 +331,8 @@ class ORCA(INTERFACE):
     # check for initial orbitals
         initorbs = {}
         step = QMin['step']
-        if 'always_guess' in QMin and QMin['always_guess']:
-            QMin['initorbs'] = {}
-        elif 'init' in QMin or QMin['always_orb_init']:
+        # if 'always_guess' in QMin and QMin['always_guess']:
+        if 'init' in QMin or QMin['always_orb_init']:
             for job in QMin['joblist']:
                 filename = os.path.join(QMin['pwd'], 'ORCA.gbw.init')
                 if os.path.isfile(filename):
@@ -343,7 +343,6 @@ class ORCA(INTERFACE):
                     initorbs[job] = filename
             if QMin['always_orb_init'] and len(initorbs) < QMin['njobs']:
                 raise Error('Initial orbitals missing for some jobs!', 70)
-            QMin['initorbs'] = initorbs
         elif 'newstep' in QMin:
             for job in QMin['joblist']:
                 filename = os.path.join(QMin['savedir'], f'ORCA.gbw.{job}.{step-1}')
@@ -351,7 +350,6 @@ class ORCA(INTERFACE):
                     initorbs[job] = filename
                 else:
                     raise Error(f'File {filename} missing in savedir!', 71)
-            QMin['initorbs'] = initorbs
         elif 'samestep' in QMin:
             for job in QMin['joblist']:
                 filename = os.path.join(QMin['savedir'], f'ORCA.gbw.{job}.{step}')
@@ -359,7 +357,6 @@ class ORCA(INTERFACE):
                     initorbs[job] = filename
                 else:
                     raise Error(f'File {filename} missing in savedir!', 72)
-            QMin['initorbs'] = initorbs
         elif 'restart' in QMin:
             for job in QMin['joblist']:
                 filename = os.path.join(QMin['savedir'], f'ORCA.gbw.{job}.{step}')
@@ -367,7 +364,7 @@ class ORCA(INTERFACE):
                     initorbs[job] = filename
                 else:
                     raise Error(f'File {filename} missing in savedir!', 73)
-            QMin['initorbs'] = initorbs
+        QMin['initorbs'] = initorbs
         # wf file copying
         if 'master' in QMin:
             job = QMin['IJOB']
@@ -387,29 +384,27 @@ class ORCA(INTERFACE):
         # split gradmap into smaller chunks
         Nmax_gradlist = 255
         gradmaps = [sorted(QMin['gradmap'])[i:i + Nmax_gradlist] for i in range(0, len(QMin['gradmap']), Nmax_gradlist)]
-
         # make multi-job input
         string = ''
         for ichunk, chunk in enumerate(gradmaps):
             if ichunk >= 1:
                 string += '\n\n$new_job\n\n%base "ORCA"\n\n'
-            QMin_copy = deepcopy(QMin)
-            QMin_copy['gradmap'] = chunk
-            string += ORCA.ORCAinput_string(QMin_copy)
+            string += ORCA.ORCAinput_string(QMin, chunk)
         if not gradmaps:
-            string += ORCA.ORCAinput_string(QMin)
+            string += ORCA.ORCAinput_string(QMin, QMin['gradmap'])
         return string
 
     @staticmethod
     def write_pccoord_file(pc):
         string = '%i\n' % len(pc)
         for atom in pc:
-            string += '%f %f %f %f\n' % (atom[3], atom[0], atom[1], atom[2])
+            # ORCA.pc file has to be in Angstrom units!
+            string += '%f %f %f %f\n' % (atom[3], atom[0] * au2a, atom[1] * au2a, atom[2] * au2a)
         return string
     # ======================================================================= #
 
     @staticmethod
-    def ORCAinput_string(QMin):
+    def ORCAinput_string(QMin, gradmap):
 
         # general setup
         job = QMin['IJOB']
@@ -426,8 +421,8 @@ class ORCA(INTERFACE):
 
         # do minimum number of states for gradient jobs
         if 'gradonly' in QMin:
-            gradmult = QMin['gradmap'][0][0]
-            gradstat = QMin['gradmap'][0][1]
+            gradmult = gradmap[0][0]
+            gradstat = gradmap[0][1]
             for imult in range(len(states_to_do)):
                 if imult + 1 == gradmult:
                     states_to_do[imult] = gradstat - (gradmult == gsmult)
@@ -443,17 +438,17 @@ class ORCA(INTERFACE):
 
         # gradients
         multigrad = False
-        if 'grad' in QMin and QMin['gradmap']:
+        if 'grad' in QMin and gradmap:
             dograd = True
             egrad = ()
-            for grad in QMin['gradmap']:
+            for grad in gradmap:
                 if not (gsmult, 1) == grad:
                     egrad = grad
             if QMin['OrcaVersion'] >= (4, 1):
                 multigrad = True
                 singgrad = []
                 tripgrad = []
-                for grad in QMin['gradmap']:
+                for grad in gradmap:
                     if grad[0] == gsmult:
                         singgrad.append(grad[1] - 1)
                     if grad[0] == 3 and restr:
@@ -630,9 +625,9 @@ class ORCA(INTERFACE):
                 44
             )
         self.generate_joblist()
-        if self._PRINT:
-            print('SCHEDULE:')
-            pprint.pprint(QMin['schedule'], depth=3)
+        # if self._PRINT:
+        #     print('SCHEDULE:')
+        #     pprint.pprint(QMin['schedule'], depth=3)
         errorcodes = self.runjobs(QMin['schedule'])
         errorcodes = self.run_wfoverlap(errorcodes)
         errorcodes = self.run_theodore(errorcodes)
@@ -814,7 +809,7 @@ class ORCA(INTERFACE):
     # ======================================================================= #
     @staticmethod
     def saveMolden(WORKDIR, QMin):
-
+        WORKDIR = os.path.abspath(os.path.expandvars(WORKDIR))
         # run orca_2mkl
         prevdir = os.getcwd()
         os.chdir(WORKDIR)
@@ -1049,6 +1044,8 @@ class ORCA(INTERFACE):
         for iline, line in enumerate(data):
             if '# of contracted basis functions' in line:
                 infos['nbsuse'] = int(line.split()[-1])
+            elif 'Number of basis functions' in line:
+                infos['nbsuse'] = int(line.split()[-1])
             if 'Orbital ranges used for CIS calculation:' in line:
                 s = data[iline + 1].replace('.', ' ').split()
                 infos['NFC'] = int(s[3])
@@ -1061,6 +1058,14 @@ class ORCA(INTERFACE):
                     s = data[iline + 2].replace('.', ' ').split()
                     infos['NOB'] = int(s[4]) - int(s[3]) + 1
                     infos['NVB'] = int(s[7]) - int(s[6]) + 1
+            elif 'DFT components:' in line:
+                infos['NFC'] = 0
+                nele_a = int(float(data[iline + 1].split()[-2]))
+                nele_b = int(float(data[iline + 2].split()[-2]))
+                infos['NOA'] = int(nele_a / 2. + float(gsmult - 1) / 2.)
+                infos['NOB'] = int(nele_b / 2. - float(gsmult - 1) / 2.)
+                infos['NVA'] = infos['nbsuse'] - infos['NOA']
+                infos['NVB'] = infos['nbsuse'] - infos['NOB']
 
         if 'NOA' not in infos:
             nstates_onfile = 0
@@ -1071,24 +1076,11 @@ class ORCA(INTERFACE):
             infos['NVA'] = infos['nbsuse'] - infos['NOA']
             infos['NVB'] = infos['nbsuse'] - infos['NOB']
             infos['NFC'] = 0
-        else:
-            # get all info from cis file
+
+        if any(v != 0 for v in nstates_to_extract):
             CCfile = open(filename, 'rb')
             nvec = struct.unpack('i', CCfile.read(4))[0]
-            header = [struct.unpack('i', CCfile.read(4))[0] for i in range(8)]
-            if infos['NOA'] != header[1] - header[0] + 1:
-                raise Error(f'Number of orbitals in {filename} not consistent', 82)
-            if infos['NVA'] != header[3] - header[2] + 1:
-                raise Error(f'Number of orbitals in {filename} not consistent', 83)
-            if not restr:
-                if infos['NOB'] != header[5] - header[4] + 1:
-                    raise Error(f'Number of orbitals in {filename} not consistent', 84)
-                if infos['NVB'] != header[7] - header[6] + 1:
-                    raise Error(f'Number of orbitals in {filename} not consistent', 85)
-            if QMin['template']['no_tda']:
-                nstates_onfile = nvec // 2
-            else:
-                nstates_onfile = nvec
+            header = [struct.unpack('i', CCfile.read(4))[0] for _ in range(8)]
 
         # get ground state configuration
         # make step vectors (0:empty, 1:alpha, 2:beta, 3:docc)
@@ -1387,12 +1379,12 @@ class ORCA(INTERFACE):
         if 'grad' in QMin:
             if 'grad' not in QMout:
                 QMout['grad'] = [[[0. for i in range(3)] for j in range(natom)] for k in range(nmstates)]
-            # if QMin['qmmm'] and 'pcgrad' not in QMout:
-            if 'point_charges' in QMin and 'pcgrad' not in QMout:
-                QMout['pcgrad'] = [[[0. for i in range(3)] for j in QMin['point_charges']] for k in range(nmstates)]
+            # if QMin['qmmm'] and 'pc_grad' not in QMout:
+            if 'point_charges' in QMin and 'pc_grad' not in QMout:
+                QMout['pc_grad'] = [[[0. for i in range(3)] for j in QMin['point_charges']] for k in range(nmstates)]
             if QMin['template']['cobramm']:
                 ncharges = len(readfile("charge.dat")) - 1
-                QMout['pcgrad'] = [[[0. for i in range(3)] for j in range(ncharges)] for k in range(nmstates)]
+                QMout['pc_grad'] = [[[0. for i in range(3)] for j in range(ncharges)] for k in range(nmstates)]
             for grad in QMin['gradmap']:
                 path, isgs = QMin['jobgrad'][grad]
                 gsmult = QMin['jobs'][int(path.split('_')[1])]['mults'][0]
@@ -1416,16 +1408,16 @@ class ORCA(INTERFACE):
                         QMout['grad'][istate - 1] = g
                         # if QMin['qmmm']:
                         if 'point_charges' in QMin:
-                            QMout['pcgrad'][istate - 1] = gpc
-                if QMin['template']['cobramm']:
-                    logfile = os.path.join(QMin['scratchdir'], path, 'ORCA.pcgrad' + fname)
-                    gpc = ORCA.getpcgrad(logfile)
-                for istate in QMin['statemap']:
-                    state = QMin['statemap'][istate]
-                    if (state[0], state[1]) == grad:
-                        QMout['grad'][istate - 1] = g
-                        if QMin['template']['cobramm']:
-                            QMout['pcgrad'][istate - 1] = gpc
+                            QMout['pc_grad'][istate - 1] = gpc
+                # if QMin['template']['cobramm']:
+                #     logfile = os.path.join(QMin['scratchdir'], path, 'ORCA.pcgrad' + fname)
+                #     gpc = ORCA.getpcgrad(logfile)
+                # for istate in QMin['statemap']:
+                #     state = QMin['statemap'][istate]
+                #     if (state[0], state[1]) == grad:
+                #         QMout['grad'][istate - 1] = g
+                #         if QMin['template']['cobramm']:
+                #             QMout['pcgrad'][istate - 1] = gpc
             if QMin['neglected_gradient'] != 'zero':
                 for i in range(nmstates):
                     m1, s1, ms1 = tuple(QMin['statemap'][i + 1])
@@ -1446,7 +1438,7 @@ class ORCA(INTERFACE):
                                     j = k
                         QMout['grad'][i] = QMout['grad'][j]
                         if 'point_charges' in QMin:
-                            QMout['pcgrad'][i] = QMout['pcgrad'][j]
+                            QMout['pc_grad'][i] = QMout['pc_grad'][j]
 
         # Regular Overlaps
         if 'overlap' in QMin:

@@ -132,6 +132,9 @@ def read_QMout(path, nstates, natom, request):
                     sys.exit(11)
                 line = lines[iline]
                 if '! %i' % (targets[t]['flag']) in line:
+                    # store settings of multipolar fit
+                    if t == 'multipolar_fit':
+                        QMout['multipolar_fit_settings'] = line.split('states')[-1].strip()
                     break
             values = []
             # =========== single matrix
@@ -378,7 +381,9 @@ def write_LVC_template(INFOS):
     if 'multipolar_fit' in INFOS and INFOS['multipolar_fit']:
         requests.append('multipolar_fit')
     path = os.path.join(INFOS['paths']['0eq'], 'QM.out')
+    print("reading QMout_eq at:", path)
     QMout_eq = read_QMout(path, INFOS['nstates'], len(INFOS['atoms']), requests)
+    print(", ".join(requests))
 
     # ------------------ epsilon ----------------------
     epsilon_str_list = []
@@ -585,6 +590,7 @@ def write_LVC_template(INFOS):
     if 'multipolar_fit' in QMout_eq:
         natom = len(INFOS['atoms'])
         fit = QMout_eq['multipolar_fit']
+        settings = QMout_eq['multipolar_fit_settings']
         cfi = chain.from_iterable
         start = 0
         mat_string = ''
@@ -600,7 +606,7 @@ def write_LVC_template(INFOS):
                     n_entries += 1
                     mat_string += f'{i + 1} {s_i + 1:2} {s_j + 1:2} {atom:3}    {line}\n'
             start += n_i * (i + 1)  # go a block forward
-        lvc_template_content += f'Multipolar Density Fit\n{n_entries}\n{mat_string}'
+        lvc_template_content += f'Multipolar Density Fit {settings}\n{n_entries}\n{mat_string}'
 
     # -------------------- write to file ----------------------------
     print('\nFinished!\nLVC parameters written to file: LVC.template\n')

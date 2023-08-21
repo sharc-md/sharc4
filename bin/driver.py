@@ -172,10 +172,19 @@ def do_qm_calc(i: INTERFACE, qmout: QMOUT):
     icall = 1
     i.set_requests(get_all_tasks(icall))
     i.set_coords(get_crd())
+    # s1 = time.perf_counter_ns()
     safe(i.run)
+    # s2 = time.perf_counter_ns()
+    # print(" safe run: ", (s2 - s1) * 1e-6)
+    # s1 = time.perf_counter_ns()
     i.getQMout()
+    # s2 = time.perf_counter_ns()
+    # print(" getQMout: ", (s2 - s1) * 1e-6)
     i.write_step_file()
+    # s1 = time.perf_counter_ns()
     qmout.set_props(i._QMout, icall)
+    # s2 = time.perf_counter_ns()
+    # print(" setProps: ", (s2 - s1) * 1e-6)
 
     isecond = set_qmout(qmout._QMout, icall)
     if isecond == 1:
@@ -235,8 +244,8 @@ def main():
     derived_int._QMin['Atomcharge'] = sum(map(lambda x: ATOMCHARGE[x], derived_int._QMin['elements']))
     derived_int._QMin['frozcore'] = sum(map(lambda x: FROZENS[x], derived_int._QMin['elements']))
     derived_int._setup_mol = True
-    derived_int.read_template()
     derived_int.read_resources()
+    derived_int.read_template()
     derived_int._step_logic()
     derived_int.setup_run()
     if IRestart == 0:
@@ -245,12 +254,15 @@ def main():
         initial_qm_post()
         initial_step(IRestart)
     lvc_time = 0.
+    all_time = 0.
     for istep in range(basic_info['istep'] + 1, basic_info['NSteps'] + 1):
+        all_s1 = time.perf_counter_ns()
         verlet_xstep(istep)
         derived_int._QMin['step'] += 1
         s1 = time.perf_counter_ns()
         do_qm_calc(derived_int, QMout)
         s2 = time.perf_counter_ns()
+        # print(" do_qm_calc: ", (s2 - s1) * 1e-6)
         lvc_time += s2 - s1
         crd = get_crd()
         IRedo = verlet_vstep()
@@ -265,6 +277,8 @@ def main():
             QMout.set_gradient(list2dict(i._QMout['grad']), 3)
             set_qmout(QMout._QMout, 3)
         iexit = verlet_finalize(1)
+        all_s2 = time.perf_counter_ns()
+        all_time += all_s2 - all_s1
         if iexit == 1:
             break
     
@@ -272,6 +286,8 @@ def main():
     finalize_sharc()
     stop = time.time_ns()
     print(f'Timing per step ({derived_int.__class__.__name__}):', lvc_time / basic_info['NSteps'] * 1e-6, 'ms')
+    print(f'Timing per step full', all_time / basic_info['NSteps'] * 1e-6, 'ms')
+    print('Timing:', (all_time) * 1e-6, 'ms')
     print('Timing:', (stop - start) * 1e-6, 'ms')
 
 

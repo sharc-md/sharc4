@@ -10,7 +10,6 @@ import subprocess as sp
 from globals import DEBUG, PRINT
 
 
-
 class InDir():
     "small context to perform part of code in other directory"
     old = ''
@@ -27,6 +26,7 @@ class InDir():
         os.chdir(self.old)
         if exc_type is not None:
             exception_hook(exc_type, exc_value, exc_traceback)
+
 
 # ======================================================================= #
 def get_bool_from_env(name: str, default=False):
@@ -93,7 +93,6 @@ def mkdir(DIR, crucial=True, force=True):
         except OSError:
             if crucial:
                 raise Error('Can not create %s\n' % (DIR), 90)
-            
 
 
 # ======================================================================= #
@@ -370,36 +369,254 @@ def build_basis_dict(
     n_a = {i + 1: f'{a.upper()}{i+1}' for i, a in enumerate(atom_symbols)}
     basis = {k: [] for k in n_a.values()}
     it = 0
-    for st, np, a in zip(shell_types, n_prim, s_a_map):
+    for st, n_p, a in zip(shell_types, n_prim, s_a_map):
 
-        shell = list(map(lambda x: (prim_exp[x], contr_coeff[x]), range(it, it + np)))
+        shell = list(map(lambda x: (prim_exp[x], contr_coeff[x]), range(it, it + n_p)))
         if ps_contr_coeff and ps_contr_coeff[it] != 0.:
-            shell2 = list(map(lambda x: (prim_exp[x], ps_contr_coeff[x]), range(it, it + np)))
+            shell2 = list(map(lambda x: (prim_exp[x], ps_contr_coeff[x]), range(it, it + n_p)))
             basis[n_a[a]].append([0, *shell])
             basis[n_a[a]].append([abs(st), *shell2])
         else:
             basis[n_a[a]].append([abs(st), *shell])
-        it += np
+        it += n_p
+    #  for i in basis.keys():
+    #  basis[i] = sorted(basis[i], key=lambda x: x[0])
     return basis
 
 
-def swap_rows_and_cols(
-    atom_symbols, basis_dict, matrix, swaps=[[0, 2], [1, 3], [1, 4], [0, 1]], swaps_r=[[2, 0], [3, 1], [4, 1], [1, 0]]
-):
+def get_pyscf_order_from_orca(atom_symbols, basis_dict):
+    """
+    Generates the reorder list to reorder atomic orbitals (from ORCA) to pyscf.
+
+    Sources:
+    ORCA: https://orcaforum.kofo.mpg.de/viewtopic.php?f=8&p=23158&t=5433&sid=f41177ec0888075a3b1e7fa438b77bd2
+    pyscf:  https://pyscf.org/user/gto.html#ordering-of-basis-function
+
+    Parameters
+    ----------
+    atom_symbols : list[str]
+        list of element symbols for all atoms (same order as AOs)
+    basis_dict : dict[str, list]
+        basis set for each atom in pyscf format
+    """
+    #  return matrix
+
+    # in the case of P(S=P) coefficients the order is 1S, 2S, 2Px, 2Py, 2Pz, 3S in gaussian and pyscf
+    # from orca order: z, x, y
+    # to  pyscf order: x, y, z
+    p_order = [1, 2, 0]
+    np = 3
+
+    # from orca order: z2, xz, yz, x2-y2, xy
+    # to  pyscf order: xy, yz, z2, xz, x2-y2
+    d_order = [4, 2, 0, 1, 3]
+    nd = 5
+
+    # F shells spherical:
+    # orca  order: zzz, xzz, yzz, xxz-yyz, xyz, xxx-xyy, xxy
+    # pyscf order: xxy, xyz, yzz, zzz, xzz, xxz-yyz, xxx-xyy
+    f_order = [6, 4, 2, 0, 1, 3, 5]
+    nf = 7
+
+    # compile the new_order for the whole matrix
+    new_order = []
+    it = 0
+    for i, a in enumerate(atom_symbols):
+        key = f'{a}{i+1}'
+        #       s  p  d  f
+        n_bf = [0, 0, 0, 0]
+
+        # count the shells for each angular momentun
+        for shell in basis_dict[key]:
+            n_bf[shell[0]] += 1
+        print("n_bf for", key, n_bf)
+
+        s, p = n_bf[0:2]
+        new_order.extend([it + n for n in range(s)])
+
+        it += s
+        assert it == len(new_order)
+
+        # do p shells
+        for x in range(p):
+            new_order.extend([it + n for n in p_order])
+            it += np
+
+        # do d shells
+        for x in range(n_bf[2]):
+            new_order.extend([it + n for n in d_order])
+            it += nd
+
+        # do f shells
+        for x in range(n_bf[3]):
+            new_order.extend([it + n for n in f_order])
+            it += nf
+        assert it == len(new_order)
+
+    return new_order
+
+
+def get_pyscf_order_from_gaussian(atom_symbols, basis_dict, cartesian_d=False, cartesian_f=False, p_eq_s=False):
+    """
+    Generates the reorder list to reorder atomic orbitals (from GAUSSIAN) to pyscf.
+
+    Sources:
+    GAUSSIAN: https://gaussian.com/interfacing/
+    pyscf:  https://pyscf.org/user/gto.html#ordering-of-basis-function
+
+    Parameters
+    ----------
+    atom_symbols : list[str]
+        list of element symbols for all atoms (same order as AOs)
+    basis_dict : dict[str, list]
+        basis set for each atom in pyscf format
+    cartesian_d : bool
+        whether the d-orbitals are cartesian
+    cartesian_f : bool
+        whether the f-orbitals are cartesian
+    """
+    #  return matrix
+
+    # in the case of P(S=P) coefficients the order is 1S, 2S, 2Px, 2Py, 2Pz, 3S in gaussian and pyscf
+
     # if there are any d-orbitals they need to be swapped!!!
-    # from gauss order: z2, xz, yz, x2-y2, xy
-    # to   pyscf order: xy, yz, z2, xz, x2-y2
+    if cartesian_d:
+        # in the case of a cartesian basis the ordering is
+        # gauss order:     xx, yy, zz, xy, xz, yz
+        # pyscf order:     xx, xy, xz, yy, yz, zz
+        d_order = [0, 3, 4, 1, 5, 2]
+        #  d_order = [0, 1, 2, 3, 4, 5]
+        nd = 6
+    else:
+        # from gauss order: z2, xz, yz, x2-y2, xy
+        # to   pyscf order: xy, yz, z2, xz, x2-y2
+        d_order = [4, 2, 0, 1, 3]
+        nd = 5
+
+    if cartesian_f:
+        # F shells cartesian:
+        # gauss order: xxx, yyy, zzz, xyy, xxy, xxz, xzz, yzz, yyz, xyz
+        # pyscf order: xxx, xxy, xxz, xyy, xyz, xzz, yyy, yyz, yzz, zzz
+        f_order = [0, 4, 5, 3, 9, 6, 1, 8, 7, 2]
+        nf = 10
+    else:
+        # F shells spherical:
+        # gauss order: zzz, xzz, yzz, xxz-yyz, xyz, xxx-xyy, xxy
+        # pyscf order: xxy, xyz, yzz, zzz, xzz, xxz-yyz, xxx-xyy
+        f_order = [6, 4, 2, 0, 1, 3, 5]
+        nf = 7
+
+    # G shells cartesian, not needed anyway
+    # pyscf order: xxxx,xxxy,xxxz,xxyy,xxyz,xxzz,xyyy,xyyz,xyzz,xzzz,yyyy,yyyz,yyzz,yzzz,zzzz
+    g_order = [8, 6, 4, 2, 0, 1, 3, 5, 7]
+    ng = 9
+
+    # H shells cartesian coordinates, not needed anyway
+    # pyscf order: xxxxx,xxxxy,xxxxz,xxxyy,xxxyz,xxxzz,xxyyy,xxyyz,xxyzz,xxzzz,xyyyy,xyyyz,xyyzz,xyzzz,xzzzz,yyyyy,yyyyz,yyyzz,yyzzz,yzzzz,zzzzz
+    h_order = [10, 8, 6, 4, 2, 0, 1, 3, 5, 7, 9]
+    nh = 11
+
+    # I shells cartesian coordinates, not needed anyway
+    # pyscf order: xxxxxx,xxxxxy,xxxxxz,xxxxyy,xxxxyz,xxxxzz,xxxyyy,xxxyyz,xxxyzz,xxxzzz,xxyyyy,xxyyyz,xxyyzz,xxyzzz,xxzzzz,xyyyyy,xyyyyz,xyyyzz,xyyzzz,xyzzzz,xzzzzz,yyyyyy,yyyyyz,yyyyzz,yyyzzz,yyzzzz,yzzzzz,zzzzzz
+    i_order = [12, 10, 8, 6, 4, 2, 0, 1, 3, 5, 7, 9, 11]
+    ni = 13
+
+    # compile the new_order for the whole matrix
+    new_order = []
     it = 0
     for i, a in enumerate(atom_symbols):
         key = f'{a.upper()}{i+1}'
+        #       s  p  d  f  g  h  i
+        n_bf = [0, 0, 0, 0, 0, 0, 0]
+
+        # count the shells for each angular momentun
         for shell in basis_dict[key]:
-            if shell[0] == 2:
-                for swap, swap_r in zip(swaps, swaps_r):
-                    s1 = [x + it for x in swap]
-                    s2 = [x + it for x in swap_r]
-                    matrix[s1, :] = matrix[s2, :]
-                    matrix[:, s1] = matrix[:, s2]
-            it += 2 * shell[0] + 1
+            n_bf[shell[0]] += 1
+        #print("n_bf for", key, n_bf)
+
+        if p_eq_s:
+            #print("p_eq_s", key)
+            s, p = n_bf[0:2]
+            #print("nbf s:", s, " p", p)
+            if s == p:
+                s_order = [4 * n for n in range(s)]
+                sp_order = s_order + [n for n in range(1, p * 3 + s) if (n) % 4 != 0]
+            elif p == 0:
+                s_order = [x for x in range(s)]
+                sp_order = s_order
+            else:
+                s_order = [0] + [1 + 4 * n for n in range(s - 1)]
+                sp_order = s_order + [n for n in range(2, p * 3 + s) if (n - 1) % 4 != 0]
+            #print("p_eq_s", sp_order, len(sp_order))
+            # offset new_order with iterator
+            new_order.extend([it + n for n in sp_order])
+        else:
+            s, p = n_bf[0:2]
+            new_order.extend([it + n for n in range(s + p * 3)])
+
+        it += s + p * 3
+
+        # do d shells
+        for x in range(n_bf[2]):
+            new_order.extend([it + n for n in d_order])
+            it += nd
+
+        # do f shells
+        for x in range(n_bf[3]):
+            new_order.extend([it + n for n in f_order])
+            it += nf
+        # do g shells
+        for x in range(n_bf[4]):
+            new_order.extend([it + n for n in g_order])
+            it += ng
+        
+        # do h shells
+        for x in range(n_bf[5]):
+            new_order.extend([it + n for n in h_order])
+            it += nh
+        
+        # do i shells
+        for x in range(n_bf[6]):
+            new_order.extend([it + n for n in i_order])
+            it += ni
+        
+        assert it == len(new_order)
+
+    return new_order
+
+
+
+
+def get_cart2sph_matrix(angular_m: int, n_ao: int, atom_symbols: list[str], basis_dict) -> np.ndarray:
+    from pyscf import gto
+    from scipy.linalg import block_diag
+    assert angular_m in [2, 3]
+    # c_tensor defaults to identity matrix
+    cart2sph_l = gto.cart2sph(angular_m, c_tensor=None, normalized='sp')
+    n_cart, n_sph = cart2sph_l.shape
+    #  assert n_cart == n_sph
+
+    # construct full transformation matrix
+    blocks = []
+    #  it = 0
+    for i, a in enumerate(atom_symbols):
+        key = f'{a.upper()}{i+1}'
+
+        for shell in basis_dict[key]:
+            # get start indices for transformation points
+            if shell[0] == angular_m:
+                blocks.append(cart2sph_l)
+            else:
+                n = 2 * shell[0] + 1
+                blocks.append(np.eye(n, dtype=float))
+    return block_diag(*blocks)
+
+    # increment iterator accordingly assuming just the specified angular momentum is cartesian
+    #  it += 2 * shell[0] + 1
+    #  if angular_m == 2:
+    #  it += 1
+    #  if angular_m == 3:
+    #  it += 3
 
 
 def euclidean_distance_einsum(X, Y):
@@ -409,14 +626,15 @@ def euclidean_distance_einsum(X, Y):
     Parameters
     ----------
     X : array, (n_samples x d_dimensions)
-    Y : array, (m_samples x d_dimensions)
+    Y : array, (n_samples x d_dimensions)
 
     Returns
     -------
-    D : array, (n_samples, m_samples)
+    D : array, (n_samples, n_samples)
     """
-    XX = np.einsum('ij,j-> i', X, X)[:, np.newaxis]
-    YY = np.einsum('ij,j-> i', Y, Y)
+    XX = np.einsum('ij,ij-> i', X, X)[:, np.newaxis]
+    YY = np.einsum('ij,ij-> i', Y, Y)
+    #    XY = 2 * np.einsum('ij,kj->ik', X, Y)
     XY = 2 * np.dot(X, Y.T)
     return np.sqrt(XX + YY - XY)
 
@@ -427,12 +645,11 @@ class ATOM:
     qm: bool
     symbol: str
     xyz: list[float, float, float]
-    type: int
     bonds: set[int]
 
     def __str__(self):
-        return '{: >5}  {: <4}  {: <16.12f} {: <16.12f} {: <16.12f} {:>4}  {}'.format(
-            self.id + 1, self.symbol, *self.xyz, self.type, ' '.join(map(lambda x: str(x + 1), sorted(self.bonds)))
+        return '{: >5}  {: <4}  {: <16.12f} {: <16.12f} {: <16.12f}  {}'.format(
+            self.id + 1, self.symbol, *self.xyz, ' '.join(map(lambda x: str(x + 1), sorted(self.bonds)))
         )
 
     def __gt__(self, other):

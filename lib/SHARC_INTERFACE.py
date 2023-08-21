@@ -30,6 +30,7 @@ from datetime import date, datetime
 import math
 import sys
 import os
+import glob
 import re
 import shutil
 import ast
@@ -149,6 +150,10 @@ class INTERFACE(ABC):
         self.read_requests(os.path.join(pwd, QMinfilename))
         # setup internal state for the computation
         self.setup_run()
+
+        if PRINT or DEBUG:
+            #  pprint.pprint(self.QMin)
+            pass
         # perform the calculation and parse the output, do subsequent calculations with other tools
         if 'dry_run' in self._QMin and self._QMin['dry_run']:
             print(
@@ -227,7 +232,8 @@ class INTERFACE(ABC):
             'nooverlap': False,
             'always_orb_init': False,
             'always_guess': False,
-            'dry_run': False
+            'dry_run': False,
+            'resp_mk_radii': True  # use radii fo original Merz-Kollmann-Singh scheme for HCNOSP
         }
         integers = {
             'ncpu': 1,
@@ -236,14 +242,17 @@ class INTERFACE(ABC):
             'numocc': 0,            # NOTE: could be renamed to refer to wfoverlap
             'theodore_n': 0,
             'resp_layers': 4,
-            'resp_tdm_fit_order': 2
+            'resp_fit_order': 2
         }
-        floats = {'delay': 0.0, 'schedule_scaling': 0.9, 'wfthres': 0.99, 'resp_density': 1., 'resp_first_layer': 1.4}
+        floats = {'delay': 0.0, 'schedule_scaling': 0.9, 'wfthres': 0.99, 'resp_density': 10., 'resp_first_layer': 1.4}
         special = {
             'neglected_gradient': 'zero',
             'theodore_prop': ['Om', 'PRNTO', 'S_HE', 'Z_HE', 'RMSeh'],
             'theodore_fragment': [],
-            'resp_shells': False    # default calculated from other values = [1.4, 1.6, 1.8, 2.0]
+            'resp_shells': False,    # default calculated from other values = [1.4, 1.6, 1.8, 2.0]
+            'resp_vdw_radii_symbol': {},
+            'resp_vdw_radii': [],
+            'resp_betas': [0.0005, 0.0015, 0.003]
         }
         strings = {'resp_grid': 'lebedev'}
         lines = readfile(resources_filename)
@@ -296,6 +305,26 @@ class INTERFACE(ABC):
         # TODO: do only if RESP requested
         # construct shells
         shells, first, nlayers = map(QMin['resources'].get, ('resp_shells', 'resp_first_layer', 'resp_layers'))
+
+        # collect vdw radii for atoms from settings
+        if QMin['resources']['resp_vdw_radii']:
+            if len(QMin['resources']['resp_vdw_radii']) != len(QMin['elements']):
+                raise Error("specify 'resp_vdw_radii' for all atoms!")
+        else:
+            # populate vdW radii
+            for e in QMin['elements']:
+                if e not in QMin['resources']['resp_vdw_radii_symbol']:
+                    if QMin['resources']['resp_mk_radii'] and e in MK_RADII:
+                        # use MK Radii for HCNOSP
+                        QMin['resources']['resp_vdw_radii_symbol'][e] = MK_RADII[e]
+                    else:
+                        QMin['resources']['resp_vdw_radii_symbol'][e] = ATOMIC_RADII[e]
+            QMin['resources']['resp_vdw_radii'] = [QMin['resources']['resp_vdw_radii_symbol'][s] for s in QMin['elements']]
+        if QMin['resources']['resp_betas']:
+            if len(QMin['resources']['resp_betas']) != QMin['resources']['resp_fit_order'] + 1:
+                raise Error(f"specify one beta parameter for each multipole order (order + 1)!\n needed {QMin['resources']['resp_fit_order']+1:d}", 35)
+            print("using non-default beta parameters for resp fit", QMin['resources']['resp_betas'])
+
         if not shells:
             if DEBUG:
                 print(f"Calculating resp layers as: {first} + 4/sqrt({nlayers})")
@@ -307,7 +336,11 @@ class INTERFACE(ABC):
                 35
             )
 
+        QMin['resources']['scratchdir'] = os.path.expandvars(os.path.expanduser(QMin['resources']['scratchdir']))
+
         self._QMin = {**QMin['resources'], **QMin}
+        if DEBUG:
+            pprint.pprint(QMin)
         return
         # ============================ Implemented public methods ========================
 
@@ -335,6 +368,7 @@ class INTERFACE(ABC):
             llist = line.split(None, 1)
             key = llist[0].lower()
             if key == 'states':
+                # also does update nmstates, nstates, statemap
                 QMin.update(self.parseStates(llist[1]))
             elif key == 'unit':
                 self.set_unit(llist[1].strip().lower())
@@ -385,6 +419,7 @@ class INTERFACE(ABC):
         for i in range(len(res['states'])):
             nstates += res['states'][i]
             nmstates += res['states'][i] * (i + 1)
+        res['statemap'] = {i + 1: [*v] for i, v in enumerate(itnmstates(res['states']))}
         res['nstates'] = nstates
         res['nmstates'] = nmstates
         return res
@@ -785,7 +820,7 @@ class INTERFACE(ABC):
         QMin = self._QMin
         template_parser = KeywordParser(len(QMin['states']), QMin['Atomcharge'])
         # prepare dict with parsers for every value type
-        bool_parser = {k: lambda x: True for k in bools}
+        bool_parser = {k: lambda x: template_parser.bool(x) for k in bools}
         string_parser = {k: lambda x: x for k in strings}
         path_parser = {k: lambda x: template_parser.path(x) for k in paths}
         integer_parser = {k: lambda x: int(float(x)) for k in integers}
@@ -901,6 +936,8 @@ class INTERFACE(ABC):
         QMin['jobgrad'] = jobgrad
 
         schedule = []
+        if 'schedule' in QMin:
+            del QMin['schedule']
         QMin['nslots_pool'] = []
 
         # add the master calculations
@@ -1378,6 +1415,7 @@ class INTERFACE(ABC):
 
     @staticmethod
     def runWFOVERLAP(WORKDIR, WFOVERLAP, memory=100, ncpu=1):
+        WORKDIR = os.path.abspath(os.path.expandvars(WORKDIR))
         prevdir = os.getcwd()
         os.chdir(WORKDIR)
         string = WFOVERLAP + ' -m %i' % (memory) + ' -f wfovl.inp'
@@ -1612,9 +1650,6 @@ class INTERFACE(ABC):
                     string += '. '
             string += '\n'
             print(string)
-
-        print('State map:')
-        pprint.pprint(QMin['statemap'])
 
         for i in sorted(QMin):
             if not any(
@@ -1950,10 +1985,7 @@ class INTERFACE(ABC):
 
         QMin = self._QMin
         QMout = self._QMout
-        states = QMin['states']
-        nstates = QMin['nstates']
         nmstates = QMin['nmstates']
-        natom = QMin['natom']
         string = ''
         string += '! %i Angular Momentum Matrices (3x%ix%i, complex)\n' % (9, nmstates, nmstates)
         for xyz in range(3):
@@ -1987,7 +2019,6 @@ class INTERFACE(ABC):
         QMin = self._QMin
         QMout = self._QMout
         states = QMin['states']
-        nstates = QMin['nstates']
         nmstates = QMin['nmstates']
         natom = QMin['natom']
         string = ''
@@ -2021,10 +2052,7 @@ class INTERFACE(ABC):
 
         QMin = self._QMin
         QMout = self._QMout
-        states = QMin['states']
-        nstates = QMin['nstates']
         nmstates = QMin['nmstates']
-        natom = QMin['natom']
         string = ''
         string += '! %i Non-adiabatic couplings (ddt) (%ix%i, complex)\n' % (4, nmstates, nmstates)
         string += '%i %i\n' % (nmstates, nmstates)
@@ -2061,7 +2089,6 @@ class INTERFACE(ABC):
         QMin = self._QMin
         QMout = self._QMout
         states = QMin['states']
-        nstates = QMin['nstates']
         nmstates = QMin['nmstates']
         natom = QMin['natom']
         string = ''
@@ -2101,10 +2128,7 @@ class INTERFACE(ABC):
 
         QMin = self._QMin
         QMout = self._QMout
-        states = QMin['states']
-        nstates = QMin['nstates']
         nmstates = QMin['nmstates']
-        natom = QMin['natom']
         string = ''
         string += '! %i Overlap matrix (%ix%i, complex)\n' % (6, nmstates, nmstates)
         string += '%i %i\n' % (nmstates, nmstates)
@@ -2154,10 +2178,7 @@ class INTERFACE(ABC):
 
         QMin = self._QMin
         QMout = self._QMout
-        states = QMin['states']
-        nstates = QMin['nstates']
         nmstates = QMin['nmstates']
-        natom = QMin['natom']
         string = ''
         string += '! %i Property Matrix (%ix%i, complex)\n' % (11, nmstates, nmstates)
         string += '%i %i\n' % (nmstates, nmstates)
@@ -2196,7 +2217,7 @@ class INTERFACE(ABC):
         nmstates = QMin['nmstates']
         nprop = QMin['resources']['theodore_n']
         if QMin['template']['qmmm']:
-            nprop += len(QMin['qmmm']['MMEnergy_terms'])
+            nprop += len(QMout['qmmm']['MMEnergy_terms'])
         if nprop <= 0:
             return '\n'
 
@@ -2216,7 +2237,7 @@ class INTERFACE(ABC):
                     descriptors.append('Om_{%i,%i}' % (i + 1, j + 1))
                     string += descriptors[-1] + '\n'
         if QMin['template']['qmmm']:
-            for label in sorted(QMin['qmmm']['MMEnergy_terms']):
+            for label in sorted(QMout['qmmm']['MMEnergy_terms']):
                 descriptors.append(label)
                 string += label + '\n'
 
@@ -2227,10 +2248,10 @@ class INTERFACE(ABC):
                 for j in range(nmstates):
                     string += '%s\n' % (eformat(QMout['theodore'][j][i].real, 12, 3))
         if QMin['template']['qmmm']:
-            for label in sorted(QMin['qmmm']['MMEnergy_terms']):
+            for label in sorted(QMout['qmmm']['MMEnergy_terms']):
                 string += '! QM/MM energy contribution (%s)\n' % (label)
                 for j in range(nmstates):
-                    string += '%s\n' % (eformat(QMin['qmmm']['MMEnergy_terms'][label], 12, 3))
+                    string += '%s\n' % (eformat(QMout['qmmm']['MMEnergy_terms'][label], 12, 3))
         string += '\n'
 
         return string
@@ -2249,7 +2270,7 @@ class INTERFACE(ABC):
     def writeQMoutmultipolarfit(self):
         '''Generates a string with the fitted RESP charges for each pair of states specified.
 
-        The string starts with a ! followed by a flag specifying the type of data.
+        The string starts with a! followed by a flag specifying the type of data.
         Each line starts with the atom number (starting at 1), state i and state j.
         If i ==j: fit for single state, else fit for transition multipoles.
         One line per atom and a blank line at the end.
@@ -2263,7 +2284,13 @@ class INTERFACE(ABC):
         nmstates = QMin['nmstates']
         natom = QMin['natom']
         fits = QMout['multipolar_fit']
-        string = f'! 22 Atomwise multipolar density representation fits for states ({nmstates}x{nmstates}x{natom}x10)\n'
+        resp_layers = QMin['resp_layers']
+        resp_density = QMin['resp_density']
+        resp_flayer = QMin['resp_first_layer']
+        resp_order = QMin['resp_fit_order']
+        resp_grid = QMin['resp_grid']
+        setting_str = f' settings [order grid firstlayer density layers] {resp_order} {resp_grid} {resp_flayer} {resp_density} {resp_layers}'
+        string = f'! 22 Atomwise multipolar density representation fits for states ({nmstates}x{nmstates}x{natom}x10) {setting_str}\n'
 
         for i, (imult, istate, ims) in zip(range(nmstates), itnmstates(states)):
             for j, (jmult, jstate, jms) in zip(range(nmstates), itnmstates(states)):
@@ -2297,12 +2324,8 @@ class INTERFACE(ABC):
         1 string: multiline string with the Gradient vectors'''
         QMin = self._QMin
         QMout = self._QMout
-        ncharges = len(readfile(os.path.join(QMin['scratchdir'], 'JOB', 'pc_grad'))) - 2
         states = QMin['states']
-        nstates = QMin['nstates']
-        nmstates = QMin['nmstates']
         natom = len(QMout['pcgrad'][0])
-        print(QMout['pcgrad'][1])
         string = ''
         print(natom)
         # string+='! %i Gradient Vectors (%ix%ix3, real)\n' % (3,nmstates,natom)
@@ -2336,3 +2359,16 @@ class INTERFACE(ABC):
             ff = os.path.join(QMin['savedir'], 'MOLDEN', 'step_%s.molden' % (QMin['step']))
             fdest = os.path.join(backupdir, 'step_%s.molden' % (QMin['step']))
             shutil.copy(ff, fdest)
+
+    def remove_old_restart_files(self, retain=5):
+        savedir = self._QMin['savedir']
+        step = self._QMin['step']
+        if step - retain < 1:
+            return
+        
+        pattern = os.path.join(savedir, "*." + str(step - retain))
+        for file in glob.glob(pattern):
+            os.remove(file)
+
+            
+

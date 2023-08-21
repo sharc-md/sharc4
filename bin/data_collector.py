@@ -32,32 +32,14 @@ import math
 import sys
 import re
 import os
-import stat
 import shutil
-import subprocess as sp
 import datetime
-#import random
-from optparse import OptionParser
+# import random
 import readline
-import time
-import colorsys
-import pprint
-
-
-try:
-    import numpy
-    NONUMPY = False
-except ImportError:
-    NONUMPY = True
 
 # =========================================================0
 # some constants
 DEBUG = False
-CM_TO_HARTREE = 1. / 219474.6  # 4.556335252e-6 # conversion factor from cm-1 to Hartree
-HARTREE_TO_EV = 27.211396132    # conversion factor from Hartree to eV
-U_TO_AMU = 1. / 5.4857990943e-4            # conversion from g/mol to amu
-BOHR_TO_ANG = 0.529177211
-AU_TO_FS = 0.024188843
 PI = math.pi
 
 version = '2.1'
@@ -524,16 +506,6 @@ class histogram:
             s += '%f ' % (i)
         return s
 
-# ======================================================================= #         OK
-
-
-def containsstring(string, line):
-
-    a = re.search(string, line)
-    if a:
-        return True
-    else:
-        return False
 
 # ======================================================================================================================
 # ======================================================================================================================
@@ -624,57 +596,43 @@ def get_general():
                     allfiles[line] += 1
                 else:
                     allfiles[line] = 1
-    exclude = ['QM/AMS-ADF\\.template',
-               'QM/AMS-ADF\\.resources',
-               'QM/Analytical\\.template',
-               'QM/COLUMBUS\\.resources',
-               'QM/GAUSSIAN\\.template',
-               'QM/GAUSSIAN\\.resources',
-               'QM/LCV\\.template',
-               'QM/MOLPRO\\.template',
-               'QM/MOLPRO\\.resources',
-               'QM/MOLCAS\\.template',
-               'QM/MOLCAS\\.resources',
-               'QM/RICC2\\.template',
-               'QM/RICC2\\.resources',
-               'QM/ORCA\\.template',
-               'QM/ORCA\\.resources',
-               'QM/BAGEL\\.template',
-               'QM/BAGEL\\.resources',
-               'QM/.*init',
+    exclude = ['template',
+               'resources',
                'QM/.*qmmm.*',
-               'QM/SCRATCH',
-               'QM/SAVE',
-               'QM/runQM\\.sh',
-               'QM/QM\\.in',
-               'QM/QM\\.out',
-               'QM/QM\\.log',
-               'QM/QM\\.err',
-               '\\./output\\.dat',
-               '\\./output\\.dat\\.nc',
-               '\\./output\\.log',
-               '\\./output\\.xyz',
-               '\\./output\\.dat\\.ext',
-               '\\./input',
-               '\\./geom',
-               '\\./veloc',
-               '\\./coeff',
-               '\\./atommask',
-               '\\./laser',
-               '\\./restart\\.traj',
-               '\\./restart\\.ctrl',
-               '\\./run\\.sh',
-               'restart/.*',
-               '\\./.*init',
-               '\\./STOP',
-               '\\./CRASHED',
-               '\\./RUNNING',
-               '\\./DONT_ANALYZE'
+               'SCRATCH',
+               'SAVE',
+               'runQM.sh',
+               'QM.in',
+               'QM.out',
+               'QM.log',
+               'QM.err',
+               'output.dat',
+               'output.dat.nc',
+               'output.log',
+               'output.xyz',
+               'output.dat.ext',
+               'input',
+               'geom',
+               'veloc',
+               'coeff',
+               'atommask',
+               'laser',
+               'run.sh',
+               'restart',
+               '.*init',
+               'STOP',
+               'CRASHED',
+               'RUNNING',
+               'DONT_ANALYZE',
+               'QMMM',
+               'table'
+               'driver',
+               'rattle',
+               'MMS',
+               'MML'
                ]
-    allfiles2 = {}
-    for line in allfiles:
-        if allfiles[line] >= 2 and not any([containsstring(i, line) for i in exclude]):
-            allfiles2[line] = allfiles[line]
+    allfiles2 = dict(filter(lambda kv: kv[1] >= 2 and not any([i in kv[0] for i in exclude]), allfiles.items()))
+
     print('\nList of files common to the trajectory directories:\n')
     print('%6s %20s   %s' % ('Index', 'Number of appearance', 'Relative file path'))
     print('-' * 58)
@@ -1444,7 +1402,7 @@ def do_t_convolution(INFOS, data3):
         d = []
         for ix1, x1 in enumerate(data3['xvalues']):
             d.append([allspec[ix1][i].spec[it1] for i in range(ny)])
-            #d.append( [allspec[ix1][i].spec[it1]/normspec.spec[it1] for i in range(ny)] )
+            # d.append( [allspec[ix1][i].spec[it1]/normspec.spec[it1] for i in range(ny)] )
         data4.append(d)
     # make type3 dictionary:
     data5 = {}
@@ -1718,20 +1676,15 @@ def readType1(strings):
     # if len(s)<1:
     # continue
     # key=s[1]
-    #values=tuple( [ float(i) for i in s[2:] ] )
+    # values=tuple( [ float(i) for i in s[2:] ] )
     # if not key in data1:
     # data1[key]=[]
     # data1[key].append(values)
     # for key in data:
-    #data1[key].sort(key=lambda x: x[0])
+    # data1[key].sort(key=lambda x: x[0])
     # return data1
 
 # ======================================================================================================================
-
-
-def readType3(strings):
-    print('Type2 cannot be read currently!')
-    sys.exit(1)
 
 # ======================================================================================================================
 
@@ -1754,7 +1707,6 @@ python data_collector.py
 This interactive program reads table information from SHARC trajectories.
 '''
 
-    description = ''
     displaywelcome()
     open_keystrokes()
 

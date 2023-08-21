@@ -50,7 +50,7 @@ Date: 20.07.2021
 
     def charge(self, args: str) -> list[int]:
         alist = args.split()
-        if len(alist) < self.nmult:
+        if len(alist) == 0:
             raise Error('specify charge for each multiplicity!')
         res = []
         try:
@@ -58,7 +58,7 @@ Date: 20.07.2021
         except (ValueError, IndexError):
             raise Error('Keyword "charge" only accepts integers (i.e charge -1)')
         if len(res) == 1:
-            charge = int(float(alist[1]))
+            charge = int(float(alist[0]))
             if (self.atomcharge + charge) % 2 == 1 and self.nmult > 1:
                 print('HINT: Charge shifted by -1 to be compatible with multiplicities.')
                 charge -= 1
@@ -105,6 +105,17 @@ Date: 20.07.2021
             return [int(alist[0]), int(alist[0])]
         else:
             return [int(alist[0]), int(alist[1])]
+    def bool(args):
+        value = args.split(None, 1)
+        if len(value) == 0:
+            return True
+        elif value[0].lower() == "true":
+            return True
+        elif value[0].lower() == "false":
+            return False
+        else:
+            raise Error("boolean argument must be either 'True' or 'False' or no argument", 72)
+
 
     @staticmethod
     def basis_per_element(args: str) -> dict:
@@ -175,11 +186,44 @@ Date: 20.07.2021
     def qmmm_table(args: str) -> list[list]:
         path = os.path.abspath(os.path.expanduser(os.path.expanduser(args)))
         if os.path.isfile(path):
+            res = []
             with open(path, 'r') as f:
-                return [[*x[0:2]] + [int(x[2])] + [int(y) - 1 for y in x[3:]] for x in map(lambda x: x.split(), f)]
+                test = f.readline().split()
+                if len(test) != 2:
+                    print("Warning: You might use an old QMMM.table file!\nnew format <qm/mm> <symbol> <bond1> <bond2>...")
+                res.append([test[0], test[1], *map(lambda x: int(x) - 1, test[2:])])
+                res.extend([[*x[0:2]] + [int(y) - 1 for y in x[2:]] for x in map(lambda x: x.split(), f)])
+            return res
         else:
             raise Error(f'File {path} does not exist!', 1)
-    
+
     @staticmethod
     def resp_shells(args: str) -> list[int]:
         return ast.literal_eval(args)
+
+    @staticmethod
+    def resp_vdw_radii_symbol(args: str) -> dict[str, float]:
+        res = {}
+        if args[0] == '[':
+            lst = [x.split() for x in ast.literal_eval(args)]
+            res = {x[0]: float(x[1]) for x in lst}
+        else:
+            lst = args.split()
+            res = {lst[i]: float(lst[i + 1]) for i in range(0, len(lst), 2)}
+        return res
+
+    @staticmethod
+    def resp_vdw_radii(args: str) -> list[float]:
+        if args[0] == '[':
+            res = ast.literal_eval(args)
+        else:
+            res = args.split()
+        return [float(x) for x in res]
+
+    @staticmethod
+    def resp_betas(args: str) -> list[float]:
+        if args[0] == '[':
+            res = ast.literal_eval(args)
+        else:
+            res = args.split()
+        return [float(x) for x in res]
