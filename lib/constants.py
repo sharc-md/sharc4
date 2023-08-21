@@ -12,6 +12,8 @@ U_TO_AMU = 1. / 5.4857990943e-4
 BOHR_TO_ANG = 0.529177211
 kJpermol_to_Eh = kj2Eh = 2625.4996394799    # kJ/mol -> Hartree
 
+# TODO: go higher (see old ORCA interface)
+# TODO: use some list comprehension to get the reversed half of the dictionary
 IToMult = {
     1: 'Singlet',
     2: 'Doublet',
@@ -31,7 +33,8 @@ IToMult = {
     'Octet': 8
 }
 
-# hash table for conversion of polarisations to the keywords used in COLUMBUS
+# hash table for conversion of polarisations to the keywords
+# TODO: use some list comprehension to get the reversed half of the dictionary
 IToPol = {0: 'X', 1: 'Y', 2: 'Z', 'X': 0, 'Y': 1, 'Z': 2}
 
 NUMBERS = {
@@ -276,6 +279,7 @@ FROZENS = {
     'Ts': 50,
     'Og': 50
 }
+# This could be automatically obtained as inversion of NUMBERS
 IAn2AName = {
     1: "H",
     2: "He",
@@ -519,6 +523,7 @@ MASSES = {
     'Og': 294. * U_TO_AMU
 }
 
+# TODO: please add reference
 ATOMIC_RADII = {
     'H': 1.20,
     'He': 1.40,
@@ -760,6 +765,9 @@ ISOTOPES = {'H': 'H-1',
             'Og': 'Og-294'
             }
 
+# TODO: This is Turbomole-specific
+# it is only present because Turbomole requires a certain capitalization of the basis sets
+# and this list/set can be used to restore it if the user is capitalizating wrongly
 BASISSETS = [
     'SV', 'SVP', 'SV(P)', 'def-SVP', 'def2-SVP', 'dhf-SVP', 'dhf-SVP-2c', 'def-SV(P)', 'def2-SV(P)', 'dhf-SV(P)',
     'dhf-SV(P)-2c', 'DZ', 'DZP', 'TZ', 'TZP', 'TZV', 'TZVP', 'def-TZVP', 'TZVE', 'TZVEP', 'TZVPP', 'def-TZVPP',

@@ -174,7 +174,7 @@ def save_data(scratchdir, savedir):
         tofile = os.path.join(savedir, i)
         shutil.copy(fromfile, tofile)
 
-
+# TODO: This is COLUMBUS-specific. Copying initial orbitals in general is specific.
 def getmo(mofile, scratchdir):
     if os.path.exists(mofile):
         tofile = os.path.join(scratchdir, 'JOB', 'mos')
@@ -453,6 +453,7 @@ def get_rot(theta: float, axis: int) -> np.ndarray:
     """
     if axis not in {0, 1, 2}:
         raise ValueError('axis not in {0,1,2}!')
+        # NOTE: https://en.wikipedia.org/wiki/Rotation_matrix#Rotation_matrix_from_axis_and_angle
     rad = np.radians(theta)
     c, s = np.cos(rad), np.sin(rad)
     R = np.zeros((3, 3))
