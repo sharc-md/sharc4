@@ -41,8 +41,7 @@ USE_LIBS := mkl
 COMP_STATIC := false
 
 #needed for PYSHARC
-ANACONDA := 
-#ANACONDA := ${CONDA_PREFIX}
+ANACONDA := ${CONDA_PREFIX}
 # =======================================
 
 
@@ -260,7 +259,7 @@ sharcvars:
 	@echo 'export SHARCLIB=$(SHARCDIR)/lib' >> sharcvars.sh
 	@echo 'export ANACONDA=$(ANACONDA)' >> sharcvars.sh
 	@echo 'export PYTHONPATH=$$SHARCLIB:$$PYSHARC:$$PYTHONPATH' >> sharcvars.sh
-	@echo 'export LD_LIBRARY_PATH=$$SHARCLIB:$$ANACONDA/lib:$$LD_LIBRARY_PATH' >> sharcvars.sh
+	@echo 'export LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$$SHARCLIB:$$ANACONDA/lib' >> sharcvars.sh
 	@echo 'setenv SHARC=$(SHARCDIR)/bin' > sharcvars.csh
 	@echo 'setenv PYSHARC=$(SHARCDIR)/pysharc' >> sharcvars.csh
 	@echo 'setenv SHARCLIB=$(SHARCDIR)/lib' >> sharcvars.csh
@@ -272,7 +271,7 @@ sharcvars:
 	@echo 'export SHARC=$(SHARCDIR)/bin' > sharcvars.sh
 	@echo 'export SHARCLIB=$(SHARCDIR)/lib' >> sharcvars.sh
 	@echo 'export PYTHONPATH=$$SHARCLIB:$$PYTHONPATH' >> sharcvars.sh
-	@echo 'export LD_LIBRARY_PATH=$$SHARCLIB:$$LD_LIBRARY_PATH' >> sharcvars.sh
+	@echo 'export LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$$SHARCLIB:$$ANACONDA/lib' >> sharcvars.sh
 	@echo 'setenv SHARC=$(SHARCDIR)/bin' > sharcvars.csh
 	@echo 'setenv SHARCLIB=$(SHARCDIR)/lib' >> sharcvars.csh
 	@echo 'setenv PYTHONPATH=$$SHARCLIB:$$PYTHONPATH' >> sharcvars.csh
@@ -325,15 +324,15 @@ main.o: output.o qm.o restart.o misc.o electronic_laser.o input.o decoherence_af
 endif
 
 interface.o: electronic.o definitions.o definitions_NetCDF.o output.o qm.o restart.o misc.o electronic_laser.o input.o decoherence_afssh.o
-misc.o: definitions.o ziggurat.o
+misc.o: definitions.o
 output.o: $(TOOLS) build_info misc.o
-nuclear.o: $(TOOLS) ziggurat.o
+nuclear.o: $(TOOLS) ziggurat.o misc.o
 electronic.o: nuclear.o $(TOOLS) decoherence_afssh.o
 electronic_laser.o: electronic.o $(TOOLS)
 input.o: $(TOOLS) output.o restart.o misc.o restrictive_potential.o
 qm.o: $(TOOLS) electronic.o qm_out.o restart.o restrictive_potential.o
 qm_out.o: $(TOOLS)
-restart.o: $(TOOLS) misc.o decoherence_afssh.o
+restart.o: $(TOOLS) misc.o decoherence_afssh.o ziggurat.o
 decoherence_afssh.o: $(TOOLS) definitions.o
 restrictive_potential.o: $(TOOLS) definitions.o
 

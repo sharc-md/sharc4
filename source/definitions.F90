@@ -257,6 +257,7 @@ type ctrl_type
   integer :: dipolegrad                     !< 0=no, 1=include dipole gradients in gradient transformation
   integer :: thermostat                     !< 0=none, 1=Langevin thermostat
   logical :: restart_thermostat_random      !< F=no, T=yes (default) to use same random number sequence if restarted
+  logical :: remove_trans_rot               !< whether to remove the total translational and rotational components during thermostatting
   integer :: restrictive_potential          !< 0=none, 1=restricted droplet, 2=tethering of an atom, 3=restricted atom + tethering
 
   integer :: calc_soc                       !< request SOC, otherwise only the diagonal elements of H (plus any laser interactions) are taken into account\n 0=no soc, 1=soc enabled
@@ -310,11 +311,13 @@ type ctrl_type
   integer,allocatable :: tempregion(:)        !< array of thermostat region number for each atom
   real*8,allocatable :: temperature(:)        !< temperature(s) used for thermostat
   real*8,allocatable :: thermostat_const(:,:) !< constants needed for thermostat. Langevin: friction coeffitient
+  real*8,allocatable :: rotation_tot(:,:)     !< unit vectors for rotation of whole system (used to prevent such a rotation)
 
   ! restrictive potentials
   real*8 :: restricted_droplet_force        !< force constant for restricted droplet potential
   real*8 :: restricted_droplet_radius       !< radius of primary water sphere for restricted droplet potential
   real*8 :: tethering_force                 !< force constant for tethering of atom
+  real*8 :: tethering_radius                !< radius of beyond which tethering potential is not zero
   logical,allocatable :: sel_restricted_droplet(:)       !< selection mask for restricted droplet
   integer,allocatable :: tether_at(:)                    !< selection of indices for tethering of center of mass of these atoms
 endtype
@@ -373,7 +376,7 @@ integer, parameter :: u_qm_QMout=42          !< here SHARC retrieves the results
 
     subroutine allocate_traj(traj,ctrl)
       !< Allocates all arrays in traj
-      !< Does not allocate arrays in ctrl (laser-related, actstates_s, nstates_m)
+      !< Does not allocate arrays in ctrl (laser-related, actstates_s, nstates_m, ...)
       !< Reads natom and nstates from ctrl
       !< Initializes all elements of all arrays to -123, 'Q' or .true.
       implicit none
@@ -559,6 +562,7 @@ integer, parameter :: u_qm_QMout=42          !< here SHARC retrieves the results
       if (allocated(ctrl%tempregion))                 deallocate(ctrl%tempregion)
       if (allocated(ctrl%temperature))                deallocate(ctrl%temperature)
       if (allocated(ctrl%thermostat_const))           deallocate(ctrl%thermostat_const)
+      if (allocated(ctrl%rotation_tot))               deallocate(ctrl%rotation_tot)
       if (allocated(ctrl%sel_restricted_droplet))     deallocate(ctrl%sel_restricted_droplet)
       if (allocated(ctrl%tether_at))                  deallocate(ctrl%tether_at)
     endsubroutine

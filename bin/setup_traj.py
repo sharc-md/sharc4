@@ -847,7 +847,7 @@ from the initconds.excited files as provided by excite.py.
     print('\nFile %s contains %i initial conditions.' % (initfile, INFOS['ninit']))
     print('Number of atoms is %i' % (INFOS['natom']))
     INFOS['repr'] = initf.readline().split()[1]
-    if INFOS['repr'] == 'MCH':
+    if INFOS['repr'].lower() == 'mch':
         INFOS['diag'] = False
     else:
         INFOS['diag'] = True

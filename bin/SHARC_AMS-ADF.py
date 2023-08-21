@@ -2156,6 +2156,7 @@ def generate_joblist(QMin):
             schedule[-1][i] = QMin1
 
     # add the gradient calculations
+    # TODO: this code is not executed
     ntasks = 0
     for i in gradjob:
         if 'grad' in i:

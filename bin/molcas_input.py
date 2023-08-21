@@ -576,7 +576,7 @@ Please enter the number corresponding to the type of calculation.
         for atom in geom:
             masslist.append([atom[0], MASSES[atom[0]]])
         # ask
-        #INFOS['nondefmass']=not question('Use standard masses (most common isotope)?',bool,True)
+        # INFOS['nondefmass']=not question('Use standard masses (most common isotope)?',bool,True)
         # if INFOS['nondefmass']:
             # INFOS['masslist']=ask_for_masses(masslist)
         # else:
@@ -874,7 +874,7 @@ MAXITER    = 120
         s += '\n&MCKINLEY\n'
         # s+='\n&MCLR\nMASS\n'
         # for iatom,atom in enumerate(INFOS['geom']):
-        #s+='%s%i = %f\n' % (atom[0],iatom+1,INFOS['masslist'][iatom][1])
+        # s+='%s%i = %f\n' % (atom[0],iatom+1,INFOS['masslist'][iatom][1])
 
 
     if INFOS['ctype'] == 1:
@@ -1003,6 +1003,7 @@ mkdir -p $WorkDir
             continue
         mult = imult + 1
         string += 'cp $HomeDir/%sOrbitals.RasOrb $WorkDir\n' % (IToMult[mult])
+    string += 'cd $Workdir'
 
     if os.path.isfile(os.path.join(INFOS['molcas'], 'bin', 'pymolcas')):
         string += '\n$MOLCAS/bin/pymolcas MOLCAS.input &> $CurrDir/MOLCAS.log\n\n'
@@ -1011,6 +1012,7 @@ mkdir -p $WorkDir
     else:
         print('Could not find MOLCAS driver in %s' % os.path.join(INFOS['molcas'], 'bin'))
         sys.exit(1)
+    string += 'cd $HomeDir'
 
     for imult, nstate in enumerate(INFOS['cas.nstates']):
         if nstate == 0:
