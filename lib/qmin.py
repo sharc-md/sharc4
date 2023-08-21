@@ -1,7 +1,4 @@
 import logging
-import os
-import re
-import sys
 from collections import UserDict
 
 from error import Error
