@@ -98,9 +98,20 @@ class SHARC_INTERFACE(ABC):
     _read_template = False
     _DEBUG = False
     _PRINT = True
+    _all_features = {'overlap': ['wfoverlap'],
+                     'theodore': ['theodore'],
+                     'phases': ['wfoverlap'],
+                     'soc': [],
+                     'nacdr': [],
+                     'phases': [],
+                     'dipolegrad': [],
+                     }
+
 
     # TODO: set Debug and Print flag
     # TODO: set persistant flag for file-io vs in-core
+
+
     def __init__(self, persistent=False):
         # all the output from the calculation will be stored here
         self.QMout = {}
@@ -131,8 +142,28 @@ class SHARC_INTERFACE(ABC):
         return "Abstract base class for SHARC interfaces."
 
     @abstractmethod
-    def changelogstring(self) -> str:
+    @staticmethod
+    def changelogstring() -> str:
         return "This is the changelog string"
+
+    @abstractmethod
+    @staticmethod
+    def about() -> str:
+        return "Name and description of the interface"
+
+    @abstractmethod
+    def get_features() -> list:
+        return ['feature1', 'feature2']
+
+    @abstractmethod
+    @staticmethod
+    def get_infos(INFOS) -> str:
+        return "This is the changelog string"
+
+    @abstractmethod
+    def prepare(self) -> str:
+        return "This is the changelog string"
+
 
     def main(self):
         """
@@ -238,7 +269,7 @@ class SHARC_INTERFACE(ABC):
                     "first line must contain the number of atoms!"
                 ) from error
             self.QMin.coords["coords"] = (
-                np.asarray([parse_xyz(x)[1] for x in lines[2 : natom + 2]], dtype=float)
+                np.asarray([parse_xyz(x)[1] for x in lines[2: natom + 2]], dtype=float)
                 * self.QMin.molecule["factor"]
             )
         elif isinstance(xyz, (list, np.ndarray)):
@@ -275,7 +306,7 @@ class SHARC_INTERFACE(ABC):
                 3,
             )
         self.QMin.molecule["elements"] = list(
-            map(lambda x: parse_xyz(x)[0], (qmin_lines[2 : natom + 2]))
+            map(lambda x: parse_xyz(x)[0], (qmin_lines[2: natom + 2]))
         )
         self.QMin.molecule["Atomcharge"] = sum(
             map(lambda x: ATOMCHARGE[x], self.QMin.molecule["elements"])
@@ -290,7 +321,7 @@ class SHARC_INTERFACE(ABC):
             lambda x: not re.match(r"^\s*$", x),
             map(
                 lambda x: re.sub(r"#.*$", "", x),
-                qmin_lines[self.QMin.molecule["natom"] + 2 :],
+                qmin_lines[self.QMin.molecule["natom"] + 2:],
             ),
         )
 
