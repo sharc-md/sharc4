@@ -1,5 +1,6 @@
 import os
 from collections import UserDict
+import numpy as np
 
 __all__ = ["QMin"]
 
@@ -39,7 +40,7 @@ class QMinMolecule(QMinBase):
             "states": None,
             "nstates": None,
             "nmstates": None,
-            "qmmm": False,
+            "point_charges": False,
             "npc": None,
             # Ab initio interfaces
             "Atomcharge": None,
@@ -55,7 +56,7 @@ class QMinMolecule(QMinBase):
             "states": list,
             "nstates": int,
             "nmstates": int,
-            "qmmm": bool,
+            "point_charges": bool,
             "npc": int,
             "Atomcharge": int,
             "frozcore": int,
@@ -70,7 +71,7 @@ class QMinCoords(QMinBase):
     def __init__(self):
         # Set data dictionary and dictionary of default types
         self.data = {"coords": None, "pccoords": None, "pccharce": None}
-        self.types = {"coords": list, "pccoords": list, "pccharce": list}
+        self.types = {"coords": (np.ndarray, list), "pccoords": list, "pccharce": list}
 
 
 class QMinSave(QMinBase):
@@ -87,7 +88,7 @@ class QMinSave(QMinBase):
             "init": False,
             "newstep": False,
             "samestep": False,
-            "restart": False,
+            #"restart": False,
             # Ab initio interfaces
             "always_guess": False,
             "always_orb_init": False,
@@ -100,7 +101,7 @@ class QMinSave(QMinBase):
             "init": bool,
             "newstep": bool,
             "samestep": bool,
-            "restart": bool,
+            #"restart": bool,
             "always_guess": bool,
             "always_orb_init": bool,
         }
