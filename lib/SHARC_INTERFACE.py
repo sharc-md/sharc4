@@ -582,7 +582,7 @@ class SHARC_INTERFACE(ABC):
             elif request[0].casefold() == "soc":
                 if sum(i > 0 for i in self.QMin.molecule["states"]) < 2:
                     logging.warning(
-                        "SOCs requestet but only 1 multiplicity given! Disable SOCs"
+                        "SOCs requested but only 1 multiplicity given! Disable SOCs"
                     )
                     return
                 self.QMin.requests["soc"] = True
