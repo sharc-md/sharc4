@@ -155,10 +155,10 @@ class SHARC_INTERFACE(ABC):
         if len(args) != 2:
             print(
                 "Usage:",
-                f"./SHARC_{self.name} <QMin>",
-                f"version: {self.version}",
-                f"date: {self.versiondate}",
-                f"changelog: {self.changelogstring}",
+                f"./SHARC_{self.name()} <QMin>",
+                f"version: {self.version()}",
+                f"date: {self.versiondate()}",
+                f"changelog: {self.changelogstring()}",
                 sep="\n",
             )
             sys.exit(106)
@@ -1086,12 +1086,12 @@ class SHARC_INTERFACE(ABC):
         lines = [
             f"  {rule}",
             "",
-            f"SHARC - {self.name} - Interface",
+            f"SHARC - {self.name()} - Interface",
             "",
-            f"Authors: {self.authors}",
+            f"Authors: {self.authors()}",
             "",
-            f"Version: {self.version}",
-            "Date: {:%d.%m.%Y}".format(self.versiondate),
+            f"Version: {self.version()}",
+            "Date: {:%d.%m.%Y}".format(self.versiondate()),
             "",
             f"  {rule}",
         ]
