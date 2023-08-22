@@ -106,23 +106,23 @@ class SHARC_INTERFACE(ABC):
     def versiondate(self) -> date:
         return date(2021, 7, 15)
 
-    @abstractmethod
     @staticmethod
+    @abstractmethod
     def name() -> str:
         return "base"
 
-    @abstractmethod
     @staticmethod
+    @abstractmethod
     def description() -> str:
         return "Abstract base class for SHARC interfaces."
 
-    @abstractmethod
     @staticmethod
+    @abstractmethod
     def changelogstring() -> str:
         return "This is the changelog string"
 
-    @abstractmethod
     @staticmethod
+    @abstractmethod
     def about() -> str:
         return "Name and description of the interface"
 
@@ -132,12 +132,12 @@ class SHARC_INTERFACE(ABC):
         return all_features
 
     @abstractmethod
-    def get_infos(self, INFOS: dict) -> INFOS:
+    def get_infos(self, INFOS: dict) -> dict:
         "prepare INFOS obj"
         return INFOS
 
     @abstractmethod
-    def prepare(self, INFOS):
+    def prepare(self, INFOS: dict):
         "setup the folders"
         return
 
@@ -1100,15 +1100,6 @@ class SHARC_INTERFACE(ABC):
         lines[1:-1] = map(lambda s: "||{:^76}||".format(s), lines[1:-1])
         print(*lines, sep="\n")
         print("\n")
-
-
-class SHARC_ABINITIO(SHARC_INTERFACE):
-    @abstractmethod
-    def create_restart_files(self):
-        pass
-
-    def read_resources(self):
-        super().read_resources()
 
 
 if __name__ == "__main__":
