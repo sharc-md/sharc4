@@ -1,18 +1,7 @@
-import logging
 import os
 from collections import UserDict
 
-from error import Error
-
 __all__ = ["QMin"]
-
-logging.basicConfig(
-    format="{levelname:<9s} [{filename}:{funcName}():{lineno}] {message}",
-    level=logging.INFO,
-    style="{",
-)
-logger = logging.getLogger(__name__)
-
 
 class QMinBase(UserDict):
     """
@@ -22,7 +11,7 @@ class QMinBase(UserDict):
     def __setitem__(self, key, value):
         # Check if new values has the correct type (if available)
         if key in self.types and not isinstance(value, self.types[key]):
-            raise Error(
+            raise TypeError(
                 f"{key} should be of type {self.types[key]} but is {type(value)}"
             )
         self.data[key] = value
@@ -137,8 +126,9 @@ class QMinRequests(QMinBase):
             "dmdr": False,
             "multipolar_fit": False,
             "theodore": False,
+            # Pseudorequests
             "cleanup": False,
-            "backup": False,
+            "backup": None,
             "molden": False,
             "savestuff": False,
             "nooverlap": False,
@@ -157,7 +147,7 @@ class QMinRequests(QMinBase):
             "multipolar_fit": bool,
             "theodore": bool,
             "cleanup": bool,
-            "backup": bool,
+            "backup": str,
             "molden": bool,
             "savestuff": bool,
             "nooverlap": bool,
@@ -185,7 +175,7 @@ class QMinMaps(QMinBase):
 
         self.types = {
             "statemap": dict,
-            # "mults": set,
+            "mults": set,
             "gsmap": dict,
             "gradmap": set,
             "nacmap": set,
@@ -209,45 +199,6 @@ class QMinResources(QMinBase):
             "ncpu": 1,
             "ngpu": None,
             "memory": 100,
-            # For ab initio interfaces with external code
-            "delay": 0,
-            "schedule_scaling": 0,
-            # Overlaps (for ab initio)
-            "wfoverlap": "",
-            "wfthres": None,
-            "numfrozcore": None,
-            "numocc": None,
-            # Theodore resources
-            "theodir": "",
-            "theodore_prop": None,
-            "theodore_fragment": None,
-            "theodore_n": 0,
-            # Resources for RESP
-            "resp_layers": None,
-            "resp_tdm_fit_order": None,
-            "resp_density": None,
-            "resp_first_layer": None,
-            "resp_shells": None,
-            "resp_grid": None,
-            # Paths to ab initio programs
-            "molprodir": None,
-            "molcasdir": None,
-            "orcadir": None,
-            "gaussiandir": None,
-            "turbomoledir": None,
-            "bageldir": None,
-            "columbusdir": None,
-            "amsdir": None,
-            "tinkerdir": None,
-            "openmmdir": None,
-            "cobrammdir": None,
-            # Interface specific
-            "molcas_driver": None,
-            "mpi_parallel": False,
-            "runc": None,
-            "scmlicense": None,
-            "scm_tmpdir": None,
-            "pyquante": None,
         }
         # TODO: lookup missing types
         self.types = {
@@ -257,39 +208,6 @@ class QMinResources(QMinBase):
             "ncpu": int,
             "ngpu": int,
             "memory": int,
-            "delay": float,
-            "schedule_scaling": float,
-            "wfoverlap": str,
-            "wfthres": float,
-            "numfrozcore": int,
-            "numocc": int,
-            "theodir": str,
-            "theodore_prop": list,
-            "theodore_fragment": list,
-            "theodore_n": int,
-            # "resp_layers": None,
-            # "resp_tdm_fit_order": None,
-            # "resp_density": None,
-            # "resp_first_layer": None,
-            # "resp_shells": None,
-            # "resp_grid": None,
-            "molprodir": str,
-            "molcasdir": str,
-            "orcadir": str,
-            "gaussiandir": str,
-            "turbomoledir": str,
-            "bageldir": str,
-            "columbusdir": str,
-            "amsdir": str,
-            "tinkerdir": str,
-            "openmmdir": str,
-            "cobrammdir": str,
-            "molcas_driver": str,
-            "mpi_parallel": bool,
-            "runc": str,
-            "scmlicense": str,
-            "scm_tmpdir": str,
-            "pyquante": str,
         }
 
 
@@ -303,17 +221,6 @@ class QMinTemplate(QMinBase):
         Just read anything from template file and process it in
         the interface?
         """
-        # self.data = {
-        #    "neglected_gradients": None,
-        #    "dipolelevel": None,
-        #    "template_file": None,
-        # }
-        #
-        # self.types = {
-        #    "neglected_gradients": str,
-        #    "dipolelevel": int,
-        #    "template_file": str,
-        # }
         self.data = {}
         self.types = {}
 
@@ -361,16 +268,6 @@ class QMinScheduling(QMinBase):
         self.types = {}
 
 
-class QMinBackwards(QMinBase):
-    """
-    Custom dictionary for the backwards section
-    """
-
-    def __init__(self):
-        self.data = {}
-        self.types = {}
-
-
 class QMin:
     """
     The QMin object carries all information relevant to the execution of a SHARC interface.
@@ -386,7 +283,6 @@ class QMin:
     template = QMinTemplate()
     scheduling = QMinScheduling()
     control = QMinControl()
-    backwards = QMinBackwards()
 
     def __getitem__(self, key):
         return getattr(self, key)
@@ -412,9 +308,7 @@ Template:
 Scheduling: 
 {self.scheduling}
 Control: 
-{self.control}
-Backwards: 
-{self.backwards}"""
+{self.control}"""
 
 
 if __name__ == "__main__":

@@ -237,12 +237,12 @@ class SHARC_INTERFACE(ABC):
                 raise ValueError(
                     "first line must contain the number of atoms!"
                 ) from error
-            self.coords["coords"] = (
+            self.QMin.coords["coords"] = (
                 np.asarray([parse_xyz(x)[1] for x in lines[2 : natom + 2]], dtype=float)
-                * self.molecule["factor"]
+                * self.QMin.molecule["factor"]
             )
         elif isinstance(xyz, (list, np.ndarray)):
-            self.coords["coords"] = np.asarray(xyz) * self.molecule["factor"]
+            self.QMin.coords["coords"] = np.asarray(xyz) * self.QMin.molecule["factor"]
         else:
             raise NotImplementedError(
                 "'set_coords' is only implemented for str, list[list[float]] or numpy.ndarray type"
@@ -290,7 +290,7 @@ class SHARC_INTERFACE(ABC):
             lambda x: not re.match(r"^\s*$", x),
             map(
                 lambda x: re.sub(r"#.*$", "", x),
-                qmin_lines[self.molecule["natom"] + 2 :],
+                qmin_lines[self.QMin.molecule["natom"] + 2 :],
             ),
         )
 
@@ -337,9 +337,7 @@ class SHARC_INTERFACE(ABC):
         try:
             res["states"] = list(map(int, states.split()))
         except (ValueError, IndexError):
-            raise ValueError(
-                'Keyword "states" has to be followed by integers!', 37
-            )
+            raise ValueError('Keyword "states" has to be followed by integers!', 37)
         reduc = 0
         for i in reversed(res["states"]):
             if i == 0:
@@ -360,12 +358,11 @@ class SHARC_INTERFACE(ABC):
         self.QMin.molecule["nmstates"] = nmstates
         self.QMin.molecule["states"] = res["states"]
 
-
     @abstractmethod
     def read_resources(self, resources_file: str) -> None:
         """
         Reads a resource file and assigns parameters to
-        self.resources. Parameters are only checked by type (if available),
+        self.QMin.resources. Parameters are only checked by type (if available),
         sanity checks need to be done in specific interface. If multiple entries
         of a parameter with one value are in the file, the latest value will be saved.
 
@@ -412,7 +409,9 @@ class SHARC_INTERFACE(ABC):
                         if param[0] == "savedir":
                             if not self._setsave:
                                 self.QMin.save["savedir"] = param[1]
-                                logging.debug("SAVEDIR set to %s", self.QMin.save["savedir"])
+                                logging.debug(
+                                    "SAVEDIR set to %s", self.QMin.save["savedir"]
+                                )
                             else:
                                 logging.info(
                                     "SAVEDIR is already set and will not be overwritten!"
@@ -420,9 +419,9 @@ class SHARC_INTERFACE(ABC):
                             continue
                         # Cast to correct type if available
                         if param[0] in self.QMin.resources.keys():
-                            self.QMin.resources[param[0]] = self.QMin.resources.types[param[0]](
-                                param[1]
-                            )
+                            self.QMin.resources[param[0]] = self.QMin.resources.types[
+                                param[0]
+                            ](param[1])
                         else:
                             self.QMin.resources[param[0]] = param[1]
                     else:
@@ -546,7 +545,7 @@ class SHARC_INTERFACE(ABC):
             raise Error(
                 f'Determined last step ({last_step}) from savedir and specified step ({self.QMin.save["step"]}) do not fit!\nPrepare your savedir and "STEP" file accordingly before starting again or choose "step -1" if you want to proceed from last successful step!'
             )
-        
+
     def _set_requests(self, request: list) -> None:
         """
         Setup requests and do basic sanity checks
@@ -580,7 +579,31 @@ class SHARC_INTERFACE(ABC):
         else:
             self.QMin.save[request[0].casefold()] = True
 
+    def _request_logic(self) -> None:
+        """
+        Checks for conflicting options, generates requested maps
+        and sets path variables according to requests
+        """
+        logging.debug("Starting request logic")
 
+        if not os.path.exists(self.QMin.save["savedir"]):
+            logging.debug("Creating savedir %s", self.QMin.save["savedir"])
+            os.mkdir(self.QMin.save["savedir"])
+
+        if self.QMin.requests["phases"] and not self.QMin.requests["overlap"]:
+            logging.info("Found phases in requests, set overlap to true")
+            self.QMin.requests["overlap"] = True
+
+        if (
+            self.QMin.requests["ion"] or self.QMin.requests["overlap"]
+        ) and self.__class__.__name__ != "LVC":
+            assert os.path.isfile(
+                self.QMin.resources["wfoverlap"]
+            ), "Missing path to wfoverlap.x in resources file!"
+
+        assert not (
+            self.QMin.requests["overlap"] and self.QMin.save["init"]
+        ), '"overlap" and "phases" cannot be calculated in the first timestep! Delete either "overlap" or "init"'
 
     @abstractmethod
     def write_step_file(self):
