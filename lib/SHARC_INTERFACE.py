@@ -65,6 +65,7 @@ class CustomFormatter(logging.Formatter):
     err_fmt = "ERROR: %(msg)s"
     dbg_fmt = "DEBUG: %(msg)s"
     info_fmt = "%(msg)s"
+    warn_fmt = "WARNING: %(msg)s"
 
     def format(self, record):
         # Replace the original format with one customized by logging level
@@ -76,6 +77,9 @@ class CustomFormatter(logging.Formatter):
 
         elif record.levelno == logging.ERROR:
             self._fmt = CustomFormatter.err_fmt
+        
+        elif record.levelno == logging.WARNING:
+            self._fmt = CustomFormatter.warn_fmt
 
         # Call the original formatter class to do the grunt work
         formatter = logging.Formatter(self._fmt)
