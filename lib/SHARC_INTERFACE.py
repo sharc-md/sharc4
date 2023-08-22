@@ -359,7 +359,7 @@ class SHARC_INTERFACE(ABC):
         self.QMin.molecule["states"] = res["states"]
 
     @abstractmethod
-    def read_resources(self, resources_file: str) -> None:
+    def read_resources(self, resources_file: str, kw_whitelist: list = []) -> None:
         """
         Reads a resource file and assigns parameters to
         self.QMin.resources. Parameters are only checked by type (if available),
@@ -367,6 +367,9 @@ class SHARC_INTERFACE(ABC):
         of a parameter with one value are in the file, the latest value will be saved.
 
         resources_file: Path to resource file.
+        kw_whitelist:   Whitelist for keywords (with multiple values) that do not get
+                        overwritten when keyword multiple times in resources_file,
+                        instead the list will be extended
         """
         logging.debug("Reading resource file %s", resources_file)
 
@@ -382,12 +385,10 @@ class SHARC_INTERFACE(ABC):
             )
 
         # Set ncpu from env variables, gets overwritten if in resources
-        priority_order=['SLURM_NTASKS_PER_NODE', ' NSLOTS']
+        priority_order = ["SLURM_NTASKS_PER_NODE", " NSLOTS"]
         for pr in priority_order:
             if pr in os.environ:
-                self.QMin.resources["ncpu"] = (
-                    max(1, int(os.environ[pr]))
-                )
+                self.QMin.resources["ncpu"] = max(1, int(os.environ[pr]))
                 logging.info(
                     'Found env variable ncpu=%s, resources["ncpu"] set to %s',
                     os.environ[pr],
@@ -396,6 +397,8 @@ class SHARC_INTERFACE(ABC):
                 break
 
         with open(resources_file, "r", encoding="utf-8") as rcs_file:
+            # Store all encountered keywords to warn for duplicates
+            keyword_list = []
             for line in rcs_file:
                 # Ignore comments and empty lines
                 if re.match(r"^\w+", line):
@@ -405,6 +408,14 @@ class SHARC_INTERFACE(ABC):
                     param = [
                         expand_path(x) if re.match(r"\~|\$", x) else x for x in param
                     ]
+
+                    # Check for duplicates in keyword_list
+                    if param[0] in keyword_list:
+                        logging.warning(
+                            "Multiple entries of %s in %s", param[0], resources_file
+                        )
+                    keyword_list.append(param[0])
+
                     if len(param) == 1:
                         self.QMin.resources[param[0]] = True
                     elif len(param) == 2:
@@ -428,13 +439,16 @@ class SHARC_INTERFACE(ABC):
                         else:
                             self.QMin.resources[param[0]] = param[1]
                     else:
-                        # If key already exists extend list with values
+                        # If whitelisted key already exists extend list with values
                         if (
                             param[0] in self.QMin.resources.keys()
                             and self.QMin.resources[param[0]]
+                            and param[0] in kw_whitelist
                         ):
+                            logging.debug("Extend white listed parameter %s", param[0])
                             self.QMin.resources[param[0]].extend(list(param[1:]))
                         else:
+                            logging.warning("Parameter list %s overwritten!", param)
                             self.QMin.resources[param[0]] = list(param[1:])
         self._read_resources = True
 
