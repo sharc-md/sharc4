@@ -21,24 +21,50 @@
 #    inside the SHARC manual.  If not, see <http://www.gnu.org/licenses/>.
 #
 # ******************************************
+
 from importlib import import_module
-from error import Error
-from SHARC_INTERFACE import INTERFACE
+from utils import expand_path
+import glob
+from SHARC_INTERFACE import SHARC_INTERFACE
 
 AVAILABLE_INTERFACES = [
     'LVC', 'ORCA', 'MOLCAS', 'BAGEL', 'MOLPRO', 'COLUMBUS', 'AMS-ADF', 'RICC2', 'GAUSSIAN', 'TINKER', 'QMMM', 'MNDO', 'OpenMM'
 ]
 
+def get_available_interfaces() -> list[SHARC_INTERFACE]:
+    """
+    returns available interfaces classes
 
-def factory(name: str) -> INTERFACE:
+    dynamically determines interfaces from set SHARC folder and returns the classes.
+
+    Returns
+    -------
+    list[SHARC_INTERFACE]
+        list of SHARC interface classes
+    """
+    sharc_bin = expand_path('$SHARC')
+    interfaces = []
+    for path in sorted(glob.glob(sharc_bin + 'SHARC_*.py')):
+        filename = path.split('/')[-1]
+        interface_name = filename.split('.')[0]
+        mod = import_module(interface_name)
+        interface = getattr(mod, interface_name)
+        if issubclass(interface, SHARC_INTERFACE):
+            return interface
+        else:
+            raise ValueError(f"factory could not produce an interface:\n {interface}")
+        interfaces.append(getattr(mod, interface_name))
+
+
+def factory(name: str) -> SHARC_INTERFACE:
     try:
         ind = [i.upper() for i in AVAILABLE_INTERFACES].index(name.upper())
-    except ValueError:
-        raise Error(f'Interface with name "{name}" does not exist!')
+    except ValueError as e:
+        raise e(f'Interface with name "{name}" does not exist!')
     int_name = AVAILABLE_INTERFACES[ind]
     interface_mod = import_module('SHARC_{}'.format(int_name))
     interface = getattr(interface_mod, int_name)
-    if issubclass(interface, INTERFACE):
+    if issubclass(interface, SHARC_INTERFACE):
         return interface
     else:
-        raise Error(f"factory could not produce an interface:\n {interface}")
+        raise ValueError(f"factory could not produce an interface:\n {interface}")

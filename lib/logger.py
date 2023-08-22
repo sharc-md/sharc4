@@ -1,0 +1,41 @@
+#!/usr/bin/env python3
+
+
+import logging
+import sys
+
+class CustomFormatter(logging.Formatter):
+    err_fmt = "ERROR: %(msg)s"
+    dbg_fmt = "DEBUG: %(msg)s"
+    info_fmt = "%(msg)s"
+    warn_fmt = "WARNING: %(msg)s"
+
+    def format(self, record):
+        # Replace the original format with one customized by logging level
+        if record.levelno == logging.DEBUG:
+            self._fmt = CustomFormatter.dbg_fmt
+
+        elif record.levelno == logging.INFO:
+            self._fmt = CustomFormatter.info_fmt
+
+        elif record.levelno == logging.ERROR:
+            self._fmt = CustomFormatter.err_fmt
+
+        elif record.levelno == logging.WARNING:
+            self._fmt = CustomFormatter.warn_fmt
+
+        # Call the original formatter class to do the grunt work
+        formatter = logging.Formatter(self._fmt)
+
+        return formatter.format(record)
+
+
+fmt = CustomFormatter()
+hdlr = logging.StreamHandler(sys.stdout)
+
+hdlr.setFormatter(fmt)
+logging.root.addHandler(hdlr)
+logging.root.setLevel(logging.DEBUG)
+
+log = logging
+log.print = logging.info

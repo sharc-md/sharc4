@@ -42,8 +42,7 @@ from typing import Union, List
 # from functools import reduce, singledispatchmethod
 from socket import gethostname
 from textwrap import wrap
-import logging
-import logging.config
+from logger import log as logging
 
 # internal
 from printing import printcomplexmatrix, printgrad, printtheodore
@@ -52,47 +51,26 @@ from constants import *
 from qmin import QMin
 
 
-def expand_path(path: str) -> str:
-    """
-    Expand variables in path, error out if variable is not resolvable
-    """
-    expand = os.path.abspath(os.path.expanduser(os.path.expandvars(path)))
-    assert "$" not in expand, f"Undefined env variable in {expand}"
-    return expand
 
+all_features = {'h': [],
+                 'soc': [],
+                 'dm': [],
+                 'grad': [],
+                 'nacdr': [],
+                 'overlap': [],
+                 'phases': [],
+                 'ion': [],
+                 'dmdr': [],
+                 'socdr': [],
+                 'multipolar_fit': [],
+                 'theodore': [],
+                 'point_charges': [],
+                # raw data request
+                 'basis_set': [],
+                 'wave_functions': [],
+                 'density_matrices': [],
+                 }
 
-class CustomFormatter(logging.Formatter):
-    err_fmt = "ERROR: %(msg)s"
-    dbg_fmt = "DEBUG: %(msg)s"
-    info_fmt = "%(msg)s"
-    warn_fmt = "WARNING: %(msg)s"
-
-    def format(self, record):
-        # Replace the original format with one customized by logging level
-        if record.levelno == logging.DEBUG:
-            self._fmt = CustomFormatter.dbg_fmt
-
-        elif record.levelno == logging.INFO:
-            self._fmt = CustomFormatter.info_fmt
-
-        elif record.levelno == logging.ERROR:
-            self._fmt = CustomFormatter.err_fmt
-        
-        elif record.levelno == logging.WARNING:
-            self._fmt = CustomFormatter.warn_fmt
-
-        # Call the original formatter class to do the grunt work
-        formatter = logging.Formatter(self._fmt)
-
-        return formatter.format(record)
-
-
-fmt = CustomFormatter()
-hdlr = logging.StreamHandler(sys.stdout)
-
-hdlr.setFormatter(fmt)
-logging.root.addHandler(hdlr)
-logging.root.setLevel(logging.DEBUG)
 
 
 class SHARC_INTERFACE(ABC):
@@ -102,14 +80,6 @@ class SHARC_INTERFACE(ABC):
     _read_template = False
     _DEBUG = False
     _PRINT = True
-    _all_features = {'overlap': ['wfoverlap'],
-                     'theodore': ['theodore'],
-                     'phases': ['wfoverlap'],
-                     'soc': [],
-                     'nacdr': [],
-                     'phases': [],
-                     'dipolegrad': [],
-                     }
 
 
     # TODO: set Debug and Print flag
@@ -138,11 +108,13 @@ class SHARC_INTERFACE(ABC):
         return date(2021, 7, 15)
 
     @abstractmethod
-    def name(self) -> str:
+    @staticmethod
+    def name() -> str:
         return "base"
 
     @abstractmethod
-    def description(self) -> str:
+    @staticmethod
+    def description() -> str:
         return "Abstract base class for SHARC interfaces."
 
     @abstractmethod
@@ -156,17 +128,19 @@ class SHARC_INTERFACE(ABC):
         return "Name and description of the interface"
 
     @abstractmethod
-    def get_features() -> list:
-        return ['feature1', 'feature2']
+    def get_features(self) -> dict:
+        "return availble features"
+        return all_features
 
     @abstractmethod
-    @staticmethod
-    def get_infos(INFOS) -> str:
-        return "This is the changelog string"
+    def get_infos(self, INFOS: dict) -> INFOS:
+        "prepare INFOS obj"
+        return INFOS
 
     @abstractmethod
-    def prepare(self) -> str:
-        return "This is the changelog string"
+    def prepare(self, INFOS):
+        "setup the folders"
+        return
 
 
     def main(self):
@@ -273,8 +247,8 @@ class SHARC_INTERFACE(ABC):
                     "first line must contain the number of atoms!"
                 ) from error
             self.QMin.coords["coords"] = (
-                np.asarray([parse_xyz(x)[1] for x in lines[2: natom + 2]], dtype=float)
-                * self.QMin.molecule["factor"]
+                np.asarray([parse_xyz(x)[1] for x in lines[2: natom + 2]], dtype=float) *
+                self.QMin.molecule["factor"]
             )
         elif isinstance(xyz, (list, np.ndarray)):
             self.QMin.coords["coords"] = np.asarray(xyz) * self.QMin.molecule["factor"]
@@ -457,7 +431,7 @@ class SHARC_INTERFACE(ABC):
                             if not self._setsave:
                                 self.QMin.save["savedir"] = param[1]
                                 logging.debug(
-                                    f"SAVEDIR set to {self.QMin.save['savedir']}", 
+                                    f"SAVEDIR set to {self.QMin.save['savedir']}",
                                 )
                             else:
                                 logging.info(
@@ -474,9 +448,9 @@ class SHARC_INTERFACE(ABC):
                     else:
                         # If whitelisted key already exists extend list with values
                         if (
-                            param[0] in self.QMin.resources.keys()
-                            and self.QMin.resources[param[0]]
-                            and param[0] in kw_whitelist
+                            param[0] in self.QMin.resources.keys() and
+                            self.QMin.resources[param[0]] and
+                            param[0] in kw_whitelist
                         ):
                             logging.debug(f"Extend white listed parameter {param[0]}")
                             self.QMin.resources[param[0]].extend(list(param[1:]))
