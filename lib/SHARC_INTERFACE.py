@@ -382,15 +382,18 @@ class SHARC_INTERFACE(ABC):
             )
 
         # Set ncpu from env variables, gets overwritten if in resources
-        if "ncpu" in os.environ:
-            self.QMin.resources["ncpu"] = (
-                int(os.getenv("ncpu")) if int(os.getenv("ncpu")) > 0 else 1
-            )
-            logging.info(
-                'Found env variable ncpu=%s, resources["ncpu"] set to %s',
-                os.getenv("ncpu"),
-                self.QMin.resources["ncpu"],
-            )
+        priority_order=['SLURM_NTASKS_PER_NODE', ' NSLOTS']
+        for pr in priority_order:
+            if pr in os.environ:
+                self.QMin.resources["ncpu"] = (
+                    max(1, int(os.environ[pr]))
+                )
+                logging.info(
+                    'Found env variable ncpu=%s, resources["ncpu"] set to %s',
+                    os.environ[pr],
+                    self.QMin.resources["ncpu"],
+                )
+                break
 
         with open(resources_file, "r", encoding="utf-8") as rcs_file:
             for line in rcs_file:
