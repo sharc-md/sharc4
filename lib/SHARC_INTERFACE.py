@@ -196,10 +196,10 @@ class SHARC_INTERFACE(ABC):
 
         template_file:  Path to template file
         """
-        logging.debug("Reading template file %s", template_file)
+        logging.debug(f"Reading template file {template_file}")
 
         if self._read_template:
-            logging.warning("Template already read! Overwriting with %s", template_file)
+            logging.warning(f"Template already read! Overwriting with {template_file}")
 
         with open(template_file, "r", encoding="utf-8") as tmpl_file:
             for line in tmpl_file:
@@ -255,11 +255,11 @@ class SHARC_INTERFACE(ABC):
 
         qmin_file:  Path to QM.in file.
         """
-        logging.debug("Seting up molecule from %s", qmin_file)
+        logging.debug(f"Setting up molecule from {qmin_file}")
 
         if self._setup_mol:
             logging.warning(
-                "setup_mol() was already called! Continue setup with %s", qmin_file
+                f"setup_mol() was already called! Continue setup with {qmin_file}",
             )
 
         qmin_lines = readfile(qmin_file)
@@ -313,7 +313,7 @@ class SHARC_INTERFACE(ABC):
             elif key == "savedir":
                 self._setsave = True
                 self.QMin.save["savedir"] = llist[1].strip()
-                logging.debug("SAVEDIR set to %s", self.QMin.save["savedir"])
+                logging.debug(f"SAVEDIR set to {self.QMin.save['savedir']}")
 
         if not isinstance(self.QMin.save["savedir"], str):
             self.QMin.save["savedir"] = "./SAVEDIR/"
@@ -371,7 +371,7 @@ class SHARC_INTERFACE(ABC):
                         overwritten when keyword multiple times in resources_file,
                         instead the list will be extended
         """
-        logging.debug("Reading resource file %s", resources_file)
+        logging.debug(f"Reading resource file {resources_file}")
 
         if not self._setup_mol:
             raise Error(
@@ -381,7 +381,7 @@ class SHARC_INTERFACE(ABC):
 
         if self._read_resources:
             logging.warning(
-                "Resources already read! Overwriting with %s", resources_file
+                f"Resources already read! Overwriting with {resources_file}"
             )
 
         # Set ncpu from env variables, gets overwritten if in resources
@@ -390,9 +390,7 @@ class SHARC_INTERFACE(ABC):
             if pr in os.environ:
                 self.QMin.resources["ncpu"] = max(1, int(os.environ[pr]))
                 logging.info(
-                    'Found env variable ncpu=%s, resources["ncpu"] set to %s',
-                    os.environ[pr],
-                    self.QMin.resources["ncpu"],
+                    f'Found env variable ncpu={os.environ[pr]}, resources["ncpu"] set to {self.QMin.resources["ncpu"]}',
                 )
                 break
 
@@ -412,7 +410,7 @@ class SHARC_INTERFACE(ABC):
                     # Check for duplicates in keyword_list
                     if param[0] in keyword_list:
                         logging.warning(
-                            "Multiple entries of %s in %s", param[0], resources_file
+                            f"Multiple entries of {param[0]} in {resources_file}"
                         )
                     keyword_list.append(param[0])
 
@@ -424,7 +422,7 @@ class SHARC_INTERFACE(ABC):
                             if not self._setsave:
                                 self.QMin.save["savedir"] = param[1]
                                 logging.debug(
-                                    "SAVEDIR set to %s", self.QMin.save["savedir"]
+                                    f"SAVEDIR set to {self.QMin.save['savedir']}", 
                                 )
                             else:
                                 logging.info(
@@ -445,10 +443,10 @@ class SHARC_INTERFACE(ABC):
                             and self.QMin.resources[param[0]]
                             and param[0] in kw_whitelist
                         ):
-                            logging.debug("Extend white listed parameter %s", param[0])
+                            logging.debug(f"Extend white listed parameter {param[0]}")
                             self.QMin.resources[param[0]].extend(list(param[1:]))
                         else:
-                            logging.warning("Parameter list %s overwritten!", param)
+                            logging.warning(f"Parameter list {param} overwritten!")
                             self.QMin.resources[param[0]] = list(param[1:])
         self._read_resources = True
 
@@ -464,7 +462,7 @@ class SHARC_INTERFACE(ABC):
             self._read_resources
         ), "Interface is not set up correctly. Call read_resources with the .resources file first!"
 
-        logging.debug("Reading requests from %s", requests_file)
+        logging.debug(f"Reading requests from {requests_file}")
 
         # Reset requests
         self.QMin.requests = QMin().requests
@@ -489,7 +487,7 @@ class SHARC_INTERFACE(ABC):
 
                     # Parse NACDR if requested
                     if params[0].casefold() == "nacdr":
-                        logging.debug("Parsing request %s", params)
+                        logging.debug(f"Parsing request {params}", )
                         if len(params) > 1 and params[1].casefold() == "select":
                             nac_select = True
                         else:
@@ -502,7 +500,7 @@ class SHARC_INTERFACE(ABC):
                             assert (
                                 len(params) == 2
                             ), "NACs have to be given in state pairs!"
-                            logging.debug("Adding state pair %s to NACDR list", params)
+                            logging.debug(f"Adding state pair {params} to NACDR list")
                             self.QMin.requests["nacdr"].append(params)
                         continue
 
@@ -514,7 +512,7 @@ class SHARC_INTERFACE(ABC):
                         "restart",
                         "newstep",
                     ):
-                        logging.debug("Parsing request %s", params)
+                        logging.debug(f"Parsing request {params}")
                         self._set_requests(params)
 
             assert not nac_select, "No end keyword found after nacdr select!"
@@ -534,7 +532,7 @@ class SHARC_INTERFACE(ABC):
         last_step = None
         stepfile = os.path.join(self.QMin.save["savedir"], "STEP")
         if os.path.isfile(stepfile):
-            logging.debug("Found stepfile %s", stepfile)
+            logging.debug(f"Found stepfile {stepfile}")
             last_step = int(readfile(stepfile)[0])
 
         if not self.QMin.save["step"]:
@@ -604,7 +602,7 @@ class SHARC_INTERFACE(ABC):
         logging.debug("Starting request logic")
 
         if not os.path.exists(self.QMin.save["savedir"]):
-            logging.debug("Creating savedir %s", self.QMin.save["savedir"])
+            logging.debug(f"Creating savedir {self.QMin.save['savedir']}")
             os.mkdir(self.QMin.save["savedir"])
 
         if self.QMin.requests["phases"] and not self.QMin.requests["overlap"]:
