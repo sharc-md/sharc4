@@ -25,17 +25,14 @@
 
 # IMPORTS
 # external
-import os
-import sys
 import datetime
-import logging
-import numpy as np
 from typing import Dict
 
+import numpy as np
+from logger import log as logging
 # internal
 from SHARC_INTERFACE import SHARC_INTERFACE
 from utils import Error, makecmatrix
-
 
 authors = "Sebastian Mai"
 version = "3.0"
@@ -69,25 +66,17 @@ class SHARC_DO_NOTHING(SHARC_INTERFACE):
         self._read_resources = False
         self._setup_mol = False
 
-    @property
-    def version(self):
+    def version(self) -> str:
         return self._version
 
-    @property
-    def versiondate(self):
+    def versiondate(self) -> str:
         return self._versiondate
 
-    @property
-    def changelogstring(self):
+    def changelogstring(self) -> str:
         return self._changelogstring
 
-    @property
-    def authors(self):
+    def authors(self) -> str:
         return self._authors
-
-    def get_features(self) -> dict:
-        "return availble features"
-        return all_features
 
     def get_features(self) -> dict:
         "return availble features"
@@ -96,17 +85,20 @@ class SHARC_DO_NOTHING(SHARC_INTERFACE):
     def prepare(self, INFOS: dict):
         "setup the folders"
         return
-    
+
     def get_infos(self, INFOS: dict) -> dict:
         "prepare INFOS obj"
         return INFOS
 
-    def name():
+    @staticmethod
+    def name() -> str:
         return SHARC_DO_NOTHING._name
 
-    def description():
+    @staticmethod
+    def description() -> str:
         return SHARC_DO_NOTHING._description
 
+    @staticmethod
     def about() -> str:
         return "Name and description of the interface"
 
