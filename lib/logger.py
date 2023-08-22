@@ -35,7 +35,7 @@ hdlr = logging.StreamHandler(sys.stdout)
 
 hdlr.setFormatter(fmt)
 logging.root.addHandler(hdlr)
-logging.root.setLevel(logging.DEBUG)
+logging.root.setLevel(logging.INFO)
 
 log = logging
 log.print = logging.info

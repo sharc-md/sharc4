@@ -44,7 +44,7 @@ import numpy as np
 # internal
 from resp import Resp
 from tdm import es2es_tdm
-from SHARC_INTERFACE import INTERFACE
+from SHARC_INTERFACE_old import INTERFACE
 from utils import mkdir, readfile, containsstring, shorten_DIR, makermatrix, makecmatrix, build_basis_dict, get_pyscf_order_from_gaussian, removekey, writefile, itmult, safe_cast, get_bool_from_env, get_cart2sph_matrix
 from globals import DEBUG, PRINT
 from constants import IToMult, au2eV, IAn2AName

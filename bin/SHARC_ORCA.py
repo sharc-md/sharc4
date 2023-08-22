@@ -35,7 +35,7 @@ from copy import deepcopy
 from socket import gethostname
 
 # internal
-from SHARC_INTERFACE import INTERFACE
+from SHARC_INTERFACE_old import INTERFACE
 from globals import DEBUG, PRINT
 from utils import *
 from constants import IToMult, au2a
