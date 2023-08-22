@@ -155,10 +155,10 @@ class SHARC_INTERFACE(ABC):
         if len(args) != 2:
             print(
                 "Usage:",
-                f"./SHARC_{self.name} <QMin>",
-                f"version: {self.version}",
-                f"date: {self.versiondate}",
-                f"changelog: {self.changelogstring}",
+                f"./SHARC_{self.name()} <QMin>",
+                f"version: {self.version()}",
+                f"date: {self.versiondate()}",
+                f"changelog: {self.changelogstring()}",
                 sep="\n",
             )
             sys.exit(106)
@@ -593,7 +593,7 @@ class SHARC_INTERFACE(ABC):
             elif request[0].casefold() == "soc":
                 if sum(i > 0 for i in self.QMin.molecule["states"]) < 2:
                     logging.warning(
-                        "SOCs requestet but only 1 multiplicity given! Disable SOCs"
+                        "SOCs requested but only 1 multiplicity given! Disable SOCs"
                     )
                     return
                 self.QMin.requests["soc"] = True
@@ -1073,7 +1073,86 @@ class SHARC_INTERFACE(ABC):
 
     @abstractmethod
     def printQMout(self):
-        pass
+        '''If PRINT, prints a summary of all requested QM output values.
+        Matrices are formatted using printcomplexmatrix, vectors using printgrad.
+        '''
+        QMout = self.QMout
+
+        states = self.QMin.molecule['states']
+        nmstates = self.QMin.molecule['nmstates']
+        natom = self.QMin.molecule['natom']
+        print('===> Results:\n')
+        # Hamiltonian matrix, real or complex
+        if self.QMin.requests['h'] or self.QMin.requests['soc']:
+            eshift = math.ceil(QMout['h'][0][0].real)
+            print('=> Hamiltonian Matrix:\nDiagonal Shift: %9.2f' % (eshift))
+            matrix = deepcopy(QMout['h'])
+            for i in range(nmstates):
+                matrix[i][i] -= eshift
+            printcomplexmatrix(matrix, states)
+        # Dipole moment matrices
+        if self.QMin.requests['dm']:
+            print('=> Dipole Moment Matrices:\n')
+            for xyz in range(3):
+                print('Polarisation %s:' % (IToPol[xyz]))
+                matrix = QMout['dm'][xyz]
+                printcomplexmatrix(matrix, states)
+        # Gradients
+        if self.QMin.requests['grad']:
+            print('=> Gradient Vectors:\n')
+            istate = 0
+            for imult, i, ms in itnmstates(states):
+                print('%s\t%i\tMs= % .1f:' % (IToMult[imult], i, ms))
+                printgrad(QMout['grad'][istate], natom, self.QMin.molecule['elements'], self._DEBUG)
+                istate += 1
+        # Overlaps
+        if self.QMin.requests['overlap']:
+            print('=> Overlap matrix:\n')
+            matrix = QMout['overlap']
+            printcomplexmatrix(matrix, states)
+            if 'phases' in QMout:
+                print('=> Wavefunction Phases:\n')
+                for i in range(nmstates):
+                    print('% 3.1f % 3.1f' % (QMout['phases'][i].real, QMout['phases'][i].imag))
+                print('\n')
+        # Spin-orbit coupling derivatives
+        if self.QMin.requests['socdr']:
+            print('=> Spin-Orbit Gradient Vectors:\n')
+            istate = 0
+            for imult, i, ims in itnmstates(states):
+                jstate = 0
+                for jmult, j, jms in itnmstates(states):
+                    print('%s\t%i\tMs= % .1f -- %s\t%i\tMs= % .1f:' % (IToMult[imult], i, ims, IToMult[jmult], j, jms))
+                    printgrad(QMout['socdr'][istate][jstate], natom, QMin['geo'])
+                    jstate += 1
+                istate += 1
+        # Dipole moment derivatives
+        if self.QMin.requests['dmdr']:
+            print('=> Dipole moment derivative vectors:\n')
+            istate = 0
+            for imult, i, msi in itnmstates(states):
+                jstate = 0
+                for jmult, j, msj in itnmstates(states):
+                    if imult == jmult and msi == msj:
+                        for ipol in range(3):
+                            print(
+                                '%s\tStates %i - %i\tMs= % .1f\tPolarization %s:' %
+                                (IToMult[imult], i, j, msi, IToPol[ipol])
+                            )
+                            printgrad(QMout['dmdr'][ipol][istate][jstate], natom, QMin['geo'])
+                    jstate += 1
+                istate += 1
+        # Property matrix (dyson norms)
+        if self.QMin.requests['ion'] and 'prop' in QMout:
+            print('=> Property matrix:\n')
+            matrix = QMout['prop']
+            printcomplexmatrix(matrix, states)
+        # TheoDORE
+        if self.QMin.requests['theodore']:
+            print('=> TheoDORE results:\n')
+            matrix = QMout['theodore']
+            printtheodore(matrix, QMin)
+        sys.stdout.flush()
 
     # ============================PRINTING ROUTINES========================== #
 
@@ -1086,12 +1165,12 @@ class SHARC_INTERFACE(ABC):
         lines = [
             f"  {rule}",
             "",
-            f"SHARC - {self.name} - Interface",
+            f"SHARC - {self.name()} - Interface",
             "",
-            f"Authors: {self.authors}",
+            f"Authors: {self.authors()}",
             "",
-            f"Version: {self.version}",
-            "Date: {:%d.%m.%Y}".format(self.versiondate),
+            f"Version: {self.version()}",
+            "Date: {:%d.%m.%Y}".format(self.versiondate()),
             "",
             f"  {rule}",
         ]
