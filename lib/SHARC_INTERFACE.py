@@ -430,7 +430,7 @@ class SHARC_INTERFACE(ABC):
                                 )
                             continue
                         # Cast to correct type if available
-                        if param[0] in self.QMin.resources.keys():
+                        if param[0] in self.QMin.resources.types.keys():
                             self.QMin.resources[param[0]] = self.QMin.resources.types[
                                 param[0]
                             ](param[1])
