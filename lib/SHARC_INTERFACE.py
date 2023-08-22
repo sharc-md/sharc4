@@ -52,23 +52,23 @@ from qmin import QMin
 
 
 
-all_features = {'h': [],
-                 'soc': [],
-                 'dm': [],
-                 'grad': [],
-                 'nacdr': [],
-                 'overlap': [],
-                 'phases': [],
-                 'ion': [],
-                 'dmdr': [],
-                 'socdr': [],
-                 'multipolar_fit': [],
-                 'theodore': [],
-                 'point_charges': [],
+all_features = {'h',
+                 'soc',
+                 'dm',
+                 'grad',
+                 'nacdr',
+                 'overlap',
+                 'phases',
+                 'ion',
+                 'dmdr',
+                 'socdr',
+                 'multipolar_fit',
+                 'theodore',
+                 'point_charges',
                 # raw data request
-                 'basis_set': [],
-                 'wave_functions': [],
-                 'density_matrices': [],
+                 'basis_set',
+                 'wave_functions',
+                 'density_matrices',
                  }
 
 
@@ -127,7 +127,7 @@ class SHARC_INTERFACE(ABC):
         return "Name and description of the interface"
 
     @abstractmethod
-    def get_features(self) -> dict:
+    def get_features(self) -> set:
         "return availble features"
         return all_features
 
@@ -137,8 +137,8 @@ class SHARC_INTERFACE(ABC):
         return INFOS
 
     @abstractmethod
-    def prepare(self, INFOS: dict):
-        "setup the folders"
+    def prepare(self, INFOS: dict, dir: str):
+        "setup the calculation in directory 'dir'"
         return
 
 
