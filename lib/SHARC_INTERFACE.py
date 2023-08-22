@@ -42,8 +42,7 @@ from typing import Union, List
 # from functools import reduce, singledispatchmethod
 from socket import gethostname
 from textwrap import wrap
-import logging
-import logging.config
+from logger import log as logging
 
 # internal
 from printing import printcomplexmatrix, printgrad, printtheodore
@@ -52,47 +51,25 @@ from constants import *
 from qmin import QMin
 
 
-def expand_path(path: str) -> str:
-    """
-    Expand variables in path, error out if variable is not resolvable
-    """
-    expand = os.path.abspath(os.path.expanduser(os.path.expandvars(path)))
-    assert "$" not in expand, f"Undefined env variable in {expand}"
-    return expand
 
-
-class CustomFormatter(logging.Formatter):
-    err_fmt = "ERROR: %(msg)s"
-    dbg_fmt = "DEBUG: %(msg)s"
-    info_fmt = "%(msg)s"
-    warn_fmt = "WARNING: %(msg)s"
-
-    def format(self, record):
-        # Replace the original format with one customized by logging level
-        if record.levelno == logging.DEBUG:
-            self._fmt = CustomFormatter.dbg_fmt
-
-        elif record.levelno == logging.INFO:
-            self._fmt = CustomFormatter.info_fmt
-
-        elif record.levelno == logging.ERROR:
-            self._fmt = CustomFormatter.err_fmt
-        
-        elif record.levelno == logging.WARNING:
-            self._fmt = CustomFormatter.warn_fmt
-
-        # Call the original formatter class to do the grunt work
-        formatter = logging.Formatter(self._fmt)
-
-        return formatter.format(record)
-
-
-fmt = CustomFormatter()
-hdlr = logging.StreamHandler(sys.stdout)
-
-hdlr.setFormatter(fmt)
-logging.root.addHandler(hdlr)
-logging.root.setLevel(logging.DEBUG)
+all_features = {'h',
+                 'soc',
+                 'dm',
+                 'grad',
+                 'nacdr',
+                 'overlap',
+                 'phases',
+                 'ion',
+                 'dmdr',
+                 'socdr',
+                 'multipolar_fit',
+                 'theodore',
+                 'point_charges',
+                # raw data request
+                 'basis_set',
+                 'wave_functions',
+                 'density_matrices',
+                 }
 
 
 class SHARC_INTERFACE(ABC):
@@ -103,8 +80,11 @@ class SHARC_INTERFACE(ABC):
     _DEBUG = False
     _PRINT = True
 
+
     # TODO: set Debug and Print flag
     # TODO: set persistant flag for file-io vs in-core
+
+
     def __init__(self, persistent=False):
         # all the output from the calculation will be stored here
         self.QMout = {}
@@ -126,17 +106,41 @@ class SHARC_INTERFACE(ABC):
     def versiondate(self) -> date:
         return date(2021, 7, 15)
 
+    @staticmethod
     @abstractmethod
-    def name(self) -> str:
+    def name() -> str:
         return "base"
 
+    @staticmethod
     @abstractmethod
-    def description(self) -> str:
+    def description() -> str:
         return "Abstract base class for SHARC interfaces."
 
+    @staticmethod
     @abstractmethod
-    def changelogstring(self) -> str:
+    def changelogstring() -> str:
         return "This is the changelog string"
+
+    @staticmethod
+    @abstractmethod
+    def about() -> str:
+        return "Name and description of the interface"
+
+    @abstractmethod
+    def get_features(self) -> set:
+        "return availble features"
+        return all_features
+
+    @abstractmethod
+    def get_infos(self, INFOS: dict) -> dict:
+        "prepare INFOS obj"
+        return INFOS
+
+    @abstractmethod
+    def prepare(self, INFOS: dict, dir: str):
+        "setup the calculation in directory 'dir'"
+        return
+
 
     def main(self):
         """
@@ -151,10 +155,10 @@ class SHARC_INTERFACE(ABC):
         if len(args) != 2:
             print(
                 "Usage:",
-                f"./SHARC_{self.name} <QMin>",
-                f"version: {self.version}",
-                f"date: {self.versiondate}",
-                f"changelog: {self.changelogstring}",
+                f"./SHARC_{self.name()} <QMin>",
+                f"version: {self.version()}",
+                f"date: {self.versiondate()}",
+                f"changelog: {self.changelogstring()}",
                 sep="\n",
             )
             sys.exit(106)
@@ -225,6 +229,10 @@ class SHARC_INTERFACE(ABC):
         pass
 
     @abstractmethod
+    def setup_run(self):
+        pass
+
+    @abstractmethod
     def getQMout(self):
         pass
 
@@ -242,8 +250,8 @@ class SHARC_INTERFACE(ABC):
                     "first line must contain the number of atoms!"
                 ) from error
             self.QMin.coords["coords"] = (
-                np.asarray([parse_xyz(x)[1] for x in lines[2 : natom + 2]], dtype=float)
-                * self.QMin.molecule["factor"]
+                np.asarray([parse_xyz(x)[1] for x in lines[2: natom + 2]], dtype=float) *
+                self.QMin.molecule["factor"]
             )
         elif isinstance(xyz, (list, np.ndarray)):
             self.QMin.coords["coords"] = np.asarray(xyz) * self.QMin.molecule["factor"]
@@ -279,7 +287,7 @@ class SHARC_INTERFACE(ABC):
                 3,
             )
         self.QMin.molecule["elements"] = list(
-            map(lambda x: parse_xyz(x)[0], (qmin_lines[2 : natom + 2]))
+            map(lambda x: parse_xyz(x)[0], (qmin_lines[2: natom + 2]))
         )
         self.QMin.molecule["Atomcharge"] = sum(
             map(lambda x: ATOMCHARGE[x], self.QMin.molecule["elements"])
@@ -294,7 +302,7 @@ class SHARC_INTERFACE(ABC):
             lambda x: not re.match(r"^\s*$", x),
             map(
                 lambda x: re.sub(r"#.*$", "", x),
-                qmin_lines[self.QMin.molecule["natom"] + 2 :],
+                qmin_lines[self.QMin.molecule["natom"] + 2:],
             ),
         )
 
@@ -426,7 +434,7 @@ class SHARC_INTERFACE(ABC):
                             if not self._setsave:
                                 self.QMin.save["savedir"] = param[1]
                                 logging.debug(
-                                    f"SAVEDIR set to {self.QMin.save['savedir']}", 
+                                    f"SAVEDIR set to {self.QMin.save['savedir']}",
                                 )
                             else:
                                 logging.info(
@@ -443,9 +451,9 @@ class SHARC_INTERFACE(ABC):
                     else:
                         # If whitelisted key already exists extend list with values
                         if (
-                            param[0] in self.QMin.resources.keys()
-                            and self.QMin.resources[param[0]]
-                            and param[0] in kw_whitelist
+                            param[0] in self.QMin.resources.keys() and
+                            self.QMin.resources[param[0]] and
+                            param[0] in kw_whitelist
                         ):
                             logging.debug(f"Extend white listed parameter {param[0]}")
                             self.QMin.resources[param[0]].extend(list(param[1:]))
@@ -454,6 +462,7 @@ class SHARC_INTERFACE(ABC):
                             self.QMin.resources[param[0]] = list(param[1:])
         self._read_resources = True
 
+    @abstractmethod
     def read_requests(self, requests_file: str = "QM.in") -> None:
         """
         Reads QM.in file and parses requests
@@ -491,7 +500,9 @@ class SHARC_INTERFACE(ABC):
 
                     # Parse NACDR if requested
                     if params[0].casefold() == "nacdr":
-                        logging.debug(f"Parsing request {params}", )
+                        logging.debug(
+                            f"Parsing request {params}",
+                        )
                         if len(params) > 1 and params[1].casefold() == "select":
                             nac_select = True
                         else:
@@ -609,32 +620,539 @@ class SHARC_INTERFACE(ABC):
             logging.debug(f"Creating savedir {self.QMin.save['savedir']}")
             os.mkdir(self.QMin.save["savedir"])
 
-        if self.QMin.requests["phases"] and not self.QMin.requests["overlap"]:
-            logging.info("Found phases in requests, set overlap to true")
-            self.QMin.requests["overlap"] = True
-
-        if (
-            self.QMin.requests["ion"] or self.QMin.requests["overlap"]
-        ) and self.__class__.__name__ != "LVC":
-            assert os.path.isfile(
-                self.QMin.resources["wfoverlap"]
-            ), "Missing path to wfoverlap.x in resources file!"
-
         assert not (
-            self.QMin.requests["overlap"] and self.QMin.save["init"]
-        ), '"overlap" and "phases" cannot be calculated in the first timestep! Delete either "overlap" or "init"'
+            (self.QMin.requests["overlap"] or self.QMin.requests["phases"])
+            and self.QMin.save["init"]
+        ), '"overlap" and "phases" cannot be calculated in the first timestep!'
 
     @abstractmethod
-    def write_step_file(self):
-        pass
+    def write_step_file(self) -> None:
+        """
+        Write current step into stepfile (only if cleanup not requested)
+        """
+        if self.QMin.requests["cleanup"]:
+            return
+        stepfile = os.path.join(self.QMin.save["savedir"], "STEP")
+        writefile(stepfile, str(self.QMin.save["step"]))
 
     @abstractmethod
-    def writeQMout(self):
-        pass
+    def writeQMout(self) -> None:
+        """
+        Writes the requested quantities to the file which SHARC reads in.
+        """
+        logging.info("Writing output to QM.out in SHARC format.")
+        string = ""
+        if self.QMin.requests["h"] or self.QMin.requests["soc"]:
+            string += self.writeQMoutsoc()
+        if self.QMin.requests["dm"]:
+            string += self.writeQMoutdm()
+        if self.QMin.requests["grad"]:
+            string += self.writeQMoutgrad()
+        if self.QMin.requests["overlap"]:
+            string += self.writeQMoutnacsmat()
+        if self.QMin.requests["nacdr"]:
+            string += self.writeQMoutnacana()
+        if self.QMin.requests["socdr"]:
+            string += self.writeQMoutsocdr()
+        if self.QMin.requests["dmdr"]:
+            string += self.writeQMoutdmdr()
+        if self.QMin.requests["ion"]:
+            string += self.writeQMoutprop()
+        if self.QMin.requests["theodore"] and QMin["template"]["qmmm"]:
+            string += self.writeQMoutTHEODORE()
+        if self.QMin.requests["phases"]:
+            string += self.writeQmoutPhases()
+        if self.QMin.requests["multipolar_fit"]:
+            string += self.writeQMoutmultipolarfit()
+        string += self.writeQMouttime()
+        outfile = os.path.join(self.QMin.resources["pwd"], "QM.out")
+        writefile(outfile, string)
+
+    def writeQMoutsoc(self):
+        """
+        Generates a string with the Spin-Orbit Hamiltonian in SHARC format.
+
+        The string starts with a ! followed by a flag specifying the type of data.
+        In the next line, the dimensions of the matrix are given, followed by nmstates blocks of nmstates elements.
+        Blocks are separated by a blank line.
+        """
+        nmstates = self.QMin.molecule["nmstates"]
+        string = ""
+        string += "! %i Hamiltonian Matrix (%ix%i, complex)\n" % (1, nmstates, nmstates)
+        string += "%i %i\n" % (nmstates, nmstates)
+        for i in range(nmstates):
+            for j in range(nmstates):
+                string += "%s %s " % (
+                    eformat(self.QMout["h"][i][j].real, 12, 3),
+                    eformat(self.QMout["h"][i][j].imag, 12, 3),
+                )
+            string += "\n"
+        string += "\n"
+        return string
+
+    def writeQMoutdm(self):
+        """
+        Generates a string with the Dipole moment matrices in SHARC format.
+
+        The string starts with a ! followed by a flag specifying the type of data.
+        In the next line, the dimensions of the matrix are given, followed by nmstates blocks of nmstates elements.
+        Blocks are separated by a blank line. The string contains three such matrices.
+        """
+        QMout = self.QMout
+        nmstates = self.QMin.molecule["nmstates"]
+        string = ""
+        string += "! %i Dipole Moment Matrices (3x%ix%i, complex)\n" % (
+            2,
+            nmstates,
+            nmstates,
+        )
+        for xyz in range(3):
+            string += "%i %i\n" % (nmstates, nmstates)
+            for i in range(nmstates):
+                for j in range(nmstates):
+                    string += "%s %s " % (
+                        eformat(QMout["dm"][xyz][i][j].real, 12, 3),
+                        eformat(QMout["dm"][xyz][i][j].imag, 12, 3),
+                    )
+                string += "\n"
+            string += ""
+        return string
+
+    def writeQMoutgrad(self):
+        """
+        Generates a string with the Gradient vectors in SHARC format.
+
+        The string starts with a ! followed by a flag specifying the type of data.
+        On the next line, natom and 3 are written, followed by the gradient, with one line per atom and
+        a blank line at the end. Each MS component shows up (nmstates gradients are written).
+        """
+
+        QMout = self.QMout
+        states = self.QMin.molecule["states"]
+        nmstates = self.QMin.molecule["nmstates"]
+        natom = self.QMin.molecule["natom"]
+        string = ""
+        string += "! %i Gradient Vectors (%ix%ix3, real)\n" % (3, nmstates, natom)
+        i = 0
+        for imult, istate, ims in itnmstates(states):
+            string += "%i %i ! m1 %i s1 %i ms1 %i\n" % (natom, 3, imult, istate, ims)
+            for atom in range(natom):
+                for xyz in range(3):
+                    string += "%s " % (eformat(QMout["grad"][i][atom][xyz], 12, 3))
+                string += "\n"
+            string += ""
+            i += 1
+        return string
+
+    def writeQMoutnacsmat(self):
+        """
+        Generates a string with the adiabatic-diabatic transformation matrix in SHARC format.
+
+        The string starts with a ! followed by a flag specifying the type of data.
+        In the next line, the dimensions of the matrix are given, followed by nmstates blocks of nmstates elements.
+        Blocks are separated by a blank line.
+        """
+
+        QMout = self.QMout
+        nmstates = self.QMin.molecule["nmstates"]
+        string = ""
+        string += "! %i Overlap matrix (%ix%i, complex)\n" % (6, nmstates, nmstates)
+        string += "%i %i\n" % (nmstates, nmstates)
+        for j in range(nmstates):
+            for i in range(nmstates):
+                string += "%s %s " % (
+                    eformat(QMout["overlap"][j][i].real, 12, 3),
+                    eformat(QMout["overlap"][j][i].imag, 12, 3),
+                )
+            string += "\n"
+        string += "\n"
+        return string
+
+    def writeQMoutnacana(self):
+        """
+        Generates a string with the NAC vectors in SHARC format.
+
+        The string starts with a ! followed by a flag specifying the type of data.
+        On the next line, natom and 3 are written, followed by the gradient, with one line per atom and
+         a blank line at the end. Each MS component shows up (nmstates x nmstates vectors are written).
+        """
+
+        QMout = self.QMout
+        states = self.QMin.molecule["states"]
+        nmstates = self.QMin.molecule["nmstates"]
+        natom = self.QMin.molecule["natom"]
+        string = ""
+        string += "! %i Non-adiabatic couplings (ddr) (%ix%ix%ix3, real)\n" % (
+            5,
+            nmstates,
+            nmstates,
+            natom,
+        )
+        i = 0
+        for imult, istate, ims in itnmstates(states):
+            j = 0
+            for jmult, jstate, jms in itnmstates(states):
+                # string+='%i %i ! %i %i %i %i %i %i\n' % (natom,3,imult,istate,ims,jmult,jstate,jms)
+                string += "%i %i ! m1 %i s1 %i ms1 %i   m2 %i s2 %i ms2 %i\n" % (
+                    natom,
+                    3,
+                    imult,
+                    istate,
+                    ims,
+                    jmult,
+                    jstate,
+                    jms,
+                )
+                for atom in range(natom):
+                    for xyz in range(3):
+                        string += "%s " % (
+                            eformat(QMout["nacdr"][i][j][atom][xyz], 12, 3)
+                        )
+                    string += "\n"
+                string += ""
+                j += 1
+            i += 1
+        return string
+
+    def writeQMoutsocdr(self):
+        """
+        Generates a string with the SOCDR vectors in SHARC format.
+
+        The string starts with a ! followed by a flag specifying the type of data.
+        On the next line, natom and 3 are written, followed by the gradient, with one line per atom and
+         a blank line at the end. Each MS component shows up (nmstates x nmstates vectors are written).
+        """
+        QMout = self.QMout
+        states = self.QMin.molecule["states"]
+        nmstates = self.QMin.molecule["nmstates"]
+        natom = self.QMin.molecule["natom"]
+        string = ""
+        string += "! %i Spin-Orbit coupling derivatives (%ix%ix3x%ix3, complex)\n" % (
+            13,
+            nmstates,
+            nmstates,
+            natom,
+        )
+        i = 0
+        for imult, istate, ims in itnmstates(states):
+            j = 0
+            for jmult, jstate, jms in itnmstates(states):
+                string += "%i %i ! m1 %i s1 %i ms1 %i   m2 %i s2 %i ms2 %i\n" % (
+                    natom,
+                    3,
+                    imult,
+                    istate,
+                    ims,
+                    jmult,
+                    jstate,
+                    jms,
+                )
+                for atom in range(natom):
+                    for xyz in range(3):
+                        string += "%s %s " % (
+                            eformat(QMout["socdr"][i][j][atom][xyz].real, 12, 3),
+                            eformat(QMout["socdr"][i][j][atom][xyz].imag, 12, 3),
+                        )
+                string += "\n"
+                string += ""
+                j += 1
+            i += 1
+        string += "\n"
+        return string
+
+    def writeQMoutdmdr(self):
+        """
+        Generates a string with the DMDR vectors in SHARC format.
+
+        The string starts with a ! followed by a flag specifying the type of data.
+        On the next line, natom and 3 are written, followed by the gradient, with one line per atom and
+         a blank line at the end. Each MS component shows up (nmstates x nmstates vectors are written).
+        """
+        QMout = self.QMout
+        states = self.QMin.molecule["states"]
+        nmstates = self.QMin.molecule["nmstates"]
+        natom = self.QMin.molecule["natom"]
+        string = ""
+        string += "! %i Dipole moment derivatives (%ix%ix3x%ix3, real)\n" % (
+            12,
+            nmstates,
+            nmstates,
+            natom,
+        )
+        i = 0
+        for imult, istate, ims in itnmstates(states):
+            j = 0
+            for jmult, jstate, jms in itnmstates(states):
+                for ipol in range(3):
+                    string += (
+                        "%i %i ! m1 %i s1 %i ms1 %i   m2 %i s2 %i ms2 %i   pol %i\n"
+                        % (natom, 3, imult, istate, ims, jmult, jstate, jms, ipol)
+                    )
+                    for atom in range(natom):
+                        for xyz in range(3):
+                            string += "%s " % (
+                                eformat(QMout["dmdr"][ipol][i][j][atom][xyz], 12, 3)
+                            )
+                        string += "\n"
+                    string += ""
+                j += 1
+            i += 1
+        string += "\n"
+        return string
+
+    def writeQMoutprop(self):
+        """
+        Generates a string with the Spin-Orbit Hamiltonian in SHARC format.
+
+        The string starts with a ! followed by a flag specifying the type of data.
+        In the next line, the dimensions of the matrix are given, followed by nmstates blocks of nmstates elements.
+        Blocks are separated by a blank line.
+        """
+
+        QMout = self.QMout
+        nmstates = self.QMin.molecule["nmstates"]
+        string = ""
+        string += "! %i Property Matrix (%ix%i, complex)\n" % (11, nmstates, nmstates)
+        string += "%i %i\n" % (nmstates, nmstates)
+        for i in range(nmstates):
+            for j in range(nmstates):
+                string += "%s %s " % (
+                    eformat(QMout["prop"][i][j].real, 12, 3),
+                    eformat(QMout["prop"][i][j].imag, 12, 3),
+                )
+            string += "\n"
+        string += "\n"
+
+        # print(property matrices (flag 20) in new format)
+        string += "! %i Property Matrices\n" % (20)
+        string += "%i    ! number of property matrices\n" % (1)
+
+        string += "! Property Matrix Labels (%i strings)\n" % (1)
+        string += "Dyson norms\n"
+
+        string += "! Property Matrices (%ix%ix%i, complex)\n" % (1, nmstates, nmstates)
+        string += "%i %i   ! Dyson norms\n" % (nmstates, nmstates)
+        for i in range(nmstates):
+            for j in range(nmstates):
+                string += "%s %s " % (
+                    eformat(QMout["prop"][i][j].real, 12, 3),
+                    eformat(QMout["prop"][i][j].imag, 12, 3),
+                )
+            string += "\n"
+        string += "\n"
+        return string
+
+    def writeQMoutmultipolarfit(self):
+        """
+        Generates a string with the fitted RESP charges for each pair of states specified.
+
+        The string starts with a! followed by a flag specifying the type of data.
+        Each line starts with the atom number (starting at 1), state i and state j.
+        If i ==j: fit for single state, else fit for transition multipoles.
+        One line per atom and a blank line at the end.
+        """
+
+        QMout = self.QMout
+        states = self.QMin.molecule["states"]
+        nmstates = self.QMin.molecule["nmstates"]
+        natom = self.QMin.molecule["natom"]
+        fits = self.QMin.resources["multipolar_fit"]
+        resp_layers = self.QMin.resources["resp_layers"]
+        resp_density = self.QMin.resources["resp_density"]
+        resp_flayer = self.QMin.resources["resp_first_layer"]
+        resp_order = self.QMin.resources["resp_fit_order"]
+        resp_grid = self.QMin.resources["resp_grid"]
+        setting_str = f" settings [order grid firstlayer density layers] {resp_order} {resp_grid} {resp_flayer} {resp_density} {resp_layers}"
+        string = f"! 22 Atomwise multipolar density representation fits for states ({nmstates}x{nmstates}x{natom}x10) {setting_str}\n"
+
+        for i, (imult, istate, ims) in zip(range(nmstates), itnmstates(states)):
+            for j, (jmult, jstate, jms) in zip(range(nmstates), itnmstates(states)):
+                string += f"{natom} 10 ! m1 {imult} s1 {istate} ms1 {ims: 3.1f}   m2 {jmult} s2 {jstate} ms2 {jms: 3.1f}\n"
+                entry = np.zeros((natom, 10))
+                if ims != jms or imult != jmult:
+                    pass  # ensures that entry stays full of zeros
+                elif (imult, istate, jmult, jstate) in fits:
+                    fit = fits[(imult, istate, jmult, jstate)]
+                    entry[
+                        :, : fit.shape[1]
+                    ] = fit  # catch cases where fit is not full order
+                elif (jmult, jstate, imult, istate) in fits:
+                    fit = fits[(jmult, jstate, imult, istate)]
+                    entry[
+                        :, : fit.shape[1]
+                    ] = fit  # catch cases where fit is not full order
+                string += (
+                    "\n".join(
+                        map(
+                            lambda x: " ".join(map(lambda y: "{: 10.8f}".format(y), x)),
+                            entry,
+                        )
+                    )
+                    + "\n"
+                )
+
+                string += ""
+        return string
+
+    def writeQMoutTHEODORE(self):
+        """
+        Write Theodore output
+        """
+
+        QMout = self.QMout
+        nmstates = self.QMin.molecule["nmstates"]
+        nprop = self.QMin["resources"]["theodore_n"]
+        if self.QMin["template"]["qmmm"]:
+            nprop += len(QMout["qmmm"]["MMEnergy_terms"])
+        if nprop <= 0:
+            return "\n"
+
+        string = ""
+
+        string += "! %i Property Vectors\n" % (21)
+        string += "%i    ! number of property vectors\n" % (nprop)
+
+        string += "! Property Vector Labels (%i strings)\n" % (nprop)
+        descriptors = []
+        if "theodore" in QMin:
+            for i in QMin["resources"]["theodore_prop"]:
+                descriptors.append("%s" % i)
+                string += descriptors[-1] + "\n"
+            for i in range(len(QMin["resources"]["theodore_fragment"])):
+                for j in range(len(QMin["resources"]["theodore_fragment"])):
+                    descriptors.append("Om_{%i,%i}" % (i + 1, j + 1))
+                    string += descriptors[-1] + "\n"
+        if QMin["template"]["qmmm"]:
+            for label in sorted(QMout["qmmm"]["MMEnergy_terms"]):
+                descriptors.append(label)
+                string += label + "\n"
+
+        string += "! Property Vectors (%ix%i, real)\n" % (nprop, nmstates)
+        if "theodore" in QMin:
+            for i in range(QMin["resources"]["theodore_n"]):
+                string += "! TheoDORE descriptor %i (%s)\n" % (i + 1, descriptors[i])
+                for j in range(nmstates):
+                    string += "%s\n" % (eformat(QMout["theodore"][j][i].real, 12, 3))
+        if QMin["template"]["qmmm"]:
+            for label in sorted(QMout["qmmm"]["MMEnergy_terms"]):
+                string += "! QM/MM energy contribution (%s)\n" % (label)
+                for j in range(nmstates):
+                    string += "%s\n" % (
+                        eformat(QMout["qmmm"]["MMEnergy_terms"][label], 12, 3)
+                    )
+        string += "\n"
+
+        return string
+
+    def writeQmoutPhases(self):
+        """"
+        Write phases output
+        """
+        QMout = self.QMout
+        string = "! 7 Phases\n%i ! for all nmstates\n" % (
+            self.QMin.molecule["nmstates"]
+        )
+        for i in range(QMin["nmstates"]):
+            string += "%s %s\n" % (
+                eformat(QMout["phases"][i].real, 9, 3),
+                eformat(QMout["phases"][i].imag, 9, 3),
+            )
+        return string
+
+    def writeQMouttime(self):
+        """
+        Generates a string with the quantum mechanics total runtime in SHARC format.
+
+        The string starts with a ! followed by a flag specifying the type of data.
+        In the next line, the runtime is given.
+        """
+
+        QMout = self.QMout
+        string = "! 8 Runtime\n%s\n" % (eformat(QMout["runtime"], 9, 3))
+        return string
 
     @abstractmethod
     def printQMout(self):
-        pass
+        '''If PRINT, prints a summary of all requested QM output values.
+        Matrices are formatted using printcomplexmatrix, vectors using printgrad.
+        '''
+        QMout = self.QMout
+
+        states = self.QMin.molecule['states']
+        nmstates = self.QMin.molecule['nmstates']
+        natom = self.QMin.molecule['natom']
+        print('===> Results:\n')
+        # Hamiltonian matrix, real or complex
+        if self.QMin.requests['h'] or self.QMin.requests['soc']:
+            eshift = math.ceil(QMout['h'][0][0].real)
+            print('=> Hamiltonian Matrix:\nDiagonal Shift: %9.2f' % (eshift))
+            matrix = deepcopy(QMout['h'])
+            for i in range(nmstates):
+                matrix[i][i] -= eshift
+            printcomplexmatrix(matrix, states)
+        # Dipole moment matrices
+        if self.QMin.requests['dm']:
+            print('=> Dipole Moment Matrices:\n')
+            for xyz in range(3):
+                print('Polarisation %s:' % (IToPol[xyz]))
+                matrix = QMout['dm'][xyz]
+                printcomplexmatrix(matrix, states)
+        # Gradients
+        if self.QMin.requests['grad']:
+            print('=> Gradient Vectors:\n')
+            istate = 0
+            for imult, i, ms in itnmstates(states):
+                print('%s\t%i\tMs= % .1f:' % (IToMult[imult], i, ms))
+                printgrad(QMout['grad'][istate], natom, self.QMin.molecule['elements'], self._DEBUG)
+                istate += 1
+        # Overlaps
+        if self.QMin.requests['overlap']:
+            print('=> Overlap matrix:\n')
+            matrix = QMout['overlap']
+            printcomplexmatrix(matrix, states)
+            if 'phases' in QMout:
+                print('=> Wavefunction Phases:\n')
+                for i in range(nmstates):
+                    print('% 3.1f % 3.1f' % (QMout['phases'][i].real, QMout['phases'][i].imag))
+                print('\n')
+        # Spin-orbit coupling derivatives
+        if self.QMin.requests['socdr']:
+            print('=> Spin-Orbit Gradient Vectors:\n')
+            istate = 0
+            for imult, i, ims in itnmstates(states):
+                jstate = 0
+                for jmult, j, jms in itnmstates(states):
+                    print('%s\t%i\tMs= % .1f -- %s\t%i\tMs= % .1f:' % (IToMult[imult], i, ims, IToMult[jmult], j, jms))
+                    printgrad(QMout['socdr'][istate][jstate], natom, QMin['geo'])
+                    jstate += 1
+                istate += 1
+        # Dipole moment derivatives
+        if self.QMin.requests['dmdr']:
+            print('=> Dipole moment derivative vectors:\n')
+            istate = 0
+            for imult, i, msi in itnmstates(states):
+                jstate = 0
+                for jmult, j, msj in itnmstates(states):
+                    if imult == jmult and msi == msj:
+                        for ipol in range(3):
+                            print(
+                                '%s\tStates %i - %i\tMs= % .1f\tPolarization %s:' %
+                                (IToMult[imult], i, j, msi, IToPol[ipol])
+                            )
+                            printgrad(QMout['dmdr'][ipol][istate][jstate], natom, QMin['geo'])
+                    jstate += 1
+                istate += 1
+        # Property matrix (dyson norms)
+        if self.QMin.requests['ion'] and 'prop' in QMout:
+            print('=> Property matrix:\n')
+            matrix = QMout['prop']
+            printcomplexmatrix(matrix, states)
+        # TheoDORE
+        if self.QMin.requests['theodore']:
+            print('=> TheoDORE results:\n')
+            matrix = QMout['theodore']
+            printtheodore(matrix, QMin)
+        sys.stdout.flush()
 
     # ============================PRINTING ROUTINES========================== #
 
@@ -647,12 +1165,12 @@ class SHARC_INTERFACE(ABC):
         lines = [
             f"  {rule}",
             "",
-            f"SHARC - {self.name} - Interface",
+            f"SHARC - {self.name()} - Interface",
             "",
-            f"Authors: {self.authors}",
+            f"Authors: {self.authors()}",
             "",
-            f"Version: {self.version}",
-            "Date: {:%d.%m.%Y}".format(self.versiondate),
+            f"Version: {self.version()}",
+            "Date: {:%d.%m.%Y}".format(self.versiondate()),
             "",
             f"  {rule}",
         ]
@@ -661,15 +1179,6 @@ class SHARC_INTERFACE(ABC):
         lines[1:-1] = map(lambda s: "||{:^76}||".format(s), lines[1:-1])
         print(*lines, sep="\n")
         print("\n")
-
-
-class SHARC_ABINITIO(SHARC_INTERFACE):
-    @abstractmethod
-    def create_restart_files(self):
-        pass
-
-    def read_resources(self):
-        super().read_resources()
 
 
 if __name__ == "__main__":

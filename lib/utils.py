@@ -3,6 +3,7 @@ import re
 import sys
 import os
 import shutil
+import readline
 import numpy as np
 from dataclasses import dataclass
 from error import Error, exception_hook
@@ -35,6 +36,106 @@ def get_bool_from_env(name: str, default=False):
         var = os.environ[name] == "true"
     return var
 
+def expand_path(path: str) -> str:
+    """
+    Expand variables in path, error out if variable is not resolvable
+    """
+    expand = os.path.abspath(os.path.expanduser(os.path.expandvars(path)))
+    assert "$" not in expand, f"Undefined env variable in {expand}"
+    return expand
+
+def question(question, typefunc, default=None, autocomplete=True, ranges=False):
+    if typefunc == int or typefunc == float:
+        if default is not None and not isinstance(default, list):
+            print('Default to int or float question must be list!')
+            quit(1)
+    if typefunc == str and autocomplete:
+        readline.set_completer_delims(' \t\n;')
+        readline.parse_and_bind("tab: complete")    # activate autocomplete
+    else:
+        readline.parse_and_bind("tab: ")            # deactivate autocomplete
+
+    while True:
+        s = question
+        if default is not None:
+            if typefunc == bool or typefunc == str:
+                s += ' [%s]' % (str(default))
+            elif typefunc == int or typefunc == float:
+                s += ' ['
+                for i in default:
+                    s += str(i) + ' '
+                s = s[:-1] + ']'
+        if typefunc == str and autocomplete:
+            s += ' (autocomplete enabled)'
+        if typefunc == int and ranges:
+            s += ' (range comprehension enabled)'
+        s += ' '
+
+        line = input(s)
+        line = re.sub('#.*$', '', line).strip()
+        if not typefunc == str:
+            line = line.lower()
+
+        if line == '' or line == '\n':
+            if default is not None:
+                KEYSTROKES.write(line + ' ' * (40 - len(line)) + ' #' + s + '\n')
+                return default
+            else:
+                continue
+
+        if typefunc == bool:
+            posresponse = ['y', 'yes', 'true', 't', 'ja', 'si', 'yea', 'yeah', 'aye', 'sure', 'definitely']
+            negresponse = ['n', 'no', 'false', 'f', 'nein', 'nope']
+            if line in posresponse:
+                KEYSTROKES.write(line + ' ' * (40 - len(line)) + ' #' + s + '\n')
+                return True
+            elif line in negresponse:
+                KEYSTROKES.write(line + ' ' * (40 - len(line)) + ' #' + s + '\n')
+                return False
+            else:
+                print('I didn''t understand you.')
+                continue
+
+        if typefunc == str:
+            KEYSTROKES.write(line + ' ' * (40 - len(line)) + ' #' + s + '\n')
+            return line
+
+        if typefunc == float:
+            # float will be returned as a list
+            f = line.split()
+            try:
+                for i in range(len(f)):
+                    f[i] = typefunc(f[i])
+                KEYSTROKES.write(line + ' ' * (40 - len(line)) + ' #' + s + '\n')
+                return f
+            except ValueError:
+                print('Please enter floats!')
+                continue
+
+        if typefunc == int:
+            # int will be returned as a list
+            f = line.split()
+            out = []
+            try:
+                for i in f:
+                    if ranges and '~' in i:
+                        q = i.split('~')
+                        for j in range(int(q[0]), int(q[1]) + 1):
+                            out.append(j)
+                    else:
+                        out.append(int(i))
+                KEYSTROKES.write(line + ' ' * (40 - len(line)) + ' #' + s + '\n')
+                return out
+            except ValueError:
+                if ranges:
+                    print('Please enter integers or ranges of integers (e.g. "-3~-1  2  5~7")!')
+                else:
+                    print('Please enter integers!')
+                continue
+
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
 
 def readfile(filename) -> list[str]:
     '''reads file from path and returns list of lines.
@@ -569,17 +670,17 @@ def get_pyscf_order_from_gaussian(atom_symbols, basis_dict, cartesian_d=False, c
         for x in range(n_bf[4]):
             new_order.extend([it + n for n in g_order])
             it += ng
-        
+
         # do h shells
         for x in range(n_bf[5]):
             new_order.extend([it + n for n in h_order])
             it += nh
-        
+
         # do i shells
         for x in range(n_bf[6]):
             new_order.extend([it + n for n in i_order])
             it += ni
-        
+
         assert it == len(new_order)
 
     return new_order
