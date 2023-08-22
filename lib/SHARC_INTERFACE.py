@@ -77,7 +77,7 @@ class CustomFormatter(logging.Formatter):
 
         elif record.levelno == logging.ERROR:
             self._fmt = CustomFormatter.err_fmt
-        
+
         elif record.levelno == logging.WARNING:
             self._fmt = CustomFormatter.warn_fmt
 
@@ -222,6 +222,10 @@ class SHARC_INTERFACE(ABC):
 
     @abstractmethod
     def run(self):
+        pass
+
+    @abstractmethod
+    def setup_run(self):
         pass
 
     @abstractmethod
@@ -426,7 +430,7 @@ class SHARC_INTERFACE(ABC):
                             if not self._setsave:
                                 self.QMin.save["savedir"] = param[1]
                                 logging.debug(
-                                    f"SAVEDIR set to {self.QMin.save['savedir']}", 
+                                    f"SAVEDIR set to {self.QMin.save['savedir']}",
                                 )
                             else:
                                 logging.info(
@@ -454,6 +458,7 @@ class SHARC_INTERFACE(ABC):
                             self.QMin.resources[param[0]] = list(param[1:])
         self._read_resources = True
 
+    @abstractmethod
     def read_requests(self, requests_file: str = "QM.in") -> None:
         """
         Reads QM.in file and parses requests
@@ -491,7 +496,9 @@ class SHARC_INTERFACE(ABC):
 
                     # Parse NACDR if requested
                     if params[0].casefold() == "nacdr":
-                        logging.debug(f"Parsing request {params}", )
+                        logging.debug(
+                            f"Parsing request {params}",
+                        )
                         if len(params) > 1 and params[1].casefold() == "select":
                             nac_select = True
                         else:
@@ -609,20 +616,10 @@ class SHARC_INTERFACE(ABC):
             logging.debug(f"Creating savedir {self.QMin.save['savedir']}")
             os.mkdir(self.QMin.save["savedir"])
 
-        if self.QMin.requests["phases"] and not self.QMin.requests["overlap"]:
-            logging.info("Found phases in requests, set overlap to true")
-            self.QMin.requests["overlap"] = True
-
-        if (
-            self.QMin.requests["ion"] or self.QMin.requests["overlap"]
-        ) and self.__class__.__name__ != "LVC":
-            assert os.path.isfile(
-                self.QMin.resources["wfoverlap"]
-            ), "Missing path to wfoverlap.x in resources file!"
-
         assert not (
-            self.QMin.requests["overlap"] and self.QMin.save["init"]
-        ), '"overlap" and "phases" cannot be calculated in the first timestep! Delete either "overlap" or "init"'
+            (self.QMin.requests["overlap"] or self.QMin.requests["phases"])
+            and self.QMin.save["init"]
+        ), '"overlap" and "phases" cannot be calculated in the first timestep!'
 
     @abstractmethod
     def write_step_file(self):
