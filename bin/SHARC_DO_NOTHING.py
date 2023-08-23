@@ -59,6 +59,8 @@ all_features = {
     "dmdr",
 }
 
+logging.root.setLevel(logging.DEBUG)
+
 
 class SHARC_DO_NOTHING(SHARC_INTERFACE):
     """
@@ -126,114 +128,31 @@ class SHARC_DO_NOTHING(SHARC_INTERFACE):
         """
         Generate QMout for all requested requests
         """
-        QMout = self.QMout
-        states = self.QMin.molecule["states"]
         nmstates = self.QMin.molecule["nmstates"]
-        natom = self.QMin.molecule["natom"]
 
-        if self.QMin.requests["h"] or self.QMin.requests["soc"]:
-            if "h" not in QMout:
-                QMout["h"] = makecmatrix(nmstates, nmstates)
-
-        if self.QMin.requests["dm"]:
-            if "dm" not in QMout:
-                QMout["dm"] = [makecmatrix(nmstates, nmstates) for i in range(3)]
-
-        if self.QMin.requests["grad"]:
-            if "grad" not in QMout:
-                QMout["grad"] = [
-                    [[0.0 for i in range(3)] for j in range(natom)]
-                    for k in range(nmstates)
-                ]
-            if self.QMin.molecule["point_charges"]:
-                if "grad_pc" not in QMout:
-                    QMout["grad_pc"] = [
-                        [
-                            [0.0 for i in range(3)]
-                            for j in range(self.QMin.molecule["npc"])
-                        ]
-                        for k in range(nmstates)
-                    ]
+        # Allocate arrays in QMout
+        requests = set()
+        for k, v in self.QMin.requests.items():
+            if v in (None, False, []):
+                continue
+            requests.add(k)
+        self.QMout.allocate(
+            self.QMin.molecule["states"],
+            self.QMin.molecule["natom"],
+            self.QMin.molecule["npc"],
+            requests,
+        )
 
         if self.QMin.requests["overlap"]:
-            if "overlap" not in QMout:
-                QMout["overlap"] = makecmatrix(nmstates, nmstates)
+            self.QMout["overlap"] = np.fill_diagonal(self.QMout["overlap"], 1.0)
 
         if self.QMin.requests["phases"]:
-            if "phases" not in QMout:
-                QMout["phases"] = [complex(1.0, 0.0) for i in range(nmstates)]
+            self.QMout["phases"] = [complex(1.0, 0.0) for i in range(nmstates)]
 
         if self.QMin.requests["ion"]:
-            if "prop2d" not in QMout:
-                QMout["prop2d"] = ["Dyson norms", makecmatrix(nmstates, nmstates)]
+            self.QMout["prop2d"] = ["Dyson norms", makecmatrix(nmstates, nmstates)]
 
-        if self.QMin.requests["multipolar_fit"]:
-            # TODO: will be full-rank 4d array
-            if "multipolar_fit" not in QMout:
-                QMout["multipolar_fit"] = {}
-                for imult, inst in enumerate(states):
-                    for ist in range(inst):
-                        for jmult, jnst in enumerate(states):
-                            if not imult == jmult:
-                                continue
-                            for jst in range(jnst):
-                                QMout["multipolar_fit"][
-                                    (imult + 1, ist + 1, jmult + 1, jst + 1)
-                                ] = [[0.0 for i in range(10)] for j in range(natom)]
-
-        if self.QMin.requests["nacdr"]:
-            if "nacdr" not in QMout:
-                QMout["nacdr"] = [
-                    [
-                        [[0.0 for i in range(3)] for j in range(natom)]
-                        for k in range(nmstates)
-                    ]
-                    for l in range(nmstates)
-                ]
-            if self.QMin.molecule["point_charges"]:
-                if "nacdr_pc" not in QMout:
-                    QMout["nacdr_pc"] = [
-                        [
-                            [
-                                [0.0 for i in range(3)]
-                                for j in range(self.QMin.molecule["npc"])
-                            ]
-                            for k in range(nmstates)
-                        ]
-                        for l in range(nmstates)
-                    ]
-
-        if self.QMin.requests["dmdr"]:
-            if "dmdr" not in QMout:
-                QMout["dmdr"] = [
-                    [
-                        [
-                            [[0.0 for _ in range(3)] for _ in range(natom)]
-                            for _ in range(3)
-                        ]
-                        for _ in range(nmstates)
-                    ]
-                    for _ in range(nmstates)
-                ]
-            if self.QMin.molecule["point_charges"]:
-                if "dmdr_pc" not in QMout:
-                    QMout["dmdr_pc"] = [
-                        [
-                            [
-                                [
-                                    [0.0 for _ in range(3)]
-                                    for _ in range(self.QMin.molecule["npc"])
-                                ]
-                                for _ in range(3)
-                            ]
-                            for _ in range(nmstates)
-                        ]
-                        for _ in range(nmstates)
-                    ]
-
-        QMout["runtime"] = 0.0
-
-        return QMout
+        return self.QMout
 
     def writeQMout(self):
         super().writeQMout()
