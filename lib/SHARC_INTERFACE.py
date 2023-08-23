@@ -329,7 +329,7 @@ class SHARC_INTERFACE(ABC):
                 self.QMin.save["savedir"] = llist[1].strip()
                 logging.debug(f"SAVEDIR set to {self.QMin.save['savedir']}")
             elif key == "point_charges":
-                self.QMin["point_charges"] = True
+                self.QMin.molecule["point_charges"] = True
                 pcfile = expand_path(llist[1].strip())
                 logging.debug(f"Reading point charges from {pcfile}")
 
@@ -344,7 +344,7 @@ class SHARC_INTERFACE(ABC):
                             float(pcharges[2]) * self.QMin.molecule["factor"],
                         ]
                     )
-                    pccharge.append(float(pccharge[3]))
+                    pccharge.append(float(pcharges[3]))
 
                 self.QMin.coords["pccoords"] = pccoords
                 self.QMin.coords["pccharge"] = pccharge
