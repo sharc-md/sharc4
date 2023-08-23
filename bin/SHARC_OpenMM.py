@@ -37,7 +37,7 @@ from openmm.app import Simulation, AmberPrmtopFile
 from openmm import System, State, NonbondedForce, Platform, CustomIntegrator
 
 # internal
-from SHARC_INTERFACE import INTERFACE
+from SHARC_INTERFACE_old import INTERFACE
 from utils import *
 from constants import au2a, kJpermol_to_Eh
 
@@ -75,7 +75,7 @@ class OpenMM(INTERFACE):
 
     def run(self):
         # s1 = time.perf_counter_ns()
-        self.simulation.context.setPositions(self._QMin['coords']*(au2a/10))
+        self.simulation.context.setPositions(self._QMin['coords'] * (au2a / 10))
         # print("         MM 0: ", (time.perf_counter_ns() - s1) * 1e-6)
         # self.simulation.context.setVelocities(np.zeros(self._QMin['coords'].shape)))
         state: State = self.simulation.context.getState(getForces=True, getEnergy=True)
@@ -159,6 +159,7 @@ class OpenMM(INTERFACE):
 
     def create_restart_files(self):
         pass
+
 
 if __name__ == "__main__":
     omm = OpenMM()

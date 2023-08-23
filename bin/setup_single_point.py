@@ -28,33 +28,33 @@
 # usage: python setup_traj.py #change
 
 import math
-import sys
-import re
 import os
 import stat
 import shutil
 import datetime
 from optparse import OptionParser
-import readline
-import time
-import ast
 import pprint
-from constants import IToMult, U_TO_AMU, BOHR_TO_ANG, HARTREE_TO_EV, CM_TO_HARTREE
-from utils import readfile, writefile, question, itnmstates
+from constants import IToMult
+from utils import readfile, question, itnmstates
 from SHARC_INTERFACE import SHARC_INTERFACE
 import factory
 from logger import log
 
-version = 3.0
+version = '3.0'
 versiondate = datetime.datetime(year=2023, month=8, day=22)
 
 # =========================================================0
 # some constants
 DEBUG = False
 PI = math.pi
+global KEYSTROKES
+
+old_question = question
+def question(question, typefunc, default=None, autocomplete=True, ranges=False):
+    return old_question(question, typefunc, KEYSTROKES=KEYSTROKES, default=default, autocomplete=autocomplete, ranges=ranges)
 
 
-Interfaces: list[SHARC_INTERFACE] = factory.get_available_interfaces()
+Interfaces: list[SHARC_INTERFACE] = []
 Couplings = {
     1: {'name': 'nacdt',
         'description': 'DDT     =  < a|d/dt|b >        Hammes-Schiffer-Tully scheme   '
@@ -110,28 +110,51 @@ def close_keystrokes():
 # ======================================================================================================================
 # ======================================================================================================================
 
+def get_interface() -> SHARC_INTERFACE:
+    'asks for interface and instantiates it'
+    Interfaces = factory.get_available_interfaces()
+    log.print('{:-^60}'.format('Choose the quantum chemistry interface'))
+    log.print('\nPlease specify the quantum chemistry interface (enter any of the following numbers):')
+    possible_numbers = []
+    for i, (name, interface) in enumerate(Interfaces):
+        if type(interface) == str:
+            log.print('%i\t%s: %s' % (i, name, interface))
+        else:
+            log.print('%i\t%s: %s' % (i, name, interface.description()))
+            possible_numbers.append(i)
+    log.print('')
+    while True:
+        num = question('Interface number:', int)[0]
+        if num in possible_numbers:
+            break
+        else:
+            log.print('Please input one of the following: %s!' % (possible_numbers))
+    log.print("")
+    return Interfaces[num][1]
 
-def get_general():
+def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
+    """ get requests for every single point"""
+    standard_requests = {'dm': "dipole moments", 'grad': "gradients", 'soc': "spin orbit couplings", 'nacdr': "nonadiabatic couplings", 'socdr': "derivatives of spin--orbit couplings", 'dmdr':
+                         "derivates of dipole moments", 'multipolar_fit': "a distributed multipole expansion for all states", 'theodore': "THEODORE analysis"}
+    int_features = interface.get_features()
+    available_requests = sorted(set(*standard_requests.keys()).intersection(int_features))
+    log.debug(available_requests)
+    requests = ['h']
+    log.print(f"{'Requests on every single point (additional to energy)':-^60-}")
+    log.print("")
+    for i in available_requests:
+        if question(f"Calculate {standard_requests[i]}?:", bool, autocomplete=False, default=True):
+            requests.append(i)
+
+    return requests
+
+
+def get_general(INFOS) -> dict:
     '''This routine questions from the user some general information:
     - initconds file
     - number of states
     - number of initial conditions
     - interface to use'''
-
-    INFOS = {}
-    log.print('{:-^60}'.format('Choose the quantum chemistry interface'))
-    log.print('\nPlease specify the quantum chemistry interface (enter any of the following numbers):')
-    for i, interface in enumerate(Interfaces):
-        log.print('%i\t%s: %s' % (i, interface.name(), interface.description()))
-    log.print('')
-    while True:
-        num = question('Interface number:', int)[0]
-        if num in range(len(Interfaces)):
-            break
-        else:
-            log.print('Please input one of the following: %s!' % ([i for i in Interfaces]))
-    INFOS['interface'] = Interfaces[num]
-    log.print("")
 
     log.print('{:-^60}'.format('Geometry'))
     log.print('\nPlease specify the geometry file (xyz format, Angstroms):')
@@ -321,12 +344,11 @@ def writeQMin(INFOS, iconddir, igeom, geometry_data):
         string += line.strip() + '\n'
 
     string += '''
-step 0 
+step 0
 unit angstrom
 states %s
-h
-dm
 ''' % (' '.join([str(i) for i in INFOS['states']]))
+    string += "\n".join(INFOS['requests'])
 
     runscript.write(string)
     runscript.close()
@@ -349,7 +371,7 @@ def get_iconddir(istate, INFOS):
 # ====================================
 
 
-def setup_all(INFOS):
+def setup_all(INFOS, interface: SHARC_INTERFACE):
     '''This routine sets up the directories for the initial calculations.'''
 
     string = '\n  ' + '=' * 80 + '\n'
@@ -364,7 +386,7 @@ def setup_all(INFOS):
     for igeom in range(INFOS['ngeom']):
         iconddir = os.path.join(INFOS['copydir'], 'geom_%i' % (igeom + 1))
         make_directory(iconddir)
-        globals()[Interfaces[INFOS['interface']]['prepare_routine']](INFOS, iconddir)
+        interface.prepare(INFOS, iconddir)
         writeRunscript(INFOS, iconddir)
         writeQMin(INFOS, iconddir, igeom, geometry_data)
 
@@ -389,9 +411,10 @@ This interactive program prepares SHARC single point calculations.
 
     displaywelcome()
     open_keystrokes()
-
-    INFOS = get_general()
-    chosen_interface: SHARC_INTERFACE = INFOS['interface']()
+    INFOS = {}
+    chosen_interface = get_interface()()
+    INFOS = get_general(INFOS)
+    INFOS['requests'] = get_requests(INFOS)
     INFOS = chosen_interface.get_infos(INFOS)
     INFOS = get_runscript_info(INFOS)
 

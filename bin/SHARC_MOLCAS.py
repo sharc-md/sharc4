@@ -39,7 +39,7 @@ import numpy as np
 
 # internal
 from resp import Resp
-from SHARC_INTERFACE import INTERFACE
+from SHARC_INTERFACE_old import INTERFACE
 from utils import *
 from globals import DEBUG, PRINT
 from constants import IToMult, au2eV, IAn2AName
@@ -96,8 +96,8 @@ class MOLCAS(INTERFACE):
                 if not os.path.isfile(driver):
                     raise Error('No driver (pymolcas or molcas.exe) found in $MOLCAS/bin. Please add the path to the driver via the "driver" keyword.', 52)
         else:
-            if os.path.isfile( QMin['molcas_driver']):
-                driver =  QMin['molcas_driver']
+            if os.path.isfile(QMin['molcas_driver']):
+                driver = QMin['molcas_driver']
             else:
                 raise Error('Driver not found in %s' % QMin['molcas_driver'], 52)
         QMin['molcas_driver'] = driver
@@ -119,9 +119,9 @@ class MOLCAS(INTERFACE):
         QMin = self._QMin
         # define classes and defaults
         bools = {
-            'cholesky': False, 
-            'cholesky_analytical': False, 
-            'no-douglas-kroll': False, 
+            'cholesky': False,
+            'cholesky_analytical': False,
+            'no-douglas-kroll': False,
             'diab_num_grad': False,
             'qmmm': False,      # TODO: qmmm will require some work
             'cobramm': False,   # TODO: cobramm will require some work
@@ -144,18 +144,18 @@ class MOLCAS(INTERFACE):
             'gradaccumax': 1.e-2,
             'gradaccudefault': 1.e-4,
             'displ': 0.005,     # better in base interface where num grad will be
-            'rasscf_thrs_e': 1e-8, 
-            'rasscf_thrs_rot': 1e-4, 
-            'rasscf_thrs_egrd': 1e-4, 
+            'rasscf_thrs_e': 1e-8,
+            'rasscf_thrs_rot': 1e-4,
+            'rasscf_thrs_egrd': 1e-4,
             'cholesky_accu': 1e-4
         }
         special = {
             'roots': [0 for i in QMin['states']],
             'rootpad': [0 for i in QMin['states']],
-            #'charge': [i % 2 for i in range(len(QMin['states']))],
+            # 'charge': [i % 2 for i in range(len(QMin['states']))],
             'pcmset': {'solvent': 'water', 'aare': 0.4, 'r-min': 1.0, 'on': False},
             'pcmstate': [QMin['statemap'][1][0], QMin['statemap'][1][1]],
-            'iterations': [200,100]
+            'iterations': [200, 100]
         }
 
         lines = readfile(template_filename)
@@ -191,12 +191,12 @@ class MOLCAS(INTERFACE):
         for i in necessary:
             if QMin['template'][i] == 0:
                 raise Error('Key %s missing in template file!' % (i), 62)
-        nelec = 2*QMin['template']['inactive'] + QMin['template']['nactel']
+        nelec = 2 * QMin['template']['inactive'] + QMin['template']['nactel']
         if nelec % 2 == 0:
-            nelec = [ nelec - (i+0)%2 for i in range(len(QMin['states'])) ]
+            nelec = [nelec - (i + 0) % 2 for i in range(len(QMin['states']))]
         else:
-            nelec = [ nelec - (i+1)%2 for i in range(len(QMin['states'])) ]
-        charge = [ QMin['Atomcharge'] - i for i in nelec ]
+            nelec = [nelec - (i + 1) % 2 for i in range(len(QMin['states']))]
+        charge = [QMin['Atomcharge'] - i for i in nelec]
         QMin['template']['charge'] = charge
 
         # 3: pcm and qmmm/cobramm
@@ -239,6 +239,8 @@ class MOLCAS(INTERFACE):
 
 
     # ======================================================================= #
+
+
     def getVersion(path):
         # get version from version file
         molcasversion = os.path.join(path, '.molcasversion')
@@ -310,4 +312,3 @@ class MOLCAS(INTERFACE):
 if __name__ == '__main__':
     molcas = MOLCAS(get_bool_from_env('DEBUG', False), get_bool_from_env('PRINT'))
     molcas.main()
-

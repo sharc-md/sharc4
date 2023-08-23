@@ -44,7 +44,7 @@ def expand_path(path: str) -> str:
     assert "$" not in expand, f"Undefined env variable in {expand}"
     return expand
 
-def question(question, typefunc, default=None, autocomplete=True, ranges=False):
+def question(question, typefunc, KEYSTROKES=None, default=None, autocomplete=True, ranges=False):
     if typefunc == int or typefunc == float:
         if default is not None and not isinstance(default, list):
             print('Default to int or float question must be list!')

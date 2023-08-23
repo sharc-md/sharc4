@@ -37,7 +37,7 @@ import datetime
 import numpy as np
 
 # internal
-from SHARC_INTERFACE import INTERFACE
+from SHARC_INTERFACE_old import INTERFACE
 from utils import readfile, mkdir, Error
 from constants import U_TO_AMU, MASSES
 from kabsch import kabsch_w as kabsch

@@ -4197,7 +4197,7 @@ def runeverything(tasks, QMin):
 # ======================================================================= #
 # ======================================================================= #
 class civfl_ana:
-    def __init__(self, maxsqnorm=1.0, debug=False, columbus=os.environ['COLUMBUS']):
+    def __init__(self, maxsqnorm=1.0, debug=False, columbus=None):
         self.det_dict = {}  # dictionary with determinant strings and cicoefficient information
         self.nmot = -1  # number of MOs
         self.niot = -1  # number of internal orbs
@@ -4207,7 +4207,7 @@ class civfl_ana:
         self.maxsqnorm = maxsqnorm
         self.sqcinorms = {}  # CI-norms
         self.debug = debug
-        self.columbus = columbus
+        self.columbus = os.environ['COLUMBUS'] if columbus is None else columbus 
 # ================================================== #
 
     def read_cipcls(self, istate):

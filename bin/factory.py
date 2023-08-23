@@ -24,6 +24,8 @@
 
 from importlib import import_module
 from utils import expand_path
+from typing import Union
+from logger import log
 import glob
 from SHARC_INTERFACE import SHARC_INTERFACE
 
@@ -31,7 +33,7 @@ AVAILABLE_INTERFACES = [
     'LVC', 'ORCA', 'MOLCAS', 'BAGEL', 'MOLPRO', 'COLUMBUS', 'AMS-ADF', 'RICC2', 'GAUSSIAN', 'TINKER', 'QMMM', 'MNDO', 'OpenMM'
 ]
 
-def get_available_interfaces() -> list[SHARC_INTERFACE]:
+def get_available_interfaces() -> list[tuple[str, Union[SHARC_INTERFACE, str]]]:
     """
     returns available interfaces classes
 
@@ -43,17 +45,30 @@ def get_available_interfaces() -> list[SHARC_INTERFACE]:
         list of SHARC interface classes
     """
     sharc_bin = expand_path('$SHARC')
+    log.debug(f"factory interface collection: {sharc_bin}")
     interfaces = []
-    for path in sorted(glob.glob(sharc_bin + 'SHARC_*.py')):
+    for path in sorted(glob.glob(sharc_bin + '/SHARC_*.py')):
         filename = path.split('/')[-1]
         interface_name = filename.split('.')[0]
-        mod = import_module(interface_name)
-        interface = getattr(mod, interface_name)
-        if issubclass(interface, SHARC_INTERFACE):
-            return interface
-        else:
-            raise ValueError(f"factory could not produce an interface:\n {interface}")
-        interfaces.append(getattr(mod, interface_name))
+        interface = "(Not Available!)"
+        try:
+            mod = import_module(interface_name)
+        except TypeError:
+            log.debug(f"{mod} could not be imported (not a package)")
+        except (ModuleNotFoundError, ImportError):
+            log.debug(f"{mod} could not be imported (missing dependencies)")
+
+        try:
+            interface = getattr(mod, interface_name)
+        except AttributeError:
+            log.debug(f"class {interface_name} not found in {mod}")
+
+        if type(interface) == str or not issubclass(interface, SHARC_INTERFACE):
+            log.debug(f"class {interface_name} in {mod} is not derived from 'SHARC_INTERFACE'")
+
+        interfaces.append((interface_name, interface))
+    log.debug(interfaces)
+    return interfaces
 
 
 def factory(name: str) -> SHARC_INTERFACE:
