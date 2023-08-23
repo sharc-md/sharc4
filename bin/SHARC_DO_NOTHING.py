@@ -141,7 +141,12 @@ class SHARC_DO_NOTHING(SHARC_INTERFACE):
                     [[0.0 for i in range(3)] for j in range(natom)]
                     for k in range(nmstates)
                 ]
-            # TODO: point charges
+            if self.QMin.molecule["point_charges"]:
+                if "grad_pc" not in QMout:
+                    QMout["grad_pc"] = [
+                        [[0.0 for i in range(3)] for j in range(self.QMin.molecule["npc"])]
+                        for k in range(nmstates)
+                    ]
 
         if self.QMin.requests["overlap"]:
             if "overlap" not in QMout:
@@ -152,10 +157,11 @@ class SHARC_DO_NOTHING(SHARC_INTERFACE):
                 QMout["phases"] = [complex(1.0, 0.0) for i in range(nmstates)]
 
         if self.QMin.requests["ion"]:
-            if "prop" not in QMout:
-                QMout["prop"] = makecmatrix(nmstates, nmstates)
+            if "prop2d" not in QMout:
+                QMout["prop2d"] = [ 'Dyson norms',  makecmatrix(nmstates, nmstates) ]
 
         if self.QMin.requests["multipolar_fit"]:
+            # TODO: will be full-rank 4d array
             if "multipolar_fit" not in QMout:
                 QMout["multipolar_fit"] = {}
                 for imult,inst in enumerate(states):
@@ -176,7 +182,15 @@ class SHARC_DO_NOTHING(SHARC_INTERFACE):
                     ]
                     for l in range(nmstates)
                 ]
-            # TODO: point charges
+            if self.QMin.molecule["point_charges"]:
+                if "nacdr_pc" not in QMout:
+                    QMout["nacdr_pc"] = [
+                    [
+                        [[0.0 for i in range(3)] for j in range(self.QMin.molecule["npc"])]
+                        for k in range(nmstates)
+                    ]
+                    for l in range(nmstates)
+                ]
 
         if self.QMin.requests["dmdr"]:
             if "dmdr" not in QMout:
@@ -190,7 +204,18 @@ class SHARC_DO_NOTHING(SHARC_INTERFACE):
                     ]
                     for _ in range(nmstates)
                 ]
-            # TODO: point charges
+            if self.QMin.molecule["point_charges"]:
+                if "dmdr_pc" not in QMout:
+                    QMout["dmdr_pc"] =[
+                    [
+                        [
+                            [[0.0 for _ in range(3)] for _ in range(self.QMin.molecule["npc"])]
+                            for _ in range(3)
+                        ]
+                        for _ in range(nmstates)
+                    ]
+                    for _ in range(nmstates)
+                ]
 
 
         QMout["runtime"] = 0.
