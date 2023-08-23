@@ -118,6 +118,9 @@ class SHARC_DO_NOTHING(SHARC_INTERFACE):
     def create_restart_files(self):
         pass
 
+    def print_qmin(self) -> None:
+        print(self.QMin)
+
     def getQMout(self) -> Dict[str, np.ndarray]:
         """
         Generate QMout for all requested requests
