@@ -140,8 +140,8 @@ class SHARC_INTERFACE(ABC):
         return
 
     @abstractmethod
-    def print_qmin(self) -> str:
-        return "QMin"
+    def print_qmin(self) -> None:
+        pass
 
     def main(self):
         """
