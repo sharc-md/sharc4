@@ -28,13 +28,15 @@
 import datetime
 from typing import Dict
 import sys
+import os
+from io import TextIOWrapper
 
 import numpy as np
 from logger import log as logging
 
 # internal
 from SHARC_INTERFACE import SHARC_INTERFACE
-from utils import Error, makecmatrix
+from utils import Error, makecmatrix, question
 
 authors = "Sebastian Mai"
 version = "3.0"
@@ -46,7 +48,7 @@ changelogstring = """
 """
 np.set_printoptions(linewidth=400, formatter={"float": lambda x: f"{x: 9.7}"})
 
-all_features = {
+all_features = set(
     "h",
     "soc",
     "dm",
@@ -59,7 +61,7 @@ all_features = {
     "theodore",
     "dmdr",
     "socdr",
-}
+)
 
 logging.root.setLevel(logging.DEBUG)
 
@@ -100,13 +102,18 @@ class SHARC_DO_NOTHING(SHARC_INTERFACE):
         "return availble features"
         return all_features
 
+    def get_infos(self, INFOS: dict, KEYSTROKES: TextIOWrapper) -> dict:
+        "prepare INFOS obj"
+        self.setup_info=question("Please provide your favorite dish!", str, default="Pizza", KEYSTROKES=KEYSTROKES, autocomplete=False)
+        return INFOS
+
     def prepare(self, INFOS: dict, dir: str):
         "setup the folders"
+        fpath = os.path.join(dir, "Food")
+        f = open(fpath)
+        f.write(self.setup_info)
+        f.close()
         return
-
-    def get_infos(self, INFOS: dict) -> dict:
-        "prepare INFOS obj"
-        return INFOS
 
     @staticmethod
     def name() -> str:

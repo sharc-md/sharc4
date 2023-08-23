@@ -38,6 +38,7 @@ import numpy as np
 import subprocess as sp
 from abc import ABC, abstractmethod
 from typing import Union, List
+from io import TextIOWrapper
 
 # from functools import reduce, singledispatchmethod
 from socket import gethostname
@@ -126,13 +127,24 @@ class SHARC_INTERFACE(ABC):
         return "Name and description of the interface"
 
     @abstractmethod
-    def get_features(self) -> set:
-        "return availble features"
+    def get_features(self, KEYSTROKES: TextIOWrapper = None) -> set:
+        """return availble features
+        
+        ---
+        Parameters:
+        KEYSTROKES: object as returned by open() to be used with question()
+        """
         return all_features
 
     @abstractmethod
-    def get_infos(self, INFOS: dict) -> dict:
-        "prepare INFOS obj"
+    def get_infos(self, INFOS: dict, KEYSTROKES: TextIOWrapper = None) -> dict:
+        """prepare INFOS obj
+        
+        ---
+        Parameters:
+        INFOS: dictionary with all previously collected infos during setup
+        KEYSTROKES: object as returned by open() to be used with question()
+        """
         return INFOS
 
     @abstractmethod
