@@ -328,6 +328,27 @@ class SHARC_INTERFACE(ABC):
                 self._setsave = True
                 self.QMin.save["savedir"] = llist[1].strip()
                 logging.debug(f"SAVEDIR set to {self.QMin.save['savedir']}")
+            elif key == "point_charges":
+                self.QMin["point_charges"] = True
+                pcfile = expand_path(llist[1].strip())
+                logging.debug(f"Reading point charges from {pcfile}")
+
+                # Read pcfile and assign charges and coordinates
+                pccharge = []
+                pccoords = []
+                for pcharges in map(lambda x: x.split(), readfile(pcfile)):
+                    pccoords.append(
+                        [
+                            float(pcharges[0]) * self.QMin.molecule["factor"],
+                            float(pcharges[1]) * self.QMin.molecule["factor"],
+                            float(pcharges[2]) * self.QMin.molecule["factor"],
+                        ]
+                    )
+                    pccharge.append(float(pccharge[3]))
+
+                self.QMin.coords["pccoords"] = pccoords
+                self.QMin.coords["pccharge"] = pccharge
+                self.QMin.molecule["npc"] = len(pccharge)
 
         if not isinstance(self.QMin.save["savedir"], str):
             self.QMin.save["savedir"] = "./SAVEDIR/"
