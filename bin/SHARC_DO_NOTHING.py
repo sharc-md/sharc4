@@ -53,7 +53,8 @@ all_features = {
     "grad",
     "nacdr",
     "overlap",
-    "multipolar_fit" "phases",
+    "multipolar_fit",
+    "phases",
     "ion",
     "dmdr",
 }
