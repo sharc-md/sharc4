@@ -658,37 +658,11 @@ class SHARC_INTERFACE(ABC):
         writefile(stepfile, str(self.QMin.save["step"]))
 
     @abstractmethod
-    def writeQMout(self) -> None:
+    def writeQMout(self, filename: str = "QM.out") -> None:
         """
         Writes the requested quantities to the file which SHARC reads in.
         """
-        logging.info("Writing output to QM.out in SHARC format.")
-        string = ""
-        if self.QMin.requests["h"] or self.QMin.requests["soc"]:
-            string += self.QMout.writeQMoutsoc()
-        if self.QMin.requests["dm"]:
-            string += self.QMout.writeQMoutdm()
-        if self.QMin.requests["grad"]:
-            string += self.QMout.writeQMoutgrad()
-        if self.QMin.requests["overlap"]:
-            string += self.QMout.writeQMoutnacsmat()
-        if self.QMin.requests["nacdr"]:
-            string += self.QMout.writeQMoutnacana()
-        if self.QMin.requests["socdr"]:
-            string += self.QMout.writeQMoutsocdr()
-        if self.QMin.requests["dmdr"]:
-            string += self.QMout.writeQMoutdmdr()
-        if self.QMin.requests["ion"]:
-            string += self.QMout.writeQMoutprop()
-        if self.QMin.requests["theodore"] and QMin["template"]["qmmm"]:
-            string += self.QMout.writeQMoutTHEODORE(self.QMin)
-        if self.QMin.requests["phases"]:
-            string += self.QMout.writeQmoutPhases()
-        if self.QMin.requests["multipolar_fit"]:
-            string += self.QMout.writeQMoutmultipolarfit(self.QMin)
-        string += self.QMout.writeQMouttime()
-        outfile = os.path.join(self.QMin.resources["pwd"], "QM.out")
-        writefile(outfile, string)
+        self.QMout.write(filename, self.QMin)
 
     @abstractmethod
     def printQMout(self):
