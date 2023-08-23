@@ -136,6 +136,7 @@ class SHARC_DO_NOTHING(SHARC_INTERFACE):
             if v in (None, False, []):
                 continue
             requests.add(k)
+
         self.QMout.allocate(
             self.QMin.molecule["states"],
             self.QMin.molecule["natom"],
@@ -144,7 +145,7 @@ class SHARC_DO_NOTHING(SHARC_INTERFACE):
         )
 
         if self.QMin.requests["overlap"]:
-            self.QMout["overlap"] = np.fill_diagonal(self.QMout["overlap"], 1.0)
+            np.fill_diagonal(self.QMout["overlap"], 1.0)
 
         if self.QMin.requests["phases"]:
             self.QMout["phases"] = [complex(1.0, 0.0) for i in range(nmstates)]
