@@ -28,13 +28,15 @@
 import datetime
 from typing import Dict
 import sys
+import os
+from io import TextIOWrapper
 
 import numpy as np
 from logger import log as logging
 
 # internal
 from SHARC_INTERFACE import SHARC_INTERFACE
-from utils import Error, makecmatrix
+from utils import Error, makecmatrix, question
 
 authors = "Sebastian Mai"
 version = "3.0"
@@ -46,7 +48,7 @@ changelogstring = """
 """
 np.set_printoptions(linewidth=400, formatter={"float": lambda x: f"{x: 9.7}"})
 
-all_features = {
+all_features = set(
     "h",
     "soc",
     "dm",
@@ -56,8 +58,10 @@ all_features = {
     "multipolar_fit",
     "phases",
     "ion",
+    "theodore",
     "dmdr",
-}
+    "socdr",
+)
 
 logging.root.setLevel(logging.DEBUG)
 
@@ -98,13 +102,18 @@ class SHARC_DO_NOTHING(SHARC_INTERFACE):
         "return availble features"
         return all_features
 
+    def get_infos(self, INFOS: dict, KEYSTROKES: TextIOWrapper) -> dict:
+        "prepare INFOS obj"
+        self.setup_info=question("Please provide your favorite dish!", str, default="Pizza", KEYSTROKES=KEYSTROKES, autocomplete=False)
+        return INFOS
+
     def prepare(self, INFOS: dict, dir: str):
         "setup the folders"
+        fpath = os.path.join(dir, "Food")
+        f = open(fpath)
+        f.write(self.setup_info)
+        f.close()
         return
-
-    def get_infos(self, INFOS: dict) -> dict:
-        "prepare INFOS obj"
-        return INFOS
 
     @staticmethod
     def name() -> str:
@@ -151,12 +160,12 @@ class SHARC_DO_NOTHING(SHARC_INTERFACE):
             self.QMout["phases"] = [complex(1.0, 0.0) for i in range(nmstates)]
 
         if self.QMin.requests["ion"]:
-            self.QMout["prop2d"] = ["Dyson norms", makecmatrix(nmstates, nmstates)]
+            self.QMout["prop2d"] = [("Dyson norms", makecmatrix(nmstates, nmstates))]
+
+        if self.QMin.requests["theodore"]:
+            self.QMout["prop1d"] = [("Om", [0.0 for i in range(nmstates)])]
 
         return self.QMout
-
-    def writeQMout(self):
-        super().writeQMout()
 
     def printQMout(self):
         super().printQMout()
@@ -196,8 +205,6 @@ class SHARC_DO_NOTHING(SHARC_INTERFACE):
         Read and check if requests are supported
         """
         super().read_requests(requests_file)
-        if any([self.QMin.requests["theodore"], self.QMin.requests["socdr"]]):
-            raise Error("SOCDR and theodore not supported!")
 
 
 if __name__ == "__main__":

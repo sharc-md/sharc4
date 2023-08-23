@@ -125,7 +125,7 @@ class QMinRequests(QMinBase):
             "ion": False,
             "socdr": False,
             "dmdr": False,
-            "multipolar_fit": False,
+            "multipolar_fit": None,
             "theodore": False,
             # Pseudorequests
             "cleanup": False,
@@ -145,7 +145,7 @@ class QMinRequests(QMinBase):
             "ion": bool,
             "socdr": bool,
             "dmdr": bool,
-            "multipolar_fit": bool,
+            "multipolar_fit": list,
             "theodore": bool,
             "cleanup": bool,
             "backup": str,
