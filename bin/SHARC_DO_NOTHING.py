@@ -56,7 +56,9 @@ all_features = {
     "multipolar_fit",
     "phases",
     "ion",
+    "theodore",
     "dmdr",
+    "socdr",
 }
 
 logging.root.setLevel(logging.DEBUG)
@@ -151,7 +153,10 @@ class SHARC_DO_NOTHING(SHARC_INTERFACE):
             self.QMout["phases"] = [complex(1.0, 0.0) for i in range(nmstates)]
 
         if self.QMin.requests["ion"]:
-            self.QMout["prop2d"] = ["Dyson norms", makecmatrix(nmstates, nmstates)]
+            self.QMout["prop2d"] = [("Dyson norms", makecmatrix(nmstates, nmstates))]
+
+        if self.QMin.requests["theodore"]:
+            self.QMout["prop1d"] = [("Om", [0.0 for i in range(nmstates)])]
 
         return self.QMout
 
@@ -196,8 +201,6 @@ class SHARC_DO_NOTHING(SHARC_INTERFACE):
         Read and check if requests are supported
         """
         super().read_requests(requests_file)
-        if any([self.QMin.requests["theodore"], self.QMin.requests["socdr"]]):
-            raise Error("SOCDR and theodore not supported!")
 
 
 if __name__ == "__main__":

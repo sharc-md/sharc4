@@ -548,7 +548,7 @@ class SHARC_INTERFACE(ABC):
                         "samestep",
                         "restart",
                         "newstep",
-                        "step"
+                        "step",
                     ):
                         logging.debug(f"Parsing request {params}")
                         self._set_requests(params)
@@ -621,7 +621,7 @@ class SHARC_INTERFACE(ABC):
                     return
                 self.QMin.requests["soc"] = True
             elif request[0].casefold() == "multipolar_fit":
-                if len(request > 1):
+                if len(request) > 1:
                     self.QMin.requests["multipolar_fit"] = sorted(request[1:])
                     return
                 self.QMin.requests["multipolar_fit"] = [
@@ -665,7 +665,6 @@ class SHARC_INTERFACE(ABC):
         """
         Writes the requested quantities to the file which SHARC reads in.
         """
-        self.QMout.write(filename, self.QMin)
 
     @abstractmethod
     def printQMout(self):
@@ -751,16 +750,19 @@ class SHARC_INTERFACE(ABC):
                             )
                     jstate += 1
                 istate += 1
-        # Property matrix (dyson norms)
-        if self.QMin.requests["ion"] and "prop" in QMout:
-            print("=> Property matrix:\n")
-            matrix = QMout["prop"]
-            printcomplexmatrix(matrix, states)
-        # TheoDORE
-        if self.QMin.requests["theodore"]:
-            print("=> TheoDORE results:\n")
-            matrix = QMout["theodore"]
-            printtheodore(matrix, QMin)
+        # Property matrices
+        print("=> Property matrices:\n")
+        if QMout["prop2d"]:
+            for element in QMout["prop2d"]:
+                print(f'Matrix with label "{element[0]}"')
+                printcomplexmatrix(element[1], states)
+        # Property vectors
+        print("=> Property vectors:\n")
+        if QMout["prop1d"]:
+            for element in QMout["prop1d"]:
+                print(f"{element[0]} {element[1]}")
+                # TODO: format more nicely!
+
         sys.stdout.flush()
 
     # ============================PRINTING ROUTINES========================== #
