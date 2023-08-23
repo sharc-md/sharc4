@@ -548,6 +548,7 @@ class SHARC_INTERFACE(ABC):
                         "samestep",
                         "restart",
                         "newstep",
+                        "step"
                     ):
                         logging.debug(f"Parsing request {params}")
                         self._set_requests(params)
@@ -628,6 +629,8 @@ class SHARC_INTERFACE(ABC):
                 ]
             else:
                 self.QMin.requests[request[0].casefold()] = True
+        elif request[0].casefold() == "step":
+            self.QMin.save[request[0].casefold()] = int(request[1])
         else:
             self.QMin.save[request[0].casefold()] = True
 
@@ -708,7 +711,7 @@ class SHARC_INTERFACE(ABC):
             print("=> Overlap matrix:\n")
             matrix = QMout["overlap"]
             printcomplexmatrix(matrix, states)
-            if "phases" in QMout:
+            if self.QMin.requests["phases"]:
                 print("=> Wavefunction Phases:\n")
                 for i in range(nmstates):
                     print(
