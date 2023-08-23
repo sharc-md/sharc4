@@ -30,6 +30,7 @@ from typing import Dict
 
 import numpy as np
 from logger import log as logging
+
 # internal
 from SHARC_INTERFACE import SHARC_INTERFACE
 from utils import Error, makecmatrix
@@ -44,7 +45,17 @@ changelogstring = """
 """
 np.set_printoptions(linewidth=400, formatter={"float": lambda x: f"{x: 9.7}"})
 
-all_features = {}
+all_features = {
+    "h",
+    "soc",
+    "dm",
+    "grad",
+    "nacdr",
+    "overlap",
+    "phases",
+    "ion",
+    "dmdr",
+}
 
 
 class SHARC_DO_NOTHING(SHARC_INTERFACE):
@@ -72,17 +83,18 @@ class SHARC_DO_NOTHING(SHARC_INTERFACE):
     def versiondate(self) -> str:
         return self._versiondate
 
-    def changelogstring(self) -> str:
-        return self._changelogstring
+    @staticmethod
+    def changelogstring() -> str:
+        return SHARC_DO_NOTHING._changelogstring
 
     def authors(self) -> str:
         return self._authors
 
-    def get_features(self) -> dict:
+    def get_features(self) -> set:
         "return availble features"
         return all_features
 
-    def prepare(self, INFOS: dict):
+    def prepare(self, INFOS: dict, dir: str):
         "setup the folders"
         return
 
@@ -169,7 +181,7 @@ class SHARC_DO_NOTHING(SHARC_INTERFACE):
         super().writeQMout()
 
     def printQMout(self):
-        pass
+        super().printQMout()
 
     def write_step_file(self):
         pass
@@ -211,17 +223,17 @@ class SHARC_DO_NOTHING(SHARC_INTERFACE):
 
 
 if __name__ == "__main__":
-    interface = "MOLPRO"
+    interface = "COLUMBUS"
     test = SHARC_DO_NOTHING()
-    test.setup_mol(
-        f"/user/sascha/development/eci/sharc_main/examples/SHARC_{interface}/QM.in"
-    )
-    test.read_resources()
-    test.read_template()
-    test.read_requests(
-        f"/user/sascha/development/eci/sharc_main/examples/SHARC_{interface}/QM.in"
-    )
-    # test.main()
-    print(test.getQMout())
-    test.writeQMout()
-    print(test.QMin)
+    #test.setup_mol(
+    #   f"/user/sascha/development/eci/sharc_main/examples/SHARC_{interface}/QM.in"
+    #)
+    #test.read_resources()
+    #test.read_template()
+    #test.read_requests(
+    #   f"/user/sascha/development/eci/sharc_main/examples/SHARC_{interface}/QM.in"
+    #)
+    test.main()
+    test.getQMout()
+    test.printQMout()
+    #print(test.QMin)
