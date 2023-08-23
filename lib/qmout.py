@@ -263,8 +263,6 @@ class QMout:
         Returns:
         1 string: multiline string with the DM matrices'''
 
-        QMin = self._QMin
-        QMout = self._QMout
         nmstates = self.nmstates
         string = ''
         string += '! %i Angular Momentum Matrices (3x%ix%i, complex)\n' % (9, nmstates, nmstates)
@@ -296,8 +294,6 @@ class QMout:
         Returns:
         1 string: multiline string with the Gradient vectors'''
 
-        QMin = self._QMin
-        QMout = self._QMout
         states = self.states
         nmstates = self.nmstates
         natom = self.natom
