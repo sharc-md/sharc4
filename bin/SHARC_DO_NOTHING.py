@@ -27,9 +27,11 @@
 # external
 import datetime
 from typing import Dict
+import sys
 
 import numpy as np
 from logger import log as logging
+
 # internal
 from SHARC_INTERFACE import SHARC_INTERFACE
 from utils import Error, makecmatrix
@@ -44,7 +46,18 @@ changelogstring = """
 """
 np.set_printoptions(linewidth=400, formatter={"float": lambda x: f"{x: 9.7}"})
 
-all_features = {}
+all_features = {
+    "h",
+    "soc",
+    "dm",
+    "grad",
+    "nacdr",
+    "overlap",
+    "multipolar_fit",
+    "phases",
+    "ion",
+    "dmdr",
+}
 
 
 class SHARC_DO_NOTHING(SHARC_INTERFACE):
@@ -72,17 +85,18 @@ class SHARC_DO_NOTHING(SHARC_INTERFACE):
     def versiondate(self) -> str:
         return self._versiondate
 
-    def changelogstring(self) -> str:
-        return self._changelogstring
+    @staticmethod
+    def changelogstring() -> str:
+        return SHARC_DO_NOTHING._changelogstring
 
     def authors(self) -> str:
         return self._authors
 
-    def get_features(self) -> dict:
+    def get_features(self) -> set:
         "return availble features"
         return all_features
 
-    def prepare(self, INFOS: dict):
+    def prepare(self, INFOS: dict, dir: str):
         "setup the folders"
         return
 
@@ -105,11 +119,15 @@ class SHARC_DO_NOTHING(SHARC_INTERFACE):
     def create_restart_files(self):
         pass
 
+    def print_qmin(self) -> None:
+        print(self.QMin)
+
     def getQMout(self) -> Dict[str, np.ndarray]:
         """
         Generate QMout for all requested requests
         """
         QMout = self.QMout
+        states = self.QMin.molecule["states"]
         nmstates = self.QMin.molecule["nmstates"]
         natom = self.QMin.molecule["natom"]
 
@@ -127,7 +145,15 @@ class SHARC_DO_NOTHING(SHARC_INTERFACE):
                     [[0.0 for i in range(3)] for j in range(natom)]
                     for k in range(nmstates)
                 ]
-            # TODO: point charges
+            if self.QMin.molecule["point_charges"]:
+                if "grad_pc" not in QMout:
+                    QMout["grad_pc"] = [
+                        [
+                            [0.0 for i in range(3)]
+                            for j in range(self.QMin.molecule["npc"])
+                        ]
+                        for k in range(nmstates)
+                    ]
 
         if self.QMin.requests["overlap"]:
             if "overlap" not in QMout:
@@ -138,8 +164,22 @@ class SHARC_DO_NOTHING(SHARC_INTERFACE):
                 QMout["phases"] = [complex(1.0, 0.0) for i in range(nmstates)]
 
         if self.QMin.requests["ion"]:
-            if "prop" not in QMout:
-                QMout["prop"] = makecmatrix(nmstates, nmstates)
+            if "prop2d" not in QMout:
+                QMout["prop2d"] = ["Dyson norms", makecmatrix(nmstates, nmstates)]
+
+        if self.QMin.requests["multipolar_fit"]:
+            # TODO: will be full-rank 4d array
+            if "multipolar_fit" not in QMout:
+                QMout["multipolar_fit"] = {}
+                for imult, inst in enumerate(states):
+                    for ist in range(inst):
+                        for jmult, jnst in enumerate(states):
+                            if not imult == jmult:
+                                continue
+                            for jst in range(jnst):
+                                QMout["multipolar_fit"][
+                                    (imult + 1, ist + 1, jmult + 1, jst + 1)
+                                ] = [[0.0 for i in range(10)] for j in range(natom)]
 
         if self.QMin.requests["nacdr"]:
             if "nacdr" not in QMout:
@@ -150,6 +190,19 @@ class SHARC_DO_NOTHING(SHARC_INTERFACE):
                     ]
                     for l in range(nmstates)
                 ]
+            if self.QMin.molecule["point_charges"]:
+                if "nacdr_pc" not in QMout:
+                    QMout["nacdr_pc"] = [
+                        [
+                            [
+                                [0.0 for i in range(3)]
+                                for j in range(self.QMin.molecule["npc"])
+                            ]
+                            for k in range(nmstates)
+                        ]
+                        for l in range(nmstates)
+                    ]
+
         if self.QMin.requests["dmdr"]:
             if "dmdr" not in QMout:
                 QMout["dmdr"] = [
@@ -162,6 +215,23 @@ class SHARC_DO_NOTHING(SHARC_INTERFACE):
                     ]
                     for _ in range(nmstates)
                 ]
+            if self.QMin.molecule["point_charges"]:
+                if "dmdr_pc" not in QMout:
+                    QMout["dmdr_pc"] = [
+                        [
+                            [
+                                [
+                                    [0.0 for _ in range(3)]
+                                    for _ in range(self.QMin.molecule["npc"])
+                                ]
+                                for _ in range(3)
+                            ]
+                            for _ in range(nmstates)
+                        ]
+                        for _ in range(nmstates)
+                    ]
+
+        QMout["runtime"] = 0.0
 
         return QMout
 
@@ -169,7 +239,7 @@ class SHARC_DO_NOTHING(SHARC_INTERFACE):
         super().writeQMout()
 
     def printQMout(self):
-        pass
+        super().printQMout()
 
     def write_step_file(self):
         pass
@@ -211,17 +281,7 @@ class SHARC_DO_NOTHING(SHARC_INTERFACE):
 
 
 if __name__ == "__main__":
-    interface = "MOLPRO"
+    # interface = "MOLPRO"
     test = SHARC_DO_NOTHING()
-    test.setup_mol(
-        f"/user/sascha/development/eci/sharc_main/examples/SHARC_{interface}/QM.in"
-    )
-    test.read_resources()
-    test.read_template()
-    test.read_requests(
-        f"/user/sascha/development/eci/sharc_main/examples/SHARC_{interface}/QM.in"
-    )
-    # test.main()
-    print(test.getQMout())
-    test.writeQMout()
-    print(test.QMin)
+    test.main()
+    test.printQMout()
