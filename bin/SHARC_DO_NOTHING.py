@@ -203,4 +203,3 @@ if __name__ == "__main__":
     # interface = "MOLPRO"
     test = SHARC_DO_NOTHING()
     test.main()
-    test.printQMout()
