@@ -27,6 +27,7 @@
 # external
 import datetime
 from typing import Dict
+import sys
 
 import numpy as np
 from logger import log as logging
@@ -110,6 +111,7 @@ class SHARC_DO_NOTHING(SHARC_INTERFACE):
         Generate QMout for all requested requests
         """
         QMout = self.QMout
+        states = self.QMin.molecule["states"]
         nmstates = self.QMin.molecule["nmstates"]
         natom = self.QMin.molecule["natom"]
 
@@ -141,6 +143,18 @@ class SHARC_DO_NOTHING(SHARC_INTERFACE):
             if "prop" not in QMout:
                 QMout["prop"] = makecmatrix(nmstates, nmstates)
 
+        if self.QMin.requests["multipolar_fit"]:
+            if "multipolar_fit" not in QMout:
+                QMout["multipolar_fit"] = {}
+                for imult,inst in enumerate(states):
+                    for ist in range(inst):
+                        for jmult,jnst in enumerate(states):
+                            if not imult == jmult:
+                                continue
+                            for jst in range(jnst):
+                                QMout["multipolar_fit"][(imult+1,ist+1,jmult+1,jst+1)] = [ [ 0.0 for i in range(10)] for j in range(natom)]
+
+
         if self.QMin.requests["nacdr"]:
             if "nacdr" not in QMout:
                 QMout["nacdr"] = [
@@ -150,6 +164,8 @@ class SHARC_DO_NOTHING(SHARC_INTERFACE):
                     ]
                     for l in range(nmstates)
                 ]
+            # TODO: point charges
+
         if self.QMin.requests["dmdr"]:
             if "dmdr" not in QMout:
                 QMout["dmdr"] = [
@@ -162,6 +178,10 @@ class SHARC_DO_NOTHING(SHARC_INTERFACE):
                     ]
                     for _ in range(nmstates)
                 ]
+            # TODO: point charges
+
+
+        QMout["runtime"] = 0.
 
         return QMout
 
@@ -211,17 +231,18 @@ class SHARC_DO_NOTHING(SHARC_INTERFACE):
 
 
 if __name__ == "__main__":
-    interface = "MOLPRO"
+    # interface = "MOLPRO"
     test = SHARC_DO_NOTHING()
-    test.setup_mol(
-        f"/user/sascha/development/eci/sharc_main/examples/SHARC_{interface}/QM.in"
-    )
-    test.read_resources()
-    test.read_template()
-    test.read_requests(
-        f"/user/sascha/development/eci/sharc_main/examples/SHARC_{interface}/QM.in"
-    )
-    # test.main()
-    print(test.getQMout())
-    test.writeQMout()
-    print(test.QMin)
+    test.main()
+    # test.setup_mol(
+    #     f"/user/sascha/development/eci/sharc_main/examples/SHARC_{interface}/QM.in"
+    # )
+    # test.read_resources()
+    # test.read_template()
+    # test.read_requests(
+    #     f"/user/sascha/development/eci/sharc_main/examples/SHARC_{interface}/QM.in"
+    # )
+    # # test.main()
+    # print(test.getQMout())
+    # test.writeQMout()
+    # print(test.QMin)

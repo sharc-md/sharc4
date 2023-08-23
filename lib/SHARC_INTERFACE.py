@@ -909,19 +909,20 @@ class SHARC_INTERFACE(ABC):
         Blocks are separated by a blank line.
         """
 
-        QMout = self.QMout
-        nmstates = self.QMin.molecule["nmstates"]
-        string = ""
-        string += "! %i Property Matrix (%ix%i, complex)\n" % (11, nmstates, nmstates)
-        string += "%i %i\n" % (nmstates, nmstates)
-        for i in range(nmstates):
-            for j in range(nmstates):
-                string += "%s %s " % (
-                    eformat(QMout["prop"][i][j].real, 12, 3),
-                    eformat(QMout["prop"][i][j].imag, 12, 3),
-                )
-            string += "\n"
-        string += "\n"
+        #  This output format is deprecated and not used by the driver anymore
+        # QMout = self.QMout
+        # nmstates = self.QMin.molecule["nmstates"]
+        # string = ""
+        # string += "! %i Property Matrix (%ix%i, complex)\n" % (11, nmstates, nmstates)
+        # string += "%i %i\n" % (nmstates, nmstates)
+        # for i in range(nmstates):
+        #     for j in range(nmstates):
+        #         string += "%s %s " % (
+        #             eformat(QMout["prop"][i][j].real, 12, 3),
+        #             eformat(QMout["prop"][i][j].imag, 12, 3),
+        #         )
+        #     string += "\n"
+        # string += "\n"
 
         # print(property matrices (flag 20) in new format)
         string += "! %i Property Matrices\n" % (20)
@@ -952,11 +953,11 @@ class SHARC_INTERFACE(ABC):
         One line per atom and a blank line at the end.
         """
 
-        QMout = self.QMout
+        # QMout = self.QMout
         states = self.QMin.molecule["states"]
         nmstates = self.QMin.molecule["nmstates"]
         natom = self.QMin.molecule["natom"]
-        fits = self.QMin.resources["multipolar_fit"]
+        fits = self.QMout["multipolar_fit"]
         resp_layers = self.QMin.resources["resp_layers"]
         resp_density = self.QMin.resources["resp_density"]
         resp_flayer = self.QMin.resources["resp_first_layer"]
