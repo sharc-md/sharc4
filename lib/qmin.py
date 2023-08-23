@@ -41,7 +41,7 @@ class QMinMolecule(QMinBase):
             "nstates": None,
             "nmstates": None,
             "point_charges": False,
-            "npc": None,
+            "npc": 0,
             # Ab initio interfaces
             "Atomcharge": None,
             "frozcore": None,
