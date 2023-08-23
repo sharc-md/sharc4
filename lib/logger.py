@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 
-
-import logging
 import sys
+import logging
+SHARCPRINT = 11
+
 
 class CustomFormatter(logging.Formatter):
     err_fmt = "ERROR: %(msg)s"
@@ -18,6 +19,9 @@ class CustomFormatter(logging.Formatter):
         elif record.levelno == logging.INFO:
             self._fmt = CustomFormatter.info_fmt
 
+        elif record.levelno == SHARCPRINT:
+            self._fmt = CustomFormatter.info_fmt
+
         elif record.levelno == logging.ERROR:
             self._fmt = CustomFormatter.err_fmt
 
@@ -30,6 +34,9 @@ class CustomFormatter(logging.Formatter):
         return formatter.format(record)
 
 
+
+
+
 fmt = CustomFormatter()
 hdlr = logging.StreamHandler(sys.stdout)
 
@@ -37,5 +44,29 @@ hdlr.setFormatter(fmt)
 logging.root.addHandler(hdlr)
 logging.root.setLevel(logging.INFO)
 
+logging.addLevelName(SHARCPRINT, "SHARCPRINT")
+logging.SHARCPRINT = SHARCPRINT
+
+def sharcprint(msg, *args, **kwargs):
+    """
+    Log 'msg % args' with severity 'SHARCPRINT'.
+
+    To pass exception information, use the keyword argument exc_info with
+    a true value, e.g.
+
+    logger.print("Houston, we have a %s", "interesting problem", exc_info=1)
+    """
+    logging.log(SHARCPRINT, msg, *args, **kwargs)
+
+
+
+logging.print = sharcprint
 log = logging
-log.print = logging.info
+if __name__ == "__main__":
+    print("Test logger")
+    log.root.setLevel(log.SHARCPRINT)
+    log.error("Error")
+    log.warning("warning")
+    log.info("info")
+    log.print("print")
+    log.debug("debug")
