@@ -71,7 +71,7 @@ class QMinCoords(QMinBase):
     def __init__(self):
         # Set data dictionary and dictionary of default types
         self.data = {"coords": None, "pccoords": None, "pccharce": None}
-        self.types = {"coords": (np.ndarray, list), "pccoords": list, "pccharce": list}
+        self.types = {"coords": (np.ndarray, list), "pccoords": (np.ndarray, list), "pccharge": (np.ndarray, list)}
 
 
 class QMinSave(QMinBase):
