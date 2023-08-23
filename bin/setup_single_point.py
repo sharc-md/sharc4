@@ -75,7 +75,7 @@ Couplings = {
 
 
 def displaywelcome():
-    log.print('Script for single point setup with SHARC started...\n')  # change
+    log.info('Script for single point setup with SHARC started...\n')  # change
     string = '\n'
     string += '  ' + '=' * 80 + '\n'
     string += '||' + '{:^80}'.format('') + '||\n'
@@ -90,7 +90,7 @@ def displaywelcome():
     string += '''
 This script automatizes the setup of the input files for SHARC single point calculations.
   '''
-    log.print(string)
+    log.info(string)
 
 # ======================================================================================================================
 # ======================================================================================================================
@@ -113,23 +113,23 @@ def close_keystrokes():
 def get_interface() -> SHARC_INTERFACE:
     'asks for interface and instantiates it'
     Interfaces = factory.get_available_interfaces()
-    log.print('{:-^60}'.format('Choose the quantum chemistry interface'))
-    log.print('\nPlease specify the quantum chemistry interface (enter any of the following numbers):')
+    log.info('{:-^60}'.format('Choose the quantum chemistry interface'))
+    log.info('\nPlease specify the quantum chemistry interface (enter any of the following numbers):')
     possible_numbers = []
     for i, (name, interface) in enumerate(Interfaces):
         if type(interface) == str:
-            log.print('%i\t%s: %s' % (i, name, interface))
+            log.info('%i\t%s: %s' % (i, name, interface))
         else:
-            log.print('%i\t%s: %s' % (i, name, interface.description()))
+            log.info('%i\t%s: %s' % (i, name, interface.description()))
             possible_numbers.append(i)
-    log.print('')
+    log.info('')
     while True:
         num = question('Interface number:', int)[0]
         if num in possible_numbers:
             break
         else:
-            log.print('Please input one of the following: %s!' % (possible_numbers))
-    log.print("")
+            log.info('Please input one of the following: %s!' % (possible_numbers))
+    log.info("")
     return Interfaces[num][1]
 
 def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
@@ -140,8 +140,8 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
     available_requests = sorted(set(*standard_requests.keys()).intersection(int_features))
     log.debug(available_requests)
     requests = ['h']
-    log.print(f"{'Requests on every single point (additional to energy)':-^60-}")
-    log.print("")
+    log.info(f"{'Requests on every single point (additional to energy)':-^60-}")
+    log.info("")
     for i in available_requests:
         if question(f"Calculate {standard_requests[i]}?:", bool, autocomplete=False, default=True):
             requests.append(i)
@@ -156,50 +156,50 @@ def get_general(INFOS) -> dict:
     - number of initial conditions
     - interface to use'''
 
-    log.print('{:-^60}'.format('Geometry'))
-    log.print('\nPlease specify the geometry file (xyz format, Angstroms):')
+    log.info('{:-^60}'.format('Geometry'))
+    log.info('\nPlease specify the geometry file (xyz format, Angstroms):')
     while True:
         path = question('Geometry filename:', str, 'geom.xyz')
         try:
             path = os.path.expanduser(os.path.expandvars(path))
             gf = open(path, 'r')
         except IOError:
-            log.print('Could not open: %s' % (path))
+            log.info('Could not open: %s' % (path))
             continue
         g = gf.readlines()
         gf.close()
         try:
             natom = int(g[0])
         except ValueError:
-            log.print('Malformatted: %s' % (path))
+            log.info('Malformatted: %s' % (path))
             continue
         break
     INFOS['geom_location'] = path
     geometry_data = readfile(INFOS['geom_location'])
     ngeoms = len(geometry_data) // (natom + 2)
     if ngeoms > 1:
-        log.print('Number of geometries: %i' % (ngeoms))
+        log.info('Number of geometries: %i' % (ngeoms))
     INFOS['ngeom'] = ngeoms
     INFOS['natom'] = natom
 
 
     # Number of states
-    log.print('\n' + '{:-^60}'.format('Number of states') + '\n')
-    log.print('\nPlease enter the number of states as a list of integers\ne.g. 3 0 3 for three singlets, zero doublets and three triplets.')
+    log.info('\n' + '{:-^60}'.format('Number of states') + '\n')
+    log.info('\nPlease enter the number of states as a list of integers\ne.g. 3 0 3 for three singlets, zero doublets and three triplets.')
     while True:
         states = question('Number of states:', int)
         if len(states) == 0:
             continue
         if any(i < 0 for i in states):
-            log.print('Number of states must be positive!')
+            log.info('Number of states must be positive!')
             continue
         break
-    log.print('')
+    log.info('')
     nstates = 0
     for mult, i in enumerate(states):
         nstates += (mult + 1) * i
-    log.print('Number of states: ' + str(states))
-    log.print('Total number of states: %i\n' % (nstates))
+    log.info('Number of states: ' + str(states))
+    log.info('Total number of states: %i\n' % (nstates))
     INFOS['states'] = states
     INFOS['nstates'] = nstates
     # obtain the statemap
@@ -215,7 +215,7 @@ def get_general(INFOS) -> dict:
 
     # Add some simple keys
     INFOS['cwd'] = os.getcwd()
-    log.print('')
+    log.info('')
     INFOS['needed'] = []
 
     return INFOS
@@ -240,21 +240,21 @@ def get_runscript_info(INFOS):
     string = '\n  ' + '=' * 80 + '\n'
     string += '||' + '{:^80}'.format('Run mode setup') + '||\n'
     string += '  ' + '=' * 80 + '\n\n'
-    log.print(string)
+    log.info(string)
 
-    log.print('{:-^60}'.format('Run script') + '\n')
+    log.info('{:-^60}'.format('Run script') + '\n')
 
     INFOS['here'] = False
-    log.print('\nWhere do you want to perform the calculations? Note that this script cannot check whether the path is valid.')
+    log.info('\nWhere do you want to perform the calculations? Note that this script cannot check whether the path is valid.')
     INFOS['copydir'] = question('Run directory?', str)
     if question('Do you have headers for the runscript?', bool):
         INFOS['headers'] = readfile(question('Path to header file:', str, 'header', autocomplete=True))
 
-    log.print('')
+    log.info('')
 
 
 
-    log.print('')
+    log.info('')
     return INFOS
 
 # ======================================================================================================================
@@ -267,13 +267,13 @@ def make_directory(iconddir):
 
     iconddir = os.path.abspath(iconddir)
     if os.path.isfile(iconddir):
-        log.print('\nWARNING: %s is a file!' % (iconddir))
+        log.info('\nWARNING: %s is a file!' % (iconddir))
         return -1
     if os.path.isdir(iconddir):
         if len(os.listdir(iconddir)) == 0:
             return 0
         else:
-            log.print('\nWARNING: %s/ is not empty!' % (iconddir))
+            log.info('\nWARNING: %s/ is not empty!' % (iconddir))
             if 'overwrite' not in globals():
                 global overwrite
                 overwrite = question('Do you want to overwrite files in this and all following directories? ', bool, False)
@@ -285,7 +285,7 @@ def make_directory(iconddir):
         try:
             os.mkdir(iconddir)
         except OSError:
-            log.print('\nWARNING: %s cannot be created!' % (iconddir))
+            log.info('\nWARNING: %s cannot be created!' % (iconddir))
             return -1
         return 0
 
@@ -297,7 +297,7 @@ def writeRunscript(INFOS, iconddir):
     try:
         runscript = open('%s/run_single_point.sh' % (iconddir), 'w')
     except IOError:
-        log.print('IOError during writeRunscript, iconddir=%s' % (iconddir))
+        log.info('IOError during writeRunscript, iconddir=%s' % (iconddir))
         quit(1)
     if 'proj' in INFOS:
         projname = '%4s_%5s' % (INFOS['proj'][0:4], iconddir[-6:-1])
@@ -335,7 +335,7 @@ def writeQMin(INFOS, iconddir, igeom, geometry_data):
     try:
         runscript = open('%s/QM.in' % (iconddir), 'w')
     except IOError:
-        log.print('IOError during writeQMin, iconddir=%s' % (iconddir))
+        log.info('IOError during writeQMin, iconddir=%s' % (iconddir))
         quit(1)
 
     string = ''
@@ -377,10 +377,9 @@ def setup_all(INFOS, interface: SHARC_INTERFACE):
     string = '\n  ' + '=' * 80 + '\n'
     string += '||' + '{:^80}'.format('Setting up directory...') + '||\n'
     string += '  ' + '=' * 80 + '\n\n'
-    log.print(string)
+    log.info(string)
 
     geometry_data = readfile(INFOS['geom_location'])
-    natom = INFOS['natom']
     make_directory(INFOS['copydir'])
 
     for igeom in range(INFOS['ngeom']):
@@ -390,7 +389,7 @@ def setup_all(INFOS, interface: SHARC_INTERFACE):
         writeRunscript(INFOS, iconddir)
         writeQMin(INFOS, iconddir, igeom, geometry_data)
 
-    log.print('\n')
+    log.info('\n')
 
 
 # ======================================================================================================================
@@ -418,12 +417,12 @@ This interactive program prepares SHARC single point calculations.
     INFOS = chosen_interface.get_infos(INFOS)
     INFOS = get_runscript_info(INFOS)
 
-    log.print('\n' + '{:#^60}'.format('Full input') + '\n')
+    log.info('\n' + '{:#^60}'.format('Full input') + '\n')
     for item in INFOS:
-        log.print(item, ' ' * (25 - len(item)), INFOS[item])
-    log.print('')
+        log.info(item, ' ' * (25 - len(item)), INFOS[item])
+    log.info('')
     setup = question('Do you want to setup the specified calculations?', bool, True)
-    log.print('')
+    log.info('')
 
     if setup:
         setup_all(INFOS)
@@ -437,5 +436,5 @@ if __name__ == '__main__':
     try:
         main()
     except KeyboardInterrupt:
-        log.print('\nCtrl+C makes me a sad SHARC ;-(\n')
+        log.info('\nCtrl+C makes me a sad SHARC ;-(\n')
         quit(0)
