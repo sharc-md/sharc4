@@ -29,10 +29,8 @@ from logger import log
 import glob
 from SHARC_INTERFACE import SHARC_INTERFACE
 
-AVAILABLE_INTERFACES = [
-    'LVC', 'ORCA', 'MOLCAS', 'BAGEL', 'MOLPRO', 'COLUMBUS', 'AMS-ADF', 'RICC2', 'GAUSSIAN', 'TINKER', 'QMMM', 'MNDO', 'OpenMM'
-]
-
+global AVAILABLE_INTERFACES
+AVAILABLE_INTERFACES = None
 def get_available_interfaces() -> list[tuple[str, Union[SHARC_INTERFACE, str]]]:
     """
     returns available interfaces classes
@@ -44,6 +42,9 @@ def get_available_interfaces() -> list[tuple[str, Union[SHARC_INTERFACE, str]]]:
     list[SHARC_INTERFACE]
         list of SHARC interface classes
     """
+    global AVAILABLE_INTERFACES
+    if AVAILABLE_INTERFACES is not None:
+        return AVAILABLE_INTERFACES
     sharc_bin = expand_path('$SHARC')
     log.debug(f"factory interface collection: {sharc_bin}")
     interfaces = []
@@ -68,18 +69,15 @@ def get_available_interfaces() -> list[tuple[str, Union[SHARC_INTERFACE, str]]]:
 
         interfaces.append((interface_name, interface))
     log.debug(interfaces)
+    AVAILABLE_INTERFACES = interfaces[:]
     return interfaces
 
 
 def factory(name: str) -> SHARC_INTERFACE:
+    available_interfaces = get_available_interfaces()
+    names = [i.__name__.split("_", maxsplit=1)[1] for i in available_interfaces]
     try:
-        ind = [i.upper() for i in AVAILABLE_INTERFACES].index(name.upper())
+        ind = [i.upper() for i in names].index(name.upper())
     except ValueError as e:
         raise e(f'Interface with name "{name}" does not exist!')
-    int_name = AVAILABLE_INTERFACES[ind]
-    interface_mod = import_module('SHARC_{}'.format(int_name))
-    interface = getattr(interface_mod, int_name)
-    if issubclass(interface, SHARC_INTERFACE):
-        return interface
-    else:
-        raise ValueError(f"factory could not produce an interface:\n {interface}")
+    return AVAILABLE_INTERFACES[ind]
