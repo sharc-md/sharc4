@@ -160,9 +160,6 @@ class SHARC_DO_NOTHING(SHARC_INTERFACE):
 
         return self.QMout
 
-    def writeQMout(self):
-        super().writeQMout()
-
     def printQMout(self):
         super().printQMout()
 

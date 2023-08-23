@@ -660,11 +660,11 @@ class SHARC_INTERFACE(ABC):
         stepfile = os.path.join(self.QMin.save["savedir"], "STEP")
         writefile(stepfile, str(self.QMin.save["step"]))
 
-    @abstractmethod
     def writeQMout(self, filename: str = "QM.out") -> None:
         """
         Writes the requested quantities to the file which SHARC reads in.
         """
+        self.QMout.write(filename, self.QMin.requests)
 
     @abstractmethod
     def printQMout(self):
