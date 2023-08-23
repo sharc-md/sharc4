@@ -121,29 +121,29 @@ class QMout:
             outfilename = filename[:k] + '.out'
         log.print('===> Writing output to file %s in SHARC Format\n' % (outfilename))
         string = ''
-        if 'h' in QMin.requests or 'soc' in QMin.requests:
+        if QMin.requests["soc"] or QMin.requests["h"]:
             string += self.writeQMoutsoc()
-        if 'dm' in QMin.requests:
+        if QMin.requests["dm"]:
             string += self.writeQMoutdm()
-        if 'grad' in QMin.requests:
+        if QMin.requests["grad"]:
             string += self.writeQMoutgrad()
             if self.point_charges:
                 string += self.writeQMoutgrad_pc()
-        if 'overlap' in QMin.requests:
+        if QMin.requests["overlap"]:
             string += self.writeQMoutnacsmat()
-        if 'nacdr' in QMin.requests:
+        if QMin.requests["nacdr"]:
             string += self.writeQMoutnacana()
-        if 'socdr' in QMin.requests:
+        if QMin.requests["socdr"]:
             string += self.writeQMoutsocdr()
-        if 'dmdr' in QMin.requests:
+        if QMin.requests["dmdr"]:
             string += self.writeQMoutdmdr()
-        if 'ion' in QMin.requests:
+        if QMin.requests["ion"]:
             string += self.writeQMoutprop()
-        if 'theodore' in QMin.requests or 'qmmm' in QMin.requests:
+        if QMin.requests["theodore"]:
             string += self.writeQMoutTHEODORE(QMin)
-        if 'phases' in QMin.requests:
+        if QMin.requests["phases"]:
             string += self.writeQmoutPhases()
-        if 'multipolar_fit' in QMin.requests:
+        if QMin.requests["multipolar_fit"]:
             string += self.writeQMoutmultipolarfit(QMin)
         string += self.writeQMouttime()
         writefile(outfilename, string)
@@ -263,8 +263,6 @@ class QMout:
         Returns:
         1 string: multiline string with the DM matrices'''
 
-        QMin = self._QMin
-        QMout = self._QMout
         nmstates = self.nmstates
         string = ''
         string += '! %i Angular Momentum Matrices (3x%ix%i, complex)\n' % (9, nmstates, nmstates)
@@ -296,8 +294,6 @@ class QMout:
         Returns:
         1 string: multiline string with the Gradient vectors'''
 
-        QMin = self._QMin
-        QMout = self._QMout
         states = self.states
         nmstates = self.nmstates
         natom = self.natom
@@ -328,7 +324,7 @@ class QMout:
         nmstates = self.nmstates
         npc = self.npc
         string = ''
-        string += '! %i Gradient Vectors (%ix%ix3, real)\n' % (3, nmstates, npc)
+        string += '! %i Point Charge Gradient Vectors (%ix%ix3, real)\n' % (30, nmstates, npc)
         i = 0
         for imult, istate, ims in itnmstates(states):
             string += '%i %i ! m1 %i s1 %i ms1 %i\n' % (npc, 3, imult, istate, ims)
