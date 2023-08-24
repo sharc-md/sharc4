@@ -119,7 +119,7 @@ class QMinRequests(QMinBase):
             "soc": False,
             "dm": False,
             "grad": None,
-            "nacdr": [],
+            "nacdr": None,
             "overlap": False,
             "phases": False,
             "ion": False,
