@@ -42,7 +42,7 @@ from constants import ATOMCHARGE, FROZENS, BOHR_TO_ANG
 from logger import log as logging
 from qmin import QMin
 from qmout import QMout
-from utils import readfile, clock, parse_xyz, itnmstates, expand_path
+from utils import readfile, clock, parse_xyz, itnmstates, expand_path, Error
 
 all_features = {
     "h",
