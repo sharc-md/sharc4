@@ -1,9 +1,12 @@
-from SHARC_INTERFACE import SHARC_INTERFACE
-from qmin import QMin
 from abc import abstractmethod
-from io import TextIOWrapper
-from typing import List, Dict
 from datetime import date
+from io import TextIOWrapper
+from typing import Dict, List
+
+from qmin import QMin
+from SHARC_INTERFACE import SHARC_INTERFACE
+from logger import log as logging
+from utils import itmult
 
 all_features = {
     "h",
@@ -129,7 +132,158 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
 
     @abstractmethod
     def setup_interface(self):
-        pass
+        """
+        Create maps from QMin object
+        """
+        logging.debug("Setup interface -> building maps")
+
+        # Setup gradmap
+        if self.QMin.requests["grad"]:
+            logging.debug("Building gradmap")
+            self.QMin.maps["gradmap"] = set(
+                {
+                    tuple(self.QMin.maps["statemap"][i][0:2])
+                    for i in self.QMin.requests["grad"]
+                }
+            )
+
+        # Setup densmap
+        if self.QMin.requests["multipolar_fit"]:
+            logging.debug("Building densmap")
+            self.QMin.maps["densmap"] = set(
+                {
+                    tuple(self.QMin.maps["statemap"][i][0:2])
+                    for i in self.QMin.requests["multipolar_fit"]
+                }
+            )
+
+        # Setup nacmap
+        if (
+            self.QMin.requests["nacdr"]
+            and len(self.QMin.requests["nacdr"]) > 0
+            and self.QMin.requests["nacdr"][0] != "all"
+        ):
+            logging.debug("Building nacmap")
+            self.QMin.maps["nacmap"] = set()
+            for i in self.QMin.requests["nacdr"]:
+                s1 = self.QMin.maps["statemap"][int(i[0])]
+                s2 = self.QMin.maps["statemap"][int(i[1])]
+                if s1[0] != s2[0] or s1 == s2:
+                    continue
+                if s1[1] > s2[1]:
+                    continue
+                self.QMin.maps["nacmap"].add(tuple(s1 + s2))
+
+        # Setup charge and paddingstates
+        if "charge" not in self.QMin.template.keys():
+            self.QMin.template["charge"] = [
+                i % 2 for i in range(len(self.QMin.molecule["states"]))
+            ]
+            logging.info(
+                f"charge not specified setting default, {self.QMin.template['charge']}"
+            )
+
+        if "paddingstates" not in self.QMin.template.keys():
+            self.QMin.template["paddingstates"] = [
+                0 for _ in self.QMin.molecule["states"]
+            ]
+            logging.info(
+                f"paddingstates not specified setting default, {self.QMin.template['paddingstates']}",
+            )
+
+        # Setup chargemap
+        logging.debug("Building chargemap")
+        self.QMin.maps["chargemap"] = {
+            idx + 1: int(chrg)
+            for (idx, chrg) in enumerate(self.QMin.template["charge"])
+        }
+
+        # Setup jobs
+        self.QMin.control["states_to_do"] = [
+            v + int(self.QMin.template["paddingstates"][i]) if v > 0 else v
+            for i, v in enumerate(self.QMin.molecule["states"])
+        ]
+
+        if "unrestricted_triplets" not in self.QMin.template.keys():
+            if (
+                len(self.QMin.molecule["states"]) >= 3
+                and self.QMin.molecule["states"][2] > 0
+            ):
+                self.QMin.control["states_to_do"][0] = max(
+                    self.QMin.molecule["states"][0], 1
+                )
+                req = max(
+                    self.QMin.molecule["states"][0] - 1, self.QMin.molecule["states"][2]
+                )
+                self.QMin.control["states_to_do"][0] = req + 1
+                self.QMin.control["states_to_do"][2] = req
+
+        jobs = {}
+        if self.QMin.control["states_to_do"][0] > 0:
+            jobs[1] = {"mults": [1], "restr": True}
+        if (
+            len(self.QMin.control["states_to_do"]) >= 2
+            and self.QMin.control["states_to_do"][1] > 0
+        ):
+            jobs[2] = {"mults": [2], "restr": False}
+        if (
+            len(self.QMin.control["states_to_do"]) >= 3
+            and self.QMin.control["states_to_do"][2] > 0
+        ):
+            if (
+                "unrestricted_triplets" not in self.QMin.template.keys()
+                and self.QMin.control["states_to_do"][0] > 0
+            ):
+                jobs[1]["mults"].append(3)
+            else:
+                jobs[3] = {"mults": [3], "restr": False}
+
+        if len(self.QMin.control["states_to_do"]) >= 4:
+            for imult, nstate in enumerate(self.QMin.control["states_to_do"][3:]):
+                if nstate > 0:
+                    jobs[imult + 4] = {"mults": [imult + 4], "restr": False}
+
+        logging.debug("Building mults")
+        self.QMin.maps["mults"] = set(jobs)
+
+        # Setup multmap
+        logging.debug("Building multmap")
+        self.QMin.maps["multmap"] = {}
+        for ijob, job in jobs.items():
+            for imult in job["mults"]:
+                self.QMin.maps["multmap"][imult] = ijob
+            self.QMin.maps["multmap"][-(ijob)] = job["mults"]
+        self.QMin.maps["multmap"][1] = 1
+
+        # Setup ionmap
+        logging.debug("Building ionmap")
+        self.QMin.maps["ionmap"] = []
+        for m1 in itmult(self.QMin.molecule["states"]):
+            job1 = self.QMin.maps["multmap"][m1]
+            el1 = self.QMin.maps["chargemap"][m1]
+            for m2 in itmult(self.QMin.molecule["states"]):
+                if m1 >= m2:
+                    continue
+                job2 = self.QMin.maps["multmap"][m2]
+                el2 = self.QMin.maps["chargemap"][m2]
+                # print m1,job1,el1,m2,job2,el2
+                if abs(m1 - m2) == 1 and abs(el1 - el2) == 1:
+                    self.QMin.maps["ionmap"].append((m1, job1, m2, job2))
+
+        # Setup gsmap
+        logging.debug("Building gsmap")
+        self.QMin.maps["gsmap"] = {}
+        for i in range(self.QMin.molecule["nmstates"]):
+            m1, s1, ms1 = tuple(self.QMin.maps["statemap"][i + 1])
+            gs = (m1, 1, ms1)
+            job = self.QMin.maps["multmap"][m1]
+            if m1 == 3 and jobs[job]["restr"]:
+                gs = (1, 1, 0.0)
+            for j in range(self.QMin.molecule["nmstates"]):
+                m2, s2, ms2 = tuple(self.QMin.maps["statemap"][j + 1])
+                if (m2, s2, ms2) == gs:
+                    break
+            self.QMin.maps["gsmap"][i + 1] = j + 1
 
     @abstractmethod
     def getQMout(self):
