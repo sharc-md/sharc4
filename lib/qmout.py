@@ -143,7 +143,7 @@ class QMout:
         log.print("===> Writing output to file %s in SHARC Format\n" % (outfilename))
         string = ""
         # write basic info
-        string += "! Basic information\n"
+        string += "! 0 Basic information\n"
         string += "states " + " ".join([str(i) for i in self.states]) + "\n"
         string += f"nmstates {self.nmstates}\n"
         string += f"natom {self.natom}\n"
@@ -689,11 +689,11 @@ class QMout:
 
         string += "! Notes Labels (%i strings)\n" % (len(notes))
         for element in notes:
-            string += element[0] + '\n'
+            string += element + '\n'
 
         string += "! Notes (%i, real)\n" % (len(notes))
         for ie,element in enumerate(notes):
-            string += "! %i %s\n" % (ie, element)
+            string += "! index %i %s\n" % (ie, element)
             string += "%s\n" % (
                         notes[element]
                     )
