@@ -253,7 +253,7 @@ class SHARC_INTERFACE(ABC):
     def create_restart_files(self):
         pass
 
-    def set_coords(self, xyz: Union[str, List, np.ndarray]) -> None:
+    def set_coords(self, xyz: Union[str, List, np.ndarray], pc: bool = False) -> None:
         """
         Sets coordinates, qmmm and pccharge from file or list/array
         xyz: path to xyz file or list/array with coords
@@ -268,9 +268,9 @@ class SHARC_INTERFACE(ABC):
                 raise ValueError(
                     "first line must contain the number of atoms!"
                 ) from error
-            self.QMin.coords["coords"] = (
-                np.asarray([parse_xyz(x)[1] for x in lines[2: natom + 2]], dtype=float) *
-                self.QMin.molecule["factor"]
+            self.QMin.coords[key] = (
+                np.asarray([parse_xyz(x)[1] for x in lines[2 : natom + 2]], dtype=float)
+                * self.QMin.molecule["factor"]
             )
         elif isinstance(xyz, (list, np.ndarray)):
             self.QMin.coords[key] = np.asarray(xyz) * self.QMin.molecule["factor"]
