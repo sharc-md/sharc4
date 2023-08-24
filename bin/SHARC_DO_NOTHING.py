@@ -48,7 +48,7 @@ changelogstring = """
 """
 np.set_printoptions(linewidth=400, formatter={"float": lambda x: f"{x: 9.7}"})
 
-all_features = set(
+all_features = set([
     "h",
     "soc",
     "dm",
@@ -61,7 +61,7 @@ all_features = set(
     "theodore",
     "dmdr",
     "socdr",
-)
+])
 
 logging.root.setLevel(logging.DEBUG)
 
@@ -164,6 +164,12 @@ class SHARC_DO_NOTHING(SHARC_INTERFACE):
 
         if self.QMin.requests["theodore"]:
             self.QMout["prop1d"] = [("Om", [0.0 for i in range(nmstates)])]
+
+        if True:
+            self.QMout["prop0d"] = [("MMen", 0.0)]
+
+        if True:
+            self.QMout["notes"]["Do nothing"] = "This is a note."
 
         return self.QMout
 
