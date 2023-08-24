@@ -25,33 +25,24 @@
 
 # IMPORTS
 # external
-from copy import deepcopy
-from datetime import date, datetime
-import math
-import sys
 import os
-import glob
 import re
-import shutil
-import ast
-import numpy as np
-import subprocess as sp
+import sys
 from abc import ABC, abstractmethod
-from typing import Union, List
+from datetime import date
 from io import TextIOWrapper
-
 # from functools import reduce, singledispatchmethod
 from socket import gethostname
 from textwrap import wrap
-from logger import log as logging
+from typing import List, Union
 
+import numpy as np
 # internal
-from printing import printcomplexmatrix, printgrad, printtheodore
-from utils import *
-from constants import *
+from constants import ATOMCHARGE, FROZENS, BOHR_TO_ANG
+from logger import log as logging
 from qmin import QMin
 from qmout import QMout
-
+from utils import readfile, clock, parse_xyz, itnmstates, expand_path
 
 all_features = {
     "h",
