@@ -27,7 +27,6 @@
 # external
 import datetime
 from typing import Dict
-import sys
 import os
 from io import TextIOWrapper
 
@@ -48,20 +47,22 @@ changelogstring = """
 """
 np.set_printoptions(linewidth=400, formatter={"float": lambda x: f"{x: 9.7}"})
 
-all_features = set([
-    "h",
-    "soc",
-    "dm",
-    "grad",
-    "nacdr",
-    "overlap",
-    "multipolar_fit",
-    "phases",
-    "ion",
-    "theodore",
-    "dmdr",
-    "socdr",
-])
+all_features = set(
+    [
+        "h",
+        "soc",
+        "dm",
+        "grad",
+        "nacdr",
+        "overlap",
+        "multipolar_fit",
+        "phases",
+        "ion",
+        "theodore",
+        "dmdr",
+        "socdr",
+    ]
+)
 
 logging.root.setLevel(logging.DEBUG)
 
@@ -104,16 +105,21 @@ class SHARC_DO_NOTHING(SHARC_INTERFACE):
 
     def get_infos(self, INFOS: dict, KEYSTROKES: TextIOWrapper) -> dict:
         "prepare INFOS obj"
-        self.setup_info = question("Please provide your favorite dish!", str, default="Pizza", KEYSTROKES=KEYSTROKES, autocomplete=False)
+        self.setup_info = question(
+            "Please provide your favorite dish!",
+            str,
+            default="Pizza",
+            KEYSTROKES=KEYSTROKES,
+            autocomplete=False,
+        )
         return INFOS
 
-    def prepare(self, INFOS: dict, dir: str):
+    def prepare(self, INFOS: dict, dir: str) -> None:
         "setup the folders"
         fpath = os.path.join(dir, "Food")
-        f = open(fpath, 'w')
+        f = open(fpath, 'w', encoding='utf-8')
         f.write(self.setup_info)
         f.close()
-        return
 
     @staticmethod
     def name() -> str:
@@ -165,11 +171,10 @@ class SHARC_DO_NOTHING(SHARC_INTERFACE):
         if self.QMin.requests["theodore"]:
             self.QMout["prop1d"] = [("Om", [0.0 for i in range(nmstates)])]
 
-        if True:
+        if self.QMin.molecule["point_charges"]:
             self.QMout["prop0d"] = [("MMen", 0.0)]
 
-        if True:
-            self.QMout["notes"]["Do nothing"] = "This is a note."
+        self.QMout["notes"]["Do nothing"] = "This is a note."
 
         return self.QMout
 
@@ -182,7 +187,7 @@ class SHARC_DO_NOTHING(SHARC_INTERFACE):
     def run(self):
         pass
 
-    def setup_run(self):
+    def setup_interface(self):
         pass
 
     def read_resources(
