@@ -143,7 +143,7 @@ class QMout:
         log.print("===> Writing output to file %s in SHARC Format\n" % (outfilename))
         string = ""
         # write basic info
-        string += "states" + " ".join(["%i " for i in self.states]) + "\n"
+        string += "states" + " ".join([" %i " % i for i in self.states]) + "\n"
         string += f"nmstates {self.nmstates}\n"
         string += f"natom {self.natom}\n"
         string += f"npc {self.npc}\n"
