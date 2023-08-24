@@ -45,27 +45,35 @@ def get_available_interfaces() -> list[tuple[str, Union[SHARC_INTERFACE, str]]]:
     global AVAILABLE_INTERFACES
     if AVAILABLE_INTERFACES is not None:
         return AVAILABLE_INTERFACES
+
     sharc_bin = expand_path('$SHARC')
     log.debug(f"factory interface collection: {sharc_bin}")
     interfaces = []
     for path in sorted(glob.glob(sharc_bin + '/SHARC_*.py')):
         filename = path.split('/')[-1]
         interface_name = filename.split('.')[0]
-        interface = "(Not Available!)"
         try:
             mod = import_module(interface_name)
         except TypeError:
-            log.debug(f"{mod} could not be imported (not a package)")
+            log.debug(f"{interface_name} could not be imported (not a package)")
+            interfaces.append((interface_name, "(Not Available!)"))
+            continue
         except (ModuleNotFoundError, ImportError):
-            log.debug(f"{mod} could not be imported (missing dependencies)")
+            log.debug(f"{interface_name} could not be imported (missing dependencies)")
+            interfaces.append((interface_name, "(Not Available!)"))
+            continue
 
         try:
             interface = getattr(mod, interface_name)
         except AttributeError:
             log.debug(f"class {interface_name} not found in {mod}")
+            interfaces.append((interface_name, "(Not Available!)"))
+            continue
 
         if type(interface) == str or not issubclass(interface, SHARC_INTERFACE):
             log.debug(f"class {interface_name} in {mod} is not derived from 'SHARC_INTERFACE'")
+            interfaces.append((interface_name, "(Not Available!)"))
+            continue
 
         interfaces.append((interface_name, interface))
     log.debug(interfaces)

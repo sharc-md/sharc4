@@ -188,7 +188,7 @@ class SHARC_INTERFACE(ABC):
         # read the property requests that have to be calculated
         self.read_requests(QMinfilename)
         # setup internal state for the computation
-        self.setup_run()
+        self.setup_interface()
         # print qmin
         self.print_qmin()
         # perform the calculation and parse the output, do subsequent calculations with other tools
@@ -242,7 +242,7 @@ class SHARC_INTERFACE(ABC):
         pass
 
     @abstractmethod
-    def setup_run(self):
+    def setup_interface(self):
         pass
 
     @abstractmethod
