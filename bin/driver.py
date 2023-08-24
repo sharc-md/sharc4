@@ -40,6 +40,7 @@ from utils import list2dict
 
 class QMOUT():
     '''Wrapper for C-object used in sharc QMout'''
+
     def __init__(self, interface: str, natoms: int, nmstates: int):
         self._QMout = sharc.QMout(interface, natoms, nmstates)
 
@@ -247,7 +248,7 @@ def main():
     derived_int.read_resources()
     derived_int.read_template()
     derived_int._step_logic()
-    derived_int.setup_run()
+    derived_int.setup_interface()
     if IRestart == 0:
         initial_qm_pre()
         do_qm_calc(derived_int, QMout)
@@ -281,7 +282,7 @@ def main():
         all_time += all_s2 - all_s1
         if iexit == 1:
             break
-    
+
     derived_int.create_restart_files()
     finalize_sharc()
     stop = time.time_ns()

@@ -188,7 +188,7 @@ class SHARC_INTERFACE(ABC):
         # read the property requests that have to be calculated
         self.read_requests(QMinfilename)
         # setup internal state for the computation
-        self.setup_run()
+        self.setup_interface()
         # print qmin
         self.print_qmin()
         # perform the calculation and parse the output, do subsequent calculations with other tools
@@ -225,7 +225,7 @@ class SHARC_INTERFACE(ABC):
         with open(template_file, "r", encoding="utf-8") as tmpl_file:
             for line in tmpl_file:
                 # Ignore comments and empty lines
-                if re.match(r"^\w+", line):
+                if re.match(r"^(\s*)\w+", line):
                     # Remove comments and assign values
                     param = re.sub(r"#.*$", "", line).split()
                     if len(param) == 1:
@@ -242,18 +242,24 @@ class SHARC_INTERFACE(ABC):
         pass
 
     @abstractmethod
-    def setup_run(self):
+    def setup_interface(self):
         pass
 
     @abstractmethod
     def getQMout(self):
         pass
 
-    def set_coords(self, xyz: Union[str, List, np.ndarray]) -> None:
+    @abstractmethod
+    def create_restart_files(self):
+        pass
+
+    def set_coords(self, xyz: Union[str, List, np.ndarray], pc: bool = False) -> None:
         """
         Sets coordinates, qmmm and pccharge from file or list/array
         xyz: path to xyz file or list/array with coords
+        pc: Set point charge coordinates
         """
+        key = "coords" if not pc else "pccoords"
         if isinstance(xyz, str):
             lines = readfile(xyz)
             try:
@@ -262,12 +268,12 @@ class SHARC_INTERFACE(ABC):
                 raise ValueError(
                     "first line must contain the number of atoms!"
                 ) from error
-            self.QMin.coords["coords"] = (
-                np.asarray([parse_xyz(x)[1] for x in lines[2: natom + 2]], dtype=float) *
-                self.QMin.molecule["factor"]
+            self.QMin.coords[key] = (
+                np.asarray([parse_xyz(x)[1] for x in lines[2 : natom + 2]], dtype=float)
+                * self.QMin.molecule["factor"]
             )
         elif isinstance(xyz, (list, np.ndarray)):
-            self.QMin.coords["coords"] = np.asarray(xyz) * self.QMin.molecule["factor"]
+            self.QMin.coords[key] = np.asarray(xyz) * self.QMin.molecule["factor"]
         else:
             raise NotImplementedError(
                 "'set_coords' is only implemented for str, list[list[float]] or numpy.ndarray type"
@@ -445,7 +451,7 @@ class SHARC_INTERFACE(ABC):
             keyword_list = []
             for line in rcs_file:
                 # Ignore comments and empty lines
-                if re.match(r"^\w+", line):
+                if re.match(r"^(\s*)\w+", line):
                     # Remove comments and assign values
                     param = re.sub(r"#.*$", "", line).split()
                     # Expand to fullpath if ~ or $ in string
@@ -526,12 +532,12 @@ class SHARC_INTERFACE(ABC):
                 next(requests)
 
             nac_select = False
-
+            nacdr = []
             for line in requests:
                 # Check for valid keywords, remove comments
                 line = re.sub(r"#.*$", "", line)
-                if not re.match(r"^\s*", line):
-                    param = line.split()
+                if re.match(r"^(\s*)\w", line):
+                    params = line.split()
 
                     # Parse NACDR if requested
                     if params[0].casefold() == "nacdr":
@@ -551,22 +557,20 @@ class SHARC_INTERFACE(ABC):
                                 len(params) == 2
                             ), "NACs have to be given in state pairs!"
                             logging.debug(f"Adding state pair {params} to NACDR list")
-                            self.QMin.requests["nacdr"].append(params)
+                            nacdr.append(params)
                         continue
 
                     # Parse every other request
                     if params[0].casefold() in (
                         *self.QMin.requests.keys(),
-                        "init",
-                        "samestep",
-                        "restart",
-                        "newstep",
                         "step",
                     ):
                         logging.debug(f"Parsing request {params}")
                         self._set_requests(params)
 
             assert not nac_select, "No end keyword found after nacdr select!"
+            if nacdr:
+                self.QMin.requests["nacdr"] = nacdr
         self._step_logic()
         self._request_logic()
 
