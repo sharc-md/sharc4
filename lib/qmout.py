@@ -237,6 +237,7 @@ class QMout:
                     )
                 string += "\n"
             string += ""
+        string += "\n"
         return string
 
     # ======================================================================= #
@@ -312,39 +313,6 @@ class QMout:
         string += "\n"
         return string
 
-    def writeQMoutang(self):
-        """Generates a string with the Dipole moment matrices in SHARC format.
-
-        The string starts with a ! followed by a flag specifying the type of data.
-        In the next line, the dimensions of the matrix are given, followed by nmstates blocks of nmstates elements.
-        Blocks are separated by a blank line. The string contains three such matrices.
-
-        Arguments:
-        1 dictionary: QMin
-        2 dictionary: QMout
-
-        Returns:
-        1 string: multiline string with the DM matrices"""
-
-        nmstates = self.nmstates
-        string = ""
-        string += "! %i Angular Momentum Matrices (3x%ix%i, complex)\n" % (
-            9,
-            nmstates,
-            nmstates,
-        )
-        for xyz in range(3):
-            string += "%i %i\n" % (nmstates, nmstates)
-            for i in range(nmstates):
-                for j in range(nmstates):
-                    string += "%s %s " % (
-                        eformat(self.angular[xyz][i][j].real, 12, 3),
-                        eformat(self.angular[xyz][i][j].imag, 12, 3),
-                    )
-                string += "\n"
-            string += ""
-        return string
-
     # ======================================================================= #
 
     def writeQMoutgrad(self):
@@ -375,6 +343,7 @@ class QMout:
                 string += "\n"
             string += ""
             i += 1
+        string += "\n"
         return string
 
     def writeQMoutgrad_pc(self):
@@ -405,6 +374,7 @@ class QMout:
                 string += "\n"
             string += ""
             i += 1
+        string += "\n"
         return string
 
     # ======================================================================= #
@@ -487,6 +457,7 @@ class QMout:
                 string += ""
                 j += 1
             i += 1
+        string += "\n"
         return string
 
 
@@ -532,6 +503,7 @@ class QMout:
                 string += ""
                 j += 1
             i += 1
+        string += "\n"
         return string
 
     # ======================================================================= #
@@ -603,6 +575,7 @@ class QMout:
             string += "%s\n" % (
                         eformat(element[1], 12, 3),
                     )
+        string += "\n"
         return string
 
     # ======================================================================= #
@@ -634,6 +607,7 @@ class QMout:
                 string += "%s\n" % (
                         eformat(element[1][i], 12, 3),
                     )
+        string += "\n"
         return string
     # ======================================================================= #
 
@@ -669,6 +643,7 @@ class QMout:
                     )
                 string += "\n"
             string += "\n"
+        string += "\n"
         return string
 
     # ======================================================================= #
@@ -697,6 +672,7 @@ class QMout:
             string += "%s\n" % (
                         notes[element]
                     )
+        string += "\n"
         return string
 
     # ======================================================================= #
@@ -748,6 +724,7 @@ class QMout:
                     + "\n"
                 )
                 string += ""
+        string += "\n"
         return string
 
     # ======================================================================= #
@@ -789,6 +766,21 @@ class QMout:
                     DEBUG,
                 )
                 istate += 1
+        # Nonadiabatic coupling vectors
+        if QMin.requests["nacdr"]:
+            print("=> Nonadiabatic Coupling Vectors:\n")
+            istate = 0
+            for imult, i, ims in itnmstates(states):
+                jstate = 0
+                for jmult, j, jms in itnmstates(states):
+                    if imult == jmult and ims == jms:
+                        print(
+                            "%s\t%i\tMs= % .1f -- %s\t%i\tMs= % .1f:"
+                            % (IToMult[imult], i, ims, IToMult[jmult], j, jms)
+                        )
+                        printgrad(self["nacdr"][istate][jstate], natom, QMin.molecule["elements"], DEBUG)
+                    jstate += 1
+                istate += 1
         # Overlaps
         if QMin.requests["overlap"]:
             print("=> Overlap matrix:\n")
@@ -813,7 +805,7 @@ class QMout:
                         "%s\t%i\tMs= % .1f -- %s\t%i\tMs= % .1f:"
                         % (IToMult[imult], i, ims, IToMult[jmult], j, jms)
                     )
-                    printgrad(self["socdr"][istate][jstate], natom, QMin["geo"])
+                    printgrad(self["socdr"][istate][jstate], natom, QMin.molecule["elements"], DEBUG)
                     jstate += 1
                 istate += 1
         # Dipole moment derivatives
@@ -830,27 +822,43 @@ class QMout:
                                 % (IToMult[imult], i, j, msi, IToPol[ipol])
                             )
                             printgrad(
-                                self["dmdr"][ipol][istate][jstate], natom, QMin["geo"]
+                                self["dmdr"][ipol][istate][jstate], natom, QMin.molecule["elements"], DEBUG
                             )
                     jstate += 1
                 istate += 1
         # Property matrices
-        print("=> Property matrices:\n")
         if self["prop2d"]:
+            print("=> Property matrices:\n")
             for element in self["prop2d"]:
                 print(f'Matrix with label "{element[0]}"')
                 printcomplexmatrix(element[1], states)
         # Property vectors
-        print("=> Property vectors:\n")
         if self["prop1d"]:
+            print("=> Property vectors:\n")
             for element in self["prop1d"]:
                 print(f"{element[0]} {element[1]}")
                 # TODO: format more nicely!
         # Property scalars
-        print("=> Property scalars:\n")
         if self["prop0d"]:
+            print("=> Property scalars:\n")
             for element in self["prop0d"]:
                 print(f"{element[0]} {element[1]}")
+        # Multipolar fit
+        if QMin.requests["multipolar_fit"]:
+            print("=> Multipolar fit:\n")
+            istate = 0
+            for imult, i, ims in itnmstates(states):
+                jstate = 0
+                for jmult, j, jms in itnmstates(states):
+                    if imult == jmult and ims == jms:
+                        print(
+                            "%s\t%i\tMs= % .1f -- %s\t%i\tMs= % .1f:"
+                            % (IToMult[imult], i, ims, IToMult[jmult], j, jms)
+                        )
+                        printgrad(self["multipolar_fit"][istate][jstate], natom, QMin.molecule["elements"], DEBUG)
+                    jstate += 1
+                istate += 1
+
 
         sys.stdout.flush()
 

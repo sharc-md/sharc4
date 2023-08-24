@@ -72,21 +72,22 @@ def printgrad(grad, natom, elements, DEBUG=False):
 
     string = ''
     iszero = True
+    leng = min( [ len(i) for i in grad ] )
     for atom in range(natom):
         if not DEBUG:
             if atom == 5:
-                string += '...\t...\t     ...\t     ...\t     ...\n'
+                string += '...\t...\n' + '\t     ...'*leng + '\n'
             if 5 <= atom < natom - 1:
                 continue
-        string += '%i\t%s\t' % (atom + 1, elements[atom])
-        for xyz in range(3):
+        string += '%i\t%s' % (atom + 1, elements[atom])
+        for xyz in range(leng):
             if grad[atom][xyz] != 0:
                 iszero = False
             g = grad[atom][xyz]
             if isinstance(g, float):
-                string += '% .5f\t' % (g)
+                string += '\t% .5f' % (g)
             elif isinstance(g, complex):
-                string += '% .5f\t% .5f\t\t' % (g.real, g.imag)
+                string += '\t% .5f\t% .5f\t' % (g.real, g.imag)
         string += '\n'
     if iszero:
         print('\t\t...is identical zero...\n')
