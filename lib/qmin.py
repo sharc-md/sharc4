@@ -27,6 +27,20 @@ class QMinBase(UserDict):
 class QMinMolecule(QMinBase):
     """
     Custom dictionary for the molecule section
+
+        "comment": str,
+        "natom": int,
+        "elements": list,
+        "unit": str,
+        "factor": float,
+        "states": list,
+        "nstates": int,
+        "nmstates": int,
+        "point_charges": bool,
+        "npc": int,
+        "Atomcharge": int,
+        "frozcore": int,
+
     """
 
     def __init__(self):
@@ -66,6 +80,10 @@ class QMinMolecule(QMinBase):
 class QMinCoords(QMinBase):
     """
     Custom dictionary for the coords section
+
+        "coords": (np.ndarray, list),
+        "pccoords": (np.ndarray, list), 
+        "pccharge": (np.ndarray, list)
     """
 
     def __init__(self):
@@ -77,6 +95,15 @@ class QMinCoords(QMinBase):
 class QMinSave(QMinBase):
     """
     Custom dictionary for the save section
+
+        "savedir": str,
+        "step": int,
+        "previous_step": int,
+        "init": bool,
+        "newstep": bool,
+        "samestep": bool,
+        "always_guess": bool,
+        "always_orb_init": bool,
     """
 
     def __init__(self):
@@ -88,7 +115,7 @@ class QMinSave(QMinBase):
             "init": False,
             "newstep": False,
             "samestep": False,
-            #"restart": False,
+            # "restart": False,
             # Ab initio interfaces
             "always_guess": False,
             "always_orb_init": False,
@@ -101,7 +128,7 @@ class QMinSave(QMinBase):
             "init": bool,
             "newstep": bool,
             "samestep": bool,
-            #"restart": bool,
+            # "restart": bool,
             "always_guess": bool,
             "always_orb_init": bool,
         }
@@ -110,6 +137,24 @@ class QMinSave(QMinBase):
 class QMinRequests(QMinBase):
     """
     Custom dictionary for the requests section
+
+        "h": bool,
+        "soc": bool,
+        "dm": bool,
+        "grad": list,
+        "nacdr": list,
+        "overlap": bool,
+        "phases": bool,
+        "ion": bool,
+        "socdr": bool,
+        "dmdr": bool,
+        "multipolar_fit": list,
+        "theodore": bool,
+        "cleanup": bool,
+        "backup": str,
+        "molden": bool,
+        "savestuff": bool,
+        "nooverlap": bool,
     """
 
     def __init__(self):
@@ -119,7 +164,7 @@ class QMinRequests(QMinBase):
             "soc": False,
             "dm": False,
             "grad": None,
-            "nacdr": [],
+            "nacdr": None,
             "overlap": False,
             "phases": False,
             "ion": False,
@@ -158,6 +203,16 @@ class QMinRequests(QMinBase):
 class QMinMaps(QMinBase):
     """
     Custom dictionary for the maps section
+
+        "statemap": dict,
+        "mults": set,
+        "gsmap": dict,
+        "gradmap": set,
+        "nacmap": set,
+        "densmap": set,
+        "ionmap": list,
+        "chargemap": dict,
+        "multmap": dict,
     """
 
     def __init__(self):
@@ -190,6 +245,13 @@ class QMinMaps(QMinBase):
 class QMinResources(QMinBase):
     """
     Custom dictionary for the resources section
+
+        "pwd": str,
+        "cwd": str,
+        "scratchdir": str,
+        "ncpu": int,
+        "ngpu": int,
+        "memory": int,
     """
 
     def __init__(self):
@@ -229,6 +291,13 @@ class QMinTemplate(QMinBase):
 class QMinControl(QMinBase):
     """
     Custom dictionary for the control section
+
+
+        "jobid": int,
+        "workdir": str,
+        "master": bool,
+        "gradonly": bool,
+        "states_to_do": list,
     """
 
     def __init__(self):

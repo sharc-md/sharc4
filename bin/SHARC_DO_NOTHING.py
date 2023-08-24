@@ -99,7 +99,7 @@ class SHARC_DO_NOTHING(SHARC_INTERFACE):
     def authors(self) -> str:
         return self._authors
 
-    def get_features(self) -> set:
+    def get_features(self, KEYSTROKES: TextIOWrapper = None) -> set:
         "return availble features"
         return all_features
 
@@ -117,7 +117,7 @@ class SHARC_DO_NOTHING(SHARC_INTERFACE):
     def prepare(self, INFOS: dict, dir: str) -> None:
         "setup the folders"
         fpath = os.path.join(dir, "Food")
-        f = open(fpath, encoding="utf-8")
+        f = open(fpath, 'w', encoding='utf-8')
         f.write(self.setup_info)
         f.close()
 

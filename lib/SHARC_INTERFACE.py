@@ -249,6 +249,10 @@ class SHARC_INTERFACE(ABC):
     def getQMout(self):
         pass
 
+    @abstractmethod
+    def create_restart_files(self):
+        pass
+
     def set_coords(self, xyz: Union[str, List, np.ndarray]) -> None:
         """
         Sets coordinates, qmmm and pccharge from file or list/array
@@ -263,8 +267,8 @@ class SHARC_INTERFACE(ABC):
                     "first line must contain the number of atoms!"
                 ) from error
             self.QMin.coords["coords"] = (
-                np.asarray([parse_xyz(x)[1] for x in lines[2 : natom + 2]], dtype=float)
-                * self.QMin.molecule["factor"]
+                np.asarray([parse_xyz(x)[1] for x in lines[2: natom + 2]], dtype=float) *
+                self.QMin.molecule["factor"]
             )
         elif isinstance(xyz, (list, np.ndarray)):
             self.QMin.coords["coords"] = np.asarray(xyz) * self.QMin.molecule["factor"]
@@ -300,7 +304,7 @@ class SHARC_INTERFACE(ABC):
                 3,
             )
         self.QMin.molecule["elements"] = list(
-            map(lambda x: parse_xyz(x)[0], (qmin_lines[2 : natom + 2]))
+            map(lambda x: parse_xyz(x)[0], (qmin_lines[2: natom + 2]))
         )
         self.QMin.molecule["Atomcharge"] = sum(
             map(lambda x: ATOMCHARGE[x], self.QMin.molecule["elements"])
@@ -315,7 +319,7 @@ class SHARC_INTERFACE(ABC):
             lambda x: not re.match(r"^\s*$", x),
             map(
                 lambda x: re.sub(r"#.*$", "", x),
-                qmin_lines[self.QMin.molecule["natom"] + 2 :],
+                qmin_lines[self.QMin.molecule["natom"] + 2:],
             ),
         )
 
@@ -485,9 +489,9 @@ class SHARC_INTERFACE(ABC):
                     else:
                         # If whitelisted key already exists extend list with values
                         if (
-                            param[0] in self.QMin.resources.keys()
-                            and self.QMin.resources[param[0]]
-                            and param[0] in kw_whitelist
+                            param[0] in self.QMin.resources.keys() and
+                            self.QMin.resources[param[0]] and
+                            param[0] in kw_whitelist
                         ):
                             logging.debug(f"Extend white listed parameter {param[0]}")
                             self.QMin.resources[param[0]].extend(list(param[1:]))
@@ -526,7 +530,7 @@ class SHARC_INTERFACE(ABC):
                 next(requests)
 
             nac_select = False
-
+            nacdr = []
             for line in requests:
                 # Check for valid keywords, remove comments
                 line = re.sub(r"#.*$", "", line)
@@ -551,7 +555,7 @@ class SHARC_INTERFACE(ABC):
                                 len(params) == 2
                             ), "NACs have to be given in state pairs!"
                             logging.debug(f"Adding state pair {params} to NACDR list")
-                            self.QMin.requests["nacdr"].append(params)
+                            nacdr.append(params)
                         continue
 
                     # Parse every other request
@@ -563,6 +567,8 @@ class SHARC_INTERFACE(ABC):
                         self._set_requests(params)
 
             assert not nac_select, "No end keyword found after nacdr select!"
+            if nacdr:
+                self.QMin.requests["nacdr"] = nacdr
         self._step_logic()
         self._request_logic()
 
@@ -655,8 +661,8 @@ class SHARC_INTERFACE(ABC):
             os.mkdir(self.QMin.save["savedir"])
 
         assert not (
-            (self.QMin.requests["overlap"] or self.QMin.requests["phases"])
-            and self.QMin.save["init"]
+            (self.QMin.requests["overlap"] or self.QMin.requests["phases"]) and
+            self.QMin.save["init"]
         ), '"overlap" and "phases" cannot be calculated in the first timestep!'
 
     @abstractmethod
