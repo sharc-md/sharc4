@@ -1,11 +1,12 @@
+import sys
 from abc import abstractmethod
 from datetime import date
 from io import TextIOWrapper
 from typing import Dict, List
 
+from logger import log as logging
 from qmin import QMin
 from SHARC_INTERFACE import SHARC_INTERFACE
-from logger import log as logging
 from utils import itmult
 
 all_features = {
@@ -36,6 +37,12 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
+
+        # Add ab-initio specific keywords to template
+        self.QMin.template["charge"] = None
+        self.QMin.template["paddingstates"] = None
+        self.QMin.template.types["charge"] = list
+        self.QMin.template.types["paddingstates"] = list
 
     @abstractmethod
     def authors(self) -> str:
@@ -114,6 +121,43 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
     def read_template(self, template_file: str) -> None:
         super().read_template(template_file)
 
+        # Check if charge in template and autoexpand if needed
+        if self.QMin.template["charge"]:
+            if len(self.QMin.template["charge"]) == 1:
+                charge = int(self.QMin.template["charge"][0])
+                if (self.QMin.molecule["Atomcharge"] + charge) % 2 == 1 and len(
+                    self.QMin.molecule["states"]
+                ) > 1:
+                    logging.info(
+                        "HINT: Charge shifted by -1 to be compatible with multiplicities."
+                    )
+                    charge -= 1
+                self.QMin.template["charge"] = [
+                    i % 2 + charge for i in range(len(self.QMin.molecule["states"]))
+                ]
+                logging.info(
+                    f'HINT: total charge per multiplicity automatically assigned, please check ({self.QMin.template["charge"]}).'
+                )
+                logging.info(
+                    'You can set the charge in the template manually for each multiplicity ("charge 0 +1 0 ...")'
+                )
+            elif len(self.QMin.template["charge"]) >= len(self.QMin.molecule["states"]):
+                self.QMin.template["charge"] = [
+                    int(self.QMin.template["charge"][i])
+                    for i in range(len(self.QMin.molecule["states"]))
+                ]
+                compatible = True
+                for imult, cha in enumerate(self.QMin.template["charge"]):
+                    if not (self.QMin.molecule["Atomcharge"] + cha + imult) % 2 == 0:
+                        compatible = False
+                if not compatible:
+                    logging.warning(
+                        "Charges from template not compatible with multiplicities!  (this is probably OK if you use QM/MM)"
+                    )
+            else:
+                logging.error('Length of "charge" does not match length of "states"!')
+                sys.exit(54)
+
     @abstractmethod
     def read_resources(self, resources_file: str, kw_whitelist: List[str] = []) -> None:
         super().read_resources(resources_file, kw_whitelist)
@@ -175,7 +219,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 self.QMin.maps["nacmap"].add(tuple(s1 + s2))
 
         # Setup charge and paddingstates
-        if "charge" not in self.QMin.template.keys():
+        if not self.QMin.template["charge"]:
             self.QMin.template["charge"] = [
                 i % 2 for i in range(len(self.QMin.molecule["states"]))
             ]
@@ -183,7 +227,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 f"charge not specified setting default, {self.QMin.template['charge']}"
             )
 
-        if "paddingstates" not in self.QMin.template.keys():
+        if not self.QMin.template["paddingstates"]:
             self.QMin.template["paddingstates"] = [
                 0 for _ in self.QMin.molecule["states"]
             ]
@@ -256,19 +300,19 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         self.QMin.maps["multmap"][1] = 1
 
         # Setup ionmap
-        logging.debug("Building ionmap")
-        self.QMin.maps["ionmap"] = []
-        for m1 in itmult(self.QMin.molecule["states"]):
-            job1 = self.QMin.maps["multmap"][m1]
-            el1 = self.QMin.maps["chargemap"][m1]
-            for m2 in itmult(self.QMin.molecule["states"]):
-                if m1 >= m2:
-                    continue
-                job2 = self.QMin.maps["multmap"][m2]
-                el2 = self.QMin.maps["chargemap"][m2]
-                # print m1,job1,el1,m2,job2,el2
-                if abs(m1 - m2) == 1 and abs(el1 - el2) == 1:
-                    self.QMin.maps["ionmap"].append((m1, job1, m2, job2))
+        if self.QMin.requests["ion"]:
+            logging.debug("Building ionmap")
+            self.QMin.maps["ionmap"] = []
+            for m1 in itmult(self.QMin.molecule["states"]):
+                job1 = self.QMin.maps["multmap"][m1]
+                el1 = self.QMin.maps["chargemap"][m1]
+                for m2 in itmult(self.QMin.molecule["states"]):
+                    if m1 >= m2:
+                        continue
+                    job2 = self.QMin.maps["multmap"][m2]
+                    el2 = self.QMin.maps["chargemap"][m2]
+                    if abs(m1 - m2) == 1 and abs(el1 - el2) == 1:
+                        self.QMin.maps["ionmap"].append((m1, job1, m2, job2))
 
         # Setup gsmap
         logging.debug("Building gsmap")
