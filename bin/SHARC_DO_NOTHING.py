@@ -34,7 +34,7 @@ import numpy as np
 from logger import log as logging
 
 # internal
-from SHARC_INTERFACE import SHARC_INTERFACE
+from SHARC_FAST import SHARC_FAST
 from utils import Error, makecmatrix, question
 
 authors = "Sebastian Mai"
@@ -68,7 +68,7 @@ all_features = set(
 logging.root.setLevel(logging.DEBUG)
 
 
-class SHARC_DO_NOTHING(SHARC_INTERFACE):
+class SHARC_DO_NOTHING(SHARC_FAST):
     """
     Do nothing interface
     """

@@ -36,7 +36,7 @@ import numpy as np
 from logger import log as logging
 
 # internal
-from SHARC_INTERFACE import SHARC_INTERFACE
+from SHARC_FAST import SHARC_FAST
 from utils import Error, makecmatrix, question
 from qmout import QMout
 
@@ -70,7 +70,7 @@ all_features = set(
 logging.root.setLevel(logging.DEBUG)
 
 
-class SHARC_QMOUT(SHARC_INTERFACE): # TODO: migrate to SHARC_FAST_INTERFACE
+class SHARC_QMOUT(SHARC_FAST): # TODO: migrate to SHARC_FAST_INTERFACE
     """
     QM.out interface
     """

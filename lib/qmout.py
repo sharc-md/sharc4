@@ -116,7 +116,6 @@ class QMout:
 
         def get_property(data, iline, type, shape):
             num = int(data[iline+1].split()[0])
-            print(iline)
             keys = []
             for irow in range(num):
                 keys.append(data[iline+3+irow].strip())
