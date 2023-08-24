@@ -249,6 +249,10 @@ class SHARC_INTERFACE(ABC):
     def getQMout(self):
         pass
 
+    @abstractmethod
+    def create_restart_files(self):
+        pass
+
     def set_coords(self, xyz: Union[str, List, np.ndarray]) -> None:
         """
         Sets coordinates, qmmm and pccharge from file or list/array
@@ -263,8 +267,8 @@ class SHARC_INTERFACE(ABC):
                     "first line must contain the number of atoms!"
                 ) from error
             self.QMin.coords["coords"] = (
-                np.asarray([parse_xyz(x)[1] for x in lines[2: natom + 2]], dtype=float) *
-                self.QMin.molecule["factor"]
+                np.asarray([parse_xyz(x)[1] for x in lines[2: natom + 2]], dtype=float)
+                * self.QMin.molecule["factor"]
             )
         elif isinstance(xyz, (list, np.ndarray)):
             self.QMin.coords["coords"] = np.asarray(xyz) * self.QMin.molecule["factor"]
@@ -485,9 +489,9 @@ class SHARC_INTERFACE(ABC):
                     else:
                         # If whitelisted key already exists extend list with values
                         if (
-                            param[0] in self.QMin.resources.keys() and
-                            self.QMin.resources[param[0]] and
-                            param[0] in kw_whitelist
+                            param[0] in self.QMin.resources.keys()
+                            and self.QMin.resources[param[0]]
+                            and param[0] in kw_whitelist
                         ):
                             logging.debug(f"Extend white listed parameter {param[0]}")
                             self.QMin.resources[param[0]].extend(list(param[1:]))
@@ -655,8 +659,8 @@ class SHARC_INTERFACE(ABC):
             os.mkdir(self.QMin.save["savedir"])
 
         assert not (
-            (self.QMin.requests["overlap"] or self.QMin.requests["phases"]) and
-            self.QMin.save["init"]
+            (self.QMin.requests["overlap"] or self.QMin.requests["phases"])
+            and self.QMin.save["init"]
         ), '"overlap" and "phases" cannot be calculated in the first timestep!'
 
     @abstractmethod
