@@ -530,7 +530,7 @@ class SHARC_INTERFACE(ABC):
             for line in requests:
                 # Check for valid keywords, remove comments
                 line = re.sub(r"#.*$", "", line)
-                if not re.match(r"^\s*", line):
+                if re.match(r"^(\s*)\w", line):
                     params = line.split()
 
                     # Parse NACDR if requested
