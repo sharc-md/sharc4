@@ -25,33 +25,26 @@
 
 # IMPORTS
 # external
-from copy import deepcopy
-from datetime import date, datetime
-import math
-import sys
 import os
-import glob
 import re
-import shutil
-import ast
-import numpy as np
-import subprocess as sp
+import sys
 from abc import ABC, abstractmethod
-from typing import Union, List
+from datetime import date
 from io import TextIOWrapper
 
 # from functools import reduce, singledispatchmethod
 from socket import gethostname
 from textwrap import wrap
-from logger import log as logging
+from typing import List, Union
+
+import numpy as np
 
 # internal
-from printing import printcomplexmatrix, printgrad, printtheodore
-from utils import *
-from constants import *
+from constants import ATOMCHARGE, FROZENS, BOHR_TO_ANG
+from logger import log as logging
 from qmin import QMin
 from qmout import QMout
-
+from utils import readfile, clock, parse_xyz, itnmstates, expand_path, Error
 
 all_features = {
     "h",
@@ -231,7 +224,10 @@ class SHARC_INTERFACE(ABC):
                     if len(param) == 1:
                         self.QMin.template[param[0]] = True
                     elif len(param) == 2:
-                        self.QMin.template[param[0]] = param[1]
+                        if param[0] in self.QMin.template.types.keys():
+                            self.QMin.template.types[param[0]](param[1])
+                        else:
+                            self.QMin.template[param[0]] = param[1]
                     else:
                         self.QMin.template[param[0]] = list(param[1:])
 
@@ -253,11 +249,13 @@ class SHARC_INTERFACE(ABC):
     def create_restart_files(self):
         pass
 
-    def set_coords(self, xyz: Union[str, List, np.ndarray]) -> None:
+    def set_coords(self, xyz: Union[str, List, np.ndarray], pc: bool = False) -> None:
         """
         Sets coordinates, qmmm and pccharge from file or list/array
         xyz: path to xyz file or list/array with coords
+        pc: Set point charge coordinates
         """
+        key = "coords" if not pc else "pccoords"
         if isinstance(xyz, str):
             lines = readfile(xyz)
             try:
@@ -266,12 +264,12 @@ class SHARC_INTERFACE(ABC):
                 raise ValueError(
                     "first line must contain the number of atoms!"
                 ) from error
-            self.QMin.coords["coords"] = (
-                np.asarray([parse_xyz(x)[1] for x in lines[2: natom + 2]], dtype=float) *
-                self.QMin.molecule["factor"]
+            self.QMin.coords[key] = (
+                np.asarray([parse_xyz(x)[1] for x in lines[2 : natom + 2]], dtype=float)
+                * self.QMin.molecule["factor"]
             )
         elif isinstance(xyz, (list, np.ndarray)):
-            self.QMin.coords["coords"] = np.asarray(xyz) * self.QMin.molecule["factor"]
+            self.QMin.coords[key] = np.asarray(xyz) * self.QMin.molecule["factor"]
         else:
             raise NotImplementedError(
                 "'set_coords' is only implemented for str, list[list[float]] or numpy.ndarray type"
@@ -304,7 +302,7 @@ class SHARC_INTERFACE(ABC):
                 3,
             )
         self.QMin.molecule["elements"] = list(
-            map(lambda x: parse_xyz(x)[0], (qmin_lines[2: natom + 2]))
+            map(lambda x: parse_xyz(x)[0], (qmin_lines[2 : natom + 2]))
         )
         self.QMin.molecule["Atomcharge"] = sum(
             map(lambda x: ATOMCHARGE[x], self.QMin.molecule["elements"])
@@ -319,7 +317,7 @@ class SHARC_INTERFACE(ABC):
             lambda x: not re.match(r"^\s*$", x),
             map(
                 lambda x: re.sub(r"#.*$", "", x),
-                qmin_lines[self.QMin.molecule["natom"] + 2:],
+                qmin_lines[self.QMin.molecule["natom"] + 2 :],
             ),
         )
 
@@ -489,9 +487,9 @@ class SHARC_INTERFACE(ABC):
                     else:
                         # If whitelisted key already exists extend list with values
                         if (
-                            param[0] in self.QMin.resources.keys() and
-                            self.QMin.resources[param[0]] and
-                            param[0] in kw_whitelist
+                            param[0] in self.QMin.resources.keys()
+                            and self.QMin.resources[param[0]]
+                            and param[0] in kw_whitelist
                         ):
                             logging.debug(f"Extend white listed parameter {param[0]}")
                             self.QMin.resources[param[0]].extend(list(param[1:]))
@@ -661,8 +659,8 @@ class SHARC_INTERFACE(ABC):
             os.mkdir(self.QMin.save["savedir"])
 
         assert not (
-            (self.QMin.requests["overlap"] or self.QMin.requests["phases"]) and
-            self.QMin.save["init"]
+            (self.QMin.requests["overlap"] or self.QMin.requests["phases"])
+            and self.QMin.save["init"]
         ), '"overlap" and "phases" cannot be calculated in the first timestep!'
 
     @abstractmethod
