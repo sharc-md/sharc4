@@ -164,7 +164,7 @@ class SHARC_INTERFACE(ABC):
         """
 
         args = sys.argv
-        runtime = clock()
+        self.clock = clock()
         self.printheader()
         if len(args) != 2:
             print(
@@ -204,7 +204,7 @@ class SHARC_INTERFACE(ABC):
         # printing and output generation
         if self._PRINT or self._DEBUG:
             self.printQMout()
-        self.QMout["runtime"] = runtime.measuretime()
+        self.QMout["runtime"] = self.clock.measuretime()
         self.writeQMout()
 
     @abstractmethod
