@@ -61,6 +61,7 @@ all_features = set(
         "theodore",
         "dmdr",
         "socdr",
+        "point_charges"
     ]
 )
 
@@ -219,6 +220,5 @@ class SHARC_DO_NOTHING(SHARC_INTERFACE):
 
 
 if __name__ == "__main__":
-    # interface = "MOLPRO"
     test = SHARC_DO_NOTHING()
     test.main()

@@ -4,7 +4,7 @@ import sys
 import math
 from copy import deepcopy
 
-from logger import log
+from logger import log as logging
 from utils import writefile, eformat, itnmstates
 from constants import IToMult, IToPol
 from printing import printgrad, printcomplexmatrix
@@ -44,8 +44,211 @@ class QMout:
     dmdr_pc: ndarray[float, 5]
     multipolar_fit: ndarray[float, 4]
 
-    def __init__(self):
-        pass
+    def __init__(self, filepath = ""):
+        def find_line(data, flag):
+            iline = 0
+            for iline,line in enumerate(data):
+                if "! %i" % flag in line:
+                    return iline
+            return None
+
+        def get_quantity(data, iline, type, shape):
+            if len(shape) == 0:
+                iline += 1
+                line = data[iline].split()
+                if type == complex:
+                    result = complex(float(line[0]), float(line[1]))
+                elif type == float:
+                    result = float(line[0])
+                return result
+            else:
+                result = np.zeros(shape = shape, dtype = type)
+            if len(shape) == 1:
+                iline += 2
+                for irow in range(shape[0]):
+                    line = data[iline+irow].split()
+                    if type == complex:
+                        result[irow] = complex(float(line[0]), float(line[1]))
+                    elif type == float:
+                        result[irow] = float(line[0])
+            elif len(shape) == 2:
+                iline += 2
+                for irow in range(shape[0]):
+                    line = data[iline+irow].split()
+                    if type == complex:
+                        result[irow, :] = np.array([complex(float(line[2 * i]), float(line[2 * i + 1])) for i in range(shape[1])])
+                    elif type == float:
+                        result[irow, :] = np.array([float(line[i]) for i in range(shape[1])])
+            elif len(shape) == 3:
+                iline += 2
+                for iblock in range(shape[0]):
+                    for irow in range(shape[1]):
+                        line = data[iline+irow].split()
+                        if type == complex:
+                            result[iblock, irow, :] = np.array([complex(float(line[2 * i]), float(line[2 * i + 1])) for i in range(shape[2])])
+                        elif type == float:
+                            result[iblock, irow, :] = np.array([float(line[i]) for i in range(shape[2])])
+                    iline += 1 + shape[1]
+            elif len(shape) == 4:
+                iline += 2
+                for isuperblock in range(shape[0]):
+                    for iblock in range(shape[1]):
+                        for irow in range(shape[2]):
+                            line = data[iline+irow].split()
+                            if type == complex:
+                                result[iblock, irow, :] = np.array([complex(float(line[2 * i]), float(line[2 * i + 1])) for i in range(shape[3])])
+                            elif type == float:
+                                result[iblock, irow, :] = np.array([float(line[i]) for i in range(shape[3])])
+                        iline += 1 + shape[2]
+            elif len(shape) == 5:
+                iline += 2
+                for imegablock in range(shape[0]):
+                    for isuperblock in range(shape[1]):
+                        for iblock in range(shape[2]):
+                            for irow in range(shape[3]):
+                                line = data[iline+irow].split()
+                                if type == complex:
+                                    result[iblock, irow, :] = np.array([complex(float(line[2 * i]), float(line[2 * i + 1])) for i in range(shape[4])])
+                                elif type == float:
+                                    result[iblock, irow, :] = np.array([float(line[i]) for i in range(shape[4])])
+                            iline += 1 + shape[3]
+            return result
+
+        def get_property(data, iline, type, shape):
+            num = int(data[iline+1].split()[0])
+            print(iline)
+            keys = []
+            for irow in range(num):
+                keys.append(data[iline+3+irow].strip())
+            iline += 3+num
+            res = []
+            for irow in range(num):
+                print(iline)
+                res.append( get_quantity(data, iline, type, shape) )
+                iline += 1+shape[0]
+            result = [ (keys[i], res[i]) for i in range(num) ]
+            return result
+
+
+
+        if not filepath:
+            self.prop0d = []
+            self.prop1d = []
+            self.prop2d = []
+            self.notes = {}
+            self.runtime = 0
+        else:
+            # initialize the entire object from a QM.out file
+            try:
+                f = open(filepath, 'r')
+                data = f.readlines()
+                f.close()
+            except IOError:
+                print('Could not find %s!' % (filepath))
+                sys.exit(1)
+            # get basic information
+            iline = find_line(data ,0)
+            if "states" in data[iline+1]:
+                s=data[iline+1].split()
+                self.states = [int(i) for i in s[1:]]
+            else:
+                logging.error(f"Could not find states in {filepath}")
+                sys.exit(1)
+            if "natom" in data[iline+3]:
+                self.natom=int(data[iline+3].split()[-1])
+            else:
+                logging.error(f"Could not find natom in {filepath}")
+                sys.exit(1)
+            if "npc" in data[iline+4]:
+                self.npc=int(data[iline+4].split()[-1])
+            else:
+                logging.error(f"Could not find npc in {filepath}")
+                sys.exit(1)
+            self.nmstates = sum((i + 1) * n for i, n in enumerate(self.states))
+            self.nstates = sum(self.states)
+            self.point_charges = self.npc > 0
+            # get stuff
+            # h
+            iline = find_line(data, 1)
+            if iline != None:
+                self.h = get_quantity(data, iline, complex, (self.nmstates,self.nmstates))
+            # dm
+            iline = find_line(data, 2)
+            if iline != None:
+                self.dm = get_quantity(data, iline, complex, (3,self.nmstates,self.nmstates))
+            # grad
+            iline = find_line(data, 3)
+            if iline != None:
+                self.grad = get_quantity(data, iline, float, (self.nmstates,self.natom,3))
+            # grad_pc
+            if self.point_charges:
+                iline = find_line(data, 30)
+                if iline != None:
+                   self.grad_pc = get_quantity(data, iline, float, (self.nmstates,self.npc,3))
+            # nacdr
+            iline = find_line(data, 5)
+            if iline != None:
+                self.nacdr = get_quantity(data, iline, float, (self.nmstates,self.nmstates,self.natom,3))
+            # nacdr_pc
+            if self.point_charges:
+                iline = find_line(data, 31)
+                if iline != None:
+                    self.nacdr_pc = get_quantity(data, iline, float, (self.nmstates,self.nmstates,self.npc,3))
+            # overlap
+            iline = find_line(data, 6)
+            if iline != None:
+                self.overlap = get_quantity(data, iline, complex, (self.nmstates,self.nmstates))
+            # phases
+            iline = find_line(data, 7)
+            if iline != None:
+                self.phases = get_quantity(data, iline, complex, (self.nmstates,))
+            # socdr
+            iline = find_line(data, 13)
+            if iline != None:
+                self.socdr = get_quantity(data, iline, complex, (self.nmstates, self.nmstates, self.natom, 3))
+            # socdr_pc
+            if self.point_charges:
+                iline = find_line(data, 33)
+                if iline != None:
+                    self.socdr_pc = get_quantity(data, iline, complex, (self.nmstates,self.nmstates,self.npc,3))
+            # dmdr
+            iline = find_line(data, 12)
+            if iline != None:
+                self.dmdr = get_quantity(data, iline, float, (self.nmstates, self.nmstates, self.natom, 3))
+            # dmdr_pc
+            if self.point_charges:
+                iline = find_line(data, 32)
+                if iline != None:
+                    self.dmdr_pc = get_quantity(data, iline, float, (3,self.nmstates,self.nmstates,self.npc,3))
+            # multipolar_fit
+            iline = find_line(data, 22)
+            if iline != None:
+                self.multipolar_fit = get_quantity(data, iline, float, (self.nmstates, self.nmstates, self.natom, 10))
+            # prop0d
+            self.prop0d = []
+            iline = find_line(data, 23)
+            if iline != None:
+                self.prop0d = get_property(data, iline, float, ())
+            # prop1d
+            self.prop1d = []
+            iline = find_line(data, 21)
+            if iline != None:
+                self.prop1d = get_property(data, iline, float, (self.nmstates,))
+            # prop2d
+            self.prop2d = []
+            iline = find_line(data, 20)
+            if iline != None:
+                self.prop2d = get_property(data, iline, float, (self.nmstates, self.nmstates))
+            # notes
+            self.notes = {} # notes can be free format and will not be read
+            # runtime
+            self.runtime = 0
+            iline = find_line(data, 8)
+            if iline != None:
+                self.runtime = get_quantity(data, iline, float, ())
+
+
+            
 
     def allocate(self, states=[], natom=0, npc=0, requests: set[str] = set()):
         self.nmstates = sum((i + 1) * n for i, n in enumerate(states))
@@ -140,7 +343,7 @@ class QMout:
             outfilename = filename + ".out"
         else:
             outfilename = filename[:k] + ".out"
-        log.print("===> Writing output to file %s in SHARC Format\n" % (outfilename))
+        logging.print("===> Writing output to file %s in SHARC Format\n" % (outfilename))
         string = ""
         # write basic info
         string += "! 0 Basic information\n"
@@ -166,8 +369,12 @@ class QMout:
                 string += self.writeQMoutnacana_pc()
         if requests["socdr"]:
             string += self.writeQMoutsocdr()
+            if self.point_charges:
+                string += self.writeQMoutsocdr_pc()
         if requests["dmdr"]:
             string += self.writeQMoutdmdr()
+            if self.point_charges:
+                string += self.writeQMoutdmdr_pc()
         if self.prop0d:
             string += self.writeQMoutprop0d()
         # if any([requests["theodore"]]):
@@ -185,6 +392,8 @@ class QMout:
         string += self.writeQMouttime()
         writefile(outfilename, string)
         return
+
+    # ======================================================================= #
 
     def writeQMoutsoc(self):
         """Generates a string with the Spin-Orbit Hamiltonian in SHARC format.
@@ -274,6 +483,39 @@ class QMout:
         return string
 
     # ======================================================================= #
+    def writeQMoutdmdr_pc(self):
+        states = self.states
+        nmstates = self.nmstates
+        natom = self.npc
+        string = ""
+        string += "! %i Dipole moment derivatives on point charges (%ix%ix3x%ix3, real)\n" % (
+            32,
+            nmstates,
+            nmstates,
+            natom,
+        )
+        i = 0
+        for imult, istate, ims in itnmstates(states):
+            j = 0
+            for jmult, jstate, jms in itnmstates(states):
+                for ipol in range(3):
+                    string += (
+                        "%i %i ! m1 %i s1 %i ms1 %i   m2 %i s2 %i ms2 %i   pol %i\n"
+                        % (natom, 3, imult, istate, ims, jmult, jstate, jms, ipol)
+                    )
+                    for atom in range(natom):
+                        for xyz in range(3):
+                            string += "%s " % (
+                                eformat(self.dmdr_pc[ipol][i][j][atom][xyz], 12, 3)
+                            )
+                        string += "\n"
+                    string += ""
+                j += 1
+            i += 1
+        string += "\n"
+        return string
+
+    # ======================================================================= #
 
     def writeQMoutsocdr(self):
         states = self.states
@@ -315,6 +557,46 @@ class QMout:
 
     # ======================================================================= #
 
+    def writeQMoutsocdr_pc(self):
+        states = self.states
+        nmstates = self.nmstates
+        natom = self.npc
+        string = ""
+        string += "! %i Spin-Orbit coupling derivatives on point charges (%ix%ix3x%ix3, complex)\n" % (
+            33,
+            nmstates,
+            nmstates,
+            natom,
+        )
+        i = 0
+        for imult, istate, ims in itnmstates(states):
+            j = 0
+            for jmult, jstate, jms in itnmstates(states):
+                string += "%i %i ! m1 %i s1 %i ms1 %i   m2 %i s2 %i ms2 %i\n" % (
+                    natom,
+                    3,
+                    imult,
+                    istate,
+                    ims,
+                    jmult,
+                    jstate,
+                    jms,
+                )
+                for atom in range(natom):
+                    for xyz in range(3):
+                        string += "%s %s " % (
+                            eformat(self.socdr_pc[i][j][atom][xyz].real, 12, 3),
+                            eformat(self.socdr_pc[i][j][atom][xyz].imag, 12, 3),
+                        )
+                string += "\n"
+                string += ""
+                j += 1
+            i += 1
+        string += "\n"
+        return string
+
+    # ======================================================================= #
+
     def writeQMoutgrad(self):
         """Generates a string with the Gradient vectors in SHARC format.
 
@@ -345,6 +627,8 @@ class QMout:
             i += 1
         string += "\n"
         return string
+
+    # ======================================================================= #
 
     def writeQMoutgrad_pc(self):
         """Generates a string with the Gradient vectors in SHARC format.
@@ -562,7 +846,7 @@ class QMout:
 
         prop0d = self.prop0d
         # print(property matrices (flag 20) in new format)
-        string = "! %i Property Scalars\n" % (22)
+        string = "! %i Property Scalars\n" % (23)
         string += "%i    ! number of property scalars\n" % (len(prop0d))
 
         string += "! Property Scalar Labels (%i strings)\n" % (len(prop0d))
@@ -659,7 +943,7 @@ class QMout:
         1 string: multiline string with the SOC matrix"""
 
         notes = self.notes
-        string = "! %i Notes\n" % (23)
+        string = "! %i Notes\n" % (24)
         string += "%i    ! number of notes\n" % (len(notes))
 
         string += "! Notes Labels (%i strings)\n" % (len(notes))
@@ -685,6 +969,8 @@ class QMout:
                 eformat(self.phases[i].imag, 9, 3),
             )
         return string
+
+    # ======================================================================= #
 
     def writeQMoutmultipolarfit(self) -> str:
         """Generates a string with the fitted RESP charges for each pair of states specified.
