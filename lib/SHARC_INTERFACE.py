@@ -526,7 +526,7 @@ class SHARC_INTERFACE(ABC):
                 next(requests)
 
             nac_select = False
-
+            nacdr = []
             for line in requests:
                 # Check for valid keywords, remove comments
                 line = re.sub(r"#.*$", "", line)
@@ -551,7 +551,7 @@ class SHARC_INTERFACE(ABC):
                                 len(params) == 2
                             ), "NACs have to be given in state pairs!"
                             logging.debug(f"Adding state pair {params} to NACDR list")
-                            self.QMin.requests["nacdr"].append(params)
+                            nacdr.append(params)
                         continue
 
                     # Parse every other request
@@ -563,6 +563,8 @@ class SHARC_INTERFACE(ABC):
                         self._set_requests(params)
 
             assert not nac_select, "No end keyword found after nacdr select!"
+            if nacdr:
+                self.QMin.requests["nacdr"] = nacdr
         self._step_logic()
         self._request_logic()
 
