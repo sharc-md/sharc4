@@ -557,10 +557,6 @@ class SHARC_INTERFACE(ABC):
                     # Parse every other request
                     if params[0].casefold() in (
                         *self.QMin.requests.keys(),
-                        "init",
-                        "samestep",
-                        "restart",
-                        "newstep",
                         "step",
                     ):
                         logging.debug(f"Parsing request {params}")
