@@ -98,19 +98,19 @@ class SHARC_DO_NOTHING(SHARC_INTERFACE):
     def authors(self) -> str:
         return self._authors
 
-    def get_features(self) -> set:
+    def get_features(self, KEYSTROKES: TextIOWrapper = None) -> set:
         "return availble features"
         return all_features
 
     def get_infos(self, INFOS: dict, KEYSTROKES: TextIOWrapper) -> dict:
         "prepare INFOS obj"
-        self.setup_info=question("Please provide your favorite dish!", str, default="Pizza", KEYSTROKES=KEYSTROKES, autocomplete=False)
+        self.setup_info = question("Please provide your favorite dish!", str, default="Pizza", KEYSTROKES=KEYSTROKES, autocomplete=False)
         return INFOS
 
     def prepare(self, INFOS: dict, dir: str):
         "setup the folders"
         fpath = os.path.join(dir, "Food")
-        f = open(fpath)
+        f = open(fpath, 'w')
         f.write(self.setup_info)
         f.close()
         return
