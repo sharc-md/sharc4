@@ -182,7 +182,7 @@ class SHARC_DO_NOTHING(SHARC_INTERFACE):
     def run(self):
         pass
 
-    def setup_run(self):
+    def setup_interface(self):
         pass
 
     def read_resources(
