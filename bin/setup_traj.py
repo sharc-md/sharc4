@@ -46,6 +46,7 @@ from SHARC_INTERFACE import SHARC_INTERFACE
 
 # =========================================================0
 PI = math.pi
+log.root.setLevel(log.DEBUG)
 
 version = '4.0'
 versionneeded = [0.2, 1.0, 2.0, 2.1, float(version)]
@@ -516,7 +517,7 @@ def check_laserfile(filename, nsteps, dt):
 # ======================================================================================================================
 
 
-def get_initconds(INFOS):
+def get_general(INFOS):
     '''This routine questions from the user some general information:
     - initconds file
     - number of states
@@ -796,7 +797,7 @@ def get_interface() -> SHARC_INTERFACE:
 
 def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
     """ get requests for every single point"""
-    int_features = interface.get_features()
+    int_features = interface.get_features(KEYSTROKES=KEYSTROKES)
     log.debug(int_features)
 
     # Dynamics options
@@ -864,6 +865,7 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
     INFOS['surf'] = ['mch', 'diagonal'][surf]
 
     states = INFOS['states']
+    INFOS['needed_requests'] = []
     # Setup SOCs
     if len(states) > 1:
         if 'soc' in int_features:
@@ -1670,7 +1672,7 @@ def setup_all(INFOS, interface: SHARC_INTERFACE):
             if io != 0:
                 log.info('Could not make QM or restart directory!')
                 continue
-            interface.prepare(INFOS, dirname)
+            interface.prepare(INFOS, dirname + '/QM')
 
             writeRunscript(INFOS, dirname, interface)
 
@@ -1734,9 +1736,10 @@ This interactive program prepares SHARC dynamics calculations.
     open_keystrokes()
     INFOS = {}
 
-    INFOS = get_initconds(INFOS)
-    chosen_interface = get_interface()
+    INFOS = get_general(INFOS)
+    chosen_interface: SHARC_INTERFACE = get_interface()()
     INFOS = get_requests(INFOS, chosen_interface)
+    INFOS = chosen_interface.get_infos(INFOS, KEYSTROKES)
     INFOS = get_trajectory_info(INFOS)
     INFOS = get_runscript_info(INFOS)
 
@@ -1749,7 +1752,7 @@ This interactive program prepares SHARC dynamics calculations.
     log.info('')
 
     if setup:
-        setup_all(INFOS)
+        setup_all(INFOS, chosen_interface)
 
     close_keystrokes()
 
