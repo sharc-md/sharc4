@@ -10,6 +10,7 @@ from constants import IToMult, IToPol
 from printing import printgrad, printcomplexmatrix
 
 
+
 class QMout:
     """
     Storage container for all results of single point calculations.
@@ -44,92 +45,94 @@ class QMout:
     dmdr_pc: ndarray[float, 5]
     multipolar_fit: ndarray[float, 4]
 
-    def __init__(self, filepath = ""):
-        def find_line(data, flag):
-            iline = 0
-            for iline,line in enumerate(data):
-                if "! %i" % flag in line:
-                    return iline
-            return None
-
-        def get_quantity(data, iline, type, shape):
-            if len(shape) == 0:
-                iline += 1
-                line = data[iline].split()
+    @staticmethod
+    def find_line(data, flag):
+        iline = 0
+        for iline,line in enumerate(data):
+            if "! %i" % flag in line:
+                return iline
+        return None
+    
+    @staticmethod
+    def get_quantity(data, iline, type, shape):
+        if len(shape) == 0:
+            iline += 1
+            line = data[iline].split()
+            if type == complex:
+                result = complex(float(line[0]), float(line[1]))
+            elif type == float:
+                result = float(line[0])
+            return result
+        else:
+            result = np.zeros(shape = shape, dtype = type)
+        if len(shape) == 1:
+            iline += 2
+            for irow in range(shape[0]):
+                line = data[iline+irow].split()
                 if type == complex:
-                    result = complex(float(line[0]), float(line[1]))
+                    result[irow] = complex(float(line[0]), float(line[1]))
                 elif type == float:
-                    result = float(line[0])
-                return result
-            else:
-                result = np.zeros(shape = shape, dtype = type)
-            if len(shape) == 1:
-                iline += 2
-                for irow in range(shape[0]):
+                    result[irow] = float(line[0])
+        elif len(shape) == 2:
+            iline += 2
+            for irow in range(shape[0]):
+                line = data[iline+irow].split()
+                if type == complex:
+                    result[irow, :] = np.array([complex(float(line[2 * i]), float(line[2 * i + 1])) for i in range(shape[1])])
+                elif type == float:
+                    result[irow, :] = np.array([float(line[i]) for i in range(shape[1])])
+        elif len(shape) == 3:
+            iline += 2
+            for iblock in range(shape[0]):
+                for irow in range(shape[1]):
                     line = data[iline+irow].split()
                     if type == complex:
-                        result[irow] = complex(float(line[0]), float(line[1]))
+                        result[iblock, irow, :] = np.array([complex(float(line[2 * i]), float(line[2 * i + 1])) for i in range(shape[2])])
                     elif type == float:
-                        result[irow] = float(line[0])
-            elif len(shape) == 2:
-                iline += 2
-                for irow in range(shape[0]):
-                    line = data[iline+irow].split()
-                    if type == complex:
-                        result[irow, :] = np.array([complex(float(line[2 * i]), float(line[2 * i + 1])) for i in range(shape[1])])
-                    elif type == float:
-                        result[irow, :] = np.array([float(line[i]) for i in range(shape[1])])
-            elif len(shape) == 3:
-                iline += 2
-                for iblock in range(shape[0]):
-                    for irow in range(shape[1]):
+                        result[iblock, irow, :] = np.array([float(line[i]) for i in range(shape[2])])
+                iline += 1 + shape[1]
+        elif len(shape) == 4:
+            iline += 2
+            for isuperblock in range(shape[0]):
+                for iblock in range(shape[1]):
+                    for irow in range(shape[2]):
                         line = data[iline+irow].split()
                         if type == complex:
-                            result[iblock, irow, :] = np.array([complex(float(line[2 * i]), float(line[2 * i + 1])) for i in range(shape[2])])
+                            result[iblock, irow, :] = np.array([complex(float(line[2 * i]), float(line[2 * i + 1])) for i in range(shape[3])])
                         elif type == float:
-                            result[iblock, irow, :] = np.array([float(line[i]) for i in range(shape[2])])
-                    iline += 1 + shape[1]
-            elif len(shape) == 4:
-                iline += 2
-                for isuperblock in range(shape[0]):
-                    for iblock in range(shape[1]):
-                        for irow in range(shape[2]):
+                            result[iblock, irow, :] = np.array([float(line[i]) for i in range(shape[3])])
+                    iline += 1 + shape[2]
+        elif len(shape) == 5:
+            iline += 2
+            for imegablock in range(shape[0]):
+                for isuperblock in range(shape[1]):
+                    for iblock in range(shape[2]):
+                        for irow in range(shape[3]):
                             line = data[iline+irow].split()
                             if type == complex:
-                                result[iblock, irow, :] = np.array([complex(float(line[2 * i]), float(line[2 * i + 1])) for i in range(shape[3])])
+                                result[iblock, irow, :] = np.array([complex(float(line[2 * i]), float(line[2 * i + 1])) for i in range(shape[4])])
                             elif type == float:
-                                result[iblock, irow, :] = np.array([float(line[i]) for i in range(shape[3])])
-                        iline += 1 + shape[2]
-            elif len(shape) == 5:
-                iline += 2
-                for imegablock in range(shape[0]):
-                    for isuperblock in range(shape[1]):
-                        for iblock in range(shape[2]):
-                            for irow in range(shape[3]):
-                                line = data[iline+irow].split()
-                                if type == complex:
-                                    result[iblock, irow, :] = np.array([complex(float(line[2 * i]), float(line[2 * i + 1])) for i in range(shape[4])])
-                                elif type == float:
-                                    result[iblock, irow, :] = np.array([float(line[i]) for i in range(shape[4])])
-                            iline += 1 + shape[3]
-            return result
+                                result[iblock, irow, :] = np.array([float(line[i]) for i in range(shape[4])])
+                        iline += 1 + shape[3]
+        return result
 
-        def get_property(data, iline, type, shape):
-            num = int(data[iline+1].split()[0])
-            keys = []
-            for irow in range(num):
-                keys.append(data[iline+3+irow].strip())
-            iline += 3+num
-            res = []
-            for irow in range(num):
-                print(iline)
-                res.append( get_quantity(data, iline, type, shape) )
-                iline += 1+shape[0]
-            result = [ (keys[i], res[i]) for i in range(num) ]
-            return result
+    @staticmethod
+    def get_property(data, iline, type, shape):
+        num = int(data[iline+1].split()[0])
+        keys = []
+        for irow in range(num):
+            keys.append(data[iline+3+irow].strip())
+        iline += 3+num
+        res = []
+        for irow in range(num):
+            print(iline)
+            res.append( QMout.get_quantity(data, iline, type, shape) )
+            iline += 1+shape[0]
+        result = [ (keys[i], res[i]) for i in range(num) ]
+        return result
 
 
-
+    def __init__(self, filepath = ""):
         if not filepath:
             self.prop0d = []
             self.prop1d = []
@@ -146,7 +149,7 @@ class QMout:
                 print('Could not find %s!' % (filepath))
                 sys.exit(1)
             # get basic information
-            iline = find_line(data ,0)
+            iline = QMout.find_line(data ,0)
             if "states" in data[iline+1]:
                 s=data[iline+1].split()
                 self.states = [int(i) for i in s[1:]]
@@ -168,83 +171,83 @@ class QMout:
             self.point_charges = self.npc > 0
             # get stuff
             # h
-            iline = find_line(data, 1)
+            iline = QMout.find_line(data, 1)
             if iline != None:
-                self.h = get_quantity(data, iline, complex, (self.nmstates,self.nmstates))
+                self.h = QMout.get_quantity(data, iline, complex, (self.nmstates,self.nmstates))
             # dm
-            iline = find_line(data, 2)
+            iline = QMout.find_line(data, 2)
             if iline != None:
-                self.dm = get_quantity(data, iline, complex, (3,self.nmstates,self.nmstates))
+                self.dm = QMout.get_quantity(data, iline, complex, (3,self.nmstates,self.nmstates))
             # grad
-            iline = find_line(data, 3)
+            iline = QMout.find_line(data, 3)
             if iline != None:
-                self.grad = get_quantity(data, iline, float, (self.nmstates,self.natom,3))
+                self.grad = QMout.get_quantity(data, iline, float, (self.nmstates,self.natom,3))
             # grad_pc
             if self.point_charges:
-                iline = find_line(data, 30)
+                iline = QMout.find_line(data, 30)
                 if iline != None:
-                   self.grad_pc = get_quantity(data, iline, float, (self.nmstates,self.npc,3))
+                   self.grad_pc = QMout.get_quantity(data, iline, float, (self.nmstates,self.npc,3))
             # nacdr
-            iline = find_line(data, 5)
+            iline = QMout.find_line(data, 5)
             if iline != None:
-                self.nacdr = get_quantity(data, iline, float, (self.nmstates,self.nmstates,self.natom,3))
+                self.nacdr = QMout.get_quantity(data, iline, float, (self.nmstates,self.nmstates,self.natom,3))
             # nacdr_pc
             if self.point_charges:
-                iline = find_line(data, 31)
+                iline = QMout.find_line(data, 31)
                 if iline != None:
-                    self.nacdr_pc = get_quantity(data, iline, float, (self.nmstates,self.nmstates,self.npc,3))
+                    self.nacdr_pc = QMout.get_quantity(data, iline, float, (self.nmstates,self.nmstates,self.npc,3))
             # overlap
-            iline = find_line(data, 6)
+            iline = QMout.find_line(data, 6)
             if iline != None:
-                self.overlap = get_quantity(data, iline, complex, (self.nmstates,self.nmstates))
+                self.overlap = QMout.get_quantity(data, iline, complex, (self.nmstates,self.nmstates))
             # phases
-            iline = find_line(data, 7)
+            iline = QMout.find_line(data, 7)
             if iline != None:
-                self.phases = get_quantity(data, iline, complex, (self.nmstates,))
+                self.phases = QMout.get_quantity(data, iline, complex, (self.nmstates,))
             # socdr
-            iline = find_line(data, 13)
+            iline = QMout.find_line(data, 13)
             if iline != None:
-                self.socdr = get_quantity(data, iline, complex, (self.nmstates, self.nmstates, self.natom, 3))
+                self.socdr = QMout.get_quantity(data, iline, complex, (self.nmstates, self.nmstates, self.natom, 3))
             # socdr_pc
             if self.point_charges:
-                iline = find_line(data, 33)
+                iline = QMout.find_line(data, 33)
                 if iline != None:
-                    self.socdr_pc = get_quantity(data, iline, complex, (self.nmstates,self.nmstates,self.npc,3))
+                    self.socdr_pc = QMout.get_quantity(data, iline, complex, (self.nmstates,self.nmstates,self.npc,3))
             # dmdr
-            iline = find_line(data, 12)
+            iline = QMout.find_line(data, 12)
             if iline != None:
-                self.dmdr = get_quantity(data, iline, float, (self.nmstates, self.nmstates, self.natom, 3))
+                self.dmdr = QMout.get_quantity(data, iline, float, (self.nmstates, self.nmstates, self.natom, 3))
             # dmdr_pc
             if self.point_charges:
-                iline = find_line(data, 32)
+                iline = QMout.find_line(data, 32)
                 if iline != None:
-                    self.dmdr_pc = get_quantity(data, iline, float, (3,self.nmstates,self.nmstates,self.npc,3))
+                    self.dmdr_pc = QMout.get_quantity(data, iline, float, (3,self.nmstates,self.nmstates,self.npc,3))
             # multipolar_fit
-            iline = find_line(data, 22)
+            iline = QMout.find_line(data, 22)
             if iline != None:
-                self.multipolar_fit = get_quantity(data, iline, float, (self.nmstates, self.nmstates, self.natom, 10))
+                self.multipolar_fit = QMout.get_quantity(data, iline, float, (self.nmstates, self.nmstates, self.natom, 10))
             # prop0d
             self.prop0d = []
-            iline = find_line(data, 23)
+            iline = QMout.find_line(data, 23)
             if iline != None:
-                self.prop0d = get_property(data, iline, float, ())
+                self.prop0d = QMout.get_property(data, iline, float, ())
             # prop1d
             self.prop1d = []
-            iline = find_line(data, 21)
+            iline = QMout.find_line(data, 21)
             if iline != None:
-                self.prop1d = get_property(data, iline, float, (self.nmstates,))
+                self.prop1d = QMout.get_property(data, iline, float, (self.nmstates,))
             # prop2d
             self.prop2d = []
-            iline = find_line(data, 20)
+            iline = QMout.find_line(data, 20)
             if iline != None:
-                self.prop2d = get_property(data, iline, float, (self.nmstates, self.nmstates))
+                self.prop2d = QMout.get_property(data, iline, float, (self.nmstates, self.nmstates))
             # notes
             self.notes = {} # notes can be free format and will not be read
             # runtime
             self.runtime = 0
-            iline = find_line(data, 8)
+            iline = QMout.find_line(data, 8)
             if iline != None:
-                self.runtime = get_quantity(data, iline, float, ())
+                self.runtime = QMout.get_quantity(data, iline, float, ())
 
 
             
