@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from error import Error, exception_hook
 import subprocess as sp
 from globals import DEBUG, PRINT
+from logger import log as logging
 
 
 class InDir():
@@ -41,7 +42,9 @@ def expand_path(path: str) -> str:
     Expand variables in path, error out if variable is not resolvable
     """
     expand = os.path.abspath(os.path.expanduser(os.path.expandvars(path)))
-    assert "$" not in expand, f"Undefined env variable in {expand}"
+    if "$" in expand:
+        logging.error(f"Undefined env variable in {expand}")
+        sys.exit(404)
     return expand
 
 def question(question, typefunc, KEYSTROKES=None, default=None, autocomplete=True, ranges=False):
