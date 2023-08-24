@@ -37,21 +37,25 @@ import datetime
 import numpy as np
 
 # internal
-from SHARC_INTERFACE_old import INTERFACE
-from utils import readfile, mkdir, Error
+from SHARC_FAST import SHARC_FAST
+from utils import readfile, mkdir, question
+from io import TextIOWrapper
 from constants import U_TO_AMU, MASSES
+from logger import log
 from kabsch import kabsch_w as kabsch
+from qmin import QMin
+from qmout import QMout
 
 authors = 'Sebastian Mai and Severin Polonius'
-version = '3.0'
-versiondate = datetime.datetime(2021, 7, 29)
+version = '4.0'
+versiondate = datetime.datetime(2023, 8, 25)
 
 changelogstring = '''
 '''
 np.set_printoptions(linewidth=400, formatter={'float': lambda x: f'{x: 9.7}'})
 
 
-class LVC(INTERFACE):
+class LVC(SHARC_FAST):
 
     _version = version
     _versiondate = versiondate
@@ -79,20 +83,24 @@ class LVC(INTERFACE):
         return self._authors
 
     def read_template(self, template_filename='LVC.template'):
-        QMin = self._QMin
-        QMin['template'] = {'qmmm': False, 'cobramm': False}
-        r3N = 3 * QMin['natom']
-        natom = QMin['natom']
-        nmstates = QMin['nmstates']
 
         f = open(os.path.abspath(template_filename), 'r')
         V0file = f.readline()[:-1]
         self.read_V0(os.path.abspath(V0file))
-        parsed_states = INTERFACE.parseStates(f.readline())
-        states = parsed_states['states']
-        if states != QMin['states']:
-            print(f'states from QM.in and nstates from LVC.template are inconsistent! {QMin["states"]} != {states}')
-            sys.exit(25)
+        self.parsed_states = SHARC_FAST.parseStates(f.readline())
+        self.template_states = self.parsed_states['states']
+        states = self.QMin.molecule['states']
+
+        if (len(states) > len(self.template_states)) or any(a > b for (a, b) in zip(states, self.template_states)):
+            log.error(f'states from QM.in and nstates from LVC.template are inconsistent! {self.QMin.molecule["states"]} != {states}')
+            raise ValueError(f'impossible to calculate {self.QMin.molecule["states"]} with template holding {self.template_states}')
+        if any(a < b for (a, b) in zip(states, self.template_states)):
+            log.warning(f"Calculating with {self.template_states} but returning {states}")
+
+        natom = self.QMin.molecule['natom']
+        r3N = 3 * natom
+        nmstates = self.parsed_states['nmstates']
+        states = self.parsed_states['states']
 
         self._H_i = {im: np.zeros((n, n, r3N), dtype=float) for im, n in enumerate(states) if n != 0}
         self._epsilon = {im: np.zeros(n, dtype=float) for im, n in enumerate(states) if n != 0}
@@ -180,8 +188,8 @@ class LVC(INTERFACE):
         if dipole_real:
             self._dipole = np.reshape(self._dipole.view(float), self._dipole.shape + (2, ))[:, :, :, 0]
 
-        if 'init' in self._QMin:
-            INTERFACE.checkscratch(self._QMin['savedir'])
+        if self.QMin.save['init']:
+            SHARC_FAST.checkscratch(self.QMin.save['savedir'])
         self._read_template = True
         return
 
@@ -190,19 +198,19 @@ class LVC(INTERFACE):
         QMin = self.QMin
         lines = readfile(filename)
         it = 1
-        elem = QMin['elements']
+        elem = QMin.molecule['elements']
         rM = list(
             map(lambda x: [x[0]] + [float(y) for y in x[2:]], map(lambda x: x.split(), lines[it:it + QMin['natom']]))
         )
         v0_elem = [x[0] for x in rM]
         if v0_elem != elem:
-            raise Error(f'inconsistent atom labels in QM.in and {filename}:\n{elem}\n{v0_elem}')
+            raise ValueError(f'inconsistent atom labels in QM.in and {filename}:\n{elem}\n{v0_elem}')
         rM = np.asarray([x[1:] for x in rM], dtype=float)
         self._ref_coords = rM[:, :-1]
         self._masses = rM[:, -1]
         tmp = np.sqrt(rM[:, -1] * U_TO_AMU)
         self._Msa = np.asarray([tmp, tmp, tmp]).flatten(order='F')
-        it += QMin['natom'] + 1
+        it += QMin.molecule['natom'] + 1
         self._Om = np.asarray(lines[it].split(), dtype=float)
         it += 2
         self._Km = np.asarray([x.split() for x in lines[it:]], dtype=float).T * self._Msa
@@ -210,58 +218,30 @@ class LVC(INTERFACE):
 
     def read_resources(self, resources_filename="LVC.resources"):
         if not os.path.isfile(resources_filename):
-            print("Warning!: LVC.resources not found; continuuing without further settings.")
+            log.warning("LVC.resources not found; continuuing without further settings.")
             return
-        lines = readfile(resources_filename)
-        bools = {'do_kabsch': False}
-        integers = {'ncpu': 1}
-        resources = {**bools, **integers, **self.parse_keywords(lines, bools=bools, integers=integers)}
-        self._QMin['ncpu'], self._do_kabsch = map(resources.get, ['ncpu', 'do_kabsch'])
+
+        super().read_resources()
+        if "do_kabsch" in self.QMin.resources:
+            self._do_kabsch = True
+        #  if "diagonalize" in self.QMin.resources:
+            #  self._diagonalize = True
 
 
-    def setup_run(self):
-        pass
-
-    def _request_logic(self):
-        QMin = self._QMin
-        # prepare savedir
-        if not os.path.isdir(QMin['savedir']):
-            mkdir(QMin['savedir'])
-
-        possibletasks = {'h', 'soc', 'dm', 'grad', 'overlap'}
-        tasks = possibletasks & QMin.keys()
-        if len(tasks) == 0:
-            raise Error(f'No tasks found! Tasks are {possibletasks}.', 39)
-
-        if 'h' not in tasks and 'soc' not in tasks:
-            QMin['h'] = True
-
-        if 'soc' in tasks and (len(QMin['states']) < 3 or QMin['states'][2] <= 0):
-            del QMin['soc']
-            QMin['h'] = True
-            print('HINT: No triplet states requested, turning off SOC request.')
-
-        if 'overlap' in tasks and 'init' in tasks:
-            raise Error(
-                '"overlap" and "phases" cannot be calculated in the first timestep! Delete either "overlap" or "init"',
-                43
-            )
-
-        if not tasks.isdisjoint({'h', 'soc', 'dm', 'grad'}) and 'overlap' in tasks:
-            QMin['h'] = True
-
-        if 'pc_file' in QMin:
-            QMin['point_charges'] = [
-                [float(x[0]) * self._factor,
-                 float(x[1]) * self._factor,
-                 float(x[2]) * self._factor,
-                 float(x[3])] for x in map(lambda x: x.split(), readfile(QMin['pc_file']))
-            ]
+    def setup_interface(self):
+        if self.QMin.requests['overlap']:
+            if self.QMin.save['step'] == 0:
+                self.QMout.overlap = np.identity(self.parsed_states['nmstates'], dtype=float)
+            else:
+                log.debug(f'restarting: getting overlap from file {self.QMin.save["step"]-1}.out')
+                self.QMout.overlap = np.fromfile(
+                    os.path.join(self.QMin.save['savedir'], f'U_{self.QMin.save["step"]-1}.out'), dtype=float
+                ).reshape(self._U.shape).T @ self._U
 
     def getQMout(self):
         return self._QMout
 
-    @staticmethod
+    @ staticmethod
     def get_mult_prefactors(pc_coord_diff):
         # precalculated dist matrix
         pc_inv_dist_A_B = 1 / np.sqrt(np.sum((pc_coord_diff)**2, axis=2))    # distance matrix n_coord (A), n_pc (B)
@@ -285,7 +265,7 @@ class LVC(INTERFACE):
             )
         )
 
-    @staticmethod
+    @ staticmethod
     def get_mult_prefactors_deriv(pc_coord_diff):
         pc_inv_dist_A_B = 1 / np.sqrt(np.sum((pc_coord_diff)**2, axis=2))    # distance matrix n_coord (A), n_pc (B)
         R = pc_coord_diff
@@ -332,7 +312,7 @@ class LVC(INTERFACE):
             )
         ).reshape((3, 10, pc_coord_diff.shape[0], pc_coord_diff.shape[1]))
 
-    @staticmethod
+    @ staticmethod
     def rotate_multipoles(q, Trot):
         res = q.copy()
         res[..., 1:4] = res[..., 1:4] @ Trot
@@ -346,31 +326,32 @@ class LVC(INTERFACE):
         res[..., 7:] = 2 * quad[..., [0, 0, 1], [1, 2, 2]]
         return res
 
-    # NOTE: potentially do kabsch on reference coords and normal modes (if nmstates**2 > 3*natom)
     def run(self):
-        # s1_time = time.perf_counter_ns()
-        do_pc = 'point_charges' in self._QMin
+        do_pc = self.QMin.molecule["point_charges"]
         weights = self._masses
+        # NOTE: do not calculate all nacs and grads only requested!!
+        req_nmstates = self.QMin.molecule['nmstates']
+        req_states = self.QMin.molecule['states']
+        nmstates = self.parsed_states['nmstates']
+        states = self.parsed_states['states']
 
         # conditionally turn on kabsch as flag (do_pc for additional logic)
         do_kabsch = True if do_pc else self._do_kabsch
         self.clock.starttime = datetime.datetime.now()
-        nmstates = self._QMin['nmstates']
         self._U = np.zeros((nmstates, nmstates), dtype=float)
         Hd = np.zeros((nmstates, nmstates), dtype=self._soc.dtype)
-        states = self._QMin['states']
-        r3N = 3 * self._QMin['natom']
-        coords: np.ndarray = self._QMin['coords'].copy()
+        r3N = 3 * self.QMin.molecule['natom']
+        coords: np.ndarray = self.QMin.coords['coords'].copy()
         coords_ref_basis = coords
         if do_kabsch:
             self._Trot, self._com_ref, self._com_coords = kabsch(self._ref_coords, coords, weights)
             coords_ref_basis = (coords - self._com_coords) @ self._Trot.T + self._com_ref
         # sanity check for coordinates - check if centre of mass is conserved
-        elif self._QMin['step'] == 0:
+        elif self.QMin.save['step'] == 0:
             self._Trot, self._com_ref, self._com_coords = kabsch(self._ref_coords, coords, weights)
             if not np.allclose(self._com_ref, self._com_coords, rtol=1e-3) or \
                not np.allclose(np.diag(self._Trot), np.ones(3, dtype=float), rtol=1e-5):
-                raise Error('Misaligned geometry without activated Kabsch algorithm! -> check you input structure or activate Kabsch', 39)
+                raise RuntimeError('Misaligned geometry without activated Kabsch algorithm! -> check you input structure or activate Kabsch')
 
         # kabsch is necessary with point charges
         if do_pc:
@@ -378,13 +359,12 @@ class LVC(INTERFACE):
             # self._Trot, self._com_ref, self._com_coords = kabsch(self._ref_coords, coords, weights)
             self._fits_rot = {im: self.rotate_multipoles(fits, self._Trot) for im, fits in self._fits.items()}
             # coords_ref_basis = (coords - self._com_coords) @ self._Trot.T + self._com_ref
-            pc = np.array(self.QMin['point_charges'])    # pc: list[list[float]] = each pc is x, y, z, q
-            pc_coord = pc[:, :3]    # n_pc, 3
-            self.pc_chrg = pc[:, 3].reshape((-1, 1))    # n_pc, 1
+            self.pc_chrg = np.array(self.QMin.coords['pccharge'])    # n_pc, 1
+            pc_coord = np.array(self.QMin.coords['pccoords'])    # n_pc, 1
             # matrix of position differences (for gradient calc) n_coord (A), n_pc (B), 3
             pc_coord_diff = np.full((coords.shape[0], pc_coord.shape[0], 3), coords[:, None, :]) - pc_coord
             mult_prefactors = self.get_mult_prefactors(pc_coord_diff)
-            mult_prefactors_pc = np.einsum('b,yab->yab', self.pc_chrg.flat, mult_prefactors)
+            mult_prefactors_pc = np.einsum('b,yab->yab', self.pc_chrg, mult_prefactors)
             del mult_prefactors
         # Build full H and diagonalize
         self._Q = np.sqrt(self._Om) * (self._Km @ (coords_ref_basis.flatten() - self._ref_coords.flatten()))
@@ -426,11 +406,11 @@ class LVC(INTERFACE):
                 mult_prefactors_deriv = self.get_mult_prefactors_deriv(pc_coord_diff)
 
                 fits_deriv = {
-                    im: np.zeros((n, n, self._QMin['natom'], 9, self._QMin['natom'], 3))
+                    im: np.zeros((n, n, self.QMin.molecule['natom'], 9, self.QMin.molecule['natom'], 3))
                     for im, n in filter(lambda x: x[1] != 0, enumerate(states))
                 }
 
-                mult_prefactors_deriv_pc = np.einsum('xyab,b->xyab', mult_prefactors_deriv, self.pc_chrg.flat)
+                mult_prefactors_deriv_pc = np.einsum('xyab,b->xyab', mult_prefactors_deriv, self.pc_chrg)
                 del mult_prefactors_deriv
 
         # numerically calculate the derivatives of the coordinates in the reference system with respect ot the sharc coords
@@ -438,7 +418,7 @@ class LVC(INTERFACE):
             multiplier = 1 / (2 * shift)
 
             coords_deriv = np.zeros((r3N, r3N))
-            for a in range(self._QMin['natom']):
+            for a in range(self.QMin.molecule['natom']):
                 for x in range(3):
                     for f, m in [(1, multiplier), (-1, -multiplier)]:
                         c = np.copy(coords)
@@ -473,23 +453,33 @@ class LVC(INTERFACE):
                 dlvc = np.einsum('ijk,kl->ijl', dlvc, dQ_dr, casting='no', optimize=True)
                 if do_pc:
                     # calculate derivative of electrostic interaction
-                    dcoulomb: np.ndarray = np.einsum('xyab,ijay->ijabx', mult_prefactors_deriv_pc, self._fits_rot[im])
+                    if not self._dcoulomb_path:
+                        self._dcoulomb_path = np.einsum_path('xyab,ijay->ijabx', mult_prefactors_deriv_pc, self._fits_rot[im], optimize='optimal')
+                    dcoulomb: np.ndarray = np.einsum('xyab,ijay->ijabx', mult_prefactors_deriv_pc, self._fits_rot[im], optimize=self._dcoulomb_path)
                     # add derivative to lvc derivative summed ofe all point charges
                     dlvc += np.einsum('ijabx->ijax', dcoulomb).reshape((n, n, r3N))
                     # add the derivative of the multipoles
+                    if not self.dlvc_path:
+                        self._dlvc_path = np.einsum_path(
+                            'yab,ijaymx->ijmx', mult_prefactors_pc[1:, ...], fits_deriv[im], casting='no', optimize='optimal'
+                        )
                     dlvc += np.einsum(
-                        'yab,ijaymx->ijmx', mult_prefactors_pc[1:, ...], fits_deriv[im], casting='no', optimize=True
+                        'yab,ijaymx->ijmx', mult_prefactors_pc[1:, ...], fits_deriv[im], casting='no', optimize=self._dlvc_path
                     ).reshape((n, n, r3N))
                     # calculate the pc derivatives
                     pc_derivative = -np.einsum('ijabx->ijbx', dcoulomb)
                     del dcoulomb
                     if self._diagonalize:
-                        pc_derivative = np.einsum('ijbx,im,jn->mnbx', pc_derivative, u, u, casting='no', optimize=True)
+                        if not self._pc_derivative_nac_path:
+                            self._pc_derivative_nac_path = np.einsum_path('ijbx,im,jn->mnbx', pc_derivative, u, u, casting='no', optimize='optimal')
+                        pc_derivative = np.einsum('ijbx,im,jn->mnbx', pc_derivative, u, u, casting='no', optimize=self._pc_derivative_nac_path)
                     self.pc_grad[start:stop, ...] += np.einsum('mmbx->mbx', pc_derivative)
 
                 # transform gradients to adiabatic basis
                 if self._diagonalize:
-                    dlvc = np.einsum('ijk,im,jn->mnk', dlvc, u, u, casting='no', optimize=True)
+                    if not self._dlvc_nac_diag_path:
+                        self._dlvc_nac_diag_path = np.einsum_path('ijbx,im,jn->mnbx', pc_derivative, u, u, casting='no', optimize='optimal')
+                    dlvc = np.einsum('ijk,im,jn->mnk', dlvc, u, u, casting='no', optimize=self._dlvc_nac_diag_path)
 
                 nacdr[start:stop, start:stop, ...] = dlvc
                 grad[start:stop, ...] = np.einsum('iik->ik', dlvc)
@@ -526,7 +516,11 @@ class LVC(INTERFACE):
                 if self._diagonalize:
                     grad_lvc += np.einsum('ijk,in,jn->nk', self._H_i[im], u, u, casting='no', optimize=True)
                     if do_pc:
-                        fits_r = np.einsum('ijay,in,jn->nay', self._fits_rot[im], u, u, casting='no', optimize=True)
+                        if not self._fits_r_path:
+                            self._fits_r_path = np.einsum_path('ijay,in,jn->nay', self._fits_rot[im], u, u, optimize='optimal')
+                        fits_r = np.einsum('ijay,in,jn->nay', self._fits_rot[im], u, u, casting='no', optimize=self._fits_r_path)
+                        if not self._dfits_path:
+                            self._dfits_path = np.einsum_path('ijaymx,in,jn->naymx', fits_deriv[im], u, u, optimize='optimal')
                         dfits = np.einsum('ijaymx,in,jn->naymx', fits_deriv[im], u, u, casting='no', optimize=True)
                 else:
                     grad_lvc += np.einsum('iik->ik', self._H_i[im])
@@ -536,12 +530,18 @@ class LVC(INTERFACE):
                 grad_lvc = grad_lvc @ dQ_dr
                 if do_pc:
                     # calculate derivative of electrostic interaction
-                    dcoulomb: np.ndarray = np.einsum('xyab,iay->iabx', mult_prefactors_deriv_pc, fits_r)
+                    if not self._dcoulomb_grad_path:
+                        self._dcoulomb_grad_path = np.einsum_path('xyab,iay->iabx', mult_prefactors_deriv_pc, fits_r, optimize='optimal')
+                    dcoulomb: np.ndarray = np.einsum('xyab,iay->iabx', mult_prefactors_deriv_pc, fits_r, casting='no', optimize=self._dcoulomb_grad_path)
                     # add derivative to lvc derivative summed ofe all point charges
                     grad_lvc += np.einsum('iabx->iax', dcoulomb).reshape((n, r3N))
                     # add the derivative of the multipoles
+                    if not self._grad_lvc_path:
+                        self._grad_lvc_path = np.einsum_path(
+                            'yab,iaymx->imx', mult_prefactors_pc[1:, ...], dfits, optimize='optimal'
+                        )
                     grad_lvc += np.einsum(
-                        'yab,iaymx->imx', mult_prefactors_pc[1:, ...], dfits, casting='no', optimize=True
+                        'yab,iaymx->imx', mult_prefactors_pc[1:, ...], dfits, casting='no', optimize=self._grad_lvc_path
                     ).reshape((n, r3N))
                     # calculate the pc derivatives
                     self.pc_grad[start:stop, ...] = -np.einsum('iabx->ibx', dcoulomb)
@@ -555,19 +555,14 @@ class LVC(INTERFACE):
                         self.pc_grad[s1:s2, ...] = self.pc_grad[start:stop, ...]
                 start += n * (im + 1)
 
-        if 'overlap' in self._QMin:
-            if 'init' in self._QMin:
-                overlap = np.identity(nmstates, dtype=float)
-            elif 'restart' in self._QMin:
-                overlap = np.fromfile(
-                    os.path.join(self._QMin['savedir'], f'U_{self._QMin["step"]-1}.out'), dtype=float
-                ).reshape(self._U.shape).T @ self._U
+        if self.QMin.requests['overlap']:
+            if self.QMin.save['step'] == 0:
+                pass
             elif self._persistent:
-                overlap = self._Uold.T @ self._U
+                self.QMout.overlap = self._Uold.T @ self._U
             else:
-                overlap = np.fromfile(os.path.join(self._QMin['savedir'], 'Uold.out'),
-                                      dtype=float).reshape(self._U.shape).T @ self._U
-            self._QMout['overlap'] = overlap.tolist()
+                self.QMout = np.fromfile(os.path.join(self._QMin['savedir'], 'Uold.out'),
+                                         dtype=float).reshape(self._U.shape).T @ self._U
 
         if self._persistent:
             self._Uold = np.copy(self._U)
@@ -577,22 +572,40 @@ class LVC(INTERFACE):
             )    # writes a binary file (can be read with numpy.fromfile())
         # OVERLAP
         Hd += self._U.T @ self._soc @ self._U
-        self._QMout['h'] = Hd.tolist()
-        dipole = np.einsum('ni,kij,jm->knm', self._U.T, self._dipole, self._U, casting='no', optimize='optimal')
-        if do_kabsch:
-            self._QMin['coords'] = self._QMin['coords']
-            self._QMout['dm'] = (np.einsum('inm,ij->jnm', dipole, self._Trot)).tolist()
 
-        if do_pc:
-            self._QMin['coords'] = self._QMin['coords']
-            self._QMout['dm'] = (np.einsum('inm,ij->jnm', dipole, self._Trot)).tolist()
-            self._QMout['pc_grad'] = self.pc_grad.tolist()
+
+        # write stuff in QMout
+        if states == req_states:
+            self.QMout.h = Hd
+            dipole = np.einsum('ni,kij,jm->knm', self._U.T, self._dipole, self._U, casting='no', optimize=True) if self._diagonalize else self._dipole
+            if do_kabsch:
+                #  self._QMin['coords'] = self._QMin['coords']
+                self.QMout.dm = (np.einsum('inm,ij->jnm', dipole, self._Trot))
+
+            if do_pc:
+                #  self._QMin['coords'] = self._QMin['coords']
+                self.QMout.dm = (np.einsum('inm,ij->jnm', dipole, self._Trot))
+                self.QMout.grad_pc = self.pc_grad
+            else:
+                self.QMout.dm = dipole
+
+            self.QMout.grad = grad.reshape((nmstates, self.QMin.molecule['natom'], 3))
+            if self.QMin.requests['nacdr']:
+                self.QMout.nacdr = nacdr.reshape((nmstates, nmstates, self.QMin.molecule['natom'], 3))
+
+            if self.QMin.requests['multipolar_fit']:
+                self.QMout.multipolar_fit = np.zeros((nmstates, nmstates), dtype=float)
+                for im, n in filter(lambda x: x[1] != 0, enumerate(states)):
+                    stop = start + n
+                    u = self._U[start:stop, start:stop]
+                    adia_fit = np.einsum('in,ijay,jm->nmay', u, self._fits_rot[im], u, optimize=True, casting='no')
+                    self.multipolar_fit[start:stop, start:stop, ...] = adia_fit
+                    for s1 in map(lambda x: start + n * (x + 1), range(im)):
+                        s2 = s1 + n
+                        self.multipolar_fit[s1:s2, s1:s2, ...] = adia_fit
+                    start += n * (im + 1)
         else:
-            self._QMout['dm'] = dipole.tolist()
-
-        self._QMout['grad'] = grad.reshape((nmstates, self._QMin['natom'], 3)).tolist()
-        if 'nacdr' in self._QMin:
-            self._QMout['nacdr'] = nacdr.reshape((nmstates, nmstates, self._QMin['natom'], 3)).tolist()
+            raise NotImplementedError("Calculating with less states is not yet implemented")
 
         self._step += 1
         return
@@ -601,6 +614,40 @@ class LVC(INTERFACE):
         self._U.tofile(
             os.path.join(self._QMin['savedir'], f'U_{self._QMin["step"]}.out')
         )    # writes a binary file (can be read with numpy.fromfile())
+
+
+    def get_features(self, KEYSTROKES: TextIOWrapper) -> set:
+        return {
+            "h",
+            "soc",
+            "dm",
+            "grad",
+            "nacdr",
+            "overlap",
+            "multipolar_fit",
+            "point_charges",
+        }
+
+    def get_infos(self, INFOS: dict, KEYSTROKES: TextIOWrapper = None) -> dict:
+
+        log.info("=" * 80)
+        log.info(f"{'||':<78}||")
+        log.info(f"||{'LVC interface setup':=^76}||\n{'||':<78}||")
+        log.info("=" * 80)
+        log.info("\n")
+
+        self.lvc_template = question("Specify path to LVC.template", str, KEYSTROKES=KEYSTROKES, autocomplete=True)
+
+        # Check template for Soc and multipoles and states
+        if question("Do you have an LVC.resources file?", bool, KEYSTROKES=KEYSTROKES, autocomplete=False, default=False):
+            self.lvc_resources = question("Specify path to LVC.resources", str, KEYSTROKES=KEYSTROKES, autocomplete=True)
+
+        return INFOS
+
+
+
+    def prepare(self, INFOS: dict, dir: str):
+        pass
 
     def main(self):
         name = self.__class__.__name__
