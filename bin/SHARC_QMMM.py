@@ -38,9 +38,9 @@ from globals import DEBUG, PRINT
 from constants import ATOMCHARGE, FROZENS
 from copy import deepcopy
 
-authors = 'Sebastian Mai and Severin Polonius'
+authors = 'Sebastian Mai, Maximilian Xaver Tiefenbacher and Severin Polonius'
 version = '3.0'
-versiondate = datetime.datetime(2021, 9, 3)
+versiondate = datetime.datetime(2023, 8, 24)
 
 changelogstring = '''
 '''
@@ -73,6 +73,7 @@ class QMMM(SHARC_INTERFACE_HYBRID):
     def authors(self):
         return self._authors
 
+    # TODO: update for other embeddings
     def get_features(self):
         tmp_file = question(
             "Please specify the path to your QMMM.template file",
@@ -87,16 +88,13 @@ class QMMM(SHARC_INTERFACE_HYBRID):
             raise Exception(
                 "Your QM interface needs to be able to include point charges in its calculations"
             )
-        fundamental_features = (all([i in ["grad", "h"]] for i in qm_features)
-                                and all([i in ["grad", "h"]]
-                                        for i in mm_features))
-        if not fundamental_features:
-            raise Exception(
-                "One of your interfaces is not able to compute gradients or Energies"
-            )
-        return union(qm_features, mm_features)
+        if "grad" not in qm_features and "grad" not in mm_features:
+            qm_features.remove("grad")
 
-        return self.qm_interface.get_features()
+        if "h" not in qm_features and "h" not in mm_features:
+            qm_features.remove("h")
+
+        return qm_features
 
     def _step_logic(self):
         super._step_logic()
@@ -190,7 +188,7 @@ class QMMM(SHARC_INTERFACE_HYBRID):
         super().read_resources(resources_filename)
         self._read_resources = True
 
-    def setup_run(self):
+    def setup_interface(self):
         QMin = self._QMin
         # obtain the statemap
         QMin.maps.statemap = {
@@ -342,31 +340,41 @@ class QMMM(SHARC_INTERFACE_HYBRID):
 
         self.mml_interface._QMin.coords.data['coords'] = QMin.coords.data[
             'coords'].copy()
+        # setting requests for qm and mm regions based on the QMMM requests
 
-        # set qm requests: grad, nac, soc,
-        #  possible = [
-        #  'cleanup', 'backup', 'h', 'soc', 'dm', 'grad', 'overlap', 'dmdr',
-        #  'nac', 'nacdr', 'socdr', 'ion', 'theodore', 'phases', 'step',
-        #  'restart'
-        #  ]
-        #  self.qm_interface.read_requests()
+        all_requests = QMin.requests.data
+        qm_requests = []
+        mm_requests = []
+
+        for key, value in all_requests:
+            match request:
+                case "h":
+                    qm_requests[key] = value
+                    mm_requests[key] = value
+                case "grad":
+                    qm_requests[key] = value
+                    mm_requests[key] = [1]
+                case _:
+                    qm_requests[key] = value
+
+        self.qm_interface.set_requests(qm_requests)
+        self.mml_interface.set_requests(mm_requests)
+        if QMin.template['embedding'] == 'subtractive':
+            self.mms_interface.set_requests(mm_requests)
         #  for i in filter(lambda x: x in QMin, possible):
         #  self.qm_interface._QMin[i] = QMin[i]
-        self.qm_interface._request_logic()
-        self.qm_interface._step_logic()
+        #  self.qm_interface._request_logic()
+        #  self.qm_interface._step_logic()
         ############# update request logic ################
 
         # set mm requests
         #  possible = ['cleanup', 'backup', 'h', 'dm', 'step']
         #  for i in filter(lambda x: x in QMin, possible):
-        #  self.mml_interface._QMin[i] = QMin[i]
-        #  if QMin.requests.grad:
-        #  self.mml_interface._QMin['grad'] = [1]
         #  if 'dm' in QMin:
         #  self.mml_interface._QMin['dm'] = [1]
         #  self.mml_interface._QMin['multipolar_fit'] = True
 
-        self.mml_interface._request_logic()
+        #self.mml_interface._request_logic()
 
         # calc mm
         # print('-' * 80, f'{"running MM INTERFACE (large system)":^80}', '-' * 80, sep='\n')
@@ -484,9 +492,9 @@ class QMMM(SHARC_INTERFACE_HYBRID):
 
         if not QMin.requests.nacdr == []:
             # nacs would have to inserted in the whole system matrix only for qm atoms
-            nacdr = [[[[0., 0., 0.] for _ in range(QMin['natom'])]
-                      for _ in range(QMin['nmstates'])]
-                     for _ in range(QMin['nmstates'])]
+            nacdr = [[[[0., 0., 0.] for _ in range(QMin.molecule.natom)]
+                      for _ in range(QMin.molecule.nmstates)]
+                     for _ in range(QMin.moleculenmstates)]
             for i, s_i in enumerate(self.qm_interface._QMout['nacdr']):
                 for j, s_j in enumerate(s_i):
                     for n, qm_id in enumerate(self.qm_ids):
