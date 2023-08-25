@@ -709,11 +709,15 @@ class SHARC_INTERFACE(ABC):
         self.log.info("===> Writing output to file %s in SHARC Format\n" % (outfilename))
         self.QMout.write(outfilename, self.QMin.requests)
 
-    def formatQMout(self):
+    def formatQMout(self) -> str:
         """If PRINT, prints a summary of all requested QM output values.
         Matrices are formatted using printcomplexmatrix, vectors using printgrad.
         """
-        self.QMout.formatQMout(self.QMin, DEBUG=self._DEBUG)
+        return self.QMout.formatQMout(self.QMin, DEBUG=self._DEBUG)
+
+    def printQMout(self) -> None:
+        self.log.info(self.formatQMout())
+
 
     # ============================PRINTING ROUTINES========================== #
 
