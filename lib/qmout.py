@@ -1015,28 +1015,30 @@ class QMout:
         natom = QMin.molecule["natom"]
 
         string = ''
-        string += "===> Results:\n"
+        string += "===> Results:\n\n"
         # Hamiltonian matrix, real or complex
         if QMin.requests["h"] or QMin.requests["soc"]:
             eshift = math.ceil(self["h"][0][0].real)
-            string += "=> Hamiltonian Matrix:\nDiagonal Shift: %9.2f" % (eshift)
+            string += "=> Hamiltonian Matrix:\nDiagonal Shift: %9.2f\n" % (eshift)
             matrix = deepcopy(self["h"])
             for i in range(nmstates):
                 matrix[i][i] -= eshift
             string += formatcomplexmatrix(matrix, states)
+            string += '\n'
         # Dipole moment matrices
         if QMin.requests["dm"]:
-            string += "=> Dipole Moment Matrices:\n"
+            string += "=> Dipole Moment Matrices:\n\n"
             for xyz in range(3):
-                string += "Polarisation %s:" % (IToPol[xyz])
+                string += "Polarisation %s:\n" % (IToPol[xyz])
                 matrix = self["dm"][xyz]
                 string += formatcomplexmatrix(matrix, states)
+            string += '\n'
         # Gradients
         if QMin.requests["grad"]:
-            string += "=> Gradient Vectors:\n"
+            string += "=> Gradient Vectors:\n\n"
             istate = 0
             for imult, i, ms in itnmstates(states):
-                string += "%s\t%i\tMs= % .1f:" % (IToMult[imult], i, ms)
+                string += "%s\t%i\tMs= % .1f:\n" % (IToMult[imult], i, ms)
                 string += formatgrad(
                     self["grad"][istate],
                     natom,
@@ -1044,83 +1046,101 @@ class QMout:
                     DEBUG,
                 )
                 istate += 1
+            string += '\n'
         # Nonadiabatic coupling vectors
         if QMin.requests["nacdr"]:
-            string += "=> Nonadiabatic Coupling Vectors:\n"
+            string += "=> Nonadiabatic Coupling Vectors:\n\n"
             istate = 0
             for imult, i, ims in itnmstates(states):
                 jstate = 0
                 for jmult, j, jms in itnmstates(states):
                     if imult == jmult and ims == jms:
-                        string += "%s\t%i\tMs= % .1f -- %s\t%i\tMs= % .1f:" % (IToMult[imult], i, ims, IToMult[jmult], j, jms)
+                        string += "%s\t%i\tMs= % .1f -- %s\t%i\tMs= % .1f:\n" % (IToMult[imult], i, ims, IToMult[jmult], j, jms)
                         string += formatgrad(self["nacdr"][istate][jstate], natom, QMin.molecule["elements"], DEBUG)
                     jstate += 1
                 istate += 1
+            string += '\n'
         # Overlaps
         if QMin.requests["overlap"]:
-            string += "=> Overlap matrix:\n"
+            string += "=> Overlap matrix:\n\n"
             matrix = self["overlap"]
             string += formatcomplexmatrix(matrix, states)
             if QMin.requests["phases"]:
-                string += "=> Wavefunction Phases:\n"
+                string += "=> Wavefunction Phases:\n\n"
                 for i in range(nmstates):
                     string += "% 3.1f % 3.1f" % (self["phases"][i].real, self["phases"][i].imag)
                 string += "\n"
+            string += '\n'
         # Spin-orbit coupling derivatives
         if QMin.requests["socdr"]:
-            string += "=> Spin-Orbit Gradient Vectors:\n"
+            string += "=> Spin-Orbit Gradient Vectors:\n\n"
             istate = 0
             for imult, i, ims in itnmstates(states):
                 jstate = 0
                 for jmult, j, jms in itnmstates(states):
-                    string += "%s\t%i\tMs= % .1f -- %s\t%i\tMs= % .1f:" % (IToMult[imult], i, ims, IToMult[jmult], j, jms)
+                    string += "%s\t%i\tMs= % .1f -- %s\t%i\tMs= % .1f:\n" % (IToMult[imult], i, ims, IToMult[jmult], j, jms)
                     string += formatgrad(self["socdr"][istate][jstate], natom, QMin.molecule["elements"], DEBUG)
                     jstate += 1
                 istate += 1
+            string += '\n'
         # Dipole moment derivatives
         if QMin.requests["dmdr"]:
-            string += "=> Dipole moment derivative vectors:\n"
+            string += "=> Dipole moment derivative vectors:\n\n"
             istate = 0
             for imult, i, msi in itnmstates(states):
                 jstate = 0
                 for jmult, j, msj in itnmstates(states):
                     if imult == jmult and msi == msj:
                         for ipol in range(3):
-                            string += "%s\tStates %i - %i\tMs= % .1f\tPolarization %s:" % (IToMult[imult], i, j, msi, IToPol[ipol])
+                            string += "%s\tStates %i - %i\tMs= % .1f\tPolarization %s:\n" % (IToMult[imult], i, j, msi, IToPol[ipol])
                             string += formatgrad(
                                 self["dmdr"][ipol][istate][jstate], natom, QMin.molecule["elements"], DEBUG
                             )
                     jstate += 1
                 istate += 1
+            string += '\n'
         # Property matrices
         if self["prop2d"]:
-            string += "=> Property matrices:\n"
+            string += "=> Property matrices:\n\n"
             for element in self["prop2d"]:
-                string += f'Matrix with label "{element[0]}"'
+                string += f'Matrix with label "{element[0]}"\n'
                 string += formatcomplexmatrix(element[1], states)
+            string += '\n'
         # Property vectors
         if self["prop1d"]:
-            string += "=> Property vectors:\n"
-            for element in self["prop1d"]:
-                string += f"{element[0]} {element[1]}"
-                # TODO: format more nicely!
+            string += "=> Property vectors:\n\n"
+            string += "%5s " % ("State")
+            for j in range(len(self["prop1d"])):
+                string += "%12s " % self["prop1d"][j][0]
+            string += '\n'
+            for i in range(nmstates):
+                string += "% 5i " % (i+1)
+                for j in range(len(self["prop1d"])):
+                    string += "%12.9f " % self["prop1d"][j][1][i]
+                string += '\n'
+            # for element in self["prop1d"]:
+            #     string += f"{element[0]} {element[1]}\n"
+            #     # TODO: format more nicely!
+            string += '\n'
         # Property scalars
         if self["prop0d"]:
-            string += "=> Property scalars:\n"
+            string += "=> Property scalars:\n\n"
             for element in self["prop0d"]:
-                string += f"{element[0]} {element[1]}"
+                string += f"{element[0]} {element[1]}\n"
+            string += '\n'
         # Multipolar fit
         if QMin.requests["multipolar_fit"]:
-            string += "=> Multipolar fit:\n"
+            string += "=> Multipolar fit:\n\n"
             istate = 0
             for imult, i, ims in itnmstates(states):
                 jstate = 0
                 for jmult, j, jms in itnmstates(states):
                     if imult == jmult and ims == jms:
-                        string += "%s\t%i\tMs= % .1f -- %s\t%i\tMs= % .1f:" % (IToMult[imult], i, ims, IToMult[jmult], j, jms)
+                        string += "%s\t%i\tMs= % .1f -- %s\t%i\tMs= % .1f:\n" % (IToMult[imult], i, ims, IToMult[jmult], j, jms)
                         string += formatgrad(self["multipolar_fit"][istate][jstate], natom, QMin.molecule["elements"], DEBUG)
                     jstate += 1
                 istate += 1
+            string += '\n'
 
         return string
         # print(string)

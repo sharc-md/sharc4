@@ -37,6 +37,7 @@ def get_bool_from_env(name: str, default=False):
         var = os.environ[name] == "true"
     return var
 
+# ======================================================================= #
 def expand_path(path: str) -> str:
     """
     Expand variables in path, error out if variable is not resolvable
@@ -44,14 +45,15 @@ def expand_path(path: str) -> str:
     expand = os.path.abspath(os.path.expanduser(os.path.expandvars(path)))
     if "$" in expand:
         logging.error(f"Undefined env variable in {expand}")
-        sys.exit(404)
+        raise OSError(f"Undefined env variable in {expand}")
     return expand
 
+# ======================================================================= #
 def question(question, typefunc, KEYSTROKES=None, default=None, autocomplete=True, ranges=False):
     if typefunc == int or typefunc == float:
         if default is not None and not isinstance(default, list):
-            print('Default to int or float question must be list!')
-            quit(1)
+            logging.error('Default for int or float questions must be list!')
+            raise RuntimeError("Default for int or float questions must be list!")
     if typefunc == str and autocomplete:
         readline.set_completer_delims(' \t\n;')
         readline.parse_and_bind("tab: complete")    # activate autocomplete
@@ -96,7 +98,7 @@ def question(question, typefunc, KEYSTROKES=None, default=None, autocomplete=Tru
                 KEYSTROKES.write(line + ' ' * (40 - len(line)) + ' #' + s + '\n')
                 return False
             else:
-                print('I didn''t understand you.')
+                logging.warning('I didn''t understand you.')
                 continue
 
         if typefunc == str:
@@ -112,7 +114,7 @@ def question(question, typefunc, KEYSTROKES=None, default=None, autocomplete=Tru
                 KEYSTROKES.write(line + ' ' * (40 - len(line)) + ' #' + s + '\n')
                 return f
             except ValueError:
-                print('Please enter floats!')
+                logging.warning('Please enter floats!')
                 continue
 
         if typefunc == int:
@@ -131,9 +133,9 @@ def question(question, typefunc, KEYSTROKES=None, default=None, autocomplete=Tru
                 return out
             except ValueError:
                 if ranges:
-                    print('Please enter integers or ranges of integers (e.g. "-3~-1  2  5~7")!')
+                    logging.warning('Please enter integers or ranges of integers (e.g. "-3~-1  2  5~7")!')
                 else:
-                    print('Please enter integers!')
+                    logging.warning('Please enter integers!')
                 continue
 
 # ======================================================================================================================

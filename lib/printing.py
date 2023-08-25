@@ -36,6 +36,7 @@ def formatcomplexmatrix(matrix,states):
             string += '-' * (11 * nmstates + nmstates // 3)
             string += '\n'
         istate += 1
+    string += '\n'
     
     imag = False
     string2 = 'Imaginary Part:\n'
@@ -96,6 +97,7 @@ def formatgrad(grad, natom, elements, DEBUG=False):
             elif isinstance(g, complex):
                 string += '\t% .5f\t% .5f\t' % (g.real, g.imag)
         string += '\n'
+    string += '\n'
     if iszero:
         return '\t\t...is identical zero...\n'
     else:
@@ -121,6 +123,7 @@ def formattheodore(matrix, QMin):
         for i in matrix[istate - 1]:
             string += '%6.4f ' % i.real
         string += '\n'
+    string += '\n'
     return string
 
 # ======================================================================= #

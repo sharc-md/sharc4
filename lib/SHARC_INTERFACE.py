@@ -713,7 +713,7 @@ class SHARC_INTERFACE(ABC):
         """If PRINT, prints a summary of all requested QM output values.
         Matrices are formatted using printcomplexmatrix, vectors using printgrad.
         """
-        self.QMout.formatQMout(self.QMin, DEBUG=self._DEBUG)
+        return self.QMout.formatQMout(self.QMin, DEBUG=self._DEBUG)
 
     # ============================PRINTING ROUTINES========================== #
 
