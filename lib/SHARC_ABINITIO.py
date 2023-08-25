@@ -10,7 +10,6 @@ from typing import Dict, List, Tuple
 import subprocess as sp
 import datetime
 
-from logger import log as logging
 from qmin import QMin
 from SHARC_INTERFACE import SHARC_INTERFACE
 from utils import containsstring, safe_cast, readfile
@@ -56,16 +55,19 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
 
         self.QMin.resources.types["delay"] = float
 
+    @staticmethod
     @abstractmethod
-    def authors(self) -> str:
+    def authors() -> str:
         return "Severin Polonius, Sebastian Mai"
 
+    @staticmethod
     @abstractmethod
-    def version(self) -> str:
+    def version() -> str:
         return "3.0"
 
+    @staticmethod
     @abstractmethod
-    def versiondate(self) -> date:
+    def versiondate() -> date:
         return date(2021, 7, 15)
 
     @staticmethod

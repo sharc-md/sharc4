@@ -31,6 +31,7 @@ import sys
 from abc import ABC, abstractmethod
 from datetime import date
 from io import TextIOWrapper
+
 # from functools import reduce, singledispatchmethod
 from socket import gethostname
 from textwrap import wrap
@@ -43,7 +44,7 @@ from constants import ATOMCHARGE, FROZENS, BOHR_TO_ANG
 from logger import logging, CustomFormatter, SHARCPRINT
 from qmin import QMin
 from qmout import QMout
-from utils import readfile, writefile, clock, parse_xyz, itnmstates, expand_path, clock
+from utils import readfile, writefile, clock, parse_xyz, itnmstates, expand_path
 
 all_features = {
     "h",
@@ -67,6 +68,15 @@ all_features = {
 
 
 class SHARC_INTERFACE(ABC):
+    """
+    Abstract Base Class for SHARC interfaces
+
+    persistent:     Does something
+    logname:        Name of the logger
+    logfile:        Filename for logger output
+    loglevel:       Set loglevel
+    """
+
     # internal status indicators
     _setup_mol = False
     _read_resources = False
@@ -77,7 +87,13 @@ class SHARC_INTERFACE(ABC):
     # TODO: set Debug and Print flag
     # TODO: set persistant flag for file-io vs in-core
 
-    def __init__(self, persistent=False, logname: str = None, logfile: str = None, loglevel: int = logging.INFO):
+    def __init__(
+        self,
+        persistent=False,
+        logname: str = None,
+        logfile: str = None,
+        loglevel: int = logging.INFO,
+    ):
         # all the output from the calculation will be stored here
         self.QMout = QMout()
         self.clock = clock()
@@ -91,8 +107,12 @@ class SHARC_INTERFACE(ABC):
         self.log = logging.getLogger(logname)
         self.log.propagate = False
         self.log.handlers = []
-        hdlr = logging.StreamHandler(sys.stdout) if logfile is None else logging.FileHandler(filename=logfile, mode='w', encoding='utf-8')
-        hdlr._name = logname + 'Handler'
+        hdlr = (
+            logging.StreamHandler(sys.stdout)
+            if logfile is None
+            else logging.FileHandler(filename=logfile, mode="w", encoding="utf-8")
+        )
+        hdlr._name = logname + "Handler"
         hdlr.setFormatter(CustomFormatter())
 
         self.log.addHandler(hdlr)
@@ -107,40 +127,37 @@ class SHARC_INTERFACE(ABC):
         """
         self.log.log(SHARCPRINT, msg, *args, **kwargs)
 
-
-
-    @ staticmethod
-    @ abstractmethod
+    @staticmethod
+    @abstractmethod
     def authors() -> str:
         return "Severin Polonius, Sebastian Mai"
 
-    @ staticmethod
-    @ abstractmethod
+    @staticmethod
+    @abstractmethod
     def version() -> str:
         return "3.0"
 
-    @ staticmethod
-    @ abstractmethod
+    @staticmethod
+    @abstractmethod
     def versiondate() -> date:
         return date(2021, 7, 15)
 
-    @ staticmethod
-    @ abstractmethod
+    @staticmethod
+    @abstractmethod
     def name() -> str:
         return "base"
 
-    @ staticmethod
-    @ abstractmethod
+    @staticmethod
+    @abstractmethod
     def description() -> str:
         return "Abstract base class for SHARC interfaces."
 
-    @ staticmethod
-    @ abstractmethod
+    @staticmethod
+    @abstractmethod
     def changelogstring() -> str:
         return "This is the changelog string"
 
-
-    @ abstractmethod
+    @abstractmethod
     def get_features(self, KEYSTROKES: TextIOWrapper = None) -> set:
         """return availble features
 
@@ -150,7 +167,7 @@ class SHARC_INTERFACE(ABC):
         """
         return all_features
 
-    @ abstractmethod
+    @abstractmethod
     def get_infos(self, INFOS: dict, KEYSTROKES: TextIOWrapper = None) -> dict:
         """prepare INFOS obj
 
@@ -161,7 +178,7 @@ class SHARC_INTERFACE(ABC):
         """
         return INFOS
 
-    @ abstractmethod
+    @abstractmethod
     def prepare(self, INFOS: dict, dir: str):
         "setup the calculation in directory 'dir'"
         return
@@ -286,8 +303,8 @@ class SHARC_INTERFACE(ABC):
                     "first line must contain the number of atoms!"
                 ) from error
             self.QMin.coords[key] = (
-                np.asarray([parse_xyz(x)[1] for x in lines[2: natom + 2]], dtype=float) *
-                self.QMin.molecule["factor"]
+                np.asarray([parse_xyz(x)[1] for x in lines[2 : natom + 2]], dtype=float)
+                * self.QMin.molecule["factor"]
             )
         elif isinstance(xyz, (list, np.ndarray)):
             self.QMin.coords[key] = np.asarray(xyz) * self.QMin.molecule["factor"]
@@ -322,7 +339,7 @@ class SHARC_INTERFACE(ABC):
                 'Input file must contain at least:\nnatom\ncomment\ngeometry\nkeyword "states"\nat least one task'
             )
         self.QMin.molecule["elements"] = list(
-            map(lambda x: parse_xyz(x)[0], (qmin_lines[2: natom + 2]))
+            map(lambda x: parse_xyz(x)[0], (qmin_lines[2 : natom + 2]))
         )
         self.QMin.molecule["Atomcharge"] = sum(
             map(lambda x: ATOMCHARGE[x], self.QMin.molecule["elements"])
@@ -337,7 +354,7 @@ class SHARC_INTERFACE(ABC):
             lambda x: not re.match(r"^\s*$", x),
             map(
                 lambda x: re.sub(r"#.*$", "", x),
-                qmin_lines[self.QMin.molecule["natom"] + 2:],
+                qmin_lines[self.QMin.molecule["natom"] + 2 :],
             ),
         )
 
@@ -387,10 +404,10 @@ class SHARC_INTERFACE(ABC):
                 self.QMin.coords["pccharge"] = pccharge
                 self.QMin.molecule["npc"] = len(pccharge)
 
-        if self.QMin.molecule['factor'] is None:
+        if self.QMin.molecule["factor"] is None:
             self.log.warning("No Unit specified assuming Angstrom!")
-            self.QMin.molecule['factor'] = 1.0 / BOHR_TO_ANG
-            self.QMin.molecule['unit'] = 'angstrom'
+            self.QMin.molecule["factor"] = 1.0 / BOHR_TO_ANG
+            self.QMin.molecule["unit"] = "angstrom"
 
         if not isinstance(self.QMin.save["savedir"], str):
             self.QMin.save["savedir"] = "./SAVEDIR/"
@@ -414,7 +431,9 @@ class SHARC_INTERFACE(ABC):
         try:
             res["states"] = list(map(int, states.split()))
         except (ValueError, IndexError) as e:
-            raise ValueError('Keyword "states" has to be followed by integers!', 37) from e
+            raise ValueError(
+                'Keyword "states" has to be followed by integers!', 37
+            ) from e
         reduc = 0
         for i in reversed(res["states"]):
             if i == 0:
@@ -428,11 +447,14 @@ class SHARC_INTERFACE(ABC):
         for i in range(len(res["states"])):
             nstates += res["states"][i]
             nmstates += res["states"][i] * (i + 1)
-        return {"nstates": nstates, "nmstates": nmstates, "states": res["states"],
-                "statemap": {i + 1: [*v] for i, v in enumerate(itnmstates(res["states"]))}
-                }
+        return {
+            "nstates": nstates,
+            "nmstates": nmstates,
+            "states": res["states"],
+            "statemap": {i + 1: [*v] for i, v in enumerate(itnmstates(res["states"]))},
+        }
 
-    @ abstractmethod
+    @abstractmethod
     def read_resources(self, resources_file: str, kw_whitelist: list = []) -> None:
         """
         Reads a resource file and assigns parameters to
@@ -503,7 +525,7 @@ class SHARC_INTERFACE(ABC):
                                 )
                             continue
                         # Cast to correct type if available
-                        if param[0] in self.QMin.resources.types.keys():
+                        if param[0] in self.QMin.resources.types:
                             self.QMin.resources[param[0]] = self.QMin.resources.types[
                                 param[0]
                             ](param[1])
@@ -512,9 +534,9 @@ class SHARC_INTERFACE(ABC):
                     else:
                         # If whitelisted key already exists extend list with values
                         if (
-                            param[0] in self.QMin.resources.keys() and
-                            self.QMin.resources[param[0]] and
-                            param[0] in kw_whitelist
+                            param[0] in self.QMin.resources.keys()
+                            and self.QMin.resources[param[0]]
+                            and param[0] in kw_whitelist
                         ):
                             self.log.debug(f"Extend white listed parameter {param[0]}")
                             self.QMin.resources[param[0]].extend(list(param[1:]))
@@ -684,8 +706,8 @@ class SHARC_INTERFACE(ABC):
             os.mkdir(self.QMin.save["savedir"])
 
         assert not (
-            (self.QMin.requests["overlap"] or self.QMin.requests["phases"]) and
-            self.QMin.save["init"]
+            (self.QMin.requests["overlap"] or self.QMin.requests["phases"])
+            and self.QMin.save["init"]
         ), '"overlap" and "phases" cannot be calculated in the first timestep!'
 
     def write_step_file(self) -> None:
@@ -706,7 +728,9 @@ class SHARC_INTERFACE(ABC):
             outfilename = filename + ".out"
         else:
             outfilename = filename[:k] + ".out"
-        self.log.info("===> Writing output to file %s in SHARC Format\n" % (outfilename))
+        self.log.info(
+            "===> Writing output to file %s in SHARC Format\n" % (outfilename)
+        )
         self.QMout.write(outfilename, self.QMin.requests)
 
     def formatQMout(self) -> str:
@@ -716,8 +740,10 @@ class SHARC_INTERFACE(ABC):
         return self.QMout.formatQMout(self.QMin, DEBUG=self._DEBUG)
 
     def printQMout(self) -> None:
+        """
+        Prints formatted QMout data
+        """
         self.log.info(self.formatQMout())
-
 
     # ============================PRINTING ROUTINES========================== #
 
