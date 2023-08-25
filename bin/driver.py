@@ -33,9 +33,11 @@ from constants import IAn2AName, ATOMCHARGE, FROZENS
 # INTERNAL
 import sharc.sharc as sharc
 from factory import factory
-from SHARC_INTERFACE import INTERFACE
+from SHARC_INTERFACE import SHARC_INTERFACE
 from error import Error
-from utils import list2dict
+from utils import list2dict, InDir
+from logger import log
+
 
 
 class QMOUT():
@@ -45,18 +47,23 @@ class QMOUT():
         self._QMout = sharc.QMout(interface, natoms, nmstates)
 
     def set_hamiltonian(self, h: list[list[Union[float, complex]]]):
+        log.debug(f"{type(h)}")
         self._QMout.set_hamiltonian(h)
 
     def set_gradient(self, grad: dict[list[list[float], list[float], list[float]]], icall: int):
+        log.debug(f"{type(grad)}")
         self._QMout.set_gradient(grad, icall)
 
     def set_dipolemoment(self, dip: list[list[list[Union[complex, float]]]]):
+        log.debug(f"{type(dip)}")
         self._QMout.set_dipolemoment(dip)
 
     def set_overlap(self, ovl: list[list[float]]):
+        log.debug(f"{type(ovl)}")
         self._QMout.set_overlap(ovl)
 
     def set_nacdr(self, nac: dict[int, dict[int, list[float, float, float]]], icall: int):
+        log.debug(f"{type(nac)}")
         self._QMout.set_nacdr(nac, icall)
 
     def printInfos(self):
@@ -69,27 +76,28 @@ class QMOUT():
         """ set QMout """
         # set hamiltonian, dm only in first call
         if icall == 1:
+            log.debug("setting h and dm")
             if 'h' in data:
-                self._QMout.set_hamiltonian(data['h'])
+                self._QMout.set_hamiltonian(data['h'].tolist())
             if 'dm' in data:
-                self._QMout.set_dipolemoment(data['dm'])
+                self._QMout.set_dipolemoment(data['dm'].tolist())
 
         if 'overlap' in data:
             if not isinstance(data['overlap'], type([])):
                 # assumes type is numpy array
-                data['overlap'] = [list(ele) for ele in data['overlap']]
+                data['overlap'] = data['overlap'].tolist()
             self._QMout.set_overlap(data['overlap'])
         if 'grad' in data:
             if isinstance(data['grad'], list):
                 self._QMout.set_gradient(list2dict(data['grad']), icall)
+            elif data['grad'] is None:
+                self._QMout.set_gradient({}, icall)
             else:
-                if data['grad'] is None:
-                    data['grad'] = {}
-                self._QMout.set_gradient(data['grad'], icall)
+                self._QMout.set_gradient(list2dict(data['grad'].tolist()), icall)
         if 'nacdr' in data:
             if isinstance(data['nacdr'], list):
                 nacdr = {}
-                for i, ele in enumerate(data['nacdr']):
+                for i, ele in enumerate(data['nacdr'].tolist()):
                     nacdr[i] = list2dict(ele)
                 self._QMout.set_nacdr(nacdr, icall)
 
@@ -169,11 +177,16 @@ def safe(func: callable):
         raise
 
 
-def do_qm_calc(i: INTERFACE, qmout: QMOUT):
+def do_qm_calc(i: SHARC_INTERFACE, qmout: QMOUT):
     icall = 1
-    i.set_requests(get_all_tasks(icall))
+    i.QMin.save['step'] += 1
+    # i._step_logic()
+    log.debug(f"\tset_requ")
+    i._set_driver_requests(get_all_tasks(icall))
+    log.debug(f"\tcoords")
     i.set_coords(get_crd())
     # s1 = time.perf_counter_ns()
+    log.debug(f"\trun")
     safe(i.run)
     # s2 = time.perf_counter_ns()
     # print(" safe run: ", (s2 - s1) * 1e-6)
@@ -183,7 +196,8 @@ def do_qm_calc(i: INTERFACE, qmout: QMOUT):
     # print(" getQMout: ", (s2 - s1) * 1e-6)
     i.write_step_file()
     # s1 = time.perf_counter_ns()
-    qmout.set_props(i._QMout, icall)
+    log.debug(f"\tset_props")
+    qmout.set_props(i.QMout, icall)
     # s2 = time.perf_counter_ns()
     # print(" setProps: ", (s2 - s1) * 1e-6)
 
@@ -210,14 +224,17 @@ def main():
         default=False,
         help='sets verbosity, i.e. print and debug option'
     )
+    parser.add_option('-s', '--silent', dest='silent', action='store_true', default=False, help='only error and critical output')
     parser.add_option('-d', '--debug', dest='debug', action='store_true', default=False, help='debug flag for printing')
     parser.add_option('-p', '--print', dest='print', action='store_true', default=False, help='flag for printing')
 
     (options, args) = parser.parse_args()
 
+    loglevel = log.INFO
+    if options.silent:
+        loglevel = log.ERROR
     if options.verbose:
-        options.print = True
-        options.debug = True
+        loglevel = log.SHARCPRINT
     if not options.name:
         raise Error('please specifiy the interface with "-i <name>"')
     if len(args) == 0:
@@ -227,8 +244,9 @@ def main():
     param = args[0:-1]
     interface = factory(options.name)
 
-    derived_int: INTERFACE = interface(options.debug, options.print, persistent=True)
-    derived_int.set_unit('bohr')
+    derived_int: SHARC_INTERFACE = interface(persistent=True, loglevel=loglevel)
+    derived_int.QMin.molecule['unit'] = 'bohr'
+    derived_int.QMin.molecule['factor'] = 1.0
     if options.print:
         derived_int.printheader()
     IRestart = setup_sharc(inp_file)
@@ -239,16 +257,18 @@ def main():
 
     basic_info['step'] = basic_info['istep']
 
-    derived_int._QMin.update({k.lower(): v for k, v in basic_info.items()})
-    derived_int._QMin['natom'] = basic_info['NAtoms']
-    derived_int._QMin['elements'] = [IAn2AName[x] for x in basic_info['IAn']]
-    derived_int._QMin['Atomcharge'] = sum(map(lambda x: ATOMCHARGE[x], derived_int._QMin['elements']))
-    derived_int._QMin['frozcore'] = sum(map(lambda x: FROZENS[x], derived_int._QMin['elements']))
+    derived_int.QMin.molecule.update({k.lower(): v for k, v in basic_info.items()})
+    derived_int.QMin.save['step'] = basic_info['step']
+    derived_int.QMin.molecule['natom'] = basic_info['NAtoms']
+    derived_int.QMin.molecule['elements'] = [IAn2AName[x] for x in basic_info['IAn']]
+    derived_int.QMin.molecule['Atomcharge'] = sum(map(lambda x: ATOMCHARGE[x], derived_int.QMin.molecule['elements']))
+    derived_int.QMin.molecule['frozcore'] = sum(map(lambda x: FROZENS[x], derived_int.QMin.molecule['elements']))
     derived_int._setup_mol = True
-    derived_int.read_resources()
-    derived_int.read_template()
-    derived_int._step_logic()
-    derived_int.setup_interface()
+    with InDir('QM'):
+        derived_int.read_resources()
+        derived_int.read_template()
+        derived_int._step_logic()
+        derived_int.setup_interface()
     if IRestart == 0:
         initial_qm_pre()
         do_qm_calc(derived_int, QMout)
@@ -257,25 +277,33 @@ def main():
     lvc_time = 0.
     all_time = 0.
     for istep in range(basic_info['istep'] + 1, basic_info['NSteps'] + 1):
+        log.debug(f"{istep} starting step")
         all_s1 = time.perf_counter_ns()
+        log.debug(f"{istep} verlet_xstep")
         verlet_xstep(istep)
-        derived_int._QMin['step'] += 1
+        log.debug(f"{istep} done")
         s1 = time.perf_counter_ns()
+        log.debug(f"{istep} do_qm_calc")
         do_qm_calc(derived_int, QMout)
+        log.debug(f"{istep} done")
         s2 = time.perf_counter_ns()
         # print(" do_qm_calc: ", (s2 - s1) * 1e-6)
         lvc_time += s2 - s1
+        log.debug(f"{istep} crd")
         crd = get_crd()
+        log.debug(f"{istep} done")
+        log.debug(f"{istep} verlet_vstep")
         IRedo = verlet_vstep()
+        log.debug(f"{istep} done")
 
         if False:  # IRedo == 1:
             # calculate gradients numerically by setting up 6N calculations
             # TODO what if I want to get gradients only ? i.e. samestep
             # possibly skip whole Hamiltonian build in LVC -> major timesave
-            i.set_requests(get_all_tasks(3))
-            i.set_coords(crd)
-            safe(i.run)
-            QMout.set_gradient(list2dict(i._QMout['grad']), 3)
+            derived_int._set_driver_requests(get_all_tasks(3))
+            derived_int.set_coords(crd)
+            safe(derived_int.run)
+            QMout.set_gradient(list2dict(derived_int.QMout['grad']), 3)
             set_qmout(QMout._QMout, 3)
         iexit = verlet_finalize(1)
         all_s2 = time.perf_counter_ns()

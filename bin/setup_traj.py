@@ -46,7 +46,7 @@ from SHARC_INTERFACE import SHARC_INTERFACE
 
 # =========================================================0
 PI = math.pi
-log.root.setLevel(log.DEBUG)
+# log.root.setLevel(log.DEBUG)
 
 version = '4.0'
 versionneeded = [0.2, 1.0, 2.0, 2.1, float(version)]

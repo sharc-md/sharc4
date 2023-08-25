@@ -26,27 +26,28 @@
 from SHARC_INTERFACE import SHARC_INTERFACE
 
 class SHARC_HYBRID(SHARC_INTERFACE):
-    
-    @abstractmethod
-    def authors(self) -> str:
-        return "Maximmilian Xaver Tiefenbacher"
 
-    @abstractmethod
-    def version(self) -> str:
-        return "3.0"
+    # @abstractmethod
+    # def authors(self) -> str:
+    # return "Maximmilian Xaver Tiefenbacher"
 
-    @abstractmethod
-    def versiondate(self) -> date:
-        return date(2023, 8, 23)
+    # @abstractmethod
+    # def version(self) -> str:
+    # return "3.0"
 
-    @abstractmethod
-    def name(self) -> str:
-        return "hybrid"
+    # @abstractmethod
+    # def versiondate(self) -> date:
+    # return date(2023, 8, 23)
 
-    @abstractmethod
-    def description(self) -> str:
-        return "Abstract base class for hybrid SHARC interfaces."
+    # @abstractmethod
+    # def name(self) -> str:
+    # return "hybrid"
 
-    @abstractmethod
-    def changelogstring(self) -> str:
-        return "This is the changelog string"
+    # @abstractmethod
+    # def description(self) -> str:
+    # return "Abstract base class for hybrid SHARC interfaces."
+
+    # @abstractmethod
+    # def changelogstring(self) -> str:
+    # return "This is the changelog string"
+    pass

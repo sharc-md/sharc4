@@ -91,6 +91,7 @@ class SHARC_INTERFACE(ABC):
         self.log = logging.getLogger(logname)
         self.log.propagate = False
         self.log.handlers = []
+        self.log.setLevel(loglevel)
         hdlr = logging.StreamHandler(sys.stdout) if logfile is None else logging.FileHandler(filename=logfile, mode='w', encoding='utf-8')
         hdlr._name = logname + 'Handler'
         hdlr.setFormatter(CustomFormatter())
@@ -285,8 +286,8 @@ class SHARC_INTERFACE(ABC):
                     "first line must contain the number of atoms!"
                 ) from error
             self.QMin.coords[key] = (
-                np.asarray([parse_xyz(x)[1] for x in lines[2: natom + 2]], dtype=float) *
-                self.QMin.molecule["factor"]
+                np.asarray([parse_xyz(x)[1] for x in lines[2: natom + 2]], dtype=float)
+                * self.QMin.molecule["factor"]
             )
         elif isinstance(xyz, (list, np.ndarray)):
             self.QMin.coords[key] = np.asarray(xyz) * self.QMin.molecule["factor"]
@@ -511,9 +512,9 @@ class SHARC_INTERFACE(ABC):
                     else:
                         # If whitelisted key already exists extend list with values
                         if (
-                            param[0] in self.QMin.resources.keys() and
-                            self.QMin.resources[param[0]] and
-                            param[0] in kw_whitelist
+                            param[0] in self.QMin.resources.keys()
+                            and self.QMin.resources[param[0]]
+                            and param[0] in kw_whitelist
                         ):
                             self.log.debug(f"Extend white listed parameter {param[0]}")
                             self.QMin.resources[param[0]].extend(list(param[1:]))
@@ -605,6 +606,7 @@ class SHARC_INTERFACE(ABC):
         # TODO: implement previous_step from driver
         last_step = None
         stepfile = os.path.join(self.QMin.save["savedir"], "STEP")
+        self.log.debug(f"stepfile {stepfile}")
         if os.path.isfile(stepfile):
             self.log.debug(f"Found stepfile {stepfile}")
             last_step = int(readfile(stepfile)[0])
@@ -635,6 +637,33 @@ class SHARC_INTERFACE(ABC):
                 f'Determined last step ({last_step}) from savedir and specified step ({self.QMin.save["step"]}) do not fit!\nPrepare your savedir and "STEP" file accordingly before starting again or choose "step -1" if you want to proceed from last successful step!'
             )
             raise RuntimeError()
+
+    def _set_driver_requests(self, requests: dict):
+        # delete all old requests
+        self.QMin.requests = QMin().requests
+        self.log.debug(f"getting requests {requests} step: {self.QMin.save['step']}")
+        # logic for raw tasks object from pysharc interface
+        if 'tasks' in requests and type(requests['tasks']) is str:
+            requests.update({k.lower(): True for k in requests['tasks'].split()})
+            del requests['tasks']
+        for task in ['nacdr', 'overlap', 'grad', 'ion']:
+            if task in requests and type(requests[task]) is str:
+                if requests[task] == '':    # removes task from dict if {'task': ''}
+                    del requests[task]
+                elif task == requests[task].lower() or requests[task] == 'all':
+                    requests[task] = [i + 1 for i in range(self.QMin.molecule['nstates'])]
+                else:
+                    requests[task] = [int(i) for i in requests[task].split()]
+
+        if self.QMin.save['step'] == 0:
+            for r in ['overlap', 'phases']:
+                if r in requests:
+                    requests[r] = False
+        self.log.debug(f"setting requests {requests}")
+        self.QMin.requests.update(requests)
+        for i in ['init', 'newstep', 'samestep']:
+            self.QMin.save[i] = False
+        self._request_logic()
 
     def _set_requests(self, request: list) -> None:
         """
@@ -683,8 +712,8 @@ class SHARC_INTERFACE(ABC):
             os.mkdir(self.QMin.save["savedir"])
 
         assert not (
-            (self.QMin.requests["overlap"] or self.QMin.requests["phases"]) and
-            self.QMin.save["init"]
+            (self.QMin.requests["overlap"] or self.QMin.requests["phases"])
+            and self.QMin.save["init"]
         ), '"overlap" and "phases" cannot be calculated in the first timestep!'
 
     def write_step_file(self) -> None:

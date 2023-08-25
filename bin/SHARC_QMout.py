@@ -67,10 +67,10 @@ all_features = set(
     ]
 )
 
-logging.root.setLevel(logging.DEBUG)
+# logging.root.setLevel(logging.DEBUG)
 
 
-class SHARC_QMOUT(SHARC_FAST): # TODO: migrate to SHARC_FAST_INTERFACE
+class SHARC_QMOUT(SHARC_FAST):  # TODO: migrate to SHARC_FAST_INTERFACE
     """
     QM.out interface
     """
@@ -118,7 +118,7 @@ class SHARC_QMOUT(SHARC_FAST): # TODO: migrate to SHARC_FAST_INTERFACE
         linking = question(
             "Sym-link the file? (no = copy)?",
             bool,
-            default = False,
+            default=False,
             KEYSTROKES=KEYSTROKES
         )
         self.setup_info = {}
@@ -129,9 +129,9 @@ class SHARC_QMOUT(SHARC_FAST): # TODO: migrate to SHARC_FAST_INTERFACE
     def prepare(self, INFOS: dict, dir: str) -> None:
         "setup the folders"
         if self.setup_info["link"]:
-            os.symlink(self.setup_info["path"],os.path.join(dir,'QMout.template'))
+            os.symlink(self.setup_info["path"], os.path.join(dir, 'QMout.template'))
         else:
-            shutil.copy(self.setup_info["path"],os.path.join(dir,'QMout.template'))
+            shutil.copy(self.setup_info["path"], os.path.join(dir, 'QMout.template'))
 
     @staticmethod
     def name() -> str:
@@ -186,7 +186,7 @@ class SHARC_QMOUT(SHARC_FAST): # TODO: migrate to SHARC_FAST_INTERFACE
             self.QMout["multipolar_fit"] = self.QMout2["multipolar_fit"]
 
         self.QMout["notes"]["QMout"] = "Notes were not transferred."
-    
+
         return self.QMout
 
     def printQMout(self):
@@ -200,7 +200,7 @@ class SHARC_QMOUT(SHARC_FAST): # TODO: migrate to SHARC_FAST_INTERFACE
 
     def setup_interface(self):
         # read the file
-        self.QMout2 = QMout(filepath = "QMout.template")
+        self.QMout2 = QMout(filepath="QMout.template")
         # check the file
         if any([
             self.QMin.molecule["states"] != self.QMout2.states,

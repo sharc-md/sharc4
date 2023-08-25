@@ -65,7 +65,7 @@ all_features = set(
     ]
 )
 
-logging.root.setLevel(logging.DEBUG)
+# logging.root.setLevel(logging.DEBUG)
 
 
 class SHARC_DO_NOTHING(SHARC_FAST):

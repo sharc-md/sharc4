@@ -82,10 +82,11 @@ def get_available_interfaces() -> list[tuple[str, Union[SHARC_INTERFACE, str]]]:
 
 
 def factory(name: str) -> SHARC_INTERFACE:
-    available_interfaces = get_available_interfaces()
+    available_interfaces = [i[1] for i in get_available_interfaces() if i[1] != "(Not Available!)"]
     names = [i.__name__.split("_", maxsplit=1)[1] for i in available_interfaces]
+    log.debug(f"{available_interfaces}\n{names}")
     try:
         ind = [i.upper() for i in names].index(name.upper())
     except ValueError as e:
         raise e(f'Interface with name "{name}" does not exist!')
-    return AVAILABLE_INTERFACES[ind]
+    return available_interfaces[ind]
