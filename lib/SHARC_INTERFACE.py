@@ -44,7 +44,7 @@ from constants import ATOMCHARGE, FROZENS, BOHR_TO_ANG
 from logger import log as logging
 from qmin import QMin
 from qmout import QMout
-from utils import readfile, writefile, clock, parse_xyz, itnmstates, expand_path, Error
+from utils import readfile, writefile, clock, parse_xyz, itnmstates, expand_path, clock
 
 all_features = {
     "h",
@@ -81,6 +81,7 @@ class SHARC_INTERFACE(ABC):
     def __init__(self, persistent=False):
         # all the output from the calculation will be stored here
         self.QMout = QMout()
+        self.clock = clock()
         self.persistent = persistent
         self.QMin = QMin()
         self._setup_mol = False
@@ -114,10 +115,6 @@ class SHARC_INTERFACE(ABC):
     def changelogstring() -> str:
         return "This is the changelog string"
 
-    @staticmethod
-    @abstractmethod
-    def about() -> str:
-        return "Name and description of the interface"
 
     @abstractmethod
     def get_features(self, KEYSTROKES: TextIOWrapper = None) -> set:
@@ -145,9 +142,8 @@ class SHARC_INTERFACE(ABC):
         "setup the calculation in directory 'dir'"
         return
 
-    @abstractmethod
     def print_qmin(self) -> None:
-        pass
+        logging.info(f"{self.QMin}")
 
     def main(self):
         """
@@ -265,8 +261,8 @@ class SHARC_INTERFACE(ABC):
                     "first line must contain the number of atoms!"
                 ) from error
             self.QMin.coords[key] = (
-                np.asarray([parse_xyz(x)[1] for x in lines[2 : natom + 2]], dtype=float)
-                * self.QMin.molecule["factor"]
+                np.asarray([parse_xyz(x)[1] for x in lines[2: natom + 2]], dtype=float) *
+                self.QMin.molecule["factor"]
             )
         elif isinstance(xyz, (list, np.ndarray)):
             self.QMin.coords[key] = np.asarray(xyz) * self.QMin.molecule["factor"]
@@ -294,15 +290,14 @@ class SHARC_INTERFACE(ABC):
 
         try:
             natom = int(qmin_lines[0])
-        except ValueError:
-            raise Error("first line must contain the number of atoms!", 2)
+        except ValueError as e:
+            raise ValueError("first line must contain the number of atoms!") from e
         if len(qmin_lines) < natom + 4:
-            raise Error(
-                'Input file must contain at least:\nnatom\ncomment\ngeometry\nkeyword "states"\nat least one task',
-                3,
+            raise RuntimeError(
+                'Input file must contain at least:\nnatom\ncomment\ngeometry\nkeyword "states"\nat least one task'
             )
         self.QMin.molecule["elements"] = list(
-            map(lambda x: parse_xyz(x)[0], (qmin_lines[2 : natom + 2]))
+            map(lambda x: parse_xyz(x)[0], (qmin_lines[2: natom + 2]))
         )
         self.QMin.molecule["Atomcharge"] = sum(
             map(lambda x: ATOMCHARGE[x], self.QMin.molecule["elements"])
@@ -317,7 +312,7 @@ class SHARC_INTERFACE(ABC):
             lambda x: not re.match(r"^\s*$", x),
             map(
                 lambda x: re.sub(r"#.*$", "", x),
-                qmin_lines[self.QMin.molecule["natom"] + 2 :],
+                qmin_lines[self.QMin.molecule["natom"] + 2:],
             ),
         )
 
@@ -336,7 +331,7 @@ class SHARC_INTERFACE(ABC):
                         1.0 if unit == "bohr" else 1.0 / BOHR_TO_ANG
                     )
                 else:
-                    raise Error("unknown unit specified", 23)
+                    raise ValueError("unknown unit specified")
             elif key == "savedir":
                 self._setsave = True
                 self.QMin.save["savedir"] = llist[1].strip()
@@ -384,8 +379,8 @@ class SHARC_INTERFACE(ABC):
         res = {}
         try:
             res["states"] = list(map(int, states.split()))
-        except (ValueError, IndexError):
-            raise ValueError('Keyword "states" has to be followed by integers!', 37)
+        except (ValueError, IndexError) as e:
+            raise ValueError('Keyword "states" has to be followed by integers!', 37) from e
         reduc = 0
         for i in reversed(res["states"]):
             if i == 0:
@@ -422,9 +417,8 @@ class SHARC_INTERFACE(ABC):
         logging.debug(f"Reading resource file {resources_file}")
 
         if not self._setup_mol:
-            raise Error(
-                "Interface is not set up for this template. Call setup_mol with the QM.in file first!",
-                23,
+            raise RuntimeError(
+                "Interface is not set up for this template. Call setup_mol with the QM.in file first!"
             )
 
         if self._read_resources:
@@ -487,9 +481,9 @@ class SHARC_INTERFACE(ABC):
                     else:
                         # If whitelisted key already exists extend list with values
                         if (
-                            param[0] in self.QMin.resources.keys()
-                            and self.QMin.resources[param[0]]
-                            and param[0] in kw_whitelist
+                            param[0] in self.QMin.resources.keys() and
+                            self.QMin.resources[param[0]] and
+                            param[0] in kw_whitelist
                         ):
                             logging.debug(f"Extend white listed parameter {param[0]}")
                             self.QMin.resources[param[0]].extend(list(param[1:]))
@@ -498,7 +492,6 @@ class SHARC_INTERFACE(ABC):
                             self.QMin.resources[param[0]] = list(param[1:])
         self._read_resources = True
 
-    @abstractmethod
     def read_requests(self, requests_file: str = "QM.in") -> None:
         """
         Reads QM.in file and parses requests
@@ -608,9 +601,10 @@ class SHARC_INTERFACE(ABC):
         elif self.QMin.save["step"] == last_step + 1:
             self.QMin.save["newstep"] = True
         else:
-            raise Error(
+            logging.error(
                 f'Determined last step ({last_step}) from savedir and specified step ({self.QMin.save["step"]}) do not fit!\nPrepare your savedir and "STEP" file accordingly before starting again or choose "step -1" if you want to proceed from last successful step!'
             )
+            raise RuntimeError()
 
     def _set_requests(self, request: list) -> None:
         """
@@ -659,11 +653,10 @@ class SHARC_INTERFACE(ABC):
             os.mkdir(self.QMin.save["savedir"])
 
         assert not (
-            (self.QMin.requests["overlap"] or self.QMin.requests["phases"])
-            and self.QMin.save["init"]
+            (self.QMin.requests["overlap"] or self.QMin.requests["phases"]) and
+            self.QMin.save["init"]
         ), '"overlap" and "phases" cannot be calculated in the first timestep!'
 
-    @abstractmethod
     def write_step_file(self) -> None:
         """
         Write current step into stepfile (only if cleanup not requested)
@@ -679,7 +672,6 @@ class SHARC_INTERFACE(ABC):
         """
         self.QMout.write(filename, self.QMin.requests)
 
-    @abstractmethod
     def printQMout(self):
         """If PRINT, prints a summary of all requested QM output values.
         Matrices are formatted using printcomplexmatrix, vectors using printgrad.
