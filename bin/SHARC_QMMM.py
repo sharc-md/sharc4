@@ -82,10 +82,10 @@ class QMMM(SHARC_HYBRID):
             )
             QMin.save.savedir = os.getcwd()
         # dynamic import of both interfaces
-        self.qm_interface: INTERFACE = factory(QMin.template['qm-program'])(
+        self.qm_interface = factory(QMin.template['qm-program'])(
             self._DEBUG, self._PRINT, self._persistent)
 
-        self.mml_interface: INTERFACE = factory(QMin.template['mm-program'])(
+        self.mml_interface = factory(QMin.template['mm-program'])(
             self._DEBUG, self._PRINT, self._persistent)
         qm_name = self.qm_interface.__class__.__name__
         mml_name = self.mml_interface.__class__.__name__
@@ -110,7 +110,7 @@ class QMMM(SHARC_HYBRID):
             'MML_' + QMin.template['mm-program'].upper())
         self.mml_interface.prepare()
         if QMin.template['embedding'] == 'subtractive':
-            self.mms_interface: INTERFACE = factory(
+            self.mms_interface = factory(
                 QMin.template['mm-program'])(self._DEBUG, self._PRINT,
                                              self._persistent)
             mms_name = self.mms_interface.__class__.__name__
@@ -156,16 +156,16 @@ class QMMM(SHARC_HYBRID):
         self.read_template(tmp_file)
         qm_features = self.qm_interface.get_features()
         mm_features = self.mml_interface.get_features()
-        if "point_charges" in qm_feature:
+        if "point_charges" in qm_features:
             qm_features.remove("point_charges")
         else:
             raise Exception(
                 "Your QM interface needs to be able to include point charges in its calculations"
             )
-        if "grad" not in qm_features and "grad" not in mm_features:
+        if "grad" in qm_features and "grad" not in mm_features:
             qm_features.remove("grad")
 
-        if "h" not in qm_features and "h" not in mm_features:
+        if "h" in qm_features and "h" not in mm_features:
             qm_features.remove("h")
 
         return qm_features
@@ -371,12 +371,12 @@ class QMMM(SHARC_HYBRID):
             'coords'].copy()
         # setting requests for qm and mm regions based on the QMMM requests
 
-        all_requests = QMin.requests.data
+        all_requests = QMin.requests
         qm_requests = []
         mm_requests = []
 
-        for key, value in all_requests:
-            match request:
+        for key, value in all_requests.items():
+            match key:
                 case "h":
                     qm_requests[key] = value
                     mm_requests[key] = value
@@ -385,6 +385,7 @@ class QMMM(SHARC_HYBRID):
                     mm_requests[key] = [1]
                 case _:
                     qm_requests[key] = value
+                # TODO: also to MMs: dm, multipolar_fit
 
         self.qm_interface.set_requests(qm_requests)
         self.mml_interface.set_requests(mm_requests)
