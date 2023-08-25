@@ -363,16 +363,18 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         Runs all jobs in the schedule in a parallel queue
 
         schedule:   List of jobs (dictionary with jobnames and QMin objects)
+                    First entry is a list with number of threads for the pool
+                    for each job.
         """
         logging.info("Starting job execution")
         error_codes = {}
 
         # Submit jobs to queue
-        for job_idx, jobset in enumerate(schedule):
+        for job_idx, jobset in enumerate(schedule[1:]):
             logging.debug(f"Processing jobset number {job_idx} from schedule list")
             if not jobset:
                 continue
-            with Pool(processes=jobset["npool"][job_idx]) as pool:
+            with Pool(processes=schedule[0][job_idx]) as pool:
                 logging.debug("Submit jobs to pool")
                 for job, qmin in jobset.items():
                     logging.debug(f"Adding job: {job}")
