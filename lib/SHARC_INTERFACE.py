@@ -701,8 +701,13 @@ class SHARC_INTERFACE(ABC):
         """
         Writes the requested quantities to the file which SHARC reads in.
         """
+        k = filename.rfind(".")
+        if k == -1:
+            outfilename = filename + ".out"
+        else:
+            outfilename = filename[:k] + ".out"
         self.log.info("===> Writing output to file %s in SHARC Format\n" % (outfilename))
-        self.QMout.write(filename, self.QMin.requests)
+        self.QMout.write(outfilename, self.QMin.requests)
 
     def formatQMout(self):
         """If PRINT, prints a summary of all requested QM output values.

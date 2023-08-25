@@ -337,11 +337,7 @@ class QMout:
         1 dictionary: filename usually QM.out
         2 set: set of requests
         """
-        k = filename.rfind(".")
-        if k == -1:
-            outfilename = filename + ".out"
-        else:
-            outfilename = filename[:k] + ".out"
+
         string = ""
         # write basic info
         string += "! 0 Basic information\n"
@@ -386,7 +382,7 @@ class QMout:
         if self.notes:
             string += self.writeQMoutnotes()
         string += self.writeQMouttime()
-        writefile(outfilename, string)
+        writefile(filename, string)
         return
 
     # ======================================================================= #
