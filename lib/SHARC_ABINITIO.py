@@ -140,17 +140,17 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 if (self.QMin.molecule["Atomcharge"] + charge) % 2 == 1 and len(
                     self.QMin.molecule["states"]
                 ) > 1:
-                    logging.info(
+                    self.log.info(
                         "HINT: Charge shifted by -1 to be compatible with multiplicities."
                     )
                     charge -= 1
                 self.QMin.template["charge"] = [
                     i % 2 + charge for i in range(len(self.QMin.molecule["states"]))
                 ]
-                logging.info(
+                self.log.info(
                     f'HINT: total charge per multiplicity automatically assigned, please check ({self.QMin.template["charge"]}).'
                 )
-                logging.info(
+                self.log.info(
                     'You can set the charge in the template manually for each multiplicity ("charge 0 +1 0 ...")'
                 )
             elif len(self.QMin.template["charge"]) >= len(self.QMin.molecule["states"]):
@@ -163,11 +163,11 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                     if not (self.QMin.molecule["Atomcharge"] + cha + imult) % 2 == 0:
                         compatible = False
                 if not compatible:
-                    logging.warning(
+                    self.log.warning(
                         "Charges from template not compatible with multiplicities!  (this is probably OK if you use QM/MM)"
                     )
             else:
-                logging.error('Length of "charge" does not match length of "states"!')
+                self.log.error('Length of "charge" does not match length of "states"!')
                 sys.exit(54)
 
     @abstractmethod
@@ -191,11 +191,11 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         """
         Create maps from QMin object
         """
-        logging.debug("Setup interface -> building maps")
+        self.log.debug("Setup interface -> building maps")
 
         # Setup gradmap
         if self.QMin.requests["grad"]:
-            logging.debug("Building gradmap")
+            self.log.debug("Building gradmap")
             self.QMin.maps["gradmap"] = set(
                 {
                     tuple(self.QMin.maps["statemap"][i][0:2])
@@ -205,7 +205,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
 
         # Setup densmap
         if self.QMin.requests["multipolar_fit"]:
-            logging.debug("Building densmap")
+            self.log.debug("Building densmap")
             self.QMin.maps["densmap"] = set(
                 {
                     tuple(self.QMin.maps["statemap"][i][0:2])
@@ -219,7 +219,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             and len(self.QMin.requests["nacdr"]) > 0
             and self.QMin.requests["nacdr"][0] != "all"
         ):
-            logging.debug("Building nacmap")
+            self.log.debug("Building nacmap")
             self.QMin.maps["nacmap"] = set()
             for i in self.QMin.requests["nacdr"]:
                 s1 = self.QMin.maps["statemap"][int(i[0])]
@@ -235,7 +235,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             self.QMin.template["charge"] = [
                 i % 2 for i in range(len(self.QMin.molecule["states"]))
             ]
-            logging.info(
+            self.log.info(
                 f"charge not specified setting default, {self.QMin.template['charge']}"
             )
 
@@ -243,12 +243,12 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             self.QMin.template["paddingstates"] = [
                 0 for _ in self.QMin.molecule["states"]
             ]
-            logging.info(
+            self.log.info(
                 f"paddingstates not specified setting default, {self.QMin.template['paddingstates']}",
             )
 
         # Setup chargemap
-        logging.debug("Building chargemap")
+        self.log.debug("Building chargemap")
         self.QMin.maps["chargemap"] = {
             idx + 1: int(chrg)
             for (idx, chrg) in enumerate(self.QMin.template["charge"])
@@ -299,11 +299,11 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         #         if nstate > 0:
         #             jobs[imult + 4] = {"mults": [imult + 4], "restr": False}
 
-        # logging.debug("Building mults")
+        # self.log.debug("Building mults")
         # self.QMin.maps["mults"] = set(jobs)
 
         # # Setup multmap
-        # logging.debug("Building multmap")
+        # self.log.debug("Building multmap")
         # self.QMin.maps["multmap"] = {}
         # for ijob, job in jobs.items():
         #     for imult in job["mults"]:
@@ -313,7 +313,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
 
         # # Setup ionmap
         # if self.QMin.requests["ion"]:
-        #     logging.debug("Building ionmap")
+        #     self.log.debug("Building ionmap")
         #     self.QMin.maps["ionmap"] = []
         #     for m1 in itmult(self.QMin.molecule["states"]):
         #         job1 = self.QMin.maps["multmap"][m1]
@@ -327,7 +327,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         #                 self.QMin.maps["ionmap"].append((m1, job1, m2, job2))
 
         # # Setup gsmap
-        # logging.debug("Building gsmap")
+        # self.log.debug("Building gsmap")
         # self.QMin.maps["gsmap"] = {}
         # for i in range(self.QMin.molecule["nmstates"]):
         #     m1, s1, ms1 = tuple(self.QMin.maps["statemap"][i + 1])
@@ -366,10 +366,10 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         """
         current_dir = os.getcwd()
         os.chdir(workdir)
-        logging.debug(f"Working directory of ab-initio call {workdir}")
+        self.log.debug(f"Working directory of ab-initio call {workdir}")
 
         starttime = time.time()
-        logging.info(f"Executing: {cmd}\nStart time: {starttime}")
+        self.log.info(f"Executing: {cmd}\nStart time: {starttime}")
 
         outfile = open(out, "w", encoding="utf-8")
         if err:
@@ -390,7 +390,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             outfile.close()
 
         endtime = time.time()
-        logging.info(
+        self.log.info(
             "\t{:%d.%m.%Y %H:%M}\t\tRuntime: {:3f}s\t\tExit Code: {}\n\n".format(
                 datetime.datetime.now(), endtime - starttime, exit_code
             )
@@ -407,18 +407,18 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                     First entry is a list with number of threads for the pool
                     for each job.
         """
-        logging.info("Starting job execution")
+        self.log.info("Starting job execution")
         error_codes = {}
 
         # Submit jobs to queue
         for job_idx, jobset in enumerate(schedule[1:]):
-            logging.debug(f"Processing jobset number {job_idx} from schedule list")
+            self.log.debug(f"Processing jobset number {job_idx} from schedule list")
             if not jobset:
                 continue
             with Pool(processes=schedule[0][job_idx]) as pool:
-                logging.debug("Submit jobs to pool")
+                self.log.debug("Submit jobs to pool")
                 for job, qmin in jobset.items():
-                    logging.debug(f"Adding job: {job}")
+                    self.log.debug(f"Adding job: {job}")
                     workdir = os.path.join(self.QMin.resources["scratchdir"], job)
                     error_codes[job] = pool.apply_async(
                         self.execute_from_qmin, args=(workdir, qmin)
@@ -426,17 +426,17 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                     time.sleep(self.QMin.resources["delay"])
 
         # Processing error codes
-        logging.debug("All jobs finished")
+        self.log.debug("All jobs finished")
 
         error_string = "Error Codes:\n"
         for idx, (job, code) in enumerate(error_codes.items()):
             error_string += f"\t{job + ' ' * (10 - len(job))}\t{code}"
             if (idx + 1) % 4 == 0:
                 error_string += "\n"
-        logging.info(f"{error_string}")
+        self.log.info(f"{error_string}")
 
         if any(lambda x: x != 0, error_codes.values()):
-            logging.error("Some subprocesses did not finish successfully!")
+            self.log.error("Some subprocesses did not finish successfully!")
             sys.exit(101)
 
         # Create restart files and garbage collection
