@@ -1,3 +1,4 @@
+import math
 import os
 import sys
 import time
@@ -5,7 +6,7 @@ from abc import abstractmethod
 from datetime import date
 from io import TextIOWrapper
 from multiprocessing import Pool
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 from logger import log as logging
 from qmin import QMin
@@ -361,7 +362,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         """
         Runs all jobs in the schedule in a parallel queue
 
-        schedule:   List of jobs (dictionary with jobname and QMin object)
+        schedule:   List of jobs (dictionary with jobnames and QMin objects)
         """
         logging.info("Starting job execution")
         error_codes = {}
@@ -371,8 +372,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             logging.debug(f"Processing jobset number {job_idx} from schedule list")
             if not jobset:
                 continue
-            # TODO: nslots per job? not total cpus
-            with Pool(processes=self.QMin.resources["ncpu"]) as pool:
+            with Pool(processes=jobset["npool"][job_idx]) as pool:
                 logging.debug("Submit jobs to pool")
                 for job, qmin in jobset.items():
                     logging.debug(f"Adding job: {job}")
@@ -402,11 +402,44 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
 
         return error_codes
 
+    @staticmethod
+    def divide_slots(ncpu: int, ntasks: int, scaling: float) -> Tuple[int]:
+        """
+        This routine figures out the optimal distribution of the tasks over the CPU cores
+        returns the number of rounds (how many jobs each CPU core will contribute to),
+        the number of slots which should be set in the Pool,
+        and the number of cores for each job.
+        """
+        ntasks_per_round = min(ncpu, ntasks)
+        optimal = {}
+        for i in range(1, 1 + ntasks_per_round):
+            nrounds = int(math.ceil(ntasks / i))
+            ncores = ncpu // i
+            optimal[i] = nrounds / 1.0 / ((1 - scaling) + scaling / ncores)
+        best = min(optimal, key=optimal.get)
+        nrounds = int(math.ceil(float(ntasks) // best))
+        ncores = ncpu // best
+
+        cpu_per_run = [0] * ntasks
+        if nrounds == 1:
+            itask = 0
+            for _ in range(ncpu):
+                cpu_per_run[itask] += 1
+                itask += 1
+                if itask >= ntasks:
+                    itask = 0
+            nslots = ntasks
+        else:
+            for itask in range(ntasks):
+                cpu_per_run[itask] = ncores
+            nslots = ncpu // ncores
+        return nrounds, nslots, cpu_per_run
+
     @abstractmethod
     def run(self):
         """
         request & other logic
-            requestmaps anlegen
+            requestmaps anlegen -> DONE IN SETUP_INTERFACE
             pfade für verschiedene orbital restart files
         make schedule
         runjobs()
