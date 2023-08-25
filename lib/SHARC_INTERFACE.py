@@ -89,8 +89,12 @@ class SHARC_INTERFACE(ABC):
 
         logname = self.name() if logname is None else logname
         self.log = logging.getLogger(logname)
+        self.log.propagate = False
+        self.log.handlers = []
         hdlr = logging.StreamHandler(sys.stdout) if logfile is None else logging.FileHandler(filename=logfile, mode='w', encoding='utf-8')
+        hdlr._name = logname + 'Handler'
         hdlr.setFormatter(CustomFormatter())
+
         self.log.addHandler(hdlr)
         self.log.print = self.sharcprint
 
@@ -105,38 +109,38 @@ class SHARC_INTERFACE(ABC):
 
 
 
-    @staticmethod
-    @abstractmethod
+    @ staticmethod
+    @ abstractmethod
     def authors() -> str:
         return "Severin Polonius, Sebastian Mai"
 
-    @staticmethod
-    @abstractmethod
+    @ staticmethod
+    @ abstractmethod
     def version() -> str:
         return "3.0"
 
-    @staticmethod
-    @abstractmethod
+    @ staticmethod
+    @ abstractmethod
     def versiondate() -> date:
         return date(2021, 7, 15)
 
-    @staticmethod
-    @abstractmethod
+    @ staticmethod
+    @ abstractmethod
     def name() -> str:
         return "base"
 
-    @staticmethod
-    @abstractmethod
+    @ staticmethod
+    @ abstractmethod
     def description() -> str:
         return "Abstract base class for SHARC interfaces."
 
-    @staticmethod
-    @abstractmethod
+    @ staticmethod
+    @ abstractmethod
     def changelogstring() -> str:
         return "This is the changelog string"
 
 
-    @abstractmethod
+    @ abstractmethod
     def get_features(self, KEYSTROKES: TextIOWrapper = None) -> set:
         """return availble features
 
@@ -146,7 +150,7 @@ class SHARC_INTERFACE(ABC):
         """
         return all_features
 
-    @abstractmethod
+    @ abstractmethod
     def get_infos(self, INFOS: dict, KEYSTROKES: TextIOWrapper = None) -> dict:
         """prepare INFOS obj
 
@@ -157,7 +161,7 @@ class SHARC_INTERFACE(ABC):
         """
         return INFOS
 
-    @abstractmethod
+    @ abstractmethod
     def prepare(self, INFOS: dict, dir: str):
         "setup the calculation in directory 'dir'"
         return
@@ -342,7 +346,11 @@ class SHARC_INTERFACE(ABC):
             key = llist[0].lower()
             if key == "states":
                 # also does update nmstates, nstates, statemap
-                self.parseStates(llist[1])
+                states_dict = self.parseStates(llist[1])
+                self.QMin.maps["statemap"] = states_dict["statemap"]
+                self.QMin.molecule["nstates"] = states_dict["nstates"]
+                self.QMin.molecule["nmstates"] = states_dict["nmstates"]
+                self.QMin.molecule["states"] = states_dict["states"]
             elif key == "unit":
                 unit = llist[1].strip().lower()
                 if unit in ["bohr", "angstrom"]:
@@ -378,6 +386,11 @@ class SHARC_INTERFACE(ABC):
                 self.QMin.coords["pccharge"] = pccharge
                 self.QMin.molecule["npc"] = len(pccharge)
 
+        if self.QMin.molecule['factor'] is None:
+            self.log.warning("No Unit specified assuming Angstrom!")
+            self.QMin.molecule['factor'] = 1.0 / BOHR_TO_ANG
+            self.QMin.molecule['unit'] = 'angstrom'
+
         if not isinstance(self.QMin.save["savedir"], str):
             self.QMin.save["savedir"] = "./SAVEDIR/"
             self.log.debug("Setting default SAVEDIR")
@@ -392,7 +405,7 @@ class SHARC_INTERFACE(ABC):
 
         self.log.debug("Setup successful.")
 
-    def parseStates(self, states: str) -> None:
+    def parseStates(self, states: str) -> dict:
         """
         Setup states, statemap and everything related
         """
@@ -414,14 +427,11 @@ class SHARC_INTERFACE(ABC):
         for i in range(len(res["states"])):
             nstates += res["states"][i]
             nmstates += res["states"][i] * (i + 1)
-        self.QMin.maps["statemap"] = {
-            i + 1: [*v] for i, v in enumerate(itnmstates(res["states"]))
-        }
-        self.QMin.molecule["nstates"] = nstates
-        self.QMin.molecule["nmstates"] = nmstates
-        self.QMin.molecule["states"] = res["states"]
+        return {"nstates": nstates, "nmstates": nmstates, "states": res["states"],
+                "statemap": {i + 1: [*v] for i, v in enumerate(itnmstates(res["states"]))}
+                }
 
-    @abstractmethod
+    @ abstractmethod
     def read_resources(self, resources_file: str, kw_whitelist: list = []) -> None:
         """
         Reads a resource file and assigns parameters to
