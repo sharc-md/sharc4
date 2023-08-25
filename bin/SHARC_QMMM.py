@@ -30,7 +30,7 @@ import datetime
 import numpy as np
 
 # internal
-from SHARC_INTERFACE_HYBRID import SHARC_INTERFACE_HYBRID
+from SHARC_HYBRID import SHARC_HYBRID
 from factory import factory
 from utils import ATOM, mkdir, readfile, InDir, itnmstates, question
 from error import Error
@@ -38,7 +38,6 @@ from globals import DEBUG, PRINT
 from constants import ATOMCHARGE, FROZENS
 from copy import deepcopy
 
-authors = 'Sebastian Mai, Maximilian Xaver Tiefenbacher and Severin Polonius'
 version = '3.0'
 versiondate = datetime.datetime(2023, 8, 24)
 
@@ -47,31 +46,106 @@ changelogstring = '''
 np.set_printoptions(linewidth=400)
 
 
-class QMMM(SHARC_INTERFACE_HYBRID):
+class QMMM(SHARC_HYBRID):
 
     _version = version
     _versiondate = versiondate
-    _authors = authors
     _changelogstring = changelogstring
     _step = 0
     _qm_s = 0.3
     _mm_s = 1 - _qm_s
 
-    @property
+    def description(self):
+        pass
+
     def version(self):
         return self._version
 
-    @property
+    def get_infos(self):
+
+        pass
+
+    def name(self) -> str:
+        return "QM/MM"
+
+    def prepare(self, INFOS, iconddir):
+
+        QMin = self._QMin
+        # obtain the statemap
+        QMin.maps.statemap = {
+            i + 1: [*v]
+            for i, v in enumerate(itnmstates(QMin.molecules.states))
+        }
+        if 'savedir' not in QMin:
+            print(
+                'savedir not specified in QM.in, setting savedir to current directory!'
+            )
+            QMin.save.savedir = os.getcwd()
+        # dynamic import of both interfaces
+        self.qm_interface: INTERFACE = factory(QMin.template['qm-program'])(
+            self._DEBUG, self._PRINT, self._persistent)
+
+        self.mml_interface: INTERFACE = factory(QMin.template['mm-program'])(
+            self._DEBUG, self._PRINT, self._persistent)
+        qm_name = self.qm_interface.__class__.__name__
+        mml_name = self.mml_interface.__class__.__name__
+        # folder setup and savedir
+        qm_savedir = os.path.join(QMin.save.savedir,
+                                  'QM_' + QMin.template['qm-program'].upper())
+        if not os.path.isdir(qm_savedir):
+            mkdir(qm_savedir)
+        self.qm_interface._QMin.save.savedir = qm_savedir
+        self.qm_interface._QMin.resources.scratchdir = os.path.join(
+            QMin.resources.scratchdir,
+            'QM_' + QMin.template['qm-program'].upper())
+        self.qm_interface.prepare()
+
+        mml_savedir = os.path.join(
+            QMin.save.savedir, 'MML_' + QMin.template['mm-program'].upper())
+        if not os.path.isdir(mml_savedir):
+            mkdir(mml_savedir)
+        self.mml_interface._QMin.save.savedir = mml_savedir
+        self.mml_interface._QMin.resources.scratchdir = os.path.join(
+            QMin.resources.scratchdir,
+            'MML_' + QMin.template['mm-program'].upper())
+        self.mml_interface.prepare()
+        if QMin.template['embedding'] == 'subtractive':
+            self.mms_interface: INTERFACE = factory(
+                QMin.template['mm-program'])(self._DEBUG, self._PRINT,
+                                             self._persistent)
+            mms_name = self.mms_interface.__class__.__name__
+            mms_savedir = os.path.join(
+                QMin.save.savedir,
+                'MMS_' + QMin.template['mm-program'].upper())
+            if not os.path.isdir(mms_savedir):
+                mkdir(mms_savedir)
+            self.mms_interface._QMin.save.savedir = mms_savedir
+            self.mms_interface._QMin.resources.scratchdir = os.path.join(
+                QMin.resources.scratchdir,
+                'MMS_' + QMin.template['mm-program'].upper())
+            self.mms_interface.prepare
+
+    def printQMout(self):
+        pass
+
+    def print_qmin(self):
+        pass
+
+    def write_step_file(self):
+        pass
+
+    @staticmethod
+    def about():
+        pass
+
     def versiondate(self):
         return self._versiondate
 
-    @property
     def changelogstring(self):
         return self._changelogstring
 
-    @property
-    def authors(self):
-        return self._authors
+    def authors(self) -> str:
+        return 'Sebastian Mai, Maximilian Xaver Tiefenbacher and Severin Polonius'
 
     # TODO: update for other embeddings
     def get_features(self):
@@ -97,13 +171,13 @@ class QMMM(SHARC_INTERFACE_HYBRID):
         return qm_features
 
     def _step_logic(self):
-        super._step_logic()
+        super()._step_logic()
 
     def request_logics(self):
-        super.request_logic()
+        super().request_logic()
 
     def read_requests(self):
-        super.read_requests()
+        super().read_requests()
 
     def read_template(self, template_filename="QMMM.template"):
         QMin = self._QMin
@@ -120,7 +194,7 @@ class QMMM(SHARC_INTERFACE_HYBRID):
             'qm-dir': ''
         }
         bools = {'mm_dipole': False}
-        super.read_template(template_filename)
+        super().read_template(template_filename)
 
         # check
         allowed_embeddings = ['additive', 'subtractive']
@@ -195,38 +269,6 @@ class QMMM(SHARC_INTERFACE_HYBRID):
             i + 1: [*v]
             for i, v in enumerate(itnmstates(QMin.molecules.states))
         }
-        if 'savedir' not in QMin:
-            print(
-                'savedir not specified in QM.in, setting savedir to current directory!'
-            )
-            QMin.save.savedir = os.getcwd()
-        # dynamic import of both interfaces
-        self.qm_interface: INTERFACE = factory(QMin.template['qm-program'])(
-            self._DEBUG, self._PRINT, self._persistent)
-
-        self.mml_interface: INTERFACE = factory(QMin.template['mm-program'])(
-            self._DEBUG, self._PRINT, self._persistent)
-        qm_name = self.qm_interface.__class__.__name__
-        mml_name = self.mml_interface.__class__.__name__
-        # folder setup and savedir
-        qm_savedir = os.path.join(QMin.save.savedir,
-                                  'QM_' + QMin.template['qm-program'].upper())
-        if not os.path.isdir(qm_savedir):
-            mkdir(qm_savedir)
-        self.qm_interface._QMin.save.savedir = qm_savedir
-        self.qm_interface._QMin.resources.scratchdir = os.path.join(
-            QMin.resources.scratchdir,
-            'QM_' + QMin.template['qm-program'].upper())
-
-        mml_savedir = os.path.join(
-            QMin.save.savedir, 'MML_' + QMin.template['mm-program'].upper())
-        if not os.path.isdir(mml_savedir):
-            mkdir(mml_savedir)
-        self.mml_interface._QMin.save.savedir = mml_savedir
-        self.mml_interface._QMin.resources.scratchdir = os.path.join(
-            QMin.resources.scratchdir,
-            'MML_' + QMin.template['mm-program'].upper())
-
         # prepare info for both interfaces
         el = QMin.molecule.elements
         n_link = len(self._linkatoms)
@@ -260,30 +302,17 @@ class QMMM(SHARC_INTERFACE_HYBRID):
             self.qm_interface.read_resources()
             qm_QMin.save.savedir = qm_savedir  # overwrite savedir
             self.qm_interface.read_template()
-            self.qm_interface.setup_run()
+            self.qm_interface.setup_interface()
 
         # print('-' * 80, f'{"preparing MM INTERFACE (large system) (" + mml_name + ")":^80}', '-' * 80, sep='\n')
         with InDir(QMin.template['mml-dir']) as _:
             self.mml_interface.read_resources()
             mml_QMin.save.savedir = mml_savedir  # overwrite savedir
             self.mml_interface.read_template()
-            self.mml_interface.setup_run()
+            self.mml_interface.setup_interface()
         # switch for subtractive
         if QMin.template['embedding'] == 'subtractive':
 
-            self.mms_interface: INTERFACE = factory(
-                QMin.template['mm-program'])(self._DEBUG, self._PRINT,
-                                             self._persistent)
-            mms_name = self.mms_interface.__class__.__name__
-            mms_savedir = os.path.join(
-                QMin.save.savedir,
-                'MMS_' + QMin.template['mm-program'].upper())
-            if not os.path.isdir(mms_savedir):
-                mkdir(mms_savedir)
-            self.mms_interface._QMin.save.savedir = mms_savedir
-            self.mms_interface._QMin.resources.scratchdir = os.path.join(
-                QMin.resources.scratchdir,
-                'MMS_' + QMin.template['mm-program'].upper())
             # setup mol for mms
             ########## needs revision ###############
             mms_el = [a.symbol for a in QMin.molecule['atoms'] if a.qm]
@@ -307,7 +336,7 @@ class QMMM(SHARC_INTERFACE_HYBRID):
                 self.mms_interface.read_resources()
                 mms_QMin.save.savedir = mms_savedir  # overwrite savedir
                 self.mms_interface.read_template()
-                self.mms_interface.setup_run()
+                self.mms_interface.setup_interface()
 
             self._qm_interface_QMin_backup = deepcopy(self.qm_interface._QMin)
         return
@@ -374,7 +403,7 @@ class QMMM(SHARC_INTERFACE_HYBRID):
         #  self.mml_interface._QMin['dm'] = [1]
         #  self.mml_interface._QMin['multipolar_fit'] = True
 
-        #self.mml_interface._request_logic()
+        #  self.mml_interface._request_logic()
 
         # calc mm
         # print('-' * 80, f'{"running MM INTERFACE (large system)":^80}', '-' * 80, sep='\n')
@@ -490,7 +519,7 @@ class QMMM(SHARC_INTERFACE_HYBRID):
             self._QMout['grad'] = grad
         # print('     getQMout pcgrad', (time.perf_counter_ns() - s1) * 1e-6, 'ms')
 
-        if not QMin.requests.nacdr == []:
+        if QMin.requests.nacdr:
             # nacs would have to inserted in the whole system matrix only for qm atoms
             nacdr = [[[[0., 0., 0.] for _ in range(QMin.molecule.natom)]
                       for _ in range(QMin.molecule.nmstates)]
@@ -536,7 +565,8 @@ class QMMM(SHARC_INTERFACE_HYBRID):
 
 if __name__ == "__main__":
     try:
-        qmmm = QMMM(DEBUG, PRINT)
+        #qmmm = QMMM(DEBUG, PRINT)
+        qmmm = QMMM()
         qmmm.main()
     except KeyboardInterrupt:
         print("\nCTRL+C makes me a sad SHARC ;-(")
