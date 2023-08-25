@@ -1,7 +1,10 @@
+import os
 import sys
+import time
 from abc import abstractmethod
 from datetime import date
 from io import TextIOWrapper
+from multiprocessing import Pool
 from typing import Dict, List
 
 from logger import log as logging
@@ -41,8 +44,14 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         # Add ab-initio specific keywords to template
         self.QMin.template["charge"] = None
         self.QMin.template["paddingstates"] = None
+
         self.QMin.template.types["charge"] = list
         self.QMin.template.types["paddingstates"] = list
+
+        # Add ab-initio specific keywords to resources
+        self.QMin.resources["delay"] = 0
+
+        self.QMin.resources.types["delay"] = int
 
     @abstractmethod
     def authors(self) -> str:
@@ -337,13 +346,61 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
     def create_restart_files(self):
         pass
 
+    @abstractmethod
+    def remove_old_restart_files(self, retain: int = 5) -> None:
+        """
+        Garbage collection after runjobs()
+        """
+
     def run_program(
         self, workdir: str, cmd: str, out: str, err: str, keepfiles: List[str]
     ) -> int:
         return error_code
 
-    def runjobs(self, schedule: List[Dict[str, QMin]]):
-        """ """
+    def runjobs(self, schedule: List[Dict[str, QMin]]) -> Dict[int]:
+        """
+        Runs all jobs in the schedule in a parallel queue
+
+        schedule:   List of jobs (dictionary with jobname and QMin object)
+        """
+        logging.info("Starting job execution")
+        error_codes = {}
+
+        # Submit jobs to queue
+        for job_idx, jobset in enumerate(schedule):
+            logging.debug(f"Processing jobset number {job_idx} from schedule list")
+            if not jobset:
+                continue
+            # TODO: nslots per job? not total cpus
+            with Pool(processes=self.QMin.resources["ncpu"]) as pool:
+                logging.debug("Submit jobs to pool")
+                for job, qmin in jobset.items():
+                    logging.debug(f"Adding job: {job}")
+                    workdir = os.path.join(self.QMin.resources["scratchdir"], job)
+                    error_codes[job] = pool.apply_async(
+                        self.execute_from_qmin, args=(workdir, qmin)
+                    ).get()
+                    time.sleep(self.QMin.resources["delay"])
+
+        # Processing error codes
+        logging.debug("All jobs finished")
+
+        error_string = "Error Codes:\n"
+        for idx, (job, code) in enumerate(error_codes.items()):
+            error_string += f"\t{job + ' ' * (10 - len(job))}\t{code}"
+            if (idx + 1) % 4 == 0:
+                error_string += "\n"
+        logging.info(f"{error_string}")
+
+        if any(lambda x: x != 0, error_codes.values()):
+            logging.error("Some subprocesses did not finish successfully!")
+            sys.exit(101)
+
+        # Create restart files and garbage collection
+        self.create_restart_files()
+        self.remove_old_restart_files()
+
+        return error_codes
 
     @abstractmethod
     def run(self):
