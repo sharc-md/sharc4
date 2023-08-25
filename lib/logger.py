@@ -39,8 +39,10 @@ class CustomFormatter(logging.Formatter):
 
 fmt = CustomFormatter()
 hdlr = logging.StreamHandler(sys.stdout)
+hdlr._name = 'rootHandler'
 
 hdlr.setFormatter(fmt)
+logging.root.handlers = []
 logging.root.addHandler(hdlr)
 logging.root.setLevel(logging.INFO)
 
