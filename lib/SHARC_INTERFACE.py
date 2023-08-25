@@ -31,7 +31,6 @@ import sys
 from abc import ABC, abstractmethod
 from datetime import date
 from io import TextIOWrapper
-
 # from functools import reduce, singledispatchmethod
 from socket import gethostname
 from textwrap import wrap
@@ -41,7 +40,7 @@ import numpy as np
 
 # internal
 from constants import ATOMCHARGE, FROZENS, BOHR_TO_ANG
-from logger import log as logging
+from logger import logging, CustomFormatter
 from qmin import QMin
 from qmout import QMout
 from utils import readfile, writefile, clock, parse_xyz, itnmstates, expand_path, clock
@@ -78,7 +77,7 @@ class SHARC_INTERFACE(ABC):
     # TODO: set Debug and Print flag
     # TODO: set persistant flag for file-io vs in-core
 
-    def __init__(self, persistent=False):
+    def __init__(self, persistent=False, logname: str = None, logfile: str = None, loglevel: int = logging.INFO):
         # all the output from the calculation will be stored here
         self.QMout = QMout()
         self.clock = clock()
@@ -87,6 +86,13 @@ class SHARC_INTERFACE(ABC):
         self._setup_mol = False
         self._read_resources = False
         self._setsave = False
+
+        logname = self.name() if logname is None else logname
+        self.log = logging.getLogger(logname)
+        hdlr = logging.StreamHandler(stream=sys.out) if logname is None else logging.FileHandler(filename=logfile, mode='w', encoding='utf-8')
+        hdlr.setFormatter(CustomFormatter())
+        self.log.addHandler(hdlr)
+
 
     @abstractmethod
     def authors(self) -> str:
@@ -143,7 +149,7 @@ class SHARC_INTERFACE(ABC):
         return
 
     def print_qmin(self) -> None:
-        logging.info(f"{self.QMin}")
+        self.log.info(f"{self.QMin}")
 
     def main(self):
         """
@@ -206,10 +212,10 @@ class SHARC_INTERFACE(ABC):
 
         template_file:  Path to template file
         """
-        logging.debug(f"Reading template file {template_file}")
+        self.log.debug(f"Reading template file {template_file}")
 
         if self._read_template:
-            logging.warning(f"Template already read! Overwriting with {template_file}")
+            self.log.warning(f"Template already read! Overwriting with {template_file}")
 
         with open(template_file, "r", encoding="utf-8") as tmpl_file:
             for line in tmpl_file:
@@ -278,10 +284,10 @@ class SHARC_INTERFACE(ABC):
 
         qmin_file:  Path to QM.in file.
         """
-        logging.debug(f"Setting up molecule from {qmin_file}")
+        self.log.debug(f"Setting up molecule from {qmin_file}")
 
         if self._setup_mol:
-            logging.warning(
+            self.log.warning(
                 f"setup_mol() was already called! Continue setup with {qmin_file}",
             )
 
@@ -335,11 +341,11 @@ class SHARC_INTERFACE(ABC):
             elif key == "savedir":
                 self._setsave = True
                 self.QMin.save["savedir"] = llist[1].strip()
-                logging.debug(f"SAVEDIR set to {self.QMin.save['savedir']}")
+                self.log.debug(f"SAVEDIR set to {self.QMin.save['savedir']}")
             elif key == "point_charges":
                 self.QMin.molecule["point_charges"] = True
                 pcfile = expand_path(llist[1].strip())
-                logging.debug(f"Reading point charges from {pcfile}")
+                self.log.debug(f"Reading point charges from {pcfile}")
 
                 # Read pcfile and assign charges and coordinates
                 pccharge = []
@@ -360,17 +366,17 @@ class SHARC_INTERFACE(ABC):
 
         if not isinstance(self.QMin.save["savedir"], str):
             self.QMin.save["savedir"] = "./SAVEDIR/"
-            logging.debug("Setting default SAVEDIR")
+            self.log.debug("Setting default SAVEDIR")
 
         self.QMin.save["savedir"] = expand_path(self.QMin.save["savedir"])
 
         if not isinstance(self.QMin.molecule["unit"], str):
-            logging.warning('No "unit" specified in QMin! Assuming Bohr')
+            self.log.warning('No "unit" specified in QMin! Assuming Bohr')
             self.QMin.molecule["unit"] = "bohr"
 
         self._setup_mol = True
 
-        logging.debug("Setup successful.")
+        self.log.debug("Setup successful.")
 
     def parseStates(self, states: str) -> None:
         """
@@ -414,7 +420,7 @@ class SHARC_INTERFACE(ABC):
                         overwritten when keyword multiple times in resources_file,
                         instead the list will be extended
         """
-        logging.debug(f"Reading resource file {resources_file}")
+        self.log.debug(f"Reading resource file {resources_file}")
 
         if not self._setup_mol:
             raise RuntimeError(
@@ -422,7 +428,7 @@ class SHARC_INTERFACE(ABC):
             )
 
         if self._read_resources:
-            logging.warning(
+            self.log.warning(
                 f"Resources already read! Overwriting with {resources_file}"
             )
 
@@ -431,7 +437,7 @@ class SHARC_INTERFACE(ABC):
         for pr in priority_order:
             if pr in os.environ:
                 self.QMin.resources["ncpu"] = max(1, int(os.environ[pr]))
-                logging.info(
+                self.log.info(
                     f'Found env variable ncpu={os.environ[pr]}, resources["ncpu"] set to {self.QMin.resources["ncpu"]}',
                 )
                 break
@@ -451,7 +457,7 @@ class SHARC_INTERFACE(ABC):
 
                     # Check for duplicates in keyword_list
                     if param[0] in keyword_list:
-                        logging.warning(
+                        self.log.warning(
                             f"Multiple entries of {param[0]} in {resources_file}"
                         )
                     keyword_list.append(param[0])
@@ -463,11 +469,11 @@ class SHARC_INTERFACE(ABC):
                         if param[0] == "savedir":
                             if not self._setsave:
                                 self.QMin.save["savedir"] = param[1]
-                                logging.debug(
+                                self.log.debug(
                                     f"SAVEDIR set to {self.QMin.save['savedir']}",
                                 )
                             else:
-                                logging.info(
+                                self.log.info(
                                     "SAVEDIR is already set and will not be overwritten!"
                                 )
                             continue
@@ -485,10 +491,10 @@ class SHARC_INTERFACE(ABC):
                             self.QMin.resources[param[0]] and
                             param[0] in kw_whitelist
                         ):
-                            logging.debug(f"Extend white listed parameter {param[0]}")
+                            self.log.debug(f"Extend white listed parameter {param[0]}")
                             self.QMin.resources[param[0]].extend(list(param[1:]))
                         else:
-                            logging.warning(f"Parameter list {param} overwritten!")
+                            self.log.warning(f"Parameter list {param} overwritten!")
                             self.QMin.resources[param[0]] = list(param[1:])
         self._read_resources = True
 
@@ -504,7 +510,7 @@ class SHARC_INTERFACE(ABC):
             self._read_resources
         ), "Interface is not set up correctly. Call read_resources with the .resources file first!"
 
-        logging.debug(f"Reading requests from {requests_file}")
+        self.log.debug(f"Reading requests from {requests_file}")
 
         # Reset requests
         self.QMin.requests = QMin().requests
@@ -530,7 +536,7 @@ class SHARC_INTERFACE(ABC):
 
                     # Parse NACDR if requested
                     if params[0].casefold() == "nacdr":
-                        logging.debug(
+                        self.log.debug(
                             f"Parsing request {params}",
                         )
                         if len(params) > 1 and params[1].casefold() == "select":
@@ -545,7 +551,7 @@ class SHARC_INTERFACE(ABC):
                             assert (
                                 len(params) == 2
                             ), "NACs have to be given in state pairs!"
-                            logging.debug(f"Adding state pair {params} to NACDR list")
+                            self.log.debug(f"Adding state pair {params} to NACDR list")
                             nacdr.append(params)
                         continue
 
@@ -554,7 +560,7 @@ class SHARC_INTERFACE(ABC):
                         *self.QMin.requests.keys(),
                         "step",
                     ):
-                        logging.debug(f"Parsing request {params}")
+                        self.log.debug(f"Parsing request {params}")
                         self._set_requests(params)
 
             assert not nac_select, "No end keyword found after nacdr select!"
@@ -564,19 +570,19 @@ class SHARC_INTERFACE(ABC):
         self._request_logic()
 
         if self.QMin.requests["backup"]:
-            logging.debug("Setting up backup directories")
+            self.log.debug("Setting up backup directories")
 
     def _step_logic(self) -> None:
         """
         Performs step logic
         """
-        logging.debug("Starting step logic")
+        self.log.debug("Starting step logic")
 
         # TODO: implement previous_step from driver
         last_step = None
         stepfile = os.path.join(self.QMin.save["savedir"], "STEP")
         if os.path.isfile(stepfile):
-            logging.debug(f"Found stepfile {stepfile}")
+            self.log.debug(f"Found stepfile {stepfile}")
             last_step = int(readfile(stepfile)[0])
 
         if not self.QMin.save["step"]:
@@ -601,7 +607,7 @@ class SHARC_INTERFACE(ABC):
         elif self.QMin.save["step"] == last_step + 1:
             self.QMin.save["newstep"] = True
         else:
-            logging.error(
+            self.log.error(
                 f'Determined last step ({last_step}) from savedir and specified step ({self.QMin.save["step"]}) do not fit!\nPrepare your savedir and "STEP" file accordingly before starting again or choose "step -1" if you want to proceed from last successful step!'
             )
             raise RuntimeError()
@@ -622,7 +628,7 @@ class SHARC_INTERFACE(ABC):
                 ]
             elif request[0].casefold() == "soc":
                 if sum(i > 0 for i in self.QMin.molecule["states"]) < 2:
-                    logging.warning(
+                    self.log.warning(
                         "SOCs requested but only 1 multiplicity given! Disable SOCs"
                     )
                     return
@@ -646,10 +652,10 @@ class SHARC_INTERFACE(ABC):
         Checks for conflicting options, generates requested maps
         and sets path variables according to requests
         """
-        logging.debug("Starting request logic")
+        self.log.debug("Starting request logic")
 
         if not os.path.exists(self.QMin.save["savedir"]):
-            logging.debug(f"Creating savedir {self.QMin.save['savedir']}")
+            self.log.debug(f"Creating savedir {self.QMin.save['savedir']}")
             os.mkdir(self.QMin.save["savedir"])
 
         assert not (
