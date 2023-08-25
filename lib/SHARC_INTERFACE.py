@@ -89,7 +89,7 @@ class SHARC_INTERFACE(ABC):
 
         logname = self.name() if logname is None else logname
         self.log = logging.getLogger(logname)
-        hdlr = logging.StreamHandler(stream=sys.out) if logname is None else logging.FileHandler(filename=logfile, mode='w', encoding='utf-8')
+        hdlr = logging.StreamHandler(sys.stdout) if logfile is None else logging.FileHandler(filename=logfile, mode='w', encoding='utf-8')
         hdlr.setFormatter(CustomFormatter())
         self.log.addHandler(hdlr)
         self.log.print = self.sharcprint
@@ -105,16 +105,19 @@ class SHARC_INTERFACE(ABC):
 
 
 
+    @staticmethod
     @abstractmethod
-    def authors(self) -> str:
+    def authors() -> str:
         return "Severin Polonius, Sebastian Mai"
 
+    @staticmethod
     @abstractmethod
-    def version(self) -> str:
+    def version() -> str:
         return "3.0"
 
+    @staticmethod
     @abstractmethod
-    def versiondate(self) -> date:
+    def versiondate() -> date:
         return date(2021, 7, 15)
 
     @staticmethod
