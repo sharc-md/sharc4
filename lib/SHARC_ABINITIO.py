@@ -7,11 +7,13 @@ from datetime import date
 from io import TextIOWrapper
 from multiprocessing import Pool
 from typing import Dict, List, Tuple
+import subprocess as sp
+import datetime
 
 from logger import log as logging
 from qmin import QMin
 from SHARC_INTERFACE import SHARC_INTERFACE
-from utils import itmult
+from utils import containsstring, safe_cast, readfile
 
 all_features = {
     "h",
@@ -52,7 +54,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         # Add ab-initio specific keywords to resources
         self.QMin.resources["delay"] = 0
 
-        self.QMin.resources.types["delay"] = int
+        self.QMin.resources.types["delay"] = float
 
     @abstractmethod
     def authors(self) -> str:
@@ -124,7 +126,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         checkstatus(), check im workdir ob rechnung erfolgreich
             if success: pass
             if not: try again or return error
-        postprocessing of workdir files (z.b molden file erzeugen)
+        postprocessing of workdir files (z.b molden file erzeugen, stripping)
         """
 
     @abstractmethod
@@ -258,86 +260,86 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             for i, v in enumerate(self.QMin.molecule["states"])
         ]
 
-        if "unrestricted_triplets" not in self.QMin.template.keys():
-            if (
-                len(self.QMin.molecule["states"]) >= 3
-                and self.QMin.molecule["states"][2] > 0
-            ):
-                self.QMin.control["states_to_do"][0] = max(
-                    self.QMin.molecule["states"][0], 1
-                )
-                req = max(
-                    self.QMin.molecule["states"][0] - 1, self.QMin.molecule["states"][2]
-                )
-                self.QMin.control["states_to_do"][0] = req + 1
-                self.QMin.control["states_to_do"][2] = req
+        # if "unrestricted_triplets" not in self.QMin.template.keys():
+        #     if (
+        #         len(self.QMin.molecule["states"]) >= 3
+        #         and self.QMin.molecule["states"][2] > 0
+        #     ):
+        #         self.QMin.control["states_to_do"][0] = max(
+        #             self.QMin.molecule["states"][0], 1
+        #         )
+        #         req = max(
+        #             self.QMin.molecule["states"][0] - 1, self.QMin.molecule["states"][2]
+        #         )
+        #         self.QMin.control["states_to_do"][0] = req + 1
+        #         self.QMin.control["states_to_do"][2] = req
 
-        jobs = {}
-        if self.QMin.control["states_to_do"][0] > 0:
-            jobs[1] = {"mults": [1], "restr": True}
-        if (
-            len(self.QMin.control["states_to_do"]) >= 2
-            and self.QMin.control["states_to_do"][1] > 0
-        ):
-            jobs[2] = {"mults": [2], "restr": False}
-        if (
-            len(self.QMin.control["states_to_do"]) >= 3
-            and self.QMin.control["states_to_do"][2] > 0
-        ):
-            if (
-                "unrestricted_triplets" not in self.QMin.template.keys()
-                and self.QMin.control["states_to_do"][0] > 0
-            ):
-                jobs[1]["mults"].append(3)
-            else:
-                jobs[3] = {"mults": [3], "restr": False}
+        # jobs = {}
+        # if self.QMin.control["states_to_do"][0] > 0:
+        #     jobs[1] = {"mults": [1], "restr": True}
+        # if (
+        #     len(self.QMin.control["states_to_do"]) >= 2
+        #     and self.QMin.control["states_to_do"][1] > 0
+        # ):
+        #     jobs[2] = {"mults": [2], "restr": False}
+        # if (
+        #     len(self.QMin.control["states_to_do"]) >= 3
+        #     and self.QMin.control["states_to_do"][2] > 0
+        # ):
+        #     if (
+        #         "unrestricted_triplets" not in self.QMin.template.keys()
+        #         and self.QMin.control["states_to_do"][0] > 0
+        #     ):
+        #         jobs[1]["mults"].append(3)
+        #     else:
+        #         jobs[3] = {"mults": [3], "restr": False}
 
-        if len(self.QMin.control["states_to_do"]) >= 4:
-            for imult, nstate in enumerate(self.QMin.control["states_to_do"][3:]):
-                if nstate > 0:
-                    jobs[imult + 4] = {"mults": [imult + 4], "restr": False}
+        # if len(self.QMin.control["states_to_do"]) >= 4:
+        #     for imult, nstate in enumerate(self.QMin.control["states_to_do"][3:]):
+        #         if nstate > 0:
+        #             jobs[imult + 4] = {"mults": [imult + 4], "restr": False}
 
-        logging.debug("Building mults")
-        self.QMin.maps["mults"] = set(jobs)
+        # logging.debug("Building mults")
+        # self.QMin.maps["mults"] = set(jobs)
 
-        # Setup multmap
-        logging.debug("Building multmap")
-        self.QMin.maps["multmap"] = {}
-        for ijob, job in jobs.items():
-            for imult in job["mults"]:
-                self.QMin.maps["multmap"][imult] = ijob
-            self.QMin.maps["multmap"][-(ijob)] = job["mults"]
-        self.QMin.maps["multmap"][1] = 1
+        # # Setup multmap
+        # logging.debug("Building multmap")
+        # self.QMin.maps["multmap"] = {}
+        # for ijob, job in jobs.items():
+        #     for imult in job["mults"]:
+        #         self.QMin.maps["multmap"][imult] = ijob
+        #     self.QMin.maps["multmap"][-(ijob)] = job["mults"]
+        # self.QMin.maps["multmap"][1] = 1
 
-        # Setup ionmap
-        if self.QMin.requests["ion"]:
-            logging.debug("Building ionmap")
-            self.QMin.maps["ionmap"] = []
-            for m1 in itmult(self.QMin.molecule["states"]):
-                job1 = self.QMin.maps["multmap"][m1]
-                el1 = self.QMin.maps["chargemap"][m1]
-                for m2 in itmult(self.QMin.molecule["states"]):
-                    if m1 >= m2:
-                        continue
-                    job2 = self.QMin.maps["multmap"][m2]
-                    el2 = self.QMin.maps["chargemap"][m2]
-                    if abs(m1 - m2) == 1 and abs(el1 - el2) == 1:
-                        self.QMin.maps["ionmap"].append((m1, job1, m2, job2))
+        # # Setup ionmap
+        # if self.QMin.requests["ion"]:
+        #     logging.debug("Building ionmap")
+        #     self.QMin.maps["ionmap"] = []
+        #     for m1 in itmult(self.QMin.molecule["states"]):
+        #         job1 = self.QMin.maps["multmap"][m1]
+        #         el1 = self.QMin.maps["chargemap"][m1]
+        #         for m2 in itmult(self.QMin.molecule["states"]):
+        #             if m1 >= m2:
+        #                 continue
+        #             job2 = self.QMin.maps["multmap"][m2]
+        #             el2 = self.QMin.maps["chargemap"][m2]
+        #             if abs(m1 - m2) == 1 and abs(el1 - el2) == 1:
+        #                 self.QMin.maps["ionmap"].append((m1, job1, m2, job2))
 
-        # Setup gsmap
-        logging.debug("Building gsmap")
-        self.QMin.maps["gsmap"] = {}
-        for i in range(self.QMin.molecule["nmstates"]):
-            m1, s1, ms1 = tuple(self.QMin.maps["statemap"][i + 1])
-            gs = (m1, 1, ms1)
-            job = self.QMin.maps["multmap"][m1]
-            if m1 == 3 and jobs[job]["restr"]:
-                gs = (1, 1, 0.0)
-            for j in range(self.QMin.molecule["nmstates"]):
-                m2, s2, ms2 = tuple(self.QMin.maps["statemap"][j + 1])
-                if (m2, s2, ms2) == gs:
-                    break
-            self.QMin.maps["gsmap"][i + 1] = j + 1
+        # # Setup gsmap
+        # logging.debug("Building gsmap")
+        # self.QMin.maps["gsmap"] = {}
+        # for i in range(self.QMin.molecule["nmstates"]):
+        #     m1, s1, ms1 = tuple(self.QMin.maps["statemap"][i + 1])
+        #     gs = (m1, 1, ms1)
+        #     job = self.QMin.maps["multmap"][m1]
+        #     if m1 == 3 and jobs[job]["restr"]:
+        #         gs = (1, 1, 0.0)
+        #     for j in range(self.QMin.molecule["nmstates"]):
+        #         m2, s2, ms2 = tuple(self.QMin.maps["statemap"][j + 1])
+        #         if (m2, s2, ms2) == gs:
+        #             break
+        #     self.QMin.maps["gsmap"][i + 1] = j + 1
 
     @abstractmethod
     def getQMout(self):
@@ -353,12 +355,51 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         Garbage collection after runjobs()
         """
 
-    def run_program(
-        self, workdir: str, cmd: str, out: str, err: str, keepfiles: List[str]
-    ) -> int:
-        return error_code
+    def run_program(self, workdir: str, cmd: str, out: str, err: str = None) -> int:
+        """
+        Runs a ab-initio programm and returns the exit_code
 
-    def runjobs(self, schedule: List[Dict[str, QMin]]) -> Dict[int]:
+        workdir:    Path of the working directory
+        cmd:        Contains path and arguments for execution of ab-initio program
+        out:        Name of the output file
+        err:        Name of the error file (optional)
+        """
+        current_dir = os.getcwd()
+        os.chdir(workdir)
+        logging.debug(f"Working directory of ab-initio call {workdir}")
+
+        starttime = time.time()
+        logging.info(f"Executing: {cmd}\nStart time: {starttime}")
+
+        outfile = open(out, "w", encoding="utf-8")
+        if err:
+            errfile = open(err, "w", encoding="utf-8")
+        else:
+            errfile = sp.STDOUT
+
+        try:
+            exit_code = sp.call(cmd, shell=True, stdout=outfile, stderr=errfile)
+        except OSError:
+            t, v, tb = sys.exc_info()
+            raise OSError(
+                f"Call has had some serious problems:\nWORKDIR:{workdir}\n{t}: {v}", 96
+            ).with_traceback(tb)
+        finally:
+            if err:
+                errfile.close()
+            outfile.close()
+
+        endtime = time.time()
+        logging.info(
+            "\t{:%d.%m.%Y %H:%M}\t\tRuntime: {:3f}s\t\tExit Code: {}\n\n".format(
+                datetime.datetime.now(), endtime - starttime, exit_code
+            )
+        )
+
+        os.chdir(current_dir)
+        return exit_code
+
+    def runjobs(self, schedule: List[Dict[str, QMin]]) -> Dict[int, int]:
         """
         Runs all jobs in the schedule in a parallel queue
 
@@ -436,6 +477,73 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 cpu_per_run[itask] = ncores
             nslots = ncpu // ncores
         return nrounds, nslots, cpu_per_run
+
+    @staticmethod
+    def get_smatel(out: List[str], s1: int, s2: int) -> float:
+        ilines = -1
+        while True:
+            ilines += 1
+            if ilines == len(out):
+                raise ValueError("Overlap of states %i - %i not found!" % (s1, s2))
+            if containsstring("Overlap matrix <PsiA_i|PsiB_j>", out[ilines]):
+                break
+        ilines += 1 + s1
+        f = out[ilines].split()
+        return float(f[s2 + 1])
+
+    @staticmethod
+    def format_ci_vectors(ci_vectors: List[Dict[str, float]]) -> str:
+        # get nstates, norb and ndets
+        alldets = set()
+        for dets in ci_vectors:
+            for key in dets:
+                alldets.add(key)
+        ndets = len(alldets)
+        nstates = len(ci_vectors)
+        norb = len(next(iter(alldets)))
+
+        string = "{} {} {}\n".format(nstates, norb, ndets)
+        for det in sorted(alldets, reverse=True):
+            for o in det:
+                if o == 0:
+                    string += "e"
+                elif o == 1:
+                    string += "a"
+                elif o == 2:
+                    string += "b"
+                elif o == 3:
+                    string += "d"
+            for vec in ci_vectors:
+                if det in vec:
+                    string += " {: 11.7f} ".format(vec[det])
+                else:
+                    string += " {: 11.7f} ".format(0.0)
+            string += "\n"
+        return string
+
+    @staticmethod
+    def get_theodore(sumfile: str, omffile: str) -> Dict[Tuple[int], List[float]]:
+        out = readfile(sumfile)
+
+        props = {}
+        for line in out[2:]:
+            s = line.replace("(", " ").replace(")", " ").split()
+            if len(s) == 0:
+                continue
+            n = int(s[0])
+            m = int(s[1])
+            props[(m, n + (m == 1))] = [safe_cast(i, float, 0.0) for i in s[5:]]
+
+        out = readfile(omffile)
+
+        for line in out[1:]:
+            s = line.replace("(", " ").replace(")", " ").split()
+            if len(s) == 0:
+                continue
+            n = int(s[0])
+            m = int(s[1])
+            props[(m, n + (m == 1))].extend([safe_cast(i, float, 0.0) for i in s[4:]])
+        return props
 
     @abstractmethod
     def run(self):
