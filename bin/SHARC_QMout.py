@@ -37,7 +37,7 @@ from logger import log as logging
 
 # internal
 from SHARC_FAST import SHARC_FAST
-from utils import Error, makecmatrix, question
+from utils import Error, makecmatrix, question, expand_path
 from qmout import QMout
 
 authors = "Sebastian Mai"
@@ -122,7 +122,8 @@ class SHARC_QMOUT(SHARC_FAST):  # TODO: migrate to SHARC_FAST_INTERFACE
             KEYSTROKES=KEYSTROKES
         )
         self.setup_info = {}
-        self.setup_info["path"] = os.path.abspath(os.path.expanduser(os.path.expandvars(path)))
+        self.setup_info["path"] = expand_path(path)
+        # os.path.abspath(os.path.expanduser(os.path.expandvars(path)))
         self.setup_info["link"] = linking
         return INFOS
 

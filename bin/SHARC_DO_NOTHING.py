@@ -86,25 +86,29 @@ class SHARC_DO_NOTHING(SHARC_FAST):
         self._read_template = False
         self._read_resources = False
         self._setup_mol = False
+        self.setup_info = None
 
-    def version(self) -> str:
-        return self._version
+    @staticmethod
+    def version() -> str:
+        return SHARC_DO_NOTHING._version
 
-    def versiondate(self) -> str:
-        return self._versiondate
+    @staticmethod
+    def versiondate() -> str:
+        return SHARC_DO_NOTHING._versiondate
 
     @staticmethod
     def changelogstring() -> str:
         return SHARC_DO_NOTHING._changelogstring
 
-    def authors(self) -> str:
-        return self._authors
+    @staticmethod
+    def authors() -> str:
+        return SHARC_DO_NOTHING._authors
 
     def get_features(self, KEYSTROKES: TextIOWrapper = None) -> set:
         "return availble features"
         return all_features
 
-    def get_infos(self, INFOS: dict, KEYSTROKES: TextIOWrapper) -> dict:
+    def get_infos(self, INFOS: dict, KEYSTROKES: TextIOWrapper = None) -> dict:
         "prepare INFOS obj"
         self.setup_info = question(
             "Please provide your favorite dish!",
@@ -176,9 +180,6 @@ class SHARC_DO_NOTHING(SHARC_FAST):
 
         return self.QMout
 
-    def printQMout(self):
-        super().printQMout()
-
     def write_step_file(self):
         pass
 
@@ -208,12 +209,6 @@ class SHARC_DO_NOTHING(SHARC_FAST):
         if self._read_template:
             logging.warning("Template file already read.")
         self._read_template = True
-
-    def read_requests(self, requests_file: str = "QM.in") -> None:
-        """
-        Read and check if requests are supported
-        """
-        super().read_requests(requests_file)
 
 
 if __name__ == "__main__":
