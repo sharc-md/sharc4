@@ -211,8 +211,9 @@ class SHARC_INTERFACE(ABC):
         self.write_step_file()
 
         # printing and output generation
-        if self._PRINT or self._DEBUG:
-            self.printQMout()
+        # if self._PRINT or self._DEBUG:
+        #     string = self.formatQMout()
+        self.log.info(self.formatQMout())
         self.QMout["runtime"] = self.clock.measuretime()
         self.writeQMout()
 
@@ -690,13 +691,14 @@ class SHARC_INTERFACE(ABC):
         """
         Writes the requested quantities to the file which SHARC reads in.
         """
+        self.log.info("===> Writing output to file %s in SHARC Format\n" % (outfilename))
         self.QMout.write(filename, self.QMin.requests)
 
-    def printQMout(self):
+    def formatQMout(self):
         """If PRINT, prints a summary of all requested QM output values.
         Matrices are formatted using printcomplexmatrix, vectors using printgrad.
         """
-        self.QMout.printQMout(self.QMin, DEBUG=self._DEBUG)
+        self.QMout.formatQMout(self.QMin, DEBUG=self._DEBUG)
 
     # ============================PRINTING ROUTINES========================== #
 

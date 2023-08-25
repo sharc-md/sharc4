@@ -7,7 +7,7 @@ from copy import deepcopy
 from logger import log as logging
 from utils import writefile, eformat, itnmstates
 from constants import IToMult, IToPol
-from printing import printgrad, printcomplexmatrix, formatgrad, formatcomplexmatrix
+from printing import formatgrad, formatcomplexmatrix
 
 
 
@@ -145,26 +145,22 @@ class QMout:
                 data = f.readlines()
                 f.close()
             except IOError:
-                print('Could not find %s!' % (filepath))
-                sys.exit(1)
+                raise IOError("'Could not find %s!' % (filepath)")
             # get basic information
             iline = QMout.find_line(data ,0)
             if "states" in data[iline+1]:
                 s=data[iline+1].split()
                 self.states = [int(i) for i in s[1:]]
             else:
-                logging.error(f"Could not find states in {filepath}")
-                sys.exit(1)
+                raise KeyError(f"Could not find states in {filepath}")
             if "natom" in data[iline+3]:
                 self.natom=int(data[iline+3].split()[-1])
             else:
-                logging.error(f"Could not find natom in {filepath}")
-                sys.exit(1)
+                raise KeyError(f"Could not find natom in {filepath}")
             if "npc" in data[iline+4]:
                 self.npc=int(data[iline+4].split()[-1])
             else:
-                logging.error(f"Could not find npc in {filepath}")
-                sys.exit(1)
+                raise KeyError(f"Could not find npc in {filepath}")
             self.nmstates = sum((i + 1) * n for i, n in enumerate(self.states))
             self.nstates = sum(self.states)
             self.point_charges = self.npc > 0
@@ -346,7 +342,6 @@ class QMout:
             outfilename = filename + ".out"
         else:
             outfilename = filename[:k] + ".out"
-        logging.print("===> Writing output to file %s in SHARC Format\n" % (outfilename))
         string = ""
         # write basic info
         string += "! 0 Basic information\n"
@@ -1131,14 +1126,13 @@ class QMout:
                     jstate += 1
                 istate += 1
 
-        print(string)
-        sys.stdout.flush()
+        return string
+        # print(string)
+        # sys.stdout.flush()
 
 
 
 if __name__ == "__main__":
     test = QMout()
-    print(test.__class__.__dict__)
-    test["h"] = np.zeros((2, 2))
-    print(test["dm"])
-    print(test)
+    test.allocate([1], 1, 1, set(["h"]))
+    print(test.formatQMout())
