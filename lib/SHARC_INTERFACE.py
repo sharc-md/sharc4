@@ -40,7 +40,7 @@ import numpy as np
 
 # internal
 from constants import ATOMCHARGE, FROZENS, BOHR_TO_ANG
-from logger import logging, CustomFormatter
+from logger import logging, CustomFormatter, SHARCPRINT
 from qmin import QMin
 from qmout import QMout
 from utils import readfile, writefile, clock, parse_xyz, itnmstates, expand_path, clock
@@ -92,6 +92,17 @@ class SHARC_INTERFACE(ABC):
         hdlr = logging.StreamHandler(stream=sys.out) if logname is None else logging.FileHandler(filename=logfile, mode='w', encoding='utf-8')
         hdlr.setFormatter(CustomFormatter())
         self.log.addHandler(hdlr)
+        self.log.print = self.sharcprint
+
+    def sharcprint(self, msg, *args, **kwargs):
+        """
+        Log 'msg % args' with severity 'SHARCPRINT'.
+
+        To pass exception information, use the keyword argument exc_info with
+        a true value, e.g.
+        """
+        self.log.log(SHARCPRINT, msg, *args, **kwargs)
+
 
 
     @abstractmethod
