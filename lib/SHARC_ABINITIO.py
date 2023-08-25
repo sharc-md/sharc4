@@ -54,7 +54,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         # Add ab-initio specific keywords to resources
         self.QMin.resources["delay"] = 0
 
-        self.QMin.resources.types["delay"] = int
+        self.QMin.resources.types["delay"] = float
 
     @abstractmethod
     def authors(self) -> str:
@@ -399,7 +399,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         os.chdir(current_dir)
         return exit_code
 
-    def runjobs(self, schedule: List[Dict[str, QMin]]) -> Dict[int]:
+    def runjobs(self, schedule: List[Dict[str, QMin]]) -> Dict[int, int]:
         """
         Runs all jobs in the schedule in a parallel queue
 
