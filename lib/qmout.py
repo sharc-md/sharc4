@@ -7,7 +7,7 @@ from copy import deepcopy
 from logger import log as logging
 from utils import writefile, eformat, itnmstates
 from constants import IToMult, IToPol
-from printing import printgrad, printcomplexmatrix
+from printing import printgrad, printcomplexmatrix, formatgrad, formatcomplexmatrix
 
 
 
@@ -125,7 +125,6 @@ class QMout:
         iline += 3+num
         res = []
         for irow in range(num):
-            print(iline)
             res.append( QMout.get_quantity(data, iline, type, shape) )
             iline += 1+shape[0]
         result = [ (keys[i], res[i]) for i in range(num) ]
@@ -304,6 +303,8 @@ class QMout:
                 (self.nmstates, self.nmstates, natom, 10), dtype=float
             )
 
+
+
     def __getitem__(self, key):
         if key in self.__dict__:
             return self.__dict__[key]
@@ -379,10 +380,8 @@ class QMout:
                 string += self.writeQMoutdmdr_pc()
         if self.prop0d:
             string += self.writeQMoutprop0d()
-        # if any([requests["theodore"]]):
         if self.prop1d:
             string += self.writeQMoutprop1d()
-        # if any([ requests["ion"] ]):
         if self.prop2d:
             string += self.writeQMoutprop2d()
         if requests["phases"]:
@@ -665,39 +664,39 @@ class QMout:
 
     # ======================================================================= #
 
-    def writeQMoutnacnum(self):
-        """Generates a string with the NAC matrix in SHARC format.
+    # def writeQMoutnacnum(self):
+    #     """Generates a string with the NAC matrix in SHARC format.
 
-        The string starts with a ! followed by a flag specifying the type of data.
-        In the next line, the dimensions of the matrix are given, followed by nmstates blocks of nmstates elements.
-        Blocks are separated by a blank line.
+    #     The string starts with a ! followed by a flag specifying the type of data.
+    #     In the next line, the dimensions of the matrix are given, followed by nmstates blocks of nmstates elements.
+    #     Blocks are separated by a blank line.
 
 
-        Returns:
-        1 string: multiline string with the NAC matrix"""
+    #     Returns:
+    #     1 string: multiline string with the NAC matrix"""
 
-        nmstates = self.nmstates
-        string = ""
-        string += "! %i Non-adiabatic couplings (ddt) (%ix%i, complex)\n" % (
-            4,
-            nmstates,
-            nmstates,
-        )
-        string += "%i %i\n" % (nmstates, nmstates)
-        for i in range(nmstates):
-            for j in range(nmstates):
-                string += "%s %s " % (
-                    eformat(self.nacdt[i][j].real, 12, 3),
-                    eformat(self.nacdt[i][j].imag, 12, 3),
-                )
-            string += "\n"
-        string += ""
-        # also write wavefunction phases
-        string += "! %i Wavefunction phases (%i, complex)\n" % (7, nmstates)
-        for i in range(nmstates):
-            string += "%s %s\n" % (eformat(self.phases[i], 12, 3), eformat(0.0, 12, 3))
-        string += "\n\n"
-        return string
+    #     nmstates = self.nmstates
+    #     string = ""
+    #     string += "! %i Non-adiabatic couplings (ddt) (%ix%i, complex)\n" % (
+    #         4,
+    #         nmstates,
+    #         nmstates,
+    #     )
+    #     string += "%i %i\n" % (nmstates, nmstates)
+    #     for i in range(nmstates):
+    #         for j in range(nmstates):
+    #             string += "%s %s " % (
+    #                 eformat(self.nacdt[i][j].real, 12, 3),
+    #                 eformat(self.nacdt[i][j].imag, 12, 3),
+    #             )
+    #         string += "\n"
+    #     string += ""
+    #     # also write wavefunction phases
+    #     string += "! %i Wavefunction phases (%i, complex)\n" % (7, nmstates)
+    #     for i in range(nmstates):
+    #         string += "%s %s\n" % (eformat(self.phases[i], 12, 3), eformat(0.0, 12, 3))
+    #     string += "\n\n"
+    #     return string
 
     # ======================================================================= #
 
@@ -725,7 +724,6 @@ class QMout:
         for imult, istate, ims in itnmstates(states):
             j = 0
             for jmult, jstate, jms in itnmstates(states):
-                # string+='%i %i ! %i %i %i %i %i %i\n' % (natom,3,imult,istate,ims,jmult,jstate,jms)
                 string += "%i %i ! m1 %i s1 %i ms1 %i   m2 %i s2 %i ms2 %i\n" % (
                     natom,
                     3,
@@ -771,7 +769,6 @@ class QMout:
         for imult, istate, ims in itnmstates(states):
             j = 0
             for jmult, jstate, jms in itnmstates(states):
-                # string+='%i %i ! %i %i %i %i %i %i\n' % (natom,3,imult,istate,ims,jmult,jstate,jms)
                 string += "%i %i ! m1 %i s1 %i ms1 %i   m2 %i s2 %i ms2 %i\n" % (
                     npc,
                     3,
@@ -847,7 +844,6 @@ class QMout:
         1 string: multiline string with the SOC matrix"""
 
         prop0d = self.prop0d
-        # print(property matrices (flag 20) in new format)
         string = "! %i Property Scalars\n" % (23)
         string += "%i    ! number of property scalars\n" % (len(prop0d))
 
@@ -878,7 +874,6 @@ class QMout:
 
         prop1d = self.prop1d
         nmstates = self.nmstates
-        # print(property matrices (flag 20) in new format)
         string = "! %i Property Vectors\n" % (21)
         string += "%i    ! number of property vectors\n" % (len(prop1d))
 
@@ -910,7 +905,6 @@ class QMout:
 
         prop2d = self.prop2d
         nmstates = self.nmstates
-        # print(property matrices (flag 20) in new format)
         string = "! %i Property Matrices\n" % (20)
         string += "%i    ! number of property matrices\n" % (len(prop2d))
 
@@ -1018,6 +1012,9 @@ class QMout:
     # ======================================================================= #
 
     def printQMout(self, QMin, DEBUG=False):
+        print(self.formatQMout(self, QMin, DEBUG=False))
+
+    def formatQMout(self, QMin, DEBUG=False):
         """If PRINT, prints a summary of all requested QM output values.
         Matrices are formatted using printcomplexmatrix, vectors using printgrad.
         """
@@ -1025,29 +1022,31 @@ class QMout:
         states = QMin.molecule["states"]
         nmstates = QMin.molecule["nmstates"]
         natom = QMin.molecule["natom"]
-        print("===> Results:\n")
+
+        string = ''
+        string += "===> Results:\n"
         # Hamiltonian matrix, real or complex
         if QMin.requests["h"] or QMin.requests["soc"]:
             eshift = math.ceil(self["h"][0][0].real)
-            print("=> Hamiltonian Matrix:\nDiagonal Shift: %9.2f" % (eshift))
+            string += "=> Hamiltonian Matrix:\nDiagonal Shift: %9.2f" % (eshift)
             matrix = deepcopy(self["h"])
             for i in range(nmstates):
                 matrix[i][i] -= eshift
-            printcomplexmatrix(matrix, states)
+            string += formatcomplexmatrix(matrix, states)
         # Dipole moment matrices
         if QMin.requests["dm"]:
-            print("=> Dipole Moment Matrices:\n")
+            string += "=> Dipole Moment Matrices:\n"
             for xyz in range(3):
-                print("Polarisation %s:" % (IToPol[xyz]))
+                string += "Polarisation %s:" % (IToPol[xyz])
                 matrix = self["dm"][xyz]
-                printcomplexmatrix(matrix, states)
+                string += formatcomplexmatrix(matrix, states)
         # Gradients
         if QMin.requests["grad"]:
-            print("=> Gradient Vectors:\n")
+            string += "=> Gradient Vectors:\n"
             istate = 0
             for imult, i, ms in itnmstates(states):
-                print("%s\t%i\tMs= % .1f:" % (IToMult[imult], i, ms))
-                printgrad(
+                string += "%s\t%i\tMs= % .1f:" % (IToMult[imult], i, ms)
+                string += formatgrad(
                     self["grad"][istate],
                     natom,
                     QMin.molecule["elements"],
@@ -1056,98 +1055,83 @@ class QMout:
                 istate += 1
         # Nonadiabatic coupling vectors
         if QMin.requests["nacdr"]:
-            print("=> Nonadiabatic Coupling Vectors:\n")
+            string += "=> Nonadiabatic Coupling Vectors:\n"
             istate = 0
             for imult, i, ims in itnmstates(states):
                 jstate = 0
                 for jmult, j, jms in itnmstates(states):
                     if imult == jmult and ims == jms:
-                        print(
-                            "%s\t%i\tMs= % .1f -- %s\t%i\tMs= % .1f:"
-                            % (IToMult[imult], i, ims, IToMult[jmult], j, jms)
-                        )
-                        printgrad(self["nacdr"][istate][jstate], natom, QMin.molecule["elements"], DEBUG)
+                        string += "%s\t%i\tMs= % .1f -- %s\t%i\tMs= % .1f:" % (IToMult[imult], i, ims, IToMult[jmult], j, jms)
+                        string += formatgrad(self["nacdr"][istate][jstate], natom, QMin.molecule["elements"], DEBUG)
                     jstate += 1
                 istate += 1
         # Overlaps
         if QMin.requests["overlap"]:
-            print("=> Overlap matrix:\n")
+            string += "=> Overlap matrix:\n"
             matrix = self["overlap"]
-            printcomplexmatrix(matrix, states)
+            string += formatcomplexmatrix(matrix, states)
             if QMin.requests["phases"]:
-                print("=> Wavefunction Phases:\n")
+                string += "=> Wavefunction Phases:\n"
                 for i in range(nmstates):
-                    print(
-                        "% 3.1f % 3.1f"
-                        % (self["phases"][i].real, self["phases"][i].imag)
-                    )
-                print("\n")
+                    string += "% 3.1f % 3.1f" % (self["phases"][i].real, self["phases"][i].imag)
+                string += "\n"
         # Spin-orbit coupling derivatives
         if QMin.requests["socdr"]:
-            print("=> Spin-Orbit Gradient Vectors:\n")
+            string += "=> Spin-Orbit Gradient Vectors:\n"
             istate = 0
             for imult, i, ims in itnmstates(states):
                 jstate = 0
                 for jmult, j, jms in itnmstates(states):
-                    print(
-                        "%s\t%i\tMs= % .1f -- %s\t%i\tMs= % .1f:"
-                        % (IToMult[imult], i, ims, IToMult[jmult], j, jms)
-                    )
-                    printgrad(self["socdr"][istate][jstate], natom, QMin.molecule["elements"], DEBUG)
+                    string += "%s\t%i\tMs= % .1f -- %s\t%i\tMs= % .1f:" % (IToMult[imult], i, ims, IToMult[jmult], j, jms)
+                    string += formatgrad(self["socdr"][istate][jstate], natom, QMin.molecule["elements"], DEBUG)
                     jstate += 1
                 istate += 1
         # Dipole moment derivatives
         if QMin.requests["dmdr"]:
-            print("=> Dipole moment derivative vectors:\n")
+            string += "=> Dipole moment derivative vectors:\n"
             istate = 0
             for imult, i, msi in itnmstates(states):
                 jstate = 0
                 for jmult, j, msj in itnmstates(states):
                     if imult == jmult and msi == msj:
                         for ipol in range(3):
-                            print(
-                                "%s\tStates %i - %i\tMs= % .1f\tPolarization %s:"
-                                % (IToMult[imult], i, j, msi, IToPol[ipol])
-                            )
-                            printgrad(
+                            string += "%s\tStates %i - %i\tMs= % .1f\tPolarization %s:" % (IToMult[imult], i, j, msi, IToPol[ipol])
+                            string += formatgrad(
                                 self["dmdr"][ipol][istate][jstate], natom, QMin.molecule["elements"], DEBUG
                             )
                     jstate += 1
                 istate += 1
         # Property matrices
         if self["prop2d"]:
-            print("=> Property matrices:\n")
+            string += "=> Property matrices:\n"
             for element in self["prop2d"]:
-                print(f'Matrix with label "{element[0]}"')
-                printcomplexmatrix(element[1], states)
+                string += f'Matrix with label "{element[0]}"'
+                string += formatcomplexmatrix(element[1], states)
         # Property vectors
         if self["prop1d"]:
-            print("=> Property vectors:\n")
+            string += "=> Property vectors:\n"
             for element in self["prop1d"]:
-                print(f"{element[0]} {element[1]}")
+                string += f"{element[0]} {element[1]}"
                 # TODO: format more nicely!
         # Property scalars
         if self["prop0d"]:
-            print("=> Property scalars:\n")
+            string += "=> Property scalars:\n"
             for element in self["prop0d"]:
-                print(f"{element[0]} {element[1]}")
+                string += f"{element[0]} {element[1]}"
         # Multipolar fit
         if QMin.requests["multipolar_fit"]:
-            print("=> Multipolar fit:\n")
+            string += "=> Multipolar fit:\n"
             istate = 0
             for imult, i, ims in itnmstates(states):
                 jstate = 0
                 for jmult, j, jms in itnmstates(states):
                     if imult == jmult and ims == jms:
-                        print(
-                            "%s\t%i\tMs= % .1f -- %s\t%i\tMs= % .1f:"
-                            % (IToMult[imult], i, ims, IToMult[jmult], j, jms)
-                        )
-                        printgrad(self["multipolar_fit"][istate][jstate], natom, QMin.molecule["elements"], DEBUG)
+                        string += "%s\t%i\tMs= % .1f -- %s\t%i\tMs= % .1f:" % (IToMult[imult], i, ims, IToMult[jmult], j, jms)
+                        string += formatgrad(self["multipolar_fit"][istate][jstate], natom, QMin.molecule["elements"], DEBUG)
                     jstate += 1
                 istate += 1
 
-
+        print(string)
         sys.stdout.flush()
 
 
