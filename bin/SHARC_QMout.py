@@ -115,12 +115,23 @@ class SHARC_QMOUT(SHARC_FAST): # TODO: migrate to SHARC_FAST_INTERFACE
             KEYSTROKES=KEYSTROKES,
             autocomplete=True,
         )
-        self.setup_info = os.path.abspath(os.path.expanduser(path))
+        linking = question(
+            "Sym-link the file? (no = copy)?",
+            bool,
+            default = False,
+            KEYSTROKES=KEYSTROKES
+        )
+        self.setup_info = {}
+        self.setup_info["path"] = os.path.abspath(os.path.expanduser(os.path.expandvars(path)))
+        self.setup_info["link"] = linking
         return INFOS
 
     def prepare(self, INFOS: dict, dir: str) -> None:
         "setup the folders"
-        shutil.copy(self.setup_info,os.path.join(dir,'QMout.template'))
+        if self.setup_info["link"]:
+            os.symlink(self.setup_info["path"],os.path.join(dir,'QMout.template'))
+        else:
+            shutil.copy(self.setup_info["path"],os.path.join(dir,'QMout.template'))
 
     @staticmethod
     def name() -> str:
@@ -136,9 +147,6 @@ class SHARC_QMOUT(SHARC_FAST): # TODO: migrate to SHARC_FAST_INTERFACE
 
     def create_restart_files(self):
         pass
-
-    def print_qmin(self) -> None:
-        print(self.QMin)
 
     def getQMout(self) -> Dict[str, np.ndarray]:
         """
