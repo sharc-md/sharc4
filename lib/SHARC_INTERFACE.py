@@ -113,7 +113,7 @@ class SHARC_INTERFACE(ABC):
             if logfile is None
             else logging.FileHandler(filename=logfile, mode="w", encoding="utf-8")
         )
-        hdlr._name = logname + 'Handler'
+        hdlr._name = logname + "Handler"
         hdlr.setFormatter(CustomFormatter())
 
         self.log.addHandler(hdlr)
@@ -228,7 +228,7 @@ class SHARC_INTERFACE(ABC):
         self.getQMout()
         # backup data if requested
         if self.QMin.requests["backup"]:
-            self.backupdata(self.QMin.requests["backup"])
+            self.backupdata(self.QMin.requests["backup"])  # TODO
         # writes a STEP file in the SAVEDIR (marks this step as succesfull)
         self.write_step_file()
 
@@ -304,12 +304,8 @@ class SHARC_INTERFACE(ABC):
                     "first line must contain the number of atoms!"
                 ) from error
             self.QMin.coords[key] = (
-                << << << < HEAD
-                np.asarray([parse_xyz(x)[1] for x in lines[2: natom + 2]], dtype=float) ==
-                == ===
-                np.asarray([parse_xyz(x)[1] for x in lines[2: natom + 2]], dtype=float) >>
-                >>>> > 4199fad0362739dbc01aadc51ce65c2436a5908e *
-                self.QMin.molecule["factor"]
+                np.asarray([parse_xyz(x)[1] for x in lines[2 : natom + 2]], dtype=float)
+                * self.QMin.molecule["factor"]
             )
         elif isinstance(xyz, (list, np.ndarray)):
             self.QMin.coords[key] = np.asarray(xyz) * self.QMin.molecule["factor"]
@@ -344,7 +340,7 @@ class SHARC_INTERFACE(ABC):
                 'Input file must contain at least:\nnatom\ncomment\ngeometry\nkeyword "states"\nat least one task'
             )
         self.QMin.molecule["elements"] = list(
-            map(lambda x: parse_xyz(x)[0], (qmin_lines[2: natom + 2]))
+            map(lambda x: parse_xyz(x)[0], (qmin_lines[2 : natom + 2]))
         )
         self.QMin.molecule["Atomcharge"] = sum(
             map(lambda x: ATOMCHARGE[x], self.QMin.molecule["elements"])
@@ -359,7 +355,7 @@ class SHARC_INTERFACE(ABC):
             lambda x: not re.match(r"^\s*$", x),
             map(
                 lambda x: re.sub(r"#.*$", "", x),
-                qmin_lines[self.QMin.molecule["natom"] + 2:],
+                qmin_lines[self.QMin.molecule["natom"] + 2 :],
             ),
         )
 
@@ -670,25 +666,27 @@ class SHARC_INTERFACE(ABC):
         self.QMin.requests = QMin().requests
         self.log.debug(f"getting requests {requests} step: {self.QMin.save['step']}")
         # logic for raw tasks object from pysharc interface
-        if 'tasks' in requests and type(requests['tasks']) is str:
-            requests.update({k.lower(): True for k in requests['tasks'].split()})
-            del requests['tasks']
-        for task in ['nacdr', 'overlap', 'grad', 'ion']:
+        if "tasks" in requests and type(requests["tasks"]) is str:
+            requests.update({k.lower(): True for k in requests["tasks"].split()})
+            del requests["tasks"]
+        for task in ["nacdr", "overlap", "grad", "ion"]:
             if task in requests and type(requests[task]) is str:
-                if requests[task] == '':    # removes task from dict if {'task': ''}
+                if requests[task] == "":  # removes task from dict if {'task': ''}
                     del requests[task]
-                elif task == requests[task].lower() or requests[task] == 'all':
-                    requests[task] = [i + 1 for i in range(self.QMin.molecule['nstates'])]
+                elif task == requests[task].lower() or requests[task] == "all":
+                    requests[task] = [
+                        i + 1 for i in range(self.QMin.molecule["nstates"])
+                    ]
                 else:
                     requests[task] = [int(i) for i in requests[task].split()]
 
-        if self.QMin.save['step'] == 0:
-            for r in ['overlap', 'phases']:
+        if self.QMin.save["step"] == 0:
+            for r in ["overlap", "phases"]:
                 if r in requests:
                     requests[r] = False
         self.log.debug(f"setting requests {requests}")
         self.QMin.requests.update(requests)
-        for i in ['init', 'newstep', 'samestep']:
+        for i in ["init", "newstep", "samestep"]:
             self.QMin.save[i] = False
         self._request_logic()
 
