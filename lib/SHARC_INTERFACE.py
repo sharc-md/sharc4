@@ -35,16 +35,16 @@ from io import TextIOWrapper
 # from functools import reduce, singledispatchmethod
 from socket import gethostname
 from textwrap import wrap
-from typing import List, Union
+from typing import Any, Union
 
 import numpy as np
 
 # internal
-from constants import ATOMCHARGE, FROZENS, BOHR_TO_ANG
-from logger import logging, CustomFormatter, SHARCPRINT
+from constants import ATOMCHARGE, BOHR_TO_ANG, FROZENS
+from logger import SHARCPRINT, CustomFormatter, logging
 from qmin import QMin
 from qmout import QMout
-from utils import readfile, writefile, clock, parse_xyz, itnmstates, expand_path
+from utils import clock, expand_path, itnmstates, parse_xyz, readfile, writefile
 
 all_features = {
     "h",
@@ -131,31 +131,49 @@ class SHARC_INTERFACE(ABC):
     @staticmethod
     @abstractmethod
     def authors() -> str:
+        """
+        Return authors of interface
+        """
         return "Severin Polonius, Sebastian Mai"
 
     @staticmethod
     @abstractmethod
     def version() -> str:
+        """
+        Return version of interface
+        """
         return "3.0"
 
     @staticmethod
     @abstractmethod
     def versiondate() -> date:
+        """
+        Return creation date of interface
+        """
         return date(2021, 7, 15)
 
     @staticmethod
     @abstractmethod
     def name() -> str:
+        """
+        Return name of interface
+        """
         return "base"
 
     @staticmethod
     @abstractmethod
     def description() -> str:
+        """
+        Return interface description
+        """
         return "Abstract base class for SHARC interfaces."
 
     @staticmethod
     @abstractmethod
     def changelogstring() -> str:
+        """
+        Return changelog of interface
+        """
         return "This is the changelog string"
 
     @abstractmethod
@@ -180,18 +198,22 @@ class SHARC_INTERFACE(ABC):
         return INFOS
 
     @abstractmethod
-    def prepare(self, INFOS: dict, dir: str):
+    def prepare(self, INFOS: dict, dir_path: str):
         "setup the calculation in directory 'dir'"
         return
 
     def print_qmin(self) -> None:
+        """
+        Print contents of QMin object
+        """
         self.log.info(f"{self.QMin}")
 
-    def main(self):
+    def main(self) -> None:
         """
         main routine for all interfaces.
-        This routine containes all functions that will be accessed when any interface is calculating a single point.
-        All of these functions have to be defined in the derived class if not available in this base class
+        This routine containes all functions that will be accessed when any interface is calculating
+        a single point. All of these functions have to be defined in the derived class if not
+        available in this base class.
         """
 
         args = sys.argv
@@ -263,7 +285,7 @@ class SHARC_INTERFACE(ABC):
                     if len(param) == 1:
                         self.QMin.template[param[0]] = True
                     elif len(param) == 2:
-                        if param[0] in self.QMin.template.types.keys():
+                        if param[0] in self.QMin.template.types:
                             self.QMin.template.types[param[0]](param[1])
                         else:
                             self.QMin.template[param[0]] = param[1]
@@ -273,22 +295,30 @@ class SHARC_INTERFACE(ABC):
         self._read_template = True
 
     @abstractmethod
-    def run(self):
-        pass
+    def run(self) -> None:
+        """
+        Do request & other logic and calculations here
+        """
 
     @abstractmethod
-    def setup_interface(self):
-        pass
+    def setup_interface(self) -> None:
+        """
+        Prepare the interface for calculations
+        """
 
     @abstractmethod
-    def getQMout(self):
-        pass
+    def getQMout(self) -> dict[str, np.ndarray]:
+        """
+        Return QMout object
+        """
 
     @abstractmethod
-    def create_restart_files(self):
-        pass
+    def create_restart_files(self) -> None:
+        """
+        Create restart files
+        """
 
-    def set_coords(self, xyz: Union[str, List, np.ndarray], pc: bool = False) -> None:
+    def set_coords(self, xyz: Union[str, list, np.ndarray], pc: bool = False) -> None:
         """
         Sets coordinates, qmmm and pccharge from file or list/array
         xyz: path to xyz file or list/array with coords
@@ -333,12 +363,9 @@ class SHARC_INTERFACE(ABC):
 
         try:
             natom = int(qmin_lines[0])
-        except ValueError as e:
-            raise ValueError("first line must contain the number of atoms!") from e
-        if len(qmin_lines) < natom + 4:
-            raise RuntimeError(
-                'Input file must contain at least:\nnatom\ncomment\ngeometry\nkeyword "states"\nat least one task'
-            )
+        except ValueError as err:
+            raise ValueError("first line must contain the number of atoms!") from err
+
         self.QMin.molecule["elements"] = list(
             map(lambda x: parse_xyz(x)[0], (qmin_lines[2 : natom + 2]))
         )
@@ -420,21 +447,31 @@ class SHARC_INTERFACE(ABC):
             self.log.warning('No "unit" specified in QMin! Assuming Bohr')
             self.QMin.molecule["unit"] = "bohr"
 
+        if not all(self.QMin.molecule.values()):
+            raise ValueError(
+                """Input file must contain at least:
+                natom
+                comment
+                geometry
+                keyword "states"
+                at least one task"""
+            )
+
         self._setup_mol = True
 
         self.log.debug("Setup successful.")
 
-    def parseStates(self, states: str) -> dict:
+    def parseStates(self, states: str) -> dict[str, Any]:
         """
         Setup states, statemap and everything related
         """
         res = {}
         try:
             res["states"] = list(map(int, states.split()))
-        except (ValueError, IndexError) as e:
+        except (ValueError, IndexError) as err:
             raise ValueError(
                 'Keyword "states" has to be followed by integers!', 37
-            ) from e
+            ) from err
         reduc = 0
         for i in reversed(res["states"]):
             if i == 0:
@@ -456,7 +493,9 @@ class SHARC_INTERFACE(ABC):
         }
 
     @abstractmethod
-    def read_resources(self, resources_file: str, kw_whitelist: list = []) -> None:
+    def read_resources(
+        self, resources_file: str, kw_whitelist: list[str] = None
+    ) -> None:
         """
         Reads a resource file and assigns parameters to
         self.QMin.resources. Parameters are only checked by type (if available),
@@ -472,7 +511,7 @@ class SHARC_INTERFACE(ABC):
 
         if not self._setup_mol:
             raise RuntimeError(
-                "Interface is not set up for this template. Call setup_mol with the QM.in file first!"
+                "Interface is not set up for this template. Call setup_mol first!"
             )
 
         if self._read_resources:
@@ -482,11 +521,11 @@ class SHARC_INTERFACE(ABC):
 
         # Set ncpu from env variables, gets overwritten if in resources
         priority_order = ["SLURM_NTASKS_PER_NODE", " NSLOTS"]
-        for pr in priority_order:
-            if pr in os.environ:
-                self.QMin.resources["ncpu"] = max(1, int(os.environ[pr]))
+        for prio in priority_order:
+            if prio in os.environ:
+                self.QMin.resources["ncpu"] = max(1, int(os.environ[prio]))
                 self.log.info(
-                    f'Found env variable ncpu={os.environ[pr]}, resources["ncpu"] set to {self.QMin.resources["ncpu"]}',
+                    f'Found env variable ncpu={os.environ[prio]}, resources["ncpu"] set to {self.QMin.resources["ncpu"]}',
                 )
                 break
 
@@ -657,20 +696,21 @@ class SHARC_INTERFACE(ABC):
             self.QMin.save["newstep"] = True
         else:
             self.log.error(
-                f'Determined last step ({last_step}) from savedir and specified step ({self.QMin.save["step"]}) do not fit!\nPrepare your savedir and "STEP" file accordingly before starting again or choose "step -1" if you want to proceed from last successful step!'
+                f"""Determined last step ({last_step}) from savedir and specified step ({self.QMin.save["step"]}) do not fit!
+                Prepare your savedir and "STEP" file accordingly before starting again or choose "step -1" if you want to proceed from last successful step!"""
             )
             raise RuntimeError()
 
-    def _set_driver_requests(self, requests: dict):
+    def _set_driver_requests(self, requests: dict) -> None:
         # delete all old requests
         self.QMin.requests = QMin().requests
         self.log.debug(f"getting requests {requests} step: {self.QMin.save['step']}")
         # logic for raw tasks object from pysharc interface
-        if "tasks" in requests and type(requests["tasks"]) is str:
+        if "tasks" in requests and isinstance(requests["tasks"], str):
             requests.update({k.lower(): True for k in requests["tasks"].split()})
             del requests["tasks"]
         for task in ["nacdr", "overlap", "grad", "ion"]:
-            if task in requests and type(requests[task]) is str:
+            if task in requests and isinstance(requests["tasks"], str):
                 if requests[task] == "":  # removes task from dict if {'task': ''}
                     del requests[task]
                 elif task == requests[task].lower() or requests[task] == "all":
@@ -681,16 +721,16 @@ class SHARC_INTERFACE(ABC):
                     requests[task] = [int(i) for i in requests[task].split()]
 
         if self.QMin.save["step"] == 0:
-            for r in ["overlap", "phases"]:
-                if r in requests:
-                    requests[r] = False
+            for req in ["overlap", "phases"]:
+                if req in requests:
+                    requests[req] = False
         self.log.debug(f"setting requests {requests}")
         self.QMin.requests.update(requests)
         for i in ["init", "newstep", "samestep"]:
             self.QMin.save[i] = False
         self._request_logic()
 
-    def _set_requests(self, request: list) -> None:
+    def _set_requests(self, request: list[str]) -> None:
         """
         Setup requests and do basic sanity checks
         """
@@ -759,9 +799,7 @@ class SHARC_INTERFACE(ABC):
             outfilename = filename + ".out"
         else:
             outfilename = filename[:k] + ".out"
-        self.log.info(
-            "===> Writing output to file %s in SHARC Format\n" % (outfilename)
-        )
+        self.log.info(f"===> Writing output to file {outfilename} in SHARC Format\n")
         self.QMout.write(outfilename, self.QMin.requests)
 
     def formatQMout(self) -> str:
@@ -778,7 +816,7 @@ class SHARC_INTERFACE(ABC):
 
     # ============================PRINTING ROUTINES========================== #
 
-    def printheader(self):
+    def printheader(self) -> None:
         """Prints the formatted header of the log file. Prints version number and version date
         Takes nothing, returns nothing."""
 
