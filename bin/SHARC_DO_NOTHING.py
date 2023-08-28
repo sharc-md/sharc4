@@ -80,8 +80,8 @@ class SHARC_DO_NOTHING(SHARC_FAST):
     _description = DESCRIPTION
     _step = 0
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self._read_template = False
         self._read_resources = False
         self._setup_mol = False
