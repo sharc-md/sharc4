@@ -1,13 +1,20 @@
 import os
 from collections import UserDict
+
 import numpy as np
 
 __all__ = ["QMin"]
+
 
 class QMinBase(UserDict):
     """
     Base class for custom dictionary used in QMin
     """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.data = {}
+        self.types = {}
 
     def __setitem__(self, key, value):
         # Check if new values has the correct type (if available)
@@ -21,7 +28,7 @@ class QMinBase(UserDict):
         return self.data[key]
 
     def __str__(self) -> str:
-        return "".join("{}: {}\n".format(k, v) for k, v in self.data.items())
+        return "".join(f"{k}: {v}\n" for k, v in self.data.items())
 
 
 class QMinMolecule(QMinBase):
@@ -43,7 +50,8 @@ class QMinMolecule(QMinBase):
 
     """
 
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         # Set data dictionary and dictionary of default types
         self.data = {
             "comment": None,
@@ -82,14 +90,19 @@ class QMinCoords(QMinBase):
     Custom dictionary for the coords section
 
         "coords": (np.ndarray, list),
-        "pccoords": (np.ndarray, list), 
+        "pccoords": (np.ndarray, list),
         "pccharge": (np.ndarray, list)
     """
 
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         # Set data dictionary and dictionary of default types
         self.data = {"coords": None, "pccoords": None, "pccharge": None}
-        self.types = {"coords": (np.ndarray, list), "pccoords": (np.ndarray, list), "pccharge": (np.ndarray, list)}
+        self.types = {
+            "coords": (np.ndarray, list),
+            "pccoords": (np.ndarray, list),
+            "pccharge": (np.ndarray, list),
+        }
 
 
 class QMinSave(QMinBase):
@@ -106,7 +119,8 @@ class QMinSave(QMinBase):
         "always_orb_init": bool,
     """
 
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         # Set data dictionary and dictionary of default types
         self.data = {
             "savedir": os.path.join(os.getcwd(), "SAVE"),
@@ -115,12 +129,10 @@ class QMinSave(QMinBase):
             "init": False,
             "newstep": False,
             "samestep": False,
-            # "restart": False,
             # Ab initio interfaces
             "always_guess": False,
             "always_orb_init": False,
         }
-        # TODO: lookup missing types
         self.types = {
             "savedir": str,
             "step": int,
@@ -128,7 +140,6 @@ class QMinSave(QMinBase):
             "init": bool,
             "newstep": bool,
             "samestep": bool,
-            # "restart": bool,
             "always_guess": bool,
             "always_orb_init": bool,
         }
@@ -157,7 +168,8 @@ class QMinRequests(QMinBase):
         "nooverlap": bool,
     """
 
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         # Set data dictionary and dictionary of default types
         self.data = {
             "h": False,
@@ -215,7 +227,8 @@ class QMinMaps(QMinBase):
         "multmap": dict,
     """
 
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.data = {
             "statemap": None,
             "mults": None,
@@ -254,7 +267,8 @@ class QMinResources(QMinBase):
         "memory": int,
     """
 
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.data = {
             "pwd": os.getcwd(),
             "cwd": os.getcwd(),
@@ -263,7 +277,6 @@ class QMinResources(QMinBase):
             "ngpu": None,
             "memory": 100,
         }
-        # TODO: lookup missing types
         self.types = {
             "pwd": str,
             "cwd": str,
@@ -272,20 +285,6 @@ class QMinResources(QMinBase):
             "ngpu": int,
             "memory": int,
         }
-
-
-class QMinTemplate(QMinBase):
-    """
-    Custom dictionary for the template section
-    """
-
-    def __init__(self):
-        """
-        Just read anything from template file and process it in
-        the interface?
-        """
-        self.data = {}
-        self.types = {}
 
 
 class QMinControl(QMinBase):
@@ -300,7 +299,8 @@ class QMinControl(QMinBase):
         "states_to_do": list,
     """
 
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.data = {
             "jobid": None,
             "workdir": None,
@@ -318,40 +318,20 @@ class QMinControl(QMinBase):
         }
 
 
-class QMinInterface(QMinBase):
-    """
-    Custom dictionary for the interface section
-    """
-
-    def __init__(self):
-        self.data = {}
-        self.types = {}
-
-
-class QMinScheduling(QMinBase):
-    """
-    Custom dictionary for the scheduling section
-    """
-
-    def __init__(self):
-        self.data = {}
-        self.types = {}
-
-
 class QMin:
     """
     The QMin object carries all information relevant to the execution of a SHARC interface.
     """
 
-    interface = QMinInterface()
+    interface = QMinBase()
     molecule = QMinMolecule()
     coords = QMinCoords()
     save = QMinSave()
     requests = QMinRequests()
     maps = QMinMaps()
     resources = QMinResources()
-    template = QMinTemplate()
-    scheduling = QMinScheduling()
+    template = QMinBase()
+    scheduling = QMinBase()
     control = QMinControl()
 
     def __getitem__(self, key):

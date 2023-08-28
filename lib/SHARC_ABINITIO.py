@@ -1,18 +1,17 @@
+import datetime
 import math
 import os
+import subprocess as sp
 import sys
 import time
 from abc import abstractmethod
 from datetime import date
 from io import TextIOWrapper
 from multiprocessing import Pool
-from typing import Dict, List, Tuple
-import subprocess as sp
-import datetime
 
 from qmin import QMin
 from SHARC_INTERFACE import SHARC_INTERFACE
-from utils import containsstring, safe_cast, readfile
+from utils import containsstring, readfile, safe_cast
 
 all_features = {
     "h",
@@ -112,7 +111,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         return INFOS
 
     @abstractmethod
-    def prepare(self, INFOS: dict, dir: str):
+    def prepare(self, INFOS: dict, dir_path: str):
         "setup the calculation in directory 'dir'"
         return
 
@@ -169,11 +168,14 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                         "Charges from template not compatible with multiplicities!  (this is probably OK if you use QM/MM)"
                     )
             else:
-                self.log.error('Length of "charge" does not match length of "states"!')
-                sys.exit(54)
+                raise ValueError(
+                    'Length of "charge" does not match length of "states"!'
+                )
 
     @abstractmethod
-    def read_resources(self, resources_file: str, kw_whitelist: List[str] = []) -> None:
+    def read_resources(
+        self, resources_file: str, kw_whitelist: list[str] = None
+    ) -> None:
         super().read_resources(resources_file, kw_whitelist)
 
     @abstractmethod
@@ -185,11 +187,11 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         super().write_step_file()
 
     @abstractmethod
-    def printQMout(self):
+    def printQMout(self) -> None:
         super().writeQMout()
 
     @abstractmethod
-    def setup_interface(self):
+    def setup_interface(self) -> None:
         """
         Create maps from QMin object
         """
@@ -224,13 +226,13 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             self.log.debug("Building nacmap")
             self.QMin.maps["nacmap"] = set()
             for i in self.QMin.requests["nacdr"]:
-                s1 = self.QMin.maps["statemap"][int(i[0])]
-                s2 = self.QMin.maps["statemap"][int(i[1])]
-                if s1[0] != s2[0] or s1 == s2:
+                state1 = self.QMin.maps["statemap"][int(i[0])]
+                state2 = self.QMin.maps["statemap"][int(i[1])]
+                if state1[0] != state2[0] or state1 == state2:
                     continue
-                if s1[1] > s2[1]:
+                if state1[1] > state2[1]:
                     continue
-                self.QMin.maps["nacmap"].add(tuple(s1 + s2))
+                self.QMin.maps["nacmap"].add(tuple(state1 + state2))
 
         # Setup charge and paddingstates
         if not self.QMin.template["charge"]:
@@ -401,7 +403,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         os.chdir(current_dir)
         return exit_code
 
-    def runjobs(self, schedule: List[Dict[str, QMin]]) -> Dict[int, int]:
+    def runjobs(self, schedule: list[dict[str, QMin]]) -> dict[int, int]:
         """
         Runs all jobs in the schedule in a parallel queue
 
@@ -438,8 +440,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         self.log.info(f"{error_string}")
 
         if any(lambda x: x != 0, error_codes.values()):
-            self.log.error("Some subprocesses did not finish successfully!")
-            sys.exit(101)
+            raise RuntimeError("Some subprocesses did not finish successfully!")
 
         # Create restart files and garbage collection
         self.create_restart_files()
@@ -448,7 +449,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         return error_codes
 
     @staticmethod
-    def divide_slots(ncpu: int, ntasks: int, scaling: float) -> Tuple[int]:
+    def divide_slots(ncpu: int, ntasks: int, scaling: float) -> tuple[int]:
         """
         This routine figures out the optimal distribution of the tasks over the CPU cores
         returns the number of rounds (how many jobs each CPU core will contribute to),
@@ -481,20 +482,20 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         return nrounds, nslots, cpu_per_run
 
     @staticmethod
-    def get_smatel(out: List[str], s1: int, s2: int) -> float:
+    def get_smatel(out: list[str], state1: int, state2: int) -> float:
         ilines = -1
         while True:
             ilines += 1
             if ilines == len(out):
-                raise ValueError("Overlap of states %i - %i not found!" % (s1, s2))
+                raise ValueError(f"Overlap of states {state1} - {state2} not found!")
             if containsstring("Overlap matrix <PsiA_i|PsiB_j>", out[ilines]):
                 break
-        ilines += 1 + s1
-        f = out[ilines].split()
-        return float(f[s2 + 1])
+        ilines += 1 + state1
+        val = out[ilines].split()
+        return float(val[state2 + 1])
 
     @staticmethod
-    def format_ci_vectors(ci_vectors: List[Dict[str, float]]) -> str:
+    def format_ci_vectors(ci_vectors: list[dict[str, float]]) -> str:
         # get nstates, norb and ndets
         alldets = set()
         for dets in ci_vectors:
@@ -504,7 +505,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         nstates = len(ci_vectors)
         norb = len(next(iter(alldets)))
 
-        string = "{} {} {}\n".format(nstates, norb, ndets)
+        string = f"{nstates} {norb} {ndets}\n"
         for det in sorted(alldets, reverse=True):
             for o in det:
                 if o == 0:
@@ -524,7 +525,10 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         return string
 
     @staticmethod
-    def get_theodore(sumfile: str, omffile: str) -> Dict[Tuple[int], List[float]]:
+    def get_theodore(sumfile: str, omffile: str) -> dict[tuple[int], list[float]]:
+        """
+        Read and parse theodore output
+        """
         out = readfile(sumfile)
 
         props = {}
@@ -548,7 +552,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         return props
 
     @abstractmethod
-    def run(self):
+    def run(self) -> None:
         """
         request & other logic
             requestmaps anlegen -> DONE IN SETUP_INTERFACE

@@ -26,7 +26,6 @@
 # IMPORTS
 # external
 import datetime
-from typing import Dict
 import os
 from io import TextIOWrapper
 
@@ -37,13 +36,13 @@ from logger import log as logging
 from SHARC_FAST import SHARC_FAST
 from utils import Error, makecmatrix, question
 
-authors = "Sebastian Mai"
-version = "3.0"
-versiondate = datetime.datetime(2023, 8, 29)
-name = "SHARC Do Nothing Interface"
-description = "Zero energies/gradients/couplings/etc and unity overlap matrices/phases."
+AUTHORS = "Sebastian Mai"
+VERSION = "3.0"
+VERSIONDATE = datetime.datetime(2023, 8, 29)
+NAME = "SHARC Do Nothing Interface"
+DESCRIPTION = "Zero energies/gradients/couplings/etc and unity overlap matrices/phases."
 
-changelogstring = """
+CHANGELOGSTRING = """
 """
 np.set_printoptions(linewidth=400, formatter={"float": lambda x: f"{x: 9.7}"})
 
@@ -61,7 +60,7 @@ all_features = set(
         "theodore",
         "dmdr",
         "socdr",
-        "point_charges"
+        "point_charges",
     ]
 )
 
@@ -73,16 +72,16 @@ class SHARC_DO_NOTHING(SHARC_FAST):
     Do nothing interface
     """
 
-    _version = version
-    _versiondate = versiondate
-    _authors = authors
-    _changelogstring = changelogstring
-    _name = name
-    _description = description
+    _version = VERSION
+    _versiondate = VERSIONDATE
+    _authors = AUTHORS
+    _changelogstring = CHANGELOGSTRING
+    _name = NAME
+    _description = DESCRIPTION
     _step = 0
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self._read_template = False
         self._read_resources = False
         self._setup_mol = False
@@ -119,12 +118,11 @@ class SHARC_DO_NOTHING(SHARC_FAST):
         )
         return INFOS
 
-    def prepare(self, INFOS: dict, dir: str) -> None:
+    def prepare(self, INFOS: dict, dir_path: str) -> None:
         "setup the folders"
-        fpath = os.path.join(dir, "Food")
-        f = open(fpath, 'w', encoding='utf-8')
-        f.write(self.setup_info)
-        f.close()
+        fpath = os.path.join(dir_path, "Food")
+        with open(fpath, "w", encoding="utf-8") as file:
+            file.write(self.setup_info)
 
     @staticmethod
     def name() -> str:
@@ -141,7 +139,7 @@ class SHARC_DO_NOTHING(SHARC_FAST):
     def create_restart_files(self):
         pass
 
-    def getQMout(self) -> Dict[str, np.ndarray]:
+    def getQMout(self) -> dict[str, np.ndarray]:
         """
         Generate QMout for all requested requests
         """
@@ -149,10 +147,10 @@ class SHARC_DO_NOTHING(SHARC_FAST):
 
         # Allocate arrays in QMout
         requests = set()
-        for k, v in self.QMin.requests.items():
-            if v in (None, False, []):
+        for key, val in self.QMin.requests.items():
+            if val in (None, False, []):
                 continue
-            requests.add(k)
+            requests.add(key)
 
         self.QMout.allocate(
             self.QMin.molecule["states"],
