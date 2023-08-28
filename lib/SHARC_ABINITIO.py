@@ -8,6 +8,7 @@ from abc import abstractmethod
 from datetime import date
 from io import TextIOWrapper
 from multiprocessing import Pool
+from typing import Optional
 
 from qmin import QMin
 from SHARC_INTERFACE import SHARC_INTERFACE
@@ -90,7 +91,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         return "Name and description of the interface"
 
     @abstractmethod
-    def get_features(self, KEYSTROKES: TextIOWrapper = None) -> set:
+    def get_features(self, KEYSTROKES: Optional[TextIOWrapper] = None) -> set[str]:
         """return availble features
 
         ---
@@ -100,7 +101,9 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         return all_features
 
     @abstractmethod
-    def get_infos(self, INFOS: dict, KEYSTROKES: TextIOWrapper = None) -> dict:
+    def get_infos(
+        self, INFOS: dict, KEYSTROKES: Optional[TextIOWrapper] = None
+    ) -> dict:
         """prepare INFOS obj
 
         ---
@@ -174,7 +177,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
 
     @abstractmethod
     def read_resources(
-        self, resources_file: str, kw_whitelist: list[str] = None
+        self, resources_file: str, kw_whitelist: Optional[list[str]] = None
     ) -> None:
         super().read_resources(resources_file, kw_whitelist)
 
@@ -359,7 +362,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         Garbage collection after runjobs()
         """
 
-    def run_program(self, workdir: str, cmd: str, out: str, err: str = None) -> int:
+    def run_program(self, workdir: str, cmd: str, out: str, err: Optional[str] = None) -> int:
         """
         Runs a ab-initio programm and returns the exit_code
 
@@ -449,7 +452,9 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         return error_codes
 
     @staticmethod
-    def divide_slots(ncpu: int, ntasks: int, scaling: float) -> tuple[int]:
+    def divide_slots(
+        ncpu: int, ntasks: int, scaling: float
+    ) -> tuple[int, int, list[int]]:
         """
         This routine figures out the optimal distribution of the tasks over the CPU cores
         returns the number of rounds (how many jobs each CPU core will contribute to),
