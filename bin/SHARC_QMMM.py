@@ -28,6 +28,7 @@
 import os
 import datetime
 import numpy as np
+from io import TextIOWrapper
 
 # internal
 from SHARC_HYBRID import SHARC_HYBRID
@@ -46,7 +47,7 @@ changelogstring = '''
 np.set_printoptions(linewidth=400)
 
 
-class QMMM(SHARC_HYBRID):
+class SHARC_QMMM(SHARC_HYBRID):
 
     _version = version
     _versiondate = versiondate
@@ -55,22 +56,26 @@ class QMMM(SHARC_HYBRID):
     _qm_s = 0.3
     _mm_s = 1 - _qm_s
 
-    def description(self):
-        pass
+    @staticmethod
+    def description():
+        return "Hybrid interface for QM/MM"
 
-    def version(self):
+    @staticmethod
+    def version():
         return self._version
 
-    def get_infos(self):
+    @staticmethod
+    def get_infos():
 
         pass
 
-    def name(self) -> str:
+    @staticmethod
+    def name() -> str:
         return "QM/MM"
 
     def prepare(self, INFOS, iconddir):
 
-        QMin = self._QMin
+        QMin = self.QMin
         # obtain the statemap
         QMin.maps.statemap = {
             i + 1: [*v]
@@ -94,8 +99,8 @@ class QMMM(SHARC_HYBRID):
                                   'QM_' + QMin.template['qm-program'].upper())
         if not os.path.isdir(qm_savedir):
             mkdir(qm_savedir)
-        self.qm_interface._QMin.save.savedir = qm_savedir
-        self.qm_interface._QMin.resources.scratchdir = os.path.join(
+        self.qm_interface.QMin.save.savedir = qm_savedir
+        self.qm_interface.QMin.resources.scratchdir = os.path.join(
             QMin.resources.scratchdir,
             'QM_' + QMin.template['qm-program'].upper())
         self.qm_interface.prepare()
@@ -104,29 +109,29 @@ class QMMM(SHARC_HYBRID):
             QMin.save.savedir, 'MML_' + QMin.template['mm-program'].upper())
         if not os.path.isdir(mml_savedir):
             mkdir(mml_savedir)
-        self.mml_interface._QMin.save.savedir = mml_savedir
-        self.mml_interface._QMin.resources.scratchdir = os.path.join(
+        self.mml_interface.QMin.save.savedir = mml_savedir
+        self.mml_interface.QMin.resources.scratchdir = os.path.join(
             QMin.resources.scratchdir,
             'MML_' + QMin.template['mm-program'].upper())
         self.mml_interface.prepare()
+
         if QMin.template['embedding'] == 'subtractive':
-            self.mms_interface = factory(
-                QMin.template['mm-program'])(self._DEBUG, self._PRINT,
-                                             self._persistent)
+            self.mms_interface = factory(QMin.template['mm-program'])(
+                self._DEBUG, self._PRINT, self._persistent)
             mms_name = self.mms_interface.__class__.__name__
             mms_savedir = os.path.join(
                 QMin.save.savedir,
                 'MMS_' + QMin.template['mm-program'].upper())
             if not os.path.isdir(mms_savedir):
                 mkdir(mms_savedir)
-            self.mms_interface._QMin.save.savedir = mms_savedir
-            self.mms_interface._QMin.resources.scratchdir = os.path.join(
+            self.mms_interface.QMin.save.savedir = mms_savedir
+            self.mms_interface.QMin.resources.scratchdir = os.path.join(
                 QMin.resources.scratchdir,
                 'MMS_' + QMin.template['mm-program'].upper())
             self.mms_interface.prepare
 
     def printQMout(self):
-        pass
+        self.super().printQMout()
 
     def print_qmin(self):
         pass
@@ -138,30 +143,50 @@ class QMMM(SHARC_HYBRID):
     def about():
         pass
 
-    def versiondate(self):
+    @staticmethod
+    def versiondate():
         return self._versiondate
 
-    def changelogstring(self):
+    @staticmethod
+    def changelogstring():
         return self._changelogstring
 
-    def authors(self) -> str:
+    @staticmethod
+    def authors() -> str:
         return 'Sebastian Mai, Maximilian Xaver Tiefenbacher and Severin Polonius'
 
     # TODO: update for other embeddings
-    def get_features(self):
+    def get_features(self, KEYSTROKES: TextIOWrapper):
+
         tmp_file = question(
             "Please specify the path to your QMMM.template file",
             str,
+            KEYSTROKES=KEYSTROKES,
             default="QMMM.template")
+        #tmp_file = "QMMM.template"
+
         self.read_template(tmp_file)
+
+        self.qm_interface = factory(self.QMin.template['qm-program'])(
+            self._DEBUG, self._PRINT, self.persistent)
+
+        self.mml_interface = factory(self.QMin.template['mm-program'])(
+            self._DEBUG, self._PRINT, self.persistent)
+        qm_name = self.qm_interface.__class__.__name__
+        mml_name = self.mml_interface.__class__.__name__
+        if self.QMin.template['embedding'] == 'subtractive':
+            self.mms_interface = factory(self.QMin.template['mm-program'])(
+                self._DEBUG, self._PRINT, self.persistent)
         qm_features = self.qm_interface.get_features()
         mm_features = self.mml_interface.get_features()
+
         if "point_charges" in qm_features:
             qm_features.remove("point_charges")
         else:
-            raise Exception(
+            loggin.error(
                 "Your QM interface needs to be able to include point charges in its calculations"
             )
+
         if "grad" in qm_features and "grad" not in mm_features:
             qm_features.remove("grad")
 
@@ -180,7 +205,7 @@ class QMMM(SHARC_HYBRID):
         super().read_requests()
 
     def read_template(self, template_filename="QMMM.template"):
-        QMin = self._QMin
+        QMin = self.QMin
 
         special = {'qmmm_table': ''}
         strings = {
@@ -198,29 +223,34 @@ class QMMM(SHARC_HYBRID):
 
         # check
         allowed_embeddings = ['additive', 'subtractive']
-        if QMin.template['embedding'] not in allowed_embeddings:
+        if self.QMin.template['embedding'] not in allowed_embeddings:
             raise Error(
                 'Chosen embedding "{}" is not available (available: {})'.
-                format(QMin.template['embedding'],
+                format(self.QMin.template['embedding'],
                        ', '.join(allowed_embeddings)))
 
         required: set = {
             'qm-program', 'mm-program', 'qmmm_table', 'mml-dir', 'qm-dir'
         }
-        if QMin.template['embedding'] == 'subtractive':
+        if self.QMin.template['embedding'] == 'subtractive':
             required.add('mms-dir')
 
-        if not required.issubset(QMin.template.keys()):
+        if not required.issubset(self.QMin.template.keys()):
             raise Error(
                 '"{}" not specified in {}'.format(
                     '", "'.join(
-                        filter(lambda x: x not in QMin.template, required)),
-                    template_filename), 78)
+                        filter(lambda x: x not in self.QMin.template,
+                               required)), template_filename), 78)
         # QMin.template['qmmm'] = True  # this is a qmmm interface
+        qmmm_table = []
+        for line in qmmm_table:
+            # split_line = line.split()
+            qmmm_table.append(line.split())
+        self.QMin.template['qmmm_table'] = qmmm_table
 
         self.atoms = [
             ATOM(i, v[0].lower() == 'qm', v[1], [0., 0., 0.], set(v[2:]))
-            for i, v in enumerate(QMin.template['qmmm_table'])
+            for i, v in enumerate(self.QMin.template['qmmm_table'])
         ]
 
         # sanitize mmatoms
@@ -263,136 +293,146 @@ class QMMM(SHARC_HYBRID):
         self._read_resources = True
 
     def setup_interface(self):
-        QMin = self._QMin
+        QMin = self.QMin
         # obtain the statemap
-        QMin.maps.statemap = {
+        self.QMin.maps.statemap = {
             i + 1: [*v]
-            for i, v in enumerate(itnmstates(QMin.molecules.states))
+            for i, v in enumerate(itnmstates(self.QMin.molecules.states))
         }
         # prepare info for both interfaces
-        el = QMin.molecule.elements
+        el = self.QMin.molecule.elements
         n_link = len(self._linkatoms)
         qm_el = [a.symbol for a in self.atoms if a.qm] + ['H'] * n_link
         # setup mol for qm
-        qm_QMin = self.qm_interface._QMin
+        qm_QMin = self.qm_interface.QMin
         qm_QMin.molecule.elements = qm_el
         qm_QMin.molecule.Atomcharge = sum(map(lambda x: ATOMCHARGE[x], qm_el))
         qm_QMin.molecule.frozcore = sum(map(lambda x: FROZENS[x], qm_el))
         qm_QMin.molecule.natom = self._num_qm + n_link
-        qm_QMin.molecules.states = QMin.molecule.states
-        qm_QMin.maps.statemap = QMin.maps.statemap
-        qm_QMin.molecule.nmstates = QMin.molecule.nmstates
-        qm_QMin.molecule.unit = QMin.molecule.unit
+        qm_QMin.molecules.states = self.QMin.molecule.states
+        qm_QMin.maps.statemap = self.QMin.maps.statemap
+        qm_QMin.molecule.nmstates = self.QMin.molecule.nmstates
+        qm_QMin.molecule.unit = self.QMin.molecule.unit
         self.qm_interface._setup_mol = True
 
         # setup mol for mml
-        mml_QMin = self.mml_interface._QMin
+        mml_QMin = self.mml_interface.QMin
         mml_QMin.molecule.elements = el
-        mml_QMin.moleculeAtomcharge = QMin.molecule.Atomcharge
-        mml_QMin.molecule.frozcore = QMin.molecule.frozcore
-        mml_QMin.molecule.natom = QMin.molecule.natom
+        mml_QMin.moleculeAtomcharge = self.QMin.molecule.Atomcharge
+        mml_QMin.molecule.frozcore = self.QMin.molecule.frozcore
+        mml_QMin.molecule.natom = self.QMin.molecule.natom
         mml_QMin.molecules.states = [1]
         mml_QMin.moleculenm.states = 1
-        mml_QMin.molecule.unit = QMin.molecule.unit
+        mml_QMin.molecule.unit = self.QMin.molecule.unit
         self.mml_interface._setup_mol = True
 
+        qm_savedir = os.path.join(
+            self.QMin.save.savedir,
+            'QM_' + self.QMin.template['qm-program'].upper())
         # read template and resources
         # print('-' * 80, f'{"preparing QM INTERFACE (" + qm_name + ")":^80}', '-' * 80, sep='\n')
-        with InDir(QMin.template['qm-dir']) as _:
+        with InDir(self.QMin.template['qm-dir']) as _:
             self.qm_interface.read_resources()
             qm_QMin.save.savedir = qm_savedir  # overwrite savedir
             self.qm_interface.read_template()
             self.qm_interface.setup_interface()
 
+        mml_savedir = os.path.join(
+            self.QMin.save.savedir,
+            'MML_' + self.QMin.template['mm-program'].upper())
         # print('-' * 80, f'{"preparing MM INTERFACE (large system) (" + mml_name + ")":^80}', '-' * 80, sep='\n')
-        with InDir(QMin.template['mml-dir']) as _:
+        with InDir(self.QMin.template['mml-dir']) as _:
             self.mml_interface.read_resources()
             mml_QMin.save.savedir = mml_savedir  # overwrite savedir
             self.mml_interface.read_template()
             self.mml_interface.setup_interface()
         # switch for subtractive
-        if QMin.template['embedding'] == 'subtractive':
-
+        if self.QMin.template['embedding'] == 'subtractive':
+            mms_savedir = os.path.join(
+                self.QMin.save.savedir,
+                'MMS_' + self.QMin.template['mm-program'].upper())
             # setup mol for mms
-            ########## needs revision ###############
-            mms_el = [a.symbol for a in QMin.molecule['atoms'] if a.qm]
+            mms_el = [a.symbol for a in self.QMin.molecule['atoms'] if a.qm]
             mms_el += [
-                QMin.molecule.molecule['atoms'][x[1]].symbol
+                self.QMin.molecule.molecule['atoms'][x[1]].symbol
                 for x in self._linkatoms
             ]  # add symbols of link atoms (original element -> proper bonded terms in MM calc)
-            mms_QMin = self.mms_interface._QMin
+            mms_QMin = self.mms_interface.QMin
             mms_QMin.molecule.elements = mms_el
             mms_QMin.molecule.Atomcharge = sum((ATOMCHARGE[x] for x in mms_el))
             mms_QMin.molecule['frozcore'] = sum((FROZENS[x] for x in mms_el))
             mms_QMin.molecule['natom'] = self._num_qm + n_link
             mms_QMin.molecules.states = [1]
             mms_QMin.molecule['nmstates'] = 1
-            mms_QMin.molecule['unit'] = QMin.molecule['unit']
+            mms_QMin.molecule['unit'] = self.QMin.molecule['unit']
             self.mms_interface._setup_mol = True
 
             # print('-' * 80, f'{"preparing MM INTERFACE (small system) (" + mms_name + ")":^80}', '-' * 80, sep='\n')
             # read template and resources
-            with InDir(QMin.template['mms-dir']) as _:
+            with InDir(self.QMin.template['mms-dir']) as _:
                 self.mms_interface.read_resources()
                 mms_QMin.save.savedir = mms_savedir  # overwrite savedir
                 self.mms_interface.read_template()
                 self.mms_interface.setup_interface()
 
-            self._qm_interface_QMin_backup = deepcopy(self.qm_interface._QMin)
+            self._qm_interface_QMin_backup = deepcopy(self.qm_interface.QMin)
         return
 
     def run(self):
-        QMin = self._QMin
+        QMin = self.QMin
 
         # reset qm_interface_ QMin
-        self.qm_interface._QMin = deepcopy(self._qm_interface_QMin_backup)
+        self.qm_interface.QMin = deepcopy(self._qm_interface_QMin_backup)
         # set coords
         qm_coords = np.array([
-            QMin.coords.data["coords"][self.qm_ids[i]].copy()
+            self.QMin.coords.data["coords"][self.qm_ids[i]].copy()
             for i in range(self._num_qm)
         ])
         if len(self._linkatoms) > 0:
             # get linkatom coords
             def get_link_coord(link: tuple) -> np.ndarray[float]:
                 qm_id, mm_id = link
-                return QMin.coords.data["coords"][
-                    qm_id] * self._qm_s + QMin.coords.data["coords"][
+                return self.QMin.coords.data["coords"][
+                    qm_id] * self._qm_s + self.QMin.coords.data["coords"][
                         mm_id] * self._mm_s
 
             link_coords = np.fromiter(map(get_link_coord, self._linkatoms),
                                       dtype=float,
                                       count=len(self._linkatoms))
-            self.qm_interface._QMin.coords.data['coords'] = np.vstack(
+            self.qm_interface.QMin.coords.data['coords'] = np.vstack(
                 (qm_coords, link_coords))
         else:
-            self.qm_interface._QMin.coords.data['coords'] = qm_coords
+            self.qm_interface.QMin.coords.data['coords'] = qm_coords
 
-        self.mml_interface._QMin.coords.data['coords'] = QMin.coords.data[
+        self.mml_interface.QMin.coords.data['coords'] = self.QMin.coords.data[
             'coords'].copy()
         # setting requests for qm and mm regions based on the QMMM requests
 
-        all_requests = QMin.requests
+        all_requests = self.QMin.requests
         qm_requests = []
         mm_requests = []
 
         for key, value in all_requests.items():
             match key:
-                case "h":
+            # if both interfaces have to compute a property
+                case "h" | "dm" | "multipolar_fit":
                     qm_requests[key] = value
                     mm_requests[key] = value
+                # grad is special since we should always only have one state for the MM regions
                 case "grad":
                     qm_requests[key] = value
                     mm_requests[key] = [1]
+                # for properties, which should only be computed with QM
                 case _:
                     qm_requests[key] = value
                 # TODO: also to MMs: dm, multipolar_fit
 
         self.qm_interface.set_requests(qm_requests)
         self.mml_interface.set_requests(mm_requests)
-        if QMin.template['embedding'] == 'subtractive':
+        if self.QMin.template['embedding'] == 'subtractive':
             self.mms_interface.set_requests(mm_requests)
         #  for i in filter(lambda x: x in QMin, possible):
-        #  self.qm_interface._QMin[i] = QMin[i]
+        #  self.qm_interface.QMin[i] = QMin[i]
         #  self.qm_interface._request_logic()
         #  self.qm_interface._step_logic()
         ############# update request logic ################
@@ -401,14 +441,14 @@ class QMMM(SHARC_HYBRID):
         #  possible = ['cleanup', 'backup', 'h', 'dm', 'step']
         #  for i in filter(lambda x: x in QMin, possible):
         #  if 'dm' in QMin:
-        #  self.mml_interface._QMin['dm'] = [1]
-        #  self.mml_interface._QMin['multipolar_fit'] = True
+        #  self.mml_interface.QMin['dm'] = [1]
+        #  self.mml_interface.QMin['multipolar_fit'] = True
 
         #  self.mml_interface._request_logic()
 
         # calc mm
         # print('-' * 80, f'{"running MM INTERFACE (large system)":^80}', '-' * 80, sep='\n')
-        with InDir(QMin.template['mml-dir']) as _:
+        with InDir(self.QMin.template['mml-dir']) as _:
             self.mml_interface.run()
             self.mml_interface.getQMout()
             # is analogous to the density fit from QM interfaces -> generated upon same request
@@ -429,20 +469,20 @@ class QMMM(SHARC_HYBRID):
                        for i in self.mm_ids
                        if i not in self.mm_links]  # shallow copy
 
-        if QMin.template['embedding'] == 'subtractive':
+        if self.QMin.template['embedding'] == 'subtractive':
             # print('-' * 80, f'{"running MM INTERFACE (small system)":^80}', '-' * 80, sep='\n')
-            self.mms_interface._QMin['coords'] = qm_coords
-            with InDir(QMin.template['mms-dir']) as _:
+            self.mms_interface.QMin['coords'] = qm_coords
+            with InDir(self.QMin.template['mms-dir']) as _:
                 self.mms_interface.run()
                 self.mms_interface.getQMout()
 
         # calc qm
         # print('-' * 80, f'{"running QM INTERFACE":^80}', '-' * 80, sep='\n')
         # pc: list[list[float]] = each pc is x, y, z, qpc[p[mmid][1]][3] = 0.  # set the charge of the mm atom to zero
-        self.qm_interface._QMin['point_charges'] = self._pc_mm
+        self.qm_interface.QMin['point_charges'] = self._pc_mm
         # TODO indicator to include pointcharges?
 
-        with InDir(QMin.template['qm-dir']) as _:
+        with InDir(self.QMin.template['qm-dir']) as _:
             self.qm_interface.run()
             self.qm_interface.getQMout()
             self.qm_interface.write_step_file()
@@ -455,7 +495,7 @@ class QMMM(SHARC_HYBRID):
     def getQMout(self):
         # s1 = time.perf_counter_ns()
         qm_QMout = self.qm_interface._QMout
-        QMin = self._QMin
+        QMin = self.QMin
         QMout = self._QMout
 
         def add_to_xyz(xyz1, xyz2, fac=1.):
@@ -560,14 +600,13 @@ class QMMM(SHARC_HYBRID):
     def create_restart_files(self):
         self.qm_interface.create_restart_files()
         self.mml_interface.create_restart_files()
-        if self._QMin.template['embedding'] == 'subtractive':
+        if self.QMin.template['embedding'] == 'subtractive':
             self.mml_interface.create_restart_files()
 
 
 if __name__ == "__main__":
     try:
-        #qmmm = QMMM(DEBUG, PRINT)
-        qmmm = QMMM()
+        qmmm = SHARC_QMMM(DEBUG, PRINT)
         qmmm.main()
     except KeyboardInterrupt:
         print("\nCTRL+C makes me a sad SHARC ;-(")
