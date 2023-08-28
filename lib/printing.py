@@ -68,7 +68,7 @@ def formatcomplexmatrix(matrix, states):
 # ======================================================================= #
 
 def printgrad(grad, natom, elements, DEBUG=False):
-    print(formatgrad(grad, natom, elements, DEBUG=False))
+    print(formatgrad(grad, natom, elements, DEBUG=DEBUG))
 
 def formatgrad(grad, natom, elements, DEBUG=False):
     '''Prints a gradient or nac vector. Also prints the atom elements. If the gradient is identical zero, just prints one line.
