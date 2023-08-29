@@ -42,8 +42,7 @@ from constants import ATOMCHARGE, BOHR_TO_ANG, FROZENS
 from logger import SHARCPRINT, CustomFormatter, logging
 from qmin import QMin
 from qmout import QMout
-from utils import (clock, expand_path, itnmstates, parse_xyz, readfile,
-                   writefile)
+from utils import clock, expand_path, itnmstates, parse_xyz, readfile, writefile
 
 all_features = {
     "h",
@@ -581,9 +580,16 @@ class SHARC_INTERFACE(ABC):
                         ):
                             self.log.debug(f"Extend white listed parameter {param[0]}")
                             self.QMin.resources[param[0]].extend(list(param[1:]))
-                        else:
+                            continue
+
+                        if (
+                            param[0] in self.QMin.resources.keys()
+                            and self.QMin.resources[param[0]]
+                        ):
                             self.log.warning(f"Parameter list {param} overwritten!")
                             self.QMin.resources[param[0]] = list(param[1:])
+                        self.QMin.resources[param[0]] = list(param[1:])
+
         self._read_resources = True
 
     def read_requests(self, requests_file: str = "QM.in") -> None:
