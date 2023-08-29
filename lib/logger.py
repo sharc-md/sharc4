@@ -7,7 +7,7 @@ SHARCPRINT = 11
 
 class CustomFormatter(logging.Formatter):
     err_fmt = "ERROR: %(message)s"
-    dbg_fmt = "DEBUG: %(message)s"
+    dbg_fmt = "DEBUG: [%(filename)s:%(funcName)s():%(lineno)s]%(message)s"
     info_fmt = "%(message)s"
     warn_fmt = "WARNING: %(message)s"
 
