@@ -103,7 +103,7 @@ class SHARC_INTERFACE(ABC):
         self._read_resources = False
         self._setsave = False
 
-        logname = self.name() if logname is None else logname
+        logname = self.name() if not logname else logname
         self.log = logging.getLogger(logname)
         self.log.propagate = False
         self.log.handlers = []
