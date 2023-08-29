@@ -65,10 +65,13 @@ class SHARC_QMMM(SHARC_HYBRID):
     def version():
         return SHARC_QMMM._version
 
-    @staticmethod
-    def get_infos():
+    def get_infos(self, INFOS, KEYSTROKES:[TextIOWrapper] = None) -> dict:
+        self.qm_interface.get_infos(INFOS, KEYSTROKES = KEYSTROKES)
+        self.mml_interface.get_infos(INFOS, KEYSTROKES = KEYSTROKES)
+        if self.QMin.template['embedding'] == 'subtractive':
+            self.mms_interface.get_infos(INFOS, KEYSTROKES = KEYSTROKES)
 
-        pass
+        return INFOS
 
     @staticmethod
     def name() -> str:
@@ -169,15 +172,15 @@ class SHARC_QMMM(SHARC_HYBRID):
         self.read_template(tmp_file)
 
         self.qm_interface = factory(self.QMin.template['qm-program'])(
-            self._DEBUG, self._PRINT, self.persistent)
+            persistent = self.persistent)
 
         self.mml_interface = factory(self.QMin.template['mm-program'])(
-            self._DEBUG, self._PRINT, self.persistent)
+            persistent = self.persistent)
         qm_name = self.qm_interface.__class__.__name__
         mml_name = self.mml_interface.__class__.__name__
         if self.QMin.template['embedding'] == 'subtractive':
             self.mms_interface = factory(self.QMin.template['mm-program'])(
-                self._DEBUG, self._PRINT, self.persistent)
+                persistent = self.persistent)
         qm_features = self.qm_interface.get_features()
         mm_features = self.mml_interface.get_features()
 
@@ -193,8 +196,9 @@ class SHARC_QMMM(SHARC_HYBRID):
 
         if "h" in qm_features and "h" not in mm_features:
             qm_features.remove("h")
+        print(qm_features)
 
-        return qm_features
+        return set(qm_features)
 
     def _step_logic(self):
         super()._step_logic()
