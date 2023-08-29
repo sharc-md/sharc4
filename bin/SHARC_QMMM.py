@@ -23,21 +23,22 @@
 #
 # ******************************************
 
+
 # IMPORTS
 # external
-import os
 import datetime
-import numpy as np
+import os
+from copy import deepcopy
 from io import TextIOWrapper
+import numpy as np
 
 # internal
-from SHARC_HYBRID import SHARC_HYBRID
-from factory import factory
-from utils import ATOM, mkdir, readfile, InDir, itnmstates, question
-from error import Error
-from globals import DEBUG, PRINT
 from constants import ATOMCHARGE, FROZENS
-from copy import deepcopy
+from error import Error
+from factory import factory
+from globals import DEBUG, PRINT
+from SHARC_HYBRID import SHARC_HYBRID
+from utils import ATOM, InDir, itnmstates, mkdir, question
 
 version = '3.0'
 versiondate = datetime.datetime(2023, 8, 24)
@@ -62,7 +63,7 @@ class SHARC_QMMM(SHARC_HYBRID):
 
     @staticmethod
     def version():
-        return self._version
+        return SHARC_QMMM._version
 
     @staticmethod
     def get_infos():
@@ -79,7 +80,7 @@ class SHARC_QMMM(SHARC_HYBRID):
         # obtain the statemap
         QMin.maps.statemap = {
             i + 1: [*v]
-            for i, v in enumerate(itnmstates(QMin.molecules.states))
+            for i, v in enumerate(itnmstates(QMin.molecule.states))
         }
         if 'savedir' not in QMin:
             print(
@@ -88,10 +89,10 @@ class SHARC_QMMM(SHARC_HYBRID):
             QMin.save.savedir = os.getcwd()
         # dynamic import of both interfaces
         self.qm_interface = factory(QMin.template['qm-program'])(
-            self._DEBUG, self._PRINT, self._persistent)
+            persistent = self._persistent)
 
         self.mml_interface = factory(QMin.template['mm-program'])(
-            self._DEBUG, self._PRINT, self._persistent)
+            persistent = self._persistent)
         qm_name = self.qm_interface.__class__.__name__
         mml_name = self.mml_interface.__class__.__name__
         # folder setup and savedir
@@ -117,7 +118,7 @@ class SHARC_QMMM(SHARC_HYBRID):
 
         if QMin.template['embedding'] == 'subtractive':
             self.mms_interface = factory(QMin.template['mm-program'])(
-                self._DEBUG, self._PRINT, self._persistent)
+                persistent = self._persistent)
             mms_name = self.mms_interface.__class__.__name__
             mms_savedir = os.path.join(
                 QMin.save.savedir,
@@ -145,11 +146,11 @@ class SHARC_QMMM(SHARC_HYBRID):
 
     @staticmethod
     def versiondate():
-        return self._versiondate
+        return SHARC_QMMM._versiondate
 
     @staticmethod
     def changelogstring():
-        return self._changelogstring
+        return SHARC_QMMM._changelogstring
 
     @staticmethod
     def authors() -> str:
@@ -297,7 +298,7 @@ class SHARC_QMMM(SHARC_HYBRID):
         # obtain the statemap
         self.QMin.maps.statemap = {
             i + 1: [*v]
-            for i, v in enumerate(itnmstates(self.QMin.molecules.states))
+            for i, v in enumerate(itnmstates(self.QMin.molecule.states))
         }
         # prepare info for both interfaces
         el = self.QMin.molecule.elements
@@ -309,7 +310,7 @@ class SHARC_QMMM(SHARC_HYBRID):
         qm_QMin.molecule.Atomcharge = sum(map(lambda x: ATOMCHARGE[x], qm_el))
         qm_QMin.molecule.frozcore = sum(map(lambda x: FROZENS[x], qm_el))
         qm_QMin.molecule.natom = self._num_qm + n_link
-        qm_QMin.molecules.states = self.QMin.molecule.states
+        qm_QMin.molecule.states = self.QMin.molecule.states
         qm_QMin.maps.statemap = self.QMin.maps.statemap
         qm_QMin.molecule.nmstates = self.QMin.molecule.nmstates
         qm_QMin.molecule.unit = self.QMin.molecule.unit
@@ -321,7 +322,7 @@ class SHARC_QMMM(SHARC_HYBRID):
         mml_QMin.moleculeAtomcharge = self.QMin.molecule.Atomcharge
         mml_QMin.molecule.frozcore = self.QMin.molecule.frozcore
         mml_QMin.molecule.natom = self.QMin.molecule.natom
-        mml_QMin.molecules.states = [1]
+        mml_QMin.molecule.states = [1]
         mml_QMin.moleculenm.states = 1
         mml_QMin.molecule.unit = self.QMin.molecule.unit
         self.mml_interface._setup_mol = True
@@ -362,7 +363,7 @@ class SHARC_QMMM(SHARC_HYBRID):
             mms_QMin.molecule.Atomcharge = sum((ATOMCHARGE[x] for x in mms_el))
             mms_QMin.molecule['frozcore'] = sum((FROZENS[x] for x in mms_el))
             mms_QMin.molecule['natom'] = self._num_qm + n_link
-            mms_QMin.molecules.states = [1]
+            mms_QMin.molecule.states = [1]
             mms_QMin.molecule['nmstates'] = 1
             mms_QMin.molecule['unit'] = self.QMin.molecule['unit']
             self.mms_interface._setup_mol = True
