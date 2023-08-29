@@ -6,10 +6,10 @@ SHARCPRINT = 11
 
 
 class CustomFormatter(logging.Formatter):
-    err_fmt = "ERROR: %(msg)s"
-    dbg_fmt = "DEBUG: %(msg)s"
-    info_fmt = "%(msg)s"
-    warn_fmt = "WARNING: %(msg)s"
+    err_fmt = "ERROR: %(message)s"
+    dbg_fmt = "DEBUG: %(message)s"
+    info_fmt = "%(message)s"
+    warn_fmt = "WARNING: %(message)s"
 
     def format(self, record):
         # Replace the original format with one customized by logging level
