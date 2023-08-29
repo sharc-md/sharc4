@@ -35,7 +35,7 @@ from io import TextIOWrapper
 # from functools import reduce, singledispatchmethod
 from socket import gethostname
 from textwrap import wrap
-from typing import Any, Union
+from typing import Any, Optional
 
 import numpy as np
 
@@ -90,8 +90,8 @@ class SHARC_INTERFACE(ABC):
     def __init__(
         self,
         persistent=False,
-        logname: str = None,
-        logfile: str = None,
+        logname: Optional[str] = None,
+        logfile: Optional[str] = None,
         loglevel: int = logging.INFO,
     ):
         # all the output from the calculation will be stored here
@@ -177,7 +177,7 @@ class SHARC_INTERFACE(ABC):
         return "This is the changelog string"
 
     @abstractmethod
-    def get_features(self, KEYSTROKES: TextIOWrapper = None) -> set:
+    def get_features(self, KEYSTROKES: Optional[TextIOWrapper] = None) -> set:
         """return availble features
 
         ---
@@ -187,7 +187,9 @@ class SHARC_INTERFACE(ABC):
         return all_features
 
     @abstractmethod
-    def get_infos(self, INFOS: dict, KEYSTROKES: TextIOWrapper = None) -> dict:
+    def get_infos(
+        self, INFOS: dict, KEYSTROKES: Optional[TextIOWrapper] = None
+    ) -> dict:
         """prepare INFOS obj
 
         ---
@@ -318,7 +320,7 @@ class SHARC_INTERFACE(ABC):
         Create restart files
         """
 
-    def set_coords(self, xyz: Union[str, list, np.ndarray], pc: bool = False) -> None:
+    def set_coords(self, xyz: str | list | np.ndarray, pc: bool = False) -> None:
         """
         Sets coordinates, qmmm and pccharge from file or list/array
         xyz: path to xyz file or list/array with coords
@@ -447,7 +449,7 @@ class SHARC_INTERFACE(ABC):
             self.log.warning('No "unit" specified in QMin! Assuming Bohr')
             self.QMin.molecule["unit"] = "bohr"
 
-        if not all(self.QMin.molecule.values()):
+        if all((val is None for val in self.QMin.molecule.values())):
             raise ValueError(
                 """Input file must contain at least:
                 natom
@@ -494,7 +496,7 @@ class SHARC_INTERFACE(ABC):
 
     @abstractmethod
     def read_resources(
-        self, resources_file: str, kw_whitelist: list[str] = None
+        self, resources_file: str, kw_whitelist: Optional[list[str]] = None
     ) -> None:
         """
         Reads a resource file and assigns parameters to

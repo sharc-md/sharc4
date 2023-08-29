@@ -28,6 +28,7 @@
 import datetime
 import os
 from io import TextIOWrapper
+from typing import Optional
 
 import numpy as np
 from logger import log as logging
@@ -85,14 +86,14 @@ class SHARC_DO_NOTHING(SHARC_FAST):
         self._read_template = False
         self._read_resources = False
         self._setup_mol = False
-        self.setup_info = None
+        self.setup_info = ""
 
     @staticmethod
     def version() -> str:
         return SHARC_DO_NOTHING._version
 
     @staticmethod
-    def versiondate() -> str:
+    def versiondate() -> datetime.datetime:
         return SHARC_DO_NOTHING._versiondate
 
     @staticmethod
@@ -103,11 +104,13 @@ class SHARC_DO_NOTHING(SHARC_FAST):
     def authors() -> str:
         return SHARC_DO_NOTHING._authors
 
-    def get_features(self, KEYSTROKES: TextIOWrapper = None) -> set:
+    def get_features(self, KEYSTROKES: Optional[TextIOWrapper] = None) -> set[str]:
         "return availble features"
         return all_features
 
-    def get_infos(self, INFOS: dict, KEYSTROKES: TextIOWrapper = None) -> dict:
+    def get_infos(
+        self, INFOS: dict, KEYSTROKES: Optional[TextIOWrapper] = None
+    ) -> dict:
         "prepare INFOS obj"
         self.setup_info = question(
             "Please provide your favorite dish!",
@@ -188,7 +191,7 @@ class SHARC_DO_NOTHING(SHARC_FAST):
         pass
 
     def read_resources(
-        self, resources_file: str = None, kw_whitelist: list = None
+        self, resources_file: Optional[str] = None, kw_whitelist: Optional[list] = None
     ) -> None:
         """
         Do nothing version of read_resources, takes nothing, returns nothing.
@@ -200,7 +203,7 @@ class SHARC_DO_NOTHING(SHARC_FAST):
             logging.warning("Resource file already read.")
         self._read_resources = True
 
-    def read_template(self, template_file: str = None) -> None:
+    def read_template(self, template_file: Optional[str] = None) -> None:
         """
         Do nothing version of read_template, takes nothing, returns nothing.
         """
