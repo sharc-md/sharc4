@@ -449,15 +449,16 @@ class SHARC_INTERFACE(ABC):
             self.log.warning('No "unit" specified in QMin! Assuming Bohr')
             self.QMin.molecule["unit"] = "bohr"
 
-        if not all(self.QMin.molecule.values()):
-            raise ValueError(
-                """Input file must contain at least:
-                natom
-                comment
-                geometry
-                keyword "states"
-                at least one task"""
-            )
+        # TODO: at setup_mol no geometry is read yet
+        # if not all(self.QMin.molecule.values()):
+        #     raise ValueError(
+        #         """Input file must contain at least:
+        #         natom
+        #         comment
+        #         geometry
+        #         keyword "states"
+        #         at least one task"""
+        #     )
 
         self._setup_mol = True
 
