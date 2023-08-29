@@ -152,8 +152,9 @@ class SHARC_INTERFACE(ABC):
         """
         return date(2021, 7, 15)
 
+    @staticmethod
     @abstractmethod
-    def name(self) -> str:
+    def name() -> str:
         """
         Return name of interface
         """
