@@ -103,15 +103,15 @@ class SHARC_INTERFACE(ABC):
         self._read_resources = False
         self._setsave = False
 
-        logname = self.name() if not logname else logname
+        logname = logname if isinstance(logname,str) else self.name()
         self.log = logging.getLogger(logname)
         self.log.propagate = False
         self.log.handlers = []
         self.log.setLevel(loglevel)
         hdlr = (
-            logging.StreamHandler(sys.stdout)
-            if logfile is None
-            else logging.FileHandler(filename=logfile, mode="w", encoding="utf-8")
+            logging.FileHandler(filename=logfile, mode="w", encoding="utf-8")
+            if isinstance(logfile, str)
+            else logging.StreamHandler(sys.stdout)
         )
         hdlr._name = logname + "Handler"
         hdlr.setFormatter(CustomFormatter())
@@ -152,9 +152,8 @@ class SHARC_INTERFACE(ABC):
         """
         return date(2021, 7, 15)
 
-    @staticmethod
     @abstractmethod
-    def name() -> str:
+    def name(self) -> str:
         """
         Return name of interface
         """
