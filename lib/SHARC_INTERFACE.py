@@ -31,8 +31,6 @@ import sys
 from abc import ABC, abstractmethod
 from datetime import date
 from io import TextIOWrapper
-
-# from functools import reduce, singledispatchmethod
 from socket import gethostname
 from textwrap import wrap
 from typing import Any, Optional
@@ -44,7 +42,8 @@ from constants import ATOMCHARGE, BOHR_TO_ANG, FROZENS
 from logger import SHARCPRINT, CustomFormatter, logging
 from qmin import QMin
 from qmout import QMout
-from utils import clock, expand_path, itnmstates, parse_xyz, readfile, writefile
+from utils import (clock, expand_path, itnmstates, parse_xyz, readfile,
+                   writefile)
 
 all_features = {
     "h",
@@ -103,7 +102,7 @@ class SHARC_INTERFACE(ABC):
         self._read_resources = False
         self._setsave = False
 
-        logname = logname if isinstance(logname,str) else self.name()
+        logname = logname if isinstance(logname, str) else self.name()
         self.log = logging.getLogger(logname)
         self.log.propagate = False
         self.log.handlers = []
@@ -796,11 +795,7 @@ class SHARC_INTERFACE(ABC):
         """
         Writes the requested quantities to the file which SHARC reads in.
         """
-        k = filename.rfind(".")
-        if k == -1:
-            outfilename = filename + ".out"
-        else:
-            outfilename = filename[:k] + ".out"
+        outfilename = os.path.splitext(filename)[0] + ".out"
         self.log.info(f"===> Writing output to file {outfilename} in SHARC Format\n")
         self.QMout.write(outfilename, self.QMin.requests)
 
