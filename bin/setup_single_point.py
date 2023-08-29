@@ -136,7 +136,7 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
     """ get requests for every single point"""
     standard_requests = {'dm': "dipole moments", 'grad': "gradients", 'soc': "spin orbit couplings", 'nacdr': "nonadiabatic couplings", 'socdr': "derivatives of spin--orbit couplings", 'dmdr':
                          "derivates of dipole moments", 'multipolar_fit': "a distributed multipole expansion for all states", 'theodore': "THEODORE analysis"}
-    int_features = interface.get_features()
+    int_features = interface.get_features(KEYSTROKES = KEYSTROKES)
     available_requests = sorted(set(*standard_requests.keys()).intersection(int_features))
     log.debug(available_requests)
     requests = ['h']
@@ -413,7 +413,7 @@ This interactive program prepares SHARC single point calculations.
     INFOS = {}
     chosen_interface = get_interface()()
     INFOS = get_general(INFOS)
-    INFOS['requests'] = get_requests(INFOS)
+    INFOS['requests'] = get_requests(INFOS, chosen_interface)
     INFOS = chosen_interface.get_infos(INFOS)
     INFOS = get_runscript_info(INFOS)
 
