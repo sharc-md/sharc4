@@ -529,6 +529,10 @@ class SHARC_INTERFACE(ABC):
                 )
                 break
 
+        # Add empty list for whitelisted keywords
+        for key in kw_whitelist:
+            self.QMin.resources[key] = []
+
         with open(resources_file, "r", encoding="utf-8") as rcs_file:
             # Store all encountered keywords to warn for duplicates
             keyword_list = []
@@ -543,11 +547,16 @@ class SHARC_INTERFACE(ABC):
                     ]
 
                     # Check for duplicates in keyword_list
-                    if param[0] in keyword_list:
+                    if param[0] in keyword_list and param[0] not in kw_whitelist:
                         self.log.warning(
                             f"Multiple entries of {param[0]} in {resources_file}"
                         )
                     keyword_list.append(param[0])
+
+                    if param[0] in kw_whitelist:
+                        self.QMin.resources[param[0]].extend(param[1:])
+                        self.log.debug(f"Extend white listed parameter {param[0]}")
+                        continue
 
                     if len(param) == 1:
                         self.QMin.resources[param[0]] = True
@@ -572,20 +581,7 @@ class SHARC_INTERFACE(ABC):
                         else:
                             self.QMin.resources[param[0]] = param[1]
                     else:
-                        # If whitelisted key already exists extend list with values
-                        if (
-                            param[0] in self.QMin.resources.keys()
-                            and self.QMin.resources[param[0]]
-                            and param[0] in kw_whitelist
-                        ):
-                            self.log.debug(f"Extend white listed parameter {param[0]}")
-                            self.QMin.resources[param[0]].extend(list(param[1:]))
-                            continue
-
-                        if (
-                            param[0] in self.QMin.resources.keys()
-                            and self.QMin.resources[param[0]]
-                        ):
+                        if self.QMin.resources[param[0]]:
                             self.log.warning(f"Parameter list {param} overwritten!")
                         self.QMin.resources[param[0]] = list(param[1:])
 
