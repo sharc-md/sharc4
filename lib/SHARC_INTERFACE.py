@@ -97,9 +97,6 @@ class SHARC_INTERFACE(ABC):
         self.clock = clock()
         self.persistent = persistent
         self.QMin = QMin()
-        self._setup_mol = False
-        self._read_resources = False
-        # self._read_template = False   # TODO: needed?
         self._setsave = False
 
         logname = logname if isinstance(logname, str) else self.name()
@@ -221,13 +218,8 @@ class SHARC_INTERFACE(ABC):
         self.clock = clock()
         self.printheader()
         if len(args) != 2:
-            print(              # TODO: convert to logger
-                "Usage:",
-                f"./SHARC_{self.name()} <QMin>",
-                f"version: {self.version()}",
-                f"date: {self.versiondate()}",
-                f"changelog: {self.changelogstring()}",
-                sep="\n",
+            self.log.info(
+                f"Usage:,\n./SHARC_{self.name()}.py <QMin>\nversion: {self.version()}\ndate: {self.versiondate():%d.%m.%Y}\nchangelog: {self.changelogstring()}"
             )
             sys.exit(106)
         QMinfilename = sys.argv[1]
@@ -237,12 +229,12 @@ class SHARC_INTERFACE(ABC):
         self.read_resources(f"{self.name}.resources")
         # read in the specific template file for the interface with all keywords
         self.read_template(f"{self.name}.template")
-        # set the coordinates of the molecular system
-        self.set_coords(QMinfilename)
         # read the property requests that have to be calculated
         self.read_requests(QMinfilename)
         # setup internal state for the computation
-        self.setup_interface()          # TODO: should go before set_coords
+        self.setup_interface()
+        # set the coordinates of the molecular system
+        self.set_coords(QMinfilename)
         # print qmin
         self.print_qmin()
         # perform the calculation and parse the output, do subsequent calculations with other tools
@@ -251,7 +243,9 @@ class SHARC_INTERFACE(ABC):
         self.getQMout()
         # backup data if requested
         if self.QMin.requests["backup"]:
-            self.backupdata(self.QMin.requests["backup"])  # TODO: backup functionality via retain key of restart folder handling
+            self.backupdata(
+                self.QMin.requests["backup"]
+            )  # TODO: backup functionality via retain key of restart folder handling
         # writes a STEP file in the SAVEDIR (marks this step as succesfull)
         self.write_step_file()
 
@@ -588,7 +582,6 @@ class SHARC_INTERFACE(ABC):
                             and self.QMin.resources[param[0]]
                         ):
                             self.log.warning(f"Parameter list {param} overwritten!")
-                            self.QMin.resources[param[0]] = list(param[1:])
                         self.QMin.resources[param[0]] = list(param[1:])
 
         self._read_resources = True
@@ -820,13 +813,11 @@ class SHARC_INTERFACE(ABC):
 
     # ============================PRINTING ROUTINES========================== #
 
-
-    # TODO: convert to format string routine and use logger
     def printheader(self) -> None:
         """Prints the formatted header of the log file. Prints version number and version date
         Takes nothing, returns nothing."""
 
-        print(self.clock.starttime, gethostname(), os.getcwd())
+        self.log.info(f"{self.clock.starttime} {gethostname()} {os.getcwd()}")
         rule = "=" * 76
         lines = [
             f"  {rule}",
@@ -836,15 +827,14 @@ class SHARC_INTERFACE(ABC):
             f"Authors: {self.authors()}",
             "",
             f"Version: {self.version()}",
-            "Date: {:%d.%m.%Y}".format(self.versiondate()),
+            f"Date: {self.versiondate():%d.%m.%Y}",
             "",
             f"  {rule}",
         ]
         # wraps Authors line in case its too long
         lines[4:5] = wrap(lines[4], width=70)
         lines[1:-1] = map(lambda s: "||{:^76}||".format(s), lines[1:-1])
-        print(*lines, sep="\n")
-        print("\n")
+        self.log.info("\n".join(lines))
 
 
 if __name__ == "__main__":
