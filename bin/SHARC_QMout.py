@@ -70,7 +70,7 @@ all_features = set(
 # logging.root.setLevel(logging.DEBUG)
 
 
-class SHARC_QMOUT(SHARC_FAST):  # TODO: migrate to SHARC_FAST_INTERFACE
+class SHARC_QMOUT(SHARC_FAST):
     """
     QM.out interface
     """
