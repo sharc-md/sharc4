@@ -1,5 +1,6 @@
 import os
 from collections import UserDict
+from copy import deepcopy
 
 import numpy as np
 
@@ -164,7 +165,9 @@ class QMinRequests(QMinBase):
         "cleanup": bool,
         "backup": str,
         "molden": bool,
-        "savestuff": bool,
+        "savestuff": bool,self.QMin.resources.types[
+                                param[0]
+                            ](param[1])
         "nooverlap": bool,
     """
 
@@ -359,6 +362,12 @@ Scheduling:
 {self.scheduling}
 Control: 
 {self.control}"""
+
+    def copy(self):
+        """
+        Return copy of QMin object
+        """
+        return deepcopy(self)
 
 
 if __name__ == "__main__":
