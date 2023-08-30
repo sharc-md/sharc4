@@ -75,7 +75,7 @@ class SHARC_INTERFACE(ABC):
     loglevel:       Set loglevel
     """
 
-    # internal status indicators
+    # internal status indicators    # are these needed?
     _setup_mol = False
     _read_resources = False
     _read_template = False
@@ -99,6 +99,7 @@ class SHARC_INTERFACE(ABC):
         self.QMin = QMin()
         self._setup_mol = False
         self._read_resources = False
+        # self._read_template = False   # TODO: needed?
         self._setsave = False
 
         logname = logname if isinstance(logname, str) else self.name()
@@ -220,7 +221,7 @@ class SHARC_INTERFACE(ABC):
         self.clock = clock()
         self.printheader()
         if len(args) != 2:
-            print(
+            print(              # TODO: convert to logger
                 "Usage:",
                 f"./SHARC_{self.name()} <QMin>",
                 f"version: {self.version()}",
@@ -241,7 +242,7 @@ class SHARC_INTERFACE(ABC):
         # read the property requests that have to be calculated
         self.read_requests(QMinfilename)
         # setup internal state for the computation
-        self.setup_interface()
+        self.setup_interface()          # TODO: should go before set_coords
         # print qmin
         self.print_qmin()
         # perform the calculation and parse the output, do subsequent calculations with other tools
@@ -250,7 +251,7 @@ class SHARC_INTERFACE(ABC):
         self.getQMout()
         # backup data if requested
         if self.QMin.requests["backup"]:
-            self.backupdata(self.QMin.requests["backup"])  # TODO
+            self.backupdata(self.QMin.requests["backup"])  # TODO: backup functionality via retain key of restart folder handling
         # writes a STEP file in the SAVEDIR (marks this step as succesfull)
         self.write_step_file()
 
@@ -819,6 +820,8 @@ class SHARC_INTERFACE(ABC):
 
     # ============================PRINTING ROUTINES========================== #
 
+
+    # TODO: convert to format string routine and use logger
     def printheader(self) -> None:
         """Prints the formatted header of the log file. Prints version number and version date
         Takes nothing, returns nothing."""

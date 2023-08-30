@@ -226,8 +226,8 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             self.log.debug("Building nacmap")
             self.QMin.maps["nacmap"] = set()
             for i in self.QMin.requests["nacdr"]:
-                state1 = self.QMin.maps["statemap"][int(i[0])]
-                state2 = self.QMin.maps["statemap"][int(i[1])]
+                state1 = self.QMin.maps["statemap"][int(i[0])] # TODO: should only pass [0:2]
+                state2 = self.QMin.maps["statemap"][int(i[1])] # TODO: should only pass [0:2]
                 if state1[0] != state2[0] or state1 == state2:
                     continue
                 if state1[1] > state2[1]:
@@ -353,6 +353,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
     def create_restart_files(self):
         pass
 
+    # TODO: move to SHARC_INTERFACE, unclear yet where to call it (end of run? separately?)
     @abstractmethod
     def remove_old_restart_files(self, retain: int = 5) -> None:
         """
@@ -552,6 +553,9 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             m = int(s[1])
             props[(m, n + (m == 1))].extend([safe_cast(i, float, 0.0) for i in s[4:]])
         return props
+
+    # also add staticmethod
+    # routine to read wfoverlap output
 
     @abstractmethod
     def run(self) -> None:
