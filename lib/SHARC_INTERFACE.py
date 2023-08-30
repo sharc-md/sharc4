@@ -221,26 +221,31 @@ class SHARC_INTERFACE(ABC):
             self.log.info(
                 f"Usage:,\n./SHARC_{self.name()}.py <QMin>\nversion: {self.version()}\ndate: {self.versiondate():%d.%m.%Y}\nchangelog: {self.changelogstring()}"
             )
-            sys.exit(106)
+            sys.exit(1)
         QMinfilename = sys.argv[1]
+
+        # --- the following are called once inside a driver ---
         # set up the system (i.e. molecule, states, unit...)
         self.setup_mol(QMinfilename)
         # read in the resources available for this computation (program path, cores, memory)
         self.read_resources(f"{self.name}.resources")
         # read in the specific template file for the interface with all keywords
         self.read_template(f"{self.name}.template")
-        # read the property requests that have to be calculated
-        self.read_requests(QMinfilename)
         # setup internal state for the computation
         self.setup_interface()
+
+        # --- the following are called per time step inside a driver ---
         # set the coordinates of the molecular system
         self.set_coords(QMinfilename)
+        # read the property requests that have to be calculated
+        self.read_requests(QMinfilename)
         # print qmin
         self.print_qmin()
         # perform the calculation and parse the output, do subsequent calculations with other tools
         self.run()
         # get output as requested
         self.getQMout()
+
         # backup data if requested
         if self.QMin.requests["backup"]:
             self.backupdata(
@@ -649,7 +654,7 @@ class SHARC_INTERFACE(ABC):
                         "step",
                     ):
                         self.log.debug(f"Parsing request {params}")
-                        self._set_requests(params)
+                        self._set_request(params)
 
             assert not nac_select, "No end keyword found after nacdr select!"
             if nacdr:
@@ -731,7 +736,7 @@ class SHARC_INTERFACE(ABC):
             self.QMin.save[i] = False
         self._request_logic()
 
-    def _set_requests(self, request: list[str]) -> None:
+    def _set_request(self, request: list[str]) -> None:
         """
         Setup requests and do basic sanity checks
         """
