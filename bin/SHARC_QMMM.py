@@ -81,47 +81,43 @@ class SHARC_QMMM(SHARC_HYBRID):
 
         QMin = self.QMin
         # obtain the statemap
-        QMin.maps.statemap = {
-            i + 1: [*v]
-            for i, v in enumerate(itnmstates(QMin.molecule.states))
-        }
-        if 'savedir' not in QMin:
+        if  not QMin.save['savedir']:
             print(
                 'savedir not specified in QM.in, setting savedir to current directory!'
             )
             QMin.save.savedir = os.getcwd()
         # dynamic import of both interfaces
         self.qm_interface = factory(QMin.template['qm-program'])(
-            persistent = self._persistent)
+            persistent = self.persistent)
 
         self.mml_interface = factory(QMin.template['mm-program'])(
-            persistent = self._persistent)
+            persistent = self.persistent)
         qm_name = self.qm_interface.__class__.__name__
         mml_name = self.mml_interface.__class__.__name__
         # folder setup and savedir
-        qm_savedir = os.path.join(QMin.save.savedir,
+        qm_savedir = os.path.join(QMin.save['savedir'],
                                   'QM_' + QMin.template['qm-program'].upper())
         if not os.path.isdir(qm_savedir):
             mkdir(qm_savedir)
         self.qm_interface.QMin.save.savedir = qm_savedir
-        self.qm_interface.QMin.resources.scratchdir = os.path.join(
-            QMin.resources.scratchdir,
+        self.qm_interface.QMin.resources["scratchdir"] = os.path.join(
+            QMin.resources["scratchdir"],
             'QM_' + QMin.template['qm-program'].upper())
-        self.qm_interface.prepare()
+        self.qm_interface.prepare(INFOS, iconddir)
 
         mml_savedir = os.path.join(
-            QMin.save.savedir, 'MML_' + QMin.template['mm-program'].upper())
+            QMin.save['savedir'], 'MML_' + QMin.template['mm-program'].upper())
         if not os.path.isdir(mml_savedir):
             mkdir(mml_savedir)
-        self.mml_interface.QMin.save.savedir = mml_savedir
-        self.mml_interface.QMin.resources.scratchdir = os.path.join(
-            QMin.resources.scratchdir,
+        self.mml_interface.QMin.save['savedir'] = mml_savedir
+        self.mml_interface.QMin.resources = os.path.join(
+            QMin.resources["scratchdir"],
             'MML_' + QMin.template['mm-program'].upper())
-        self.mml_interface.prepare()
+        self.mml_interface.prepare(INFOS, iconddir)
 
         if QMin.template['embedding'] == 'subtractive':
             self.mms_interface = factory(QMin.template['mm-program'])(
-                persistent = self._persistent)
+                persistent = self.persistent)
             mms_name = self.mms_interface.__class__.__name__
             mms_savedir = os.path.join(
                 QMin.save.savedir,
@@ -129,10 +125,10 @@ class SHARC_QMMM(SHARC_HYBRID):
             if not os.path.isdir(mms_savedir):
                 mkdir(mms_savedir)
             self.mms_interface.QMin.save.savedir = mms_savedir
-            self.mms_interface.QMin.resources.scratchdir = os.path.join(
-                QMin.resources.scratchdir,
+            self.mms_interface.QMin.resources["scratchdir"] = os.path.join(
+                QMin.resources["scratchdir"],
                 'MMS_' + QMin.template['mm-program'].upper())
-            self.mms_interface.prepare
+            self.mms_interface.prepare(INFOS, iconddir)
 
     def printQMout(self):
         self.super().printQMout()
@@ -457,7 +453,7 @@ class SHARC_QMMM(SHARC_HYBRID):
             self.mml_interface.run()
             self.mml_interface.getQMout()
             # is analogous to the density fit from QM interfaces -> generated upon same request
-            raw_pc = self.mml_interface._QMout['multipolar_fit']
+            raw_pc = self.mml_interface.QMout['multipolar_fit']
 
         # redistribution of mm pc of link atom (charge is not the same in qm calc but pc would be too close)
         for _, mmid in self._linkatoms:
@@ -499,30 +495,31 @@ class SHARC_QMMM(SHARC_HYBRID):
 
     def getQMout(self):
         # s1 = time.perf_counter_ns()
-        qm_QMout = self.qm_interface._QMout
+        qmQMout = self.qm_interface.QMout
         QMin = self.QMin
-        QMout = self._QMout
+        QMout = self.QMout
 
         def add_to_xyz(xyz1, xyz2, fac=1.):
-            xyz1[0] += xyz2[0] * fac
-            xyz1[1] += xyz2[1] * fac
-            xyz1[2] += xyz2[2] * fac
+            xyz1 += xyz2 * fac
+            # xyz1[0] += xyz2[0] * fac
+            # xyz1[1] += xyz2[1] * fac
+            # xyz1[2] += xyz2[2] * fac
 
-        mm_e = float(self.mml_interface._QMout['h'][0][0])
+        mm_e = float(self.mml_interface.QMout['h'][0][0])
         if QMin.template['embedding'] == 'subtractive':
-            mm_e -= float(self.mms_interface._QMout['h'][0][0])
+            mm_e -= float(self.mms_interface.QMout['h'][0][0])
 
         QMout['qmmm'] = {'MMEnergy_terms': {'MM Energy': mm_e}}
         # Hamiltonian
-        if 'h' in qm_QMout:
-            QMout['h'] = [[j for j in i] for i in qm_QMout['h']]
+        if self.qm_interface.QMout.h:
+            self.QMout.h = self.qm_interface.QMout.h
             for i in range(QMin['nmstates']):
-                QMout['h'][i][i] += mm_e
+                self.QMout.h[i][i] += mm_e
         # print('     getQMout ene', (time.perf_counter_ns() - s1) * 1e-6, 'ms')
         # gen output
         if 'grad' in QMin.requests.grad:
-            qm_grad = qm_QMout['grad']
-            mm_grad = self.mml_interface._QMout['grad'][0]
+            qm_grad = qmQMout['grad']
+            mm_grad = self.mml_interface.QMout['grad']
 
             if QMin.template['embedding'] == 'subtractive':
                 mms_grad = self.mms_interface.QMout['grad'][0]
@@ -550,8 +547,8 @@ class SHARC_QMMM(SHARC_HYBRID):
                     add_to_xyz(grad[i][qm_id], qm_grad_in, self._qm_s)
             # print('     getQMout grad2', (time.perf_counter_ns() - s1) * 1e-6, 'ms')
 
-            if 'pc_grad' in qm_QMout:  # apply pc grad
-                for i, grad_i in enumerate(qm_QMout['pc_grad']):
+            if 'pc_grad' in qmQMout:  # apply pc grad
+                for i, grad_i in enumerate(qmQMout['pc_grad']):
                     # mm_ids stay in order even after grouping qm_ids at the fron and deleting link mm atoms
                     # -> get all residual mm ids in order for correct order in pcgrad
                     for grad_in, mm_id in zip(
@@ -562,7 +559,7 @@ class SHARC_QMMM(SHARC_HYBRID):
             else:
                 print("Warning: No 'pc_grad' in QMout of QM interface!")
 
-            self._QMout['grad'] = grad
+            self.QMout.grad = grad
         # print('     getQMout pcgrad', (time.perf_counter_ns() - s1) * 1e-6, 'ms')
 
         if QMin.requests.nacdr:
@@ -570,7 +567,7 @@ class SHARC_QMMM(SHARC_HYBRID):
             nacdr = [[[[0., 0., 0.] for _ in range(QMin.molecule.natom)]
                       for _ in range(QMin.molecule.nmstates)]
                      for _ in range(QMin.moleculenmstates)]
-            for i, s_i in enumerate(self.qm_interface._QMout['nacdr']):
+            for i, s_i in enumerate(self.qm_interface.QMout['nacdr']):
                 for j, s_j in enumerate(s_i):
                     for n, qm_id in enumerate(self.qm_ids):
                         add_to_xyz(nacdr[i][j][qm_id], s_j[n])
@@ -586,21 +583,21 @@ class SHARC_QMMM(SHARC_HYBRID):
         # print('     getQMout nac', (time.perf_counter_ns() - s1) * 1e-6, 'ms')
 
         if QMin.requests.dm:
-            QMout['dm'] = self.qm_interface._QMout['dm']
+            QMout['dm'] = self.qm_interface.QMout['dm']
             if QMin.template['mm_dipole']:
                 for i, dm_i in enumerate(QMout['dm']):
-                    mm_dm_i: float = self.mml_interface._QMout['dm'][i]
+                    mm_dm_i: float = self.mml_interface.QMout['dm'][i]
                     for dm_in in dm_i:
                         for dm_inm in dm_in:
                             dm_inm += mm_dm_i[0][
                                 0]  # add mm dipole moment to all states
         if 'overlap' in QMin:
-            QMout['overlap'] = self.qm_interface._QMout['overlap']
+            QMout['overlap'] = self.qm_interface.QMout['overlap']
 
         # potentially print out other contributions and properties...
         for i in ['ion', 'prop', 'theodore']:
-            if i in qm_QMout:
-                QMout[i] = qm_QMout[i]
+            if i in qmQMout:
+                QMout[i] = qmQMout[i]
 
     def create_restart_files(self):
         self.qm_interface.create_restart_files()
