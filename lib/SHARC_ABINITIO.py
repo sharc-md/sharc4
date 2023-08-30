@@ -183,10 +183,6 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         super().read_requests(requests_file)
 
     @abstractmethod
-    def write_step_file(self) -> None:
-        super().write_step_file()
-
-    @abstractmethod
     def printQMout(self) -> None:
         super().writeQMout()
 
@@ -218,21 +214,26 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             )
 
         # Setup nacmap
-        if (
-            self.QMin.requests["nacdr"]
-            and len(self.QMin.requests["nacdr"]) > 0
-            and self.QMin.requests["nacdr"][0] != "all"
-        ):
+        if self.QMin.requests["nacdr"]:
+            if self.QMin.requests["nacdr"] == ["all"]:
+                mat = [
+                    (i + 1, j + 1)
+                    for i in range(self.QMin.molecule["nmstates"])
+                    for j in range(self.QMin.molecule["nmstates"])
+                ]
+                # self.QMin.requests["nacdr"] = mat
+            else:
+                mat = self.QMin.requests["nacdr"]
             self.log.debug("Building nacmap")
             self.QMin.maps["nacmap"] = set()
-            for i in self.QMin.requests["nacdr"]:
-                state1 = self.QMin.maps["statemap"][int(i[0])] # TODO: should only pass [0:2]
-                state2 = self.QMin.maps["statemap"][int(i[1])] # TODO: should only pass [0:2]
-                if state1[0] != state2[0] or state1 == state2:
+            for i in mat:
+                m1, s1, ms1 = self.QMin.maps["statemap"][int(i[0])]
+                m2, s2, ms2 = self.QMin.maps["statemap"][int(i[1])]
+                if m1 != m2 or i[0] == i[1] or ms1 != ms2:
                     continue
-                if state1[1] > state2[1]:
+                if s1 > s2:
                     continue
-                self.QMin.maps["nacmap"].add(tuple(state1 + state2))
+                self.QMin.maps["nacmap"].add(tuple([m1, s1, m2, s2]))
 
         # Setup charge and paddingstates
         if not self.QMin.template["charge"]:
@@ -360,7 +361,9 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         Garbage collection after runjobs()
         """
 
-    def run_program(self, workdir: str, cmd: str, out: str, err: Optional[str] = None) -> int:
+    def run_program(
+        self, workdir: str, cmd: str, out: str, err: Optional[str] = None
+    ) -> int:
         """
         Runs a ab-initio programm and returns the exit_code
 
