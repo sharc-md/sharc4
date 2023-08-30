@@ -44,14 +44,11 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         super().__init__(*args, **kwargs)
 
         # Add ab-initio specific keywords to template
-        self.QMin.template["charge"] = None
-        self.QMin.template["paddingstates"] = None
-
         self.QMin.template.types["charge"] = list
         self.QMin.template.types["paddingstates"] = list
 
         # Add ab-initio specific keywords to resources
-        self.QMin.resources["delay"] = 0
+        self.QMin.resources["delay"] = 0.0
 
         self.QMin.resources.types["delay"] = float
 
