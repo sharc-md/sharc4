@@ -860,7 +860,7 @@ Afterwards, it asks for the interface used and goes through the preparation depe
     INFOS = get_general(INFOS)
     chosen_interface: SHARC_INTERFACE = get_interface()()
     INFOS = get_requests(INFOS, chosen_interface)
-    INFOS = chosen_interface.get_infos(INFOS)
+    INFOS = chosen_interface.get_infos(INFOS, KEYSTROKES)
     INFOS = get_runscript_info(INFOS)
 
     log.info('\n' + f"{'Full input':#^60}" + '\n')
