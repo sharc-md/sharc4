@@ -44,6 +44,9 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         super().__init__(*args, **kwargs)
 
         # Add ab-initio specific keywords to template
+        self.QMin.template["charge"] = None
+        self.QMin.template["paddingstates"] = None
+
         self.QMin.template.types["charge"] = list
         self.QMin.template.types["paddingstates"] = list
 
@@ -229,9 +232,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             for i in mat:
                 m1, s1, ms1 = self.QMin.maps["statemap"][int(i[0])]
                 m2, s2, ms2 = self.QMin.maps["statemap"][int(i[1])]
-                if m1 != m2 or i[0] == i[1] or ms1 != ms2:
-                    continue
-                if s1 > s2:
+                if m1 != m2 or i[0] == i[1] or ms1 != ms2 or s1 > s2:
                     continue
                 self.QMin.maps["nacmap"].add(tuple([m1, s1, m2, s2]))
 
