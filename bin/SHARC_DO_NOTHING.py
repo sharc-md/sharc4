@@ -83,9 +83,6 @@ class SHARC_DO_NOTHING(SHARC_FAST):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._read_template = False
-        self._read_resources = False
-        self._setup_mol = False
         self.setup_info = ""
 
     @staticmethod
