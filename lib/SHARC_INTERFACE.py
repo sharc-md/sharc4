@@ -508,6 +508,7 @@ class SHARC_INTERFACE(ABC):
                         instead the list will be extended
         """
         self.log.debug(f"Reading resource file {resources_file}")
+        kw_whitelist = [] if not kw_whitelist else kw_whitelist
 
         if not self._setup_mol:
             raise RuntimeError(
@@ -581,7 +582,7 @@ class SHARC_INTERFACE(ABC):
                         else:
                             self.QMin.resources[param[0]] = param[1]
                     else:
-                        if self.QMin.resources[param[0]]:
+                        if param[0] in self.QMin.resources:
                             self.log.warning(f"Parameter list {param} overwritten!")
                         self.QMin.resources[param[0]] = list(param[1:])
 
