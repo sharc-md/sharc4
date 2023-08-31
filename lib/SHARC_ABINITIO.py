@@ -10,6 +10,7 @@ from io import TextIOWrapper
 from multiprocessing import Pool
 from typing import Optional
 
+import numpy as np
 from qmin import QMin
 from SHARC_INTERFACE import SHARC_INTERFACE
 from utils import containsstring, readfile, safe_cast
@@ -489,17 +490,32 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         return nrounds, nslots, cpu_per_run
 
     @staticmethod
-    def get_smatel(out: list[str], state1: int, state2: int) -> float:
-        ilines = -1
-        while True:
-            ilines += 1
-            if ilines == len(out):
-                raise ValueError(f"Overlap of states {state1} - {state2} not found!")
-            if containsstring("Overlap matrix <PsiA_i|PsiB_j>", out[ilines]):
-                break
-        ilines += 1 + state1
-        val = out[ilines].split()
-        return float(val[state2 + 1])
+    def parse_wfoverlap(overlap_file: str) -> np.ndarray:
+        """
+        Parse overlap matrix from wfoverlap output
+
+        overlap_file: path to wfovlp.out
+        """
+        overlap_mat = []
+        with open(overlap_file, "r", encoding="utf-8") as wffile:
+            overlap_mat = []
+            while True:
+                line = next(wffile, False)
+                if not line or containsstring("Overlap matrix <PsiA_i|PsiB_j>", line):
+                    dim = -1 if not line else len(next(wffile).split()) // 2
+                    break
+
+            for line in wffile:
+                if containsstring("<PsiA", line):
+                    overlap_mat.append([float(x) for x in line.split()[2:]])
+                else:
+                    break
+
+            if len(overlap_mat) != dim:
+                raise ValueError(
+                    f"File {overlap_file} does not contain an overlap matrix!"
+                )
+        return np.asarray(overlap_mat)
 
     @staticmethod
     def format_ci_vectors(ci_vectors: list[dict[str, float]]) -> str:
