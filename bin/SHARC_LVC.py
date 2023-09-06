@@ -692,7 +692,7 @@ class SHARC_LVC(SHARC_FAST):
         )    # writes a binary file (can be read with numpy.fromfile())
 
 
-    def get_features(self, KEYSTROKES: TextIOWrapper) -> set:
+    def get_features(self, KEYSTROKES: TextIOWrapper = None) -> set:
         return {
             "h",
             "soc",
@@ -712,13 +712,13 @@ class SHARC_LVC(SHARC_FAST):
         self.log.info("=" * 80)
         self.log.info("\n")
 
-        self.lvc_template = question("Specify path to LVC.template", str, KEYSTROKES=KEYSTROKES, autocomplete=True)
+        self.template_file = question("Specify path to LVC.template", str, KEYSTROKES=KEYSTROKES, autocomplete=True)
 
         # Check template for Soc and multipoles and states
         soc_found = False
         mfit_found = False
         dm_found = False
-        with open(self.lvc_template, 'r') as f:
+        with open(self.template_file, 'r') as f:
             for line in f:
                 if 'SOC' in line:
                     soc_found = True
@@ -727,63 +727,21 @@ class SHARC_LVC(SHARC_FAST):
                 if 'Multipolar Density Fit' in line:
                     mfit_found = True
         if 'soc' in INFOS['needed_requests'] and not soc_found:
-            self.log.error(f"Requested SOC calculation but 'SOC' keyword not found in {self.lvc_template}")
+            self.log.error(f"Requested SOC calculation but 'SOC' keyword not found in {self.template_file}")
             raise RuntimeError()
 
         if ('multipolar_fit' in INFOS['needed_requests'] or 'point_charges' in INFOS['needed_requests']) and not mfit_found:
-            self.log.error(f"Calculation with 'point_charges' and/or 'multipolar_fit' requested but 'Multipolar Density Fit' not found in {self.lvc_template}")
+            self.log.error(f"Calculation with 'point_charges' and/or 'multipolar_fit' requested but 'Multipolar Density Fit' not found in {self.template_file}")
             raise RuntimeError()
 
         if 'dm' in INFOS['needed_requests'] and not dm_found:
-            self.log.error(f"Calculation of dipole moment requested but 'DM' keyword not found in {self.lvc_template}")
+            self.log.error(f"Calculation of dipole moment requested but 'DM' keyword not found in {self.template_file}")
             raise RuntimeError()
 
         if question("Do you have an LVC.resources file?", bool, KEYSTROKES=KEYSTROKES, autocomplete=False, default=False):
-            self.lvc_resources = question("Specify path to LVC.resources", str, KEYSTROKES=KEYSTROKES, autocomplete=True)
+            self.resources_file = question("Specify path to LVC.resources", str, KEYSTROKES=KEYSTROKES, autocomplete=True)
 
         return INFOS
-
-
-    def prepare(self, INFOS: dict, dir: str):
-        if 'link_files' in INFOS:
-            os.symlink(expand_path(self.lvc_template), os.path.join(dir, 'LVC.template'))
-            if "lvc_resources" in self.__dict__:
-                os.symlink(expand_path(self.lvc_resources), os.path.join(dir, 'LVC.resources'))
-            return
-
-
-        shutil.copy(self.lvc_template, dir)
-        if "lvc_resources" in self.__dict__:
-            shutil.copy(self.lvc_resources, dir)
-
-
-    def main(self):
-        name = self.__class__.__name__
-        args = sys.argv
-        if len(args) != 2:
-            print(
-                'Usage:',
-                f'./SHARC_{name} <QMin>',
-                f'version: {self.version}',
-                f'date: {self.versiondate}',
-                f'changelog: {self.changelogstring}',
-                sep='\n'
-            )
-            sys.exit(106)
-        QMinfilename = sys.argv[1]
-        pwd = os.getcwd()
-        self.printheader()
-        self.setup_mol(os.path.join(pwd, QMinfilename))
-        self.read_resources()
-        self.read_template()
-        self.set_coords(os.path.join(pwd, QMinfilename))
-        self.read_requests(os.path.join(pwd, QMinfilename))
-        self.run()
-        self.QMout['runtime'] = self.clock.measuretime()
-        self.write_step_file()
-        # if PRINT or DEBUG:
-        #     self.printQMout()
-        self.writeQMout()
 
 
 if __name__ == '__main__':
