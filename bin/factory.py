@@ -54,19 +54,19 @@ def get_available_interfaces() -> list[tuple[str, Union[SHARC_INTERFACE, str]]]:
         interface_name = filename.split('.')[0]
         try:
             mod = import_module(interface_name)
-        except TypeError:
-            log.debug(f"{interface_name} could not be imported (not a package)")
+        except TypeError as e:
+            log.debug(f"{interface_name} could not be imported (not a package)\n\t{e}")
             interfaces.append((interface_name, "(Not Available!)"))
             continue
-        except (ModuleNotFoundError, ImportError):
-            log.debug(f"{interface_name} could not be imported (missing dependencies)")
+        except (ModuleNotFoundError, ImportError) as e:
+            log.debug(f"{interface_name} could not be imported (missing dependencies)\n\t{e}")
             interfaces.append((interface_name, "(Not Available!)"))
             continue
 
         try:
             interface = getattr(mod, interface_name)
-        except AttributeError:
-            log.debug(f"class {interface_name} not found in {mod}")
+        except AttributeError as e:
+            log.debug(f"class {interface_name} not found in {mod}\n\t{e}")
             interfaces.append((interface_name, "(Not Available!)"))
             continue
 
