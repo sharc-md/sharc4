@@ -1524,7 +1524,7 @@ def writeRunscript(INFOS, iconddir, interface):
     if INFOS['here']:
         string = '''#!/usr/bin/env bash
 
-# $-N %s
+echo "%s"
 
 %s
 
@@ -1625,11 +1625,11 @@ def setup_all(INFOS, interface: SHARC_INTERFACE):
     log.info(string)
 
     all_run = open('all_run_traj.sh', 'w')
-    string = '#/bin/bash\n\nCWD=%s\n\n' % (INFOS['cwd'])
+    string = '#!/bin/bash\n\nCWD=%s\n\n' % (INFOS['cwd'])
     all_run.write(string)
     if INFOS['qsub']:
         all_qsub = open('all_qsub_traj.sh', 'w')
-        string = '#/bin/bash\n\nCWD=%s\n\n' % (INFOS['cwd'])
+        string = '#!/bin/bash\n\nCWD=%s\n\n' % (INFOS['cwd'])
         all_qsub.write(string)
 
     for istate in INFOS['setupstates']:
@@ -1752,6 +1752,8 @@ This interactive program prepares SHARC dynamics calculations.
     log.info('')
 
     if setup:
+        if question("Do you want to link the interface files?", bool, default=False, autocomplete=False):
+            INFOS['link_files'] = True
         setup_all(INFOS, chosen_interface)
 
     close_keystrokes()

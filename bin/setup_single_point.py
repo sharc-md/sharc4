@@ -136,11 +136,11 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
     """ get requests for every single point"""
     standard_requests = {'dm': "dipole moments", 'grad': "gradients", 'soc': "spin orbit couplings", 'nacdr': "nonadiabatic couplings", 'socdr': "derivatives of spin--orbit couplings", 'dmdr':
                          "derivates of dipole moments", 'multipolar_fit': "a distributed multipole expansion for all states", 'theodore': "THEODORE analysis"}
-    int_features = interface.get_features(KEYSTROKES = KEYSTROKES)
+    int_features = interface.get_features(KEYSTROKES=KEYSTROKES)
     available_requests = sorted(set(standard_requests.keys()).intersection(int_features))
     log.debug(available_requests)
     requests = ['h']
-    log.info(f"{'Requests on every single point (additional to energy)':-^60-}")
+    log.info(f"{'Requests on every single point (additional to energy)':-^60}")
     log.info("")
     for i in available_requests:
         if question(f"Calculate {standard_requests[i]}?:", bool, autocomplete=False, default=True):
@@ -292,7 +292,7 @@ def make_directory(iconddir):
 
 # ======================================================================================================================
 
-def writeRunscript(INFOS, iconddir):
+def writeRunscript(INFOS, iconddir, interface: SHARC_INTERFACE):
     '''writes the runscript in each subdirectory'''
     try:
         runscript = open('%s/run_single_point.sh' % (iconddir), 'w')
@@ -310,15 +310,17 @@ def writeRunscript(INFOS, iconddir):
     # ================================
 
     string = '''#!/bin/bash
-%s
+echo "%s"
 
 PRIMARY_DIR=%s/
 cd $PRIMARY_DIR
 
+%s
 
-$SHARC/%s QM.in >> QM.log 2>> QM.err
 
-''' % (projname, os.path.abspath(iconddir), headers, Interfaces[INFOS['interface']]['script'])
+$SHARC/%s.py QM.in >> QM.log 2>> QM.err
+
+''' % (projname, os.path.abspath(iconddir), headers, interface.__class__.__name__)
 
     runscript.write(string)
     runscript.close()
@@ -386,7 +388,7 @@ def setup_all(INFOS, interface: SHARC_INTERFACE):
         iconddir = os.path.join(INFOS['copydir'], 'geom_%i' % (igeom + 1))
         make_directory(iconddir)
         interface.prepare(INFOS, iconddir)
-        writeRunscript(INFOS, iconddir)
+        writeRunscript(INFOS, iconddir, interface)
         writeQMin(INFOS, iconddir, igeom, geometry_data)
 
     log.info('\n')
@@ -414,17 +416,18 @@ This interactive program prepares SHARC single point calculations.
     chosen_interface = get_interface()()
     INFOS = get_general(INFOS)
     INFOS['requests'] = get_requests(INFOS, chosen_interface)
-    INFOS = chosen_interface.get_infos(INFOS, KEYSTROKES = KEYSTROKES)
+    INFOS = chosen_interface.get_infos(INFOS, KEYSTROKES=KEYSTROKES)
     INFOS = get_runscript_info(INFOS)
 
-    log.info('\n' + '{:#^60}'.format('Full input') + '\n')
+    log.info('\n' + f"{'Full input':#^60}" + '\n')
     for item in INFOS:
-        log.info(item, ' ' * (25 - len(item)), INFOS[item])
-    log.info('')
+        log.info(f"{item:<25} {INFOS[item]}")
     setup = question('Do you want to setup the specified calculations?', bool, True)
     log.info('')
 
     if setup:
+        if question("Do you want to link the interface files?", bool, default=False, autocomplete=False):
+            INFOS['link_files'] = True
         setup_all(INFOS, chosen_interface)
 
     close_keystrokes()
