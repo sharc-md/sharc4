@@ -2,6 +2,7 @@
 
 import sys
 import logging
+import os
 SHARCPRINT = 11
 
 
@@ -44,10 +45,28 @@ hdlr._name = 'rootHandler'
 hdlr.setFormatter(fmt)
 logging.root.handlers = []
 logging.root.addHandler(hdlr)
-logging.root.setLevel(logging.INFO)
-
 logging.addLevelName(SHARCPRINT, "SHARCPRINT")
 logging.SHARCPRINT = SHARCPRINT
+
+envlevel = os.environ.get('SHARCLOG')
+match envlevel:
+    case 'DEBUG':
+        loglevel = logging.DEBUG
+    case 'INFO':
+        loglevel = logging.INFO
+    case 'PRINT':
+        loglevel = logging.SHARCPRINT
+    case 'ERROR':
+        loglevel = logging.ERROR
+    case 'WARNING':
+        loglevel = logging.WARNING
+    case None:
+        loglevel = logging.INFO
+    case _:
+        loglevel = logging.INFO
+
+logging.root.setLevel(loglevel)
+
 
 def sharcprint(msg, *args, **kwargs):
     """
