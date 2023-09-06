@@ -69,7 +69,7 @@ class SHARC_INTERFACE(ABC):
     """
     Abstract Base Class for SHARC interfaces
 
-    persistent:     Does something
+    persistent:     Changes from stateless to statefull
     logname:        Name of the logger
     logfile:        Filename for logger output
     loglevel:       Set loglevel
@@ -138,7 +138,7 @@ class SHARC_INTERFACE(ABC):
         """
         Return version of interface
         """
-        return "3.0"
+        return "4.0"
 
     @staticmethod
     @abstractmethod
@@ -228,9 +228,9 @@ class SHARC_INTERFACE(ABC):
         # set up the system (i.e. molecule, states, unit...)
         self.setup_mol(QMinfilename)
         # read in the resources available for this computation (program path, cores, memory)
-        self.read_resources(f"{self.name}.resources")
+        self.read_resources(f"{self.name()}.resources")
         # read in the specific template file for the interface with all keywords
-        self.read_template(f"{self.name}.template")
+        self.read_template(f"{self.name()}.template")
         # setup internal state for the computation
         self.setup_interface()
 
@@ -265,7 +265,7 @@ class SHARC_INTERFACE(ABC):
     def read_template(self, template_file: str) -> None:
         """
         Reads a template file and assigns parameters to
-        self.template. No sanity checks at all, has to be done
+        self.QMin.template. No sanity checks at all, has to be done
         in the interface. If multiple entries
         of a parameter with one value are in the file, the latest value will be saved.
 
@@ -334,8 +334,8 @@ class SHARC_INTERFACE(ABC):
                     "first line must contain the number of atoms!"
                 ) from error
             self.QMin.coords[key] = (
-                np.asarray([parse_xyz(x)[1] for x in lines[2 : natom + 2]], dtype=float)
-                * self.QMin.molecule["factor"]
+                np.asarray([parse_xyz(x)[1] for x in lines[2: natom + 2]], dtype=float) *
+                self.QMin.molecule["factor"]
             )
         elif isinstance(xyz, (list, np.ndarray)):
             self.QMin.coords[key] = np.asarray(xyz) * self.QMin.molecule["factor"]
@@ -367,7 +367,7 @@ class SHARC_INTERFACE(ABC):
             raise ValueError("first line must contain the number of atoms!") from err
 
         self.QMin.molecule["elements"] = list(
-            map(lambda x: parse_xyz(x)[0], (qmin_lines[2 : natom + 2]))
+            map(lambda x: parse_xyz(x)[0], (qmin_lines[2: natom + 2]))
         )
         self.QMin.molecule["Atomcharge"] = sum(
             map(lambda x: ATOMCHARGE[x], self.QMin.molecule["elements"])
@@ -382,7 +382,7 @@ class SHARC_INTERFACE(ABC):
             lambda x: not re.match(r"^\s*$", x),
             map(
                 lambda x: re.sub(r"#.*$", "", x),
-                qmin_lines[self.QMin.molecule["natom"] + 2 :],
+                qmin_lines[self.QMin.molecule["natom"] + 2:],
             ),
         )
 
@@ -713,7 +713,7 @@ class SHARC_INTERFACE(ABC):
             requests.update({k.lower(): True for k in requests["tasks"].split()})
             del requests["tasks"]
         for task in ["nacdr", "overlap", "grad", "ion"]:
-            if task in requests and isinstance(requests["tasks"], str):
+            if task in requests and isinstance(requests[task], str):
                 if requests[task] == "":  # removes task from dict if {'task': ''}
                     del requests[task]
                 elif task == requests[task].lower() or requests[task] == "all":
@@ -775,13 +775,13 @@ class SHARC_INTERFACE(ABC):
         """
         self.log.debug("Starting request logic")
 
-        if not os.path.exists(self.QMin.save["savedir"]):
+        if not os.path.isdir(self.QMin.save["savedir"]):
             self.log.debug(f"Creating savedir {self.QMin.save['savedir']}")
             os.mkdir(self.QMin.save["savedir"])
 
         assert not (
-            (self.QMin.requests["overlap"] or self.QMin.requests["phases"])
-            and self.QMin.save["init"]
+            (self.QMin.requests["overlap"] or self.QMin.requests["phases"]) and
+            self.QMin.save["init"]
         ), '"overlap" and "phases" cannot be calculated in the first timestep!'
 
     def write_step_file(self) -> None:
