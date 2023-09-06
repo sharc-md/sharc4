@@ -65,11 +65,11 @@ class SHARC_QMMM(SHARC_HYBRID):
     def version():
         return SHARC_QMMM._version
 
-    def get_infos(self, INFOS, KEYSTROKES:[TextIOWrapper] = None) -> dict:
-        self.qm_interface.get_infos(INFOS, KEYSTROKES = KEYSTROKES)
-        self.mml_interface.get_infos(INFOS, KEYSTROKES = KEYSTROKES)
+    def get_infos(self, INFOS, KEYSTROKES: [TextIOWrapper] = None) -> dict:
+        self.qm_interface.get_infos(INFOS, KEYSTROKES=KEYSTROKES)
+        self.mml_interface.get_infos(INFOS, KEYSTROKES=KEYSTROKES)
         if self.QMin.template['embedding'] == 'subtractive':
-            self.mms_interface.get_infos(INFOS, KEYSTROKES = KEYSTROKES)
+            self.mms_interface.get_infos(INFOS, KEYSTROKES=KEYSTROKES)
 
         return INFOS
 
@@ -81,17 +81,17 @@ class SHARC_QMMM(SHARC_HYBRID):
 
         QMin = self.QMin
         # obtain the statemap
-        if  not QMin.save['savedir']:
+        if not QMin.save['savedir']:
             print(
                 'savedir not specified in QM.in, setting savedir to current directory!'
             )
             QMin.save.savedir = os.getcwd()
         # dynamic import of both interfaces
         self.qm_interface = factory(QMin.template['qm-program'])(
-            persistent = self.persistent)
+            persistent=self.persistent)
 
         self.mml_interface = factory(QMin.template['mm-program'])(
-            persistent = self.persistent)
+            persistent=self.persistent)
         qm_name = self.qm_interface.__class__.__name__
         mml_name = self.mml_interface.__class__.__name__
         # folder setup and savedir
@@ -117,7 +117,7 @@ class SHARC_QMMM(SHARC_HYBRID):
 
         if QMin.template['embedding'] == 'subtractive':
             self.mms_interface = factory(QMin.template['mm-program'])(
-                persistent = self.persistent)
+                persistent=self.persistent)
             mms_name = self.mms_interface.__class__.__name__
             mms_savedir = os.path.join(
                 QMin.save.savedir,
@@ -168,15 +168,15 @@ class SHARC_QMMM(SHARC_HYBRID):
         self.read_template(tmp_file)
 
         self.qm_interface = factory(self.QMin.template['qm-program'])(
-            persistent = self.persistent)
+            persistent=self.persistent)
 
         self.mml_interface = factory(self.QMin.template['mm-program'])(
-            persistent = self.persistent)
+            persistent=self.persistent)
         qm_name = self.qm_interface.__class__.__name__
         mml_name = self.mml_interface.__class__.__name__
         if self.QMin.template['embedding'] == 'subtractive':
             self.mms_interface = factory(self.QMin.template['mm-program'])(
-                persistent = self.persistent)
+                persistent=self.persistent)
         qm_features = self.qm_interface.get_features()
         mm_features = self.mml_interface.get_features()
 
@@ -415,7 +415,7 @@ class SHARC_QMMM(SHARC_HYBRID):
 
         for key, value in all_requests.items():
             match key:
-            # if both interfaces have to compute a property
+                # if both interfaces have to compute a property
                 case "h" | "dm" | "multipolar_fit":
                     qm_requests[key] = value
                     mm_requests[key] = value
@@ -566,7 +566,7 @@ class SHARC_QMMM(SHARC_HYBRID):
             # nacs would have to inserted in the whole system matrix only for qm atoms
             nacdr = [[[[0., 0., 0.] for _ in range(QMin.molecule.natom)]
                       for _ in range(QMin.molecule.nmstates)]
-                     for _ in range(QMin.moleculenmstates)]
+                     for _ in range(QMin.molecule.nmstates)]
             for i, s_i in enumerate(self.qm_interface.QMout['nacdr']):
                 for j, s_j in enumerate(s_i):
                     for n, qm_id in enumerate(self.qm_ids):
