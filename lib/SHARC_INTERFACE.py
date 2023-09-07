@@ -186,18 +186,38 @@ class SHARC_INTERFACE(ABC):
     def get_infos(
         self, INFOS: dict, KEYSTROKES: Optional[TextIOWrapper] = None
     ) -> dict:
-        """prepare INFOS obj
+        """communicate requests from setup and asks for additional paths or info
 
-        ---
+        The `INFOS` dict holds all global informations like paths to programs
+        and requests in `INFOS['needed_requests']`
+
+        all interface specific information like additional files etc should be stored
+        in the interface intance itself.
+
+        use the `question()` function from the `utils` module and write the answers
+        into `KEYSTROKES`
+
         Parameters:
-        INFOS: dictionary with all previously collected infos during setup
-        KEYSTROKES: object as returned by open() to be used with question()
+        ---
+        INFOS
+            dict[str]: dictionary with all previously collected infos during setup
+        KEYSTROKES
+            str: object as returned by open() to be used with question()
         """
         return INFOS
 
     @abstractmethod
     def prepare(self, INFOS: dict, dir_path: str):
-        "setup the calculation in directory 'dir'"
+        """
+        prepares the folder for an interface calculation
+
+        Parameters
+        ----------
+        INFOS
+            dict[str]: dictionary with all infos from the setup script
+        dir_path
+            str: *relative* path to the directory to setup (can be appended to `scratchdir`)
+        """
         return
 
     def print_qmin(self) -> None:
