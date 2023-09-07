@@ -47,7 +47,6 @@ DESCRIPTION = "Zero energies/gradients/couplings/etc and unity overlap matrices/
 
 CHANGELOGSTRING = """
 """
-np.set_printoptions(linewidth=400, formatter={"float": lambda x: f"{x: 9.7}"})
 
 all_features = set(
     [
@@ -210,5 +209,6 @@ class SHARC_DO_NOTHING(SHARC_FAST):
 
 
 if __name__ == "__main__":
+    np.set_printoptions(linewidth=400, formatter={"float": lambda x: f"{x: 9.7}"})
     test = SHARC_DO_NOTHING()
     test.main()
