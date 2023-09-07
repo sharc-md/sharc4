@@ -37,6 +37,8 @@ from logger import log as logging
 from SHARC_FAST import SHARC_FAST
 from utils import Error, makecmatrix, question
 
+__all__ = ["SHARC_DO_NOTHING"]
+
 AUTHORS = "Sebastian Mai"
 VERSION = "3.0"
 VERSIONDATE = datetime.datetime(2023, 8, 29)
@@ -64,8 +66,6 @@ all_features = set(
         "point_charges",
     ]
 )
-
-# logging.root.setLevel(logging.DEBUG)
 
 
 class SHARC_DO_NOTHING(SHARC_FAST):
