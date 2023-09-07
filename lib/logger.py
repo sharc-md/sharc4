@@ -48,7 +48,7 @@ logging.root.addHandler(hdlr)
 logging.addLevelName(SHARCPRINT, "SHARCPRINT")
 logging.SHARCPRINT = SHARCPRINT
 
-envlevel = os.environ.get('SHARCLOG')
+envlevel = os.getenv('SHARCLOG')
 match envlevel:
     case 'DEBUG':
         loglevel = logging.DEBUG
