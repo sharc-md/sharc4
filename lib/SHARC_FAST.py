@@ -26,17 +26,20 @@
 # IMPORTS
 # external
 
+import os
+import shutil
+from io import TextIOWrapper
+from typing import Optional
+
 # internal
 from SHARC_INTERFACE import SHARC_INTERFACE
 from utils import expand_path
-#  from logger import log
-from io import TextIOWrapper
-import os
-import shutil
+
 
 class SHARC_FAST(SHARC_INTERFACE):
-
-    def get_infos(self, INFOS: dict, KEYSTROKES: TextIOWrapper = None) -> dict:
+    def get_infos(
+        self, INFOS: dict, KEYSTROKES: Optional[TextIOWrapper] = None
+    ) -> dict:
         return INFOS
 
     def setup_interface(self):
@@ -45,22 +48,34 @@ class SHARC_FAST(SHARC_INTERFACE):
     def getQMout(self):
         return self.QMout
 
-
-    def prepare(self, INFOS: dict, dir: str):
-        if 'link_files' in INFOS:
-            os.symlink(expand_path(self.template_file), os.path.join(dir, self.name() + '.template'))
+    # TODO: WTF is self.template_file???
+    def prepare(self, INFOS: dict, dir_path: str):
+        if "link_files" in INFOS:
+            os.symlink(
+                expand_path(self.template_file),
+                os.path.join(dir_path, self.name() + ".template"),
+            )
             if "resources_file" in self.__dict__:
-                os.symlink(expand_path(self.resources_file), os.path.join(dir, self.name() + '.resources'))
+                os.symlink(
+                    expand_path(self.resources_file),
+                    os.path.join(dir_path, self.name() + ".resources"),
+                )
             if "extra_files" in self.__dict__:
                 for file in self.extra_files:
-                    os.symlink(expand_path(file), os.path.join(dir, os.path.split(file)[1]))
+                    os.symlink(
+                        expand_path(file),
+                        os.path.join(dir_path, os.path.split(file)[1]),
+                    )
 
-            return
-
-
-        shutil.copy(self.template_file, os.path.join(dir, self.name() + '.template'))
+        shutil.copy(
+            self.template_file, os.path.join(dir_path, self.name() + ".template")
+        )
         if "resources_file" in self.__dict__:
-            shutil.copy(self.resources_file, os.path.join(dir, self.name() + '.resources'))
+            shutil.copy(
+                self.resources_file, os.path.join(dir_path, self.name() + ".resources")
+            )
         if "extra_files" in self.__dict__:
             for file in self.extra_files:
-                shutil.copy(expand_path(file), os.path.join(dir, os.path.split(file)[1]))
+                shutil.copy(
+                    expand_path(file), os.path.join(dir_path, os.path.split(file)[1])
+                )

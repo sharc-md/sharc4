@@ -300,6 +300,7 @@ class QMinControl(QMinBase):
         "master": bool,
         "gradonly": bool,
         "states_to_do": list,
+        "jobs": dict,
     """
 
     def __init__(self, *args, **kwargs):
@@ -310,6 +311,7 @@ class QMinControl(QMinBase):
             "master": False,
             "gradonly": False,
             "states_to_do": None,
+            "jobs": None,
         }
 
         self.types = {
@@ -318,6 +320,7 @@ class QMinControl(QMinBase):
             "master": bool,
             "gradonly": bool,
             "states_to_do": list,
+            "jobs": dict,
         }
 
 
@@ -338,7 +341,6 @@ class QMin:
     control: QMinControl
 
     def __init__(self):
-
         self.interface = QMinBase()
         self.molecule = QMinMolecule()
         self.coords = QMinCoords()

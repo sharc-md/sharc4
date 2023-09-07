@@ -37,6 +37,8 @@ from logger import log as logging
 from SHARC_FAST import SHARC_FAST
 from utils import Error, makecmatrix, question
 
+__all__ = ["SHARC_DO_NOTHING"]
+
 AUTHORS = "Sebastian Mai"
 VERSION = "3.0"
 VERSIONDATE = datetime.datetime(2023, 8, 29)
@@ -45,28 +47,6 @@ DESCRIPTION = "Zero energies/gradients/couplings/etc and unity overlap matrices/
 
 CHANGELOGSTRING = """
 """
-np.set_printoptions(linewidth=400, formatter={"float": lambda x: f"{x: 9.7}"})
-
-all_features = set(
-    [
-        "h",
-        "soc",
-        "dm",
-        "grad",
-        "nacdr",
-        "overlap",
-        "multipolar_fit",
-        "phases",
-        "ion",
-        "theodore",
-        "dmdr",
-        "socdr",
-        "point_charges",
-    ]
-)
-
-# logging.root.setLevel(logging.DEBUG)
-
 
 class SHARC_DO_NOTHING(SHARC_FAST):
     """
@@ -103,7 +83,21 @@ class SHARC_DO_NOTHING(SHARC_FAST):
 
     def get_features(self, KEYSTROKES: Optional[TextIOWrapper] = None) -> set[str]:
         "return availble features"
-        return all_features
+        return {
+            "h",
+            "soc",
+            "dm",
+            "grad",
+            "nacdr",
+            "overlap",
+            "multipolar_fit",
+            "phases",
+            "ion",
+            "theodore",
+            "dmdr",
+            "socdr",
+            "point_charges",
+        }
 
     def get_infos(
         self, INFOS: dict, KEYSTROKES: Optional[TextIOWrapper] = None
@@ -210,5 +204,6 @@ class SHARC_DO_NOTHING(SHARC_FAST):
 
 
 if __name__ == "__main__":
+    np.set_printoptions(linewidth=400, formatter={"float": lambda x: f"{x: 9.7}"})
     test = SHARC_DO_NOTHING()
     test.main()
