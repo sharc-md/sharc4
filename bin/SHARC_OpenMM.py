@@ -129,7 +129,7 @@ class SHARC_OpenMM(SHARC_FAST):
             self.QMout['grad'] = gradients._value[np.newaxis, ...]
 
         if self.QMin.requests['multipolar_fit']:
-            self.QMout['multipolar_fit'] = self._charges
+            self.QMout['multipolar_fit'] = self._charges[np.newaxis, np.newaxis, ...]
 
         if self.QMin.requests['dm']:
             chrg = np.array(self._charges)
@@ -161,6 +161,12 @@ class SHARC_OpenMM(SHARC_FAST):
         self._read_template = True
 
     def read_resources(self, resources_filename='OpenMM.resources'):
+        self.QMin.resources.update({'ncpu': 1, 'cuda': False})
+        if not os.path.isfile(resources_filename):
+            self.log.warning(f"{resources_filename} not found! Continueing without further settings.")
+            self._read_resources = True
+            return
+
         super().read_resources(resources_filename)
         self.QMin.resources.update({'ncpu': 1, 'cuda': False})
         if 'ncpu' not in self.QMin.resources:
@@ -193,6 +199,7 @@ class SHARC_OpenMM(SHARC_FAST):
         self.simulation = Simulation(prmtop.topology, system, integrator, platform, platformProperties=properties)
         nonbonded = [f for f in system.getForces() if isinstance(f, NonbondedForce)][0]
         npart = system.getNumParticles()
+        self.log.debug(f"System size: {npart}")
         self._charges = np.fromiter(map(lambda x: nonbonded.getParticleParameters(x)[0]._value, range(npart)), dtype=float, count=npart)
 
     def _request_logic(self):
