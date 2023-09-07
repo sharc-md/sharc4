@@ -43,8 +43,6 @@ import shutil
 from io import TextIOWrapper
 from constants import U_TO_AMU, MASSES
 from kabsch import kabsch_w as kabsch
-from qmin import QMin
-from qmout import QMout
 
 authors = 'Sebastian Mai and Severin Polonius'
 version = '4.0'
@@ -251,7 +249,7 @@ class SHARC_LVC(SHARC_FAST):
     def getQMout(self):
         return self.QMout
 
-    @ staticmethod
+    @staticmethod
     def get_mult_prefactors(pc_coord_diff):
         # precalculated dist matrix
         pc_inv_dist_A_B = 1 / np.sqrt(np.sum((pc_coord_diff)**2, axis=2))    # distance matrix n_coord (A), n_pc (B)
@@ -275,7 +273,7 @@ class SHARC_LVC(SHARC_FAST):
             )
         )
 
-    @ staticmethod
+    @staticmethod
     def get_mult_prefactors_deriv(pc_coord_diff):
         pc_inv_dist_A_B = 1 / np.sqrt(np.sum((pc_coord_diff)**2, axis=2))    # distance matrix n_coord (A), n_pc (B)
         R = pc_coord_diff
@@ -322,7 +320,7 @@ class SHARC_LVC(SHARC_FAST):
             )
         ).reshape((3, 10, pc_coord_diff.shape[0], pc_coord_diff.shape[1]))
 
-    @ staticmethod
+    @staticmethod
     def rotate_multipoles(q, Trot):
         res = q.copy()
         res[..., 1:4] = res[..., 1:4] @ Trot
@@ -447,7 +445,7 @@ class SHARC_LVC(SHARC_FAST):
             dQ_dr = np.sqrt(self._Om)[..., None] * self._Km
 
         # GRADS and NACS
-        if 'nacdr' in self.QMin.requests:
+        if self.QMin.requests['nacdr']:
             # Build full derivative matrix
             start = 0    # starting index for blocks
             nacdr = np.zeros((nmstates, nmstates, r3N), float)
@@ -524,7 +522,7 @@ class SHARC_LVC(SHARC_FAST):
                 pc_grad += np.einsum('mmbx->mbx', nacdr_pc)
 
         # calculate only gradients
-        else:
+        if self.QMin.requests['grad']:
             grad = np.zeros((nmstates, r3N))
             start = 0
             for im, n in filter(lambda x: x[1] != 0, enumerate(states)):
@@ -564,11 +562,11 @@ class SHARC_LVC(SHARC_FAST):
                     # calculate the pc derivatives
                     pc_grad[start:stop, ...] = -np.einsum('iabx->ibx', dcoulomb)
                     del dcoulomb
-                grad[start:stop, ...] = grad_lvc
+                grad[start:stop, ...] += grad_lvc
                 # fills in blocks for other magnetic quantum numbers
                 for s1 in map(lambda x: start + n * (x + 1), range(im)):
                     s2 = s1 + n
-                    grad[s1:s2, ...] = grad_lvc
+                    grad[s1:s2, ...] += grad_lvc
                     if do_pc:
                         pc_grad[s1:s2, ...] = pc_grad[start:stop, ...]
                 start += n * (im + 1)
@@ -622,11 +620,12 @@ class SHARC_LVC(SHARC_FAST):
 
         # ======================================== assign to QMout =========================================
         if states == req_states:
+            self.log.debug(f"requests: {self.QMin.requests}")
             self.QMout.states = req_states
-            self.QMout.nstates = QMin.molecule['nstates']
-            self.QMout.nmstates = QMin.molecule['nmstates']
-            self.QMout.natom = QMin.molecule['natom']
-            self.QMout.npc = QMin.molecule['npc']
+            self.QMout.nstates = self.QMin.molecule['nstates']
+            self.QMout.nmstates = self.QMin.molecule['nmstates']
+            self.QMout.natom = self.QMin.molecule['natom']
+            self.QMout.npc = self.QMin.molecule['npc']
             self.QMout.point_charges = do_pc
             self.QMout.h = Hd
             self.QMout.dm = dipole
@@ -639,10 +638,12 @@ class SHARC_LVC(SHARC_FAST):
                 if do_pc:
                     self.QMout.nacdr_pc = nacdr_pc
             if do_pc:
+                self.log.debug("assign pcgrad")
                 self.QMout.grad_pc = pc_grad
             if self.QMin.requests['multipolar_fit']:
                 self.QMout.multipolar_fit = multipolar_fit
         else:
+            self.log.info(f"returnung subset of states {states} -> {req_states}")
             #  raise NotImplementedError("Calculating with less states is not yet implemented")
             self.QMout.allocate(req_states, self.QMin.molecule['natom'], self.QMin.molecule['npc'], self.QMin.requests)
             matrices = [(self.QMout.h, H, 2), (self.QMout.dm, dipole, 1)]
@@ -745,5 +746,6 @@ class SHARC_LVC(SHARC_FAST):
 
 
 if __name__ == '__main__':
-    lvc = SHARC_LVC()
+    from logger import loglevel
+    lvc = SHARC_LVC(loglevel=loglevel)
     lvc.main()

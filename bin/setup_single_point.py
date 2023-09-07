@@ -350,7 +350,7 @@ step 0
 unit angstrom
 states %s
 ''' % (' '.join([str(i) for i in INFOS['states']]))
-    string += "\n".join(INFOS['requests'])
+    string += "\n".join(INFOS['needed_requests'])
 
     runscript.write(string)
     runscript.close()
@@ -415,7 +415,7 @@ This interactive program prepares SHARC single point calculations.
     INFOS = {}
     chosen_interface = get_interface()()
     INFOS = get_general(INFOS)
-    INFOS['requests'] = get_requests(INFOS, chosen_interface)
+    INFOS['needed_requests'] = get_requests(INFOS, chosen_interface)
     INFOS = chosen_interface.get_infos(INFOS, KEYSTROKES=KEYSTROKES)
     INFOS = get_runscript_info(INFOS)
 
