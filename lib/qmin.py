@@ -278,7 +278,7 @@ class QMinResources(QMinBase):
             "scratchdir": os.path.join(os.getcwd(), "SCRATCH"),
             "ncpu": 1,
             "ngpu": None,
-            "memory": 100,
+            "memory": 1000,
         }
         self.types = {
             "pwd": str,
@@ -326,16 +326,29 @@ class QMin:
     The QMin object carries all information relevant to the execution of a SHARC interface.
     """
 
-    interface = QMinBase()
-    molecule = QMinMolecule()
-    coords = QMinCoords()
-    save = QMinSave()
-    requests = QMinRequests()
-    maps = QMinMaps()
-    resources = QMinResources()
-    template = QMinBase()
-    scheduling = QMinBase()
-    control = QMinControl()
+    interface: QMinBase
+    molecule: QMinMolecule
+    coords: QMinCoords
+    save: QMinSave
+    requests: QMinRequests
+    maps: QMinMaps
+    resources: QMinResources
+    template: QMinBase
+    scheduling: QMinBase
+    control: QMinControl
+
+    def __init__(self):
+
+        self.interface = QMinBase()
+        self.molecule = QMinMolecule()
+        self.coords = QMinCoords()
+        self.save = QMinSave()
+        self.requests = QMinRequests()
+        self.maps = QMinMaps()
+        self.resources = QMinResources()
+        self.template = QMinBase()
+        self.scheduling = QMinBase()
+        self.control = QMinControl()
 
     def __getitem__(self, key):
         return getattr(self, key)
