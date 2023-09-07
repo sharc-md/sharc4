@@ -48,25 +48,6 @@ DESCRIPTION = "Zero energies/gradients/couplings/etc and unity overlap matrices/
 CHANGELOGSTRING = """
 """
 
-all_features = set(
-    [
-        "h",
-        "soc",
-        "dm",
-        "grad",
-        "nacdr",
-        "overlap",
-        "multipolar_fit",
-        "phases",
-        "ion",
-        "theodore",
-        "dmdr",
-        "socdr",
-        "point_charges",
-    ]
-)
-
-
 class SHARC_DO_NOTHING(SHARC_FAST):
     """
     Do nothing interface
@@ -102,7 +83,21 @@ class SHARC_DO_NOTHING(SHARC_FAST):
 
     def get_features(self, KEYSTROKES: Optional[TextIOWrapper] = None) -> set[str]:
         "return availble features"
-        return all_features
+        return {
+            "h",
+            "soc",
+            "dm",
+            "grad",
+            "nacdr",
+            "overlap",
+            "multipolar_fit",
+            "phases",
+            "ion",
+            "theodore",
+            "dmdr",
+            "socdr",
+            "point_charges",
+        }
 
     def get_infos(
         self, INFOS: dict, KEYSTROKES: Optional[TextIOWrapper] = None
