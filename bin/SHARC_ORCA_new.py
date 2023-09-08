@@ -55,61 +55,74 @@ class SHARC_ORCA(SHARC_ABINITIO):
         super().__init__(*args, **kwargs)
 
         # Add resource keys
-        self.QMin.resources["orcadir"] = None
-        self.QMin.resources["schedule_scaling"] = 0.9
-        self.QMin.resources["orcadir"] = None
-        self.QMin.resources["orcaversion"] = None
-        self.QMin.resources["wfoverlap"] = None
-        self.QMin.resources["wfthres"] = None
-        self.QMin.resources["numfrozcore"] = 0
-        self.QMin.resources["numocc"] = None
-
-        self.QMin.resources.types["orcadir"] = str
-        self.QMin.resources.types["orcaversion"] = tuple
-        self.QMin.resources.types["wfoverlap"] = str
-        self.QMin.resources.types["wfthres"] = float
-        self.QMin.resources.types["numfrozcore"] = int
-        self.QMin.resources.types["numocc"] = int
-        self.QMin.resources.types["schedule_scaling"] = float
+        self.QMin.resources.update(
+            {
+                "orcadir": None,
+                "orcaversion": None,
+                "wfoverlap": None,
+                "wfthres": None,
+                "numfrozcore": 0,
+                "numocc": None,
+                "schedule_scaling": 0.9,
+            }
+        )
+        self.QMin.resources.types.update(
+            {
+                "orcadir": str,
+                "orcaversion": tuple,
+                "wfoverlap": str,
+                "wfthres": float,
+                "numfrozcore": int,
+                "numocc": int,
+                "schedule_scaling": float,
+            }
+        )
 
         # Add template keys
-        self.QMin.template["no_tda"] = False
-        self.QMin.template["unrestricted_triplets"] = False
-        self.QMin.template["picture_change"] = False
-        self.QMin.template["basis"] = "6-31G"
-        self.QMin.template["auxbasis"] = None
-        self.QMin.template["functional"] = "PBE"
-        self.QMin.template["dispersion"] = None
-        self.QMin.template["grid"] = None
-        self.QMin.template["gridx"] = None
-        self.QMin.template["gridxc"] = None
-        self.QMin.template["ri"] = None
-        self.QMin.template["scf"] = None
-        self.QMin.template["keys"] = None
-        self.QMin.template["paste_input_file"] = None
-        self.QMin.template["frozen"] = -1
-        self.QMin.template["maxiter"] = 700
-        self.QMin.template["hfexchange"] = -1.0
-        self.QMin.template["intacc"] = -1.0
-
-        self.QMin.template.types["no_tda"] = bool
-        self.QMin.template.types["unrestricted_triplets"] = bool
-        self.QMin.template.types["picture_change"] = bool
-        self.QMin.template.types["basis"] = str
-        self.QMin.template.types["auxbasis"] = str
-        self.QMin.template.types["functional"] = str
-        self.QMin.template.types["dispersion"] = str
-        self.QMin.template.types["grid"] = str
-        self.QMin.template.types["gridx"] = str
-        self.QMin.template.types["gridxc"] = str
-        self.QMin.template.types["ri"] = str
-        self.QMin.template.types["scf"] = str
-        self.QMin.template.types["keys"] = (str, list)
-        self.QMin.template.types["paste_input_file"] = str
-        self.QMin.template.types["frozen"] = int
-        self.QMin.template.types["maxiter"] = int
-        self.QMin.template.types["hfexchange"] = float
-        self.QMin.template.types["intacc"] = float
+        self.QMin.template.update(
+            {
+                "no_tda": False,
+                "unrestricted_triplets": False,
+                "picture_change": False,
+                "basis": "6-31G",
+                "auxbasis": None,
+                "functional": "PBE",
+                "dispersion": None,
+                "grid": None,
+                "gridx": None,
+                "gridxc": None,
+                "ri": None,
+                "scf": None,
+                "keys": None,
+                "paste_input_file": None,
+                "frozen": -1,
+                "maxiter": 700,
+                "hfexchange": -1.0,
+                "intacc": -1.0,
+            }
+        )
+        self.QMin.template.types.update(
+            {
+                "no_tda": bool,
+                "unrestricted_triplets": bool,
+                "picture_change": bool,
+                "basis": str,
+                "auxbasis": str,
+                "functional": str,
+                "dispersion": str,
+                "grid": str,
+                "gridx": str,
+                "gridxc": str,
+                "ri": str,
+                "scf": str,
+                "keys": (str, list),
+                "paste_input_file": str,
+                "frozen": int,
+                "maxiter": int,
+                "hfexchange": float,
+                "intacc": float,
+            }
+        )
         # no range_sep_settings, can be done with paste_input_file
 
     @staticmethod
@@ -480,9 +493,10 @@ if __name__ == "__main__":
     test.read_requests("QM.in")
     test.setup_interface()
     test.QMin.control["jobid"] = 1
-    test.get_dets_from_cis(
+    cidets = test.get_dets_from_cis(
         # "/user/mai/Documents/CoWorkers/FelixProche/full/orca.cis"
-        #"/user/mai/Documents/CoWorkers/Anna/test2/orca.cis"
-        "/user/mai/Documents/CoWorkers/AnnaMW/ORCA_wfoverlap/real_test/A/ORCA.cis"
+        "/user/mai/Documents/CoWorkers/Anna/test2/orca.cis"
+        # "/user/mai/Documents/CoWorkers/AnnaMW/ORCA_wfoverlap/real_test/A/ORCA.cis"
     )
+    print(cidets)
     # print(test.QMin)
