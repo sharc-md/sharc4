@@ -456,7 +456,6 @@ class SHARC_ORCA(SHARC_ABINITIO):
             for mult in mults:
                 filename = os.path.join(self.QMin.save["savedir"], f"dets.{mult}")
                 strings[filename] = self.format_ci_vectors(eigenvectors[mult])
-            print(strings)
             return strings
 
     @staticmethod
@@ -483,6 +482,7 @@ if __name__ == "__main__":
     test.QMin.control["jobid"] = 1
     test.get_dets_from_cis(
         # "/user/mai/Documents/CoWorkers/FelixProche/full/orca.cis"
-        "/user/mai/Documents/CoWorkers/Anna/test2/orca.cis"
+        #"/user/mai/Documents/CoWorkers/Anna/test2/orca.cis"
+        "/user/mai/Documents/CoWorkers/AnnaMW/ORCA_wfoverlap/real_test/A/ORCA.cis"
     )
     # print(test.QMin)
