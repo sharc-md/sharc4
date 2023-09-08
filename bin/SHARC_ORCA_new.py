@@ -1,10 +1,12 @@
 import datetime
+import math
 import os
 import re
+import struct
 import subprocess as sp
+from copy import deepcopy
 from io import TextIOWrapper
 from typing import Optional
-import struct
 
 from qmin import QMin
 from SHARC_ABINITIO import SHARC_ABINITIO
@@ -59,7 +61,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
         self.QMin.resources["orcaversion"] = None
         self.QMin.resources["wfoverlap"] = None
         self.QMin.resources["wfthres"] = None
-        self.QMin.resources["numfrozcore"] = None
+        self.QMin.resources["numfrozcore"] = 0
         self.QMin.resources["numocc"] = None
 
         self.QMin.resources.types["orcadir"] = str
@@ -147,9 +149,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
         """
         return all_features
 
-    def get_infos(
-        self, INFOS: dict, KEYSTROKES: Optional[TextIOWrapper] = None
-    ) -> dict:
+    def get_infos(self, INFOS: dict, KEYSTROKES: Optional[TextIOWrapper] = None) -> dict:
         """prepare INFOS obj
 
         ---
@@ -185,9 +185,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
     def print_qmin(self) -> None:
         pass
 
-    def read_resources(
-        self, resources_file: str, kw_whitelist: Optional[list[str]] = None
-    ) -> None:
+    def read_resources(self, resources_file: str, kw_whitelist: Optional[list[str]] = None) -> None:
         super().read_resources(resources_file, kw_whitelist)
 
         # LD PATH???
@@ -197,17 +195,11 @@ class SHARC_ORCA(SHARC_ABINITIO):
         self.QMin.resources["orcadir"] = expand_path(self.QMin.resources["orcadir"])
         self.log.debug(f'orcadir set to {self.QMin.resources["orcadir"]}')
 
-        self.QMin.resources["orcaversion"] = SHARC_ORCA.get_orca_version(
-            self.QMin.resources["orcadir"]
-        )
-        self.log.info(
-            f'Detected ORCA version {".".join(str(i) for i in self.QMin.resources["orcaversion"])}'
-        )
+        self.QMin.resources["orcaversion"] = SHARC_ORCA.get_orca_version(self.QMin.resources["orcadir"])
+        self.log.info(f'Detected ORCA version {".".join(str(i) for i in self.QMin.resources["orcaversion"])}')
 
         if self.QMin.resources["orcaversion"] < (5, 0):
-            raise ValueError(
-                "This version of the SHARC-ORCA interface is only compatible to Orca 5.0 or higher!"
-            )
+            raise ValueError("This version of the SHARC-ORCA interface is only compatible to Orca 5.0 or higher!")
 
     def read_requests(self, requests_file: str = "QM.in") -> None:
         super().read_requests(requests_file)
@@ -248,12 +240,8 @@ class SHARC_ORCA(SHARC_ABINITIO):
             and self.QMin.molecule["states"][2] > 0
         ):
             self.log.debug("Unrestricted triplets requested, setup states_to_do")
-            self.QMin.control["states_to_do"][0] = max(
-                self.QMin.molecule["states"][0], 1
-            )
-            req = max(
-                self.QMin.molecule["states"][0] - 1, self.QMin.molecule["states"][2]
-            )
+            self.QMin.control["states_to_do"][0] = max(self.QMin.molecule["states"][0], 1)
+            req = max(self.QMin.molecule["states"][0] - 1, self.QMin.molecule["states"][2])
             self.QMin.control["states_to_do"][0] = req + 1
             self.QMin.control["states_to_do"][2] = req
 
@@ -271,28 +259,28 @@ class SHARC_ORCA(SHARC_ABINITIO):
         if self.QMin.requests["ion"]:
             self.log.debug("Building ionmap")
             self.QMin.maps["ionmap"] = []
-            for m1 in itmult(self.QMin.molecule["states"]):
-                job1 = self.QMin.maps["multmap"][m1]
-                el1 = self.QMin.maps["chargemap"][m1]
-                for m2 in itmult(self.QMin.molecule["states"]):
-                    if m1 >= m2:
+            for mult1 in itmult(self.QMin.molecule["states"]):
+                job1 = self.QMin.maps["multmap"][mult1]
+                el1 = self.QMin.maps["chargemap"][mult1]
+                for mult2 in itmult(self.QMin.molecule["states"]):
+                    if mult1 >= mult2:
                         continue
-                    job2 = self.QMin.maps["multmap"][m2]
-                    el2 = self.QMin.maps["chargemap"][m2]
-                    if abs(m1 - m2) == 1 and abs(el1 - el2) == 1:
-                        self.QMin.maps["ionmap"].append((m1, job1, m2, job2))
+                    job2 = self.QMin.maps["multmap"][mult2]
+                    el2 = self.QMin.maps["chargemap"][mult2]
+                    if abs(mult1 - mult2) == 1 and abs(el1 - el2) == 1:
+                        self.QMin.maps["ionmap"].append((mult1, job1, mult2, job2))
 
         # Setup gsmap
         self.log.debug("Building gsmap")
         self.QMin.maps["gsmap"] = {}
         for i in range(self.QMin.molecule["nmstates"]):
-            m1, _, ms1 = tuple(self.QMin.maps["statemap"][i + 1])
-            gs = (m1, 1, ms1)
-            job = self.QMin.maps["multmap"][m1]
-            if m1 == 3 and self.QMin.control["jobs"][job]["restr"]:
-                gs = (1, 1, 0.0)
+            mult1, _, ms1 = tuple(self.QMin.maps["statemap"][i + 1])
+            ground_state = (mult1, 1, ms1)
+            job = self.QMin.maps["multmap"][mult1]
+            if mult1 == 3 and self.QMin.control["jobs"][job]["restr"]:
+                ground_state = (1, 1, 0.0)
             for j in range(self.QMin.molecule["nmstates"]):
-                if tuple(self.QMin.maps["statemap"][j + 1]) == gs:
+                if tuple(self.QMin.maps["statemap"][j + 1]) == ground_state:
                     break
                 self.QMin.maps["gsmap"][i + 1] = j + 1
 
@@ -323,29 +311,154 @@ class SHARC_ORCA(SHARC_ABINITIO):
     def write_step_file(self) -> None:
         super().write_step_file()
 
-    def get_dets_from_cis(self, cis_path: str):
+    def get_dets_from_cis(self, cis_path: str) -> dict[str, str]:
         """
         Parse ORCA.cis file from WORKDIR
         """
-        cis_path = (
-            cis_path if os.path.isfile(cis_path) else os.path.join(cis_path, "ORCA.cis")
-        )
+        # Set variables
+        cis_path = cis_path if os.path.isfile(cis_path) else os.path.join(cis_path, "ORCA.cis")
         self.QMin.control["jobid"] = 1  # TODO: REMOVE AFTER DEBUGGING!!!
-        restricted = self.QMin.control["jobs"][self.QMin.control["jobid"]]["restr"]
+        jobid = self.QMin.control["jobid"]
+        restricted = self.QMin.control["jobs"][jobid]["restr"]
+        mults = self.QMin.control["jobs"][jobid]["mults"]
+        gsmult = self.QMin.maps["multmap"][-jobid]
+        frozcore = self.QMin.resources["numfrozcore"]
+        states_extract = deepcopy(self.QMin.molecule["states"])
+        states_skip = [self.QMin.control["states_to_do"][i] - states_extract[i] for i in range(len(states_extract))]
+        for i, _ in enumerate(states_extract):
+            if not i + 1 in mults:
+                states_extract[i] = 0
+                states_skip[i] = 0
+            elif i + 1 == gsmult:
+                states_extract[i] -= 1
 
+        # Parse file
         with open(cis_path, "rb") as cis_file:
             cis_file.read(4)
             header = [struct.unpack("i", cis_file.read(4))[0] for i in range(8)]
 
             # Extract information from header
             # Number occupied A/B and number virtual A/B
+            nfc = header[0]
             noa = header[1] - header[0] + 1
             nva = header[3] - header[2] + 1
             nob = header[5] - header[4] + 1 if not restricted else noa
             nvb = header[7] - header[6] + 1 if not restricted else nva
-            self.log.debug(
-                f"Extracting header from CIS file, NOA: {noa}, NVA: {nva}, NOB: {nob}, NVB: {nvb}"
-            )
+            self.log.debug(f"CIS file header, NOA: {noa}, NVA: {nva}, NOB: {nob}, NVB: {nvb}, NFC: {nfc}")
+
+            # ground state configuration
+            # 0: empty, 1: alpha, 2: beta, 3: double oppupied
+            if restricted:
+                occ_a = [3] * (nfc + noa) + [0] * nva
+                occ_b = []
+            else:
+                occ_a = [1] * (nfc + noa) + [0] * nva
+                occ_b = [2] * (nfc + nob) + [0] * nvb
+
+            # Iterate over multiplicities and parse determinants
+            eigenvectors = {}
+            for mult in mults:
+                eigenvectors[mult] = []
+
+                if mult == gsmult:
+                    key = occ_a[frozcore:] + occ_b[frozcore:]
+                    eigenvectors[mult].append({tuple(key): 1.0})
+
+                for _ in range(states_extract[mult - 1]):
+                    cis_file.read(40)
+                    dets = {}
+                    for occ in range(nfc, header[1] + 1):
+                        for virt in range(header[2], header[3] + 1):
+                            dets[(occ, virt, 1)] = struct.unpack("d", cis_file.read(8))[0]
+
+                    if not restricted:
+                        for occ in range(header[4], header[5] + 1):
+                            for virt in range(header[6], header[7] + 1):
+                                dets[(occ, virt, 2)] = struct.unpack("d", cis_file.read(8))[0]
+
+                    if self.QMin.template["no_tda"]:
+                        cis_file.read(40)
+                        for occ in range(nfc, header[1] + 1):
+                            for virt in range(header[2], header[3] + 1):
+                                dets[(occ, virt, 1)] += struct.unpack("d", cis_file.read(8))[0]
+                                dets[(occ, virt, 1)] /= 2
+
+                        if not restricted:
+                            for occ in range(header[4], header[5] + 1):
+                                for virt in range(header[6], header[7] + 1):
+                                    dets[(occ, virt, 2)] += struct.unpack("d", cis_file.read(8))[0]
+                                    dets[(occ, virt, 2)] /= 2
+
+                    # Truncate determinants with contribution under threshold
+                    norm = 0
+                    for k in sorted(dets, key=lambda x: dets[x] ** 2, reverse=True):
+                        if norm > self.QMin.resources["wfthres"]:
+                            del dets[k]
+                            continue
+                        norm += dets[k] ** 2
+
+                    dets_exp = {}
+                    for occ, virt, dummy in dets:
+                        if restricted:
+                            key = deepcopy(occ_a)
+                            match mult:
+                                case 1:
+                                    key[occ], key[virt] = 2, 1
+                                    dets_exp[tuple(key)] = dets[(occ, virt, dummy)] * math.sqrt(0.5)
+                                    key[occ], key[virt] = 1, 2
+                                    dets_exp[tuple(key)] = dets[(occ, virt, dummy)] * math.sqrt(0.5)
+                                case 3:
+                                    key[occ], key[virt] = 1, 1
+                                    dets_exp[tuple(key)] = dets[(occ, virt, dummy)]
+                        else:
+                            key = occ_a + occ_b
+                            match dummy:
+                                case 1:
+                                    key[occ], key[virt] = 0, 1
+                                    dets_exp[tuple(key)] = dets[(occ, virt, dummy)]
+                                case 2:
+                                    key[nfc + noa + nva + occ] = 0
+                                    key[nfc + noa + nva + virt] = 2
+                                    dets_exp[tuple(key)] = dets[(occ, virt, dummy)]
+
+                    # Remove frozen core
+                    dets_nofroz = {}
+                    for key, val in dets_exp.items():
+                        if frozcore == 0:
+                            dets_nofroz = dets_exp
+                            break
+                        if restricted:
+                            if any(map(lambda x: x != 3, key[:frozcore])):
+                                self.log.warning("Non-occupied orbital inside frozen core! Skipping ...")
+                                continue
+                            dets_nofroz[key[frozcore:]] = val
+                            continue
+                        if any(map(lambda x: x != 1, key[:frozcore])) or any(
+                            map(lambda x: x != 2, key[frozcore + noa + nva : noa + nva + 2 * frozcore])
+                        ):
+                            self.log.warning("Non-occupied orbital inside frozen core! Skipping ...")
+                            continue
+                        dets_nofroz[key[frozcore : frozcore + noa + nva] + key[noa + nva + 2 * frozcore]] = val
+                    eigenvectors[mult].append(dets_nofroz)
+
+                    # Skip extra roots
+                    skip = 40 + noa * nva * 8
+                    if not restricted:
+                        skip += nob * nvb * 8
+                    if self.QMin.template["no_tda"]:
+                        skip += 40 + noa * nva * 8
+                        if not restricted:
+                            skip += nob * nvb * 8
+                    skip *= states_skip[mult - 1]
+                    cis_file.read(skip)
+
+            # Convert determinant lists to strins
+            strings = {}
+            for mult in mults:
+                filename = os.path.join(self.QMin.save["savedir"], f"dets.{mult}")
+                strings[filename] = self.format_ci_vectors(eigenvectors[mult])
+            print(strings)
+            return strings
 
     @staticmethod
     def get_orca_version(path: str) -> tuple[int, ...]:
@@ -364,13 +477,12 @@ class SHARC_ORCA(SHARC_ABINITIO):
 if __name__ == "__main__":
     test = SHARC_ORCA(loglevel=10)
     test.setup_mol("QM.in")
-    test.read_resources(
-        "ORCA.resources", kw_whitelist=["theodore_prop", "theodore_fragment"]
-    )
+    test.read_resources("ORCA.resources", kw_whitelist=["theodore_prop", "theodore_fragment"])
     test.read_template("ORCA.template")
     test.read_requests("QM.in")
     test.setup_interface()
     test.get_dets_from_cis(
-        "/user/mai/Documents/CoWorkers/FelixProche/full/orca.cis"
+        # "/user/mai/Documents/CoWorkers/FelixProche/full/orca.cis"
+        "/user/mai/Documents/CoWorkers/Anna/test2/orca.cis"
     )
     # print(test.QMin)
