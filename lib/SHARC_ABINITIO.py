@@ -405,7 +405,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         string = f"{len(ci_vectors)} {len(next(iter(alldets)))} {len(alldets)}\n"
         for det in sorted(alldets, reverse=True):
             string += "".join(str(x) for x in det[0]).translate(trans_table)
-            string += f"{det[1]:11.7f} \n"
+            string += f" {det[1]:11.7f} \n"
         return string
 
     @staticmethod
