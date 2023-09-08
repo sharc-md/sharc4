@@ -102,9 +102,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         return all_features
 
     @abstractmethod
-    def get_infos(
-        self, INFOS: dict, KEYSTROKES: Optional[TextIOWrapper] = None
-    ) -> dict:
+    def get_infos(self, INFOS: dict, KEYSTROKES: Optional[TextIOWrapper] = None) -> dict:
         """prepare INFOS obj
 
         ---
@@ -142,26 +140,17 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         if self.QMin.template["charge"]:
             if len(self.QMin.template["charge"]) == 1:
                 charge = int(self.QMin.template["charge"][0])
-                if (self.QMin.molecule["Atomcharge"] + charge) % 2 == 1 and len(
-                    self.QMin.molecule["states"]
-                ) > 1:
-                    self.log.info(
-                        "HINT: Charge shifted by -1 to be compatible with multiplicities."
-                    )
+                if (self.QMin.molecule["Atomcharge"] + charge) % 2 == 1 and len(self.QMin.molecule["states"]) > 1:
+                    self.log.info("HINT: Charge shifted by -1 to be compatible with multiplicities.")
                     charge -= 1
-                self.QMin.template["charge"] = [
-                    i % 2 + charge for i in range(len(self.QMin.molecule["states"]))
-                ]
+                self.QMin.template["charge"] = [i % 2 + charge for i in range(len(self.QMin.molecule["states"]))]
                 self.log.info(
                     f'HINT: total charge per multiplicity automatically assigned, please check ({self.QMin.template["charge"]}).'
                 )
-                self.log.info(
-                    'You can set the charge in the template manually for each multiplicity ("charge 0 +1 0 ...")'
-                )
+                self.log.info('You can set the charge in the template manually for each multiplicity ("charge 0 +1 0 ...")')
             elif len(self.QMin.template["charge"]) >= len(self.QMin.molecule["states"]):
                 self.QMin.template["charge"] = [
-                    int(self.QMin.template["charge"][i])
-                    for i in range(len(self.QMin.molecule["states"]))
+                    int(self.QMin.template["charge"][i]) for i in range(len(self.QMin.molecule["states"]))
                 ]
                 compatible = True
                 for imult, cha in enumerate(self.QMin.template["charge"]):
@@ -172,14 +161,10 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                         "Charges from template not compatible with multiplicities!  (this is probably OK if you use QM/MM)"
                     )
             else:
-                raise ValueError(
-                    'Length of "charge" does not match length of "states"!'
-                )
+                raise ValueError('Length of "charge" does not match length of "states"!')
 
     @abstractmethod
-    def read_resources(
-        self, resources_file: str, kw_whitelist: Optional[list[str]] = None
-    ) -> None:
+    def read_resources(self, resources_file: str, kw_whitelist: Optional[list[str]] = None) -> None:
         super().read_resources(resources_file, kw_whitelist)
 
     @abstractmethod
@@ -200,30 +185,20 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         # Setup gradmap
         if self.QMin.requests["grad"]:
             self.log.debug("Building gradmap")
-            self.QMin.maps["gradmap"] = set(
-                {
-                    tuple(self.QMin.maps["statemap"][i][0:2])
-                    for i in self.QMin.requests["grad"]
-                }
-            )
+            self.QMin.maps["gradmap"] = set({tuple(self.QMin.maps["statemap"][i][0:2]) for i in self.QMin.requests["grad"]})
 
         # Setup densmap
         if self.QMin.requests["multipolar_fit"]:
             self.log.debug("Building densmap")
             self.QMin.maps["densmap"] = set(
-                {
-                    tuple(self.QMin.maps["statemap"][i][0:2])
-                    for i in self.QMin.requests["multipolar_fit"]
-                }
+                {tuple(self.QMin.maps["statemap"][i][0:2]) for i in self.QMin.requests["multipolar_fit"]}
             )
 
         # Setup nacmap
         if self.QMin.requests["nacdr"]:
             if self.QMin.requests["nacdr"] == ["all"]:
                 mat = [
-                    (i + 1, j + 1)
-                    for i in range(self.QMin.molecule["nmstates"])
-                    for j in range(self.QMin.molecule["nmstates"])
+                    (i + 1, j + 1) for i in range(self.QMin.molecule["nmstates"]) for j in range(self.QMin.molecule["nmstates"])
                 ]
                 # self.QMin.requests["nacdr"] = mat
             else:
@@ -239,114 +214,23 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
 
         # Setup charge and paddingstates
         if not self.QMin.template["charge"]:
-            self.QMin.template["charge"] = [
-                i % 2 for i in range(len(self.QMin.molecule["states"]))
-            ]
-            self.log.info(
-                f"charge not specified setting default, {self.QMin.template['charge']}"
-            )
+            self.QMin.template["charge"] = [i % 2 for i in range(len(self.QMin.molecule["states"]))]
+            self.log.info(f"charge not specified setting default, {self.QMin.template['charge']}")
 
         if not self.QMin.template["paddingstates"]:
-            self.QMin.template["paddingstates"] = [
-                0 for _ in self.QMin.molecule["states"]
-            ]
+            self.QMin.template["paddingstates"] = [0 for _ in self.QMin.molecule["states"]]
             self.log.info(
                 f"paddingstates not specified setting default, {self.QMin.template['paddingstates']}",
             )
 
         # Setup chargemap
         self.log.debug("Building chargemap")
-        self.QMin.maps["chargemap"] = {
-            idx + 1: int(chrg)
-            for (idx, chrg) in enumerate(self.QMin.template["charge"])
-        }
+        self.QMin.maps["chargemap"] = {idx + 1: int(chrg) for (idx, chrg) in enumerate(self.QMin.template["charge"])}
 
         # Setup jobs
         self.QMin.control["states_to_do"] = [
-            v + int(self.QMin.template["paddingstates"][i]) if v > 0 else v
-            for i, v in enumerate(self.QMin.molecule["states"])
+            v + int(self.QMin.template["paddingstates"][i]) if v > 0 else v for i, v in enumerate(self.QMin.molecule["states"])
         ]
-
-        # if "unrestricted_triplets" not in self.QMin.template.keys():
-        #     if (
-        #         len(self.QMin.molecule["states"]) >= 3
-        #         and self.QMin.molecule["states"][2] > 0
-        #     ):
-        #         self.QMin.control["states_to_do"][0] = max(
-        #             self.QMin.molecule["states"][0], 1
-        #         )
-        #         req = max(
-        #             self.QMin.molecule["states"][0] - 1, self.QMin.molecule["states"][2]
-        #         )
-        #         self.QMin.control["states_to_do"][0] = req + 1
-        #         self.QMin.control["states_to_do"][2] = req
-
-        # jobs = {}
-        # if self.QMin.control["states_to_do"][0] > 0:
-        #     jobs[1] = {"mults": [1], "restr": True}
-        # if (
-        #     len(self.QMin.control["states_to_do"]) >= 2
-        #     and self.QMin.control["states_to_do"][1] > 0
-        # ):
-        #     jobs[2] = {"mults": [2], "restr": False}
-        # if (
-        #     len(self.QMin.control["states_to_do"]) >= 3
-        #     and self.QMin.control["states_to_do"][2] > 0
-        # ):
-        #     if (
-        #         "unrestricted_triplets" not in self.QMin.template.keys()
-        #         and self.QMin.control["states_to_do"][0] > 0
-        #     ):
-        #         jobs[1]["mults"].append(3)
-        #     else:
-        #         jobs[3] = {"mults": [3], "restr": False}
-
-        # if len(self.QMin.control["states_to_do"]) >= 4:
-        #     for imult, nstate in enumerate(self.QMin.control["states_to_do"][3:]):
-        #         if nstate > 0:
-        #             jobs[imult + 4] = {"mults": [imult + 4], "restr": False}
-
-        # self.log.debug("Building mults")
-        # self.QMin.maps["mults"] = set(jobs)
-
-        # # Setup multmap
-        # self.log.debug("Building multmap")
-        # self.QMin.maps["multmap"] = {}
-        # for ijob, job in jobs.items():
-        #     for imult in job["mults"]:
-        #         self.QMin.maps["multmap"][imult] = ijob
-        #     self.QMin.maps["multmap"][-(ijob)] = job["mults"]
-        # self.QMin.maps["multmap"][1] = 1
-
-        # # Setup ionmap
-        # if self.QMin.requests["ion"]:
-        #     self.log.debug("Building ionmap")
-        #     self.QMin.maps["ionmap"] = []
-        #     for m1 in itmult(self.QMin.molecule["states"]):
-        #         job1 = self.QMin.maps["multmap"][m1]
-        #         el1 = self.QMin.maps["chargemap"][m1]
-        #         for m2 in itmult(self.QMin.molecule["states"]):
-        #             if m1 >= m2:
-        #                 continue
-        #             job2 = self.QMin.maps["multmap"][m2]
-        #             el2 = self.QMin.maps["chargemap"][m2]
-        #             if abs(m1 - m2) == 1 and abs(el1 - el2) == 1:
-        #                 self.QMin.maps["ionmap"].append((m1, job1, m2, job2))
-
-        # # Setup gsmap
-        # self.log.debug("Building gsmap")
-        # self.QMin.maps["gsmap"] = {}
-        # for i in range(self.QMin.molecule["nmstates"]):
-        #     m1, s1, ms1 = tuple(self.QMin.maps["statemap"][i + 1])
-        #     gs = (m1, 1, ms1)
-        #     job = self.QMin.maps["multmap"][m1]
-        #     if m1 == 3 and jobs[job]["restr"]:
-        #         gs = (1, 1, 0.0)
-        #     for j in range(self.QMin.molecule["nmstates"]):
-        #         m2, s2, ms2 = tuple(self.QMin.maps["statemap"][j + 1])
-        #         if (m2, s2, ms2) == gs:
-        #             break
-        #     self.QMin.maps["gsmap"][i + 1] = j + 1
 
     @abstractmethod
     def getQMout(self):
@@ -363,9 +247,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         Garbage collection after runjobs()
         """
 
-    def run_program(
-        self, workdir: str, cmd: str, out: str, err: Optional[str] = None
-    ) -> int:
+    def run_program(self, workdir: str, cmd: str, out: str, err: Optional[str] = None) -> int:
         """
         Runs a ab-initio programm and returns the exit_code
 
@@ -391,9 +273,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             exit_code = sp.call(cmd, shell=True, stdout=outfile, stderr=errfile)
         except OSError:
             t, v, tb = sys.exc_info()
-            raise OSError(
-                f"Call has had some serious problems:\nWORKDIR:{workdir}\n{t}: {v}", 96
-            ).with_traceback(tb)
+            raise OSError(f"Call has had some serious problems:\nWORKDIR:{workdir}\n{t}: {v}", 96).with_traceback(tb)
         finally:
             if err:
                 errfile.close()
@@ -430,9 +310,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 for job, qmin in jobset.items():
                     self.log.debug(f"Adding job: {job}")
                     workdir = os.path.join(self.QMin.resources["scratchdir"], job)
-                    error_codes[job] = pool.apply_async(
-                        self.execute_from_qmin, args=(workdir, qmin)
-                    ).get()
+                    error_codes[job] = pool.apply_async(self.execute_from_qmin, args=(workdir, qmin)).get()
                     time.sleep(self.QMin.resources["delay"])
 
         # Processing error codes
@@ -445,7 +323,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 error_string += "\n"
         self.log.info(f"{error_string}")
 
-        if any(lambda x: x != 0, error_codes.values()):
+        if any(map(lambda x: x != 0, error_codes.values())):
             raise RuntimeError("Some subprocesses did not finish successfully!")
 
         # Create restart files and garbage collection
@@ -455,9 +333,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         return error_codes
 
     @staticmethod
-    def divide_slots(
-        ncpu: int, ntasks: int, scaling: float
-    ) -> tuple[int, int, list[int]]:
+    def divide_slots(ncpu: int, ntasks: int, scaling: float) -> tuple[int, int, list[int]]:
         """
         This routine figures out the optimal distribution of the tasks over the CPU cores
         returns the number of rounds (how many jobs each CPU core will contribute to),
@@ -512,39 +388,24 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                     break
 
             if len(overlap_mat) != dim:
-                raise ValueError(
-                    f"File {overlap_file} does not contain an overlap matrix!"
-                )
+                raise ValueError(f"File {overlap_file} does not contain an overlap matrix!")
         return np.asarray(overlap_mat)
 
     @staticmethod
-    def format_ci_vectors(ci_vectors: list[dict[str, float]]) -> str:
-        # get nstates, norb and ndets
+    def format_ci_vectors(ci_vectors: list[dict[tuple[int, ...], float]]) -> str:
+        """
+        Converts a list of ci vectors from (list[int],float) to str
+        """
         alldets = set()
         for dets in ci_vectors:
-            for key in dets:
-                alldets.add(key)
-        ndets = len(alldets)
-        nstates = len(ci_vectors)
-        norb = len(next(iter(alldets)))
+            for key, val in dets.items():
+                alldets.add((key, val))
+        trans_table = str.maketrans({"0": "e", "1": "a", "2": "b", "3": "d"})
 
-        string = f"{nstates} {norb} {ndets}\n"
+        string = f"{len(ci_vectors)} {len(next(iter(alldets)))} {len(alldets)}\n"
         for det in sorted(alldets, reverse=True):
-            for o in det:
-                if o == 0:
-                    string += "e"
-                elif o == 1:
-                    string += "a"
-                elif o == 2:
-                    string += "b"
-                elif o == 3:
-                    string += "d"
-            for vec in ci_vectors:
-                if det in vec:
-                    string += " {: 11.7f} ".format(vec[det])
-                else:
-                    string += " {: 11.7f} ".format(0.0)
-            string += "\n"
+            string += "".join(str(x) for x in det[0]).translate(trans_table)
+            string += f"{det[1]:11.7f} \n"
         return string
 
     @staticmethod
