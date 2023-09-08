@@ -317,7 +317,6 @@ class SHARC_ORCA(SHARC_ABINITIO):
         """
         # Set variables
         cis_path = cis_path if os.path.isfile(cis_path) else os.path.join(cis_path, "ORCA.cis")
-        self.QMin.control["jobid"] = 1  # TODO: REMOVE AFTER DEBUGGING!!!
         jobid = self.QMin.control["jobid"]
         restricted = self.QMin.control["jobs"][jobid]["restr"]
         mults = self.QMin.control["jobs"][jobid]["mults"]
@@ -481,6 +480,7 @@ if __name__ == "__main__":
     test.read_template("ORCA.template")
     test.read_requests("QM.in")
     test.setup_interface()
+    test.QMin.control["jobid"] = 1
     test.get_dets_from_cis(
         # "/user/mai/Documents/CoWorkers/FelixProche/full/orca.cis"
         "/user/mai/Documents/CoWorkers/Anna/test2/orca.cis"
