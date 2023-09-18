@@ -183,9 +183,7 @@ class SHARC_INTERFACE(ABC):
         return all_features
 
     @abstractmethod
-    def get_infos(
-        self, INFOS: dict, KEYSTROKES: Optional[TextIOWrapper] = None
-    ) -> dict:
+    def get_infos(self, INFOS: dict, KEYSTROKES: Optional[TextIOWrapper] = None) -> dict:
         """communicate requests from setup and asks for additional paths or info
 
         The `INFOS` dict holds all global informations like paths to programs
@@ -268,9 +266,7 @@ class SHARC_INTERFACE(ABC):
 
         # backup data if requested
         if self.QMin.requests["backup"]:
-            self.backupdata(
-                self.QMin.requests["backup"]
-            )  # TODO: backup functionality via retain key of restart folder handling
+            self.backupdata(self.QMin.requests["backup"])  # TODO: backup functionality via retain key of restart folder handling
         # writes a STEP file in the SAVEDIR (marks this step as succesfull)
         self.write_step_file()
 
@@ -350,19 +346,14 @@ class SHARC_INTERFACE(ABC):
             try:
                 natom = int(lines[0])
             except ValueError as error:
-                raise ValueError(
-                    "first line must contain the number of atoms!"
-                ) from error
+                raise ValueError("first line must contain the number of atoms!") from error
             self.QMin.coords[key] = (
-                np.asarray([parse_xyz(x)[1] for x in lines[2: natom + 2]], dtype=float) *
-                self.QMin.molecule["factor"]
+                np.asarray([parse_xyz(x)[1] for x in lines[2 : natom + 2]], dtype=float) * self.QMin.molecule["factor"]
             )
         elif isinstance(xyz, (list, np.ndarray)):
             self.QMin.coords[key] = np.asarray(xyz) * self.QMin.molecule["factor"]
         else:
-            raise NotImplementedError(
-                "'set_coords' is only implemented for str, list[list[float]] or numpy.ndarray type"
-            )
+            raise NotImplementedError("'set_coords' is only implemented for str, list[list[float]] or numpy.ndarray type")
 
     def setup_mol(self, qmin_file: str) -> None:
         """
@@ -386,15 +377,9 @@ class SHARC_INTERFACE(ABC):
         except ValueError as err:
             raise ValueError("first line must contain the number of atoms!") from err
 
-        self.QMin.molecule["elements"] = list(
-            map(lambda x: parse_xyz(x)[0], (qmin_lines[2: natom + 2]))
-        )
-        self.QMin.molecule["Atomcharge"] = sum(
-            map(lambda x: ATOMCHARGE[x], self.QMin.molecule["elements"])
-        )
-        self.QMin.molecule["frozcore"] = sum(
-            map(lambda x: FROZENS[x], self.QMin.molecule["elements"])
-        )
+        self.QMin.molecule["elements"] = list(map(lambda x: parse_xyz(x)[0], (qmin_lines[2 : natom + 2])))
+        self.QMin.molecule["Atomcharge"] = sum(map(lambda x: ATOMCHARGE[x], self.QMin.molecule["elements"]))
+        self.QMin.molecule["frozcore"] = sum(map(lambda x: FROZENS[x], self.QMin.molecule["elements"]))
         self.QMin.molecule["natom"] = len(self.QMin.molecule["elements"])
 
         # replaces all comments with white space. filters all empty lines
@@ -402,7 +387,7 @@ class SHARC_INTERFACE(ABC):
             lambda x: not re.match(r"^\s*$", x),
             map(
                 lambda x: re.sub(r"#.*$", "", x),
-                qmin_lines[self.QMin.molecule["natom"] + 2:],
+                qmin_lines[self.QMin.molecule["natom"] + 2 :],
             ),
         )
 
@@ -421,9 +406,7 @@ class SHARC_INTERFACE(ABC):
                 unit = llist[1].strip().lower()
                 if unit in ["bohr", "angstrom"]:
                     self.QMin.molecule["unit"] = unit
-                    self.QMin.molecule["factor"] = (
-                        1.0 if unit == "bohr" else 1.0 / BOHR_TO_ANG
-                    )
+                    self.QMin.molecule["factor"] = 1.0 if unit == "bohr" else 1.0 / BOHR_TO_ANG
                 else:
                     raise ValueError("unknown unit specified")
             elif key == "savedir":
@@ -489,9 +472,7 @@ class SHARC_INTERFACE(ABC):
         try:
             res["states"] = list(map(int, states.split()))
         except (ValueError, IndexError) as err:
-            raise ValueError(
-                'Keyword "states" has to be followed by integers!', 37
-            ) from err
+            raise ValueError('Keyword "states" has to be followed by integers!', 37) from err
         reduc = 0
         for i in reversed(res["states"]):
             if i == 0:
@@ -513,9 +494,7 @@ class SHARC_INTERFACE(ABC):
         }
 
     @abstractmethod
-    def read_resources(
-        self, resources_file: str, kw_whitelist: Optional[list[str]] = None
-    ) -> None:
+    def read_resources(self, resources_file: str, kw_whitelist: Optional[list[str]] = None) -> None:
         """
         Reads a resource file and assigns parameters to
         self.QMin.resources. Parameters are only checked by type (if available),
@@ -531,14 +510,10 @@ class SHARC_INTERFACE(ABC):
         kw_whitelist = [] if not kw_whitelist else kw_whitelist
 
         if not self._setup_mol:
-            raise RuntimeError(
-                "Interface is not set up for this template. Call setup_mol first!"
-            )
+            raise RuntimeError("Interface is not set up for this template. Call setup_mol first!")
 
         if self._read_resources:
-            self.log.warning(
-                f"Resources already read! Overwriting with {resources_file}"
-            )
+            self.log.warning(f"Resources already read! Overwriting with {resources_file}")
 
         # Set ncpu from env variables, gets overwritten if in resources
         priority_order = ["SLURM_NTASKS_PER_NODE", " NSLOTS"]
@@ -563,15 +538,11 @@ class SHARC_INTERFACE(ABC):
                     # Remove comments and assign values
                     param = re.sub(r"#.*$", "", line).split()
                     # Expand to fullpath if ~ or $ in string
-                    param = [
-                        expand_path(x) if re.match(r"\~|\$", x) else x for x in param
-                    ]
+                    param = [expand_path(x) if re.match(r"\~|\$", x) else x for x in param]
 
                     # Check for duplicates in keyword_list
                     if param[0] in keyword_list and param[0] not in kw_whitelist:
-                        self.log.warning(
-                            f"Multiple entries of {param[0]} in {resources_file}"
-                        )
+                        self.log.warning(f"Multiple entries of {param[0]} in {resources_file}")
                     keyword_list.append(param[0])
 
                     if param[0] in kw_whitelist:
@@ -590,15 +561,11 @@ class SHARC_INTERFACE(ABC):
                                     f"SAVEDIR set to {self.QMin.save['savedir']}",
                                 )
                             else:
-                                self.log.info(
-                                    "SAVEDIR is already set and will not be overwritten!"
-                                )
+                                self.log.info("SAVEDIR is already set and will not be overwritten!")
                             continue
                         # Cast to correct type if available
                         if param[0] in self.QMin.resources.types:
-                            self.QMin.resources[param[0]] = self.QMin.resources.types[
-                                param[0]
-                            ](param[1])
+                            self.QMin.resources[param[0]] = self.QMin.resources.types[param[0]](param[1])
                         else:
                             self.QMin.resources[param[0]] = param[1]
                     else:
@@ -613,12 +580,8 @@ class SHARC_INTERFACE(ABC):
         Reads QM.in file and parses requests
         """
         # TODO: pc file? densmap only for multipolar fit?
-        assert (
-            self._read_template
-        ), "Interface is not set up correctly. Call read_template with the .template file first!"
-        assert (
-            self._read_resources
-        ), "Interface is not set up correctly. Call read_resources with the .resources file first!"
+        assert self._read_template, "Interface is not set up correctly. Call read_template with the .template file first!"
+        assert self._read_resources, "Interface is not set up correctly. Call read_resources with the .resources file first!"
 
         self.log.debug(f"Reading requests from {requests_file}")
 
@@ -658,9 +621,7 @@ class SHARC_INTERFACE(ABC):
                         if params[0].casefold() == "end":
                             nac_select = False
                         else:
-                            assert (
-                                len(params) == 2
-                            ), "NACs have to be given in state pairs!"
+                            assert len(params) == 2, "NACs have to be given in state pairs!"
                             self.log.debug(f"Adding state pair {params} to NACDR list")
                             nacdr.append(params)
                         continue
@@ -680,7 +641,7 @@ class SHARC_INTERFACE(ABC):
         self._request_logic()
 
         if self.QMin.requests["backup"]:
-            self.log.debug("Setting up backup directories")
+            self.log.warning('Depricated request "backup" found')
 
     def _step_logic(self) -> None:
         """
@@ -737,9 +698,7 @@ class SHARC_INTERFACE(ABC):
                 if requests[task] == "":  # removes task from dict if {'task': ''}
                     del requests[task]
                 elif task == requests[task].lower() or requests[task] == "all":
-                    requests[task] = [
-                        i + 1 for i in range(self.QMin.molecule["nstates"])
-                    ]
+                    requests[task] = [i + 1 for i in range(self.QMin.molecule["nstates"])]
                 else:
                     requests[task] = [int(i) for i in requests[task].split()]
 
@@ -764,23 +723,17 @@ class SHARC_INTERFACE(ABC):
                 if len(request) > 1 and request[1].casefold() != "all":
                     self.QMin.requests["grad"] = [int(i) for i in request[1:]]
                     return
-                self.QMin.requests["grad"] = [
-                    i + 1 for i in range(self.QMin.molecule["nmstates"])
-                ]
+                self.QMin.requests["grad"] = [i + 1 for i in range(self.QMin.molecule["nmstates"])]
             elif request[0].casefold() == "soc":
                 if sum(i > 0 for i in self.QMin.molecule["states"]) < 2:
-                    self.log.warning(
-                        "SOCs requested but only 1 multiplicity given! Disable SOCs"
-                    )
+                    self.log.warning("SOCs requested but only 1 multiplicity given! Disable SOCs")
                     return
                 self.QMin.requests["soc"] = True
             elif request[0].casefold() == "multipolar_fit":
                 if len(request) > 1:
                     self.QMin.requests["multipolar_fit"] = sorted(request[1:])
                     return
-                self.QMin.requests["multipolar_fit"] = [
-                    i + 1 for i in range(self.QMin.molecule["nmstates"])
-                ]
+                self.QMin.requests["multipolar_fit"] = [i + 1 for i in range(self.QMin.molecule["nmstates"])]
             else:
                 self.QMin.requests[request[0].casefold()] = True
         elif request[0].casefold() == "step":
@@ -800,8 +753,7 @@ class SHARC_INTERFACE(ABC):
             os.mkdir(self.QMin.save["savedir"])
 
         assert not (
-            (self.QMin.requests["overlap"] or self.QMin.requests["phases"]) and
-            self.QMin.save["init"]
+            (self.QMin.requests["overlap"] or self.QMin.requests["phases"]) and self.QMin.save["init"]
         ), '"overlap" and "phases" cannot be calculated in the first timestep!'
 
     def write_step_file(self) -> None:
