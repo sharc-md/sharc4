@@ -301,11 +301,11 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         error_codes = {}
 
         # Submit jobs to queue
-        for job_idx, jobset in enumerate(schedule[1:]):
+        for job_idx, jobset in enumerate(schedule):
             self.log.debug(f"Processing jobset number {job_idx} from schedule list")
             if not jobset:
                 continue
-            with Pool(processes=schedule[0][job_idx]) as pool:
+            with Pool(processes=self.QMin.control["nslots_pool"][job_idx]) as pool:
                 self.log.debug("Submit jobs to pool")
                 for job, qmin in jobset.items():
                     self.log.debug(f"Adding job: {job}")
