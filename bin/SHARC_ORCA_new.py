@@ -233,13 +233,14 @@ class SHARC_ORCA(SHARC_ABINITIO):
         """
         request & other logic
             requestmaps anlegen -> DONE IN SETUP_INTERFACE
-            pfade für verschiedene orbital restart files
+            pfade für verschiedene orbital restart files -> DONE IN SETUP_INTERFACE
         make schedule
         runjobs()
         run_wfoverlap (braucht input files)
         run_theodore
         save directory handling
         """
+        self._gen_schedule()
 
     def setup_interface(self) -> None:
         """
@@ -252,7 +253,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
             and len(self.QMin.molecule["states"]) >= 3
             and self.QMin.molecule["states"][2] > 0
         ):
-            self.log.debug("Unrestricted triplets requested, setup states_to_do")
+            self.log.debug("Setup states_to_do")
             self.QMin.control["states_to_do"][0] = max(self.QMin.molecule["states"][0], 1)
             req = max(self.QMin.molecule["states"][0] - 1, self.QMin.molecule["states"][2])
             self.QMin.control["states_to_do"][0] = req + 1
@@ -297,6 +298,9 @@ class SHARC_ORCA(SHARC_ABINITIO):
                     break
                 self.QMin.maps["gsmap"][i + 1] = j + 1
 
+        # Populate initial orbitals dict
+        self.QMin.control["initorbs"] = self._get_initorbs()  # TODO: control?
+
     def _build_jobs(self) -> None:
         """
         Build job dictionary from states_to_do
@@ -320,6 +324,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
                     jobs[idx + 5] = {"mults": [idx + 5], "restr": False}
 
         self.QMin.control["jobs"] = jobs
+        self.QMin.control["joblist"] = sorted(set(jobs))
 
     def write_step_file(self) -> None:
         super().write_step_file()
@@ -333,7 +338,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
         jobid = self.QMin.control["jobid"]
         restricted = self.QMin.control["jobs"][jobid]["restr"]
         mults = self.QMin.control["jobs"][jobid]["mults"]
-        gsmult = self.QMin.maps["multmap"][-jobid]
+        gsmult = self.QMin.maps["multmap"][-int(jobid)]
         frozcore = self.QMin.resources["numfrozcore"]
         states_extract = deepcopy(self.QMin.molecule["states"])
         states_skip = [self.QMin.control["states_to_do"][i] - states_extract[i] for i in range(len(states_extract))]
@@ -347,7 +352,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
         # Parse file
         with open(cis_path, "rb") as cis_file:
             cis_file.read(4)
-            header = [struct.unpack("i", cis_file.read(4))[0] for i in range(8)]
+            header = struct.unpack("8i", cis_file.read(32))
 
             # Extract information from header
             # Number occupied A/B and number virtual A/B
@@ -358,9 +363,14 @@ class SHARC_ORCA(SHARC_ABINITIO):
             nvb = header[7] - header[6] + 1 if not restricted else nva
             self.log.debug(f"CIS file header, NOA: {noa}, NVA: {nva}, NOB: {nob}, NVB: {nvb}, NFC: {nfc}")
 
+            buffsize = (header[1] + 1 - nfc) * (header[3] + 1 - header[2])  # size of det
+            self.log.debug(f"CIS determinant buffer size {buffsize*8} byte")
+            self.log.debug(header)
+
             # ground state configuration
             # 0: empty, 1: alpha, 2: beta, 3: double oppupied
             if restricted:
+                buffsize *= 2
                 occ_a = [3] * (nfc + noa) + [0] * nva
                 occ_b = []
             else:
@@ -379,26 +389,29 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 for _ in range(states_extract[mult - 1]):
                     cis_file.read(40)
                     dets = {}
+
+                    buffer = iter(struct.unpack(f"{buffsize}d", cis_file.read(buffsize * 8)))
                     for occ in range(nfc, header[1] + 1):
                         for virt in range(header[2], header[3] + 1):
-                            dets[(occ, virt, 1)] = struct.unpack("d", cis_file.read(8))[0]
+                            dets[(occ, virt, 1)] = next(buffer)
 
                     if not restricted:
                         for occ in range(header[4], header[5] + 1):
                             for virt in range(header[6], header[7] + 1):
-                                dets[(occ, virt, 2)] = struct.unpack("d", cis_file.read(8))[0]
+                                dets[(occ, virt, 2)] = next(buffer)
 
                     if self.QMin.template["no_tda"]:
                         cis_file.read(40)
+                        buffer = iter(struct.unpack(f"{buffsize}d", cis_file.read(buffsize * 8)))
                         for occ in range(nfc, header[1] + 1):
                             for virt in range(header[2], header[3] + 1):
-                                dets[(occ, virt, 1)] += struct.unpack("d", cis_file.read(8))[0]
+                                dets[(occ, virt, 1)] += next(buffer)
                                 dets[(occ, virt, 1)] /= 2
 
                         if not restricted:
                             for occ in range(header[4], header[5] + 1):
                                 for virt in range(header[6], header[7] + 1):
-                                    dets[(occ, virt, 2)] += struct.unpack("d", cis_file.read(8))[0]
+                                    dets[(occ, virt, 2)] += next(buffer)
                                     dets[(occ, virt, 2)] /= 2
 
                     # Truncate determinants with contribution under threshold
@@ -471,6 +484,98 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 strings[filename] = self.format_ci_vectors(eigenvectors[mult])
             return strings
 
+    def _get_initorbs(self) -> dict[int, str]:
+        """
+        Generate initial orbitals
+        """
+        initorbs = {}
+
+        if self.QMin.save["init"] or self.QMin.save["always_orb_init"]:
+            self.log.debug("Found init or always_orb_init")
+            for job in self.QMin.control["joblist"]:
+                # Add ORCA.gbw.init if exists
+                file = os.path.join(self.QMin.resources["pwd"], "ORCA.gbw.init")
+                if os.path.isfile(os.path.join(file)):
+                    initorbs[job] = file
+
+                # Add ORCA.gbw.init for step if exists
+                file = os.path.join(self.QMin.resources["pwd"], f"ORCA.gbw.{job}.init")
+                if os.path.isfile(os.path.join(file)):
+                    initorbs[job] = file
+            # Check if some initials missing
+            if self.QMin.save["always_orb_init"] and len(initorbs) < len(self.QMin.control["joblist"]):
+                self.log.error("Initial orbitals missing for some jobs!")
+                raise ValueError()
+
+        elif self.QMin.save["newstep"] or self.QMin.save["samestep"]:
+            for job in self.QMin.control["joblist"]:
+                file = os.path.join(self.QMin.save["savedir"], f"ORCA.gbw.{job}")
+                if not os.path.isfile(file):
+                    self.log.error(f"File {file} missing in savedir!")
+                    raise FileNotFoundError()
+                initorbs[job] = file + ".old" if self.QMin.save["newstep"] else file
+
+        # TODO: restart in new interface?
+        return initorbs
+
+    def _gen_schedule(self) -> None:
+        """
+        Generates scheduling from joblist
+        """
+
+        # sort the gradients into the different jobs
+        gradjob = {f"master_{job}": {} for job in self.QMin.control["joblist"]}
+        for grad in self.QMin.maps["gradmap"]:
+            ijob = self.QMin.maps["multmap"][grad[0]]
+            gradjob[f"master_{ijob}"][grad] = {
+                "gs": bool((not self.QMin.control["jobs"][ijob]["restr"] and grad[1] == 1) or grad == (1, 1))
+            }
+
+        # make map for states onto gradjobs
+        jobgrad = {}
+        for job in gradjob:
+            for state in gradjob[job]:
+                jobgrad[state] = (job, gradjob[job][state]["gs"])
+        self.QMin.control["jobgrad"] = jobgrad  # TODO: control? what is it used?
+
+        schedule = [{}]
+
+        # add the master calculations
+        ntasks = len([1 for g in gradjob if "master" in g])
+        _, nslots, cpu_per_run = self.divide_slots(self.QMin.resources["ncpu"], ntasks, self.QMin.resources["schedule_scaling"])
+        self.QMin.control["nslots_pool"] = [nslots]
+
+        for idx, job in enumerate(sorted(gradjob)):
+            if not "master" in job:
+                continue
+            qmin = self.QMin.copy()
+            qmin.control["master"] = True
+            qmin.control["jobid"] = int(job.split("_")[1])
+            qmin.resources["ncpu"] = cpu_per_run[idx]
+            qmin.maps["gradmap"] = set(gradjob[job])
+            schedule[-1][job] = qmin
+
+        # add the gradient calculations
+        ntasks = len([1 for g in gradjob if "grad" in g])
+        if ntasks > 0:
+            self.QMin.control["nslots_pool"].append(nslots)
+            schedule.append({})
+            for idx, job in enumerate(sorted(gradjob)):
+                if not "grad" in job:
+                    continue
+                qmin = self.QMin.copy()
+                qmin.control["jobid"] = qmin.maps["multmap"][list(gradjob[job])[0][0]]
+                qmin.resources["ncpu"] = cpu_per_run[idx]
+                qmin.maps["gradmap"] = set(gradjob[job])
+                qmin.control["gradonly"] = True
+                for i in ["h", "soc", "dm", "overlap", "ion"]:
+                    qmin.requests[i] = False
+                for i in ["always_guess", "always_orb_init", "init"]:
+                    qmin.save[i] = False
+                schedule[-1][job] = qmin
+
+        self.QMin.scheduling["schedule"] = schedule
+
     @staticmethod
     def get_orca_version(path: str) -> tuple[int, ...]:
         """
@@ -498,5 +603,10 @@ if __name__ == "__main__":
         "/user/mai/Documents/CoWorkers/Anna/test2/orca.cis"
         # "/user/mai/Documents/CoWorkers/AnnaMW/ORCA_wfoverlap/real_test/A/ORCA.cis"
     )
-    print(cidets)
+    test._gen_schedule()
+    print(test.QMin.scheduling)
+    # print(test.QMin.maps)
+    # print(test.QMin.requests)
+    # print(test.QMin.save)
+    # print(cidets)
     # print(test.QMin)
