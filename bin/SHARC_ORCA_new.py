@@ -232,8 +232,24 @@ class SHARC_ORCA(SHARC_ABINITIO):
         os.chdir(prevdir)
         return exit_code
 
-    def getQMout(self):
-        pass
+    def getQMout(self) -> None:
+        """
+        Parse ORCA output files
+        """
+        # Allocate matrices
+        requests = set()
+        for key, val in self.QMin.requests.items():
+            if not val:
+                continue
+            requests.add(key)
+
+        self.log.debug("Allocate space in QMout object")
+        self.QMout.allocate(
+            states=self.QMin.molecule["states"],
+            natom=self.QMin.molecule["natom"],
+            npc=self.QMin.molecule["npc"],
+            requests=requests,
+        )
 
     def prepare(self, INFOS: dict, dir_path: str):
         "setup the calculation in directory 'dir'"
@@ -287,8 +303,19 @@ class SHARC_ORCA(SHARC_ABINITIO):
         run_theodore
         save directory handling
         """
+
+        # Generate schedule and run jobs
+        self.log.debug("Generating schedule")
         self._gen_schedule()
+
+        self.log.debug("Execute schedule")
         err_codes = self.runjobs(self.QMin.scheduling["schedule"])
+
+        if any(map(lambda x: x != 0, err_codes)):
+            self.log.error(f"Some jobs failed! {err_codes}")
+            raise OSError()
+        self.log.debug("All jobs finished successful")
+        # TODO: wfoverlap and theodore
 
     def setup_interface(self) -> None:
         """
@@ -418,10 +445,10 @@ class SHARC_ORCA(SHARC_ABINITIO):
             # ground state configuration
             # 0: empty, 1: alpha, 2: beta, 3: double oppupied
             if restricted:
-                buffsize *= 2
                 occ_a = [3] * (nfc + noa) + [0] * nva
                 occ_b = []
             else:
+                buffsize += (header[5] + 1 - header[4]) * (header[7] + 1 - header[6])
                 occ_a = [1] * (nfc + noa) + [0] * nva
                 occ_b = [2] * (nfc + nob) + [0] * nvb
 
@@ -434,7 +461,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
                     key = occ_a[frozcore:] + occ_b[frozcore:]
                     eigenvectors[mult].append({tuple(key): 1.0})
 
-                for _ in range(states_extract[mult - 1]):
+                for _ in range(1, states_extract[mult - 1]):
                     cis_file.read(40)
                     dets = {}
 
@@ -573,11 +600,12 @@ class SHARC_ORCA(SHARC_ABINITIO):
 
         # sort the gradients into the different jobs
         gradjob = {f"master_{job}": {} for job in self.QMin.control["joblist"]}
-        for grad in self.QMin.maps["gradmap"]:
-            ijob = self.QMin.maps["multmap"][grad[0]]
-            gradjob[f"master_{ijob}"][grad] = {
-                "gs": bool((not self.QMin.control["jobs"][ijob]["restr"] and grad[1] == 1) or grad == (1, 1))
-            }
+        if self.QMin.maps["gradmap"]:
+            for grad in self.QMin.maps["gradmap"]:
+                ijob = self.QMin.maps["multmap"][grad[0]]
+                gradjob[f"master_{ijob}"][grad] = {
+                    "gs": bool((not self.QMin.control["jobs"][ijob]["restr"] and grad[1] == 1) or grad == (1, 1))
+                }
 
         # make map for states onto gradjobs
         jobgrad = {}
@@ -768,15 +796,17 @@ if __name__ == "__main__":
     test.read_requests("QM.in")
     test.setup_interface()
     test.QMin.control["jobid"] = 1
-    # cidets = test.get_dets_from_cis(
-    #    # "/user/mai/Documents/CoWorkers/FelixProche/full/orca.cis"
-    #    "/user/mai/Documents/CoWorkers/Anna/test2/orca.cis"
-    #    # "/user/mai/Documents/CoWorkers/AnnaMW/ORCA_wfoverlap/real_test/A/ORCA.cis"
-    # )
     test._gen_schedule()
+    cidets = test.get_dets_from_cis(
+        # "/user/mai/Documents/CoWorkers/FelixProche/full/orca.cis"
+        # "/user/mai/Documents/CoWorkers/Anna/test2/orca.cis"
+        # "/user/mai/Documents/CoWorkers/AnnaMW/ORCA_wfoverlap/real_test/A/ORCA.cis"
+        "/user/sascha/development/eci/sharc_main/TEST/ORCA.cis"
+    )
+    print(cidets["./SAVEDIR/dets.1"][:5000])
     # print(test.QMin.template)
     test.set_coords("QM.in")
     test.QMin.scheduling["schedule"][0]["master_1"].coords = test.QMin.coords
-    print(test.QMin.scheduling)
+
     # print(test.generate_inputstr(test.QMin.scheduling["schedule"][0]["master_1"]))
-    test.execute_from_qmin(os.path.join(test.QMin.resources["pwd"], "TEST"), test.QMin.scheduling["schedule"][0]["master_1"])
+    # test.execute_from_qmin(os.path.join(test.QMin.resources["pwd"], "TEST"), test.QMin.scheduling["schedule"][0]["master_1"])
