@@ -302,12 +302,11 @@ class SHARC_INTERFACE(ABC):
                         self.QMin.template[param[0]] = True
                     elif len(param) == 2:
                         if param[0] in self.QMin.template.types:
-                            self.QMin.template.types[param[0]](param[1])
+                            self.QMin.template[param[0]] = self.QMin.template.types[param[0]](param[1])
                         else:
                             self.QMin.template[param[0]] = param[1]
                     else:
                         self.QMin.template[param[0]] = list(param[1:])
-
         self._read_template = True
 
     @abstractmethod
