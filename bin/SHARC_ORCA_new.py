@@ -287,6 +287,10 @@ class SHARC_ORCA(SHARC_ABINITIO):
     def read_template(self, template_file: str) -> None:
         super().read_template(template_file)
 
+        # Convert keys to string if list
+        if isinstance(self.QMin.template["keys"], list):
+            self.QMin.template["keys"] = " ".join(self.QMin.template["keys"])
+
     def remove_old_restart_files(self, retain: int = 5) -> None:
         """
         Garbage collection after runjobs()
@@ -700,7 +704,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
 
         # Add header
         string = "! "
-        keys = ["basis", "auxbasis", "functional", "dispersion", "ri"]  # TODO: add keys
+        keys = ["basis", "auxbasis", "functional", "dispersion", "ri", "keys"]
         string += " ".join(qmin.template[x] for x in keys if qmin.template[x] is not None)
         string += " nousesym "
         string += "engrad\n" if do_grad else "\n"
@@ -728,10 +732,12 @@ class SHARC_ORCA(SHARC_ABINITIO):
         # TODO
 
         # Intacc
-        # TODO
+        if qmin.template["intacc"] > 0:
+            string += f"%method\n\tintacc {qmin.template['intacc']:3.1f}\nend\n\n"
 
         # Gaussian point charges
-        # TODO
+        if "cpcm" in qmin.template["keys"]:
+            string += "%cpcm\n\tsurfacetype vdw_gaussian\nend\n\n"
 
         # Excited states
         if max(states_to_do) > 0:
@@ -797,16 +803,19 @@ if __name__ == "__main__":
     test.setup_interface()
     test.QMin.control["jobid"] = 1
     test._gen_schedule()
-    cidets = test.get_dets_from_cis(
-        # "/user/mai/Documents/CoWorkers/FelixProche/full/orca.cis"
-        # "/user/mai/Documents/CoWorkers/Anna/test2/orca.cis"
-        # "/user/mai/Documents/CoWorkers/AnnaMW/ORCA_wfoverlap/real_test/A/ORCA.cis"
-        "/user/sascha/development/eci/sharc_main/TEST/ORCA.cis"
-    )
-    print(cidets["./SAVEDIR/dets.1"][:5000])
+    # cidets = test.get_dets_from_cis(
+    #    # "/user/mai/Documents/CoWorkers/FelixProche/full/orca.cis"
+    #    # "/user/mai/Documents/CoWorkers/Anna/test2/orca.cis"
+    #    # "/user/mai/Documents/CoWorkers/AnnaMW/ORCA_wfoverlap/real_test/A/ORCA.cis"
+    #    "/user/sascha/development/eci/sharc_main/TEST/ORCA.cis"
+    # )
+    # print(cidets["./SAVEDIR/dets.1"][:5000])
     # print(test.QMin.template)
     test.set_coords("QM.in")
     test.QMin.scheduling["schedule"][0]["master_1"].coords = test.QMin.coords
 
     # print(test.generate_inputstr(test.QMin.scheduling["schedule"][0]["master_1"]))
-    # test.execute_from_qmin(os.path.join(test.QMin.resources["pwd"], "TEST"), test.QMin.scheduling["schedule"][0]["master_1"])
+    code = test.execute_from_qmin(
+        os.path.join(test.QMin.resources["pwd"], "TEST"), test.QMin.scheduling["schedule"][0]["master_1"]
+    )
+    print(code)
