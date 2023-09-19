@@ -13,6 +13,8 @@ from qmin import QMin
 from SHARC_ABINITIO import SHARC_ABINITIO
 from utils import expand_path, itmult, mkdir, writefile
 
+__all__ = ["SHARC_ORCA"]
+
 AUTHORS = ""
 VERSION = ""
 VERSIONDATE = datetime.datetime(2023, 8, 29)
@@ -23,20 +25,18 @@ CHANGELOGSTRING = """
 """
 
 all_features = set(
-    [
-        "h",
-        "dm",
-        "soc",
-        "theodore",
-        "grad",
-        "ion",
-        "overlap",
-        "phases",
-        # raw data request
-        "basis_set",
-        "wave_functions",
-        "density_matrices",
-    ]
+    "h",
+    "dm",
+    "soc",
+    "theodore",
+    "grad",
+    "ion",
+    "overlap",
+    "phases",
+    # raw data request
+    "basis_set",
+    "wave_functions",
+    "density_matrices",
 )
 
 
