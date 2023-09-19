@@ -122,7 +122,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         pass
 
     @abstractmethod
-    def execute_from_qmin(self, workdir: str, qmin: QMin):
+    def execute_from_qmin(self, workdir: str, qmin: QMin) -> int:
         """
         Erster Schritt, setup_workdir ( inputfiles schreiben, orbital guesses kopieren, xyz, pc)
         Programm aufrufen (z.b. run_program)
