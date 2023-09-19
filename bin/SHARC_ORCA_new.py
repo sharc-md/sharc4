@@ -10,7 +10,7 @@ from typing import Optional
 
 from qmin import QMin
 from SHARC_ABINITIO import SHARC_ABINITIO
-from utils import expand_path, itmult
+from utils import expand_path, itmult, mkdir
 
 AUTHORS = ""
 VERSION = ""
@@ -175,7 +175,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
     def create_restart_files(self):
         pass
 
-    def execute_from_qmin(self, workdir: str, qmin: QMin):
+    def execute_from_qmin(self, workdir: str, qmin: QMin) -> int:
         """
         Erster Schritt, setup_workdir ( inputfiles schreiben, orbital guesses kopieren, xyz, pc)
         Programm aufrufen (z.b. run_program)
@@ -184,6 +184,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
             if not: try again or return error
         postprocessing of workdir files (z.b molden file erzeugen, stripping)
         """
+        mkdir(qmin.control["workdir"])
 
     def getQMout(self):
         pass
@@ -241,6 +242,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
         save directory handling
         """
         self._gen_schedule()
+        err_codes = self.runjobs(self.QMin.scheduling["schedule"])
 
     def setup_interface(self) -> None:
         """
@@ -577,6 +579,128 @@ class SHARC_ORCA(SHARC_ABINITIO):
         self.QMin.scheduling["schedule"] = schedule
 
     @staticmethod
+    def generate_inputstr(qmin: QMin) -> str:
+        """
+        Generate ORCA input file string from QMin object
+        """
+        job = qmin.control["jobid"]
+        gsmult = qmin.maps["multmap"][-job][0]
+        restr = qmin.control["jobs"][job]["restr"]
+        charge = qmin.maps["chargemap"][gsmult]
+
+        # excited states to calculate
+        states_to_do = qmin.control["states_to_do"]
+        for imult, _ in enumerate(states_to_do):
+            if not imult + 1 in qmin.maps["multmap"][-job]:
+                states_to_do[imult] = 0
+        states_to_do[gsmult - 1] -= 1
+
+        # do minimum number of states for gradient jobs
+        if qmin.control["gradonly"]:
+            gradmult = qmin.maps["gradmap"][0][0]
+            gradstat = qmin.maps["gradmap"][0][1]
+            for imult, _ in enumerate(states_to_do):
+                if imult + 1 == gradmult:
+                    states_to_do[imult] = gradstat - (gradmult == gsmult)
+                else:
+                    states_to_do[imult] = 0
+
+        # number of states to calculate
+        trip = bool(restr and len(states_to_do) >= 3 and states_to_do[2] > 0)
+
+        # gradients
+        do_grad = False
+        egrad = ()
+        if qmin.requests["grad"] and qmin.maps["gradmap"]:
+            do_grad = True
+            for grad in qmin.maps["gradmap"]:
+                if not (gsmult, 1) == grad:
+                    egrad = grad
+        singgrad = []
+        tripgrad = []
+        for grad in qmin.maps["gradmap"]:
+            if grad[0] == gsmult:
+                singgrad.append(grad[1] - 1)
+            if grad[0] == 3 and restr:
+                tripgrad.append(grad[1])
+
+        # Add header
+        string = "! "
+        keys = ["basis", "auxbasis", "functional", "dispersion", "ri"]  # TODO: add keys
+        string += " ".join(qmin.template[x] for x in keys if qmin.template[x] is not None)
+        string += " nousesym "
+        string += "engrad\n" if do_grad else "\n"
+
+        # TODO: Whats AOoverlap?
+        # CPU cores
+        if qmin.resources["ncpu"] > 1:
+            string += f"%pal\n\tnprocs {qmin.resources['ncpu']}\nend\n\n"
+        string += f"%maxcore {qmin.resources['memory']}\n\n"
+
+        # Basis sets
+        # TODO
+
+        # ECP basis sets
+        # TODO
+
+        # Frozen core
+        string += f"%method\n\tfrozencore {-2*qmin.molecule['frozcore'] if qmin.molecule['frozcore'] >0 else 'FC_NONE'}\nend\n\n"
+
+        # HF exchange
+        if qmin.template["hfexchange"] > 0:
+            string += f"%method\n\tScalHFX = {qmin.template['hfexchange']}\nend\n\n"
+
+        # Range separation
+        # TODO
+
+        # Intacc
+        # TODO
+
+        # Gaussian point charges
+        # TODO
+
+        # Excited states
+        if max(states_to_do) > 0:
+            string += f"%tddft\n\ttda {'false' if qmin.template['no_tda'] else 'true'}\n"
+            # TODO: Theodore
+            if restr and trip:
+                string += "\ttriplets true\n"
+            string += f"\tnroots {max(states_to_do)}\n"
+            if restr and qmin.requests["soc"]:
+                string += "\tdosoc true\n\tprintlevel 3\n"
+
+            if do_grad and egrad:
+                string += f"\tiroot {egrad[1] - (gsmult == egrad[0])}\n"
+            string += "end\n\n"
+
+        # Output
+        # TODO: AOoverlap?
+        string += "%output\n"
+        if qmin.requests["ion"] or qmin.requests["theodore"]:
+            string += "\tPrint[ P_Overlap ] 1\n"
+        if qmin.control["master"] or qmin.requests["theodore"]:
+            string += "\tPrint[ P_MOs ] 1\n"
+        string += "end\n\n"
+
+        # SCF
+        string += f"%scf\n\tmaxiter {qmin.template['maxiter']}\nend\n\n"
+
+        # Charge mult geom
+        string += "%coords\n\tCtyp xyz\n\tunits bohrs\n"
+        string += f"\tcharge {charge}\n"
+        string += "\tcoords\n"
+        for iatom, (label, coords) in enumerate(zip(qmin.molecule["elements"], qmin.coords["coords"])):
+            string += f"\t{label:4s} {coords[0]:16.9f} {coords[1]:16.9f} {coords[2]:16.9f}"
+            if "basis_per_atom" in qmin.template and iatom in qmin.template["basis_per_atom"]:
+                string += f"\tnewgto \"{qmin.template['basis_per_atom'][iatom]}\" end"
+            string += "\n"
+        string += "end\nend\n\n"  # TODO: 2 ends on purpose?
+
+        # Point charges
+        # TODO
+        return string
+
+    @staticmethod
     def get_orca_version(path: str) -> tuple[int, ...]:
         """
         Get ORCA version number of given path
@@ -598,15 +722,19 @@ if __name__ == "__main__":
     test.read_requests("QM.in")
     test.setup_interface()
     test.QMin.control["jobid"] = 1
-    cidets = test.get_dets_from_cis(
-        # "/user/mai/Documents/CoWorkers/FelixProche/full/orca.cis"
-        "/user/mai/Documents/CoWorkers/Anna/test2/orca.cis"
-        # "/user/mai/Documents/CoWorkers/AnnaMW/ORCA_wfoverlap/real_test/A/ORCA.cis"
-    )
+    # cidets = test.get_dets_from_cis(
+    #    # "/user/mai/Documents/CoWorkers/FelixProche/full/orca.cis"
+    #    "/user/mai/Documents/CoWorkers/Anna/test2/orca.cis"
+    #    # "/user/mai/Documents/CoWorkers/AnnaMW/ORCA_wfoverlap/real_test/A/ORCA.cis"
+    # )
     test._gen_schedule()
+    # print(test.QMin.template)
+    test.set_coords("QM.in")
+    test.QMin.scheduling["schedule"][0]["master_1"].coords = test.QMin.coords
     print(test.QMin.scheduling)
+    print(test.generate_inputstr(test.QMin.scheduling["schedule"][0]["master_1"]))
     # print(test.QMin.maps)
-    # print(test.QMin.requests)
+    print(test.QMin.requests)
     # print(test.QMin.save)
     # print(cidets)
     # print(test.QMin)
