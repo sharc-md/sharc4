@@ -2,6 +2,7 @@ import datetime
 import math
 import os
 import re
+import shutil
 import struct
 import subprocess as sp
 from copy import deepcopy
@@ -10,7 +11,7 @@ from typing import Optional
 
 from qmin import QMin
 from SHARC_ABINITIO import SHARC_ABINITIO
-from utils import expand_path, itmult, mkdir
+from utils import expand_path, itmult, mkdir, writefile
 
 AUTHORS = ""
 VERSION = ""
@@ -184,7 +185,52 @@ class SHARC_ORCA(SHARC_ABINITIO):
             if not: try again or return error
         postprocessing of workdir files (z.b molden file erzeugen, stripping)
         """
-        mkdir(qmin.control["workdir"])
+
+        # Setup workdir
+        mkdir(workdir)
+
+        # Write ORCA input
+        input_str = self.generate_inputstr(qmin)
+        self.log.debug(f"Generating input string\n{input_str}")
+        input_path = os.path.join(workdir, "ORCA.inp")
+        self.log.debug(f"Write input into file {input_path}")
+        writefile(input_path, input_str)
+
+        # Write point charges
+        # TODO: QMMM
+
+        # Copy wf files
+        jobid = qmin.control["jobid"]
+        if qmin.control["master"] and jobid in qmin.control["initorbs"]:
+            self.log.debug("Copy ORCA.gbw to work directory")
+            shutil.copy(qmin.control["initorbs"][jobid], os.path.join(workdir, "ORCA.gbw"))
+        elif qmin.control["gradonly"]:
+            self.log.debug(f"Copy ORCA.gbw from master_{jobid}")
+            shutil.copy(
+                os.path.join(qmin.resources["scratchdir"], f"master_{jobid}", "ORCA.gbw"), os.path.join(workdir, "ORCA.gbw")
+            )
+
+        # Setup ORCA
+        prevdir = os.getcwd()
+        os.chdir(workdir)
+
+        exec_str = f"{os.path.join(qmin.resources['orcadir'],'orca')} ORCA.inp"
+        stdoutfile = open(os.path.join(workdir, "ORCA.log"), "w", encoding="utf-8")
+        stderrfile = open(os.path.join(workdir, "ORCA.err"), "w", encoding="utf-8")
+        try:
+            self.log.debug("Executing ORCA")
+            exit_code = sp.call(exec_str, shell=True, stdout=stdoutfile, stderr=stderrfile)
+        except OSError as err:
+            self.log.error("Execution of ORCA failed!")
+            raise OSError from err
+        finally:
+            stdoutfile.close()
+            stderrfile.close()
+
+        # TODO: postprocessing
+
+        os.chdir(prevdir)
+        return exit_code
 
     def getQMout(self):
         pass
@@ -732,9 +778,5 @@ if __name__ == "__main__":
     test.set_coords("QM.in")
     test.QMin.scheduling["schedule"][0]["master_1"].coords = test.QMin.coords
     print(test.QMin.scheduling)
-    print(test.generate_inputstr(test.QMin.scheduling["schedule"][0]["master_1"]))
-    # print(test.QMin.maps)
-    print(test.QMin.requests)
-    # print(test.QMin.save)
-    # print(cidets)
-    # print(test.QMin)
+    # print(test.generate_inputstr(test.QMin.scheduling["schedule"][0]["master_1"]))
+    test.execute_from_qmin(os.path.join(test.QMin.resources["pwd"], "TEST"), test.QMin.scheduling["schedule"][0]["master_1"])
