@@ -7,6 +7,7 @@ import struct
 import subprocess as sp
 from copy import deepcopy
 from io import TextIOWrapper
+from itertools import pairwise
 from typing import Optional
 
 from qmin import QMin
@@ -25,18 +26,20 @@ CHANGELOGSTRING = """
 """
 
 all_features = set(
-    "h",
-    "dm",
-    "soc",
-    "theodore",
-    "grad",
-    "ion",
-    "overlap",
-    "phases",
-    # raw data request
-    "basis_set",
-    "wave_functions",
-    "density_matrices",
+    [
+        "h",
+        "dm",
+        "soc",
+        "theodore",
+        "grad",
+        "ion",
+        "overlap",
+        "phases",
+        # raw data request
+        "basis_set",
+        "wave_functions",
+        "density_matrices",
+    ]
 )
 
 
@@ -715,11 +718,16 @@ class SHARC_ORCA(SHARC_ABINITIO):
             string += f"%pal\n\tnprocs {qmin.resources['ncpu']}\nend\n\n"
         string += f"%maxcore {qmin.resources['memory']}\n\n"
 
-        # Basis sets
-        # TODO
-
-        # ECP basis sets
-        # TODO
+        # Basis sets + ECP basis set
+        if "basis_per_element" in qmin.template:
+            string += "%basis\n"
+            # basis_per_element key is list, need to iterate pairwise
+            for elem, basis in pairwise(qmin.template["basis_per_element"]):
+                string += f'\tnewgto {elem} "{basis}" end\n'
+            if "ecp_per_element" in qmin.template:
+                for elem, basis in pairwise(qmin.template["ecp_per_element"]):
+                    string += f'\tnewECP {elem} "{basis}" end\n'
+            string += "end\n\n"
 
         # Frozen core
         string += f"%method\n\tfrozencore {-2*qmin.molecule['frozcore'] if qmin.molecule['frozcore'] >0 else 'FC_NONE'}\nend\n\n"
@@ -810,12 +818,12 @@ if __name__ == "__main__":
     #    "/user/sascha/development/eci/sharc_main/TEST/ORCA.cis"
     # )
     # print(cidets["./SAVEDIR/dets.1"][:5000])
-    # print(test.QMin.template)
+    print(test.QMin.template)
     test.set_coords("QM.in")
     test.QMin.scheduling["schedule"][0]["master_1"].coords = test.QMin.coords
 
-    # print(test.generate_inputstr(test.QMin.scheduling["schedule"][0]["master_1"]))
-    code = test.execute_from_qmin(
-        os.path.join(test.QMin.resources["pwd"], "TEST"), test.QMin.scheduling["schedule"][0]["master_1"]
-    )
-    print(code)
+    print(test.generate_inputstr(test.QMin.scheduling["schedule"][0]["master_1"]))
+    # code = test.execute_from_qmin(
+    #    os.path.join(test.QMin.resources["pwd"], "TEST"), test.QMin.scheduling["schedule"][0]["master_1"]
+    # )
+    # print(code)
