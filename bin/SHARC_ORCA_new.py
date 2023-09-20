@@ -289,14 +289,12 @@ class SHARC_ORCA(SHARC_ABINITIO):
 
         # Find excited states e.g. 2 sing + 2 trip: [(1, en1), (2, en2), (1,en_trip1), (2,en_trip2)
         exc_states = re.findall(r"STATE\s+(\d+):[A-Z\s=]+([-\d\.]+)\s+au", output)
-        print(exc_states)
-        print(states_extract)
 
         iter_states = iter(exc_states)
         for imult in mults:
             nstates = states_extract[imult - 1]
             for state, energy in iter_states:
-                if int(state) <= self.QMin.molecule["states"][imult - 1]:
+                if int(state) <= self.QMin.molecule["states"][imult - 1]:  # Skip extra states
                     energies[(imult, int(state) + (gsmult == imult))] = gs_energy + float(energy)
                 if int(state) == nstates:
                     break
