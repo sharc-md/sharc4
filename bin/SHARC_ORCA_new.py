@@ -779,8 +779,9 @@ class SHARC_ORCA(SHARC_ABINITIO):
         string += "\tcoords\n"
         for iatom, (label, coords) in enumerate(zip(qmin.molecule["elements"], qmin.coords["coords"])):
             string += f"\t{label:4s} {coords[0]:16.9f} {coords[1]:16.9f} {coords[2]:16.9f}"
-            if "basis_per_atom" in qmin.template and iatom in qmin.template["basis_per_atom"]:
-                string += f"\tnewgto \"{qmin.template['basis_per_atom'][iatom]}\" end"
+            if "basis_per_atom" in qmin.template and str(iatom) in qmin.template["basis_per_atom"]:
+                idx = qmin.template["basis_per_atom"].index(str(iatom))
+                string += f"\tnewgto \"{qmin.template['basis_per_atom'][idx+1]}\" end"
             string += "\n"
         string += "end\nend\n\n"  # TODO: 2 ends on purpose?
 
@@ -818,7 +819,6 @@ if __name__ == "__main__":
     #    "/user/sascha/development/eci/sharc_main/TEST/ORCA.cis"
     # )
     # print(cidets["./SAVEDIR/dets.1"][:5000])
-    print(test.QMin.template)
     test.set_coords("QM.in")
     test.QMin.scheduling["schedule"][0]["master_1"].coords = test.QMin.coords
 
