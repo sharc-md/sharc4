@@ -12,7 +12,7 @@ from typing import Optional
 
 from qmin import QMin
 from SHARC_ABINITIO import SHARC_ABINITIO
-from utils import expand_path, itmult, mkdir, writefile
+from utils import expand_path, itmult, mkdir, writefile, readfile
 
 __all__ = ["SHARC_ORCA"]
 
@@ -254,6 +254,55 @@ class SHARC_ORCA(SHARC_ABINITIO):
             requests=requests,
         )
 
+        # Get contents of output file(s)
+        log_files = {}
+        for job in self.QMin.control["joblist"]:
+            # with open(os.path.join(self.QMin.resources["scratchdir"], f"master_{job}", "ORCA.log")) as file:
+            with open(os.path.join(self.QMin.resources["scratchdir"], "ORCA.log")) as file:
+                log_files[job] = file.read()
+        print(self._get_energy(log_files[1], self.QMin.control["jobs"][1]["mults"], self.QMin.control["jobs"][1]["restr"]))
+
+    def _get_energy(self, output: str, mults: list[int], restr: bool) -> dict[tuple[int, int], float]:
+        """
+        Extract energies from ORCA outfile
+
+        output:     Content of outfile as string
+        mult:       Multiplicity
+        restr:      Restricted or unrestricted
+        """
+
+        # Define variables
+        gsmult = mults[0]
+        states_extract = deepcopy(self.QMin.molecule["states"])
+        states_extract[gsmult - 1] -= 1
+
+        states_extract = [0 if idx + 1 not in mults else val for idx, val in enumerate(states_extract)]
+        states_extract = [max(states_extract) if idx + 1 in mults else val for idx, val in enumerate(states_extract)]
+
+        # Find ground state energy and apply dispersion correction
+        gs_energy = float(re.search(r"Total Energy[\s:]+([-]?\d+.\d+)", output).group(1))
+        dispersion = re.search(r"Dispersion correction\s+([-]?\d+.\d+)", output)
+        if dispersion:
+            gs_energy += float(dispersion.group(1))
+
+        energies = {(gsmult, 1): gs_energy}
+
+        # Find excited states e.g. 2 sing + 2 trip: [(1, en1), (2, en2), (1,en_trip1), (2,en_trip2)
+        exc_states = re.findall(r"STATE\s+(\d+):[A-Z\s=]+([-\d\.]+)\s+au", output)
+        print(exc_states)
+        print(states_extract)
+
+        iter_states = iter(exc_states)
+        for imult in mults:
+            nstates = states_extract[imult - 1]
+            for state, energy in iter_states:
+                if int(state) <= self.QMin.molecule["states"][imult - 1]:
+                    energies[(imult, int(state) + (gsmult == imult))] = gs_energy + float(energy)
+                if int(state) == nstates:
+                    break
+
+        return energies
+
     def prepare(self, INFOS: dict, dir_path: str):
         "setup the calculation in directory 'dir'"
         return
@@ -389,22 +438,20 @@ class SHARC_ORCA(SHARC_ABINITIO):
         """
         self.log.debug("Building job map.")
         jobs = {}
-        for idx, val in enumerate(self.QMin.control["states_to_do"]):
-            if val == 0:
-                continue
-            match idx:
-                case 0:
-                    jobs[1] = {"mults": [1], "restr": True}
-                case 1:
-                    jobs[2] = {"mults": [2], "restr": False}
-                case 2:
-                    if self.QMin.template["unrestricted_triplets"] and 1 in jobs:
-                        jobs[1]["mults"].append(3)
-                    else:
-                        jobs[3] = {"mults": [3], "restr": False}
-                case _:
-                    jobs[idx + 5] = {"mults": [idx + 5], "restr": False}
-
+        if self.QMin.control["states_to_do"][0] > 0:
+            jobs[1] = {"mults": [1], "restr": True}
+        if len(self.QMin.control["states_to_do"]) >= 2 and self.QMin.control["states_to_do"][1] > 0:
+            jobs[2] = {"mults": [2], "restr": False}
+        if len(self.QMin.control["states_to_do"]) >= 3 and self.QMin.control["states_to_do"][2] > 0:
+            if not self.QMin.template["unrestricted_triplets"] and self.QMin.control["states_to_do"][0] > 0:
+                jobs[1]["mults"].append(3)
+            else:
+                jobs[3] = {"mults": [3], "restr": False}
+        if len(self.QMin.control["states_to_do"]) >= 4:
+            for imult, nstate in enumerate(self.QMin.control["states_to_do"][3:]):
+                if nstate > 0:
+                    # jobs[len(jobs)+1]={'mults':[imult+4],'restr':False}
+                    jobs[imult + 4] = {"mults": [imult + 4], "restr": False}
         self.QMin.control["jobs"] = jobs
         self.QMin.control["joblist"] = sorted(set(jobs))
 
@@ -810,20 +857,20 @@ if __name__ == "__main__":
     test.read_template("ORCA.template")
     test.read_requests("QM.in")
     test.setup_interface()
-    test.QMin.control["jobid"] = 1
+    # test.QMin.control["jobid"] = 1
     test._gen_schedule()
     # cidets = test.get_dets_from_cis(
-    #    # "/user/mai/Documents/CoWorkers/FelixProche/full/orca.cis"
-    #    # "/user/mai/Documents/CoWorkers/Anna/test2/orca.cis"
-    #    # "/user/mai/Documents/CoWorkers/AnnaMW/ORCA_wfoverlap/real_test/A/ORCA.cis"
-    #    "/user/sascha/development/eci/sharc_main/TEST/ORCA.cis"
+    #   # "/user/mai/Documents/CoWorkers/FelixProche/full/orca.cis"
+    #   # "/user/mai/Documents/CoWorkers/Anna/test2/orca.cis"
+    #   # "/user/mai/Documents/CoWorkers/AnnaMW/ORCA_wfoverlap/real_test/A/ORCA.cis"
+    #   "/user/sascha/development/eci/sharc_main/TEST/ORCA.cis"
     # )
     # print(cidets["./SAVEDIR/dets.1"][:5000])
     test.set_coords("QM.in")
     test.QMin.scheduling["schedule"][0]["master_1"].coords = test.QMin.coords
-
-    print(test.generate_inputstr(test.QMin.scheduling["schedule"][0]["master_1"]))
+    test.getQMout()
+    # print(test.generate_inputstr(test.QMin.scheduling["schedule"][0]["master_1"]))
     # code = test.execute_from_qmin(
-    #    os.path.join(test.QMin.resources["pwd"], "TEST"), test.QMin.scheduling["schedule"][0]["master_1"]
+    #  os.path.join(test.QMin.resources["pwd"], "TEST"), test.QMin.scheduling["schedule"][0]["master_1"]
     # )
     # print(code)
