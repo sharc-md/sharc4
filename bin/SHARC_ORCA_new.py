@@ -836,8 +836,13 @@ class SHARC_ORCA(SHARC_ABINITIO):
             string += f"\tnroots {max(states_to_do)}\n"
             if restr and qmin.requests["soc"]:
                 string += "\tdosoc true\n\tprintlevel 3\n"
+            if do_grad:
+                if singgrad:
+                    string += "\tsgradlist " + ','.join([str(i) for i in sorted(singgrad)]) + "\n"
+                if tripgrad:
+                    string += "\ttgradlist " + ','.join([str(i) for i in sorted(tripgrad)]) + "\n"
 
-            if do_grad and egrad:
+            elif egrad:
                 string += f"\tiroot {egrad[1] - (gsmult == egrad[0])}\n"
             string += "end\n\n"
 
@@ -902,7 +907,7 @@ if __name__ == "__main__":
     test.set_coords("QM.in")
     test.QMin.scheduling["schedule"][0]["master_1"].coords = test.QMin.coords
     test.getQMout()
-    # print(test.generate_inputstr(test.QMin.scheduling["schedule"][0]["master_1"]))
+    print(test.generate_inputstr(test.QMin.scheduling["schedule"][0]["master_1"]))
     # code = test.execute_from_qmin(
     # os.path.join(test.QMin.resources["pwd"], "TEST"), test.QMin.scheduling["schedule"][0]["master_1"]
     # )
