@@ -280,12 +280,17 @@ class SHARC_ORCA(SHARC_ABINITIO):
         states_extract = [max(states_extract) if idx + 1 in mults else val for idx, val in enumerate(states_extract)]
 
         # Find ground state energy and apply dispersion correction
-        gs_energy = float(re.search(r"Total Energy[\s:]+([-\d\.]+)", output).group(1))
+        find_energy = re.search(r"Total Energy[\s:]+([-\d\.]+)", output)
+        if not find_energy:
+            self.log.error("No energy in ORCA outfile found!")
+            raise ValueError()
+
+        gs_energy = float(find_energy.group(1))
         dispersion = re.search(r"Dispersion correction\s+([-\d\.]+)", output)
         if dispersion:
             gs_energy += float(dispersion.group(1))
 
-        energies = {(gsmult, 1): gs_energy}
+        energies = {(gsmult, int(1)): gs_energy}
 
         # Find excited states e.g. 2 sing + 2 trip: [(1, en1), (2, en2), (1,en_trip1), (2,en_trip2)
         exc_states = re.findall(r"STATE\s+(\d+):[A-Z\s=]+([-\d\.]+)\s+au", output)
