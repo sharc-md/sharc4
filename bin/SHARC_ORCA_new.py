@@ -10,9 +10,10 @@ from io import TextIOWrapper
 from itertools import pairwise
 from typing import Optional
 
+import numpy as np
 from qmin import QMin
 from SHARC_ABINITIO import SHARC_ABINITIO
-from utils import expand_path, itmult, mkdir, writefile, readfile
+from utils import expand_path, itmult, mkdir, readfile, writefile
 
 __all__ = ["SHARC_ORCA"]
 
@@ -257,18 +258,47 @@ class SHARC_ORCA(SHARC_ABINITIO):
         # Get contents of output file(s)
         log_files = {}
         for job in self.QMin.control["joblist"]:
-            # with open(os.path.join(self.QMin.resources["scratchdir"], f"master_{job}", "ORCA.log")) as file:
-            with open(os.path.join(self.QMin.resources["scratchdir"], "ORCA.log"), "r", encoding="utf-8") as file:
+            with open(os.path.join(self.QMin.resources["scratchdir"], f"master_{job}/ORCA.log"), "r", encoding="utf-8") as file:
                 log_files[job] = file.read()
         print(self._get_energy(log_files[1], self.QMin.control["jobs"][1]["mults"]))
+        print(self._get_socs(log_files[1]))
+
+    def _get_socs(self, output: str) -> np.ndarray:
+        """
+        Extract SOC matrix from ORCA outfile
+
+        output:     Content of outfile as string
+        """
+        # Get number of states
+        n_roots = re.search(r"nroots\s+(\d+)", output)
+        if not n_roots:
+            self.log.error("Cannot find number of roots in ORCA oufile!")
+            raise ValueError()
+
+        n_states = int(n_roots.group(1))
+        n_states = n_states + 1 + 3 * n_states
+
+        # Extract matrix from outfile
+        find_mat = re.search(r"Real part:([\s\d+-e]*)Image part:([\s\d+-e]*)\.{3}", output, re.DOTALL)
+        if not find_mat:
+            self.log.error("Cannot find SOC matrix in ORCA output!")
+            raise ValueError()
+
+        # Remove garbage and combine to complex
+        real_part = list(map(float, re.sub(r"\s\d{1,2}\s", "", find_mat.group(1)).split()))
+        imag_part = list(map(float, re.sub(r"\s\d{1,2}\s", "", find_mat.group(2)).split()))
+        soc_matrix = []
+        for real, imag in zip(real_part, imag_part):
+            soc_matrix.append(complex(real, imag))
+
+        return np.asarray(soc_matrix).reshape((n_states, n_states))
 
     def _get_energy(self, output: str, mults: list[int]) -> dict[tuple[int, int], float]:
         """
         Extract energies from ORCA outfile
 
         output:     Content of outfile as string
-        mult:       Multiplicity
-        restr:      Restricted or unrestricted
+        mult:       Multiplicities
         """
 
         # Define variables
