@@ -258,11 +258,11 @@ class SHARC_ORCA(SHARC_ABINITIO):
         log_files = {}
         for job in self.QMin.control["joblist"]:
             # with open(os.path.join(self.QMin.resources["scratchdir"], f"master_{job}", "ORCA.log")) as file:
-            with open(os.path.join(self.QMin.resources["scratchdir"], "ORCA.log")) as file:
+            with open(os.path.join(self.QMin.resources["scratchdir"], "ORCA.log"), "r", encoding="utf-8") as file:
                 log_files[job] = file.read()
-        print(self._get_energy(log_files[1], self.QMin.control["jobs"][1]["mults"], self.QMin.control["jobs"][1]["restr"]))
+        print(self._get_energy(log_files[1], self.QMin.control["jobs"][1]["mults"]))
 
-    def _get_energy(self, output: str, mults: list[int], restr: bool) -> dict[tuple[int, int], float]:
+    def _get_energy(self, output: str, mults: list[int]) -> dict[tuple[int, int], float]:
         """
         Extract energies from ORCA outfile
 
@@ -280,8 +280,8 @@ class SHARC_ORCA(SHARC_ABINITIO):
         states_extract = [max(states_extract) if idx + 1 in mults else val for idx, val in enumerate(states_extract)]
 
         # Find ground state energy and apply dispersion correction
-        gs_energy = float(re.search(r"Total Energy[\s:]+([-]?\d+.\d+)", output).group(1))
-        dispersion = re.search(r"Dispersion correction\s+([-]?\d+.\d+)", output)
+        gs_energy = float(re.search(r"Total Energy[\s:]+([-\d\.]+)", output).group(1))
+        dispersion = re.search(r"Dispersion correction\s+([-\d\.]+)", output)
         if dispersion:
             gs_energy += float(dispersion.group(1))
 
@@ -869,6 +869,6 @@ if __name__ == "__main__":
     test.getQMout()
     # print(test.generate_inputstr(test.QMin.scheduling["schedule"][0]["master_1"]))
     # code = test.execute_from_qmin(
-    #  os.path.join(test.QMin.resources["pwd"], "TEST"), test.QMin.scheduling["schedule"][0]["master_1"]
+    # os.path.join(test.QMin.resources["pwd"], "TEST"), test.QMin.scheduling["schedule"][0]["master_1"]
     # )
     # print(code)
