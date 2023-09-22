@@ -264,6 +264,19 @@ class SHARC_ORCA(SHARC_ABINITIO):
         # print(self._get_socs(log_files[1]))
         print(self._get_transition_dipoles(log_files[1]))
         print(self._get_grad("TEST/master_1/ORCA.engrad.ground.grad.tmp"))
+        print(self._get_dipole_moment(log_files[1], False))
+
+    def _get_dipole_moment(self, output: str, ground_state: bool) -> np.ndarray:
+        """
+        Extract dipole moment from ORCA outfile
+        output:     Content of outfile as string
+        """
+        find_dipole = re.findall(r"Total Dipole Moment[:\s]+(.*)", output)
+        if not find_dipole:
+            self.log.error("Cannot find dipole moment in ORCA outfile!")
+            raise ValueError()
+        find_dipole = [list(map(float, x.split())) for x in find_dipole]
+        return np.asarray(find_dipole[0] if ground_state else find_dipole[1])
 
     def _get_grad(self, grad_path: str) -> np.ndarray:
         """
