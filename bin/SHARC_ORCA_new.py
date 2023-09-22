@@ -262,6 +262,25 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 log_files[job] = file.read()
         print(self._get_energy(log_files[1], self.QMin.control["jobs"][1]["mults"]))
         print(self._get_socs(log_files[1]))
+        print(self._get_transition_dipoles(log_files[1], self.QMin.control["jobs"][1]["mults"]))
+
+    def _get_transition_dipoles(self, output: str, mults: list[int]) -> np.ndarray:
+        """
+        Extract transition dipole moments from ORCA outfile
+        In TD-DFT with ORCA 5 only TDM between ground- and
+        excited states of same multiplicity are calculated
+
+        output:     Content of outfile as string
+        """
+        n_states = self.QMin.molecule["states"][mults[0] - 1] - 1
+
+        find_transition_dipoles = re.search(
+            r"ABSORPTION SPECTRUM VIA TRANSITION ELECTRIC DIPOLE MOMENTS([^ABCDFGH]*)", output, re.DOTALL
+        )
+        if not find_transition_dipoles:
+            self.log.error("Cannot find transition dipoles in ORCA output!")
+            raise ValueError()
+        print(find_transition_dipoles.group(1).split("\n"))
 
     def _get_socs(self, output: str) -> np.ndarray:
         """
@@ -277,6 +296,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
 
         n_states = int(n_roots.group(1))
         n_states = n_states + 1 + 3 * n_states
+        padding = n_states % 6
 
         # Extract matrix from outfile
         find_mat = re.search(r"Real part:([\s\d+-e]*)Image part:([\s\d+-e]*)\.{3}", output, re.DOTALL)
@@ -291,7 +311,17 @@ class SHARC_ORCA(SHARC_ABINITIO):
         for real, imag in zip(real_part, imag_part):
             soc_matrix.append(complex(real, imag))
 
-        return np.asarray(soc_matrix).reshape((n_states, n_states))
+        # Add padding
+        padding_array = []
+        if padding > 0:
+            last_elems = soc_matrix[-(padding * n_states) :]
+            soc_matrix += [0] * (n_states * (6 - padding))
+            for i in range(n_states):
+                padding_array += last_elems[i * padding : i * padding + padding] + [0] * (6 - padding)
+
+        soc_matrix = np.asarray(soc_matrix)
+        soc_matrix[-len(padding_array) :] = padding_array
+        return np.hstack(soc_matrix.reshape(-1, n_states, 6))[:, :n_states]
 
     def _get_energy(self, output: str, mults: list[int]) -> dict[tuple[int, int], float]:
         """
@@ -838,9 +868,9 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 string += "\tdosoc true\n\tprintlevel 3\n"
             if do_grad:
                 if singgrad:
-                    string += "\tsgradlist " + ','.join([str(i) for i in sorted(singgrad)]) + "\n"
+                    string += "\tsgradlist " + ",".join([str(i) for i in sorted(singgrad)]) + "\n"
                 if tripgrad:
-                    string += "\ttgradlist " + ','.join([str(i) for i in sorted(tripgrad)]) + "\n"
+                    string += "\ttgradlist " + ",".join([str(i) for i in sorted(tripgrad)]) + "\n"
 
             elif egrad:
                 string += f"\tiroot {egrad[1] - (gsmult == egrad[0])}\n"
@@ -906,8 +936,9 @@ if __name__ == "__main__":
     # print(cidets["./SAVEDIR/dets.1"][:5000])
     test.set_coords("QM.in")
     test.QMin.scheduling["schedule"][0]["master_1"].coords = test.QMin.coords
+    np.set_printoptions(precision=1, suppress=False)
     test.getQMout()
-    print(test.generate_inputstr(test.QMin.scheduling["schedule"][0]["master_1"]))
+    # print(test.generate_inputstr(test.QMin.scheduling["schedule"][0]["master_1"]))
     # code = test.execute_from_qmin(
     # os.path.join(test.QMin.resources["pwd"], "TEST"), test.QMin.scheduling["schedule"][0]["master_1"]
     # )
