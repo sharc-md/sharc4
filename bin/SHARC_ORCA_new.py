@@ -261,8 +261,22 @@ class SHARC_ORCA(SHARC_ABINITIO):
             with open(os.path.join(self.QMin.resources["scratchdir"], f"master_{job}/ORCA.log"), "r", encoding="utf-8") as file:
                 log_files[job] = file.read()
         print(self._get_energy(log_files[1], self.QMin.control["jobs"][1]["mults"]))
-        print(self._get_socs(log_files[1]))
+        # print(self._get_socs(log_files[1]))
         print(self._get_transition_dipoles(log_files[1]))
+        print(self._get_grad("TEST/master_1/ORCA.engrad.ground.grad.tmp"))
+
+    def _get_grad(self, grad_path: str) -> np.ndarray:
+        """
+        Extract gradients from ORCA outfile
+
+        grad_path:  Path to gradient file
+        """
+        natom = self.QMin.molecule["natom"]
+
+        with open(grad_path, "rb") as grad_file:
+            grad_file.read(8 + 28 * natom)  # Skip header
+            gradients = struct.unpack(f"{natom*3}d", grad_file.read(8 * 3 * natom))
+        return np.asarray(gradients).reshape(natom, 3)
 
     def _get_transition_dipoles(self, output: str) -> np.ndarray:
         """
@@ -280,7 +294,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
             self.log.error("Cannot find transition dipoles in ORCA output!")
             raise ValueError()
         # Filter dipole vectors, (states, (xyz))
-        transition_dipoles = re.findall(r"([-\d.]+\s+[-\d.]+\s+[-\d.]+)\n", find_transition_dipoles.group(1), re.DOTALL)
+        transition_dipoles = re.findall(r"([-\d.]+\s+[-\d.]+\s+[-\d.]+)\n", find_transition_dipoles.group(1))
         return np.asarray([list(map(float, x.split())) for x in transition_dipoles])
 
     def _get_socs(self, output: str) -> np.ndarray:
