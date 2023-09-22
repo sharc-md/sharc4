@@ -262,9 +262,9 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 log_files[job] = file.read()
         print(self._get_energy(log_files[1], self.QMin.control["jobs"][1]["mults"]))
         print(self._get_socs(log_files[1]))
-        print(self._get_transition_dipoles(log_files[1], self.QMin.control["jobs"][1]["mults"]))
+        print(self._get_transition_dipoles(log_files[1]))
 
-    def _get_transition_dipoles(self, output: str, mults: list[int]) -> np.ndarray:
+    def _get_transition_dipoles(self, output: str) -> np.ndarray:
         """
         Extract transition dipole moments from ORCA outfile
         In TD-DFT with ORCA 5 only TDM between ground- and
@@ -272,15 +272,16 @@ class SHARC_ORCA(SHARC_ABINITIO):
 
         output:     Content of outfile as string
         """
-        n_states = self.QMin.molecule["states"][mults[0] - 1] - 1
-
+        # Extract transition dipole table from output
         find_transition_dipoles = re.search(
             r"ABSORPTION SPECTRUM VIA TRANSITION ELECTRIC DIPOLE MOMENTS([^ABCDFGH]*)", output, re.DOTALL
         )
         if not find_transition_dipoles:
             self.log.error("Cannot find transition dipoles in ORCA output!")
             raise ValueError()
-        print(find_transition_dipoles.group(1).split("\n"))
+        # Filter dipole vectors, (states, (xyz))
+        transition_dipoles = re.findall(r"([-\d.]+\s+[-\d.]+\s+[-\d.]+)\n", find_transition_dipoles.group(1), re.DOTALL)
+        return np.asarray([list(map(float, x.split())) for x in transition_dipoles])
 
     def _get_socs(self, output: str) -> np.ndarray:
         """
@@ -936,7 +937,7 @@ if __name__ == "__main__":
     # print(cidets["./SAVEDIR/dets.1"][:5000])
     test.set_coords("QM.in")
     test.QMin.scheduling["schedule"][0]["master_1"].coords = test.QMin.coords
-    np.set_printoptions(precision=1, suppress=False)
+    # np.set_printoptions(precision=1, suppress=False)
     test.getQMout()
     # print(test.generate_inputstr(test.QMin.scheduling["schedule"][0]["master_1"]))
     # code = test.execute_from_qmin(
