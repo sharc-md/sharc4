@@ -87,15 +87,11 @@ class SHARC_ORCA(SHARC_ABINITIO):
         self.QMin.template.update(
             {
                 "no_tda": False,
-                "unrestricted_triplets": False,
                 "picture_change": False,
                 "basis": "6-31G",
                 "auxbasis": None,
                 "functional": "PBE",
                 "dispersion": None,
-                "grid": None,
-                "gridx": None,
-                "gridxc": None,
                 "ri": None,
                 "scf": None,
                 "keys": None,
@@ -109,15 +105,11 @@ class SHARC_ORCA(SHARC_ABINITIO):
         self.QMin.template.types.update(
             {
                 "no_tda": bool,
-                "unrestricted_triplets": bool,
                 "picture_change": bool,
                 "basis": str,
                 "auxbasis": str,
                 "functional": str,
                 "dispersion": str,
-                "grid": str,
-                "gridx": str,
-                "gridxc": str,
                 "ri": str,
                 "scf": str,
                 "keys": (str, list),
@@ -131,7 +123,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
         # no range_sep_settings, can be done with paste_input_file
 
         # List of depricated keys
-        self._depricated = ["range_sep_settings", "grid", "gridx", "gridxc", "picture_change", "qmmm"]
+        self._depricated = ["range_sep_settings", "grid", "gridx", "gridxc", "picture_change", "qmmm", "unrestricted_triplets"]
 
     @staticmethod
     def version() -> str:
