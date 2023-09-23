@@ -13,7 +13,7 @@ from typing import Optional
 import numpy as np
 from qmin import QMin
 from SHARC_ABINITIO import SHARC_ABINITIO
-from utils import expand_path, itmult, mkdir, readfile, writefile
+from utils import expand_path, itmult, mkdir, writefile
 
 __all__ = ["SHARC_ORCA"]
 
@@ -129,6 +129,9 @@ class SHARC_ORCA(SHARC_ABINITIO):
             }
         )
         # no range_sep_settings, can be done with paste_input_file
+
+        # List of depricated keys
+        self._depricated = ["range_sep_settings", "grid", "gridx", "gridxc", "picture_change", "qmmm"]
 
     @staticmethod
     def version() -> str:
@@ -433,6 +436,11 @@ class SHARC_ORCA(SHARC_ABINITIO):
         # Convert keys to string if list
         if isinstance(self.QMin.template["keys"], list):
             self.QMin.template["keys"] = " ".join(self.QMin.template["keys"])
+
+        # Check for depricated keys
+        for depr in self._depricated:
+            if depr.casefold() in self.QMin.template:
+                self.log.warning(f"Template key {depr} is depricated and will be ignored!")
 
     def remove_old_restart_files(self, retain: int = 5) -> None:
         """
