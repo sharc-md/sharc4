@@ -731,6 +731,8 @@ class SHARC_INTERFACE(ABC):
         # logic for raw tasks object from pysharc interface
         if "tasks" in requests and isinstance(requests["tasks"], str):
             requests.update({k.lower(): True for k in requests["tasks"].split()})
+            if "soc" in requests:
+                requests["h"] = True
             del requests["tasks"]
         for task in ["nacdr", "overlap", "grad", "ion"]:
             if task in requests and isinstance(requests[task], str):
