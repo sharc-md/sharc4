@@ -34,9 +34,10 @@ from constants import IAn2AName, ATOMCHARGE, FROZENS
 import sharc.sharc as sharc
 from factory import factory
 from SHARC_INTERFACE import SHARC_INTERFACE
+from qmout import QMout
 from error import Error
 from utils import list2dict, InDir
-from logger import log
+from logger import log, loglevel
 
 
 
@@ -72,7 +73,7 @@ class QMOUT():
     def printAll(self):
         self._QMout.printAll()
 
-    def set_props(self, data: dict, icall):
+    def set_props(self, data: QMout, icall):
         """ set QMout """
         # set hamiltonian, dm only in first call
         if icall == 1:
@@ -95,14 +96,13 @@ class QMOUT():
             else:
                 self._QMout.set_gradient(list2dict(data['grad'].tolist()), icall)
         if 'nacdr' in data:
-            if isinstance(data['nacdr'], list):
+            if isinstance(data['nacdr'], dict):
+                self._QMout.set_nacdr(data['nacdr'], icall)
+            else:
                 nacdr = {}
                 for i, ele in enumerate(data['nacdr'].tolist()):
                     nacdr[i] = list2dict(ele)
                 self._QMout.set_nacdr(nacdr, icall)
-
-            else:
-                self._QMout.set_nacdr(data['nacdr'], icall)
 
         return
 
@@ -185,21 +185,13 @@ def do_qm_calc(i: SHARC_INTERFACE, qmout: QMOUT):
     i._set_driver_requests(get_all_tasks(icall))
     log.debug(f"\tcoords")
     i.set_coords(get_crd())
-    # s1 = time.perf_counter_ns()
     log.debug(f"\trun")
-    safe(i.run)
-    # s2 = time.perf_counter_ns()
-    # print(" safe run: ", (s2 - s1) * 1e-6)
-    # s1 = time.perf_counter_ns()
-    i.getQMout()
-    # s2 = time.perf_counter_ns()
-    # print(" getQMout: ", (s2 - s1) * 1e-6)
-    i.write_step_file()
-    # s1 = time.perf_counter_ns()
+    with InDir("QM"):
+        safe(i.run)
+        i.getQMout()
+        i.write_step_file()
     log.debug(f"\tset_props")
     qmout.set_props(i.QMout, icall)
-    # s2 = time.perf_counter_ns()
-    # print(" setProps: ", (s2 - s1) * 1e-6)
 
     isecond = set_qmout(qmout._QMout, icall)
     if isecond == 1:
@@ -235,6 +227,8 @@ def main():
         loglevel = log.ERROR
     if options.verbose:
         loglevel = log.SHARCPRINT
+    if options.debug:
+        loglevel = log.DEBUG
     if not options.name:
         raise Error('please specifiy the interface with "-i <name>"')
     if len(args) == 0:
