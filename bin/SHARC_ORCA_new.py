@@ -470,11 +470,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
         """
         super().setup_interface()
 
-        if (
-            not self.QMin.template["unrestricted_triplets"]
-            and len(self.QMin.molecule["states"]) >= 3
-            and self.QMin.molecule["states"][2] > 0
-        ):
+        if len(self.QMin.molecule["states"]) >= 3 and self.QMin.molecule["states"][2] > 0:
             self.log.debug("Setup states_to_do")
             self.QMin.control["states_to_do"][0] = max(self.QMin.molecule["states"][0], 1)
             req = max(self.QMin.molecule["states"][0] - 1, self.QMin.molecule["states"][2])
@@ -534,7 +530,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
         if len(self.QMin.control["states_to_do"]) >= 2 and self.QMin.control["states_to_do"][1] > 0:
             jobs[2] = {"mults": [2], "restr": False}
         if len(self.QMin.control["states_to_do"]) >= 3 and self.QMin.control["states_to_do"][2] > 0:
-            if not self.QMin.template["unrestricted_triplets"] and self.QMin.control["states_to_do"][0] > 0:
+            if self.QMin.control["states_to_do"][0] > 0:
                 jobs[1]["mults"].append(3)
             else:
                 jobs[3] = {"mults": [3], "restr": False}
