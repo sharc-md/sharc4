@@ -14,6 +14,7 @@ import numpy as np
 from qmin import QMin
 from SHARC_ABINITIO import SHARC_ABINITIO
 from utils import expand_path, itmult, mkdir, writefile
+from constants import IToMult
 
 __all__ = ["SHARC_ORCA"]
 
@@ -69,7 +70,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 "numfrozcore": 0,
                 "numocc": None,
                 "schedule_scaling": 0.9,
-                "neglected_gradient": "zero"
+                "neglected_gradient": "zero",
             }
         )
         self.QMin.resources.types.update(
@@ -81,7 +82,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 "numfrozcore": int,
                 "numocc": int,
                 "schedule_scaling": float,
-                "neglected_gradient": str
+                "neglected_gradient": str,
             }
         )
 
@@ -292,7 +293,39 @@ class SHARC_ORCA(SHARC_ABINITIO):
                     self.QMout["dm"][:, 1 : states[1], 0] = td_moment[1 : states[1], :].T
                     self.QMout["dm"][:, 0, 1 : states[1]] = td_moment[1 : states[1], :].T
 
-            # print(self._get_grad("TEST/master_1/ORCA.engrad.ground.grad.tmp"))
+                # Populate gradients
+                if self.QMin.requests["grad"]:
+                    for grad in self.QMin.maps["gradmap"]:
+                        job_path, ground_state = self.QMin.control["jobgrad"][grad]
+                        gs_mult, _ = self.QMin.control["jobs"][job].values()
+                        if ground_state:
+                            gradients = self._get_grad(
+                                os.path.join(self.QMin.resources["scratchdir"], job_path, "ORCA.engrad.ground.grad.tmp")
+                            )
+                        else:
+                            gradients = self._get_grad(
+                                os.path.join(
+                                    self.QMin.resources["scratchdir"],
+                                    job_path,
+                                    f"ORCA.engrad.{IToMult[grad[0]].lower()}.root{grad[1] - (grad[0] == gs_mult[0])}.grad.tmp",
+                                )
+                            )
+                        for key, val in self.QMin.maps["statemap"].items():
+                            if (val[0], val[1]) == grad:
+                                self.QMout["grad"][key - 1] = gradients
+
+                    # Populate neglected gradients
+                    neglected_grads = [
+                        x
+                        for x in range(self.QMin.molecule["nmstates"])
+                        if tuple(self.QMin.maps["statemap"][x + 1][0:2]) not in self.QMin.maps["gradmap"]
+                    ]
+                    match self.QMin.resources["neglected_gradient"]:
+                        case "gs":
+                            for state in neglected_grads:
+                                self.QMout["grad"][state] = self.QMout["grad"][self.QMin.maps["gsmap"][state + 1] - 1]
+                        case "closest":
+                            pass  # TODO
 
     def _get_dipole_moment(self, output: str, ground_state: bool) -> np.ndarray:
         """
@@ -1002,4 +1035,4 @@ if __name__ == "__main__":
     # )
     # print(code)
     test.QMout.printQMout(test.QMin)
-    print(test.QMin.maps)
+    print(test.QMin)
