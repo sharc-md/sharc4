@@ -299,7 +299,6 @@ class SHARC_ORCA(SHARC_ABINITIO):
         if self.QMin.requests["grad"]:
             for grad in self.QMin.maps["gradmap"]:
                 job_path, ground_state = self.QMin.control["jobgrad"][grad]
-                print(job_path)
                 gs_mult, _ = self.QMin.control["jobs"][int(job_path.split("_")[1])].values()
                 if ground_state:
                     gradients = self._get_grad(
@@ -326,7 +325,12 @@ class SHARC_ORCA(SHARC_ABINITIO):
                     for state in neglected_grads:
                         self.QMout["grad"][state] = self.QMout["grad"][self.QMin.maps["gsmap"][state + 1] - 1]
                 case "closest":
-                    pass  # TODO
+                    energies = np.array(np.diagonal(self.QMout["h"]))
+                    energies_masked = deepcopy(energies)
+                    energies_masked[neglected_grads] = 9999
+                    for grad in neglected_grads:
+                        idx = np.abs(energies_masked - energies[grad]).argmin()
+                        self.QMout["grad"][grad] = self.QMout["grad"][idx]
 
     def _get_dipole_moment(self, output: str, ground_state: bool) -> np.ndarray:
         """
