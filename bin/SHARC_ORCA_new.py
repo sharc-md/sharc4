@@ -69,6 +69,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 "numfrozcore": 0,
                 "numocc": None,
                 "schedule_scaling": 0.9,
+                "neglected_gradient": "zero"
             }
         )
         self.QMin.resources.types.update(
@@ -80,6 +81,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 "numfrozcore": int,
                 "numocc": int,
                 "schedule_scaling": float,
+                "neglected_gradient": str
             }
         )
 
@@ -251,15 +253,46 @@ class SHARC_ORCA(SHARC_ABINITIO):
         )
 
         # Get contents of output file(s)
-        log_files = {}
         for job in self.QMin.control["joblist"]:
             with open(os.path.join(self.QMin.resources["scratchdir"], f"master_{job}/ORCA.log"), "r", encoding="utf-8") as file:
-                log_files[job] = file.read()
-        print(self._get_energy(log_files[1], self.QMin.control["jobs"][1]["mults"]))
-        # print(self._get_socs(log_files[1]))
-        print(self._get_transition_dipoles(log_files[1]))
-        print(self._get_grad("TEST/master_1/ORCA.engrad.ground.grad.tmp"))
-        print(self._get_dipole_moment(log_files[1], False))
+                log_file = file.read()
+                mults = self.QMin.control["jobs"][1]["mults"]
+                states = [0] + [x * (m + 1) for m, x in enumerate(self.QMin.molecule["states"])]
+
+                # Populate SOC matrix
+                if self.QMin.requests["soc"]:
+                    for m in mults:
+                        start, stop = sum(states[: m - 1]), sum(states[: m + 1])
+                        self.QMout["h"][start:stop, start:stop] = self._get_socs(log_file)[start:stop, start:stop]
+
+                # Populate energies
+                if self.QMin.requests["h"]:
+                    energies = self._get_energy(log_file, mults)
+                    for i in range(self.QMin.molecule["nmstates"]):
+                        statemap = self.QMin.maps["statemap"][i + 1]
+                        if statemap[0] in mults:
+                            self.QMout["h"][i][i] = energies[(statemap[0], statemap[1])]
+
+                # Populate dipole moments
+                if self.QMin.requests["dm"]:  # TODO: maybe wrong?
+                    # Diagonal elements
+                    # Excited states
+                    dp_moment = self._get_dipole_moment(log_file, False)
+                    np.fill_diagonal(self.QMout["dm"][0], dp_moment[0])
+                    np.fill_diagonal(self.QMout["dm"][1], dp_moment[1])
+                    np.fill_diagonal(self.QMout["dm"][2], dp_moment[2])
+                    # Ground state
+                    dp_moment = self._get_dipole_moment(log_file, True)
+                    self.QMout["dm"][0, 0, 0] = dp_moment[0]
+                    self.QMout["dm"][1, 0, 0] = dp_moment[1]
+                    self.QMout["dm"][2, 0, 0] = dp_moment[2]
+
+                    # Offdiagonals
+                    td_moment = self._get_transition_dipoles(log_file)
+                    self.QMout["dm"][:, 1 : states[1], 0] = td_moment[1 : states[1], :].T
+                    self.QMout["dm"][:, 0, 1 : states[1]] = td_moment[1 : states[1], :].T
+
+            # print(self._get_grad("TEST/master_1/ORCA.engrad.ground.grad.tmp"))
 
     def _get_dipole_moment(self, output: str, ground_state: bool) -> np.ndarray:
         """
@@ -344,7 +377,9 @@ class SHARC_ORCA(SHARC_ABINITIO):
 
         soc_matrix = np.asarray(soc_matrix)
         soc_matrix[-len(padding_array) :] = padding_array
-        return np.hstack(soc_matrix.reshape(-1, n_states, 6))[:, :n_states]
+        soc_matrix = np.hstack(soc_matrix.reshape(-1, n_states, 6))[:, :n_states]
+        np.fill_diagonal(soc_matrix, complex(0))
+        return soc_matrix
 
     def _get_energy(self, output: str, mults: list[int]) -> dict[tuple[int, int], float]:
         """
@@ -514,7 +549,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
             for j in range(self.QMin.molecule["nmstates"]):
                 if tuple(self.QMin.maps["statemap"][j + 1]) == ground_state:
                     break
-                self.QMin.maps["gsmap"][i + 1] = j + 1
+            self.QMin.maps["gsmap"][i + 1] = j + 1
 
         # Populate initial orbitals dict
         self.QMin.control["initorbs"] = self._get_initorbs()  # TODO: control?
@@ -537,7 +572,6 @@ class SHARC_ORCA(SHARC_ABINITIO):
         if len(self.QMin.control["states_to_do"]) >= 4:
             for imult, nstate in enumerate(self.QMin.control["states_to_do"][3:]):
                 if nstate > 0:
-                    # jobs[len(jobs)+1]={'mults':[imult+4],'restr':False}
                     jobs[imult + 4] = {"mults": [imult + 4], "restr": False}
         self.QMin.control["jobs"] = jobs
         self.QMin.control["joblist"] = sorted(set(jobs))
@@ -967,3 +1001,5 @@ if __name__ == "__main__":
     # os.path.join(test.QMin.resources["pwd"], "TEST"), test.QMin.scheduling["schedule"][0]["master_1"]
     # )
     # print(code)
+    test.QMout.printQMout(test.QMin)
+    print(test.QMin.maps)
