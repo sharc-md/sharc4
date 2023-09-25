@@ -249,14 +249,14 @@ class SHARC_INTERFACE(ABC):
         self.read_resources(f"{self.name()}.resources")
         # read in the specific template file for the interface with all keywords
         self.read_template(f"{self.name()}.template")
+        # read the property requests that have to be calculated
+        self.read_requests(QMinfilename)
         # setup internal state for the computation
         self.setup_interface()
 
         # --- the following are called per time step inside a driver ---
         # set the coordinates of the molecular system
         self.set_coords(QMinfilename)
-        # read the property requests that have to be calculated
-        self.read_requests(QMinfilename)
         # print qmin
         self.print_qmin()
         # perform the calculation and parse the output, do subsequent calculations with other tools
