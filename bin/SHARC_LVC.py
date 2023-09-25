@@ -448,7 +448,7 @@ class SHARC_LVC(SHARC_FAST):
         if self.QMin.requests['nacdr']:
             # Build full derivative matrix
             start = 0    # starting index for blocks
-            nacdr = np.zeros((nmstates, nmstates, r3N), float)
+            nacdr = np.zeros((nmstates, nmstates, self.QMin.molecule['natom'] * 3), float)
             if do_pc:
                 nacdr_pc = np.zeros((nmstates, nmstates, self.QMin.molecule['npc'], 3), float)
 
@@ -463,13 +463,13 @@ class SHARC_LVC(SHARC_FAST):
                 dlvc = np.einsum('ijk,kl->ijl', dlvc, dQ_dr, casting='no', optimize=True)
                 if do_pc:
                     # calculate derivative of electrostic interaction
-                    if "_dcoulomb_path" in self.__dict__:
+                    if "_dcoulomb_path" not in self.__dict__:
                         self._dcoulomb_path = np.einsum_path('xyab,ijay->ijabx', mult_prefactors_deriv_pc, self._fits_rot[im], optimize='optimal')[0]
                     dcoulomb: np.ndarray = np.einsum('xyab,ijay->ijabx', mult_prefactors_deriv_pc, self._fits_rot[im], optimize=self._dcoulomb_path)
                     # add derivative to lvc derivative summed ofe all point charges
                     dlvc += np.einsum('ijabx->ijax', dcoulomb).reshape((n, n, r3N))
                     # add the derivative of the multipoles
-                    if "_dlvc_path" in self.__dict__:
+                    if "_dlvc_path" not in self.__dict__:
                         self._dlvc_path = np.einsum_path(
                             'yab,ijaymx->ijmx', mult_prefactors_pc[1:, ...], fits_deriv[im], optimize='optimal'
                         )[0]
@@ -480,7 +480,7 @@ class SHARC_LVC(SHARC_FAST):
                     pc_derivative = -np.einsum('ijabx->ijbx', dcoulomb)
                     del dcoulomb
                     if self._diagonalize:
-                        if "_pc_derivative_nac_path" in self.__dict__:
+                        if "_pc_derivative_nac_path" not in self.__dict__:
                             self._pc_derivative_nac_path = np.einsum_path('ijbx,im,jn->mnbx', pc_derivative, u, u, optimize='optimal')[0]
                         pc_derivative = np.einsum('ijbx,im,jn->mnbx', pc_derivative, u, u, casting='no', optimize=self._pc_derivative_nac_path)
 
