@@ -40,7 +40,7 @@ from socket import gethostname
 
 from logger import log
 import factory
-from utils import question, itnmstates
+from utils import question, itnmstates, expand_path
 from constants import IToMult, U_TO_AMU, HARTREE_TO_EV
 from SHARC_INTERFACE import SHARC_INTERFACE
 
@@ -1101,6 +1101,12 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
             eselect = question('Selection threshold (eV):', float, [0.5])[0]
             INFOS['eselect'] = abs(eselect)
 
+    # rattle file
+    log.info(f"\n\n{'RATTLE':-^60}")
+    INFOS['rattle'] = question('Do you want to constrain some bond lengths (via a RATTLE)?', bool, default=False)
+    if INFOS['rattle']:
+        INFOS['rattlefile'] = question('specify path to rattle file: ', str, default='rattle', autocomplete=True)
+
 
     # Laser file
     log.info('\n\n' + f"{'Laser file':-^60}" + '\n')
@@ -1442,6 +1448,10 @@ def writeSHARCinput(INFOS, initobject, iconddir, istate):
             s += ' %i' % i
         s += '\n'
 
+    # rattle
+    if INFOS['rattle']:
+        s += f'rattle\nrattlefile \"{INFOS["rattlefile"].split("/")[-1]}\"'
+
     # laser
     if INFOS['laser']:
         s += 'laser external\n'
@@ -1675,6 +1685,8 @@ def setup_all(INFOS, interface: SHARC_INTERFACE):
             interface.prepare(INFOS, dirname + '/QM')
 
             writeRunscript(INFOS, dirname, interface)
+            if INFOS['rattle']:
+                shutil.copy(expand_path(INFOS['rattlefile']), os.path.join(dirname, INFOS['rattlefile'].split('/')[-1]))
 
             string = 'cd $CWD/%s/\nbash run.sh\ncd $CWD\necho %s >> DONE\n' % (dirname, dirname)
             all_run.write(string)

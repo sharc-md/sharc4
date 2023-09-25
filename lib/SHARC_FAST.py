@@ -50,7 +50,7 @@ class SHARC_FAST(SHARC_INTERFACE):
 
     # TODO: WTF is self.template_file???
     def prepare(self, INFOS: dict, dir_path: str):
-        if "link_files" in INFOS:
+        if "link_files" in INFOS and INFOS['link_files']:
             os.symlink(
                 expand_path(self.template_file),
                 os.path.join(dir_path, self.name() + ".template"),
@@ -66,6 +66,7 @@ class SHARC_FAST(SHARC_INTERFACE):
                         expand_path(file),
                         os.path.join(dir_path, os.path.split(file)[1]),
                     )
+            return
 
         shutil.copy(
             self.template_file, os.path.join(dir_path, self.name() + ".template")
