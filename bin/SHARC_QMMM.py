@@ -349,6 +349,7 @@ class SHARC_QMMM(SHARC_HYBRID):
         qm_QMin.molecule["nmstates"] = self.QMin.molecule["nmstates"]
         qm_QMin.molecule["unit"] = self.QMin.molecule["unit"]
         qm_QMin.molecule["point_charges"] = True
+        qm_QMin.molecule['npc'] = self._num_mm
         self.qm_interface._setup_mol = True
 
         # setup mol for mml
@@ -509,8 +510,6 @@ class SHARC_QMMM(SHARC_HYBRID):
     def getQMout(self):
         # s1 = time.perf_counter_ns()
         qmQMout = self.qm_interface.QMout
-        QMin = self.QMin
-        QMout = self.QMout
         self.QMout.states = self.QMin.molecule['states']
         self.QMout.nstates = self.QMin.molecule['nstates']
         self.QMout.nmstates = self.QMin.molecule['nmstates']
@@ -519,20 +518,21 @@ class SHARC_QMMM(SHARC_HYBRID):
         self.QMout.point_charges = False
 
         mm_e = float(self.mml_interface.QMout['h'][0][0])
-        if QMin.template['embedding'] == 'subtractive':
+        if self.QMin.template['embedding'] == 'subtractive':
             mm_e -= float(self.mms_interface.QMout['h'][0][0])
 
-        QMout['prop0d'].append(('MM Energy', mm_e))
+        self.QMout['prop0d'].append(('MM Energy', mm_e))
         # Hamiltonian
         if self.qm_interface.QMin.requests['h']:
             self.QMout.h = self.qm_interface.QMout.h.copy()
-            np.einsum('ii->i', self.QMout.h)[...] += mm_e
+            self.QMout.h += np.eye(self.QMout.h.shape[0], dtype=float) * mm_e
+            # np.einsum('ii->i', self.QMout.h)[...] += mm_e
         # gen output
-        if QMin.requests["grad"]:
+        if self.QMin.requests["grad"]:
             qm_grad = qmQMout.grad
             mm_grad = self.mml_interface.QMout.grad[0]
 
-            if QMin.template['embedding'] == 'subtractive':
+            if self.QMin.template['embedding'] == 'subtractive':
                 mms_grad = self.mms_interface.QMout['grad'][0]
                 mm_grad[self.qm_ids, :] -= mms_grad[:self._num_qm, :]
 
@@ -552,29 +552,29 @@ class SHARC_QMMM(SHARC_HYBRID):
 
             self.QMout.grad = grad
 
-        if QMin.requests["nacdr"]:
+        if self.QMin.requests["nacdr"]:
             # nacs would have to inserted in the whole system matrix only for qm atoms
-            nacdr = np.zeros((self.QMin.molecule['nmstates'], self.QMin.molecule['nmstates'], self.QMin.molecule['natom']), dtype=float)
+            nacdr = np.zeros((self.QMin.molecule['nmstates'], self.QMin.molecule['nmstates'], self.QMin.molecule['natom'], 3), dtype=float)
             nacdr[:, :, self.qm_ids, :] += self.qm_interface.QMout.nacdr
             for n, link_id in enumerate(self._linkatoms):  # linkatoms come after qm atoms
                 qm_id, mm_id = self._linkatoms[n]
                 nacdr[:, :, mm_id, :] += self._mm_s * self.qm_interface.QMout.nacdr[:, :, n + self._num_qm, :]
                 nacdr[:, :, qm_id, :] += self._qm_s * self.qm_interface.QMout.nacdr[:, :, n + self._num_qm, :]
-            QMout.nacdr = nacdr
+            self.QMout.nacdr = nacdr
 
-        if QMin.requests["dm"]:
-            QMout.dm = self.qm_interface.QMout.dm.copy()
-            if QMin.template['mm_dipole']:
-                np.einsum('xii->xi', QMout.dm)[...] += self.mml_interface.QMout.dm[:, :, 0]
+        if self.QMin.requests["dm"]:
+            self.QMout.dm = self.qm_interface.QMout.dm.copy()
+            if self.QMin.template['mm_dipole']:
+                np.einsum('xii->xi', self.QMout.dm)[...] += self.mml_interface.QMout.dm[:, :, 0]
 
-        if QMin.requests['overlap']:
-            QMout.overlap = self.qm_interface.QMout.overlap
+        if self.QMin.requests['overlap']:
+            self.QMout.overlap = self.qm_interface.QMout.overlap
 
         # potentially print out other contributions and properties...
         for i in ['ion', 'prop', 'theodore']:
             if i in qmQMout:
-                QMout[i] = qmQMout[i]
-        QMout.runtime = self.clock.measuretime()
+                self.QMout[i] = qmQMout[i]
+        self.QMout.runtime = self.clock.measuretime()
 
     def create_restart_files(self):
         self.qm_interface.create_restart_files()
