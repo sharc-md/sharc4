@@ -263,7 +263,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 states = [0] + [x * (m + 1) for m, x in enumerate(self.QMin.molecule["states"])]
 
                 # Populate SOC matrix
-                if self.QMin.requests["soc"]:
+                if self.QMin.requests["soc"] and self.QMin.control["jobs"][job]["restr"]:
                     for m in mults:
                         start, stop = sum(states[: m - 1]), sum(states[: m + 1])
                         self.QMout["h"][start:stop, start:stop] = self._get_socs(log_file)[start:stop, start:stop]
@@ -291,9 +291,10 @@ class SHARC_ORCA(SHARC_ABINITIO):
                     self.QMout["dm"][2, 0, 0] = dp_moment[2]
 
                     # Offdiagonals
-                    td_moment = self._get_transition_dipoles(log_file)
-                    self.QMout["dm"][:, 1 : states[1], 0] = td_moment[1 : states[1], :].T
-                    self.QMout["dm"][:, 0, 1 : states[1]] = td_moment[1 : states[1], :].T
+                    if self.QMin.molecule["states"][mults[0] - 1] > 1:
+                        td_moment = self._get_transition_dipoles(log_file)
+                        self.QMout["dm"][:, 1 : states[1], 0] = td_moment[1 : states[1], :].T
+                        self.QMout["dm"][:, 0, 1 : states[1]] = td_moment[1 : states[1], :].T
 
         # Populate gradients
         if self.QMin.requests["grad"]:
@@ -301,9 +302,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 job_path, ground_state = self.QMin.control["jobgrad"][grad]
                 gs_mult, _ = self.QMin.control["jobs"][int(job_path.split("_")[1])].values()
                 if ground_state:
-                    gradients = self._get_grad(
-                        os.path.join(self.QMin.resources["scratchdir"], job_path, "ORCA.engrad.ground.grad.tmp")
-                    )
+                    gradients = self._get_grad(os.path.join(self.QMin.resources["scratchdir"], job_path, "ORCA.engrad"), True)
                 else:
                     gradients = self._get_grad(
                         os.path.join(
@@ -342,9 +341,9 @@ class SHARC_ORCA(SHARC_ABINITIO):
             self.log.error("Cannot find dipole moment in ORCA outfile!")
             raise ValueError()
         find_dipole = [list(map(float, x.split())) for x in find_dipole]
-        return np.asarray(find_dipole[0] if ground_state else find_dipole[1])
+        return np.asarray(find_dipole[0] if ground_state else find_dipole[-1])
 
-    def _get_grad(self, grad_path: str) -> np.ndarray:
+    def _get_grad(self, grad_path: str, ground_state: bool = False) -> np.ndarray:
         """
         Extract gradients from ORCA outfile
 
@@ -352,9 +351,16 @@ class SHARC_ORCA(SHARC_ABINITIO):
         """
         natom = self.QMin.molecule["natom"]
 
-        with open(grad_path, "rb") as grad_file:
-            grad_file.read(8 + 28 * natom)  # Skip header
-            gradients = struct.unpack(f"{natom*3}d", grad_file.read(8 * 3 * natom))
+        with open(grad_path, "r" if ground_state else "rb") as grad_file:
+            if ground_state:
+                find_grads = re.search(r"bohr\n#\n(.*)#\n#", grad_file.read(), re.DOTALL)
+                if not find_grads:
+                    self.log.error(f"Gradients not found in {grad_path}!")
+                    raise ValueError()
+                gradients = find_grads.group(1).split()
+            else:
+                grad_file.read(8 + 28 * natom)  # Skip header
+                gradients = struct.unpack(f"{natom*3}d", grad_file.read(8 * 3 * natom))
         return np.asarray(gradients).reshape(natom, 3)
 
     def _get_transition_dipoles(self, output: str) -> np.ndarray:
@@ -529,11 +535,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
         self._gen_schedule()
 
         self.log.debug("Execute schedule")
-        err_codes = self.runjobs(self.QMin.scheduling["schedule"])
-
-        if any(map(lambda x: x != 0, err_codes)):
-            self.log.error(f"Some jobs failed! {err_codes}")
-            raise OSError()
+        self.runjobs(self.QMin.scheduling["schedule"])
         self.log.debug("All jobs finished successful")
         # TODO: wfoverlap and theodore
 
@@ -987,6 +989,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
         # Charge mult geom
         string += "%coords\n\tCtyp xyz\n\tunits bohrs\n"
         string += f"\tcharge {charge}\n"
+        string += f"\tmult {gsmult}\n"
         string += "\tcoords\n"
         for iatom, (label, coords) in enumerate(zip(qmin.molecule["elements"], qmin.coords["coords"])):
             string += f"\t{label:4s} {coords[0]:16.9f} {coords[1]:16.9f} {coords[2]:16.9f}"
@@ -1015,29 +1018,30 @@ class SHARC_ORCA(SHARC_ABINITIO):
 
 
 if __name__ == "__main__":
-    test = SHARC_ORCA(loglevel=10)
-    test.setup_mol("QM.in")
-    test.read_resources("ORCA.resources", kw_whitelist=["theodore_prop", "theodore_fragment"])
-    test.read_template("ORCA.template")
-    test.read_requests("QM.in")
-    test.setup_interface()
-    # test.QMin.control["jobid"] = 1
-    test._gen_schedule()
-    # cidets = test.get_dets_from_cis(
-    #   # "/user/mai/Documents/CoWorkers/FelixProche/full/orca.cis"
-    #   # "/user/mai/Documents/CoWorkers/Anna/test2/orca.cis"
-    #   # "/user/mai/Documents/CoWorkers/AnnaMW/ORCA_wfoverlap/real_test/A/ORCA.cis"
-    #   "/user/sascha/development/eci/sharc_main/TEST/ORCA.cis"
-    # )
-    # print(cidets["./SAVEDIR/dets.1"][:5000])
-    test.set_coords("QM.in")
-    test.QMin.scheduling["schedule"][0]["master_1"].coords = test.QMin.coords
-    # np.set_printoptions(precision=1, suppress=False)
-    test.getQMout()
-    # print(test.generate_inputstr(test.QMin.scheduling["schedule"][0]["master_1"]))
-    # code = test.execute_from_qmin(
-    # os.path.join(test.QMin.resources["pwd"], "TEST"), test.QMin.scheduling["schedule"][0]["master_1"]
-    # )
-    # print(code)
-    test.QMout.printQMout(test.QMin)
-    print(test.QMin)
+    SHARC_ORCA(loglevel=10).main()
+    # test = SHARC_ORCA(loglevel=10)
+    # test.setup_mol("QM.in")
+    # test.read_resources("ORCA.resources", kw_whitelist=["theodore_prop", "theodore_fragment"])
+    # test.read_template("ORCA.template")
+    # test.read_requests("QM.in")
+    # test.setup_interface()
+    ## test.QMin.control["jobid"] = 1
+    # test._gen_schedule()
+    ## cidets = test.get_dets_from_cis(
+    ##   # "/user/mai/Documents/CoWorkers/FelixProche/full/orca.cis"
+    ##   # "/user/mai/Documents/CoWorkers/Anna/test2/orca.cis"
+    ##   # "/user/mai/Documents/CoWorkers/AnnaMW/ORCA_wfoverlap/real_test/A/ORCA.cis"
+    ##   "/user/sascha/development/eci/sharc_main/TEST/ORCA.cis"
+    ## )
+    ## print(cidets["./SAVEDIR/dets.1"][:5000])
+    # test.set_coords("QM.in")
+    # test.QMin.scheduling["schedule"][0]["master_1"].coords = test.QMin.coords
+    ## np.set_printoptions(precision=1, suppress=False)
+    # test.getQMout()
+    ## print(test.generate_inputstr(test.QMin.scheduling["schedule"][0]["master_1"]))
+    ## code = test.execute_from_qmin(
+    ## os.path.join(test.QMin.resources["pwd"], "TEST"), test.QMin.scheduling["schedule"][0]["master_1"]
+    ## )
+    ## print(code)
+    # test.QMout.printQMout(test.QMin)
+    # print(test.QMin)
