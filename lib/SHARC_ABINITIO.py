@@ -45,16 +45,18 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         super().__init__(*args, **kwargs)
 
         # Add ab-initio specific keywords to template
-        self.QMin.template["charge"] = None
-        self.QMin.template["paddingstates"] = None
+        self.QMin.template.update({"charge": None, "paddingstates": None})
 
-        self.QMin.template.types["charge"] = list
-        self.QMin.template.types["paddingstates"] = list
-
+        self.QMin.template.types.update({"charge": list, "paddingstates": list})
         # Add ab-initio specific keywords to resources
         self.QMin.resources["delay"] = 0.0
 
         self.QMin.resources.types["delay"] = float
+
+        # Add list of slots per pool to control
+        self.QMin.control["nslots_pool"] = []
+
+        self.QMin.control.types["nsplots_pool"] = list
 
     @staticmethod
     @abstractmethod
