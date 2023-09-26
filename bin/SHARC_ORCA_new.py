@@ -178,7 +178,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
     def create_restart_files(self):
         pass
 
-    def execute_from_qmin(self, workdir: str, qmin: QMin) -> int:
+    def execute_from_qmin(self, workdir: str, qmin: QMin) -> tuple[int, datetime.timedelta]:
         """
         Erster Schritt, setup_workdir ( inputfiles schreiben, orbital guesses kopieren, xyz, pc)
         Programm aufrufen (z.b. run_program)
@@ -216,6 +216,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
         prevdir = os.getcwd()
         os.chdir(workdir)
 
+        starttime = datetime.datetime.now()
         exec_str = f"{os.path.join(qmin.resources['orcadir'],'orca')} ORCA.inp"
         stdoutfile = open(os.path.join(workdir, "ORCA.log"), "w", encoding="utf-8")
         stderrfile = open(os.path.join(workdir, "ORCA.err"), "w", encoding="utf-8")
@@ -228,11 +229,11 @@ class SHARC_ORCA(SHARC_ABINITIO):
         finally:
             stdoutfile.close()
             stderrfile.close()
-
+        endtime = datetime.datetime.now()
         # TODO: postprocessing
 
         os.chdir(prevdir)
-        return exit_code
+        return exit_code, endtime - starttime
 
     def getQMout(self) -> None:
         """
@@ -588,9 +589,8 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 ground_state = (1, 1, 0.0)
             for j in range(self.QMin.molecule["nmstates"]):
                 if tuple(self.QMin.maps["statemap"][j + 1]) == ground_state:
+                    self.QMin.maps["gsmap"][i + 1] = j + 1
                     break
-            self.QMin.maps["gsmap"][i + 1] = j + 1
-
         # Populate initial orbitals dict
         self.QMin.control["initorbs"] = self._get_initorbs()  # TODO: control?
 
@@ -834,7 +834,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
         # add the master calculations
         ntasks = len([1 for g in gradjob if "master" in g])
         _, nslots, cpu_per_run = self.divide_slots(self.QMin.resources["ncpu"], ntasks, self.QMin.resources["schedule_scaling"])
-        self.QMin.control["nslots_pool"] = [nslots]
+        self.QMin.control["nslots_pool"].append(nslots)
 
         for idx, job in enumerate(sorted(gradjob)):
             if not "master" in job:
