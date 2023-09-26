@@ -124,7 +124,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         pass
 
     @abstractmethod
-    def execute_from_qmin(self, workdir: str, qmin: QMin) -> int:
+    def execute_from_qmin(self, workdir: str, qmin: QMin) -> tuple[int, datetime.timedelta]:
         """
         Erster Schritt, setup_workdir ( inputfiles schreiben, orbital guesses kopieren, xyz, pc)
         Programm aufrufen (z.b. run_program)
@@ -132,6 +132,8 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             if success: pass
             if not: try again or return error
         postprocessing of workdir files (z.b molden file erzeugen, stripping)
+
+        returns (exit code, runtime)
         """
 
     @abstractmethod
