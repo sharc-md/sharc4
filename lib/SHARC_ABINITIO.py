@@ -318,16 +318,12 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 pool.join()
 
         # Processing error codes
-        self.log.debug("All jobs finished")
-
-        error_string = "Error Codes:\n"
-        for idx, (job, code) in enumerate(error_codes.items()):
-            error_string += f"\t{job + ' ' * (10 - len(job))}\t{code.get()}"
-            if (idx + 1) % 4 == 0:
-                error_string += "\n"
+        error_string = "All jobs finished:\n"
+        for job, code in error_codes.items():
+            error_string += f"job: {job:<10s} code: {code.get()[0]:<4d} runtime: {code.get()[1]}\n"
         self.log.info(f"{error_string}")
 
-        if any(map(lambda x: x.get() != 0, error_codes.values())):
+        if any(map(lambda x: x.get()[0] != 0, error_codes.values())):
             raise RuntimeError("Some subprocesses did not finish successfully!")
 
         # Create restart files and garbage collection
