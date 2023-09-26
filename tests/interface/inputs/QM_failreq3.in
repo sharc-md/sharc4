@@ -24,7 +24,7 @@ init
     ## ===============================================
     # Settings:
 unit angstrom
-states 0 0 0 0 9 9
+states 1 0 0
 #savedir ./SAVE         # overrides the savedir in the resources file
 
     ## ===============================================
@@ -32,9 +32,9 @@ states 0 0 0 0 9 9
 h
 soc
 dm
-nacdr
-socdr
-dm
+nacdr select
+2
+end
 grad
 #overlap
 #ion

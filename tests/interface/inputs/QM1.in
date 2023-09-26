@@ -33,9 +33,9 @@ h
 soc
 dm
 grad
-#overlap
-#ion
-#theodore
+ion
+theodore
+
     # note that the "soc" keyword does not work with the Gaussian interface
 
 

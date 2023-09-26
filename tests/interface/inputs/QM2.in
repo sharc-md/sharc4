@@ -30,12 +30,14 @@ states 0 0 0
     ## ===============================================
     # Quantity requests:
 h
-soc
 dm
+soc
 grad
+dmdr
+nacdr
 #overlap
 #ion
-#theodore
+theodore
     # note that the "soc" keyword does not work with the Gaussian interface
 
 
