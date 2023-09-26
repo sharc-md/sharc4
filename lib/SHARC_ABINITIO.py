@@ -301,29 +301,31 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         error_codes = {}
 
         # Submit jobs to queue
+        self.log.debug("Submit jobs to pool")
         for job_idx, jobset in enumerate(schedule):
             self.log.debug(f"Processing jobset number {job_idx} from schedule list")
             if not jobset:
                 continue
             with Pool(processes=self.QMin.control["nslots_pool"][job_idx]) as pool:
-                self.log.debug("Submit jobs to pool")
                 for job, qmin in jobset.items():
                     self.log.debug(f"Adding job: {job}")
                     workdir = os.path.join(self.QMin.resources["scratchdir"], job)
-                    error_codes[job] = pool.apply_async(self.execute_from_qmin, args=(workdir, qmin)).get()
+                    error_codes[job] = pool.apply_async(self.execute_from_qmin, args=(workdir, qmin))
                     time.sleep(self.QMin.resources["delay"])
+                pool.close()
+                pool.join()
 
         # Processing error codes
         self.log.debug("All jobs finished")
 
         error_string = "Error Codes:\n"
         for idx, (job, code) in enumerate(error_codes.items()):
-            error_string += f"\t{job + ' ' * (10 - len(job))}\t{code}"
+            error_string += f"\t{job + ' ' * (10 - len(job))}\t{code.get()}"
             if (idx + 1) % 4 == 0:
                 error_string += "\n"
         self.log.info(f"{error_string}")
 
-        if any(map(lambda x: x != 0, error_codes.values())):
+        if any(map(lambda x: x.get() != 0, error_codes.values())):
             raise RuntimeError("Some subprocesses did not finish successfully!")
 
         # Create restart files and garbage collection
