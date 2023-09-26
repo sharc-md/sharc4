@@ -482,6 +482,8 @@ class SHARC_INTERFACE(ABC):
             del res["states"][-1]
         nstates = 0
         nmstates = 0
+        if any(map(lambda x: x < 0, res["states"])):
+            raise ValueError("States must be positive numbers!")
         for i in range(len(res["states"])):
             nstates += res["states"][i]
             nmstates += res["states"][i] * (i + 1)
