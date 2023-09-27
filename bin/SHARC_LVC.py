@@ -446,6 +446,7 @@ class SHARC_LVC(SHARC_FAST):
 
         # GRADS and NACS
         if self.QMin.requests['nacdr']:
+            self.log.debug("start calculating nacdr")
             # Build full derivative matrix
             start = 0    # starting index for blocks
             nacdr = np.zeros((nmstates, nmstates, self.QMin.molecule['natom'] * 3), float)
@@ -501,28 +502,30 @@ class SHARC_LVC(SHARC_FAST):
                 idx = tmp != cast(0)
                 tmp[idx] **= -1
 
-                nacdr[start:stop, start:stop, ...] = dlvc
+                # nacdr[start:stop, start:stop, ...] = dlvc
                 nacdr[start:stop, start:stop, :] = np.einsum(
-                    'ji,ijk->ijk', tmp, nacdr[start:stop, start:stop, :], casting='no', optimize=True
+                    'ji,ijk->ijk', tmp, dlvc, casting='no', optimize=True
                 )
+                grad[start:stop, ...] = np.einsum('iik->ik', dlvc)
                 if do_pc:
-                    nacdr_pc[start:stop, start:stop, ...] = pc_derivative
+                    pc_grad[start:stop, ...] = np.einsum('iibx->ibx', pc_derivative)
+                    # nacdr_pc[start:stop, start:stop, ...] = pc_derivative
                     nacdr_pc[start:stop, start:stop, :] = np.einsum(
-                        'ji,ijbx->ijbx', tmp, nacdr_pc[start:stop, start:stop, :], casting='no', optimize=True
+                        'ji,ijbx->ijbx', tmp, pc_derivative, casting='no', optimize=True
                     )
                 # fills in blocks for other magnetic quantum numbers
                 for s1 in map(lambda x: start + n * (x + 1), range(im)):
                     s2 = s1 + n
                     nacdr[s1:s2, s1:s2, :] = nacdr[start:stop, start:stop, :]
+                    grad[s1:s2, ...] = grad[start:stop, ...]
                     if do_pc:
                         nacdr_pc[s1:s2, s1:s2, :] = nacdr_pc[start:stop, start:stop, :]
+                        pc_grad[s1:s2, ...] = pc_grad[start:stop, ...]
                 start += n * (im + 1)
-            grad = np.einsum('iik->ik', nacdr)
-            if do_pc:
-                pc_grad += np.einsum('mmbx->mbx', nacdr_pc)
 
         # calculate only gradients
         if self.QMin.requests['grad']:
+            self.log.debug("start calculating gradients")
             grad = np.zeros((nmstates, r3N))
             start = 0
             for im, n in filter(lambda x: x[1] != 0, enumerate(states)):
