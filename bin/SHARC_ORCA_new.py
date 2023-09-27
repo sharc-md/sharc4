@@ -483,7 +483,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
         super().read_resources(resources_file, kw_whitelist)
 
         # LD PATH???
-        if "orcadir" not in self.QMin.resources:
+        if not self.QMin.resources["orcadir"]:
             raise ValueError("orcadir has to be set in resource file!")
 
         self.QMin.resources["orcadir"] = expand_path(self.QMin.resources["orcadir"])
