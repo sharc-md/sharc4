@@ -27,7 +27,6 @@ def test_setupinterface1():
                 "nacmap": None,
             },
         ),
-        ("inputs/QM2.in", "inputs/abinitio_template1", {"gradmap": None, "chargemap": {}, "nacmap": set()}),
         (
             "inputs/QM1.in",
             "inputs/abinitio_template2",
@@ -163,7 +162,10 @@ def test_setupinterface1():
 
 
 def test_setupinterface2():
-    tests = [("inputs/QM3.in", "inputs/abinitio_template1", {})]
+    tests = [
+        ("inputs/QM3.in", "inputs/abinitio_template1", {}),
+        ("inputs/QM2.in", "inputs/abinitio_template1", {"gradmap": None, "chargemap": {}, "nacmap": set()}),
+    ]
 
     for qmin, template, maps in tests:
         with pytest.raises(ValueError):

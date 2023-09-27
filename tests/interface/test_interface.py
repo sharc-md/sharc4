@@ -31,13 +31,13 @@ def read_resources(path: str, params: dict, whitelist: list):
 
 
 def test_states1():
-    tests = [("inputs/QM1.in", [3, 1, 5]), ("inputs/QM2.in", []), ("inputs/QM3.in", [0, 0, 0, 0, 9, 9])]
+    tests = [("inputs/QM1.in", [3, 1, 5]), ("inputs/QM3.in", [0, 0, 0, 0, 9, 9])]
     for path, state in tests:
         get_states(path, state)
 
 
 def test_states2():
-    tests = [("inputs/QM_failstate1.in", []), ("inputs/QM_failstate2.in", [])]
+    tests = [("inputs/QM_failstate1.in", []), ("inputs/QM_failstate2.in", []), ("inputs/QM2.in", [])]
     for path, state in tests:
         with pytest.raises(ValueError):
             get_states(path, state)
@@ -58,23 +58,6 @@ def test_requests1():
                 "ion": True,
                 "socdr": False,
                 "dmdr": False,
-                "multipolar_fit": None,
-                "theodore": True,
-            },
-        ),
-        (
-            "inputs/QM2.in",
-            {
-                "h": True,
-                "soc": False,
-                "dm": True,
-                "grad": [],
-                "nacdr": ["all"],
-                "overlap": False,
-                "phases": False,
-                "ion": False,
-                "socdr": False,
-                "dmdr": True,
                 "multipolar_fit": None,
                 "theodore": True,
             },
@@ -119,10 +102,10 @@ def test_requests1():
 
 
 def test_reqests2():
-    tests = [("inputs/QM_failreq1.in", []), ("inputs/QM_failreq2.in", []), ("inputs/QM_failreq3.in", [])]
+    tests = [("inputs/QM_failreq1.in", []), ("inputs/QM_failreq2.in", []), ("inputs/QM_failreq3.in", []), ("inputs/QM2.in", [])]
 
     for path, req in tests:
-        with pytest.raises(AssertionError):
+        with pytest.raises((AssertionError, ValueError)):
             set_requests(path, req)
 
 
@@ -135,6 +118,7 @@ def test_resources1():
     ]
     for path, params, whitelist in tests:
         read_resources(path, params, whitelist)
+
 
 def test_resources2():
     tests = [
