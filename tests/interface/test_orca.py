@@ -13,6 +13,17 @@ def setup_interface(path: str, maps: dict):
         assert test_interface.QMin.maps[k] == v, test_interface.QMin.maps[k]
 
 
+def build_jobs(path: str, maps: dict):
+    test_interface = SHARC_ORCA()
+    test_interface.setup_mol(path)
+    test_interface._read_resources = True
+    test_interface._read_template = True
+    test_interface.read_requests(path)
+    test_interface.setup_interface()
+    for k, v in maps.items():
+        assert test_interface.QMin.control[k] == v, test_interface.QMin.control[k]
+
+
 def get_energy(outfile: str, template: str, qmin: str, mults: list, energies: dict):
     test_interface = SHARC_ORCA()
     test_interface.setup_mol(qmin)
@@ -146,19 +157,38 @@ def test_energies():
                 (2, 2): -549.691766289,
                 (2, 3): -549.690712289,
                 (2, 4): -549.639773289,
-                (2, 5): -549.631470289
-            }
+                (2, 5): -549.631470289,
+            },
         ),
-        (
-            "inputs/orca4.out",
-            "inputs/orca_template",
-            "inputs/orca4.in",
-            [4],
-            {
-                (4, 1): -549.649784479,
-                (4, 2): -549.641911479
-            }
-        )
+        ("inputs/orca4.out", "inputs/orca_template", "inputs/orca4.in", [4], {(4, 1): -549.649784479, (4, 2): -549.641911479}),
     ]
     for outfile, template, qmin, mults, energies in tests:
         get_energy(outfile, template, qmin, mults, energies)
+
+
+def test_buildjobs():
+    tests = [
+        (
+            "inputs/QM1.in",
+            {
+                "joblist": [1, 2],
+                "states_to_do": [6, 1, 5],
+                "jobs": {1: {"mults": [1, 3], "restr": True}, 2: {"mults": [2], "restr": False}},
+            },
+        ),
+        (
+            "inputs/orca3.in",
+            {"joblist": [2], "states_to_do": [0, 5], "jobs": {2: {"mults": [2], "restr": False}}},
+        ),
+        (
+            "inputs/orca4.in",
+            {
+                "joblist": [2, 4],
+                "states_to_do": [0, 2, 0, 2],
+                "jobs": {2: {"mults": [2], "restr": False}, 4: {"mults": [4], "restr": False}},
+            },
+        )
+    ]
+
+    for path, maps in tests:
+        build_jobs(path, maps)
