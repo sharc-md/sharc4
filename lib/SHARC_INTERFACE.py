@@ -397,6 +397,9 @@ class SHARC_INTERFACE(ABC):
             if key == "states":
                 # also does update nmstates, nstates, statemap
                 states_dict = self.parseStates(llist[1])
+                if len(states_dict["states"]) < 1:
+                    self.log.error("Number of states must be > 0!")
+                    raise ValueError()
                 self.QMin.maps["statemap"] = states_dict["statemap"]
                 self.QMin.molecule["nstates"] = states_dict["nstates"]
                 self.QMin.molecule["nmstates"] = states_dict["nmstates"]
