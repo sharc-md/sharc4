@@ -126,7 +126,7 @@ def test_reqests2():
             set_requests(path, req)
 
 
-def test_resources():
+def test_resources1():
     tests = [
         ("inputs/interface_resources1", {"key1": "test", "key2": ["test1", "test2"], "key4": True}, []),
         ("inputs/interface_resources2", {"key1": "test2", "key2": ["test3", "test4"]}, []),
@@ -135,3 +135,11 @@ def test_resources():
     ]
     for path, params, whitelist in tests:
         read_resources(path, params, whitelist)
+
+def test_resources2():
+    tests = [
+        ("inputs/interface_resources4", {}, []),
+    ]
+    for path, params, whitelist in tests:
+        with pytest.raises(ValueError):
+            read_resources(path, params, whitelist)
