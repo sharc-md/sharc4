@@ -21,6 +21,15 @@ def set_requests(path: str, requests: dict):
         assert test_interface.QMin.requests[k] == v, ValueError(f"{k}")
 
 
+def read_resources(path: str, params: dict, whitelist: list):
+    test_interface = SHARC_INTERFACE()
+    test_interface.QMin.resources.types.update({"int_key": int, "float_key": float})
+    test_interface._setup_mol = True
+    test_interface.read_resources(path, whitelist)
+    for k, v in params.items():
+        assert test_interface.QMin.resources[k] == v
+
+
 def test_states1():
     tests = [("inputs/QM1.in", [3, 1, 5]), ("inputs/QM2.in", []), ("inputs/QM3.in", [0, 0, 0, 0, 9, 9])]
     for path, state in tests:
@@ -76,7 +85,7 @@ def test_requests1():
                 "h": True,
                 "soc": True,
                 "dm": True,
-                "grad": list(range(1,100)),
+                "grad": list(range(1, 100)),
                 "nacdr": ["all"],
                 "overlap": False,
                 "phases": False,
@@ -93,7 +102,7 @@ def test_requests1():
                 "h": True,
                 "soc": True,
                 "dm": True,
-                "grad": list(range(1,21)),
+                "grad": list(range(1, 21)),
                 "nacdr": [["1", "2"]],
                 "overlap": False,
                 "phases": False,
@@ -103,14 +112,34 @@ def test_requests1():
                 "multipolar_fit": None,
                 "theodore": True,
             },
-        )
+        ),
     ]
     for path, req in tests:
         set_requests(path, req)
 
+
 def test_reqests2():
-    tests = [("inputs/QM_failreq1.in", []), ("inputs/QM_failreq2.in", []),("inputs/QM_failreq3.in", [])]
+    tests = [("inputs/QM_failreq1.in", []), ("inputs/QM_failreq2.in", []), ("inputs/QM_failreq3.in", [])]
 
     for path, req in tests:
         with pytest.raises(AssertionError):
             set_requests(path, req)
+
+
+def test_resources1():
+    tests = [
+        ("inputs/interface_resources1", {"key1": "test", "key2": ["test1", "test2"], "key4": True}, []),
+        ("inputs/interface_resources2", {"key1": "test2", "key2": ["test3", "test4"]}, []),
+        ("inputs/interface_resources2", {"key1": "test2", "key2": ["test1", "test2", "test3", "test4"]}, ["key2"]),
+        ("inputs/interface_resources3", {"int_key": 13123, "float_key": -3.0}, []),
+    ]
+    for path, params, whitelist in tests:
+        read_resources(path, params, whitelist)
+
+def test_resources2():
+    tests = [
+        ("inputs/interface_resources4", {}, []),
+    ]
+    for path, params, whitelist in tests:
+        with pytest.raises(ValueError):
+            read_resources(path, params, whitelist)
