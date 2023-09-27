@@ -12,6 +12,20 @@ def setup_interface(path: str, maps: dict):
     for k, v in maps.items():
         assert test_interface.QMin.maps[k] == v, test_interface.QMin.maps[k]
 
+
+def get_energy(outfile: str, template: str, qmin: str, mults: list, energies: dict):
+    test_interface = SHARC_ORCA()
+    test_interface.setup_mol(qmin)
+    test_interface._read_resources = True
+    test_interface.read_template(template)
+    test_interface.setup_interface()
+    test_interface.read_requests(qmin)
+    with open(outfile, "r", encoding="utf-8") as file:
+        parsed = test_interface._get_energy(file.read(), mults)
+        for k, v in parsed.items():
+            assert v == pytest.approx(energies[k])
+
+
 @pytest.mark.dependency()
 def test_orcaversion():
     test_interface = SHARC_ORCA()
@@ -77,10 +91,11 @@ def test_maps():
     for path, maps in tests:
         setup_interface(path, maps)
 
+
 @pytest.mark.dependency(depends=["test_orcaversion"])
 def test_resources():
     test_pass = ["inputs/orcapath"]
-    test_fail = ["inputs/orcapath_fail"]
+    test_fail = ["inputs/orcapath_fail", "inputs/orcapath_fail2"]
 
     for i in test_pass:
         test_interface = SHARC_ORCA()
@@ -92,3 +107,58 @@ def test_resources():
             test_interface = SHARC_ORCA()
             test_interface._setup_mol = True
             test_interface.read_resources(i)
+
+
+def test_energies():
+    tests = [
+        (
+            "inputs/orca1.out",
+            "inputs/orca_template",
+            "inputs/QM1.in",
+            [1, 3],
+            {
+                (1, 1): -550.164846079,
+                (1, 2): -550.065349079,
+                (1, 3): -550.051038079,
+                (1, 4): -549.960953079,
+                (1, 5): -549.902495079,
+                (3, 1): -550.096449079,
+                (3, 2): -550.090568079,
+                (3, 3): -550.074080079,
+                (3, 4): -549.942447079,
+                (3, 5): -549.936124079,
+            },
+        ),
+        (
+            "inputs/orca1-2.out",
+            "inputs/orca_template",
+            "inputs/QM1.in",
+            [2],
+            {(2, 1): -549.725632289},
+        ),
+        (
+            "inputs/orca3.out",
+            "inputs/orca_template",
+            "inputs/orca3.in",
+            [2],
+            {
+                (2, 1): -549.725632289,
+                (2, 2): -549.691766289,
+                (2, 3): -549.690712289,
+                (2, 4): -549.639773289,
+                (2, 5): -549.631470289
+            }
+        ),
+        (
+            "inputs/orca4.out",
+            "inputs/orca_template",
+            "inputs/orca4.in",
+            [4],
+            {
+                (4, 1): -549.649784479,
+                (4, 2): -549.641911479
+            }
+        )
+    ]
+    for outfile, template, qmin, mults, energies in tests:
+        get_energy(outfile, template, qmin, mults, energies)
