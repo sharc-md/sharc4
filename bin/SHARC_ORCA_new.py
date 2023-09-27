@@ -591,19 +591,13 @@ class SHARC_ORCA(SHARC_ABINITIO):
         """
         self.log.debug("Building job map.")
         jobs = {}
-        if self.QMin.control["states_to_do"][0] > 0:
-            jobs[1] = {"mults": [1], "restr": True}
-        if len(self.QMin.control["states_to_do"]) >= 2 and self.QMin.control["states_to_do"][1] > 0:
-            jobs[2] = {"mults": [2], "restr": False}
-        if len(self.QMin.control["states_to_do"]) >= 3 and self.QMin.control["states_to_do"][2] > 0:
-            if self.QMin.control["states_to_do"][0] > 0:
-                jobs[1]["mults"].append(3)
-            else:
-                jobs[3] = {"mults": [3], "restr": False}
-        if len(self.QMin.control["states_to_do"]) >= 4:
-            for imult, nstate in enumerate(self.QMin.control["states_to_do"][3:]):
-                if nstate > 0:
-                    jobs[imult + 4] = {"mults": [imult + 4], "restr": False}
+        for idx, state in enumerate(self.QMin.control["states_to_do"]):
+            if state > 0:
+                jobs[idx + 1] = {"mults": [idx + 1], "restr": bool(idx == 0)}
+        if 3 in jobs:
+            del jobs[3]
+            jobs[1]["mults"].append(3)
+
         self.QMin.control["jobs"] = jobs
         self.QMin.control["joblist"] = sorted(set(jobs))
 
