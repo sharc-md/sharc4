@@ -199,7 +199,11 @@ class SHARC_ORCA(SHARC_ABINITIO):
         writefile(input_path, input_str)
 
         # Write point charges
-        # TODO: QMMM
+        if self.QMin.molecule["point_charges"]:
+            pc_str = f"{self.QMin.molecule['npc']}\n"
+            for atom, coords in zip(self.QMin.coords["pccharge"], self.QMin.coords["pccoords"]):
+                pc_str += f"{atom} {' '.join(*coords)}\n"
+            writefile(os.path.join(workdir, "ORCA.pc"), pc_str)
 
         # Copy wf files
         jobid = qmin.control["jobid"]
@@ -213,26 +217,13 @@ class SHARC_ORCA(SHARC_ABINITIO):
             )
 
         # Setup ORCA
-        prevdir = os.getcwd()
-        os.chdir(workdir)
 
         starttime = datetime.datetime.now()
         exec_str = f"{os.path.join(qmin.resources['orcadir'],'orca')} ORCA.inp"
-        stdoutfile = open(os.path.join(workdir, "ORCA.log"), "w", encoding="utf-8")
-        stderrfile = open(os.path.join(workdir, "ORCA.err"), "w", encoding="utf-8")
-        try:
-            self.log.debug("Executing ORCA")
-            exit_code = sp.call(exec_str, shell=True, stdout=stdoutfile, stderr=stderrfile)
-        except OSError as err:
-            self.log.error("Execution of ORCA failed!")
-            raise OSError from err
-        finally:
-            stdoutfile.close()
-            stderrfile.close()
+        exit_code = self.run_program(workdir, exec_str, os.path.join(workdir, "ORCA.log"), os.path.join(workdir, "ORCA.err"))
         endtime = datetime.datetime.now()
-        # TODO: postprocessing
+        # TODO: postprocessing: strip workdir, save files (gbw maybe, mos_from_gbw maybe, dets_from_cis maybe, molden maybe)
 
-        os.chdir(prevdir)
         return exit_code, endtime - starttime
 
     def getQMout(self) -> None:
@@ -592,7 +583,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
                     self.QMin.maps["gsmap"][i + 1] = j + 1
                     break
         # Populate initial orbitals dict
-        self.QMin.control["initorbs"] = self._get_initorbs()  # TODO: control?
+        self.QMin.control["initorbs"] = self._get_initorbs()
 
     def _build_jobs(self) -> None:
         """
@@ -615,9 +606,6 @@ class SHARC_ORCA(SHARC_ABINITIO):
                     jobs[imult + 4] = {"mults": [imult + 4], "restr": False}
         self.QMin.control["jobs"] = jobs
         self.QMin.control["joblist"] = sorted(set(jobs))
-
-    def write_step_file(self) -> None:
-        super().write_step_file()
 
     def get_dets_from_cis(self, cis_path: str) -> dict[str, str]:
         """
@@ -805,7 +793,6 @@ class SHARC_ORCA(SHARC_ABINITIO):
                     raise FileNotFoundError()
                 initorbs[job] = file + ".old" if self.QMin.save["newstep"] else file
 
-        # TODO: restart in new interface?
         return initorbs
 
     def _gen_schedule(self) -> None:
@@ -827,7 +814,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
         for job in gradjob:
             for state in gradjob[job]:
                 jobgrad[state] = (job, gradjob[job][state]["gs"])
-        self.QMin.control["jobgrad"] = jobgrad  # TODO: control? what is it used?
+        self.QMin.control["jobgrad"] = jobgrad
 
         schedule = [{}]
 
@@ -920,7 +907,6 @@ class SHARC_ORCA(SHARC_ABINITIO):
         string += " nousesym "
         string += "engrad\n" if do_grad else "\n"
 
-        # TODO: Whats AOoverlap?
         # CPU cores
         if qmin.resources["ncpu"] > 1:
             string += f"%pal\n\tnprocs {qmin.resources['ncpu']}\nend\n\n"
@@ -943,9 +929,6 @@ class SHARC_ORCA(SHARC_ABINITIO):
         # HF exchange
         if qmin.template["hfexchange"] > 0:
             string += f"%method\n\tScalHFX = {qmin.template['hfexchange']}\nend\n\n"
-
-        # Range separation
-        # TODO
 
         # Intacc
         if qmin.template["intacc"] > 0:
@@ -975,7 +958,6 @@ class SHARC_ORCA(SHARC_ABINITIO):
             string += "end\n\n"
 
         # Output
-        # TODO: AOoverlap?
         string += "%output\n"
         if qmin.requests["ion"] or qmin.requests["theodore"]:
             string += "\tPrint[ P_Overlap ] 1\n"
@@ -997,10 +979,11 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 idx = qmin.template["basis_per_atom"].index(str(iatom))
                 string += f"\tnewgto \"{qmin.template['basis_per_atom'][idx+1]}\" end"
             string += "\n"
-        string += "end\nend\n\n"  # TODO: 2 ends on purpose?
+        string += "\tend\nend\n\n"
 
         # Point charges
-        # TODO
+        if qmin.molecule["point_charges"]:
+            string += '%pointcharges "ORCA.pc"\n\n'
         return string
 
     @staticmethod
