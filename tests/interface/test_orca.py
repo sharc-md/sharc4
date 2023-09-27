@@ -187,6 +187,14 @@ def test_buildjobs():
                 "states_to_do": [0, 2, 0, 2],
                 "jobs": {2: {"mults": [2], "restr": False}, 4: {"mults": [4], "restr": False}},
             },
+        ),
+        (
+            "inputs/orca5.in",
+            {
+                "joblist": [1, 2],
+                "states_to_do": [4, 2, 3],
+                "jobs": {1: {"mults": [1, 3], "restr": True}, 2: {"mults": [2], "restr": False}},
+            },
         )
     ]
 
