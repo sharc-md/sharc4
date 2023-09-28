@@ -222,7 +222,14 @@ class SHARC_ORCA(SHARC_ABINITIO):
         exec_str = f"{os.path.join(qmin.resources['orcadir'],'orca')} ORCA.inp"
         exit_code = self.run_program(workdir, exec_str, os.path.join(workdir, "ORCA.log"), os.path.join(workdir, "ORCA.err"))
         endtime = datetime.datetime.now()
-        # TODO: postprocessing: strip workdir, save files (gbw maybe, mos_from_gbw maybe, dets_from_cis maybe, molden maybe)
+        # TODO: postprocessing: strip workdir, save files (gbw maybe, mos_from_gbw maybe, dets_from_cis maybe
+        # Generate molden file
+        if self.QMin.requests["molden"]:
+            exec_str = "orca_2mkl ORCA -molden"
+            molden_out = os.path.join(workdir, "orca_2mkl.out")
+            molden_err = os.path.join(workdir, "orca_2mkl.err")
+            self.run_program(workdir, exec_str, molden_out, molden_err)
+            shutil.copy(os.path.join(workdir, "ORCA.molden.input"), os.path.join(workdir, f"ORCA.molden.{jobid}"))
 
         return exit_code, endtime - starttime
 
@@ -272,10 +279,10 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 if self.QMin.requests["dm"]:  # TODO: maybe wrong?
                     # Diagonal elements
                     # Excited states
-                    dp_moment = self._get_dipole_moment(log_file, False)
-                    np.fill_diagonal(self.QMout["dm"][0], dp_moment[0])
-                    np.fill_diagonal(self.QMout["dm"][1], dp_moment[1])
-                    np.fill_diagonal(self.QMout["dm"][2], dp_moment[2])
+                    #dp_moment = self._get_dipole_moment(log_file, False)
+                    #np.fill_diagonal(self.QMout["dm"][0], dp_moment[0])
+                    #np.fill_diagonal(self.QMout["dm"][1], dp_moment[1])
+                    #np.fill_diagonal(self.QMout["dm"][2], dp_moment[2])
                     # Ground state
                     dp_moment = self._get_dipole_moment(log_file, True)
                     self.QMout["dm"][0, 0, 0] = dp_moment[0]
@@ -539,10 +546,10 @@ class SHARC_ORCA(SHARC_ABINITIO):
 
         if len(self.QMin.molecule["states"]) >= 3 and self.QMin.molecule["states"][2] > 0:
             self.log.debug("Setup states_to_do")
-            self.QMin.control["states_to_do"][0] = max(self.QMin.molecule["states"][0], 1)
-            req = max(self.QMin.molecule["states"][0] - 1, self.QMin.molecule["states"][2])
-            self.QMin.control["states_to_do"][0] = req + 1
-            self.QMin.control["states_to_do"][2] = req
+            self.QMin.control["states_to_do"][2] = max(
+                self.QMin.control["states_to_do"][0] + 1, self.QMin.control["states_to_do"][2]
+            )
+            self.QMin.control["states_to_do"][0] = self.QMin.control["states_to_do"][2] + 1
 
         self._build_jobs()
         # Setup multmap
