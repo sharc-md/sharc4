@@ -113,7 +113,7 @@ def test_resources1():
     tests = [
         ("inputs/interface_resources1", {"key1": "test", "key2": ["test1", "test2"], "key4": True}, []),
         ("inputs/interface_resources2", {"key1": "test2", "key2": ["test3", "test4"]}, []),
-        ("inputs/interface_resources2", {"key1": "test2", "key2": ["test1", "test2", "test3", "test4"]}, ["key2"]),
+        ("inputs/interface_resources2", {"key1": "test2", "key2": [["test1", "test2"], ["test3", "test4"]]}, ["key2"]),
         ("inputs/interface_resources3", {"int_key": 13123, "float_key": -3.0}, []),
     ]
     for path, params, whitelist in tests:
