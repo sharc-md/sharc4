@@ -8,13 +8,14 @@ import subprocess as sp
 from copy import deepcopy
 from io import TextIOWrapper
 from itertools import pairwise
+from textwrap import dedent
 from typing import Optional
 
 import numpy as np
+from constants import IToMult
 from qmin import QMin
 from SHARC_ABINITIO import SHARC_ABINITIO
-from utils import expand_path, itmult, mkdir, writefile
-from constants import IToMult
+from utils import expand_path, itmult, mkdir, writefile, link
 
 __all__ = ["SHARC_ORCA"]
 
@@ -367,18 +368,18 @@ class SHARC_ORCA(SHARC_ABINITIO):
             NMO = NMO_A + NMO_B - 2 * self.QMin.molecule["frozcore"]
 
         # make string
-        string = """2mocoef
-header
-1
-MO-coefficients from Orca
-1
-%i   %i
-a
-mocoef
-(*)
-""" % (
-            NAO,
-            NMO,
+        string = dedent(
+            f"""\
+        2mocoef
+        header
+        1
+        MO-coefficients from Orca
+        1
+        {NAO}   {NMO}
+        a
+        mocoef
+        (*)
+        """
         )
         x = 0
         for imo, mo in enumerate(MO_A):
@@ -415,7 +416,6 @@ mocoef
                 x = 0
             string += "% 6.12e " % (0.0)
             x += 1
-
         return string
 
     def getQMout(self) -> None:
@@ -662,8 +662,8 @@ mocoef
     def print_qmin(self) -> None:
         pass
 
-    def read_resources(self, resources_file: str, kw_whitelist: Optional[list[str]] = None) -> None:
-        super().read_resources(resources_file, kw_whitelist)
+    def read_resources(self, resources_file: str) -> None:
+        super().read_resources(resources_file, ["theodore_fragment"])
 
         # LD PATH???
         if not self.QMin.resources["orcadir"]:
@@ -677,6 +677,11 @@ mocoef
 
         if self.QMin.resources["orcaversion"] < (5, 0):
             raise ValueError("This version of the SHARC-ORCA interface is only compatible to Orca 5.0 or higher!")
+
+        if "theodore_fragment" in self.QMin.resources:
+            self.QMin.resources["theodore_fragment"] = [
+                list(map(int, (j for j in i))) for i in self.QMin.resources["theodore_fragment"]
+            ]
 
     def read_requests(self, requests_file: str = "QM.in") -> None:
         super().read_requests(requests_file)
@@ -720,8 +725,67 @@ mocoef
 
         self.log.debug("Execute schedule")
         self.runjobs(self.QMin.scheduling["schedule"])
+
+        # Run theodore
+        if self.QMin.requests["theodore"]:
+            self._run_theodore()
+
         self.log.debug("All jobs finished successful")
-        # TODO: wfoverlap and theodore
+        # TODO: wfoverlap
+
+    def _run_theodore(self) -> None:
+        """
+        Prepare theodore files and run theodore
+        """
+        theo_bin = os.path.join(self.QMin.resources["theodir"], "bin", "theodore") + " analyze_tden"
+        for jobset in self.QMin.scheduling["schedule"]:
+            for job, qmin in jobset.items():
+                # Skip restricted jobs
+                if not self.QMin.control["jobs"][qmin.control["jobid"]]["restr"]:
+                    self.log.debug(f"Skipping theodore run for restricted job {job}")
+                    continue
+
+                starttime = datetime.datetime.now()
+                workdir = os.path.join(self.QMin.resources["scratchdir"], job)
+                self._setup_theodore(workdir)
+
+                # Run theodore
+                out_file = os.path.join(workdir, "theodore.out")
+                err_file = os.path.join(workdir, "theodore.err")
+                code = self.run_program(workdir, theo_bin, out_file, err_file)
+                self.log.info(f"Finished theodore Job: {job:<10s} code: {code:<4d} runtime: {datetime.datetime.now()-starttime}")
+                if code != 0:
+                    self.log.error("Theodore job did not finish successfully!")
+                    with open(err_file, "r", encoding="utf-8") as theo_err:
+                        self.log.error(theo_err.read())
+                    raise OSError()
+
+    def _setup_theodore(self, workdir: str) -> None:
+        """
+        Write theodore input file and link ORCA.cis to orca.cis
+
+        workdir:    Path of working directory
+        """
+
+        self.log.debug(f"Create theodore input file in {workdir}")
+        theodore_input = dedent(
+            f"""\
+        rtype='cclib'
+        rfile='ORCA.log'
+        read_binary=True
+        jmol_orbitals=False
+        molden_orbitals=False
+        Om_formula=2
+        eh_pop=1
+        comp_ntos=True
+        print_OmFrag=True
+        output_file='tden_summ.txt'
+        prop_list={self.QMin.resources["theodore_prop"]}
+        at_lists={self.QMin.resources["theodore_fragment"]}
+        """
+        )
+        writefile(os.path.join(workdir, "dens_ana.in"), theodore_input)
+        link(os.path.join(workdir, "ORCA.cis"), os.path.join(workdir, "orca.cis"))
 
     def setup_interface(self) -> None:
         """
@@ -827,7 +891,6 @@ mocoef
 
             buffsize = (header[1] + 1 - nfc) * (header[3] + 1 - header[2])  # size of det
             self.log.debug(f"CIS determinant buffer size {buffsize*8} byte")
-            self.log.debug(header)
 
             # ground state configuration
             # 0: empty, 1: alpha, 2: beta, 3: double oppupied
