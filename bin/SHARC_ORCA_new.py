@@ -37,6 +37,7 @@ all_features = set(
         "ion",
         "overlap",
         "phases",
+        "molden",
         # raw data request
         "basis_set",
         "wave_functions",
@@ -223,10 +224,14 @@ class SHARC_ORCA(SHARC_ABINITIO):
         exit_code = self.run_program(workdir, exec_str, os.path.join(workdir, "ORCA.log"), os.path.join(workdir, "ORCA.err"))
         endtime = datetime.datetime.now()
 
-        # TODO: postprocessing: strip workdir
-
         # Save files
         self._save_files(workdir, jobid)
+
+        # Delete files not needed
+        work_files = os.listdir(workdir)
+        for file in work_files:
+            if not re.search(r"\.log$|\.cis$|\.engrad|A\.err$|\.molden\.input$|\.gbw$|\.pc$|\.pcgrad$", file):
+                os.remove(os.path.join(workdir, file))
 
         return exit_code, endtime - starttime
 
@@ -272,13 +277,14 @@ class SHARC_ORCA(SHARC_ABINITIO):
         # TODO: REFACTOR!!!
 
         # run orca_fragovl
-        string = 'orca_fragovl %s %s' % (gbw_file, gbw_file)
+        string = "orca_fragovl %s %s" % (gbw_file, gbw_file)
         try:
             proc = sp.Popen(string, shell=True, stdout=sp.PIPE, stderr=sp.PIPE)
-        except OSError:
-            self.log.error('Call have had some serious problems:', OSError)
+        except OSError as exc:
+            self.log.error("Call have had some serious problems:")
+            raise OSError() from exc
         comm = proc.communicate()[0].decode()
-        data = comm.split('\n')
+        data = comm.split("\n")
         # get size of matrix
         for line in reversed(data):
             # print line
@@ -287,17 +293,17 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 NAO = int(line.split()[0]) + 1
                 break
 
-        restr = self.QMin.control['jobs'][jobid]['restr']
+        restr = self.QMin.control["jobs"][jobid]["restr"]
 
         # find MO block
         iline = -1
         while True:
             iline += 1
             if len(data) <= iline:
-                self.log.error('MOs not found!')
+                self.log.error("MOs not found!")
                 raise ValueError()
             line = data[iline]
-            if 'FRAGMENT A MOs MATRIX' in line:
+            if "FRAGMENT A MOs MATRIX" in line:
                 break
         iline += 3
 
@@ -310,7 +316,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
 
         # get coefficients for alpha
         NMO_A = NAO
-        MO_A = [[0. for i in range(NAO)] for j in range(NMO_A)]
+        MO_A = [[0.0 for i in range(NAO)] for j in range(NMO_A)]
         for imo in range(NMO_A):
             jblock = imo // nblock
             jcol = imo % nblock
@@ -319,7 +325,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 jline = iline + jblock * (NAO + 1) + iao
                 line = data[jline]
                 # fix too long floats in strings
-                dots = [idx for idx, item in enumerate(line.lower()) if '.' in item]
+                dots = [idx for idx, item in enumerate(line.lower()) if "." in item]
                 diff = [dots[i] - default_pos[i] - shift for i in range(len(dots))]
                 if jcol == 0:
                     pre = 0
@@ -327,14 +333,14 @@ class SHARC_ORCA(SHARC_ABINITIO):
                     pre = diff[jcol - 1]
                 post = diff[jcol]
                 # fixed
-                val = float(line[npre + shift + jcol * ndigits + pre: npre + shift + ndigits + jcol * ndigits + post])
+                val = float(line[npre + shift + jcol * ndigits + pre : npre + shift + ndigits + jcol * ndigits + post])
                 MO_A[imo][iao] = val
         iline += ((NAO - 1) // nblock + 1) * (NAO + 1)
 
         # coefficients for beta
         if not restr:
             NMO_B = NAO
-            MO_B = [[0. for i in range(NAO)] for j in range(NMO_B)]
+            MO_B = [[0.0 for i in range(NAO)] for j in range(NMO_B)]
             for imo in range(NMO_B):
                 jblock = imo // nblock
                 jcol = imo % nblock
@@ -343,7 +349,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
                     jline = iline + jblock * (NAO + 1) + iao
                     line = data[jline]
                     # fix too long floats in strings
-                    dots = [idx for idx, item in enumerate(line.lower()) if '.' in item]
+                    dots = [idx for idx, item in enumerate(line.lower()) if "." in item]
                     diff = [dots[i] - default_pos[i] - shift for i in range(len(dots))]
                     if jcol == 0:
                         pre = 0
@@ -351,18 +357,17 @@ class SHARC_ORCA(SHARC_ABINITIO):
                         pre = diff[jcol - 1]
                     post = diff[jcol]
                     # fixed
-                    val = float(line[npre + shift + jcol * ndigits + pre: npre + shift + ndigits + jcol * ndigits + post])
+                    val = float(line[npre + shift + jcol * ndigits + pre : npre + shift + ndigits + jcol * ndigits + post])
                     MO_B[imo][iao] = val
 
-
-        NMO = NMO_A - self.QMin.molecule['frozcore']
+        NMO = NMO_A - self.QMin.molecule["frozcore"]
         if restr:
-            NMO = NMO_A - self.QMin.molecule['frozcore']
+            NMO = NMO_A - self.QMin.molecule["frozcore"]
         else:
-            NMO = NMO_A + NMO_B - 2 * self.QMin.molecule['frozcore']
+            NMO = NMO_A + NMO_B - 2 * self.QMin.molecule["frozcore"]
 
         # make string
-        string = '''2mocoef
+        string = """2mocoef
 header
 1
 MO-coefficients from Orca
@@ -371,41 +376,44 @@ MO-coefficients from Orca
 a
 mocoef
 (*)
-''' % (NAO, NMO)
+""" % (
+            NAO,
+            NMO,
+        )
         x = 0
         for imo, mo in enumerate(MO_A):
-            if imo < self.QMin.molecule['frozcore']:
+            if imo < self.QMin.molecule["frozcore"]:
                 continue
             for c in mo:
                 if x >= 3:
-                    string += '\n'
+                    string += "\n"
                     x = 0
-                string += '% 6.12e ' % c
+                string += "% 6.12e " % c
                 x += 1
             if x > 0:
-                string += '\n'
+                string += "\n"
                 x = 0
         if not restr:
             x = 0
             for imo, mo in enumerate(MO_B):
-                if imo < self.QMin.molecule['frozcore']:
+                if imo < self.QMin.molecule["frozcore"]:
                     continue
                 for c in mo:
                     if x >= 3:
-                        string += '\n'
+                        string += "\n"
                         x = 0
-                    string += '% 6.12e ' % c
+                    string += "% 6.12e " % c
                     x += 1
                 if x > 0:
-                    string += '\n'
+                    string += "\n"
                     x = 0
-        string += 'orbocc\n(*)\n'
+        string += "orbocc\n(*)\n"
         x = 0
         for i in range(NMO):
             if x >= 3:
-                string += '\n'
+                string += "\n"
                 x = 0
-            string += '% 6.12e ' % (0.0)
+            string += "% 6.12e " % (0.0)
             x += 1
 
         return string
