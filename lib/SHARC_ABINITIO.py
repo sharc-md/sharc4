@@ -251,7 +251,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         Garbage collection after runjobs()
         """
 
-    def run_program(self, workdir: str, cmd: str, out: str, err: Optional[str] = None) -> int:
+    def run_program(self, workdir: str, cmd: str, out: str, err: str) -> int:
         """
         Runs a ab-initio programm and returns the exit_code
 
@@ -264,31 +264,12 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         os.chdir(workdir)
         self.log.debug(f"Working directory of ab-initio call {workdir}")
 
-        starttime = time.time()
-        self.log.info(f"Executing: {cmd}\nStart time: {starttime}")
-
-        outfile = open(out, "w", encoding="utf-8")
-        if err:
-            errfile = open(err, "w", encoding="utf-8")
-        else:
-            errfile = sp.STDOUT
-
-        try:
-            exit_code = sp.call(cmd, shell=True, stdout=outfile, stderr=errfile)
-        except OSError:
-            t, v, tb = sys.exc_info()
-            raise OSError(f"Call has had some serious problems:\nWORKDIR:{workdir}\n{t}: {v}", 96).with_traceback(tb)
-        finally:
-            if err:
-                errfile.close()
-            outfile.close()
-
-        endtime = time.time()
-        self.log.info(
-            "\t{:%d.%m.%Y %H:%M}\t\tRuntime: {:3f}s\t\tExit Code: {}\n\n".format(
-                datetime.datetime.now(), endtime - starttime, exit_code
-            )
-        )
+        with open(out, "w", encoding="utf-8") as outfile, open(err, "w", encoding="utf-8") as errfile:
+            try:
+                exit_code = sp.call(cmd, shell=True, stdout=outfile, stderr=errfile)
+            except OSError as error:
+                self.log.error(f"Execution of {cmd} failed!")
+                raise OSError from error
 
         os.chdir(current_dir)
         return exit_code

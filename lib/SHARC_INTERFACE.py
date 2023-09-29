@@ -397,6 +397,9 @@ class SHARC_INTERFACE(ABC):
             if key == "states":
                 # also does update nmstates, nstates, statemap
                 states_dict = self.parseStates(llist[1])
+                if len(states_dict["states"]) < 1:
+                    self.log.error("Number of states must be > 0!")
+                    raise ValueError()
                 self.QMin.maps["statemap"] = states_dict["statemap"]
                 self.QMin.molecule["nstates"] = states_dict["nstates"]
                 self.QMin.molecule["nmstates"] = states_dict["nmstates"]
@@ -547,7 +550,7 @@ class SHARC_INTERFACE(ABC):
                     keyword_list.append(param[0])
 
                     if param[0] in kw_whitelist:
-                        self.QMin.resources[param[0]].extend(param[1:])
+                        self.QMin.resources[param[0]].append(param[1:])
                         self.log.debug(f"Extend white listed parameter {param[0]}")
                         continue
 

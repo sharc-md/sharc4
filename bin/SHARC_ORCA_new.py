@@ -8,13 +8,14 @@ import subprocess as sp
 from copy import deepcopy
 from io import TextIOWrapper
 from itertools import pairwise
+from textwrap import dedent
 from typing import Optional
 
 import numpy as np
+from constants import IToMult
 from qmin import QMin
 from SHARC_ABINITIO import SHARC_ABINITIO
-from utils import expand_path, itmult, mkdir, writefile
-from constants import IToMult
+from utils import expand_path, itmult, mkdir, writefile, link
 
 __all__ = ["SHARC_ORCA"]
 
@@ -37,6 +38,7 @@ all_features = set(
         "ion",
         "overlap",
         "phases",
+        "molden",
         # raw data request
         "basis_set",
         "wave_functions",
@@ -199,7 +201,11 @@ class SHARC_ORCA(SHARC_ABINITIO):
         writefile(input_path, input_str)
 
         # Write point charges
-        # TODO: QMMM
+        if self.QMin.molecule["point_charges"]:
+            pc_str = f"{self.QMin.molecule['npc']}\n"
+            for atom, coords in zip(self.QMin.coords["pccharge"], self.QMin.coords["pccoords"]):
+                pc_str += f"{atom} {' '.join(*coords)}\n"
+            writefile(os.path.join(workdir, "ORCA.pc"), pc_str)
 
         # Copy wf files
         jobid = qmin.control["jobid"]
@@ -213,27 +219,204 @@ class SHARC_ORCA(SHARC_ABINITIO):
             )
 
         # Setup ORCA
-        prevdir = os.getcwd()
-        os.chdir(workdir)
 
         starttime = datetime.datetime.now()
         exec_str = f"{os.path.join(qmin.resources['orcadir'],'orca')} ORCA.inp"
-        stdoutfile = open(os.path.join(workdir, "ORCA.log"), "w", encoding="utf-8")
-        stderrfile = open(os.path.join(workdir, "ORCA.err"), "w", encoding="utf-8")
-        try:
-            self.log.debug("Executing ORCA")
-            exit_code = sp.call(exec_str, shell=True, stdout=stdoutfile, stderr=stderrfile)
-        except OSError as err:
-            self.log.error("Execution of ORCA failed!")
-            raise OSError from err
-        finally:
-            stdoutfile.close()
-            stderrfile.close()
+        exit_code = self.run_program(workdir, exec_str, os.path.join(workdir, "ORCA.log"), os.path.join(workdir, "ORCA.err"))
         endtime = datetime.datetime.now()
-        # TODO: postprocessing
 
-        os.chdir(prevdir)
+        # Save files
+        self._save_files(workdir, jobid)
+
+        # Delete files not needed
+        work_files = os.listdir(workdir)
+        for file in work_files:
+            if not re.search(r"\.log$|\.cis$|\.engrad|A\.err$|\.molden\.input$|\.gbw$|\.pc$|\.pcgrad$", file):
+                os.remove(os.path.join(workdir, file))
+
         return exit_code, endtime - starttime
+
+    def _save_files(self, workdir: str, jobid: int) -> None:
+        """
+        Save files (molden, gbw, mos) to savedir
+        Naming convention: file.job.step
+        """
+        savedir = self.QMin.save["savedir"]
+        step = self.QMin.save["step"]
+        self.log.debug("Copying files to savedir")
+
+        # Generate molden file
+        if self.QMin.requests["molden"]:
+            self.log.debug("Save moldenfile to savedir")
+            exec_str = "orca_2mkl ORCA -molden"
+            molden_out = os.path.join(workdir, "orca_2mkl.out")
+            molden_err = os.path.join(workdir, "orca_2mkl.err")
+            self.run_program(workdir, exec_str, molden_out, molden_err)
+            shutil.copy(
+                os.path.join(workdir, "ORCA.molden.input"),
+                os.path.join(savedir, f"ORCA.molden.{jobid}.{step}"),
+            )
+
+        # Save gbw and dets from cis
+        if self.QMin.requests["ion"] or not self.QMin.requests["nooverlap"]:
+            self.log.debug("Write MO coefficients to savedir")
+            writefile(os.path.join(savedir, f"mos.{jobid}"), self._get_mos(os.path.join(workdir, "ORCA.gbw"), jobid))
+            self.log.debug("Write CIS determinants to savedir")
+            cis_dets = self.get_dets_from_cis(os.path.join(workdir, "ORCA.cis"), jobid)
+            for det_file, cis_det in cis_dets.items():
+                writefile(os.path.join(savedir, f"{det_file}.{jobid}.{step}"), cis_det)
+
+            shutil.copy(os.path.join(workdir, "ORCA.gbw"), os.path.join(savedir, f"ORCA.gbw.{jobid}.{step}"))
+
+    def _get_mos(self, gbw_file: str, jobid: int) -> str:
+        """
+        Extract MO coefficients from ORCA gbw file
+
+        gbw_file:   Path of gbw file
+        jobid:      ID number of job
+        """
+        # TODO: REFACTOR!!!
+
+        # run orca_fragovl
+        string = "orca_fragovl %s %s" % (gbw_file, gbw_file)
+        try:
+            proc = sp.Popen(string, shell=True, stdout=sp.PIPE, stderr=sp.PIPE)
+        except OSError as exc:
+            self.log.error("Call have had some serious problems:")
+            raise OSError() from exc
+        comm = proc.communicate()[0].decode()
+        data = comm.split("\n")
+        # get size of matrix
+        for line in reversed(data):
+            # print line
+            s = line.split()
+            if len(s) >= 1:
+                NAO = int(line.split()[0]) + 1
+                break
+
+        restr = self.QMin.control["jobs"][jobid]["restr"]
+
+        # find MO block
+        iline = -1
+        while True:
+            iline += 1
+            if len(data) <= iline:
+                self.log.error("MOs not found!")
+                raise ValueError()
+            line = data[iline]
+            if "FRAGMENT A MOs MATRIX" in line:
+                break
+        iline += 3
+
+        # formatting
+        nblock = 6
+        npre = 11
+        ndigits = 16
+        # default_pos=[14,30,46,62,78,94]
+        default_pos = [npre + 3 + ndigits * i for i in range(nblock)]  # does not include shift
+
+        # get coefficients for alpha
+        NMO_A = NAO
+        MO_A = [[0.0 for i in range(NAO)] for j in range(NMO_A)]
+        for imo in range(NMO_A):
+            jblock = imo // nblock
+            jcol = imo % nblock
+            for iao in range(NAO):
+                shift = max(0, len(str(iao)) - 3)
+                jline = iline + jblock * (NAO + 1) + iao
+                line = data[jline]
+                # fix too long floats in strings
+                dots = [idx for idx, item in enumerate(line.lower()) if "." in item]
+                diff = [dots[i] - default_pos[i] - shift for i in range(len(dots))]
+                if jcol == 0:
+                    pre = 0
+                else:
+                    pre = diff[jcol - 1]
+                post = diff[jcol]
+                # fixed
+                val = float(line[npre + shift + jcol * ndigits + pre : npre + shift + ndigits + jcol * ndigits + post])
+                MO_A[imo][iao] = val
+        iline += ((NAO - 1) // nblock + 1) * (NAO + 1)
+
+        # coefficients for beta
+        if not restr:
+            NMO_B = NAO
+            MO_B = [[0.0 for i in range(NAO)] for j in range(NMO_B)]
+            for imo in range(NMO_B):
+                jblock = imo // nblock
+                jcol = imo % nblock
+                for iao in range(NAO):
+                    shift = max(0, len(str(iao)) - 3)
+                    jline = iline + jblock * (NAO + 1) + iao
+                    line = data[jline]
+                    # fix too long floats in strings
+                    dots = [idx for idx, item in enumerate(line.lower()) if "." in item]
+                    diff = [dots[i] - default_pos[i] - shift for i in range(len(dots))]
+                    if jcol == 0:
+                        pre = 0
+                    else:
+                        pre = diff[jcol - 1]
+                    post = diff[jcol]
+                    # fixed
+                    val = float(line[npre + shift + jcol * ndigits + pre : npre + shift + ndigits + jcol * ndigits + post])
+                    MO_B[imo][iao] = val
+
+        NMO = NMO_A - self.QMin.molecule["frozcore"]
+        if restr:
+            NMO = NMO_A - self.QMin.molecule["frozcore"]
+        else:
+            NMO = NMO_A + NMO_B - 2 * self.QMin.molecule["frozcore"]
+
+        # make string
+        string = dedent(
+            f"""\
+        2mocoef
+        header
+        1
+        MO-coefficients from Orca
+        1
+        {NAO}   {NMO}
+        a
+        mocoef
+        (*)
+        """
+        )
+        x = 0
+        for imo, mo in enumerate(MO_A):
+            if imo < self.QMin.molecule["frozcore"]:
+                continue
+            for c in mo:
+                if x >= 3:
+                    string += "\n"
+                    x = 0
+                string += "% 6.12e " % c
+                x += 1
+            if x > 0:
+                string += "\n"
+                x = 0
+        if not restr:
+            x = 0
+            for imo, mo in enumerate(MO_B):
+                if imo < self.QMin.molecule["frozcore"]:
+                    continue
+                for c in mo:
+                    if x >= 3:
+                        string += "\n"
+                        x = 0
+                    string += "% 6.12e " % c
+                    x += 1
+                if x > 0:
+                    string += "\n"
+                    x = 0
+        string += "orbocc\n(*)\n"
+        x = 0
+        for i in range(NMO):
+            if x >= 3:
+                string += "\n"
+                x = 0
+            string += "% 6.12e " % (0.0)
+            x += 1
+        return string
 
     def getQMout(self) -> None:
         """
@@ -281,10 +464,10 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 if self.QMin.requests["dm"]:  # TODO: maybe wrong?
                     # Diagonal elements
                     # Excited states
-                    dp_moment = self._get_dipole_moment(log_file, False)
-                    np.fill_diagonal(self.QMout["dm"][0], dp_moment[0])
-                    np.fill_diagonal(self.QMout["dm"][1], dp_moment[1])
-                    np.fill_diagonal(self.QMout["dm"][2], dp_moment[2])
+                    # dp_moment = self._get_dipole_moment(log_file, False)
+                    # np.fill_diagonal(self.QMout["dm"][0], dp_moment[0])
+                    # np.fill_diagonal(self.QMout["dm"][1], dp_moment[1])
+                    # np.fill_diagonal(self.QMout["dm"][2], dp_moment[2])
                     # Ground state
                     dp_moment = self._get_dipole_moment(log_file, True)
                     self.QMout["dm"][0, 0, 0] = dp_moment[0]
@@ -479,8 +662,8 @@ class SHARC_ORCA(SHARC_ABINITIO):
     def print_qmin(self) -> None:
         pass
 
-    def read_resources(self, resources_file: str, kw_whitelist: Optional[list[str]] = None) -> None:
-        super().read_resources(resources_file, kw_whitelist)
+    def read_resources(self, resources_file: str) -> None:
+        super().read_resources(resources_file, ["theodore_fragment"])
 
         # LD PATH???
         if not self.QMin.resources["orcadir"]:
@@ -494,6 +677,11 @@ class SHARC_ORCA(SHARC_ABINITIO):
 
         if self.QMin.resources["orcaversion"] < (5, 0):
             raise ValueError("This version of the SHARC-ORCA interface is only compatible to Orca 5.0 or higher!")
+
+        if "theodore_fragment" in self.QMin.resources:
+            self.QMin.resources["theodore_fragment"] = [
+                list(map(int, (j for j in i))) for i in self.QMin.resources["theodore_fragment"]
+            ]
 
     def read_requests(self, requests_file: str = "QM.in") -> None:
         super().read_requests(requests_file)
@@ -537,8 +725,67 @@ class SHARC_ORCA(SHARC_ABINITIO):
 
         self.log.debug("Execute schedule")
         self.runjobs(self.QMin.scheduling["schedule"])
+
+        # Run theodore
+        if self.QMin.requests["theodore"]:
+            self._run_theodore()
+
         self.log.debug("All jobs finished successful")
-        # TODO: wfoverlap and theodore
+        # TODO: wfoverlap
+
+    def _run_theodore(self) -> None:
+        """
+        Prepare theodore files and run theodore
+        """
+        theo_bin = os.path.join(self.QMin.resources["theodir"], "bin", "theodore") + " analyze_tden"
+        for jobset in self.QMin.scheduling["schedule"]:
+            for job, qmin in jobset.items():
+                # Skip restricted jobs
+                if not self.QMin.control["jobs"][qmin.control["jobid"]]["restr"]:
+                    self.log.debug(f"Skipping theodore run for restricted job {job}")
+                    continue
+
+                starttime = datetime.datetime.now()
+                workdir = os.path.join(self.QMin.resources["scratchdir"], job)
+                self._setup_theodore(workdir)
+
+                # Run theodore
+                out_file = os.path.join(workdir, "theodore.out")
+                err_file = os.path.join(workdir, "theodore.err")
+                code = self.run_program(workdir, theo_bin, out_file, err_file)
+                self.log.info(f"Finished theodore Job: {job:<10s} code: {code:<4d} runtime: {datetime.datetime.now()-starttime}")
+                if code != 0:
+                    self.log.error("Theodore job did not finish successfully!")
+                    with open(err_file, "r", encoding="utf-8") as theo_err:
+                        self.log.error(theo_err.read())
+                    raise OSError()
+
+    def _setup_theodore(self, workdir: str) -> None:
+        """
+        Write theodore input file and link ORCA.cis to orca.cis
+
+        workdir:    Path of working directory
+        """
+
+        self.log.debug(f"Create theodore input file in {workdir}")
+        theodore_input = dedent(
+            f"""\
+        rtype='cclib'
+        rfile='ORCA.log'
+        read_binary=True
+        jmol_orbitals=False
+        molden_orbitals=False
+        Om_formula=2
+        eh_pop=1
+        comp_ntos=True
+        print_OmFrag=True
+        output_file='tden_summ.txt'
+        prop_list={self.QMin.resources["theodore_prop"]}
+        at_lists={self.QMin.resources["theodore_fragment"]}
+        """
+        )
+        writefile(os.path.join(workdir, "dens_ana.in"), theodore_input)
+        link(os.path.join(workdir, "ORCA.cis"), os.path.join(workdir, "orca.cis"))
 
     def setup_interface(self) -> None:
         """
@@ -548,10 +795,10 @@ class SHARC_ORCA(SHARC_ABINITIO):
 
         if len(self.QMin.molecule["states"]) >= 3 and self.QMin.molecule["states"][2] > 0:
             self.log.debug("Setup states_to_do")
-            self.QMin.control["states_to_do"][0] = max(self.QMin.molecule["states"][0], 1)
-            req = max(self.QMin.molecule["states"][0] - 1, self.QMin.molecule["states"][2])
-            self.QMin.control["states_to_do"][0] = req + 1
-            self.QMin.control["states_to_do"][2] = req
+            self.QMin.control["states_to_do"][2] = max(
+                self.QMin.control["states_to_do"][0] + 1, self.QMin.control["states_to_do"][2]
+            )
+            self.QMin.control["states_to_do"][0] = self.QMin.control["states_to_do"][2] + 1
 
         self._build_jobs()
         # Setup multmap
@@ -592,7 +839,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
                     self.QMin.maps["gsmap"][i + 1] = j + 1
                     break
         # Populate initial orbitals dict
-        self.QMin.control["initorbs"] = self._get_initorbs()  # TODO: control?
+        self.QMin.control["initorbs"] = self._get_initorbs()
 
     def _build_jobs(self) -> None:
         """
@@ -600,35 +847,24 @@ class SHARC_ORCA(SHARC_ABINITIO):
         """
         self.log.debug("Building job map.")
         jobs = {}
-        if self.QMin.control["states_to_do"][0] > 0:
-            jobs[1] = {"mults": [1], "restr": True}
-        if len(self.QMin.control["states_to_do"]) >= 2 and self.QMin.control["states_to_do"][1] > 0:
-            jobs[2] = {"mults": [2], "restr": False}
-        if len(self.QMin.control["states_to_do"]) >= 3 and self.QMin.control["states_to_do"][2] > 0:
-            if self.QMin.control["states_to_do"][0] > 0:
+        for idx, state in enumerate(self.QMin.control["states_to_do"]):
+            if state > 0 and idx != 2:
+                jobs[idx + 1] = {"mults": [idx + 1], "restr": bool(idx == 0)}
+            if state > 0 and idx == 2:
                 jobs[1]["mults"].append(3)
-            else:
-                jobs[3] = {"mults": [3], "restr": False}
-        if len(self.QMin.control["states_to_do"]) >= 4:
-            for imult, nstate in enumerate(self.QMin.control["states_to_do"][3:]):
-                if nstate > 0:
-                    jobs[imult + 4] = {"mults": [imult + 4], "restr": False}
+
         self.QMin.control["jobs"] = jobs
         self.QMin.control["joblist"] = sorted(set(jobs))
 
-    def write_step_file(self) -> None:
-        super().write_step_file()
-
-    def get_dets_from_cis(self, cis_path: str) -> dict[str, str]:
+    def get_dets_from_cis(self, cis_path: str, jobid: int) -> dict[str, str]:
         """
         Parse ORCA.cis file from WORKDIR
         """
         # Set variables
         cis_path = cis_path if os.path.isfile(cis_path) else os.path.join(cis_path, "ORCA.cis")
-        jobid = self.QMin.control["jobid"]
         restricted = self.QMin.control["jobs"][jobid]["restr"]
         mults = self.QMin.control["jobs"][jobid]["mults"]
-        gsmult = self.QMin.maps["multmap"][-int(jobid)]
+        gsmult = self.QMin.maps["multmap"][-int(jobid)][0]
         frozcore = self.QMin.resources["numfrozcore"]
         states_extract = deepcopy(self.QMin.molecule["states"])
         states_skip = [self.QMin.control["states_to_do"][i] - states_extract[i] for i in range(len(states_extract))]
@@ -655,7 +891,6 @@ class SHARC_ORCA(SHARC_ABINITIO):
 
             buffsize = (header[1] + 1 - nfc) * (header[3] + 1 - header[2])  # size of det
             self.log.debug(f"CIS determinant buffer size {buffsize*8} byte")
-            self.log.debug(header)
 
             # ground state configuration
             # 0: empty, 1: alpha, 2: beta, 3: double oppupied
@@ -770,7 +1005,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
             # Convert determinant lists to strins
             strings = {}
             for mult in mults:
-                filename = os.path.join(self.QMin.save["savedir"], f"dets.{mult}")
+                filename = f"dets.{mult}"
                 strings[filename] = self.format_ci_vectors(eigenvectors[mult])
             return strings
 
@@ -805,7 +1040,6 @@ class SHARC_ORCA(SHARC_ABINITIO):
                     raise FileNotFoundError()
                 initorbs[job] = file + ".old" if self.QMin.save["newstep"] else file
 
-        # TODO: restart in new interface?
         return initorbs
 
     def _gen_schedule(self) -> None:
@@ -827,7 +1061,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
         for job in gradjob:
             for state in gradjob[job]:
                 jobgrad[state] = (job, gradjob[job][state]["gs"])
-        self.QMin.control["jobgrad"] = jobgrad  # TODO: control? what is it used?
+        self.QMin.control["jobgrad"] = jobgrad
 
         schedule = [{}]
 
@@ -920,7 +1154,6 @@ class SHARC_ORCA(SHARC_ABINITIO):
         string += " nousesym "
         string += "engrad\n" if do_grad else "\n"
 
-        # TODO: Whats AOoverlap?
         # CPU cores
         if qmin.resources["ncpu"] > 1:
             string += f"%pal\n\tnprocs {qmin.resources['ncpu']}\nend\n\n"
@@ -943,9 +1176,6 @@ class SHARC_ORCA(SHARC_ABINITIO):
         # HF exchange
         if qmin.template["hfexchange"] > 0:
             string += f"%method\n\tScalHFX = {qmin.template['hfexchange']}\nend\n\n"
-
-        # Range separation
-        # TODO
 
         # Intacc
         if qmin.template["intacc"] > 0:
@@ -975,7 +1205,6 @@ class SHARC_ORCA(SHARC_ABINITIO):
             string += "end\n\n"
 
         # Output
-        # TODO: AOoverlap?
         string += "%output\n"
         if qmin.requests["ion"] or qmin.requests["theodore"]:
             string += "\tPrint[ P_Overlap ] 1\n"
@@ -997,10 +1226,11 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 idx = qmin.template["basis_per_atom"].index(str(iatom))
                 string += f"\tnewgto \"{qmin.template['basis_per_atom'][idx+1]}\" end"
             string += "\n"
-        string += "end\nend\n\n"  # TODO: 2 ends on purpose?
+        string += "\tend\nend\n\n"
 
         # Point charges
-        # TODO
+        if qmin.molecule["point_charges"]:
+            string += '%pointcharges "ORCA.pc"\n\n'
         return string
 
     @staticmethod
