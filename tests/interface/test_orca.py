@@ -195,8 +195,26 @@ def test_buildjobs():
                 "states_to_do": [4, 2, 3],
                 "jobs": {1: {"mults": [1, 3], "restr": True}, 2: {"mults": [2], "restr": False}},
             },
-        )
+        ),
     ]
 
     for path, maps in tests:
         build_jobs(path, maps)
+
+
+@pytest.mark.dependency(depends=["test_orcaversion"])
+def test_read_mos():
+    tests = [
+        ("inputs/QM5.in", "inputs/abinitio_template1", "inputs/gbw1", "inputs/mos1", 1),
+        ("inputs/orca3.in", "inputs/abinitio_template1", "inputs/gbw2", "inputs/mos2", 2),
+    ]
+
+    for qmin, template, gbw, mos, job in tests:
+        test_interface = SHARC_ORCA()
+        test_interface.setup_mol(qmin)
+        test_interface.read_template(template)
+        test_interface._read_resources = True
+        test_interface.setup_interface()
+        with open(mos, "r", encoding="utf-8") as file:
+            ref_mos = file.read()
+            assert test_interface._get_mos(gbw, job) == ref_mos
