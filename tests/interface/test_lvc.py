@@ -25,14 +25,14 @@ def test_lvc():
     # f.close()
     H_ref = np.array(
         [
-            [0.09984907 + 0.j, 0. + 0.j, 0. + 0.00053928j, 0. + 0.j, 0. + 0.j, 0. + 0.j, 0. - 0.00053928j, 0. + 0.j],
-            [0. + 0.j, 0.14845449 + 0.j, 0. + 0.j, 0. + 0.00051385j, 0. + 0.j, 0. + 0.j, 0. + 0.j, 0. - 0.00051385j],
-            [0. - 0.00053928j, 0. + 0.j, 0.145514 + 0.j, 0. + 0.j, 0. + 0.j, 0. + 0.00049544j, 0. + 0.j, 0. + 0.j],
-            [0. + 0.j, 0. - 0.00051385j, 0. + 0.j, 0.14686069 + 0.j, 0. - 0.00049544j, 0. + 0.j, 0. + 0.j, 0. + 0.j],
-            [0. + 0.j, 0. + 0.j, 0. + 0.j, 0. + 0.00049544j, 0.145514 + 0.j, 0. + 0.j, 0. + 0.j, 0. + 0.00049544j],
-            [0. + 0.j, 0. + 0.j, 0. - 0.00049544j, 0. + 0.j, 0. + 0.j, 0.14686069 + 0.j, 0. - 0.00049544j, 0. + 0.j],
-            [0. + 0.00053928j, 0. + 0.j, 0. + 0.j, 0. + 0.j, 0. + 0.j, 0. + 0.00049544j, 0.145514 + 0.j, 0. + 0.j],
-            [0. + 0.j, 0. + 0.00051385j, 0. + 0.j, 0. + 0.j, 0. - 0.00049544j, 0. + 0.j, 0. + 0.j, 0.14686069 + 0.j]
+            [0.09984907, 0., 0. + 0.00053928j, 0., 0., 0., 0. - 0.00053928j, 0.],
+            [0., 0.14845449, 0., 0. + 0.00051385j, 0., 0., 0., 0. - 0.00051385j],
+            [0. - 0.00053928j, 0., 0.145514, 0., 0., 0. + 0.00049544j, 0., 0.],
+            [0., 0. - 0.00051385j, 0., 0.14686069, 0. - 0.00049544j, 0., 0., 0.],
+            [0., 0., 0., 0. + 0.00049544j, 0.145514, 0., 0., 0. + 0.00049544j],
+            [0., 0., 0. - 0.00049544j, 0., 0., 0.14686069, 0. - 0.00049544j, 0.],
+            [0. + 0.00053928j, 0., 0., 0., 0., 0. + 0.00049544j, 0.145514, 0.],
+            [0., 0. + 0.00051385j, 0., 0., 0. - 0.00049544j, 0., 0., 0.14686069]
         ],
         dtype=complex
     )
@@ -74,8 +74,8 @@ def test_lvc():
         ]
     )
 
-    np.allclose(H_ref, lvc.QMout.h, rtol=1e-8)
-    np.allclose(grad_ref, lvc.QMout.grad, rtol=1e-8)
+    assert np.allclose(H_ref, lvc.QMout.h, rtol=1e-8)
+    assert np.allclose(grad_ref, lvc.QMout.grad, rtol=1e-8)
 
 
 def test_lvc_pc():
@@ -442,9 +442,9 @@ def test_lvc_pc():
             ]
         ]
     )
-    np.allclose(H_ref, lvc.QMout.h, rtol=1e-8)
-    np.allclose(grad_ref, lvc.QMout.grad, rtol=1e-8)
-    np.allclose(nacdr_ref, lvc.QMout.nacdr, rtol=1e-8)
+    assert np.allclose(H_ref, lvc.QMout.h, rtol=1e-8)
+    assert np.allclose(grad_ref, lvc.QMout.grad, rtol=1e-8)
+    assert np.allclose(nacdr_ref, lvc.QMout.nacdr, rtol=1e-8)
     # f = open('/user/severin/sharc_main/tests/interface/test_lvc.py', 'a')
     # print('H_ref =', np.array2string(lvc.QMout.h, separator=','), file=f)
     # print('grad_ref =', np.array2string(lvc.QMout.grad, separator=','), file=f)

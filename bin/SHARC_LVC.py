@@ -38,10 +38,9 @@ import numpy as np
 
 # internal
 from SHARC_FAST import SHARC_FAST
-from utils import readfile, mkdir, question, expand_path
-import shutil
+from utils import readfile, question
 from io import TextIOWrapper
-from constants import U_TO_AMU, MASSES
+from constants import U_TO_AMU
 from kabsch import kabsch_w as kabsch
 
 authors = 'Sebastian Mai and Severin Polonius'
@@ -154,25 +153,27 @@ class SHARC_LVC(SHARC_FAST):
             for im, si, sj, i, v in map(c, range(z)):
                 self._H_i[im][si, sj, i] = v
                 self._H_i[im][sj, si, i] = v
-        if f.readline() == 'gamma\n':
-            self._gammas = True
+        line = f.readline()
+        if line == 'gamma\n':
             z = int(f.readline()[:-1])
+            self._gammas = z != 0
+            self.log.debug(f"gammas: {self._gammas}")
 
             def d(_):
                 v = f.readline().split()
-                return (int(v[0]) - 1, int(v[1]) - 1, int(v[2]) - 1, int(v[3]) - 1, int(v[4]) - 1, float(v[4]))
+                return (int(v[0]) - 1, int(v[1]) - 1, int(v[2]) - 1, int(v[3]) - 1, int(v[4]) - 1, float(v[5]))
 
             for im, si, sj, i, j, v in map(d, range(z)):
-                self._G[im][si, sj, i, j] = v
+                self._G[im][si, sj, i, j] += v
 
-        line = f.readline()
-        while len(line) != 0:
+        while line:
             factor = 1j if line[-2] == 'I' else 1
-            if line[:3] == 'SOC':
+            if 'SOC' in line:
                 if factor != 1:
                     soc_real = False
                 line = f.readline()
                 i = 0
+                self.log.debug(f"Reading SOC {factor}")
                 while len(line.split()) == nmstates:
                     self._soc[i, :] += np.asarray(line.split(), dtype=float) * factor
                     i += 1
@@ -190,6 +191,7 @@ class SHARC_LVC(SHARC_FAST):
             elif 'Multipolar Density Fit' in line:
                 line = f.readline()
                 n_fits = int(line)
+                self.log.debug(f"multipolar_fit {n_fits}")
                 self._fits = {im: np.zeros((n, n, natom, 10), dtype=float) for im, n in enumerate(states) if n != 0}
 
                 def d(_):
@@ -404,7 +406,7 @@ class SHARC_LVC(SHARC_FAST):
             H = np.diag(self._epsilon[im] + V0)
             H += self._H_i[im] @ self._Q
             if self._gammas:
-                H += np.einsum('n,ijnm,m->ij', self._Q, self._G, self._Q, casting='no', optimize=True)
+                H += np.einsum('n,ijnm,m->ij', self._Q, self._G[im], self._Q, casting='no', optimize=True)
             if do_pc:
                 # assert np.allclose(ene, ene_v, rtol=1e-8)
                 H += np.einsum('ijay,yab->ij', self._fits_rot[im], mult_prefactors_pc, casting='no', optimize=True)
@@ -485,7 +487,7 @@ class SHARC_LVC(SHARC_FAST):
                 dlvc += self._H_i[im]
                 dlvc = np.einsum('ijk,kl->ijl', dlvc, dQ_dr, casting='no', optimize=True)
                 if self._gammas:
-                    dlvc += np.einsum('n,ijnm,ml->ijl', self._Q, self._G, dQ_dr, casting='no', optimize=True)
+                    dlvc += np.einsum('n,ijnm,ml->ijl', self._Q, self._G[im], dQ_dr, casting='no', optimize=True)
                 if do_pc:
                     # calculate derivative of electrostic interaction
                     if "_dcoulomb_path" not in self.__dict__:
@@ -573,7 +575,7 @@ class SHARC_LVC(SHARC_FAST):
                 grad_lvc = np.full((n, r3N), self._V[None, ...])
                 if self._diagonalize:
                     if self._gammas:
-                        h_i = self._H_i[im] + np.einsum('n,ijnm,->ijm', self._Q, self._G, casting='no', optimize=True)
+                        h_i = self._H_i[im] + np.einsum('n,ijnm->ijm', self._Q, self._G[im], casting='no', optimize=True)
                         grad_lvc += np.einsum('ijk,in,jn->nk', h_i, u, u, casting='no', optimize=True)
                     else:
                         grad_lvc += np.einsum('ijk,in,jn->nk', self._H_i[im], u, u, casting='no', optimize=True)
@@ -593,7 +595,7 @@ class SHARC_LVC(SHARC_FAST):
                 else:
                     grad_lvc += np.einsum('iik->ik', self._H_i[im])
                     if self._gammas:
-                        grad_lvc += np.einsum('n,ijnm,->ijm', self._Q, self._G, casting='no', optimize=True)
+                        grad_lvc += np.einsum('n,ijnm->ijm', self._Q, self._G[im], casting='no', optimize=True)
                     if do_pc:
                         fits_r = np.einsum('iiay->iay', self._fits_rot[im])
                         dfits = np.einsum('iiaymx->iaymx', fits_deriv[im])
