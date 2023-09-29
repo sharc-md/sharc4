@@ -368,6 +368,8 @@ def write_LVC_template(INFOS):
     print('Number of atoms:', len(INFOS['atoms']))
     print('Kappas:', ['numerical', 'analytical'][INFOS['ana_grad']])
     print('Lambdas:', ['numerical', 'analytical'][INFOS['ana_nac']])
+    if 'gamma' in INFOS and INFOS['gamma']:
+        print('Gammas: numerical')
     print()
     print('Reading files ...')
     print()
@@ -568,6 +570,81 @@ def write_LVC_template(INFOS):
                                 lambda_str_list.append('%3i %3i %3i %3i % .5e\n' % (imult + 1, i + 1, j + 1, int(normal_mode), lam))
                                 nlambda += 1
 
+    # --------------- GAMMA --------------
+    # approximation from second order central
+    gamma_str_list = []
+    if INFOS['gamma']:
+        if 'displacements' not in INFOS:
+            print('No displacement info found in "displacements.json"!')
+            sys.exit(1)
+        # running through all normal modes
+        for normal_mode, v in INFOS['normal_modes'].items():
+            # Check for two-sided differentiation
+            if not str(normal_mode) + 'n' in INFOS['displacements']:
+                break
+
+            # get pos displacement
+            pos_displ_mag = INFOS['displacement_magnitudes'][normal_mode]
+
+            # get hamiltonian & overlap matrix from QM.out
+            path = os.path.join(INFOS['paths'][str(normal_mode) + 'p'], 'QM.out')
+            requests = ['h', 'overlap']
+            pos_H, pos_S = read_QMout(path, INFOS['nstates'], len(INFOS['atoms']), requests).values()
+
+            # check diagonal of S & print warning
+            INFOS['problematic_mults'] = check_overlap_diagonal(pos_S, INFOS['states'], normal_mode, 'p')
+
+            # calculate displacement matrix
+            pos_W_dQi = calculate_W_dQi(pos_H, pos_S, e_ref)
+
+
+            # get neg displacement
+            neg_displ_mag = INFOS['displacement_magnitudes'][normal_mode]
+
+            # get hamiltonian & overlap matrix from QM.out
+            path = os.path.join(INFOS['paths'][str(normal_mode) + 'n'], 'QM.out')
+            requests = ['h', 'overlap']
+            neg_H, neg_S = read_QMout(path, INFOS['nstates'], len(INFOS['atoms']), requests).values()
+
+            # check diagonal of S & print warning if wanted
+            INFOS['problematic_mults'].update(check_overlap_diagonal(neg_S, INFOS['states'], normal_mode, 'n'))
+
+            # calculate displacement matrix
+            neg_W_dQi = calculate_W_dQi(neg_H, neg_S, e_ref)
+
+
+            # Loop over multiplicities to get kappas and lambdas
+            for imult in range(len(INFOS['states'])):
+                # checking problematic states
+                if INFOS['ignore_problematic_states']:
+                    if str(normal_mode) + 'p' in INFOS['problematic_mults']:
+                        if INFOS['problematic_mults'][str(normal_mode) + 'p'] == imult + 1:
+                            print('Not producing %s for normal mode: %s' % (whatstring, normal_mode))
+                            continue
+                    if str(normal_mode) + 'n' in INFOS['problematic_mults']:
+                        if twosided and INFOS['problematic_mults'][str(normal_mode) + 'n'] == imult + 1:
+                            print('! Not producing %s for multiplicity %i for normal mode: %s' % (whatstring, imult + 1, normal_mode))
+                            continue
+
+                # partition matrices
+                eq_partition = partition_matrix(QMout_eq['h'], imult + 1, INFOS['states'])
+                pos_partition = partition_matrix(pos_W_dQi, imult + 1, INFOS['states'])
+                if twosided:
+                    neg_partition = partition_matrix(neg_W_dQi, imult + 1, INFOS['states'])
+                partition_length = len(pos_partition)
+
+                # get lambdas and kappas
+                for i in range(partition_length):
+                    if not INFOS['ana_nac']:
+                        for j in range(partition_length):
+                            if i > j:
+                                continue
+                            omeg = (pos_partition[i][j] - 2 * eq_partition[i][j] + neg_partition[i][j]).real / (pos_displ_mag + neg_displ_mag)**2
+                            if omeg**2 > pthresh:
+                                gamma_str_list.append('%3i %3i %3i %3i %3i % .5e\n' % (imult + 1, i + 1, j + 1, int(normal_mode), int(normal_mode), omeg))
+
+
+
 
     # add results to template string
     lvc_template_content += 'kappa\n'
@@ -577,6 +654,11 @@ def write_LVC_template(INFOS):
     lvc_template_content += 'lambda\n'
     lvc_template_content += '%i\n' % (nlambda)
     lvc_template_content += ''.join(sorted(lambda_str_list))
+
+    if len(gamma_str_list) != 0:
+        lvc_template_content += 'gamma\n'
+        lvc_template_content += '%i\n' % (len(gamma_str_list))
+        lvc_template_content += ''.join(sorted(gamma_str_list))
 
 
     # ----------------------- matrices ------------------------------

@@ -58,8 +58,8 @@ class SHARC_LVC(SHARC_FAST):
     _read_resources = True
     _do_kabsch = False
     _diagonalize = True
+    _gammas = False
     _step = 0
-
 
     @staticmethod
     def name():
@@ -99,8 +99,12 @@ class SHARC_LVC(SHARC_FAST):
         states = self.QMin.molecule['states']
 
         if (len(states) > len(self.template_states)) or any(a > b for (a, b) in zip(states, self.template_states)):
-            self.log.error(f'states from QM.in and nstates from LVC.template are inconsistent! {self.QMin.molecule["states"]} != {states}')
-            raise ValueError(f'impossible to calculate {self.QMin.molecule["states"]} with template holding {self.template_states}')
+            self.log.error(
+                f'states from QM.in and nstates from LVC.template are inconsistent! {self.QMin.molecule["states"]} != {states}'
+            )
+            raise ValueError(
+                f'impossible to calculate {self.QMin.molecule["states"]} with template holding {self.template_states}'
+            )
         if any(a < b for (a, b) in zip(states, self.template_states)):
             self.log.warning(f"Calculating with {self.template_states} but returning {states}")
 
@@ -110,6 +114,7 @@ class SHARC_LVC(SHARC_FAST):
         states = self.parsed_states['states']
 
         self._H_i = {im: np.zeros((n, n, r3N), dtype=float) for im, n in enumerate(states) if n != 0}
+        self._G = {im: np.zeros((n, n, r3N, r3N), dtype=float) for im, n in enumerate(states) if n != 0}
         self._epsilon = {im: np.zeros(n, dtype=float) for im, n in enumerate(states) if n != 0}
         self._eV = {im: np.zeros(n, dtype=float) for im, n in enumerate(states) if n != 0}
         self._dipole = np.zeros((3, nmstates, nmstates), dtype=complex)
@@ -149,6 +154,17 @@ class SHARC_LVC(SHARC_FAST):
             for im, si, sj, i, v in map(c, range(z)):
                 self._H_i[im][si, sj, i] = v
                 self._H_i[im][sj, si, i] = v
+        if f.readline() == 'gamma\n':
+            self._gammas = True
+            z = int(f.readline()[:-1])
+
+            def d(_):
+                v = f.readline().split()
+                return (int(v[0]) - 1, int(v[1]) - 1, int(v[2]) - 1, int(v[3]) - 1, int(v[4]) - 1, float(v[4]))
+
+            for im, si, sj, i, j, v in map(d, range(z)):
+                self._G[im][si, sj, i, j] = v
+
         line = f.readline()
         while len(line) != 0:
             factor = 1j if line[-2] == 'I' else 1
@@ -207,7 +223,10 @@ class SHARC_LVC(SHARC_FAST):
         it = 1
         elem = QMin.molecule['elements']
         rM = list(
-            map(lambda x: [x[0]] + [float(y) for y in x[2:]], map(lambda x: x.split(), lines[it:it + QMin.molecule['natom']]))
+            map(
+                lambda x: [x[0]] + [float(y) for y in x[2:]],
+                map(lambda x: x.split(), lines[it:it + QMin.molecule['natom']])
+            )
         )
         v0_elem = [x[0] for x in rM]
         if v0_elem != elem:
@@ -233,8 +252,7 @@ class SHARC_LVC(SHARC_FAST):
         if "do_kabsch" in self.QMin.resources:
             self._do_kabsch = True
         #  if "diagonalize" in self.QMin.resources:
-            #  self._diagonalize = True
-
+        #  self._diagonalize = True
 
     def setup_interface(self):
         if self.QMin.requests['overlap']:
@@ -359,7 +377,9 @@ class SHARC_LVC(SHARC_FAST):
             self._Trot, self._com_ref, self._com_coords = kabsch(self._ref_coords, coords, weights)
             if not np.allclose(self._com_ref, self._com_coords, rtol=1e-3) or \
                not np.allclose(np.diag(self._Trot), np.ones(3, dtype=float), rtol=1e-5):
-                raise RuntimeError('Misaligned geometry without activated Kabsch algorithm! -> check you input structure or activate Kabsch')
+                raise RuntimeError(
+                    'Misaligned geometry without activated Kabsch algorithm! -> check you input structure or activate Kabsch'
+                )
 
         # kabsch is necessary with point charges
         if do_pc:
@@ -383,6 +403,8 @@ class SHARC_LVC(SHARC_FAST):
         for im, n in filter(lambda x: x[1] != 0, enumerate(states)):
             H = np.diag(self._epsilon[im] + V0)
             H += self._H_i[im] @ self._Q
+            if self._gammas:
+                H += np.einsum('n,ijnm,m->ij', self._Q, self._G, self._Q, casting='no', optimize=True)
             if do_pc:
                 # assert np.allclose(ene, ene_v, rtol=1e-8)
                 H += np.einsum('ijay,yab->ij', self._fits_rot[im], mult_prefactors_pc, casting='no', optimize=True)
@@ -462,11 +484,17 @@ class SHARC_LVC(SHARC_FAST):
                                                 ...]    # fills diagonal on matrix with shape (nmstates,nmstates, r3N)
                 dlvc += self._H_i[im]
                 dlvc = np.einsum('ijk,kl->ijl', dlvc, dQ_dr, casting='no', optimize=True)
+                if self._gammas:
+                    dlvc += np.einsum('n,ijnm,ml->ijl', self._Q, self._G, dQ_dr, casting='no', optimize=True)
                 if do_pc:
                     # calculate derivative of electrostic interaction
                     if "_dcoulomb_path" not in self.__dict__:
-                        self._dcoulomb_path = np.einsum_path('xyab,ijay->ijabx', mult_prefactors_deriv_pc, self._fits_rot[im], optimize='optimal')[0]
-                    dcoulomb: np.ndarray = np.einsum('xyab,ijay->ijabx', mult_prefactors_deriv_pc, self._fits_rot[im], optimize=self._dcoulomb_path)
+                        self._dcoulomb_path = np.einsum_path(
+                            'xyab,ijay->ijabx', mult_prefactors_deriv_pc, self._fits_rot[im], optimize='optimal'
+                        )[0]
+                    dcoulomb: np.ndarray = np.einsum(
+                        'xyab,ijay->ijabx', mult_prefactors_deriv_pc, self._fits_rot[im], optimize=self._dcoulomb_path
+                    )
                     # add derivative to lvc derivative summed ofe all point charges
                     dlvc += np.einsum('ijabx->ijax', dcoulomb).reshape((n, n, r3N))
                     # add the derivative of the multipoles
@@ -475,15 +503,28 @@ class SHARC_LVC(SHARC_FAST):
                             'yab,ijaymx->ijmx', mult_prefactors_pc[1:, ...], fits_deriv[im], optimize='optimal'
                         )[0]
                     dlvc += np.einsum(
-                        'yab,ijaymx->ijmx', mult_prefactors_pc[1:, ...], fits_deriv[im], casting='no', optimize=self._dlvc_path
+                        'yab,ijaymx->ijmx',
+                        mult_prefactors_pc[1:, ...],
+                        fits_deriv[im],
+                        casting='no',
+                        optimize=self._dlvc_path
                     ).reshape((n, n, r3N))
                     # calculate the pc derivatives
                     pc_derivative = -np.einsum('ijabx->ijbx', dcoulomb)
                     del dcoulomb
                     if self._diagonalize:
                         if "_pc_derivative_nac_path" not in self.__dict__:
-                            self._pc_derivative_nac_path = np.einsum_path('ijbx,im,jn->mnbx', pc_derivative, u, u, optimize='optimal')[0]
-                        pc_derivative = np.einsum('ijbx,im,jn->mnbx', pc_derivative, u, u, casting='no', optimize=self._pc_derivative_nac_path)
+                            self._pc_derivative_nac_path = np.einsum_path(
+                                'ijbx,im,jn->mnbx', pc_derivative, u, u, optimize='optimal'
+                            )[0]
+                        pc_derivative = np.einsum(
+                            'ijbx,im,jn->mnbx',
+                            pc_derivative,
+                            u,
+                            u,
+                            casting='no',
+                            optimize=self._pc_derivative_nac_path
+                        )
 
                 # transform gradients to adiabatic basis
                 if self._diagonalize:
@@ -503,16 +544,14 @@ class SHARC_LVC(SHARC_FAST):
                 tmp[idx] **= -1
 
                 # nacdr[start:stop, start:stop, ...] = dlvc
-                nacdr[start:stop, start:stop, :] = np.einsum(
-                    'ji,ijk->ijk', tmp, dlvc, casting='no', optimize=True
-                )
+                nacdr[start:stop, start:stop, :] = np.einsum('ji,ijk->ijk', tmp, dlvc, casting='no', optimize=True)
                 grad[start:stop, ...] = np.einsum('iik->ik', dlvc)
                 if do_pc:
                     pc_grad[start:stop, ...] = np.einsum('iibx->ibx', pc_derivative)
                     # nacdr_pc[start:stop, start:stop, ...] = pc_derivative
-                    nacdr_pc[start:stop, start:stop, :] = np.einsum(
-                        'ji,ijbx->ijbx', tmp, pc_derivative, casting='no', optimize=True
-                    )
+                    nacdr_pc[
+                        start:stop,
+                        start:stop, :] = np.einsum('ji,ijbx->ijbx', tmp, pc_derivative, casting='no', optimize=True)
                 # fills in blocks for other magnetic quantum numbers
                 for s1 in map(lambda x: start + n * (x + 1), range(im)):
                     s2 = s1 + n
@@ -533,16 +572,28 @@ class SHARC_LVC(SHARC_FAST):
                 u = self._U[start:stop, start:stop]
                 grad_lvc = np.full((n, r3N), self._V[None, ...])
                 if self._diagonalize:
-                    grad_lvc += np.einsum('ijk,in,jn->nk', self._H_i[im], u, u, casting='no', optimize=True)
+                    if self._gammas:
+                        h_i = self._H_i[im] + np.einsum('n,ijnm,->ijm', self._Q, self._G, casting='no', optimize=True)
+                        grad_lvc += np.einsum('ijk,in,jn->nk', h_i, u, u, casting='no', optimize=True)
+                    else:
+                        grad_lvc += np.einsum('ijk,in,jn->nk', self._H_i[im], u, u, casting='no', optimize=True)
                     if do_pc:
                         if "_fits_r_path" not in self.__dict__:
-                            self._fits_r_path = np.einsum_path('ijay,in,jn->nay', self._fits_rot[im], u, u, optimize='optimal')[0]
-                        fits_r = np.einsum('ijay,in,jn->nay', self._fits_rot[im], u, u, casting='no', optimize=self._fits_r_path)
+                            self._fits_r_path = np.einsum_path(
+                                'ijay,in,jn->nay', self._fits_rot[im], u, u, optimize='optimal'
+                            )[0]
+                        fits_r = np.einsum(
+                            'ijay,in,jn->nay', self._fits_rot[im], u, u, casting='no', optimize=self._fits_r_path
+                        )
                         if "_dfits_path" not in self.__dict__:
-                            self._dfits_path = np.einsum_path('ijaymx,in,jn->naymx', fits_deriv[im], u, u, optimize='optimal')[0]
+                            self._dfits_path = np.einsum_path(
+                                'ijaymx,in,jn->naymx', fits_deriv[im], u, u, optimize='optimal'
+                            )[0]
                         dfits = np.einsum('ijaymx,in,jn->naymx', fits_deriv[im], u, u, casting='no', optimize=True)
                 else:
                     grad_lvc += np.einsum('iik->ik', self._H_i[im])
+                    if self._gammas:
+                        grad_lvc += np.einsum('n,ijnm,->ijm', self._Q, self._G, casting='no', optimize=True)
                     if do_pc:
                         fits_r = np.einsum('iiay->iay', self._fits_rot[im])
                         dfits = np.einsum('iiaymx->iaymx', fits_deriv[im])
@@ -550,8 +601,16 @@ class SHARC_LVC(SHARC_FAST):
                 if do_pc:
                     # calculate derivative of electrostic interaction
                     if "_dcoulomb_grad_path" not in self.__dict__:
-                        self._dcoulomb_grad_path = np.einsum_path('xyab,iay->iabx', mult_prefactors_deriv_pc, fits_r, optimize='optimal')[0]
-                    dcoulomb: np.ndarray = np.einsum('xyab,iay->iabx', mult_prefactors_deriv_pc, fits_r, casting='no', optimize=self._dcoulomb_grad_path)
+                        self._dcoulomb_grad_path = np.einsum_path(
+                            'xyab,iay->iabx', mult_prefactors_deriv_pc, fits_r, optimize='optimal'
+                        )[0]
+                    dcoulomb: np.ndarray = np.einsum(
+                        'xyab,iay->iabx',
+                        mult_prefactors_deriv_pc,
+                        fits_r,
+                        casting='no',
+                        optimize=self._dcoulomb_grad_path
+                    )
                     # add derivative to lvc derivative summed ofe all point charges
                     grad_lvc += np.einsum('iabx->iax', dcoulomb).reshape((n, r3N))
                     # add the derivative of the multipoles
@@ -560,7 +619,11 @@ class SHARC_LVC(SHARC_FAST):
                             'yab,iaymx->imx', mult_prefactors_pc[1:, ...], dfits, optimize='optimal'
                         )[0]
                     grad_lvc += np.einsum(
-                        'yab,iaymx->imx', mult_prefactors_pc[1:, ...], dfits, casting='no', optimize=self._grad_lvc_path
+                        'yab,iaymx->imx',
+                        mult_prefactors_pc[1:, ...],
+                        dfits,
+                        casting='no',
+                        optimize=self._grad_lvc_path
                     ).reshape((n, r3N))
                     # calculate the pc derivatives
                     pc_grad[start:stop, ...] = -np.einsum('iabx->ibx', dcoulomb)
@@ -591,12 +654,12 @@ class SHARC_LVC(SHARC_FAST):
                 os.path.join(self.QMin.save['savedir'], 'Uold.out')
             )    # writes a binary file (can be read with numpy.fromfile())
 
-
         # ========================== Prepare results ========================================
         Hd += self._U.T @ self._soc @ self._U
 
-
-        dipole = np.einsum('ni,kij,jm->knm', self._U.T, self._dipole, self._U, casting='no', optimize=True) if self._diagonalize else self._dipole
+        dipole = np.einsum(
+            'ni,kij,jm->knm', self._U.T, self._dipole, self._U, casting='no', optimize=True
+        ) if self._diagonalize else self._dipole
         if do_kabsch:
             #  self._QMin['coords'] = self._QMin['coords']
             dipole = (np.einsum('inm,ij->jnm', dipole, self._Trot))
@@ -676,7 +739,7 @@ class SHARC_LVC(SHARC_FAST):
                 for x in range(1, im):
                     s1 = start + n * (x + 1)
                     s1_qm = start_qm + nr * (x + 1)
-                #  for s1 in map(lambda x: start + n * (x + 1), range(im)):
+                    #  for s1 in map(lambda x: start + n * (x + 1), range(im)):
                     s2 = s1 + nr
                     s2_qm = s1_qm + nr
                     for (qm_mat, mat, dim) in matrices:
@@ -694,7 +757,6 @@ class SHARC_LVC(SHARC_FAST):
         self._U.tofile(
             os.path.join(self.QMin.save['savedir'], f'U_{self.QMin.save["step"]}.out')
         )    # writes a binary file (can be read with numpy.fromfile())
-
 
     def get_features(self, KEYSTROKES: TextIOWrapper = None) -> set:
         return {
@@ -734,16 +796,24 @@ class SHARC_LVC(SHARC_FAST):
             self.log.error(f"Requested SOC calculation but 'SOC' keyword not found in {self.template_file}")
             raise RuntimeError()
 
-        if ('multipolar_fit' in INFOS['needed_requests'] or 'point_charges' in INFOS['needed_requests']) and not mfit_found:
-            self.log.error(f"Calculation with 'point_charges' and/or 'multipolar_fit' requested but 'Multipolar Density Fit' not found in {self.template_file}")
+        if (
+            'multipolar_fit' in INFOS['needed_requests'] or 'point_charges' in INFOS['needed_requests']
+        ) and not mfit_found:
+            self.log.error(
+                f"Calculation with 'point_charges' and/or 'multipolar_fit' requested but 'Multipolar Density Fit' not found in {self.template_file}"
+            )
             raise RuntimeError()
 
         if 'dm' in INFOS['needed_requests'] and not dm_found:
             self.log.error(f"Calculation of dipole moment requested but 'DM' keyword not found in {self.template_file}")
             raise RuntimeError()
 
-        if question("Do you have an LVC.resources file?", bool, KEYSTROKES=KEYSTROKES, autocomplete=False, default=False):
-            self.resources_file = question("Specify path to LVC.resources", str, KEYSTROKES=KEYSTROKES, autocomplete=True)
+        if question(
+            "Do you have an LVC.resources file?", bool, KEYSTROKES=KEYSTROKES, autocomplete=False, default=False
+        ):
+            self.resources_file = question(
+                "Specify path to LVC.resources", str, KEYSTROKES=KEYSTROKES, autocomplete=True
+            )
 
         return INFOS
 
