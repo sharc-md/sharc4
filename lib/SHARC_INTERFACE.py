@@ -550,7 +550,7 @@ class SHARC_INTERFACE(ABC):
                     keyword_list.append(param[0])
 
                     if param[0] in kw_whitelist:
-                        self.QMin.resources[param[0]].extend(param[1:])
+                        self.QMin.resources[param[0]].append(param[1:])
                         self.log.debug(f"Extend white listed parameter {param[0]}")
                         continue
 
