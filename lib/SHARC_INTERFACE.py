@@ -560,7 +560,7 @@ class SHARC_INTERFACE(ABC):
                         # Check if savedir already specified in QM.in
                         if param[0] == "savedir":
                             if not self._setsave:
-                                self.QMin.save["savedir"] = param[1]
+                                self.QMin.save["savedir"] = expand_path(param[1])
                                 self.log.debug(
                                     f"SAVEDIR set to {self.QMin.save['savedir']}",
                                 )
