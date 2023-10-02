@@ -453,6 +453,8 @@ def test_lvc_pc():
 
 
 if __name__ == "__main__":
+    import shutil
     with InDir('tests/interface/'):
         test_lvc()
         test_lvc_pc()
+        shutil.rmtree('SAVE')
