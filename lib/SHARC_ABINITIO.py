@@ -274,7 +274,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         os.chdir(current_dir)
         return exit_code
 
-    def runjobs(self, schedule: list[dict[str, QMin]]) -> dict[int, int]:
+    def runjobs(self, schedule: list[dict[str, QMin]]) -> dict[str, int]:
         """
         Runs all jobs in the schedule in a parallel queue
 
