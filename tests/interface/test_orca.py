@@ -218,3 +218,22 @@ def test_read_mos():
         with open(mos, "r", encoding="utf-8") as file:
             ref_mos = file.read()
             assert test_interface._get_mos(gbw, job) == ref_mos
+
+
+def test_get_dets():
+    tests = [
+        ("inputs/orca_dets_input", "inputs/orca_cis1", 1, 1, "inputs/orca_dets1"),
+        ("inputs/orca_dets_input", "inputs/orca_cis2", 2, 2, "inputs/orca_dets2"),
+        ("inputs/orca_dets_input", "inputs/orca_cis1", 1, 3, "inputs/orca_dets3"),
+        ("inputs/orca_dets_input4", "inputs/orca_cis4", 1, 1, "inputs/orca_dets4"),
+    ]
+
+    for qmin, cis, job, mult, det in tests:
+        test_interface = SHARC_ORCA()
+        test_interface.setup_mol(qmin)
+        test_interface._read_template = True
+        test_interface.read_resources("inputs/ORCA.resources")
+        test_interface.setup_interface()
+        with open(det, "r", encoding="utf-8") as file:
+            ref_det = file.read()
+            assert test_interface.get_dets_from_cis(cis, job)[f"dets.{mult}"] == ref_det
