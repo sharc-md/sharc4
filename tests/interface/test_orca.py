@@ -226,7 +226,7 @@ def test_get_dets():
     tests = [
         ("inputs/orca_dets_input", "inputs/orca_cis1", 1, 1, "inputs/orca_dets1"),
         ("inputs/orca_dets_input", "inputs/orca_cis2", 2, 2, "inputs/orca_dets2"),
-        #("inputs/orca_dets_input", "inputs/orca_cis1", 1, 3, "inputs/orca_dets3"),
+        ("inputs/orca_dets_input", "inputs/orca_cis3", 1, 3, "inputs/orca_dets3"),
         ("inputs/orca_dets_input4", "inputs/orca_cis4", 1, 1, "inputs/orca_dets4"),
     ]
 
