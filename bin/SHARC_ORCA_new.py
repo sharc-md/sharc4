@@ -69,7 +69,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 "orcaversion": None,
                 "wfoverlap": None,
                 "wfthres": 1.0,
-                "numfrozcore": 0,
+                "numfrozcore": -1,
                 "numocc": None,
                 "schedule_scaling": 0.9,
                 "neglected_gradient": "zero",
@@ -717,6 +717,11 @@ class SHARC_ORCA(SHARC_ABINITIO):
 
     def read_resources(self, resources_file: str) -> None:
         super().read_resources(resources_file, ["theodore_fragment"])
+
+        # Check if frozcore specified
+        if self.QMin.resources["numfrozcore"] >= 0:
+            self.log.debug("Found numfrozcore in resources, overwriding frozcore")
+            self.QMin.molecule["frozcore"] = self.QMin.resources["numfrozcore"]
 
         # LD PATH???
         if not self.QMin.resources["orcadir"]:
