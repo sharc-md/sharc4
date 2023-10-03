@@ -378,6 +378,8 @@ Scheduling:
 Control: 
 {self.control}"""
 
+    # TODO: rewrite as proper __copy__ function!
+    # TODO: rewrite the __copy__ in QMinBase to deepcopy dicts and lists!
     def copy(self):
         """
         Return copy of QMin object
