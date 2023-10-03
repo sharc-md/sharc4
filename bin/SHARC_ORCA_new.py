@@ -306,12 +306,13 @@ class SHARC_ORCA(SHARC_ABINITIO):
         if self.QMin.requests["ion"] or not self.QMin.requests["nooverlap"]:
             self.log.debug("Write MO coefficients to savedir")
             writefile(os.path.join(savedir, f"mos.{jobid}.{step}"), self._get_mos(os.path.join(workdir, "ORCA.gbw"), jobid))
-            self.log.debug("Write CIS determinants to savedir")
-            cis_dets = self.get_dets_from_cis(os.path.join(workdir, "ORCA.cis"), jobid)
-            for det_file, cis_det in cis_dets.items():
-                writefile(os.path.join(savedir, f"{det_file}.{step}"), cis_det)
+            if os.path.isfile(os.path.join(workdir, "ORCA.cis")):
+                self.log.debug("Write CIS determinants to savedir")
+                cis_dets = self.get_dets_from_cis(os.path.join(workdir, "ORCA.cis"), jobid)
+                for det_file, cis_det in cis_dets.items():
+                    writefile(os.path.join(savedir, f"{det_file}.{step}"), cis_det)
 
-            shutil.copy(os.path.join(workdir, "ORCA.gbw"), os.path.join(savedir, f"ORCA.gbw.{jobid}.{step}"))
+        shutil.copy(os.path.join(workdir, "ORCA.gbw"), os.path.join(savedir, f"ORCA.gbw.{jobid}.{step}"))
 
     def _get_mos(self, gbw_file: str, jobid: int) -> str:
         """
@@ -489,13 +490,20 @@ class SHARC_ORCA(SHARC_ABINITIO):
             with open(os.path.join(self.QMin.resources["scratchdir"], f"master_{job}/ORCA.log"), "r", encoding="utf-8") as file:
                 log_file = file.read()
                 mults = self.QMin.control["jobs"][job]["mults"]
-                states = [0] + [x * (m + 1) for m, x in enumerate(self.QMin.molecule["states"])]
-
+                states = [0] + [x * m for m, x in enumerate(self.QMin.molecule["states"],1)]
+                job_states = [x if i in mults else 0 for i,x in enumerate(states)]
+                
                 # Populate SOC matrix
                 if self.QMin.requests["soc"] and self.QMin.control["jobs"][job]["restr"]:
-                    for m in mults:
-                        start, stop = sum(states[: m - 1]), sum(states[: m + 1])
-                        self.QMout["h"][start:stop, start:stop] = self._get_socs(log_file)[start:stop, start:stop]
+                    for mult in mults:
+                        soc_mat = self._get_socs(log_file)
+                        # Diagonal blocks
+                        start1, stop1 = sum(job_states[: mult]), sum(job_states[:mult+1])
+                        start, stop = sum(states[: mult]), sum(states[: mult+1])
+                        self.QMout["h"][start:stop, start:stop] = soc_mat[start1:stop1, start1:stop1]
+
+                        # Offdiagonals
+
 
                 # Populate energies
                 if self.QMin.requests["h"]:
@@ -506,24 +514,24 @@ class SHARC_ORCA(SHARC_ABINITIO):
                             self.QMout["h"][i][i] = energies[(statemap[0], statemap[1])]
 
                 # Populate dipole moments
-                if self.QMin.requests["dm"]:  # TODO: maybe wrong?
-                    # Diagonal elements
-                    # Excited states
-                    # dp_moment = self._get_dipole_moment(log_file, False)
-                    # np.fill_diagonal(self.QMout["dm"][0], dp_moment[0])
-                    # np.fill_diagonal(self.QMout["dm"][1], dp_moment[1])
-                    # np.fill_diagonal(self.QMout["dm"][2], dp_moment[2])
-                    # Ground state
-                    dp_moment = self._get_dipole_moment(log_file, True)
-                    self.QMout["dm"][0, 0, 0] = dp_moment[0]
-                    self.QMout["dm"][1, 0, 0] = dp_moment[1]
-                    self.QMout["dm"][2, 0, 0] = dp_moment[2]
+                #if self.QMin.requests["dm"]:  # TODO: maybe wrong?
+                #    # Diagonal elements
+                #    # Excited states
+                #    # dp_moment = self._get_dipole_moment(log_file, False)
+                #    # np.fill_diagonal(self.QMout["dm"][0], dp_moment[0])
+                #    # np.fill_diagonal(self.QMout["dm"][1], dp_moment[1])
+                #    # np.fill_diagonal(self.QMout["dm"][2], dp_moment[2])
+                #    # Ground state
+                #    dp_moment = self._get_dipole_moment(log_file, True)
+                #    self.QMout["dm"][0, 0, 0] = dp_moment[0]
+                #    self.QMout["dm"][1, 0, 0] = dp_moment[1]
+                #    self.QMout["dm"][2, 0, 0] = dp_moment[2]
 
-                    # Offdiagonals
-                    if self.QMin.molecule["states"][mults[0] - 1] > 1:
-                        td_moment = self._get_transition_dipoles(log_file)
-                        self.QMout["dm"][:, 1 : states[1], 0] = td_moment[1 : states[1], :].T
-                        self.QMout["dm"][:, 0, 1 : states[1]] = td_moment[1 : states[1], :].T
+                #    # Offdiagonals
+                #    if self.QMin.molecule["states"][mults[0] - 1] > 1:
+                #        td_moment = self._get_transition_dipoles(log_file)
+                #        self.QMout["dm"][:, 1 : states[1], 0] = td_moment[1 : states[1], :].T
+                #        self.QMout["dm"][:, 0, 1 : states[1]] = td_moment[1 : states[1], :].T
 
         # Populate gradients
         if self.QMin.requests["grad"]:
@@ -908,10 +916,10 @@ class SHARC_ORCA(SHARC_ABINITIO):
 
         if len(self.QMin.molecule["states"]) >= 3 and self.QMin.molecule["states"][2] > 0:
             self.log.debug("Setup states_to_do")
-            self.QMin.control["states_to_do"][2] = max(
-                self.QMin.control["states_to_do"][0] + 1, self.QMin.control["states_to_do"][2]
-            )
-            self.QMin.control["states_to_do"][0] = self.QMin.control["states_to_do"][2] + 1
+            self.QMin.control["states_to_do"][0] = max(self.QMin.molecule['states'][0], 1)
+            req = max(self.QMin.molecule['states'][0] - 1, self.QMin.molecule['states'][2])
+            self.QMin.control["states_to_do"][0] = req + 1
+            self.QMin.control["states_to_do"][2] = req
 
         self._build_jobs()
         # Setup multmap
@@ -936,6 +944,9 @@ class SHARC_ORCA(SHARC_ABINITIO):
                     job2 = self.QMin.maps["multmap"][mult2]
                     el2 = self.QMin.maps["chargemap"][mult2]
                     if abs(mult1 - mult2) == 1 and abs(el1 - el2) == 1:
+                        if self.QMin.molecule["states"][mult1-1] == 1 or self.QMin.molecule["states"][mult2-1] == 1:
+                            self.log.error(f"Ion requested, but number of states for multiplicity {mult1} or {mult2} is less than 2!")
+                            raise ValueError()
                         self.QMin.maps["ionmap"].append((mult1, job1, mult2, job2))
 
         # Setup gsmap
@@ -1223,7 +1234,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
         charge = qmin.maps["chargemap"][gsmult]
 
         # excited states to calculate
-        states_to_do = qmin.control["states_to_do"]
+        states_to_do = deepcopy(qmin.control["states_to_do"])
         for imult, _ in enumerate(states_to_do):
             if not imult + 1 in qmin.maps["multmap"][-job]:
                 states_to_do[imult] = 0
