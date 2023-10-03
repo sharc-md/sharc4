@@ -68,7 +68,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 "orcadir": None,
                 "orcaversion": None,
                 "wfoverlap": None,
-                "wfthres": None,
+                "wfthres": 1.0,
                 "numfrozcore": 0,
                 "numocc": None,
                 "schedule_scaling": 0.9,
@@ -125,7 +125,6 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 "intacc": float,
             }
         )
-        # no range_sep_settings, can be done with paste_input_file
 
         # List of depricated keys
         self._depricated = ["range_sep_settings", "grid", "gridx", "gridxc", "picture_change", "qmmm", "unrestricted_triplets"]
@@ -227,6 +226,8 @@ class SHARC_ORCA(SHARC_ABINITIO):
 
         # Save files
         self._save_files(workdir, jobid)
+        if self.QMin.requests["ion"] and jobid == 1:
+            self._get_ao_matrix(workdir)
 
         # Delete files not needed
         work_files = os.listdir(workdir)
@@ -235,6 +236,50 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 os.remove(os.path.join(workdir, file))
 
         return exit_code, endtime - starttime
+
+    def _get_ao_matrix(self, workdir: str) -> None:
+        """
+        Call orca_fragovl and extract ao matrix
+        """
+        orca_gbw = os.path.join(workdir, "ORCA.gbw")
+        self.log.debug(f"Extracting AO matrix from {orca_gbw} for ion request")
+
+        # TODO: REFACTOR!
+
+        # run orca_fragovl
+        string = f"orca_fragovl {orca_gbw} {orca_gbw}"
+        try:
+            proc = sp.Popen(string, shell=True, stdout=sp.PIPE, stderr=sp.PIPE)
+        except OSError as err:
+            self.log.error("Call have had some serious problems")
+            raise OSError() from err
+        comm = proc.communicate()[0].decode()
+        out = comm.split("\n")
+        # get size of matrix
+        for line in reversed(out):
+            # print line
+            s = line.split()
+            if len(s) >= 1:
+                NAO = int(line.split()[0]) + 1
+                break
+
+        # read matrix
+        nblock = 6
+        ao_ovl = [[0.0 for i in range(NAO)] for j in range(NAO)]
+        for x in range(NAO):
+            for y in range(NAO):
+                block = x // nblock
+                xoffset = x % nblock + 1
+                yoffset = block * (NAO + 1) + y + 10
+                ao_ovl[x][y] = float(out[yoffset].split()[xoffset])
+
+        string = "%i %i\n" % (NAO, NAO)
+        for irow in range(NAO):
+            for icol in range(NAO):
+                string += "% .7e " % (ao_ovl[icol][irow])
+            string += "\n"
+        filename = os.path.join(self.QMin.save["savedir"], "AO_overl")
+        writefile(filename, string)
 
     def _save_files(self, workdir: str, jobid: int) -> None:
         """
@@ -260,11 +305,11 @@ class SHARC_ORCA(SHARC_ABINITIO):
         # Save gbw and dets from cis
         if self.QMin.requests["ion"] or not self.QMin.requests["nooverlap"]:
             self.log.debug("Write MO coefficients to savedir")
-            writefile(os.path.join(savedir, f"mos.{jobid}"), self._get_mos(os.path.join(workdir, "ORCA.gbw"), jobid))
+            writefile(os.path.join(savedir, f"mos.{jobid}.{step}"), self._get_mos(os.path.join(workdir, "ORCA.gbw"), jobid))
             self.log.debug("Write CIS determinants to savedir")
             cis_dets = self.get_dets_from_cis(os.path.join(workdir, "ORCA.cis"), jobid)
             for det_file, cis_det in cis_dets.items():
-                writefile(os.path.join(savedir, f"{det_file}.{jobid}.{step}"), cis_det)
+                writefile(os.path.join(savedir, f"{det_file}.{step}"), cis_det)
 
             shutil.copy(os.path.join(workdir, "ORCA.gbw"), os.path.join(savedir, f"ORCA.gbw.{jobid}.{step}"))
 
@@ -730,8 +775,76 @@ class SHARC_ORCA(SHARC_ABINITIO):
         if self.QMin.requests["theodore"]:
             self._run_theodore()
 
+        # Run wfoverlap
+        self._run_wfoverlap()
+
         self.log.debug("All jobs finished successful")
-        # TODO: wfoverlap
+
+    def _run_wfoverlap(self) -> None:
+        """
+        Prepare files and folders for wfoverlap and execute wfoverlap
+        """
+
+        # Content of wfoverlap input file
+        wf_input = dedent(
+            """\
+        mix_aoovl=aoovl
+        a_mo=mo.a
+        b_mo=mo.b
+        a_det=det.a
+        b_det=det.b
+        a_mo_read=0
+        b_mo_read=0
+        ao_read=0
+        """
+        )
+        if self.QMin.resources["numocc"]:
+            wf_input += f"ndocc={self.QMin.resources['numocc']}\n"
+
+        if self.QMin.resources["ncpu"] >= 8:
+            wf_input += "force_direct_dets"
+
+        # cmdline string
+        wf_cmd = f"{self.QMin.resources['wfoverlap']} -m {self.QMin.resources['memory']} -f wfovl.inp"
+
+        # Dyson calculations
+        if self.QMin.requests["ion"]:
+            for ion_pair in self.QMin.maps["ionmap"]:
+                workdir = os.path.join(self.QMin.resources["scratchdir"], "Dyson_" + "_".join(str(ion) for ion in ion_pair))
+                mkdir(workdir)
+                # Write input
+                writefile(os.path.join(workdir, "wfovl.inp"), wf_input)
+
+                # Link files
+                link(os.path.join(self.QMin.save["savedir"], "AO_overl"), os.path.join(workdir, "aoovl"))
+                link(
+                    os.path.join(self.QMin.save["savedir"], f"dets.{ion_pair[0]}.{self.QMin.save['step']}"),
+                    os.path.join(workdir, "det.a"),
+                )
+                link(
+                    os.path.join(self.QMin.save["savedir"], f"dets.{ion_pair[2]}.{self.QMin.save['step']}"),
+                    os.path.join(workdir, "det.b"),
+                )
+                link(
+                    os.path.join(self.QMin.save["savedir"], f"mos.{ion_pair[1]}.{self.QMin.save['step']}"),
+                    os.path.join(workdir, "mo.a"),
+                )
+                link(
+                    os.path.join(self.QMin.save["savedir"], f"mos.{ion_pair[3]}.{self.QMin.save['step']}"),
+                    os.path.join(workdir, "mo.b"),
+                )
+
+                # Execute wfoverlap
+                starttime = datetime.datetime.now()
+                code = self.run_program(workdir, wf_cmd, os.path.join(workdir, "wfovl.out"), os.path.join(workdir, "wfovl.err"))
+                self.log.info(
+                    f"Finished wfoverlap job: {str(ion_pair):<10s} code: {code:<4d} runtime: {datetime.datetime.now()-starttime}"
+                )
+                if code != 0:
+                    self.log.error("wfoverlap did not finish successfully!")
+                    with open(os.path.join(workdir, "wfovl.err"), "r", encoding="utf-8") as err_file:
+                        self.log.error(err_file.read())
+                    raise OSError()
 
     def _run_theodore(self) -> None:
         """
@@ -865,7 +978,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
         restricted = self.QMin.control["jobs"][jobid]["restr"]
         mults = self.QMin.control["jobs"][jobid]["mults"]
         gsmult = self.QMin.maps["multmap"][-int(jobid)][0]
-        frozcore = self.QMin.resources["numfrozcore"]
+        frozcore = self.QMin.molecule["frozcore"]
         states_extract = deepcopy(self.QMin.molecule["states"])
         states_skip = [self.QMin.control["states_to_do"][i] - states_extract[i] for i in range(len(states_extract))]
         for i, _ in enumerate(states_extract):
@@ -895,12 +1008,12 @@ class SHARC_ORCA(SHARC_ABINITIO):
             # ground state configuration
             # 0: empty, 1: alpha, 2: beta, 3: double oppupied
             if restricted:
-                occ_a = [3] * (nfc + noa) + [0] * nva
-                occ_b = []
+                occ_a = tuple([3] * (nfc + noa) + [0] * nva)
+                occ_b = tuple()
             else:
                 buffsize += (header[5] + 1 - header[4]) * (header[7] + 1 - header[6])
-                occ_a = [1] * (nfc + noa) + [0] * nva
-                occ_b = [2] * (nfc + nob) + [0] * nvb
+                occ_a = tuple([1] * (nfc + noa) + [0] * nva)
+                occ_b = tuple([2] * (nfc + nob) + [0] * nvb)
 
             # Iterate over multiplicities and parse determinants
             eigenvectors = {}
@@ -908,10 +1021,10 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 eigenvectors[mult] = []
 
                 if mult == gsmult:
-                    key = occ_a[frozcore:] + occ_b[frozcore:]
-                    eigenvectors[mult].append({tuple(key): 1.0})
+                    key = tuple(occ_a[frozcore:] + occ_b[frozcore:])
+                    eigenvectors[mult].append({key: 1.0})
 
-                for _ in range(1, states_extract[mult - 1]):
+                for _ in range(states_extract[mult - 1]):
                     cis_file.read(40)
                     dets = {}
 
@@ -940,7 +1053,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
                                     dets[(occ, virt, 2)] /= 2
 
                     # Truncate determinants with contribution under threshold
-                    norm = 0
+                    norm = 0.0
                     for k in sorted(dets, key=lambda x: dets[x] ** 2, reverse=True):
                         if norm > self.QMin.resources["wfthres"]:
                             del dets[k]
@@ -950,7 +1063,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
                     dets_exp = {}
                     for occ, virt, dummy in dets:
                         if restricted:
-                            key = deepcopy(occ_a)
+                            key = list(occ_a)
                             match mult:
                                 case 1:
                                     key[occ], key[virt] = 2, 1
@@ -961,7 +1074,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
                                     key[occ], key[virt] = 1, 1
                                     dets_exp[tuple(key)] = dets[(occ, virt, dummy)]
                         else:
-                            key = occ_a + occ_b
+                            key = list(occ_a + occ_b)
                             match dummy:
                                 case 1:
                                     key[occ], key[virt] = 0, 1
@@ -981,26 +1094,24 @@ class SHARC_ORCA(SHARC_ABINITIO):
                             if any(map(lambda x: x != 3, key[:frozcore])):
                                 self.log.warning("Non-occupied orbital inside frozen core! Skipping ...")
                                 continue
-                            dets_nofroz[key[frozcore:]] = val
+                            key2 = key[frozcore:]
+                            dets_nofroz[key2] = val
                             continue
                         if any(map(lambda x: x != 1, key[:frozcore])) or any(
                             map(lambda x: x != 2, key[frozcore + noa + nva : noa + nva + 2 * frozcore])
                         ):
                             self.log.warning("Non-occupied orbital inside frozen core! Skipping ...")
                             continue
-                        dets_nofroz[key[frozcore : frozcore + noa + nva] + key[noa + nva + 2 * frozcore]] = val
+                        key2 = key[frozcore : frozcore + noa + nva] + key[noa + nva + 2 * frozcore :]
+                        dets_nofroz[key2] = val
                     eigenvectors[mult].append(dets_nofroz)
 
-                    # Skip extra roots
-                    skip = 40 + noa * nva * 8
-                    if not restricted:
-                        skip += nob * nvb * 8
-                    if self.QMin.template["no_tda"]:
-                        skip += 40 + noa * nva * 8
-                        if not restricted:
-                            skip += nob * nvb * 8
-                    skip *= states_skip[mult - 1]
-                    cis_file.read(skip)
+                # Skip extra roots
+                skip = 40 + buffsize * 8
+                if self.QMin.template["no_tda"]:
+                    skip *= 2
+                skip *= states_skip[mult - 1]
+                cis_file.read(skip)
 
             # Convert determinant lists to strins
             strings = {}
