@@ -381,14 +381,18 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         """
         alldets = set()
         for dets in ci_vectors:
-            for key, val in dets.items():
-                alldets.add((key, val))
+            for key in dets:
+                alldets.add((key))
         trans_table = str.maketrans({"0": "e", "1": "a", "2": "b", "3": "d"})
-
         string = f"{len(ci_vectors)} {len(next(iter(alldets)))} {len(alldets)}\n"
         for det in sorted(alldets, reverse=True):
-            string += "".join(str(x) for x in det[0]).translate(trans_table)
-            string += f" {det[1]:11.7f} \n"
+            string += "".join(str(x) for x in det).translate(trans_table)
+            for ci_vec in ci_vectors:
+                if det in ci_vec:
+                    string += f" {ci_vec[det]: 11.7f} "
+                else:
+                    string += f" {0: 11.7f} "
+            string += "\n"
         return string
 
     @staticmethod
