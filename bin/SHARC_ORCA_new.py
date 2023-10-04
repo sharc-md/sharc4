@@ -7,7 +7,7 @@ import struct
 import subprocess as sp
 from copy import deepcopy
 from io import TextIOWrapper
-from itertools import pairwise
+from itertools import pairwise, count
 from textwrap import dedent
 from typing import Optional
 
@@ -490,9 +490,9 @@ class SHARC_ORCA(SHARC_ABINITIO):
             with open(os.path.join(self.QMin.resources["scratchdir"], f"master_{job}/ORCA.log"), "r", encoding="utf-8") as file:
                 log_file = file.read()
                 mults = self.QMin.control["jobs"][job]["mults"]
-                states = [0] + [x * m for m, x in enumerate(self.QMin.molecule["states"],1)]
-                job_states = [x if i in mults else 0 for i,x in enumerate(states)]
-                
+                states = [0] + [x * m for m, x in enumerate(self.QMin.molecule["states"], 1)]
+                job_states = [x if i in mults else 0 for i, x in enumerate(states)]
+
                 # Populate SOC matrix
                 if self.QMin.requests["soc"] and self.QMin.control["jobs"][job]["restr"]:
                     for mult in mults:
@@ -504,7 +504,6 @@ class SHARC_ORCA(SHARC_ABINITIO):
 
                         # Offdiagonals
 
-
                 # Populate energies
                 if self.QMin.requests["h"]:
                     energies = self._get_energy(log_file, mults)
@@ -514,7 +513,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
                             self.QMout["h"][i][i] = energies[(statemap[0], statemap[1])]
 
                 # Populate dipole moments
-                #if self.QMin.requests["dm"]:  # TODO: maybe wrong?
+                # if self.QMin.requests["dm"]:  # TODO: maybe wrong?
                 #    # Diagonal elements
                 #    # Excited states
                 #    # dp_moment = self._get_dipole_moment(log_file, False)
@@ -628,11 +627,12 @@ class SHARC_ORCA(SHARC_ABINITIO):
         # Get number of states
         n_roots = re.search(r"nroots\s+(\d+)", output)
         if not n_roots:
-            self.log.error("Cannot find number of roots in ORCA oufile!")
+            self.log.error("Cannot find number of roots in ORCA outfile!")
             raise ValueError()
 
-        n_states = int(n_roots.group(1))
-        n_states = n_states + 1 + 3 * n_states
+        n_trip = int(n_roots.group(1))
+        n_sing = n_trip + 1
+        n_states = n_sing + 3 * n_trip
         padding = n_states % 6
 
         # Extract matrix from outfile
@@ -659,7 +659,29 @@ class SHARC_ORCA(SHARC_ABINITIO):
         soc_matrix = np.asarray(soc_matrix)
         soc_matrix[-len(padding_array) :] = padding_array
         soc_matrix = np.hstack(soc_matrix.reshape(-1, n_states, 6))[:, :n_states]
-        np.fill_diagonal(soc_matrix, complex(0))
+
+        # Reorder matrix from T 0 -1 1 to -1 0 1
+        for i in range(n_trip):
+            soc_matrix[:, [n_sing + i, n_sing + i + n_trip]] = soc_matrix[:, [n_sing + i + n_trip, n_sing + i]]
+            soc_matrix[[n_sing + i, n_sing + i + n_trip], :] = soc_matrix[[n_sing + i + n_trip, n_sing + i], :]
+
+        # Create indices of rows/cols to skip
+        counter = iter(count(n_sing))
+        trip_slice = np.array(
+            [[next(counter) for _ in range(n_trip)][self.QMin.molecule["states"][2] :] for _ in range(3)]
+        ).flatten()
+        sing_slice = [x for x in range(self.QMin.molecule["states"][0], n_sing)]
+
+        # Remove extra triplets
+        if trip_slice.size > 0:
+            soc_matrix = np.delete(soc_matrix, trip_slice, axis=0)
+            soc_matrix = np.delete(soc_matrix, trip_slice, axis=1)
+
+        # Remove extra singlets
+        if sing_slice:
+            soc_matrix = np.delete(soc_matrix, sing_slice, axis=0)
+            soc_matrix = np.delete(soc_matrix, sing_slice, axis=1)
+
         return soc_matrix
 
     def _get_energy(self, output: str, mults: list[int]) -> dict[tuple[int, int], float]:
@@ -921,8 +943,8 @@ class SHARC_ORCA(SHARC_ABINITIO):
 
         if len(self.QMin.molecule["states"]) >= 3 and self.QMin.molecule["states"][2] > 0:
             self.log.debug("Setup states_to_do")
-            self.QMin.control["states_to_do"][0] = max(self.QMin.molecule['states'][0], 1)
-            req = max(self.QMin.molecule['states'][0] - 1, self.QMin.molecule['states'][2])
+            self.QMin.control["states_to_do"][0] = max(self.QMin.molecule["states"][0], 1)
+            req = max(self.QMin.molecule["states"][0] - 1, self.QMin.molecule["states"][2])
             self.QMin.control["states_to_do"][0] = req + 1
             self.QMin.control["states_to_do"][2] = req
 
@@ -949,8 +971,10 @@ class SHARC_ORCA(SHARC_ABINITIO):
                     job2 = self.QMin.maps["multmap"][mult2]
                     el2 = self.QMin.maps["chargemap"][mult2]
                     if abs(mult1 - mult2) == 1 and abs(el1 - el2) == 1:
-                        if self.QMin.molecule["states"][mult1-1] == 1 or self.QMin.molecule["states"][mult2-1] == 1:
-                            self.log.error(f"Ion requested, but number of states for multiplicity {mult1} or {mult2} is less than 2!")
+                        if self.QMin.molecule["states"][mult1 - 1] == 1 or self.QMin.molecule["states"][mult2 - 1] == 1:
+                            self.log.error(
+                                f"Ion requested, but number of states for multiplicity {mult1} or {mult2} is less than 2!"
+                            )
                             raise ValueError()
                         self.QMin.maps["ionmap"].append((mult1, job1, mult2, job2))
 
