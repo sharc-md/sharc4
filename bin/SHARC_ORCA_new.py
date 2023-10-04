@@ -495,14 +495,16 @@ class SHARC_ORCA(SHARC_ABINITIO):
 
                 # Populate SOC matrix
                 if self.QMin.requests["soc"] and self.QMin.control["jobs"][job]["restr"]:
+                    soc_mat = self._get_socs(log_file)
                     for mult in mults:
-                        soc_mat = self._get_socs(log_file)
                         # Diagonal blocks
-                        start1, stop1 = sum(job_states[: mult]), sum(job_states[:mult+1])
-                        start, stop = sum(states[: mult]), sum(states[: mult+1])
+                        start1, stop1 = sum(job_states[:mult]), sum(job_states[: mult + 1])
+                        start, stop = sum(states[:mult]), sum(states[: mult + 1])
                         self.QMout["h"][start:stop, start:stop] = soc_mat[start1:stop1, start1:stop1]
 
-                        # Offdiagonals
+                    # Offdiagonals
+                    self.QMout["h"][: states[1], sum(states[:3]) : sum(states[:4])] = soc_mat[: states[1], states[1] :]
+                    self.QMout["h"][sum(states[:3]) : sum(states[:4]), : states[1]] = soc_mat[states[1] :, : states[1]]
 
                 # Populate energies
                 if self.QMin.requests["h"]:
