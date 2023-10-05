@@ -1,5 +1,5 @@
 import pytest
-from SHARC_ORCA_new import SHARC_ORCA
+from SHARC_ORCA import SHARC_ORCA
 
 
 def setup_interface(path: str, maps: dict):
