@@ -7,7 +7,7 @@ import struct
 import subprocess as sp
 from copy import deepcopy
 from io import TextIOWrapper
-from itertools import pairwise, count
+from itertools import count, pairwise
 from textwrap import dedent
 from typing import Optional
 
@@ -15,7 +15,7 @@ import numpy as np
 from constants import IToMult
 from qmin import QMin
 from SHARC_ABINITIO import SHARC_ABINITIO
-from utils import expand_path, itmult, mkdir, writefile, link
+from utils import expand_path, itmult, link, mkdir, writefile
 
 __all__ = ["SHARC_ORCA"]
 
@@ -105,6 +105,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 "maxiter": 700,
                 "hfexchange": -1.0,
                 "intacc": -1.0,
+                "unrestricted_triplets": False,
             }
         )
         self.QMin.template.types.update(
@@ -123,11 +124,12 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 "maxiter": int,
                 "hfexchange": float,
                 "intacc": float,
+                "unrestricted_triplets": bool,
             }
         )
 
         # List of depricated keys
-        self._depricated = ["range_sep_settings", "grid", "gridx", "gridxc", "picture_change", "qmmm", "unrestricted_triplets"]
+        self._depricated = ["range_sep_settings", "grid", "gridx", "gridxc", "picture_change", "qmmm"]
 
     @staticmethod
     def version() -> str:
@@ -789,6 +791,12 @@ class SHARC_ORCA(SHARC_ABINITIO):
             if depr.casefold() in self.QMin.template:
                 self.log.warning(f"Template key {depr} is depricated and will be ignored!")
 
+        # Check if unrestricted triplets needed
+        if not self.QMin.template["unrestricted_triplets"]:
+            if len(self.QMin.template["charge"]) >= 3 and self.QMin.template["charge"][0] != self.QMin.template["charge"][2]:
+                self.log.error("Charges of singlets and triplets differ. Please enable the unrestricted_triplets option!")
+                raise ValueError()
+
     def remove_old_restart_files(self, retain: int = 5) -> None:
         """
         Garbage collection after runjobs()
@@ -948,12 +956,21 @@ class SHARC_ORCA(SHARC_ABINITIO):
         """
         super().setup_interface()
 
-        if len(self.QMin.molecule["states"]) >= 3 and self.QMin.molecule["states"][2] > 0:
+        if (
+            not self.QMin.template["unrestricted_triplets"]
+            and len(self.QMin.molecule["states"]) >= 3
+            and self.QMin.molecule["states"][2] > 0
+        ):
             self.log.debug("Setup states_to_do")
             self.QMin.control["states_to_do"][0] = max(self.QMin.molecule["states"][0], 1)
             req = max(self.QMin.molecule["states"][0] - 1, self.QMin.molecule["states"][2])
             self.QMin.control["states_to_do"][0] = req + 1
             self.QMin.control["states_to_do"][2] = req
+        elif self.QMin.requests["soc"] and len(self.QMin.molecule["states"]) >= 3 and self.QMin.molecule["states"][2] > 0:
+            self.log.error("Request SOC is not compatible with unrestricted_triplets!")
+            raise ValueError()
+        else:
+            self.QMin.control["states_to_do"] = deepcopy(self.QMin.molecule["states"])
 
         self._build_jobs()
         # Setup multmap
@@ -1010,8 +1027,10 @@ class SHARC_ORCA(SHARC_ABINITIO):
         for idx, state in enumerate(self.QMin.control["states_to_do"]):
             if state > 0 and idx != 2:
                 jobs[idx + 1] = {"mults": [idx + 1], "restr": bool(idx == 0)}
-            if state > 0 and idx == 2:
+            if state > 0 and idx == 2 and not self.QMin.template["unrestricted_triplets"]:
                 jobs[1]["mults"].append(3)
+            elif state > 0 and idx == 2 and self.QMin.template["unrestricted_triplets"]:
+                jobs[3] = {"mults": [3], "restr": True}
 
         self.QMin.control["jobs"] = jobs
         self.QMin.control["joblist"] = sorted(set(jobs))
