@@ -803,6 +803,13 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 self.log.error("Charges of singlets and triplets differ. Please enable the unrestricted_triplets option!")
                 raise ValueError()
 
+        # Check if valid paste_input_file path is given
+        if self.QMin.template["paste_input_file"]:
+            self.QMin.template["paste_input_file"] = expand_path(self.QMin.template["paste_input_file"])
+            if not os.path.isfile(self.QMin.template["paste_input_file"]):
+                self.log.error(f"paste_input_file {self.QMin.template['paste_input_file']} does not exist!")
+                raise FileNotFoundError()
+
     def remove_old_restart_files(self, retain: int = 5) -> None:
         """
         Garbage collection after runjobs()
@@ -1414,6 +1421,11 @@ class SHARC_ORCA(SHARC_ABINITIO):
         # Point charges
         if qmin.molecule["point_charges"]:
             string += '%pointcharges "ORCA.pc"\n\n'
+
+        # Paste input file
+        if qmin.template["paste_input_file"]:
+            with open(qmin.template["paste_input_file"], "r", encoding="utf-8") as paste:
+                string += f"{paste.read()}\n"
         return string
 
     @staticmethod
