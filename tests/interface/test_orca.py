@@ -13,11 +13,11 @@ def setup_interface(path: str, maps: dict):
         assert test_interface.QMin.maps[k] == v, test_interface.QMin.maps[k]
 
 
-def build_jobs(path: str, maps: dict):
+def build_jobs(path: str, template: str, maps: dict):
     test_interface = SHARC_ORCA()
     test_interface.setup_mol(path)
     test_interface._read_resources = True
-    test_interface._read_template = True
+    test_interface.read_template(template)
     test_interface.read_requests(path)
     test_interface.setup_interface()
     for k, v in maps.items():
@@ -95,7 +95,7 @@ def test_maps():
                     19: 1,
                     20: 1,
                     21: 1,
-                    22: 1
+                    22: 1,
                 },
             },
         )
@@ -168,22 +168,16 @@ def test_energies():
         get_energy(outfile, template, qmin, mults, energies)
 
 
-def test_buildjobs():
+def test_buildjobs1():
     tests = [
-        #(
-        #    "inputs/QM1.in",
-        #    {
-        #        "joblist": [1, 2],
-        #        "states_to_do": [6, 1, 5],
-        #        "jobs": {1: {"mults": [1, 3], "restr": True}, 2: {"mults": [2], "restr": False}},
-        #    },
-        #),
         (
             "inputs/orca3.in",
+            "inputs/job_template1",
             {"joblist": [2], "states_to_do": [0, 5], "jobs": {2: {"mults": [2], "restr": False}}},
         ),
         (
             "inputs/orca4.in",
+            "inputs/job_template1",
             {
                 "joblist": [2, 4],
                 "states_to_do": [0, 2, 0, 2],
@@ -192,16 +186,46 @@ def test_buildjobs():
         ),
         (
             "inputs/orca5.in",
+            "inputs/job_template1",
             {
                 "joblist": [1, 2],
                 "states_to_do": [4, 2, 3],
                 "jobs": {1: {"mults": [1, 3], "restr": True}, 2: {"mults": [2], "restr": False}},
             },
         ),
+        (
+            "inputs/orca6.in",
+            "inputs/job_template2",
+            {
+                "joblist": [2, 3],
+                "states_to_do": [0, 2, 3],
+                "jobs": {2: {"mults": [2], "restr": False}, 3: {"mults": [3], "restr": True}},
+            },
+        ),
+        (
+            "inputs/orca7.in",
+            "inputs/job_template2",
+            {
+                "joblist": [1, 2, 3],
+                "states_to_do": [1, 2, 3],
+                "jobs": {1: {"mults": [1], "restr": True}, 2: {"mults": [2], "restr": False}, 3: {"mults": [3], "restr": True}},
+            },
+        ),
     ]
 
-    for path, maps in tests:
-        build_jobs(path, maps)
+    for path, template, maps in tests:
+        build_jobs(path, template, maps)
+
+
+def test_buildjobs2():
+    tests = [
+        ("inputs/orca5.in", "inputs/job_template3", {}),
+        ("inputs/orca8.in", "inputs/job_template2", {}),
+    ]
+
+    for path, template, maps in tests:
+        with pytest.raises(ValueError):
+            build_jobs(path, template, maps)
 
 
 @pytest.mark.dependency(depends=["test_orcaversion"])
