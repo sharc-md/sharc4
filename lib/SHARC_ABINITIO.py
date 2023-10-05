@@ -166,6 +166,8 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                     )
             else:
                 raise ValueError('Length of "charge" does not match length of "states"!')
+        else:
+            self.QMin.template["charge"] = [i % 2 for i in range(len(self.QMin.molecule["states"]))]
 
     @abstractmethod
     def read_resources(self, resources_file: str, kw_whitelist: Optional[list[str]] = None) -> None:
