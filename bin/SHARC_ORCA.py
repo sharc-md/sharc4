@@ -827,6 +827,8 @@ class SHARC_ORCA(SHARC_ABINITIO):
         save directory handling
         """
 
+        starttime = datetime.datetime.now()
+
         # Generate schedule and run jobs
         self.log.debug("Generating schedule")
         self._gen_schedule()
@@ -842,6 +844,8 @@ class SHARC_ORCA(SHARC_ABINITIO):
         self._run_wfoverlap()
 
         self.log.debug("All jobs finished successful")
+
+        self.QMout["runtime"] = datetime.datetime.now() - starttime
 
     def _run_wfoverlap(self) -> None:
         """
@@ -1444,29 +1448,3 @@ class SHARC_ORCA(SHARC_ABINITIO):
 
 if __name__ == "__main__":
     SHARC_ORCA(loglevel=10).main()
-    # test = SHARC_ORCA(loglevel=10)
-    # test.setup_mol("QM.in")
-    # test.read_resources("ORCA.resources", kw_whitelist=["theodore_prop", "theodore_fragment"])
-    # test.read_template("ORCA.template")
-    # test.read_requests("QM.in")
-    # test.setup_interface()
-    ## test.QMin.control["jobid"] = 1
-    # test._gen_schedule()
-    ## cidets = test.get_dets_from_cis(
-    ##   # "/user/mai/Documents/CoWorkers/FelixProche/full/orca.cis"
-    ##   # "/user/mai/Documents/CoWorkers/Anna/test2/orca.cis"
-    ##   # "/user/mai/Documents/CoWorkers/AnnaMW/ORCA_wfoverlap/real_test/A/ORCA.cis"
-    ##   "/user/sascha/development/eci/sharc_main/TEST/ORCA.cis"
-    ## )
-    ## print(cidets["./SAVEDIR/dets.1"][:5000])
-    # test.set_coords("QM.in")
-    # test.QMin.scheduling["schedule"][0]["master_1"].coords = test.QMin.coords
-    ## np.set_printoptions(precision=1, suppress=False)
-    # test.getQMout()
-    ## print(test.generate_inputstr(test.QMin.scheduling["schedule"][0]["master_1"]))
-    ## code = test.execute_from_qmin(
-    ## os.path.join(test.QMin.resources["pwd"], "TEST"), test.QMin.scheduling["schedule"][0]["master_1"]
-    ## )
-    ## print(code)
-    # test.QMout.printQMout(test.QMin)
-    # print(test.QMin)
