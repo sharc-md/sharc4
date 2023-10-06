@@ -2,7 +2,6 @@ import datetime
 import math
 import os
 import subprocess as sp
-import sys
 import time
 from abc import abstractmethod
 from datetime import date
