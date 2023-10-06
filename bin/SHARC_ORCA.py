@@ -974,21 +974,24 @@ class SHARC_ORCA(SHARC_ABINITIO):
         """
         super().setup_interface()
 
+        states_to_do = deepcopy(self.QMin.molecule["states"])
+        for mult, state in enumerate(self.QMin.molecule["states"]):
+            if state > 0:
+                states_to_do[mult] += self.QMin.template["paddingstates"][mult]
         if (
             not self.QMin.template["unrestricted_triplets"]
             and len(self.QMin.molecule["states"]) >= 3
             and self.QMin.molecule["states"][2] > 0
         ):
             self.log.debug("Setup states_to_do")
-            self.QMin.control["states_to_do"][0] = max(self.QMin.molecule["states"][0], 1)
+            states_to_do[0] = max(self.QMin.molecule["states"][0], 1)
             req = max(self.QMin.molecule["states"][0] - 1, self.QMin.molecule["states"][2])
-            self.QMin.control["states_to_do"][0] = req + 1
-            self.QMin.control["states_to_do"][2] = req
+            states_to_do[0] = req + 1
+            states_to_do[2] = req
         elif self.QMin.requests["soc"] and len(self.QMin.molecule["states"]) >= 3 and self.QMin.molecule["states"][2] > 0:
             self.log.error("Request SOC is not compatible with unrestricted_triplets!")
             raise ValueError()
-        else:
-            self.QMin.control["states_to_do"] = deepcopy(self.QMin.molecule["states"])
+        self.QMin.control["states_to_do"] = states_to_do
 
         self._build_jobs()
         # Setup multmap
@@ -1048,7 +1051,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
             if state > 0 and idx == 2 and not self.QMin.template["unrestricted_triplets"]:
                 jobs[1]["mults"].append(3)
             elif state > 0 and idx == 2 and self.QMin.template["unrestricted_triplets"]:
-                jobs[3] = {"mults": [3], "restr": True}
+                jobs[3] = {"mults": [3], "restr": False}
 
         self.QMin.control["jobs"] = jobs
         self.QMin.control["joblist"] = sorted(set(jobs))
