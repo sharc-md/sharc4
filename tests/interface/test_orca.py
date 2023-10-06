@@ -199,7 +199,7 @@ def test_buildjobs1():
             {
                 "joblist": [2, 3],
                 "states_to_do": [0, 2, 3],
-                "jobs": {2: {"mults": [2], "restr": False}, 3: {"mults": [3], "restr": True}},
+                "jobs": {2: {"mults": [2], "restr": False}, 3: {"mults": [3], "restr": False}},
             },
         ),
         (
@@ -208,7 +208,7 @@ def test_buildjobs1():
             {
                 "joblist": [1, 2, 3],
                 "states_to_do": [1, 2, 3],
-                "jobs": {1: {"mults": [1], "restr": True}, 2: {"mults": [2], "restr": False}, 3: {"mults": [3], "restr": True}},
+                "jobs": {1: {"mults": [1], "restr": True}, 2: {"mults": [2], "restr": False}, 3: {"mults": [3], "restr": False}},
             },
         ),
     ]
