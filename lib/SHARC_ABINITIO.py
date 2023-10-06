@@ -424,6 +424,43 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             props[(m, n + (m == 1))].extend([safe_cast(i, float, 0.0) for i in s[4:]])
         return props
 
+    @staticmethod
+    def parallel_speedup(N, scaling) -> float:
+        # computes the parallel speedup from Amdahls law
+        # with scaling being the fraction of parallelizable work and (1-scaling) being the serial part
+        return 1. / ((1 - scaling) + scaling / N)
+
+    @staticmethod
+    def divide_slots(ncpu, ntasks, scaling):
+        # this routine figures out the optimal distribution of the tasks over the CPU cores
+        #   returns the number of rounds (how many jobs each CPU core will contribute to),
+        #   the number of slots which should be set in the Pool,
+        #   and the number of cores for each job.
+        ntasks_per_round = min(ncpu, ntasks)
+        optimal = {}
+        for i in range(1, 1 + ntasks_per_round):
+            nrounds = int(math.ceil(ntasks / i))
+            ncores = ncpu // i
+            optimal[i] = nrounds / INTERFACE.parallel_speedup(ncores, scaling)
+        best = min(optimal, key=optimal.get)
+        nrounds = int(math.ceil(float(ntasks) // best))
+        ncores = ncpu // best
+
+        cpu_per_run = [0] * ntasks
+        if nrounds == 1:
+            itask = 0
+            for icpu in range(ncpu):
+                cpu_per_run[itask] += 1
+                itask += 1
+                if itask >= ntasks:
+                    itask = 0
+            nslots = ntasks
+        else:
+            for itask in range(ntasks):
+                cpu_per_run[itask] = ncores
+            nslots = ncpu // ncores
+        return nrounds, nslots, cpu_per_run
+
     # also add staticmethod
     # routine to read wfoverlap output
 
