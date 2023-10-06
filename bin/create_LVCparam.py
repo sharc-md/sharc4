@@ -294,8 +294,33 @@ def partition_matrix(matrix, multiplicity, states):
 
 # ======================================================================= #
 
-
 def phase_correction(matrix):
+    U = np.array(matrix).real
+    det = np.linalg.det(U)
+    if det < 0:
+        U[:, 0] *= -1.    # this row/column convention is correct
+
+    # sweeps
+    l = len(U)
+    while True:
+        done = True
+        for j in range(l):
+            for k in range(j + 1, l):
+                delta = 3. * (U[j, j]**2 + U[k, k]**2)
+                delta += 6. * U[k, j] * U[j, k]
+                delta += 8. * (U[k, k] + U[j, j])
+                for i in range(l):
+                    delta -= 3. * (U[j, i] * U[i, j] + U[k, i] * U[i, k])
+                if delta < 0:
+                    U[:, j] *= -1.    # this row/column convention is correct
+                    U[:, k] *= -1.    # this row/column convention is correct
+                    done = False
+        if done:
+            break
+
+    return U.tolist()
+
+def phase_correction_old(matrix):
     length = len(matrix)
     phase_corrected_matrix = [[.0 for x in range(length)] for x in range(length)]
 
