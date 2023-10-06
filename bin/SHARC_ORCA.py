@@ -533,7 +533,8 @@ class SHARC_ORCA(SHARC_ABINITIO):
                                 dipoles_es[dim],
                             )
                         if mult == gs_mult[0]:
-                            self.QMout["dm"][:, sum(states[:mult]), sum(states[:mult])] = dipoles_gs
+                            for m in range(mult):
+                                self.QMout["dm"][:, sum(states[:mult]) + m, sum(states[:mult]) + m] = dipoles_gs
 
                     # Offdiagonals
                     if self.QMin.molecule["states"][mults[0] - 1] > 1:
@@ -1382,7 +1383,8 @@ class SHARC_ORCA(SHARC_ABINITIO):
         # Excited states
         if max(states_to_do) > 0:
             string += f"%tddft\n\ttda {'false' if qmin.template['no_tda'] else 'true'}\n"
-            # TODO: Theodore
+            if qmin.requests["theodore"]:
+                string += "\ttprint 0.0001\n"
             if restr and trip:
                 string += "\ttriplets true\n"
             string += f"\tnroots {max(states_to_do)}\n"
