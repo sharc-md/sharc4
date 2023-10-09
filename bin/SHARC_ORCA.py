@@ -485,16 +485,15 @@ class SHARC_ORCA(SHARC_ABINITIO):
             requests=requests,
         )
 
-        nmstates = self.QMin.molecule["nmstates"]
-
         # Get contents of output file(s)
         for job in self.QMin.control["joblist"]:
             with open(os.path.join(self.QMin.resources["scratchdir"], f"master_{job}/ORCA.log"), "r", encoding="utf-8") as file:
                 log_file = file.read()
                 gs_mult, _ = self.QMin.control["jobs"][job].values()
                 mults = self.QMin.control["jobs"][job]["mults"]
-                states = [0] + [x * m for m, x in enumerate(self.QMin.molecule["states"], 1)]
-                job_states = [x if i in mults else 0 for i, x in enumerate(states)]
+                nm_states = [0] + [x * m for m, x in enumerate(self.QMin.molecule["states"], 1)]
+                states = [0] + self.QMin.molecule["states"]
+                job_states = [x if i in mults else 0 for i, x in enumerate(nm_states)]
 
                 # Populate SOC matrix
                 if self.QMin.requests["soc"] and self.QMin.control["jobs"][job]["restr"]:
@@ -502,17 +501,21 @@ class SHARC_ORCA(SHARC_ABINITIO):
                     for mult in mults:
                         # Diagonal blocks
                         start1, stop1 = sum(job_states[:mult]), sum(job_states[: mult + 1])
-                        start, stop = sum(states[:mult]), sum(states[: mult + 1])
+                        start, stop = sum(nm_states[:mult]), sum(nm_states[: mult + 1])
                         self.QMout["h"][start:stop, start:stop] = soc_mat[start1:stop1, start1:stop1]
 
                     # Offdiagonals
-                    self.QMout["h"][: states[1], sum(states[:3]) : sum(states[:4])] = soc_mat[: states[1], states[1] :]
-                    self.QMout["h"][sum(states[:3]) : sum(states[:4]), : states[1]] = soc_mat[states[1] :, : states[1]]
+                    self.QMout["h"][: nm_states[1], sum(nm_states[:3]) : sum(nm_states[:4])] = soc_mat[
+                        : nm_states[1], nm_states[1] :
+                    ]
+                    self.QMout["h"][sum(nm_states[:3]) : sum(nm_states[:4]), : nm_states[1]] = soc_mat[
+                        nm_states[1] :, : nm_states[1]
+                    ]
 
                 # Populate energies
                 if self.QMin.requests["h"]:
                     energies = self._get_energy(log_file, mults)
-                    for i in range(nmstates):
+                    for i in range(sum(nm_states)):
                         statemap = self.QMin.maps["statemap"][i + 1]
                         if statemap[0] in mults:
                             self.QMout["h"][i][i] = energies[(statemap[0], statemap[1])]
@@ -527,8 +530,8 @@ class SHARC_ORCA(SHARC_ABINITIO):
                             np.fill_diagonal(
                                 self.QMout["dm"][
                                     dim,
-                                    sum(states[:mult]) : sum(states[: mult + 1]),
-                                    sum(states[:mult]) : sum(states[: mult + 1]),
+                                    sum(nm_states[:mult]) : sum(nm_states[: mult + 1]),
+                                    sum(nm_states[:mult]) : sum(nm_states[: mult + 1]),
                                 ],
                                 dipoles_es[dim],
                             )
@@ -536,21 +539,25 @@ class SHARC_ORCA(SHARC_ABINITIO):
                             for m in range(mult):
                                 self.QMout["dm"][
                                     :,
-                                    sum(states[:mult]) + m * self.QMin.molecule["states"][mult - 1],
-                                    sum(states[:mult]) + m * self.QMin.molecule["states"][mult - 1],
+                                    sum(nm_states[:mult]) + m * states[mult],
+                                    sum(nm_states[:mult]) + m * states[mult],
                                 ] = dipoles_gs
 
                     # Offdiagonals
-                    # if self.QMin.molecule["states"][mults[0] - 1] > 1:
-                    #    dipoles_trans = self._get_transition_dipoles(log_file)
-                    #    for idx, val in enumerate(dipoles_trans, 1):  # States
-                    #        for m in range(mults[0]):  # Make copies for multiplicities
-                    #            self.QMout["dm"][
-                    #                :, sum(states[: mults[0]]) + m * mults[0], sum(states[: mults[0]]) + m * mults[0] + idx
-                    #            ] = val[:]
-                    #            self.QMout["dm"][
-                    #                :, sum(states[: mults[0]]) + m * mults[0] + idx, sum(states[: mults[0]]) + m * mults[0]
-                    #            ] = val[:]
+                    if states[mults[0]] > 1:
+                        dipoles_trans = self._get_transition_dipoles(log_file)
+                        for idx, val in enumerate(dipoles_trans[: states[mults[0]] - 1], 1):  # States
+                            for m in range(mults[0]):  # Make copies for multiplicities
+                                self.QMout["dm"][
+                                    :,
+                                    sum(nm_states[: mults[0]]) + m * states[mults[0]],
+                                    sum(nm_states[: mults[0]]) + m * states[mults[0]] + idx,
+                                ] = val[:]
+                                self.QMout["dm"][
+                                    :,
+                                    sum(nm_states[: mults[0]]) + m * states[mults[0]] + idx,
+                                    sum(nm_states[: mults[0]]) + m * states[mults[0]],
+                                ] = val[:]
 
         # Populate gradients
         if self.QMin.requests["grad"]:
@@ -573,7 +580,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
 
             # Populate neglected gradients
             neglected_grads = [
-                x for x in range(nmstates) if tuple(self.QMin.maps["statemap"][x + 1][0:2]) not in self.QMin.maps["gradmap"]
+                x for x in range(sum(nm_states)) if tuple(self.QMin.maps["statemap"][x + 1][0:2]) not in self.QMin.maps["gradmap"]
             ]
             match self.QMin.resources["neglected_gradient"]:
                 case "gs":
