@@ -96,13 +96,38 @@ def test_requests1():
                 "theodore": True,
             },
         ),
+        (
+            "inputs/QM0.in",
+            {
+                "h": True,
+                "soc": True,
+                "dm": True,
+                "grad": [1, 2],
+                "nacdr": None,
+                "overlap": False,
+                "phases": False,
+                "ion": True,
+                "socdr": False,
+                "dmdr": False,
+                "multipolar_fit": None,
+                "theodore": True,
+            },
+        ),
     ]
     for path, req in tests:
         set_requests(path, req)
 
 
 def test_reqests2():
-    tests = [("inputs/QM_failreq1.in", []), ("inputs/QM_failreq2.in", []), ("inputs/QM_failreq3.in", []), ("inputs/QM2.in", [])]
+    tests = [
+        ("inputs/QM_failreq1.in", []),
+        ("inputs/QM_failreq2.in", []),
+        ("inputs/QM_failreq3.in", []),
+        ("inputs/QM2.in", []),
+        ("inputs/QM_failreq4.in", []),
+        ("inputs/QM_failreq5.in", []),
+        ("inputs/QM_failreq6.in", []),
+    ]
 
     for path, req in tests:
         with pytest.raises((AssertionError, ValueError)):

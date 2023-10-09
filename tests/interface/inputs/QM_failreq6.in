@@ -30,9 +30,9 @@ states 3 2 5
     ## ===============================================
     # Quantity requests:
 h
-SoC
+soc
 dm
-grad 1 2
+grad 1 2 1
 ion
 theodore
 
