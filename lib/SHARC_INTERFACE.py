@@ -264,9 +264,6 @@ class SHARC_INTERFACE(ABC):
         # get output as requested
         self.getQMout()
 
-        # backup data if requested
-        if self.QMin.requests["backup"]:
-            self.backupdata(self.QMin.requests["backup"])  # TODO: backup functionality via retain key of restart folder handling
         # writes a STEP file in the SAVEDIR (marks this step as succesfull)
         self.write_step_file()
 
