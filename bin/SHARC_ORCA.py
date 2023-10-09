@@ -195,14 +195,16 @@ class SHARC_ORCA(SHARC_ABINITIO):
         mkdir(workdir)
 
         # Write ORCA input
-        gradmaps = [sorted(self.QMin.maps["gradmap"])[i : i + 255] for i in range(0, len(self.QMin.maps["gradmap"]), 255)]
+        gradmaps = [sorted(qmin.maps["gradmap"])[i : i + 255] for i in range(0, len(qmin.maps["gradmap"]), 255)]
         input_str = ""
-        for ichunk, chunk in enumerate(gradmaps):
-            if ichunk >= 1:
-                input_str += '\n\n$new_job\n\n%base "ORCA"\n\n'
-                qmin.maps["gradmap"] = chunk
+        if len(gradmaps) > 1:
+            for ichunk, chunk in enumerate(gradmaps):
+                if ichunk >= 1:
+                    input_str += '\n\n$new_job\n\n%base "ORCA"\n\n'
+                qmin.maps["gradmap"] = set(chunk)
                 input_str += self.generate_inputstr(qmin)
-        input_str = self.generate_inputstr(qmin) if not gradmaps else input_str
+        else:
+            input_str += self.generate_inputstr(qmin)
         self.log.debug(f"Generating input string\n{input_str}")
         input_path = os.path.join(workdir, "ORCA.inp")
         self.log.debug(f"Write input into file {input_path}")
