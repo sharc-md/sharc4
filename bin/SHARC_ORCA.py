@@ -534,19 +534,23 @@ class SHARC_ORCA(SHARC_ABINITIO):
                             )
                         if mult == gs_mult[0]:
                             for m in range(mult):
-                                self.QMout["dm"][:, sum(states[:mult]) + m, sum(states[:mult]) + m] = dipoles_gs
+                                self.QMout["dm"][
+                                    :,
+                                    sum(states[:mult]) + m * self.QMin.molecule["states"][mult - 1],
+                                    sum(states[:mult]) + m * self.QMin.molecule["states"][mult - 1],
+                                ] = dipoles_gs
 
                     # Offdiagonals
-                    if self.QMin.molecule["states"][mults[0] - 1] > 1:
-                        dipoles_trans = self._get_transition_dipoles(log_file)
-                        for idx, val in enumerate(dipoles_trans, 1):  # States
-                            for m in range(mults[0]):  # Make copies for multiplicities
-                                self.QMout["dm"][
-                                    :, sum(states[: mults[0]]) + m * mults[0], sum(states[: mults[0]]) + m * mults[0] + idx
-                                ] = val[:]
-                                self.QMout["dm"][
-                                    :, sum(states[: mults[0]]) + m * mults[0] + idx, sum(states[: mults[0]]) + m * mults[0]
-                                ] = val[:]
+                    # if self.QMin.molecule["states"][mults[0] - 1] > 1:
+                    #    dipoles_trans = self._get_transition_dipoles(log_file)
+                    #    for idx, val in enumerate(dipoles_trans, 1):  # States
+                    #        for m in range(mults[0]):  # Make copies for multiplicities
+                    #            self.QMout["dm"][
+                    #                :, sum(states[: mults[0]]) + m * mults[0], sum(states[: mults[0]]) + m * mults[0] + idx
+                    #            ] = val[:]
+                    #            self.QMout["dm"][
+                    #                :, sum(states[: mults[0]]) + m * mults[0] + idx, sum(states[: mults[0]]) + m * mults[0]
+                    #            ] = val[:]
 
         # Populate gradients
         if self.QMin.requests["grad"]:
