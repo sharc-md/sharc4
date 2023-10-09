@@ -189,7 +189,7 @@ class QMinRequests(QMinBase):
             "theodore": False,
             # Pseudorequests
             "cleanup": False,
-            "backup": None,
+            "retain": 5,
             "molden": False,
             "savestuff": False,
             "nooverlap": False,
@@ -208,7 +208,7 @@ class QMinRequests(QMinBase):
             "multipolar_fit": list,
             "theodore": bool,
             "cleanup": bool,
-            "backup": str,
+            "retain": int,
             "molden": bool,
             "savestuff": bool,
             "nooverlap": bool,

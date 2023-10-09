@@ -637,15 +637,14 @@ class SHARC_INTERFACE(ABC):
                     ):
                         self.log.debug(f"Parsing request {params}")
                         self._set_request(params)
+                    elif params[0].casefold() == "backup":
+                        self.log.warning("Backup request is deprecated, use retain instead!")
 
             assert not nac_select, "No end keyword found after nacdr select!"
             if nacdr:
                 self.QMin.requests["nacdr"] = nacdr
         self._step_logic()
         self._request_logic()
-
-        if self.QMin.requests["backup"]:
-            self.log.warning('Depricated request "backup" found')
 
     def _step_logic(self) -> None:
         """
@@ -744,6 +743,8 @@ class SHARC_INTERFACE(ABC):
                         self.log.warning("SOCs requested but only 1 multiplicity given! Disable SOCs")
                         return
                     self.QMin.requests["soc"] = True
+                case "retain":
+                    self.QMin.requests[req] = int(request[1])
                 case _:
                     if len(request) == 1:
                         self.QMin.requests[req] = True

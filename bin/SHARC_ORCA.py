@@ -803,7 +803,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
         super().read_requests(requests_file)
 
         for req, val in self.QMin.requests.items():
-            if val and req not in all_features:
+            if val and req != "retain" and req not in all_features:
                 raise ValueError(f"Found unsupported request {req}.")
 
     def read_template(self, template_file: str) -> None:
