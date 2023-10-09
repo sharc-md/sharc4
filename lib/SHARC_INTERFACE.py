@@ -722,30 +722,37 @@ class SHARC_INTERFACE(ABC):
         """
         Setup requests and do basic sanity checks
         """
-        if request[0].casefold() in self.QMin.requests.keys():
-            if request[0].casefold() == "h" and len(request) == 1:
-                self.QMin.requests["h"] = True
-            elif request[0].casefold() == "grad":
-                if len(request) > 1 and request[1].casefold() != "all":
-                    self.QMin.requests["grad"] = [int(i) for i in request[1:]]
-                    return
-                self.QMin.requests["grad"] = [i + 1 for i in range(self.QMin.molecule["nmstates"])]
-            elif request[0].casefold() == "soc":
-                if sum(i > 0 for i in self.QMin.molecule["states"]) < 2:
-                    self.log.warning("SOCs requested but only 1 multiplicity given! Disable SOCs")
-                    return
-                self.QMin.requests["soc"] = True
-            elif request[0].casefold() == "multipolar_fit":
-                if len(request) > 1:
-                    self.QMin.requests["multipolar_fit"] = sorted(request[1:])
-                    return
-                self.QMin.requests["multipolar_fit"] = [i + 1 for i in range(self.QMin.molecule["nmstates"])]
-            else:
-                self.QMin.requests[request[0].casefold()] = True
-        elif request[0].casefold() == "step":
-            self.QMin.save[request[0].casefold()] = int(request[1])
+        req = request[0].casefold()
+        if req in self.QMin.requests.keys():
+            match req:
+                case "grad" | "multipolar_fit":
+                    if len(request) > 1 and request[1].casefold() != "all":
+                        self.QMin.requests[req] = sorted(list(map(int, request[1:])))
+                        if max(self.QMin.requests[req]) > self.QMin.molecule["nmstates"]:
+                            self.log.error(f"Requested {req} higher than total number of states!")
+                            raise ValueError()
+                        if min(self.QMin.requests[req]) <= 0:
+                            self.log.error(f"Requested {req} must be greather than 0!")
+                            raise ValueError()
+                        if len(self.QMin.requests[req]) != len(set(self.QMin.requests[req])):
+                            self.log.error(f"Duplicate {req} requested!")
+                            raise ValueError()
+                        return
+                    self.QMin.requests[req] = [i + 1 for i in range(self.QMin.molecule["nmstates"])]
+                case "soc":
+                    if sum(i > 0 for i in self.QMin.molecule["states"]) < 2:
+                        self.log.warning("SOCs requested but only 1 multiplicity given! Disable SOCs")
+                        return
+                    self.QMin.requests["soc"] = True
+                case _:
+                    if len(request) == 1:
+                        self.QMin.requests[req] = True
         else:
-            self.QMin.save[request[0].casefold()] = True
+            match req:
+                case "step":
+                    self.QMin.save[req] = int(request[1])
+                case _:
+                    self.QMin.save[req] = True
 
     def _request_logic(self) -> None:
         """
