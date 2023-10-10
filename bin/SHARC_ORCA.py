@@ -614,13 +614,25 @@ class SHARC_ORCA(SHARC_ABINITIO):
 
         # Overlaps
         if self.QMin.requests["overlap"]:
-            # TODO
+            for mult in itmult(self.QMin.molecule["states"]):
+                job = self.QMin.maps["multmap"][mult]
+                ovlp_mat = self.parse_wfoverlap(
+                    os.path.join(self.QMin.resources["scratchdir"], f"WFOVL_{mult}_{job}", "wfovl.out")
+                )
+                for i in range(self.QMin.molecule["nmstates"]):
+                    for j in range(self.QMin.molecule["nmstates"]):
+                        m1, _, ms1 = tuple(self.QMin.maps["statemap"][i + 1])
+                        m2, _, ms2 = tuple(self.QMin.maps["statemap"][j + 1])
+                        if not m1 == m2 == mult:
+                            continue
+                        if not ms1 == ms2:
+                            continue
+                        self.QMout["overlap"][i, j] = ovlp_mat[i, j]
 
             # Phases
             if self.QMin.requests["phases"]:
-                # TODO
-                pass
-
+                for i in range(self.QMin.molecule["nmstates"]):
+                    self.QMout["phases"][i] = -1 if self.QMout["overlap"][i, i] < 0 else 1
         # Dyson norms
         if self.QMin.requests["ion"]:
             # TODO
