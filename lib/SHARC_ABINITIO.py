@@ -3,6 +3,7 @@ import math
 import os
 import subprocess as sp
 import time
+import re
 from abc import abstractmethod
 from datetime import date
 from io import TextIOWrapper
@@ -348,6 +349,28 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 cpu_per_run[itask] = ncores
             nslots = ncpu // ncores
         return nrounds, nslots, cpu_per_run
+
+    @staticmethod
+    def clean_savedir(path: str, retain: int, step: int) -> None:
+        """
+        Remove older files than step-retain
+
+        path:       Path to savedir
+        retain:     Number of timesteps to keep (-1 = all)
+        """
+        if retain < 0:
+            return
+
+        if not os.path.isdir(path):
+            raise FileNotFoundError(f"{path} is not a directory!")
+
+        files = os.listdir(path)
+        for file in files:
+            ext = os.path.splitext(file)[1].replace(".", "")
+            if not re.match(r"^\d+$", ext):  # Skip if extension is not a number
+                continue
+            if int(ext) < step - retain:
+                os.remove(os.path.join(path, file))
 
     @staticmethod
     def parse_wfoverlap(overlap_file: str) -> np.ndarray:
