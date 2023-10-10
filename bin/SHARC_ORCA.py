@@ -15,7 +15,7 @@ import numpy as np
 from constants import IToMult
 from qmin import QMin
 from SHARC_ABINITIO import SHARC_ABINITIO
-from utils import expand_path, itmult, link, mkdir, writefile
+from utils import expand_path, itmult, link, mkdir, writefile, readfile
 
 __all__ = ["SHARC_ORCA"]
 
@@ -583,9 +583,18 @@ class SHARC_ORCA(SHARC_ABINITIO):
                             f"ORCA.engrad.{'singlet' if grad[0] == grad_mult[0] else IToMult[grad[0]].lower()}.root{grad[1] - (grad[0] == grad_mult[0])}.grad.tmp",
                         )
                     )
+
+                # Point charges
+                if self.QMin.molecule["point_charges"]:
+                    point_charges = self._get_pc_grad(os.path.join(self.QMin.resources["scratchdir"], ""))
+
                 for key, val in self.QMin.maps["statemap"].items():
                     if (val[0], val[1]) == grad:
                         self.QMout["grad"][key - 1] = gradients
+
+                        # Point charges
+                        if self.QMin.molecule["point_charges"]:
+                            self.QMout["grad_pc"][key - 1] = point_charges
 
             # Populate neglected gradients
             neglected_grads = [
@@ -602,6 +611,23 @@ class SHARC_ORCA(SHARC_ABINITIO):
                     for grad in neglected_grads:
                         idx = np.abs(energies_masked - energies[grad]).argmin()
                         self.QMout["grad"][grad] = self.QMout["grad"][idx]
+
+    def _get_pc_grad(self, grad_path: str) -> np.ndarray:
+        """
+        Extract point charge gradients from ORCA.pcgrad
+        """
+        # TODO: REFACTOR
+        # read file
+        out = readfile(grad_path)
+
+        g = []
+        for iatom in range(len(out) - 1):
+            atom_grad = [0.0 for i in range(3)]
+            s = out[iatom + 1].split()
+            for ixyz in range(3):
+                atom_grad[ixyz] = float(s[ixyz])
+            g.append(atom_grad)
+        return np.asarray(g)
 
     def _get_dipole_moment(self, output: str, ground_state: bool) -> np.ndarray:
         """
