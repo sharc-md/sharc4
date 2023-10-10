@@ -264,6 +264,9 @@ class SHARC_INTERFACE(ABC):
         # get output as requested
         self.getQMout()
 
+        # Remove old data
+        self.clean_savedir(self.QMin.save["savedir"], self.QMin.requests["retain"])
+
         # writes a STEP file in the SAVEDIR (marks this step as succesfull)
         self.write_step_file()
 
@@ -305,6 +308,15 @@ class SHARC_INTERFACE(ABC):
                     else:
                         self.QMin.template[param[0]] = list(param[1:])
         self._read_template = True
+
+    @staticmethod
+    def clean_savedir(path: str, retain: int) -> None:
+        """
+        Remove older files than step-retain
+
+        path:       Path to savedir
+        retain:     Number of timesteps to keep (-1 = all)
+        """
 
     @abstractmethod
     def run(self) -> None:
