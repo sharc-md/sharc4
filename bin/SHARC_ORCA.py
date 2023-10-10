@@ -895,6 +895,10 @@ class SHARC_ORCA(SHARC_ABINITIO):
         # cmdline string
         wf_cmd = f"{self.QMin.resources['wfoverlap']} -m {self.QMin.resources['memory']} -f wfovl.inp"
 
+        # vars
+        savedir = self.QMin.save["savedir"]
+        step = self.QMin.save["step"]
+
         # Dyson calculations
         if self.QMin.requests["ion"]:
             for ion_pair in self.QMin.maps["ionmap"]:
@@ -904,23 +908,11 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 writefile(os.path.join(workdir, "wfovl.inp"), wf_input)
 
                 # Link files
-                link(os.path.join(self.QMin.save["savedir"], "AO_overl"), os.path.join(workdir, "aoovl"))
-                link(
-                    os.path.join(self.QMin.save["savedir"], f"dets.{ion_pair[0]}.{self.QMin.save['step']}"),
-                    os.path.join(workdir, "det.a"),
-                )
-                link(
-                    os.path.join(self.QMin.save["savedir"], f"dets.{ion_pair[2]}.{self.QMin.save['step']}"),
-                    os.path.join(workdir, "det.b"),
-                )
-                link(
-                    os.path.join(self.QMin.save["savedir"], f"mos.{ion_pair[1]}.{self.QMin.save['step']}"),
-                    os.path.join(workdir, "mo.a"),
-                )
-                link(
-                    os.path.join(self.QMin.save["savedir"], f"mos.{ion_pair[3]}.{self.QMin.save['step']}"),
-                    os.path.join(workdir, "mo.b"),
-                )
+                link(os.path.join(savedir, "AO_overl"), os.path.join(workdir, "aoovl"))
+                link(os.path.join(savedir, f"dets.{ion_pair[0]}.{step}"), os.path.join(workdir, "det.a"))
+                link(os.path.join(savedir, f"dets.{ion_pair[2]}.{step}"), os.path.join(workdir, "det.b"))
+                link(os.path.join(savedir, f"mos.{ion_pair[1]}.{step}"), os.path.join(workdir, "mo.a"))
+                link(os.path.join(savedir, f"mos.{ion_pair[3]}.{step}"), os.path.join(workdir, "mo.b"))
 
                 # Execute wfoverlap
                 starttime = datetime.datetime.now()
@@ -933,6 +925,73 @@ class SHARC_ORCA(SHARC_ABINITIO):
                     with open(os.path.join(workdir, "wfovl.err"), "r", encoding="utf-8") as err_file:
                         self.log.error(err_file.read())
                     raise OSError()
+
+        # Overlap calculations
+        if self.QMin.requests["overlap"]:
+            self._create_aoovl()
+            for m in itmult(self.QMin.molecule["states"]):
+                job = self.QMin.maps["multmap"][m]
+                workdir = os.path.join(self.QMin.resources["scratchdir"], f"WFOVL_{m}_{job}")
+                mkdir(workdir)
+                # Write input
+                writefile(os.path.join(workdir, "wfovl.inp"), wf_input)
+
+                # Link files
+                link(os.path.join(savedir, "AO_overl.mixed"), os.path.join(workdir, "aoovl"))
+                link(os.path.join(savedir, f"dets.{m}.{step-1}"), os.path.join(workdir, "det.a"))
+                link(os.path.join(savedir, f"dets.{m}.{step}"), os.path.join(workdir, "det.b"))
+                link(os.path.join(savedir, f"mos.{m}.{step-1}"), os.path.join(workdir, "mo.a"))
+                link(os.path.join(savedir, f"mos.{m}.{step}"), os.path.join(workdir, "mo.b"))
+
+                # Execute wfoverlap
+                starttime = datetime.datetime.now()
+                code = self.run_program(workdir, wf_cmd, os.path.join(workdir, "wvovl.out"), os.path.join(workdir, "wfovl.err"))
+                self.log.info(
+                    f"Finished wfoverlap job: {str(m):<10s} code {code:<4d} runtime: {datetime.datetime.now()-starttime}"
+                )
+                if code != 0:
+                    self.log.error("wfoverlap did not finish successfully!")
+                    with open(os.path.join(workdir, "wfovl.err"), "r", encoding="utf-8") as err_file:
+                        self.log.error(err_file.read())
+                    raise OSError()
+
+    def _create_aoovl(self) -> None:
+        """
+        Create AO_overl.mixed for overlap calculations
+        """
+        gbw_curr = os.path.join(self.QMin.save["savedir"], f"ORCA.gbw.{self.QMin.control['joblist'][0]}.{self.QMin.save['step']}")
+        gbw_prev = os.path.join(
+            self.QMin.save["savedir"], f"ORCA.gbw.{self.QMin.control['joblist'][0]}.{self.QMin.save['step']-1}"
+        )
+        with sp.Popen(f"orca_fragovl {gbw_curr} {gbw_prev}", shell=True, stdout=sp.PIPE, stderr=sp.PIPE) as proc:
+            # TODO: REFACTOR
+            comm = proc.communicate()[0].decode()
+            out = comm.split("\n")
+
+            # get size of matrix
+            for line in reversed(out):
+                # print line
+                s = line.split()
+                if len(s) >= 1:
+                    NAO = int(line.split()[0]) + 1
+                    break
+
+            # read matrix
+            nblock = 6
+            ao_ovl = [[0.0 for i in range(NAO)] for j in range(NAO)]
+            for x in range(NAO):
+                for y in range(NAO):
+                    block = x // nblock
+                    xoffset = x % nblock + 1
+                    yoffset = block * (NAO + 1) + y + 10
+                    ao_ovl[x][y] = float(out[yoffset].split()[xoffset])
+            string = "%i %i\n" % (NAO, NAO)
+            for irow in range(0, NAO):
+                for icol in range(0, NAO):
+                    string += "% .15e " % (ao_ovl[irow][icol])  # note the exchanged indices => transposition
+                string += "\n"
+            filename = os.path.join(self.QMin.save["savedir"], "AO_overl.mixed")
+            writefile(filename, string)
 
     def _run_theodore(self) -> None:
         """
