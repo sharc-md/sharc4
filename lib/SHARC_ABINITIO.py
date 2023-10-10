@@ -376,7 +376,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
     @staticmethod
     def parse_wfoverlap(overlap_file: str) -> np.ndarray:
         """
-        Parse overlap matrix from wfoverlap output
+        Parse (Dyson) overlap matrix from wfoverlap output
 
         overlap_file: path to wfovlp.out
         """
@@ -385,7 +385,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             overlap_mat = []
             while True:
                 line = next(wffile, False)
-                if not line or containsstring("Overlap matrix <PsiA_i|PsiB_j>", line):
+                if not line or containsstring("matrix <PsiA_i|PsiB_j>", line):
                     dim = -1 if not line else len(next(wffile).split()) // 2
                     break
 
