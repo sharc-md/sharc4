@@ -1,4 +1,6 @@
 import pytest
+import os
+import shutil
 from SHARC_ABINITIO import SHARC_ABINITIO
 
 SHARC_ABINITIO.__abstractmethods__ = set()
@@ -170,3 +172,28 @@ def test_setupinterface2():
     for qmin, template, maps in tests:
         with pytest.raises(ValueError):
             setup_interface(qmin, template, maps)
+
+
+def test_clean_savedir():
+    tmp_dir = "savedir_test"
+
+    tests = [
+        (["dfgdb.brebr.4", "dfgdb.3.5", "5555.7"], 3, 8, ["dfgdb.3.5", "5555.7"]),
+        (["QQMM.gbw.4", "dfgdb.3.5", "5555.7"], -1, 8, ["QQMM.gbw.4", "dfgdb.3.5", "5555.7"]),
+        (["QQMM.gbw.4", "dfgdb.3.5", "5555.7"], 1, 8, ["5555.7"]),
+        (["QQMM.gbw.4", "dfgdb.3.5", "5555.7"], 1, 9, []),
+        (["rrrtnrnr.log", "dfgdb.brebr.4", "dfgdb.3.5", "5555.7"], 3, 8, ["rrrtnrnr.log", "dfgdb.3.5", "5555.7"]),
+    ]
+
+    for files, retain, step, res in tests:
+        # Create temp files
+        os.mkdir(tmp_dir)
+        for file in files:
+            with open(os.path.join(tmp_dir, file), "a"):
+                os.utime(os.path.join(tmp_dir, file))
+
+        SHARC_ABINITIO.clean_savedir(tmp_dir, retain, step)
+        try:
+            assert os.listdir(tmp_dir) == res
+        finally:
+            shutil.rmtree(tmp_dir)
