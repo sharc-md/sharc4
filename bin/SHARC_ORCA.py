@@ -612,6 +612,27 @@ class SHARC_ORCA(SHARC_ABINITIO):
                         idx = np.abs(energies_masked - energies[grad]).argmin()
                         self.QMout["grad"][grad] = self.QMout["grad"][idx]
 
+        # Overlaps
+        if self.QMin.requests["overlap"]:
+            # TODO
+
+            # Phases
+            if self.QMin.requests["phases"]:
+                # TODO
+                pass
+
+        # Dyson norms
+        if self.QMin.requests["ion"]:
+            # TODO
+            pass
+
+        # TheoDORE
+        if self.QMin.requests["theodore"]:
+            # TODO
+            pass
+
+        # TODO: QM/MM
+
     def _get_pc_grad(self, grad_path: str) -> np.ndarray:
         """
         Extract point charge gradients from ORCA.pcgrad
