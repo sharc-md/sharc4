@@ -357,6 +357,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
 
         path:       Path to savedir
         retain:     Number of timesteps to keep (-1 = all)
+        step:       Current step
         """
         if retain < 0:
             return
