@@ -246,13 +246,6 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
     def create_restart_files(self):
         pass
 
-    # TODO: move to SHARC_INTERFACE, unclear yet where to call it (end of run? separately?)
-    @abstractmethod
-    def remove_old_restart_files(self, retain: int = 5) -> None:
-        """
-        Garbage collection after runjobs()
-        """
-
     def run_program(self, workdir: str, cmd: str, out: str, err: str) -> int:
         """
         Runs a ab-initio programm and returns the exit_code
