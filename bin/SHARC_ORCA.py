@@ -59,19 +59,18 @@ class SHARC_ORCA(SHARC_ABINITIO):
     _name = NAME
     _description = DESCRIPTION
     _theodore_settings = {
-        'rtype': 'cclib',
-        'rfile': 'ORCA.log',
-        'read_binary': True,
-        'jmol_orbitals': False,
-        'molden_orbitals': False,
-        'Om_formula': 2,
-        'eh_pop': 1,
-        'comp_ntos': True,
-        'print_OmFrag': True,
-        'output_file': 'tden_summ.txt',
-        'link_files': [('ORCA.cis', 'orca.cis')]
+        "rtype": "cclib",
+        "rfile": "ORCA.log",
+        "read_binary": True,
+        "jmol_orbitals": False,
+        "molden_orbitals": False,
+        "Om_formula": 2,
+        "eh_pop": 1,
+        "comp_ntos": True,
+        "print_OmFrag": True,
+        "output_file": "tden_summ.txt",
+        "link_files": [("ORCA.cis", "orca.cis")],
     }
-
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -252,7 +251,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
         # Save files
         self._save_files(workdir, jobid)
         if self.QMin.requests["ion"] and jobid == 1:
-            self._get_ao_matrix(workdir)
+            writefile(os.path.join(self.QMin.save["savedir"], "AO_overl"), self._get_ao_matrix(workdir))
 
         # Delete files not needed
         work_files = os.listdir(workdir)
@@ -262,49 +261,42 @@ class SHARC_ORCA(SHARC_ABINITIO):
 
         return exit_code, endtime - starttime
 
-    def _get_ao_matrix(self, workdir: str) -> None:
+    def _get_ao_matrix(self, workdir: str) -> str:
         """
         Call orca_fragovl and extract ao matrix
         """
         orca_gbw = os.path.join(workdir, "ORCA.gbw")
         self.log.debug(f"Extracting AO matrix from {orca_gbw} for ion request")
 
-        # TODO: REFACTOR!
-
         # run orca_fragovl
         string = f"orca_fragovl {orca_gbw} {orca_gbw}"
-        try:
-            proc = sp.Popen(string, shell=True, stdout=sp.PIPE, stderr=sp.PIPE)
-        except OSError as err:
-            self.log.error("Call have had some serious problems")
-            raise OSError() from err
-        comm = proc.communicate()[0].decode()
-        out = comm.split("\n")
-        # get size of matrix
-        for line in reversed(out):
-            # print line
-            s = line.split()
-            if len(s) >= 1:
-                NAO = int(line.split()[0]) + 1
-                break
+        self.run_program(workdir, string, "wfovlp.out", "wfovlp.err")
 
-        # read matrix
-        nblock = 6
-        ao_ovl = [[0.0 for i in range(NAO)] for j in range(NAO)]
-        for x in range(NAO):
-            for y in range(NAO):
-                block = x // nblock
-                xoffset = x % nblock + 1
-                yoffset = block * (NAO + 1) + y + 10
-                ao_ovl[x][y] = float(out[yoffset].split()[xoffset])
+        with open(os.path.join(workdir, "wfovlp.out"), "r", encoding="utf-8") as file:
+            wfovlp = file.read()
 
-        string = "%i %i\n" % (NAO, NAO)
-        for irow in range(NAO):
-            for icol in range(NAO):
-                string += "% .7e " % (ao_ovl[icol][irow])
-            string += "\n"
-        filename = os.path.join(self.QMin.save["savedir"], "AO_overl")
-        writefile(filename, string)
+            n_ao = re.findall(r"\s{3,}(\d+)\s{5}", wfovlp)
+            n_ao = max(list(map(int, n_ao))) + 1
+
+            find_mat = re.search(r"OVERLAP MATRIX\n-{32}\n([\s\d+\.-]*)\n\n", wfovlp)
+            if not find_mat:
+                raise ValueError
+            ovlp_mat = list(map(float, re.sub(r"\s\d{1,2}\s", "", find_mat.group(1)).split()))
+            padding = n_ao % 6
+            padding_array = []
+            if padding > 0:
+                last_elems = ovlp_mat[-(padding * n_ao) :]
+                ovlp_mat += [0] * (n_ao * (6 - padding))
+                for i in range(n_ao):
+                    padding_array += last_elems[i * padding : i * padding + padding] + [0] * (6 - padding)
+
+            ovlp_mat = np.asarray(ovlp_mat)
+            ovlp_mat[-len(padding_array) :] = padding_array
+            ovlp_mat = np.hstack(ovlp_mat.reshape(-1, n_ao, 6))[:, :n_ao]
+            ao_mat = f"{n_ao} {n_ao}\n"
+            for i in ovlp_mat:
+                ao_mat += "".join(f"{j: .7e} " for j in i) + "\n"
+            return ao_mat
 
     def _save_files(self, workdir: str, jobid: int) -> None:
         """
@@ -936,7 +928,6 @@ class SHARC_ORCA(SHARC_ABINITIO):
 
         self.QMout["runtime"] = datetime.datetime.now() - starttime
 
-
     def _create_aoovl(self) -> None:
         """
         Create AO_overl.mixed for overlap calculations
@@ -974,7 +965,6 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 string += "\n"
             filename = os.path.join(self.QMin.save["savedir"], "AO_overl.mixed")
             writefile(filename, string)
-
 
     def setup_interface(self) -> None:
         """
