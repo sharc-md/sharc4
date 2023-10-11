@@ -1,8 +1,11 @@
 import pytest
+import os
+from utils import expand_path
 from SHARC_INTERFACE import SHARC_INTERFACE
 
 SHARC_INTERFACE.__abstractmethods__ = set()
 
+PATH = "$SHARC/../tests/interface"
 
 def get_states(path: str, states: list):
     test_interface = SHARC_INTERFACE()
@@ -33,14 +36,14 @@ def read_resources(path: str, params: dict, whitelist: list):
 def test_states1():
     tests = [("inputs/QM1.in", [3, 1, 5]), ("inputs/QM3.in", [0, 0, 0, 0, 9, 9])]
     for path, state in tests:
-        get_states(path, state)
+        get_states(os.path.join(expand_path(PATH),path), state)
 
 
 def test_states2():
     tests = [("inputs/QM_failstate1.in", []), ("inputs/QM_failstate2.in", []), ("inputs/QM2.in", [])]
     for path, state in tests:
         with pytest.raises(ValueError):
-            get_states(path, state)
+            get_states(os.path.join(expand_path(PATH),path), state)
 
 
 def test_requests1():
@@ -115,7 +118,7 @@ def test_requests1():
         ),
     ]
     for path, req in tests:
-        set_requests(path, req)
+        set_requests(os.path.join(expand_path(PATH),path), req)
 
 
 def test_reqests2():
@@ -131,7 +134,7 @@ def test_reqests2():
 
     for path, req in tests:
         with pytest.raises((AssertionError, ValueError)):
-            set_requests(path, req)
+            set_requests(os.path.join(expand_path(PATH),path), req)
 
 
 def test_resources1():
@@ -142,7 +145,7 @@ def test_resources1():
         ("inputs/interface_resources3", {"int_key": 13123, "float_key": -3.0}, []),
     ]
     for path, params, whitelist in tests:
-        read_resources(path, params, whitelist)
+        read_resources(os.path.join(expand_path(PATH),path), params, whitelist)
 
 
 def test_resources2():
@@ -151,4 +154,4 @@ def test_resources2():
     ]
     for path, params, whitelist in tests:
         with pytest.raises(ValueError):
-            read_resources(path, params, whitelist)
+            read_resources(os.path.join(expand_path(PATH),path), params, whitelist)

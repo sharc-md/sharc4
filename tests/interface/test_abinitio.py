@@ -2,9 +2,11 @@ import pytest
 import os
 import shutil
 from SHARC_ABINITIO import SHARC_ABINITIO
+from utils import expand_path
 
 SHARC_ABINITIO.__abstractmethods__ = set()
 
+PATH = "$SHARC/../tests/interface"
 
 def setup_interface(qmin: str, template: str, maps: dict):
     test = SHARC_ABINITIO()
@@ -160,7 +162,7 @@ def test_setupinterface1():
     ]
 
     for qmin, template, maps in tests:
-        setup_interface(qmin, template, maps)
+        setup_interface(os.path.join(expand_path(PATH),qmin), os.path.join(expand_path(PATH),template), maps)
 
 
 def test_setupinterface2():
@@ -171,11 +173,11 @@ def test_setupinterface2():
 
     for qmin, template, maps in tests:
         with pytest.raises(ValueError):
-            setup_interface(qmin, template, maps)
+            setup_interface(os.path.join(expand_path(PATH),qmin), os.path.join(expand_path(PATH),template), maps)
 
 
 def test_clean_savedir():
-    tmp_dir = "savedir_test"
+    tmp_dir = os.path.join(expand_path(PATH),"savedir_test")
 
     tests = [
         (["dfgdb.brebr.4", "dfgdb.3.5", "5555.7"], 3, 8, ["dfgdb.3.5", "5555.7"]),
