@@ -29,7 +29,6 @@ from itertools import chain
 lebedev = LEBEDEV()
 lebedev_grid = lebedev.load
 
-
 def random_sphere(n_points, radius=1) -> np.ndarray:
     # https://stackoverflow.com/questions/9600801/evenly-distributing-n-points-on-a-sphere
 
@@ -150,6 +149,16 @@ def shrake_rupley(
     return n_out_points
 
 
+GRID_FUNCTIONS = {
+    'lebedev': lebedev_grid,
+    'random': random_sphere,
+    'golden_spiral': golden_sphere,
+    'gamess': gamess_surface,
+    'marcus_deserno': markus_deserno
+}
+
+GRIDS = list(GRID_FUNCTIONS.keys())
+
 def mk_layers(
     xyz: np.ndarray, atom_radii: list[float], density=1, shells=[1.4, 1.6, 1.8, 2.0], grid='lebedev'
 ) -> np.ndarray:
@@ -169,19 +178,12 @@ def mk_layers(
     atom_radii_array = np.array(atom_radii)
     # allocate the memory for the points
     mk_layers_points = np.ndarray((n_points, 3), dtype=float)
-    grid_functions = {
-        'lebedev': lebedev_grid,
-        'random': random_sphere,
-        'golden_spiral': golden_sphere,
-        'gamess': gamess_surface,
-        'marcus_deserno': markus_deserno
-    }
-    assert grid in grid_functions
+    assert grid in GRID_FUNCTIONS
 
     weights = None
     if grid == 'lebedev':
         weights = np.ndarray((n_points), dtype=float)
-    grid = grid_functions[grid]
+    grid = GRID_FUNCTIONS[grid]
     # potentially parallelizable! every layer is one process
     n_points = 0
     for y in shells:

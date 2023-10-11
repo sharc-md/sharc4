@@ -15,6 +15,8 @@ import numpy as np
 from qmin import QMin
 from SHARC_INTERFACE import SHARC_INTERFACE
 from utils import containsstring, readfile, safe_cast, link, writefile, shorten_DIR, mkdir, itmult
+from constants import ATOMIC_RADII, MK_RADII
+from asa_grid import GRIDS
 
 all_features = {
     "h",
@@ -60,6 +62,26 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         self.QMin.control["nslots_pool"] = []
 
         self.QMin.control.types["nsplots_pool"] = list
+
+        self.QMin.resources.update({
+            'resp_shells': [],    # default calculated from other values = [1.4, 1.6, 1.8, 2.0]
+            'resp_vdw_radii_symbol': {},
+            'resp_vdw_radii': [],
+            'resp_betas': [0.0005, 0.0015, 0.003],
+            'resp_layers': 4,
+            'resp_fit_order': 2,
+            'resp_mk_radii': True,  # use radii for original Merz-Kollmann-Singh scheme for HCNOSP
+            'resp_grid': 'lebedev'})
+
+        self.QMin.resources.update({
+            'resp_shells': list,    # default calculated from other values = [1.4, 1.6, 1.8, 2.0]
+            'resp_vdw_radii_symbol': dict,
+            'resp_vdw_radii': list,
+            'resp_betas': list,
+            'resp_layers': int,
+            'resp_fit_order': int,
+            'resp_mk_radii': bool,  # use radii for original Merz-Kollmann-Singh scheme for HCNOSP
+            'resp_grid': str})
 
     @staticmethod
     @abstractmethod
@@ -186,11 +208,64 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
 
     @abstractmethod
     def setup_interface(self) -> None:
+
+        # Setup charge and paddingstates
+        if not self.QMin.template["charge"]:
+            self.QMin.template["charge"] = [i % 2 for i in range(len(self.QMin.molecule["states"]))]
+            self.log.info(f"charge not specified setting default, {self.QMin.template['charge']}")
+
+        if not self.QMin.template["paddingstates"]:
+            self.QMin.template["paddingstates"] = [0 for _ in self.QMin.molecule["states"]]
+            self.log.info(
+                f"paddingstates not specified setting default, {self.QMin.template['paddingstates']}",
+            )
+
+        # Setup chargemap
+        self.log.debug("Building chargemap")
+        self.QMin.maps["chargemap"] = {idx + 1: int(chrg) for (idx, chrg) in enumerate(self.QMin.template["charge"])}
+
+        # Setup jobs
+        self.QMin.control["states_to_do"] = [
+            v + int(self.QMin.template["paddingstates"][i]) if v > 0 else v for i, v in enumerate(self.QMin.molecule["states"])
+        ]
+        if self.QMin.requests['multipolar_fit']:
+            # TODO: do only if RESP requested
+            # construct shells
+            shells, first, nlayers = map(QMin.resources.get, ('resp_shells', 'resp_first_layer', 'resp_layers'))
+
+            # collect vdw radii for atoms from settings
+            if self.QMin.resources['resp_vdw_radii']:
+                if len(self.QMin.resources['resp_vdw_radii']) != len(QMin['elements']):
+                    raise RuntimeError("specify 'resp_vdw_radii' for all atoms!")
+            else:
+                # populate vdW radii
+                radii = ATOMIC_RADII
+                if self.QMin.resources['resp_mk_radii']:
+                    radii.update(MK_RADII)
+                for e in filter(lambda x: e not in self.QMin.resources['resp_vdw_radii_symbol'], self.QMin.molecule['elements']):
+                    self.QMin.resources['resp_vdw_radii_symbol'][e] = radii[e]
+                self.QMin.resources['resp_vdw_radii'] = [self.QMin.resources['resp_vdw_radii_symbol'][s] for s in self.QMin['elements']]
+
+            if self.QMin.resources['resp_betas']:
+                if len(self.QMin.resources['resp_betas']) != self.QMin.resources['resp_fit_order'] + 1:
+                    raise RuntimeError(f"specify one beta parameter for each multipole order (order + 1)!\n needed {self.QMin.resources['resp_fit_order']+1:d}")
+                self.log.info("using non-default beta parameters for resp fit", self.QMin.resources['resp_betas'])
+
+            if not shells:
+                self.log.debug(f"Calculating resp layers as: {first} + 4/sqrt({nlayers})")
+                incr = 0.4 / math.sqrt(nlayers)
+                self.QMin.resources['resp_shells'] = [first + incr * x for x in range(nlayers)]
+            if self.QMin.resources['resp_grid'] not in GRIDS:
+                raise RuntimeError(
+                    f"specified grid {self.QMin.resources['resp_grid']} not available.\n Possible options are 'lebedev', 'random', 'golden_spiral', 'gamess', 'marcus_deserno'"
+                )
+
+    def _request_logic(self):
         """
         Create maps from QMin object
         """
         self.log.debug("Setup interface -> building maps")
-
+        super()._request_logic
         # Setup gradmap
         if self.QMin.requests["grad"]:
             self.log.debug("Building gradmap")
@@ -220,26 +295,21 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 if m1 != m2 or i[0] == i[1] or ms1 != ms2 or s1 > s2:
                     continue
                 self.QMin.maps["nacmap"].add(tuple([m1, s1, m2, s2]))
-
-        # Setup charge and paddingstates
-        if not self.QMin.template["charge"]:
-            self.QMin.template["charge"] = [i % 2 for i in range(len(self.QMin.molecule["states"]))]
-            self.log.info(f"charge not specified setting default, {self.QMin.template['charge']}")
-
-        if not self.QMin.template["paddingstates"]:
-            self.QMin.template["paddingstates"] = [0 for _ in self.QMin.molecule["states"]]
-            self.log.info(
-                f"paddingstates not specified setting default, {self.QMin.template['paddingstates']}",
-            )
-
-        # Setup chargemap
-        self.log.debug("Building chargemap")
-        self.QMin.maps["chargemap"] = {idx + 1: int(chrg) for (idx, chrg) in enumerate(self.QMin.template["charge"])}
-
-        # Setup jobs
-        self.QMin.control["states_to_do"] = [
-            v + int(self.QMin.template["paddingstates"][i]) if v > 0 else v for i, v in enumerate(self.QMin.molecule["states"])
-        ]
+        # make the ionmap
+        if self.QMin.requests['ion']:
+            ionmap = []
+            for m1 in itmult(self.QMin.molecule['states']):
+                job1 = self.QMin.maps['multmap'][m1]
+                el1 = self.QMin.maps['chargemap'][m1]
+                for m2 in itmult(self.QMin.molecule['states']):
+                    if m1 >= m2:
+                        continue
+                    job2 = self.QMin.maps['multmap'][m2]
+                    el2 = self.QMin.maps['chargemap'][m2]
+                    # print m1,job1,el1,m2,job2,el2
+                    if abs(m1 - m2) == 1 and abs(el1 - el2) == 1:
+                        ionmap.append((m1, job1, m2, job2))
+            self.QMin.maps['ionmap'] = ionmap
 
     @abstractmethod
     def getQMout(self):
@@ -388,10 +458,10 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         """
         )
         if self.QMin.resources["numocc"]:
-            wf_input += f"ndocc={self.QMin.resources['numocc']}\n"
+            wf_input += f"\nndocc={self.QMin.resources['numocc']}"
 
         if self.QMin.resources["ncpu"] >= 8:
-            wf_input += "force_direct_dets"
+            wf_input += "\nforce_direct_dets"
 
         # cmdline string
         wf_cmd = f"{self.QMin.resources['wfoverlap']} -m {self.QMin.resources['memory']} -f wfovl.inp"
