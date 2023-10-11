@@ -379,7 +379,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
 
         # Create restart files and garbage collection
         self.create_restart_files()
-        self.clean_savedir(self.QMin.resources["savedir"], self.QMin.requests["retain"], self.QMin.save["step"])
+        self.clean_savedir(self.QMin.save["savedir"], self.QMin.requests["retain"], self.QMin.save["step"])
 
         return error_codes
 
