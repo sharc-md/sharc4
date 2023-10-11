@@ -38,7 +38,7 @@ import numpy as np
 
 # internal
 from SHARC_FAST import SHARC_FAST
-from utils import readfile, question
+from utils import readfile, question, expand_path
 from io import TextIOWrapper
 from constants import U_TO_AMU
 from kabsch import kabsch_w as kabsch
@@ -92,7 +92,7 @@ class SHARC_LVC(SHARC_FAST):
 
         f = open(os.path.abspath(template_filename), 'r')
         V0file = f.readline()[:-1]
-        self.read_V0(os.path.abspath(V0file))
+        self.read_V0(expand_path(V0file))
         self.parsed_states = self.parseStates(f.readline())
         self.template_states = self.parsed_states['states']
         states = self.QMin.molecule['states']
