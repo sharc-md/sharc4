@@ -266,3 +266,15 @@ def test_get_dets():
         with open(os.path.join(expand_path(PATH),det), "r", encoding="utf-8") as file:
             ref_det = file.read()
             assert test_interface.get_dets_from_cis(os.path.join(expand_path(PATH),cis), job)[f"dets.{mult}"] == ref_det
+
+
+def test_ao_matrix():
+    tests = [("inputs/aooverl1gbw", "inputs/aooverl1"),("inputs/aooverl2gbw", "inputs/aooverl2")]
+
+    test_interface = SHARC_ORCA()
+    for gbw, ovl in tests:
+        ao_overl = test_interface._get_ao_matrix(os.path.join(expand_path(PATH), gbw))
+        os.remove(os.path.join(expand_path(PATH), gbw, "wfovlp.out"))
+        os.remove(os.path.join(expand_path(PATH), gbw, "wfovlp.err"))
+        with open(os.path.join(expand_path(PATH), ovl), "r") as ref:
+            assert ao_overl == ref.read()
