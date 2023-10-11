@@ -299,6 +299,7 @@ class QMinControl(QMinBase):
         "workdir": str,
         "master": bool,
         "gradonly": bool,
+        "densonly": bool,
         "states_to_do": list,
         "jobs": dict,
     """
@@ -310,6 +311,7 @@ class QMinControl(QMinBase):
             "workdir": None,
             "master": False,
             "gradonly": False,
+            "densonly": False,
             "states_to_do": None,
             "jobs": None,
         }
@@ -319,6 +321,7 @@ class QMinControl(QMinBase):
             "workdir": str,
             "master": bool,
             "gradonly": bool,
+            "densonly": bool,
             "states_to_do": list,
             "jobs": dict,
         }
