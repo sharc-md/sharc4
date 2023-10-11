@@ -58,6 +58,20 @@ class SHARC_ORCA(SHARC_ABINITIO):
     _changelogstring = CHANGELOGSTRING
     _name = NAME
     _description = DESCRIPTION
+    _theodore_settings = {
+        'rtype': 'cclib',
+        'rfile': 'ORCA.log',
+        'read_binary': True,
+        'jmol_orbitals': False,
+        'molden_orbitals': False,
+        'Om_formula': 2,
+        'eh_pop': 1,
+        'comp_ntos': True,
+        'print_OmFrag': True,
+        'output_file': 'tden_summ.txt',
+        'link_files': [('ORCA.cis', 'orca.cis')]
+    }
+
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -927,92 +941,6 @@ class SHARC_ORCA(SHARC_ABINITIO):
 
         self.QMout["runtime"] = datetime.datetime.now() - starttime
 
-    def _run_wfoverlap(self) -> None:
-        """
-        Prepare files and folders for wfoverlap and execute wfoverlap
-        """
-
-        # Content of wfoverlap input file
-        wf_input = dedent(
-            """\
-        mix_aoovl=aoovl
-        a_mo=mo.a
-        b_mo=mo.b
-        a_det=det.a
-        b_det=det.b
-        a_mo_read=0
-        b_mo_read=0
-        ao_read=0
-        """
-        )
-        if self.QMin.resources["numocc"]:
-            wf_input += f"ndocc={self.QMin.resources['numocc']}\n"
-
-        if self.QMin.resources["ncpu"] >= 8:
-            wf_input += "force_direct_dets"
-
-        # cmdline string
-        wf_cmd = f"{self.QMin.resources['wfoverlap']} -m {self.QMin.resources['memory']} -f wfovl.inp"
-
-        # vars
-        savedir = self.QMin.save["savedir"]
-        step = self.QMin.save["step"]
-
-        # Dyson calculations
-        if self.QMin.requests["ion"]:
-            for ion_pair in self.QMin.maps["ionmap"]:
-                workdir = os.path.join(self.QMin.resources["scratchdir"], "Dyson_" + "_".join(str(ion) for ion in ion_pair))
-                mkdir(workdir)
-                # Write input
-                writefile(os.path.join(workdir, "wfovl.inp"), wf_input)
-
-                # Link files
-                link(os.path.join(savedir, "AO_overl"), os.path.join(workdir, "aoovl"))
-                link(os.path.join(savedir, f"dets.{ion_pair[0]}.{step}"), os.path.join(workdir, "det.a"))
-                link(os.path.join(savedir, f"dets.{ion_pair[2]}.{step}"), os.path.join(workdir, "det.b"))
-                link(os.path.join(savedir, f"mos.{ion_pair[1]}.{step}"), os.path.join(workdir, "mo.a"))
-                link(os.path.join(savedir, f"mos.{ion_pair[3]}.{step}"), os.path.join(workdir, "mo.b"))
-
-                # Execute wfoverlap
-                starttime = datetime.datetime.now()
-                code = self.run_program(workdir, wf_cmd, os.path.join(workdir, "wfovl.out"), os.path.join(workdir, "wfovl.err"))
-                self.log.info(
-                    f"Finished wfoverlap job: {str(ion_pair):<10s} code: {code:<4d} runtime: {datetime.datetime.now()-starttime}"
-                )
-                if code != 0:
-                    self.log.error("wfoverlap did not finish successfully!")
-                    with open(os.path.join(workdir, "wfovl.err"), "r", encoding="utf-8") as err_file:
-                        self.log.error(err_file.read())
-                    raise OSError()
-
-        # Overlap calculations
-        if self.QMin.requests["overlap"]:
-            self._create_aoovl()
-            for m in itmult(self.QMin.molecule["states"]):
-                job = self.QMin.maps["multmap"][m]
-                workdir = os.path.join(self.QMin.resources["scratchdir"], f"WFOVL_{m}_{job}")
-                mkdir(workdir)
-                # Write input
-                writefile(os.path.join(workdir, "wfovl.inp"), wf_input)
-
-                # Link files
-                link(os.path.join(savedir, "AO_overl.mixed"), os.path.join(workdir, "aoovl"))
-                link(os.path.join(savedir, f"dets.{m}.{step-1}"), os.path.join(workdir, "det.a"))
-                link(os.path.join(savedir, f"dets.{m}.{step}"), os.path.join(workdir, "det.b"))
-                link(os.path.join(savedir, f"mos.{m}.{step-1}"), os.path.join(workdir, "mo.a"))
-                link(os.path.join(savedir, f"mos.{m}.{step}"), os.path.join(workdir, "mo.b"))
-
-                # Execute wfoverlap
-                starttime = datetime.datetime.now()
-                code = self.run_program(workdir, wf_cmd, os.path.join(workdir, "wvovl.out"), os.path.join(workdir, "wfovl.err"))
-                self.log.info(
-                    f"Finished wfoverlap job: {str(m):<10s} code {code:<4d} runtime: {datetime.datetime.now()-starttime}"
-                )
-                if code != 0:
-                    self.log.error("wfoverlap did not finish successfully!")
-                    with open(os.path.join(workdir, "wfovl.err"), "r", encoding="utf-8") as err_file:
-                        self.log.error(err_file.read())
-                    raise OSError()
 
     def _create_aoovl(self) -> None:
         """
@@ -1052,59 +980,6 @@ class SHARC_ORCA(SHARC_ABINITIO):
             filename = os.path.join(self.QMin.save["savedir"], "AO_overl.mixed")
             writefile(filename, string)
 
-    def _run_theodore(self) -> None:
-        """
-        Prepare theodore files and run theodore
-        """
-        theo_bin = os.path.join(self.QMin.resources["theodir"], "bin", "theodore") + " analyze_tden"
-        for jobset in self.QMin.scheduling["schedule"]:
-            for job, qmin in jobset.items():
-                # Skip restricted jobs
-                if not self.QMin.control["jobs"][qmin.control["jobid"]]["restr"]:
-                    self.log.debug(f"Skipping theodore run for restricted job {job}")
-                    continue
-
-                starttime = datetime.datetime.now()
-                workdir = os.path.join(self.QMin.resources["scratchdir"], job)
-                self._setup_theodore(workdir)
-
-                # Run theodore
-                out_file = os.path.join(workdir, "theodore.out")
-                err_file = os.path.join(workdir, "theodore.err")
-                code = self.run_program(workdir, theo_bin, out_file, err_file)
-                self.log.info(f"Finished theodore Job: {job:<10s} code: {code:<4d} runtime: {datetime.datetime.now()-starttime}")
-                if code != 0:
-                    self.log.error("Theodore job did not finish successfully!")
-                    with open(err_file, "r", encoding="utf-8") as theo_err:
-                        self.log.error(theo_err.read())
-                    raise OSError()
-
-    def _setup_theodore(self, workdir: str) -> None:
-        """
-        Write theodore input file and link ORCA.cis to orca.cis
-
-        workdir:    Path of working directory
-        """
-
-        self.log.debug(f"Create theodore input file in {workdir}")
-        theodore_input = dedent(
-            f"""\
-        rtype='cclib'
-        rfile='ORCA.log'
-        read_binary=True
-        jmol_orbitals=False
-        molden_orbitals=False
-        Om_formula=2
-        eh_pop=1
-        comp_ntos=True
-        print_OmFrag=True
-        output_file='tden_summ.txt'
-        prop_list={self.QMin.resources["theodore_prop"]}
-        at_lists={self.QMin.resources["theodore_fragment"]}
-        """
-        )
-        writefile(os.path.join(workdir, "dens_ana.in"), theodore_input)
-        link(os.path.join(workdir, "ORCA.cis"), os.path.join(workdir, "orca.cis"))
 
     def setup_interface(self) -> None:
         """

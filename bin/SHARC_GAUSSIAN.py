@@ -6,7 +6,7 @@
 from resp import Resp
 from qmin import QMin
 from qmout import QMout
-from utils import mkdir, readfile, containsstring, shorten_DIR, makermatrix, makecmatrix, build_basis_dict, get_pyscf_order_from_gaussian, removekey, writefile, itmult, safe_cast
+from utils import mkdir, readfile, containsstring, shorten_DIR, makermatrix, makecmatrix, build_basis_dict, get_pyscf_order_from_gaussian, writefile, itmult, safe_cast, strip_dir
 from constants import IToMult, au2eV, IAn2AName
 from tdm import es2es_tdm
 from SHARC_ABINITIO import SHARC_ABINITIO
@@ -56,6 +56,18 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
     _changelogstring = CHANGELOGSTRING
     _name = NAME
     _description = DESCRIPTION
+    _theodore_settings = {
+        'rtype': 'cclib',
+        'rfile': 'GAUSSIAN.log',
+        'read_binary': False,
+        'jmol_orbitals': False,
+        'molden_orbitals': False,
+        'Om_formula': 2,
+        'eh_pop': 1,
+        'comp_ntos': True,
+        'print_OmFrag': True,
+        'output_file': 'tden_summ.txt',
+    }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -501,57 +513,23 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         self.generate_joblist()
         self.log.debug(f"{self.QMin.scheduling['schedule']}")
 
-        errorcodes = {}
         # run all the jobs
-        errorcodes = self.runjobs(self.QMin.scheduling['schedule'])
+        self.log.info('>>>>>>>>>>>>> Starting the GAUSSIAN job execution')
+        self.runjobs(self.QMin.scheduling['schedule'])
 
         # do all necessary overlap and Dyson calculations
-        errorcodes = self.run_wfoverlap(errorcodes)
+        self._run_wfoverlap()
 
         # do all necessary Theodore calculations
-        errorcodes = self.run_theodore(errorcodes)
+        self._run_theodore()
 
     def dry_run(self):
         self.generate_joblist()
         self.log.debug(f"{self.QMin.scheduling['schedule']}")
         # do all necessary overlap and Dyson calculations
-        errorcodes = self.run_wfoverlap({})
+        self._run_wfoverlap()
         # do all necessary Theodore calculations
-        errorcodes = self.run_theodore(errorcodes)
-
-    def runjobs(self, schedule):
-        print('>>>>>>>>>>>>> Starting the GAUSSIAN job execution')
-
-        errorcodes = {}
-        for ijobset, jobset in enumerate(schedule):
-            if not jobset:
-                continue
-            pool = Pool(processes=self.QMin.scheduling['nslots_pool'][ijobset])
-            for job in jobset:
-                QMin1 = jobset[job]
-                WORKDIR = os.path.join(self.QMin.resources['scratchdir'], job)
-
-                errorcodes[job] = pool.apply_async(self.run_calc, [WORKDIR, QMin1])
-                time.sleep(self.QMin.resources['delay'])
-            pool.close()
-            pool.join()
-
-        for i in errorcodes:
-            errorcodes[i] = errorcodes[i].get()
-        j = 0
-        string = 'Error Codes:\n'
-        for i in errorcodes:
-            string += '\t%s\t%i' % (i + ' ' * (10 - len(i)), errorcodes[i])
-            j += 1
-            if j == 4:
-                j = 0
-                string += '\n'
-        self.log.info(string)
-        if any((i != 0 for i in errorcodes.values())):
-            self.log.error('Some subprocesses did not finish successfully!')
-            raise RuntimeError('See %s:%s for error messages in GAUSSIAN output.' % (gethostname(), QMin.resources['scratchdir']))
-        self.create_restart_files()
-        return errorcodes
+        self._run_theodore()
 
     def create_restart_files(self):
         self.log.print('>>>>>>>>>>>>> Saving files')
@@ -572,11 +550,11 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
 
     # ======================================================================= #
 
-    def run_calc(self, WORKDIR, QMin):
+    def execute_from_qmin(self, WORKDIR, QMin):
         try:
-            SHARC_GAUSSIAN.setupWORKDIR(WORKDIR, QMin)
+            self.setupWORKDIR(WORKDIR, QMin)
             strip = True
-            err = SHARC_GAUSSIAN.runGaussian(WORKDIR, QMin['GAUSS_EXE'], strip)
+            err = self.runGaussian(WORKDIR, QMin['GAUSS_EXE'], strip)
             err = 0
         except Exception as problem:
             self.log.info('*' * 50 + '\nException in run_calc(%s)!' % (WORKDIR))
@@ -588,7 +566,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
 
     # ======================================================================= #
 
-    def setupWORKDIR(WORKDIR, QMin):
+    def setupWORKDIR(self, WORKDIR, QMin):
         # mkdir the WORKDIR, or clean it if it exists, then copy all necessary files from pwd and savedir
         # then put the GAUSSIAN.com file
         SHARC_GAUSSIAN._initorbs(QMin)
@@ -599,11 +577,10 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         inputstring = SHARC_GAUSSIAN.writeGAUSSIANinput(QMin)
         filename = os.path.join(WORKDIR, 'GAUSSIAN.com')
         writefile(filename, inputstring)
-        if DEBUG:
-            print('================== DEBUG input file for WORKDIR %s =================' % (shorten_DIR(WORKDIR)))
-            print(inputstring)
-            print('GAUSSIAN input written to: %s' % (filename))
-            print('====================================================================')
+        self.log.debug('================== DEBUG input file for WORKDIR %s =================' % (shorten_DIR(WORKDIR)))
+        self.log.debug(inputstring)
+        self.log.debug('GAUSSIAN input written to: %s' % (filename))
+        self.log.debug('====================================================================')
 
         # wf file copying
         if 'master' in QMin:
@@ -617,12 +594,6 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
             fromfile = os.path.join(QMin.resources['scratchdir'], 'master_%i' % job, 'GAUSSIAN.chk')
             tofile = os.path.join(WORKDIR, 'GAUSSIAN.chk')
             shutil.copy(fromfile, tofile)
-
-        # force field file copying
-        # if QMin['template']['qmmm']:
-        # fromfile=QMin['template']['qmmm_ff_file']
-        # tofile=os.path.join(WORKDIR,'ADF.ff')
-        # shutil.copy(fromfile,tofile)
 
         return
 
@@ -770,62 +741,34 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
 
         return string
 
-    # ======================================================================= #
-
-    def shorten_DIR(string):
-        maxlen = 40
-        front = 12
-        if len(string) > maxlen:
-            return string[0:front] + '...' + string[-(maxlen - 3 - front):]
-        else:
-            return string + ' ' * (maxlen - len(string))
-
-    # ======================================================================= #
-    @staticmethod
-    def runGaussian(WORKDIR, GAUSS_EXE, strip=False):
+    def runGaussian(self, WORKDIR, GAUSS_EXE, strip=False):
         prevdir = os.getcwd()
         os.chdir(WORKDIR)
         string = GAUSS_EXE + ' '
         string += '< GAUSSIAN.com'
-        if PRINT or DEBUG:
-            starttime = datetime.datetime.now()
-            sys.stdout.write('START:\t%s\t%s\t"%s"\n' % (shorten_DIR(WORKDIR), starttime, shorten_DIR(string)))
-            sys.stdout.flush()
+        starttime = datetime.datetime.now()
+        self.log.print('START:\t%s\t%s\t"%s"\n' % (shorten_DIR(WORKDIR), starttime, shorten_DIR(string)))
+        self.log.handlers[0].flush()
         stdoutfile = open(os.path.join(WORKDIR, 'GAUSSIAN.log'), 'w')
         stderrfile = open(os.path.join(WORKDIR, 'GAUSSIAN.err'), 'w')
         try:
             runerror = sp.call(string, shell=True, stdout=stdoutfile, stderr=stderrfile)
-        except OSError:
-            raise Error('Call have had some serious problems:', OSError, 65)
+        except OSError as e:
+            raise RuntimeError(f'Call have had some serious problems: {e}')
         stdoutfile.close()
         stderrfile.close()
 
-        if PRINT or DEBUG:
-            endtime = datetime.datetime.now()
-            sys.stdout.write(
-                'FINISH:\t%s\t%s\tRuntime: %s\tError Code: %i\n' %
-                (shorten_DIR(WORKDIR), endtime, endtime - starttime, runerror)
-            )
-            sys.stdout.flush()
+        endtime = datetime.datetime.now()
+        self.log.print(
+            'FINISH:\t%s\t%s\tRuntime: %s\tError Code: %i\n' %
+            (shorten_DIR(WORKDIR), endtime, endtime - starttime, runerror)
+        )
+        self.log.handlers[0].flush()
         os.chdir(prevdir)
-        if strip and not DEBUG and runerror == 0:
-            SHARC_GAUSSIAN.stripWORKDIR(WORKDIR)
+        if strip and runerror == 0:
+            keep = ['GAUSSIAN.com$', 'GAUSSIAN.err$', 'GAUSSIAN.log$', 'GAUSSIAN.chk', 'GAUSSIAN.fchk', 'GAUSSIAN.rwf']
+            strip_dir(WORKDIR, keep_files=keep)
         return runerror
-
-    # ======================================================================= #
-    @staticmethod
-    def stripWORKDIR(WORKDIR):
-        ls = os.listdir(WORKDIR)
-        keep = ['GAUSSIAN.com$', 'GAUSSIAN.err$', 'GAUSSIAN.log$', 'GAUSSIAN.chk', 'GAUSSIAN.fchk', 'GAUSSIAN.rwf']
-        for ifile in ls:
-            delete = True
-            for k in keep:
-                if k in ifile:
-                    delete = False
-            if delete:
-                rmfile = os.path.join(WORKDIR, ifile)
-                if not DEBUG:
-                    os.remove(rmfile)
 
     # ======================================================================= #
 
@@ -1283,109 +1226,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
 
     # ======================================================================= #
 
-    def run_theodore(self, errorcodes):
-        QMin = self._QMin
-
-        if QMin.requests['theodore']:
-            print('>>>>>>>>>>>>> Starting the TheoDORE job execution')
-
-            for ijob in QMin.control['jobs']:
-                if not QMin.control['jobs'][ijob]['restr']:
-                    if self._DEBUG:
-                        print('Skipping Job %s because it is unrestricted.' % (ijob))
-                    continue
-                else:
-                    mults = QMin.control['jobs'][ijob]['mults']
-                    gsmult = mults[0]
-                    ns = 0
-                    for i in mults:
-                        ns += QMin.molecule['states'][i - 1] - (i == gsmult)
-                    if ns == 0:
-                        if self._DEBUG:
-                            print('Skipping Job %s because it contains no excited states.' % (ijob))
-                        continue
-                WORKDIR = os.path.join(QMin.resources['scratchdir'], 'master_%i' % ijob)
-                self.setupWORKDIR_TH(WORKDIR)
-                os.environ
-                errorcodes['theodore_%i' % ijob] = SHARC_GAUSSIAN.runTHEODORE(WORKDIR, QMin['theodir'])
-
-            # Error code handling
-            j = 0
-            string = 'Error Codes:\n'
-            for i in errorcodes:
-                if 'theodore' in i:
-                    string += '\t%s\t%i' % (i + ' ' * (10 - len(i)), errorcodes[i])
-                    j += 1
-                    if j == 4:
-                        j = 0
-                        string += '\n'
-            print(string)
-            if any((i != 0 for i in errorcodes.values())):
-                print('Some subprocesses did not finish successfully!')
-                sys.exit(76)
-
-            print('')
-
-        return errorcodes
-
-    def setupWORKDIR_TH(self, WORKDIR):
-        QMin = self._QMin
-        # mkdir the WORKDIR, or clean it if it exists, then copy all necessary files from pwd and savedir
-
-        # write dens_ana.in
-        inputstring = dedent(
-        f'''rtype="cclib"
-        rfile="GAUSSIAN.log"
-        jmol_orbitals=False
-        molden_orbitals=False
-        Om_formula=2
-        eh_pop=1
-        comp_ntos=True
-        print_OmFrag=True
-        output_file="tden_summ.txt"
-        prop_list={str(QMin["theodore_prop"])}
-        at_lists={str(QMin["theodore_fragment"])}''')
-
-        filename = os.path.join(WORKDIR, 'dens_ana.in')
-        writefile(filename, inputstring)
-        if DEBUG:
-            print('================== DEBUG input file for WORKDIR %s =================' % (shorten_DIR(WORKDIR)))
-            print(inputstring)
-            print('TheoDORE input written to: %s' % (filename))
-            print('====================================================================')
-
-        return
-
-    @staticmethod
-    def runTHEODORE(WORKDIR, THEODIR):
-        prevdir = os.getcwd()
-        os.chdir(WORKDIR)
-        string = os.path.join(THEODIR, 'bin', 'analyze_tden.py')
-        stdoutfile = open(os.path.join(WORKDIR, 'theodore.out'), 'w')
-        stderrfile = open(os.path.join(WORKDIR, 'theodore.err'), 'w')
-        if PRINT or DEBUG:
-            starttime = datetime.datetime.now()
-            sys.stdout.write('START:\t%s\t%s\t"%s"\n' % (shorten_DIR(WORKDIR), starttime, shorten_DIR(string)))
-            sys.stdout.flush()
-        try:
-            runerror = sp.call(string, shell=True, stdout=stdoutfile, stderr=stderrfile)
-        except OSError:
-            print('Call have had some serious problems:', OSError)
-            sys.exit(77)
-        stdoutfile.close()
-        stderrfile.close()
-        if PRINT or DEBUG:
-            endtime = datetime.datetime.now()
-            sys.stdout.write(
-                'FINISH:\t%s\t%s\tRuntime: %s\tError Code: %i\n' %
-                (shorten_DIR(WORKDIR), endtime, endtime - starttime, runerror)
-            )
-            sys.stdout.flush()
-        os.chdir(prevdir)
-        return runerror
-
-    # ======================================================================= #
-    def get_Double_AOovl(self):
+    def _create_aoovl(self):
 
         # get geometries
         filename1 = os.path.join(self.QMin.save['savedir'], f'geom.dat.{self.QMin.save["step"]-1}')

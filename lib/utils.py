@@ -248,6 +248,20 @@ def shorten_DIR(string) -> str:
 # ======================================================================= #
 
 
+# ======================================================================= #
+def strip_dir(WORKDIR, keep_files=[]):
+    ls = os.listdir(WORKDIR)
+    for ifile in ls:
+        delete = True
+        for k in keep_files:
+            if k in ifile:
+                delete = False
+        if delete:
+            rmfile = os.path.join(WORKDIR, ifile)
+            if not DEBUG:
+                os.remove(rmfile)
+
+
 def cleandir(directory):
     if not os.path.isdir(directory):
         return
