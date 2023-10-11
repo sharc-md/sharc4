@@ -1,9 +1,9 @@
 import datetime
 import math
 import os
+import re
 import subprocess as sp
 import time
-import re
 from abc import abstractmethod
 from datetime import date
 from io import TextIOWrapper
@@ -309,7 +309,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
 
         # Create restart files and garbage collection
         self.create_restart_files()
-        self.remove_old_restart_files()
+        self.clean_savedir(self.QMin.resources["savedir"], self.QMin.requests["retain"], self.QMin.save["step"])
 
         return error_codes
 

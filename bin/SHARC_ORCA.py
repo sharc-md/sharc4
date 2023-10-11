@@ -15,7 +15,7 @@ import numpy as np
 from constants import IToMult
 from qmin import QMin
 from SHARC_ABINITIO import SHARC_ABINITIO
-from utils import expand_path, itmult, link, mkdir, writefile, readfile
+from utils import expand_path, itmult, link, mkdir, readfile, writefile
 
 __all__ = ["SHARC_ORCA"]
 
@@ -903,11 +903,6 @@ class SHARC_ORCA(SHARC_ABINITIO):
             if not os.path.isfile(self.QMin.template["paste_input_file"]):
                 self.log.error(f"paste_input_file {self.QMin.template['paste_input_file']} does not exist!")
                 raise FileNotFoundError()
-
-    def remove_old_restart_files(self, retain: int = 5) -> None:
-        """
-        Garbage collection after runjobs()
-        """
 
     def run(self) -> None:
         """
