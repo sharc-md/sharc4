@@ -1,6 +1,9 @@
 import pytest
+import os
 from SHARC_ORCA import SHARC_ORCA
+from utils import expand_path
 
+PATH = "$SHARC/../tests/interface"
 
 def setup_interface(path: str, maps: dict):
     test_interface = SHARC_ORCA()
@@ -41,7 +44,7 @@ def get_energy(outfile: str, template: str, qmin: str, mults: list, energies: di
 def test_orcaversion():
     test_interface = SHARC_ORCA()
     test_interface._setup_mol = True
-    test_interface.read_resources("inputs/orcapath")
+    test_interface.read_resources(os.path.join(expand_path(PATH),"inputs/orcapath"))
     assert isinstance(SHARC_ORCA.get_orca_version(test_interface.QMin.resources["orcadir"]), tuple)
 
 
@@ -50,20 +53,20 @@ def test_requests1():
     for i in tests:
         with pytest.raises(ValueError):
             test_interface = SHARC_ORCA()
-            test_interface.setup_mol(i)
+            test_interface.setup_mol(os.path.join(expand_path(PATH),i))
             test_interface._read_template = True
             test_interface._read_resources = True
-            test_interface.read_requests(i)
+            test_interface.read_requests(os.path.join(expand_path(PATH),i))
 
 
 def test_requests2():
     tests = ["inputs/orca_requests"]
     for i in tests:
         test_interface = SHARC_ORCA()
-        test_interface.setup_mol(i)
+        test_interface.setup_mol(os.path.join(expand_path(PATH),i))
         test_interface._read_template = True
         test_interface._read_resources = True
-        test_interface.read_requests(i)
+        test_interface.read_requests(os.path.join(expand_path(PATH),i))
 
 
 def test_maps():
@@ -102,7 +105,7 @@ def test_maps():
     ]
 
     for path, maps in tests:
-        setup_interface(path, maps)
+        setup_interface(os.path.join(expand_path(PATH),path), maps)
 
 
 @pytest.mark.dependency(depends=["test_orcaversion"])
@@ -113,13 +116,13 @@ def test_resources():
     for i in test_pass:
         test_interface = SHARC_ORCA()
         test_interface._setup_mol = True
-        test_interface.read_resources(i)
+        test_interface.read_resources(os.path.join(expand_path(PATH),i))
 
     for i in test_fail:
         with pytest.raises(ValueError):
             test_interface = SHARC_ORCA()
             test_interface._setup_mol = True
-            test_interface.read_resources(i)
+            test_interface.read_resources(os.path.join(expand_path(PATH),i))
 
 
 def test_energies():
@@ -165,7 +168,7 @@ def test_energies():
         ("inputs/orca4.out", "inputs/orca_template", "inputs/orca4.in", [4], {(4, 1): -549.649784479, (4, 2): -549.641911479}),
     ]
     for outfile, template, qmin, mults, energies in tests:
-        get_energy(outfile, template, qmin, mults, energies)
+        get_energy(os.path.join(expand_path(PATH),outfile), os.path.join(expand_path(PATH),template), os.path.join(expand_path(PATH),qmin), mults, energies)
 
 
 def test_buildjobs1():
@@ -214,7 +217,7 @@ def test_buildjobs1():
     ]
 
     for path, template, maps in tests:
-        build_jobs(path, template, maps)
+        build_jobs(os.path.join(expand_path(PATH),path), os.path.join(expand_path(PATH),template), maps)
 
 
 def test_buildjobs2():
@@ -225,7 +228,7 @@ def test_buildjobs2():
 
     for path, template, maps in tests:
         with pytest.raises(ValueError):
-            build_jobs(path, template, maps)
+            build_jobs(os.path.join(expand_path(PATH),path), os.path.join(expand_path(PATH),template), maps)
 
 
 @pytest.mark.dependency(depends=["test_orcaversion"])
@@ -237,13 +240,13 @@ def test_read_mos():
 
     for qmin, template, gbw, mos, job in tests:
         test_interface = SHARC_ORCA()
-        test_interface.setup_mol(qmin)
-        test_interface.read_template(template)
+        test_interface.setup_mol(os.path.join(expand_path(PATH),qmin))
+        test_interface.read_template(os.path.join(expand_path(PATH),template))
         test_interface._read_resources = True
         test_interface.setup_interface()
-        with open(mos, "r", encoding="utf-8") as file:
+        with open(os.path.join(expand_path(PATH),mos), "r", encoding="utf-8") as file:
             ref_mos = file.read()
-            assert test_interface._get_mos(gbw, job) == ref_mos
+            assert test_interface._get_mos(os.path.join(expand_path(PATH),gbw), job) == ref_mos
 
 
 def test_get_dets():
@@ -256,10 +259,10 @@ def test_get_dets():
 
     for qmin, cis, job, mult, det in tests:
         test_interface = SHARC_ORCA()
-        test_interface.setup_mol(qmin)
+        test_interface.setup_mol(os.path.join(expand_path(PATH),qmin))
         test_interface._read_template = True
-        test_interface.read_resources("inputs/ORCA.resources")
+        test_interface.read_resources(os.path.join(expand_path(PATH),"inputs/ORCA.resources"))
         test_interface.setup_interface()
-        with open(det, "r", encoding="utf-8") as file:
+        with open(os.path.join(expand_path(PATH),det), "r", encoding="utf-8") as file:
             ref_det = file.read()
-            assert test_interface.get_dets_from_cis(cis, job)[f"dets.{mult}"] == ref_det
+            assert test_interface.get_dets_from_cis(os.path.join(expand_path(PATH),cis), job)[f"dets.{mult}"] == ref_det

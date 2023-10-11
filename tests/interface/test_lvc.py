@@ -1,21 +1,24 @@
 #!/usr/bin/env python3
 
 import numpy as np
+import os
 
 from SHARC_INTERFACE import SHARC_INTERFACE
 from SHARC_LVC import SHARC_LVC
-from utils import InDir
+from utils import InDir, expand_path
+
+PATH = "$SHARC/../tests/interface"
 
 np.set_printoptions(linewidth=400, formatter={'float': lambda x: f'{x: 12.8f}'})
 
 
 def test_lvc():
     lvc: SHARC_INTERFACE = SHARC_LVC(loglevel=10)
-    lvc.setup_mol("inputs/QM_lvc.in")
-    lvc.read_template("inputs/LVC.template")
-    lvc.read_requests("inputs/QM_lvc.in")
+    lvc.setup_mol(os.path.join(expand_path(PATH),"inputs/QM_lvc.in"))
+    lvc.read_template(os.path.join(expand_path(PATH),"inputs/LVC.template"))
+    lvc.read_requests(os.path.join(expand_path(PATH),"inputs/QM_lvc.in"))
     lvc.setup_interface()
-    lvc.set_coords("inputs/QM_lvc.in")
+    lvc.set_coords(os.path.join(expand_path(PATH),"inputs/QM_lvc.in"))
     lvc._do_kabsch = True
     lvc.run()
     # f = open('/user/severin/sharc_main/tests/interface/test_lvc.py', 'a')
@@ -80,11 +83,11 @@ def test_lvc():
 
 def test_lvc_pc():
     lvc: SHARC_INTERFACE = SHARC_LVC(loglevel=10)
-    lvc.setup_mol("inputs/QM_lvc.in")
-    lvc.read_template("inputs/LVC.template")
-    lvc.read_requests("inputs/QM_lvc.in")
+    lvc.setup_mol(os.path.join(expand_path(PATH),"inputs/QM_lvc.in"))
+    lvc.read_template(os.path.join(expand_path(PATH),"inputs/LVC.template"))
+    lvc.read_requests(os.path.join(expand_path(PATH),"inputs/QM_lvc.in"))
     lvc.setup_interface()
-    lvc.set_coords("inputs/QM_lvc.in")
+    lvc.set_coords(os.path.join(expand_path(PATH),"inputs/QM_lvc.in"))
     lvc.QMin.molecule["point_charges"] = True
     lvc.QMin.coords["pccoords"] = np.array([[0.1, 0.3, 0.3]])
     lvc.QMin.coords["pccharge"] = np.array([1.])
@@ -454,7 +457,7 @@ def test_lvc_pc():
 
 if __name__ == "__main__":
     import shutil
-    with InDir('tests/interface/'):
+    with InDir(expand_path(PATH)):
         test_lvc()
         test_lvc_pc()
         shutil.rmtree('SAVE')
