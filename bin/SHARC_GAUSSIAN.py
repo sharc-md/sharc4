@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 # external
-from numpy import np
+import numpy as np
 from pyscf import gto
 
 # internal
