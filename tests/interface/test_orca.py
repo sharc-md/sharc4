@@ -234,8 +234,8 @@ def test_buildjobs2():
 @pytest.mark.dependency(depends=["test_orcaversion"])
 def test_read_mos():
     tests = [
-        ("inputs/QM5.in", "inputs/abinitio_template1", "inputs/gbw1", "inputs/mos1", 1),
-        ("inputs/orca3.in", "inputs/abinitio_template1", "inputs/gbw2", "inputs/mos2", 2),
+        ("inputs/QM5.in", "inputs/abinitio_template1", "inputs/read_mo1", "inputs/mos1", 1),
+        ("inputs/orca3.in", "inputs/abinitio_template1", "inputs/read_mo2", "inputs/mos2", 2),
     ]
 
     for qmin, template, gbw, mos, job in tests:
@@ -247,6 +247,8 @@ def test_read_mos():
         with open(os.path.join(expand_path(PATH),mos), "r", encoding="utf-8") as file:
             ref_mos = file.read()
             assert test_interface._get_mos(os.path.join(expand_path(PATH),gbw), job) == ref_mos
+            os.remove(os.path.join(expand_path(PATH), gbw, "fragovlp.out"))
+            os.remove(os.path.join(expand_path(PATH), gbw, "fragovlp.err"))
 
 
 def test_get_dets():
