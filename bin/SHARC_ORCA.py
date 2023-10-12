@@ -264,39 +264,57 @@ class SHARC_ORCA(SHARC_ABINITIO):
     def _get_ao_matrix(self, workdir: str) -> str:
         """
         Call orca_fragovl and extract ao matrix
+
+        workdir:    Path of working directory
         """
         orca_gbw = os.path.join(workdir, "ORCA.gbw")
         self.log.debug(f"Extracting AO matrix from {orca_gbw} for ion request")
 
         # run orca_fragovl
         string = f"orca_fragovl {orca_gbw} {orca_gbw}"
-        self.run_program(workdir, string, "wfovlp.out", "wfovlp.err")
+        self.run_program(workdir, string, "fragovlp.out", "fragovlp.err")
 
-        with open(os.path.join(workdir, "wfovlp.out"), "r", encoding="utf-8") as file:
-            wfovlp = file.read()
+        with open(os.path.join(workdir, "fragovlp.out"), "r", encoding="utf-8") as file:
+            fragovlp = file.read()
 
-            n_ao = re.findall(r"\s{3,}(\d+)\s{5}", wfovlp)
+            # Get number of atomic orbitals
+            n_ao = re.findall(r"\s{3,}(\d+)\s{5}", fragovlp)
             n_ao = max(list(map(int, n_ao))) + 1
 
-            find_mat = re.search(r"OVERLAP MATRIX\n-{32}\n([\s\d+\.-]*)\n\n", wfovlp)
+            # Parse wfovlp.out and convert to n_ao*n_ao matrix
+            find_mat = re.search(r"OVERLAP MATRIX\n-{32}\n([\s\d+\.-]*)\n\n", fragovlp)
             if not find_mat:
                 raise ValueError
             ovlp_mat = list(map(float, re.sub(r"\s\d{1,2}\s", "", find_mat.group(1)).split()))
-            padding = n_ao % 6
-            padding_array = []
-            if padding > 0:
-                last_elems = ovlp_mat[-(padding * n_ao) :]
-                ovlp_mat += [0] * (n_ao * (6 - padding))
-                for i in range(n_ao):
-                    padding_array += last_elems[i * padding : i * padding + padding] + [0] * (6 - padding)
+            ovlp_mat = self._matrix_from_output(ovlp_mat, n_ao)
 
-            ovlp_mat = np.asarray(ovlp_mat)
-            ovlp_mat[-len(padding_array) :] = padding_array
-            ovlp_mat = np.hstack(ovlp_mat.reshape(-1, n_ao, 6))[:, :n_ao]
+            # Convert matrix to string
             ao_mat = f"{n_ao} {n_ao}\n"
             for i in ovlp_mat:
                 ao_mat += "".join(f"{j: .7e} " for j in i) + "\n"
             return ao_mat
+
+    def _matrix_from_output(self, raw_matrix: list[float | complex], dim: int, orca_col: int = 6) -> np.ndarray:
+        """
+        Create a dim*dim numpy array from a raw orca matrix.
+        The input array must only contain the actual data without row/col numbers
+
+        raw_matrix: List of float or complex values parsed from ORCA output
+        dim:        Dimension of the final matrix, dim*dim
+        orca_col:   Number of columns per line, default 6
+        """
+
+        padding = dim % orca_col
+        padding_array = []
+        if padding > 0:
+            last_elems = raw_matrix[-(padding * dim) :]
+            raw_matrix += [0] * (dim * (6 - padding))
+            for i in range(dim):
+                padding_array += last_elems[i * padding : i * padding + padding] + [0] * (6 - padding)
+
+        raw_matrix = np.asarray(raw_matrix)
+        raw_matrix[-len(padding_array) :] = padding_array
+        return np.hstack(raw_matrix.reshape(-1, dim, orca_col))[:, :dim]
 
     def _save_files(self, workdir: str, jobid: int) -> None:
         """
@@ -322,7 +340,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
         # Save gbw and dets from cis
         if self.QMin.requests["ion"] or not self.QMin.requests["nooverlap"]:
             self.log.debug("Write MO coefficients to savedir")
-            writefile(os.path.join(savedir, f"mos.{jobid}.{step}"), self._get_mos(os.path.join(workdir, "ORCA.gbw"), jobid))
+            writefile(os.path.join(savedir, f"mos.{jobid}.{step}"), self._get_mos(workdir, jobid))
             if os.path.isfile(os.path.join(workdir, "ORCA.cis")):
                 self.log.debug("Write CIS determinants to savedir")
                 cis_dets = self.get_dets_from_cis(os.path.join(workdir, "ORCA.cis"), jobid)
@@ -331,154 +349,62 @@ class SHARC_ORCA(SHARC_ABINITIO):
 
         shutil.copy(os.path.join(workdir, "ORCA.gbw"), os.path.join(savedir, f"ORCA.gbw.{jobid}.{step}"))
 
-    def _get_mos(self, gbw_file: str, jobid: int) -> str:
+    def _get_mos(self, workdir: str, jobid: int) -> str:
         """
         Extract MO coefficients from ORCA gbw file
 
-        gbw_file:   Path of gbw file
-        jobid:      ID number of job
+        workdir:   Directory of ORCA.gbw
+        jobid:     ID number of job
         """
-        # TODO: REFACTOR!!!
-
-        # run orca_fragovl
-        string = "orca_fragovl %s %s" % (gbw_file, gbw_file)
-        try:
-            proc = sp.Popen(string, shell=True, stdout=sp.PIPE, stderr=sp.PIPE)
-        except OSError as exc:
-            self.log.error("Call have had some serious problems:")
-            raise OSError() from exc
-        comm = proc.communicate()[0].decode()
-        data = comm.split("\n")
-        # get size of matrix
-        for line in reversed(data):
-            # print line
-            s = line.split()
-            if len(s) >= 1:
-                NAO = int(line.split()[0]) + 1
-                break
-
         restr = self.QMin.control["jobs"][jobid]["restr"]
 
-        # find MO block
-        iline = -1
-        while True:
-            iline += 1
-            if len(data) <= iline:
-                self.log.error("MOs not found!")
-                raise ValueError()
-            line = data[iline]
-            if "FRAGMENT A MOs MATRIX" in line:
-                break
-        iline += 3
+        # run orca_fragovl
+        string = "orca_fragovl ORCA.gbw ORCA.gbw"
+        self.run_program(workdir, string, "fragovlp.out", "fragovlp.err")
 
-        # formatting
-        nblock = 6
-        npre = 11
-        ndigits = 16
-        # default_pos=[14,30,46,62,78,94]
-        default_pos = [npre + 3 + ndigits * i for i in range(nblock)]  # does not include shift
+        with open(os.path.join(workdir, "fragovlp.out"), "r", encoding="utf-8") as file:
+            fragovlp = file.read()
 
-        # get coefficients for alpha
-        NMO_A = NAO
-        MO_A = [[0.0 for i in range(NAO)] for j in range(NMO_A)]
-        for imo in range(NMO_A):
-            jblock = imo // nblock
-            jcol = imo % nblock
-            for iao in range(NAO):
-                shift = max(0, len(str(iao)) - 3)
-                jline = iline + jblock * (NAO + 1) + iao
-                line = data[jline]
-                # fix too long floats in strings
-                dots = [idx for idx, item in enumerate(line.lower()) if "." in item]
-                diff = [dots[i] - default_pos[i] - shift for i in range(len(dots))]
-                if jcol == 0:
-                    pre = 0
-                else:
-                    pre = diff[jcol - 1]
-                post = diff[jcol]
-                # fixed
-                val = float(line[npre + shift + jcol * ndigits + pre : npre + shift + ndigits + jcol * ndigits + post])
-                MO_A[imo][iao] = val
-        iline += ((NAO - 1) // nblock + 1) * (NAO + 1)
+            # Get number of atomic orbitals
+            n_ao = re.findall(r"\s{3,}(\d+)\s{5}", fragovlp)
+            n_ao = max(list(map(int, n_ao))) + 1
 
-        # coefficients for beta
-        if not restr:
-            NMO_B = NAO
-            MO_B = [[0.0 for i in range(NAO)] for j in range(NMO_B)]
-            for imo in range(NMO_B):
-                jblock = imo // nblock
-                jcol = imo % nblock
-                for iao in range(NAO):
-                    shift = max(0, len(str(iao)) - 3)
-                    jline = iline + jblock * (NAO + 1) + iao
-                    line = data[jline]
-                    # fix too long floats in strings
-                    dots = [idx for idx, item in enumerate(line.lower()) if "." in item]
-                    diff = [dots[i] - default_pos[i] - shift for i in range(len(dots))]
-                    if jcol == 0:
-                        pre = 0
-                    else:
-                        pre = diff[jcol - 1]
-                    post = diff[jcol]
-                    # fixed
-                    val = float(line[npre + shift + jcol * ndigits + pre : npre + shift + ndigits + jcol * ndigits + post])
-                    MO_B[imo][iao] = val
+            # Parse matrix
+            find_mat = re.search(r"FRAGMENT A MOs MATRIX\n-{32}\n([\s\d+\.-]*)\n\n", fragovlp)
+            if not find_mat:
+                raise ValueError
+            ao_mat = list(map(float, re.sub(r"\s\d{1,2}\s", "", find_mat.group(1)).split()))
+            if not restr:
+                ao_mat_a = self._matrix_from_output(ao_mat[: len(ao_mat) // 2], n_ao)
+                ao_mat_b = self._matrix_from_output(ao_mat[len(ao_mat) // 2 :], n_ao)
+            else:
+                ao_mat_a = self._matrix_from_output(ao_mat, n_ao)
+                ao_mat_b = np.empty((0, 0))
 
-        NMO = NMO_A - self.QMin.molecule["frozcore"]
-        if restr:
-            NMO = NMO_A - self.QMin.molecule["frozcore"]
-        else:
-            NMO = NMO_A + NMO_B - 2 * self.QMin.molecule["frozcore"]
+            ao_mat_a = ao_mat_a[:, self.QMin.molecule["frozcore"] :]
+            ao_mat_b = ao_mat_b[:, self.QMin.molecule["frozcore"] :]
 
         # make string
-        string = dedent(
-            f"""\
-        2mocoef
-        header
-        1
-        MO-coefficients from Orca
-        1
-        {NAO}   {NMO}
-        a
-        mocoef
-        (*)
-        """
-        )
-        x = 0
-        for imo, mo in enumerate(MO_A):
-            if imo < self.QMin.molecule["frozcore"]:
-                continue
-            for c in mo:
-                if x >= 3:
-                    string += "\n"
-                    x = 0
-                string += "% 6.12e " % c
-                x += 1
-            if x > 0:
-                string += "\n"
-                x = 0
+        n_mo = n_ao - self.QMin.molecule["frozcore"]
         if not restr:
-            x = 0
-            for imo, mo in enumerate(MO_B):
-                if imo < self.QMin.molecule["frozcore"]:
-                    continue
-                for c in mo:
-                    if x >= 3:
+            n_mo *= 2
+
+        string = f"2mocoef\nheader\n1\nMO-coefficients from Orca\n1\n{n_ao}   {n_mo}\na\nmocoef\n(*)\n"
+
+        for mat in [ao_mat_a, ao_mat_b]:
+            for i in mat.T:
+                for idx, j in enumerate(i):
+                    if idx > 0 and idx % 3 == 0:
                         string += "\n"
-                        x = 0
-                    string += "% 6.12e " % c
-                    x += 1
-                if x > 0:
+                    string += f"{j: 6.12e} "
+                if i.shape[0] - 1 % 3 != 0:
                     string += "\n"
-                    x = 0
-        string += "orbocc\n(*)\n"
-        x = 0
-        for i in range(NMO):
-            if x >= 3:
+        string += "orbocc\n(*)"
+
+        for i in range(n_mo):
+            if i % 3 == 0:
                 string += "\n"
-                x = 0
-            string += "% 6.12e " % (0.0)
-            x += 1
+            string += f"{0.0: 6.12e} "
         return string
 
     def getQMout(self) -> None:
@@ -733,10 +659,8 @@ class SHARC_ORCA(SHARC_ABINITIO):
 
         n_trip = int(n_roots.group(1))
         n_sing = n_trip + 1
-        n_states = n_sing + 3 * n_trip
-        padding = n_states % 6
 
-        # Extract matrix from outfile
+        # Extract raw matrix from outfile
         find_mat = re.search(r"Real part:([\s\d+-e]*)Image part:([\s\d+-e]*)\.{3}", output, re.DOTALL)
         if not find_mat:
             self.log.error("Cannot find SOC matrix in ORCA output!")
@@ -749,17 +673,8 @@ class SHARC_ORCA(SHARC_ABINITIO):
         for real, imag in zip(real_part, imag_part):
             soc_matrix.append(complex(real, imag))
 
-        # Add padding
-        padding_array = []
-        if padding > 0:
-            last_elems = soc_matrix[-(padding * n_states) :]
-            soc_matrix += [0] * (n_states * (6 - padding))
-            for i in range(n_states):
-                padding_array += last_elems[i * padding : i * padding + padding] + [0] * (6 - padding)
-
-        soc_matrix = np.asarray(soc_matrix)
-        soc_matrix[-len(padding_array) :] = padding_array
-        soc_matrix = np.hstack(soc_matrix.reshape(-1, n_states, 6))[:, :n_states]
+        # Convert raw matrix
+        soc_matrix = self._matrix_from_output(soc_matrix, n_sing + 3 * n_trip)
 
         # Reorder matrix from T 0 -1 1 to -1 0 1
         for i in range(n_trip):
@@ -1002,24 +917,22 @@ class SHARC_ORCA(SHARC_ABINITIO):
         self.QMin.maps["multmap"][1] = 1
 
         # Setup ionmap
-        if self.QMin.requests["ion"]:
-            self.log.debug("Building ionmap")
-            self.QMin.maps["ionmap"] = []
-            for mult1 in itmult(self.QMin.molecule["states"]):
-                job1 = self.QMin.maps["multmap"][mult1]
-                el1 = self.QMin.maps["chargemap"][mult1]
-                for mult2 in itmult(self.QMin.molecule["states"]):
-                    if mult1 >= mult2:
-                        continue
-                    job2 = self.QMin.maps["multmap"][mult2]
-                    el2 = self.QMin.maps["chargemap"][mult2]
-                    if abs(mult1 - mult2) == 1 and abs(el1 - el2) == 1:
-                        if self.QMin.molecule["states"][mult1 - 1] == 1 or self.QMin.molecule["states"][mult2 - 1] == 1:
-                            self.log.error(
-                                f"Ion requested, but number of states for multiplicity {mult1} or {mult2} is less than 2!"
-                            )
-                            raise ValueError()
-                        self.QMin.maps["ionmap"].append((mult1, job1, mult2, job2))
+        self.log.debug("Building ionmap")
+        self.QMin.maps["ionmap"] = []
+        for mult1 in itmult(self.QMin.molecule["states"]):
+            job1 = self.QMin.maps["multmap"][mult1]
+            el1 = self.QMin.maps["chargemap"][mult1]
+            for mult2 in itmult(self.QMin.molecule["states"]):
+                if mult1 >= mult2:
+                    continue
+                job2 = self.QMin.maps["multmap"][mult2]
+                el2 = self.QMin.maps["chargemap"][mult2]
+                if abs(mult1 - mult2) == 1 and abs(el1 - el2) == 1:
+                    if self.QMin.molecule["states"][mult1 - 1] == 1 or self.QMin.molecule["states"][mult2 - 1] == 1:
+                        self.log.error(f"Ion requested, but number of states for multiplicity {mult1} or {mult2} is less than 2!")
+                        # TODO: build single determinant instead
+                        # raise ValueError()
+                    self.QMin.maps["ionmap"].append((mult1, job1, mult2, job2))
 
         # Setup gsmap
         self.log.debug("Building gsmap")
