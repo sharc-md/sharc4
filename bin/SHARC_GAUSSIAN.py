@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 
 # external
+from numpy import np
+from pyscf import gto
 
 # internal
 from resp import Resp
-from qmin import QMin
-from qmout import QMout
-from utils import mkdir, readfile, containsstring, shorten_DIR, makermatrix, makecmatrix, build_basis_dict, get_pyscf_order_from_gaussian, writefile, itmult, safe_cast, strip_dir
+from qmin import QMin as QMin_class
+from utils import mkdir, readfile, containsstring, shorten_DIR, makermatrix, makecmatrix, build_basis_dict, writefile, itmult, strip_dir, triangular_to_full_matrix
 from constants import IToMult, au2eV, IAn2AName
 from tdm import es2es_tdm
 from SHARC_ABINITIO import SHARC_ABINITIO
@@ -15,21 +16,14 @@ import os
 import sys
 import shutil
 import pprint
-import re
 import math
-import time
 import datetime
 import traceback
 from io import TextIOWrapper
-from textwrap import dedent
 from typing import Optional
 from itertools import chain
 import subprocess as sp
-from multiprocessing import Pool
-from socket import gethostname
 from copy import deepcopy
-
-from numpy import np
 
 __all__ = ["SHARC_GAUSSIAN"]
 
@@ -41,9 +35,22 @@ DESCRIPTION = "SHARC interface for the GAUSSIAN16 program suite"
 
 CHANGELOGSTRING = """
 """
-all_features = {"h", "dm", "grad", "overlap", "phases", "ion", "multipolar_fit", "theodore", "point_charges",
-                # raw data request
-                "basis_set", "wave_functions", "density_matrices", }
+all_features = {
+    "h",
+    "dm",
+    "grad",
+    "overlap",
+    "phases",
+    "ion",
+    "multipolar_fit",
+    "theodore",
+    "point_charges",
+    # raw data request
+    "basis_set",
+    "wave_functions",
+    "density_matrices",
+}
+
 
 class SHARC_GAUSSIAN(SHARC_ABINITIO):
     """
@@ -180,7 +187,6 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         """
         return INFOS
 
-
     def read_requests(self, requests_file: str = "QM.in") -> None:
         super().read_requests(requests_file)
 
@@ -190,14 +196,14 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
 
     def read_resources(self, resources_filename="GAUSSIAN.resources"):
         super().read_resources(resources_filename)
-        self._Gversion = SHARC_GAUSSIAN.getVersion(QMin.resources['groot'])
+        self._Gversion = SHARC_GAUSSIAN.getVersion(self.QMin.resources['groot'])
 
         os.environ['groot'] = self.QMin['groot']
         os.environ['GAUSS_EXEDIR'] = self.QMin['groot']
         os.environ['GAUSS_SCRDIR'] = '.'
         os.environ['PATH'] = '$GAUSS_EXEDIR:' + os.environ['PATH']
         self.QMin['GAUSS_EXEDIR'] = self.QMin['groot']
-        self.QMin['GAUSS_EXE'] = os.path.join(QMin['groot'], 'g%s' % self._Gversion)
+        self.QMin['GAUSS_EXE'] = os.path.join(self.QMin.resources['groot'], 'g%s' % self._Gversion)
         self._read_resources = True
         self.log.info('Detected GAUSSIAN version %s' % self._Gversion)
 
@@ -216,7 +222,8 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
             self.QMin.template['paste_input_file'] = readfile(self.QMin.template['paste_input_file'])
         # do logic checks
         if not self.QMin.template['unrestricted_triplets']:
-            if len(self.QMin.template['charge']) >= 3 and self.QMin.template['charge'][0] != self.QMin.template['charge'][2]:
+            if len(self.QMin.template['charge']
+                   ) >= 3 and self.QMin.template['charge'][0] != self.QMin.template['charge'][2]:
                 raise RuntimeError(
                     'Charges of singlets and triplets differ. Please enable the "unrestricted_triplets" option!'
                 )
@@ -231,7 +238,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         self._states_to_do()    # can be different in interface -> general method here with possibility to overwrite
         # make the jobs
         self._jobs()
-        jobs = QMin.control['jobs']
+        jobs = self.QMin.control['jobs']
         # make the multmap (mapping between multiplicity and job)
         multmap = {}
         for ijob, job in jobs.items():
@@ -243,7 +250,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
 
         # get the joblist
         self.QMin.control['joblist'] = sorted(jobs.keys())
-        self.QMin.control['njobs'] = len(QMin['joblist'])
+        self.QMin.control['njobs'] = len(self.QMin.control['joblist'])
 
         # make the gsmap
         gsmap = {}
@@ -290,36 +297,34 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
             # self.log.error('Found no executable (possible names: %s) in $groot!' % (list(tries)))
             raise RuntimeError('Found no executable (possible names: %s) in $groot!' % (list(tries)))
 
-    
     def _jobs(self):
-        self.QMin = self._QMin
         # make the jobs
         jobs = {}
         if self.QMin.control['states_to_do'][0] > 0:
             jobs[1] = {'mults': [1], 'restr': True}
-        if len(QMin.control['states_to_do']) >= 2 and self.QMin.control['states_to_do'][1] > 0:
+        if len(self.QMin.control['states_to_do']) >= 2 and self.QMin.control['states_to_do'][1] > 0:
             jobs[2] = {'mults': [2], 'restr': False}
-        if len(QMin.control['states_to_do']) >= 3 and self.QMin.control['states_to_do'][2] > 0:
+        if len(self.QMin.control['states_to_do']) >= 3 and self.QMin.control['states_to_do'][2] > 0:
             if not self.QMin.template['unrestricted_triplets'] and self.QMin.control['states_to_do'][0] > 0:
                 # jobs[1]['mults'].append(3)
                 jobs[3] = {'mults': [1, 3], 'restr': True}
             else:
                 jobs[3] = {'mults': [3], 'restr': False}
-        if len(QMin.control['states_to_do']) >= 4:
-            for imult, nstate in enumerate(QMin.control['states_to_do'][3:]):
+        if len(self.QMin.control['states_to_do']) >= 4:
+            for imult, nstate in enumerate(self.QMin.control['states_to_do'][3:]):
                 if nstate > 0:
                     jobs[len(jobs) + 1] = {'mults': [imult + 4], 'restr': False}
         self.QMin.control['jobs'] = jobs
 
     def _states_to_do(self):
-        self.QMin = self._QMin
         # obtain the states to actually compute
-        states_to_do = deepcopy(QMin.molecule['states'])
-        for i in range(len(QMin.molecule['states'])):
+        states_to_do = deepcopy(self.QMin.molecule['states'])
+        for i in range(len(self.QMin.molecule['states'])):
             if states_to_do[i] > 0:
                 states_to_do[i] += self.QMin.template['paddingstates'][i]
         if not self.QMin.template['unrestricted_triplets']:
-            if len(QMin.molecule['states']) >= 3 and self.QMin.molecule['states'][2] > 0 and self.QMin.molecule['states'][0] <= 1:
+            if len(self.QMin.molecule['states']
+                   ) >= 3 and self.QMin.molecule['states'][2] > 0 and self.QMin.molecule['states'][0] <= 1:
                 if 'soc' in self.QMin:
                     states_to_do[0] = 2
                 else:
@@ -450,7 +455,9 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         for i in gradjob:
             if 'master' in i:
                 ntasks += 1
-        nrounds, nslots, cpu_per_run = SHARC_ABINITIO.divide_slots(QMin.resources['ncpu'], ntasks, self.QMin.resources['schedule_scaling'])
+        nrounds, nslots, cpu_per_run = SHARC_ABINITIO.divide_slots(
+            self.QMin.resources['ncpu'], ntasks, self.QMin.resources['schedule_scaling']
+        )
         memory_per_core = self.QMin.resources['memory'] // self.QMin.resources['ncpu']
         self.QMin.scheduling['nslots_pool'].append(nslots)
         schedule.append({})
@@ -465,8 +472,11 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                 QMin1.resources['ncpu'] = cpu_per_run[icount]
                 QMin1.resources['memory'] = memory_per_core * cpu_per_run[icount]
                 # get the rootstate for the multiplicity as the first excited state
-                QMin1.control['rootstate'] = min(1, QMin.molecule['states'][QMin.maps['multmap'][-QMin1['jobid']][-1] - 1] - 1)
-                if 3 in QMin.maps['multmap'][-QMin1.control['jobid']] and QMin.control['jobs'][QMin1.control['jobid']]['restr']:
+                QMin1.control['rootstate'] = min(
+                    1, self.QMin.molecule['states'][self.QMin.maps['multmap'][-QMin1['jobid']][-1] - 1] - 1
+                )
+                if 3 in self.QMin.maps['multmap'][-QMin1.control['jobid']] and self.QMin.control['jobs'][
+                    QMin1.control['jobid']]['restr']:
                     QMin1.control['rootstate'] = 1
                     QMin1.molecule['states'][0] = 1
                     QMin1.control['states_to_do'][0] = 1
@@ -482,18 +492,20 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
             if 'dens' in i:
                 ntasks += 1
         if ntasks > 0:
-            nrounds, nslots, cpu_per_run = SHARC_ABINITIO.divide_slots(QMin.resources['ncpu'], ntasks, QMin['schedule_scaling'])
+            nrounds, nslots, cpu_per_run = SHARC_ABINITIO.divide_slots(
+                self.QMin.resources['ncpu'], ntasks, self.QMin['schedule_scaling']
+            )
             self.QMin.scheduling['nslots_pool'].append(nslots)
             schedule.append({})
             icount = 0
             for i in gradjob:
                 if 'grad' in i:
-                    QMin1 = deepcopy(QMin)
+                    QMin1 = deepcopy(self.QMin)
                     del QMin1.scheduling
                     mult, state = (int(x) for x in i.split('_')[1:])
-                    ijob = QMin.maps['multmap'][mult]
+                    ijob = self.QMin.maps['multmap'][mult]
                     QMin1.control['jobid'] = ijob
-                    gsmult = QMin.maps['multmap'][-ijob][0]
+                    gsmult = self.QMin.maps['multmap'][-ijob][0]
                     for i in ['h', 'soc', 'dm', 'overlap', 'ion']:
                         QMin1.requests[i] = False
                     for i in ['always_guess', 'always_orb_init', 'init']:
@@ -502,25 +514,27 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                     QMin1.resources['ncpu'] = cpu_per_run[icount]
                     QMin1.resources['memory'] = memory_per_core * cpu_per_run[icount]
                     QMin1.control['gradonly'] = []
-                    QMin1.control['rootstate'] = state - 1 if gsmult == mult else state    # 1 is first excited state of mult
+                    QMin1.control['rootstate'
+                                  ] = state - 1 if gsmult == mult else state    # 1 is first excited state of mult
                     icount += 1
                     schedule[-1][i] = QMin1
 
             for i in densjob:
                 if 'dens' in i:
-                    QMin1 = deepcopy(QMin)
+                    QMin1 = deepcopy(self.QMin)
                     del QMin1.scheduling
                     mult, state = (int(x) for x in i.split('_')[1:])
-                    ijob = QMin.maps['multmap'][mult]
+                    ijob = self.QMin.maps['multmap'][mult]
                     QMin1.control['jobid'] = ijob
-                    gsmult = QMin.maps['multmap'][-ijob][0]
+                    gsmult = self.QMin.maps['multmap'][-ijob][0]
                     for i in ['h', 'soc', 'dm', 'overlap', 'ion']:
                         QMin1.requests[i] = False
                     for i in ['always_guess', 'always_orb_init', 'init']:
                         QMin1.save[i] = False
                     QMin1.resources['ncpu'] = cpu_per_run[icount]
                     QMin1.resources['memory'] = memory_per_core * cpu_per_run[icount]
-                    QMin1.control['rootstate'] = state - 1 if gsmult == mult else state    # 1 is first excited state of mult
+                    QMin1.control['rootstate'
+                                  ] = state - 1 if gsmult == mult else state    # 1 is first excited state of mult
                     QMin1.control['densonly'] = True
                     icount += 1
                     schedule[-1][i] = QMin1
@@ -548,7 +562,6 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
 # ==================================== GAUSSIAN Job Execution =================================== #
 # =============================================================================================== #
 # =============================================================================================== #
-
 
     def run(self):
         self.generate_joblist()
@@ -581,17 +594,17 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
             for job in jobset:
                 if 'master' in job:
                     WORKDIR = os.path.join(self.QMin.resources['scratchdir'], job)
-                    if QMin.save['samestep']:
+                    if self.QMin.save['samestep']:
                         self.saveFiles(WORKDIR, jobset[job])
-                    if QMin.requests['ion'] and ijobset == 0:
-                        self.saveAOmatrix(WORKDIR, QMin)
-        self.saveGeometry(QMin)
+                    if self.QMin.requests['ion'] and ijobset == 0:
+                        self.saveAOmatrix(WORKDIR, self.QMin)
+        self.saveGeometry(self.QMin)
         endtime = datetime.datetime.now()
         self.log.print('Saving Runtime: %s\n' % (endtime - starttime))
 
     # ======================================================================= #
 
-    def execute_from_qmin(self, workdir: str, qmin: QMin) -> tuple[int, datetime.timedelta]:
+    def execute_from_qmin(self, workdir: str, qmin: QMin_class) -> tuple[int, datetime.timedelta]:
         """
         - sets up the workdir
         - runs GAUSSIAN
@@ -602,7 +615,10 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
             self.setupWORKDIR(workdir, qmin)
             strip = True
             starttime = datetime.datetime.now()
-            exit_code = self.run_program(workdir, f"{qmin['GAUSS_EXE']} < GAUSSIAN.com", os.path.join(workdir, "GAUSSIAN.log"), os.path.join(workdir, "GAUSSIAN.err"))
+            exit_code = self.run_program(
+                workdir, f"{qmin['GAUSS_EXE']} < GAUSSIAN.com", os.path.join(workdir, "GAUSSIAN.log"),
+                os.path.join(workdir, "GAUSSIAN.err")
+            )
             endtime = datetime.datetime.now()
         except Exception as problem:
             self.log.info('*' * 50 + '\nException in run_calc(%s)!' % (workdir))
@@ -661,8 +677,11 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
 
         # determine the root in case it was not determined in schedule jobs
         if 'rootstate' not in QMin:
-            QMin['rootstate'] = min(1, QMin.molecule['states'][QMin.maps['multmap'][-QMin.control['jobid']][-1] - 1] - 1)
-            if 3 in QMin.maps['multmap'][-QMin.control['jobid']] and QMin.control['jobs'][QMin.control['jobid']]['restr']:
+            QMin['rootstate'] = min(
+                1, QMin.molecule['states'][QMin.maps['multmap'][-QMin.control['jobid']][-1] - 1] - 1
+            )
+            if 3 in QMin.maps['multmap'][-QMin.control['jobid']] and QMin.control['jobs'][QMin.control['jobid']
+                                                                                          ]['restr']:
                 QMin['rootstate'] = 1
 
         # excited states to calculate
@@ -812,7 +831,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
 
     # ======================================================================= #
 
-    def saveFiles(self,WORKDIR, QMin):
+    def saveFiles(self, WORKDIR, QMin):
 
         # copy the TAPE21 from master directories
         job = QMin.control['jobid']
@@ -853,7 +872,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
             try:
                 runerror = sp.call(string, shell=True, executable=shell)
             except OSError as e:
-                raise RuntimeError('Gaussian rwfdump has serious problems:', OSError, 68)
+                raise RuntimeError(f'Gaussian rwfdump has serious problems:\n {e}')
         string = readfile(dumpname)
         os.chdir(prevdir)
         return string
@@ -1134,8 +1153,10 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                             problem = True
                         if any(
                             [
-                                key[i] != 2 for i in
-                                range(nocc_A + nvir_A + QMin.molecule['frozcore'], nocc_A + nvir_A + 2 * QMin.molecule['frozcore'])
+                                key[i] != 2 for i in range(
+                                    nocc_A + nvir_A + QMin.molecule['frozcore'], nocc_A + nvir_A +
+                                    2 * QMin.molecule['frozcore']
+                                )
                             ]
                         ):
                             problem = True
@@ -1146,8 +1167,8 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                     if restr:
                         key2 = key[QMin.molecule['frozcore']:]
                     else:
-                        key2 = key[QMin.molecule['frozcore']:QMin.molecule['frozcore'] + nocc_A + nvir_A] + key[nocc_A + nvir_A +
-                                                                                              2 * QMin.molecule['frozcore']:]
+                        key2 = key[QMin.molecule['frozcore']:QMin.molecule['frozcore'] + nocc_A +
+                                   nvir_A] + key[nocc_A + nvir_A + 2 * QMin.molecule['frozcore']:]
                     dets3[key2] = dets2[key]
                 # append
                 eigenvectors[mult].append(dets3)
@@ -1261,11 +1282,11 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
 
         # build QMin   # TODO: always singlet for AOoverlaps
         QMin1 = deepcopy(self.QMin)
-        del QMin.scheduling
+        del self.QMin.scheduling
         QMin1.molecule['elements'] = [x[0] for x in chain(oldgeo, newgeo)]
         QMin1.coords['coords'] = [x[1:] for x in chain(oldgeo, newgeo)]
         QMin1.control['AOoverlap'] = [filename1, filename2]
-        QMin1.control['jobid'] = QMin['joblist'][0]
+        QMin1.control['jobid'] = self.QMin.control['joblist'][0]
         QMin1.molecule['natom'] = len(newgeo)
         remove = ['nacdr', 'grad', 'h', 'soc', 'dm', 'overlap', 'ion']
         for r in remove:
@@ -1281,7 +1302,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
 
         # adjust the diagonal blocks for DFTB-A
         if self.QMin.template['functional'] == 'dftba':
-            Smat = SHARC_GAUSSIAN.adjust_DFTB_Smat(Smat, NAO, QMin)
+            Smat = SHARC_GAUSSIAN.adjust_DFTB_Smat(Smat, NAO, self.QMin)
 
         # Smat is now full matrix NAO*NAO
         # we want the lower left quarter, but transposed
@@ -1358,7 +1379,10 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         nmstates = self.QMin.molecule['nmstates']
         natom = self.QMin.molecule['natom']
         joblist = self.QMin['joblist']
-        self.QMout.allocate(states, natom, self.QMin.molecule['npc'], {r for r in self.QMin.requests.keys() if self.QMin.requests[r]})
+        self.QMout.allocate(
+            states, natom, self.QMin.molecule['npc'], {r
+                                                       for r in self.QMin.requests.keys() if self.QMin.requests[r]}
+        )
 
         # TODO:
         # excited state energies and transition moments could be read from rwfdump "770R"
@@ -1371,23 +1395,21 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
             log_content = readfile(logfile)
 
             if self.QMin.requests['h']:    # or 'soc' in self.QMin:
-                # go through all jobs
-                for job in joblist:
-                    # first get energies from TAPE21
-                    logfile = os.path.join(self.QMin.resources['scratchdir'], 'master_%i/GAUSSIAN.log' % (job))
-                    energies = self.getenergy(log_content, job)
-                    mults = self.QMin.maps['multmap'][-job]
-                    if 3 in mults:
-                        mults = [3]
-                    for i in range(nmstates):
-                        m1, s1, ms1 = tuple(self.QMin.maps['statemap'][i + 1])
-                        if m1 not in mults:
-                            continue
-                        self.QMout['h'][i][i] = energies[(m1, s1)]
+                logfile = os.path.join(self.QMin.resources['scratchdir'], 'master_%i/GAUSSIAN.log' % (job))
+                self.log.print('Energies:  ' + shorten_DIR(logfile))
+                energies = self.getenergy(log_content, job)
+                mults = self.QMin.maps['multmap'][-job]
+                if 3 in mults:
+                    mults = [3]
+                for i in range(nmstates):
+                    m1, s1, ms1 = tuple(self.QMin.maps['statemap'][i + 1])
+                    if m1 not in mults:
+                        continue
+                    self.QMout['h'][i][i] = energies[(m1, s1)]
 
             # Dipole Moments
             if self.QMin.requests['dm']:
-            # go through all jobs
+                self.log.print('Dipoles:  ' + shorten_DIR(logfile))
                 dipoles = self.gettdm(log_content, job)
                 mults = self.QMin.maps['multmap'][-job]
                 mults = self.QMin.maps['multmap'][-job]
@@ -1420,12 +1442,10 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
 
         # Gradients
         if self.QMin.requests['grad']:
-            if 'grad' not in QMout:
-                self.QMout['grad'] = [[[0. for i in range(3)] for j in range(natom)] for k in range(nmstates)]
             for grad in self.QMin.maps['gradmap']:
                 path, isgs = self.QMin['jobgrad'][grad]
                 logfile = os.path.join(self.QMin.resources['scratchdir'], path, 'GAUSSIAN.log')
-                g = SHARC_GAUSSIAN.getgrad(logfile, self.QMin)
+                g = self.getgrad(logfile)
                 for istate in self.QMin.maps['statemap']:
                     state = self.QMin.maps['statemap'][istate]
                     if (state[0], state[1]) == grad:
@@ -1448,12 +1468,10 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                                 if de > abs(e1 - e2):
                                     de = abs(e1 - e2)
                                     j = k
-                        self.QMout['grad'][i] = QMout['grad'][j]
+                        self.QMout['grad'][i] = self.QMout['grad'][j]
 
         # Regular Overlaps
         if self.QMin.requests['overlap']:
-            if 'overlap' not in QMout:
-                self.QMout['overlap'] = makecmatrix(nmstates, nmstates)
             for mult in itmult(self.QMin.molecule['states']):
                 job = self.QMin.maps['multmap'][mult]
                 outfile = os.path.join(self.QMin.resources['scratchdir'], 'WFOVL_%i_%i/wfovl.out' % (mult, job))
@@ -1471,16 +1489,14 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
 
         # Phases from overlaps
         if self.QMin.requests['phases']:
-            if 'phases' not in QMout:
-                self.QMout['phases'] = [complex(1., 0.) for i in range(nmstates)]
-            if 'overlap' in QMout:
+            if 'overlap' in self.QMout:
                 for i in range(nmstates):
                     if self.QMout['overlap'][i][i].real < 0.:
                         self.QMout['phases'][i] = complex(-1., 0.)
 
         # Dyson norms
         if self.QMin.requests['ion']:
-            if 'prop' not in QMout:
+            if 'prop' not in self.QMout:
                 self.QMout['prop'] = makecmatrix(nmstates, nmstates)
             for ion in self.QMin.maps['ionmap']:
                 outfile = os.path.join(self.QMin.resources['scratchdir'], 'Dyson_%i_%i_%i_%i/wfovl.out' % ion)
@@ -1506,144 +1522,98 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                             factor = (-ms1 + 1. + (m1 - 1.) / 2.) / m1
                         self.QMout['prop'][i][j] = SHARC_GAUSSIAN.getDyson(out, s1, s2) * factor
 
-        # multipolar_density fits
+        # ====================== Requests that read from fchks ===============================
+        # ========================== read from master ======================================
+        # get the FCHK file
+        masterdir = os.path.join(self.QMin.resources['scratchdir'], 'master_%i' % (joblist[0]))
+        self.get_fchk(masterdir, self.QMin['groot'])
+        fchk_master = os.path.join(masterdir, 'GAUSSIAN.fchk')
+
+        # collect properties to read
+        keywords_from_master = set()
+        get_basis = self.QMin.requests['basis'] or self.QMin.requests['densities'] or self.QMin.requests[
+            'multipolar_fit']
+        get_ecp = self.QMin.requests['densities'] or self.QMin.requests['multipolar_fit']
+
+        if get_basis:
+            keywords_from_master.update(
+                {
+                    'Atomic numbers', 'Number of basis functions', 'Pure/Cartesian d shells', 'Pure/Cartesian f shells',
+                    'Shell types', 'Number of primitives per shell', 'Shell to atom map', 'Primitive exponents',
+                    'Contraction coefficients', 'P(S=P) Contraction coefficients'
+                }
+            )
+        if get_ecp:
+            keywords_from_master.update(
+                {
+                    'Number of atoms', 'Atomic numbers', 'ECP-MaxLECP', 'ECP-KFirst', 'ECP-KLast', 'ECP-LMax',
+                    'ECP-LPSkip', 'ECP-RNFroz', 'ECP-NLP', 'ECP-CLP1', 'ECP-ZLP'
+                }
+            )
+
+        raw_properties_from_master = SHARC_GAUSSIAN.parse_fchk(fchk_master, keywords_from_master)
+
+        if get_basis:
+            basis, n_bf, cartesian_d, cartesian_f, p_eq_s_shell = SHARC_GAUSSIAN.prepare_basis(
+                raw_properties_from_master
+            )
+            self.log.debug(f"{'basis:':=^80}\n{basis}")
+            self.log.debug(
+                "basis information: P(S=P):", p_eq_s_shell, " cartesian d:", cartesian_d, "cartesian_f", cartesian_f
+            )
+        if get_ecp:
+            ECPs = SHARC_GAUSSIAN.prepare_ecp(raw_properties_from_master)
+            self.log.debug(f"{'ECP:':=^80}\n{ECPs}")
+            if len(ECPs) == 0:
+                self.log.info("No ECPs found")
+
+        get_densities = get_ecp
+
+        if get_densities:
+            self.log.info("Retrieving densities from FCHK files")
+            densities = self.get_densities(n_bf)    # map for (mult, state, state): position in densities
+
         if self.QMin.requests['multipolar_fit']:
-            if 'multipolar_fit' not in QMout:
-                self.QMout['multipolar_fit'] = {}
-
-            for dens in self.QMin['densjob']:
-                workdir = os.path.join(self.QMin.resources['scratchdir'], dens)
-                self.get_fchk(workdir, self.QMin['groot'])
-            # sort densjobs
-            density_map = {}    # map for (mult, state, state): position in densities
-            sorted_densjobs = []
-            jobfiles = set()
-            i = 0
-            for dens in self.QMin.maps['densmap']:
-                job = self.QMin['jobdens'][dens]
-                if job not in jobfiles:
-                    jobfiles.add(job)
-                    flags = self.QMin['densjob'][job]
-                    sorted_densjobs.append((job, flags))
-                    scf, es, gses = map(flags.get, ('scf', 'es', 'gses'))
-                    if scf:
-                        density_map[(*dens, *dens)] = i
-                        i += 1
-                    if es:
-                        edens = (dens[0], dens[1] + 1) if scf else dens
-                        density_map[(*edens, *edens)] = i
-                        i += 1
-                    if gses:
-                        # determine the excited states for this multiplicity
-                        nstates = self.QMin.molecule['states'][dens[0] - 1]
-                        ijob = self.QMin.maps['multmap'][dens[0]]
-                        gsmult = self.QMin.maps['multmap'][-ijob][0]
-                        first = 2
-                        if gsmult != dens[0]:
-                            first = 1
-                        last = nstates
-                        for es in range(first, last + 1):
-                            state = dens[1]
-                            density_map[(gsmult, 1, dens[0], es)] = i
-                            i += 1
-            # read basis
-            fchkfile = os.path.join(self.QMin.resources['scratchdir'], sorted_densjobs[0][0], 'GAUSSIAN.fchk')
-            basis, n_bf, cartesian_d, cartesian_f, p_eq_s_shell = self.get_basis(fchkfile)
-            print("basis information: P(S=P):", p_eq_s_shell, " cartesian d:", cartesian_d, "cartesian_f", cartesian_f)
-            ECPs = self.parse_ecp(fchkfile)
-            # collect all densities from the file in densjob (file: bools) and jobdens (state: file)
-            densities = self.get_dens_from_fchks(
-                sorted_densjobs,
-                basis,
-                n_bf,
-                cartesian_d=cartesian_d,
-                cartesian_f=cartesian_f,
-                p_eq_s_shell=p_eq_s_shell
+            gsmult = self.QMin['statemap'][1][0]
+            charge = self.QMin['chargemap'][gsmult]
+            atoms = [[f'{s.upper()}{j+1}', c.tolist()] for j, s, c in zip(range(self.natom), self.atom_symbols, self.coords)]
+            mol = gto.Mole(
+                atom=atoms,
+                basis=basis,
+                unit='BOHR',
+                spin=gsmult - 1,
+                charge=charge,
+                symmetry=False,
+                cart=cartesian_d,
+                ecp={f'{self.atom_symbols[n]}{n+1}': ecp_string
+                     for n, ecp_string in ECPs.items()}
             )
-            #  after reordering the densities on needs to align the d and f orbitals for spherical or cartesian basis
-            #  if cartesian_d != cartesian_f:
-            #  nao = len(densities[0])
-            #  # change both to spherical
-            #  cartesian_basis = False
-            #  cart2sph_matrix = get_cart2sph_matrix(3 if cartesian_f else 2, nao, self.QMin.molecule['elements'], basis)
-            #  for i in range(len(densities)):
-            #  print(np.linalg.norm(densities[i]))
-            #  densities[i] = cart2sph_matrix.T @ densities[i] @ cart2sph_matrix
-            #  print(np.linalg.norm(densities[i]))
-
-            #  else:
-            #  cartesian_basis = cartesian_d
-            cartesian_basis = cartesian_d
-            fits = Resp(
-                self.QMin.molecule['coords'],
-                self.QMin.molecule['elements'],
-                self.QMin.resources['resp_vdw_radii'],
-                self.QMin.resources['resp_density'],
-                self.QMin.resources['resp_shells'],
-                grid=self.QMin.resources['resp_grid']
-            )
-            gsmult = self.QMin.maps['statemap'][1][0]
-            charge = self.QMin.maps['chargemap'][gsmult]
-            pprint.pprint(ECPs)
-            fits.prepare(
-                basis, gsmult - 1, charge, ecps=ECPs, cart_basis=cartesian_basis
-            )    # the charge of the atom does not affect integrals
+            mol.build()
+            Sao = mol.intor('int1e_ovlp')
+            dipole_operator = mol.intor('int1e_r')
             # obtain normalization coefficients of pyscf overlap
-            ao_sqrt_norms = np.sqrt(np.diag(fits.Sao))
+            ao_sqrt_norms = np.sqrt(np.diag(Sao))
             # obtain new order of the AO orbitals
-            new_order = get_pyscf_order_from_gaussian(self.QMin.molecule['elements'], basis, cartesian_d=cartesian_d, cartesian_f=cartesian_f)
-            print("reordering atomic orbitals according to")
-            print(new_order)
-            if len(new_order) != len(densities[0]):
-                raise RuntimeError("The list with the new order of the AOs has a different length!")
+            new_order = SHARC_GAUSSIAN.get_pyscf_order_from_gaussian(
+                self.QMin.molecule['elements'], basis, cartesian_d=cartesian_d, cartesian_f=cartesian_f
+            )
+            self.log.debug(f"reordering atomic orbitals according to:\n\t{new_order}")
             # reorder all densities and renormalize them
-            for i in range(len(densities)):
-                densities[i] = densities[i][:, new_order][new_order, :]
-                densities[i] = (densities[i] / ao_sqrt_norms[:, None]) / ao_sqrt_norms[None, :]
+            for key in densities.keys():
+                densities[key] = densities[key][:, new_order][new_order, :]
+                densities[key] = (densities[key] / ao_sqrt_norms[:, None]) / ao_sqrt_norms[None, :]
 
-            fits_map = {}
-            D = fits.mol.intor('int1e_r')
-            for i, d_i in enumerate(self.QMin.maps['densmap']):
-                # do gs density
-                key = (*d_i, *d_i)
-                fits_map[key] = fits.multipoles_from_dens(
-                    densities[density_map[key]],
-                    include_core_charges=True,
-                    order=self.QMin.resources['resp_fit_order'],
-                    charge=self.QMin.maps['chargemap'][d_i[0]],
-                    betas=self.QMin.resources['resp_betas']
+                # check dm matrix
+                self.log.debug(f"Performing checks on density {key[0]}_{key[1]}->{key[2]}_{key[3]}:")
+                self.log.debug(
+                    f"\ttransition dipole {(-np.einsum('xij,ij->x', dipole_operator, densities[key])).tolist()}"
                 )
+                self.log.debug("\tn elec:", np.einsum('ij,ij', self.Sao, densities[key]))
 
-                for d_j in self.QMin.maps['densmap'][i + 1:]:
-                    if d_i[0] != d_j[0]:
-                        continue
-                    # do gses and eses density
-                    key = (*d_i, *d_j)
-                    if key in density_map:
-                        fits_map[key] = fits.multipoles_from_dens(
-                            densities[density_map[key]], include_core_charges=False, order=self.QMin.resources['resp_fit_order'],
-                            betas=self.QMin.resources['resp_betas']
-                        )
-                        print(f"check: {key[0]}_{key[1]}->{key[2]}_{key[3]} transition dipole from real density",(-np.einsum('xij,ij->x', D, densities[density_map[key]])).tolist())
-                        #  np.savetxt("_".join(map(str, key))+"_trans_dens", densities[density_map[key]])
-                    else:
-                        ijob = self.QMin.maps['multmap'][d_i[0]]    # the multiplicity is the same -> ijob same
-                        gsmult = self.QMin.maps['multmap'][-ijob][0]
-                        dmI = densities[density_map[(gsmult, 1, *d_i)]]
-                        dmJ = densities[density_map[(gsmult, 1, *d_j)]]
-                        trans_dens = es2es_tdm(dmI, dmJ, fits.Sao)
-                        fits_map[key] = fits.multipoles_from_dens(
-                            trans_dens, include_core_charges=False, order=self.QMin.resources['resp_fit_order'],
-                            betas=self.QMin.resources['resp_betas']
-                        )
-                        #  np.savetxt("_".join(map(str, key))+"_trans_dens", trans_dens)
-                        print(f"check: {key[0]}_{key[1]}->{key[2]}_{key[3]} transition dipole from appr. density",(-np.einsum('xij,ij->x', D, trans_dens)).tolist())
-            self.QMout['multipolar_fit'] = fits_map
+            self.QMout['multipolar_fit'] = self._resp_fit_on_densities(basis, densities, cartesian_basis=cartesian_d, ecps=ECPs)
 
         # TheoDORE
         if self.QMin.requests['theodore']:
-            if 'theodore' not in QMout:
-                self.QMout['theodore'] = makecmatrix(self.QMin['theodore_n'], nmstates)
             for job in joblist:
                 if not self.QMin.control['jobs'][job]['restr']:
                     continue
@@ -1667,7 +1637,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         endtime = datetime.datetime.now()
         self.log.print("Readout Runtime: %s" % (endtime - starttime))
 
-        if DEBUG:
+        if self.QMin.resources['debug']:
             copydir = os.path.join(self.QMin.save['savedir'], 'debug_GAUSSIAN_stdout')
             if not os.path.isdir(copydir):
                 mkdir(copydir)
@@ -1706,19 +1676,16 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
 
     def getenergy(self, log_content, ijob):
 
-        # open file
-        self.log.print('Energy:   ' + shorten_DIR(logfile))
-
         # read ground state
         for line in log_content:
             if ' SCF Done:' in line:
                 gsenergy = float(line.split()[4])
 
         # figure out the excited state settings
-        mults = QMin.control['jobs'][ijob]['mults']
-        restr = QMin.control['jobs'][ijob]['restr']
+        mults = self.QMin.control['jobs'][ijob]['mults']
+        restr = self.QMin.control['jobs'][ijob]['restr']
         gsmult = mults[0]
-        estates_to_extract = deepcopy(QMin.molecule['states'])
+        estates_to_extract = deepcopy(self.QMin.molecule['states'])
         estates_to_extract[gsmult - 1] -= 1
         for imult in range(len(estates_to_extract)):
             if not imult + 1 in mults:
@@ -1746,26 +1713,22 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         return energies
 
     # ======================================================================= #
-    @staticmethod
-    def gettdm(log_content, ijob):
-
-        # open file
-        self.log.print('Dipoles:  ' + shorten_DIR(logfile))
+    def gettdm(self, log_content, ijob):
 
         # figure out the excited state settings
-        mults = QMin.control['jobs'][ijob]['mults']
+        mults = self.QMin.control['jobs'][ijob]['mults']
         if 3 in mults:
             mults = [3]
-        restr = QMin.control['jobs'][ijob]['restr']
+        restr = self.QMin.control['jobs'][ijob]['restr']
         gsmult = mults[0]
-        estates_to_extract = deepcopy(QMin.molecule['states'])
+        estates_to_extract = deepcopy(self.QMin.molecule['states'])
         estates_to_extract[gsmult - 1] -= 1
         for imult in range(len(estates_to_extract)):
             if not imult + 1 in mults:
                 estates_to_extract[imult] = 0
 
         # get ordering of states in Gaussian output
-        istate = [int(i + 1 == gsmult) for i in range(len(QMin.molecule['states']))]
+        istate = [int(i + 1 == gsmult) for i in range(len(self.QMin.molecule['states']))]
         index = 0
         gaustatemap = {}
         for iline, line in enumerate(log_content):
@@ -1793,7 +1756,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                     if 'Ground to excited state transition electric dipole moments ' in line:
                         for istate in range(nstates):
                             shift = gaustatemap[(imult, istate + 1 + (gsmult == imult))]
-                            s = f[iline + 2 + shift].split()
+                            s = log_content[iline + 2 + shift].split()
                             dipoles[(imult, istate + 1 + (gsmult == imult))] = [float(i) for i in s[1:4]]
         return dipoles
 
@@ -1812,79 +1775,39 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         os.chdir(prevdir)
 
     @staticmethod
-    def get_basis(fchkfile: str):
-        cartesian = False
-        p_eq_s = False
-        n_bf = 0
-        f = open(fchkfile, 'r')
-        lines = f.readlines()
-        f.close()
-        shell_types = []
-        n_prim = []
-        s_a_map = []
-        prim_exp = []
-        contr_coeff = []
-        ps_contr_coeff = None
-        atom_symbols = []
-        i = 0
-        while i != len(lines):
-            if 'Atomic numbers' in lines[i]:
-                natom = int(lines[i].split()[-1])
-                n_lines = ((natom - 1) // 6 + 1)
-                i += 1
-                atom_symbols = list(
-                    map(lambda x: IAn2AName[int(x)], chain(*map(lambda x: x.split(), lines[i:i + n_lines])))
-                )
-            if 'Number of basis functions' in lines[i]:
-                n_bf = int(lines[i].split()[-1])
-            if 'Pure/Cartesian d shells' in lines[i]:
-                cartesian_d = int(lines[i].split()[-1]) == 1
-            if 'Pure/Cartesian f shells' in lines[i]:
-                cartesian_f = int(lines[i].split()[-1]) == 1
-            if 'Shell types' in lines[i]:
-                n = int(lines[i].split()[-1])
-                n_lines = (n - 1) // 6 + 1
-                i += 1
-                shell_types = list(map(int, chain(*map(lambda x: x.split(), lines[i:i + n_lines]))))
-                i += n_lines
-            if 'Number of primitives per shell' in lines[i]:
-                n = int(lines[i].split()[-1])
-                n_lines = (n - 1) // 6 + 1
-                i += 1
-                n_prim = list(map(int, chain(*map(lambda x: x.split(), lines[i:i + n_lines]))))
-                i += n_lines
-            if 'Shell to atom map' in lines[i]:
-                n = int(lines[i].split()[-1])
-                n_lines = (n - 1) // 6 + 1
-                i += 1
-                s_a_map = list(map(int, chain(*map(lambda x: x.split(), lines[i:i + n_lines]))))
-                i += n_lines
-            if 'Primitive exponents' in lines[i]:
-                n = int(lines[i].split()[-1])
-                n_lines = (n - 1) // 5 + 1
-                i += 1
-                prim_exp = list(map(float, chain(*map(lambda x: x.split(), lines[i:i + n_lines]))))
-                i += n_lines
-            if 'Contraction coefficients' in lines[i]:
-                n = int(lines[i].split()[-1])
-                n_lines = (n - 1) // 5 + 1
-                i += 1
-                contr_coeff = list(map(float, chain(*map(lambda x: x.split(), lines[i:i + n_lines]))))
-                i += n_lines
-                if 'P(S=P) Contraction coefficients' in lines[i]:
-                    p_eq_s = True
-                    n = int(lines[i].split()[-1])
-                    n_lines = (n - 1) // 5 + 1
-                    i += 1
-                    ps_contr_coeff = list(map(float, chain(*map(lambda x: x.split(), lines[i:i + n_lines]))))
-                break
-            i += 1
+    def prepare_basis(properties: dict[
+        str,
+    ]):
+        """
+        prepares the basis object from raw FCHK properties
+        necessary properties:
+        ---
+            'Atomic numbers'
+            'Number of basis functions'
+            'Pure/Cartesian d shells'
+            'Pure/Cartesian f shells'
+            'Shell types'
+            'Number of primitives per shell'
+            'Shell to atom map'
+            'Primitive exponents'
+            'Contraction coefficients'
+            'P(S=P) Contraction coefficients'
+        """
+
+        p_eq_s = 'P(S=P) Contraction coefficients' in properties and properties['P(S=P) Contraction coefficients'
+                                                                                ] is not None
+        atom_symbols = [IAn2AName[x] for x in properties['Atomic Numbers']]
         return build_basis_dict(
-            atom_symbols, shell_types, n_prim, s_a_map, prim_exp, contr_coeff, ps_contr_coeff
-        ), n_bf, cartesian_d, cartesian_f, p_eq_s
+            atom_symbols, properties['Shell types'], properties['Number of primitives per shell'],
+            properties['Shell to atom map'], properties['Primitive exponents'], properties['Contraction coefficients'],
+            properties['P(S=P) Contraction coefficients']
+        ), properties['Number of basis functions'], properties['Pure/Cartesian d shells'],
+        properties['Pure/Cartesian f shells'], p_eq_s
 
     @staticmethod
-    def parse_fchk(fchkfile: str, properties:dict):
+    def parse_fchk(fchkfile: str, keywords: set) -> dict[
+        str,
+    ]:
         """
         Parse some keywords from an fchkfile raw
 
@@ -1895,7 +1818,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
             dict[str,]  dictionary with properties as keys and values
         """
         types = {'I': int, 'R': float, 'C': str}
-        res = {k: None for k in properties}
+        res = {k: None for k in keywords}
 
         with open(fchkfile, 'r') as f:
             line = f.readline()
@@ -1922,27 +1845,32 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                             res[k] = n
                 # ----------------------------
                 line = f.readline()
+        return res
 
     @staticmethod
-    def parse_ecp(fchkfile: str):
-        props = {
-            'Number of atoms': None,
-            'Atomic numbers': None,
-            'ECP-MaxLECP': None,
-            'ECP-KFirst': None,
-            'ECP-KLast': None,
-            'ECP-LMax': None,
-            'ECP-LPSkip': None,
-            'ECP-RNFroz': None,
-            'ECP-NLP': None,
-            'ECP-CLP1': None,
-            'ECP-ZLP': None
-        }
+    def prepare_ecp(props: dict[
+        str,
+    ]):
+        """
+        Prepares ECP from raw parsed FCHK properties
+        needed props:
+        ---
+            'Number of atoms'
+            'Atomic numbers'
+            'ECP-MaxLECP'
+            'ECP-KFirst'
+            'ECP-KLast'
+            'ECP-LMax'
+            'ECP-LPSkip'
+            'ECP-RNFroz'
+            'ECP-NLP'
+            'ECP-CLP1'
+            'ECP-ZLP'
+        """
 
         # ++++++++++++++++++ Start making things
         natom = props['Number of atoms']
         if props['ECP-NLP'] is None:
-            print("no ECPS found!")
             return {}
         skips = props['ECP-LPSkip'] == 0
         kfirst = props['ECP-KFirst'].reshape((-1, natom))[:, skips]
@@ -1975,103 +1903,198 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
 
         return ECPs
 
-    def get_dens_from_fchks(
-        self,
-        densjobs: list[tuple[str, dict[str, bool]]],
-        basis,
-        n_bf,
-        cartesian_d=False,
-        cartesian_f=False,
-        p_eq_s_shell=False
-    ):
-        QMin = self._QMin
-        densities = []
-        atom_symbols = QMin.molecule['elements']
-        for dens, flags in densjobs:
-            scf, es, gses = map(flags.get, ('scf', 'es', 'gses'))
-            fchkfile = os.path.join(QMin.resources['scratchdir'], dens, 'GAUSSIAN.fchk')
-            scf_read = es_read = gses_read = False
-            f = open(fchkfile, 'r')
-            lines = f.readlines()
-            f.close()
-            new_dens = 0
-            i = 0
-            while i < len(lines):
-                if scf and 'SCF Density' in lines[i]:
-                    n = int(lines[i].split()[-1])
-                    n_lines = (n - 1) // 5 + 1
-                    i += 1
-                    d = np.fromiter(
-                        map(float, chain(*map(lambda x: x.split(), lines[i:i + n_lines]))), dtype=float, count=n
-                    )
-                    # d is triangular -> fold into full matrix (assuming lower triangular)
-                    d_tril = np.zeros((n_bf, n_bf))
-                    idx = np.tril_indices(n_bf)
-                    d_tril[idx] = d
-                    density = d_tril.T + d_tril
-                    np.fill_diagonal(density, np.diag(d_tril))
-                    densities.append(density)
-                    new_dens += 1
-                    i += n_lines
-                    scf_read = True
-                if es and 'CI Density' in lines[i]:
-                    n = int(lines[i].split()[-1])
-                    n_lines = (n - 1) // 5 + 1
-                    i += 1
-                    d = np.fromiter(
-                        map(float, chain(*map(lambda x: x.split(), lines[i:i + n_lines]))), dtype=float, count=n
-                    )
-                    # d is triangular -> fold into full matrix (assuming lower triangular)
-                    d_tril = np.zeros((n_bf, n_bf))
-                    idx = np.tril_indices(n_bf)
-                    d_tril[idx] = d
-                    density = d_tril.T + d_tril
-                    np.fill_diagonal(density, np.diag(d_tril))
-                    densities.append(density)
-                    new_dens += 1
-                    i += n_lines
-                    es_read = True
-                if 'Excited state NLR' in lines[i]:
-                    i += 1
-                    n_es = int(lines[i].split()[-1])
-                    i += 1
-                    n_g2e = int(lines[i].split()[-1])
-                    i += 1
-                    if n_es != 0:
-                        i += 1
-                if gses and 'G to E trans densities' in lines[i]:
-                    n = int(lines[i].split()[-1])
-                    n_lines = (n - 1) // 5 + 1
-                    i += 1
-                    d = np.fromiter(
-                        map(float, chain(*map(lambda x: x.split(), lines[i:i + n_lines]))), dtype=float, count=n
-                    ).reshape((2 * n_g2e, n_bf, n_bf))
-                    for i_d in range(0, 2 * n_g2e, 2):
-                        #  tmp = (d[i_d, ...] + d[i_d + 1, ...]) / 2
-                        tmp = d[i_d, ...] * math.sqrt(2)
-                        densities.append(tmp)
-                        new_dens += 1
-                    i += n_lines
-                    gses_read = True
-                i += 1
-            if scf and not scf_read:
-                raise RuntimeError(f'Missing "SCF Density" in checkpoint file for job {dens}!\nfchk-file:  {fchkfile}')
-            if es and not es_read:
-                raise RuntimeError(f'Missing "CI Density" in checkpoint file for job {dens}!\nfchk-file:  {fchkfile}')
-            if gses and not gses_read:
-                raise Error(
-                    f'Missing "G to E trans densities" in checkpoint file for job {dens}!\nfchk-file:  {fchkfile}', 33
-                )
-        # read densities
-        return densities
+    def get_densities(self, n_bf, generate_tdm: True) -> dict[(int, int, int, int), np.ndarray]:
+        """
+        builds a dictionary of densities out of the information in 'densmap' and 'jobdens'
 
+        Args:
+            n_bf: int   number of basis functions
+            generate_tdm: bool generate transition density matrices from tdm.es2es_tdm
+        """
+        # sort densjobs
+        density_map = {}    # map for (mult, state, state): position in densities
+        jobfiles = set()
+        for dens in self.QMin.maps['densmap']:
+            job = self.QMin['jobdens'][dens]
+            if job not in jobfiles:
+                # create all necessary FCHKs
+                workdir = os.path.join(self.QMin.resources['scratchdir'], job)
+                self.get_fchk(workdir, self.QMin['groot'])
+                fchkfile = os.path.join(workdir, 'GAUSSIAN.fchk')
+                keywords = set()
+                jobfiles.add(job)
+                flags = self.QMin['densjob'][job]
+                scf, es, gses = map(flags.get, ('scf', 'es', 'gses'))
+                if scf:
+                    keywords.add("SCF Density")
+                if es:
+                    keywords.add("CI Density")
+                if gses:
+                    keywords.update({"Number of g2e trans dens", "G to E trans densities"})
+
+                raw_matrices = SHARC_GAUSSIAN.parse_fchk(fchkfile, keywords)
+
+                if scf:
+                    if raw_matrices['SCF Density'] is None:
+                        self.log.warning(f'SCF density for {dens} not found in:\n\t {fchkfile}')
+                    density_map[(*dens, *dens)] = triangular_to_full_matrix(raw_matrices['SCF Density'], n_bf)
+                if es:
+                    edens = (dens[0], dens[1] + 1) if scf else dens
+                    if raw_matrices['CI Density'] is None:
+                        self.log.warning(f'CI density for {edens} not found in:\n\t {fchkfile}')
+                    density_map[(*edens, *edens)] = triangular_to_full_matrix(raw_matrices['CI Density'], n_bf)
+                if gses:
+                    if raw_matrices['G to E trans densities'] is None:
+                        self.log.warning(f'ground-to-excited state densities not found in:\n\t {fchkfile}')
+                    all_g2e_tensor = raw_matrices['G to E trans densities'].reshape(2 * raw_matrices['Number of g2e trans dens'], n_bf, n_bf)
+                    # determine the excited states for this multiplicity
+                    nstates = self.QMin.molecule['states'][dens[0] - 1]
+                    ijob = self.QMin.maps['multmap'][dens[0]]
+                    gsmult = self.QMin.maps['multmap'][-ijob][0]
+                    first = 2
+                    if gsmult != dens[0]:
+                        first = 1
+                    last = nstates
+                    for i_mat, state in zip(range(0, 2 * raw_matrices['Number of g2e trans dens'], 2), range(first, last + 1)):
+                        density_map[(gsmult, 1, dens[0], state)] = all_g2e_tensor[i_mat, ...] * math.sqrt(2)
+                    if generate_tdm:
+                        for s1 in range(first, last + 1):
+                            for s2 in range(s1 + 1, last + 1):
+                                self.log.debug(f"Generating transition density matrix for {gsmult}_{s1}->{gsmult}_{s2}")
+                                density_map[(gsmult, s1, gsmult, s2)] = es2es_tdm(density_map[(gsmult, 1, gsmult, s1)], density_map[(gsmult, 1, gsmult, s2)])
+
+        return density_map
+
+    @staticmethod
+    def get_pyscf_order_from_gaussian(atom_symbols, basis_dict, cartesian_d=False, cartesian_f=False, p_eq_s=False):
+        """
+        Generates the reorder list to reorder atomic orbitals (from GAUSSIAN) to pyscf.
+
+        Sources:
+        GAUSSIAN: https://gaussian.com/interfacing/
+        pyscf:  https://pyscf.org/user/gto.html#ordering-of-basis-function
+
+        Parameters
+        ----------
+        atom_symbols : list[str]
+            list of element symbols for all atoms (same order as AOs)
+        basis_dict : dict[str, list]
+            basis set for each atom in pyscf format
+        cartesian_d : bool
+            whether the d-orbitals are cartesian
+        cartesian_f : bool
+            whether the f-orbitals are cartesian
+        """
+        #  return matrix
+
+        # in the case of P(S=P) coefficients the order is 1S, 2S, 2Px, 2Py, 2Pz, 3S in gaussian and pyscf
+
+        # if there are any d-orbitals they need to be swapped!!!
+        if cartesian_d:
+            # in the case of a cartesian basis the ordering is
+            # gauss order:     xx, yy, zz, xy, xz, yz
+            # pyscf order:     xx, xy, xz, yy, yz, zz
+            d_order = [0, 3, 4, 1, 5, 2]
+            #  d_order = [0, 1, 2, 3, 4, 5]
+            nd = 6
+        else:
+            # from gauss order: z2, xz, yz, x2-y2, xy
+            # to   pyscf order: xy, yz, z2, xz, x2-y2
+            d_order = [4, 2, 0, 1, 3]
+            nd = 5
+
+        if cartesian_f:
+            # F shells cartesian:
+            # gauss order: xxx, yyy, zzz, xyy, xxy, xxz, xzz, yzz, yyz, xyz
+            # pyscf order: xxx, xxy, xxz, xyy, xyz, xzz, yyy, yyz, yzz, zzz
+            f_order = [0, 4, 5, 3, 9, 6, 1, 8, 7, 2]
+            nf = 10
+        else:
+            # F shells spherical:
+            # gauss order: zzz, xzz, yzz, xxz-yyz, xyz, xxx-xyy, xxy
+            # pyscf order: xxy, xyz, yzz, zzz, xzz, xxz-yyz, xxx-xyy
+            f_order = [6, 4, 2, 0, 1, 3, 5]
+            nf = 7
+
+        # G shells cartesian, not needed anyway
+        # pyscf order: xxxx,xxxy,xxxz,xxyy,xxyz,xxzz,xyyy,xyyz,xyzz,xzzz,yyyy,yyyz,yyzz,yzzz,zzzz
+        g_order = [8, 6, 4, 2, 0, 1, 3, 5, 7]
+        ng = 9
+
+        # H shells cartesian coordinates, not needed anyway
+        # pyscf order: xxxxx,xxxxy,xxxxz,xxxyy,xxxyz,xxxzz,xxyyy,xxyyz,xxyzz,xxzzz,xyyyy,xyyyz,xyyzz,xyzzz,xzzzz,yyyyy,yyyyz,yyyzz,yyzzz,yzzzz,zzzzz
+        h_order = [10, 8, 6, 4, 2, 0, 1, 3, 5, 7, 9]
+        nh = 11
+
+        # I shells cartesian coordinates, not needed anyway
+        # pyscf order: xxxxxx,xxxxxy,xxxxxz,xxxxyy,xxxxyz,xxxxzz,xxxyyy,xxxyyz,xxxyzz,xxxzzz,xxyyyy,xxyyyz,xxyyzz,xxyzzz,xxzzzz,xyyyyy,xyyyyz,xyyyzz,xyyzzz,xyzzzz,xzzzzz,yyyyyy,yyyyyz,yyyyzz,yyyzzz,yyzzzz,yzzzzz,zzzzzz
+        i_order = [12, 10, 8, 6, 4, 2, 0, 1, 3, 5, 7, 9, 11]
+        ni = 13
+
+        # compile the new_order for the whole matrix
+        new_order = []
+        it = 0
+        for i, a in enumerate(atom_symbols):
+            key = f'{a.upper()}{i+1}'
+            #       s  p  d  f  g  h  i
+            n_bf = [0, 0, 0, 0, 0, 0, 0]
+
+            # count the shells for each angular momentun
+            for shell in basis_dict[key]:
+                n_bf[shell[0]] += 1
+
+            if p_eq_s:
+                s, p = n_bf[0:2]
+                if s == p:
+                    s_order = [4 * n for n in range(s)]
+                    sp_order = s_order + [n for n in range(1, p * 3 + s) if (n) % 4 != 0]
+                elif p == 0:
+                    s_order = [x for x in range(s)]
+                    sp_order = s_order
+                else:
+                    s_order = [0] + [1 + 4 * n for n in range(s - 1)]
+                    sp_order = s_order + [n for n in range(2, p * 3 + s) if (n - 1) % 4 != 0]
+                # offset new_order with iterator
+                new_order.extend([it + n for n in sp_order])
+            else:
+                s, p = n_bf[0:2]
+                new_order.extend([it + n for n in range(s + p * 3)])
+
+            it += s + p * 3
+
+            # do d shells
+            for x in range(n_bf[2]):
+                new_order.extend([it + n for n in d_order])
+                it += nd
+
+            # do f shells
+            for x in range(n_bf[3]):
+                new_order.extend([it + n for n in f_order])
+                it += nf
+            # do g shells
+            for x in range(n_bf[4]):
+                new_order.extend([it + n for n in g_order])
+                it += ng
+
+            # do h shells
+            for x in range(n_bf[5]):
+                new_order.extend([it + n for n in h_order])
+                it += nh
+
+            # do i shells
+            for x in range(n_bf[6]):
+                new_order.extend([it + n for n in i_order])
+                it += ni
+
+            assert it == len(new_order)
+
+        return new_order
     # ======================================================================= #
 
-    def getdm(logfile):
+    def getdm(self, logfile):
 
         # open file
         f = readfile(logfile)
-        self.log.print('Dipoles:  ' + shorten_DIR(logfile))
 
         for iline, line in enumerate(f):
             if 'Forces (Hartrees/Bohr)' in line:
@@ -2084,15 +2107,14 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
 
     # ======================================================================= #
 
-    @staticmethod
-    def getgrad(logfile, QMin):
+    def getgrad(self, logfile):
 
         # read file and check if ego is active
         out = readfile(logfile)
         self.log.print('Gradient: ' + shorten_DIR(logfile))
 
         # initialize
-        natom = QMin['natom']
+        natom = self.QMin.molecule['natom']
         g = [[0. for i in range(3)] for j in range(natom)]
 
         # get gradient
@@ -2114,7 +2136,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         while True:
             ilines += 1
             if ilines == len(out):
-                raise Error('Overlap of states %i - %i not found!' % (s1, s2), 82)
+                raise RuntimeError('Overlap of states %i - %i not found!' % (s1, s2))
             if containsstring('Overlap matrix <PsiA_i|PsiB_j>', out[ilines]):
                 break
         ilines += 1 + s1
@@ -2129,7 +2151,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         while True:
             ilines += 1
             if ilines == len(out):
-                raise Error('Dyson norm of states %i - %i not found!' % (s1, s2), 83)
+                raise RuntimeError('Dyson norm of states %i - %i not found!' % (s1, s2))
             if containsstring('Dyson norm matrix <PsiA_i|PsiB_j>', out[ilines]):
                 break
         ilines += 1 + s1
@@ -2138,5 +2160,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
 
     # ======================================================================= #
 
+
 if __name__ == "__main__":
     SHARC_GAUSSIAN(loglevel=10).main()
+

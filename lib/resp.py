@@ -11,6 +11,7 @@ import numpy as np
 from asa_grid import mk_layers
 from pyscf import gto, df
 from constants import au2a
+from logger import log
 
 np.set_printoptions(threshold=sys.maxsize, linewidth=10000, precision=1, formatter={'float': lambda x: f"{x: 1.0f}"})
 
@@ -28,7 +29,9 @@ class Resp:
         density=1,
         shells=[1.4, 1.6, 1.8, 2.0],
         custom_grid: np.ndarray = None,
-        grid='lebedev'
+        grid='lebedev',
+        logger=log,
+        generate_raw_fit_file=False
     ):
         """
         creates an object with a fitting grid and precalculated properties for the molecule.
@@ -47,8 +50,11 @@ class Resp:
 
         grid: string specify a quadrature function from 'lebedev', 'random', 'golden_spiral', 'gamess', 'marcus_deserno'
 
-        beta: the beta parameter of the RESP model (default: 0.0005)
+        logger: python.logging.log object to log to default is logger.log
+
+        generate_raw_fit_file: bool  generate file with ESP data (unit: au) [RESP_fit_data.txt]! [num ref_esp fit_esp dist x y z]
         """
+        self.log = logger
         self.coords = coords
         self.atom_symbols = atom_symbols
         self.mk_grid = custom_grid
@@ -59,7 +65,7 @@ class Resp:
         assert len(self.mk_grid.shape) == 2 and self.mk_grid.shape[1] == 3
         self.natom = coords.shape[0]
         self.ngp = self.mk_grid.shape[0]
-        print("Done initializing grid. grid points", self.ngp)
+        self.log.info(f"Done initializing grid.\n\tgrid points per atom:{self.ngp/self.natom}")
         # Build 1/|R_A - r_i| m_A_i
         self.R_alpha: np.ndarray = np.full((self.natom, self.ngp, 3), self.mk_grid) - self.coords[:, None, :]    # rA-ri
         self.r_inv: np.ndarray = 1 / np.sqrt(np.sum((self.R_alpha)**2, axis=2))    # 1 / |ri-rA|
@@ -83,8 +89,7 @@ class Resp:
         cart_basis : bool
             boolean to switch to cartesian basis
         """
-        natom = len(self.atom_symbols)
-        atoms = [[f'{s.upper()}{j+1}', c.tolist()] for j, s, c in zip(range(natom), self.atom_symbols, self.coords)]
+        atoms = [[f'{s.upper()}{j+1}', c.tolist()] for j, s, c in zip(range(self.natom), self.atom_symbols, self.coords)]
         mol = gto.Mole(
             atom=atoms,
             basis=basis,
@@ -103,10 +108,12 @@ class Resp:
         fakemol = gto.fakemol_for_charges(self.mk_grid)
         # NOTE This could be very big (fakemol could be broken up into multiple pieces)
         # NOTE the value of these integrals is not affected by the atom charge
-        print("starting to evaluate integrals")
+        self.log.info("starting to evaluate integrals")
+        self.log.handlers[0].flush()
         self.ints = df.incore.aux_e2(mol, fakemol, intor='int3c2e')
         self.mol = mol
-        print("done")
+        self.log.info("done")
+        self.log.handlers[0].flush()
 
     def one_shot_fit(self, dm: np.ndarray, include_core_charges: bool, order=2, charge=0, **kwargs):
         """
@@ -124,14 +131,12 @@ class Resp:
         order : int
             fitting order (0: monopoles, 2: dipoles, 3: quadrupoles)
         """
+        self.log.debug("one shot fit start")
         if not (0 <= order <= 2):
             raise Error("Specify order in the range of 0 - 2")
         n_fits = sum([1, 3, 6][:order + 1])
         natom = self.natom
         Vnuc = np.copy(self.Vnuc) if include_core_charges else np.zeros((self.ngp), dtype=float)
-        # check dm matrix
-        print("check dm matrix")
-        print("n elec:", np.einsum('ij,ij', self.Sao, dm))
         Vele = np.einsum('ijp,ij->p', self.ints, dm)
         Fesp_i = Vnuc - Vele
         R_alpha = self.R_alpha
@@ -197,8 +202,7 @@ class Resp:
         B_mon = np.copy(B[:natom + 1])
         B_mon[-1] = float(charge)
         Q_last = np.linalg.solve(A_mon, B_mon)[:natom]
-        print("ESP Monopoles", file=sys.stderr)
-        print(Q_last, file=sys.stderr)
+        self.log.debug(f"ESP Monopoles:\n\t{Q_last}")
         Q_new = np.ones(Q_last.shape, dtype=float)
 
         max_iterations = 500
@@ -219,9 +223,7 @@ class Resp:
         # potentially alter targets
         # restrain to RESP monopoles
         target[:natom] = Q_new
-        print("TARGET CHARGES", file=sys.stderr)
-        print(target.reshape((n_fits, -1)).T, file=sys.stderr)
-
+        self.log.debug(f"TARGET CHARGES:\n\t{target.reshape((n_fits, -1)).T}")
 
         # set initial guess to resp monopoles
         Q_last = np.zeros((n_af), dtype=float)
@@ -243,22 +245,19 @@ class Resp:
             B_rest[:n_af] += target * rest
             Q_new = np.linalg.solve(A_rest, B_rest)[:n_af]
             iteration += 1
-        print("exciting RESP fitting loop after", iteration, " iterations. Norm", np.linalg.norm(Q_last - Q_new))
-        print("exciting RESP fitting loop after", iteration, " iterations. Norm", np.linalg.norm(Q_last - Q_new), file=sys.stderr)
+        self.log.print("exciting RESP fitting loop after", iteration, " iterations. Norm", np.linalg.norm(Q_last - Q_new))
 
         fit_esp = np.einsum('x,xi->i', Q_new, tmp)
         residual_ESP = fit_esp - Fesp_i
         res = Q_new.reshape((n_fits, -1)).T
 
-        print(
-            f'Fit done!, MEAN: {np.mean(residual_ESP): 10.6e}, ABS.MEAN: {np.mean(np.abs(residual_ESP)): 10.6e}, RMSD: {np.sqrt(np.mean(residual_ESP**2)): 10.8e}', file=sys.stderr)
-        print(
-            f'Fit done!, MEAN: {np.mean(residual_ESP): 10.6e}, ABS.MEAN: {np.mean(np.abs(residual_ESP)): 10.6e}, RMSD: {np.sqrt(np.mean(residual_ESP**2)): 10.8e}'
-        )
-        if DEBUG:
+        self.log.info(
+            f'Fit done!\tMEAN: {np.mean(residual_ESP): 10.6e}\t ABS.MEAN: {np.mean(np.abs(residual_ESP)): 10.6e}\tRMSD: {np.sqrt(np.mean(residual_ESP**2)): 10.8e}')
+        if self.generate_raw_fit_file:
+            filename = kwargs['resp_data_file'] if 'resp_data_file' in kwargs else 'RESP_fit_data.txt'
             dist = np.min(np.linalg.norm(R_alpha, axis=2), axis=0)
-            print("DEBUG on: generating file with ESP data [RESP_fit_data.txt]! [num ref_esp fit_esp dist x y z]")
-            with open('RESP_fit_data.txt', 'w') as f:
+            self.log.info(f"generating file with ESP data [filename]! [num ref_esp fit_esp dist x y z]")
+            with open(filename, 'w') as f:
                 f.write(
                     f"# {'num [AU]':<9s}  {'ref_esp':<12s} {'fit_esp':<12s} {'dist':<12s} {'x':<12s} {'y':<12s} {'z':<12s}\n"
                 )
@@ -270,25 +269,23 @@ class Resp:
         # make traceless (Source: Sebastian)
         traces = np.sum(res[:, 4:7], axis=1)
         res[:, 4:7] -= 1 / 3 * traces[..., None]
+        self.log.debug("one shot fit finish")
 
         return res
 
-    def sequential_multipoles(self, dm: np.ndarray, include_core_charges=True, charge=0, order=2, betas=[0.0005, 0.0015, 0.003]):
+    def sequential_multipoles(self, dm: np.ndarray, include_core_charges=True, charge=0, order=2, betas=[0.0005, 0.0015, 0.003], **kwargs):
+        self.log.info(f"Start sequential multipolar fit")
         if not (0 <= order <= 2):
             raise Error("Specify order in the range of 0 - 2")
         natom = self.natom
         Vnuc = np.copy(self.Vnuc) if include_core_charges else np.zeros((self.ngp), dtype=float)
-        # check dm matrix
-        print("check dm matrix")
-        print("n elec:", np.einsum('ij,ij', self.Sao, dm))
-
         Vele = np.einsum('ijp,ij->p', self.ints, dm)
         Fesp_i = Vnuc - Vele
         R_alpha = self.R_alpha
         r_inv = self.r_inv
 
         # fit monopoles
-        monopoles, Fres = self.fit(r_inv, Fesp_i, 1, natom, beta=betas[0], charge=charge, weights=self.weights)
+        monopoles, Fres = self.fit(r_inv, Fesp_i, 1, natom, beta=betas[0], charge=charge, weights=self.weights, logger=self.log.debug)
 
         if order == 0:
             return monopoles
@@ -303,7 +300,7 @@ class Resp:
                 R_alpha[:, :, 2] * self.r_inv3
             )
         )    # m_A_i
-        dipoles, Fres = self.fit(tmp, Fres, 3, natom, beta=betas[1], weights=self.weights, charge=None)
+        dipoles, Fres = self.fit(tmp, Fres, 3, natom, beta=betas[1], weights=self.weights, charge=None, logger=self.log.debug)
 
 
         if order == 1:
@@ -321,13 +318,28 @@ class Resp:
             )
         )    # m_A_i
 
-        quadrupoles, Fres = self.fit(tmp, Fres, 6, natom, beta=betas[2], charge=None, weights=self.weights, traceless_quad=True)
+        quadrupoles, Fres = self.fit(tmp, Fres, 6, natom, beta=betas[2], charge=None, weights=self.weights, traceless_quad=True, logger=self.log.debug)
+
+        self.log.info(
+            f'Fit done!\tMEAN: {np.mean(Fres): 10.6e}\t ABS.MEAN: {np.mean(np.abs(Fres)): 10.6e}\tRMSD: {np.sqrt(np.mean(Fres**2)): 10.8e}')
+        if self.generate_raw_fit_file:
+            filename = kwargs['resp_data_file'] if 'resp_data_file' in kwargs else 'RESP_fit_data.txt'
+            dist = np.min(np.linalg.norm(R_alpha, axis=2), axis=0)
+            self.log.info(f"generating file with ESP data [{filename}]! [num ref_esp fit_esp dist x y z]")
+            with open(filename, 'w') as f:
+                f.write(
+                    f"# {'num [AU]':<9s}  {'ref_esp':<12s} {'fit_esp':<12s} {'dist':<12s} {'x':<12s} {'y':<12s} {'z':<12s}\n"
+                )
+                for i, vals in enumerate(
+                    zip(Fesp_i, Fesp_i - Fres, dist, self.mk_grid[:, 0], self.mk_grid[:, 1], self.mk_grid[:, 2])
+                ):
+                    f.write(f"{i:5d}      " + " ".join(map(lambda x: f'{x: 12.8f}', vals)) + "\n")
 
         return np.hstack((monopoles, dipoles, quadrupoles))
 
 
     @staticmethod
-    def fit(tmp, Fesp_i, n_fits, natom, charge=None, beta=0.0005, b_par=0.1, weights=None, traceless_quad=False):
+    def fit(tmp, Fesp_i, n_fits, natom, charge=None, beta=0.0005, b_par=0.1, weights=None, traceless_quad=False, logger=None):
         n_af = natom * n_fits
         dim = n_af + 1
 
@@ -380,13 +392,14 @@ class Resp:
             np.einsum('ii->i', A_rest)[:n_af] -= rest
             Q_new = np.linalg.solve(A_rest, B)[:n_af]
             iteration += 1
-        print("exciting RESP fitting loop after", iteration, " iterations. Norm", np.linalg.norm(Q_last - Q_new))
-        print("exciting RESP fitting loop after", iteration, " iterations. Norm", np.linalg.norm(Q_last - Q_new), file=sys.stderr)
+
+        n2order = {1: 'monopoles', 3: 'dipoles', 6: 'quadrupoles'}
+        if logger is not None and type(logger) == callable:
+            logger(f"exciting RESP fit for {n2order[n_fits]} after {iteration} iterations. \tNorm: {np.linalg.norm(Q_last - Q_new)}")
 
         fit_esp = np.einsum('x,xi->i', Q_new, tmp)
         residual_ESP = fit_esp - Fesp_i
         res = Q_new.reshape((n_fits, -1)).T
-
         return res, residual_ESP
 
     multipoles_from_dens = sequential_multipoles

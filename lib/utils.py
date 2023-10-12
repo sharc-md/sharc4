@@ -439,6 +439,13 @@ def itnmstates(states: list[int]):
 # ======================================= Matrix initialization ================================= #
 # =============================================================================================== #
 # =============================================================================================== #
+def triangular_to_full_matrix(triangular_array: np.ndarray, num_basis_func: int):
+    tril = np.zeros((num_basis_func, num_basis_func))
+    idx = np.tril_indices(num_basis_func)
+    tril[idx] = triangular_array
+    matrix = tril.T + tril
+    np.fill_diagonal(matrix, np.diag(tril))
+    return matrix
 
 
 # ======================================================================= #         OK
@@ -576,133 +583,6 @@ def get_pyscf_order_from_orca(atom_symbols, basis_dict):
     return new_order
 
 
-def get_pyscf_order_from_gaussian(atom_symbols, basis_dict, cartesian_d=False, cartesian_f=False, p_eq_s=False):
-    """
-    Generates the reorder list to reorder atomic orbitals (from GAUSSIAN) to pyscf.
-
-    Sources:
-    GAUSSIAN: https://gaussian.com/interfacing/
-    pyscf:  https://pyscf.org/user/gto.html#ordering-of-basis-function
-
-    Parameters
-    ----------
-    atom_symbols : list[str]
-        list of element symbols for all atoms (same order as AOs)
-    basis_dict : dict[str, list]
-        basis set for each atom in pyscf format
-    cartesian_d : bool
-        whether the d-orbitals are cartesian
-    cartesian_f : bool
-        whether the f-orbitals are cartesian
-    """
-    #  return matrix
-
-    # in the case of P(S=P) coefficients the order is 1S, 2S, 2Px, 2Py, 2Pz, 3S in gaussian and pyscf
-
-    # if there are any d-orbitals they need to be swapped!!!
-    if cartesian_d:
-        # in the case of a cartesian basis the ordering is
-        # gauss order:     xx, yy, zz, xy, xz, yz
-        # pyscf order:     xx, xy, xz, yy, yz, zz
-        d_order = [0, 3, 4, 1, 5, 2]
-        #  d_order = [0, 1, 2, 3, 4, 5]
-        nd = 6
-    else:
-        # from gauss order: z2, xz, yz, x2-y2, xy
-        # to   pyscf order: xy, yz, z2, xz, x2-y2
-        d_order = [4, 2, 0, 1, 3]
-        nd = 5
-
-    if cartesian_f:
-        # F shells cartesian:
-        # gauss order: xxx, yyy, zzz, xyy, xxy, xxz, xzz, yzz, yyz, xyz
-        # pyscf order: xxx, xxy, xxz, xyy, xyz, xzz, yyy, yyz, yzz, zzz
-        f_order = [0, 4, 5, 3, 9, 6, 1, 8, 7, 2]
-        nf = 10
-    else:
-        # F shells spherical:
-        # gauss order: zzz, xzz, yzz, xxz-yyz, xyz, xxx-xyy, xxy
-        # pyscf order: xxy, xyz, yzz, zzz, xzz, xxz-yyz, xxx-xyy
-        f_order = [6, 4, 2, 0, 1, 3, 5]
-        nf = 7
-
-    # G shells cartesian, not needed anyway
-    # pyscf order: xxxx,xxxy,xxxz,xxyy,xxyz,xxzz,xyyy,xyyz,xyzz,xzzz,yyyy,yyyz,yyzz,yzzz,zzzz
-    g_order = [8, 6, 4, 2, 0, 1, 3, 5, 7]
-    ng = 9
-
-    # H shells cartesian coordinates, not needed anyway
-    # pyscf order: xxxxx,xxxxy,xxxxz,xxxyy,xxxyz,xxxzz,xxyyy,xxyyz,xxyzz,xxzzz,xyyyy,xyyyz,xyyzz,xyzzz,xzzzz,yyyyy,yyyyz,yyyzz,yyzzz,yzzzz,zzzzz
-    h_order = [10, 8, 6, 4, 2, 0, 1, 3, 5, 7, 9]
-    nh = 11
-
-    # I shells cartesian coordinates, not needed anyway
-    # pyscf order: xxxxxx,xxxxxy,xxxxxz,xxxxyy,xxxxyz,xxxxzz,xxxyyy,xxxyyz,xxxyzz,xxxzzz,xxyyyy,xxyyyz,xxyyzz,xxyzzz,xxzzzz,xyyyyy,xyyyyz,xyyyzz,xyyzzz,xyzzzz,xzzzzz,yyyyyy,yyyyyz,yyyyzz,yyyzzz,yyzzzz,yzzzzz,zzzzzz
-    i_order = [12, 10, 8, 6, 4, 2, 0, 1, 3, 5, 7, 9, 11]
-    ni = 13
-
-    # compile the new_order for the whole matrix
-    new_order = []
-    it = 0
-    for i, a in enumerate(atom_symbols):
-        key = f'{a.upper()}{i+1}'
-        #       s  p  d  f  g  h  i
-        n_bf = [0, 0, 0, 0, 0, 0, 0]
-
-        # count the shells for each angular momentun
-        for shell in basis_dict[key]:
-            n_bf[shell[0]] += 1
-        #print("n_bf for", key, n_bf)
-
-        if p_eq_s:
-            #print("p_eq_s", key)
-            s, p = n_bf[0:2]
-            #print("nbf s:", s, " p", p)
-            if s == p:
-                s_order = [4 * n for n in range(s)]
-                sp_order = s_order + [n for n in range(1, p * 3 + s) if (n) % 4 != 0]
-            elif p == 0:
-                s_order = [x for x in range(s)]
-                sp_order = s_order
-            else:
-                s_order = [0] + [1 + 4 * n for n in range(s - 1)]
-                sp_order = s_order + [n for n in range(2, p * 3 + s) if (n - 1) % 4 != 0]
-            #print("p_eq_s", sp_order, len(sp_order))
-            # offset new_order with iterator
-            new_order.extend([it + n for n in sp_order])
-        else:
-            s, p = n_bf[0:2]
-            new_order.extend([it + n for n in range(s + p * 3)])
-
-        it += s + p * 3
-
-        # do d shells
-        for x in range(n_bf[2]):
-            new_order.extend([it + n for n in d_order])
-            it += nd
-
-        # do f shells
-        for x in range(n_bf[3]):
-            new_order.extend([it + n for n in f_order])
-            it += nf
-        # do g shells
-        for x in range(n_bf[4]):
-            new_order.extend([it + n for n in g_order])
-            it += ng
-
-        # do h shells
-        for x in range(n_bf[5]):
-            new_order.extend([it + n for n in h_order])
-            it += nh
-
-        # do i shells
-        for x in range(n_bf[6]):
-            new_order.extend([it + n for n in i_order])
-            it += ni
-
-        assert it == len(new_order)
-
-    return new_order
 
 
 
