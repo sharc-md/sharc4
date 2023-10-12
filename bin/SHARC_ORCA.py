@@ -264,6 +264,8 @@ class SHARC_ORCA(SHARC_ABINITIO):
     def _get_ao_matrix(self, workdir: str) -> str:
         """
         Call orca_fragovl and extract ao matrix
+
+        workdir:    Path of working directory
         """
         orca_gbw = os.path.join(workdir, "ORCA.gbw")
         self.log.debug(f"Extracting AO matrix from {orca_gbw} for ion request")
@@ -275,28 +277,44 @@ class SHARC_ORCA(SHARC_ABINITIO):
         with open(os.path.join(workdir, "wfovlp.out"), "r", encoding="utf-8") as file:
             wfovlp = file.read()
 
+            # Get number of atomic orbitals
             n_ao = re.findall(r"\s{3,}(\d+)\s{5}", wfovlp)
             n_ao = max(list(map(int, n_ao))) + 1
 
+            # Parse wfovlp.out and convert to n_ao*n_ao matrix
             find_mat = re.search(r"OVERLAP MATRIX\n-{32}\n([\s\d+\.-]*)\n\n", wfovlp)
             if not find_mat:
                 raise ValueError
             ovlp_mat = list(map(float, re.sub(r"\s\d{1,2}\s", "", find_mat.group(1)).split()))
-            padding = n_ao % 6
-            padding_array = []
-            if padding > 0:
-                last_elems = ovlp_mat[-(padding * n_ao) :]
-                ovlp_mat += [0] * (n_ao * (6 - padding))
-                for i in range(n_ao):
-                    padding_array += last_elems[i * padding : i * padding + padding] + [0] * (6 - padding)
+            ovlp_mat = self._matrix_from_output(ovlp_mat, n_ao)
 
-            ovlp_mat = np.asarray(ovlp_mat)
-            ovlp_mat[-len(padding_array) :] = padding_array
-            ovlp_mat = np.hstack(ovlp_mat.reshape(-1, n_ao, 6))[:, :n_ao]
+            # Convert matrix to string
             ao_mat = f"{n_ao} {n_ao}\n"
             for i in ovlp_mat:
                 ao_mat += "".join(f"{j: .7e} " for j in i) + "\n"
             return ao_mat
+
+    def _matrix_from_output(self, raw_matrix: list[float | complex], dim: int, orca_col: int = 6) -> np.ndarray:
+        """
+        Create a dim*dim numpy array from a raw orca matrix.
+        The input array must only contain the actual data without row/col numbers
+
+        raw_matrix: List of float or complex values parsed from ORCA output
+        dim:        Dimension of the final matrix, dim*dim
+        orca_col:   Number of columns per line, default 6
+        """
+
+        padding = dim % orca_col
+        padding_array = []
+        if padding > 0:
+            last_elems = raw_matrix[-(padding * dim) :]
+            raw_matrix += [0] * (dim * (6 - padding))
+            for i in range(dim):
+                padding_array += last_elems[i * padding : i * padding + padding] + [0] * (6 - padding)
+
+        raw_matrix = np.asarray(raw_matrix)
+        raw_matrix[-len(padding_array) :] = padding_array
+        return np.hstack(raw_matrix.reshape(-1, dim, orca_col))[:, :dim]
 
     def _save_files(self, workdir: str, jobid: int) -> None:
         """
@@ -733,10 +751,8 @@ class SHARC_ORCA(SHARC_ABINITIO):
 
         n_trip = int(n_roots.group(1))
         n_sing = n_trip + 1
-        n_states = n_sing + 3 * n_trip
-        padding = n_states % 6
 
-        # Extract matrix from outfile
+        # Extract raw matrix from outfile
         find_mat = re.search(r"Real part:([\s\d+-e]*)Image part:([\s\d+-e]*)\.{3}", output, re.DOTALL)
         if not find_mat:
             self.log.error("Cannot find SOC matrix in ORCA output!")
@@ -749,17 +765,8 @@ class SHARC_ORCA(SHARC_ABINITIO):
         for real, imag in zip(real_part, imag_part):
             soc_matrix.append(complex(real, imag))
 
-        # Add padding
-        padding_array = []
-        if padding > 0:
-            last_elems = soc_matrix[-(padding * n_states) :]
-            soc_matrix += [0] * (n_states * (6 - padding))
-            for i in range(n_states):
-                padding_array += last_elems[i * padding : i * padding + padding] + [0] * (6 - padding)
-
-        soc_matrix = np.asarray(soc_matrix)
-        soc_matrix[-len(padding_array) :] = padding_array
-        soc_matrix = np.hstack(soc_matrix.reshape(-1, n_states, 6))[:, :n_states]
+        # Convert raw matrix
+        soc_matrix = self._matrix_from_output(soc_matrix, n_sing + 3 * n_trip)
 
         # Reorder matrix from T 0 -1 1 to -1 0 1
         for i in range(n_trip):
