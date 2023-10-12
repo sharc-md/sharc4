@@ -340,7 +340,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
         # Save gbw and dets from cis
         if self.QMin.requests["ion"] or not self.QMin.requests["nooverlap"]:
             self.log.debug("Write MO coefficients to savedir")
-            writefile(os.path.join(savedir, f"mos.{jobid}.{step}"), self._get_mos(os.path.join(workdir, "ORCA.gbw"), jobid))
+            writefile(os.path.join(savedir, f"mos.{jobid}.{step}"), self._get_mos(workdir, jobid))
             if os.path.isfile(os.path.join(workdir, "ORCA.cis")):
                 self.log.debug("Write CIS determinants to savedir")
                 cis_dets = self.get_dets_from_cis(os.path.join(workdir, "ORCA.cis"), jobid)
@@ -349,154 +349,62 @@ class SHARC_ORCA(SHARC_ABINITIO):
 
         shutil.copy(os.path.join(workdir, "ORCA.gbw"), os.path.join(savedir, f"ORCA.gbw.{jobid}.{step}"))
 
-    def _get_mos(self, gbw_file: str, jobid: int) -> str:
+    def _get_mos(self, workdir: str, jobid: int) -> str:
         """
         Extract MO coefficients from ORCA gbw file
 
-        gbw_file:   Path of gbw file
-        jobid:      ID number of job
+        workdir:   Directory of ORCA.gbw
+        jobid:     ID number of job
         """
-        # TODO: REFACTOR!!!
-
-        # run orca_fragovl
-        string = "orca_fragovl %s %s" % (gbw_file, gbw_file)
-        try:
-            proc = sp.Popen(string, shell=True, stdout=sp.PIPE, stderr=sp.PIPE)
-        except OSError as exc:
-            self.log.error("Call have had some serious problems:")
-            raise OSError() from exc
-        comm = proc.communicate()[0].decode()
-        data = comm.split("\n")
-        # get size of matrix
-        for line in reversed(data):
-            # print line
-            s = line.split()
-            if len(s) >= 1:
-                NAO = int(line.split()[0]) + 1
-                break
-
         restr = self.QMin.control["jobs"][jobid]["restr"]
 
-        # find MO block
-        iline = -1
-        while True:
-            iline += 1
-            if len(data) <= iline:
-                self.log.error("MOs not found!")
-                raise ValueError()
-            line = data[iline]
-            if "FRAGMENT A MOs MATRIX" in line:
-                break
-        iline += 3
+        # run orca_fragovl
+        string = "orca_fragovl ORCA.gbw ORCA.gbw"
+        self.run_program(workdir, string, "fragovlp.out", "fragovlp.err")
 
-        # formatting
-        nblock = 6
-        npre = 11
-        ndigits = 16
-        # default_pos=[14,30,46,62,78,94]
-        default_pos = [npre + 3 + ndigits * i for i in range(nblock)]  # does not include shift
+        with open(os.path.join(workdir, "fragovlp.out"), "r", encoding="utf-8") as file:
+            fragovlp = file.read()
 
-        # get coefficients for alpha
-        NMO_A = NAO
-        MO_A = [[0.0 for i in range(NAO)] for j in range(NMO_A)]
-        for imo in range(NMO_A):
-            jblock = imo // nblock
-            jcol = imo % nblock
-            for iao in range(NAO):
-                shift = max(0, len(str(iao)) - 3)
-                jline = iline + jblock * (NAO + 1) + iao
-                line = data[jline]
-                # fix too long floats in strings
-                dots = [idx for idx, item in enumerate(line.lower()) if "." in item]
-                diff = [dots[i] - default_pos[i] - shift for i in range(len(dots))]
-                if jcol == 0:
-                    pre = 0
-                else:
-                    pre = diff[jcol - 1]
-                post = diff[jcol]
-                # fixed
-                val = float(line[npre + shift + jcol * ndigits + pre : npre + shift + ndigits + jcol * ndigits + post])
-                MO_A[imo][iao] = val
-        iline += ((NAO - 1) // nblock + 1) * (NAO + 1)
+            # Get number of atomic orbitals
+            n_ao = re.findall(r"\s{3,}(\d+)\s{5}", fragovlp)
+            n_ao = max(list(map(int, n_ao))) + 1
 
-        # coefficients for beta
-        if not restr:
-            NMO_B = NAO
-            MO_B = [[0.0 for i in range(NAO)] for j in range(NMO_B)]
-            for imo in range(NMO_B):
-                jblock = imo // nblock
-                jcol = imo % nblock
-                for iao in range(NAO):
-                    shift = max(0, len(str(iao)) - 3)
-                    jline = iline + jblock * (NAO + 1) + iao
-                    line = data[jline]
-                    # fix too long floats in strings
-                    dots = [idx for idx, item in enumerate(line.lower()) if "." in item]
-                    diff = [dots[i] - default_pos[i] - shift for i in range(len(dots))]
-                    if jcol == 0:
-                        pre = 0
-                    else:
-                        pre = diff[jcol - 1]
-                    post = diff[jcol]
-                    # fixed
-                    val = float(line[npre + shift + jcol * ndigits + pre : npre + shift + ndigits + jcol * ndigits + post])
-                    MO_B[imo][iao] = val
+            # Parse matrix
+            find_mat = re.search(r"FRAGMENT A MOs MATRIX\n-{32}\n([\s\d+\.-]*)\n\n", fragovlp)
+            if not find_mat:
+                raise ValueError
+            ao_mat = list(map(float, re.sub(r"\s\d{1,2}\s", "", find_mat.group(1)).split()))
+            if not restr:
+                ao_mat_a = self._matrix_from_output(ao_mat[: len(ao_mat) // 2], n_ao)
+                ao_mat_b = self._matrix_from_output(ao_mat[len(ao_mat) // 2 :], n_ao)
+            else:
+                ao_mat_a = self._matrix_from_output(ao_mat, n_ao)
+                ao_mat_b = np.empty((0, 0))
 
-        NMO = NMO_A - self.QMin.molecule["frozcore"]
-        if restr:
-            NMO = NMO_A - self.QMin.molecule["frozcore"]
-        else:
-            NMO = NMO_A + NMO_B - 2 * self.QMin.molecule["frozcore"]
+            ao_mat_a = ao_mat_a[:, self.QMin.molecule["frozcore"] :]
+            ao_mat_b = ao_mat_b[:, self.QMin.molecule["frozcore"] :]
 
         # make string
-        string = dedent(
-            f"""\
-        2mocoef
-        header
-        1
-        MO-coefficients from Orca
-        1
-        {NAO}   {NMO}
-        a
-        mocoef
-        (*)
-        """
-        )
-        x = 0
-        for imo, mo in enumerate(MO_A):
-            if imo < self.QMin.molecule["frozcore"]:
-                continue
-            for c in mo:
-                if x >= 3:
-                    string += "\n"
-                    x = 0
-                string += "% 6.12e " % c
-                x += 1
-            if x > 0:
-                string += "\n"
-                x = 0
+        n_mo = n_ao - self.QMin.molecule["frozcore"]
         if not restr:
-            x = 0
-            for imo, mo in enumerate(MO_B):
-                if imo < self.QMin.molecule["frozcore"]:
-                    continue
-                for c in mo:
-                    if x >= 3:
+            n_mo *= 2
+
+        string = f"2mocoef\nheader\n1\nMO-coefficients from Orca\n1\n{n_ao}   {n_mo}\na\nmocoef\n(*)\n"
+
+        for mat in [ao_mat_a, ao_mat_b]:
+            for i in mat.T:
+                for idx, j in enumerate(i):
+                    if idx > 0 and idx % 3 == 0:
                         string += "\n"
-                        x = 0
-                    string += "% 6.12e " % c
-                    x += 1
-                if x > 0:
+                    string += f"{j: 6.12e} "
+                if i.shape[0] - 1 % 3 != 0:
                     string += "\n"
-                    x = 0
-        string += "orbocc\n(*)\n"
-        x = 0
-        for i in range(NMO):
-            if x >= 3:
+        string += "orbocc\n(*)"
+
+        for i in range(n_mo):
+            if i % 3 == 0:
                 string += "\n"
-                x = 0
-            string += "% 6.12e " % (0.0)
-            x += 1
+            string += f"{0.0: 6.12e} "
         return string
 
     def getQMout(self) -> None:
