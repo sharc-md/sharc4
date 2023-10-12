@@ -1531,7 +1531,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
 
         # collect properties to read
         keywords_from_master = set()
-        get_basis = self.QMin.requests['basis'] or self.QMin.requests['densities'] or self.QMin.requests[
+        get_basis = self.QMin.requests['basis_set'] or self.QMin.requests['density_matrices'] or self.QMin.requests[
             'multipolar_fit']
         get_ecp = self.QMin.requests['densities'] or self.QMin.requests['multipolar_fit']
 

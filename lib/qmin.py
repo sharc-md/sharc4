@@ -165,9 +165,7 @@ class QMinRequests(QMinBase):
         "cleanup": bool,
         "backup": str,
         "molden": bool,
-        "savestuff": bool,self.QMin.resources.types[
-                                param[0]
-                            ](param[1])
+        "savestuff": bool,
         "nooverlap": bool,
     """
 
