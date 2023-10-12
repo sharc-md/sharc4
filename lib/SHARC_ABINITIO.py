@@ -63,25 +63,31 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
 
         self.QMin.control.types["nsplots_pool"] = list
 
-        self.QMin.resources.update({
-            'resp_shells': [],    # default calculated from other values = [1.4, 1.6, 1.8, 2.0]
-            'resp_vdw_radii_symbol': {},
-            'resp_vdw_radii': [],
-            'resp_betas': [0.0005, 0.0015, 0.003],
-            'resp_layers': 4,
-            'resp_fit_order': 2,
-            'resp_mk_radii': True,  # use radii for original Merz-Kollmann-Singh scheme for HCNOSP
-            'resp_grid': 'lebedev'})
+        self.QMin.resources.update(
+            {
+                "resp_shells": [],  # default calculated from other values = [1.4, 1.6, 1.8, 2.0]
+                "resp_vdw_radii_symbol": {},
+                "resp_vdw_radii": [],
+                "resp_betas": [0.0005, 0.0015, 0.003],
+                "resp_layers": 4,
+                "resp_fit_order": 2,
+                "resp_mk_radii": True,  # use radii for original Merz-Kollmann-Singh scheme for HCNOSP
+                "resp_grid": "lebedev",
+            }
+        )
 
-        self.QMin.resources.update({
-            'resp_shells': list,    # default calculated from other values = [1.4, 1.6, 1.8, 2.0]
-            'resp_vdw_radii_symbol': dict,
-            'resp_vdw_radii': list,
-            'resp_betas': list,
-            'resp_layers': int,
-            'resp_fit_order': int,
-            'resp_mk_radii': bool,  # use radii for original Merz-Kollmann-Singh scheme for HCNOSP
-            'resp_grid': str})
+        self.QMin.resources.update(
+            {
+                "resp_shells": list,  # default calculated from other values = [1.4, 1.6, 1.8, 2.0]
+                "resp_vdw_radii_symbol": dict,
+                "resp_vdw_radii": list,
+                "resp_betas": list,
+                "resp_layers": int,
+                "resp_fit_order": int,
+                "resp_mk_radii": bool,  # use radii for original Merz-Kollmann-Singh scheme for HCNOSP
+                "resp_grid": str,
+            }
+        )
 
     @staticmethod
     @abstractmethod
@@ -208,7 +214,6 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
 
     @abstractmethod
     def setup_interface(self) -> None:
-
         # Setup charge and paddingstates
         if not self.QMin.template["charge"]:
             self.QMin.template["charge"] = [i % 2 for i in range(len(self.QMin.molecule["states"]))]
@@ -228,34 +233,38 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         self.QMin.control["states_to_do"] = [
             v + int(self.QMin.template["paddingstates"][i]) if v > 0 else v for i, v in enumerate(self.QMin.molecule["states"])
         ]
-        if self.QMin.requests['multipolar_fit']:
+        if self.QMin.requests["multipolar_fit"]:
             # TODO: do only if RESP requested
             # construct shells
-            shells, first, nlayers = map(QMin.resources.get, ('resp_shells', 'resp_first_layer', 'resp_layers'))
+            shells, first, nlayers = map(QMin.resources.get, ("resp_shells", "resp_first_layer", "resp_layers"))
 
             # collect vdw radii for atoms from settings
-            if self.QMin.resources['resp_vdw_radii']:
-                if len(self.QMin.resources['resp_vdw_radii']) != len(QMin['elements']):
+            if self.QMin.resources["resp_vdw_radii"]:
+                if len(self.QMin.resources["resp_vdw_radii"]) != len(QMin["elements"]):
                     raise RuntimeError("specify 'resp_vdw_radii' for all atoms!")
             else:
                 # populate vdW radii
                 radii = ATOMIC_RADII
-                if self.QMin.resources['resp_mk_radii']:
+                if self.QMin.resources["resp_mk_radii"]:
                     radii.update(MK_RADII)
-                for e in filter(lambda x: e not in self.QMin.resources['resp_vdw_radii_symbol'], self.QMin.molecule['elements']):
-                    self.QMin.resources['resp_vdw_radii_symbol'][e] = radii[e]
-                self.QMin.resources['resp_vdw_radii'] = [self.QMin.resources['resp_vdw_radii_symbol'][s] for s in self.QMin['elements']]
+                for e in filter(lambda x: e not in self.QMin.resources["resp_vdw_radii_symbol"], self.QMin.molecule["elements"]):
+                    self.QMin.resources["resp_vdw_radii_symbol"][e] = radii[e]
+                self.QMin.resources["resp_vdw_radii"] = [
+                    self.QMin.resources["resp_vdw_radii_symbol"][s] for s in self.QMin["elements"]
+                ]
 
-            if self.QMin.resources['resp_betas']:
-                if len(self.QMin.resources['resp_betas']) != self.QMin.resources['resp_fit_order'] + 1:
-                    raise RuntimeError(f"specify one beta parameter for each multipole order (order + 1)!\n needed {self.QMin.resources['resp_fit_order']+1:d}")
-                self.log.info("using non-default beta parameters for resp fit", self.QMin.resources['resp_betas'])
+            if self.QMin.resources["resp_betas"]:
+                if len(self.QMin.resources["resp_betas"]) != self.QMin.resources["resp_fit_order"] + 1:
+                    raise RuntimeError(
+                        f"specify one beta parameter for each multipole order (order + 1)!\n needed {self.QMin.resources['resp_fit_order']+1:d}"
+                    )
+                self.log.info(f"using non-default beta parameters for resp fit {self.QMin.resources['resp_betas']}")
 
             if not shells:
                 self.log.debug(f"Calculating resp layers as: {first} + 4/sqrt({nlayers})")
                 incr = 0.4 / math.sqrt(nlayers)
-                self.QMin.resources['resp_shells'] = [first + incr * x for x in range(nlayers)]
-            if self.QMin.resources['resp_grid'] not in GRIDS:
+                self.QMin.resources["resp_shells"] = [first + incr * x for x in range(nlayers)]
+            if self.QMin.resources["resp_grid"] not in GRIDS:
                 raise RuntimeError(
                     f"specified grid {self.QMin.resources['resp_grid']} not available.\n Possible options are 'lebedev', 'random', 'golden_spiral', 'gamess', 'marcus_deserno'"
                 )
@@ -265,7 +274,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         Create maps from QMin object
         """
         self.log.debug("Setup interface -> building maps")
-        super()._request_logic
+        super()._request_logic()
         # Setup gradmap
         if self.QMin.requests["grad"]:
             self.log.debug("Building gradmap")
@@ -516,7 +525,6 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         """
         Create AO_overl.mixed for overlap calculations
         """
-        pass
 
     @staticmethod
     def parse_wfoverlap(overlap_file: str) -> np.ndarray:
@@ -606,10 +614,12 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
 
                 starttime = datetime.datetime.now()
                 workdir = os.path.join(self.QMin.resources["scratchdir"], job)
-                self._setup_theodore(workdir,
-                                     prop_list=self.QMin.resources['thedore_prop'],
-                                     at_lists=self.QMin.resources['theodore_fragment'],
-                                     **self._theodore_settings)
+                self._setup_theodore(
+                    workdir,
+                    prop_list=self.QMin.resources["thedore_prop"],
+                    at_lists=self.QMin.resources["theodore_fragment"],
+                    **self._theodore_settings,
+                )
 
                 # Run theodore
                 out_file = os.path.join(workdir, "theodore.out")
@@ -622,21 +632,23 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                         self.log.error(theo_err.read())
                     raise OSError()
 
-    def _setup_theodore(self, workdir: str,
-                        rtype='cclib',
-                        rfile='ORCA.log',
-                        read_binary=True,
-                        jmol_orbitals=False,
-                        molden_orbitals=False,
-                        Om_formula=2,
-                        eh_pop=1,
-                        comp_ntos=True,
-                        print_OmFrag=True,
-                        output_file='tden_summ.txt',
-                        prop_list=[],
-                        at_lists=[],
-                        link_files=[]
-                        ) -> None:
+    def _setup_theodore(
+        self,
+        workdir: str,
+        rtype="cclib",
+        rfile="ORCA.log",
+        read_binary=True,
+        jmol_orbitals=False,
+        molden_orbitals=False,
+        Om_formula=2,
+        eh_pop=1,
+        comp_ntos=True,
+        print_OmFrag=True,
+        output_file="tden_summ.txt",
+        prop_list=[],
+        at_lists=[],
+        link_files=[],
+    ) -> None:
         """
         Write theodore input file and link files
 
@@ -647,35 +659,35 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
 
         self.log.debug(f"Create theodore input file in {workdir}")
         theodore_keys = {
-            'rtype': rtype,
-            'rfile': rfile,
-            'read_binary': read_binary,
-            'jmol_orbitals': jmol_orbitals,
-            'molden_orbitals': molden_orbitals,
-            'Om_formula': Om_formula,
-            'eh_pop': eh_pop,
-            'comp_ntos': comp_ntos,
-            'print_OmFrag': print_OmFrag,
-            'output_file': output_file,
-            'prop_list': prop_list,
-            'at_lists': at_lists
+            "rtype": rtype,
+            "rfile": rfile,
+            "read_binary": read_binary,
+            "jmol_orbitals": jmol_orbitals,
+            "molden_orbitals": molden_orbitals,
+            "Om_formula": Om_formula,
+            "eh_pop": eh_pop,
+            "comp_ntos": comp_ntos,
+            "print_OmFrag": print_OmFrag,
+            "output_file": output_file,
+            "prop_list": prop_list,
+            "at_lists": at_lists,
         }
         self.log.debug(f"theodore input with keys: {theodore_keys}")
-        theodore_input = '\n'.join(map(lambda k, v: f"{k}='{v}'" if type(v) == str else f"{k}={v}", theodore_keys.items()))
+        theodore_input = "\n".join(map(lambda k, v: f"{k}='{v}'" if type(v) == str else f"{k}={v}", theodore_keys.items()))
         writefile(os.path.join(workdir, "dens_ana.in"), theodore_input)
         for s, d in link_files:
             self.log.debug(f"\ttheodore: linking file {s} -> {d}")
             link(os.path.join(workdir, s), os.path.join(workdir, d))
 
-        self.log.debug('================== DEBUG input file for WORKDIR %s =================' % (shorten_DIR(workdir)))
+        self.log.debug(f"================== DEBUG input file for WORKDIR {shorten_DIR(workdir)} =================")
         self.log.debug(theodore_input)
-        self.log.debug('TheoDORE input written to: %s' % (os.path.join(workdir, "dens_ana.in")))
-        self.log.debug('====================================================================')
+        self.log.debug(f'TheoDORE input written to: {os.path.join(workdir, "dens_ana.in")}')
+        self.log.debug("====================================================================")
 
     # also add staticmethod
     # routine to read wfoverlap output
 
-    @ abstractmethod
+    @abstractmethod
     def run(self) -> None:
         """
         request & other logic
