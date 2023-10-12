@@ -295,21 +295,6 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 if m1 != m2 or i[0] == i[1] or ms1 != ms2 or s1 > s2:
                     continue
                 self.QMin.maps["nacmap"].add(tuple([m1, s1, m2, s2]))
-        # make the ionmap
-        if self.QMin.requests['ion']:
-            ionmap = []
-            for m1 in itmult(self.QMin.molecule['states']):
-                job1 = self.QMin.maps['multmap'][m1]
-                el1 = self.QMin.maps['chargemap'][m1]
-                for m2 in itmult(self.QMin.molecule['states']):
-                    if m1 >= m2:
-                        continue
-                    job2 = self.QMin.maps['multmap'][m2]
-                    el2 = self.QMin.maps['chargemap'][m2]
-                    # print m1,job1,el1,m2,job2,el2
-                    if abs(m1 - m2) == 1 and abs(el1 - el2) == 1:
-                        ionmap.append((m1, job1, m2, job2))
-            self.QMin.maps['ionmap'] = ionmap
 
     @abstractmethod
     def getQMout(self):

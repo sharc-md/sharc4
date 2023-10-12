@@ -249,12 +249,12 @@ class SHARC_INTERFACE(ABC):
         self.read_resources(f"{self.name()}.resources")
         # read in the specific template file for the interface with all keywords
         self.read_template(f"{self.name()}.template")
-        # read the property requests that have to be calculated
-        self.read_requests(QMinfilename)
         # setup internal state for the computation
         self.setup_interface()
 
         # --- the following are called per time step inside a driver ---
+        # read the property requests that have to be calculated
+        self.read_requests(QMinfilename)
         # set the coordinates of the molecular system
         self.set_coords(QMinfilename)
         # print qmin
@@ -357,7 +357,7 @@ class SHARC_INTERFACE(ABC):
             except ValueError as error:
                 raise ValueError("first line must contain the number of atoms!") from error
             self.QMin.coords[key] = (
-                np.asarray([parse_xyz(x)[1] for x in lines[2 : natom + 2]], dtype=float) * self.QMin.molecule["factor"]
+                np.asarray([parse_xyz(x)[1] for x in lines[2: natom + 2]], dtype=float) * self.QMin.molecule["factor"]
             )
         elif isinstance(xyz, (list, np.ndarray)):
             self.QMin.coords[key] = np.asarray(xyz) * self.QMin.molecule["factor"]
@@ -386,7 +386,7 @@ class SHARC_INTERFACE(ABC):
         except ValueError as err:
             raise ValueError("first line must contain the number of atoms!") from err
 
-        self.QMin.molecule["elements"] = list(map(lambda x: parse_xyz(x)[0], (qmin_lines[2 : natom + 2])))
+        self.QMin.molecule["elements"] = list(map(lambda x: parse_xyz(x)[0], (qmin_lines[2: natom + 2])))
         self.QMin.molecule["Atomcharge"] = sum(map(lambda x: ATOMCHARGE[x], self.QMin.molecule["elements"]))
         self.QMin.molecule["frozcore"] = sum(map(lambda x: FROZENS[x], self.QMin.molecule["elements"]))
         self.QMin.molecule["natom"] = len(self.QMin.molecule["elements"])
@@ -396,7 +396,7 @@ class SHARC_INTERFACE(ABC):
             lambda x: not re.match(r"^\s*$", x),
             map(
                 lambda x: re.sub(r"#.*$", "", x),
-                qmin_lines[self.QMin.molecule["natom"] + 2 :],
+                qmin_lines[self.QMin.molecule["natom"] + 2:],
             ),
         )
 
