@@ -749,8 +749,3 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         run_theodore
         save directory handling
         """
-        """
-        """
-        """
-        """
-        """
