@@ -1002,24 +1002,22 @@ class SHARC_ORCA(SHARC_ABINITIO):
         self.QMin.maps["multmap"][1] = 1
 
         # Setup ionmap
-        if self.QMin.requests["ion"]:
-            self.log.debug("Building ionmap")
-            self.QMin.maps["ionmap"] = []
-            for mult1 in itmult(self.QMin.molecule["states"]):
-                job1 = self.QMin.maps["multmap"][mult1]
-                el1 = self.QMin.maps["chargemap"][mult1]
-                for mult2 in itmult(self.QMin.molecule["states"]):
-                    if mult1 >= mult2:
-                        continue
-                    job2 = self.QMin.maps["multmap"][mult2]
-                    el2 = self.QMin.maps["chargemap"][mult2]
-                    if abs(mult1 - mult2) == 1 and abs(el1 - el2) == 1:
-                        if self.QMin.molecule["states"][mult1 - 1] == 1 or self.QMin.molecule["states"][mult2 - 1] == 1:
-                            self.log.error(
-                                f"Ion requested, but number of states for multiplicity {mult1} or {mult2} is less than 2!"
-                            )
-                            raise ValueError()
-                        self.QMin.maps["ionmap"].append((mult1, job1, mult2, job2))
+        self.log.debug("Building ionmap")
+        self.QMin.maps["ionmap"] = []
+        for mult1 in itmult(self.QMin.molecule["states"]):
+            job1 = self.QMin.maps["multmap"][mult1]
+            el1 = self.QMin.maps["chargemap"][mult1]
+            for mult2 in itmult(self.QMin.molecule["states"]):
+                if mult1 >= mult2:
+                    continue
+                job2 = self.QMin.maps["multmap"][mult2]
+                el2 = self.QMin.maps["chargemap"][mult2]
+                if abs(mult1 - mult2) == 1 and abs(el1 - el2) == 1:
+                    if self.QMin.molecule["states"][mult1 - 1] == 1 or self.QMin.molecule["states"][mult2 - 1] == 1:
+                        self.log.error(f"Ion requested, but number of states for multiplicity {mult1} or {mult2} is less than 2!")
+                        # TODO: build single determinant instead
+                        # raise ValueError()
+                    self.QMin.maps["ionmap"].append((mult1, job1, mult2, job2))
 
         # Setup gsmap
         self.log.debug("Building gsmap")
