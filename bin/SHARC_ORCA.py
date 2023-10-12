@@ -272,17 +272,17 @@ class SHARC_ORCA(SHARC_ABINITIO):
 
         # run orca_fragovl
         string = f"orca_fragovl {orca_gbw} {orca_gbw}"
-        self.run_program(workdir, string, "wfovlp.out", "wfovlp.err")
+        self.run_program(workdir, string, "fragovlp.out", "fragovlp.err")
 
-        with open(os.path.join(workdir, "wfovlp.out"), "r", encoding="utf-8") as file:
-            wfovlp = file.read()
+        with open(os.path.join(workdir, "fragovlp.out"), "r", encoding="utf-8") as file:
+            fragovlp = file.read()
 
             # Get number of atomic orbitals
-            n_ao = re.findall(r"\s{3,}(\d+)\s{5}", wfovlp)
+            n_ao = re.findall(r"\s{3,}(\d+)\s{5}", fragovlp)
             n_ao = max(list(map(int, n_ao))) + 1
 
             # Parse wfovlp.out and convert to n_ao*n_ao matrix
-            find_mat = re.search(r"OVERLAP MATRIX\n-{32}\n([\s\d+\.-]*)\n\n", wfovlp)
+            find_mat = re.search(r"OVERLAP MATRIX\n-{32}\n([\s\d+\.-]*)\n\n", fragovlp)
             if not find_mat:
                 raise ValueError
             ovlp_mat = list(map(float, re.sub(r"\s\d{1,2}\s", "", find_mat.group(1)).split()))

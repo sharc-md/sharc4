@@ -274,7 +274,7 @@ def test_ao_matrix():
     test_interface = SHARC_ORCA()
     for gbw, ovl in tests:
         ao_overl = test_interface._get_ao_matrix(os.path.join(expand_path(PATH), gbw))
-        os.remove(os.path.join(expand_path(PATH), gbw, "wfovlp.out"))
-        os.remove(os.path.join(expand_path(PATH), gbw, "wfovlp.err"))
+        os.remove(os.path.join(expand_path(PATH), gbw, "fragovlp.out"))
+        os.remove(os.path.join(expand_path(PATH), gbw, "fragovlp.err"))
         with open(os.path.join(expand_path(PATH), ovl), "r") as ref:
             assert ao_overl == ref.read()
