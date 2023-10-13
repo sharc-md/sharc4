@@ -203,7 +203,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
 
     @abstractmethod
     def read_resources(self, resources_file: str, kw_whitelist: Optional[list[str]] = None) -> None:
-        super().read_resources(resources_file, kw_whitelist+["theodore_fragment"])
+        super().read_resources(resources_file, kw_whitelist + ["theodore_fragment"])
 
         if "theodore_fragment" in self.QMin.resources:
             self.QMin.resources["theodore_fragment"] = [
@@ -487,6 +487,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
 
                 # Execute wfoverlap
                 starttime = datetime.datetime.now()
+                os.environ["OMP_NUM_THREADS"] = str(self.QMin.resources["ncpu"])
                 code = self.run_program(workdir, wf_cmd, os.path.join(workdir, "wfovl.out"), os.path.join(workdir, "wfovl.err"))
                 self.log.info(
                     f"Finished wfoverlap job: {str(ion_pair):<10s} code: {code:<4d} runtime: {datetime.datetime.now()-starttime}"
@@ -516,6 +517,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
 
                 # Execute wfoverlap
                 starttime = datetime.datetime.now()
+                os.environ["OMP_NUM_THREADS"] = str(self.QMin.resources["ncpu"])
                 code = self.run_program(workdir, wf_cmd, os.path.join(workdir, "wvovl.out"), os.path.join(workdir, "wfovl.err"))
                 self.log.info(
                     f"Finished wfoverlap job: {str(m):<10s} code {code:<4d} runtime: {datetime.datetime.now()-starttime}"
