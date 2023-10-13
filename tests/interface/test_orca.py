@@ -290,7 +290,11 @@ def test_ao_matrix():
 
 
 def test_ao_matrix_overlap():
-    tests = [("inputs/orca_overlap/aooverl1", "gbw1.1.2", "gbw1.1.1"), ("inputs/orca_overlap/aooverl2", "gbw2.1.2", "gbw2.1.1")]
+    tests = [
+        ("inputs/orca_overlap/aooverl1", "gbw1.1.2", "gbw1.1.1"),
+        ("inputs/orca_overlap/aooverl2", "gbw2.1.2", "gbw2.1.1"),
+        ("inputs/orca_overlap/aooverl3", "gbw3.2.2", "gbw3.2.1"),
+    ]
 
     test_interface = SHARC_ORCA()
     for aooverl, gbw1, gbw2 in tests:
