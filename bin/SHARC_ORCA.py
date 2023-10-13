@@ -354,6 +354,23 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 cis_dets = self.get_dets_from_cis(os.path.join(workdir, "ORCA.cis"), jobid)
                 for det_file, cis_det in cis_dets.items():
                     writefile(os.path.join(savedir, f"{det_file}.{step}"), cis_det)
+            else:
+                with open(os.path.join(workdir, "ORCA.log"), "r", encoding="utf-8") as orca_log:
+                    # Extract list of orbital energies and filter occupation numbers
+                    orbital_list = re.search(r"ORBITAL ENERGIES\n-{16}(.*)MOLECULAR ORBITALS", orca_log.read(), re.DOTALL)
+                    occ_list = re.findall(r"\d+\s+([0-2]\.0{4})", orbital_list.group(1))
+                    occ_list = list(map(lambda x: int(float(x)), occ_list))
+
+                    # Remove frozencore
+                    froz = self.QMin.molecule["frozcore"]
+                    if 2 in occ_list:
+                        occ_list = [3 if x == 2 else 0 for x in occ_list[froz:]]
+                    elif 1 in occ_list:
+                        occ_list = [1 if x == 1 else 0 for x in occ_list[froz : len(occ_list) // 2]] + [
+                            2 if x == 1 else 0 for x in occ_list[len(occ_list) // 2 + froz :]
+                        ]
+                    # Convert to string and save file
+                    writefile(os.path.join(savedir, f"dets.{jobid}.{step}"), self.format_ci_vectors([{tuple(occ_list): 1.0}]))
 
         shutil.copy(os.path.join(workdir, "ORCA.gbw"), os.path.join(savedir, f"ORCA.gbw.{jobid}.{step}"))
 
@@ -908,10 +925,6 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 job2 = self.QMin.maps["multmap"][mult2]
                 el2 = self.QMin.maps["chargemap"][mult2]
                 if abs(mult1 - mult2) == 1 and abs(el1 - el2) == 1:
-                    if self.QMin.molecule["states"][mult1 - 1] == 1 or self.QMin.molecule["states"][mult2 - 1] == 1:
-                        self.log.error(f"Ion requested, but number of states for multiplicity {mult1} or {mult2} is less than 2!")
-                        # TODO: build single determinant instead
-                        # raise ValueError()
                     self.QMin.maps["ionmap"].append((mult1, job1, mult2, job2))
 
         # Setup gsmap
