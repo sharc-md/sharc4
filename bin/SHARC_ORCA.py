@@ -8,14 +8,13 @@ import subprocess as sp
 from copy import deepcopy
 from io import TextIOWrapper
 from itertools import count, pairwise
-from textwrap import dedent
 from typing import Optional
 
 import numpy as np
 from constants import IToMult
 from qmin import QMin
 from SHARC_ABINITIO import SHARC_ABINITIO
-from utils import expand_path, itmult, link, mkdir, readfile, writefile
+from utils import expand_path, itmult, mkdir, readfile, writefile
 
 __all__ = ["SHARC_ORCA"]
 
