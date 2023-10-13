@@ -979,12 +979,16 @@ class SHARC_ORCA(SHARC_ABINITIO):
         frozcore = self.QMin.molecule["frozcore"]
         states_extract = deepcopy(self.QMin.molecule["states"])
         states_skip = [self.QMin.control["states_to_do"][i] - states_extract[i] for i in range(len(states_extract))]
+
         for i, _ in enumerate(states_extract):
             if not i + 1 in mults:
                 states_extract[i] = 0
                 states_skip[i] = 0
             elif i + 1 == gsmult:
-                states_extract[i] -= 1
+                states_extract[i] = max(0, states_extract[i] - 1)
+
+        if states_extract[gsmult-1] == 0:
+            states_skip[gsmult-1] -=1
 
         # Parse file
         with open(cis_path, "rb") as cis_file:
