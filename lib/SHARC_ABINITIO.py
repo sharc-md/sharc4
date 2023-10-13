@@ -205,6 +205,11 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
     def read_resources(self, resources_file: str, kw_whitelist: Optional[list[str]] = None) -> None:
         super().read_resources(resources_file, kw_whitelist)
 
+        if "theodore_fragment" in self.QMin.resources:
+            self.QMin.resources["theodore_fragment"] = [
+                list(map(int, (j for j in i))) for i in self.QMin.resources["theodore_fragment"]
+            ]
+
     @abstractmethod
     def read_requests(self, requests_file: str = "QM.in") -> None:
         super().read_requests(requests_file)
@@ -574,7 +579,9 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             string += "\n"
         return string
 
-    def _resp_fit_on_densities(self, basis: dict, densities: dict, cartesian_basis=True, ecps={}) -> dict[(int, int, int, int), np.ndarray]:
+    def _resp_fit_on_densities(
+        self, basis: dict, densities: dict, cartesian_basis=True, ecps={}
+    ) -> dict[(int, int, int, int), np.ndarray]:
         """
         Performs the resp fit on all densities given and returns the fits as dict.
         All transition densities need to be already present! Generate them with tdm.es2es_tdm() if necessary
@@ -592,19 +599,19 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         self.log.info(f"{'RESP fit':=^80}")
         self.log.info("\t Start:")
         fits = Resp(
-            self.QMin.molecule['coords'],
-            self.QMin.molecule['elements'],
-            self.QMin.resources['resp_vdw_radii'],
-            self.QMin.resources['resp_density'],
-            self.QMin.resources['resp_shells'],
-            grid=self.QMin.resources['resp_grid'],
-            log=self.log
+            self.QMin.molecule["coords"],
+            self.QMin.molecule["elements"],
+            self.QMin.resources["resp_vdw_radii"],
+            self.QMin.resources["resp_density"],
+            self.QMin.resources["resp_shells"],
+            grid=self.QMin.resources["resp_grid"],
+            log=self.log,
         )
-        gsmult = self.QMin.maps['statemap'][1][0]
-        charge = self.QMin.maps['chargemap'][gsmult]  # the charge is irrelevant for the integrals calculated!!
+        gsmult = self.QMin.maps["statemap"][1][0]
+        charge = self.QMin.maps["chargemap"][gsmult]  # the charge is irrelevant for the integrals calculated!!
         fits.prepare(
             basis, gsmult - 1, charge, ecps=ecps, cart_basis=cartesian_basis
-        )    # the charge of the atom does not affect integrals
+        )  # the charge of the atom does not affect integrals
 
         fits_map = {}
 
@@ -616,12 +623,11 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             fits_map[key] = fits.multipoles_from_dens(
                 densities[key],
                 include_core_charges=s1 == s2,
-                order=self.QMin.resources['resp_fit_order'],
-                charge=self.QMin.maps['chargemap'][m1],
-                betas=self.QMin.resources['resp_betas']
+                order=self.QMin.resources["resp_fit_order"],
+                charge=self.QMin.maps["chargemap"][m1],
+                betas=self.QMin.resources["resp_betas"],
             )
             return fits_map
-
 
     @staticmethod
     def get_theodore(sumfile: str, omffile: str) -> dict[tuple[int], list[float]]:
