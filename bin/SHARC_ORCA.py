@@ -140,8 +140,8 @@ class SHARC_ORCA(SHARC_ABINITIO):
             }
         )
 
-        # List of depricated keys
-        self._depricated = ["range_sep_settings", "grid", "gridx", "gridxc", "picture_change", "qmmm"]
+        # List of deprecated keys
+        self._deprecated = ["range_sep_settings", "grid", "gridx", "gridxc", "picture_change", "qmmm"]
 
     @staticmethod
     def version() -> str:
@@ -335,7 +335,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
 
         # Generate molden file
         if self.QMin.requests["molden"]:
-            self.log.debug("Save moldenfile to savedir")
+            self.log.debug("Save molden file to savedir")
             exec_str = "orca_2mkl ORCA -molden"
             molden_out = os.path.join(workdir, "orca_2mkl.out")
             molden_err = os.path.join(workdir, "orca_2mkl.err")
@@ -769,7 +769,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
 
         # Check if frozcore specified
         if self.QMin.resources["numfrozcore"] >= 0:
-            self.log.debug("Found numfrozcore in resources, overwriding frozcore")
+            self.log.debug("Found numfrozcore in resources, overwriting frozcore")
             self.QMin.molecule["frozcore"] = self.QMin.resources["numfrozcore"]
 
         # LD PATH???
@@ -799,10 +799,10 @@ class SHARC_ORCA(SHARC_ABINITIO):
         if isinstance(self.QMin.template["keys"], list):
             self.QMin.template["keys"] = " ".join(self.QMin.template["keys"])
 
-        # Check for depricated keys
-        for depr in self._depricated:
+        # Check for deprecated keys
+        for depr in self._deprecated:
             if depr.casefold() in self.QMin.template:
-                self.log.warning(f"Template key {depr} is depricated and will be ignored!")
+                self.log.warning(f"Template key {depr} is deprecated and will be ignored!")
 
         # Check if unrestricted triplets needed
         if not self.QMin.template["unrestricted_triplets"]:
