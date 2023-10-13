@@ -762,8 +762,10 @@ class SHARC_ORCA(SHARC_ABINITIO):
     def print_qmin(self) -> None:
         pass
 
-    def read_resources(self, resources_file: str) -> None:
-        super().read_resources(resources_file, ["theodore_fragment"])
+    def read_resources(self, resources_file: str, kw_whitelist: Optional[list[str]] = None) -> None:
+        if kw_whitelist is None:
+            kw_whitelist = []
+        super().read_resources(resources_file, kw_whitelist)
 
         # Check if frozcore specified
         if self.QMin.resources["numfrozcore"] >= 0:
