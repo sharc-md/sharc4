@@ -203,7 +203,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
 
     @abstractmethod
     def read_resources(self, resources_file: str, kw_whitelist: Optional[list[str]] = None) -> None:
-        super().read_resources(resources_file, kw_whitelist)
+        super().read_resources(resources_file, kw_whitelist+["theodore_fragment"])
 
         if "theodore_fragment" in self.QMin.resources:
             self.QMin.resources["theodore_fragment"] = [
@@ -605,7 +605,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             self.QMin.resources["resp_density"],
             self.QMin.resources["resp_shells"],
             grid=self.QMin.resources["resp_grid"],
-            log=self.log,
+            logger=self.log,
         )
         gsmult = self.QMin.maps["statemap"][1][0]
         charge = self.QMin.maps["chargemap"][gsmult]  # the charge is irrelevant for the integrals calculated!!
