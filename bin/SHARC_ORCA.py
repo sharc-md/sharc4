@@ -261,17 +261,24 @@ class SHARC_ORCA(SHARC_ABINITIO):
 
         return exit_code, endtime - starttime
 
-    def _get_ao_matrix(self, workdir: str) -> str:
+    def _get_ao_matrix(
+        self, workdir: str, gbw_first: str = "ORCA.gbw", gbw_second: str = "ORCA.gbw", decimals: int = 7, trans: bool = False
+    ) -> str:
         """
         Call orca_fragovl and extract ao matrix
 
         workdir:    Path of working directory
+        gbw_first:  Name of first wave function file
+        gbw_second: Name of second wave function file
+        decimals:   Number of decimal places
+        trans:      Transpose matrix
         """
-        orca_gbw = os.path.join(workdir, "ORCA.gbw")
-        self.log.debug(f"Extracting AO matrix from {orca_gbw} for ion request")
+        self.log.debug(f"Extracting AO matrix from {gbw_first} and {gbw_second} from orca_fragovl")
+        gbw_first = os.path.join(workdir, gbw_first)
+        gbw_second = os.path.join(workdir, gbw_second)
 
         # run orca_fragovl
-        string = f"orca_fragovl {orca_gbw} {orca_gbw}"
+        string = f"orca_fragovl {gbw_first} {gbw_second}"
         self.run_program(workdir, string, "fragovlp.out", "fragovlp.err")
 
         with open(os.path.join(workdir, "fragovlp.out"), "r", encoding="utf-8") as file:
@@ -285,13 +292,15 @@ class SHARC_ORCA(SHARC_ABINITIO):
             find_mat = re.search(r"OVERLAP MATRIX\n-{32}\n([\s\d+\.-]*)\n\n", fragovlp)
             if not find_mat:
                 raise ValueError
-            ovlp_mat = list(map(float, re.sub(r"\s\d{1,2}\s", "", find_mat.group(1)).split()))
+            ovlp_mat = list(map(float, re.findall(r"-?\d+\.\d{12}", find_mat.group(1))))
             ovlp_mat = self._matrix_from_output(ovlp_mat, n_ao)
+            if trans:
+                ovlp_mat = ovlp_mat.T
 
             # Convert matrix to string
             ao_mat = f"{n_ao} {n_ao}\n"
             for i in ovlp_mat:
-                ao_mat += "".join(f"{j: .7e} " for j in i) + "\n"
+                ao_mat += "".join(f"{j: .{decimals}e} " for j in i) + "\n"
             return ao_mat
 
     def _matrix_from_output(self, raw_matrix: list[float | complex], dim: int, orca_col: int = 6) -> np.ndarray:
@@ -373,7 +382,8 @@ class SHARC_ORCA(SHARC_ABINITIO):
             find_mat = re.search(r"FRAGMENT A MOs MATRIX\n-{32}\n([\s\d+\.-]*)\n\n", fragovlp)
             if not find_mat:
                 raise ValueError
-            ao_mat = list(map(float, re.sub(r"\s\d{1,2}\s", "", find_mat.group(1)).split()))
+            # ao_mat = list(map(float, re.sub(r"\s\d{1,5}\s", "", find_mat.group(1)).split()))
+            ao_mat = list(map(float, re.findall(r"-?\d+\.\d{12}", find_mat.group(1))))
             if not restr:
                 ao_mat_a = self._matrix_from_output(ao_mat[: len(ao_mat) // 2], n_ao)
                 ao_mat_b = self._matrix_from_output(ao_mat[len(ao_mat) // 2 :], n_ao)
@@ -667,8 +677,8 @@ class SHARC_ORCA(SHARC_ABINITIO):
             raise ValueError()
 
         # Remove garbage and combine to complex
-        real_part = list(map(float, re.sub(r"\s\d{1,2}\s", "", find_mat.group(1)).split()))
-        imag_part = list(map(float, re.sub(r"\s\d{1,2}\s", "", find_mat.group(2)).split()))
+        real_part = list(map(float, re.sub(r"\s\d{1,5}\s", "", find_mat.group(1)).split()))
+        imag_part = list(map(float, re.sub(r"\s\d{1,5}\s", "", find_mat.group(2)).split()))
         soc_matrix = []
         for real, imag in zip(real_part, imag_part):
             soc_matrix.append(complex(real, imag))
@@ -774,11 +784,6 @@ class SHARC_ORCA(SHARC_ABINITIO):
         if self.QMin.resources["orcaversion"] < (5, 0):
             raise ValueError("This version of the SHARC-ORCA interface is only compatible to Orca 5.0 or higher!")
 
-        if "theodore_fragment" in self.QMin.resources:
-            self.QMin.resources["theodore_fragment"] = [
-                list(map(int, (j for j in i))) for i in self.QMin.resources["theodore_fragment"]
-            ]
-
     def read_requests(self, requests_file: str = "QM.in") -> None:
         super().read_requests(requests_file)
 
@@ -847,39 +852,13 @@ class SHARC_ORCA(SHARC_ABINITIO):
         """
         Create AO_overl.mixed for overlap calculations
         """
-        gbw_curr = os.path.join(self.QMin.save["savedir"], f"ORCA.gbw.{self.QMin.control['joblist'][0]}.{self.QMin.save['step']}")
-        gbw_prev = os.path.join(
-            self.QMin.save["savedir"], f"ORCA.gbw.{self.QMin.control['joblist'][0]}.{self.QMin.save['step']-1}"
+        gbw_curr = f"ORCA.gbw.{self.QMin.control['joblist'][0]}.{self.QMin.save['step']}"
+        gbw_prev = f"ORCA.gbw.{self.QMin.control['joblist'][0]}.{self.QMin.save['step']-1}"
+
+        writefile(
+            os.path.join(self.QMin.save["savedir"], "AO_overl.mixed"),
+            self._get_ao_matrix(self.QMin.save["savedir"], gbw_prev, gbw_curr, 15, True),
         )
-        with sp.Popen(f"orca_fragovl {gbw_curr} {gbw_prev}", shell=True, stdout=sp.PIPE, stderr=sp.PIPE) as proc:
-            # TODO: REFACTOR
-            comm = proc.communicate()[0].decode()
-            out = comm.split("\n")
-
-            # get size of matrix
-            for line in reversed(out):
-                # print line
-                s = line.split()
-                if len(s) >= 1:
-                    NAO = int(line.split()[0]) + 1
-                    break
-
-            # read matrix
-            nblock = 6
-            ao_ovl = [[0.0 for i in range(NAO)] for j in range(NAO)]
-            for x in range(NAO):
-                for y in range(NAO):
-                    block = x // nblock
-                    xoffset = x % nblock + 1
-                    yoffset = block * (NAO + 1) + y + 10
-                    ao_ovl[x][y] = float(out[yoffset].split()[xoffset])
-            string = "%i %i\n" % (NAO, NAO)
-            for irow in range(0, NAO):
-                for icol in range(0, NAO):
-                    string += "% .15e " % (ao_ovl[irow][icol])  # note the exchanged indices => transposition
-                string += "\n"
-            filename = os.path.join(self.QMin.save["savedir"], "AO_overl.mixed")
-            writefile(filename, string)
 
     def setup_interface(self) -> None:
         """
@@ -987,8 +966,8 @@ class SHARC_ORCA(SHARC_ABINITIO):
             elif i + 1 == gsmult:
                 states_extract[i] = max(0, states_extract[i] - 1)
 
-        if states_extract[gsmult-1] == 0:
-            states_skip[gsmult-1] -=1
+        if states_extract[gsmult - 1] == 0:
+            states_skip[gsmult - 1] -= 1
 
         # Parse file
         with open(cis_path, "rb") as cis_file:
