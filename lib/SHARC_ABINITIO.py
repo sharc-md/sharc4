@@ -419,7 +419,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
     @staticmethod
     def clean_savedir(path: str, retain: int, step: int) -> None:
         """
-        Remove older files than step-retain
+        Remove files older than step-retain
 
         path:       Path to savedir
         retain:     Number of timesteps to keep (-1 = all)
