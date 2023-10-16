@@ -450,10 +450,19 @@ class SHARC_ORCA(SHARC_ABINITIO):
             npc=self.QMin.molecule["npc"],
             requests=requests,
         )
+        if self.QMin.requests["theodore"]:
+            theodore_arr = np.zeros(
+                (
+                    self.QMin.molecule["nmstates"],
+                    len(self.QMin.template["theodore_prop"]) + len(self.QMin.template["theodore_fragment"]) ** 2,
+                )
+            )
+
+        scratchdir = self.QMin.resources["scratchdir"]
 
         # Get contents of output file(s)
         for job in self.QMin.control["joblist"]:
-            with open(os.path.join(self.QMin.resources["scratchdir"], f"master_{job}/ORCA.log"), "r", encoding="utf-8") as file:
+            with open(os.path.join(scratchdir, f"master_{job}/ORCA.log"), "r", encoding="utf-8") as file:
                 log_file = file.read()
                 gs_mult, _ = self.QMin.control["jobs"][job].values()
                 mults = self.QMin.control["jobs"][job]["mults"]
@@ -525,17 +534,37 @@ class SHARC_ORCA(SHARC_ABINITIO):
                                     sum(nm_states[: mults[0]]) + m * states[mults[0]],
                                 ] = val[:]
 
+                # TheoDORE
+                if self.QMin.requests["theodore"]:
+                    if not self.QMin.control["jobs"][job]["restr"]:
+                        ns = 0
+                        for i in mults:
+                            ns += states[i - 2] - (i == gs_mult)
+                        if ns != 0:
+                            props = self.get_theodore(
+                                os.path.join(scratchdir, f"master_{job}", "tden_summ.txt"),
+                                os.path.join(scratchdir, f"master_{job}", "OmFrag.txt"),
+                            )
+                            for i in range(self.QMin.molecule["nmstates"]):
+                                m1, s1, ms1 = tuple(self.QMin.maps["statemap"][i + 1])
+                                if (m1, s1) in props:
+                                    for j in range(self.QMin.template["theodore_n"]):
+                                        theodore_arr[i, j] = props[(m1, s1)][j]
+
+        if self.QMin.requests["theodore"]:
+            self.QMout["prop2d"].append(("theodore", theodore_arr))
+
         # Populate gradients
         if self.QMin.requests["grad"]:
             for grad in self.QMin.maps["gradmap"]:
                 job_path, ground_state = self.QMin.control["jobgrad"][grad]
                 grad_mult, _ = self.QMin.control["jobs"][int(job_path.split("_")[1])].values()
                 if ground_state:
-                    gradients = self._get_grad(os.path.join(self.QMin.resources["scratchdir"], job_path, "ORCA.engrad"), True)
+                    gradients = self._get_grad(os.path.join(scratchdir, job_path, "ORCA.engrad"), True)
                 else:
                     gradients = self._get_grad(
                         os.path.join(
-                            self.QMin.resources["scratchdir"],
+                            scratchdir,
                             job_path,
                             f"ORCA.engrad.{'singlet' if grad[0] == grad_mult[0] else IToMult[grad[0]].lower()}.root{grad[1] - (grad[0] == grad_mult[0])}.grad.tmp",
                         )
@@ -543,7 +572,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
 
                 # Point charges
                 if self.QMin.molecule["point_charges"]:
-                    point_charges = self._get_pc_grad(os.path.join(self.QMin.resources["scratchdir"], ""))
+                    point_charges = self._get_pc_grad(os.path.join(scratchdir, ""))
 
                 for key, val in self.QMin.maps["statemap"].items():
                     if (val[0], val[1]) == grad:
@@ -573,9 +602,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
         if self.QMin.requests["overlap"]:
             for mult in itmult(self.QMin.molecule["states"]):
                 job = self.QMin.maps["multmap"][mult]
-                ovlp_mat = self.parse_wfoverlap(
-                    os.path.join(self.QMin.resources["scratchdir"], f"WFOVL_{mult}_{job}", "wfovl.out")
-                )
+                ovlp_mat = self.parse_wfoverlap(os.path.join(scratchdir, f"WFOVL_{mult}_{job}", "wfovl.out"))
                 for i in range(self.QMin.molecule["nmstates"]):
                     for j in range(self.QMin.molecule["nmstates"]):
                         m1, _, ms1 = tuple(self.QMin.maps["statemap"][i + 1])
@@ -592,19 +619,16 @@ class SHARC_ORCA(SHARC_ABINITIO):
                     self.QMout["phases"][i] = -1 if self.QMout["overlap"][i, i] < 0 else 1
         # Dyson norms
         if self.QMin.requests["ion"]:
-            # self.QMout["prop2d"].append(("ion", np.zeros((self.QMin.molecule["nmstates"], self.QMin.molecule["nmstates"]))))
             ion_mat = np.zeros((self.QMin.molecule["nmstates"], self.QMin.molecule["nmstates"]))
 
             for ion in self.QMin.maps["ionmap"]:
-                dyson_mat = self._get_dyson(
-                    os.path.join(self.QMin.resources["scratchdir"], f"Dyson_{'_'.join(str(i) for i in ion)}", "wfovl.out")
-                )
+                dyson_mat = self._get_dyson(os.path.join(scratchdir, f"Dyson_{'_'.join(str(i) for i in ion)}", "wfovl.out"))
                 # TODO: REFACTOR
                 for i in range(self.QMin.molecule["nmstates"]):
                     for j in range(self.QMin.molecule["nmstates"]):
                         m1, s1, ms1 = tuple(self.QMin.maps["statemap"][i + 1])
                         m2, s2, ms2 = tuple(self.QMin.maps["statemap"][j + 1])
-                        if not (ion[0], ion[2]) == (m1, m2) and not (ion[0], ion[2]) == (m2, m1):
+                        if (ion[0], ion[2]) != (m1, m2) and (ion[0], ion[2]) != (m2, m1):
                             continue
                         if not abs(ms1 - ms2) == 0.5:
                             continue
@@ -620,11 +644,6 @@ class SHARC_ORCA(SHARC_ABINITIO):
                             factor = (-ms1 + 1.0 + (m1 - 1.0) / 2.0) / m1
                         ion_mat[i, j] = dyson_mat[s1 - 1, s2 - 1] * factor
             self.QMout["prop2d"].append(("ion", ion_mat))
-
-        # TheoDORE
-        if self.QMin.requests["theodore"]:
-            # TODO
-            pass
 
         # TODO: QM/MM
 
