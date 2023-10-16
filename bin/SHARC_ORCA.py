@@ -612,6 +612,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
 
             if not raw_matrix:
                 self.log.error(f"No Dyson matrix found in {wfovl}")
+                raise ValueError()
 
             # Extract values and create numpy matrix
             value_list = list(map(float, re.findall(r"\d+\.\d{10}", raw_matrix.group(1))))
@@ -619,6 +620,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
             dim = 1 if len(value_list) == 1 else math.sqrt(len(value_list))
             if dim > 1 and dim**2 != len(value_list):
                 self.log.error(f"{wfovl} does not contain a square matrix!")
+                raise ValueError()
             return np.asarray(value_list).reshape(-1, int(dim))
 
     def _get_pc_grad(self, grad_path: str) -> np.ndarray:
