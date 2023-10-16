@@ -3,6 +3,7 @@
 import sys
 import logging
 import os
+import re
 SHARCPRINT = 11
 
 
@@ -60,8 +61,8 @@ match envlevel:
         loglevel = logging.ERROR
     case 'WARNING':
         loglevel = logging.WARNING
-    case None:
-        loglevel = logging.INFO
+    case str() if int(envlevel) > 0:
+        loglevel = int(envlevel)
     case _:
         loglevel = logging.INFO
 

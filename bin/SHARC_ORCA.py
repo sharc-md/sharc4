@@ -131,7 +131,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 "dispersion": str,
                 "ri": str,
                 "scf": str,
-                "keys": (str, list),
+                "keys": str,
                 "paste_input_file": str,
                 "frozen": int,
                 "maxiter": int,

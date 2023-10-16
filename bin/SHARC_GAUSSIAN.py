@@ -5,9 +5,8 @@ import numpy as np
 from pyscf import gto
 
 # internal
-from resp import Resp
 from qmin import QMin as QMin_class
-from utils import mkdir, readfile, containsstring, shorten_DIR, makermatrix, makecmatrix, build_basis_dict, writefile, itmult, strip_dir, triangular_to_full_matrix
+from utils import mkdir, readfile, containsstring, shorten_DIR, makermatrix, makecmatrix, build_basis_dict, writefile, itmult, strip_dir, triangular_to_full_matrix, link
 from constants import IToMult, au2eV, IAn2AName
 from tdm import es2es_tdm
 from SHARC_ABINITIO import SHARC_ABINITIO
@@ -15,7 +14,6 @@ from SHARC_ABINITIO import SHARC_ABINITIO
 import os
 import sys
 import shutil
-import pprint
 import math
 import datetime
 import traceback
@@ -82,6 +80,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         # Add template keys
         self.QMin.template.update(
             {
+                "keys": None,
                 "basis": "6-31G",
                 "functional": "PBEPBE",
                 "dispersion": None,
@@ -99,16 +98,17 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         )
         self.QMin.template.types.update(
             {
+                "keys": list,
                 "basis": str,
                 "functional": str,
                 "dispersion": str,
-                "scrf": str,
+                "scrf": list,
                 "grid": str,
                 "denfit": bool,
-                "scf": str,
+                "scf": list,
                 "no_tda": bool,
                 "unrestricted_triplets": bool,
-                "iop": str,
+                "iop": list,
                 "paste_input_file": str,
                 "external_basis": str,
                 "noneqsolv": bool
@@ -124,7 +124,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                 "numfrozcore": 0,
                 "numocc": None,
                 "schedule_scaling": 0.9,
-                "delay": 1
+                "dry_run": False,
             }
         )
 
@@ -136,7 +136,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                 "numfrozcore": int,
                 "numocc": int,
                 "schedule_scaling": float,
-                "delay": int
+                "dry_run": bool,
             }
         )
 
@@ -187,23 +187,39 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         """
         return INFOS
 
+    def prepare(self, INFOS: dict, workdir: str):
+        """
+        prepare the workdir according to dictionary
+
+        ---
+        Parameters:
+        INFOS: dictionary with infos
+        workdir: path to workdir
+        """
+        for file in self.files:
+            if INFOS['link_files']:
+                link(file, os.path.join(workdir, file.split('/')[-1]))
+            else:
+                shutil.copy(file, os.path.join(workdir, file.split('/')[-1]))
+
+
     def read_requests(self, requests_file: str = "QM.in") -> None:
         super().read_requests(requests_file)
 
         for req, val in self.QMin.requests.items():
-            if val and req not in all_features:
+            if val and req != "retain" and req not in all_features:
                 raise ValueError(f"Found unsupported request {req}.")
 
     def read_resources(self, resources_filename="GAUSSIAN.resources"):
         super().read_resources(resources_filename)
         self._Gversion = SHARC_GAUSSIAN.getVersion(self.QMin.resources['groot'])
 
-        os.environ['groot'] = self.QMin['groot']
-        os.environ['GAUSS_EXEDIR'] = self.QMin['groot']
+        os.environ['groot'] = self.QMin.resources['groot']
+        os.environ['GAUSS_EXEDIR'] = self.QMin.resources['groot']
         os.environ['GAUSS_SCRDIR'] = '.'
         os.environ['PATH'] = '$GAUSS_EXEDIR:' + os.environ['PATH']
-        self.QMin['GAUSS_EXEDIR'] = self.QMin['groot']
-        self.QMin['GAUSS_EXE'] = os.path.join(self.QMin.resources['groot'], 'g%s' % self._Gversion)
+        self.QMin.resources['GAUSS_EXEDIR'] = self.QMin.resources['groot']
+        self.QMin.resources['GAUSS_EXE'] = os.path.join(self.QMin.resources['groot'], 'g%s' % self._Gversion)
         self._read_resources = True
         self.log.info('Detected GAUSSIAN version %s' % self._Gversion)
 
@@ -219,6 +235,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
             self.QMin.template['basis'] = 'gen'
             self.QMin.template['basis_external'] = readfile(self.QMin.template['basis_external'])
         if self.QMin.template['paste_input_file']:
+            self.QMin.template.types['paste_input_file'] = list
             self.QMin.template['paste_input_file'] = readfile(self.QMin.template['paste_input_file'])
         # do logic checks
         if not self.QMin.template['unrestricted_triplets']:
@@ -233,6 +250,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
     # TODO
     def setup_interface(self):
 
+        super().setup_interface()
         # make the chargemap
         self.QMin.maps['chargemap'] = {i + 1: c for i, c in enumerate(self.QMin.template['charge'])}
         self._states_to_do()    # can be different in interface -> general method here with possibility to overwrite
@@ -255,7 +273,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         # make the gsmap
         gsmap = {}
         for i in range(self.QMin.molecule['nmstates']):
-            m1, s1, ms1 = tuple(self.QMin.molecule['statemap'][i + 1])
+            m1, s1, ms1 = tuple(self.QMin.maps['statemap'][i + 1])
             gs = (m1, 1, ms1)
             job = self.QMin.maps['multmap'][m1]
             if m1 == 3 and self.QMin.control['jobs'][job]['restr']:
@@ -318,61 +336,57 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
 
     def _states_to_do(self):
         # obtain the states to actually compute
-        states_to_do = deepcopy(self.QMin.molecule['states'])
-        for i in range(len(self.QMin.molecule['states'])):
-            if states_to_do[i] > 0:
-                states_to_do[i] += self.QMin.template['paddingstates'][i]
         if not self.QMin.template['unrestricted_triplets']:
             if len(self.QMin.molecule['states']
                    ) >= 3 and self.QMin.molecule['states'][2] > 0 and self.QMin.molecule['states'][0] <= 1:
                 if 'soc' in self.QMin:
-                    states_to_do[0] = 2
+                    self.QMin.control['states_to_do'][0] = 2
                 else:
-                    states_to_do[0] = 1
-        self.QMin.control['states_to_do'] = states_to_do
+                    self.QMin.control['states_to_do'][0] = 1
 
-    def _initorbs(QMin):
+    @staticmethod
+    def _initorbs(QMin: QMin_class):
         # check for initial orbitals
         initorbs = {}
         step = QMin.save['step']
-        if 'always_guess' in QMin:
-            QMin['initorbs'] = {}
-        elif 'init' in QMin or 'always_orb_init' in QMin:
-            for job in QMin['joblist']:
+        if QMin.save['always_guess']:
+            QMin.resources['initorbs'] = {}
+        elif QMin.save['init'] or QMin.save['always_orb_init']:
+            for job in QMin.control['joblist']:
                 filename = os.path.join(QMin.resources['pwd'], 'GAUSSIAN.chk.init')
                 if os.path.isfile(filename):
                     initorbs[job] = filename
-            for job in QMin['joblist']:
+            for job in QMin.control['joblist']:
                 filename = os.path.join(QMin.resources['pwd'], f'GAUSSIAN.chk.{job}.init')
                 if os.path.isfile(filename):
                     initorbs[job] = filename
-            if 'always_orb_init' in QMin and len(initorbs) < QMin.control['njobs']:
+            if QMin.save['always_orb_init'] and len(initorbs) < QMin.control['njobs']:
                 raise RuntimeError('Initial orbitals missing for some jobs!')
-            QMin['initorbs'] = initorbs
-        elif 'newstep' in QMin:
-            for job in QMin['joblist']:
+            QMin.resources['initorbs'] = initorbs
+        elif QMin.save['newstep']:
+            for job in QMin.control['joblist']:
                 filename = os.path.join(QMin.save['savedir'], f'GAUSSIAN.chk.{job}.{step-1}')
                 if os.path.isfile(filename):
                     initorbs[job] = filename
                 else:
                     raise RuntimeError('File %s missing in savedir!' % (filename))
-            QMin['initorbs'] = initorbs
-        elif 'samestep' in QMin:
-            for job in QMin['joblist']:
+            QMin.resources['initorbs'] = initorbs
+        elif QMin.save['samestep']:
+            for job in QMin.control['joblist']:
                 filename = os.path.join(QMin.save['savedir'], f'GAUSSIAN.chk.{job}.{step}')
                 if os.path.isfile(filename):
                     initorbs[job] = filename
                 else:
                     raise RuntimeError('File %s missing in savedir!' % (filename))
-            QMin['initorbs'] = initorbs
-        elif 'restart' in QMin:
-            for job in QMin['joblist']:
+            QMin.resources['initorbs'] = initorbs
+        elif QMin.save['restart']:
+            for job in QMin.control['joblist']:
                 filename = os.path.join(QMin.save['savedir'], f'GAUSSIAN.chk.{job}.{step}')
                 if os.path.isfile(filename):
                     initorbs[job] = filename
                 else:
                     raise RuntimeError('File %s missing in savedir!' % (filename))
-            QMin['initorbs'] = initorbs
+            QMin.resources['initorbs'] = initorbs
 
     def generate_joblist(self):
         # sort the gradients into the different jobs
@@ -407,7 +421,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         self.QMin.control['jobgrad'] = jobgrad
 
         densjob = {}
-        if self.QMin.request['multipolar_fit']:
+        if self.QMin.requests['multipolar_fit']:
             jobdens = {}
             # detect where the densities will be calculated
             # gs and first es always accessible from master if gs is not other mult
@@ -450,7 +464,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
             self.QMin.control['densjob'] = densjob
         # add the master calculations
         schedule = []
-        self.QMin.scheduling['nslots_pool'] = []
+        self.QMin.control['nslots_pool'] = []
         ntasks = 0
         for i in gradjob:
             if 'master' in i:
@@ -459,7 +473,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
             self.QMin.resources['ncpu'], ntasks, self.QMin.resources['schedule_scaling']
         )
         memory_per_core = self.QMin.resources['memory'] // self.QMin.resources['ncpu']
-        self.QMin.scheduling['nslots_pool'].append(nslots)
+        self.QMin.control['nslots_pool'].append(nslots)
         schedule.append({})
         icount = 0
         for i in sorted(gradjob):
@@ -468,15 +482,14 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                 del QMin1.scheduling
                 QMin1.control['master'] = True
                 QMin1.control['jobid'] = int(i.split('_')[1])
-                QMin1.maps['gradmap'] = list(gradjob[i])
+                QMin1.maps['gradmap'] = set(gradjob[i])
                 QMin1.resources['ncpu'] = cpu_per_run[icount]
                 QMin1.resources['memory'] = memory_per_core * cpu_per_run[icount]
                 # get the rootstate for the multiplicity as the first excited state
                 QMin1.control['rootstate'] = min(
-                    1, self.QMin.molecule['states'][self.QMin.maps['multmap'][-QMin1['jobid']][-1] - 1] - 1
+                    1, self.QMin.molecule['states'][self.QMin.maps['multmap'][-QMin1.control['jobid']][-1] - 1] - 1
                 )
-                if 3 in self.QMin.maps['multmap'][-QMin1.control['jobid']] and self.QMin.control['jobs'][
-                    QMin1.control['jobid']]['restr']:
+                if 3 in self.QMin.maps['multmap'][-QMin1.control['jobid']] and self.QMin.control['jobs'][QMin1.control['jobid']]['restr']:
                     QMin1.control['rootstate'] = 1
                     QMin1.molecule['states'][0] = 1
                     QMin1.control['states_to_do'][0] = 1
@@ -493,9 +506,9 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                 ntasks += 1
         if ntasks > 0:
             nrounds, nslots, cpu_per_run = SHARC_ABINITIO.divide_slots(
-                self.QMin.resources['ncpu'], ntasks, self.QMin['schedule_scaling']
+                self.QMin.resources['ncpu'], ntasks, self.QMin.resources['schedule_scaling']
             )
-            self.QMin.scheduling['nslots_pool'].append(nslots)
+            self.QMin.control['nslots_pool'].append(nslots)
             schedule.append({})
             icount = 0
             for i in gradjob:
@@ -506,14 +519,14 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                     ijob = self.QMin.maps['multmap'][mult]
                     QMin1.control['jobid'] = ijob
                     gsmult = self.QMin.maps['multmap'][-ijob][0]
-                    for i in ['h', 'soc', 'dm', 'overlap', 'ion']:
-                        QMin1.requests[i] = False
-                    for i in ['always_guess', 'always_orb_init', 'init']:
-                        QMin1.save[i] = False
-                    QMin1.maps['gradmap'] = list(gradjob[i])
+                    for k in ['h', 'soc', 'dm', 'overlap', 'ion']:
+                        QMin1.requests[k] = False
+                    for k in ['always_guess', 'always_orb_init', 'init']:
+                        QMin1.save[k] = False
+                    QMin1.maps['gradmap'] = set(gradjob[i])
                     QMin1.resources['ncpu'] = cpu_per_run[icount]
                     QMin1.resources['memory'] = memory_per_core * cpu_per_run[icount]
-                    QMin1.control['gradonly'] = []
+                    QMin1.control['gradonly'] = False
                     QMin1.control['rootstate'
                                   ] = state - 1 if gsmult == mult else state    # 1 is first excited state of mult
                     icount += 1
@@ -527,10 +540,10 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                     ijob = self.QMin.maps['multmap'][mult]
                     QMin1.control['jobid'] = ijob
                     gsmult = self.QMin.maps['multmap'][-ijob][0]
-                    for i in ['h', 'soc', 'dm', 'overlap', 'ion']:
-                        QMin1.requests[i] = False
-                    for i in ['always_guess', 'always_orb_init', 'init']:
-                        QMin1.save[i] = False
+                    for k in ['h', 'soc', 'dm', 'overlap', 'ion']:
+                        QMin1.requests[k] = False
+                    for k in ['always_guess', 'always_orb_init', 'init']:
+                        QMin1.save[k] = False
                     QMin1.resources['ncpu'] = cpu_per_run[icount]
                     QMin1.resources['memory'] = memory_per_core * cpu_per_run[icount]
                     QMin1.control['rootstate'
@@ -550,7 +563,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
             i = 0
             while os.path.isdir(backupdir1):
                 i += 1
-                if 'step' in QMin:
+                if QMin.save['step']:
                     backupdir1 = backupdir + '/step%s_%i' % (QMin.save['step'][0], i)
                 else:
                     backupdir1 = backupdir + '/calc_%i' % (i)
@@ -569,7 +582,8 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
 
         # run all the jobs
         self.log.info('>>>>>>>>>>>>> Starting the GAUSSIAN job execution')
-        self.runjobs(self.QMin.scheduling['schedule'])
+        if not self.QMin.resources['dry_run']:
+            self.runjobs(self.QMin.scheduling['schedule'])
 
         # do all necessary overlap and Dyson calculations
         self._run_wfoverlap()
@@ -616,8 +630,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
             strip = True
             starttime = datetime.datetime.now()
             exit_code = self.run_program(
-                workdir, f"{qmin['GAUSS_EXE']} < GAUSSIAN.com", os.path.join(workdir, "GAUSSIAN.log"),
-                os.path.join(workdir, "GAUSSIAN.err")
+                workdir, f"{qmin.resources['GAUSS_EXE']} < GAUSSIAN.com", "GAUSSIAN.log", "GAUSSIAN.err"
             )
             endtime = datetime.datetime.now()
         except Exception as problem:
@@ -626,7 +639,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
             self.log.info('*' * 50 + '\n')
             raise problem
         if strip and exit_code == 0:
-            keep = ['GAUSSIAN.com$', 'GAUSSIAN.err$', 'GAUSSIAN.log$', 'GAUSSIAN.chk', 'GAUSSIAN.fchk', 'GAUSSIAN.rwf']
+            keep = ['GAUSSIAN.com', 'GAUSSIAN.err', 'GAUSSIAN.log', 'GAUSSIAN.chk', 'GAUSSIAN.fchk', 'GAUSSIAN.rwf']
             strip_dir(workdir, keep_files=keep)
 
         return exit_code, endtime - starttime
@@ -650,14 +663,14 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         self.log.debug('====================================================================')
 
         # wf file copying
-        if 'master' in QMin:
-            job = QMin['jobid']
-            if job in QMin['initorbs']:
-                fromfile = QMin['initorbs'][job]
+        if QMin.control['master']:
+            job = QMin.control['jobid']
+            if job in QMin.resources['initorbs']:
+                fromfile = QMin.resources['initorbs'][job]
                 tofile = os.path.join(WORKDIR, 'GAUSSIAN.chk')
                 shutil.copy(fromfile, tofile)
-        elif QMin.requests['grad'] or 'densonly' in QMin:
-            job = QMin['jobid']
+        elif QMin.requests['grad'] or QMin.master['densonly']:
+            job = QMin.control['jobid']
             fromfile = os.path.join(QMin.resources['scratchdir'], 'master_%i' % job, 'GAUSSIAN.chk')
             tofile = os.path.join(WORKDIR, 'GAUSSIAN.chk')
             shutil.copy(fromfile, tofile)
@@ -676,13 +689,13 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         charge = QMin.maps['chargemap'][gsmult]
 
         # determine the root in case it was not determined in schedule jobs
-        if 'rootstate' not in QMin:
-            QMin['rootstate'] = min(
+        if 'rootstate' not in QMin.control:
+            QMin.control['rootstate'] = min(
                 1, QMin.molecule['states'][QMin.maps['multmap'][-QMin.control['jobid']][-1] - 1] - 1
             )
             if 3 in QMin.maps['multmap'][-QMin.control['jobid']] and QMin.control['jobs'][QMin.control['jobid']
                                                                                           ]['restr']:
-                QMin['rootstate'] = 1
+                QMin.control['rootstate'] = 1
 
         # excited states to calculate
         states_to_do = QMin.control['states_to_do']
@@ -692,7 +705,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         states_to_do[gsmult - 1] -= 1
 
         # do minimum number of states for gradient jobs
-        if 'gradonly' in QMin:
+        if QMin.control['gradonly']:
             gradmult = QMin.maps['gradmap'][0][0]
             gradstat = QMin.maps['gradmap'][0][1]
             for imult in range(len(states_to_do)):
@@ -717,16 +730,16 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
             mults_td = ''
 
         # gradients
-        if 'gradmap' in QMin:
+        if QMin.maps['gradmap']:
             dograd = True
-            root = QMin['rootstate']
+            root = QMin.control['rootstate']
         else:
             dograd = False
 
         dodens = False
         if QMin.requests['multipolar_fit']:
             dodens = True
-            root = QMin['rootstate']
+            root = QMin.control['rootstate']
 
         # construct the input string TODO
         string = ''
@@ -773,13 +786,13 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
             s += ') density=Current'
             data.append(s)
         if QMin.template['scrf']:
-            s = ','.join(QMin.template['scrf'].split())
+            s = ','.join(QMin.template['scrf'])
             data.append('scrf(%s)' % s)
         if QMin.template['scf']:
-            s = ','.join(QMin.template['scf'].split())
+            s = ','.join(QMin.template['scf'])
             data.append('scf(%s)' % s)
         if QMin.template['iop']:
-            s = ','.join(QMin.template['iop'].split())
+            s = ','.join(QMin.template['iop'])
             data.append('iop(%s)' % s)
         if QMin.template['keys']:
             data.extend([QMin.template['keys']])
@@ -801,7 +814,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
             string += '%i %i\n' % (2. * charge, 1)
         else:
             string += '%i %i\n' % (charge, gsmult)
-        for label, coords in zip(QMin.molecule['elements'], QMin.molecule['coords']):
+        for label, coords in zip(QMin.molecule['elements'], QMin.coords['coords']):
             string += '%4s %16.9f %16.9f %16.9f\n' % (label, coords[0], coords[1], coords[2])
         string += '\n'
         if QMin.template['functional'].lower() == 'dftba':
@@ -822,7 +835,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
 
     def saveGeometry(self, QMin):
         string = ''
-        for label, atom in zip(QMin.molecule['elements'], QMin.molecule['coords']):
+        for label, atom in zip(QMin.molecule['elements'], QMin.coords['coords']):
             string += '%4s %16.9f %16.9f %16.9f\n' % (label, atom[0], atom[1], atom[2])
         filename = os.path.join(QMin.save['savedir'], f'geom.dat.{QMin.save["step"]}')
         writefile(filename, string)
@@ -1218,7 +1231,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
 
     def saveAOmatrix(self, WORKDIR, QMin):
         filename = os.path.join(WORKDIR, 'GAUSSIAN.rwf')
-        NAO, Smat = SHARC_GAUSSIAN.get_smat(filename, QMin['groot'])
+        NAO, Smat = SHARC_GAUSSIAN.get_smat(filename, QMin.resources['groot'])
 
         string = '%i %i\n' % (NAO, NAO)
         for irow in range(NAO):
@@ -1298,7 +1311,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
 
         # get output
         filename = os.path.join(WORKDIR, 'GAUSSIAN.rwf')
-        NAO, Smat = SHARC_GAUSSIAN.get_smat(filename, self.QMin['groot'])
+        NAO, Smat = SHARC_GAUSSIAN.get_smat(filename, self.QMin.resources['groot'])
 
         # adjust the diagonal blocks for DFTB-A
         if self.QMin.template['functional'] == 'dftba':
@@ -1378,7 +1391,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         nstates = self.QMin.molecule['nstates']
         nmstates = self.QMin.molecule['nmstates']
         natom = self.QMin.molecule['natom']
-        joblist = self.QMin['joblist']
+        joblist = self.QMin.control['joblist']
         self.QMout.allocate(
             states, natom, self.QMin.molecule['npc'], {r
                                                        for r in self.QMin.requests.keys() if self.QMin.requests[r]}
@@ -1526,7 +1539,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         # ========================== read from master ======================================
         # get the FCHK file
         masterdir = os.path.join(self.QMin.resources['scratchdir'], 'master_%i' % (joblist[0]))
-        self.get_fchk(masterdir, self.QMin['groot'])
+        self.get_fchk(masterdir, self.QMin.resources['groot'])
         fchk_master = os.path.join(masterdir, 'GAUSSIAN.fchk')
 
         # collect properties to read
@@ -1919,7 +1932,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
             if job not in jobfiles:
                 # create all necessary FCHKs
                 workdir = os.path.join(self.QMin.resources['scratchdir'], job)
-                self.get_fchk(workdir, self.QMin['groot'])
+                self.get_fchk(workdir, self.QMin.resources['groot'])
                 fchkfile = os.path.join(workdir, 'GAUSSIAN.fchk')
                 keywords = set()
                 jobfiles.add(job)

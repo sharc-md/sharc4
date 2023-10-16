@@ -164,6 +164,7 @@ class QMinRequests(QMinBase):
         "theodore": bool,
         "cleanup": bool,
         "backup": str,
+        "retain": str,
         "molden": bool,
         "savestuff": bool,
         "nooverlap": bool,
@@ -355,6 +356,9 @@ class QMin:
 
     def __getitem__(self, key):
         return getattr(self, key)
+
+    # def __contains__(self, key):
+        # return self.__dict__.__contains__(key)
 
     def __str__(self):
         return f"""\

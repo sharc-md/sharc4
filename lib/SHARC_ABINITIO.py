@@ -10,6 +10,7 @@ from io import TextIOWrapper
 from textwrap import dedent
 from multiprocessing import Pool
 from typing import Optional
+from itertools import starmap
 
 import numpy as np
 from qmin import QMin
@@ -66,6 +67,9 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
 
         self.QMin.resources.update(
             {
+                "theodir": None,
+                "theodore_prop": [],
+                "theodore_fragment": [],
                 "resp_shells": [],  # default calculated from other values = [1.4, 1.6, 1.8, 2.0]
                 "resp_vdw_radii_symbol": {},
                 "resp_vdw_radii": [],
@@ -77,8 +81,11 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             }
         )
 
-        self.QMin.resources.update(
+        self.QMin.resources.types.update(
             {
+                "theodir": str,
+                "theodore_prop": list,
+                "theodore_fragment": list,
                 "resp_shells": list,  # default calculated from other values = [1.4, 1.6, 1.8, 2.0]
                 "resp_vdw_radii_symbol": dict,
                 "resp_vdw_radii": list,
@@ -151,9 +158,8 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         "setup the calculation in directory 'dir'"
         return
 
-    @abstractmethod
     def print_qmin(self) -> None:
-        pass
+        self.log.info(f"{self.QMin}")
 
     @abstractmethod
     def execute_from_qmin(self, workdir: str, qmin: QMin) -> tuple[int, datetime.timedelta]:
@@ -205,20 +211,19 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
     def read_resources(self, resources_file: str, kw_whitelist: Optional[list[str]] = None) -> None:
         super().read_resources(resources_file, kw_whitelist)
 
-        if "theodore_fragment" in self.QMin.resources:
-            self.QMin.resources["theodore_fragment"] = [
-                list(map(int, (j for j in i))) for i in self.QMin.resources["theodore_fragment"]
-            ]
+        # if "theodore_fragment" in self.QMin.resources:
+            # self.QMin.resources["theodore_fragment"] = [
+                # list(map(int, (j for j in i))) for i in self.QMin.resources["theodore_fragment"]
+            # ]
 
-    @abstractmethod
+    @ abstractmethod
     def read_requests(self, requests_file: str = "QM.in") -> None:
         super().read_requests(requests_file)
 
-    @abstractmethod
     def printQMout(self) -> None:
         super().writeQMout()
 
-    @abstractmethod
+    @ abstractmethod
     def setup_interface(self) -> None:
         # Setup charge and paddingstates
         if not self.QMin.template["charge"]:
@@ -330,7 +335,8 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         """
         current_dir = os.getcwd()
         os.chdir(workdir)
-        self.log.debug(f"Working directory of ab-initio call {workdir}")
+        self.log.debug(f"ab-initio call:\t {cmd}")
+        self.log.debug(f"Working directory:\t {workdir}")
 
         with open(out, "w", encoding="utf-8") as outfile, open(err, "w", encoding="utf-8") as errfile:
             try:
@@ -487,7 +493,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
 
                 # Execute wfoverlap
                 starttime = datetime.datetime.now()
-                code = self.run_program(workdir, wf_cmd, os.path.join(workdir, "wfovl.out"), os.path.join(workdir, "wfovl.err"))
+                code = self.run_program(workdir, wf_cmd, "wfovl.out", "wfovl.err")
                 self.log.info(
                     f"Finished wfoverlap job: {str(ion_pair):<10s} code: {code:<4d} runtime: {datetime.datetime.now()-starttime}"
                 )
@@ -516,7 +522,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
 
                 # Execute wfoverlap
                 starttime = datetime.datetime.now()
-                code = self.run_program(workdir, wf_cmd, os.path.join(workdir, "wvovl.out"), os.path.join(workdir, "wfovl.err"))
+                code = self.run_program(workdir, wf_cmd, "wvovl.out", "wfovl.err")
                 self.log.info(
                     f"Finished wfoverlap job: {str(m):<10s} code {code:<4d} runtime: {datetime.datetime.now()-starttime}"
                 )
@@ -672,21 +678,21 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 workdir = os.path.join(self.QMin.resources["scratchdir"], job)
                 self._setup_theodore(
                     workdir,
-                    prop_list=self.QMin.resources["thedore_prop"],
+                    prop_list=self.QMin.resources["theodore_prop"],
                     at_lists=self.QMin.resources["theodore_fragment"],
                     **self._theodore_settings,
                 )
 
                 # Run theodore
-                out_file = os.path.join(workdir, "theodore.out")
-                err_file = os.path.join(workdir, "theodore.err")
+                out_file = "theodore.out"
+                err_file = "theodore.err"
                 code = self.run_program(workdir, theo_bin, out_file, err_file)
                 self.log.info(f"Finished theodore Job: {job:<10s} code: {code:<4d} runtime: {datetime.datetime.now()-starttime}")
                 if code != 0:
                     self.log.error("Theodore job did not finish successfully!")
-                    with open(err_file, "r", encoding="utf-8") as theo_err:
+                    with open(os.path.join(workdir, err_file), "r", encoding="utf-8") as theo_err:
                         self.log.error(theo_err.read())
-                    raise OSError()
+                    raise OSError("Theodore job did not finish successfully!")
 
     def _setup_theodore(
         self,
@@ -729,7 +735,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             "at_lists": at_lists,
         }
         self.log.debug(f"theodore input with keys: {theodore_keys}")
-        theodore_input = "\n".join(map(lambda k, v: f"{k}='{v}'" if type(v) == str else f"{k}={v}", theodore_keys.items()))
+        theodore_input = "\n".join(starmap(lambda k, v: f'{k}="{v}"' if type(v) == str else f"{k}={v}", theodore_keys.items()))
         writefile(os.path.join(workdir, "dens_ana.in"), theodore_input)
         for s, d in link_files:
             self.log.debug(f"\ttheodore: linking file {s} -> {d}")
