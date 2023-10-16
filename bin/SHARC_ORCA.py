@@ -592,7 +592,34 @@ class SHARC_ORCA(SHARC_ABINITIO):
                     self.QMout["phases"][i] = -1 if self.QMout["overlap"][i, i] < 0 else 1
         # Dyson norms
         if self.QMin.requests["ion"]:
-            self.QMout["prop2d"].append(("ion", np.zeros((self.QMin.molecule["nmstates"], self.QMin.molecule["nmstates"]))))
+            # self.QMout["prop2d"].append(("ion", np.zeros((self.QMin.molecule["nmstates"], self.QMin.molecule["nmstates"]))))
+            ion_mat = np.zeros((self.QMin.molecule["nmstates"], self.QMin.molecule["nmstates"]))
+
+            for ion in self.QMin.maps["ionmap"]:
+                dyson_mat = self._get_dyson(
+                    os.path.join(self.QMin.resources["scratchdir"], f"Dyson_{'_'.join(str(i) for i in ion)}", "wfovl.out")
+                )
+                # TODO: REFACTOR
+                for i in range(self.QMin.molecule["nmstates"]):
+                    for j in range(self.QMin.molecule["nmstates"]):
+                        m1, s1, ms1 = tuple(self.QMin.maps["statemap"][i + 1])
+                        m2, s2, ms2 = tuple(self.QMin.maps["statemap"][j + 1])
+                        if not (ion[0], ion[2]) == (m1, m2) and not (ion[0], ion[2]) == (m2, m1):
+                            continue
+                        if not abs(ms1 - ms2) == 0.5:
+                            continue
+                        # switch multiplicities such that m1 is smaller mult
+                        if m1 > m2:
+                            s1, s2 = s2, s1
+                            m1, m2 = m2, m1
+                            ms1, ms2 = ms2, ms1
+                        # compute M_S overlap factor
+                        if ms1 < ms2:
+                            factor = (ms1 + 1.0 + (m1 - 1.0) / 2.0) / m1
+                        else:
+                            factor = (-ms1 + 1.0 + (m1 - 1.0) / 2.0) / m1
+                        ion_mat[i, j] = dyson_mat[s1 - 1, s2 - 1] * factor
+            self.QMout["prop2d"].append(("ion", ion_mat))
 
         # TheoDORE
         if self.QMin.requests["theodore"]:
