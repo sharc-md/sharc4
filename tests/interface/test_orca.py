@@ -1,5 +1,6 @@
 import pytest
 import os
+import numpy as np
 from SHARC_ORCA import SHARC_ORCA
 from utils import expand_path
 
@@ -303,3 +304,36 @@ def test_ao_matrix_overlap():
         os.remove(os.path.join(expand_path(PATH), "inputs/orca_overlap", "fragovlp.err"))
         with open(os.path.join(expand_path(PATH), aooverl), "r") as ref:
             assert ref.read() == ao_overl
+
+
+def test_parsedyson():
+    tests = [
+        (
+            "inputs/dyson1",
+            np.array(
+                [
+                    [0.9401441027, 0.8906030759, 0.9307425454, 0.0043114302],
+                    [0.4511414880, 0.0234786094, 0.0009732790, 0.3944154081],
+                    [0.0180273519, 0.4250909955, 0.0047639010, 0.7392838275],
+                    [0.0546332129, 0.0858993467, 0.3193591589, 0.0014270452],
+                ]
+            ),
+        ),
+        (
+            "inputs/dyson2",
+            np.array(
+                [
+                    [0.8944273988, 0.0004782934, 0.0723134962, 0.0009021681],
+                    [0.0896794811, 0.0007445378, 0.8279340441, 0.0003716648],
+                    [0.0062383550, 0.9479518302, 0.0023316326, 0.0106589898],
+                    [0.4213051340, 0.0041931949, 0.0339798806, 0.0002505716],
+                ]
+            ),
+        ),
+        ("inputs/dyson3", np.array([[0.9401441027]])),
+        ("inputs/dyson4", np.array([[0.9401441027, 0.9307595123], [0.4511457142, 0.0009661697]])),
+    ]
+
+    test_interface = SHARC_ORCA()
+    for wfovlp, ref in tests:
+        assert np.allclose(test_interface._get_dyson(os.path.join(expand_path(PATH), wfovlp)), ref)
