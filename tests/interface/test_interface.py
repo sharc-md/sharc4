@@ -26,7 +26,8 @@ def set_requests(path: str, requests: dict):
 
 def read_resources(path: str, params: dict, whitelist: list):
     test_interface = SHARC_INTERFACE()
-    test_interface.QMin.resources.types.update({"int_key": int, "float_key": float})
+    test_interface.QMin.resources.types = {"int_key": int, "float_key": float, "key1": str, "key2": list, "key4": bool}
+    test_interface.QMin.resources.data = {"int_key": None, "float_key": None, "key1": None, "key2": None, "key4": None}
     test_interface._setup_mol = True
     test_interface.read_resources(path, whitelist)
     for k, v in params.items():
@@ -36,14 +37,14 @@ def read_resources(path: str, params: dict, whitelist: list):
 def test_states1():
     tests = [("inputs/QM1.in", [3, 1, 5]), ("inputs/QM3.in", [0, 0, 0, 0, 9, 9])]
     for path, state in tests:
-        get_states(os.path.join(expand_path(PATH),path), state)
+        get_states(os.path.join(expand_path(PATH), path), state)
 
 
 def test_states2():
     tests = [("inputs/QM_failstate1.in", []), ("inputs/QM_failstate2.in", []), ("inputs/QM2.in", [])]
     for path, state in tests:
         with pytest.raises(ValueError):
-            get_states(os.path.join(expand_path(PATH),path), state)
+            get_states(os.path.join(expand_path(PATH), path), state)
 
 
 def test_requests1():
@@ -89,7 +90,7 @@ def test_requests1():
                 "soc": True,
                 "dm": True,
                 "grad": list(range(1, 21)),
-                "nacdr": [["1", "2"]],
+                "nacdr": [[1, 2]],
                 "overlap": False,
                 "phases": False,
                 "ion": True,
@@ -118,40 +119,44 @@ def test_requests1():
         ),
     ]
     for path, req in tests:
-        set_requests(os.path.join(expand_path(PATH),path), req)
+        set_requests(os.path.join(expand_path(PATH), path), req)
 
 
 def test_reqests2():
     tests = [
-        ("inputs/QM_failreq1.in", []),
-        ("inputs/QM_failreq2.in", []),
-        ("inputs/QM_failreq3.in", []),
-        ("inputs/QM2.in", []),
-        ("inputs/QM_failreq4.in", []),
-        ("inputs/QM_failreq5.in", []),
-        ("inputs/QM_failreq6.in", []),
+        ("inputs/QM_failreq1.in", {}),
+        ("inputs/QM_failreq2.in", {}),
+        ("inputs/QM_failreq3.in", {}),
+        ("inputs/QM2.in", {}),
+        ("inputs/QM_failreq4.in", {}),
+        ("inputs/QM_failreq5.in", {}),
+        ("inputs/QM_failreq6.in", {}),
     ]
 
     for path, req in tests:
         with pytest.raises((AssertionError, ValueError)):
-            set_requests(os.path.join(expand_path(PATH),path), req)
+            set_requests(os.path.join(expand_path(PATH), path), req)
 
 
 def test_resources1():
     tests = [
         ("inputs/interface_resources1", {"key1": "test", "key2": ["test1", "test2"], "key4": True}, []),
-        ("inputs/interface_resources2", {"key1": "test2", "key2": ["test3", "test4"]}, []),
         ("inputs/interface_resources2", {"key1": "test2", "key2": [["test1", "test2"], ["test3", "test4"]]}, ["key2"]),
         ("inputs/interface_resources3", {"int_key": 13123, "float_key": -3.0}, []),
+        ("inputs/interface_resources4", {"key1": "test2", "key2": ["test4"]}, []),
+        ("inputs/interface_resources5", {"key1": "test1", "key2": ["test3", "test4"]}, []),
+        ("inputs/interface_resources6", {"key1": "test2", "key2": ["test1", "test2", "test3", "test4"]}, ["key2"]),
+        ("inputs/interface_resources7", {"key1": "test2", "key2": [["test1", "test2"], ["test3", "test4"]]}, []),
+        ("inputs/interface_resources8", {"key1": "test2", "key2": ["test1", "test2", "test3", "test4"]}, []),
     ]
     for path, params, whitelist in tests:
-        read_resources(os.path.join(expand_path(PATH),path), params, whitelist)
+        read_resources(os.path.join(expand_path(PATH), path), params, whitelist)
 
 
 def test_resources2():
     tests = [
-        ("inputs/interface_resources4", {}, []),
+        ("inputs/interface_resources9", {}, []),
     ]
     for path, params, whitelist in tests:
         with pytest.raises(ValueError):
-            read_resources(os.path.join(expand_path(PATH),path), params, whitelist)
+            read_resources(os.path.join(expand_path(PATH), path), params, whitelist)

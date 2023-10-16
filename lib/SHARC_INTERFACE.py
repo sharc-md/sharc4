@@ -28,6 +28,7 @@
 import os
 import re
 import sys
+import ast
 from abc import ABC, abstractmethod
 from datetime import date
 from io import TextIOWrapper
@@ -292,21 +293,8 @@ class SHARC_INTERFACE(ABC):
         if self._read_template:
             self.log.warning(f"Template already read! Overwriting with {template_file}")
 
-        with open(template_file, "r", encoding="utf-8") as tmpl_file:
-            for line in tmpl_file:
-                # Ignore comments and empty lines
-                if re.match(r"^(\s*)\w+", line):
-                    # Remove comments and assign values
-                    param = re.sub(r"#.*$", "", line).split()
-                    if len(param) == 1:
-                        self.QMin.template[param[0]] = True
-                    elif len(param) == 2:
-                        if param[0] in self.QMin.template.types:
-                            self.QMin.template[param[0]] = self.QMin.template.types[param[0]](param[1])
-                        else:
-                            self.QMin.template[param[0]] = param[1]
-                    else:
-                        self.QMin.template[param[0]] = list(param[1:])
+        self.QMin.template.update(self._parse_raw(template_file, self.QMin.template.types))
+
         self._read_template = True
 
     @staticmethod
@@ -539,55 +527,105 @@ class SHARC_INTERFACE(ABC):
                 )
                 break
 
-        # Add empty list for whitelisted keywords
-        for key in kw_whitelist:
-            self.QMin.resources[key] = []
+        raw_dict = self._parse_raw(resources_file, self.QMin.resources.types, kw_whitelist)
 
-        with open(resources_file, "r", encoding="utf-8") as rcs_file:
-            # Store all encountered keywords to warn for duplicates
-            keyword_list = []
-            for line in rcs_file:
-                # Ignore comments and empty lines
-                if re.match(r"^(\s*)\w+", line):
-                    # Remove comments and assign values
-                    param = re.sub(r"#.*$", "", line).split()
-                    # Expand to fullpath if ~ or $ in string
-                    param = [expand_path(x) if re.match(r"\~|\$", x) else x for x in param]
-
-                    # Check for duplicates in keyword_list
-                    if param[0] in keyword_list and param[0] not in kw_whitelist:
-                        self.log.warning(f"Multiple entries of {param[0]} in {resources_file}")
-                    keyword_list.append(param[0])
-
-                    if param[0] in kw_whitelist:
-                        self.QMin.resources[param[0]].append(param[1:])
-                        self.log.debug(f"Extend white listed parameter {param[0]}")
-                        continue
-
-                    if len(param) == 1:
-                        self.QMin.resources[param[0]] = True
-                    elif len(param) == 2:
-                        # Check if savedir already specified in QM.in
-                        if param[0] == "savedir":
-                            if not self._setsave:
-                                self.QMin.save["savedir"] = expand_path(param[1])
-                                self.log.debug(
-                                    f"SAVEDIR set to {self.QMin.save['savedir']}",
-                                )
-                            else:
-                                self.log.info("SAVEDIR is already set and will not be overwritten!")
-                            continue
-                        # Cast to correct type if available
-                        if param[0] in self.QMin.resources.types:
-                            self.QMin.resources[param[0]] = self.QMin.resources.types[param[0]](param[1])
-                        else:
-                            self.QMin.resources[param[0]] = param[1]
-                    else:
-                        if param[0] in self.QMin.resources:
-                            self.log.warning(f"Parameter list {param} overwritten!")
-                        self.QMin.resources[param[0]] = list(param[1:])
+        if 'savedir' in raw_dict:
+            if not self._setsave:
+                self.QMin.save["savedir"] = expand_path(raw_dict['savedir'])
+                self.log.debug(
+                    f"SAVEDIR set to {self.QMin.save['savedir']}",
+                )
+            else:
+                self.log.info("SAVEDIR is already set and will not be overwritten!")
+            del raw_dict['savedir']
+        self.QMin.resources.update(raw_dict)
 
         self._read_resources = True
+
+    def _parse_raw(self, file: str, types_dict: dict, kw_whitelist=None) -> dict:
+        """
+        parse the content of a keyword-argument file (.resources, .template)
+
+        Args:
+            file: file to parse from 
+            types_dict: dictionary with keywords and their respective types
+            kw_whitelist list: list with keywords that should be appended upon multiple encounters 
+
+        Raises:
+            RuntimeError: 
+
+        Returns:
+            
+        """
+        kw_whitelist = [] if not kw_whitelist else kw_whitelist
+
+        lines = readfile(file)
+        # replaces all comments with white space. filters all empty lines
+        filtered = filter(lambda x: not re.match(r'^\s*$', x), map(lambda x: re.sub(r'#.*$', '', x).strip(), lines))
+        file_str = '\n'.join(filtered)
+        if not file_str or file_str.isspace():    # check if there is only whitespace left!
+            return {}
+
+        # concat all lines for select keyword:
+        # 1 join lines to full file string,
+        # 2 match all select/start ... end blocks,
+        # 3 replace all \n with ',' in the matches,
+        # 4 return matches between [' and ']
+        def format_match(x: re.Match) -> str:
+            return x.group(3) + " " + re.sub(r'\n+', "','", "['{}']".format(x.group(4)))
+
+        lines = re.sub(r'(s(elect|tart)\s+)(.+)\n([\w\d\s\n]*)(\nend)', format_match, file_str).split('\n')
+        # Store all encountered keywords to warn for duplicates
+        keyword_list = set()
+        out_dict = {}
+        for line in lines:
+            # assign values
+            param = line.split(maxsplit=1)
+            if param[0] in keyword_list and param[0] not in kw_whitelist:
+                self.log.warning(f"Multiple entries of {param[0]} in {file}")
+
+            keyword_list.add(param[0])
+
+            match param:
+                case[key] if key in types_dict:
+                    key_type = types_dict[key]
+                    if key_type is bool:
+                        out_dict[key] = True
+                    else:
+                        self.log.error(f"resources keyword '{key}' is type {key_type} but has no value!")
+                        raise RuntimeError()
+
+                case[key, val] if key in types_dict:
+                    key_type = types_dict[key]
+                    if key_type is list:
+                        if key not in out_dict or key not in kw_whitelist:
+                            out_dict[key] = []
+                        if val[0] == '[':
+                            raw_value = ast.literal_eval(val)
+                            # check if matrix
+                            if type(raw_value[0]) is str:
+                                raw_value = [entry if len(entry) > 1 else entry[0] for entry in map(lambda x: x.split(), raw_value)]
+                        else:
+                            raw_value = val.split()
+                        out_dict[key].append(raw_value if len(raw_value) > 1 else raw_value[0])
+                    elif key_type is str:
+                        out_dict[key] = expand_path(val) if re.match(r"\~|\$", val) else val
+                    elif key_type is tuple:
+                        out_dict[key] = (v for v in val)
+                    else:
+                        out_dict[key] = key_type(val)
+
+                case _:
+                    self.log.warning(f"'{param[0]}' not in {file.split('.')[-1]} keywords: {', '.join(types_dict.keys())}")
+                    # raise ValueError(f"'{param[0]}' not in {file.split('.')[-1]} keywords: {', '.join(types_dict.keys())}")
+
+        # sanitize lists:
+        for key, key_type in types_dict.items():
+            if key in out_dict and key_type ==list and len(out_dict[key]) == 1 and type(out_dict[key][0]) == list:
+                out_dict[key] = out_dict[key][0]
+
+        return out_dict
+
 
     def read_requests(self, requests_file: str = "QM.in") -> None:
         """
@@ -606,53 +644,50 @@ class SHARC_INTERFACE(ABC):
         self.QMin.save["newstep"] = False
         self.QMin.save["restart"] = False
 
-        # Parse QM.in and setup request dict
-        with open(requests_file, "r", encoding="utf-8") as requests:
-            # Skip xyz part
-            atoms = next(requests)
-            for _ in range(int(atoms) + 1):
-                next(requests)
+        #read file and skip geometry
+        lines = readfile(requests_file)[self.QMin.molecule['natom'] + 2:]
+        # replaces all comments with white space. filters all empty lines
+        filtered = filter(lambda x: not re.match(r'^\s*$', x), map(lambda x: re.sub(r'#.*$', '', x).strip(), lines))
+        file_str = '\n'.join(filtered)
+        if not file_str or file_str.isspace():    # check if there is only whitespace left!
+            return {}
 
-            nac_select = False
-            nacdr = []
-            for line in requests:
-                # Check for valid keywords, remove comments
-                line = re.sub(r"#.*$", "", line)
-                if re.match(r"^(\s*)\w", line):
-                    params = line.split()
+        # concat all lines for select keyword:
+        # 1 join lines to full file string,
+        # 2 match all select/start ... end blocks,
+        # 3 replace all \n with ',' in the matches,
+        # 4 return matches between [' and ']
+        def format_match(x: re.Match) -> str:
+            return x.group(3) + " " + re.sub(r'\n+', "','", "['{}']".format(x.group(4)))
 
-                    # Parse NACDR if requested
-                    if params[0].casefold() == "nacdr":
-                        self.log.debug(
-                            f"Parsing request {params}",
-                        )
-                        if len(params) > 1 and params[1].casefold() == "select":
-                            nac_select = True
-                        else:
-                            self.QMin.requests["nacdr"] = ["all"]
-                        continue
-                    if nac_select:
-                        if params[0].casefold() == "end":
-                            nac_select = False
-                        else:
-                            assert len(params) == 2, "NACs have to be given in state pairs!"
-                            self.log.debug(f"Adding state pair {params} to NACDR list")
-                            nacdr.append(params)
-                        continue
+        lines = re.sub(r'(s(elect|tart)\s+)(.+)\n([\w\d\s\n]*)(\nend)', format_match, file_str).split('\n')
 
-                    # Parse every other request
-                    if params[0].casefold() in (
-                        *self.QMin.requests.keys(),
-                        "step",
-                    ):
-                        self.log.debug(f"Parsing request {params}")
-                        self._set_request(params)
-                    elif params[0].casefold() == "backup":
-                        self.log.warning("Backup request is deprecated, use retain instead!")
+        for line in lines:
+            match line.lower().split(maxsplit=1):
+                case [key] if key in (*self.QMin.requests.keys(), "step"):
+                    self.log.debug(f"Parsing request {key}")
+                    self._set_request((key, 'all'))
+                case ["select" | "start", key]:
+                    self.log.error(f"line with '{line}' found but no 'end' keyword!")
+                    raise ValueError(f"line with '{line}' found but no 'end' keyword!")
+                case [key, val] if key in (*self.QMin.requests.keys(), "step"):
+                    if val[0] == '[':
+                        raw_value = ast.literal_eval(val)
+                        # check if matrix
+                        if type(raw_value[0]) is str:
+                            raw_value = [entry if len(entry) > 1 else entry[0] for entry in map(lambda x: x.split(), raw_value)]
+                    else:
+                        raw_value = val.split() if len(val.split()) > 1 else val
+                    self._set_request((key, raw_value))
+                case ["backup"]:
+                    self.log.warning("'backup' request is deprecated, use 'retain <number of steps>' instead!")
+                case ["init" | "newstep" | "samestep" | "restart"]:
+                    pass
+                case ["unit" | "states", _]:
+                    pass
+                case _:
+                    self.log.warning(f"request '{line}' not specified! Will not be applied!")
 
-            assert not nac_select, "No end keyword found after nacdr select!"
-            if nacdr:
-                self.QMin.requests["nacdr"] = nacdr
         self._step_logic()
         self._request_logic()
 
@@ -731,35 +766,43 @@ class SHARC_INTERFACE(ABC):
         """
         Setup requests and do basic sanity checks
         """
-        req = request[0].casefold()
+        req = request[0]
         if req in self.QMin.requests.keys():
-            match req:
-                case "grad" | "multipolar_fit":
-                    if len(request) > 1 and request[1].casefold() != "all":
-                        self.QMin.requests[req] = sorted(list(map(int, request[1:])))
-                        if max(self.QMin.requests[req]) > self.QMin.molecule["nmstates"]:
-                            self.log.error(f"Requested {req} higher than total number of states!")
-                            raise ValueError()
-                        if min(self.QMin.requests[req]) <= 0:
-                            self.log.error(f"Requested {req} must be greather than 0!")
-                            raise ValueError()
-                        if len(self.QMin.requests[req]) != len(set(self.QMin.requests[req])):
-                            self.log.error(f"Duplicate {req} requested!")
-                            raise ValueError()
-                        return
+            match request:
+                case ["grad" | "multipolar_fit"]:
                     self.QMin.requests[req] = [i + 1 for i in range(self.QMin.molecule["nmstates"])]
-                case "soc":
+                case ["grad" | "multipolar_fit", "all"]:
+                    self.QMin.requests[req] = [i + 1 for i in range(self.QMin.molecule["nmstates"])]
+                case ["nacdr"]:
+                    self.QMin.requests[req] = ["all"]
+                case ["nacdr", "all"]:
+                    self.QMin.requests[req] = ["all"]
+                case ["grad" | "multipolar_fit", value]:
+                    self.QMin.requests[req] = sorted(list(map(int, request[1])))
+                    if max(self.QMin.requests[req]) > self.QMin.molecule["nmstates"]:
+                        self.log.error(f"Requested {req} higher than total number of states!")
+                        raise ValueError()
+                    if min(self.QMin.requests[req]) <= 0:
+                        self.log.error(f"Requested {req} must be greather than 0!")
+                        raise ValueError()
+                    if len(self.QMin.requests[req]) != len(set(self.QMin.requests[req])):
+                        self.log.error(f"Duplicate {req} requested!")
+                        raise ValueError()
+                case ["nacdr", value]:
+                    self.QMin.requests[req] = sorted([[int(x) for x in y] for y in request[1]]) 
+                    if not all(len(x) == 2 for x in self.QMin.requests[req]):
+                        raise ValueError(f"'{req}' not set correctly! Needs to to be nx2 matrix not {self.QMin.requests[req]}")
+                case ["soc", _]:
                     if sum(i > 0 for i in self.QMin.molecule["states"]) < 2:
                         self.log.warning("SOCs requested but only 1 multiplicity given! Disable SOCs")
                         return
                     self.QMin.requests["soc"] = True
-                case "retain":
+                case ["retain", _]:
                     self.QMin.requests[req] = int(request[1])
                 case _:
-                    if len(request) == 1:
-                        self.QMin.requests[req] = True
+                    self.QMin.requests[req] = True
         else:
-            match req:
+            match request[0]:
                 case "step":
                     self.QMin.save[req] = int(request[1])
                 case _:
