@@ -209,7 +209,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
 
     @abstractmethod
     def read_resources(self, resources_file: str, kw_whitelist: Optional[list[str]] = None) -> None:
-        super().read_resources(resources_file, kw_whitelist)
+        super().read_resources(resources_file, kw_whitelist + ["theodore_fragment"])
 
         # if "theodore_fragment" in self.QMin.resources:
             # self.QMin.resources["theodore_fragment"] = [
@@ -425,7 +425,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
     @staticmethod
     def clean_savedir(path: str, retain: int, step: int) -> None:
         """
-        Remove older files than step-retain
+        Remove files older than step-retain
 
         path:       Path to savedir
         retain:     Number of timesteps to keep (-1 = all)
@@ -493,6 +493,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
 
                 # Execute wfoverlap
                 starttime = datetime.datetime.now()
+                os.environ["OMP_NUM_THREADS"] = str(self.QMin.resources["ncpu"])
                 code = self.run_program(workdir, wf_cmd, "wfovl.out", "wfovl.err")
                 self.log.info(
                     f"Finished wfoverlap job: {str(ion_pair):<10s} code: {code:<4d} runtime: {datetime.datetime.now()-starttime}"
@@ -522,6 +523,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
 
                 # Execute wfoverlap
                 starttime = datetime.datetime.now()
+                os.environ["OMP_NUM_THREADS"] = str(self.QMin.resources["ncpu"])
                 code = self.run_program(workdir, wf_cmd, "wvovl.out", "wfovl.err")
                 self.log.info(
                     f"Finished wfoverlap job: {str(m):<10s} code {code:<4d} runtime: {datetime.datetime.now()-starttime}"
@@ -611,7 +613,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             self.QMin.resources["resp_density"],
             self.QMin.resources["resp_shells"],
             grid=self.QMin.resources["resp_grid"],
-            log=self.log,
+            logger=self.log,
         )
         gsmult = self.QMin.maps["statemap"][1][0]
         charge = self.QMin.maps["chargemap"][gsmult]  # the charge is irrelevant for the integrals calculated!!

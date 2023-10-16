@@ -1,9 +1,11 @@
 import pytest
 import os
+import numpy as np
 from SHARC_ORCA import SHARC_ORCA
 from utils import expand_path
 
 PATH = "$SHARC/../tests/interface"
+
 
 def setup_interface(path: str, maps: dict):
     test_interface = SHARC_ORCA()
@@ -44,7 +46,7 @@ def get_energy(outfile: str, template: str, qmin: str, mults: list, energies: di
 def test_orcaversion():
     test_interface = SHARC_ORCA()
     test_interface._setup_mol = True
-    test_interface.read_resources(os.path.join(expand_path(PATH),"inputs/orcapath"))
+    test_interface.read_resources(os.path.join(expand_path(PATH), "inputs/orcapath"))
     assert isinstance(SHARC_ORCA.get_orca_version(test_interface.QMin.resources["orcadir"]), tuple)
 
 
@@ -53,20 +55,20 @@ def test_requests1():
     for i in tests:
         with pytest.raises(ValueError):
             test_interface = SHARC_ORCA()
-            test_interface.setup_mol(os.path.join(expand_path(PATH),i))
+            test_interface.setup_mol(os.path.join(expand_path(PATH), i))
             test_interface._read_template = True
             test_interface._read_resources = True
-            test_interface.read_requests(os.path.join(expand_path(PATH),i))
+            test_interface.read_requests(os.path.join(expand_path(PATH), i))
 
 
 def test_requests2():
     tests = ["inputs/orca_requests"]
     for i in tests:
         test_interface = SHARC_ORCA()
-        test_interface.setup_mol(os.path.join(expand_path(PATH),i))
+        test_interface.setup_mol(os.path.join(expand_path(PATH), i))
         test_interface._read_template = True
         test_interface._read_resources = True
-        test_interface.read_requests(os.path.join(expand_path(PATH),i))
+        test_interface.read_requests(os.path.join(expand_path(PATH), i))
 
 
 def test_maps():
@@ -105,7 +107,7 @@ def test_maps():
     ]
 
     for path, maps in tests:
-        setup_interface(os.path.join(expand_path(PATH),path), maps)
+        setup_interface(os.path.join(expand_path(PATH), path), maps)
 
 
 @pytest.mark.dependency(depends=["test_orcaversion"])
@@ -116,13 +118,13 @@ def test_resources():
     for i in test_pass:
         test_interface = SHARC_ORCA()
         test_interface._setup_mol = True
-        test_interface.read_resources(os.path.join(expand_path(PATH),i))
+        test_interface.read_resources(os.path.join(expand_path(PATH), i))
 
     for i in test_fail:
         with pytest.raises(ValueError):
             test_interface = SHARC_ORCA()
             test_interface._setup_mol = True
-            test_interface.read_resources(os.path.join(expand_path(PATH),i))
+            test_interface.read_resources(os.path.join(expand_path(PATH), i))
 
 
 def test_energies():
@@ -168,7 +170,13 @@ def test_energies():
         ("inputs/orca4.out", "inputs/orca_template", "inputs/orca4.in", [4], {(4, 1): -549.649784479, (4, 2): -549.641911479}),
     ]
     for outfile, template, qmin, mults, energies in tests:
-        get_energy(os.path.join(expand_path(PATH),outfile), os.path.join(expand_path(PATH),template), os.path.join(expand_path(PATH),qmin), mults, energies)
+        get_energy(
+            os.path.join(expand_path(PATH), outfile),
+            os.path.join(expand_path(PATH), template),
+            os.path.join(expand_path(PATH), qmin),
+            mults,
+            energies,
+        )
 
 
 def test_buildjobs1():
@@ -217,7 +225,7 @@ def test_buildjobs1():
     ]
 
     for path, template, maps in tests:
-        build_jobs(os.path.join(expand_path(PATH),path), os.path.join(expand_path(PATH),template), maps)
+        build_jobs(os.path.join(expand_path(PATH), path), os.path.join(expand_path(PATH), template), maps)
 
 
 def test_buildjobs2():
@@ -228,7 +236,7 @@ def test_buildjobs2():
 
     for path, template, maps in tests:
         with pytest.raises(ValueError):
-            build_jobs(os.path.join(expand_path(PATH),path), os.path.join(expand_path(PATH),template), maps)
+            build_jobs(os.path.join(expand_path(PATH), path), os.path.join(expand_path(PATH), template), maps)
 
 
 @pytest.mark.dependency(depends=["test_orcaversion"])
@@ -240,13 +248,13 @@ def test_read_mos():
 
     for qmin, template, gbw, mos, job in tests:
         test_interface = SHARC_ORCA()
-        test_interface.setup_mol(os.path.join(expand_path(PATH),qmin))
-        test_interface.read_template(os.path.join(expand_path(PATH),template))
+        test_interface.setup_mol(os.path.join(expand_path(PATH), qmin))
+        test_interface.read_template(os.path.join(expand_path(PATH), template))
         test_interface._read_resources = True
         test_interface.setup_interface()
-        with open(os.path.join(expand_path(PATH),mos), "r", encoding="utf-8") as file:
+        with open(os.path.join(expand_path(PATH), mos), "r", encoding="utf-8") as file:
             ref_mos = file.read()
-            assert test_interface._get_mos(os.path.join(expand_path(PATH),gbw), job) == ref_mos
+            assert test_interface._get_mos(os.path.join(expand_path(PATH), gbw), job) == ref_mos
             os.remove(os.path.join(expand_path(PATH), gbw, "fragovlp.out"))
             os.remove(os.path.join(expand_path(PATH), gbw, "fragovlp.err"))
 
@@ -261,17 +269,17 @@ def test_get_dets():
 
     for qmin, cis, job, mult, det in tests:
         test_interface = SHARC_ORCA()
-        test_interface.setup_mol(os.path.join(expand_path(PATH),qmin))
+        test_interface.setup_mol(os.path.join(expand_path(PATH), qmin))
         test_interface._read_template = True
-        test_interface.read_resources(os.path.join(expand_path(PATH),"inputs/ORCA.resources"))
+        test_interface.read_resources(os.path.join(expand_path(PATH), "inputs/ORCA.resources"))
         test_interface.setup_interface()
-        with open(os.path.join(expand_path(PATH),det), "r", encoding="utf-8") as file:
+        with open(os.path.join(expand_path(PATH), det), "r", encoding="utf-8") as file:
             ref_det = file.read()
-            assert test_interface.get_dets_from_cis(os.path.join(expand_path(PATH),cis), job)[f"dets.{mult}"] == ref_det
+            assert test_interface.get_dets_from_cis(os.path.join(expand_path(PATH), cis), job)[f"dets.{mult}"] == ref_det
 
 
 def test_ao_matrix():
-    tests = [("inputs/aooverl1gbw", "inputs/aooverl1"),("inputs/aooverl2gbw", "inputs/aooverl2")]
+    tests = [("inputs/aooverl1gbw", "inputs/aooverl1"), ("inputs/aooverl2gbw", "inputs/aooverl2")]
 
     test_interface = SHARC_ORCA()
     for gbw, ovl in tests:
@@ -280,3 +288,52 @@ def test_ao_matrix():
         os.remove(os.path.join(expand_path(PATH), gbw, "fragovlp.err"))
         with open(os.path.join(expand_path(PATH), ovl), "r") as ref:
             assert ao_overl == ref.read()
+
+
+def test_ao_matrix_overlap():
+    tests = [
+        ("inputs/orca_overlap/aooverl1", "gbw1.1.2", "gbw1.1.1"),
+        ("inputs/orca_overlap/aooverl2", "gbw2.1.2", "gbw2.1.1"),
+        ("inputs/orca_overlap/aooverl3", "gbw3.2.2", "gbw3.2.1"),
+    ]
+
+    test_interface = SHARC_ORCA()
+    for aooverl, gbw1, gbw2 in tests:
+        ao_overl = test_interface._get_ao_matrix(os.path.join(expand_path(PATH), "inputs/orca_overlap"), gbw1, gbw2, 15, True)
+        os.remove(os.path.join(expand_path(PATH), "inputs/orca_overlap", "fragovlp.out"))
+        os.remove(os.path.join(expand_path(PATH), "inputs/orca_overlap", "fragovlp.err"))
+        with open(os.path.join(expand_path(PATH), aooverl), "r") as ref:
+            assert ref.read() == ao_overl
+
+
+def test_parsedyson():
+    tests = [
+        (
+            "inputs/dyson1",
+            np.array(
+                [
+                    [0.9401441027, 0.8906030759, 0.9307425454, 0.0043114302],
+                    [0.4511414880, 0.0234786094, 0.0009732790, 0.3944154081],
+                    [0.0180273519, 0.4250909955, 0.0047639010, 0.7392838275],
+                    [0.0546332129, 0.0858993467, 0.3193591589, 0.0014270452],
+                ]
+            ),
+        ),
+        (
+            "inputs/dyson2",
+            np.array(
+                [
+                    [0.8944273988, 0.0004782934, 0.0723134962, 0.0009021681],
+                    [0.0896794811, 0.0007445378, 0.8279340441, 0.0003716648],
+                    [0.0062383550, 0.9479518302, 0.0023316326, 0.0106589898],
+                    [0.4213051340, 0.0041931949, 0.0339798806, 0.0002505716],
+                ]
+            ),
+        ),
+        ("inputs/dyson3", np.array([[0.9401441027]])),
+        ("inputs/dyson4", np.array([[0.9401441027, 0.9307595123], [0.4511457142, 0.0009661697]])),
+    ]
+
+    test_interface = SHARC_ORCA()
+    for wfovlp, ref in tests:
+        assert np.allclose(test_interface._get_dyson(os.path.join(expand_path(PATH), wfovlp)), ref)

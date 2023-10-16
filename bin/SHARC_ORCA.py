@@ -8,14 +8,13 @@ import subprocess as sp
 from copy import deepcopy
 from io import TextIOWrapper
 from itertools import count, pairwise
-from textwrap import dedent
 from typing import Optional
 
 import numpy as np
 from constants import IToMult
 from qmin import QMin
 from SHARC_ABINITIO import SHARC_ABINITIO
-from utils import expand_path, itmult, link, mkdir, readfile, writefile
+from utils import expand_path, itmult, mkdir, readfile, writefile
 
 __all__ = ["SHARC_ORCA"]
 
@@ -141,8 +140,8 @@ class SHARC_ORCA(SHARC_ABINITIO):
             }
         )
 
-        # List of depricated keys
-        self._depricated = ["range_sep_settings", "grid", "gridx", "gridxc", "picture_change", "qmmm"]
+        # List of deprecated keys
+        self._deprecated = ["range_sep_settings", "grid", "gridx", "gridxc", "picture_change", "qmmm"]
 
     @staticmethod
     def version() -> str:
@@ -336,7 +335,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
 
         # Generate molden file
         if self.QMin.requests["molden"]:
-            self.log.debug("Save moldenfile to savedir")
+            self.log.debug("Save molden file to savedir")
             exec_str = "orca_2mkl ORCA -molden"
             molden_out = os.path.join(workdir, "orca_2mkl.out")
             molden_err = os.path.join(workdir, "orca_2mkl.err")
@@ -355,6 +354,23 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 cis_dets = self.get_dets_from_cis(os.path.join(workdir, "ORCA.cis"), jobid)
                 for det_file, cis_det in cis_dets.items():
                     writefile(os.path.join(savedir, f"{det_file}.{step}"), cis_det)
+            else:
+                with open(os.path.join(workdir, "ORCA.log"), "r", encoding="utf-8") as orca_log:
+                    # Extract list of orbital energies and filter occupation numbers
+                    orbital_list = re.search(r"ORBITAL ENERGIES\n-{16}(.*)MOLECULAR ORBITALS", orca_log.read(), re.DOTALL)
+                    occ_list = re.findall(r"\d+\s+([0-2]\.0{4})", orbital_list.group(1))
+                    occ_list = list(map(lambda x: int(float(x)), occ_list))
+
+                    # Remove frozencore
+                    froz = self.QMin.molecule["frozcore"]
+                    if 2 in occ_list:
+                        occ_list = [3 if x == 2 else 0 for x in occ_list[froz:]]
+                    elif 1 in occ_list:
+                        occ_list = [1 if x == 1 else 0 for x in occ_list[froz : len(occ_list) // 2]] + [
+                            2 if x == 1 else 0 for x in occ_list[len(occ_list) // 2 + froz :]
+                        ]
+                    # Convert to string and save file
+                    writefile(os.path.join(savedir, f"dets.{jobid}.{step}"), self.format_ci_vectors([{tuple(occ_list): 1.0}]))
 
         shutil.copy(os.path.join(workdir, "ORCA.gbw"), os.path.join(savedir, f"ORCA.gbw.{jobid}.{step}"))
 
@@ -382,7 +398,6 @@ class SHARC_ORCA(SHARC_ABINITIO):
             find_mat = re.search(r"FRAGMENT A MOs MATRIX\n-{32}\n([\s\d+\.-]*)\n\n", fragovlp)
             if not find_mat:
                 raise ValueError
-            # ao_mat = list(map(float, re.sub(r"\s\d{1,5}\s", "", find_mat.group(1)).split()))
             ao_mat = list(map(float, re.findall(r"-?\d+\.\d{12}", find_mat.group(1))))
             if not restr:
                 ao_mat_a = self._matrix_from_output(ao_mat[: len(ao_mat) // 2], n_ao)
@@ -435,10 +450,19 @@ class SHARC_ORCA(SHARC_ABINITIO):
             npc=self.QMin.molecule["npc"],
             requests=requests,
         )
+        if self.QMin.requests["theodore"]:
+            theodore_arr = np.zeros(
+                (
+                    self.QMin.molecule["nmstates"],
+                    len(self.QMin.template["theodore_prop"]) + len(self.QMin.template["theodore_fragment"]) ** 2,
+                )
+            )
+
+        scratchdir = self.QMin.resources["scratchdir"]
 
         # Get contents of output file(s)
         for job in self.QMin.control["joblist"]:
-            with open(os.path.join(self.QMin.resources["scratchdir"], f"master_{job}/ORCA.log"), "r", encoding="utf-8") as file:
+            with open(os.path.join(scratchdir, f"master_{job}/ORCA.log"), "r", encoding="utf-8") as file:
                 log_file = file.read()
                 gs_mult, _ = self.QMin.control["jobs"][job].values()
                 mults = self.QMin.control["jobs"][job]["mults"]
@@ -510,17 +534,37 @@ class SHARC_ORCA(SHARC_ABINITIO):
                                     sum(nm_states[: mults[0]]) + m * states[mults[0]],
                                 ] = val[:]
 
+                # TheoDORE
+                if self.QMin.requests["theodore"]:
+                    if not self.QMin.control["jobs"][job]["restr"]:
+                        ns = 0
+                        for i in mults:
+                            ns += states[i - 2] - (i == gs_mult)
+                        if ns != 0:
+                            props = self.get_theodore(
+                                os.path.join(scratchdir, f"master_{job}", "tden_summ.txt"),
+                                os.path.join(scratchdir, f"master_{job}", "OmFrag.txt"),
+                            )
+                            for i in range(self.QMin.molecule["nmstates"]):
+                                m1, s1, ms1 = tuple(self.QMin.maps["statemap"][i + 1])
+                                if (m1, s1) in props:
+                                    for j in range(self.QMin.template["theodore_n"]):
+                                        theodore_arr[i, j] = props[(m1, s1)][j]
+
+        if self.QMin.requests["theodore"]:
+            self.QMout["prop2d"].append(("theodore", theodore_arr))
+
         # Populate gradients
         if self.QMin.requests["grad"]:
             for grad in self.QMin.maps["gradmap"]:
                 job_path, ground_state = self.QMin.control["jobgrad"][grad]
                 grad_mult, _ = self.QMin.control["jobs"][int(job_path.split("_")[1])].values()
                 if ground_state:
-                    gradients = self._get_grad(os.path.join(self.QMin.resources["scratchdir"], job_path, "ORCA.engrad"), True)
+                    gradients = self._get_grad(os.path.join(scratchdir, job_path, "ORCA.engrad"), True)
                 else:
                     gradients = self._get_grad(
                         os.path.join(
-                            self.QMin.resources["scratchdir"],
+                            scratchdir,
                             job_path,
                             f"ORCA.engrad.{'singlet' if grad[0] == grad_mult[0] else IToMult[grad[0]].lower()}.root{grad[1] - (grad[0] == grad_mult[0])}.grad.tmp",
                         )
@@ -528,7 +572,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
 
                 # Point charges
                 if self.QMin.molecule["point_charges"]:
-                    point_charges = self._get_pc_grad(os.path.join(self.QMin.resources["scratchdir"], ""))
+                    point_charges = self._get_pc_grad(os.path.join(scratchdir, ""))
 
                 for key, val in self.QMin.maps["statemap"].items():
                     if (val[0], val[1]) == grad:
@@ -558,9 +602,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
         if self.QMin.requests["overlap"]:
             for mult in itmult(self.QMin.molecule["states"]):
                 job = self.QMin.maps["multmap"][mult]
-                ovlp_mat = self.parse_wfoverlap(
-                    os.path.join(self.QMin.resources["scratchdir"], f"WFOVL_{mult}_{job}", "wfovl.out")
-                )
+                ovlp_mat = self.parse_wfoverlap(os.path.join(scratchdir, f"WFOVL_{mult}_{job}", "wfovl.out"))
                 for i in range(self.QMin.molecule["nmstates"]):
                     for j in range(self.QMin.molecule["nmstates"]):
                         m1, _, ms1 = tuple(self.QMin.maps["statemap"][i + 1])
@@ -577,15 +619,55 @@ class SHARC_ORCA(SHARC_ABINITIO):
                     self.QMout["phases"][i] = -1 if self.QMout["overlap"][i, i] < 0 else 1
         # Dyson norms
         if self.QMin.requests["ion"]:
-            # TODO
-            pass
+            ion_mat = np.zeros((self.QMin.molecule["nmstates"], self.QMin.molecule["nmstates"]))
 
-        # TheoDORE
-        if self.QMin.requests["theodore"]:
-            # TODO
-            pass
+            for ion in self.QMin.maps["ionmap"]:
+                dyson_mat = self._get_dyson(os.path.join(scratchdir, f"Dyson_{'_'.join(str(i) for i in ion)}", "wfovl.out"))
+                # TODO: REFACTOR
+                for i in range(self.QMin.molecule["nmstates"]):
+                    for j in range(self.QMin.molecule["nmstates"]):
+                        m1, s1, ms1 = tuple(self.QMin.maps["statemap"][i + 1])
+                        m2, s2, ms2 = tuple(self.QMin.maps["statemap"][j + 1])
+                        if (ion[0], ion[2]) != (m1, m2) and (ion[0], ion[2]) != (m2, m1):
+                            continue
+                        if not abs(ms1 - ms2) == 0.5:
+                            continue
+                        # switch multiplicities such that m1 is smaller mult
+                        if m1 > m2:
+                            s1, s2 = s2, s1
+                            m1, m2 = m2, m1
+                            ms1, ms2 = ms2, ms1
+                        # compute M_S overlap factor
+                        if ms1 < ms2:
+                            factor = (ms1 + 1.0 + (m1 - 1.0) / 2.0) / m1
+                        else:
+                            factor = (-ms1 + 1.0 + (m1 - 1.0) / 2.0) / m1
+                        ion_mat[i, j] = dyson_mat[s1 - 1, s2 - 1] * factor
+            self.QMout["prop2d"].append(("ion", ion_mat))
 
         # TODO: QM/MM
+
+    def _get_dyson(self, wfovl: str) -> np.ndarray:
+        """
+        Parse wfovlp output file and extract Dyson norm matrix
+
+        wfovl:  Path to wfovlp.out
+        """
+        with open(wfovl, "r", encoding="utf-8") as file:
+            raw_matrix = re.search(r"Dyson norm matrix(.*)", file.read(), re.DOTALL)
+
+            if not raw_matrix:
+                self.log.error(f"No Dyson matrix found in {wfovl}")
+                raise ValueError()
+
+            # Extract values and create numpy matrix
+            value_list = list(map(float, re.findall(r"\d+\.\d{10}", raw_matrix.group(1))))
+
+            dim = 1 if len(value_list) == 1 else math.sqrt(len(value_list))
+            if dim > 1 and dim**2 != len(value_list):
+                self.log.error(f"{wfovl} does not contain a square matrix!")
+                raise ValueError()
+            return np.asarray(value_list).reshape(-1, int(dim))
 
     def _get_pc_grad(self, grad_path: str) -> np.ndarray:
         """
@@ -763,12 +845,14 @@ class SHARC_ORCA(SHARC_ABINITIO):
     def print_qmin(self) -> None:
         pass
 
-    def read_resources(self, resources_file: str) -> None:
-        super().read_resources(resources_file, ["theodore_fragment"])
+    def read_resources(self, resources_file: str, kw_whitelist: Optional[list[str]] = None) -> None:
+        if kw_whitelist is None:
+            kw_whitelist = []
+        super().read_resources(resources_file, kw_whitelist)
 
         # Check if frozcore specified
         if self.QMin.resources["numfrozcore"] >= 0:
-            self.log.debug("Found numfrozcore in resources, overwriding frozcore")
+            self.log.debug("Found numfrozcore in resources, overwriting frozcore")
             self.QMin.molecule["frozcore"] = self.QMin.resources["numfrozcore"]
 
         # LD PATH???
@@ -798,10 +882,10 @@ class SHARC_ORCA(SHARC_ABINITIO):
         if isinstance(self.QMin.template["keys"], list):
             self.QMin.template["keys"] = " ".join(self.QMin.template["keys"])
 
-        # Check for depricated keys
-        for depr in self._depricated:
+        # Check for deprecated keys
+        for depr in self._deprecated:
             if depr.casefold() in self.QMin.template:
-                self.log.warning(f"Template key {depr} is depricated and will be ignored!")
+                self.log.warning(f"Template key {depr} is deprecated and will be ignored!")
 
         # Check if unrestricted triplets needed
         if not self.QMin.template["unrestricted_triplets"]:
@@ -907,10 +991,6 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 job2 = self.QMin.maps["multmap"][mult2]
                 el2 = self.QMin.maps["chargemap"][mult2]
                 if abs(mult1 - mult2) == 1 and abs(el1 - el2) == 1:
-                    if self.QMin.molecule["states"][mult1 - 1] == 1 or self.QMin.molecule["states"][mult2 - 1] == 1:
-                        self.log.error(f"Ion requested, but number of states for multiplicity {mult1} or {mult2} is less than 2!")
-                        # TODO: build single determinant instead
-                        # raise ValueError()
                     self.QMin.maps["ionmap"].append((mult1, job1, mult2, job2))
 
         # Setup gsmap
