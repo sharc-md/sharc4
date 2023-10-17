@@ -565,6 +565,29 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             if len(overlap_mat) != dim:
                 raise ValueError(f"File {overlap_file} does not contain an overlap matrix!")
         return np.asarray(overlap_mat)
+    
+    def get_dyson(self, wfovl: str) -> np.ndarray:
+        """
+        Parse wfovlp output file and extract Dyson norm matrix
+
+        wfovl:  Path to wfovlp.out
+        """
+        with open(wfovl, "r", encoding="utf-8") as file:
+            raw_matrix = re.search(r"Dyson norm matrix(.*)", file.read(), re.DOTALL)
+
+            if not raw_matrix:
+                self.log.error(f"No Dyson matrix found in {wfovl}")
+                raise ValueError()
+
+            # Extract values and create numpy matrix
+            value_list = list(map(float, re.findall(r"\d+\.\d{10}", raw_matrix.group(1))))
+
+            dim = 1 if len(value_list) == 1 else math.sqrt(len(value_list))
+            if dim > 1 and dim**2 != len(value_list):
+                self.log.error(f"{wfovl} does not contain a square matrix!")
+                raise ValueError()
+            return np.asarray(value_list).reshape(-1, int(dim))
+
 
     @staticmethod
     def format_ci_vectors(ci_vectors: list[dict[tuple[int, ...], float]]) -> str:

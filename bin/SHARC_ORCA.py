@@ -605,8 +605,8 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 ovlp_mat = self.parse_wfoverlap(os.path.join(scratchdir, f"WFOVL_{mult}_{job}", "wfovl.out"))
                 for i in range(self.QMin.molecule["nmstates"]):
                     for j in range(self.QMin.molecule["nmstates"]):
-                        m1, _, ms1 = tuple(self.QMin.maps["statemap"][i + 1])
-                        m2, _, ms2 = tuple(self.QMin.maps["statemap"][j + 1])
+                        m1, s1, ms1 = tuple(self.QMin.maps["statemap"][i + 1])
+                        m2, s2, ms2 = tuple(self.QMin.maps["statemap"][j + 1])
                         if not m1 == m2 == mult:
                             continue
                         if not ms1 == ms2:
@@ -622,7 +622,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
             ion_mat = np.zeros((self.QMin.molecule["nmstates"], self.QMin.molecule["nmstates"]))
 
             for ion in self.QMin.maps["ionmap"]:
-                dyson_mat = self._get_dyson(os.path.join(scratchdir, f"Dyson_{'_'.join(str(i) for i in ion)}", "wfovl.out"))
+                dyson_mat = self.get_dyson(os.path.join(scratchdir, f"Dyson_{'_'.join(str(i) for i in ion)}", "wfovl.out"))
                 # TODO: REFACTOR
                 for i in range(self.QMin.molecule["nmstates"]):
                     for j in range(self.QMin.molecule["nmstates"]):
@@ -644,30 +644,6 @@ class SHARC_ORCA(SHARC_ABINITIO):
                             factor = (-ms1 + 1.0 + (m1 - 1.0) / 2.0) / m1
                         ion_mat[i, j] = dyson_mat[s1 - 1, s2 - 1] * factor
             self.QMout["prop2d"].append(("ion", ion_mat))
-
-        # TODO: QM/MM
-
-    def _get_dyson(self, wfovl: str) -> np.ndarray:
-        """
-        Parse wfovlp output file and extract Dyson norm matrix
-
-        wfovl:  Path to wfovlp.out
-        """
-        with open(wfovl, "r", encoding="utf-8") as file:
-            raw_matrix = re.search(r"Dyson norm matrix(.*)", file.read(), re.DOTALL)
-
-            if not raw_matrix:
-                self.log.error(f"No Dyson matrix found in {wfovl}")
-                raise ValueError()
-
-            # Extract values and create numpy matrix
-            value_list = list(map(float, re.findall(r"\d+\.\d{10}", raw_matrix.group(1))))
-
-            dim = 1 if len(value_list) == 1 else math.sqrt(len(value_list))
-            if dim > 1 and dim**2 != len(value_list):
-                self.log.error(f"{wfovl} does not contain a square matrix!")
-                raise ValueError()
-            return np.asarray(value_list).reshape(-1, int(dim))
 
     def _get_pc_grad(self, grad_path: str) -> np.ndarray:
         """
