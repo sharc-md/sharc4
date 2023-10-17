@@ -290,21 +290,21 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
 
         if self.QMin.requests["multipolar_fit"]:
             # construct shells
-            shells, first, nlayers = map(QMin.resources.get, ("resp_shells", "resp_first_layer", "resp_layers"))
+            shells, first, nlayers = map(self.QMin.resources.get, ("resp_shells", "resp_first_layer", "resp_layers"))
 
             # collect vdw radii for atoms from settings
             if self.QMin.resources["resp_vdw_radii"]:
-                if len(self.QMin.resources["resp_vdw_radii"]) != len(QMin["elements"]):
+                if len(self.QMin.resources["resp_vdw_radii"]) != len(self.QMin.molecule["elements"]):
                     raise RuntimeError("specify 'resp_vdw_radii' for all atoms!")
             else:
                 # populate vdW radii
                 radii = ATOMIC_RADII
                 if self.QMin.resources["resp_mk_radii"]:
                     radii.update(MK_RADII)
-                for e in filter(lambda x: e not in self.QMin.resources["resp_vdw_radii_symbol"], self.QMin.molecule["elements"]):
+                for e in filter(lambda x: x not in self.QMin.resources["resp_vdw_radii_symbol"], self.QMin.molecule["elements"]):
                     self.QMin.resources["resp_vdw_radii_symbol"][e] = radii[e]
                 self.QMin.resources["resp_vdw_radii"] = [
-                    self.QMin.resources["resp_vdw_radii_symbol"][s] for s in self.QMin["elements"]
+                    self.QMin.resources["resp_vdw_radii_symbol"][s] for s in self.QMin.molecule["elements"]
                 ]
 
             if self.QMin.resources["resp_betas"]:
