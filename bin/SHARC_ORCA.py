@@ -1321,7 +1321,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
         string += f"%maxcore {qmin.resources['memory']}\n\n"
 
         # Basis sets + ECP basis set
-        if "basis_per_element" in qmin.template:
+        if qmin.template["basis_per_element"]:
             string += "%basis\n"
             # basis_per_element key is list, need to iterate pairwise
             for elem, basis in pairwise(qmin.template["basis_per_element"]):
@@ -1384,7 +1384,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
         string += "\tcoords\n"
         for iatom, (label, coords) in enumerate(zip(qmin.molecule["elements"], qmin.coords["coords"])):
             string += f"\t{label:4s} {coords[0]:16.9f} {coords[1]:16.9f} {coords[2]:16.9f}"
-            if "basis_per_atom" in qmin.template and str(iatom) in qmin.template["basis_per_atom"]:
+            if qmin.template["basis_per_atom"] and str(iatom) in qmin.template["basis_per_atom"]:
                 idx = qmin.template["basis_per_atom"].index(str(iatom))
                 string += f"\tnewgto \"{qmin.template['basis_per_atom'][idx+1]}\" end"
             string += "\n"
