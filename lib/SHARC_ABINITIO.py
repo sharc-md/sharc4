@@ -177,8 +177,8 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         """
 
     @abstractmethod
-    def read_template(self, template_file: str) -> None:
-        super().read_template(template_file)
+    def read_template(self, template_file: str, kw_whitelist: Optional[list[str]] = None) -> None:
+        super().read_template(template_file, kw_whitelist)
 
         # Check if charge in template and autoexpand if needed
         if self.QMin.template["charge"]:

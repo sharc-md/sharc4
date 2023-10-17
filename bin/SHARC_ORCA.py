@@ -7,7 +7,7 @@ import struct
 import subprocess as sp
 from copy import deepcopy
 from io import TextIOWrapper
-from itertools import count, pairwise
+from itertools import chain, count, pairwise
 from typing import Optional
 
 import numpy as np
@@ -85,6 +85,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 "numocc": None,
                 "schedule_scaling": 0.9,
                 "neglected_gradient": "zero",
+                "savedir": None
             }
         )
         self.QMin.resources.types.update(
@@ -97,6 +98,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 "numocc": int,
                 "schedule_scaling": float,
                 "neglected_gradient": str,
+                "savedir": str
             }
         )
 
@@ -120,6 +122,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 "unrestricted_triplets": False,
                 "basis_per_element": None,
                 "basis_per_atom": None,
+                "ecp_per_element": None
             }
         )
         self.QMin.template.types.update(
@@ -141,6 +144,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 "unrestricted_triplets": bool,
                 "basis_per_element": list,
                 "basis_per_atom": list,
+                "ecp_per_element": list
             }
         )
 
@@ -855,8 +859,13 @@ class SHARC_ORCA(SHARC_ABINITIO):
             if val and req != "retain" and req not in all_features:
                 raise ValueError(f"Found unsupported request {req}.")
 
-    def read_template(self, template_file: str) -> None:
-        super().read_template(template_file)
+    def read_template(self, template_file: str, kw_whitelist: Optional[list[str]] = None) -> None:
+        kw_whitelist = ["basis_per_element", "basis_per_atom", "ecp_per_element"]
+        super().read_template(template_file, kw_whitelist)
+
+        for key in kw_whitelist:
+            if self.QMin.template[key] and isinstance(self.QMin.template[key][0], list):
+                self.QMin.template[key] = list(chain.from_iterable(self.QMin.template[key]))
 
         # Convert keys to string if list
         if isinstance(self.QMin.template["keys"], list):
@@ -1317,7 +1326,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
             # basis_per_element key is list, need to iterate pairwise
             for elem, basis in pairwise(qmin.template["basis_per_element"]):
                 string += f'\tnewgto {elem} "{basis}" end\n'
-            if "ecp_per_element" in qmin.template:
+            if qmin.template["ecp_per_element"]:
                 for elem, basis in pairwise(qmin.template["ecp_per_element"]):
                     string += f'\tnewECP {elem} "{basis}" end\n'
             string += "end\n\n"

@@ -280,7 +280,7 @@ class SHARC_INTERFACE(ABC):
         self.writeQMout()
 
     @abstractmethod
-    def read_template(self, template_file: str) -> None:
+    def read_template(self, template_file: str, kw_whitelist: Optional[list[str]] = None) -> None:
         """
         Reads a template file and assigns parameters to
         self.QMin.template. No sanity checks at all, has to be done
@@ -294,7 +294,7 @@ class SHARC_INTERFACE(ABC):
         if self._read_template:
             self.log.warning(f"Template already read! Overwriting with {template_file}")
 
-        self.QMin.template.update(self._parse_raw(template_file, self.QMin.template.types))
+        self.QMin.template.update(self._parse_raw(template_file, self.QMin.template.types, kw_whitelist))
 
         self._read_template = True
 
@@ -795,7 +795,11 @@ class SHARC_INTERFACE(ABC):
                     if not all(len(x) == 2 for x in self.QMin.requests[req]):
                         raise ValueError(f"'{req}' not set correctly! Needs to to be nx2 matrix not {self.QMin.requests[req]}")
                 case ["soc", None]:
-                    if sum(i > 0 for i in self.QMin.molecule["states"]) < 2:
+                    if (
+                        len(self.QMin.molecule["states"]) < 3
+                        or (self.QMin.molecule["states"][0] == 0 and self.QMin.molecule["states"][2] <= 1)
+                        or (self.QMin.molecule["states"][0] > 0 and self.QMin.molecule["states"][2] == 0)
+                    ):
                         self.log.warning("SOCs requested but only 1 multiplicity given! Disable SOCs")
                         return
                     self.QMin.requests["soc"] = True
