@@ -70,7 +70,7 @@ def test_requests1():
             "inputs/QM3.in",
             {
                 "h": True,
-                "soc": True,
+                "soc": False,
                 "dm": True,
                 "grad": list(range(1, 100)),
                 "nacdr": ["all"],
