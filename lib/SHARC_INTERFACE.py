@@ -23,12 +23,12 @@
 #
 # ******************************************
 
+import ast
 # IMPORTS
 # external
 import os
 import re
 import sys
-import ast
 from abc import ABC, abstractmethod
 from datetime import date
 from io import TextIOWrapper
@@ -37,13 +37,13 @@ from textwrap import wrap
 from typing import Any, Optional
 
 import numpy as np
-
 # internal
 from constants import ATOMCHARGE, BOHR_TO_ANG, FROZENS
 from logger import SHARCPRINT, CustomFormatter, logging
 from qmin import QMin
 from qmout import QMout
-from utils import clock, expand_path, itnmstates, parse_xyz, readfile, writefile
+from utils import (clock, expand_path, itnmstates, parse_xyz, readfile,
+                   writefile)
 
 all_features = {
     "h",
@@ -345,7 +345,7 @@ class SHARC_INTERFACE(ABC):
             except ValueError as error:
                 raise ValueError("first line must contain the number of atoms!") from error
             self.QMin.coords[key] = (
-                np.asarray([parse_xyz(x)[1] for x in lines[2: natom + 2]], dtype=float) * self.QMin.molecule["factor"]
+                np.asarray([parse_xyz(x)[1] for x in lines[2 : natom + 2]], dtype=float) * self.QMin.molecule["factor"]
             )
         elif isinstance(xyz, (list, np.ndarray)):
             self.QMin.coords[key] = np.asarray(xyz) * self.QMin.molecule["factor"]
@@ -374,7 +374,7 @@ class SHARC_INTERFACE(ABC):
         except ValueError as err:
             raise ValueError("first line must contain the number of atoms!") from err
 
-        self.QMin.molecule["elements"] = list(map(lambda x: parse_xyz(x)[0], (qmin_lines[2: natom + 2])))
+        self.QMin.molecule["elements"] = list(map(lambda x: parse_xyz(x)[0], (qmin_lines[2 : natom + 2])))
         self.QMin.molecule["Atomcharge"] = sum(map(lambda x: ATOMCHARGE[x], self.QMin.molecule["elements"]))
         self.QMin.molecule["frozcore"] = sum(map(lambda x: FROZENS[x], self.QMin.molecule["elements"]))
         self.QMin.molecule["natom"] = len(self.QMin.molecule["elements"])
@@ -384,7 +384,7 @@ class SHARC_INTERFACE(ABC):
             lambda x: not re.match(r"^\s*$", x),
             map(
                 lambda x: re.sub(r"#.*$", "", x),
-                qmin_lines[self.QMin.molecule["natom"] + 2:],
+                qmin_lines[self.QMin.molecule["natom"] + 2 :],
             ),
         )
 
@@ -529,15 +529,15 @@ class SHARC_INTERFACE(ABC):
 
         raw_dict = self._parse_raw(resources_file, self.QMin.resources.types, kw_whitelist)
 
-        if 'savedir' in raw_dict:
+        if "savedir" in raw_dict:
             if not self._setsave:
-                self.QMin.save["savedir"] = expand_path(raw_dict['savedir'])
+                self.QMin.save["savedir"] = expand_path(raw_dict["savedir"])
                 self.log.debug(
                     f"SAVEDIR set to {self.QMin.save['savedir']}",
                 )
             else:
                 self.log.info("SAVEDIR is already set and will not be overwritten!")
-            del raw_dict['savedir']
+            del raw_dict["savedir"]
         self.QMin.resources.update(raw_dict)
 
         self._read_resources = True
@@ -547,23 +547,23 @@ class SHARC_INTERFACE(ABC):
         parse the content of a keyword-argument file (.resources, .template)
 
         Args:
-            file: file to parse from 
+            file: file to parse from
             types_dict: dictionary with keywords and their respective types
-            kw_whitelist list: list with keywords that should be appended upon multiple encounters 
+            kw_whitelist list: list with keywords that should be appended upon multiple encounters
 
         Raises:
-            RuntimeError: 
+            RuntimeError:
 
         Returns:
-            
+
         """
         kw_whitelist = [] if not kw_whitelist else kw_whitelist
 
         lines = readfile(file)
         # replaces all comments with white space. filters all empty lines
-        filtered = filter(lambda x: not re.match(r'^\s*$', x), map(lambda x: re.sub(r'#.*$', '', x).strip(), lines))
-        file_str = '\n'.join(filtered)
-        if not file_str or file_str.isspace():    # check if there is only whitespace left!
+        filtered = filter(lambda x: not re.match(r"^\s*$", x), map(lambda x: re.sub(r"#.*$", "", x).strip(), lines))
+        file_str = "\n".join(filtered)
+        if not file_str or file_str.isspace():  # check if there is only whitespace left!
             return {}
 
         # concat all lines for select keyword:
@@ -572,9 +572,9 @@ class SHARC_INTERFACE(ABC):
         # 3 replace all \n with ',' in the matches,
         # 4 return matches between [' and ']
         def format_match(x: re.Match) -> str:
-            return x.group(3) + " " + re.sub(r'\n+', "','", "['{}']".format(x.group(4)))
+            return x.group(3) + " " + re.sub(r"\n+", "','", "['{}']".format(x.group(4)))
 
-        lines = re.sub(r'(s(elect|tart)\s+)(.+)\n([\w\d\s\n]*)(\nend)', format_match, file_str).split('\n')
+        lines = re.sub(r"(s(elect|tart)\s+)(.+)\n([\w\d\s\n]*)(\nend)", format_match, file_str).split("\n")
         # Store all encountered keywords to warn for duplicates
         keyword_list = set()
         out_dict = {}
@@ -587,7 +587,7 @@ class SHARC_INTERFACE(ABC):
             keyword_list.add(param[0])
 
             match param:
-                case[key] if key in types_dict:
+                case [key] if key in types_dict:
                     key_type = types_dict[key]
                     if key_type is bool:
                         out_dict[key] = True
@@ -595,16 +595,18 @@ class SHARC_INTERFACE(ABC):
                         self.log.error(f"resources keyword '{key}' is type {key_type} but has no value!")
                         raise RuntimeError()
 
-                case[key, val] if key in types_dict:
+                case [key, val] if key in types_dict:
                     key_type = types_dict[key]
                     if key_type is list:
                         if key not in out_dict or key not in kw_whitelist:
                             out_dict[key] = []
-                        if val[0] == '[':
+                        if val[0] == "[":
                             raw_value = ast.literal_eval(val)
                             # check if matrix
                             if type(raw_value[0]) is str:
-                                raw_value = [entry if len(entry) > 1 else entry[0] for entry in map(lambda x: x.split(), raw_value)]
+                                raw_value = [
+                                    entry if len(entry) > 1 else entry[0] for entry in map(lambda x: x.split(), raw_value)
+                                ]
                         else:
                             raw_value = val.split()
                         out_dict[key].append(raw_value if len(raw_value) > 1 else raw_value[0])
@@ -621,11 +623,10 @@ class SHARC_INTERFACE(ABC):
 
         # sanitize lists:
         for key, key_type in types_dict.items():
-            if key in out_dict and key_type ==list and len(out_dict[key]) == 1 and type(out_dict[key][0]) == list:
+            if key in out_dict and key_type == list and len(out_dict[key]) == 1 and type(out_dict[key][0]) == list:
                 out_dict[key] = out_dict[key][0]
 
         return out_dict
-
 
     def read_requests(self, requests_file: str = "QM.in") -> None:
         """
@@ -644,12 +645,12 @@ class SHARC_INTERFACE(ABC):
         self.QMin.save["newstep"] = False
         self.QMin.save["restart"] = False
 
-        #read file and skip geometry
-        lines = readfile(requests_file)[self.QMin.molecule['natom'] + 2:]
+        # read file and skip geometry
+        lines = readfile(requests_file)[self.QMin.molecule["natom"] + 2 :]
         # replaces all comments with white space. filters all empty lines
-        filtered = filter(lambda x: not re.match(r'^\s*$', x), map(lambda x: re.sub(r'#.*$', '', x).strip(), lines))
-        file_str = '\n'.join(filtered)
-        if not file_str or file_str.isspace():    # check if there is only whitespace left!
+        filtered = filter(lambda x: not re.match(r"^\s*$", x), map(lambda x: re.sub(r"#.*$", "", x).strip(), lines))
+        file_str = "\n".join(filtered)
+        if not file_str or file_str.isspace():  # check if there is only whitespace left!
             return {}
 
         # concat all lines for select keyword:
@@ -658,20 +659,20 @@ class SHARC_INTERFACE(ABC):
         # 3 replace all \n with ',' in the matches,
         # 4 return matches between [' and ']
         def format_match(x: re.Match) -> str:
-            return x.group(3) + " " + re.sub(r'\n+', "','", "['{}']".format(x.group(4)))
+            return x.group(3) + " " + re.sub(r"\n+", "','", "['{}']".format(x.group(4)))
 
-        lines = re.sub(r'(s(elect|tart)\s+)(.+)\n([\w\d\s\n]*)(\nend)', format_match, file_str).split('\n')
+        lines = re.sub(r"(s(elect|tart)\s+)(.+)\n([\w\d\s\n]*)(\nend)", format_match, file_str).split("\n")
 
         for line in lines:
             match line.lower().split(maxsplit=1):
                 case [key] if key in (*self.QMin.requests.keys(), "step"):
                     self.log.debug(f"Parsing request {key}")
-                    self._set_request((key, 'all'))
+                    self._set_request((key, "all"))
                 case ["select" | "start", key]:
                     self.log.error(f"line with '{line}' found but no 'end' keyword!")
                     raise ValueError(f"line with '{line}' found but no 'end' keyword!")
                 case [key, val] if key in (*self.QMin.requests.keys(), "step"):
-                    if val[0] == '[':
+                    if val[0] == "[":
                         raw_value = ast.literal_eval(val)
                         # check if matrix
                         if type(raw_value[0]) is str:
@@ -789,11 +790,15 @@ class SHARC_INTERFACE(ABC):
                         self.log.error(f"Duplicate {req} requested!")
                         raise ValueError()
                 case ["nacdr", value]:
-                    self.QMin.requests[req] = sorted([[int(x) for x in y] for y in request[1]]) 
+                    self.QMin.requests[req] = sorted([[int(x) for x in y] for y in request[1]])
                     if not all(len(x) == 2 for x in self.QMin.requests[req]):
                         raise ValueError(f"'{req}' not set correctly! Needs to to be nx2 matrix not {self.QMin.requests[req]}")
                 case ["soc", _]:
-                    if sum(i > 0 for i in self.QMin.molecule["states"]) < 2:
+                    if (
+                        len(self.QMin.molecule["states"]) < 3
+                        or (self.QMin.molecule["states"][0] == 0 and self.QMin.molecule["states"][2] <= 1)
+                        or (self.QMin.molecule["states"][0] > 0 and self.QMin.molecule["states"][2] == 0)
+                    ):
                         self.log.warning("SOCs requested but only 1 multiplicity given! Disable SOCs")
                         return
                     self.QMin.requests["soc"] = True
