@@ -105,7 +105,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                 "unrestricted_triplets": False,
                 "iop": None,
                 "paste_input_file": None,
-                "external_basis": None,
+                "basis_external": None,
                 "noneqsolv": False,
             }
         )
@@ -123,7 +123,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                 "unrestricted_triplets": bool,
                 "iop": list,
                 "paste_input_file": str,
-                "external_basis": str,
+                "basis_external": str,
                 "noneqsolv": bool,
             }
         )
@@ -137,6 +137,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                 "numfrozcore": 0,
                 "numocc": None,
                 "schedule_scaling": 0.9,
+                "neglected_gradient": "zero",
                 "dry_run": False,
             }
         )
@@ -149,6 +150,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                 "numfrozcore": int,
                 "numocc": int,
                 "schedule_scaling": float,
+                "neglected_gradient": str,
                 "dry_run": bool,
             }
         )
@@ -231,10 +233,20 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         os.environ["GAUSS_SCRDIR"] = "."
         os.environ["PATH"] = "$GAUSS_EXEDIR:" + os.environ["PATH"]
         self.QMin.resources["GAUSS_EXEDIR"] = self.QMin.resources["groot"]
-        self.QMin.resources["GAUSS_EXE"] = os.path.join(
-            self.QMin.resources["groot"], f"g{self.QMin.resources['gaussian_version']}"
-        )
-        self.log.info(f"Detected GAUSSIAN version {self.QMin.resources['gaussian_version']}")
+        self.QMin.resources["GAUSS_EXE"] = os.path.join(self.QMin.resources["groot"], "g%s" % self._Gversion)
+
+        if self.QMin.requests["grad"]:
+            match self.QMin.resources["neglected_gradient"].lower():
+                case "zero" | "gs" | "closest":
+                    self.QMin.resources["neglected_gradient"] = self.QMin.resources["neglected_gradient"].lower()
+                case _:
+                    self.log.error(
+                        f'Argument to "neglected_gradient" not in ["zero", "gs", "closes"]: {self.QMin.resources["neglected_gradient"]}!'
+                    )
+                    raise ValueError()
+
+        self._read_resources = True
+        self.log.info("Detected GAUSSIAN version %s" % self._Gversion)
 
     def read_template(self, template_file: str) -> None:
         super().read_template(template_file)
@@ -246,6 +258,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         # read external basis set
         if self.QMin.template["basis_external"]:
             self.QMin.template["basis"] = "gen"
+            self.QMin.template.types["basis_external"] = list
             self.QMin.template["basis_external"] = readfile(self.QMin.template["basis_external"])
         if self.QMin.template["paste_input_file"]:
             self.QMin.template.types["paste_input_file"] = list
@@ -431,7 +444,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         self.QMin.control["jobgrad"] = jobgrad
 
         densjob = {}
-        if self.QMin.requests["multipolar_fit"]:
+        if self.QMin.requests["multipolar_fit"] or self.QMin.requests["density_matrices"]:
             jobdens = {}
             # detect where the densities will be calculated
             # gs and first es always accessible from master if gs is not other mult
@@ -575,8 +588,8 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                 if QMin.save["step"]:
                     backupdir1 = backupdir + f"/step{QMin.save['step']}_{i}"
                 else:
-                    backupdir1 = backupdir + f"/calc_{i}"
-            QMin["backup"] = backupdir1
+                    backupdir1 = backupdir + "/calc_%i" % (i)
+            QMin.requests["backup"] = backupdir1
 
     # =============================================================================================== #
     # =============================================================================================== #
@@ -597,7 +610,8 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         self._run_wfoverlap()
 
         # do all necessary Theodore calculations
-        self._run_theodore()
+        if self.QMin.requests["theodore"]:
+            self._run_theodore()
 
     def dry_run(self):
         self.generate_joblist()
@@ -687,6 +701,14 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
 
     @staticmethod
     def writeGAUSSIANinput(QMin):
+        """
+
+        Args:
+            QMin ():
+
+        Returns:
+
+        """
         # general setup
         job = QMin.control["jobid"]
         gsmult = QMin.maps["multmap"][-job][0]
@@ -739,7 +761,8 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
             dograd = False
 
         dodens = False
-        if QMin.requests["multipolar_fit"]:
+        # TODO only activate if state is requested (i.e. is in densmap)
+        if QMin.requests["multipolar_fit"] or QMin.requests["density_matrices"]:
             dodens = True
             root = QMin.control["rootstate"]
 
@@ -789,13 +812,13 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
             data.append(s)
         if QMin.template["scrf"]:
             s = ",".join(QMin.template["scrf"])
-            data.append(f"scrf({s})")
+            data.append("scrf(%s)" % s)
         if QMin.template["scf"]:
             s = ",".join(QMin.template["scf"])
-            data.append(f"scf({s})")
+            data.append("scf(%s)" % s)
         if QMin.template["iop"]:
             s = ",".join(QMin.template["iop"])
-            data.append(f"iop({s})")
+            data.append("iop(%s)" % s)
         if QMin.template["keys"]:
             data.extend([QMin.template["keys"]])
         if QMin.control["densonly"]:
@@ -804,6 +827,8 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         if QMin.requests["theodore"]:
             data.append("pop=full")
             data.append("IOP(9/40=3)")
+        if QMin.requests["basis_set"] or QMin["density_matrices"] or QMin["multipolar_fit"]:
+            data.append("GFINPUT")
         data.append("GFPRINT")
         string += "#"
         for i in data:
@@ -856,20 +881,20 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         self.log.info(shorten_DIR(tofile))
 
         # if necessary, extract the MOs and write them to savedir
-        if qmin.requests["ion"] or not qmin["nooverlap"]:
+        if QMin.requests["ion"] or not QMin.requests["nooverlap"]:
             f = os.path.join(WORKDIR, "GAUSSIAN.chk")
-            string = SHARC_GAUSSIAN.get_MO_from_chk(f, qmin)
-            mofile = os.path.join(qmin.save["savedir"], f"mos.{job}.{step}")
+            string = SHARC_GAUSSIAN.get_MO_from_chk(f, QMin)
+            mofile = os.path.join(QMin.save["savedir"], f"mos.{job}.{step}")
             writefile(mofile, string)
             self.log.info(shorten_DIR(mofile))
 
         # if necessary, extract the TDDFT coefficients and write them to savedir
-        if qmin.requests["ion"] or not qmin["nooverlap"]:
+        if QMin.requests["ion"] or not QMin.requests["nooverlap"]:
             f = os.path.join(WORKDIR, "GAUSSIAN.chk")
-            strings = self.get_dets_from_chk(f, qmin)
-            for key, val in strings.items():
-                writefile(key, val)
-                self.log.info(shorten_DIR(val))
+            strings = SHARC_GAUSSIAN.get_dets_from_chk(f, QMin)
+            for f in strings:
+                writefile(f, strings[f])
+                self.log.print(shorten_DIR(f))
 
     # ======================================================================= #
 
@@ -1354,7 +1379,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         Nb = 0
         itot = 0
         mapping = {}
-        for ii, i in enumerate(QMin["geo"]):
+        for ii, i in enumerate(QMin.molecule["elements"]):
             try:
                 Nb += nbs[i[0].lower()]
             except KeyError:
@@ -1437,7 +1462,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                         if m2 not in self.QMin.control["jobs"][job]["mults"]:
                             continue
                         if i == j and (m1, s1) in self.QMin.maps["gradmap"]:
-                            path, _ = self.QMin["jobgrad"][(m1, s1)]
+                            path, isgs = self.QMin.control["jobgrad"][(m1, s1)]
                             logfile = os.path.join(self.QMin.resources["scratchdir"], path, "GAUSSIAN.log")
                             dm = SHARC_GAUSSIAN.getdm(logfile)
                             for ixyz in range(3):
@@ -1456,20 +1481,20 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         # Gradients
         if self.QMin.requests["grad"]:
             for grad in self.QMin.maps["gradmap"]:
-                path, _ = self.QMin["jobgrad"][grad]
+                path, isgs = self.QMin.control["jobgrad"][grad]
                 logfile = os.path.join(self.QMin.resources["scratchdir"], path, "GAUSSIAN.log")
                 g = self.getgrad(logfile)
                 for istate in self.QMin.maps["statemap"]:
                     state = self.QMin.maps["statemap"][istate]
                     if (state[0], state[1]) == grad:
                         self.QMout["grad"][istate - 1] = g
-            if self.QMin["neglected_gradient"] != "zero":
+            if self.QMin.resources["neglected_gradient"] != "zero":
                 for i in range(nmstates):
                     m1, s1, ms1 = tuple(self.QMin.maps["statemap"][i + 1])
                     if not (m1, s1) in self.QMin.maps["gradmap"]:
-                        if self.QMin["neglected_gradient"] == "gs":
+                        if self.QMin.resources["neglected_gradient"] == "gs":
                             j = self.QMin.maps["gsmap"][i + 1] - 1
-                        elif self.QMin["neglected_gradient"] == "closest":
+                        elif self.QMin.resources["neglected_gradient"] == "closest":
                             e1 = self.QMout["h"][i][i]
                             de = 999.0
                             for grad in self.QMin.maps["gradmap"]:
@@ -1487,7 +1512,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         if self.QMin.requests["overlap"]:
             for mult in itmult(self.QMin.molecule["states"]):
                 job = self.QMin.maps["multmap"][mult]
-                outfile = os.path.join(self.QMin.resources["scratchdir"], f"WFOVL_{mult}_{job}","wfovl.out")
+                outfile = os.path.join(self.QMin.resources["scratchdir"], f"WFOVL_{mult}_{job}", "wfovl.out")
                 ovlp_mat = self.parse_wfoverlap(outfile)
                 self.log.print("Overlaps: " + shorten_DIR(outfile))
                 for i in range(nmstates):
@@ -1547,7 +1572,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         get_basis = (
             self.QMin.requests["basis_set"] or self.QMin.requests["density_matrices"] or self.QMin.requests["multipolar_fit"]
         )
-        get_ecp = self.QMin.requests["densities"] or self.QMin.requests["multipolar_fit"]
+        get_ecp = self.QMin.requests["density_matrices"] or self.QMin.requests["multipolar_fit"]
 
         if get_basis:
             keywords_from_master.update(
@@ -1596,15 +1621,11 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         get_densities = get_ecp
 
         if get_densities:
-            self.log.info("Retrieving densities from FCHK files")
-            densities = self.get_densities(n_bf)  # map for (mult, state, state): position in densities
-
-        if self.QMin.requests["multipolar_fit"]:
-            gsmult = self.QMin["statemap"][1][0]
-            charge = self.QMin["chargemap"][gsmult]
+            gsmult = self.QMin.maps["statemap"][1][0]
+            charge = self.QMin.maps["chargemap"][gsmult]
             atoms = [
                 [f"{s.upper()}{j+1}", c.tolist()]
-                for j, s, c in zip(range(self.QMin.molecule["natom"]), self.QMin.molecule["symbols"], self.QMin.coords["coords"])
+                for j, s, c in zip(range(self.QMin.molecule["natom"]), self.QMin.molecule["elements"], self.QMin.coords["coords"])
             ]
             mol = gto.Mole(
                 atom=atoms,
@@ -1614,10 +1635,16 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                 charge=charge,
                 symmetry=False,
                 cart=cartesian_d,
-                ecp={f'{self.QMin.molecule["symbols"][n]}{n+1}': ecp_string for n, ecp_string in ECPs.items()},
+                ecp={f'{self.QMin.molecule["elements"][n]}{n+1}': ecp_string for n, ecp_string in ECPs.items()},
             )
             mol.build()
             Sao = mol.intor("int1e_ovlp")
+            self.log.info("Retrieving densities from FCHK files")
+            densities = self.get_densities(
+                n_bf, generate_tdm=True, Sao=Sao
+            )  # map for (mult, state, state): position in densities
+
+        if self.QMin.requests["multipolar_fit"]:
             dipole_operator = mol.intor("int1e_r")
             # obtain normalization coefficients of pyscf overlap
             ao_sqrt_norms = np.sqrt(np.diag(Sao))
@@ -1657,7 +1684,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                 for i in range(nmstates):
                     m1, s1, ms1 = tuple(self.QMin.maps["statemap"][i + 1])
                     if (m1, s1) in props:
-                        for j in range(self.QMin["theodore_n"]):
+                        for j in range(self.QMin.resources["theodore_n"]):
                             self.QMout["theodore"][i][j] = props[(m1, s1)][j]
 
         endtime = datetime.datetime.now()
@@ -1683,20 +1710,18 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                         pass
             if self.QMin.requests["grad"]:
                 for grad in self.QMin.maps["gradmap"]:
-                    path, _ = self.QMin["jobgrad"][grad]
+                    path, isgs = self.QMin.control["jobgrad"][grad]
                     outfile = os.path.join(self.QMin.resources["scratchdir"], path, "GAUSSIAN.log")
-                    shutil.copy(outfile, os.path.join(copydir, f"GAUSSIAN_GRAD_{grad}_{grad}.log"))
+                    shutil.copy(outfile, os.path.join(copydir, "GAUSSIAN_GRAD_%i_%i.log" % grad))
             if self.QMin.requests["overlap"]:
                 for mult in itmult(self.QMin.molecule["states"]):
                     job = self.QMin.maps["multmap"][mult]
-                    outfile = os.path.join(self.QMin.resources["scratchdir"], f"WFOVL_{mult}_{job}", "wfovl.out")
-                    shutil.copy(outfile, os.path.join(copydir, f"WFOVL_{mult}_{job}.out"))
+                    outfile = os.path.join(self.QMin.resources["scratchdir"], "WFOVL_%i_%i/wfovl.out" % (mult, job))
+                    shutil.copy(outfile, os.path.join(copydir, "WFOVL_%i_%i.out" % (mult, job)))
             if self.QMin.requests["ion"]:
                 for ion in self.QMin.maps["ionmap"]:
-                    outfile = os.path.join(
-                        self.QMin.resources["scratchdir"], f"Dyson_{'_'.join(str(i) for i in ion)}", "wfovl.out"
-                    )
-                    shutil.copy(outfile, os.path.join(copydir, f"Dyson_{'_'.join(str(i) for i in ion)}.out"))
+                    outfile = os.path.join(self.QMin.resources["scratchdir"], "Dyson_%i_%i_%i_%i/wfovl.out" % ion)
+                    shutil.copy(outfile, os.path.join(copydir, "Dyson_%i_%i_%i_%i.out" % ion))
 
         return
 
@@ -1931,19 +1956,23 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
 
         return ECPs
 
-    def get_densities(self, n_bf, generate_tdm: True) -> dict[(int, int, int, int), np.ndarray]:
+    def get_densities(self, n_bf, generate_tdm=True, Sao=None) -> dict[(int, int, int, int), np.ndarray]:
         """
         builds a dictionary of densities out of the information in 'densmap' and 'jobdens'
 
         Args:
             n_bf: int   number of basis functions
             generate_tdm: bool generate transition density matrices from tdm.es2es_tdm
+            Sao: overlap matrix of atomic orbitals
         """
+        if generate_tdm and Sao is None:
+            self.log.error(f"Need overlap of atomic orbitals to calculate approximate transition matrices! set Sao=")
+            raise RuntimeError()
         # sort densjobs
         density_map = {}  # map for (mult, state, state): position in densities
         jobfiles = set()
         for dens in self.QMin.maps["densmap"]:
-            job = self.QMin["jobdens"][dens]
+            job = self.QMin.control["jobdens"][dens]
             if job not in jobfiles:
                 # create all necessary FCHKs
                 workdir = os.path.join(self.QMin.resources["scratchdir"], job)
@@ -1951,26 +1980,26 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                 fchkfile = os.path.join(workdir, "GAUSSIAN.fchk")
                 keywords = set()
                 jobfiles.add(job)
-                flags = self.QMin["densjob"][job]
+                flags = self.QMin.control["densjob"][job]
                 scf, es, gses = map(flags.get, ("scf", "es", "gses"))
                 if scf:
-                    keywords.add("SCF Density")
+                    keywords.add("Total SCF Density")
                 if es:
-                    keywords.add("CI Density")
+                    keywords.add("Total CI Density")
                 if gses:
                     keywords.update({"Number of g2e trans dens", "G to E trans densities"})
 
                 raw_matrices = SHARC_GAUSSIAN.parse_fchk(fchkfile, keywords)
 
                 if scf:
-                    if raw_matrices["SCF Density"] is None:
+                    if raw_matrices["Total SCF Density"] is None:
                         self.log.warning(f"SCF density for {dens} not found in:\n\t {fchkfile}")
-                    density_map[(*dens, *dens)] = triangular_to_full_matrix(raw_matrices["SCF Density"], n_bf)
+                    density_map[(*dens, *dens)] = triangular_to_full_matrix(raw_matrices["Total SCF Density"], n_bf)
                 if es:
                     edens = (dens[0], dens[1] + 1) if scf else dens
-                    if raw_matrices["CI Density"] is None:
+                    if raw_matrices["Total CI Density"] is None:
                         self.log.warning(f"CI density for {edens} not found in:\n\t {fchkfile}")
-                    density_map[(*edens, *edens)] = triangular_to_full_matrix(raw_matrices["CI Density"], n_bf)
+                    density_map[(*edens, *edens)] = triangular_to_full_matrix(raw_matrices["Total CI Density"], n_bf)
                 if gses:
                     if raw_matrices["G to E trans densities"] is None:
                         self.log.warning(f"ground-to-excited state densities not found in:\n\t {fchkfile}")
@@ -1987,13 +2016,16 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                     last = nstates
                     for i_mat, state in zip(range(0, 2 * raw_matrices["Number of g2e trans dens"], 2), range(first, last + 1)):
                         density_map[(gsmult, 1, dens[0], state)] = all_g2e_tensor[i_mat, ...] * math.sqrt(2)
-                    if generate_tdm:
-                        for s1 in range(first, last + 1):
-                            for s2 in range(s1 + 1, last + 1):
-                                self.log.debug(f"Generating transition density matrix for {gsmult}_{s1}->{gsmult}_{s2}")
-                                density_map[(gsmult, s1, gsmult, s2)] = es2es_tdm(
-                                    density_map[(gsmult, 1, gsmult, s1)], density_map[(gsmult, 1, gsmult, s2)]
-                                )
+        if generate_tdm:
+            for m1, s1 in self.QMin.maps["densmap"]:
+                for m2, s2 in self.QMin.maps["densmap"]:
+                    if m1 == m2 and (m1, s1, m2, s2) not in density_map:
+                        ijob = self.QMin.maps["multmap"][dens[0]]
+                        gsmult = self.QMin.maps["multmap"][-ijob][0]
+                        self.log.debug(f"Generating transition density matrix for {m1}_{s1}->{m2}_{s2}")
+                        density_map[(m1, s1, m1, s2)] = es2es_tdm(
+                            density_map[(gsmult, 1, m1, s1)], density_map[(gsmult, 1, m1, s2)], Sao
+                        )
 
         return density_map
 
@@ -2124,7 +2156,8 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
 
     # ======================================================================= #
 
-    def getdm(self, logfile):
+    @staticmethod
+    def getdm(logfile):
         # open file
         f = readfile(logfile)
 

@@ -24,6 +24,7 @@
 # ******************************************
 
 import ast
+
 # IMPORTS
 # external
 import os
@@ -37,13 +38,13 @@ from textwrap import wrap
 from typing import Any, Optional
 
 import numpy as np
+
 # internal
 from constants import ATOMCHARGE, BOHR_TO_ANG, FROZENS
 from logger import SHARCPRINT, CustomFormatter, logging
 from qmin import QMin
 from qmout import QMout
-from utils import (clock, expand_path, itnmstates, parse_xyz, readfile,
-                   writefile)
+from utils import clock, expand_path, itnmstates, parse_xyz, readfile, writefile
 
 all_features = {
     "h",
@@ -770,15 +771,15 @@ class SHARC_INTERFACE(ABC):
         req = request[0]
         if req in self.QMin.requests.keys():
             match request:
-                case ["grad" | "multipolar_fit"]:
+                case ["grad"]:
                     self.QMin.requests[req] = [i + 1 for i in range(self.QMin.molecule["nmstates"])]
-                case ["grad" | "multipolar_fit", "all"]:
+                case ["grad", "all"]:
                     self.QMin.requests[req] = [i + 1 for i in range(self.QMin.molecule["nmstates"])]
-                case ["nacdr"]:
+                case ["nacdr" | "multipolar_fit" | "density_matrices"]:
                     self.QMin.requests[req] = ["all"]
-                case ["nacdr", "all"]:
+                case ["nacdr" | "multipolar_fit" | "density_matrices", "all"]:
                     self.QMin.requests[req] = ["all"]
-                case ["grad" | "multipolar_fit", value]:
+                case ["grad", value]:
                     self.QMin.requests[req] = sorted(list(map(int, request[1])))
                     if max(self.QMin.requests[req]) > self.QMin.molecule["nmstates"]:
                         self.log.error(f"Requested {req} higher than total number of states!")
@@ -789,16 +790,12 @@ class SHARC_INTERFACE(ABC):
                     if len(self.QMin.requests[req]) != len(set(self.QMin.requests[req])):
                         self.log.error(f"Duplicate {req} requested!")
                         raise ValueError()
-                case ["nacdr", value]:
+                case ["nacdr" | "multipolar_fit" | "density_matrices", value]:
                     self.QMin.requests[req] = sorted([[int(x) for x in y] for y in request[1]])
                     if not all(len(x) == 2 for x in self.QMin.requests[req]):
                         raise ValueError(f"'{req}' not set correctly! Needs to to be nx2 matrix not {self.QMin.requests[req]}")
                 case ["soc", _]:
-                    if (
-                        len(self.QMin.molecule["states"]) < 3
-                        or (self.QMin.molecule["states"][0] == 0 and self.QMin.molecule["states"][2] <= 1)
-                        or (self.QMin.molecule["states"][0] > 0 and self.QMin.molecule["states"][2] == 0)
-                    ):
+                    if sum(i > 0 for i in self.QMin.molecule["states"]) < 2:
                         self.log.warning("SOCs requested but only 1 multiplicity given! Disable SOCs")
                         return
                     self.QMin.requests["soc"] = True
