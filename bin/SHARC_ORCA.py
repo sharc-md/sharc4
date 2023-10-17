@@ -118,6 +118,8 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 "hfexchange": -1.0,
                 "intacc": -1.0,
                 "unrestricted_triplets": False,
+                "basis_per_element": None,
+                "basis_per_atom": None,
             }
         )
         self.QMin.template.types.update(
@@ -137,6 +139,8 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 "hfexchange": float,
                 "intacc": float,
                 "unrestricted_triplets": bool,
+                "basis_per_element": list,
+                "basis_per_atom": list,
             }
         )
 
