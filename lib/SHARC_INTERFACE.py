@@ -795,7 +795,11 @@ class SHARC_INTERFACE(ABC):
                     if not all(len(x) == 2 for x in self.QMin.requests[req]):
                         raise ValueError(f"'{req}' not set correctly! Needs to to be nx2 matrix not {self.QMin.requests[req]}")
                 case ["soc", _]:
-                    if sum(i > 0 for i in self.QMin.molecule["states"]) < 2:
+                    if (
+                        len(self.QMin.molecule["states"]) < 3
+                        or (self.QMin.molecule["states"][0] == 0 and self.QMin.molecule["states"][2] <= 1)
+                        or (self.QMin.molecule["states"][0] > 0 and self.QMin.molecule["states"][2] == 0)
+                    ):
                         self.log.warning("SOCs requested but only 1 multiplicity given! Disable SOCs")
                         return
                     self.QMin.requests["soc"] = True
