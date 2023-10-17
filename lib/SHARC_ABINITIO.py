@@ -76,6 +76,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 "resp_betas": [0.0005, 0.0015, 0.003],
                 "resp_layers": 4,
                 "resp_fit_order": 2,
+                "resp_first_layer": 1.4,
                 "resp_mk_radii": True,  # use radii for original Merz-Kollmann-Singh scheme for HCNOSP
                 "resp_grid": "lebedev",
             }
@@ -92,6 +93,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 "resp_betas": list,
                 "resp_layers": int,
                 "resp_fit_order": int,
+                "resp_first_layer": float,
                 "resp_mk_radii": bool,  # use radii for original Merz-Kollmann-Singh scheme for HCNOSP
                 "resp_grid": str,
             }
@@ -258,17 +260,21 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             self.QMin.maps["gradmap"] = set({tuple(self.QMin.maps["statemap"][i][0:2]) for i in self.QMin.requests["grad"]})
 
         # Setup densmap
-        if self.QMin.requests["multipolar_fit"] or self.QMin.requests['density_matrices']:
+        if self.QMin.requests["multipolar_fit"] or self.QMin.requests["density_matrices"]:
             self.log.debug("Building densmap")
-            self.QMin.maps['densmap'] = set()
+            self.QMin.maps["densmap"] = set()
 
-            if self.QMin.requests['density_matrices'] == ['all'] or self.QMin.requests['multipolar_fit'] == ['all']:
-                self.QMin.maps['densmap'].update({tuple(self.QMin.maps['statemap'][i][0:2]) for i in self.QMin.maps['statemap']})
+            if self.QMin.requests["density_matrices"] == ["all"] or self.QMin.requests["multipolar_fit"] == ["all"]:
+                self.QMin.maps["densmap"].update({tuple(self.QMin.maps["statemap"][i][0:2]) for i in self.QMin.maps["statemap"]})
             else:
-                if self.QMin.requests['density_matrices']: 
-                    self.QMin.maps['densmap'].update({tuple(self.QMin.maps["statemap"][i][0:2]) for i in self.QMin.requests["density_matrices"]})
-                if self.QMin.requests['multipolar_fit']: 
-                    self.QMin.maps['densmap'].update({tuple(self.QMin.maps["statemap"][i][0:2]) for i in self.QMin.requests["multipolar_fit"]})
+                if self.QMin.requests["density_matrices"]:
+                    self.QMin.maps["densmap"].update(
+                        {tuple(self.QMin.maps["statemap"][i][0:2]) for i in self.QMin.requests["density_matrices"]}
+                    )
+                if self.QMin.requests["multipolar_fit"]:
+                    self.QMin.maps["densmap"].update(
+                        {tuple(self.QMin.maps["statemap"][i][0:2]) for i in self.QMin.requests["multipolar_fit"]}
+                    )
 
         # Setup nacmap
         if self.QMin.requests["nacdr"]:

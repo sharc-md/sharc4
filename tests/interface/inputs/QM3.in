@@ -30,7 +30,6 @@ states 0 0 0 0 9 9
     ## ===============================================
     # Quantity requests:
 h
-soc
 dm
 nacdr
 socdr
