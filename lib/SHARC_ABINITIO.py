@@ -209,6 +209,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
 
     @abstractmethod
     def read_resources(self, resources_file: str, kw_whitelist: Optional[list[str]] = None) -> None:
+        kw_whitelist = [] if kw_whitelist is None else kw_whitelist
         super().read_resources(resources_file, kw_whitelist + ["theodore_fragment"])
 
         # if "theodore_fragment" in self.QMin.resources:
@@ -244,8 +245,50 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         self.QMin.control["states_to_do"] = [
             v + int(self.QMin.template["paddingstates"][i]) if v > 0 else v for i, v in enumerate(self.QMin.molecule["states"])
         ]
+
+    def _request_logic(self):
+        """
+        Create maps from QMin object
+        """
+        self.log.debug("Setup interface -> building maps")
+        super()._request_logic()
+        # Setup gradmap
+        if self.QMin.requests["grad"]:
+            self.log.debug("Building gradmap")
+            self.QMin.maps["gradmap"] = set({tuple(self.QMin.maps["statemap"][i][0:2]) for i in self.QMin.requests["grad"]})
+
+        # Setup densmap
+        if self.QMin.requests["multipolar_fit"] or self.QMin.requests['density_matrices']:
+            self.log.debug("Building densmap")
+            self.QMin.maps['densmap'] = set()
+
+            if self.QMin.requests['density_matrices'] == ['all'] or self.QMin.requests['multipolar_fit'] == ['all']:
+                self.QMin.maps['densmap'].update({tuple(self.QMin.maps['statemap'][i][0:2]) for i in self.QMin.maps['statemap']})
+            else:
+                if self.QMin.requests['density_matrices']: 
+                    self.QMin.maps['densmap'].update({tuple(self.QMin.maps["statemap"][i][0:2]) for i in self.QMin.requests["density_matrices"]})
+                if self.QMin.requests['multipolar_fit']: 
+                    self.QMin.maps['densmap'].update({tuple(self.QMin.maps["statemap"][i][0:2]) for i in self.QMin.requests["multipolar_fit"]})
+
+        # Setup nacmap
+        if self.QMin.requests["nacdr"]:
+            if self.QMin.requests["nacdr"] == ["all"]:
+                mat = [
+                    (i + 1, j + 1) for i in range(self.QMin.molecule["nmstates"]) for j in range(self.QMin.molecule["nmstates"])
+                ]
+                # self.QMin.requests["nacdr"] = mat
+            else:
+                mat = self.QMin.requests["nacdr"]
+            self.log.debug("Building nacmap")
+            self.QMin.maps["nacmap"] = set()
+            for i in mat:
+                m1, s1, ms1 = self.QMin.maps["statemap"][int(i[0])]
+                m2, s2, ms2 = self.QMin.maps["statemap"][int(i[1])]
+                if m1 != m2 or i[0] == i[1] or ms1 != ms2 or s1 > s2:
+                    continue
+                self.QMin.maps["nacmap"].add(tuple([m1, s1, m2, s2]))
+
         if self.QMin.requests["multipolar_fit"]:
-            # TODO: do only if RESP requested
             # construct shells
             shells, first, nlayers = map(QMin.resources.get, ("resp_shells", "resp_first_layer", "resp_layers"))
 
@@ -279,42 +322,6 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 raise RuntimeError(
                     f"specified grid {self.QMin.resources['resp_grid']} not available.\n Possible options are 'lebedev', 'random', 'golden_spiral', 'gamess', 'marcus_deserno'"
                 )
-
-    def _request_logic(self):
-        """
-        Create maps from QMin object
-        """
-        self.log.debug("Setup interface -> building maps")
-        super()._request_logic()
-        # Setup gradmap
-        if self.QMin.requests["grad"]:
-            self.log.debug("Building gradmap")
-            self.QMin.maps["gradmap"] = set({tuple(self.QMin.maps["statemap"][i][0:2]) for i in self.QMin.requests["grad"]})
-
-        # Setup densmap
-        if self.QMin.requests["multipolar_fit"]:
-            self.log.debug("Building densmap")
-            self.QMin.maps["densmap"] = set(
-                {tuple(self.QMin.maps["statemap"][i][0:2]) for i in self.QMin.requests["multipolar_fit"]}
-            )
-
-        # Setup nacmap
-        if self.QMin.requests["nacdr"]:
-            if self.QMin.requests["nacdr"] == ["all"]:
-                mat = [
-                    (i + 1, j + 1) for i in range(self.QMin.molecule["nmstates"]) for j in range(self.QMin.molecule["nmstates"])
-                ]
-                # self.QMin.requests["nacdr"] = mat
-            else:
-                mat = self.QMin.requests["nacdr"]
-            self.log.debug("Building nacmap")
-            self.QMin.maps["nacmap"] = set()
-            for i in mat:
-                m1, s1, ms1 = self.QMin.maps["statemap"][int(i[0])]
-                m2, s2, ms2 = self.QMin.maps["statemap"][int(i[1])]
-                if m1 != m2 or i[0] == i[1] or ms1 != ms2 or s1 > s2:
-                    continue
-                self.QMin.maps["nacmap"].add(tuple([m1, s1, m2, s2]))
 
     @abstractmethod
     def getQMout(self):

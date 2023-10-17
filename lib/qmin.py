@@ -168,6 +168,8 @@ class QMinRequests(QMinBase):
         "molden": bool,
         "savestuff": bool,
         "nooverlap": bool,
+        "basis_set": bool,
+        "density_matrices": list,
     """
 
     def __init__(self, *args, **kwargs):
@@ -192,6 +194,8 @@ class QMinRequests(QMinBase):
             "molden": False,
             "savestuff": False,
             "nooverlap": False,
+            "basis_set": False,
+            "density_matrices": None,
         }
         self.types = {
             "h": bool,
@@ -211,6 +215,8 @@ class QMinRequests(QMinBase):
             "molden": bool,
             "savestuff": bool,
             "nooverlap": bool,
+            "basis_set": bool,
+            "density_matrices": list,
         }
 
 
