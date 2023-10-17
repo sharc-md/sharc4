@@ -611,7 +611,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
                             continue
                         if not ms1 == ms2:
                             continue
-                        self.QMout["overlap"][i, j] = ovlp_mat[i, j]
+                        self.QMout["overlap"][i, j] = ovlp_mat[s1 - 1, s2 - 1]
 
             # Phases
             if self.QMin.requests["phases"]:
