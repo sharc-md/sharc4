@@ -668,7 +668,7 @@ class SHARC_INTERFACE(ABC):
             match line.lower().split(maxsplit=1):
                 case [key] if key in (*self.QMin.requests.keys(), "step"):
                     self.log.debug(f"Parsing request {key}")
-                    self._set_request((key, "all"))
+                    self._set_request((key, None))
                 case ["select" | "start", key]:
                     self.log.error(f"line with '{line}' found but no 'end' keyword!")
                     raise ValueError(f"line with '{line}' found but no 'end' keyword!")
@@ -771,11 +771,11 @@ class SHARC_INTERFACE(ABC):
         req = request[0]
         if req in self.QMin.requests.keys():
             match request:
-                case ["grad"]:
+                case ["grad", None]:
                     self.QMin.requests[req] = [i + 1 for i in range(self.QMin.molecule["nmstates"])]
                 case ["grad", "all"]:
                     self.QMin.requests[req] = [i + 1 for i in range(self.QMin.molecule["nmstates"])]
-                case ["nacdr" | "multipolar_fit" | "density_matrices"]:
+                case ["nacdr" | "multipolar_fit" | "density_matrices", None]:
                     self.QMin.requests[req] = ["all"]
                 case ["nacdr" | "multipolar_fit" | "density_matrices", "all"]:
                     self.QMin.requests[req] = ["all"]
@@ -794,7 +794,7 @@ class SHARC_INTERFACE(ABC):
                     self.QMin.requests[req] = sorted([[int(x) for x in y] for y in request[1]])
                     if not all(len(x) == 2 for x in self.QMin.requests[req]):
                         raise ValueError(f"'{req}' not set correctly! Needs to to be nx2 matrix not {self.QMin.requests[req]}")
-                case ["soc", _]:
+                case ["soc", None]:
                     if sum(i > 0 for i in self.QMin.molecule["states"]) < 2:
                         self.log.warning("SOCs requested but only 1 multiplicity given! Disable SOCs")
                         return

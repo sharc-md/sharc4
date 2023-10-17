@@ -76,6 +76,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 "resp_betas": [0.0005, 0.0015, 0.003],
                 "resp_layers": 4,
                 "resp_fit_order": 2,
+                "resp_first_layer": 1.4,
                 "resp_mk_radii": True,  # use radii for original Merz-Kollmann-Singh scheme for HCNOSP
                 "resp_grid": "lebedev",
             }
@@ -92,6 +93,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 "resp_betas": list,
                 "resp_layers": int,
                 "resp_fit_order": int,
+                "resp_first_layer": float,
                 "resp_mk_radii": bool,  # use radii for original Merz-Kollmann-Singh scheme for HCNOSP
                 "resp_grid": str,
             }
@@ -213,9 +215,9 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         super().read_resources(resources_file, kw_whitelist + ["theodore_fragment"])
 
         # if "theodore_fragment" in self.QMin.resources:
-            # self.QMin.resources["theodore_fragment"] = [
-                # list(map(int, (j for j in i))) for i in self.QMin.resources["theodore_fragment"]
-            # ]
+        # self.QMin.resources["theodore_fragment"] = [
+        # list(map(int, (j for j in i))) for i in self.QMin.resources["theodore_fragment"]
+        # ]
 
     @abstractmethod
     def read_requests(self, requests_file: str = "QM.in") -> None:
@@ -258,17 +260,21 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             self.QMin.maps["gradmap"] = set({tuple(self.QMin.maps["statemap"][i][0:2]) for i in self.QMin.requests["grad"]})
 
         # Setup densmap
-        if self.QMin.requests["multipolar_fit"] or self.QMin.requests['density_matrices']:
+        if self.QMin.requests["multipolar_fit"] or self.QMin.requests["density_matrices"]:
             self.log.debug("Building densmap")
-            self.QMin.maps['densmap'] = set()
+            self.QMin.maps["densmap"] = set()
 
-            if self.QMin.requests['density_matrices'] == ['all'] or self.QMin.requests['multipolar_fit'] == ['all']:
-                self.QMin.maps['densmap'].update({tuple(self.QMin.maps['statemap'][i][0:2]) for i in self.QMin.maps['statemap']})
+            if self.QMin.requests["density_matrices"] == ["all"] or self.QMin.requests["multipolar_fit"] == ["all"]:
+                self.QMin.maps["densmap"].update({tuple(self.QMin.maps["statemap"][i][0:2]) for i in self.QMin.maps["statemap"]})
             else:
-                if self.QMin.requests['density_matrices']: 
-                    self.QMin.maps['densmap'].update({tuple(self.QMin.maps["statemap"][i][0:2]) for i in self.QMin.requests["density_matrices"]})
-                if self.QMin.requests['multipolar_fit']: 
-                    self.QMin.maps['densmap'].update({tuple(self.QMin.maps["statemap"][i][0:2]) for i in self.QMin.requests["multipolar_fit"]})
+                if self.QMin.requests["density_matrices"]:
+                    self.QMin.maps["densmap"].update(
+                        {tuple(self.QMin.maps["statemap"][i][0:2]) for i in self.QMin.requests["density_matrices"]}
+                    )
+                if self.QMin.requests["multipolar_fit"]:
+                    self.QMin.maps["densmap"].update(
+                        {tuple(self.QMin.maps["statemap"][i][0:2]) for i in self.QMin.requests["multipolar_fit"]}
+                    )
 
         # Setup nacmap
         if self.QMin.requests["nacdr"]:
@@ -290,7 +296,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
 
         if self.QMin.requests["multipolar_fit"]:
             # construct shells
-            shells, first, nlayers = map(QMin.resources.get, ("resp_shells", "resp_first_layer", "resp_layers"))
+            shells, first, nlayers = map(self.QMin.resources.get, ("resp_shells", "resp_first_layer", "resp_layers"))
 
             # collect vdw radii for atoms from settings
             if self.QMin.resources["resp_vdw_radii"]:
@@ -301,10 +307,10 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 radii = ATOMIC_RADII
                 if self.QMin.resources["resp_mk_radii"]:
                     radii.update(MK_RADII)
-                for e in filter(lambda x: e not in self.QMin.resources["resp_vdw_radii_symbol"], self.QMin.molecule["elements"]):
+                for e in filter(lambda x: x not in self.QMin.resources["resp_vdw_radii_symbol"], self.QMin.molecule["elements"]):
                     self.QMin.resources["resp_vdw_radii_symbol"][e] = radii[e]
                 self.QMin.resources["resp_vdw_radii"] = [
-                    self.QMin.resources["resp_vdw_radii_symbol"][s] for s in self.QMin["elements"]
+                    self.QMin.resources["resp_vdw_radii_symbol"][s] for s in self.QMin.molecule["elements"]
                 ]
 
             if self.QMin.resources["resp_betas"]:
@@ -572,7 +578,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             if len(overlap_mat) != dim:
                 raise ValueError(f"File {overlap_file} does not contain an overlap matrix!")
         return np.asarray(overlap_mat)
-    
+
     def get_dyson(self, wfovl: str) -> np.ndarray:
         """
         Parse wfovlp output file and extract Dyson norm matrix
@@ -594,7 +600,6 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 self.log.error(f"{wfovl} does not contain a square matrix!")
                 raise ValueError()
             return np.asarray(value_list).reshape(-1, int(dim))
-
 
     @staticmethod
     def format_ci_vectors(ci_vectors: list[dict[tuple[int, ...], float]]) -> str:
