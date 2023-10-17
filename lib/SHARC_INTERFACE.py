@@ -24,6 +24,7 @@
 # ******************************************
 
 import ast
+
 # IMPORTS
 # external
 import os
@@ -37,13 +38,13 @@ from textwrap import wrap
 from typing import Any, Optional
 
 import numpy as np
+
 # internal
 from constants import ATOMCHARGE, BOHR_TO_ANG, FROZENS
 from logger import SHARCPRINT, CustomFormatter, logging
 from qmin import QMin
 from qmout import QMout
-from utils import (clock, expand_path, itnmstates, parse_xyz, readfile,
-                   writefile)
+from utils import clock, expand_path, itnmstates, parse_xyz, readfile, writefile
 
 all_features = {
     "h",
@@ -279,7 +280,7 @@ class SHARC_INTERFACE(ABC):
         self.writeQMout()
 
     @abstractmethod
-    def read_template(self, template_file: str) -> None:
+    def read_template(self, template_file: str, kw_whitelist: Optional[list[str]] = None) -> None:
         """
         Reads a template file and assigns parameters to
         self.QMin.template. No sanity checks at all, has to be done
@@ -293,7 +294,7 @@ class SHARC_INTERFACE(ABC):
         if self._read_template:
             self.log.warning(f"Template already read! Overwriting with {template_file}")
 
-        self.QMin.template.update(self._parse_raw(template_file, self.QMin.template.types))
+        self.QMin.template.update(self._parse_raw(template_file, self.QMin.template.types, kw_whitelist))
 
         self._read_template = True
 

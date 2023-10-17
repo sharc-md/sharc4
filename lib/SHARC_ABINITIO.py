@@ -175,8 +175,8 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         """
 
     @abstractmethod
-    def read_template(self, template_file: str) -> None:
-        super().read_template(template_file)
+    def read_template(self, template_file: str, kw_whitelist: Optional[list[str]] = None) -> None:
+        super().read_template(template_file, kw_whitelist)
 
         # Check if charge in template and autoexpand if needed
         if self.QMin.template["charge"]:
@@ -212,18 +212,18 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         super().read_resources(resources_file, kw_whitelist + ["theodore_fragment"])
 
         # if "theodore_fragment" in self.QMin.resources:
-            # self.QMin.resources["theodore_fragment"] = [
-                # list(map(int, (j for j in i))) for i in self.QMin.resources["theodore_fragment"]
-            # ]
+        # self.QMin.resources["theodore_fragment"] = [
+        # list(map(int, (j for j in i))) for i in self.QMin.resources["theodore_fragment"]
+        # ]
 
-    @ abstractmethod
+    @abstractmethod
     def read_requests(self, requests_file: str = "QM.in") -> None:
         super().read_requests(requests_file)
 
     def printQMout(self) -> None:
         super().writeQMout()
 
-    @ abstractmethod
+    @abstractmethod
     def setup_interface(self) -> None:
         # Setup charge and paddingstates
         if not self.QMin.template["charge"]:
@@ -565,7 +565,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             if len(overlap_mat) != dim:
                 raise ValueError(f"File {overlap_file} does not contain an overlap matrix!")
         return np.asarray(overlap_mat)
-    
+
     def get_dyson(self, wfovl: str) -> np.ndarray:
         """
         Parse wfovlp output file and extract Dyson norm matrix
@@ -587,7 +587,6 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 self.log.error(f"{wfovl} does not contain a square matrix!")
                 raise ValueError()
             return np.asarray(value_list).reshape(-1, int(dim))
-
 
     @staticmethod
     def format_ci_vectors(ci_vectors: list[dict[tuple[int, ...], float]]) -> str:
