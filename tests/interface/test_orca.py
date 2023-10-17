@@ -336,4 +336,4 @@ def test_parsedyson():
 
     test_interface = SHARC_ORCA()
     for wfovlp, ref in tests:
-        assert np.allclose(test_interface._get_dyson(os.path.join(expand_path(PATH), wfovlp)), ref)
+        assert np.allclose(test_interface.get_dyson(os.path.join(expand_path(PATH), wfovlp)), ref)
