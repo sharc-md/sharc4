@@ -531,8 +531,8 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 link(os.path.join(savedir, "AO_overl.mixed"), os.path.join(workdir, "aoovl"))
                 link(os.path.join(savedir, f"dets.{m}.{step-1}"), os.path.join(workdir, "det.a"))
                 link(os.path.join(savedir, f"dets.{m}.{step}"), os.path.join(workdir, "det.b"))
-                link(os.path.join(savedir, f"mos.{m}.{step-1}"), os.path.join(workdir, "mo.a"))
-                link(os.path.join(savedir, f"mos.{m}.{step}"), os.path.join(workdir, "mo.b"))
+                link(os.path.join(savedir, f"mos.{self.QMin.maps['multmap'][m]}.{step-1}"), os.path.join(workdir, "mo.a"))
+                link(os.path.join(savedir, f"mos.{self.QMin.maps['multmap'][m]}.{step}"), os.path.join(workdir, "mo.b"))
 
                 # Execute wfoverlap
                 starttime = datetime.datetime.now()
