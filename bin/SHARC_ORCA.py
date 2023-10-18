@@ -122,7 +122,11 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 "unrestricted_triplets": False,
                 "basis_per_element": None,
                 "basis_per_atom": None,
-                "ecp_per_element": None
+                "ecp_per_element": None,
+                "range_sep_settings": None,
+                "grid": None,
+                "gridx": None,
+                "gridxc": None
             }
         )
         self.QMin.template.types.update(
