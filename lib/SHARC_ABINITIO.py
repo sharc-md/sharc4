@@ -537,7 +537,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 # Execute wfoverlap
                 starttime = datetime.datetime.now()
                 os.environ["OMP_NUM_THREADS"] = str(self.QMin.resources["ncpu"])
-                code = self.run_program(workdir, wf_cmd, "wvovl.out", "wfovl.err")
+                code = self.run_program(workdir, wf_cmd, "wfovl.out", "wfovl.err")
                 self.log.info(
                     f"Finished wfoverlap job: {str(m):<10s} code {code:<4d} runtime: {datetime.datetime.now()-starttime}"
                 )
