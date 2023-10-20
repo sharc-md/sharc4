@@ -280,8 +280,10 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                     elif mat in ["aa", "bb", "tot"]:
                         requested_densities.add((m1, s1, ms1, m2, s2, ms2, mat))
                 # TODO Tomi
+                elif mat == "tot":
+                    requested_densities.add((m1, s1, ms1, m2, s2, ms2, mat))
                 else:
-                    raise NotImplementedError()
+                    raise NotImplementedError(f"{m1, s1, ms1, m2, s2, ms2, mat}")
 
             if self.QMin.requests["density_matrices"]:
                 if self.QMin.requests["density_matrices"] == ["all"]:
@@ -314,8 +316,8 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
 
             if self.QMin.requests["multipolar_fit"]:
                 if self.QMin.requests["multipolar_fit"] == ["all"]:
-                    for state1 in self.QMin.maps["statemap"]:
-                        for state2 in self.QMin.maps["statemap"]:
+                    for state1 in self.QMin.maps["statemap"].values():
+                        for state2 in self.QMin.maps["statemap"].values():
                             density_logic(*state1, *state2, "tot")
                 else:
                     match self.QMin.requests["multipolar_fit"][0]:
@@ -678,21 +680,20 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         return string
 
     def _resp_fit_on_densities(
-        self, basis: dict, densities: dict, cartesian_basis=True, ecps={}
-    ) -> dict[(int, int, int, int), np.ndarray]:
+        self, basis: dict, densities: dict[(int, int, int, int, int, int), np.ndarray], cartesian_basis=True, ecps={}
+    ) -> dict[(int, int, int, int, int, int), np.ndarray]:
         """
         Performs the resp fit on all densities given and returns the fits as dict.
         All transition densities need to be already present! Generate them with tdm.es2es_tdm() if necessary
 
         Args:
             basis: dict  basis set object as defined in pyscf [https://pyscf.org/user/gto.html#basis-format]
-            densities: dict  dictionary on pairs of mult and state for 2D array with pyscf convention [https://pyscf.org/user/gto.html#ordering-of-basis-functions]
+            densities: dict  dictionary (m1, s1, ms1, m2, s2, ms2) for 2D array with pyscf convention [https://pyscf.org/user/gto.html#ordering-of-basis-functions]
             cartesian_basis: bool indicates whether basis contains cartesian d,f,g,... functions
             ecps: dict  definition of effective core potentials in pyscf format [https://pyscf.org/user/gto.html#ecp]
 
         Returns:
-            fits: dict  dictionary on pairs of mult and state for each fit 2D array (natom,10)
-
+            fits: dict  (same key as densities) dictionary on pairs of mult and state for each fit 2D array (natom,10)
         """
         self.log.info(f"{'RESP fit':=^80}")
         self.log.info("\t Start:")
@@ -713,11 +714,15 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
 
         fits_map = {}
 
-        for m1, s1, m2, s2 in densities.keys():
-            key = (m1, s1, m2, s2)
+        denskeys = {}
+        for m1, s1, ms1, m2, s2, ms2 in densities.keys():
+            key = (m1, s1, ms1, m2, s2, ms2)
             if m1 != m2:
                 self.log.warning(f"fitting density different multiplicities! {m1}_{s1},{m2}_{s2}")
                 self.log.warning(f"Charge is set to {self.QMin.maps['chargemap'][m1]} according to mult {m1}")
+                continue
+            if (m1, s1, m2, s2) in denskeys:
+                fits_map[key] = fits_map[denskeys[(m1, s1, m2, s2)]]
                 continue
             fits_map[key] = fits.multipoles_from_dens(
                 densities[key],
@@ -726,7 +731,9 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 charge=self.QMin.maps["chargemap"][m1],
                 betas=self.QMin.resources["resp_betas"],
             )
-            return fits_map
+            denskeys[(m1, s1, m2, s2)] = key
+
+        return fits_map
 
     @staticmethod
     def get_theodore(sumfile: str, omffile: str) -> dict[tuple[int], list[float]]:

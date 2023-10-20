@@ -979,19 +979,18 @@ class QMout:
             f"! 22 Atomwise multipolar density representation fits for states ({nmstates}x{nmstates}x{natom}x10) {setting_str}\n"
         )
 
-        for i, (imult, istate, ims) in zip(range(nmstates), itnmstates(states)):
-            for j, (jmult, jstate, jms) in zip(range(nmstates), itnmstates(states)):
+        for (imult, istate, ims) in itnmstates(states):
+            for (jmult, jstate, jms) in itnmstates(states):
                 string += f"{natom} 10 ! m1 {imult} s1 {istate} ms1 {ims: 3.1f}   m2 {jmult} s2 {jstate} ms2 {jms: 3.1f}\n"
-                string += (
-                    "\n".join(
+                key = (imult, istate, ims, jmult, jstate, jms)
+                val = self.multipolar_fit[key] if key in self.multipolar_fit else np.zeros((natom, 10), dtype=float)
+                string += "\n".join(
                         map(
                             lambda x: " ".join(map(lambda y: "{: 10.8f}".format(y), x)),
-                            self.multipolar_fit[i][j],
+                            val,
                         )
-                    )
-                    + "\n"
-                )
-                string += ""
+                        ) + "\n"
+            string += ""
         string += "\n"
         return string
 
@@ -1125,9 +1124,6 @@ class QMout:
                 for j in range(len(self["prop1d"])):
                     string += "%12.9f " % self["prop1d"][j][1][i]
                 string += "\n"
-            # for element in self["prop1d"]:
-            #     string += f"{element[0]} {element[1]}\n"
-            #     # TODO: format more nicely!
             string += "\n"
         # Property scalars
         if self["prop0d"]:
@@ -1138,20 +1134,13 @@ class QMout:
         # Multipolar fit
         if QMin.requests["multipolar_fit"]:
             string += "=> Multipolar fit:\n\n"
-            istate = 0
-            for imult, i, ims in itnmstates(states):
-                jstate = 0
-                for jmult, j, jms in itnmstates(states):
-                    if imult == jmult and ims == jms:
-                        string += "%s\t%i\tMs= % .1f -- %s\t%i\tMs= % .1f:\n" % (IToMult[imult], i, ims, IToMult[jmult], j, jms)
-                        string += formatgrad(self["multipolar_fit"][istate][jstate], natom, QMin.molecule["elements"], DEBUG)
-                    jstate += 1
-                istate += 1
+            for (imult, istate, ims, jmult, jstate, jms), val in self["multipolar_fit"].items():
+                if imult == jmult and ims == jms:
+                    string += "%s\t%i\tMs= % .1f -- %s\t%i\tMs= % .1f:\n" % (IToMult[imult], istate, ims, IToMult[jmult], jstate, jms)
+                    string += formatgrad(val, natom, QMin.molecule["elements"], DEBUG)
             string += "\n"
 
         return string
-        # print(string)
-        # sys.stdout.flush()
 
 
 if __name__ == "__main__":

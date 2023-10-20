@@ -356,6 +356,10 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
 
     def _states_to_do(self) -> None:
         # obtain the states to actually compute
+        self.QMin.control["states_to_do"] = [s for s in self.QMin.molecule['states']]
+        for i in range(len(self.QMin.molecule['states'])):
+            if self.QMin.control["states_to_do"][i] > 0:
+                self.QMin.control["states_to_do"][i] += self.QMin['template']['paddingstates'][i]
         if not self.QMin.template["unrestricted_triplets"]:
             if (
                 len(self.QMin.molecule["states"]) >= 3
@@ -451,14 +455,19 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
             # gs and first es always accessible from master if gs is not other mult
             for m1, s1, ms1, m2, s2, ms2, mat in self.QMin.requests["density_matrices"].keys():
                 key = (m1, s1, ms1, m2, s2, ms2, mat)
-                if s1 > s2:
+                # skips redundant densities -> are set in the end
+                if m1 > m2 or s1 > s2:
                     continue
                 if self.QMin.requests["density_matrices"][key] is not None:
                     continue
                 # TODO Tomi
                 if m1 != m2:
-                    self.log.warning(f"Skipping densities with different multiplicities {m1} {m2}!")
-                    continue
+                    # self.log.warning(f"Skipping densities with different multiplicities {m1} {m2}!")
+                    if m1 == 1 and m2 == 3 and self.QMin.maps["multmap"][-self.QMin.maps["multmap"][m2]][0] != m1:
+                        self.QMin.requests["density_matrices"][key] = (
+                            f"master_{self.QMin.maps['multmap'][m2]}",
+                            {"Number of g2e trans dens", "G to E trans densities"},
+                        )
                 elif s1 != s2:
                     ijob = self.QMin.maps["multmap"][m1]
                     self.QMin.requests["density_matrices"][key] = (
@@ -487,7 +496,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                                         {"Total SCF Density", "Spin SCF Density"},
                                     )
                                 elif mat == "tot":
-                                    self.QMin.requests["density_matrices"][key] = (jobgrad[dens], {"Total SCF Density"})
+                                    self.QMin.requests["density_matrices"][key] = (jobgrad[dens][0], {"Total SCF Density"})
                             # is not gs and not gs grad
                             elif s1 > 1 and not jobgrad[dens][1]:
                                 if mat in ["aa", "bb"]:
@@ -496,7 +505,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                                         {"Total CI Density", "Spin CI Density"},
                                     )
                                 elif mat == "tot":
-                                    self.QMin.requests["density_matrices"][key] = (jobgrad[dens], {"Total CI Density"})
+                                    self.QMin.requests["density_matrices"][key] = (jobgrad[dens][0], {"Total CI Density"})
                         # needs extra job in dens_m_s
                         elif s1 != 1:  # just as sanity check this will always be true
                             if mat in ["aa", "bb"]:
@@ -511,9 +520,12 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                     # gsmult is not mult! (-> restricted triplets) are always CI matrix
                     elif dens in jobgrad and self.QMin.control["jobs"][ijob]["restr"]:
                         if mat in ["aa", "bb"]:
-                            self.QMin.requests["density_matrices"][key] = (jobgrad[dens], {"Total CI Density", "Spin CI Density"})
+                            self.QMin.requests["density_matrices"][key] = (
+                                jobgrad[dens][0],
+                                {"Total CI Density", "Spin CI Density"},
+                            )
                         elif mat == "tot":
-                            self.QMin.requests["density_matrices"][key] = (jobgrad[dens], {"Total CI Density"})
+                            self.QMin.requests["density_matrices"][key] = (jobgrad[dens][0], {"Total CI Density"})
                     elif dens not in jobgrad and self.QMin.control["jobs"][ijob]["restr"]:
                         if mat in ["aa", "bb"]:
                             self.QMin.requests["density_matrices"][key] = (
@@ -532,6 +544,9 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
 
             self.QMin.control["densjob"] = {}
             for key in filter(lambda x: x is not None, self.QMin.requests["density_matrices"]):
+                if self.QMin.requests["density_matrices"][key] is None:
+                    self.log.warning(f"Currently not able to produce density {key}!")
+                    continue
                 file = self.QMin.requests["density_matrices"][key][0]
                 if file in self.QMin.control["densjob"]:
                     self.QMin.control["densjob"][file].append(key)
@@ -895,7 +910,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         else:
             string += f"{charge} {gsmult}\n"
         for label, coords in zip(QMin.molecule["elements"], QMin.coords["coords"]):
-            string += f"{label:4s} {coords[0]:16.9f} {coords[1]:16.9f} {coords[2]:16.9f}\n"
+            string += f"{label:>4s} {coords[0]:16.9f} {coords[1]:16.9f} {coords[2]:16.9f}\n"
         string += "\n"
         if QMin.template["functional"].lower() == "dftba":
             string += "@GAUSS_EXEDIR:dftba.prm\n"
@@ -1693,9 +1708,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
             Sao = mol.intor("int1e_ovlp")
             dipole_operator = mol.intor("int1e_r")
             self.log.info("Retrieving densities from FCHK files")
-            densities = self.get_densities(
-                n_bf, Sao
-            )  # map for (mult, state, state): position in densities
+            densities = self.get_densities(n_bf, Sao)  # map for (mult, state, state): position in densities
             # obtain normalization coefficients of pyscf overlap
             ao_sqrt_norms = np.sqrt(np.diag(Sao))
             # obtain new order of the AO orbitals
@@ -1714,7 +1727,12 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                 self.log.debug(f"\tn elec: {np.einsum('ij,ij', Sao, densities[key]): 8.6f}")
 
         if self.QMin.requests["multipolar_fit"]:
-            self.QMout["multipolar_fit"] = self._resp_fit_on_densities(basis, densities, cartesian_basis=cartesian_d, ecps=ECPs)
+            self.QMout["multipolar_fit"] = self._resp_fit_on_densities(
+                basis,
+                {(m1, s1, ms1, m2, s2, ms2): v for (m1, s1, ms1, m2, s2, ms2, mat), v in densities.items() if mat == "tot"},
+                cartesian_basis=cartesian_d,
+                ecps=ECPs,
+            )
 
         # TheoDORE
         if self.QMin.requests["theodore"]:
@@ -2018,8 +2036,8 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
             Sao: overlap matrix of atomic orbitals
         """
         # sort densjobs
-        density_map = {}  # map for (mult, state, state): position in densities
-        for job, keys in self.QMin.control["densjob"]:
+        constructed_matrices = {}
+        for job, keys in self.QMin.control["densjob"].items():
             # ===================== PARSING BLOCK ===============================
             # create all necessary FCHKs
             workdir = os.path.join(self.QMin.resources["scratchdir"], job)
@@ -2032,26 +2050,29 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                 # density_matrices stores a tuple (jobname, set(keywords from fchk))
                 keywords.update(self.QMin.requests["density_matrices"][key][1])
             # get properties!
+            self.log.debug(f"Parsing {fchkfile} -> {keywords}")
             raw_matrices = SHARC_GAUSSIAN.parse_fchk(fchkfile, keywords)
             parsed_matrices = {}
 
-            for keyword, raw_data in raw_matrices:
+            for keyword, raw_data in raw_matrices.items():
+                self.log.debug(f"{keyword} is {'found' if raw_data is not None else None}")
                 match (keyword, raw_data):
                     case (_, None):
                         self.log.warning(f"'{keyword}' not found in:\n\t {fchkfile}")
-                    case ["Total SCF Density" | "Total CI Density", _]:
+                    case ("Total SCF Density" | "Total CI Density", _):
                         parsed_matrices[keyword] = triangular_to_full_matrix(raw_data, n_bf)
-                    case ["G to E trans densities" | _] if raw_matrices["Number of g2e trans dens"] is not None:
+                    case ("G to E trans densities" | _) if raw_matrices["Number of g2e trans dens"] is not None:
+                        print(2, raw_matrices["Number of g2e trans dens"], n_bf, n_bf)
                         parsed_matrices[keyword] = raw_matrices["G to E trans densities"].reshape(
-                            2 * raw_matrices["Number of g2e trans dens"], n_bf, n_bf
+                            2, raw_matrices["Number of g2e trans dens"], n_bf, n_bf
                         ) / math.sqrt(2)
                     case _:
                         pass
 
             # ===================== CONSTRUCTION OF DENSITIES  ===============================
-            constructed_matrices = {}
             for key in keys:
                 m1, s1, ms1, m2, s2, ms2, mat = key
+                self.log.debug(f"contructing {key}")
                 key_set = self.QMin.requests["density_matrices"][key][1]
                 # also means mat == 'aa' |'bb'
                 if key_set == {"Total CI Density", "Spin CI Density"}:
@@ -2095,54 +2116,56 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                         )
                     # TODO check for restricted: is the triplet the first state but the zeroth excited state?
                     jobid = self.QMin.maps["multmap"][m1]
-                    gsmult = self.QMin.maps["multmap"][-jobid]
+                    gsmult = self.QMin.maps["multmap"][-jobid][0]
                     offset = 2 if gsmult == m1 else 1
                     if s1 == 1:
                         if mat == "aa":
-                            constructed_matrices[key] = parsed_matrices["G to E trans densities"][(s2 - offset) * 2, ...]
+                            constructed_matrices[key] = parsed_matrices["G to E trans densities"][0, (s2 - offset), ...]
                         elif mat == "bb":
-                            constructed_matrices[key] = parsed_matrices["G to E trans densities"][(s2 - offset) * 2 + 1, ...]
+                            constructed_matrices[key] = parsed_matrices["G to E trans densities"][1, (s2 - offset), ...]
                         elif mat == "tot":
                             constructed_matrices[key] = (
-                                parsed_matrices["G to E trans densities"][(s2 - offset) * 2, ...]
-                                + parsed_matrices["G to E trans densities"][(s2 - offset) * 2 + 1, ...]
+                                parsed_matrices["G to E trans densities"][0, (s2 - offset), ...]
+                                + parsed_matrices["G to E trans densities"][1, (s2 - offset), ...]
                             )
                     elif s2 == 1:
                         if mat == "aa":
-                            constructed_matrices[key] = parsed_matrices["G to E trans densities"][(s2 - offset) * 2, ...].T
+                            constructed_matrices[key] = parsed_matrices["G to E trans densities"][0, (s2 - offset), ...].T
                         elif mat == "bb":
-                            constructed_matrices[key] = parsed_matrices["G to E trans densities"][(s2 - offset) * 2 + 1, ...].T
+                            constructed_matrices[key] = parsed_matrices["G to E trans densities"][1, (s2 - offset), ...].T
                         elif mat == "tot":
                             constructed_matrices[key] = (
-                                parsed_matrices["G to E trans densities"][(s2 - offset) * 2, ...].T
-                                + parsed_matrices["G to E trans densities"][(s2 - offset) * 2 + 1, ...].T
+                                parsed_matrices["G to E trans densities"][0, (s2 - offset), ...].T
+                                + parsed_matrices["G to E trans densities"][1, (s2 - offset), ...].T
                             )
                     elif m1 == m2:
                         if mat == "aa":
                             constructed_matrices[key] = es2es_tdm(
-                                parsed_matrices["G to E trans densities"][(s1 - offset) * 2, ...],
-                                parsed_matrices["G to E trans densities"][(s2 - offset) * 2, ...],
+                                parsed_matrices["G to E trans densities"][0, (s1 - offset), ...],
+                                parsed_matrices["G to E trans densities"][0, (s2 - offset), ...],
                                 Sao,
                             )
                         elif mat == "bb":
                             constructed_matrices[key] = es2es_tdm(
-                                parsed_matrices["G to E trans densities"][(s1 - offset) * 2 + 1, ...],
-                                parsed_matrices["G to E trans densities"][(s2 - offset) * 2 + 1, ...],
+                                parsed_matrices["G to E trans densities"][1, (s1 - offset), ...],
+                                parsed_matrices["G to E trans densities"][1, (s2 - offset), ...],
                                 Sao,
                             )
                         elif mat == "tot":
                             constructed_matrices[key] = es2es_tdm(
-                                parsed_matrices["G to E trans densities"][(s1 - offset) * 2, ...],
-                                parsed_matrices["G to E trans densities"][(s2 - offset) * 2, ...],
+                                parsed_matrices["G to E trans densities"][0, (s1 - offset), ...],
+                                parsed_matrices["G to E trans densities"][0, (s2 - offset), ...],
                                 Sao,
                             ) + es2es_tdm(
-                                parsed_matrices["G to E trans densities"][(s1 - offset) * 2 + 1, ...],
-                                parsed_matrices["G to E trans densities"][(s2 - offset) * 2 + 1, ...],
+                                parsed_matrices["G to E trans densities"][1, (s1 - offset), ...],
+                                parsed_matrices["G to E trans densities"][1, (s2 - offset), ...],
                                 Sao,
                             )
                     elif m1 != m2:
                         # TODO Tomi
-                        self.log.warning(f"Construction of transition densities between different multiplicities not implementd yet!:\t{key}")
+                        self.log.warning(
+                            f"Construction of transition densities between different multiplicities not implementd yet!:\t{key}"
+                        )
 
         return constructed_matrices
 

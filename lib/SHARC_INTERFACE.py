@@ -615,6 +615,14 @@ class SHARC_INTERFACE(ABC):
                         out_dict[key] = expand_path(val) if re.match(r"\~|\$", val) else val
                     elif key_type is tuple:
                         out_dict[key] = (v for v in val)
+                    elif key_type is bool:
+                        if type(val) is str:
+                            if val.lower() == 'false':
+                                out_dict[key] = False
+                            elif val.lower() == 'true':
+                                out_dict[key] = True
+                            else:
+                                raise ValueError(f"Boolian value for '{key}': {val} cannot be interpreted as a Boolian!")
                     else:
                         out_dict[key] = key_type(val)
 
