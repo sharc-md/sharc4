@@ -196,14 +196,13 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 self.QMin.template["charge"] = [
                     int(self.QMin.template["charge"][i]) for i in range(len(self.QMin.molecule["states"]))
                 ]
-                compatible = True
+
                 for imult, cha in enumerate(self.QMin.template["charge"]):
                     if not (self.QMin.molecule["Atomcharge"] + cha + imult) % 2 == 0:
-                        compatible = False
-                if not compatible:
-                    self.log.warning(
-                        "Charges from template not compatible with multiplicities!  (this is probably OK if you use QM/MM)"
-                    )
+                        self.log.warning(
+                            "Charges from template not compatible with multiplicities!  (this is probably OK if you use QM/MM)"
+                        )
+                        break
             else:
                 raise ValueError('Length of "charge" does not match length of "states"!')
         else:
