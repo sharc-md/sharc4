@@ -216,10 +216,16 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         kw_whitelist = [] if kw_whitelist is None else kw_whitelist
         super().read_resources(resources_file, kw_whitelist + ["theodore_fragment"])
 
-        # if "theodore_fragment" in self.QMin.resources:
-        # self.QMin.resources["theodore_fragment"] = [
-        # list(map(int, (j for j in i))) for i in self.QMin.resources["theodore_fragment"]
-        # ]
+        def list_to_int(raw_list: list) -> list[int]:
+            output = []
+            if isinstance(raw_list[0], list):
+                output = [list_to_int(x) for x in raw_list]
+            else:
+                return list(map(int, output))
+            return output
+
+        if self.QMin.resources["theodore_fragment"]:
+            self.QMin.resources["theodore_fragment"] = list_to_int(self.QMin.resources["theodore_fragment"])
 
     @abstractmethod
     def read_requests(self, requests_file: str = "QM.in") -> None:
@@ -580,13 +586,13 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 link(os.path.join(savedir, "AO_overl.mixed"), os.path.join(workdir, "aoovl"))
                 link(os.path.join(savedir, f"dets.{m}.{step-1}"), os.path.join(workdir, "det.a"))
                 link(os.path.join(savedir, f"dets.{m}.{step}"), os.path.join(workdir, "det.b"))
-                link(os.path.join(savedir, f"mos.{m}.{step-1}"), os.path.join(workdir, "mo.a"))
-                link(os.path.join(savedir, f"mos.{m}.{step}"), os.path.join(workdir, "mo.b"))
+                link(os.path.join(savedir, f"mos.{self.QMin.maps['multmap'][m]}.{step-1}"), os.path.join(workdir, "mo.a"))
+                link(os.path.join(savedir, f"mos.{self.QMin.maps['multmap'][m]}.{step}"), os.path.join(workdir, "mo.b"))
 
                 # Execute wfoverlap
                 starttime = datetime.datetime.now()
                 os.environ["OMP_NUM_THREADS"] = str(self.QMin.resources["ncpu"])
-                code = self.run_program(workdir, wf_cmd, "wvovl.out", "wfovl.err")
+                code = self.run_program(workdir, wf_cmd, "wfovl.out", "wfovl.err")
                 self.log.info(
                     f"Finished wfoverlap job: {str(m):<10s} code {code:<4d} runtime: {datetime.datetime.now()-starttime}"
                 )

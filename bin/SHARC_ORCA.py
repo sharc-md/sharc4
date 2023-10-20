@@ -85,7 +85,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 "numocc": None,
                 "schedule_scaling": 0.9,
                 "neglected_gradient": "zero",
-                "savedir": None
+                "savedir": None,
             }
         )
         self.QMin.resources.types.update(
@@ -98,7 +98,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 "numocc": int,
                 "schedule_scaling": float,
                 "neglected_gradient": str,
-                "savedir": str
+                "savedir": str,
             }
         )
 
@@ -122,7 +122,11 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 "unrestricted_triplets": False,
                 "basis_per_element": None,
                 "basis_per_atom": None,
-                "ecp_per_element": None
+                "ecp_per_element": None,
+                "range_sep_settings": None,
+                "grid": None,
+                "gridx": None,
+                "gridxc": None,
             }
         )
         self.QMin.template.types.update(
@@ -144,7 +148,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 "unrestricted_triplets": bool,
                 "basis_per_element": list,
                 "basis_per_atom": list,
-                "ecp_per_element": list
+                "ecp_per_element": list,
             }
         )
 
@@ -567,20 +571,15 @@ class SHARC_ORCA(SHARC_ABINITIO):
             for grad in self.QMin.maps["gradmap"]:
                 job_path, ground_state = self.QMin.control["jobgrad"][grad]
                 grad_mult, _ = self.QMin.control["jobs"][int(job_path.split("_")[1])].values()
+                grad_ext = f"{'singlet' if grad[0] == grad_mult[0] else IToMult[grad[0]].lower()}.root{grad[1] - (grad[0] == grad_mult[0])}"
                 if ground_state:
                     gradients = self._get_grad(os.path.join(scratchdir, job_path, "ORCA.engrad"), True)
                 else:
-                    gradients = self._get_grad(
-                        os.path.join(
-                            scratchdir,
-                            job_path,
-                            f"ORCA.engrad.{'singlet' if grad[0] == grad_mult[0] else IToMult[grad[0]].lower()}.root{grad[1] - (grad[0] == grad_mult[0])}.grad.tmp",
-                        )
-                    )
+                    gradients = self._get_grad(os.path.join(scratchdir, job_path, f"ORCA.engrad.{grad_ext}.grad.tmp"))
 
                 # Point charges
                 if self.QMin.molecule["point_charges"]:
-                    point_charges = self._get_pc_grad(os.path.join(scratchdir, ""))
+                    point_charges = self._get_pc_grad(os.path.join(scratchdir, f"ORCA.pcgrad.{grad_ext}.grad.tmp"))
 
                 for key, val in self.QMin.maps["statemap"].items():
                     if (val[0], val[1]) == grad:
@@ -829,7 +828,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
     def print_qmin(self) -> None:
         pass
 
-    def read_resources(self, resources_file: str, kw_whitelist: Optional[list[str]] = None) -> None:
+    def read_resources(self, resources_file: str = "ORCA.resources", kw_whitelist: Optional[list[str]] = None) -> None:
         if kw_whitelist is None:
             kw_whitelist = []
         super().read_resources(resources_file, kw_whitelist)
@@ -859,7 +858,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
             if val and req != "retain" and req not in all_features:
                 raise ValueError(f"Found unsupported request {req}.")
 
-    def read_template(self, template_file: str, kw_whitelist: Optional[list[str]] = None) -> None:
+    def read_template(self, template_file: str = "ORCA.template", kw_whitelist: Optional[list[str]] = None) -> None:
         kw_whitelist = ["basis_per_element", "basis_per_atom", "ecp_per_element"]
         super().read_template(template_file, kw_whitelist)
 
@@ -942,7 +941,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
         states_to_do = deepcopy(self.QMin.molecule["states"])
         for mult, state in enumerate(self.QMin.molecule["states"]):
             if state > 0:
-                states_to_do[mult] += self.QMin.template["paddingstates"][mult]
+                states_to_do[mult] += int(self.QMin.template["paddingstates"][mult])
         if (
             not self.QMin.template["unrestricted_triplets"]
             and len(self.QMin.molecule["states"]) >= 3

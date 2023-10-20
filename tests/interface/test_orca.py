@@ -50,7 +50,7 @@ def test_orcaversion():
 
 
 def test_requests1():
-    tests = ["inputs/QM2.in", "inputs/QM3.in", "inputs/QM4.in"]#, "inputs/orca_requests_fail"]
+    tests = ["inputs/QM2.in", "inputs/QM3.in", "inputs/QM4.in"]  # , "inputs/orca_requests_fail"]
     for i in tests:
         with pytest.raises(ValueError):
             test_interface = SHARC_ORCA()
@@ -303,3 +303,92 @@ def test_ao_matrix_overlap():
         os.remove(os.path.join(PATH, "inputs/orca_overlap", "fragovlp.err"))
         with open(os.path.join(PATH, aooverl), "r") as ref:
             assert ref.read() == ao_overl
+
+
+def test_template():
+    tests = [
+        (
+            "inputs/orca_templatetest1",
+            {
+                "charge": [0, 1, 0],
+                "paddingstates": None,
+                "no_tda": False,
+                "picture_change": False,
+                "basis": "6-31G",
+                "auxbasis": None,
+                "functional": "b3lyp",
+                "dispersion": "D3",
+                "ri": "rijcosx",
+                "scf": None,
+                "keys": "tightscf zora",
+                "paste_input_file": None,
+                "frozen": -1,
+                "maxiter": 700,
+                "hfexchange": -1.0,
+                "intacc": -1.0,
+                "unrestricted_triplets": False,
+                "basis_per_element": ["F", "cc-pvqz"],
+                "basis_per_atom": None,
+                "ecp_per_element": None,
+            },
+        ),
+        (
+            "inputs/orca_templatetest2",
+            {
+                "charge": [0, 1, 0],
+                "paddingstates": None,
+                "no_tda": False,
+                "picture_change": False,
+                "basis": "6-31G",
+                "auxbasis": None,
+                "functional": "b3lyp",
+                "dispersion": "D3",
+                "ri": "rijcosx",
+                "scf": None,
+                "keys": "tightscf zora",
+                "paste_input_file": None,
+                "frozen": -1,
+                "maxiter": 700,
+                "hfexchange": -1.0,
+                "intacc": -1.0,
+                "unrestricted_triplets": False,
+                "basis_per_element": ["F", "cc-pvqz"],
+                "basis_per_atom": ["2", "cc-pvtz", "1", "cc-pvtz"],
+                "ecp_per_element": None,
+            },
+        ),
+        (
+            "inputs/orca_templatetest3",
+            {
+                "charge": [0, 1, 0],
+                "paddingstates": None,
+                "no_tda": False,
+                "picture_change": True,
+                "basis": "cc-pvdz",
+                "auxbasis": "cc-pvdz/j",
+                "functional": "b3lyp",
+                "grid": None,
+                "gridx": None,
+                "gridxc": None,
+                "dispersion": "D3",
+                "ri": "rijcosx",
+                "scf": None,
+                "keys": "tightscf zora",
+                "paste_input_file": None,
+                "frozen": -1,
+                "maxiter": 700,
+                "hfexchange": -1.0,
+                "intacc": -1.0,
+                "unrestricted_triplets": False,
+                "basis_per_element": ["F", "cc-pvqz"],
+                "basis_per_atom": ["2", "cc-pvtz", "1", "cc-pvtz"],
+                "ecp_per_element": None,
+            },
+        )
+    ]
+    for template, ref in tests:
+        test_interface = SHARC_ORCA()
+        test_interface.setup_mol(os.path.join(PATH, "inputs/QM1.in"))
+        test_interface.read_template(os.path.join(PATH,template))
+        for k, v in ref.items():
+            assert test_interface.QMin["template"][k] == v
