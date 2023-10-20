@@ -10,6 +10,7 @@ from error import Error, exception_hook
 import subprocess as sp
 from globals import DEBUG, PRINT
 from logger import log as logging
+from typing import Any
 
 
 class InDir():
@@ -29,6 +30,13 @@ class InDir():
         if exc_type is not None:
             exception_hook(exc_type, exc_value, exc_traceback)
 
+def convert_list(raw_list: list, new_type: Any = int) -> list:
+    output = []
+    if isinstance(raw_list[0], list):
+        output = [convert_list(x, new_type) for x in raw_list]
+    else:
+        return list(map(new_type, output))
+    return output
 
 # ======================================================================= #
 def get_bool_from_env(name: str, default=False):
