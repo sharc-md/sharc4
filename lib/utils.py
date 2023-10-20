@@ -31,7 +31,7 @@ class InDir():
             exception_hook(exc_type, exc_value, exc_traceback)
 
 def convert_list(raw_list: list, new_type: Any = int) -> list:
-    output = []
+    output = raw_list
     if isinstance(raw_list[0], list):
         output = [convert_list(x, new_type) for x in raw_list]
     else:
