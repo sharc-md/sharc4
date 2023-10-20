@@ -790,10 +790,12 @@ class SHARC_INTERFACE(ABC):
                     if len(self.QMin.requests[req]) != len(set(self.QMin.requests[req])):
                         self.log.error(f"Duplicate {req} requested!")
                         raise ValueError()
-                case ["nacdr" | "multipolar_fit" | "density_matrices", value]:
-                    self.QMin.requests[req] = sorted([[int(x) for x in y] for y in request[1]])
+                case ["nacdr", value]:
+                    self.QMin.requests[req] = sorted([[int(x) for x in y] for y in value])
                     if not all(len(x) == 2 for x in self.QMin.requests[req]):
                         raise ValueError(f"'{req}' not set correctly! Needs to to be nx2 matrix not {self.QMin.requests[req]}")
+                case ["density_matrices" | "multipolar_fit", value]:
+                    self.QMin.requests[req] = value
                 case ["soc", None]:
                     if (
                         len(self.QMin.molecule["states"]) < 3

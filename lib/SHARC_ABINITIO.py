@@ -75,8 +75,9 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 "resp_vdw_radii": [],
                 "resp_betas": [0.0005, 0.0015, 0.003],
                 "resp_layers": 4,
-                "resp_fit_order": 2,
                 "resp_first_layer": 1.4,
+                "resp_density": 10.0,
+                "resp_fit_order": 2,
                 "resp_mk_radii": True,  # use radii for original Merz-Kollmann-Singh scheme for HCNOSP
                 "resp_grid": "lebedev",
             }
@@ -92,8 +93,9 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 "resp_vdw_radii": list,
                 "resp_betas": list,
                 "resp_layers": int,
-                "resp_fit_order": int,
                 "resp_first_layer": float,
+                "resp_density": float,
+                "resp_fit_order": int,
                 "resp_mk_radii": bool,  # use radii for original Merz-Kollmann-Singh scheme for HCNOSP
                 "resp_grid": str,
             }
@@ -261,20 +263,67 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
 
         # Setup densmap
         if self.QMin.requests["multipolar_fit"] or self.QMin.requests["density_matrices"]:
-            self.log.debug("Building densmap")
-            self.QMin.maps["densmap"] = set()
+            requested_densities = set()
 
-            if self.QMin.requests["density_matrices"] == ["all"] or self.QMin.requests["multipolar_fit"] == ["all"]:
-                self.QMin.maps["densmap"].update({tuple(self.QMin.maps["statemap"][i][0:2]) for i in self.QMin.maps["statemap"]})
-            else:
-                if self.QMin.requests["density_matrices"]:
-                    self.QMin.maps["densmap"].update(
-                        {tuple(self.QMin.maps["statemap"][i][0:2]) for i in self.QMin.requests["density_matrices"]}
-                    )
-                if self.QMin.requests["multipolar_fit"]:
-                    self.QMin.maps["densmap"].update(
-                        {tuple(self.QMin.maps["statemap"][i][0:2]) for i in self.QMin.requests["multipolar_fit"]}
-                    )
+            def density_logic(m1, s1, ms1, m2, s2, ms2, mat=None):
+                if ms1 == ms2 and abs(m1 - m2) <= 2:
+                    if mat is None:
+                        requested_densities.add((m1, s1, ms1, m2, s2, ms2, "aa"))
+                        requested_densities.add((m1, s1, ms1, m2, s2, ms2, "bb"))
+                        requested_densities.add((m1, s1, ms1, m2, s2, ms2, "tot"))
+                    elif mat in ["aa", "bb", "tot"]:
+                        requested_densities.add((m1, s1, ms1, m2, s2, ms2, mat))
+                # TODO Tomi
+                else:
+                    raise NotImplementedError()
+
+            if self.QMin.requests["density_matrices"]:
+                if self.QMin.requests["density_matrices"] == ["all"]:
+                    for state1 in self.QMin.maps["statemap"]:
+                        for state2 in self.QMin.maps["statemap"]:
+                            density_logic(*state1, *state2)
+                else:
+                    # check if (itm, itm), (itm, itm, 'aa') or (m,s,ms, m,s,ms) or (m,s,ms, m,s,ms, 'aa')
+                    match len(self.QMin.requests["density_matrices"][0]):
+                        case 2:
+                            for state1, state2 in map(
+                                lambda x: (self.QMin.maps["statemap"][int(x[0])], self.QMin.maps["statemap"][int(x[1])]),
+                                self.QMin.requests["density_matrices"],
+                            ):
+                                density_logic(*state1, *state2)
+                        case 3:
+                            for state1, state2, mat in map(
+                                lambda x: (self.QMin.maps["statemap"][int(x[0])], self.QMin.maps["statemap"][int(x[1])], x[2]),
+                                self.QMin.requests["density_matrices"],
+                            ):
+                                density_logic(*state1, *state2, mat)
+                        case 6:
+                            for m1, s1, ms1, m2, s2, ms2 in self.QMin.requests["density_matrices"]:
+                                density_logic(m1, s1, ms1, m2, s2, ms2)
+                        case 7:
+                            for m1, s1, ms1, m2, s2, ms2, mat in self.QMin.requests["density_matrices"]:
+                                density_logic(m1, s1, ms1, m2, s2, ms2, mat)
+                        case _:
+                            raise NotImplementedError()
+
+            if self.QMin.requests["multipolar_fit"]:
+                if self.QMin.requests["multipolar_fit"] == ["all"]:
+                    for state1 in self.QMin.maps["statemap"]:
+                        for state2 in self.QMin.maps["statemap"]:
+                            density_logic(*state1, *state2, "tot")
+                else:
+                    match self.QMin.requests["multipolar_fit"][0]:
+                        case 4:
+                            for m1, s1, m2, s2 in self.QMin.requests["multipolar_fit"]:
+                                for k1 in range(m1):
+                                    ms1 = k1 - (m1 - 1) / 2.0
+                                    for k2 in range(m2):
+                                        ms2 = k2 - (m2 - 1) / 2.0
+                                density_logic(m1, s1, ms1, m2, s2, ms2, "tot")
+                        case _:
+                            raise NotImplementedError()
+            self.QMin.requests.types["density_matrices"] = dict
+            self.QMin.requests["density_matrices"] = {k: None for k in requested_densities}
 
         # Setup nacmap
         if self.QMin.requests["nacdr"]:
@@ -642,7 +691,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         self.log.info(f"{'RESP fit':=^80}")
         self.log.info("\t Start:")
         fits = Resp(
-            self.QMin.molecule["coords"],
+            self.QMin.coords["coords"],
             self.QMin.molecule["elements"],
             self.QMin.resources["resp_vdw_radii"],
             self.QMin.resources["resp_density"],
@@ -662,7 +711,8 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             key = (m1, s1, m2, s2)
             if m1 != m2:
                 self.log.warning(f"fitting density different multiplicities! {m1}_{s1},{m2}_{s2}")
-                self.log.warning("Charge is set to {self.QMin.maps['chargemap'][m1]} according to mult {m1}")
+                self.log.warning(f"Charge is set to {self.QMin.maps['chargemap'][m1]} according to mult {m1}")
+                continue
             fits_map[key] = fits.multipoles_from_dens(
                 densities[key],
                 include_core_charges=s1 == s2,
