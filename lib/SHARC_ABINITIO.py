@@ -222,7 +222,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 return list(map(int, output))
             return output
 
-        if "theodore_fragment" in self.QMin.resources:
+        if self.QMin.resources["theodore_fragment"]:
             self.QMin.resources["theodore_fragment"] = list_to_int(self.QMin.resources["theodore_fragment"])
 
     @abstractmethod
