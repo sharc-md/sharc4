@@ -610,7 +610,7 @@ class SHARC_INTERFACE(ABC):
                                 ]
                         else:
                             raw_value = val.split()
-                        out_dict[key].append(raw_value if len(raw_value) > 1 else raw_value[0])
+                        out_dict[key].append(raw_value)
                     elif key_type is str:
                         out_dict[key] = expand_path(val) if re.match(r"\~|\$", val) else val
                     elif key_type is tuple:
