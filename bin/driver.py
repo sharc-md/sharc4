@@ -257,6 +257,7 @@ def main():
     derived_int.QMin.molecule['elements'] = [IAn2AName[x] for x in basic_info['IAn']]
     derived_int.QMin.molecule['Atomcharge'] = sum(map(lambda x: ATOMCHARGE[x], derived_int.QMin.molecule['elements']))
     derived_int.QMin.molecule['frozcore'] = sum(map(lambda x: FROZENS[x], derived_int.QMin.molecule['elements']))
+    derived_int.QMin.maps["statemap"] = basic_info["statemap"]
     derived_int._setup_mol = True
     with InDir('QM'):
         derived_int.read_resources()
