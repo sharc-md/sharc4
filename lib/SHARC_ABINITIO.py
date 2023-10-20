@@ -15,7 +15,7 @@ from itertools import starmap
 import numpy as np
 from qmin import QMin
 from SHARC_INTERFACE import SHARC_INTERFACE
-from utils import containsstring, readfile, safe_cast, link, writefile, shorten_DIR, mkdir, itmult
+from utils import containsstring, readfile, safe_cast, link, writefile, shorten_DIR, mkdir, itmult, convert_list
 from constants import ATOMIC_RADII, MK_RADII
 from resp import Resp
 from asa_grid import GRIDS
@@ -198,14 +198,13 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 self.QMin.template["charge"] = [
                     int(self.QMin.template["charge"][i]) for i in range(len(self.QMin.molecule["states"]))
                 ]
-                compatible = True
+
                 for imult, cha in enumerate(self.QMin.template["charge"]):
                     if not (self.QMin.molecule["Atomcharge"] + cha + imult) % 2 == 0:
-                        compatible = False
-                if not compatible:
-                    self.log.warning(
-                        "Charges from template not compatible with multiplicities!  (this is probably OK if you use QM/MM)"
-                    )
+                        self.log.warning(
+                            "Charges from template not compatible with multiplicities!  (this is probably OK if you use QM/MM)"
+                        )
+                        break
             else:
                 raise ValueError('Length of "charge" does not match length of "states"!')
         else:
@@ -216,16 +215,8 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         kw_whitelist = [] if kw_whitelist is None else kw_whitelist
         super().read_resources(resources_file, kw_whitelist + ["theodore_fragment"])
 
-        def list_to_int(raw_list: list) -> list[int]:
-            output = []
-            if isinstance(raw_list[0], list):
-                output = [list_to_int(x) for x in raw_list]
-            else:
-                return list(map(int, output))
-            return output
-
         if self.QMin.resources["theodore_fragment"]:
-            self.QMin.resources["theodore_fragment"] = list_to_int(self.QMin.resources["theodore_fragment"])
+            self.QMin.resources["theodore_fragment"] = convert_list(self.QMin.resources["theodore_fragment"])
 
     @abstractmethod
     def read_requests(self, requests_file: str = "QM.in") -> None:
