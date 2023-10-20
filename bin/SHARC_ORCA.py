@@ -828,7 +828,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
     def print_qmin(self) -> None:
         pass
 
-    def read_resources(self, resources_file: str, kw_whitelist: Optional[list[str]] = None) -> None:
+    def read_resources(self, resources_file: str = "ORCA.resources", kw_whitelist: Optional[list[str]] = None) -> None:
         if kw_whitelist is None:
             kw_whitelist = []
         super().read_resources(resources_file, kw_whitelist)
@@ -858,7 +858,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
             if val and req != "retain" and req not in all_features:
                 raise ValueError(f"Found unsupported request {req}.")
 
-    def read_template(self, template_file: str, kw_whitelist: Optional[list[str]] = None) -> None:
+    def read_template(self, template_file: str = "ORCA.template", kw_whitelist: Optional[list[str]] = None) -> None:
         kw_whitelist = ["basis_per_element", "basis_per_atom", "ecp_per_element"]
         super().read_template(template_file, kw_whitelist)
 
