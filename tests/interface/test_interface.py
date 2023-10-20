@@ -140,11 +140,11 @@ def test_reqests2():
 
 def test_resources1():
     tests = [
-        #("inputs/interface_resources1", {"key1": "test", "key2": ["test1", "test2"], "key4": True}, []),
-        #("inputs/interface_resources2", {"key1": "test2", "key2": [["test1", "test2"], ["test3", "test4"]]}, ["key2"]),
-        #("inputs/interface_resources3", {"int_key": 13123, "float_key": -3.0}, []),
-        #("inputs/interface_resources4", {"key1": "test2", "key2": ["test4"]}, []),
-        #("inputs/interface_resources5", {"key1": "test1", "key2": ["test3", "test4"]}, []),
+        ("inputs/interface_resources1", {"key1": "test", "key2": ["test1", "test2"], "key4": True}, []),
+        ("inputs/interface_resources2", {"key1": "test2", "key2": [["test1", "test2"], ["test3", "test4"]]}, ["key2"]),
+        ("inputs/interface_resources3", {"int_key": 13123, "float_key": -3.0}, []),
+        ("inputs/interface_resources4", {"key1": "test2", "key2": ["test4"]}, []),
+        ("inputs/interface_resources5", {"key1": "test1", "key2": ["test3", "test4"]}, []),
         ("inputs/interface_resources6", {"key1": "test2", "key2": [["test1"], ["test2"], ["test3"], ["test4"]]}, ["key2"]),
         ("inputs/interface_resources7", {"key1": "test2", "key2": [["test1", "test2"], ["test3", "test4"]]}, []),
         ("inputs/interface_resources8", {"key1": "test2", "key2": ["test1", "test2", "test3", "test4"]}, []),
