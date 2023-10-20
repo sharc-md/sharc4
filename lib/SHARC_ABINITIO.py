@@ -214,10 +214,16 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         kw_whitelist = [] if kw_whitelist is None else kw_whitelist
         super().read_resources(resources_file, kw_whitelist + ["theodore_fragment"])
 
-        # if "theodore_fragment" in self.QMin.resources:
-        # self.QMin.resources["theodore_fragment"] = [
-        # list(map(int, (j for j in i))) for i in self.QMin.resources["theodore_fragment"]
-        # ]
+        def list_to_int(raw_list: list) -> list[int]:
+            output = []
+            if isinstance(raw_list[0], list):
+                output = [list_to_int(x) for x in raw_list]
+            else:
+                return list(map(int, output))
+            return output
+
+        if "theodore_fragment" in self.QMin.resources:
+            self.QMin.resources["theodore_fragment"] = list_to_int(self.QMin.resources["theodore_fragment"])
 
     @abstractmethod
     def read_requests(self, requests_file: str = "QM.in") -> None:
