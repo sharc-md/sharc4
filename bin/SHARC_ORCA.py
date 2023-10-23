@@ -86,6 +86,8 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 "schedule_scaling": 0.9,
                 "neglected_gradient": "zero",
                 "savedir": None,
+                "always_orb_init": False,
+                "always_guess": False,
             }
         )
         self.QMin.resources.types.update(
@@ -99,6 +101,8 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 "schedule_scaling": float,
                 "neglected_gradient": str,
                 "savedir": str,
+                "always_orb_init": bool,
+                "always_guess": bool,
             }
         )
 
@@ -243,17 +247,17 @@ class SHARC_ORCA(SHARC_ABINITIO):
 
         # Copy wf files
         jobid = qmin.control["jobid"]
-        if qmin.control["master"] and jobid in qmin.control["initorbs"]:
+        if not qmin.resources["always_guess"]:
             self.log.debug("Copy ORCA.gbw to work directory")
-            shutil.copy(qmin.control["initorbs"][jobid], os.path.join(workdir, "ORCA.gbw"))
-        elif qmin.control["gradonly"]:
-            self.log.debug(f"Copy ORCA.gbw from master_{jobid}")
-            shutil.copy(
-                os.path.join(qmin.resources["scratchdir"], f"master_{jobid}", "ORCA.gbw"), os.path.join(workdir, "ORCA.gbw")
-            )
+            gbw_file = None
+            if jobid in qmin.control["initorbs"]:
+                gbw_file = qmin.control["initorbs"][jobid]
+            elif qmin.save["step"] != 0 and not qmin.resources["always_orb_init"]:
+                gbw_file = os.path.join(qmin.save["savedir"], f"ORCA.gbw.{jobid}.{qmin.save['step']-1}")
+            if os.path.isfile(gbw_file):
+                shutil.copy(gbw_file, os.path.join(workdir, "ORCA.gbw"))
 
         # Setup ORCA
-
         starttime = datetime.datetime.now()
         exec_str = f"{os.path.join(qmin.resources['orcadir'],'orca')} ORCA.inp"
         exit_code = self.run_program(workdir, exec_str, os.path.join(workdir, "ORCA.log"), os.path.join(workdir, "ORCA.err"))

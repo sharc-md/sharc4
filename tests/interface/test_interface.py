@@ -26,8 +26,8 @@ def set_requests(path: str, requests: dict):
 
 def read_resources(path: str, params: dict, whitelist: list):
     test_interface = SHARC_INTERFACE()
-    test_interface.QMin.resources.types = {"int_key": int, "float_key": float, "key1": str, "key2": list, "key4": bool}
-    test_interface.QMin.resources.data = {"int_key": None, "float_key": None, "key1": None, "key2": None, "key4": None}
+    test_interface.QMin.resources.types = {"int_key": int, "float_key": float, "key1": str, "key2": list, "key4": bool, "key5": list}
+    test_interface.QMin.resources.data = {"int_key": None, "float_key": None, "key1": None, "key2": None, "key4": None, "key5": None}
     test_interface._setup_mol = True
     test_interface.read_resources(path, whitelist)
     for k, v in params.items():
@@ -148,6 +148,7 @@ def test_resources1():
         ("inputs/interface_resources6", {"key1": "test2", "key2": [["test1"], ["test2"], ["test3"], ["test4"]]}, ["key2"]),
         ("inputs/interface_resources7", {"key1": "test2", "key2": [["test1", "test2"], ["test3", "test4"]]}, []),
         ("inputs/interface_resources8", {"key1": "test2", "key2": ["test1", "test2", "test3", "test4"]}, []),
+        ("inputs/interface_resources10", {"key2": [[1,2],["3"]], "key5": [[1], [2]]}, ["key2"]),
     ]
     for path, params, whitelist in tests:
         read_resources(os.path.join(expand_path(PATH), path), params, whitelist)
