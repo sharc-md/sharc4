@@ -209,6 +209,8 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 raise ValueError('Length of "charge" does not match length of "states"!')
         else:
             self.QMin.template["charge"] = [i % 2 for i in range(len(self.QMin.molecule["states"]))]
+        if self.QMin.template["paddingstates"]:
+            self.QMin.template["paddingstates"] = convert_list(self.QMin.template["paddingstates"])
 
     @abstractmethod
     def read_resources(self, resources_file: str, kw_whitelist: Optional[list[str]] = None) -> None:
@@ -309,7 +311,8 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 if self.QMin.requests["multipolar_fit"] == ["all"]:
                     for state1 in self.QMin.maps["statemap"].values():
                         for state2 in self.QMin.maps["statemap"].values():
-                            density_logic(*state1, *state2, "tot")
+                            if state1[2] == state2[2]:
+                                density_logic(*state1, *state2, "tot")
                 else:
                     match self.QMin.requests["multipolar_fit"][0]:
                         case 4:
@@ -760,10 +763,21 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         theo_bin = os.path.join(self.QMin.resources["theodir"], "bin", "theodore") + " analyze_tden"
         for jobset in self.QMin.scheduling["schedule"]:
             for job, qmin in jobset.items():
-                # Skip restricted jobs
+                # Skip unrestricted jobs
                 if not self.QMin.control["jobs"][qmin.control["jobid"]]["restr"]:
-                    self.log.debug(f"Skipping theodore run for restricted job {job}")
+                    self.log.debug(f"Skipping theodore run for unrestricted job {job}")
                     continue
+                elif qmin.control["gradonly"]:
+                    continue
+                else:
+                    mults = self.QMin.control["jobs"][qmin.control["jobid"]]["mults"]
+                    gsmult = mults[0]
+                    ns = 0
+                    for i in mults:
+                        ns += qmin.control["states_to_do"][i - 1] - (i == gsmult)
+                    if ns == 0:
+                        self.log.debug("Skipping Job %s because it contains no excited states." % (qmin.control["jobid"]))
+                        continue
 
                 starttime = datetime.datetime.now()
                 workdir = os.path.join(self.QMin.resources["scratchdir"], job)

@@ -4,6 +4,7 @@ import sys
 import logging
 import os
 import re
+
 SHARCPRINT = 11
 
 
@@ -36,12 +37,9 @@ class CustomFormatter(logging.Formatter):
         return formatter.format(record)
 
 
-
-
-
 fmt = CustomFormatter()
 hdlr = logging.StreamHandler(sys.stdout)
-hdlr._name = 'rootHandler'
+hdlr._name = "rootHandler"
 
 hdlr.setFormatter(fmt)
 logging.root.handlers = []
@@ -49,17 +47,17 @@ logging.root.addHandler(hdlr)
 logging.addLevelName(SHARCPRINT, "SHARCPRINT")
 logging.SHARCPRINT = SHARCPRINT
 
-envlevel = os.getenv('SHARCLOG')
+envlevel = os.getenv("SHARCLOG")
 match envlevel:
-    case 'DEBUG':
+    case "DEBUG":
         loglevel = logging.DEBUG
-    case 'INFO':
+    case "INFO":
         loglevel = logging.INFO
-    case 'PRINT':
+    case "PRINT":
         loglevel = logging.SHARCPRINT
-    case 'ERROR':
+    case "ERROR":
         loglevel = logging.ERROR
-    case 'WARNING':
+    case "WARNING":
         loglevel = logging.WARNING
     case str() if int(envlevel) > 0:
         loglevel = int(envlevel)
@@ -79,7 +77,6 @@ def sharcprint(msg, *args, **kwargs):
     logger.print("Houston, we have a %s", "interesting problem", exc_info=1)
     """
     logging.log(SHARCPRINT, msg, *args, **kwargs)
-
 
 
 logging.print = sharcprint

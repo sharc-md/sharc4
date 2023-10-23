@@ -46,6 +46,7 @@ from qmin import QMin
 from qmout import QMout
 from utils import clock, expand_path, itnmstates, parse_xyz, readfile, writefile
 
+np.set_printoptions(linewidth=400, formatter={"float": lambda x: f"{x: 9.7}"})
 all_features = {
     "h",
     "soc",
@@ -617,9 +618,9 @@ class SHARC_INTERFACE(ABC):
                         out_dict[key] = (v for v in val)
                     elif key_type is bool:
                         if type(val) is str:
-                            if val.lower() == 'false':
+                            if val.lower() == "false":
                                 out_dict[key] = False
-                            elif val.lower() == 'true':
+                            elif val.lower() == "true":
                                 out_dict[key] = True
                             else:
                                 raise ValueError(f"Boolian value for '{key}': {val} cannot be interpreted as a Boolian!")

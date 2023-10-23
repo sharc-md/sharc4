@@ -979,17 +979,20 @@ class QMout:
             f"! 22 Atomwise multipolar density representation fits for states ({nmstates}x{nmstates}x{natom}x10) {setting_str}\n"
         )
 
-        for (imult, istate, ims) in itnmstates(states):
-            for (jmult, jstate, jms) in itnmstates(states):
+        for imult, istate, ims in itnmstates(states):
+            for jmult, jstate, jms in itnmstates(states):
                 string += f"{natom} 10 ! m1 {imult} s1 {istate} ms1 {ims: 3.1f}   m2 {jmult} s2 {jstate} ms2 {jms: 3.1f}\n"
                 key = (imult, istate, ims, jmult, jstate, jms)
                 val = self.multipolar_fit[key] if key in self.multipolar_fit else np.zeros((natom, 10), dtype=float)
-                string += "\n".join(
+                string += (
+                    "\n".join(
                         map(
                             lambda x: " ".join(map(lambda y: "{: 10.8f}".format(y), x)),
                             val,
                         )
-                        ) + "\n"
+                    )
+                    + "\n"
+                )
             string += ""
         string += "\n"
         return string
@@ -1136,7 +1139,14 @@ class QMout:
             string += "=> Multipolar fit:\n\n"
             for (imult, istate, ims, jmult, jstate, jms), val in self["multipolar_fit"].items():
                 if imult == jmult and ims == jms:
-                    string += "%s\t%i\tMs= % .1f -- %s\t%i\tMs= % .1f:\n" % (IToMult[imult], istate, ims, IToMult[jmult], jstate, jms)
+                    string += "%s\t%i\tMs= % .1f -- %s\t%i\tMs= % .1f:\n" % (
+                        IToMult[imult],
+                        istate,
+                        ims,
+                        IToMult[jmult],
+                        jstate,
+                        jms,
+                    )
                     string += formatgrad(val, natom, QMin.molecule["elements"], DEBUG)
             string += "\n"
 
