@@ -554,7 +554,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
 
                 # TheoDORE
                 if self.QMin.requests["theodore"]:
-                    if not self.QMin.control["jobs"][job]["restr"]:
+                    if self.QMin.control["jobs"][job]["restr"]:
                         ns = 0
                         for i in mults:
                             ns += states[i - 2] - (i == gs_mult)
@@ -566,7 +566,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
                             for i in range(self.QMin.molecule["nmstates"]):
                                 m1, s1, ms1 = tuple(self.QMin.maps["statemap"][i + 1])
                                 if (m1, s1) in props:
-                                    for j in range(self.QMin.resources["theodore_n"]):
+                                    for j in range(len(self.QMin.resources["theodore_prop"]) + len(self.QMin.resources["theodore_fragment"]) ** 2):
                                         theodore_arr[i, j] = props[(m1, s1)][j]
 
         if self.QMin.requests["theodore"]:
