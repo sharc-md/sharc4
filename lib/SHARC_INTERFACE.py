@@ -46,6 +46,7 @@ from qmin import QMin
 from qmout import QMout
 from utils import clock, expand_path, itnmstates, parse_xyz, readfile, writefile
 
+np.set_printoptions(linewidth=400, formatter={"float": lambda x: f"{x: 9.7}"})
 all_features = {
     "h",
     "soc",
@@ -615,6 +616,14 @@ class SHARC_INTERFACE(ABC):
                         out_dict[key] = expand_path(val) if re.match(r"\~|\$", val) else val
                     elif key_type is tuple:
                         out_dict[key] = (v for v in val)
+                    elif key_type is bool:
+                        if type(val) is str:
+                            if val.lower() == "false":
+                                out_dict[key] = False
+                            elif val.lower() == "true":
+                                out_dict[key] = True
+                            else:
+                                raise ValueError(f"Boolian value for '{key}': {val} cannot be interpreted as a Boolian!")
                     else:
                         out_dict[key] = key_type(val)
 
@@ -790,10 +799,12 @@ class SHARC_INTERFACE(ABC):
                     if len(self.QMin.requests[req]) != len(set(self.QMin.requests[req])):
                         self.log.error(f"Duplicate {req} requested!")
                         raise ValueError()
-                case ["nacdr" | "multipolar_fit" | "density_matrices", value]:
-                    self.QMin.requests[req] = sorted([[int(x) for x in y] for y in request[1]])
+                case ["nacdr", value]:
+                    self.QMin.requests[req] = sorted([[int(x) for x in y] for y in value])
                     if not all(len(x) == 2 for x in self.QMin.requests[req]):
                         raise ValueError(f"'{req}' not set correctly! Needs to to be nx2 matrix not {self.QMin.requests[req]}")
+                case ["density_matrices" | "multipolar_fit", value]:
+                    self.QMin.requests[req] = value
                 case ["soc", None]:
                     if (
                         len(self.QMin.molecule["states"]) < 3
