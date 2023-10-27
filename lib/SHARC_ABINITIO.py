@@ -325,11 +325,11 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                                 density_logic(m1, s1, ms1, m2, s2, ms2, "tot")
                         case _:
                             raise NotImplementedError()
-                resp_layers = QMin['resp_layers']
-                resp_density = QMin['resp_density']
-                resp_flayer = QMin['resp_first_layer']
-                resp_order = QMin['resp_fit_order']
-                resp_grid = QMin['resp_grid']
+                resp_layers = self.QMin.resources['resp_layers']
+                resp_density = self.QMin.resources['resp_density']
+                resp_flayer = self.QMin.resources['resp_first_layer']
+                resp_order = self.QMin.resources['resp_fit_order']
+                resp_grid = self.QMin.resources['resp_grid']
                 self.QMout.notes["multipolar_fit"] = f' settings [order grid firstlayer density layers] {resp_order} {resp_grid} {resp_flayer} {resp_density} {resp_layers}'
 
             self.QMin.requests.types["density_matrices"] = dict

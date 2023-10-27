@@ -383,7 +383,7 @@ Resources:
 Template: 
 {self.template}
 Scheduling: 
-{self.scheduling}
+{self.scheduling if "scheduling" in self.__dict__ else None}
 Control: 
 {self.control}"""
 

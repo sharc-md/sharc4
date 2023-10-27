@@ -451,6 +451,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                 jobgrad[state] = (job, val[state]["gs"])
         self.QMin.control["jobgrad"] = jobgrad
 
+        self.QMin.control["densjob"] = {}
         if self.QMin.requests["multipolar_fit"] or self.QMin.requests["density_matrices"]:
             # detect where the densities will be calculated
             # gs and first es always accessible from master if gs is not other mult
@@ -543,7 +544,6 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                         "density_matrices"
                     ][key]
 
-            self.QMin.control["densjob"] = {}
             for key in filter(lambda x: x is not None, self.QMin.requests["density_matrices"]):
                 if self.QMin.requests["density_matrices"][key] is None:
                     self.log.warning(f"Currently not able to produce density {key}!")

@@ -109,11 +109,9 @@ class Resp:
         # NOTE This could be very big (fakemol could be broken up into multiple pieces)
         # NOTE the value of these integrals is not affected by the atom charge
         self.log.info("starting to evaluate integrals")
-        self.log.handlers[0].flush()
         self.ints = df.incore.aux_e2(mol, fakemol, intor="int3c2e")
         self.mol = mol
         self.log.info("done")
-        self.log.handlers[0].flush()
 
     def one_shot_fit(self, dm: np.ndarray, include_core_charges: bool, order=2, charge=0, **kwargs):
         """
