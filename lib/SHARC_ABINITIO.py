@@ -276,12 +276,13 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 elif mat == "tot":
                     requested_densities.add((m1, s1, ms1, m2, s2, ms2, mat))
                 else:
-                    raise NotImplementedError(f"{m1, s1, ms1, m2, s2, ms2, mat}")
+                    self.log.warning(f"density {m1, s1, ms1, m2, s2, ms2, mat} can currently not be constructed")
+                    # raise NotImplementedError(f"{m1, s1, ms1, m2, s2, ms2, mat}")
 
             if self.QMin.requests["density_matrices"]:
                 if self.QMin.requests["density_matrices"] == ["all"]:
-                    for state1 in self.QMin.maps["statemap"]:
-                        for state2 in self.QMin.maps["statemap"]:
+                    for state1 in self.QMin.maps["statemap"].values():
+                        for state2 in self.QMin.maps["statemap"].values():
                             density_logic(*state1, *state2)
                 else:
                     # check if (itm, itm), (itm, itm, 'aa') or (m,s,ms, m,s,ms) or (m,s,ms, m,s,ms, 'aa')
@@ -324,6 +325,13 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                                 density_logic(m1, s1, ms1, m2, s2, ms2, "tot")
                         case _:
                             raise NotImplementedError()
+                resp_layers = QMin['resp_layers']
+                resp_density = QMin['resp_density']
+                resp_flayer = QMin['resp_first_layer']
+                resp_order = QMin['resp_fit_order']
+                resp_grid = QMin['resp_grid']
+                self.QMout.notes["multipolar_fit"] = f' settings [order grid firstlayer density layers] {resp_order} {resp_grid} {resp_flayer} {resp_density} {resp_layers}'
+
             self.QMin.requests.types["density_matrices"] = dict
             self.QMin.requests["density_matrices"] = {k: None for k in requested_densities}
 

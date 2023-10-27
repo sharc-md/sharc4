@@ -65,6 +65,7 @@ def test_requests2():
     for i in tests:
         test_interface = SHARC_ORCA()
         test_interface.setup_mol(os.path.join(PATH, i))
+        print(test_interface.QMin.maps["statemap"])
         test_interface._read_template = True
         test_interface._read_resources = True
         test_interface.read_requests(os.path.join(PATH, i))
@@ -384,11 +385,11 @@ def test_template():
                 "basis_per_atom": ["2", "cc-pvtz", "1", "cc-pvtz"],
                 "ecp_per_element": None,
             },
-        )
+        ),
     ]
     for template, ref in tests:
         test_interface = SHARC_ORCA()
         test_interface.setup_mol(os.path.join(PATH, "inputs/QM1.in"))
-        test_interface.read_template(os.path.join(PATH,template))
+        test_interface.read_template(os.path.join(PATH, template))
         for k, v in ref.items():
             assert test_interface.QMin["template"][k] == v
