@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import datetime
 import math
 import os
@@ -254,7 +255,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 gbw_file = qmin.control["initorbs"][jobid]
             elif qmin.save["step"] != 0 and not qmin.resources["always_orb_init"]:
                 gbw_file = os.path.join(qmin.save["savedir"], f"ORCA.gbw.{jobid}.{qmin.save['step']-1}")
-            if os.path.isfile(gbw_file):
+            if gbw_file and os.path.isfile(gbw_file):
                 shutil.copy(gbw_file, os.path.join(workdir, "ORCA.gbw"))
 
         # Setup ORCA
@@ -1244,25 +1245,6 @@ class SHARC_ORCA(SHARC_ABINITIO):
             qmin.maps["gradmap"] = set(gradjob[job])
             schedule[-1][job] = qmin
 
-        # add the gradient calculations
-        ntasks = len([1 for g in gradjob if "grad" in g])
-        if ntasks > 0:
-            self.QMin.control["nslots_pool"].append(nslots)
-            schedule.append({})
-            for idx, job in enumerate(sorted(gradjob)):
-                if not "grad" in job:
-                    continue
-                qmin = self.QMin.copy()
-                qmin.control["jobid"] = qmin.maps["multmap"][list(gradjob[job])[0][0]]
-                qmin.resources["ncpu"] = cpu_per_run[idx]
-                qmin.maps["gradmap"] = set(gradjob[job])
-                qmin.control["gradonly"] = True
-                for i in ["h", "soc", "dm", "overlap", "ion"]:
-                    qmin.requests[i] = False
-                for i in ["always_guess", "always_orb_init", "init"]:
-                    qmin.save[i] = False
-                schedule[-1][job] = qmin
-
         self.QMin.scheduling["schedule"] = schedule
 
     @staticmethod
@@ -1281,16 +1263,6 @@ class SHARC_ORCA(SHARC_ABINITIO):
             if not imult + 1 in qmin.maps["multmap"][-job]:
                 states_to_do[imult] = 0
         states_to_do[gsmult - 1] -= 1
-
-        # do minimum number of states for gradient jobs
-        if qmin.control["gradonly"]:
-            gradmult = qmin.maps["gradmap"][0][0]
-            gradstat = qmin.maps["gradmap"][0][1]
-            for imult, _ in enumerate(states_to_do):
-                if imult + 1 == gradmult:
-                    states_to_do[imult] = gradstat - (gradmult == gsmult)
-                else:
-                    states_to_do[imult] = 0
 
         # number of states to calculate
         trip = bool(restr and len(states_to_do) >= 3 and states_to_do[2] > 0)
