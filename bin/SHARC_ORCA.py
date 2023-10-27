@@ -264,16 +264,17 @@ class SHARC_ORCA(SHARC_ABINITIO):
         exit_code = self.run_program(workdir, exec_str, os.path.join(workdir, "ORCA.log"), os.path.join(workdir, "ORCA.err"))
         endtime = datetime.datetime.now()
 
-        # Save files
-        self._save_files(workdir, jobid)
-        if self.QMin.requests["ion"] and jobid == 1:
-            writefile(os.path.join(self.QMin.save["savedir"], "AO_overl"), self._get_ao_matrix(workdir))
+        if exit_code == 0:
+            # Save files
+            self._save_files(workdir, jobid)
+            if self.QMin.requests["ion"] and jobid == 1:
+                writefile(os.path.join(self.QMin.save["savedir"], "AO_overl"), self._get_ao_matrix(workdir))
 
-        # Delete files not needed
-        work_files = os.listdir(workdir)
-        for file in work_files:
-            if not re.search(r"\.log$|\.cis$|\.engrad|A\.err$|\.molden\.input$|\.gbw$|\.pc$|\.pcgrad$", file):
-                os.remove(os.path.join(workdir, file))
+            # Delete files not needed
+            work_files = os.listdir(workdir)
+            for file in work_files:
+                if not re.search(r"\.log$|\.cis$|\.engrad|A\.err$|\.molden\.input$|\.gbw$|\.pc$|\.pcgrad$", file):
+                    os.remove(os.path.join(workdir, file))
 
         return exit_code, endtime - starttime
 
