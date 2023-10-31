@@ -59,8 +59,9 @@ class SHARC_ORCA(SHARC_ABINITIO):
     _name = NAME
     _description = DESCRIPTION
     _theodore_settings = {
-        "rtype": "cclib",
+        "rtype": "orca",
         "rfile": "ORCA.log",
+        "mo_file": "ORCA.molden.input",
         "read_binary": True,
         "jmol_orbitals": False,
         "molden_orbitals": False,
