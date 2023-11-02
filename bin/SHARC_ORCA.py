@@ -929,7 +929,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
         states_to_do = deepcopy(self.QMin.molecule["states"])
         for mult, state in enumerate(self.QMin.molecule["states"]):
             if state > 0:
-                states_to_do[mult] += self.QMin.template["paddingstates"][mult]
+                states_to_do[mult] += int(self.QMin.template["paddingstates"][mult])
         if (
             not self.QMin.template["unrestricted_triplets"]
             and len(self.QMin.molecule["states"]) >= 3

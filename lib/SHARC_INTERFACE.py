@@ -714,7 +714,7 @@ class SHARC_INTERFACE(ABC):
                 self.QMin.save["step"] = 0
             return
 
-        if not last_step:
+        if last_step is None:
             assert (
                 self.QMin.save["step"] == 0
             ), f'Specified step ({self.QMin.save["step"]}) could not be restarted from!\nCheck your savedir and "STEP" file in {self.QMin.save["savedir"]}'
