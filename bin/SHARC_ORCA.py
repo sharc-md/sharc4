@@ -248,16 +248,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
             writefile(os.path.join(workdir, "ORCA.pc"), pc_str)
 
         # Copy wf files
-        jobid = qmin.control["jobid"]
-        if not qmin.resources["always_guess"]:
-            self.log.debug("Copy ORCA.gbw to work directory")
-            gbw_file = None
-            if jobid in qmin.control["initorbs"]:
-                gbw_file = qmin.control["initorbs"][jobid]
-            elif qmin.save["step"] != 0 and not qmin.resources["always_orb_init"]:
-                gbw_file = os.path.join(qmin.save["savedir"], f"ORCA.gbw.{jobid}.{qmin.save['step']-1}")
-            if gbw_file and os.path.isfile(gbw_file):
-                shutil.copy(gbw_file, os.path.join(workdir, "ORCA.gbw"))
+        self._copy_gbw(qmin, workdir)
 
         # Setup ORCA
         starttime = datetime.datetime.now()
@@ -267,8 +258,8 @@ class SHARC_ORCA(SHARC_ABINITIO):
 
         if exit_code == 0:
             # Save files
-            self._save_files(workdir, jobid)
-            if self.QMin.requests["ion"] and jobid == 1:
+            self._save_files(workdir, qmin.control["jobid"])
+            if self.QMin.requests["ion"] and qmin.control["jobid"] == 1:
                 writefile(os.path.join(self.QMin.save["savedir"], "AO_overl"), self._get_ao_matrix(workdir))
 
             # Delete files not needed
@@ -278,6 +269,26 @@ class SHARC_ORCA(SHARC_ABINITIO):
                     os.remove(os.path.join(workdir, file))
 
         return exit_code, endtime - starttime
+
+    def _copy_gbw(self, qmin: QMin, workdir: str) -> None:
+        """
+        Copy gbw file from last/current time step
+
+        jobid:      Job ID
+        qmin:       QMin object
+        workdir:    Current working directory
+        """
+        if not qmin.resources["always_guess"]:
+            self.log.debug("Copy ORCA.gbw to work directory")
+            gbw_file = None
+            if qmin.control["jobid"] in qmin.control["initorbs"]:
+                gbw_file = qmin.control["initorbs"][qmin.control["jobid"]]
+            elif not qmin.resources["always_orb_init"]:
+                gbw_file = os.path.join(qmin.save["savedir"], f"ORCA.gbw.{qmin.control['jobid']}.{qmin.save['step']}")
+                if not os.path.isfile(gbw_file):
+                    gbw_file = os.path.join(qmin.save["savedir"], f"ORCA.gbw.{qmin.control['jobid']}.{qmin.save['step']-1}")
+            if gbw_file and os.path.isfile(gbw_file):
+                shutil.copy(gbw_file, os.path.join(workdir, "ORCA.gbw"))
 
     def _get_ao_matrix(
         self, workdir: str, gbw_first: str = "ORCA.gbw", gbw_second: str = "ORCA.gbw", decimals: int = 7, trans: bool = False
@@ -353,7 +364,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
         self.log.debug("Copying files to savedir")
 
         # Generate molden file
-        if self.QMin.requests["molden"]:
+        if self.QMin.requests["molden"] or self.QMin.requests["theodore"]:
             self.log.debug("Save molden file to savedir")
             exec_str = "orca_2mkl ORCA -molden"
             molden_out = os.path.join(workdir, "orca_2mkl.out")
@@ -567,7 +578,10 @@ class SHARC_ORCA(SHARC_ABINITIO):
                             for i in range(self.QMin.molecule["nmstates"]):
                                 m1, s1, ms1 = tuple(self.QMin.maps["statemap"][i + 1])
                                 if (m1, s1) in props:
-                                    for j in range(len(self.QMin.resources["theodore_prop"]) + len(self.QMin.resources["theodore_fragment"]) ** 2):
+                                    for j in range(
+                                        len(self.QMin.resources["theodore_prop"])
+                                        + len(self.QMin.resources["theodore_fragment"]) ** 2
+                                    ):
                                         theodore_arr[i, j] = props[(m1, s1)][j]
 
         if self.QMin.requests["theodore"]:
