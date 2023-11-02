@@ -15,32 +15,8 @@ O 0.0 -1.3 0.85
     ## ===============================================
     ## Control keywords:
 init
-#samestep
-#restart
-
-#cleanup        # delete complete scratchdir and savedir, only keep QM.out
-#backup         # backup content of savedir for this time step
-
-    ## ===============================================
-    # Settings:
 unit angstrom
-states 0 0 0 0 9 9
-#savedir ./SAVE         # overrides the savedir in the resources file
-
-    ## ===============================================
-    # Quantity requests:
+states 3 0 2
 h
 dm
-nacdr
-socdr
-dm
 grad
-#overlap
-#ion
-#theodore
-    # note that the "soc" keyword does not work with the Gaussian interface
-
-
-
-
-# kate: syntax python

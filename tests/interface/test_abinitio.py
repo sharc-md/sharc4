@@ -1,12 +1,15 @@
-import pytest
 import os
 import shutil
+
+import numpy as np
+import pytest
 from SHARC_ABINITIO import SHARC_ABINITIO
 from utils import expand_path
 
 SHARC_ABINITIO.__abstractmethods__ = set()
 
-PATH = "$SHARC/../tests/interface"
+PATH = expand_path("$SHARC/../tests/interface")
+
 
 def setup_interface(qmin: str, template: str, maps: dict):
     test = SHARC_ABINITIO()
@@ -162,7 +165,7 @@ def test_setupinterface1():
     ]
 
     for qmin, template, maps in tests:
-        setup_interface(os.path.join(expand_path(PATH),qmin), os.path.join(expand_path(PATH),template), maps)
+        setup_interface(os.path.join(PATH, qmin), os.path.join(PATH, template), maps)
 
 
 def test_setupinterface2():
@@ -173,11 +176,11 @@ def test_setupinterface2():
 
     for qmin, template, maps in tests:
         with pytest.raises(ValueError):
-            setup_interface(os.path.join(expand_path(PATH),qmin), os.path.join(expand_path(PATH),template), maps)
+            setup_interface(os.path.join(PATH, qmin), os.path.join(PATH, template), maps)
 
 
 def test_clean_savedir():
-    tmp_dir = os.path.join(expand_path(PATH),"savedir_test")
+    tmp_dir = os.path.join(PATH, "savedir_test")
 
     tests = [
         (["dfgdb.brebr.4", "dfgdb.3.5", "5555.7"], 3, 8, ["dfgdb.3.5", "5555.7"]),
@@ -199,3 +202,36 @@ def test_clean_savedir():
             assert os.listdir(tmp_dir) == res
         finally:
             shutil.rmtree(tmp_dir)
+
+
+def test_parsedyson():
+    tests = [
+        (
+            "inputs/dyson1",
+            np.array(
+                [
+                    [0.9401441027, 0.8906030759, 0.9307425454, 0.0043114302],
+                    [0.4511414880, 0.0234786094, 0.0009732790, 0.3944154081],
+                    [0.0180273519, 0.4250909955, 0.0047639010, 0.7392838275],
+                    [0.0546332129, 0.0858993467, 0.3193591589, 0.0014270452],
+                ]
+            ),
+        ),
+        (
+            "inputs/dyson2",
+            np.array(
+                [
+                    [0.8944273988, 0.0004782934, 0.0723134962, 0.0009021681],
+                    [0.0896794811, 0.0007445378, 0.8279340441, 0.0003716648],
+                    [0.0062383550, 0.9479518302, 0.0023316326, 0.0106589898],
+                    [0.4213051340, 0.0041931949, 0.0339798806, 0.0002505716],
+                ]
+            ),
+        ),
+        ("inputs/dyson3", np.array([[0.9401441027]])),
+        ("inputs/dyson4", np.array([[0.9401441027, 0.9307595123], [0.4511457142, 0.0009661697]])),
+    ]
+
+    test_interface = SHARC_ABINITIO()
+    for wfovlp, ref in tests:
+        assert np.allclose(test_interface.get_dyson(os.path.join(PATH, wfovlp)), ref)

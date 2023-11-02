@@ -20,9 +20,7 @@ class QMinBase(UserDict):
     def __setitem__(self, key, value):
         # Check if new values has the correct type (if available)
         if key in self.types and not isinstance(value, self.types[key]):
-            raise TypeError(
-                f"{key} should be of type {self.types[key]} but is {type(value)}"
-            )
+            raise TypeError(f"{key} should be of type {self.types[key]} but is {type(value)}")
         self.data[key] = value
 
     def __getitem__(self, key):
@@ -168,6 +166,8 @@ class QMinRequests(QMinBase):
         "molden": bool,
         "savestuff": bool,
         "nooverlap": bool,
+        "basis_set": bool,
+        "density_matrices": list,
     """
 
     def __init__(self, *args, **kwargs):
@@ -192,6 +192,8 @@ class QMinRequests(QMinBase):
             "molden": False,
             "savestuff": False,
             "nooverlap": False,
+            "basis_set": False,
+            "density_matrices": None,
         }
         self.types = {
             "h": bool,
@@ -211,6 +213,8 @@ class QMinRequests(QMinBase):
             "molden": bool,
             "savestuff": bool,
             "nooverlap": bool,
+            "basis_set": bool,
+            "density_matrices": list,
         }
 
 
@@ -358,7 +362,7 @@ class QMin:
         return getattr(self, key)
 
     # def __contains__(self, key):
-        # return self.__dict__.__contains__(key)
+    # return self.__dict__.__contains__(key)
 
     def __str__(self):
         return f"""\
@@ -379,17 +383,20 @@ Resources:
 Template: 
 {self.template}
 Scheduling: 
-{self.scheduling}
+{self.scheduling if "scheduling" in self.__dict__ else None}
 Control: 
 {self.control}"""
 
     # TODO: rewrite as proper __copy__ function!
     # TODO: rewrite the __copy__ in QMinBase to deepcopy dicts and lists!
-    def copy(self):
+    def copy(self, full: bool = False):
         """
         Return copy of QMin object
         """
-        return deepcopy(self)
+        qmin_copy = deepcopy(self)
+        if not full:
+            del qmin_copy.scheduling
+        return qmin_copy
 
 
 if __name__ == "__main__":

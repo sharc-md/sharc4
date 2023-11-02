@@ -75,16 +75,9 @@ class QMout:
             for irow in range(shape[0]):
                 line = data[iline + irow].split()
                 if type == complex:
-                    result[irow, :] = np.array(
-                        [
-                            complex(float(line[2 * i]), float(line[2 * i + 1]))
-                            for i in range(shape[1])
-                        ]
-                    )
+                    result[irow, :] = np.array([complex(float(line[2 * i]), float(line[2 * i + 1])) for i in range(shape[1])])
                 elif type == float:
-                    result[irow, :] = np.array(
-                        [float(line[i]) for i in range(shape[1])]
-                    )
+                    result[irow, :] = np.array([float(line[i]) for i in range(shape[1])])
         elif len(shape) == 3:
             iline += 2
             for iblock in range(shape[0]):
@@ -92,15 +85,10 @@ class QMout:
                     line = data[iline + irow].split()
                     if type == complex:
                         result[iblock, irow, :] = np.array(
-                            [
-                                complex(float(line[2 * i]), float(line[2 * i + 1]))
-                                for i in range(shape[2])
-                            ]
+                            [complex(float(line[2 * i]), float(line[2 * i + 1])) for i in range(shape[2])]
                         )
                     elif type == float:
-                        result[iblock, irow, :] = np.array(
-                            [float(line[i]) for i in range(shape[2])]
-                        )
+                        result[iblock, irow, :] = np.array([float(line[i]) for i in range(shape[2])])
                 iline += 1 + shape[1]
         elif len(shape) == 4:
             iline += 2
@@ -110,15 +98,10 @@ class QMout:
                         line = data[iline + irow].split()
                         if type == complex:
                             result[iblock, irow, :] = np.array(
-                                [
-                                    complex(float(line[2 * i]), float(line[2 * i + 1]))
-                                    for i in range(shape[3])
-                                ]
+                                [complex(float(line[2 * i]), float(line[2 * i + 1])) for i in range(shape[3])]
                             )
                         elif type == float:
-                            result[iblock, irow, :] = np.array(
-                                [float(line[i]) for i in range(shape[3])]
-                            )
+                            result[iblock, irow, :] = np.array([float(line[i]) for i in range(shape[3])])
                     iline += 1 + shape[2]
         elif len(shape) == 5:
             iline += 2
@@ -129,17 +112,10 @@ class QMout:
                             line = data[iline + irow].split()
                             if type == complex:
                                 result[iblock, irow, :] = np.array(
-                                    [
-                                        complex(
-                                            float(line[2 * i]), float(line[2 * i + 1])
-                                        )
-                                        for i in range(shape[4])
-                                    ]
+                                    [complex(float(line[2 * i]), float(line[2 * i + 1])) for i in range(shape[4])]
                                 )
                             elif type == float:
-                                result[iblock, irow, :] = np.array(
-                                    [float(line[i]) for i in range(shape[4])]
-                                )
+                                result[iblock, irow, :] = np.array([float(line[i]) for i in range(shape[4])])
                         iline += 1 + shape[3]
         return result
 
@@ -194,47 +170,33 @@ class QMout:
             # h
             iline = QMout.find_line(data, 1)
             if iline != None:
-                self.h = QMout.get_quantity(
-                    data, iline, complex, (self.nmstates, self.nmstates)
-                )
+                self.h = QMout.get_quantity(data, iline, complex, (self.nmstates, self.nmstates))
             # dm
             iline = QMout.find_line(data, 2)
             if iline != None:
-                self.dm = QMout.get_quantity(
-                    data, iline, complex, (3, self.nmstates, self.nmstates)
-                )
+                self.dm = QMout.get_quantity(data, iline, complex, (3, self.nmstates, self.nmstates))
             # grad
             iline = QMout.find_line(data, 3)
             if iline != None:
-                self.grad = QMout.get_quantity(
-                    data, iline, float, (self.nmstates, self.natom, 3)
-                )
+                self.grad = QMout.get_quantity(data, iline, float, (self.nmstates, self.natom, 3))
             # grad_pc
             if self.point_charges:
                 iline = QMout.find_line(data, 30)
                 if iline != None:
-                    self.grad_pc = QMout.get_quantity(
-                        data, iline, float, (self.nmstates, self.npc, 3)
-                    )
+                    self.grad_pc = QMout.get_quantity(data, iline, float, (self.nmstates, self.npc, 3))
             # nacdr
             iline = QMout.find_line(data, 5)
             if iline != None:
-                self.nacdr = QMout.get_quantity(
-                    data, iline, float, (self.nmstates, self.nmstates, self.natom, 3)
-                )
+                self.nacdr = QMout.get_quantity(data, iline, float, (self.nmstates, self.nmstates, self.natom, 3))
             # nacdr_pc
             if self.point_charges:
                 iline = QMout.find_line(data, 31)
                 if iline != None:
-                    self.nacdr_pc = QMout.get_quantity(
-                        data, iline, float, (self.nmstates, self.nmstates, self.npc, 3)
-                    )
+                    self.nacdr_pc = QMout.get_quantity(data, iline, float, (self.nmstates, self.nmstates, self.npc, 3))
             # overlap
             iline = QMout.find_line(data, 6)
             if iline != None:
-                self.overlap = QMout.get_quantity(
-                    data, iline, complex, (self.nmstates, self.nmstates)
-                )
+                self.overlap = QMout.get_quantity(data, iline, complex, (self.nmstates, self.nmstates))
             # phases
             iline = QMout.find_line(data, 7)
             if iline != None:
@@ -242,9 +204,7 @@ class QMout:
             # socdr
             iline = QMout.find_line(data, 13)
             if iline != None:
-                self.socdr = QMout.get_quantity(
-                    data, iline, complex, (self.nmstates, self.nmstates, self.natom, 3)
-                )
+                self.socdr = QMout.get_quantity(data, iline, complex, (self.nmstates, self.nmstates, self.natom, 3))
             # socdr_pc
             if self.point_charges:
                 iline = QMout.find_line(data, 33)
@@ -258,9 +218,7 @@ class QMout:
             # dmdr
             iline = QMout.find_line(data, 12)
             if iline != None:
-                self.dmdr = QMout.get_quantity(
-                    data, iline, float, (self.nmstates, self.nmstates, self.natom, 3)
-                )
+                self.dmdr = QMout.get_quantity(data, iline, float, (self.nmstates, self.nmstates, self.natom, 3))
             # dmdr_pc
             if self.point_charges:
                 iline = QMout.find_line(data, 32)
@@ -274,9 +232,7 @@ class QMout:
             # multipolar_fit
             iline = QMout.find_line(data, 22)
             if iline != None:
-                self.multipolar_fit = QMout.get_quantity(
-                    data, iline, float, (self.nmstates, self.nmstates, self.natom, 10)
-                )
+                self.multipolar_fit = QMout.get_quantity(data, iline, float, (self.nmstates, self.nmstates, self.natom, 10))
             # prop0d
             self.prop0d = []
             iline = QMout.find_line(data, 23)
@@ -291,9 +247,7 @@ class QMout:
             self.prop2d = []
             iline = QMout.find_line(data, 20)
             if iline != None:
-                self.prop2d = QMout.get_property(
-                    data, iline, float, (self.nmstates, self.nmstates)
-                )
+                self.prop2d = QMout.get_property(data, iline, float, (self.nmstates, self.nmstates))
             # notes
             self.notes = {}  # notes can be free format and will not be read
             # runtime
@@ -322,9 +276,7 @@ class QMout:
         if "nacdr" in requests:
             self.nacdr = np.zeros((self.nmstates, self.nmstates, natom, 3), dtype=float)
             if self.point_charges:
-                self.nacdr_pc = np.zeros(
-                    (self.nmstates, self.nmstates, npc, 3), dtype=float
-                )
+                self.nacdr_pc = np.zeros((self.nmstates, self.nmstates, npc, 3), dtype=float)
         if "overlap" in requests:
             self.overlap = np.zeros((self.nmstates, self.nmstates), dtype=float)
         if "phases" in requests:
@@ -334,25 +286,15 @@ class QMout:
         self.prop2d = []
 
         if "socdr" in requests:
-            self.socdr = np.zeros(
-                (self.nmstates, self.nmstates, natom, 3), dtype=complex
-            )
+            self.socdr = np.zeros((self.nmstates, self.nmstates, natom, 3), dtype=complex)
             if self.point_charges:
-                self.socdr_pc = np.zeros(
-                    (self.nmstates, self.nmstates, npc, 3), dtype=complex
-                )
+                self.socdr_pc = np.zeros((self.nmstates, self.nmstates, npc, 3), dtype=complex)
         if "dmdr" in requests:
-            self.dmdr = np.zeros(
-                (3, self.nmstates, self.nmstates, natom, 3), dtype=float
-            )
+            self.dmdr = np.zeros((3, self.nmstates, self.nmstates, natom, 3), dtype=float)
             if self.point_charges:
-                self.dmdr_pc = np.zeros(
-                    (3, self.nmstates, self.nmstates, npc, 3), dtype=float
-                )
+                self.dmdr_pc = np.zeros((3, self.nmstates, self.nmstates, npc, 3), dtype=float)
         if "multipolar_fit" in requests:
-            self.multipolar_fit = np.zeros(
-                (self.nmstates, self.nmstates, natom, 10), dtype=float
-            )
+            self.multipolar_fit = np.zeros((self.nmstates, self.nmstates, natom, 10), dtype=float)
 
     def __getitem__(self, key):
         if key in self.__dict__:
@@ -511,15 +453,20 @@ class QMout:
             j = 0
             for jmult, jstate, jms in itnmstates(states):
                 for ipol in range(3):
-                    string += (
-                        "%i %i ! m1 %i s1 %i ms1 %i   m2 %i s2 %i ms2 %i   pol %i\n"
-                        % (natom, 3, imult, istate, ims, jmult, jstate, jms, ipol)
+                    string += "%i %i ! m1 %i s1 %i ms1 %i   m2 %i s2 %i ms2 %i   pol %i\n" % (
+                        natom,
+                        3,
+                        imult,
+                        istate,
+                        ims,
+                        jmult,
+                        jstate,
+                        jms,
+                        ipol,
                     )
                     for atom in range(natom):
                         for xyz in range(3):
-                            string += "%s " % (
-                                eformat(self.dmdr[ipol][i][j][atom][xyz], 12, 3)
-                            )
+                            string += "%s " % (eformat(self.dmdr[ipol][i][j][atom][xyz], 12, 3))
                         string += "\n"
                     string += ""
                 j += 1
@@ -533,29 +480,31 @@ class QMout:
         nmstates = self.nmstates
         natom = self.npc
         string = ""
-        string += (
-            "! %i Dipole moment derivatives on point charges (%ix%ix3x%ix3, real)\n"
-            % (
-                32,
-                nmstates,
-                nmstates,
-                natom,
-            )
+        string += "! %i Dipole moment derivatives on point charges (%ix%ix3x%ix3, real)\n" % (
+            32,
+            nmstates,
+            nmstates,
+            natom,
         )
         i = 0
         for imult, istate, ims in itnmstates(states):
             j = 0
             for jmult, jstate, jms in itnmstates(states):
                 for ipol in range(3):
-                    string += (
-                        "%i %i ! m1 %i s1 %i ms1 %i   m2 %i s2 %i ms2 %i   pol %i\n"
-                        % (natom, 3, imult, istate, ims, jmult, jstate, jms, ipol)
+                    string += "%i %i ! m1 %i s1 %i ms1 %i   m2 %i s2 %i ms2 %i   pol %i\n" % (
+                        natom,
+                        3,
+                        imult,
+                        istate,
+                        ims,
+                        jmult,
+                        jstate,
+                        jms,
+                        ipol,
                     )
                     for atom in range(natom):
                         for xyz in range(3):
-                            string += "%s " % (
-                                eformat(self.dmdr_pc[ipol][i][j][atom][xyz], 12, 3)
-                            )
+                            string += "%s " % (eformat(self.dmdr_pc[ipol][i][j][atom][xyz], 12, 3))
                         string += "\n"
                     string += ""
                 j += 1
@@ -610,14 +559,11 @@ class QMout:
         nmstates = self.nmstates
         natom = self.npc
         string = ""
-        string += (
-            "! %i Spin-Orbit coupling derivatives on point charges (%ix%ix3x%ix3, complex)\n"
-            % (
-                33,
-                nmstates,
-                nmstates,
-                natom,
-            )
+        string += "! %i Spin-Orbit coupling derivatives on point charges (%ix%ix3x%ix3, complex)\n" % (
+            33,
+            nmstates,
+            nmstates,
+            natom,
         )
         i = 0
         for imult, istate, ims in itnmstates(states):
@@ -807,14 +753,11 @@ class QMout:
         nmstates = self.nmstates
         npc = self.npc
         string = ""
-        string += (
-            "! %i Non-adiabatic couplings on point charges (ddr) (%ix%ix%ix3, real)\n"
-            % (
-                31,
-                nmstates,
-                nmstates,
-                npc,
-            )
+        string += "! %i Non-adiabatic couplings on point charges (ddr) (%ix%ix%ix3, real)\n" % (
+            31,
+            nmstates,
+            nmstates,
+            npc,
         )
         i = 0
         for imult, istate, ims in itnmstates(states):
@@ -832,9 +775,7 @@ class QMout:
                 )
                 for atom in range(npc):
                     for xyz in range(3):
-                        string += "%s " % (
-                            eformat(self.nacdr_pc[i][j][atom][xyz], 12, 3)
-                        )
+                        string += "%s " % (eformat(self.nacdr_pc[i][j][atom][xyz], 12, 3))
                     string += "\n"
                 string += ""
                 j += 1
@@ -1031,30 +972,28 @@ class QMout:
         states = self.states
         nmstates = self.nmstates
         natom = self.natom
-        # resp_layers = self.resp_layers
-        # resp_density = resources['resp_density']
-        # resp_flayer = resources['resp_first_layer']
-        # resp_order = resources['resp_fit_order']
-        # resp_grid = resources['resp_grid']
-        # setting_str = f' settings [order grid firstlayer density layers] {resp_order} {resp_grid} {resp_flayer} {resp_density} {resp_layers}'
         setting_str = ""
         if "multipolar_fit" in self.notes:
             setting_str = self.notes["multipolar_fit"]
-        string = f"! 22 Atomwise multipolar density representation fits for states ({nmstates}x{nmstates}x{natom}x10) {setting_str}\n"
+        string = (
+            f"! 22 Atomwise multipolar density representation fits for states ({nmstates}x{nmstates}x{natom}x10) {setting_str}\n"
+        )
 
-        for i, (imult, istate, ims) in zip(range(nmstates), itnmstates(states)):
-            for j, (jmult, jstate, jms) in zip(range(nmstates), itnmstates(states)):
+        for imult, istate, ims in itnmstates(states):
+            for jmult, jstate, jms in itnmstates(states):
                 string += f"{natom} 10 ! m1 {imult} s1 {istate} ms1 {ims: 3.1f}   m2 {jmult} s2 {jstate} ms2 {jms: 3.1f}\n"
+                key = (imult, istate, ims, jmult, jstate, jms)
+                val = self.multipolar_fit[key] if key in self.multipolar_fit else np.zeros((natom, 10), dtype=float)
                 string += (
                     "\n".join(
                         map(
                             lambda x: " ".join(map(lambda y: "{: 10.8f}".format(y), x)),
-                            self.multipolar_fit[i][j],
+                            val,
                         )
                     )
                     + "\n"
                 )
-                string += ""
+            string += ""
         string += "\n"
         return string
 
@@ -1072,7 +1011,7 @@ class QMout:
         nmstates = QMin.molecule["nmstates"]
         natom = QMin.molecule["natom"]
 
-        string = ''
+        string = ""
         string += "===> Results:\n\n"
         # Hamiltonian matrix, real or complex
         if QMin.requests["h"] or QMin.requests["soc"]:
@@ -1082,7 +1021,7 @@ class QMout:
             for i in range(nmstates):
                 matrix[i][i] -= eshift
             string += formatcomplexmatrix(matrix, states)
-            string += '\n'
+            string += "\n"
         # Dipole moment matrices
         if QMin.requests["dm"]:
             string += "=> Dipole Moment Matrices:\n\n"
@@ -1090,7 +1029,7 @@ class QMout:
                 string += "Polarisation %s:\n" % (IToPol[xyz])
                 matrix = self["dm"][xyz]
                 string += formatcomplexmatrix(matrix, states)
-            string += '\n'
+            string += "\n"
         # Gradients
         if QMin.requests["grad"]:
             string += "=> Gradient Vectors:\n\n"
@@ -1104,7 +1043,7 @@ class QMout:
                     DEBUG,
                 )
                 istate += 1
-            string += '\n'
+            string += "\n"
         # Nonadiabatic coupling vectors
         if QMin.requests["nacdr"]:
             string += "=> Nonadiabatic Coupling Vectors:\n\n"
@@ -1117,7 +1056,7 @@ class QMout:
                         string += formatgrad(self["nacdr"][istate][jstate], natom, QMin.molecule["elements"], DEBUG)
                     jstate += 1
                 istate += 1
-            string += '\n'
+            string += "\n"
         # Overlaps
         if QMin.requests["overlap"]:
             string += "=> Overlap matrix:\n\n"
@@ -1131,7 +1070,7 @@ class QMout:
                         self["phases"][i].imag,
                     )
                 string += "\n"
-            string += '\n'
+            string += "\n"
         # Spin-orbit coupling derivatives
         if QMin.requests["socdr"]:
             string += "=> Spin-Orbit Gradient Vectors:\n\n"
@@ -1143,7 +1082,7 @@ class QMout:
                     string += formatgrad(self["socdr"][istate][jstate], natom, QMin.molecule["elements"], DEBUG)
                     jstate += 1
                 istate += 1
-            string += '\n'
+            string += "\n"
         # Dipole moment derivatives
         if QMin.requests["dmdr"]:
             string += "=> Dipole moment derivative vectors:\n\n"
@@ -1153,7 +1092,13 @@ class QMout:
                 for jmult, j, msj in itnmstates(states):
                     if imult == jmult and msi == msj:
                         for ipol in range(3):
-                            string += "%s\tStates %i - %i\tMs= % .1f\tPolarization %s:\n" % (IToMult[imult], i, j, msi, IToPol[ipol])
+                            string += "%s\tStates %i - %i\tMs= % .1f\tPolarization %s:\n" % (
+                                IToMult[imult],
+                                i,
+                                j,
+                                msi,
+                                IToPol[ipol],
+                            )
                             string += formatgrad(
                                 self["dmdr"][ipol][istate][jstate],
                                 natom,
@@ -1162,53 +1107,50 @@ class QMout:
                             )
                     jstate += 1
                 istate += 1
-            string += '\n'
+            string += "\n"
         # Property matrices
         if self["prop2d"]:
             string += "=> Property matrices:\n\n"
             for element in self["prop2d"]:
                 string += f'Matrix with label "{element[0]}"\n'
                 string += formatcomplexmatrix(element[1], states)
-            string += '\n'
+            string += "\n"
         # Property vectors
         if self["prop1d"]:
             string += "=> Property vectors:\n\n"
             string += "%5s " % ("State")
             for j in range(len(self["prop1d"])):
                 string += "%12s " % self["prop1d"][j][0]
-            string += '\n'
+            string += "\n"
             for i in range(nmstates):
-                string += "% 5i " % (i+1)
+                string += "% 5i " % (i + 1)
                 for j in range(len(self["prop1d"])):
                     string += "%12.9f " % self["prop1d"][j][1][i]
-                string += '\n'
-            # for element in self["prop1d"]:
-            #     string += f"{element[0]} {element[1]}\n"
-            #     # TODO: format more nicely!
-            string += '\n'
+                string += "\n"
+            string += "\n"
         # Property scalars
         if self["prop0d"]:
             string += "=> Property scalars:\n\n"
             for element in self["prop0d"]:
                 string += f"{element[0]} {element[1]}\n"
-            string += '\n'
+            string += "\n"
         # Multipolar fit
         if QMin.requests["multipolar_fit"]:
             string += "=> Multipolar fit:\n\n"
-            istate = 0
-            for imult, i, ims in itnmstates(states):
-                jstate = 0
-                for jmult, j, jms in itnmstates(states):
-                    if imult == jmult and ims == jms:
-                        string += "%s\t%i\tMs= % .1f -- %s\t%i\tMs= % .1f:\n" % (IToMult[imult], i, ims, IToMult[jmult], j, jms)
-                        string += formatgrad(self["multipolar_fit"][istate][jstate], natom, QMin.molecule["elements"], DEBUG)
-                    jstate += 1
-                istate += 1
-            string += '\n'
+            for (imult, istate, ims, jmult, jstate, jms), val in self["multipolar_fit"].items():
+                if imult == jmult and ims == jms:
+                    string += "%s\t%i\tMs= % .1f -- %s\t%i\tMs= % .1f:\n" % (
+                        IToMult[imult],
+                        istate,
+                        ims,
+                        IToMult[jmult],
+                        jstate,
+                        jms,
+                    )
+                    string += formatgrad(val, natom, QMin.molecule["elements"], DEBUG)
+            string += "\n"
 
         return string
-        # print(string)
-        # sys.stdout.flush()
 
 
 if __name__ == "__main__":

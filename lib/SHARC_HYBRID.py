@@ -23,31 +23,60 @@
 #
 # ******************************************
 
+from collections.abc import Callable
+from importlib import import_module
+
 from SHARC_INTERFACE import SHARC_INTERFACE
 
+
 class SHARC_HYBRID(SHARC_INTERFACE):
+    """
+    Abstract base class for SHARC hybrid interfaces
+    """
 
-    # @abstractmethod
-    # def authors(self) -> str:
-    # return "Maximmilian Xaver Tiefenbacher"
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
 
-    # @abstractmethod
-    # def version(self) -> str:
-    # return "3.0"
+        # Dict of child interfaces
+        self._kindergarden = {}
 
-    # @abstractmethod
-    # def versiondate(self) -> date:
-    # return date(2023, 8, 23)
+    def instantiate_children(self, child_dict: dict[str, str]) -> None:
+        """
+        Populate kindergarden with instantiated child interfaces
 
-    # @abstractmethod
-    # def name(self) -> str:
-    # return "hybrid"
+        child_dict:     dictionary containing name of child and name of interface
+        """
+        # TODO: Params for init? Like logfile stuff and debuglevel
+        self.log.debug("Instantiace childs")
 
-    # @abstractmethod
-    # def description(self) -> str:
-    # return "Abstract base class for hybrid SHARC interfaces."
+        for name, interface in child_dict.items():
+            if name in self._kindergarden:
+                self.log.error(f"{name} specified twice!")
+                raise ValueError()
+            self._kindergarden[name] = self._load_interface(interface)()
+            self.log.debug(f"Assign instance of {interface} to {name}")
 
-    # @abstractmethod
-    # def changelogstring(self) -> str:
-    # return "This is the changelog string"
-    pass
+    def _load_interface(self, interface_name: str) -> Callable:
+        """
+        Dynamically loads interface from Python include path
+
+        interface_name: Name of SHARC interface
+        """
+
+        interface_name = interface_name if interface_name.split("_")[0] == "SHARC" else f"SHARC_{interface_name}"
+        try:
+            module = import_module(interface_name)
+        except (ModuleNotFoundError, ImportError, TypeError):
+            self.log.error(f"{interface_name} could not be imported!")
+            raise
+
+        try:
+            interface = getattr(module, interface_name)
+            if not issubclass(interface, SHARC_INTERFACE):
+                self.log.error(f"Class {interface_name} is not derived from SHARC_INTERFACE")
+                raise ImportError()
+        except AttributeError as exc:
+            self.log.error(f"Class {interface_name} not found in {module}")
+            raise AttributeError from exc
+
+        return interface

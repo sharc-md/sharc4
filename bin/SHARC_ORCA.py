@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import datetime
 import math
 import os
@@ -7,7 +8,7 @@ import struct
 import subprocess as sp
 from copy import deepcopy
 from io import TextIOWrapper
-from itertools import count, pairwise
+from itertools import chain, count, pairwise
 from typing import Optional
 
 import numpy as np
@@ -58,8 +59,9 @@ class SHARC_ORCA(SHARC_ABINITIO):
     _name = NAME
     _description = DESCRIPTION
     _theodore_settings = {
-        "rtype": "cclib",
+        "rtype": "orca",
         "rfile": "ORCA.log",
+        "mo_file": "ORCA.molden.input",
         "read_binary": True,
         "jmol_orbitals": False,
         "molden_orbitals": False,
@@ -85,6 +87,9 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 "numocc": None,
                 "schedule_scaling": 0.9,
                 "neglected_gradient": "zero",
+                "savedir": None,
+                "always_orb_init": False,
+                "always_guess": False,
             }
         )
         self.QMin.resources.types.update(
@@ -97,6 +102,9 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 "numocc": int,
                 "schedule_scaling": float,
                 "neglected_gradient": str,
+                "savedir": str,
+                "always_orb_init": bool,
+                "always_guess": bool,
             }
         )
 
@@ -118,6 +126,13 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 "hfexchange": -1.0,
                 "intacc": -1.0,
                 "unrestricted_triplets": False,
+                "basis_per_element": None,
+                "basis_per_atom": None,
+                "ecp_per_element": None,
+                "range_sep_settings": None,
+                "grid": None,
+                "gridx": None,
+                "gridxc": None,
             }
         )
         self.QMin.template.types.update(
@@ -137,6 +152,9 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 "hfexchange": float,
                 "intacc": float,
                 "unrestricted_triplets": bool,
+                "basis_per_element": list,
+                "basis_per_atom": list,
+                "ecp_per_element": list,
             }
         )
 
@@ -230,35 +248,47 @@ class SHARC_ORCA(SHARC_ABINITIO):
             writefile(os.path.join(workdir, "ORCA.pc"), pc_str)
 
         # Copy wf files
-        jobid = qmin.control["jobid"]
-        if qmin.control["master"] and jobid in qmin.control["initorbs"]:
-            self.log.debug("Copy ORCA.gbw to work directory")
-            shutil.copy(qmin.control["initorbs"][jobid], os.path.join(workdir, "ORCA.gbw"))
-        elif qmin.control["gradonly"]:
-            self.log.debug(f"Copy ORCA.gbw from master_{jobid}")
-            shutil.copy(
-                os.path.join(qmin.resources["scratchdir"], f"master_{jobid}", "ORCA.gbw"), os.path.join(workdir, "ORCA.gbw")
-            )
+        self._copy_gbw(qmin, workdir)
 
         # Setup ORCA
-
         starttime = datetime.datetime.now()
         exec_str = f"{os.path.join(qmin.resources['orcadir'],'orca')} ORCA.inp"
         exit_code = self.run_program(workdir, exec_str, os.path.join(workdir, "ORCA.log"), os.path.join(workdir, "ORCA.err"))
         endtime = datetime.datetime.now()
 
-        # Save files
-        self._save_files(workdir, jobid)
-        if self.QMin.requests["ion"] and jobid == 1:
-            writefile(os.path.join(self.QMin.save["savedir"], "AO_overl"), self._get_ao_matrix(workdir))
+        if exit_code == 0:
+            # Save files
+            self._save_files(workdir, qmin.control["jobid"])
+            if self.QMin.requests["ion"] and qmin.control["jobid"] == 1:
+                writefile(os.path.join(self.QMin.save["savedir"], "AO_overl"), self._get_ao_matrix(workdir))
 
-        # Delete files not needed
-        work_files = os.listdir(workdir)
-        for file in work_files:
-            if not re.search(r"\.log$|\.cis$|\.engrad|A\.err$|\.molden\.input$|\.gbw$|\.pc$|\.pcgrad$", file):
-                os.remove(os.path.join(workdir, file))
+            # Delete files not needed
+            work_files = os.listdir(workdir)
+            for file in work_files:
+                if not re.search(r"\.log$|\.cis$|\.engrad|A\.err$|\.molden\.input$|\.gbw$|\.pc$|\.pcgrad$", file):
+                    os.remove(os.path.join(workdir, file))
 
         return exit_code, endtime - starttime
+
+    def _copy_gbw(self, qmin: QMin, workdir: str) -> None:
+        """
+        Copy gbw file from last/current time step
+
+        jobid:      Job ID
+        qmin:       QMin object
+        workdir:    Current working directory
+        """
+        if not qmin.resources["always_guess"]:
+            self.log.debug("Copy ORCA.gbw to work directory")
+            gbw_file = None
+            if qmin.control["jobid"] in qmin.control["initorbs"]:
+                gbw_file = qmin.control["initorbs"][qmin.control["jobid"]]
+            elif not qmin.resources["always_orb_init"]:
+                gbw_file = os.path.join(qmin.save["savedir"], f"ORCA.gbw.{qmin.control['jobid']}.{qmin.save['step']}")
+                if not os.path.isfile(gbw_file):
+                    gbw_file = os.path.join(qmin.save["savedir"], f"ORCA.gbw.{qmin.control['jobid']}.{qmin.save['step']-1}")
+            if gbw_file and os.path.isfile(gbw_file):
+                shutil.copy(gbw_file, os.path.join(workdir, "ORCA.gbw"))
 
     def _get_ao_matrix(
         self, workdir: str, gbw_first: str = "ORCA.gbw", gbw_second: str = "ORCA.gbw", decimals: int = 7, trans: bool = False
@@ -334,7 +364,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
         self.log.debug("Copying files to savedir")
 
         # Generate molden file
-        if self.QMin.requests["molden"]:
+        if self.QMin.requests["molden"] or self.QMin.requests["theodore"]:
             self.log.debug("Save molden file to savedir")
             exec_str = "orca_2mkl ORCA -molden"
             molden_out = os.path.join(workdir, "orca_2mkl.out")
@@ -454,7 +484,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
             theodore_arr = np.zeros(
                 (
                     self.QMin.molecule["nmstates"],
-                    len(self.QMin.template["theodore_prop"]) + len(self.QMin.template["theodore_fragment"]) ** 2,
+                    len(self.QMin.resources["theodore_prop"]) + len(self.QMin.resources["theodore_fragment"]) ** 2,
                 )
             )
 
@@ -536,7 +566,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
 
                 # TheoDORE
                 if self.QMin.requests["theodore"]:
-                    if not self.QMin.control["jobs"][job]["restr"]:
+                    if self.QMin.control["jobs"][job]["restr"]:
                         ns = 0
                         for i in mults:
                             ns += states[i - 2] - (i == gs_mult)
@@ -548,7 +578,10 @@ class SHARC_ORCA(SHARC_ABINITIO):
                             for i in range(self.QMin.molecule["nmstates"]):
                                 m1, s1, ms1 = tuple(self.QMin.maps["statemap"][i + 1])
                                 if (m1, s1) in props:
-                                    for j in range(self.QMin.template["theodore_n"]):
+                                    for j in range(
+                                        len(self.QMin.resources["theodore_prop"])
+                                        + len(self.QMin.resources["theodore_fragment"]) ** 2
+                                    ):
                                         theodore_arr[i, j] = props[(m1, s1)][j]
 
         if self.QMin.requests["theodore"]:
@@ -559,20 +592,15 @@ class SHARC_ORCA(SHARC_ABINITIO):
             for grad in self.QMin.maps["gradmap"]:
                 job_path, ground_state = self.QMin.control["jobgrad"][grad]
                 grad_mult, _ = self.QMin.control["jobs"][int(job_path.split("_")[1])].values()
+                grad_ext = f"{'singlet' if grad[0] == grad_mult[0] else IToMult[grad[0]].lower()}.root{grad[1] - (grad[0] == grad_mult[0])}"
                 if ground_state:
                     gradients = self._get_grad(os.path.join(scratchdir, job_path, "ORCA.engrad"), True)
                 else:
-                    gradients = self._get_grad(
-                        os.path.join(
-                            scratchdir,
-                            job_path,
-                            f"ORCA.engrad.{'singlet' if grad[0] == grad_mult[0] else IToMult[grad[0]].lower()}.root{grad[1] - (grad[0] == grad_mult[0])}.grad.tmp",
-                        )
-                    )
+                    gradients = self._get_grad(os.path.join(scratchdir, job_path, f"ORCA.engrad.{grad_ext}.grad.tmp"))
 
                 # Point charges
                 if self.QMin.molecule["point_charges"]:
-                    point_charges = self._get_pc_grad(os.path.join(scratchdir, ""))
+                    point_charges = self._get_pc_grad(os.path.join(scratchdir, f"ORCA.pcgrad.{grad_ext}.grad.tmp"))
 
                 for key, val in self.QMin.maps["statemap"].items():
                     if (val[0], val[1]) == grad:
@@ -821,7 +849,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
     def print_qmin(self) -> None:
         pass
 
-    def read_resources(self, resources_file: str, kw_whitelist: Optional[list[str]] = None) -> None:
+    def read_resources(self, resources_file: str = "ORCA.resources", kw_whitelist: Optional[list[str]] = None) -> None:
         if kw_whitelist is None:
             kw_whitelist = []
         super().read_resources(resources_file, kw_whitelist)
@@ -851,8 +879,13 @@ class SHARC_ORCA(SHARC_ABINITIO):
             if val and req != "retain" and req not in all_features:
                 raise ValueError(f"Found unsupported request {req}.")
 
-    def read_template(self, template_file: str) -> None:
-        super().read_template(template_file)
+    def read_template(self, template_file: str = "ORCA.template", kw_whitelist: Optional[list[str]] = None) -> None:
+        kw_whitelist = ["basis_per_element", "basis_per_atom", "ecp_per_element"]
+        super().read_template(template_file, kw_whitelist)
+
+        for key in kw_whitelist:
+            if self.QMin.template[key] and isinstance(self.QMin.template[key][0], list):
+                self.QMin.template[key] = list(chain.from_iterable(self.QMin.template[key]))
 
         # Convert keys to string if list
         if isinstance(self.QMin.template["keys"], list):
@@ -1228,25 +1261,6 @@ class SHARC_ORCA(SHARC_ABINITIO):
             qmin.maps["gradmap"] = set(gradjob[job])
             schedule[-1][job] = qmin
 
-        # add the gradient calculations
-        ntasks = len([1 for g in gradjob if "grad" in g])
-        if ntasks > 0:
-            self.QMin.control["nslots_pool"].append(nslots)
-            schedule.append({})
-            for idx, job in enumerate(sorted(gradjob)):
-                if not "grad" in job:
-                    continue
-                qmin = self.QMin.copy()
-                qmin.control["jobid"] = qmin.maps["multmap"][list(gradjob[job])[0][0]]
-                qmin.resources["ncpu"] = cpu_per_run[idx]
-                qmin.maps["gradmap"] = set(gradjob[job])
-                qmin.control["gradonly"] = True
-                for i in ["h", "soc", "dm", "overlap", "ion"]:
-                    qmin.requests[i] = False
-                for i in ["always_guess", "always_orb_init", "init"]:
-                    qmin.save[i] = False
-                schedule[-1][job] = qmin
-
         self.QMin.scheduling["schedule"] = schedule
 
     @staticmethod
@@ -1265,16 +1279,6 @@ class SHARC_ORCA(SHARC_ABINITIO):
             if not imult + 1 in qmin.maps["multmap"][-job]:
                 states_to_do[imult] = 0
         states_to_do[gsmult - 1] -= 1
-
-        # do minimum number of states for gradient jobs
-        if qmin.control["gradonly"]:
-            gradmult = qmin.maps["gradmap"][0][0]
-            gradstat = qmin.maps["gradmap"][0][1]
-            for imult, _ in enumerate(states_to_do):
-                if imult + 1 == gradmult:
-                    states_to_do[imult] = gradstat - (gradmult == gsmult)
-                else:
-                    states_to_do[imult] = 0
 
         # number of states to calculate
         trip = bool(restr and len(states_to_do) >= 3 and states_to_do[2] > 0)
@@ -1308,12 +1312,12 @@ class SHARC_ORCA(SHARC_ABINITIO):
         string += f"%maxcore {qmin.resources['memory']}\n\n"
 
         # Basis sets + ECP basis set
-        if "basis_per_element" in qmin.template:
+        if qmin.template["basis_per_element"]:
             string += "%basis\n"
             # basis_per_element key is list, need to iterate pairwise
             for elem, basis in pairwise(qmin.template["basis_per_element"]):
                 string += f'\tnewgto {elem} "{basis}" end\n'
-            if "ecp_per_element" in qmin.template:
+            if qmin.template["ecp_per_element"]:
                 for elem, basis in pairwise(qmin.template["ecp_per_element"]):
                     string += f'\tnewECP {elem} "{basis}" end\n'
             string += "end\n\n"
@@ -1371,7 +1375,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
         string += "\tcoords\n"
         for iatom, (label, coords) in enumerate(zip(qmin.molecule["elements"], qmin.coords["coords"])):
             string += f"\t{label:4s} {coords[0]:16.9f} {coords[1]:16.9f} {coords[2]:16.9f}"
-            if "basis_per_atom" in qmin.template and str(iatom) in qmin.template["basis_per_atom"]:
+            if qmin.template["basis_per_atom"] and str(iatom) in qmin.template["basis_per_atom"]:
                 idx = qmin.template["basis_per_atom"].index(str(iatom))
                 string += f"\tnewgto \"{qmin.template['basis_per_atom'][idx+1]}\" end"
             string += "\n"

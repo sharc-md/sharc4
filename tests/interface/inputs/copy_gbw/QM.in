@@ -24,20 +24,18 @@ init
     ## ===============================================
     # Settings:
 unit angstrom
-states 0 0 0 0 9 9
+states 3 1 5
 #savedir ./SAVE         # overrides the savedir in the resources file
 
     ## ===============================================
     # Quantity requests:
 h
-dm
-nacdr
-socdr
+soc
 dm
 grad
-#overlap
-#ion
-#theodore
+ion
+theodore
+
     # note that the "soc" keyword does not work with the Gaussian interface
 
 

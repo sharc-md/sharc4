@@ -15,7 +15,7 @@ from itertools import starmap
 import numpy as np
 from qmin import QMin
 from SHARC_INTERFACE import SHARC_INTERFACE
-from utils import containsstring, readfile, safe_cast, link, writefile, shorten_DIR, mkdir, itmult
+from utils import containsstring, readfile, safe_cast, link, writefile, shorten_DIR, mkdir, itmult, convert_list
 from constants import ATOMIC_RADII, MK_RADII
 from resp import Resp
 from asa_grid import GRIDS
@@ -75,6 +75,8 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 "resp_vdw_radii": [],
                 "resp_betas": [0.0005, 0.0015, 0.003],
                 "resp_layers": 4,
+                "resp_first_layer": 1.4,
+                "resp_density": 10.0,
                 "resp_fit_order": 2,
                 "resp_mk_radii": True,  # use radii for original Merz-Kollmann-Singh scheme for HCNOSP
                 "resp_grid": "lebedev",
@@ -91,6 +93,8 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 "resp_vdw_radii": list,
                 "resp_betas": list,
                 "resp_layers": int,
+                "resp_first_layer": float,
+                "resp_density": float,
                 "resp_fit_order": int,
                 "resp_mk_radii": bool,  # use radii for original Merz-Kollmann-Singh scheme for HCNOSP
                 "resp_grid": str,
@@ -175,8 +179,8 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         """
 
     @abstractmethod
-    def read_template(self, template_file: str) -> None:
-        super().read_template(template_file)
+    def read_template(self, template_file: str, kw_whitelist: Optional[list[str]] = None) -> None:
+        super().read_template(template_file, kw_whitelist)
 
         # Check if charge in template and autoexpand if needed
         if self.QMin.template["charge"]:
@@ -194,36 +198,36 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 self.QMin.template["charge"] = [
                     int(self.QMin.template["charge"][i]) for i in range(len(self.QMin.molecule["states"]))
                 ]
-                compatible = True
+
                 for imult, cha in enumerate(self.QMin.template["charge"]):
                     if not (self.QMin.molecule["Atomcharge"] + cha + imult) % 2 == 0:
-                        compatible = False
-                if not compatible:
-                    self.log.warning(
-                        "Charges from template not compatible with multiplicities!  (this is probably OK if you use QM/MM)"
-                    )
+                        self.log.warning(
+                            "Charges from template not compatible with multiplicities!  (this is probably OK if you use QM/MM)"
+                        )
+                        break
             else:
                 raise ValueError('Length of "charge" does not match length of "states"!')
         else:
             self.QMin.template["charge"] = [i % 2 for i in range(len(self.QMin.molecule["states"]))]
+        if self.QMin.template["paddingstates"]:
+            self.QMin.template["paddingstates"] = convert_list(self.QMin.template["paddingstates"])
 
     @abstractmethod
     def read_resources(self, resources_file: str, kw_whitelist: Optional[list[str]] = None) -> None:
+        kw_whitelist = [] if kw_whitelist is None else kw_whitelist
         super().read_resources(resources_file, kw_whitelist + ["theodore_fragment"])
 
-        # if "theodore_fragment" in self.QMin.resources:
-            # self.QMin.resources["theodore_fragment"] = [
-                # list(map(int, (j for j in i))) for i in self.QMin.resources["theodore_fragment"]
-            # ]
+        if self.QMin.resources["theodore_fragment"]:
+            self.QMin.resources["theodore_fragment"] = convert_list(self.QMin.resources["theodore_fragment"])
 
-    @ abstractmethod
+    @abstractmethod
     def read_requests(self, requests_file: str = "QM.in") -> None:
         super().read_requests(requests_file)
 
     def printQMout(self) -> None:
         super().writeQMout()
 
-    @ abstractmethod
+    @abstractmethod
     def setup_interface(self) -> None:
         # Setup charge and paddingstates
         if not self.QMin.template["charge"]:
@@ -244,41 +248,6 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         self.QMin.control["states_to_do"] = [
             v + int(self.QMin.template["paddingstates"][i]) if v > 0 else v for i, v in enumerate(self.QMin.molecule["states"])
         ]
-        if self.QMin.requests["multipolar_fit"]:
-            # TODO: do only if RESP requested
-            # construct shells
-            shells, first, nlayers = map(QMin.resources.get, ("resp_shells", "resp_first_layer", "resp_layers"))
-
-            # collect vdw radii for atoms from settings
-            if self.QMin.resources["resp_vdw_radii"]:
-                if len(self.QMin.resources["resp_vdw_radii"]) != len(QMin["elements"]):
-                    raise RuntimeError("specify 'resp_vdw_radii' for all atoms!")
-            else:
-                # populate vdW radii
-                radii = ATOMIC_RADII
-                if self.QMin.resources["resp_mk_radii"]:
-                    radii.update(MK_RADII)
-                for e in filter(lambda x: e not in self.QMin.resources["resp_vdw_radii_symbol"], self.QMin.molecule["elements"]):
-                    self.QMin.resources["resp_vdw_radii_symbol"][e] = radii[e]
-                self.QMin.resources["resp_vdw_radii"] = [
-                    self.QMin.resources["resp_vdw_radii_symbol"][s] for s in self.QMin["elements"]
-                ]
-
-            if self.QMin.resources["resp_betas"]:
-                if len(self.QMin.resources["resp_betas"]) != self.QMin.resources["resp_fit_order"] + 1:
-                    raise RuntimeError(
-                        f"specify one beta parameter for each multipole order (order + 1)!\n needed {self.QMin.resources['resp_fit_order']+1:d}"
-                    )
-                self.log.info(f"using non-default beta parameters for resp fit {self.QMin.resources['resp_betas']}")
-
-            if not shells:
-                self.log.debug(f"Calculating resp layers as: {first} + 4/sqrt({nlayers})")
-                incr = 0.4 / math.sqrt(nlayers)
-                self.QMin.resources["resp_shells"] = [first + incr * x for x in range(nlayers)]
-            if self.QMin.resources["resp_grid"] not in GRIDS:
-                raise RuntimeError(
-                    f"specified grid {self.QMin.resources['resp_grid']} not available.\n Possible options are 'lebedev', 'random', 'golden_spiral', 'gamess', 'marcus_deserno'"
-                )
 
     def _request_logic(self):
         """
@@ -292,11 +261,79 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             self.QMin.maps["gradmap"] = set({tuple(self.QMin.maps["statemap"][i][0:2]) for i in self.QMin.requests["grad"]})
 
         # Setup densmap
-        if self.QMin.requests["multipolar_fit"]:
-            self.log.debug("Building densmap")
-            self.QMin.maps["densmap"] = set(
-                {tuple(self.QMin.maps["statemap"][i][0:2]) for i in self.QMin.requests["multipolar_fit"]}
-            )
+        if self.QMin.requests["multipolar_fit"] or self.QMin.requests["density_matrices"]:
+            requested_densities = set()
+
+            def density_logic(m1, s1, ms1, m2, s2, ms2, mat=None):
+                if ms1 == ms2 and abs(m1 - m2) <= 2:
+                    if mat is None:
+                        requested_densities.add((m1, s1, ms1, m2, s2, ms2, "aa"))
+                        requested_densities.add((m1, s1, ms1, m2, s2, ms2, "bb"))
+                        requested_densities.add((m1, s1, ms1, m2, s2, ms2, "tot"))
+                    elif mat in ["aa", "bb", "tot"]:
+                        requested_densities.add((m1, s1, ms1, m2, s2, ms2, mat))
+                # TODO Tomi
+                elif mat == "tot":
+                    requested_densities.add((m1, s1, ms1, m2, s2, ms2, mat))
+                else:
+                    self.log.warning(f"density {m1, s1, ms1, m2, s2, ms2, mat} can currently not be constructed")
+                    # raise NotImplementedError(f"{m1, s1, ms1, m2, s2, ms2, mat}")
+
+            if self.QMin.requests["density_matrices"]:
+                if self.QMin.requests["density_matrices"] == ["all"]:
+                    for state1 in self.QMin.maps["statemap"].values():
+                        for state2 in self.QMin.maps["statemap"].values():
+                            density_logic(*state1, *state2)
+                else:
+                    # check if (itm, itm), (itm, itm, 'aa') or (m,s,ms, m,s,ms) or (m,s,ms, m,s,ms, 'aa')
+                    match len(self.QMin.requests["density_matrices"][0]):
+                        case 2:
+                            for state1, state2 in map(
+                                lambda x: (self.QMin.maps["statemap"][int(x[0])], self.QMin.maps["statemap"][int(x[1])]),
+                                self.QMin.requests["density_matrices"],
+                            ):
+                                density_logic(*state1, *state2)
+                        case 3:
+                            for state1, state2, mat in map(
+                                lambda x: (self.QMin.maps["statemap"][int(x[0])], self.QMin.maps["statemap"][int(x[1])], x[2]),
+                                self.QMin.requests["density_matrices"],
+                            ):
+                                density_logic(*state1, *state2, mat)
+                        case 6:
+                            for m1, s1, ms1, m2, s2, ms2 in self.QMin.requests["density_matrices"]:
+                                density_logic(m1, s1, ms1, m2, s2, ms2)
+                        case 7:
+                            for m1, s1, ms1, m2, s2, ms2, mat in self.QMin.requests["density_matrices"]:
+                                density_logic(m1, s1, ms1, m2, s2, ms2, mat)
+                        case _:
+                            raise NotImplementedError()
+
+            if self.QMin.requests["multipolar_fit"]:
+                if self.QMin.requests["multipolar_fit"] == ["all"]:
+                    for state1 in self.QMin.maps["statemap"].values():
+                        for state2 in self.QMin.maps["statemap"].values():
+                            if state1[2] == state2[2]:
+                                density_logic(*state1, *state2, "tot")
+                else:
+                    match self.QMin.requests["multipolar_fit"][0]:
+                        case 4:
+                            for m1, s1, m2, s2 in self.QMin.requests["multipolar_fit"]:
+                                for k1 in range(m1):
+                                    ms1 = k1 - (m1 - 1) / 2.0
+                                    for k2 in range(m2):
+                                        ms2 = k2 - (m2 - 1) / 2.0
+                                density_logic(m1, s1, ms1, m2, s2, ms2, "tot")
+                        case _:
+                            raise NotImplementedError()
+                resp_layers = self.QMin.resources['resp_layers']
+                resp_density = self.QMin.resources['resp_density']
+                resp_flayer = self.QMin.resources['resp_first_layer']
+                resp_order = self.QMin.resources['resp_fit_order']
+                resp_grid = self.QMin.resources['resp_grid']
+                self.QMout.notes["multipolar_fit"] = f' settings [order grid firstlayer density layers] {resp_order} {resp_grid} {resp_flayer} {resp_density} {resp_layers}'
+
+            self.QMin.requests.types["density_matrices"] = dict
+            self.QMin.requests["density_matrices"] = {k: None for k in requested_densities}
 
         # Setup nacmap
         if self.QMin.requests["nacdr"]:
@@ -315,6 +352,41 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 if m1 != m2 or i[0] == i[1] or ms1 != ms2 or s1 > s2:
                     continue
                 self.QMin.maps["nacmap"].add(tuple([m1, s1, m2, s2]))
+
+        if self.QMin.requests["multipolar_fit"]:
+            # construct shells
+            shells, first, nlayers = map(self.QMin.resources.get, ("resp_shells", "resp_first_layer", "resp_layers"))
+
+            # collect vdw radii for atoms from settings
+            if self.QMin.resources["resp_vdw_radii"]:
+                if len(self.QMin.resources["resp_vdw_radii"]) != len(self.QMin.molecule["elements"]):
+                    raise RuntimeError("specify 'resp_vdw_radii' for all atoms!")
+            else:
+                # populate vdW radii
+                radii = ATOMIC_RADII
+                if self.QMin.resources["resp_mk_radii"]:
+                    radii.update(MK_RADII)
+                for e in filter(lambda x: x not in self.QMin.resources["resp_vdw_radii_symbol"], self.QMin.molecule["elements"]):
+                    self.QMin.resources["resp_vdw_radii_symbol"][e] = radii[e]
+                self.QMin.resources["resp_vdw_radii"] = [
+                    self.QMin.resources["resp_vdw_radii_symbol"][s] for s in self.QMin.molecule["elements"]
+                ]
+
+            if self.QMin.resources["resp_betas"]:
+                if len(self.QMin.resources["resp_betas"]) != self.QMin.resources["resp_fit_order"] + 1:
+                    raise RuntimeError(
+                        f"specify one beta parameter for each multipole order (order + 1)!\n needed {self.QMin.resources['resp_fit_order']+1:d}"
+                    )
+                self.log.info(f"using non-default beta parameters for resp fit {self.QMin.resources['resp_betas']}")
+
+            if not shells:
+                self.log.debug(f"Calculating resp layers as: {first} + 4/sqrt({nlayers})")
+                incr = 0.4 / math.sqrt(nlayers)
+                self.QMin.resources["resp_shells"] = [first + incr * x for x in range(nlayers)]
+            if self.QMin.resources["resp_grid"] not in GRIDS:
+                raise RuntimeError(
+                    f"specified grid {self.QMin.resources['resp_grid']} not available.\n Possible options are 'lebedev', 'random', 'golden_spiral', 'gamess', 'marcus_deserno'"
+                )
 
     @abstractmethod
     def getQMout(self):
@@ -518,13 +590,13 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 link(os.path.join(savedir, "AO_overl.mixed"), os.path.join(workdir, "aoovl"))
                 link(os.path.join(savedir, f"dets.{m}.{step-1}"), os.path.join(workdir, "det.a"))
                 link(os.path.join(savedir, f"dets.{m}.{step}"), os.path.join(workdir, "det.b"))
-                link(os.path.join(savedir, f"mos.{m}.{step-1}"), os.path.join(workdir, "mo.a"))
-                link(os.path.join(savedir, f"mos.{m}.{step}"), os.path.join(workdir, "mo.b"))
+                link(os.path.join(savedir, f"mos.{self.QMin.maps['multmap'][m]}.{step-1}"), os.path.join(workdir, "mo.a"))
+                link(os.path.join(savedir, f"mos.{self.QMin.maps['multmap'][m]}.{step}"), os.path.join(workdir, "mo.b"))
 
                 # Execute wfoverlap
                 starttime = datetime.datetime.now()
                 os.environ["OMP_NUM_THREADS"] = str(self.QMin.resources["ncpu"])
-                code = self.run_program(workdir, wf_cmd, "wvovl.out", "wfovl.err")
+                code = self.run_program(workdir, wf_cmd, "wfovl.out", "wfovl.err")
                 self.log.info(
                     f"Finished wfoverlap job: {str(m):<10s} code {code:<4d} runtime: {datetime.datetime.now()-starttime}"
                 )
@@ -565,7 +637,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             if len(overlap_mat) != dim:
                 raise ValueError(f"File {overlap_file} does not contain an overlap matrix!")
         return np.asarray(overlap_mat)
-    
+
     def get_dyson(self, wfovl: str) -> np.ndarray:
         """
         Parse wfovlp output file and extract Dyson norm matrix
@@ -587,7 +659,6 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 self.log.error(f"{wfovl} does not contain a square matrix!")
                 raise ValueError()
             return np.asarray(value_list).reshape(-1, int(dim))
-
 
     @staticmethod
     def format_ci_vectors(ci_vectors: list[dict[tuple[int, ...], float]]) -> str:
@@ -611,26 +682,25 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         return string
 
     def _resp_fit_on_densities(
-        self, basis: dict, densities: dict, cartesian_basis=True, ecps={}
-    ) -> dict[(int, int, int, int), np.ndarray]:
+        self, basis: dict, densities: dict[(int, int, int, int, int, int), np.ndarray], cartesian_basis=True, ecps={}
+    ) -> dict[(int, int, int, int, int, int), np.ndarray]:
         """
         Performs the resp fit on all densities given and returns the fits as dict.
         All transition densities need to be already present! Generate them with tdm.es2es_tdm() if necessary
 
         Args:
             basis: dict  basis set object as defined in pyscf [https://pyscf.org/user/gto.html#basis-format]
-            densities: dict  dictionary on pairs of mult and state for 2D array with pyscf convention [https://pyscf.org/user/gto.html#ordering-of-basis-functions]
+            densities: dict  dictionary (m1, s1, ms1, m2, s2, ms2) for 2D array with pyscf convention [https://pyscf.org/user/gto.html#ordering-of-basis-functions]
             cartesian_basis: bool indicates whether basis contains cartesian d,f,g,... functions
             ecps: dict  definition of effective core potentials in pyscf format [https://pyscf.org/user/gto.html#ecp]
 
         Returns:
-            fits: dict  dictionary on pairs of mult and state for each fit 2D array (natom,10)
-
+            fits: dict  (same key as densities) dictionary on pairs of mult and state for each fit 2D array (natom,10)
         """
         self.log.info(f"{'RESP fit':=^80}")
         self.log.info("\t Start:")
         fits = Resp(
-            self.QMin.molecule["coords"],
+            self.QMin.coords["coords"],
             self.QMin.molecule["elements"],
             self.QMin.resources["resp_vdw_radii"],
             self.QMin.resources["resp_density"],
@@ -646,11 +716,16 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
 
         fits_map = {}
 
-        for m1, s1, m2, s2 in densities.keys():
-            key = (m1, s1, m2, s2)
+        denskeys = {}
+        for m1, s1, ms1, m2, s2, ms2 in densities.keys():
+            key = (m1, s1, ms1, m2, s2, ms2)
             if m1 != m2:
                 self.log.warning(f"fitting density different multiplicities! {m1}_{s1},{m2}_{s2}")
-                self.log.warning("Charge is set to {self.QMin.maps['chargemap'][m1]} according to mult {m1}")
+                self.log.warning(f"Charge is set to {self.QMin.maps['chargemap'][m1]} according to mult {m1}")
+                continue
+            if (m1, s1, m2, s2) in denskeys:
+                fits_map[key] = fits_map[denskeys[(m1, s1, m2, s2)]]
+                continue
             fits_map[key] = fits.multipoles_from_dens(
                 densities[key],
                 include_core_charges=s1 == s2,
@@ -658,7 +733,9 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 charge=self.QMin.maps["chargemap"][m1],
                 betas=self.QMin.resources["resp_betas"],
             )
-            return fits_map
+            denskeys[(m1, s1, m2, s2)] = key
+
+        return fits_map
 
     @staticmethod
     def get_theodore(sumfile: str, omffile: str) -> dict[tuple[int], list[float]]:
@@ -694,10 +771,21 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         theo_bin = os.path.join(self.QMin.resources["theodir"], "bin", "theodore") + " analyze_tden"
         for jobset in self.QMin.scheduling["schedule"]:
             for job, qmin in jobset.items():
-                # Skip restricted jobs
+                # Skip unrestricted jobs
                 if not self.QMin.control["jobs"][qmin.control["jobid"]]["restr"]:
-                    self.log.debug(f"Skipping theodore run for restricted job {job}")
+                    self.log.debug(f"Skipping theodore run for unrestricted job {job}")
                     continue
+                elif qmin.control["gradonly"]:
+                    continue
+                else:
+                    mults = self.QMin.control["jobs"][qmin.control["jobid"]]["mults"]
+                    gsmult = mults[0]
+                    ns = 0
+                    for i in mults:
+                        ns += qmin.control["states_to_do"][i - 1] - (i == gsmult)
+                    if ns == 0:
+                        self.log.debug("Skipping Job %s because it contains no excited states." % (qmin.control["jobid"]))
+                        continue
 
                 starttime = datetime.datetime.now()
                 workdir = os.path.join(self.QMin.resources["scratchdir"], job)
@@ -724,6 +812,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         workdir: str,
         rtype="cclib",
         rfile="ORCA.log",
+        mo_file=None,
         read_binary=True,
         jmol_orbitals=False,
         molden_orbitals=False,
@@ -759,6 +848,8 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             "prop_list": prop_list,
             "at_lists": at_lists,
         }
+        if mo_file:
+            theodore_keys["mo_file"] = mo_file
         self.log.debug(f"theodore input with keys: {theodore_keys}")
         theodore_input = "\n".join(starmap(lambda k, v: f'{k}="{v}"' if type(v) == str else f"{k}={v}", theodore_keys.items()))
         writefile(os.path.join(workdir, "dens_ana.in"), theodore_input)
