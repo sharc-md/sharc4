@@ -812,6 +812,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         workdir: str,
         rtype="cclib",
         rfile="ORCA.log",
+        mo_file=None,
         read_binary=True,
         jmol_orbitals=False,
         molden_orbitals=False,
@@ -847,6 +848,8 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             "prop_list": prop_list,
             "at_lists": at_lists,
         }
+        if mo_file:
+            theodore_keys["mo_file"] = mo_file
         self.log.debug(f"theodore input with keys: {theodore_keys}")
         theodore_input = "\n".join(starmap(lambda k, v: f'{k}="{v}"' if type(v) == str else f"{k}={v}", theodore_keys.items()))
         writefile(os.path.join(workdir, "dens_ana.in"), theodore_input)

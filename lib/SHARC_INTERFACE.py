@@ -682,6 +682,7 @@ class SHARC_INTERFACE(ABC):
                     self.log.error(f"line with '{line}' found but no 'end' keyword!")
                     raise ValueError(f"line with '{line}' found but no 'end' keyword!")
                 case [key, val] if key in (*self.QMin.requests.keys(), "step"):
+                    self.log.debug(f"Parsing request {key} {val}")
                     if val[0] == "[":
                         raw_value = ast.literal_eval(val)
                         # check if matrix
@@ -814,6 +815,7 @@ class SHARC_INTERFACE(ABC):
                         self.log.warning("SOCs requested but only 1 multiplicity given! Disable SOCs")
                         return
                     self.QMin.requests["soc"] = True
+                    self.QMin.requests["h"] = True
                 case ["retain", _]:
                     self.QMin.requests[req] = int(request[1])
                 case _:

@@ -1,7 +1,9 @@
-import pytest
 import os
+import shutil
+
+import pytest
 from SHARC_ORCA import SHARC_ORCA
-from utils import expand_path
+from utils import expand_path, mkdir
 
 PATH = expand_path("$SHARC/../tests/interface")
 
@@ -393,3 +395,30 @@ def test_template():
         test_interface.read_template(os.path.join(PATH, template))
         for k, v in ref.items():
             assert test_interface.QMin["template"][k] == v
+
+
+def test_orb_init():
+    test_interface = SHARC_ORCA()
+    test_interface.setup_mol(os.path.join(PATH, "inputs", "copy_gbw", "QM.in"))
+    test_interface.read_template(os.path.join(PATH, "inputs", "orca_templatetest1"))
+    test_interface.read_resources(os.path.join(PATH, "inputs", "ORCA.resources"))
+    test_interface.setup_interface()
+
+    tests = [
+        (1, 1, "2d8b1ce3415044bb9d4c79e929caa9e1"),
+        (0, 1, "b5059c85870b4c8db7da31857353797a"),
+        (1, 2, "df3e3a79149d4ffaa8884d30229879b8"),
+        (0, 2, "cded86a151644dd9817e38e6f0a436bd"),
+        (4, 1, "9557466025f24c8e9377fc4e7aef2a28"),
+        (4, 2, "dd6aaae7deaf4da3b9d5c1fca3ceecfc")
+    ]
+
+    for step, job, check in tests:
+        test_interface.QMin.control["jobid"] = job
+        test_interface.QMin.save["step"] = step
+        test_interface.QMin.save["savedir"] = os.path.join(PATH, "inputs", "copy_gbw")
+        mkdir(os.path.join(PATH, "inputs", "copy_gbw", "test"))
+        test_interface._copy_gbw(test_interface.QMin, os.path.join(PATH, "inputs", "copy_gbw", "test"))
+        file = open(os.path.join(PATH, "inputs", "copy_gbw", "test", "ORCA.gbw"), "r", encoding="utf-8").read()
+        shutil.rmtree(os.path.join(PATH, "inputs", "copy_gbw", "test"))
+        assert file == check
