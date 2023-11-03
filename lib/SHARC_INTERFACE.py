@@ -814,6 +814,7 @@ class SHARC_INTERFACE(ABC):
                         self.log.warning("SOCs requested but only 1 multiplicity given! Disable SOCs")
                         return
                     self.QMin.requests["soc"] = True
+                    self.QMin.requests["h"] = True
                 case ["retain", _]:
                     self.QMin.requests[req] = int(request[1])
                 case _:
