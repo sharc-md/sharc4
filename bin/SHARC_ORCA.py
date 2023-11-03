@@ -86,7 +86,6 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 "numfrozcore": -1,
                 "numocc": None,
                 "schedule_scaling": 0.9,
-                "neglected_gradient": "zero",
                 "savedir": None,
                 "always_orb_init": False,
                 "always_guess": False,
@@ -101,7 +100,6 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 "numfrozcore": int,
                 "numocc": int,
                 "schedule_scaling": float,
-                "neglected_gradient": str,
                 "savedir": str,
                 "always_orb_init": bool,
                 "always_guess": bool,
@@ -126,6 +124,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 "hfexchange": -1.0,
                 "intacc": -1.0,
                 "unrestricted_triplets": False,
+                "neglected_gradient": "zero",
                 "basis_per_element": None,
                 "basis_per_atom": None,
                 "ecp_per_element": None,
@@ -152,6 +151,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 "hfexchange": float,
                 "intacc": float,
                 "unrestricted_triplets": bool,
+                "neglected_gradient": str,
                 "basis_per_element": list,
                 "basis_per_atom": list,
                 "ecp_per_element": list,
@@ -613,7 +613,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
             neglected_grads = [
                 x for x in range(sum(nm_states)) if tuple(self.QMin.maps["statemap"][x + 1][0:2]) not in self.QMin.maps["gradmap"]
             ]
-            match self.QMin.resources["neglected_gradient"]:
+            match self.QMin.template["neglected_gradient"]:
                 case "gs":
                     for state in neglected_grads:
                         self.QMout["grad"][state] = self.QMout["grad"][self.QMin.maps["gsmap"][state + 1] - 1]
