@@ -258,7 +258,8 @@ class SHARC_ORCA(SHARC_ABINITIO):
 
         if exit_code == 0:
             # Save files
-            self._save_files(workdir, qmin.control["jobid"])
+            if not qmin.save["samestep"]:
+                self._save_files(workdir, qmin.control["jobid"])
             if self.QMin.requests["ion"] and qmin.control["jobid"] == 1:
                 writefile(os.path.join(self.QMin.save["savedir"], "AO_overl"), self._get_ao_matrix(workdir))
 
@@ -1222,13 +1223,13 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 self.log.error("Initial orbitals missing for some jobs!")
                 raise ValueError()
 
-        elif self.QMin.save["newstep"] or self.QMin.save["samestep"]:
-            for job in self.QMin.control["joblist"]:
-                file = os.path.join(self.QMin.save["savedir"], f"ORCA.gbw.{job}")
-                if not os.path.isfile(file):
-                    self.log.error(f"File {file} missing in savedir!")
-                    raise FileNotFoundError()
-                initorbs[job] = file + ".old" if self.QMin.save["newstep"] else file
+        #elif self.QMin.save["newstep"] or self.QMin.save["samestep"]:
+        #    for job in self.QMin.control["joblist"]:
+        #        file = os.path.join(self.QMin.save["savedir"], f"ORCA.gbw.{job}.{self.QMin.save['step']}")
+        #        if not os.path.isfile(file):
+        #            self.log.error(f"File {file} missing in savedir!")
+        #            raise FileNotFoundError()
+        #        initorbs[job] = file + ".old" if self.QMin.save["newstep"] else file
 
         return initorbs
 
