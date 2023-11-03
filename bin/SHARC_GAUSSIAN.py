@@ -424,25 +424,26 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         gradjob = {}
         for ijob in self.QMin.control["joblist"]:
             gradjob[f"master_{ijob}"] = {}
-        for m_grad, s_grad in sorted(self.QMin.maps["gradmap"], key=lambda x: x[0] * 1000 + x[1]):
-            ijob = self.QMin.maps["multmap"][m_grad]
-            isgs = False
-            istates = self.QMin.control["states_to_do"][m_grad - 1]
-            if not self.QMin.control["jobs"][ijob]["restr"]:
-                if s_grad == 1:
-                    isgs = True
-            else:
-                if (m_grad, s_grad) == (1, 1):
-                    isgs = True
-            if isgs and istates > 1:
-                gradjob[f"grad_{m_grad}_{s_grad}"] = {}
-                gradjob[f"grad_{m_grad}_{s_grad}"][(m_grad, s_grad)] = {"gs": True}
-            else:
-                if len(gradjob[f"master_{ijob}"]) > 0:
-                    gradjob[f"grad_{m_grad}_{s_grad}"] = {}
-                    gradjob[f"grad_{m_grad}_{s_grad}"][(m_grad, s_grad)] = {"gs": False}
+        if self.QMin.requests["grad"]:
+            for m_grad, s_grad in sorted(self.QMin.maps["gradmap"], key=lambda x: x[0] * 1000 + x[1]):
+                ijob = self.QMin.maps["multmap"][m_grad]
+                isgs = False
+                istates = self.QMin.control["states_to_do"][m_grad - 1]
+                if not self.QMin.control["jobs"][ijob]["restr"]:
+                    if s_grad == 1:
+                        isgs = True
                 else:
-                    gradjob[f"master_{ijob}"][(m_grad, s_grad)] = {"gs": False}
+                    if (m_grad, s_grad) == (1, 1):
+                        isgs = True
+                if isgs and istates > 1:
+                    gradjob[f"grad_{m_grad}_{s_grad}"] = {}
+                    gradjob[f"grad_{m_grad}_{s_grad}"][(m_grad, s_grad)] = {"gs": True}
+                else:
+                    if len(gradjob[f"master_{ijob}"]) > 0:
+                        gradjob[f"grad_{m_grad}_{s_grad}"] = {}
+                        gradjob[f"grad_{m_grad}_{s_grad}"][(m_grad, s_grad)] = {"gs": False}
+                    else:
+                        gradjob[f"master_{ijob}"][(m_grad, s_grad)] = {"gs": False}
 
         # make map for states onto gradjobs
         jobgrad = {}
@@ -699,7 +700,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
             for job in jobset:
                 if "master" in job:
                     WORKDIR = os.path.join(self.QMin.resources["scratchdir"], job)
-                    if self.QMin.save["samestep"]:
+                    if not self.QMin.save["samestep"]:
                         self.saveFiles(WORKDIR, jobset[job])
                     if self.QMin.requests["ion"] and ijobset == 0:
                         self.saveAOmatrix(WORKDIR, self.QMin)
@@ -950,17 +951,17 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         self.log.info(shorten_DIR(tofile))
 
         # if necessary, extract the MOs and write them to savedir
-        if QMin.requests["ion"] or not QMin.requests["nooverlap"]:
+        if qmin.requests["ion"] or not qmin.requests["nooverlap"]:
             f = os.path.join(WORKDIR, "GAUSSIAN.chk")
-            string = SHARC_GAUSSIAN.get_MO_from_chk(f, QMin)
-            mofile = os.path.join(QMin.save["savedir"], f"mos.{job}.{step}")
+            string = SHARC_GAUSSIAN.get_MO_from_chk(f, qmin)
+            mofile = os.path.join(qmin.save["savedir"], f"mos.{job}.{step}")
             writefile(mofile, string)
             self.log.info(shorten_DIR(mofile))
 
         # if necessary, extract the TDDFT coefficients and write them to savedir
-        if QMin.requests["ion"] or not QMin.requests["nooverlap"]:
+        if qmin.requests["ion"] or not qmin.requests["nooverlap"]:
             f = os.path.join(WORKDIR, "GAUSSIAN.chk")
-            strings = SHARC_GAUSSIAN.get_dets_from_chk(f, QMin)
+            strings = SHARC_GAUSSIAN.get_dets_from_chk(f, qmin)
             for f in strings:
                 writefile(f, strings[f])
                 self.log.print(shorten_DIR(f))
@@ -1525,7 +1526,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                         m2, s2, ms2 = tuple(self.QMin.maps["statemap"][j + 1])
                         if m2 not in self.QMin.control["jobs"][job]["mults"]:
                             continue
-                        if i == j and (m1, s1) in self.QMin.maps["gradmap"]:
+                        if self.QMin.requests["grad"] and i == j and (m1, s1) in self.QMin.maps["gradmap"]:
                             path, isgs = self.QMin.control["jobgrad"][(m1, s1)]
                             logfile = os.path.join(self.QMin.resources["scratchdir"], path, "GAUSSIAN.log")
                             dm = SHARC_GAUSSIAN.getdm(logfile)
