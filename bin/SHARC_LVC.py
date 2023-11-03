@@ -60,6 +60,21 @@ class SHARC_LVC(SHARC_FAST):
     _gammas = False
     _step = 0
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # Add resource keys
+        self.QMin.resources.update(
+            {
+                "do_kabsch": False,
+            }
+        )
+        self.QMin.resources.types.update(
+            {
+                "do_kabsch": bool,
+            }
+        )
+
     @staticmethod
     def name():
         return "LVC"
@@ -157,6 +172,7 @@ class SHARC_LVC(SHARC_FAST):
         if line == 'gamma\n':
             z = int(f.readline()[:-1])
             self._gammas = z != 0
+            self.log.info("including Gammas in calculation")
             self.log.debug(f"gammas: {self._gammas}")
 
             def d(_):
@@ -251,8 +267,7 @@ class SHARC_LVC(SHARC_FAST):
             return
 
         super().read_resources(resources_filename)
-        if "do_kabsch" in self.QMin.resources:
-            self._do_kabsch = True
+        self._do_kabsch = self.QMin.resources["do_kabsch"]
         #  if "diagonalize" in self.QMin.resources:
         #  self._diagonalize = True
 
