@@ -129,8 +129,7 @@ class SHARC_LVC(SHARC_FAST):
 
         self._H_i = {im: np.zeros((n, n, r3N), dtype=float) for im, n in enumerate(states) if n != 0}
         self._G = {im: np.zeros((n, n, r3N, r3N), dtype=float) for im, n in enumerate(states) if n != 0}
-        self._epsilon = {im: np.zeros(n, dtype=float) for im, n in enumerate(states) if n != 0}
-        self._eV = {im: np.zeros(n, dtype=float) for im, n in enumerate(states) if n != 0}
+        self._h = {im: np.zeros((n, n), dtype=float) for im, n in enumerate(states) if n != 0}
         self._dipole = np.zeros((3, nmstates, nmstates), dtype=complex)
         self._soc = np.zeros((nmstates, nmstates), dtype=complex)
         self._U = np.zeros((nmstates, nmstates), dtype=float)
@@ -148,7 +147,13 @@ class SHARC_LVC(SHARC_FAST):
                 return (int(v[0]) - 1, int(v[1]) - 1, float(v[2]))
 
             for im, s, v in map(a, range(z)):
-                self._epsilon[im][s] += v
+                self._h[im][s, s] += v
+        if f.readline() == 'eta\n':
+            z = int(f.readline()[:-1])
+            for im, si, sj, v in map(lambda v: (int(v[0]) - 1, int(v[1]) - 1, int(v[2]) - 1, float(v[3])), map(lambda _:
+                f.readline().split(), range(z))):
+                self._h[im][si, sj] += v
+
         if f.readline() == 'kappa\n':
             z = int(f.readline()[:-1])
 
@@ -418,7 +423,7 @@ class SHARC_LVC(SHARC_FAST):
         start = 0    # starting index for blocks
         # TODO what if I want to get gradients only ? i.e. samestep
         for im, n in filter(lambda x: x[1] != 0, enumerate(states)):
-            H = np.diag(self._epsilon[im] + V0)
+            H = self._h[im] + np.diag(V0)
             H += self._H_i[im] @ self._Q
             if self._gammas:
                 H += np.einsum('n,ijnm,m->ij', self._Q, self._G[im], self._Q, casting='no', optimize=True)
