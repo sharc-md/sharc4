@@ -179,7 +179,6 @@ def safe(func: callable):
 
 def do_qm_calc(i: SHARC_INTERFACE, qmout: QMOUT):
     icall = 1
-    i.QMin.save['step'] += 1
     # i._step_logic()
     log.debug(f"\tset_requ")
     i._set_driver_requests(get_all_tasks(icall))
@@ -198,8 +197,13 @@ def do_qm_calc(i: SHARC_INTERFACE, qmout: QMOUT):
         icall = 2
         i._set_driver_requests(get_all_tasks(icall))
         i.set_coords(get_crd())
+        with InDir("QM"):
+            safe(i.run)
+            i.getQMout()
+            i.write_step_file()
         qmout.set_props(i.QMout, icall)
         set_qmout(qmout._QMout, icall)
+    i.QMin.save['step'] += 1
     return
 
 
