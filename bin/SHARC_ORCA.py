@@ -518,12 +518,11 @@ class SHARC_ORCA(SHARC_ABINITIO):
                     ]
 
                 # Populate energies
-                if self.QMin.requests["h"]:
-                    energies = self._get_energy(log_file, mults)
-                    for i in range(sum(nm_states)):
-                        statemap = self.QMin.maps["statemap"][i + 1]
-                        if statemap[0] in mults:
-                            self.QMout["h"][i][i] = energies[(statemap[0], statemap[1])]
+                energies = self._get_energy(log_file, mults)
+                for i in range(sum(nm_states)):
+                    statemap = self.QMin.maps["statemap"][i + 1]
+                    if statemap[0] in mults:
+                        self.QMout["h"][i][i] = energies[(statemap[0], statemap[1])]
 
                 # Populate dipole moments
                 if self.QMin.requests["dm"]:
@@ -848,6 +847,14 @@ class SHARC_ORCA(SHARC_ABINITIO):
 
     def print_qmin(self) -> None:
         pass
+
+    def _set_driver_requests(self, *args, **kwargs) -> None:
+        super()._set_driver_requests(*args, **kwargs)
+        self.QMin.requests["h"] = True
+
+    def _set_request(self, *args, **kwargs) -> None:
+        super()._set_request(*args, **kwargs)
+        self.QMin.requests["h"] = True
 
     def read_resources(self, resources_file: str = "ORCA.resources", kw_whitelist: Optional[list[str]] = None) -> None:
         if kw_whitelist is None:
