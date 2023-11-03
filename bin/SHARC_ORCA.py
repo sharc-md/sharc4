@@ -869,6 +869,8 @@ class SHARC_ORCA(SHARC_ABINITIO):
         self.QMin.resources["orcaversion"] = SHARC_ORCA.get_orca_version(self.QMin.resources["orcadir"])
         self.log.info(f'Detected ORCA version {".".join(str(i) for i in self.QMin.resources["orcaversion"])}')
 
+        self.QMin.resources["scratchdir"] = expand_path(self.QMin.resources["scratchdir"])
+
         if self.QMin.resources["orcaversion"] < (5, 0):
             raise ValueError("This version of the SHARC-ORCA interface is only compatible to Orca 5.0 or higher!")
 
