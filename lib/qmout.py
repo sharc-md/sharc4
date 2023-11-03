@@ -42,11 +42,110 @@ class QMout:
     dmdr_pc: ndarray[float, 5]
     multipolar_fit: ndarray[float, 4]
 
+    def __init__(self, filepath=None, states: list[int] =None, natom: int =None, npc: int=None):
+        self.prop0d = []
+        self.prop1d = []
+        self.prop2d = []
+        self.notes = {}
+        self.runtime = 0
+        if states is not None and natom is not None and npc is not None:
+            self.states = states
+            self.natom = natom
+            self.npc = npc
+            self.nmstates = sum((i + 1) * n for i, n in enumerate(self.states))
+            self.nstates = sum(self.states)
+            self.point_charges = self.npc > 0
+        if filepath is not None:
+            # initialize the entire object from a QM.out file
+            try:
+                f = open(filepath, "r", encoding="utf-8")
+                data = f.readlines()
+                f.close()
+            except IOError:
+                raise IOError("'Could not find %s!' % (filepath)")
+            # print("instantiating QMout from file", filepath)
+            # get basic information
+            # set from input
+            iline = 0
+            while iline < len(data):
+                # skip to next flag
+                if not data[iline].startswith("! "):
+                    iline += 1
+                    continue
+                # get flag
+                flag = int(data[iline].split()[1])
+                match flag:
+                    case 0: # basis info
+                        if "states" in data[iline + 1]:
+                            s = data[iline + 1].split()
+                            self.states = [int(i) for i in s[1:]]
+                        else:
+                            raise KeyError(f"Could not find states in {filepath}")
+                        if "natom" in data[iline + 3]:
+                            self.natom = int(data[iline + 3].split()[-1])
+                        else:
+                            raise KeyError(f"Could not find natom in {filepath}")
+                        if "npc" in data[iline + 4]:
+                            self.npc = int(data[iline + 4].split()[-1])
+                        else:
+                            raise KeyError(f"Could not find npc in {filepath}")
+                        self.nmstates = sum((i + 1) * n for i, n in enumerate(self.states))
+                        self.nstates = sum(self.states)
+                        self.point_charges = self.npc > 0
+                    case 1: # h
+                        self.h, iline = QMout.get_quantity(data, iline, complex, (self.nmstates, self.nmstates))
+                    case 2: # dm
+                        self.dm, iline = QMout.get_quantity(data, iline, complex, (3, self.nmstates, self.nmstates))
+                    case 3: # grad
+                        self.grad, iline = QMout.get_quantity(data, iline, float, (self.nmstates, self.natom, 3))
+                    case 30 if self.point_charges: # grad_pc
+                        self.grad_pc, iline = QMout.get_quantity(data, iline, float, (self.nmstates, self.npc, 3))
+                    case 5: # nacdr
+                        self.nacdr, iline = QMout.get_quantity(data, iline, float, (self.nmstates, self.nmstates, self.natom, 3))
+                    case 31 if self.point_charges: # nacdr_pc
+                        self.nacdr_pc, iline = QMout.get_quantity(data, iline, float, (self.nmstates, self.nmstates, self.npc, 3))
+                    case 6: # overlap
+                        self.overlap, iline = QMout.get_quantity(data, iline, complex, (self.nmstates, self.nmstates))
+                    case 7: # phases
+                        self.phases, iline = QMout.get_quantity(data, iline, complex, (self.nmstates,))
+                    case 13: # socdr
+                        self.socdr, iline = QMout.get_quantity(data, iline, complex, (self.nmstates, self.nmstates, self.natom, 3))
+                    case 33 if self.point_charges:
+                        self.socdr_pc, iline = QMout.get_quantity(
+                            data,
+                            iline,
+                            complex,
+                            (self.nmstates, self.nmstates, self.npc, 3),
+                        )
+                    case 12: # dmdr
+                        self.dmdr, iline = QMout.get_quantity(data, iline, float, (self.nmstates, self.nmstates, self.natom, 3))
+                    case 32 if self.point_charges:
+                        self.dmdr_pc, iline = QMout.get_quantity(
+                            data,
+                            iline,
+                            float,
+                            (3, self.nmstates, self.nmstates, self.npc, 3),
+                        )
+                    case 22: # multipolar_fit
+                        self.multipolar_fit, iline = QMout.get_quantity(data, iline, float, (self.nmstates, self.nmstates, self.natom, 10))
+                        if data[iline].find("settings") != -1:
+                            self.notes["multipolar_fit"] = data[iline][data[iline].find("settings"):-1]
+                    case 23: # prop0d
+                        self.prop0d, iline = QMout.get_property(data, iline, float, ())
+                    case 21: # prop1d
+                        self.prop1d, iline = QMout.get_property(data, iline, float, (self.nmstates,))
+                    case 20: # prop2d
+                        self.prop2d, iline = QMout.get_property(data, iline, float, (self.nmstates, self.nmstates))
+                    case 8: # runtime
+                        self.runtime, iline = QMout.get_quantity(data, iline, float, ())
+                    case _:
+                        print(f"Warning!: property with flag {flag} not yet implemented in QMout class")
+
     @staticmethod
     def find_line(data, flag):
         iline = 0
         for iline, line in enumerate(data):
-            if "! %i" % flag in line:
+            if line.startswith("! %i" % flag):
                 return iline
         return None
 
@@ -59,7 +158,7 @@ class QMout:
                 result = complex(float(line[0]), float(line[1]))
             elif type == float:
                 result = float(line[0])
-            return result
+            return result, iline
         else:
             result = np.zeros(shape=shape, dtype=type)
         if len(shape) == 1:
@@ -92,17 +191,35 @@ class QMout:
                 iline += 1 + shape[1]
         elif len(shape) == 4:
             iline += 2
-            for _ in range(shape[0]):
-                for iblock in range(shape[1]):
+            for iblock in range(shape[0]):
+                for jblock in range(shape[1]):
                     for irow in range(shape[2]):
                         line = data[iline + irow].split()
                         if type == complex:
-                            result[iblock, irow, :] = np.array(
+                            result[iblock, jblock, irow, :] = np.array(
                                 [complex(float(line[2 * i]), float(line[2 * i + 1])) for i in range(shape[3])]
                             )
                         elif type == float:
-                            result[iblock, irow, :] = np.array([float(line[i]) for i in range(shape[3])])
+                            result[iblock, jblock, irow, :] = np.array([float(line[i]) for i in range(shape[3])])
                     iline += 1 + shape[2]
+        # elif len(targets[t]["dim"]) == 4:
+            # for iblocks in range(targets[t]["dim"][0]):
+                # sblock = []
+                # for jblocks in range(targets[t]["dim"][1]):
+                    # iline += 1
+                    # block = []
+                    # for irow in range(targets[t]["dim"][2]):
+                        # iline += 1
+                        # line = lines[iline].split()
+                        # if targets[t]["type"] == complex:
+                            # row = [complex(float(line[2 * i]), float(line[2 * i + 1])) for i in range(targets[t]["dim"][3])]
+                        # elif targets[t]["type"] == float:
+                            # row = [float(line[i]) for i in range(targets[t]["dim"][3])]
+                        # else:
+                            # row = line
+                        # block.append(row)
+                    # sblock.append(block)
+                # values.append(sblock)
         elif len(shape) == 5:
             iline += 2
             for _ in range(shape[0]):
@@ -117,7 +234,9 @@ class QMout:
                             elif type == float:
                                 result[iblock, irow, :] = np.array([float(line[i]) for i in range(shape[4])])
                         iline += 1 + shape[3]
-        return result
+        if len(shape) in [3,4,5]:
+            iline -= 1
+        return result, iline
 
     @staticmethod
     def get_property(data, iline, type, shape):
@@ -131,130 +250,7 @@ class QMout:
             res.append(QMout.get_quantity(data, iline, type, shape))
             iline += 1 + shape[0]
         result = [(keys[i], res[i]) for i in range(num)]
-        return result
-
-    def __init__(self, filepath=""):
-        if not filepath:
-            self.prop0d = []
-            self.prop1d = []
-            self.prop2d = []
-            self.notes = {}
-            self.runtime = 0
-        else:
-            # initialize the entire object from a QM.out file
-            try:
-                f = open(filepath, "r", encoding="utf-8")
-                data = f.readlines()
-                f.close()
-            except IOError:
-                raise IOError("'Could not find %s!' % (filepath)")
-            # get basic information
-            iline = QMout.find_line(data, 0)
-            if "states" in data[iline + 1]:
-                s = data[iline + 1].split()
-                self.states = [int(i) for i in s[1:]]
-            else:
-                raise KeyError(f"Could not find states in {filepath}")
-            if "natom" in data[iline + 3]:
-                self.natom = int(data[iline + 3].split()[-1])
-            else:
-                raise KeyError(f"Could not find natom in {filepath}")
-            if "npc" in data[iline + 4]:
-                self.npc = int(data[iline + 4].split()[-1])
-            else:
-                raise KeyError(f"Could not find npc in {filepath}")
-            self.nmstates = sum((i + 1) * n for i, n in enumerate(self.states))
-            self.nstates = sum(self.states)
-            self.point_charges = self.npc > 0
-            # get stuff
-            # h
-            iline = QMout.find_line(data, 1)
-            if iline != None:
-                self.h = QMout.get_quantity(data, iline, complex, (self.nmstates, self.nmstates))
-            # dm
-            iline = QMout.find_line(data, 2)
-            if iline != None:
-                self.dm = QMout.get_quantity(data, iline, complex, (3, self.nmstates, self.nmstates))
-            # grad
-            iline = QMout.find_line(data, 3)
-            if iline != None:
-                self.grad = QMout.get_quantity(data, iline, float, (self.nmstates, self.natom, 3))
-            # grad_pc
-            if self.point_charges:
-                iline = QMout.find_line(data, 30)
-                if iline != None:
-                    self.grad_pc = QMout.get_quantity(data, iline, float, (self.nmstates, self.npc, 3))
-            # nacdr
-            iline = QMout.find_line(data, 5)
-            if iline != None:
-                self.nacdr = QMout.get_quantity(data, iline, float, (self.nmstates, self.nmstates, self.natom, 3))
-            # nacdr_pc
-            if self.point_charges:
-                iline = QMout.find_line(data, 31)
-                if iline != None:
-                    self.nacdr_pc = QMout.get_quantity(data, iline, float, (self.nmstates, self.nmstates, self.npc, 3))
-            # overlap
-            iline = QMout.find_line(data, 6)
-            if iline != None:
-                self.overlap = QMout.get_quantity(data, iline, complex, (self.nmstates, self.nmstates))
-            # phases
-            iline = QMout.find_line(data, 7)
-            if iline != None:
-                self.phases = QMout.get_quantity(data, iline, complex, (self.nmstates,))
-            # socdr
-            iline = QMout.find_line(data, 13)
-            if iline != None:
-                self.socdr = QMout.get_quantity(data, iline, complex, (self.nmstates, self.nmstates, self.natom, 3))
-            # socdr_pc
-            if self.point_charges:
-                iline = QMout.find_line(data, 33)
-                if iline != None:
-                    self.socdr_pc = QMout.get_quantity(
-                        data,
-                        iline,
-                        complex,
-                        (self.nmstates, self.nmstates, self.npc, 3),
-                    )
-            # dmdr
-            iline = QMout.find_line(data, 12)
-            if iline != None:
-                self.dmdr = QMout.get_quantity(data, iline, float, (self.nmstates, self.nmstates, self.natom, 3))
-            # dmdr_pc
-            if self.point_charges:
-                iline = QMout.find_line(data, 32)
-                if iline != None:
-                    self.dmdr_pc = QMout.get_quantity(
-                        data,
-                        iline,
-                        float,
-                        (3, self.nmstates, self.nmstates, self.npc, 3),
-                    )
-            # multipolar_fit
-            iline = QMout.find_line(data, 22)
-            if iline != None:
-                self.multipolar_fit = QMout.get_quantity(data, iline, float, (self.nmstates, self.nmstates, self.natom, 10))
-            # prop0d
-            self.prop0d = []
-            iline = QMout.find_line(data, 23)
-            if iline != None:
-                self.prop0d = QMout.get_property(data, iline, float, ())
-            # prop1d
-            self.prop1d = []
-            iline = QMout.find_line(data, 21)
-            if iline != None:
-                self.prop1d = QMout.get_property(data, iline, float, (self.nmstates,))
-            # prop2d
-            self.prop2d = []
-            iline = QMout.find_line(data, 20)
-            if iline != None:
-                self.prop2d = QMout.get_property(data, iline, float, (self.nmstates, self.nmstates))
-            # notes
-            self.notes = {}  # notes can be free format and will not be read
-            # runtime
-            self.runtime = 0
-            iline = QMout.find_line(data, 8)
-            if iline != None:
-                self.runtime = QMout.get_quantity(data, iline, float, ())
+        return result, iline - 1
 
     def allocate(self, states=[], natom=0, npc=0, requests: set[str] = set()):
         self.nmstates = sum((i + 1) * n for i, n in enumerate(states))

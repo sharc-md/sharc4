@@ -278,7 +278,7 @@ class SHARC_INTERFACE(ABC):
         #     string = self.formatQMout()
         self.log.info(self.formatQMout())
         self.QMout["runtime"] = self.clock.measuretime()
-        self.writeQMout()
+        self.writeQMout(filename=QMinfilename)
 
     @abstractmethod
     def read_template(self, template_file: str, kw_whitelist: Optional[list[str]] = None) -> None:
