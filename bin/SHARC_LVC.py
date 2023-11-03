@@ -191,7 +191,7 @@ class SHARC_LVC(SHARC_FAST):
                 return (int(v[0]) - 1, int(v[1]) - 1, int(v[2]) - 1, int(v[3]) - 1, int(v[4]) - 1, float(v[5]))
 
             for im, si, sj, i, j, v in map(d, range(z)):
-                self._G[im][si, sj, i, j] += v
+                self._G[im][si, sj, i, j] += v/2.
             line = f.readline()
 
         while line:
@@ -431,7 +431,7 @@ class SHARC_LVC(SHARC_FAST):
         start = 0  # starting index for blocks
         # TODO what if I want to get gradients only ? i.e. samestep
         for im, n in filter(lambda x: x[1] != 0, enumerate(states)):
-            H = self._h[im] + np.diag(V0)
+            H = self._h[im] + np.identity(n) * V0
             H += self._H_i[im] @ self._Q
             if self._gammas:
                 H += np.einsum("n,ijnm,m->ij", self._Q, self._G[im], self._Q, casting="no", optimize=True)
