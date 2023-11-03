@@ -196,9 +196,9 @@ def do_qm_calc(i: SHARC_INTERFACE, qmout: QMOUT):
     isecond = set_qmout(qmout._QMout, icall)
     if isecond == 1:
         icall = 2
-        i.set_requests(get_all_tasks(icall))
+        i._set_driver_requests(get_all_tasks(icall))
         i.set_coords(get_crd())
-        qmout.set_props(i._QMout, icall)
+        qmout.set_props(i.QMout, icall)
         set_qmout(qmout._QMout, icall)
     return
 
