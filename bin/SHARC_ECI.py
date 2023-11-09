@@ -2,6 +2,7 @@ import datetime
 from io import TextIOWrapper
 from typing import Optional
 
+import yaml
 from SHARC_HYBRID import SHARC_HYBRID
 
 __all__ = ["SHARC_ECI"]
@@ -92,3 +93,18 @@ class SHARC_ECI(SHARC_HYBRID):
         KEYSTROKES: object as returned by open() to be used with question()
         """
         return INFOS
+
+    def read_template(self, template_file: str = "ECI.template") -> None:
+        """
+        Parser for ECI template in yaml format
+
+        template_file:  Path to template file
+        """
+        self.log.debug(f"Parsing template file {template_file}")
+
+        # Open template file and parse yaml
+        with open(template_file, "r", encoding="utf-8") as tmpl_file:
+            tmpl_dict = yaml.safe_load(tmpl_file)
+            self.log.debug(f"Parsing yaml file:\n{tmpl_dict}")
+
+        # TODO: Do template logic stuff
