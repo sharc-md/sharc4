@@ -49,7 +49,7 @@ versiondate = datetime.datetime(2023, 8, 25)
 
 changelogstring = """
 """
-np.set_printoptions(linewidth=400, formatter={"float": lambda x: f"{x: 9.7}"})
+np.set_printoptions(linewidth=400, formatter={"float": lambda x: f"{x: 9.7}"}, threshold=sys.maxsize)
 
 
 class SHARC_LVC(SHARC_FAST):
@@ -192,6 +192,7 @@ class SHARC_LVC(SHARC_FAST):
 
             for im, si, sj, i, j, v in map(d, range(z)):
                 self._G[im][si, sj, i, j] += v/2.
+                self._G[im][si, sj, j, i] += v/2.
             line = f.readline()
 
         while line:
