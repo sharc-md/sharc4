@@ -891,6 +891,8 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
             data.append("iop(%s)" % s)
         if QMin.template["keys"]:
             data.extend([QMin.template["keys"]])
+        if QMin.control["gradonly"]:
+            data.append("Guess=read")
         if QMin.control["densonly"]:
             data.append("pop=Regular")  # otherwise CI density will not be printed
             data.append("Guess=read")
