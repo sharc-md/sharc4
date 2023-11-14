@@ -759,7 +759,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                 fromfile = QMin.resources["initorbs"][job]
                 tofile = os.path.join(WORKDIR, "GAUSSIAN.chk")
                 shutil.copy(fromfile, tofile)
-        elif QMin.requests["grad"] or QMin.master["densonly"]:
+        elif QMin.requests["grad"] or QMin.control["densonly"]:
             job = QMin.control["jobid"]
             fromfile = os.path.join(QMin.resources["scratchdir"], f"master_{job}", "GAUSSIAN.chk")
             tofile = os.path.join(WORKDIR, "GAUSSIAN.chk")
@@ -899,7 +899,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
             data.append("IOP(9/40=3)")
         if QMin.requests["basis_set"] or QMin.requests["density_matrices"] or QMin.requests["multipolar_fit"]:
             data.append("GFINPUT")
-        data.append("GFPRINT")
+        # data.append("GFPRINT")
         string += "#"
         for i in data:
             string += i + "\n"
@@ -908,7 +908,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
 
         # charge/mult and geometry
         if "AOoverlap" in QMin.control:
-            string += f"{2.0 * charge} 1\n"
+            string += f"{2 * charge} 1\n"
         else:
             string += f"{charge} {gsmult}\n"
         for label, coords in zip(QMin.molecule["elements"], QMin.coords["coords"]):
@@ -1395,9 +1395,8 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         QMin1.control["AOoverlap"] = [filename1, filename2]
         QMin1.control["jobid"] = self.QMin.control["joblist"][0]
         QMin1.molecule["natom"] = len(newgeo)
-        remove = ["nacdr", "grad", "h", "soc", "dm", "overlap", "ion"]
-        for r in remove:
-            QMin1.requests[r] = False
+        QMin1.requests.update({"nacdr":[], "grad": [], "h": False, "soc": False, "dm": False, "overlap": False, "ion":
+                               False})
 
         # run the calculation
         WORKDIR = os.path.join(self.QMin.resources["scratchdir"], "AOoverlap")
@@ -1675,6 +1674,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
 
         if get_basis:
             basis, n_bf, cartesian_d, cartesian_f, p_eq_s_shell = SHARC_GAUSSIAN.prepare_basis(raw_properties_from_master)
+            self.log.debug(f"{basis}")
             self.log.debug(f"basis information: P(S=P):{p_eq_s_shell} cartesian d:{cartesian_d}, cartesian_f {cartesian_f}")
         if get_ecp:
             ECPs = SHARC_GAUSSIAN.prepare_ecp(raw_properties_from_master)

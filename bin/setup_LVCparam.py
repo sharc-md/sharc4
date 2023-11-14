@@ -3218,6 +3218,8 @@ def get_general():
     print('\nAnalytical gradients for kappas: %r\n' % INFOS['ana_grad'])
 
 
+    INFOS['gammas'] = question('Do you want to calculate on diagonal gamma values?', bool, False)
+
     ## -------------------- whether to do gradients or numerical -------------------- ##
     print('{:-^60}'.format('Analytical nonadiabatic coupling vectors') + '\n')
     if 'nacdr' in Interfaces[num]['features']:
@@ -3602,9 +3604,8 @@ def write_QM_in(INFOS, displacement_key, displacement_value, displacement_dir):
     else:
         string += 'overlap\n'
         string += 'cleanup\n'
+        string += 'step 1\n'
 
-    # write molden file
-    string += 'molden\n'
     # set savedir
     string += 'savedir ./SAVE/\n'
 
@@ -3621,6 +3622,8 @@ def write_QM_in(INFOS, displacement_key, displacement_value, displacement_dir):
 
     # gradient
     if displacement_key is None and INFOS['ana_grad']:
+        string += 'GRAD\n'
+    elif INFOS["gammas"]:
         string += 'GRAD\n'
     if displacement_key is None and INFOS['ana_nac']:
         string += 'NACDR\n'
