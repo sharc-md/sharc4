@@ -30,6 +30,7 @@ class InDir:
         if exc_type is not None:
             exception_hook(exc_type, exc_value, exc_traceback)
 
+
 def convert_list(raw_list: list, new_type: Any = int) -> list:
     output = raw_list
     if isinstance(raw_list[0], list):
@@ -37,6 +38,7 @@ def convert_list(raw_list: list, new_type: Any = int) -> list:
     else:
         return list(map(new_type, output))
     return output
+
 
 # ======================================================================= #
 def get_bool_from_env(name: str, default=False):
@@ -395,7 +397,7 @@ class clock:
     def starttime(self, value):
         self._starttime = value
 
-    def measuretime(self):
+    def measuretime(self, print=False):
         """Calculates the time difference between global variable starttime and the time of the call of measuretime.
         Prints the Runtime, if PRINT or DEBUG are enabled.
         Arguments:
@@ -405,7 +407,7 @@ class clock:
 
         endtime = datetime.datetime.now()
         runtime = endtime - self._starttime
-        if self._verbose:
+        if self._verbose or print:
             hours = runtime.seconds // 3600
             minutes = runtime.seconds // 60 - hours * 60
             seconds = runtime.seconds % 60
