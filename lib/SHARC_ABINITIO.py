@@ -325,12 +325,14 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                                 density_logic(m1, s1, ms1, m2, s2, ms2, "tot")
                         case _:
                             raise NotImplementedError()
-                resp_layers = self.QMin.resources['resp_layers']
-                resp_density = self.QMin.resources['resp_density']
-                resp_flayer = self.QMin.resources['resp_first_layer']
-                resp_order = self.QMin.resources['resp_fit_order']
-                resp_grid = self.QMin.resources['resp_grid']
-                self.QMout.notes["multipolar_fit"] = f' settings [order grid firstlayer density layers] {resp_order} {resp_grid} {resp_flayer} {resp_density} {resp_layers}'
+                resp_layers = self.QMin.resources["resp_layers"]
+                resp_density = self.QMin.resources["resp_density"]
+                resp_flayer = self.QMin.resources["resp_first_layer"]
+                resp_order = self.QMin.resources["resp_fit_order"]
+                resp_grid = self.QMin.resources["resp_grid"]
+                self.QMout.notes[
+                    "multipolar_fit"
+                ] = f" settings [order grid firstlayer density layers] {resp_order} {resp_grid} {resp_flayer} {resp_density} {resp_layers}"
 
             self.QMin.requests.types["density_matrices"] = dict
             self.QMin.requests["density_matrices"] = {k: None for k in requested_densities}
@@ -726,11 +728,12 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             if (m1, s1, m2, s2) in denskeys:
                 fits_map[key] = fits_map[denskeys[(m1, s1, m2, s2)]]
                 continue
+            charge = self.QMin.maps["chargemap"][m1] if s1 == s2 else 0
             fits_map[key] = fits.multipoles_from_dens(
                 densities[key],
                 include_core_charges=s1 == s2,
                 order=self.QMin.resources["resp_fit_order"],
-                charge=self.QMin.maps["chargemap"][m1],
+                charge=charge,
                 betas=self.QMin.resources["resp_betas"],
             )
             denskeys[(m1, s1, m2, s2)] = key
