@@ -772,7 +772,8 @@ class SHARC_INTERFACE(ABC):
         self.QMin.requests.update(requests)
         for i in ["init", "newstep", "samestep"]:
             self.QMin.save[i] = False
-        self._step_logic()
+        # if restart:
+            # self._step_logic()
         self._request_logic()
 
     def _set_request(self, request: list[str]) -> None:
