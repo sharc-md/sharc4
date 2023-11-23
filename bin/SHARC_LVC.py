@@ -783,11 +783,13 @@ class SHARC_LVC(SHARC_FAST):
     def get_infos(self, INFOS: dict, KEYSTROKES: TextIOWrapper = None) -> dict:
         self.log.info("=" * 80)
         self.log.info(f"{'||':<78}||")
-        self.log.info(f"||{'LVC interface setup':=^76}||\n{'||':<78}||")
+        self.log.info(f"||{'LVC interface setup': ^76}||\n{'||':<78}||")
         self.log.info("=" * 80)
         self.log.info("\n")
 
         self.template_file = question("Specify path to LVC.template", str, KEYSTROKES=KEYSTROKES, autocomplete=True)
+        while not os.path.isfile(self.template_file):
+            self.template_file = question(f"'{self.template_file}' not found!\nSpecify path to LVC.template", str, KEYSTROKES=KEYSTROKES, autocomplete=True)
 
         # Check template for Soc and multipoles and states
         soc_found = False

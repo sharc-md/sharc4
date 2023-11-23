@@ -89,7 +89,7 @@ def question(question, typefunc, KEYSTROKES=None, default=None, autocomplete=Tru
         s += " "
 
         line = input(s)
-        line = re.sub("#.*$", "", line).strip()
+        line = re.sub(r"\s+#.*$", "", line).strip()
         if not typefunc == str:
             line = line.lower()
 
