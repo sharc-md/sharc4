@@ -272,7 +272,9 @@ class Resp:
     def sequential_multipoles(
         self, dm: np.ndarray, include_core_charges=True, charge=0, order=2, betas=[0.0005, 0.0015, 0.003], **kwargs
     ):
-        self.log.info(f"Start sequential multipolar fit")
+        self.log.info("Start sequential multipolar fit")
+        if not include_core_charges and charge != 0:
+            self.log.warning("No core charges but charge not set to zero! -> transition densities set 'include_core_charges=False' and 'charge=0'")
         if not (0 <= order <= 2):
             raise Error("Specify order in the range of 0 - 2")
         natom = self.natom

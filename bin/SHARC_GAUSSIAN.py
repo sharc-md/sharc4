@@ -2181,11 +2181,11 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                         self.log.warning(
                             f"Construction of transition densities between different multiplicities not implementd yet!:\t{key}"
                         )
-            for key, matrix in constructed_matrices.items():
-                # check dm matrix
-                self.log.debug(f"Performing checks on density {key[0]}_{key[1]}->{key[3]}_{key[4]}:")
-                self.log.debug(f"\tdipole: {(-np.einsum('xij,ij->x', dipole_operator, matrix)).tolist()}")
-                self.log.debug(f"\tn elec: {np.einsum('ij,ij', Sao, matrix): 8.6f}")
+        for key, matrix in constructed_matrices.items():
+            # check dm matrix
+            self.log.debug(f"Performing checks on density {key[0]}_{key[1]}->{key[3]}_{key[4]} ({key[6]}):")
+            self.log.debug(f"\tdipole: {(-np.einsum('xij,ij->x', dipole_operator, matrix)).tolist()}")
+            self.log.debug(f"\tn elec: {np.einsum('ij,ij', Sao, matrix): 8.6f}")
 
         return constructed_matrices
 
