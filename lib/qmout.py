@@ -6,6 +6,7 @@ from constants import IToMult, IToPol
 from numpy import ndarray
 from printing import formatcomplexmatrix, formatgrad
 from utils import eformat, itnmstates, writefile
+from logger import log
 
 
 class QMout:
@@ -57,13 +58,15 @@ class QMout:
             self.point_charges = self.npc > 0
         if filepath is not None:
             # initialize the entire object from a QM.out file
+
+            log.debug(f"Reading file {filepath}")
             try:
                 f = open(filepath, "r", encoding="utf-8")
                 data = f.readlines()
                 f.close()
             except IOError:
                 raise IOError("'Could not find %s!' % (filepath)")
-            # print("instantiating QMout from file", filepath)
+            log.debug(f"Done raw reading {filepath}")
             # get basic information
             # set from input
             iline = 0
@@ -74,21 +77,27 @@ class QMout:
                     continue
                 # get flag
                 flag = int(data[iline].split()[1])
+                log.debug(f"Parsing flag: {flag}")
                 match flag:
                     case 0: # basis info
-                        if "states" in data[iline + 1]:
-                            s = data[iline + 1].split()
+                        iline += 1
+                        if "states" in data[iline]:
+                            s = data[iline].split()
                             self.states = [int(i) for i in s[1:]]
+                            iline += 2
                         else:
                             raise KeyError(f"Could not find states in {filepath}")
-                        if "natom" in data[iline + 3]:
-                            self.natom = int(data[iline + 3].split()[-1])
+                        if "natom" in data[iline]:
+                            self.natom = int(data[iline].split()[-1])
+                            iline += 1
                         else:
                             raise KeyError(f"Could not find natom in {filepath}")
-                        if "npc" in data[iline + 4]:
-                            self.npc = int(data[iline + 4].split()[-1])
+                        if "npc" in data[iline]:
+                            self.npc = int(data[iline].split()[-1])
+                            iline += 1
                         else:
                             raise KeyError(f"Could not find npc in {filepath}")
+                        iline += 1
                         self.nmstates = sum((i + 1) * n for i, n in enumerate(self.states))
                         self.nstates = sum(self.states)
                         self.point_charges = self.npc > 0
@@ -139,7 +148,7 @@ class QMout:
                     case 8: # runtime
                         self.runtime, iline = QMout.get_quantity(data, iline, float, ())
                     case _:
-                        print(f"Warning!: property with flag {flag} not yet implemented in QMout class")
+                        log.warning(f"Warning!: property with flag {flag} not yet implemented in QMout class")
 
     @staticmethod
     def find_line(data, flag):
@@ -151,6 +160,7 @@ class QMout:
 
     @staticmethod
     def get_quantity(data, iline, type, shape):
+        log.debug(f"Parsing: {data[iline]}")
         if len(shape) == 0:
             iline += 1
             line = data[iline].split()
