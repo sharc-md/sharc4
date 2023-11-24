@@ -1193,7 +1193,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 skip *= states_skip[mult - 1]
                 cis_file.read(skip)
 
-            # Convert determinant lists to strins
+            # Convert determinant lists to strings
             strings = {}
             for mult in mults:
                 filename = f"dets.{mult}"
@@ -1222,14 +1222,6 @@ class SHARC_ORCA(SHARC_ABINITIO):
             if self.QMin.save["always_orb_init"] and len(initorbs) < len(self.QMin.control["joblist"]):
                 self.log.error("Initial orbitals missing for some jobs!")
                 raise ValueError()
-
-        #elif self.QMin.save["newstep"] or self.QMin.save["samestep"]:
-        #    for job in self.QMin.control["joblist"]:
-        #        file = os.path.join(self.QMin.save["savedir"], f"ORCA.gbw.{job}.{self.QMin.save['step']}")
-        #        if not os.path.isfile(file):
-        #            self.log.error(f"File {file} missing in savedir!")
-        #            raise FileNotFoundError()
-        #        initorbs[job] = file + ".old" if self.QMin.save["newstep"] else file
 
         return initorbs
 
