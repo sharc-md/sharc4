@@ -1,5 +1,6 @@
 import datetime
 import os
+import re
 from io import TextIOWrapper
 
 from SHARC_ABINITIO import SHARC_ABINITIO
@@ -23,8 +24,7 @@ all_features = set(
         "ion",
         "overlap",
         "phases",
-        "molden",
-        "nacdr",
+        "multipolar_fit"
         # raw data request
         "basis_set",
         "wave_functions",
@@ -268,3 +268,18 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             raise ValueError()
 
         # TODO: gradmode
+        # gradmode 0 = one file; gradmode 1 = multiple files
+
+    @staticmethod
+    def get_molcas_version(path: str) -> tuple[int, int]:
+        """
+        Get version number of MOLCAS
+
+        path:   Path to MOLCAS directory
+        """
+
+        with open(os.path.join(path, ".molcasversion"), "r", encoding="utf-8") as version_file:
+            version = re.match(r"v(\d+)\.(\d+)", version_file.read())
+            if not version:
+                raise ValueError(f"No MOLCAS version found in {os.path.join(path, '.molcasversion')}")
+        return int(version.group(1)), int(version.group(2))
