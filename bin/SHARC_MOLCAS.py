@@ -185,6 +185,10 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         self.QMin.resources["molcas"] = expand_path(self.QMin.resources["molcas"])
         os.environ["MOLCAS"] = self.QMin.resources["molcas"]
 
+        if self.get_molcas_version(self.QMin.resources["molcas"]) < (18, 0):
+            self.log.error("This version of SHARC-MOLCAS is only compatible with MOLCAS 18 or higher!")
+            raise ValueError()
+
         # MOLCAS driver
         driver = os.path.join(self.QMin.resources["molcas"], "bin", "pymolcas")
         if os.path.isfile(driver):
