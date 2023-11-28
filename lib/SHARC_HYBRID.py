@@ -40,20 +40,19 @@ class SHARC_HYBRID(SHARC_INTERFACE):
         # Dict of child interfaces
         self._kindergarden = {}
 
-    def instantiate_children(self, child_dict: dict[str, str]) -> None:
+    def instantiate_children(self, child_dict: dict[str, str], *args, **kwargs) -> None:
         """
         Populate kindergarden with instantiated child interfaces
 
         child_dict:     dictionary containing name of child and name of interface
         """
-        # TODO: Params for init? Like logfile stuff and debuglevel
         self.log.debug("Instantiace childs")
 
         for name, interface in child_dict.items():
             if name in self._kindergarden:
                 self.log.error(f"{name} specified twice!")
                 raise ValueError()
-            self._kindergarden[name] = self._load_interface(interface)()
+            self._kindergarden[name] = self._load_interface(interface)(*args, **kwargs)
             self.log.debug(f"Assign instance of {interface} to {name}")
 
     def _load_interface(self, interface_name: str) -> Callable:

@@ -424,25 +424,26 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         gradjob = {}
         for ijob in self.QMin.control["joblist"]:
             gradjob[f"master_{ijob}"] = {}
-        for m_grad, s_grad in sorted(self.QMin.maps["gradmap"], key=lambda x: x[0] * 1000 + x[1]):
-            ijob = self.QMin.maps["multmap"][m_grad]
-            isgs = False
-            istates = self.QMin.control["states_to_do"][m_grad - 1]
-            if not self.QMin.control["jobs"][ijob]["restr"]:
-                if s_grad == 1:
-                    isgs = True
-            else:
-                if (m_grad, s_grad) == (1, 1):
-                    isgs = True
-            if isgs and istates > 1:
-                gradjob[f"grad_{m_grad}_{s_grad}"] = {}
-                gradjob[f"grad_{m_grad}_{s_grad}"][(m_grad, s_grad)] = {"gs": True}
-            else:
-                if len(gradjob[f"master_{ijob}"]) > 0:
-                    gradjob[f"grad_{m_grad}_{s_grad}"] = {}
-                    gradjob[f"grad_{m_grad}_{s_grad}"][(m_grad, s_grad)] = {"gs": False}
+        if self.QMin.requests["grad"]:
+            for m_grad, s_grad in sorted(self.QMin.maps["gradmap"], key=lambda x: x[0] * 1000 + x[1]):
+                ijob = self.QMin.maps["multmap"][m_grad]
+                isgs = False
+                istates = self.QMin.control["states_to_do"][m_grad - 1]
+                if not self.QMin.control["jobs"][ijob]["restr"]:
+                    if s_grad == 1:
+                        isgs = True
                 else:
-                    gradjob[f"master_{ijob}"][(m_grad, s_grad)] = {"gs": False}
+                    if (m_grad, s_grad) == (1, 1):
+                        isgs = True
+                if isgs and istates > 1:
+                    gradjob[f"grad_{m_grad}_{s_grad}"] = {}
+                    gradjob[f"grad_{m_grad}_{s_grad}"][(m_grad, s_grad)] = {"gs": True}
+                else:
+                    if len(gradjob[f"master_{ijob}"]) > 0:
+                        gradjob[f"grad_{m_grad}_{s_grad}"] = {}
+                        gradjob[f"grad_{m_grad}_{s_grad}"][(m_grad, s_grad)] = {"gs": False}
+                    else:
+                        gradjob[f"master_{ijob}"][(m_grad, s_grad)] = {"gs": False}
 
         # make map for states onto gradjobs
         jobgrad = {}
@@ -699,7 +700,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
             for job in jobset:
                 if "master" in job:
                     WORKDIR = os.path.join(self.QMin.resources["scratchdir"], job)
-                    if self.QMin.save["samestep"]:
+                    if not self.QMin.save["samestep"]:
                         self.saveFiles(WORKDIR, jobset[job])
                     if self.QMin.requests["ion"] and ijobset == 0:
                         self.saveAOmatrix(WORKDIR, self.QMin)
@@ -758,7 +759,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                 fromfile = QMin.resources["initorbs"][job]
                 tofile = os.path.join(WORKDIR, "GAUSSIAN.chk")
                 shutil.copy(fromfile, tofile)
-        elif QMin.requests["grad"] or QMin.master["densonly"]:
+        elif QMin.requests["grad"] or QMin.control["densonly"]:
             job = QMin.control["jobid"]
             fromfile = os.path.join(QMin.resources["scratchdir"], f"master_{job}", "GAUSSIAN.chk")
             tofile = os.path.join(WORKDIR, "GAUSSIAN.chk")
@@ -890,6 +891,8 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
             data.append("iop(%s)" % s)
         if QMin.template["keys"]:
             data.extend([QMin.template["keys"]])
+        if QMin.control["gradonly"]:
+            data.append("Guess=read")
         if QMin.control["densonly"]:
             data.append("pop=Regular")  # otherwise CI density will not be printed
             data.append("Guess=read")
@@ -898,7 +901,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
             data.append("IOP(9/40=3)")
         if QMin.requests["basis_set"] or QMin.requests["density_matrices"] or QMin.requests["multipolar_fit"]:
             data.append("GFINPUT")
-        data.append("GFPRINT")
+        # data.append("GFPRINT")
         string += "#"
         for i in data:
             string += i + "\n"
@@ -907,7 +910,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
 
         # charge/mult and geometry
         if "AOoverlap" in QMin.control:
-            string += f"{2.0 * charge} 1\n"
+            string += f"{2 * charge} 1\n"
         else:
             string += f"{charge} {gsmult}\n"
         for label, coords in zip(QMin.molecule["elements"], QMin.coords["coords"]):
@@ -950,17 +953,17 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         self.log.info(shorten_DIR(tofile))
 
         # if necessary, extract the MOs and write them to savedir
-        if QMin.requests["ion"] or not QMin.requests["nooverlap"]:
+        if qmin.requests["ion"] or not qmin.requests["nooverlap"]:
             f = os.path.join(WORKDIR, "GAUSSIAN.chk")
-            string = SHARC_GAUSSIAN.get_MO_from_chk(f, QMin)
-            mofile = os.path.join(QMin.save["savedir"], f"mos.{job}.{step}")
+            string = SHARC_GAUSSIAN.get_MO_from_chk(f, qmin)
+            mofile = os.path.join(qmin.save["savedir"], f"mos.{job}.{step}")
             writefile(mofile, string)
             self.log.info(shorten_DIR(mofile))
 
         # if necessary, extract the TDDFT coefficients and write them to savedir
-        if QMin.requests["ion"] or not QMin.requests["nooverlap"]:
+        if qmin.requests["ion"] or not qmin.requests["nooverlap"]:
             f = os.path.join(WORKDIR, "GAUSSIAN.chk")
-            strings = SHARC_GAUSSIAN.get_dets_from_chk(f, QMin)
+            strings = SHARC_GAUSSIAN.get_dets_from_chk(f, qmin)
             for f in strings:
                 writefile(f, strings[f])
                 self.log.print(shorten_DIR(f))
@@ -1394,9 +1397,8 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         QMin1.control["AOoverlap"] = [filename1, filename2]
         QMin1.control["jobid"] = self.QMin.control["joblist"][0]
         QMin1.molecule["natom"] = len(newgeo)
-        remove = ["nacdr", "grad", "h", "soc", "dm", "overlap", "ion"]
-        for r in remove:
-            QMin1.requests[r] = False
+        QMin1.requests.update({"nacdr":[], "grad": [], "h": False, "soc": False, "dm": False, "overlap": False, "ion":
+                               False})
 
         # run the calculation
         WORKDIR = os.path.join(self.QMin.resources["scratchdir"], "AOoverlap")
@@ -1525,7 +1527,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                         m2, s2, ms2 = tuple(self.QMin.maps["statemap"][j + 1])
                         if m2 not in self.QMin.control["jobs"][job]["mults"]:
                             continue
-                        if i == j and (m1, s1) in self.QMin.maps["gradmap"]:
+                        if self.QMin.requests["grad"] and i == j and (m1, s1) in self.QMin.maps["gradmap"]:
                             path, isgs = self.QMin.control["jobgrad"][(m1, s1)]
                             logfile = os.path.join(self.QMin.resources["scratchdir"], path, "GAUSSIAN.log")
                             dm = SHARC_GAUSSIAN.getdm(logfile)
@@ -1674,6 +1676,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
 
         if get_basis:
             basis, n_bf, cartesian_d, cartesian_f, p_eq_s_shell = SHARC_GAUSSIAN.prepare_basis(raw_properties_from_master)
+            self.log.debug(f"{basis}")
             self.log.debug(f"basis information: P(S=P):{p_eq_s_shell} cartesian d:{cartesian_d}, cartesian_f {cartesian_f}")
         if get_ecp:
             ECPs = SHARC_GAUSSIAN.prepare_ecp(raw_properties_from_master)
@@ -2178,11 +2181,11 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                         self.log.warning(
                             f"Construction of transition densities between different multiplicities not implementd yet!:\t{key}"
                         )
-            for key, matrix in constructed_matrices.items():
-                # check dm matrix
-                self.log.debug(f"Performing checks on density {key[0]}_{key[1]}->{key[3]}_{key[4]}:")
-                self.log.debug(f"\tdipole: {(-np.einsum('xij,ij->x', dipole_operator, matrix)).tolist()}")
-                self.log.debug(f"\tn elec: {np.einsum('ij,ij', Sao, matrix): 8.6f}")
+        for key, matrix in constructed_matrices.items():
+            # check dm matrix
+            self.log.debug(f"Performing checks on density {key[0]}_{key[1]}->{key[3]}_{key[4]} ({key[6]}):")
+            self.log.debug(f"\tdipole: {(-np.einsum('xij,ij->x', dipole_operator, matrix)).tolist()}")
+            self.log.debug(f"\tn elec: {np.einsum('ij,ij', Sao, matrix): 8.6f}")
 
         return constructed_matrices
 

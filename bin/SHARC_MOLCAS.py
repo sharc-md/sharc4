@@ -1,314 +1,285 @@
-#!/usr/bin/env python3
-
-# ******************************************
-#
-#    SHARC Program Suite
-#
-#    Copyright (c) 2019 University of Vienna
-#
-#    This file is part of SHARC.
-#
-#    SHARC is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
-#    the Free Software Foundation, either version 3 of the License, or
-#    (at your option) any later version.
-#
-#    SHARC is distributed in the hope that it will be useful,
-#    but WITHOUT ANY WARRANTY; without even the implied warranty of
-#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
-#
-#    You should have received a copy of the GNU General Public License
-#    inside the SHARC manual.  If not, see <http://www.gnu.org/licenses/>.
-#
-# *****************************************
-
-# IMPORTS
-# external
-from itertools import chain
-import pprint
-import sys
-import math
-import time
 import datetime
-from multiprocessing import Pool
-from copy import deepcopy
-from socket import gethostname
-import traceback
-import numpy as np
+import os
+import re
+from io import TextIOWrapper
 
-# internal
-from resp import Resp
-from SHARC_INTERFACE_old import INTERFACE
-from utils import *
-from globals import DEBUG, PRINT
-from constants import IToMult, au2eV, IAn2AName
-from error import Error, exception_hook
+from SHARC_ABINITIO import SHARC_ABINITIO
+from utils import convert_list, expand_path
 
-sys.excepthook = exception_hook
+AUTHORS = ""
+VERSION = ""
+VERSIONDATE = datetime.datetime(2023, 8, 29)
+NAME = "MOLCAS"
+DESCRIPTION = ""
 
-authors = 'Sebastian Mai, David Lehrner, and Severin Polonius'
-version = '3.0'
-versiondate = datetime.datetime(2022, 8, 1)
-changelogstring = '''
-01.08.2022: Port to new interface style
-- includes RESP fitting
-'''
+CHANGELOGSTRING = """
+"""
 
-
-class MOLCAS(INTERFACE):
-
-    _version = version
-    _versiondate = versiondate
-    _authors = authors
-    _changelogstring = changelogstring
-
-    @property
-    def version(self):
-        return self._version
-
-    @property
-    def versiondate(self):
-        return self._versiondate
-
-    @property
-    def changelogstring(self):
-        return self._changelogstring
-
-    @property
-    def authors(self):
-        return self._authors
+all_features = set(
+    [
+        "h",
+        "dm",
+        "soc",
+        "grad",
+        "ion",
+        "overlap",
+        "phases",
+        "multipolar_fit"
+        # raw data request
+        "basis_set",
+        "wave_functions",
+        "density_matrices",
+    ]
+)
 
 
-    def read_resources(self, resources_filename="MOLCAS.resources"):
-        super().read_resources(resources_filename)
-        QMin = self._QMin
-        QMin['version'] = MOLCAS.getVersion(QMin['molcasdir'])
-        print('Detected MOLCAS version %3.1f\n' % (QMin['version']))
+class SHARC_MOLCAS(SHARC_ABINITIO):
+    """
+    SHARC interface for MOLCAS
+    """
 
-        os.environ['MOLCAS'] = QMin['molcasdir']
+    _version = VERSION
+    _versiondate = VERSIONDATE
+    _authors = AUTHORS
+    _changelogstring = CHANGELOGSTRING
+    _name = NAME
+    _description = DESCRIPTION
 
-        # check driver
-        if QMin['molcas_driver'] == '':
-            driver = os.path.join(QMin['molcasdir'], 'bin', 'pymolcas')
-            if not os.path.isfile(driver):
-                driver = os.path.join(QMin['molcasdir'], 'bin', 'molcas.exe')
-                if not os.path.isfile(driver):
-                    raise Error('No driver (pymolcas or molcas.exe) found in $MOLCAS/bin. Please add the path to the driver via the "driver" keyword.', 52)
-        else:
-            if os.path.isfile(QMin['molcas_driver']):
-                driver = QMin['molcas_driver']
-            else:
-                raise Error('Driver not found in %s' % QMin['molcas_driver'], 52)
-        QMin['molcas_driver'] = driver
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
 
-        self._read_resources = True
+        # Add resource keys
+        self.QMin.resources.update(
+            {
+                "molcas": None,
+                "wfoverlap": None,
+                "mpi_parallel": False,
+                "schedule_scaling": 0.6,
+                "delay": 0.0,
+                "always_orb_init": False,
+                "always_guess": False,
+                "savedir": None,
+            }
+        )
 
+        self.QMin.resources.types.update(
+            {
+                "molcas": str,
+                "wfoverlap": str,
+                "mpi_parallel": bool,
+                "schedule_scaling": float,
+                "delay": float,
+                "always_orb_init": bool,
+                "always_guess": bool,
+                "savedir": str,
+            }
+        )
 
+        # Add template keys
+        self.QMin.template.update(
+            {
+                "basis": None,
+                "baslib": None,
+                "nactel": None,
+                "ras2": None,
+                "inactive": None,
+                "roots": list(range(8)),
+                "rootpad": list(range(8)),
+                "method": "casscf",
+                "functional": "tpbe",
+                "douglas-kroll": False,
+                "ipea": 0.25,
+                "imaginary": 0.0,
+                "frozen": -1,
+                "cholesky": False,
+                "gradaccudefault": 1e-4,
+                "gradaccumax": 1e-2,
+                "pcmset": None,
+                "pcmstate": None,
+                "iterations": [200, 100],
+            }
+        )
 
+        self.QMin.template.update(
+            {
+                "basis": str,
+                "baslib": str,
+                "nactel": int,
+                "ras2": int,
+                "inactive": int,
+                "roots": list,
+                "rootpad": list,
+                "method": str,
+                "functional": str,
+                "douglas-kroll": bool,
+                "ipea": float,
+                "imaginary": float,
+                "frozen": int,
+                "cholesky": bool,
+                "gradaccudefault": float,
+                "gradaccumax": float,
+                "pcmset": (dict, list),
+                "pcmstate": list,
+                "iterations": list,
+            }
+        )
 
+    @staticmethod
+    def version() -> str:
+        return SHARC_MOLCAS._version
 
+    @staticmethod
+    def versiondate() -> datetime.datetime:
+        return SHARC_MOLCAS._versiondate
 
+    @staticmethod
+    def changelogstring() -> str:
+        return SHARC_MOLCAS._changelogstring
 
-    def read_template(self, template_filename='MOLCAS.template'):
-        '''reads the template file
-        has to be called after setup_mol!'''
+    @staticmethod
+    def authors() -> str:
+        return SHARC_MOLCAS._authors
 
-        if not self._read_resources:
-            raise Error('Interface is not set up correctly. Call read_resources with the .resources file first!', 23)
-        QMin = self._QMin
-        # define classes and defaults
-        bools = {
-            'cholesky': False,
-            'cholesky_analytical': False,
-            'no-douglas-kroll': False,
-            'diab_num_grad': False,
-            'qmmm': False,      # TODO: qmmm will require some work
-            'cobramm': False,   # TODO: cobramm will require some work
-        }
-        strings = {
-            'basis': 'ANO-S-MB',
-            'method': 'casscf',
-            'baslib': '',
-            'pdft-functional': 'tpbe'
-        }
-        integers = {
-            'nactel': 0,        # requires input
-            'inactive': 0,      # requires input
-            'ras2': 0,          # requires input
-            'frozen': -1
-        }
-        floats = {
-            'ipea': 0.25,
-            'imaginary': 0.0,
-            'gradaccumax': 1.e-2,
-            'gradaccudefault': 1.e-4,
-            'displ': 0.005,     # better in base interface where num grad will be
-            'rasscf_thrs_e': 1e-8,
-            'rasscf_thrs_rot': 1e-4,
-            'rasscf_thrs_egrd': 1e-4,
-            'cholesky_accu': 1e-4
-        }
-        special = {
-            'roots': [0 for i in QMin['states']],
-            'rootpad': [0 for i in QMin['states']],
-            # 'charge': [i % 2 for i in range(len(QMin['states']))],
-            'pcmset': {'solvent': 'water', 'aare': 0.4, 'r-min': 1.0, 'on': False},
-            'pcmstate': [QMin['statemap'][1][0], QMin['statemap'][1][1]],
-            'iterations': [200, 100]
-        }
+    @staticmethod
+    def name() -> str:
+        return SHARC_MOLCAS._name
 
-        lines = readfile(template_filename)
-        QMin['template'] = {
-            **bools,
-            **strings,
-            **integers,
-            **floats,
-            **special,
-            **self.parse_keywords(
-                lines, bools=bools, strings=strings, integers=integers, floats=floats, special=special
-            )
-        }
+    @staticmethod
+    def description() -> str:
+        return SHARC_MOLCAS._description
 
-        # get path to basis set library
-        if QMin['template']['baslib']:
-            QMin['template']['baslib'] = os.path.abspath(QMin['template']['baslib'])
+    @staticmethod
+    def about() -> str:
+        return f"{SHARC_MOLCAS._name}\n{SHARC_MOLCAS._description}"
 
-        # do logic checks
+    def get_features(self, KEYSTROKES: TextIOWrapper | None = None) -> set[str]:
+        """return availble features
 
-        # 1: states, roots, rootpad
-        QMin['template']['roots'] = QMin['template']['roots'][:len(QMin['states'])]
-        for i, n in enumerate(QMin['template']['roots']):
-            if not n >= QMin['states'][i]:
-                raise Error('Too few states in state-averaging in multiplicity %i! %i requested, but only %i given' % (i + 1, QMin['states'][i], n), 58)
-        QMin['template']['rootpad'] = QMin['template']['rootpad'][:len(QMin['states'])]
-        for i, n in enumerate(QMin['template']['rootpad']):
-            if n < 0:
-                raise Error('Rootpad must not be negative!', 60)
+        ---
+        Parameters:
+        KEYSTROKES: object as returned by open() to be used with question()
+        """
+        return all_features
 
-        # 2: nactel, ras2, and inactive
-        necessary = ['nactel', 'ras2', 'inactive']
-        for i in necessary:
-            if QMin['template'][i] == 0:
-                raise Error('Key %s missing in template file!' % (i), 62)
-        nelec = 2 * QMin['template']['inactive'] + QMin['template']['nactel']
-        if nelec % 2 == 0:
-            nelec = [nelec - (i + 0) % 2 for i in range(len(QMin['states']))]
-        else:
-            nelec = [nelec - (i + 1) % 2 for i in range(len(QMin['states']))]
-        charge = [QMin['Atomcharge'] - i for i in nelec]
-        QMin['template']['charge'] = charge
+    def get_infos(self, INFOS: dict, KEYSTROKES: TextIOWrapper | None = None) -> dict:
+        """prepare INFOS obj
 
-        # 3: pcm and qmmm/cobramm
-        if QMin['template']['pcmset']['on']:
-            if QMin['template']['qmmm']:
-                raise Error('PCM and QM/MM cannot be used together!', 63)
-            if QMin['template']['cobramm']:
-                raise Error('PCM and COBRAMM cannot be used together!', 63)
+        ---
+        Parameters:
+        INFOS: dictionary with all previously collected infos during setup
+        KEYSTROKES: object as returned by open() to be used with question()
+        """
+        return INFOS
 
-        # 4: allowed methods
-        allowed_methods = ['casscf', 'caspt2', 'ms-caspt2', 'mc-pdft', 'xms-pdft', 'cms-pdft']
-        # 0: casscf
-        # 1: caspt2 (single state)
-        # 2: ms-caspt2
-        # 3: mc-pdft (single state)
-        # 4: xms-pdft
-        # 5: cms-pdft
-        for i, m in enumerate(allowed_methods):
-            if QMin['template']['method'] == m:
-                QMin['method'] = i
+    def create_restart_files(self) -> None:
+        pass
+
+    def read_resources(self, resources_file: str = "MOLCAS.resources", kw_whitelist: list[str] | None = None) -> None:
+        super().read_resources(resources_file, kw_whitelist)
+
+        # Path to MOLCAS
+        if not self.QMin.resources["molcas"]:
+            self.log.error(f"molcas key not found in {resources_file}")
+            raise ValueError()
+
+        self.QMin.resources["molcas"] = expand_path(self.QMin.resources["molcas"])
+        os.environ["MOLCAS"] = self.QMin.resources["molcas"]
+
+        # MOLCAS driver
+        driver = os.path.join(self.QMin.resources["molcas"], "bin", "pymolcas")
+        if os.path.isfile(driver):
+            self.QMin.resources.update({"driver": driver})
+
+        driver = os.path.join(self.QMin.resources["molcas"], "bin", "molcas.exe")
+        if os.path.isfile(driver) and "driver" not in self.QMin.resources:
+            self.QMin.resources.update({"driver": driver})
+
+        if "driver" not in self.QMin.resources:
+            self.log.error(f"No driver found in {os.path.join(self.QMin.resources['molcas'], 'bin')}")
+            raise ValueError()
+
+        # WFOVERLAP
+        if self.QMin.resources["wfoverlap"]:
+            self.QMin.resources["wfoverlap"] = expand_path(self.QMin.resources["wfoverlap"])
+
+        # Check orb init and guess
+        if self.QMin.resources["always_guess"] and self.QMin.resources["always_orb_init"]:
+            self.log.error("always_guess and always_orb_init cannot be used together!")
+            raise ValueError()
+
+    def read_template(self, template_file: str = "MOLCAS.template", kw_whitelist: list[str] | None = None) -> None:
+        super().read_template(template_file, kw_whitelist)
+
+        # Roots
+        self.QMin.template["roots"] = convert_list(self.QMin.template["roots"])
+        self.QMin.template["rootpad"] = convert_list(self.QMin.template["rootpad"])
+
+        if not all(map(lambda x: x >= 0, [*self.QMin.template["roots"], *self.QMin.template["rootpad"]])):
+            self.log.error("roots and rootpad must contain positive integers.")
+            raise ValueError()
+
+        for idx, val in enumerate(self.QMin.template["roots"]):
+            if val < self.QMin.molecule["states"][idx]:
+                self.log.error(f"Too few states in state-averaging in multiplicity {idx+1}!")
+                raise ValueError()
+
+        for idx, val in enumerate(reversed(self.QMin.template["roots"])):
+            if val == 0:
+                self.QMin.template["roots"] = self.QMin.template["roots"][: -1 * idx]
                 break
-            else:
-                raise Error('Unknown method "%s" given in MOLCAS.template' % (QMin['template']['method']), 64)
 
-        # 5: gradient mode
-        # TODO!
+        self.QMin.template["rootpad"] = self.QMin.template["rootpad"][: len(self.QMin.template["roots"])]
 
-        # 6: in progress disabled features
-        if QMin['template']['qmmm']:
-            raise Error('qmmm not implemented')
-        if QMin['template']['cobramm']:
-            raise Error('cobramm not implemented')
+        # Path to baslib
+        if self.QMin.template["baslib"]:
+            self.QMin.template["baslib"] = expand_path(self.QMin.template["baslib"])
 
+        # Iterations
+        match len(self.QMin.template["iterations"]):
+            case 2:
+                self.QMin.template["iterations"] = convert_list(self.QMin.template["iterations"])
+            case 1:
+                self.QMin.template["iterations"] = [int(self.QMin.template["iterations"][0]), 100]
+            case _:
+                self.log.error(f"{self.QMin.template['iterations']} is not a valid iteration value!")
+                raise ValueError()
 
-        # 7: TODO add keywords to be removed later
-        QMin['template']['unrestricted_triplets'] = False
+        # PCM
+        if isinstance(self.QMin.template["pcmset"], list):
+            if len(self.QMin.template["pcmset"]) != 3:
+                self.log.error("pcmset must contain three parameter!")
+                raise ValueError()
 
-        self._read_template = True
-        return
+            self.QMin.template["pcmset"] = {
+                "solvent": self.QMin.template["pcmset"][0],
+                "aare": float(self.QMin.template["pcmset"][1]),
+                "r-min": float(self.QMin.template["pcmset"][2]),
+            }
 
+        # Check for basis and cas settings
+        for i in ["basis", "nactel", "ras2", "inactive"]:
+            if not self.QMin.template[i]:
+                self.log.error(f"Key {i} is missing in template file!")
+                raise ValueError()
 
-    # ======================================================================= #
+        # Validate method
+        if self.QMin.template["method"] not in ["casscf", "caspt2", "ms-caspt2", "mc-pdft", "xms-pdft", "cms-pdft"]:
+            self.log.error(f"{self.QMin.template['method']} is not a valid method!")
+            raise ValueError()
 
+        # TODO: gradmode
+        # gradmode 0 = one file; gradmode 1 = multiple files
 
-    def getVersion(path):
-        # get version from version file
-        molcasversion = os.path.join(path, '.molcasversion')
-        if os.path.isfile(molcasversion):
-            with open(molcasversion) as vf:
-                string = vf.readline()
-        # extract
-        a = re.search('[0-9]+\\.[0-9]+', string)
-        # check
-        if a is None:
-            raise Error('No MOLCAS version found.\nCheck whether MOLCAS path is set correctly in MOLCAS.resources\nand whether $MOLCAS/.molcasversion exists.', 17)
-        v = float(a.group())
-        allowedrange = [(18.0, 22.999)]
-        if not any([i[0] <= v <= i[1] for i in allowedrange]):
-            raise Error('MOLCAS version %3.1f not supported! ' % (v), 18)
-        return v
+    @staticmethod
+    def get_molcas_version(path: str) -> tuple[int, int]:
+        """
+        Get version number of MOLCAS
 
+        path:   Path to MOLCAS directory
+        """
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    def create_restart_files(self):
-        pass
-
-    def getQMout(self):
-        pass
-
-    def run(self):
-        self.printQMin()
-        sys.exit(1)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-if __name__ == '__main__':
-    molcas = MOLCAS(get_bool_from_env('DEBUG', False), get_bool_from_env('PRINT'))
-    molcas.main()
+        with open(os.path.join(path, ".molcasversion"), "r", encoding="utf-8") as version_file:
+            version = re.match(r"v(\d+)\.(\d+)", version_file.read())
+            if not version:
+                raise ValueError(f"No MOLCAS version found in {os.path.join(path, '.molcasversion')}")
+        return int(version.group(1)), int(version.group(2))

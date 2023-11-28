@@ -277,8 +277,8 @@ class SHARC_INTERFACE(ABC):
         # if self._PRINT or self._DEBUG:
         #     string = self.formatQMout()
         self.log.info(self.formatQMout())
-        self.QMout["runtime"] = self.clock.measuretime()
-        self.writeQMout()
+        self.QMout["runtime"] = self.clock.measuretime(print=True)
+        self.writeQMout(filename=QMinfilename)
 
     @abstractmethod
     def read_template(self, template_file: str, kw_whitelist: Optional[list[str]] = None) -> None:
@@ -682,6 +682,7 @@ class SHARC_INTERFACE(ABC):
                     self.log.error(f"line with '{line}' found but no 'end' keyword!")
                     raise ValueError(f"line with '{line}' found but no 'end' keyword!")
                 case [key, val] if key in (*self.QMin.requests.keys(), "step"):
+                    self.log.debug(f"Parsing request {key} {val}")
                     if val[0] == "[":
                         raw_value = ast.literal_eval(val)
                         # check if matrix
@@ -771,6 +772,8 @@ class SHARC_INTERFACE(ABC):
         self.QMin.requests.update(requests)
         for i in ["init", "newstep", "samestep"]:
             self.QMin.save[i] = False
+        # if restart:
+            # self._step_logic()
         self._request_logic()
 
     def _set_request(self, request: list[str]) -> None:

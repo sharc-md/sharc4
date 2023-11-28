@@ -57,6 +57,35 @@ class SHARC_QMMM(SHARC_HYBRID):
     _qm_s = 0.3
     _mm_s = 1 - _qm_s
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # Add template keys
+        self.QMin.template.update(
+            {
+                "qmmm_table": "QMMM.table",
+                "qm-program": None,
+                "mm-program": None,
+                "embedding": "subtractive",
+                "qm-dir": None,
+                "mml-dir": "MML",
+                "mms-dir": "MMS",
+                "mm_dipole": False,
+            }
+        )
+        self.QMin.template.types.update(
+            {
+                "qmmm_table": str,
+                "qm-program": str,
+                "mm-program": str,
+                "embedding": str,
+                "qm-dir": str,
+                "mml-dir": str,
+                "mms-dir": str,
+                "mm_dipole": bool,
+            }
+        )
+
     @staticmethod
     def description():
         return "Hybrid interface for QM/MM"
@@ -78,12 +107,12 @@ class SHARC_QMMM(SHARC_HYBRID):
         if question("Do you have an QMMM.resources file?", bool, KEYSTROKES=KEYSTROKES, autocomplete=False, default=False):
             self.resources_file = question("Specify path to QMMM.resources", str, KEYSTROKES=KEYSTROKES, autocomplete=True)
 
-        self.log.info(f"{' Setting up QM-interface ':=^80s}\n")
+        self.log.info(f"\n{' Setting up QM-interface ':=^80s}\n")
         self.qm_interface.get_infos(INFOS, KEYSTROKES=KEYSTROKES)
-        self.log.info(f"{' Setting up MML-interface (whole system) ':=^80s}\n")
+        self.log.info(f"\n{' Setting up MML-interface (whole system) ':=^80s}\n")
         self.mml_interface.get_infos(INFOS, KEYSTROKES=KEYSTROKES)
         if self.QMin.template['embedding'] == 'subtractive':
-            self.log.info(f"{' Setting up MMS-interface (qm system) ':=^80s}\n")
+            self.log.info(f"\n{' Setting up MMS-interface (qm system) ':=^80s}\n")
             self.mms_interface.get_infos(INFOS, KEYSTROKES=KEYSTROKES)
 
         return INFOS
@@ -159,9 +188,6 @@ class SHARC_QMMM(SHARC_HYBRID):
             self.mms_interface.prepare(INFOS, mmsdir)
 
 
-    def write_step_file(self):
-        pass
-
     @ staticmethod
     def about():
         pass
@@ -218,20 +244,6 @@ class SHARC_QMMM(SHARC_HYBRID):
         super().read_requests(requests_file)
 
     def read_template(self, template_filename="QMMM.template"):
-        QMin = self.QMin
-
-        # special = {'qmmm_table': ''}
-        # strings = {
-            # 'qm-program': '',
-            # 'mm-program': '',
-            # 'embedding': 'subtractive'
-        # }
-        # paths = {
-            # 'mms-dir': '',  # paths to prepared calculations
-            # 'mml-dir': '',
-            # 'qm-dir': ''
-        # }
-        # bools = {'mm_dipole': False}
         super().read_template(template_filename)
 
         # check
@@ -247,10 +259,8 @@ class SHARC_QMMM(SHARC_HYBRID):
                        ', '.join(allowed_embeddings)))
 
         required: set = {
-            'qm-program', 'mm-program', 'qmmm_table', 'mml-dir', 'qm-dir'
+            'qm-program', 'mm-program',
         }
-        if self.QMin.template['embedding'] == 'subtractive':
-            required.add('mms-dir')
 
         if not required.issubset(self.QMin.template.keys()):
             self.log.error(
@@ -274,7 +284,17 @@ class SHARC_QMMM(SHARC_HYBRID):
             self.mms_interface: SHARC_INTERFACE = factory(self.QMin.template['mm-program'])(
                 persistent=self.persistent, logname=f"MMS {self.QMin.template['mm-program']}", loglevel=self.log.level)
 
+        if not self.QMin.template['qm-dir']:
+            self.QMin.template['qm-dir'] = self.qm_interface.name()
+            self.log.info(f"'qm-dir not set in template setting to name of program: {self.QMin.template['qm-dir']}")
         qmmm_table = []
+
+        # check is qmmm_table is relative or absolute path
+        if not os.path.isabs(self.QMin.template['qmmm_table']):
+            #  path from location of template
+            self.QMin.template['qmmm_table'] = os.path.join(os.path.dirname(template_filename), self.QMin.template['qmmm_table'])
+        if not os.path.isfile(self.QMin.template['qmmm_table']):
+            raise RuntimeError(f"{self.QMin.template['qmmm_table']} not found! Specify 'qmmm_table' in template!")
         for line in readfile(self.QMin.template['qmmm_table']):
             qmmm_table.append(line.split())
 
@@ -504,7 +524,7 @@ class SHARC_QMMM(SHARC_HYBRID):
         with InDir(self.QMin.template['qm-dir']) as _:
             self.qm_interface.run()
             self.qm_interface.getQMout()
-            self.qm_interface.write_step_file()
+            # self.qm_interface.write_step_file()
 
 
     def getQMout(self):
