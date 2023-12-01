@@ -1,3 +1,5 @@
 /global/lorenz/meep/resemble_osiris/test_apb_rot/f76_cartesian/res_22/sim_file.hdf5 #FDTD simulation output filename: [FDTD output] (autocomplete enabled) 
                                          #Extraction point: [0.0 0.0 0.0] 
-                                         #Time step: [1.0] 
+2                                        #Number of time steps: [25] 
+70                                       #dx/dy/dz: [10] 
+                                         #Do you want to perform the specified EM-Field extraction? [True] 

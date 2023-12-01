@@ -33,31 +33,41 @@ import h5py
 import os
 import datetime
 import time
+import sys
 import scipy.constants as const  # SHOULD THIS BE WRITTEN in the constants library? 
 from scipy.interpolate import RegularGridInterpolator
 import shutil
 
-from tdqm import tqdm
 from logger import log
 from utils import question                                 
 # from SHARC_INTERFACE import SHARC_INTERFACE                
 # =========================================================
+sharcversion='4.0'  # QA -> Take from SHARC
 
 version = '1.0'                                                                                                                                
 versionneeded = [1.0, float(version)]                                                                                           
 versiondate = datetime.date(2023, 8, 24)                                                                                                       
 global KEYSTROKES                                                                                                                              
-old_question = question                                                                                                                        
+old_question = question
 
 # UNIT FACTORS
 spat_unit_fac = 1E-6  # Conversion input unit to SI
 temp_unit_fac = 1E-15  # Conversion input unit to SI
+stepsize = 0.5  # Length of the nuclear dynamics time steps in fs: QA -> take from SHARC
+nsubsteps = 25  # Number of substeps for the integration of the electronic EOM: QA -> take from SHARC
 efield_au_to_v_per_m = const.physical_constants["Hartree energy"][0]/const.e/const.physical_constants["Bohr radius"][0]
 bfield_au_to_t = const.electron_mass*const.physical_constants["Hartree energy"][0]/(const.e*const.physical_constants["reduced Planck constant"][0])
 efield_grad_au_to_v_per_m2 = efield_au_to_v_per_m*const.physical_constants["Bohr radius"][0]     
 bfield_grad_au_to_t_per_m =  bfield_au_to_t*const.physical_constants["Bohr radius"][0]    
 
+
+int_method = "cubic"                 
+tolerance = 2  # only one works for now
+
+progress_width = 50
+
 sim_file_attrs = ["dimensions", "tmax_si", "rxmin_si_output", "rxmax_si_output", "ymin_si_output", "ymax_si_output", "zmin_si_output", "zmax_si_output"]
+
 
 def question(question, typefunc, default=None, autocomplete=True, ranges=False):
     return old_question(question=question, typefunc=typefunc, KEYSTROKES=KEYSTROKES, default=default, autocomplete=autocomplete, ranges=ranges)
@@ -110,7 +120,11 @@ def custom_formatter(val: float):
        Formatted laser fields files' values 
     """
     assert isinstance(val, float), "val must be a float!"
-    val_form = '{:.3e}'.format(val)  # Format with 3 digits for the exponent
+    if np.log(val)<=-99:
+        val=0.0
+    elif np.isnan(val):
+        return f'NaN'
+    val_form = '{:.6e}'.format(val)  # Format with 3 digits for the exponent
     mantissa, exponent = val_form.split('e')
     sign = '+' if float(mantissa) >= 0 else ''  # Check if positive
     return f'{sign}{mantissa}E{exponent[0]}{exponent[1:].zfill(3)}'
@@ -217,9 +231,12 @@ def get_general(INFOS):
     #   -> Should I switch to other formatting?
     # QA: Which units should be default in input?
     #   -> Would suggest µm, Angstrom
-    log.info('\nPlease enter the laser field extraction positions (in µm) as three floats separated by space. Default: [0, 0, 0]')
+    x_mean, y_mean, z_mean = [(INFOS["xmax"]/spat_unit_fac+INFOS["xmin"]/spat_unit_fac)/2, 
+                              (INFOS["ymax"]/spat_unit_fac+INFOS["ymin"]/spat_unit_fac)/2,
+                              (INFOS["zmax"]/spat_unit_fac+INFOS["zmin"]/spat_unit_fac)/2]
+    log.info(f'\nPlease enter the laser field extraction positions (in µm) as three floats separated by space. Default: [{x_mean:.2f}, {y_mean:.2f}, {z_mean:.2f}]')
     while True:
-        extract_point = question('Extraction point:', float, [0., 0., 0.])  # Default extraction point at equilibrium
+        extract_point = question('Extraction point:', float, [x_mean, y_mean, z_mean])  # Default extraction point at equilibrium
         if len(extract_point) != 3:
             log.info('Enter three numbers separated by spaces!')
             continue
@@ -237,41 +254,49 @@ def get_general(INFOS):
     INFOS["extract_point"] = [coord*spat_unit_fac for coord in extract_point]
     # QA: time step / resolution
     #   -> what should be the default, default unit
-    log.info('\nPlease enter the time step size (in fs). Default: 1.0 fs')
+    log.info('\nPlease enter the desired number of electronic time steps within a nuclear dynamics time step [Must match with SHARC nsubsteps]. Default: 25')
     while True:
-        time_step = question('Time step:', float, [1.0])  # Default time step 
-        if len(time_step) != 1:
+        no_el_time_step = question('Number of time steps:', float, [25])  # Default time step 
+        if len(no_el_time_step) != 1:
             log.info('Enter one time step!')
             continue
         break
-    INFOS["time_step"] = time_step[0]*temp_unit_fac 
+    INFOS["nuc_dyn_stepsize"] = stepsize*temp_unit_fac
+    INFOS["electronic time_step"] = INFOS["nuc_dyn_stepsize"]/no_el_time_step[0] 
+    while True:
+        log.info('\nPlease enter the desired spatial interpolation step (in nm). Default: 10')
+        delta = question('dx/dy/dz:', float, [10])
+        if len(no_el_time_step) != 1:
+            log.info('Enter one time step!')
+            continue
+        break
+    INFOS["delta"] = delta[0]*1E-9
     return INFOS
 
 
 # def calc_fields(t_i, point, point_idx, delta, quant, cmplx, method, tol, dim):
-def calc_fields(INFOS, t_arr, rx_arr, y_arr, z_arr, quant: str, cmplx: str, readout_time: float, point_idx: list, tol: int, int_method: str, dx: float):
+def calc_fields(INFOS, t_arr, rx_arr, y_arr, z_arr, quant: str, cmplx: str, readout_time: float, point_idx: list, tol: int, int_method: str):
     assert isinstance(readout_time, float), "readout_time must be a float!"
     assert isinstance(point_idx, list), "point_ipoint_idx must be a list!" 
     assert isinstance(tol, int), "tol must be an integer!"
-    assert isinstance(dx, float), "dx must be a float!"
     assert isinstance(quant, str), "quant must be a string!"
     # QA: Should I couple the tolerance directly to the tolerance or give an error if cubic is expected and tol=1?
     assert isinstance(int_method, str), "int_method must be a string!"
     assert isinstance(cmplx, str), "cmplx must be a string!"
 
-  
     sim_file = h5py.File(INFOS["sim_file_path"], "r")
+    
 
     if INFOS["dimensions"]=="CARTESIAN": 
         point_idt = np.argmin(np.abs(readout_time-t_arr))
         grid_idx_x = (point_idx[0]-tol, point_idx[0]+tol+1)
         grid_idx_y = (point_idx[1]-tol, point_idx[1]+tol+1)
         grid_idx_z = (point_idx[2]-tol, point_idx[2]+tol+1)
-        dx_basis, dy_basis, dz_basis = [np.eye(3)[idx, :]*dx for idx in range(3)]  
+        dx_basis, dy_basis, dz_basis = [np.eye(3)[idx, :]*INFOS["delta"] for idx in range(3)]  
         if (point_idt-tol)<=0 or (point_idt+tol)>=len(t_arr):
-            grid = (rx_arr[grid_idx_x[0]:grid_idx_x[1]]*1E6,
-                    y_arr[grid_idx_y[0]:grid_idx_y[1]]*1E6,
-                    z_arr[grid_idx_z[0]:grid_idx_z[1]]*1E6)
+            grid = (rx_arr[grid_idx_x[0]:grid_idx_x[1]],
+                    y_arr[grid_idx_y[0]:grid_idx_y[1]],
+                    z_arr[grid_idx_z[0]:grid_idx_z[1]])
             interpol_point = INFOS["extract_point"]
             if cmplx=="real":
                 interp = RegularGridInterpolator(grid, np.real(sim_file[quant][
@@ -291,10 +316,11 @@ def calc_fields(INFOS, t_arr, rx_arr, y_arr, z_arr, quant: str, cmplx: str, read
             red_t_arr_idx = (point_idt-tol, point_idt+tol+1) 
             red_t_arr = t_arr[red_t_arr_idx[0]:red_t_arr_idx[1]]
             grid = (red_t_arr,
-                    rx_arr[grid_idx_x[0]:grid_idx_x[1]]*1E6,
-                    y_arr[grid_idx_y[0]:grid_idx_y[1]]*1E6,
-                    z_arr[grid_idx_z[0]:grid_idx_z[1]]*1E6) 
+                    rx_arr[grid_idx_x[0]:grid_idx_x[1]],
+                    y_arr[grid_idx_y[0]:grid_idx_y[1]],
+                    z_arr[grid_idx_z[0]:grid_idx_z[1]]) 
             interpol_point=[readout_time, *INFOS["extract_point"]]
+            
             dx_basis , dy_basis, dz_basis = np.array([[0, *dx_basis], [0, *dy_basis], [0, *dz_basis]])
             if cmplx=="real":
                 interp = RegularGridInterpolator(grid, np.real(sim_file[quant][
@@ -310,15 +336,14 @@ def calc_fields(INFOS, t_arr, rx_arr, y_arr, z_arr, quant: str, cmplx: str, read
                                      point_idx[1]-tol:point_idx[1]+tol+1,
                                      point_idx[2]-tol:point_idx[2]+tol+1]),
                                                  method=int_method) 
-        fields = interp(interpol_point)[0] 
-        gradients = [(interp((interpol_point+di_basis))[0]- interp((interpol_point-di_basis))[0])/(2*dx) for di_basis in [dx_basis, dy_basis, dz_basis]]
+        fields = interp(interpol_point)[0]
+        gradients = [(interp((interpol_point+di_basis))[0]- interp((interpol_point-di_basis))[0])/(2*INFOS["delta"]) for di_basis in [dx_basis, dy_basis, dz_basis]]
         return fields, *gradients 
     else:
         log.info(f'Dimension not implemented yet: {INFOS["dimensions"]}')
         raise IOError
         # QA: Does one have to return a value, if raise IOError?
         return 0
-
 
 
 def main():
@@ -339,63 +364,82 @@ As input it takes an FDTD output (.hdf5), the spatial position of the fields to 
     INFOS['cwd'] = os.getcwd()
 
     INFOS = get_general(INFOS)
-    int_method = "cubic"                 
-    tolerance = 2  # only one works for now
-    delta = 0.1*1E-6                     
+    for item in INFOS:
+        log.info(f"{item:<25} {INFOS[item]}")  
+    extract = question("Do you want to perform the specified EM-Field extraction?", bool, True) 
+    log.info("")                                                                     
+    if extract:
+        t_arr = np.linspace(INFOS["tmin"], INFOS["tmax"], INFOS["Nt"], endpoint=True)   
+        int_t_arr = np.arange(INFOS["tmin"], INFOS["tmax"]+INFOS["electronic time_step"], INFOS["electronic time_step"])
+        rx_arr = np.linspace(INFOS["xmin"], INFOS["xmax"], INFOS["Nx"], endpoint=True)
+        y_arr = np.linspace(INFOS["ymin"], INFOS["ymax"], INFOS["Ny"], endpoint=True)
+        z_arr = np.linspace(INFOS["zmin"], INFOS["zmax"], INFOS["Nz"], endpoint=True)
 
-    t_arr = np.linspace(INFOS["tmin"], INFOS["tmax"], INFOS["Nt"], endpoint=True)   
-    int_t_arr = np.arange(INFOS["tmin"], INFOS["tmax"]+INFOS["time_step"], INFOS["time_step"])
-    rx_arr = np.linspace(INFOS["xmin"], INFOS["xmax"], INFOS["Nx"], endpoint=True)
-    y_arr = np.linspace(INFOS["ymin"], INFOS["ymax"], INFOS["Ny"], endpoint=True)
-    z_arr = np.linspace(INFOS["zmin"], INFOS["zmax"], INFOS["Nz"], endpoint=True)
+        # Initialize laser fields file
+        laser_file = np.nan*np.ones((len(int_t_arr), 50))  # tsteps, #3*2 Exyz (real, imag), #3*2 Bxyz (real, imag), #3*3*2 Grad Exyz (real, imag), #3*3*2 Grad Bxyz (real, imag)
+        laser_file[:, 0] = int_t_arr*1E15  # SAVE timesteps in fs
 
-    # Initialize laser fields file
-    laser_file = 50*np.ones((len(int_t_arr), 50))  # tsteps, #3*2 Exyz (real, imag), #3*2 Bxyz (real, imag), #3*3*2 Grad Exyz (real, imag), #3*3*2 Grad Bxyz (real, imag)
-    laser_file[:, 0] = int_t_arr*1E15  # SAVE timesteps in fs
+        point_idx = [np.argmin(np.abs(INFOS["extract_point"][0]-rx_arr)),
+                     np.argmin(np.abs(INFOS["extract_point"][1]-y_arr)),  
+                     np.argmin(np.abs(INFOS["extract_point"][2]-z_arr))]  
 
-    point_idx = [np.argmin(np.abs(INFOS["extract_point"][0]-rx_arr)),
-                 np.argmin(np.abs(INFOS["extract_point"][1]-y_arr)),  
-                 np.argmin(np.abs(INFOS["extract_point"][2]-z_arr))]  
+        efields = ["e_x_data_si", "e_y_data_si", "e_z_data_si"]
+        bfields = ["b_x_data_si", "b_y_data_si", "b_z_data_si"]
 
-    efields = ["e_x_data_si", "e_y_data_si", "e_z_data_si"]
-    bfields = ["b_x_data_si", "b_y_data_si", "b_z_data_si"]
-
-    # def calc_fields(t_i, point, point_idx, delta, quant, cmplx, method, tol, dim):
-    # def calc_fields(INFOS, t_arr, rx_arr, y_arr, z_arr, quant: str, cmplx: str, readout_time: float, point_idx: list, tol: int, int_method: str, dx: float):
-
-    ('Interpolating E-fields/Gradients and writing to laser file', fill='@', suffix='%(percent).1f%% - %(eta)ds', max=3) as bar:
+        log.info("Interpolating E-fields/Gradients and writing to laser file:")
         for fld_count, fld in enumerate(efields):
-            fields_gradients = np.asarray([calc_fields(INFOS, t_arr, rx_arr, y_arr, z_arr, fld, "real", t_i, point_idx, tolerance, int_method, delta) for t_i in int_t_arr])
-            laser_file[:, 1+fld_count*2] = fields_gradients[:, 0]/efield_au_to_v_per_m
-            laser_file[:, 14+fld_count*6], laser_file[:, 16+fld_count*6], laser_file[:, 18+fld_count*6] =  (fields_gradients[:, 1:]/efield_grad_au_to_v_per_m2).T 
-            fields_gradients = np.asarray([calc_fields(INFOS, t_arr, rx_arr, y_arr, z_arr, fld, "imag", t_i, point_idx, tolerance, int_method, delta) for t_i in int_t_arr])
-            laser_file[:, 2+fld_count*2] = fields_gradients[:, 0]/efield_au_to_v_per_m
-            laser_file[:, 15+fld_count*6], laser_file[:, 17+fld_count*6], laser_file[:, 19+fld_count*6] =  (fields_gradients[:, 1:]/efield_grad_au_to_v_per_m2).T 
-            bar.next()
-    log.info("E-field extracted!")
-    with Bar('Interpolating B-fields/Gradients and writing to laser file', fill='@', suffix='%(percent).1f%% - %(eta)ds', max=3) as bar:
+            fields_gradients_real = []
+            fields_gradients_imag = []
+            for t_count, t_i in enumerate(int_t_arr):
+                # Calculate real fields
+                fields_gradients_real.append(calc_fields(INFOS, t_arr, rx_arr, y_arr, z_arr, fld, "real", t_i, point_idx, tolerance, int_method))
+                # Calculate imaginary fields
+                fields_gradients_imag.append(calc_fields(INFOS, t_arr, rx_arr, y_arr, z_arr, fld, "imag", t_i, point_idx, tolerance, int_method))
+                done = t_count * progress_width // len(int_t_arr)
+                sys.stdout.write("\rProgress for component '%s': [" % (fld) + "=" * done + " " * (progress_width - done) + "] %3i%%" % (done * 100 // progress_width))
+            sys.stdout.write("\rProgress for component '%s': ["  % (fld) + "=" * progress_width + " " * (0) + "] %3i%% \n" % (100))
+            fields_gradients_real = np.asarray(fields_gradients_real)
+            fields_gradients_imag = np.asarray(fields_gradients_imag)  
+            laser_file[:, 1+fld_count*2] = fields_gradients_real[:, 0]/efield_au_to_v_per_m
+            laser_file[:, 14+fld_count*6], laser_file[:, 16+fld_count*6], laser_file[:, 18+fld_count*6] =  (fields_gradients_real[:, 1:]/efield_grad_au_to_v_per_m2).T 
+            laser_file[:, 2+fld_count*2] = fields_gradients_imag[:, 0]/efield_au_to_v_per_m
+            laser_file[:, 15+fld_count*6], laser_file[:, 17+fld_count*6], laser_file[:, 19+fld_count*6] =  (fields_gradients_imag[:, 1:]/efield_grad_au_to_v_per_m2).T 
+
+        log.info("E-field extracted!")
+        log.info("Interpolating B-fields/Gradients and writing to laser file:") 
         for fld_count, fld in enumerate(bfields):
-            fields_gradients = np.asarray([calc_fields(INFOS, t_arr, rx_arr, y_arr, z_arr, fld, "real", t_i, point_idx, tolerance, int_method, delta) for t_i in int_t_arr])
-            laser_file[:, 7+fld_count*2] = fields_gradients[:, 0]/bfield_au_to_t
-            laser_file[:, 32+fld_count*6], laser_file[:, 34+fld_count*6], laser_file[:, 36+fld_count*6] =  (fields_gradients[:, 1:]/bfield_grad_au_to_t_per_m).T 
-            fields_gradients = np.asarray([calc_fields(INFOS, t_arr, rx_arr, y_arr, z_arr, fld, "imag", t_i, point_idx, tolerance, int_method, delta) for t_i in int_t_arr])
-            laser_file[:, 8+fld_count*2] = fields_gradients[:, 0]/bfield_au_to_t
-            laser_file[:, 33+fld_count*6], laser_file[:, 35+fld_count*6], laser_file[:, 37+fld_count*6] =  (fields_gradients[:, 1:]/bfield_grad_au_to_t_per_m).T 
-            bar.next()
-    log.info("B-field extracted!")
-    # SAVE LASER FILE
-    # header = "t/fs , Re[Erho/x] (au), Im[Erho/x] (au), Re[Ephi/y] (au), Im[Ephi/y] (au), Re[Ez] (au), Im[Ez] (au), \
-    # Re[Brho/x] (au), Im[Brho/x] (au), Re[Bphi/y] (au), Im[Brho/y] (au), Re[Bz] (au), Im[Bz] (au)"
-    header = '! version 1.0 \n \
-            ! nsteps = len(int_t_arr) \n \
-            ! dt = INFOS["time_step"] \n \
-            ! E-fields = true \n \
-            ! B-fields = true \n \
-            ! E-field gradients = true \n \
-            ! B-field gradients = true \n \
-    '
-    formatted_laser_file = np.array([[custom_formatter(val) for val in row] for row in laser_file], dtype=str)
-    np.savetxt("laser", formatted_laser_file, fmt="%s", delimiter="  ", header=header)
+            fields_gradients_real = []
+            fields_gradients_imag = []
+            for t_count, t_i in enumerate(int_t_arr):
+                fields_gradients_real.append(calc_fields(INFOS, t_arr, rx_arr, y_arr, z_arr, fld, "real", t_i, point_idx, tolerance, int_method))
+                fields_gradients_imag.append(calc_fields(INFOS, t_arr, rx_arr, y_arr, z_arr, fld, "imag", t_i, point_idx, tolerance, int_method))
+                done = t_count * progress_width // len(int_t_arr)
+                sys.stdout.write("\rProgress for component '%s': [" % (fld) + "=" * done + " " * (progress_width - done) + "] %3i%%" % (done * 100 // progress_width))
+            sys.stdout.write("\rProgress for component '%s': ["  % (fld) + "=" * progress_width + " " * (0) + "] %3i%% \n" % (100))
+            fields_gradients_real = np.asarray(fields_gradients_real)
+            fields_gradients_imag = np.asarray(fields_gradients_imag) 
+            laser_file[:, 7+fld_count*2] = fields_gradients_real[:, 0]/bfield_au_to_t 
+            laser_file[:, 32+fld_count*6], laser_file[:, 34+fld_count*6], laser_file[:, 36+fld_count*6] =  (fields_gradients_real[:, 1:]/bfield_grad_au_to_t_per_m).T 
+            laser_file[:, 8+fld_count*2] = fields_gradients_imag[:, 0]/bfield_au_to_t
+            laser_file[:, 33+fld_count*6], laser_file[:, 35+fld_count*6], laser_file[:, 37+fld_count*6] =  (fields_gradients_imag[:, 1:]/bfield_grad_au_to_t_per_m).T 
+        log.info("B-field extracted!")
+        # SAVE LASER FILE
+        # header = "t/fs , Re[Erho/x] (au), Im[Erho/x] (au), Re[Ephi/y] (au), Im[Ephi/y] (au), Re[Ez] (au), Im[Ez] (au), \
+        # Re[Brho/x] (au), Im[Brho/x] (au), Re[Bphi/y] (au), Im[Brho/y] (au), Re[Bz] (au), Im[Bz] (au)"
+        header = f'''\
+        ! Laser file SHARC {sharcversion}
+        ! version 1.0 
+        ! nsteps = {len(int_t_arr)} 
+        ! dt =  {INFOS["electronic time_step"]}
+        ! E-fields = true 
+        ! B-fields = true
+        ! E-field gradients = true 
+        ! B-field gradients = true 
+        '''
+        header = '\n'.join(line.lstrip() for line in header.split('\n'))
+        log.info("Writing fields and gradients to file:")
+        formatted_laser_file = np.array([[custom_formatter(val) for val in row] for row in laser_file], dtype=str)
+        np.savetxt("laser", formatted_laser_file, fmt="%s", delimiter="  ", header=header, comments='')
     #QA: Where should the laser file be saved?
     # log.info('\n' + f"{'Full input':#^60}" + '\n')
     # for item in INFOS:
