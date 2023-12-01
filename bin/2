@@ -37,7 +37,7 @@ import scipy.constants as const  # SHOULD THIS BE WRITTEN in the constants libra
 from scipy.interpolate import RegularGridInterpolator
 import shutil
 
-from tdqm import tqdm
+from progress.bar import Bar
 from logger import log
 from utils import question                                 
 # from SHARC_INTERFACE import SHARC_INTERFACE                
@@ -363,7 +363,7 @@ As input it takes an FDTD output (.hdf5), the spatial position of the fields to 
     # def calc_fields(t_i, point, point_idx, delta, quant, cmplx, method, tol, dim):
     # def calc_fields(INFOS, t_arr, rx_arr, y_arr, z_arr, quant: str, cmplx: str, readout_time: float, point_idx: list, tol: int, int_method: str, dx: float):
 
-    ('Interpolating E-fields/Gradients and writing to laser file', fill='@', suffix='%(percent).1f%% - %(eta)ds', max=3) as bar:
+    with Bar('Interpolating E-fields/Gradients and writing to laser file', fill='@', suffix='%(percent).1f%% - %(eta)ds', max=3) as bar:
         for fld_count, fld in enumerate(efields):
             fields_gradients = np.asarray([calc_fields(INFOS, t_arr, rx_arr, y_arr, z_arr, fld, "real", t_i, point_idx, tolerance, int_method, delta) for t_i in int_t_arr])
             laser_file[:, 1+fld_count*2] = fields_gradients[:, 0]/efield_au_to_v_per_m
