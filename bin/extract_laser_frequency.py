@@ -25,7 +25,7 @@
                                                                                                            
 # Interactive script for the extraction of EM-fields from FDTD simulations to a laser input file for SHARC 
 #                                                                                                          
-# usage: python extract_fields_fdtd.py                                                                     
+# usage: python extract_laser_frequency.py                                                                     
 
 import numpy as np                                                                                                                                  
 import datetime 
