@@ -35,11 +35,13 @@ import datetime
 import time
 import sys
 import scipy.constants as const  # SHOULD THIS BE WRITTEN in the constants library? 
-from scipy.interpolate import RegularGridInterpolator
 import shutil
+import matplotlib.pyplot as plt
 
 from logger import log
+from scipy import fft, signal, ndimage
 from utils import question                                 
+from scipy.interpolate import RegularGridInterpolator
 # from SHARC_INTERFACE import SHARC_INTERFACE                
 # =========================================================
 sharcversion='4.0'  # QA -> Take from SHARC
@@ -82,32 +84,6 @@ def try_read(word, index, typefunc, default):
         log.info('Could not initialize object!')                                                                        
         quit(1)                                                                                                         
 
-
-def check_laser_file_version(string):
-    """
-    Checks version of laser fields file to attain compatibility with old laser field files without extraction of field gradients
-    Requested laser fields file header: "Laser fields file, version 1.0"
-    Args:
-        string (): 
-
-    Returns:
-       True/False (True, if Gradients are provided) 
-    """
-    if 'Laser fields file' not in string.lower():
-        return False
-    f = string.split()
-    for i, field in enumerate(f):
-        if 'version' in field.lower():
-            try:
-                v = float(f[i + 1])
-                if v not in versionneeded:
-                    return False
-            except IndexError:
-                return False
-    return True
-
-
-start_time = time.time()  
 
 
 def custom_formatter(val: float):
@@ -164,7 +140,7 @@ def close_keystrokes():
 
 def get_general(INFOS):
     '''This routine questions from the user some general information:
-    - FDTD simulatioin output file
+    - FDTD simulation output file
     - temporal stepsize (for interpolation)
     - spatial (3D) stepsize (for interpolation)
     - spatial (3D) point at which the fields should be extracted'''
@@ -350,10 +326,10 @@ def main():
     '''Main routine'''
 
     usage = '''
-python extract_fields_fdtd.py 
-Interactive script for the extraction of EM-fields from FDTD simulations to a laser input file for SHARC
-As input it takes an FDTD output (.hdf5), the spatial position of the fields to be extracted and the time step to be interpolated
-'''
+    python extract_fields_fdtd.py 
+    Interactive script for the extraction of EM-fields from FDTD simulations to a laser input file for SHARC
+    As input it takes an FDTD output (.hdf5), the spatial position of the fields to be extracted and the time step to be interpolated
+    '''
 
     # description = ''
     # parser = OptionParser(usage=usage, description=description)
@@ -376,7 +352,7 @@ As input it takes an FDTD output (.hdf5), the spatial position of the fields to 
         z_arr = np.linspace(INFOS["zmin"], INFOS["zmax"], INFOS["Nz"], endpoint=True)
 
         # Initialize laser fields file
-        laser_file = np.nan*np.ones((len(int_t_arr), 50))  # tsteps, #3*2 Exyz (real, imag), #3*2 Bxyz (real, imag), #3*3*2 Grad Exyz (real, imag), #3*3*2 Grad Bxyz (real, imag)
+        laser_file = np.nan*np.ones((len(int_t_arr), 49))  # tsteps, (f_exr, f_eyr, f_ezr or f_bxr, f_byr, f_bzr) #3*2 Exyz (real, imag), #3*2 Bxyz (real, imag), #3*3*2 Grad Exyz (real, imag), #3*3*2 Grad Bxyz (real, imag)
         laser_file[:, 0] = int_t_arr*1E15  # SAVE timesteps in fs
 
         point_idx = [np.argmin(np.abs(INFOS["extract_point"][0]-rx_arr)),
@@ -401,9 +377,9 @@ As input it takes an FDTD output (.hdf5), the spatial position of the fields to 
             fields_gradients_real = np.asarray(fields_gradients_real)
             fields_gradients_imag = np.asarray(fields_gradients_imag)  
             laser_file[:, 1+fld_count*2] = fields_gradients_real[:, 0]/efield_au_to_v_per_m
-            laser_file[:, 14+fld_count*6], laser_file[:, 16+fld_count*6], laser_file[:, 18+fld_count*6] =  (fields_gradients_real[:, 1:]/efield_grad_au_to_v_per_m2).T 
+            laser_file[:, 13+fld_count*6], laser_file[:, 15+fld_count*6], laser_file[:, 17+fld_count*6] =  (fields_gradients_real[:, 1:]/efield_grad_au_to_v_per_m2).T 
             laser_file[:, 2+fld_count*2] = fields_gradients_imag[:, 0]/efield_au_to_v_per_m
-            laser_file[:, 15+fld_count*6], laser_file[:, 17+fld_count*6], laser_file[:, 19+fld_count*6] =  (fields_gradients_imag[:, 1:]/efield_grad_au_to_v_per_m2).T 
+            laser_file[:, 14+fld_count*6], laser_file[:, 16+fld_count*6], laser_file[:, 18+fld_count*6] =  (fields_gradients_imag[:, 1:]/efield_grad_au_to_v_per_m2).T 
 
         log.info("E-field extracted!")
         log.info("Interpolating B-fields/Gradients and writing to laser file:") 
@@ -419,10 +395,11 @@ As input it takes an FDTD output (.hdf5), the spatial position of the fields to 
             fields_gradients_real = np.asarray(fields_gradients_real)
             fields_gradients_imag = np.asarray(fields_gradients_imag) 
             laser_file[:, 7+fld_count*2] = fields_gradients_real[:, 0]/bfield_au_to_t 
-            laser_file[:, 32+fld_count*6], laser_file[:, 34+fld_count*6], laser_file[:, 36+fld_count*6] =  (fields_gradients_real[:, 1:]/bfield_grad_au_to_t_per_m).T 
+            laser_file[:, 31+fld_count*6], laser_file[:, 33+fld_count*6], laser_file[:, 35+fld_count*6] =  (fields_gradients_real[:, 1:]/bfield_grad_au_to_t_per_m).T 
             laser_file[:, 8+fld_count*2] = fields_gradients_imag[:, 0]/bfield_au_to_t
-            laser_file[:, 33+fld_count*6], laser_file[:, 35+fld_count*6], laser_file[:, 37+fld_count*6] =  (fields_gradients_imag[:, 1:]/bfield_grad_au_to_t_per_m).T 
+            laser_file[:, 32+fld_count*6], laser_file[:, 34+fld_count*6], laser_file[:, 36+fld_count*6] =  (fields_gradients_imag[:, 1:]/bfield_grad_au_to_t_per_m).T 
         log.info("B-field extracted!")
+        log.info("Calculate central laser frequency on the chosen position.")
         # SAVE LASER FILE
         # header = "t/fs , Re[Erho/x] (au), Im[Erho/x] (au), Re[Ephi/y] (au), Im[Ephi/y] (au), Re[Ez] (au), Im[Ez] (au), \
         # Re[Brho/x] (au), Im[Brho/x] (au), Re[Bphi/y] (au), Im[Brho/y] (au), Re[Bz] (au), Im[Bz] (au)"
@@ -440,6 +417,8 @@ As input it takes an FDTD output (.hdf5), the spatial position of the fields to 
         log.info("Writing fields and gradients to file:")
         formatted_laser_file = np.array([[custom_formatter(val) for val in row] for row in laser_file], dtype=str)
         np.savetxt("laser", formatted_laser_file, fmt="%s", delimiter="  ", header=header, comments='')
+    
+        
     #QA: Where should the laser file be saved?
     # log.info('\n' + f"{'Full input':#^60}" + '\n')
     # for item in INFOS:
