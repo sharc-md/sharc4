@@ -261,17 +261,13 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
 
 
     def read_displacement_coordinates(self, disp_coord_filename):
-        print("In read_displacement_coordinates")
         # Read the coord file
         disp_coords = []
         with open(disp_coord_filename, 'r') as f:
             for line in f:
-                print(line)
                 if "units" in line:
-                    print("read units")
                     line = f.readline()
                 if "normal modes" in line:
-                    print("read normal modes")
                     line = f.readline()
                     n_coords = int(line)
                     for i_coord in range(n_coords):
@@ -352,21 +348,14 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
                 displaced_interface.run()
                 displaced_interface.getQMout()
 
-                # Debug output
-                if numdiff_debug and "overlap" in self.QMin.template["properties"]:
-                    print("Calculated overlaps")
-                    for i_state in range(self.QMin.molecule["nmstates"]):
-                        for j_state in range(i_state, self.QMin.molecule["nmstates"]):
-                            print(i_state, j_state)
-                            print(displaced_interface.QMout.overlap[i_state][j_state])
-
         # Create map to hold derivatives for each requested property
         self.derivatives = dict()
 
         # Loop over properties to differentiate
         for property in self.QMin.template["properties"]:
             # Do numerical differentiation
-            print(f"NUMDIFF for {property}")
+            if numdiff_debug:
+                print(f"Doing NUMDIFF for {property}")
             self.do_numerical_diff(property)
 
         return
@@ -479,8 +468,6 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
         # Calculate the derivative
         if self.QMin.template["numdiff-method"] == "central-diff":
             deriv = self.do_central_diff(disp_plus, disp_minus, 2*float(self.QMin.template["numdiff-stepsize"]))
-            print("derivatives:")
-            print(deriv)
         else:
             raise RuntimeError("Other methods than central-diff has not been implemented for numdiff")
         
@@ -510,7 +497,6 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
                     print(f"disp_plus  = {disp_plus[i_state][j_state]}")
                     print(f"disp_minus = {disp_minus[i_state][j_state]}")
                     print(f"distance   = {distance}")
-                    print(f" disp_plus - disp_minus             = { (disp_plus - disp_minus)[i_state][j_state]}")
                     print(f"(disp_plus - disp_minus)/distance   = {((disp_plus - disp_minus)/distance)[i_state][j_state]}")
         return (np.abs(disp_plus) - np.abs(disp_minus))/distance
 
