@@ -50,6 +50,82 @@ np.set_printoptions(linewidth=400)
 
 numdiff_debug = False
 
+
+def phase_correction(matrix):
+    """
+    Do a phase correction of a matrix.
+    Follows algorithm from J. Chem. Theory Comput. 2020, 16, 2, 835-846 (https://doi.org/10.1021/acs.jctc.9b00952)
+    """
+    U = matrix.real.copy()
+    det_U = np.linalg.det(U)
+    if det_U < 0:
+        U[:, 0] *= -1.0  # this row/column convention is correct
+    U_sq = U * U
+
+    # sweeps
+    length = len(U)
+    sweeps = 0
+    done = False
+    while not done:
+        done = True
+        for j in range(length):
+            for k in range(j + 1, length):
+                delta = 3.0 * (U_sq[j, j] + U_sq[k, k])
+                delta += 6.0 * U[j, k] * U[k, j]
+                delta += 8.0 * (U[k, k] + U[j, j])
+                delta -= 3.0 * (U[j, :] @ U[:, j] + U[k, :] @ U[:, k])
+
+                # Test if delta < 0
+                num_zero_thres = -1e-15  # needs proper threshold towards 0
+                if delta < num_zero_thres:
+                    U[:, j] *= -1.0  # this row/column convention is correct
+                    U[:, k] *= -1.0  # this row/column convention is correct
+                    done = False
+        sweeps += 1
+    
+    if numdiff_debug:
+        print(f"Finished phase correction after {sweeps} sweeps.")
+
+    return U
+
+
+def loewdin_orthonormalization(A):
+    """
+    Do Loewdin orthonormalization of a matrix.
+    """
+    S = A.T @ A
+    eigenvals, eigenvecs = np.linalg.eigh(S)
+    idx = eigenvals > 1e-15
+    S_sqrt = np.dot(eigenvecs[:, idx] / np.sqrt(eigenvals[idx]), eigenvecs[:, idx].conj().T)
+    A_ortho = A @ S_sqrt
+    
+    # Normalize the matrix
+    A_lo = A_ortho.T
+    length = len(A_lo)
+    A_lon = np.zeros((length, length))
+
+    for i in range(length):
+        norm_of_col = np.linalg.norm(A_lo[i])
+        A_lon[i] = [e / (norm_of_col ** 0.5) for e in A_lo[i]]
+    
+    return A_lon.T
+    
+
+def post_process_overlap_matrix(overlap_matrix):
+    """
+    Process an overlap matrix to ensure that it has correct phases
+    and in orthonormal.
+    """
+    # First fix phases
+    phase_corrected_overlap = phase_correction(overlap_matrix)
+
+    # Do a Loewdin orthonormalization
+    orthogonal_overlap = loewdin_orthonormalization(phase_corrected_overlap)
+
+    # Extra phase correction
+    return phase_correction(orthogonal_overlap)
+
+
 class SHARC_NUMDIFF(SHARC_HYBRID):
 
     _version = version
@@ -347,6 +423,11 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
             for displaced_interface in i_coord_interfaces:
                 displaced_interface.run()
                 displaced_interface.getQMout()
+
+                # We need to ensure correct phases and orthonormality of the overlap matrices
+                if "overlap" in self.QMin.template["properties"]:
+                    displaced_interface.QMout.overlap = post_process_overlap_matrix(displaced_interface.QMout.overlap)
+
 
         # Create map to hold derivatives for each requested property
         self.derivatives = dict()
