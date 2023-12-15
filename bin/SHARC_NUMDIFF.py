@@ -50,6 +50,82 @@ np.set_printoptions(linewidth=400)
 
 numdiff_debug = False
 
+
+def phase_correction(matrix):
+    """
+    Do a phase correction of a matrix.
+    Follows algorithm from J. Chem. Theory Comput. 2020, 16, 2, 835-846 (https://doi.org/10.1021/acs.jctc.9b00952)
+    """
+    U = matrix.real.copy()
+    det_U = np.linalg.det(U)
+    if det_U < 0:
+        U[:, 0] *= -1.0  # this row/column convention is correct
+    U_sq = U * U
+
+    # sweeps
+    length = len(U)
+    sweeps = 0
+    done = False
+    while not done:
+        done = True
+        for j in range(length):
+            for k in range(j + 1, length):
+                delta = 3.0 * (U_sq[j, j] + U_sq[k, k])
+                delta += 6.0 * U[j, k] * U[k, j]
+                delta += 8.0 * (U[k, k] + U[j, j])
+                delta -= 3.0 * (U[j, :] @ U[:, j] + U[k, :] @ U[:, k])
+
+                # Test if delta < 0
+                num_zero_thres = -1e-15  # needs proper threshold towards 0
+                if delta < num_zero_thres:
+                    U[:, j] *= -1.0  # this row/column convention is correct
+                    U[:, k] *= -1.0  # this row/column convention is correct
+                    done = False
+        sweeps += 1
+    
+    if numdiff_debug:
+        print(f"Finished phase correction after {sweeps} sweeps.")
+
+    return U
+
+
+def loewdin_orthonormalization(A):
+    """
+    Do Loewdin orthonormalization of a matrix.
+    """
+    S = A.T @ A
+    eigenvals, eigenvecs = np.linalg.eigh(S)
+    idx = eigenvals > 1e-15
+    S_sqrt = np.dot(eigenvecs[:, idx] / np.sqrt(eigenvals[idx]), eigenvecs[:, idx].conj().T)
+    A_ortho = A @ S_sqrt
+    
+    # Normalize the matrix
+    A_lo = A_ortho.T
+    length = len(A_lo)
+    A_lon = np.zeros((length, length))
+
+    for i in range(length):
+        norm_of_col = np.linalg.norm(A_lo[i])
+        A_lon[i] = [e / (norm_of_col ** 0.5) for e in A_lo[i]]
+    
+    return A_lon.T
+    
+
+def post_process_overlap_matrix(overlap_matrix):
+    """
+    Process an overlap matrix to ensure that it has correct phases
+    and in orthonormal.
+    """
+    # First fix phases
+    phase_corrected_overlap = phase_correction(overlap_matrix)
+
+    # Do a Loewdin orthonormalization
+    orthogonal_overlap = loewdin_orthonormalization(phase_corrected_overlap)
+
+    # Extra phase correction (probably not needed)
+    return phase_correction(orthogonal_overlap)
+
+
 class SHARC_NUMDIFF(SHARC_HYBRID):
 
     _version = version
@@ -191,23 +267,19 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
         # Copy files to the nummdiff dir
         shutil.copy(self.template_file, os.path.join(dir_path, self.name() + ".template"))
         shutil.copy(self.template_file, os.path.join(dir_path, self.name() + ".resources"))
-        # Copy stuff from ref_interface?
-        #shutil.copy(self.QMin.template[''], os.path.join(dir_path, ))
-
-
-        # 
-        if not self.QMin.save["savedir"]:
-            self.log.warning(
-                "savedir not specified in QM.in, setting savedir to current directory!"
-            )
-            self.QMin.save["savedir"] = os.getcwd()
 
         # Setup sub-dir for the QM calcs
         qmdir = dir_path + f"/{self.QMin.template['qm-dir']}"
         mkdir(qmdir)
 
         # Make savedir and scratchdir for the reference interface
-        ref_savedir    = os.path.join(dir_path, self.QMin.save["savedir"], 'QM_' + self.QMin.template["qm-program"].upper())
+        if not self.QMin.save["savedir"]:
+            self.log.warning(
+                "savedir not specified in QM.in, setting savedir to current directory!"
+            )
+            self.QMin.save["savedir"] = os.getcwd()
+
+        ref_savedir = os.path.join(dir_path, self.QMin.save["savedir"], 'QM_' + self.QMin.template["qm-program"].upper())
         self.log.debug(f"ref_savedir {ref_savedir}")
         if not os.path.isdir(ref_savedir):
             mkdir(ref_savedir)
@@ -225,11 +297,13 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
 
         return
 
+
     def create_restart_files(self) -> None:
         """
         Create restart files
         """
         return
+
 
     def read_resources(self, resources_file="NUMDIFF.resources") -> None:
         # Search for resource file
@@ -243,6 +317,7 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
         self._read_resources = True
         
         return
+
 
     def read_template(self, template_file="NUMDIFF.template") -> None:
         # Call the read_template() from the base (Simply reads all entries in the .template file and adds them to the self.Qmin.template)
@@ -261,17 +336,13 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
 
 
     def read_displacement_coordinates(self, disp_coord_filename):
-        print("In read_displacement_coordinates")
         # Read the coord file
         disp_coords = []
         with open(disp_coord_filename, 'r') as f:
             for line in f:
-                print(line)
                 if "units" in line:
-                    print("read units")
                     line = f.readline()
                 if "normal modes" in line:
-                    print("read normal modes")
                     line = f.readline()
                     n_coords = int(line)
                     for i_coord in range(n_coords):
@@ -352,13 +423,10 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
                 displaced_interface.run()
                 displaced_interface.getQMout()
 
-                # Debug output
-                if numdiff_debug and "overlap" in self.QMin.template["properties"]:
-                    print("Calculated overlaps")
-                    for i_state in range(self.QMin.molecule["nmstates"]):
-                        for j_state in range(i_state, self.QMin.molecule["nmstates"]):
-                            print(i_state, j_state)
-                            print(displaced_interface.QMout.overlap[i_state][j_state])
+                # We need to ensure correct phases and orthonormality of the overlap matrices
+                if "overlap" in self.QMin.template["properties"]:
+                    displaced_interface.QMout.overlap = post_process_overlap_matrix(displaced_interface.QMout.overlap)
+
 
         # Create map to hold derivatives for each requested property
         self.derivatives = dict()
@@ -366,7 +434,8 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
         # Loop over properties to differentiate
         for property in self.QMin.template["properties"]:
             # Do numerical differentiation
-            print(f"NUMDIFF for {property}")
+            if numdiff_debug:
+                print(f"Doing NUMDIFF for {property}")
             self.do_numerical_diff(property)
 
         return
@@ -419,89 +488,94 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
 
     def do_numerical_diff(self, property) -> None:
         """
-        # Options: 
-            # Central diff:    (O_{-} - O_{+})/(2 DelR)
-            # "Diabatic" diff: 1/DelE (U_{-}^\dagger O_{-} U_{-} - U_{+}^\dagger O_{+} U_{+})/(2 DelR)
+        # Options (controlled by self.QMin.template["numdiff-method"]): 
+            # Central diff:
+                dO/dR = (O_{+} - O_{-})/(2 DelR)
+            # "Diabatic" central diff:
+                dO/dR = (S_{+}^\dagger O_{+} S_{+} - S_{-}^\dagger O_{-} S_{-})/(2 DelR)
         """
+        # Bool indicating whether property has cartesian components
+        has_components = (property == "dm")
+
+        # Create array to hold derivatives for all degrees of freedom
+        n_states = self.QMin.molecule["nmstates"]
+        if self.QMin.template["coord-type"] == "cartesian":
+            n_atoms = self.QMin.molecule["natom"]
+            if has_components:
+                derivatives = np.zeros((3, n_states, n_states, n_atoms, 3))
+            else:
+                derivatives = np.zeros((n_states, n_states, n_atoms, 3))
+        elif self.QMin.template["coord-type"] == "displacement":
+            n_disp = len(self.displaced_interfaces)
+            if has_components:
+                derivatives = np.zeros((3, n_states, n_states, n_disp))
+            else:
+                derivatives = np.zeros((n_states, n_states, n_disp))
+        else:
+            err = f"coord-type: {self.QMin.template['coord-type']} is not recognized as a valid coordinate type"
+            self.log.error(err)
+            raise RuntimeError(err)
+
         # Loop over the degrees of freedom
         for i_coord in range(len(self.displaced_interfaces)):
-            #
-            if property == "dm":
-                derivatives = []
-                # Create array to hold derivatives for all degrees of freedom
-                if self.QMin.template["coord-type"] == "cartesian":
-                    n_states = self.QMin.molecule["nmstates"]
-                    n_atoms = self.QMin.molecule["natom"]
-                    i_xyz_derivatives = np.zeros((n_states, n_states, n_atoms, 3))
-                elif self.QMin.template["coord-type"] == "displacement":
-                    n_disp = len(self.displaced_interfaces)
-                    i_xyz_derivatives = np.zeros((n_states, n_states, n_disp))
-                else:
-                    err = f"coord-type: {self.QMin.template['coord-type']} is not recognized as a valid coordinate type"
-                    self.log.error(err)
-                    raise RuntimeError(err)
-                
-                # Loop over cartesian components
-                for i_xyz in range(3):
-                    # Get values
+            # Extract overlap matrices if they are needed
+            if self.QMin.template["numdiff-method"] == "diabatic-central-diff":
+                overlap_plus  = self.displaced_interfaces[i_coord][0].QMout["overlap"]
+                overlap_minus = self.displaced_interfaces[i_coord][1].QMout["overlap"]
+            
+            # Ensure we loop over the cartesian coordinates if the current property has cartesian components
+            if has_components:
+                n_comp = 3
+            else:
+                n_comp = 1
+            
+            for i_xyz in range(n_comp):
+                # Get displaced values
+                if has_components:
                     disp_plus_val  = self.displaced_interfaces[i_coord][0].QMout[property][i_xyz]
                     disp_minus_val = self.displaced_interfaces[i_coord][1].QMout[property][i_xyz]
-                    # Fill in derivatives
-                    self.diff_displacement(disp_plus_val, disp_minus_val, i_coord, i_xyz_derivatives)
-                    derivatives.append(i_xyz_derivatives)
-            #
-            else:
-                # Create array to hold derivatives for all degrees of freedom
-                if self.QMin.template["coord-type"] == "cartesian":
-                    n_states = self.QMin.molecule["nmstates"]
-                    n_atoms = self.QMin.molecule["natom"]
-                    derivatives = np.zeros((n_states, n_states, n_atoms, 3))
-                elif self.QMin.template["coord-type"] == "displacement":
-                    n_disp = len(self.displaced_interfaces)
-                    derivatives = np.zeros((n_states, n_states, n_disp))
                 else:
-                    err = f"coord-type: {self.QMin.template['coord-type']} is not recognized as a valid coordinate type"
-                    self.log.error(err)
-                    raise RuntimeError(err)
+                    disp_plus_val  = self.displaced_interfaces[i_coord][0].QMout[property]
+                    disp_minus_val = self.displaced_interfaces[i_coord][1].QMout[property]
+
+                if self.QMin.template["numdiff-method"] == "diabatic-central-diff":
+                    # Transform values with the overlap matrices
+                    disp_plus_val  = overlap_plus.T  @ disp_plus_val  @ overlap_plus
+                    disp_minus_val = overlap_minus.T @ disp_minus_val @ overlap_minus
                 
-                # Get values
-                disp_plus_val  = self.displaced_interfaces[i_coord][0].QMout[property]
-                disp_minus_val = self.displaced_interfaces[i_coord][1].QMout[property]
-                # Fill in derivatives
-                self.diff_displacement(disp_plus_val, disp_minus_val, i_coord, derivatives)
-        
+                # Calculate the derivative
+                if self.QMin.template["numdiff-method"] == "central-diff" or self.QMin.template["numdiff-method"] == "diabatic-central-diff":
+                    deriv = self.do_central_diff(disp_plus_val, disp_minus_val, 2*float(self.QMin.template["numdiff-stepsize"]))
+                else:
+                    raise RuntimeError("Other methods than central-diff has not been implemented for numdiff")
+
+                # Save derivative in format that is compatible with other saved derivatives
+                # Save format: deriv[i_state][j_state][i_atom][i_xyz]
+                # Get a reference to the derivatives array for this component
+                if has_components:
+                    deriv_containter = derivatives[i_xyz]
+                else:
+                    deriv_containter = derivatives
+                # Fill in values
+                n_states = self.QMin.molecule["nmstates"]
+                for i_state in range(n_states):
+                    for j_state in range(n_states):
+                        if self.QMin.template["coord-type"] == "cartesian":
+                            i_atom = int(i_coord / 3)
+                            i_xyz = i_coord % 3
+                            deriv_containter[i_state][j_state][i_atom][i_xyz] = deriv[i_state][j_state]
+                        elif self.QMin.template["coord-type"] == "displacement":
+                            deriv_containter[i_state][j_state][i_coord] = deriv[i_state][j_state]         
+
         # Assign the derivatives
         self.derivatives[property] = derivatives
-        return
-
-
-    def diff_displacement(self, disp_plus, disp_minus, i_coord, deriv_containter):
-        # Calculate the derivative
-        if self.QMin.template["numdiff-method"] == "central-diff":
-            deriv = self.do_central_diff(disp_plus, disp_minus, 2*float(self.QMin.template["numdiff-stepsize"]))
-            print("derivatives:")
-            print(deriv)
-        else:
-            raise RuntimeError("Other methods than central-diff has not been implemented for numdiff")
-        
-        # Save derivative in format that is compatible with other save derivatives
-        # Save format deriv[i_state][j_state][i_atom][i_xyz]
-        n_states = self.QMin.molecule["nmstates"]
-        for i_state in range(n_states):
-            for j_state in range(n_states):
-                if self.QMin.template["coord-type"] == "cartesian":
-                    i_atom = int(i_coord / 3)
-                    i_xyz = i_coord % 3
-                    deriv_containter[i_state][j_state][i_atom][i_xyz] = deriv[i_state][j_state]
-                elif self.QMin.template["coord-type"] == "displacement":
-                    deriv_containter[i_state][j_state][i_coord] = deriv[i_state][j_state]
         return
 
 
     def do_central_diff(self, disp_plus, disp_minus, distance):
         """
         Calculate central difference
-        (O_minus - O_plus)/(distance)
+        (O_{-} - O_{+})/(distance)
         """
         if numdiff_debug:
             for i_state in range(self.QMin.molecule["nmstates"]):
@@ -510,7 +584,6 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
                     print(f"disp_plus  = {disp_plus[i_state][j_state]}")
                     print(f"disp_minus = {disp_minus[i_state][j_state]}")
                     print(f"distance   = {distance}")
-                    print(f" disp_plus - disp_minus             = { (disp_plus - disp_minus)[i_state][j_state]}")
                     print(f"(disp_plus - disp_minus)/distance   = {((disp_plus - disp_minus)/distance)[i_state][j_state]}")
         return (np.abs(disp_plus) - np.abs(disp_minus))/distance
 
