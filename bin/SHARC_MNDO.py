@@ -8,11 +8,11 @@ import subprocess as sp
 from copy import deepcopy
 from io import TextIOWrapper
 from itertools import count, pairwise
-from textwrap import dedent
+from textwrap import dedent, wrap
 from typing import Optional
 
 import numpy as np
-from constants import IToMult, HARTREE_TO_EV, D2au, kcal_to_Eh, BOHR_TO_ANG, NUMBERS
+from constants import *
 from qmin import QMin
 from SHARC_ABINITIO import SHARC_ABINITIO
 from utils import expand_path, itmult, link, mkdir, writefile
@@ -44,6 +44,11 @@ all_features = set(
    ]
 
 )
+
+KCAL_TO_EH = 0.0015936010974213599
+EV_TO_EH = 0.03674930495120813
+BOHR_TO_ANG = 0.529176125
+D2AU = 1/0.393456
 
 
 class SHARC_MNDO(SHARC_ABINITIO):
@@ -342,6 +347,7 @@ mocoef
 
         return csf_ref
     
+    @staticmethod
     def decompose_csf(ms2, step):
         # ms2 is M_S value
         # step is step vector for CSF (e.g. 3333012021000)
@@ -414,6 +420,7 @@ mocoef
         #pprint.pprint( dets)
         return dets
     
+    @staticmethod
     def format_ci_vectors(ci_vectors, MO_occ, nstates):
 
         norb = len(MO_occ)
@@ -447,6 +454,7 @@ mocoef
 
         return string
     
+    @staticmethod
     def get_determinants(log_file, MO_occ, nstates):
 
         # dictionary to convert to "0123"-nomenclature
@@ -489,7 +497,7 @@ mocoef
 
         return determinants
     
-    
+    @staticmethod
     def get_active_space(log_file):
     #get active space
         f = readfile(log_file)
@@ -532,6 +540,8 @@ mocoef
 
         # Get contents of output file(s)         
         states, interstates = _get_states_interstates(log_file)
+
+        mults = self.QMin.control["jobs"][job]["mults"]
 
         # Populate energies
         if self.QMin.requests["h"]:
@@ -592,8 +602,7 @@ mocoef
         #if PRINT:
         #print('Dipoles:  ' + shorten_DIR(logfile))
 
-        kcal_to_Eh = 0.0015936010974213599
-        bohr_to_ang = 0.529176125
+        
 
         line_marker = []
         regexp = re.compile(r"^\s+I\s+NI\s+X\s+Y\s+Z\s+X\s+Y\s+Z$")
@@ -603,14 +612,14 @@ mocoef
         print(line_marker)
         grads = [[[0. for i in range(3)] for j in range(natom)] for k in range(max(states))]
         
-        for l in range(len(states)):
+        for l, st in enumerate(states):
             iline = line_marker[l]
             for j in range(natom):
                 line = f[iline]
                 s = line.split()
-                grads[states[l]-1][j][0] = float(s[5]) * kcal_to_Eh * bohr_to_ang
-                grads[states[l]-1][j][1] = float(s[6]) * kcal_to_Eh * bohr_to_ang
-                grads[states[l]-1][j][2] = float(s[7]) * kcal_to_Eh * bohr_to_ang
+                grads[st-1][j][0] = float(s[5]) * KCAL_TO_EH * BOHR_TO_ANG
+                grads[st-1][j][1] = float(s[6]) * KCAL_TO_EH * BOHR_TO_ANG
+                grads[st-1][j][2] = float(s[7]) * KCAL_TO_EH * BOHR_TO_ANG
                 iline += 1
 
         return np.array(grads)
@@ -627,9 +636,6 @@ mocoef
         #if PRINT:
         #print('Dipoles:  ' + shorten_DIR(logfile))
 
-        kcal_to_Eh = 0.0015936010974213599
-        bohr_to_ang = 0.529176125
-
         line_marker = []
         regexp = re.compile(r"^\s+K\s+I\s+X\s+Y\s+Z\s+X\s+Y\s+Z$")
         for iline, line in enumerate(f):
@@ -638,14 +644,14 @@ mocoef
         print(line_marker)
         grads_charges = [[[0. for i in range(3)] for j in range(ncharges)] for k in range(max(states))]
         
-        for l in range(len(states)):
+        for l,st in enumerate(states):
             iline = line_marker[l]
             for j in range(ncharges):
                 line = f[iline]
                 s = line.split()
-                grads_charges[states[l]-1][j][0] = float(s[5]) * kcal_to_Eh * bohr_to_ang
-                grads_charges[states[l]-1][j][1] = float(s[6]) * kcal_to_Eh * bohr_to_ang
-                grads_charges[states[l]-1][j][2] = float(s[7]) * kcal_to_Eh * bohr_to_ang
+                grads_charges[st-1][j][0] = float(s[5]) * KCAL_TO_EH * BOHR_TO_ANG
+                grads_charges[st-1][j][1] = float(s[6]) * KCAL_TO_EH * BOHR_TO_ANG
+                grads_charges[st-1][j][2] = float(s[7]) * KCAL_TO_EH * BOHR_TO_ANG
                 iline += 1
 
         return np.array(grads_charges)
@@ -659,7 +665,6 @@ mocoef
         states = QMin.molecule["states"]
         natom = QMin.molecule["natom"]
 
-        bohr_to_ang = 0.529176125
 
         f = readfile(log_path)
 
@@ -673,17 +678,17 @@ mocoef
         #nacs
         nac = [[[[0. for i in range(3)] for j in range(natom)] for k in range(max(states))] for l in range(max(states))] #make nac matrix
         
-        for i in range(len(interstates)):
+        for i, ints in enumerate(interstates):
             iline = line_marker[i]
             for j in range(natom):
                 line = f[iline]
                 s = line.split()
-                nac[interstates[i][0]-1][interstates[i][1]-1][j][0] =   float(s[1]) * bohr_to_ang  #1/Ang --> 1/a_0
-                nac[interstates[i][0]-1][interstates[i][1]-1][j][1] =   float(s[2]) * bohr_to_ang
-                nac[interstates[i][0]-1][interstates[i][1]-1][j][2] =   float(s[3]) * bohr_to_ang
-                nac[interstates[i][1]-1][interstates[i][0]-1][j][0] = - float(s[1]) * bohr_to_ang 
-                nac[interstates[i][1]-1][interstates[i][0]-1][j][1] = - float(s[2]) * bohr_to_ang
-                nac[interstates[i][1]-1][interstates[i][0]-1][j][2] = - float(s[3]) * bohr_to_ang
+                nac[ints[0]-1][ints[1]-1][j][0] =   float(s[1]) * BOHR_TO_ANG  #1/Ang --> 1/a_0
+                nac[ints[0]-1][ints[1]-1][j][1] =   float(s[2]) * BOHR_TO_ANG
+                nac[ints[0]-1][ints[1]-1][j][2] =   float(s[3]) * BOHR_TO_ANG
+                nac[ints[1]-1][ints[0]-1][j][0] = - float(s[1]) * BOHR_TO_ANG 
+                nac[ints[1]-1][ints[0]-1][j][1] = - float(s[2]) * BOHR_TO_ANG
+                nac[ints[1]-1][ints[0]-1][j][2] = - float(s[3]) * BOHR_TO_ANG
                 iline += 1
 
         return np.array(nac)
@@ -698,8 +703,6 @@ mocoef
         natom = QMin.molecule["natom"]
         ncharges = QMin.molecule["npc"]
 
-        bohr_to_ang = 0.529176125
-
         f = readfile(log_path)
         line_marker = []
         for iline, line in enumerate(f):
@@ -710,17 +713,17 @@ mocoef
         #nacs
         nac_charges = [[[[0. for i in range(3)] for j in range(ncharges)] for k in range(max(states))] for l in range(max(states))] #make nac matrix for external charges
         
-        for i in range(len(interstates)):
+        for i, ints in enumerate(interstates):
             iline = line_marker[i]
             for j in range(natom, ncharges):
                 line = f[iline]
                 s = line.split()
-                nac_charges[interstates[i][0]-1][interstates[i][1]-1][j][0] =   float(s[1]) * bohr_to_ang  #1/Ang --> 1/a_0
-                nac_charges[interstates[i][0]-1][interstates[i][1]-1][j][1] =   float(s[2]) * bohr_to_ang
-                nac_charges[interstates[i][0]-1][interstates[i][1]-1][j][2] =   float(s[3]) * bohr_to_ang
-                nac_charges[interstates[i][1]-1][interstates[i][0]-1][j][0] = - float(s[1]) * bohr_to_ang 
-                nac_charges[interstates[i][1]-1][interstates[i][0]-1][j][1] = - float(s[2]) * bohr_to_ang
-                nac_charges[interstates[i][1]-1][interstates[i][0]-1][j][2] = - float(s[3]) * bohr_to_ang
+                nac_charges[ints[0]-1][ints[1]-1][j][0] =   float(s[1]) * BOHR_TO_ANG  #1/Ang --> 1/a_0
+                nac_charges[ints[0]-1][ints[1]-1][j][1] =   float(s[2]) * BOHR_TO_ANG
+                nac_charges[ints[0]-1][ints[1]-1][j][2] =   float(s[3]) * BOHR_TO_ANG
+                nac_charges[ints[1]-1][ints[0]-1][j][0] = - float(s[1]) * BOHR_TO_ANG 
+                nac_charges[ints[1]-1][ints[0]-1][j][1] = - float(s[2]) * BOHR_TO_ANG
+                nac_charges[ints[1]-1][ints[0]-1][j][2] = - float(s[3]) * BOHR_TO_ANG
                 iline += 1
         
         return np.array(nac_charges)
@@ -733,7 +736,7 @@ mocoef
         """
 
         nmstates = QMin.molecule["nmstates"]
-        D2au = 1/0.393456
+        
         # Extract transition dipole table from output
         f = readfile(log_file)
         
@@ -747,9 +750,9 @@ mocoef
                 for st in range(nmstates):
                     line = f[iline]
                     s = line.split()
-                    dmx = float(s[5]) * D2au
-                    dmy = float(s[6]) * D2au
-                    dmz = float(s[7]) * D2au
+                    dmx = float(s[5]) * D2AU
+                    dmy = float(s[6]) * D2AU
+                    dmz = float(s[7]) * D2AU
                     state = int(s[0]) 
                     states.append(state)
                     dm[(state, state)] = [dmx, dmy, dmz]
@@ -766,9 +769,9 @@ mocoef
             for j in range(noffdiag):
                 line = f[i]
                 s = line.split()
-                dmx = float(s[5]) * D2au
-                dmy = float(s[6]) * D2au 
-                dmz = float(s[7]) * D2au
+                dmx = float(s[5]) * D2AU
+                dmy = float(s[6]) * D2AU 
+                dmz = float(s[7]) * D2AU
                 dm[(states[st], int(s[0]))] = [dmx, dmy, dmz]
                 i += 1
             noffdiag -= 1
@@ -789,37 +792,24 @@ mocoef
         output:     Content of outfile as string
         mult:       Multiplicities
         """
-
-        # Define variables
-        gsmult = mults[0]
-        states_extract = deepcopy(self.QMin.molecule["states"])
-        states_extract[gsmult - 1] -= 1
-
-        states_extract = [0 if idx + 1 not in mults else val for idx, val in enumerate(states_extract)]
-        states_extract = [max(states_extract) if idx + 1 in mults else val for idx, val in enumerate(states_extract)]
-
-        # Find ground state energy
-        find_energy = re.search(r"eV,  E=[\s:]+([-+]\d*\.*\d+) eV", output)
-        if not find_energy:
-            self.log.error("No energy in MNDO outfile found!")
-            raise ValueError()
-
-        gs_energy = float(find_energy.group(1)) 
-        
-
-        energies = {(gsmult, int(1)): gs_energy}
-
+    
+        pattern = re.compile(r"eV,  E=[\s:]+([-+]\d*\.*\d+) eV")
+        energies = {}
+        for i, match in enumerate(pattern.finditer(output)):
+                energies[(1,i)] = float(match.group(1)) * EV_TO_EH #only singlets for now!!
+                
         return energies
     
 
-    
-    def readfile(filename):
+    @staticmethod
+    def readfile(filename : str) -> str:
+        """reads the whole file and gives the content of the file back as a string"""
         try:
-            f = open(filename)
+            f = open(filename, "r", encoding='UTF-8')
             out = f.readlines()
             f.close()
         except IOError:
-            print('File %s does not exist!' % filename)
+            print(f'File {filename} does not exist!')
         return out
 
     def prepare(self, INFOS: dict, dir_path: str):
@@ -856,7 +846,7 @@ mocoef
         strings = {
             'dstep': '1e-5',
         }
-        integers = {'nciref': 0, 'kitscf': 5000, 'ici1': 1, 'ici2': 1, 'ncigrd': 1, 'iroot': 1, 'mminpo': 0, 'numatm': 0}
+        integers = {'nciref': 0, 'kitscf': 5000, 'ici1': 1, 'ici2': 1, 'ncigrd': 1, 'iroot': 1, 'mminp': 0, 'numatm': 0}
 
         special = {
             'act_orbs': [],
@@ -1001,8 +991,9 @@ mocoef
         grads = QMin["template"]["grads"]
         kharge = QMin["molecule"]["Atomcharge"]
         mminp = QMin["template"]["mminp"]
-        #make string
-        #TODO You can either use charge or muliplicity! not both
+        
+
+
         inputstring = f'iop=-6 jop=-2 imult=0 kitscf=5000 iform=1 igeom=1 mprint=1 icuts=-1 icutg=-1 dstep={dstep} kci=5 ioutci=1 iroot={iroot} ncisym=-1 icross=7 ncigrd={nstates} imomap=3 iscf=11 movo={movo} ici1={ici1} ici2={ici2} nciref={nciref} mciref=3 levexc=6 cilead=1 iuvcd=3 nsav13=2 kharge={kharge} numatm={ncharges} mmcoup=2 mmfile=1 mmskip=0 mminp={mminp}'
         inputstring = " +\n".join(wrap(inputstring, width=70))
         inputstring += '\nheader\n'
