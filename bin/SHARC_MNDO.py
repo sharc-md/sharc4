@@ -498,7 +498,8 @@ mocoef
         return determinants
     
     @staticmethod
-    def get_active_space(log_file):
+    def get_active_space(log_file: str) -> dict:
+        """get the active space from the log file"""
     #get active space
         f = readfile(log_file)
 
@@ -545,7 +546,7 @@ mocoef
 
         # Populate energies
         if self.QMin.requests["h"]:
-            energies = self._get_energy(log_file, mults)
+            energies = self._get_energy(log_file)
             for i in range(nmstates):
                 statemap = self.QMin.maps["statemap"][i + 1]
                 if statemap[0] in mults:
@@ -728,7 +729,7 @@ mocoef
         
         return np.array(nac_charges)
 
-    def _get_transition_dipoles(self, log_path: str):
+    def _get_transition_dipoles(self, log_path: str) -> dict[tuple[int, int], [float]]:
         """
         Extract transition dipole moments from MNDO outfile
 
@@ -770,7 +771,7 @@ mocoef
                 line = f[i]
                 s = line.split()
                 dmx = float(s[5]) * D2AU
-                dmy = float(s[6]) * D2AU 
+                dmy = float(s[6]) * D2AU
                 dmz = float(s[7]) * D2AU
                 dm[(states[st], int(s[0]))] = [dmx, dmy, dmz]
                 i += 1
@@ -785,25 +786,24 @@ mocoef
         return dm
 
 
-    def _get_energy(self, output: str, mults: list[int]) -> dict[tuple[int, int], float]:
+    def _get_energy(self, output: str) -> dict[tuple[int, int], float]:
         """
         Extract energies from ORCA outfile
 
         output:     Content of outfile as string
-        mult:       Multiplicities
+        mult:       Multiplicities, not needed for now (deleted)
         """
     
         pattern = re.compile(r"eV,  E=[\s:]+([-+]\d*\.*\d+) eV")
         energies = {}
         for i, match in enumerate(pattern.finditer(output)):
-                energies[(1,i)] = float(match.group(1)) * EV_TO_EH #only singlets for now!!
-                
+                energies[(1,i+1)] = float(match.group(1)) * EV_TO_EH #only singlets for now!!
+
         return energies
     
-
     @staticmethod
     def readfile(filename : str) -> str:
-        """reads the whole file and gives the content of the file back as a string"""
+        """reads the whole file and gives the content of the file back as a list of strings"""
         try:
             f = open(filename, "r", encoding='UTF-8')
             out = f.readlines()
@@ -930,41 +930,41 @@ mocoef
 
         # Overlap calculations
         if self.QMin.requests["overlap"]:
-                workdir = self.QMin.resources["scratchdir"]
+            workdir = self.QMin.resources["scratchdir"]
 
-                # Write input
-                writefile(os.path.join(workdir, "wfovl.inp"), wf_input)
+            # Write input
+            writefile(os.path.join(workdir, "wfovl.inp"), wf_input)
 
-                # Link files
-                link(os.path.join(self.QMin.save["savedir"], "AO_overl"), os.path.join(workdir, "aoovl"))
-                link(
-                    os.path.join(self.QMin.save["savedir"], f"dets.a.{self.QMin.save['step']}"),
-                    os.path.join(workdir, "det.a"),
-                )
-                link(
-                    os.path.join(self.QMin.save["savedir"], f"dets.b.{self.QMin.save['step']}"),
-                    os.path.join(workdir, "det.b"),
-                )
-                link(
-                    os.path.join(self.QMin.save["savedir"], f"mos.a.{self.QMin.save['step']}"),
-                    os.path.join(workdir, "mo.a"),
-                )
-                link(
-                    os.path.join(self.QMin.save["savedir"], f"mos.b.{self.QMin.save['step']}"),
-                    os.path.join(workdir, "mo.b"),
-                )
+            # Link files
+            link(os.path.join(self.QMin.save["savedir"], "AO_overl"), os.path.join(workdir, "aoovl"))
+            link(
+                os.path.join(self.QMin.save["savedir"], f"dets.a.{self.QMin.save['step']}"),
+                os.path.join(workdir, "det.a"),
+            )
+            link(
+                os.path.join(self.QMin.save["savedir"], f"dets.b.{self.QMin.save['step']}"),
+                os.path.join(workdir, "det.b"),
+            )
+            link(
+                os.path.join(self.QMin.save["savedir"], f"mos.a.{self.QMin.save['step']}"),
+                os.path.join(workdir, "mo.a"),
+            )
+            link(
+                os.path.join(self.QMin.save["savedir"], f"mos.b.{self.QMin.save['step']}"),
+                os.path.join(workdir, "mo.b"),
+            )
 
-                # Execute wfoverlap, maybe better using time.perf_counter() ??
-                starttime = datetime.datetime.now()
-                code = self.run_program(workdir, wf_cmd, os.path.join(workdir, "wfovl.out"), os.path.join(workdir, "wfovl.err"))
-                self.log.info(
-                    f"Finished wfoverlap job!!\nruntime: {datetime.datetime.now()-starttime}"
-                )
-                if code != 0:
-                    self.log.error("wfoverlap did not finish successfully!")
-                    with open(os.path.join(workdir, "wfovl.err"), "r", encoding="utf-8") as err_file:
-                        self.log.error(err_file.read())
-                    raise OSError()
+            # Execute wfoverlap, maybe better using time.perf_counter() ??
+            starttime = datetime.datetime.now()
+            code = self.run_program(workdir, wf_cmd, os.path.join(workdir, "wfovl.out"), os.path.join(workdir, "wfovl.err"))
+            self.log.info(
+                f"Finished wfoverlap job!!\nruntime: {datetime.datetime.now()-starttime}"
+            )
+            if code != 0:
+                self.log.error("wfoverlap did not finish successfully!")
+                with open(os.path.join(workdir, "wfovl.err"), "r", encoding="utf-8") as err_file:
+                    self.log.error(err_file.read())
+                raise OSError()
 
 
 
@@ -975,22 +975,21 @@ mocoef
         Generate MNDO input file string from QMin object
         """
 
-        BOHR_TO_ANG = 0.529176125
-        natom = QMin["molecule"]["natom"]
-        nstates = QMin["molecule"]["nstates"]
-        coords = QMin["coords"]["coords"]
-        elements = QMin["molecule"]["elements"]
-        movo = QMin["template"]["movo"]
-        ici1 = QMin["template"]["ici1"]
-        ici2 = QMin["template"]["ici2"]
-        nciref = QMin["template"]["nciref"]
-        dstep = QMin["template"]["dstep"]
-        act_orbs = QMin["template"]["act_orbs"]
-        iroot = QMin["template"]["iroot"]
-        ncharges = QMin["molecule"]["npc"]
-        grads = QMin["template"]["grads"]
-        kharge = QMin["molecule"]["Atomcharge"]
-        mminp = QMin["template"]["mminp"]
+        natom = qmin["molecule"]["natom"]
+        nstates = qmin["molecule"]["nstates"]
+        coords = qmin["coords"]["coords"]
+        elements = qmin["molecule"]["elements"]
+        movo = qmin["template"]["movo"]
+        ici1 = qmin["template"]["ici1"]
+        ici2 = qmin["template"]["ici2"]
+        nciref = qmin["template"]["nciref"]
+        dstep = qmin["template"]["dstep"]
+        act_orbs = qmin["template"]["act_orbs"]
+        iroot = qmin["template"]["iroot"]
+        ncharges = qmin["molecule"]["npc"]
+        grads = qmin["template"]["grads"]
+        kharge = qmin["molecule"]["Atomcharge"]
+        mminp = qmin["template"]["mminp"]
         
 
 
