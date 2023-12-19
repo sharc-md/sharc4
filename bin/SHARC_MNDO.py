@@ -315,6 +315,7 @@ mocoef
             x += 1
         return string, MO_occ, len(AO), mo_coeff_matrix
 
+    @staticmethod
     def get_csfs(log_file: str, active_mos, nstates):
         #get CSF composition of states
 
@@ -577,17 +578,17 @@ mocoef
         interstates = []
 
         for iline, line in enumerate(f):
-                if 'CI CALCULATION FOR STATE:' in line:  #find lines where calc of state begins and write out the number of the state
-                    line = f[iline]
-                    s = line.split()
-                    state = int(s[4]) - 1 #python counts from 0
-                    states.append(state)
-                if 'CI CALCULATION FOR INTERSTATE COUPLING OF STATES:' in line: #find lines where interstate coupling of states begins and write out the numbers of the states
-                    line = f[iline]
-                    s = line.split()
-                    istate_a = int(s[7]) - 1
-                    istate_b = int(s[8]) - 1
-                    interstates.append([istate_a, istate_b])
+            if 'CI CALCULATION FOR STATE:' in line:  #find lines where calc of state begins and write out the number of the state
+                line = f[iline]
+                s = line.split()
+                state = int(s[4]) - 1 #python counts from 0
+                states.append(state)
+            if 'CI CALCULATION FOR INTERSTATE COUPLING OF STATES:' in line: #find lines where interstate coupling of states begins and write out the numbers of the states
+                line = f[iline]
+                s = line.split()
+                istate_a = int(s[7]) - 1
+                istate_b = int(s[8]) - 1
+                interstates.append([istate_a, istate_b])
 
         return states, interstates
 
