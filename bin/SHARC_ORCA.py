@@ -342,7 +342,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
         dim:        Dimension of the final matrix, dim*dim
         orca_col:   Number of columns per line, default 6
         """
-
+        # Check if the array need to be padded
         padding = dim % orca_col
         padding_array = []
         if padding > 0:
@@ -350,9 +350,13 @@ class SHARC_ORCA(SHARC_ABINITIO):
             raw_matrix += [0] * (dim * (6 - padding))
             for i in range(dim):
                 padding_array += last_elems[i * padding : i * padding + padding] + [0] * (6 - padding)
+            # Add padding
+            raw_matrix = np.asarray(raw_matrix)
+            raw_matrix[-len(padding_array) :] = padding_array
+        else:
+            # No padding is needed
+            raw_matrix = np.asarray(raw_matrix)
 
-        raw_matrix = np.asarray(raw_matrix)
-        raw_matrix[-len(padding_array) :] = padding_array
         return np.hstack(raw_matrix.reshape(-1, dim, orca_col))[:, :dim]
 
     def _save_files(self, workdir: str, jobid: int) -> None:
@@ -1336,7 +1340,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
             string += f"%method\n\tintacc {qmin.template['intacc']:3.1f}\nend\n\n"
 
         # Gaussian point charges
-        if "cpcm" in qmin.template["keys"]:
+        if qmin.template["keys"] and "cpcm" in qmin.template["keys"]:
             string += "%cpcm\n\tsurfacetype vdw_gaussian\nend\n\n"
 
         # Excited states
