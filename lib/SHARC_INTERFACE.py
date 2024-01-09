@@ -326,6 +326,12 @@ class SHARC_INTERFACE(ABC):
         """
 
     @abstractmethod
+    def dyson_orbitals_with_other(self,other):
+        """
+        Calculates Dyson orbitals between self and other.
+        Presumably it will be implemented in SHARC_ABINITIO subclass and in each individual FAST or HYBRID interface
+        """
+    @abstractmethod
     def create_restart_files(self) -> None:
         """
         Create restart files
