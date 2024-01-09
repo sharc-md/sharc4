@@ -1410,6 +1410,8 @@ class SHARC_ORCA(SHARC_ABINITIO):
             version = re.findall(r"Program Version (\d.\d.\d)", comm)[0].split(".")
             return tuple(int(i) for i in version)
 
+    def dyson_orbitals_with_other(self, other):
+        pass
 
 if __name__ == "__main__":
     SHARC_ORCA(loglevel=10).main()

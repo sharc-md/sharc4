@@ -822,6 +822,9 @@ class SHARC_LVC(SHARC_FAST):
 
         return INFOS
 
+    def dyson_orbitals_with_other(self, other):
+        pass
+
 
 if __name__ == "__main__":
     from logger import loglevel
