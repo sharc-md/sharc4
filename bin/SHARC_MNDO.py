@@ -739,7 +739,7 @@ mocoef
         
         return np.array(nac_charges)
 
-    def _get_transition_dipoles(self, log_path: str) -> dict[tuple[int, int], [float]]:
+    def _get_transition_dipoles(self, log_path: str):
         """
         Extract transition dipole moments from MNDO outfile
 
