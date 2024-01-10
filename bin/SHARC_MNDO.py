@@ -7,15 +7,17 @@ import struct
 import subprocess as sp
 from copy import deepcopy
 from io import TextIOWrapper
-from itertools import count, pairwise
+import itertools 
 from textwrap import dedent, wrap
 from typing import Optional
+
+import sys
 
 import numpy as np
 from constants import *
 from qmin import QMin
 from SHARC_ABINITIO import SHARC_ABINITIO
-from utils import expand_path, itmult, link, mkdir, writefile
+from utils import clock, expand_path, itnmstates, parse_xyz, readfile, itmult, link, mkdir, writefile
 
 __all__ = ["SHARC_MNDO"]
 
@@ -91,6 +93,7 @@ class SHARC_MNDO(SHARC_ABINITIO):
                 "kitscf"    : 5000,
                 "ici1"      : 0,
                 "ici2"      : 0,
+                "ncigrd"    : 0,
                 "dstep"     : 1e-6,
                 "act_orbs"  : [1],
                 "states"    : None,
@@ -98,6 +101,9 @@ class SHARC_MNDO(SHARC_ABINITIO):
                 "mminp"     : 2,
                 "numatm"    : 0,
                 "movo"      : 0,
+                "grads"     : None,
+                "kharge"    : 0,
+                "imomap"    : 0,
             }
         )
         self.QMin.template.types.update(
@@ -106,6 +112,7 @@ class SHARC_MNDO(SHARC_ABINITIO):
                 "kitscf"    : int,
                 "ici1"      : int,
                 "ici2"      : int,
+                "ncigrd"    : int,
                 "dstep"     : float,
                 "act_orbs"  : list,
                 "states"    : list,
@@ -113,6 +120,9 @@ class SHARC_MNDO(SHARC_ABINITIO):
                 "mminp"     : int,
                 "numatm"    : int,
                 "movo"      : int,
+                "grads"     : list,
+                "kharge"    : int,
+                "imomap"    : int,
             }
         )
         
@@ -188,22 +198,23 @@ class SHARC_MNDO(SHARC_ABINITIO):
 
         # Write point charges
         if self.QMin.molecule["point_charges"]:
-            pc_str = f"{self.QMin.molecule['npc']}\n"
+            pc_str = ""
             for coords, charge in zip(self.QMin.coords["pccoords"], self.QMin.coords["pccharge"]):
-                pc_str += f"{' '.join(*coords)} {charge}\n"
+                pc_str += f"{' '.join(map(str, coords))} {charge}\n" 
             writefile(os.path.join(workdir, "fort.20"), pc_str)
 
+        
         # Setup MNDO
         starttime = datetime.datetime.now()
-        exec_str = f"{os.path.join(qmin.resources['mndodir'],'mndo2020')} < MNDO.inp"
-        exit_code = self.run_program(workdir, exec_str, os.path.join(workdir, "MNDO.out"), os.path.join(workdir, "MNDO.err"))
+        exec_str = f"{os.path.join(qmin.resources['mndodir'],'mndo2020')} < {os.path.join(workdir, 'MNDO.inp')} > {os.path.join(workdir, "MNDO.out")}"
+        exit_code = self.run_program(workdir, exec_str, os.path.join(workdir, "MNDO.out"), os.path.join(workdir, "MNDO.err")) #Chaos because of the output file how do i do this correctly? mndo2020 < mndo_metham.inp > mndo_metham.out
         endtime = datetime.datetime.now()
-
+        
 
         # Delete files not needed
         work_files = os.listdir(workdir)
         for file in work_files:
-            if not re.search(r"\.91$|\.13$", file):
+            if not re.search(r"\.dat$|\.out$|\.err$|\.dat$", file):
                 os.remove(os.path.join(workdir, file))
 
         return exit_code, endtime - starttime
@@ -224,13 +235,13 @@ class SHARC_MNDO(SHARC_ABINITIO):
         shutil.copy(moldenfile, tofile)
 
         #MOs
-        mos, MO_occ, *_ = self.get_MO_from_molden(moldenfile)
+        mos, MO_occ, *_ = self._get_MO_from_molden(moldenfile)
         #QMin['template']['nmo'] = len(MO_occ.keys())
         mo = os.path.join(savedir, f'mos.{step}')
         writefile(mo, mos)
 
         #imomap
-        if QMin['template']['imomap'] == 3:
+        if self.QMin['template']['imomap'] == 3:
             fromfile = os.path.join(workdir, 'imomap.dat')
             tofile = os.path.join(savedir, f'imomap.{step}')
             shutil.copy(fromfile, tofile)
@@ -239,13 +250,13 @@ class SHARC_MNDO(SHARC_ABINITIO):
         #dets
         log_file = os.path.join(workdir, 'MNDO.out')
         nstates = self.QMin.molecule["nstates"]
-        determinants = self.get_determinants(log_file, MO_occ, nstates)
+        determinants = self._get_determinants(log_file, MO_occ, nstates)
         det = os.path.join(savedir, f'dets.{step}')
         writefile(det, determinants)
         return
 
 
-    def get_MO_from_molden(self, molden_file: str):
+    def _get_MO_from_molden(self, molden_file: str):
         """
         Extract MO coefficients from molden file
 
@@ -315,8 +326,7 @@ mocoef
             x += 1
         return string, MO_occ, len(AO), mo_coeff_matrix
 
-    @staticmethod
-    def get_csfs(log_file: str, active_mos, nstates):
+    def _get_csfs(self, log_file: str, active_mos, nstates):
         #get CSF composition of states
 
         # open file
@@ -348,8 +358,7 @@ mocoef
 
         return csf_ref
     
-    @staticmethod
-    def decompose_csf(ms2, step):
+    def _decompose_csf(self, ms2, step):
         # ms2 is M_S value
         # step is step vector for CSF (e.g. 3333012021000)
 
@@ -421,8 +430,7 @@ mocoef
         #pprint.pprint( dets)
         return dets
     
-    @staticmethod
-    def format_ci_vectors(ci_vectors, MO_occ, nstates):
+    def _format_ci_vectors(self, ci_vectors, MO_occ, nstates):
 
         norb = len(MO_occ)
         ndets = len(ci_vectors) - 1
@@ -455,8 +463,7 @@ mocoef
 
         return string
     
-    @staticmethod
-    def get_determinants(log_file, MO_occ, nstates):
+    def _get_determinants(self, log_file, MO_occ, nstates):
 
         # dictionary to convert to "0123"-nomenclature
         dict_ab_to_int = {'ab': '3', 'a': '1', 'b': '2', '-': '0'}
@@ -465,11 +472,11 @@ mocoef
 
         # add MO occupancy to ci_vector
         #print(get_active_space(log_file))
-        active_mos = [*get_active_space(log_file)]
+        active_mos = [*self._get_active_space(log_file)]
         ci_vectors["active MOs"] = active_mos
 
         # get CSFs from log_file
-        csf = get_csfs(log_file, active_mos, nstates)
+        csf = self._get_csfs(log_file, active_mos, nstates)
 
         #print(csf)
         #print(active_mos)
@@ -483,7 +490,7 @@ mocoef
             csf[i]['CSF'] = ref
         ## 2) build ci vector from CSFs
         for x in csf:
-            dets = decompose_csf(0, list(csf[x]["CSF"]))
+            dets = self._decompose_csf(0, list(csf[x]["CSF"]))
             coeff = csf[x]["coeffs"]
             for det in dets:
                 c = [dets[det] * i for i in coeff]
@@ -494,12 +501,11 @@ mocoef
                     ci_vectors[det] = c
         #print(ci_vectors)
         # Write determinants
-        determinants = format_ci_vectors(ci_vectors, MO_occ, nstates)
+        determinants = self._format_ci_vectors(ci_vectors, MO_occ, nstates)
 
         return determinants
     
-    @staticmethod
-    def get_active_space(log_file: str) -> dict:
+    def _get_active_space(self, log_file: str) -> dict:
         """get the active space from the log file"""
     #get active space
         f = readfile(log_file)
@@ -519,7 +525,7 @@ mocoef
 
         return active_mos
 
-    def getQMout(self, log_file : str) -> None:
+    def getQMout(self) -> None:
         """
         Parse MNDO output files
         """
@@ -540,18 +546,21 @@ mocoef
 
         nmstates = self.QMin.molecule["nmstates"]
 
+        log_file = os.path.join(self.QMin.control["workdir"], 'MNDO.out')
         # Get contents of output file(s)         
-        states, interstates = _get_states_interstates(log_file)
+        states, interstates = self._get_states_interstates(log_file)
 
-        mults = self.QMin.control["jobs"][job]["mults"]
+        mults = self.QMin.maps["mults"]
 
         # Populate energies
         if self.QMin.requests["h"]:
             energies = self._get_energy(log_file)
-            for i in range(nmstates):
-                statemap = self.QMin.maps["statemap"][i + 1]
-                if statemap[0] in mults:
-                    self.QMout["h"][i][i] = energies[(statemap[0], statemap[1])]
+            for i in range(len(energies)):
+                self.QMout["h"][i][i] = energies[(1,i+1)]
+            # for i in range(nmstates):
+            #     statemap = self.QMin.maps["statemap"][i + 1]
+            #     if statemap[0] in mults:
+            #         self.QMout["h"][i][i] = energies[(statemap[0], statemap[1])]
 
         # Populate dipole moments
         if self.QMin.requests["dm"]:
@@ -598,8 +607,8 @@ mocoef
 
         log_path:  Path to gradient file
         """
-        states = QMin.molecule["states"]
-        natom = QMin.molecule["natom"]
+        states = self.QMin.molecule["states"]
+        natom = self.QMin.molecule["natom"]
         f = readfile(log_path)
         #if PRINT:
         #print('Dipoles:  ' + shorten_DIR(logfile))
@@ -611,7 +620,7 @@ mocoef
         for iline, line in enumerate(f):
             if regexp.search(line):
                 line_marker.append(iline + 2)
-        print(line_marker)
+
         grads = [[[0. for i in range(3)] for j in range(natom)] for k in range(max(states))]
         
         for l, st in enumerate(states):
@@ -632,8 +641,8 @@ mocoef
 
         log_path:  Path to gradient file
         """
-        states = QMin.molecule["states"]
-        ncharges = QMin.molecule["npc"]
+        states = self.QMin.molecule["states"]
+        ncharges = self.QMin.molecule["npc"]
         f = readfile(log_path)
         #if PRINT:
         #print('Dipoles:  ' + shorten_DIR(logfile))
@@ -643,7 +652,7 @@ mocoef
         for iline, line in enumerate(f):
             if regexp.search(line):
                 line_marker.append(iline + 2)
-        print(line_marker)
+
         grads_charges = [[[0. for i in range(3)] for j in range(ncharges)] for k in range(max(states))]
         
         for l,st in enumerate(states):
@@ -664,8 +673,8 @@ mocoef
 
         log_path:  Path to log file
         """
-        states = QMin.molecule["states"]
-        natom = QMin.molecule["natom"]
+        states = self.QMin.molecule["states"]
+        natom = self.QMin.molecule["natom"]
 
 
         f = readfile(log_path)
@@ -701,9 +710,9 @@ mocoef
 
         log_path:  Path to log file
         """
-        states = QMin.molecule["states"]
-        natom = QMin.molecule["natom"]
-        ncharges = QMin.molecule["npc"]
+        states = self.QMin.molecule["states"]
+        natom = self.QMin.molecule["natom"]
+        ncharges = self.QMin.molecule["npc"]
 
         f = readfile(log_path)
         line_marker = []
@@ -737,13 +746,13 @@ mocoef
         log_path:   Path to logfile
         """
 
-        nmstates = QMin.molecule["nmstates"]
+        nmstates = self.QMin.molecule["nmstates"]
         
         # Extract transition dipole table from output
-        f = readfile(log_file)
+        f = readfile(log_path)
         
         
-        dm = {}
+        dm = [[[0. for j in range(nmstates)] for k in range(nmstates)] for i in range(3)]
         states = []
         #diagonal elements
         for iline, line in enumerate(f):
@@ -755,9 +764,11 @@ mocoef
                     dmx = float(s[5]) * D2AU
                     dmy = float(s[6]) * D2AU
                     dmz = float(s[7]) * D2AU
-                    state = int(s[0]) 
+                    state = int(s[0])
                     states.append(state)
-                    dm[(state, state)] = [dmx, dmy, dmz]
+                    dm[0][state-1][state-1] = dmx
+                    dm[1][state-1][state-1] = dmy
+                    dm[2][state-1][state-1] = dmz
                     iline += 1
 
         #off-diagonal elements
@@ -774,7 +785,12 @@ mocoef
                 dmx = float(s[5]) * D2AU
                 dmy = float(s[6]) * D2AU
                 dmz = float(s[7]) * D2AU
-                dm[(states[st], int(s[0]))] = [dmx, dmy, dmz]
+                dm[0][states[st]-1][int(s[0])-1] = dmx
+                dm[1][states[st]-1][int(s[0])-1] = dmy
+                dm[2][states[st]-1][int(s[0])-1] = dmz
+                dm[0][int(s[0])-1][states[st]-1] = -dmx
+                dm[1][int(s[0])-1][states[st]-1] = -dmy
+                dm[2][int(s[0])-1][states[st]-1] = -dmz
                 i += 1
             noffdiag -= 1
             st += 1
@@ -783,7 +799,6 @@ mocoef
             self.log.error("Cannot find transition dipoles in MNDO output!")
             raise ValueError()
         # Filter dipole vectors, (states, (xyz))
-
         return dm
 
 
@@ -824,13 +839,14 @@ mocoef
         pass
 
     def read_resources(self, resources_file: str) -> None:
-        
+        super().read_resources(resources_file)
         # LD PATH???
         if not self.QMin.resources["mndodir"]:
             raise ValueError("mndodir has to be set in resource file!")
 
         self.QMin.resources["mndodir"] = expand_path(self.QMin.resources["mndodir"])
         self.log.debug(f'mndodir set to {self.QMin.resources["mndodir"]}')
+        self._read_resources = True
 
     def read_requests(self, requests_file: str = "QM.in") -> None:
         super().read_requests(requests_file)
@@ -839,46 +855,49 @@ mocoef
             if val and req not in all_features:
                 raise ValueError(f"Found unsupported request {req}.")
 
-    def read_template(self, template_filename="MNDO.template"):
-        if not self._read_resources:
-            raise Error('Interface is not set up correctly. Call read_resources with the .resources file first!', 23)
-        QMin = self.QMin
-        # define keywords and defaults
-        strings = {
-            'dstep': '1e-5',
-        }
-        integers = {'nciref': 0, 'kitscf': 5000, 'ici1': 1, 'ici2': 1, 'ncigrd': 1, 'iroot': 1, 'mminp': 0, 'numatm': 0}
+    # def read_template(self, template_filename="MNDO.template"):
+        
+    #     if not self._read_resources:
+    #         raise Error('Interface is not set up correctly. Call read_resources with the .resources file first!', 23)
+    #     QMin = self.QMin
+    #     # define keywords and defaults
+    #     strings = {
+    #         'dstep': '1e-5',
+    #     }
+    #     integers = {'nciref': 0, 'kitscf': 5000, 'ici1': 1, 'ici2': 1, 'ncigrd': 1, 'iroot': 1, 'mminp': 0, 'numatm': 0}
 
-        special = {
-            'act_orbs': [],
-            'states': [1]
-        }
-        lines = readfile(template_filename)
-        QMin['template'] = {
-            **strings,
-            **integers,
-            **special,
-            **self.parse_keywords(lines, strings=strings, integers=integers, special=special)
-        }
-        # Sanity checks and preparations
-        if len(QMin['states']) > 1:
-            raise Error('Currently only singlets can be calculated using OM2/MRCI.', 135)
+    #     special = {
+    #         'act_orbs': [],
+    #         'states': [1]
+    #     }
+    #     lines = readfile(template_filename)
+    #     QMin['template'] = {
+    #         **strings,
+    #         **integers,
+    #         **special,
+    #         **self.parse_keywords(lines, strings=strings, integers=integers, special=special)
+    #     }
+    #     # Sanity checks and preparations
+    #     if len(QMin['states']) > 1:
+    #         raise Error('Currently only singlets can be calculated using OM2/MRCI.', 135)
 
 
-        if len(QMin['template']['act_orbs']) == 0:
-            QMin['template']['movo'] = 0
-        else:
-            QMin['template']['movo'] = 1
+    #     if len(QMin['template']['act_orbs']) == 0:
+    #         QMin['template']['movo'] = 0
+    #     else:
+    #         QMin['template']['movo'] = 1
 
-        self._read_template = True
-        return
+    #     self._read_template = True
+    #     return
+    
+    def read_template(self, template_file: str) -> None:
+        super().read_template(template_file)
+
 
     def remove_old_restart_files(self, retain: int = 5) -> None:
         """
         Garbage collection after runjobs()
         """
-    
-
 
 
     def run(self) -> None:
@@ -894,13 +913,15 @@ mocoef
         """
 
         starttime = datetime.datetime.now()
-        log_file = os.path.join(self.QMin.control["workdir"], 'MNDO.out')
-        self.getQMout(log_file)
+        self.QMin.control["workdir"] = os.path.join(self.QMin.resources["scratchdir"], "job")
+        
+        self.execute_from_qmin(self.QMin.control["workdir"], self.QMin)
+        self.getQMout()
         self._save_files(self.QMin.control["workdir"])
         # Run wfoverlap
         self._run_wfoverlap()
 
-        self.log.debug("All jobs finished successful")
+        self.log.debug("All jobs finished successfully")
 
         self.QMout["runtime"] = datetime.datetime.now() - starttime
 
@@ -977,7 +998,7 @@ mocoef
         """
 
         natom = qmin["molecule"]["natom"]
-        nstates = qmin["molecule"]["nstates"]
+        ncigrd = qmin["template"]["ncigrd"]
         coords = qmin["coords"]["coords"]
         elements = qmin["molecule"]["elements"]
         movo = qmin["template"]["movo"]
@@ -989,12 +1010,13 @@ mocoef
         iroot = qmin["template"]["iroot"]
         ncharges = qmin["molecule"]["npc"]
         grads = qmin["template"]["grads"]
-        kharge = qmin["molecule"]["Atomcharge"]
+        kharge = qmin["template"]["kharge"]
         mminp = qmin["template"]["mminp"]
-        
+        kitscf = qmin["template"]["kitscf"]
+        imomap = qmin["template"]["imomap"]
 
-
-        inputstring = f'iop=-6 jop=-2 imult=0 kitscf=5000 iform=1 igeom=1 mprint=1 icuts=-1 icutg=-1 dstep={dstep} kci=5 ioutci=1 iroot={iroot} ncisym=-1 icross=7 ncigrd={nstates} imomap=3 iscf=11 movo={movo} ici1={ici1} ici2={ici2} nciref={nciref} mciref=3 levexc=6 cilead=1 iuvcd=3 nsav13=2 kharge={kharge} numatm={ncharges} mmcoup=2 mmfile=1 mmskip=0 mminp={mminp}'
+        inputstring = f"iop=-6 jop=-2 imult=0 iform=1 igeom=1 mprint=1 icuts=-1 icutg=-1 dstep={dstep} kci=5 ioutci=1 iroot={iroot} icross=7 ncigrd={ncigrd} inac=0 imomap={imomap} iscf=11 iplscf=11 kitscf={kitscf} ici1={ici1} ici2={ici2} movo={movo} nciref={nciref} mciref=3 levexc=6 iuvcd=3 nsav13=2 kharge={kharge} multci=1 cilead=1 ncisym=-1 numatm={ncharges} mmcoup=2 mmfile=1 mmskip=0 mminp={mminp}"
+        #inputstring = f'iop=-6 jop=-2 imult=0 kitscf=5000 iform=1 igeom=1 mprint=1 icuts=-1 icutg=-1 dstep={dstep} kci=5 ioutci=1 iroot={iroot} ncisym=-1 icross=7 ncigrd={nstates} imomap=3 iscf=11 movo={movo} ici1={ici1} ici2={ici2} nciref={nciref} mciref=3 levexc=6 cilead=1 iuvcd=3 nsav13=2 kharge={kharge} numatm={ncharges} mmcoup=2 mmfile=1 mmskip=0 mminp={mminp}'
         inputstring = " +\n".join(wrap(inputstring, width=70))
         inputstring += '\nheader\n'
         inputstring += 'header\n'
@@ -1010,6 +1032,12 @@ mocoef
             inputstring += str(l) + " "
 
         return inputstring
+
+    def setup_interface(self) -> None:
+        """
+        Setup remaining maps (ionmap, gsmap) and build jobs dict
+        """
+        super().setup_interface()
 
 
 if __name__ == "__main__":
