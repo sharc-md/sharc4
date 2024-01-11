@@ -45,17 +45,23 @@ from constants import IToMult, U_TO_AMU, HARTREE_TO_EV
 from logger import log
 from utils import question
 from SHARC_INTERFACE import SHARC_INTERFACE
+
 # =========================================================
 # some constants
 PI = math.pi
 
-version = '3.0'
+version = "3.0"
 versionneeded = [0.2, 1.0, 2.0, 2.1, float(version)]
 versiondate = datetime.date(2023, 8, 24)
 global KEYSTROKES
 old_question = question
+
+
 def question(question, typefunc, default=None, autocomplete=True, ranges=False):
-    return old_question(question=question, typefunc=typefunc, KEYSTROKES=KEYSTROKES, default=default, autocomplete=autocomplete, ranges=ranges)
+    return old_question(
+        question=question, typefunc=typefunc, KEYSTROKES=KEYSTROKES, default=default, autocomplete=autocomplete, ranges=ranges
+    )
+
 
 # ======================================================================================================================
 # ======================================================================================================================
@@ -68,101 +74,111 @@ def try_read(word, index, typefunc, default):
     except IndexError:
         return typefunc(default)
     except ValueError:
-        log.info('Could not initialize object!')
+        log.info("Could not initialize object!")
         quit(1)
+
 
 # ======================================================================================================================
 
 
 class ATOM:
-    def __init__(self, symb='??', num=0., coord=[0., 0., 0.], m=0., veloc=[0., 0., 0.]):
+    def __init__(self, symb="??", num=0.0, coord=[0.0, 0.0, 0.0], m=0.0, veloc=[0.0, 0.0, 0.0]):
         self.symb = symb
         self.num = num
         self.coord = coord
         self.mass = m
         self.veloc = veloc
-        self.Ekin = 0.5 * self.mass * sum([self.veloc[i]**2 for i in range(3)])
+        self.Ekin = 0.5 * self.mass * sum([self.veloc[i] ** 2 for i in range(3)])
 
-    def init_from_str(self, initstring=''):
+    def init_from_str(self, initstring=""):
         f = initstring.split()
-        self.symb = try_read(f, 0, str, '??')
-        self.num = try_read(f, 1, float, 0.)
-        self.coord = [try_read(f, i, float, 0.) for i in range(2, 5)]
-        self.mass = try_read(f, 5, float, 0.) * U_TO_AMU
-        self.veloc = [try_read(f, i, float, 0.) for i in range(6, 9)]
-        self.Ekin = 0.5 * self.mass * sum([self.veloc[i]**2 for i in range(3)])
+        self.symb = try_read(f, 0, str, "??")
+        self.num = try_read(f, 1, float, 0.0)
+        self.coord = [try_read(f, i, float, 0.0) for i in range(2, 5)]
+        self.mass = try_read(f, 5, float, 0.0) * U_TO_AMU
+        self.veloc = [try_read(f, i, float, 0.0) for i in range(6, 9)]
+        self.Ekin = 0.5 * self.mass * sum([self.veloc[i] ** 2 for i in range(3)])
 
     def __str__(self):
-        s = '%2s % 5.1f ' % (self.symb, self.num)
-        s += '% 12.8f % 12.8f % 12.8f ' % tuple(self.coord)
-        s += '% 12.8f ' % (self.mass / U_TO_AMU)
-        s += '% 12.8f % 12.8f % 12.8f' % tuple(self.veloc)
+        s = "%2s % 5.1f " % (self.symb, self.num)
+        s += "% 12.8f % 12.8f % 12.8f " % tuple(self.coord)
+        s += "% 12.8f " % (self.mass / U_TO_AMU)
+        s += "% 12.8f % 12.8f % 12.8f" % tuple(self.veloc)
         return s
 
     def EKIN(self):
-        self.Ekin = 0.5 * self.mass * sum([self.veloc[i]**2 for i in range(3)])
+        self.Ekin = 0.5 * self.mass * sum([self.veloc[i] ** 2 for i in range(3)])
         return self.Ekin
 
     def geomstring(self):
-        s = '  %2s % 5.1f % 12.8f % 12.8f % 12.8f % 12.8f' % (self.symb, self.num, self.coord[0], self.coord[1], self.coord[2], self.mass / U_TO_AMU)
+        s = "  %2s % 5.1f % 12.8f % 12.8f % 12.8f % 12.8f" % (
+            self.symb,
+            self.num,
+            self.coord[0],
+            self.coord[1],
+            self.coord[2],
+            self.mass / U_TO_AMU,
+        )
         return s
 
     def velocstring(self):
-        s = ' ' * 11 + '% 12.8f % 12.8f % 12.8f' % tuple(self.veloc)
+        s = " " * 11 + "% 12.8f % 12.8f % 12.8f" % tuple(self.veloc)
         return s
+
 
 # ======================================================================================================================
 
 
 class STATE:
-    def __init__(self, i=0, e=0., eref=0., dip=[0., 0., 0.]):
+    def __init__(self, i=0, e=0.0, eref=0.0, dip=[0.0, 0.0, 0.0]):
         self.i = i
         self.e = e.real
         self.eref = eref.real
         self.dip = dip
         self.Excited = False
         self.Eexc = self.e - self.eref
-        self.Fosc = (2. / 3. * self.Eexc * sum([i * i.conjugate() for i in self.dip])).real
-        if self.Eexc == 0.:
-            self.Prob = 0.
+        self.Fosc = (2.0 / 3.0 * self.Eexc * sum([i * i.conjugate() for i in self.dip])).real
+        if self.Eexc == 0.0:
+            self.Prob = 0.0
         else:
             self.Prob = self.Fosc / self.Eexc**2
 
     def init_from_str(self, initstring):
         f = initstring.split()
         self.i = try_read(f, 0, int, 0)
-        self.e = try_read(f, 1, float, 0.)
-        self.eref = try_read(f, 2, float, 0.)
-        self.dip = [try_read(f, i, float, 0.) for i in range(3, 6)]
+        self.e = try_read(f, 1, float, 0.0)
+        self.eref = try_read(f, 2, float, 0.0)
+        self.dip = [try_read(f, i, float, 0.0) for i in range(3, 6)]
         self.Excited = try_read(f, 2, bool, False)
         self.Eexc = self.e - self.eref
-        self.Fosc = (2. / 3. * self.Eexc * sum([i * i.conjugate() for i in self.dip])).real
-        if self.Eexc == 0.:
-            self.Prob = 0.
+        self.Fosc = (2.0 / 3.0 * self.Eexc * sum([i * i.conjugate() for i in self.dip])).real
+        if self.Eexc == 0.0:
+            self.Prob = 0.0
         else:
             self.Prob = self.Fosc / self.Eexc**2
 
     def __str__(self):
-        s = '%03i % 18.10f % 18.10f ' % (self.i, self.e, self.eref)
+        s = "%03i % 18.10f % 18.10f " % (self.i, self.e, self.eref)
         for i in range(3):
-            s += '% 12.8f % 12.8f ' % (self.dip[i].real, self.dip[i].imag)
-        s += '% 12.8f % 12.8f %s' % (self.Eexc * HARTREE_TO_EV, self.Fosc, self.excited)
+            s += "% 12.8f % 12.8f " % (self.dip[i].real, self.dip[i].imag)
+        s += "% 12.8f % 12.8f %s" % (self.Eexc * HARTREE_TO_EV, self.Fosc, self.excited)
         return s
 
     def Excite(self, max_Prob, erange):
         try:
             Prob = self.Prob / max_Prob
         except ZeroDivisionError:
-            Prob = -1.
+            Prob = -1.0
         if not (erange[0] <= self.Eexc <= erange[1]):
-            Prob = -1.
-        self.excited = (random.random() < Prob)
+            Prob = -1.0
+        self.excited = random.random() < Prob
+
 
 # ======================================================================================================================
 
 
 class INITCOND:
-    def __init__(self, atomlist=[], eref=0., epot_harm=0.):
+    def __init__(self, atomlist=[], eref=0.0, epot_harm=0.0):
         self.atomlist = atomlist
         self.eref = eref
         self.Epot_harm = epot_harm
@@ -181,18 +197,18 @@ class INITCOND:
         while True:
             line = f.readline()
             # if 'Index     %i' % (index) in line:
-            if re.search(r'Index\s+%i' % (index), line):
+            if re.search(r"Index\s+%i" % (index), line):
                 break
-            if line == '\n':
+            if line == "\n":
                 continue
-            if line == '':
-                log.info('Initial condition %i not found in file %s' % (index, f.name))
+            if line == "":
+                log.info("Initial condition %i not found in file %s" % (index, f.name))
                 quit(1)
-        f.readline()        # skip one line, where "Atoms" stands
+        f.readline()  # skip one line, where "Atoms" stands
         atomlist = []
         while True:
             line = f.readline()
-            if 'States' in line:
+            if "States" in line:
                 break
             atom = ATOM()
             atom.init_from_str(line)
@@ -200,15 +216,15 @@ class INITCOND:
         statelist = []
         while True:
             line = f.readline()
-            if 'Ekin' in line:
+            if "Ekin" in line:
                 break
             state = STATE()
             state.init_from_str(line)
             statelist.append(state)
-        epot_harm = 0.
-        while not line == '\n' and not line == '':
+        epot_harm = 0.0
+        while not line == "\n" and not line == "":
             line = f.readline()
-            if 'epot_harm' in line.lower():
+            if "epot_harm" in line.lower():
                 epot_harm = float(line.split()[1])
                 break
         self.atomlist = atomlist
@@ -224,19 +240,20 @@ class INITCOND:
             self.Epot = epot_harm
 
     def __str__(self):
-        s = 'Atoms\n'
+        s = "Atoms\n"
         for atom in self.atomlist:
-            s += str(atom) + '\n'
-        s += 'States\n'
+            s += str(atom) + "\n"
+        s += "States\n"
         for state in self.statelist:
-            s += str(state) + '\n'
-        s += 'Ekin      % 16.12f a.u.\n' % (self.Ekin)
-        s += 'Epot_harm % 16.12f a.u.\n' % (self.Epot_harm)
-        s += 'Epot      % 16.12f a.u.\n' % (self.Epot)
-        s += 'Etot_harm % 16.12f a.u.\n' % (self.Epot_harm + self.Ekin)
-        s += 'Etot      % 16.12f a.u.\n' % (self.Epot + self.Ekin)
-        s += '\n\n'
+            s += str(state) + "\n"
+        s += "Ekin      % 16.12f a.u.\n" % (self.Ekin)
+        s += "Epot_harm % 16.12f a.u.\n" % (self.Epot_harm)
+        s += "Epot      % 16.12f a.u.\n" % (self.Epot)
+        s += "Etot_harm % 16.12f a.u.\n" % (self.Epot_harm + self.Ekin)
+        s += "Etot      % 16.12f a.u.\n" % (self.Epot + self.Ekin)
+        s += "\n\n"
         return s
+
 
 # ======================================================================================================================
 # ======================================================================================================================
@@ -244,11 +261,11 @@ class INITCOND:
 
 
 def check_initcond_version(string, must_be_excited=False):
-    if 'sharc initial conditions file' not in string.lower():
+    if "sharc initial conditions file" not in string.lower():
         return False
     f = string.split()
     for i, field in enumerate(f):
-        if 'version' in field.lower():
+        if "version" in field.lower():
             try:
                 v = float(f[i + 1])
                 if v not in versionneeded:
@@ -256,7 +273,7 @@ def check_initcond_version(string, must_be_excited=False):
             except IndexError:
                 return False
     if must_be_excited:
-        if 'excited' not in string.lower():
+        if "excited" not in string.lower():
             return False
     return True
 
@@ -264,39 +281,42 @@ def check_initcond_version(string, must_be_excited=False):
 # ======================================================================================================================
 
 
-
 def displaywelcome():
-    log.info('Script for setup of initial conditions started...\n')
-    string = '\n'
-    string += '  ' + '=' * 80 + '\n'
-    input = [' ',
-             'Setup trajectories for SHARC dynamics',
-             ' ',
-             'Authors: Sebastian Mai, Severin Polonius',
-             ' ',
-             'Version: %s' % (version),
-             'Date: %s' % (versiondate.strftime("%d.%m.%y")),
-             ' ']
+    log.info("Script for setup of initial conditions started...\n")
+    string = "\n"
+    string += "  " + "=" * 80 + "\n"
+    input = [
+        " ",
+        "Setup trajectories for SHARC dynamics",
+        " ",
+        "Authors: Sebastian Mai, Severin Polonius",
+        " ",
+        "Version: %s" % (version),
+        "Date: %s" % (versiondate.strftime("%d.%m.%y")),
+        " ",
+    ]
     for inp in input:
-        string += '||{:^80}||\n'.format(inp)
-    string += '  ' + '=' * 80 + '\n\n'
-    string += '''
+        string += "||{:^80}||\n".format(inp)
+    string += "  " + "=" * 80 + "\n\n"
+    string += """
 This script automatizes the setup of excited-state calculations for initial conditions
 for SHARC dynamics.
-  '''
+  """
     log.info(string)
+
 
 # ======================================================================================================================
 
 
 def open_keystrokes():
     global KEYSTROKES
-    KEYSTROKES = open('KEYSTROKES.tmp', 'w')
+    KEYSTROKES = open("KEYSTROKES.tmp", "w")
 
 
 def close_keystrokes():
     KEYSTROKES.close()
-    shutil.move('KEYSTROKES.tmp', 'KEYSTROKES.setup_init')
+    shutil.move("KEYSTROKES.tmp", "KEYSTROKES.setup_init")
+
 
 # ===================================
 
@@ -308,17 +328,18 @@ def close_keystrokes():
 # ======================================================================================================================
 # ======================================================================================================================
 
+
 def get_general(INFOS):
-    '''This routine questions from the user some general information:
+    """This routine questions from the user some general information:
     - initconds file
     - number of states
     - number of initial conditions
-    - interface to use'''
+    - interface to use"""
 
-    log.info(f'{"Initial conditions file":-^60s}' + '\n')
+    log.info(f'{"Initial conditions file":-^60s}' + "\n")
     # open the initconds file
     try:
-        initfile = 'initconds'
+        initfile = "initconds"
         initf = open(initfile)
         line = initf.readline()
         if check_initcond_version(line):
@@ -330,170 +351,168 @@ def get_general(INFOS):
             initf.close()
             raise IOError
     except IOError:
-        log.info('\nIf you do not have an initial conditions file, prepare one with wigner.py!\n')
-        log.info('Please enter the filename of the initial conditions file.')
+        log.info("\nIf you do not have an initial conditions file, prepare one with wigner.py!\n")
+        log.info("Please enter the filename of the initial conditions file.")
         while True:
-            initfile = question('Initial conditions filename:', str, 'initconds')
+            initfile = question("Initial conditions filename:", str, "initconds")
             initfile = os.path.expanduser(os.path.expandvars(initfile))
             if os.path.isdir(initfile):
-                log.info('Is a directory: %s' % (initfile))
+                log.info("Is a directory: %s" % (initfile))
                 continue
             if not os.path.isfile(initfile):
-                log.info('File does not exist: %s' % (initfile))
+                log.info("File does not exist: %s" % (initfile))
                 continue
             try:
-                initf = open(initfile, 'r')
+                initf = open(initfile, "r")
             except IOError:
-                log.info('Could not open: %s' % (initfile))
+                log.info("Could not open: %s" % (initfile))
                 continue
             line = initf.readline()
             if check_initcond_version(line):
                 break
             else:
-                log.info('File does not contain initial conditions!')
+                log.info("File does not contain initial conditions!")
                 continue
     # read the header
     ninit = int(initf.readline().split()[1])
     natom = int(initf.readline().split()[1])
-    INFOS['ninit'] = ninit
-    INFOS['natom'] = natom
-    initf.seek(0)                 # rewind the initf file
-    INFOS['initf'] = initf
+    INFOS["ninit"] = ninit
+    INFOS["natom"] = natom
+    initf.seek(0)  # rewind the initf file
+    INFOS["initf"] = initf
     log.info('\nFile "%s" contains %i initial conditions.' % (initfile, ninit))
-    log.info('Number of atoms is %i\n' % (natom))
+    log.info("Number of atoms is %i\n" % (natom))
     log.info(f"{'Range of initial conditions':-^60}")
-    log.info('\nPlease enter the range of initial conditions for which an excited-state calculation should be performed as two integers separated by space.')
+    log.info(
+        "\nPlease enter the range of initial conditions for which an excited-state calculation should be performed as two integers separated by space."
+    )
     while True:
-        irange = question('Initial condition range:', int, [1, ninit])
+        irange = question("Initial condition range:", int, [1, ninit])
         if len(irange) != 2:
-            log.info('Enter two numbers separated by spaces!')
+            log.info("Enter two numbers separated by spaces!")
             continue
         if irange[0] > irange[1]:
-            log.info('Range empty!')
+            log.info("Range empty!")
             continue
         if irange[0] == irange[1] == 0:
-            log.info('Only preparing calculation at equilibrium geometry!')
+            log.info("Only preparing calculation at equilibrium geometry!")
             break
         if irange[1] > ninit:
-            log.info('There are only %i initial conditions in file %s!' % (ninit, initfile))
+            log.info("There are only %i initial conditions in file %s!" % (ninit, initfile))
             continue
         if irange[0] <= 0:
-            log.info('Only positive indices allowed!')
+            log.info("Only positive indices allowed!")
             continue
         break
-    log.info('\nScript will use initial conditions %i to %i (%i in total).\n' % (irange[0], irange[1], irange[1] - irange[0] + 1))
-    INFOS['irange'] = irange
-
-
+    log.info("\nScript will use initial conditions %i to %i (%i in total).\n" % (irange[0], irange[1], irange[1] - irange[0] + 1))
+    INFOS["irange"] = irange
 
     log.info(f"{'Number of states':-^60}")
-    log.info('\nPlease enter the number of states as a list of integers\ne.g. 3 0 3 for three singlets, zero doublets and three triplets.')
+    log.info(
+        "\nPlease enter the number of states as a list of integers\ne.g. 3 0 3 for three singlets, zero doublets and three triplets."
+    )
     while True:
-        states = question('Number of states:', int)
+        states = question("Number of states:", int)
         if len(states) == 0:
             continue
         if any(i < 0 for i in states):
-            log.info('Number of states must be positive!')
+            log.info("Number of states must be positive!")
             continue
         break
-    log.info('')
+    log.info("")
     nstates = 0
     for mult, i in enumerate(states):
         nstates += (mult + 1) * i
-    log.info('Number of states: ' + str(states))
-    log.info('Total number of states: %i\n' % (nstates))
-    INFOS['states'] = states
-    INFOS['nstates'] = nstates
+    log.info("Number of states: " + str(states))
+    log.info("Total number of states: %i\n" % (nstates))
+    INFOS["states"] = states
+    INFOS["nstates"] = nstates
 
-
-
-    log.info('')
+    log.info("")
     return INFOS
 
 
-
 def get_interface() -> SHARC_INTERFACE:
-    'asks for interface and instantiates it'
+    "asks for interface and instantiates it"
     Interfaces = factory.get_available_interfaces()
-    log.info('{:-^60}'.format('Choose the quantum chemistry interface'))
-    log.info('\nPlease specify the quantum chemistry interface (enter any of the following numbers):')
+    log.info("{:-^60}".format("Choose the quantum chemistry interface"))
+    log.info("\nPlease specify the quantum chemistry interface (enter any of the following numbers):")
     possible_numbers = []
     for i, (name, interface) in enumerate(Interfaces):
         if type(interface) == str:
-            log.info('%i\t%s: %s' % (i, name, interface))
+            log.info("%i\t%s: %s" % (i, name, interface))
         else:
-            log.info('%i\t%s: %s' % (i, name, interface.description()))
+            log.info("%i\t%s: %s" % (i, name, interface.description()))
             possible_numbers.append(i)
-    log.info('')
+    log.info("")
     while True:
-        num = question('Interface number:', int)[0]
+        num = question("Interface number:", int)[0]
         if num in possible_numbers:
             break
         else:
-            log.info('Please input one of the following: %s!' % (possible_numbers))
+            log.info("Please input one of the following: %s!" % (possible_numbers))
     log.info("")
     return Interfaces[num][1]
 
+
 def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
-    """ get requests for every single point"""
+    """get requests for every single point"""
     int_features = interface.get_features(KEYSTROKES=KEYSTROKES)
     log.debug(int_features)
 
-    INFOS['needed_requests'] = ['h', 'dm']
-    states = INFOS['states']
+    INFOS["needed_requests"] = ["h", "dm"]
+    states = INFOS["states"]
 
     # Setup SOCs
-    log.info('\n' + f"{'Spin-orbit couplings (SOCs)':-^60}" + '\n')
+    log.info("\n" + f"{'Spin-orbit couplings (SOCs)':-^60}" + "\n")
     if len(states) > 1:
-        if 'soc' in int_features:
-            log.info('Do you want to compute spin-orbit couplings?\n')
-            soc = question('Spin-Orbit calculation?', bool, True)
+        if "soc" in int_features:
+            log.info("Do you want to compute spin-orbit couplings?\n")
+            soc = question("Spin-Orbit calculation?", bool, True)
             if soc:
-                log.info('Will calculate spin-orbit matrix.')
+                log.info("Will calculate spin-orbit matrix.")
         else:
-            log.info('Interface cannot provide SOCs: not calculating spin-orbit matrix.')
+            log.info("Interface cannot provide SOCs: not calculating spin-orbit matrix.")
             soc = False
     else:
-        log.info('Only singlets specified: not calculating spin-orbit matrix.')
+        log.info("Only singlets specified: not calculating spin-orbit matrix.")
         soc = False
-    log.info('')
-    INFOS['soc'] = soc
-    if INFOS['soc']:
-        INFOS['needed_requests'].append('soc')
-
+    log.info("")
+    INFOS["soc"] = soc
+    if INFOS["soc"]:
+        INFOS["needed_requests"].append("soc")
 
     # Setup Dyson spectra
-    if 'ion' in int_features:
+    if "ion" in int_features:
         n = [0, 0]
         for i, j in enumerate(states):
             n[i % 2] += j
         if n[0] >= 1 and n[1] >= 1:
-            log.info('\n' + f"{'Ionization probability by Dyson norms':-^60}" + '\n')
-            log.info('Do you want to compute Dyson norms between neutral and ionic states?')
-            INFOS['ion'] = question('Dyson norms?', bool, False)
-            if INFOS['ion']:
-                INFOS['needed_requests'].append('ion')
-
+            log.info("\n" + f"{'Ionization probability by Dyson norms':-^60}" + "\n")
+            log.info("Do you want to compute Dyson norms between neutral and ionic states?")
+            INFOS["ion"] = question("Dyson norms?", bool, False)
+            if INFOS["ion"]:
+                INFOS["needed_requests"].append("ion")
 
     # Setup initconds with reference overlap
-    if 'overlap' in int_features:
-        log.info('\n' + f"{'Overlaps to reference states':-^60}" + '\n')
-        log.info('Do you want to compute the overlaps between the states at the equilibrium geometry and the states at the initial condition geometries?')
-        INFOS['refov'] = question('Reference overlaps?', bool, False)
-        if INFOS['refov']:
-            INFOS['needed_requests'].append('overlap')
-
+    if "overlap" in int_features:
+        log.info("\n" + f"{'Overlaps to reference states':-^60}" + "\n")
+        log.info(
+            "Do you want to compute the overlaps between the states at the equilibrium geometry and the states at the initial condition geometries?"
+        )
+        INFOS["refov"] = question("Reference overlaps?", bool, False)
+        if INFOS["refov"]:
+            INFOS["needed_requests"].append("overlap")
 
     # Setup theodore
-    if 'theodore' in int_features:
-        log.info('\n' + f"{'TheoDORE wave function analysis':-^60}" + '\n')
-        log.info('Do you want to run TheoDORE to obtain one-electron descriptors for the electronic wave functions?')
-        INFOS['theodore'] = question('TheoDORE?', bool, False)
-        if INFOS['theodore']:
-            INFOS['needed_requests'].append('theodore')
+    if "theodore" in int_features:
+        log.info("\n" + f"{'TheoDORE wave function analysis':-^60}" + "\n")
+        log.info("Do you want to run TheoDORE to obtain one-electron descriptors for the electronic wave functions?")
+        INFOS["theodore"] = question("TheoDORE?", bool, False)
+        if INFOS["theodore"]:
+            INFOS["needed_requests"].append("theodore")
 
     return INFOS
-
 
 
 # ======================================================================================================================
@@ -519,46 +538,53 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
 
 
 def get_runscript_info(INFOS):
-    ''''''
+    """"""
 
-    string = '\n  ' + '=' * 80 + '\n'
-    string += '||' + f"{'Run mode setup':^80}" + '||\n'
-    string += '  ' + '=' * 80 + '\n\n'
+    string = "\n  " + "=" * 80 + "\n"
+    string += "||" + f"{'Run mode setup':^80}" + "||\n"
+    string += "  " + "=" * 80 + "\n\n"
     log.info(string)
 
-    log.info(f"{'Run script':-^60}" + '\n')
-    log.info('''This script can generate the run scripts for each initial condition in two modes:
+    log.info(f"{'Run script':-^60}" + "\n")
+    log.info(
+        """This script can generate the run scripts for each initial condition in two modes:
 
   - In mode 1, the calculation is run in subdirectories of the current directory.
 
   - In mode 2, the input files are transferred to another directory (e.g. a local scratch directory), the calculation is run there, results are copied back and the temporary directory is deleted. Note that this temporary directory is not the same as the "scratchdir" employed by the interfaces.
 
 Note that in any case this script will create the input subdirectories in the current working directory.
-''')
-    log.info('In case of mode 1, the calculations will be run in:\n%s\n' % (INFOS['cwd']))
-    here = question('Use mode 1 (i.e., calculate here)?', bool, True)
+"""
+    )
+    log.info("In case of mode 1, the calculations will be run in:\n%s\n" % (INFOS["cwd"]))
+    here = question("Use mode 1 (i.e., calculate here)?", bool, True)
     if here:
-        INFOS['here'] = True
+        INFOS["here"] = True
     else:
-        INFOS['here'] = False
-        log.info('\nWhere do you want to perform the calculations? Note that this script cannot check whether the path is valid.')
-        INFOS['copydir'] = question('Run directory?', str)
-    log.info('')
+        INFOS["here"] = False
+        log.info("\nWhere do you want to perform the calculations? Note that this script cannot check whether the path is valid.")
+        INFOS["copydir"] = question("Run directory?", str)
+    log.info("")
 
-    log.info(f"{'Submission script':-^60}" + '\n')
-    log.info('''During the setup, a script for running all initial conditions sequentially in batch mode is generated. Additionally, a queue submission script can be generated for all initial conditions.
-''')
-    qsub = question('Generate submission script?', bool, False)
+    log.info(f"{'Submission script':-^60}" + "\n")
+    log.info(
+        """During the setup, a script for running all initial conditions sequentially in batch mode is generated. Additionally, a queue submission script can be generated for all initial conditions.
+"""
+    )
+    qsub = question("Generate submission script?", bool, False)
     if not qsub:
-        INFOS['qsub'] = False
+        INFOS["qsub"] = False
     else:
-        INFOS['qsub'] = True
-        log.info('\nPlease enter a queue submission command, including possibly options to the queueing system,\ne.g. for SGE: "qsub -q queue.q -S /bin/bash -cwd" (Do not type quotes!).')
-        INFOS['qsubcommand'] = question('Submission command?', str, None, False)
-        INFOS['proj'] = question('Project Name:', str, None, False)
+        INFOS["qsub"] = True
+        log.info(
+            '\nPlease enter a queue submission command, including possibly options to the queueing system,\ne.g. for SGE: "qsub -q queue.q -S /bin/bash -cwd" (Do not type quotes!).'
+        )
+        INFOS["qsubcommand"] = question("Submission command?", str, None, False)
+        INFOS["proj"] = question("Project Name:", str, None, False)
 
-    log.info('')
+    log.info("")
     return INFOS
+
 
 # ======================================================================================================================
 # ======================================================================================================================
@@ -566,19 +592,19 @@ Note that in any case this script will create the input subdirectories in the cu
 
 
 def make_directory(iconddir):
-    '''Creates a directory'''
+    """Creates a directory"""
 
     if os.path.isfile(iconddir):
-        log.info('\nWARNING: %s is a file!' % (iconddir))
+        log.info("\nWARNING: %s is a file!" % (iconddir))
         return -1
     if os.path.isdir(iconddir):
         if len(os.listdir(iconddir)) == 0:
             return 0
         else:
-            log.info('\nWARNING: %s/ is not empty!' % (iconddir))
-            if 'overwrite' not in globals():
+            log.info("\nWARNING: %s/ is not empty!" % (iconddir))
+            if "overwrite" not in globals():
                 global overwrite
-                overwrite = question('Do you want to overwrite files in this and all following directories? ', bool, False)
+                overwrite = question("Do you want to overwrite files in this and all following directories? ", bool, False)
             if overwrite:
                 return 0
             else:
@@ -587,9 +613,10 @@ def make_directory(iconddir):
         try:
             os.mkdir(iconddir)
         except OSError:
-            log.info('\nWARNING: %s cannot be created!' % (iconddir))
+            log.info("\nWARNING: %s cannot be created!" % (iconddir))
             return -1
         return 0
+
 
 # ======================================================================================================================
 
@@ -597,90 +624,91 @@ def make_directory(iconddir):
 def writeQMin(INFOS, iconddir):
     icond = int(iconddir[-6:-1])
     try:
-        qmin = open('%s/QM.in' % (iconddir), 'w')
+        qmin = open("%s/QM.in" % (iconddir), "w")
     except IOError:
-        log.info('IOError during writeQMin, icond=%s' % (iconddir))
+        log.info("IOError during writeQMin, icond=%s" % (iconddir))
         quit(1)
-    string = '%i\nInitial condition %s\n' % (INFOS['natom'], iconddir)
+    string = "%i\nInitial condition %s\n" % (INFOS["natom"], iconddir)
 
     if icond > 0:
-        searchstring = r'Index\s+%i' % (icond)
+        searchstring = r"Index\s+%i" % (icond)
     else:
-        searchstring = 'Equilibrium'
+        searchstring = "Equilibrium"
     rewinded = False
     while True:
         try:
-            line = INFOS['initf'].readline()
+            line = INFOS["initf"].readline()
         except EOFError:
             if not rewinded:
                 rewinded = True
-                INFOS['initf'].seek(0)
+                INFOS["initf"].seek(0)
             else:
-                log.info('Could not find Initial condition %i!' % (icond))
+                log.info("Could not find Initial condition %i!" % (icond))
                 quit(1)
         # if searchstring in line:
         if re.search(searchstring, line):
             break
     if icond > 0:
-        line = INFOS['initf'].readline()        # skip one line
-    for iatom in range(INFOS['natom']):
-        line = INFOS['initf'].readline()
+        line = INFOS["initf"].readline()  # skip one line
+    for iatom in range(INFOS["natom"]):
+        line = INFOS["initf"].readline()
         s = line.split()
-        string += '%s %s %s %s\n' % (s[0], s[2], s[3], s[4])
+        string += "%s %s %s %s\n" % (s[0], s[2], s[3], s[4])
 
-    string += 'unit bohr\nstates '
-    for i in INFOS['states']:
-        string += '%i ' % (i)
-    string += '\n'
+    string += "unit bohr\nstates "
+    for i in INFOS["states"]:
+        string += "%i " % (i)
+    string += "\n"
 
-    if ('refov' in INFOS and INFOS['refov']):
+    if "refov" in INFOS and INFOS["refov"]:
         if icond == 0:
-            string += 'step 0\nsavedir ./SAVE/\n'
+            string += "step 0\nsavedir ./SAVE/\n"
         else:
-            string += 'overlap\ncleanup\nsavedir ./SAVE/\n'
+            string += "overlap\ncleanup\nsavedir ./SAVE/\n"
     else:
-        string += 'step 0\ncleanup\n'
+        string += "step 0\ncleanup\n"
 
-    if INFOS['soc']:
-        string += '\nSOC\n'
+    if INFOS["soc"]:
+        string += "\nSOC\n"
     else:
-        string += '\nH\n'
-    string += 'DM\n'
-    if 'ion' in INFOS and INFOS['ion']:
-        string += 'ion\n'
-    if 'theodore' in INFOS and INFOS['theodore']:
-        string += 'theodore\n'
+        string += "\nH\n"
+    string += "DM\n"
+    if "ion" in INFOS and INFOS["ion"]:
+        string += "ion\n"
+    if "theodore" in INFOS and INFOS["theodore"]:
+        string += "theodore\n"
 
     qmin.write(string)
     qmin.close()
     return
 
+
 # ======================================================================================================================
 
 
 def writeRunscript(INFOS, iconddir, interface):
-    '''writes the runscript in each subdirectory'''
+    """writes the runscript in each subdirectory"""
 
     try:
-        runscript = open('%s/run.sh' % (iconddir), 'w')
+        runscript = open("%s/run.sh" % (iconddir), "w")
     except IOError:
-        log.info('IOError during writeRunscript, iconddir=%s' % (iconddir))
+        log.info("IOError during writeRunscript, iconddir=%s" % (iconddir))
         quit(1)
-    if 'proj' in INFOS:
-        projname = '%4s_%5s' % (INFOS['proj'][0:4], iconddir[-6:-1])
+    if "proj" in INFOS:
+        projname = "%4s_%5s" % (INFOS["proj"][0:4], iconddir[-6:-1])
     else:
-        projname = 'init_%5s' % (iconddir[-6:-1])
+        projname = "init_%5s" % (iconddir[-6:-1])
 
     # ================================
-    intstring = ''
-    if 'adfrc' in INFOS:
-        intstring = '. %s\nexport PYTHONPATH=$ADFHOME/scripting:$PYTHONPATH' % (INFOS['adfrc'])
-    elif 'amsbashrc' in INFOS:
-        intstring = '. %s\nexport PYTHONPATH=$AMSHOME/scripting:$PYTHONPATH' % (INFOS['amsbashrc'])
+    intstring = ""
+    if "adfrc" in INFOS:
+        intstring = ". %s\nexport PYTHONPATH=$ADFHOME/scripting:$PYTHONPATH" % (INFOS["adfrc"])
+    elif "amsbashrc" in INFOS:
+        intstring = ". %s\nexport PYTHONPATH=$AMSHOME/scripting:$PYTHONPATH" % (INFOS["amsbashrc"])
 
     # ================================
-    if ('refov' in INFOS and INFOS['refov']) and iconddir != 'ICOND_00000/':
-        refstring = '''
+    if ("refov" in INFOS and INFOS["refov"]) and iconddir != "ICOND_00000/":
+        refstring = """
 if [ -d ../ICOND_00000/SAVE ];
 then
   if [ -d ./SAVE ];
@@ -692,14 +720,14 @@ else
   echo "Should do a reference overlap calculation, but the reference data in ../ICOND_00000/ seems not OK."
   exit 1
 fi
-'''
+"""
     else:
-        refstring = ''
+        refstring = ""
 
     # generate run scripts here
     # ================================ for here mode
-    if INFOS['here']:
-        string = '''#!/bin/bash
+    if INFOS["here"]:
+        string = """#!/bin/bash
 
 # $-N %s
 
@@ -711,11 +739,18 @@ cd $PRIMARY_DIR
 %s
 
 $SHARC/%s.py QM.in >> QM.log 2>> QM.err
-''' % (projname, intstring, INFOS['cwd'], iconddir, refstring, interface.__class__.__name__)
+""" % (
+            projname,
+            intstring,
+            INFOS["cwd"],
+            iconddir,
+            refstring,
+            interface.__class__.__name__,
+        )
     #
     # ================================ for remote mode
     else:
-        string = '''#!/bin/bash
+        string = """#!/bin/bash
 
 # $-N %s
 
@@ -735,14 +770,24 @@ $SHARC/%s QM.in >> QM.log 2>> QM.err
 
 cp -r $COPY_DIR/QM.* $COPY_DIR/SAVE/ $PRIMARY_DIR
 rm -r $COPY_DIR
-''' % (projname, intstring, INFOS['cwd'], iconddir, INFOS['copydir'], iconddir, refstring, interface.__class__.__name__)
+""" % (
+            projname,
+            intstring,
+            INFOS["cwd"],
+            iconddir,
+            INFOS["copydir"],
+            iconddir,
+            refstring,
+            interface.__class__.__name__,
+        )
 
     # ================================
     runscript.write(string)
     runscript.close()
-    filename = '%s/run.sh' % (iconddir)
+    filename = "%s/run.sh" % (iconddir)
     os.chmod(filename, os.stat(filename).st_mode | stat.S_IXUSR)
     return
+
 
 # ======================================================================================================================
 # ======================================================================================================================
@@ -754,10 +799,10 @@ def setup_equilibrium(INFOS, interface: SHARC_INTERFACE):
     # exists=os.path.isfile(iconddir+'/QM.out')
     exists = False
     if not exists:
-        iconddir = 'ICOND_%05i/' % (0)
+        iconddir = "ICOND_%05i/" % (0)
         io = make_directory(iconddir)
         if io != 0:
-            log.info('Skipping initial condition %s!' % (iconddir))
+            log.info("Skipping initial condition %s!" % (iconddir))
             return
 
         writeQMin(INFOS, iconddir)
@@ -765,97 +810,99 @@ def setup_equilibrium(INFOS, interface: SHARC_INTERFACE):
         writeRunscript(INFOS, iconddir, interface)
     return exists
 
+
 # ======================================================================================================================
 # ======================================================================================================================
 # ======================================================================================================================
 
 
 def setup_all(INFOS, interface: SHARC_INTERFACE):
-    '''This routine sets up the directories for the initial calculations.'''
+    """This routine sets up the directories for the initial calculations."""
 
-    string = '\n  ' + '=' * 80 + '\n'
-    string += '||' + f"{'Setting up directories...':^80}" + '||\n'
-    string += '  ' + '=' * 80 + '\n\n'
+    string = "\n  " + "=" * 80 + "\n"
+    string += "||" + f"{'Setting up directories...':^80}" + "||\n"
+    string += "  " + "=" * 80 + "\n\n"
     log.info(string)
 
-    all_run = open('all_run_init.sh', 'w')
-    string = '#/bin/bash\n\nCWD=%s\n\n' % (INFOS['cwd'])
+    all_run = open("all_run_init.sh", "w")
+    string = "#/bin/bash\n\nCWD=%s\n\n" % (INFOS["cwd"])
     all_run.write(string)
-    if INFOS['qsub']:
-        all_qsub = open('all_qsub_init.sh', 'w')
-        string = '#/bin/bash\n\nCWD=%s\n\n' % (INFOS['cwd'])
+    if INFOS["qsub"]:
+        all_qsub = open("all_qsub_init.sh", "w")
+        string = "#/bin/bash\n\nCWD=%s\n\n" % (INFOS["cwd"])
         all_qsub.write(string)
 
     width = 50
-    ninit = INFOS['irange'][1] - INFOS['irange'][0] + 1
+    ninit = INFOS["irange"][1] - INFOS["irange"][0] + 1
     idone = 0
 
     EqExists = setup_equilibrium(INFOS, interface)
     if not EqExists:
-        iconddir = 'ICOND_%05i/' % (0)
-        string = 'cd $CWD/%s/\nbash run.sh\ncd $CWD\necho %s >> DONE\n' % (iconddir, iconddir)
+        iconddir = "ICOND_%05i/" % (0)
+        string = "cd $CWD/%s/\nbash run.sh\ncd $CWD\necho %s >> DONE\n" % (iconddir, iconddir)
         all_run.write(string)
-        if INFOS['qsub']:
-            string = 'cd $CWD/%s/\n%s run.sh\ncd $CWD\n' % (iconddir, INFOS['qsubcommand'])
+        if INFOS["qsub"]:
+            string = "cd $CWD/%s/\n%s run.sh\ncd $CWD\n" % (iconddir, INFOS["qsubcommand"])
             all_qsub.write(string)
 
-    if INFOS['irange'] != [0, 0]:
-        for icond in range(INFOS['irange'][0], INFOS['irange'][1] + 1):
-            iconddir = 'ICOND_%05i/' % (icond)
+    if INFOS["irange"] != [0, 0]:
+        for icond in range(INFOS["irange"][0], INFOS["irange"][1] + 1):
+            iconddir = "ICOND_%05i/" % (icond)
             idone += 1
-            done = idone * width // ninit
-            sys.stdout.write('\rProgress: [' + '=' * done + ' ' * (width - done) + '] %3i%%' % (done * 100 // width))
-            sys.stdout.flush()
+            done = int((idone / ninit) * width)
 
             io = make_directory(iconddir)
             if io != 0:
-                log.info('Skipping initial condition %s!' % (iconddir))
+                log.info("Skipping initial condition %s!" % (iconddir))
                 continue
 
             writeQMin(INFOS, iconddir)
             interface.prepare(INFOS, iconddir)
             writeRunscript(INFOS, iconddir, interface)
 
-            string = 'cd $CWD/%s/\nbash run.sh\ncd $CWD\necho %s >> DONE\n' % (iconddir, iconddir)
+            string = "cd $CWD/%s/\nbash run.sh\ncd $CWD\necho %s >> DONE\n" % (iconddir, iconddir)
             all_run.write(string)
-            if INFOS['qsub']:
-                string = 'cd $CWD/%s/\n%s run.sh\ncd $CWD\n' % (iconddir, INFOS['qsubcommand'])
+            if INFOS["qsub"]:
+                string = "cd $CWD/%s/\n%s run.sh\ncd $CWD\n" % (iconddir, INFOS["qsubcommand"])
                 all_qsub.write(string)
+            sys.stdout.write("\rProgress: [" + "=" * done + " " * (width - done) + "] %3i%%" % (done * 100 // width))
+            sys.stdout.flush()
 
     all_run.close()
-    filename = 'all_run_init.sh'
+    filename = "all_run_init.sh"
     os.chmod(filename, os.stat(filename).st_mode | stat.S_IXUSR)
-    if INFOS['qsub']:
+    if INFOS["qsub"]:
         all_qsub.close()
-        filename = 'all_qsub_init.sh'
+        filename = "all_qsub_init.sh"
         os.chmod(filename, os.stat(filename).st_mode | stat.S_IXUSR)
 
-    log.info('\n')
+    log.info("\n")
 
 
 # ======================================================================================================================
 # ======================================================================================================================
 # ======================================================================================================================
+
 
 def main():
-    '''Main routine'''
+    """Main routine"""
 
-    usage = '''
+    usage = """
 python setup_init.py
 
 This interactive program prepares the initial excited-state calculations for SHARC.
 As input it takes the initconds file, number of states and range of initconds.
 
 Afterwards, it asks for the interface used and goes through the preparation depending on the interface.
-'''
+"""
 
-    description = ''
+    description = ""
     parser = OptionParser(usage=usage, description=description)
 
     displaywelcome()
     open_keystrokes()
     INFOS = {}
-    INFOS['cwd'] = os.getcwd()
+    INFOS["cwd"] = os.getcwd()
 
     INFOS = get_general(INFOS)
     chosen_interface: SHARC_INTERFACE = get_interface()()
@@ -863,14 +910,16 @@ Afterwards, it asks for the interface used and goes through the preparation depe
     INFOS = chosen_interface.get_infos(INFOS, KEYSTROKES)
     INFOS = get_runscript_info(INFOS)
 
-    log.info('\n' + f"{'Full input':#^60}" + '\n')
+    log.info("\n" + f"{'Full input':#^60}" + "\n")
     for item in INFOS:
         log.info(f"{item:<25} {INFOS[item]}")
-    log.info('')
-    setup = question('Do you want to setup the specified calculations?', bool, True)
-    log.info('')
+    log.info("")
+    setup = question("Do you want to setup the specified calculations?", bool, True)
+    log.info("")
 
     if setup:
+        if question("Do you want to link the interface files?", bool, default=False, autocomplete=False):
+            INFOS["link_files"] = True
         setup_all(INFOS, chosen_interface)
 
     close_keystrokes()
@@ -878,9 +927,9 @@ Afterwards, it asks for the interface used and goes through the preparation depe
 
 # ======================================================================================================================
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
-        log.info('\nCtrl+C makes me a sad SHARC ;-(\n')
+        log.info("\nCtrl+C makes me a sad SHARC ;-(\n")
         quit(0)
