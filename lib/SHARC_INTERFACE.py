@@ -277,7 +277,7 @@ class SHARC_INTERFACE(ABC):
         # if self._PRINT or self._DEBUG:
         #     string = self.formatQMout()
         self.log.info(self.formatQMout())
-        self.QMout["runtime"] = self.clock.measuretime(print=True)
+        self.QMout["runtime"] = self.clock.measuretime(log=self.log.info)
         self.writeQMout(filename=QMinfilename)
 
     @abstractmethod
@@ -718,7 +718,7 @@ class SHARC_INTERFACE(ABC):
             last_step = int(readfile(stepfile)[0])
 
         if not self.QMin.save["step"]:
-            if last_step:
+            if last_step is not None:
                 self.QMin.save["newstep"] = True
                 self.QMin.save["step"] = last_step + 1
             else:

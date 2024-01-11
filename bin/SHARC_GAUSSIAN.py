@@ -134,8 +134,6 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         self.QMin.resources.update(
             {
                 "groot": None,
-                "wfoverlap": None,
-                "wfthres": None,
                 "numfrozcore": 0,
                 "numocc": None,
                 "schedule_scaling": 0.9,
@@ -148,8 +146,6 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         self.QMin.resources.types.update(
             {
                 "groot": str,
-                "wfoverlap": str,
-                "wfthres": float,
                 "numfrozcore": int,
                 "numocc": int,
                 "schedule_scaling": float,
@@ -504,7 +500,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                                 elif mat == "tot":
                                     self.QMin.requests["density_matrices"][key] = (jobgrad[dens][0], {"Total CI Density"})
                         # needs extra job in dens_m_s
-                        elif s1 != 1:  # just as sanity check this will always be true
+                        else:
                             if mat in ["aa", "bb"]:
                                 self.QMin.requests["density_matrices"][key] = (
                                     f"dens_{m1}_{s1}",
@@ -512,8 +508,6 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                                 )
                             elif mat == "tot":
                                 self.QMin.requests["density_matrices"][key] = (f"dens_{m1}_{s1}", {"Total CI Density"})
-                        else:
-                            raise RuntimeError()
                     # gsmult is not mult! (-> restricted triplets) are always CI matrix
                     elif dens in jobgrad and self.QMin.control["jobs"][ijob]["restr"]:
                         if mat in ["aa", "bb"]:

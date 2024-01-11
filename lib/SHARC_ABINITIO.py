@@ -15,7 +15,7 @@ from itertools import starmap
 import numpy as np
 from qmin import QMin
 from SHARC_INTERFACE import SHARC_INTERFACE
-from utils import containsstring, readfile, safe_cast, link, writefile, shorten_DIR, mkdir, itmult, convert_list
+from utils import containsstring, readfile, safe_cast, link, writefile, shorten_DIR, mkdir, itmult, convert_list, is_exec
 from constants import ATOMIC_RADII, MK_RADII
 from resp import Resp
 from asa_grid import GRIDS
@@ -70,6 +70,8 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 "theodir": None,
                 "theodore_prop": [],
                 "theodore_fragment": [],
+                "wfoverlap": "wfoverlap.x",
+                "wfthres": 0.998,
                 "resp_shells": [],  # default calculated from other values = [1.4, 1.6, 1.8, 2.0]
                 "resp_vdw_radii_symbol": {},
                 "resp_vdw_radii": [],
@@ -88,6 +90,8 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 "theodir": str,
                 "theodore_prop": list,
                 "theodore_fragment": list,
+                "wfoverlap": str,
+                "wfthres": float,
                 "resp_shells": list,  # default calculated from other values = [1.4, 1.6, 1.8, 2.0]
                 "resp_vdw_radii_symbol": dict,
                 "resp_vdw_radii": list,
@@ -389,6 +393,9 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 raise RuntimeError(
                     f"specified grid {self.QMin.resources['resp_grid']} not available.\n Possible options are 'lebedev', 'random', 'golden_spiral', 'gamess', 'marcus_deserno'"
                 )
+
+        if self.QMin.requests["ion"] or self.QMin.requests["overlap"]:
+            assert is_exec(self.QMin.resources["wfoverlap"])
 
     @abstractmethod
     def getQMout(self):
