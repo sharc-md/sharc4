@@ -23,10 +23,10 @@
 #
 # ******************************************
 
-import ast
 
 # IMPORTS
 # external
+import ast
 import os
 import re
 import sys
@@ -35,7 +35,7 @@ from datetime import date
 from io import TextIOWrapper
 from socket import gethostname
 from textwrap import wrap
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 
@@ -91,8 +91,8 @@ class SHARC_INTERFACE(ABC):
     def __init__(
         self,
         persistent=False,
-        logname: Optional[str] = None,
-        logfile: Optional[str] = None,
+        logname: str | None = None,
+        logfile: str | None = None,
         loglevel: int = logging.INFO,
     ):
         # all the output from the calculation will be stored here
@@ -176,7 +176,7 @@ class SHARC_INTERFACE(ABC):
         return "This is the changelog string"
 
     @abstractmethod
-    def get_features(self, KEYSTROKES: Optional[TextIOWrapper] = None) -> set:
+    def get_features(self, KEYSTROKES: TextIOWrapper | None = None) -> set:
         """return availble features
 
         ---
@@ -186,7 +186,7 @@ class SHARC_INTERFACE(ABC):
         return all_features
 
     @abstractmethod
-    def get_infos(self, INFOS: dict, KEYSTROKES: Optional[TextIOWrapper] = None) -> dict:
+    def get_infos(self, INFOS: dict, KEYSTROKES: TextIOWrapper | None = None) -> dict:
         """communicate requests from setup and asks for additional paths or info
 
         The `INFOS` dict holds all global informations like paths to programs
@@ -274,14 +274,12 @@ class SHARC_INTERFACE(ABC):
         self.write_step_file()
 
         # printing and output generation
-        # if self._PRINT or self._DEBUG:
-        #     string = self.formatQMout()
         self.log.info(self.formatQMout())
         self.QMout["runtime"] = self.clock.measuretime(log=self.log.info)
         self.writeQMout(filename=QMinfilename)
 
     @abstractmethod
-    def read_template(self, template_file: str, kw_whitelist: Optional[list[str]] = None) -> None:
+    def read_template(self, template_file: str, kw_whitelist: list[str] | None = None) -> None:
         """
         Reads a template file and assigns parameters to
         self.QMin.template. No sanity checks at all, has to be done
@@ -327,6 +325,12 @@ class SHARC_INTERFACE(ABC):
         Return QMout object
         """
 
+    @abstractmethod
+    def dyson_orbitals_with_other(self,other):
+        """
+        Calculates Dyson orbitals between self and other.
+        Presumably it will be implemented in SHARC_ABINITIO subclass and in each individual FAST or HYBRID interface
+        """
     @abstractmethod
     def create_restart_files(self) -> None:
         """
@@ -498,7 +502,7 @@ class SHARC_INTERFACE(ABC):
         }
 
     @abstractmethod
-    def read_resources(self, resources_file: str, kw_whitelist: Optional[list[str]] = None) -> None:
+    def read_resources(self, resources_file: str, kw_whitelist: list[str] | None = None) -> None:
         """
         Reads a resource file and assigns parameters to
         self.QMin.resources. Parameters are only checked by type (if available),
@@ -605,7 +609,7 @@ class SHARC_INTERFACE(ABC):
                         if val[0] == "[":
                             raw_value = ast.literal_eval(val)
                             # check if matrix
-                            if type(raw_value[0]) is str:
+                            if isinstance(raw_value[0], str):
                                 raw_value = [
                                     entry if len(entry) > 1 else entry[0] for entry in map(lambda x: x.split(), raw_value)
                                 ]
@@ -617,7 +621,7 @@ class SHARC_INTERFACE(ABC):
                     elif key_type is tuple:
                         out_dict[key] = (v for v in val)
                     elif key_type is bool:
-                        if type(val) is str:
+                        if isinstance(val, str):
                             if val.lower() == "false":
                                 out_dict[key] = False
                             elif val.lower() == "true":
@@ -633,7 +637,7 @@ class SHARC_INTERFACE(ABC):
 
         # sanitize lists:
         for key, key_type in types_dict.items():
-            if key in out_dict and key_type == list and len(out_dict[key]) == 1 and type(out_dict[key][0]) == list:
+            if key in out_dict and key_type == list and len(out_dict[key]) == 1 and isinstance(out_dict[key][0], list):
                 out_dict[key] = out_dict[key][0]
 
         return out_dict
@@ -686,7 +690,7 @@ class SHARC_INTERFACE(ABC):
                     if val[0] == "[":
                         raw_value = ast.literal_eval(val)
                         # check if matrix
-                        if type(raw_value[0]) is str:
+                        if isinstance(raw_value[0], str):
                             raw_value = [entry if len(entry) > 1 else entry[0] for entry in map(lambda x: x.split(), raw_value)]
                     else:
                         raw_value = val.split() if len(val.split()) > 1 else val
@@ -773,7 +777,7 @@ class SHARC_INTERFACE(ABC):
         for i in ["init", "newstep", "samestep"]:
             self.QMin.save[i] = False
         # if restart:
-            # self._step_logic()
+        # self._step_logic()
         self._request_logic()
 
     def _set_request(self, request: list[str]) -> None:
@@ -873,8 +877,6 @@ class SHARC_INTERFACE(ABC):
         """
         self.log.info(self.formatQMout())
 
-    # ============================PRINTING ROUTINES========================== #
-
     def printheader(self) -> None:
         """Prints the formatted header of the log file. Prints version number and version date
         Takes nothing, returns nothing."""
@@ -897,9 +899,3 @@ class SHARC_INTERFACE(ABC):
         lines[4:5] = wrap(lines[4], width=70)
         lines[1:-1] = map(lambda s: "||{:^76}||".format(s), lines[1:-1])
         self.log.info("\n".join(lines))
-
-
-if __name__ == "__main__":
-    logging.info("hello from log!")
-    logging.debug("this is a debug")
-    logging.error("EROROR")

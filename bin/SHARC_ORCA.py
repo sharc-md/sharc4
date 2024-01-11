@@ -342,7 +342,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
         dim:        Dimension of the final matrix, dim*dim
         orca_col:   Number of columns per line, default 6
         """
-
+        # Check if the array need to be padded
         padding = dim % orca_col
         padding_array = []
         if padding > 0:
@@ -350,9 +350,13 @@ class SHARC_ORCA(SHARC_ABINITIO):
             raw_matrix += [0] * (dim * (6 - padding))
             for i in range(dim):
                 padding_array += last_elems[i * padding : i * padding + padding] + [0] * (6 - padding)
+            # Add padding
+            raw_matrix = np.asarray(raw_matrix)
+            raw_matrix[-len(padding_array) :] = padding_array
+        else:
+            # No padding is needed
+            raw_matrix = np.asarray(raw_matrix)
 
-        raw_matrix = np.asarray(raw_matrix)
-        raw_matrix[-len(padding_array) :] = padding_array
         return np.hstack(raw_matrix.reshape(-1, dim, orca_col))[:, :dim]
 
     def _save_files(self, workdir: str, jobid: int) -> None:
@@ -1193,7 +1197,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 skip *= states_skip[mult - 1]
                 cis_file.read(skip)
 
-            # Convert determinant lists to strins
+            # Convert determinant lists to strings
             strings = {}
             for mult in mults:
                 filename = f"dets.{mult}"
@@ -1222,14 +1226,6 @@ class SHARC_ORCA(SHARC_ABINITIO):
             if self.QMin.save["always_orb_init"] and len(initorbs) < len(self.QMin.control["joblist"]):
                 self.log.error("Initial orbitals missing for some jobs!")
                 raise ValueError()
-
-        #elif self.QMin.save["newstep"] or self.QMin.save["samestep"]:
-        #    for job in self.QMin.control["joblist"]:
-        #        file = os.path.join(self.QMin.save["savedir"], f"ORCA.gbw.{job}.{self.QMin.save['step']}")
-        #        if not os.path.isfile(file):
-        #            self.log.error(f"File {file} missing in savedir!")
-        #            raise FileNotFoundError()
-        #        initorbs[job] = file + ".old" if self.QMin.save["newstep"] else file
 
         return initorbs
 
@@ -1344,7 +1340,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
             string += f"%method\n\tintacc {qmin.template['intacc']:3.1f}\nend\n\n"
 
         # Gaussian point charges
-        if "cpcm" in qmin.template["keys"]:
+        if qmin.template["keys"] and "cpcm" in qmin.template["keys"]:
             string += "%cpcm\n\tsurfacetype vdw_gaussian\nend\n\n"
 
         # Excited states
@@ -1414,6 +1410,8 @@ class SHARC_ORCA(SHARC_ABINITIO):
             version = re.findall(r"Program Version (\d.\d.\d)", comm)[0].split(".")
             return tuple(int(i) for i in version)
 
+    def dyson_orbitals_with_other(self, other):
+        pass
 
 if __name__ == "__main__":
     SHARC_ORCA(loglevel=10).main()

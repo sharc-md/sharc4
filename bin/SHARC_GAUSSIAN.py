@@ -2362,6 +2362,9 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
 
     # ======================================================================= #
 
+    def dyson_orbitals_with_other(self, other):
+        pass
+
 
 if __name__ == "__main__":
     SHARC_GAUSSIAN(loglevel=10).main()

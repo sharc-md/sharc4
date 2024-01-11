@@ -23,6 +23,7 @@
 #
 # ******************************************
 
+import inspect
 from collections.abc import Callable
 from importlib import import_module
 
@@ -40,11 +41,12 @@ class SHARC_HYBRID(SHARC_INTERFACE):
         # Dict of child interfaces
         self._kindergarden = {}
 
-    def instantiate_children(self, child_dict: dict[str, str], *args, **kwargs) -> None:
+    def instantiate_children(self, child_dict: dict[str, tuple[str, list, dict] | str]) -> None:
         """
         Populate kindergarden with instantiated child interfaces
 
-        child_dict:     dictionary containing name of child and name of interface
+        child_dict:     dictionary containing name of child and name of the interface or
+                        a tuple with name of the interface and *args **kwargs
         """
         self.log.debug("Instantiace childs")
 
@@ -52,8 +54,17 @@ class SHARC_HYBRID(SHARC_INTERFACE):
             if name in self._kindergarden:
                 self.log.error(f"{name} specified twice!")
                 raise ValueError()
-            self._kindergarden[name] = self._load_interface(interface)(*args, **kwargs)
-            self.log.debug(f"Assign instance of {interface} to {name}")
+
+            if isinstance(interface, tuple):
+                if len(interface) == 3 and isinstance(interface[1], list) and isinstance(interface[2], dict):
+                    self._kindergarden[name] = self._load_interface(interface[0])(*interface[1], **interface[2])
+                    self.log.debug(f"Assign instance of {interface[0]} to {name}")
+                else:
+                    self.log.error("Tuple must contain an interface name, an arg list and a kwarg dict!")
+                    raise ValueError()
+            else:
+                self._kindergarden[name] = self._load_interface(interface)()
+                self.log.debug(f"Assign instance of {interface} to {name}")
 
     def _load_interface(self, interface_name: str) -> Callable:
         """
@@ -73,6 +84,9 @@ class SHARC_HYBRID(SHARC_INTERFACE):
             interface = getattr(module, interface_name)
             if not issubclass(interface, SHARC_INTERFACE):
                 self.log.error(f"Class {interface_name} is not derived from SHARC_INTERFACE")
+                raise ImportError()
+            if inspect.isabstract(interface):
+                self.log.error(f"{interface_name} is an abstract base class!")
                 raise ImportError()
         except AttributeError as exc:
             self.log.error(f"Class {interface_name} not found in {module}")

@@ -130,6 +130,9 @@ class SHARC_DO_NOTHING(SHARC_FAST):
     def about() -> str:
         return "Name and description of the interface"
 
+    def dyson_orbitals_with_other(self, other):
+        pass
+
     def create_restart_files(self):
         pass
 
