@@ -190,9 +190,9 @@ class SHARC_LVC(SHARC_FAST):
                 v = f.readline().split()
                 return (int(v[0]) - 1, int(v[1]) - 1, int(v[2]) - 1, int(v[3]) - 1, int(v[4]) - 1, float(v[5]))
 
-            for im, si, sj, i, j, v in map(d, range(z)):
-                self._G[im][si, sj, i, j] += v/2.
-                self._G[im][si, sj, j, i] += v/2.
+            for im, si, sj, n, m, v in map(d, range(z)):
+                self._G[im][si, sj, n, m] = v
+                self._G[im][si, sj, n, m] = v
             line = f.readline()
 
         while line:
@@ -203,7 +203,7 @@ class SHARC_LVC(SHARC_FAST):
                 line = f.readline()
                 i = 0
                 self.log.debug(f"Reading SOC {factor}")
-                while len(line.split()) == nmstates:
+                while i < nmstates:
                     self._soc[i, :] += np.asarray(line.split(), dtype=float) * factor
                     i += 1
                     line = f.readline()
@@ -213,7 +213,7 @@ class SHARC_LVC(SHARC_FAST):
                     dipole_real = False
                 line = f.readline()
                 i = 0
-                while len(line.split()) == nmstates:
+                while i < nmstates:
                     self._dipole[j, i, :] += np.asarray(line.split(), dtype=float) * factor
                     i += 1
                     line = f.readline()
@@ -593,7 +593,7 @@ class SHARC_LVC(SHARC_FAST):
                 grad_lvc = np.full((n, r3N), self._V[None, ...])
                 if self._diagonalize:
                     if self._gammas:
-                        h_i = self._H_i[im] + np.einsum("n,ijnm->ijm", self._Q, self._G[im], casting="no", optimize=True)
+                        h_i = self._H_i[im] + np.einsum("m,ijnm->ijn", self._Q, self._G[im], casting="no", optimize=True)
                         grad_lvc += np.einsum("ijk,in,jn->nk", h_i, u, u, casting="no", optimize=True)
                     else:
                         grad_lvc += np.einsum("ijk,in,jn->nk", self._H_i[im], u, u, casting="no", optimize=True)
@@ -789,7 +789,9 @@ class SHARC_LVC(SHARC_FAST):
 
         self.template_file = question("Specify path to LVC.template", str, KEYSTROKES=KEYSTROKES, autocomplete=True)
         while not os.path.isfile(self.template_file):
-            self.template_file = question(f"'{self.template_file}' not found!\nSpecify path to LVC.template", str, KEYSTROKES=KEYSTROKES, autocomplete=True)
+            self.template_file = question(
+                f"'{self.template_file}' not found!\nSpecify path to LVC.template", str, KEYSTROKES=KEYSTROKES, autocomplete=True
+            )
 
         # Check template for Soc and multipoles and states
         soc_found = False

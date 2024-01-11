@@ -36,7 +36,7 @@ from utils import itnmstates, readfile
 from printing import printheader
 from qmout import QMout
 
-np.set_printoptions(linewidth=400, formatter={"float": lambda x: f"{x.real: 6.3f}"}, threshold=sys.maxsize)
+np.set_printoptions(linewidth=800, formatter={"float": lambda x: f"{x.real: 7.5e}"}, threshold=sys.maxsize)
 
 
 def json_load_byteified(file_handle):
@@ -172,7 +172,7 @@ def read_QMout(path, nstates, natom, request):
                             block.append(row)
                         sblock.append(block)
                     values.append(sblock)
-            QMout[t] = values
+            QMout[t] = np.array(values)
 
     return QMout
 
@@ -218,7 +218,6 @@ def LVC_complex_mat(header, mat, deldiag=False, oformat=" % .7e"):
 
 
 def loewdin_orthonormalization(A):
-    # return A
     S = A.T @ A
     e, v = np.linalg.eigh(S)
     idx = e > 1e-15
@@ -255,7 +254,8 @@ def loewdin_orthonormalization_old(A):
 
     for i in range(length):
         norm_of_col = np.linalg.norm(A_lo[i])
-        A_lon[i] = [e / (norm_of_col**0.5) for e in A_lo[i]][0]
+        # A_lon[i] = [e / (norm_of_col**0.5) for e in A_lo[i]][0]
+        A_lon[i] = A_lo[i] / np.sqrt(norm_of_col)
 
     return A_lon.T
 
@@ -301,7 +301,6 @@ def phase_correction(matrix):
     det = np.linalg.det(U)
     if det < 0:
         U[:, 0] *= -1.0  # this row/column convention is correct
-    U_sq = U * U
 
     # sweeps
     l = len(U)
@@ -310,8 +309,7 @@ def phase_correction(matrix):
         done = True
         for j in range(l):
             for k in range(j + 1, l):
-                delta = 3.0 * (U_sq[j, j] + U_sq[k, k])
-                # delta = 3.0 * (U[j, j] ** 2 + U[k, k] ** 2)
+                delta = 3.0 * (U[j, j] ** 2 + U[k, k] ** 2)
                 delta += 6.0 * U[j, k] * U[k, j]
                 delta += 8.0 * (U[k, k] + U[j, j])
                 delta -= 3.0 * (U[j, :] @ U[:, j] + U[k, :] @ U[:, k])
@@ -329,7 +327,8 @@ def phase_correction(matrix):
 
 def phase_correction_old(matrix):
     length = len(matrix)
-    phase_corrected_matrix = [[0.0 for x in range(length)] for x in range(length)]
+    # phase_corrected_matrix = [[0.0 for x in range(length)] for x in range(length)]
+    phase_corrected_matrix = np.zeros_like(matrix)
 
     for i in range(length):
         diag = matrix[i][i].real
@@ -376,15 +375,16 @@ def calculate_W_dQi(H, S, e_ref):
     """
 
     # get diagonalised hamiltonian
-    H = np.diag([e - e_ref for e in np.diag(H)])
+    # H = np.diag([e - e_ref for e in np.diag(H)])
 
-    S = phase_correction(S)
+    # S = phase_correction(S)
 
     # do loewdin orthonorm. on overlap matrix
     U = loewdin_orthonormalization(S)
     U = phase_correction(U)
 
-    return np.dot(np.dot(U, H), U.T)
+    # <old|new><new|new><new|old> -> <old|old>
+    return np.dot(np.dot(U, H), U.T) - np.eye(H.shape[0]) * e_ref
 
 
 # ======================================================================= #
@@ -450,21 +450,24 @@ def write_LVC_template(INFOS):
 
     # run through all possible states
     if INFOS["ana_grad"]:
-        for i, (imult, istate, ims) in enumerate(itnmstates(INFOS["states"])):
-            if ims == (imult - 1) / 2.0:
-                # puts the gradient matrix into a list, has form: [ x, y, z, x, y, z, x, y, z]
-                gradient = QMout_eq.grad[i].flat
+        start = 0
+        for imult, nsi in enumerate(INFOS["states"]):
+            if nsi == 0:
+                continue
+            # puts the gradient matrix into a list, has form: [ x, y, z, x, y, z, x, y, z]
+            gradient = QMout_eq.grad[start : start + nsi, ...].reshape((nsi, -1))
 
-                # runs through normal modes
-                for normal_mode in INFOS["fmw_normal_modes"].keys():
-                    # calculates kappa from normal modes and grad
-                    kappa = np.dot(INFOS["fmw_normal_modes"][normal_mode], gradient)
-                    # kappa = sum([INFOS["fmw_normal_modes"][normal_mode][ixyz] * gradient[ixyz] for ixyz in r3N])
+            # runs through normal modes
+            for normal_mode in INFOS["fmw_normal_modes"].keys():
+                # calculates kappa from normal modes and grad
+                kappas = np.dot(INFOS["fmw_normal_modes"][normal_mode], gradient.T)
 
-                    # writes kappa to result string
-                    if kappa**2 > pthresh:
-                        kappa_str_list.append("%3i %3i %5i % .5e\n" % (imult, istate, int(normal_mode), kappa))
+                # writes kappa to result string
+                for i, k in enumerate(kappas):
+                    if k**2 > pthresh:
+                        kappa_str_list.append("%3i %3i %5i % .5e\n" % (imult + 1, i + 1, int(normal_mode), k))
                         nkappa += 1
+            start += nsi
 
     # ------------------------ lambda --------------------------
     lam = 0
@@ -548,16 +551,12 @@ def write_LVC_template(INFOS):
 
                 # get hamiltonian & overlap matrix from QM.out
                 path = os.path.join(INFOS["paths"][str(normal_mode) + "n"], "QM.out")
-                # requests = ["h", "overlap"]
-                # neg_H, neg_S = read_QMout(path, INFOS["nstates"], len(INFOS["atoms"]), requests).values()
                 QMout_neg = QMout(path, INFOS["states"], len(INFOS["atoms"]), 0)
-                # neg_H, neg_S = QMout_neg.h, QMout_neg.overlap
 
                 # check diagonal of S & print warning if wanted
                 INFOS["problematic_mults"].update(check_overlap_diagonal(QMout_neg.overlap, INFOS["states"], normal_mode, "n"))
 
                 # calculate displacement matrix
-                # neg_W_dQi = calculate_W_dQi(neg_H, neg_S, e_ref)
 
             # Loop over multiplicities to get kappas and lambdas
             for imult in filter(lambda x: INFOS["states"][x] != 0, range(len(INFOS["states"]))):
@@ -692,6 +691,7 @@ def write_LVC_template(INFOS):
                                 )
     # calculate gammas from approximatin the hessian through diabatized gradients at displacements and equilibrium geometry
     print(INFOS["gammas"])
+    check_gamma = {}
     if "gammas" in INFOS and INFOS["gammas"] == "hessian from diabatized gradients":
         # SCHEDULE:
         for normal_mode in INFOS["normal_modes"].keys():
@@ -709,51 +709,61 @@ def write_LVC_template(INFOS):
                 if nsi == 0:
                     continue
                 part_grad_pos = QMout_pos.grad[start : start + nsi, ...].reshape((nsi, -1))
-                nac_from_grad_pos = np.diag(np.dot(INFOS["fmw_normal_modes"][normal_mode], part_grad_pos.T))
                 part_ovl = QMout_pos.overlap[start : start + nsi, start : start + nsi]
-                # do phase correction if necessary
-                part_ovl = phase_correction(part_ovl)
 
                 # do loewdin orthonorm. on overlap matrix
                 part_ovl = loewdin_orthonormalization(part_ovl)
 
                 part_ovl = phase_correction(part_ovl)
-
-                diab_nac_pos = part_ovl @ nac_from_grad_pos @ part_ovl.T
 
                 part_grad_neg = QMout_neg.grad[start : start + nsi, ...].reshape((nsi, -1))
-                nac_from_grad_neg = np.diag(np.dot(INFOS["fmw_normal_modes"][normal_mode], part_grad_neg.T))
                 part_ovl = QMout_pos.overlap[start : start + nsi, start : start + nsi]
-
-                part_ovl = phase_correction(part_ovl)
 
                 # do loewdin orthonorm. on overlap matrix
                 part_ovl = loewdin_orthonormalization(part_ovl)
 
                 part_ovl = phase_correction(part_ovl)
 
-                diab_nac_neg = part_ovl @ nac_from_grad_neg @ part_ovl.T
+                for derivate_mode in INFOS["normal_modes"].keys():
+                    nac_from_grad_pos = np.diag(np.einsum("k,ik->i", INFOS["fmw_normal_modes"][derivate_mode], part_grad_pos))
+                    diab_nac_pos = np.diag(part_ovl @ nac_from_grad_pos @ part_ovl.T)
 
-                # nac_from_grad_eq = np.zeros((nstates, nstates, len(INFOS["atoms"]),3))
-                # np.einsum('iiax->iax', nac_from_grad_pos)[...] = QMout_eq.grad
+                    nac_from_grad_neg = np.diag(np.einsum("k,ik->i", INFOS["fmw_normal_modes"][derivate_mode], part_grad_neg))
+                    diab_nac_neg = np.diag(part_ovl @ nac_from_grad_neg @ part_ovl.T)
 
-                gammas = (diab_nac_pos - diab_nac_neg).real / (2 * displ_mag) - INFOS["frequencies"][normal_mode]
-                if (np.abs(np.diag(gammas)) > -INFOS["frequencies"][normal_mode]).any():
-                    print(
-                        "warning!: inverted oscillator generated with gammas!",
-                        normal_mode,
-                        imult,
-                        INFOS["frequencies"][normal_mode],
-                        np.where(np.diag(gammas) < -INFOS["frequencies"][normal_mode]),
-                    )
+                    gammas = (diab_nac_pos - diab_nac_neg).real / (
+                        displ_mag * 4.0
+                    )  # gammas are 0.5*f''(x)/dQidQj (https://doi.org/10.1142/9789812565464_0007)
 
-                # off diagonal terms cannot really be trusted
-                for i in range(nsi):
-                    if abs(gammas[i, i]) > 4.55633590401805e-05:  # is bigger than 10 cm-1 in hartree
-                        gamma_str_list.append(
-                            "%3i %3i %3i %3i %3i % .5e\n"
-                            % (imult + 1, i + 1, i + 1, int(normal_mode), int(normal_mode), gammas[i, i])
+                    if normal_mode == derivate_mode:
+                        gammas -= INFOS["frequencies"][normal_mode] * 0.5
+
+                    if normal_mode == derivate_mode and start == 0:
+                        print(
+                            "sanity check: difference in S0 frequency of mode:",
+                            normal_mode,
+                            f"{(gammas[0] * 2)/4.55633590401805e-06: .1f}cm-1",
                         )
+                    if start == 0:
+                        gammas[0] = 0.
+
+                    check_gamma[(imult, normal_mode, derivate_mode)] = gammas
+                    if (imult, derivate_mode, normal_mode) in check_gamma and normal_mode != derivate_mode:
+                        gammas = (
+                            check_gamma[(imult, normal_mode, derivate_mode)] + check_gamma[(imult, derivate_mode, normal_mode)]
+                        ) * 0.5
+                    elif normal_mode != derivate_mode:
+                        continue
+
+                    # print(gammas[0], [f"{i:3d}" for i in np.where(gammas > 4.55633590401805e-06)[0] /])
+                    gamma_str_list.extend(
+                        list(
+                            map(
+                                lambda i: f"{imult + 1:3d} {i+1:3d} {i+1:3d} {int(normal_mode):3d} {int(derivate_mode):3d} {gammas[i]: .7e}\n",
+                                np.where(gammas > 4.55633590401805e-06)[0],
+                            )
+                        )
+                    )
                 start += nsi
 
         # get gradient and overlap
@@ -775,7 +785,17 @@ def write_LVC_template(INFOS):
         lvc_template_content += "".join(sorted(gamma_str_list))
 
     # ----------------------- matrices ------------------------------
-    lvc_template_content += LVC_complex_mat("SOC", QMout_eq.h, deldiag=True)
+    if INFOS["soc"]:
+        if INFOS["soc_file"]:
+            print("Reading SOCs from file:", INFOS["soc_file"])
+            print("Beware that it will be not checked for complete compatability!")
+            QMout_soc = QMout(filepath=INFOS["soc_file"], states=INFOS["states"], natom=len(INFOS["atoms"]), npc=0)
+            print(
+                "sanity check: RSMD of adiabatic energies:", np.sqrt(np.mean((np.diag(QMout_soc.h) - np.diag(QMout_eq.h)) ** 2))
+            )
+            lvc_template_content += LVC_complex_mat("SOC", QMout_soc.h, deldiag=True)
+        else:
+            lvc_template_content += LVC_complex_mat("SOC", QMout_eq.h, deldiag=True)
     lvc_template_content += LVC_complex_mat("DMX", QMout_eq.dm[0])
     lvc_template_content += LVC_complex_mat("DMY", QMout_eq.dm[1])
     lvc_template_content += LVC_complex_mat("DMZ", QMout_eq.dm[2])
@@ -835,12 +855,7 @@ def main():
         for k, v in INFOS["paths"].items():
             INFOS["paths"][k] = os.path.join(sys.argv[1], v)
 
-    # write LVC.template
     write_LVC_template(INFOS)
-    ref = readfile("LVC_old_createLVCparam.template")
-    new = readfile("LVC.template")
-    # for rl, nl in zip(ref, new):
-    # assert rl == nl
 
 
 # ======================================================================= #
