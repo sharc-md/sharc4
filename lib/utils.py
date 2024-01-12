@@ -60,18 +60,19 @@ def expand_path(path: str) -> str:
     return expand
 
 
-def is_exec(path: str) -> str:
+def is_exec(path: str) -> bool:
     """
     Checks if path contains an executable (also searches in $PATH)
     """
 
-    fpath, fname = os.path.split(path)
+    fpath, _ = os.path.split(path)
     if fpath:
         return os.path.isfile(path) and os.access(path, os.X_OK)
     else:
         for p in os.environ.get("PATH", "").split(os.pathsep):
             exe_file = os.path.join(p, path)
-            return os.path.isfile(exe_file) and os.access(exe_file, os.X_OK)
+            if os.path.isfile(exe_file) and os.access(exe_file, os.X_OK):
+                return True
     return False
 
 
