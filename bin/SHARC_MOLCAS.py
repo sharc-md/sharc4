@@ -52,7 +52,6 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         self.QMin.resources.update(
             {
                 "molcas": None,
-                "wfoverlap": None,
                 "mpi_parallel": False,
                 "schedule_scaling": 0.6,
                 "delay": 0.0,
@@ -65,7 +64,6 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         self.QMin.resources.types.update(
             {
                 "molcas": str,
-                "wfoverlap": str,
                 "mpi_parallel": bool,
                 "schedule_scaling": float,
                 "delay": float,

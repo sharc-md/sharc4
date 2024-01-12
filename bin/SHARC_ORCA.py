@@ -81,8 +81,6 @@ class SHARC_ORCA(SHARC_ABINITIO):
             {
                 "orcadir": None,
                 "orcaversion": None,
-                "wfoverlap": None,
-                "wfthres": 1.0,
                 "numfrozcore": -1,
                 "numocc": None,
                 "schedule_scaling": 0.9,
@@ -95,8 +93,6 @@ class SHARC_ORCA(SHARC_ABINITIO):
             {
                 "orcadir": str,
                 "orcaversion": tuple,
-                "wfoverlap": str,
-                "wfthres": float,
                 "numfrozcore": int,
                 "numocc": int,
                 "schedule_scaling": float,
