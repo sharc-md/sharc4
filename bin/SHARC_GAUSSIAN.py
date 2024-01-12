@@ -472,7 +472,16 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                 elif s1 == s2:
                     dens = (m1, s1)
                     if gsmult == m1:
-                        if s1 == 2:
+                        if s1 == 1:  # ground state always master SCF
+                            if mat in ["aa", "bb"]:
+                                self.QMin.requests["density_matrices"][key] = (
+                                    f"master_{ijob}",
+                                    {"Total SCF Density", "Spin SCF Density"},
+                                )
+                            elif mat == "tot":
+                                self.QMin.requests["density_matrices"][key] = (f"master_{ijob}", {"Total SCF Density"})
+
+                        elif s1 == 2:
                             if mat in ["aa", "bb"]:
                                 self.QMin.requests["density_matrices"][key] = (
                                     f"master_{ijob}",
@@ -533,7 +542,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                         f"master_{ijob}",
                         {"Number of g2e trans dens", "G to E trans densities"},
                     )
-                # transposed matrices kan be produced the same way
+                # transposed matrices can be produced the same way
                 if s1 <= s2:
                     self.QMin.requests["density_matrices"][(m2, s2, ms2, m1, s1, ms1, mat)] = self.QMin.requests[
                         "density_matrices"
@@ -2073,8 +2082,8 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
             # ===================== CONSTRUCTION OF DENSITIES  ===============================
             for key in keys:
                 m1, s1, ms1, m2, s2, ms2, mat = key
-                self.log.debug(f"constructing {key}")
                 key_set = self.QMin.requests["density_matrices"][key][1]
+                self.log.debug(f"constructing {key} with {key_set}")
                 # also means mat == 'aa' |'bb'
                 if key_set == {"Total CI Density", "Spin CI Density"}:
                     if "Total CI Density" in parsed_matrices and "Spin CI Density" in parsed_matrices:

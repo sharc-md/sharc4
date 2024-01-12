@@ -367,6 +367,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             if self.QMin.resources["resp_vdw_radii"]:
                 if len(self.QMin.resources["resp_vdw_radii"]) != len(self.QMin.molecule["elements"]):
                     raise RuntimeError("specify 'resp_vdw_radii' for all atoms!")
+                self.QMin.resources["resp_vdw_radii"] = [float(x) for x in self.QMin.resources["resp_vdw_radii"]]
             else:
                 # populate vdW radii
                 radii = ATOMIC_RADII
