@@ -3133,7 +3133,7 @@ def get_general():
     INFOS = read_V0(INFOS, content)
 
     # output to user
-    print('\nFile "%s" contains %i atoms and we will use %i frequencies/normal modes.\n(others are zero)\n' % (v0file, len(INFOS['atoms']), len(INFOS['freqencies'])))
+    print('\nFile "%s" contains %i atoms and we will use %i frequencies/normal modes.\n(others are zero)\n' % (v0file, len(INFOS['atoms']), len(INFOS['frequencies'])))
 
 
     ## -------------------- number of states -------------------- ##
@@ -3418,7 +3418,7 @@ def read_V0(INFOS, content):
     # set headers of V0.txt file
     headers = {'geo': 'Geometry\n', 'freq': 'Frequencies\n', 'mwnmodes': 'Mass-weighted normal modes\n'}
     # init list/dicts
-    INFOS['atoms'], freqencies, normal_modes = [], {}, {}
+    INFOS['atoms'], frequencies, normal_modes = [], {}, {}
 
     for line in content:
         # check if within atom lines
@@ -3434,10 +3434,10 @@ def read_V0(INFOS, content):
 
         # check if within frequencies and add them
         if header == headers['freq'] and line != headers['mwnmodes']:
-            freqencies = {i + 1: freq for i, freq in zip(range(len(line.split())), map(float, line.strip().split()))}
+            frequencies = {i + 1: freq for i, freq in zip(range(len(line.split())), map(float, line.strip().split()))}
 
             # init number of normal_modes with lists, as to be able to append them later
-            for i in range(len(freqencies)):
+            for i in range(len(frequencies)):
                 normal_modes[i + 1] = []
 
         # within normal modes
@@ -3453,8 +3453,8 @@ def read_V0(INFOS, content):
             header = line
 
     # save as ordered dict for nice output later on
-    INFOS['normal_modes'] = OrderedDict(sorted({i: normal_mode for i, normal_mode in normal_modes.items() if freqencies[i] != 0}.items(), key=lambda t: t[0]))
-    INFOS['freqencies'] = OrderedDict(sorted({i: freq for i, freq in freqencies.items() if freq != 0}.items(), key=lambda t: t[0]))
+    INFOS['normal_modes'] = OrderedDict(sorted({i: normal_mode for i, normal_mode in normal_modes.items() if frequencies[i] != 0}.items(), key=lambda t: t[0]))
+    INFOS['frequencies'] = OrderedDict(sorted({i: freq for i, freq in frequencies.items() if freq != 0}.items(), key=lambda t: t[0]))
 
     return INFOS
 
@@ -3521,7 +3521,7 @@ def calculate_displacements(INFOS):
     # dividing normal modes by sqrt(frequency)
     fw_normal_modes = {}
     for i, normal_mode in INFOS['normal_modes'].items():
-        fw_normal_modes[i] = ([nm / (INFOS['freqencies'][i] ** 0.5) for nm in normal_mode])
+        fw_normal_modes[i] = ([nm / (INFOS['frequencies'][i] ** 0.5) for nm in normal_mode])
 
     # dividing the normal modes by sqrt(atom_mass)
     fmw_normal_modes = {}
