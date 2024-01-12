@@ -10,7 +10,7 @@ from error import Error, exception_hook
 import subprocess as sp
 from globals import DEBUG, PRINT
 from logger import log as logging
-from typing import Any
+from typing import Any, Callable
 
 
 class InDir:
@@ -397,7 +397,7 @@ class clock:
     def starttime(self, value):
         self._starttime = value
 
-    def measuretime(self, print=False):
+    def measuretime(self, print: Callable = None):
         """Calculates the time difference between global variable starttime and the time of the call of measuretime.
         Prints the Runtime, if PRINT or DEBUG are enabled.
         Arguments:
@@ -407,7 +407,7 @@ class clock:
 
         endtime = datetime.datetime.now()
         runtime = endtime - self._starttime
-        if self._verbose or print:
+        if print:
             hours = runtime.seconds // 3600
             minutes = runtime.seconds // 60 - hours * 60
             seconds = runtime.seconds % 60

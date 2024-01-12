@@ -277,7 +277,7 @@ class SHARC_INTERFACE(ABC):
         # if self._PRINT or self._DEBUG:
         #     string = self.formatQMout()
         self.log.info(self.formatQMout())
-        self.QMout["runtime"] = self.clock.measuretime(print=True)
+        self.QMout["runtime"] = self.clock.measuretime(print=self.log.info)
         self.writeQMout(filename=QMinfilename)
 
     @abstractmethod
