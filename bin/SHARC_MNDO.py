@@ -427,7 +427,6 @@ mocoef
             if num != 0.:
                 dets[tuple(det)] = 1. * sign * math.sqrt(coeff)
 
-        #pprint.pprint( dets)
         return dets
     
     def _format_ci_vectors(self, ci_vectors, MO_occ, nstates):
@@ -471,15 +470,12 @@ mocoef
         ci_vectors = {}
 
         # add MO occupancy to ci_vector
-        #print(get_active_space(log_file))
         active_mos = [*self._get_active_space(log_file)]
         ci_vectors["active MOs"] = active_mos
 
         # get CSFs from log_file
         csf = self._get_csfs(log_file, active_mos, nstates)
 
-        #print(csf)
-        #print(active_mos)
         # convert to determinants
         ## 1) Convert nomenclature
         for i in csf:
@@ -499,8 +495,7 @@ mocoef
                         ci_vectors[det][istate] += c[istate]
                 else:
                     ci_vectors[det] = c
-        #print(ci_vectors)
-        # Write determinants
+
         determinants = self._format_ci_vectors(ci_vectors, MO_occ, nstates)
 
         return determinants
@@ -554,13 +549,11 @@ mocoef
 
         # Populate energies
         if self.QMin.requests["h"]:
-            energies = self._get_energy(log_file)
+            file=open(log_file,"r")
+            output = file.read()
+            energies = self._get_energy(output)
             for i in range(len(energies)):
                 self.QMout["h"][i][i] = energies[(1,i+1)]
-            # for i in range(nmstates):
-            #     statemap = self.QMin.maps["statemap"][i + 1]
-            #     if statemap[0] in mults:
-            #         self.QMout["h"][i][i] = energies[(statemap[0], statemap[1])]
 
         # Populate dipole moments
         if self.QMin.requests["dm"]:
@@ -607,13 +600,10 @@ mocoef
 
         log_path:  Path to gradient file
         """
-        states = self.QMin.molecule["states"]
+        nmstates = self.QMin.molecule["nmstates"]
+        grad = self.QMin.template["grads"]
         natom = self.QMin.molecule["natom"]
-        f = readfile(log_path)
-        #if PRINT:
-        #print('Dipoles:  ' + shorten_DIR(logfile))
-
-        
+        f = readfile(log_path)       
 
         line_marker = []
         regexp = re.compile(r"^\s+I\s+NI\s+X\s+Y\s+Z\s+X\s+Y\s+Z$")
@@ -621,18 +611,18 @@ mocoef
             if regexp.search(line):
                 line_marker.append(iline + 2)
 
-        grads = [[[0. for i in range(3)] for j in range(natom)] for k in range(max(states))]
+        grads = [[[0. for i in range(3)] for j in range(natom)] for k in range(nmstates)]
         
-        for l, st in enumerate(states):
+        for l, st in enumerate(grad):
             iline = line_marker[l]
             for j in range(natom):
                 line = f[iline]
                 s = line.split()
-                grads[st-1][j][0] = float(s[5]) * KCAL_TO_EH * BOHR_TO_ANG
-                grads[st-1][j][1] = float(s[6]) * KCAL_TO_EH * BOHR_TO_ANG
-                grads[st-1][j][2] = float(s[7]) * KCAL_TO_EH * BOHR_TO_ANG
+                grads[int(st)-1][j][0] = float(s[5]) * KCAL_TO_EH * BOHR_TO_ANG
+                grads[int(st)-1][j][1] = float(s[6]) * KCAL_TO_EH * BOHR_TO_ANG
+                grads[int(st)-1][j][2] = float(s[7]) * KCAL_TO_EH * BOHR_TO_ANG
                 iline += 1
-
+        
         return np.array(grads)
     
     def _get_grad_pc(self, log_path: str) -> np.ndarray:
@@ -642,10 +632,9 @@ mocoef
         log_path:  Path to gradient file
         """
         states = self.QMin.molecule["states"]
+        grad = self.QMin.template["grads"]
         ncharges = self.QMin.molecule["npc"]
         f = readfile(log_path)
-        #if PRINT:
-        #print('Dipoles:  ' + shorten_DIR(logfile))
 
         line_marker = []
         regexp = re.compile(r"^\s+K\s+I\s+X\s+Y\s+Z\s+X\s+Y\s+Z$")
@@ -655,14 +644,14 @@ mocoef
 
         grads_charges = [[[0. for i in range(3)] for j in range(ncharges)] for k in range(max(states))]
         
-        for l,st in enumerate(states):
+        for l,st in enumerate(grad):
             iline = line_marker[l]
             for j in range(ncharges):
                 line = f[iline]
                 s = line.split()
-                grads_charges[st-1][j][0] = float(s[5]) * KCAL_TO_EH * BOHR_TO_ANG
-                grads_charges[st-1][j][1] = float(s[6]) * KCAL_TO_EH * BOHR_TO_ANG
-                grads_charges[st-1][j][2] = float(s[7]) * KCAL_TO_EH * BOHR_TO_ANG
+                grads_charges[int(st)-1][j][0] = float(s[5]) * KCAL_TO_EH * BOHR_TO_ANG
+                grads_charges[int(st)-1][j][1] = float(s[6]) * KCAL_TO_EH * BOHR_TO_ANG
+                grads_charges[int(st)-1][j][2] = float(s[7]) * KCAL_TO_EH * BOHR_TO_ANG
                 iline += 1
 
         return np.array(grads_charges)
@@ -681,12 +670,9 @@ mocoef
 
         line_marker = []
         for iline, line in enumerate(f):
-            #if 'NON-ADIABATIC COUPLING MATRIX ELEMENTS.' in line:
             if 'COMPLETE EXPRESSION.' in line:
                 line_marker.append(iline + 2)
 
-        #print(line_marker)
-        #nacs
         nac = [[[[0. for i in range(3)] for j in range(natom)] for k in range(max(states))] for l in range(max(states))] #make nac matrix
         
         for i, ints in enumerate(interstates):
@@ -694,12 +680,12 @@ mocoef
             for j in range(natom):
                 line = f[iline]
                 s = line.split()
-                nac[ints[0]-1][ints[1]-1][j][0] =   float(s[1]) * BOHR_TO_ANG  #1/Ang --> 1/a_0
-                nac[ints[0]-1][ints[1]-1][j][1] =   float(s[2]) * BOHR_TO_ANG
-                nac[ints[0]-1][ints[1]-1][j][2] =   float(s[3]) * BOHR_TO_ANG
-                nac[ints[1]-1][ints[0]-1][j][0] = - float(s[1]) * BOHR_TO_ANG 
-                nac[ints[1]-1][ints[0]-1][j][1] = - float(s[2]) * BOHR_TO_ANG
-                nac[ints[1]-1][ints[0]-1][j][2] = - float(s[3]) * BOHR_TO_ANG
+                nac[ints[0]][ints[1]][j][0] =   float(s[1]) * BOHR_TO_ANG  #1/Ang --> 1/a_0
+                nac[ints[0]][ints[1]][j][1] =   float(s[2]) * BOHR_TO_ANG
+                nac[ints[0]][ints[1]][j][2] =   float(s[3]) * BOHR_TO_ANG
+                nac[ints[1]][ints[0]][j][0] = - float(s[1]) * BOHR_TO_ANG
+                nac[ints[1]][ints[0]][j][1] = - float(s[2]) * BOHR_TO_ANG
+                nac[ints[1]][ints[0]][j][2] = - float(s[3]) * BOHR_TO_ANG
                 iline += 1
 
         return np.array(nac)
@@ -720,8 +706,6 @@ mocoef
             if 'COMPLETE EXPRESSION.' in line:
                 line_marker.append(iline + 2)
 
-        #print(line_marker)
-        #nacs
         nac_charges = [[[[0. for i in range(3)] for j in range(ncharges)] for k in range(max(states))] for l in range(max(states))] #make nac matrix for external charges
         
         for i, ints in enumerate(interstates):
@@ -729,12 +713,12 @@ mocoef
             for j in range(natom, ncharges):
                 line = f[iline]
                 s = line.split()
-                nac_charges[ints[0]-1][ints[1]-1][j][0] =   float(s[1]) * BOHR_TO_ANG  #1/Ang --> 1/a_0
-                nac_charges[ints[0]-1][ints[1]-1][j][1] =   float(s[2]) * BOHR_TO_ANG
-                nac_charges[ints[0]-1][ints[1]-1][j][2] =   float(s[3]) * BOHR_TO_ANG
-                nac_charges[ints[1]-1][ints[0]-1][j][0] = - float(s[1]) * BOHR_TO_ANG 
-                nac_charges[ints[1]-1][ints[0]-1][j][1] = - float(s[2]) * BOHR_TO_ANG
-                nac_charges[ints[1]-1][ints[0]-1][j][2] = - float(s[3]) * BOHR_TO_ANG
+                nac_charges[ints[0]][ints[1]][j][0] =   float(s[1]) * BOHR_TO_ANG  #1/Ang --> 1/a_0
+                nac_charges[ints[0]][ints[1]][j][1] =   float(s[2]) * BOHR_TO_ANG
+                nac_charges[ints[0]][ints[1]][j][2] =   float(s[3]) * BOHR_TO_ANG
+                nac_charges[ints[1]][ints[0]][j][0] = - float(s[1]) * BOHR_TO_ANG 
+                nac_charges[ints[1]][ints[0]][j][1] = - float(s[2]) * BOHR_TO_ANG
+                nac_charges[ints[1]][ints[0]][j][2] = - float(s[3]) * BOHR_TO_ANG
                 iline += 1
         
         return np.array(nac_charges)
@@ -788,9 +772,9 @@ mocoef
                 dm[0][states[st]-1][int(s[0])-1] = dmx
                 dm[1][states[st]-1][int(s[0])-1] = dmy
                 dm[2][states[st]-1][int(s[0])-1] = dmz
-                dm[0][int(s[0])-1][states[st]-1] = -dmx
-                dm[1][int(s[0])-1][states[st]-1] = -dmy
-                dm[2][int(s[0])-1][states[st]-1] = -dmz
+                dm[0][int(s[0])-1][states[st]-1] = dmx
+                dm[1][int(s[0])-1][states[st]-1] = dmy
+                dm[2][int(s[0])-1][states[st]-1] = dmz
                 i += 1
             noffdiag -= 1
             st += 1
@@ -1015,8 +999,7 @@ mocoef
         kitscf = qmin["template"]["kitscf"]
         imomap = qmin["template"]["imomap"]
 
-        inputstring = f"iop=-6 jop=-2 imult=0 iform=1 igeom=1 mprint=1 icuts=-1 icutg=-1 dstep={dstep} kci=5 ioutci=1 iroot={iroot} icross=7 ncigrd={ncigrd} inac=0 imomap={imomap} iscf=11 iplscf=11 kitscf={kitscf} ici1={ici1} ici2={ici2} movo={movo} nciref={nciref} mciref=3 levexc=6 iuvcd=3 nsav13=2 kharge={kharge} multci=1 cilead=1 ncisym=-1 numatm={ncharges} mmcoup=2 mmfile=1 mmskip=0 mminp={mminp}"
-        #inputstring = f'iop=-6 jop=-2 imult=0 kitscf=5000 iform=1 igeom=1 mprint=1 icuts=-1 icutg=-1 dstep={dstep} kci=5 ioutci=1 iroot={iroot} ncisym=-1 icross=7 ncigrd={nstates} imomap=3 iscf=11 movo={movo} ici1={ici1} ici2={ici2} nciref={nciref} mciref=3 levexc=6 cilead=1 iuvcd=3 nsav13=2 kharge={kharge} numatm={ncharges} mmcoup=2 mmfile=1 mmskip=0 mminp={mminp}'
+        inputstring = f"iop=-6 jop=-2 imult=0 iform=1 igeom=1 mprint=1 icuts=-1 icutg=-1 dstep={dstep} kci=5 ioutci=1 iroot={iroot} icross=7 ncigrd={ncigrd} inac=0 imomap={imomap} iscf=11 iplscf=11 kitscf={kitscf} ici1={ici1} ici2={ici2} movo={movo} nciref={nciref} mciref=3 levexc=6 iuvcd=3 nsav13=2 kharge={kharge} multci=1 cilead=1 ncisym=-1 numatm={ncharges} mmcoup=2 mmfile=1 mmskip=0 mminp={mminp}"        
         inputstring = " +\n".join(wrap(inputstring, width=70))
         inputstring += '\nheader\n'
         inputstring += 'header\n'

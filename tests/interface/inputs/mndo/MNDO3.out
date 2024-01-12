@@ -1,0 +1,1272 @@
+
+
+
+ PROGRAM MNDO2019.
+ VERSION 8.0 OF 15 AUGUST 2019.
+
+ COPYRIGHT BY WALTER THIEL,
+ MAX-PLANCK-INSTITUT FUER KOHLENFORSCHUNG,
+ D-45470 MUELHEIM, GERMANY.
+
+
+ ***** STANDARD INPUT USING KEYWORDS *****
+
+ IOP    =   -6     JOP    =   -2     IGEOM  =    1     IFORM  =    1     MMINP  =    2
+ NSAV13 =    2     ICUTS  =   -1     ICUTG  =   -1     INAC   =    0     ISCF   =   11
+ IPLSCF =   11     MPRINT =    1     KHARGE =    1     IMULT  =    0     KITSCF = 5000
+ KCI    =    5     NUMATM =    1     MMCOUP =    2     MMFILE =    1     MMSKIP =    0
+ ICI1   =    2     ICI2   =    1     IOUTCI =    1     MOVO   =    1     NCIREF =    3
+ MCIREF =    3     LEVEXC =    6     IROOT  =    4     MULTCI =    1     NCISYM =   -1
+ IUVCD  =    3     CILEAD =    1     IMOMAP =    3     NCIGRD =    3     ICROSS =    7
+
+
+ DSTEP  =  0.0000
+
+
+ ***********************************************************************
+ * INPUT OF OPTIONS VIA KEYWORDS
+ * NUMBER OF MNDO97 KEYWORDS FOUND: 35
+ * MOPAC KEYWORDS NOT FOUND: IMOPAC=-1
+ ***********************************************************************
+
+
+
+ *** OPTIONS FROM THE FIRST LINE OF INPUT    ***
+ *** DEFINED EITHER EXPLICITLY OR BY DEFAULT ***
+
+ LIMIT  =    0     IOP    =   -6     JOP    =   -2     IGEOM  =    1     IFORM  =    1
+ NEXMOL =    1     MPLIB  =    0     IEF    =    0     IDIIS  =    0     INREFD =    0
+ IPAROK =    0     MMINP  =    2     NMR    =    0     NSAV7  =    0     NSAV8  =    0
+ NSAV9  =    0     NSAV13 =    2     NSAV15 =    0     NSAV16 =    0     IMMOK  =    0
+ IHBOND =    0     IFLD1  =    0     IFLD2  =    0     IFLD3  =    0     ICUTS  =   -1
+ ICUTG  =   -1     IEXBAS =    0     ICOSMO =    0     IPSANA =    0     IMMDP  =   -1
+ INAC   =    0
+
+
+
+ OM2    
+
+ GRADIENT CALCULATION FOR INPUT GEOMETRY
+
+ INPUT IN CARTESIAN COORDINATES
+
+ INPUT OF MOLECULAR DATA IN FREE FORMAT
+
+ DATA FOR MOLDEN POSTPROCESSING SAVED ON FILE
+
+
+
+ *** OPTIONS FROM THE SECOND LINE OF INPUT   ***
+ *** DEFINED EITHER EXPLICITLY OR BY DEFAULT ***
+
+
+ MAXEND =    0     MAXLIN =    4     MAXRTL = 9999     ISCF   =   11     IPLSCF =   11
+ MIDDLE =    0     IPRINT =    0     KPRINT =    0     LPRINT =    0     MPRINT =    1
+ JPRINT =    0     IPREC  =    1     ICONV  =    0     IHESS  =    0     IDFP   =    0
+ NREPET =    3     LINITG =   10     LCONVG =   10     LGDUM  =    0     IHDLC1 =    0
+ IHDLC2 =    0     IHDLC3 =    0     INGEOM =    0     INTDIR =    0     LINDMS =    0
+ LINDIA =    0     LINFRG =    0     INPFRG =    0     INP21  =    0     INP22  =    0
+ INP23  =    0     INP24  =    0     INP25  =    0     IATERG =    1
+
+
+
+ OM2 singel point + gradients                                                    
+ methaminium cation                                                              
+
+
+     INPUT GEOMETRY
+
+
+      ATOM      ATOMIC              X-COORDINATE         Y-COORDINATE         Z-COORDINATE
+     NUMBER     NUMBER               (ANGSTROMS)          (ANGSTROMS)          (ANGSTROMS)
+
+        1          6                   0.00000 *            0.00000 *            0.00001 *
+        2          7                   0.00000 *            0.00000 *            1.34992 *
+        3          1                   0.94310 *            0.00000 *           -0.54460 *
+        4          1                   0.94310 *            0.00000 *            1.87940 *
+        5          1                  -0.94310 *            0.00000 *            1.87850 *
+        6          1                  -0.94310 *            0.00000 *           -0.54460 *
+
+
+
+     **********
+
+     *  VARIABLES TO BE OPTIMIZED, OF WHICH THERE ARE  18
+
+
+
+     INITIAL INTERATOMIC DISTANCES (ANGSTROMS)
+
+
+             1           2           3           4           5           6
+ ----------------------------------------------------------------------------
+   1      0.00000
+   2      1.34991     0.00000
+   3      1.08906     2.11628     0.00000
+   4      2.10275     1.08157     2.42400     0.00000
+   5      2.10194     1.08113     3.07070     1.88620     0.00000
+   6      1.08906     2.11628     1.88621     3.07141     2.42310     0.00000
+
+
+
+ MOLECULAR CHARGE         1
+ NUMBER OF ELECTRONS     12
+ DOUBLY OCCUPIED MOS      6
+
+
+ *** OPTIONS FOR THE MOLECULE UNDER STUDY    ***
+ *** DEFINED EITHER EXPLICITLY OR BY DEFAULT ***
+
+ KHARGE =    1     IMULT  =    0     KTRIAL =    0     KGEOM  =    0     IPUBO  =    0
+ IUHF   =    0     KITSCF = 5000     NPRINT =    0     IFAST  =    0     IDIAG  =    0
+ KSYM   =    0     NUMSYM =    0     KCI    =    5     NSTART =    4     NSTEP  =    4
+
+
+
+ *** OPTIONS FOR THE GUGA-CI CALCULATIONS    ***
+ *** DEFINED EITHER EXPLICITLY OR BY DEFAULT ***
+
+ ICI1   =    2     ICI2   =    1     IOUTCI =    1     MOVO   =    1     MPERT  =    0
+ NCIREF =    3     MCIREF =    3     LEVEXC =    6     IROOT  =    4     LROOT  =    1
+ CICHG  =    1     MULTCI =    1     NCISYM =   -1     CIDIR  =    1     CIDIAG =    0
+ IUVCD  =    3     IMCD   =    0     IPOP   =    0     CIPLOT =    0     CILEAD =    1
+ JCI1   =    0     JCI2   =    0     PIPOP  = 4000     INATUR =    0     CISELT =   85
+ IMOMAP =    3     GUG157 =    0     KEEPCI =    0     NCIGRD =    3     ICROSS =    7
+ MINDAV =    0     MAXDAV =    0     KITDAV =    0     NRMDAV =    7     MAXMAP =    5
+ MAPTHR =   90     NCONJ  =    0     GUG168 =    0     GUG169 =    0     GUG170 =    0
+
+
+
+ ORBITALS INCLUDED IN THE ACTIVE CI SPACE.
+ THE NUMBERING REFERS TO THE SCF SOLUTION.
+
+ MOS        4   6   7
+
+ MOSYM      0   0   0
+
+
+
+ REFERENCE CONFIGURATIONS FOR GUGA-CI.
+ OCCUPATION NUMBERS FOR THE ACTIVE ORBITALS.
+
+ REF  1     2   2   0
+
+ REF  2     2   1   1
+
+ REF  3     2   0   2
+
+
+
+ *** OPTIONS FOR MULTIPLE SURFACE CALCULATION ***
+
+
+ NUMBER OF CI GRADIENT VECTORS COMPUTED:    3
+ LABELS OF THE ASSOCIATE CI STATES:      1  2  4
+
+
+
+ *** OPTIONS FOR EXTERNAL POINTS AND QM/MM   ***
+ *** DEFINED EITHER EXPLICITLY OR BY DEFAULT ***
+
+ NUMATM =    1     MMCOUP =    2     MMPOT  =    4     MMLINK =    0     NLINK  =    0
+ MMFILE =    1     MCHARG =    0     MMSKIP =    0
+
+ NUMATM =    0     MMCOUP =
+
+
+
+ CARTESIAN COORDINATES (ANGSTROM) AND CHARGES (E) OF THE EXTERNAL POINTS.
+
+     I          X           Y           Z         CHARGE   SKIPPED
+
+     1       0.00000     1.00000     0.00000     0.00000       0
+
+ ANALYTICAL GRADIENT SELECTED BY DEFAULT.
+
+ CHKANA: IPSANA =  1, ISKPA = -3, ISKPAF =  0
+
+
+
+
+ -----------------------------------------------------------------------
+ CI CALCULATION FOR STATE:  1
+ -----------------------------------------------------------------------
+
+
+
+     OM2 singel point + gradients                                                    
+     methaminium cation                                                              
+
+
+     POINT GROUP Cs  ASSIGNED.
+
+
+
+     EIGENVALUES AND EIGENVECTORS.
+
+
+                         1           2           3           4           5           6           7           8           9
+
+                    -39.58309   -28.83970   -24.72189   -22.72597   -20.14247   -19.88151    -6.06021    -3.60086    -2.78643
+                        A'          A'          A'          A'          A'          A''         A''         A'          A'  
+
+  1  C (1)   s        0.41208     0.72392    -0.00005     0.13609    -0.00001     0.00000    -0.00000    -0.45118     0.20055
+  2  C (1)   x       -0.00002     0.00003     0.44530     0.00003     0.62681     0.00000    -0.00000     0.00025     0.00093
+  3  C (1)   y        0.00000    -0.00000    -0.00000    -0.00000    -0.00000     0.55491     0.83191    -0.00000     0.00000
+  4  C (1)   z        0.20002    -0.15218     0.00011    -0.60186    -0.00006    -0.00000     0.00000    -0.03786    -0.27485
+
+  5  N (2)   s        0.84301    -0.31099     0.00014    -0.00043    -0.00005    -0.00000    -0.00000     0.29869     0.26008
+  6  N (2)   x       -0.00006     0.00011     0.70239     0.00004    -0.35601    -0.00000    -0.00000     0.00046     0.00112
+  7  N (2)   y        0.00000     0.00000    -0.00000    -0.00000    -0.00000     0.83191    -0.55491     0.00000     0.00000
+  8  N (2)   z       -0.07508    -0.37751     0.00001     0.63152    -0.00002     0.00000    -0.00000    -0.07133     0.30729
+
+  9  H (3)   s        0.06738     0.26352     0.18993     0.25086     0.40979     0.00000     0.00000     0.47383    -0.34407
+
+ 10  H (4)   s        0.17995    -0.19322     0.34358     0.21755    -0.26880    -0.00000     0.00000    -0.35484    -0.49466
+
+ 11  H (5)   s        0.18006    -0.19325    -0.34368     0.21735     0.26885     0.00000     0.00000    -0.35378    -0.49206
+
+ 12  H (6)   s        0.06738     0.26350    -0.19003     0.25083    -0.40976    -0.00000     0.00000     0.47447    -0.34201
+
+
+
+                        10          11          12
+                     -2.44089    -0.17155     0.51000
+                        A'          A'          A'  
+
+  1  C (1)   s       -0.00015     0.00001    -0.20936
+  2  C (1)   x        0.42613     0.47668     0.00005
+  3  C (1)   y        0.00000    -0.00000     0.00000
+  4  C (1)   z        0.00068     0.00005    -0.70542
+
+  5  N (2)   s       -0.00098     0.00018     0.18912
+  6  N (2)   x        0.35405    -0.50452    -0.00009
+  7  N (2)   y       -0.00000     0.00000    -0.00000
+  8  N (2)   z       -0.00077     0.00019    -0.59457
+
+  9  H (3)   s       -0.43296    -0.32882    -0.14359
+
+ 10  H (4)   s       -0.39661     0.38819     0.11859
+
+ 11  H (5)   s        0.40004    -0.38894     0.11830
+
+ 12  H (6)   s        0.43390     0.32885    -0.14352
+
+
+
+
+     SCF HEAT OF FORMATION      182.91406 KCAL/MOL
+     SCF BINDING ENERGY         -13.41589 EV
+     SCF TOTAL ENERGY          -393.07970 EV
+     ELECTRONIC ENERGY         -873.25677 EV
+     NUCLEAR ENERGY             480.17707 EV
+     IONIZATION ENERGY           19.88151 EV
+     SCF CYCLES                  26
+
+
+
+     NET ATOMIC CHARGES AND ORBITAL POPULATIONS.
+
+     ATOM    I        CHARGE      DENSITY        S          PX          PY          PZ
+
+      C      1       -0.07381     4.07381     1.42478     1.18237     0.61585     0.85081
+      N      2       -0.33305     5.33305     1.61474     1.24020     1.38415     1.09395
+      H      3        0.31817     0.68183     0.68183
+      H      4        0.38531     0.61469     0.61469
+      H      5        0.38518     0.61482     0.61482
+      H      6        0.31819     0.68181     0.68181
+
+
+
+     DIPOLE              X           Y           Z         TOTAL
+
+     POINT-CHARGE     0.00048     0.00000    -0.32358     0.32358
+     HYBRID          -0.00009     0.00000     0.42037     0.42037
+     SUM              0.00039     0.00000     0.09679     0.09680
+
+
+     POINT GROUP Cs  ASSIGNED.
+
+
+     SYMMETRY ELEMENT AND SYMMETRY RELATIONS BETWEEN THE ATOMS.
+     SYMMETRY OPERATIONS PERMUTE THE ATOMS (1..N) AS FOLLOWS.
+
+     XZ     1   2   3   4   5   6
+
+
+
+    MO     EIGENVALUE     LABEL     NSYM
+
+     1      -39.58309      A'        1
+     2      -28.83970      A'        1
+     3      -24.72189      A'        1
+     4      -22.72597      A'        1
+     5      -20.14247      A'        1
+     6      -19.88151      A''       2
+     7       -6.06021      A''       2
+     8       -3.60086      A'        1
+     9       -2.78643      A'        1
+    10       -2.44089      A'        1
+    11       -0.17155      A'        1
+    12        0.51000      A'        1
+
+
+      ACTIVE ORBITAL MAPPING:
+
+      SAVED     STATUS     CURRENT  OVERLAP
+      -------------------------------------
+        4      UNCHANGED      4      1.000
+        6      UNCHANGED      6      1.000
+        7      UNCHANGED      7      1.000
+
+
+
+    MO     EIGENVALUE     LABEL   NSYM  IMOSYM     OCC.    ACTIVE
+
+     1      -39.58309      A        1      1     2.00000      -
+     2      -28.83970      A        1      2     2.00000      -
+     3      -24.72189      A        1      3     2.00000      -
+     4      -22.72597      A        1      4     2.00000      2
+     5      -20.14247      A        1      5     2.00000      -
+     6      -19.88151      A        1      6     2.00000      1
+     7       -6.06021      A        1      7     0.00000      1
+     8       -3.60086      A        1      8     0.00000      -
+     9       -2.78643      A        1      9     0.00000      -
+    10       -2.44089      A        1     10     0.00000      -
+    11       -0.17155      A        1     11     0.00000      -
+    12        0.51000      A        1     12     0.00000      -
+
+
+
+ REFERENCE CONFIGURATIONS
+
+    4   6   7
+    A   A   A
+    2   2   0
+    2   1   1
+    2   0   2
+
+
+ Point group used in GUGA-CI calculation:  C1
+
+
+ There are         6 CI basis functions of symmetry A   (1).
+ There are         6 CI basis functions in the CI problem.
+ There are         6 CI basis functions represented by the DRT.
+
+
+ Reference configurations and corresponding GUGA-CI many-electron basis functions:
+
+               4   6   7
+ Ref.      1   2   2   0
+ CSF       1  ab  ab   -
+
+               4   6   7
+ Ref.      2   2   1   1
+ CSF       2  ab   a   b
+
+               4   6   7
+ Ref.      3   2   0   2
+ CSF       4  ab   -  ab
+
+ Orbital level separating upper and lower part of the DRT:   1
+
+ Total number of upper partial loops:            44
+ Total number of lower partial loops:            10
+ Total number of complete one-body loops:        10
+ Total number of complete two-body loops:        13
+
+
+ Point group used in GUGA-CI calculation:  C1
+
+
+ There are         6 CI basis functions of symmetry A   (1).
+ There are         6 CI basis functions in the CI problem.
+ There are         6 CI basis functions represented by the DRT.
+
+
+ Reference configurations and corresponding GUGA-CI many-electron basis functions:
+
+               4   6   7
+ Ref.      1   2   2   0
+ CSF       1  ab  ab   -
+
+               4   6   7
+ Ref.      2   2   1   1
+ CSF       2  ab   a   b
+
+               4   6   7
+ Ref.      3   2   0   2
+ CSF       4  ab   -  ab
+
+               4   6   7
+ Ref.      4   1   2   1
+ CSF       3   a  ab   b
+
+ Orbital level separating upper and lower part of the DRT:   1
+
+ Total number of upper partial loops:            44
+ Total number of lower partial loops:            10
+ Total number of complete one-body loops:        10
+ Total number of complete two-body loops:        13
+ 
+ ==========================================================
+ 
+ Results of CI calculation:
+ 
+ Correlation energy for CI root   1:         -0.26675967 eV
+ Total energy:                             -393.34646054 eV
+ Electronic energy:                        -873.52352718 eV
+ Nuclear energy:                            480.17706664 eV
+ 
+
+ ---------------------------------------------------------------
+ State  1,  Mult. 1,  E-E(1)=  0.000000 eV,  E=   -393.346461 eV
+ ---------------------------------------------------------------
+
+   -393.08      0.989578       1     4   6   7
+                                    ab  ab   -
+ 
+   -379.36     -0.138773       4     4   6   7
+                                    ab   -  ab
+ 
+   -384.99      0.036772       2     4   6   7
+                                    ab   a   b
+ 
+   -375.50     -0.011208       6     4   6   7
+                                     -  ab  ab
+ 
+
+ ---------------------------------------------------------------
+ State  2,  Mult. 1,  E-E(1)=  7.637045 eV,  E=   -385.709416 eV
+ ---------------------------------------------------------------
+
+   -384.99     -0.948037       2     4   6   7
+                                    ab   a   b
+ 
+   -379.36      0.308139       4     4   6   7
+                                    ab   -  ab
+ 
+   -393.08      0.078304       1     4   6   7
+                                    ab  ab   -
+ 
+   -375.50     -0.012006       6     4   6   7
+                                     -  ab  ab
+ 
+
+ ---------------------------------------------------------------
+ State  3,  Mult. 1,  E-E(1)=  8.545780 eV,  E=   -384.800680 eV
+ ---------------------------------------------------------------
+
+   -384.76     -0.996824       3     4   6   7
+                                     a  ab   b
+ 
+   -378.04      0.079634       5     4   6   7
+                                     a   b  ab
+ 
+
+ ---------------------------------------------------------------
+ State  4,  Mult. 1,  E-E(1)= 14.936583 eV,  E=   -378.409877 eV
+ ---------------------------------------------------------------
+
+   -379.36      0.935652       4     4   6   7
+                                    ab   -  ab
+ 
+   -384.99      0.315224       2     4   6   7
+                                    ab   a   b
+ 
+   -393.08      0.118299       1     4   6   7
+                                    ab  ab   -
+ 
+   -375.50     -0.105802       6     4   6   7
+                                     -  ab  ab
+ 
+
+
+
+ Using basis sets ECP-3G (first-row elements) and ECP-4G (second-row
+ elements) for the evaluation spectroscopic observables.
+
+
+ AO basis set for the evaluation of spectroscopic observables:
+
+                                          0
+  1   1   1    0.4839096916E+01    0.1543289673E+00
+  1   1   2    0.8814475439E+00    0.5353281423E+00
+  1   1   3    0.2385541045E+00    0.4446345422E+00
+
+                                          0                   1
+  6   1   1    0.5335867171E+01   -0.1918800000E+00    0.2025900000E+00
+  6   1   2    0.1093759362E+01    0.6162800000E+00    0.5583000000E+00
+  6   1   3    0.2918440087E+00    0.5489600000E+00    0.4551400000E+00
+
+                                          0                   1
+  7   1   1    0.6541774069E+01   -0.1926900000E+00    0.2228100000E+00
+  7   1   2    0.1375115320E+01    0.6188800000E+00    0.5603200000E+00
+  7   1   3    0.3635452037E+00    0.5492600000E+00    0.4385900000E+00
+
+
+
+ State dipole moments:
+
+   #    Symmetry       eV         cm-1     mu_r(x)/D   mu_r(y)/D   mu_r(z)/D    |mu_r|/D     phi/deg   theta/deg
+   1     A   (1)    0.000000        0.00    0.000463   -0.000000    3.748693    3.748693     -0.0000      0.0071
+   2     A   (1)    7.637045    61600.06    0.000463   -0.000000    3.076225    3.076225     -0.0000      0.0086
+   3     A   (1)    8.545780    68929.88    0.000920    0.000000    3.853585    3.853585      0.0000      0.0137
+   4     A   (1)   14.936583   120477.81    0.000473    0.000000   11.003042   11.003042      0.0000      0.0025
+
+
+
+ Properties of transitions   1 -> #:
+
+   #    Symmetry       eV         cm-1        nm        f_r         f_p         f_rp        R/DBM
+   2     A   (1)    7.637045    61600.06    162.34    0.392042    0.129277    0.225127   -0.000000
+   3     A   (1)    8.545780    68929.88    145.07    0.003115    0.019154    0.007724    0.000000
+   4     A   (1)   14.936583   120477.81     83.00    0.025158    0.008732    0.014822   -0.000000
+
+
+
+ Dipole-length electric dipole transition moments   1 -> #:
+
+   #    Symmetry       eV         cm-1     mu_r(x)/D   mu_r(y)/D   mu_r(z)/D    |mu_r|/D     phi/deg   theta/deg
+   2     A   (1)    7.637045    61600.06    0.000000   -0.000000   -3.679091    3.679091      0.0000    180.0000
+   3     A   (1)    8.545780    68929.88   -0.000000   -0.310024    0.000000    0.310024    -90.0000     90.0000
+   4     A   (1)   14.936583   120477.81    0.000001   -0.000000    0.666421    0.666421     -0.0000      0.0001
+
+
+
+ Dipole-velocity electric dipole transition moments   1 -> #:
+
+   #    Symmetry       eV         cm-1     mu_p(x)/D   mu_p(y)/D   mu_p(z)/D    |mu_p|/D     phi/deg   theta/deg
+   2     A   (1)    7.637045    61600.06    0.000000   -0.000000   -2.112691    2.112691      0.0000    180.0000
+   3     A   (1)    8.545780    68929.88   -0.000000   -0.768761    0.000000    0.768761    -90.0000     90.0000
+   4     A   (1)   14.936583   120477.81    0.000000   -0.000000    0.392625    0.392625      0.0000      0.0000
+
+
+
+ Magnetic dipole transition moments   1 -> #:
+
+   #    Symmetry       eV         cm-1      m(x)/iBM    m(y)/iBM    m(z)/iBM      |m|/BM     phi/deg   theta/deg
+   2     A   (1)    7.637045    61600.06    0.000000   -0.000000   -0.000000    0.000000      0.0000      0.0000
+   3     A   (1)    8.545780    68929.88    1.494012    0.000000    0.000001    1.494012      0.0000     90.0000
+   4     A   (1)   14.936583   120477.81    0.000000   -0.000000    0.000000    0.000000      0.0000      0.0000
+
+
+
+ Dipole-length electric dipole transition moments   2 -> #:
+
+   #    Symmetry       eV         cm-1     mu_r(x)/D   mu_r(y)/D   mu_r(z)/D    |mu_r|/D     phi/deg   theta/deg
+   3     A   (1)    0.908736     7329.82   -0.000000   -0.178335   -0.000000    0.178335    -90.0000     90.0000
+   4     A   (1)    7.299539    58877.75    0.000001    0.000000   -3.010068    3.010068      0.0000    180.0000
+
+
+
+ Dipole-velocity electric dipole transition moments   2 -> #:
+
+   #    Symmetry       eV         cm-1     mu_p(x)/D   mu_p(y)/D   mu_p(z)/D    |mu_p|/D     phi/deg   theta/deg
+   3     A   (1)    0.908736     7329.82   -0.000000   -3.924356   -0.000000    3.924356    -90.0000     90.0000
+   4     A   (1)    7.299539    58877.75    0.000000    0.000000   -1.764795    1.764795      0.0000    180.0000
+
+
+
+ Magnetic dipole transition moments   2 -> #:
+
+   #    Symmetry       eV         cm-1      m(x)/iBM    m(y)/iBM    m(z)/iBM      |m|/BM     phi/deg   theta/deg
+   3     A   (1)    0.908736     7329.82    0.008761   -0.000000    0.000045    0.008761     -0.0000     89.7046
+   4     A   (1)    7.299539    58877.75   -0.000000   -0.000000   -0.000000    0.000000      0.0000      0.0000
+
+
+
+ Dipole-length electric dipole transition moments   3 -> #:
+
+   #    Symmetry       eV         cm-1     mu_r(x)/D   mu_r(y)/D   mu_r(z)/D    |mu_r|/D     phi/deg   theta/deg
+   4     A   (1)    6.390803    51547.93    0.000000    0.033169    0.000000    0.033169     90.0000     90.0000
+
+
+
+ Dipole-velocity electric dipole transition moments   3 -> #:
+
+   #    Symmetry       eV         cm-1     mu_p(x)/D   mu_p(y)/D   mu_p(z)/D    |mu_p|/D     phi/deg   theta/deg
+   4     A   (1)    6.390803    51547.93   -0.000000    0.135037    0.000000    0.135037     90.0000     90.0000
+
+
+
+ Magnetic dipole transition moments   3 -> #:
+
+   #    Symmetry       eV         cm-1      m(x)/iBM    m(y)/iBM    m(z)/iBM      |m|/BM     phi/deg   theta/deg
+   4     A   (1)    6.390803    51547.93   -0.347537   -0.000000    0.000008    0.347537   -180.0000     89.9986
+
+
+
+
+ CI HEAT OF FORMATION       176.76232 KCAL/MOL
+
+
+ SELECTED PROFILE  67 WITH EXPECTED EXECUTION TIME             0.028 SECONDS 
+ ESTIMATED NUMBER OF CPHF ITERATIONS PER VARIABLE:    11
+ MEMORY REQUIRED    :      3847 WORDS
+ ITERATIVE SOLVER STATISTICS:
+     CALLS TO SOLVER                                                1.
+     LINEAR EQUATIONS SOLVED                                        1.
+     ITERATIONS MADE                                                6.
+     MAXIMUM ITERATIONS MADE FOR A BATCH OF RHS                     6.
+     RESPONSE VECTORS COMPUTED                                      6.
+     AVERAGE RESPONSE VECTORS PER VARIABLE                   6.0000000
+     BASIS VECTORS REJECTED BY SVD                                  0.
+     BASIS VECTORS REMOVED DUE TO MEMORY CONSTRAINTS                0.
+     MAXIMUM NUMBER OF BASIS VECTORS USED                           6.
+
+
+
+     TIME FOR ENERGY EVALUATION       0.003 SECONDS
+     TIME FOR GRADIENT EVALUATION     0.003 SECONDS
+
+
+
+                          COORDINATES (ANGSTROM)               GRADIENTS (KCAL/(MOL*ANGSTROM))
+
+        I   NI          X           Y           Z                X           Y           Z
+
+        1    6        0.00000     0.00000     0.00001         -0.05580    -0.00000  -112.37916
+        2    7        0.00000     0.00000     1.34992         -0.16311     0.00000    77.63958
+        3    1        0.94310     0.00000    -0.54460         -1.94855     0.00000     4.53383
+        4    1        0.94310     0.00000     1.87940         44.51076     0.00000    12.95765
+        5    1       -0.94310     0.00000     1.87850        -44.29249    -0.00000    12.71474
+        6    1       -0.94310     0.00000    -0.54460          1.94919    -0.00000     4.53336
+
+
+     CARTESIAN GRADIENT NORM                151.58598
+
+
+
+     GRADIENT CONTRIBUTIONS TO EXTERNAL POINT CHARGES
+
+                          COORDINATES (ANGSTROM)               GRADIENTS (KCAL/(MOL*ANGSTROM))
+
+        K    I          X           Y           Z                X           Y           Z
+
+        7    1        0.00000     1.00000     0.00000          0.00000     0.00000     0.00000
+
+
+     CARTESIAN QM+MM GRADIENT NORM          151.58598
+
+
+
+     GRADIENTS FOR GEOMETRY OPTIMIZATION
+
+        I   LOCATION             VARIABLE    GRADIENT
+
+        1    1    1               0.00000    -0.05580
+        2    1    2               0.00000    -0.00000
+        3    1    3               0.00001  -112.37916
+        4    2    1               0.00000    -0.16311
+        5    2    2               0.00000     0.00000
+        6    2    3               1.34992    77.63958
+        7    3    1               0.94310    -1.94855
+        8    3    2               0.00000     0.00000
+        9    3    3              -0.54460     4.53383
+       10    4    1               0.94310    44.51076
+       11    4    2               0.00000     0.00000
+       12    4    3               1.87940    12.95765
+       13    5    1              -0.94310   -44.29249
+       14    5    2               0.00000    -0.00000
+       15    5    3               1.87850    12.71474
+       16    6    1              -0.94310     1.94919
+       17    6    2               0.00000    -0.00000
+       18    6    3              -0.54460     4.53336
+
+
+     GRADIENT NORM                          151.58598
+
+
+
+
+ -----------------------------------------------------------------------
+ CI CALCULATION FOR STATE:  2
+ -----------------------------------------------------------------------
+
+ CI HEAT OF FORMATION       176.76232 KCAL/MOL
+
+
+ SELECTED PROFILE  67 WITH EXPECTED EXECUTION TIME             0.028 SECONDS 
+ ESTIMATED NUMBER OF CPHF ITERATIONS PER VARIABLE:    11
+ MEMORY REQUIRED    :      3847 WORDS
+ ITERATIVE SOLVER STATISTICS:
+     CALLS TO SOLVER                                                1.
+     LINEAR EQUATIONS SOLVED                                        1.
+     ITERATIONS MADE                                                7.
+     MAXIMUM ITERATIONS MADE FOR A BATCH OF RHS                     7.
+     RESPONSE VECTORS COMPUTED                                      7.
+     AVERAGE RESPONSE VECTORS PER VARIABLE                   7.0000000
+     BASIS VECTORS REJECTED BY SVD                                  0.
+     BASIS VECTORS REMOVED DUE TO MEMORY CONSTRAINTS                0.
+     MAXIMUM NUMBER OF BASIS VECTORS USED                           7.
+     TIME FOR GRADIENT EVALUATION     0.003 SECONDS
+
+
+
+                          COORDINATES (ANGSTROM)               GRADIENTS (KCAL/(MOL*ANGSTROM))
+
+        I   NI          X           Y           Z                X           Y           Z
+
+        1    6        0.00000     0.00000     0.00001         -0.05642    -0.00000   167.91879
+        2    7        0.00000     0.00000     1.34992         -0.16010    -0.00000  -207.10569
+        3    1        0.94310     0.00000    -0.54460         -5.40078     0.00000     5.23837
+        4    1        0.94310     0.00000     1.87940         47.54438     0.00000    14.47770
+        5    1       -0.94310     0.00000     1.87850        -47.32873     0.00000    14.23285
+        6    1       -0.94310     0.00000    -0.54460          5.40165     0.00000     5.23797
+
+
+     CARTESIAN GRADIENT NORM                275.89019
+
+
+
+     GRADIENT CONTRIBUTIONS TO EXTERNAL POINT CHARGES
+
+                          COORDINATES (ANGSTROM)               GRADIENTS (KCAL/(MOL*ANGSTROM))
+
+        K    I          X           Y           Z                X           Y           Z
+
+        7    1        0.00000     1.00000     0.00000          0.00000     0.00000     0.00000
+
+
+     CARTESIAN QM+MM GRADIENT NORM          275.89019
+
+
+
+     GRADIENTS FOR GEOMETRY OPTIMIZATION
+
+        I   LOCATION             VARIABLE    GRADIENT
+
+        1    1    1               0.00000    -0.05642
+        2    1    2               0.00000    -0.00000
+        3    1    3               0.00001   167.91879
+        4    2    1               0.00000    -0.16010
+        5    2    2               0.00000    -0.00000
+        6    2    3               1.34992  -207.10569
+        7    3    1               0.94310    -5.40078
+        8    3    2               0.00000     0.00000
+        9    3    3              -0.54460     5.23837
+       10    4    1               0.94310    47.54438
+       11    4    2               0.00000     0.00000
+       12    4    3               1.87940    14.47770
+       13    5    1              -0.94310   -47.32873
+       14    5    2               0.00000     0.00000
+       15    5    3               1.87850    14.23285
+       16    6    1              -0.94310     5.40165
+       17    6    2               0.00000     0.00000
+       18    6    3              -0.54460     5.23797
+
+
+     GRADIENT NORM                          275.89019
+
+
+
+
+ -----------------------------------------------------------------------
+ CI CALCULATION FOR STATE:  4
+ -----------------------------------------------------------------------
+
+ CI HEAT OF FORMATION       176.76232 KCAL/MOL
+
+
+ SELECTED PROFILE  67 WITH EXPECTED EXECUTION TIME             0.028 SECONDS 
+ ESTIMATED NUMBER OF CPHF ITERATIONS PER VARIABLE:    11
+ MEMORY REQUIRED    :      3847 WORDS
+ ITERATIVE SOLVER STATISTICS:
+     CALLS TO SOLVER                                                1.
+     LINEAR EQUATIONS SOLVED                                        1.
+     ITERATIONS MADE                                                7.
+     MAXIMUM ITERATIONS MADE FOR A BATCH OF RHS                     7.
+     RESPONSE VECTORS COMPUTED                                      7.
+     AVERAGE RESPONSE VECTORS PER VARIABLE                   7.0000000
+     BASIS VECTORS REJECTED BY SVD                                  0.
+     BASIS VECTORS REMOVED DUE TO MEMORY CONSTRAINTS                0.
+     MAXIMUM NUMBER OF BASIS VECTORS USED                           7.
+     TIME FOR GRADIENT EVALUATION     0.003 SECONDS
+
+
+
+                          COORDINATES (ANGSTROM)               GRADIENTS (KCAL/(MOL*ANGSTROM))
+
+        I   NI          X           Y           Z                X           Y           Z
+
+        1    6        0.00000     0.00000     0.00001         -0.04981    -0.00000   253.22360
+        2    7        0.00000     0.00000     1.34992         -0.19180     0.00000  -240.54176
+        3    1        0.94310     0.00000    -0.54460         24.44662     0.00000    -8.03763
+        4    1        0.94310     0.00000     1.87940         11.63904    -0.00000     1.80436
+        5    1       -0.94310     0.00000     1.87850        -11.39841     0.00000     1.59004
+        6    1       -0.94310     0.00000    -0.54460        -24.44565    -0.00000    -8.03862
+
+
+     CARTESIAN GRADIENT NORM                351.53691
+
+
+
+     GRADIENT CONTRIBUTIONS TO EXTERNAL POINT CHARGES
+
+                          COORDINATES (ANGSTROM)               GRADIENTS (KCAL/(MOL*ANGSTROM))
+
+        K    I          X           Y           Z                X           Y           Z
+
+        7    1        0.00000     1.00000     0.00000          0.00000     0.00000     0.00000
+
+
+     CARTESIAN QM+MM GRADIENT NORM          351.53691
+
+
+
+     GRADIENTS FOR GEOMETRY OPTIMIZATION
+
+        I   LOCATION             VARIABLE    GRADIENT
+
+        1    1    1               0.00000    -0.04981
+        2    1    2               0.00000    -0.00000
+        3    1    3               0.00001   253.22360
+        4    2    1               0.00000    -0.19180
+        5    2    2               0.00000     0.00000
+        6    2    3               1.34992  -240.54176
+        7    3    1               0.94310    24.44662
+        8    3    2               0.00000     0.00000
+        9    3    3              -0.54460    -8.03763
+       10    4    1               0.94310    11.63904
+       11    4    2               0.00000    -0.00000
+       12    4    3               1.87940     1.80436
+       13    5    1              -0.94310   -11.39841
+       14    5    2               0.00000     0.00000
+       15    5    3               1.87850     1.59004
+       16    6    1              -0.94310   -24.44565
+       17    6    2               0.00000    -0.00000
+       18    6    3              -0.54460    -8.03862
+
+
+     GRADIENT NORM                          351.53691
+
+
+
+
+
+ TIME FOR MULTIPLE CI RUNS        0.013 SECONDS
+
+
+ -----------------------------------------------------------------------
+ SUMMARY OF MULTIPLE CI CALCULATIONS
+
+                                  CARTESIAN     CARTESIAN    OPTIMIZING
+    I  STATE           ENERGY       QM NORM    QM+MM NORM          NORM
+
+    1    1          176.76232     151.58598     151.58598     151.58598
+    2    2          352.88020     275.89019     275.89019     275.89019
+    3    4          521.21487     351.53691     351.53691     351.53691
+ -----------------------------------------------------------------------
+
+
+
+
+ -----------------------------------------------------------------------
+ CI CALCULATION FOR INTERSTATE COUPLING OF STATES:  2   1
+ -----------------------------------------------------------------------
+
+ CI HEAT OF FORMATION       176.76232 KCAL/MOL
+
+
+ SELECTED PROFILE  67 WITH EXPECTED EXECUTION TIME             0.028 SECONDS 
+ ESTIMATED NUMBER OF CPHF ITERATIONS PER VARIABLE:    11
+ MEMORY REQUIRED    :      3847 WORDS
+ ITERATIVE SOLVER STATISTICS:
+     CALLS TO SOLVER                                                1.
+     LINEAR EQUATIONS SOLVED                                        1.
+     ITERATIONS MADE                                                5.
+     MAXIMUM ITERATIONS MADE FOR A BATCH OF RHS                     5.
+     RESPONSE VECTORS COMPUTED                                      5.
+     AVERAGE RESPONSE VECTORS PER VARIABLE                   5.0000000
+     BASIS VECTORS REJECTED BY SVD                                  0.
+     BASIS VECTORS REMOVED DUE TO MEMORY CONSTRAINTS                0.
+     MAXIMUM NUMBER OF BASIS VECTORS USED                           5.
+
+
+
+ NON-ADIABATIC COUPLING MATRIX ELEMENTS.
+
+ FIRST TERM.
+
+    1    0.000002   -0.000000    0.236846
+    2   -0.000005    0.000000   -0.228931
+    3    0.004655   -0.000000   -0.002063
+    4   -0.005865   -0.000000   -0.001897
+    5    0.005869   -0.000000   -0.001891
+    6   -0.004656    0.000000   -0.002063
+    7    0.000000    0.000000    0.000000
+
+ FIRST TERM PLUS SECOND TERM, FIRST PART.
+
+    1    0.000019    0.000000    0.002077
+    2   -0.000086    0.000000    0.133884
+    3    0.080474   -0.000000   -0.032864
+    4   -0.093234   -0.000000   -0.035155
+    5    0.093302   -0.000000   -0.035077
+    6   -0.080475   -0.000000   -0.032866
+    7    0.000000    0.000000    0.000000
+
+ SECOND TERM, SECOND PART.
+
+    1    0.000000    0.000000    0.220436
+    2    0.000000   -0.000000    0.220436
+    3   -0.000000   -0.000000   -0.000000
+    4    0.000000   -0.000000    0.000000
+    5   -0.000000    0.000000   -0.000000
+    6    0.000000    0.000000   -0.000000
+    7    0.000000    0.000000    0.000000
+
+ COMPLETE EXPRESSION.
+
+    1    0.000019    0.000000    0.222513
+    2   -0.000086    0.000000    0.354320
+    3    0.080474   -0.000000   -0.032864
+    4   -0.093234   -0.000000   -0.035155
+    5    0.093302   -0.000000   -0.035077
+    6   -0.080475   -0.000000   -0.032866
+    7    0.000000    0.000000    0.000000
+
+
+
+     TIME FOR GRADIENT EVALUATION     0.006 SECONDS
+
+
+
+                          COORDINATES (ANGSTROM)               GRADIENTS (KCAL/(MOL*ANGSTROM))
+
+        I   NI          X           Y           Z                X           Y           Z
+
+        1    6        0.00000     0.00000     0.00001          0.00002     0.00000     0.22251
+        2    7        0.00000     0.00000     1.34992         -0.00009     0.00000     0.35432
+        3    1        0.94310     0.00000    -0.54460          0.08047    -0.00000    -0.03286
+        4    1        0.94310     0.00000     1.87940         -0.09323    -0.00000    -0.03515
+        5    1       -0.94310     0.00000     1.87850          0.09330    -0.00000    -0.03508
+        6    1       -0.94310     0.00000    -0.54460         -0.08048    -0.00000    -0.03287
+
+
+     CARTESIAN GRADIENT NORM                  0.45829
+
+
+
+     GRADIENT CONTRIBUTIONS TO EXTERNAL POINT CHARGES
+
+                          COORDINATES (ANGSTROM)               GRADIENTS (KCAL/(MOL*ANGSTROM))
+
+        K    I          X           Y           Z                X           Y           Z
+
+        7    1        0.00000     1.00000     0.00000          0.00000     0.00000     0.00000
+
+
+     CARTESIAN QM+MM GRADIENT NORM            0.45829
+
+
+
+     GRADIENTS FOR GEOMETRY OPTIMIZATION
+
+        I   LOCATION             VARIABLE    GRADIENT
+
+        1    1    1               0.00000     0.00002
+        2    1    2               0.00000     0.00000
+        3    1    3               0.00001     0.22251
+        4    2    1               0.00000    -0.00009
+        5    2    2               0.00000     0.00000
+        6    2    3               1.34992     0.35432
+        7    3    1               0.94310     0.08047
+        8    3    2               0.00000    -0.00000
+        9    3    3              -0.54460    -0.03286
+       10    4    1               0.94310    -0.09323
+       11    4    2               0.00000    -0.00000
+       12    4    3               1.87940    -0.03515
+       13    5    1              -0.94310     0.09330
+       14    5    2               0.00000    -0.00000
+       15    5    3               1.87850    -0.03508
+       16    6    1              -0.94310    -0.08048
+       17    6    2               0.00000    -0.00000
+       18    6    3              -0.54460    -0.03287
+
+
+     GRADIENT NORM                            0.45829
+
+
+
+
+ -----------------------------------------------------------------------
+ CI CALCULATION FOR INTERSTATE COUPLING OF STATES:  4   1
+ -----------------------------------------------------------------------
+
+ CI HEAT OF FORMATION       176.76232 KCAL/MOL
+
+
+ SELECTED PROFILE  67 WITH EXPECTED EXECUTION TIME             0.028 SECONDS 
+ ESTIMATED NUMBER OF CPHF ITERATIONS PER VARIABLE:    11
+ MEMORY REQUIRED    :      3847 WORDS
+ ITERATIVE SOLVER STATISTICS:
+     CALLS TO SOLVER                                                1.
+     LINEAR EQUATIONS SOLVED                                        1.
+     ITERATIONS MADE                                                7.
+     MAXIMUM ITERATIONS MADE FOR A BATCH OF RHS                     7.
+     RESPONSE VECTORS COMPUTED                                      7.
+     AVERAGE RESPONSE VECTORS PER VARIABLE                   7.0000000
+     BASIS VECTORS REJECTED BY SVD                                  0.
+     BASIS VECTORS REMOVED DUE TO MEMORY CONSTRAINTS                0.
+     MAXIMUM NUMBER OF BASIS VECTORS USED                           7.
+
+
+
+ NON-ADIABATIC COUPLING MATRIX ELEMENTS.
+
+ FIRST TERM.
+
+    1    0.000005   -0.000000    0.202357
+    2   -0.000021   -0.000000   -0.169299
+    3    0.020176    0.000000   -0.007926
+    4   -0.023435    0.000000   -0.008613
+    5    0.023452    0.000000   -0.008593
+    6   -0.020177    0.000000   -0.007927
+    7    0.000000    0.000000    0.000000
+
+ FIRST TERM PLUS SECOND TERM, FIRST PART.
+
+    1   -0.000001   -0.000000    0.287689
+    2    0.000008   -0.000000   -0.301172
+    3   -0.007382    0.000000    0.003269
+    4    0.008320   -0.000000    0.003476
+    5   -0.008327    0.000000    0.003469
+    6    0.007381    0.000000    0.003269
+    7    0.000000    0.000000    0.000000
+
+ SECOND TERM, SECOND PART.
+
+    1   -0.000000    0.000000   -0.080122
+    2    0.000000   -0.000000   -0.080122
+    3    0.000000    0.000000   -0.000000
+    4    0.000000    0.000000   -0.000000
+    5   -0.000000   -0.000000    0.000000
+    6   -0.000000   -0.000000    0.000000
+    7    0.000000    0.000000    0.000000
+
+ COMPLETE EXPRESSION.
+
+    1   -0.000001   -0.000000    0.207567
+    2    0.000008   -0.000000   -0.381294
+    3   -0.007382    0.000000    0.003269
+    4    0.008320   -0.000000    0.003476
+    5   -0.008327    0.000000    0.003469
+    6    0.007381    0.000000    0.003269
+    7    0.000000    0.000000    0.000000
+
+
+
+     TIME FOR GRADIENT EVALUATION     0.006 SECONDS
+
+
+
+                          COORDINATES (ANGSTROM)               GRADIENTS (KCAL/(MOL*ANGSTROM))
+
+        I   NI          X           Y           Z                X           Y           Z
+
+        1    6        0.00000     0.00000     0.00001         -0.00000    -0.00000     0.20757
+        2    7        0.00000     0.00000     1.34992          0.00001    -0.00000    -0.38129
+        3    1        0.94310     0.00000    -0.54460         -0.00738     0.00000     0.00327
+        4    1        0.94310     0.00000     1.87940          0.00832    -0.00000     0.00348
+        5    1       -0.94310     0.00000     1.87850         -0.00833     0.00000     0.00347
+        6    1       -0.94310     0.00000    -0.54460          0.00738     0.00000     0.00327
+
+
+     CARTESIAN GRADIENT NORM                  0.43447
+
+
+
+     GRADIENT CONTRIBUTIONS TO EXTERNAL POINT CHARGES
+
+                          COORDINATES (ANGSTROM)               GRADIENTS (KCAL/(MOL*ANGSTROM))
+
+        K    I          X           Y           Z                X           Y           Z
+
+        7    1        0.00000     1.00000     0.00000          0.00000     0.00000     0.00000
+
+
+     CARTESIAN QM+MM GRADIENT NORM            0.43447
+
+
+
+     GRADIENTS FOR GEOMETRY OPTIMIZATION
+
+        I   LOCATION             VARIABLE    GRADIENT
+
+        1    1    1               0.00000    -0.00000
+        2    1    2               0.00000    -0.00000
+        3    1    3               0.00001     0.20757
+        4    2    1               0.00000     0.00001
+        5    2    2               0.00000    -0.00000
+        6    2    3               1.34992    -0.38129
+        7    3    1               0.94310    -0.00738
+        8    3    2               0.00000     0.00000
+        9    3    3              -0.54460     0.00327
+       10    4    1               0.94310     0.00832
+       11    4    2               0.00000    -0.00000
+       12    4    3               1.87940     0.00348
+       13    5    1              -0.94310    -0.00833
+       14    5    2               0.00000     0.00000
+       15    5    3               1.87850     0.00347
+       16    6    1              -0.94310     0.00738
+       17    6    2               0.00000     0.00000
+       18    6    3              -0.54460     0.00327
+
+
+     GRADIENT NORM                            0.43447
+
+
+
+
+ -----------------------------------------------------------------------
+ CI CALCULATION FOR INTERSTATE COUPLING OF STATES:  4   2
+ -----------------------------------------------------------------------
+
+ CI HEAT OF FORMATION       176.76232 KCAL/MOL
+
+
+ SELECTED PROFILE  67 WITH EXPECTED EXECUTION TIME             0.028 SECONDS 
+ ESTIMATED NUMBER OF CPHF ITERATIONS PER VARIABLE:    11
+ MEMORY REQUIRED    :      3847 WORDS
+ ITERATIVE SOLVER STATISTICS:
+     CALLS TO SOLVER                                                1.
+     LINEAR EQUATIONS SOLVED                                        1.
+     ITERATIONS MADE                                                6.
+     MAXIMUM ITERATIONS MADE FOR A BATCH OF RHS                     6.
+     RESPONSE VECTORS COMPUTED                                      6.
+     AVERAGE RESPONSE VECTORS PER VARIABLE                   6.0000000
+     BASIS VECTORS REJECTED BY SVD                                  0.
+     BASIS VECTORS REMOVED DUE TO MEMORY CONSTRAINTS                0.
+     MAXIMUM NUMBER OF BASIS VECTORS USED                           6.
+
+
+
+ NON-ADIABATIC COUPLING MATRIX ELEMENTS.
+
+ FIRST TERM.
+
+    1    0.000005   -0.000000   -0.632663
+    2   -0.000009   -0.000000    0.645380
+    3    0.011391   -0.000000   -0.001943
+    4   -0.010907   -0.000000   -0.004420
+    5    0.010914   -0.000000   -0.004410
+    6   -0.011394   -0.000000   -0.001943
+    7    0.000000    0.000000    0.000000
+
+ FIRST TERM PLUS SECOND TERM, FIRST PART.
+
+    1    0.000019    0.000000   -0.820106
+    2   -0.000074    0.000000    0.935057
+    3    0.071926   -0.000000   -0.026534
+    4   -0.080664   -0.000000   -0.030974
+    5    0.080722    0.000000   -0.030906
+    6   -0.071929   -0.000000   -0.026536
+    7    0.000000    0.000000    0.000000
+
+ SECOND TERM, SECOND PART.
+
+    1    0.000000   -0.000000    0.175999
+    2    0.000000    0.000000    0.175999
+    3   -0.000000   -0.000000    0.000000
+    4    0.000000    0.000000    0.000000
+    5   -0.000000    0.000000   -0.000000
+    6   -0.000000   -0.000000    0.000000
+    7    0.000000    0.000000    0.000000
+
+ COMPLETE EXPRESSION.
+
+    1    0.000019    0.000000   -0.644107
+    2   -0.000074    0.000000    1.111056
+    3    0.071926   -0.000000   -0.026534
+    4   -0.080664   -0.000000   -0.030974
+    5    0.080722    0.000000   -0.030906
+    6   -0.071929   -0.000000   -0.026536
+    7    0.000000    0.000000    0.000000
+
+
+
+     TIME FOR GRADIENT EVALUATION     0.006 SECONDS
+
+
+
+                          COORDINATES (ANGSTROM)               GRADIENTS (KCAL/(MOL*ANGSTROM))
+
+        I   NI          X           Y           Z                X           Y           Z
+
+        1    6        0.00000     0.00000     0.00001          0.00002     0.00000    -0.64411
+        2    7        0.00000     0.00000     1.34992         -0.00007     0.00000     1.11106
+        3    1        0.94310     0.00000    -0.54460          0.07193    -0.00000    -0.02653
+        4    1        0.94310     0.00000     1.87940         -0.08066    -0.00000    -0.03097
+        5    1       -0.94310     0.00000     1.87850          0.08072     0.00000    -0.03091
+        6    1       -0.94310     0.00000    -0.54460         -0.07193    -0.00000    -0.02654
+
+
+     CARTESIAN GRADIENT NORM                  1.29461
+
+
+
+     GRADIENT CONTRIBUTIONS TO EXTERNAL POINT CHARGES
+
+                          COORDINATES (ANGSTROM)               GRADIENTS (KCAL/(MOL*ANGSTROM))
+
+        K    I          X           Y           Z                X           Y           Z
+
+        7    1        0.00000     1.00000     0.00000          0.00000     0.00000     0.00000
+
+
+     CARTESIAN QM+MM GRADIENT NORM            1.29461
+
+
+
+     GRADIENTS FOR GEOMETRY OPTIMIZATION
+
+        I   LOCATION             VARIABLE    GRADIENT
+
+        1    1    1               0.00000     0.00002
+        2    1    2               0.00000     0.00000
+        3    1    3               0.00001    -0.64411
+        4    2    1               0.00000    -0.00007
+        5    2    2               0.00000     0.00000
+        6    2    3               1.34992     1.11106
+        7    3    1               0.94310     0.07193
+        8    3    2               0.00000    -0.00000
+        9    3    3              -0.54460    -0.02653
+       10    4    1               0.94310    -0.08066
+       11    4    2               0.00000    -0.00000
+       12    4    3               1.87940    -0.03097
+       13    5    1              -0.94310     0.08072
+       14    5    2               0.00000     0.00000
+       15    5    3               1.87850    -0.03091
+       16    6    1              -0.94310    -0.07193
+       17    6    2               0.00000    -0.00000
+       18    6    3              -0.54460    -0.02654
+
+
+     GRADIENT NORM                            1.29461
+
+
+
+
+
+ TIME FOR INTERSTATE CI RUNS       0.018 SECONDS
+
+
+ -----------------------------------------------------------------------
+ SUMMARY OF INTERSTATE COUPLING CALCULATIONS
+
+         STATES                   CARTESIAN     CARTESIAN    OPTIMIZING
+   IJ    I    J                     QM NORM    QM+MM NORM          NORM
+
+    1    2    1                     0.45829       0.45829       0.45829
+    2    4    1                     0.43447       0.43447       0.43447
+    3    4    2                     1.29461       1.29461       1.29461
+ -----------------------------------------------------------------------
+
+
+
+ COMPUTATION TIME                 0.031 SECONDS
+
+
