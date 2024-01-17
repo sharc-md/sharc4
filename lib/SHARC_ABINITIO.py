@@ -15,8 +15,8 @@ from itertools import starmap
 import numpy as np
 from qmin import QMin
 from SHARC_INTERFACE import SHARC_INTERFACE
-from utils import containsstring, readfile, safe_cast, link, writefile, shorten_DIR, mkdir, itmult, convert_list, is_exec, theo_float, IToMult
-from constants import ATOMIC_RADII, MK_RADII
+from utils import containsstring, readfile, safe_cast, link, writefile, shorten_DIR, mkdir, itmult, convert_list, is_exec
+from constants import ATOMIC_RADII, MK_RADII, IToMult
 from resp import Resp
 from asa_grid import GRIDS
 
@@ -760,13 +760,13 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             s = line.replace("(", " ").replace(")", " ").split()
             if len(s) == 0:
                 continue
-            n = int(re.search('([0-9]+)', s[0]).groups()[0])
-            m = re.search('([a-zA-Z]+)', s[0]).groups()[0]
+            n = int(re.search("([0-9]+)", s[0]).groups()[0])
+            m = re.search("([a-zA-Z]+)", s[0]).groups()[0]
             for i in IToMult:
                 if isinstance(i, str) and m in i:
                     m = IToMult[i]
                     break
-            props[(m, n + (m == 1))] = [safe_cast(i, float, 0.0) for i in s[4:]]
+            props[(m, n + (m == 1))] = [safe_cast(i, float, 0.0) for i in s[3:]]
 
         out = readfile(omffile)
 
@@ -774,13 +774,13 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             s = line.replace("(", " ").replace(")", " ").split()
             if len(s) == 0:
                 continue
-            n = int(re.search('([0-9]+)', s[0]).groups()[0])
-            m = re.search('([a-zA-Z]+)', s[0]).groups()[0]
+            n = int(re.search("([0-9]+)", s[0]).groups()[0])
+            m = re.search("([a-zA-Z]+)", s[0]).groups()[0]
             for i in IToMult:
                 if isinstance(i, str) and m in i:
                     m = IToMult[i]
                     break
-            props[(m, n + (m == 1))].extend([safe_cast(i, float, 0.0) for i in s[4:]])
+            props[(m, n + (m == 1))].extend([safe_cast(i, float, 0.0) for i in s[2:]])
         return props
 
     def _run_theodore(self) -> None:

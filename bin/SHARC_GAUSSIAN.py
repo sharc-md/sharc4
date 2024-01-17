@@ -1721,6 +1721,8 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                 sumfile = os.path.join(self.QMin.resources["scratchdir"], f"master_{job}", "tden_summ.txt")
                 omffile = os.path.join(self.QMin.resources["scratchdir"], f"master_{job}", "OmFrag.txt")
                 props = self.get_theodore(sumfile, omffile)
+                # self.log.debug(f"{len(props)} {props}")
+                # self.log.debug(f"{theodore_arr.shape}")
                 for i in range(nmstates):
                     m1, s1, ms1 = tuple(self.QMin.maps["statemap"][i + 1])
                     if (m1, s1) in props:
@@ -1728,6 +1730,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                             len(self.QMin.resources["theodore_prop"])
                             + len(self.QMin.resources["theodore_fragment"]) ** 2
                         ):
+                            self.log.debug(f"{m1} {s1}: {i} {j} {len(props[(m1,s1)])}")
                             theodore_arr[i, j] = props[(m1, s1)][j]
 
         if self.QMin.requests["theodore"]:
