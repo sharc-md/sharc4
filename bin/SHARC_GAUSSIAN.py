@@ -1701,6 +1701,12 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
 
         # TheoDORE
         if self.QMin.requests["theodore"]:
+            theodore_arr = np.zeros(
+                (
+                    self.QMin.molecule["nmstates"],
+                    len(self.QMin.resources["theodore_prop"]) + len(self.QMin.resources["theodore_fragment"]) ** 2,
+                )
+            )
             for job in joblist:
                 if not self.QMin.control["jobs"][job]["restr"]:
                     continue
@@ -1718,8 +1724,14 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                 for i in range(nmstates):
                     m1, s1, ms1 = tuple(self.QMin.maps["statemap"][i + 1])
                     if (m1, s1) in props:
-                        for j in range(self.QMin.resources["theodore_n"]):
-                            self.QMout["theodore"][i][j] = props[(m1, s1)][j]
+                        for j in range(
+                            len(self.QMin.resources["theodore_prop"])
+                            + len(self.QMin.resources["theodore_fragment"]) ** 2
+                        ):
+                            theodore_arr[i, j] = props[(m1, s1)][j]
+
+        if self.QMin.requests["theodore"]:
+            self.QMout["prop2d"].append(("theodore", theodore_arr))
 
         endtime = datetime.datetime.now()
         self.log.print(f"Readout Runtime: {endtime - starttime}")
