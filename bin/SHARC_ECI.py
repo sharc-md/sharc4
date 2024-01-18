@@ -52,7 +52,21 @@ class SHARC_ECI(SHARC_HYBRID):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.QMin.template.data.update({"fragments": None, "charge": None, "calculation": None})
+        self.QMin.template.data.update(
+            {
+                "fragments": None,
+                "charge": None,
+                "calculation": {
+                    "EHF": True,
+                    "EHF_maxcycle": 20,
+                    "tQ": 1e-4,
+                    "t0": 0.95,
+                    "read_site_states": False,
+                    "ri": False,
+                    "auxbasis": "def2-svp-jkfit",
+                },
+            }
+        )
         self.QMin.template.types.update({"fragments": dict, "charge": list, "calculation": dict})
 
         self._calculation_types = {
@@ -136,10 +150,6 @@ class SHARC_ECI(SHARC_HYBRID):
             raise ValueError()
 
         # Validate calculation
-        if self.QMin.template["calculation"] is None:
-            self.log.error(f"No calculation parameters defined in {template_file}!")
-            raise ValueError()
-
         for k, v in self.QMin.template["calculation"].items():
             if not isinstance(v, self._calculation_types[k]):
                 expected_type = (
