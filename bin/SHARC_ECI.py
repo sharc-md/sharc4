@@ -148,7 +148,7 @@ class SHARC_ECI(SHARC_HYBRID):
         if self.QMin.template["charge"] is None:
             self.log.error(f"No charges specified in {template_file}!")
             raise ValueError()
-        if not all(map(lambda x: isinstance(x, int), self.QMin.template["charge"])):
+        if not all(isinstance(val, int) for val in self.QMin.template["charge"]):
             self.log.error("Charge list must contain integers!")
             raise ValueError()
 
@@ -220,7 +220,7 @@ class SHARC_ECI(SHARC_HYBRID):
                 if not isinstance(k, int) or not isinstance(v, list):
                     self.log.error(f"site_state dictionary in fragment {frag} must contain integer keys and list values!")
                     raise ValueError()
-                if not all(map(lambda x: isinstance(x, int), v)):
+                if not all(isinstance(val, int) for val in v):
                     self.log.error(f"Values of site_state values lists in fragment {frag} must be integer!")
                     raise ValueError()
 
@@ -228,7 +228,7 @@ class SHARC_ECI(SHARC_HYBRID):
                 if not isinstance(key["embedding_site_state"], dict):
                     self.log.error(f"embedding_site_state in fragment {frag} must be a dictionary!")
                     raise ValueError()
-                if not all(map(lambda x: isinstance(x, int), key["embedding_site_state"].keys())):
+                if not all(isinstance(val, int) for val in key["embedding_site_state"].keys()):
                     self.log.error(f"Keys in embedding_site_state dictionary in fragment {frag} must be integer!")
                     raise ValueError()
                 for embeddings in key["embedding_site_state"].values():
@@ -244,7 +244,7 @@ class SHARC_ECI(SHARC_HYBRID):
         """
         if not isinstance(zmn_dict, dict) or zmn_dict.keys() != {"Z", "M", "N"}:
             return False
-        if not all(map(lambda x: isinstance(x, int), zmn_dict.values())):
+        if not all(isinstance(val, int) for val in zmn_dict.values()):
             return False
         return True
 
