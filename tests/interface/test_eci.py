@@ -31,6 +31,7 @@ def test_template2():
         "template13",
         "template14",
         "template15",
+        "template17"
     ]
 
     for t in tests:
