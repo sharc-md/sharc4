@@ -148,6 +148,9 @@ class SHARC_ECI(SHARC_HYBRID):
         if self.QMin.template["charge"] is None:
             self.log.error(f"No charges specified in {template_file}!")
             raise ValueError()
+        if not all(map(lambda x: isinstance(x, int), self.QMin.template["charge"])):
+            self.log.error("Charge list must contain integers!")
+            raise ValueError()
 
         # Validate calculation
         for k, v in self.QMin.template["calculation"].items():
