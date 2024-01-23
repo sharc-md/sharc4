@@ -87,6 +87,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 "savedir": None,
                 "always_orb_init": False,
                 "always_guess": False,
+                "dry_run": False
             }
         )
         self.QMin.resources.types.update(
@@ -99,6 +100,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 "savedir": str,
                 "always_orb_init": bool,
                 "always_guess": bool,
+                "dry_run": bool
             }
         )
 
@@ -938,7 +940,8 @@ class SHARC_ORCA(SHARC_ABINITIO):
         self._gen_schedule()
 
         self.log.debug("Execute schedule")
-        self.runjobs(self.QMin.scheduling["schedule"])
+        if not self.QMin.resources["dry_run"]:
+            self.runjobs(self.QMin.scheduling["schedule"])
 
         # Run theodore
         if self.QMin.requests["theodore"]:
