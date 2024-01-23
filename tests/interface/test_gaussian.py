@@ -98,6 +98,7 @@ def test_schedule():
                     "neglected_gradient": "zero",
                     "dry_run": False,
                     "debug": False,
+                    "min_cpu": 1
                 },
                 "maps": {
                     "statemap": {
@@ -187,6 +188,7 @@ def test_schedule():
                     "neglected_gradient": "zero",
                     "dry_run": False,
                     "debug": False,
+                    "min_cpu": 1
                 },
                 "maps": {
                     "statemap": {
@@ -278,6 +280,7 @@ def test_schedule():
                     "neglected_gradient": "zero",
                     "dry_run": False,
                     "debug": False,
+                    "min_cpu": 1
                 },
                 "maps": {
                     "statemap": {
@@ -367,6 +370,7 @@ def test_schedule():
                     "neglected_gradient": "zero",
                     "dry_run": False,
                     "debug": False,
+                    "min_cpu": 1
                 },
                 "maps": {
                     "statemap": {
@@ -456,6 +460,7 @@ def test_schedule():
                     "neglected_gradient": "zero",
                     "dry_run": False,
                     "debug": False,
+                    "min_cpu": 1
                 },
                 "maps": {
                     "statemap": {
