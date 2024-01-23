@@ -486,7 +486,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             ncores = ncpu // i
             optimal[i] = nrounds / 1.0 / ((1 - scaling) + scaling / ncores)
         best = min(optimal, key=optimal.get)
-        nrounds = int(math.ceil(float(ntasks) // best))
+        nrounds = int(math.ceil(ntasks / best))
         ncores = ncpu // best
 
         cpu_per_run = [0] * ntasks
