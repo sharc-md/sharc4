@@ -140,6 +140,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                 "neglected_gradient": "zero",
                 "dry_run": False,
                 "debug": False,
+                "min_cpu": 1,
             }
         )
 
@@ -152,6 +153,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                 "neglected_gradient": str,
                 "dry_run": bool,
                 "debug": bool,
+                "min_cpu": int,
             }
         )
 
@@ -565,7 +567,9 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         for i in gradjob:
             if "master" in i:
                 ntasks += 1
-        _, nslots, cpu_per_run = self.divide_slots(self.QMin.resources["ncpu"], ntasks, self.QMin.resources["schedule_scaling"])
+        _, nslots, cpu_per_run = self.divide_slots(self.QMin.resources["ncpu"], ntasks, self.QMin.resources["schedule_scaling"],
+                                                   min_cpu=self.QMin.resources["min_cpu"])
+        self.log.debug(f"slots for master: {nslots} {cpu_per_run}")
         memory_per_core = self.QMin.resources["memory"] // self.QMin.resources["ncpu"]
         self.QMin.control["nslots_pool"].append(nslots)
         schedule.append({})
@@ -579,6 +583,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                 QMin1.maps["gradmap"] = set(gradjob[i])
                 QMin1.resources["ncpu"] = cpu_per_run[icount]
                 QMin1.resources["memory"] = memory_per_core * cpu_per_run[icount]
+                self.log.debug(f"adding to schedule: {i} with {cpu_per_run[icount]} and {memory_per_core * cpu_per_run[icount]}")
                 # get the rootstate for the multiplicity as the first excited state
                 QMin1.control["rootstate"] = min(
                     1, self.QMin.molecule["states"][self.QMin.maps["multmap"][-QMin1.control["jobid"]][-1] - 1] - 1
@@ -603,8 +608,9 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                 ntasks += 1
         if ntasks > 0:
             _, nslots, cpu_per_run = self.divide_slots(
-                self.QMin.resources["ncpu"], ntasks, self.QMin.resources["schedule_scaling"]
+                self.QMin.resources["ncpu"], ntasks, self.QMin.resources["schedule_scaling"], min_cpu=self.QMin.resources["min_cpu"]
             )
+            self.log.debug(f"slots for grad: {nslots} {cpu_per_run}")
             self.QMin.control["nslots_pool"].append(nslots)
             schedule.append({})
             icount = 0
@@ -623,6 +629,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                     QMin1.maps["gradmap"] = set(gradjob[i])
                     QMin1.resources["ncpu"] = cpu_per_run[icount]
                     QMin1.resources["memory"] = memory_per_core * cpu_per_run[icount]
+                    self.log.debug(f"adding to schedule: {i} with {cpu_per_run[icount]} and {memory_per_core * cpu_per_run[icount]}")
                     QMin1.control["gradonly"] = True
                     QMin1.control["rootstate"] = state - 1 if gsmult == mult else state  # 1 is first excited state of mult
                     icount += 1

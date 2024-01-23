@@ -472,14 +472,14 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         return error_codes
 
     @staticmethod
-    def divide_slots(ncpu: int, ntasks: int, scaling: float) -> tuple[int, int, list[int]]:
+    def divide_slots(ncpu: int, ntasks: int, scaling: float, min_cpu=1) -> tuple[int, int, list[int]]:
         """
         This routine figures out the optimal distribution of the tasks over the CPU cores
         returns the number of rounds (how many jobs each CPU core will contribute to),
         the number of slots which should be set in the Pool,
         and the number of cores for each job.
         """
-        ntasks_per_round = min(ncpu, ntasks)
+        ntasks_per_round = min(ncpu // min_cpu, ntasks)
         optimal = {}
         for i in range(1, 1 + ntasks_per_round):
             nrounds = int(math.ceil(ntasks / i))
