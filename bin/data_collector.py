@@ -585,83 +585,105 @@ def get_general():
         print('No valid trajectories found, exiting...')
         sys.exit(0)
 
-    # check the dirs
-    print('Checking for common files...')
-    allfiles = {}
-    for d in dirs:
-        for dirpath, dirnames, filenames in os.walk(d):
-            for f in filenames:
-                line = os.path.join(os.path.relpath(dirpath, d), f)
-                if line in allfiles:
-                    allfiles[line] += 1
+    print('\nDo you want to see all common files before specifying the filepath to analyse?:')
+    if question('Yes or no?:', bool, default=True):
+        # check the dirs
+        print('Checking for common files...')
+        allfiles = {}
+        for d in dirs:
+            for dirpath, dirnames, filenames in os.walk(d):
+                for f in filenames:
+                    line = os.path.join(os.path.relpath(dirpath, d), f)
+                    if line in allfiles:
+                        allfiles[line] += 1
+                    else:
+                        allfiles[line] = 1
+        exclude = ['template',
+                   'resources',
+                   'QM/.*qmmm.*',
+                   'SCRATCH',
+                   'SAVE',
+                   'runQM.sh',
+                   'QM.in',
+                   'QM.out',
+                   'QM.log',
+                   'QM.err',
+                   'output.dat',
+                   'output.dat.nc',
+                   'output.log',
+                   'output.xyz',
+                   'output.dat.ext',
+                   'input',
+                   'geom',
+                   'veloc',
+                   'coeff',
+                   'atommask',
+                   'laser',
+                   'run.sh',
+                   'restart',
+                   '.*init',
+                   'STOP',
+                   'CRASHED',
+                   'RUNNING',
+                   'DONT_ANALYZE',
+                   'QMMM',
+                   'table'
+                   'driver',
+                   'rattle',
+                   'MMS',
+                   'MML'
+                   ]
+        allfiles2 = dict(filter(lambda kv: kv[1] >= 2 and not any([i in kv[0] for i in exclude]), allfiles.items()))
+
+        print('\nList of files common to the trajectory directories:\n')
+        print('%6s %20s   %s' % ('Index', 'Number of appearance', 'Relative file path'))
+        print('-' * 58)
+        allfiles_index = {}
+        for iline, line in enumerate(sorted(allfiles2)):
+            allfiles_index[iline] = line
+            print('%6i %20i   %s' % (iline, allfiles2[line], line))
+
+        # choose one of these files
+        print('\nPlease give the relative file path of the file you want to collect:')
+        while True:
+            string = question('File path or index:', str, '0', False)
+            try:
+                string = allfiles_index[int(string)]
+            except ValueError:
+                pass
+            if string in allfiles2:
+                INFOS['filepath'] = string
+                break
+            else:
+                print('I did not understand %s' % string)
+
+        # make list of files
+        allfiles = []
+        for d in dirs:
+            f = os.path.join(d, INFOS['filepath'])
+            if os.path.isfile(f):
+                allfiles.append(f)
+        INFOS['allfiles'] = allfiles
+    else:
+        print('\nPlease give the relative file path of the file you want to collect:')
+        while True:
+            INFOS['filepath'] = question('File path:', str, '.', False)
+            absent = []
+            allfiles = []
+            for d in dirs:
+                f = os.path.join(d, INFOS['filepath'])
+                if os.path.isfile(f):
+                    allfiles.append(f)
                 else:
-                    allfiles[line] = 1
-    exclude = ['template',
-               'resources',
-               'QM/.*qmmm.*',
-               'SCRATCH',
-               'SAVE',
-               'runQM.sh',
-               'QM.in',
-               'QM.out',
-               'QM.log',
-               'QM.err',
-               'output.dat',
-               'output.dat.nc',
-               'output.log',
-               'output.xyz',
-               'output.dat.ext',
-               'input',
-               'geom',
-               'veloc',
-               'coeff',
-               'atommask',
-               'laser',
-               'run.sh',
-               'restart',
-               '.*init',
-               'STOP',
-               'CRASHED',
-               'RUNNING',
-               'DONT_ANALYZE',
-               'QMMM',
-               'table'
-               'driver',
-               'rattle',
-               'MMS',
-               'MML'
-               ]
-    allfiles2 = dict(filter(lambda kv: kv[1] >= 2 and not any([i in kv[0] for i in exclude]), allfiles.items()))
+                    absent.append(d)
+            if len(absent) != 0:
+                print(f"\n{INFOS['filepath']} is absent in {absent}")
+                if question("Continue anyway?", bool, False):
+                    break
+            else:
+                break
 
-    print('\nList of files common to the trajectory directories:\n')
-    print('%6s %20s   %s' % ('Index', 'Number of appearance', 'Relative file path'))
-    print('-' * 58)
-    allfiles_index = {}
-    for iline, line in enumerate(sorted(allfiles2)):
-        allfiles_index[iline] = line
-        print('%6i %20i   %s' % (iline, allfiles2[line], line))
-
-    # choose one of these files
-    print('\nPlease give the relative file path of the file you want to collect:')
-    while True:
-        string = question('File path or index:', str, '0', False)
-        try:
-            string = allfiles_index[int(string)]
-        except ValueError:
-            pass
-        if string in allfiles2:
-            INFOS['filepath'] = string
-            break
-        else:
-            print('I did not understand %s' % string)
-
-    # make list of files
-    allfiles = []
-    for d in dirs:
-        f = os.path.join(d, INFOS['filepath'])
-        if os.path.isfile(f):
-            allfiles.append(f)
-    INFOS['allfiles'] = allfiles
+        INFOS['allfiles'] = allfiles
 
     # ---------------------------------------- Columns --------------------------------------
 
