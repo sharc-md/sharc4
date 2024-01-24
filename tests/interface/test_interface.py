@@ -161,3 +161,19 @@ def test_resources2():
     for path, params, whitelist in tests:
         with pytest.raises(ValueError):
             read_resources(os.path.join(expand_path(PATH), path), params, whitelist)
+
+
+def test_save_resources():
+    tests = [
+        ("inputs/interface/save_resources1", {"always_orb_init": False, "always_guess": False}),
+        ("inputs/interface/save_resources2", {"always_orb_init": True, "always_guess": True}),
+        ("inputs/interface/save_resources3", {"always_orb_init": False, "always_guess": True}),
+        ("inputs/interface/save_resources4", {"always_orb_init": True, "always_guess": False})
+    ]
+
+    for input, ref in tests:
+        test_interface = SHARC_INTERFACE()
+        test_interface._setup_mol = True
+        test_interface.read_resources(os.path.join(expand_path(PATH), input))
+        for key, val in ref.items():
+            assert test_interface.QMin.save[key] == val
