@@ -38,13 +38,13 @@ from textwrap import wrap
 from typing import Any
 
 import numpy as np
-
 # internal
 from constants import ATOMCHARGE, BOHR_TO_ANG, FROZENS
 from logger import SHARCPRINT, CustomFormatter, logging
 from qmin import QMin
 from qmout import QMout
-from utils import clock, expand_path, itnmstates, parse_xyz, readfile, writefile
+from utils import (clock, expand_path, itnmstates, parse_xyz, readfile,
+                   writefile)
 
 np.set_printoptions(linewidth=400, formatter={"float": lambda x: f"{x: 9.7}"})
 all_features = {
@@ -326,11 +326,12 @@ class SHARC_INTERFACE(ABC):
         """
 
     @abstractmethod
-    def dyson_orbitals_with_other(self,other):
+    def dyson_orbitals_with_other(self, other):
         """
         Calculates Dyson orbitals between self and other.
         Presumably it will be implemented in SHARC_ABINITIO subclass and in each individual FAST or HYBRID interface
         """
+
     @abstractmethod
     def create_restart_files(self) -> None:
         """
@@ -533,7 +534,11 @@ class SHARC_INTERFACE(ABC):
                 )
                 break
 
-        raw_dict = self._parse_raw(resources_file, self.QMin.resources.types, kw_whitelist)
+        raw_dict = self._parse_raw(
+            resources_file,
+            {**self.QMin.resources.types, "savedir": str, "always_guess": bool, "always_orb_init": bool},
+            kw_whitelist,
+        )
 
         if "savedir" in raw_dict:
             if not self._setsave:
@@ -544,6 +549,12 @@ class SHARC_INTERFACE(ABC):
             else:
                 self.log.info("SAVEDIR is already set and will not be overwritten!")
             del raw_dict["savedir"]
+        if "always_guess" in raw_dict:
+            self.QMin.save["always_guess"] = True
+            del raw_dict["always_guess"]
+        if "always_orb_init" in raw_dict:
+            self.QMin.save["always_orb_init"] = True
+            del raw_dict["always_orb_init"]
         self.QMin.resources.update(raw_dict)
 
         self._read_resources = True
