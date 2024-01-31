@@ -23,6 +23,7 @@ all_features = set(
         "h",
         "dm",
         "soc",
+        "nacdr",
         "grad",
         "ion",
         "overlap",
@@ -114,7 +115,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 "cholesky": bool,
                 "gradaccudefault": float,
                 "gradaccumax": float,
-                "pcmset": (list,dict),
+                "pcmset": (list, dict),
                 "pcmstate": list,
                 "iterations": list,
             }
@@ -271,7 +272,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             if not self.QMin.template[i]:
                 self.log.error(f"Key {i} is missing in template file!")
                 raise ValueError()
-            
+
         # Check nactel
         match len(self.QMin.template["nactel"]):
             case 1:
@@ -294,13 +295,23 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         ]:
             self.log.error(f"{self.QMin.template['method']} is not a valid method!")
             raise ValueError()
-        
+
         # Validate functional
-        if self.QMin.template["method"] == "cms-pdft" and self.QMin.template["functional"] not in ['tpbe','t:pbe','ft:pbe','t:blyp','ft:blyp','t:revPBE','ft:revPBE','t:LSDA','ft:LSDA']:
+        if self.QMin.template["method"] == "cms-pdft" and self.QMin.template["functional"] not in [
+            "tpbe",
+            "t:pbe",
+            "ft:pbe",
+            "t:blyp",
+            "ft:blyp",
+            "t:revPBE",
+            "ft:revPBE",
+            "t:LSDA",
+            "ft:LSDA",
+        ]:
             self.log.error(f"No analytical gradients for cms-pdft and {self.QMin.template['functional']}.")
             raise ValueError()
             # TODO: other functionals for numerical?
-        
+
         # TODO: GRADMODE stuff
 
     def setup_interface(self) -> None:
@@ -308,7 +319,6 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         Setup MOLCAS interface
         """
         super().setup_interface()
-
 
     def run(self) -> None:
         starttime = datetime.datetime.now()
@@ -383,32 +393,38 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                         is_jobiph = True
 
             # RASSCF
+            allowed_functionals = [
+                "tpbe",
+                "t:pbe",
+                "ft:pbe",
+                "t:blyp",
+                "ft:blyp",
+                "t:revPBE",
+                "ft:revPBE",
+                "t:LSDA",
+                "ft:LSDA",
+            ]
+            # WTF is this?!
             if not qmin.save["samestep"] or qmin.save["always_orb_init"]:
-                tasks.append(["rasscf", mult + 1, qmin.template["roots"][mult], is_jobiph, is_rasorb])
-                if qmin.template["method"] == "cms-pdft" and qmin.template["functional"] not in [
-                    "tpbe",
-                    "t:pbe",
-                    "ft:pbe",
-                    "t:blyp",
-                    "ft:blyp",
-                    "t:revPBE",
-                    "ft:revPBE",
-                    "t:LSDA",
-                    "ft:LSDA",
-                ]:
+                if qmin.template["method"] == "cms-pdft" and qmin.template["functional"] in allowed_functionals:
                     if not qmin.save["init"]:
                         tasks.append(["copy", os.path.join(qmin.save["savedir"], f"Do_Rotate.{mult+1}.txt"), "Do_Rotate.txt"])
-                match qmin.template["method"]:
-                    case "xms-pdft":
-                        tasks[-1].append(["XMSI"])
-                        if is_jobiph:
-                            tasks.append(["rm", "JOBOLD"])
-                    case "cms-pdft":
-                        tasks[-1].append(["CMSI"])
-                        if is_jobiph:
-                            tasks.append(["rm", "JOBOLD"])
-                    case "casscf" | "mc-pdft":
-                        tasks.append(["copy", "MOLCAS.JobIph", f"MOLCAS.{mult+1}.JobIph"])
+                tasks.append(["rasscf", mult + 1, qmin.template["roots"][mult], is_jobiph, is_rasorb])
+                if qmin.template["method"] == "xms-pdft":
+                    tasks[-1].append(["XMSI"])
+                elif qmin.template["method"] == "cms-pdft":
+                    tasks[-1].append(["CMSI"])
+                if is_jobiph and not (
+                    qmin.template["method"] == "cms-pdft" and qmin.template["functional"] in allowed_functionals
+                ):
+                    tasks.append(["rm", "JOBOLD"])
+
+                if qmin.template["method"] in ["casscf", "mc-pdft"]:
+                    tasks.append(["copy", "MOLCAS.JobIph", f"MOLCAS.{mult+1}.JobIph"])
+                elif qmin.template["method"] == "cms-pdft" and qmin.template["functional"] in allowed_functionals:
+                    tasks.append(["copy", "MOLCAS.JobIph", f"MOLCAS.{mult+1}.JobIph"])
+                    if not qmin.save["init"]:
+                        tasks.append(["rm", "JOBOLD"])
 
                 if qmin.requests["ion"]:
                     tasks.append(["copy", "MOLCAS.RasOrb", f"MOLCAS.{mult+1}.RasOrb"])
@@ -454,7 +470,9 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                             tasks.append(["link", f"MOLCAS.{mult+1}.JobIph", "JOBOLD"])
 
                             if qmin.template["method"] == "mc-pdft":
-                                tasks.append(["rasscf", mult + 1, qmin.template["roots"][mult], True, False, [f"RLXROOT={grad[1]}"]])
+                                tasks.append(
+                                    ["rasscf", mult + 1, qmin.template["roots"][mult], True, False, [f"RLXROOT={grad[1]}"]]
+                                )
                                 tasks.append(["mcpdft", [f"KSDFT={qmin.template['functional']}", "GRAD"]])
                             elif qmin.template["method"] == "cms-pdft":
                                 if not qmin.save["init"]:
@@ -462,7 +480,14 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                                         ["copy", os.path.join(qmin.save["savedir"], f"Do_Rotate.{mult+1}.txt"), "Do_Rotate.txt"]
                                     )
                                 tasks.append(
-                                    ["rasscf", mult + 1, qmin.template["roots"][mult], True, False, [f"RLXROOT={grad[1]}", "CMSI"]]
+                                    [
+                                        "rasscf",
+                                        mult + 1,
+                                        qmin.template["roots"][mult],
+                                        True,
+                                        False,
+                                        [f"RLXROOT={grad[1]}", "CMSI"],
+                                    ]
                                 )
                                 tasks.append(["mcpdft", [f"KSDFT={qmin.template['functional']}", "GRAD", "MSPDFT", "WJOB"]])
                             elif qmin.template["method"] == "casscf":
@@ -485,7 +510,9 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                             tasks.append(["alaska"])
                         elif qmin.template["method"] == "cms-pdft":
                             if not "init" in QMin:
-                                tasks.append(["copy", os.path.join(qmin.save["savedir"], f"Do_Rotate.{mult+1}.txt"), "Do_Rotate.txt"])
+                                tasks.append(
+                                    ["copy", os.path.join(qmin.save["savedir"], f"Do_Rotate.{mult+1}.txt"), "Do_Rotate.txt"]
+                                )
                             tasks.append(["rasscf", mult + 1, qmin["template"]["roots"][mult], True, False, ["CMSI"]])
                             tasks.append(["mcpdft", [f"KSDFT={qmin.template['functional']}", "GRAD", "MSPDFT", "WJOB"]])
                             tasks.append(["mclr", qmin.template["gradaccudefault"], f"nac={nac[1]} {nac[3]}"])
@@ -508,7 +535,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                             tasks.append(["copy", f"TRD2_{i+states+1:03d}_{j+states+1:03d}", f"TRD_{mult+1}_{i+1:03d}_{j+1:03d}"])
 
             # RASSI for dipole moments
-            if qmin.requests["dm"] or qmin.requests["ion"] or qmin.requests["multipolar_fit"]:
+            elif qmin.requests["dm"] or qmin.requests["ion"] or qmin.requests["multipolar_fit"]:
                 tasks.append(["link", f"MOLCAS.{mult+1}.JobIph", "JOB001"])
                 tasks.append(["rassi", "dm", [states]])
                 if qmin.requests["multipolar_fit"]:
