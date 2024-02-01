@@ -433,18 +433,20 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
 
                 if qmin.template["method"] in ["mc-pdft", "xms-pdft", "cms-pdft"]:
                     keys = [f"KSDFT={qmin.template['functional']}"]
-                    if qmin.template["method"] == "mc-pdft" and qmin.requests["grad"]:
+                    if qmin.requests["grad"]:
                         keys.append("GRAD")
                     else:
                         keys.append("noGrad")
                     if qmin.template["method"] in ["xms-pdft", "cms-pdft"]:
                         keys.append("MSPDFT")
                         keys.append("WJOB")
-                        tasks.append(["mcpdft", keys])
-                        tasks.append(["copy", "MOLCAS.JobIph", f"MOLCAS.{mult+1}.JonIph"])
-                    else:
-                        tasks.append(["mcpdft", keys])
-
+                    if qmin.template["method"] == "cms-pdft":
+                        keys.append("CMMI=0")
+                        keys.append("CMSS=Do_Rotate.txt")
+                        keys.append("CMTH=1.0d-10")
+                    tasks.append(["mcpdft", keys])
+                    if qmin.template["method"] in ["xms-pdft", "cms-pdft"]:
+                        tasks.append(["copy", "MOLCAS.JobIph", f"MOLCAS.{mult+1}.JobIph"])
             if not qmin.save["samestep"]:
                 if qmin.template["method"] in ["caspt2", "ms-caspt2", "xms-caspt2"]:
                     tasks.append(["caspt2", mult + 1, states, qmin.template["method"]])
@@ -490,6 +492,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                                     ]
                                 )
                                 tasks.append(["mcpdft", [f"KSDFT={qmin.template['functional']}", "GRAD", "MSPDFT", "WJOB"]])
+                                tasks.append(["alaska", grad[1]])
                             elif qmin.template["method"] == "casscf":
                                 tasks.append(["rasscf", mult + 1, qmin.template["roots"][mult], True, False])
                                 tasks.append(["mclr", qmin.template["gradaccudefault"], f"sala={grad[1]}"])
@@ -497,7 +500,8 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                                 tasks.append(["rasscf", mult + 1, qmin.template["roots"][mult], True, False])
                                 tasks.append(["caspt2", mult + 1, states, qmin.template["method"], f"GRDT\nrlxroot = {grad[1]}"])
                                 tasks.append(["mclr", qmin.template["gradaccudefault"]])
-                            tasks.append(["alaska"])
+                            if qmin.template["method"] not in ["caspt2", "xms-pdft", "cms-pdft"]:
+                                tasks.append(["alaska"])
 
             # NACs
             if self.QMin.requests["nacdr"]:
@@ -509,7 +513,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                             tasks.append(["mclr", qmin["template"]["gradaccudefault"], f"nac={nac[1]} {nac[3]}"])
                             tasks.append(["alaska"])
                         elif qmin.template["method"] == "cms-pdft":
-                            if not "init" in QMin:
+                            if not qmin.save["init"]:
                                 tasks.append(
                                     ["copy", os.path.join(qmin.save["savedir"], f"Do_Rotate.{mult+1}.txt"), "Do_Rotate.txt"]
                                 )
@@ -583,6 +587,10 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             if val and req != "retain" and req not in all_features:
                 self.log.error(f"Found unsupported request {req}.")
                 raise ValueError()
+
+        if self.QMin.template["method"] not in ["casscf", "ms-caspt2", "xms-caspt2"] and self.QMin.requests["nacdr"]:
+            self.log.error("NACs are only possible with casscf, ms/xms-capt2!")
+            raise ValueError()
 
     @staticmethod
     def get_molcas_version(path: str) -> tuple[int, int]:
