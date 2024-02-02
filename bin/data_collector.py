@@ -30,42 +30,25 @@
 import copy
 import math
 import sys
-import re
 import os
 import shutil
 import datetime
-# import random
-import readline
+from itertools import islice
+import numpy as np
+from scipy import stats
+from utils import question, expand_path
+from printing import printheader
 
 # =========================================================0
 # some constants
 DEBUG = False
 PI = math.pi
 
-version = '2.1'
-versiondate = datetime.date(2019, 9, 1)
+version = "4.0"
+versiondate = datetime.date(2024, 1, 26)
 
 
-IToMult = {
-    1: 'Singlet',
-    2: 'Doublet',
-    3: 'Triplet',
-    4: 'Quartet',
-    5: 'Quintet',
-    6: 'Sextet',
-    7: 'Septet',
-    8: 'Octet',
-    'Singlet': 1,
-    'Doublet': 2,
-    'Triplet': 3,
-    'Quartet': 4,
-    'Quintet': 5,
-    'Sextet': 6,
-    'Septet': 7,
-    'Octet': 8
-}
-
-PIPELINE = '''
+PIPELINE = """
 **************************************************************************************************
 Pipeline:
 =========
@@ -193,26 +176,7 @@ Dataset Explanations:
   ...
   ***
 **************************************************************************************************
-'''
-
-
-
-
-
-# ======================================================================= #
-def itnmstates(states):
-
-    x = 0
-    for i in range(len(states)):
-        if states[i] < 1:
-            continue
-        for k in range(i + 1):
-            for j in range(states[i]):
-                x += 1
-                yield i + 1, j + 1, k - i / 2., x
-            x -= states[i]
-        x += states[i]
-    return
+"""
 
 
 # =============================================================================================== #
@@ -221,71 +185,14 @@ def itnmstates(states):
 # =============================================================================================== #
 # =============================================================================================== #
 
-# ======================================================================= #
-def readfile(filename):
-    try:
-        f = open(filename)
-        out = f.readlines()
-        f.close()
-    except IOError:
-        print('File %s does not exist!' % (filename))
-        sys.exit(12)
-    return out
-
-# ======================================================================= #
-
-
-def writefile(filename, content):
-    # content can be either a string or a list of strings
-    try:
-        f = open(filename, 'w')
-        if isinstance(content, list):
-            for line in content:
-                f.write(line)
-        elif isinstance(content, str):
-            f.write(content)
-        else:
-            print('Content %s cannot be written to file!' % (content))
-        f.close()
-    except IOError:
-        print('Could not write to file %s!' % (filename))
-        sys.exit(13)
-
-# ======================================================================= #
-
-
-def mkdir(DIR):
-    # mkdir the DIR, or clean it if it exists
-    if os.path.exists(DIR):
-        if os.path.isfile(DIR):
-            print('%s exists and is a file!' % (DIR))
-            sys.exit(69)
-        elif os.path.isdir(DIR):
-            if DEBUG:
-                print('Remake\t%s' % DIR)
-            shutil.rmtree(DIR)
-            os.makedirs(DIR)
-    else:
-        try:
-            if DEBUG:
-                print('Make\t%s' % DIR)
-            os.makedirs(DIR)
-        except OSError:
-            print('Can not create %s\n' % (DIR))
-            sys.exit(70)
-
-# ======================================================================================================================
-# ======================================================================================================================
-# ======================================================================================================================
-
 
 class gauss:
     def __init__(self, fwhm):
         self.fwhm = fwhm
-        self.c = -4. * math.log(2.) / fwhm**2             # this factor needs to be evaluated only once
+        self.c = -4.0 * np.log(2.0) / fwhm**2  # this factor needs to be evaluated only once
 
     def ev(self, A, x0, x):
-        return A * math.exp(self.c * (x - x0)**2)        # this routine does only the necessary calculations
+        return A * np.exp(self.c * (x - x0) ** 2)  # this routine does only the necessary calculations
 
 
 class lorentz:
@@ -294,7 +201,7 @@ class lorentz:
         self.c = 0.25 * fwhm**2
 
     def ev(self, A, x0, x):
-        return A / ((x - x0)**2 / self.c + 1)
+        return A / ((x - x0) ** 2 / self.c + 1)
 
 
 class boxfunction:
@@ -303,10 +210,9 @@ class boxfunction:
         self.w = 0.5 * fwhm
 
     def ev(self, A, x0, x):
-        if abs(x - x0) < self.w:
-            return A
-        else:
-            return 0.
+        res = np.zeros_like(x)
+        res[abs(x - x0) < self.w] = A
+        return res
 
 
 class lognormal:
@@ -315,18 +221,20 @@ class lognormal:
 
     def ev(self, A, x0, x):
         if x <= 0 or x0 <= 0:
-            return 0.
+            return 0.0
         # for lognormal distribution, the factor for the exponent depends on x0
-        c = (math.log((self.fwhm + math.sqrt(self.fwhm**2 + 4. * x0**2)) / (2. * x0)))**2
+        c = (np.log((self.fwhm + np.sqrt(self.fwhm**2 + 4.0 * x0**2)) / (2.0 * x0))) ** 2
         # note that the function does not take a value of A at x0
         # instead, the function is normalized such that its maximum will have a value of A (at x<=x0)
-        return A * x0 / x * math.exp(-c / (4. * math.log(2.)) - math.log(2.) * (math.log(x) - math.log(x0))**2 / c)
+        return A * x0 / x * np.exp(-c / (4.0 * np.log(2.0)) - np.log(2.0) * (np.log(x) - np.log(x0)) ** 2 / c)
 
 
-kernels = {1: {'f': gauss, 'description': 'Gaussian function', 'factor': 1.0},
-           2: {'f': lorentz, 'description': 'Lorentzian function', 'factor': 2.0},
-           3: {'f': boxfunction, 'description': 'Rectangular window function', 'factor': 0.6},
-           4: {'f': lognormal, 'description': 'Log-normal function', 'factor': 1.5}}
+kernels = {
+    1: {"f": gauss, "description": "Gaussian function", "factor": 1.0},
+    2: {"f": lorentz, "description": "Lorentzian function", "factor": 2.0},
+    3: {"f": boxfunction, "description": "Rectangular window function", "factor": 0.6},
+    4: {"f": lognormal, "description": "Log-normal function", "factor": 1.5},
+}
 
 
 class spectrum:
@@ -340,14 +248,22 @@ class spectrum:
             self.f = boxfunction(fwhm)
         elif lineshape == 4:
             self.f = lognormal(fwhm)
-        self.en = [emin + float(i) / self.npts * (emax - emin) for i in range(self.npts + 1)]       # the energy grid needs to be calculated only once
-        self.spec = [0. for i in range(self.npts + 1)]
+        self.en = np.fromiter(
+            map(lambda i: emin + float(i) / self.npts * (emax - emin), range(self.npts + 1)), dtype=float, count=self.npts + 1
+        )  # the energy grid needs to be calculated only once
+        self.spec = np.zeros((self.npts + 1), dtype=float)
 
     def add(self, A, x0):
-        if A == 0.:
+        if A == 0.0:
             return
-        for i in range(self.npts + 1):
-            self.spec[i] += self.f.ev(A, x0, self.en[i])
+        self.spec += self.f.ev(A, x0, self.en)
+
+
+def in_pairs(iterable):
+    it = iter(iterable)
+    while batch := tuple(islice(it, 2)):
+        yield batch
+
 
 # ======================================================================================================================
 # ======================================================================================================================
@@ -355,23 +271,22 @@ class spectrum:
 
 
 def displaywelcome():
-    print('Script for data collecting started...\n')
-    string = '\n'
-    string += '  ' + '=' * 80 + '\n'
-    string += '||' + '{:^80}'.format('') + '||\n'
-    string += '||' + '{:^80}'.format('Reading table data from SHARC dynamics') + '||\n'
-    string += '||' + '{:^80}'.format('') + '||\n'
-    string += '||' + '{:^80}'.format('Author: Sebastian Mai') + '||\n'
-    string += '||' + '{:^80}'.format('') + '||\n'
-    string += '||' + '{:^80}'.format('Version:' + version) + '||\n'
-    string += '||' + '{:^80}'.format(versiondate.strftime("%d.%m.%y")) + '||\n'
-    string += '||' + '{:^80}'.format('') + '||\n'
-    string += '  ' + '=' * 80 + '\n\n'
-    string += '''
+    print("Script for data collecting started...\n\n")
+    lines = [
+        "Reading table data from SHARC dynamics",
+        "",
+        "Authors: Sebastian Mai, Severin Polonius",
+        "Version:" + version,
+        versiondate.strftime("%d.%m.%y"),
+    ]
+    printheader(lines)
+    print(
+        """
 This script collects table data from SHARC trajectories, smooths them, synchronizes them,
 convolutes them, and computes averages and similar statistics.
-  '''
-    print(string)
+  """
+    )
+
 
 # ======================================================================================================================
 # ======================================================================================================================
@@ -380,104 +295,26 @@ convolutes them, and computes averages and similar statistics.
 
 def open_keystrokes():
     global KEYSTROKES
-    KEYSTROKES = open('KEYSTROKES.tmp', 'w')
+    KEYSTROKES = open("KEYSTROKES.tmp", "w")
 
 
 def close_keystrokes():
     KEYSTROKES.close()
-    shutil.move('KEYSTROKES.tmp', 'KEYSTROKES.data_collector')
+    shutil.move("KEYSTROKES.tmp", "KEYSTROKES.data_collector")
+
 
 # ===================================
 
 
+global KEYSTROKES
+old_question = question
+
+
 def question(question, typefunc, default=None, autocomplete=True, ranges=False):
-    if typefunc == int or typefunc == float:
-        if default is not None and not isinstance(default, list):
-            print('Default to int or float question must be list!')
-            quit(1)
-    if typefunc == str and autocomplete:
-        readline.set_completer_delims(' \t\n;')
-        readline.parse_and_bind("tab: complete")    # activate autocomplete
-    else:
-        readline.parse_and_bind("tab: ")            # deactivate autocomplete
+    return old_question(
+        question=question, typefunc=typefunc, KEYSTROKES=KEYSTROKES, default=default, autocomplete=autocomplete, ranges=ranges
+    )
 
-    while True:
-        s = question
-        if default is not None:
-            if typefunc == bool or typefunc == str:
-                s += ' [%s]' % (str(default))
-            elif typefunc == int or typefunc == float:
-                s += ' ['
-                for i in default:
-                    s += str(i) + ' '
-                s = s[:-1] + ']'
-        if typefunc == str and autocomplete:
-            s += ' (autocomplete enabled)'
-        if typefunc == int and ranges:
-            s += ' (range comprehension enabled)'
-        s += ' '
-
-        line = input(s)
-        line = re.sub(r'#.*$', '', line).strip()
-        if not typefunc == str:
-            line = line.lower()
-
-        if line == '' or line == '\n':
-            if default is not None:
-                KEYSTROKES.write(line + ' ' * (40 - len(line)) + ' #' + s + '\n')
-                return default
-            else:
-                continue
-
-        if typefunc == bool:
-            posresponse = ['y', 'yes', 'true', 't', 'ja', 'si', 'yea', 'yeah', 'aye', 'sure', 'definitely']
-            negresponse = ['n', 'no', 'false', 'f', 'nein', 'nope']
-            if line in posresponse:
-                KEYSTROKES.write(line + ' ' * (40 - len(line)) + ' #' + s + '\n')
-                return True
-            elif line in negresponse:
-                KEYSTROKES.write(line + ' ' * (40 - len(line)) + ' #' + s + '\n')
-                return False
-            else:
-                print('I didn''t understand you.')
-                continue
-
-        if typefunc == str:
-            KEYSTROKES.write(line + ' ' * (40 - len(line)) + ' #' + s + '\n')
-            return line
-
-        if typefunc == float:
-            # float will be returned as a list
-            f = line.split()
-            try:
-                for i in range(len(f)):
-                    f[i] = typefunc(f[i])
-                KEYSTROKES.write(line + ' ' * (40 - len(line)) + ' #' + s + '\n')
-                return f
-            except ValueError:
-                print('Please enter floats!')
-                continue
-
-        if typefunc == int:
-            # int will be returned as a list
-            f = line.split()
-            out = []
-            try:
-                for i in f:
-                    if ranges and '~' in i:
-                        q = i.split('~')
-                        for j in range(int(q[0]), int(q[1]) + 1):
-                            out.append(j)
-                    else:
-                        out.append(int(i))
-                KEYSTROKES.write(line + ' ' * (40 - len(line)) + ' #' + s + '\n')
-                return out
-            except ValueError:
-                if ranges:
-                    print('Please enter integers or ranges of integers (e.g. "-3~-1  2  5~7")!')
-                else:
-                    print('Please enter integers!')
-                continue
 
 # ======================================================================================================================
 # ======================================================================================================================
@@ -486,8 +323,8 @@ def question(question, typefunc, default=None, autocomplete=True, ranges=False):
 
 class histogram:
     def __init__(self, binlist):
-        '''binlist must be a list of floats
-    Later, all floats x with binlist[i-1]<x<=binlist[i] will return i'''
+        """binlist must be a list of floats
+        Later, all floats x with binlist[i-1]<x<=binlist[i] will return i"""
         self.binlist = sorted(binlist)
         self.len = len(binlist) + 1
 
@@ -501,10 +338,20 @@ class histogram:
         return i
 
     def __repr__(self):
-        s = 'Histogram object: '
+        s = "Histogram object: "
         for i in self.binlist:
-            s += '%f ' % (i)
+            s += "%f " % (i)
         return s
+
+
+def replace_middle_column_name(name, replace_str):
+    v, desc, num = name.split()
+    return f"{v} {desc:<6s} {num:>3s}"
+
+
+def prepend_middle_column_name(name, addition):
+    v, desc, num = name.split()
+    return f"{v} {addition+desc:<6s} {num:>3s}"
 
 
 # ======================================================================================================================
@@ -513,7 +360,7 @@ class histogram:
 
 
 def get_general():
-    ''''''
+    """"""
 
     INFOS = {}
 
@@ -522,160 +369,164 @@ def get_general():
 
     # ---------------------------------------- File selection --------------------------------------
 
-    print('{:-^60}'.format('Paths to trajectories'))
-    print('\nPlease enter the paths to all directories containing the "TRAJ_0XXXX" directories.\nE.g. Sing_2/ and Sing_3/. \nPlease enter one path at a time, and type "end" to finish the list.')
+    print("{:-^60}".format("Paths to trajectories"))
+    print(
+        '\nPlease enter the paths to all directories containing the "TRAJ_0XXXX" directories.\nE.g. Sing_2/ and Sing_3/. \nPlease enter one path at a time, and type "end" to finish the list.'
+    )
     count = 0
     paths = []
     while True:
-        path = question('Path: ', str, 'end')
-        if path == 'end':
+        path = question("Path: ", str, "end")
+        if path == "end":
             if len(paths) == 0:
-                print('No path yet!')
+                print("No path yet!")
                 continue
-            print('')
+            print("")
             break
-        path = os.path.expanduser(os.path.expandvars(path))
+        path = expand_path(path)
         if not os.path.isdir(path):
-            print('Does not exist or is not a directory: %s' % (path))
+            print("Does not exist or is not a directory: %s" % (path))
             continue
         if path in paths:
-            print('Already included.')
+            print("Already included.")
             continue
         ls = os.listdir(path)
         print(ls)
         for i in ls:
-            if 'TRAJ' in i or 'ICOND' in i:
+            if "TRAJ" in i or "ICOND" in i:
                 count += 1
-        print('Found %i subdirectories in total.\n' % count)
+        print("Found %i subdirectories in total.\n" % count)
         paths.append(path)
-    INFOS['paths'] = paths
-    print('Total number of subdirectories: %i\n' % (count))
+    INFOS["paths"] = paths
+    print("Total number of subdirectories: %i\n" % (count))
 
     # make list of TRAJ paths
     width = 50
-    forbidden = ['crashed', 'running', 'dead', 'dont_analyze']
+    forbidden = ["crashed", "running", "dead", "dont_analyze"]
     dirs = []
     ntraj = 0
-    print('Checking the directories...')
-    for idir in INFOS['paths']:
+    print("Checking the directories...")
+    for idir in INFOS["paths"]:
         ls = os.listdir(idir)
         for itraj in sorted(ls):
-            if 'TRAJ_' not in itraj and 'ICOND_' not in itraj:
+            if "TRAJ_" not in itraj and "ICOND_" not in itraj:
                 continue
-            path = idir + '/' + itraj
+            path = idir + "/" + itraj
             if not os.path.isdir(path):
                 continue
-            s = path + ' ' * (width - len(path))
+            s = path + " " * (width - len(path))
             lstraj = os.listdir(path)
             valid = True
             for i in lstraj:
                 if i.lower() in forbidden:
-                    s += 'DETECTED FILE %s' % (i.lower())
+                    s += "DETECTED FILE %s" % (i.lower())
                     # print(s)
                     valid = False
                     break
             if not valid:
                 continue
-            s += 'OK'
+            s += "OK"
             # print(s)
             ntraj += 1
-            dirs.append(path)
-    print('Number of trajectories: %i' % (ntraj))
+            dirs.append(os.path.relpath(path))
+    print("Number of trajectories: %i" % (ntraj))
     if ntraj == 0:
-        print('No valid trajectories found, exiting...')
+        print("No valid trajectories found, exiting...")
         sys.exit(0)
 
-    print('\nDo you want to see all common files before specifying the filepath to analyse?:')
-    if question('Yes or no?:', bool, default=True):
+    print("\nDo you want to see all common files before specifying the filepath to analyse?:")
+    if question("Yes or no?:", bool, default=True):
         # check the dirs
-        print('Checking for common files...')
+        print("Checking for common files...")
         allfiles = {}
+        exclude_dirs = {"SCRATCH", "SAVE", "QM", "restart", "MMS", "MML"}
+        exclude = [
+            "template",
+            "resources",
+            "runQM.sh",
+            "QM.in",
+            "QM.out",
+            "QM.log",
+            "QM.err",
+            "output.dat",
+            "output.dat.nc",
+            "output.log",
+            "output.xyz",
+            "output.dat.ext",
+            "input",
+            "geom",
+            "veloc",
+            "coeff",
+            "atommask",
+            "laser",
+            "run.sh",
+            "restart",
+            ".*init",
+            "STOP",
+            "CRASHED",
+            "RUNNING",
+            "DONT_ANALYZE",
+            "table" "driver",
+            "rattle",
+        ]
         for d in dirs:
-            for dirpath, dirnames, filenames in os.walk(d):
-                for f in filenames:
+            for dirpath, dirnames, filenames in os.walk(d, topdown=True):
+                dirnames[:] = [
+                    d for d in dirs if d not in exclude_dirs
+                ]  # from https://stackoverflow.com/questions/19859840/excluding-directories-in-os-walk
+                for f in filter(lambda x: not any(ex in x for ex in exclude), filenames):
                     line = os.path.join(os.path.relpath(dirpath, d), f)
                     if line in allfiles:
                         allfiles[line] += 1
                     else:
                         allfiles[line] = 1
-        exclude = ['template',
-                   'resources',
-                   'QM/.*qmmm.*',
-                   'SCRATCH',
-                   'SAVE',
-                   'runQM.sh',
-                   'QM.in',
-                   'QM.out',
-                   'QM.log',
-                   'QM.err',
-                   'output.dat',
-                   'output.dat.nc',
-                   'output.log',
-                   'output.xyz',
-                   'output.dat.ext',
-                   'input',
-                   'geom',
-                   'veloc',
-                   'coeff',
-                   'atommask',
-                   'laser',
-                   'run.sh',
-                   'restart',
-                   '.*init',
-                   'STOP',
-                   'CRASHED',
-                   'RUNNING',
-                   'DONT_ANALYZE',
-                   'QMMM',
-                   'table'
-                   'driver',
-                   'rattle',
-                   'MMS',
-                   'MML'
-                   ]
-        allfiles2 = dict(filter(lambda kv: kv[1] >= 2 and not any([i in kv[0] for i in exclude]), allfiles.items()))
+        allfiles = {k: v for k, v in allfiles.items() if v >= 2}
 
-        print('\nList of files common to the trajectory directories:\n')
-        print('%6s %20s   %s' % ('Index', 'Number of appearance', 'Relative file path'))
-        print('-' * 58)
+        print("\nList of files common to the trajectory directories:\n")
+        print("%6s %20s   %s" % ("Index", "Number of appearance", "Relative file path"))
+        print("-" * 58)
         allfiles_index = {}
-        for iline, line in enumerate(sorted(allfiles2)):
+        for iline, line in enumerate(sorted(allfiles)):
             allfiles_index[iline] = line
-            print('%6i %20i   %s' % (iline, allfiles2[line], line))
+            print("%6i %20i   %s" % (iline, allfiles[line], line))
 
         # choose one of these files
-        print('\nPlease give the relative file path of the file you want to collect:')
+        print("\nPlease give the relative file path of the file you want to collect:")
         while True:
-            string = question('File path or index:', str, '0', False)
+            string = question("File path or index:", str, "0", False)
             try:
                 string = allfiles_index[int(string)]
             except ValueError:
                 pass
-            if string in allfiles2:
-                INFOS['filepath'] = string
+            if string in allfiles:
+                INFOS["filepath"] = string
                 break
             else:
-                print('I did not understand %s' % string)
+                print("I did not understand %s" % string)
 
         # make list of files
         allfiles = []
         for d in dirs:
-            f = os.path.join(d, INFOS['filepath'])
-            if os.path.isfile(f):
-                allfiles.append(f)
-        INFOS['allfiles'] = allfiles
+            f = os.path.join(d, INFOS["filepath"])
+            # if os.path.isfile(f):
+            allfiles.append(f)
+        INFOS["allfiles"] = allfiles
     else:
-        print('\nPlease give the relative file path of the file you want to collect:')
+        print("\nPlease give the relative file path of the file you want to collect:")
         while True:
-            INFOS['filepath'] = question('File path:', str, '.', False)
+            INFOS["filepath"] = question("File path:", str, ".", False)
             absent = []
             allfiles = []
-            for d in dirs:
-                f = os.path.join(d, INFOS['filepath'])
+            print("Checking if file exists in directories...")
+            for i, d in enumerate(dirs):
+                done = 50 * (i + 1) // len(dirs)
+                sys.stdout.write("\r  Progress: [" + "=" * done + " " * (50 - done) + "] %3i%%" % (done * 100 / 50))
+                f = os.path.join(d, INFOS["filepath"])
                 if os.path.isfile(f):
                     allfiles.append(f)
                 else:
                     absent.append(d)
+            sys.stdout.write("\n")
             if len(absent) != 0:
                 print(f"\n{INFOS['filepath']} is absent in {absent}")
                 if question("Continue anyway?", bool, False):
@@ -683,374 +534,362 @@ def get_general():
             else:
                 break
 
-        INFOS['allfiles'] = allfiles
+        INFOS["allfiles"] = allfiles
 
     # ---------------------------------------- Columns --------------------------------------
 
-    print('\n' + '{:-^60}'.format('Data columns') + '\n')
+    print("\n" + "{:-^60}".format("Data columns") + "\n")
     # get number of columns
     filename = allfiles[0]
-    testfile = readfile(filename)
+    testfile = open(filename, "r")
     for line in testfile:
-        if '#' not in line:
+        if "#" not in line:
             ncol = len(line.split())
             break
-    print('Number of columns in the file:   %i' % (ncol))
-    INFOS['ncol'] = ncol
+    testfile.close()
+    print("Number of columns in the file:   %i" % (ncol))
+    INFOS["ncol"] = ncol
 
     # select columns
-    print('\nPlease select the data columns for the analysis:')
-    print('For T column: \n  only enter one (positive) column index. \n  If 0, the line number will be used instead.')
-    print('For X column: \n  enter one or more column indices. \n  If 0, all entries of that column will be set to 1. \n  If negative, the read numbers will be multiplied by -1.')
-    print('For Y column: \n  enter as many column indices as for X. \n  If 0, all entries of that column will be set to 1. \n  If negative, the read numbers will be multiplied by -1.')
-    print('')
+    print("\nPlease select the data columns for the analysis:")
+    print("For T column: \n  only enter one (positive) column index. \n  If 0, the line number will be used instead.")
+    print(
+        "For X column: \n  enter one or more column indices. \n  If 0, all entries of that column will be set to 1. \n  If negative, the read numbers will be multiplied by -1."
+    )
+    print(
+        "For Y column: \n  enter as many column indices as for X. \n  If 0, all entries of that column will be set to 1. \n  If negative, the read numbers will be multiplied by -1."
+    )
+    print("")
     while True:
-        INFOS['colT'] = question('T column (time):', int, [1])[0]
-        if 0 <= INFOS['colT'] <= ncol:
+        INFOS["colT"] = question("T column (time):", int, [1])[0]
+        if 0 <= INFOS["colT"] <= ncol:
             # 0:   use line number (neglecting commented or too short lines)
             # 1-n: use that line for time data
             break
         else:
-            print('Please enter a number between 0 and %i!' % ncol)
+            print("Please enter a number between 0 and %i!" % ncol)
     while True:
-        INFOS['colX'] = question('X columns:', int, [2], ranges=True)
-        if all([-ncol <= x <= ncol for x in INFOS['colX']]):
-            INFOS['nX'] = len(INFOS['colX'])
+        INFOS["colX"] = question("X columns:", int, [2], ranges=True)
+        if all([-ncol <= x <= ncol for x in INFOS["colX"]]):
+            INFOS["nX"] = len(INFOS["colX"])
             break
         else:
-            print('Please enter a set of numbers between %i and %i!' % (-ncol, ncol))
+            print("Please enter a set of numbers between %i and %i!" % (-ncol, ncol))
     while True:
-        default = [0 for i in INFOS['colX']]
-        INFOS['colY'] = question('Y columns:', int, default, ranges=True)
-        if all([-ncol <= x <= ncol for x in INFOS['colY']]) and len(INFOS['colY']) == len(INFOS['colX']):
-            INFOS['nY'] = len(INFOS['colY'])
+        default = [0 for i in INFOS["colX"]]
+        INFOS["colY"] = question("Y columns:", int, default, ranges=True)
+        if all([-ncol <= x <= ncol for x in INFOS["colY"]]) and len(INFOS["colY"]) == len(INFOS["colX"]):
+            INFOS["nY"] = len(INFOS["colY"])
             break
         else:
-            print('Please enter a set of %i numbers between %i and %i!' % (len(INFOS['colX']), -ncol, ncol))
+            print("Please enter a set of %i numbers between %i and %i!" % (len(INFOS["colX"]), -ncol, ncol))
 
-    print('Selected columns:')
-    print('T: %s     X: %s    Y: %s\n' % (str(INFOS['colT']), str(INFOS['colX']), str(INFOS['colY'])))
+    print("Selected columns:")
+    print("T: %s     X: %s    Y: %s\n" % (str(INFOS["colT"]), str(INFOS["colX"]), str(INFOS["colY"])))
 
     # ---------------------------------------- Analysis procedure --------------------------------------
 
-    print('{:-^60}'.format('Analysis procedure') + '\n')
-    show = question('Show possible workflow options?', bool, True)
+    print("{:-^60}".format("Analysis procedure") + "\n")
+    show = question("Show possible workflow options?", bool, True)
     if show:
-        print('\nThe following diagram shows which workflows are possible with this script:')
+        print("\nThe following diagram shows which workflows are possible with this script:")
         print(PIPELINE)
 
     # Question 1
-    print('\n' + '{:-^40}'.format('1 Smoothing') + '\n')
-    if question('Do you want to apply smoothing to the individual trajectories?', bool, False):
-        print('\nChoose one of the following smoothing functions:')
+    print("\n" + "{:-^40}".format("1 Smoothing") + "\n")
+    if question("Do you want to apply smoothing to the individual trajectories?", bool, False):
+        print("\nChoose one of the following smoothing functions:")
         for i in sorted(kernels):
-            print('%i  %s' % (i, kernels[i]['description']))
+            print("%i  %s" % (i, kernels[i]["description"]))
         while True:
-            i = question('Choose one of the functions:', int, [1])[0]
+            i = question("Choose one of the functions:", int, [1])[0]
             if i in kernels:
                 break
             else:
-                print('Choose one of the following: %s' % (list(kernels)))
-        w = question('Choose width of the smoothing function (in units of column %i):' % (INFOS['colT']), float, [10.0])[0]
-        INFOS['smoothing'] = {'function': kernels[i]['f'](w)}
+                print("Choose one of the following: %s" % (list(kernels)))
+        w = question("Choose width of the smoothing function (in units of column %i):" % (INFOS["colT"]), float, [10.0])[0]
+        INFOS["smoothing"] = {"function": kernels[i]["f"](w)}
     else:
-        INFOS['smoothing'] = {}
+        INFOS["smoothing"] = {}
 
     # Question 2
-    print('\n' + '{:-^40}'.format('2 Synchronizing') + '\n')
-    if question('Do you want to synchronize the data?', bool, True):
-        INFOS['synchronizing'] = True
+    print("\n" + "{:-^40}".format("2 Synchronizing") + "\n")
+    if question("Do you want to synchronize the data?", bool, True):
+        INFOS["synchronizing"] = True
     else:
-        INFOS['synchronizing'] = False
+        INFOS["synchronizing"] = False
 
     # first branching
-    INFOS['averaging'] = {}
-    INFOS['statistics'] = {}
-    INFOS['convolute_X'] = {}
-    INFOS['sum_Y'] = False
-    INFOS['integrate_X'] = {}
-    INFOS['convolute_T'] = {}
-    INFOS['integrate_T'] = {}
-    INFOS['type3_to_type2'] = False
+    INFOS["averaging"] = {}
+    INFOS["statistics"] = {}
+    INFOS["convolute_X"] = {}
+    INFOS["sum_Y"] = False
+    INFOS["integrate_X"] = {}
+    INFOS["convolute_T"] = {}
+    INFOS["integrate_T"] = {}
+    INFOS["type3_to_type2"] = False
 
     # Question 3
-    if INFOS['synchronizing']:
-        print('\n' + '{:-^40}'.format('3 Convoluting along X') + '\n')
-        if question('Do you want to apply convolution in X direction?', bool, False):
-            print('\nChoose one of the following convolution kernels:')
+    if INFOS["synchronizing"]:
+        print("\n" + "{:-^40}".format("3 Convoluting along X") + "\n")
+        if question("Do you want to apply convolution in X direction?", bool, False):
+            print("\nChoose one of the following convolution kernels:")
             for i in sorted(kernels):
-                print('%i  %s' % (i, kernels[i]['description']))
+                print("%i  %s" % (i, kernels[i]["description"]))
             while True:
-                kern = question('Choose one of the functions:', int, [1])[0]
+                kern = question("Choose one of the functions:", int, [1])[0]
                 if kern in kernels:
                     break
                 else:
-                    print('Choose one of the following: %s' % (list(kernels)))
-            w = question('Choose width of the smoothing function (in units of the X columns):', float, [1.0])[0]
-            INFOS['convolute_X'] = {'function': kernels[kern]['f'](w)}
+                    print("Choose one of the following: %s" % (list(kernels)))
+            w = question("Choose width of the smoothing function (in units of the X columns):", float, [1.0])[0]
+            INFOS["convolute_X"] = {"function": kernels[kern]["f"](w)}
             # print('Choose the size of the grid along X:')
-            INFOS['convolute_X']['npoints'] = question('Size of the grid along X:', int, [25])[0]
-            print('\nChoose minimum and maximum of the grid along X:')
-            print('Enter either a single number a (X grid from  xmin-a*width  to  xmax+a*width)')
-            print('        or two numbers a and b (X grid from  a  to  b)')
-            INFOS['convolute_X']['xrange'] = question('Xrange:', float, [kernels[kern]['factor']])
-            if len(INFOS['convolute_X']['xrange']) > 2:
-                INFOS['convolute_X']['xrange'] = INFOS['convolute_X']['xrange'][:2]
+            INFOS["convolute_X"]["npoints"] = question("Size of the grid along X:", int, [25])[0]
+            print("\nChoose minimum and maximum of the grid along X:")
+            print("Enter either a single number a (X grid from  xmin-a*width  to  xmax+a*width)")
+            print("        or two numbers a and b (X grid from  a  to  b)")
+            INFOS["convolute_X"]["xrange"] = question("Xrange:", float, [kernels[kern]["factor"]])
+            if len(INFOS["convolute_X"]["xrange"]) > 2:
+                INFOS["convolute_X"]["xrange"] = INFOS["convolute_X"]["xrange"][:2]
 
     # Question 4
-    if INFOS['synchronizing'] and not INFOS['convolute_X']:
-        print('\n' + '{:-^40}'.format('4 Averaging') + '\n')
-        if question('Do you want to average the data columns across all trajectories?', bool, False):
-            print('Choose one of the following options:')
-            print('%i  %s' % (1, 'Arithmetic average and standard deviation'))
-            print('%i  %s' % (2, 'Geometric average and standard deviation'))
+    if INFOS["synchronizing"] and not INFOS["convolute_X"]:
+        print("\n" + "{:-^40}".format("4 Averaging") + "\n")
+        if question("Do you want to average the data columns across all trajectories?", bool, False):
+            print("Choose one of the following options:")
+            print("%i  %s" % (1, "Arithmetic average and standard deviation"))
+            print("%i  %s" % (2, "Geometric average and standard deviation"))
             while True:
-                av = question('Choose one of the options:', int, [1])[0]
+                av = question("Choose one of the options:", int, [1])[0]
                 if av in [1, 2]:
                     break
                 else:
-                    print('Choose one of the following: %s' % ([1, 2]))
+                    print("Choose one of the following: %s" % ("[1, 2]"))
             if av == 1:
-                INFOS['averaging'] = {'mean': mean_arith, 'stdev': stdev_arith}
+                INFOS["averaging"] = {"mean": mean_arith, "stdev": stdev_arith}
             elif av == 2:
-                INFOS['averaging'] = {'mean': mean_geom, 'stdev': stdev_geom}
+                INFOS["averaging"] = {"mean": mean_geom, "stdev": stdev_geom}
 
     # Question 4
-    if INFOS['synchronizing'] and not INFOS['convolute_X']:
-        print('\n' + '{:-^40}'.format('5 Total statistics') + '\n')
-        if question('Do you want to compute the total mean and standard deviation over all time steps?', bool, False):
-            print('Choose one of the following options:')
-            print('%i  %s' % (1, 'Arithmetic average and standard deviation'))
-            print('%i  %s' % (2, 'Geometric average and standard deviation'))
+    if INFOS["synchronizing"] and not INFOS["convolute_X"]:
+        print("\n" + "{:-^40}".format("5 Total statistics") + "\n")
+        if question("Do you want to compute the total mean and standard deviation over all time steps?", bool, False):
+            print("Choose one of the following options:")
+            print("%i  %s" % (1, "Arithmetic average and standard deviation"))
+            print("%i  %s" % (2, "Geometric average and standard deviation"))
             while True:
-                av = question('Choose one of the options:', int, [1])[0]
+                av = question("Choose one of the options:", int, [1])[0]
                 if av in [1, 2]:
                     break
                 else:
-                    print('Choose one of the following: %s' % ([1, 2]))
+                    print("Choose one of the following: %s" % ("[1, 2]"))
             if av == 1:
-                INFOS['statistics'] = {'mean': mean_arith, 'stdev': stdev_arith}
+                INFOS["statistics"] = {"mean": mean_arith, "stdev": stdev_arith}
             elif av == 2:
-                INFOS['statistics'] = {'mean': mean_geom, 'stdev': stdev_geom}
+                INFOS["statistics"] = {"mean": mean_geom, "stdev": stdev_geom}
 
     # Question 6
-    if INFOS['synchronizing'] and INFOS['convolute_X']:
-        print('\n' + '{:-^40}'.format('6 Sum over all Y') + '\n')
-        INFOS['sum_Y'] = question('Do you want to sum up all Y values?', bool, False)
+    if INFOS["synchronizing"] and INFOS["convolute_X"]:
+        print("\n" + "{:-^40}".format("6 Sum over all Y") + "\n")
+        INFOS["sum_Y"] = question("Do you want to sum up all Y values?", bool, False)
 
     # Question 7
-    if INFOS['synchronizing'] and INFOS['convolute_X']:
-        print('\n' + '{:-^40}'.format('7 Integrate along X') + '\n')
-        if question('Do you want to integrate in X direction?', bool, False):
-            print('Please specify the lower and upper bounds for the integration:')
+    if INFOS["synchronizing"] and INFOS["convolute_X"]:
+        print("\n" + "{:-^40}".format("7 Integrate along X") + "\n")
+        if question("Do you want to integrate in X direction?", bool, False):
+            print("Please specify the lower and upper bounds for the integration:")
             while True:
-                INFOS['integrate_X']['xrange'] = question('Xmin and Xmax:', float, [0.0, 10.0])
-                if len(INFOS['integrate_X']['xrange']) >= 2:
-                    INFOS['integrate_X']['xrange'] = INFOS['integrate_X']['xrange'][:2]
+                INFOS["integrate_X"]["xrange"] = question("Xmin and Xmax:", float, [0.0, 10.0])
+                if len(INFOS["integrate_X"]["xrange"]) >= 2:
+                    INFOS["integrate_X"]["xrange"] = INFOS["integrate_X"]["xrange"][:2]
                     break
 
     # Question 8
-    if INFOS['synchronizing'] and INFOS['convolute_X']:
-        print('\n' + '{:-^40}'.format('8 Convoluting along T') + '\n')
-        if question('Do you want to apply convolution in T direction?', bool, False):
-            print('Choose one of the following convolution kernels:')
+    if INFOS["synchronizing"] and INFOS["convolute_X"]:
+        print("\n" + "{:-^40}".format("8 Convoluting along T") + "\n")
+        if question("Do you want to apply convolution in T direction?", bool, False):
+            print("Choose one of the following convolution kernels:")
             for i in sorted(kernels):
-                print('%i  %s' % (i, kernels[i]['description']))
+                print("%i  %s" % (i, kernels[i]["description"]))
             while True:
-                kern = question('Choose one of the functions:', int, [1])[0]
+                kern = question("Choose one of the functions:", int, [1])[0]
                 if kern in kernels:
                     break
                 else:
-                    print('Choose one of the following: %s' % (list(kernels)))
-            w = question('Choose width of the smoothing function (in units of the T column):', float, [25.0])[0]
-            INFOS['convolute_T'] = {'function': kernels[kern]['f'](w)}
+                    print("Choose one of the following: %s" % (list(kernels)))
+            w = question("Choose width of the smoothing function (in units of the T column):", float, [25.0])[0]
+            INFOS["convolute_T"] = {"function": kernels[kern]["f"](w)}
             # print('Choose the size of the grid along X:')
-            INFOS['convolute_T']['npoints'] = question('Size of the grid along T:', int, [200])[0]
-            print('\nChoose minimum and maximum of the grid along T:')
-            print('Enter either a single number a (T grid from  xmin-a*width  to  xmax+a*width)')
-            print('        or two numbers a and b (T grid from  a  to  b)')
-            INFOS['convolute_T']['xrange'] = question('Trange:', float, [kernels[kern]['factor']])
-            if len(INFOS['convolute_T']['xrange']) > 2:
-                INFOS['convolute_T']['xrange'] = INFOS['convolute_T']['xrange'][:2]
+            INFOS["convolute_T"]["npoints"] = question("Size of the grid along T:", int, [200])[0]
+            print("\nChoose minimum and maximum of the grid along T:")
+            print("Enter either a single number a (T grid from  xmin-a*width  to  xmax+a*width)")
+            print("        or two numbers a and b (T grid from  a  to  b)")
+            INFOS["convolute_T"]["xrange"] = question("Trange:", float, [kernels[kern]["factor"]])
+            if len(INFOS["convolute_T"]["xrange"]) > 2:
+                INFOS["convolute_T"]["xrange"] = INFOS["convolute_T"]["xrange"][:2]
 
     # Question 9
-    if INFOS['synchronizing'] and INFOS['convolute_X'] and not INFOS['convolute_T']:
-        print('\n' + '{:-^40}'.format('9 Integrating along T') + '\n')
-        INFOS['integrate_T'] = question('Do you want to integrate in T direction?', bool, False)
+    if INFOS["synchronizing"] and INFOS["convolute_X"] and not INFOS["convolute_T"]:
+        print("\n" + "{:-^40}".format("9 Integrating along T") + "\n")
+        INFOS["integrate_T"] = question("Do you want to integrate in T direction?", bool, False)
 
     # Question 10
-    if INFOS['synchronizing'] and INFOS['convolute_X']:
-        print('\n' + '{:-^40}'.format('10 Convert to Type2 dataset') + '\n')
-        print('If you performed integration along X, the data might be better formatted as Type2 dataset.')
-        recommend = bool(INFOS['integrate_X'])
-        INFOS['type3_to_type2'] = question('Do you want to output as Type2 dataset?', bool, recommend)
-
-
-
-
+    if INFOS["synchronizing"] and INFOS["convolute_X"]:
+        print("\n" + "{:-^40}".format("10 Convert to Type2 dataset") + "\n")
+        print("If you performed integration along X, the data might be better formatted as Type2 dataset.")
+        recommend = bool(INFOS["integrate_X"])
+        INFOS["type3_to_type2"] = question("Do you want to output as Type2 dataset?", bool, recommend)
 
     # pprint.pprint(INFOS)
     # sys.exit(1)
 
-
-
-
     return INFOS
 
-# ======================================================================================================================
-# ======================================================================================================================
-# ======================================================================================================================
 
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
 
 
 def do_calc(INFOS):
-
     outindex = 0
-    outstring = ''
+    outstring = ""
 
-    # TODO:
-
-    print('\n\n>>>>>>>>>>>>>>>>>>>>>> Started data analysis\n')
+    print("\n\n>>>>>>>>>>>>>>>>>>>>>> Started data analysis\n")
 
     # ---------------------- collect data -------------------------------
-    if True:
-        print('Collecting the data ...')
-        data1 = collect_data(INFOS)
-        outindex = 1
-        filename = make_filename(outindex, INFOS, outstring)
-        print('>>>> Writing output to file "%s"...\n' % filename)
-        writefile(filename, stringType1(data1, INFOS))
+    print("Collecting the data ...")
+    all_data = collect_data(INFOS)
+    outindex = 1
+    filename = make_filename(outindex, INFOS, outstring)
+    print('>>>> Writing output to file "%s"...\n' % filename)
+    write_type1(filename, all_data, INFOS)
 
     # ---------------------- apply temporal smoothing -------------------------------
-    if INFOS['smoothing']:
-        print('Applying temporal smoothing ...')
-        data1 = smoothing_xy(INFOS, data1)
+    if INFOS["smoothing"]:
+        print("Applying temporal smoothing ...")
+        all_data = smoothing_xy(INFOS, all_data)
         outindex = 1
-        outstring += '_sm'
+        outstring += "_sm"
         filename = make_filename(outindex, INFOS, outstring)
         print('>>>> Writing output to file "%s"...\n' % filename)
-        writefile(filename, stringType1(data1, INFOS))
+        write_type1(filename, all_data, INFOS)
 
     # ---------------------- apply synchronization -------------------------------
-    if INFOS['synchronizing']:
-        print('Synchronizing temporal data ...')
-        data2 = synchronize(INFOS, data1)
+    if INFOS["synchronizing"]:
+        print("Synchronizing temporal data ...")
+        all_data2 = synchronize(all_data)
+
+        n_names = len(INFOS["colnames"]) // 2
+        INFOS["colnames"] = INFOS["colnames"][:n_names] * all_data2["arr"].shape[1] + INFOS["colnames"][n_names:] * all_data2["arr"].shape[1]
+
         outindex = 2
-        outstring += '_sy'
+        outstring += "_sy"
         filename = make_filename(outindex, INFOS, outstring)
         print('>>>> Writing output to file "%s"...\n' % filename)
-        writefile(filename, stringType2(data2))
+        write_type2(filename, all_data2, INFOS)
 
     # ---------------------- compute averages --------------------
-    if INFOS['averaging']:
-        print('Computing averages ...')
-        data2 = calc_average(INFOS, data2)
+    if INFOS["averaging"]:
+        print("Computing averages ...")
+        all_data2 = calc_average(INFOS, all_data2)
         outindex = 2
-        outstring += '_av'
+        outstring += "_av"
         filename = make_filename(outindex, INFOS, outstring)
         print('>>>> Writing output to file "%s"...\n' % filename)
-        writefile(filename, stringType2(data2))
+        write_type2(filename, all_data2, INFOS, write_count=True)
 
     # ---------------------- compute averages --------------------
-    if INFOS['statistics']:
-        print('Computing total statistics ...')
-        data2 = calc_statistics(INFOS, data2)
+    if INFOS["statistics"]:
+        print("Computing total statistics ...")
+        all_data2 = calc_statistics(INFOS, all_data2)
         outindex = 2
-        outstring += '_st'
+        outstring += "_st"
         filename = make_filename(outindex, INFOS, outstring)
         print('>>>> Writing output to file "%s"...\n' % filename)
-        writefile(filename, stringType2(data2))
+        write_type2(filename, all_data2, INFOS, write_count=True)
 
     # ---------------------- convoluting X --------------------
-    if INFOS['convolute_X']:
-        print('Convoluting data (along X column) ...')
-        data3 = do_x_convolution(INFOS, data2)
+    if INFOS["convolute_X"]:
+        print("Convoluting data (along X column) ...")
+        all_data3 = do_x_convolution(INFOS, all_data2)
         outindex = 3
-        outstring += '_cX'
+        outstring += "_cX"
         filename = make_filename(outindex, INFOS, outstring)
         print('>>>> Writing output to file "%s"...\n' % filename)
-        writefile(filename, stringType3(data3))
+        write_type3(filename, all_data3, INFOS)
 
     # ---------------------- convoluting X --------------------
-    if INFOS['sum_Y']:
-        print('Summing all Y values ...')
-        data3 = do_y_summation(INFOS, data3)
+    if INFOS["sum_Y"]:
+        print("Summing all Y values ...")
+        all_data3 = do_y_summation(INFOS, all_data3)
         outindex = 3
-        outstring += '_sY'
+        outstring += "_sY"
         filename = make_filename(outindex, INFOS, outstring)
         print('>>>> Writing output to file "%s"...\n' % filename)
-        writefile(filename, stringType3(data3))
+        write_type3(filename, all_data3, INFOS)
 
     # ---------------------- integrating X --------------------
-    if INFOS['convolute_X'] and INFOS['integrate_X']:
-        print('Integrating data (along X column) ...')
-        data3 = integrate_X(INFOS, data3)
+    if INFOS["convolute_X"] and INFOS["integrate_X"]:
+        print("Integrating data (along X column) ...")
+        all_data3 = integrate_X(INFOS, all_data3)
         outindex = 3
-        outstring += '_iX'
+        outstring += "_iX"
         filename = make_filename(outindex, INFOS, outstring)
         print('>>>> Writing output to file "%s"...\n' % filename)
-        writefile(filename, stringType3(data3))
+        write_type3(filename, all_data3, INFOS)
 
     # ---------------------- convoluting T --------------------
-    if INFOS['convolute_X'] and INFOS['convolute_T']:
-        print('Convoluting data (along T column) ...')
-        data3 = do_t_convolution(INFOS, data3)
+    if INFOS["convolute_X"] and INFOS["convolute_T"]:
+        print("Convoluting data (along T column) ...")
+        all_data3 = do_t_convolution(INFOS, all_data3)
         outindex = 3
-        outstring += '_cT'
+        outstring += "_cT"
         filename = make_filename(outindex, INFOS, outstring)
         print('>>>> Writing output to file "%s"...\n' % filename)
-        writefile(filename, stringType3(data3))
+        write_type3(filename, all_data3, INFOS)
 
     # ---------------------- integrating T --------------------
-    if INFOS['convolute_X'] and INFOS['integrate_T']:
-        print('Integrating data (along T column) ...')
-        data3 = integrate_T(INFOS, data3)
+    if INFOS["convolute_X"] and INFOS["integrate_T"]:
+        print("Integrating data (along T column) ...")
+        all_data3 = integrate_T(INFOS, all_data3)
         outindex = 3
-        outstring += '_iT'
+        outstring += "_iT"
         filename = make_filename(outindex, INFOS, outstring)
         print('>>>> Writing output to file "%s"...\n' % filename)
-        writefile(filename, stringType3(data3))
+        write_type3(filename, all_data3, INFOS)
 
     # ---------------------- integrating T --------------------
-    if INFOS['convolute_X'] and INFOS['type3_to_type2']:
-        print('Converting to Type2 dataset ...')
-        data2 = type3_to_type2(INFOS, data3)
+    if INFOS["convolute_X"] and INFOS["type3_to_type2"]:
+        print("Converting to Type2 dataset ...")
+        data2 = type3_to_type2(INFOS, all_data3)
         outindex = 2
-        outstring += '_cv'
+        outstring += "_cv"
         filename = make_filename(outindex, INFOS, outstring)
         print('>>>> Writing output to file "%s"...\n' % filename)
-        writefile(filename, stringType2(data2))
+        write_type2(filename, data2, INFOS)
 
-
-    # ---------------------- write -------------------------------
-    # filename=make_filename(outindex,INFOS,outstring)
-
-    print
-    print('Finished!')
-    # print('Writing output to file "%s"...\n' % filename)
-    # if outindex==1:
-    # writefile(filename,stringType1(data1,INFOS))
-    # elif outindex==2:
-    # writefile(filename,stringType2(data2))
-    # elif outindex==3:
-    # writefile(filename,stringType3(data3))
+    print("Finished!")
 
     return INFOS
 
 
 # ===============================================
 
+
 def make_filename(outindex, INFOS, outstring):
-    filename = 'collected_data_%i_' % (INFOS['colT'])
-    for i in INFOS['colX']:
-        filename += '%i' % i
-    filename += '_'
-    for i in INFOS['colY']:
-        filename += '%i' % i
-    filename += outstring + '.type%i.txt' % (outindex)
+    filename = "collected_data_%i_" % (INFOS["colT"])
+    for i in INFOS["colX"]:
+        filename += "%i" % i
+    filename += "_"
+    for i in INFOS["colY"]:
+        filename += "%i" % i
+    filename += outstring + ".type%i.txt" % (outindex)
     if len(filename) >= 255:
-        filename = filename[:15] + '...' + filename[-35:]
+        filename = filename[:15] + "..." + filename[-35:]
     return filename
+
 
 # ======================================================================================================================
 # ======================================================================================================================
@@ -1058,639 +897,444 @@ def make_filename(outindex, INFOS, outstring):
 
 
 def collect_data(INFOS):
-    data1 = {}
-    maxcol = max([INFOS['colT']] + [abs(i) for i in INFOS['colX']] + [abs(i) for i in INFOS['colY']])
+    all_data = {}
     width_bar = 50
-    for it1, f in enumerate(INFOS['allfiles']):
-        done = width_bar * (it1 + 1) // len(INFOS['allfiles'])
-        sys.stdout.write('\r  Progress: [' + '=' * done + ' ' * (width_bar - done) + '] %3i%%' % (done * 100 / width_bar))
-        # print('  ... %s' % f)
-        data1[f] = []
-        text = readfile(f)
-        iline = -1
-        for line in text:
-            if '#' in line:
-                continue
-            s = line.split()
-            if len(s) < maxcol:
-                continue
-            iline += 1
-            if INFOS['colT'] == 0:
-                t = iline
-            else:
-                t = float(s[INFOS['colT'] - 1])
-            x = []
-            for i in INFOS['colX']:
-                if i == 0:
-                    x.append(1.)
-                elif i < 0:
-                    x.append(-float(s[-i - 1]))
-                elif i > 0:
-                    x.append(+float(s[i - 1]))
-            y = []
-            for i in INFOS['colY']:
-                if i == 0:
-                    y.append(1.)
-                elif i < 0:
-                    y.append(-float(s[i - 1]))
-                elif i > 0:
-                    y.append(+float(s[i - 1]))
-            data1[f].append(tuple([t] + x + y))
-        data1[f].sort(key=lambda x: x[0])
-    print
-    return data1
+    columns = [i - 1 for i in INFOS["colX"]] + [i - 1 for i in INFOS["colY"]]
 
-# ===========================================
+    colnames = [f"X Column {i:3d}" for i in INFOS["colX"]] + [
+        f"Y Column {iy:3d}" for iy in INFOS["colY"]
+    ]
+    # print(columns, colnames)
+    read_cols = sorted(set(filter(lambda x: x >= 0, [INFOS["colT"] - 1] + columns)))
+    indices_data = list(map(read_cols.index, filter(lambda c: c in read_cols, columns)))
+    indices_arr = [i for i, col in enumerate(columns) if col >= 0]
+
+    for i, file in enumerate(INFOS["allfiles"]):
+        done = width_bar * (i + 1) // len(INFOS["allfiles"])
+        sys.stdout.write("\r  Progress: [" + "=" * done + " " * (width_bar - done) + "] %3i%%" % (done * 100 / width_bar))
+        data = np.loadtxt(
+            file,
+            # delimiter="",
+            dtype=float,
+            comments="#",
+            usecols=read_cols,
+        )
+        arr = np.ones((data.shape[0], len(INFOS["colX"]) * 2), dtype=float)
+        # correct the order
+        if INFOS["colT"] == 0:
+            time = np.linspace(0, data.shape[0] - 1, data.shape[0], dtype=float)
+        else:
+            time = data[:, read_cols.index(INFOS["colT"] - 1)]
+        
+        arr[:, indices_arr] = data[:, indices_data]
+        # arr is aranged over time, XorY, columns -> this makes it easy to access pairs of columns and data points
+        all_data[file] = {"arr": arr.reshape(data.shape[0], 2, -1), "time": time}
+
+    sys.stdout.write("\n")
+    INFOS["columns"] = columns
+    INFOS["colnames"] = colnames
+    return all_data
 
 
-def smoothing_xy(INFOS, data1):
+def smoothing_xy(INFOS, data1: dict):
     data2 = {}
-    f = INFOS['smoothing']['function']
+    f = INFOS["smoothing"]["function"]
     width_bar = 50
-    for it1, key in enumerate(data1):
-        done = width_bar * (it1 + 1) / len(data1)
-        sys.stdout.write('\r  Progress: [' + '=' * done + ' ' * (width_bar - done) + '] %3i%%' % (done * 100 / width_bar))
+    for i, filekey in enumerate(data1.keys()):
+        done = width_bar * (i + 1) / len(data1)
+        sys.stdout.write("\r  Progress: [" + "=" * done + " " * (width_bar - done) + "] %3i%%" % (done * 100 / width_bar))
         sys.stdout.flush()
-        # print('  ... %s' % key)
-        data2[key] = []
-        for T in data1[key]:
-            t = T[0]
-            out = [t]
-            for i in range(1, len(T)):
-                n = 0.
-                s = 0.
-                for T1 in data1[key]:
-                    t1 = T1[0]
-                    w = f.ev(1., t, t1)
-                    if w > 0.:
-                        n += w
-                        s += w * T1[i]
-                out.append(s / n)
-            data2[key].append(out)
-    print
+
+        time = data1[filekey]["time"]
+        arr = data1[filekey]["arr"].reshape((len(time), -1))
+        arr2 = arr.copy()
+
+        for it, time1 in enumerate(time):
+            temp_conv = f.ev(1.0, time1, time)
+            scaled_temp_conv = temp_conv[:, None] * arr
+            mask = temp_conv > 0.0
+            n = np.sum(temp_conv[mask])
+            s = np.sum(scaled_temp_conv[mask], axis=0)
+            arr2 = s / n
+        data2[filekey]["arr"] = arr2.reshape(data1[filekey]["arr"].shape)
+        data2[filekey]["time"] = time
+    sys.stdout.write("\n")
     return data2
 
+
 # ===========================================
 
 
-def synchronize(INFOS, data1):
-    # get all times
-    times = set()
-    for traj in data1:
-        for T in data1[traj]:
-            times.add(T[0])
-    times = sorted(times)
-    # order data and add NaNs
-    data2 = [[] for i in times]
+def synchronize(all_data):
+    """
+    creates dataframe with multicolumn and synchronizes times (fill value = NaN)
+
+          1       2         3
+          f1      f2        f3
+          X  Y    X    Y    X    Y
+    Time
+    1     2  0  NaN  NaN  2.0  0.0
+    4     5  1  5.0  1.0  NaN  NaN
+    7     8  2  8.0  2.0  8.0  2.0
+    """
+    all_times = set()
+    for filekey in sorted(all_data.keys()):
+        if (len(all_data[filekey]["time"]) != len(all_times) and all_data[filekey]["time"][0] not in all_times and all_data[filekey]["time"][1] not in all_times):
+            all_times = all_times.union(set((all_data[filekey]["time"] * 10000).astype(int)))
+    all_times = np.array(sorted(all_times))
+    all_times_idx = {k: i for i, k in enumerate(all_times)}
+    
+    file_keys = sorted(all_data.keys())
+    arr = np.full((len(file_keys), len(all_times), 2, all_data[filekey]["arr"].shape[2]), np.nan)
     width_bar = 50
-    for ik, key in enumerate(sorted(data1)):
-        done = width_bar * (ik + 1) // len(data1)
-        sys.stdout.write('\r  Progress: [' + '=' * done + ' ' * (width_bar - done) + '] %3i%%' % (done * 100 // width_bar))
-        # print('  ... %s' % traj)
-        iterator = iter(data1[key])
-        t = min(times) - 1.
-        for it1, t1 in enumerate(times):
-            if t is not None and t < t1:
-                try:
-                    T = next(iterator)
-                    t = T[0]
-                except StopIteration:
-                    t = None
-            if t1 == t:
-                d = tuple(T[1:])
-            else:
-                d = tuple([float('NaN') for i in T[1:]])
-            data2[it1].append(d)
-    # convert to dict
-    data3 = {'times': times,
-             'data': data2}
-    # find extrema of data
-    data3['tmin'] = min(times)
-    data3['tmax'] = max(times)
-    nx = len(data2[0][0]) // 2
-    for it1, t1 in enumerate(times):
-        xmin = data2[it1][0][0]
-        xmax = xmin
-        if xmax == xmin:
-            break
-    for it1, t1 in enumerate(times):
-        ymin = data2[it1][0][nx]
-        ymax = ymin
-        if ymax == ymin:
-            break
-    for T in data2:
-        for X in T:
-            xmin = min([xmin] + list(X[:nx]))
-            xmax = max([xmax] + list(X[:nx]))
-            ymin = min([ymin] + list(X[nx:]))
-            ymax = max([ymax] + list(X[nx:]))
-    # remember which columns to print(and make labels)
-    mask = []
-    labels = []
-    for i in INFOS['colX']:
-        if i != 0:
-            mask.append(True)
-            labels.append('X Column %3i' % i)
+    for i, fk in enumerate(file_keys):
+        done = width_bar * (i + 1) // len(file_keys)
+        sys.stdout.write("\r  Progress: [" + "=" * done + " " * (width_bar - done) + "] %3i%%" % (done * 100 // width_bar))
+        if (
+                len(all_data[fk]["time"]) == len(all_times) and
+                np.isclose(all_data[fk]["time"][0], all_times[0]) and
+                np.isclose(all_data[fk]["time"][1], all_times[1], rtol=1e-8)):
+            arr[i, ...] = all_data[fk]["arr"]
         else:
-            mask.append(False)
-    for i in INFOS['colY']:
-        if i != 0:
-            mask.append(True)
-            labels.append('Y Column %3i' % i)
-        else:
-            mask.append(False)
-    toprint = []
-    labels = ['Time'] + labels * len(data1)
-    for traj in data1:
-        toprint.append(mask)
-    data3['xmin'] = xmin
-    data3['xmax'] = xmax
-    data3['ymin'] = ymin
-    data3['ymax'] = ymax
-    data3['toprint'] = toprint
-    data3['labels'] = labels
-    return data3
+            idx = [all_times_idx[t] for t in (all_data[filekey]["time"] * 10000).astype(int)]
+            arr[i, idx, ...] = all_data[fk]["arr"]
+
+    # arr has shape time, files, XorY, cols
+    return {"arr": np.einsum('ftxc->tfxc', arr), "time": all_times}
+
 
 # ===========================================
 
 
-def calc_average(INFOS, data2):
-    data3 = []
-    times = []
-    ndata = []
-    width_bar = 50
-    for it1, t1 in enumerate(data2['times']):
-        done = width_bar * (it1 + 1) // len(data2['times'])
-        sys.stdout.write('\r  Progress: [' + '=' * done + ' ' * (width_bar - done) + '] %3i%%' % (done * 100 // width_bar))
-        T = data2['data'][it1]
-        means = []
-        stdevs = []
-        for ix in range(len(T[0])):
-            array = []
-            for traj in T:
-                if traj[ix] == traj[ix]:
-                    array.append(traj[ix])
-            xmean = INFOS['averaging']['mean'](array)
-            xstdv = INFOS['averaging']['stdev'](array, xmean)
-            means.append(xmean)
-            stdevs.append(xstdv)
-        ndata.append(len(array))
-        times.append(t1)
-        data3.append([tuple(means + stdevs)])
-    print
-    # remember which columns to print
-    toprint = copy.copy(data2['toprint'][0])
-    # make labels
-    labels = ['Time']
-    for i in INFOS['colX']:
-        if i != 0:
-            labels.append('X Mean %3i' % i)
-    for i in INFOS['colY']:
-        if i != 0:
-            labels.append('Y Mean %3i' % i)
-    for i in INFOS['colX']:
-        if i != 0:
-            labels.append('X Stdev %3i' % i)
-    for i in INFOS['colY']:
-        if i != 0:
-            labels.append('Y Stdev %3i' % i)
-    labels.append('Count')
-    # convert to type2
-    data4 = {}
-    data4['ndata'] = ndata
-    data4['times'] = times
-    data4['data'] = data3
-    data4['tmin'] = min(times)
-    data4['tmax'] = max(times)
-    data4['xmin'] = data2['xmin']
-    data4['xmax'] = data2['xmax']
-    data4['ymin'] = data2['ymin']
-    data4['ymax'] = data2['ymax']
-    data4['toprint'] = [toprint + toprint]
-    data4['labels'] = labels
-    return data4
-
-# ===========================================
-
-
-def calc_statistics(INFOS, data2):
-    data3 = []
-    times = []
-    ndata = []
-    arrays = [[] for i in data2['data'][0][0]]
-    width_bar = 50
-    for it1, t1 in enumerate(data2['times']):
-        done = width_bar * (it1 + 1) // len(data2['times'])
-        sys.stdout.write('\r  Progress: [' + '=' * done + ' ' * (width_bar - done) + '] %3i%%' % (done * 100 // width_bar))
-        T = data2['data'][it1]
-        means = []
-        stdevs = []
-        for ix in range(len(T[0])):
-            # array=[]
-            for traj in T:
-                if traj[ix] == traj[ix]:
-                    arrays[ix].append(traj[ix])
-            xmean = INFOS['statistics']['mean'](arrays[ix])
-            xstdv = INFOS['statistics']['stdev'](arrays[ix], xmean)
-            means.append(xmean)
-            stdevs.append(xstdv)
-        ndata.append(len(arrays[ix]))
-        times.append(t1)
-        data3.append([tuple(means + stdevs)])
-    print
-    # remember which columns to print
-    toprint = copy.copy(data2['toprint'][0])
-    # make labels
-    labels = ['Time']
-    for i in INFOS['colX']:
-        if i != 0:
-            labels.append('X Mean %3i' % i)
-    for i in INFOS['colY']:
-        if i != 0:
-            labels.append('Y Mean %3i' % i)
-    for i in INFOS['colX']:
-        if i != 0:
-            labels.append('X Stdev %3i' % i)
-    for i in INFOS['colY']:
-        if i != 0:
-            labels.append('Y Stdev %3i' % i)
-    labels.append('Count')
-    # convert to type2
-    data4 = {}
-    data4['ndata'] = ndata
-    data4['times'] = times
-    data4['data'] = data3
-    data4['tmin'] = min(times)
-    data4['tmax'] = max(times)
-    data4['xmin'] = data2['xmin']
-    data4['xmax'] = data2['xmax']
-    data4['ymin'] = data2['ymin']
-    data4['ymax'] = data2['ymax']
-    data4['toprint'] = [toprint + toprint]
-    data4['labels'] = labels
-    return data4
-
-# ===========================================
-
-
-def do_x_convolution(INFOS, data2):
-    # set up xrange
-    width = INFOS['convolute_X']['function'].fwhm
-    xmin = data2['xmin']
-    xmax = data2['xmax']
-    if not INFOS['convolute_X']['xrange']:
-        xmin = xmin - 2. * width
-        xmax = xmax + 2. * width
-    elif len(INFOS['convolute_X']['xrange']) == 2:
-        xmin = INFOS['convolute_X']['xrange'][0]
-        xmax = INFOS['convolute_X']['xrange'][1]
-    elif len(INFOS['convolute_X']['xrange']) == 1:
-        xmin = xmin - INFOS['convolute_X']['xrange'][0] * width
-        xmax = xmax + INFOS['convolute_X']['xrange'][0] * width
-    # do convolution
-    data3 = []
-    width_bar = 50
-    for it1, t1 in enumerate(data2['times']):
-        done = width_bar * (it1 + 1) // len(data2['times'])
-        sys.stdout.write('\r  Progress: [' + '=' * done + ' ' * (width_bar - done) + '] %3i%%' % (done * 100 // width_bar))
-        ny = len(data2['data'][it1][0]) // 2
-        spec = [spectrum(INFOS['convolute_X']['npoints'] - 1, xmin, xmax, 1.0, 1) for i in range(ny)]
-        for i in range(ny):
-            spec[i].f = INFOS['convolute_X']['function']
-        for T in data2['data'][it1]:
-            for i in range(ny):
-                if T[ny + i] == T[ny + i] and T[i] == T[i]:
-                    spec[i].add(T[ny + i], T[i])
-        d = []
-        for ix in range(INFOS['convolute_X']['npoints']):
-            d.append([spec[i].spec[ix] for i in range(ny)])
-        data3.append(d)
-    print
-    # make labels
-    labels = ['Time', 'X_axis']
-    for i, x in enumerate(INFOS['colX']):
-        labels.append('Conv(%i,%i)' % (x, INFOS['colY'][i]))
-    # make type3 dictionary:
-    data4 = {}
-    data4['data'] = data3
-    data4['times'] = copy.copy(data2['times'])
-    data4['xvalues'] = copy.copy(spec[0].en)
-    data4['labels'] = labels
-    data4['tmin'] = min(data4['times'])
-    data4['tmax'] = max(data4['times'])
-    data4['xmin'] = min(data4['xvalues'])
-    data4['xmax'] = max(data4['xvalues'])
-    return data4
-
-# ===========================================
-
-
-def do_t_convolution(INFOS, data3):
-    # set up trange
-    width = INFOS['convolute_T']['function'].fwhm
-    tmin = data3['tmin']
-    tmax = data3['tmax']
-    if not INFOS['convolute_T']['xrange']:
-        tmin = tmin - 2. * width
-        tmax = tmax + 2. * width
-    elif len(INFOS['convolute_T']['xrange']) == 2:
-        tmin = INFOS['convolute_T']['xrange'][0]
-        tmax = INFOS['convolute_T']['xrange'][1]
-    elif len(INFOS['convolute_T']['xrange']) == 1:
-        tmin = tmin - INFOS['convolute_T']['xrange'][0] * width
-        tmax = tmax + INFOS['convolute_T']['xrange'][0] * width
-    # do convolution
-    allspec = []
-    for ix1, x1 in enumerate(data3['xvalues']):
-        ny = len(data3['data'][0][ix1])
-        spec = [spectrum(INFOS['convolute_T']['npoints'] - 1, tmin, tmax, 1.0, 1) for i in range(ny)]
-        for i in range(ny):
-            spec[i].f = INFOS['convolute_T']['function']
-        allspec.append(spec)
-    # normspec=spectrum(INFOS['convolute_T']['npoints']-1,tmin,tmax,1.0,1)
-    # normspec.f=INFOS['convolute_T']['function']
-    width_bar = 50
-    for it1, t1 in enumerate(data3['times']):
-        # normspec.add(1.,t1)
-        done = width_bar * (it1 + 1) // len(data3['times'])
-        sys.stdout.write('\r  Progress: [' + '=' * done + ' ' * (width_bar - done) + '] %3i%%' % (done * 100 // width_bar))
-        for ix1, x1 in enumerate(data3['xvalues']):
-            for i in range(ny):
-                allspec[ix1][i].add(data3['data'][it1][ix1][i], t1)
-    print
-    times = copy.copy(allspec[0][0].en)
-    data4 = []
-    for it1, t1 in enumerate(times):
-        d = []
-        for ix1, x1 in enumerate(data3['xvalues']):
-            d.append([allspec[ix1][i].spec[it1] for i in range(ny)])
-            # d.append( [allspec[ix1][i].spec[it1]/normspec.spec[it1] for i in range(ny)] )
-        data4.append(d)
-    # make type3 dictionary:
-    data5 = {}
-    data5['data'] = data4
-    data5['times'] = times
-    data5['xvalues'] = copy.copy(data3['xvalues'])
-    data5['labels'] = data3['labels']
-    data5['tmin'] = min(data5['times'])
-    data5['tmax'] = max(data5['times'])
-    data5['xmin'] = min(data5['xvalues'])
-    data5['xmax'] = max(data5['xvalues'])
-    return data5
-
-# ===========================================
-
-
-def integrate_T(INFOS, data3):
-    # do cumulative sum for all x values
-    data4 = copy.deepcopy(data3)
-    width_bar = 50
-    for it1, t1 in enumerate(data3['times']):
-        done = width_bar * (it1 + 1) // len(data3['times'])
-        sys.stdout.write('\r  Progress: [' + '=' * done + ' ' * (width_bar - done) + '] %3i%%' % (done * 100 // width_bar))
-        if it1 == 0:
+def calc_average(INFOS, all_data):
+    "calculates averages and stdevs over trajectory axis"
+    nt, nf, _, nc = all_data["arr"].shape
+    arr = all_data["arr"]
+    # times, XorY, MeanorStdev, cols
+    calc_data = np.zeros((nt, 2, 2, nc), dtype=float)
+    cols = []
+    for ic, col_id in enumerate(INFOS["colnames"]):
+        if col_id.split()[2] == "0":
             continue
-        for ix1, x1 in enumerate(data3['xvalues']):
-            ny = len(data4['data'][it1][ix1])
-            for i in range(ny):
-                data4['data'][it1][ix1][i] += data4['data'][it1 - 1][ix1][i]
-    print
-    return data4
+        cols.append(ic)
+        ic = ic % nc  # wrap around XorY
+
+
+        calc_data[:, :, 0, ic] = INFOS["averaging"]["mean"](arr[..., ic], axis=1)
+        calc_data[:, :, 1, ic] = INFOS["averaging"]["stdev"](arr[..., ic], axis=1)
+
+    count = np.sum(~np.isnan(arr), axis=1)
+
+    INFOS["colnames"] = [replace_middle_column_name(INFOS["colnames"][c], "Mean") for c in cols]
+    INFOS["colnames"].extend([replace_middle_column_name(INFOS["colnames"][c], "Stdev") for c in cols])
+    INFOS["colnames"].append("Count")
+    return {"arr": calc_data, "time": all_data["time"], "count": count}
+
 
 # ===========================================
 
 
-def integrate_X(INFOS, data3):
+def calc_statistics(INFOS, all_data):
+    "calculates averages and stdevs over expanding time axis"
+    nt, nf, _, nc = all_data["arr"].shape
+    arr = all_data["arr"]
+    # times, XorY, MeanorStdev, cols
+    calc_data = np.zeros((nf, 2, 2, nc), dtype=float)
+    for it in range(nt):
+
+        calc_data[it, :, 0, :] = INFOS["statistics"]["mean"](arr[:it + 1, ...], axis=0)
+        calc_data[it, :, 1, :] = INFOS["statistics"]["stdev"](arr[:it + 1, ...], axis=0)
+
+    INFOS["colnames"] = [prepend_middle_column_name(c, "Mean") for c in INFOS["colnames"]]
+    INFOS["colnames"].extend([prepend_middle_column_name(c, "Stdev") for c in INFOS["colnames"]])
+    return {"arr": calc_data, "time": all_data["time"]}
+
+
+# ===========================================
+
+
+def do_x_convolution(INFOS, all_data):
+    # set up xrange
+    width = INFOS["convolute_X"]["function"].fwhm
+    xmin = np.min(all_data["arr"][:, :, 0, :])
+    xmax = np.max(all_data["arr"][:, :, 0, :])
+    if not INFOS["convolute_X"]["xrange"]:
+        xmin = xmin - 2.0 * width
+        xmax = xmax + 2.0 * width
+    elif len(INFOS["convolute_X"]["xrange"]) == 2:
+        xmin = INFOS["convolute_X"]["xrange"][0]
+        xmax = INFOS["convolute_X"]["xrange"][1]
+    elif len(INFOS["convolute_X"]["xrange"]) == 1:
+        xmin = xmin - INFOS["convolute_X"]["xrange"][0] * width
+        xmax = xmax + INFOS["convolute_X"]["xrange"][0] * width
+
+    width_bar = 50
+
+    arr = all_data["arr"]
+    nt, nf, _, nc = arr.shape
+
+    nps = INFOS["convolute_X"]["npoints"]
+    ene_grid = np.linspace(xmin, xmax, nps)
+    conv_func = INFOS["convolute_X"]["function"].ev
+    max_A = np.max(all_data["arr"][:, :, 1, :])
+    max_gauss = conv_func(max_A, ene_grid[nps // 2], ene_grid)
+    idx = np.nonzero(max_gauss > 1e-10)[0]
+    idx_w_g = max(idx) - min(idx)
+    upper = nps - idx_w_g//2
+    lower = idx_w_g//2
+
+
+
+    conv_data = np.zeros((nt, nc, nps), dtype=float)
+    for it in range(nt):
+
+        done = width_bar * (it + 1) // nt
+        sys.stdout.write("\r  Progress: [" + "=" * done + " " * (width_bar - done) + "] %3i%%" % (done * 100 // width_bar))
+
+        for col in range(nc):
+            conv_it_col = conv_data[it, col, :]
+            for idx in range(nf):
+                A = arr[it, idx, 1, col]
+                x0 = arr[it, idx, 0, col]
+                if np.isnan(A) or np.isnan(x0):
+                    continue
+
+                xidx = np.searchsorted(ene_grid, x0)
+                if xidx < lower:
+                    id1 = 0
+                    id2 = xidx + idx_w_g
+                elif xidx > upper:
+                    id1 = xidx - idx_w_g
+                    id2 = nps
+                else:
+                    id1, id2 = xidx - idx_w_g, xidx + idx_w_g
+                conv_it_col[id1:id2] += conv_func(A, x0, ene_grid[id1:id2])
+
+
+    sys.stdout.write("\n")
+
+    INFOS["colnames"] = [
+        f"Conv({x},{y})" for x, y in map(
+            lambda c: (INFOS["colnames"][c].split()[2], INFOS["colnames"][c + nc].split()[2]), range(nc)
+        )
+    ]
+
+    return {"arr": conv_data, "time": all_data["time"], "x_axis": ene_grid}
+
+
+# ===========================================
+
+
+def do_t_convolution(INFOS, all_data):
+    # set up trange
+    width = INFOS["convolute_T"]["function"].fwhm
+    arr = all_data["arr"]
+    time = all_data["time"]
+    tmin = min(time)
+    tmax = max(time)
+    if not INFOS["convolute_T"]["xrange"]:
+        tmin = tmin - 2.0 * width
+        tmax = tmax + 2.0 * width
+    elif len(INFOS["convolute_T"]["xrange"]) == 2:
+        tmin = INFOS["convolute_T"]["xrange"][0]
+        tmax = INFOS["convolute_T"]["xrange"][1]
+    elif len(INFOS["convolute_T"]["xrange"]) == 1:
+        tmin = tmin - INFOS["convolute_T"]["xrange"][0] * width
+        tmax = tmax + INFOS["convolute_T"]["xrange"][0] * width
+
+    # do convolution
+    nt, nc, nx = arr.shape
+    nps = INFOS["convolute_T"]["npoints"]
+    t_grid = np.linspace(tmin, tmax, nps)
+    conv_t = np.zeros((nc, nx, nps), dtype=float)
+    conv_func = INFOS["convolute_T"]["function"].ev
+
+    width_bar = 50
+
+    old_it = -1
+    with np.nditer(arr, flags=["multi_index"], op_flags=["readonly"], casting="no") as iter:
+        for v in iter:
+            it, ic, ix = iter.multi_index
+            if old_it != it:
+                done = width_bar * (it + 1) // nt
+                sys.stdout.write("\r  Progress: [" + "=" * done + " " * (width_bar - done) + "] %3i%%" % (done * 100 // width_bar))
+                old_it = it
+
+            conv_t[ic, ix, :] += conv_func(v, time[it], t_grid)
+
+    all_data["arr"] = np.einsum("cxt->tcx", conv_t)
+    all_data["time"] = t_grid
+    return all_data
+
+
+
+# ===========================================
+
+
+def integrate_T(INFOS, all_data):
+    # do cumulative sum for all x values
+
+    calc_arr = all_data["arr"].copy()
+    nt, nc, nx = calc_arr.shape
+
+    width_bar = 50
+    for it in range(1, nt):
+        done = width_bar * (it + 1) // nt
+        sys.stdout.write("\r  Progress: [" + "=" * done + " " * (width_bar - done) + "] %3i%%" % (done * 100 // width_bar))
+        calc_arr[it, ...] += calc_arr[it - 1, ...]
+    sys.stdout.write("\n")
+
+    return {**all_data, "arr": calc_arr}
+
+
+# ===========================================
+
+
+def integrate_X(INFOS, all_data):
     # sum up for all x values below a, between a and b, and above b
-    xmin = INFOS['integrate_X']['xrange'][0]
-    xmax = INFOS['integrate_X']['xrange'][1]
-    xvalues = [-1, 0, 1]
-    width_bar = 50
-    data = []
-    for it1, t1 in enumerate(data3['times']):
-        done = width_bar * (it1 + 1) // len(data3['times'])
-        sys.stdout.write('\r  Progress: [' + '=' * done + ' ' * (width_bar - done) + '] %3i%%' % (done * 100 // width_bar))
-        ny = len(data3['data'][it1][0])
-        d = [[0. for i in range(ny)] for j in range(3)]
-        for ix1, x1 in enumerate(data3['xvalues']):
-            if x1 < xmin:
-                out = 0
-            elif xmin <= x1 <= xmax:
-                out = 1
-            elif xmax < x1:
-                out = 2
-            for i in range(ny):
-                d[out][i] += data3['data'][it1][ix1][i]
-        data.append(d)
-    print
-    # make type3 dictionary:
-    data5 = {}
-    data5['data'] = data
-    data5['times'] = copy.copy(data3['times'])
-    data5['xvalues'] = xvalues
-    data5['labels'] = data3['labels']
-    data5['tmin'] = min(data5['times'])
-    data5['tmax'] = max(data5['times'])
-    data5['xmin'] = min(data5['xvalues'])
-    data5['xmax'] = max(data5['xvalues'])
-    return data5
+    xmin = INFOS["integrate_X"]["xrange"][0]
+    xmax = INFOS["integrate_X"]["xrange"][1]
+    xvalues = np.linspace(-1, 1, 3)
+    bins = [xmin, xmax]
+    arr = all_data["arr"]
+    nt, nc, nx = arr.shape
+    idx = np.digitize(arr, bins=bins)
+    int_x_arr = np.zeros((nt, nc, 3), dtype=float)
+    np.add.at(int_x_arr, idx, arr)
+
+    return {**all_data, "arr": int_x_arr, "x_axis": xvalues}
+
 
 # ===========================================
 
 
-def do_y_summation(INFOS, data3):
-    width_bar = 50
-    data = []
-    for it1, t1 in enumerate(data3['times']):
-        done = width_bar * (it1 + 1) // len(data3['times'])
-        sys.stdout.write('\r  Progress: [' + '=' * done + ' ' * (width_bar - done) + '] %3i%%' % (done * 100 // width_bar))
-        ny = len(data3['data'][it1][0])
-        d = [[0.] for j in data3['xvalues']]
-        for ix1, x1 in enumerate(data3['xvalues']):
-            for i in range(ny):
-                d[ix1][0] += data3['data'][it1][ix1][i]
-        data.append(d)
-    print
-    # make type3 dictionary:
-    data5 = {}
-    data5['data'] = data
-    data5['times'] = copy.copy(data3['times'])
-    data5['xvalues'] = copy.copy(data3['xvalues'])
-    data5['labels'] = ['Time', 'X_axis', 'Y_sum']
-    data5['tmin'] = min(data5['times'])
-    data5['tmax'] = max(data5['times'])
-    data5['xmin'] = min(data5['xvalues'])
-    data5['xmax'] = max(data5['xvalues'])
-    return data5
+def do_y_summation(INFOS, all_data):
+    INFOS["colnames"] = ["Time", "X_axis", "Y_sum"]
+    return {**all_data, "arr": np.sum(all_data["arr"], axis=1)}
+
 
 # ===========================================
 
 
-def type3_to_type2(INFOS, data3):
-    # copy data
-    data4 = copy.deepcopy(data3)
-    # adjust to type2
-    del data4['xvalues']
-    data4['tmin'] = min(data4['times'])
-    data4['tmax'] = max(data4['times'])
-    data4['xmin'] = 0
-    data4['xmax'] = 0
-    labels = ['Time']
-    for ix1, x1 in enumerate(data3['xvalues']):
-        labels.append('X=%8f' % x1)
-    data4['labels'] = labels
-    return data4
+def type3_to_type2(INFOS, all_data):
+    arr = all_data["arr"]
+    nt, nc, nx = arr.shape
+    return {f'X={x:8f}': {"arr": arr[..., ix], "time": all_data["time"]} for ix, x in enumerate(all_data["X_axis"])}
 
 
 # ======================================================================================================================
 
-def mean_arith(data):
-    if len(data) < 1:
-        return float('NaN')
-    s = 0.
-    for i in data:
-        s += i
-    return s / len(data)
+
+def mean_arith(data: np.ndarray, axis=1):
+    if data.shape[axis] == 1:
+        return data
+    return np.mean(data, axis=axis)
+
 
 # ======================================== #
 
 
-def stdev_arith(data, mean=None):
-    if len(data) < 2:
-        return float('NaN')
-    if mean is None:
-        m = mean_arith(data)
-    else:
-        m = mean
-    s = 0.
-    for i in data:
-        s += (i - m)**2
-    s = s / (len(data) - 1)
-    return math.sqrt(s)
+def stdev_arith(data: np.ndarray, axis=1):
+    return data.std(axis=axis)
+
 
 # ======================================== #
 
 
-def mean_geom(data):
-    if len(data) < 1:
-        return float('NaN')
-    s = 0.
-    for i in data:
-        s += math.log(i)
-    s = s / len(data)
-    return math.exp(s)
+def mean_geom(data: np.ndarray, axis=1):
+    if data.shape[axis] == 1:
+        return data
+    return np.exp(np.log(data).mean(axis=axis))
+
 
 # ======================================== #
 
 
-def stdev_geom(data, mean=None):
-    if len(data) < 2:
-        return float('NaN')
-    if mean is None:
-        m = math.log(mean_geom(data))
-    else:
-        m = math.log(mean)
-    s = 0.
-    for i in data:
-        s += (math.log(i) - m)**2
-    s = s / (len(data) - 1)
-    return math.exp(math.sqrt(s))
+def stdev_geom(data: np.ndarray, axis=1):
+    res = np.full((data.shape[0]), np.nan, dtype=float)
+    for i, row in enumerate(data):
+        row_arr = row.to_numpy()
+        res[i] = stats.gstd(row_arr[row_arr > 0], axis=axis)
+    return res
+
 
 # ======================================== #
-
 
 
 # ======================================================================================================================
 
-def stringType1(type1, INFOS):
+
+def write_type1(filename, all_data, INFOS):
     # make header
-    longest = max([len(key) for key in type1])
-    string = '#    1 ' + ' ' * (longest - 1) + '2' + ' ' * 15 + '3'
-    for i in range(2 * len(INFOS['colX'])):
-        string += '             %3i' % (i + 4)
-    string += '\n#Index ' + ' ' * (longest - 8) + 'Filename' + ' ' * 11 + ' Time'
-    for i in INFOS['colX']:
-        string += '    X Column %3i' % (i)
-    for i in INFOS['colY']:
-        string += '    Y Column %3i' % (i)
-    string += '\n'
+    longest = max([len(key) for key in all_data])
+    string = "#    1 " + " " * (longest - 1) + "2" + " " * 15 + "3"
+    for i in range(2 * len(INFOS["colX"])):
+        string += "             %3i" % (i + 4)
     # make data string
-    for ikey, key in enumerate(sorted(type1)):
-        for d in type1[key]:
-            string += '%6i %s ' % (ikey, key)
-            for i in d:
-                string += '% .8E ' % i
-            string += '\n'
-        string += '\n'
-    return string
+
+    with open(filename, "w") as f:
+        for i, filekey in enumerate(sorted(all_data)):
+
+            time = all_data[filekey]["time"]
+            out = all_data[filekey]["arr"].reshape((time.shape[0], -1))
+
+            if i == 0:
+                f.write(string + "\n")
+                columns = ["Index", " " * (longest - 8) + "Filename", "Time"] + INFOS["colnames"]
+                f.write("#" + "  ".join(map(lambda x: f"{x:>14s}", columns)) + "\n")
+            for idx, (t, c) in enumerate(zip(time, out)):
+                f.write(f"{i:>15d} {filekey:>14s} {t: 14.8E}  " + "  ".join(map(lambda x: f"{x: 14.8E}", c)) + "\n")
+            f.write("\n")
+    return
+
 
 # ======================================================================================================================
 
 
-def stringType2(type2):
-    string = ''
-    # make header
-    if 'labels' in type2:
-        string += '#'
-        for i, label in enumerate(type2['labels']):
-            if i == 0:
-                string += '%14i ' % (i + 1)
-            else:
-                string += '%15i ' % (i + 1)
-        string += '\n#'
-        for i, label in enumerate(type2['labels']):
-            if i == 0:
-                string += '%14s ' % label
-            else:
-                string += '%15s ' % label
-        string += '\n'
-    # make data string
-    for it, t in enumerate(type2['times']):
-        string += '% .8E' % t
-        for iT, T in enumerate(type2['data'][it]):
-            for ix, x in enumerate(T):
-                if 'toprint' not in type2 or type2['toprint'][iT][ix]:
-                    string += ' % .8E' % (x)
-        if 'ndata' in type2:
-            string += ' % .8E' % (type2['ndata'][it])
-        string += '\n'
-    return string
+def write_type2(filename, all_data, INFOS, write_count=False):
+    n_cols = len(INFOS["colnames"]) + 1 + (1 if write_count else 0)
+    arr = all_data["arr"][:, :, 0, :].reshape(all_data["arr"].shape[0], -1)
+    with open(filename, "w") as f:
+        f.write("#" + " ".join(map(lambda i: f"{i + 1:14d} ", range(n_cols))) + "\n")
+        # sort multiindex to level!
+        # get columns
+        column_names = INFOS["colnames"]
+        f.write("#" + "  ".join(map(lambda i: f"{i:>14s}", ["Time"] + column_names)) + "\n")
+        if write_count:
+            count = all_data["count"]
+            for idx, (t, c) in enumerate(zip(all_data["time"], arr)):
+                f.write(f"{t: 14.8E} " + "  ".join(map(lambda x: f"{x: 14.8E}", c)) + f"  {count[idx]: 14.8E}" + "\n")
+        else:
+            for idx, (t, c) in enumerate(zip(all_data["time"], arr)):
+                f.write(f"{t: 14.8E} " + " ".join(map(lambda x: f"{x: 14.8E}", c)) + "\n")
+
+    return
+
 
 # ======================================================================================================================
 
 
-def stringType3(type3):
+def write_type3(filename, all_data, INFOS):
     # make header
-    string = ''
-    if 'labels' in type3:
-        string += '#'
-        for i, label in enumerate(type3['labels']):
-            if i == 0:
-                string += '%14i ' % (i + 1)
-            else:
-                string += '%15i ' % (i + 1)
-        string += '\n#'
-        for i, label in enumerate(type3['labels']):
-            if i == 0:
-                string += '%14s ' % label
-            else:
-                string += '%15s ' % label
-        string += '\n'
-    # make data string
-    for it, t in enumerate(type3['times']):
-        for ix, x in enumerate(type3['xvalues']):
-            string += '% .8E % .8E ' % (t, x)
-            for y in type3['data'][it][ix]:
-                string += '% .8E ' % y
-            string += '\n'
-        string += '\n'
-    return string
+    arr = all_data["arr"]
+    nt, nc, nps = arr.shape
+    with open(filename, "w") as f:
+        f.write(f"#{1:>14d} " + " ".join(map(lambda i: f"{i + 2:>15d}", range(nc + 1))) + "\n")
+        f.write(f"#{'Time':>14s} " + " ".join(map(lambda i: f"{i:>15s}", ["X_axis"] + INFOS["colnames"])) + "\n")
+        for it, t in enumerate(all_data["time"]):
+            for ix, x in enumerate(all_data["x_axis"]):
+                c = arr[it, :, ix]
+                f.write(f"{t: 14.8E} {x: 14.8E} " + " ".join(map(lambda x: f"{x: 14.8E}", c)) + "\n")
+            f.write("\n")
+
+ 
+
 
 # ======================================================================================================================
 
 
 def readType1(strings):
-    print('Type1 cannot be read currently!')
+    print("Type1 cannot be read currently!")
     sys.exit(1)
     # data1={}
     # for line in strings:
@@ -1706,14 +1350,16 @@ def readType1(strings):
     # data1[key].sort(key=lambda x: x[0])
     # return data1
 
+
 # ======================================================================================================================
 
 # ======================================================================================================================
 
 
 def readType3(strings):
-    print('Type3 cannot be read currently!')
+    print("Type3 cannot be read currently!")
     sys.exit(1)
+
 
 # ======================================================================================================================
 # ======================================================================================================================
@@ -1721,25 +1367,23 @@ def readType3(strings):
 
 
 def main():
-    '''Main routine'''
+    """
+    python data_collector.py
 
-    usage = '''
-python data_collector.py
-
-This interactive program reads table information from SHARC trajectories.
-'''
+    This interactive program reads table information from SHARC trajectories.
+    """
 
     displaywelcome()
     open_keystrokes()
 
     INFOS = get_general()
 
-    print('\n\n{:#^80}\n'.format('Full input'))
+    print("\n\n{:#^80}\n".format("Full input"))
     for item in INFOS:
-        print(item, ' ' * (25 - len(item)), INFOS[item])
-    print('')
-    calc = question('Do you want to do the specified analysis?', bool, True)
-    print('')
+        print(item, " " * (25 - len(item)), INFOS[item])
+    print("")
+    calc = question("Do you want to do the specified analysis?", bool, True)
+    print("")
 
     if calc:
         INFOS = do_calc(INFOS)
@@ -1749,9 +1393,9 @@ This interactive program reads table information from SHARC trajectories.
 
 # ======================================================================================================================
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
-        print('\nCtrl+C makes me a sad SHARC ;-(\n')
+        print("\nCtrl+C makes me a sad SHARC ;-(\n")
         quit(0)
