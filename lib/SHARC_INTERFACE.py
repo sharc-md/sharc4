@@ -38,13 +38,13 @@ from textwrap import wrap
 from typing import Any
 
 import numpy as np
+
 # internal
 from constants import ATOMCHARGE, BOHR_TO_ANG, FROZENS
 from logger import SHARCPRINT, CustomFormatter, logging
 from qmin import QMin
 from qmout import QMout
-from utils import (clock, expand_path, itnmstates, parse_xyz, readfile,
-                   writefile)
+from utils import clock, expand_path, itnmstates, parse_xyz, readfile, writefile
 
 np.set_printoptions(linewidth=400, formatter={"float": lambda x: f"{x: 9.7}"})
 all_features = {
@@ -614,6 +614,8 @@ class SHARC_INTERFACE(ABC):
 
                 case [key, val] if key in types_dict:
                     key_type = types_dict[key]
+                    if isinstance(key_type, tuple):
+                        key_type, _ = key_type
                     if key_type is list:
                         if key not in out_dict or key not in kw_whitelist:
                             out_dict[key] = []
@@ -824,12 +826,8 @@ class SHARC_INTERFACE(ABC):
                 case ["density_matrices" | "multipolar_fit", value]:
                     self.QMin.requests[req] = value
                 case ["soc", None]:
-                    if (
-                        len(self.QMin.molecule["states"]) < 3
-                        or (self.QMin.molecule["states"][0] == 0 and self.QMin.molecule["states"][2] <= 1)
-                        or (self.QMin.molecule["states"][0] > 0 and self.QMin.molecule["states"][2] == 0)
-                    ):
-                        self.log.warning("SOCs requested but only 1 multiplicity given! Disable SOCs")
+                    if len(self.QMin.molecule["states"]) < 2:
+                        self.log.warning("SOCs requested but only singlets given! Disable SOCs")
                         return
                     self.QMin.requests["soc"] = True
                     self.QMin.requests["h"] = True
