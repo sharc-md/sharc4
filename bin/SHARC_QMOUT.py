@@ -83,8 +83,10 @@ class SHARC_QMOUT(SHARC_FAST):
     _description = description
     _step = 0
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, *args, **kwargs):
+    # def __init__(self):
+        # super().__init__()
+        super().__init__(*args, **kwargs)
         self._read_template = False
         self._read_resources = False
         self._setup_mol = False
