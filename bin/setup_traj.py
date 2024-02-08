@@ -502,6 +502,7 @@ def get_initconds(INFOS):
 
 
 def check_laserfile(filename, nsteps, dt):
+    log.info('Laser file must have %i steps and a time step of %f fs.' % (nsteps,dt))
     try:
         f = open(filename)
         data = f.readlines()
@@ -1211,7 +1212,7 @@ Laser files can be created using $SHARC/laser.x
         )
         if os.path.isfile("laser"):
             if check_laserfile(
-                "laser", INFOS["tmax"] // INFOS["dtstep"] * INFOS["nsubstep"] + 1, INFOS["dtstep"] // INFOS["nsubstep"]
+                "laser", int(INFOS["tmax"] / INFOS["dtstep"] * INFOS["nsubstep"] + 1), INFOS["dtstep"] / INFOS["nsubstep"]
             ):
                 log.info('Valid laser file "laser" detected. ')
                 usethisone = question("Use this laser file?", bool, True)
@@ -1224,7 +1225,7 @@ Laser files can be created using $SHARC/laser.x
                     log.info("File %s does not exist!" % (filename))
                     continue
                 if check_laserfile(
-                    filename, INFOS["tmax"] // INFOS["dtstep"] * INFOS["nsubstep"] + 1, INFOS["dtstep"] // INFOS["nsubstep"]
+                    filename, (INFOS["tmax"] / INFOS["dtstep"] * INFOS["nsubstep"] + 1), INFOS["dtstep"] / INFOS["nsubstep"]
                 ):
                     break
             INFOS["laserfile"] = filename
