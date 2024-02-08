@@ -1,6 +1,7 @@
 import datetime
 import os
 import re
+import shutil
 from io import TextIOWrapper
 
 import numpy as np
@@ -340,8 +341,20 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         """
         Setup workdir, write input file, copy initial guess, execute
         """
+        self.log.debug(f"Create workdir {workdir}")
         mkdir(workdir)
+
+        # Write files
         writefile(os.path.join(workdir, "MOLCAS.xyz"), self._write_geom(qmin.molecule["elements"], qmin.coords["coords"]))
+        # TODO: input file
+
+        # Make subdirs
+        if qmin.resources["mpi_parallel"]:
+            for i in range(qmin.resources["ncpu"]):
+                self.log.debug(f"Create subdir tmp_{i+1}")
+                mkdir(os.path.join(workdir, f"tmp_{i+1}"))
+
+        
 
     def _gen_tasklist(self, qmin: QMin) -> list[list[str]]:
         """
@@ -568,7 +581,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         # TODO: qmmm
         geom_str = f"{len(atoms)}\n\n"
         for idx, (at, crd) in enumerate(zip(atoms, coords)):
-            geom_str += f"{at}{idx+1} {crd[0]*au2a} {crd[1]*au2a} {crd[2]*au2a}\n"
+            geom_str += f"{at}{idx+1}  {crd[0]*au2a:6f} {crd[1]*au2a:6f} {crd[2]*au2a:6f}\n"
         return geom_str
 
     def _create_aoovl(self) -> None:
