@@ -10,7 +10,7 @@ from error import Error, exception_hook
 import subprocess as sp
 from globals import DEBUG, PRINT
 from logger import log as logging
-from typing import Any
+from typing import Any, Callable
 
 
 class InDir:
@@ -58,6 +58,22 @@ def expand_path(path: str) -> str:
         logging.error(f"Undefined env variable in {expand}")
         raise OSError(f"Undefined env variable in {expand}")
     return expand
+
+
+def is_exec(path: str) -> bool:
+    """
+    Checks if path contains an executable (also searches in $PATH)
+    """
+
+    fpath, _ = os.path.split(path)
+    if fpath:
+        return os.path.isfile(path) and os.access(path, os.X_OK)
+    else:
+        for p in os.environ.get("PATH", "").split(os.pathsep):
+            exe_file = os.path.join(p, path)
+            if os.path.isfile(exe_file) and os.access(exe_file, os.X_OK):
+                return True
+    return False
 
 
 # ======================================================================= #
@@ -397,7 +413,7 @@ class clock:
     def starttime(self, value):
         self._starttime = value
 
-    def measuretime(self, print=False):
+    def measuretime(self, log=print):
         """Calculates the time difference between global variable starttime and the time of the call of measuretime.
         Prints the Runtime, if PRINT or DEBUG are enabled.
         Arguments:
@@ -407,12 +423,12 @@ class clock:
 
         endtime = datetime.datetime.now()
         runtime = endtime - self._starttime
-        if self._verbose or print:
+        if log:
             hours = runtime.seconds // 3600
             minutes = runtime.seconds // 60 - hours * 60
             seconds = runtime.seconds % 60
             seconds += 1.0e-6 * runtime.microseconds
-            print("==> Runtime:\t%i Days\t%i Hours\t%i Minutes\t%f Seconds\n\n" % (runtime.days, hours, minutes, seconds))
+            log("==> Runtime:\t%i Days\t%i Hours\t%i Minutes\t%f Seconds\n\n" % (runtime.days, hours, minutes, seconds))
         return runtime.days * 24 * 3600 + runtime.seconds + runtime.microseconds // 1.0e6
 
 

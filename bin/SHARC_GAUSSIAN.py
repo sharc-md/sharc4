@@ -134,28 +134,26 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         self.QMin.resources.update(
             {
                 "groot": None,
-                "wfoverlap": None,
-                "wfthres": None,
                 "numfrozcore": 0,
                 "numocc": None,
                 "schedule_scaling": 0.9,
                 "neglected_gradient": "zero",
                 "dry_run": False,
                 "debug": False,
+                "min_cpu": 1,
             }
         )
 
         self.QMin.resources.types.update(
             {
                 "groot": str,
-                "wfoverlap": str,
-                "wfthres": float,
                 "numfrozcore": int,
                 "numocc": int,
                 "schedule_scaling": float,
                 "neglected_gradient": str,
                 "dry_run": bool,
                 "debug": bool,
+                "min_cpu": int,
             }
         )
 
@@ -476,7 +474,16 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                 elif s1 == s2:
                     dens = (m1, s1)
                     if gsmult == m1:
-                        if s1 == 2:
+                        if s1 == 1:  # ground state always master SCF
+                            if mat in ["aa", "bb"]:
+                                self.QMin.requests["density_matrices"][key] = (
+                                    f"master_{ijob}",
+                                    {"Total SCF Density", "Spin SCF Density"},
+                                )
+                            elif mat == "tot":
+                                self.QMin.requests["density_matrices"][key] = (f"master_{ijob}", {"Total SCF Density"})
+
+                        elif s1 == 2:
                             if mat in ["aa", "bb"]:
                                 self.QMin.requests["density_matrices"][key] = (
                                     f"master_{ijob}",
@@ -504,7 +511,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                                 elif mat == "tot":
                                     self.QMin.requests["density_matrices"][key] = (jobgrad[dens][0], {"Total CI Density"})
                         # needs extra job in dens_m_s
-                        elif s1 != 1:  # just as sanity check this will always be true
+                        else:
                             if mat in ["aa", "bb"]:
                                 self.QMin.requests["density_matrices"][key] = (
                                     f"dens_{m1}_{s1}",
@@ -512,8 +519,6 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                                 )
                             elif mat == "tot":
                                 self.QMin.requests["density_matrices"][key] = (f"dens_{m1}_{s1}", {"Total CI Density"})
-                        else:
-                            raise RuntimeError()
                     # gsmult is not mult! (-> restricted triplets) are always CI matrix
                     elif dens in jobgrad and self.QMin.control["jobs"][ijob]["restr"]:
                         if mat in ["aa", "bb"]:
@@ -539,7 +544,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                         f"master_{ijob}",
                         {"Number of g2e trans dens", "G to E trans densities"},
                     )
-                # transposed matrices kan be produced the same way
+                # transposed matrices can be produced the same way
                 if s1 <= s2:
                     self.QMin.requests["density_matrices"][(m2, s2, ms2, m1, s1, ms1, mat)] = self.QMin.requests[
                         "density_matrices"
@@ -562,7 +567,9 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         for i in gradjob:
             if "master" in i:
                 ntasks += 1
-        _, nslots, cpu_per_run = self.divide_slots(self.QMin.resources["ncpu"], ntasks, self.QMin.resources["schedule_scaling"])
+        _, nslots, cpu_per_run = self.divide_slots(self.QMin.resources["ncpu"], ntasks, self.QMin.resources["schedule_scaling"],
+                                                   min_cpu=self.QMin.resources["min_cpu"])
+        self.log.debug(f"slots for master: {nslots} {cpu_per_run}")
         memory_per_core = self.QMin.resources["memory"] // self.QMin.resources["ncpu"]
         self.QMin.control["nslots_pool"].append(nslots)
         schedule.append({})
@@ -576,6 +583,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                 QMin1.maps["gradmap"] = set(gradjob[i])
                 QMin1.resources["ncpu"] = cpu_per_run[icount]
                 QMin1.resources["memory"] = memory_per_core * cpu_per_run[icount]
+                self.log.debug(f"adding to schedule: {i} with {cpu_per_run[icount]} and {memory_per_core * cpu_per_run[icount]}")
                 # get the rootstate for the multiplicity as the first excited state
                 QMin1.control["rootstate"] = min(
                     1, self.QMin.molecule["states"][self.QMin.maps["multmap"][-QMin1.control["jobid"]][-1] - 1] - 1
@@ -600,8 +608,9 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                 ntasks += 1
         if ntasks > 0:
             _, nslots, cpu_per_run = self.divide_slots(
-                self.QMin.resources["ncpu"], ntasks, self.QMin.resources["schedule_scaling"]
+                self.QMin.resources["ncpu"], ntasks, self.QMin.resources["schedule_scaling"], min_cpu=self.QMin.resources["min_cpu"]
             )
+            self.log.debug(f"slots for grad: {nslots} {cpu_per_run}")
             self.QMin.control["nslots_pool"].append(nslots)
             schedule.append({})
             icount = 0
@@ -620,6 +629,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                     QMin1.maps["gradmap"] = set(gradjob[i])
                     QMin1.resources["ncpu"] = cpu_per_run[icount]
                     QMin1.resources["memory"] = memory_per_core * cpu_per_run[icount]
+                    self.log.debug(f"adding to schedule: {i} with {cpu_per_run[icount]} and {memory_per_core * cpu_per_run[icount]}")
                     QMin1.control["gradonly"] = True
                     QMin1.control["rootstate"] = state - 1 if gsmult == mult else state  # 1 is first excited state of mult
                     icount += 1
@@ -1698,6 +1708,12 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
 
         # TheoDORE
         if self.QMin.requests["theodore"]:
+            theodore_arr = np.zeros(
+                (
+                    self.QMin.molecule["nmstates"],
+                    len(self.QMin.resources["theodore_prop"]) + len(self.QMin.resources["theodore_fragment"]) ** 2,
+                )
+            )
             for job in joblist:
                 if not self.QMin.control["jobs"][job]["restr"]:
                     continue
@@ -1712,11 +1728,20 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                 sumfile = os.path.join(self.QMin.resources["scratchdir"], f"master_{job}", "tden_summ.txt")
                 omffile = os.path.join(self.QMin.resources["scratchdir"], f"master_{job}", "OmFrag.txt")
                 props = self.get_theodore(sumfile, omffile)
+                # self.log.debug(f"{len(props)} {props}")
+                # self.log.debug(f"{theodore_arr.shape}")
                 for i in range(nmstates):
                     m1, s1, ms1 = tuple(self.QMin.maps["statemap"][i + 1])
                     if (m1, s1) in props:
-                        for j in range(self.QMin.resources["theodore_n"]):
-                            self.QMout["theodore"][i][j] = props[(m1, s1)][j]
+                        for j in range(
+                            len(self.QMin.resources["theodore_prop"])
+                            + len(self.QMin.resources["theodore_fragment"]) ** 2
+                        ):
+                            self.log.debug(f"{m1} {s1}: {i} {j} {len(props[(m1,s1)])}")
+                            theodore_arr[i, j] = props[(m1, s1)][j]
+
+        if self.QMin.requests["theodore"]:
+            self.QMout["prop2d"].append(("theodore", theodore_arr))
 
         endtime = datetime.datetime.now()
         self.log.print(f"Readout Runtime: {endtime - starttime}")
@@ -2079,8 +2104,8 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
             # ===================== CONSTRUCTION OF DENSITIES  ===============================
             for key in keys:
                 m1, s1, ms1, m2, s2, ms2, mat = key
-                self.log.debug(f"constructing {key}")
                 key_set = self.QMin.requests["density_matrices"][key][1]
+                self.log.debug(f"constructing {key} with {key_set}")
                 # also means mat == 'aa' |'bb'
                 if key_set == {"Total CI Density", "Spin CI Density"}:
                     if "Total CI Density" in parsed_matrices and "Spin CI Density" in parsed_matrices:
@@ -2367,6 +2392,9 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         return float(f[s2 + 1])
 
     # ======================================================================= #
+
+    def dyson_orbitals_with_other(self, other):
+        pass
 
 
 if __name__ == "__main__":

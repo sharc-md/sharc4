@@ -184,7 +184,7 @@ class SHARC_OpenMM(SHARC_FAST):
             return
 
         super().read_resources(resources_filename)
-        if self.QMin.resources["cuda_device"]:
+        if self.QMin.resources["cuda_device"] is not None:
             self.log.info("CUDA platform will be used for the calculation! Double precision might be slow!")
 
         self.log.debug(f"{self.QMin.resources}")
@@ -205,11 +205,11 @@ class SHARC_OpenMM(SHARC_FAST):
 
         platform = Platform.getPlatformByName("CPU")
         properties = {"Threads": str(QMin.resources["ncpu"])}
-        if QMin.resources["cuda_device"]:
+        if QMin.resources["cuda_device"] is not None:
             platform = Platform.getPlatformByName("CUDA")
-            properties.update({"DeviceIndex": QMin.resources["cuda_device"], "Precision": "double"})
+            properties = {"DeviceIndex": str(QMin.resources["cuda_device"]), "Precision": "single"}
 
-        self.simulation = Simulation(prmtop.topology, system, integrator, platform, platformProperties=properties)
+        self.simulation = Simulation(prmtop.topology, system, integrator, platform, properties)
         nonbonded = [f for f in system.getForces() if isinstance(f, NonbondedForce)][0]
         npart = system.getNumParticles()
         self.log.debug(f"System size: {npart}")

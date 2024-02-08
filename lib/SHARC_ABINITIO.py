@@ -15,8 +15,8 @@ from itertools import starmap
 import numpy as np
 from qmin import QMin
 from SHARC_INTERFACE import SHARC_INTERFACE
-from utils import containsstring, readfile, safe_cast, link, writefile, shorten_DIR, mkdir, itmult, convert_list
-from constants import ATOMIC_RADII, MK_RADII
+from utils import containsstring, readfile, safe_cast, link, writefile, shorten_DIR, mkdir, itmult, convert_list, is_exec
+from constants import ATOMIC_RADII, MK_RADII, IToMult
 from resp import Resp
 from asa_grid import GRIDS
 
@@ -70,6 +70,8 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 "theodir": None,
                 "theodore_prop": [],
                 "theodore_fragment": [],
+                "wfoverlap": "wfoverlap.x",
+                "wfthres": 0.998,
                 "resp_shells": [],  # default calculated from other values = [1.4, 1.6, 1.8, 2.0]
                 "resp_vdw_radii_symbol": {},
                 "resp_vdw_radii": [],
@@ -88,6 +90,8 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 "theodir": str,
                 "theodore_prop": list,
                 "theodore_fragment": list,
+                "wfoverlap": str,
+                "wfthres": float,
                 "resp_shells": list,  # default calculated from other values = [1.4, 1.6, 1.8, 2.0]
                 "resp_vdw_radii_symbol": dict,
                 "resp_vdw_radii": list,
@@ -363,6 +367,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             if self.QMin.resources["resp_vdw_radii"]:
                 if len(self.QMin.resources["resp_vdw_radii"]) != len(self.QMin.molecule["elements"]):
                     raise RuntimeError("specify 'resp_vdw_radii' for all atoms!")
+                self.QMin.resources["resp_vdw_radii"] = [float(x) for x in self.QMin.resources["resp_vdw_radii"]]
             else:
                 # populate vdW radii
                 radii = ATOMIC_RADII
@@ -389,6 +394,9 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 raise RuntimeError(
                     f"specified grid {self.QMin.resources['resp_grid']} not available.\n Possible options are 'lebedev', 'random', 'golden_spiral', 'gamess', 'marcus_deserno'"
                 )
+
+        if self.QMin.requests["ion"] or self.QMin.requests["overlap"]:
+            assert is_exec(self.QMin.resources["wfoverlap"])
 
     @abstractmethod
     def getQMout(self):
@@ -464,21 +472,21 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         return error_codes
 
     @staticmethod
-    def divide_slots(ncpu: int, ntasks: int, scaling: float) -> tuple[int, int, list[int]]:
+    def divide_slots(ncpu: int, ntasks: int, scaling: float, min_cpu=1) -> tuple[int, int, list[int]]:
         """
         This routine figures out the optimal distribution of the tasks over the CPU cores
         returns the number of rounds (how many jobs each CPU core will contribute to),
         the number of slots which should be set in the Pool,
         and the number of cores for each job.
         """
-        ntasks_per_round = min(ncpu, ntasks)
+        ntasks_per_round = min(ncpu // min_cpu, ntasks)
         optimal = {}
         for i in range(1, 1 + ntasks_per_round):
             nrounds = int(math.ceil(ntasks / i))
             ncores = ncpu // i
             optimal[i] = nrounds / 1.0 / ((1 - scaling) + scaling / ncores)
         best = min(optimal, key=optimal.get)
-        nrounds = int(math.ceil(float(ntasks) // best))
+        nrounds = int(math.ceil(ntasks / best))
         ncores = ncpu // best
 
         cpu_per_run = [0] * ntasks
@@ -752,9 +760,13 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             s = line.replace("(", " ").replace(")", " ").split()
             if len(s) == 0:
                 continue
-            n = int(s[0])
-            m = int(s[1])
-            props[(m, n + (m == 1))] = [safe_cast(i, float, 0.0) for i in s[5:]]
+            n = int(re.search("([0-9]+)", s[0]).groups()[0])
+            m = re.search("([a-zA-Z]+)", s[0]).groups()[0]
+            for i in IToMult:
+                if isinstance(i, str) and m in i:
+                    m = IToMult[i]
+                    break
+            props[(m, n + (m == 1))] = [safe_cast(i, float, 0.0) for i in s[3:]]
 
         out = readfile(omffile)
 
@@ -762,9 +774,13 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             s = line.replace("(", " ").replace(")", " ").split()
             if len(s) == 0:
                 continue
-            n = int(s[0])
-            m = int(s[1])
-            props[(m, n + (m == 1))].extend([safe_cast(i, float, 0.0) for i in s[4:]])
+            n = int(re.search("([0-9]+)", s[0]).groups()[0])
+            m = re.search("([a-zA-Z]+)", s[0]).groups()[0]
+            for i in IToMult:
+                if isinstance(i, str) and m in i:
+                    m = IToMult[i]
+                    break
+            props[(m, n + (m == 1))].extend([safe_cast(i, float, 0.0) for i in s[2:]])
         return props
 
     def _run_theodore(self) -> None:

@@ -78,32 +78,10 @@ class SHARC_ORCA(SHARC_ABINITIO):
 
         # Add resource keys
         self.QMin.resources.update(
-            {
-                "orcadir": None,
-                "orcaversion": None,
-                "wfoverlap": None,
-                "wfthres": 1.0,
-                "numfrozcore": -1,
-                "numocc": None,
-                "schedule_scaling": 0.9,
-                "savedir": None,
-                "always_orb_init": False,
-                "always_guess": False,
-            }
+            {"orcadir": None, "orcaversion": None, "numfrozcore": -1, "numocc": None, "schedule_scaling": 0.9, "dry_run": False}
         )
         self.QMin.resources.types.update(
-            {
-                "orcadir": str,
-                "orcaversion": tuple,
-                "wfoverlap": str,
-                "wfthres": float,
-                "numfrozcore": int,
-                "numocc": int,
-                "schedule_scaling": float,
-                "savedir": str,
-                "always_orb_init": bool,
-                "always_guess": bool,
-            }
+            {"orcadir": str, "orcaversion": tuple, "numfrozcore": int, "numocc": int, "schedule_scaling": float, "dry_run": bool}
         )
 
         # Add template keys
@@ -279,12 +257,12 @@ class SHARC_ORCA(SHARC_ABINITIO):
         qmin:       QMin object
         workdir:    Current working directory
         """
-        if not qmin.resources["always_guess"]:
+        if not qmin.save["always_guess"]:
             self.log.debug("Copy ORCA.gbw to work directory")
             gbw_file = None
             if qmin.control["jobid"] in qmin.control["initorbs"]:
                 gbw_file = qmin.control["initorbs"][qmin.control["jobid"]]
-            elif not qmin.resources["always_orb_init"]:
+            elif not qmin.save["always_orb_init"]:
                 gbw_file = os.path.join(qmin.save["savedir"], f"ORCA.gbw.{qmin.control['jobid']}.{qmin.save['step']}")
                 if not os.path.isfile(gbw_file):
                     gbw_file = os.path.join(qmin.save["savedir"], f"ORCA.gbw.{qmin.control['jobid']}.{qmin.save['step']-1}")
@@ -861,6 +839,15 @@ class SHARC_ORCA(SHARC_ABINITIO):
         super()._set_request(*args, **kwargs)
         self.QMin.requests["h"] = True
 
+        if self.QMin.requests["soc"]:
+            if (
+                len(self.QMin.molecule["states"]) < 3
+                or (self.QMin.molecule["states"][0] == 0 and self.QMin.molecule["states"][2] <= 1)
+                or (self.QMin.molecule["states"][0] > 0 and self.QMin.molecule["states"][2] == 0)
+            ):
+                self.log.warning("SOCs requested but only 1 multiplicity given! Disable SOCs")
+                self.QMin.requests["soc"] = False
+
     def read_resources(self, resources_file: str = "ORCA.resources", kw_whitelist: Optional[list[str]] = None) -> None:
         if kw_whitelist is None:
             kw_whitelist = []
@@ -942,7 +929,8 @@ class SHARC_ORCA(SHARC_ABINITIO):
         self._gen_schedule()
 
         self.log.debug("Execute schedule")
-        self.runjobs(self.QMin.scheduling["schedule"])
+        if not self.QMin.resources["dry_run"]:
+            self.runjobs(self.QMin.scheduling["schedule"])
 
         # Run theodore
         if self.QMin.requests["theodore"]:
@@ -1409,6 +1397,9 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 raise ValueError("ORCA version not found!")
             version = re.findall(r"Program Version (\d.\d.\d)", comm)[0].split(".")
             return tuple(int(i) for i in version)
+
+    def dyson_orbitals_with_other(self, other):
+        pass
 
 
 if __name__ == "__main__":

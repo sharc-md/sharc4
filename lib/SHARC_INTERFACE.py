@@ -275,7 +275,7 @@ class SHARC_INTERFACE(ABC):
 
         # printing and output generation
         self.log.info(self.formatQMout())
-        self.QMout["runtime"] = self.clock.measuretime(print=True)
+        self.QMout["runtime"] = self.clock.measuretime(log=self.log.info)
         self.writeQMout(filename=QMinfilename)
 
     @abstractmethod
@@ -323,6 +323,13 @@ class SHARC_INTERFACE(ABC):
     def getQMout(self) -> dict[str, np.ndarray]:
         """
         Return QMout object
+        """
+
+    @abstractmethod
+    def dyson_orbitals_with_other(self, other):
+        """
+        Calculates Dyson orbitals between self and other.
+        Presumably it will be implemented in SHARC_ABINITIO subclass and in each individual FAST or HYBRID interface
         """
 
     @abstractmethod
@@ -527,7 +534,11 @@ class SHARC_INTERFACE(ABC):
                 )
                 break
 
-        raw_dict = self._parse_raw(resources_file, self.QMin.resources.types, kw_whitelist)
+        raw_dict = self._parse_raw(
+            resources_file,
+            {**self.QMin.resources.types, "savedir": str, "always_guess": bool, "always_orb_init": bool},
+            kw_whitelist,
+        )
 
         if "savedir" in raw_dict:
             if not self._setsave:
@@ -538,6 +549,12 @@ class SHARC_INTERFACE(ABC):
             else:
                 self.log.info("SAVEDIR is already set and will not be overwritten!")
             del raw_dict["savedir"]
+        if "always_guess" in raw_dict:
+            self.QMin.save["always_guess"] = True
+            del raw_dict["always_guess"]
+        if "always_orb_init" in raw_dict:
+            self.QMin.save["always_orb_init"] = True
+            del raw_dict["always_orb_init"]
         self.QMin.resources.update(raw_dict)
 
         self._read_resources = True
@@ -597,6 +614,8 @@ class SHARC_INTERFACE(ABC):
 
                 case [key, val] if key in types_dict:
                     key_type = types_dict[key]
+                    if isinstance(key_type, tuple):
+                        key_type, _ = key_type
                     if key_type is list:
                         if key not in out_dict or key not in kw_whitelist:
                             out_dict[key] = []
@@ -716,7 +735,7 @@ class SHARC_INTERFACE(ABC):
             last_step = int(readfile(stepfile)[0])
 
         if not self.QMin.save["step"]:
-            if last_step:
+            if last_step is not None:
                 self.QMin.save["newstep"] = True
                 self.QMin.save["step"] = last_step + 1
             else:
@@ -807,12 +826,8 @@ class SHARC_INTERFACE(ABC):
                 case ["density_matrices" | "multipolar_fit", value]:
                     self.QMin.requests[req] = value
                 case ["soc", None]:
-                    if (
-                        len(self.QMin.molecule["states"]) < 3
-                        or (self.QMin.molecule["states"][0] == 0 and self.QMin.molecule["states"][2] <= 1)
-                        or (self.QMin.molecule["states"][0] > 0 and self.QMin.molecule["states"][2] == 0)
-                    ):
-                        self.log.warning("SOCs requested but only 1 multiplicity given! Disable SOCs")
+                    if len(self.QMin.molecule["states"]) < 2:
+                        self.log.warning("SOCs requested but only singlets given! Disable SOCs")
                         return
                     self.QMin.requests["soc"] = True
                     self.QMin.requests["h"] = True

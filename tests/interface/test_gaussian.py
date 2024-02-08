@@ -79,6 +79,8 @@ def test_schedule():
                     "theodir": None,
                     "theodore_prop": [],
                     "theodore_fragment": [],
+                    "wfoverlap": "wfoverlap.x",
+                    "wfthres": 0.998,
                     "resp_shells": [],
                     "resp_vdw_radii_symbol": {},
                     "resp_vdw_radii": [],
@@ -90,14 +92,13 @@ def test_schedule():
                     "resp_mk_radii": True,
                     "resp_grid": "lebedev",
                     "groot": None,
-                    "wfoverlap": None,
-                    "wfthres": None,
                     "numfrozcore": 0,
                     "numocc": None,
                     "schedule_scaling": 0.9,
                     "neglected_gradient": "zero",
                     "dry_run": False,
                     "debug": False,
+                    "min_cpu": 1
                 },
                 "maps": {
                     "statemap": {
@@ -168,6 +169,8 @@ def test_schedule():
                     "theodir": None,
                     "theodore_prop": [],
                     "theodore_fragment": [],
+                    "wfoverlap": "wfoverlap.x",
+                    "wfthres": 0.998,
                     "resp_shells": [],
                     "resp_vdw_radii_symbol": {},
                     "resp_vdw_radii": [],
@@ -179,14 +182,13 @@ def test_schedule():
                     "resp_mk_radii": True,
                     "resp_grid": "lebedev",
                     "groot": None,
-                    "wfoverlap": None,
-                    "wfthres": None,
                     "numfrozcore": 0,
                     "numocc": None,
                     "schedule_scaling": 0.9,
                     "neglected_gradient": "zero",
                     "dry_run": False,
                     "debug": False,
+                    "min_cpu": 1
                 },
                 "maps": {
                     "statemap": {
@@ -259,6 +261,8 @@ def test_schedule():
                     "theodir": None,
                     "theodore_prop": [],
                     "theodore_fragment": [],
+                    "wfoverlap": "wfoverlap.x",
+                    "wfthres": 0.998,
                     "resp_shells": [],
                     "resp_vdw_radii_symbol": {},
                     "resp_vdw_radii": [],
@@ -270,14 +274,13 @@ def test_schedule():
                     "resp_mk_radii": True,
                     "resp_grid": "lebedev",
                     "groot": None,
-                    "wfoverlap": None,
-                    "wfthres": None,
                     "numfrozcore": 0,
                     "numocc": None,
                     "schedule_scaling": 0.9,
                     "neglected_gradient": "zero",
                     "dry_run": False,
                     "debug": False,
+                    "min_cpu": 1
                 },
                 "maps": {
                     "statemap": {
@@ -348,6 +351,8 @@ def test_schedule():
                     "theodir": None,
                     "theodore_prop": [],
                     "theodore_fragment": [],
+                    "wfoverlap": "wfoverlap.x",
+                    "wfthres": 0.998,
                     "resp_shells": [],
                     "resp_vdw_radii_symbol": {},
                     "resp_vdw_radii": [],
@@ -359,14 +364,13 @@ def test_schedule():
                     "resp_mk_radii": True,
                     "resp_grid": "lebedev",
                     "groot": None,
-                    "wfoverlap": None,
-                    "wfthres": None,
                     "numfrozcore": 0,
                     "numocc": None,
                     "schedule_scaling": 0.9,
                     "neglected_gradient": "zero",
                     "dry_run": False,
                     "debug": False,
+                    "min_cpu": 1
                 },
                 "maps": {
                     "statemap": {
@@ -437,6 +441,8 @@ def test_schedule():
                     "theodir": None,
                     "theodore_prop": [],
                     "theodore_fragment": [],
+                    "wfoverlap": "wfoverlap.x",
+                    "wfthres": 0.998,
                     "resp_shells": [],
                     "resp_vdw_radii_symbol": {},
                     "resp_vdw_radii": [],
@@ -448,14 +454,13 @@ def test_schedule():
                     "resp_mk_radii": True,
                     "resp_grid": "lebedev",
                     "groot": None,
-                    "wfoverlap": None,
-                    "wfthres": None,
                     "numfrozcore": 0,
                     "numocc": None,
                     "schedule_scaling": 0.9,
                     "neglected_gradient": "zero",
                     "dry_run": False,
                     "debug": False,
+                    "min_cpu": 1
                 },
                 "maps": {
                     "statemap": {
