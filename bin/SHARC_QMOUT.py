@@ -151,6 +151,10 @@ class SHARC_QMOUT(SHARC_FAST):
     def create_restart_files(self):
         pass
 
+    def dyson_orbitals_with_other(self, other):
+        pass
+        # not sure here...
+
     def getQMout(self) -> Dict[str, np.ndarray]:
         """
         Generate QMout for all requested requests

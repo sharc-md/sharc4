@@ -1082,6 +1082,7 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
         INFOS["damping"] = False
 
     # atommask
+    INFOS["atommaskarray"] = None
     if (INFOS["decoherence"][0] == "edc") or (INFOS["ekincorrect"] == 2) or (INFOS["reflect"] == 2):
         log.info("\nDo you want to use an atom mask for velocity rescaling or decoherence?")
         if question("Atom masking?", bool, False):
