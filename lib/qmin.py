@@ -1,6 +1,7 @@
 import os
 from collections import UserDict
 from copy import deepcopy
+import pyscf
 
 import numpy as np
 
@@ -46,6 +47,7 @@ class QMinMolecule(QMinBase):
         "npc": int,
         "Atomcharge": int,
         "frozcore": int,
+        "Ubasis" : ndarray[float,2]
 
     """
 
@@ -66,6 +68,8 @@ class QMinMolecule(QMinBase):
             # Ab initio interfaces
             "Atomcharge": None,
             "frozcore": None,
+            "Ubasis" : np.zeros((2,2)),
+            "mol": None
         }
 
         self.types = {
@@ -81,6 +85,8 @@ class QMinMolecule(QMinBase):
             "npc": int,
             "Atomcharge": int,
             "frozcore": int,
+            "Ubasis" : np.ndarray,
+            "mol": pyscf.gto.Mole 
         }
 
 
@@ -168,6 +174,7 @@ class QMinRequests(QMinBase):
         "nooverlap": bool,
         "basis_set": bool,
         "density_matrices": list,
+        "dyson_orbitals" : list,
     """
 
     def __init__(self, *args, **kwargs):
@@ -192,8 +199,9 @@ class QMinRequests(QMinBase):
             "molden": False,
             "savestuff": False,
             "nooverlap": False,
-            "basis_set": False,
+            "basis_set": True,
             "density_matrices": None,
+            "dyson_orbitals": None
         }
         self.types = {
             "h": bool,
@@ -215,6 +223,7 @@ class QMinRequests(QMinBase):
             "nooverlap": bool,
             "basis_set": bool,
             "density_matrices": list,
+            "dyson_orbitals": list,
         }
 
 
@@ -345,6 +354,7 @@ class QMin:
     template: QMinBase
     scheduling: QMinBase
     control: QMinControl
+    basis: dict
 
     def __init__(self):
         self.interface = QMinBase()
@@ -357,6 +367,7 @@ class QMin:
         self.template = QMinBase()
         self.scheduling = QMinBase()
         self.control = QMinControl()
+        self.basis = True
 
     def __getitem__(self, key):
         return getattr(self, key)

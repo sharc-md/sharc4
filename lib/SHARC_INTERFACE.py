@@ -36,6 +36,7 @@ from io import TextIOWrapper
 from socket import gethostname
 from textwrap import wrap
 from typing import Any
+from dataclasses import dataclass
 
 import numpy as np
 
@@ -82,6 +83,8 @@ class SHARC_INTERFACE(ABC):
     _setup_mol = False
     _read_resources = False
     _read_template = False
+    _states = None
+    density_recipes = None
     _DEBUG = False
     _PRINT = True
 
@@ -100,6 +103,7 @@ class SHARC_INTERFACE(ABC):
         self.clock = clock()
         self.persistent = persistent
         self.QMin = QMin()
+        self.density_recipes = {}
         self._setsave = False
 
         logname = logname if isinstance(logname, str) else self.name()
@@ -296,6 +300,15 @@ class SHARC_INTERFACE(ABC):
         self.QMin.template.update(self._parse_raw(template_file, self.QMin.template.types, kw_whitelist))
 
         self._read_template = True
+        #Start TOMI
+        self.states = [] 
+        for S, nstates in enumerate(self.QMin.molecule['states']):
+            c = self.QMin.template["charge"][S]
+            for N in range(nstates):
+                for M in range(-S,S+1,2):
+                    self.states.append( self.electronic_state( Z=c, S=S, M=M, N=N+1, C={} ) )  # This is the moment in which states get their pointers
+        #End TOMI
+        
 
     @staticmethod
     def clean_savedir(path: str, retain: int, step: int) -> None:
@@ -325,12 +338,13 @@ class SHARC_INTERFACE(ABC):
         Return QMout object
         """
 
-    @abstractmethod
-    def dyson_orbitals_with_other(self,other):
-        """
-        Calculates Dyson orbitals between self and other.
-        Presumably it will be implemented in SHARC_ABINITIO subclass and in each individual FAST or HYBRID interface
-        """
+    #@abstractmethod
+    #def dyson_orbitals_with_other(self,other):
+    #    """
+    #    Calculates Dyson orbitals between self and other.
+    #    Presumably it will be implemented in SHARC_ABINITIO subclass and in each individual FAST or HYBRID interface
+    #    """
+
     @abstractmethod
     def create_restart_files(self) -> None:
         """
@@ -382,7 +396,8 @@ class SHARC_INTERFACE(ABC):
 
         self.QMin.molecule["elements"] = list(map(lambda x: parse_xyz(x)[0], (qmin_lines[2 : natom + 2])))
         self.QMin.molecule["Atomcharge"] = sum(map(lambda x: ATOMCHARGE[x], self.QMin.molecule["elements"]))
-        self.QMin.molecule["frozcore"] = sum(map(lambda x: FROZENS[x], self.QMin.molecule["elements"]))
+        #self.QMin.molecule["frozcore"] = sum(map(lambda x: FROZENS[x], self.QMin.molecule["elements"]))
+        self.QMin.molecule["frozcore"] = 0
         self.QMin.molecule["natom"] = len(self.QMin.molecule["elements"])
 
         # replaces all comments with white space. filters all empty lines
@@ -408,6 +423,7 @@ class SHARC_INTERFACE(ABC):
                 self.QMin.molecule["nstates"] = states_dict["nstates"]
                 self.QMin.molecule["nmstates"] = states_dict["nmstates"]
                 self.QMin.molecule["states"] = states_dict["states"]
+
             elif key == "unit":
                 unit = llist[1].strip().lower()
                 if unit in ["bohr", "angstrom"]:
@@ -899,3 +915,34 @@ class SHARC_INTERFACE(ABC):
         lines[4:5] = wrap(lines[4], width=70)
         lines[1:-1] = map(lambda s: "||{:^76}||".format(s), lines[1:-1])
         self.log.info("\n".join(lines))
+
+    @dataclass
+    class electronic_state():
+        Z: int # Charge of the state
+        S: int # Two times S quantum number (so that it is always integer), 0 for singlets, 1 for doublets, 2 for triplets etc.
+        M: int # Two times M_S quantum number (so that it is always integer)
+        N: int # Ordinal number of the state for its S, starting from 1
+        C: dict # Anyone can add any comment about the state as an item here. Not used in hashing or comparing of electronic_state instance(s).
+
+        def __eq__(self,other):
+            # The 'equal' operator is overloaded with the function that compares
+            # only Z, S and N (not M). Comparison of 'full' electronic states
+            # is not implemetented and it is supposed to be done by reference comparison
+            # e.g. 'if state1 is state2:'
+            if self.Z == other.Z and self.S == other.S and self.N == other.N: return True
+            return False
+
+        def __hash__(self):
+            return f"{self.Z} {self.S} {self.N} {self.M}".__hash__()
+
+        def __repr__(self):
+            string = f"(Z={self.Z} S={self.S/2} M={self.M/2} N={self.N})"
+            #if 'is_gs' in self.C:
+            #    string += f" is_gs = {str(self.C['is_gs'])}, its_gs = {str(repr(self.C['its_gs']))})"
+            #    #  string += f" is_gs = "
+            #else:
+            #    string += ')'
+            return string
+
+
+

@@ -460,15 +460,26 @@ def itnmstates(states: list[int]):
                 yield i + 1, j + 1, k - i / 2.0
     return
 
+def number_of_bubble_swaps(li:list[int]):
+    l = li[:]
+    n = len(l)
+    swaps = 0
+    for i in range(n):
+        for j in range(0, n-i-1):
+            if l[j] > l[j+1]:
+                l[j], l[j+1] = l[j+1], l[j]
+                swaps += 1
+    return swaps
 
 # =============================================================================================== #
 # =============================================================================================== #
 # ======================================= Matrix initialization ================================= #
 # =============================================================================================== #
 # =============================================================================================== #
-def triangular_to_full_matrix(triangular_array: np.ndarray, num_basis_func: int):
+def triangular_to_full_matrix(triangular_array: np.ndarray, num_basis_func: int, triangular="lower"):
+    assert triangular in ["lower", "upper"]
     tril = np.zeros((num_basis_func, num_basis_func))
-    idx = np.tril_indices(num_basis_func)
+    idx = np.tril_indices(num_basis_func) if triangular == "lower" else np.triu_indices(num_basis_func)
     tril[idx] = triangular_array
     matrix = tril.T + tril
     np.fill_diagonal(matrix, np.diag(tril))

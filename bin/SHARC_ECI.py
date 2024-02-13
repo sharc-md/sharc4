@@ -2,6 +2,7 @@ import datetime
 from io import TextIOWrapper
 from typing import Optional
 from qmin import QMinRequests
+from qmout import QMout
 
 import numpy as np
 import yaml
@@ -60,7 +61,7 @@ class SHARC_ECI(SHARC_HYBRID):
                     "EHF": True,
                     "EHF_maxcycle": 20,
                     "tQ": 1e-4,
-                    "t0": 0.95,
+                    "tO": 0.95,
                     "read_site_states": False,
                     "ri": False,
                     "auxbasis": "def2-svp-jkfit",
@@ -80,6 +81,9 @@ class SHARC_ECI(SHARC_HYBRID):
             "ri": bool,
             "auxbasis": str,
         }
+
+        self.fragmentation: dict = {}
+
 
     @staticmethod
     def version() -> str:
@@ -238,6 +242,66 @@ class SHARC_ECI(SHARC_HYBRID):
                         )
                         raise ValueError()
 
+        # Setting fragmentation atribute
+        for label, fragment in self.QMin.template['fragments'].items():
+            strings = fragment['atoms'].split(',')
+            atoms = []
+            for group in strings:
+                group.split('-')
+                if len(group) == 1:
+                    atoms.append(group[0])
+                elif len(group) == 2:
+                    for i in range( int(group[0]), int(group[1]) + 1 ):
+                        atoms.append(i)
+
+            self.fragmentation = { label: atoms.copy() }
+
+        # Constructing active_site_pairs dictionary from the template
+
+        # Set full active_site_pairs dictionary
+        self.active_site_pairs = {"J": { (0,0): [], (0,1): [], (0,2): [],
+                                        (1,0): [], (1,1): [] },
+                                  "K": { (0,0): [], (0,1): [], (0,2): [],
+                                        (1,0): [], (1,1): [] }
+                                  }
+        for JK in ['J','K']:
+            for int_type in [ (0,0), (0,1), (0,2), (1,0), (1,1) ]:
+                for fpair in itertools.combinations( self.QMin.template['fragments'].keys(), 2 ):
+                    fpair = set(fpair)
+                    self.active_site_pairs[JK][int_type].append(fpair)
+
+        for int_type, JK in self.QMin.template['calculation']['integral_exceptions']:
+            if JK['J'] == "all":
+
+
+            
+
+        return
+        
+    #def read_resources(self, resources_file: str = "ECI.resources") -> None:
+        #"""
+        #Parser for ECI resources in yaml format
+
+        #resources_file:  Path to template file
+        #"""
+        ## TODO: validate *_site_state values
+        #self.log.debug(f"Parsing template file {resources_file}")
+
+        ## Open resources_file file and parse yaml
+        #with open(resources_file, "r", encoding="utf-8") as res_file:
+        #    res_dict = yaml.safe_load(res_file)
+        #    self.log.debug(f"Parsing yaml file:\n{res_dict}")
+
+        #self.QMin.resources.update(res_dict)
+
+        ## TODO sanity checks
+        #return
+        #pass
+
+
+
+
+
     def _check_zmn(self, zmn_dict: dict[str, int]) -> bool:
         """
         Check if dictionary contains Z, M, N keys and validate if values are int
@@ -248,29 +312,141 @@ class SHARC_ECI(SHARC_HYBRID):
             return False
         return True
 
-    def read_resources(self, resources_file: str = "ECI.resources") -> None:
-        pass
-
     def setup_interface(self) -> None:
         """
         Load and initialize all child interfaces
         """
 
+        # Instatiate all children
+        child_dict = {}
+        for C in charges_to_do: # Full-system charge
+            for label, fragment in self.QMin.template['fragments']:
+                for c in fragment['site_states'].keys(): # Fragment's charge
+                    child_dict[(label,c,C)] = child['interface']
+                    child_dict[(label,'embedding',C)] = child['embedding_interface']
+        self.instantiate_children(child_dict)
+
+        # Exctract embedding_kindergarden
+        for C in charges_to_do: 
+            for label, fragment in self.QMin.template['fragments']:
+                self.embedding_kindergarden[(label,C)] = self.kindergarden[(label,'embedding',C)]
+                del self.kindergarden[(label,'embedding',C)]
+        return
+
+    def read_requests(self, requests_file: str: "QM.in") -> None:
+        super._read_requests(requests_file)
+        # Make requests for all children, depending which requests ECI interface got
+
+        # Energies
+        # Densities
+        for label in self.QMin.template['fragments']:
+            for int_type, JK in self.QMin.template['calculation']['integral_exceptions'].items(): 
+                Js = { key: value["J"] for key,value in self.QMin.template['calculation']['integral_exceptions'].items() }
+                Ks = { key: value["K"] for key,value in self.QMin.template['calculation']['integral_exceptions'].items() }
+                
+                K = JK['K'] 
+                if K == 'all'
+            
+        for (label,c,C), child in self.kindergarden.items():
+            requests = {'H':}
+
     def run(self):
-        """QMin = self._QMin
-        kindergarden = self._kindergarden
+        QMin = self._QMin
+        for C in charges_to_do:
+            garden = { (key[0],key[1]):interface for key,interface in self.kindergarden.items() if key[2] == C }
+            egarden = { key[0]:interface for key,interface in self.embedding_kindergarden.items() if key[1] == C }
 
-        # Set coords and pccoords for all children
-        for ( fname1, charge1 ), child1 in kindergarden.items():
-            child1.QMin.coords['coords'] = [ QMin.coords['coords'][i].copy() for i in QMin.table['atomIDs'][fname1] ]
-            done = []
-            APCcoords = []
-            for (fname2, charge2), child2 in kindergarden.items():
-                if fname2 != fname1 and not fname2 in done:
-                    APCcoords += [ QMin.coords['coords'][i].copy() for i in QMin.table['atomIDs'][fname2] ]
-                    done.append( fname2 )
-            child1.QMin.coords['pccoords'] = QM.coords['pccoords'] + APCcoords
+            # write coords
+            for label, child in egarden.items():
+                egarden[label].set_coords( qmin.coords['coords'][ self.fragmentation[label] ] ) 
+            for (label,c), child in garden.items():
+                child.set_coords( qmin.coords['coords'][ self.fragmentation[label] ] )
 
+            # write pccoords
+            for label1, child1 in egarden.items():
+                pccoords = [ child2.QMin.coords['coords'] for label2, child2 in egarden.items() if label2 != label1 ] + self.QMin.coords['pccoords'] 
+                pccoords = np.concatenate( pccoords, axis=0 )
+                child1.set_coords( pccoords, pc=True )
+            for (label1,c1), child1 in garden.items():
+                pccoords = [ child2.QMin.coords['coords'] for label2, child2 in egarden.items() if label2 != label1 ] + self.QMin.coords['pccoords'] 
+                pccoords = np.concatenate( pccoords, axis=0 )
+                child1.set_coords( pccoords, pc=True )
+
+            # Read guesses for embedding charges
+            APCs = {}
+            estates = {}
+            for label, child in egarden.items():
+                estates[label] = QMin.template['fragments'][label]['embedding_site_state'][C]
+                estates[label] = electronic_state( Z=estate['Z'], S=estate['S'], M=estate['S'], N=estate['N'])
+                for s in child.states:
+                    if s == estates[label]:
+                        estates[label] = s
+                        break
+                try:
+                    guess = SHARC_QMout( os.path.join( QMin.save['savedir'],label+'_C'+str(C)+'eQM.out' ) )
+                    for s in guess.states:
+                        if s == estates[label]: break
+                    APCs[label1] = guess.QMout['multipolar_fit'][(s,s,1)]
+                except: 
+                    APCs[label] = np.zeros(child.QMin.molecule["natom"]) 
+
+            # Run frozen fragments
+            frozen = [ label for label in egarden if QMin.template['fragments'][label]['frozen'] }
+            for joblist in QMin.resources['EHF_frozen_sitejobs']: 
+                with Pool(processes=len(joblist)) as pool:
+                    for job in joblist:
+                        pool.apply_async( egarden[job].run )
+                    pool.close()
+                    pool.join()
+            for label, child in frozen_garden.items():
+                child.getQMout()
+                for s in guess.states:
+                    if s == estates[label]: break
+                APCs[label] = child.QMout['multipolar_fit'][(s,s,1)]
+
+            # Run EHF cycles while relaxing non-frozen fragments and keeping fixed frozen fragments
+            relaxed = [ label for label in egarden if not QMin.template['fragments'][label]['frozen'] ]
+            convergence = {}
+            dAPCs = {}
+            # Main EHF loop
+            for cycle in range(QMin.template['calculation']['EHF_maxcycle']):
+                # Provide current APCs of all other fragments to a relaxed fragment
+                for label1 in relaxed:
+                    child1 = egarden[label1]
+                    PCs = np.concatenate( [ APCs[label2] for label2 in egarden.keys() if label1 != label2 ], axis=0)
+                    PCs = np.concatenate( PCs, QMin.coords['pccharge'])
+                    child1.QMin.coords['pccharges'] = PCs
+                # Run all relaxed fragments
+                for joblist in QMin.resources['EHF_relaxed_sitejobs']:
+                    with Pool(processes=len(joblist)) as pool:
+                        for job in joblist:
+                            pool.apply_async( egarden[job].run )
+                        pool.close()
+                        pool.join()
+                # Get new APCs of all relaxed fragments and check convergence
+                for label in relaxed:
+                    child = egarden[label]
+                    child.getQMout()
+                    newAPCs = child.QMout['multipolar_fit'][(estates[label],estates[label],1)] 
+                    dAPCs[label] = newAPCs - APCs[label]
+                    APCs[label] = newAPCs 
+                    convergence[label] = np.nonzero(np.abs(dAPCs[label]) < QMin.template['calculation']['tQ'])[0]
+                    for i in range(child.QMin.molecule['natom']):
+                        converged = 'NO'
+                        if convergence[label][i]: converged = 'YES'
+                        self.log.print('      '.join( [ f"{APCs[label][i]: 8.5f}", f"{dAPCs[label][i]: 8.5f}", converged ] ))
+                if all( [ all(convergence[label]) for label in relaxed ] ):
+                    self.log.print(' EHF convergence reached in '+str(cycle+1)+' cycles!')
+                    break
+            if not all( [ all(convergence[label]) for label in relaxed ] ):
+                self.log.warning(' Maximum number in EHF is exceeded but some charges are still not converged! Proceeding nevertheless...')
+
+            # Writting final APCs to the "real" children
+            for (label1,c1), child1 in garden.items():
+                PCs = np.concatenate( [ APCs[label2] for label2 in egarden.keys() if label1 != label2 ], axis=0)
+                PCs = np.concatenate( PCs, QMin.coords['pccharge'], axis=0)
+                child1.QMin.coords['pccharges'] = PCs
+                
         charges_to_do = []
         for i, nst in enumerate( self.QMin.molecule['states']):
             if nst != 0:
@@ -279,6 +455,12 @@ class SHARC_ECI(SHARC_HYBRID):
 
         ECIjobs = {}
         for c in charges_to_do:
+            (label, charge)
+            (label, 'embedding')
+            embedding_kindergarden = { label:interface for label, interface in self.kindergarden.items() if 'embedding' in label }
+            for (label, charge), interface in self.kindergarden.items():
+                if charge == 'embedding':
+
 
             # Obtaining embedding charges
             embedding_interface = factory(QMin.template['embedding_interface'][c])
@@ -320,12 +502,6 @@ class SHARC_ECI(SHARC_HYBRID):
                         PCs = QMin.coord['pccharge'] + APCs
                         child1.QMin.coords['pccharge'] = PCs
 
-                    for joblist in QMin.resources['EHF_sitejobs']:
-                        with Pool(processes=len(joblist)) as pool:
-                            for job in joblist:
-                                pool.apply_async( EHF_kindergarden[job].run() )
-                            pool.close()
-                            pool.join()
 
                     #Read new ESP charges
                     newAPCs = []
@@ -343,13 +519,16 @@ class SHARC_ECI(SHARC_HYBRID):
                     with Pool(processes=len(joblist)) as pool:
                         for job in joblist:
                             with InDir(self.kinderdirs[job]):
-                                pool.apply_async( kindergarden[job].run() )
+                                pool.apply_async( kindergarden[job].run )
                         pool.close()
                         pool.join()
 
             # In any case, read site-state data (E, dH, rho, mu)
             for (name, child) in kindergarden.items():
                 child.getQMout()
+                #  with InDir(self.kinderdirs[job]):
+                    #  child.QMout = QMout(filepath="QM.out")
+
 
             #Construct the Dyson orbitals
             if any( QMin.template['ct_level'] > 0 ):
@@ -417,7 +596,7 @@ class SHARC_ECI(SHARC_HYBRID):
             ECIjobs[c].construct_ECI_basis( c )                 # Building ECI-CT basis
             ECIjobs[c].construct_ECI_Hamiltonain()              # Construct entire ECI-CT Hamiltonian for all multiplicities
             ECIjobs[c].calcuate_eigenstates()                   # Diagonalize Hamiltonian matrix for each multiplicity
-            ECIjobs[c].calculate_properties( QMin.requests )    # Calculate all properties requested by master"""
+            ECIjobs[c].calculate_properties( QMin.requests )    # Calculate all properties requested by master
 
     def create_restart_files(self) -> None:
         """

@@ -34,6 +34,7 @@ from utils import (
     strip_dir,
     triangular_to_full_matrix,
     writefile,
+    number_of_bubble_swaps,
 )
 
 np.set_printoptions(linewidth=400, formatter={"float": lambda x: f"{x: 9.7}"})
@@ -113,7 +114,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         )
         self.QMin.template.types.update(
             {
-                "keys": list,
+                "keys": str,
                 "basis": str,
                 "functional": str,
                 "dispersion": str,
@@ -255,8 +256,8 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         super().read_template(template_file)
 
         # Convert keys to string if list
-        if isinstance(self.QMin.template["keys"], list):
-            self.QMin.template["keys"] = " ".join(self.QMin.template["keys"])
+        #  if isinstance(self.QMin.template["keys"], list):
+          #  self.QMin.template["keys"] = " ".join(self.QMin.template["keys"])
 
         # read external basis set
         if self.QMin.template["basis_external"]:
@@ -270,6 +271,36 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         if not self.QMin.template["unrestricted_triplets"]:
             if len(self.QMin.template["charge"]) >= 3 and self.QMin.template["charge"][0] != self.QMin.template["charge"][2]:
                 raise RuntimeError('Charges of singlets and triplets differ. Please enable the "unrestricted_triplets" option!')
+
+        for s in self.states:
+            s.C['is_gs'] = False
+            s.C['its_gs'] = None
+            if s.N == 1 and s.M == s.S: 
+                s.C['is_gs'] = True
+                if s.S == 2 and not self.QMin.template["unrestricted_triplets"]:
+                    s.C['is_gs'] = False
+
+        for s in self.states:
+            if not s.C['is_gs']:
+                if s.S == 2:
+                    if self.QMin.template["unrestricted_triplets"]:
+                        for gs in self.states:
+                            if gs.C['is_gs'] and gs.M == s.M:
+                                s.C['its_gs'] = gs
+                                break
+                    elif s.M == 0:
+                        for gs in self.states:
+                            if gs.C['is_gs'] and gs.S == 0:
+                                s.C['its_gs'] = gs
+                                break
+                else:
+                    for gs in self.states:
+                        if gs.C['is_gs'] and gs.S == s.S and gs.M == s.M:
+                            s.C['its_gs'] = gs
+                            break
+        #for s in self.states:
+        #    print(repr(s))
+
 
     # TODO
     def setup_interface(self):
@@ -328,6 +359,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
     @staticmethod
     def getVersion(groot: str) -> str:
         tries = {"g09": "09", "g16": "16"}
+        print('groot = ', groot)
         ls = os.listdir(groot)
         for key, val in tries.items():
             if key in ls:
@@ -452,113 +484,31 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
 
         self.QMin.control["densjob"] = {}
         if self.QMin.requests["multipolar_fit"] or self.QMin.requests["density_matrices"]:
-            # detect where the densities will be calculated
-            # gs and first es always accessible from master if gs is not other mult
-            for m1, s1, ms1, m2, s2, ms2, mat in self.QMin.requests["density_matrices"].keys():
-                key = (m1, s1, ms1, m2, s2, ms2, mat)
-                # skips redundant densities -> are set in the end
-                if m1 > m2 or s1 > s2:
-                    continue
-                if self.QMin.requests["density_matrices"][key] is not None:
-                    continue
-                ijob = self.QMin.maps["multmap"][m1]
-                gsmult = self.QMin.maps["multmap"][-ijob][0]
-                # TODO Tomi
-                if m1 != m2:
-                    # self.log.warning(f"Skipping densities with different multiplicities {m1} {m2}!")
-                    if m1 == 1 and m2 == 3 and self.QMin.maps["multmap"][-self.QMin.maps["multmap"][m2]][0] != m1:
-                        self.QMin.requests["density_matrices"][key] = (
-                            f"master_{self.QMin.maps['multmap'][m2]}",
-                            {"Number of g2e trans dens", "G to E trans densities"},
-                        )
-                elif s1 == s2:
-                    dens = (m1, s1)
-                    if gsmult == m1:
-                        if s1 == 1:  # ground state always master SCF
-                            if mat in ["aa", "bb"]:
-                                self.QMin.requests["density_matrices"][key] = (
-                                    f"master_{ijob}",
-                                    {"Total SCF Density", "Spin SCF Density"},
-                                )
-                            elif mat == "tot":
-                                self.QMin.requests["density_matrices"][key] = (f"master_{ijob}", {"Total SCF Density"})
-
-                        elif s1 == 2:
-                            if mat in ["aa", "bb"]:
-                                self.QMin.requests["density_matrices"][key] = (
-                                    f"master_{ijob}",
-                                    {"Total CI Density", "Spin CI Density"},
-                                )
-                            elif mat == "tot":
-                                self.QMin.requests["density_matrices"][key] = (f"master_{ijob}", {"Total CI Density"})
-                        elif dens in jobgrad:
-                            # if gs and jobgrad is gs
-                            if s1 == 1 and jobgrad[dens][1]:
-                                if mat in ["aa", "bb"]:
-                                    self.QMin.requests["density_matrices"][key] = (
-                                        jobgrad[dens],
-                                        {"Total SCF Density", "Spin SCF Density"},
-                                    )
-                                elif mat == "tot":
-                                    self.QMin.requests["density_matrices"][key] = (jobgrad[dens][0], {"Total SCF Density"})
-                            # is not gs and not gs grad
-                            elif s1 > 1 and not jobgrad[dens][1]:
-                                if mat in ["aa", "bb"]:
-                                    self.QMin.requests["density_matrices"][key] = (
-                                        jobgrad[dens],
-                                        {"Total CI Density", "Spin CI Density"},
-                                    )
-                                elif mat == "tot":
-                                    self.QMin.requests["density_matrices"][key] = (jobgrad[dens][0], {"Total CI Density"})
-                        # needs extra job in dens_m_s
-                        else:
-                            if mat in ["aa", "bb"]:
-                                self.QMin.requests["density_matrices"][key] = (
-                                    f"dens_{m1}_{s1}",
-                                    {"Total CI Density", "Spin CI Density"},
-                                )
-                            elif mat == "tot":
-                                self.QMin.requests["density_matrices"][key] = (f"dens_{m1}_{s1}", {"Total CI Density"})
-                    # gsmult is not mult! (-> restricted triplets) are always CI matrix
-                    elif dens in jobgrad and self.QMin.control["jobs"][ijob]["restr"]:
-                        if mat in ["aa", "bb"]:
-                            self.QMin.requests["density_matrices"][key] = (
-                                jobgrad[dens][0],
-                                {"Total CI Density", "Spin CI Density"},
-                            )
-                        elif mat == "tot":
-                            self.QMin.requests["density_matrices"][key] = (jobgrad[dens][0], {"Total CI Density"})
-                    elif dens not in jobgrad and self.QMin.control["jobs"][ijob]["restr"]:
-                        if mat in ["aa", "bb"]:
-                            self.QMin.requests["density_matrices"][key] = (
-                                f"dens_{m1}_{s1}",
-                                {"Total CI Density", "Spin CI Density"},
-                            )
-                        elif mat == "tot":
-                            self.QMin.requests["density_matrices"][key] = (f"dens_{m1}_{s1}", {"Total CI Density"})
+            for (s1,s2,spin) in self.density_recipes["read"]:
+                if spin == 'tot' or spin == 'q':
+                    if spin == 'tot': first = 'Total '
+                    if spin == 'q': first = 'Spin '
+                    if s1.C['is_gs']:
+                        second = 'SCF Density'
                     else:
-                        raise RuntimeError()
-                else:
-                    ijob = self.QMin.maps["multmap"][m1]
-                    self.QMin.requests["density_matrices"][key] = (
-                        f"master_{ijob}",
-                        {"Number of g2e trans dens", "G to E trans densities"},
-                    )
-                # transposed matrices can be produced the same way
-                if s1 <= s2:
-                    self.QMin.requests["density_matrices"][(m2, s2, ms2, m1, s1, ms1, mat)] = self.QMin.requests[
-                        "density_matrices"
-                    ][key]
+                        second = 'CI Density'
+                    keyword = { first+second }
+                    master_state = 1 if s1.S==2 and not self.QMin.template['unrestricted_triplets'] else 2
+                    if s1.N <= master_state:
+                        dir = 'master_'+str(s1.S+1)
+                    else:
+                        dir = 'grad_'+str(s1.S+1)+'_'+str(s1.N)
+                    self.density_recipes['read'][(s1,s2,spin)] = (dir, keyword)
+                elif spin == 'aa' or spin == 'bb':
+                    dir = 'master_'+str(s2.S+1)
+                    keyword = {"Number of g2e trans dens", "G to E trans densities"} 
+                    self.density_recipes['read'][(s1,s2,spin)] = (dir, keyword)
 
-            for key in filter(lambda x: x is not None, self.QMin.requests["density_matrices"]):
-                if self.QMin.requests["density_matrices"][key] is None:
-                    self.log.warning(f"Currently not able to produce density {key}!")
-                    continue
-                file = self.QMin.requests["density_matrices"][key][0]
-                if file in self.QMin.control["densjob"]:
-                    self.QMin.control["densjob"][file].append(key)
+            for key, value in self.density_recipes['read'].items():
+                if value[0] in self.QMin.control["densjob"]:
+                    self.QMin.control["densjob"][value[0]].append(key)
                 else:
-                    self.QMin.control["densjob"][file] = [key]
+                    self.QMin.control["densjob"][value[0]] = [key]
 
         # add the master calculations
         schedule = []
@@ -685,6 +635,11 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         self.log.info(">>>>>>>>>>>>> Starting the GAUSSIAN job execution")
         if not self.QMin.resources["dry_run"]:
             self.runjobs(self.QMin.scheduling["schedule"])
+
+        self.get_mole()
+        # Create restart files and garbage collection
+        self.create_restart_files()
+        self.clean_savedir(self.QMin.save["savedir"], self.QMin.requests["retain"], self.QMin.save["step"])
 
         # do all necessary overlap and Dyson calculations
         self._run_wfoverlap()
@@ -962,16 +917,14 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         shutil.copy(fromfile, tofile)
         self.log.info(shorten_DIR(tofile))
 
-        # if necessary, extract the MOs and write them to savedir
-        if qmin.requests["ion"] or not qmin.requests["nooverlap"]:
-            f = os.path.join(WORKDIR, "GAUSSIAN.chk")
-            string = SHARC_GAUSSIAN.get_MO_from_chk(f, qmin)
+        # if necessary, extract the MOs and CI coefficients and write them to savedir
+        if qmin.requests["ion"] or not qmin.requests["nooverlap"] or len(self.density_recipes["calculate"]) > 0:
+            f = os.path.join(WORKDIR, "GAUSSIAN.fchk")
+            self.get_fchk(WORKDIR, self.QMin.resources["groot"])
+            string = SHARC_GAUSSIAN.get_MO_from_chk(f, qmin, self.QMin.molecule['Ubasis'])
             mofile = os.path.join(qmin.save["savedir"], f"mos.{job}.{step}")
             writefile(mofile, string)
             self.log.info(shorten_DIR(mofile))
-
-        # if necessary, extract the TDDFT coefficients and write them to savedir
-        if qmin.requests["ion"] or not qmin.requests["nooverlap"]:
             f = os.path.join(WORKDIR, "GAUSSIAN.chk")
             strings = SHARC_GAUSSIAN.get_dets_from_chk(f, qmin)
             for f in strings:
@@ -999,51 +952,30 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
 
     # ======================================================================= #
     @staticmethod
-    def get_MO_from_chk(filename, qmin: QMin_class) -> str:
+    def get_MO_from_chk(filename, qmin: QMin_class, U: np.ndarray) -> str:
+
+        data = SHARC_GAUSSIAN.get_rwfdump('/usr/license/gaussian16_new/rev_c01/avx2/g16', '/user/pitesa/test_sharc/gaussian/acetamide/sto3g/SCRATCH/master_1/GAUSSIAN.chk', '524R')
+        f = open('modump.txt','w')
+        for line in data:
+            f.write(line)
+        f.close()
+
         job = qmin.control["jobid"]
         restr = qmin.control["jobs"][job]["restr"]
-
-        # extract alpha orbitals
-        data = SHARC_GAUSSIAN.get_rwfdump(qmin.resources["groot"], filename, "524R")
-        for iline, line in enumerate(data):
-            if "Dump of file" in line:
-                break
-        mocoef_A = []
-        while True:
-            iline += 1
-            if iline >= len(data):
-                break
-            s = data[iline].split()
-            for i in s:
-                mocoef_A.append(float(i.replace("D", "E")))
-        NAO = int(math.sqrt(len(mocoef_A)))
-        NMO_A = NAO
-        MO_A = [mocoef_A[NAO * i : NAO * (i + 1)] for i in range(NAO)]
-
-        # extract beta orbitals
+        MO_A = SHARC_GAUSSIAN.parse_fchk(filename, ['Alpha MO coefficients'])['Alpha MO coefficients']
+        nao = int(np.sqrt(len(MO_A)))
+        MO_A = np.reshape( MO_A, [nao,nao] ).T
+        #  qmin.molecule.Ubasis = np.zeros((2,2))
+        #print(np.shape(MO_A), np.shape(U))
+        MO_A = U @ MO_A
         if not restr:
-            data = SHARC_GAUSSIAN.get_rwfdump(qmin.resources["groot"], filename, "526R")
-            for iline, line in enumerate(data):
-                if "Dump of file" in line:
-                    break
-            mocoef_B = []
-            while True:
-                iline += 1
-                if iline >= len(data):
-                    break
-                s = data[iline].split()
-                for i in s:
-                    mocoef_B.append(float(i.replace("D", "E")))
-            if NAO != int(math.sqrt(len(mocoef_B))):
-                raise RuntimeError("Problem in orbital reading!")
-            NMO_B = NAO
-            MO_B = [mocoef_B[NAO * i : NAO * (i + 1)] for i in range(NAO)]
-
-        NMO = NMO_A - qmin.molecule["frozcore"]
-        if restr:
-            NMO = NMO_A - qmin.molecule["frozcore"]
-        else:
-            NMO = NMO_A + NMO_B - 2 * qmin.molecule["frozcore"]
+            MO_B = SHARC_GAUSSIAN.parse_fchk(filename, ['Beta MO coefficients'])['Beta MO coefficients']
+            MO_B = np.reshape( MO_B, [nao,nao] ).T 
+            MO_B = U @ MO_B 
+        print('frozcore = ', qmin.molecule['frozcore'])
+        MO_A = MO_A[:,qmin.molecule["frozcore"]:]
+        if not restr:
+            MO_B = MO_B[:,qmin.molecule["frozcore"]:]
 
         # make string
         string = """2mocoef
@@ -1056,39 +988,38 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
     mocoef
     (*)
     """ % (
-            NAO,
-            NMO,
+            MO_A.shape[0],
+            MO_A.shape[1],
         )
         x = 0
-        for imo, mo in enumerate(MO_A):
-            if imo < qmin.molecule["frozcore"]:
-                continue
-            for c in mo:
+        for imo in range(MO_A.shape[1]):
+            for iao in range(MO_A.shape[0]):
                 if x >= 3:
                     string += "\n"
                     x = 0
-                string += "% 6.12e " % c
+                string += "% 12.16e " % MO_A[iao,imo]
                 x += 1
             if x > 0:
                 string += "\n"
                 x = 0
         if not restr:
             x = 0
-            for imo, mo in enumerate(MO_B):
-                if imo < qmin.molecule["frozcore"]:
-                    continue
-                for c in mo:
+            for imo in range(MO_B.shape[1]):
+                for iao in range(MO_B.shape[0]):
                     if x >= 3:
                         string += "\n"
                         x = 0
-                    string += "% 6.12e " % c
+                    string += "% 12.16e " % MO_B[iao,imo]
                     x += 1
                 if x > 0:
                     string += "\n"
                     x = 0
+
         string += "orbocc\n(*)\n"
+        n = np.shape(MO_A)[1]
+        if not restr: n += np.shape(MO_B)[1]
         x = 0
-        for i in range(NMO):
+        for i in range(n):
             if x >= 3:
                 string += "\n"
                 x = 0
@@ -1159,6 +1090,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                 4 + 8 * (infos["NOA"] * infos["NVA"] + infos["NOB"] * infos["NVB"])
             )
 
+
         # get ground state configuration
         # make step vectors (0:empty, 1:alpha, 2:beta, 3:docc)
         if restr:
@@ -1207,7 +1139,15 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                     for iocc in range(nocc_A):
                         for ivirt in range(nvir_A):
                             index = iocc * nvir_A + ivirt
-                            dets[(iocc, ivirt, 1)] = eig[index]
+                            #TOMI
+                            key = list(occ_A)
+                            key[infos["NFC"] + iocc] = 2
+                            key[infos["NFC"] + nocc_A + ivirt] = 1
+                            mos_alpha = [ i for i,mo in enumerate(key) if mo == 3 or mo == 2 ]
+                            mos_beta = [ i for i,mo in enumerate(key) if mo == 3 or mo == 1 ]
+                            mos = mos_alpha + mos_beta
+                            nswap = number_of_bubble_swaps(mos)
+                            dets[(iocc, ivirt, 1)] = (-1.)**nswap*eig[index]
                 else:
                     for iocc in range(nocc_A):
                         for ivirt in range(nvir_A):
@@ -1329,9 +1269,9 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                     string += "d"
             for istate in range(len(ci_vectors)):
                 if det in ci_vectors[istate]:
-                    string += " %11.7f " % ci_vectors[istate][det]
+                    string += " %14.10f " % ci_vectors[istate][det]
                 else:
-                    string += " %11.7f " % 0.0
+                    string += " %14.10f " % 0.0
             string += "\n"
         return string
 
@@ -1497,6 +1437,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         self.QMout.allocate(
             states, natom, self.QMin.molecule["npc"], {r for r in self.QMin.requests.keys() if self.QMin.requests[r]}
         )
+        self.QMout['mol'] = self.QMin.molecule['mol'] # PySCF object
 
         # TODO:
         # excited state energies and transition moments could be read from rwfdump "770R"
@@ -1643,68 +1584,11 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         self.get_fchk(masterdir, self.QMin.resources["groot"])
         fchk_master = os.path.join(masterdir, "GAUSSIAN.fchk")
 
-        # collect properties to read
-        keywords_from_master = set()
-        get_basis = (
-            self.QMin.requests["basis_set"] or self.QMin.requests["density_matrices"] or self.QMin.requests["multipolar_fit"]
-        )
-        get_ecp = self.QMin.requests["density_matrices"] or self.QMin.requests["multipolar_fit"]
-
-        if get_basis:
-            keywords_from_master.update(
-                {
-                    "Atomic numbers",
-                    "Number of basis functions",
-                    "Pure/Cartesian d shells",
-                    "Pure/Cartesian f shells",
-                    "Shell types",
-                    "Number of primitives per shell",
-                    "Shell to atom map",
-                    "Primitive exponents",
-                    "Contraction coefficients",
-                    "P(S=P) Contraction coefficients",
-                }
-            )
-        if get_ecp:
-            keywords_from_master.update(
-                {
-                    "Number of atoms",
-                    "Atomic numbers",
-                    "ECP-MaxLECP",
-                    "ECP-KFirst",
-                    "ECP-KLast",
-                    "ECP-LMax",
-                    "ECP-LPSkip",
-                    "ECP-RNFroz",
-                    "ECP-NLP",
-                    "ECP-CLP1",
-                    "ECP-ZLP",
-                }
-            )
-
-        raw_properties_from_master = SHARC_GAUSSIAN.parse_fchk(fchk_master, keywords_from_master)
-
-        if get_basis:
-            basis, n_bf, cartesian_d, cartesian_f, p_eq_s_shell = SHARC_GAUSSIAN.prepare_basis(raw_properties_from_master)
-            self.log.debug(f"{basis}")
-            self.log.debug(f"basis information: P(S=P):{p_eq_s_shell} cartesian d:{cartesian_d}, cartesian_f {cartesian_f}")
-        if get_ecp:
-            ECPs = SHARC_GAUSSIAN.prepare_ecp(raw_properties_from_master)
-            self.log.debug(f"{'ECP:':=^80}\n{ECPs}")
-            if len(ECPs) == 0:
-                self.log.info("No ECPs found")
-
-        get_densities = get_ecp
-
-        if get_densities:
-            densities = self.get_densities(basis, n_bf, ECPs=ECPs, cartesian_d=cartesian_d, cartesian_f=cartesian_f)
-        if self.QMin.requests["multipolar_fit"]:
-            self.QMout["multipolar_fit"] = self._resp_fit_on_densities(
-                basis,
-                {(m1, s1, ms1, m2, s2, ms2): v for (m1, s1, ms1, m2, s2, ms2, mat), v in densities.items() if mat == "tot"},
-                cartesian_basis=cartesian_d,
-                ecps=ECPs,
-            )
+        # Densities and multipolar fits
+        if ( self.QMin.requests["density_matrices"] or self.QMin.requests["multipolar_fit"] ):
+            self.get_densities()
+            if self.QMin.requests["multipolar_fit"]:
+                self.QMout["multipolar_fit"] = self._resp_fit_from_densities()
 
         # TheoDORE
         if self.QMin.requests["theodore"]:
@@ -1870,6 +1754,8 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
     # ======================================================================= #
     @staticmethod
     def get_fchk(workdir, groot=""):
+        if os.path.isfile(os.path.join(workdir, 'GAUSSIAN.fchk')):
+            return
         prevdir = os.getcwd()
         os.chdir(workdir)
         string = os.path.join(groot, "formchk") + " GAUSSIAN.chk"
@@ -1878,44 +1764,6 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         except OSError as e:
             raise RuntimeError("Call have had some serious problems:", e)
         os.chdir(prevdir)
-
-    @staticmethod
-    def prepare_basis(properties: dict[str,]):
-        """
-        prepares the basis object from raw FCHK properties
-        necessary properties:
-        ---
-            'Atomic numbers'
-            'Number of basis functions'
-            'Pure/Cartesian d shells'
-            'Pure/Cartesian f shells'
-            'Shell types'
-            'Number of primitives per shell'
-            'Shell to atom map'
-            'Primitive exponents'
-            'Contraction coefficients'
-            'P(S=P) Contraction coefficients'
-        """
-
-        p_eq_s = "P(S=P) Contraction coefficients" in properties and properties["P(S=P) Contraction coefficients"] is not None
-        if p_eq_s:
-            properties["P(S=) Contraction coefficients"] = properties["P(S=) Contraction coefficients"].tolist()
-        atom_symbols = [IAn2AName[x] for x in properties["Atomic numbers"]]
-        return (
-            build_basis_dict(
-                atom_symbols,
-                properties["Shell types"].tolist(),
-                properties["Number of primitives per shell"].tolist(),
-                properties["Shell to atom map"].tolist(),
-                properties["Primitive exponents"].tolist(),
-                properties["Contraction coefficients"].tolist(),
-                properties["P(S=P) Contraction coefficients"],
-            ),
-            properties["Number of basis functions"],
-            properties["Pure/Cartesian d shells"],
-            properties["Pure/Cartesian f shells"],
-            p_eq_s,
-        )
 
     @staticmethod
     def parse_fchk(fchkfile: str, keywords: set) -> dict[str,]:
@@ -1959,260 +1807,42 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         return res
 
     @staticmethod
-    def prepare_ecp(props: dict[str,]):
+    def prepare_basis(properties: dict[str,]):
         """
-        Prepares ECP from raw parsed FCHK properties
-        needed props:
+        prepares the basis object from raw FCHK properties
+        necessary properties:
         ---
-            'Number of atoms'
             'Atomic numbers'
-            'ECP-MaxLECP'
-            'ECP-KFirst'
-            'ECP-KLast'
-            'ECP-LMax'
-            'ECP-LPSkip'
-            'ECP-RNFroz'
-            'ECP-NLP'
-            'ECP-CLP1'
-            'ECP-ZLP'
+            'Number of basis functions'
+            'Pure/Cartesian d shells'
+            'Pure/Cartesian f shells'
+            'Shell types'
+            'Number of primitives per shell'
+            'Shell to atom map'
+            'Primitive exponents'
+            'Contraction coefficients'
+            'P(S=P) Contraction coefficients'
         """
 
-        # ++++++++++++++++++ Start making things
-        natom = props["Number of atoms"]
-        if props["ECP-NLP"] is None:
-            return {}
-        skips = props["ECP-LPSkip"] == 0
-        kfirst = props["ECP-KFirst"].reshape((-1, natom))[:, skips]
-        klast = props["ECP-KLast"].reshape((-1, natom))[:, skips]
-        lmax = props["ECP-LMax"][skips]
-        froz = props["ECP-RNFroz"][skips].astype(int)
-        nlp = props["ECP-NLP"]
-        clp1 = props["ECP-CLP1"]
-        zlp = props["ECP-ZLP"]
-
-        atom_ids = np.where(skips)[0]
-        symbols = [IAn2AName[props["Atomic numbers"][x]] for x in atom_ids]
-        fun_sym = "SPDFGHIJKLMNOTU"
-
-        ECPs = {}
-        # loop over all atoms
-        for (i, a), s, lm in zip(enumerate(atom_ids), symbols, lmax):
-            ecp_string = f"{s} nelec {froz[i]: d}\n"
-
-            # build the momentum list (with highest momentum first labeled as u1)
-            funs = [fun_sym[x] for x in reversed(range(lm))]
-            funs.append("ul")
-
-            # loop over all angular momentums
-            for fi, la, fun in zip(kfirst[:, i], klast[:, i], reversed(funs)):
-                ecp_string += f"{s} {fun}\n"
-                for y in range(fi - 1, la):
-                    ecp_string += f"{nlp[y]:2d}    {zlp[y]: 12.7f}       {clp1[y]: 12.7f}\n"
-            ECPs[a] = ecp_string
-
-        return ECPs
-
-    def get_densities(
-        self, basis: dict, n_bf: int, ECPs={}, cartesian_d=True, cartesian_f=True
-    ) -> dict[(int, int, int, int), np.ndarray]:
-        """
-        builds a dictionary of densities out of the information in 'density_matrices' and 'densjob'
-
-        Args:
-            n_bf: int   number of basis functions
-            Sao: overlap matrix of atomic orbitals
-        """
-        # getting AO Overlap and norms
-        gsmult = self.QMin.maps["statemap"][1][0]
-        charge = self.QMin.maps["chargemap"][gsmult]
-        atoms = [
-            [f"{s.upper()}{j+1}", c.tolist()]
-            for j, s, c in zip(range(self.QMin.molecule["natom"]), self.QMin.molecule["elements"], self.QMin.coords["coords"])
-        ]
-        mol = gto.Mole(
-            atom=atoms,
-            basis=basis,
-            unit="AU",
-            spin=gsmult - 1,
-            charge=charge,
-            symmetry=False,
-            cart=cartesian_d,
-            ecp={f'{self.QMin.molecule["elements"][n]}{n+1}': ecp_string for n, ecp_string in ECPs.items()},
+        p_eq_s = "P(S=P) Contraction coefficients" in properties and properties["P(S=P) Contraction coefficients"] is not None
+        if p_eq_s:
+            properties["P(S=P) Contraction coefficients"] = properties["P(S=P) Contraction coefficients"].tolist()
+        atom_symbols = [IAn2AName[x] for x in properties["Atomic numbers"]]
+        return (
+            build_basis_dict(
+                atom_symbols,
+                properties["Shell types"].tolist(),
+                properties["Number of primitives per shell"].tolist(),
+                properties["Shell to atom map"].tolist(),
+                properties["Primitive exponents"].tolist(),
+                properties["Contraction coefficients"].tolist(),
+                properties["P(S=P) Contraction coefficients"],
+            ),
+            properties["Number of basis functions"],
+            properties["Pure/Cartesian d shells"],
+            properties["Pure/Cartesian f shells"],
+            p_eq_s,
         )
-        mol.build()
-        Sao = mol.intor("int1e_ovlp")
-        dipole_operator = mol.intor("int1e_r")
-        # obtain normalization coefficients of pyscf overlap
-        ao_sqrt_norms = np.sqrt(np.diag(Sao))
-        # obtain new order of the AO orbitals
-        new_order = SHARC_GAUSSIAN.get_pyscf_basis_order(
-            self.QMin.molecule["elements"], basis, cartesian_d=cartesian_d, cartesian_f=cartesian_f
-        )
-        self.log.debug(f"reordering atomic orbitals according to:\n\t{new_order}")
-
-        # retrieving densities
-        constructed_matrices = {}
-        print(self.QMin.control["densjob"])
-        print(self.QMin.requests["density_matrices"])
-        for job, keys in self.QMin.control["densjob"].items():
-            # ===================== PARSING BLOCK ===============================
-            # create all necessary FCHKs
-            workdir = os.path.join(self.QMin.resources["scratchdir"], job)
-            fchkfile = os.path.join(workdir, "GAUSSIAN.fchk")
-            if not os.path.isfile(fchkfile):
-                self.get_fchk(workdir, self.QMin.resources["groot"])
-
-            keywords = set()
-            for key in keys:
-                # density_matrices stores a tuple (jobname, set(keywords from fchk))
-                keywords.update(self.QMin.requests["density_matrices"][key][1])
-            # get properties!
-            self.log.debug(f"Parsing {fchkfile} -> {keywords}")
-            raw_matrices = SHARC_GAUSSIAN.parse_fchk(fchkfile, keywords)
-            parsed_matrices = {}
-
-            for keyword, raw_data in raw_matrices.items():
-                self.log.debug(f"{keyword} is {'found' if raw_data is not None else None}")
-                match (keyword, raw_data):
-                    case (_, None):
-                        self.log.warning(f"'{keyword}' not found in:\n\t {fchkfile}")
-                    case ("Total SCF Density" | "Total CI Density", _):
-                        parsed_matrices[keyword] = triangular_to_full_matrix(raw_data, n_bf)
-                    case ("G to E trans densities" | _) if raw_matrices["Number of g2e trans dens"] is not None:
-                        parsed_matrices[keyword] = raw_matrices["G to E trans densities"].reshape(
-                            raw_matrices["Number of g2e trans dens"], 2, n_bf, n_bf
-                        ) / math.sqrt(2)
-                        parsed_matrices[keyword] = np.einsum("abcd->bacd", parsed_matrices[keyword])
-                    case _:
-                        pass
-
-            # ============================= REORDER BLOCK =====================================
-            # reorder all densities and renormalize them
-            for key in parsed_matrices:
-                match key:
-                    case "Total SCF Density" | "Total CI Density" | "Spin SCF Density" | "Spin CI Density":
-                        parsed_matrices[key] = parsed_matrices[key][:, new_order][new_order, :]
-                        parsed_matrices[key] = (parsed_matrices[key] / ao_sqrt_norms[:, None]) / ao_sqrt_norms[None, :]
-                    case "G to E trans densities":
-                        parsed_matrices[key] = parsed_matrices[key][..., new_order][..., new_order, :]
-                        parsed_matrices[key] = (parsed_matrices[key] / ao_sqrt_norms[None, None, :, None]) / ao_sqrt_norms[
-                            None, None, None, :
-                        ]
-                    case _:
-                        continue
-
-            # ===================== CONSTRUCTION OF DENSITIES  ===============================
-            for key in keys:
-                m1, s1, ms1, m2, s2, ms2, mat = key
-                key_set = self.QMin.requests["density_matrices"][key][1]
-                self.log.debug(f"constructing {key} with {key_set}")
-                # also means mat == 'aa' |'bb'
-                if key_set == {"Total CI Density", "Spin CI Density"}:
-                    if "Total CI Density" in parsed_matrices and "Spin CI Density" in parsed_matrices:
-                        if mat == "aa":
-                            constructed_matrices[key] = (
-                                parsed_matrices["Total CI Density"] + parsed_matrices["Spin CI Density"]
-                            ) / 2.0
-                        elif mat == "bb":
-                            constructed_matrices[key] = (
-                                parsed_matrices["Total CI Density"] - parsed_matrices["Spin CI Density"]
-                            ) / 2.0
-                    else:
-                        raise NotADirectoryError()
-                elif key_set == {"Total SCF Density", "Spin SCF Density"}:
-                    if "Total SCF Density" in parsed_matrices and "Spin SCF Density" in parsed_matrices:
-                        if mat == "aa":
-                            constructed_matrices[key] = (
-                                parsed_matrices["Total SCF Density"] + parsed_matrices["Spin SCF Density"]
-                            ) / 2.0
-                        elif mat == "bb":
-                            constructed_matrices[key] = (
-                                parsed_matrices["Total SCF Density"] - parsed_matrices["Spin SCF Density"]
-                            ) / 2.0
-                    else:
-                        raise NotADirectoryError()
-                elif key_set == {"Total SCF Density"}:
-                    if "Total SCF Density" in parsed_matrices:
-                        constructed_matrices[key] = parsed_matrices["Total SCF Density"]
-                    else:
-                        raise NotImplementedError()
-                elif key_set == {"Total CI Density"}:
-                    if "Total CI Density" in parsed_matrices:
-                        constructed_matrices[key] = parsed_matrices["Total CI Density"]
-                    else:
-                        raise NotImplementedError()
-                elif key_set == {"Number of g2e trans dens", "G to E trans densities"}:
-                    if "Number of g2e trans dens" not in parsed_matrices and "G to E trans densities" not in parsed_matrices:
-                        raise RuntimeError(
-                            f"requested density {key} cannot be constructed from {key_set} not found in {fchkfile}!"
-                        )
-                    # TODO check for restricted: is the triplet the first state but the zeroth excited state?
-                    jobid = self.QMin.maps["multmap"][m1]
-                    gsmult = self.QMin.maps["multmap"][-jobid][0]
-                    offset = 2 if gsmult == m1 else 1
-                    if s1 == 1 and gsmult == m1:
-                        if mat == "aa":
-                            constructed_matrices[key] = parsed_matrices["G to E trans densities"][0, (s2 - offset), ...]
-                        elif mat == "bb":
-                            constructed_matrices[key] = parsed_matrices["G to E trans densities"][1, (s2 - offset), ...]
-                        elif mat == "tot":
-                            constructed_matrices[key] = (
-                                parsed_matrices["G to E trans densities"][0, (s2 - offset), ...]
-                                + parsed_matrices["G to E trans densities"][1, (s2 - offset), ...]
-                            )
-
-                    elif s2 == 1 and gsmult == m2:
-                        if mat == "aa":
-                            constructed_matrices[key] = parsed_matrices["G to E trans densities"][0, (s1 - offset), ...].T
-                        elif mat == "bb":
-                            constructed_matrices[key] = parsed_matrices["G to E trans densities"][1, (s1 - offset), ...].T
-                        elif mat == "tot":
-                            constructed_matrices[key] = (
-                                parsed_matrices["G to E trans densities"][0, (s1 - offset), ...].T
-                                + parsed_matrices["G to E trans densities"][1, (s1 - offset), ...].T
-                            )
-
-                    elif m1 == m2:
-                        if mat == "aa":
-                            constructed_matrices[key] = es2es_tdm(
-                                parsed_matrices["G to E trans densities"][0, (s1 - offset), ...],
-                                parsed_matrices["G to E trans densities"][0, (s2 - offset), ...],
-                                Sao,
-                            )
-                        elif mat == "bb":
-                            constructed_matrices[key] = es2es_tdm(
-                                parsed_matrices["G to E trans densities"][1, (s1 - offset), ...],
-                                parsed_matrices["G to E trans densities"][1, (s2 - offset), ...],
-                                Sao,
-                            )
-                        elif mat == "tot":
-                            # constructed_matrices[key] = es2es_tdm(
-                            # parsed_matrices["G to E trans densities"][0, (s1 - offset), ...]+parsed_matrices["G to E trans densities"][1, (s1 - offset), ...] ,
-                            # parsed_matrices["G to E trans densities"][0, (s2 - offset), ...]+parsed_matrices["G to E trans densities"][1, (s2 - offset), ...] ,
-                            # Sao,
-                            # )
-                            constructed_matrices[key] = es2es_tdm(
-                                parsed_matrices["G to E trans densities"][0, (s1 - offset), ...],
-                                parsed_matrices["G to E trans densities"][0, (s2 - offset), ...],
-                                Sao,
-                            )
-                            +es2es_tdm(
-                                parsed_matrices["G to E trans densities"][1, (s1 - offset), ...],
-                                parsed_matrices["G to E trans densities"][1, (s2 - offset), ...],
-                                Sao,
-                            )
-                    elif m1 != m2:
-                        # TODO Tomi
-                        self.log.warning(
-                            f"Construction of transition densities between different multiplicities not implementd yet!:\t{key}"
-                        )
-        for key, matrix in constructed_matrices.items():
-            # check dm matrix
-            self.log.debug(f"Performing checks on density {key[0]}_{key[1]}->{key[3]}_{key[4]} ({key[6]}):")
-            self.log.debug(f"\tdipole: {(-np.einsum('xij,ij->x', dipole_operator, matrix)).tolist()}")
-            self.log.debug(f"\tn elec: {np.einsum('ij,ij', Sao, matrix): 8.6f}")
-
-        return constructed_matrices
 
     @staticmethod
     def get_pyscf_basis_order(atom_symbols, basis_dict, cartesian_d=False, cartesian_f=False, p_eq_s=False):
@@ -2338,6 +1968,251 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
             assert it == len(new_order)
 
         return new_order
+
+    @staticmethod
+    def prepare_ecp(props: dict[str,]):
+        """
+        Prepares ECP from raw parsed FCHK properties
+        needed props:
+        ---
+            'Number of atoms'
+            'Atomic numbers'
+            'ECP-MaxLECP'
+            'ECP-KFirst'
+            'ECP-KLast'
+            'ECP-LMax'
+            'ECP-LPSkip'
+            'ECP-RNFroz'
+            'ECP-NLP'
+            'ECP-CLP1'
+            'ECP-ZLP'
+        """
+
+        # ++++++++++++++++++ Start making things
+        natom = props["Number of atoms"]
+        if props["ECP-NLP"] is None:
+            return {}
+        skips = props["ECP-LPSkip"] == 0
+        kfirst = props["ECP-KFirst"].reshape((-1, natom))[:, skips]
+        klast = props["ECP-KLast"].reshape((-1, natom))[:, skips]
+        lmax = props["ECP-LMax"][skips]
+        froz = props["ECP-RNFroz"][skips].astype(int)
+        nlp = props["ECP-NLP"]
+        clp1 = props["ECP-CLP1"]
+        zlp = props["ECP-ZLP"]
+
+        atom_ids = np.where(skips)[0]
+        symbols = [IAn2AName[props["Atomic numbers"][x]] for x in atom_ids]
+        fun_sym = "SPDFGHIJKLMNOTU"
+
+        ECPs = {}
+        # loop over all atoms
+        for (i, a), s, lm in zip(enumerate(atom_ids), symbols, lmax):
+            ecp_string = f"{s} nelec {froz[i]: d}\n"
+
+            # build the momentum list (with highest momentum first labeled as u1)
+            funs = [fun_sym[x] for x in reversed(range(lm))]
+            funs.append("ul")
+
+            # loop over all angular momentums
+            for fi, la, fun in zip(kfirst[:, i], klast[:, i], reversed(funs)):
+                ecp_string += f"{s} {fun}\n"
+                for y in range(fi - 1, la):
+                    ecp_string += f"{nlp[y]:2d}    {zlp[y]: 12.7f}       {clp1[y]: 12.7f}\n"
+            ECPs[a] = ecp_string
+
+        return ECPs
+
+    #Start TOMI
+    def get_mole(self):
+        job = self.QMin.control["joblist"][0]
+        masterdir = os.path.join(self.QMin.resources["scratchdir"], f"master_{job}")
+        self.get_fchk(masterdir, self.QMin.resources["groot"])
+        fchk_master = os.path.join(masterdir, "GAUSSIAN.fchk")
+
+        # collect properties to read
+        keywords_from_master = set()
+        get_basis = (
+            self.QMin.requests["basis_set"] or self.QMin.requests["density_matrices"] or self.QMin.requests["multipolar_fit"]
+        )
+        get_ecp = self.QMin.requests["density_matrices"] or self.QMin.requests["multipolar_fit"]
+
+        keywords_from_master.update(
+                {
+                    "Atomic numbers",
+                    "Number of basis functions",
+                    "Pure/Cartesian d shells",
+                    "Pure/Cartesian f shells",
+                    "Shell types",
+                    "Number of primitives per shell",
+                    "Shell to atom map",
+                    "Primitive exponents",
+                    "Contraction coefficients",
+                    "P(S=P) Contraction coefficients",
+                }
+            )
+        keywords_from_master.update(
+                {
+                    "Number of atoms",
+                    "Atomic numbers",
+                    "ECP-MaxLECP",
+                    "ECP-KFirst",
+                    "ECP-KLast",
+                    "ECP-LMax",
+                    "ECP-LPSkip",
+                    "ECP-RNFroz",
+                    "ECP-NLP",
+                    "ECP-CLP1",
+                    "ECP-ZLP",
+                }
+            )
+
+        raw_properties_from_master = SHARC_GAUSSIAN.parse_fchk(fchk_master, keywords_from_master)
+
+        #if get_basis:
+        basis, n_bf, cartesian_d, cartesian_f, p_eq_s_shell = SHARC_GAUSSIAN.prepare_basis(raw_properties_from_master)
+        self.log.debug(f"{basis}")
+        self.log.debug(f"basis information: P(S=P):{p_eq_s_shell} cartesian d:{cartesian_d}, cartesian_f {cartesian_f}")
+        #if get_ecp:
+        ECPs = SHARC_GAUSSIAN.prepare_ecp(raw_properties_from_master)
+        self.log.debug(f"{'ECP:':=^80}\n{ECPs}")
+        if len(ECPs) == 0:
+            self.log.info("No ECPs found")
+        #gsmult = self.QMin.maps["statemap"][1][0]
+        #charge = self.QMin.maps["chargemap"][gsmult]
+        atoms = [
+            [f"{s.upper()}{j+1}", c.tolist()]
+            for j, s, c in zip(range(self.QMin.molecule["natom"]), self.QMin.molecule["elements"], self.QMin.coords["coords"])
+        ]
+        self.QMin.molecule['mol'] = gto.Mole(
+            atom=atoms,
+            basis=basis,
+            unit="AU",
+            #spin=gsmult - 1,
+            #charge=charge,
+            charge=0,
+            spin=0,
+            symmetry=False,
+            cart=cartesian_d,
+            ecp={f'{self.QMin.molecule["elements"][n]}{n+1}': ecp_string for n, ecp_string in ECPs.items()},
+        )
+        try:
+            self.QMin.molecule["mol"].build()
+        except:
+            self.QMin.molecule["mol"].spin = 1
+            self.QMin.molecule["mol"].build()
+
+        self.QMin.molecule["SAO"] = self.QMin.molecule['mol'].intor("int1e_ovlp")
+        #self.QMin.molecule.mu = self.molecule.mol.intor("int1e_r")
+        new_order = SHARC_GAUSSIAN.get_pyscf_basis_order(
+            self.QMin.molecule["elements"], basis, cartesian_d=cartesian_d, cartesian_f=cartesian_f
+        )
+        self.QMin.molecule["Ubasis"] = np.identity(self.QMin.molecule['mol'].nao)[new_order,:]/np.sqrt(np.diag(self.QMin.molecule['SAO']))
+        self.log.debug('Matrix that rotates GAUSSIAN basis set to PySCF basis set:')
+        if self.QMin.resources['debug']:
+            for i in range(self.QMin.molecule['mol'].nao):
+                self.log.print(' '.join([ f"{self.QMin.molecule['Ubasis'][i,j]: 11.8f}" for j in range(self.QMin.molecule['mol'].nao) ] ) )
+        return
+
+    def get_readable_densities(self):
+        densities = {}
+        #  for s1 in self.states:
+            #  for s2 in self.states:
+                #  if s1 is s2:
+                    #  # Total density
+                    #  densities[(s1,s2,'tot')] = {'how':'read'}
+                    #  # Spin density
+                    #  #if s1.unrestricted and s1.S == s1.M: densities.append((s1,s2,'q'))
+                    #  if s1.S % 2 == 1 and s1.S == s1.M: densities.append[(s1,s2,'q')] = {'how':'read'}
+                #  elif s1.C['is_gs'] and not s2.C['is_gs'] and s1.M == s2.M and s1 is s2.C['its_gs']:
+                    #  densities[(s1,s2,'aa')] = {'how':'read'} 
+                    #  densities[(s1,s2,'bb')] = {'how':'read'} 
+        return densities
+
+    def read_and_append_densities(self): #-> dict[(electronic_state,electronic_state,str), np.ndarray]:
+        """
+        builds a dictionary of densities out of the information in 'density_matrices' and 'densjob'
+
+        Args:
+            n_bf: int   number of basis functions
+            Sao: overlap matrix of atomic orbitals
+        """
+        # retrieving densities
+        constructed_matrices = {}
+        print(self.QMin.control["densjob"])
+        print(self.QMin.requests["density_matrices"])
+        for job, keys in self.QMin.control["densjob"].items():
+            # ===================== PARSING BLOCK ===============================
+            # create all necessary FCHKs
+            workdir = os.path.join(self.QMin.resources["scratchdir"], job)
+            fchkfile = os.path.join(workdir, "GAUSSIAN.fchk")
+            if not os.path.isfile(fchkfile):
+                self.get_fchk(workdir, self.QMin.resources["groot"])
+
+            keywords = set()
+            for key in keys:
+                # density_matrices stores a tuple (jobname, set(keywords from fchk))
+                keywords.update(self.density_recipes['read'][key][1])
+            # get properties!
+            self.log.debug(f"Parsing {fchkfile} -> {keywords}")
+            raw_matrices = SHARC_GAUSSIAN.parse_fchk(fchkfile, keywords)
+            parsed_matrices = {}
+
+            for keyword, raw_data in raw_matrices.items():
+                self.log.debug(f"{keyword} is {'found' if raw_data is not None else None}")
+                match (keyword, raw_data):
+                    case (_, None):
+                        self.log.warning(f"'{keyword}' not found in:\n\t {fchkfile}")
+                    case ("Total SCF Density" | "Total CI Density" | "Spin SCF Density" | "Spin CI Density", _):
+                        parsed_matrices[keyword] = triangular_to_full_matrix(raw_data, self.QMin.molecule['mol'].nao)
+                    case ("G to E trans densities" | _) if raw_matrices["Number of g2e trans dens"] is not None:
+
+                        #print('parse = ', job,raw_matrices["G to E trans densities"][30], raw_matrices["G to E trans densities"][130])
+                        parsed_matrices[keyword] = raw_matrices["G to E trans densities"].reshape(
+                            raw_matrices["Number of g2e trans dens"], 2, self.QMin.molecule['mol'].nao, self.QMin.molecule['mol'].nao 
+                        ) / math.sqrt(2)
+                        parsed_matrices[keyword] = np.einsum("abcd->bacd", parsed_matrices[keyword])
+                    case _:
+                        pass
+
+            ## ============================= REORDER BLOCK =====================================
+            ## reorder all densities and renormalize them
+            #for key in parsed_matrices:
+            #    match key:
+            #        case "Total SCF Density" | "Total CI Density" | "Spin SCF Density" | "Spin CI Density":
+            #            parsed_matrices[key] = parsed_matrices[key][:, new_order][new_order, :]
+            #            parsed_matrices[key] = (parsed_matrices[key] / ao_sqrt_norms[:, None]) / ao_sqrt_norms[None, :]
+            #        case "G to E trans densities":
+            #            parsed_matrices[key] = parsed_matrices[key][..., new_order][..., new_order, :]
+            #            parsed_matrices[key] = (parsed_matrices[key] / ao_sqrt_norms[None, None, :, None]) / ao_sqrt_norms[
+            #                None, None, None, :
+            #            ]
+            #        case _:
+            #            continue
+
+            # ===================== CONSTRUCTION OF DENSITIES  ===============================
+            for key in keys:
+                s1, s2, mat = key
+                dens_type = list(self.density_recipes['read'][key][1])
+                # also means mat == 'aa' |'bb'
+                if any( [ k in dens_type for k in [ "Total CI Density", "Total SCF Density", "Spin CI Density", "Spin SCF Density" ] ] ):
+                    self.QMout['density_matrices'][key] = parsed_matrices[dens_type[0]]
+                elif "G to E trans densities" in dens_type: 
+                    ab = {"aa": 0, "bb": 1}
+                    if s2.S == 2 and not self.QMin.template['unrestricted_triplets']: 
+                        delta = 1
+                    else:
+                        delta = 2
+                    #if s1.S == 0 and s2.S == 2:
+                        #print('Tu sam 3')
+                        #print(repr(s1), repr(s2), mat, ab[mat])
+                        #print(parsed_matrices[dens_type[0]][ab[mat], s2.N - delta, ...][0,0])
+                    self.QMout['density_matrices'][key] = parsed_matrices[dens_type[0]][ab[mat], s2.N - delta, ...]
+
+        for density, rho in self.QMout['density_matrices'].items():
+            self.QMout['density_matrices'][density] = self.QMin.molecule['Ubasis'] @ rho @ self.QMin.molecule['Ubasis'].T 
+        return
+    # End TOMI
 
     # ======================================================================= #
 

@@ -7,6 +7,8 @@ from numpy import ndarray
 from printing import formatcomplexmatrix, formatgrad
 from utils import eformat, itnmstates, writefile
 from logger import log
+import pyscf
+#import SHARC_INTERFACE
 
 
 class QMout:
@@ -42,6 +44,9 @@ class QMout:
     dmdr: ndarray[float, 5]
     dmdr_pc: ndarray[float, 5]
     multipolar_fit: ndarray[float, 4]
+    density_matrices: dict
+    mol: pyscf.gto.Mole 
+    #dyson_orbitals: dict[tuple(electronic_state,electronic_state,str), ndarray[float,1] ]
 
     def __init__(self, filepath=None, states: list[int] =None, natom: int =None, npc: int=None):
         self.prop0d = []
@@ -301,6 +306,10 @@ class QMout:
                 self.dmdr_pc = np.zeros((3, self.nmstates, self.nmstates, npc, 3), dtype=float)
         if "multipolar_fit" in requests:
             self.multipolar_fit = np.zeros((self.nmstates, self.nmstates, natom, 10), dtype=float)
+        if "density_matrices" in requests:
+            self.density_matrices = {}
+        self.mol = None 
+
 
     def __getitem__(self, key):
         if key in self.__dict__:
@@ -380,6 +389,13 @@ class QMout:
             string += self.writeQmoutPhases()
         if requests["multipolar_fit"]:
             string += self.writeQMoutmultipolarfit()
+        if requests["density_matrices"]:
+            string += self.writeQMoutDensityMatrices()
+        if requests["dyson_orbitals"]:
+            string += self.writeQMoutDysonOrbitals()
+        if requests["basis_set"]:
+            string += self.writeQMoutBasisSet()
+
         if self.notes:
             string += self.writeQMoutnotes()
         string += self.writeQMouttime()
@@ -963,6 +979,47 @@ class QMout:
         return string
 
     # ======================================================================= #
+
+    # Start TOMI
+    def writeQMoutDensityMatrices(self) -> str:
+        nao = self.mol.nao
+        setting_str = ""
+        if "density_matrices" in self.notes:
+            setting_str = self.notes["density_matrices"]
+        nrho = len(self.density_matrices.values())
+        string = (
+            f"! 24 Total/Spin/Partial 1-particle density matrices in AO-product basis ({nao}x{nao}x{nrho}) {setting_str}\n"
+        )
+        for key, rho in self.density_matrices.items():
+            s1, s2, spin = key
+            string += f"<S1 = {s1.S/2: 3.1f}, MS1 = {s1.M/2: 3.1f}, N1 = {s1.N}| {spin} | S2 = {s2.S/2: 3.1f}, MS2 = {s2.M/2: 3.1f}, N2 = {s2.N}> \n"
+            for i in range(nao):
+                string += ' '.join( [ f"{float(rho[i,j]): 15.12f}" for j in range(nao) ] )
+                string += "\n"
+        return string
+
+    def writeQMoutBasisSet(self) -> str:
+        string = (
+            f"! 25 Basis set in the PySCF format (dict, 1 line)\n"
+        )
+        string += str(self.mol.basis)+'\n'
+        return string 
+
+    def writeQMoutDysonOrbitals(self) -> str:
+        setting_str = ""
+        if "dyson_orbitals" in self.notes:
+            setting_str = self.notes["dyson_orbitals"]
+        nphi = len(self.dyson_orbitals.values())
+        string = (
+            f"! 25 Dyson orbitals in AO basis ({nao}x{nao}x{nrho}) {setting_str}\n"
+        )
+        for key, rho in self.density_matrices.items():
+            s1, s2, spin = key
+            string += f"{nao}x{nao} ! S1 = {s1.S/2: 3.1f}, MS1 = {s1.M/2: 3.1f}, N1 = {s1.N}; S2 = {s2.S/2: 3.1f}, MS2 = {s2.M/2: 3.1f}, N2 = {s2.N}; {spin} \n"
+            for i in range(nao):
+                string += ' '.join( [ "{rho[i,j]: 15.12f}" for j in range(nao) ] )
+                string += "\n"
+        return string
 
     def writeQMoutmultipolarfit(self) -> str:
         """Generates a string with the fitted RESP charges for each pair of states specified.

@@ -13,7 +13,7 @@ from pyscf import gto, df
 from constants import au2a
 from logger import log
 
-np.set_printoptions(threshold=sys.maxsize, linewidth=10000, precision=1, formatter={"float": lambda x: f"{x: 1.0f}"})
+#  np.set_printoptions(threshold=sys.maxsize, linewidth=10000, precision=1, formatter={"float": lambda x: f"{x: 1.0f}"})
 
 
 def get_resp_grid(atom_radii: list[int], coords: np.ndarray, density=1, shells=[1.4, 1.6, 1.8, 2.0], grid="lebedev"):
