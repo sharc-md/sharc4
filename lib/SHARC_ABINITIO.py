@@ -631,7 +631,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         # All requested densities need to be done...
         densities_to_be_done = { key:value for (key,value) in doable_densities.items() if key in requested_densities }
         # ...but maybe also some on which requested ones depend
-        to_append = []
+        to_append = [] 
         added = True
         while added:
             added = False

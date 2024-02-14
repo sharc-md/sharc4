@@ -460,16 +460,6 @@ def itnmstates(states: list[int]):
                 yield i + 1, j + 1, k - i / 2.0
     return
 
-def number_of_bubble_swaps(li:list[int]):
-    l = li[:]
-    n = len(l)
-    swaps = 0
-    for i in range(n):
-        for j in range(0, n-i-1):
-            if l[j] > l[j+1]:
-                l[j], l[j+1] = l[j+1], l[j]
-                swaps += 1
-    return swaps
 
 # =============================================================================================== #
 # =============================================================================================== #
