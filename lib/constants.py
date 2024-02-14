@@ -12,6 +12,8 @@ U_TO_AMU = 1. / 5.4857990943e-4
 BOHR_TO_ANG = 0.529177211
 kJpermol_to_Eh = kj2Eh = 2625.4996394799    # kJ/mol -> Hartree
 
+# TODO: go higher (see old ORCA interface)
+# TODO: use some list comprehension to get the reversed half of the dictionary
 IToMult = {
     1: 'Singlet',
     2: 'Doublet',
@@ -31,7 +33,8 @@ IToMult = {
     'Octet': 8
 }
 
-# hash table for conversion of polarisations to the keywords used in COLUMBUS
+# hash table for conversion of polarisations to the keywords
+# TODO: use some list comprehension to get the reversed half of the dictionary
 IToPol = {0: 'X', 1: 'Y', 2: 'Z', 'X': 0, 'Y': 1, 'Z': 2}
 
 NUMBERS = {
@@ -276,6 +279,7 @@ FROZENS = {
     'Ts': 50,
     'Og': 50
 }
+# This could be automatically obtained as inversion of NUMBERS
 IAn2AName = {
     1: "H",
     2: "He",
@@ -519,27 +523,37 @@ MASSES = {
     'Og': 294. * U_TO_AMU
 }
 
-ATOMIC_RADII = {
+# Values from J. Comput. Chem. 1984, 5, 129–145. DOI 10.1002/jcc.540050204
+MK_RADII = {
     'H': 1.20,
+    'C': 1.50,
+    'N': 1.50,
+    'O': 1.40,
+    'P': 1.80,
+    'S': 1.75
+}
+# Values from J. Phys. Chem. A, Vol. 113, No. 19, 2009 DOI: 10.1021/jp8111556
+ATOMIC_RADII = {
+    'H': 1.10,
     'He': 1.40,
-    'Li': 0.76,
-    'Be': 0.59,
+    'Li': 1.81,
+    'Be': 1.53,
     'B': 1.92,
     'C': 1.70,
     'N': 1.55,
     'O': 1.52,
     'F': 1.47,
     'Ne': 1.54,
-    'Na': 1.02,
-    'Mg': 0.86,
+    'Na': 2.27,
+    'Mg': 1.73,
     'Al': 1.84,
     'Si': 2.10,
     'P': 1.80,
     'S': 1.80,
-    'Cl': 1.81,
+    'Cl': 1.75,
     'Ar': 1.88,
-    'K': 1.38,
-    'Ca': 1.14,
+    'K': 2.75,
+    'Ca': 2.31,
     'Sc': 2.11,
     'Ti': 2.00,
     'V': 2.00,
@@ -574,8 +588,8 @@ ATOMIC_RADII = {
     'Te': 2.06,
     'I': 1.98,
     'Xe': 2.16,
-    'Cs': 1.67,
-    'Ba': 1.49,
+    'Cs': 3.43,
+    'Ba': 2.68,
     'La': 2.00,
     'Ce': 2.00,
     'Pr': 2.00,
@@ -760,6 +774,9 @@ ISOTOPES = {'H': 'H-1',
             'Og': 'Og-294'
             }
 
+# TODO: This is Turbomole-specific
+# it is only present because Turbomole requires a certain capitalization of the basis sets
+# and this list/set can be used to restore it if the user is capitalizating wrongly
 BASISSETS = [
     'SV', 'SVP', 'SV(P)', 'def-SVP', 'def2-SVP', 'dhf-SVP', 'dhf-SVP-2c', 'def-SV(P)', 'def2-SV(P)', 'dhf-SV(P)',
     'dhf-SV(P)-2c', 'DZ', 'DZP', 'TZ', 'TZP', 'TZV', 'TZVP', 'def-TZVP', 'TZVE', 'TZVEP', 'TZVPP', 'def-TZVPP',

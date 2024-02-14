@@ -1,396 +1,613 @@
-#!/usr/bin/env python3
-
-# ******************************************
-#
-#    SHARC Program Suite
-#
-#    Copyright (c) 2019 University of Vienna
-#
-#    This file is part of SHARC.
-#
-#    SHARC is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
-#    the Free Software Foundation, either version 3 of the License, or
-#    (at your option) any later version.
-#
-#    SHARC is distributed in the hope that it will be useful,
-#    but WITHOUT ANY WARRANTY; without even the implied warranty of
-#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
-#
-#    You should have received a copy of the GNU General Public License
-#    inside the SHARC manual.  If not, see <http://www.gnu.org/licenses/>.
-#
-# ******************************************
-
-# IMPORTS
-# external
-import os
 import datetime
+from io import TextIOWrapper
+from typing import Optional
+from qmin import QMinRequests
+from qmout import QMout
+
 import numpy as np
+import yaml
+from SHARC_HYBRID import SHARC_HYBRID
 
-# internal
-from SHARC_INTERFACE import INTERFACE
-from factory import factory
-from utils import ATOM, mkdir, readfile, InDir, itnmstates
-from error import Error
-from globals import DEBUG, PRINT
-from constants import ATOMCHARGE, FROZENS
-from copy import deepcopy
+__all__ = ["SHARC_ECI"]
 
-authors = 'Sebastian Mai and Severin Polonius'
-version = '3.0'
-versiondate = datetime.datetime(2021, 9, 3)
+AUTHORS = ""
+VERSION = ""
+VERSIONDATE = datetime.datetime(2023, 8, 29)
+NAME = "ECI"
+DESCRIPTION = ""
 
-changelogstring = '''
-'''
-np.set_printoptions(linewidth=400)
+CHANGELOGSTRING = """
+"""
+
+all_features = set(  # TODO: Depends on child
+    [
+        "h",
+        "dm",
+        "soc",
+        "theodore",
+        "grad",
+        "ion",
+        "overlap",
+        "phases",
+        "molden",
+        # raw data request
+        "basis_set",
+        "wave_functions",
+        "density_matrices",
+    ]
+)
 
 
-class ECI(INTERFACE):
+class SHARC_ECI(SHARC_HYBRID):
+    """
+    Excitonic Configuration Interaction interface
+    """
 
-    _version = version
-    _versiondate = versiondate
-    _authors = authors
-    _changelogstring = changelogstring
-    _step = 0
-    _qm_s = 0.3
-    _mm_s = 1 - _qm_s
+    _version = VERSION
+    _versiondate = VERSIONDATE
+    _authors = AUTHORS
+    _changelogstring = CHANGELOGSTRING
+    _name = NAME
+    _description = DESCRIPTION
 
-    @property
-    def version(self):
-        return self._version
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
-    @property
-    def versiondate(self):
-        return self._versiondate
+        self.QMin.template.data.update(
+            {
+                "fragments": None,
+                "charge": None,
+                "calculation": {
+                    "EHF": True,
+                    "EHF_maxcycle": 20,
+                    "tQ": 1e-4,
+                    "tO": 0.95,
+                    "read_site_states": False,
+                    "ri": False,
+                    "auxbasis": "def2-svp-jkfit",
+                },
+            }
+        )
+        self.QMin.template.types.update({"fragments": dict, "charge": list, "calculation": dict})
 
-    @property
-    def changelogstring(self):
-        return self._changelogstring
+        self._calculation_types = {
+            "EHF": bool,
+            "EHF_maxcycle": int,
+            "tQ": (float, int),
+            "t0": (float, int),
+            "CT_level": list,
+            "ECI_level": list,
+            "read_site_states": bool,
+            "ri": bool,
+            "auxbasis": str,
+        }
 
-    @property
-    def authors(self):
-        return self._authors
+        self.fragmentation: dict = {}
 
-    def read_template(self, template_filename="ECI.template"):
-        QMin = self._QMin
-        d = {}
-        lines = readfile( template_filename )
-        for line in lines:
-            if 'number_of_fragments' in line:
-                nf = int(line.strip().split()[-1] ) 
-                d['number_of_fragments'] = nf 
-            elif 'eci_level' in line:
-                d['eci_level'] = [ int(line.strip().split()[i]) for i in range( 1, len(line.strip().split()) ) ]
-            elif 'eet_effects' in line:
-                d['eet_effects'] = [ line.strip().split()[i] for i in range(1, len(line.strip().split()) ) ]
-            elif 'gradient' in line:
-                d['gradient'] = 1
-            elif 'site_interfaces' in line:
-                d['site_interfaces'] = [ line.strip().split()[i] for i in range(1, nf) ]
-        QMin['template'] = d
 
-    def read_resources(self, resources_filename='ECI.resources'):
-        super().read_resources(resources_filename)
-        self._read_resources = True
+    @staticmethod
+    def version() -> str:
+        return SHARC_ECI._version
 
-    def setup_run(self):
-        QMin = self._QMin
-        # obtain the statemap
-        QMin['statemap'] = {i + 1: [*v] for i, v in enumerate(itnmstates(QMin['states']))}
-        if 'savedir' not in QMin:
-            print('savedir not specified in QM.in, setting savedir to current directory!')
-            QMin['savedir'] = os.getcwd()
+    @staticmethod
+    def versiondate() -> datetime.datetime:
+        return SHARC_ECI._versiondate
 
-        self.interfaces = [ None for i in range( QMin['number_of_fragments'] ) ]
-        for i in range( QMin['number_of_fragments'] ):
-            # 
-            self.interfaces[i]: INTERFACE = factory(QMin['template']['site_interfaces'][i])(self._DEBUG, self._PRINT, self._persistent)
+    @staticmethod
+    def changelogstring() -> str:
+        return SHARC_ECI._changelogstring
 
-            thedir = os.path.join(QMin['savedir'], 'F'+str(i+1))
-            if not os.path.isdir(thedir): mkdir( thedir )
-            self.interfaces[i]._QMin['savedir'] = thedir 
+    @staticmethod
+    def authors() -> str:
+        return SHARC_ECI._authors
 
-            thedir = os.path.join(QMin['scratchdir'], 'F'+str(i+1))
-            if not os.path.isdir(thedir): mkdir( thedir )
-            self.interfaces[i]._QMin['scratchdir'] = thedir 
+    @staticmethod
+    def name() -> str:
+        return SHARC_ECI._name
 
-        # prepare info for both interfaces
-        el = QMin['elements']
-        n_link = len(self._linkatoms)
-        qm_el = [a.symbol for a in QMin['atoms'] if a.qm] + ['H'] * n_link
-        # setup mol for qm
-        qm_QMin = self.qm_interface._QMin
-        qm_QMin['elements'] = qm_el
-        qm_QMin['Atomcharge'] = sum(map(lambda x: ATOMCHARGE[x], qm_el))
-        qm_QMin['frozcore'] = sum(map(lambda x: FROZENS[x], qm_el))
-        qm_QMin['natom'] = self._num_qm + n_link
-        qm_QMin['states'] = QMin['states']
-        qm_QMin['statemap'] = QMin['statemap']
-        qm_QMin['nmstates'] = QMin['nmstates']
-        qm_QMin['unit'] = QMin['unit']
-        self.qm_interface._setup_mol = True
+    @staticmethod
+    def description() -> str:
+        return SHARC_ECI._description
 
-        # setup mol for mml
-        mml_QMin = self.mml_interface._QMin
-        mml_QMin['elements'] = el
-        mml_QMin['Atomcharge'] = QMin['Atomcharge']
-        mml_QMin['frozcore'] = QMin['frozcore']
-        mml_QMin['natom'] = QMin['natom']
-        mml_QMin['states'] = [1]
-        mml_QMin['nmstates'] = 1
-        mml_QMin['unit'] = QMin['unit']
-        self.mml_interface._setup_mol = True
+    @staticmethod
+    def about() -> str:
+        return f"{SHARC_ECI._name}\n{SHARC_ECI._description}"
 
-        # read template and resources
-        # print('-' * 80, f'{"preparing QM INTERFACE (" + qm_name + ")":^80}', '-' * 80, sep='\n')
-        with InDir(QMin['template']['qm-dir']) as _:
-            self.qm_interface.read_resources()
-            qm_QMin['savedir'] = qm_savedir    # overwrite savedir
-            self.qm_interface.read_template()
-            self.qm_interface.setup_run()
+    def get_features(self, KEYSTROKES: Optional[TextIOWrapper] = None) -> set[str]:
+        """return availble features
 
-        # print('-' * 80, f'{"preparing MM INTERFACE (large system) (" + mml_name + ")":^80}', '-' * 80, sep='\n')
-        with InDir(QMin['template']['mml-dir']) as _:
-            self.mml_interface.read_resources()
-            mml_QMin['savedir'] = mml_savedir    # overwrite savedir
-            self.mml_interface.read_template()
-            self.mml_interface.setup_run()
-        # switch for subtractive
-        if QMin['template']['embedding'] == 'subtractive':
+        ---
+        Parameters:
+        KEYSTROKES: object as returned by open() to be used with question()
+        """
+        return all_features
 
-            self.mms_interface: INTERFACE = factory(QMin['template']['mm-program']
-                                                    )(self._DEBUG, self._PRINT, self._persistent)
-            mms_name = self.mms_interface.__class__.__name__
-            mms_savedir = os.path.join(QMin['savedir'], 'MMS_' + QMin['template']['mm-program'].upper())
-            if not os.path.isdir(mms_savedir):
-                mkdir(mms_savedir)
-            self.mms_interface._QMin['savedir'] = mms_savedir
-            self.mms_interface._QMin['scratchdir'] = os.path.join(
-                QMin['scratchdir'], 'MMS_' + QMin['template']['mm-program'].upper()
-            )
-            # setup mol for mms
+    def get_infos(self, INFOS: dict, KEYSTROKES: Optional[TextIOWrapper] = None) -> dict:
+        """prepare INFOS obj
 
-            mms_el = [a.symbol for a in QMin['atoms'] if a.qm]
-            mms_el += [
-                QMin['atoms'][x[1]].symbol for x in self._linkatoms
-            ]    # add symbols of link atoms (original element -> proper bonded terms in MM calc)
-            mms_QMin = self.mms_interface._QMin
-            mms_QMin['elements'] = mms_el
-            mms_QMin['Atomcharge'] = sum((ATOMCHARGE[x] for x in mms_el))
-            mms_QMin['frozcore'] = sum((FROZENS[x] for x in mms_el))
-            mms_QMin['natom'] = self._num_qm + n_link
-            mms_QMin['states'] = [1]
-            mms_QMin['nmstates'] = 1
-            mms_QMin['unit'] = QMin['unit']
-            self.mms_interface._setup_mol = True
+        ---
+        Parameters:
+        INFOS: dictionary with all previously collected infos during setup
+        KEYSTROKES: object as returned by open() to be used with question()
+        """
+        return INFOS
 
-            # print('-' * 80, f'{"preparing MM INTERFACE (small system) (" + mms_name + ")":^80}', '-' * 80, sep='\n')
-            # read template and resources
-            with InDir(QMin['template']['mms-dir']) as _:
-                self.mms_interface.read_resources()
-                mms_QMin['savedir'] = mms_savedir    # overwrite savedir
-                self.mms_interface.read_template()
-                self.mms_interface.setup_run()
+    def read_template(self, template_file: str = "ECI.template") -> None:
+        """
+        Parser for ECI template in yaml format
 
-            self._qm_interface_QMin_backup = deepcopy(self.qm_interface._QMin)
+        template_file:  Path to template file
+        """
+        # TODO: validate *_site_state values
+        self.log.debug(f"Parsing template file {template_file}")
+
+        # Open template file and parse yaml
+        with open(template_file, "r", encoding="utf-8") as tmpl_file:
+            tmpl_dict = yaml.safe_load(tmpl_file)
+            self.log.debug(f"Parsing yaml file:\n{tmpl_dict}")
+
+        self.QMin.template.update(tmpl_dict)
+
+        # Validate charge
+        if self.QMin.template["charge"] is None:
+            self.log.error(f"No charges specified in {template_file}!")
+            raise ValueError()
+        if not all(isinstance(val, int) for val in self.QMin.template["charge"]):
+            self.log.error("Charge list must contain integers!")
+            raise ValueError()
+
+        # Validate calculation
+        for k, v in self.QMin.template["calculation"].items():
+            if not isinstance(v, self._calculation_types[k]):
+                expected_type = (
+                    self._calculation_types[k]
+                    if not isinstance(self._calculation_types[k], tuple)
+                    else self._calculation_types[k][0]
+                )
+                self.log.error(f"Calculation parameter {k} must be {expected_type.__name__}, but is {type(v).__name__}!")
+                raise ValueError()
+
+        # Validate fragments
+        if self.QMin.template["fragments"] is None:
+            self.log.error(f"No fragments found in {template_file}!")
+            raise ValueError()
+
+        if len(self.QMin.template["fragments"]) < 1:
+            self.log.error(f"No fragments found in {template_file}!")
+            raise ValueError()
+        self.log.debug(f"Found {len(self.QMin.template['fragments'])} fragments in {template_file}.")
+
+        # Validate fragment keys
+        for frag, key in self.QMin.template["fragments"].items():
+            if "interface" not in key:
+                self.log.error(f"No interface specified for fragment {frag}!")
+                raise ValueError()
+
+            if "densrep" not in key:
+                self.log.debug(f"Setting default densrep (AO) to fragment {frag}")
+                self.QMin.template["fragments"][frag]["densrep"] = "AO"
+
+            match key["densrep"].upper():
+                case "AO" | "DME":
+                    pass
+                case _:
+                    self.log.error(f"Invalid densrep key {key['densrep']} in fragment {frag}!")
+                    raise ValueError()
+
+            if not "refcharge" in key:
+                self.log.error(f"No refcharge for fragment {frag} specified!")
+                raise ValueError()
+            if not isinstance(key["refcharge"], dict):
+                self.log.error(f"refcharges in fragment {frag} must be a dictionary!")
+                raise ValueError()
+            for k, v in key["refcharge"].items():
+                if not isinstance(k, int) or not isinstance(v, int):
+                    self.log.error(f"refcharge in fragment {frag} must be integers!")
+                    raise ValueError()
+
+            if "aufbau_site_states" in key:
+                if not isinstance(key["aufbau_site_states"], list):
+                    self.log.error(f"aufbau_site_states in fragment {frag} must be a dictionary!")
+                    raise ValueError()
+                for i in key["aufbau_site_states"]:
+                    if not self._check_zmn(i):
+                        self.log.error(
+                            f"aufbau_site_states dicts in fragment {frag} must contain keys Z, M, N with integer values!"
+                        )
+                        raise ValueError()
+
+            if "site_states" not in key:
+                self.log.error(f"site_states not defined in fragment {frag}!")
+                raise ValueError()
+
+            for k, v in key["site_states"].items():
+                if not isinstance(k, int) or not isinstance(v, list):
+                    self.log.error(f"site_state dictionary in fragment {frag} must contain integer keys and list values!")
+                    raise ValueError()
+                if not all(isinstance(val, int) for val in v):
+                    self.log.error(f"Values of site_state values lists in fragment {frag} must be integer!")
+                    raise ValueError()
+
+            if "embedding_site_state" in key:
+                if not isinstance(key["embedding_site_state"], dict):
+                    self.log.error(f"embedding_site_state in fragment {frag} must be a dictionary!")
+                    raise ValueError()
+                if not all(isinstance(val, int) for val in key["embedding_site_state"].keys()):
+                    self.log.error(f"Keys in embedding_site_state dictionary in fragment {frag} must be integer!")
+                    raise ValueError()
+                for embeddings in key["embedding_site_state"].values():
+                    if not self._check_zmn(embeddings):
+                        self.log.error(
+                            f"embedding_site_state dicts in fragment {frag} must contain keys Z, M, N with integer values!"
+                        )
+                        raise ValueError()
+
+        # Setting fragmentation atribute
+        for label, fragment in self.QMin.template['fragments'].items():
+            strings = fragment['atoms'].split(',')
+            atoms = []
+            for group in strings:
+                group.split('-')
+                if len(group) == 1:
+                    atoms.append(group[0])
+                elif len(group) == 2:
+                    for i in range( int(group[0]), int(group[1]) + 1 ):
+                        atoms.append(i)
+
+            self.fragmentation = { label: atoms.copy() }
+
+        # Constructing active_site_pairs dictionary from the template
+
+        # Set full active_site_pairs dictionary
+        self.active_site_pairs = {"J": { (0,0): [], (0,1): [], (0,2): [],
+                                        (1,0): [], (1,1): [] },
+                                  "K": { (0,0): [], (0,1): [], (0,2): [],
+                                        (1,0): [], (1,1): [] }
+                                  }
+        for JK in ['J','K']:
+            for int_type in [ (0,0), (0,1), (0,2), (1,0), (1,1) ]:
+                for fpair in itertools.combinations( self.QMin.template['fragments'].keys(), 2 ):
+                    fpair = set(fpair)
+                    self.active_site_pairs[JK][int_type].append(fpair)
+
+        for int_type, JK in self.QMin.template['calculation']['integral_exceptions']:
+            if JK['J'] == "all":
+                pass
+
+            
+
         return
+        
+    #def read_resources(self, resources_file: str = "ECI.resources") -> None:
+        #"""
+        #Parser for ECI resources in yaml format
+
+        #resources_file:  Path to template file
+        #"""
+        ## TODO: validate *_site_state values
+        #self.log.debug(f"Parsing template file {resources_file}")
+
+        ## Open resources_file file and parse yaml
+        #with open(resources_file, "r", encoding="utf-8") as res_file:
+        #    res_dict = yaml.safe_load(res_file)
+        #    self.log.debug(f"Parsing yaml file:\n{res_dict}")
+
+        #self.QMin.resources.update(res_dict)
+
+        ## TODO sanity checks
+        #return
+        #pass
+
+
+
+
+
+    def _check_zmn(self, zmn_dict: dict[str, int]) -> bool:
+        """
+        Check if dictionary contains Z, M, N keys and validate if values are int
+        """
+        if not isinstance(zmn_dict, dict) or zmn_dict.keys() != {"Z", "M", "N"}:
+            return False
+        if not all(isinstance(val, int) for val in zmn_dict.values()):
+            return False
+        return True
+
+    def setup_interface(self) -> None:
+        """
+        Load and initialize all child interfaces
+        """
+
+        # Instatiate all children
+        child_dict = {}
+        for C in charges_to_do: # Full-system charge
+            for label, fragment in self.QMin.template['fragments']:
+                for c in fragment['site_states'].keys(): # Fragment's charge
+                    child_dict[(label,c,C)] = child['interface']
+                    child_dict[(label,'embedding',C)] = child['embedding_interface']
+        self.instantiate_children(child_dict)
+
+        # Exctract embedding_kindergarden
+        for C in charges_to_do: 
+            for label, fragment in self.QMin.template['fragments']:
+                self.embedding_kindergarden[(label,C)] = self.kindergarden[(label,'embedding',C)]
+                del self.kindergarden[(label,'embedding',C)]
+        return
+
+    def read_requests(self, requests_file: str= "QM.in") -> None:
+        super._read_requests(requests_file)
+        # Make requests for all children, depending which requests ECI interface got
+
+        # Energies
+        # Densities
+        for label in self.QMin.template['fragments']:
+            for int_type, JK in self.QMin.template['calculation']['integral_exceptions'].items(): 
+                Js = { key: value["J"] for key,value in self.QMin.template['calculation']['integral_exceptions'].items() }
+                Ks = { key: value["K"] for key,value in self.QMin.template['calculation']['integral_exceptions'].items() }
+                
+                K = JK['K'] 
+                #if K == 'all'
+            
+        for (label,c,C), child in self.kindergarden.items():
+            requests = {'H':None}
 
     def run(self):
         QMin = self._QMin
+        for C in charges_to_do:
+            garden = { (key[0],key[1]):interface for key,interface in self.kindergarden.items() if key[2] == C }
+            egarden = { key[0]:interface for key,interface in self.embedding_kindergarden.items() if key[1] == C }
 
-        # reset qm_interface_ QMin
-        self.qm_interface._QMin = deepcopy(self._qm_interface_QMin_backup)
-        # set coords
-        qm_coords = np.array([QMin['coords'][self.qm_ids[i]].copy() for i in range(self._num_qm)])
-        if len(self._linkatoms) > 0:
-            # get linkatom coords
-            def get_link_coord(link: tuple) -> np.ndarray[float]:
-                qm_id, mm_id = link
-                return QMin['coords'][qm_id] * self._qm_s + QMin['coords'][mm_id] * self._mm_s
+            # write coords
+            for label, child in egarden.items():
+                egarden[label].set_coords( qmin.coords['coords'][ self.fragmentation[label] ] ) 
+            for (label,c), child in garden.items():
+                child.set_coords( qmin.coords['coords'][ self.fragmentation[label] ] )
 
-            link_coords = np.fromiter(map(get_link_coord, self._linkatoms), dtype=float, count=len(self._linkatoms))
-            self.qm_interface._QMin['coords'] = np.vstack((qm_coords, link_coords))
-        else:
-            self.qm_interface._QMin['coords'] = qm_coords
+            # write pccoords
+            for label1, child1 in egarden.items():
+                pccoords = [ child2.QMin.coords['coords'] for label2, child2 in egarden.items() if label2 != label1 ] + self.QMin.coords['pccoords'] 
+                pccoords = np.concatenate( pccoords, axis=0 )
+                child1.set_coords( pccoords, pc=True )
+            for (label1,c1), child1 in garden.items():
+                pccoords = [ child2.QMin.coords['coords'] for label2, child2 in egarden.items() if label2 != label1 ] + self.QMin.coords['pccoords'] 
+                pccoords = np.concatenate( pccoords, axis=0 )
+                child1.set_coords( pccoords, pc=True )
 
-        self.mml_interface._QMin['coords'] = QMin['coords'].copy()
+            # Read guesses for embedding charges
+            APCs = {}
+            estates = {}
+            for label, child in egarden.items():
+                estates[label] = QMin.template['fragments'][label]['embedding_site_state'][C]
+                estates[label] = electronic_state( Z=estate['Z'], S=estate['S'], M=estate['S'], N=estate['N'])
+                for s in child.states:
+                    if s == estates[label]:
+                        estates[label] = s
+                        break
+                try:
+                    guess = SHARC_QMout( os.path.join( QMin.save['savedir'],label+'_C'+str(C)+'eQM.out' ) )
+                    for s in guess.states:
+                        if s == estates[label]: break
+                    APCs[label1] = guess.QMout['multipolar_fit'][(s,s,1)]
+                except: 
+                    APCs[label] = np.zeros(child.QMin.molecule["natom"]) 
 
-        # set qm requests: grad, nac, soc,
-        possible = [
-            'cleanup', 'backup', 'h', 'soc', 'dm', 'grad', 'overlap', 'dmdr', 'nac', 'nacdr', 'socdr', 'ion',
-            'theodore', 'phases', 'step', 'restart'
-        ]
-        for i in filter(lambda x: x in QMin, possible):
-            self.qm_interface._QMin[i] = QMin[i]
-        self.qm_interface._request_logic()
-        self.qm_interface._step_logic()
+            # Run frozen fragments
+            frozen = [ label for label in egarden if QMin.template['fragments'][label]['frozen'] ]
+            for joblist in QMin.resources['EHF_frozen_sitejobs']: 
+                with Pool(processes=len(joblist)) as pool:
+                    for job in joblist:
+                        pool.apply_async( egarden[job].run )
+                    pool.close()
+                    pool.join()
+            for label, child in frozen_garden.items():
+                child.getQMout()
+                for s in guess.states:
+                    if s == estates[label]: break
+                APCs[label] = child.QMout['multipolar_fit'][(s,s,1)]
 
-        # set mm requests
-        possible = ['cleanup', 'backup', 'h', 'dm', 'step']
-        for i in filter(lambda x: x in QMin, possible):
-            self.mml_interface._QMin[i] = QMin[i]
-        if 'grad' in QMin:
-            self.mml_interface._QMin['grad'] = [1]
-        if 'dm' in QMin:
-            self.mml_interface._QMin['dm'] = [1]
-        self.mml_interface._QMin['multipolar_fit'] = True
+            # Run EHF cycles while relaxing non-frozen fragments and keeping fixed frozen fragments
+            relaxed = [ label for label in egarden if not QMin.template['fragments'][label]['frozen'] ]
+            convergence = {}
+            dAPCs = {}
+            # Main EHF loop
+            for cycle in range(QMin.template['calculation']['EHF_maxcycle']):
+                # Provide current APCs of all other fragments to a relaxed fragment
+                for label1 in relaxed:
+                    child1 = egarden[label1]
+                    PCs = np.concatenate( [ APCs[label2] for label2 in egarden.keys() if label1 != label2 ], axis=0)
+                    PCs = np.concatenate( PCs, QMin.coords['pccharge'])
+                    child1.QMin.coords['pccharges'] = PCs
+                # Run all relaxed fragments
+                for joblist in QMin.resources['EHF_relaxed_sitejobs']:
+                    with Pool(processes=len(joblist)) as pool:
+                        for job in joblist:
+                            pool.apply_async( egarden[job].run )
+                        pool.close()
+                        pool.join()
+                # Get new APCs of all relaxed fragments and check convergence
+                for label in relaxed:
+                    child = egarden[label]
+                    child.getQMout()
+                    newAPCs = child.QMout['multipolar_fit'][(estates[label],estates[label],1)] 
+                    dAPCs[label] = newAPCs - APCs[label]
+                    APCs[label] = newAPCs 
+                    convergence[label] = np.nonzero(np.abs(dAPCs[label]) < QMin.template['calculation']['tQ'])[0]
+                    for i in range(child.QMin.molecule['natom']):
+                        converged = 'NO'
+                        if convergence[label][i]: converged = 'YES'
+                        self.log.print('      '.join( [ f"{APCs[label][i]: 8.5f}", f"{dAPCs[label][i]: 8.5f}", converged ] ))
+                if all( [ all(convergence[label]) for label in relaxed ] ):
+                    self.log.print(' EHF convergence reached in '+str(cycle+1)+' cycles!')
+                    break
+            if not all( [ all(convergence[label]) for label in relaxed ] ):
+                self.log.warning(' Maximum number in EHF is exceeded but some charges are still not converged! Proceeding nevertheless...')
 
-        self.mml_interface._request_logic()
+            # Writting final APCs to the "real" children
+            for (label1,c1), child1 in garden.items():
+                PCs = np.concatenate( [ APCs[label2] for label2 in egarden.keys() if label1 != label2 ], axis=0)
+                PCs = np.concatenate( PCs, QMin.coords['pccharge'], axis=0)
+                child1.QMin.coords['pccharges'] = PCs
+                
+        charges_to_do = []
+        for i, nst in enumerate( self.QMin.molecule['states']):
+            if nst != 0:
+                charges_to_do.append( self.QMin.template['charge'][i] )
+        charges_to_do = set(charges_to_do)
 
-        # calc mm
-        # print('-' * 80, f'{"running MM INTERFACE (large system)":^80}', '-' * 80, sep='\n')
-        with InDir(QMin['template']['mml-dir']) as _:
-            self.mml_interface.run()
-            self.mml_interface.getQMout()
-            # is analogous to the density fit from QM interfaces -> generated upon same request
-            raw_pc = self.mml_interface._QMout['multipolar_fit']
+        ECIjobs = {}
+        for c in charges_to_do:
+            (label, charge)
+            (label, 'embedding')
+            embedding_kindergarden = { label:interface for label, interface in self.kindergarden.items() if 'embedding' in label }
+            for (label, charge), interface in self.kindergarden.items():
+                if charge == 'embedding':
+                    pass
 
-        # redistribution of mm pc of link atom (charge is not the same in qm calc but pc would be too close)
-        for _, mmid in self._linkatoms:
-            atom: ATOM = QMin['atoms'][mmid]
-            # -> redistribute charge to neighboring atoms (look in old ORCA line 1300)
-            neighbor_ids = [x.id for x in map(lambda y: QMin['atoms'][y], atom.bonds) if not x.qm]
-            chrg = raw_pc[mmid] / len(neighbor_ids)
-            for nb in neighbor_ids:
-                raw_pc[nb] += chrg
-        self._pc_mm = [
-            [*QMin['coords'][i, :].tolist(), raw_pc[i]] for i in self.mm_ids if i not in self.mm_links
-        ]    # shallow copy
+            # Obtaining embedding charges
+            embedding_interface = factory(QMin.template['embedding_interface'][c])
+            # Do EHF if needed
+            if QMin.template['EHF_maxcycle'] > 0:
 
-        if QMin['template']['embedding'] == 'subtractive':
-            # print('-' * 80, f'{"running MM INTERFACE (small system)":^80}', '-' * 80, sep='\n')
-            self.mms_interface._QMin['coords'] = qm_coords
-            with InDir(QMin['template']['mms-dir']) as _:
-                self.mms_interface.run()
-                self.mms_interface.getQMout()
+                EHF_kindergarden = {}
+                for fname, fdict in QMin.template['fragments'].items():
+                    refst = fdict['ref_site_state'][c]
+                    Z, M, N = refst['Z'], refst['M'], refst['N']
+                    QMin.molecule
+                    QMin.template
+                    QMin.resources
+                    # EHF_kindergarden[fname] = kindergarden[ (fname, Z ) ].__copy__(states=[0 f...])
 
-        # calc qm
-        # print('-' * 80, f'{"running QM INTERFACE":^80}', '-' * 80, sep='\n')
-        # pc: list[list[float]] = each pc is x, y, z, qpc[p[mmid][1]][3] = 0.  # set the charge of the mm atom to zero
-        self.qm_interface._QMin['point_charges'] = self._pc_mm
-        # TODO indicator to include pointcharges?
+                    mol = EHF_kindergarden[fname].QMin.molecule
+                    mol['states'] = [ 0 for i in range(M) ]
+                    mol['states'][-1] = N + 1
+                    mol['nstates'] = mol['states'][-1]
+                    mol['nmstates'] = M*mol['states']
 
-        with InDir(QMin['template']['qm-dir']) as _:
-            self.qm_interface.run()
-            self.qm_interface.getQMout()
-            self.qm_interface.write_step_file()
+                    requests = EHF_kindergarden[fname].QMin.requests
+                    requests = QMinRequests()
+                    requests['multipolar_fit'] = [ ( M, N+1, M, N+1 ) ]
+                    EHF_kindergarden[fname]._request_logic()
 
-        # print(datetime.datetime.now())
-        # print('#================ END ================#')
-        # s2 = time.perf_counter_ns()
-        # print('Timing: QMMM', (s2 - s1) * 1e-6, 'ms')
-
-    def getQMout(self):
-        # s1 = time.perf_counter_ns()
-        qm_QMout = self.qm_interface._QMout
-        QMin = self._QMin
-        QMout = self._QMout
-
-        def add_to_xyz(xyz1, xyz2, fac=1.):
-            xyz1[0] += xyz2[0] * fac
-            xyz1[1] += xyz2[1] * fac
-            xyz1[2] += xyz2[2] * fac
-
-        mm_e = float(self.mml_interface._QMout['h'][0][0])
-        if QMin['template']['embedding'] == 'subtractive':
-            mm_e -= float(self.mms_interface._QMout['h'][0][0])
-        # Hamiltonian
-        if 'h' in qm_QMout:
-            QMout['h'] = [[j for j in i] for i in qm_QMout['h']]
-            for i in range(QMin['nmstates']):
-                QMout['h'][i][i] += mm_e
-        # print('     getQMout ene', (time.perf_counter_ns() - s1) * 1e-6, 'ms')
-        # gen output
-        if 'grad' in QMin:
-            qm_grad = qm_QMout['grad']
-            mm_grad = self.mml_interface._QMout['grad'][0]
-
-            if QMin['template']['embedding'] == 'subtractive':
-                mms_grad = self.mms_interface.QMout['grad'][0]
-
-                for n, qm_id in enumerate(self.qm_ids):    # loop over qm atoms
-                    # add to qm_id in big mm list
-                    add_to_xyz(mm_grad[qm_id], mms_grad[n], fac=-1.)
-
-            grad = {}
-            # print('     getQMout grad1', (time.perf_counter_ns() - s1) * 1e-6, 'ms')
-
-            for i, qm_grad_i in enumerate(qm_grad):
-                # init gradient as mm_gradient
-                grad[i] = [[x[0], x[1], x[2]] for x in mm_grad]
-
-                # add gradient of all qm atoms for each state
-                for n, qm_id in enumerate(self.qm_ids):
-                    add_to_xyz(grad[i][qm_id], qm_grad_i[n])
-
-                # linkatoms come after qm atoms
-                for n, link_id in enumerate(self._linkatoms):
-                    qm_id, mm_id = self._linkatoms[n]
-                    qm_grad_in = qm_grad_i[n + self._num_qm]
-                    add_to_xyz(grad[i][mm_id], qm_grad_in, self._mm_s)
-                    add_to_xyz(grad[i][qm_id], qm_grad_in, self._qm_s)
-            # print('     getQMout grad2', (time.perf_counter_ns() - s1) * 1e-6, 'ms')
-
-            if 'pc_grad' in qm_QMout:    # apply pc grad
-                for i, grad_i in enumerate(qm_QMout['pc_grad']):
-                    # mm_ids stay in order even after grouping qm_ids at the fron and deleting link mm atoms
-                    # -> get all residual mm ids in order for correct order in pcgrad
-                    for grad_in, mm_id in zip(grad_i, filter(lambda i: i not in self.mm_links, self.mm_ids)):
-                        add_to_xyz(grad[i][mm_id], grad_in)
-            else:
-                print("Warning: No 'pc_grad' in QMout of QM interface!")
-
-            self._QMout['grad'] = grad
-        # print('     getQMout pcgrad', (time.perf_counter_ns() - s1) * 1e-6, 'ms')
-
-        if 'nacdr' in QMin:
-            # nacs would have to inserted in the whole system matrix only for qm atoms
-            nacdr = [
-                [[[0., 0., 0.] for _ in range(QMin['natom'])] for _ in range(QMin['nmstates'])]
-                for _ in range(QMin['nmstates'])
-            ]
-            for i, s_i in enumerate(self.qm_interface._QMout['nacdr']):
-                for j, s_j in enumerate(s_i):
-                    for n, qm_id in enumerate(self.qm_ids):
-                        add_to_xyz(nacdr[i][j][qm_id], s_j[n])
-                    for n, link_id in enumerate(self._linkatoms):    # linkatoms come after qm atoms
-                        qm_id, mm_id = self._linkatoms[n]
-                        nac = nacdr[i][j]
-                        add_to_xyz(nac[mm_id], s_j[n + self._num_qm], self._mm_s)
-                        add_to_xyz(nac[qm_id], s_j[n + self._num_qm], self._qm_s)
-            QMout['nacdr'] = nacdr
-        # print('     getQMout nac', (time.perf_counter_ns() - s1) * 1e-6, 'ms')
-
-        if 'dm' in QMin:
-            QMout['dm'] = self.qm_interface._QMout['dm']
-            if QMin['template']['mm_dipole']:
-                for i, dm_i in enumerate(QMout['dm']):
-                    mm_dm_i: float = self.mml_interface._QMout['dm'][i]
-                    for dm_in in dm_i:
-                        for dm_inm in dm_in:
-                            dm_inm += mm_dm_i[0][0]    # add mm dipole moment to all states
-        if 'overlap' in QMin:
-            QMout['overlap'] = self.qm_interface._QMout['overlap']
-
-        # potentially print out other contributions and properties...
-        for i in ['ion', 'prop', 'theodore']:
-            if i in qm_QMout:
-                QMout[i] = qm_QMout[i]
-
-    def create_restart_files(self):
-        self.qm_interface.create_restart_files()
-        self.mml_interface.create_restart_files()
-        if self._QMin['template']['embedding'] == 'subtractive':
-            self.mml_interface.create_restart_files()
+                deltaAPCs = 2.*QMin.template['tQ']*np.ones( QMin['natom'] )
+                for cycle in range( QMin.template['EHF_maxcycle']):
+                    if np.all( np.abs( deltaAPCs ) < QMin.template['tQ'] ):
+                        print(' Convergence in EHF for charge '+str(c)+' reached after '+str(cycle+1)+' cycles.')
+                        break
+                    oldAPcs = newAPCs.copy()
+                    # Set APCs to old ESPs
+                    for name1, child1 in EHF_kindergarden.items():
+                        APCs = []
+                        for name2, child2 in EHF_kindergarden.items():
+                            if name1 != name2:
+                                APCs = APCs + child2.QMout.multipolar_fit
+                        PCs = QMin.coord['pccharge'] + APCs
+                        child1.QMin.coords['pccharge'] = PCs
 
 
-if __name__ == "__main__":
-    try:
-        qmmm = QMMM(DEBUG, PRINT)
-        qmmm.main()
-    except KeyboardInterrupt:
-        print("\nCTRL+C makes me a sad SHARC ;-(")
-    except Error:
-        raise
+                    #Read new ESP charges
+                    newAPCs = []
+                    for name, child in EHF_kindergarden.items():
+                        child.getQMout()
+                        newAPCs += child.QMout.multipolar_fit
+                    deltaAPCs = newAPCs - oldAPCs
+                QMin.template['APCs'] = newAPCs
+                #for (name,charge) in
+
+
+            # Do site-state calculations for ECI if needed
+            if QMin.template['calculate_site_states']:
+                for joblist in QMin.resources['ECI_sitejobs']:
+                    with Pool(processes=len(joblist)) as pool:
+                        for job in joblist:
+                            with InDir(self.kinderdirs[job]):
+                                pool.apply_async( kindergarden[job].run )
+                        pool.close()
+                        pool.join()
+
+            # In any case, read site-state data (E, dH, rho, mu)
+            for (name, child) in kindergarden.items():
+                child.getQMout()
+                #  with InDir(self.kinderdirs[job]):
+                    #  child.QMout = QMout(filepath="QM.out")
+
+
+            #Construct the Dyson orbitals
+            if any( QMin.template['ct_level'] > 0 ):
+                for flabel, fdict in self.QMin.template['fragments'].items():
+                    for c1 in fdict['site_states']:
+                        for c2 in fdict['site_states']:
+                            if c1 == c2 - 1: # E.g. c1 = 0 and c2 = +1
+                                for m1 in kindergarden[(flabel,c1)].QMin.mults:
+                                    for m2 in kindergarden[(flabel,c2)].QMin.mults:
+                                        file = open('dyson.inp','w')
+                                        file.write('a_mo='+kindergarden[(flabel,c1)].savedir+'/mos.'+str(m1)+'.'+str(c1)+'\n')
+                                        file.write('a_det='+kindergarden[(flabel,c1)].savedir+'/dets.'+str(m1)+'.'+str(c1)+'\n')
+                                        file.write('b_mo='+kindergarden[(flabel,c2)].savedir+'/mos.'+str(m2)+'.'+str(c2)+'\n')
+                                        file.write('b_det='+kindergarden[(flabel,c2)].savedir+'/dets.'+str(m2)+'.'+str(c2)+'\n')
+                                        file.write('same_aos=.true.\n')
+                                        file.write('ao_read=-1\n')
+                                        file.write('moprint=1\n')
+                                        file.close()
+                                        os.system(QMin.resources['wfoverlap']+' -m '+QMin.resources['memory']+' -f dyson.inp')
+
+
+            # Initialize ECI instance
+            ECIjobs[c] = ECI( calc=QMin.template['calculation'] )
+
+            # This that can be done before knowing desired mult/charge
+            for flabel, fdict in QMin.template['fragments'].items():
+
+                rho = {}
+                E = {}
+                dH = {}
+                grad = {}
+                nacdr = {}
+
+                refZ = fdict['ref_site_state'][c]['Z']
+                sym = kindergarden[(flabel,refZ)].QMin.molecule['elements']
+                geom = kindergarden[(flabel,refZ)].QMin.coords['coords']
+                basis = kindergarden[(flabel,refZ)].QMout['basis']
+                for charge, nstates in fdict['site_states'].items():
+                    child = kindergarden[flabel,charge]
+
+                    # Needed for sure
+                    H[charge] = child.QMout['H']
+                    rho[charge] = child.QMout['density_matrices']
+
+                    # Potentially needed
+                    dH[charge] = np.zeros(( child.QMout.nmstates, child.QMout.nmstates, child.QMout.natom, 3) )
+                    if 'grad' in QMin.requests:
+                        grad[charge] = child.QMout['grad']
+                    if 'nacdr' in QM.requests:
+                        nacdr[charge] = child.QMout['nacdr']
+
+                ECIjobs[c].load_fragment( flabel=flabel,
+                                          fdict=fdict,
+                                          refstate=fdict['ref_site_state'][c],
+                                          geom=geom,
+                                          basis=basis,
+                                          H=H,
+                                          grad=grad,
+                                          nacdr=nacdr,
+                                          dyson=dyson,
+                                          mu=mu
+                                     )
+
+            ECIjobs[c].configure()                              # Configure ECI object after all sites are loaded and entire calculation setup is known
+            ECIjobs[c].construct_ECI_basis( c )                 # Building ECI-CT basis
+            ECIjobs[c].construct_ECI_Hamiltonain()              # Construct entire ECI-CT Hamiltonian for all multiplicities
+            ECIjobs[c].calcuate_eigenstates()                   # Diagonalize Hamiltonian matrix for each multiplicity
+            ECIjobs[c].calculate_properties( QMin.requests )    # Calculate all properties requested by master
+
+    def create_restart_files(self) -> None:
+        """
+        Create restart files
+        """
+
+    def dyson_orbitals_with_other(self, other):
+        pass
+
+    def getQMout(self) -> dict[str, np.ndarray]:
+        pass
+
+    def prepare(self, INFOS: dict, dir_path: str):
+        pass

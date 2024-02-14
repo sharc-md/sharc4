@@ -1,0 +1,140 @@
+{   
+    "charge" : [ -2, -1,  -6],
+
+    "fragments": {
+        "Fe" : {
+            "interface" : "GAUSSIAN",
+            "embedding_interface" : "GAUSSIAN"
+            "frozen" : true/false
+            "densrep" : "AO", #This might be default
+
+            "refcharge" : { -2: 2, -1: 3 },
+            # The reference charge (value) of the fragment for each full-system charge (key)
+            # It will be used only to determine which aufbau ESDs are reference-charge or charge-transfer ESDs, to delete those that have too large CT level (see bellow "ct_level")
+            # No default, mandatory
+
+
+            "embedding_site_state" : { -2: {"Z":2, "M":1, "N":1}, 
+                                       -1: {"Z":3, "M":1, "N":1}},
+            # The site states (exactly one for each full-system charge) whose ESP charges will be used in ESP-based embedding, if requested.
+            # It is expected to be one of the aufbau_site_states (see bellow), but does not have to be
+            # Z = charge, M = multiplicity, N = ordinal number in that multiplicity 
+            # If ommited, "EHF" bellow has to be false (i.e. ESP-based embedding will not be done)
+
+
+            "aufbau_site_states" : [{ "Z":2, "M":1, "N":1 },{"Z":3,"M":2,"N":1}],
+            # A list of all site states that are to be considered as aufbau site states.
+            # This is common for all full-system charges.
+            # Aufbau site states are the ones that are allowed to be in the aufbau ESDs
+            # If user does not want to have CT-products in the basis, he can give only one site state for each fragment with charge equal to the reference-charge
+            # Putting one more site state of different charge to the aufbau_site_states is what, combined with "ct_level" in "calculation", in the end leads to some CT-products in the basis
+            # Note that user can also put two (or more) site states of the same charge. Then the set of aufbau ESDs will actually contain some excited ESDs. This might be beneficial for some 
+            # cases with "multireferent" excitonic character.
+            # No default, mandatory.
+
+
+            "site_states" : { 2 : [3 0 1], 1 : [0 1 0], 3 : [0 7 0] }
+            # The number of the site states that are to be calculated, per charge of the fragment.
+            # Just like aufbau_site_states, this is the same for all full-system charges. 
+            # The analogy with ordinary electronic structure is that aufbau_site_states and site_states, combined with "eci_level" and "ct_level" bellow, define the
+            # level of theory, exactly as basis set and CI expansion do in ordinary CI
+            # In this line, one sees the "master" role of ECI interface, as this is usually something that driver provides through QMin.
+            # No default, mandatory.
+        },
+
+        "CN1" : {
+            "interface" : "GAUSSIAN",
+            "embedding_interface" : "GAUSSIAN"
+            "densrep" : "AO",
+            "refcharge" : { -2:-1, -1:-1},  # The same refcharge for both full-system charges becuase for full-system charge = -1, the hole is expected to be on 
+                                              Fe fragment (it has charge +2 for -2 and +3 for -1)
+            "embedding_site_state" : { -2: { "Z":-1, "M":1, "N":1 }, -1: { "Z":-1, "M":1, "N": 1 } } # For the same reasons, this fragment goes with the same embedding_site_state 
+                                                                                                       for all full-system charges
+            "aufbau_site_states" : [ { "Z":-1, "M":1, "N":1 } ], # Only one aufbau_site_state having equal charge to the refcharge, so there will be no CT from/to this fragment, 
+                                                                   even if "ct_level" and "site_states" allow it
+            "site_states" : { -1 : [3 0 1], 0 : [0 2 0] } # Here two neutral doublet site states will be calculated, but ESDs with them will never be allowed in 
+                                                            the excitonic basis becuase no "aufbau_site_states" for this fragment has charge 0. 
+                                                            Nevertheless, I wouldn't throw an error or warning because user might call SHARC-ECI ones with some stupid ECI calculation,
+                                                            just to calculate the site site_states and save them in QM.out files of children, 
+                                                            and then call SHARC-ECI again with modified template file, read site-state data and proceed to the meaningfull ECI calcaultion.
+                },
+
+        "CN2" : {
+            "interface" : "GAUSSIAN",
+            "embedding_interface" : "GAUSSIAN"
+            "densrep" : "AO",
+            "refcharge" : { -2:-1, -1:-1},
+            "embedding_site_state" : { -2: { "Z":-1, "M":1, "N":1 }, -1: { "Z":-1, "M":1, "N": 1 } },
+            "aufbau_site_states" : [ { "Z":-1, "M":1, "N":1 } ],
+            "site_states" : { -1 : [3 0 1], 0 : [0 2 0] } 
+        },
+        "CN3" : {
+            "interface" : "GAUSSIAN",
+            "embedding_interface" : "GAUSSIAN"
+            "densrep" : "AO",
+            "refcharge" : { -2:-1, -1:-1},
+            "embedding_site_state" : { -2: { "Z":-1, "M":1, "N":1 }, -1: { "Z":-1, "M":1, "N": 1 } },
+            "aufbau_site_states" : [ { "Z":-1, "M":1, "N":1 } ],
+            "site_states" : { -1 : [3 0 1], 0 : [0 2 0] } 
+        },
+        "CN4" : {
+            "interface" : "GAUSSIAN",
+            "embedding_interface" : "GAUSSIAN"
+            "densrep" : "AO",
+            "refcharge" : { -2:-1, -1:-1},
+            "embedding_site_state" : { -2: { "Z":-1, "M":1, "N":1 }, -1: { "Z":-1, "M":1, "N": 1 } },
+            "aufbau_site_states" : [ { "Z":-1, "M":1, "N":1 } ],
+            "site_states" : { -1 : [3 0 1], 0 : [0 2 0] } 
+        },
+
+        "bipy" : {
+            "interface" : "GAUSSIAN",
+            "embedding_interface" : "GAUSSIAN"
+            "densrep" : "AO",
+            "refcharge" : { -2:0, -1:0 }, 
+            "embedding_site_state" : { -2: { "Z":0, "M":1, "N":1 }, -1: { "Z":0, "M":1, "N": 1 } },
+            "aufbau_site_states" : [ {"Z":0, "M":1, "N": 1}, {"Z":-1, "M":2, "N": 1} ], # This fragment is supposed to be acceptor of the CT from "Fe" fragment, 
+                                                                                         as it has one aufbau_site_state with charge -1, that differs from his refcharge for deltaZ = -1
+            "site_states" : { 0 : [3 0 1], -1 : [0 2 0] }
+        }
+    },
+
+    "calculation" :
+    {   
+        "EHF" : true/false, # Whether to enter the EHF loop or not. Might be achieved just with EHF_maxcycle = 0 or negative, but I think it's nice to have this as a switch
+        "EHF_maxcycle" : 20, # This is defaul 
+        "tQ" : 0.0001, # t_Q threshold from the manuscript, this is default 
+        "tO" : 0.95, # t_O threshold from the manuscript, this is default
+        "CT_level" : [0, 1],    #   Allowed values of 1/2sum_fragment abs(aufbauESD.site_state[fragment].Z - fragment.refcharge), for any aufbauESD.
+                                    It basically says how many electrons can be transfered (given refcharges) in aufbau ESDs.
+                                    This number of transfered electrons is preserved till the end of the building of the ECI basis, i.e. it defines the "CT level" 
+                                    of the calculation (thus the name of the key).
+        "ECI_level" : [ 0, 1, 2 ], # How many site states not being equal to any aufbau_site_state are allowed to be present in any ESD in the final ECI basis 
+        "read_site_states" : false, # Should the site-state data be read from the QM.out files of children or the site-state calculations have to be runned 
+        "ri" : false, # Resolution of identity, on/off
+        "auxbasis" : "def2-svp-jkfit", # auxiliary basis for ri, this might be default
+        "integral_exceptions" : {
+            [0,0]: { "J": [], "K": [ ["Fe","CN1"], ["CN1","CN4"] ] }, 
+            [0,1]: [ ["Fe","CN1"], ["CN1","CN4"] ],  
+            [0,2]: [ ["Fe","CN1"], ["CN1","CN4"] ],   
+            [1,0]: [ ["Fe","CN1"], ["CN1","CN4"] ],    
+            [1,1]: [ ["Fe","CN1"], ["CN1","CN4"] ],     
+        }
+    }
+}
+
+    # Sanity checks:
+
+    # 1)    For each fragment, check are all "aufbau_site_states" gonna be calculated, given the "site_states".
+    #       For example, for "Fe" we have "site_states" : { 2 : [3 0 1], 1 : [0 1 0], 3 : [0 7 0] } and "aufbau_site_states" : [{ "Z":2, "M":1, "N":1 },{"Z":3,"M":2,"N":1}], 
+    #       so first aufbau_site_state is the first of those three singlet states of charge 2, while the second aufbau_site_state is the first of those seven doublets with charge 3. 
+    #       So Fe passes the test. If a fragment does not pass, we still might modify user's input for "site_states" so that all "aufbau_site_states" are calculated, instead of throwing an error.
+
+    # 2)    Let's say user gave "states [5 2 0]" in the QM.in (manually written) and called SHARC-ECI.py from terminal with this template file.
+    #       Entry "charge" on the top of the file says that five requested full-system singlets have charge -2 and two doublets have charge -1.
+    #       Question: For each full-system charge (with non-zero nstates, so -2 and -1 here), is there at least one combination of aufbau_site_states (one from each fragment) that 
+    #                 has the wanted full-system charge? 
+    #       For example, for full-system charge -2, if we take first aufbau_site_state of each fragment (Z=2 for Fe, Z=-1 for each CN, Z=0 for bypy),
+    #       we get exactly -2 summed charge (2-1-1-1-1+0=-2). For full-system charge -1, second aufbau_site_state of Fe and bypy has to be chosen (3-1-1-1-1-1=-1)
+    #       If it fails for even one full-system charge with non-zero nstates, error has to be thrown (we cannot help in this case, user has to make sensible input)
+            

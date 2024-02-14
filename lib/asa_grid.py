@@ -23,10 +23,11 @@ Shrake, Rupley J Mol Biol. 79 (2): 351-71
 import numpy as np
 from lebedev_grids import LEBEDEV
 from utils import euclidean_distance_einsum
+from functools import reduce
+from itertools import chain
 
 lebedev = LEBEDEV()
 lebedev_grid = lebedev.load
-
 
 def random_sphere(n_points, radius=1) -> np.ndarray:
     # https://stackoverflow.com/questions/9600801/evenly-distributing-n-points-on-a-sphere
@@ -128,8 +129,10 @@ def shrake_rupley(
     for i in range(natoms):
         if weights is not None:
             sphere_grid, sphere_weights = grid(int(4.0 * np.pi * atom_radii[i]**2 * density))
+            #  sphere_grid, sphere_weights = grid(int(4.0 * np.pi * density))
         else:
-            sphere_grid = grid(int(4.0 * np.pi * atom_radii[i]**2 * density))
+            #  sphere_grid = grid(int(4.0 * np.pi * atom_radii[i]**2 * density))asa
+            sphere_grid = grid(int(4.0 * np.pi * density))
 
         sphere_grid = sphere_grid * atom_radii[i] + xyz[i, :]    # scale an shift center
         dist = euclidean_distance_einsum(xyz, sphere_grid)
@@ -146,6 +149,16 @@ def shrake_rupley(
     return n_out_points
 
 
+GRID_FUNCTIONS = {
+    'lebedev': lebedev_grid,
+    'random': random_sphere,
+    'golden_spiral': golden_sphere,
+    'gamess': gamess_surface,
+    'marcus_deserno': markus_deserno
+}
+
+GRIDS = list(GRID_FUNCTIONS.keys())
+
 def mk_layers(
     xyz: np.ndarray, atom_radii: list[float], density=1, shells=[1.4, 1.6, 1.8, 2.0], grid='lebedev'
 ) -> np.ndarray:
@@ -158,26 +171,19 @@ def mk_layers(
     atom_radii: list[float] list of the van-der-Waals radii of each atom (same order as xyz)
     density: float  surface density of each calculated sphere (density of 1. -> 4*pi*r^2)
     shells: list[float] give the scaling factors for each shell
-    grid: str specify a quadrature function from 'lebedev', 'random', 'golden_spiral', 'gamess', 'marcus_deserno' 
+    grid: str specify a quadrature function from 'lebedev', 'random', 'golden_spiral', 'gamess', 'marcus_deserno'
     """
-    n_points = int(
-        4 * np.pi * density * (sum(map(lambda x: (x * 2.)**2, shells))) * xyz.shape[0]
-    )    # surface density of 1: 4*pi*r^2 with r_max = 2. -> 16.*pi
+    # guess the number of points generously (lebedev grid requires more points than density!!
+    n_points = 2 * int(reduce(lambda acc, x: acc + 4 * np.pi * density * x**2, chain(*map(lambda x: [x * s for s in shells], atom_radii))))
     atom_radii_array = np.array(atom_radii)
+    # allocate the memory for the points
     mk_layers_points = np.ndarray((n_points, 3), dtype=float)
-    grid_functions = {
-        'lebedev': lebedev_grid,
-        'random': random_sphere,
-        'golden_spiral': golden_sphere,
-        'gamess': gamess_surface,
-        'marcus_deserno': markus_deserno
-    }
-    assert grid in grid_functions
+    assert grid in GRID_FUNCTIONS
 
     weights = None
     if grid == 'lebedev':
         weights = np.ndarray((n_points), dtype=float)
-    grid = grid_functions[grid]
+    grid = GRID_FUNCTIONS[grid]
     # potentially parallelizable! every layer is one process
     n_points = 0
     for y in shells:

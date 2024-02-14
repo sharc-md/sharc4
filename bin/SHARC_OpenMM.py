@@ -31,135 +31,216 @@
 
 # IMPORTS
 # external
-import time
 import numpy as np
 from openmm.app import Simulation, AmberPrmtopFile
 from openmm import System, State, NonbondedForce, Platform, CustomIntegrator
+import datetime
+from typing import Optional
+from io import TextIOWrapper
+import os
+from qmin import QMinBase
 
 # internal
-from SHARC_INTERFACE import INTERFACE
-from utils import *
+from SHARC_FAST import SHARC_FAST
+from utils import question
 from constants import au2a, kJpermol_to_Eh
 
-__author__ = 'Sebastian Mai and Severin Polonius'
-__version__ = '3.0'
-versiondate = datetime.datetime(2022, 4, 8)
+date = datetime.date
 
-changelogstring = '''
-'''
+__author__ = "Severin Polonius"
+__version__ = "4.0"
+versiondate = datetime.datetime(2023, 9, 6)
+
+changelogstring = """
+"""
 
 
-class OpenMM(INTERFACE):
+class SHARC_OpenMM(SHARC_FAST):
+    """
+    Interface for the [OpenMM program](https://openmm.org/)
 
-    _version = __version__
-    _versiondate = versiondate
-    _authors = __author__
-    _changelogstring = changelogstring
-    _read_resources = True
+    ---
+    Evaluates energis and gradients for the ground state
+    Works on CPU and CUDA platforms
+    """
 
-    @property
-    def version(self):
-        return self._version
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
-    @property
-    def versiondate(self):
-        return self._versiondate
+        # Add template keys
+        self.QMin.template.update(
+            {
+                "prmtop": None,
+            }
+        )
+        self.QMin.template.types.update(
+            {
+                "prmtop": str,
+            }
+        )
+        self.QMin.resources.update({"ncpu": 1, "cuda_device": None})
+        self.QMin.resources.types.update({"ncpu": int, "cuda_device": int})
 
-    @property
-    def changelogstring(self):
-        return self._changelogstring
+    @staticmethod
+    def version():
+        return "4.0"
 
-    @property
-    def authors(self):
-        return self._authors
+    @staticmethod
+    def versiondate() -> date:
+        return versiondate
+
+    @staticmethod
+    def changelogstring() -> str:
+        return changelogstring
+
+    @staticmethod
+    def authors() -> str:
+        return __author__
+
+    @staticmethod
+    def name() -> str:
+        return "OpenMM"
+
+    @staticmethod
+    def description() -> str:
+        return "Interface for the OpenMM program for MM calculations"
+
+    def get_features(self, KEYSTROKES: Optional[TextIOWrapper] = None) -> set:
+        return {"h", "grad", "overlap", "dm"}
+
+    def get_infos(self, INFOS: dict, KEYSTROKES: Optional[TextIOWrapper] = None) -> dict:
+        self.log.info("=" * 80)
+        self.log.info(f"{'||':<78}||")
+        self.log.info(f"||{'OpenMM interface setup':^76}||\n{'||':<78}||")
+        self.log.info("=" * 80)
+        self.log.info("\n")
+        while True:
+            self.template_file = question("Specify path to OpenMM.template", str, KEYSTROKES=KEYSTROKES, autocomplete=True)
+            try:
+                self.read_template(self.template_file)
+            except (RuntimeError, OSError, ValueError) as e:
+                self.log.info(f"There is a problem with '{self.template_file}':\n{e}")
+                self.QMin.template = QMinBase()
+            else:
+                break
+        self.extra_files = [self.QMin.template["prmtop"]]
+
+        if question("Do you have a resources file?", bool, KEYSTROKES=KEYSTROKES, default=True):
+            self.resources_file = question("Specify path to OpenMM.resources", str, KEYSTROKES=KEYSTROKES, autocomplete=True)
+        return INFOS
+
+    def create_restart_files(self):
+        pass
 
     def run(self):
-        # s1 = time.perf_counter_ns()
-        self.simulation.context.setPositions(self._QMin['coords']*(au2a/10))
-        # print("         MM 0: ", (time.perf_counter_ns() - s1) * 1e-6)
-        # self.simulation.context.setVelocities(np.zeros(self._QMin['coords'].shape)))
-        state: State = self.simulation.context.getState(getForces=True, getEnergy=True)
-        # print("         MM 1: ", (time.perf_counter_ns() - s1) * 1e-6)
-        gradients: np.ndarray = -state.getForces(
-            asNumpy=True
-        ) / kJpermol_to_Eh * 0.1 * au2a    # kJ/(mol*nm) -> Hartree/bohr
-        # print("         MM 2: ", (time.perf_counter_ns() - s1) * 1e-6)
-        energy: float = state.getPotentialEnergy()._value / kJpermol_to_Eh    # kJ/mol -> Hartree
-        # print("         MM 3: ", (time.perf_counter_ns() - s1) * 1e-6)
+        self.simulation.context.setPositions(self.QMin.coords["coords"] * (au2a / 10))
+        state: State = self.simulation.context.getState(getEnergy=self.QMin.requests["h"], getForces=self.QMin.requests["grad"])
 
-        self._QMout['h'] = [[energy]]
-        self._QMout['grad'] = [gradients.tolist()]
-        self._QMout['multipolar_fit'] = self._charges
-        if 'dm' in self._QMin:
+        energy: float = state.getPotentialEnergy()._value / kJpermol_to_Eh  # kJ/mol -> Hartree
+        self.QMout["h"] = np.full((1, 1), energy, dtype=float)
+
+        if self.QMin.requests["grad"]:
+            gradients: np.ndarray = -state.getForces(asNumpy=True) / kJpermol_to_Eh * 0.1 * au2a  # kJ/(mol*nm) -> Hartree/bohr
+            self.QMout["grad"] = gradients._value[np.newaxis, ...]
+
+        if self.QMin.requests["multipolar_fit"]:
+            self.QMout["multipolar_fit"] = self._charges[np.newaxis, np.newaxis, ...]
+
+        if self.QMin.requests["dm"]:
             chrg = np.array(self._charges)
-            self._QMout['dm'] = np.einsum('ix,i->x', self._QMin['coords'], chrg).reshape((3, 1, 1)).tolist()
-        self._QMout['overlap'] = [[1.]]
-        self._QMout['phases'] = [complex(1., 0.)]
-        # s2 = time.perf_counter_ns()
-        # print('Timing: MM', (s2 - s1) * 1e-6, 'ms')
+            self.QMout["dm"] = np.einsum("ix,i->x", self.QMin.coords["coords"], chrg).reshape((3, 1, 1))
 
+        self.QMout["overlap"] = np.ones((1, 1), dtype=float)
 
     def getQMout(self):
-        return self._QMout
+        self.QMout.states = self.QMin.molecule["states"]
+        self.QMout.nstates = self.QMin.molecule["nstates"]
+        self.QMout.nmstates = self.QMin.molecule["nmstates"]
+        self.QMout.natom = self.QMin.molecule["natom"]
+        self.QMout.npc = self.QMin.molecule["npc"]
+        self.QMout.point_charges = self.QMin.molecule["npc"] > 0
+        return self.QMout
 
-    def read_template(self, template_filename='OpenMM.template'):
-        QMin = self._QMin
-        paths = {'prmtop': ''}
-        lines = readfile(template_filename)
-        special = {}
-        QMin['template'] = {**paths, **self.parse_keywords(lines, paths=paths, special=special)}
-        QMin.update(QMin['template'])
+    def read_template(self, template_filename="OpenMM.template"):
+        super().read_template(template_filename)
+        self._read_template = False
+        if not self.QMin.template["prmtop"]:
+            self.log.error(f"'prmtop' not set in '{template_filename}'! Exiting")
+            raise RuntimeError(f"'prmtop' not set in '{template_filename}'! Exiting")
+        if os.path.dirname(template_filename) and not os.path.isabs(self.QMin.template["prmtop"]):
+            self.QMin.template["prmtop"] = os.path.join(os.path.dirname(template_filename), self.QMin.template["prmtop"])
+
+        if not os.path.isfile(self.QMin.template["prmtop"]):
+            self.log.error(f"'prmtop' with {self.QMin.template['prmtop']} cannot be opened!")
+            raise ValueError(f"'prmtop' with {self.QMin.template['prmtop']} cannot be opened!")
+
+        self.log.debug(f"{self.QMin.template}")
         self._read_template = True
 
-    def read_resources(self, resources_filename='OpenMM.resources'):
+    def read_resources(self, resources_filename="OpenMM.resources"):
+        if not os.path.isfile(resources_filename):
+            self.log.warning(f"{resources_filename} not found! Continueing without further settings.")
+            self._read_resources = True
+            return
+
         super().read_resources(resources_filename)
+        if self.QMin.resources["cuda_device"] is not None:
+            self.log.info("CUDA platform will be used for the calculation! Double precision might be slow!")
+
+        self.log.debug(f"{self.QMin.resources}")
         self._read_resources = True
 
-    def setup_run(self):
-        QMin = self._QMin
-        prmtop = AmberPrmtopFile(QMin['prmtop'])
+    def setup_interface(self):
+        QMin = self.QMin
+        prmtop = AmberPrmtopFile(QMin.template["prmtop"])
 
         # standard params http://docs.openmm.org/latest/api-python/generated/openmm.app.amberprmtopfile.AmberPrmtopFile.html#openmm.app.amberprmtopfile.AmberPrmtopFile.createSystem
         # nonbondedMethod=ff.NoCutoff, nonbondedCutoff=1.0*u.nanometer, constraints=None, rigidWater=True, implicitSolvent=None, implicitSolventSaltConc=0.0*(u.moles/u.liter), implicitSolventKappa=None, temperature=298.15*u.kelvin, soluteDielectric=1.0, solventDielectric=78.5, removeCMMotion=True, hydrogenMass=None, ewaldErrorTolerance=0.0005, switchDistance=0.0*u.nanometer, gbsaModel='ACE'
-        system: System = prmtop.createSystem(nonbondedCutoff='NoCutoff', rigidWater=False, removeCMMotion=False)
+        system: System = prmtop.createSystem(nonbondedCutoff="NoCutoff", rigidWater=False, removeCMMotion=False)
 
         # 'Do nothing' integrator
         integrator = CustomIntegrator(0.0005)
         integrator.addComputePerDof("x", "x")
         integrator.addComputePerDof("v", "v")
 
-        platform = Platform.getPlatformByName('CPU')
-        properties = {'Threads': str(QMin['ncpu'])}
+        platform = Platform.getPlatformByName("CPU")
+        properties = {"Threads": str(QMin.resources["ncpu"])}
+        if QMin.resources["cuda_device"] is not None:
+            platform = Platform.getPlatformByName("CUDA")
+            properties = {"DeviceIndex": str(QMin.resources["cuda_device"]), "Precision": "single"}
 
-        self.simulation = Simulation(prmtop.topology, system, integrator, platform, platformProperties=properties)
+        self.simulation = Simulation(prmtop.topology, system, integrator, platform, properties)
         nonbonded = [f for f in system.getForces() if isinstance(f, NonbondedForce)][0]
-        self._charges = []
-        for i in range(system.getNumParticles()):
-            charge, _, _ = nonbonded.getParticleParameters(i)
-            self._charges.append(charge._value)
+        npart = system.getNumParticles()
+        self.log.debug(f"System size: {npart}")
+        self._charges = np.fromiter(
+            map(lambda x: nonbonded.getParticleParameters(x)[0]._value, range(npart)), dtype=float, count=npart
+        )
 
     def _request_logic(self):
-        QMin = self._QMin
+        super()._request_logic()
 
-        if QMin['states'] != [1]:
-            raise Error('MM calculation only implemented for the S0 state! "states" has to be "1"')
+        if self.QMin.molecule["states"] != [1]:
+            self.log.error('MM calculation only implemented for the S0 state! "states" has to be "1"')
+            raise ValueError('MM calculation only implemented for the S0 state! "states" has to be "1"')
 
         # prepare savedir
-        if not os.path.isdir(QMin['savedir']):
-            mkdir(QMin['savedir'])
-        possibletasks = {'h', 'grad', 'overlap'}
-        tasks = possibletasks & QMin.keys()
+        possibletasks = self.get_features()
+        requests = {k for k in self.QMin.requests.keys() if self.QMin.requests[k]}
+        tasks = possibletasks & requests
 
         if len(tasks) == 0:
-            raise Error(f'No tasks found! Tasks are {possibletasks}.', 39)
+            self.log.error(f"No tasks found! Tasks are {possibletasks}.")
+            raise RuntimeError(f"No tasks found! Tasks are {possibletasks}.")
 
-        not_allowed = {'soc', 'dmdr', 'socdr', 'ion', 'nacdr', 'theodore'}
-        if not QMin.keys().isdisjoint(not_allowed):
-            raise Error('Cannot perform tasks: {}'.format(' '.join(QMin.keys() & not_allowed)), 13)
+        not_allowed = {"soc", "dmdr", "socdr", "ion", "nacdr", "theodore"}
+        if not requests.isdisjoint(not_allowed):
+            self.log.error("Cannot perform tasks: {}".format(" ".join(requests & not_allowed)))
+            raise RuntimeError("Cannot perform tasks: {}".format(" ".join(requests & not_allowed)))
 
-    def create_restart_files(self):
-        pass
 
 if __name__ == "__main__":
-    omm = OpenMM()
+    from logger import loglevel
+
+    omm = SHARC_OpenMM(loglevel=loglevel)
     omm.main()

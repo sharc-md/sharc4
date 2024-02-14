@@ -3,17 +3,19 @@ import re
 import sys
 import os
 import shutil
+import readline
 import numpy as np
 from dataclasses import dataclass
 from error import Error, exception_hook
 import subprocess as sp
 from globals import DEBUG, PRINT
+from logger import log as logging
+from typing import Any, Callable
 
 
-
-class InDir():
+class InDir:
     "small context to perform part of code in other directory"
-    old = ''
+    old = ""
 
     def __init__(self, dir: str):
         self.old = os.getcwd()
@@ -28,6 +30,16 @@ class InDir():
         if exc_type is not None:
             exception_hook(exc_type, exc_value, exc_traceback)
 
+
+def convert_list(raw_list: list, new_type: Any = int) -> list:
+    output = raw_list
+    if isinstance(raw_list[0], list):
+        output = [convert_list(x, new_type) for x in raw_list]
+    else:
+        return list(map(new_type, output))
+    return output
+
+
 # ======================================================================= #
 def get_bool_from_env(name: str, default=False):
     var = default
@@ -36,13 +48,137 @@ def get_bool_from_env(name: str, default=False):
     return var
 
 
+# ======================================================================= #
+def expand_path(path: str) -> str:
+    """
+    Expand variables in path, error out if variable is not resolvable
+    """
+    expand = os.path.abspath(os.path.expanduser(os.path.expandvars(path)))
+    if "$" in expand:
+        logging.error(f"Undefined env variable in {expand}")
+        raise OSError(f"Undefined env variable in {expand}")
+    return expand
+
+
+def is_exec(path: str) -> bool:
+    """
+    Checks if path contains an executable (also searches in $PATH)
+    """
+
+    fpath, _ = os.path.split(path)
+    if fpath:
+        return os.path.isfile(path) and os.access(path, os.X_OK)
+    else:
+        for p in os.environ.get("PATH", "").split(os.pathsep):
+            exe_file = os.path.join(p, path)
+            if os.path.isfile(exe_file) and os.access(exe_file, os.X_OK):
+                return True
+    return False
+
+
+# ======================================================================= #
+def question(question, typefunc, KEYSTROKES=None, default=None, autocomplete=True, ranges=False):
+    if typefunc == int or typefunc == float:
+        if default is not None and not isinstance(default, list):
+            logging.error("Default for int or float questions must be list!")
+            raise RuntimeError("Default for int or float questions must be list!")
+    if typefunc == str and autocomplete:
+        readline.set_completer_delims(" \t\n;")
+        readline.parse_and_bind("tab: complete")  # activate autocomplete
+    else:
+        readline.parse_and_bind("tab: ")  # deactivate autocomplete
+
+    while True:
+        s = question
+        if default is not None:
+            if typefunc == bool or typefunc == str:
+                s += " [%s]" % (str(default))
+            elif typefunc == int or typefunc == float:
+                s += " ["
+                for i in default:
+                    s += str(i) + " "
+                s = s[:-1] + "]"
+        if typefunc == str and autocomplete:
+            s += " (autocomplete enabled)"
+        if typefunc == int and ranges:
+            s += " (range comprehension enabled)"
+        s += " "
+
+        line = input(s)
+        line = re.sub(r"\s+#.*$", "", line).strip()
+        if not typefunc == str:
+            line = line.lower()
+
+        if line == "" or line == "\n":
+            if default is not None:
+                KEYSTROKES.write(line + " " * (40 - len(line)) + " #" + s + "\n")
+                return default
+            else:
+                continue
+
+        if typefunc == bool:
+            posresponse = ["y", "yes", "true", "t", "ja", "si", "yea", "yeah", "aye", "sure", "definitely"]
+            negresponse = ["n", "no", "false", "f", "nein", "nope"]
+            if line in posresponse:
+                KEYSTROKES.write(line + " " * (40 - len(line)) + " #" + s + "\n")
+                return True
+            elif line in negresponse:
+                KEYSTROKES.write(line + " " * (40 - len(line)) + " #" + s + "\n")
+                return False
+            else:
+                logging.warning("I didn" "t understand you.")
+                continue
+
+        if typefunc == str:
+            KEYSTROKES.write(line + " " * (40 - len(line)) + " #" + s + "\n")
+            return line
+
+        if typefunc == float:
+            # float will be returned as a list
+            f = line.split()
+            try:
+                for i in range(len(f)):
+                    f[i] = typefunc(f[i])
+                KEYSTROKES.write(line + " " * (40 - len(line)) + " #" + s + "\n")
+                return f
+            except ValueError:
+                logging.warning("Please enter floats!")
+                continue
+
+        if typefunc == int:
+            # int will be returned as a list
+            f = line.split()
+            out = []
+            try:
+                for i in f:
+                    if ranges and "~" in i:
+                        q = i.split("~")
+                        for j in range(int(q[0]), int(q[1]) + 1):
+                            out.append(j)
+                    else:
+                        out.append(int(i))
+                KEYSTROKES.write(line + " " * (40 - len(line)) + " #" + s + "\n")
+                return out
+            except ValueError:
+                if ranges:
+                    logging.warning('Please enter integers or ranges of integers (e.g. "-3~-1  2  5~7")!')
+                else:
+                    logging.warning("Please enter integers!")
+                continue
+
+
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+
+
 def readfile(filename) -> list[str]:
-    '''reads file from path and returns list of lines.
-    Preferrably used for small files (for larger ones use buffer).'''
+    """reads file from path and returns list of lines.
+    Preferrably used for small files (for larger ones use buffer)."""
     try:
         f = open(filename)
     except IOError as e:
-        raise Error(f'File {filename} does not exist!', 1)
+        raise Error(f"File {filename} does not exist!", 1)
     else:
         out = f.readlines()
         f.close()
@@ -50,7 +186,7 @@ def readfile(filename) -> list[str]:
 
 
 def parse_xyz(line: str) -> tuple[str, list[float]]:
-    match = re.match(r'([a-zA-Z]{1,2}\d?)((\s+-?\d+\.\d*){3,6})', line.strip())
+    match = re.match(r"([a-zA-Z]{1,2}\d?)(((\s+[\-\+]?\d+\.\d*)([eE][\+\-]?\d*)?){3,6})", line.strip())
     if match:
         return match[1], list(map(float, match[2].split()[:3]))
     else:
@@ -63,17 +199,17 @@ def parse_xyz(line: str) -> tuple[str, list[float]]:
 def writefile(filename, content):
     # content can be either a string or a list of strings
     try:
-        f = open(filename, 'w')
+        f = open(filename, "w")
         if isinstance(content, list):
             for line in content:
                 f.write(line)
         elif isinstance(content, str):
             f.write(content)
         else:
-            print('Content %s cannot be written to file!' % (content))
+            print("Content %s cannot be written to file!" % (content))
         f.close()
     except IOError:
-        raise Error('Could not write to file %s!' % (filename), 13)
+        raise Error("Could not write to file %s!" % (filename), 13)
 
 
 # ======================================================================= #
@@ -83,7 +219,7 @@ def mkdir(DIR, crucial=True, force=True):
     # mkdir the DIR, or clean it if it exists
     if os.path.exists(DIR):
         if os.path.isfile(DIR) and crucial:
-            raise Error('%s exists and is a file!' % (DIR), 89)
+            raise Error("%s exists and is a file!" % (DIR), 89)
         elif os.path.isdir(DIR) and force:
             shutil.rmtree(DIR)
             os.makedirs(DIR)
@@ -92,8 +228,7 @@ def mkdir(DIR, crucial=True, force=True):
             os.makedirs(DIR)
         except OSError:
             if crucial:
-                raise Error('Can not create %s\n' % (DIR), 90)
-            
+                raise Error("Can not create %s\n" % (DIR), 90)
 
 
 # ======================================================================= #
@@ -102,7 +237,7 @@ def mkdir(DIR, crucial=True, force=True):
 def link(PATH, NAME, crucial=True, force=True):
     # do not create broken links
     if not os.path.exists(PATH):
-        raise Error('Source %s does not exist, cannot create link!' % (PATH), 91)
+        raise Error("Source %s does not exist, cannot create link!" % (PATH), 91)
     if os.path.islink(NAME):
         if not os.path.exists(NAME):
             # NAME is a broken link, remove it so that a new link can be made
@@ -113,14 +248,14 @@ def link(PATH, NAME, crucial=True, force=True):
                 # remove the link if forced to
                 os.remove(NAME)
             else:
-                print('%s exists, cannot create a link of the same name!' % (NAME))
+                print("%s exists, cannot create a link of the same name!" % (NAME))
                 if crucial:
                     sys.exit(92)
                 else:
                     return
     elif os.path.exists(NAME):
         # NAME is not a link. The interface will not overwrite files/directories with links, even with force=True
-        print('%s exists, cannot create a link of the same name!' % (NAME))
+        print("%s exists, cannot create a link of the same name!" % (NAME))
         if crucial:
             sys.exit(93)
         else:
@@ -135,61 +270,76 @@ def shorten_DIR(string) -> str:
     maxlen = 40
     front = 12
     if len(string) > maxlen:
-        return string[0:front] + '...' + string[-(maxlen - 3 - front):]
+        return string[0:front] + "..." + string[-(maxlen - 3 - front) :]
     else:
-        return string + ' ' * (maxlen - len(string))
+        return string + " " * (maxlen - len(string))
 
 
 # ======================================================================= #
+
+
+# ======================================================================= #
+def strip_dir(WORKDIR, keep_files=[]):
+    ls = os.listdir(WORKDIR)
+    for ifile in ls:
+        delete = True
+        for k in keep_files:
+            if k in ifile:
+                delete = False
+        if delete:
+            rmfile = os.path.join(WORKDIR, ifile)
+            if not DEBUG:
+                os.remove(rmfile)
 
 
 def cleandir(directory):
     if not os.path.isdir(directory):
         return
     for data in os.listdir(directory):
-        path = directory + '/' + data
+        path = directory + "/" + data
         if os.path.isfile(path) or os.path.islink(path):
             if DEBUG:
-                print('rm %s' % (path))
+                print("rm %s" % (path))
             try:
                 os.remove(path)
             except OSError:
-                print('Could not remove file from directory: %s' % (path))
+                print("Could not remove file from directory: %s" % (path))
         else:
             if DEBUG:
-                print('')
+                print("")
             cleandir(path)
             os.rmdir(path)
             if DEBUG:
-                print('rm %s' % (path))
+                print("rm %s" % (path))
     if PRINT:
-        print('===> Cleaning up directory %s' % (directory))
+        print("===> Cleaning up directory %s" % (directory))
 
 
 def save_data(scratchdir, savedir):
     # copy files to savedir
-    saveable = ['mos', 'coord']
+    saveable = ["mos", "coord"]
     for i in saveable:
-        fromfile = os.path.join(scratchdir, 'JOB', i)
+        fromfile = os.path.join(scratchdir, "JOB", i)
         tofile = os.path.join(savedir, i)
         shutil.copy(fromfile, tofile)
 
 
+# TODO: This is COLUMBUS-specific. Copying initial orbitals in general is specific.
 def getmo(mofile, scratchdir):
     if os.path.exists(mofile):
-        tofile = os.path.join(scratchdir, 'JOB', 'mos')
+        tofile = os.path.join(scratchdir, "JOB", "mos")
         shutil.copy(mofile, tofile)
     else:
-        raise Error('Could not find mocoef-file %s!' % (mofile), 94)
+        raise Error("Could not find mocoef-file %s!" % (mofile), 94)
 
 
 def isbinary(path) -> bool:
-    return (re.search(r':.* text', sp.Popen(["file", '-L', path], stdout=sp.PIPE).stdout.read()) is None)
+    return re.search(r":.* text", sp.Popen(["file", "-L", path], stdout=sp.PIPE).stdout.read()) is None
 
 
 # ======================================================================= #
 def eformat(f, prec, exp_digits) -> str:
-    '''Formats a float f into scientific notation with prec number of decimals and exp_digits number of exponent digits.
+    """Formats a float f into scientific notation with prec number of decimals and exp_digits number of exponent digits.
 
     String looks like:
     [ -][0-9]\\.[0-9]*E[+-][0-9]*
@@ -200,10 +350,10 @@ def eformat(f, prec, exp_digits) -> str:
     3 integer: Number of exponent digits
 
     Returns:
-    1 string: formatted number'''
+    1 string: formatted number"""
 
     s = "% .*e" % (prec, f)
-    mantissa, exp = s.split('e')
+    mantissa, exp = s.split("e")
     return "%sE%+0*d" % (mantissa, exp_digits + 1, int(exp))
 
 
@@ -211,14 +361,14 @@ def eformat(f, prec, exp_digits) -> str:
 
 
 def removekey(d, key) -> dict:
-    '''Removes an entry from a dictionary and returns the dictionary.
+    """Removes an entry from a dictionary and returns the dictionary.
 
     Arguments:
     1 dictionary
     2 anything which can be a dictionary keyword
 
     Returns:
-    1 dictionary'''
+    1 dictionary"""
 
     if key in d:
         r = dict(d)
@@ -231,7 +381,7 @@ def removekey(d, key) -> dict:
 
 
 def containsstring(string, line) -> bool:
-    '''Takes a string (regular expression) and another string.
+    """Takes a string (regular expression) and another string.
     Returns True if the first string is contained in the second string.
 
     Arguments:
@@ -239,7 +389,7 @@ def containsstring(string, line) -> bool:
     2 string: within this string
 
     Returns:
-    1 boolean'''
+    1 boolean"""
 
     return bool(re.search(string, line))
 
@@ -263,25 +413,23 @@ class clock:
     def starttime(self, value):
         self._starttime = value
 
-    def measuretime(self):
-        '''Calculates the time difference between global variable starttime and the time of the call of measuretime.
+    def measuretime(self, log=print):
+        """Calculates the time difference between global variable starttime and the time of the call of measuretime.
         Prints the Runtime, if PRINT or DEBUG are enabled.
         Arguments:
         none
         Returns:
-        1 float: runtime in seconds'''
+        1 float: runtime in seconds"""
 
         endtime = datetime.datetime.now()
         runtime = endtime - self._starttime
-        if self._verbose:
+        if log:
             hours = runtime.seconds // 3600
             minutes = runtime.seconds // 60 - hours * 60
             seconds = runtime.seconds % 60
-            seconds += 1.e-6 * runtime.microseconds
-            print(
-                '==> Runtime:\t%i Days\t%i Hours\t%i Minutes\t%f Seconds\n\n' % (runtime.days, hours, minutes, seconds)
-            )
-        return runtime.days * 24 * 3600 + runtime.seconds + runtime.microseconds // 1.e6
+            seconds += 1.0e-6 * runtime.microseconds
+            log("==> Runtime:\t%i Days\t%i Hours\t%i Minutes\t%f Seconds\n\n" % (runtime.days, hours, minutes, seconds))
+        return runtime.days * 24 * 3600 + runtime.seconds + runtime.microseconds // 1.0e6
 
 
 # =============================================================================================== #
@@ -293,7 +441,6 @@ class clock:
 
 # ======================================================================= #
 def itmult(states):
-
     for i in range(len(states)):
         if states[i] < 1:
             continue
@@ -305,51 +452,68 @@ def itmult(states):
 
 
 def itnmstates(states: list[int]):
-
     for i in range(len(states)):
         if states[i] < 1:
             continue
         for k in range(i + 1):
             for j in range(states[i]):
-                yield i + 1, j + 1, k - i / 2.
+                yield i + 1, j + 1, k - i / 2.0
     return
 
+def number_of_bubble_swaps(li:list[int]):
+    l = li[:]
+    n = len(l)
+    swaps = 0
+    for i in range(n):
+        for j in range(0, n-i-1):
+            if l[j] > l[j+1]:
+                l[j], l[j+1] = l[j+1], l[j]
+                swaps += 1
+    return swaps
 
 # =============================================================================================== #
 # =============================================================================================== #
 # ======================================= Matrix initialization ================================= #
 # =============================================================================================== #
 # =============================================================================================== #
+def triangular_to_full_matrix(triangular_array: np.ndarray, num_basis_func: int, triangular="lower"):
+    assert triangular in ["lower", "upper"]
+    tril = np.zeros((num_basis_func, num_basis_func))
+    idx = np.tril_indices(num_basis_func) if triangular == "lower" else np.triu_indices(num_basis_func)
+    tril[idx] = triangular_array
+    matrix = tril.T + tril
+    np.fill_diagonal(matrix, np.diag(tril))
+    return matrix
 
 
 # ======================================================================= #         OK
 def makecmatrix(a, b) -> list[list[complex]]:
-    '''Initialises a complex axb matrix.
+    """Initialises a complex axb matrix.
 
     Arguments:
     1 integer: first dimension
     2 integer: second dimension
 
     Returns;
-    1 list of list of complex'''
+    1 list of list of complex"""
 
-    return [x[:] for x in [[complex(0., 0.)] * a] * b]    # make shallow copies (otherwise same object is referenced)
+    return [x[:] for x in [[complex(0.0, 0.0)] * a] * b]  # make shallow copies (otherwise same object is referenced)
 
 
 # ======================================================================= #         OK
 
 
 def makermatrix(a, b) -> list[list[float]]:
-    '''Initialises a real axb matrix.
+    """Initialises a real axb matrix.
 
     Arguments:
     1 integer: first dimension
     2 integer: second dimension
 
     Returns;
-    1 list of list of real'''
+    1 list of list of real"""
 
-    return [x[:] for x in [[0.] * a] * b]    # make shallow copies (otherwise same object is referenced)
+    return [x[:] for x in [[0.0] * a] * b]  # make shallow copies (otherwise same object is referenced)
 
 
 def safe_cast(val, type, fallback=None):
@@ -364,42 +528,129 @@ def list2dict(ls: list) -> dict:
 
 
 def build_basis_dict(
-    atom_symbols: list, shell_types, n_prim, s_a_map, prim_exp, contr_coeff, ps_contr_coeff=None
+    atom_symbols: list, shell_types: list, n_prim: list, s_a_map: list, prim_exp: list, contr_coeff: list, ps_contr_coeff=None
 ) -> dict:
     # print(atom_symbols, shell_types, n_prim, s_a_map, prim_exp, contr_coeff, ps_contr_coeff)
-    n_a = {i + 1: f'{a.upper()}{i+1}' for i, a in enumerate(atom_symbols)}
+    n_a = {i + 1: f"{a.upper()}{i+1}" for i, a in enumerate(atom_symbols)}
     basis = {k: [] for k in n_a.values()}
     it = 0
     for st, n_p, a in zip(shell_types, n_prim, s_a_map):
-
         shell = list(map(lambda x: (prim_exp[x], contr_coeff[x]), range(it, it + n_p)))
-        if ps_contr_coeff and ps_contr_coeff[it] != 0.:
+        if ps_contr_coeff and ps_contr_coeff[it] != 0.0:
             shell2 = list(map(lambda x: (prim_exp[x], ps_contr_coeff[x]), range(it, it + n_p)))
             basis[n_a[a]].append([0, *shell])
             basis[n_a[a]].append([abs(st), *shell2])
         else:
             basis[n_a[a]].append([abs(st), *shell])
         it += n_p
+    #  for i in basis.keys():
+    #  basis[i] = sorted(basis[i], key=lambda x: x[0])
     return basis
 
 
-def swap_rows_and_cols(
-    atom_symbols, basis_dict, matrix, swaps=[[0, 2], [1, 3], [1, 4], [0, 1]], swaps_r=[[2, 0], [3, 1], [4, 1], [1, 0]]
-):
-    # if there are any d-orbitals they need to be swapped!!!
-    # from gauss order: z2, xz, yz, x2-y2, xy
-    # to   pyscf order: xy, yz, z2, xz, x2-y2
+def get_pyscf_order_from_orca(atom_symbols, basis_dict):
+    """
+    Generates the reorder list to reorder atomic orbitals (from ORCA) to pyscf.
+
+    Sources:
+    ORCA: https://orcaforum.kofo.mpg.de/viewtopic.php?f=8&p=23158&t=5433&sid=f41177ec0888075a3b1e7fa438b77bd2
+    pyscf:  https://pyscf.org/user/gto.html#ordering-of-basis-function
+
+    Parameters
+    ----------
+    atom_symbols : list[str]
+        list of element symbols for all atoms (same order as AOs)
+    basis_dict : dict[str, list]
+        basis set for each atom in pyscf format
+    """
+    #  return matrix
+
+    # in the case of P(S=P) coefficients the order is 1S, 2S, 2Px, 2Py, 2Pz, 3S in gaussian and pyscf
+    # from orca order: z, x, y
+    # to  pyscf order: x, y, z
+    p_order = [1, 2, 0]
+    np = 3
+
+    # from orca order: z2, xz, yz, x2-y2, xy
+    # to  pyscf order: xy, yz, z2, xz, x2-y2
+    d_order = [4, 2, 0, 1, 3]
+    nd = 5
+
+    # F shells spherical:
+    # orca  order: zzz, xzz, yzz, xxz-yyz, xyz, xxx-xyy, xxy
+    # pyscf order: xxy, xyz, yzz, zzz, xzz, xxz-yyz, xxx-xyy
+    f_order = [6, 4, 2, 0, 1, 3, 5]
+    nf = 7
+
+    # compile the new_order for the whole matrix
+    new_order = []
     it = 0
     for i, a in enumerate(atom_symbols):
-        key = f'{a.upper()}{i+1}'
+        key = f"{a}{i+1}"
+        #       s  p  d  f
+        n_bf = [0, 0, 0, 0]
+
+        # count the shells for each angular momentun
         for shell in basis_dict[key]:
-            if shell[0] == 2:
-                for swap, swap_r in zip(swaps, swaps_r):
-                    s1 = [x + it for x in swap]
-                    s2 = [x + it for x in swap_r]
-                    matrix[s1, :] = matrix[s2, :]
-                    matrix[:, s1] = matrix[:, s2]
-            it += 2 * shell[0] + 1
+            n_bf[shell[0]] += 1
+        print("n_bf for", key, n_bf)
+
+        s, p = n_bf[0:2]
+        new_order.extend([it + n for n in range(s)])
+
+        it += s
+        assert it == len(new_order)
+
+        # do p shells
+        for x in range(p):
+            new_order.extend([it + n for n in p_order])
+            it += np
+
+        # do d shells
+        for x in range(n_bf[2]):
+            new_order.extend([it + n for n in d_order])
+            it += nd
+
+        # do f shells
+        for x in range(n_bf[3]):
+            new_order.extend([it + n for n in f_order])
+            it += nf
+        assert it == len(new_order)
+
+    return new_order
+
+
+def get_cart2sph_matrix(angular_m: int, n_ao: int, atom_symbols: list[str], basis_dict) -> np.ndarray:
+    from pyscf import gto
+    from scipy.linalg import block_diag
+
+    assert angular_m in [2, 3]
+    # c_tensor defaults to identity matrix
+    cart2sph_l = gto.cart2sph(angular_m, c_tensor=None, normalized="sp")
+    n_cart, n_sph = cart2sph_l.shape
+    #  assert n_cart == n_sph
+
+    # construct full transformation matrix
+    blocks = []
+    #  it = 0
+    for i, a in enumerate(atom_symbols):
+        key = f"{a.upper()}{i+1}"
+
+        for shell in basis_dict[key]:
+            # get start indices for transformation points
+            if shell[0] == angular_m:
+                blocks.append(cart2sph_l)
+            else:
+                n = 2 * shell[0] + 1
+                blocks.append(np.eye(n, dtype=float))
+    return block_diag(*blocks)
+
+    # increment iterator accordingly assuming just the specified angular momentum is cartesian
+    #  it += 2 * shell[0] + 1
+    #  if angular_m == 2:
+    #  it += 1
+    #  if angular_m == 3:
+    #  it += 3
 
 
 def euclidean_distance_einsum(X, Y):
@@ -415,9 +666,9 @@ def euclidean_distance_einsum(X, Y):
     -------
     D : array, (n_samples, n_samples)
     """
-    XX = np.einsum('ij,ij-> i', X, X)[:, np.newaxis]
-    YY = np.einsum('ij,ij-> i', Y, Y)
-#    XY = 2 * np.einsum('ij,kj->ik', X, Y)
+    XX = np.einsum("ij,ij-> i", X, X)[:, np.newaxis]
+    YY = np.einsum("ij,ij-> i", Y, Y)
+    #    XY = 2 * np.einsum('ij,kj->ik', X, Y)
     XY = 2 * np.dot(X, Y.T)
     return np.sqrt(XX + YY - XY)
 
@@ -431,8 +682,8 @@ class ATOM:
     bonds: set[int]
 
     def __str__(self):
-        return '{: >5}  {: <4}  {: <16.12f} {: <16.12f} {: <16.12f}  {}'.format(
-            self.id + 1, self.symbol, *self.xyz, ' '.join(map(lambda x: str(x + 1), sorted(self.bonds)))
+        return "{: >5}  {: <4}  {: <16.12f} {: <16.12f} {: <16.12f}  {}".format(
+            self.id + 1, self.symbol, *self.xyz, " ".join(map(lambda x: str(x + 1), sorted(self.bonds)))
         )
 
     def __gt__(self, other):
@@ -452,11 +703,12 @@ def get_rot(theta: float, axis: int) -> np.ndarray:
     axis: axis of rotation
     """
     if axis not in {0, 1, 2}:
-        raise ValueError('axis not in {0,1,2}!')
+        raise ValueError("axis not in {0,1,2}!")
+        # NOTE: https://en.wikipedia.org/wiki/Rotation_matrix#Rotation_matrix_from_axis_and_angle
     rad = np.radians(theta)
     c, s = np.cos(rad), np.sin(rad)
     R = np.zeros((3, 3))
-    R[axis, axis] = 1.
+    R[axis, axis] = 1.0
     if axis == 0:
         R[1:, 1:] = np.array(((c, -s), (s, c)))
         return R

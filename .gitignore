@@ -11,4 +11,5 @@ build_info.inc
 *.tmp
 bin/pysharc_*.py
 wfoverlap/
+*.swp
 

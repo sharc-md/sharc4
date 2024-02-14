@@ -844,7 +844,7 @@ def determine_normal_modes_format(modes, molecule, nmodes, flag):
         possibleflags = []
         for i in range(4):
             if diagonalcheck[0][i] > nmodes - 1 and diagonalcheck[0][i] / nmodes - 1 < thresh and diagonalcheck[1][
-                i] == 1:
+                    i] == 1:
                 possibleflags.append(i + 1)
                 # this means that previous flag is overwritten if multiple checks were positive.
                 # However ordering of the checks is made in a way that it gives the right result

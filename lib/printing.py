@@ -3,6 +3,10 @@ from utils import itnmstates
 
 
 def printcomplexmatrix(matrix, states):
+    print(formatcomplexmatrix(matrix, states))
+
+# TODO: typing
+def formatcomplexmatrix(matrix, states):
     '''Prints a formatted matrix. Zero elements are not printed, blocks of different mult and MS are delimited by dashes. Also prints a matrix with the imaginary parts, if any one element has non-zero imaginary part.
 
     Arguments:
@@ -32,37 +36,41 @@ def printcomplexmatrix(matrix, states):
             string += '-' * (11 * nmstates + nmstates // 3)
             string += '\n'
         istate += 1
-    print(string)
-    imag = False
-    string = 'Imaginary Part:\n'
-    string += '-' * (11 * nmstates + nmstates // 3)
     string += '\n'
+
+    imag = False
+    string2 = 'Imaginary Part:\n'
+    string2 += '-' * (11 * nmstates + nmstates // 3)
+    string2 += '\n'
     istate = 0
     for imult, i, ms in itnmstates(states):
         jstate = 0
-        string += '|'
+        string2 += '|'
         for jmult, j, ms2 in itnmstates(states):
             if matrix[istate][jstate].imag == 0.:
-                string += ' ' * 11
+                string2 += ' ' * 11
             else:
                 imag = True
-                string += '% .3e ' % (matrix[istate][jstate].imag)
+                string2 += '% .3e ' % (matrix[istate][jstate].imag)
             if j == states[jmult - 1]:
-                string += '|'
+                string2 += '|'
             jstate += 1
-        string += '\n'
+        string2 += '\n'
         if i == states[imult - 1]:
-            string += '-' * (11 * nmstates + nmstates // 3)
-            string += '\n'
+            string2 += '-' * (11 * nmstates + nmstates // 3)
+            string2 += '\n'
         istate += 1
-    string += '\n'
+    string2 += '\n'
     if imag:
-        print(string)
+        string += string2
+    return string
 
 # ======================================================================= #
 
-
 def printgrad(grad, natom, elements, DEBUG=False):
+    print(formatgrad(grad, natom, elements, DEBUG=DEBUG))
+
+def formatgrad(grad, natom, elements, DEBUG=False):
     '''Prints a gradient or nac vector. Also prints the atom elements. If the gradient is identical zero, just prints one line.
 
     Arguments:
@@ -72,31 +80,35 @@ def printgrad(grad, natom, elements, DEBUG=False):
 
     string = ''
     iszero = True
+    leng = min([len(i) for i in grad])
     for atom in range(natom):
         if not DEBUG:
             if atom == 5:
-                string += '...\t...\t     ...\t     ...\t     ...\n'
+                string += '...\t...\n' + '\t     ...' * leng + '\n'
             if 5 <= atom < natom - 1:
                 continue
-        string += '%i\t%s\t' % (atom + 1, elements[atom])
-        for xyz in range(3):
+        string += '%i\t%s' % (atom + 1, elements[atom])
+        for xyz in range(leng):
             if grad[atom][xyz] != 0:
                 iszero = False
             g = grad[atom][xyz]
             if isinstance(g, float):
-                string += '% .5f\t' % (g)
+                string += '\t% .5f' % (g)
             elif isinstance(g, complex):
-                string += '% .5f\t% .5f\t\t' % (g.real, g.imag)
+                string += '\t% .5f\t% .5f\t' % (g.real, g.imag)
         string += '\n'
+    string += '\n'
     if iszero:
-        print('\t\t...is identical zero...\n')
+        return '\t\t...is identical zero...\n'
     else:
-        print(string)
+        return string
 
 # ======================================================================= #
 
-
 def printtheodore(matrix, QMin):
+    print(formattheodore(matrix, QMin))
+
+def formattheodore(matrix, QMin):
     string = '%6s ' % 'State'
     for i in QMin['resources']['theodore_prop']:
         string += '%6s ' % i
@@ -111,10 +123,15 @@ def printtheodore(matrix, QMin):
         for i in matrix[istate - 1]:
             string += '%6.4f ' % i.real
         string += '\n'
-    print(string)
+    string += '\n'
+    return string
 
+# ======================================================================= #
 
 def printheader(content):
+    print(formatheader(content))
+
+def formatheader(content: list[str]):
     '''Prints the formatted header of the log file. Prints version number and version date
     Takes nothing, returns nothing.
     Wraps the specified content lines in as :
@@ -135,5 +152,5 @@ def printheader(content):
     # wraps Authors line in case its too long
     lines[4:5] = wrap(lines[4], width=70)
     lines[1:-1] = map(lambda s: '||{:^76}||'.format(s), lines[1:-1])
-    print(*lines, sep='\n')
-    print('\n')
+    string = '\n'.join(lines) + '\n'
+    return string
