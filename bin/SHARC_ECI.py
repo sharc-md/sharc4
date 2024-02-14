@@ -272,7 +272,7 @@ class SHARC_ECI(SHARC_HYBRID):
 
         for int_type, JK in self.QMin.template['calculation']['integral_exceptions']:
             if JK['J'] == "all":
-
+                pass
 
             
 
@@ -333,7 +333,7 @@ class SHARC_ECI(SHARC_HYBRID):
                 del self.kindergarden[(label,'embedding',C)]
         return
 
-    def read_requests(self, requests_file: str: "QM.in") -> None:
+    def read_requests(self, requests_file: str= "QM.in") -> None:
         super._read_requests(requests_file)
         # Make requests for all children, depending which requests ECI interface got
 
@@ -345,10 +345,10 @@ class SHARC_ECI(SHARC_HYBRID):
                 Ks = { key: value["K"] for key,value in self.QMin.template['calculation']['integral_exceptions'].items() }
                 
                 K = JK['K'] 
-                if K == 'all'
+                #if K == 'all'
             
         for (label,c,C), child in self.kindergarden.items():
-            requests = {'H':}
+            requests = {'H':None}
 
     def run(self):
         QMin = self._QMin
@@ -391,7 +391,7 @@ class SHARC_ECI(SHARC_HYBRID):
                     APCs[label] = np.zeros(child.QMin.molecule["natom"]) 
 
             # Run frozen fragments
-            frozen = [ label for label in egarden if QMin.template['fragments'][label]['frozen'] }
+            frozen = [ label for label in egarden if QMin.template['fragments'][label]['frozen'] ]
             for joblist in QMin.resources['EHF_frozen_sitejobs']: 
                 with Pool(processes=len(joblist)) as pool:
                     for job in joblist:
@@ -460,7 +460,7 @@ class SHARC_ECI(SHARC_HYBRID):
             embedding_kindergarden = { label:interface for label, interface in self.kindergarden.items() if 'embedding' in label }
             for (label, charge), interface in self.kindergarden.items():
                 if charge == 'embedding':
-
+                    pass
 
             # Obtaining embedding charges
             embedding_interface = factory(QMin.template['embedding_interface'][c])
@@ -474,7 +474,7 @@ class SHARC_ECI(SHARC_HYBRID):
                     QMin.molecule
                     QMin.template
                     QMin.resources
-                    EHF_kindergarden[fname] = kindergarden[ (fname, Z ) ].__copy__(states=[0 f...])
+                    # EHF_kindergarden[fname] = kindergarden[ (fname, Z ) ].__copy__(states=[0 f...])
 
                     mol = EHF_kindergarden[fname].QMin.molecule
                     mol['states'] = [ 0 for i in range(M) ]
@@ -510,7 +510,7 @@ class SHARC_ECI(SHARC_HYBRID):
                         newAPCs += child.QMout.multipolar_fit
                     deltaAPCs = newAPCs - oldAPCs
                 QMin.template['APCs'] = newAPCs
-                for (name,charge) in
+                #for (name,charge) in
 
 
             # Do site-state calculations for ECI if needed
@@ -547,7 +547,7 @@ class SHARC_ECI(SHARC_HYBRID):
                                         file.write('ao_read=-1\n')
                                         file.write('moprint=1\n')
                                         file.close()
-                                        os.system(QMin.resources['wfoverlap']+' -m '+QMin.resources['memory']+' -f dyson.inp'"
+                                        os.system(QMin.resources['wfoverlap']+' -m '+QMin.resources['memory']+' -f dyson.inp')
 
 
             # Initialize ECI instance
@@ -587,7 +587,7 @@ class SHARC_ECI(SHARC_HYBRID):
                                           basis=basis,
                                           H=H,
                                           grad=grad,
-                                          nacdr=nacdr
+                                          nacdr=nacdr,
                                           dyson=dyson,
                                           mu=mu
                                      )
