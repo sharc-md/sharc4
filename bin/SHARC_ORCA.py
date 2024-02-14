@@ -5,229 +5,6 @@ import os
 import re
 import shutil
 import struct
-<<<<<<< HEAD
-import json
-from multiprocessing import Pool
-from copy import deepcopy
-from socket import gethostname
-from typing import Dict, List, Tuple
-import numpy as np
-
-# internal
-from SHARC_INTERFACE import INTERFACE
-from globals import DEBUG, PRINT
-from utils import *
-from constants import IToMult, au2a
-
-authors = 'Sebastian Mai, Lea Ibele, Moritz Heindl and Severin Polonius'
-version = '3.0'
-versiondate = datetime.datetime(2021, 7, 15)
-
-changelogstring = '''
-16.05.2018: INITIAL VERSION
-- functionality as SHARC_GAUSSIAN.py, minus restricted triplets
-- QM/MM capabilities in combination with TINKER
-- AO overlaps computed by PyQuante (only up to f functions)
-
-11.09.2018:
-- added "basis_per_element", "basis_per_atom", and "hfexchange" keywords
-
-03.10.2018:
-Update for Orca 4.1:
-- SOC for restricted singlets and triplets
-- gradients for restricted triplets
-- multigrad features
-- orca_fragovl instead of PyQuante
-
-16.10.2018:
-Update for Orca 4.1, after revisions:
-- does not work with Orca 4.0 or lower (orca_fragovl unavailable, engrad/pcgrad files)
-
-11.10.2020:
-- COBRAMM can be used for QM/MM calculations
-'''
-
-
-class ORCA(INTERFACE):
-
-    _version = version
-    _versiondate = versiondate
-    _authors = authors
-    _changelogstring = changelogstring
-    _n2l = {"s": 0, "p": 1, "d": 2, "f": 3, "g": 4}
-
-    @property
-    def version(self):
-        return self._version
-
-    @property
-    def versiondate(self):
-        return self._versiondate
-
-    @property
-    def changelogstring(self):
-        return self._changelogstring
-
-    @property
-    def authors(self):
-        return self._authors
-
-    def read_template(self, template_filename='ORCA.template'):
-        '''reads the template file
-        has to be called after setup_mol!'''
-
-        if not self._read_resources:
-            raise Error('Interface is not set up correctly. Call read_resources with the .resources file first!', 23)
-        QMin = self._QMin
-        # define keywords and defaults
-        bools = {
-            'no_tda': False,
-            'unrestricted_triplets': False,
-            'qmmm': False,
-            'cobramm': False,
-            'picture_change': False
-        }
-        strings = {
-            'basis': '6-31G',
-            'auxbasis': '',
-            'functional': 'PBE',
-            'dispersion': '',
-            'ri': '',
-            'scf': '',
-            'keys': '',
-        }
-        paths = {'qmmm_ff_file': 'ORCA.ff', 'qmmm_table': 'ORCA.qmmm.table'}
-        integers = {'frozen': -1, 'maxiter': 700}
-        floats = {'hfexchange': -1., 'intacc': -1.}
-        special = {
-            'paddingstates': [0 for i in QMin['states']],
-            'charge': [i % 2 for i in range(len(QMin['states']))],
-            'basis_per_element': {},
-            'ecp_per_element': {},
-            'basis_per_atom': {},
-            'range_sep_settings': {
-                'do': False,
-                'mu': 0.14,
-                'scal': 1.0,
-                'ACM1': 0.0,
-                'ACM2': 0.0,
-                'ACM3': 1.0
-            },
-            'paste_input_file': ''
-        }
-        lines = readfile(template_filename)
-        QMin['template'] = {
-            **bools,
-            **strings,
-            **integers,
-            **floats,
-            **special,
-            **self.parse_keywords(
-                lines, bools=bools, strings=strings, paths=paths, integers=integers, floats=floats, special=special
-            )
-        }
-
-        # do logic checks
-        if not QMin['template']['unrestricted_triplets']:
-            if QMin['OrcaVersion'] < (4, 1):
-                if len(QMin['states']) >= 3 and QMin['states'][2] > 0:
-                    raise Error(
-                        'With Orca v<4.1, triplets can only be computed with the unrestricted_triplets option!', 62
-                    )
-            if len(QMin['template']['charge']) >= 3 and QMin['template']['charge'][0] != QMin['template']['charge'][2]:
-                raise Error(
-                    'Charges of singlets and triplets differ. Please enable the "unrestricted_triplets" option!', 63
-                )
-        if QMin['template']['unrestricted_triplets'] and 'soc' in QMin:
-            if len(QMin['states']) >= 3 and QMin['states'][2] > 0:
-                raise Error('Request "SOC" is not compatible with "unrestricted_triplets"!', 64)
-        if QMin['template']['ecp_per_element'] and 'soc' in QMin:
-            if len(QMin['states']) >= 3 and QMin['states'][2] > 0:
-                raise Error('Request "SOC" is not compatible with using ECPs!', 64)
-
-        self._read_template = True
-        return
-
-    def read_resources(self, resources_filename="ORCA.resources"):
-        super().read_resources(resources_filename)
-        QMin = self.QMin
-
-        if 'LD_LIBRARY_PATH' in os.environ:
-            os.environ['LD_LIBRARY_PATH'] = '%s:' % (QMin['orcadir']) + os.environ['LD_LIBRARY_PATH']
-        else:
-            os.environ['LD_LIBRARY_PATH'] = '%s' % (QMin['orcadir'])
-        os.environ['PATH'] = '%s:' % (QMin['orcadir']) + os.environ['PATH']
-        # reassign QMin after losing the reference
-        QMin['OrcaVersion'] = self._getOrcaVersion(QMin['resources']['orcadir'])
-        print('Detected ORCA version %s' % (str(QMin['OrcaVersion'])))
-        self._read_resources = True
-        return
-
-    def runjobs(self, schedule):
-        def error_handler(e: BaseException, WORKDIR):
-            sys.stderr.write('\n' + '*' * 50 + '\nException in run_calc(%s)!\n' % (WORKDIR))
-            sys.stderr.write(f'{str(e)} {e.__traceback__}')
-            sys.stderr.write('\n' + '*' * 50 + '\n')
-            return
-
-        QMin = self._QMin
-        print('>' * 15, 'Starting the ORCA job execution')
-        errorcodes = {}
-        for ijobset, jobset in enumerate(schedule):
-            if not jobset:
-                continue
-            pool = Pool(processes=QMin['nslots_pool'][ijobset])
-            for job in jobset:
-                QMin1 = jobset[job]
-                WORKDIR = os.path.join(QMin['scratchdir'], job)
-                errorcodes[job] = pool.apply_async(
-                    ORCA.runORCA, [WORKDIR, QMin1], error_callback=lambda e: error_handler(e, WORKDIR)
-                ).get()
-                time.sleep(QMin['delay'])
-            pool.close()
-        string = 'Error Codes:\n'
-        success = True
-        for j, job in enumerate(errorcodes):
-            code = errorcodes[job]
-            if code != 0:
-                success = False
-            string += '\t{}\t{}'.format(job + ' ' * (10 - len(job)), code)
-            if (j + 1) % 4 == 0:
-                string += '\n'
-        print(string)
-        if not success:
-            print('Some subprocesses did not finish successfully!\n\
-                See {}:{} for error messages in ORCA output.'.format(gethostname(), QMin['scratchdir']))
-            raise Error(
-                'Some subprocesses did not finish successfully!\n\
-                See {}:{} for error messages in ORCA output.'.format(gethostname(), QMin['scratchdir']), 75
-            )
-        self.create_restart_files()
-        return errorcodes
-
-    def create_restart_files(self):
-        QMin = self._QMin
-        if PRINT:
-            print('>>>>>>>>>>>>> Saving files')
-            starttime = datetime.datetime.now()
-        for ijobset, jobset in enumerate(QMin['schedule']):
-            if not jobset:
-                continue
-            for ijob, job in enumerate(jobset):
-                if 'master' in job:
-                    WORKDIR = os.path.join(QMin['scratchdir'], job)
-                    # if not 'samestep' in QMin or 'molden' in QMin:
-                    # if 'molden' in QMin or not 'nooverlap' in QMin:
-                    # saveMolden(WORKDIR,jobset[job])
-                    if 'samestep' not in QMin:
-                        ORCA.saveFiles(WORKDIR, jobset[job])
-                    if 'ion' in QMin and ijobset == 0 and ijob == 0:
-                        ORCA.saveAOmatrix(WORKDIR, QMin)
-        # saveGeometry(QMin)
-        if PRINT:
-            endtime = datetime.datetime.now()
-            print(f'Saving Runtime: {endtime - starttime}')
-=======
 import subprocess as sp
 from copy import deepcopy
 from io import TextIOWrapper
@@ -361,7 +138,6 @@ class SHARC_ORCA(SHARC_ABINITIO):
 
         # List of deprecated keys
         self._deprecated = ["range_sep_settings", "grid", "gridx", "gridxc", "picture_change", "qmmm"]
->>>>>>> develop
 
     @staticmethod
     def version() -> str:
@@ -1610,7 +1386,6 @@ class SHARC_ORCA(SHARC_ABINITIO):
         return string
 
     @staticmethod
-<<<<<<< HEAD
     def getDyson(out, s1, s2):
         ilines = -1
         while True:
@@ -1772,10 +1547,6 @@ class SHARC_ORCA(SHARC_ABINITIO):
         return (dens_relaxed, dens_unrelaxed)
 
 
-if __name__ == '__main__':
-    orca = ORCA()
-    orca.main()
-=======
     def get_orca_version(path: str) -> tuple[int, ...]:
         """
         Get ORCA version number of given path
@@ -1794,4 +1565,3 @@ if __name__ == '__main__':
 
 if __name__ == "__main__":
     SHARC_ORCA(loglevel=10).main()
->>>>>>> develop
