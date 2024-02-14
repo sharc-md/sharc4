@@ -1588,7 +1588,8 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         if ( self.QMin.requests["density_matrices"] or self.QMin.requests["multipolar_fit"] ):
             self.get_densities()
             if self.QMin.requests["multipolar_fit"]:
-                self.QMout["multipolar_fit"] = self._resp_fit_from_densities()
+                self.QMout["multipolar_fit"] = self._resp_fit_on_densities()
+                self.log.debug(self.QMout["multipolar_fit"])
 
         # TheoDORE
         if self.QMin.requests["theodore"]:
@@ -2116,17 +2117,17 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
 
     def get_readable_densities(self):
         densities = {}
-        #  for s1 in self.states:
-            #  for s2 in self.states:
-                #  if s1 is s2:
-                    #  # Total density
-                    #  densities[(s1,s2,'tot')] = {'how':'read'}
-                    #  # Spin density
-                    #  #if s1.unrestricted and s1.S == s1.M: densities.append((s1,s2,'q'))
-                    #  if s1.S % 2 == 1 and s1.S == s1.M: densities.append[(s1,s2,'q')] = {'how':'read'}
-                #  elif s1.C['is_gs'] and not s2.C['is_gs'] and s1.M == s2.M and s1 is s2.C['its_gs']:
-                    #  densities[(s1,s2,'aa')] = {'how':'read'} 
-                    #  densities[(s1,s2,'bb')] = {'how':'read'} 
+        for s1 in self.states:
+            for s2 in self.states:
+                if s1 is s2:
+                    # Total density
+                    densities[(s1, s2, 'tot')] = {'how':'read'}
+                    # Spin density
+                    if s1.S % 2 == 1 and s1.S == s1.M:
+                        densities.append[(s1, s2,'q')] = {'how':'read'}
+                elif s1.C['is_gs'] and not s2.C['is_gs'] and s1.M == s2.M and s1 is s2.C['its_gs']:
+                    densities[(s1,s2,'aa')] = {'how':'read'} 
+                    densities[(s1,s2,'bb')] = {'how':'read'} 
         return densities
 
     def read_and_append_densities(self): #-> dict[(electronic_state,electronic_state,str), np.ndarray]:
