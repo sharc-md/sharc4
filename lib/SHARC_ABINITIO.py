@@ -1,4 +1,3 @@
-import sys
 import datetime
 import math
 import os
@@ -9,10 +8,9 @@ from abc import abstractmethod
 from datetime import date
 from io import TextIOWrapper
 from textwrap import dedent
-from multiprocessing import Pool, log_to_stderr
+from multiprocessing import Pool
 from typing import Optional
 from itertools import starmap
-from functools import reduce
 
 import numpy as np
 from sympy.physics.wigner import wigner_3j
@@ -20,7 +18,6 @@ from qmin import QMin
 from SHARC_INTERFACE import SHARC_INTERFACE
 from utils import containsstring, readfile, safe_cast, link, writefile, shorten_DIR, mkdir, itmult, convert_list, is_exec
 from constants import ATOMIC_RADII, MK_RADII, IToMult
-from logger import log
 from resp import Resp
 from asa_grid import GRIDS
 import wf2rho
@@ -313,7 +310,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                                 if self.density_logic(s1,s2,spin): 
                                     requested_densities.add((s1,s2,spin))
                                 else:
-                                    self.log.warning(f"Requested density {density} is zero. Hence skipping it...")
+                                    self.log.warning(f"Requested density {(s1, s2, spin)} is zero. Hence skipping it...")
                         case 6:
                             for density in density_matrices:
                                 S1, M1, N1, S2, M2, N2 = density
@@ -451,6 +448,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 )
 
         if self.QMin.requests["ion"] or self.QMin.requests["overlap"]:
+            self.log.debug(self.QMin.resources["wfoverlap"])
             assert is_exec(self.QMin.resources["wfoverlap"])
 
     @abstractmethod
