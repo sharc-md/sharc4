@@ -1401,7 +1401,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
     # ======================================================================= #
 
     @staticmethod
-    def get_basis(json_file: str) -> Dict[str,List]:
+    def get_basis(json_file: str) -> dict[str,list]:
         """
         Return basis set from orca_2json
             Args:   json_file: Path to orca_2json output
@@ -1433,7 +1433,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
         return pyscf_basis
     
     @staticmethod
-    def _get_basis(json_dict: Dict[str, List]) -> Dict[str,List]:
+    def _get_basis(json_dict: dict[str, list]) -> dict[str,list]:
         """
         Return basis set from orca_2json
             Args:   json_dict: orca_2json dictionary
@@ -1462,7 +1462,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
         return pyscf_basis
     
     @staticmethod
-    def get_pyscf_order_from_orca(atom_symbols: List[str], basis_dict: Dict[str, List[int, Tuple]]) -> List[int]:
+    def get_pyscf_order_from_orca(atom_symbols: list[str], basis_dict: dict[str, list[int, tuple]]) -> list[int]:
         """
         Generates the reorder list to reorder atomic orbitals (from ORCA) to pyscf.
 
@@ -1533,7 +1533,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
         return new_order
     
     @staticmethod
-    def get_dens_matrices(json_file: str) -> Tuple[np.ndarray, np.ndarray]:
+    def get_dens_matrices(json_file: str) -> tuple[np.ndarray, np.ndarray]:
         with open(json_file, "r", encoding="utf-8") as file:
             orca_json = json.load(file)
         dens_relaxed, dens_unrelaxed = np.array(orca_json["Molecule"]["Densities"]["cisp"]), np.array(orca_json["Molecule"]["Densities"]["scfp"])
