@@ -1,7 +1,7 @@
 import os
 from collections import UserDict
 from copy import deepcopy
-import pyscf
+from pyscf import gto
 
 import numpy as np
 
@@ -68,8 +68,8 @@ class QMinMolecule(QMinBase):
             # Ab initio interfaces
             "Atomcharge": None,
             "frozcore": None,
-            "Ubasis" : np.zeros((2,2)),
-            "mol": None
+            "Ubasis": np.zeros((2, 2)),
+            "mol": None,
         }
 
         self.types = {
@@ -85,8 +85,8 @@ class QMinMolecule(QMinBase):
             "npc": int,
             "Atomcharge": int,
             "frozcore": int,
-            "Ubasis" : np.ndarray,
-            "mol": pyscf.gto.Mole 
+            "Ubasis": np.ndarray,
+            "mol": gto.Mole,
         }
 
 
@@ -201,7 +201,7 @@ class QMinRequests(QMinBase):
             "nooverlap": False,
             "basis_set": True,
             "density_matrices": None,
-            "dyson_orbitals": None
+            "dyson_orbitals": None,
         }
         self.types = {
             "h": bool,

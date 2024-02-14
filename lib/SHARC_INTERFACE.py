@@ -926,19 +926,35 @@ class SHARC_INTERFACE(ABC):
 
     @dataclass
     class electronic_state():
-        Z: int # Charge of the state
-        S: int # Two times S quantum number (so that it is always integer), 0 for singlets, 1 for doublets, 2 for triplets etc.
-        M: int # Two times M_S quantum number (so that it is always integer)
-        N: int # Ordinal number of the state for its S, starting from 1
-        C: dict # Anyone can add any comment about the state as an item here. Not used in hashing or comparing of electronic_state instance(s).
+        """
+        class to store electronic state information
 
-        def __eq__(self,other):
+        Properties:
+        ---
+        Z: int  Charge of the state
+        S: int  Two times S quantum number (so that it is always integer), 0 for singlets, 1 for doublets, 2 for triplets etc.
+        M: int  Two times M_S quantum number (so that it is always integer)
+        N: int  Ordinal number of the state for its S, starting from 1
+        C: dict  Anyone can add any comment about the state as an item here. Not used in hashing or comparing of electronic_state instance(s).
+        """
+        Z: int
+        S: int
+        M: int
+        N: int
+        C: dict
+
+        def __eq__(self, other):
             # The 'equal' operator is overloaded with the function that compares
             # only Z, S and N (not M). Comparison of 'full' electronic states
             # is not implemetented and it is supposed to be done by reference comparison
             # e.g. 'if state1 is state2:'
-            if self.Z == other.Z and self.S == other.S and self.N == other.N: return True
-            return False
+            return self.Z == other.Z and self.S == other.S and self.N == other.N
+
+        def __gt__(self, other):
+            return self.S > other.S or self.N > other.N or self.M > other.M
+
+        def __lt__(self, other):
+            return self.S < other.S or self.N < other.N or self.M < other.M
 
         def __hash__(self):
             return f"{self.Z} {self.S} {self.N} {self.M}".__hash__()

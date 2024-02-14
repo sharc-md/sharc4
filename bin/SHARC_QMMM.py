@@ -40,7 +40,7 @@ from SHARC_HYBRID import SHARC_HYBRID
 from SHARC_INTERFACE import SHARC_INTERFACE
 from utils import ATOM, InDir, itnmstates, mkdir, question, readfile, expand_path
 
-version = "3.0"
+version = "4.0"
 versiondate = datetime.datetime(2023, 8, 24)
 
 changelogstring = """
@@ -198,7 +198,7 @@ class SHARC_QMMM(SHARC_HYBRID):
 
     @staticmethod
     def authors() -> str:
-        return "Maximilian Xaver Tiefenbacher and Severin Polonius"
+        return "Severin Polonius"
 
     # TODO: update for other embeddings
     def get_features(self, KEYSTROKES: TextIOWrapper):

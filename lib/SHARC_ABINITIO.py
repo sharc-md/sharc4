@@ -1,4 +1,3 @@
-import sys
 import datetime
 import math
 import os
@@ -12,7 +11,6 @@ from textwrap import dedent
 from multiprocessing import Pool
 from typing import Optional
 from itertools import starmap
-from functools import reduce
 
 import numpy as np
 from sympy.physics.wigner import wigner_3j
@@ -312,7 +310,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                                 if self.density_logic(s1,s2,spin): 
                                     requested_densities.add((s1,s2,spin))
                                 else:
-                                    self.log.warning(f"Requested density {density} is zero. Hence skipping it...")
+                                    self.log.warning(f"Requested density {(s1, s2, spin)} is zero. Hence skipping it...")
                         case 6:
                             for density in density_matrices:
                                 S1, M1, N1, S2, M2, N2 = density
@@ -450,6 +448,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 )
 
         if self.QMin.requests["ion"] or self.QMin.requests["overlap"]:
+            self.log.debug(self.QMin.resources["wfoverlap"])
             assert is_exec(self.QMin.resources["wfoverlap"])
 
     @abstractmethod
@@ -632,17 +631,20 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         # All requested densities need to be done...
         densities_to_be_done = { key:value for (key,value) in doable_densities.items() if key in requested_densities }
         # ...but maybe also some on which requested ones depend
+        to_append = []
         added = True
         while added:
             added = False
             for key, value in densities_to_be_done.items():
-                if isinstance( value, list ):
-                    for dens in value:
+                if isinstance( value.get('needed'), list ):
+                    for dens in value['needed']:
                         if not dens in densities_to_be_done:
-                            densities_to_be_done[dens] = doable_densities[dens]
+                            to_append.append(dens)
                             added = True
+            densities_to_be_done.update({dens: doable_densities[dens] for dens in to_append})
         densities_to_be_read = { key:value for (key,value) in densities_to_be_done.items() if value.get('how') == 'read' }
         densities_to_be_calculated_from_determinants = { key:value for (key,value) in densities_to_be_done.items() if value.get('how') == 'from_determinants'}
+        self.log.debug(densities_to_be_calculated_from_determinants)
         densities_to_be_calculated_from_gs2es = { key:value for (key,value) in densities_to_be_done.items() if value.get('how') == 'from_gs2es'}
         densities_to_be_constructed = { key:value for (key,value) in densities_to_be_done.items() if isinstance(value.get('how'),list) }
         #densities_to_be_read = { key:value for (key,value) in densities_to_be_done.items() if value == [] }
@@ -797,10 +799,12 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         self.read_and_append_densities() # It has to take a look at self.density_recipes['read'] and actually read those densities and write them to QMout['density_matrices']
         self.calculate_from_determinants_and_append_densities()
         missing_to_construct, missing_to_calculate = True, True
+        if "from_gs2es" not in self.QMin.template["density_calculation_methods"]:
+            missing_to_calculate = False
         i = 0
         while missing_to_calculate or missing_to_construct:
             i += 1
-            print(i)
+            print(i, missing_to_calculate, missing_to_construct)
             if missing_to_calculate:
                 missing_to_calculate = self.calculate_from_gs2es_and_append_densities()
             if missing_to_construct:
@@ -851,6 +855,8 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                     if recipe['transpose']: rho = rho.T
                     QMout['density_matrices'][density] = rho
                 else:
+                    print(density)
+                    self.log.debug([d for d in dens if d not in QMout["density_matrices"]])
                     missing = True
         return missing
 
@@ -858,6 +864,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         QMin = self.QMin
         QMout = self.QMout
         from_determinants = self.density_recipes['from_determinants']
+        self.log.debug(self.density_recipes['from_determinants'])
         if len(from_determinants) > 0:
             determinant_jobs = {}
             for (density,recipe) in from_determinants.items():
@@ -1178,20 +1185,18 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             string += "\n"
         return string
 
-    def do_fit(pair, density_matrices, order, betas):
-        s1, s2 = pair
-        charge = s1.Z if s1 == s2 else 0
-        return (s1,s2), fits.multipoles_from_dens(
-            density_matrices[(s1,s2,'tot')],
-            include_core_charges=s1 is s2,
-            order=order,
-            charge=charge,
-            betas=betas,
-        )
+    # def do_fit(fits, pair, density_matrices, order, betas):
+        # s1, s2 = pair
+        # charge = s1.Z if s1 == s2 else 0
+        # return (s1, s2), fits.multipoles_from_dens(
+            # density_matrices[(s1, s2, 'tot')],
+            # include_core_charges=s1 is s2,
+            # order=order,
+            # charge=charge,
+            # betas=betas,
+        # )
 
-    def _resp_fit_on_densities(
-        self, basis: dict, densities: dict[(int, int, int, int, int, int), np.ndarray], cartesian_basis=True, ecps={}
-    ) -> dict[(int, int, int, int, int, int), np.ndarray]:
+    def _resp_fit_on_densities(self) -> dict[(int, int, int, int, int, int), np.ndarray]:
         """
         Performs the resp fit on all densities given and returns the fits as dict.
         All transition densities need to be already present! Generate them with tdm.es2es_tdm() if necessary
@@ -1216,33 +1221,32 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             grid=self.QMin.resources["resp_grid"],
             logger=self.log,
         )
-        mol = self.QMin.molecule.mol
+        mol = self.QMin.molecule["mol"]
         gsmult = self.QMin.maps["statemap"][1][0]
         charge = self.QMin.maps["chargemap"][gsmult]  # the charge is irrelevant for the integrals calculated!!
         fits.prepare(
-            mol.basis, 
-            gsmult - 1, 
-            charge, 
-            ecps=mol.ecps, cart_basis=mol.cart
+            mol
         )  # the charge of the atom does not affect integrals
 
         fits_map = {}
         with Pool(processes=self.QMin.resources["ncpu"]) as pool:
-            results = pool.map_async(self.do_fit, map(lambda x: (x,self.QMout.density_matrices, self.QMin.resources["resp_fit_order"], self.QMin.resources["resp_betas"]),self.QMin.requests["multipolar_fit"]))
+            for dens in self.QMin.requests["multipolar_fit"]:
+                s1, s2 = dens
+                charge = s1.Z if s1 == s2 else 0
+                fits_map[dens] = pool.apply_async(
+                    fits.multipoles_from_dens,
+                    args=(
+                        self.QMout.density_matrices[(s1, s2, "tot")],
+                        s1 is s2,
+                        charge,
+                        self.QMin.resources["resp_fit_order"],
+                        self.QMin.resources["resp_betas"]
+                    ),
+                )
             pool.close()
             pool.join()
-            fits_map = {key: val for key, val in map(lambda x: x.get(), results)}
-
-        
-        #for (s1, s2) in self.QMin.requests["multipolar_fit"]:
-        #    charge = self.QMin.maps["chargemap"][s1.S] if s1 == s2 else 0
-        #    fits_map[(s1,s2)] = fits.multipoles_from_dens(
-        #        self.QMout.density_matrices[(s1,s2,'tot')],
-        #        include_core_charges=s1 is s2,
-        #        order=self.QMin.resources["resp_fit_order"],
-        #        charge=charge,
-        #        betas=self.QMin.resources["resp_betas"],
-        #    )
+            # fits_map = results.get()
+            fits_map = {key: val.get() for key, val in fits_map.items()}
 
         return fits_map
 

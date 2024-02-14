@@ -1010,8 +1010,9 @@ class QMout:
         if "dyson_orbitals" in self.notes:
             setting_str = self.notes["dyson_orbitals"]
         nphi = len(self.dyson_orbitals.values())
+        nao = self.mol.nbas
         string = (
-            f"! 25 Dyson orbitals in AO basis ({nao}x{nao}x{nrho}) {setting_str}\n"
+            f"! 25 Dyson orbitals in AO basis ({nao}x{nao}x{nphi}) {setting_str}\n"
         )
         for key, rho in self.density_matrices.items():
             s1, s2, spin = key
@@ -1042,21 +1043,22 @@ class QMout:
             f"! 22 Atomwise multipolar density representation fits for states ({nmstates}x{nmstates}x{natom}x10) {setting_str}\n"
         )
 
-        for imult, istate, ims in itnmstates(states):
-            for jmult, jstate, jms in itnmstates(states):
-                string += f"{natom} 10 ! m1 {imult} s1 {istate} ms1 {ims: 3.1f}   m2 {jmult} s2 {jstate} ms2 {jms: 3.1f}\n"
-                key = (imult, istate, ims, jmult, jstate, jms)
-                val = self.multipolar_fit[key] if key in self.multipolar_fit else np.zeros((natom, 10), dtype=float)
-                string += (
-                    "\n".join(
-                        map(
-                            lambda x: " ".join(map(lambda y: "{: 10.8f}".format(y), x)),
-                            val,
-                        )
+        sorted_states = sorted(self.multipolar_fit.keys(), key=lambda x: (x[0].S, x[0].N, x[0].M, x[1].S, x[1].N, x[1].M))
+        for (s1, s2) in sorted_states:
+            val = self.multipolar_fit[(s1, s2)]
+            istate, imult, ims = s1.N, s1.S, s1.M
+            jstate, jmult, jms = s2.N, s2.S, s2.M
+
+            string += f"{natom} 10 ! m1 {imult} s1 {istate} ms1 {ims: 3.1f}   m2 {jmult} s2 {jstate} ms2 {jms: 3.1f}\n"
+            string += (
+                "\n".join(
+                    map(
+                        lambda x: " ".join(map(lambda y: "{: 10.8f}".format(y), x)),
+                        val,
                     )
-                    + "\n"
                 )
-            string += ""
+                + "\n"
+            )
         string += "\n"
         return string
 
@@ -1200,13 +1202,15 @@ class QMout:
         # Multipolar fit
         if QMin.requests["multipolar_fit"]:
             string += "=> Multipolar fit:\n\n"
-            for (imult, istate, ims, jmult, jstate, jms), val in self["multipolar_fit"].items():
+            for (s1, s2), val in self["multipolar_fit"].items():
+                istate, imult, ims = s1.N, s1.S, s1.M
+                jstate, jmult, jms = s2.N, s2.S, s2.M
                 if imult == jmult and ims == jms:
                     string += "%s\t%i\tMs= % .1f -- %s\t%i\tMs= % .1f:\n" % (
-                        IToMult[imult],
+                        IToMult[imult + 1],
                         istate,
                         ims,
-                        IToMult[jmult],
+                        IToMult[jmult + 1],
                         jstate,
                         jms,
                     )
