@@ -34,7 +34,7 @@ from utils import (
     strip_dir,
     triangular_to_full_matrix,
     writefile,
-    number_of_bubble_swaps,
+    #  number_of_bubble_swaps,
 )
 
 np.set_printoptions(linewidth=400, formatter={"float": lambda x: f"{x: 9.7}"})
@@ -1140,14 +1140,15 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                         for ivirt in range(nvir_A):
                             index = iocc * nvir_A + ivirt
                             #TOMI
-                            key = list(occ_A)
-                            key[infos["NFC"] + iocc] = 2
-                            key[infos["NFC"] + nocc_A + ivirt] = 1
-                            mos_alpha = [ i for i,mo in enumerate(key) if mo == 3 or mo == 2 ]
-                            mos_beta = [ i for i,mo in enumerate(key) if mo == 3 or mo == 1 ]
-                            mos = mos_alpha + mos_beta
-                            nswap = number_of_bubble_swaps(mos)
-                            dets[(iocc, ivirt, 1)] = (-1.)**nswap*eig[index]
+                            #  key = list(occ_A)
+                            #  key[infos["NFC"] + iocc] = 2
+                            #  key[infos["NFC"] + nocc_A + ivirt] = 1
+                            #  mos_alpha = [ i for i,mo in enumerate(key) if mo == 3 or mo == 2 ]
+                            #  mos_beta = [ i for i,mo in enumerate(key) if mo == 3 or mo == 1 ]
+                            #  mos = mos_alpha + mos_beta
+                            #  nswap = number_of_bubble_swaps(mos)
+                            #  dets[(iocc, ivirt, 1)] = (-1.)**nswap*eig[index]
+                            dets[(iocc, ivirt, 1)] = eig[index]
                 else:
                     for iocc in range(nocc_A):
                         for ivirt in range(nvir_A):
@@ -1182,7 +1183,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                             # beta excitation
                             key[infos["NFC"] + iocc] = 1
                             key[infos["NFC"] + nocc_A + ivirt] = 2
-                            dets2[tuple(key)] = dets[(iocc, ivirt, dummy)]
+                            dets2[tuple(key)] = -dets[(iocc, ivirt, dummy)]
                         # triplet
                         elif mult == 3:
                             key = list(occ_A)

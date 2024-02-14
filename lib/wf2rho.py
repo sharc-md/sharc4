@@ -4,6 +4,7 @@ import numba
 import numpy as np
 import time
 
+
 @jit(nopython=True,cache=True,fastmath=True) 
 def deltaS0( tCI, nst, dets, CI, mos ): # all dets in list dets have equal number of alpha and equal number of beta electrons
     ndets = len(dets[:,0])
@@ -17,6 +18,23 @@ def deltaS0( tCI, nst, dets, CI, mos ): # all dets in list dets have equal numbe
     ndets = len(dets) 
     mos_alpha = [ np.array([ mo for mo in range(nmos) if dets[i,mo] == 7 or dets[i,mo] == 5 ]) for i in range(ndets) ]
     mos_beta = [ np.array([ mo for mo in range(nmos) if dets[i,mo] == 7 or dets[i,mo] == 1 ]) for i in range(ndets) ]
+
+    phases = np.empty(ndets)
+    for i in range(ndets):
+        l = np.concatenate((mos_alpha[i],mos_beta[i])) 
+        n = len(l)
+        swaps = 0
+        for j in range(n):
+            for k in range(0, n-j-1):
+                if l[k] > l[k+1]:
+                    l[k], l[k+1] = l[k+1], l[k]
+                    swaps += 1
+        phases[i] = (-1.0)**swaps
+
+    for i in range(ndets):
+        print(CI[i,1],phases[i])
+        CI[i,:] = CI[i,:]*phases[i]
+        print(CI[i,1])
 
     pairs_a = []
     pairs_b = []
@@ -61,21 +79,23 @@ def deltaS0( tCI, nst, dets, CI, mos ): # all dets in list dets have equal numbe
     with objmode():
         t2 = time.perf_counter()
         print('Time in diagonal generation = ', t2-t1,flush=True)
+    print(pairs_a)
 
     with objmode(t1='f8'):
         t1 = time.perf_counter()
     rho = np.zeros((2,nst,nst,nmos,nmos))
     for p in pairs_a:
         outer =np.outer(CI[p[0],:], CI[p[1],:]) 
+        print(outer)
         rho[0,:,:,p[2],p[3]] += (-1.)**p[4]*np.ascontiguousarray(outer)
         if p[0] != p[1]:
-            #  #  pass
             rho[0,:,:,p[3],p[2]] += (-1.)**p[4]*np.ascontiguousarray(outer.T)
+        if p[0] == 56:
+            print(p, rho[0,0,0,0,0])
     for p in pairs_b:
         outer =np.outer(CI[p[0],:], CI[p[1],:]) 
         rho[1,:,:,p[2],p[3]] += (-1.)**p[4]*np.ascontiguousarray(outer)#outer 
         if p[0] != p[1]:
-            #  #  pass
             rho[1,:,:,p[3],p[2]] += (-1.)**p[4]*np.ascontiguousarray(outer.T)
     with objmode(rho='f8[:,:,:,:,:]'):
         t2 = time.perf_counter()
@@ -87,6 +107,7 @@ def deltaS0( tCI, nst, dets, CI, mos ): # all dets in list dets have equal numbe
         rho = np.einsum('ia,smnab,bj->smnij',mos,rho,mos.T,optimize=['einsum_path',(0,1),(0,1)],casting='no')
         t2 = time.perf_counter()
         print('Time in rho rotation = ', t2-t1,flush=True)
+        print(rho[0,0,0,:,:])
     return rho 
 
 @jit(nopython=True,cache=True,fastmath=True) 
