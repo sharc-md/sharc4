@@ -2275,4 +2275,4 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
 
 
 if __name__ == "__main__":
-    SHARC_GAUSSIAN(loglevel=10).main()
+    SHARC_GAUSSIAN().main()

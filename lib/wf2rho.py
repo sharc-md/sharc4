@@ -32,9 +32,7 @@ def deltaS0( tCI, nst, dets, CI, mos ): # all dets in list dets have equal numbe
         phases[i] = (-1.0)**swaps
 
     for i in range(ndets):
-        print(CI[i,1],phases[i])
         CI[i,:] = CI[i,:]*phases[i]
-        print(CI[i,1])
 
     pairs_a = []
     pairs_b = []
