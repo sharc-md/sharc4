@@ -42,7 +42,7 @@ import numpy as np
 
 # internal
 from constants import ATOMCHARGE, BOHR_TO_ANG, FROZENS
-from logger import SHARCPRINT, CustomFormatter, logging
+from logger import SHARCPRINT, TRACE, CustomFormatter, logging
 from qmin import QMin
 from qmout import QMout
 from utils import clock, expand_path, itnmstates, parse_xyz, readfile, writefile
@@ -96,7 +96,7 @@ class SHARC_INTERFACE(ABC):
         persistent=False,
         logname: str | None = None,
         logfile: str | None = None,
-        loglevel: int = logging.INFO,
+        loglevel: int = logging.root.level,
     ):
         # all the output from the calculation will be stored here
         self.QMout = QMout()
@@ -110,6 +110,7 @@ class SHARC_INTERFACE(ABC):
         self.log = logging.getLogger(logname)
         self.log.propagate = False
         self.log.handlers = []
+        print("SETTING loglevel",loglevel)
         self.log.setLevel(loglevel)
         hdlr = (
             logging.FileHandler(filename=logfile, mode="w", encoding="utf-8")
@@ -121,6 +122,7 @@ class SHARC_INTERFACE(ABC):
 
         self.log.addHandler(hdlr)
         self.log.print = self.sharcprint
+        self.log.trace = self.trace
 
     def sharcprint(self, msg, *args, **kwargs):
         """
@@ -130,6 +132,19 @@ class SHARC_INTERFACE(ABC):
         a true value, e.g.
         """
         self.log.log(SHARCPRINT, msg, *args, **kwargs)
+
+    def trace(self, msg, *args, format=True, **kwargs):
+        """
+        Log 'msg % args' with severity 'SHARCPRINT'.
+
+        use to log extensive runtime information (this is even lower than DEBUG)
+
+        To pass exception information, use the keyword argument exc_info with
+        a true value, e.g.
+        """
+        if not format:
+            kwargs.update({"extra": {"simple": True}})
+        self.log.log(TRACE, msg, *args, **kwargs)
 
     @staticmethod
     @abstractmethod
@@ -960,12 +975,8 @@ class SHARC_INTERFACE(ABC):
             return f"{self.Z} {self.S} {self.N} {self.M}".__hash__()
 
         def __repr__(self):
-            string = f"(Z={self.Z} S={self.S/2} M={self.M/2} N={self.N})"
-            #if 'is_gs' in self.C:
-            #    string += f" is_gs = {str(self.C['is_gs'])}, its_gs = {str(repr(self.C['its_gs']))})"
-            #    #  string += f" is_gs = "
-            #else:
-            #    string += ')'
+            string = f"Z={self.Z} S={self.S/2} M={self.M/2} N={self.N}"
+            string = "{:<25}".format(string)
             return string
 
 
