@@ -615,8 +615,8 @@
 
 
 
-     TIME FOR ENERGY EVALUATION       0.004 SECONDS
-     TIME FOR GRADIENT EVALUATION     0.004 SECONDS
+     TIME FOR ENERGY EVALUATION       0.003 SECONDS
+     TIME FOR GRADIENT EVALUATION     0.003 SECONDS
 
 
 
@@ -843,7 +843,7 @@
 
 
 
- TIME FOR MULTIPLE CI RUNS        0.014 SECONDS
+ TIME FOR MULTIPLE CI RUNS        0.012 SECONDS
 
 
  -----------------------------------------------------------------------
@@ -1248,7 +1248,7 @@
 
 
 
- TIME FOR INTERSTATE CI RUNS       0.018 SECONDS
+ TIME FOR INTERSTATE CI RUNS       0.017 SECONDS
 
 
  -----------------------------------------------------------------------
@@ -1264,6 +1264,6 @@
 
 
 
- COMPUTATION TIME                 0.033 SECONDS
+ COMPUTATION TIME                 0.030 SECONDS
 
 

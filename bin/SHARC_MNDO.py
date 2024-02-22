@@ -23,7 +23,7 @@ __all__ = ["SHARC_MNDO"]
 
 AUTHORS = "Nadja K. Singer, Hans Georg Gallmetzer"
 VERSION = "0.2"
-VERSIONDATE = datetime.datetime(2023, 12, 13)
+VERSIONDATE = datetime.datetime(2023, 2, 22)
 NAME = "MNDO"
 DESCRIPTION = "SHARC interface for the mndo2020 program"
 
@@ -783,7 +783,7 @@ mocoef
             self.log.error("Cannot find transition dipoles in MNDO output!")
             raise ValueError()
         # Filter dipole vectors, (states, (xyz))
-        return dm
+        return np.array(dm)
 
 
     def _get_energy(self, output: str) -> dict[tuple[int, int], float]:
@@ -839,41 +839,7 @@ mocoef
             if val and req not in all_features:
                 raise ValueError(f"Found unsupported request {req}.")
 
-    # def read_template(self, template_filename="MNDO.template"):
-        
-    #     if not self._read_resources:
-    #         raise Error('Interface is not set up correctly. Call read_resources with the .resources file first!', 23)
-    #     QMin = self.QMin
-    #     # define keywords and defaults
-    #     strings = {
-    #         'dstep': '1e-5',
-    #     }
-    #     integers = {'nciref': 0, 'kitscf': 5000, 'ici1': 1, 'ici2': 1, 'ncigrd': 1, 'iroot': 1, 'mminp': 0, 'numatm': 0}
 
-    #     special = {
-    #         'act_orbs': [],
-    #         'states': [1]
-    #     }
-    #     lines = readfile(template_filename)
-    #     QMin['template'] = {
-    #         **strings,
-    #         **integers,
-    #         **special,
-    #         **self.parse_keywords(lines, strings=strings, integers=integers, special=special)
-    #     }
-    #     # Sanity checks and preparations
-    #     if len(QMin['states']) > 1:
-    #         raise Error('Currently only singlets can be calculated using OM2/MRCI.', 135)
-
-
-    #     if len(QMin['template']['act_orbs']) == 0:
-    #         QMin['template']['movo'] = 0
-    #     else:
-    #         QMin['template']['movo'] = 1
-
-    #     self._read_template = True
-    #     return
-    
     def read_template(self, template_file: str) -> None:
         super().read_template(template_file)
 
@@ -999,7 +965,7 @@ mocoef
         kitscf = qmin["template"]["kitscf"]
         imomap = qmin["template"]["imomap"]
 
-        inputstring = f"iop=-6 jop=-2 imult=0 iform=1 igeom=1 mprint=1 icuts=-1 icutg=-1 dstep={dstep} kci=5 ioutci=1 iroot={iroot} icross=7 ncigrd={ncigrd} inac=0 imomap={imomap} iscf=11 iplscf=11 kitscf={kitscf} ici1={ici1} ici2={ici2} movo={movo} nciref={nciref} mciref=3 levexc=6 iuvcd=3 nsav13=2 kharge={kharge} multci=1 cilead=1 ncisym=-1 numatm={ncharges} mmcoup=2 mmfile=1 mmskip=0 mminp={mminp}"        
+        inputstring = f"iop=-6 jop=-2 imult=0 iform=1 igeom=1 mprint=1 icuts=-1 icutg=-1 dstep={dstep} kci=5 ioutci=1 iroot={iroot} icross=7 ncigrd={ncigrd} inac=0 imomap={imomap} iscf=11 iplscf=11 kitscf={kitscf} ici1={ici1} ici2={ici2} movo={movo} nciref={nciref} mciref=3 levexc=6 iuvcd=3 nsav13=2 kharge={kharge} multci=1 cilead=1 ncisym=-1 numatm={ncharges} mmcoup=2 mmfile=1 mmskip=0 mminp={mminp} nsav15=9"        
         inputstring = " +\n".join(wrap(inputstring, width=70))
         inputstring += '\nheader\n'
         inputstring += 'header\n'
