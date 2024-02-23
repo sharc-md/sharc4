@@ -18,7 +18,7 @@ class CustomFormatter(logging.Formatter):
 
     def format(self, record):
         # Replace the original format with one customized by logging level
-        if hasattr(record, 'simple') and record.simple:
+        if hasattr(record, "simple") and record.simple:
             return record.getMessage()
 
         if record.levelno == logging.DEBUG:
@@ -79,7 +79,6 @@ match envlevel:
     case _:
         loglevel = logging.INFO
 
-print("SETTING LOGLEVEL", loglevel)
 logging.root.setLevel(loglevel)
 
 
@@ -93,6 +92,7 @@ def sharcprint(msg, *args, **kwargs):
     logger.print("Houston, we have a %s", "interesting problem", exc_info=1)
     """
     logging.log(SHARCPRINT, msg, *args, **kwargs)
+
 
 def trace(msg, *args, **kwargs):
     """
