@@ -45,7 +45,7 @@ from constants import ATOMCHARGE, BOHR_TO_ANG, FROZENS
 from logger import SHARCPRINT, TRACE, CustomFormatter, logging
 from qmin import QMin
 from qmout import QMout
-from utils import clock, expand_path, itnmstates, parse_xyz, readfile, writefile
+from utils import clock, expand_path, itnmstates, parse_xyz, readfile, writefile, electronic_state
 
 np.set_printoptions(linewidth=400, formatter={"float": lambda x: f"{x: 9.7}"})
 all_features = {
@@ -110,7 +110,6 @@ class SHARC_INTERFACE(ABC):
         self.log = logging.getLogger(logname)
         self.log.propagate = False
         self.log.handlers = []
-        print("SETTING loglevel",loglevel)
         self.log.setLevel(loglevel)
         hdlr = (
             logging.FileHandler(filename=logfile, mode="w", encoding="utf-8")
@@ -315,14 +314,19 @@ class SHARC_INTERFACE(ABC):
         self.QMin.template.update(self._parse_raw(template_file, self.QMin.template.types, kw_whitelist))
 
         self._read_template = True
-        #Start TOMI
-        self.states = [] 
+        if "charge" not in self.QMin.template or self.QMin.template["charge"] is None:
+            charge = [i % 2 for i in range(len(self.QMin.molecule['states']))]
+        else:
+            charge = self.QMin.template["charge"]
+        
+        # Start TOMI
+        self.states = []
         for S, nstates in enumerate(self.QMin.molecule['states']):
-            c = self.QMin.template["charge"][S]
+            c = charge[S]
             for N in range(nstates):
-                for M in range(-S,S+1,2):
-                    self.states.append( self.electronic_state( Z=c, S=S, M=M, N=N+1, C={} ) )  # This is the moment in which states get their pointers
-        #End TOMI
+                for M in range(-S, S + 1, 2):
+                    self.states.append(electronic_state( Z=c, S=S, M=M, N=N+1, C={} ) )  # This is the moment in which states get their pointers
+        # End TOMI
         
 
     @staticmethod
@@ -411,7 +415,7 @@ class SHARC_INTERFACE(ABC):
 
         self.QMin.molecule["elements"] = list(map(lambda x: parse_xyz(x)[0], (qmin_lines[2 : natom + 2])))
         self.QMin.molecule["Atomcharge"] = sum(map(lambda x: ATOMCHARGE[x], self.QMin.molecule["elements"]))
-        #self.QMin.molecule["frozcore"] = sum(map(lambda x: FROZENS[x], self.QMin.molecule["elements"]))
+        # self.QMin.molecule["frozcore"] = sum(map(lambda x: FROZENS[x], self.QMin.molecule["elements"]))
         self.QMin.molecule["frozcore"] = 0
         self.QMin.molecule["natom"] = len(self.QMin.molecule["elements"])
 
@@ -938,46 +942,6 @@ class SHARC_INTERFACE(ABC):
         lines[4:5] = wrap(lines[4], width=70)
         lines[1:-1] = map(lambda s: "||{:^76}||".format(s), lines[1:-1])
         self.log.info("\n".join(lines))
-
-    @dataclass
-    class electronic_state():
-        """
-        class to store electronic state information
-
-        Properties:
-        ---
-        Z: int  Charge of the state
-        S: int  Two times S quantum number (so that it is always integer), 0 for singlets, 1 for doublets, 2 for triplets etc.
-        M: int  Two times M_S quantum number (so that it is always integer)
-        N: int  Ordinal number of the state for its S, starting from 1
-        C: dict  Anyone can add any comment about the state as an item here. Not used in hashing or comparing of electronic_state instance(s).
-        """
-        Z: int
-        S: int
-        M: int
-        N: int
-        C: dict
-
-        def __eq__(self, other):
-            # The 'equal' operator is overloaded with the function that compares
-            # only Z, S and N (not M). Comparison of 'full' electronic states
-            # is not implemetented and it is supposed to be done by reference comparison
-            # e.g. 'if state1 is state2:'
-            return self.Z == other.Z and self.S == other.S and self.N == other.N
-
-        def __gt__(self, other):
-            return self.S > other.S or self.N > other.N or self.M > other.M
-
-        def __lt__(self, other):
-            return self.S < other.S or self.N < other.N or self.M < other.M
-
-        def __hash__(self):
-            return f"{self.Z} {self.S} {self.N} {self.M}".__hash__()
-
-        def __repr__(self):
-            string = f"Z={self.Z} S={self.S/2} M={self.M/2} N={self.N}"
-            string = "{:<25}".format(string)
-            return string
 
 
 
