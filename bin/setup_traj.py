@@ -1089,6 +1089,7 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
             )
             #      log.info('\nPlease enter all atom indices (start counting at 1) of the atoms which should be masked. \nRemember that you can also enter ranges (e.g., "-1~-3  5  11~21").')
             arr = question("Masked atoms:", int, ranges=True)
+            INFOS["atommaskarray"] = []
             for i in arr:
                 if 1 <= i <= INFOS["natom"]:
                     INFOS["atommaskarray"].append(i)
@@ -1462,7 +1463,7 @@ def writeSHARCinput(INFOS, initobject, iconddir, istate, ask=False):
         s += "killafter %f\n" % (INFOS["killafter"])
     s += "\n"
 
-    if INFOS["atommaskarray"]:
+    if "atommaskarray" in INFOS:
         s += 'atommask external\natommaskfile "atommask"\n\n'
 
     s += "surf %s\n" % (INFOS["surf"])
@@ -1642,7 +1643,7 @@ def writeSHARCinput(INFOS, initobject, iconddir, istate, ask=False):
         shutil.copy(INFOS["laserfile"], laserfname)
 
     # atommask file
-    if INFOS["atommaskarray"]:
+    if "atommaskarray" in INFOS:
         atommfname = iconddir + "/atommask"
         atommf = open(atommfname, "w")
         for i, atom in enumerate(initobject.atomlist):

@@ -12,6 +12,7 @@ from copy import deepcopy
 from io import TextIOWrapper
 from itertools import chain
 from typing import Optional
+import ast
 
 import numpy as np
 from constants import IAn2AName, IToMult, au2eV
@@ -22,6 +23,7 @@ from qmin import QMin as QMin_class
 from SHARC_ABINITIO import SHARC_ABINITIO
 from tdm import es2es_tdm
 from utils import (
+    expand_path,
     build_basis_dict,
     containsstring,
     itmult,
@@ -34,6 +36,7 @@ from utils import (
     strip_dir,
     triangular_to_full_matrix,
     writefile,
+    question
 )
 
 np.set_printoptions(linewidth=400, formatter={"float": lambda x: f"{x: 9.7}"})
@@ -194,6 +197,27 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         """
         return all_features
 
+    @staticmethod
+    def check_template(template_file):
+
+        necessary = {"basis", "functional", "charge"}
+        with open(template_file, "r") as f:
+            for line in f:
+                if len(necessary) == 0:
+                    break
+                line = line.strip()
+                if len(line) == 0:
+                    continue
+                if line[0] == "#":
+                    continue
+                lspt = line.split()
+                if len(lspt) == 0:
+                    continue
+                elif line.split()[0] in necessary:
+                    necessary.remove(line.split()[0])
+        return not len(necessary) != 0
+
+
     def get_infos(self, INFOS: dict, KEYSTROKES: Optional[TextIOWrapper] = None) -> dict:
         """prepare INFOS obj
 
@@ -202,6 +226,184 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         INFOS: dictionary with all previously collected infos during setup
         KEYSTROKES: object as returned by open() to be used with question()
         """
+        self.log.info("=" * 80)
+        self.log.info(f"{'||':<78}||")
+        self.log.info(f"||{'GAUSSIAN interface setup': ^76}||\n{'||':<78}||")
+        self.log.info("=" * 80)
+        self.log.info("\n")
+        self.files = []
+
+
+        self.log.info(f"{'Path to GAUSSIAN':-^60s}\n")
+        tries = ['g16root', 'g09root', 'g03root']
+        for i in tries:
+            path = os.getenv(i)
+            if path:
+                break
+        self.log.info('\nPlease specify path to GAUSSIAN directory (SHELL variables and ~ can be used, will be expanded when interface is started).\n')
+        INFOS['groot'] = question('Path to GAUSSIAN:', str, KEYSTROKES=KEYSTROKES, default=path)
+        self.log.info('')
+
+
+        # scratch
+        self.log.info('{:-^60}'.format('Scratch directory') + '\n')
+        self.log.info('Please specify an appropriate scratch directory. This will be used to run the GAUSSIAN calculations. The scratch directory will be deleted after the calculation. Remember that this script cannot check whether the path is valid, since you may run the calculations on a different machine. The path will not be expanded by this script.')
+        INFOS['scratchdir'] = question('Path to scratch directory:', str, KEYSTROKES=KEYSTROKES)
+        self.log.info('')
+
+
+        # template file
+        self.template_file = None
+        self.log.info('{:-^60}'.format('GAUSSIAN input template file') + '\n')
+        self.log.info('''Please specify the path to the GAUSSIAN.template file. This file must contain the following keywords:
+
+    basis <basis>
+    functional <type> <name>
+    charge <x> [ <x2> [ <x3> ...] ]
+
+    The GAUSSIAN interface will generate the appropriate GAUSSIAN input automatically.
+    ''')
+        if os.path.isfile('GAUSSIAN.template'):
+            if SHARC_GAUSSIAN.check_template('GAUSSIAN.template'):
+                self.log.info('Valid file "GAUSSIAN.template" detected. ')
+                usethisone = question('Use this template file?', bool, KEYSTROKES=KEYSTROKES, default=True)
+                if usethisone:
+                    self.template_file = 'GAUSSIAN.template'
+        if not self.template_file:
+            while True:
+                filename = question('Template filename:', str, KEYSTROKES=KEYSTROKES)
+                if not os.path.isfile(filename):
+                    self.log.info('File %s does not exist!' % (filename))
+                    continue
+                if SHARC_GAUSSIAN.check_template(filename):
+                    break
+            self.template_file = filename
+        self.log.info('')
+        self.files.append(self.template_file)
+        extra_file_keys = {"basis_external", "paste_input_file"}
+        with open(self.template_file, "r") as f:
+            for line in f:
+                line = line.strip()
+                if len(line) == 0:
+                    continue
+                if line[0] == "#":
+                    continue
+                lspt = line.split()
+                if len(lspt) == 0:
+                    continue
+                if lspt[0] in extra_file_keys:
+                    self.files.append(lspt[1])
+
+        # initial MOs
+        self.log.info('{:-^60}'.format('Initial restart: MO Guess') + '\n')
+        self.log.info('''Please specify the path to an GAUSSIAN chk file containing suitable starting MOs for the GAUSSIAN calculation. Please note that this script cannot check whether the wavefunction file and the Input template are consistent!
+    ''')
+        self.guess_file = None
+        if question('Do you have a restart file?', bool, KEYSTROKES=KEYSTROKES, default=True):
+            if True:
+                while True:
+                    filename = question('Restart file:', str, KEYSTROKES=KEYSTROKES, default='GAUSSIAN.chk.init')
+                    if os.path.isfile(filename):
+                        self.guess_file = filename
+                        break
+                    else:
+                        self.log.info('Could not find file "%s"!' % (filename))
+
+        # Resources
+        # TODO
+        if question("Do you have a 'GAUSSIAN.resources' file?", bool, KEYSTROKES=KEYSTROKES, default=False):
+            while True:
+                resources_file = question("Specify the path:", str, KEYSTROKES=KEYSTROKES, default="GAUSSIAN.resources")
+                if os.path.isfile(resources_file):
+                    break
+                else:
+                    self.log.info(f"file at {resources_file} does not exist!")
+            self.files.append(resources_file)
+            self.make_resources = False
+        else:
+            self.make_resources = True
+            self.log.info('{:-^60}'.format('GAUSSIAN Ressource usage') + '\n')
+            self.log.info('''Please specify the number of CPUs to be used by EACH calculation.
+        ''')
+            INFOS['ncpu'] = abs(question('Number of CPUs:', int, KEYSTROKES=KEYSTROKES)[0])
+
+            if INFOS['ncpu'] > 1:
+                self.log.info('''Please specify how well your job will parallelize.
+        A value of 0 means that running in parallel will not make the calculation faster, a value of 1 means that the speedup scales perfectly with the number of cores.
+        Typical values for GAUSSIAN are 0.90-0.98.''')
+                INFOS['scaling'] = min(1.0, max(0.0, question('Parallel scaling:', float, default=[0.9], KEYSTROKES=KEYSTROKES)[0]))
+            else:
+                INFOS['scaling'] = 0.9
+
+            INFOS['mem'] = question('Memory (MB):', int, default=[1000], KEYSTROKES=KEYSTROKES)[0]
+
+            # Ionization
+            # self.log.info('\n'+centerstring('Ionization probability by Dyson norms',60,'-')+'\n')
+            # INFOS['ion']=question('Dyson norms?',bool,False)
+            # if INFOS['ion']:
+            if 'overlap' in INFOS['needed_requests']:
+                self.log.info('\n' + '{:-^60}'.format('WFoverlap setup') + '\n')
+                INFOS['wfoverlap'] = question('Path to wavefunction overlap executable:', str, default='$SHARC/wfoverlap.x', KEYSTROKES=KEYSTROKES)
+                self.log.info('')
+                self.log.info('State threshold for choosing determinants to include in the overlaps')
+                self.log.info('For hybrids without TDA one should consider that the eigenvector X may have a norm larger than 1')
+                INFOS['ciothres'] = question('Threshold:', float, default=[0.998], KEYSTROKES=KEYSTROKES)[0]
+                self.log.info('')
+                # TODO not asked: numfrozcore and numocc
+
+                # self.log.info('Please state the number of core orbitals you wish to freeze for the overlaps (recommended to use for at least the 1s orbital and a negative number uses default values)?')
+                # self.log.info('A value of -1 will use the defaults used by GAUSSIAN for a small frozen core and 0 will turn off the use of frozen cores')
+                # INFOS['frozcore_number']=question('How many orbital to freeze?',int,[-1])[0]
+
+
+            # TheoDORE
+            theodore_spelling = ['Om',
+                                 'PRNTO',
+                                 'Z_HE', 'S_HE', 'RMSeh',
+                                 'POSi', 'POSf', 'POS',
+                                 'PRi', 'PRf', 'PR', 'PRh',
+                                 'CT', 'CT2', 'CTnt',
+                                 'MC', 'LC', 'MLCT', 'LMCT', 'LLCT',
+                                 'DEL', 'COH', 'COHh']
+            # INFOS['theodore']=question('TheoDORE analysis?',bool,False)
+            if 'theodore' in INFOS['needed_requests']:
+                self.log.info('\n' + '{:-^60}'.format('Wave function analysis by TheoDORE') + '\n')
+
+                INFOS['theodore'] = question('Path to TheoDORE directory:', str, default='$THEODIR', KEYSTROKES=KEYSTROKES)
+                self.log.info('')
+
+                self.log.info('Please give a list of the properties to calculate by TheoDORE.\nPossible properties:')
+                string = ''
+                for i, p in enumerate(theodore_spelling):
+                    string += '%s ' % (p)
+                    if (i + 1) % 8 == 0:
+                        string += '\n'
+                self.log.info(string)
+                line = question('TheoDORE properties:', str, default='Om  PRNTO  S_HE  Z_HE  RMSeh', KEYSTROKES=KEYSTROKES)
+                if '[' in line:
+                    INFOS['theodore.prop'] = ast.literal_eval(line)
+                else:
+                    INFOS['theodore.prop'] = line.split()
+                self.log.info('')
+
+                self.log.info('Please give a list of the fragments used for TheoDORE analysis.')
+                self.log.info('You can use the list-of-lists from dens_ana.in')
+                self.log.info('Alternatively, enter all atom numbers for one fragment in one line. After defining all fragments, type "end".')
+                INFOS['theodore.frag'] = []
+                while True:
+                    line = question('TheoDORE fragment:', str, default='end', KEYSTROKES=KEYSTROKES)
+                    if 'end' in line.lower():
+                        break
+                    if '[' in line:
+                        try:
+                            INFOS['theodore.frag'] = ast.literal_eval(line)
+                            break
+                        except ValueError:
+                            continue
+                    f = [int(i) for i in line.split()]
+                    INFOS['theodore.frag'].append(f)
+                INFOS['theodore.count'] = len(INFOS['theodore.prop']) + len(INFOS['theodore.frag'])**2
+
         return INFOS
 
     def prepare(self, INFOS: dict, workdir: str):
@@ -213,11 +415,31 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         INFOS: dictionary with infos
         workdir: path to workdir
         """
+        if self.make_resources:
+            try:
+                resources_file = open('%s/GAUSSIAN.resources' % (workdir), 'w')
+            except IOError:
+                self.log.error('IOError during prepareGAUSSIAN, iconddir=%s' % (workdir))
+                quit(1)
+#  project='GAUSSIAN'
+            string = 'groot %s\nscratchdir %s/%s/\nncpu %i\nschedule_scaling %f\n' % (INFOS['groot'], INFOS['scratchdir'], workdir, INFOS['ncpu'], INFOS['scaling'])
+            string += 'memory %i\n' % (INFOS['mem'])
+            if 'overlap' in INFOS['needed_requests']:
+                string += 'wfoverlap %s\nwfthres %f\n' % (INFOS['wfoverlap'], INFOS['ciothres'])
+                # string+='numfrozcore %i\n' %(INFOS['frozcore_number'])
+            if 'theodore' in INFOS['needed_requests']:
+                string += 'theodir %s\n' % (INFOS['gaussian.theodore'])
+                string += 'theodore_prop %s\n' % (INFOS['theodore.prop'])
+                string += 'theodore_fragment %s\n' % (INFOS['theodore.frag'])
+            resources_file.write(string)
+            resources_file.close()
+
+        create_file = link if INFOS["link_files"] else shutil.copy
         for file in self.files:
-            if INFOS["link_files"]:
-                link(file, os.path.join(workdir, file.split("/")[-1]))
-            else:
-                shutil.copy(file, os.path.join(workdir, file.split("/")[-1]))
+            create_file(expand_path(file), os.path.join(workdir, file.split("/")[-1]))
+        if self.guess_file is not None:
+            create_file(expand_path(self.guess_file), "GAUSSIAN.chk.init")
+
 
     def read_requests(self, requests_file: str = "QM.in") -> None:
         super().read_requests(requests_file)
@@ -2052,8 +2274,8 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
 
         # retrieving densities
         constructed_matrices = {}
-        print(self.QMin.control["densjob"])
-        print(self.QMin.requests["density_matrices"])
+        self.log.info(self.QMin.control["densjob"])
+        self.log.info(self.QMin.requests["density_matrices"])
         for job, keys in self.QMin.control["densjob"].items():
             # ===================== PARSING BLOCK ===============================
             # create all necessary FCHKs

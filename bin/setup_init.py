@@ -664,9 +664,9 @@ def writeQMin(INFOS, iconddir):
         if icond == 0:
             string += "step 0\nsavedir ./SAVE/\n"
         else:
-            string += "overlap\ncleanup\nsavedir ./SAVE/\n"
+            string += "overlap\nsavedir ./SAVE/\n"
     else:
-        string += "step 0\ncleanup\n"
+        string += "step 0\n"
 
     if INFOS["soc"]:
         string += "\nSOC\n"
