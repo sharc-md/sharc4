@@ -21,6 +21,7 @@ mol = gto.Mole(
     cart=data["cart_basis"],
     ecp={f'{data["elements"][n]}{n+1}': ecp_string for n, ecp_string in data["ecp"].items()},
 )
+mol.build()
 
 
 def test_fit_ch2s():
