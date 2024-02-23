@@ -13,7 +13,7 @@ from pyscf import gto, df
 from constants import au2a
 from logger import log
 
-np.set_printoptions(threshold=sys.maxsize, linewidth=10000, precision=1, formatter={"float": lambda x: f"{x: 1.0f}"})
+#  np.set_printoptions(threshold=sys.maxsize, linewidth=10000, precision=1, formatter={"float": lambda x: f"{x: 1.0f}"})
 
 
 def get_resp_grid(atom_radii: list[int], coords: np.ndarray, density=1, shells=[1.4, 1.6, 1.8, 2.0], grid="lebedev"):
@@ -71,7 +71,7 @@ class Resp:
         self.R_alpha: np.ndarray = np.full((self.natom, self.ngp, 3), self.mk_grid) - self.coords[:, None, :]  # rA-ri
         self.r_inv: np.ndarray = 1 / np.sqrt(np.sum((self.R_alpha) ** 2, axis=2))  # 1 / |ri-rA|
 
-    def prepare(self, basis, spin, charge, ecps={}, cart_basis=False):
+    def prepare(self, mol: gto.Mole):
         """
         Prepares the gto.Mole object and 3c2e integrals
 
@@ -79,30 +79,10 @@ class Resp:
 
         Parameters
         ----------
-        basis : pyscf basis object
-            the basis of the molecule in the pyscf format
-        spin : int
-            spin of the molecule (does not affect integrals)
-        charge : int
-            charge of the molecule (does not affect the integrals)
-        ecps : dict[int, str]
-            dictionary of with atom index as key and value is the ECP in NWChem format as string
-        cart_basis : bool
-            boolean to switch to cartesian basis
+        mol: gto.Mole
         """
-        atoms = [[f"{s.upper()}{j+1}", c.tolist()] for j, s, c in zip(range(self.natom), self.atom_symbols, self.coords)]
-        mol = gto.Mole(
-            atom=atoms,
-            basis=basis,
-            unit="BOHR",
-            spin=spin,
-            charge=charge,
-            symmetry=False,
-            cart=cart_basis,
-            ecp={f"{self.atom_symbols[n]}{n+1}": ecp_string for n, ecp_string in ecps.items()},
-        )
-        mol.build()
         Z = mol.atom_charges()
+        self.log.trace(f"{self.natom} {Z} {self.r_inv.shape}")
         self.Sao = mol.intor("int1e_ovlp")
         self.Vnuc = np.sum(Z[..., None] * self.r_inv, axis=0)
         fakemol = gto.fakemol_for_charges(self.mk_grid)
@@ -110,7 +90,6 @@ class Resp:
         # NOTE the value of these integrals is not affected by the atom charge
         self.log.info("starting to evaluate integrals")
         self.ints = df.incore.aux_e2(mol, fakemol, intor="int3c2e")
-        self.mol = mol
         self.log.info("done")
 
     def one_shot_fit(self, dm: np.ndarray, include_core_charges: bool, order=2, charge=0, **kwargs):
@@ -272,9 +251,11 @@ class Resp:
     def sequential_multipoles(
         self, dm: np.ndarray, include_core_charges=True, charge=0, order=2, betas=[0.0005, 0.0015, 0.003], **kwargs
     ):
-        self.log.info("Start sequential multipolar fit")
+        # self.log.info("Start sequential multipolar fit")
         if not include_core_charges and charge != 0:
-            self.log.warning("No core charges but charge not set to zero! -> transition densities set 'include_core_charges=False' and 'charge=0'")
+            self.log.warning(
+                "No core charges but charge not set to zero! -> transition densities set 'include_core_charges=False' and 'charge=0'"
+            )
         if not (0 <= order <= 2):
             raise Error("Specify order in the range of 0 - 2")
         natom = self.natom
@@ -285,9 +266,7 @@ class Resp:
         r_inv = self.r_inv
 
         # fit monopoles
-        monopoles, Fres = self.fit(
-            r_inv, Fesp_i, 1, natom, beta=betas[0], charge=charge, weights=self.weights, logger=self.log.debug
-        )
+        monopoles, Fres = self.fit(r_inv, Fesp_i, 1, natom, beta=betas[0], charge=charge, weights=self.weights)
 
         if order == 0:
             return monopoles
@@ -297,7 +276,7 @@ class Resp:
 
         # fit dipoles
         tmp = np.vstack((R_alpha[:, :, 0] * self.r_inv3, R_alpha[:, :, 1] * self.r_inv3, R_alpha[:, :, 2] * self.r_inv3))  # m_A_i
-        dipoles, Fres = self.fit(tmp, Fres, 3, natom, beta=betas[1], weights=self.weights, charge=None, logger=self.log.debug)
+        dipoles, Fres = self.fit(tmp, Fres, 3, natom, beta=betas[1], weights=self.weights, charge=None)
 
         if order == 1:
             return np.hstack((monopoles, dipoles))
@@ -316,23 +295,21 @@ class Resp:
             )
         )  # m_A_i
 
-        quadrupoles, Fres = self.fit(
-            tmp, Fres, 6, natom, beta=betas[2], charge=None, weights=self.weights, traceless_quad=True, logger=self.log.debug
-        )
+        quadrupoles, Fres = self.fit(tmp, Fres, 6, natom, beta=betas[2], charge=None, weights=self.weights, traceless_quad=True)
 
-        self.log.info(
-            f"Fit done!\tMEAN: {np.mean(Fres): 10.6e}\t ABS.MEAN: {np.mean(np.abs(Fres)): 10.6e}\tRMSD: {np.sqrt(np.mean(Fres**2)): 10.8e}"
-        )
-        if self.generate_raw_fit_file:
-            filename = kwargs["resp_data_file"] if "resp_data_file" in kwargs else "RESP_fit_data.txt"
-            dist = np.min(np.linalg.norm(R_alpha, axis=2), axis=0)
-            self.log.info(f"generating file with ESP data [{filename}]! [num ref_esp fit_esp dist x y z]")
-            with open(filename, "w") as f:
-                f.write(f"# {'num [AU]':<9s}  {'ref_esp':<12s} {'fit_esp':<12s} {'dist':<12s} {'x':<12s} {'y':<12s} {'z':<12s}\n")
-                for i, vals in enumerate(
-                    zip(Fesp_i, Fesp_i - Fres, dist, self.mk_grid[:, 0], self.mk_grid[:, 1], self.mk_grid[:, 2])
-                ):
-                    f.write(f"{i:5d}      " + " ".join(map(lambda x: f"{x: 12.8f}", vals)) + "\n")
+        # self.log.info(
+        # f"Fit done!\tMEAN: {np.mean(Fres): 10.6e}\t ABS.MEAN: {np.mean(np.abs(Fres)): 10.6e}\tRMSD: {np.sqrt(np.mean(Fres**2)): 10.8e}"
+        # )
+        # if self.generate_raw_fit_file:
+        # filename = kwargs["resp_data_file"] if "resp_data_file" in kwargs else "RESP_fit_data.txt"
+        # dist = np.min(np.linalg.norm(R_alpha, axis=2), axis=0)
+        # self.log.info(f"generating file with ESP data [{filename}]! [num ref_esp fit_esp dist x y z]")
+        # with open(filename, "w") as f:
+        # f.write(f"# {'num [AU]':<9s}  {'ref_esp':<12s} {'fit_esp':<12s} {'dist':<12s} {'x':<12s} {'y':<12s} {'z':<12s}\n")
+        # for i, vals in enumerate(
+        # zip(Fesp_i, Fesp_i - Fres, dist, self.mk_grid[:, 0], self.mk_grid[:, 1], self.mk_grid[:, 2])
+        # ):
+        # f.write(f"{i:5d}      " + " ".join(map(lambda x: f"{x: 12.8f}", vals)) + "\n")
 
         return np.hstack((monopoles, dipoles, quadrupoles))
 

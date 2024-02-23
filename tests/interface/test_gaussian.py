@@ -98,6 +98,7 @@ def test_schedule():
                     "neglected_gradient": "zero",
                     "dry_run": False,
                     "debug": False,
+                    "min_cpu": 1,
                 },
                 "maps": {
                     "statemap": {
@@ -187,6 +188,7 @@ def test_schedule():
                     "neglected_gradient": "zero",
                     "dry_run": False,
                     "debug": False,
+                    "min_cpu": 1,
                 },
                 "maps": {
                     "statemap": {
@@ -278,6 +280,7 @@ def test_schedule():
                     "neglected_gradient": "zero",
                     "dry_run": False,
                     "debug": False,
+                    "min_cpu": 1,
                 },
                 "maps": {
                     "statemap": {
@@ -367,6 +370,7 @@ def test_schedule():
                     "neglected_gradient": "zero",
                     "dry_run": False,
                     "debug": False,
+                    "min_cpu": 1,
                 },
                 "maps": {
                     "statemap": {
@@ -456,6 +460,7 @@ def test_schedule():
                     "neglected_gradient": "zero",
                     "dry_run": False,
                     "debug": False,
+                    "min_cpu": 1,
                 },
                 "maps": {
                     "statemap": {
@@ -485,4 +490,6 @@ def test_schedule():
     for job_ref, job in zip(ref_schedule, gaussian.QMin.scheduling["schedule"]):
         for key in job_ref.keys():
             for subk in ["control", "molecule", "resources", "maps"]:
-                assert f"{job_ref[key][subk]}" == f"{job[key][subk].data}"
+                for k, v in job_ref[key][subk].items():
+                    assert k in job[key][subk].data
+                    assert f"{v}" == f"{job[key][subk][k]}"

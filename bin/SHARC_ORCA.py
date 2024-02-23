@@ -78,28 +78,10 @@ class SHARC_ORCA(SHARC_ABINITIO):
 
         # Add resource keys
         self.QMin.resources.update(
-            {
-                "orcadir": None,
-                "orcaversion": None,
-                "numfrozcore": -1,
-                "numocc": None,
-                "schedule_scaling": 0.9,
-                "savedir": None,
-                "always_orb_init": False,
-                "always_guess": False,
-            }
+            {"orcadir": None, "orcaversion": None, "numfrozcore": -1, "numocc": None, "schedule_scaling": 0.9, "dry_run": False}
         )
         self.QMin.resources.types.update(
-            {
-                "orcadir": str,
-                "orcaversion": tuple,
-                "numfrozcore": int,
-                "numocc": int,
-                "schedule_scaling": float,
-                "savedir": str,
-                "always_orb_init": bool,
-                "always_guess": bool,
-            }
+            {"orcadir": str, "orcaversion": tuple, "numfrozcore": int, "numocc": int, "schedule_scaling": float, "dry_run": bool}
         )
 
         # Add template keys
@@ -275,12 +257,12 @@ class SHARC_ORCA(SHARC_ABINITIO):
         qmin:       QMin object
         workdir:    Current working directory
         """
-        if not qmin.resources["always_guess"]:
+        if not qmin.save["always_guess"]:
             self.log.debug("Copy ORCA.gbw to work directory")
             gbw_file = None
             if qmin.control["jobid"] in qmin.control["initorbs"]:
                 gbw_file = qmin.control["initorbs"][qmin.control["jobid"]]
-            elif not qmin.resources["always_orb_init"]:
+            elif not qmin.save["always_orb_init"]:
                 gbw_file = os.path.join(qmin.save["savedir"], f"ORCA.gbw.{qmin.control['jobid']}.{qmin.save['step']}")
                 if not os.path.isfile(gbw_file):
                     gbw_file = os.path.join(qmin.save["savedir"], f"ORCA.gbw.{qmin.control['jobid']}.{qmin.save['step']-1}")
@@ -857,6 +839,15 @@ class SHARC_ORCA(SHARC_ABINITIO):
         super()._set_request(*args, **kwargs)
         self.QMin.requests["h"] = True
 
+        if self.QMin.requests["soc"]:
+            if (
+                len(self.QMin.molecule["states"]) < 3
+                or (self.QMin.molecule["states"][0] == 0 and self.QMin.molecule["states"][2] <= 1)
+                or (self.QMin.molecule["states"][0] > 0 and self.QMin.molecule["states"][2] == 0)
+            ):
+                self.log.warning("SOCs requested but only 1 multiplicity given! Disable SOCs")
+                self.QMin.requests["soc"] = False
+
     def read_resources(self, resources_file: str = "ORCA.resources", kw_whitelist: Optional[list[str]] = None) -> None:
         if kw_whitelist is None:
             kw_whitelist = []
@@ -938,7 +929,8 @@ class SHARC_ORCA(SHARC_ABINITIO):
         self._gen_schedule()
 
         self.log.debug("Execute schedule")
-        self.runjobs(self.QMin.scheduling["schedule"])
+        if not self.QMin.resources["dry_run"]:
+            self.runjobs(self.QMin.scheduling["schedule"])
 
         # Run theodore
         if self.QMin.requests["theodore"]:
@@ -1394,6 +1386,167 @@ class SHARC_ORCA(SHARC_ABINITIO):
         return string
 
     @staticmethod
+    def getDyson(out, s1, s2):
+        ilines = -1
+        while True:
+            ilines += 1
+            if ilines == len(out):
+                raise Error('Dyson norm of states %i - %i not found!' % (s1, s2), 104)
+            if containsstring('Dyson norm matrix <PsiA_i|PsiB_j>', out[ilines]):
+                break
+        ilines += 1 + s1
+        f = out[ilines].split()
+        return float(f[s2 + 1])
+
+    # ======================================================================= #
+
+    @staticmethod
+    def get_basis(json_file: str) -> dict[str,list]:
+        """
+        Return basis set from orca_2json
+            Args:   json_file: Path to orca_2json output
+        """
+
+        with open(json_file, "r", encoding="utf-8") as file:
+            orca_json = json.load(file)
+        orca_atom_info = orca_json["Molecule"]["Atoms"]
+
+        pyscf_basis = {}
+        atoms = ''
+        atom_symbols = []
+        for ia, a_info in enumerate(orca_atom_info):
+            label = a_info["ElementLabel"]
+            atom_symbols.append(label)
+            atoms += f"{label}{ia+1} "
+            for c in a_info["Coords"]:
+                atoms += f"{c: f} "
+            atoms += ";"
+            basis = []
+            if label in pyscf_basis:
+                continue
+            for bf in a_info["BasisFunctions"]:
+                e = bf["Exponents"]
+                c = bf["Coefficients"]
+                basis.append([ORCA._n2l[bf["Shell"]], *zip(e, c)])
+            pyscf_basis[f"{label}{ia+1}"] = basis
+
+        return pyscf_basis
+    
+    @staticmethod
+    def _get_basis(json_dict: dict[str, list]) -> dict[str,list]:
+        """
+        Return basis set from orca_2json
+            Args:   json_dict: orca_2json dictionary
+        """
+        orca_atom_info = json_dict["Molecule"]["Atoms"]
+
+        pyscf_basis = {}
+        atoms = ''
+        atom_symbols = []
+        for ia, a_info in enumerate(orca_atom_info):
+            label = a_info["ElementLabel"]
+            atom_symbols.append(label)
+            atoms += f"{label}{ia+1} "
+            for c in a_info["Coords"]:
+                atoms += f"{c: f} "
+            atoms += ";"
+            basis = []
+            if label in pyscf_basis:
+                continue
+            for bf in a_info["BasisFunctions"]:
+                e = bf["Exponents"]
+                c = bf["Coefficients"]
+                basis.append([ORCA._n2l[bf["Shell"]], *zip(e, c)])
+            pyscf_basis[f"{label}{ia+1}"] = basis
+
+        return pyscf_basis
+    
+    @staticmethod
+    def get_pyscf_order_from_orca(atom_symbols: list[str], basis_dict: dict[str, list[int, tuple]]) -> list[int]:
+        """
+        Generates the reorder list to reorder atomic orbitals (from ORCA) to pyscf.
+
+        Sources:
+        ORCA: https://orcaforum.kofo.mpg.de/viewtopic.php?f=8&p=23158&t=5433&sid=f41177ec0888075a3b1e7fa438b77bd2
+        pyscf:  https://pyscf.org/user/gto.html#ordering-of-basis-function
+
+        Parameters
+        ----------
+        atom_symbols : list[str]
+            list of element symbols for all atoms (same order as AOs)
+        basis_dict : dict[str, list]
+            basis set for each atom in pyscf format
+        """
+        #  return matrix
+
+        # in the case of P(S=P) coefficients the order is 1S, 2S, 2Px, 2Py, 2Pz, 3S in gaussian and pyscf
+        # from orca order: z, x, y
+        # to  pyscf order: x, y, z
+        p_order = [1, 2, 0]
+        np = 3
+
+        # from orca order: z2, xz, yz, x2-y2, xy
+        # to  pyscf order: xy, yz, z2, xz, x2-y2
+        d_order = [4, 2, 0, 1, 3]
+        nd = 5
+
+        # F shells spherical:
+        # orca  order: zzz, xzz, yzz, xxz-yyz, xyz, xxx-xyy, xxy
+        # pyscf order: xxy, xyz, yzz, zzz, xzz, xxz-yyz, xxx-xyy
+        f_order = [6, 4, 2, 0, 1, 3, 5]
+        nf = 7
+
+        # compile the new_order for the whole matrix
+        new_order = []
+        it = 0
+        for i, a in enumerate(atom_symbols):
+            key = f'{a}{i+1}'
+            #       s  p  d  f
+            n_bf = [0, 0, 0, 0]
+
+            # count the shells for each angular momentun
+            for shell in basis_dict[key]:
+                n_bf[shell[0]] += 1
+
+            s, p = n_bf[0:2]
+            new_order.extend([it + n for n in range(s)])
+
+            it += s
+            assert it == len(new_order)
+
+            # do p shells
+            for x in range(p):
+                new_order.extend([it + n for n in p_order])
+                it += np
+
+            # do d shells
+            for x in range(n_bf[2]):
+                new_order.extend([it + n for n in d_order])
+                it += nd
+
+            # do f shells
+            for x in range(n_bf[3]):
+                new_order.extend([it + n for n in f_order])
+                it += nf
+            assert it == len(new_order)
+
+        return new_order
+    
+    @staticmethod
+    def get_dens_matrices(json_file: str) -> tuple[np.ndarray, np.ndarray]:
+        with open(json_file, "r", encoding="utf-8") as file:
+            orca_json = json.load(file)
+        dens_relaxed, dens_unrelaxed = np.array(orca_json["Molecule"]["Densities"]["cisp"]), np.array(orca_json["Molecule"]["Densities"]["scfp"])
+
+        atom_symbols = [at["ElementLabel"] for at in orca_json["Molecule"]["Atoms"]]
+        basis = ORCA._get_basis(orca_json)
+        new_order = ORCA.get_pyscf_order_from_orca(atom_symbols, basis)
+        dens_relaxed = dens_relaxed[new_order, :][:, new_order]
+        dens_unrelaxed = dens_unrelaxed[new_order, :][:, new_order]
+
+        return (dens_relaxed, dens_unrelaxed)
+
+
     def get_orca_version(path: str) -> tuple[int, ...]:
         """
         Get ORCA version number of given path
@@ -1408,6 +1561,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
 
     def dyson_orbitals_with_other(self, other):
         pass
+
 
 if __name__ == "__main__":
     SHARC_ORCA(loglevel=10).main()

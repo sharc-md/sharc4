@@ -1,0 +1,9 @@
+basis cc-pvdz
+baslib ./basisset
+nactel 8
+ras2 6
+inactive 5
+roots 4 2 3
+rootpad 1 0 0
+iterations               200 100
+method caspt2

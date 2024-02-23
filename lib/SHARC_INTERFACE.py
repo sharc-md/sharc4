@@ -36,15 +36,16 @@ from io import TextIOWrapper
 from socket import gethostname
 from textwrap import wrap
 from typing import Any
+from dataclasses import dataclass
 
 import numpy as np
 
 # internal
 from constants import ATOMCHARGE, BOHR_TO_ANG, FROZENS
-from logger import SHARCPRINT, CustomFormatter, logging
+from logger import SHARCPRINT, TRACE, CustomFormatter, logging
 from qmin import QMin
 from qmout import QMout
-from utils import clock, expand_path, itnmstates, parse_xyz, readfile, writefile
+from utils import clock, expand_path, itnmstates, parse_xyz, readfile, writefile, electronic_state
 
 np.set_printoptions(linewidth=400, formatter={"float": lambda x: f"{x: 9.7}"})
 all_features = {
@@ -82,6 +83,8 @@ class SHARC_INTERFACE(ABC):
     _setup_mol = False
     _read_resources = False
     _read_template = False
+    _states = None
+    density_recipes = None
     _DEBUG = False
     _PRINT = True
 
@@ -93,13 +96,14 @@ class SHARC_INTERFACE(ABC):
         persistent=False,
         logname: str | None = None,
         logfile: str | None = None,
-        loglevel: int = logging.INFO,
+        loglevel: int = logging.root.level,
     ):
         # all the output from the calculation will be stored here
         self.QMout = QMout()
         self.clock = clock()
         self.persistent = persistent
         self.QMin = QMin()
+        self.density_recipes = {}
         self._setsave = False
 
         logname = logname if isinstance(logname, str) else self.name()
@@ -117,6 +121,7 @@ class SHARC_INTERFACE(ABC):
 
         self.log.addHandler(hdlr)
         self.log.print = self.sharcprint
+        self.log.trace = self.trace
 
     def sharcprint(self, msg, *args, **kwargs):
         """
@@ -126,6 +131,19 @@ class SHARC_INTERFACE(ABC):
         a true value, e.g.
         """
         self.log.log(SHARCPRINT, msg, *args, **kwargs)
+
+    def trace(self, msg, *args, format=True, **kwargs):
+        """
+        Log 'msg % args' with severity 'SHARCPRINT'.
+
+        use to log extensive runtime information (this is even lower than DEBUG)
+
+        To pass exception information, use the keyword argument exc_info with
+        a true value, e.g.
+        """
+        if not format:
+            kwargs.update({"extra": {"simple": True}})
+        self.log.log(TRACE, msg, *args, **kwargs)
 
     @staticmethod
     @abstractmethod
@@ -296,6 +314,20 @@ class SHARC_INTERFACE(ABC):
         self.QMin.template.update(self._parse_raw(template_file, self.QMin.template.types, kw_whitelist))
 
         self._read_template = True
+        if "charge" not in self.QMin.template or self.QMin.template["charge"] is None:
+            charge = [i % 2 for i in range(len(self.QMin.molecule['states']))]
+        else:
+            charge = self.QMin.template["charge"]
+        
+        # Start TOMI
+        self.states = []
+        for S, nstates in enumerate(self.QMin.molecule['states']):
+            c = charge[S]
+            for N in range(nstates):
+                for M in range(-S, S + 1, 2):
+                    self.states.append(electronic_state( Z=c, S=S, M=M, N=N+1, C={} ) )  # This is the moment in which states get their pointers
+        # End TOMI
+        
 
     @staticmethod
     def clean_savedir(path: str, retain: int, step: int) -> None:
@@ -325,12 +357,13 @@ class SHARC_INTERFACE(ABC):
         Return QMout object
         """
 
-    @abstractmethod
-    def dyson_orbitals_with_other(self,other):
-        """
-        Calculates Dyson orbitals between self and other.
-        Presumably it will be implemented in SHARC_ABINITIO subclass and in each individual FAST or HYBRID interface
-        """
+    #@abstractmethod
+    #def dyson_orbitals_with_other(self,other):
+    #    """
+    #    Calculates Dyson orbitals between self and other.
+    #    Presumably it will be implemented in SHARC_ABINITIO subclass and in each individual FAST or HYBRID interface
+    #    """
+
     @abstractmethod
     def create_restart_files(self) -> None:
         """
@@ -382,7 +415,8 @@ class SHARC_INTERFACE(ABC):
 
         self.QMin.molecule["elements"] = list(map(lambda x: parse_xyz(x)[0], (qmin_lines[2 : natom + 2])))
         self.QMin.molecule["Atomcharge"] = sum(map(lambda x: ATOMCHARGE[x], self.QMin.molecule["elements"]))
-        self.QMin.molecule["frozcore"] = sum(map(lambda x: FROZENS[x], self.QMin.molecule["elements"]))
+        # self.QMin.molecule["frozcore"] = sum(map(lambda x: FROZENS[x], self.QMin.molecule["elements"]))
+        self.QMin.molecule["frozcore"] = 0
         self.QMin.molecule["natom"] = len(self.QMin.molecule["elements"])
 
         # replaces all comments with white space. filters all empty lines
@@ -408,6 +442,7 @@ class SHARC_INTERFACE(ABC):
                 self.QMin.molecule["nstates"] = states_dict["nstates"]
                 self.QMin.molecule["nmstates"] = states_dict["nmstates"]
                 self.QMin.molecule["states"] = states_dict["states"]
+
             elif key == "unit":
                 unit = llist[1].strip().lower()
                 if unit in ["bohr", "angstrom"]:
@@ -533,7 +568,11 @@ class SHARC_INTERFACE(ABC):
                 )
                 break
 
-        raw_dict = self._parse_raw(resources_file, self.QMin.resources.types, kw_whitelist)
+        raw_dict = self._parse_raw(
+            resources_file,
+            {**self.QMin.resources.types, "savedir": str, "always_guess": bool, "always_orb_init": bool},
+            kw_whitelist,
+        )
 
         if "savedir" in raw_dict:
             if not self._setsave:
@@ -544,6 +583,12 @@ class SHARC_INTERFACE(ABC):
             else:
                 self.log.info("SAVEDIR is already set and will not be overwritten!")
             del raw_dict["savedir"]
+        if "always_guess" in raw_dict:
+            self.QMin.save["always_guess"] = True
+            del raw_dict["always_guess"]
+        if "always_orb_init" in raw_dict:
+            self.QMin.save["always_orb_init"] = True
+            del raw_dict["always_orb_init"]
         self.QMin.resources.update(raw_dict)
 
         self._read_resources = True
@@ -603,6 +648,8 @@ class SHARC_INTERFACE(ABC):
 
                 case [key, val] if key in types_dict:
                     key_type = types_dict[key]
+                    if isinstance(key_type, tuple):
+                        key_type, _ = key_type
                     if key_type is list:
                         if key not in out_dict or key not in kw_whitelist:
                             out_dict[key] = []
@@ -813,12 +860,8 @@ class SHARC_INTERFACE(ABC):
                 case ["density_matrices" | "multipolar_fit", value]:
                     self.QMin.requests[req] = value
                 case ["soc", None]:
-                    if (
-                        len(self.QMin.molecule["states"]) < 3
-                        or (self.QMin.molecule["states"][0] == 0 and self.QMin.molecule["states"][2] <= 1)
-                        or (self.QMin.molecule["states"][0] > 0 and self.QMin.molecule["states"][2] == 0)
-                    ):
-                        self.log.warning("SOCs requested but only 1 multiplicity given! Disable SOCs")
+                    if len(self.QMin.molecule["states"]) < 2:
+                        self.log.warning("SOCs requested but only singlets given! Disable SOCs")
                         return
                     self.QMin.requests["soc"] = True
                     self.QMin.requests["h"] = True
@@ -899,3 +942,6 @@ class SHARC_INTERFACE(ABC):
         lines[4:5] = wrap(lines[4], width=70)
         lines[1:-1] = map(lambda s: "||{:^76}||".format(s), lines[1:-1])
         self.log.info("\n".join(lines))
+
+
+

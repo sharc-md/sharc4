@@ -10,7 +10,7 @@ from error import Error, exception_hook
 import subprocess as sp
 from globals import DEBUG, PRINT
 from logger import log as logging
-from typing import Any, Callable
+from typing import Optional, Any
 
 
 class InDir:
@@ -466,9 +466,10 @@ def itnmstates(states: list[int]):
 # ======================================= Matrix initialization ================================= #
 # =============================================================================================== #
 # =============================================================================================== #
-def triangular_to_full_matrix(triangular_array: np.ndarray, num_basis_func: int):
+def triangular_to_full_matrix(triangular_array: np.ndarray, num_basis_func: int, triangular="lower"):
+    assert triangular in ["lower", "upper"]
     tril = np.zeros((num_basis_func, num_basis_func))
-    idx = np.tril_indices(num_basis_func)
+    idx = np.tril_indices(num_basis_func) if triangular == "lower" else np.triu_indices(num_basis_func)
     tril[idx] = triangular_array
     matrix = tril.T + tril
     np.fill_diagonal(matrix, np.diag(tril))
@@ -709,3 +710,45 @@ def get_rot(theta: float, axis: int) -> np.ndarray:
     else:
         R[:-1, :-1] = np.array(((c, -s), (s, c)))
     return R
+
+
+@dataclass
+class electronic_state:
+    """
+    class to store electronic state information
+
+    Properties:
+    ---
+    Z: int  Charge of the state
+    S: int  Two times S quantum number (so that it is always integer), 0 for singlets, 1 for doublets, 2 for triplets etc.
+    M: int  Two times M_S quantum number (so that it is always integer)
+    N: int  Ordinal number of the state for its S, starting from 1
+    C: dict  Anyone can add any comment about the state as an item here. Not used in hashing or comparing of electronic_state instance(s).
+    """
+
+    Z: int
+    S: int
+    M: int
+    N: int
+    C: Optional[dict] = None
+
+    def __eq__(self, other):
+        # The 'equal' operator is overloaded with the function that compares
+        # only Z, S and N (not M). Comparison of 'full' electronic states
+        # is not implemetented and it is supposed to be done by reference comparison
+        # e.g. 'if state1 is state2:'
+        return self.Z == other.Z and self.S == other.S and self.N == other.N
+
+    def __gt__(self, other):
+        return self.S > other.S or self.N > other.N or self.M > other.M
+
+    def __lt__(self, other):
+        return self.S < other.S or self.N < other.N or self.M < other.M
+
+    def __hash__(self):
+        return f"{self.Z} {self.S} {self.N} {self.M}".__hash__()
+
+    def __repr__(self):
+        string = f"Z={self.Z} S={self.S/2} M={self.M/2} N={self.N}"
+        string = "{:<25}".format(string)
+        return string

@@ -1,5 +1,5 @@
 import math
-from copy import deepcopy
+from itertools import chain
 
 import numpy as np
 from constants import IToMult, IToPol
@@ -7,6 +7,8 @@ from numpy import ndarray
 from printing import formatcomplexmatrix, formatgrad
 from utils import eformat, itnmstates, writefile
 from logger import log
+import pyscf
+from utils import electronic_state
 
 
 class QMout:
@@ -26,6 +28,7 @@ class QMout:
     runtime: int
     notes: dict[str, str]
     states: list[int]
+    charges: list[int]
     h: ndarray[complex, 2]
     dm: ndarray[float, 3]
     grad: ndarray[float, 3]
@@ -42,8 +45,11 @@ class QMout:
     dmdr: ndarray[float, 5]
     dmdr_pc: ndarray[float, 5]
     multipolar_fit: ndarray[float, 4]
+    density_matrices: dict
+    mol: pyscf.gto.Mole 
+    #dyson_orbitals: dict[tuple(electronic_state,electronic_state,str), ndarray[float,1] ]
 
-    def __init__(self, filepath=None, states: list[int] =None, natom: int =None, npc: int=None):
+    def __init__(self, filepath=None, states: list[int] =None, natom: int =None, npc: int=None, charges: list[int]=None):
         self.prop0d = []
         self.prop1d = []
         self.prop2d = []
@@ -136,7 +142,7 @@ class QMout:
                             (3, self.nmstates, self.nmstates, self.npc, 3),
                         )
                     case 22: # multipolar_fit
-                        self.multipolar_fit, iline = QMout.get_quantity(data, iline, float, (self.nmstates, self.nmstates, self.natom, 10))
+                        self.multipolar_fit, iline = QMout.get_multipoles(data, iline, charges)
                         if data[iline].find("settings") != -1:
                             self.notes["multipolar_fit"] = data[iline][data[iline].find("settings"):-1]
                     case 23: # prop0d
@@ -148,6 +154,7 @@ class QMout:
                     case 8: # runtime
                         self.runtime, iline = QMout.get_quantity(data, iline, float, ())
                     case _:
+                        iline += 1
                         log.warning(f"Warning!: property with flag {flag} not yet implemented in QMout class")
 
     @staticmethod
@@ -244,7 +251,7 @@ class QMout:
                             elif type == float:
                                 result[iblock, irow, :] = np.array([float(line[i]) for i in range(shape[4])])
                         iline += 1 + shape[3]
-        if len(shape) in [3,4,5]:
+        if len(shape) in [3, 4, 5]:
             iline -= 1
         return result, iline
 
@@ -261,6 +268,26 @@ class QMout:
             iline += 1 + shape[0]
         result = [(keys[i], res[i]) for i in range(num)]
         return result, iline - 1
+
+    @staticmethod
+    def get_multipoles(data, iline, charges):
+        res = {}
+        shape = [int(s) for s in data[iline].split()[-1][1:-1].split("x")]
+        iline += 1
+        for i in range(shape[0]):
+            tmp = data[iline].split()
+            y, z, m1, s1, ms1, m2, s2, ms2 = int(tmp[0]), int(tmp[1]), int(tmp[4]), int(tmp[6]), float(tmp[8]), int(tmp[10]), int(tmp[12]), float(tmp[14])
+            if y != shape[1] or z != shape[2]:
+                log.error(f"shapes do not match {shape} vs {shape[0]}x{y}x{z}")
+                raise ValueError()
+            s1 = electronic_state(Z=charges[m1], S=m1, M=ms1, N=s1)
+            s2 = electronic_state(Z=charges[m2], S=m2, M=ms2, N=s2)
+            res[(s1, s2)] = np.fromiter(chain(*map(lambda x: map(float, x.split()), data[iline + 1: iline + 1 + y])), dtype=float,
+                                        count=y*z).reshape((y,z))
+            iline += y + 1
+        return res, iline
+
+
 
     def allocate(self, states=[], natom=0, npc=0, requests: set[str] = set()):
         self.nmstates = sum((i + 1) * n for i, n in enumerate(states))
@@ -301,6 +328,10 @@ class QMout:
                 self.dmdr_pc = np.zeros((3, self.nmstates, self.nmstates, npc, 3), dtype=float)
         if "multipolar_fit" in requests:
             self.multipolar_fit = np.zeros((self.nmstates, self.nmstates, natom, 10), dtype=float)
+        if "density_matrices" in requests:
+            self.density_matrices = {}
+        self.mol = None 
+
 
     def __getitem__(self, key):
         if key in self.__dict__:
@@ -380,6 +411,13 @@ class QMout:
             string += self.writeQmoutPhases()
         if requests["multipolar_fit"]:
             string += self.writeQMoutmultipolarfit()
+        if requests["density_matrices"]:
+            string += self.writeQMoutDensityMatrices()
+        if requests["dyson_orbitals"]:
+            string += self.writeQMoutDysonOrbitals()
+        if requests["basis_set"]:
+            string += self.writeQMoutBasisSet()
+
         if self.notes:
             string += self.writeQMoutnotes()
         string += self.writeQMouttime()
@@ -964,6 +1002,48 @@ class QMout:
 
     # ======================================================================= #
 
+    # Start TOMI
+    def writeQMoutDensityMatrices(self) -> str:
+        nao = self.mol.nao
+        setting_str = ""
+        if "density_matrices" in self.notes:
+            setting_str = self.notes["density_matrices"]
+        nrho = len(self.density_matrices.values())
+        string = (
+            f"! 24 Total/Spin/Partial 1-particle density matrices in AO-product basis ({nao}x{nao}x{nrho}) {setting_str}\n"
+        )
+        for key, rho in self.density_matrices.items():
+            s1, s2, spin = key
+            string += f"<S1 = {s1.S/2: 3.1f}, MS1 = {s1.M/2: 3.1f}, N1 = {s1.N}| {spin} | S2 = {s2.S/2: 3.1f}, MS2 = {s2.M/2: 3.1f}, N2 = {s2.N}> \n"
+            for i in range(nao):
+                string += ' '.join( [ f"{float(rho[i,j]): 15.12f}" for j in range(nao) ] )
+                string += "\n"
+        return string
+
+    def writeQMoutBasisSet(self) -> str:
+        string = (
+            f"! 25 Basis set in the PySCF format (dict, 1 line)\n"
+        )
+        string += str(self.mol.basis)+'\n'
+        return string 
+
+    def writeQMoutDysonOrbitals(self) -> str:
+        setting_str = ""
+        if "dyson_orbitals" in self.notes:
+            setting_str = self.notes["dyson_orbitals"]
+        nphi = len(self.dyson_orbitals.values())
+        nao = self.mol.nbas
+        string = (
+            f"! 25 Dyson orbitals in AO basis ({nao}x{nao}x{nphi}) {setting_str}\n"
+        )
+        for key, rho in self.density_matrices.items():
+            s1, s2, spin = key
+            string += f"{nao}x{nao} ! S1 = {s1.S/2: 3.1f}, MS1 = {s1.M/2: 3.1f}, N1 = {s1.N}; S2 = {s2.S/2: 3.1f}, MS2 = {s2.M/2: 3.1f}, N2 = {s2.N}; {spin} \n"
+            for i in range(nao):
+                string += ' '.join( [ "{rho[i,j]: 15.12f}" for j in range(nao) ] )
+                string += "\n"
+        return string
+
     def writeQMoutmultipolarfit(self) -> str:
         """Generates a string with the fitted RESP charges for each pair of states specified.
 
@@ -981,25 +1061,26 @@ class QMout:
         setting_str = ""
         if "multipolar_fit" in self.notes:
             setting_str = self.notes["multipolar_fit"]
+        sorted_states = sorted(self.multipolar_fit.keys(), key=lambda x: (x[0].S, x[0].N, x[0].M, x[1].S, x[1].N, x[1].M))
         string = (
-            f"! 22 Atomwise multipolar density representation fits for states ({nmstates}x{nmstates}x{natom}x10) {setting_str}\n"
+            f"! 22 Atomwise multipolar density representation fits for states ({len(sorted_states)}x{natom}x10) {setting_str}\n"
         )
 
-        for imult, istate, ims in itnmstates(states):
-            for jmult, jstate, jms in itnmstates(states):
-                string += f"{natom} 10 ! m1 {imult} s1 {istate} ms1 {ims: 3.1f}   m2 {jmult} s2 {jstate} ms2 {jms: 3.1f}\n"
-                key = (imult, istate, ims, jmult, jstate, jms)
-                val = self.multipolar_fit[key] if key in self.multipolar_fit else np.zeros((natom, 10), dtype=float)
-                string += (
-                    "\n".join(
-                        map(
-                            lambda x: " ".join(map(lambda y: "{: 10.8f}".format(y), x)),
-                            val,
-                        )
+        for (s1, s2) in sorted_states:
+            val = self.multipolar_fit[(s1, s2)]
+            istate, imult, ims = s1.N, s1.S, s1.M
+            jstate, jmult, jms = s2.N, s2.S, s2.M
+
+            string += f"{natom} 10 ! m1 {imult} s1 {istate} ms1 {ims: 3.1f}   m2 {jmult} s2 {jstate} ms2 {jms: 3.1f}\n"
+            string += (
+                "\n".join(
+                    map(
+                        lambda x: " ".join(map(lambda y: "{: 10.8f}".format(y), x)),
+                        val,
                     )
-                    + "\n"
                 )
-            string += ""
+                + "\n"
+            )
         string += "\n"
         return string
 
@@ -1023,10 +1104,7 @@ class QMout:
         if QMin.requests["h"] or QMin.requests["soc"]:
             eshift = math.ceil(self["h"][0][0].real)
             string += "=> Hamiltonian Matrix:\nDiagonal Shift: %9.2f\n" % (eshift)
-            matrix = deepcopy(self["h"])
-            for i in range(nmstates):
-                matrix[i][i] -= eshift
-            string += formatcomplexmatrix(matrix, states)
+            string += formatcomplexmatrix(self.h - eshift, states)
             string += "\n"
         # Dipole moment matrices
         if QMin.requests["dm"]:
@@ -1143,13 +1221,15 @@ class QMout:
         # Multipolar fit
         if QMin.requests["multipolar_fit"]:
             string += "=> Multipolar fit:\n\n"
-            for (imult, istate, ims, jmult, jstate, jms), val in self["multipolar_fit"].items():
+            for (s1, s2), val in self["multipolar_fit"].items():
+                istate, imult, ims = s1.N, s1.S, s1.M
+                jstate, jmult, jms = s2.N, s2.S, s2.M
                 if imult == jmult and ims == jms:
                     string += "%s\t%i\tMs= % .1f -- %s\t%i\tMs= % .1f:\n" % (
-                        IToMult[imult],
+                        IToMult[imult + 1],
                         istate,
                         ims,
-                        IToMult[jmult],
+                        IToMult[jmult + 1],
                         jstate,
                         jms,
                     )

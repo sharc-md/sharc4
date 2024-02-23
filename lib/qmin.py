@@ -1,6 +1,7 @@
 import os
 from collections import UserDict
 from copy import deepcopy
+from pyscf import gto
 
 import numpy as np
 
@@ -29,6 +30,27 @@ class QMinBase(UserDict):
     def __str__(self) -> str:
         return "".join(f"{k}: {v}\n" for k, v in self.data.items())
 
+    def __deepcopy__(self, memo):
+        qmin_copy = self.__class__()
+        memo[id(self)] = qmin_copy
+        for k in self.data.keys():
+            k_type = type(self.data[k])
+            if self.data[k] is None:
+                qmin_copy.types[k] = self.types[k]
+                qmin_copy.data[k] = None
+                continue
+            qmin_copy.types[k] = k_type
+            match k_type.__name__:  # returns the simple name of a type -> list[int] = 'list'
+                case "int" | "float" | "bool" | "str":  # immutable data types (ref changes upon change)
+                    qmin_copy.data[k] = self.data[k]
+                case "list" | "dict" | "tuple":
+                    qmin_copy.data[k] = deepcopy(self.data[k], memo)
+                case "ndarray" | "Mole":  # use defined copy functions for these types
+                    qmin_copy.data[k] = self.data[k].copy()
+                case _:
+                    qmin_copy.data[k] = deepcopy(self.data[k], memo)
+        return qmin_copy
+
 
 class QMinMolecule(QMinBase):
     """
@@ -46,6 +68,7 @@ class QMinMolecule(QMinBase):
         "npc": int,
         "Atomcharge": int,
         "frozcore": int,
+        "Ubasis" : ndarray[float,2]
 
     """
 
@@ -66,6 +89,8 @@ class QMinMolecule(QMinBase):
             # Ab initio interfaces
             "Atomcharge": None,
             "frozcore": None,
+            "Ubasis": np.zeros((2, 2)),
+            "mol": None,
         }
 
         self.types = {
@@ -81,6 +106,8 @@ class QMinMolecule(QMinBase):
             "npc": int,
             "Atomcharge": int,
             "frozcore": int,
+            "Ubasis": np.ndarray,
+            "mol": gto.Mole,
         }
 
 
@@ -168,6 +195,7 @@ class QMinRequests(QMinBase):
         "nooverlap": bool,
         "basis_set": bool,
         "density_matrices": list,
+        "dyson_orbitals" : list,
     """
 
     def __init__(self, *args, **kwargs):
@@ -192,8 +220,9 @@ class QMinRequests(QMinBase):
             "molden": False,
             "savestuff": False,
             "nooverlap": False,
-            "basis_set": False,
+            "basis_set": True,
             "density_matrices": None,
+            "dyson_orbitals": None,
         }
         self.types = {
             "h": bool,
@@ -215,6 +244,7 @@ class QMinRequests(QMinBase):
             "nooverlap": bool,
             "basis_set": bool,
             "density_matrices": list,
+            "dyson_orbitals": list,
         }
 
 
@@ -357,9 +387,13 @@ class QMin:
         self.template = QMinBase()
         self.scheduling = QMinBase()
         self.control = QMinControl()
+        self.basis = True
 
     def __getitem__(self, key):
         return getattr(self, key)
+
+    def __setitem__(self, k, v):
+        setattr(self, k, v)
 
     # def __contains__(self, key):
     # return self.__dict__.__contains__(key)
@@ -389,13 +423,16 @@ Control:
 
     # TODO: rewrite as proper __copy__ function!
     # TODO: rewrite the __copy__ in QMinBase to deepcopy dicts and lists!
-    def copy(self, full: bool = False):
+    def __deepcopy__(self, memo, full: bool = False):
         """
         Return copy of QMin object
         """
-        qmin_copy = deepcopy(self)
-        if not full:
-            del qmin_copy.scheduling
+        qmin_copy = self.__class__.__new__(self.__class__)
+        memo[id(self)] = qmin_copy
+        for sub in filter(lambda x: not x.startswith("__"), dir(self)):
+            if not full and sub == "scheduling":
+                qmin_copy[sub] = QMinBase()
+            qmin_copy[sub] = deepcopy(self[sub], memo)
         return qmin_copy
 
 

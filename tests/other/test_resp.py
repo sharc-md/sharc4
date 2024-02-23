@@ -4,11 +4,24 @@ import json
 import os
 import numpy as np
 from resp import Resp
+from pyscf import gto
 
 # Tests for resp class
 INPUTS = os.path.join(os.path.expandvars("$SHARC"), "../tests/interface/inputs")
 with open(os.path.join(INPUTS, "resp_input.json")) as f:
     data = json.load(f)
+atoms = [[f"{s.upper()}{j+1}", c] for j, s, c in zip(range(len(data["elements"])), data["elements"], data["coords"])]
+mol = gto.Mole(
+    atom=atoms,
+    basis=data["basis"],
+    unit="AU",
+    charge=0,
+    spin=0,
+    symmetry=False,
+    cart=data["cart_basis"],
+    ecp={f'{data["elements"][n]}{n+1}': ecp_string for n, ecp_string in data["ecp"].items()},
+)
+mol.build()
 
 
 def test_fit_ch2s():
@@ -20,7 +33,7 @@ def test_fit_ch2s():
         data["resp_shells"],
         grid=data["resp_grid"],
     )
-    fits.prepare(data["basis"], 0, data["charge"], ecps=data["ecp"], cart_basis=data["cart_basis"])
+    fits.prepare(mol)
     # first density is 1,1,0, 1,1,0; second 1,1,0, 1,2,0
     for icc, dens, fit in zip([True, False], data["densities"], data["fits"]):
         dens_arr = np.array(dens)

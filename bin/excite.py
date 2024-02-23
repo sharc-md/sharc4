@@ -55,7 +55,7 @@ BOHR_TO_ANG = 0.529177211
 PI = math.pi
 
 version = '2.1'
-versionneeded = [0.2, 1.0, 2.0, 2.1, float(version)]
+versionneeded = [0.2, 1.0, 2.0, 2.1, 3.0, float(version)]
 versiondate = datetime.date(2019, 9, 1)
 
 # ======================================================================================================================
