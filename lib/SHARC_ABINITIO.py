@@ -1055,7 +1055,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             wf_input += "\nforce_direct_dets"
 
         # cmdline string
-        wf_cmd = f"{self.QMin.resources['wfoverlap']} -m {self.QMin.resources['memory']} -f wfovl.inp"
+        wf_cmd = f"OMP_NUM_THREADS={self.QMin.resources['ncpu']} {self.QMin.resources['wfoverlap']} -m {self.QMin.resources['memory']} -f wfovl.inp"
 
         # vars
         savedir = self.QMin.save["savedir"]
@@ -1079,7 +1079,8 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
 
                 # Execute wfoverlap
                 starttime = datetime.datetime.now()
-                os.environ["OMP_NUM_THREADS"] = str(self.QMin.resources["ncpu"])
+                # setting the env variable will influence subsequent numpy calls etc.
+                # os.environ["OMP_NUM_THREADS"] = str(self.QMin.resources["ncpu"])
                 code = self.run_program(workdir, wf_cmd, "wfovl.out", "wfovl.err")
                 self.log.info(
                     f"Finished wfoverlap job: {str(ion_pair):<10s} code: {code:<4d} runtime: {datetime.datetime.now()-starttime}"
@@ -1243,9 +1244,13 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         )  # the charge of the atom does not affect integrals
 
         fits_map = {}
+        get_transpose = []
         with Pool(processes=self.QMin.resources["ncpu"]) as pool:
             for dens in self.QMin.requests["multipolar_fit"]:
                 s1, s2 = dens
+                if (s2, s1) in fits_map:
+                    get_transpose.append(dens)
+                    continue
                 charge = s1.Z if s1 == s2 else 0
                 fits_map[dens] = pool.apply_async(
                     fits.multipoles_from_dens,
@@ -1261,6 +1266,10 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             pool.join()
             # fits_map = results.get()
             fits_map = {key: val.get() for key, val in fits_map.items()}
+
+        for dens in get_transpose:
+            s1, s2 = dens
+            fits_map[dens] = fits_map[(s2, s1)]
 
         return fits_map
 

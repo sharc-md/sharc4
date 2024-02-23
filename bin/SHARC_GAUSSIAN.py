@@ -1039,7 +1039,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         if 3 in mults:
             mults = [3]
         gsmult = QMin.maps["multmap"][-job][0]
-        nstates_to_extract = deepcopy(QMin.molecule["states"])
+        nstates_to_extract = QMin.molecule["states"][:]
         for i in range(len(nstates_to_extract)):
             if not i + 1 in mults:
                 nstates_to_extract[i] = 0
@@ -1270,9 +1270,9 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                     string += "d"
             for istate in range(len(ci_vectors)):
                 if det in ci_vectors[istate]:
-                    string += " %14.10f " % ci_vectors[istate][det]
+                    string += " %15.10E " % ci_vectors[istate][det]
                 else:
-                    string += " %14.10f " % 0.0
+                    string += " %15.10E " % 0.0
             string += "\n"
         return string
 
@@ -1334,44 +1334,65 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
     # ======================================================================= #
 
     def _create_aoovl(self):
-        # get geometries
         filename1 = os.path.join(self.QMin.save["savedir"], f'geom.dat.{self.QMin.save["step"]-1}')
         oldgeo = SHARC_GAUSSIAN.get_geometry(filename1)
-        filename2 = os.path.join(self.QMin.save["savedir"], f'geom.dat.{self.QMin.save["step"]}')
-        newgeo = SHARC_GAUSSIAN.get_geometry(filename2)
 
-        # build QMin   # TODO: always singlet for AOoverlaps
-        QMin1 = deepcopy(self.QMin)
-        del self.QMin.scheduling
-        QMin1.molecule["elements"] = [x[0] for x in chain(oldgeo, newgeo)]
-        QMin1.coords["coords"] = [x[1:] for x in chain(oldgeo, newgeo)]
-        QMin1.control["AOoverlap"] = [filename1, filename2]
-        QMin1.control["jobid"] = self.QMin.control["joblist"][0]
-        QMin1.molecule["natom"] = len(newgeo)
-        QMin1.requests.update({"nacdr":[], "grad": [], "h": False, "soc": False, "dm": False, "overlap": False, "ion":
-                               False})
+        mol_new: gto.Mole = self.QMin.molecule["mol"]
+        mol_old = mol_new.copy()
+        atoms = [
+            [f"{g[0].upper()}{i+1}", g[1:]] for i, g in enumerate(oldgeo)
+        ]
+        mol_old.build(atom=atoms)
 
-        # run the calculation
-        WORKDIR = os.path.join(self.QMin.resources["scratchdir"], "AOoverlap")
-        self.execute_from_qmin(WORKDIR, QMin1)
+        mol_conc = gto.conc_mol(mol_old, mol_new)
+        mol_conc.build()
+        SAO = mol_conc.intor("int1e_ovlp")[:mol_old.nao,mol_old.nao:]
+        string = "%i %i\n" % (mol_old.nao, mol_old.nao)
+        string += "\n".join(map(lambda row: " ".join(map(lambda f: f"{f: .15e}", row)), SAO))
+        filename = os.path.join(self.QMin.save["savedir"], "AO_overl.mixed")
+        writefile(filename, string)
 
-        # get output
-        filename = os.path.join(WORKDIR, "GAUSSIAN.rwf")
-        NAO, Smat = SHARC_GAUSSIAN.get_smat(filename, self.QMin.resources["groot"])
+        # get geometries
+        # filename1 = os.path.join(self.QMin.save["savedir"], f'geom.dat.{self.QMin.save["step"]-1}')
+        # oldgeo = SHARC_GAUSSIAN.get_geometry(filename1)
+        # filename2 = os.path.join(self.QMin.save["savedir"], f'geom.dat.{self.QMin.save["step"]}')
+        # newgeo = SHARC_GAUSSIAN.get_geometry(filename2)
 
-        # adjust the diagonal blocks for DFTB-A
-        if self.QMin.template["functional"] == "dftba":
-            Smat = SHARC_GAUSSIAN.adjust_DFTB_Smat(Smat, NAO, self.QMin)
+        # # build QMin   # TODO: always singlet for AOoverlaps
+        # QMin1 = QMin_class()
+        # for name in ["molecule", "coords", "requests", "save", "control", "maps", "resources", "template"]:
+            # self.log.trace(f"copying {name}")
+            # QMin1[name] = deepcopy(self.QMin[name])
+            
+        # QMin1.molecule["elements"] = [x[0] for x in chain(oldgeo, newgeo)]
+        # QMin1.coords["coords"] = [x[1:] for x in chain(oldgeo, newgeo)]
+        # QMin1.control["AOoverlap"] = [filename1, filename2]
+        # QMin1.control["jobid"] = self.QMin.control["joblist"][0]
+        # QMin1.molecule["natom"] = len(newgeo)
+        # QMin1.requests.update({"nacdr":[], "grad": [], "h": False, "soc": False, "dm": False, "overlap": False, "ion":
+                               # False})
+
+        # # run the calculation
+        # WORKDIR = os.path.join(self.QMin.resources["scratchdir"], "AOoverlap")
+        # self.execute_from_qmin(WORKDIR, QMin1)
+
+        # # get output
+        # filename = os.path.join(WORKDIR, "GAUSSIAN.rwf")
+        # NAO, Smat = SHARC_GAUSSIAN.get_smat(filename, self.QMin.resources["groot"])
+
+        # # adjust the diagonal blocks for DFTB-A
+        # if self.QMin.template["functional"] == "dftba":
+            # Smat = SHARC_GAUSSIAN.adjust_DFTB_Smat(Smat, NAO, self.QMin)
 
         # Smat is now full matrix NAO*NAO
         # we want the lower left quarter, but transposed
-        string = "%i %i\n" % (NAO // 2, NAO // 2)
-        for irow in range(NAO // 2, NAO):
-            for icol in range(0, NAO // 2):
-                string += "% .15e " % (Smat[icol][irow])  # note the exchanged indices => transposition
-            string += "\n"
-        filename = os.path.join(self.QMin.save["savedir"], "AO_overl.mixed")
-        writefile(filename, string)
+        # string = "%i %i\n" % (NAO // 2, NAO // 2)
+        # for irow in range(NAO // 2, NAO):
+            # for icol in range(0, NAO // 2):
+                # string += "% .15e " % (Smat[icol][irow])  # note the exchanged indices => transposition
+            # string += "\n"
+        # filename = os.path.join(self.QMin.save["savedir"], "AO_overl.mixed")
+        # writefile(filename, string)
         return
 
     # ======================================================================= #
@@ -1714,7 +1735,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
             mults = [3]
         restr = self.QMin.control["jobs"][ijob]["restr"]
         gsmult = mults[0]
-        estates_to_extract = deepcopy(self.QMin.molecule["states"])
+        estates_to_extract = self.QMin.molecule["states"][:]
         estates_to_extract[gsmult - 1] -= 1
         for imult, _ in enumerate(estates_to_extract):
             if not imult + 1 in mults:
