@@ -2329,7 +2329,7 @@ def get_GAUSSIAN(INFOS):
         # print('')
     # else:
     print('\nPlease specify path to GAUSSIAN directory (SHELL variables and ~ can be used, will be expanded when interface is started).\n')
-    INFOS['gaussiandir'] = question('Path to GAUSSIAN:', str, path)
+    INFOS['groot'] = question('Path to GAUSSIAN:', str, path)
     print('')
 
 
@@ -2485,7 +2485,7 @@ def prepare_GAUSSIAN(INFOS, iconddir):
         print('IOError during prepareGAUSSIAN, iconddir=%s' % (iconddir))
         quit(1)
 #  project='GAUSSIAN'
-    string = 'gaussiandir %s\nscratchdir %s/%s/\nncpu %i\nschedule_scaling %f\n' % (INFOS['gaussiandir'], INFOS['scratchdir'], iconddir, INFOS['gaussian.ncpu'], INFOS['gaussian.scaling'])
+    string = 'groot %s\nscratchdir %s/%s/\nncpu %i\nschedule_scaling %f\n' % (INFOS['groot'], INFOS['scratchdir'], iconddir, INFOS['gaussian.ncpu'], INFOS['gaussian.scaling'])
     string += 'memory %i\n' % (INFOS['gaussian.mem'])
     if 'wfoverlap' in INFOS['needed']:
         string += 'wfoverlap %s\nwfthres %f\n' % (INFOS['gaussian.wfoverlap'], INFOS['gaussian.ciothres'])
