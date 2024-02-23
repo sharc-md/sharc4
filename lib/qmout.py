@@ -1,5 +1,5 @@
 import math
-from copy import deepcopy
+from itertools import chain
 
 import numpy as np
 from constants import IToMult, IToPol
@@ -8,7 +8,7 @@ from printing import formatcomplexmatrix, formatgrad
 from utils import eformat, itnmstates, writefile
 from logger import log
 import pyscf
-#import SHARC_INTERFACE
+from utils import electronic_state
 
 
 class QMout:
@@ -28,6 +28,7 @@ class QMout:
     runtime: int
     notes: dict[str, str]
     states: list[int]
+    charges: list[int]
     h: ndarray[complex, 2]
     dm: ndarray[float, 3]
     grad: ndarray[float, 3]
@@ -48,7 +49,7 @@ class QMout:
     mol: pyscf.gto.Mole 
     #dyson_orbitals: dict[tuple(electronic_state,electronic_state,str), ndarray[float,1] ]
 
-    def __init__(self, filepath=None, states: list[int] =None, natom: int =None, npc: int=None):
+    def __init__(self, filepath=None, states: list[int] =None, natom: int =None, npc: int=None, charges: list[int]=None):
         self.prop0d = []
         self.prop1d = []
         self.prop2d = []
@@ -141,7 +142,7 @@ class QMout:
                             (3, self.nmstates, self.nmstates, self.npc, 3),
                         )
                     case 22: # multipolar_fit
-                        self.multipolar_fit, iline = QMout.get_quantity(data, iline, float, (self.nmstates, self.nmstates, self.natom, 10))
+                        self.multipolar_fit, iline = QMout.get_multipoles(data, iline, charges)
                         if data[iline].find("settings") != -1:
                             self.notes["multipolar_fit"] = data[iline][data[iline].find("settings"):-1]
                     case 23: # prop0d
@@ -153,6 +154,7 @@ class QMout:
                     case 8: # runtime
                         self.runtime, iline = QMout.get_quantity(data, iline, float, ())
                     case _:
+                        iline += 1
                         log.warning(f"Warning!: property with flag {flag} not yet implemented in QMout class")
 
     @staticmethod
@@ -249,7 +251,7 @@ class QMout:
                             elif type == float:
                                 result[iblock, irow, :] = np.array([float(line[i]) for i in range(shape[4])])
                         iline += 1 + shape[3]
-        if len(shape) in [3,4,5]:
+        if len(shape) in [3, 4, 5]:
             iline -= 1
         return result, iline
 
@@ -266,6 +268,26 @@ class QMout:
             iline += 1 + shape[0]
         result = [(keys[i], res[i]) for i in range(num)]
         return result, iline - 1
+
+    @staticmethod
+    def get_multipoles(data, iline, charges):
+        res = {}
+        shape = [int(s) for s in data[iline].split()[-1][1:-1].split("x")]
+        iline += 1
+        for i in range(shape[0]):
+            tmp = data[iline].split()
+            y, z, m1, s1, ms1, m2, s2, ms2 = int(tmp[0]), int(tmp[1]), int(tmp[4]), int(tmp[6]), float(tmp[8]), int(tmp[10]), int(tmp[12]), float(tmp[14])
+            if y != shape[1] or z != shape[2]:
+                log.error(f"shapes do not match {shape} vs {shape[0]}x{y}x{z}")
+                raise ValueError()
+            s1 = electronic_state(Z=charges[m1], S=m1, M=ms1, N=s1)
+            s2 = electronic_state(Z=charges[m2], S=m2, M=ms2, N=s2)
+            res[(s1, s2)] = np.fromiter(chain(*map(lambda x: map(float, x.split()), data[iline + 1: iline + 1 + y])), dtype=float,
+                                        count=y*z).reshape((y,z))
+            iline += y + 1
+        return res, iline
+
+
 
     def allocate(self, states=[], natom=0, npc=0, requests: set[str] = set()):
         self.nmstates = sum((i + 1) * n for i, n in enumerate(states))
@@ -1039,11 +1061,11 @@ class QMout:
         setting_str = ""
         if "multipolar_fit" in self.notes:
             setting_str = self.notes["multipolar_fit"]
+        sorted_states = sorted(self.multipolar_fit.keys(), key=lambda x: (x[0].S, x[0].N, x[0].M, x[1].S, x[1].N, x[1].M))
         string = (
-            f"! 22 Atomwise multipolar density representation fits for states ({nmstates}x{nmstates}x{natom}x10) {setting_str}\n"
+            f"! 22 Atomwise multipolar density representation fits for states ({len(sorted_states)}x{natom}x10) {setting_str}\n"
         )
 
-        sorted_states = sorted(self.multipolar_fit.keys(), key=lambda x: (x[0].S, x[0].N, x[0].M, x[1].S, x[1].N, x[1].M))
         for (s1, s2) in sorted_states:
             val = self.multipolar_fit[(s1, s2)]
             istate, imult, ims = s1.N, s1.S, s1.M
@@ -1082,10 +1104,7 @@ class QMout:
         if QMin.requests["h"] or QMin.requests["soc"]:
             eshift = math.ceil(self["h"][0][0].real)
             string += "=> Hamiltonian Matrix:\nDiagonal Shift: %9.2f\n" % (eshift)
-            matrix = deepcopy(self["h"])
-            for i in range(nmstates):
-                matrix[i][i] -= eshift
-            string += formatcomplexmatrix(matrix, states)
+            string += formatcomplexmatrix(self.h - eshift, states)
             string += "\n"
         # Dipole moment matrices
         if QMin.requests["dm"]:
