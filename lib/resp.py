@@ -82,6 +82,7 @@ class Resp:
         mol: gto.Mole
         """
         Z = mol.atom_charges()
+        self.log.trace(f"{self.natom} {Z} {self.r_inv.shape}")
         self.Sao = mol.intor("int1e_ovlp")
         self.Vnuc = np.sum(Z[..., None] * self.r_inv, axis=0)
         fakemol = gto.fakemol_for_charges(self.mk_grid)
