@@ -1173,11 +1173,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             if dim > 1 and dim**2 != len(value_list):
                 self.log.error(f"{wfovl} does not contain a square matrix!")
                 raise ValueError()
-        f = open(wfovl,'r')
-        lines = f.readlines()
-        for i, line in enumerate( lines ):
-            if line.strip() == 'Dyson orbitals in reference <bra| MO basis:':
-                return np.asarray(value_list).reshape(-1, int(dim))
+            return np.asarray(value_list).reshape(-1, int(dim))
 
     @staticmethod
     def format_ci_vectors(ci_vectors: list[dict[tuple[int, ...], float]]) -> str:
