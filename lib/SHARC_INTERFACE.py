@@ -124,6 +124,10 @@ class SHARC_INTERFACE(ABC):
         self.log.print = self.sharcprint
         self.log.trace = self.trace
 
+        # Define template keys
+        self.QMin.template.update({"charge": None, "paddingstates": None})
+        self.QMin.template.types.update({"charge": list, "paddingstates": list})
+
     def sharcprint(self, msg, *args, **kwargs):
         """
         Log 'msg % args' with severity 'SHARCPRINT'.

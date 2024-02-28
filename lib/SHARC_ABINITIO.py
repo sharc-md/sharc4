@@ -56,9 +56,9 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         super().__init__(*args, **kwargs)
 
         # Add ab-initio specific keywords to template
-        self.QMin.template.update({"charge": None, "paddingstates": None, "density_calculation_methods" : ["from_gs2es", "from_determinants"], "tCI": 1e-7 })
+        self.QMin.template.update({"density_calculation_methods" : ["from_gs2es", "from_determinants"], "tCI": 1e-7 })
 
-        self.QMin.template.types.update({"charge": list, "paddingstates": list, "density_calculation_methods": list, "tCI" : float})
+        self.QMin.template.types.update({"density_calculation_methods": list, "tCI" : float})
         # Add ab-initio specific keywords to resources
         self.QMin.resources["delay"] = 0.0
 
