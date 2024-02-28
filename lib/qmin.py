@@ -220,7 +220,7 @@ class QMinRequests(QMinBase):
             "molden": False,
             "savestuff": False,
             "nooverlap": False,
-            "basis_set": True,
+            "basis_set": False,
             "density_matrices": None,
             "dyson_orbitals": None,
         }
