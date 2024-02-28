@@ -190,36 +190,6 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
     def read_template(self, template_file: str, kw_whitelist: Optional[list[str]] = None) -> None:
         super().read_template(template_file, kw_whitelist)
 
-        # Check if charge in template and autoexpand if needed
-        if self.QMin.template["charge"]:
-            if len(self.QMin.template["charge"]) == 1:
-                charge = int(self.QMin.template["charge"][0])
-                if (self.QMin.molecule["Atomcharge"] + charge) % 2 == 1 and len(self.QMin.molecule["states"]) > 1:
-                    self.log.info("HINT: Charge shifted by -1 to be compatible with multiplicities.")
-                    charge -= 1
-                self.QMin.template["charge"] = [i % 2 + charge for i in range(len(self.QMin.molecule["states"]))]
-                self.log.info(
-                    f'HINT: total charge per multiplicity automatically assigned, please check ({self.QMin.template["charge"]}).'
-                )
-                self.log.info('You can set the charge in the template manually for each multiplicity ("charge 0 +1 0 ...")')
-            elif len(self.QMin.template["charge"]) >= len(self.QMin.molecule["states"]):
-                self.QMin.template["charge"] = [
-                    int(self.QMin.template["charge"][i]) for i in range(len(self.QMin.molecule["states"]))
-                ]
-
-                for imult, cha in enumerate(self.QMin.template["charge"]):
-                    if not (self.QMin.molecule["Atomcharge"] + cha + imult) % 2 == 0:
-                        self.log.warning(
-                            "Charges from template not compatible with multiplicities!  (this is probably OK if you use QM/MM)"
-                        )
-                        break
-            else:
-                raise ValueError('Length of "charge" does not match length of "states"!')
-        else:
-            self.QMin.template["charge"] = [i % 2 for i in range(len(self.QMin.molecule["states"]))]
-        if self.QMin.template["paddingstates"]:
-            self.QMin.template["paddingstates"] = convert_list(self.QMin.template["paddingstates"])
-
     @abstractmethod
     def read_resources(self, resources_file: str, kw_whitelist: Optional[list[str]] = None) -> None:
         kw_whitelist = [] if kw_whitelist is None else kw_whitelist
