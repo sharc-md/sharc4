@@ -36,7 +36,8 @@ class QMinBase(UserDict):
         for k in self.data.keys():
             k_type = type(self.data[k])
             if self.data[k] is None:
-                qmin_copy.types[k] = self.types[k]
+                if k in self.types:
+                    qmin_copy.types[k] = self.types[k]
                 qmin_copy.data[k] = None
                 continue
             qmin_copy.types[k] = k_type
