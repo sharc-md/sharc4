@@ -432,6 +432,7 @@ Control:
         for sub in filter(lambda x: not x.startswith("__"), dir(self)):
             if not full and sub == "scheduling":
                 qmin_copy[sub] = QMinBase()
+                continue
             qmin_copy[sub] = deepcopy(self[sub], memo)
         return qmin_copy
 
