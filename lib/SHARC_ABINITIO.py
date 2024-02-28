@@ -356,7 +356,6 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 self.QMin.requests.types["multipolar_fit"] = dict
                 self.QMin.requests["multipolar_fit"] = {dme: [] for dme in requested_dmes }
 
-            self.QMin.requests.types["density_matrices"] = dict
             self.QMin.requests["density_matrices"] = {d: [] for d in requested_densities}
             #for key in self.QMin.requests['density_matrices']:
             #    s1, s2, spin = key
