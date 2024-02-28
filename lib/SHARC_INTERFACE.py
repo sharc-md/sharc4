@@ -318,6 +318,8 @@ class SHARC_INTERFACE(ABC):
 
         # Check if charge in template and autoexpand if needed
         if self.QMin.template["charge"]:
+            self.QMin.template["charge"] = convert_list(self.QMin.template["charge"])
+
             if len(self.QMin.template["charge"]) == 1:
                 charge = int(self.QMin.template["charge"][0])
                 if (self.QMin.molecule["Atomcharge"] + charge) % 2 == 1 and len(self.QMin.molecule["states"]) > 1:
