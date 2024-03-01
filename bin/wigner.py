@@ -641,7 +641,7 @@ from the initial condition's velocities."""
         com2 = get_center_of_mass(ic2)
         # calculate velocity of center of mass and remove it
         v_com = [(com2[xyz] - com[xyz]) / dt for xyz in range(3)]
-        print(v_com)
+        # print(v_com)
 
 
 def det(m):

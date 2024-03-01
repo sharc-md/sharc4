@@ -4,6 +4,7 @@ import shutil
 import pytest
 from SHARC_ORCA import SHARC_ORCA
 from utils import expand_path, mkdir
+from constants import FROZENS
 
 PATH = expand_path("$SHARC/../tests/interface")
 
@@ -254,6 +255,7 @@ def test_read_mos():
         test_interface.read_template(os.path.join(PATH, template))
         test_interface._read_resources = True
         test_interface.setup_interface()
+        test_interface.QMin.molecule["frozcore"] = sum(map(lambda x: FROZENS[x], test_interface.QMin.molecule["elements"]))
         with open(os.path.join(PATH, mos), "r", encoding="utf-8") as file:
             ref_mos = file.read()
             assert test_interface._get_mos(os.path.join(PATH, gbw), job) == ref_mos

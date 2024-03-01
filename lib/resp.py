@@ -235,7 +235,7 @@ class Resp:
         if self.generate_raw_fit_file:
             filename = kwargs["resp_data_file"] if "resp_data_file" in kwargs else "RESP_fit_data.txt"
             dist = np.min(np.linalg.norm(R_alpha, axis=2), axis=0)
-            self.log.info(f"generating file with ESP data [filename]! [num ref_esp fit_esp dist x y z]")
+            self.log.info("generating file with ESP data [filename]! [num ref_esp fit_esp dist x y z]")
             with open(filename, "w") as f:
                 f.write(f"# {'num [AU]':<9s}  {'ref_esp':<12s} {'fit_esp':<12s} {'dist':<12s} {'x':<12s} {'y':<12s} {'z':<12s}\n")
                 for i, vals in enumerate(zip(Fesp_i, fit_esp, dist, self.mk_grid[:, 0], self.mk_grid[:, 1], self.mk_grid[:, 2])):
@@ -251,7 +251,7 @@ class Resp:
     def sequential_multipoles(
         self, dm: np.ndarray, include_core_charges=True, charge=0, order=2, betas=[0.0005, 0.0015, 0.003], **kwargs
     ):
-        # self.log.info("Start sequential multipolar fit")
+        self.log.info("Start sequential multipolar fit")
         if not include_core_charges and charge != 0:
             self.log.warning(
                 "No core charges but charge not set to zero! -> transition densities set 'include_core_charges=False' and 'charge=0'"
@@ -297,92 +297,182 @@ class Resp:
 
         quadrupoles, Fres = self.fit(tmp, Fres, 6, natom, beta=betas[2], charge=None, weights=self.weights, traceless_quad=True)
 
-        # self.log.info(
-        # f"Fit done!\tMEAN: {np.mean(Fres): 10.6e}\t ABS.MEAN: {np.mean(np.abs(Fres)): 10.6e}\tRMSD: {np.sqrt(np.mean(Fres**2)): 10.8e}"
-        # )
-        # if self.generate_raw_fit_file:
-        # filename = kwargs["resp_data_file"] if "resp_data_file" in kwargs else "RESP_fit_data.txt"
-        # dist = np.min(np.linalg.norm(R_alpha, axis=2), axis=0)
-        # self.log.info(f"generating file with ESP data [{filename}]! [num ref_esp fit_esp dist x y z]")
-        # with open(filename, "w") as f:
-        # f.write(f"# {'num [AU]':<9s}  {'ref_esp':<12s} {'fit_esp':<12s} {'dist':<12s} {'x':<12s} {'y':<12s} {'z':<12s}\n")
-        # for i, vals in enumerate(
-        # zip(Fesp_i, Fesp_i - Fres, dist, self.mk_grid[:, 0], self.mk_grid[:, 1], self.mk_grid[:, 2])
-        # ):
-        # f.write(f"{i:5d}      " + " ".join(map(lambda x: f"{x: 12.8f}", vals)) + "\n")
+        self.log.info(
+            f"Fit done!\tMEAN: {np.mean(Fres): 10.6e}\t ABS.MEAN: {np.mean(np.abs(Fres)): 10.6e}\tRMSD: {np.sqrt(np.mean(Fres**2)): 10.8e}"
+        )
+        if self.generate_raw_fit_file:
+            filename = kwargs["resp_data_file"] if "resp_data_file" in kwargs else "RESP_fit_data.txt"
+            dist = np.min(np.linalg.norm(R_alpha, axis=2), axis=0)
+            self.log.info(f"generating file with ESP data [{filename}]! [num ref_esp fit_esp dist x y z]")
+            with open(filename, "w") as f:
+                f.write(f"# {'num [AU]':<9s}  {'ref_esp':<12s} {'fit_esp':<12s} {'dist':<12s} {'x':<12s} {'y':<12s} {'z':<12s}\n")
+                for i, vals in enumerate(
+                    zip(Fesp_i, Fesp_i - Fres, dist, self.mk_grid[:, 0], self.mk_grid[:, 1], self.mk_grid[:, 2])
+                ):
+                    f.write(f"{i:5d}      " + " ".join(map(lambda x: f"{x: 12.8f}", vals)) + "\n")
 
         return np.hstack((monopoles, dipoles, quadrupoles))
 
     @staticmethod
     def fit(tmp, Fesp_i, n_fits, natom, charge=None, beta=0.0005, b_par=0.1, weights=None, traceless_quad=False, logger=None):
-        n_af = natom * n_fits
-        dim = n_af + 1
+        return _fit(
+            tmp,
+            Fesp_i,
+            n_fits,
+            natom,
+            charge=charge,
+            beta=beta,
+            b_par=b_par,
+            weights=weights,
+            traceless_quad=traceless_quad,
+            logger=logger,
+        )
 
-        if weights is not None:
-            a = np.einsum("ag,g,bg->ab", tmp, weights, tmp)
-            b = np.einsum("ag,g,g->a", tmp, weights, Fesp_i)  # v_A
-        else:
-            a = np.einsum("ag,bg->ab", tmp, tmp)
-            b = np.einsum("ag,g->a", tmp, Fesp_i)  # v_A
+    def prepare_parallel(self, densities_dict, order=2, **kwargs):
+        global fit_data
+        fit_data = {}
+        # self.log.info("Start sequential multipolar fit")
+        if not (0 <= order <= 2):
+            raise Error("Specify order in the range of 0 - 2")
+        fit_data["densities_dict"] = densities_dict
+        R_alpha = self.R_alpha
+        fit_data["R_alpha"] = self.R_alpha
+        fit_data["ints"] = self.ints
+        fit_data["Vnuc"] = self.Vnuc
+        fit_data["weights"] = self.weights
+        fit_data["geo_tens0"] = self.r_inv
 
-        if charge is not None:
-            A = np.zeros((dim, dim))
-            A[:-1, :-1] += a
-            A[:natom, -1] = 1.0
-            A[-1, :natom] = 1.0
+        if order == 0:
+            return
 
-            B = np.zeros((dim))
-            B[:-1] += b
-            B[-1] = float(charge)
-        elif traceless_quad:
-            # traceless_quadrupoles constraint for every atom
-            dim = n_af + natom
-            A = np.zeros((dim, dim))
-            A[:n_af, :n_af] = a
-            B = np.zeros((dim))
-            B[:n_af] = b
+        r_inv3 = self.r_inv**3
 
-            for ia in range(natom):
-                idx = [ia + j * natom for j in range(3)]
-                A[idx, n_af + ia] = 1.0
-                A[n_af + ia, idx] = 1.0
-                B[n_af + ia] = 0.0
-        else:
-            A = a
-            B = b
+        # fit dipoles
+        fit_data["geo_tens1"] = np.vstack(
+            (R_alpha[:, :, 0] * r_inv3, R_alpha[:, :, 1] * r_inv3, R_alpha[:, :, 2] * r_inv3)
+        )  # m_A_i
 
-        def get_rest(Q):
-            return -beta / (np.sqrt(Q**2 + b_par**2))
+        if order == 1:
+            return
 
-        vget_rest = np.vectorize(get_rest, cache=True)
+        r_inv5 = self.r_inv**5
 
-        Q_last = np.linalg.solve(A, B)[:n_af]
-        Q_new = np.ones(Q_last.shape)
-        max_iterations = 500
-        iteration = 0
-        while np.linalg.norm(Q_last - Q_new) >= 0.00001 and iteration < max_iterations:
-            rest = vget_rest(Q_last)
-            Q_last = Q_new.copy()
-            A_rest = np.copy(A)
-            # add restraint to B
-            np.einsum("ii->i", A_rest)[:n_af] -= rest
-            Q_new = np.linalg.solve(A_rest, B)[:n_af]
-            iteration += 1
-
-        n2order = {1: "monopoles", 3: "dipoles", 6: "quadrupoles"}
-        if logger is not None and type(logger) is callable:
-            logger(
-                f"exciting RESP fit for {n2order[n_fits]} after {iteration} iterations. \tNorm: {np.linalg.norm(Q_last - Q_new)}"
+        fit_data["geo_tens2"] = np.vstack(
+            (
+                R_alpha[:, :, 0] * R_alpha[:, :, 0] * r_inv5 * 0.5,
+                R_alpha[:, :, 1] * R_alpha[:, :, 1] * r_inv5 * 0.5,
+                R_alpha[:, :, 2] * R_alpha[:, :, 2] * r_inv5 * 0.5,
+                R_alpha[:, :, 0] * R_alpha[:, :, 1] * r_inv5,
+                R_alpha[:, :, 0] * R_alpha[:, :, 2] * r_inv5,
+                R_alpha[:, :, 1] * R_alpha[:, :, 2] * r_inv5,
             )
+        )  # m_A_i
 
-        fit_esp = np.einsum("x,xi->i", Q_new, tmp)
-        residual_ESP = fit_esp - Fesp_i
-        if logger is not None and type(logger) is callable:
-            logger(
-                f"Fit done!, MEAN: {np.mean(residual_ESP): 10.6e}, ABS.MEAN: {np.mean(np.abs(residual_ESP)): 10.6e}, RMSD: {np.sqrt(np.mean(residual_ESP**2))}"
-            )
-        res = Q_new.reshape((n_fits, -1)).T
-        return res, residual_ESP
+        return
 
     multipoles_from_dens = sequential_multipoles
     #  multipoles_from_dens = one_shot_fit
+
+
+def multipoles_from_dens_parallel(
+    dm_key: tuple, include_core_charges=True, charge=0, order=2, betas=[0.0005, 0.0015, 0.003], natom=None
+):
+    # self.log.info("Start sequential multipolar fit")
+    if not include_core_charges and charge != 0:
+        raise RuntimeError()
+
+    if not (0 <= order <= 2):
+        raise RuntimeError("Specify order in the range of 0 - 2")
+
+    dm = fit_data["densities_dict"][dm_key]
+    Fesp_i = -np.einsum("ijp,ij->p", fit_data["ints"], dm)
+
+    if include_core_charges:
+        Fesp_i += fit_data["Vnuc"]
+
+    # fit monopoles
+    monopoles, Fres = _fit(fit_data["geo_tens0"], Fesp_i, 1, natom, beta=betas[0], charge=charge, weights=fit_data["weights"])
+
+    if order == 0:
+        return monopoles
+
+    dipoles, Fres = _fit(fit_data["geo_tens1"], Fres, 3, natom, beta=betas[1], weights=fit_data["weights"], charge=None)
+
+    if order == 1:
+        return np.hstack((monopoles, dipoles))
+
+    quadrupoles, Fres = _fit(
+        fit_data["geo_tens2"], Fres, 6, natom, beta=betas[2], charge=None, weights=fit_data["weights"], traceless_quad=True
+    )
+
+    # self.res[(dm_key[0], dm_key[1])] = np.hstack((monopoles, dipoles, quadrupoles))
+    return np.hstack((monopoles, dipoles, quadrupoles))
+
+
+def _fit(tmp, Fesp_i, n_fits, natom, charge=None, beta=0.0005, b_par=0.1, weights=None, traceless_quad=False, logger=None):
+    n_af = natom * n_fits
+    dim = n_af + 1
+
+    if weights is not None:
+        a = np.einsum("ag,g,bg->ab", tmp, weights, tmp)
+        b = np.einsum("ag,g,g->a", tmp, weights, Fesp_i)  # v_A
+    else:
+        a = np.einsum("ag,bg->ab", tmp, tmp)
+        b = np.einsum("ag,g->a", tmp, Fesp_i)  # v_A
+
+    if charge is not None:
+        A = np.zeros((dim, dim))
+        A[:-1, :-1] += a
+        A[:natom, -1] = 1.0
+        A[-1, :natom] = 1.0
+
+        B = np.zeros((dim))
+        B[:-1] += b
+        B[-1] = float(charge)
+    elif traceless_quad:
+        # traceless_quadrupoles constraint for every atom
+        dim = n_af + natom
+        A = np.zeros((dim, dim))
+        A[:n_af, :n_af] = a
+        B = np.zeros((dim))
+        B[:n_af] = b
+
+        for ia in range(natom):
+            idx = [ia + j * natom for j in range(3)]
+            A[idx, n_af + ia] = 1.0
+            A[n_af + ia, idx] = 1.0
+            B[n_af + ia] = 0.0
+    else:
+        A = a
+        B = b
+
+    def get_rest(Q):
+        return -beta / (np.sqrt(Q**2 + b_par**2))
+
+    vget_rest = np.vectorize(get_rest, cache=True)
+
+    Q_last = np.linalg.solve(A, B)[:n_af]
+    Q_new = np.ones(Q_last.shape)
+    max_iterations = 500
+    iteration = 0
+    while np.linalg.norm(Q_last - Q_new) >= 0.00001 and iteration < max_iterations:
+        rest = vget_rest(Q_last)
+        Q_last = Q_new.copy()
+        A_rest = np.copy(A)
+        # add restraint to B
+        np.einsum("ii->i", A_rest)[:n_af] -= rest
+        Q_new = np.linalg.solve(A_rest, B)[:n_af]
+        iteration += 1
+
+    n2order = {1: "monopoles", 3: "dipoles", 6: "quadrupoles"}
+    if logger is not None and type(logger) is callable:
+        logger(f"exciting RESP fit for {n2order[n_fits]} after {iteration} iterations. \tNorm: {np.linalg.norm(Q_last - Q_new)}")
+
+    fit_esp = np.einsum("x,xi->i", Q_new, tmp)
+    residual_ESP = fit_esp - Fesp_i
+    if logger is not None and type(logger) is callable:
+        logger(
+            f"Fit done!, MEAN: {np.mean(residual_ESP): 10.6e}, ABS.MEAN: {np.mean(np.abs(residual_ESP)): 10.6e}, RMSD: {np.sqrt(np.mean(residual_ESP**2))}"
+        )
+    res = Q_new.reshape((n_fits, -1)).T
+    return res, residual_ESP
