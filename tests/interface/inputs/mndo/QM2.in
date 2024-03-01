@@ -39,7 +39,6 @@ grad 1 2 4
 #overlap
 nacdr 
 molden
-savestuff
 ION         #<- isn't supported
 
     # note that the "soc" keyword does not work with the MNDO interface
