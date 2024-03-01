@@ -714,12 +714,14 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                         second = 'SCF Density'
                     else:
                         second = 'CI Density'
-                    keyword = { first+second }
-                    master_state = 1 if s1.S==2 and not self.QMin.template['unrestricted_triplets'] else 2
+                    keyword = {first + second}
+                    master_state = 1 if s1.S == 2 and not self.QMin.template['unrestricted_triplets'] else 2
                     if s1.N <= master_state:
-                        dir = 'master_'+str(s1.S+1)
+                        dir = 'master_' + str(s1.S+1)
                     else:
-                        dir = 'grad_'+str(s1.S+1)+'_'+str(s1.N)
+                        dir = 'grad_' + str(s1.S + 1) + '_' + str(s1.N)
+                        if dir not in gradjob:
+                            dir = "dens_" + "_".join(dir.split("_")[1:])
                     self.density_recipes['read'][(s1,s2,spin)] = (dir, keyword)
                 elif spin == 'aa' or spin == 'bb':
                     dir = 'master_'+str(s2.S+1)
@@ -755,7 +757,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                 QMin1.maps["gradmap"] = set(gradjob[i])
                 QMin1.resources["ncpu"] = cpu_per_run[icount]
                 QMin1.resources["memory"] = memory_per_core * cpu_per_run[icount]
-                self.log.debug(f"adding to schedule: {i} with {cpu_per_run[icount]} and {memory_per_core * cpu_per_run[icount]}")
+                self.log.debug(f"gradjob: adding to schedule: {i} with {cpu_per_run[icount]} and {memory_per_core * cpu_per_run[icount]}")
                 # get the rootstate for the multiplicity as the first excited state
                 QMin1.control["rootstate"] = min(
                     1, self.QMin.molecule["states"][self.QMin.maps["multmap"][-QMin1.control["jobid"]][-1] - 1] - 1
@@ -801,7 +803,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                     QMin1.maps["gradmap"] = set(gradjob[i])
                     QMin1.resources["ncpu"] = cpu_per_run[icount]
                     QMin1.resources["memory"] = memory_per_core * cpu_per_run[icount]
-                    self.log.debug(f"adding to schedule: {i} with {cpu_per_run[icount]} and {memory_per_core * cpu_per_run[icount]}")
+                    self.log.debug(f"gradjob: adding to schedule: {i} with {cpu_per_run[icount]} and {memory_per_core * cpu_per_run[icount]}")
                     QMin1.control["gradonly"] = True
                     QMin1.control["rootstate"] = state - 1 if gsmult == mult else state  # 1 is first excited state of mult
                     icount += 1
@@ -820,6 +822,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                     for k in ["always_guess", "always_orb_init", "init"]:
                         QMin1.save[k] = False
                     QMin1.resources["ncpu"] = cpu_per_run[icount]
+                    self.log.debug(f"densjob: adding to schedule: {i} with {cpu_per_run[icount]} and {memory_per_core * cpu_per_run[icount]}")
                     QMin1.resources["memory"] = memory_per_core * cpu_per_run[icount]
                     QMin1.control["rootstate"] = state - 1 if gsmult == mult else state  # 1 is first excited state of mult
                     QMin1.control["densonly"] = True

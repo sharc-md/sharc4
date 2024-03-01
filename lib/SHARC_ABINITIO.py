@@ -8,18 +8,21 @@ from abc import abstractmethod
 from datetime import date
 from io import TextIOWrapper
 from textwrap import dedent
-from multiprocessing import Pool
+from multiprocessing import Pool, Array, set_start_method
+import ctypes
 from typing import Optional
 from itertools import starmap
+from functools import reduce
 
 import numpy as np
+from numpy.ctypeslib import as_ctypes
 import sympy
 from sympy.physics.wigner import wigner_3j
 from qmin import QMin
 from SHARC_INTERFACE import SHARC_INTERFACE
 from utils import containsstring, readfile, safe_cast, link, writefile, shorten_DIR, mkdir, itmult, convert_list, is_exec
 from constants import ATOMIC_RADII, MK_RADII, IToMult
-from resp import Resp
+from resp import Resp, multipoles_from_dens_parallel2
 from asa_grid import GRIDS
 import wf2rho
 
@@ -1242,30 +1245,84 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         fits.prepare(
             mol
         )  # the charge of the atom does not affect integrals
+        fits.prepare_parallel2(self.QMout.density_matrices, self.QMin.resources["resp_fit_order"])
+        # ints_3c2e, Vnuc, geom_tens = fits.prepare_parallel(self.QMin.resources["resp_fit_order"])
+
+        # shared_ints_3c2e = Array(ctypes.c_double, reduce(lambda x, y: x * y, ints_3c2e.shape), lock=False)
+        # shared_ints_3c2e = np.frombuffer(shared_ints_3c2e, dtype=ctypes.c_double, count=len(shared_ints_3c2e)).reshape(ints_3c2e.shape)
+
+        # shared_Vnuc_base = Array(ctypes.c_double, reduce(lambda x, y: x * y, Vnuc.shape), lock=False)
+        # shared_Vnuc = np.ctypeslib.as_array(shared_Vnuc_base.get_obj())
+        # shared_Vnuc = shared_Vnuc.reshape(Vnuc.shape)
+        # shared_Vnuc[...] = Vnuc[...]  # insert values as shallow copy
+
+        # shared_weights_base = Array(ctypes.c_double, reduce(lambda x, y: x * y, fits.weights.shape), lock=False)
+        # shared_weights = np.ctypeslib.as_array(shared_weights_base.get_obj())
+        # shared_weights = shared_weights.reshape(fits.weights.shape)
+        # shared_weights[...] = fits.weights[...]  # insert values as shallow copy
+
+        # kw_geo_tens = {}
+        # for i, name in enumerate(["geo_tens0", "geo_tens1", "geo_tens2"]):
+            # if i in geom_tens:
+                # tensor = geom_tens[i]
+                # # shared_tensor_base = Array(ctypes.c_double, reduce(lambda x, y: x * y, tensor.shape), lock=False)
+                # # shared_tensor = np.ctypeslib.as_array(shared_tensor_base.get_obj())
+                # # shared_tensor = shared_tensor.reshape(tensor.shape)
+                # # shared_tensor[...] = tensor[...]  # insert values as shallow copy
+                # # kw_geo_tens[name] = shared_tensor
+                # kw_geo_tens[name] = tensor
+            # else:
+                # kw_geo_tens[name] = None
+
+        # def do_parallel_fit(dm, include_core_charges, charge, order, betas, natom, ints_3c2e=shared_ints_3c2e, Vnuc=shared_Vnuc, weights=shared_weights,
+                            # geo_tens0=kw_geo_tens["geo_tens0"],
+                            # geo_tens1=kw_geo_tens["geo_tens1"],
+                            # geo_tens2=kw_geo_tens["geo_tens2"],):
+            # # multipoles_from_dens_parallel(dm: np.ndarray, include_core_charges=True, charge=0, order=2, betas=[0.0005, 0.0015, 0.003], natom=None, Vnuc=None, ints_3c2e=None, weights=None, geo_tens0=None, geo_tens1=None, geo_tens2=None)
+            # return multipoles_from_dens_parallel(dm, include_core_charges=include_core_charges, charge=charge, order=order,
+                                                 # betas=betas, natom=natom, Vnuc=Vnuc, ints_3c2e=ints_3c2e, weights=weights,
+                                                 # geo_tens0=geo_tens0, geo_tens1=geo_tens1, geo_tens2=geo_tens2)
+        # do_parallel_fit = lambda d, ic, c, o, b, na: multipoles_from_dens_parallel(d, ic, c, o, b, na, Vnuc=Vnuc, ints_3c2e=ints_3c2e, weights=weights,
+                            # geo_tens0=kw_geo_tens["geo_tens0"],
+                            # geo_tens1=kw_geo_tens["geo_tens1"],
+                            # geo_tens2=kw_geo_tens["geo_tens2"])
+
 
         fits_map = {}
+        queued = set()
         get_transpose = []
+        self.log.debug(f"starting pool with {self.QMin.resources['ncpu']} workers")
+        set_start_method('fork')
         with Pool(processes=self.QMin.resources["ncpu"]) as pool:
             for dens in self.QMin.requests["multipolar_fit"]:
                 s1, s2 = dens
-                if (s2, s1) in fits_map:
+                if (s2, s1) in queued:
                     get_transpose.append(dens)
                     continue
                 charge = s1.Z if s1 == s2 else 0
+                queued.add(dens)
                 fits_map[dens] = pool.apply_async(
-                    fits.multipoles_from_dens,
+                    multipoles_from_dens_parallel2,
                     args=(
-                        self.QMout.density_matrices[(s1, s2, "tot")],
+                        (s1, s2, "tot"),
                         s1 is s2,
                         charge,
                         self.QMin.resources["resp_fit_order"],
-                        self.QMin.resources["resp_betas"]
+                        self.QMin.resources["resp_betas"],
+                        self.QMin.molecule["natom"],
+                        # Vnuc,
+                        # ints_3c2e,
+                        # fits.weights,
+                        # kw_geo_tens["geo_tens0"],
+                        # kw_geo_tens["geo_tens1"],
+                        # kw_geo_tens["geo_tens2"],
                     ),
                 )
             pool.close()
             pool.join()
             # fits_map = results.get()
             fits_map = {key: val.get() for key, val in fits_map.items()}
+            # fits_map = fits.res
 
         for dens in get_transpose:
             s1, s2 = dens
