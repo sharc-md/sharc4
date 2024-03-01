@@ -7,21 +7,22 @@ import time
 from abc import abstractmethod
 from datetime import date
 from io import TextIOWrapper
-from textwrap import dedent
-from multiprocessing import Pool, set_start_method
-from typing import Optional
 from itertools import starmap
+from multiprocessing import Pool, set_start_method
+from textwrap import dedent
+from typing import Optional
 
 import numpy as np
 import sympy
-from sympy.physics.wigner import wigner_3j
-from qmin import QMin
-from SHARC_INTERFACE import SHARC_INTERFACE
-from utils import containsstring, readfile, safe_cast, link, writefile, shorten_DIR, mkdir, itmult, convert_list, is_exec
-from constants import ATOMIC_RADII, MK_RADII, IToMult
-from resp import Resp, multipoles_from_dens_parallel
-from asa_grid import GRIDS
 import wf2rho
+from asa_grid import GRIDS
+from constants import ATOMIC_RADII, MK_RADII, IToMult
+from qmin import QMin
+from resp import Resp, multipoles_from_dens_parallel
+from SHARC_INTERFACE import SHARC_INTERFACE
+from sympy.physics.wigner import wigner_3j
+from utils import (containsstring, convert_list, is_exec, itmult, link, mkdir,
+                   readfile, safe_cast, shorten_DIR, writefile)
 
 all_features = {
     "h",
@@ -451,9 +452,8 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
     def create_restart_files(self):
         pass
 
-    @abstractmethod
     def get_mole(self):
-        pass
+        raise NotImplementedError(f"This interface does not support the density request!")
 
     def run_program(self, workdir: str, cmd: str, out: str, err: str) -> int:
         """
@@ -671,9 +671,8 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 print("      " + v["repr"] + " = " + string)
         return
 
-    @abstractmethod
     def get_readable_densities(self):
-        pass
+        raise NotImplementedError(f"This interface does not support the density request!")
 
     def append_calculatable_densities(self, doables, method):
         QMin = self.QMin
@@ -855,9 +854,8 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
 
         return
 
-    @abstractmethod
     def read_and_append_densities(self):
-        pass
+        raise NotImplementedError(f"This interface does not support the density request!")
 
     def construct_and_append_densities(self):
         QMout = self.QMout
@@ -1244,16 +1242,14 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         mol = self.QMin.molecule["mol"]
         gsmult = self.QMin.maps["statemap"][1][0]
         charge = self.QMin.maps["chargemap"][gsmult]  # the charge is irrelevant for the integrals calculated!!
-        fits.prepare(
-            mol
-        )  # the charge of the atom does not affect integrals
+        fits.prepare(mol)  # the charge of the atom does not affect integrals
         fits.prepare_parallel(self.QMout.density_matrices, self.QMin.resources["resp_fit_order"])
 
         fits_map = {}
         queued = set()
         get_transpose = []
         self.log.debug(f"starting pool with {self.QMin.resources['ncpu']} workers")
-        set_start_method('fork')
+        set_start_method("fork")
         with Pool(processes=self.QMin.resources["ncpu"]) as pool:
             for dens in self.QMin.requests["multipolar_fit"]:
                 s1, s2 = dens
