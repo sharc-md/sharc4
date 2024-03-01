@@ -17,13 +17,13 @@ import numpy as np
 from constants import *
 from qmin import QMin
 from SHARC_ABINITIO import SHARC_ABINITIO
-from utils import clock, expand_path, itnmstates, parse_xyz, readfile, itmult, link, mkdir, writefile
+from utils import clock, expand_path, itnmstates, parse_xyz, containsstring, makecmatrix, readfile, itmult, link, mkdir, writefile
 
 __all__ = ["SHARC_MNDO"]
 
 AUTHORS = "Nadja K. Singer, Hans Georg Gallmetzer"
 VERSION = "0.2"
-VERSIONDATE = datetime.datetime(2023, 2, 22)
+VERSIONDATE = datetime.datetime(2024, 3, 1)
 NAME = "MNDO"
 DESCRIPTION = "SHARC interface for the mndo2020 program"
 
@@ -31,7 +31,7 @@ CHANGELOGSTRING = """27.10.2021:     Initial version 0.1 by Nadja
 - Only OM2/MRCI
 - Only singlets
 
-13.12.2023:     New implementation version 0.2 by Georg
+01.03.2024:     New implementation version 0.2 by Georg
 """
 
 all_features = set(
@@ -43,6 +43,7 @@ all_features = set(
         "overlap",
         "molden",
         "savestuff",
+        "point_charges",
    ]
 
 )
@@ -67,6 +68,7 @@ class SHARC_MNDO(SHARC_ABINITIO):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.loglevel = 10                  #Added by Sascha for check-up
 
         # Add resource keys
         self.QMin.resources.update(
@@ -195,7 +197,6 @@ class SHARC_MNDO(SHARC_ABINITIO):
         input_path = os.path.join(workdir, "MNDO.inp")
         self.log.debug(f"Write input into file {input_path}")
         writefile(input_path, input_str)
-
         # Write point charges
         if self.QMin.molecule["point_charges"]:
             pc_str = ""
@@ -213,7 +214,7 @@ class SHARC_MNDO(SHARC_ABINITIO):
 
         # Delete files not needed
         work_files = os.listdir(workdir)
-        for file in work_files:
+        for file in work_files:                                       #<------- Delete comments when inteface is working
             if not re.search(r"\.dat$|\.out$|\.err$|\.dat$", file):
                 os.remove(os.path.join(workdir, file))
 
@@ -254,6 +255,17 @@ class SHARC_MNDO(SHARC_ABINITIO):
         det = os.path.join(savedir, f'dets.{step}')
         writefile(det, determinants)
         return
+
+
+    def saveGeometry(self):
+        string = ''
+        for label, atom in zip(self.QMin.molecule['elements'], self.QMin.coords['coords']):
+            string += '%4s %16.9f %16.9f %16.9f\n' % (label, atom[0], atom[1], atom[2])
+        filename = os.path.join(self.QMin.save['savedir'], f'geom.dat.{self.QMin.save["step"]}')
+        writefile(filename, string)
+        return
+    
+
 
 
     def _get_MO_from_molden(self, molden_file: str):
@@ -571,6 +583,17 @@ mocoef
             if self.QMin.molecule["point_charges"]:
                 self.QMout.nacdr_pc = self._get_nacs_pc(log_file, interstates)
 
+        if self.QMin.requests["overlap"]:
+            if 'overlap' not in self.QMout:
+                self.QMout['overlap'] = makecmatrix(nmstates, nmstates)
+            for mult in itmult(self.QMin.molecule['states']):
+                outfile = os.path.join(self.QMin.resources['scratchdir'], 'wfovl.out')
+                out = readfile(outfile)
+                print('Overlaps: ' + outfile)
+                for i in range(nmstates):
+                    for j in range(nmstates):
+                        self.QMout['overlap'][i][j] = self.getsmate(out, i+1, j+1)
+
 
 
     def _get_states_interstates(self, log_path: str):
@@ -802,6 +825,19 @@ mocoef
         return energies
     
     @staticmethod
+    def getsmate(out, s1, s2):
+        ilines = -1
+        while True:
+            ilines += 1
+            if ilines == len(out):
+                raise Error('Overlap of states %i - %i not found!' % (s1, s2), 82)
+            if containsstring('Overlap matrix <PsiA_i|PsiB_j>', out[ilines]):
+                break
+        ilines += 1 + s1
+        f = out[ilines].split()
+        return float(f[s2 + 1])
+    
+    @staticmethod
     def readfile(filename : str) -> str:
         """reads the whole file and gives the content of the file back as a list of strings"""
         try:
@@ -822,7 +858,7 @@ mocoef
     def print_qmin(self) -> None:
         pass
 
-    def read_resources(self, resources_file: str) -> None:
+    def read_resources(self, resources_file: str = "MNDO.resources") -> None:
         super().read_resources(resources_file)
         # LD PATH???
         if not self.QMin.resources["mndodir"]:
@@ -840,8 +876,15 @@ mocoef
                 raise ValueError(f"Found unsupported request {req}.")
 
 
-    def read_template(self, template_file: str) -> None:
+    def read_template(self, template_file: str = "MNDO.template") -> None:
         super().read_template(template_file)
+        if self.QMin["template"]["numatm"] > 0:
+            self.QMin["molecule"]["point_charges"] = True
+            self.QMin["molecule"]["npc"] = self.QMin["template"]["numatm"]
+
+        self.QMin["template"]["act_orbs"] = [int(i) for i in self.QMin["template"]["act_orbs"]]
+        self.QMin["template"]["grads"] = [int(i) for i in self.QMin["template"]["grads"]]
+        
 
 
     def remove_old_restart_files(self, retain: int = 5) -> None:
@@ -858,20 +901,22 @@ mocoef
         make schedule
         runjobs()
         run_wfoverlap (braucht input files)
-        run_theodore
         save directory handling
         """
 
         starttime = datetime.datetime.now()
-        self.QMin.control["workdir"] = os.path.join(self.QMin.resources["scratchdir"], "job")
+        self.QMin.control["workdir"] = os.path.join(self.QMin.resources["scratchdir"], "mndo_calc")
         
         self.execute_from_qmin(self.QMin.control["workdir"], self.QMin)
-        self.getQMout()
+        
         self._save_files(self.QMin.control["workdir"])
         # Run wfoverlap
-        self._run_wfoverlap()
+        if self.QMin.requests["overlap"]:
+            self._run_wfoverlap()
 
         self.log.debug("All jobs finished successfully")
+
+        self.saveGeometry()
 
         self.QMout["runtime"] = datetime.datetime.now() - starttime
 
@@ -901,6 +946,7 @@ mocoef
         wf_cmd = f"{self.QMin.resources['wfoverlap']} -m {self.QMin.resources['memory']} -f wfovl.inp"
 
         # Overlap calculations
+        print(self.QMin.requests["overlap"])
         if self.QMin.requests["overlap"]:
             workdir = self.QMin.resources["scratchdir"]
 
@@ -908,26 +954,27 @@ mocoef
             writefile(os.path.join(workdir, "wfovl.inp"), wf_input)
 
             # Link files
-            link(os.path.join(self.QMin.save["savedir"], "AO_overl"), os.path.join(workdir, "aoovl"))
+            #breakpoint()
             link(
-                os.path.join(self.QMin.save["savedir"], f"dets.a.{self.QMin.save['step']}"),
+                os.path.join(self.QMin.save["savedir"], f"dets.{self.QMin.save['step']}"),
                 os.path.join(workdir, "det.a"),
             )
             link(
-                os.path.join(self.QMin.save["savedir"], f"dets.b.{self.QMin.save['step']}"),
+                os.path.join(self.QMin.save["savedir"], f"dets.{self.QMin.save['step']-1}"),
                 os.path.join(workdir, "det.b"),
             )
             link(
-                os.path.join(self.QMin.save["savedir"], f"mos.a.{self.QMin.save['step']}"),
+                os.path.join(self.QMin.save["savedir"], f"mos.{self.QMin.save['step']}"),
                 os.path.join(workdir, "mo.a"),
             )
             link(
-                os.path.join(self.QMin.save["savedir"], f"mos.b.{self.QMin.save['step']}"),
+                os.path.join(self.QMin.save["savedir"], f"mos.{self.QMin.save['step']-1}"),
                 os.path.join(workdir, "mo.b"),
             )
 
             # Execute wfoverlap, maybe better using time.perf_counter() ??
             starttime = datetime.datetime.now()
+            
             code = self.run_program(workdir, wf_cmd, os.path.join(workdir, "wfovl.out"), os.path.join(workdir, "wfovl.err"))
             self.log.info(
                 f"Finished wfoverlap job!!\nruntime: {datetime.datetime.now()-starttime}"
@@ -965,7 +1012,11 @@ mocoef
         kitscf = qmin["template"]["kitscf"]
         imomap = qmin["template"]["imomap"]
 
-        inputstring = f"iop=-6 jop=-2 imult=0 iform=1 igeom=1 mprint=1 icuts=-1 icutg=-1 dstep={dstep} kci=5 ioutci=1 iroot={iroot} icross=7 ncigrd={ncigrd} inac=0 imomap={imomap} iscf=11 iplscf=11 kitscf={kitscf} ici1={ici1} ici2={ici2} movo={movo} nciref={nciref} mciref=3 levexc=6 iuvcd=3 nsav13=2 kharge={kharge} multci=1 cilead=1 ncisym=-1 numatm={ncharges} mmcoup=2 mmfile=1 mmskip=0 mminp={mminp} nsav15=9"        
+        if qmin["molecule"]["point_charges"] == True:
+            inputstring = f"iop=-6 jop=-2 imult=0 iform=1 igeom=1 mprint=1 icuts=-1 icutg=-1 dstep={dstep} kci=5 ioutci=1 iroot={iroot} icross=7 ncigrd={ncigrd} inac=0 imomap={imomap} iscf=11 iplscf=11 kitscf={kitscf} ici1={ici1} ici2={ici2} movo={movo} nciref={nciref} mciref=3 levexc=6 iuvcd=3 nsav13=2 kharge={kharge} multci=1 cilead=1 ncisym=-1 numatm={ncharges} mmcoup=2 mmfile=1 mmskip=0 mminp={mminp} nsav15=9"        
+        else:
+            inputstring = f"iop=-6 jop=-2 imult=0 iform=1 igeom=1 mprint=1 icuts=-1 icutg=-1 dstep={dstep} kci=5 ioutci=1 iroot={iroot} icross=7 ncigrd={ncigrd} inac=0 imomap={imomap} iscf=11 iplscf=11 kitscf={kitscf} ici1={ici1} ici2={ici2} movo={movo} nciref={nciref} mciref=3 levexc=6 iuvcd=3 nsav13=2 kharge={kharge} multci=1 cilead=1 ncisym=-1 nsav15=9"        
+        
         inputstring = " +\n".join(wrap(inputstring, width=70))
         inputstring += '\nheader\n'
         inputstring += 'header\n'
