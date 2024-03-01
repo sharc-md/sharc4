@@ -1,6 +1,10 @@
 import pytest
+import os
 import numpy as np
 from SHARC_MNDO import SHARC_MNDO
+from utils import expand_path
+
+PATH = expand_path("$SHARC/../tests/interface")
 
 def setup_interface(path: str, maps: dict):
     test_interface = SHARC_MNDO()
@@ -54,7 +58,7 @@ def get_grads(outfile: str, template: str, qmin: str, grads: list, grads_pc: lis
         assert parsed_pc[j] == pytest.approx(grads_pc[j], 1.0e-3)
 
 def test_requests1():
-    tests = ["inputs/mndo/QM2.in"]
+    tests = [os.path.join(PATH, "inputs/mndo/QM2.in")]
     for i in tests:
         with pytest.raises(ValueError):
             test_interface = SHARC_MNDO()
@@ -64,7 +68,7 @@ def test_requests1():
             test_interface.read_requests(i)
 
 def test_requests2():
-    tests = ["inputs/mndo/QM1.in"]
+    tests = [os.path.join(PATH, "inputs/mndo/QM1.in")]
     for i in tests:
         test_interface = SHARC_MNDO()
         test_interface.setup_mol(i)
@@ -75,9 +79,9 @@ def test_requests2():
 def test_energies():
     tests = [
         (
-            "inputs/mndo/MNDO1.out",
-            "inputs/mndo/MNDO1.template",
-            "inputs/mndo/QM1.in",
+            os.path.join(PATH, "inputs/mndo/MNDO1.out"),
+            os.path.join(PATH, "inputs/mndo/MNDO1.template"),
+            os.path.join(PATH, "inputs/mndo/QM1.in"),
             {
                 (1, 1): -14.455173216195167,
                 (1, 2): -14.174554972348169,
@@ -86,9 +90,9 @@ def test_energies():
             },
         ),
         (
-            "inputs/mndo/MNDO3.out",
-            "inputs/mndo/MNDO3.template",
-            "inputs/mndo/QM3.in",
+            os.path.join(PATH, "inputs/mndo/MNDO3.out"),
+            os.path.join(PATH, "inputs/mndo/MNDO3.template"),
+            os.path.join(PATH, "inputs/mndo/QM3.in"),
             {
                 (1, 1): -14.455209046767495,
                 (1, 2): -14.174552951136395,
@@ -102,9 +106,9 @@ def test_energies():
 def test_tdms():
     tests = [
         (
-            "inputs/mndo/MNDO1.out",
-            "inputs/mndo/MNDO1.template",
-            "inputs/mndo/QM1.in",
+            os.path.join(PATH, "inputs/mndo/MNDO1.out"),
+            os.path.join(PATH, "inputs/mndo/MNDO1.template"),
+            os.path.join(PATH, "inputs/mndo/QM1.in"),
             np.array([[[0.0, 0.0, 0.0, -0.0], [0.0, 0.0, -0.0, -0.0], [0.0, -0.0, 0.0, -0.0], [-0.0, -0.0, -0.0, 0.0]], [[0.0, 0.0, 0.7881084543125534, 0.0], [0.0, 0.0, 0.45318409174088087, -0.0], [0.7881084543125534, 0.45318409174088087, -0.0, 0.0842254280021146], [0.0, -0.0, 0.0842254280021146, 0.0]], [[9.531640132568828, -9.350992232930748, 0.0, -1.6941386076206744], [-9.350992232930748, 7.820462770932457, 0.0, 7.650138770281812], [0.0, 0.0, 9.799385445894842, 0.0], [-1.6941386076206744, 7.650138770281812, 0.0, 27.970629498597052]]]),
         )
     ]
@@ -114,9 +118,9 @@ def test_tdms():
 def test_grads():
     tests = [
         (
-            "inputs/mndo/MNDO1.out",
-            "inputs/mndo/MNDO1.template",
-            "inputs/mndo/QM1_pc.in",
+            os.path.join(PATH, "inputs/mndo/MNDO1.out"),
+            os.path.join(PATH, "inputs/mndo/MNDO1.template"),
+            os.path.join(PATH, "inputs/mndo/QM1_pc.in"),
             np.array([[[0.0, -0.0, -0.09494103284884164], [-0.0, -0.0, 0.06534109398831474], [-0.001668924263116929, 0.0, 0.0038429067260890206], [0.03751611538637951, -0.0, 0.010957058487696165], [-0.03751611538637951, -0.0, 0.010957058487696165], [0.001668924263116929, -0.0, 0.0038429067260890206]], [[-0.0, -0.0, 0.14141621162988025], [-0.0, -0.0, -0.1747717086527036], [-0.004582898662060879, 0.0, 0.004437826510784253], [0.040076504350755215, 0.0, 0.012239922000627434], [-0.040076504350755215, 0.0, 0.012239922000627434], [0.004582898662060879, -0.0, 0.004437826510784253]], [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]], [[-0.0, -0.0, 0.21335615313775658], [0.0, 0.0, -0.20293514396518275], [0.020592529326051, 0.0, -0.006759098992601753], [0.00980264576871046, -0.0, 0.00154859440631485], [-0.00980264576871046, -0.0, 0.00154859440631485], [-0.020592529326051, 0.0, -0.006759098992601753]]]),
             np.array([[[0., 0., 0.]], [[0., 0., 0.]], [[0., 0., 0.]], [[0., 0., 0.]]]),
         )
