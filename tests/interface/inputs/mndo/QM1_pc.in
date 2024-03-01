@@ -30,7 +30,7 @@ unit angstrom
 states 4 0 0
 #savedir ./SAVE         # overrides the savedir in the resources file
 
-point_charges ./inputs/mndo/pcfile
+point_charges $SHARC/../tests/interface/inputs/mndo/pcfile
     ## ===============================================
     # Quantity requests:
 h
@@ -39,7 +39,6 @@ grad 1 2 4
 #overlap
 nacdr 
 molden
-savestuff
 
     # note that the "soc" keyword does not work with the MNDO interface
 
