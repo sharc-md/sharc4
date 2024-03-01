@@ -1016,13 +1016,13 @@ class QMout:
             s1, s2, spin = key
             string += f"<S1 = {s1.S/2: 3.1f}, MS1 = {s1.M/2: 3.1f}, N1 = {s1.N}| {spin} | S2 = {s2.S/2: 3.1f}, MS2 = {s2.M/2: 3.1f}, N2 = {s2.N}> \n"
             for i in range(nao):
-                string += ' '.join( [ f"{float(rho[i,j]): 15.12f}" for j in range(nao) ] )
+                string += ' '.join(map(lambda j: f"{float(rho[i,j]): 15.12f}", range(nao)))
                 string += "\n"
         return string
 
     def writeQMoutBasisSet(self) -> str:
         string = (
-            f"! 25 Basis set in the PySCF format (dict, 1 line)\n"
+            "! 25 Basis set in the PySCF format (dict, 1 line)\n"
         )
         string += str(self.mol.basis)+'\n'
         return string 
