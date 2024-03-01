@@ -278,25 +278,23 @@ class SHARC_ECI(SHARC_HYBRID):
 
         return
         
-    #def read_resources(self, resources_file: str = "ECI.resources") -> None:
-        #"""
-        #Parser for ECI resources in yaml format
+    def read_resources(self, resources_file: str = "ECI.resources") -> None:
+        """
+        Parser for ECI resources in yaml format
 
-        #resources_file:  Path to template file
-        #"""
-        ## TODO: validate *_site_state values
-        #self.log.debug(f"Parsing template file {resources_file}")
+        resources_file:  Path to template file
+        """
+        # TODO: validate *_site_state values
+        self.log.debug(f"Parsing template file {resources_file}")
 
-        ## Open resources_file file and parse yaml
-        #with open(resources_file, "r", encoding="utf-8") as res_file:
-        #    res_dict = yaml.safe_load(res_file)
-        #    self.log.debug(f"Parsing yaml file:\n{res_dict}")
+        # Open resources_file file and parse yaml
+        with open(resources_file, "r", encoding="utf-8") as res_file:
+            res_dict = yaml.safe_load(res_file)
+            self.log.debug(f"Parsing yaml file:\n{res_dict}")
 
-        #self.QMin.resources.update(res_dict)
+        self.QMin.resources.update(res_dict)
 
-        ## TODO sanity checks
-        #return
-        #pass
+        # TODO sanity checks
 
 
 

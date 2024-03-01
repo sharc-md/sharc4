@@ -66,7 +66,7 @@ def test_schedule():
                     "point_charges": False,
                     "npc": 0,
                     "Atomcharge": 32,
-                    "frozcore": 7,
+                    "frozcore": 0,
                 },
                 "resources": {
                     "pwd": os.getcwd(),
@@ -156,7 +156,7 @@ def test_schedule():
                     "point_charges": False,
                     "npc": 0,
                     "Atomcharge": 32,
-                    "frozcore": 7,
+                    "frozcore": 0,
                 },
                 "resources": {
                     "pwd": os.getcwd(),
@@ -248,7 +248,7 @@ def test_schedule():
                     "point_charges": False,
                     "npc": 0,
                     "Atomcharge": 32,
-                    "frozcore": 7,
+                    "frozcore": 0,
                 },
                 "resources": {
                     "pwd": os.getcwd(),
@@ -338,7 +338,7 @@ def test_schedule():
                     "point_charges": False,
                     "npc": 0,
                     "Atomcharge": 32,
-                    "frozcore": 7,
+                    "frozcore": 0,
                 },
                 "resources": {
                     "pwd": os.getcwd(),
@@ -428,7 +428,7 @@ def test_schedule():
                     "point_charges": False,
                     "npc": 0,
                     "Atomcharge": 32,
-                    "frozcore": 7,
+                    "frozcore": 0,
                 },
                 "resources": {
                     "pwd": os.getcwd(),
@@ -487,9 +487,11 @@ def test_schedule():
         },
     ]
 
-    for job_ref, job in zip(ref_schedule, gaussian.QMin.scheduling["schedule"]):
+    for ij, (job_ref, job) in enumerate(zip(ref_schedule, gaussian.QMin.scheduling["schedule"])):
         for key in job_ref.keys():
             for subk in ["control", "molecule", "resources", "maps"]:
                 for k, v in job_ref[key][subk].items():
-                    assert k in job[key][subk].data
-                    assert f"{v}" == f"{job[key][subk][k]}"
+                    if k not in job[key][subk].data:
+                        raise KeyError(f"{k} not in schedule[{ij}][{subk}]")
+                    if f"{v}" != f"{job[key][subk][k]}":
+                        raise ValueError(f"schedule[{ij}][{subk}][{k}] should be {v} not {job[key][subk][k]}")

@@ -235,7 +235,7 @@ class Resp:
         if self.generate_raw_fit_file:
             filename = kwargs["resp_data_file"] if "resp_data_file" in kwargs else "RESP_fit_data.txt"
             dist = np.min(np.linalg.norm(R_alpha, axis=2), axis=0)
-            self.log.info(f"generating file with ESP data [filename]! [num ref_esp fit_esp dist x y z]")
+            self.log.info("generating file with ESP data [filename]! [num ref_esp fit_esp dist x y z]")
             with open(filename, "w") as f:
                 f.write(f"# {'num [AU]':<9s}  {'ref_esp':<12s} {'fit_esp':<12s} {'dist':<12s} {'x':<12s} {'y':<12s} {'z':<12s}\n")
                 for i, vals in enumerate(zip(Fesp_i, fit_esp, dist, self.mk_grid[:, 0], self.mk_grid[:, 1], self.mk_grid[:, 2])):
@@ -251,7 +251,7 @@ class Resp:
     def sequential_multipoles(
         self, dm: np.ndarray, include_core_charges=True, charge=0, order=2, betas=[0.0005, 0.0015, 0.003], **kwargs
     ):
-        # self.log.info("Start sequential multipolar fit")
+        self.log.info("Start sequential multipolar fit")
         if not include_core_charges and charge != 0:
             self.log.warning(
                 "No core charges but charge not set to zero! -> transition densities set 'include_core_charges=False' and 'charge=0'"
@@ -297,19 +297,19 @@ class Resp:
 
         quadrupoles, Fres = self.fit(tmp, Fres, 6, natom, beta=betas[2], charge=None, weights=self.weights, traceless_quad=True)
 
-        # self.log.info(
-        # f"Fit done!\tMEAN: {np.mean(Fres): 10.6e}\t ABS.MEAN: {np.mean(np.abs(Fres)): 10.6e}\tRMSD: {np.sqrt(np.mean(Fres**2)): 10.8e}"
-        # )
-        # if self.generate_raw_fit_file:
-        # filename = kwargs["resp_data_file"] if "resp_data_file" in kwargs else "RESP_fit_data.txt"
-        # dist = np.min(np.linalg.norm(R_alpha, axis=2), axis=0)
-        # self.log.info(f"generating file with ESP data [{filename}]! [num ref_esp fit_esp dist x y z]")
-        # with open(filename, "w") as f:
-        # f.write(f"# {'num [AU]':<9s}  {'ref_esp':<12s} {'fit_esp':<12s} {'dist':<12s} {'x':<12s} {'y':<12s} {'z':<12s}\n")
-        # for i, vals in enumerate(
-        # zip(Fesp_i, Fesp_i - Fres, dist, self.mk_grid[:, 0], self.mk_grid[:, 1], self.mk_grid[:, 2])
-        # ):
-        # f.write(f"{i:5d}      " + " ".join(map(lambda x: f"{x: 12.8f}", vals)) + "\n")
+        self.log.info(
+            f"Fit done!\tMEAN: {np.mean(Fres): 10.6e}\t ABS.MEAN: {np.mean(np.abs(Fres)): 10.6e}\tRMSD: {np.sqrt(np.mean(Fres**2)): 10.8e}"
+        )
+        if self.generate_raw_fit_file:
+            filename = kwargs["resp_data_file"] if "resp_data_file" in kwargs else "RESP_fit_data.txt"
+            dist = np.min(np.linalg.norm(R_alpha, axis=2), axis=0)
+            self.log.info(f"generating file with ESP data [{filename}]! [num ref_esp fit_esp dist x y z]")
+            with open(filename, "w") as f:
+                f.write(f"# {'num [AU]':<9s}  {'ref_esp':<12s} {'fit_esp':<12s} {'dist':<12s} {'x':<12s} {'y':<12s} {'z':<12s}\n")
+                for i, vals in enumerate(
+                    zip(Fesp_i, Fesp_i - Fres, dist, self.mk_grid[:, 0], self.mk_grid[:, 1], self.mk_grid[:, 2])
+                ):
+                    f.write(f"{i:5d}      " + " ".join(map(lambda x: f"{x: 12.8f}", vals)) + "\n")
 
         return np.hstack((monopoles, dipoles, quadrupoles))
 
@@ -328,45 +328,7 @@ class Resp:
             logger=logger,
         )
 
-    def prepare_parallel(self, order=2, **kwargs):
-        # self.log.info("Start sequential multipolar fit")
-        if not (0 <= order <= 2):
-            raise Error("Specify order in the range of 0 - 2")
-        R_alpha = self.R_alpha
-        r_inv = self.r_inv
-        geometric_tensors = {}
-
-        geometric_tensors[0] = self.r_inv
-
-        if order == 0:
-            return self.ints, self.Vnuc, geometric_tensors
-
-        r_inv3 = r_inv**3
-
-        # fit dipoles
-        geometric_tensors[1] = np.vstack(
-            (R_alpha[:, :, 0] * r_inv3, R_alpha[:, :, 1] * r_inv3, R_alpha[:, :, 2] * r_inv3)
-        )  # m_A_i
-
-        if order == 1:
-            return self.ints, self.Vnuc, geometric_tensors
-
-        r_inv5 = r_inv**5
-
-        geometric_tensors[2] = np.vstack(
-            (
-                R_alpha[:, :, 0] * R_alpha[:, :, 0] * r_inv5 * 0.5,
-                R_alpha[:, :, 1] * R_alpha[:, :, 1] * r_inv5 * 0.5,
-                R_alpha[:, :, 2] * R_alpha[:, :, 2] * r_inv5 * 0.5,
-                R_alpha[:, :, 0] * R_alpha[:, :, 1] * r_inv5,
-                R_alpha[:, :, 0] * R_alpha[:, :, 2] * r_inv5,
-                R_alpha[:, :, 1] * R_alpha[:, :, 2] * r_inv5,
-            )
-        )  # m_A_i
-
-        return self.ints, self.Vnuc, geometric_tensors
-
-    def prepare_parallel2(self, densities_dict, order=2, **kwargs):
+    def prepare_parallel(self, densities_dict, order=2, **kwargs):
         global fit_data
         fit_data = {}
         # self.log.info("Start sequential multipolar fit")
@@ -412,7 +374,7 @@ class Resp:
     #  multipoles_from_dens = one_shot_fit
 
 
-def multipoles_from_dens_parallel2(
+def multipoles_from_dens_parallel(
     dm_key: tuple, include_core_charges=True, charge=0, order=2, betas=[0.0005, 0.0015, 0.003], natom=None
 ):
     # self.log.info("Start sequential multipolar fit")
@@ -444,48 +406,6 @@ def multipoles_from_dens_parallel2(
     )
 
     # self.res[(dm_key[0], dm_key[1])] = np.hstack((monopoles, dipoles, quadrupoles))
-    return np.hstack((monopoles, dipoles, quadrupoles))
-
-
-def multipoles_from_dens_parallel(
-    dm: np.ndarray,
-    include_core_charges=True,
-    charge=0,
-    order=2,
-    betas=[0.0005, 0.0015, 0.003],
-    natom=None,
-    Vnuc=None,
-    ints_3c2e=None,
-    weights=None,
-    geo_tens0=None,
-    geo_tens1=None,
-    geo_tens2=None,
-):
-    # self.log.info("Start sequential multipolar fit")
-    if not include_core_charges and charge != 0:
-        raise RuntimeError()
-
-    if not (0 <= order <= 2):
-        raise RuntimeError("Specify order in the range of 0 - 2")
-
-    Fesp_i = -np.einsum("ijp,ij->p", ints_3c2e, dm)
-
-    if include_core_charges and Vnuc is not None:
-        Fesp_i += Vnuc
-
-    # fit monopoles
-    monopoles, Fres = _fit(geo_tens0, Fesp_i, 1, natom, beta=betas[0], charge=charge, weights=weights)
-
-    if order == 0:
-        return monopoles
-
-    dipoles, Fres = _fit(geo_tens1, Fres, 3, natom, beta=betas[1], weights=weights, charge=None)
-
-    if order == 1:
-        return np.hstack((monopoles, dipoles))
-
-    quadrupoles, Fres = _fit(geo_tens2, Fres, 6, natom, beta=betas[2], charge=None, weights=weights, traceless_quad=True)
-
     return np.hstack((monopoles, dipoles, quadrupoles))
 
 

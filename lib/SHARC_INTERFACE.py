@@ -45,7 +45,7 @@ from constants import ATOMCHARGE, BOHR_TO_ANG, FROZENS
 from logger import SHARCPRINT, TRACE, CustomFormatter, logging
 from qmin import QMin
 from qmout import QMout
-from utils import clock, expand_path, itnmstates, parse_xyz, readfile, writefile, electronic_state
+from utils import clock, expand_path, itnmstates, parse_xyz, readfile, writefile, electronic_state, convert_list
 
 np.set_printoptions(linewidth=400, formatter={"float": lambda x: f"{x: 9.7}"})
 all_features = {
@@ -105,6 +105,7 @@ class SHARC_INTERFACE(ABC):
         self.QMin = QMin()
         self.density_recipes = {}
         self._setsave = False
+        self.states = []
 
         logname = logname if isinstance(logname, str) else self.name()
         self.log = logging.getLogger(logname)
@@ -122,6 +123,10 @@ class SHARC_INTERFACE(ABC):
         self.log.addHandler(hdlr)
         self.log.print = self.sharcprint
         self.log.trace = self.trace
+
+        # Define template keys
+        self.QMin.template.update({"charge": None, "paddingstates": None})
+        self.QMin.template.types.update({"charge": list, "paddingstates": list})
 
     def sharcprint(self, msg, *args, **kwargs):
         """
@@ -314,20 +319,46 @@ class SHARC_INTERFACE(ABC):
         self.QMin.template.update(self._parse_raw(template_file, self.QMin.template.types, kw_whitelist))
 
         self._read_template = True
-        if "charge" not in self.QMin.template or self.QMin.template["charge"] is None:
-            charge = [i % 2 for i in range(len(self.QMin.molecule['states']))]
+
+        # Check if charge in template and autoexpand if needed
+        if self.QMin.template["charge"]:
+            self.QMin.template["charge"] = convert_list(self.QMin.template["charge"])
+
+            if len(self.QMin.template["charge"]) == 1:
+                charge = int(self.QMin.template["charge"][0])
+                if (self.QMin.molecule["Atomcharge"] + charge) % 2 == 1 and len(self.QMin.molecule["states"]) > 1:
+                    self.log.info("HINT: Charge shifted by -1 to be compatible with multiplicities.")
+                    charge -= 1
+                self.QMin.template["charge"] = [i % 2 + charge for i in range(len(self.QMin.molecule["states"]))]
+                self.log.info(
+                    f'HINT: total charge per multiplicity automatically assigned, please check ({self.QMin.template["charge"]}).'
+                )
+                self.log.info('You can set the charge in the template manually for each multiplicity ("charge 0 +1 0 ...")')
+            elif len(self.QMin.template["charge"]) >= len(self.QMin.molecule["states"]):
+                self.QMin.template["charge"] = [
+                    int(self.QMin.template["charge"][i]) for i in range(len(self.QMin.molecule["states"]))
+                ]
+
+                for imult, cha in enumerate(self.QMin.template["charge"]):
+                    if not (self.QMin.molecule["Atomcharge"] + cha + imult) % 2 == 0:
+                        self.log.warning(
+                            "Charges from template not compatible with multiplicities!  (this is probably OK if you use QM/MM)"
+                        )
+                        break
+            else:
+                raise ValueError('Length of "charge" does not match length of "states"!')
         else:
-            charge = self.QMin.template["charge"]
-        
-        # Start TOMI
-        self.states = []
-        for S, nstates in enumerate(self.QMin.molecule['states']):
-            c = charge[S]
-            for N in range(nstates):
-                for M in range(-S, S + 1, 2):
-                    self.states.append(electronic_state( Z=c, S=S, M=M, N=N+1, C={} ) )  # This is the moment in which states get their pointers
-        # End TOMI
-        
+            self.QMin.template["charge"] = [i % 2 for i in range(len(self.QMin.molecule["states"]))]
+        if self.QMin.template["paddingstates"]:
+            self.QMin.template["paddingstates"] = convert_list(self.QMin.template["paddingstates"])
+
+        for s, nstates in enumerate(self.QMin.molecule["states"]):
+            c = self.QMin.template["charge"][s]
+            for n in range(nstates):
+                for m in range(-s, s + 1, 2):
+                    self.states.append(
+                        electronic_state(Z=c, S=s, M=m, N=n + 1, C={})
+                    )  # This is the moment in which states get their pointers
 
     @staticmethod
     def clean_savedir(path: str, retain: int, step: int) -> None:
@@ -357,8 +388,8 @@ class SHARC_INTERFACE(ABC):
         Return QMout object
         """
 
-    #@abstractmethod
-    #def dyson_orbitals_with_other(self,other):
+    # @abstractmethod
+    # def dyson_orbitals_with_other(self,other):
     #    """
     #    Calculates Dyson orbitals between self and other.
     #    Presumably it will be implemented in SHARC_ABINITIO subclass and in each individual FAST or HYBRID interface
@@ -942,6 +973,3 @@ class SHARC_INTERFACE(ABC):
         lines[4:5] = wrap(lines[4], width=70)
         lines[1:-1] = map(lambda s: "||{:^76}||".format(s), lines[1:-1])
         self.log.info("\n".join(lines))
-
-
-

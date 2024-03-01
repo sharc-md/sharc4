@@ -21,7 +21,6 @@ from pyscf import gto
 # internal
 from qmin import QMin as QMin_class
 from SHARC_ABINITIO import SHARC_ABINITIO
-from tdm import es2es_tdm
 from utils import (
     expand_path,
     build_basis_dict,

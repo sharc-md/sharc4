@@ -36,7 +36,8 @@ class QMinBase(UserDict):
         for k in self.data.keys():
             k_type = type(self.data[k])
             if self.data[k] is None:
-                qmin_copy.types[k] = self.types[k]
+                if k in self.types:
+                    qmin_copy.types[k] = self.types[k]
                 qmin_copy.data[k] = None
                 continue
             qmin_copy.types[k] = k_type
@@ -220,7 +221,7 @@ class QMinRequests(QMinBase):
             "molden": False,
             "savestuff": False,
             "nooverlap": False,
-            "basis_set": True,
+            "basis_set": False,
             "density_matrices": None,
             "dyson_orbitals": None,
         }
@@ -243,7 +244,7 @@ class QMinRequests(QMinBase):
             "savestuff": bool,
             "nooverlap": bool,
             "basis_set": bool,
-            "density_matrices": list,
+            "density_matrices": dict,
             "dyson_orbitals": list,
         }
 
@@ -432,6 +433,7 @@ Control:
         for sub in filter(lambda x: not x.startswith("__"), dir(self)):
             if not full and sub == "scheduling":
                 qmin_copy[sub] = QMinBase()
+                continue
             qmin_copy[sub] = deepcopy(self[sub], memo)
         return qmin_copy
 
