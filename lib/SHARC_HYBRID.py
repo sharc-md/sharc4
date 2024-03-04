@@ -57,7 +57,7 @@ class SHARC_HYBRID(SHARC_INTERFACE):
             raise ValueError()
 
         for i in child_list:
-            if not issubclass(i, SHARC_INTERFACE):
+            if not isinstance(i, SHARC_INTERFACE):
                 self.log.error("child_list list must contain instances of SHARC_INTERFACE")
                 raise ValueError()
 

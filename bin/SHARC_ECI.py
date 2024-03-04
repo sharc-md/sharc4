@@ -640,20 +640,9 @@ class SHARC_ECI(SHARC_HYBRID):
                 # Run frozen fragments
                 frozen = [ label for label in egarden if QMin.template['fragments'][label]['frozen'] ]
                 for joblist in QMin.resources['EHF_frozen_sitejobs']: 
-                    print('Here I am 1')
-                    #  for label in joblist:
-                        #  egarden[label].run()
+                    child_list = [ egarden[child] for child in joblist ]
                     errors = {}
-                    with Pool(processes=len(joblist)) as pool:
-                        print('Here I am 2')
-                        print(joblist)
-                        for label in joblist:
-                            #  print(egarden[label].QMin)
-                            with InDir(label+'_embedding_C'+str(C)):
-                                errors[label] = pool.apply_async( egarden[label].run )
-                        pool.close()
-                        pool.join()
-                        results = {v.get() for v in errors.values()}
+                    self.run_childs(child_list)
                 for label in frozen:
                     child = egarden[label]
                     print(os.getcwd())
