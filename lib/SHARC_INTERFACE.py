@@ -128,6 +128,9 @@ class SHARC_INTERFACE(ABC):
         self.QMin.template.update({"charge": None, "paddingstates": None})
         self.QMin.template.types.update({"charge": list, "paddingstates": list})
 
+        # Define if interface can be run inside a sub process
+        self._threadsafe = False
+
     def sharcprint(self, msg, *args, **kwargs):
         """
         Log 'msg % args' with severity 'SHARCPRINT'.
