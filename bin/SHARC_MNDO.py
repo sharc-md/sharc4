@@ -202,13 +202,16 @@ class SHARC_MNDO(SHARC_ABINITIO):
         exec_str = f"{os.path.join(qmin.resources['mndodir'],'mndo2020')} < {os.path.join(workdir, 'MNDO.inp')} > {os.path.join(workdir, 'MNDO.out')}"
         exit_code = self.run_program(
             workdir, exec_str, os.path.join(workdir, "MNDO.out"), os.path.join(workdir, "MNDO.err")
-        )  # Chaos because of the output file how do i do this correctly? mndo2020 < mndo_metham.inp > mndo_metham.out
+        ) 
+        if (os.path.getsize(os.path.join(workdir, "MNDO.err")) > 0):
+            exit_code = -1
+
         endtime = datetime.datetime.now()
 
         # Delete files not needed
         work_files = os.listdir(workdir)
-        for file in work_files:  # <------- Delete comments when inteface is working
-            if not re.search(r"\.dat$|\.out$|\.err$|\.dat$", file):
+        for file in work_files: 
+            if not re.search(r"\.inp$|\.out$|\.err$|\.dat$", file):
                 os.remove(os.path.join(workdir, file))
 
         return exit_code, endtime - starttime
@@ -871,7 +874,9 @@ mocoef
             self.QMin["molecule"]["npc"] = self.QMin["template"]["numatm"]
 
         self.QMin["template"]["act_orbs"] = [int(i) for i in self.QMin["template"]["act_orbs"]]
-        self.QMin["template"]["grads"] = [int(i) for i in self.QMin["template"]["grads"]]
+        if self.QMin["template"]["grads"]:
+            self.QMin["template"]["grads"] = [int(i) for i in self.QMin["template"]["grads"]]
+
 
     def remove_old_restart_files(self, retain: int = 5) -> None:
         """
@@ -892,7 +897,10 @@ mocoef
         starttime = datetime.datetime.now()
         self.QMin.control["workdir"] = os.path.join(self.QMin.resources["scratchdir"], "mndo_calc")
 
-        self.execute_from_qmin(self.QMin.control["workdir"], self.QMin)
+        schedule = [{"mndo_calc" : self.QMin}] #Generate fake schedule
+        self.QMin.control["nslots_pool"].append(1)
+        self.runjobs(schedule)
+        #self.execute_from_qmin(self.QMin.control["workdir"], self.QMin)
 
         self._save_files(self.QMin.control["workdir"])
         # Run wfoverlap
@@ -1012,12 +1020,30 @@ mocoef
             inputstring += str(l) + " "
 
         return inputstring
+    
+    def _create_aoovl(self) -> None:
+        #empty function
+        pass
+
+    def get_mole(self) -> None:
+        #empty function
+        pass
+
+    def get_readable_densities(self) -> None:
+        #empty function
+        pass
+
+    def read_and_append_densities(self) -> None:
+        #empty function
+        pass
+
 
     def setup_interface(self) -> None:
         """
         Setup remaining maps (ionmap, gsmap) and build jobs dict
         """
         super().setup_interface()
+
 
 
 if __name__ == "__main__":
