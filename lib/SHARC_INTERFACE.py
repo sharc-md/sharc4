@@ -31,21 +31,21 @@ import os
 import re
 import sys
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from datetime import date
 from io import TextIOWrapper
 from socket import gethostname
 from textwrap import wrap
 from typing import Any
-from dataclasses import dataclass
 
 import numpy as np
-
 # internal
 from constants import ATOMCHARGE, BOHR_TO_ANG, FROZENS
 from logger import SHARCPRINT, TRACE, CustomFormatter, logging
 from qmin import QMin
 from qmout import QMout
-from utils import clock, expand_path, itnmstates, parse_xyz, readfile, writefile, electronic_state, convert_list
+from utils import (clock, convert_list, electronic_state, expand_path,
+                   itnmstates, parse_xyz, readfile, writefile)
 
 np.set_printoptions(linewidth=400, formatter={"float": lambda x: f"{x: 9.7}"})
 all_features = {
@@ -127,6 +127,9 @@ class SHARC_INTERFACE(ABC):
         # Define template keys
         self.QMin.template.update({"charge": None, "paddingstates": None})
         self.QMin.template.types.update({"charge": list, "paddingstates": list})
+
+        # Define if interface can be run inside a sub process
+        self._threadsafe = False
 
     def sharcprint(self, msg, *args, **kwargs):
         """
@@ -842,7 +845,14 @@ class SHARC_INTERFACE(ABC):
                 if requests[task] == "":  # removes task from dict if {'task': ''}
                     del requests[task]
                 elif task == requests[task].lower() or requests[task] == "all":
-                    requests[task] = [i + 1 for i in range(self.QMin.molecule["nstates"])]
+                    if task == "nacdr":
+                        requests[task] = [
+                            (i + 1, j + 1)
+                            for i in range(self.QMin.molecule["nmstates"])
+                            for j in range(self.QMin.molecule["nmstates"])
+                        ]
+                    else:
+                        requests[task] = [i + 1 for i in range(self.QMin.molecule["nstates"])]
                 else:
                     requests[task] = [int(i) for i in requests[task].split()]
 

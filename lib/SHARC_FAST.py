@@ -37,9 +37,12 @@ from utils import expand_path
 
 
 class SHARC_FAST(SHARC_INTERFACE):
-    def get_infos(
-        self, INFOS: dict, KEYSTROKES: Optional[TextIOWrapper] = None
-    ) -> dict:
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self._threadsafe = True
+
+    def get_infos(self, INFOS: dict, KEYSTROKES: Optional[TextIOWrapper] = None) -> dict:
         return INFOS
 
     def setup_interface(self):
@@ -50,7 +53,7 @@ class SHARC_FAST(SHARC_INTERFACE):
 
     # TODO: WTF is self.template_file???
     def prepare(self, INFOS: dict, dir_path: str):
-        if "link_files" in INFOS and INFOS['link_files']:
+        if "link_files" in INFOS and INFOS["link_files"]:
             os.symlink(
                 expand_path(self.template_file),
                 os.path.join(dir_path, self.name() + ".template"),
@@ -68,15 +71,9 @@ class SHARC_FAST(SHARC_INTERFACE):
                     )
             return
 
-        shutil.copy(
-            self.template_file, os.path.join(dir_path, self.name() + ".template")
-        )
+        shutil.copy(self.template_file, os.path.join(dir_path, self.name() + ".template"))
         if "resources_file" in self.__dict__:
-            shutil.copy(
-                self.resources_file, os.path.join(dir_path, self.name() + ".resources")
-            )
+            shutil.copy(self.resources_file, os.path.join(dir_path, self.name() + ".resources"))
         if "extra_files" in self.__dict__:
             for file in self.extra_files:
-                shutil.copy(
-                    expand_path(file), os.path.join(dir_path, os.path.split(file)[1])
-                )
+                shutil.copy(expand_path(file), os.path.join(dir_path, os.path.split(file)[1]))

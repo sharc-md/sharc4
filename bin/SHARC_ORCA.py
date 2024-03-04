@@ -1248,7 +1248,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
         for idx, job in enumerate(sorted(gradjob)):
             if not "master" in job:
                 continue
-            qmin = self.QMin.copy()
+            qmin = deepcopy(self.QMin)
             qmin.control["master"] = True
             qmin.control["jobid"] = int(job.split("_")[1])
             qmin.resources["ncpu"] = cpu_per_run[idx]
@@ -1385,82 +1385,82 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 string += f"{paste.read()}\n"
         return string
 
-    @staticmethod
-    def getDyson(out, s1, s2):
-        ilines = -1
-        while True:
-            ilines += 1
-            if ilines == len(out):
-                raise Error('Dyson norm of states %i - %i not found!' % (s1, s2), 104)
-            if containsstring('Dyson norm matrix <PsiA_i|PsiB_j>', out[ilines]):
-                break
-        ilines += 1 + s1
-        f = out[ilines].split()
-        return float(f[s2 + 1])
+    # @staticmethod
+    # def getDyson(out, s1, s2):
+    #    ilines = -1
+    #    while True:
+    #        ilines += 1
+    #        if ilines == len(out):
+    #            raise Error('Dyson norm of states %i - %i not found!' % (s1, s2), 104)
+    #        if containsstring('Dyson norm matrix <PsiA_i|PsiB_j>', out[ilines]):
+    #            break
+    #    ilines += 1 + s1
+    #    f = out[ilines].split()
+    #    return float(f[s2 + 1])
 
-    # ======================================================================= #
+    ## ======================================================================= #
 
-    @staticmethod
-    def get_basis(json_file: str) -> dict[str,list]:
-        """
-        Return basis set from orca_2json
-            Args:   json_file: Path to orca_2json output
-        """
+    # @staticmethod
+    # def get_basis(json_file: str) -> dict[str,list]:
+    #    """
+    #    Return basis set from orca_2json
+    #        Args:   json_file: Path to orca_2json output
+    #    """
 
-        with open(json_file, "r", encoding="utf-8") as file:
-            orca_json = json.load(file)
-        orca_atom_info = orca_json["Molecule"]["Atoms"]
+    #    with open(json_file, "r", encoding="utf-8") as file:
+    #        orca_json = json.load(file)
+    #    orca_atom_info = orca_json["Molecule"]["Atoms"]
 
-        pyscf_basis = {}
-        atoms = ''
-        atom_symbols = []
-        for ia, a_info in enumerate(orca_atom_info):
-            label = a_info["ElementLabel"]
-            atom_symbols.append(label)
-            atoms += f"{label}{ia+1} "
-            for c in a_info["Coords"]:
-                atoms += f"{c: f} "
-            atoms += ";"
-            basis = []
-            if label in pyscf_basis:
-                continue
-            for bf in a_info["BasisFunctions"]:
-                e = bf["Exponents"]
-                c = bf["Coefficients"]
-                basis.append([ORCA._n2l[bf["Shell"]], *zip(e, c)])
-            pyscf_basis[f"{label}{ia+1}"] = basis
+    #    pyscf_basis = {}
+    #    atoms = ''
+    #    atom_symbols = []
+    #    for ia, a_info in enumerate(orca_atom_info):
+    #        label = a_info["ElementLabel"]
+    #        atom_symbols.append(label)
+    #        atoms += f"{label}{ia+1} "
+    #        for c in a_info["Coords"]:
+    #            atoms += f"{c: f} "
+    #        atoms += ";"
+    #        basis = []
+    #        if label in pyscf_basis:
+    #            continue
+    #        for bf in a_info["BasisFunctions"]:
+    #            e = bf["Exponents"]
+    #            c = bf["Coefficients"]
+    #            basis.append([ORCA._n2l[bf["Shell"]], *zip(e, c)])
+    #        pyscf_basis[f"{label}{ia+1}"] = basis
 
-        return pyscf_basis
-    
-    @staticmethod
-    def _get_basis(json_dict: dict[str, list]) -> dict[str,list]:
-        """
-        Return basis set from orca_2json
-            Args:   json_dict: orca_2json dictionary
-        """
-        orca_atom_info = json_dict["Molecule"]["Atoms"]
+    #    return pyscf_basis
+    #
+    # @staticmethod
+    # def _get_basis(json_dict: dict[str, list]) -> dict[str,list]:
+    #    """
+    #    Return basis set from orca_2json
+    #        Args:   json_dict: orca_2json dictionary
+    #    """
+    #    orca_atom_info = json_dict["Molecule"]["Atoms"]
 
-        pyscf_basis = {}
-        atoms = ''
-        atom_symbols = []
-        for ia, a_info in enumerate(orca_atom_info):
-            label = a_info["ElementLabel"]
-            atom_symbols.append(label)
-            atoms += f"{label}{ia+1} "
-            for c in a_info["Coords"]:
-                atoms += f"{c: f} "
-            atoms += ";"
-            basis = []
-            if label in pyscf_basis:
-                continue
-            for bf in a_info["BasisFunctions"]:
-                e = bf["Exponents"]
-                c = bf["Coefficients"]
-                basis.append([ORCA._n2l[bf["Shell"]], *zip(e, c)])
-            pyscf_basis[f"{label}{ia+1}"] = basis
+    #    pyscf_basis = {}
+    #    atoms = ''
+    #    atom_symbols = []
+    #    for ia, a_info in enumerate(orca_atom_info):
+    #        label = a_info["ElementLabel"]
+    #        atom_symbols.append(label)
+    #        atoms += f"{label}{ia+1} "
+    #        for c in a_info["Coords"]:
+    #            atoms += f"{c: f} "
+    #        atoms += ";"
+    #        basis = []
+    #        if label in pyscf_basis:
+    #            continue
+    #        for bf in a_info["BasisFunctions"]:
+    #            e = bf["Exponents"]
+    #            c = bf["Coefficients"]
+    #            basis.append([ORCA._n2l[bf["Shell"]], *zip(e, c)])
+    #        pyscf_basis[f"{label}{ia+1}"] = basis
 
-        return pyscf_basis
-    
+    #    return pyscf_basis
+
     @staticmethod
     def get_pyscf_order_from_orca(atom_symbols: list[str], basis_dict: dict[str, list[int, tuple]]) -> list[int]:
         """
@@ -1500,7 +1500,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
         new_order = []
         it = 0
         for i, a in enumerate(atom_symbols):
-            key = f'{a}{i+1}'
+            key = f"{a}{i+1}"
             #       s  p  d  f
             n_bf = [0, 0, 0, 0]
 
@@ -1531,22 +1531,23 @@ class SHARC_ORCA(SHARC_ABINITIO):
             assert it == len(new_order)
 
         return new_order
-    
+
+    # TODO: WTF IS THIS
+    # @staticmethod
+    # def get_dens_matrices(json_file: str) -> tuple[np.ndarray, np.ndarray]:
+    #    with open(json_file, "r", encoding="utf-8") as file:
+    #        orca_json = json.load(file)
+    #    dens_relaxed, dens_unrelaxed = np.array(orca_json["Molecule"]["Densities"]["cisp"]), np.array(orca_json["Molecule"]["Densities"]["scfp"])
+
+    #    atom_symbols = [at["ElementLabel"] for at in orca_json["Molecule"]["Atoms"]]
+    #    basis = ORCA._get_basis(orca_json)
+    #    new_order = ORCA.get_pyscf_order_from_orca(atom_symbols, basis)
+    #    dens_relaxed = dens_relaxed[new_order, :][:, new_order]
+    #    dens_unrelaxed = dens_unrelaxed[new_order, :][:, new_order]
+
+    #    return (dens_relaxed, dens_unrelaxed)
+
     @staticmethod
-    def get_dens_matrices(json_file: str) -> tuple[np.ndarray, np.ndarray]:
-        with open(json_file, "r", encoding="utf-8") as file:
-            orca_json = json.load(file)
-        dens_relaxed, dens_unrelaxed = np.array(orca_json["Molecule"]["Densities"]["cisp"]), np.array(orca_json["Molecule"]["Densities"]["scfp"])
-
-        atom_symbols = [at["ElementLabel"] for at in orca_json["Molecule"]["Atoms"]]
-        basis = ORCA._get_basis(orca_json)
-        new_order = ORCA.get_pyscf_order_from_orca(atom_symbols, basis)
-        dens_relaxed = dens_relaxed[new_order, :][:, new_order]
-        dens_unrelaxed = dens_unrelaxed[new_order, :][:, new_order]
-
-        return (dens_relaxed, dens_unrelaxed)
-
-
     def get_orca_version(path: str) -> tuple[int, ...]:
         """
         Get ORCA version number of given path
@@ -1558,9 +1559,6 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 raise ValueError("ORCA version not found!")
             version = re.findall(r"Program Version (\d.\d.\d)", comm)[0].split(".")
             return tuple(int(i) for i in version)
-
-    def dyson_orbitals_with_other(self, other):
-        pass
 
 
 if __name__ == "__main__":
