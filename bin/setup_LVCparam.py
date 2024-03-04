@@ -3218,7 +3218,14 @@ def get_general():
     print('\nAnalytical gradients for kappas: %r\n' % INFOS['ana_grad'])
 
 
-    INFOS['gammas'] = question('Do you want to calculate on diagonal gamma values?', bool, False)
+    INFOS["gammas"] = False
+    if question('Do you want to calculate second order terms (gammas)?', bool, False):
+        if question('Gammas from hessian of diabatized gradients at displacements?', bool, False):
+            INFOS['gammas'] = "hessian from diabatized gradients"
+        elif question('Gammas from hessian from second-order central of energies?', bool, False):
+            INFOS['gammas'] = "second order central"
+        else:
+            print('\nNot including gamma values\n')
 
     ## -------------------- whether to do gradients or numerical -------------------- ##
     print('{:-^60}'.format('Analytical nonadiabatic coupling vectors') + '\n')
@@ -3672,7 +3679,7 @@ def write_runscript(INFOS, displacement_dir):
     # generate run scripts here
     # for here mode
     if INFOS['here']:
-        string = '#!/bin/bash\n\n#$-N %s\n\n%s\n\nPRIMARY_DIR=%s/%s/\n\ncd $PRIMARY_DIR\n%s\n\n$SHARC/%s QM.in >> QM.log 2>> QM.err\n' % (projname, intstring, INFOS['cwd'], displacement_dir, refstring, Interfaces[INFOS['interface']]['script'])
+        string = '#!/bin/bash\n\n#$-N %s\n\n%s\n\nPRIMARY_DIR=%s/%s/\n\ncd $PRIMARY_DIR\n%s\n\n$SHARC/%s QM.in > QM.log 2> QM.err\n' % (projname, intstring, INFOS['cwd'], displacement_dir, refstring, Interfaces[INFOS['interface']]['script'])
     # for remote mode
     else:
         string = '#!/bin/bash\n\n#$-N %s\n\n%s\n\nPRIMARY_DIR=%s/%s/\nCOPY_DIR=%s/%s/\n\ncd $PRIMARY_DIR\n%s\n\nmkdir -p $COPY_DIR\ncp -r $PRIMARY_DIR/* $COPY_DIR\ncd $COPY_DIR\n\n$SHARC/%s QM.in >> QM.log 2>> QM.err\n\ncp -r $COPY_DIR/QM.* $COPY_DIR/SAVE/ $PRIMARY_DIR\nrm -r $COPY_DIR\n' % (projname, intstring, INFOS['cwd'], displacement_dir, INFOS['copydir'], displacement_dir, refstring, Interfaces[INFOS['interface']]['script'])

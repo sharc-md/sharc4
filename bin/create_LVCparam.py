@@ -690,7 +690,7 @@ def write_LVC_template(INFOS):
                                     % (imult + 1, i + 1, j + 1, int(normal_mode), int(normal_mode), omeg)
                                 )
     # calculate gammas from approximatin the hessian through diabatized gradients at displacements and equilibrium geometry
-    print(INFOS["gammas"])
+    print("gammas", INFOS["gammas"])
     check_gamma = {}
     if "gammas" in INFOS and INFOS["gammas"] == "hessian from diabatized gradients":
         # SCHEDULE:
@@ -745,7 +745,7 @@ def write_LVC_template(INFOS):
                             f"{(gammas[0] * 2)/4.55633590401805e-06: .1f}cm-1",
                         )
                     if start == 0:
-                        gammas[0] = 0.
+                        gammas[0] = 0.0
 
                     check_gamma[(imult, normal_mode, derivate_mode)] = gammas
                     if (imult, derivate_mode, normal_mode) in check_gamma and normal_mode != derivate_mode:
@@ -806,16 +806,24 @@ def write_LVC_template(INFOS):
         settings = QMout_eq.notes["multipolar_fit"] if "multipolar_fit" in QMout_eq.notes else ""
         mat_string = ""
         n_entries = 0
-        for m_i, n_i in enumerate(INFOS["states"]):  # get mults
-            fit_block = partition_matrix(fit, m_i + 1, INFOS["states"])
-            for s_i in range(n_i):
-                for s_j in range(n_i):
-                    if s_i > s_j:
-                        continue
-                    for atom in range(len(INFOS["atoms"])):  # get mults
-                        n_entries += 1
-                        nums = "".join(map(lambda x: f"{x: 12.8f}", fit_block[s_i, s_j, atom, :]))
-                        mat_string += f"{m_i + 1} {s_i + 1:2} {s_j + 1:2} {atom:3}    {nums}\n"
+        for (s_i, s_j), fit in QMout_eq["multipolar_fit"].items():
+            if s_i > s_j:
+                continue
+            for atom in range(len(INFOS["atoms"])):  # get mults
+                n_entries += 1
+                nums = "".join(map(lambda x: f"{x: 12.8f}", fit[atom, :]))
+                # print(f"{s_i.S} {s_i.N + 1:2} {s_j.N + 1:2} {atom:3}    {nums}\n")
+                mat_string += f"{s_i.S + 1} {s_i.N:2} {s_j.N:2} {atom:3}    {nums}\n"
+        # for m_i, n_i in enumerate(INFOS["states"]):  # get mults
+        #     fit_block = partition_matrix(fit, m_i + 1, INFOS["states"])
+        #     for s_i in range(n_i):
+        #         for s_j in range(n_i):
+        #             if s_i > s_j:
+        #                 continue
+        #             for atom in range(len(INFOS["atoms"])):  # get mults
+        #                 n_entries += 1
+        #                 nums = "".join(map(lambda x: f"{x: 12.8f}", fit_block[s_i, s_j, atom, :]))
+        #                 mat_string += f"{m_i + 1} {s_i + 1:2} {s_j + 1:2} {atom:3}    {nums}\n"
         lvc_template_content += f"Multipolar Density Fit {settings}\n{n_entries}\n{mat_string}"
 
     # -------------------- write to file ----------------------------
