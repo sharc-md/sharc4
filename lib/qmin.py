@@ -244,7 +244,7 @@ class QMinRequests(QMinBase):
             "savestuff": bool,
             "nooverlap": bool,
             "basis_set": bool,
-            "density_matrices": dict,
+            "density_matrices": list,
             "dyson_orbitals": list,
         }
 

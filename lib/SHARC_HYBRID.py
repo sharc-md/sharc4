@@ -93,3 +93,5 @@ class SHARC_HYBRID(SHARC_INTERFACE):
             raise AttributeError from exc
 
         return interface
+
+

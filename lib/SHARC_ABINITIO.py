@@ -344,10 +344,10 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                     match len(multipolar_fit[0]):
                         case 4:
                             for fit in multipolar_fit:
-                                S1, N1, S2, N2 = density
+                                S1, N1, S2, N2 = fit
                                 if (
-                                    N1 > self.QMin.maps["states"][int(2 * S1) - 1]
-                                    or N2 > self.QMin.maps["states"][int(2 * S2) - 1]
+                                    N1 > self.QMin.molecule["states"][S1 - 1]
+                                    or N2 > self.QMin.molecule["states"][S2 - 1]
                                 ):
                                     self.log.warning(
                                         "Requested multipolar expansion ",
@@ -379,7 +379,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 self.QMin.requests.types["multipolar_fit"] = dict
                 self.QMin.requests["multipolar_fit"] = {dme: [] for dme in requested_dmes}
 
-            self.QMin.requests["density_matrices"] = {d: [] for d in requested_densities}
+            self.QMin.requests["density_matrices"] = sorted(requested_densities, key=lambda x: (x[0], x[1], x[2]))
             # for key in self.QMin.requests['density_matrices']:
             #    s1, s2, spin = key
             #    print(s1.S, s1.M, s1.N, '|', s2.S, s2.M, s2.N, '|', spin)
