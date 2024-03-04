@@ -23,9 +23,11 @@
 #
 # ******************************************
 
+import asyncio
 import inspect
 from collections.abc import Callable
 from importlib import import_module
+from multiprocessing import Process
 
 from SHARC_INTERFACE import SHARC_INTERFACE
 
@@ -40,6 +42,39 @@ class SHARC_HYBRID(SHARC_INTERFACE):
 
         # Dict of child interfaces
         self._kindergarden = {}
+
+    def run_childs(self, child_list: list[Callable]) -> None:
+        """
+        Runs all children in child_list at once, either async or
+        in a sub process.
+
+        child_list: List with child objects
+        """
+
+        # Check if child_list is valid
+        if not isinstance(child_list, list):
+            self.log.error("child_list must be a list!")
+            raise ValueError()
+
+        for i in child_list:
+            if not issubclass(i, SHARC_INTERFACE):
+                self.log.error("child_list list must contain instances of SHARC_INTERFACE")
+                raise ValueError()
+
+        # Run directly or in a sub process based on threadsafe attribute
+        async def _run_async(child):
+            if child._threadsafe:
+                p = Process(target=child.run)
+                p.start()
+            else:
+                child.run()
+
+        # Run all childs and wait until all are finished
+        async def _gather():
+            tasks = [_run_async(i) for i in child_list]
+            await asyncio.gather(*tasks)
+
+        asyncio.run(_gather())
 
     def instantiate_children(self, child_dict: dict[str, tuple[str, list, dict] | str]) -> None:
         """
@@ -93,5 +128,3 @@ class SHARC_HYBRID(SHARC_INTERFACE):
             raise AttributeError from exc
 
         return interface
-
-
