@@ -836,7 +836,9 @@ class SHARC_INTERFACE(ABC):
         self.log.debug(f"getting requests {requests} step: {self.QMin.save['step']}")
         # logic for raw tasks object from pysharc interface
         if "tasks" in requests and isinstance(requests["tasks"], str):
-            requests.update({k.lower(): True for k in requests["tasks"].split()})
+            for k in requests["tasks"].split():
+                if k.lower() not in ["init", "samestep", "newstep", "restart"]:
+                    requests[k.lower()] = True
             if "soc" in requests:
                 requests["h"] = True
             del requests["tasks"]
