@@ -474,7 +474,7 @@ subroutine get_nacdr(string, ICALL)
     use iso_c_binding
     use memory_module, only: traj, ctrl
     implicit none
-    __C_OUT_STRING_L_ :: string
+    __C_OUT_STRING_XL_ :: string
     __INT__, intent(in) :: ICALL
     integer :: i,j
 
@@ -486,13 +486,11 @@ subroutine get_nacdr(string, ICALL)
           case (0)
             write(string,'(A)')  'NACDR'
           case (1)
-            write(string,'(A)') 'NACDR SELECT' 
             do i=1,ctrl%nstates
               do j=1,ctrl%nstates
-                if (traj%selt_ss(j,i)) write(string,'(A,1X,I3,1X,I3)') trim(string) // C_NEW_LINE , i,j
+                if (traj%selt_ss(j,i)) write(string,'(A,1X,I3,1X,I3)') trim(string) , i,j
               enddo
             enddo
-            write(string,'(A)') trim(string) // C_NEW_LINE // 'END'
           case (2)
             write(*,*)
         endselect
