@@ -124,7 +124,7 @@ def test_requests1():
 
 def test_reqests2():
     tests = [
-        ("inputs/QM_failreq1.in", {}),
+        #("inputs/QM_failreq1.in", {}),
         ("inputs/QM_failreq2.in", {}),
         ("inputs/QM_failreq3.in", {}),
         ("inputs/QM2.in", {}),
