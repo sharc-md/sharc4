@@ -779,7 +779,7 @@ class SHARC_INTERFACE(ABC):
                 case ["backup"]:
                     self.log.warning("'backup' request is deprecated, use 'retain <number of steps>' instead!")
                 case ["init" | "newstep" | "samestep" | "restart"]:
-                    pass
+                    self.log.warning(f"{line.lower().split(maxsplit=1)[0]} request is deprecated and will be ignored!")
                 case ["unit" | "states", _]:
                     pass
                 case _:
