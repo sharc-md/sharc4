@@ -488,7 +488,7 @@ subroutine get_nacdr(string, ICALL)
           case (1)
             do i=1,ctrl%nstates
               do j=1,ctrl%nstates
-                if (traj%selt_ss(j,i)) write(string,'(A,1X,I3,1X,I3)') trim(string) , i,j
+                if (traj%selt_ss(j,i)) write(string,'(A,I3,1X,I3)') trim(string) , i,j
               enddo
             enddo
           case (2)
