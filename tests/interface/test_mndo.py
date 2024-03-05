@@ -53,9 +53,13 @@ def get_grads(outfile: str, template: str, qmin: str, grads: list, grads_pc: lis
     parsed_pc = test_interface._get_grad_pc(outfile)
     print(parsed)
     print(parsed_pc)
-    for j in range(test_interface.QMin.molecule["nmstates"]):
-        assert parsed[j] == pytest.approx(grads[j], 1.0e-3)
-        assert parsed_pc[j] == pytest.approx(grads_pc[j], 1.0e-3)
+    for k in range(test_interface.QMin.molecule["nmstates"]):
+        for j in range(3):
+            for i in range(test_interface.QMin.molecule["natom"]):
+                assert abs(parsed[k][i][j] - grads[k][i][j]) < 1.0e-8
+            for i in range(test_interface.QMin.molecule["npc"]):
+                assert abs(parsed_pc[k][i][j] - grads_pc[k][i][j]) < 1.0e-8
+                
 
 def test_requests1():
     tests = [os.path.join(PATH, "inputs/mndo/QM2.in")]
@@ -83,7 +87,7 @@ def test_energies():
             os.path.join(PATH, "inputs/mndo/MNDO1.template"),
             os.path.join(PATH, "inputs/mndo/QM1.in"),
             {
-                (1, 1): -14.455173216195167,
+                (1, 1): -14.455173216195169,
                 (1, 2): -14.174554972348169,
                 (1, 3): -14.14113048726381,
                 (1, 4): -13.90633425352368
@@ -118,7 +122,7 @@ def test_tdms():
 def test_grads():
     tests = [
         (
-            os.path.join(PATH, "inputs/mndo/MNDO1.out"),
+            os.path.join(PATH, "inputs/mndo/fort1.15"),
             os.path.join(PATH, "inputs/mndo/MNDO1.template"),
             os.path.join(PATH, "inputs/mndo/QM1_pc.in"),
             np.array([[[0.0, -0.0, -0.09494103284884164], [-0.0, -0.0, 0.06534109398831474], [-0.001668924263116929, 0.0, 0.0038429067260890206], [0.03751611538637951, -0.0, 0.010957058487696165], [-0.03751611538637951, -0.0, 0.010957058487696165], [0.001668924263116929, -0.0, 0.0038429067260890206]], [[-0.0, -0.0, 0.14141621162988025], [-0.0, -0.0, -0.1747717086527036], [-0.004582898662060879, 0.0, 0.004437826510784253], [0.040076504350755215, 0.0, 0.012239922000627434], [-0.040076504350755215, 0.0, 0.012239922000627434], [0.004582898662060879, -0.0, 0.004437826510784253]], [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]], [[-0.0, -0.0, 0.21335615313775658], [0.0, 0.0, -0.20293514396518275], [0.020592529326051, 0.0, -0.006759098992601753], [0.00980264576871046, -0.0, 0.00154859440631485], [-0.00980264576871046, -0.0, 0.00154859440631485], [-0.020592529326051, 0.0, -0.006759098992601753]]]),
