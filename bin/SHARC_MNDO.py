@@ -602,7 +602,7 @@ mocoef
             for mult in itmult(self.QMin.molecule["states"]):
                 outfile = os.path.join(self.QMin.resources["scratchdir"], "wfovl.out")
                 out = readfile(outfile)
-                print("Overlaps: " + outfile)
+                #print("Overlaps: " + outfile)
                 for i in range(nmstates):
                     for j in range(nmstates):
                         self.QMout["overlap"][i][j] = self.getsmate(out, i + 1, j + 1)
@@ -710,7 +710,6 @@ mocoef
             if regexp.search(line):
                 line_marker.append(iline + 1)
 
-        print(line_marker)
                 
         grads = np.zeros((nmstates,ncharges,3))
         
@@ -778,19 +777,21 @@ mocoef
                 
         nac = np.zeros((nmstates, nmstates, natom, 3))
         
+        
         # make nac matrix
         # nac = np.fromiter(map(), count=).reshape()
         for i, ints in enumerate(interstates):
             iline = line_marker[i]
+            dE = self.QMout["h"][ints[1]][ints[1]] - self.QMout["h"][ints[0]][ints[0]]
             for j in range(natom):
                 line = f[iline]
                 s = line.split()
-                nac[ints[0]][ints[1]][j][0] = float(s[2]) * BOHR_TO_ANG  # 1/Ang --> 1/a_0
-                nac[ints[0]][ints[1]][j][1] = float(s[3]) * BOHR_TO_ANG
-                nac[ints[0]][ints[1]][j][2] = float(s[4]) * BOHR_TO_ANG
-                nac[ints[1]][ints[0]][j][0] = -float(s[2]) * BOHR_TO_ANG
-                nac[ints[1]][ints[0]][j][1] = -float(s[3]) * BOHR_TO_ANG
-                nac[ints[1]][ints[0]][j][2] = -float(s[4]) * BOHR_TO_ANG
+                nac[ints[0]][ints[1]][j][0] =  float(s[2]) * KCAL_TO_EH * BOHR_TO_ANG / dE   # 1/Ang --> 1/a_0 or kcal/mol*Ang --> 1/a_0 ?
+                nac[ints[0]][ints[1]][j][1] =  float(s[3]) * KCAL_TO_EH * BOHR_TO_ANG / dE
+                nac[ints[0]][ints[1]][j][2] =  float(s[4]) * KCAL_TO_EH * BOHR_TO_ANG / dE
+                nac[ints[1]][ints[0]][j][0] = -float(s[2]) * KCAL_TO_EH * BOHR_TO_ANG / dE
+                nac[ints[1]][ints[0]][j][1] = -float(s[3]) * KCAL_TO_EH * BOHR_TO_ANG / dE
+                nac[ints[1]][ints[0]][j][2] = -float(s[4]) * KCAL_TO_EH * BOHR_TO_ANG / dE
                 iline += 1
 
         return nac
@@ -1101,7 +1102,6 @@ mocoef
         wf_cmd = f"{self.QMin.resources['wfoverlap']} -m {self.QMin.resources['memory']} -f wfovl.inp"
 
         # Overlap calculations
-        print(self.QMin.requests["overlap"])
         if self.QMin.requests["overlap"]:
             workdir = self.QMin.resources["scratchdir"]
 
