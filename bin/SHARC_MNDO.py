@@ -630,37 +630,6 @@ mocoef
 
         return states, interstates
 
-    # def _get_grad(self, log_path: str) -> np.ndarray:
-    #     """
-    #     Extract gradients from MNDO outfile
-
-    #     log_path:  Path to gradient file
-    #     """
-    #     nmstates = self.QMin.molecule["nmstates"]
-    #     grad = self.QMin.template["grads"]
-    #     natom = self.QMin.molecule["natom"]
-    #     f = readfile(log_path)
-
-    #     line_marker = []
-    #     regexp = re.compile(r"^\s+I\s+NI\s+X\s+Y\s+Z\s+X\s+Y\s+Z$")
-    #     for iline, line in enumerate(f):
-    #         if regexp.search(line):
-    #             line_marker.append(iline + 2)
-
-    #     grads = [[[0.0 for i in range(3)] for j in range(natom)] for k in range(nmstates)]
-
-    #     for l, st in enumerate(grad):
-    #         iline = line_marker[l]
-    #         for j in range(natom):
-    #             line = f[iline]
-    #             s = line.split()
-    #             grads[int(st) - 1][j][0] = float(s[5]) * KCAL_TO_EH * BOHR_TO_ANG
-    #             grads[int(st) - 1][j][1] = float(s[6]) * KCAL_TO_EH * BOHR_TO_ANG
-    #             grads[int(st) - 1][j][2] = float(s[7]) * KCAL_TO_EH * BOHR_TO_ANG
-    #             iline += 1
-
-    #     return np.array(grads)
-
     def _get_grad(self, log_path: str) -> np.ndarray:
         """
         Extract gradients from MNDO outfile
@@ -724,37 +693,6 @@ mocoef
                 iline += 1
 
         return grads
-
-    # def _get_grad_pc(self, log_path: str) -> np.ndarray:
-    #     """
-    #     Extract gradients from MNDO outfile
-
-    #     log_path:  Path to gradient file
-    #     """
-    #     states = self.QMin.molecule["states"]
-    #     grad = self.QMin.template["grads"]
-    #     ncharges = self.QMin.molecule["npc"]
-    #     f = readfile(log_path)
-
-    #     line_marker = []
-    #     regexp = re.compile(r"^\s+K\s+I\s+X\s+Y\s+Z\s+X\s+Y\s+Z$")
-    #     for iline, line in enumerate(f):
-    #         if regexp.search(line):
-    #             line_marker.append(iline + 2)
-
-    #     grads_charges = [[[0.0 for i in range(3)] for j in range(ncharges)] for k in range(max(states))]
-
-    #     for l, st in enumerate(grad):
-    #         iline = line_marker[l]
-    #         for j in range(ncharges):
-    #             line = f[iline]
-    #             s = line.split()
-    #             grads_charges[int(st) - 1][j][0] = float(s[5]) * KCAL_TO_EH * BOHR_TO_ANG
-    #             grads_charges[int(st) - 1][j][1] = float(s[6]) * KCAL_TO_EH * BOHR_TO_ANG
-    #             grads_charges[int(st) - 1][j][2] = float(s[7]) * KCAL_TO_EH * BOHR_TO_ANG
-    #             iline += 1
-
-    #     return np.array(grads_charges)
 
     def _get_nacs(self, file_path: str, interstates):
         """
@@ -821,88 +759,19 @@ mocoef
         # nac = np.fromiter(map(), count=).reshape()
         for i, ints in enumerate(interstates):
             iline = line_marker[i]
+            dE = self.QMout["h"][ints[1]][ints[1]] - self.QMout["h"][ints[0]][ints[0]]
             for j in range(ncharges):
                 line = f[iline]
-                s = line.split()
-                nac[ints[0]][ints[1]][j][0] = float(s[2]) * BOHR_TO_ANG  # 1/Ang --> 1/a_0
-                nac[ints[0]][ints[1]][j][1] = float(s[3]) * BOHR_TO_ANG
-                nac[ints[0]][ints[1]][j][2] = float(s[4]) * BOHR_TO_ANG
-                nac[ints[1]][ints[0]][j][0] = -float(s[2]) * BOHR_TO_ANG
-                nac[ints[1]][ints[0]][j][1] = -float(s[3]) * BOHR_TO_ANG
-                nac[ints[1]][ints[0]][j][2] = -float(s[4]) * BOHR_TO_ANG
+                s = line.split() 
+                nac[ints[0]][ints[1]][j][0] =  float(s[2]) * KCAL_TO_EH * BOHR_TO_ANG / dE# 1/Ang --> 1/a_0
+                nac[ints[0]][ints[1]][j][1] =  float(s[3]) * KCAL_TO_EH * BOHR_TO_ANG / dE
+                nac[ints[0]][ints[1]][j][2] =  float(s[4]) * KCAL_TO_EH * BOHR_TO_ANG / dE
+                nac[ints[1]][ints[0]][j][0] = -float(s[2]) * KCAL_TO_EH * BOHR_TO_ANG / dE
+                nac[ints[1]][ints[0]][j][1] = -float(s[3]) * KCAL_TO_EH * BOHR_TO_ANG / dE
+                nac[ints[1]][ints[0]][j][2] = -float(s[4]) * KCAL_TO_EH * BOHR_TO_ANG / dE
                 iline += 1
 
         return nac
-    
-    # def _get_nacs(self, log_path: str, interstates):
-    #     """
-    #     Extract NACS from MNDO outfile
-
-    #     log_path:  Path to log file
-    #     """
-    #     states = self.QMin.molecule["states"]
-    #     natom = self.QMin.molecule["natom"]
-
-    #     f = readfile(log_path)
-
-    #     line_marker = []
-    #     for iline, line in enumerate(f):
-    #         if "COMPLETE EXPRESSION." in line:
-    #             line_marker.append(iline + 2)
-
-    #     nac = [
-    #         [[[0.0 for i in range(3)] for j in range(natom)] for k in range(max(states))] for l in range(max(states))
-    #     ]  # make nac matrix
-    #     # nac = np.fromiter(map(), count=).reshape()
-    #     for i, ints in enumerate(interstates):
-    #         iline = line_marker[i]
-    #         for j in range(natom):
-    #             line = f[iline]
-    #             s = line.split()
-    #             nac[ints[0]][ints[1]][j][0] = float(s[1]) * BOHR_TO_ANG  # 1/Ang --> 1/a_0
-    #             nac[ints[0]][ints[1]][j][1] = float(s[2]) * BOHR_TO_ANG
-    #             nac[ints[0]][ints[1]][j][2] = float(s[3]) * BOHR_TO_ANG
-    #             nac[ints[1]][ints[0]][j][0] = -float(s[1]) * BOHR_TO_ANG
-    #             nac[ints[1]][ints[0]][j][1] = -float(s[2]) * BOHR_TO_ANG
-    #             nac[ints[1]][ints[0]][j][2] = -float(s[3]) * BOHR_TO_ANG
-    #             iline += 1
-
-    #     return np.array(nac)
-
-    # def _get_nacs_pc(self, log_path: str, interstates):
-    #     """
-    #     Extract NACS from MNDO outfile
-
-    #     log_path:  Path to log file
-    #     """
-    #     states = self.QMin.molecule["states"]
-    #     natom = self.QMin.molecule["natom"]
-    #     ncharges = self.QMin.molecule["npc"]
-
-    #     f = readfile(log_path)
-    #     line_marker = []
-    #     for iline, line in enumerate(f):
-    #         if "COMPLETE EXPRESSION." in line:
-    #             line_marker.append(iline + 2)
-
-    #     nac_charges = [
-    #         [[[0.0 for i in range(3)] for j in range(ncharges)] for k in range(max(states))] for l in range(max(states))
-    #     ]  # make nac matrix for external charges
-
-    #     for i, ints in enumerate(interstates):
-    #         iline = line_marker[i]
-    #         for j in range(natom, ncharges):
-    #             line = f[iline]
-    #             s = line.split()
-    #             nac_charges[ints[0]][ints[1]][j][0] = float(s[1]) * BOHR_TO_ANG  # 1/Ang --> 1/a_0
-    #             nac_charges[ints[0]][ints[1]][j][1] = float(s[2]) * BOHR_TO_ANG
-    #             nac_charges[ints[0]][ints[1]][j][2] = float(s[3]) * BOHR_TO_ANG
-    #             nac_charges[ints[1]][ints[0]][j][0] = -float(s[1]) * BOHR_TO_ANG
-    #             nac_charges[ints[1]][ints[0]][j][1] = -float(s[2]) * BOHR_TO_ANG
-    #             nac_charges[ints[1]][ints[0]][j][2] = -float(s[3]) * BOHR_TO_ANG
-    #             iline += 1
-
-    #     return np.array(nac_charges)
 
     def _get_transition_dipoles(self, log_path: str):
         """
@@ -993,17 +862,6 @@ mocoef
         f = out[ilines].split()
         return float(f[s2 + 1])
 
-    # @staticmethod
-    # def readfile(filename: str) -> str:
-    #     """reads the whole file and gives the content of the file back as a list of strings"""
-    #     try:
-    #         f = open(filename, "r", encoding="UTF-8")
-    #         out = f.readlines()
-    #         f.close()
-    #     except IOError:
-    #         print(f"File {filename} does not exist!")
-    #     return out
-
     def prepare(self, INFOS: dict, dir_path: str):
         "setup the calculation in directory 'dir'"
         return
@@ -1032,13 +890,19 @@ mocoef
 
     def read_template(self, template_file: str = "MNDO.template") -> None:
         super().read_template(template_file)
-        if self.QMin["template"]["numatm"] > 0:
+        
+        if self.QMin["template"]["mminp"] > 0:
             self.QMin["molecule"]["point_charges"] = True
             self.QMin["molecule"]["npc"] = self.QMin["template"]["numatm"]
+        
+        self.QMin["template"]["movo"] = int(self.QMin["template"]["movo"])
+        if self.QMin["template"]["movo"] == 1 :
+            self.QMin["template"]["act_orbs"] = [int(i) for i in self.QMin["template"]["act_orbs"]]
 
-        self.QMin["template"]["act_orbs"] = [int(i) for i in self.QMin["template"]["act_orbs"]]
-        if self.QMin["template"]["grads"]:
+        if self.QMin["template"]["grads"] :
             self.QMin["template"]["grads"] = [int(i) for i in self.QMin["template"]["grads"]]
+            self.QMin["template"]["ncigrd"] = len(self.QMin["template"]["grads"])
+            self.QMin["template"]["iroot"] = max(self.QMin["template"]["grads"])
 
 
     def remove_old_restart_files(self, retain: int = 5) -> None:
@@ -1174,7 +1038,7 @@ mocoef
             inputstring += f"{NUMBERS[elements[i]]:>3d}\t{coords[i][0]*BOHR_TO_ANG:>10,.5f} 1\t{coords[i][1]*BOHR_TO_ANG:>10,.5f} 1\t{coords[i][2]*BOHR_TO_ANG:>10,.5f} 1\n"
         inputstring += f"{0:>3d}\t{0:>10,.5f} 0\t{0:>10,.5f} 0\t{0:>10,.5f} 0\n"
 
-        if movo != 0:
+        if movo == 1:
             for j in act_orbs:
                 inputstring += str(j) + " "
             inputstring += "\n"
