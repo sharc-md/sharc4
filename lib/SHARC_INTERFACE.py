@@ -39,13 +39,13 @@ from textwrap import wrap
 from typing import Any
 
 import numpy as np
+
 # internal
 from constants import ATOMCHARGE, BOHR_TO_ANG, FROZENS
 from logger import SHARCPRINT, TRACE, CustomFormatter, logging
 from qmin import QMin
 from qmout import QMout
-from utils import (clock, convert_list, electronic_state, expand_path,
-                   itnmstates, parse_xyz, readfile, writefile)
+from utils import clock, convert_list, electronic_state, expand_path, itnmstates, parse_xyz, readfile, writefile
 
 np.set_printoptions(linewidth=400, formatter={"float": lambda x: f"{x: 9.7}"})
 all_features = {
@@ -779,7 +779,7 @@ class SHARC_INTERFACE(ABC):
                 case ["backup"]:
                     self.log.warning("'backup' request is deprecated, use 'retain <number of steps>' instead!")
                 case ["init" | "newstep" | "samestep" | "restart"]:
-                    pass
+                    self.log.warning(f"{line.lower().split(maxsplit=1)[0]} request is deprecated and will be ignored!")
                 case ["unit" | "states", _]:
                     pass
                 case _:
@@ -836,7 +836,9 @@ class SHARC_INTERFACE(ABC):
         self.log.debug(f"getting requests {requests} step: {self.QMin.save['step']}")
         # logic for raw tasks object from pysharc interface
         if "tasks" in requests and isinstance(requests["tasks"], str):
-            requests.update({k.lower(): True for k in requests["tasks"].split()})
+            for k in requests["tasks"].split():
+                if k.lower() not in ["init", "samestep", "newstep", "restart"]:
+                    requests[k.lower()] = True
             if "soc" in requests:
                 requests["h"] = True
             del requests["tasks"]
@@ -854,7 +856,12 @@ class SHARC_INTERFACE(ABC):
                     else:
                         requests[task] = [i + 1 for i in range(self.QMin.molecule["nstates"])]
                 else:
-                    requests[task] = [int(i) for i in requests[task].split()]
+                    if task == "nacdr":
+                        requests[task] = [requests[task].split()[i : i + 2] for i in range(0, len(requests[task].split()), 2)]
+                        requests[task] = convert_list(requests[task])
+                        requests[task] = [(int(i[0]), int(i[1])) for i in requests[task]]
+                    else:
+                        requests[task] = [int(i) for i in requests[task].split()]
 
         if self.QMin.save["step"] == 0:
             for req in ["overlap", "phases"]:

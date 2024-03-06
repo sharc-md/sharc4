@@ -49,7 +49,7 @@ class QMout:
     mol: pyscf.gto.Mole 
     #dyson_orbitals: dict[tuple(electronic_state,electronic_state,str), ndarray[float,1] ]
 
-    def __init__(self, filepath=None, states: list[int] =None, natom: int =None, npc: int=None, charges: list[int]=None):
+    def __init__(self, filepath=None, states: list[int] = None, natom: int = None, npc: int = None, charges: list[int] = None):
         self.prop0d = []
         self.prop1d = []
         self.prop2d = []
@@ -64,7 +64,6 @@ class QMout:
             self.point_charges = self.npc > 0
         if filepath is not None:
             # initialize the entire object from a QM.out file
-
             log.debug(f"Reading file {filepath}")
             try:
                 f = open(filepath, "r", encoding="utf-8")
@@ -74,6 +73,7 @@ class QMout:
                 raise IOError("'Could not find %s!' % (filepath)")
             log.debug(f"Done raw reading {filepath}")
             # get basic information
+            basic_info = {"states": list, "charges": list, "natom": int, "npc": int}
             # set from input
             iline = 0
             while iline < len(data):
@@ -87,23 +87,29 @@ class QMout:
                 match flag:
                     case 0: # basis info
                         iline += 1
-                        if "states" in data[iline]:
-                            s = data[iline].split()
-                            self.states = [int(i) for i in s[1:]]
-                            iline += 2
-                        else:
-                            raise KeyError(f"Could not find states in {filepath}")
-                        if "natom" in data[iline]:
-                            self.natom = int(data[iline].split()[-1])
+                        while "!" not in data[iline]:
+                            log.trace(data[iline])
+                            if not data[iline].strip():
+                                iline += 1
+                                continue
+                            k, v = data[iline].split(maxsplit=1)
+                            log.trace(f"{k}: {v}")
+                            if k not in basic_info:
+                                log.warning(f"did not parse {k} from section 0!")
+                                iline += 1
+                                continue
+                            match basic_info[k].__name__:
+                                case "int":
+                                    self.__dict__[k] = int(v)
+                                case "list":
+                                    self.__dict__[k] = [int(i) for i in v.split()]
+                                case _:
+                                    log.error(f"type {basic_info[k]} for {k} cannot be parsed")
+                                    raise NotImplementedError()
                             iline += 1
-                        else:
-                            raise KeyError(f"Could not find natom in {filepath}")
-                        if "npc" in data[iline]:
-                            self.npc = int(data[iline].split()[-1])
-                            iline += 1
-                        else:
-                            raise KeyError(f"Could not find npc in {filepath}")
-                        iline += 1
+                        for k in basic_info:
+                            if k not in self:
+                                log.warning(f"{k} not read from QMin!")
                         self.nmstates = sum((i + 1) * n for i, n in enumerate(self.states))
                         self.nstates = sum(self.states)
                         self.point_charges = self.npc > 0
@@ -142,6 +148,10 @@ class QMout:
                             (3, self.nmstates, self.nmstates, self.npc, 3),
                         )
                     case 22: # multipolar_fit
+                        if "charges" not in self or self.charges is None:
+                            charges = [i % 2 for i in range(len(self.states))]
+                        else:
+                            charges = self.charges
                         self.multipolar_fit, iline = QMout.get_multipoles(data, iline, charges)
                         if data[iline].find("settings") != -1:
                             self.notes["multipolar_fit"] = data[iline][data[iline].find("settings"):-1]

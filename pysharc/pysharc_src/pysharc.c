@@ -281,7 +281,7 @@ static PyObject * get_all_tasks(PyObject * self, PyObject * args)
 
     dct = PyDict_New();
 
-    string = (char *)malloc(STRING_SIZE_L_*sizeof(char));
+    string = (char *)malloc(STRING_SIZE_XL_*sizeof(char));
     for (int i=0; i < N_func; i++) {
         get_task_str[i](string, &icall);
         PyObject * pystring = PyString_FromString(string);
