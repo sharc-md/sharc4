@@ -1,8 +1,8 @@
-# ******************************************
+#******************************************
 #
 #    SHARC Program Suite
 #
-#    Copyright (c) 2019 University of Vienna
+#    Copyright (c) 2023 University of Vienna
 #
 #    This file is part of SHARC.
 #
@@ -19,7 +19,7 @@
 #    You should have received a copy of the GNU General Public License
 #    inside the SHARC manual.  If not, see <http://www.gnu.org/licenses/>.
 #
-# ******************************************
+#******************************************
 
 
 import os
@@ -28,9 +28,9 @@ import sys
 
 # py_setuptools applies some customization to the setuptools code
 # Therefore, we load all stuff from setuptools through py_setuptools
-from setuptools import setup, Extension  # , settings
+from setuptools import setup, Extension#, settings
 
-#
+# 
 #from pysharc_setup import pysharc_extension
 
 
@@ -55,9 +55,9 @@ pysharc_cfiles = ['pysharc.c', 'pysharc_tools.c']
 
 # define Libraries
 mkl_libs = []
-basic_libs = ['sharc']  # , 'hdf5', 'hdf5_hl', 'netcdf']
+basic_libs = ['sharc']#, 'hdf5', 'hdf5_hl', 'netcdf']
 #basic_libs = ['sharc', 'gfortran', 'hdf5', 'hdf5_hl', 'netcdf']
-extra_compile_args = ['-std=c99', '-Wall', ]
+extra_compile_args = ['-std=c99', '-Wall',]
 #extra_compile_args += ['-D__PYTHON_DEBUG__', '-Wall']
 
 
@@ -66,12 +66,12 @@ extra_compile_args = ['-std=c99', '-Wall', ]
 
 
 pysharc_extension = Extension('sharc/sharc',
-                              [os.path.join(pysharc_path, fname) for fname in pysharc_cfiles],
-                              include_dirs=['include', ],
-                              library_dirs=['lib', '$ANACONDA/lib'],
-                              libraries=mkl_libs + basic_libs,
-                              extra_compile_args=extra_compile_args,
-                              )
+            [ os.path.join(pysharc_path, fname) for fname in pysharc_cfiles ],
+            include_dirs = [ 'include', ],
+            library_dirs = [ 'lib', '$ANACONDA/lib' ],
+            libraries = mkl_libs + basic_libs,
+            extra_compile_args = extra_compile_args,
+)
 
 
 
@@ -81,28 +81,28 @@ pysharc_extension = Extension('sharc/sharc',
 
 prog_name = 'sharc'
 version = '0.1.1.'
-description = 'Python API for the SHARC MD Package'
+description='Python API for the SHARC MD Package'
 author = 'Maximilian F.S.J. Menger'
-author_email = 'maximilian.menger@univie.ac.at'
-url = 'https://sharc-md.org'
+author_email='maximilian.menger@univie.ac.at'
+url='https://sharc-md.org'
 
 
-sharc_packages = ['sharc', 'sharc.pysharc']
-sharc_scripts = ['bin/pysharc_lvc.py', 'bin/pysharc_qmout.py']
+sharc_packages = [ 'sharc', 'sharc.pysharc' ]
+sharc_scripts =  [ 'bin/pysharc_lvc.py', 'bin/pysharc_qmout.py' ]
 
 
 setup(name=prog_name,
-      #      version=version,
+#      version=version,
       description=description,
       author=author,
       author_email=author_email,
       url=url,
-      packages=sharc_packages,
-      scripts=sharc_scripts,
+      packages = sharc_packages,
+      scripts = sharc_scripts,
       ext_modules=[pysharc_extension],
       install_requires=[
-          #                    'netcdf4', # for correct libraries
-          #                    'hdf5',    # for the libraries
-          'mkl',
-      ],
-      )
+#                    'netcdf4', # for correct libraries
+#                    'hdf5',    # for the libraries
+                    'mkl',
+                          ],
+)

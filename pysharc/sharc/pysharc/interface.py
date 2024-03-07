@@ -4,7 +4,7 @@
 #
 #    SHARC Program Suite
 #
-#    Copyright (c) 2019 University of Vienna
+#    Copyright (c) 2023 University of Vienna
 #
 #    This file is part of SHARC.
 #
@@ -234,7 +234,6 @@ class SHARC_INTERFACE(object):
         self.NAtoms = basic_info['NAtoms']
         self.nsteps = basic_info['NSteps']
         self.istep  = basic_info['istep']
-        self.StateDiag  = basic_info['StateDiag']
         self.constants = sharc.get_constants()
         self.QMin = {'savedir': basic_info['savedir']}
 
