@@ -2,34 +2,34 @@
 ## for version 0.2 of the SHARC_MNDO.py interface.
 
 ## Number of reference occupations.
-nciref 3 
+nciref 6 
 
 ## Maximum number of SCF iterations.
-kitscf 5000
+kitscf 9999
 
 ## Number of active occupied orbitals.
-ici1 2
+ici1 3
 
 ## Number of active unoccupied orbitals.
-ici2 1
+ici2 2
 
 ## Step size for numerical density derivatives
-dstep 1e-5
+dstep 1e-6
 
 ## Active Orbitals
-act_orbs 4 6 7
+act_orbs 4 5 6 7 8
 
 ## States for which the gradients and NACs shoulld be calculated
-grads 1 2 4
+grads 1 2 3 4
 
 ## Number of CI gradients to be computed.
-## ncigrd 3
+ncigrd 8
 
 ## Total number of lowest CI states computed. Basically highest CI state in states definition above.
-## iroot 4
+iroot 6
 
 ## Activate point charges. mm 0 --> deactivate QM/MM, mm 2 -> read point charges from fort.20
-mminp 2
+mminp 0
 
 ## Number of point charges
 numatm 1
@@ -38,8 +38,8 @@ numatm 1
 movo 1
 
 ## Molecular charge.
-kharge 1
+kharge 0
 
 ## Definition of active orbitals in consecutive CI runs.  = 0 Keep original definition of 
 ## MO labels according to movo. = 3 Track MO character via file I/O (imomap.dat) for use with single-point calculations
-imomap 3
+imomap 0

@@ -286,3 +286,51 @@ def test_nacs():
     ]
     for logfile, fortfile, template, qmin, nacs, nacs_pc in tests:
         get_nacs(logfile, fortfile, template, qmin, nacs, nacs_pc)
+    
+def test_template():
+    tests = [
+        (
+            "inputs/mndo/templatetest1.dat",
+            {
+                "nciref": 3,
+                "kitscf": 5000,
+                "ici1": 2,
+                "ici2": 1,
+                "ncigrd": 3,
+                "dstep": 1e-5,
+                "act_orbs": [4,6,7],
+                "iroot": 4,
+                "mminp": 2,
+                "numatm": 1,
+                "movo": 1,
+                "grads": [1,2,4],
+                "kharge": 1,
+                "imomap": 3,
+            },
+        ),
+        (
+            "inputs/mndo/templatetest2.dat",
+            {
+                "nciref": 6,
+                "kitscf": 9999,
+                "ici1": 3,
+                "ici2": 2,
+                "ncigrd": 4,
+                "dstep": 1e-6,
+                "act_orbs": [4, 5, 6, 7, 8],
+                "iroot": 4,
+                "mminp": 0,
+                "numatm": 1,
+                "movo": 1,
+                "grads": [1, 2, 3, 4],
+                "kharge": 0,
+                "imomap": 0,
+            },
+        ),
+    ]
+    for template, ref in tests:
+        test_interface = SHARC_MNDO()
+        test_interface.setup_mol(os.path.join(PATH, "inputs/mndo/QM1.in"))
+        test_interface.read_template(os.path.join(PATH, template))
+        for k, v in ref.items():
+            assert test_interface.QMin["template"][k] == v

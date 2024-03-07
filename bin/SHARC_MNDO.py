@@ -91,7 +91,6 @@ class SHARC_MNDO(SHARC_ABINITIO):
                 "ncigrd": 0,
                 "dstep": 1e-6,
                 "act_orbs": [1],
-                "states": None,
                 "iroot": 1,
                 "mminp": 2,
                 "numatm": 0,
@@ -110,7 +109,6 @@ class SHARC_MNDO(SHARC_ABINITIO):
                 "ncigrd": int,
                 "dstep": float,
                 "act_orbs": list,
-                "states": list,
                 "iroot": int,
                 "mminp": int,
                 "numatm": int,
@@ -890,6 +888,9 @@ mocoef
 
     def read_template(self, template_file: str = "MNDO.template") -> None:
         super().read_template(template_file)
+
+        self.QMin["template"]["kharge"] = int(self.QMin["template"]["kharge"])
+        self.QMin["template"]["dstep"] = float(self.QMin["template"]["dstep"])
         
         if self.QMin["template"]["mminp"] > 0:
             self.QMin["molecule"]["point_charges"] = True
