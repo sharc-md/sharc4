@@ -1267,9 +1267,8 @@ subroutine Verlet_vstep(IRedo)
     call Decoherence(traj,ctrl)
     ! obtain the correct gradient
     call Calculate_cMCH(traj,ctrl)
-    traj%microtime=ctrl%dtstep*traj%step
     if (ctrl%calc_grad>=1) then
-        IRedo = 1
+      IRedo = 1
     endif
   else if (ctrl%method==1) then !SCP
     ! Propagation coherent coefficients
@@ -1303,7 +1302,8 @@ subroutine Verlet_vstep(IRedo)
     !endif
     call Calculate_etot(traj,ctrl)
   endif
-
+  traj%microtime=ctrl%dtstep*traj%step
+  
     return
 end subroutine Verlet_vstep
 
