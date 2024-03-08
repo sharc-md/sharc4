@@ -2965,23 +2965,23 @@ module input
     ! catch all options that are not yet compatible with pysharc
 
     if (ctrl%zpe_correction/=0) then
-        write(0,*) 'ZPE correction not yet compatible with pysharc!'
-        stop 1
+        write(0,*) 'ZPE correction not fully tested with pysharc!'
+        ! stop 1
     endif
 
     if (ctrl%army_ants/=0) then
-        write(0,*) 'Army Ants not yet compatible with pysharc!'
-        stop 1
+        write(0,*) 'Army Ants not yet fully tested with pysharc!'
+        ! stop 1
     endif
 
     if (ctrl%time_uncertainty/=0) then
-        write(0,*) 'Fewest switches with time uncertainty not yet compatible with pysharc!'
-        stop 1
+        write(0,*) 'Fewest switches with time uncertainty not yet fully tested with pysharc!'
+        ! stop 1
     endif
 
     if (ctrl%decoherence==11) then
-        write(0,*) 'Decay of mixing decoherence not yet compatible with pysharc!'
-        stop 1
+        write(0,*) 'Decay of mixing decoherence not yet fully tested with pysharc!'
+        ! stop 1
     endif
 
     if (ctrl%integrator/=2) then
@@ -2990,8 +2990,8 @@ module input
     endif
 
     if (ctrl%method/=0) then
-        write(0,*) 'Self-consistent potential/Ehrenfest not yet compatible with pysharc!'
-        stop 1
+        write(0,*) 'Self-consistent potential/Ehrenfest not yet fully tested with pysharc!'
+        ! stop 1
     endif
 
 

@@ -130,7 +130,7 @@ call write_final(traj)
     
 #else
     use memory_module, only: traj, ctrl
-    use qm, only: do_initial_qm, do_qm_calculations, redo_qm_gradients
+    use qm, only: do_initial_qm, do_qm_calculations, redo_qm_gradients, Mix_gradients
     implicit none
 
     !> \param i_step Loop variable for the dynamics loop
@@ -165,6 +165,9 @@ call write_final(traj)
       call do_qm_calculations(traj,ctrl)
       call Verlet_vstep(IRedo)
       if (IRedo .eq. 1) call redo_qm_gradients(traj,ctrl)
+      if (ctrl%method==0) then
+        if (traj%kind_of_jump/=0) call Mix_gradients(traj,ctrl)
+      endif
       call Verlet_finalize(IExit, iskip)
       if (IExit .eq. 1) exit
     enddo
