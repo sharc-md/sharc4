@@ -2,6 +2,8 @@ import datetime
 import os
 import re
 import shutil
+import subprocess as sp
+from copy import deepcopy
 from io import TextIOWrapper
 
 import numpy as np
@@ -9,6 +11,8 @@ from constants import au2a
 from qmin import QMin
 from SHARC_ABINITIO import SHARC_ABINITIO
 from utils import convert_list, expand_path, mkdir, writefile
+
+__all__ = ["SHARC_MOLCAS"]
 
 AUTHORS = ""
 VERSION = ""
@@ -38,6 +42,14 @@ all_features = set(
     ]
 )
 
+CASSCF = 0
+CASPT2 = 1
+MSCASPT2 = 2
+MCPDFT = 3
+XMSPDFT = 4
+CMSPDFT = 5
+XMPCASPT2 = 6
+
 
 class SHARC_MOLCAS(SHARC_ABINITIO):
     """
@@ -53,6 +65,11 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
+
+        # Features of MOLCAS installation
+        self._hdf5 = False
+        self._wfa = False
+        self._mpi = False
 
         # Add resource keys
         self.QMin.resources.update(
@@ -85,11 +102,9 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 "rootpad": list(range(8)),
                 "method": "casscf",
                 "functional": "tpbe",
-                "douglas-kroll": False,
                 "ipea": 0.25,
                 "imaginary": 0.0,
                 "frozen": -1,
-                "cholesky": False,
                 "gradaccudefault": 1e-4,
                 "gradaccumax": 1e-2,
                 "pcmset": None,
@@ -186,9 +201,15 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         self.QMin.resources["molcas"] = expand_path(self.QMin.resources["molcas"])
         os.environ["MOLCAS"] = self.QMin.resources["molcas"]
 
-        if self.get_molcas_version(self.QMin.resources["molcas"]) < (18, 0):
-            self.log.error("This version of SHARC-MOLCAS is only compatible with MOLCAS 18 or higher!")
+        # Get MOLCAS version and features
+        if self.get_molcas_version(self.QMin.resources["molcas"]) < (23, 0):
+            self.log.error("This version of SHARC-MOLCAS is only compatible with MOLCAS 23 or higher!")
             raise ValueError()
+        self._get_molcas_features()
+
+        if self.QMin.resources["mpi_parallel"] and not self._mpi:
+            self.log.warning("MPI requested but MOLCAS version does not support MPI. Run without MPI")
+            self.QMin.resources["mpi_parallel"] = False
 
         # MOLCAS driver
         driver = os.path.join(self.QMin.resources["molcas"], "bin", "pymolcas")
@@ -326,7 +347,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
 
         # Generate schedule and run jobs
         self.log.debug("Generate schedule")
-        self.QMin.scheduling["schedule"] = [{"master_1", self.QMin.copy()}]
+        self.QMin.scheduling["schedule"] = self._generate_schedule()
 
         self.log.debug("Execute schedule")
         self.runjobs(self.QMin.scheduling["schedule"])
@@ -336,6 +357,13 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         self.log.debug("All hobs finished successful")
 
         self.QMout["runtime"] = datetime.datetime.now() - starttime
+
+    def _generate_schedule(self) -> dict[str, QMin]:
+        """
+        Generate schedule, one main job and n grad/nac jobs
+        """
+        schedule = {}
+        return schedule
 
     def execute_from_qmin(self, workdir: str, qmin: QMin) -> tuple[int, datetime.timedelta]:
         """
@@ -353,8 +381,6 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             for i in range(qmin.resources["ncpu"]):
                 self.log.debug(f"Create subdir tmp_{i+1}")
                 mkdir(os.path.join(workdir, f"tmp_{i+1}"))
-
-        
 
     def _gen_tasklist(self, qmin: QMin) -> list[list[str]]:
         """
@@ -604,6 +630,27 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         if self.QMin.template["method"] not in ["casscf", "ms-caspt2", "xms-caspt2"] and self.QMin.requests["nacdr"]:
             self.log.error("NACs are only possible with casscf, ms/xms-capt2!")
             raise ValueError()
+
+    def _get_molcas_features(self) -> None:
+        """
+        Get information about the MOLCAS installation (HDF5, WFA, MPI)
+        """
+        if os.path.isfile(os.path.join(self.QMin.resources["molcas"], "bin/wfa.exe")):
+            self.log.debug("MOLCAS version supports WFA")
+            self._wfa = True
+
+        try:
+            with sp.Popen(["ldd", os.path.join(self.QMin.resources["molcas"], "bin/rassi.exe")], stdout=sp.PIPE) as proc:
+                modules = proc.stdout.read().decode()
+                if re.search(r"libhdf5\.so", modules):
+                    self.log.debug("MOLCAS version supports HDF5")
+                    self._hdf5 = True
+
+                if re.search(r"libmpi\.so", modules):
+                    self.log.debug("MOLCAS version supports MPI")
+                    self._mpi = True
+        except FileNotFoundError:
+            self.log.warning("ldd not found on this machine, feature check failed. Disable hdf5 and MPI support.")
 
     @staticmethod
     def get_molcas_version(path: str) -> tuple[int, int]:
