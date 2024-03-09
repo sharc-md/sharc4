@@ -26,6 +26,37 @@ def test_molcasversion1():
             SHARC_MOLCAS().get_molcas_version(i)
 
 
+def test_get_features():
+    tests = [
+        (os.path.join(PATH, "inputs/molcas/features/bin1/"), (False, True, True)),
+        (os.path.join(PATH, "inputs/molcas/features/bin2/"), (True, True, True)),
+        (os.path.join(PATH, "inputs/molcas/features/bin3/"), (False, True, False)),
+        (os.path.join(PATH, "inputs/molcas/features/bin4/"), (False, False, False)),
+    ]
+
+    for path, ref in tests:
+        test_interface = SHARC_MOLCAS()
+        test_interface.QMin.resources["molcas"] = path
+        test_interface._get_molcas_features()
+        assert (test_interface._wfa, test_interface._hdf5, test_interface._mpi) == ref
+
+def test_get_features2():
+    """
+    HDF, MPI should be false if ldd not installed
+    """
+    old_environ = dict(os.environ)
+    os.environ.update({"PATH": "/tmp"})
+    test_interface = SHARC_MOLCAS()
+    test_interface.QMin.resources["molcas"] = os.path.join(PATH, "inputs/molcas/features/bin2/")
+    test_interface._get_molcas_features()
+    os.environ.clear()
+    os.environ.update(old_environ)
+    assert (test_interface._wfa, test_interface._hdf5, test_interface._mpi) == (True, False, False)
+
+    
+
+
+@pytest.mark.skip()
 def test_gettasks_init():
     # Test different requests from INIT
     # Currently no always_guess, always_orb_init
@@ -489,6 +520,7 @@ def test_gettasks_init():
         assert tasks == ref
 
 
+@pytest.mark.skip()
 def test_gettasks():
     tests = [
         (

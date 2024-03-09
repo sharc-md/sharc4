@@ -40,8 +40,8 @@ DM
 GRAD
 #OVERLAP
 ION
-SOCDR
-DMDR
+#SOCDR
+#DMDR
 MOLDEN
 
     ## Not implemented:
