@@ -422,8 +422,6 @@ Scheduling:
 Control: 
 {self.control}"""
 
-    # TODO: rewrite as proper __copy__ function!
-    # TODO: rewrite the __copy__ in QMinBase to deepcopy dicts and lists!
     def __deepcopy__(self, memo, full: bool = False):
         """
         Return copy of QMin object

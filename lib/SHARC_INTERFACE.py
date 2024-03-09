@@ -31,7 +31,6 @@ import os
 import re
 import sys
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
 from datetime import date
 from io import TextIOWrapper
 from socket import gethostname
@@ -41,7 +40,7 @@ from typing import Any
 import numpy as np
 
 # internal
-from constants import ATOMCHARGE, BOHR_TO_ANG, FROZENS
+from constants import ATOMCHARGE, BOHR_TO_ANG
 from logger import SHARCPRINT, TRACE, CustomFormatter, logging
 from qmin import QMin
 from qmout import QMout
@@ -86,10 +85,6 @@ class SHARC_INTERFACE(ABC):
     _states = None
     density_recipes = None
     _DEBUG = False
-    _PRINT = True
-
-    # TODO: set Debug and Print flag
-    # TODO: set persistant flag for file-io vs in-core
 
     def __init__(
         self,
@@ -858,7 +853,6 @@ class SHARC_INTERFACE(ABC):
                 else:
                     if task == "nacdr":
                         requests[task] = [(int(i[0]), int(i[1])) for i in batched(requests[task].split())]
-                        print(requests[task])
                     else:
                         requests[task] = [int(i) for i in requests[task].split()]
 

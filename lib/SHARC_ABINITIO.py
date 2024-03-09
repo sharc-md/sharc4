@@ -21,8 +21,7 @@ from qmin import QMin
 from resp import Resp, multipoles_from_dens_parallel
 from SHARC_INTERFACE import SHARC_INTERFACE
 from sympy.physics.wigner import wigner_3j
-from utils import (containsstring, convert_list, is_exec, itmult, link, mkdir,
-                   readfile, safe_cast, shorten_DIR, writefile)
+from utils import containsstring, convert_list, is_exec, itmult, link, mkdir, readfile, safe_cast, shorten_DIR, writefile
 
 all_features = {
     "h",
@@ -293,9 +292,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                                     or N2 > self.QMin.maps["states"][int(2 * S2) - 1]
                                 ):
                                     self.log.warning(
-                                        "Requested density ",
-                                        density,
-                                        "refers to the states that are not going to be calculated. Hence skipping it...",
+                                        f"Requested density {density} refers to the states that are not going to be calculated. Hence skipping it..."
                                     )
                                     continue
                                 for s1 in self.states:
@@ -345,14 +342,9 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                         case 4:
                             for fit in multipolar_fit:
                                 S1, N1, S2, N2 = fit
-                                if (
-                                    N1 > self.QMin.molecule["states"][S1 - 1]
-                                    or N2 > self.QMin.molecule["states"][S2 - 1]
-                                ):
+                                if N1 > self.QMin.molecule["states"][S1 - 1] or N2 > self.QMin.molecule["states"][S2 - 1]:
                                     self.log.warning(
-                                        "Requested multipolar expansion ",
-                                        fit,
-                                        "refers to the states that are not going to be calculated. Hence skipping it...",
+                                        f"Requested multipolar expansion {fit} refers to the states that are not going to be calculated. Hence skipping it..."
                                     )
                                     continue
                                 for s1 in self.states:
@@ -453,7 +445,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         pass
 
     def get_mole(self):
-        raise NotImplementedError(f"This interface does not support the density request!")
+        raise NotImplementedError("This interface does not support the density request!")
 
     def run_program(self, workdir: str, cmd: str, out: str, err: str) -> int:
         """
@@ -649,13 +641,13 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         if self.QMin.resources["debug"]:
             self.log.print("   To be read:")
             for d, v in self.density_recipes["read"].items():
-                self.log.debug("      " + v["repr"])
+                self.log.debug(f"      {v['repr']}")
             self.log.debug("   To be calculated from gs2es:")
             for d, v in self.density_recipes["from_gs2es"].items():
-                self.log.debug("      " + v["repr"] + ": GS = ", d[0].C["its_gs"])
+                self.log.debug(f"      {v['repr']}: GS = {d[0].C['its_gs']}")
             self.log.debug("   To be calculated from CI vectors:")
             for d, v in self.density_recipes["from_determinants"].items():
-                self.log.debug("      " + v["repr"] + ": Multiplicities of dets files = ", set(v["needed"]))
+                self.log.debug(f"      {v['repr']}: Multiplicities of dets files = {set(v['needed'])}")
             self.log.debug("   To be constructed by Wigner-Eckart theorem:")
             for d, v in self.density_recipes["construct"].items():
                 string = ""
@@ -672,10 +664,9 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         return
 
     def get_readable_densities(self):
-        raise NotImplementedError(f"This interface does not support the density request!")
+        raise NotImplementedError("This interface does not support the density request!")
 
     def append_calculatable_densities(self, doables, method):
-        QMin = self.QMin
         if method == "from_determinants":
             for s1 in self.states:
                 for s2 in self.states:
@@ -705,7 +696,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                         for gs in ground_states:
                             if gs is s1.C["its_gs"] and gs is s2.C["its_gs"]:
                                 break
-                        if (
+                        if ( # TODO: Tomi, is this correct?
                             (s1, gs, "aa") in doables
                             and (gs, s2, "aa") in doables
                             and (s1, gs, "bb") in doables
@@ -718,7 +709,6 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         return
 
     def append_constructable_densities(self, doables):
-        QMin = self.QMin
         added = False
         self.log.trace("Tu sam 6")
         #  for d in doables:
@@ -855,11 +845,10 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         return
 
     def read_and_append_densities(self):
-        raise NotImplementedError(f"This interface does not support the density request!")
+        raise NotImplementedError("This interface does not support the density request!")
 
     def construct_and_append_densities(self):
         QMout = self.QMout
-        densities = {}
         missing = False
         self.log.trace("Tu sam 8")
         for density, recipe in self.density_recipes["construct"].items():
@@ -1336,7 +1325,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                     for i in mults:
                         ns += qmin.control["states_to_do"][i - 1] - (i == gsmult)
                     if ns == 0:
-                        self.log.debug("Skipping Job %s because it contains no excited states." % (qmin.control["jobid"]))
+                        self.log.debug(f"Skipping Job {qmin.control['jobid']} because it contains no excited states.")
                         continue
 
                 starttime = datetime.datetime.now()
@@ -1403,7 +1392,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         if mo_file:
             theodore_keys["mo_file"] = mo_file
         self.log.debug(f"theodore input with keys: {theodore_keys}")
-        theodore_input = "\n".join(starmap(lambda k, v: f'{k}="{v}"' if type(v) == str else f"{k}={v}", theodore_keys.items()))
+        theodore_input = "\n".join(starmap(lambda k, v: f'{k}="{v}"' if isinstance(v, str) else f"{k}={v}", theodore_keys.items()))
         writefile(os.path.join(workdir, "dens_ana.in"), theodore_input)
         for s, d in link_files:
             self.log.debug(f"\ttheodore: linking file {s} -> {d}")
