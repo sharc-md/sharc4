@@ -112,7 +112,7 @@ def test_generate_schedule():
             assert schedule[idx].keys() == i
 
 
-@pytest.mark.skip()
+
 def test_gettasks_init():
     # Test different requests from INIT
     # Currently no always_guess, always_orb_init
@@ -576,7 +576,6 @@ def test_gettasks_init():
         assert tasks == ref
 
 
-@pytest.mark.skip()
 def test_gettasks():
     tests = [
         (
