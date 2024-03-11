@@ -393,6 +393,7 @@ type ctrl_type
   logical :: restart_rerun_last_qm_step     !< if true, then qm.f90 will write "restart" instruction
   integer :: method                         !< 0=trajectory surface hopping(tsh), 1=self-consistent potential(scp)
   integer :: integrator                     !< integrator used, 0=Bulirsch-Stoer, 1=adaptive Velocity Verlet, 2=fixed stepzie Velocity Verlet
+  logical :: write_restart_files            !< if false skips the generation of all restart files and logic
   integer :: staterep                       !< 0=initial state is given in diag representation, 1=in MCH representation
   integer :: initcoeff                      !< 0=initial coefficients are diag, 1=initial coefficients are MCH, 2=auto diag, 3=auto MCH
   integer :: laser                          !< 0=none, 1=internal, 2=external

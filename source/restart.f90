@@ -109,6 +109,7 @@ module restart
     write(u,*) ctrl%restart_rerun_last_qm_step
     write(u,*) ctrl%method
     write(u,*) ctrl%integrator
+    write(u,*) ctrl%write_restart_files
     write(u,*) ctrl%staterep
     write(u,*) ctrl%initcoeff
     write(u,*) ctrl%laser, '! laser'
@@ -662,6 +663,7 @@ module restart
     read(u_ctrl,*) ctrl%restart_rerun_last_qm_step
     read(u_ctrl,*) ctrl%method
     read(u_ctrl,*) ctrl%integrator
+    read(u_ctrl,*) ctrl%write_restart_files
     read(u_ctrl,*) ctrl%staterep
     read(u_ctrl,*) ctrl%initcoeff
     read(u_ctrl,*) ctrl%laser

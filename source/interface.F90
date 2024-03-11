@@ -1371,7 +1371,9 @@ subroutine finalize_sharc()
     use definitions, only: deallocate_traj, deallocate_ctrl
     implicit none
     call write_final(traj)
-    call write_restart()
+    if (ctrl%write_restart_files) then
+        call write_restart()
+    endif
     ! add further functions to deallocate sharc main!
     call deallocate_traj(traj)
     call deallocate_ctrl(ctrl)
