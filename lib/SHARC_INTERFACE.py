@@ -31,7 +31,6 @@ import os
 import re
 import sys
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
 from datetime import date
 from io import TextIOWrapper
 from socket import gethostname
@@ -41,11 +40,11 @@ from typing import Any
 import numpy as np
 
 # internal
-from constants import ATOMCHARGE, BOHR_TO_ANG, FROZENS
+from constants import ATOMCHARGE, BOHR_TO_ANG
 from logger import SHARCPRINT, TRACE, CustomFormatter, logging
 from qmin import QMin
 from qmout import QMout
-from utils import clock, convert_list, electronic_state, expand_path, itnmstates, parse_xyz, readfile, writefile
+from utils import clock, convert_list, electronic_state, expand_path, itnmstates, parse_xyz, readfile, writefile, batched
 
 np.set_printoptions(linewidth=400, formatter={"float": lambda x: f"{x: 9.7}"})
 all_features = {
@@ -86,10 +85,6 @@ class SHARC_INTERFACE(ABC):
     _states = None
     density_recipes = None
     _DEBUG = False
-    _PRINT = True
-
-    # TODO: set Debug and Print flag
-    # TODO: set persistant flag for file-io vs in-core
 
     def __init__(
         self,
@@ -857,9 +852,7 @@ class SHARC_INTERFACE(ABC):
                         requests[task] = [i + 1 for i in range(self.QMin.molecule["nstates"])]
                 else:
                     if task == "nacdr":
-                        requests[task] = [requests[task].split()[i : i + 2] for i in range(0, len(requests[task].split()), 2)]
-                        requests[task] = convert_list(requests[task])
-                        requests[task] = [(int(i[0]), int(i[1])) for i in requests[task]]
+                        requests[task] = [(int(i[0]), int(i[1])) for i in batched(requests[task].split())]
                     else:
                         requests[task] = [int(i) for i in requests[task].split()]
 

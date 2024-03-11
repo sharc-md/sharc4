@@ -2,7 +2,7 @@
 !
 !    SHARC Program Suite
 !
-!    Copyright (c) 2019 University of Vienna
+!    Copyright (c) 2023 University of Vienna
 !
 !    This file is part of SHARC.
 !
@@ -161,18 +161,6 @@ end subroutine get_trajstep
 
 ! ------------------------------------------------------
 
-subroutine get_state_diag(StateDiag)
-    use memory_module
-    implicit none
-    __INT__, intent(out) :: StateDiag
-
-    StateDiag = traj%state_diag
-
-    return
-end subroutine get_state_diag
-
-! ------------------------------------------------------
-
 subroutine get_element_name(NAtoms, ATyp)
     use iso_c_binding
     use memory_module
@@ -327,12 +315,14 @@ endsubroutine
 
 ! ------------------------------------------------------
 
-subroutine get_scalingfactor(scl)
+subroutine get_scalingfactor(scl,soc_scl)
     use memory_module, only: ctrl
     implicit none
     __REAL__, intent(out) :: scl
+    __REAL__, intent(out) :: soc_scl
 
     scl = ctrl%scalingfactor
+    soc_scl = ctrl%soc_scaling
 
     return
 endsubroutine
@@ -486,12 +476,12 @@ subroutine get_nacdr(string, ICALL)
           case (0)
             write(string,'(A)')  'NACDR'
           case (1)
-            do i=1,ctrl%nstates
+                        do i=1,ctrl%nstates
               do j=1,ctrl%nstates
                 if (traj%selt_ss(j,i)) write(string,'(A,I3,1X,I3)') trim(string) , i,j
               enddo
             enddo
-          case (2)
+                      case (2)
             write(*,*)
         endselect
     else if (ICALL .eq. 2) then
@@ -562,7 +552,7 @@ subroutine postprocess_qmout_data(IH, IDM, IGrad, IOverlap, INac)
 !C
     implicit none
     __INT__, intent(inout) :: IH, IDM, IGrad, IOverlap, INac
-    integer :: i,j
+    integer :: i,j,istate,jstate
 
 !    write(*,*) "Postprocess setting data", IH, IDM, IGrad, IOverlap
 
@@ -574,6 +564,16 @@ subroutine postprocess_qmout_data(IH, IDM, IGrad, IOverlap, INac)
         ! apply scaling factor
         if (ctrl%scalingfactor/=1.d0) then
           traj%H_MCH_ss=traj%H_MCH_ss*ctrl%scalingfactor
+        endif
+
+        if (ctrl%soc_scaling/=1.d0) then 
+          do istate=1,ctrl%nstates
+            do jstate=1,ctrl%nstates
+              if (istate.ne.jstate) then 
+                traj%H_MCH_ss(istate,jstate)=traj%H_MCH_ss(istate,jstate)*ctrl%soc_scaling
+              endif
+            enddo
+          enddo
         endif
 
         ! apply frozen-state mask
@@ -636,7 +636,7 @@ subroutine set_hamiltonian(N, H_MCH_ss)
     integer, intent(in)    :: N
     __COMPLEX__, intent(in) :: H_MCH_ss(N, N) 
     
-    integer :: i,j
+    integer :: i,j,istate,jstate
 
     if ( ctrl%nstates .ne. N) then
         write(*,*) "Hamiltonian has wrong dimension!"
@@ -656,6 +656,16 @@ subroutine set_hamiltonian(N, H_MCH_ss)
     ! apply scaling factor
     if (ctrl%scalingfactor/=1.d0) then
       traj%H_MCH_ss=traj%H_MCH_ss*ctrl%scalingfactor
+    endif
+
+    if (ctrl%soc_scaling/=1.d0) then
+      do istate=1,ctrl%nstates
+        do jstate=1,ctrl%nstates
+          if (istate.ne.jstate) then
+            traj%H_MCH_ss(istate,jstate)=traj%H_MCH_ss(istate,jstate)*ctrl%soc_scaling
+          endif
+        enddo
+      enddo
     endif
 
     ! apply frozen-state mask
@@ -841,7 +851,7 @@ subroutine initial_qm_pre()
 
 
     if (printlevel>1) then
-      call write_logtimestep(u_log,traj%step)
+      call write_logtimestep(u_log,traj%step,traj%microtime)
     endif
 
 endsubroutine
@@ -1134,18 +1144,34 @@ subroutine initial_step(IRestart)
     use definitions
     use misc, only: set_time
     use nuclear,  only: Calculate_etot
-    use qm, only: Mix_gradients, Update_old, do_initial_qm
+    use qm, only: Mix_gradients, Update_old, do_initial_qm, QM_processing, NAC_processing
     use restart, only: mkdir_restart, write_restart_ctrl!, write_restart_traj 
     use output, only: write_list_header, write_dat, &
                       write_list_line, write_geom
+    use army_ants, only: army_ants_initialize
+    use tsh_tu, only: time_uncertainty_initialize
+    use electronic, only: Electronic_gradients_MCH
+    use decoherence_dom, only: initial_def
+    use pointer_basis, only: pointer_basis_initialize
+    use zpe, only: initial_zpe
     implicit none
     __INT__, intent(in)   :: IRestart
 
     if ( IRestart .eq. 0 ) then
+        call QM_processing(traj,ctrl)
+        if (ctrl%zpe_correction.ne.0) call initial_zpe(traj, ctrl)
+        if (ctrl%army_ants==1) call army_ants_initialize(traj, ctrl)
+        if (ctrl%pointer_basis==2) call pointer_basis_initialize(traj, ctrl)
+        call NAC_processing(traj, ctrl)
+        call Calculate_etot(traj,ctrl)   ! not sure if necessary here...
+        if (ctrl%time_uncertainty==1) call time_uncertainty_initialize(traj,ctrl)
+        if (ctrl%decoherence==11) call initial_def(traj, ctrl)
         call Mix_gradients(traj,ctrl)
-        call Update_old(traj)
-        call Calculate_etot(traj,ctrl)
+        if (ctrl%integrator==0) call Electronic_gradients_MCH(traj,ctrl)
+        call Update_old(traj,ctrl)
+        ! call Calculate_etot(traj,ctrl)
         call set_time(traj)
+        traj%microtime=ctrl%dtstep*traj%step
         call write_dat_new(u_dat, traj, ctrl)    
         if (ctrl%output_format==0) then
           call write_geom(u_geo,traj,ctrl)
@@ -1169,7 +1195,7 @@ subroutine Verlet_xstep(i_step)
     __INT__, intent(in) :: i_step
 
     traj%step=i_step
-    call write_logtimestep(u_log, i_step)
+    call write_logtimestep(u_log, i_step, traj%microtime)
     ! Velocity Verlet x
     call VelocityVerlet_xstep(traj, ctrl)
     return
@@ -1180,22 +1206,37 @@ end subroutine Verlet_xstep
 subroutine Verlet_vstep(IRedo)
     use memory_module, only: traj, ctrl
     use definitions
-    use qm, only: Adjust_phases, Mix_gradients
+    use qm, only: Adjust_phases, Mix_gradients, QM_processing, NAC_processing
     use electronic, only: propagate, surface_hopping, decoherence, &
-                          Calculate_cMCH
+                          Calculate_cMCH, surface_switching
     use electronic_laser, only: propagate_laser
     use nuclear, only: VelocityVerlet_vstep, Damp_Velocities, Calculate_ekin, &
                        Calculate_etot, Rescale_Velocities 
     use matrix, only: matwrite
+    use army_ants, only: army_ants_surface_hopping, army_ants_surface_switching
+    use tsh_tu, only: time_uncertainty_surface_hopping
+    use zpe, only: ZPEcorrection
+    use pointer_basis, only: pointer_basis_opt
 
     implicit none
     __INT__, intent(out) :: IRedo
 
     IRedo = 0
-    ! Adjust Phases
-    call Adjust_phases(traj,ctrl)
+  ! QM Processing
+  call QM_processing(traj,ctrl)
+  ! Adjust Phases
+  call Adjust_phases(traj,ctrl)
+  ! Compute NAC in diagonal basis
+  call NAC_processing(traj, ctrl)
+  ! Optimize pointer basis
+  if (ctrl%pointer_basis==2) then
+    call pointer_basis_opt(traj, ctrl)
+  endif
+
+  if (ctrl%method==0) then !TSH
     ! Mix Gradients
     call Mix_gradients(traj,ctrl)
+
     ! Velocity Verlet v    (before SH)
     call VelocityVerlet_vstep(traj,ctrl)
     if (ctrl%dampeddyn/=1.d0) call Damp_Velocities(traj,ctrl)
@@ -1207,18 +1248,62 @@ subroutine Verlet_vstep(IRedo)
       call propagate_laser(traj,ctrl)
     endif
     ! SH
-    call surface_hopping(traj,ctrl)
+    if (ctrl%time_uncertainty==0) then ! SH
+      if (ctrl%army_ants==0) then
+        call surface_hopping(traj,ctrl)
+      else if (ctrl%army_ants==1) then
+        call army_ants_surface_hopping(traj,ctrl)
+      endif
+    else if (ctrl%time_uncertainty==1) then ! time uncertainty SH
+      call time_uncertainty_surface_hopping(traj,ctrl)
+    endif
     ! Rescale v
     call Rescale_Velocities(traj,ctrl)
+    if (ctrl%zpe_correction .ne. 0) then
+      call ZPEcorrection(traj,ctrl)
+    endif
     call Calculate_etot(traj,ctrl)
     ! Decoherence
     call Decoherence(traj,ctrl)
     ! obtain the correct gradient
     call Calculate_cMCH(traj,ctrl)
     if (ctrl%calc_grad>=1) then
-        IRedo = 1
+      IRedo = 1
     endif
-
+  else if (ctrl%method==1) then !SCP
+    ! Propagation coherent coefficients
+    if (ctrl%laser==0) then
+      call propagate(traj,ctrl)
+    else
+      call propagate_laser(traj,ctrl) !This needs to be done for SCP
+    endif
+    ! Decoherence, decay of mixing
+    call Decoherence(traj,ctrl)
+    call Calculate_cMCH(traj,ctrl)
+    ! Switching of the pointer state
+    if (ctrl%army_ants==0) then
+      call surface_switching(traj,ctrl)
+    else if (ctrl%army_ants==1) then
+      call army_ants_surface_switching(traj,ctrl)
+    endif
+    !if (traj%kind_of_jump/=0) then
+    !  call redecoherence(traj,ctrl)
+    !endif
+    ! Mix Gradients
+    call Mix_gradients(traj,ctrl)
+    ! Velocity Verlet v
+    call VelocityVerlet_vstep(traj,ctrl)
+    ! Do ZPE correction
+    if (ctrl%zpe_correction .ne. 0) then
+      call ZPEcorrection(traj,ctrl)
+    endif
+    if (ctrl%dampeddyn/=1.d0) call Damp_Velocities(traj,ctrl)
+    traj%Ekin=Calculate_ekin(ctrl%natom, traj%veloc_ad, traj%mass_a)
+    !endif
+    call Calculate_etot(traj,ctrl)
+  endif
+  traj%microtime=ctrl%dtstep*traj%step
+  
     return
 end subroutine Verlet_vstep
 
@@ -1231,7 +1316,8 @@ subroutine Verlet_finalize(IExit, iskip)
     use qm, only: Update_old, Mix_gradients
     use electronic, only: kill_after_relaxation
     use output, only: allflush, write_dat, write_list_line, write_geom
-   use restart, only: write_restart_traj
+    use restart, only: write_restart_traj
+    use tsh_tu, only: tshtu_time_travelling, record_time_travelling_point
     implicit none
 
     __INT__, intent(out) :: IExit ! if IExit = 0 end loop, else continue
@@ -1239,7 +1325,7 @@ subroutine Verlet_finalize(IExit, iskip)
 
     if (traj%kind_of_jump/=0) call Mix_gradients(traj, ctrl)
     ! Finalization: Variable update, Output, Restart File, Consistency Checks
-    call Update_old(traj)
+    call Update_old(traj,ctrl)
     call set_time(traj)
     call write_list_line(u_lis, traj, ctrl)
     call write_dat_new(u_dat, traj, ctrl)
@@ -1265,6 +1351,15 @@ subroutine Verlet_finalize(IExit, iskip)
         ctrl%restart=.false.
     endif
 
+    if (ctrl%time_uncertainty==1 .and. traj%in_time_uncertainty==0) then
+      call record_time_travelling_point(traj,ctrl)
+    endif
+    if (ctrl%time_uncertainty==1 .and. traj%in_time_uncertainty==1 .and. traj%tu_backpropagation==1) then
+    ! back propagate to a point where hopping is energetically allowed, and
+    ! forced hop to that state
+      call tshtu_time_travelling(u_rest,traj,ctrl)
+    endif
+
     return
 end subroutine Verlet_finalize
 
@@ -1276,7 +1371,9 @@ subroutine finalize_sharc()
     use definitions, only: deallocate_traj, deallocate_ctrl
     implicit none
     call write_final(traj)
-    call write_restart()
+    if (ctrl%write_restart_files) then
+        call write_restart()
+    endif
     ! add further functions to deallocate sharc main!
     call deallocate_traj(traj)
     call deallocate_ctrl(ctrl)

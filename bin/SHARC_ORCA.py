@@ -8,14 +8,14 @@ import struct
 import subprocess as sp
 from copy import deepcopy
 from io import TextIOWrapper
-from itertools import chain, count, pairwise
+from itertools import chain, count
 from typing import Optional
 
 import numpy as np
 from constants import IToMult
 from qmin import QMin
 from SHARC_ABINITIO import SHARC_ABINITIO
-from utils import expand_path, itmult, mkdir, readfile, writefile
+from utils import expand_path, itmult, mkdir, readfile, writefile, batched
 
 __all__ = ["SHARC_ORCA"]
 
@@ -1309,11 +1309,11 @@ class SHARC_ORCA(SHARC_ABINITIO):
         if qmin.template["basis_per_element"]:
             string += "%basis\n"
             # basis_per_element key is list, need to iterate pairwise
-            for elem, basis in pairwise(qmin.template["basis_per_element"]):
-                string += f'\tnewgto {elem} "{basis}" end\n'
+            for batch in batched(qmin.template["basis_per_element"]):
+                string += f'\tnewgto {batch[0]} "{batch[1]}" end\n'
             if qmin.template["ecp_per_element"]:
-                for elem, basis in pairwise(qmin.template["ecp_per_element"]):
-                    string += f'\tnewECP {elem} "{basis}" end\n'
+                for batch in batched(qmin.template["ecp_per_element"]):
+                    string += f'\tnewECP {batch[0]} "{batch[1]}" end\n'
             string += "end\n\n"
 
         # Frozen core
@@ -1483,7 +1483,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
         # from orca order: z, x, y
         # to  pyscf order: x, y, z
         p_order = [1, 2, 0]
-        np = 3
+        n_p = 3
 
         # from orca order: z2, xz, yz, x2-y2, xy
         # to  pyscf order: xy, yz, z2, xz, x2-y2
@@ -1515,17 +1515,17 @@ class SHARC_ORCA(SHARC_ABINITIO):
             assert it == len(new_order)
 
             # do p shells
-            for x in range(p):
+            for _ in range(p):
                 new_order.extend([it + n for n in p_order])
-                it += np
+                it += n_p
 
             # do d shells
-            for x in range(n_bf[2]):
+            for _ in range(n_bf[2]):
                 new_order.extend([it + n for n in d_order])
                 it += nd
 
             # do f shells
-            for x in range(n_bf[3]):
+            for _ in range(n_bf[3]):
                 new_order.extend([it + n for n in f_order])
                 it += nf
             assert it == len(new_order)
