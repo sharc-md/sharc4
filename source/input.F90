@@ -902,6 +902,26 @@ module input
 
 
 
+    ! flag for switching of writing of restart files
+    ctrl%write_restart_files = .true.
+    line=get_value_from_key('write_restart_files',io)
+    if (io==0) then
+      ctrl%write_restart_files = .true.
+    endif
+    line=get_value_from_key('nowrite_restart_files',io)
+    if (io==0) then
+      ctrl%write_restart_files = .false.
+    endif
+    if (.not.ctrl%write_restart_files) then
+        write(u_log,'(a)') 'Writing of restart files turned off! Restarting trajectory will not be possible!'
+    endif
+
+
+
+
+
+
+
     ! Flags for switching on/off writing data to output.dat
     !
     ctrl%write_soc=1                     !< write SOC to output.dat or not \n 0=no soc, 1=write soc )

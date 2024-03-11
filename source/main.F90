@@ -93,8 +93,10 @@ if (.not.ctrl%restart) then
   call write_dat(u_dat, traj, ctrl)
   call write_list_line(u_lis,traj,ctrl)
   call write_geom(u_geo, traj, ctrl)
-  call write_restart_ctrl(u_resc,ctrl)
-  call write_restart_traj(u_rest,ctrl,traj)
+  if (ctrl%write_restart_files) then
+      call write_restart_ctrl(u_resc,ctrl)
+      call write_restart_traj(u_rest,ctrl,traj)
+  endif
   call mkdir_restart(ctrl)
 endif
 
@@ -142,6 +144,61 @@ do i_step=traj%step+1,ctrl%nsteps
   call write_geom(u_geo, traj, ctrl)
   ! write_restart_traj must be the last command
   call write_restart_traj(u_rest,ctrl,traj)
+  call allflush()
+  ! kill trajectory 
+  call kill_after_relaxation(traj,ctrl)
+  if ((ctrl%killafter>=0).and.(traj%steps_in_gs>ctrl%killafter)) exit
+  if (check_stop(ctrl%cwd)) exit
+  ctrl%restart=.false.
+enddo
+
+
+
+! everything is set up for the loop
+do i_step=traj%step+1,ctrl%nsteps
+  traj%step=i_step
+  call write_logtimestep(u_log,i_step)
+
+  ! Velocity Verlet x
+  call VelocityVerlet_xstep(traj,ctrl)
+  ! QM Calculation
+  call do_qm_calculations(traj,ctrl)
+  ! Adjust Phases
+  call Adjust_phases(traj,ctrl)
+  ! Mix Gradients
+  call Mix_gradients(traj,ctrl)
+  ! Velocity Verlet v    (before SH)
+  call VelocityVerlet_vstep(traj,ctrl)
+  if (ctrl%dampeddyn/=1.d0) call Damp_Velocities(traj,ctrl)
+  traj%Ekin=Calculate_ekin(ctrl%natom, traj%veloc_ad, traj%mass_a)
+!   call Calculate_etot(traj,ctrl)
+  ! Propagation
+  if (ctrl%laser==0) then
+    call propagate(traj,ctrl)
+  else
+    call propagate_laser(traj,ctrl)
+  endif
+  ! SH
+  call surface_hopping(traj,ctrl)
+  ! Rescale v
+  call Rescale_Velocities(traj,ctrl)
+  call Calculate_etot(traj,ctrl)
+  ! Decoherence
+  call Decoherence(traj,ctrl)
+  ! obtain the correct gradient
+  call Calculate_cMCH(traj,ctrl)
+  if (ctrl%calc_grad>=1) call redo_qm_gradients(traj,ctrl)
+  if (traj%kind_of_jump/=0) call Mix_gradients(traj,ctrl)
+  ! Finalization: Variable update, Output, Restart File, Consistency Checks
+  call Update_old(traj)
+  call set_time(traj)
+  call write_list_line(u_lis,traj,ctrl)
+  call write_dat(u_dat, traj, ctrl)
+  call write_geom(u_geo, traj, ctrl)
+  if (ctrl%write_restart_files) then
+      ! write_restart_traj must be the last command
+      call write_restart_traj(u_rest,ctrl,traj)
+  endif
   call allflush()
   ! kill trajectory 
   call kill_after_relaxation(traj,ctrl)

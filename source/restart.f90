@@ -98,6 +98,7 @@ module restart
     write(u,*) (ctrl%output_steps_limits(istate),istate=1,3)
     write(u,*) ctrl%restart
     write(u,*) ctrl%restart_rerun_last_qm_step
+    write(u,*) ctrl%write_restart_files
     write(u,*) ctrl%staterep
     write(u,*) ctrl%initcoeff
     write(u,*) ctrl%laser
@@ -440,6 +441,7 @@ module restart
     read(u_ctrl,*) (ctrl%output_steps_limits(istate),istate=1,3)
     read(u_ctrl,*) ctrl%restart
     read(u_ctrl,*) ctrl%restart_rerun_last_qm_step
+    read(u_ctrl,*) ctrl%write_restart_files
     read(u_ctrl,*) ctrl%staterep
     read(u_ctrl,*) ctrl%initcoeff
     read(u_ctrl,*) ctrl%laser
