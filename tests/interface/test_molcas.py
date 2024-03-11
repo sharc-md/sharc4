@@ -40,6 +40,7 @@ def test_get_features():
         test_interface._get_molcas_features()
         assert (test_interface._wfa, test_interface._hdf5, test_interface._mpi) == ref
 
+
 def test_get_features2():
     """
     HDF, MPI should be false if ldd not installed
@@ -53,7 +54,62 @@ def test_get_features2():
     os.environ.update(old_environ)
     assert (test_interface._wfa, test_interface._hdf5, test_interface._mpi) == (True, False, False)
 
-    
+
+def test_generate_schedule():
+    """
+    Test if joblist contains all job keys
+    """
+    tests = [
+        (
+            os.path.join(PATH, "inputs/molcas/schedule/QM1.in"),
+            [{"master"}, {"grad_1_1", "grad_1_2", "grad_1_3", "grad_1_4", "grad_2_1", "grad_2_2"}],
+        ),
+        (
+            os.path.join(PATH, "inputs/molcas/schedule/QM2.in"),
+            [
+                {"master"},
+                {
+                    "grad_1_1",
+                    "grad_1_2",
+                    "grad_1_3",
+                    "grad_1_4",
+                    "grad_2_1",
+                    "grad_2_2",
+                    "nacdr_1_1_1_2",
+                    "nacdr_1_1_1_3",
+                    "nacdr_1_1_1_4",
+                    "nacdr_1_2_1_3",
+                    "nacdr_1_2_1_4",
+                    "nacdr_1_3_1_4",
+                    "nacdr_2_1_2_2",
+                },
+            ],
+        ),
+        (
+            os.path.join(PATH, "inputs/molcas/schedule/QM3.in"),
+            [{"master"}, {"grad_1_1", "grad_1_2", "grad_1_3", "grad_1_4", "grad_2_1", "grad_2_2", "nacdr_1_1_1_2"}],
+        ),
+        (
+            os.path.join(PATH, "inputs/molcas/schedule/QM4.in"),
+            [{"master"}, {"grad_1_1", "grad_2_1", "nacdr_1_1_1_2"}],
+        ),
+        (
+            os.path.join(PATH, "inputs/molcas/schedule/QM5.in"),
+            [{"master"}],
+        ),
+    ]
+
+    for qmin, ref in tests:
+        test_interface = SHARC_MOLCAS()
+        test_interface.setup_mol(qmin)
+        test_interface._read_template = True
+        test_interface._read_resources = True
+        test_interface.setup_interface()
+        test_interface.read_requests(qmin)
+        schedule = test_interface._generate_schedule()
+        assert len(schedule) == len(ref)
+        for idx, i in enumerate(ref):
+            assert schedule[idx].keys() == i
 
 
 @pytest.mark.skip()
