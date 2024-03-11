@@ -2,7 +2,7 @@
 #
 #    SHARC Program Suite
 #
-#    Copyright (c) 2019 University of Vienna
+#    Copyright (c) 2023 University of Vienna
 #
 #    This file is part of SHARC.
 #
@@ -38,7 +38,7 @@ INC= -I.  -I$(ANACONDA)/include
 OPT= -O3 -Wall
 SHARED= -fPIC
 
-#CC=$(ANACONDA)/bin/gcc
+CC=gcc
 
 
 OBJ_LIB=nc_basic.o nc_sharc.o

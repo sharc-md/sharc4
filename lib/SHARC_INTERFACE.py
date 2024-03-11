@@ -31,7 +31,6 @@ import os
 import re
 import sys
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
 from datetime import date
 from io import TextIOWrapper
 from socket import gethostname
@@ -39,13 +38,13 @@ from textwrap import wrap
 from typing import Any
 
 import numpy as np
+
 # internal
-from constants import ATOMCHARGE, BOHR_TO_ANG, FROZENS
+from constants import ATOMCHARGE, BOHR_TO_ANG
 from logger import SHARCPRINT, TRACE, CustomFormatter, logging
 from qmin import QMin
 from qmout import QMout
-from utils import (clock, convert_list, electronic_state, expand_path,
-                   itnmstates, parse_xyz, readfile, writefile)
+from utils import clock, convert_list, electronic_state, expand_path, itnmstates, parse_xyz, readfile, writefile, batched
 
 np.set_printoptions(linewidth=400, formatter={"float": lambda x: f"{x: 9.7}"})
 all_features = {
@@ -86,10 +85,6 @@ class SHARC_INTERFACE(ABC):
     _states = None
     density_recipes = None
     _DEBUG = False
-    _PRINT = True
-
-    # TODO: set Debug and Print flag
-    # TODO: set persistant flag for file-io vs in-core
 
     def __init__(
         self,
@@ -779,7 +774,7 @@ class SHARC_INTERFACE(ABC):
                 case ["backup"]:
                     self.log.warning("'backup' request is deprecated, use 'retain <number of steps>' instead!")
                 case ["init" | "newstep" | "samestep" | "restart"]:
-                    pass
+                    self.log.warning(f"{line.lower().split(maxsplit=1)[0]} request is deprecated and will be ignored!")
                 case ["unit" | "states", _]:
                     pass
                 case _:
@@ -836,7 +831,9 @@ class SHARC_INTERFACE(ABC):
         self.log.debug(f"getting requests {requests} step: {self.QMin.save['step']}")
         # logic for raw tasks object from pysharc interface
         if "tasks" in requests and isinstance(requests["tasks"], str):
-            requests.update({k.lower(): True for k in requests["tasks"].split()})
+            for k in requests["tasks"].split():
+                if k.lower() not in ["init", "samestep", "newstep", "restart"]:
+                    requests[k.lower()] = True
             if "soc" in requests:
                 requests["h"] = True
             del requests["tasks"]
@@ -854,7 +851,10 @@ class SHARC_INTERFACE(ABC):
                     else:
                         requests[task] = [i + 1 for i in range(self.QMin.molecule["nstates"])]
                 else:
-                    requests[task] = [int(i) for i in requests[task].split()]
+                    if task == "nacdr":
+                        requests[task] = [(int(i[0]), int(i[1])) for i in batched(requests[task].split())]
+                    else:
+                        requests[task] = [int(i) for i in requests[task].split()]
 
         if self.QMin.save["step"] == 0:
             for req in ["overlap", "phases"]:

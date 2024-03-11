@@ -36,7 +36,7 @@ memory 1000
 
     ## Path to the wfoverlaps program.
     ## Needed for overlap and Dyson norm calculations.
-wfoverlap $SHARC/wfoverlap_ascii.x
+wfoverlap $SHARC/../wfoverlap/source/wfoverlap_ascii.x
 
 
     ## Do not store determinant and MO coefficient files in savedir.

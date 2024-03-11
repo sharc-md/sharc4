@@ -1,8 +1,8 @@
 #******************************************
 #
-# SHARC Program Suite
+#    SHARC Program Suite
 #
-#    Copyright (c) 2019 University of Vienna
+#    Copyright (c) 2023 University of Vienna
 #
 #    This file is part of SHARC.
 #

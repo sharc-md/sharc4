@@ -10,7 +10,7 @@ from error import Error, exception_hook
 import subprocess as sp
 from globals import DEBUG, PRINT
 from logger import log as logging
-from typing import Optional, Any
+from typing import Optional, Any, Iterable
 
 
 class InDir:
@@ -30,6 +30,11 @@ class InDir:
         if exc_type is not None:
             exception_hook(exc_type, exc_value, exc_traceback)
 
+# Because itertools.batched only in python >=3.12
+def batched(it: Iterable, n: int = 2):
+    l = len(it)
+    for ndx in range(0, l, n):
+        yield it[ndx:ndx+n]
 
 def convert_list(raw_list: list, new_type: Any = int) -> list:
     output = raw_list
