@@ -76,7 +76,6 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             {
                 "molcas": None,
                 "mpi_parallel": False,
-                "schedule_scaling": 0.6,
                 "delay": 0.0,
             }
         )
@@ -85,7 +84,6 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             {
                 "molcas": str,
                 "mpi_parallel": bool,
-                "schedule_scaling": float,
                 "delay": float,
             }
         )
@@ -358,11 +356,55 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
 
         self.QMout["runtime"] = datetime.datetime.now() - starttime
 
-    def _generate_schedule(self) -> dict[str, QMin]:
+    def _generate_schedule(self) -> list[dict[str, QMin]]:
         """
         Generate schedule, one main job and n grad/nac jobs
         """
-        schedule = {}
+        schedule = [{"master": deepcopy(self.QMin)}]
+        self.QMin.control["nslots_pool"].append(1)
+
+        ## Setup master job
+        schedule[0]["master"].control["master"] = True
+        if not schedule[0]["master"].resources["mpi_parallel"]:
+            schedule[0]["master"].resources["ncpu"] = 1
+
+        ## Setup grad and nac jobs
+        # Get number of tasks
+        ntasks = 0
+        if self.QMin.requests["grad"]:
+            ntasks += len(self.QMin.maps["gradmap"])
+        if self.QMin.requests["nacdr"]:
+            ntasks += len(self.QMin.maps["nacmap"])
+        if ntasks == 0:
+            return schedule
+
+        # Get number of slots for grads/nacs
+        nslots, cpu_per_run = 1, self.QMin.resources["ncpu"]
+        if not self.QMin.resources["mpi_parallel"]:
+            nslots, cpu_per_run = self.QMin.resources["ncpu"], 1
+        self.QMin.control["nslots_pool"].append(nslots)
+
+        jobs = {}
+
+        # Create gradjobs
+        if self.QMin.requests["grad"]:
+            for grad in self.QMin.maps["gradmap"]:
+                gradjob = deepcopy(self.QMin)
+                gradjob.resources["ncpu"] = cpu_per_run
+                gradjob.maps["gradmap"] = set(grad)
+                gradjob.maps["nacmap"] = set()
+                jobs[f"grad_{'_'.join(str(g) for g in grad)}"] = gradjob
+
+        # Create nacjobs
+        if self.QMin.requests["nacdr"]:
+            for nac in self.QMin.maps["nacmap"]:
+                nacjob = deepcopy(self.QMin)
+                nacjob.resources["ncpu"] = cpu_per_run
+                nacjob.maps["gradmap"] = set()
+                nacjob.maps["nacmap"] = set(nac)
+                jobs[f"nacdr_{'_'.join(str(n) for n in nac)}"] = nacjob
+
+        schedule.append(jobs)
         return schedule
 
     def execute_from_qmin(self, workdir: str, qmin: QMin) -> tuple[int, datetime.timedelta]:
@@ -665,3 +707,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             if not version:
                 raise ValueError(f"No MOLCAS version found in {os.path.join(path, '.molcasversion')}")
         return int(version.group(1)), int(version.group(2))
+
+
+if __name__ == "__main__":
+    SHARC_MOLCAS().main()
