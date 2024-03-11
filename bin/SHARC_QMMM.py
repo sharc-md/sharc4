@@ -107,11 +107,14 @@ class SHARC_QMMM(SHARC_HYBRID):
             self.resources_file = question("Specify path to QMMM.resources", str, KEYSTROKES=KEYSTROKES, autocomplete=True)
 
         self.log.info(f"\n{' Setting up QM-interface ':=^80s}\n")
+        self.qm_interface.QMin.molecule['states'] = INFOS['states']
         self.qm_interface.get_infos(INFOS, KEYSTROKES=KEYSTROKES)
         self.log.info(f"\n{' Setting up MML-interface (whole system) ':=^80s}\n")
+        self.mml_interface.QMin.molecule['states'] = [1]
         self.mml_interface.get_infos(INFOS, KEYSTROKES=KEYSTROKES)
         if self.QMin.template["embedding"] == "subtractive":
             self.log.info(f"\n{' Setting up MMS-interface (qm system) ':=^80s}\n")
+            self.mms_interface.QMin.molecule['states'] = [1]
             self.mms_interface.get_infos(INFOS, KEYSTROKES=KEYSTROKES)
 
         return INFOS
@@ -227,6 +230,12 @@ class SHARC_QMMM(SHARC_HYBRID):
 
     def _step_logic(self):
         super()._step_logic()
+        self.qm_interface._step_logic()
+        self.mml_interface._step_logic()
+
+        if self.QMin.template["embedding"] == "subtractive":
+            self.mms_interface._step_logic()
+        
 
     def request_logics(self):
         super().request_logic()
@@ -494,11 +503,13 @@ class SHARC_QMMM(SHARC_HYBRID):
         self.qm_interface.QMin.coords["pccharge"] = raw_pc[self.non_link_mm]
         # TODO indicator to include pointcharges?
 
-        self.qm_interface.log.debug(f"{self.qm_interface.QMin}")
+        # self.qm_interface.log.debug(f"{self.qm_interface.QMin}")
         with InDir(self.QMin.template["qm-dir"]) as _:
             self.qm_interface.run()
             self.qm_interface.getQMout()
             # self.qm_interface.write_step_file()
+
+        self.QMin.save['step'] += 1
 
     def getQMout(self):
         # s1 = time.perf_counter_ns()
