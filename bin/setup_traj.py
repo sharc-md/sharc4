@@ -1157,7 +1157,7 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
                 question("Specify the desired pressure at the surface of the droplet in bar", float, default=[1])[0] * 100_000
             )
             wokness = question(
-                "On a scale from 1 being a solid wall and 0 being no force, how strong should the potential increase?",
+                "On a scale from 1 being a harmonic potential and 0 being a solid wall, how fast should the potential increase?",
                 float,
                 default=[0.2],
             )[0]
@@ -1166,9 +1166,9 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
             r_drop = (
                 (3 * (n_mol * (1 / (6.022_140_857e23 * (1000 * density / molar_mass) * 1e-27))) / (4 * math.pi)) ** (1 / 3)
             )
-            r_off = r_drop * (1-wokness)
+            r_off = r_drop * (1 - wokness)
             INFOS["droplet_radius"] = r_off
-            INFOS["droplet_force"] = (press_pascal * 1e-20 * 4 * math.pi * r_drop ** 2)/ (r_drop-r_off) / (
+            INFOS["droplet_force"] = (press_pascal * 1e-20 * 4 * math.pi * r_drop ** 2) / (r_drop - r_off) / (
                 8.2387235e-8 * 1.889726125
             )  # force in N/ang to Hartree/Bohr**2
             log.info(
@@ -1646,7 +1646,7 @@ def writeSHARCinput(INFOS, initobject, iconddir, istate, ask=False):
         shutil.copy(INFOS["laserfile"], laserfname)
 
     # atommask file
-    if "atommaskarray" in INFOS:
+    if "atommaskarray" in INFOS and INFOS['atommaskarray'] is not None:
         atommfname = iconddir + "/atommask"
         atommf = open(atommfname, "w")
         for i, atom in enumerate(initobject.atomlist):
