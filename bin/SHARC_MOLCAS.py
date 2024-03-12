@@ -444,8 +444,6 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             if states == 0:
                 continue
 
-            # TODO: do copy separate?
-
             is_jobiph = False
             is_rasorb = False
             if not qmin.save["always_guess"]:
@@ -533,79 +531,9 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                     tasks.append(["caspt2", mult + 1, states, qmin.template["method"]])
                     tasks.append(["copy", "MOLCAS.JobMix", f"MOLCAS.{mult+1}.JobIph"])
 
-            # Gradients
-
-            if self.QMin.requests["grad"]:
-                for grad in qmin.maps["gradmap"]:
-                    if grad[0] == mult + 1:
-                        if qmin.template["roots"][mult] == 1:
-                            # SS-CASSCF
-                            if qmin.save["samestep"]:
-                                tasks.append(["rasscf", mult + 1, qmin.template["roots"][mult], True, False])
-                                if qmin.template["method"] == "mc-pdft":
-                                    tasks.append(["mcpdft", [f"KSDFT={qmin.template['functional']}", "GRAD"]])
-                                if qmin.template["method"] in ["ms-caspt2", "xms-caspt2"]:
-                                    self.log.error("Single state gradient with MS/XMS-CASPT2")
-                                    raise ValueError()
-                            tasks.append(["alaska"])
-                        else:
-                            # SA-CASSCF
-                            tasks.append(["link", f"MOLCAS.{mult+1}.JobIph", "JOBOLD"])
-
-                            if qmin.template["method"] == "mc-pdft":
-                                tasks.append(
-                                    ["rasscf", mult + 1, qmin.template["roots"][mult], True, False, [f"RLXROOT={grad[1]}"]]
-                                )
-                                tasks.append(["mcpdft", [f"KSDFT={qmin.template['functional']}", "GRAD"]])
-                            elif qmin.template["method"] == "cms-pdft":
-                                if not qmin.save["init"]:
-                                    tasks.append(
-                                        ["copy", os.path.join(qmin.save["savedir"], f"Do_Rotate.{mult+1}.txt"), "Do_Rotate.txt"]
-                                    )
-                                tasks.append(
-                                    [
-                                        "rasscf",
-                                        mult + 1,
-                                        qmin.template["roots"][mult],
-                                        True,
-                                        False,
-                                        [f"RLXROOT={grad[1]}", "CMSI"],
-                                    ]
-                                )
-                                tasks.append(["mcpdft", [f"KSDFT={qmin.template['functional']}", "GRAD", "MSPDFT", "WJOB"]])
-                                tasks.append(["alaska", grad[1]])
-                            elif qmin.template["method"] == "casscf":
-                                tasks.append(["rasscf", mult + 1, qmin.template["roots"][mult], True, False])
-                                tasks.append(["mclr", qmin.template["gradaccudefault"], f"sala={grad[1]}"])
-                            elif qmin.template["method"] in ["ms-caspt2", "xms-caspt2"]:
-                                tasks.append(["rasscf", mult + 1, qmin.template["roots"][mult], True, False])
-                                tasks.append(["caspt2", mult + 1, states, qmin.template["method"], f"GRDT\nrlxroot = {grad[1]}"])
-                                tasks.append(["mclr", qmin.template["gradaccudefault"]])
-                            if qmin.template["method"] not in ["caspt2", "xms-pdft", "cms-pdft"]:
-                                tasks.append(["alaska"])
-
-            # NACs
-            if self.QMin.requests["nacdr"]:
-                for nac in qmin.maps["nacmap"]:
-                    if nac[0] == mult + 1:
-                        tasks.append(["link", f"MOLCAS.{mult+1}.JobIph", "JOBOLD"])
-                        if qmin.template["method"] == "casscf":
-                            tasks.append(["rasscf", mult + 1, qmin["template"]["roots"][mult], True, False])
-                            tasks.append(["mclr", qmin["template"]["gradaccudefault"], f"nac={nac[1]} {nac[3]}"])
-                            tasks.append(["alaska"])
-                        elif qmin.template["method"] == "cms-pdft":
-                            if not qmin.save["init"]:
-                                tasks.append(
-                                    ["copy", os.path.join(qmin.save["savedir"], f"Do_Rotate.{mult+1}.txt"), "Do_Rotate.txt"]
-                                )
-                            tasks.append(["rasscf", mult + 1, qmin["template"]["roots"][mult], True, False, ["CMSI"]])
-                            tasks.append(["mcpdft", [f"KSDFT={qmin.template['functional']}", "GRAD", "MSPDFT", "WJOB"]])
-                            tasks.append(["mclr", qmin.template["gradaccudefault"], f"nac={nac[1]} {nac[3]}"])
-                            tasks.append(["alaska"])
-                        elif qmin.template["method"] in ["ms-caspt2", "xms-caspt2"]:
-                            tasks.append(["rasscf", mult + 1, qmin["template"]["roots"][mult], True, False])
-                            tasks.append(["caspt2", mult + 1, states, qmin.template["method"], f"GRDT\nnac = {nac[1]} {nac[3]}"])
-                            tasks.append(["alaska", nac[1], nac[3]])
+            # Gradients / Nacs
+            if not qmin.control["master"]:
+                self._gradient_tasks(qmin, tasks, mult, states)
 
             # RASSI for overlaps
             if qmin.requests["overlap"]:
@@ -641,6 +569,79 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
 
         self.log.debug(f"Generate tasklist\n{tasks}")
         return tasks
+    
+    def _gradient_tasks(self, qmin: QMin, tasks: list[list[str]], mult: int, states: int) -> None:
+        if self.QMin.requests["grad"]:
+            for grad in qmin.maps["gradmap"]:
+                if grad[0] == mult + 1:
+                    if qmin.template["roots"][mult] == 1:
+                        # SS-CASSCF
+                        if qmin.save["samestep"]:
+                            tasks.append(["rasscf", mult + 1, qmin.template["roots"][mult], True, False])
+                            if qmin.template["method"] == "mc-pdft":
+                                tasks.append(["mcpdft", [f"KSDFT={qmin.template['functional']}", "GRAD"]])
+                            if qmin.template["method"] in ["ms-caspt2", "xms-caspt2"]:
+                                self.log.error("Single state gradient with MS/XMS-CASPT2")
+                                raise ValueError()
+                        tasks.append(["alaska"])
+                    else:
+                        # SA-CASSCF
+                        tasks.append(["link", f"MOLCAS.{mult+1}.JobIph", "JOBOLD"])
+
+                        if qmin.template["method"] == "mc-pdft":
+                            tasks.append(
+                                ["rasscf", mult + 1, qmin.template["roots"][mult], True, False, [f"RLXROOT={grad[1]}"]]
+                            )
+                            tasks.append(["mcpdft", [f"KSDFT={qmin.template['functional']}", "GRAD"]])
+                        elif qmin.template["method"] == "cms-pdft":
+                            if not qmin.save["init"]:
+                                tasks.append(
+                                    ["copy", os.path.join(qmin.save["savedir"], f"Do_Rotate.{mult+1}.txt"), "Do_Rotate.txt"]
+                                )
+                            tasks.append(
+                                [
+                                    "rasscf",
+                                    mult + 1,
+                                    qmin.template["roots"][mult],
+                                    True,
+                                    False,
+                                    [f"RLXROOT={grad[1]}", "CMSI"],
+                                ]
+                            )
+                            tasks.append(["mcpdft", [f"KSDFT={qmin.template['functional']}", "GRAD", "MSPDFT", "WJOB"]])
+                            tasks.append(["alaska", grad[1]])
+                        elif qmin.template["method"] == "casscf":
+                            tasks.append(["rasscf", mult + 1, qmin.template["roots"][mult], True, False])
+                            tasks.append(["mclr", qmin.template["gradaccudefault"], f"sala={grad[1]}"])
+                        elif qmin.template["method"] in ["ms-caspt2", "xms-caspt2"]:
+                            tasks.append(["rasscf", mult + 1, qmin.template["roots"][mult], True, False])
+                            tasks.append(["caspt2", mult + 1, states, qmin.template["method"], f"GRDT\nrlxroot = {grad[1]}"])
+                            tasks.append(["mclr", qmin.template["gradaccudefault"]])
+                        if qmin.template["method"] not in ["caspt2", "xms-pdft", "cms-pdft"]:
+                            tasks.append(["alaska"])
+
+        # NACs
+        if self.QMin.requests["nacdr"]:
+            for nac in qmin.maps["nacmap"]:
+                if nac[0] == mult + 1:
+                    tasks.append(["link", f"MOLCAS.{mult+1}.JobIph", "JOBOLD"])
+                    if qmin.template["method"] == "casscf":
+                        tasks.append(["rasscf", mult + 1, qmin["template"]["roots"][mult], True, False])
+                        tasks.append(["mclr", qmin["template"]["gradaccudefault"], f"nac={nac[1]} {nac[3]}"])
+                        tasks.append(["alaska"])
+                    elif qmin.template["method"] == "cms-pdft":
+                        if not qmin.save["init"]:
+                            tasks.append(
+                                ["copy", os.path.join(qmin.save["savedir"], f"Do_Rotate.{mult+1}.txt"), "Do_Rotate.txt"]
+                            )
+                        tasks.append(["rasscf", mult + 1, qmin["template"]["roots"][mult], True, False, ["CMSI"]])
+                        tasks.append(["mcpdft", [f"KSDFT={qmin.template['functional']}", "GRAD", "MSPDFT", "WJOB"]])
+                        tasks.append(["mclr", qmin.template["gradaccudefault"], f"nac={nac[1]} {nac[3]}"])
+                        tasks.append(["alaska"])
+                    elif qmin.template["method"] in ["ms-caspt2", "xms-caspt2"]:
+                        tasks.append(["rasscf", mult + 1, qmin["template"]["roots"][mult], True, False])
+                        tasks.append(["caspt2", mult + 1, states, qmin.template["method"], f"GRDT\nnac = {nac[1]} {nac[3]}"])
+                        tasks.append(["alaska", nac[1], nac[3]])
 
     def _write_geom(self, atoms: list[str], coords: list[list[float]] | np.ndarray) -> str:
         """
