@@ -183,9 +183,12 @@ class SHARC_MNDO(SHARC_ABINITIO):
         mkdir(workdir)
         
         step = self.QMin.save["step"]
+    
+        #print("\nStep: ", step, "\n")
+
         savedir = self.QMin.save["savedir"]
 
-        if step > 1:
+        if step is not None and step > 1:
             orbital_tracking = os.path.join(workdir, "imomap.dat")
             saved_file = os.path.join(savedir, f"imomap.{step-1}")
             shutil.copy(saved_file, orbital_tracking)
@@ -653,9 +656,9 @@ mocoef
             for j in range(natom):
                 line = f[iline]
                 s = line.split()
-                grads[int(st) - 1][j][0] = float(s[2]) * KCAL_TO_EH * BOHR_TO_ANG
-                grads[int(st) - 1][j][1] = float(s[3]) * KCAL_TO_EH * BOHR_TO_ANG
-                grads[int(st) - 1][j][2] = float(s[4]) * KCAL_TO_EH * BOHR_TO_ANG
+                grads[int(st) - 1][j][0] = float(s[-4]) * KCAL_TO_EH * BOHR_TO_ANG
+                grads[int(st) - 1][j][1] = float(s[-3]) * KCAL_TO_EH * BOHR_TO_ANG
+                grads[int(st) - 1][j][2] = float(s[-2]) * KCAL_TO_EH * BOHR_TO_ANG
                 iline += 1
 
         return grads
@@ -685,9 +688,9 @@ mocoef
             for j in range(ncharges):
                 line = f[iline]
                 s = line.split()
-                grads[int(st) - 1][j][0] = float(s[2]) * KCAL_TO_EH * BOHR_TO_ANG
-                grads[int(st) - 1][j][1] = float(s[3]) * KCAL_TO_EH * BOHR_TO_ANG
-                grads[int(st) - 1][j][2] = float(s[4]) * KCAL_TO_EH * BOHR_TO_ANG
+                grads[int(st) - 1][j][0] = float(s[-3]) * KCAL_TO_EH * BOHR_TO_ANG
+                grads[int(st) - 1][j][1] = float(s[-2]) * KCAL_TO_EH * BOHR_TO_ANG
+                grads[int(st) - 1][j][2] = float(s[-1]) * KCAL_TO_EH * BOHR_TO_ANG
                 iline += 1
 
         return grads
@@ -722,12 +725,12 @@ mocoef
             for j in range(natom):
                 line = f[iline]
                 s = line.split()
-                nac[ints[0]][ints[1]][j][0] =  float(s[2]) * KCAL_TO_EH * BOHR_TO_ANG / dE   # 1/Ang --> 1/a_0 or kcal/mol*Ang --> 1/a_0 ?
-                nac[ints[0]][ints[1]][j][1] =  float(s[3]) * KCAL_TO_EH * BOHR_TO_ANG / dE
-                nac[ints[0]][ints[1]][j][2] =  float(s[4]) * KCAL_TO_EH * BOHR_TO_ANG / dE
-                nac[ints[1]][ints[0]][j][0] = -float(s[2]) * KCAL_TO_EH * BOHR_TO_ANG / dE
-                nac[ints[1]][ints[0]][j][1] = -float(s[3]) * KCAL_TO_EH * BOHR_TO_ANG / dE
-                nac[ints[1]][ints[0]][j][2] = -float(s[4]) * KCAL_TO_EH * BOHR_TO_ANG / dE
+                nac[ints[0]][ints[1]][j][0] =  float(s[-4]) * KCAL_TO_EH * BOHR_TO_ANG / dE   # 1/Ang --> 1/a_0 or kcal/mol*Ang --> 1/a_0 ?
+                nac[ints[0]][ints[1]][j][1] =  float(s[-3]) * KCAL_TO_EH * BOHR_TO_ANG / dE
+                nac[ints[0]][ints[1]][j][2] =  float(s[-2]) * KCAL_TO_EH * BOHR_TO_ANG / dE
+                nac[ints[1]][ints[0]][j][0] = -float(s[-4]) * KCAL_TO_EH * BOHR_TO_ANG / dE
+                nac[ints[1]][ints[0]][j][1] = -float(s[-3]) * KCAL_TO_EH * BOHR_TO_ANG / dE
+                nac[ints[1]][ints[0]][j][2] = -float(s[-2]) * KCAL_TO_EH * BOHR_TO_ANG / dE
                 iline += 1
 
         return nac
@@ -761,12 +764,12 @@ mocoef
             for j in range(ncharges):
                 line = f[iline]
                 s = line.split() 
-                nac[ints[0]][ints[1]][j][0] =  float(s[2]) * KCAL_TO_EH * BOHR_TO_ANG / dE# 1/Ang --> 1/a_0
-                nac[ints[0]][ints[1]][j][1] =  float(s[3]) * KCAL_TO_EH * BOHR_TO_ANG / dE
-                nac[ints[0]][ints[1]][j][2] =  float(s[4]) * KCAL_TO_EH * BOHR_TO_ANG / dE
-                nac[ints[1]][ints[0]][j][0] = -float(s[2]) * KCAL_TO_EH * BOHR_TO_ANG / dE
-                nac[ints[1]][ints[0]][j][1] = -float(s[3]) * KCAL_TO_EH * BOHR_TO_ANG / dE
-                nac[ints[1]][ints[0]][j][2] = -float(s[4]) * KCAL_TO_EH * BOHR_TO_ANG / dE
+                nac[ints[0]][ints[1]][j][0] =  float(s[-3]) * KCAL_TO_EH * BOHR_TO_ANG / dE# 1/Ang --> 1/a_0
+                nac[ints[0]][ints[1]][j][1] =  float(s[-2]) * KCAL_TO_EH * BOHR_TO_ANG / dE
+                nac[ints[0]][ints[1]][j][2] =  float(s[-1]) * KCAL_TO_EH * BOHR_TO_ANG / dE
+                nac[ints[1]][ints[0]][j][0] = -float(s[-3]) * KCAL_TO_EH * BOHR_TO_ANG / dE
+                nac[ints[1]][ints[0]][j][1] = -float(s[-2]) * KCAL_TO_EH * BOHR_TO_ANG / dE
+                nac[ints[1]][ints[0]][j][2] = -float(s[-1]) * KCAL_TO_EH * BOHR_TO_ANG / dE
                 iline += 1
 
         return nac
@@ -888,15 +891,28 @@ mocoef
 
     def read_template(self, template_file: str = "MNDO.template") -> None:
         super().read_template(template_file)
+     
+
 
         self.QMin["template"]["kharge"] = int(self.QMin["template"]["kharge"])
         self.QMin["template"]["dstep"] = float(self.QMin["template"]["dstep"])
+        self.QMin["template"]["mminp"] = int(self.QMin["template"]["mminp"])
+        self.QMin["template"]["imomap"] = int(self.QMin["template"]["imomap"])
+
+        if self.QMin["template"]["mminp"] < 0:
+            raise ValueError(f"mminp not cannot be negative.")
         
+        if self.QMin["template"]["imomap"] > 3 or self.QMin["template"]["imomap"] == 1 or self.QMin["template"]["imomap"] < 0:
+            raise ValueError(f"imomap not 0 (false) or 3 (true).")
+
         if self.QMin["template"]["mminp"] > 0:
             self.QMin["molecule"]["point_charges"] = True
             self.QMin["molecule"]["npc"] = self.QMin["template"]["numatm"]
         
         self.QMin["template"]["movo"] = int(self.QMin["template"]["movo"])
+        if self.QMin["template"]["movo"] > 1 or self.QMin["template"]["movo"] < 0 :
+            raise ValueError(f"movo can only be 0 (false) or 1 (true).")
+        
         if self.QMin["template"]["movo"] == 1 :
             self.QMin["template"]["act_orbs"] = [int(i) for i in self.QMin["template"]["act_orbs"]]
 
@@ -1028,9 +1044,9 @@ mocoef
         imomap = qmin["template"]["imomap"]
 
         if qmin["molecule"]["point_charges"] == True:
-            inputstring = f"iop=-6 jop=-2 imult=0 iform=1 igeom=1 mprint=1 icuts=-1 icutg=-1 dstep={dstep} kci=5 ioutci=1 iroot={iroot} icross=7 ncigrd={ncigrd} inac=0 imomap={imomap} iscf=16 iplscf=16 kitscf={kitscf} ici1={ici1} ici2={ici2} movo={movo} nciref={nciref} mciref=3 levexc=6 iuvcd=3 nsav13=2 kharge={kharge} multci=1 cilead=1 ncisym=-1 numatm={ncharges} mmcoup=2 mmfile=1 mmskip=0 mminp={mminp} nsav15=9"
+            inputstring = f"iop=-6 jop=-2 imult=0 iform=1 igeom=1 mprint=1 icuts=-1 icutg=-1 dstep={dstep} kci=5 ioutci=1 iroot={iroot} icross=7 ncigrd={ncigrd} inac=0 imomap={imomap} iscf=11 iplscf=11 kitscf={kitscf} ici1={ici1} ici2={ici2} movo={movo} nciref={nciref} mciref=3 levexc=6 iuvcd=3 nsav13=2 kharge={kharge} multci=1 cilead=1 ncisym=-1 numatm={ncharges} mmcoup=2 mmfile=1 mmskip=0 mminp={mminp} nsav15=9"
         else:
-            inputstring = f"iop=-6 jop=-2 imult=0 iform=1 igeom=1 mprint=1 icuts=-1 icutg=-1 dstep={dstep} kci=5 ioutci=1 iroot={iroot} icross=7 ncigrd={ncigrd} inac=0 imomap={imomap} iscf=16 iplscf=16 kitscf={kitscf} ici1={ici1} ici2={ici2} movo={movo} nciref={nciref} mciref=3 levexc=6 iuvcd=3 nsav13=2 kharge={kharge} multci=1 cilead=1 ncisym=-1 nsav15=9"
+            inputstring = f"iop=-6 jop=-2 imult=0 iform=1 igeom=1 mprint=1 icuts=-1 icutg=-1 dstep={dstep} kci=5 ioutci=1 iroot={iroot} icross=7 ncigrd={ncigrd} inac=0 imomap={imomap} iscf=11 iplscf=11 kitscf={kitscf} ici1={ici1} ici2={ici2} movo={movo} nciref={nciref} mciref=3 levexc=6 iuvcd=3 nsav13=2 kharge={kharge} multci=1 cilead=1 ncisym=-1 nsav15=9"
 
         inputstring = " +\n".join(wrap(inputstring, width=70))
         inputstring += "\nheader\n"

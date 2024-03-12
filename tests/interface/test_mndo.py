@@ -334,3 +334,13 @@ def test_template():
         test_interface.read_template(os.path.join(PATH, template))
         for k, v in ref.items():
             assert test_interface.QMin["template"][k] == v
+
+def test_template_error():
+
+    tests = ["inputs/mndo/templatetest3.dat"]
+
+    for template in tests:
+        with pytest.raises(ValueError):
+            test_interface = SHARC_MNDO()
+            test_interface.setup_mol(os.path.join(PATH, "inputs/mndo/QM1.in"))
+            test_interface.read_template(os.path.join(PATH, template))
