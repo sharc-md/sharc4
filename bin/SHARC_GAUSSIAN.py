@@ -107,6 +107,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                 "denfit": False,
                 "scf": None,
                 "no_tda": False,
+                "td_conv": 6,
                 "unrestricted_triplets": False,
                 "iop": None,
                 "paste_input_file": None,
@@ -125,6 +126,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                 "denfit": bool,
                 "scf": list,
                 "no_tda": bool,
+                "td_conv": int,
                 "unrestricted_triplets": bool,
                 "iop": list,
                 "paste_input_file": str,
@@ -1065,6 +1067,8 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                 s += f",root={root}"
             elif dodens and root > 0:
                 s += f",root={root}"
+            if QMin.template["td_conv"]:
+                s += f",conver={QMin.template['td_conv']}"
             if QMin.template["noneqsolv"]:
                 s += ",noneqsolv"
             s += ") density=Current"
