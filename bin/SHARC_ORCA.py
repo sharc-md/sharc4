@@ -220,7 +220,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
                     self.log.info(f"File {self.template_file} does not exist!")
                     continue
                 break
-        self.log.info('')
+        self.log.info("")
         self.files.append(self.template_file)
 
         # Resources
@@ -236,72 +236,98 @@ class SHARC_ORCA(SHARC_ABINITIO):
         else:
             self.make_resources = True
             self.log.info(f"{'GAUSSIAN Ressource usage':-^60}\n")
-            self.log.info('''Please specify the number of CPUs to be used by EACH calculation.
-        ''')
-            INFOS['ncpu'] = abs(question('Number of CPUs:', int, KEYSTROKES=KEYSTROKES)[0])
+            self.log.info(
+                """Please specify the number of CPUs to be used by EACH calculation.
+        """
+            )
+            INFOS["ncpu"] = abs(question("Number of CPUs:", int, KEYSTROKES=KEYSTROKES)[0])
 
-            if INFOS['ncpu'] > 1:
-                self.log.info('''Please specify how well your job will parallelize.
+            if INFOS["ncpu"] > 1:
+                self.log.info(
+                    """Please specify how well your job will parallelize.
         A value of 0 means that running in parallel will not make the calculation faster, a value of 1 means that the speedup scales perfectly with the number of cores.
-        Typical values for ORCA are 0.90-0.98.''')
-                INFOS['scaling'] = min(1.0, max(0.0, question('Parallel scaling:', float, default=[0.9], KEYSTROKES=KEYSTROKES)[0]))
+        Typical values for ORCA are 0.90-0.98."""
+                )
+                INFOS["scaling"] = min(
+                    1.0, max(0.0, question("Parallel scaling:", float, default=[0.9], KEYSTROKES=KEYSTROKES)[0])
+                )
             else:
-                INFOS['scaling'] = 0.9
+                INFOS["scaling"] = 0.9
 
-            INFOS['memory'] = question('Memory (MB):', int, default=[1000], KEYSTROKES=KEYSTROKES)[0]
+            INFOS["memory"] = question("Memory (MB):", int, default=[1000], KEYSTROKES=KEYSTROKES)[0]
 
             # Ionization
             # self.log.info('\n'+centerstring('Ionization probability by Dyson norms',60,'-')+'\n')
             # INFOS['ion']=question('Dyson norms?',bool,False)
             # if INFOS['ion']:
-            if 'overlap' in INFOS['needed_requests']:
+            if "overlap" in INFOS["needed_requests"]:
                 self.log.info(f"\n{'WFoverlap setup':-^60}\n")
-                INFOS['wfoverlap'] = question('Path to wavefunction overlap executable:', str, default='$SHARC/wfoverlap.x', KEYSTROKES=KEYSTROKES)
-                self.log.info('')
-                self.log.info('State threshold for choosing determinants to include in the overlaps')
-                self.log.info('For hybrids without TDA one should consider that the eigenvector X may have a norm larger than 1')
-                INFOS['ciothres'] = question('Threshold:', float, default=[0.998], KEYSTROKES=KEYSTROKES)[0]
-                self.log.info('')
+                INFOS["wfoverlap"] = question(
+                    "Path to wavefunction overlap executable:", str, default="$SHARC/wfoverlap.x", KEYSTROKES=KEYSTROKES
+                )
+                self.log.info("")
+                self.log.info("State threshold for choosing determinants to include in the overlaps")
+                self.log.info("For hybrids without TDA one should consider that the eigenvector X may have a norm larger than 1")
+                INFOS["ciothres"] = question("Threshold:", float, default=[0.998], KEYSTROKES=KEYSTROKES)[0]
+                self.log.info("")
 
             # TheoDORE
-            theodore_spelling = ['Om',
-                                 'PRNTO',
-                                 'Z_HE', 'S_HE', 'RMSeh',
-                                 'POSi', 'POSf', 'POS',
-                                 'PRi', 'PRf', 'PR', 'PRh',
-                                 'CT', 'CT2', 'CTnt',
-                                 'MC', 'LC', 'MLCT', 'LMCT', 'LLCT',
-                                 'DEL', 'COH', 'COHh']
+            theodore_spelling = [
+                "Om",
+                "PRNTO",
+                "Z_HE",
+                "S_HE",
+                "RMSeh",
+                "POSi",
+                "POSf",
+                "POS",
+                "PRi",
+                "PRf",
+                "PR",
+                "PRh",
+                "CT",
+                "CT2",
+                "CTnt",
+                "MC",
+                "LC",
+                "MLCT",
+                "LMCT",
+                "LLCT",
+                "DEL",
+                "COH",
+                "COHh",
+            ]
             # INFOS['theodore']=question('TheoDORE analysis?',bool,False)
-            if 'theodore' in INFOS['needed_requests']:
+            if "theodore" in INFOS["needed_requests"]:
                 self.log.info(f"\n{'Wave function analysis by TheoDORE':-^60}\n")
 
-                INFOS['theodore'] = question('Path to TheoDORE directory:', str, default='$THEODIR', KEYSTROKES=KEYSTROKES)
-                self.log.info('')
+                INFOS["theodore"] = question("Path to TheoDORE directory:", str, default="$THEODIR", KEYSTROKES=KEYSTROKES)
+                self.log.info("")
 
-                self.log.info('Please give a list of the properties to calculate by TheoDORE.\nPossible properties:')
-                string = ''
+                self.log.info("Please give a list of the properties to calculate by TheoDORE.\nPossible properties:")
+                string = ""
                 for i, p in enumerate(theodore_spelling):
-                    string += '%s ' % (p)
+                    string += "%s " % (p)
                     if (i + 1) % 8 == 0:
-                        string += '\n'
+                        string += "\n"
                 self.log.info(string)
-                line = question('TheoDORE properties:', str, default='Om  PRNTO  S_HE  Z_HE  RMSeh', KEYSTROKES=KEYSTROKES)
-                INFOS['theodore.prop'] = line.split()
-                self.log.info('')
+                line = question("TheoDORE properties:", str, default="Om  PRNTO  S_HE  Z_HE  RMSeh", KEYSTROKES=KEYSTROKES)
+                INFOS["theodore.prop"] = line.split()
+                self.log.info("")
 
-                self.log.info('Please give a list of the fragments used for TheoDORE analysis.')
-                self.log.info('You can use the list-of-lists from dens_ana.in')
-                self.log.info('Alternatively, enter all atom numbers for one fragment in one line. After defining all fragments, type "end".')
-                INFOS['theodore.frag'] = []
+                self.log.info("Please give a list of the fragments used for TheoDORE analysis.")
+                self.log.info("You can use the list-of-lists from dens_ana.in")
+                self.log.info(
+                    'Alternatively, enter all atom numbers for one fragment in one line. After defining all fragments, type "end".'
+                )
+                INFOS["theodore.frag"] = []
                 while True:
-                    line = question('TheoDORE fragment:', str, default='end', KEYSTROKES=KEYSTROKES)
-                    if 'end' in line.lower():
+                    line = question("TheoDORE fragment:", str, default="end", KEYSTROKES=KEYSTROKES)
+                    if "end" in line.lower():
                         break
                     f = [int(i) for i in line.split()]
-                    INFOS['theodore.frag'].append(f)
-                INFOS['theodore.count'] = len(INFOS['theodore.prop']) + len(INFOS['theodore.frag'])**2
-
+                    INFOS["theodore.frag"].append(f)
+                INFOS["theodore.count"] = len(INFOS["theodore.prop"]) + len(INFOS["theodore.frag"]) ** 2
 
         return INFOS
 
@@ -341,7 +367,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
         if self.QMin.molecule["point_charges"]:
             pc_str = f"{self.QMin.molecule['npc']}\n"
             for atom, coords in zip(self.QMin.coords["pccharge"], self.QMin.coords["pccoords"]):
-                pc_str += f"{atom} {' '.join(*coords)}\n"
+                pc_str += f"{atom} {' '.join(str(i) for i in coords)}\n"
             writefile(os.path.join(workdir, "ORCA.pc"), pc_str)
 
         # Copy wf files
@@ -700,8 +726,9 @@ class SHARC_ORCA(SHARC_ABINITIO):
                     gradients = self._get_grad(os.path.join(scratchdir, job_path, f"ORCA.engrad.{grad_ext}.grad.tmp"))
 
                 # Point charges
-                if self.QMin.molecule["point_charges"]:
-                    point_charges = self._get_pc_grad(os.path.join(scratchdir, f"ORCA.pcgrad.{grad_ext}.grad.tmp"))
+                point_charges = None
+                if self.QMin.molecule["point_charges"] and not point_charges:
+                    point_charges = self._get_pc_grad(os.path.join(scratchdir, job_path, f"ORCA.pcgrad"))
 
                 for key, val in self.QMin.maps["statemap"].items():
                     if (val[0], val[1]) == grad:
