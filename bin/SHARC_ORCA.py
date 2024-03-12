@@ -15,7 +15,8 @@ import numpy as np
 from constants import IToMult
 from qmin import QMin
 from SHARC_ABINITIO import SHARC_ABINITIO
-from utils import expand_path, itmult, mkdir, readfile, writefile, batched
+from utils import (batched, expand_path, itmult, mkdir, question, readfile,
+                   writefile)
 
 __all__ = ["SHARC_ORCA"]
 
@@ -23,7 +24,7 @@ AUTHORS = ""
 VERSION = ""
 VERSIONDATE = datetime.datetime(2023, 8, 29)
 NAME = "ORCA"
-DESCRIPTION = ""
+DESCRIPTION = "SHARC interface for ORCA5"
 
 CHANGELOGSTRING = """
 """
@@ -184,6 +185,124 @@ class SHARC_ORCA(SHARC_ABINITIO):
         INFOS: dictionary with all previously collected infos during setup
         KEYSTROKES: object as returned by open() to be used with question()
         """
+        self.log.info("=" * 80)
+        self.log.info(f"{'||':<78}||")
+        self.log.info(f"||{'ORCA interface setup': ^76}||\n{'||':<78}||")
+        self.log.info("=" * 80)
+        self.log.info("\n")
+        self.files = []
+
+        self.log.info(
+            "\nPlease specify path to ORCA directory (SHELL variables and ~ can be used, will be expanded when interface is started).\n"
+        )
+        INFOS["orcadir"] = question("Path to ORCA:", str, KEYSTROKES=KEYSTROKES)
+        self.log.info("")
+
+        # scratch
+        self.log.info(f"{'Scratch directory':-^60}\n")
+        self.log.info(
+            "Please specify an appropriate scratch directory. This will be used to run the ORCA calculations. The scratch directory will be deleted after the calculation. Remember that this script cannot check whether the path is valid, since you may run the calculations on a different machine. The path will not be expanded by this script."
+        )
+        INFOS["scratchdir"] = question("Path to scratch directory:", str, KEYSTROKES=KEYSTROKES)
+        self.log.info("")
+
+        self.template_file = None
+        self.log.info(f"{'ORCA input template file':-^60}\n")
+
+        if os.path.isfile("ORCA.template"):
+            usethisone = question("Use this template file?", bool, KEYSTROKES=KEYSTROKES, default=True)
+            if usethisone:
+                self.template_file = "ORCA.template"
+        else:
+            while True:
+                self.template_file = question("Template filename:", str, KEYSTROKES=KEYSTROKES)
+                if not os.path.isfile(self.template_file):
+                    self.log.info(f"File {self.template_file} does not exist!")
+                    continue
+                break
+        self.log.info('')
+        self.files.append(self.template_file)
+
+        # Resources
+        if question("Do you have a 'ORCA.resources' file?", bool, KEYSTROKES=KEYSTROKES, default=False):
+            while True:
+                resources_file = question("Specify the path:", str, KEYSTROKES=KEYSTROKES, default="ORCA.resources")
+                if os.path.isfile(resources_file):
+                    break
+                else:
+                    self.log.info(f"file at {resources_file} does not exist!")
+                self.files.append(resources_file)
+                self.make_resources = False
+        else:
+            self.make_resources = True
+            self.log.info(f"{'GAUSSIAN Ressource usage':-^60}\n")
+            self.log.info('''Please specify the number of CPUs to be used by EACH calculation.
+        ''')
+            INFOS['ncpu'] = abs(question('Number of CPUs:', int, KEYSTROKES=KEYSTROKES)[0])
+
+            if INFOS['ncpu'] > 1:
+                self.log.info('''Please specify how well your job will parallelize.
+        A value of 0 means that running in parallel will not make the calculation faster, a value of 1 means that the speedup scales perfectly with the number of cores.
+        Typical values for ORCA are 0.90-0.98.''')
+                INFOS['scaling'] = min(1.0, max(0.0, question('Parallel scaling:', float, default=[0.9], KEYSTROKES=KEYSTROKES)[0]))
+            else:
+                INFOS['scaling'] = 0.9
+
+            INFOS['memory'] = question('Memory (MB):', int, default=[1000], KEYSTROKES=KEYSTROKES)[0]
+
+            # Ionization
+            # self.log.info('\n'+centerstring('Ionization probability by Dyson norms',60,'-')+'\n')
+            # INFOS['ion']=question('Dyson norms?',bool,False)
+            # if INFOS['ion']:
+            if 'overlap' in INFOS['needed_requests']:
+                self.log.info(f"\n{'WFoverlap setup':-^60}\n")
+                INFOS['wfoverlap'] = question('Path to wavefunction overlap executable:', str, default='$SHARC/wfoverlap.x', KEYSTROKES=KEYSTROKES)
+                self.log.info('')
+                self.log.info('State threshold for choosing determinants to include in the overlaps')
+                self.log.info('For hybrids without TDA one should consider that the eigenvector X may have a norm larger than 1')
+                INFOS['ciothres'] = question('Threshold:', float, default=[0.998], KEYSTROKES=KEYSTROKES)[0]
+                self.log.info('')
+
+            # TheoDORE
+            theodore_spelling = ['Om',
+                                 'PRNTO',
+                                 'Z_HE', 'S_HE', 'RMSeh',
+                                 'POSi', 'POSf', 'POS',
+                                 'PRi', 'PRf', 'PR', 'PRh',
+                                 'CT', 'CT2', 'CTnt',
+                                 'MC', 'LC', 'MLCT', 'LMCT', 'LLCT',
+                                 'DEL', 'COH', 'COHh']
+            # INFOS['theodore']=question('TheoDORE analysis?',bool,False)
+            if 'theodore' in INFOS['needed_requests']:
+                self.log.info(f"\n{'Wave function analysis by TheoDORE':-^60}\n")
+
+                INFOS['theodore'] = question('Path to TheoDORE directory:', str, default='$THEODIR', KEYSTROKES=KEYSTROKES)
+                self.log.info('')
+
+                self.log.info('Please give a list of the properties to calculate by TheoDORE.\nPossible properties:')
+                string = ''
+                for i, p in enumerate(theodore_spelling):
+                    string += '%s ' % (p)
+                    if (i + 1) % 8 == 0:
+                        string += '\n'
+                self.log.info(string)
+                line = question('TheoDORE properties:', str, default='Om  PRNTO  S_HE  Z_HE  RMSeh', KEYSTROKES=KEYSTROKES)
+                INFOS['theodore.prop'] = line.split()
+                self.log.info('')
+
+                self.log.info('Please give a list of the fragments used for TheoDORE analysis.')
+                self.log.info('You can use the list-of-lists from dens_ana.in')
+                self.log.info('Alternatively, enter all atom numbers for one fragment in one line. After defining all fragments, type "end".')
+                INFOS['theodore.frag'] = []
+                while True:
+                    line = question('TheoDORE fragment:', str, default='end', KEYSTROKES=KEYSTROKES)
+                    if 'end' in line.lower():
+                        break
+                    f = [int(i) for i in line.split()]
+                    INFOS['theodore.frag'].append(f)
+                INFOS['theodore.count'] = len(INFOS['theodore.prop']) + len(INFOS['theodore.frag'])**2
+
+
         return INFOS
 
     def create_restart_files(self):
