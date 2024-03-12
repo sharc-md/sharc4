@@ -447,16 +447,15 @@ class SHARC_LVC(SHARC_FAST):
             if self._gammas:
                 H += np.einsum("n,ijnm,m->ij", self._Q, self._G[im], self._Q, casting="no", optimize=True)
             if do_pc:
-                # assert np.allclose(ene, ene_v, rtol=1e-8)
                 if "_H_ee_coupling" not in self.__dict__:
                     self._H_ee_coupling = np.einsum_path("ijay,yab->ij", fits_rot[im], mult_prefactors_pc, optimize="optimal")[0]
                 H += np.einsum("ijay,yab->ij", fits_rot[im], mult_prefactors_pc, casting="no", optimize=self._H_ee_coupling)
             if self._diagonalize:
                 eigen_values, eigen_vec = np.linalg.eigh(H, UPLO="U")
-                np.einsum("ii->i", Hd)[start_req:stop_req] = eigen_values[:n_req]
+                np.einsum("ii->i", Hd)[start_req:stop_req] += eigen_values[:n_req]
             else:
                 eigen_vec = np.identity(n, dtype=float)
-                Hd[start_req:stop_req, start_req:stop_req] = H[:n_req]
+                Hd[start_req:stop_req, start_req:stop_req] += H[:n_req]
             self._U[start:stop, start_req:stop_req] = eigen_vec[:, :n_req]
 
             for x in range(im):  # fills in blocks for other magnetic quantum numbers
@@ -464,11 +463,11 @@ class SHARC_LVC(SHARC_FAST):
                 s2_req = s1_req + n_req
                 s1 = start + n * (x + 1)
                 s2 = s1 + n
-                self._U[s1:s2, s1_req:s2_req] = self._U[start:stop, start_req:stop_req]
+                self._U[s1:s2, s1_req:s2_req] += self._U[start:stop, start_req:stop_req]
                 if self._diagonalize:
-                    np.einsum("ii->i", Hd)[s1_req:s2_req] = eigen_values[:n_req]
+                    np.einsum("ii->i", Hd)[s1_req:s2_req] += eigen_values[:n_req]
                 else:
-                    Hd[s1_req:s2_req, s1_req:s2_req] = H[:n_req, :n_req]
+                    Hd[s1_req:s2_req, s1_req:s2_req] += H[:n_req, :n_req]
 
             start += n * (im + 1)
             start_req += n_req * (im + 1)
@@ -707,6 +706,7 @@ class SHARC_LVC(SHARC_FAST):
 
         # ========================== Prepare results ========================================
         adia_soc = self._U.T @ self._soc @ self._U
+        self.log.debug(f"soc sanity check: {adia_soc.dtype} {self._soc.dtype}")
         Hd += adia_soc
 
         dipole = (

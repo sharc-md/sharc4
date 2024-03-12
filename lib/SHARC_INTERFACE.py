@@ -41,7 +41,7 @@ import numpy as np
 
 # internal
 from constants import ATOMCHARGE, BOHR_TO_ANG
-from logger import SHARCPRINT, TRACE, CustomFormatter, logging
+from logger import SHARCPRINT, TRACE, CustomFormatter, logging, loglevel
 from qmin import QMin
 from qmout import QMout
 from utils import clock, convert_list, electronic_state, expand_path, itnmstates, parse_xyz, readfile, writefile, batched
@@ -91,7 +91,7 @@ class SHARC_INTERFACE(ABC):
         persistent=False,
         logname: str | None = None,
         logfile: str | None = None,
-        loglevel: int = logging.root.level,
+        loglevel: int = loglevel,
     ):
         # all the output from the calculation will be stored here
         self.QMout = QMout()
