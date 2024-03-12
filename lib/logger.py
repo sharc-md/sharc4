@@ -61,6 +61,7 @@ envlevel = os.getenv("SHARCLOG")
 if not envlevel:
     envlevel = os.getenv("SHARC_LOG")
 
+loglevel = logging.INFO
 match envlevel:
     case "TRACE":
         loglevel = logging.TRACE
@@ -79,7 +80,7 @@ match envlevel:
     case _:
         loglevel = logging.INFO
 
-logging.root.setLevel(loglevel)
+# logging.root.setLevel(loglevel)
 
 
 def sharcprint(msg, *args, **kwargs):
@@ -114,7 +115,7 @@ logging.trace = trace
 log = logging
 if __name__ == "__main__":
     print("Test logger")
-    log.root.setLevel(log.root.level)
+    log.root.setLevel(loglevel)
     log.error("Error")
     log.warning("warning")
     log.info("info")
