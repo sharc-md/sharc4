@@ -88,14 +88,11 @@ class SHARC_MNDO(SHARC_ABINITIO):
                 "kitscf": 5000,
                 "ici1": 0,
                 "ici2": 0,
-                "ncigrd": 0,
                 "dstep": 1e-6,
                 "act_orbs": [1],
-                "iroot": 1,
                 "mminp": 2,
                 "numatm": 0,
                 "movo": 0,
-                "grads": None,
                 "kharge": 0,
                 "imomap": 0,
             }
@@ -106,14 +103,11 @@ class SHARC_MNDO(SHARC_ABINITIO):
                 "kitscf": int,
                 "ici1": int,
                 "ici2": int,
-                "ncigrd": int,
                 "dstep": float,
                 "act_orbs": list,
-                "iroot": int,
                 "mminp": int,
                 "numatm": int,
                 "movo": int,
-                "grads": list,
                 "kharge": int,
                 "imomap": int,
             }
@@ -638,7 +632,7 @@ mocoef
         log_path:  Path to fort.15 file
         """
         nmstates = self.QMin.molecule["nmstates"]
-        grad = self.QMin.template["grads"]
+        grad = [y for x,y in self.QMin["maps"]["gradmap"]]
         natom = self.QMin.molecule["natom"]
         f = readfile(log_path)
 
@@ -670,7 +664,7 @@ mocoef
         log_path:  Path to gradient file
         """
         nmstates = self.QMin.molecule["nmstates"]
-        grad = self.QMin.template["grads"]
+        grad = [y for x,y in self.QMin["maps"]["gradmap"]]
         ncharges = self.QMin.molecule["npc"]
         f = readfile(log_path)
 
@@ -916,11 +910,6 @@ mocoef
         if self.QMin["template"]["movo"] == 1 :
             self.QMin["template"]["act_orbs"] = [int(i) for i in self.QMin["template"]["act_orbs"]]
 
-        if self.QMin["template"]["grads"] :
-            self.QMin["template"]["grads"] = [int(i) for i in self.QMin["template"]["grads"]]
-            self.QMin["template"]["ncigrd"] = len(self.QMin["template"]["grads"])
-            self.QMin["template"]["iroot"] = max(self.QMin["template"]["grads"])
-
 
     def remove_old_restart_files(self, retain: int = 5) -> None:
         """
@@ -1026,7 +1015,7 @@ mocoef
         """
 
         natom = qmin["molecule"]["natom"]
-        ncigrd = qmin["template"]["ncigrd"]
+        ncigrd = len(qmin["maps"]["gradmap"])
         coords = qmin["coords"]["coords"]
         elements = qmin["molecule"]["elements"]
         movo = qmin["template"]["movo"]
@@ -1035,9 +1024,9 @@ mocoef
         nciref = qmin["template"]["nciref"]
         dstep = qmin["template"]["dstep"]
         act_orbs = qmin["template"]["act_orbs"]
-        iroot = qmin["template"]["iroot"]
+        iroot = qmin["molecule"]["states"][0]
         ncharges = qmin["molecule"]["npc"]
-        grads = qmin["template"]["grads"]
+        grads = [y for x,y in qmin["maps"]["gradmap"]]
         kharge = qmin["template"]["kharge"]
         mminp = qmin["template"]["mminp"]
         kitscf = qmin["template"]["kitscf"]

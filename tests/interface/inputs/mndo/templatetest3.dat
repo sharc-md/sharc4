@@ -20,7 +20,7 @@ dstep 1e-6
 act_orbs 4 5 6 7 8
 
 ## States for which the gradients and NACs shoulld be calculated
-grads 1 2 3 4
+## grads 1 2 3 4
 
 ## Number of CI gradients to be computed.
 ncigrd 8
