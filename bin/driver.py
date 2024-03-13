@@ -37,7 +37,7 @@ from SHARC_INTERFACE import SHARC_INTERFACE
 from qmout import QMout
 from error import Error
 from utils import list2dict, InDir
-from logger import log, loglevel
+from logger import log, loglevel as loglevel_env
 
 
 class QMOUT:
@@ -178,7 +178,6 @@ def safe(func: callable):
 
 def do_qm_calc(i: SHARC_INTERFACE, qmout: QMOUT):
     icall = 1
-    # i._step_logic()
     log.debug(f"\tset_requ")
     i._set_driver_requests(get_all_tasks(icall))
     log.debug(f"\tcoords")
@@ -200,11 +199,9 @@ def do_qm_calc(i: SHARC_INTERFACE, qmout: QMOUT):
         with InDir("QM"):
             safe(i.run)
             i.getQMout()
-            i.write_step_file()
             i.clean_savedir(i.QMin.save["savedir"], i.QMin.requests["retain"], i.QMin.save["step"])
         qmout.set_props(i.QMout, icall)
         set_qmout(qmout._QMout, icall)
-    i.QMin.save["step"] += 1
     return
 
 
@@ -222,7 +219,7 @@ def main():
 
     (options, args) = parser.parse_args()
 
-    loglevel = log.INFO
+    loglevel = loglevel_env
     if options.silent:
         loglevel = log.ERROR
     if options.verbose:
@@ -235,7 +232,7 @@ def main():
         print("call with path to input file for SHARC")
         exit(0)
     inp_file = args[0]
-    param = args[0:-1]
+    # param = args[0:-1]
     interface = factory(options.name)
 
     derived_int: SHARC_INTERFACE = interface(persistent=True, loglevel=loglevel)
@@ -252,7 +249,6 @@ def main():
     basic_info["step"] = basic_info["istep"]
 
     derived_int.QMin.molecule.update({k.lower(): v for k, v in basic_info.items()})
-    derived_int.QMin.save["step"] = basic_info["step"]
     derived_int.QMin.molecule["natom"] = basic_info["NAtoms"]
     derived_int.QMin.molecule["elements"] = [IAn2AName[x] for x in basic_info["IAn"]]
     derived_int.QMin.molecule["Atomcharge"] = sum(map(lambda x: ATOMCHARGE[x], derived_int.QMin.molecule["elements"]))
@@ -262,13 +258,14 @@ def main():
     with InDir("QM"):
         derived_int.read_resources()
         derived_int.read_template()
-        derived_int._step_logic()
+        derived_int.update_step(basic_info["step"])
         derived_int.setup_interface()
     if IRestart == 0:
         initial_qm_pre()
         do_qm_calc(derived_int, QMout)
         initial_qm_post()
         initial_step(IRestart)
+        derived_int.update_step()
     lvc_time = 0.0
     all_time = 0.0
     for istep in range(basic_info["istep"] + 1, basic_info["NSteps"] + 1):
@@ -305,6 +302,7 @@ def main():
         all_time += all_s2 - all_s1
         if iexit == 1:
             break
+        derived_int.update_step()
 
     derived_int.create_restart_files()
     finalize_sharc()

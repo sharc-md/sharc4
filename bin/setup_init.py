@@ -738,7 +738,7 @@ PRIMARY_DIR=%s/%s/
 cd $PRIMARY_DIR
 %s
 
-$SHARC/%s.py QM.in >> QM.log 2>> QM.err
+$SHARC/%s.py QM.in > QM.log 2> QM.err
 """ % (
             projname,
             intstring,

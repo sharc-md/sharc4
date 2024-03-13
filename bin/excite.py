@@ -185,7 +185,7 @@ class INITCOND:
         while True:
             line = f.readline()
             # if 'Index     %i' % (index) in line:
-            if re.search(r'Index\s+%i' % (index), line):
+            if re.search(r'^Index\s+%i' % (index), line):
                 break
             if line == '\n':
                 continue
@@ -1233,8 +1233,8 @@ Eharm     %18.10f
     string += '\n\n'
 
     for i, icond in enumerate(initlist):
-        string += 'Index     %i\n%s' % (i + 1, str(icond))
-    outf.write(string)
+        outf.write('Index     %i\n%s' % (i + 1, str(icond)))
+    # outf.write(string)
     outf.close()
 
 # ======================================================================================================================

@@ -30,7 +30,7 @@ class QMout:
     states: list[int]
     charges: list[int]
     h: ndarray[complex, 2]
-    dm: ndarray[float, 3]
+    dm: ndarray[complex, 3]
     grad: ndarray[float, 3]
     grad_pc: ndarray[float, 3]
     nacdr: ndarray[float, 4]
@@ -271,11 +271,11 @@ class QMout:
         keys = []
         for irow in range(num):
             keys.append(data[iline + 3 + irow].strip())
-        iline += 3 + num
+        iline += 4 + num
         res = []
         for irow in range(num):
             res.append(QMout.get_quantity(data, iline, type, shape))
-            iline += 1 + shape[0]
+            iline += 2
         result = [(keys[i], res[i]) for i in range(num)]
         return result, iline - 1
 
