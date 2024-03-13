@@ -244,8 +244,8 @@ class SHARC_LVC(SHARC_FAST):
         if dipole_real:
             self._dipole = np.reshape(self._dipole.view(float), self._dipole.shape + (2,))[:, :, :, 0]
 
-        if self.QMin.save["init"]:
-            SHARC_FAST.checkscratch(self.QMin.save["savedir"])
+        # if self.QMin.save["init"]:
+            # SHARC_FAST.checkscratch(self.QMin.save["savedir"])
         self._read_template = True
         return
 
@@ -400,7 +400,7 @@ class SHARC_LVC(SHARC_FAST):
         do_kabsch = True if do_pc else self._do_kabsch
         self.clock.starttime = datetime.datetime.now()
         self._U = np.zeros((nmstates, req_nmstates), dtype=float)
-        Hd = np.zeros((req_nmstates, req_nmstates), dtype=self._soc.dtype)
+        Hd = np.zeros((req_nmstates, req_nmstates), dtype=float)
         r3N = 3 * self.QMin.molecule["natom"]
         coords: np.ndarray = self.QMin.coords["coords"].copy()
         coords_ref_basis = coords
@@ -452,10 +452,10 @@ class SHARC_LVC(SHARC_FAST):
                 H += np.einsum("ijay,yab->ij", fits_rot[im], mult_prefactors_pc, casting="no", optimize=self._H_ee_coupling)
             if self._diagonalize:
                 eigen_values, eigen_vec = np.linalg.eigh(H, UPLO="U")
-                np.einsum("ii->i", Hd)[start_req:stop_req] += eigen_values[:n_req]
+                np.einsum("ii->i", Hd)[start_req:stop_req] = eigen_values[:n_req]
             else:
                 eigen_vec = np.identity(n, dtype=float)
-                Hd[start_req:stop_req, start_req:stop_req] += H[:n_req]
+                Hd[start_req:stop_req, start_req:stop_req] = H[:n_req]
             self._U[start:stop, start_req:stop_req] = eigen_vec[:, :n_req]
 
             for x in range(im):  # fills in blocks for other magnetic quantum numbers
@@ -465,9 +465,9 @@ class SHARC_LVC(SHARC_FAST):
                 s2 = s1 + n
                 self._U[s1:s2, s1_req:s2_req] += self._U[start:stop, start_req:stop_req]
                 if self._diagonalize:
-                    np.einsum("ii->i", Hd)[s1_req:s2_req] += eigen_values[:n_req]
+                    np.einsum("ii->i", Hd)[s1_req:s2_req] = eigen_values[:n_req]
                 else:
-                    Hd[s1_req:s2_req, s1_req:s2_req] += H[:n_req, :n_req]
+                    Hd[s1_req:s2_req, s1_req:s2_req] = H[:n_req, :n_req]
 
             start += n * (im + 1)
             start_req += n_req * (im + 1)
@@ -596,16 +596,11 @@ class SHARC_LVC(SHARC_FAST):
                     del dcoulomb
 
                 # transform gradients to adiabatic basis
-
-                if Hd.dtype == complex:
-                    eV = np.reshape(Hd.view(float), (req_nmstates * req_nmstates, 2))[:: req_nmstates + 1, 0]
-                else:
-                    eV = Hd.flat[:: req_nmstates + 1]
-                cast = complex if Hd.dtype == complex else float
+                eV = Hd.flat[:: req_nmstates + 1]
                 # energy weighting of the nacs
                 tmp = np.full((n_req, n_req), eV[start_req:stop_req]).T
                 tmp -= eV[start_req:stop_req]
-                idx = tmp != cast(0)
+                idx = tmp != float(0)
                 tmp[idx] **= -1
 
                 nacdr[start_req:stop_req, start_req:stop_req, :] = np.einsum("ji,ijk->ijk", tmp, dlvc, casting="no", optimize=True)
@@ -705,9 +700,11 @@ class SHARC_LVC(SHARC_FAST):
             )  # writes a binary file (can be read with numpy.fromfile())
 
         # ========================== Prepare results ========================================
-        adia_soc = self._U.T @ self._soc @ self._U
-        self.log.debug(f"soc sanity check: {adia_soc.dtype} {self._soc.dtype}")
-        Hd += adia_soc
+        if self.QMin.requests['soc']:
+            Hd = Hd.astype(self._soc.dtype)
+            adia_soc = self._U.T @ self._soc @ self._U
+            self.log.debug(f"soc sanity check: {adia_soc.dtype} {self._soc.dtype}")
+            Hd += adia_soc
 
         dipole = (
             np.einsum("ni,kij,jm->knm", self._U.T, self._dipole, self._U, casting="no", optimize=True)
@@ -752,7 +749,6 @@ class SHARC_LVC(SHARC_FAST):
         if self.QMin.requests["multipolar_fit"]:
             self.QMout.multipolar_fit = multipolar_fit
 
-        self.QMin.save["step"] += 1
         return
 
     def create_restart_files(self):

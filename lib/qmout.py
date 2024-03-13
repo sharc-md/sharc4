@@ -30,7 +30,7 @@ class QMout:
     states: list[int]
     charges: list[int]
     h: ndarray[complex, 2]
-    dm: ndarray[float, 3]
+    dm: ndarray[complex, 3]
     grad: ndarray[float, 3]
     grad_pc: ndarray[float, 3]
     nacdr: ndarray[float, 4]

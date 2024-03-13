@@ -109,10 +109,11 @@ def trace(msg, *args, **kwargs):
     logging.log(TRACE, msg, *args, **kwargs)
 
 
-logging.print = sharcprint
-logging.trace = trace
+log = logging.getLogger("SHARC_LOGGER")
+log.setLevel(loglevel)
+log.print = sharcprint
+log.trace = trace
 
-log = logging
 if __name__ == "__main__":
     print("Test logger")
     log.root.setLevel(loglevel)

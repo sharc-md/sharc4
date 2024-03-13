@@ -790,12 +790,14 @@ class SHARC_INTERFACE(ABC):
         self.log.debug("Starting step logic")
 
         # TODO: implement previous_step from driver
+        self.QMin.save.update({"newstep": False, "init": False, "samestep": False})
         last_step = None
         stepfile = os.path.join(self.QMin.save["savedir"], "STEP")
-        self.log.debug(f"stepfile {stepfile}")
+        self.log.debug(f"{stepfile =}")
         if os.path.isfile(stepfile):
             self.log.debug(f"Found stepfile {stepfile}")
             last_step = int(readfile(stepfile)[0])
+        self.log.debug(f"{last_step =}, {self.QMin.save['step']=}")
 
         if not self.QMin.save["step"]:
             if last_step is not None:
@@ -862,10 +864,7 @@ class SHARC_INTERFACE(ABC):
                     requests[req] = False
         self.log.debug(f"setting requests {requests}")
         self.QMin.requests.update(requests)
-        for i in ["init", "newstep", "samestep"]:
-            self.QMin.save[i] = False
-        # if restart:
-        # self._step_logic()
+        self._step_logic()
         self._request_logic()
 
     def _set_request(self, request: list[str]) -> None:
@@ -928,6 +927,8 @@ class SHARC_INTERFACE(ABC):
             self.log.debug(f"Creating savedir {self.QMin.save['savedir']}")
             os.mkdir(self.QMin.save["savedir"])
 
+        self.log.debug(f'{self.name()}: step: {self.QMin.save["step"]}')
+        self.log.debug(f'overlap: {self.QMin.requests["overlap"]}, phases: {self.QMin.requests["phases"]}, init: {self.QMin.save["init"]}')
         assert not (
             (self.QMin.requests["overlap"] or self.QMin.requests["phases"]) and self.QMin.save["init"]
         ), '"overlap" and "phases" cannot be calculated in the first timestep!'
@@ -940,6 +941,17 @@ class SHARC_INTERFACE(ABC):
             return
         stepfile = os.path.join(self.QMin.save["savedir"], "STEP")
         writefile(stepfile, str(self.QMin.save["step"]))
+
+    def update_step(self, step: int = None) -> None:
+        '''
+        sets the step variable im QMin object or increments the current step by +1
+        should be called after a successful step
+        '''
+        if step is None:
+            self.QMin.save['step'] += 1
+        else:
+            self.QMin.save['step'] = step
+
 
     def writeQMout(self, filename: str = "QM.out") -> None:
         """
