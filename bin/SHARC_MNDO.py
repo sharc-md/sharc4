@@ -177,12 +177,10 @@ class SHARC_MNDO(SHARC_ABINITIO):
         mkdir(workdir)
         
         step = self.QMin.save["step"]
-    
-        #print("\nStep: ", step, "\n")
 
         savedir = self.QMin.save["savedir"]
 
-        if step is not None and step > 1:
+        if step is not None and step > 0:
             orbital_tracking = os.path.join(workdir, "imomap.dat")
             saved_file = os.path.join(savedir, f"imomap.{step-1}")
             shutil.copy(saved_file, orbital_tracking)
