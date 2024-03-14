@@ -110,7 +110,8 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 "pcmset": None,
                 "pcmstate": None,
                 "iterations": [200, 100],
-                "cholesky_accu": 1e-4
+                "cholesky_accu": 1e-4,
+                "rasscf_thrs": [1e-8, 1e-4, 1e-4],
             }
         )
 
@@ -135,7 +136,8 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 "pcmset": (list, dict),
                 "pcmstate": list,
                 "iterations": list,
-                "cholesky_accu": float
+                "cholesky_accu": float,
+                "rasscf_thrs": list,  # e, rot egrd
             }
         )
 
@@ -246,6 +248,9 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         # Roots
         self.QMin.template["roots"] = convert_list(self.QMin.template["roots"])
         self.QMin.template["rootpad"] = convert_list(self.QMin.template["rootpad"])
+
+        # RASSCF_thresholds
+        self.QMin.template["rasscf_thrs"] = convert_list(self.QMin.template["rasscf_thrs"], float)
 
         if not all(map(lambda x: x >= 0, [*self.QMin.template["roots"], *self.QMin.template["rootpad"]])):
             self.log.error("roots and rootpad must contain positive integers.")
@@ -394,6 +399,8 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         if self.QMin.requests["grad"]:
             for grad in self.QMin.maps["gradmap"]:
                 gradjob = deepcopy(self.QMin)
+                gradjob.save.update({"init": False, "always_guess": False, "always_orb_init": False, "samestep": True})
+                gradjob.requests.update({"h": False, "soc": False, "dm": False, "overlap": False, "ion": False})
                 gradjob.resources["ncpu"] = cpu_per_run
                 gradjob.maps["gradmap"] = {(grad)}
                 gradjob.maps["nacmap"] = set()
@@ -403,6 +410,8 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         if self.QMin.requests["nacdr"]:
             for nac in self.QMin.maps["nacmap"]:
                 nacjob = deepcopy(self.QMin)
+                nacjob.save.update({"init": False, "always_guess": False, "always_orb_init": False, "samestep": True})
+                nacjob.requests.update({"h": False, "soc": False, "dm": False, "overlap": True, "ion": False})
                 nacjob.resources["ncpu"] = cpu_per_run
                 nacjob.maps["gradmap"] = set()
                 nacjob.maps["nacmap"] = {(nac)}
@@ -441,12 +450,11 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         Copy files from "link" entries in the task list
         """
 
-
     def _gen_tasklist(self, qmin: QMin) -> list[list[str]]:
         """
         Generate tasklist
         """
-        tasks = [["gateway"], ["seward"]]
+        tasks = [["gateway"], ["seward"]] if qmin.control["master"] else []
         # TODO: qmmm
 
         if qmin.template["pcmset"]:  # TODO only with num grad?
@@ -766,18 +774,16 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         else:
             input_str += f"CIROOT={task[2]} {task[2]+ qmin.template['rootpad'][task[1] - 1]}; "
             input_str += " ".join(str(i + 1) for i in range(task[2]))
-            input_str += ";"
+            input_str += " ;"
             input_str += " ".join("1" for _ in range(task[2]))
-            input_str += "\n"
+            input_str += " \n"
 
         if qmin.template["method"] not in ("ms-caspt2", "xms-caspt2"):
             input_str += "ORBLISTING=NOTHING\nPRWF=0.1\n"
         if len(qmin.maps["gradmap"]) > 0:
             input_str += "THRS=1.0e-10 1.0e-06 1.0e-06\n"
         else:
-            # input_str += f"THRS={qmin.template['rasscf_thrs_e']}"
-            # TODO: rasscf_thrs_e
-            input_str += "THRS=1.0e-10 1.0e-06 1.0e-06\n"
+            input_str += "THRS=" + " ".join(f"{i:14.12f}" for i in qmin.template["rasscf_thrs"])
         if task[3]:
             input_str += "JOBIPH\n"
         if task[4]:
@@ -811,7 +817,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         if qmin.requests["soc"]:
             input_str += "AMFI\nangmom\n0 0 0\n"
         if qmin.template["baslib"]:
-            input_str += f"BASLIB\n{qmin.template['baslib']}\n"
+            input_str += f"BASLIB\n{qmin.template['baslib']}\n\n"
         input_str += f"RICD\nCDTHreshold={qmin.template['cholesky_accu']}\n"
         if qmin.template["pcmset"]:
             input_str += f"TF-INPUT\nPCM-MODEL\nSOLVENT = {qmin.template['pcmset']['solvent']}\n"
