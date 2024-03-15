@@ -88,10 +88,7 @@ class SHARC_MNDO(SHARC_ABINITIO):
                 "kitscf": 5000,
                 "ici1": 0,
                 "ici2": 0,
-                "dstep": 1e-6,
                 "act_orbs": [1],
-                "mminp": 2,
-                "numatm": 0,
                 "movo": 0,
                 "kharge": 0,
                 "imomap": 0,
@@ -103,10 +100,7 @@ class SHARC_MNDO(SHARC_ABINITIO):
                 "kitscf": int,
                 "ici1": int,
                 "ici2": int,
-                "dstep": float,
                 "act_orbs": list,
-                "mminp": int,
-                "numatm": int,
                 "movo": int,
                 "kharge": int,
                 "imomap": int,
@@ -619,7 +613,7 @@ mocoef
                 s = line.split()
                 istate_a = int(s[7]) - 1
                 istate_b = int(s[8]) - 1
-                interstates.append([istate_a, istate_b])
+                interstates.append((istate_a, istate_b))
 
         return states, interstates
 
@@ -711,20 +705,23 @@ mocoef
         
         # make nac matrix
         # nac = np.fromiter(map(), count=).reshape()
-        for i, ints in enumerate(interstates):
+        for i, (s1, s2) in enumerate(interstates):
             iline = line_marker[i]
-            dE = self.QMout["h"][ints[1]][ints[1]] - self.QMout["h"][ints[0]][ints[0]]
+            dE = self.QMout["h"][s2,s2] - self.QMout["h"][s1,s1]
             for j in range(natom):
                 line = f[iline]
                 s = line.split()
-                nac[ints[0]][ints[1]][j][0] =  float(s[-4]) * KCAL_TO_EH * BOHR_TO_ANG / dE   # 1/Ang --> 1/a_0 or kcal/mol*Ang --> 1/a_0 ?
-                nac[ints[0]][ints[1]][j][1] =  float(s[-3]) * KCAL_TO_EH * BOHR_TO_ANG / dE
-                nac[ints[0]][ints[1]][j][2] =  float(s[-2]) * KCAL_TO_EH * BOHR_TO_ANG / dE
-                nac[ints[1]][ints[0]][j][0] = -float(s[-4]) * KCAL_TO_EH * BOHR_TO_ANG / dE
-                nac[ints[1]][ints[0]][j][1] = -float(s[-3]) * KCAL_TO_EH * BOHR_TO_ANG / dE
-                nac[ints[1]][ints[0]][j][2] = -float(s[-2]) * KCAL_TO_EH * BOHR_TO_ANG / dE
-                iline += 1
+                nac[s1, s2, j, 0] =  float(s[-4])   # 1/Ang --> 1/a_0 or kcal/mol*Ang --> 1/a_0 ?
+                nac[s1, s2, j, 1] =  float(s[-3])
+                nac[s1, s2, j, 2] =  float(s[-2])
+                nac[s2, s1, j, 0] = -float(s[-4])
+                nac[s2, s1, j, 1] = -float(s[-3])
+                nac[s2, s1, j, 2] = -float(s[-2])
 
+                iline += 1
+            nac[s1,s2,...] = nac[s1,s2,...] * KCAL_TO_EH * BOHR_TO_ANG / dE
+            nac[s2,s1,...] = nac[s2,s1,...] * KCAL_TO_EH * BOHR_TO_ANG / dE
+        
         return nac
     
     def _get_nacs_pc(self, file_path: str, interstates):
@@ -749,20 +746,21 @@ mocoef
         nac = np.zeros((nmstates, nmstates, ncharges, 3))
         
         # make nac matrix
-        # nac = np.fromiter(map(), count=).reshape()
-        for i, ints in enumerate(interstates):
+        for i, (s1, s2) in enumerate(interstates):
             iline = line_marker[i]
-            dE = self.QMout["h"][ints[1]][ints[1]] - self.QMout["h"][ints[0]][ints[0]]
+            dE = self.QMout["h"][s2, s2] - self.QMout["h"][s1, s1] 
             for j in range(ncharges):
                 line = f[iline]
                 s = line.split() 
-                nac[ints[0]][ints[1]][j][0] =  float(s[-3]) * KCAL_TO_EH * BOHR_TO_ANG / dE# 1/Ang --> 1/a_0
-                nac[ints[0]][ints[1]][j][1] =  float(s[-2]) * KCAL_TO_EH * BOHR_TO_ANG / dE
-                nac[ints[0]][ints[1]][j][2] =  float(s[-1]) * KCAL_TO_EH * BOHR_TO_ANG / dE
-                nac[ints[1]][ints[0]][j][0] = -float(s[-3]) * KCAL_TO_EH * BOHR_TO_ANG / dE
-                nac[ints[1]][ints[0]][j][1] = -float(s[-2]) * KCAL_TO_EH * BOHR_TO_ANG / dE
-                nac[ints[1]][ints[0]][j][2] = -float(s[-1]) * KCAL_TO_EH * BOHR_TO_ANG / dE
+                nac[s1, s2, j, 0] =  float(s[-3])# 1/Ang --> 1/a_0
+                nac[s1, s2, j, 1] =  float(s[-2])
+                nac[s1, s2, j, 2] =  float(s[-1])
+                nac[s2, s1, j, 0] = -float(s[-3])
+                nac[s2, s1, j, 1] = -float(s[-2])
+                nac[s2, s1, j, 2] = -float(s[-1])
                 iline += 1
+            nac[s1,s2,...] = nac[s1,s2,...] * KCAL_TO_EH * BOHR_TO_ANG / dE
+            nac[s2,s1,...] = nac[s2,s1,...] * KCAL_TO_EH * BOHR_TO_ANG / dE
 
         return nac
 
@@ -887,19 +885,10 @@ mocoef
 
 
         self.QMin["template"]["kharge"] = int(self.QMin["template"]["kharge"])
-        self.QMin["template"]["dstep"] = float(self.QMin["template"]["dstep"])
-        self.QMin["template"]["mminp"] = int(self.QMin["template"]["mminp"])
-        self.QMin["template"]["imomap"] = int(self.QMin["template"]["imomap"])
-
-        if self.QMin["template"]["mminp"] < 0:
-            raise ValueError(f"mminp not cannot be negative.")
         
         if self.QMin["template"]["imomap"] > 3 or self.QMin["template"]["imomap"] == 1 or self.QMin["template"]["imomap"] < 0:
             raise ValueError(f"imomap not 0 (false) or 3 (true).")
 
-        if self.QMin["template"]["mminp"] > 0:
-            self.QMin["molecule"]["point_charges"] = True
-            self.QMin["molecule"]["npc"] = self.QMin["template"]["numatm"]
         
         self.QMin["template"]["movo"] = int(self.QMin["template"]["movo"])
         if self.QMin["template"]["movo"] > 1 or self.QMin["template"]["movo"] < 0 :
@@ -1020,20 +1009,18 @@ mocoef
         ici1 = qmin["template"]["ici1"]
         ici2 = qmin["template"]["ici2"]
         nciref = qmin["template"]["nciref"]
-        dstep = qmin["template"]["dstep"]
         act_orbs = qmin["template"]["act_orbs"]
         iroot = qmin["molecule"]["states"][0]
         ncharges = qmin["molecule"]["npc"]
         grads = [y for x,y in qmin["maps"]["gradmap"]]
         kharge = qmin["template"]["kharge"]
-        mminp = qmin["template"]["mminp"]
         kitscf = qmin["template"]["kitscf"]
         imomap = qmin["template"]["imomap"]
 
-        if qmin["molecule"]["point_charges"] == True:
-            inputstring = f"iop=-6 jop=-2 imult=0 iform=1 igeom=1 mprint=1 icuts=-1 icutg=-1 dstep={dstep} kci=5 ioutci=1 iroot={iroot} icross=7 ncigrd={ncigrd} inac=0 imomap={imomap} iscf=11 iplscf=11 kitscf={kitscf} ici1={ici1} ici2={ici2} movo={movo} nciref={nciref} mciref=3 levexc=6 iuvcd=3 nsav13=2 kharge={kharge} multci=1 cilead=1 ncisym=-1 numatm={ncharges} mmcoup=2 mmfile=1 mmskip=0 mminp={mminp} nsav15=9"
+        if qmin["molecule"]["point_charges"]:
+            inputstring = f"iop=-6 jop=-2 imult=0 iform=1 igeom=1 mprint=1 icuts=-1 icutg=-1 dstep=1e-5 kci=5 ioutci=1 iroot={iroot} icross=7 ncigrd={ncigrd} inac=0 imomap={imomap} iscf=11 iplscf=11 kitscf={kitscf} ici1={ici1} ici2={ici2} movo={movo} nciref={nciref} mciref=3 levexc=6 iuvcd=3 nsav13=2 kharge={kharge} multci=1 cilead=1 ncisym=-1 numatm={ncharges} mmcoup=2 mmfile=1 mmskip=0 mminp=2 nsav15=9"
         else:
-            inputstring = f"iop=-6 jop=-2 imult=0 iform=1 igeom=1 mprint=1 icuts=-1 icutg=-1 dstep={dstep} kci=5 ioutci=1 iroot={iroot} icross=7 ncigrd={ncigrd} inac=0 imomap={imomap} iscf=11 iplscf=11 kitscf={kitscf} ici1={ici1} ici2={ici2} movo={movo} nciref={nciref} mciref=3 levexc=6 iuvcd=3 nsav13=2 kharge={kharge} multci=1 cilead=1 ncisym=-1 nsav15=9"
+            inputstring = f"iop=-6 jop=-2 imult=0 iform=1 igeom=1 mprint=1 icuts=-1 icutg=-1 dstep=1e-5 kci=5 ioutci=1 iroot={iroot} icross=7 ncigrd={ncigrd} inac=0 imomap={imomap} iscf=11 iplscf=11 kitscf={kitscf} ici1={ici1} ici2={ici2} movo={movo} nciref={nciref} mciref=3 levexc=6 iuvcd=3 nsav13=2 kharge={kharge} multci=1 cilead=1 ncisym=-1 nsav15=9"
 
         inputstring = " +\n".join(wrap(inputstring, width=70))
         inputstring += "\nheader\n"

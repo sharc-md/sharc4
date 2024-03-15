@@ -13,8 +13,6 @@ ici1 2
 ## Number of active unoccupied orbitals.
 ici2 1
 
-## Step size for numerical density derivatives
-dstep 1e-5
 
 ## Active Orbitals
 act_orbs 4 6 7
@@ -29,10 +27,10 @@ act_orbs 4 6 7
 ## iroot 4
 
 ## Activate point charges. mm 0 --> deactivate QM/MM, mm 2 -> read point charges from fort.20
-mminp 2
+##minp 2
 
 ## Number of point charges
-numatm 1
+##numatm 1
 
 ## Definition of orbitals involved in the active space. 0 -> False, 1 -> True
 movo 1
