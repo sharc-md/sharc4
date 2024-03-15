@@ -100,7 +100,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 "roots": list(range(8)),
                 "rootpad": list(range(8)),
                 "method": "casscf",
-                "functional": "tpbe",
+                "functional": "t:pbe",
                 "ipea": 1.25,
                 "imaginary": 0.0,
                 "frozen": None,
@@ -267,6 +267,11 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
 
         self.QMin.template["rootpad"] = self.QMin.template["rootpad"][: len(self.QMin.template["roots"])]
 
+        # Check gradaccu
+        if self.QMin.template["gradaccudefault"] > self.QMin.template["gradaccumax"]:
+            self.log.error("Template key gradaccudefault cannot be higher than gradaccumax")
+            raise ValueError()
+
         # Path to baslib
         if self.QMin.template["baslib"]:
             self.QMin.template["baslib"] = expand_path(self.QMin.template["baslib"])
@@ -324,7 +329,6 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
 
         # Validate functional
         if self.QMin.template["method"] == "cms-pdft" and self.QMin.template["functional"] not in [
-            "tpbe",
             "t:pbe",
             "ft:pbe",
             "t:blyp",
@@ -355,6 +359,16 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
 
         # TODO: wfoverlap, theodore?
 
+        # Save Jobiphs and/or molden files
+        re_jobiph = re.compile(r"^MOLCAS\.\d+\.JobIph")
+        re_molden = re.compile(r"^MOLCAS\.\d+\.molden")
+        for file in os.listdir(os.path.join(self.QMin.resources["scratchdir"], "master")):
+            if re_jobiph.match(file) or (self.QMin.requests["molden"] and re_molden.match(file)):
+                self.log.debug(f"Copy {file} from scratch to savedir")
+                shutil.copy(
+                    os.path.join(self.QMin.resources["scratchdir"], "master", file),
+                    os.path.join(self.QMin.save["savedir"], f"{file}.{self.QMin.save['step']}"),
+                )
         self.log.debug("All hobs finished successful")
 
         self.QMout["runtime"] = datetime.datetime.now() - starttime
@@ -418,6 +432,8 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         """
         Setup workdir, write input file, copy initial guess, execute
         """
+        os.environ["WorkDir"] = workdir
+        os.environ["MOLCAS_NPROCS"] = str(qmin.resources["ncpu"])
         self.log.debug(f"Create workdir {workdir}")
         mkdir(workdir)
 
@@ -425,6 +441,10 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         self.log.debug(f"Writing input files to {workdir}")
         writefile(os.path.join(workdir, "MOLCAS.xyz"), self._write_geom(qmin.molecule["elements"], qmin.coords["coords"]))
         writefile(os.path.join(workdir, "MOLCAS.input"), self._write_input(self._gen_tasklist(qmin), qmin))
+
+        # Copy JobIphs if not master job
+        if not qmin.control["master"]:
+            self._copy_run_files(workdir)
 
         # Make subdirs
         if qmin.resources["mpi_parallel"]:
@@ -434,15 +454,21 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
 
         # Execute MOLCAS
         starttime = datetime.datetime.now()
-        exit_code = self.run_program(workdir, f"{qmin.resources['driver']} MOLCAS.input", "MOLCAS.out", "MOLCAS.err")
+        while qmin.template["gradaccudefault"] < qmin.template["gradaccumax"]:
+            exit_code = self.run_program(workdir, f"{qmin.resources['driver']} MOLCAS.input", "MOLCAS.out", "MOLCAS.err")
+            if exit_code != 96:
+                break
+            qmin.template["gradaccudefault"] *= 10
         endtime = datetime.datetime.now()
 
         return exit_code, endtime - starttime
 
-    def _copy_run_files(self, tasks: list[list[str]], workdir: str) -> None:
+    def _copy_run_files(self, workdir: str) -> None:
         """
-        Copy files from "link" entries in the task list
+        Copy files from master to grad/nac folder
         """
+        
+
 
     def _gen_tasklist(self, qmin: QMin) -> list[list[Any]]:
         """
@@ -635,8 +661,6 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                             tasks.append(["rasscf", mult + 1, qmin["template"]["roots"][mult], True, False])
                             tasks.append(["caspt2", mult + 1, states, qmin.template["method"], f"GRDT\nnac = {nac[1]} {nac[3]}"])
                             tasks.append(["alaska", nac[1], nac[3]])
-
-            #if len(tasks) > 0:
             
             tasks += self._gen_property_tasks(qmin, mult, states)
         return tasks
@@ -752,7 +776,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
 
         if qmin.template["method"] not in ("ms-caspt2", "xms-caspt2"):
             input_str += "ORBLISTING=NOTHING\nPRWF=0.1\n"
-        if len(qmin.maps["gradmap"]) > 0:
+        if qmin.maps["gradmap"] and len(qmin.maps["gradmap"]) > 0:
             input_str += "THRS=1.0e-10 1.0e-06 1.0e-06\n"
         else:
             input_str += "THRS=" + " ".join(f"{i:14.12f}" for i in qmin.template["rasscf_thrs"]) + "\n"
