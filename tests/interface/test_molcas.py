@@ -145,14 +145,6 @@ def test_gettasks_init():
                 ),
                 "grad_1_1": (
                     1,
-                    # [
-                    #    ["link", f"{os.getcwd()}/SAVE/MOLCAS.1.JobIph.0", "JOBOLD"],
-                    #    ["link", "MOLCAS.1.JobIph", "JOBOLD"],
-                    #    ["rasscf", 1, 4, True, False],
-                    #    ["mclr", 0.0001, "sala=1"],
-                    #    ["alaska"],
-                    #    ["link", f"{os.getcwd()}/SAVE/MOLCAS.2.JobIph.0", "JOBOLD"],
-                    # ],
                     [
                         ["link", "MOLCAS.1.JobIph", "JOBOLD"],
                         ["rasscf", 1, 4, True, False],
@@ -238,22 +230,6 @@ def test_gettasks_init():
                 ),
                 "nacdr_1_1_1_2": (
                     1,
-                    # [
-                    #    ["link", f"{os.getcwd()}/SAVE/MOLCAS.1.JobIph.0", "JOBOLD"],
-                    #    ["link", "MOLCAS.1.JobIph", "JOBOLD"],
-                    #    ["rasscf", 1, 4, True, False],
-                    #    ["mclr", 0.0001, "nac=1 2"],
-                    #    ["alaska"],
-                    #    ["link", "MOLCAS.1.JobIph", "JOB001"],
-                    #    ["link", "MOLCAS.JobIph", "JOB002"],
-                    #    ["link", "MOLCAS.1.JobIph", "JOB002"],
-                    #    ["rassi", "overlap", [4, 4]],
-                    #    ["link", f"{os.getcwd()}/SAVE/MOLCAS.2.JobIph.0", "JOBOLD"],
-                    #    ["link", "MOLCAS.2.JobIph", "JOB001"],
-                    #    ["link", "MOLCAS.JobIph", "JOB002"],
-                    #    ["link", "MOLCAS.2.JobIph", "JOB002"],
-                    #    ["rassi", "overlap", [2, 2]],
-                    # ],
                     [
                         ["link", "MOLCAS.1.JobIph", "JOBOLD"],
                         ["rasscf", 1, 4, True, False],
@@ -394,16 +370,16 @@ def test_gettasks_init():
                     ],
                 ),
                 # TODO
-                # "grad_1_1": (
-                #    1,
-                #    [
-                #        ["link", "MOLCAS.1.JobIph", "JOBOLD"],
-                #        ["copy", "/user/sascha/development/eci/sharc_main/SAVE/Do_Rotate.1.txt", "Do_Rotate.txt"],
-                #        ["rasscf", 1, 4, True, False, ["RLXROOT=1", "CMSI"]],
-                #        ["mcpdft", ["KSDFT=tpbe", "GRAD", "MSPDFT", "WJOB"]],
-                #        ["alaska", 1],
-                #    ],
-                # ),
+                "grad_1_1": (
+                    1,
+                    [
+                        ["link", "MOLCAS.1.JobIph", "JOBOLD"],
+                        ["copy", f"{os.getcwd()}/SAVE/Do_Rotate.1.txt", "Do_Rotate.txt"],
+                        ["rasscf", 1, 4, True, False, ["RLXROOT=1", "CMSI"]],
+                        ["mcpdft", ["KSDFT=tpbe", "GRAD", "MSPDFT", "WJOB"]],
+                        ["alaska", 1],
+                    ],
+                ),
             },
         ),
         (
@@ -433,8 +409,17 @@ def test_gettasks_init():
                         ["link", "MOLCAS.2.JobIph", "JOB002"],
                         ["rassi", "soc", [4, 2]],
                     ],
-                )
-                # TODO: grad
+                ),
+                "grad_1_1": (
+                    1,
+                    [
+                        ["link", "MOLCAS.1.JobIph", "JOBOLD"],
+                        ["rasscf", 1, 4, True, False],
+                        ["caspt2", 1, 4, "xms-caspt2", "GRDT\nrlxroot = 1"],
+                        ["mclr", 0.0001],
+                        ["alaska"],
+                    ],
+                ),
             },
         ),
     ]
@@ -452,7 +437,6 @@ def test_gettasks_init():
         test_interface.QMin.scheduling["schedule"] = test_interface._generate_schedule()
         for k, v in ref.items():
             tasks = test_interface._gen_tasklist(test_interface.QMin.scheduling["schedule"][v[0]][k])
-            print(tasks)
             try:
                 assert tasks == v[1], f"Key: {k}, QMin: {qmin}"
             except Exception as exc:
@@ -467,108 +451,79 @@ def test_gettasks():
         (
             os.path.join(PATH, "inputs/molcas/tasks/QM5.in"),
             os.path.join(PATH, "inputs/molcas/tasks/template_casscf"),
-            [
-                ["gateway"],
-                ["seward"],
-                ["link", os.path.join(os.getcwd(), "SAVE/MOLCAS.1.JobIph.0"), "JOBOLD"],
-                ["rasscf", 1, 4, True, False],
-                ["rm", "JOBOLD"],
-                ["copy", "MOLCAS.JobIph", "MOLCAS.1.JobIph"],
-                ["link", "MOLCAS.1.JobIph", "JOBOLD"],
-                ["rasscf", 1, 4, True, False],
-                ["mclr", 0.0001, "sala=2"],
-                ["alaska"],
-                ["link", "MOLCAS.1.JobIph", "JOBOLD"],
-                ["rasscf", 1, 4, True, False],
-                ["mclr", 0.0001, "sala=1"],
-                ["alaska"],
-                ["link", "MOLCAS.1.JobIph", "JOBOLD"],
-                ["rasscf", 1, 4, True, False],
-                ["mclr", 0.0001, "sala=3"],
-                ["alaska"],
-                ["link", "MOLCAS.1.JobIph", "JOBOLD"],
-                ["rasscf", 1, 4, True, False],
-                ["mclr", 0.0001, "sala=4"],
-                ["alaska"],
-                ["link", os.path.join(os.getcwd(), "SAVE/MOLCAS.1.JobIph.0"), "JOB001"],
-                ["link", "MOLCAS.1.JobIph", "JOB002"],
-                ["rassi", "overlap", [4, 4]],
-                ["link", os.path.join(os.getcwd(), "SAVE/MOLCAS.2.JobIph.0"), "JOBOLD"],
-                ["rasscf", 2, 2, True, False],
-                ["rm", "JOBOLD"],
-                ["copy", "MOLCAS.JobIph", "MOLCAS.2.JobIph"],
-                ["link", "MOLCAS.2.JobIph", "JOBOLD"],
-                ["rasscf", 2, 2, True, False],
-                ["mclr", 0.0001, "sala=1"],
-                ["alaska"],
-                ["link", "MOLCAS.2.JobIph", "JOBOLD"],
-                ["rasscf", 2, 2, True, False],
-                ["mclr", 0.0001, "sala=2"],
-                ["alaska"],
-                ["link", os.path.join(os.getcwd(), "SAVE/MOLCAS.2.JobIph.0"), "JOB001"],
-                ["link", "MOLCAS.2.JobIph", "JOB002"],
-                ["rassi", "overlap", [2, 2]],
-                ["link", "MOLCAS.1.JobIph", "JOB001"],
-                ["link", "MOLCAS.2.JobIph", "JOB002"],
-                ["rassi", "soc", [4, 2]],
-            ],
+            {
+                "master": (
+                    0,
+                    [
+                        ["gateway"],
+                        ["seward"],
+                        ["link", f"{os.getcwd()}/SAVE/MOLCAS.1.JobIph.0", "JOBOLD"],
+                        ["rasscf", 1, 4, True, False],
+                        ["copy", "MOLCAS.JobIph", "MOLCAS.1.JobIph"],
+                        ["link", f"{os.getcwd()}/SAVE/MOLCAS.2.JobIph.0", "JOBOLD"],
+                        ["rasscf", 2, 2, True, False],
+                        ["copy", "MOLCAS.JobIph", "MOLCAS.2.JobIph"],
+                        ["link", f"{os.getcwd()}/SAVE/MOLCAS.1.JobIph.0", "JOB001"],
+                        ["link", "MOLCAS.1.JobIph", "JOB002"],
+                        ["rassi", "overlap", [4, 4]],
+                        ["link", f"{os.getcwd()}/SAVE/MOLCAS.2.JobIph.0", "JOB001"],
+                        ["link", "MOLCAS.2.JobIph", "JOB002"],
+                        ["rassi", "overlap", [2, 2]],
+                        ["link", "MOLCAS.1.JobIph", "JOB001"],
+                        ["link", "MOLCAS.2.JobIph", "JOB002"],
+                        ["rassi", "soc", [4, 2]],
+                    ],
+                ),
+                "grad_1_1": (
+                    1,
+                    [
+                        ["link", "MOLCAS.1.JobIph", "JOBOLD"],
+                        ["rasscf", 1, 4, True, False],
+                        ["mclr", 0.0001, "sala=1"],
+                        ["alaska"],
+                    ],
+                ),
+            },
         ),
         (
             os.path.join(PATH, "inputs/molcas/tasks/QM5.in"),
             os.path.join(PATH, "inputs/molcas/tasks/template_xmscaspt2"),
-            [
-                ["gateway"],
-                ["seward"],
-                ["link", os.path.join(os.getcwd(), "SAVE/MOLCAS.1.JobIph.0"), "JOBOLD"],
-                ["rasscf", 1, 4, True, False],
-                ["rm", "JOBOLD"],
-                ["caspt2", 1, 4, "xms-caspt2"],
-                ["copy", "MOLCAS.JobMix", "MOLCAS.1.JobIph"],
-                ["link", "MOLCAS.1.JobIph", "JOBOLD"],
-                ["rasscf", 1, 4, True, False],
-                ["caspt2", 1, 4, "xms-caspt2", "GRDT\nrlxroot = 2"],
-                ["mclr", 0.0001],
-                ["alaska"],
-                ["link", "MOLCAS.1.JobIph", "JOBOLD"],
-                ["rasscf", 1, 4, True, False],
-                ["caspt2", 1, 4, "xms-caspt2", "GRDT\nrlxroot = 1"],
-                ["mclr", 0.0001],
-                ["alaska"],
-                ["link", "MOLCAS.1.JobIph", "JOBOLD"],
-                ["rasscf", 1, 4, True, False],
-                ["caspt2", 1, 4, "xms-caspt2", "GRDT\nrlxroot = 3"],
-                ["mclr", 0.0001],
-                ["alaska"],
-                ["link", "MOLCAS.1.JobIph", "JOBOLD"],
-                ["rasscf", 1, 4, True, False],
-                ["caspt2", 1, 4, "xms-caspt2", "GRDT\nrlxroot = 4"],
-                ["mclr", 0.0001],
-                ["alaska"],
-                ["link", os.path.join(os.getcwd(), "SAVE/MOLCAS.1.JobIph.0"), "JOB001"],
-                ["link", "MOLCAS.1.JobIph", "JOB002"],
-                ["rassi", "overlap", [4, 4]],
-                ["link", os.path.join(os.getcwd(), "SAVE/MOLCAS.2.JobIph.0"), "JOBOLD"],
-                ["rasscf", 2, 2, True, False],
-                ["rm", "JOBOLD"],
-                ["caspt2", 2, 2, "xms-caspt2"],
-                ["copy", "MOLCAS.JobMix", "MOLCAS.2.JobIph"],
-                ["link", "MOLCAS.2.JobIph", "JOBOLD"],
-                ["rasscf", 2, 2, True, False],
-                ["caspt2", 2, 2, "xms-caspt2", "GRDT\nrlxroot = 1"],
-                ["mclr", 0.0001],
-                ["alaska"],
-                ["link", "MOLCAS.2.JobIph", "JOBOLD"],
-                ["rasscf", 2, 2, True, False],
-                ["caspt2", 2, 2, "xms-caspt2", "GRDT\nrlxroot = 2"],
-                ["mclr", 0.0001],
-                ["alaska"],
-                ["link", os.path.join(os.getcwd(), "SAVE/MOLCAS.2.JobIph.0"), "JOB001"],
-                ["link", "MOLCAS.2.JobIph", "JOB002"],
-                ["rassi", "overlap", [2, 2]],
-                ["link", "MOLCAS.1.JobIph", "JOB001"],
-                ["link", "MOLCAS.2.JobIph", "JOB002"],
-                ["rassi", "soc", [4, 2]],
-            ],
+            {
+                "master": (
+                    0,
+                    [
+                        ["gateway"],
+                        ["seward"],
+                        ["link", f"{os.getcwd()}/SAVE/MOLCAS.1.JobIph.0", "JOBOLD"],
+                        ["rasscf", 1, 4, True, False],
+                        ["caspt2", 1, 4, "xms-caspt2"],
+                        ["copy", "MOLCAS.JobMix", "MOLCAS.1.JobIph"],
+                        ["link", f"{os.getcwd()}/SAVE/MOLCAS.2.JobIph.0", "JOBOLD"],
+                        ["rasscf", 2, 2, True, False],
+                        ["caspt2", 2, 2, "xms-caspt2"],
+                        ["copy", "MOLCAS.JobMix", "MOLCAS.2.JobIph"],
+                        ["link", f"{os.getcwd()}/SAVE/MOLCAS.1.JobIph.0", "JOB001"],
+                        ["link", "MOLCAS.1.JobIph", "JOB002"],
+                        ["rassi", "overlap", [4, 4]],
+                        ["link", f"{os.getcwd()}/SAVE/MOLCAS.2.JobIph.0", "JOB001"],
+                        ["link", "MOLCAS.2.JobIph", "JOB002"],
+                        ["rassi", "overlap", [2, 2]],
+                        ["link", "MOLCAS.1.JobIph", "JOB001"],
+                        ["link", "MOLCAS.2.JobIph", "JOB002"],
+                        ["rassi", "soc", [4, 2]],
+                    ],
+                ),
+                "grad_1_1": (
+                    1,
+                    [
+                        ["link", "MOLCAS.1.JobIph", "JOBOLD"],
+                        ["rasscf", 1, 4, True, False],
+                        ["caspt2", 1, 4, "xms-caspt2", "GRDT\nrlxroot = 1"],
+                        ["mclr", 0.0001],
+                        ["alaska"],
+                    ],
+                ),
+            },
         ),
     ]
 
@@ -581,11 +536,16 @@ def test_gettasks():
             with open("SAVE/STEP", "w", encoding="utf-8") as file:
                 file.write("0")
             test_interface.read_requests(qmin)
-            os.remove("SAVE/STEP")
+            shutil.rmtree(os.path.join(os.getcwd(), "SAVE"))
         test_interface.setup_interface()
-
-        tasks = test_interface._gen_tasklist(test_interface.QMin)
-        assert tasks == ref
+        test_interface.QMin.scheduling["schedule"] = test_interface._generate_schedule()
+        for k, v in ref.items():
+            tasks = test_interface._gen_tasklist(test_interface.QMin.scheduling["schedule"][v[0]][k])
+            try:
+                assert tasks == v[1], f"Key: {k}, QMin: {qmin}"
+            except Exception as exc:
+                shutil.rmtree(os.path.join(os.getcwd(), "SAVE"))
+                raise RuntimeError(exc)
 
 
 def test_write_geom():
