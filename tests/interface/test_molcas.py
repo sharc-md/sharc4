@@ -1,9 +1,11 @@
 import os
+import shutil
 
+import h5py
+import numpy as np
 import pytest
 from SHARC_MOLCAS import SHARC_MOLCAS
 from utils import expand_path
-import shutil
 
 PATH = expand_path("$SHARC/../tests/interface")
 
@@ -596,3 +598,42 @@ def test_write_input():
         # print(test_interface._write_input(test_interface._gen_tasklist(grad),grad))
         assert test_interface._write_input(test_interface._gen_tasklist(grad), grad) == ref[1]
         nac = test_interface.QMin.scheduling["schedule"][1]["nacdr_1_1_1_2"]
+
+
+def test_get_energy():
+    tests = [
+        (
+            os.path.join(PATH, "inputs/molcas/tasks/QM1.in"),
+            "casscf",
+            os.path.join(PATH, "inputs/molcas/output/hdmsoc420casscf"),
+        ),
+        (
+            os.path.join(PATH, "inputs/molcas/tasks/QM1.in"),
+            "caspt2",
+            os.path.join(PATH, "inputs/molcas/output/hdmsoc420caspt2"),
+        ),
+        (
+            os.path.join(PATH, "inputs/molcas/tasks/QM1.in"),
+            "cms-pdft",
+            os.path.join(PATH, "inputs/molcas/output/hdmsoc420cmspdft"),
+        ),
+        (
+            os.path.join(PATH, "inputs/molcas/tasks/QM1.in"),
+            "ms-caspt2",
+            os.path.join(PATH, "inputs/molcas/output/hdmsoc420mscaspt2"),
+        ),
+        (
+            os.path.join(PATH, "inputs/molcas/tasks/QM1.in"),
+            "xms-caspt2",
+            os.path.join(PATH, "inputs/molcas/output/hdmsoc420xmscaspt2"),
+        ),
+    ]
+
+    for qmin, method, output in tests:
+        test_interface = SHARC_MOLCAS()
+        test_interface.setup_mol(qmin)
+        test_interface.QMin.template["method"] = method
+
+        hdf = h5py.File(f"{output}.h5", "r")
+        with open(f"{output}.out", "r", encoding="utf-8") as ascii_out:
+            assert np.allclose(test_interface._get_energy(hdf), test_interface._get_energy(ascii_out.read()))
