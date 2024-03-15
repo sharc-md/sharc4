@@ -7,6 +7,7 @@ from copy import deepcopy
 from io import TextIOWrapper
 from typing import Any
 
+import h5py
 import numpy as np
 from constants import au2a
 from qmin import QMin
@@ -730,10 +731,14 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             input_str += "EJOB\n"
         if task[1] != "soc" and qmin.control["master"] and qmin.requests["ion"]:
             input_str += "CIPR\nTHRS=0.000005d0\n"
+        if task[1] == "dm" and qmin.requests["multipolar_fit"]:
+            input_str += "TRD1\n"
         if task[1] == "soc":
             input_str += "SPINORBIT\nSOCOUPLING=0.0d0\nEJOB\n"
         elif task[1] == "overlap":
             input_str += "OVERLAPS\n"
+            if qmin.control["master"] and qmin.requests["multipolar_fit"]:
+                input_str += "TRD1\n"
         input_str += "\n"
         return input_str
 
@@ -848,9 +853,6 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
     def dyson_orbitals_with_other(self, other) -> None:
         pass
 
-    def getQMout(self) -> dict[str, np.ndarray]:
-        pass
-
     def read_requests(self, requests_file: str = "QM.in") -> None:
         super().read_requests(requests_file)
 
@@ -897,6 +899,75 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             if not version:
                 raise ValueError(f"No MOLCAS version found in {os.path.join(path, '.molcasversion')}")
         return int(version.group(1)), int(version.group(2))
+
+    def getQMout(self) -> dict[str, np.ndarray]:
+        """
+        Parse MOLCAS output files and return requested properties
+        """
+        # Allocate matrices
+        requests = set()
+        for key, val in self.QMin.requests.items():
+            if not val:
+                continue
+            requests.add(key)
+
+        self.log.debug("Allocate space in QMout object")
+        self.QMout.allocate(
+            states=self.QMin.molecule["states"],
+            natom=self.QMin.molecule["natom"],
+            npc=self.QMin.molecule["npc"],
+            requests=requests,
+        )
+        if self.QMin.requests["theodore"]:
+            theodore_arr = np.zeros(
+                (
+                    self.QMin.molecule["nmstates"],
+                    len(self.QMin.resources["theodore_prop"]) + len(self.QMin.resources["theodore_fragment"]) ** 2,
+                )
+            )
+
+        # Fill QMout
+        scratchdir = self.QMin.resources["scratchdir"]
+
+        if not self._hdf5:
+            with open(os.path.join(scratchdir, "master/MOLCAS.out"), "r", encoding="utf-8") as f:
+                master_out = f.read()
+        else:
+            master_out = h5py.File(os.path.join(scratchdir, "master/MOLCAS.rassi.h5"), "r+")
+
+        if self.QMin.requests["h"]:
+            np.einsum("ii->i", self.QMout["h"])[:] = self._get_energy(master_out)
+
+    def _get_energy(self, output_file: str | h5py.File) -> np.ndarray:
+        """
+        Extract energies from outputfile
+        """
+        energies = None
+        if isinstance(output_file, str):
+            match self.QMin.template["method"]:
+                case "casscf":
+                    energies = re.findall(r"RASSCF root number\s+\d+\s+Total energy:\s+(.*)\n", output_file)
+                    del energies[self.QMin.molecule["states"][0]]  # Delete extra singlet
+                case "xms-caspt2" | "caspt2":
+                    energies = re.findall(r"CASPT2 Root\s+\d+\s+Total energy:\s+(.*)\n", output_file)
+                case "ms-caspt2":
+                    energies = re.findall(r"MS-CASPT2 Root\s+\d+\s+Total energy:\s+(.*)\n", output_file)
+                case "cms-pdft":
+                    energies = re.findall(r"CMS-PDFT Root\s+\d+\s+Total energy:\s+(.*)\n", output_file)
+                    del energies[self.QMin.molecule["states"][0]]  # Delete extra singlet
+        else:
+            energies = output_file["SFS_ENERGIES"][:].tolist()
+
+        if energies is None:
+            self.log.error("No energies found in output file!")
+            raise ValueError()
+
+        # Expand energy list by multiplicity
+        states = self.QMin.molecule["states"]
+        expandend_energies = []
+        for i in range(len(states)):
+            expandend_energies += energies[sum(states[:i]) : sum(states[: i + 1])] * (i + 1)
+        return np.asarray(convert_list(expandend_energies, complex))
 
 
 if __name__ == "__main__":
