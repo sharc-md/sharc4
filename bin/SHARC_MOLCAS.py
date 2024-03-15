@@ -241,6 +241,10 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             self.log.warning("mpi_parallel not set but ncpu > 1, changeing ncpu to 1")
             self.QMin.resources["ncpu"] = 1
 
+        # Set RAM limit
+        os.environ["MOLCASMEM"] = str(self.QMin.resources["memory"])
+        os.environ["MOLCAS_MEM"] = str(self.QMin.resources["memory"])
+
     def read_template(self, template_file: str = "MOLCAS.template", kw_whitelist: list[str] | None = None) -> None:
         super().read_template(template_file, kw_whitelist)
 
@@ -442,6 +446,8 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         writefile(os.path.join(workdir, "MOLCAS.xyz"), self._write_geom(qmin.molecule["elements"], qmin.coords["coords"]))
         writefile(os.path.join(workdir, "MOLCAS.input"), self._write_input(self._gen_tasklist(qmin), qmin))
 
+        # Set env variable for master path
+        os.environ["master_path"] = os.path.join(qmin.resources["scratchdir"], "master")
         # Copy JobIphs if not master job
         if not qmin.control["master"]:
             self._copy_run_files(workdir)
@@ -467,8 +473,12 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         """
         Copy files from master to grad/nac folder
         """
-        
-
+        self.log.debug("Copy run files from master")
+        re_runfiles = ("ChVec", "QVec", "ChRed", "ChDiag", "ChRst", "ChMap", "RunFile", "GRIDFILE", "NqGrid")
+        for file in os.listdir(os.path.join(self.QMin.resources["scratchdir"], "master")):
+            if any(i in file for i in re_runfiles):
+                shutil.copy(os.path.join(self.QMin.resources["scratchdir"], "master", file), os.path.join(workdir, file))
+        shutil.copy(os.path.join(self.QMin.resources["scratchdir"], "master/MOLCAS.OneInt"), os.path.join(workdir, "ONEINT"))
 
     def _gen_tasklist(self, qmin: QMin) -> list[list[Any]]:
         """
@@ -498,10 +508,10 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                     pass
                 case {"always_orb_init": True} | {"init": True}:
                     if os.path.isfile(os.path.join(qmin.resources["pwd"], f"MOLCAS.{mult+1}.JobIph.init")):
-                        tasks.append(["link", os.path.join(qmin.resources["pwd"], f"MOLCAS.{mult+1}.JobIph.init"), "JOBOLD"])
+                        tasks.append(["copy", os.path.join(qmin.resources["pwd"], f"MOLCAS.{mult+1}.JobIph.init"), "JOBOLD"])
                         is_jobiph = True
                     elif os.path.isfile(os.path.join(qmin.resources["pwd"], f"MOLCAS.{mult+1}.RasOrb.init")):
-                        tasks.append(["link", os.path.join(qmin.resources["pwd"], f"MOLCAS.{mult+1}.RasOrb.init"), "INPORB"])
+                        tasks.append(["copy", os.path.join(qmin.resources["pwd"], f"MOLCAS.{mult+1}.RasOrb.init"), "INPORB"])
                         is_rasorb = True
                 case {"samestep": True}:
                     tasks.append(
@@ -511,7 +521,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 case _:
                     tasks.append(
                         [
-                            "link",
+                            "copy",
                             os.path.join(qmin.save["savedir"], f"MOLCAS.{mult+1}.JobIph.{qmin.save['step']-1}"),
                             "JOBOLD",
                         ]
@@ -603,65 +613,66 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         Generate tasklist for nac/grad jobs
         """
         tasks = []
-        for mult, states in list((i, j) for i, j in enumerate(qmin.molecule["states"])):
-            if states == 0:
-                continue
-            for grad in qmin.maps["gradmap"]:
-                if grad[0] == mult + 1:
-                    if qmin.template["roots"][mult] == 1:
-                        tasks.append(["rasscf", mult + 1, qmin.template["roots"][mult], True, False])
-                        if qmin.template["method"] in ("ms-caspt2", "xms-caspt2"):
-                            self.log.error("Single state gradient with MS/XMS-CASPT2")
-                            raise ValueError()
-                        tasks.append(["alaska"])
-                    else:
-                        tasks.append(["link", f"MOLCAS.{mult+1}.JobIph", "JOBOLD"])
-                        match qmin.template["method"]:
-                            case "cms-pdft":
-                                tasks.append(
-                                    ["copy", os.path.join(qmin.save["savedir"], f"Do_Rotate.{mult+1}.txt"), "Do_Rotate.txt"]
-                                )
-                                tasks.append(
-                                    [
-                                        "rasscf",
-                                        mult + 1,
-                                        qmin.template["roots"][mult],
-                                        True,
-                                        False,
-                                        [f"RLXROOT={grad[1]}", "CMSI"],
-                                    ]
-                                )
-                                tasks.append(["mcpdft", [f"KSDFT={qmin.template['functional']}", "GRAD", "MSPDFT", "WJOB"]])
-                                tasks.append(["alaska", grad[1]])
-                            case "casscf":  # TODO: CIRESTART
-                                tasks.append(["rasscf", mult + 1, qmin.template["roots"][mult], True, False])
-                                tasks.append(["mclr", qmin.template["gradaccudefault"], f"sala={grad[1]}"])
-                                tasks.append(["alaska"])
-                            case "ms-caspt2" | "xms-caspt2":
-                                tasks.append(["rasscf", mult + 1, qmin.template["roots"][mult], True, False])
-                                tasks.append(["caspt2", mult + 1, states, qmin.template["method"], f"GRDT\nrlxroot = {grad[1]}"])
-                                tasks.append(["mclr", qmin.template["gradaccudefault"]])
-                                tasks.append(["alaska"])
 
-            for nac in qmin.maps["nacmap"]:
-                if nac[0] == mult + 1:
-                    tasks.append(["link", f"MOLCAS.{mult+1}.JobIph", "JOBOLD"])
-                    match qmin.template["method"]:
-                        case "casscf":
-                            tasks.append(["rasscf", mult + 1, qmin["template"]["roots"][mult], True, False])
-                            tasks.append(["mclr", qmin["template"]["gradaccudefault"], f"nac={nac[1]} {nac[3]}"])
-                            tasks.append(["alaska"])
-                        case "cms-pdft":
-                            tasks.append(["copy", os.path.join(qmin.save["savedir"], f"Do_Rotate.{mult+1}.txt"), "Do_Rotate.txt"])
-                            tasks.append(["rasscf", mult + 1, qmin["template"]["roots"][mult], True, False, ["CMSI"]])
-                            tasks.append(["mcpdft", [f"KSDFT={qmin.template['functional']}", "GRAD", "MSPDFT", "WJOB"]])
-                            tasks.append(["mclr", qmin.template["gradaccudefault"], f"nac={nac[1]} {nac[3]}"])
-                            tasks.append(["alaska"])
-                        case "ms-caspt2" | "xms-caspt2":
-                            tasks.append(["rasscf", mult + 1, qmin["template"]["roots"][mult], True, False])
-                            tasks.append(["caspt2", mult + 1, states, qmin.template["method"], f"GRDT\nnac = {nac[1]} {nac[3]}"])
-                            tasks.append(["alaska", nac[1], nac[3]])
-            
+        if qmin.maps["gradmap"]:
+            grad = list(qmin.maps["gradmap"])[0]
+            mult = grad[0] - 1
+            states = qmin.molecule["states"][mult]
+            if qmin.template["roots"][mult] == 1:
+                tasks.append(["rasscf", mult + 1, qmin.template["roots"][mult], True, False])
+                if qmin.template["method"] in ("ms-caspt2", "xms-caspt2"):
+                    self.log.error("Single state gradient with MS/XMS-CASPT2")
+                    raise ValueError()
+                tasks.append(["alaska"])
+            else:
+                tasks.append(["copy", f"$master_path/MOLCAS.{mult+1}.JobIph", "JOBOLD"])
+                match qmin.template["method"]:
+                    case "cms-pdft":
+                        tasks.append(["copy", os.path.join(qmin.save["savedir"], f"Do_Rotate.{mult+1}.txt"), "Do_Rotate.txt"])
+                        tasks.append(
+                            [
+                                "rasscf",
+                                mult + 1,
+                                qmin.template["roots"][mult],
+                                True,
+                                False,
+                                [f"RLXROOT={grad[1]}", "CMSI"],
+                            ]
+                        )
+                        tasks.append(["mcpdft", [f"KSDFT={qmin.template['functional']}", "GRAD", "MSPDFT", "WJOB"]])
+                        tasks.append(["alaska", grad[1]])
+                    case "casscf":  # TODO: CIRESTART
+                        tasks.append(["rasscf", mult + 1, qmin.template["roots"][mult], True, False])
+                        tasks.append(["mclr", qmin.template["gradaccudefault"], f"sala={grad[1]}"])
+                        tasks.append(["alaska"])
+                    case "ms-caspt2" | "xms-caspt2":
+                        tasks.append(["rasscf", mult + 1, qmin.template["roots"][mult], True, False])
+                        tasks.append(["caspt2", mult + 1, states, qmin.template["method"], f"GRDT\nrlxroot = {grad[1]}"])
+                        tasks.append(["mclr", qmin.template["gradaccudefault"]])
+                        tasks.append(["alaska"])
+
+        if qmin.maps["nacmap"]:
+            nac = list(qmin.maps["nacmap"])[0]
+            mult = nac[0] - 1
+            states = qmin.molecule["states"][mult]
+            tasks.append(["copy", f"$master_path/MOLCAS.{mult + 1}.JobIph", f"MOLCAS.{mult + 1}.JobIph"])
+            tasks.append(["link", f"MOLCAS.{mult+1}.JobIph", "JOBOLD"])
+            match qmin.template["method"]:
+                case "casscf":
+                    tasks.append(["rasscf", mult + 1, qmin["template"]["roots"][mult], True, False])
+                    tasks.append(["mclr", qmin["template"]["gradaccudefault"], f"nac={nac[1]} {nac[3]}"])
+                    tasks.append(["alaska"])
+                case "cms-pdft":
+                    tasks.append(["copy", os.path.join(qmin.save["savedir"], f"Do_Rotate.{mult+1}.txt"), "Do_Rotate.txt"])
+                    tasks.append(["rasscf", mult + 1, qmin["template"]["roots"][mult], True, False, ["CMSI"]])
+                    tasks.append(["mcpdft", [f"KSDFT={qmin.template['functional']}", "GRAD", "MSPDFT", "WJOB"]])
+                    tasks.append(["mclr", qmin.template["gradaccudefault"], f"nac={nac[1]} {nac[3]}"])
+                    tasks.append(["alaska"])
+                case "ms-caspt2" | "xms-caspt2":
+                    tasks.append(["rasscf", mult + 1, qmin["template"]["roots"][mult], True, False])
+                    tasks.append(["caspt2", mult + 1, states, qmin.template["method"], f"GRDT\nnac = {nac[1]} {nac[3]}"])
+                    tasks.append(["alaska", nac[1], nac[3]])
+
             tasks += self._gen_property_tasks(qmin, mult, states)
         return tasks
 
@@ -734,21 +745,21 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         input_str += f"IPEASHIFT={qmin.template['ipea'] : 4.2f}\nMAXITER=120\n"
         if qmin.template["frozen"]:
             input_str += f"FROZEN={qmin.template['frozen']}\n"
-            match qmin.template["method"]:
-                case "caspt2":
-                    input_str += "NOMULT\n"
-                case "ms-caspt2":
-                    input_str += f"MULTISTATE= {task[2]} "
-                case "xms-caspt2":
-                    input_str += f"XMULTISTATE= {task[2]} "
-            if qmin.template["method"] in ("ms-caspt2", "xms-caspt2"):
-                input_str += " ".join(str(i + 1) for i in range(task[2]))
-            input_str += "\nOUTPUT=BRIEF\nPRWF=0.1\n"
-            if qmin.template["pcmset"]:
-                input_str += "RFPERT\n"
-            if len(task) == 5:
-                input_str += task[4]
-            input_str += "\n"
+        match qmin.template["method"]:
+            case "caspt2":
+                input_str += "NOMULT\n"
+            case "ms-caspt2":
+                input_str += f"MULTISTATE= {task[2]} "
+            case "xms-caspt2":
+                input_str += f"XMULTISTATE= {task[2]} "
+        if qmin.template["method"] in ("ms-caspt2", "xms-caspt2"):
+            input_str += " ".join(str(i + 1) for i in range(task[2]))
+        input_str += "\nOUTPUT=BRIEF\nPRWF=0.1\n"
+        if qmin.template["pcmset"]:
+            input_str += "RFPERT\n"
+        if len(task) == 5:
+            input_str += task[4]
+        input_str += "\n"
         return input_str
 
     def _write_rasscf(self, qmin: QMin, task: list[Any]) -> str:
