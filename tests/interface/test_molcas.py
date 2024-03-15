@@ -146,7 +146,7 @@ def test_gettasks_init():
                 "grad_1_1": (
                     1,
                     [
-                        ["link", "MOLCAS.1.JobIph", "JOBOLD"],
+                        ["copy", "$master_path/MOLCAS.1.JobIph", "JOBOLD"],
                         ["rasscf", 1, 4, True, False],
                         ["mclr", 0.0001, "sala=1"],
                         ["alaska"],
@@ -189,7 +189,7 @@ def test_gettasks_init():
                 "grad_1_2": (
                     1,
                     [
-                        ["link", "MOLCAS.1.JobIph", "JOBOLD"],
+                        ["copy", "$master_path/MOLCAS.1.JobIph", "JOBOLD"],
                         ["rasscf", 1, 4, True, False],
                         ["mclr", 0.0001, "sala=2"],
                         ["alaska"],
@@ -222,7 +222,7 @@ def test_gettasks_init():
                 "grad_1_1": (
                     1,
                     [
-                        ["link", "MOLCAS.1.JobIph", "JOBOLD"],
+                        ["copy", "$master_path/MOLCAS.1.JobIph", "JOBOLD"],
                         ["rasscf", 1, 4, True, False],
                         ["mclr", 0.0001, "sala=1"],
                         ["alaska"],
@@ -231,6 +231,7 @@ def test_gettasks_init():
                 "nacdr_1_1_1_2": (
                     1,
                     [
+                        ["copy", "$master_path/MOLCAS.1.JobIph", "MOLCAS.1.JobIph"],
                         ["link", "MOLCAS.1.JobIph", "JOBOLD"],
                         ["rasscf", 1, 4, True, False],
                         ["mclr", 0.0001, "nac=1 2"],
@@ -238,14 +239,12 @@ def test_gettasks_init():
                         ["link", "MOLCAS.1.JobIph", "JOB001"],
                         ["link", "MOLCAS.JobIph", "JOB002"],
                         ["rassi", "overlap", [4, 4]],
-                        ["link", "MOLCAS.2.JobIph", "JOB001"],
-                        ["link", "MOLCAS.JobIph", "JOB002"],
-                        ["rassi", "overlap", [2, 2]],
                     ],
                 ),
                 "nacdr_1_1_1_3": (
                     1,
                     [
+                        ["copy", "$master_path/MOLCAS.1.JobIph", "MOLCAS.1.JobIph"],
                         ["link", "MOLCAS.1.JobIph", "JOBOLD"],
                         ["rasscf", 1, 4, True, False],
                         ["mclr", 0.0001, "nac=1 3"],
@@ -253,9 +252,6 @@ def test_gettasks_init():
                         ["link", "MOLCAS.1.JobIph", "JOB001"],
                         ["link", "MOLCAS.JobIph", "JOB002"],
                         ["rassi", "overlap", [4, 4]],
-                        ["link", "MOLCAS.2.JobIph", "JOB001"],
-                        ["link", "MOLCAS.JobIph", "JOB002"],
-                        ["rassi", "overlap", [2, 2]],
                     ],
                 ),
             },
@@ -317,7 +313,7 @@ def test_gettasks_init():
                 "grad_1_3": (
                     1,
                     [
-                        ["link", "MOLCAS.1.JobIph", "JOBOLD"],
+                        ["copy", "$master_path/MOLCAS.1.JobIph", "JOBOLD"],
                         ["rasscf", 1, 4, True, False],
                         ["caspt2", 1, 4, "ms-caspt2", "GRDT\nrlxroot = 3"],
                         ["mclr", 0.0001],
@@ -327,9 +323,7 @@ def test_gettasks_init():
                 "nacdr_2_1_2_2": (
                     1,
                     [
-                        ["link", "MOLCAS.1.JobIph", "JOB001"],
-                        ["link", "MOLCAS.JobIph", "JOB002"],
-                        ["rassi", "overlap", [4, 4]],
+                        ["copy", "$master_path/MOLCAS.2.JobIph", "MOLCAS.2.JobIph"],
                         ["link", "MOLCAS.2.JobIph", "JOBOLD"],
                         ["rasscf", 2, 2, True, False],
                         ["caspt2", 2, 2, "ms-caspt2", "GRDT\nnac = 1 2"],
@@ -353,12 +347,12 @@ def test_gettasks_init():
                         ["rasscf", 1, 4, False, False, ["CMSI"]],
                         ["copy", "MOLCAS.RasOrb", "MOLCAS.1.RasOrb"],
                         ["copy", "MOLCAS.rasscf.molden", "MOLCAS.1.molden"],
-                        ["mcpdft", ["KSDFT=tpbe", "noGrad", "MSPDFT", "WJOB", "CMMI=0", "CMSS=Do_Rotate.txt", "CMTH=1.0d-10"]],
+                        ["mcpdft", ["KSDFT=t:pbe", "noGrad", "MSPDFT", "WJOB", "CMMI=0", "CMSS=Do_Rotate.txt", "CMTH=1.0d-10"]],
                         ["copy", "MOLCAS.JobIph", "MOLCAS.1.JobIph"],
                         ["rasscf", 2, 2, False, False, ["CMSI"]],
                         ["copy", "MOLCAS.RasOrb", "MOLCAS.2.RasOrb"],
                         ["copy", "MOLCAS.rasscf.molden", "MOLCAS.2.molden"],
-                        ["mcpdft", ["KSDFT=tpbe", "noGrad", "MSPDFT", "WJOB", "CMMI=0", "CMSS=Do_Rotate.txt", "CMTH=1.0d-10"]],
+                        ["mcpdft", ["KSDFT=t:pbe", "noGrad", "MSPDFT", "WJOB", "CMMI=0", "CMSS=Do_Rotate.txt", "CMTH=1.0d-10"]],
                         ["copy", "MOLCAS.JobIph", "MOLCAS.2.JobIph"],
                         ["link", "MOLCAS.1.JobIph", "JOB001"],
                         ["rassi", "dm", [4]],
@@ -373,10 +367,10 @@ def test_gettasks_init():
                 "grad_1_1": (
                     1,
                     [
-                        ["link", "MOLCAS.1.JobIph", "JOBOLD"],
+                        ["copy", "$master_path/MOLCAS.1.JobIph", "JOBOLD"],
                         ["copy", f"{os.getcwd()}/SAVE/Do_Rotate.1.txt", "Do_Rotate.txt"],
                         ["rasscf", 1, 4, True, False, ["RLXROOT=1", "CMSI"]],
-                        ["mcpdft", ["KSDFT=tpbe", "GRAD", "MSPDFT", "WJOB"]],
+                        ["mcpdft", ["KSDFT=t:pbe", "GRAD", "MSPDFT", "WJOB"]],
                         ["alaska", 1],
                     ],
                 ),
@@ -413,7 +407,7 @@ def test_gettasks_init():
                 "grad_1_1": (
                     1,
                     [
-                        ["link", "MOLCAS.1.JobIph", "JOBOLD"],
+                        ["copy", "$master_path/MOLCAS.1.JobIph", "JOBOLD"],
                         ["rasscf", 1, 4, True, False],
                         ["caspt2", 1, 4, "xms-caspt2", "GRDT\nrlxroot = 1"],
                         ["mclr", 0.0001],
@@ -545,7 +539,7 @@ def test_gettasks():
                 assert tasks == v[1], f"Key: {k}, QMin: {qmin}"
             except Exception as exc:
                 shutil.rmtree(os.path.join(os.getcwd(), "SAVE"))
-                raise RuntimeError(exc)
+                raise exc
 
 
 def test_write_geom():
