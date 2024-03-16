@@ -50,8 +50,8 @@ def get_grads(outfile: str, template: str, qmin: str, grads: list, grads_pc: lis
     test_interface.read_requests(qmin)
     parsed = test_interface._get_grad(outfile)
     parsed_pc = test_interface._get_grad_pc(outfile)
-    np.allclose(parsed, grads, rtol=1e-8)
-    np.allclose(parsed_pc, grads_pc, rtol=1e-8)
+    assert np.allclose(parsed, grads, rtol=1e-8)
+    assert np.allclose(parsed_pc, grads_pc, rtol=1e-8)
 
 def get_nacs(logfile:str, fortfile: str, template: str, qmin: str, nacs: list, nacs_pc: list):
     test_interface = SHARC_MNDO()
@@ -61,14 +61,16 @@ def get_nacs(logfile:str, fortfile: str, template: str, qmin: str, nacs: list, n
     test_interface.setup_interface()
     test_interface.read_requests(qmin)
     states, interstates = test_interface._get_states_interstates(logfile)
-    energies = test_interface._get_energy(logfile)
+    file = open(logfile, "r")
+    output = file.read()
+    energies = test_interface._get_energy(output)
     test_interface.QMout["h"] = np.zeros((max(states)+1,max(states)+1))
     for i in range(len(energies)):
         test_interface.QMout["h"][i][i] = energies[(1, i + 1)]
     parsed = test_interface._get_nacs(fortfile, interstates)
     parsed_pc = test_interface._get_nacs_pc(fortfile, interstates)
-    np.allclose(parsed, nacs, rtol=1e-8)
-    np.allclose(parsed_pc, nacs_pc, rtol=1e-8)
+    assert np.allclose(parsed, nacs, rtol=1e-8)
+    assert np.allclose(parsed_pc, nacs_pc, rtol=1e-8)
                 
 
 def test_requests1():

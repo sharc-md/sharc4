@@ -624,7 +624,7 @@ mocoef
         log_path:  Path to fort.15 file
         """
         nmstates = self.QMin.molecule["nmstates"]
-        grad = [y for x,y in self.QMin["maps"]["gradmap"]]
+        grad = [y - 1 for x,y in self.QMin["maps"]["gradmap"]]
         natom = self.QMin.molecule["natom"]
         f = readfile(log_path)
 
@@ -634,7 +634,6 @@ mocoef
             if regexp.search(line):
                 line_marker.append(iline + 1)
 
-                
         grads = np.zeros((nmstates,natom,3))
         
         for l, st in enumerate(grad):
@@ -642,9 +641,9 @@ mocoef
             for j in range(natom):
                 line = f[iline]
                 s = line.split()
-                grads[int(st) - 1][j][0] = float(s[-4]) * KCAL_TO_EH * BOHR_TO_ANG
-                grads[int(st) - 1][j][1] = float(s[-3]) * KCAL_TO_EH * BOHR_TO_ANG
-                grads[int(st) - 1][j][2] = float(s[-2]) * KCAL_TO_EH * BOHR_TO_ANG
+                grads[st, j, 0] =  float(s[-4]) * KCAL_TO_EH * BOHR_TO_ANG
+                grads[st, j, 1] =  float(s[-3]) * KCAL_TO_EH * BOHR_TO_ANG
+                grads[st, j, 2] =  float(s[-2]) * KCAL_TO_EH * BOHR_TO_ANG
                 iline += 1
 
         return grads
@@ -656,7 +655,7 @@ mocoef
         log_path:  Path to gradient file
         """
         nmstates = self.QMin.molecule["nmstates"]
-        grad = [y for x,y in self.QMin["maps"]["gradmap"]]
+        grad = [y - 1 for x,y in self.QMin["maps"]["gradmap"]]
         ncharges = self.QMin.molecule["npc"]
         f = readfile(log_path)
 
@@ -674,9 +673,9 @@ mocoef
             for j in range(ncharges):
                 line = f[iline]
                 s = line.split()
-                grads[int(st) - 1][j][0] = float(s[-3]) * KCAL_TO_EH * BOHR_TO_ANG
-                grads[int(st) - 1][j][1] = float(s[-2]) * KCAL_TO_EH * BOHR_TO_ANG
-                grads[int(st) - 1][j][2] = float(s[-1]) * KCAL_TO_EH * BOHR_TO_ANG
+                grads[st, j, 0] =  float(s[-3]) * KCAL_TO_EH * BOHR_TO_ANG
+                grads[st, j, 1] =  float(s[-2]) * KCAL_TO_EH * BOHR_TO_ANG
+                grads[st, j, 2] =  float(s[-1]) * KCAL_TO_EH * BOHR_TO_ANG
                 iline += 1
 
         return grads
@@ -711,7 +710,7 @@ mocoef
             for j in range(natom):
                 line = f[iline]
                 s = line.split()
-                nac[s1, s2, j, 0] =  float(s[-4])   # 1/Ang --> 1/a_0 or kcal/mol*Ang --> 1/a_0 ?
+                nac[s1, s2, j, 0] =  float(s[-4])   # kcal/mol*Ang --> 1/a_0
                 nac[s1, s2, j, 1] =  float(s[-3])
                 nac[s1, s2, j, 2] =  float(s[-2])
                 nac[s2, s1, j, 0] = -float(s[-4])
@@ -719,8 +718,9 @@ mocoef
                 nac[s2, s1, j, 2] = -float(s[-2])
 
                 iline += 1
-            nac[s1,s2,...] = nac[s1,s2,...] * KCAL_TO_EH * BOHR_TO_ANG / dE
-            nac[s2,s1,...] = nac[s2,s1,...] * KCAL_TO_EH * BOHR_TO_ANG / dE
+            if (dE != 0.0):
+                nac[s1,s2,...] = nac[s1,s2,...] * KCAL_TO_EH * BOHR_TO_ANG / dE
+                nac[s2,s1,...] = nac[s2,s1,...] * KCAL_TO_EH * BOHR_TO_ANG / dE
         
         return nac
     
@@ -748,19 +748,20 @@ mocoef
         # make nac matrix
         for i, (s1, s2) in enumerate(interstates):
             iline = line_marker[i]
-            dE = self.QMout["h"][s2, s2] - self.QMout["h"][s1, s1] 
+            dE = self.QMout["h"][s2, s2] - self.QMout["h"][s1, s1]
             for j in range(ncharges):
                 line = f[iline]
                 s = line.split() 
-                nac[s1, s2, j, 0] =  float(s[-3])# 1/Ang --> 1/a_0
+                nac[s1, s2, j, 0] =  float(s[-3])  # kcal/mol*Ang --> 1/a_0 
                 nac[s1, s2, j, 1] =  float(s[-2])
                 nac[s1, s2, j, 2] =  float(s[-1])
                 nac[s2, s1, j, 0] = -float(s[-3])
                 nac[s2, s1, j, 1] = -float(s[-2])
                 nac[s2, s1, j, 2] = -float(s[-1])
                 iline += 1
-            nac[s1,s2,...] = nac[s1,s2,...] * KCAL_TO_EH * BOHR_TO_ANG / dE
-            nac[s2,s1,...] = nac[s2,s1,...] * KCAL_TO_EH * BOHR_TO_ANG / dE
+            if (dE != 0.0):
+                nac[s1,s2,...] = nac[s1,s2,...] * KCAL_TO_EH * BOHR_TO_ANG / dE
+                nac[s2,s1,...] = nac[s2,s1,...] * KCAL_TO_EH * BOHR_TO_ANG / dE
 
         return nac
 
@@ -1016,6 +1017,7 @@ mocoef
         kharge = qmin["template"]["kharge"]
         kitscf = qmin["template"]["kitscf"]
         imomap = qmin["template"]["imomap"]
+
 
         if qmin["molecule"]["point_charges"]:
             inputstring = f"iop=-6 jop=-2 imult=0 iform=1 igeom=1 mprint=1 icuts=-1 icutg=-1 dstep=1e-5 kci=5 ioutci=1 iroot={iroot} icross=7 ncigrd={ncigrd} inac=0 imomap={imomap} iscf=11 iplscf=11 kitscf={kitscf} ici1={ici1} ici2={ici2} movo={movo} nciref={nciref} mciref=3 levexc=6 iuvcd=3 nsav13=2 kharge={kharge} multci=1 cilead=1 ncisym=-1 numatm={ncharges} mmcoup=2 mmfile=1 mmskip=0 mminp=2 nsav15=9"

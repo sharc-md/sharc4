@@ -27,7 +27,7 @@ act_orbs 4 6 7
 ## iroot 4
 
 ## Activate point charges. mm 0 --> deactivate QM/MM, mm 2 -> read point charges from fort.20
-##minp 2
+## minp 2
 
 ## Number of point charges
 ##numatm 1
