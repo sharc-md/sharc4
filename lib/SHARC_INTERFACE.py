@@ -38,13 +38,13 @@ from textwrap import wrap
 from typing import Any
 
 import numpy as np
-
 # internal
 from constants import ATOMCHARGE, BOHR_TO_ANG
 from logger import SHARCPRINT, TRACE, CustomFormatter, logging, loglevel
 from qmin import QMin
 from qmout import QMout
-from utils import clock, convert_list, electronic_state, expand_path, itnmstates, parse_xyz, readfile, writefile, batched
+from utils import (batched, clock, convert_list, electronic_state, expand_path,
+                   itnmstates, parse_xyz, readfile, writefile)
 
 np.set_printoptions(linewidth=400, formatter={"float": lambda x: f"{x: 9.7}"})
 all_features = {
@@ -799,7 +799,7 @@ class SHARC_INTERFACE(ABC):
             last_step = int(readfile(stepfile)[0])
         self.log.debug(f"{last_step =}, {self.QMin.save['step']=}")
 
-        if not self.QMin.save["step"]:
+        if self.QMin.save["step"] is None:
             if last_step is not None:
                 self.QMin.save["newstep"] = True
                 self.QMin.save["step"] = last_step + 1
@@ -928,7 +928,9 @@ class SHARC_INTERFACE(ABC):
             os.mkdir(self.QMin.save["savedir"])
 
         self.log.debug(f'{self.name()}: step: {self.QMin.save["step"]}')
-        self.log.debug(f'overlap: {self.QMin.requests["overlap"]}, phases: {self.QMin.requests["phases"]}, init: {self.QMin.save["init"]}')
+        self.log.debug(
+            f'overlap: {self.QMin.requests["overlap"]}, phases: {self.QMin.requests["phases"]}, init: {self.QMin.save["init"]}'
+        )
         assert not (
             (self.QMin.requests["overlap"] or self.QMin.requests["phases"]) and self.QMin.save["init"]
         ), '"overlap" and "phases" cannot be calculated in the first timestep!'
@@ -943,15 +945,14 @@ class SHARC_INTERFACE(ABC):
         writefile(stepfile, str(self.QMin.save["step"]))
 
     def update_step(self, step: int = None) -> None:
-        '''
+        """
         sets the step variable im QMin object or increments the current step by +1
         should be called after a successful step
-        '''
+        """
         if step is None:
-            self.QMin.save['step'] += 1
+            self.QMin.save["step"] += 1
         else:
-            self.QMin.save['step'] = step
-
+            self.QMin.save["step"] = step
 
     def writeQMout(self, filename: str = "QM.out") -> None:
         """

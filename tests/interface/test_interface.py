@@ -2,6 +2,7 @@ import pytest
 import os
 from utils import expand_path
 from SHARC_INTERFACE import SHARC_INTERFACE
+import shutil
 
 SHARC_INTERFACE.__abstractmethods__ = set()
 
@@ -324,12 +325,16 @@ def test_driver_requests():
             },
         ),
     ]
+    with open("SAVE/STEP", "w", encoding="utf-8") as file:
+        file.write("1")
     for qmin, tasks, ref in tests:
         test_interface = SHARC_INTERFACE()
         test_interface.setup_mol(qmin)
+        # test_interface.QMin.save["step"] = 1
         test_interface._set_driver_requests(tasks)
         for k, v in ref.items():
             assert test_interface.QMin.requests[k] == v
+    shutil.rmtree("SAVE")
 
 
 def test_resources1():
