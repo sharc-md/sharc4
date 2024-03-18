@@ -46,7 +46,7 @@ class QMout:
     dmdr_pc: ndarray[float, 5]
     multipolar_fit: ndarray[float, 4]
     density_matrices: dict
-    mol: pyscf.gto.Mole 
+    mol: pyscf.gto.Mole
     #dyson_orbitals: dict[tuple(electronic_state,electronic_state,str), ndarray[float,1] ]
 
     def __init__(self, filepath=None, states: list[int] = None, natom: int = None, npc: int = None, charges: list[int] = None):
@@ -55,12 +55,14 @@ class QMout:
         self.prop2d = []
         self.notes = {}
         self.runtime = 0
-        if states is not None and natom is not None and npc is not None:
+        if states is not None:
             self.states = states
-            self.natom = natom
-            self.npc = npc
             self.nmstates = sum((i + 1) * n for i, n in enumerate(self.states))
             self.nstates = sum(self.states)
+        if natom is not None:
+            self.natom = natom
+        if npc is not None:
+            self.npc = npc
             self.point_charges = self.npc > 0
         if filepath is not None:
             # initialize the entire object from a QM.out file
@@ -83,6 +85,11 @@ class QMout:
                     continue
                 # get flag
                 flag = int(data[iline].split()[1])
+                # skip unwanted flags
+                # if flags != "all" and flag != 0 and flag not in flags:
+                    # n1, n2 = data[iline].spit()[-2].split('x')[0:2]
+                    # iline += int(n1) * int(n2)
+
                 log.debug(f"Parsing flag: {flag}")
                 match flag:
                     case 0: # basis info
@@ -1035,7 +1042,7 @@ class QMout:
             "! 25 Basis set in the PySCF format (dict, 1 line)\n"
         )
         string += str(self.mol.basis)+'\n'
-        return string 
+        return string
 
     def writeQMoutDysonOrbitals(self) -> str:
         setting_str = ""
