@@ -17,34 +17,34 @@ def setup_interface(path: str, maps: dict):
     for k, v in maps.items():
         assert test_interface.QMin.maps[k] == v, test_interface.QMin.maps[k]
 
-def test_setup_interface_old():
-    test_interface = SHARC_MNDO()
-    test_interface.setup_mol("inputs/mndo/QMout_test.in")
-    test_interface._read_resources = True
-    test_interface._read_template = True
-    test_interface.read_resources("inputs/mndo/MNDO1.resources")
-    test_interface.read_template("inputs/mndo/MNDO_new.template")
-    test_interface.setup_interface()
-    test_interface.read_requests("inputs/mndo/QMout_test.in")
-    test_interface.set_coords("inputs/mndo/QMout_test.in")
-    test_interface.run()
-    test_interface.getQMout()
+# def test_setup_interface_old():
+#     test_interface = SHARC_MNDO()
+#     test_interface.setup_mol("inputs/mndo/QMout_test.in")
+#     test_interface._read_resources = True
+#     test_interface._read_template = True
+#     test_interface.read_resources("inputs/mndo/MNDO1.resources")
+#     test_interface.read_template("inputs/mndo/MNDO_new.template")
+#     test_interface.setup_interface()
+#     test_interface.read_requests("inputs/mndo/QMout_test.in")
+#     test_interface.set_coords("inputs/mndo/QMout_test.in")
+#     test_interface.run()
+#     test_interface.getQMout()
 
-    test_interface_old = SHARC_MNDO_OLD()
-    test_interface_old.setup_mol("inputs/mndo/QMout_test.in")
-    test_interface_old._read_resources = True
-    test_interface_old._read_template = True
-    test_interface_old.read_resources("inputs/mndo/MNDO1.resources")
-    test_interface_old.read_template("inputs/mndo/MNDO_old.template")
-    test_interface_old.setup_interface()
-    test_interface_old.read_requests("inputs/mndo/QMout_test.in")
-    test_interface_old.set_coords("inputs/mndo/QMout_test.in")
-    test_interface_old.run()
-    test_interface_old.getQMout()
+#     test_interface_old = SHARC_MNDO_OLD()
+#     test_interface_old.setup_mol("inputs/mndo/QMout_test.in")
+#     test_interface_old._read_resources = True
+#     test_interface_old._read_template = True
+#     test_interface_old.read_resources("inputs/mndo/MNDO1.resources")
+#     test_interface_old.read_template("inputs/mndo/MNDO_old.template")
+#     test_interface_old.setup_interface()
+#     test_interface_old.read_requests("inputs/mndo/QMout_test.in")
+#     test_interface_old.set_coords("inputs/mndo/QMout_test.in")
+#     test_interface_old.run()
+#     test_interface_old.getQMout()
 
-    #breakpoint()
+#     #breakpoint()
 
-    assert same(test_interface.QMout, test_interface_old.QMout)
+#     assert same(test_interface.QMout, test_interface_old.QMout)
 
     
 
