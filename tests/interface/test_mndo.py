@@ -2,6 +2,7 @@ import pytest
 import os
 import numpy as np
 from SHARC_MNDO import SHARC_MNDO
+from SHARC_MNDO_OLD import SHARC_MNDO_OLD
 from utils import expand_path
 
 PATH = expand_path("$SHARC/../tests/interface")
@@ -16,6 +17,36 @@ def setup_interface(path: str, maps: dict):
     for k, v in maps.items():
         assert test_interface.QMin.maps[k] == v, test_interface.QMin.maps[k]
 
+def test_setup_interface_old():
+    test_interface = SHARC_MNDO()
+    test_interface.setup_mol("inputs/mndo/QMout_test.in")
+    test_interface._read_resources = True
+    test_interface._read_template = True
+    test_interface.read_resources("inputs/mndo/MNDO1.resources")
+    test_interface.read_template("inputs/mndo/MNDO_new.template")
+    test_interface.setup_interface()
+    test_interface.read_requests("inputs/mndo/QMout_test.in")
+    test_interface.set_coords("inputs/mndo/QMout_test.in")
+    test_interface.run()
+    test_interface.getQMout()
+
+    test_interface_old = SHARC_MNDO_OLD()
+    test_interface_old.setup_mol("inputs/mndo/QMout_test.in")
+    test_interface_old._read_resources = True
+    test_interface_old._read_template = True
+    test_interface_old.read_resources("inputs/mndo/MNDO1.resources")
+    test_interface_old.read_template("inputs/mndo/MNDO_old.template")
+    test_interface_old.setup_interface()
+    test_interface_old.read_requests("inputs/mndo/QMout_test.in")
+    test_interface_old.set_coords("inputs/mndo/QMout_test.in")
+    test_interface_old.run()
+    test_interface_old.getQMout()
+
+    #breakpoint()
+
+    assert same(test_interface.QMout, test_interface_old.QMout)
+
+    
 
 def get_energy(outfile: str, template: str, qmin: str, energies: dict):
     test_interface = SHARC_MNDO()
@@ -27,7 +58,8 @@ def get_energy(outfile: str, template: str, qmin: str, energies: dict):
     with open(outfile, "r", encoding="utf-8") as file:
         parsed = test_interface._get_energy(file.read())
         for k, v in parsed.items():
-            assert v == pytest.approx(energies[k])
+            assert np.allclose(v ,energies[k], rtol=1e-5)
+
 
 def get_tdm(outfile: str, template: str, qmin: str, tdms: list):
     test_interface = SHARC_MNDO()
@@ -38,7 +70,8 @@ def get_tdm(outfile: str, template: str, qmin: str, tdms: list):
     test_interface.read_requests(qmin)
     parsed = test_interface._get_transition_dipoles(outfile)
     print(parsed)
-    np.allclose(parsed, tdms, rtol=1e-5)
+    print(tdms)
+    assert np.allclose(parsed, tdms, rtol=1e-5)
     
 
 def get_grads(outfile: str, template: str, qmin: str, grads: list, grads_pc: list):
@@ -334,3 +367,10 @@ def test_template_error():
             test_interface = SHARC_MNDO()
             test_interface.setup_mol(os.path.join(PATH, "inputs/mndo/QM1.in"))
             test_interface.read_template(os.path.join(PATH, template))
+
+def same(self, other):
+    if isinstance(self, other.__class__):
+        A = self.nmstates == other.nmstates and self.natom == other.natom and self.npc == other.npc and self.point_charges == other.point_charges
+        B = self.states == other.states  and  np.allclose(self.h, other.h, rtol=1e-5) and  np.allclose(self.dm, other.dm, rtol=1e-5) and np.allclose(self.grad, other.grad, rtol=1e-5) and np.allclose(self.grad_pc, other.grad_pc, rtol=1e-5) and np.allclose(self.nacdr, other.nacdr, rtol=1e-5) and np.allclose(self.nacdr_pc, other.nacdr_pc, rtol=1e-5)
+        return A and B
+    return False

@@ -16,7 +16,7 @@ from qmin import QMin
 from SHARC_ABINITIO import SHARC_ABINITIO
 from utils import containsstring, expand_path, itmult, link, makecmatrix, mkdir, readfile, writefile
 
-__all__ = ["SHARC_MNDO"]
+__all__ = ["SHARC_MNDO_OLD"]
 
 AUTHORS = "Nadja K. Singer, Hans Georg Gallmetzer"
 VERSION = "0.2"
@@ -50,7 +50,7 @@ BOHR_TO_ANG = 0.529176125
 D2AU = 1 / 0.393456
 
 
-class SHARC_MNDO(SHARC_ABINITIO):
+class SHARC_MNDO_OLD(SHARC_ABINITIO):
     """
     SHARC interface for MNDO
     """
@@ -89,8 +89,15 @@ class SHARC_MNDO(SHARC_ABINITIO):
                 "kitscf": 5000,
                 "ici1": 0,
                 "ici2": 0,
+                "ncigrd": 0,
+                "dstep": 1e-6,
                 "act_orbs": [1],
+                "states": None,
+                "iroot": 1,
+                "mminp": 2,
+                "numatm": 0,
                 "movo": 0,
+                "grads": None,
                 "kharge": 0,
                 "imomap": 0,
             }
@@ -101,8 +108,15 @@ class SHARC_MNDO(SHARC_ABINITIO):
                 "kitscf": int,
                 "ici1": int,
                 "ici2": int,
+                "ncigrd": int,
+                "dstep": float,
                 "act_orbs": list,
+                "states": list,
+                "iroot": int,
+                "mminp": int,
+                "numatm": int,
                 "movo": int,
+                "grads": list,
                 "kharge": int,
                 "imomap": int,
             }
@@ -110,32 +124,31 @@ class SHARC_MNDO(SHARC_ABINITIO):
 
     @staticmethod
     def version() -> str:
-        return SHARC_MNDO._version
+        return SHARC_MNDO_OLD._version
 
     @staticmethod
     def versiondate() -> datetime.datetime:
-        return SHARC_MNDO._versiondate
+        return SHARC_MNDO_OLD._versiondate
 
     @staticmethod
     def changelogstring() -> str:
-        return SHARC_MNDO._changelogstring
+        return SHARC_MNDO_OLD._changelogstring
 
     @staticmethod
     def authors() -> str:
-        return SHARC_MNDO._authors
+        return SHARC_MNDO_OLD._authors
 
     @staticmethod
     def name() -> str:
-        return SHARC_MNDO._name
+        return SHARC_MNDO_OLD._name
 
     @staticmethod
     def description() -> str:
-        return SHARC_MNDO._description
+        return SHARC_MNDO_OLD._description
 
     @staticmethod
     def about() -> str:
-        return f"{SHARC_MNDO._name}\n{SHARC_MNDO._description}"
-
+        return f"{SHARC_MNDO_OLD._name}\n{SHARC_MNDO_OLD._description}"
 
     def get_features(self, KEYSTROKES: Optional[TextIOWrapper] = None) -> set[str]:
         """return availble features
@@ -145,7 +158,6 @@ class SHARC_MNDO(SHARC_ABINITIO):
         KEYSTROKES: object as returned by open() to be used with question()
         """
         return all_features
-
 
     def get_infos(self, INFOS: dict, KEYSTROKES: Optional[TextIOWrapper] = None) -> dict:
         """prepare INFOS obj
@@ -157,10 +169,8 @@ class SHARC_MNDO(SHARC_ABINITIO):
         """
         return INFOS
 
-
     def create_restart_files(self):
         pass
-
 
     def execute_from_qmin(self, workdir: str, qmin: QMin) -> tuple[int, datetime.timedelta]:
         """
@@ -176,10 +186,9 @@ class SHARC_MNDO(SHARC_ABINITIO):
         mkdir(workdir)
         
         step = self.QMin.save["step"]
-
         savedir = self.QMin.save["savedir"]
 
-        if step > 0 and self.QMin["template"]["imomap"] == 3:
+        if step > 1:
             orbital_tracking = os.path.join(workdir, "imomap.dat")
             saved_file = os.path.join(savedir, f"imomap.{step-1}")
             shutil.copy(saved_file, orbital_tracking)
@@ -223,7 +232,6 @@ class SHARC_MNDO(SHARC_ABINITIO):
 
         return exit_code, endtime - starttime
 
-
     def _save_files(self, workdir: str) -> None:
         """
         Save files (molden, mos) to savedir
@@ -237,6 +245,11 @@ class SHARC_MNDO(SHARC_ABINITIO):
         moldenfile = os.path.join(workdir, "molden.dat")
         tofile = os.path.join(savedir, f"molden.{step}")
         shutil.copy(moldenfile, tofile)
+
+        # orbital tracking file imomap.dat
+        orbital_tracking = os.path.join(workdir, "imomap.dat")
+        tofile = os.path.join(savedir, f"imomap.{step}")
+        shutil.copy(orbital_tracking, tofile)
 
         # MOs
         mos, MO_occ, *_ = self._get_MO_from_molden(moldenfile)
@@ -257,7 +270,6 @@ class SHARC_MNDO(SHARC_ABINITIO):
         writefile(det, determinants)
         return
 
-
     def saveGeometry(self):
         string = ""
         for label, atom in zip(self.QMin.molecule["elements"], self.QMin.coords["coords"]):
@@ -265,7 +277,6 @@ class SHARC_MNDO(SHARC_ABINITIO):
         filename = os.path.join(self.QMin.save["savedir"], f'geom.dat.{self.QMin.save["step"]}')
         writefile(filename, string)
         return
-
 
     def _get_MO_from_molden(self, molden_file: str):
         """
@@ -340,7 +351,6 @@ mocoef
             x += 1
         return string, MO_occ, len(AO), mo_coeff_matrix
 
-
     def _get_csfs(self, log_file: str, active_mos, nstates):
         # get CSF composition of states
 
@@ -372,7 +382,6 @@ mocoef
                     csf_ref[x[2]]["coeffs"][i] = float(x[1])
 
         return csf_ref
-
 
     def _decompose_csf(self, ms2, step):
         # ms2 is M_S value
@@ -445,7 +454,6 @@ mocoef
 
         return dets
 
-
     def _format_ci_vectors(self, ci_vectors, MO_occ, nstates):
 
         norb = len(MO_occ)
@@ -478,7 +486,6 @@ mocoef
             string += "\n"
 
         return string
-
 
     def _get_determinants(self, log_file, MO_occ, nstates):
 
@@ -518,7 +525,6 @@ mocoef
 
         return determinants
 
-
     def _get_active_space(self, log_file: str) -> dict:
         """get the active space from the log file"""
         # get active space
@@ -538,7 +544,6 @@ mocoef
                 break
 
         return active_mos
-
 
     def getQMout(self) -> None:
         """
@@ -603,7 +608,6 @@ mocoef
                     for j in range(nmstates):
                         self.QMout["overlap"][i][j] = self.getsmate(out, i + 1, j + 1)
 
-
     def _get_states_interstates(self, log_path: str):
         f = readfile(log_path)
         states = []
@@ -623,10 +627,9 @@ mocoef
                 s = line.split()
                 istate_a = int(s[7]) - 1
                 istate_b = int(s[8]) - 1
-                interstates.append((istate_a, istate_b))
+                interstates.append([istate_a, istate_b])
 
         return states, interstates
-
 
     def _get_grad(self, log_path: str) -> np.ndarray:
         """
@@ -635,8 +638,7 @@ mocoef
         log_path:  Path to fort.15 file
         """
         nmstates = self.QMin.molecule["nmstates"]
-
-        grad = [y - 1 for x,y in self.QMin["maps"]["gradmap"]]
+        grad = self.QMin.template["grads"]
         natom = self.QMin.molecule["natom"]
         f = readfile(log_path)
 
@@ -646,6 +648,7 @@ mocoef
             if regexp.search(line):
                 line_marker.append(iline + 1)
 
+                
         grads = np.zeros((nmstates,natom,3))
         
         for l, st in enumerate(grad):
@@ -653,19 +656,13 @@ mocoef
             for j in range(natom):
                 line = f[iline]
                 s = line.split()
-                if self.QMin.molecule["point_charges"]:                         # In the fort.15 file, depending if thhe calculation includs point charges or not, there is a different amount of columns for the gradients and NACs
-                    grads[st, j, 0] =  float(s[-4]) * KCAL_TO_EH * BOHR_TO_ANG  # kcal/Ang --> H/a0
-                    grads[st, j, 1] =  float(s[-3]) * KCAL_TO_EH * BOHR_TO_ANG
-                    grads[st, j, 2] =  float(s[-2]) * KCAL_TO_EH * BOHR_TO_ANG
-                else:
-                    grads[st, j, 0] =  float(s[-3]) * KCAL_TO_EH * BOHR_TO_ANG
-                    grads[st, j, 1] =  float(s[-2]) * KCAL_TO_EH * BOHR_TO_ANG
-                    grads[st, j, 2] =  float(s[-1]) * KCAL_TO_EH * BOHR_TO_ANG
+                grads[int(st) - 1][j][0] = float(s[2]) * KCAL_TO_EH * BOHR_TO_ANG
+                grads[int(st) - 1][j][1] = float(s[3]) * KCAL_TO_EH * BOHR_TO_ANG
+                grads[int(st) - 1][j][2] = float(s[4]) * KCAL_TO_EH * BOHR_TO_ANG
                 iline += 1
 
         return grads
-
-
+    
     def _get_grad_pc(self, log_path: str) -> np.ndarray:
         """
         Extract gradients from MNDO outfile
@@ -673,7 +670,7 @@ mocoef
         log_path:  Path to gradient file
         """
         nmstates = self.QMin.molecule["nmstates"]
-        grad = [y - 1 for x,y in self.QMin["maps"]["gradmap"]]
+        grad = self.QMin.template["grads"]
         ncharges = self.QMin.molecule["npc"]
         f = readfile(log_path)
 
@@ -691,13 +688,12 @@ mocoef
             for j in range(ncharges):
                 line = f[iline]
                 s = line.split()
-                grads[st, j, 0] =  float(s[-3]) * KCAL_TO_EH * BOHR_TO_ANG
-                grads[st, j, 1] =  float(s[-2]) * KCAL_TO_EH * BOHR_TO_ANG
-                grads[st, j, 2] =  float(s[-1]) * KCAL_TO_EH * BOHR_TO_ANG
+                grads[int(st) - 1][j][0] = float(s[2]) * KCAL_TO_EH * BOHR_TO_ANG
+                grads[int(st) - 1][j][1] = float(s[3]) * KCAL_TO_EH * BOHR_TO_ANG
+                grads[int(st) - 1][j][2] = float(s[4]) * KCAL_TO_EH * BOHR_TO_ANG
                 iline += 1
 
         return grads
-
 
     def _get_nacs(self, file_path: str, interstates):
         """
@@ -723,35 +719,22 @@ mocoef
         
         # make nac matrix
         # nac = np.fromiter(map(), count=).reshape()
-        for i, (s1, s2) in enumerate(interstates):
+        for i, ints in enumerate(interstates):
             iline = line_marker[i]
-            dE = self.QMout["h"][s2,s2].real - self.QMout["h"][s1,s1].real # In MNDO cannot calculate imaginary energies
+            dE = self.QMout["h"][ints[1]][ints[1]].real - self.QMout["h"][ints[0]][ints[0]].real
             for j in range(natom):
                 line = f[iline]
                 s = line.split()
-                if self.QMin.molecule["point_charges"]: #In the fort.15 file, depending if thhe calculation includs point charges or not, there is a different amount of columns for the gradients and NACs
-                    nac[s1, s2, j, 0] =  float(s[-4])   
-                    nac[s1, s2, j, 1] =  float(s[-3])
-                    nac[s1, s2, j, 2] =  float(s[-2])
-                    nac[s2, s1, j, 0] = -float(s[-4])
-                    nac[s2, s1, j, 1] = -float(s[-3])
-                    nac[s2, s1, j, 2] = -float(s[-2])
-                else: 
-                    nac[s1, s2, j, 0] =  float(s[-3])  
-                    nac[s1, s2, j, 1] =  float(s[-2])
-                    nac[s1, s2, j, 2] =  float(s[-1])
-                    nac[s2, s1, j, 0] = -float(s[-3])
-                    nac[s2, s1, j, 1] = -float(s[-2])
-                    nac[s2, s1, j, 2] = -float(s[-1])
-
+                nac[ints[0]][ints[1]][j][0] =  float(s[2]) * KCAL_TO_EH * BOHR_TO_ANG / dE   # 1/Ang --> 1/a_0 or kcal/mol*Ang --> 1/a_0 ?
+                nac[ints[0]][ints[1]][j][1] =  float(s[3]) * KCAL_TO_EH * BOHR_TO_ANG / dE
+                nac[ints[0]][ints[1]][j][2] =  float(s[4]) * KCAL_TO_EH * BOHR_TO_ANG / dE
+                nac[ints[1]][ints[0]][j][0] = -float(s[2]) * KCAL_TO_EH * BOHR_TO_ANG / dE
+                nac[ints[1]][ints[0]][j][1] = -float(s[3]) * KCAL_TO_EH * BOHR_TO_ANG / dE
+                nac[ints[1]][ints[0]][j][2] = -float(s[4]) * KCAL_TO_EH * BOHR_TO_ANG / dE
                 iline += 1
-            if (dE != 0.0):
-                nac[s1,s2,...] = nac[s1,s2,...] * KCAL_TO_EH * BOHR_TO_ANG / dE # kcal/mol*Ang --> 1/a_0
-                nac[s2,s1,...] = nac[s2,s1,...] * KCAL_TO_EH * BOHR_TO_ANG / dE
-        
+
         return nac
     
-
     def _get_nacs_pc(self, file_path: str, interstates):
         """
         Extract NACS from MNDO outfile
@@ -774,25 +757,22 @@ mocoef
         nac = np.zeros((nmstates, nmstates, ncharges, 3))
         
         # make nac matrix
-        for i, (s1, s2) in enumerate(interstates):
-            iline = line_marker[i] 
-            dE = self.QMout["h"][s2, s2].real - self.QMout["h"][s1, s1].real # In MNDO cannot calculate imaginary energies
+        # nac = np.fromiter(map(), count=).reshape()
+        for i, ints in enumerate(interstates):
+            iline = line_marker[i]
+            dE = self.QMout["h"][ints[1]][ints[1]].real - self.QMout["h"][ints[0]][ints[0]].real
             for j in range(ncharges):
                 line = f[iline]
                 s = line.split() 
-                nac[s1, s2, j, 0] =  float(s[-3]) 
-                nac[s1, s2, j, 1] =  float(s[-2])
-                nac[s1, s2, j, 2] =  float(s[-1])
-                nac[s2, s1, j, 0] = -float(s[-3])
-                nac[s2, s1, j, 1] = -float(s[-2])
-                nac[s2, s1, j, 2] = -float(s[-1])
+                nac[ints[0]][ints[1]][j][0] =  float(s[2]) * KCAL_TO_EH * BOHR_TO_ANG / dE# 1/Ang --> 1/a_0
+                nac[ints[0]][ints[1]][j][1] =  float(s[3]) * KCAL_TO_EH * BOHR_TO_ANG / dE
+                nac[ints[0]][ints[1]][j][2] =  float(s[4]) * KCAL_TO_EH * BOHR_TO_ANG / dE
+                nac[ints[1]][ints[0]][j][0] = -float(s[2]) * KCAL_TO_EH * BOHR_TO_ANG / dE
+                nac[ints[1]][ints[0]][j][1] = -float(s[3]) * KCAL_TO_EH * BOHR_TO_ANG / dE
+                nac[ints[1]][ints[0]][j][2] = -float(s[4]) * KCAL_TO_EH * BOHR_TO_ANG / dE
                 iline += 1
-            if (dE != 0.0):
-                nac[s1,s2,...] = nac[s1,s2,...] * KCAL_TO_EH * BOHR_TO_ANG / dE  # kcal/mol*Ang --> 1/a_0 
-                nac[s2,s1,...] = nac[s2,s1,...] * KCAL_TO_EH * BOHR_TO_ANG / dE
 
         return nac
-
 
     def _get_transition_dipoles(self, log_path: str):
         """
@@ -855,7 +835,6 @@ mocoef
         # Filter dipole vectors, (states, (xyz))
         return np.array(dm)
 
-
     def _get_energy(self, output: str) -> dict[tuple[int, int], float]:
         """
         Extract energies from ORCA outfile
@@ -871,7 +850,6 @@ mocoef
 
         return energies
 
-
     @staticmethod
     def getsmate(out, s1, s2):
         ilines = -1
@@ -885,19 +863,15 @@ mocoef
         f = out[ilines].split()
         return float(f[s2 + 1])
 
-
     def prepare(self, INFOS: dict, dir_path: str):
         "setup the calculation in directory 'dir'"
         return
 
-
     def printQMout(self) -> None:
         super().writeQMout()
 
-
     def print_qmin(self) -> None:
         pass
-
 
     def read_resources(self, resources_file: str = "MNDO.resources") -> None:
         super().read_resources(resources_file)
@@ -908,7 +882,6 @@ mocoef
         self.QMin.resources["mndodir"] = expand_path(self.QMin.resources["mndodir"])
         self.log.debug(f'mndodir set to {self.QMin.resources["mndodir"]}')
 
-
     def read_requests(self, requests_file: str = "QM.in") -> None:
         super().read_requests(requests_file)
 
@@ -916,32 +889,27 @@ mocoef
             if val and req != "retain" and req not in all_features:
                 raise ValueError(f"Found unsupported request {req}.")
 
-
     def read_template(self, template_file: str = "MNDO.template") -> None:
         super().read_template(template_file)
-
-        self.QMin["template"]["kharge"] = int(self.QMin["template"]["kharge"]) #cast template inputs to int
-        self.QMin["template"]["imomap"] = int(self.QMin["template"]["imomap"])
         
-        if self.QMin["template"]["imomap"] < 0 or self.QMin["template"]["imomap"] > 1:  # Check if imomap is not out of range.
-            raise ValueError(f"imomap can either be 0 (false) or 1 (true). Negative numbers not supported!")
-        elif self.QMin["template"]["imomap"] > 0:
-            self.QMin["template"]["imomap"] = 3   #Orbital tracking activated when imomap=3 in the MNDO.inp file.
-
+        if self.QMin["template"]["mminp"] > 0:
+            self.QMin["molecule"]["point_charges"] = True
+            self.QMin["molecule"]["npc"] = self.QMin["template"]["numatm"]
         
         self.QMin["template"]["movo"] = int(self.QMin["template"]["movo"])
-        if self.QMin["template"]["movo"] > 1 or self.QMin["template"]["movo"] < 0 :
-            raise ValueError(f"movo can only be 0 (false) or 1 (true).")
-        
         if self.QMin["template"]["movo"] == 1 :
             self.QMin["template"]["act_orbs"] = [int(i) for i in self.QMin["template"]["act_orbs"]]
+
+        if self.QMin["template"]["grads"] :
+            self.QMin["template"]["grads"] = [int(i) for i in self.QMin["template"]["grads"]]
+            self.QMin["template"]["ncigrd"] = len(self.QMin["template"]["grads"])
+            self.QMin["template"]["iroot"] = max(self.QMin["template"]["grads"])
 
 
     def remove_old_restart_files(self, retain: int = 5) -> None:
         """
         Garbage collection after runjobs()
         """
-
 
     def run(self) -> None:
         """
@@ -972,7 +940,6 @@ mocoef
         self.saveGeometry()
 
         self.QMout["runtime"] = datetime.datetime.now() - starttime
-
 
     def _run_wfoverlap(self) -> None:
         """
@@ -1036,7 +1003,6 @@ mocoef
                     self.log.error(err_file.read())
                 raise OSError()
 
-
     @staticmethod
     def generate_inputstr(qmin: QMin) -> str:
         """
@@ -1044,26 +1010,27 @@ mocoef
         """
 
         natom = qmin["molecule"]["natom"]
-        ncigrd = len(qmin["maps"]["gradmap"])
+        ncigrd = qmin["template"]["ncigrd"]
         coords = qmin["coords"]["coords"]
         elements = qmin["molecule"]["elements"]
         movo = qmin["template"]["movo"]
         ici1 = qmin["template"]["ici1"]
         ici2 = qmin["template"]["ici2"]
         nciref = qmin["template"]["nciref"]
+        dstep = qmin["template"]["dstep"]
         act_orbs = qmin["template"]["act_orbs"]
-        iroot = qmin["molecule"]["states"][0]
+        iroot = qmin["template"]["iroot"]
         ncharges = qmin["molecule"]["npc"]
-        grads = [y for x,y in qmin["maps"]["gradmap"]]
+        grads = qmin["template"]["grads"]
         kharge = qmin["template"]["kharge"]
+        mminp = qmin["template"]["mminp"]
         kitscf = qmin["template"]["kitscf"]
         imomap = qmin["template"]["imomap"]
 
-
-        if qmin["molecule"]["point_charges"]:
-            inputstring = f"iop=-6 jop=-2 imult=0 iform=1 igeom=1 mprint=1 icuts=-1 icutg=-1 dstep=1e-05 kci=5 ioutci=1 iroot={iroot} icross=7 ncigrd={ncigrd} inac=0 imomap={imomap} iscf=16 iplscf=16 kitscf={kitscf} ici1={ici1} ici2={ici2} movo={movo} nciref={nciref} mciref=3 levexc=6 iuvcd=3 nsav13=2 kharge={kharge} multci=1 cilead=1 ncisym=-1 numatm={ncharges} mmcoup=2 mmfile=1 mmskip=0 mminp=2 nsav15=9"
+        if qmin["molecule"]["point_charges"] == True:
+            inputstring = f"iop=-6 jop=-2 imult=0 iform=1 igeom=1 mprint=1 icuts=-1 icutg=-1 dstep={dstep} kci=5 ioutci=1 iroot={iroot} icross=7 ncigrd={ncigrd} inac=0 imomap={imomap} iscf=16 iplscf=16 kitscf={kitscf} ici1={ici1} ici2={ici2} movo={movo} nciref={nciref} mciref=3 levexc=6 iuvcd=3 nsav13=2 kharge={kharge} multci=1 cilead=1 ncisym=-1 numatm={ncharges} mmcoup=2 mmfile=1 mmskip=0 mminp={mminp} nsav15=9"
         else:
-            inputstring = f"iop=-6 jop=-2 imult=0 iform=1 igeom=1 mprint=1 icuts=-1 icutg=-1 dstep=1e-05 kci=5 ioutci=1 iroot={iroot} icross=7 ncigrd={ncigrd} inac=0 imomap={imomap} iscf=16 iplscf=16 kitscf={kitscf} ici1={ici1} ici2={ici2} movo={movo} nciref={nciref} mciref=3 levexc=6 iuvcd=3 nsav13=2 kharge={kharge} multci=1 cilead=1 ncisym=-1 nsav15=9"
+            inputstring = f"iop=-6 jop=-2 imult=0 iform=1 igeom=1 mprint=1 icuts=-1 icutg=-1 dstep={dstep} kci=5 ioutci=1 iroot={iroot} icross=7 ncigrd={ncigrd} inac=0 imomap={imomap} iscf=16 iplscf=16 kitscf={kitscf} ici1={ici1} ici2={ici2} movo={movo} nciref={nciref} mciref=3 levexc=6 iuvcd=3 nsav13=2 kharge={kharge} multci=1 cilead=1 ncisym=-1 nsav15=9"
 
         inputstring = " +\n".join(wrap(inputstring, width=70))
         inputstring += "\nheader\n"
@@ -1082,21 +1049,17 @@ mocoef
 
         return inputstring
     
-
     def _create_aoovl(self) -> None:
         #empty function
         pass
-
 
     def get_mole(self) -> None:
         #empty function
         pass
 
-
     def get_readable_densities(self) -> None:
         #empty function
         pass
-
 
     def read_and_append_densities(self) -> None:
         #empty function
@@ -1108,9 +1071,8 @@ mocoef
         Setup remaining maps (ionmap, gsmap) and build jobs dict
         """
         super().setup_interface()
-        
 
 
 
 if __name__ == "__main__":
-    SHARC_MNDO(loglevel=10).main()
+    SHARC_MNDO_OLD(loglevel=10).main()
