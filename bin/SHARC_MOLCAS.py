@@ -72,21 +72,9 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         self._mpi = False
 
         # Add resource keys
-        self.QMin.resources.update(
-            {
-                "molcas": None,
-                "mpi_parallel": False,
-                "delay": 0.0,
-            }
-        )
+        self.QMin.resources.update({"molcas": None, "mpi_parallel": False, "delay": 0.0, "dry_run": False})
 
-        self.QMin.resources.types.update(
-            {
-                "molcas": str,
-                "mpi_parallel": bool,
-                "delay": float,
-            }
-        )
+        self.QMin.resources.types.update({"molcas": str, "mpi_parallel": bool, "delay": float, "dry_run": bool})
 
         # Add template keys
         self.QMin.template.update(
@@ -360,21 +348,22 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         self.QMin.scheduling["schedule"] = self._generate_schedule()
 
         self.log.debug("Execute schedule")
-        self.runjobs(self.QMin.scheduling["schedule"])
+        if not self.QMin.resources["dry_run"]:
+            self.runjobs(self.QMin.scheduling["schedule"])
 
-        # TODO: wfoverlap, theodore?
+            # TODO: wfoverlap, theodore?
 
-        # Save Jobiphs and/or molden files
-        re_jobiph = re.compile(r"^MOLCAS\.\d+\.JobIph")
-        re_molden = re.compile(r"^MOLCAS\.\d+\.molden")
-        for file in os.listdir(os.path.join(self.QMin.resources["scratchdir"], "master")):
-            if re_jobiph.match(file) or (self.QMin.requests["molden"] and re_molden.match(file)):
-                self.log.debug(f"Copy {file} from scratch to savedir")
-                shutil.copy(
-                    os.path.join(self.QMin.resources["scratchdir"], "master", file),
-                    os.path.join(self.QMin.save["savedir"], f"{file}.{self.QMin.save['step']}"),
-                )
-        self.log.debug("All hobs finished successful")
+            # Save Jobiphs and/or molden files
+            re_jobiph = re.compile(r"^MOLCAS\.\d+\.JobIph")
+            re_molden = re.compile(r"^MOLCAS\.\d+\.molden")
+            for file in os.listdir(os.path.join(self.QMin.resources["scratchdir"], "master")):
+                if re_jobiph.match(file) or (self.QMin.requests["molden"] and re_molden.match(file)):
+                    self.log.debug(f"Copy {file} from scratch to savedir")
+                    shutil.copy(
+                        os.path.join(self.QMin.resources["scratchdir"], "master", file),
+                        os.path.join(self.QMin.save["savedir"], f"{file}.{self.QMin.save['step']}"),
+                    )
+            self.log.debug("All hobs finished successful")
 
         self.QMout["runtime"] = datetime.datetime.now() - starttime
 
