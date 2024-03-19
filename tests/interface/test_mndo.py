@@ -500,6 +500,7 @@ def test_template():
         (
             "inputs/mndo/templatetest1.dat",
             {
+                "disp": 0,
                 "nciref": 3,
                 "kitscf": 5000,
                 "ici1": 2,
@@ -508,11 +509,13 @@ def test_template():
                 "movo": 1,
                 "kharge": 1,
                 "imomap": 3,
+                "iop": -6,
             },
         ),
         (
             "inputs/mndo/templatetest2.dat",
             {
+                "disp" : 1,
                 "nciref": 6,
                 "kitscf": 9999,
                 "ici1": 3,
@@ -521,6 +524,7 @@ def test_template():
                 "movo": 1,
                 "kharge": 0,
                 "imomap": 0,
+                "iop": -22,
             },
         ),
     ]
@@ -533,7 +537,7 @@ def test_template():
 
 def test_template_error():
 
-    tests = ["inputs/mndo/templatetest3.dat"]
+    tests = ["inputs/mndo/templatetest3.dat", "inputs/mndo/templatetest4.dat"]
 
     for template in tests:
         with pytest.raises(ValueError):
