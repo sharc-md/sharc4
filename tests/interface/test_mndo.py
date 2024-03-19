@@ -152,6 +152,14 @@ def test_requests2():
         test_interface._read_resources = True
         test_interface.read_requests(i)
 
+def test_requests3():
+    tests = [os.path.join(PATH, "inputs/mndo/QM4.in"), os.path.join(PATH, "inputs/mndo/QM5.in")]
+    for i in tests:
+        with pytest.raises(ValueError):
+            test_interface = SHARC_MNDO()
+            test_interface.setup_mol(i)
+            test_interface.setup_interface()
+
 def test_energies():
     tests = [
         (

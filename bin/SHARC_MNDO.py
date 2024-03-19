@@ -1098,6 +1098,15 @@ mocoef
         """
         super().setup_interface()
 
+        if (any(num > 0 for num in self.QMin.molecule["states"][1:]) or self.QMin.molecule["states"][0] == 0):
+            self.log.error("MNDO can only calculate singlets!!")
+            raise ValueError()
+        
+        # if (len(self.QMin.maps["gradmap"]) > 4):
+        #     self.log.error("MNDO can only calculate gradients for up to 4 states!!")
+        #     raise ValueError()
+        
+
 
 
 
