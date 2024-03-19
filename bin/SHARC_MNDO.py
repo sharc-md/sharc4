@@ -210,6 +210,7 @@ class SHARC_MNDO(SHARC_ABINITIO):
 
         endtime = datetime.datetime.now()
 
+        #TODO: Think about deletion of certain files
         # Delete files not needed
         # work_files = os.listdir(workdir)
         # for file in work_files: 
@@ -226,7 +227,6 @@ class SHARC_MNDO(SHARC_ABINITIO):
         """
         savedir = self.QMin.save["savedir"]
         step = self.QMin.save["step"]
-        # save files
 
         # molden
         moldenfile = os.path.join(workdir, "molden.dat")
@@ -274,7 +274,6 @@ class SHARC_MNDO(SHARC_ABINITIO):
         f = readfile(molden_file)
         mo_coeff_matrix = []
         # get MOs and MO_occ in a dict from molden file
-        ## needed?  --> restr = self.QMin.control["jobs"][jobid]["restr"]
         MOs = {}
         NMO = 0
         MO_occ = {}
@@ -556,15 +555,18 @@ mocoef
 
         nmstates = self.QMin.molecule["nmstates"]
 
+        #Energies and TDMs are taken from the MNDO.out file
         log_file = os.path.join(self.QMin.control["workdir"], "MNDO.out")
+        #Gradients and NACs are taken from the fort.15 file, this file has many more significant digits 
         grads_nacs_file = os.path.join(self.QMin.control["workdir"], "fort.15")
         
         # Get contents of output file(s)
         states, interstates = self._get_states_interstates(log_file)
 
-        mults = self.QMin.maps["mults"]
+        #TODO: mults needed?
+        #mults = self.QMin.maps["mults"]
 
-        # Populate energies
+        # Populate energies no SOCs, so no diagonal elements
         if self.QMin.requests["h"]:
             file = open(log_file, "r")
             output = file.read()
@@ -576,27 +578,23 @@ mocoef
         if self.QMin.requests["dm"]:
             self.QMout.dm = self._get_transition_dipoles(log_file)
 
-        # Populate gradients
+        # Populate gradients, also for point charges
         if self.QMin.requests["grad"]:
             self.QMout.grad = self._get_grad(grads_nacs_file)
             if self.QMin.molecule["point_charges"]:
                 self.QMout.grad_pc = self._get_grad_pc(grads_nacs_file)
 
+        # Populate NACs, also for point charges
         if self.QMin.requests["nacdr"]:
             self.QMout.nacdr = self._get_nacs(grads_nacs_file, interstates)
             if self.QMin.molecule["point_charges"]:
                 self.QMout.nacdr_pc = self._get_nacs_pc(grads_nacs_file, interstates)
 
+        # Populate overlaps, only singlets so this function is simpler than normal
         if self.QMin.requests["overlap"]:
             if "overlap" not in self.QMout:
-                self.QMout["overlap"] = makecmatrix(nmstates, nmstates)
-            for mult in itmult(self.QMin.molecule["states"]):
-                outfile = os.path.join(self.QMin.resources["scratchdir"], "wfovl.out")
-                out = readfile(outfile)
-                #print("Overlaps: " + outfile)
-                for i in range(nmstates):
-                    for j in range(nmstates):
-                        self.QMout["overlap"][i][j] = self.getsmate(out, i + 1, j + 1)
+                    outfile = os.path.join(self.QMin.resources["scratchdir"], "wfovl.out")
+                    self.QMout["overlap"] = self.parse_wfoverlap(outfile)
 
 
     def _get_states_interstates(self, log_path: str):
@@ -649,14 +647,16 @@ mocoef
                 line = f[iline]
                 s = line.split()
                 if self.QMin.molecule["point_charges"]:                         # In the fort.15 file, depending if thhe calculation includs point charges or not, there is a different amount of columns for the gradients and NACs
-                    grads[st, j, 0] =  float(s[-4]) * KCAL_TO_EH * BOHR_TO_ANG  # kcal/Ang --> H/a0
-                    grads[st, j, 1] =  float(s[-3]) * KCAL_TO_EH * BOHR_TO_ANG
-                    grads[st, j, 2] =  float(s[-2]) * KCAL_TO_EH * BOHR_TO_ANG
+                    grads[st, j, 0] =  float(s[-4])
+                    grads[st, j, 1] =  float(s[-3])
+                    grads[st, j, 2] =  float(s[-2])
                 else:
-                    grads[st, j, 0] =  float(s[-3]) * KCAL_TO_EH * BOHR_TO_ANG
-                    grads[st, j, 1] =  float(s[-2]) * KCAL_TO_EH * BOHR_TO_ANG
-                    grads[st, j, 2] =  float(s[-1]) * KCAL_TO_EH * BOHR_TO_ANG
+                    grads[st, j, 0] =  float(s[-3])
+                    grads[st, j, 1] =  float(s[-2])
+                    grads[st, j, 2] =  float(s[-1])
                 iline += 1
+
+            grads[st, ...] = grads[st, ...] * KCAL_TO_EH * BOHR_TO_ANG  # kcal/Ang --> H/a0
 
         return grads
 
@@ -668,7 +668,7 @@ mocoef
         log_path:  Path to gradient file
         """
         nmstates = self.QMin.molecule["nmstates"]
-        grad = [y - 1 for x,y in self.QMin["maps"]["gradmap"]]
+        grad = [y - 1 for x,y in self.QMin["maps"]["gradmap"]] #Get the gradients that need to be calculated
         ncharges = self.QMin.molecule["npc"]
         f = readfile(log_path)
 
@@ -686,10 +686,11 @@ mocoef
             for j in range(ncharges):
                 line = f[iline]
                 s = line.split()
-                grads[st, j, 0] =  float(s[-3]) * KCAL_TO_EH * BOHR_TO_ANG
-                grads[st, j, 1] =  float(s[-2]) * KCAL_TO_EH * BOHR_TO_ANG
-                grads[st, j, 2] =  float(s[-1]) * KCAL_TO_EH * BOHR_TO_ANG
+                grads[st, j, 0] =  float(s[-3])  # Indexing from the back
+                grads[st, j, 1] =  float(s[-2])
+                grads[st, j, 2] =  float(s[-1])
                 iline += 1
+            grads[st, ...] = grads[st, ...] * KCAL_TO_EH * BOHR_TO_ANG  # kcal/Ang --> H/a0
 
         return grads
 
@@ -985,8 +986,6 @@ mocoef
         same_aos
         """
         )
-        if self.QMin.resources["numocc"]:
-            wf_input += f"ndocc={self.QMin.resources['numocc']}\n"
 
         if self.QMin.resources["ncpu"] >= 8:
             wf_input += "force_direct_dets"
