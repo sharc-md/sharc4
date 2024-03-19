@@ -926,6 +926,25 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
 
         if self.QMin.requests["h"]:
             np.einsum("ii->i", self.QMout["h"])[:] = self._get_energy(master_out)
+        if self.QMin.requests["grad"]:
+            for grad in self.QMin.maps["gradmap"]:
+                with open(os.path.join(scratchdir, f"grad_{grad[0]}_{grad[1]}/MOLCAS.out"), "r") as grad_file:
+                    grad_out = self._get_grad(grad_file.read())
+                    for key, val in self.QMin.maps["statemap"].items():
+                        if (val[0], val[1]) == grad:
+                            self.QMout["grad"][key - 1] = grad_out
+        if self.QMin.requests["nacdr"]:
+            for nac in self.QMin.maps["nacmap"]:
+                with open(os.path.join(scratchdir, f"nacdr_{nac[0]}_{nac[1]}_{nac[2]}_{nac[3]}/MOLCAS.out"), "r") as nac_file:
+                    nac_out = nac_file.read()
+                    istate = None
+                    jstate = None
+                    for key, val in self.QMin.maps["statemap"].items():
+                        if (val[0], val[1]) == (nac[0], nac[1]):
+                            istate = key - 1
+                        if (val[0], val[1]) == (nac[2], nac[3]):
+                            jstate = key - 1
+                    self.QMout["nacdr"][istate, jstate] = self._get_nacdr(nac_out)
 
     def _get_energy(self, output_file: str | h5py.File) -> np.ndarray:
         """
