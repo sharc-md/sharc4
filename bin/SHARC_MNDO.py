@@ -20,7 +20,7 @@ __all__ = ["SHARC_MNDO"]
 
 AUTHORS = "Nadja K. Singer, Hans Georg Gallmetzer"
 VERSION = "0.2"
-VERSIONDATE = datetime.datetime(2024, 3, 1)
+VERSIONDATE = datetime.datetime(2024, 3, 19)
 NAME = "MNDO"
 DESCRIPTION = "SHARC interface for the mndo2020 program"
 
@@ -28,7 +28,7 @@ CHANGELOGSTRING = """27.10.2021:     Initial version 0.1 by Nadja
 - Only OM2/MRCI
 - Only singlets
 
-01.03.2024:     New implementation version 0.2 by Georg
+19.03.2024:     New implementation version 0.2 by Georg
 """
 
 all_features = set(
@@ -39,7 +39,6 @@ all_features = set(
         "nacdr",
         "overlap",
         "molden",
-        "savestuff",
         "point_charges",
     ]
 )
