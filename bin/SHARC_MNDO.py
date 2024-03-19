@@ -554,6 +554,7 @@ mocoef
         )
 
         nmstates = self.QMin.molecule["nmstates"]
+        scratchdir = self.QMin.resources["scratchdir"]
 
         #Energies and TDMs are taken from the MNDO.out file
         log_file = os.path.join(self.QMin.control["workdir"], "MNDO.out")
@@ -592,9 +593,17 @@ mocoef
 
         # Populate overlaps, only singlets so this function is simpler than normal
         if self.QMin.requests["overlap"]:
-            if "overlap" not in self.QMout:
-                    outfile = os.path.join(self.QMin.resources["scratchdir"], "wfovl.out")
-                    self.QMout["overlap"] = self.parse_wfoverlap(outfile)
+            outfile = os.path.join(self.QMin.resources["scratchdir"], "wfovl.out")
+            ovlp_mat = self.parse_wfoverlap(outfile)
+            for i in range(nmstates):
+                for j in range(nmstates):
+                    m1, s1, ms1 = tuple(self.QMin.maps["statemap"][i + 1])
+                    m2, s2, ms2 = tuple(self.QMin.maps["statemap"][j + 1])
+                    if not m1 == m2 == 1: # only singlets
+                        continue
+                    if not ms1 == ms2:
+                        continue
+                    self.QMout["overlap"][i, j] = ovlp_mat[s1-1, s2-1]
 
 
     def _get_states_interstates(self, log_path: str):
@@ -726,14 +735,14 @@ mocoef
                 line = f[iline]
                 s = line.split()
                 if self.QMin.molecule["point_charges"]: #In the fort.15 file, depending if thhe calculation includs point charges or not, there is a different amount of columns for the gradients and NACs
-                    nac[s1, s2, j, 0] =  float(s[-4])   
+                    nac[s1, s2, j, 0] =  float(s[-4])  
                     nac[s1, s2, j, 1] =  float(s[-3])
                     nac[s1, s2, j, 2] =  float(s[-2])
                     nac[s2, s1, j, 0] = -float(s[-4])
                     nac[s2, s1, j, 1] = -float(s[-3])
                     nac[s2, s1, j, 2] = -float(s[-2])
                 else: 
-                    nac[s1, s2, j, 0] =  float(s[-3])  
+                    nac[s1, s2, j, 0] =  float(s[-3]) 
                     nac[s1, s2, j, 1] =  float(s[-2])
                     nac[s1, s2, j, 2] =  float(s[-1])
                     nac[s2, s1, j, 0] = -float(s[-3])
@@ -776,7 +785,7 @@ mocoef
             for j in range(ncharges):
                 line = f[iline]
                 s = line.split() 
-                nac[s1, s2, j, 0] =  float(s[-3]) 
+                nac[s1, s2, j, 0] =  float(s[-3])
                 nac[s1, s2, j, 1] =  float(s[-2])
                 nac[s1, s2, j, 2] =  float(s[-1])
                 nac[s2, s1, j, 0] = -float(s[-3])
@@ -866,20 +875,6 @@ mocoef
             energies[(1, i + 1)] = float(match.group(1)) * EV_TO_EH  # only singlets for now!!
 
         return energies
-
-
-    @staticmethod
-    def getsmate(out, s1, s2):
-        ilines = -1
-        while True:
-            ilines += 1
-            if ilines == len(out):
-                raise Error("Overlap of states %i - %i not found!" % (s1, s2), 82)
-            if containsstring("Overlap matrix <PsiA_i|PsiB_j>", out[ilines]):
-                break
-        ilines += 1 + s1
-        f = out[ilines].split()
-        return float(f[s2 + 1])
 
 
     def prepare(self, INFOS: dict, dir_path: str):
