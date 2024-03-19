@@ -4,7 +4,9 @@ import re
 import shutil
 import subprocess as sp
 from copy import deepcopy
+from functools import cmp_to_key
 from io import TextIOWrapper
+from itertools import product
 from typing import Any
 
 import h5py
@@ -70,6 +72,9 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         self._hdf5 = False
         self._wfa = False
         self._mpi = False
+
+        # Save sort order for H matrix
+        self._h_sort = None
 
         # Add resource keys
         self.QMin.resources.update({"molcas": None, "mpi_parallel": False, "delay": 0.0, "dry_run": False})
@@ -339,6 +344,31 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         Setup MOLCAS interface
         """
         super().setup_interface()
+
+        # Setup mults for reordering H matrix
+        mults = {}
+        for i, _ in enumerate(self.QMin.molecule["states"]):
+            # Create list with possible ms values, e.g. duplet [0.5,-0.5], triplet [1,0,-1], ...
+            mults[i] = sorted(list({sum(x) for x in map(list, product([0.5, -0.5], repeat=i))}), reverse=True)
+
+        counter = 0
+        self.QMin.maps["multmap"] = {}
+        for mult, state in enumerate(self.QMin.molecule["states"]):
+            for s in range(state):
+                for m in mults[mult]:
+                    self.QMin.maps["multmap"][counter] = (mult, m, s)
+                    counter += 1
+
+        self._h_sort = sorted(list(range(self.QMin.molecule["nmstates"])), key=cmp_to_key(self._sort_mults))
+
+    def _sort_mults(self, state1, state2):
+        """
+        Sort states (mult, ms, state) in MOLCAS fashion,
+        first by mult then by ms then by state
+        """
+        s1 = self.QMin.maps["multmap"][state1]
+        s2 = self.QMin.maps["multmap"][state2]
+        return (s1[0] - s2[0]) * 1000 + (s1[1] - s2[1]) * 100 + (s1[2] - s2[2])
 
     def run(self) -> None:
         starttime = datetime.datetime.now()
@@ -924,6 +954,8 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         else:
             master_out = h5py.File(os.path.join(scratchdir, "master/MOLCAS.rassi.h5"), "r+")
 
+        if self.QMin.requests["soc"]:
+            self.QMout["h"] = self._get_socs(master_out)
         if self.QMin.requests["h"]:
             np.einsum("ii->i", self.QMout["h"])[:] = self._get_energy(master_out)
         if self.QMin.requests["grad"]:
@@ -976,6 +1008,61 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         for i in range(len(states)):
             expandend_energies += energies[sum(states[:i]) : sum(states[: i + 1])] * (i + 1)
         return np.asarray(expandend_energies, dtype=np.complex128)
+
+    def _get_socs(self, output_file: str | h5py.File) -> np.ndarray:
+        """
+        Extract SOCs from outputfile
+        """
+        soc_mat = None
+        if isinstance(output_file, str):
+            socs = re.search(r"Real part\s+Imag part\s+Absolute\n(.*) -{70}\n", output_file, re.DOTALL)
+            socs = np.asarray(convert_list(socs.group(1).split(), float)).reshape(-1, 9)[:, 6:8]
+            socs_complex = np.zeros((socs.shape[0]), dtype=np.complex128)
+            for idx, val in enumerate(socs):
+                socs_complex[idx] = complex(val[0],val[1])
+            idx = np.tril_indices(self.QMin.molecule["nmstates"])
+            soc_mat = np.zeros((self.QMin.molecule["nmstates"], self.QMin.molecule["nmstates"]), dtype=np.complex128)
+            soc_mat[idx] = socs_complex.reshape(-1)
+            soc_mat += soc_mat.T.conj()
+            soc_mat = soc_mat.conj()
+            soc_mat *= 4.556335e-6
+        else:
+            soc_mat = output_file["HSO_MATRIX_REAL"][:] + 1j * output_file["HSO_MATRIX_IMAG"][:]
+
+        # Reorder multiplicities
+        soc_mat = soc_mat[np.ix_(self._h_sort, self._h_sort)]
+
+        if soc_mat is None:
+            self.log.error("No SOCs found in output file!")
+            raise ValueError()
+        return soc_mat
+
+    def _get_grad(self, output_file: str) -> np.ndarray:
+        """
+        Extract gradients from outputfile
+        """
+        grad_block = re.search(r"X\s+Y\s+Z\s+-{90}\n(.*) -{90}", output_file, re.DOTALL)
+        if not grad_block:
+            self.log.error("No gradients in output file!")
+            raise ValueError()
+
+        grad = re.findall(r"(-{0,1}\d+\.\d+E[-|+]\d{2,3})", grad_block.group(1), re.DOTALL)
+        return np.asarray(grad, dtype=float).reshape(3, -1)
+
+    def _get_nacdr(self, output_file: str) -> np.ndarray:
+        """
+        Extract NACs from outputfile
+        """
+        nac_block = re.search(
+            r"Total derivative coupling\W*[\w* ]+:[\s|\w]+-{90}\s+X\s+Y\s+Z\n -{90}\n([A-Z|\s|\.|\-{1}|\d|+]+) -{90}",
+            output_file,
+            re.DOTALL,
+        )
+        if not nac_block:
+            self.log.error("No NACs in output file!")
+            raise ValueError()
+        nac = re.findall(r"(-{0,1}\d+\.\d+E[-|+]\d{2,3})", nac_block.group(1), re.DOTALL)
+        return np.einsum("ij->ji", np.asarray(nac, dtype=float).reshape(3, -1))
 
 
 if __name__ == "__main__":
