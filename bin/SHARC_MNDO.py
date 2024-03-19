@@ -88,6 +88,8 @@ class SHARC_MNDO(SHARC_ABINITIO):
                 "movo": 0,
                 "kharge": 0,
                 "imomap": 0,
+                "disp": 0,
+                "iop": -6,
             }
         )
         self.QMin.template.types.update(
@@ -100,6 +102,8 @@ class SHARC_MNDO(SHARC_ABINITIO):
                 "movo": int,
                 "kharge": int,
                 "imomap": int,
+                "disp": int,
+                "iop": int,
             }
         )
 
@@ -913,11 +917,17 @@ mocoef
 
         self.QMin["template"]["kharge"] = int(self.QMin["template"]["kharge"]) #cast template inputs to int
         self.QMin["template"]["imomap"] = int(self.QMin["template"]["imomap"])
+        self.QMin["template"]["disp"] = int(self.QMin["template"]["disp"])
         
         if self.QMin["template"]["imomap"] < 0 or self.QMin["template"]["imomap"] > 1:  # Check if imomap is not out of range.
             raise ValueError(f"imomap can either be 0 (false) or 1 (true). Negative numbers not supported!")
-        elif self.QMin["template"]["imomap"] > 0:
+        if self.QMin["template"]["imomap"] == 1:
             self.QMin["template"]["imomap"] = 3   #Orbital tracking activated when imomap=3 in the MNDO.inp file.
+        
+        if self.QMin["template"]["disp"] < 0 or self.QMin["template"]["disp"] > 1:  # Check if imomap is not out of range.
+            raise ValueError(f"disp can either be 0 (false) or 1 (true). Negative numbers not supported!")
+        if self.QMin["template"]["disp"] == 1:
+            self.QMin["template"]["iop"] = -22 
 
         
         self.QMin["template"]["movo"] = int(self.QMin["template"]["movo"])
@@ -1047,12 +1057,13 @@ mocoef
         kharge = qmin["template"]["kharge"]
         kitscf = qmin["template"]["kitscf"]
         imomap = qmin["template"]["imomap"]
+        iop = qmin["template"]["iop"]
 
 
         if qmin["molecule"]["point_charges"]:
-            inputstring = f"iop=-6 jop=-2 imult=0 iform=1 igeom=1 mprint=1 icuts=-1 icutg=-1 dstep=1e-05 kci=5 ioutci=1 iroot={iroot} icross=7 ncigrd={ncigrd} inac=0 imomap={imomap} iscf=16 iplscf=16 kitscf={kitscf} ici1={ici1} ici2={ici2} movo={movo} nciref={nciref} mciref=3 levexc=6 iuvcd=3 nsav13=2 kharge={kharge} multci=1 cilead=1 ncisym=-1 numatm={ncharges} mmcoup=2 mmfile=1 mmskip=0 mminp=2 nsav15=9"
+            inputstring = f"iop={iop} jop=-2 imult=0 iform=1 igeom=1 mprint=1 icuts=-1 icutg=-1 dstep=1e-05 kci=5 ioutci=1 iroot={iroot} icross=7 ncigrd={ncigrd} inac=0 imomap={imomap} iscf=16 iplscf=16 kitscf={kitscf} ici1={ici1} ici2={ici2} movo={movo} nciref={nciref} mciref=3 levexc=6 iuvcd=3 nsav13=2 kharge={kharge} multci=1 cilead=1 ncisym=-1 numatm={ncharges} mmcoup=2 mmfile=1 mmskip=0 mminp=2 nsav15=9"
         else:
-            inputstring = f"iop=-6 jop=-2 imult=0 iform=1 igeom=1 mprint=1 icuts=-1 icutg=-1 dstep=1e-05 kci=5 ioutci=1 iroot={iroot} icross=7 ncigrd={ncigrd} inac=0 imomap={imomap} iscf=16 iplscf=16 kitscf={kitscf} ici1={ici1} ici2={ici2} movo={movo} nciref={nciref} mciref=3 levexc=6 iuvcd=3 nsav13=2 kharge={kharge} multci=1 cilead=1 ncisym=-1 nsav15=9"
+            inputstring = f"iop={iop} jop=-2 imult=0 iform=1 igeom=1 mprint=1 icuts=-1 icutg=-1 dstep=1e-05 kci=5 ioutci=1 iroot={iroot} icross=7 ncigrd={ncigrd} inac=0 imomap={imomap} iscf=16 iplscf=16 kitscf={kitscf} ici1={ici1} ici2={ici2} movo={movo} nciref={nciref} mciref=3 levexc=6 iuvcd=3 nsav13=2 kharge={kharge} multci=1 cilead=1 ncisym=-1 nsav15=9"
 
         inputstring = " +\n".join(wrap(inputstring, width=70))
         inputstring += "\nheader\n"
