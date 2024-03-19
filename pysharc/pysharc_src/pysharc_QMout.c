@@ -2,7 +2,7 @@
 //
 //    SHARC Program Suite
 //
-//    Copyright (c) 2023 University of Vienna
+//    Copyright (c) 2019 University of Vienna
 //
 //    This file is part of SHARC.
 //
@@ -256,9 +256,8 @@ QMout_set_gradient(QMout * self, PyObject * args)
     double * state_gradient;
 
     double scale = 0.0;
-    double soc_scale = 0.0;
 
-    get_scalingfactor_(&scale, &soc_scale);
+    get_scalingfactor_(&scale);
 
     if (!PyArg_ParseTuple(args, "Oi", &gradient, &icall))
         return NULL;

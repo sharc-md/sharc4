@@ -2,7 +2,7 @@
 !
 !    SHARC Program Suite
 !
-!    Copyright (c) 2023 University of Vienna
+!    Copyright (c) 2019 University of Vienna
 !
 !    This file is part of SHARC.
 !
@@ -26,17 +26,6 @@
 !> \author Sebastian Mai
 !> \date 27.02.2015, modified 27.02.2017 by Philipp Marquetand
 !>
-!>                   modified 11.13.2019 by Yinan Shu
-!>                       add keyword "method" 
-!>                       put "tmax" into global variable
-!>                       modified keyword "surf", option ehrenfest is deleted
-!>                       modified keyword "decoherence", add option decay of mixng
-!>                       add keyword "switching_procedure"
-!>                       add keyword "integrator"
-!>                       add keyword "convthre"
-!>                       add keyword "dtmin"
-!>                       add keyword "nac_projection"
-!>                       
 !> This module provides the central input parsing routine and some 
 !> auxilliary routines for input parsing
 !> 
@@ -62,6 +51,8 @@ module input
   use output
   use restart
   use string
+  use ziggurat !temporary
+  use restrictive_potential
   implicit none
 #ifdef __PYSHARC__
   integer :: nchars
@@ -74,15 +65,13 @@ module input
   character*8000, allocatable :: values(:)
   integer :: narg, io, nlines, selg, selt
   integer :: i,j,k,n
-  integer :: min_order, max_order
   integer :: imult,ims
-  real*8 :: a,b,tmax2
+  real*8 :: a,b,tmax
   character*24 :: ctime, date
   integer :: idate,time
   character*8000 :: string1
   character*8000, allocatable :: string2(:)
   logical :: selectdirectly_bool
-
   
 #ifndef __PYSHARC__
   ! get the input filename from the command line argument
@@ -247,50 +236,28 @@ module input
 !       close(u_i_input)
       call read_restart(u_resc,u_rest,ctrl,traj)
 
-      if (ctrl%integrator==2) then
-        ! if explicit laser field is used, the simulation time cannot be changed
-        ! otherwise, the simulation time is read from the input file instead of
-        ! the restart file
-        if (ctrl%laser/=2) then
-          line=get_value_from_key('nsteps',io)
-          if (io==0) then
-            read(line,*) ctrl%nsteps
-          else
-            line=get_value_from_key('tmax',io)
-            if (io==0) then
-              read(line,*) ctrl%tmax
-              ctrl%nsteps=int(ctrl%tmax/ctrl%dtstep/au2fs+0.01d0)
-            endif
-          endif
-          if (printlevel>0) then
-            write(u_log,*) '============================================================='
-            write(u_log,*) '                       Simulation Time'
-            write(u_log,*) '============================================================='
-            write(u_log,*) 'Using Fixed stepsize Velocity-Verlet integrator'
-            write(u_log,'(a,1x,i6,1x,a,1x,f6.3,1x,a)') 'Found nsteps=',ctrl%nsteps,'and stepsize=',ctrl%dtstep*au2fs,'fs.'
-            if (printlevel>1) then
-              write(u_log,'(a,1x,f9.3,1x,a)') 'This makes a total simulation time of ',ctrl%dtstep*ctrl%nsteps*au2fs,'fs.'
-              write(u_log,'(a,1x,f7.4,1x,a)') 'The electronic wavefunction will be propagated using a ',&
-              &ctrl%dtstep/ctrl%nsubsteps*au2fs, 'fs step.'
-            endif
-            write(u_log,*)
-          endif
-        endif
-      elseif (ctrl%integrator==0 .or. ctrl%integrator==1) then
-        line=get_value_from_key('tmax',io)
+      ! if explicit laser field is used, the simulation time cannot be changed
+      ! otherwise, the simulation time is read from the input file instead of the restart file
+      if (ctrl%laser/=2) then
+        line=get_value_from_key('nsteps',io)
         if (io==0) then
-          read(line,*) ctrl%tmax
+          read(line,*) ctrl%nsteps
+        else
+          line=get_value_from_key('tmax',io)
+          if (io==0) then
+            read(line,*) tmax
+            ctrl%nsteps=int(tmax/ctrl%dtstep/au2fs+0.01d0)
+          endif
         endif
         if (printlevel>0) then
           write(u_log,*) '============================================================='
           write(u_log,*) '                       Simulation Time'
           write(u_log,*) '============================================================='
-          write(u_log,'(a,1x,f9.3,1x,a)') 'Found trial stepsize: ',ctrl%dtstep*au2fs,'fs.'
-          write(u_log,'(a,1x,f9.3,1x,a)') 'Total simulation time: ',ctrl%tmax,'fs.'
-          if (ctrl%integrator .eq. 0) then
-            write(u_log,'(a,1x,f20.10,1x,a)') 'Using Bulirsch-Stoer integrator, threshold:',ctrl%convthre, 'a.u.'
-          else if (ctrl%integrator .eq. 1) then
-            write(u_log,'(a,1x,f20.10,1x,a)') 'Using adaptive Velocity-Verlet integrator, threshold:', ctrl%convthre*au2eV, 'eV'
+          write(u_log,'(a,1x,i6,1x,a,1x,f6.3,1x,a)') 'Found nsteps=',ctrl%nsteps,'and stepsize=',ctrl%dtstep*au2fs,'fs.'
+          if (printlevel>1) then
+            write(u_log,'(a,1x,f9.3,1x,a)') 'This makes a total simulation time of ',ctrl%dtstep*ctrl%nsteps*au2fs,'fs.'
+            write(u_log,'(a,1x,f7.4,1x,a)') 'The electronic wavefunction will be propagated using a ',&
+            &ctrl%dtstep/ctrl%nsubsteps*au2fs, 'fs step.'
           endif
           write(u_log,*)
         endif
@@ -311,9 +278,6 @@ module input
           stop
         endif
       endif
-
-      ! convert tmax to atomic unit 
-      ctrl%tmax=ctrl%tmax/au2fs
 
       ! rest of this routine is skipped
       return
@@ -558,14 +522,6 @@ module input
 
   ! setting up simulation time and time step
 
-    ! total simulation time
-    line=get_value_from_key('tmax',io)
-    if (io==0) then
-      read(line,*) ctrl%tmax
-    else
-      ctrl%tmax=5.0
-    endif
-
     ! stepsize is dt, default is 1 fs
     line=get_value_from_key('stepsize',io)
     if (io==0) then
@@ -573,45 +529,6 @@ module input
     else
       ctrl%dtstep=1.d0
     endif
-
-    ! minimum timestep allowed in adapative
-    line=get_value_from_key('stepsize_min',io)
-    if (io==0) then
-      read(line,*) ctrl%dtstep_min
-    else
-      ctrl%dtstep_min=ctrl%dtstep/16
-    endif
-
-    ! maximum timestep allowed in adapative
-    line=get_value_from_key('stepsize_max',io)
-    if (io==0) then
-      read(line,*) ctrl%dtstep_max
-    else
-      ctrl%dtstep_max=ctrl%dtstep*2
-    endif
- 
-    ! Alternative step for minimum timestep allowed in adapative
-    line=get_value_from_key('stepsize_min_exp',io)
-    if (io==0) then
-      read(line,*) min_order
-    else
-      min_order=-4
-    endif
-    ctrl%dtstep_min=ctrl%dtstep*2**(min_order)
-
-    ! Alternative step for maximum timestep allowed in adapative
-    line=get_value_from_key('stepsize_max_exp',io)
-    if (io==0) then
-      read(line,*) max_order
-    else
-      max_order=1
-    endif
-    ctrl%dtstep_max=ctrl%dtstep*2**(max_order)
-
-
-    ! nsteps is computed by simulation time/stepsize
-    ! nsteps is only used in fixed stepsize Velocity-Verlet integrator
-    ctrl%nsteps=int(ctrl%tmax/ctrl%dtstep)
 
     ! number of substeps for electronic interpolation
     line=get_value_from_key('nsubsteps',io)
@@ -621,49 +538,31 @@ module input
       ctrl%nsubsteps=25
     endif
 
-    ! integrator
-    line=get_value_from_key('integrator',io)
+    ! nsteps is either taken from input 
+    ! or calculated based on maximum simulation time
+    ! detault is 3 steps
+    line=get_value_from_key('nsteps',io)
     if (io==0) then
-      select case (trim(line))
-        case ('bsh')
-          ctrl%integrator=0
-        case ('avv')
-          ctrl%integrator=1
-        case ('fvv')
-          ctrl%integrator=2
-        case default
-          write(0,*) 'Unknown keyword "',trim(line),'" to "integrator"!'
-          stop 1
-      endselect
+      read(line,*) ctrl%nsteps
     else
-      ctrl%integrator=2
+      line=get_value_from_key('tmax',io)
+      if (io==0) then
+        read(line,*) tmax
+        ctrl%nsteps=int(tmax/ctrl%dtstep)
+      else
+        ctrl%nsteps=3
+      endif
     endif
 
-
     if (printlevel>0) then
-      if (ctrl%integrator .eq. 2) then
-        write(u_log,*) '============================================================='
-        write(u_log,*) '                       Simulation Time'
-        write(u_log,*) '============================================================='
-        write(u_log,'(a)') 'Using fixed stepsize Velocity-Verlet integrator'
-        write(u_log,'(a,1x,i6,1x,a,1x,f9.3,1x,a)') 'Found nsteps=',ctrl%nsteps,'and stepsize=',ctrl%dtstep,'fs.'
-        if (printlevel>1) then
-          write(u_log,'(a,1x,f9.3,1x,a)') 'This makes a total simulation time of ',ctrl%dtstep*ctrl%nsteps,'fs.'
-          write(u_log,'(a,1x,f7.4,1x,a)') 'The electronic wavefunction will be propagated using a ',&
-          &ctrl%dtstep/ctrl%nsubsteps, 'fs step.'
-        endif
-        write(u_log,*)
-      elseif (ctrl%integrator==0 .or. ctrl%integrator==1) then
-        write(u_log,*) '============================================================='
-        write(u_log,*) '                       Simulation Time'
-        write(u_log,*) '============================================================='
-        write(u_log,'(a,1x,f9.3,1x,a)') 'Found trial stepsize: ',ctrl%dtstep,'fs.'
-        write(u_log,'(a,1x,f9.3,1x,a)') 'Total simulation time: ',ctrl%tmax,'fs.'
-        if (ctrl%integrator .eq. 0) then
-          write(u_log,'(a)') 'Using Bulirsch-Stoer integrator'
-        elseif (ctrl%integrator .eq. 1) then
-          write(u_log,'(a)') 'Using adaptive Velocity-Verlet integrator'
-        endif
+      write(u_log,*) '============================================================='
+      write(u_log,*) '                       Simulation Time'
+      write(u_log,*) '============================================================='
+      write(u_log,'(a,1x,i6,1x,a,1x,f6.3,1x,a)') 'Found nsteps=',ctrl%nsteps,'and stepsize=',ctrl%dtstep,'fs.'
+      if (printlevel>1) then
+        write(u_log,'(a,1x,f9.3,1x,a)') 'This makes a total simulation time of ',ctrl%dtstep*ctrl%nsteps,'fs.'
+        write(u_log,'(a,1x,f7.4,1x,a)') 'The electronic wavefunction will be propagated using a ',&
+        &ctrl%dtstep/ctrl%nsubsteps, 'fs step.'
       endif
       write(u_log,*)
     endif
@@ -672,12 +571,12 @@ module input
 
     line=get_value_from_key('killafter',io)
     if (io==0) then
-      read(line,*) tmax2
-      if (tmax2<=0) then
+      read(line,*) tmax
+      if (tmax<=0) then
         ctrl%killafter=-1
         traj%steps_in_gs=-123
       else
-        ctrl%killafter=int(anint(tmax2/ctrl%dtstep))
+        ctrl%killafter=int(anint(tmax/ctrl%dtstep))
         traj%steps_in_gs=0
       endif
     else
@@ -737,32 +636,6 @@ module input
 
   ! =====================================================
 
-  ! setting up simulation method
-  ! either trajectory surface hopping or self-consistent potential
-  ! notice self-consistent potential is same as semi-classical Ehrenfest 
-
-   ! Method type
-    line=get_value_from_key('method',io)
-    if (io==0) then
-      select case (trim(line))
-        case ('tsh')
-          ctrl%method=0
-        case ('scp')
-          ctrl%method=1
-        case ('ehrenfest')
-          ctrl%method=1
-        case ('csdm')
-          ctrl%method=1
-        case default
-          write(0,*) 'Unknown keyword "',trim(line),'" to "method"!'
-          stop 1
-      endselect
-    else ! set the default as surface hopping
-      ctrl%method=0 
-    endif
-
-  ! =====================================================
-
   ! other keywords, including consistency checks
 
     ! Dynamics type
@@ -802,325 +675,12 @@ module input
           ctrl%coupling=1
         case ('overlap')
           ctrl%coupling=2
-        case ('ktdc') ! kappa tdc
-          ctrl%coupling=3
         case default
           write(0,*) 'Unknown keyword ',trim(line),' to "coupling"!'
           stop 1
       endselect
     else
       ctrl%coupling=2
-    endif
-
-    ! turn program off if adaptive is used for overlap
-    if (ctrl%integrator==0 .or. ctrl%integrator==1) then
-      if (ctrl%coupling==2) then 
-        write(0,*) 'Adaptive integrator is not yet working for coupling overlap'
-        stop 1
-      endif
-    endif
-
-    ! method to compute kappa TDC
-    if (ctrl%coupling==3) then
-      line=get_value_from_key('ktdc_method',io)
-      if (io==0) then
-        select case (trim(line))
-          case ('gradient')
-            ctrl%ktdc_method=0
-          case ('energy')
-            ctrl%ktdc_method=1
-          case default
-            write(0,*) 'Unknown keyword ',trim(line),' to "ktdc_method"!'
-            stop 1
-        endselect
-      else  ! set default
-        if (ctrl%method==0) then ! for TSH, use energy based
-          ctrl%ktdc_method=1
-        else if (ctrl%method==1) then ! for SCP, use gradient based 
-          ctrl%ktdc_method=0
-        endif 
-      endif
-    endif
-
-    ! method to compute kmatrix
-    line=get_value_from_key('kmatrix_method',io)
-    if (io==0) then
-      select case (trim(line))
-        case ('gradient')
-          ctrl%kmatrix_method=0
-        case ('energy')
-          ctrl%kmatrix_method=1
-        case default
-          write(0,*) 'Unknown keyword ',trim(line),' to "kmatrix_method"!'
-          stop 1
-      endselect
-    else ! set the default
-      if (ctrl%coupling==1 .or. ctrl%coupling==2) then 
-        ctrl%kmatrix_method=0
-      else if (ctrl%coupling==3) then 
-        ctrl%kmatrix_method=1
-      endif 
-    endif
-
-    ! method to compute kmatrix, another keyword
-    line=get_value_from_key('tdm_method',io)
-    if (io==0) then
-      select case (trim(line))
-        case ('gradient')
-          ctrl%kmatrix_method=0
-        case ('energy')
-          ctrl%kmatrix_method=1
-        case default
-          write(0,*) 'Unknown keyword ',trim(line),' to "kmatrix_method"!'
-          stop 1
-      endselect
-    else ! set the default
-      if (ctrl%coupling==1 .or. ctrl%coupling==2) then
-        ctrl%kmatrix_method=0
-      else if (ctrl%coupling==3) then
-        ctrl%kmatrix_method=1
-      endif
-    endif
-
-    ! electronic eom method for TSH and SCP
-    line=get_value_from_key('eeom',io)
-    if (io==0) then
-      select case (trim(line))
-        case ('ci')
-          ctrl%eeom=0
-        case ('li')
-          ctrl%eeom=1
-        case ('ld')
-          ctrl%eeom=2
-        case ('npi')
-          ctrl%eeom=3
-        case default
-          write(0,*) 'Unknown keyword ',trim(line),' to "neom"!'
-          stop 1
-      endselect
-    else ! set the default nuclear propagators
-      if (ctrl%coupling==0) then
-        ctrl%eeom=0
-      elseif (ctrl%coupling==1 .or. ctrl%coupling==3) then
-        ctrl%eeom=1
-      elseif (ctrl%method==0 .and. ctrl%coupling==2) then
-        ctrl%eeom=2
-      elseif (ctrl%method==1 .and. ctrl%coupling==2) then
-        ctrl%eeom=3
-      endif
-    endif
-
-    ! nuclear eom method for scp
-    line=get_value_from_key('neom',io)
-    if (io==0) then
-      select case (trim(line))
-        case ('ddr')
-          ctrl%neom=0
-        case ('nacdr')
-          ctrl%neom=0
-        case ('gdiff')
-          ctrl%neom=1
-        case default
-          write(0,*) 'Unknown keyword ',trim(line),' to "neom"!'
-          stop 1
-      endselect
-    else ! set the default nuclear propagators
-      if (ctrl%coupling==0) then
-        ctrl%neom=0
-      elseif (ctrl%coupling==1) then
-        ctrl%neom=0
-      elseif (ctrl%coupling==2) then
-        ctrl%neom=1
-      elseif (ctrl%coupling==3) then
-        ctrl%neom=1
-      endif
-    endif
-
-    line=get_value_from_key('neom_rep',io)
-    if (io==0) then
-      select case (trim(line))
-        case ('diag')
-          ctrl%neom_rep=0
-        case ('mch')
-          ctrl%neom_rep=1
-        case default
-          write(0,*) 'Unknown keyword ',trim(line),' to "neom"!'
-          stop 1
-      endselect
-    else ! set the default 
-      ctrl%neom_rep=0
-    endif
-
-    ! default is do projection for system with more than 4 atoms
-    if (ctrl%natom.ge.4) then
-      ctrl%nac_projection=1
-    else
-      ctrl%nac_projection=0
-    endif
-    line=get_value_from_key('nac_projection',io)
-    if (io==0) then
-      ctrl%nac_projection=1
-    endif
-    line=get_value_from_key('nonac_projection',io)
-    if (io==0) then
-      ctrl%nac_projection=0
-    endif
-
-    ! method to maintain ZPE
-    ctrl%zpe_correction=0
-    line=get_value_from_key('zpe_correction',io)
-    if (io==0) then
-      select case (trim(line))
-        case ('pumping')
-          ctrl%zpe_correction=1
-        case ('lp')
-          ctrl%zpe_correction=2
-        case default
-          write(0,*) 'Unknown keyword ',trim(line),' to "zpe_correction"!'
-          stop 1
-      endselect
-    endif
-
-    ! LP-ZPE correction scheme input
- 
-    ! LP-ZPE correction scheme
-    line=get_value_from_key('lpzpe_scheme',io)
-    if (io==0) then
-      read(line,*) ctrl%lpzpe_scheme
-    else
-      ! default: using original scheme
-      ctrl%lpzpe_scheme=0
-    endif
-
-    ! number of AH bonds
-    line=get_value_from_key('number_ah',io)
-    if (io==0) then
-      read(line,*) ctrl%lpzpe_nah
-    endif
-
-    ! number of BC bonds
-    line=get_value_from_key('number_bc',io)
-    if (io==0) then
-      read(line,*) ctrl%lpzpe_nbc
-    endif
-
-    ! list of AH bonds
-    line=get_value_from_key('ah_list',io)
-    if (io==0) then
-      ! value needs to be split into values (each one is a string)
-      call split(line,' ',values,n)
-      ! n is twice the number of AH bonds
-      ctrl%lpzpe_nah=n/2
-      allocate(ctrl%lpzpe_ah(ctrl%lpzpe_nah,2)) 
-      ! read AH bonds 
-      do i=1,ctrl%lpzpe_nah
-        do j=1,2
-          k=(i-1)*2+j
-          read(values(k),*) ctrl%lpzpe_ah(i,j)
-        enddo
-      enddo
-      ! values is not needed anymore
-      deallocate(values)
-    endif
-
-    ! list of BC bonds
-    line=get_value_from_key('bc_list',io)
-    if (io==0) then
-      ! value needs to be split into values (each one is a string)
-      call split(line,' ',values,n)
-      ! n is twice the number of AH bonds
-      ctrl%lpzpe_nbc=n/2
-      allocate(ctrl%lpzpe_bc(ctrl%lpzpe_nbc,2))
-      ! read AH bonds 
-      do i=1,ctrl%lpzpe_nbc
-        do j=1,2
-          k=(i-1)*2+j
-          read(values(k),*) ctrl%lpzpe_bc(i,j)
-        enddo
-      enddo
-      ! values is not needed anymore
-      deallocate(values)
-    endif
-
-    ! zpe of AH bonds
-    line=get_value_from_key('ah_zpe',io)
-    if (io==0) then
-      ! value needs to be split into values (each one is a string)
-      call split(line,' ',values,n)
-      allocate(ctrl%lpzpe_ke_zpe_ah(n))
-      ! read AH bonds 
-      do i=1,n
-        read(values(i),*) ctrl%lpzpe_ke_zpe_ah(i)
-      enddo
-      ! values is not needed anymore
-      deallocate(values)
-    endif
-
-    ! zpe of BC bonds
-    line=get_value_from_key('bc_zpe',io)
-    if (io==0) then
-      ! value needs to be split into values (each one is a string)
-      call split(line,' ',values,n)
-      allocate(ctrl%lpzpe_ke_zpe_bc(n))
-      ! read AH bonds 
-      do i=1,n
-        read(values(i),*) ctrl%lpzpe_ke_zpe_bc(i)
-      enddo
-      ! values is not needed anymore
-      deallocate(values)
-    else 
-      allocate(ctrl%lpzpe_ke_zpe_bc(ctrl%lpzpe_nbc))
-      do i=1,ctrl%lpzpe_nbc
-        ctrl%lpzpe_ke_zpe_bc(i)=0.0
-      enddo
-    endif
-
-    ! read kinetic energy threshold
-    line=get_value_from_key('ke_threshold',io)
-    if (io==0) then
-      read(line,*) ctrl%ke_threshold
-    endif
-
-    ! read time cycle of zpe checking
-    line=get_value_from_key('t_cycle',io)
-    if (io==0) then
-      read(line,*) ctrl%t_cycle
-    endif
-    ctrl%t_cycle=ctrl%t_cycle/au2fs
-
-    ! read period of time for kinetic energy averaging
-    line=get_value_from_key('t_check',io)
-    if (io==0) then
-      read(line,*) ctrl%t_check
-    endif
-    ctrl%t_check=ctrl%t_check/au2fs
-
-    ! Done LP-ZPE correction scheme input
-   
-    ! pointer basis selection
-    line=get_value_from_key('pointer_basis',io)
-    if (io==0) then
-      select case (trim(line))
-        case ('diag')
-          ctrl%pointer_basis=0
-        case ('mch')
-          ctrl%pointer_basis=1
-        case ('opt')
-          ctrl%pointer_basis=2
-        case default
-          write(0,*) 'Unknown keyword ',trim(line),' to "pointer_basis"!'
-          stop 1
-      endselect
-    else
-      ctrl%pointer_basis=0
-    endif
-
-    ! maximum iteration of pointer basis optimization
-    line=get_value_from_key('pointer_maxiter',io)
-    if (io==0) then
-      read(line,*) ctrl%pointer_maxiter
-    else
-      ctrl%pointer_maxiter=1000
     endif
 
     ! spin-orbit couplings
@@ -1135,11 +695,7 @@ module input
     endif
 
     ! request phase corrections from interface
-    if (ctrl%coupling.ne.3) then 
-      ctrl%calc_phases=1
-    elseif (ctrl%coupling==3) then
-      ctrl%calc_phases=0
-    endif
+    ctrl%calc_phases=1
     line=get_value_from_key('nophases_from_interface',io)
     if (io==0) then
       ctrl%calc_phases=0
@@ -1159,23 +715,7 @@ module input
     ! non-adiabatic couplings for gradients
     line=get_value_from_key('gradcorrect',io)
     if (io==0) then
-      select case (trim(line))
-        case ('')
-          ctrl%gradcorrect=1
-        case ('nac')
-          ctrl%gradcorrect=1
-        case ('ngt')
-          ctrl%gradcorrect=1
-        case ('kmatrix')
-          ctrl%gradcorrect=2
-        case ('tdm')
-          ctrl%gradcorrect=2
-        case ('enac')
-          ctrl%gradcorrect=3
-        case default
-          write(0,*) 'Unknown keyword ',trim(line),' to "gradcorrect"!'
-          stop 1
-      endselect
+      ctrl%gradcorrect=1
     else
       ctrl%gradcorrect=0
     endif
@@ -1192,20 +732,10 @@ module input
           ctrl%ekincorrect=0
         case ('parallel_vel')
           ctrl%ekincorrect=1
-        case ('parallel_pvel')
-          ctrl%ekincorrect=2
         case ('parallel_nac')
-          ctrl%ekincorrect=3
+          ctrl%ekincorrect=2
         case ('parallel_diff')
-          ctrl%ekincorrect=4
-        case ('parallel_pnac')
-          ctrl%ekincorrect=5
-        case ('parallel_pdiff')
-          ctrl%ekincorrect=6
-        case ('parallel_enac') ! effective NAC
-          ctrl%ekincorrect=7
-        case ('parallel_penac') ! projected effective NAC
-          ctrl%ekincorrect=8
+          ctrl%ekincorrect=3
         case default
           write(0,*) 'Unknown keyword ',trim(line),' to "ekincorrect"!'
           stop 1
@@ -1222,36 +752,10 @@ module input
           ctrl%reflect_frustrated=0
         case ('parallel_vel') 
           ctrl%reflect_frustrated=1
-        case ('parallel_pvel')
-          ctrl%reflect_frustrated=2
         case ('parallel_nac') 
-          ctrl%reflect_frustrated=3
+          ctrl%reflect_frustrated=2
         case ('parallel_diff') 
-          ctrl%reflect_frustrated=4
-        case ('parallel_pnac')
-          ctrl%reflect_frustrated=5
-        case ('parallel_pdiff')
-          ctrl%reflect_frustrated=6
-        case ('parallel_enac') ! effective NAC
-          ctrl%reflect_frustrated=7
-        case ('parallel_penac') ! projected effective NAC
-          ctrl%reflect_frustrated=8
-        case ('delV_vel')
-          ctrl%reflect_frustrated=91
-        case ('delV_pvel')
-          ctrl%reflect_frustrated=92
-        case ('delV_nac')
-          ctrl%reflect_frustrated=93
-        case ('delV_diff')
-          ctrl%reflect_frustrated=94
-        case ('delV_pnac')
-          ctrl%reflect_frustrated=95
-        case ('delV_pdiff')
-          ctrl%reflect_frustrated=96
-        case ('delV_enac')
-          ctrl%reflect_frustrated=97
-        case ('delV_penac')
-          ctrl%reflect_frustrated=98
+          ctrl%reflect_frustrated=3
         case default
           write(0,*) 'Unknown keyword ',trim(line),' to "reflect_frustrated"!'
           stop 1
@@ -1259,22 +763,6 @@ module input
     else
       ctrl%reflect_frustrated=0
     endif
-
-    ! initialize time uncertainty
-    ctrl%time_uncertainty=0
-  
-    ! do time uncertainty or not
-    line=get_value_from_key('time_uncertainty',io)
-    if (io==0) then
-      ctrl%time_uncertainty=1
-    endif
-    line=get_value_from_key('notime_uncertainty',io)
-    if (io==0) then
-      ctrl%time_uncertainty=0
-    endif
-
-    ! initialize time uncertainty process
-    traj%in_time_uncertainty=0
 
     ! selection of gradients/non-adiabatic couplings
     selg=0
@@ -1314,17 +802,6 @@ module input
     ctrl%calc_nacdr=-1
     ctrl%calc_overlap=0
     ctrl%calc_second=0
-    ctrl%calc_effectivenac=0
-
-    ! for debug purposes, direct set up of keywords 
-    line=get_value_from_key('calc_overlap',io)
-    if (io==0) then
-      ctrl%calc_overlap=1
-    endif
-    line=get_value_from_key('calc_effectivenac',io)
-    if (io==0) then
-      ctrl%calc_effectivenac=1
-    endif
 
     ! calculate the active coupling quantity (nacdr, nacdt, overlaps)
     select case (ctrl%coupling)
@@ -1334,24 +811,10 @@ module input
         ctrl%calc_nacdr=0
       case (2)  ! overlap
         ctrl%calc_overlap=1
-      case (3)  ! ktdc
-        ctrl%calc_effectivenac=1
       case default
         write(0,*) 'Internal error 1!'
         stop 1
     endselect
-
-    if (ctrl%method==1) then 
-      select case (ctrl%neom)
-        case (0)  ! ddr
-          ctrl%calc_nacdr=0
-        case (1)  ! effective nac
-          ctrl%calc_effectivenac=1
-        case default
-          write(0,*) 'Internal error 1!'
-          stop 1
-      endselect
-    endif 
 
 !     if (ctrl%coupling==1) then   ! having ddr couplings
 !       ctrl%gradcorrect=1         ! they can be used for gradient correction
@@ -1367,19 +830,13 @@ module input
     if (ctrl%gradcorrect==1) then ! for gradcorrect
       ctrl%calc_nacdr=0           ! we need nacdr
     endif
-    if (ctrl%ekincorrect==3 .or. ctrl%ekincorrect==5) then ! for kinetic energy correction parallel to nac or projected nac, we need nacdr
+    if (ctrl%ekincorrect==2) then ! for kinetic energy correction parallel to nac, we need nacdr
       ctrl%calc_nacdr=0
       ctrl%gradcorrect=1        ! NACs must be transformed
     endif
-    if (ctrl%ekincorrect==7 .or. ctrl%ekincorrect==8) then ! for kinetic energy correction parallel to effective nac or projected effective nac, we need effective nac
-      ctrl%calc_effectivenac=1
-    endif 
-    if (ctrl%reflect_frustrated==3 .or. ctrl%reflect_frustrated==5 .or. ctrl%reflect_frustrated==93 .or. ctrl%reflect_frustrated==95) then ! for reflection parallel to nac or projected nac, we need nacdr
+    if (ctrl%reflect_frustrated==2) then ! for reflection parallel to nac, we need nacdr
       ctrl%calc_nacdr=0
       ctrl%gradcorrect=1        ! NACs must be transformed
-    endif
-    if (ctrl%reflect_frustrated==7 .or. ctrl%reflect_frustrated==8 .or. ctrl%reflect_frustrated==97 .or. ctrl%reflect_frustrated==98) then ! for reflection parallel to effective nac or projected effective nac, we need effective nac
-      ctrl%calc_effectivenac=1
     endif
 ! !     if (ctrl%decoherence==2) then ! for A-FSSH we need nacdr
 ! !       ctrl%calc_nacdr=0
@@ -1441,26 +898,6 @@ module input
       ctrl%calc_grad=1
       ctrl%eselect_grad=99999.9d0
     endif
-
-
-
-
-    ! flag for switching of writing of restart files
-    ctrl%write_restart_files = .true.
-    line=get_value_from_key('write_restart_files',io)
-    if (io==0) then
-      ctrl%write_restart_files = .true.
-    endif
-    line=get_value_from_key('nowrite_restart_files',io)
-    if (io==0) then
-      ctrl%write_restart_files = .false.
-    endif
-    if (.not.ctrl%write_restart_files) then
-        write(u_log,'(a)') 'Writing of restart files turned off! Restarting trajectory will not be possible!'
-    endif
-
-
-
 
 
 
@@ -1554,10 +991,6 @@ module input
     ctrl%output_steps_stride=1
     line=get_value_from_key('output_dat_steps',io)
     if (io==0) then
-         if (ctrl%integrator/=2) then
-             write(0,*) 'Bulirsch-Stoer-Hack and adaptive velocity Verlet integrators not yet compatible with variable output stride!'
-             stop 1
-         endif 
       call split(line,' ',values,n)
       if (n>=1) then
         read(values(1),*) i
@@ -1598,64 +1031,22 @@ module input
       write(u_log,*) '                       Dynamics options'
       write(u_log,*) '============================================================='
       if (printlevel>1) then
-        select case (ctrl%method)
-          case (0)
-            write(u_log,'(a)') 'Doing Trajectory Surface Hopping Dynamics.'
-          case (1)
-            write(u_log,'(a)') 'Doing semi-classical Ehrenfest Dynamics using self-consistent potentials'
-        endselect
-        if (ctrl%time_uncertainty==1) then
-            write(u_log,'(a)') 'Doing Trajectory Surface Hopping with Time Uncertainty'
-        endif
         select case (ctrl%surf)
           case (0)
             write(u_log,'(a)') 'Doing SHARC dynamics (on diagonal surfaces).'
           case (1)
             write(u_log,'(a)') 'Doing dynamics on MCH surfaces.'
         endselect
-        select case (ctrl%zpe_correction)
-          case (0)
-            write(u_log,'(a)') 'No Zero Point Energy correction scheme employed'
-          case (1)
-            write(u_log,'(a)') 'Using Zero Point Energy pumping method tomaintain ZPE'
-          case (2)
-            write(u_log,'(a)') 'Using Local Pair Zero Point Energy to maintain ZPE'
-            if (ctrl%lpzpe_scheme==0) then 
-              write(u_log,'(a)') 'Using original LP-ZPE scheme: skip correction if BC kinetic energy is not enough'
-            else if (ctrl%lpzpe_scheme==1) then
-              write(u_log,'(a)') 'Using new LP-ZPE scheme: adjust the correction energy based on BC kinetic energy'
-            endif
-        endselect
         select case (ctrl%coupling)
           case (0)
-            write(u_log,'(a)') 'Using TIME DERIVATIVES <a|d/dt|b> as wavefunction coupling.'
+            write(u_log,'(a)') 'Using TIME DERIVATIVES <a|d/dt|b> for wavefunction propagation.'
           case (1)
-            write(u_log,'(a)') 'Using SPATIAL DERIVATIVES <a|d/dR|b> as wavefunction coupling.'
-          case (2)
-            write(u_log,'(a)') 'Using OVERLAPS as wavefunction coupling.'
-          case (3)
-            write(u_log,'(a)') 'Using curvature TDC approximation as wavefunction coupling.'
-        endselect
-        select case (ctrl%eeom)
-          case (0)
-            write(u_log,'(a)') 'Using constant interpolation of TDC for wavefunction propagation.'
-          case (1)
-            write(u_log,'(a)') 'Using linear interpolation of TDC for wavefunction propagation.'
+            write(u_log,'(a)') 'Using SPATIAL DERIVATIVES <a|d/dR|b> for wavefunction propagation.'
           case (2)
             write(u_log,'(a)') 'Doing LOCAL DIABATISATION propagation.'
-          case (3)
-            write(u_log,'(a)') 'Using norm perserving interpolation of TDC for wavefunction propagation.'
-        endselect
-        select case (ctrl%neom)
-          case (0)
-            write(u_log,'(a)') 'Using NAC for nuclear equation of motion.'
-          case (1)
-            write(u_log,'(a)') 'Using effective NAC for nuclear equation of motion.'
         endselect
         if (ctrl%gradcorrect==1) then
           write(u_log,'(a)') 'Including non-adiabatic coupling vectors in the gradient transformation.'
-        elseif (ctrl%gradcorrect==2) then
-          write(u_log,'(a)') 'Using Kmatrix in the gradient transformation.'
         endif
         select case (ctrl%ekincorrect)
           case (0)
@@ -1663,19 +1054,9 @@ module input
           case (1)
             write(u_log,'(a)') 'Correction to the kinetic energy after surface hop parallel to velocity vector.'
           case (2)
-            write(u_log,'(a)') 'Correction to the kinetic energy after surface hop parallel to projected velocity vector.'
-          case (3)
             write(u_log,'(a)') 'Correction to the kinetic energy after surface hop parallel to non-adiabatic coupling vector.'
-          case (4)
+          case (3)
             write(u_log,'(a)') 'Correction to the kinetic energy after surface hop parallel to gradient difference vector.'
-          case (5)
-            write(u_log,'(a)') 'Correction to the kinetic energy after surface hop parallel to projected non-adiabatic coupling vector.'
-          case (6)
-            write(u_log,'(a)') 'Correction to the kinetic energy after surface hop parallel to projected gradient difference vector.'
-          case (7)
-            write(u_log,'(a)') 'Correction to the kinetic energy after surface hop parallel to effective non-adiabatic coupling vector.'
-          case (8)
-            write(u_log,'(a)') 'Correction to the kinetic energy after surface hop parallel to projected effective non-adiabatic coupling vector.'
         endselect
         write(u_log,*)
         select case (ctrl%calc_grad)
@@ -1837,25 +1218,6 @@ module input
 
     if (printlevel>1) write(u_log,'(a,1x,f15.9)') 'Shift to the diagonal energies is',ctrl%ezero
 
-    ! convergence threshold ============================================
-
-    line=get_value_from_key('convthre',io)
-    if (io==0) then
-      read(line,*) ctrl%convthre
-    else
-      ctrl%convthre=0.0001
-    endif
-
-    if (printlevel>1) then
-      if (ctrl%integrator==0) then
-        write(u_log,'(a,1x,f15.9,1x,a)') 'Bulirsch-Stoer convergence threshold:',ctrl%convthre, 'a.u.'
-      else if (ctrl%integrator==1) then
-        write(u_log,'(a,1x,f15.9,1x,a)') 'Adaptive Velocity Verlet convergence threshold:',ctrl%convthre,'eV'
-        write(u_log,'(a,1x,f15.9,1x,a)') 'Minimum time step:',ctrl%dtstep_min,"fs"
-        write(u_log,'(a,1x,f15.9,1x,a)') 'Maximum time step:',ctrl%dtstep_max,"fs"
-      endif
-    endif
-
     ! scaling ============================================
 
     line=get_value_from_key('scaling',io)
@@ -1869,21 +1231,8 @@ module input
       stop 1
     endif
 
-    ! spin orbit coupling scaling factor==============================
-    line=get_value_from_key('soc_scaling',io)
-    if (io==0) then
-      read(line,*) ctrl%soc_scaling
-    else
-      ctrl%soc_scaling=1.d0
-    endif
-    if (ctrl%soc_scaling<=0.d0) then
-      write(0,*) 'SOC scaling must not be smaller than or equal to 0.0!'
-      stop 1
-    endif
-
     if (printlevel>1) then
       write(u_log,'(a,1x,f6.3)') 'Scaling factor to the Hamiltonian and gradients is',ctrl%scalingfactor
-      write(u_log,'(a,1x,f6.3)') 'SOC scaling factor is',ctrl%soc_scaling 
       write(u_log,*)
     endif
 
@@ -1930,14 +1279,8 @@ module input
 
     line=get_value_from_key('decoherence',io)
     if (io==0) then
-      if (ctrl%method==0) then
-        ctrl%decoherence=1
-        ctrl%decoherence_alpha=0.1d0
-      else if (ctrl%method==1) then
-        ctrl%decoherence=11
-        ctrl%decoherence_alpha=0.1d0
-        ctrl%decoherence_beta=1.0d0
-      endif
+      ctrl%decoherence=1
+      ctrl%decoherence_alpha=0.1d0
     else
       ctrl%decoherence=0
     endif
@@ -1955,10 +1298,6 @@ module input
           ctrl%decoherence=1
         case ('afssh') 
           ctrl%decoherence=2
-        case ('dom')
-          ctrl%decoherence=11
-          ctrl%decoherence_alpha=0.1d0
-          ctrl%decoherence_beta=1.0d0
         case('edc_legacy')
           ctrl%decoherence=-1
         case default
@@ -1975,16 +1314,6 @@ module input
         write(0,*) 'Decoherence parameter must not be smaller than 0.0!'
         stop 1
       endif
-    endif
-    if (ctrl%decoherence==11) then
-      line=get_value_from_key('decoherence_param_alpha',io)
-      if (io==0) read(line,*) ctrl%decoherence_alpha
-      if (ctrl%decoherence_alpha<0.d0) then
-        write(0,*) 'Decoherence parameter must not be smaller than 0.0!'
-        stop 1
-      endif
-      line=get_value_from_key('decoherence_param_beta',io)
-      if (io==0) read(line,*) ctrl%decoherence_beta
     endif
 
     if (printlevel>1) then
@@ -2005,62 +1334,9 @@ module input
           write(u_log,*)
           stop 1
         endif
-      elseif (ctrl%decoherence==11) then
-        write(u_log,'(a)') 'Decoherence is 11 (Decay of Mixing by Zhu, Nangia, Jasper, Truhlar)'
-        write(u_log,'(a,1x,f6.3,1x,a)') 'Alpha decoherence constant is',ctrl%decoherence_alpha,'Hartree'
-        write(u_log,'(a,1x,f6.3,1x,a)') 'Beta decoherence constant is',ctrl%decoherence_beta,'Hartree'
-        write(u_log,*)
       else
         write(u_log,'(a)') 'Decoherence is OFF'
         write(u_log,*)
-      endif
-    endif
-
-    line=get_value_from_key('decotime_method',io)
-    if (io==0) then
-      select case (trim(line))
-        case ('csdm')
-          ctrl%decotime_method=0
-        case ('scdm')
-          ctrl%decotime_method=1
-        case ('edc')
-          ctrl%decotime_method=2
-        case ('sd')
-          ctrl%decotime_method=3
-        case ('fp1')
-          ctrl%decotime_method=4
-        case ('fp2')
-          ctrl%decotime_method=5
-        case default
-          write(0,*) 'Unknown keyword ',trim(line),' to "decotime_method"!'
-          stop 1
-      endselect
-    else
-      ctrl%decotime_method=0
-    endif
-
-    if (ctrl%decotime_method==5) then !for fp2 method, we need to get gaussian width parameter
-      line=get_value_from_key('gaussian_width',io)
-      if (io==0) read(line,*) ctrl%gaussian_width
-      if (ctrl%gaussian_width<0.d0) then
-        write(0,*) 'Gaussian width must not be smaller than 0.0!'
-        stop 1
-      endif
-    endif
-
-    if (printlevel>1) then
-      if (ctrl%decotime_method==0) then
-        write(u_log,'(a)') 'Decoherence time is computed with CSDM method'
-      elseif (ctrl%decotime_method==1) then
-        write(u_log,'(a)') 'Decoherence time is computed with SCDM method'
-      elseif (ctrl%decotime_method==2) then
-        write(u_log,'(a)') 'Decoherence time is computed with EDC (energy based decoherence) method'
-      elseif (ctrl%decotime_method==3) then
-        write(u_log,'(a)') 'Decoherence time is computed with SD (stochastic decoherence) method'
-      elseif (ctrl%decotime_method==4) then
-        write(u_log,'(a)') 'Decoherence time is computed with FP1 (force momentum 1) method'
-      elseif (ctrl%decotime_method==5) then
-        write(u_log,'(a)') 'Decoherence time is computed with FP2 (force momentum 2) method'
       endif
     endif
 
@@ -2215,43 +1491,6 @@ module input
       ctrl%n_constraints=0
     endif
 
-    ! surface switching procedure
-    ctrl%switching_procedure=1
-    line=get_value_from_key('switching_procedure',io)
-    if (io==0) then
-      select case (trim(line))
-        case ('csdm')
-          ctrl%switching_procedure=1
-          if (printlevel>1) then
-            write(u_log,'(a)') 'Surface Switching procedure is CSDM (Shu, Zhang, Mai, Sun, Truhlar, Gonzalez)'
-            write(u_log,*)
-          endif
-        case ('scdm')
-          ctrl%switching_procedure=2
-          if (printlevel>1) then
-            write(u_log,'(a)') 'Surface Switching procedure is SCDM (Shu, Zhang, Mai, Sun, Truhlar, Gonzalez)'
-            write(u_log,*)
-          endif
-        case ('ndm')
-          ctrl%switching_procedure=3
-          if (printlevel>1) then
-            write(u_log,'(a)') 'Surface Switching procedure is NDM (Shu, Zhang, Mai, Sun, Truhlar, Gonzalez)'
-            write(u_log,*)
-          endif
-        case ('off')
-          ctrl%switching_procedure=0
-          ctrl%ekincorrect=0
-          if (printlevel>1) then
-            write(u_log,'(a)') 'Surface Switching if OFF (will stay in initial diagonal state)'
-            write(u_log,*)
-          endif
-        case default
-          write(0,*) 'Unknown keyword ',trim(line),' to "switching_procedure"!'
-          stop 1
-      endselect
-    endif
-  
-
 
 
 
@@ -2287,9 +1526,9 @@ module input
       if (printlevel>1) then
         write(u_log,'(3a)') 'Reading from geometry file: "',trim(geomfilename),'"'
         write(u_log,*) 'Geometry (Bohr):'
-        write(u_log,'(A2,1X,3(A9,1X),3X,A3,1X,A12)') 'El','x','y','z','#','mass'
+        write(u_log,'(A2,1X,3(A9,1X),3X,A3,1X,A12)') 'El','hihi','y','z','#','mass'
         do i=1,ctrl%natom
-          write(u_log,'(A2,1X,3(F9.6,1X),3X,F4.0,1X,F12.6)') traj%element_a(i),&
+          write(u_log,'(A2,1X,3(F10.6,1X),3X,F4.0,1X,F12.6)') traj%element_a(i),&
           &(traj%geom_ad(i,j),j=1,3),traj%atomicnumber_a(i),traj%mass_a(i)
         enddo
       endif
@@ -2416,23 +1655,11 @@ module input
   line=get_value_from_key('atommask',io)
   if (io==0) then
     ! ------- some combinations have no effect
-    if (ctrl%ekincorrect==3) then
+    if (ctrl%ekincorrect==2) then
       write(u_log,*) 'HINT: "ekincorrect parallel_nac" ignores "atommask".'
     endif
-    if (ctrl%ekincorrect==4) then
+    if (ctrl%ekincorrect==3) then
       write(u_log,*) 'HINT: "ekincorrect parallel_diff" ignores "atommask".'
-    endif
-    if (ctrl%ekincorrect==5) then
-      write(u_log,*) 'HINT: "ekincorrect parallel_pnac" ignores "atommask".'
-    endif
-    if (ctrl%ekincorrect==6) then
-      write(u_log,*) 'HINT: "ekincorrect parallel_pdiff" ignores "atommask".'
-    endif
-    if (ctrl%ekincorrect==7) then
-      write(u_log,*) 'HINT: "ekincorrect parallel_enac" ignores "atommask".'
-    endif
-    if (ctrl%ekincorrect==8) then
-      write(u_log,*) 'HINT: "ekincorrect parallel_penac" ignores "atommask".'
     endif
     if (ctrl%decoherence==2) then
       write(u_log,*) 'HINT: "decoherence_scheme afssh" ignores "atommask".'
@@ -2495,6 +1722,100 @@ module input
     endif
     if (ctrl%reflect_frustrated==1) then
       write(u_log,*) 'Atom mask will be used for reflection after frustrated hops.'
+    endif
+  endif
+
+  ! =====================================================
+
+  ! process the atom mask for freezing atoms, i.e. excluding them from dynamics
+  allocate( ctrl%atommask_b(ctrl%natom))
+  ctrl%atommask_b=.true.
+  line=get_value_from_key('freeze',io)
+  if (io==0) then
+    call split(line,' ',values,n)
+    select case (trim(values(1)))
+      ! initial frozen atoms in input
+      case ('last') !initialize as last [n] atoms frozen
+          if (n==2) then
+            read(values(2),*) k
+            do i=ctrl%natom-k+1,ctrl%natom
+                ctrl%atommask_b(i) = .false.
+            enddo
+          else
+            write(0,*) 'Specify how many atoms should be frozen: freeze last [n]!'
+            stop 1
+          endif
+      case ('atoms') !initialize as given atoms [at1 at2 ... ] frozen
+          if (n>=2) then
+            do i=2,n
+              read(values(i),*) k
+              ctrl%atommask_b(k) = .false.
+            enddo
+          else
+            write(0,*) 'Specify which atoms should be frozen (atom numbers)!'
+            stop 1
+          endif
+      ! initialize frozen atoms from file
+      case ('file')
+          if (n==2) then
+            call get_quoted(line,geomfilename)
+            filename=trim(geomfilename)
+            !read(values(2),*) filename
+            if (filename(1:3)=='qm/') then !change qm/ folder to QM/
+              filename='QM'//filename(3:)
+            endif
+          else if (n==1) then
+            filename='frozen'
+          else
+            write(0,*) 'Specify only 1 filename to read frozen atoms from!'
+            stop 1
+          endif
+          open(u_i_frozen,file=filename, status='old', action='read', iostat=io)
+
+          if (printlevel>1) write(u_log,'(3A)') 'Reading atom mask for dynamics (active/frozen atoms) from file "',trim(filename),'"'
+          if (io/=0) then
+            write(0,*) 'Could not find atom mask for freezing atoms file!'
+            stop 1
+          endif
+          if (filename=='QM/real_layers.xyz') then !read from real_layers file
+            write(0,*) 'still need to implement reading from QM/real_layers.xyz'
+            stop 1
+            do i=1,ctrl%natom
+              read(u_i_frozen,*) line
+              call split(line,' ',values,n)
+              !write(0,*) line
+              !write(0,*) values(5)
+              !write(0,*) trim(values(2))
+              !write(0,*) trim(values(-1))
+              if (trim(values(5))=='L') then
+                ctrl%atommask_b(i)=.false.
+              endif 
+            enddo
+          else !read from file with T/F in each line (for each atom)
+            do i=1,ctrl%natom
+              read(u_i_frozen,*) ctrl%atommask_b(i)
+            enddo
+          endif
+          close(u_i_frozen)
+      case ('none')
+          continue
+      case default
+        write(0,*) 'Unknown option for keyword freeze!'
+        stop 1
+    endselect
+    deallocate(values)
+  endif
+  if (printlevel>1) then
+    if (printlevel>2) then
+      write(u_log,*) 'Atom mask for dynamics (atoms active or frozen):'
+      do i=1,ctrl%natom
+        write(u_log,*) i,traj%element_a(i),ctrl%atommask_b(i)
+      enddo
+    else
+      write(u_log,*) 'Atom mask for dynamics (only active, not frozen):'
+      do i=1,ctrl%natom
+        if (ctrl%atommask_b(i)) write(u_log,*) i,traj%element_a(i),ctrl%atommask_b(i)
+      enddo
     endif
   endif
 
@@ -2753,11 +2074,6 @@ module input
       endif
     endif
 
-    ctrl%calc_dipole=1
-
-    if (ctrl%laser/=0) then
-      ctrl%calc_dipole=1
-    endif
 
     ctrl%dipolegrad=0
     ctrl%calc_dipolegrad=-1
@@ -2885,14 +2201,16 @@ module input
 
   ! =====================================================
 
-  ! check for thermostat
-  line=get_value_from_key('thermostat',io)
+  ! check for thermostat keywords
+    line=get_value_from_key('thermostat',io)
     if (io==0) then
       select case (trim(line))
         case ('none')
           ctrl%thermostat=0
         case ('langevin')
           ctrl%thermostat=1
+       ! case ('multi-langevin')
+        !  ctrl%thermostat=2
         case default
           ctrl%thermostat=0
       endselect
@@ -2901,128 +2219,442 @@ module input
     endif
 
    if (printlevel>0) then
-      write(u_log,*) '============================================================='
-      write(u_log,*) '                       Thermostat'
-      write(u_log,*) '============================================================='
-      if (printlevel>1) then
-        select case (ctrl%thermostat)
-          case (0)
-            write(u_log,'(a)') 'No thermostat will be applied.'
-          case (1)
-            write(u_log,'(a)') 'Langevin thermostat will be applied.'
-            write(u_log,'(a)') 'Temperature (in K) and friction coeffitient (in m_e*fs^-1): '
-        endselect
-      endif
-    endif
+     write(u_log,*) '============================================================='
+     write(u_log,*) '                       Thermostat'
+     write(u_log,*) '============================================================='
+     if (printlevel>1) then
+       select case (ctrl%thermostat)
+         case (0)
+           write(u_log,'(a)') 'No thermostat will be applied.'
+         case (1)
+           write(u_log,'(a)') 'Langevin thermostat will be applied.'
+           !write(u_log,'(a)') 'Temperature (in K) and friction coeffitient (in fs^-1): '
+       endselect
+     endif
+   endif
 
 
     ! set up values needed for thermostat
     if (ctrl%thermostat/=0) then
 
       ! random number seed for thermostat
-      line=get_value_from_key('rngseed',io)
+      line=get_value_from_key('rngseed_thermostat',io)
       if (io==0) then
-        read(line,*) traj%rngseed_thermostat !for now: use same rngseed for thermostat as given for initial velocities. Maybe change later.
+        read(line,*) traj%rngseed_thermostat
       else
-        traj%rngseed_thermostat=1099279      ! some prime number
+        line=get_value_from_key('rngseed',io)
+        if (io==0) then
+          read(line,*) traj%rngseed_thermostat !if not specified: use same rngseed for thermostat as given for initial velocities.
+        else
+          traj%rngseed_thermostat=1099279      ! some prime number
+        endif
       endif
-      call init_random_seed_thermostat(traj%rngseed_thermostat)
-     ! call srand(traj%rngseed_thermostat) alternatively
+      !initiate ziggurat prng (do only once!)
+      call zigset(traj%rngseed_thermostat+37+17**2)
       if (ctrl%thermostat==1) then
-        allocate (traj%thermostat_random(2*((3*ctrl%natom+1)/2))) ! allocate randomnes for all atoms in all directions
+        allocate (traj%thermostat_random(3*ctrl%natom)) ! allocate randomness for all atoms in all directions
       endif
 
       ! restart with same random number sequence?
       ! default is restarting with same random number sequence
       ctrl%restart_thermostat_random=.true.
       ! look for norestart_thermostat_random keyword
+      ! if given: when restarting it starts from random seed given in restart.traj!
+      ! (so only use this option for when manually given new random seed in restart.traj!)
       line=get_value_from_key('norestart_thermostat_random',io)
       if (io==0) then
         ctrl%restart_thermostat_random=.false.
       endif
 
-      ! get temperature
-      line=get_value_from_key('temperature',io)
-      if (io==0) then
-        read(line,*) ctrl%temperature
-      else
-        ctrl%temperature=293.15 !default temperature
-      endif
-      write(u_log,'(1x,F11.4)') ctrl%temperature
-
-
-      ! get constants needed for thermostat
-      if (ctrl%thermostat==1) allocate(ctrl%thermostat_const(1)) !allocate right amount of thermostat constants
-      line=get_value_from_key('thermostat_const',io) !provide in fs^-1
+      ! specify number of thermostat regions (regions with different thermostat conditions)
+      ! if input as file: specify temperature and thermostat constants
+      allocate(ctrl%tempregion(ctrl%natom))
+      line=get_value_from_key('thermostatregions',io)
       if (io==0) then
         call split(line,' ',values,n)
-        if (n/=size(ctrl%thermostat_const)) then
-          write(0,*) 'Wrong number of thermostat constants!'
-          stop 1
-        else
-          do i=1,n
-            read(values(i),*) a
-            ctrl%thermostat_const = a  ! set the thermostat constants
-            if (printlevel>1) then
-              write(u_log,'(1x,ES11.4)') ctrl%thermostat_const(i)
+        select case (trim(values(1)))
+          case('one')
+            ! if 1, then there are no multiple thermostatting regions
+            ctrl%ntempregions=1
+          case('file')
+            ! if file, then read from specified file
+            !write(0,*) 'Reading thermostat regions and conditions from file not possible yet!'
+            !stop 1
+            if (n==2) then
+              call get_quoted(line,geomfilename)
+              filename=trim(geomfilename)
+            else if (n==1) then
+              filename = 'thermostat_setting'
+            else
+              write(0,*) 'Specify only 1 filename to read thermostat settings from!'
+              stop 1
             endif
-          enddo
-        endif
+            open(u_i_thermostat,file=filename, status='old', action='read', iostat=io)
+            if (printlevel>1) write(u_log,'(3A)') 'Reading thermostat settings from file "',trim(filename),'"'
+            if (io/=0) then
+              write(0,*) 'Could not find thermostat file!'
+              stop 1
+            endif
+            ! read content of file
+            read(u_i_thermostat,*) ctrl%ntempregions
+            allocate(ctrl%temperature(ctrl%ntempregions)) ! allocate temperature (as many as temperature regions present)
+            if (ctrl%thermostat==1) then
+              allocate(ctrl%thermostat_const(ctrl%ntempregions,1)) !allocate right amount of thermostat constants
+            endif
+            do i=1,ctrl%ntempregions
+              read(u_i_thermostat,*) ctrl%temperature(i) ! set temperatures
+            enddo
+            do i=1,ctrl%ntempregions
+              read(u_i_thermostat,*) line
+              deallocate(values)
+              call split(line,' ',values,n)
+              if (n/=size(ctrl%thermostat_const,2)) then
+                write(0,*) 'Wrong number of thermostat constants!'
+                stop 1
+              else
+                if (ctrl%thermostat==1) then
+                read(values(1),*) ctrl%thermostat_const(i,1)
+                endif
+              endif
+            enddo
+            do i=1,ctrl%natom
+              read(u_i_thermostat,*) ctrl%tempregion(i) ! set thermostat regions
+            enddo
+            close(u_i_thermostat)
+          case('first')
+            if (n==1) then
+              write (0,*) 'Specify how many atoms should be in first thermostat region!'
+              stop 1
+            endif
+            ! first (n) atoms belong to region 1 and the remainder to region 2
+            ctrl%ntempregions=2
+            !allocate(ctrl%tempregion(ctrl%natom))
+            read(values(2),*) k
+            do i=1,k
+              ctrl%tempregion(i)=1
+            enddo
+            do i=k+1,ctrl%natom
+              ctrl%tempregion(i)=2
+            enddo
+          case('atomlist')
+            ! set region number for all atoms separately
+            if ((n-1)==ctrl%natom) then
+              !set tempregion array
+              do i=2,n
+                read(values(i),*) a
+                ctrl%tempregion(i-1) = a  ! set the thermostat constants
+                if (printlevel>1) then
+                endif
+              enddo
+              !set ntempregions as max entry of array
+              ctrl%ntempregions = maxval(ctrl%tempregion)
+            else
+              write(0,*) 'Provide number of thermostat region for every atom!'
+              stop 1
+            endif
+          case default
+            write(0,*) 'thermostatregions input not correctly given'
+            stop 1 
+        endselect
         deallocate(values)
       else
-        write(0,*) 'No thermostat constants given!'
-        stop 1
+        ctrl%ntempregions=1
       endif
 
-      if (ctrl%thermostat==1) then !save variance in ctrl%temperature
-        ctrl%temperature=2*ctrl%thermostat_const(1)*1.38064852e-23*ctrl%temperature*2.2937126583579e+17*ctrl%dtstep ! var=2*alpha*k_bT*dt (1 J = 2.29...e+17 a.u.)
+      if (ctrl%ntempregions==1) then
+        do i=1,ctrl%natom
+          ctrl%tempregion(i)=1
+        enddo
       endif
+
+             !if (ctrl%thermostat==1)
+              ! allocate(ctrl%temperature(1))
+               !allocate(ctrl%thermostat_const(1)) !allocate right amount of thermostat constants
+             !endif
+
+      ! get temperature (unless already read from external file)
+      if (.not. allocated(ctrl%temperature)) then
+        allocate(ctrl%temperature(ctrl%ntempregions)) ! allocate temperature (as many as temperature regions present)
+        line=get_value_from_key('temperature',io)
+        if (io==0) then
+          call split(line,' ',values,n)
+          if (n/=ctrl%ntempregions) then
+            write(0,*) 'Wrong number of temperatures given!'
+            stop 1
+          else
+            do i=1,n
+              read(values(i),*) a
+              ctrl%temperature(i) = a  ! set the thermostat constants
+              !read(line,*) ctrl%temperature
+            enddo
+          endif
+          deallocate(values)
+        else
+          if (ctrl%ntempregions > 1) write(u_log,'(a)') 'Warning: multiple thermostat regions, but not multiple temperatures given!'
+          do i=1,ctrl%ntempregions
+            ctrl%temperature(i)=293.15 !default temperature for all regions
+          enddo
+        endif
+      endif
+
+      ! get constants needed for thermostat (unless already read from external file)
+      if (.not. allocated(ctrl%thermostat_const)) then
+        if (ctrl%thermostat==1) then
+          allocate(ctrl%thermostat_const(ctrl%ntempregions,1)) !allocate right amount of thermostat constants
+        endif
+        line=get_value_from_key('thermostat_const',io) !provide in fs^-1
+        if (io==0) then
+          call split(line,' ',values,n)
+          if (n/=size(ctrl%thermostat_const)) then
+            write(0,*) 'Wrong number of thermostat constants!'
+            stop 1
+          else
+            if (ctrl%thermostat==1) then
+              do i=1,n
+                read(values(i),*) a
+                ctrl%thermostat_const(i,1) = a  ! set the thermostat constants
+              enddo
+            endif
+          endif
+          deallocate(values)
+        else
+          write(0,*) 'No thermostat constants given!'
+          stop 1
+        endif
+      endif
+
+      ! print quantities for thermostat
+      if (printlevel>0) then
+        if (ctrl%ntempregions>1) write (u_log,'(a)') 'Multiple thermostat conditions regions.'
+        if (printlevel>1) then
+          write(u_log,'(a)',advance='NO') 'Number of thermostat conditions region(s):'
+          write(u_log,*) ctrl%ntempregions
+          do i=1,ctrl%ntempregions
+            write(u_log,*) i,'. region:'
+            write(u_log,'(1x,F11.4,a)') ctrl%temperature(i),' K'
+            if (ctrl%thermostat==1) write (u_log,'(1x,a)',advance='NO')  'Friction coefficient (fs^-1): '
+            write(u_log,*) (ctrl%thermostat_const(i,j), j=1,size(ctrl%thermostat_const,2))
+            !write(u_log,'(a)') ' fs^-1'
+          enddo
+          write (u_log,'(a)') 'Region of atoms: (atom region)'
+          do i=1,ctrl%natom
+            write (u_log,*) i,ctrl%tempregion(i)
+          enddo
+        endif
+      endif
+
+      ! modifications of thermostat quantities useful for later
+      if (ctrl%thermostat==1) then !save sqrt(variance) in ctrl%temperature
+        do i=1,ctrl%ntempregions
+          ! var=2*alpha*k_bT*dt (1 J = 2.29...e+17 a.u.)
+          ctrl%temperature(i)=sqrt(2*ctrl%thermostat_const(i,1)*1.38064852e-23*ctrl%temperature(i)*2.2937126583579e+17*ctrl%dtstep)
+        enddo
+        !write(u_log,*) 'thermostat_faketemp'
+        !write(u_log,*) ctrl%temperature
+      endif
+
+      ! check whether to project out total translational and rotational components
+      ! default is false, no components are removed
+      ctrl%remove_trans_rot = .false.
+      line=get_value_from_key('remove_trans_rot',io)
+      if (io==0) then
+        ctrl%remove_trans_rot = .true.
+          if (printlevel>0) then
+            write (u_log,'(a)') 'Total translational and rotational components will be removed in each step'
+          endif
+      endif
+      if (ctrl%remove_trans_rot) then
+         allocate(ctrl%rotation_tot(3*ctrl%natom,3))
+         call get_rotation_tot(ctrl,traj)
+         !write(*,*) 'rotation_tot'
+         !write(*,*) ctrl%rotation_tot
+      endif
+
     endif
-
-
-#ifdef __PYSHARC__
-
-    ! catch all options that are not yet compatible with pysharc
-
-    if (ctrl%zpe_correction/=0) then
-        write(0,*) 'ZPE correction not fully tested with pysharc!'
-        ! stop 1
-    endif
-
-    if (ctrl%army_ants/=0) then
-        write(0,*) 'Army Ants not yet fully tested with pysharc!'
-        ! stop 1
-    endif
-
-    if (ctrl%time_uncertainty/=0) then
-        write(0,*) 'Fewest switches with time uncertainty not yet fully tested with pysharc!'
-        ! stop 1
-    endif
-
-    if (ctrl%decoherence==11) then
-        write(0,*) 'Decay of mixing decoherence not yet fully tested with pysharc!'
-        ! stop 1
-    endif
-
-    if (ctrl%integrator/=2) then
-        write(0,*) 'Bulirsch-Stoer-Hack and adaptive velocity Verlet integrators not yet compatible with pysharc!'
-        stop 1
-    endif
-
-    if (ctrl%method/=0) then
-        write(0,*) 'Self-consistent potential/Ehrenfest not yet fully tested with pysharc!'
-        ! stop 1
-    endif
-
-
-
-#endif
-
-
 
     if (printlevel>0) then
       write(u_log,*)
     endif
+
+  ! =====================================================
+
+  ! check for restrictive potential
+  line=get_value_from_key('restrictive_potential',io)
+  if (io==0) then
+    select case (trim(line))
+      case ('none')
+        ctrl%restrictive_potential=0
+      case ('droplet')
+        ctrl%restrictive_potential=1
+      case ('tether')
+        ctrl%restrictive_potential=2
+      case ('droplet_tether')
+        ctrl%restrictive_potential=3
+    endselect
+  else
+    ctrl%restrictive_potential=0
+  endif
+
+   if (printlevel>0 .and. ctrl%restrictive_potential/=0) then
+      write(u_log,*) '============================================================='
+      write(u_log,*) '             Additional restrictive potential'
+      write(u_log,*) '============================================================='
+      if (printlevel>1) then
+        select case (ctrl%restrictive_potential)
+          case (0)
+          case (1)
+            write(u_log,'(a)') 'Restricted droplet potential will be applied:'
+            write(u_log,'(a)') 'Radius (in Angstrom) and force constant:'
+          case (2)
+            write(u_log,'(a)') 'Tethering of atoms will be applied:'
+            write(u_log,'(a)') 'Force constant and radius (in Angstrom):'
+          case (3)
+            write(u_log,'(a)') 'Restricted droplet potential and tethering of atoms will be applied:'
+            write(u_log,'(a)') 'Droplet radius (in Angstrom) and force constants (droplet potential and tethering) and&
+                    &tethering radius (in Angstrom):'
+        endselect
+      endif
+    endif
+
+  ! set values for additional restrictive potentials
+  ! set values for restrictive droplet potential
+  if (ctrl%restrictive_potential==1 .or. ctrl%restrictive_potential==3) then
+    line=get_value_from_key('restricted_droplet_force',io)
+      if (io==0) then
+        read(line,*) ctrl%restricted_droplet_force
+      else
+        write(0,*) 'No force constant for restrictive droplet potental given!'
+        stop 1
+      endif
+    line=get_value_from_key('restricted_droplet_radius',io)
+       if (io==0) then
+        read(line,*) ctrl%restricted_droplet_radius
+      else
+        ctrl%restricted_droplet_radius=12 ! default radius of inner solvation shell in Angstrom
+      endif
+    if (printlevel>1) then
+      write(u_log,'(1x,F7.2,4x,ES11.4)') ctrl%restricted_droplet_radius, ctrl%restricted_droplet_force
+    endif
+    ctrl%restricted_droplet_radius= ctrl%restricted_droplet_radius/au2a ! in atomic units
+
+    allocate(ctrl%sel_restricted_droplet(ctrl%natom))
+    line=get_value_from_key('restricted_droplet_atoms',io)
+    ctrl%sel_restricted_droplet=.true.
+      if (io==0) then
+        call split(line,' ',values,n)
+        select case (trim(values(1)))
+        !select case (trim(line))
+          case ('all')
+            !ctrl%sel_restricted_droplet=.true.
+            do i = 1,ctrl%natom
+              ctrl%sel_restricted_droplet(i)=.true.
+            enddo
+          case ('noH')
+            do i = 1,ctrl%natom
+              if (nint(traj%mass_a(i))==1) ctrl%sel_restricted_droplet=.false.
+            enddo
+          case ('list')
+            line=get_value_from_key('restricted_droplet_atoms_list',io)
+            if (n>=2) then
+              do i=2,n
+                read(values(i),*) k
+                ctrl%sel_restricted_droplet(k) = .false.
+              enddo
+            else
+              write(0,*) 'Specify which atoms should be restricted in droplet (atom numbers)!'
+              stop 1
+            endif
+            !add option to now read list given in input file
+          case ('file')
+            if (n==2) then
+              call get_quoted(line,geomfilename)
+              filename=trim(geomfilename)
+              !read(values(2),*) filename
+              if (filename(1:3)=='qm/') then !change qm/ folder to QM/
+                filename='QM'//filename(3:)
+              endif
+            else if (n==1) then
+              filename='droplet'
+            else
+              write(0,*) 'Specify only 1 filename to read restricted droplet atoms from!'
+              stop 1
+            endif
+            open(u_i_droplet,file=filename, status='old', action='read', iostat=io)
+         
+            if (printlevel>1) write(u_log,'(3A)') 'Reading atom mask for restricted droplet from file "',trim(filename),'"'
+            if (io/=0) then
+              write(0,*) 'Could not find file for restricted droplet atoms!'
+              stop 1
+            endif
+            !read from file with T/F in each line (for each atom)
+            do i=1,ctrl%natom
+              read(u_i_droplet,*) ctrl%sel_restricted_droplet(i)
+            enddo
+            close(u_i_droplet)
+        endselect
+      endif
+    endif
+   ! set values for tethering atom
+    if (ctrl%restrictive_potential==2 .or. ctrl%restrictive_potential==3) then
+      line=get_value_from_key('tethering_force',io)
+      if (io==0) then
+        read(line,*) ctrl%tethering_force
+        if (printlevel>1) write(u_log,'(1x,ES11.4)') ctrl%tethering_force
+      else
+        write(0,*) 'No force constant for tethering of atom given!'
+        stop 1
+      endif
+      line=get_value_from_key('tethering_radius',io)
+      if (io==0) then
+        read(line,*) ctrl%tethering_radius
+      else
+        ctrl%tethering_radius=0. ! default radius beyond which tethering potential activated is 0
+      endif
+      if (printlevel>1) then
+        write(u_log,'(1x,F7.2,4x,ES11.4)') ctrl%tethering_radius
+      endif
+      ctrl%tethering_radius= ctrl%tethering_radius/au2a ! in atomic units
+      line=get_value_from_key('tether_at',io)
+      if (io==0) then
+        call split(line,' ',values,n)
+        allocate(ctrl%tether_at(n))
+        do i=1,n
+          read(values(i),*) a
+          ctrl%tether_at(i) = a
+        enddo
+        deallocate(values)
+        if (printlevel>1) then
+          write(u_log,'(a)') 'Atoms to be tethered: '
+          write(u_log, *) ctrl%tether_at(:)
+        endif
+      else
+        write(0,*) 'No atom specified for tethering!'
+        stop 1
+      endif
+      allocate(traj%tethering_pos(3))
+      line=get_value_from_key('tethering_position',io)
+      if (io==0) then
+        call split(line,' ',values,n)
+        if (n==3) then
+          do i=1,n
+             read(values(i),*) a
+             traj%tethering_pos = a
+          enddo
+        else
+          write(0,*) 'Tethering position specified needs to have 3 coordinates!'
+          stop 1
+        endif
+        if (printlevel>1) then
+          write(u_log,'(a)') 'Tethering to position'
+          write(u_log,'(1x,ES11.4)') traj%tethering_pos
+        endif
+        traj%tethering_pos = traj%tethering_pos/au2a ! in atomic units
+      else
+        !use center of mass at time 0 of specified tether atoms as center of tethering potential
+        traj%tethering_pos(:) = calc_centerofmass(traj,ctrl)
+         write(u_log,'(a)') 'Tethering to center of mass at start'
+      endif
+   endif
 
   ! =====================================================
 
@@ -3058,21 +2690,19 @@ module input
   ! =====================================================
 
   ! convert all numbers to atomic units
-    ctrl%tmax=ctrl%tmax/au2fs
-    ctrl%dtstep_min=ctrl%dtstep_min/au2fs
-    ctrl%dtstep_max=ctrl%dtstep_max/au2fs
     ctrl%dtstep=ctrl%dtstep/au2fs
     ctrl%eselect_grad=ctrl%eselect_grad/au2eV
     ctrl%eselect_nac=ctrl%eselect_nac/au2eV
     traj%mass_a=traj%mass_a/au2u
-    if (ctrl%integrator==1) then
-      ctrl%convthre=ctrl%convthre/au2eV
-    endif
     ! geometry is read in bohrs, as specified in the COLUMBUS geom format
     ! velocity is read in as bohrs/atu
     ! laser field must be in a.u.
     ! langevin friction coefficient in a.u.^-1
-    if (ctrl%thermostat==1) ctrl%thermostat_const(1)=ctrl%thermostat_const(1)*au2fs
+    if (ctrl%thermostat==1) then
+      do i=1,ctrl%ntempregions
+        ctrl%thermostat_const(ctrl%ntempregions,1)=ctrl%thermostat_const(ctrl%ntempregions,1)*au2fs
+      enddo
+    endif
 
   ! =====================================================
     ! write some basic information into the data file
@@ -3161,6 +2791,78 @@ module input
 
   endfunction
 
+! ===================================================
+
+!> calculates 3 vectors (as one big matrix 3*Natoms x 3) in directions of the total rotations of the system
+!> orthonormalize translat. and rot. vectors of system ->
+!> substract translat. and other-direction rot. components from angular momentum derivatives for this
+!> and normalize (total translation vectors just in x-dir (1 0 0 1 0 0 ...), y/z analogous)
+!  subroutine get_rotation_tot(ctrl,traj)
+!    use definitions
+!    implicit none
+!    type(trajectory_type) :: traj
+!    type(ctrl_type) :: ctrl
+!    integer :: iatom
+!    real*8 :: d1, d2, d3, d4
+!
+!    ! set up angular momentum derivative vector nL_x nL_y nL_x
+!    ! indices: ctrl%rotation_tot(3*(iatom-1)+idir,jdir) with atom iatom, atomic coord. direction idir, global direction jdir 
+!    do iatom=1,ctrl%natom
+!      ctrl%rotation_tot(3*(iatom-1)+1,1) = 0. 
+!      ctrl%rotation_tot(3*(iatom-1)+2,1) = -traj%mass_a(iatom)*traj%geom_ad(iatom,3)
+!      ctrl%rotation_tot(3*(iatom-1)+3,1) = traj%mass_a(iatom)*traj%geom_ad(iatom,2)
+!      ctrl%rotation_tot(3*(iatom-1)+1,2) = traj%mass_a(iatom)*traj%geom_ad(iatom,3)
+!      ctrl%rotation_tot(3*(iatom-1)+2,2) = 0.
+!      ctrl%rotation_tot(3*(iatom-1)+3,2) = -traj%mass_a(iatom)*traj%geom_ad(iatom,1)
+!      ctrl%rotation_tot(3*(iatom-1)+1,3) = -traj%mass_a(iatom)*traj%geom_ad(iatom,2)
+!      ctrl%rotation_tot(3*(iatom-1)+2,3) = traj%mass_a(iatom)*traj%geom_ad(iatom,1)
+!      ctrl%rotation_tot(3*(iatom-1)+3,3) = 0.
+!    enddo
+!    ! create corresp. dot products to subtract projected translational components
+!    d1 = dot_product(traj%mass_a,traj%geom_ad(:,1))/ctrl%natom
+!    d2 = dot_product(traj%mass_a,traj%geom_ad(:,2))/ctrl%natom
+!    d3 = dot_product(traj%mass_a,traj%geom_ad(:,3))/ctrl%natom
+!
+!    !rot_x
+!    ! subtract projected translational components
+!    do iatom=1,ctrl%natom
+!      ctrl%rotation_tot(3*(iatom-1)+2,1) = ctrl%rotation_tot(3*(iatom-1)+2,1) - d3
+!      ctrl%rotation_tot(3*(iatom-1)+3,1) = ctrl%rotation_tot(3*(iatom-1)+3,1) + d2
+!    enddo
+!    !normalize
+!    ctrl%rotation_tot(:,1) = ctrl%rotation_tot(:,1) / sqrt(dot_product(ctrl%rotation_tot(:,1),ctrl%rotation_tot(:,1)))
+!
+!    ! nL_y*rot_x and nL_z*rot_x
+!    d4 = dot_product(ctrl%rotation_tot(:,2), ctrl%rotation_tot(:,1))
+!
+!    !rot_y
+!    ! subtract projected translational components
+!    do iatom=1,ctrl%natom
+!      ctrl%rotation_tot(3*(iatom-1)+1,2) = ctrl%rotation_tot(3*(iatom-1)+1,2) + d3
+!      ctrl%rotation_tot(3*(iatom-1)+3,2) = ctrl%rotation_tot(3*(iatom-1)+3,2) - d1
+!    enddo
+!    ! subtract projected other rotational components
+!    ctrl%rotation_tot(:,2) = ctrl%rotation_tot(:,2) - d4 * ctrl%rotation_tot(:,1)
+!    !normalize
+!    ctrl%rotation_tot(:,2) = ctrl%rotation_tot(:,2) / sqrt(dot_product(ctrl%rotation_tot(:,2),ctrl%rotation_tot(:,2)))
+!    
+!    ! nL_z*rot_y
+!    d3 = dot_product(ctrl%rotation_tot(:,3), ctrl%rotation_tot(:,1))
+!    d4 = dot_product(ctrl%rotation_tot(:,3),  ctrl%rotation_tot(:,2))
+!
+!    !rot_z
+!    ! subtract projected translational components
+!    do iatom=1,ctrl%natom
+!      ctrl%rotation_tot(3*(iatom-1)+1,3) = ctrl%rotation_tot(3*(iatom-1)+1,3) - d2
+!      ctrl%rotation_tot(3*(iatom-1)+2,3) = ctrl%rotation_tot(3*(iatom-1)+2,3) + d1
+!    enddo
+!    ! subtract projected other rotational components
+!    ctrl%rotation_tot(:,3) = ctrl%rotation_tot(:,3) - d3 * ctrl%rotation_tot(:,1) - d4 * ctrl%rotation_tot(:,2)
+!    !normalize
+!    ctrl%rotation_tot(:,3) = ctrl%rotation_tot(:,3) / sqrt(dot_product(ctrl%rotation_tot(:,3),ctrl%rotation_tot(:,3)))
+!
+!  endsubroutine
+
 ! =================================================================== !
 
-endmodule input
+endmodule

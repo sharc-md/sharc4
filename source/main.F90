@@ -2,7 +2,7 @@
 !
 !    SHARC Program Suite
 !
-!    Copyright (c) 2023 University of Vienna
+!    Copyright (c) 2019 University of Vienna
 !
 !    This file is part of SHARC.
 !
@@ -28,13 +28,7 @@
 !> small modifications using the new defined function in interface.f90
 !> \author Maximilian F.S.J. Menger
 !> \date 19.04.2018
-!>
-!> add Ehrenfest and CSDM by using self-consistent potential (SCP)
-!> trajectory loop over time instead of steps
-!> capability of adapative step size
-!> \author Yinan Shu
-!> \date 13.11.2019 
-!>
+!> 
 !> This is the main code of SHARC
 !> It contains the following tasks:
 !> - Reading of the input files (in read_input)
@@ -56,22 +50,15 @@ program sharc
 
 
 #ifndef __PYSHARC__
-use zpe
-use pointer_basis
 use decoherence_afssh
-use decoherence_dom
 use definitions
-use driver
 use electronic
 use electronic_laser
-use tsh_tu
-use army_ants
 use input
 use matrix
 use misc
 use nuclear
 use qm
-use bsh
 use restart
 use output
 implicit none
@@ -85,6 +72,8 @@ integer :: i_step
 !> \param time Define the integer function time()
 integer :: time
 
+
+
 ! open(0,file='output.err',status='replace',action='write')
 
 traj%time_start=time()
@@ -97,36 +86,18 @@ if (.not.ctrl%restart) then
   if (ctrl%decoherence==2) call allocate_afssh(traj, ctrl)
   call write_list_header(u_lis)
   call do_initial_qm(traj,ctrl)
-  call QM_processing(traj,ctrl)
-  if (ctrl%zpe_correction.ne.0) call initial_zpe(traj, ctrl)
-  if (ctrl%army_ants==1) call army_ants_initialize(traj, ctrl)
-  if (ctrl%pointer_basis==2) call pointer_basis_initialize(traj, ctrl)
-  call NAC_processing(traj, ctrl)
-  call Calculate_etot(traj,ctrl)
-  if (ctrl%time_uncertainty==1) call time_uncertainty_initialize(traj,ctrl)
-  if (ctrl%decoherence==11) call initial_def(traj, ctrl)
   call Mix_gradients(traj,ctrl)
-  if (ctrl%integrator==0) call Electronic_gradients_MCH(traj,ctrl)
-  call Update_old(traj,ctrl)
-!  call Calculate_etot(traj,ctrl)
+  call Update_old(traj)
+  call Calculate_etot(traj,ctrl)
   call set_time(traj)
   call write_dat(u_dat, traj, ctrl)
   call write_list_line(u_lis,traj,ctrl)
   call write_geom(u_geo, traj, ctrl)
-  if (ctrl%write_restart_files) then
-      call write_restart_ctrl(u_resc,ctrl)
-      call write_restart_traj(u_rest,ctrl,traj)
-  endif
+  call write_restart_ctrl(u_resc,ctrl)
+  call write_restart_traj(u_rest,ctrl,traj)
   call mkdir_restart(ctrl)
 endif
 
-if (ctrl%integrator==0) then
-  call Bulirsch_Stoer_Hack(traj,ctrl)
-elseif (ctrl%integrator==1) then
-  call adaptive_velocity_verlet(traj,ctrl)
-elseif (ctrl%integrator==2) then
-  call fixed_velocity_verlet(traj,ctrl)
-endif
 
 ! everything is set up for the loop
 do i_step=traj%step+1,ctrl%nsteps
@@ -169,10 +140,8 @@ do i_step=traj%step+1,ctrl%nsteps
   call write_list_line(u_lis,traj,ctrl)
   call write_dat(u_dat, traj, ctrl)
   call write_geom(u_geo, traj, ctrl)
-  if (ctrl%write_restart_files) then
-      ! write_restart_traj must be the last command
-      call write_restart_traj(u_rest,ctrl,traj)
-  endif
+  ! write_restart_traj must be the last command
+  call write_restart_traj(u_rest,ctrl,traj)
   call allflush()
   ! kill trajectory 
   call kill_after_relaxation(traj,ctrl)
@@ -187,7 +156,7 @@ call write_final(traj)
     
 #else
     use memory_module, only: traj, ctrl
-    use qm, only: do_initial_qm, do_qm_calculations, redo_qm_gradients, Mix_gradients
+    use qm, only: do_initial_qm, do_qm_calculations, redo_qm_gradients
     implicit none
 
     !> \param i_step Loop variable for the dynamics loop
@@ -222,9 +191,6 @@ call write_final(traj)
       call do_qm_calculations(traj,ctrl)
       call Verlet_vstep(IRedo)
       if (IRedo .eq. 1) call redo_qm_gradients(traj,ctrl)
-      if (ctrl%method==0) then
-        if (traj%kind_of_jump/=0) call Mix_gradients(traj,ctrl)
-      endif
       call Verlet_finalize(IExit, iskip)
       if (IExit .eq. 1) exit
     enddo
