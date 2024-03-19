@@ -16,13 +16,13 @@ from qmin import QMin
 from SHARC_ABINITIO import SHARC_ABINITIO
 from utils import containsstring, expand_path, itmult, link, makecmatrix, mkdir, readfile, writefile
 
-__all__ = ["SHARC_MNDO"]
+__all__ = ["SHARC_<INTERFACE_NAME>"]
 
-AUTHORS = "Nadja K. Singer, Hans Georg Gallmetzer"
-VERSION = "0.2"
-VERSIONDATE = datetime.datetime(2024, 3, 1)
-NAME = "MNDO"
-DESCRIPTION = "SHARC interface for the mndo2020 program"
+AUTHORS = "Jane Doe, Ashok Kumar, Max Mustermann"
+VERSION = "x.y"
+VERSIONDATE = datetime.datetime(<year>, <month>, <day>)
+NAME = "<INTERFACE_NAME>"
+DESCRIPTION = "SHARC interface for the <name> program"
 
 CHANGELOGSTRING = """27.10.2021:     Initial version 0.1 by Nadja
 - Only OM2/MRCI
@@ -50,9 +50,9 @@ BOHR_TO_ANG = 0.529176125
 D2AU = 1 / 0.393456
 
 
-class SHARC_MNDO(SHARC_ABINITIO):
+class SHARC_<INTERFACE_NAME>(SHARC_ABINITIO):
     """
-    SHARC interface for MNDO
+    SHARC interface for <INTERFACE_NAME>
     """
 
     _version = VERSION
@@ -69,18 +69,29 @@ class SHARC_MNDO(SHARC_ABINITIO):
         # Add resource keys
         self.QMin.resources.update(
             {
-                "mndodir": None,
+                #Resources that your QC-program and interface need go here.
+                #TODO:
+                "programdir": None, # Path to the executable of the QC-program
+                "wfthres": 1.0,     # Norm of wave function for writing determinant files
+                "numocc": None,     # Number of orbitals to not ionize from in Dyson calculations
             }
         )
         self.QMin.resources.types.update(
             {
-                "mndodir": str,
+                #TODO:
+                "programdir": str,
+                "wfthres": float,
+                "numocc": int,
             }
         )
 
         # Add template keys
         self.QMin.template.update(
             {
+                #Program specific informations go here. This data is read from the <INTERFACE_NAME>.template file.
+                #You can put whatever that you need here. As an example here we have some inputs for the MNDO program.
+                #You also have to define the datatype for each template-variable below.
+                #TODO:
                 "nciref": 1,
                 "kitscf": 5000,
                 "ici1": 0,
@@ -93,6 +104,7 @@ class SHARC_MNDO(SHARC_ABINITIO):
         )
         self.QMin.template.types.update(
             {
+                #TODO:
                 "nciref": int,
                 "kitscf": int,
                 "ici1": int,
@@ -106,31 +118,31 @@ class SHARC_MNDO(SHARC_ABINITIO):
 
     @staticmethod
     def version() -> str:
-        return SHARC_MNDO._version
+        return SHARC_<INTERFACE_NAME>._version
 
     @staticmethod
     def versiondate() -> datetime.datetime:
-        return SHARC_MNDO._versiondate
+        return SHARC_<INTERFACE_NAME>._versiondate
 
     @staticmethod
     def changelogstring() -> str:
-        return SHARC_MNDO._changelogstring
+        return SHARC_<INTERFACE_NAME>._changelogstring
 
     @staticmethod
     def authors() -> str:
-        return SHARC_MNDO._authors
+        return SHARC_<INTERFACE_NAME>._authors
 
     @staticmethod
     def name() -> str:
-        return SHARC_MNDO._name
+        return SHARC_<INTERFACE_NAME>._name
 
     @staticmethod
     def description() -> str:
-        return SHARC_MNDO._description
+        return SHARC_<INTERFACE_NAME>._description
 
     @staticmethod
     def about() -> str:
-        return f"{SHARC_MNDO._name}\n{SHARC_MNDO._description}"
+        return f"{SHARC_<INTERFACE_NAME>._name}\n{SHARC_<INTERFACE_NAME>._description}"
 
 
     def get_features(self, KEYSTROKES: Optional[TextIOWrapper] = None) -> set[str]:
@@ -167,7 +179,7 @@ class SHARC_MNDO(SHARC_ABINITIO):
             if not: try again or return error
         postprocessing of workdir files (z.b molden file erzeugen, stripping)
         """
-
+        #TODO:
         # Setup workdir
         mkdir(workdir)
         
@@ -225,6 +237,7 @@ class SHARC_MNDO(SHARC_ABINITIO):
         Save files (molden, mos) to savedir
         Naming convention: file.job.step
         """
+        #TODO:
         savedir = self.QMin.save["savedir"]
         step = self.QMin.save["step"]
         # save files
@@ -540,6 +553,7 @@ mocoef
         """
         Parse MNDO output files
         """
+        #TODO:
         # Allocate matrices
         requests = set()
         for key, val in self.QMin.requests.items():
@@ -859,7 +873,7 @@ mocoef
         output:     Content of outfile as string
         mult:       Multiplicities, not needed for now (deleted)
         """
-
+        #TODO:
         pattern = re.compile(r"eV,  E=[\s:]+([-+]\d*\.*\d+) eV")
         energies = {}
         for i, match in enumerate(pattern.finditer(output)):
@@ -898,6 +912,7 @@ mocoef
     def read_resources(self, resources_file: str = "MNDO.resources") -> None:
         super().read_resources(resources_file)
         # LD PATH???
+        #TODO:
         if not self.QMin.resources["mndodir"]:
             raise ValueError("mndodir has to be set in resource file!")
 
@@ -907,7 +922,7 @@ mocoef
 
     def read_requests(self, requests_file: str = "QM.in") -> None:
         super().read_requests(requests_file)
-
+        #TODO:
         for req, val in self.QMin.requests.items():
             if val and req != "retain" and req not in all_features:
                 raise ValueError(f"Found unsupported request {req}.")
@@ -916,6 +931,7 @@ mocoef
     def read_template(self, template_file: str = "MNDO.template") -> None:
         super().read_template(template_file)
 
+        #TODO:
         self.QMin["template"]["kharge"] = int(self.QMin["template"]["kharge"]) #cast template inputs to int
         self.QMin["template"]["imomap"] = int(self.QMin["template"]["imomap"])
         
@@ -951,6 +967,9 @@ mocoef
         """
 
         starttime = datetime.datetime.now()
+        
+        #TODO:
+
         self.QMin.control["workdir"] = os.path.join(self.QMin.resources["scratchdir"], "mndo_calc")
 
         schedule = [{"mndo_calc" : self.QMin}] #Generate fake schedule
@@ -974,7 +993,7 @@ mocoef
         """
         Prepare files and folders for wfoverlap and execute wfoverlap
         """
-
+        #TODO:
         # Content of wfoverlap input file
         wf_input = dedent(
             """\
@@ -1036,9 +1055,9 @@ mocoef
     @staticmethod
     def generate_inputstr(qmin: QMin) -> str:
         """
-        Generate MNDO input file string from QMin object
+        Generate <INTERFACE_NAME> input file string from QMin object
         """
-
+        #TODO:
         natom = qmin["molecule"]["natom"]
         ncigrd = len(qmin["maps"]["gradmap"])
         coords = qmin["coords"]["coords"]
@@ -1104,7 +1123,7 @@ mocoef
         Setup remaining maps (ionmap, gsmap) and build jobs dict
         """
         super().setup_interface()
-
+        
 
 
 
