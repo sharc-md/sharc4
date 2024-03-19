@@ -637,3 +637,46 @@ def test_get_energy():
         hdf = h5py.File(f"{output}.h5", "r")
         with open(f"{output}.out", "r", encoding="utf-8") as ascii_out:
             assert np.allclose(test_interface._get_energy(hdf), test_interface._get_energy(ascii_out.read()))
+
+
+def test_get_socs():
+    tests = [
+        (
+            os.path.join(PATH, "inputs/molcas/tasks/QM1.in"),
+            "casscf",
+            os.path.join(PATH, "inputs/molcas/output/hdmsoc420casscf"),
+        ),
+        (
+            os.path.join(PATH, "inputs/molcas/tasks/QM1.in"),
+            "caspt2",
+            os.path.join(PATH, "inputs/molcas/output/hdmsoc420caspt2"),
+        ),
+        (
+            os.path.join(PATH, "inputs/molcas/tasks/QM1.in"),
+            "cms-pdft",
+            os.path.join(PATH, "inputs/molcas/output/hdmsoc420cmspdft"),
+        ),
+        (
+            os.path.join(PATH, "inputs/molcas/tasks/QM1.in"),
+            "ms-caspt2",
+            os.path.join(PATH, "inputs/molcas/output/hdmsoc420mscaspt2"),
+        ),
+        (
+            os.path.join(PATH, "inputs/molcas/tasks/QM1.in"),
+            "xms-caspt2",
+            os.path.join(PATH, "inputs/molcas/output/hdmsoc420xmscaspt2"),
+        ),
+    ]
+
+    for qmin, method, output in tests:
+        test_interface = SHARC_MOLCAS()
+        test_interface.setup_mol(qmin)
+        test_interface.QMin.template["method"] = method
+        test_interface.setup_interface()
+
+        hdf = h5py.File(f"{output}.h5", "r")
+        with open(f"{output}.out", "r", encoding="utf-8") as ascii_out:
+            ref_ascii = test_interface._get_socs(ascii_out.read())
+            ref_hdf = test_interface._get_socs(hdf)
+            np.einsum("ii->i", ref_hdf)[:] = 0.0
+            assert np.allclose(ref_ascii, ref_hdf)
