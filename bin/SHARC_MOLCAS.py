@@ -956,7 +956,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         expandend_energies = []
         for i in range(len(states)):
             expandend_energies += energies[sum(states[:i]) : sum(states[: i + 1])] * (i + 1)
-        return np.asarray(convert_list(expandend_energies, complex))
+        return np.asarray(expandend_energies, dtype=np.complex128)
 
 
 if __name__ == "__main__":
