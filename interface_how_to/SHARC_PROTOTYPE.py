@@ -1008,7 +1008,7 @@ mocoef
         """
         Generate <INTERFACE_NAME> input file string from QMin object
         """
-        #TODO:
+        #TODO: get needed information from flags or the QMin object
         natom = qmin["molecule"]["natom"]
         ncigrd = len(qmin["maps"]["gradmap"])
         coords = qmin["coords"]["coords"]
@@ -1021,23 +1021,24 @@ mocoef
         iroot = qmin["molecule"]["states"][0]
         ncharges = qmin["molecule"]["npc"]
         grads = [y for x,y in qmin["maps"]["gradmap"]]
-        kharge = qmin["template"]["kharge"]
-        kitscf = qmin["template"]["kitscf"]
+        charge = qmin["template"]["kharge"]
         imomap = qmin["template"]["imomap"]
 
 
-        if qmin["molecule"]["point_charges"]:
-            inputstring = f"iop=-6 jop=-2 imult=0 iform=1 igeom=1 mprint=1 icuts=-1 icutg=-1 dstep=1e-05 kci=5 ioutci=1 iroot={iroot} icross=7 ncigrd={ncigrd} inac=0 imomap={imomap} iscf=16 iplscf=16 kitscf={kitscf} ici1={ici1} ici2={ici2} movo={movo} nciref={nciref} mciref=3 levexc=6 iuvcd=3 nsav13=2 kharge={kharge} multci=1 cilead=1 ncisym=-1 numatm={ncharges} mmcoup=2 mmfile=1 mmskip=0 mminp=2 nsav15=9"
-        else:
-            inputstring = f"iop=-6 jop=-2 imult=0 iform=1 igeom=1 mprint=1 icuts=-1 icutg=-1 dstep=1e-05 kci=5 ioutci=1 iroot={iroot} icross=7 ncigrd={ncigrd} inac=0 imomap={imomap} iscf=16 iplscf=16 kitscf={kitscf} ici1={ici1} ici2={ici2} movo={movo} nciref={nciref} mciref=3 levexc=6 iuvcd=3 nsav13=2 kharge={kharge} multci=1 cilead=1 ncisym=-1 nsav15=9"
+        #Flags for calculation
+        inputstring = f"iop=-6 jop=-2 imult=0 iroot={iroot} icross=7 ncigrd={ncigrd} inac=0 imomap={imomap}  ici1={ici1} ici2={ici2} movo={movo} nciref={nciref} kharge={charge} multci=1 cilead=1 ncisym=-1 numatm={ncharges} nsav15=9"
 
+        #Header comments
         inputstring = " +\n".join(wrap(inputstring, width=70))
         inputstring += "\nheader\n"
         inputstring += "header\n"
+
+        #Geometry
         for i in range(natom):
             inputstring += f"{NUMBERS[elements[i]]:>3d}\t{coords[i][0]*BOHR_TO_ANG:>10,.5f} 1\t{coords[i][1]*BOHR_TO_ANG:>10,.5f} 1\t{coords[i][2]*BOHR_TO_ANG:>10,.5f} 1\n"
         inputstring += f"{0:>3d}\t{0:>10,.5f} 0\t{0:>10,.5f} 0\t{0:>10,.5f} 0\n"
 
+        #Additional information
         if movo == 1:
             for j in act_orbs:
                 inputstring += str(j) + " "
@@ -1047,6 +1048,7 @@ mocoef
             inputstring += str(l) + " "
 
         return inputstring
+    
     
     #Only needed for ECI calculations
     def _create_aoovl(self) -> None:

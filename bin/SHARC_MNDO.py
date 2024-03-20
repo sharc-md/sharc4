@@ -896,7 +896,7 @@ mocoef
 
     def read_resources(self, resources_file: str = "MNDO.resources") -> None:
         super().read_resources(resources_file)
-        # LD PATH???
+        
         if not self.QMin.resources["mndodir"]:
             raise ValueError("mndodir has to be set in resource file!")
 
@@ -910,6 +910,14 @@ mocoef
         for req, val in self.QMin.requests.items():
             if val and req != "retain" and req not in all_features:
                 raise ValueError(f"Found unsupported request {req}.")
+    
+    def _set_driver_requests(self, *args, **kwargs) -> None:
+        super()._set_driver_requests(*args, **kwargs)
+        self.QMin.requests["h"] = True
+
+    def _set_request(self, *args, **kwargs) -> None:
+        super()._set_request(*args, **kwargs)
+        self.QMin.requests["h"] = True
 
 
     def read_template(self, template_file: str = "MNDO.template") -> None:
@@ -1044,6 +1052,7 @@ mocoef
 
         natom = qmin["molecule"]["natom"]
         ncigrd = len(qmin["maps"]["gradmap"])
+        print(qmin["maps"]["gradmap"])
         coords = qmin["coords"]["coords"]
         elements = qmin["molecule"]["elements"]
         movo = qmin["template"]["movo"]
