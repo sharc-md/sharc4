@@ -46,12 +46,6 @@ all_features = set(
     ]
 )
 
-CASSCF = 0
-CASPT2 = 1
-MSCASPT2 = 2
-CMSPDFT = 5
-XMPCASPT2 = 6
-
 
 class SHARC_MOLCAS(SHARC_ABINITIO):
     """
@@ -77,9 +71,9 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         self._h_sort = None
 
         # Add resource keys
-        self.QMin.resources.update({"molcas": None, "mpi_parallel": False, "delay": 0.0, "dry_run": False})
+        self.QMin.resources.update({"molcas": None, "mpi_parallel": False, "delay": 0.0, "dry_run": False, "driver": None})
 
-        self.QMin.resources.types.update({"molcas": str, "mpi_parallel": bool, "delay": float, "dry_run": bool})
+        self.QMin.resources.types.update({"molcas": str, "mpi_parallel": bool, "delay": float, "dry_run": bool, "driver": str})
 
         # Add template keys
         self.QMin.template.update(
@@ -95,7 +89,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 "rootpad": list(range(8)),
                 "method": "casscf",
                 "functional": "t:pbe",
-                "ipea": 1.25,
+                "ipea": 0.25,
                 "imaginary": 0.0,
                 "frozen": None,
                 "gradaccudefault": 1e-4,
@@ -209,16 +203,18 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             self.QMin.resources["mpi_parallel"] = False
 
         # MOLCAS driver
-        driver = os.path.join(self.QMin.resources["molcas"], "bin", "pymolcas")
+        driver = None
+        for p in os.walk(self.QMin.resources["molcas"]):
+            if "pymolcas" in p[2]:
+                driver = os.path.join(p[0], "pymolcas")
+                break
+
         if os.path.isfile(driver):
             self.QMin.resources.update({"driver": driver})
 
-        driver = os.path.join(self.QMin.resources["molcas"], "bin", "molcas.exe")
-        if os.path.isfile(driver) and "driver" not in self.QMin.resources:
-            self.QMin.resources.update({"driver": driver})
 
-        if "driver" not in self.QMin.resources:
-            self.log.error(f"No driver found in {os.path.join(self.QMin.resources['molcas'], 'bin')}")
+        if not self.QMin.resources["driver"]:
+            self.log.error(f"No driver found in {self.QMin.resources['molcas']}")
             raise ValueError()
 
         # WFOVERLAP
@@ -229,11 +225,6 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         if self.QMin.save["always_guess"] and self.QMin.save["always_orb_init"]:
             self.log.error("always_guess and always_orb_init cannot be used together!")
             raise ValueError()
-
-        # Check ncpu
-        if not self.QMin.resources["mpi_parallel"] and self.QMin.resources["ncpu"] != 1:
-            self.log.warning("mpi_parallel not set but ncpu > 1, changeing ncpu to 1")
-            self.QMin.resources["ncpu"] = 1
 
         # Set RAM limit
         os.environ["MOLCASMEM"] = str(self.QMin.resources["memory"])
@@ -259,7 +250,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 raise ValueError()
 
         for idx, val in enumerate(reversed(self.QMin.template["roots"])):
-            if val == 0:
+            if val != 0:
                 self.QMin.template["roots"] = self.QMin.template["roots"][: -1 * idx]
                 break
 
@@ -494,7 +485,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         Copy files from master to grad/nac folder
         """
         self.log.debug("Copy run files from master")
-        re_runfiles = ("ChVec", "QVec", "ChRed", "ChDiag", "ChRst", "ChMap", "RunFile", "GRIDFILE", "NqGrid")
+        re_runfiles = ("ChVec", "QVec", "ChRed", "ChDiag", "ChRst", "ChMap", "RunFile", "GRIDFILE", "NqGrid", "Rotate.txt")
         for file in os.listdir(os.path.join(self.QMin.resources["scratchdir"], "master")):
             if any(i in file for i in re_runfiles):
                 shutil.copy(os.path.join(self.QMin.resources["scratchdir"], "master", file), os.path.join(workdir, file))
@@ -648,7 +639,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 tasks.append(["copy", f"$master_path/MOLCAS.{mult+1}.JobIph", "JOBOLD"])
                 match qmin.template["method"]:
                     case "cms-pdft":
-                        tasks.append(["copy", os.path.join(qmin.save["savedir"], f"Do_Rotate.{mult+1}.txt"), "Do_Rotate.txt"])
+                        # tasks.append(["copy", os.path.join(qmin.save["savedir"], f"Do_Rotate.{mult+1}.txt"), "Do_Rotate.txt"])
                         tasks.append(
                             [
                                 "rasscf",
@@ -665,7 +656,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                         tasks.append(["rasscf", mult + 1, qmin.template["roots"][mult], True, False])
                         tasks.append(["mclr", qmin.template["gradaccudefault"], f"sala={grad[1]}"])
                         tasks.append(["alaska"])
-                    case "ms-caspt2" | "xms-caspt2":
+                    case "ms-caspt2" | "xms-caspt2" | "caspt2":
                         tasks.append(["rasscf", mult + 1, qmin.template["roots"][mult], True, False])
                         tasks.append(["caspt2", mult + 1, states, qmin.template["method"], f"GRDT\nrlxroot = {grad[1]}"])
                         tasks.append(["mclr", qmin.template["gradaccudefault"]])
@@ -811,6 +802,8 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
 
         if qmin.template["method"] not in ("ms-caspt2", "xms-caspt2"):
             input_str += "ORBLISTING=NOTHING\nPRWF=0.1\n"
+        if qmin.template["method"] == "cms-pdft":
+            input_str += "CMSInter\n"
         if qmin.maps["gradmap"] and len(qmin.maps["gradmap"]) > 0:
             input_str += "THRS=1.0e-10 1.0e-06 1.0e-06\n"
         else:
@@ -833,8 +826,8 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         """
         Write SEWARD part of MOLCAS input string
         """
-        input_str = "&SEWARD\nDOANA\n"
-        if qmin.template["method"] in ("ms-pdft", "xms-pdft", "cms-pdft"):
+        input_str = "&SEWARD\n"  # DOANA\n"
+        if qmin.template["method"] == "cms-pdft":
             input_str += "GRID INPUT\nNORO\nNOSC\nEND OF GRID INPUT\n"
         input_str += "\n"
         return input_str
@@ -883,6 +876,12 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         if self.QMin.template["method"] not in ["casscf", "ms-caspt2", "xms-caspt2"] and self.QMin.requests["nacdr"]:
             self.log.error("NACs are only possible with casscf, ms/xms-capt2!")
             raise ValueError()
+
+        if self.QMin.template["method"] != "casscf":
+            if self.QMin.requests["grad"] or self.QMin.requests["nacdr"]:
+                if sum(self.QMin.template["rootpad"]) > 0:
+                    self.log.error("Gradients/NACs with rootpad only possible with CASSCF!")
+                    raise ValueError()
 
     def _get_molcas_features(self) -> None:
         """
@@ -960,14 +959,16 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             np.einsum("ii->i", self.QMout["h"])[:] = self._get_energy(master_out)
         if self.QMin.requests["grad"]:
             for grad in self.QMin.maps["gradmap"]:
-                with open(os.path.join(scratchdir, f"grad_{grad[0]}_{grad[1]}/MOLCAS.out"), "r") as grad_file:
+                with open(os.path.join(scratchdir, f"grad_{grad[0]}_{grad[1]}/MOLCAS.out"), "r", encoding="utf-8") as grad_file:
                     grad_out = self._get_grad(grad_file.read())
                     for key, val in self.QMin.maps["statemap"].items():
                         if (val[0], val[1]) == grad:
                             self.QMout["grad"][key - 1] = grad_out
         if self.QMin.requests["nacdr"]:
             for nac in self.QMin.maps["nacmap"]:
-                with open(os.path.join(scratchdir, f"nacdr_{nac[0]}_{nac[1]}_{nac[2]}_{nac[3]}/MOLCAS.out"), "r") as nac_file:
+                with open(
+                    os.path.join(scratchdir, f"nacdr_{nac[0]}_{nac[1]}_{nac[2]}_{nac[3]}/MOLCAS.out"), "r", encoding="utf-8"
+                ) as nac_file:
                     nac_out = nac_file.read()
                     istate = None
                     jstate = None
@@ -977,6 +978,8 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                         if (val[0], val[1]) == (nac[2], nac[3]):
                             jstate = key - 1
                     self.QMout["nacdr"][istate, jstate] = self._get_nacdr(nac_out)
+        if self.QMin.requests["dm"]:
+            self.QMout["dm"] = self._get_dipoles(master_out)
 
     def _get_energy(self, output_file: str | h5py.File) -> np.ndarray:
         """
@@ -1019,7 +1022,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             socs = np.asarray(convert_list(socs.group(1).split(), float)).reshape(-1, 9)[:, 6:8]
             socs_complex = np.zeros((socs.shape[0]), dtype=np.complex128)
             for idx, val in enumerate(socs):
-                socs_complex[idx] = complex(val[0],val[1])
+                socs_complex[idx] = complex(val[0], val[1])
             idx = np.tril_indices(self.QMin.molecule["nmstates"])
             soc_mat = np.zeros((self.QMin.molecule["nmstates"], self.QMin.molecule["nmstates"]), dtype=np.complex128)
             soc_mat[idx] = socs_complex.reshape(-1)
@@ -1047,7 +1050,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             raise ValueError()
 
         grad = re.findall(r"(-{0,1}\d+\.\d+E[-|+]\d{2,3})", grad_block.group(1), re.DOTALL)
-        return np.asarray(grad, dtype=float).reshape(3, -1)
+        return np.asarray(grad, dtype=float).reshape(-1, 3)
 
     def _get_nacdr(self, output_file: str) -> np.ndarray:
         """
@@ -1062,7 +1065,22 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             self.log.error("No NACs in output file!")
             raise ValueError()
         nac = re.findall(r"(-{0,1}\d+\.\d+E[-|+]\d{2,3})", nac_block.group(1), re.DOTALL)
-        return np.einsum("ij->ji", np.asarray(nac, dtype=float).reshape(3, -1))
+        return np.einsum("ij->ji", np.asarray(nac, dtype=float).reshape(-1, 3))
+
+    def _get_dipoles(self, output_file: str | h5py.File) -> np.ndarray:
+        """
+        Extract (transition) dipole moments from outputfile
+        """
+        dipoles = None
+        if isinstance(output_file, str):
+            pass
+        else:
+            dipoles = output_file["SFS_EDIPMOM"][:]
+
+        if dipoles is None:
+            self.log.error("No gradients in output file!")
+            raise ValueError()
+        return np.asarray(dipoles, dtype=float)
 
 
 if __name__ == "__main__":
