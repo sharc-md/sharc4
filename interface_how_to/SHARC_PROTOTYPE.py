@@ -193,7 +193,7 @@ class SHARC_<INTERFACE_NAME>(SHARC_ABINITIO):
             if not: try again or return error
         postprocessing of workdir files (z.b generate molden file, stripping)
         """
-        # Setup workdir
+        # Setup workdir. Defined in utils. Makes folder if its doesn't exist or cleans it if it already exists.
         mkdir(workdir)
         
         step = self.QMin.save["step"]
@@ -207,41 +207,39 @@ class SHARC_<INTERFACE_NAME>(SHARC_ABINITIO):
         self.log.debug(f"Write input into file {input_path}")
         writefile(input_path, input_str)
 
-        #TODO: If your QC program can work with point charges you have to treat it accordingly. In the example a file called fort.20 is generated with all the information about the point charges.
-        # Write point charges
+        #TODO: If your QC program can work with point charges you have to treat it accordingly. In the example a file (<PCFILE>) is generated with all the information about the point charges.
         if self.QMin.molecule["point_charges"]:
             pc_str = ""
             for coords, charge in zip(self.QMin.coords["pccoords"], self.QMin.coords["pccharge"]):
                 pc_str += f"{' '.join(map(str, coords))} {charge}\n"
-            writefile(os.path.join(workdir, "fort.20"), pc_str)
+            writefile(os.path.join(workdir, "<PCFILE>"), pc_str)
 
         #TODO: Setup your QM program. Make sure the execute string is done right, depends on your program.
         # Setup MNDO
         starttime = datetime.datetime.now()
-        exec_str = f"{os.path.join(qmin.resources['mndodir'],'mndo2020')} < {os.path.join(workdir, 'MNDO.inp')} > {os.path.join(workdir, 'MNDO.out')}"
+        exec_str = f"{os.path.join(qmin.resources['<PROGRAMDIR>'],'<EXECUTABLE>')} < {os.path.join(workdir, '<INPUTFILE>')} > {os.path.join(workdir, '<OUTFILE>')}"
         exit_code = self.run_program(
-            workdir, exec_str, os.path.join(workdir, "MNDO.out"), os.path.join(workdir, "MNDO.err")
+            workdir, exec_str, os.path.join(workdir, "<OUTFILE>"), os.path.join(workdir, "<ERRORFILE>")
         ) 
 
         #TODO: Make error-handling in case something with the calculation goes wrong.
-        if (os.path.getsize(os.path.join(workdir, "MNDO.err")) > 0 ):
-            with open(os.path.join(workdir, "MNDO.err"), "r", encoding="utf-8") as err_file:
-                    self.log.error(err_file.read())
+        if (os.path.getsize(os.path.join(workdir, "<ERRORFILE>")) > 0 ):
+            with open(os.path.join(workdir, "<ERRORFILE>"), "r", encoding="utf-8") as err_file:
+                    self.log.error(err_file.read()) #Write the error message to the logger
             exit_code = -1
-
-        elif (os.path.getsize(os.path.join(workdir, "fort.15")) < 100):
-            with open(os.path.join(workdir, "fort.15"), "r", encoding="utf-8") as err_file:
-                    self.log.error(err_file.read())
+        # If datafile to small then it only contains the error message 
+        elif (os.path.getsize(os.path.join(workdir, "<OUTPUTFILE>")) < 100):
+            with open(os.path.join(workdir, "<OUTPUTFILE>"), "r", encoding="utf-8") as err_file:
+                    self.log.error(err_file.read()) #Write the error message to the logger
             exit_code = -1
 
         endtime = datetime.datetime.now()
 
-        #TODO: Delete files that are not longer needed.
-        # Delete files not needed
-        # work_files = os.listdir(workdir)
-        # for file in work_files: 
-        #     if not re.search(r"\.inp$|\.out$|\.err$|\.dat$", file):
-        #         os.remove(os.path.join(workdir, file))
+        #TODO: Delete files that are not longer needed. But workdir is always overwritten.
+        work_files = os.listdir(workdir)
+        for file in work_files: 
+            if not re.search(r"\.inp$|\.out$|\.err$|\.dat$", file):
+                os.remove(os.path.join(workdir, file))
 
         return exit_code, endtime - starttime
 
