@@ -1052,7 +1052,6 @@ mocoef
 
         natom = qmin["molecule"]["natom"]
         ncigrd = len(qmin["maps"]["gradmap"])
-        print(qmin["maps"]["gradmap"])
         coords = qmin["coords"]["coords"]
         elements = qmin["molecule"]["elements"]
         movo = qmin["template"]["movo"]

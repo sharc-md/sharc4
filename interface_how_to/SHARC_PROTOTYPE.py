@@ -265,7 +265,7 @@ class SHARC_<INTERFACE_NAME>(SHARC_ABINITIO):
         mo = os.path.join(savedir, f"mos.{step}")
         writefile(mo, mos)
 
-        # imomap
+        # imomap for orbital mapping
         if self.QMin["template"]["imomap"] == 3:
             fromfile = os.path.join(workdir, "imomap.dat")
             tofile = os.path.join(savedir, f"imomap.{step}")
@@ -292,7 +292,7 @@ class SHARC_<INTERFACE_NAME>(SHARC_ABINITIO):
         f = readfile(molden_file)
         mo_coeff_matrix = []
         # get MOs and MO_occ in a dict from molden file
-        ## needed?  --> restr = self.QMin.control["jobs"][jobid]["restr"]
+        
         MOs = {}
         NMO = 0
         MO_occ = {}
