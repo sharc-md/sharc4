@@ -249,10 +249,11 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 self.log.error(f"Too few states in state-averaging in multiplicity {idx+1}!")
                 raise ValueError()
 
-        for idx, val in enumerate(reversed(self.QMin.template["roots"])):
-            if val != 0:
-                self.QMin.template["roots"] = self.QMin.template["roots"][: -1 * idx]
-                break
+        if self.QMin.template["roots"][-1] == 0:
+            for idx, val in enumerate(reversed(self.QMin.template["roots"])):
+                if val != 0:
+                    self.QMin.template["roots"] = self.QMin.template["roots"][: -1 * idx]
+                    break
 
         self.QMin.template["rootpad"] = self.QMin.template["rootpad"][: len(self.QMin.template["roots"])]
 

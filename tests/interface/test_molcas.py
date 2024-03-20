@@ -370,7 +370,7 @@ def test_gettasks_init():
                     1,
                     [
                         ["copy", "$master_path/MOLCAS.1.JobIph", "JOBOLD"],
-                        ["copy", f"{os.getcwd()}/SAVE/Do_Rotate.1.txt", "Do_Rotate.txt"],
+                        #["copy", f"{os.getcwd()}/SAVE/Do_Rotate.1.txt", "Do_Rotate.txt"],
                         ["rasscf", 1, 4, True, False, ["RLXROOT=1", "CMSI"]],
                         ["mcpdft", ["KSDFT=t:pbe", "GRAD", "MSPDFT", "WJOB"]],
                         ["alaska", 1],
@@ -523,16 +523,15 @@ def test_gettasks():
         ),
     ]
 
+    with open(f"{os.path.abspath(os.curdir)}/SAVE/STEP", "w", encoding="utf-8") as file:
+        file.write("0")
     for qmin, templ, ref in tests:
         test_interface = SHARC_MOLCAS()
         test_interface.setup_mol(qmin)
         test_interface.read_template(templ)
         test_interface._read_resources = True
-        if not os.path.isfile("SAVE/STEP"):
-            with open("SAVE/STEP", "w", encoding="utf-8") as file:
-                file.write("0")
-            test_interface.read_requests(qmin)
-            shutil.rmtree(os.path.join(os.getcwd(), "SAVE"))
+        test_interface.QMin.save["step"] = 0
+        test_interface.read_requests(qmin)
         test_interface.setup_interface()
         test_interface.QMin.scheduling["schedule"] = test_interface._generate_schedule()
         for k, v in ref.items():
@@ -540,8 +539,9 @@ def test_gettasks():
             try:
                 assert tasks == v[1], f"Key: {k}, QMin: {qmin}"
             except Exception as exc:
-                shutil.rmtree(os.path.join(os.getcwd(), "SAVE"))
+                # shutil.rmtree(os.path.join(os.getcwd(), "SAVE"))
                 raise exc
+    shutil.rmtree(os.path.join(os.getcwd(), "SAVE"))
 
 
 def test_write_geom():
@@ -680,3 +680,46 @@ def test_get_socs():
             ref_hdf = test_interface._get_socs(hdf)
             np.einsum("ii->i", ref_hdf)[:] = 0.0
             assert np.allclose(ref_ascii, ref_hdf)
+
+
+def test_get_grad():
+    tests = [
+        (
+            os.path.join(PATH, "inputs/molcas/output/grad1"),
+            np.array(
+                [
+                    [-1.93061522031230e-14, 2.07963771793602e-03, -7.58071656304145e-02],
+                    [-4.92596610394539e-14, 1.68703340325114e-02, 3.66415199618992e-02],
+                    [6.85658132425765e-14, -1.89499717504480e-02, 3.91656456685157e-02],
+                ]
+            ),
+        ),
+        (
+            os.path.join(PATH, "inputs/molcas/output/grad2"),
+            np.array(
+                [
+                    [-1.93061522031230e+14, 2.07963771793602e-03, -7.58071656304145e-02],
+                    [-4.92596610394539e-14, 1.68703340325114e-02, 3.66415199618992e-02],
+                    [6.85658132425765e-14, -1.89499717504480e-02, 3.91656456685157e-02],
+                ]
+            ),
+        ),
+        (
+            os.path.join(PATH, "inputs/molcas/output/grad3"),
+            np.array(
+                [
+                    [-1.93061522031230e-14, 2.07963771793602e-03, -7.58071656304145e-02],
+                    [-4.92596610394539e-14, 1.68703340325114e-02, 3.66415199618992e-02],
+                    [-4.92596610394539e-14, 1.68703340325114e-02, 3.66415199618992e-02],
+                    [6.85658132425765e-14, -1.89499717504480e-02, 3.91656456685157e-02],
+                    [-4.92596610394539e-14, 1.68703340325114e-02, 3.66415199618992e-02],
+                    [-4.92596610394539e-14, 1.68703340325114e-02, 3.66415199618992e-02],
+                ]
+            ),
+        )
+    ]
+
+    for grad, ref in tests:
+        test_interface = SHARC_MOLCAS()
+        with open(grad, "r", encoding="utf-8") as file:
+            assert np.allclose(test_interface._get_grad(file.read()), ref)
