@@ -16,40 +16,54 @@ from qmin import QMin
 from SHARC_ABINITIO import SHARC_ABINITIO
 from utils import containsstring, expand_path, itmult, link, makecmatrix, mkdir, readfile, writefile
 
-__all__ = ["SHARC_<INTERFACE_NAME>"]
+__all__ = ["SHARC_<INTERFACE_NAME>"]                    #TODO: Put in your interface name everywere where you find <INTERFACE_NAME>
 
-AUTHORS = "Jane Doe, Ashok Kumar, Max Mustermann"
-VERSION = "x.y"
-VERSIONDATE = datetime.datetime(<year>, <month>, <day>)
-NAME = "<INTERFACE_NAME>"
-DESCRIPTION = "SHARC interface for the <name> program"
+AUTHORS = "Jane Doe, Ashok Kumar, Max Mustermann"       #TODO: Names of contributors
+VERSION = "x.y"                                         #TODO: Version of your interface.
+VERSIONDATE = datetime.datetime(<year>, <month>, <day>) #TODO: Put in year, month, date of the last update to the interface.
+NAME = "<INTERFACE_NAME>"                               #TODO
+DESCRIPTION = "SHARC interface for the <name> program"  #TODO: Put in the name of your QC program
 
-CHANGELOGSTRING = """27.10.2021:     Initial version 0.1 by Nadja
-- Only OM2/MRCI
-- Only singlets
+#TODO: Here you can write what changed from one version to the other.
+CHANGELOGSTRING = """27.10.2021:     Initial version 0.1 by Max
 
-01.03.2024:     New implementation version 0.2 by Georg
+01.03.2024:     New implementation version 0.2 by Jane and Ashok
 """
 
 all_features = set(
     [
+        #TODO: requests that your interface can fullfill. Delete the ones that cannot be used. 
         "h",
         "dm",
         "grad",
         "nacdr",
         "overlap",
         "molden",
-        "savestuff",
-        "point_charges",
+        # Rest of the possible requests:
+        # "phases",
+        # "ion",
+        # "socdr",
+        # "dmdr",
+        # "multipolar_fit",
+        # "theodore",
+        # "basis_set",
+        # "density_matrices",
+        # "cleanup",
+        # "backup",
+        # "retain",
+        # "molden",
+        # "savestuff",
+        # "nooverlap",
     ]
 )
 
+#TODO: Constants that you need. Examples:
 KCAL_TO_EH = 0.0015936010974213599
 EV_TO_EH = 0.03674930495120813
 BOHR_TO_ANG = 0.529176125
 D2AU = 1 / 0.393456
 
-
+#TODO: Definition of your Interface class. You have to define the resources and template variables.
 class SHARC_<INTERFACE_NAME>(SHARC_ABINITIO):
     """
     SHARC interface for <INTERFACE_NAME>
@@ -91,7 +105,7 @@ class SHARC_<INTERFACE_NAME>(SHARC_ABINITIO):
                 #Program specific informations go here. This data is read from the <INTERFACE_NAME>.template file.
                 #You can put whatever that you need here. As an example here we have some inputs for the MNDO program.
                 #You also have to define the datatype for each template-variable below.
-                #TODO:
+                #TODO: Examples:
                 "nciref": 1,
                 "kitscf": 5000,
                 "ici1": 0,
@@ -169,17 +183,16 @@ class SHARC_<INTERFACE_NAME>(SHARC_ABINITIO):
     def create_restart_files(self):
         pass
 
-
+    #TODO execute_from_qmin executes your QM program with the needed input files.
     def execute_from_qmin(self, workdir: str, qmin: QMin) -> tuple[int, datetime.timedelta]:
         """
-        Erster Schritt, setup_workdir ( inputfiles schreiben, orbital guesses kopieren, xyz, pc)
-        Programm aufrufen (z.b. run_program)
-        checkstatus(), check im workdir ob rechnung erfolgreich
+        First step, setup_workdir (write inputfiles, copy orbital guesses (if possible), xyz, pc)
+        Run program
+        checkstatus(), check in the workdir if calculation was successfull
             if success: pass
             if not: try again or return error
-        postprocessing of workdir files (z.b molden file erzeugen, stripping)
+        postprocessing of workdir files (z.b generate molden file, stripping)
         """
-        #TODO:
         # Setup workdir
         mkdir(workdir)
         
@@ -187,17 +200,14 @@ class SHARC_<INTERFACE_NAME>(SHARC_ABINITIO):
 
         savedir = self.QMin.save["savedir"]
 
-        if step > 0 and self.QMin["template"]["imomap"] == 3:
-            orbital_tracking = os.path.join(workdir, "imomap.dat")
-            saved_file = os.path.join(savedir, f"imomap.{step-1}")
-            shutil.copy(saved_file, orbital_tracking)
-
         # Write MNDO input
-        input_str = self.generate_inputstr(qmin)
+        input_str = self.generate_inputstr(qmin)                    #TODO: write your generate_inputstr method.
         self.log.debug(f"Generating input string\n{input_str}")
-        input_path = os.path.join(workdir, "MNDO.inp")
+        input_path = os.path.join(workdir, "<Inputfilename>")       #TODO: write in the filename of the inputfile
         self.log.debug(f"Write input into file {input_path}")
         writefile(input_path, input_str)
+
+        #TODO: If your QC program can work with point charges you have to treat it accordingly. In the example a file called fort.20 is generated with all the information about the point charges.
         # Write point charges
         if self.QMin.molecule["point_charges"]:
             pc_str = ""
@@ -205,12 +215,15 @@ class SHARC_<INTERFACE_NAME>(SHARC_ABINITIO):
                 pc_str += f"{' '.join(map(str, coords))} {charge}\n"
             writefile(os.path.join(workdir, "fort.20"), pc_str)
 
+        #TODO: Setup your QM program. Make sure the execute string is done right, depends on your program.
         # Setup MNDO
         starttime = datetime.datetime.now()
         exec_str = f"{os.path.join(qmin.resources['mndodir'],'mndo2020')} < {os.path.join(workdir, 'MNDO.inp')} > {os.path.join(workdir, 'MNDO.out')}"
         exit_code = self.run_program(
             workdir, exec_str, os.path.join(workdir, "MNDO.out"), os.path.join(workdir, "MNDO.err")
         ) 
+
+        #TODO: Make error-handling in case something with the calculation goes wrong.
         if (os.path.getsize(os.path.join(workdir, "MNDO.err")) > 0 ):
             with open(os.path.join(workdir, "MNDO.err"), "r", encoding="utf-8") as err_file:
                     self.log.error(err_file.read())
@@ -223,6 +236,7 @@ class SHARC_<INTERFACE_NAME>(SHARC_ABINITIO):
 
         endtime = datetime.datetime.now()
 
+        #TODO: Delete files that are not longer needed.
         # Delete files not needed
         # work_files = os.listdir(workdir)
         # for file in work_files: 
@@ -231,17 +245,18 @@ class SHARC_<INTERFACE_NAME>(SHARC_ABINITIO):
 
         return exit_code, endtime - starttime
 
-
+    #TODO: With this method you can save important files to the save directory. E.g. AO overlaps, MO coefficents, determinants and CI-coefficents are needed to calculate the overlaps with wfoverlap.x
     def _save_files(self, workdir: str) -> None:
         """
         Save files (molden, mos) to savedir
         Naming convention: file.job.step
         """
-        #TODO:
+        
         savedir = self.QMin.save["savedir"]
         step = self.QMin.save["step"]
         # save files
 
+        #TODO: Save the files that you need in each step.
         # molden
         moldenfile = os.path.join(workdir, "molden.dat")
         tofile = os.path.join(savedir, f"molden.{step}")
@@ -266,16 +281,7 @@ class SHARC_<INTERFACE_NAME>(SHARC_ABINITIO):
         writefile(det, determinants)
         return
 
-
-    def saveGeometry(self):
-        string = ""
-        for label, atom in zip(self.QMin.molecule["elements"], self.QMin.coords["coords"]):
-            string += "%4s %16.9f %16.9f %16.9f\n" % (label, atom[0], atom[1], atom[2])
-        filename = os.path.join(self.QMin.save["savedir"], f'geom.dat.{self.QMin.save["step"]}')
-        writefile(filename, string)
-        return
-
-
+    #TODO: this method returns the MO coefficents from a molden file. Change it to your needs and preferences.
     def _get_MO_from_molden(self, molden_file: str):
         """
         Extract MO coefficients from molden file
@@ -528,33 +534,11 @@ mocoef
         return determinants
 
 
-    def _get_active_space(self, log_file: str) -> dict:
-        """get the active space from the log file"""
-        # get active space
-        f = readfile(log_file)
-
-        active_mos = {}
-        for iline, line in enumerate(f):
-            if "OCC.    ACTIVE" in line:
-                jline = iline + 2
-                line = f[jline]
-                while line != "\n":
-                    s = line.split()
-                    if s[6] != "-":
-                        active_mos[int(s[0])] = int(s[6])
-                    jline += 1
-                    line = f[jline]
-                break
-
-        return active_mos
-
-
+    #TODO: Populate all of the things that where requested in the QMin requests.
     def getQMout(self) -> None:
         """
-        Parse MNDO output files
+        Parse <prgram_name> output files and populate QMout
         """
-        #TODO:
-        # Allocate matrices
         requests = set()
         for key, val in self.QMin.requests.items():
             if not val:
@@ -569,9 +553,11 @@ mocoef
             requests=requests,
         )
 
+        #TODO: parse output files and populate QMout. Here is a simple example:
+        # Allocate matrices
         nmstates = self.QMin.molecule["nmstates"]
 
-        log_file = os.path.join(self.QMin.control["workdir"], "MNDO.out")
+        log_file = os.path.join(self.QMin.control["workdir"], "<your_program>.out")
         grads_nacs_file = os.path.join(self.QMin.control["workdir"], "fort.15")
         
         # Get contents of output file(s)
@@ -597,47 +583,25 @@ mocoef
             if self.QMin.molecule["point_charges"]:
                 self.QMout.grad_pc = self._get_grad_pc(grads_nacs_file)
 
+        # Populates NACs
         if self.QMin.requests["nacdr"]:
             self.QMout.nacdr = self._get_nacs(grads_nacs_file, interstates)
             if self.QMin.molecule["point_charges"]:
                 self.QMout.nacdr_pc = self._get_nacs_pc(grads_nacs_file, interstates)
 
+        # Populate overlaps
         if self.QMin.requests["overlap"]:
             if "overlap" not in self.QMout:
                 self.QMout["overlap"] = makecmatrix(nmstates, nmstates)
             for mult in itmult(self.QMin.molecule["states"]):
                 outfile = os.path.join(self.QMin.resources["scratchdir"], "wfovl.out")
                 out = readfile(outfile)
-                #print("Overlaps: " + outfile)
                 for i in range(nmstates):
                     for j in range(nmstates):
                         self.QMout["overlap"][i][j] = self.getsmate(out, i + 1, j + 1)
 
 
-    def _get_states_interstates(self, log_path: str):
-        f = readfile(log_path)
-        states = []
-
-        interstates = []
-
-        for iline, line in enumerate(f):
-            if "CI CALCULATION FOR STATE:" in line:  # find lines where calc of state begins and write out the number of the state
-                line = f[iline]
-                s = line.split()
-                state = int(s[4]) - 1  # python counts from 0
-                states.append(state)
-            if (
-                "CI CALCULATION FOR INTERSTATE COUPLING OF STATES:" in line
-            ):  # find lines where interstate coupling of states begins and write out the numbers of the states
-                line = f[iline]
-                s = line.split()
-                istate_a = int(s[7]) - 1
-                istate_b = int(s[8]) - 1
-                interstates.append((istate_a, istate_b))
-
-        return states, interstates
-
-
+    # TODO: Parse the output file to get the gradients. Attention: SHARC works with atomic units so gradients need to be Hartress/a_0 and preferably a numpy-array should be returned.
     def _get_grad(self, log_path: str) -> np.ndarray:
         """
         Extract gradients from MNDO outfile
@@ -675,7 +639,7 @@ mocoef
 
         return grads
 
-
+    #TODO: Gradients for point charges
     def _get_grad_pc(self, log_path: str) -> np.ndarray:
         """
         Extract gradients from MNDO outfile
@@ -708,8 +672,8 @@ mocoef
 
         return grads
 
-
-    def _get_nacs(self, file_path: str, interstates):
+    #TODO: Parse non-adiabatic couplings from the output file. Attention: Atomic units --> 1/a_0
+    def _get_nacs(self, file_path: str, interstates) -> np.ndarray:
         """
         Extract NACS from MNDO outfile
 
@@ -761,8 +725,8 @@ mocoef
         
         return nac
     
-
-    def _get_nacs_pc(self, file_path: str, interstates):
+    #TODO: NACs for point charges.
+    def _get_nacs_pc(self, file_path: str, interstates) -> np.ndarray:
         """
         Extract NACS from MNDO outfile
 
@@ -803,8 +767,8 @@ mocoef
 
         return nac
 
-
-    def _get_transition_dipoles(self, log_path: str):
+    #TODO: Parse output file to get the transition dipole moments (TDMs). Attention: Atomic units
+    def _get_transition_dipoles(self, log_path: str) -> np.ndarray:
         """
         Extract transition dipole moments from MNDO outfile
 
@@ -865,7 +829,7 @@ mocoef
         # Filter dipole vectors, (states, (xyz))
         return np.array(dm)
 
-
+    #TODO: Parse output file to get the energy of each state. Attention --> Hartree
     def _get_energy(self, output: str) -> dict[tuple[int, int], float]:
         """
         Extract energies from ORCA outfile
@@ -882,18 +846,6 @@ mocoef
         return energies
 
 
-    @staticmethod
-    def getsmate(out, s1, s2):
-        ilines = -1
-        while True:
-            ilines += 1
-            if ilines == len(out):
-                raise Error("Overlap of states %i - %i not found!" % (s1, s2), 82)
-            if containsstring("Overlap matrix <PsiA_i|PsiB_j>", out[ilines]):
-                break
-        ilines += 1 + s1
-        f = out[ilines].split()
-        return float(f[s2 + 1])
 
 
     def prepare(self, INFOS: dict, dir_path: str):
@@ -908,8 +860,8 @@ mocoef
     def print_qmin(self) -> None:
         pass
 
-
-    def read_resources(self, resources_file: str = "MNDO.resources") -> None:
+    #TODO: Reads the <Name>.resources file. Make checks if necessary.
+    def read_resources(self, resources_file: str = "<Name>.resources") -> None:
         super().read_resources(resources_file)
         # LD PATH???
         #TODO:
@@ -919,7 +871,7 @@ mocoef
         self.QMin.resources["mndodir"] = expand_path(self.QMin.resources["mndodir"])
         self.log.debug(f'mndodir set to {self.QMin.resources["mndodir"]}')
 
-
+    #TODO: Reads the requests from the QM.in file. Make checks if necessary
     def read_requests(self, requests_file: str = "QM.in") -> None:
         super().read_requests(requests_file)
         #TODO:
@@ -927,7 +879,7 @@ mocoef
             if val and req != "retain" and req not in all_features:
                 raise ValueError(f"Found unsupported request {req}.")
 
-
+    #TODO: Reads the <NAME>.template file. Make necessary checks ans cast strings to integers, if needed.
     def read_template(self, template_file: str = "MNDO.template") -> None:
         super().read_template(template_file)
 
@@ -948,47 +900,48 @@ mocoef
         if self.QMin["template"]["movo"] == 1 :
             self.QMin["template"]["act_orbs"] = [int(i) for i in self.QMin["template"]["act_orbs"]]
 
-
+    #TODO: How many steps back (retain) do you want to keep your restart files?
     def remove_old_restart_files(self, retain: int = 5) -> None:
         """
         Garbage collection after runjobs()
         """
 
-
+    #TODO: This method runs the interface and basically makes one time step.
     def run(self) -> None:
         """
         request & other logic
-            requestmaps anlegen -> DONE IN SETUP_INTERFACE
-            pfade für verschiedene orbital restart files -> DONE IN SETUP_INTERFACE
+            define requestmaps -> DONE IN SETUP_INTERFACE
+            path to the different orbital restart files -> DONE IN SETUP_INTERFACE
         make schedule
         runjobs()
-        run_wfoverlap (braucht input files)
+        run_wfoverlap (needs input files)
         save directory handling
         """
 
         starttime = datetime.datetime.now()
         
-        #TODO:
+        #TODO: Think about what your program needs to do. Does it need to run more than one calculation to get the needed data?
 
-        self.QMin.control["workdir"] = os.path.join(self.QMin.resources["scratchdir"], "mndo_calc")
+        self.QMin.control["workdir"] = os.path.join(self.QMin.resources["scratchdir"], "<FOLDER_NAME>")
 
-        schedule = [{"mndo_calc" : self.QMin}] #Generate fake schedule
+        #TODO: Generate a schedule if several calculations are needed. In this example we just need one calculation.
+        schedule = [{"<NAME>" : self.QMin}] #Generate fake schedule
         self.QMin.control["nslots_pool"].append(1)
         self.runjobs(schedule)
-        #self.execute_from_qmin(self.QMin.control["workdir"], self.QMin)
 
+        #Save the files
         self._save_files(self.QMin.control["workdir"])
+
         # Run wfoverlap
         if self.QMin.requests["overlap"]:
             self._run_wfoverlap()
 
         self.log.debug("All jobs finished successfully")
 
-        self.saveGeometry()
 
         self.QMout["runtime"] = datetime.datetime.now() - starttime
 
-
+    #TODO: If you need overlaps, then here you can run the wfoverlap program.
     def _run_wfoverlap(self) -> None:
         """
         Prepare files and folders for wfoverlap and execute wfoverlap
@@ -1018,11 +971,11 @@ mocoef
         if self.QMin.requests["overlap"]:
             workdir = self.QMin.resources["scratchdir"]
 
-            # Write input
+            # Write input file
             writefile(os.path.join(workdir, "wfovl.inp"), wf_input)
 
             # Link files
-            # breakpoint()
+            #TODO: Get the needed files form the save directory
             link(
                 os.path.join(self.QMin.save["savedir"], f"dets.{self.QMin.save['step']}"),
                 os.path.join(workdir, "det.a"),
@@ -1040,9 +993,9 @@ mocoef
                 os.path.join(workdir, "mo.b"),
             )
 
-            # Execute wfoverlap, maybe better using time.perf_counter() ??
             starttime = datetime.datetime.now()
 
+            #TODO: Execute wfoverlap and handle eventual errors.
             code = self.run_program(workdir, wf_cmd, os.path.join(workdir, "wfovl.out"), os.path.join(workdir, "wfovl.err"))
             self.log.info(f"Finished wfoverlap job!!\nruntime: {datetime.datetime.now()-starttime}")
             if code != 0:
@@ -1051,7 +1004,7 @@ mocoef
                     self.log.error(err_file.read())
                 raise OSError()
 
-
+    #TODO: Generate the inputsring for the input-file of your program of choice. Here you can apply the things defined in the template file.
     @staticmethod
     def generate_inputstr(qmin: QMin) -> str:
         """
@@ -1097,27 +1050,27 @@ mocoef
 
         return inputstring
     
-
+    #Only needed for ECI calculations
     def _create_aoovl(self) -> None:
         #empty function
         pass
 
-
+    #Only needed for ECI calculations
     def get_mole(self) -> None:
         #empty function
         pass
 
-
+    #Only needed for ECI calculations   
     def get_readable_densities(self) -> None:
         #empty function
         pass
 
-
+    #Only needed for ECI calculations
     def read_and_append_densities(self) -> None:
         #empty function
         pass
 
-
+    #TODO: This method sets up the interface. Do you need some steps to define your maps (gsmap, gradmap, nacmap)? Do you have padding states that you need to account for? Unrestricted triplets?
     def setup_interface(self) -> None:
         """
         Setup remaining maps (ionmap, gsmap) and build jobs dict
@@ -1128,4 +1081,4 @@ mocoef
 
 
 if __name__ == "__main__":
-    SHARC_MNDO(loglevel=10).main()
+    SHARC_<INTERFACE_NAME>(loglevel=2).main()

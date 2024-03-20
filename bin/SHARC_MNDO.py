@@ -1053,7 +1053,7 @@ mocoef
         act_orbs = qmin["template"]["act_orbs"]
         iroot = qmin["molecule"]["states"][0]
         ncharges = qmin["molecule"]["npc"]
-        grads = [y for x,y in qmin["maps"]["gradmap"]]
+        grads = [y for _,y in qmin["maps"]["gradmap"]]
         kharge = qmin["template"]["kharge"]
         kitscf = qmin["template"]["kitscf"]
         imomap = qmin["template"]["imomap"]
