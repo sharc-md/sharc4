@@ -259,7 +259,7 @@ def test_gettasks_init():
             },
         ),
         (
-            os.path.join(PATH, "inputs/molcas/tasks/QM1.in"),
+            os.path.join(PATH, "inputs/molcas/schedule/QM5.in"),
             os.path.join(PATH, "inputs/molcas/tasks/template_caspt2"),
             {
                 "master": (
@@ -268,13 +268,9 @@ def test_gettasks_init():
                         ["gateway"],
                         ["seward"],
                         ["rasscf", 1, 4, False, False],
-                        ["copy", "MOLCAS.RasOrb", "MOLCAS.1.RasOrb"],
-                        ["copy", "MOLCAS.rasscf.molden", "MOLCAS.1.molden"],
                         ["caspt2", 1, 4, "caspt2"],
                         ["copy", "MOLCAS.JobMix", "MOLCAS.1.JobIph"],
                         ["rasscf", 2, 2, False, False],
-                        ["copy", "MOLCAS.RasOrb", "MOLCAS.2.RasOrb"],
-                        ["copy", "MOLCAS.rasscf.molden", "MOLCAS.2.molden"],
                         ["caspt2", 2, 2, "caspt2"],
                         ["copy", "MOLCAS.JobMix", "MOLCAS.2.JobIph"],
                         ["link", "MOLCAS.1.JobIph", "JOB001"],
@@ -370,7 +366,7 @@ def test_gettasks_init():
                     1,
                     [
                         ["copy", "$master_path/MOLCAS.1.JobIph", "JOBOLD"],
-                        #["copy", f"{os.getcwd()}/SAVE/Do_Rotate.1.txt", "Do_Rotate.txt"],
+                        # ["copy", f"{os.getcwd()}/SAVE/Do_Rotate.1.txt", "Do_Rotate.txt"],
                         ["rasscf", 1, 4, True, False, ["RLXROOT=1", "CMSI"]],
                         ["mcpdft", ["KSDFT=t:pbe", "GRAD", "MSPDFT", "WJOB"]],
                         ["alaska", 1],
@@ -609,6 +605,11 @@ def test_get_energy():
         ),
         (
             os.path.join(PATH, "inputs/molcas/tasks/QM1.in"),
+            "casscf",
+            os.path.join(PATH, "inputs/molcas/output/norootpad_hsoc420"),
+        ),
+        (
+            os.path.join(PATH, "inputs/molcas/tasks/QM1.in"),
             "caspt2",
             os.path.join(PATH, "inputs/molcas/output/hdmsoc420caspt2"),
         ),
@@ -636,7 +637,10 @@ def test_get_energy():
 
         hdf = h5py.File(f"{output}.h5", "r")
         with open(f"{output}.out", "r", encoding="utf-8") as ascii_out:
-            assert np.allclose(test_interface._get_energy(hdf), test_interface._get_energy(ascii_out.read()))
+            a = test_interface._get_energy(hdf)
+            b = test_interface._get_energy(ascii_out.read())
+            print("\n\n", a, "\n\n", b)
+            assert np.allclose(a, b)
 
 
 def test_get_socs():
@@ -698,7 +702,7 @@ def test_get_grad():
             os.path.join(PATH, "inputs/molcas/output/grad2"),
             np.array(
                 [
-                    [-1.93061522031230e+14, 2.07963771793602e-03, -7.58071656304145e-02],
+                    [-1.93061522031230e14, 2.07963771793602e-03, -7.58071656304145e-02],
                     [-4.92596610394539e-14, 1.68703340325114e-02, 3.66415199618992e-02],
                     [6.85658132425765e-14, -1.89499717504480e-02, 3.91656456685157e-02],
                 ]
@@ -716,10 +720,90 @@ def test_get_grad():
                     [-4.92596610394539e-14, 1.68703340325114e-02, 3.66415199618992e-02],
                 ]
             ),
-        )
+        ),
+        (
+            os.path.join(PATH, "inputs/molcas/output/pdft_grad"),
+            np.array(
+                [
+                    [2.49338735473481e00, 1.88485360378669e00, -4.72629798895615e00],
+                    [-1.05231079586577e00, -4.20762842460896e-01, 2.76537463073859e00],
+                    [-1.44107655886905e00, -1.46409076132579e00, 1.96092335821756e00],
+                ]
+            ),
+        ),
+        (
+            os.path.join(PATH, "inputs/molcas/output/mscaspt2_grad"),
+            np.array(
+                [
+                    [-1.11627801805905e-11, 2.44401158954398e-04, -9.47264260156073e-02],
+                    [-1.34818427285443e-11, 2.60014347792472e-02, 4.72155693871952e-02],
+                    [2.46446229091352e-11, -2.62458359382001e-02, 4.75108566284179e-02],
+                ]
+            ),
+        ),
+        (
+            os.path.join(PATH, "inputs/molcas/output/xmscaspt2_grad"),
+            np.array(
+                [
+                    [-2.98506469504963e-11, 4.39133485079068e-04, -9.57174122463993e-02],
+                    [2.32529303984223e-11, 2.62450546207038e-02, 4.75921606949141e-02],
+                    [6.59771655207353e-12, -2.66841881057842e-02, 4.81252515514794e-02],
+                ]
+            ),
+        ),
     ]
 
     for grad, ref in tests:
         test_interface = SHARC_MOLCAS()
         with open(grad, "r", encoding="utf-8") as file:
             assert np.allclose(test_interface._get_grad(file.read()), ref)
+
+
+def test_get_nac():
+    tests = [
+        (
+            os.path.join(PATH, "inputs/molcas/output/casscf_nac"),
+            np.array(
+                [
+                    [-4.59600985544311e-01, -3.27056590371374e-12, -1.52794321395426e-12],
+                    [1.98996064900520e-01, 2.40445696386980e-12, 2.70792725056564e-12],
+                    [1.98991580093693e-01, 1.10942176397583e-12, -9.14928384659732e-13],
+                ]
+            ),
+        ),
+        (
+            os.path.join(PATH, "inputs/molcas/output/pdft_nac"),
+            np.array(
+                [
+                    [-4.49619731397271e-01, 1.35330745308723e-04, -2.23672171966667e00],
+                    [1.94059028259231e-01, -1.44604756461768e00, 1.11830692616236e00],
+                    [1.93946961370966e-01, 1.44591223387113e00, 1.11841479350129e00],
+                ]
+            ),
+        ),
+        (
+            os.path.join(PATH, "inputs/molcas/output/mscaspt2_nac"),
+            np.array(
+                [
+                    [4.87321455128924e-05, -8.67742769351658e-12, -1.38750932444674e-12],
+                    [-2.43771930304102e-05, 6.91832006617452e-13, 1.03435069236944e-11],
+                    [-2.43549524825160e-05, 7.98559568689917e-12, -8.95599759924761e-12],
+                ]
+            ),
+        ),
+        (
+            os.path.join(PATH, "inputs/molcas/output/xmscaspt2_nac"),
+            np.array(
+                [
+                    [1.43880397582491e-05, 1.28300680798075e-11, -8.32265069311128e-12],
+                    [-7.21476729695450e-06, -5.43217088215603e-12, -3.39707753610685e-12],
+                    [-7.17327246347659e-06, -7.39789719765155e-12, 1.17197282292181e-11],
+                ]
+            ),
+        ),
+    ]
+
+    for nac, ref in tests:
+        test_interface = SHARC_MOLCAS()
+        with open(nac, "r", encoding="utf-8") as file:
+            assert np.allclose(test_interface._get_nacdr(file.read()), np.einsum("ij->ji", ref))

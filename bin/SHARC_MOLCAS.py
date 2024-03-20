@@ -86,7 +86,6 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 "ras3": None,
                 "inactive": None,
                 "roots": list(range(8)),
-                "rootpad": list(range(8)),
                 "method": "casscf",
                 "functional": "t:pbe",
                 "ipea": 0.25,
@@ -112,7 +111,6 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 "ras3": int,
                 "inactive": int,
                 "roots": list,
-                "rootpad": list,
                 "method": str,
                 "functional": str,
                 "ipea": float,
@@ -212,7 +210,6 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         if os.path.isfile(driver):
             self.QMin.resources.update({"driver": driver})
 
-
         if not self.QMin.resources["driver"]:
             self.log.error(f"No driver found in {self.QMin.resources['molcas']}")
             raise ValueError()
@@ -235,13 +232,12 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
 
         # Roots
         self.QMin.template["roots"] = convert_list(self.QMin.template["roots"])
-        self.QMin.template["rootpad"] = convert_list(self.QMin.template["rootpad"])
 
         # RASSCF_thresholds
         self.QMin.template["rasscf_thrs"] = convert_list(self.QMin.template["rasscf_thrs"], float)
 
-        if not all(map(lambda x: x >= 0, [*self.QMin.template["roots"], *self.QMin.template["rootpad"]])):
-            self.log.error("roots and rootpad must contain positive integers.")
+        if not all(map(lambda x: x >= 0, self.QMin.template["roots"])):
+            self.log.error("roots must contain positive integers.")
             raise ValueError()
 
         for idx, val in enumerate(self.QMin.molecule["states"]):
@@ -254,8 +250,6 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 if val != 0:
                     self.QMin.template["roots"] = self.QMin.template["roots"][: -1 * idx]
                     break
-
-        self.QMin.template["rootpad"] = self.QMin.template["rootpad"][: len(self.QMin.template["roots"])]
 
         # Check gradaccu
         if self.QMin.template["gradaccudefault"] > self.QMin.template["gradaccumax"]:
@@ -540,10 +534,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                     )
                     is_jobiph = True
 
-            # Copy Do_Rotate.txt for cms-pdft
-            if qmin.template["method"] == "cms-pdft" and not qmin.save["init"]:
-                # TODO: CIRESTART
-                tasks.append(["copy", os.path.join(qmin.save["savedir"], f"Do_Rotate.{mult+1}.txt"), "Do_Rotate.txt"])
+            # TODO: CIRESTART
 
             # RASSCF block
             tasks.append(["rasscf", mult + 1, qmin.template["roots"][mult], is_jobiph, is_rasorb])
@@ -640,7 +631,6 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 tasks.append(["copy", f"$master_path/MOLCAS.{mult+1}.JobIph", "JOBOLD"])
                 match qmin.template["method"]:
                     case "cms-pdft":
-                        # tasks.append(["copy", os.path.join(qmin.save["savedir"], f"Do_Rotate.{mult+1}.txt"), "Do_Rotate.txt"])
                         tasks.append(
                             [
                                 "rasscf",
@@ -675,12 +665,13 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                     tasks.append(["mclr", qmin["template"]["gradaccudefault"], f"nac={nac[1]} {nac[3]}"])
                     tasks.append(["alaska"])
                 case "cms-pdft":
-                    tasks.append(["copy", os.path.join(qmin.save["savedir"], f"Do_Rotate.{mult+1}.txt"), "Do_Rotate.txt"])
                     tasks.append(["rasscf", mult + 1, qmin["template"]["roots"][mult], True, False, ["CMSI"]])
-                    tasks.append(["mcpdft", [f"KSDFT={qmin.template['functional']}", "GRAD", "MSPDFT", "WJOB"]])
+                    tasks.append(
+                        ["mcpdft", [f"KSDFT={qmin.template['functional']}", "GRAD", "MSPDFT", "WJOB", f"nac={nac[1]} {nac[3]}"]]
+                    )
                     tasks.append(["mclr", qmin.template["gradaccudefault"], f"nac={nac[1]} {nac[3]}"])
                     tasks.append(["alaska"])
-                case "ms-caspt2" | "xms-caspt2":
+                case "ms-caspt2" | "xms-caspt2" | "caspt2":
                     tasks.append(["rasscf", mult + 1, qmin["template"]["roots"][mult], True, False])
                     tasks.append(["caspt2", mult + 1, states, qmin.template["method"], f"GRDT\nnac = {nac[1]} {nac[3]}"])
                     tasks.append(["alaska", nac[1], nac[3]])
@@ -792,15 +783,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             input_str += f"RAS1={qmin.template['ras1']}\n"
         if qmin.template["ras3"]:
             input_str += f"RAS3={qmin.template['ras3']}\n"
-        if qmin.template["rootpad"][task[1] - 1] == 0:
-            input_str += f"CIROOT={task[2]} {task[2]} 1\n"
-        else:
-            input_str += f"CIROOT={task[2]} {task[2]+ qmin.template['rootpad'][task[1] - 1]}; "
-            input_str += " ".join(str(i + 1) for i in range(task[2]))
-            input_str += " ;"
-            input_str += " ".join("1" for _ in range(task[2]))
-            input_str += " \n"
-
+        input_str += f"CIROOT={task[2]} {task[2]} 1\n"
         if qmin.template["method"] not in ("ms-caspt2", "xms-caspt2"):
             input_str += "ORBLISTING=NOTHING\nPRWF=0.1\n"
         if qmin.template["method"] == "cms-pdft":
@@ -874,15 +857,9 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 self.log.error(f"Found unsupported request {req}.")
                 raise ValueError()
 
-        if self.QMin.template["method"] not in ["casscf", "ms-caspt2", "xms-caspt2"] and self.QMin.requests["nacdr"]:
-            self.log.error("NACs are only possible with casscf, ms/xms-capt2!")
+        if self.QMin.template["method"] == "caspt2" and (self.QMin.requests["nacdr"] or self.QMin.requests["grad"]):
+            self.log.error("NACs/Gradients are not possible with caspt2")
             raise ValueError()
-
-        if self.QMin.template["method"] != "casscf":
-            if self.QMin.requests["grad"] or self.QMin.requests["nacdr"]:
-                if sum(self.QMin.template["rootpad"]) > 0:
-                    self.log.error("Gradients/NACs with rootpad only possible with CASSCF!")
-                    raise ValueError()
 
     def _get_molcas_features(self) -> None:
         """
@@ -991,14 +968,12 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             match self.QMin.template["method"]:
                 case "casscf":
                     energies = re.findall(r"RASSCF root number\s+\d+\s+Total energy:\s+(.*)\n", output_file)
-                    del energies[self.QMin.molecule["states"][0]]  # Delete extra singlet
                 case "xms-caspt2" | "caspt2":
                     energies = re.findall(r"CASPT2 Root\s+\d+\s+Total energy:\s+(.*)\n", output_file)
                 case "ms-caspt2":
                     energies = re.findall(r"MS-CASPT2 Root\s+\d+\s+Total energy:\s+(.*)\n", output_file)
                 case "cms-pdft":
                     energies = re.findall(r"CMS-PDFT Root\s+\d+\s+Total energy:\s+(.*)\n", output_file)
-                    del energies[self.QMin.molecule["states"][0]]  # Delete extra singlet
         else:
             energies = output_file["SFS_ENERGIES"][:].tolist()
 
