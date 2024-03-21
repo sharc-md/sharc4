@@ -27,24 +27,24 @@ import datetime
 import os
 import sys
 import json
-import itertools
 import numpy as np
+from scipy import linalg
 from optparse import OptionParser
 
+from constants import IToMult
+from utils import itnmstates, readfile
+from printing import printheader
+from qmout import QMout
+
+np.set_printoptions(linewidth=800, formatter={"float": lambda x: f"{x.real: 7.5e}"}, threshold=sys.maxsize)
 
 
 def json_load_byteified(file_handle):
-    return _byteify(
-        json.load(file_handle, object_hook=_byteify),
-        ignore_dicts=True
-    )
+    return _byteify(json.load(file_handle, object_hook=_byteify), ignore_dicts=True)
 
 
 def json_loads_byteified(json_text):
-    return _byteify(
-        json.loads(json_text, object_hook=_byteify),
-        ignore_dicts=True
-    )
+    return _byteify(json.loads(json_text, object_hook=_byteify), ignore_dicts=True)
 
 
 def _byteify(data, ignore_dicts=False):
@@ -54,134 +54,55 @@ def _byteify(data, ignore_dicts=False):
     # if this is a dictionary, return dictionary of byteified keys and values
     # but only if we haven't already byteified it
     if isinstance(data, dict) and not ignore_dicts:
-        return {
-            _byteify(key, ignore_dicts=True): _byteify(value, ignore_dicts=True)
-            for key, value in data.items()
-        }
+        return {_byteify(key, ignore_dicts=True): _byteify(value, ignore_dicts=True) for key, value in data.items()}
     # if it's anything else, return it in its original form
     return data
 
 
 if sys.version_info[0] != 3:
-    print('This is a script for Python 3!')
+    print("This is a script for Python 3!")
     sys.exit(0)
 
-version = '2.1'
+version = "2.1"
 versionneeded = [0.2, 1.0, 2.0, 2.1, float(version)]
 versiondate = datetime.date(2019, 9, 1)
 
 
 # ======================================================================= #
 
+pthresh = 1.0e-5**2
 
-U_TO_AMU = 1. / 5.4857990943e-4   # conversion from g/mol to amu
-
-pthresh = 1.e-5**2
-
-IToMult = {
-    1: 'Singlet',
-    2: 'Doublet',
-    3: 'Triplet',
-    4: 'Quartet',
-    5: 'Quintet',
-    6: 'Sextet',
-    7: 'Septet',
-    8: 'Octet',
-    'Singlet': 1,
-    'Doublet': 2,
-    'Triplet': 3,
-    'Quartet': 4,
-    'Quintet': 5,
-    'Sextet': 6,
-    'Septet': 7,
-    'Octet': 8
-}
 # ======================================================================= #
 
 
 def displaywelcome():
-    print('Script for setup of displacements started...\n')
-    string = '\n'
-    string += '  ' + '=' * 80 + '\n'
-    string += '||' + '{:^80}'.format('') + '||\n'
-    string += '||' + '{:^80}'.format('Compute LVC parameters') + '||\n'
-    string += '||' + '{:^80}'.format('') + '||\n'
-    string += '||' + '{:^80}'.format('Author: Simon Kropf, Sebastian Mai, Severin Polonius') + '||\n'
-    string += '||' + '{:^80}'.format('') + '||\n'
-    string += '||' + '{:^80}'.format('Version:' + version) + '||\n'
-    string += '||' + '{:^80}'.format(versiondate.strftime("%d.%m.%y")) + '||\n'
-    string += '||' + '{:^80}'.format('') + '||\n'
-    string += '  ' + '=' * 80 + '\n\n'
-    string += 'This script automatizes the setup of excited-state calculations for displacements\nfor SHARC dynamics.'
+    lines = [
+        f"Compute LVC parameters",
+        "",
+        f"Authors: Simon Kropf, Sebastian Mai, Severin Polonius",
+        "",
+        f"Version: {version}",
+        "Date: {:%d.%m.%Y}".format(versiondate),
+    ]
+
+    print("Script for setup of displacements started...\n")
+    printheader(lines)
+    string = "This script automatizes the setup of excited-state calculations for displacements\nfor SHARC dynamics."
     print(string)
 
 
 # ======================================================================= #
-def itnmstates(states):
-    '''Takes an array of the number of states in each multiplicity and generates an iterator over all states specified. Iterates also over all MS values of all states.
-
-    Example:
-    [3,0,3] yields 12 iterations with
-    1,1,0
-    1,2,0
-    1,3,0
-    3,1,-1
-    3,2,-1
-    3,3,-1
-    3,1,0
-    3,2,0
-    3,3,0
-    3,1,1
-    3,2,1
-    3,3,1
-
-    Arguments:
-    1 list of integers: States specification
-
-    Returns:
-    1 integer: multiplicity
-    2 integer: state
-    3 float: MS value'''
-
-    for i in range(len(states)):
-        if states[i] < 1:
-            continue
-        for k in range(i + 1):
-            for j in range(states[i]):
-                yield i + 1, j + 1, k - i / 2.
-    return
-
-
-# ======================================================================= #
-def readfile(filename):
-    try:
-        f = open(filename)
-        out = f.readlines()
-        f.close()
-    except IOError:
-        print('File %s does not exist!' % (filename))
-        sys.exit(12)
-    return out
-# ======================================================================= #
 
 
 def read_QMout(path, nstates, natom, request):
-    targets = {'h': {'flag': 1,
-                     'type': complex,
-                     'dim': (nstates, nstates)},
-               'dm': {'flag': 2,
-                      'type': complex,
-                      'dim': (3, nstates, nstates)},
-               'grad': {'flag': 3,
-                        'type': float,
-                        'dim': (nstates, natom, 3)},
-               'nacdr': {'flag': 5,
-                         'type': float,
-                         'dim': (nstates, nstates, natom, 3)},
-               'overlap': {'flag': 6,
-                           'type': complex,
-                           'dim': (nstates, nstates)}
-               }
+    targets = {
+        "h": {"flag": 1, "type": complex, "dim": (nstates, nstates)},
+        "dm": {"flag": 2, "type": complex, "dim": (3, nstates, nstates)},
+        "grad": {"flag": 3, "type": float, "dim": (nstates, natom, 3)},
+        "nacdr": {"flag": 5, "type": float, "dim": (nstates, nstates, natom, 3)},
+        "overlap": {"flag": 6, "type": complex, "dim": (nstates, nstates)},
+        "multipolar_fit": {"flag": 22, "type": float, "dim": (nstates, nstates, natom, 10)},
+    }
 
     # read QM.out
     lines = readfile(path)
@@ -194,88 +115,97 @@ def read_QMout(path, nstates, natom, request):
             while True:
                 iline += 1
                 if iline >= len(lines):
-                    print('Could not find "%s" (flag "%i") in file %s!' % (t, targets[t]['flag'], path))
+                    print('Could not find "%s" (flag "%i") in file %s!' % (t, targets[t]["flag"], path))
                     sys.exit(11)
                 line = lines[iline]
-                if '! %i' % (targets[t]['flag']) in line:
+                if "! %i" % (targets[t]["flag"]) in line:
+                    # store settings of multipolar fit
+                    if t == "multipolar_fit":
+                        QMout["multipolar_fit_settings"] = line.split("states")[-1].strip()
                     break
             values = []
             # =========== single matrix
-            if len(targets[t]['dim']) == 2:
+            if len(targets[t]["dim"]) == 2:
                 iline += 1
-                for irow in range(targets[t]['dim'][0]):
+                for irow in range(targets[t]["dim"][0]):
                     iline += 1
                     line = lines[iline].split()
-                    if targets[t]['type'] == complex:
-                        row = [complex(float(line[2 * i]), float(line[2 * i + 1])) for i in range(targets[t]['dim'][1])]
-                    elif targets[t]['type'] == float:
-                        row = [float(line[i]) for i in range(targets[t]['dim'][1])]
+                    if targets[t]["type"] == complex:
+                        row = [complex(float(line[2 * i]), float(line[2 * i + 1])) for i in range(targets[t]["dim"][1])]
+                    elif targets[t]["type"] == float:
+                        row = [float(line[i]) for i in range(targets[t]["dim"][1])]
+                    else:
+                        row = line
                     values.append(row)
             # =========== list of matrices
-            elif len(targets[t]['dim']) == 3:
-                for iblocks in range(targets[t]['dim'][0]):
+            elif len(targets[t]["dim"]) == 3:
+                for iblocks in range(targets[t]["dim"][0]):
                     iline += 1
                     block = []
-                    for irow in range(targets[t]['dim'][1]):
+                    for irow in range(targets[t]["dim"][1]):
                         iline += 1
                         line = lines[iline].split()
-                        if targets[t]['type'] == complex:
-                            row = [complex(float(line[2 * i]), float(line[2 * i + 1])) for i in range(targets[t]['dim'][2])]
-                        elif targets[t]['type'] == float:
-                            row = [float(line[i]) for i in range(targets[t]['dim'][2])]
+                        if targets[t]["type"] == complex:
+                            row = [complex(float(line[2 * i]), float(line[2 * i + 1])) for i in range(targets[t]["dim"][2])]
+                        elif targets[t]["type"] == float:
+                            row = [float(line[i]) for i in range(targets[t]["dim"][2])]
+                        else:
+                            row = line
                         block.append(row)
                     values.append(block)
             # =========== matrix of matrices
-            elif len(targets[t]['dim']) == 4:
-                for iblocks in range(targets[t]['dim'][0]):
+            elif len(targets[t]["dim"]) == 4:
+                for iblocks in range(targets[t]["dim"][0]):
                     sblock = []
-                    for jblocks in range(targets[t]['dim'][1]):
+                    for jblocks in range(targets[t]["dim"][1]):
                         iline += 1
                         block = []
-                        for irow in range(targets[t]['dim'][2]):
+                        for irow in range(targets[t]["dim"][2]):
                             iline += 1
                             line = lines[iline].split()
-                            if targets[t]['type'] == complex:
-                                row = [complex(float(line[2 * i]), float(line[2 * i + 1])) for i in range(targets[t]['dim'][3])]
-                            elif targets[t]['type'] == float:
-                                row = [float(line[i]) for i in range(targets[t]['dim'][3])]
+                            if targets[t]["type"] == complex:
+                                row = [complex(float(line[2 * i]), float(line[2 * i + 1])) for i in range(targets[t]["dim"][3])]
+                            elif targets[t]["type"] == float:
+                                row = [float(line[i]) for i in range(targets[t]["dim"][3])]
+                            else:
+                                row = line
                             block.append(row)
                         sblock.append(block)
                     values.append(sblock)
-            QMout[t] = values
+            QMout[t] = np.array(values)
 
-    # pprint.pprint(QMout)
     return QMout
 
 
 # ======================================================================= #
 
-def LVC_complex_mat(header, mat, deldiag=False, oformat=' % .7e'):
+
+def LVC_complex_mat(header, mat, deldiag=False, oformat=" % .7e"):
     rnonzero = False
     inonzero = False
 
-    rstr = header + ' R\n'
-    istr = header + ' I\n'
+    rstr = header + " R\n"
+    istr = header + " I\n"
     for i in range(len(mat)):
         for j in range(len(mat)):
             val = mat[i][j].real
             if deldiag and i == j:
-                val = 0.
+                val = 0.0
             rstr += oformat % val
             if val * val > pthresh:
                 rnonzero = True
 
             val = mat[i][j].imag
             if deldiag and i == j:
-                val = 0.
+                val = 0.0
             istr += oformat % val
             if val * val > pthresh:
                 inonzero = True
 
-        rstr += '\n'
-        istr += '\n'
+        rstr += "\n"
+        istr += "\n"
 
-    retstr = ''
+    retstr = ""
     if rnonzero:
         retstr += rstr
     if inonzero:
@@ -283,13 +213,23 @@ def LVC_complex_mat(header, mat, deldiag=False, oformat=' % .7e'):
 
     return retstr
 
+
 # ======================================================================= #
 
 
 def loewdin_orthonormalization(A):
-    '''
+    S = A.T @ A
+    e, v = np.linalg.eigh(S)
+    idx = e > 1e-15
+    S_lo = np.dot(v[:, idx] / np.sqrt(e[idx]), v[:, idx].conj().T)
+    return A @ S_lo
+    # return np.matmul(A, linalg.fractional_matrix_power(np.matmul(A.T, A), -0.5))
+
+
+def loewdin_orthonormalization_old(A):
+    """
     returns loewdin orthonormalized matrix
-    '''
+    """
 
     # S = A^T * A
     S = np.dot(A.T, A)
@@ -298,7 +238,7 @@ def loewdin_orthonormalization(A):
     S_diag_only, U = np.linalg.eigh(S)
 
     # calculate the inverse sqrt of the diagonal matrix
-    S_diag_only_inverse_sqrt = [1. / (float(d) ** 0.5) for d in S_diag_only]
+    S_diag_only_inverse_sqrt = [1.0 / (float(d) ** 0.5) for d in S_diag_only]
     S_diag_inverse_sqrt = np.diag(S_diag_only_inverse_sqrt)
 
     # calculate inverse sqrt of S
@@ -310,19 +250,21 @@ def loewdin_orthonormalization(A):
     # normalize A_lo
     A_lo = A_lo.T
     length = len(A_lo)
-    A_lon = np.zeros((length, length), dtype=np.complex)
+    A_lon = np.zeros((length, length), dtype=complex)
 
     for i in range(length):
         norm_of_col = np.linalg.norm(A_lo[i])
-        A_lon[i] = [e / (norm_of_col ** 0.5) for e in A_lo[i]][0]
+        # A_lon[i] = [e / (norm_of_col**0.5) for e in A_lo[i]][0]
+        A_lon[i] = A_lo[i] / np.sqrt(norm_of_col)
 
     return A_lon.T
+
 
 # ======================================================================= #
 
 
 def partition_matrix(matrix, multiplicity, states):
-    '''
+    """
     return the first partitioned matrix of the given multiplicity
 
     e. g.: (3 0 2) states
@@ -340,40 +282,59 @@ def partition_matrix(matrix, multiplicity, states):
       123 ^= 1...multiplicity
              2...istate
              3...jstate
-    '''
+    """
     # get start index based on given multiplicity
-    start_index = 0
-    for i, state in enumerate(states):
-        if (i + 1) == multiplicity:
-            break
-        else:
-            start_index += state
+    start_index = sum((s * (i + 1) for i, s in enumerate(states[: multiplicity - 1])))
 
     # size of the partition ^= state for given multiplicity
     size = states[multiplicity - 1]
 
-    # create empty partition
-    partition = np.zeros((size, size), dtype=complex)
+    # return [x[start_index : start_index + size] for x in matrix[start_index : start_index + size]]
+    return matrix[start_index : start_index + size, start_index : start_index + size, ...]
 
-    # get the partition out of the matrix
-    for i in range(start_index, start_index + size):
-        for j in range(start_index, start_index + size):
-            partition[i - start_index][j - start_index] = matrix[i][j]
-
-    return partition
 
 # ======================================================================= #
 
 
 def phase_correction(matrix):
+    U = matrix.real.copy()
+    det = np.linalg.det(U)
+    if det < 0:
+        U[:, 0] *= -1.0  # this row/column convention is correct
+
+    # sweeps
+    l = len(U)
+    sweeps = 0
+    while True:
+        done = True
+        for j in range(l):
+            for k in range(j + 1, l):
+                delta = 3.0 * (U[j, j] ** 2 + U[k, k] ** 2)
+                delta += 6.0 * U[j, k] * U[k, j]
+                delta += 8.0 * (U[k, k] + U[j, j])
+                delta -= 3.0 * (U[j, :] @ U[:, j] + U[k, :] @ U[:, k])
+                # for i in range(l):
+                # delta -= 3.0 * (U[j, i] * U[i, j] + U[k, i] * U[i, k])
+                if delta < -1e-15:  # needs proper threshold towards 0
+                    U[:, j] *= -1.0  # this row/column convention is correct
+                    U[:, k] *= -1.0  # this row/column convention is correct
+                    done = False
+        sweeps += 1
+        if done:
+            break
+    return U
+
+
+def phase_correction_old(matrix):
     length = len(matrix)
-    phase_corrected_matrix = [[.0 for x in range(length)] for x in range(length)]
+    # phase_corrected_matrix = [[0.0 for x in range(length)] for x in range(length)]
+    phase_corrected_matrix = np.zeros_like(matrix)
 
     for i in range(length):
         diag = matrix[i][i].real
 
         # look if diag is significant and negative & switch phase
-        if diag ** 2 > 0.5 and diag < 0:
+        if diag**2 > 0.5 and diag < 0:
             for j in range(length):
                 phase_corrected_matrix[j][i] = matrix[j][i] * -1
         # otherwise leave values as is
@@ -383,137 +344,147 @@ def phase_correction(matrix):
 
     return phase_corrected_matrix
 
+
 # ======================================================================= #
 
 
-def check_overlap_diagonal(matrix, states, normal_mode, displacement, ignore_problematic_states):
-    '''
+def check_overlap_diagonal(matrix, states, normal_mode, displacement):
+    """
     Checks for problematic states (diagonals**2 of overlap matrix smaller than 0.5)
-    '''
+    """
     problematic_states = {}
 
     for imult in range(len(states)):
         part_matrix = partition_matrix(matrix, imult + 1, states)
 
         for state in range(len(part_matrix)):
-            sum_column = sum([part_matrix[j][state] ** 2 for j in range(len(part_matrix))])
+            sum_column = sum([part_matrix[j][state] ** 2 for j in range(len(part_matrix))]).real
             if sum_column < 0.5:
-                print('* Problematic state %i in %i%s: %s' % (state + 1, int(normal_mode), displacement, IToMult[imult + 1]))
+                print("* Problematic state %i in %i%s: %s" % (state + 1, int(normal_mode), displacement, IToMult[imult + 1]))
                 problematic_states[str(normal_mode) + displacement] = imult + 1
 
     return problematic_states
 
+
 # ======================================================================= #
 
 
-def calculate_W_dQi(H, S, e_ref, normal_mode, displ):
-    '''
+def calculate_W_dQi(H, S, e_ref):
+    """
     Calculates the displacement matrix
-    '''
+    """
 
     # get diagonalised hamiltonian
-    H = np.diag([e - e_ref for e in np.diag(H)])
+    # H = np.diag([e - e_ref for e in np.diag(H)])
 
-    # do phase correction if necessary
-    if any([x for x in np.diag(S) if x < 0]):
-        S = phase_correction(S)
+    # S = phase_correction(S)
 
     # do loewdin orthonorm. on overlap matrix
-    U = loewdin_orthonormalization(np.matrix(S))
+    U = loewdin_orthonormalization(S)
+    U = phase_correction(U)
 
-    return np.dot(np.dot(U.T, H), U)
+    # <old|new><new|new><new|old> -> <old|old>
+    return np.dot(np.dot(U, H), U.T) - np.eye(H.shape[0]) * e_ref
+
 
 # ======================================================================= #
 
 
 def write_LVC_template(INFOS):
-    lvc_template_content = '%s\n' % (INFOS['v0f'])
-    lvc_template_content += str(INFOS['states'])[1:-1].replace(',', '') + '\n'
+    lvc_template_content = "%s\n" % (INFOS["v0f"])
+    lvc_template_content += str(INFOS["states"])[1:-1].replace(",", "") + "\n"
 
     # print INFOS
 
     # print some infos
-    print('\nData extraction started ...')
-    print('Number of states:', INFOS['nstates'])
-    print('Number of atoms:', len(INFOS['atoms']))
-    print('Kappas:', ['numerical', 'analytical'][INFOS['ana_grad']])
-    print('Lambdas:', ['numerical', 'analytical'][INFOS['ana_nac']])
-    print
-    print('Reading files ...')
-    print
+    print("\nData extraction started ...")
+    print("Number of states:", INFOS["nstates"])
+    print("Number of atoms:", len(INFOS["atoms"]))
+    print("Kappas:", ["numerical", "analytical"][INFOS["ana_grad"]])
+    print("Lambdas:", ["numerical", "analytical"][INFOS["ana_nac"]])
+    if "gammas" in INFOS and INFOS["gammas"]:
+        print(f"Gammas: {INFOS['gammas']}")
+    print()
+    print("Reading files ...")
+    print()
 
     # extract data from central point
-    requests = ['h', 'dm']
-    if INFOS['ana_grad']:
-        requests.append('grad')
-    if INFOS['ana_nac']:
-        requests.append('nacdr')
-    path = os.path.join(INFOS['paths']['0eq'], 'QM.out')
-    print(path, requests)
-    QMout_eq = read_QMout(path, INFOS['nstates'], len(INFOS['atoms']), requests)
+    requests = ["h", "dm"]
+    if INFOS["ana_grad"]:
+        requests.append("grad")
+    if INFOS["ana_nac"]:
+        requests.append("nacdr")
+    if "multipolar_fit" in INFOS and INFOS["multipolar_fit"]:
+        requests.append("multipolar_fit")
+    path = os.path.join(INFOS["paths"]["000_eq"], "QM.out")
+    print("reading QMout_eq at:", path)
+    # QMout_eq = read_QMout(path, INFOS["nstates"], len(INFOS["atoms"]), requests)
+    QMout_eq = QMout(path, INFOS["states"], len(INFOS["atoms"]), npc=0)
+    print(", ".join(requests))
+    for normal_mode in INFOS["fmw_normal_modes"].keys():
+        INFOS["fmw_normal_modes"][normal_mode] = np.array(INFOS["fmw_normal_modes"][normal_mode])
 
     # ------------------ epsilon ----------------------
     epsilon_str_list = []
 
     i = 0
-    e_ref = QMout_eq['h'][0][0]
+    e_ref = QMout_eq.h[0, 0]
 
     # run through all multiplicities
-    for imult in range(len(INFOS['states'])):
+    for imult in range(len(INFOS["states"])):
         # partition matrix for every multiplicity
-        partition = partition_matrix(QMout_eq['h'], imult + 1, INFOS['states'])
+        partition = partition_matrix(QMout_eq.h, imult + 1, INFOS["states"])
 
         # run over diagonal and get epsilon values
         for istate in range(len(partition)):
-            epsilon_str_list.append('%3i %3i % .10f\n' % (imult + 1, istate + 1, (partition[istate][istate] - e_ref).real))
+            epsilon_str_list.append("%3i %3i % .10f\n" % (imult + 1, istate + 1, (partition[istate][istate] - e_ref).real))
 
     # add results to template string
-    lvc_template_content += 'epsilon\n'
-    lvc_template_content += '%i\n' % (len(epsilon_str_list))
-    lvc_template_content += ''.join(sorted(epsilon_str_list))
+    lvc_template_content += "epsilon\n"
+    lvc_template_content += "%i\n" % (len(epsilon_str_list))
+    lvc_template_content += "".join(sorted(epsilon_str_list))
 
     # ------------------- kappa -----------------------
     nkappa = 0
     kappa_str_list = []
-    r3N = [i for i in range(3 * len(INFOS['atoms']))]
 
     # run through all possible states
-    if INFOS['ana_grad']:
-        for i, sti in enumerate(itnmstates(INFOS['states'])):
-            imult, istate, ims = sti
+    if INFOS["ana_grad"]:
+        start = 0
+        for imult, nsi in enumerate(INFOS["states"]):
+            if nsi == 0:
+                continue
+            # puts the gradient matrix into a list, has form: [ x, y, z, x, y, z, x, y, z]
+            gradient = QMout_eq.grad[start : start + nsi, ...].reshape((nsi, -1))
 
-            if ims == (imult - 1) / 2.:
-                # puts the gradient matrix into a list, has form: [ x, y, z, x, y, z, x, y, z]
-                gradient = list(itertools.chain(*QMout_eq['grad'][i]))
+            # runs through normal modes
+            for normal_mode in INFOS["fmw_normal_modes"].keys():
+                # calculates kappa from normal modes and grad
+                kappas = np.dot(INFOS["fmw_normal_modes"][normal_mode], gradient.T)
 
-                # runs through normal modes
-                for normal_mode in INFOS['fmw_normal_modes'].keys():
-
-                    # calculates kappa from normal modes and grad
-                    kappa = sum([INFOS['fmw_normal_modes'][normal_mode][ixyz] * gradient[ixyz] for ixyz in r3N])
-
-                    # writes kappa to result string
-                    if kappa ** 2 > pthresh:
-                        kappa_str_list.append('%3i %3i %5i % .5e\n' % (imult, istate, int(normal_mode), kappa))
+                # writes kappa to result string
+                for i, k in enumerate(kappas):
+                    if k**2 > pthresh:
+                        kappa_str_list.append("%3i %3i %5i % .5e\n" % (imult + 1, i + 1, int(normal_mode), k))
                         nkappa += 1
+            start += nsi
 
     # ------------------------ lambda --------------------------
     lam = 0
     nlambda = 0
     lambda_str_list = []
 
-    if INFOS['ana_nac']:
-
-        for i, sti in enumerate(itnmstates(INFOS['states'])):
+    if INFOS["ana_nac"]:
+        for i, sti in enumerate(itnmstates(INFOS["states"])):
             imult, istate, ims = sti
 
-            if ims != (imult - 1) / 2.:
+            if ims != (imult - 1) / 2.0:
                 continue
 
-            for j, stj in enumerate(itnmstates(INFOS['states'])):
+            for j, stj in enumerate(itnmstates(INFOS["states"])):
                 jmult, jstate, jms = stj
 
-                if jms != (jmult - 1) / 2.:
+                if jms != (jmult - 1) / 2.0:
                     continue
 
                 if i >= j:
@@ -525,108 +496,102 @@ def write_LVC_template(INFOS):
                 if ims != jms:
                     continue
 
-                nacvector = list(itertools.chain(*QMout_eq['nacdr'][i][j]))
+                nacvector = QMout_eq.nacdr[i, j].flat
 
                 # runs through normal modes
-                for normal_mode in INFOS['fmw_normal_modes'].keys():
-
+                for normal_mode in INFOS["fmw_normal_modes"].keys():
                     # calculates lambd from normal modes and grad
-                    dE = (QMout_eq['h'][j][j] - QMout_eq['h'][i][i]).real
-                    lambd = sum([INFOS['fmw_normal_modes'][normal_mode][ixyz] * nacvector[ixyz] for ixyz in r3N]) * dE
+                    dE = (QMout_eq.h[j][j] - QMout_eq.h[i][i]).real
+                    # lambd = sum([INFOS["fmw_normal_modes"][normal_mode][ixyz] * nacvector[ixyz] for ixyz in r3N]) * dE
+                    lambd = np.dot(INFOS["fmw_normal_modes"][normal_mode], nacvector) * dE
 
                     # writes lambd to result string
-                    if lambd ** 2 > pthresh:
+                    if lambd**2 > pthresh:
                         # lambda_str_list.append('%3i %3i %5i % .5e\n' % (imult, istate, int(normal_mode), lambd))
-                        lambda_str_list.append('%3i %3i %3i %3i % .5e\n' % (imult, istate, jstate, int(normal_mode), lambd))
+                        lambda_str_list.append("%3i %3i %3i %3i % .5e\n" % (imult, istate, jstate, int(normal_mode), lambd))
                         nlambda += 1
-
 
     # ------------------------ numerical kappas and lambdas --------------------------
 
-    if not (INFOS['ana_nac'] and INFOS['ana_grad']):
-        if 'displacements' not in INFOS:
+    if not INFOS["ana_nac"] and not INFOS["ana_grad"]:
+        if "displacements" not in INFOS:
             print('No displacement info found in "displacements.json"!')
             sys.exit(1)
-
-        if not INFOS['ana_nac'] and not INFOS['ana_grad']:
-            whatstring = 'kappas and lambdas'
-        elif not INFOS['ana_grad']:
-            whatstring = 'kappas'
-        elif not INFOS['ana_nac']:
-            whatstring = 'lambdas'
+        whatstring = "kappas and lambdas"
 
         # running through all normal modes
-        for normal_mode, v in INFOS['normal_modes'].items():
-
+        for normal_mode, v in INFOS["normal_modes"].items():
             twosided = False
 
             # get pos displacement
-            pos_displ_mag = INFOS['displacement_magnitudes'][normal_mode]
+            pos_displ_mag = INFOS["displacement_magnitudes"][normal_mode]
 
             # get hamiltonian & overlap matrix from QM.out
-            path = os.path.join(INFOS['paths'][str(normal_mode) + 'p'], 'QM.out')
-            requests = ['h', 'overlap']
-            print(path, requests)
-            pos_H, pos_S = read_QMout(path, INFOS['nstates'], len(INFOS['atoms']), requests).values()
+            path = os.path.join(INFOS["paths"][f"{normal_mode:>03s}_{'p'}"], "QM.out")
+            # requests = ["h", "overlap"]
+            QMout_pos = QMout(path, INFOS["states"], len(INFOS["atoms"]), 0)
 
             # check diagonal of S & print warning
-            INFOS['problematic_mults'] = check_overlap_diagonal(pos_S, INFOS['states'], normal_mode, 'p', INFOS['ignore_problematic_states'])
+            INFOS["problematic_mults"] = check_overlap_diagonal(QMout_pos.overlap, INFOS["states"], normal_mode, "p")
 
             # calculate displacement matrix
-            pos_W_dQi = calculate_W_dQi(pos_H, pos_S, e_ref, normal_mode, 'p')
-
+            # pos_W_dQi = calculate_W_dQi(pos_H, pos_S, e_ref)
 
             # Check for two-sided differentiation
-            if str(normal_mode) + 'n' in INFOS['displacements']:
+            if f"{normal_mode:>03s}_{'n'}" in INFOS["displacements"]:
                 twosided = True
                 # get neg displacement
-                neg_displ_mag = INFOS['displacement_magnitudes'][normal_mode]
+                neg_displ_mag = INFOS["displacement_magnitudes"][normal_mode]
 
                 # get hamiltonian & overlap matrix from QM.out
-                path = os.path.join(INFOS['paths'][str(normal_mode) + 'n'], 'QM.out')
-                requests = ['h', 'overlap']
-                print(path, requests)
-                neg_H, neg_S = read_QMout(path, INFOS['nstates'], len(INFOS['atoms']), requests).values()
+                path = os.path.join(INFOS["paths"][f"{normal_mode:>03s}_{'n'}"], "QM.out")
+                QMout_neg = QMout(path, INFOS["states"], len(INFOS["atoms"]), 0)
 
                 # check diagonal of S & print warning if wanted
-                INFOS['problematic_mults'].update(check_overlap_diagonal(neg_S, INFOS['states'], normal_mode, 'n', INFOS['ignore_problematic_states']))
+                INFOS["problematic_mults"].update(check_overlap_diagonal(QMout_neg.overlap, INFOS["states"], normal_mode, "n"))
 
                 # calculate displacement matrix
-                neg_W_dQi = calculate_W_dQi(neg_H, neg_S, e_ref, normal_mode, 'n')
-
 
             # Loop over multiplicities to get kappas and lambdas
-            for imult in range(len(INFOS['states'])):
-
+            for imult in filter(lambda x: INFOS["states"][x] != 0, range(len(INFOS["states"]))):
                 # checking problematic states
-                if INFOS['ignore_problematic_states']:
-                    if str(normal_mode) + 'p' in INFOS['problematic_mults']:
-                        if INFOS['problematic_mults'][str(normal_mode) + 'p'] == imult + 1:
-                            print('Not producing %s for normal mode: %s' % (whatstring, normal_mode))
+                if INFOS["ignore_problematic_states"]:
+                    if str(normal_mode) + "p" in INFOS["problematic_mults"]:
+                        if INFOS["problematic_mults"][f"{normal_mode:>03s}_{'p'}"] == imult + 1:
+                            print("Not producing %s for normal mode: %s" % (whatstring, normal_mode))
                             continue
-                    if str(normal_mode) + 'n' in INFOS['problematic_mults']:
-                        if twosided and INFOS['problematic_mults'][str(normal_mode) + 'n'] == imult + 1:
-                            print('! Not producing %s for multiplicity %i for normal mode: %s' % (whatstring, imult + 1, normal_mode))
+                    if str(normal_mode) + "n" in INFOS["problematic_mults"]:
+                        if twosided and INFOS["problematic_mults"][f"{normal_mode:>03s}_{'n'}"] == imult + 1:
+                            print(
+                                "! Not producing %s for multiplicity %i for normal mode: %s"
+                                % (whatstring, imult + 1, normal_mode)
+                            )
                             continue
 
                 # partition matrices
-                pos_partition = partition_matrix(pos_W_dQi, imult + 1, INFOS['states'])
+                pos_H = partition_matrix(QMout_pos.h, imult + 1, INFOS["states"])
+                pos_S = partition_matrix(QMout_pos.overlap, imult + 1, INFOS["states"])
+                pos_partition = calculate_W_dQi(pos_H, pos_S, e_ref)
+                # pos_partition = partition_matrix(pos_W_dQi, imult + 1, INFOS["states"])
                 if twosided:
-                    neg_partition = partition_matrix(neg_W_dQi, imult + 1, INFOS['states'])
+                    neg_H = partition_matrix(QMout_neg.h, imult + 1, INFOS["states"])
+                    neg_S = partition_matrix(QMout_neg.overlap, imult + 1, INFOS["states"])
+                    neg_partition = calculate_W_dQi(neg_H, neg_S, e_ref)
+                    # neg_partition = partition_matrix(neg_W_dQi, imult + 1, INFOS["states"])
                 partition_length = len(pos_partition)
 
                 # get lambdas and kappas
                 for i in range(partition_length):
-                    if not INFOS['ana_grad']:
+                    if not INFOS["ana_grad"]:
                         if not twosided:
                             kappa = pos_partition[i][i].real / pos_displ_mag
                         else:
                             kappa = (pos_partition[i][i] - neg_partition[i][i]).real / (pos_displ_mag + neg_displ_mag)
-                        if kappa ** 2 > pthresh:
-                            kappa_str_list.append('%3i %3i %5i % .5e\n' % (imult + 1, i + 1, int(normal_mode), kappa))
+                        if kappa**2 > pthresh:
+                            kappa_str_list.append("%3i %3i %5i % .5e\n" % (imult + 1, i + 1, int(normal_mode), kappa))
                             nkappa += 1
 
-                    if not INFOS['ana_nac']:
+                    if not INFOS["ana_nac"]:
                         for j in range(partition_length):
                             if i >= j:
                                 continue
@@ -634,35 +599,375 @@ def write_LVC_template(INFOS):
                                 lam = pos_partition[i][j].real / pos_displ_mag
                             else:
                                 lam = (pos_partition[i][j] - neg_partition[i][j]).real / (pos_displ_mag + neg_displ_mag)
-                            if lam ** 2 > pthresh:
-                                lambda_str_list.append('%3i %3i %3i %3i % .5e\n' % (imult + 1, i + 1, j + 1, int(normal_mode), lam))
+                            if lam**2 > pthresh:
+                                lambda_str_list.append(
+                                    "%3i %3i %3i %3i % .5e\n" % (imult + 1, i + 1, j + 1, int(normal_mode), lam)
+                                )
                                 nlambda += 1
 
+    # --------------- GAMMA --------------
+    gamma_str_list = []
+    # five point stencil
+    if "gammas" in INFOS and INFOS["gammas"] == "five-point stencil":
+        if "displacements" not in INFOS:
+            print('No displacement info found in "displacements.json"!')
+            sys.exit(1)
+        # running through all normal modes
+        for normal_mode in INFOS["gamma_normal_modes"]:
+            freq = INFOS["frequencies"][normal_mode]
+            path = os.path.join(INFOS["paths"][f"{normal_mode:>03s}_{'p'}"], "QM.out")
+            QMout_pos = QMout(path, INFOS["states"], len(INFOS["atoms"]), 0)
 
+            path = os.path.join(INFOS["paths"][f"{normal_mode:>03s}_{'p2'}"], "QM.out")
+            QMout_pos2 = QMout(path, INFOS["states"], len(INFOS["atoms"]), 0)
 
+            path = os.path.join(INFOS["paths"][f"{normal_mode:>03s}_{'n'}"], "QM.out")
+            QMout_neg = QMout(path, INFOS["states"], len(INFOS["atoms"]), 0)
 
+            path = os.path.join(INFOS["paths"][f"{normal_mode:>03s}_{'n2'}"], "QM.out")
+            QMout_neg2 = QMout(path, INFOS["states"], len(INFOS["atoms"]), 0)
 
+            displ_mag = INFOS["displacement_magnitudes"][normal_mode]
+            # Loop over multiplicities
+            start = 0
+            for imult, nsi in enumerate(INFOS["states"]):
+                if nsi == 0:
+                    continue
+                states = INFOS["gamma_selected_states"][str(imult)]
+                part_h_pos = QMout_pos.h[start : start + nsi, start : start + nsi].real
+                part_ovl_pos = QMout_pos.overlap[start : start + nsi, start : start + nsi].real
+                part_ovl_pos = loewdin_orthonormalization(part_ovl_pos)
+                part_ovl_pos = phase_correction(part_ovl_pos)
+                diab_h_pos = part_ovl_pos @ part_h_pos @ part_ovl_pos.T
+
+                part_h_pos2 = QMout_pos2.h[start : start + nsi, start : start + nsi].real
+                part_ovl_pos2 = QMout_pos2.overlap[start : start + nsi, start : start + nsi].real
+                part_ovl_pos2 = loewdin_orthonormalization(part_ovl_pos2)
+                part_ovl_pos2 = phase_correction(part_ovl_pos2)
+                diab_h_pos2 = part_ovl_pos2 @ part_h_pos2 @ part_ovl_pos2.T
+
+                part_h_neg = QMout_neg.h[start : start + nsi, start : start + nsi].real
+                part_ovl_neg = QMout_neg.overlap[start : start + nsi, start : start + nsi].real
+                part_ovl_neg = loewdin_orthonormalization(part_ovl_neg)
+                part_ovl_neg = phase_correction(part_ovl_neg)
+                diab_h_neg = part_ovl_neg @ part_h_neg @ part_ovl_neg.T
+
+                part_h_neg2 = QMout_neg2.h[start : start + nsi, start : start + nsi].real
+                part_ovl_neg2 = QMout_neg2.overlap[start : start + nsi, start : start + nsi].real
+                part_ovl_neg2 = loewdin_orthonormalization(part_ovl_neg2)
+                part_ovl_neg2 = phase_correction(part_ovl_neg2)
+                diab_h_neg2 = part_ovl_neg2 @ part_h_neg2 @ part_ovl_neg2.T
+
+                part_eq_h = QMout_eq.h[start : start + nsi, start : start + nsi].real
+
+                # five-point stencil: (-E2p + 16*E1p - 30*E0 + 16*E1n - E2n) / 12h**2
+                neg_contr = (diab_h_pos2 + 30 * part_eq_h + diab_h_neg2) / (12 * displ_mag**2)
+                pos_contr = (16 * diab_h_pos + 16 * diab_h_neg) / (12 * displ_mag**2)
+                gammas = pos_contr - neg_contr
+
+                gammas = 0.5 * (np.diag(gammas) - INFOS["frequencies"][normal_mode])
+                # gammas = 0.5 * (np.diag(gammas))
+                gammas = gammas[states]
+
+                if start == 0:
+                    print(
+                        "sanity check: difference in S0 frequency of mode:",
+                        normal_mode,
+                        f"{(gammas[0] * 2)/4.55633590401805e-06: .1f}cm-1",
+                    )
+                    gammas[0] = 0
+
+                gamma_str_list.extend(
+                    list(
+                        map(
+                            lambda i: f"{imult + 1:3d} {states[i]+1:3d} {states[i]+1:3d} {int(normal_mode):3d} {int(normal_mode):3d} {gammas[i]: .7e}\n",
+                            np.where(abs(gammas) > 4.55633590401805e-06)[0],
+                        )
+                    )
+                )
+                start += nsi
+
+    # approximation from second order central
+    if "gammas" in INFOS and INFOS["gammas"] == "second order central":
+        if "displacements" not in INFOS:
+            print('No displacement info found in "displacements.json"!')
+            sys.exit(1)
+        # running through all normal modes
+        for normal_mode in INFOS["gamma_normal_modes"]:
+            freq = INFOS["frequencies"][normal_mode]
+            path = os.path.join(INFOS["paths"][f"{normal_mode:>03s}_{'p'}"], "QM.out")
+            QMout_pos = QMout(path, INFOS["states"], len(INFOS["atoms"]), 0)
+
+            path = os.path.join(INFOS["paths"][f"{normal_mode:>03s}_{'n'}"], "QM.out")
+            QMout_neg = QMout(path, INFOS["states"], len(INFOS["atoms"]), 0)
+
+            displ_mag = INFOS["displacement_magnitudes"][normal_mode]
+
+            # Loop over multiplicities
+            start = 0
+            for imult, nsi in enumerate(INFOS["states"]):
+                if nsi == 0:
+                    continue
+                states = INFOS["gamma_selected_states"][str(imult)]
+                part_h_pos = QMout_pos.h[start : start + nsi, start : start + nsi].real
+                part_ovl_pos = QMout_pos.overlap[start : start + nsi, start : start + nsi].real
+
+                # do loewdin orthonorm. on overlap matrix
+
+                part_ovl_pos = loewdin_orthonormalization(part_ovl_pos)
+
+                part_ovl_pos = phase_correction(part_ovl_pos)
+
+                diab_h_pos = part_ovl_pos @ part_h_pos @ part_ovl_pos.T
+                # diab_h_pos = calculate_W_dQi(part_h_pos, part_ovl_pos, e_ref)
+
+                part_h_neg = QMout_neg.h[start : start + nsi, start : start + nsi].real
+                part_ovl_neg = QMout_neg.overlap[start : start + nsi, start : start + nsi].real
+
+                # do loewdin orthonorm. on overlap matrix
+                part_ovl_neg = loewdin_orthonormalization(part_ovl_neg)
+
+                part_ovl_neg = phase_correction(part_ovl_neg)
+
+                diab_h_neg = part_ovl_neg @ part_h_neg @ part_ovl_neg.T
+                # diab_h_neg = calculate_W_dQi(part_h_neg, part_ovl_neg, e_ref)
+
+                part_eq_h = QMout_eq.h[start : start + nsi, start : start + nsi].real
+                gammas = (diab_h_pos - 2 * part_eq_h + diab_h_neg) / (displ_mag) ** 2
+                gammas = 0.5 * (np.diag(gammas) - INFOS["frequencies"][normal_mode])
+                gammas = gammas[states]
+                check = np.where(np.abs(gammas * 2) / freq > 0.5)[0]
+                if len(check) > 0:
+                    print(
+                        f"WARNING: gammas wrong for states in {imult}",
+                        [states[x] for x in check],
+                        np.array2string(
+                            (gammas[check] * 2) / 4.55633590401805e-06, formatter={"float": lambda x: f"{x: 9.1f}cm-1"}
+                        ),
+                        np.array2string(gammas[check] * 2 / freq, formatter={"float": lambda x: f"{x*100: 4.1f}%"}),
+                    )
+                if start == 0:
+                    print(
+                        "sanity check: difference in S0 frequency of mode:",
+                        normal_mode,
+                        f"{(gammas[0] * 2)/4.55633590401805e-06: .1f}cm-1",
+                    )
+                    gammas[0] = 0
+                print(
+                    "adding gammas for states ",
+                    normal_mode,
+                    imult,
+                    [
+                        [states[i], gammas[i] * 2 / freq]
+                        for i in np.where((np.abs(gammas) > 4.55633590401805e-06) & (np.abs(gammas * 2) / freq < 0.5))[0]
+                    ],
+                )
+                gammas = np.where(np.abs(gammas * 2) / freq > 0.5, 0, gammas)
+
+                gamma_str_list.extend(
+                    list(
+                        map(
+                            lambda i: f"{imult + 1:3d} {states[i]+1:3d} {states[i]+1:3d} {int(normal_mode):3d} {int(normal_mode):3d} {gammas[i]: .7e}\n",
+                            np.where(abs(gammas) > 4.55633590401805e-06)[0],
+                        )
+                    )
+                )
+
+                start = start + nsi
+
+    # calculate gammas from approximatin the hessian through diabatized gradients at displacements and equilibrium geometry
+    print("gammas", INFOS["gammas"])
+    check_gamma = {}
+    if "gammas" in INFOS and INFOS["gammas"] == "hessian from diabatized gradients":
+        # SCHEDULE:
+        for normal_mode in INFOS["gamma_normal_modes"]:
+            freq = INFOS["frequencies"][normal_mode]
+            path = os.path.join(INFOS["paths"][f"{normal_mode:>03s}_{'p'}"], "QM.out")
+            QMout_pos = QMout(path, INFOS["states"], len(INFOS["atoms"]), 0)
+
+            path = os.path.join(INFOS["paths"][f"{normal_mode:>03s}_{'n'}"], "QM.out")
+            QMout_neg = QMout(path, INFOS["states"], len(INFOS["atoms"]), 0)
+
+            displ_mag = INFOS["displacement_magnitudes"][normal_mode]
+
+            # Loop over multiplicities to get kappas and lambdas
+            start = 0
+            for imult, nsi in enumerate(INFOS["states"]):
+                if nsi == 0:
+                    continue
+                states = INFOS["gamma_selected_states"][str(imult)]
+
+                # POS
+                part_grad_pos = QMout_pos.grad[start : start + nsi, ...].reshape((nsi, -1))
+                part_ovl_pos = QMout_pos.overlap[start : start + nsi, start : start + nsi].real
+
+                nac_grad_pos = np.zeros((nsi, nsi, part_grad_pos.shape[-1]), dtype=float)
+                np.einsum("iik->ik", nac_grad_pos)[...] += part_grad_pos[...]  # fill diag with grads
+
+                # do loewdin orthonorm. on overlap matrix
+                part_ovl_pos = loewdin_orthonormalization(part_ovl_pos)
+                part_ovl_pos = phase_correction(part_ovl_pos)
+
+                diab_grad_pos = np.einsum("in,nmk,im->ik", part_ovl_pos, nac_grad_pos, part_ovl_pos)
+
+                # NEG
+                part_grad_neg = QMout_neg.grad[start : start + nsi, ...].reshape((nsi, -1))
+                part_ovl_neg = QMout_neg.overlap[start : start + nsi, start : start + nsi].real
+
+                nac_grad_neg = np.zeros((nsi, nsi, part_grad_neg.shape[-1]), dtype=float)
+                np.einsum("iik->ik", nac_grad_neg)[...] += part_grad_neg[...]  # fill diag with grads
+
+                # do loewdin orthonorm. on overlap matrix
+                part_ovl_neg = loewdin_orthonormalization(part_ovl_neg)
+                part_ovl_neg = phase_correction(part_ovl_neg)
+
+                diab_grad_neg = np.einsum("in,nmk,im->ik", part_ovl_neg, nac_grad_neg, part_ovl_neg)
+
+                # diff_grad = diab_grad_pos - diab_grad_neg
+
+                for derivate_mode in INFOS["gamma_normal_modes"]:
+                    # nac_from_grad_pos = np.diag(np.einsum("k,ik->i", INFOS["fmw_normal_modes"][derivate_mode], part_grad_pos))
+                    # diab_nac_pos = np.diag(part_ovl_pos @ nac_from_grad_pos @ part_ovl_pos.T)
+
+                    # nac_from_grad_neg = np.diag(np.einsum("k,ik->i", INFOS["fmw_normal_modes"][derivate_mode], part_grad_neg))
+                    # diab_nac_neg = np.diag(part_ovl_neg @ nac_from_grad_neg @ part_ovl_neg.T)
+
+                    # diff grad from xyz to Q
+                    # gammas are 0.5*f''(x)/dQidQj (https://doi.org/10.1142/9789812565464_0007)
+                    diab_grad_pos_Q = np.einsum("k,ik->i", INFOS["fmw_normal_modes"][derivate_mode], diab_grad_pos) / (
+                        2.0 * displ_mag
+                    )
+                    diab_grad_neg_Q = np.einsum("k,ik->i", INFOS["fmw_normal_modes"][derivate_mode], diab_grad_neg) / (
+                        2.0 * displ_mag
+                    )
+                    gammas = diab_grad_pos_Q - diab_grad_neg_Q
+                    gammas = 0.5 * gammas[states]
+
+                    # gammas = (diab_nac_pos - diab_nac_neg).real / (
+                    # displ_mag * 4.0
+                    # )
+
+                    if normal_mode == derivate_mode:
+                        gammas -= freq * 0.5
+                        # print(f"normal_mode {normal_mode}:", INFOS["frequencies"][normal_mode] / 4.55633590401805e-06)
+                        check = np.where(np.abs(gammas * 2) / freq > 0.5)[0]
+                        if len(check) > 0:
+                            print(
+                                f"WARNING: gammas wrong for states in {normal_mode}: {imult}",
+                                [states[x] for x in check],
+                                np.array2string(
+                                    (gammas[check] * 2) / 4.55633590401805e-06, formatter={"float": lambda x: f"{x: 9.1f}cm-1"}
+                                ),
+                                np.array2string(gammas[check] * 2 / freq, formatter={"float": lambda x: f"{x*100: 4.1f}%"}),
+                            )
+
+                    if normal_mode == derivate_mode and start == 0:
+                        print(
+                            "sanity check: difference in S0 frequency of mode:",
+                            normal_mode,
+                            f"{(gammas[0] * 2)/4.55633590401805e-06: .1f}cm-1",
+                        )
+                    if start == 0:
+                        gammas[0] = 0.0
+
+                    check_gamma[(imult, normal_mode, derivate_mode)] = gammas
+                    if (imult, derivate_mode, normal_mode) in check_gamma and normal_mode != derivate_mode:
+                        # print(
+                        # normal_mode,
+                        # derivate_mode,
+                        # np.linalg.norm(
+                        # check_gamma[(imult, normal_mode, derivate_mode)]
+                        # - check_gamma[(imult, derivate_mode, normal_mode)]
+                        # ),
+                        # )
+                        gammas = (
+                            check_gamma[(imult, normal_mode, derivate_mode)] + check_gamma[(imult, derivate_mode, normal_mode)]
+                        ) * 0.5
+                    elif normal_mode != derivate_mode:
+                        continue
+                    else:
+                        check = np.where(np.abs(gammas * 2) / freq > 0.5)[0]
+                        if len(check) > 0:
+                            print(
+                                f"WARNING: gammas wrong for states in {normal_mode}: {imult}",
+                                [states[x] for x in check],
+                                np.array2string(
+                                    (gammas[check] * 2) / 4.55633590401805e-06, formatter={"float": lambda x: f"{x: 9.1f}cm-1"}
+                                ),
+                                np.array2string(gammas[check] * 2 / freq, formatter={"float": lambda x: f"{x*100: 4.1f}%"}),
+                            )
+                        print(
+                            "adding gammas for states ",
+                            normal_mode,
+                            derivate_mode,
+                            imult,
+                            [
+                                [states[i], gammas[i] * 2 / freq]
+                                for i in np.where((np.abs(gammas) > 4.55633590401805e-06) & (np.abs(gammas * 2) / freq < 0.5))[0]
+                            ],
+                        )
+                        gammas = np.where(np.abs(gammas * 2) / freq > 0.5, 0, gammas)
+                    # gammas = 0.5*gammas
+
+                    gamma_str_list.extend(
+                        list(
+                            map(
+                                lambda i: f"{imult + 1:3d} {states[i]+1:3d} {states[i]+1:3d} {int(normal_mode):3d} {int(derivate_mode):3d} {gammas[i]: .7e}\n",
+                                np.where(np.abs(gammas) > 4.55633590401805e-06)[0],
+                            )
+                        )
+                    )
+                start += nsi
 
     # add results to template string
-    lvc_template_content += 'kappa\n'
-    lvc_template_content += '%i\n' % (nkappa)
-    lvc_template_content += ''.join(sorted(kappa_str_list))
+    lvc_template_content += "kappa\n"
+    lvc_template_content += "%i\n" % (nkappa)
+    lvc_template_content += "".join(sorted(kappa_str_list))
 
-    lvc_template_content += 'lambda\n'
-    lvc_template_content += '%i\n' % (nlambda)
-    lvc_template_content += ''.join(sorted(lambda_str_list))
+    lvc_template_content += "lambda\n"
+    lvc_template_content += "%i\n" % (nlambda)
+    lvc_template_content += "".join(sorted(lambda_str_list))
 
+    if len(gamma_str_list) != 0:
+        lvc_template_content += "gamma\n"
+        lvc_template_content += "%i\n" % (len(gamma_str_list))
+        lvc_template_content += "".join(sorted(gamma_str_list))
 
     # ----------------------- matrices ------------------------------
-    lvc_template_content += LVC_complex_mat('SOC', QMout_eq['h'], deldiag=True)
-    lvc_template_content += LVC_complex_mat('DMX', QMout_eq['dm'][0])
-    lvc_template_content += LVC_complex_mat('DMY', QMout_eq['dm'][1])
-    lvc_template_content += LVC_complex_mat('DMZ', QMout_eq['dm'][2])
+    if INFOS["soc"]:
+        if INFOS["soc_file"]:
+            print("Reading SOCs from file:", INFOS["soc_file"])
+            print("Beware that it will be not checked for complete compatability!")
+            QMout_soc = QMout(filepath=INFOS["soc_file"], states=INFOS["states"], natom=len(INFOS["atoms"]), npc=0)
+            print(
+                "sanity check: RSMD of adiabatic energies:", np.sqrt(np.mean((np.diag(QMout_soc.h) - np.diag(QMout_eq.h)) ** 2))
+            )
+            lvc_template_content += LVC_complex_mat("SOC", QMout_soc.h, deldiag=True)
+        else:
+            lvc_template_content += LVC_complex_mat("SOC", QMout_eq.h, deldiag=True)
+    lvc_template_content += LVC_complex_mat("DMX", QMout_eq.dm[0])
+    lvc_template_content += LVC_complex_mat("DMY", QMout_eq.dm[1])
+    lvc_template_content += LVC_complex_mat("DMZ", QMout_eq.dm[2])
 
+    # --------------------- multipolar fit ---------------------------
+    if "multipolar_fit" in QMout_eq:
+        fit = QMout_eq.multipolar_fit
+        settings = QMout_eq.notes["multipolar_fit"] if "multipolar_fit" in QMout_eq.notes else ""
+        mat_string = ""
+        n_entries = 0
+        for (s_i, s_j), fit in QMout_eq["multipolar_fit"].items():
+            if s_i > s_j:
+                continue
+            for atom in range(len(INFOS["atoms"])):  # get mults
+                n_entries += 1
+                nums = "".join(map(lambda x: f"{x: 12.8f}", fit[atom, :]))
+                # print(f"{s_i.S} {s_i.N + 1:2} {s_j.N + 1:2} {atom:3}    {nums}\n")
+                mat_string += f"{s_i.S + 1} {s_i.N:2} {s_j.N:2} {atom:3}    {nums}\n"
+        lvc_template_content += f"Multipolar Density Fit {settings}\n{n_entries}\n{mat_string}"
 
     # -------------------- write to file ----------------------------
-    print('\nFinished!\nLVC parameters written to file: LVC.template\n')
-    lvc_template = open('LVC.template', 'w')
+    print("\nFinished!\nLVC parameters written to file: LVC.template\n")
+    lvc_template = open("LVC.template", "w")
     lvc_template.write(lvc_template_content)
     lvc_template.close()
 
@@ -671,39 +976,41 @@ def write_LVC_template(INFOS):
 # ======================================================================= #
 # ======================================================================= #
 
+
 def main():
-    '''Main routine'''
-    script_name = sys.argv[0].split('/')[-1]
+    """Main routine"""
+    script_name = sys.argv[0].split("/")[-1]
 
-    usage = '''python %s''' % (script_name)
-
-    parser = OptionParser(usage=usage, description='')
+    usage = """python %s""" % (script_name)
 
     displaywelcome()
-
+    is_other_dir = len(sys.argv) == 2 and os.path.isdir(sys.argv[1])
     # load INFOS object from file
-    displacement_info_filename = 'displacements.json'
+    displacement_info_filename = os.path.join(sys.argv[1], "displacements.json") if is_other_dir else "displacements.json"
+
     try:
-        with open(displacement_info_filename, 'r') as displacement_info:
+        with open(displacement_info_filename, "r") as displacement_info:
             INFOS = json_load_byteified(displacement_info)
             displacement_info.close()
     except IOError:
-        print('IOError during opening readable %s - file. Quitting.' % (displacement_info_filename))
+        print("IOError during opening readable %s - file. Quitting." % (displacement_info_filename))
         quit(1)
 
     # set manually for old calcs
     # INFOS['ignore_problematic_states'] = True
+    if is_other_dir:
+        for k, v in INFOS["paths"].items():
+            INFOS["paths"][k] = os.path.join(sys.argv[1], v)
 
-    # write LVC.template
     write_LVC_template(INFOS)
 
 
 # ======================================================================= #
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
-        print('\nCtrl+C occured. Exiting.\n')
+        print("\nCtrl+C occured. Exiting.\n")
         sys.exit()

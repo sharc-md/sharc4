@@ -1,6 +1,6 @@
 *.[ox]
-*.so
-*.mod
+**/*.so
+*mod
 *.pyc
 header.py
 header
@@ -11,4 +11,5 @@ build_info.inc
 *.tmp
 bin/pysharc_*.py
 wfoverlap/
+*.swp
 

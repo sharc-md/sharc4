@@ -127,13 +127,15 @@ for line in lines:
             continue
         if line.startswith("----"):
             continue
-        if 'Mode' in line:
+        if 'Mode' in line or 'cm**-1' in line:
             continue
-        if 'The first' in line or 'APPROXIMATE' in line:
+        if 'The first' in line or 'APPROXIMATE' in line or '* The' in line:
             intensity = False
             read = False
             continue
         l = line.replace(':', '').strip().split()
+        if len(l) < 5:
+            continue
         intdict[int(l[0])] = float(l[2])
 
 

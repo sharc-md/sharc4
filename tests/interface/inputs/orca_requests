@@ -1,0 +1,15 @@
+2
+
+O 0.0	0.0	0.0
+O 0.0	0.0	0.0
+
+states 1 0 1
+h
+dm
+soc
+theodore
+grad
+ion
+#basis_set
+#wave_functions
+#density_matrices

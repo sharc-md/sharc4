@@ -3,9 +3,9 @@
     ## ======== ORCA setup ============
 
     ## 
-orcadir /usr/license/orca41/orca41/
+orcadir /usr/license/orca42/orca_4_2_1_linux_x86-64_openmpi216/
 
-tinker /user/lea/master/tinker-6.3.3/
+tinker /usr/license/openmolcas/tinker-6.3.3/
 
 
     ## ======== SCRATCH and SAVE ============

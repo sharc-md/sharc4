@@ -963,7 +963,7 @@ def do_calc(INFOS):
     # print s
 
     print('')
-    outfilename = 'pop.out'
+    outfilename = f'pop_{INFOS["mode"]}.out'
     if os.path.isfile(outfilename):
         overw = question('Overwrite %s? ' % (outfilename), bool, False)
         print('')

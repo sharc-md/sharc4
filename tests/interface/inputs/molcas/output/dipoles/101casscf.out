@@ -1,0 +1,2535 @@
+   This run of MOLCAS is using the pymolcas driver
+
+                             OPE
+                             OPE          NMOL  CASOP  ENMOLC A   SO
+                 OPE        NMOLC        AS  OP EN  MO LC     AS  OP
+                OPENM       OL CA        SO  PE NM  OL CA     SOP EN
+                OP EN      MO   LC       AS  OP ENMOL  CASO   PENMOL
+                OP  EN     MO   LC       AS  OP EN     MO     LC ASO
+               OP   E  NMOL  C  AS       OP  EN MO     LC     AS  OP
+               OP  E   NMO   LC AS        OPEN  MO     LCASOP EN   M
+               O  PEN   MO  LCA  SO
+            OPE   NMO   L   CAS    OP
+        OPENMOL  CASOP     ENMOL   CASOPE
+     OPENMOLCA   SOPENMOLCASOPEN   MOLCASOPE
+    OPENMOLCAS   OP           EN   MOL    CAS
+    OPENMOLCAS       OP  ENM        O     LCA
+    OPENMOLCAS    OPEN  MOLCASO     P  E  NMO
+    OPENMOLCAS     OP               E  N  MOL
+    OPENMOLCA   SO           PENM   O  L  CAS    OPEN    MO    LCAS
+    OPENMOLCA   SOP           ENM   O  L  CAS   OP  EN  MOLC  AS   O
+    OPENMOLCA   SOPE           NM      O  LCA   S      OP  EN MO
+    OPENMOLC                AS         O  PEN   M      OL  CA  SOPE
+    OPENMO        LCASOPE  NMOL        C  ASO   P      ENMOLC     AS
+    OPE     NMO      LCA  SO     P     E   NM   OL  CA SO  PE N   MO
+          OPENMOLCA            SOPE   NMO        LCAS  O    P  ENMO
+     OPENMOLCASOPENMOLCASOPENMOLCASOPENMOLCA
+        OPENMOLCASOPENMOLCASOPENMOLCASOPE
+            OPENMOLCASOPENMOLCASOPENM
+               OPENMOLCASOPENMOLCA        version: v23.10
+                   OPENMOLCASO
+                       OPE                tag:
+
+ OpenMolcas is free software; you can redistribute it and/or modify it
+ under the terms of the GNU Lesser General Public License version 2.1.
+ OpenMolcas is distributed in the hope that it will be useful, but it
+ is provided "as is" and without any express or implied warranties.
+ For more details see the full text of the license in the file
+ LICENSE or in <http://www.gnu.org/licenses/>.
+
+                 Copyright (C) The OpenMolcas Authors
+           For the author list and the recommended citation,
+                   consult the file CONTRIBUTORS.md
+
+           *************************************************
+           * pymolcas version py2.25                       *
+           *   build 2b27fa14244bdc32cb1957e6230cd793      *
+           *   (after the EMIL interpreter by V. Veryazov) *
+           *************************************************
+
+configuration info
+------------------
+Host name: manganese.itc.univie.ac.at (Linux)
+C Compiler ID: Clang
+C flags: -std=gnu99
+Fortran Compiler ID: Intel
+Fortran flags: -fpp -i8 -heap-arrays
+Definitions: _MOLCAS_;_I8_;_LINUX_
+Parallel: OFF (GA=OFF)
+
+
+   ---------------------------------------------------------------------------
+  |
+  |           Project: MOLCAS
+  |    Submitted from: /public/manganese/scratch/tmp/sascha.925337/WORK/master
+  |      Scratch area: /public/manganese/scratch/tmp/sascha.925337/WORK/master
+  |   Save outputs to: WORKDIR
+  |            Molcas: /usr/license/openmolcas/v23.10
+  |
+  | Scratch area is NOT empty
+  |
+  |        MOLCASMEM = 10000
+  |    MOLCAS_DRIVER = /usr/license/openmolcas/v23.10/pymolcas
+  |    MOLCAS_NPROCS = 1
+  |    MOLCAS_SOURCE = /usr/license/openmolcas/v23.10
+  | MOLCAS_STRUCTURE = 0
+  |
+   ---------------------------------------------------------------------------
+
+++ ---------   Input file   ---------
+
+&GATEWAY
+COORD=MOLCAS.xyz
+GROUP=NOSYM
+BASIS=cc-pvdz
+AMFI
+angmom
+0 0 0
+BASLIB
+/user/sascha/development/eci/sharc_main/examples/SHARC_MOLCAS/basisset
+
+RICD
+CDTHreshold=0.0001
+
+&SEWARD
+
+&RASSCF
+SPIN=1
+NACTEL=8 0 0
+INACTIVE=5
+RAS2=6
+ITERATIONS=200,100
+CIROOT=6 6 1
+ORBLISTING=NOTHING
+PRWF=0.1
+THRS=0.000000010000 0.000100000000 0.000100000000
+
+>>> COPY MOLCAS.rasscf.molden MOLCAS.1.molden
+
+>>> COPY MOLCAS.JobIph MOLCAS.1.JobIph
+
+&RASSCF
+SPIN=3
+NACTEL=8 0 0
+INACTIVE=5
+RAS2=6
+ITERATIONS=200,100
+CIROOT=2 2 1
+ORBLISTING=NOTHING
+PRWF=0.1
+THRS=0.000000010000 0.000100000000 0.000100000000
+
+>>> COPY MOLCAS.rasscf.molden MOLCAS.3.molden
+
+>>> COPY MOLCAS.JobIph MOLCAS.3.JobIph
+
+>>> COPY MOLCAS.1.JobIph JOB001
+
+&RASSI
+NROFJOBIPHS
+1 1
+1
+MEIN
+
+>>> COPY MOLCAS.rassi.h5 MOLCAS.rassi.1.h5
+
+>>> COPY MOLCAS.3.JobIph JOB001
+
+&RASSI
+NROFJOBIPHS
+1 1
+1
+MEIN
+
+>>> COPY MOLCAS.rassi.h5 MOLCAS.rassi.3.h5
+
+>>> COPY MOLCAS.1.JobIph JOB001
+
+>>> COPY MOLCAS.3.JobIph JOB002
+
+&RASSI
+NROFJOBIPHS
+2 1 1
+1
+1
+MEIN
+SPINORBIT
+SOCOUPLING=0.0d0
+EJOB
+
+-- ----------------------------------
+
+--- Start Module: gateway at Thu Mar 21 15:03:23 2024 ---
+ 
+()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()
+
+                                              &GATEWAY
+
+                                   only a single process is used
+                       available to each process: 10 GB of memory, 1 thread?
+                                            pid: 1518676
+()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()
+ 
+ 
+ 
+ Basis Set     1 Label: S.CC-PVDZ
+ Basis set is read from library:/user/sascha/development/eci/sharc_main/examples/SHARC_MOLCAS/basisset 
+ 
+ 
+ Basis Set     2 Label: H.CC-PVDZ
+ Basis set is read from library:/user/sascha/development/eci/sharc_main/examples/SHARC_MOLCAS/basisset 
+ 
+++    Symmetry information:
+      ---------------------
+ 
+                    Character Table for C1 
+ 
+                             E  
+                    a        1  x, y, xy, Rz, z, xz, Ry, yz, Rx, I
+--
+ 
+ 
+++    Basis set information:
+      ----------------------
+ 
+ 
+      Basis set label: S.CC-PVDZ.........
+ 
+      Electronic valence basis set:
+      ------------------
+      Associated Effective Charge  16.000000 au
+      Associated Actual Charge     16.000000 au
+      Nuclear Model: Point charge
+ 
+      Shell  nPrim  nBasis  Cartesian Spherical Contaminant
+         s      12       4        X                  
+         p       8       3        X                  
+         d       1       1                 X         
+ 
+ 
+      Basis set label: H.CC-PVDZ.........
+ 
+      Electronic valence basis set:
+      ------------------
+      Associated Effective Charge   1.000000 au
+      Associated Actual Charge      1.000000 au
+      Nuclear Model: Point charge
+ 
+      Shell  nPrim  nBasis  Cartesian Spherical Contaminant
+         s       4       2        X                  
+         p       1       1        X                  
+--
+ 
+ 
+++    Molecular structure info:
+      -------------------------
+ 
+                    ************************************************ 
+                    **** Cartesian Coordinates / Bohr, Angstrom **** 
+                    ************************************************ 
+ 
+     Center  Label                x              y              z                     x              y              z
+        1      S1               0.000000       0.000000       0.001589              0.000000       0.000000       0.000841
+        2      H2               0.000000       1.842103       2.235421              0.000000       0.974799       1.182934
+        3      H3               0.000000      -1.842103       2.235421              0.000000      -0.974799       1.182934
+ 
+                    *************************************** 
+                    *    InterNuclear Distances / Bohr    * 
+                    *************************************** 
+ 
+               1 S1            2 H2            3 H3    
+    1 S1       0.000000
+    2 H2       2.895401        0.000000
+    3 H3       2.895401        3.684206        0.000000
+ 
+                    ******************************************* 
+                    *    InterNuclear Distances / Angstrom    * 
+                    ******************************************* 
+ 
+               1 S1            2 H2            3 H3    
+    1 S1       0.000000
+    2 H2       1.532180        0.000000
+    3 H3       1.532180        1.949598        0.000000
+ 
+                    ************************************** 
+                    *    Valence Bond Angles / Degree    * 
+                    ************************************** 
+                          Atom centers                 Phi
+                      2 H2       1 S1       3 H3        79.02
+--
+ 
+ 
+            Nuclear Potential Energy             11.32343694 au
+ 
+--- Stop Module: gateway at Thu Mar 21 15:03:23 2024 /rc=_RC_ALL_IS_WELL_ ---
+
+--- Start Module: seward at Thu Mar 21 15:03:23 2024 ---
+ 
+()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()
+
+                                              &SEWARD
+
+                                   only a single process is used
+                       available to each process: 10 GB of memory, 1 thread?
+                                            pid: 1518681
+()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()
+ 
+               SEWARD will generate:
+                  Multipole Moment integrals up to order  2
+                  Kinetic Energy integrals
+                  Nuclear Attraction integrals (point charge)
+                  One-Electron Hamiltonian integrals
+                  Velocity integrals
+                  Orbital angular momentum around ( 0.0000  0.0000  0.0000 )
+                  Velocity quadrupole around ( 0.0000  0.0000  0.1341 )
+                  Atomic mean-field integrals
+                  RI decomposed two-electron repulsion integrals stored Cholesky style
+                   - acCD auxiliary basis
+                   - CD Threshold:   0.10E-03
+ 
+                   Integrals are discarded if absolute value <: 0.10E-13
+                   Integral cutoff threshold is set to       <: 0.10E-15
+ 
+            Nuclear Potential Energy             11.32343694 au
+ 
+ 
+      Basis set specifications :
+      Symmetry species         a  
+      Basis functions           28
+ 
+ 
+      Input file to MOLDEN was generated!
+ 
+--- Stop Module: seward at Thu Mar 21 15:03:24 2024 /rc=_RC_ALL_IS_WELL_ ---
+
+*** symbolic link created: INPORB -> MOLCAS.GssOrb
+--- Start Module: rasscf at Thu Mar 21 15:03:24 2024 ---
+ 
+()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()
+
+                                              &RASSCF
+
+                                   only a single process is used
+                       available to each process: 10 GB of memory, 1 thread?
+                                            pid: 1518686
+()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()
+ 
+ 
+      Header of the ONEINT file:
+      --------------------------
+      
+      Integrals generated by Gateway/Seward, Thu Mar 21 15:03:23 2024
+ 
+ 
+      OrdInt status: non-squared
+ 
+ 
+      Cartesian coordinates in Angstrom:
+      -----------------------------------------------------
+      No.  Label        X            Y            Z        
+      -----------------------------------------------------
+       1   S1         0.00000000   0.00000000   0.00084100
+       2   H2         0.00000000   0.97479900   1.18293400
+       3   H3         0.00000000  -0.97479900   1.18293400
+      -----------------------------------------------------
+      Nuclear repulsion energy =   11.32343694
+ 
+++    Wave function specifications:
+      -----------------------------
+ 
+      Number of closed shell electrons          10
+      Number of electrons in active shells       8
+      Max number of holes in RAS1 space          0
+      Max nr of electrons in RAS3 space          0
+      Number of inactive orbitals                5
+      Number of active orbitals                  6
+      Number of secondary orbitals              17
+      Spin quantum number                      0.0
+      State symmetry                             1
+--
+ 
+++    Orbital specifications:
+      -----------------------
+ 
+      Symmetry species                           1
+                                                 a
+      Frozen orbitals                            0
+      Inactive orbitals                          5
+      Active orbitals                            6
+      RAS1 orbitals                              0
+      RAS2 orbitals                              6
+      RAS3 orbitals                              0
+      Secondary orbitals                        17
+      Deleted orbitals                           0
+      Number of basis functions                 28
+--
+ 
+++    CI expansion specifications:
+      ----------------------------
+ 
+      Number of CSFs                           105
+      Number of determinants                   120
+      Number of root(s) required                 6
+      Root chosen for geometry opt.              6
+      CI roots used                              1     2     3     4     5     6
+      weights                                0.167 0.167 0.167 0.167 0.167 0.167
+      highest root included in the CI            6
+      max. size of the explicit Hamiltonian    105
+--
+ 
+++    Optimization specifications:
+      ----------------------------
+ 
+      RASSCF algorithm: LK RI/DF
+      Maximum number of macro iterations       200
+      Maximum number of SX iterations          100
+      Threshold for RASSCF energy            0.100E-07
+      Threshold for max MO rotation          0.100E-03
+      Threshold for max BLB element          0.100E-03
+      Level shift parameter                  0.500E+00
+      Make Quasi-Newton update
+--
+ 
+      Orbitals from runfile: guessorb orbitals
+      The MO-coefficients are taken from guessorb on runfile
+ 
+      Total molecular charge    0.00
+ 
+      ************************************************************************************************************************
+      *                                                                                                                      *
+      *                                            Wave function control section                                             *
+      *                                                                                                                      *
+      ************************************************************************************************************************
+ 
+ 
+                                         RASSCF iterations: Energy and convergence statistics
+                                         ----------------------------------------------------
+ 
+      Iter CI   SX   CI       RASSCF       Energy    max ROT     max BLB   max BLB  Level Ln srch  Step   QN   Walltime
+          iter iter root      energy       change     param      element    value   shift minimum  type update hh:mm:ss
+ Nr of preliminary CI iterations:   1
+        1   1   66    0  -398.36477083    0.00E+00   0.17E+00*   7  18 1  0.15E+00*  0.00   0.00    SX    NO    0:00:00
+        2   1   17    0  -398.43697329   -0.72E-01* -0.70E-01*   6  13 1  0.27E-01*  0.00   0.00    SX    NO    0:00:00
+        3   1   15    0  -398.44230286   -0.53E-02*  0.27E-01*  11  13 1 -0.92E-02*  0.00   0.00    SX    NO    0:00:00
+        4   1   14    0  -398.44296396   -0.66E-03*  0.12E-01*  11  13 1 -0.38E-02*  0.00   0.00    SX    NO    0:00:00
+        5   1   14    0  -398.44306803   -0.10E-03*  0.79E-02*  11  13 1 -0.16E-02*  0.00   1.69    LS   YES    0:00:00
+        6   1   11    0  -398.44308867   -0.21E-04*  0.42E-03*   9  25 1  0.35E-03*  0.00   1.02    QN   YES    0:00:00
+        7   1   10    0  -398.44308901   -0.34E-06*  0.11E-03*   7  12 1  0.53E-04   0.00   1.15    QN   YES    0:00:00
+        8   1    6    0  -398.44308903   -0.20E-07*  0.19E-04   11  14 1  0.70E-05   0.00   1.06    QN   YES    0:00:00
+        9   1    5    0  -398.44308903   -0.33E-09   0.48E-05    6  13 1  0.23E-05   0.00   1.27    QN   YES    0:00:00
+      Convergence after  9 iterations
+       10   1    5    0  -398.44308903   -0.16E-10   0.48E-05    9  15 1  0.26E-06   0.00   1.27    QN   YES    0:00:00
+ 
+      ************************************************************************************************************************
+                                                      Wave function printout:
+                       occupation of active orbitals, and spin coupling of open shells (u,d: Spin up or down)
+      ************************************************************************************************************************
+ 
+      Note: transformation to natural orbitals
+      has been made, which may change the order of the CSFs.
+ 
+      printout of CI-coefficients larger than  0.10 for root  1
+      energy=    -398.691538
+      conf/sym  111111     Coeff  Weight
+             1  222200  -0.97171 0.94422
+            15  2u22d0   0.10924 0.01193
+            38  2ud2ud   0.10920 0.01192
+ 
+      printout of CI-coefficients larger than  0.10 for root  2
+      energy=    -398.508200
+      conf/sym  111111     Coeff  Weight
+             2  222ud0   0.97539 0.95140
+            10  22udud   0.10906 0.01189
+ 
+      printout of CI-coefficients larger than  0.10 for root  3
+      energy=    -398.478575
+      conf/sym  111111     Coeff  Weight
+             4  222u0d  -0.96184 0.92514
+             8  22ud20  -0.11302 0.01277
+            18  2u2dud  -0.16520 0.02729
+            51  202u2d  -0.10588 0.01121
+ 
+      printout of CI-coefficients larger than  0.10 for root  4
+      energy=    -398.351924
+      conf/sym  111111     Coeff  Weight
+             9  22u20d  -0.74345 0.55272
+            15  2u22d0   0.59730 0.35677
+            31  220220  -0.17634 0.03110
+            52  202202   0.13930 0.01940
+ 
+      printout of CI-coefficients larger than  0.10 for root  5
+      energy=    -398.345878
+      conf/sym  111111     Coeff  Weight
+             7  22u2d0   0.67353 0.45365
+            17  2u220d  -0.67543 0.45621
+            32  2202ud   0.13691 0.01875
+            37  2ud220  -0.14811 0.02194
+            40  2ud202   0.15180 0.02304
+            50  2022ud  -0.10075 0.01015
+ 
+      printout of CI-coefficients larger than  0.10 for root  6
+      energy=    -398.282419
+      conf/sym  111111     Coeff  Weight
+             7  22u2d0   0.69812 0.48737
+            17  2u220d   0.69811 0.48736
+ 
+      Natural orbitals and occupation numbers for root  1
+      sym 1:   1.997304   1.961193   1.964608   1.998624   0.048336   0.029935
+ 
+      Natural orbitals and occupation numbers for root  2
+      sym 1:   1.998912   1.986432   1.961516   1.000000   0.999157   0.053982
+ 
+      Natural orbitals and occupation numbers for root  3
+      sym 1:   1.998795   1.940168   1.971877   1.000000   0.096915   0.992244
+ 
+      Natural orbitals and occupation numbers for root  4
+      sym 1:   1.977020   1.582919   1.363576   1.983678   0.471470   0.621338
+ 
+      Natural orbitals and occupation numbers for root  5
+      sym 1:   1.992380   1.465189   1.450376   1.997413   0.550774   0.543869
+ 
+      Natural orbitals and occupation numbers for root  6
+      sym 1:   1.990636   1.498251   1.485250   1.998508   0.523339   0.504015
+ 
+      ************************************************************************************************************************
+      *                                                                                                                      *
+      *                                                    Final results                                                     *
+      *                                                                                                                      *
+      ************************************************************************************************************************
+ 
+ 
+++    Wave function specifications:
+      -----------------------------
+ 
+      Number of closed shell electrons          10
+      Number of electrons in active shells       8
+      Max number of holes in RAS1 space          0
+      Max nr of electrons in RAS3 space          0
+      Number of inactive orbitals                5
+      Number of active orbitals                  6
+      Number of secondary orbitals              17
+      Spin quantum number                      0.0
+      State symmetry                             1
+--
+ 
+++    Orbital specifications:
+      -----------------------
+ 
+      Symmetry species                           1
+                                                 a
+      Frozen orbitals                            0
+      Inactive orbitals                          5
+      Active orbitals                            6
+      RAS1 orbitals                              0
+      RAS2 orbitals                              6
+      RAS3 orbitals                              0
+      Secondary orbitals                        17
+      Deleted orbitals                           0
+      Number of basis functions                 28
+--
+ 
+++    CI expansion specifications:
+      ----------------------------
+ 
+      Number of CSFs                           105
+      Number of determinants                   120
+      Number of root(s) required                 6
+      CI roots used                              1     2     3     4     5     6
+      weights                                0.167 0.167 0.167 0.167 0.167 0.167
+      highest root included in the CI            6
+      Root passed to geometry opt.               6
+--
+ 
+++    Final optimization conditions:
+      ------------------------------
+ 
+      Average CI energy                            -398.44308903
+      RASSCF energy for state  6                   -398.28241941
+      Super-CI energy                                -0.00000000
+      RASSCF energy change                           -0.00000000
+      Max change in MO coefficients              -0.396E-05
+      Max non-diagonal density matrix element     0.476E-05
+      Maximum BLB matrix element                  0.257E-06
+      (orbital pair   9,  15 in symmetry   1)
+      Norm of electronic gradient            0.933E-01
+--
+ 
+ 
+      Final state energy(ies):
+      ------------------------
+ 
+::    RASSCF root number  1 Total energy:   -398.69153830
+::    RASSCF root number  2 Total energy:   -398.50819964
+::    RASSCF root number  3 Total energy:   -398.47857529
+::    RASSCF root number  4 Total energy:   -398.35192376
+::    RASSCF root number  5 Total energy:   -398.34587777
+::    RASSCF root number  6 Total energy:   -398.28241941
+      Von Neumann Entropy (Root   1) =  0.27649
+ 
+
+      Mulliken population analysis for root number:  1
+      -----------------------------------------------
+ 
+ 
+++    Molecular charges:
+      ------------------
+ 
+      Mulliken charges per centre
+      ---------------------------
+ 
+                S1      H2      H3    
+      Total   16.1051  0.9475  0.9475
+ 
+      N-E     -0.1051  0.0525  0.0525
+ 
+      Total electronic charge=   18.000000
+ 
+      Total            charge=   -0.000000
+--
+ 
+ 
+
+      Expectation values of various properties for root number:  1
+      -----------------------------------------------------------
+ 
+ 
+++    Molecular properties:
+      ---------------------
+ 
+      Charge (e):
+                      =   -0.0000
+      Dipole Moment (Debye):
+      Origin of the operator (Ang)=    0.0000    0.0000    0.0000
+                   X=  5.6145E-12               Y=  3.4331E-10               Z=  9.1922E-01           Total=  9.1922E-01
+      Quadrupole Moment (Debye*Ang):
+      Origin of the operator (Ang)=    0.0000    0.0000    0.0709
+                  XX= -1.6707E+01              XY= -2.1683E-12              XZ=  1.7288E-12              YY= -1.3273E+01
+                  YZ= -8.2464E-10              ZZ= -1.3041E+01
+      In traceless form (Debye*Ang)
+                  XX= -3.5495E+00              XY= -3.2525E-12              XZ=  2.5933E-12              YY=  1.6005E+00
+                  YZ= -1.2370E-09              ZZ=  1.9490E+00
+--
+ 
+      Von Neumann Entropy (Root   2) =  1.17888
+ 
+
+      Mulliken population analysis for root number:  2
+      -----------------------------------------------
+ 
+ 
+++    Molecular charges:
+      ------------------
+ 
+      Mulliken charges per centre
+      ---------------------------
+ 
+                S1      H2      H3    
+      Total   15.9281  1.0359  1.0359
+ 
+      N-E      0.0719 -0.0359 -0.0359
+ 
+      Total electronic charge=   18.000000
+ 
+      Total            charge=   -0.000000
+--
+ 
+ 
+
+      Expectation values of various properties for root number:  2
+      -----------------------------------------------------------
+ 
+ 
+++    Molecular properties:
+      ---------------------
+ 
+      Charge (e):
+                      =   -0.0000
+      Dipole Moment (Debye):
+      Origin of the operator (Ang)=    0.0000    0.0000    0.0000
+                   X= -2.7448E-12               Y=  1.7311E-08               Z= -1.9428E-02           Total=  1.9428E-02
+      Quadrupole Moment (Debye*Ang):
+      Origin of the operator (Ang)=    0.0000    0.0000    0.0709
+                  XX= -1.4008E+01              XY=  1.7300E-11              XZ= -5.0708E-12              YY= -1.6871E+01
+                  YZ=  4.0388E-08              ZZ= -1.6417E+01
+      In traceless form (Debye*Ang)
+                  XX=  2.6359E+00              XY=  2.5949E-11              XZ= -7.6062E-12              YY= -1.6591E+00
+                  YZ=  6.0581E-08              ZZ= -9.7683E-01
+--
+ 
+      Von Neumann Entropy (Root   3) =  1.27683
+ 
+
+      Mulliken population analysis for root number:  3
+      -----------------------------------------------
+ 
+ 
+++    Molecular charges:
+      ------------------
+ 
+      Mulliken charges per centre
+      ---------------------------
+ 
+                S1      H2      H3    
+      Total   15.8158  1.0921  1.0921
+ 
+      N-E      0.1842 -0.0921 -0.0921
+ 
+      Total electronic charge=   18.000000
+ 
+      Total            charge=   -0.000000
+--
+ 
+ 
+
+      Expectation values of various properties for root number:  3
+      -----------------------------------------------------------
+ 
+ 
+++    Molecular properties:
+      ---------------------
+ 
+      Charge (e):
+                      =   -0.0000
+      Dipole Moment (Debye):
+      Origin of the operator (Ang)=    0.0000    0.0000    0.0000
+                   X= -2.0421E-12               Y= -3.7891E-10               Z= -1.1945E+00           Total=  1.1945E+00
+      Quadrupole Moment (Debye*Ang):
+      Origin of the operator (Ang)=    0.0000    0.0000    0.0709
+                  XX= -1.4459E+01              XY= -2.6770E-12              XZ= -4.0199E-12              YY= -1.6936E+01
+                  YZ= -1.4146E-08              ZZ= -1.8846E+01
+      In traceless form (Debye*Ang)
+                  XX=  3.4315E+00              XY= -4.0155E-12              XZ= -6.0299E-12              YY= -2.8333E-01
+                  YZ= -2.1219E-08              ZZ= -3.1481E+00
+--
+ 
+      Von Neumann Entropy (Root   4) =  1.68742
+ 
+
+      Mulliken population analysis for root number:  4
+      -----------------------------------------------
+ 
+ 
+++    Molecular charges:
+      ------------------
+ 
+      Mulliken charges per centre
+      ---------------------------
+ 
+                S1      H2      H3    
+      Total   16.0051  0.9974  0.9974
+ 
+      N-E     -0.0051  0.0026  0.0026
+ 
+      Total electronic charge=   18.000000
+ 
+      Total            charge=   -0.000000
+--
+ 
+ 
+
+      Expectation values of various properties for root number:  4
+      -----------------------------------------------------------
+ 
+ 
+++    Molecular properties:
+      ---------------------
+ 
+      Charge (e):
+                      =   -0.0000
+      Dipole Moment (Debye):
+      Origin of the operator (Ang)=    0.0000    0.0000    0.0000
+                   X=  8.6631E-12               Y=  1.0262E-07               Z= -3.7520E-01           Total=  3.7520E-01
+      Quadrupole Moment (Debye*Ang):
+      Origin of the operator (Ang)=    0.0000    0.0000    0.0709
+                  XX= -1.7069E+01              XY= -3.0652E-12              XZ= -1.8451E-12              YY= -1.5655E+01
+                  YZ=  2.7771E-07              ZZ= -1.5962E+01
+      In traceless form (Debye*Ang)
+                  XX= -1.2610E+00              XY= -4.5978E-12              XZ= -2.7676E-12              YY=  8.6085E-01
+                  YZ=  4.1656E-07              ZZ=  4.0018E-01
+--
+ 
+      Von Neumann Entropy (Root   5) =  1.69562
+ 
+
+      Mulliken population analysis for root number:  5
+      -----------------------------------------------
+ 
+ 
+++    Molecular charges:
+      ------------------
+ 
+      Mulliken charges per centre
+      ---------------------------
+ 
+                S1      H2      H3    
+      Total   16.0417  0.9791  0.9791
+ 
+      N-E     -0.0417  0.0209  0.0209
+ 
+      Total electronic charge=   18.000000
+ 
+      Total            charge=   -0.000000
+--
+ 
+ 
+
+      Expectation values of various properties for root number:  5
+      -----------------------------------------------------------
+ 
+ 
+++    Molecular properties:
+      ---------------------
+ 
+      Charge (e):
+                      =   -0.0000
+      Dipole Moment (Debye):
+      Origin of the operator (Ang)=    0.0000    0.0000    0.0000
+                   X=  7.7670E-12               Y= -8.8864E-08               Z= -8.1182E-03           Total=  8.1182E-03
+      Quadrupole Moment (Debye*Ang):
+      Origin of the operator (Ang)=    0.0000    0.0000    0.0709
+                  XX= -1.7107E+01              XY=  1.4281E-12              XZ=  8.1187E-13              YY= -1.5351E+01
+                  YZ= -2.5357E-07              ZZ= -1.5933E+01
+      In traceless form (Debye*Ang)
+                  XX= -1.4648E+00              XY=  2.1421E-12              XZ=  1.2178E-12              YY=  1.1692E+00
+                  YZ= -3.8035E-07              ZZ=  2.9555E-01
+--
+ 
+      Von Neumann Entropy (Root   6) =  1.64602
+ 
+
+      Mulliken population analysis for root number:  6
+      -----------------------------------------------
+ 
+ 
+++    Molecular charges:
+      ------------------
+ 
+      Mulliken charges per centre
+      ---------------------------
+ 
+                S1      H2      H3    
+      Total   16.0055  0.9973  0.9973
+ 
+      N-E     -0.0055  0.0027  0.0027
+ 
+      Total electronic charge=   18.000000
+ 
+      Total            charge=   -0.000000
+--
+ 
+ 
+
+      Expectation values of various properties for root number:  6
+      -----------------------------------------------------------
+ 
+ 
+++    Molecular properties:
+      ---------------------
+ 
+      Charge (e):
+                      =   -0.0000
+      Dipole Moment (Debye):
+      Origin of the operator (Ang)=    0.0000    0.0000    0.0000
+                   X=  7.8164E-12               Y=  1.5993E-08               Z=  3.6480E-01           Total=  3.6480E-01
+      Quadrupole Moment (Debye*Ang):
+      Origin of the operator (Ang)=    0.0000    0.0000    0.0709
+                  XX= -1.7067E+01              XY=  2.9849E-12              XZ=  3.4540E-13              YY= -1.5251E+01
+                  YZ=  4.4593E-08              ZZ= -1.5770E+01
+      In traceless form (Debye*Ang)
+                  XX= -1.5569E+00              XY=  4.4773E-12              XZ=  5.1810E-13              YY=  1.1678E+00
+                  YZ=  6.6890E-08              ZZ=  3.8913E-01
+--
+ 
+ 
+      Input file to MOLDEN was generated!
+ 
+ 
+      Input file to MOLDEN was generated!
+ 
+ 
+      Input file to MOLDEN was generated!
+ 
+ 
+      Input file to MOLDEN was generated!
+ 
+ 
+      Input file to MOLDEN was generated!
+ 
+ 
+      Input file to MOLDEN was generated!
+ 
+ 
+      Input file to MOLDEN was generated!
+ 
+      Average orbitals are written to the RASORB file
+      Natural orbitals for root   1 are written to the RASORB.1 file
+      Natural orbitals for root   2 are written to the RASORB.2 file
+      Natural orbitals for root   3 are written to the RASORB.3 file
+      Natural orbitals for root   4 are written to the RASORB.4 file
+      Natural orbitals for root   5 are written to the RASORB.5 file
+      Natural orbitals for root   6 are written to the RASORB.6 file
+      Spin density orbitals for root   1 are written to the SPDORB.1 file
+      Spin density orbitals for root   2 are written to the SPDORB.2 file
+      Spin density orbitals for root   3 are written to the SPDORB.3 file
+      Spin density orbitals for root   4 are written to the SPDORB.4 file
+      Spin density orbitals for root   5 are written to the SPDORB.5 file
+      Spin density orbitals for root   6 are written to the SPDORB.6 file
+ 
+--- Stop Module: rasscf at Thu Mar 21 15:03:27 2024 /rc=_RC_ALL_IS_WELL_ ---
+--- Module rasscf spent 2 seconds ---
+
+>>> COPY MOLCAS.rasscf.molden MOLCAS.1.molden
+
+>>> COPY MOLCAS.JobIph MOLCAS.1.JobIph
+
+*** symbolic link created: INPORB -> MOLCAS.RasOrb
+--- Start Module: rasscf at Thu Mar 21 15:03:27 2024 ---
+ 
+()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()
+
+                                              &RASSCF
+
+                                   only a single process is used
+                       available to each process: 10 GB of memory, 1 thread?
+                                            pid: 1518709
+()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()
+ 
+ 
+      Header of the ONEINT file:
+      --------------------------
+      
+      Integrals generated by Gateway/Seward, Thu Mar 21 15:03:23 2024
+ 
+ 
+      OrdInt status: non-squared
+ 
+ 
+      Cartesian coordinates in Angstrom:
+      -----------------------------------------------------
+      No.  Label        X            Y            Z        
+      -----------------------------------------------------
+       1   S1         0.00000000   0.00000000   0.00084100
+       2   H2         0.00000000   0.97479900   1.18293400
+       3   H3         0.00000000  -0.97479900   1.18293400
+      -----------------------------------------------------
+      Nuclear repulsion energy =   11.32343694
+ 
+++    Wave function specifications:
+      -----------------------------
+ 
+      Number of closed shell electrons          10
+      Number of electrons in active shells       8
+      Max number of holes in RAS1 space          0
+      Max nr of electrons in RAS3 space          0
+      Number of inactive orbitals                5
+      Number of active orbitals                  6
+      Number of secondary orbitals              17
+      Spin quantum number                      1.0
+      State symmetry                             1
+--
+ 
+++    Orbital specifications:
+      -----------------------
+ 
+      Symmetry species                           1
+                                                 a
+      Frozen orbitals                            0
+      Inactive orbitals                          5
+      Active orbitals                            6
+      RAS1 orbitals                              0
+      RAS2 orbitals                              6
+      RAS3 orbitals                              0
+      Secondary orbitals                        17
+      Deleted orbitals                           0
+      Number of basis functions                 28
+--
+ 
+++    CI expansion specifications:
+      ----------------------------
+ 
+      Number of CSFs                           105
+      Number of determinants                   120
+      Number of root(s) required                 2
+      Root chosen for geometry opt.              2
+      CI roots used                              1     2
+      weights                                0.500 0.500
+      highest root included in the CI            2
+      max. size of the explicit Hamiltonian    105
+--
+ 
+++    Optimization specifications:
+      ----------------------------
+ 
+      RASSCF algorithm: LK RI/DF
+      Maximum number of macro iterations       200
+      Maximum number of SX iterations          100
+      Threshold for RASSCF energy            0.100E-07
+      Threshold for max MO rotation          0.100E-03
+      Threshold for max BLB element          0.100E-03
+      Level shift parameter                  0.500E+00
+      Make Quasi-Newton update
+--
+ 
+      Orbitals from runfile: rasscf orbitals
+      The MO-coefficients are taken from rasscf orbitals on runfile
+ 
+      Total molecular charge    0.00
+ 
+      ************************************************************************************************************************
+      *                                                                                                                      *
+      *                                            Wave function control section                                             *
+      *                                                                                                                      *
+      ************************************************************************************************************************
+ 
+ 
+                                         RASSCF iterations: Energy and convergence statistics
+                                         ----------------------------------------------------
+ 
+      Iter CI   SX   CI       RASSCF       Energy    max ROT     max BLB   max BLB  Level Ln srch  Step   QN   Walltime
+          iter iter root      energy       change     param      element    value   shift minimum  type update hh:mm:ss
+ Nr of preliminary CI iterations:   1
+        1   1    9    0  -398.51503565    0.00E+00   0.44E-01*   9  15 1  0.27E-01*  0.00   0.00    SX    NO    0:00:00
+        2   1    7    0  -398.51802912   -0.30E-02*  0.11E-01*   7  12 1  0.58E-02*  0.00   0.00    SX    NO    0:00:00
+        3   1    7    0  -398.51817878   -0.15E-03* -0.36E-02*   9  15 1  0.13E-02*  0.00   0.00    SX    NO    0:00:00
+        4   1    6    0  -398.51819378   -0.15E-04*  0.12E-02*   8  14 1 -0.44E-03*  0.00   0.00    SX    NO    0:00:00
+        5   1    5    0  -398.51819548   -0.17E-05*  0.61E-03*   9  18 1 -0.16E-03*  0.00   1.52    LS   YES    0:00:00
+        6   1    4    0  -398.51819571   -0.23E-06*  0.40E-04    7  12 1 -0.45E-04   0.00   1.01    QN   YES    0:00:00
+        7   1    4    0  -398.51819572   -0.69E-08   0.11E-04    8  20 1 -0.97E-05   0.00   1.06    QN   YES    0:00:00
+      Convergence after  7 iterations
+        8   1    4    0  -398.51819572   -0.37E-09   0.11E-04    8  13 1 -0.15E-05   0.00   1.06    QN   YES    0:00:00
+ 
+      ************************************************************************************************************************
+                                                      Wave function printout:
+                       occupation of active orbitals, and spin coupling of open shells (u,d: Spin up or down)
+      ************************************************************************************************************************
+ 
+      Note: transformation to natural orbitals
+      has been made, which may change the order of the CSFs.
+ 
+      printout of CI-coefficients larger than  0.10 for root  1
+      energy=    -398.528356
+      conf/sym  111111     Coeff  Weight
+             1  222uu0  -0.98001 0.96042
+             8  22uudu   0.10863 0.01180
+ 
+      printout of CI-coefficients larger than  0.10 for root  2
+      energy=    -398.508035
+      conf/sym  111111     Coeff  Weight
+             2  222u0u  -0.97301 0.94674
+             5  22uu20   0.12315 0.01517
+            19  2u2uud   0.11563 0.01337
+            41  202u2u  -0.10267 0.01054
+ 
+      Natural orbitals and occupation numbers for root  1
+      sym 1:   1.996945   1.979102   1.969661   1.000000   0.999589   0.054702
+ 
+      Natural orbitals and occupation numbers for root  2
+      sym 1:   1.998610   1.957387   1.967400   1.000000   0.084590   0.992013
+ 
+      ************************************************************************************************************************
+      *                                                                                                                      *
+      *                                                    Final results                                                     *
+      *                                                                                                                      *
+      ************************************************************************************************************************
+ 
+ 
+++    Wave function specifications:
+      -----------------------------
+ 
+      Number of closed shell electrons          10
+      Number of electrons in active shells       8
+      Max number of holes in RAS1 space          0
+      Max nr of electrons in RAS3 space          0
+      Number of inactive orbitals                5
+      Number of active orbitals                  6
+      Number of secondary orbitals              17
+      Spin quantum number                      1.0
+      State symmetry                             1
+--
+ 
+++    Orbital specifications:
+      -----------------------
+ 
+      Symmetry species                           1
+                                                 a
+      Frozen orbitals                            0
+      Inactive orbitals                          5
+      Active orbitals                            6
+      RAS1 orbitals                              0
+      RAS2 orbitals                              6
+      RAS3 orbitals                              0
+      Secondary orbitals                        17
+      Deleted orbitals                           0
+      Number of basis functions                 28
+--
+ 
+++    CI expansion specifications:
+      ----------------------------
+ 
+      Number of CSFs                           105
+      Number of determinants                   120
+      Number of root(s) required                 2
+      CI roots used                              1     2
+      weights                                0.500 0.500
+      highest root included in the CI            2
+      Root passed to geometry opt.               2
+--
+ 
+++    Final optimization conditions:
+      ------------------------------
+ 
+      Average CI energy                            -398.51819572
+      RASSCF energy for state  2                   -398.50803519
+      Super-CI energy                                -0.00000000
+      RASSCF energy change                           -0.00000000
+      Max change in MO coefficients               0.245E-04
+      Max non-diagonal density matrix element     0.110E-04
+      Maximum BLB matrix element                 -0.152E-05
+      (orbital pair   8,  13 in symmetry   1)
+      Norm of electronic gradient            0.411E-01
+--
+ 
+ 
+      Final state energy(ies):
+      ------------------------
+ 
+::    RASSCF root number  1 Total energy:   -398.52835625
+::    RASSCF root number  2 Total energy:   -398.50803519
+      Von Neumann Entropy (Root   1) =  1.18102
+ 
+
+      Mulliken population analysis for root number:  1
+      -----------------------------------------------
+ 
+ 
+++    Molecular charges:
+      ------------------
+ 
+      Mulliken charges per centre
+      ---------------------------
+ 
+                S1      H2      H3    
+      Total   15.8531  1.0734  1.0734
+ 
+      N-E      0.1469 -0.0734 -0.0734
+ 
+      Total electronic charge=   18.000000
+ 
+      Total            charge=   -0.000000
+--
+ 
+ 
+
+      Expectation values of various properties for root number:  1
+      -----------------------------------------------------------
+ 
+ 
+++    Molecular properties:
+      ---------------------
+ 
+      Charge (e):
+                      =   -0.0000
+      Dipole Moment (Debye):
+      Origin of the operator (Ang)=    0.0000    0.0000    0.0000
+                   X= -1.8920E-13               Y= -1.8129E-11               Z= -2.9688E-01           Total=  2.9688E-01
+      Quadrupole Moment (Debye*Ang):
+      Origin of the operator (Ang)=    0.0000    0.0000    0.0709
+                  XX= -1.3769E+01              XY=  6.7350E-14              XZ= -5.2639E-13              YY= -1.6842E+01
+                  YZ= -4.4521E-11              ZZ= -1.6518E+01
+      In traceless form (Debye*Ang)
+                  XX=  2.9110E+00              XY=  1.0103E-13              XZ= -7.8959E-13              YY= -1.6988E+00
+                  YZ= -6.6782E-11              ZZ= -1.2122E+00
+--
+ 
+
+      Mulliken spin population analysis for root number:  1
+      ---------------------------------------------------
+ 
+ 
+++    Molecular charges:
+      ------------------
+ 
+      Mulliken spin population per centre
+      ---------------------------
+ 
+                S1      H2      H3    
+      Total    1.3712  0.3144  0.3144
+ 
+      Total electronic spin=    2.000000
+--
+ 
+ 
+      Von Neumann Entropy (Root   2) =  1.24949
+ 
+
+      Mulliken population analysis for root number:  2
+      -----------------------------------------------
+ 
+ 
+++    Molecular charges:
+      ------------------
+ 
+      Mulliken charges per centre
+      ---------------------------
+ 
+                S1      H2      H3    
+      Total   15.7360  1.1320  1.1320
+ 
+      N-E      0.2640 -0.1320 -0.1320
+ 
+      Total electronic charge=   18.000000
+ 
+      Total            charge=   -0.000000
+--
+ 
+ 
+
+      Expectation values of various properties for root number:  2
+      -----------------------------------------------------------
+ 
+ 
+++    Molecular properties:
+      ---------------------
+ 
+      Charge (e):
+                      =   -0.0000
+      Dipole Moment (Debye):
+      Origin of the operator (Ang)=    0.0000    0.0000    0.0000
+                   X= -1.6238E-13               Y=  1.6312E-11               Z= -1.0636E+00           Total=  1.0636E+00
+      Quadrupole Moment (Debye*Ang):
+      Origin of the operator (Ang)=    0.0000    0.0000    0.0709
+                  XX= -1.4223E+01              XY= -1.1314E-13              XZ= -5.6319E-13              YY= -1.6865E+01
+                  YZ=  4.4526E-11              ZZ= -1.8594E+01
+      In traceless form (Debye*Ang)
+                  XX=  3.5069E+00              XY= -1.6972E-13              XZ= -8.4479E-13              YY= -4.5636E-01
+                  YZ=  6.6789E-11              ZZ= -3.0506E+00
+--
+ 
+
+      Mulliken spin population analysis for root number:  2
+      ---------------------------------------------------
+ 
+ 
+++    Molecular charges:
+      ------------------
+ 
+      Mulliken spin population per centre
+      ---------------------------
+ 
+                S1      H2      H3    
+      Total    1.2043  0.3979  0.3979
+ 
+      Total electronic spin=    2.000000
+--
+ 
+ 
+ 
+      Input file to MOLDEN was generated!
+ 
+ 
+      Input file to MOLDEN was generated!
+ 
+ 
+      Input file to MOLDEN was generated!
+ 
+      Average orbitals are written to the RASORB file
+      Natural orbitals for root   1 are written to the RASORB.1 file
+      Natural orbitals for root   2 are written to the RASORB.2 file
+      Spin density orbitals for root   1 are written to the SPDORB.1 file
+      Spin density orbitals for root   2 are written to the SPDORB.2 file
+ 
+--- Stop Module: rasscf at Thu Mar 21 15:03:28 2024 /rc=_RC_ALL_IS_WELL_ ---
+--- Module rasscf spent 1 second ---
+
+>>> COPY MOLCAS.rasscf.molden MOLCAS.3.molden
+
+>>> COPY MOLCAS.JobIph MOLCAS.3.JobIph
+
+>>> COPY MOLCAS.1.JobIph JOB001
+
+*** symbolic link created: INPORB -> MOLCAS.RasOrb
+--- Start Module: rassi at Thu Mar 21 15:03:28 2024 ---
+ 
+()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()
+
+                                               &RASSI
+
+                                   only a single process is used
+                       available to each process: 10 GB of memory, 1 thread?
+                                            pid: 1518714
+()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()
+ 
+ 
+      ********************************************************************************
+      *                                                                              *
+      *                             General data section                             *
+      *                                                                              *
+      ********************************************************************************
+ 
+   Specific data for JOBIPH file 
+ JOB001                                                                         
+                                                  
+   -------------------------------------
+ 
+   Header from SEWARD:
+                                                                               
+        Integrals generated by Gateway/Seward, Thu Mar 21 15:03:23 2024        
+ 
+   CASSCF title (first line only):
+       (No title given)                                                        
+ 
+   STATE IRREP:                             1
+   SPIN MULTIPLICITY:                       1
+   ACTIVE ELECTRONS:                        8
+   MAX RAS1 HOLES:                          0
+   MAX RAS3 ELECTRONS:                      0
+   NR OF CONFIG:                          105
+ 
+   The following data are common to all the states:
+   ------------------------------------------------
+   (note: frozen counts as inactive, deleted as secondary)
+ 
+      Nr of irreps: 1
+ 
+                 Total     No./Irrep 
+      Irrep                  1
+                             a
+ 
+      INACTIVE       5       5
+      ACTIVE         6       6
+      SECONDARY     17      17
+      BASIS         28      28
+ 
+      RAS1           0       0
+      RAS2           6       6
+      RAS3           0       0
+ 
+        MATRIX ELEMENTS WILL BE COMPUTED FOR THE FOLLOWING ONE-ELECTRON OPERATOR
+ S, UNLESS ZERO BY SYMMETRY.
+   (Herm=Hermitian, Anti=Antihermitian, Sing=Singlet operator, Trip=Triplet oper
+ ator)
+     MLTPL  0   1 (HERMSING)     MLTPL  1   1 (HERMSING)     MLTPL  1   2 (HERMSING)
+     MLTPL  1   3 (HERMSING)     MLTPL  2   1 (HERMSING)     MLTPL  2   2 (HERMSING)
+     MLTPL  2   3 (HERMSING)     MLTPL  2   4 (HERMSING)     MLTPL  2   5 (HERMSING)
+     MLTPL  2   6 (HERMSING)     VELOCITY   1 (ANTISING)     VELOCITY   2 (ANTISING)
+     VELOCITY   3 (ANTISING)     ANGMOM     1 (ANTISING)     ANGMOM     2 (ANTISING)
+     ANGMOM     3 (ANTISING)     MLTPV  2   1 (ANTISING)     MLTPV  2   2 (ANTISING)
+     MLTPV  2   3 (ANTISING)     MLTPV  2   4 (ANTISING)     MLTPV  2   5 (ANTISING)
+     MLTPV  2   6 (ANTISING)
+ 
+       EIGENSTATES OF A SPIN-FREE HAMILTONIAN WILL BE COMPUTED BASED ON:
+ 
+  A Hamiltonian matrix computed by RASSI.
+ 
+  Nr of states:                     1
+ 
+   State:        1
+  JobIph:        1
+ Root nr:        1
+ 
+  HAMILTONIAN MATRIX FOR THE ORIGINAL STATES:
+ 
+  Diagonal, with energies
+   -398.69153830
+ 
+      OVERLAP MATRIX FOR THE ORIGINAL STATES:
+ 
+  Diagonal, with elements
+      1.00000000
+ 
+++ Matrix elements for input states
+   --------------------------------
+ 
+  MATRIX ELEMENTS OF 1-ELECTRON OPERATORS
+  FOR THE RASSCF INPUT WAVE FUNCTIONS:
+ 
+ 
+ PROPERTY: MLTPL  0   COMPONENT:*   1
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       1
+ 
+     1       -0.127897692E-12
+ 
+ 
+ PROPERTY: MLTPL  1   COMPONENT:*   1
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       1
+ 
+     1        0.221285141E-11
+ 
+ 
+ PROPERTY: MLTPL  1   COMPONENT:*   2
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       1
+ 
+     1        0.135071510E-09
+ 
+ 
+ PROPERTY: MLTPL  1   COMPONENT:*   3
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       1
+ 
+     1        0.361649356    
+ 
+ 
+ PROPERTY: MLTPL  2   COMPONENT:*   1
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.13406721D+00
+ STATE     :       1
+ 
+     1        -12.4208961    
+ 
+ 
+ PROPERTY: MLTPL  2   COMPONENT:*   2
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.13406721D+00
+ STATE     :       1
+ 
+     1       -0.161129869E-11
+ 
+ 
+ PROPERTY: MLTPL  2   COMPONENT:*   3
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.13406721D+00
+ STATE     :       1
+ 
+     1        0.129160778E-11
+ 
+ 
+ PROPERTY: MLTPL  2   COMPONENT:*   4
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.13406721D+00
+ STATE     :       1
+ 
+     1        -9.86826820    
+ 
+ 
+ PROPERTY: MLTPL  2   COMPONENT:*   5
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.13406721D+00
+ STATE     :       1
+ 
+     1       -0.613108897E-09
+ 
+ 
+ PROPERTY: MLTPL  2   COMPONENT:*   6
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.13406721D+00
+ STATE     :       1
+ 
+     1        -9.69552255    
+ 
+ 
+ PROPERTY: VELOCITY   COMPONENT:*   1
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       1
+ 
+     1       -0.435650623E-27
+ 
+ 
+ PROPERTY: VELOCITY   COMPONENT:*   2
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       1
+ 
+     1       -0.424263072E-17
+ 
+ 
+ PROPERTY: VELOCITY   COMPONENT:*   3
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       1
+ 
+     1       -0.641044191E-16
+ 
+ 
+ PROPERTY: ANGMOM     COMPONENT:*   1
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       1
+ 
+     1       -0.651421504E-16
+ 
+ 
+ PROPERTY: ANGMOM     COMPONENT:*   2
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       1
+ 
+     1        0.147273791E-26
+ 
+ 
+ PROPERTY: ANGMOM     COMPONENT:*   3
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       1
+ 
+     1       -0.719700596E-27
+ 
+ 
+ PROPERTY: MLTPV  2   COMPONENT:*   1
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.13406721D+00
+ STATE     :       1
+ 
+     1       -0.112821712E-15
+ 
+ 
+ PROPERTY: MLTPV  2   COMPONENT:*   2
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.13406721D+00
+ STATE     :       1
+ 
+     1        0.138891478E-26
+ 
+ 
+ PROPERTY: MLTPV  2   COMPONENT:*   3
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.13406721D+00
+ STATE     :       1
+ 
+     1        0.237468847E-27
+ 
+ 
+ PROPERTY: MLTPV  2   COMPONENT:*   4
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.13406721D+00
+ STATE     :       1
+ 
+     1       -0.125846856E-15
+ 
+ 
+ PROPERTY: MLTPV  2   COMPONENT:*   5
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.13406721D+00
+ STATE     :       1
+ 
+     1       -0.237325652E-16
+ 
+ 
+ PROPERTY: MLTPV  2   COMPONENT:*   6
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.13406721D+00
+ STATE     :       1
+ 
+     1       -0.112037243E-15
+ 
+--
+ 
+::    RASSI State    1     Total energy:    -398.69153830277969
+ 
+ 
+ 
+      ****************************************************************************************************
+      *                                                                                                  *
+      *                                         Spin-free section                                        *
+      *                                                                                                  *
+      *                 Note: index according to input order, order according to energy.                 *
+      *                                                                                                  *
+      ****************************************************************************************************
+ 
+ 
+ 
+  SPIN-FREE ENERGIES:
+  (Shifted by EMIN (a.u.) =       -398.6915383028)
+ 
+ SF State       Relative EMIN(au)   Rel lowest level(eV)    D:o, cm**(-1)
+ 
+     1             0.0000000000        0.0000000000              0.0000
+ 
+++ Dipole transition strengths (spin-free states):
+   -----------------------------------------------
+     for osc. strength at least  1.00000000E-05
+ 
+  ( Max oscillator strength is only   0.000000000000000E+000 )
+--
+ 
+++ Velocity transition strengths (spin-free states):
+   -------------------------------------------------
+     for osc. strength at least  1.00000000E-05
+ 
+  ( Max oscillator strength is only   0.000000000000000E+000 )
+--
+ 
+++ Length and velocity gauge comparison (spin-free states):
+   --------------------------------------------------------
+ 
+ --------------------------------------------------
+ A comparison between the dipole oscillator strengths in 
+ length and velocity gauge will be performed
+ 
+     All dipole oscillator differences above the tolerance of   1.00000000E-01  will be printed 
+ 
+ Due to basis set deficiency these oscillator may be problematic 
+ 
+ The tolerance is defined as ABS(1-O_l/O_v) 
+ O_l : dipole oscillator strength in length gauge
+ O_p : dipole oscillator strength in velocity gauge
+ --------------------------------------------------
+ 
+ No problematic oscillator strengths above the tolerance 
+  0.100000000000000       have been found
+ 
+--
+ 
+ Electric-dipole - electric-octupole not included
+ Electric-dipole - magnetic-quadrupole not included
+ 
+ 
+      ****************************************************************************************************
+      *                                                                                                  *
+      *                                    Special properties section                                    *
+      *                                                                                                  *
+      ****************************************************************************************************
+ 
+ 
+++ I/O STATISTICS
+ 
+  I. General I/O information
+  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  Unit  Name          Flsize      Write/Read            MBytes           Write/Read
+                      (MBytes)       Calls              In/Out           Time, sec.
+  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+   1  ANNI              0.00 .       0/       0 .      0.0/      0.0 .       0/       0
+   2  RUNFILE           0.24 .     280/    1434 .      2.0/     10.4 .       0/       0
+   3  ONEINT            1.46 .       0/     122 .      0.0/    120.4 .       0/       0
+   4  JOB001            1.22 .       0/      34 .      0.0/      0.2 .       0/       0
+   5  CHRED             0.01 .       0/       6 .      0.0/      0.0 .       0/       0
+   6  CHVEC1            0.36 .       0/       5 .      0.0/      0.4 .       0/       0
+   7  CHORST            0.00 .       0/      12 .      0.0/      0.0 .       0/       0
+   8  CHOMAP            0.00 .       0/       0 .      0.0/      0.0 .       0/       0
+   9  CHODIAG           0.00 .       0/       1 .      0.0/      0.0 .       0/       0
+  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+   *  TOTAL             3.30 .     280/    1614 .      2.0/    131.3 .       0/       0
+  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+ 
+  II. I/O Access Patterns
+  - - - - - - - - - - - - - - - - - - - -
+  Unit  Name               % of random
+                         Write/Read calls
+  - - - - - - - - - - - - - - - - - - - -
+   1  ANNI                 0.0/   0.0
+   2  RUNFILE             28.6/   9.9
+   3  ONEINT               0.0/  97.5
+   4  JOB001               0.0/  85.3
+   5  CHRED                0.0/  16.7
+   6  CHVEC1               0.0/   0.0
+   7  CHORST               0.0/   0.0
+   8  CHOMAP               0.0/   0.0
+   9  CHODIAG              0.0/   0.0
+  - - - - - - - - - - - - - - - - - - - -
+--
+--- Stop Module: rassi at Thu Mar 21 15:03:29 2024 /rc=_RC_ALL_IS_WELL_ ---
+
+>>> COPY MOLCAS.rassi.h5 MOLCAS.rassi.1.h5
+
+>>> COPY MOLCAS.3.JobIph JOB001
+
+*** symbolic link created: INPORB -> MOLCAS.RasOrb
+--- Start Module: rassi at Thu Mar 21 15:03:29 2024 ---
+ 
+()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()
+
+                                               &RASSI
+
+                                   only a single process is used
+                       available to each process: 10 GB of memory, 1 thread?
+                                            pid: 1518717
+()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()
+ 
+ 
+      ********************************************************************************
+      *                                                                              *
+      *                             General data section                             *
+      *                                                                              *
+      ********************************************************************************
+ 
+   Specific data for JOBIPH file 
+ JOB001                                                                         
+                                                  
+   -------------------------------------
+ 
+   Header from SEWARD:
+                                                                               
+        Integrals generated by Gateway/Seward, Thu Mar 21 15:03:23 2024        
+ 
+   CASSCF title (first line only):
+       (No title given)                                                        
+ 
+   STATE IRREP:                             1
+   SPIN MULTIPLICITY:                       3
+   ACTIVE ELECTRONS:                        8
+   MAX RAS1 HOLES:                          0
+   MAX RAS3 ELECTRONS:                      0
+   NR OF CONFIG:                          105
+ 
+   The following data are common to all the states:
+   ------------------------------------------------
+   (note: frozen counts as inactive, deleted as secondary)
+ 
+      Nr of irreps: 1
+ 
+                 Total     No./Irrep 
+      Irrep                  1
+                             a
+ 
+      INACTIVE       5       5
+      ACTIVE         6       6
+      SECONDARY     17      17
+      BASIS         28      28
+ 
+      RAS1           0       0
+      RAS2           6       6
+      RAS3           0       0
+ 
+        MATRIX ELEMENTS WILL BE COMPUTED FOR THE FOLLOWING ONE-ELECTRON OPERATOR
+ S, UNLESS ZERO BY SYMMETRY.
+   (Herm=Hermitian, Anti=Antihermitian, Sing=Singlet operator, Trip=Triplet oper
+ ator)
+     MLTPL  0   1 (HERMSING)     MLTPL  1   1 (HERMSING)     MLTPL  1   2 (HERMSING)
+     MLTPL  1   3 (HERMSING)     MLTPL  2   1 (HERMSING)     MLTPL  2   2 (HERMSING)
+     MLTPL  2   3 (HERMSING)     MLTPL  2   4 (HERMSING)     MLTPL  2   5 (HERMSING)
+     MLTPL  2   6 (HERMSING)     VELOCITY   1 (ANTISING)     VELOCITY   2 (ANTISING)
+     VELOCITY   3 (ANTISING)     ANGMOM     1 (ANTISING)     ANGMOM     2 (ANTISING)
+     ANGMOM     3 (ANTISING)     MLTPV  2   1 (ANTISING)     MLTPV  2   2 (ANTISING)
+     MLTPV  2   3 (ANTISING)     MLTPV  2   4 (ANTISING)     MLTPV  2   5 (ANTISING)
+     MLTPV  2   6 (ANTISING)
+ 
+       EIGENSTATES OF A SPIN-FREE HAMILTONIAN WILL BE COMPUTED BASED ON:
+ 
+  A Hamiltonian matrix computed by RASSI.
+ 
+  Nr of states:                     1
+ 
+   State:        1
+  JobIph:        1
+ Root nr:        1
+ 
+  HAMILTONIAN MATRIX FOR THE ORIGINAL STATES:
+ 
+  Diagonal, with energies
+   -398.52835625
+ 
+      OVERLAP MATRIX FOR THE ORIGINAL STATES:
+ 
+  Diagonal, with elements
+      1.00000000
+ 
+++ Matrix elements for input states
+   --------------------------------
+ 
+  MATRIX ELEMENTS OF 1-ELECTRON OPERATORS
+  FOR THE RASSCF INPUT WAVE FUNCTIONS:
+ 
+ 
+ PROPERTY: MLTPL  0   COMPONENT:*   1
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       1
+ 
+     1       -0.817124146E-13
+ 
+ 
+ PROPERTY: MLTPL  1   COMPONENT:*   1
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       1
+ 
+     1       -0.803110940E-13
+ 
+ 
+ PROPERTY: MLTPL  1   COMPONENT:*   2
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       1
+ 
+     1       -0.714739379E-11
+ 
+ 
+ PROPERTY: MLTPL  1   COMPONENT:*   3
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       1
+ 
+     1       -0.116800806    
+ 
+ 
+ PROPERTY: MLTPL  2   COMPONENT:*   1
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.13406721D+00
+ STATE     :       1
+ 
+     1        -10.2369895    
+ 
+ 
+ PROPERTY: MLTPL  2   COMPONENT:*   2
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.13406721D+00
+ STATE     :       1
+ 
+     1        0.433663149E-13
+ 
+ 
+ PROPERTY: MLTPL  2   COMPONENT:*   3
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.13406721D+00
+ STATE     :       1
+ 
+     1       -0.389360146E-12
+ 
+ 
+ PROPERTY: MLTPL  2   COMPONENT:*   4
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.13406721D+00
+ STATE     :       1
+ 
+     1        -12.5218078    
+ 
+ 
+ PROPERTY: MLTPL  2   COMPONENT:*   5
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.13406721D+00
+ STATE     :       1
+ 
+     1       -0.330934169E-10
+ 
+ 
+ PROPERTY: MLTPL  2   COMPONENT:*   6
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.13406721D+00
+ STATE     :       1
+ 
+     1        -12.2806357    
+ 
+ 
+ PROPERTY: VELOCITY   COMPONENT:*   1
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       1
+ 
+     1       -0.962601312E-28
+ 
+ 
+ PROPERTY: VELOCITY   COMPONENT:*   2
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       1
+ 
+     1        0.363109508E-16
+ 
+ 
+ PROPERTY: VELOCITY   COMPONENT:*   3
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       1
+ 
+     1       -0.718025109E-16
+ 
+ 
+ PROPERTY: ANGMOM     COMPONENT:*   1
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       1
+ 
+     1       -0.410487352E-16
+ 
+ 
+ PROPERTY: ANGMOM     COMPONENT:*   2
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       1
+ 
+     1       -0.139520599E-26
+ 
+ 
+ PROPERTY: ANGMOM     COMPONENT:*   3
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       1
+ 
+     1       -0.287818803E-26
+ 
+ 
+ PROPERTY: MLTPV  2   COMPONENT:*   1
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.13406721D+00
+ STATE     :       1
+ 
+     1        0.294846522E-15
+ 
+ 
+ PROPERTY: MLTPV  2   COMPONENT:*   2
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.13406721D+00
+ STATE     :       1
+ 
+     1       -0.554203030E-29
+ 
+ 
+ PROPERTY: MLTPV  2   COMPONENT:*   3
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.13406721D+00
+ STATE     :       1
+ 
+     1       -0.105117895E-27
+ 
+ 
+ PROPERTY: MLTPV  2   COMPONENT:*   4
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.13406721D+00
+ STATE     :       1
+ 
+     1        0.421402851E-15
+ 
+ 
+ PROPERTY: MLTPV  2   COMPONENT:*   5
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.13406721D+00
+ STATE     :       1
+ 
+     1       -0.201055946E-15
+ 
+ 
+ PROPERTY: MLTPV  2   COMPONENT:*   6
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.13406721D+00
+ STATE     :       1
+ 
+     1        0.450430524E-15
+ 
+--
+ 
+::    RASSI State    1     Total energy:    -398.52835624854032
+ 
+ 
+ 
+      ****************************************************************************************************
+      *                                                                                                  *
+      *                                         Spin-free section                                        *
+      *                                                                                                  *
+      *                 Note: index according to input order, order according to energy.                 *
+      *                                                                                                  *
+      ****************************************************************************************************
+ 
+ 
+ 
+  SPIN-FREE ENERGIES:
+  (Shifted by EMIN (a.u.) =       -398.5283562485)
+ 
+ SF State       Relative EMIN(au)   Rel lowest level(eV)    D:o, cm**(-1)
+ 
+     1             0.0000000000        0.0000000000              0.0000
+ 
+++ Dipole transition strengths (spin-free states):
+   -----------------------------------------------
+     for osc. strength at least  1.00000000E-05
+ 
+  ( Max oscillator strength is only   0.000000000000000E+000 )
+--
+ 
+++ Velocity transition strengths (spin-free states):
+   -------------------------------------------------
+     for osc. strength at least  1.00000000E-05
+ 
+  ( Max oscillator strength is only   0.000000000000000E+000 )
+--
+ 
+++ Length and velocity gauge comparison (spin-free states):
+   --------------------------------------------------------
+ 
+ --------------------------------------------------
+ A comparison between the dipole oscillator strengths in 
+ length and velocity gauge will be performed
+ 
+     All dipole oscillator differences above the tolerance of   1.00000000E-01  will be printed 
+ 
+ Due to basis set deficiency these oscillator may be problematic 
+ 
+ The tolerance is defined as ABS(1-O_l/O_v) 
+ O_l : dipole oscillator strength in length gauge
+ O_p : dipole oscillator strength in velocity gauge
+ --------------------------------------------------
+ 
+ No problematic oscillator strengths above the tolerance 
+  0.100000000000000       have been found
+ 
+--
+ 
+ Electric-dipole - electric-octupole not included
+ Electric-dipole - magnetic-quadrupole not included
+ 
+ 
+      ****************************************************************************************************
+      *                                                                                                  *
+      *                                    Special properties section                                    *
+      *                                                                                                  *
+      ****************************************************************************************************
+ 
+ 
+++ I/O STATISTICS
+ 
+  I. General I/O information
+  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  Unit  Name          Flsize      Write/Read            MBytes           Write/Read
+                      (MBytes)       Calls              In/Out           Time, sec.
+  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+   1  ANNI              0.00 .       0/       0 .      0.0/      0.0 .       0/       0
+   2  RUNFILE           0.24 .     112/    1290 .      0.8/      9.3 .       0/       0
+   3  ONEINT            1.46 .       0/     122 .      0.0/    120.4 .       0/       0
+   4  JOB001            1.22 .       0/      34 .      0.0/      0.2 .       0/       0
+   5  CHRED             0.01 .       0/       6 .      0.0/      0.0 .       0/       0
+   6  CHVEC1            0.36 .       0/       5 .      0.0/      0.4 .       0/       0
+   7  CHORST            0.00 .       0/      12 .      0.0/      0.0 .       0/       0
+   8  CHOMAP            0.00 .       0/       0 .      0.0/      0.0 .       0/       0
+   9  CHODIAG           0.00 .       0/       1 .      0.0/      0.0 .       0/       0
+  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+   *  TOTAL             3.30 .     112/    1470 .      0.8/    130.2 .       0/       0
+  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+ 
+  II. I/O Access Patterns
+  - - - - - - - - - - - - - - - - - - - -
+  Unit  Name               % of random
+                         Write/Read calls
+  - - - - - - - - - - - - - - - - - - - -
+   1  ANNI                 0.0/   0.0
+   2  RUNFILE             28.6/  11.0
+   3  ONEINT               0.0/  97.5
+   4  JOB001               0.0/  85.3
+   5  CHRED                0.0/  16.7
+   6  CHVEC1               0.0/   0.0
+   7  CHORST               0.0/   0.0
+   8  CHOMAP               0.0/   0.0
+   9  CHODIAG              0.0/   0.0
+  - - - - - - - - - - - - - - - - - - - -
+--
+--- Stop Module: rassi at Thu Mar 21 15:03:29 2024 /rc=_RC_ALL_IS_WELL_ ---
+
+>>> COPY MOLCAS.rassi.h5 MOLCAS.rassi.3.h5
+
+>>> COPY MOLCAS.1.JobIph JOB001
+
+>>> COPY MOLCAS.3.JobIph JOB002
+
+*** symbolic link created: INPORB -> MOLCAS.RasOrb
+--- Start Module: rassi at Thu Mar 21 15:03:29 2024 ---
+ 
+()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()
+
+                                               &RASSI
+
+                                   only a single process is used
+                       available to each process: 10 GB of memory, 1 thread?
+                                            pid: 1518721
+()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()
+ 
+ 
+      ********************************************************************************
+      *                                                                              *
+      *                             General data section                             *
+      *                                                                              *
+      ********************************************************************************
+ 
+   Specific data for JOBIPH file 
+ JOB001                                                                         
+                                                  
+   -------------------------------------
+ 
+   Header from SEWARD:
+                                                                               
+        Integrals generated by Gateway/Seward, Thu Mar 21 15:03:23 2024        
+ 
+   CASSCF title (first line only):
+       (No title given)                                                        
+ 
+   STATE IRREP:                             1
+   SPIN MULTIPLICITY:                       1
+   ACTIVE ELECTRONS:                        8
+   MAX RAS1 HOLES:                          0
+   MAX RAS3 ELECTRONS:                      0
+   NR OF CONFIG:                          105
+ 
+   Specific data for JOBIPH file 
+ JOB002                                                                         
+                                                  
+   -------------------------------------
+ 
+   Header from SEWARD:
+                                                                               
+        Integrals generated by Gateway/Seward, Thu Mar 21 15:03:23 2024        
+ 
+   CASSCF title (first line only):
+       (No title given)                                                        
+ 
+   STATE IRREP:                             1
+   SPIN MULTIPLICITY:                       3
+   ACTIVE ELECTRONS:                        8
+   MAX RAS1 HOLES:                          0
+   MAX RAS3 ELECTRONS:                      0
+   NR OF CONFIG:                          105
+ ###############################################################################
+ ###############################################################################
+ ###                                                                         ###
+ ###                                                                         ###
+ ###    WARNING: EJOB used when HEFF is available, possible                  ###
+ ###    extra interaction between states is ignored!                         ###
+ ###                                                                         ###
+ ###                                                                         ###
+ ###############################################################################
+ ###############################################################################
+ 
+   The following data are common to all the states:
+   ------------------------------------------------
+   (note: frozen counts as inactive, deleted as secondary)
+ 
+      Nr of irreps: 1
+ 
+                 Total     No./Irrep 
+      Irrep                  1
+                             a
+ 
+      INACTIVE       5       5
+      ACTIVE         6       6
+      SECONDARY     17      17
+      BASIS         28      28
+ 
+      RAS1           0       0
+      RAS2           6       6
+      RAS3           0       0
+ 
+        MATRIX ELEMENTS WILL BE COMPUTED FOR THE FOLLOWING ONE-ELECTRON OPERATOR
+ S, UNLESS ZERO BY SYMMETRY.
+   (Herm=Hermitian, Anti=Antihermitian, Sing=Singlet operator, Trip=Triplet oper
+ ator)
+     MLTPL  0   1 (HERMSING)     MLTPL  0   1 (ANTITRIP)     MLTPL  1   1 (HERMSING)
+     MLTPL  1   1 (ANTITRIP)     MLTPL  1   2 (HERMSING)     MLTPL  1   2 (ANTITRIP)
+     MLTPL  1   3 (HERMSING)     MLTPL  1   3 (ANTITRIP)     MLTPL  2   1 (HERMSING)
+     MLTPL  2   2 (HERMSING)     MLTPL  2   3 (HERMSING)     MLTPL  2   4 (HERMSING)
+     MLTPL  2   5 (HERMSING)     MLTPL  2   6 (HERMSING)     VELOCITY   1 (ANTISING)
+     VELOCITY   2 (ANTISING)     VELOCITY   3 (ANTISING)     ANGMOM     1 (ANTISING)
+     ANGMOM     2 (ANTISING)     ANGMOM     3 (ANTISING)     MLTPV  2   1 (ANTISING)
+     MLTPV  2   2 (ANTISING)     MLTPV  2   3 (ANTISING)     MLTPV  2   4 (ANTISING)
+     MLTPV  2   5 (ANTISING)     MLTPV  2   6 (ANTISING)     AMFI       1 (ANTITRIP)
+     AMFI       2 (ANTITRIP)     AMFI       3 (ANTITRIP)
+ 
+       EIGENSTATES OF A SPIN-FREE HAMILTONIAN WILL BE COMPUTED BASED ON:
+ 
+  a Hamiltonian matrix assumed to be diagonal with energies read from the wavefu
+ nction file(s).
+ 
+  SO coupling elements will be added.
+ 
+        MATRIX ELEMENTS OVER SPIN EIGENSTATES FOR:
+     MLTPL  0   1 (HERMSING)     MLTPL  0   1 (ANTITRIP)     MLTPL  1   1 (HERMSING)
+     MLTPL  1   1 (ANTITRIP)     MLTPL  1   2 (HERMSING)     MLTPL  1   2 (ANTITRIP)
+     MLTPL  1   3 (HERMSING)     MLTPL  1   3 (ANTITRIP)     MLTPL  2   1 (HERMSING)
+     MLTPL  2   2 (HERMSING)     MLTPL  2   3 (HERMSING)     MLTPL  2   4 (HERMSING)
+     MLTPL  2   5 (HERMSING)     MLTPL  2   6 (HERMSING)     VELOCITY   1 (ANTISING)
+     VELOCITY   2 (ANTISING)     VELOCITY   3 (ANTISING)     ANGMOM     1 (ANTISING)
+     ANGMOM     2 (ANTISING)     ANGMOM     3 (ANTISING)     MLTPV  2   1 (ANTISING)
+     MLTPV  2   2 (ANTISING)     MLTPV  2   3 (ANTISING)     MLTPV  2   4 (ANTISING)
+     MLTPV  2   5 (ANTISING)     MLTPV  2   6 (ANTISING)     AMFI       1 (ANTITRIP)
+     AMFI       2 (ANTITRIP)     AMFI       3 (ANTITRIP)
+ 
+       EIGENSTATES OF SPIN-ORBIT HAMILTONIAN WILL BE COMPUTED
+ 
+  Nr of states:                     2
+ 
+   State:        1   2
+  JobIph:        1   2
+ Root nr:        1   1
+ 
+  HAMILTONIAN MATRIX FOR THE ORIGINAL STATES:
+ 
+  Diagonal, with energies
+   -398.69153830   -398.52835625
+ 
+      OVERLAP MATRIX FOR THE ORIGINAL STATES:
+ 
+  Diagonal, with elements
+      1.00000000      1.00000000
+ 
+++ Matrix elements for input states
+   --------------------------------
+ 
+  MATRIX ELEMENTS OF 1-ELECTRON OPERATORS
+  FOR THE RASSCF INPUT WAVE FUNCTIONS:
+ 
+ 
+ PROPERTY: MLTPL  0   COMPONENT:*   1
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       1                2
+ 
+     1       -0.127897692E-12  0.662643160E-28
+     2        0.662643160E-28 -0.817124146E-13
+ 
+ 
+ PROPERTY: MLTPL  0   COMPONENT:*   1
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       1                2
+ 
+     1         18.0000000     -0.116962302E-10
+     2        0.116962302E-10   18.0000000    
+ 
+ 
+ PROPERTY: MLTPL  1   COMPONENT:*   1
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       1                2
+ 
+     1        0.221285141E-11  0.148609442E-25
+     2        0.148609442E-25 -0.803110940E-13
+ 
+ 
+ PROPERTY: MLTPL  1   COMPONENT:*   1
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       1                2
+ 
+     1         0.00000000      0.312395013E-02
+     2       -0.312395013E-02  0.239073071E-27
+ 
+ 
+ PROPERTY: MLTPL  1   COMPONENT:*   2
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       1                2
+ 
+     1        0.135071510E-09  0.214140184E-28
+     2        0.214140184E-28 -0.714739379E-11
+ 
+ 
+ PROPERTY: MLTPL  1   COMPONENT:*   2
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       1                2
+ 
+     1         0.00000000     -0.452133121E-12
+     2        0.452133121E-12 -0.176145057E-15
+ 
+ 
+ PROPERTY: MLTPL  1   COMPONENT:*   3
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       1                2
+ 
+     1        0.361649356      0.997867815E-28
+     2        0.997867815E-28 -0.116800806    
+ 
+ 
+ PROPERTY: MLTPL  1   COMPONENT:*   3
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       1                2
+ 
+     1         4.49627072     -0.107464132E-10
+     2        0.107464132E-10   4.49627072    
+ 
+ 
+ PROPERTY: MLTPL  2   COMPONENT:*   1
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.13406721D+00
+ STATE     :       1                2
+ 
+     1        -12.4208961      0.692014052E-28
+     2        0.692014052E-28  -10.2369895    
+ 
+ 
+ PROPERTY: MLTPL  2   COMPONENT:*   2
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.13406721D+00
+ STATE     :       1                2
+ 
+     1       -0.161129869E-11  0.978505537E-33
+     2        0.978505537E-33  0.433663149E-13
+ 
+ 
+ PROPERTY: MLTPL  2   COMPONENT:*   3
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.13406721D+00
+ STATE     :       1                2
+ 
+     1        0.129160778E-11 -0.603281690E-26
+     2       -0.603281690E-26 -0.389360146E-12
+ 
+ 
+ PROPERTY: MLTPL  2   COMPONENT:*   4
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.13406721D+00
+ STATE     :       1                2
+ 
+     1        -9.86826820      0.315054372E-27
+     2        0.315054372E-27  -12.5218078    
+ 
+ 
+ PROPERTY: MLTPL  2   COMPONENT:*   5
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.13406721D+00
+ STATE     :       1                2
+ 
+     1       -0.613108897E-09  0.419584775E-28
+     2        0.419584775E-28 -0.330934169E-10
+ 
+ 
+ PROPERTY: MLTPL  2   COMPONENT:*   6
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.13406721D+00
+ STATE     :       1                2
+ 
+     1        -9.69552255      0.361462692E-27
+     2        0.361462692E-27  -12.2806357    
+ 
+ 
+ PROPERTY: VELOCITY   COMPONENT:*   1
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       1                2
+ 
+     1       -0.435650623E-27  0.715589886E-26
+     2       -0.715589886E-26 -0.962601312E-28
+ 
+ 
+ PROPERTY: VELOCITY   COMPONENT:*   2
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       1                2
+ 
+     1       -0.424263072E-17  0.582462717E-29
+     2       -0.582462717E-29  0.363109508E-16
+ 
+ 
+ PROPERTY: VELOCITY   COMPONENT:*   3
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       1                2
+ 
+     1       -0.641044191E-16  0.588555586E-29
+     2       -0.588555586E-29 -0.718025109E-16
+ 
+ 
+ PROPERTY: ANGMOM     COMPONENT:*   1
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       1                2
+ 
+     1       -0.651421504E-16  0.120508999E-29
+     2       -0.120508999E-29 -0.410487352E-16
+ 
+ 
+ PROPERTY: ANGMOM     COMPONENT:*   2
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       1                2
+ 
+     1        0.147273791E-26 -0.135555243E-25
+     2        0.135555243E-25 -0.139520599E-26
+ 
+ 
+ PROPERTY: ANGMOM     COMPONENT:*   3
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       1                2
+ 
+     1       -0.719700596E-27 -0.122157541E-32
+     2        0.122157541E-32 -0.287818803E-26
+ 
+ 
+ PROPERTY: MLTPV  2   COMPONENT:*   1
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.13406721D+00
+ STATE     :       1                2
+ 
+     1       -0.112821712E-15 -0.134771063E-28
+     2        0.134771063E-28  0.294846522E-15
+ 
+ 
+ PROPERTY: MLTPV  2   COMPONENT:*   2
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.13406721D+00
+ STATE     :       1                2
+ 
+     1        0.138891478E-26 -0.115284114E-33
+     2        0.115284114E-33 -0.554203030E-29
+ 
+ 
+ PROPERTY: MLTPV  2   COMPONENT:*   3
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.13406721D+00
+ STATE     :       1                2
+ 
+     1        0.237468847E-27  0.135984928E-27
+     2       -0.135984928E-27 -0.105117895E-27
+ 
+ 
+ PROPERTY: MLTPV  2   COMPONENT:*   4
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.13406721D+00
+ STATE     :       1                2
+ 
+     1       -0.125846856E-15 -0.191697652E-28
+     2        0.191697652E-28  0.421402851E-15
+ 
+ 
+ PROPERTY: MLTPV  2   COMPONENT:*   5
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.13406721D+00
+ STATE     :       1                2
+ 
+     1       -0.237325652E-16 -0.114680843E-28
+     2        0.114680843E-28 -0.201055946E-15
+ 
+ 
+ PROPERTY: MLTPV  2   COMPONENT:*   6
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.13406721D+00
+ STATE     :       1                2
+ 
+     1       -0.112037243E-15 -0.228429658E-28
+     2        0.228429658E-28  0.450430524E-15
+ 
+ 
+ PROPERTY: AMFI       COMPONENT:*   1
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       1                2
+ 
+     1         0.00000000     -0.567908437E-15
+     2        0.567908437E-15  0.118978630E-24
+ 
+ 
+ PROPERTY: AMFI       COMPONENT:*   2
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       1                2
+ 
+     1         0.00000000      0.113975321E-12
+     2       -0.113975321E-12 -0.888551622E-31
+ 
+ 
+ PROPERTY: AMFI       COMPONENT:*   3
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       1                2
+ 
+     1         0.00000000      0.143423551E-02
+     2       -0.143423551E-02  0.164916853E-30
+ 
+--
+ 
+::    RASSI State    1     Total energy:    -398.69153830164896
+::    RASSI State    2     Total energy:    -398.52835624787718
+ 
+ 
+ 
+      ****************************************************************************************************
+      *                                                                                                  *
+      *                                         Spin-free section                                        *
+      *                                                                                                  *
+      *                 Note: index according to input order, order according to energy.                 *
+      *                                                                                                  *
+      ****************************************************************************************************
+ 
+ 
+ 
+  SPIN-FREE ENERGIES:
+  (Shifted by EMIN (a.u.) =       -398.6915383016)
+ 
+ SF State       Relative EMIN(au)   Rel lowest level(eV)    D:o, cm**(-1)
+ 
+     1             0.0000000000        0.0000000000              0.0000
+     2             0.1631820538        4.4404098936          35814.3211
+ 
+++ Dipole transition strengths (spin-free states):
+   -----------------------------------------------
+     for osc. strength at least  1.00000000E-05
+ 
+  ( Max oscillator strength is only   2.402671656795692E-053 )
+--
+ 
+++ Velocity transition strengths (spin-free states):
+   -------------------------------------------------
+     for osc. strength at least  1.00000000E-05
+ 
+  ( Max oscillator strength is only   2.092017510188790E-052 )
+--
+ 
+++ Length and velocity gauge comparison (spin-free states):
+   --------------------------------------------------------
+ 
+ --------------------------------------------------
+ A comparison between the dipole oscillator strengths in 
+ length and velocity gauge will be performed
+ 
+     All dipole oscillator differences above the tolerance of   1.00000000E-01  will be printed 
+ 
+ Due to basis set deficiency these oscillator may be problematic 
+ 
+ The tolerance is defined as ABS(1-O_l/O_v) 
+ O_l : dipole oscillator strength in length gauge
+ O_p : dipole oscillator strength in velocity gauge
+ --------------------------------------------------
+ 
+ No problematic oscillator strengths above the tolerance 
+  0.100000000000000       have been found
+ 
+--
+ 
+ Electric-dipole - electric-octupole not included
+ Electric-dipole - magnetic-quadrupole not included
+ 
+ 
+ 
+      ****************************************************************************************************
+      *                                                                                                  *
+      *                                         Spin-orbit section                                       *
+      *                                                                                                  *
+      ****************************************************************************************************
+ 
+ 
+ Complex SO-Hamiltonian matrix elements over
+ spin components of spin-free eigenstates (SFS):
+ (In cm-1. Print threshold:      0.000 cm-1)
+ ----------------------------------------------------------------------
+ 
+  I1  S1  MS1    I2  S2  MS2    Real part    Imag part      Absolute
+     1  0.0  0.0    1  0.0  0.0         0.000         0.000         0.000
+     2  1.0 -1.0    1  0.0  0.0         0.000         0.000         0.000
+     2  1.0 -1.0    2  1.0 -1.0         0.000        -0.000         0.000
+     3  1.0  0.0    1  0.0  0.0         0.000      -181.737       181.737
+     3  1.0  0.0    2  1.0 -1.0        -0.000         0.000         0.000
+     3  1.0  0.0    3  1.0  0.0         0.000         0.000         0.000
+     4  1.0  1.0    1  0.0  0.0         0.000        -0.000         0.000
+     4  1.0  1.0    2  1.0 -1.0         0.000         0.000         0.000
+     4  1.0  1.0    3  1.0  0.0        -0.000         0.000         0.000
+     4  1.0  1.0    4  1.0  1.0         0.000         0.000         0.000
+ ----------------------------------------------------------------------
+ 
+       Total energies including SO-coupling:
+::    SO-RASSI State    1     Total energy:    -398.69154250345605
+::    SO-RASSI State    2     Total energy:    -398.52835624787718
+::    SO-RASSI State    3     Total energy:    -398.52835624787718
+::    SO-RASSI State    4     Total energy:    -398.52835204607010
+ 
+ 
+   Eigenvalues of complex Hamiltonian:
+   -----------------------------------
+  (Shifted by EMIN (a.u.) =       -398.6915383016)
+ 
+ SO State       Relative EMIN(au)   Rel lowest level(eV)    D:o, cm**(-1)
+ 
+     1            -0.0000042018        0.0000000000              0.0000
+     2             0.1631820538        4.4405242306          35815.2433
+     3             0.1631820538        4.4405242306          35815.2433
+     4             0.1631862556        4.4406385676          35816.1655
+ 
+ 
+ Weights of the five most important spin-orbit-free states for each spin-orbit s
+ tate.
+ 
+ SO State  Total energy (au)           Spin-free states, spin, and weights
+ -------------------------------------------------------------------------------
+ ------------------------
+    1        -0.000004       1 0.0  1.0000    2 1.0  0.0000
+    2         0.163182       2 1.0  1.0000    1 0.0  0.0000
+    3         0.163182       2 1.0  1.0000    1 0.0  0.0000
+    4         0.163186       2 1.0  1.0000    1 0.0  0.0000
+ -------------------------------------------------------------------------------
+ ------------------------
+ 
+ 
+      ****************************************************************************************************
+      *                                                                                                  *
+      *                                    Special properties section                                    *
+      *                                                                                                  *
+      ****************************************************************************************************
+ 
+ 
+++ Length and velocity gauge comparison (SO states):
+ 
+ --------------------------------------------------
+ A comparison between the dipole oscillator strengths in 
+ length and velocity gauge will be performed
+ 
+     All dipole oscillator differences above the tolerance of   1.00000000E-01  will be printed 
+ 
+ Due to basis set deficiency these oscillator may be problematic 
+ 
+ The tolerance is defined as ABS(1-O_l/O_v) 
+ O_l : dipole oscillator strength in length gauge
+ O_p : dipole oscillator strength in velocity gauge
+ --------------------------------------------------
+ 
+ No problematic oscillator strengths above the tolerance 
+  0.100000000000000       have been found
+ 
+--
+ 
+ Electric-dipole - electric-octupole not included
+++ I/O STATISTICS
+ 
+  I. General I/O information
+  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  Unit  Name          Flsize      Write/Read            MBytes           Write/Read
+                      (MBytes)       Calls              In/Out           Time, sec.
+  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+   1  ANNI              0.00 .       0/       0 .      0.0/      0.0 .       0/       0
+   2  RUNFILE           0.25 .     322/    1878 .      2.3/     13.7 .       0/       0
+   3  ONEINT            1.46 .       0/     317 .      0.0/    296.3 .       0/       0
+   4  JOB001            1.22 .       0/      39 .      0.0/      1.1 .       0/       0
+   5  JOB002            1.22 .       0/      39 .      0.0/      1.1 .       0/       0
+  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+   *  TOTAL             4.15 .     322/    2273 .      2.3/    312.2 .       0/       0
+  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+ 
+  II. I/O Access Patterns
+  - - - - - - - - - - - - - - - - - - - -
+  Unit  Name               % of random
+                         Write/Read calls
+  - - - - - - - - - - - - - - - - - - - -
+   1  ANNI                 0.0/   0.0
+   2  RUNFILE             28.6/   9.9
+   3  ONEINT               0.0/  97.2
+   4  JOB001               0.0/  82.1
+   5  JOB002               0.0/  82.1
+  - - - - - - - - - - - - - - - - - - - -
+--
+--- Stop Module: rassi at Thu Mar 21 15:03:30 2024 /rc=_RC_ALL_IS_WELL_ ---
+
+.##################.
+.# Happy landing! #.
+.##################.
+
+    Timing: Wall=7.02 User=6.11 System=0.82

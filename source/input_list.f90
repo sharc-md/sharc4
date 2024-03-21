@@ -2,7 +2,7 @@
 !
 !    SHARC Program Suite
 !
-!    Copyright (c) 2019 University of Vienna
+!    Copyright (c) 2023 University of Vienna
 !
 !    This file is part of SHARC.
 !
@@ -94,6 +94,7 @@ private alloc_list, resize_list
     do
       ! read a line
       read(nunit,'(A)', iostat=io) line
+      !read(nunit, '(A)', iostat=stat) line
       if (io<0) then
         stat=-1
         return
@@ -256,4 +257,4 @@ private alloc_list, resize_list
     get_ncurr=ncurr
   endfunction
 
-endmodule
+endmodule input_list

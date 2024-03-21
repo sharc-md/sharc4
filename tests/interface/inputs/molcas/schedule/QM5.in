@@ -1,0 +1,12 @@
+3
+Comment: QM.in file for no-QM/MM example
+ S     0.000000     0.000000     0.000841
+ H    -0.000000     0.974799     1.182934
+ H    -0.000000    -0.974799     1.182934
+
+States 4 2 0            # number of states per multiplicity (singlets, doublets, triplets, ...)
+Unit Angstrom           # in which units to interpret the above geometry
+
+#H
+SOC
+DM

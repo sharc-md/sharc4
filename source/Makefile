@@ -2,7 +2,7 @@
 #
 #SHARC Program Suite
 #
-#    Copyright (c) 2019 University of Vienna
+#    Copyright (c) 2023 University of Vienna
 #
 #    This file is part of SHARC.
 #
@@ -21,8 +21,8 @@
 #
 #******************************************
 # Makefile for Sharc 
-# Version 2.1
-# 1.9.2019
+# Version 3.0
+# 1.9.2023
 
 
 # -------------------------------------- configure ---------------------------------------
@@ -85,8 +85,8 @@ ifeq ($(USE_COMPILER), gnu)
   EXTRAFLAGS := -ffree-line-length-none 
 else ifeq ($(USE_COMPILER), intel)
   CC:=icc
-  F90:=ifort 
-  EXTRAFLAGS :=
+  F90:=ifort
+  EXTRAFLAGS := -DIFORT
 endif
 
 
@@ -94,22 +94,18 @@ endif
 ifeq ($(COMP_STATIC),true)
 ifeq ($(USE_LIBS), mkl)
 ifeq ($(USE_COMPILER), gnu)
-  #LD=  -Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_gf_lp64.a ${MKLROOT}/lib/intel64/libmkl_sequential.a ${MKLROOT}/lib/intel64/libmkl_core.a -Wl,--end-group -lpthread -lm -ldl
-  LD= -L$(MKLROOT) -lpthread -lm -ldl
+  LD=  -Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_gf_lp64.a ${MKLROOT}/lib/intel64/libmkl_sequential.a ${MKLROOT}/lib/intel64/libmkl_core.a -Wl,--end-group -lpthread -lm -ldl
 else ifeq ($(USE_COMPILER), intel)
 #  LD= -L$(MKLROOT)/lib/intel64 -lmkl_rt -lpthread -lm -lgfortran -static $(NETCDF_LIB)
-  #LD=  -Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_intel_lp64.a ${MKLROOT}/lib/intel64/libmkl_sequential.a ${MKLROOT}/lib/intel64/libmkl_core.a -Wl,--end-group -lpthread -lm -ldl
-   LD= -L$(MKLROOT) -lmkl_rt -lpthread -lm -lgfortran -static  $(NETCDF_LIB)
-#  LD= -L$(MKLROOT) -lmkl_rt -lpthread -lm -lgfortran $(NETCDF_LIB)
+  LD=  -Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_intel_lp64.a ${MKLROOT}/lib/intel64/libmkl_sequential.a ${MKLROOT}/lib/intel64/libmkl_core.a -Wl,--end-group -lpthread -lm -ldl
 endif
 else ifeq ($(USE_LIBS), gnu)
   LD= -llapack -lfftw3 -lblas -lgfortran  -static $(NETCDF_LIB)
 endif
 else 
 ifeq ($(USE_LIBS), mkl)
-  #LD= -L$(MKLROOT)/lib/intel64 -lmkl_rt -lpthread -lm -lgfortran $(NETCDF_LIB)
+  LD= -L$(MKLROOT)/lib/intel64 -lmkl_rt -lpthread -lm -lgfortran $(NETCDF_LIB)
 #   LD= -L$(MKLROOT)/lib/intel64 -lmkl_intel_lp64 -lmkl_core -lmkl_sequential -lpthread -lm -lgfortran $(NETCDF_LIB)
-  LD= -L$(MKLROOT) -lmkl_rt -lpthread -lm -lgfortran $(NETCDF_LIB)
 else ifeq ($(USE_LIBS), gnu)
   LD= -llapack -lfftw3 -lblas -lgfortran   $(NETCDF_LIB)
 endif
@@ -164,17 +160,24 @@ TOOLS = definitions.o \
 	string.o \
 	input_list.o
 
-SHARC  =  misc.o \
+SHARC  =  driver.o \
+          misc.o \
 	  output.o \
 	  restart.o \
 	  qm_out.o \
 	  nuclear.o \
+          bsh.o \
 	  electronic.o \
 	  qm.o \
 	  electronic_laser.o \
 	  input.o \
 	  decoherence_afssh.o \
-          ziggurat.o \
+          decoherence_dom.o \
+          zpe.o \
+          tsh_tu.o \
+          army_ants.o \
+          pointer_basis.o \
+	  ziggurat.o \
           restrictive_potential.o
 
 ifeq ($(USE_PYSHARC),true)
@@ -195,6 +198,7 @@ LASER=  LASER_definitions.o \
 	LASER_calc_fftw.o \
 	LASER_input.o \
 	LASER_main.o 
+
 
 DIAGONALIZER = string.o \
 	      matrix.o \
@@ -266,7 +270,7 @@ sharcvars:
 	@echo 'setenv SHARCLIB=$(SHARCDIR)/lib' >> sharcvars.csh
 	@echo 'setenv ANACONDA=$(ANACONDA)' >> sharcvars.csh
 	@echo 'setenv PYTHONPATH=$$SHARCLIB:$$PYSHARC:$$PYTHONPATH' >> sharcvars.csh
-	@echo 'setenv LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$$SHARCLIB:$$ANACONDA/lib' >> sharcvars.csh
+	@echo 'setenv LD_LIBRARY_PATH=$$SHARCLIB:$$ANACONDA/lib:$$LD_LIBRARY_PATH' >> sharcvars.csh
 else
 sharcvars:
 	@echo 'export SHARC=$(SHARCDIR)/bin' > sharcvars.sh
@@ -276,7 +280,7 @@ sharcvars:
 	@echo 'setenv SHARC=$(SHARCDIR)/bin' > sharcvars.csh
 	@echo 'setenv SHARCLIB=$(SHARCDIR)/lib' >> sharcvars.csh
 	@echo 'setenv PYTHONPATH=$$SHARCLIB:$$PYTHONPATH' >> sharcvars.csh
-	@echo 'setenv LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$$SHARCLIB:$$ANACONDA/lib' >> sharcvars.csh
+	@echo 'setenv LD_LIBRARY_PATH=$$SHARCLIB:$$LD_LIBRARY_PATH' >> sharcvars.csh
 endif
 
 
@@ -319,22 +323,29 @@ test_path:
 
 # the following lines define the dependencies of the Fortran90 module files
 ifeq ($(USE_PYSHARC),true)
-main.o: output.o qm.o restart.o misc.o electronic_laser.o input.o decoherence_afssh.o interface.o
+main.o: output.o qm.o restart.o misc.o electronic_laser.o input.o decoherence_afssh.o decoherence_dom.o zpe.o tsh_tu.o army_ants.o pointer_basis.o interface.o
 else
-main.o: output.o qm.o restart.o misc.o electronic_laser.o input.o decoherence_afssh.o
+main.o: driver.o output.o qm.o bsh.o restart.o misc.o electronic_laser.o input.o decoherence_afssh.o decoherence_dom.o zpe.o tsh_tu.o army_ants.o pointer_basis.o
 endif
 
-interface.o: electronic.o definitions.o definitions_NetCDF.o output.o qm.o restart.o misc.o electronic_laser.o input.o decoherence_afssh.o
+driver.o: output.o qm.o bsh.o restart.o misc.o electronic_laser.o input.o decoherence_afssh.o decoherence_dom.o zpe.o tsh_tu.o army_ants.o pointer_basis.o
+interface.o: electronic.o definitions.o definitions_NetCDF.o output.o qm.o restart.o misc.o electronic_laser.o input.o decoherence_afssh.o decoherence_dom.o zpe.o tsh_tu.o army_ants.o pointer_basis.o
 misc.o: definitions.o
 output.o: $(TOOLS) build_info misc.o
-nuclear.o: $(TOOLS) ziggurat.o misc.o
-electronic.o: nuclear.o $(TOOLS) decoherence_afssh.o
+nuclear.o: $(TOOLS) decoherence_afssh.o decoherence_dom.o ziggurat.o misc.o
+electronic.o: nuclear.o $(TOOLS) decoherence_afssh.o decoherence_dom.o
 electronic_laser.o: electronic.o $(TOOLS)
 input.o: $(TOOLS) output.o restart.o misc.o restrictive_potential.o
-qm.o: $(TOOLS) electronic.o qm_out.o restart.o restrictive_potential.o
+qm.o: $(TOOLS) electronic.o nuclear.o qm_out.o restart.o restrictive_potential.o
+bsh.o: $(TOOLS) electronic.o decoherence_dom.o qm.o
 qm_out.o: $(TOOLS)
 restart.o: $(TOOLS) misc.o decoherence_afssh.o ziggurat.o
 decoherence_afssh.o: $(TOOLS) definitions.o
+decoherence_dom.o: $(TOOLS) definitions.o
+zpe.o: $(TOOLS) definitions.o nuclear.o
+tsh_tu.o: $(TOOLS) definitions.o electronic.o nuclear.o army_ants.o
+army_ants.o: $(TOOLS) definitions.o electronic.o 
+pointer_basis.o: $(TOOLS) definitions.o
 restrictive_potential.o: $(TOOLS) definitions.o
 
 LASER_input.o: LASER_definitions.o 

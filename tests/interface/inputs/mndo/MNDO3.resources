@@ -1,0 +1,59 @@
+    ## This is a commented version of the MNDO.resources file 
+
+    ## ======== MNDO setup ============
+
+    ## 
+mndodir /usr/license/mndo2020/
+
+ ## ======== SCRATCH and SAVE ============
+
+    ## Sets the path to the scratch directory employed by the interface.
+    ## There, all ORCA and overlap calculations will be launched.
+scratchdir $TMPDIR
+
+    ## Sets the path to the save directory.
+    ## There, all determinant, MO coefficient, and AO overlap files are stored between time steps.
+    ## Hence, this should be a persistent directory.
+    ## Note that the savedir from QM.in takes precedence over the one here.
+savedir ./SAVEDIR
+
+
+
+
+    ## ======== RESSOURCES ============
+
+    ## Number of CPU cores the interface can use.
+    ## Not yet implemented
+#ncpu 4
+
+
+    ## Memory for MNDO and the wfoverlaps code .
+memory 1000
+
+
+
+    ## ======== OVERLAPS ============
+
+    ## Path to the wfoverlaps program.
+    ## Needed for overlap and Dyson norm calculations.
+wfoverlap $SHARC/../wfoverlap/source/wfoverlap_ascii.x
+
+
+    ## Do not store determinant and MO coefficient files in savedir.
+    ## Must not be used for dynamics runs.
+#nooverlap
+
+    ## ======== OTHERS ============
+
+    ## Always use the provided initial orbitals, even if starting orbitals are present in the savedir.
+#always_orb_init
+
+    ## Always use an orbital guess, even if starting orbitals are present in the savedir.
+#always_guess
+
+    ## Increase verbosity of the interface and do not delete scratchdir after all jobs are finished.
+#debug
+
+    ## Decrease the verbosity of the interface.
+#no_print
+

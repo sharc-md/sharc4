@@ -2167,6 +2167,7 @@ def readQMin(QMinfilename):
     for i in booleans:
         QMin['template'][i] = False
     QMin['template']['dkho'] = 0
+    # TODO: change documentation that these are in template
     QMin['template']['gradaccudefault'] = 1e-7
     QMin['template']['gradaccumax'] = 1e-2
     for line in temp:
