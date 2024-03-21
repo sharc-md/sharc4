@@ -870,6 +870,14 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             self.log.error("NACs/Gradients are not possible with caspt2")
             raise ValueError()
 
+        if (
+            self.QMin.template["method"] in ("ms-caspt2", "xms-caspt2")
+            and self.QMin.template["ipea"] > 0
+            and (self.QMin.requests["grad"] or self.QMin.requests["nacdr"])
+        ):
+            self.log.error("Analytical gradients/NACs are not possible with pt2 methods and ipea shift!")
+            raise ValueError()
+
     def _get_molcas_features(self) -> None:
         """
         Get information about the MOLCAS installation (HDF5, WFA, MPI)
@@ -964,7 +972,9 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                             istate = key - 1
                         if (val[0], val[1]) == (nac[2], nac[3]):
                             jstate = key - 1
-                    self.QMout["nacdr"][istate, jstate] = self._get_nacdr(nac_out)
+                    self.QMout["nacdr"][istate, jstate] = self.QMout["nacdr"][jstate, istate] = self._get_nacdr(nac_out)
+                    self.QMout["nacdr"][jstate, istate] *= -1
+
         if self.QMin.requests["dm"]:
             # Full DM matrix in ascii file, sub matrices of mult in h5 files
             if isinstance(master_out, str):
@@ -1060,7 +1070,25 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             self.log.error("No NACs in output file!")
             raise ValueError()
         nac = re.findall(r"(-?\d+\.\d+E[-|+]\d{2,3})", nac_block.group(1), re.DOTALL)
-        return np.einsum("ij->ji", np.asarray(nac, dtype=float).reshape(-1, 3))
+
+        # Get overlaps
+        ovlp = re.search(r"OVERLAP MATRIX FOR THE ORIGINAL STATES:(.*)\+\+ Matrix", output_file, re.DOTALL)
+        ovlp = re.sub(r"\n", "\\t", ovlp.group(1))
+        ovlp = np.asarray(re.findall(r"(-?\d{1}\.\d{8})", ovlp), dtype=float)
+
+        # Build overlap matrix
+        states = self.QMin.molecule["states"][int(re.search(r"SPIN=(\d+)", output_file).group(1)) - 1]
+        state_i, state_j = re.findall(r"nac=(\d+) (\d+)", output_file)[0]
+        idx = np.tril_indices(states * 2)
+        ovlp_mat = -0.5 * np.eye(states * 2)
+        ovlp_mat[idx] += ovlp
+        ovlp_mat += ovlp_mat.T
+
+        return (
+            np.asarray(nac, dtype=float).reshape(-1, 3)
+            * ovlp_mat[int(state_i) - 1, states + int(state_i) - 1]
+            * ovlp_mat[int(state_j) - 1, states + int(state_j) - 1]
+        )
 
     def _get_dipoles(self, output_file: str) -> np.ndarray:
         """
