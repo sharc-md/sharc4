@@ -280,8 +280,8 @@ type ctrl_type
   integer :: n_property1d                   !< number of property vectors
 
   integer :: killafter                      !< -1=no, >1=kill after that many steps in the ground state
-  integer :: ionization                     !<  -1=no, n=ionization every n steps
-  integer :: theodore                       !<  -1=no, n=theodore every n steps
+  integer :: ionization                     !< -1=no, n=ionization every n steps
+  integer :: theodore                       !< -1=no, n=theodore every n steps
   integer :: track_phase                    !< 0=no, 1=track phase of U matrix through the propagation (turn off only for debugging purposes)
   integer :: track_phase_at_zero            !< 0=nothing, 1=at time zero, get phases from whatever is in the savedir
   integer :: hopping_procedure              !< 0=no hops, 1=hops (standard formula), 2=GFSH

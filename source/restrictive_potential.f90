@@ -30,7 +30,7 @@
 !> on top of the qm gradient.
 !> These include the droplet potential (s.t. solvent remains as a
 !> droplet and doesn't diffuse) and a tethering potential to keep (part
-!> of) atom in center of droplet.
+!> of) atoms in center of droplet.
 !>
 
 module restrictive_potential
@@ -74,6 +74,7 @@ subroutine tether_atom(traj,ctrl)
   
   do i=1,size(ctrl%tether_at)
     iatom = ctrl%tether_at(i)
+    ! radius: distance to tethering position
     radius = sqrt((traj%geom_ad(iatom,1) - traj%tethering_pos(1))**2 + (traj%geom_ad(iatom,2) - traj%tethering_pos(2))**2 +&
             & (traj%geom_ad(iatom,3) - traj%tethering_pos(3))**2)
     dist = radius - ctrl%tethering_radius

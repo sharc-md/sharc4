@@ -1010,6 +1010,7 @@ module input
         read(values(5),*) i
         ctrl%output_steps_stride(3)=max(i,1)
       endif
+      deallocate(values)
     endif
 
 
@@ -1485,6 +1486,7 @@ module input
         else
           ctrl%constraints_dist_c(i)=-1.d0
         endif
+        deallocate(values)
       enddo
 
     else   ! if no constraints
@@ -1617,6 +1619,7 @@ module input
           endif
           do i=1,ctrl%natom
             read(u_i_veloc,'(A)') line
+            deallocate(values)
             call split(line,' ',values,n)
             if (n<3) then
               write(0,*) 'Problem reading the velocity file!'
@@ -1760,7 +1763,6 @@ module input
           if (n==2) then
             call get_quoted(line,geomfilename)
             filename=trim(geomfilename)
-            !read(values(2),*) filename
             if (filename(1:3)=='qm/') then !change qm/ folder to QM/
               filename='QM'//filename(3:)
             endif
@@ -1774,20 +1776,15 @@ module input
 
           if (printlevel>1) write(u_log,'(3A)') 'Reading atom mask for dynamics (active/frozen atoms) from file "',trim(filename),'"'
           if (io/=0) then
-            write(0,*) 'Could not find atom mask for freezing atoms file!'
+            write(0,*) 'Could not find atom mask for freezing atoms file! (Is filename in ""-marks?)'
             stop 1
           endif
           if (filename=='QM/real_layers.xyz') then !read from real_layers file
-            write(0,*) 'still need to implement reading from QM/real_layers.xyz'
-            stop 1
             do i=1,ctrl%natom
-              read(u_i_frozen,*) line
+              read(u_i_frozen,'(A)') line
+              deallocate(values)
               call split(line,' ',values,n)
-              !write(0,*) line
-              !write(0,*) values(5)
-              !write(0,*) trim(values(2))
-              !write(0,*) trim(values(-1))
-              if (trim(values(5))=='L') then
+              if (trim(values(6))=='L') then !if L is specified in column 6: keep frozen
                 ctrl%atommask_b(i)=.false.
               endif 
             enddo
@@ -1959,6 +1956,7 @@ module input
         endif
         read(line,*) a,b
         traj%coeff_MCH_s(i)=dcmplx(a,b)
+        deallocate(values)
       enddo
       close(u_i_coeff)
 
@@ -2125,6 +2123,7 @@ module input
       endif
       call split(line,' ',values,n)
       ctrl%nlasers=n-7
+      deallocate(values)
       if (ctrl%nlasers<1) then
         write(0,*) 'No central energies for lasers found in ',filename
         stop 1
@@ -2167,6 +2166,7 @@ module input
           read(values(7+j),*) a
           ctrl%laserenergy_tl(i,j)=dcmplx(a,0.d0)
         enddo
+        deallocate(values)
       enddo
       close(u_i_laser)
 
@@ -2209,8 +2209,6 @@ module input
           ctrl%thermostat=0
         case ('langevin')
           ctrl%thermostat=1
-       ! case ('multi-langevin')
-        !  ctrl%thermostat=2
         case default
           ctrl%thermostat=0
       endselect
@@ -2228,7 +2226,6 @@ module input
            write(u_log,'(a)') 'No thermostat will be applied.'
          case (1)
            write(u_log,'(a)') 'Langevin thermostat will be applied.'
-           !write(u_log,'(a)') 'Temperature (in K) and friction coeffitient (in fs^-1): '
        endselect
      endif
    endif
@@ -2251,6 +2248,7 @@ module input
       endif
       !initiate ziggurat prng (do only once!)
       call zigset(traj%rngseed_thermostat+37+17**2)
+      !call init_random_seed_thermostat(traj%rngseed_thermostat)
       if (ctrl%thermostat==1) then
         allocate (traj%thermostat_random(3*ctrl%natom)) ! allocate randomness for all atoms in all directions
       endif
@@ -2277,9 +2275,6 @@ module input
             ! if 1, then there are no multiple thermostatting regions
             ctrl%ntempregions=1
           case('file')
-            ! if file, then read from specified file
-            !write(0,*) 'Reading thermostat regions and conditions from file not possible yet!'
-            !stop 1
             if (n==2) then
               call get_quoted(line,geomfilename)
               filename=trim(geomfilename)
@@ -2292,7 +2287,7 @@ module input
             open(u_i_thermostat,file=filename, status='old', action='read', iostat=io)
             if (printlevel>1) write(u_log,'(3A)') 'Reading thermostat settings from file "',trim(filename),'"'
             if (io/=0) then
-              write(0,*) 'Could not find thermostat file!'
+              write(0,*) 'Could not find thermostat file! (Is filename in ""-marks?)'
               stop 1
             endif
             ! read content of file
@@ -2305,8 +2300,8 @@ module input
               read(u_i_thermostat,*) ctrl%temperature(i) ! set temperatures
             enddo
             do i=1,ctrl%ntempregions
-              read(u_i_thermostat,*) line
               deallocate(values)
+              read(u_i_thermostat,*) line
               call split(line,' ',values,n)
               if (n/=size(ctrl%thermostat_const,2)) then
                 write(0,*) 'Wrong number of thermostat constants!'
@@ -2328,7 +2323,6 @@ module input
             endif
             ! first (n) atoms belong to region 1 and the remainder to region 2
             ctrl%ntempregions=2
-            !allocate(ctrl%tempregion(ctrl%natom))
             read(values(2),*) k
             do i=1,k
               ctrl%tempregion(i)=1
@@ -2343,8 +2337,6 @@ module input
               do i=2,n
                 read(values(i),*) a
                 ctrl%tempregion(i-1) = a  ! set the thermostat constants
-                if (printlevel>1) then
-                endif
               enddo
               !set ntempregions as max entry of array
               ctrl%ntempregions = maxval(ctrl%tempregion)
@@ -2367,11 +2359,6 @@ module input
         enddo
       endif
 
-             !if (ctrl%thermostat==1)
-              ! allocate(ctrl%temperature(1))
-               !allocate(ctrl%thermostat_const(1)) !allocate right amount of thermostat constants
-             !endif
-
       ! get temperature (unless already read from external file)
       if (.not. allocated(ctrl%temperature)) then
         allocate(ctrl%temperature(ctrl%ntempregions)) ! allocate temperature (as many as temperature regions present)
@@ -2385,7 +2372,6 @@ module input
             do i=1,n
               read(values(i),*) a
               ctrl%temperature(i) = a  ! set the thermostat constants
-              !read(line,*) ctrl%temperature
             enddo
           endif
           deallocate(values)
@@ -2425,16 +2411,15 @@ module input
 
       ! print quantities for thermostat
       if (printlevel>0) then
-        if (ctrl%ntempregions>1) write (u_log,'(a)') 'Multiple thermostat conditions regions.'
+        if (ctrl%ntempregions>1) write (u_log,'(a)') 'Multiple thermostat condition regions.'
         if (printlevel>1) then
-          write(u_log,'(a)',advance='NO') 'Number of thermostat conditions region(s):'
+          write(u_log,'(a)',advance='NO') 'Number of thermostat condition region(s):'
           write(u_log,*) ctrl%ntempregions
           do i=1,ctrl%ntempregions
             write(u_log,*) i,'. region:'
             write(u_log,'(1x,F11.4,a)') ctrl%temperature(i),' K'
             if (ctrl%thermostat==1) write (u_log,'(1x,a)',advance='NO')  'Friction coefficient (fs^-1): '
             write(u_log,*) (ctrl%thermostat_const(i,j), j=1,size(ctrl%thermostat_const,2))
-            !write(u_log,'(a)') ' fs^-1'
           enddo
           write (u_log,'(a)') 'Region of atoms: (atom region)'
           do i=1,ctrl%natom
@@ -2443,14 +2428,14 @@ module input
         endif
       endif
 
-      ! modifications of thermostat quantities useful for later
-      if (ctrl%thermostat==1) then !save sqrt(variance) in ctrl%temperature
+      ! modifications of thermostat quantities, useful for later
+      if (ctrl%thermostat==1) then
         do i=1,ctrl%ntempregions
-          ! var=2*alpha*k_bT*dt (1 J = 2.29...e+17 a.u.)
-          ctrl%temperature(i)=sqrt(2*ctrl%thermostat_const(i,1)*1.38064852e-23*ctrl%temperature(i)*2.2937126583579e+17*ctrl%dtstep)
+          ! T <-friction const*kB*T (here kB in eV/K)
+          ctrl%temperature(i)=ctrl%thermostat_const(i,1)*8.617333262d-5*ctrl%temperature(i)
+          ! gamma <- 0.5 friction const*dt
+          ctrl%thermostat_const(i,1)=0.5d0*ctrl%thermostat_const(i,1)*ctrl%dtstep
         enddo
-        !write(u_log,*) 'thermostat_faketemp'
-        !write(u_log,*) ctrl%temperature
       endif
 
       ! check whether to project out total translational and rotational components
@@ -2465,11 +2450,12 @@ module input
       endif
       if (ctrl%remove_trans_rot) then
          allocate(ctrl%rotation_tot(3*ctrl%natom,3))
-         call get_rotation_tot(ctrl,traj)
-         !write(*,*) 'rotation_tot'
-         !write(*,*) ctrl%rotation_tot
       endif
 
+    endif
+    if (ctrl%remove_trans_rot .and. ctrl%thermostat==0) then
+      write (u_log,'(a)') 'No thermostat used, but removal of translational and rotational components requested: '&
+              'Currently the removal can only be done if a thermostat is used! It has no effect here'
     endif
 
     if (printlevel>0) then
@@ -2504,14 +2490,14 @@ module input
           case (0)
           case (1)
             write(u_log,'(a)') 'Restricted droplet potential will be applied:'
-            write(u_log,'(a)') 'Radius (in Angstrom) and force constant:'
+            write(u_log,'(a)') 'Radius (Angstrom) and force constant (u/fs^2):'
           case (2)
             write(u_log,'(a)') 'Tethering of atoms will be applied:'
-            write(u_log,'(a)') 'Force constant and radius (in Angstrom):'
+            write(u_log,'(a)') 'Force constant (u/fs^2) and radius (Angstrom):'
           case (3)
             write(u_log,'(a)') 'Restricted droplet potential and tethering of atoms will be applied:'
-            write(u_log,'(a)') 'Droplet radius (in Angstrom) and force constants (droplet potential and tethering) and&
-                    &tethering radius (in Angstrom):'
+            write(u_log,'(a)') 'Droplet radius (Angstrom) and force constants (droplet potential and tethering, u/fs^2)&
+                   and tethering radius (Angstrom):'
         endselect
       endif
     endif
@@ -2521,11 +2507,12 @@ module input
   if (ctrl%restrictive_potential==1 .or. ctrl%restrictive_potential==3) then
     line=get_value_from_key('restricted_droplet_force',io)
       if (io==0) then
-        read(line,*) ctrl%restricted_droplet_force
+        read(line,*) ctrl%restricted_droplet_force ! provide in u/fs^2
       else
         write(0,*) 'No force constant for restrictive droplet potental given!'
         stop 1
       endif
+    ctrl%restricted_droplet_force = ctrl%restricted_droplet_force * au2fs**2/au2u
     line=get_value_from_key('restricted_droplet_radius',io)
        if (io==0) then
         read(line,*) ctrl%restricted_droplet_radius
@@ -2543,7 +2530,6 @@ module input
       if (io==0) then
         call split(line,' ',values,n)
         select case (trim(values(1)))
-        !select case (trim(line))
           case ('all')
             !ctrl%sel_restricted_droplet=.true.
           case ('noH')
@@ -2561,12 +2547,10 @@ module input
               write(0,*) 'Specify which atoms should be restricted in droplet (atom numbers)!'
               stop 1
             endif
-            !add option to now read list given in input file
           case ('file')
             if (n==2) then
               call get_quoted(line,geomfilename)
               filename=trim(geomfilename)
-              !read(values(2),*) filename
               if (filename(1:3)=='qm/') then !change qm/ folder to QM/
                 filename='QM'//filename(3:)
               endif
@@ -2580,7 +2564,7 @@ module input
          
             if (printlevel>1) write(u_log,'(3A)') 'Reading atom mask for restricted droplet from file "',trim(filename),'"'
             if (io/=0) then
-              write(0,*) 'Could not find file for restricted droplet atoms!'
+              write(0,*) 'Could not find file for restricted droplet atoms! (Is filename in ""-marks?)'
               stop 1
             endif
             !read from file with T/F in each line (for each atom)
@@ -2589,18 +2573,20 @@ module input
             enddo
             close(u_i_droplet)
         endselect
+        deallocate(values)
       endif
     endif
    ! set values for tethering atom
     if (ctrl%restrictive_potential==2 .or. ctrl%restrictive_potential==3) then
       line=get_value_from_key('tethering_force',io)
       if (io==0) then
-        read(line,*) ctrl%tethering_force
+        read(line,*) ctrl%tethering_force ! provide in u/fs^2
         if (printlevel>1) write(u_log,'(1x,ES11.4)') ctrl%tethering_force
       else
         write(0,*) 'No force constant for tethering of atom given!'
         stop 1
       endif
+      ctrl%tethering_force = ctrl%tethering_force * au2fs**2/au2u
       line=get_value_from_key('tethering_radius',io)
       if (io==0) then
         read(line,*) ctrl%tethering_radius
@@ -2646,6 +2632,7 @@ module input
           write(u_log,'(1x,ES11.4)') traj%tethering_pos
         endif
         traj%tethering_pos = traj%tethering_pos/au2a ! in atomic units
+        deallocate(values)
       else
         !use center of mass at time 0 of specified tether atoms as center of tethering potential
         traj%tethering_pos(:) = calc_centerofmass(traj,ctrl)
@@ -2694,12 +2681,11 @@ module input
     ! geometry is read in bohrs, as specified in the COLUMBUS geom format
     ! velocity is read in as bohrs/atu
     ! laser field must be in a.u.
-    ! langevin friction coefficient in a.u.^-1
+    ! langevin modified temperature (friction const*kB*T) in a.u.
     if (ctrl%thermostat==1) then
-      do i=1,ctrl%ntempregions
-        ctrl%thermostat_const(ctrl%ntempregions,1)=ctrl%thermostat_const(ctrl%ntempregions,1)*au2fs
-      enddo
+      ctrl%temperature=ctrl%temperature*au2fs/au2eV
     endif
+    ! numbers necessary for droplet potential or tethering are already converted to a.u.
 
   ! =====================================================
     ! write some basic information into the data file
@@ -2789,77 +2775,5 @@ module input
   endfunction
 
 ! ===================================================
-
-!> calculates 3 vectors (as one big matrix 3*Natoms x 3) in directions of the total rotations of the system
-!> orthonormalize translat. and rot. vectors of system ->
-!> substract translat. and other-direction rot. components from angular momentum derivatives for this
-!> and normalize (total translation vectors just in x-dir (1 0 0 1 0 0 ...), y/z analogous)
-!  subroutine get_rotation_tot(ctrl,traj)
-!    use definitions
-!    implicit none
-!    type(trajectory_type) :: traj
-!    type(ctrl_type) :: ctrl
-!    integer :: iatom
-!    real*8 :: d1, d2, d3, d4
-!
-!    ! set up angular momentum derivative vector nL_x nL_y nL_x
-!    ! indices: ctrl%rotation_tot(3*(iatom-1)+idir,jdir) with atom iatom, atomic coord. direction idir, global direction jdir 
-!    do iatom=1,ctrl%natom
-!      ctrl%rotation_tot(3*(iatom-1)+1,1) = 0. 
-!      ctrl%rotation_tot(3*(iatom-1)+2,1) = -traj%mass_a(iatom)*traj%geom_ad(iatom,3)
-!      ctrl%rotation_tot(3*(iatom-1)+3,1) = traj%mass_a(iatom)*traj%geom_ad(iatom,2)
-!      ctrl%rotation_tot(3*(iatom-1)+1,2) = traj%mass_a(iatom)*traj%geom_ad(iatom,3)
-!      ctrl%rotation_tot(3*(iatom-1)+2,2) = 0.
-!      ctrl%rotation_tot(3*(iatom-1)+3,2) = -traj%mass_a(iatom)*traj%geom_ad(iatom,1)
-!      ctrl%rotation_tot(3*(iatom-1)+1,3) = -traj%mass_a(iatom)*traj%geom_ad(iatom,2)
-!      ctrl%rotation_tot(3*(iatom-1)+2,3) = traj%mass_a(iatom)*traj%geom_ad(iatom,1)
-!      ctrl%rotation_tot(3*(iatom-1)+3,3) = 0.
-!    enddo
-!    ! create corresp. dot products to subtract projected translational components
-!    d1 = dot_product(traj%mass_a,traj%geom_ad(:,1))/ctrl%natom
-!    d2 = dot_product(traj%mass_a,traj%geom_ad(:,2))/ctrl%natom
-!    d3 = dot_product(traj%mass_a,traj%geom_ad(:,3))/ctrl%natom
-!
-!    !rot_x
-!    ! subtract projected translational components
-!    do iatom=1,ctrl%natom
-!      ctrl%rotation_tot(3*(iatom-1)+2,1) = ctrl%rotation_tot(3*(iatom-1)+2,1) - d3
-!      ctrl%rotation_tot(3*(iatom-1)+3,1) = ctrl%rotation_tot(3*(iatom-1)+3,1) + d2
-!    enddo
-!    !normalize
-!    ctrl%rotation_tot(:,1) = ctrl%rotation_tot(:,1) / sqrt(dot_product(ctrl%rotation_tot(:,1),ctrl%rotation_tot(:,1)))
-!
-!    ! nL_y*rot_x and nL_z*rot_x
-!    d4 = dot_product(ctrl%rotation_tot(:,2), ctrl%rotation_tot(:,1))
-!
-!    !rot_y
-!    ! subtract projected translational components
-!    do iatom=1,ctrl%natom
-!      ctrl%rotation_tot(3*(iatom-1)+1,2) = ctrl%rotation_tot(3*(iatom-1)+1,2) + d3
-!      ctrl%rotation_tot(3*(iatom-1)+3,2) = ctrl%rotation_tot(3*(iatom-1)+3,2) - d1
-!    enddo
-!    ! subtract projected other rotational components
-!    ctrl%rotation_tot(:,2) = ctrl%rotation_tot(:,2) - d4 * ctrl%rotation_tot(:,1)
-!    !normalize
-!    ctrl%rotation_tot(:,2) = ctrl%rotation_tot(:,2) / sqrt(dot_product(ctrl%rotation_tot(:,2),ctrl%rotation_tot(:,2)))
-!    
-!    ! nL_z*rot_y
-!    d3 = dot_product(ctrl%rotation_tot(:,3), ctrl%rotation_tot(:,1))
-!    d4 = dot_product(ctrl%rotation_tot(:,3),  ctrl%rotation_tot(:,2))
-!
-!    !rot_z
-!    ! subtract projected translational components
-!    do iatom=1,ctrl%natom
-!      ctrl%rotation_tot(3*(iatom-1)+1,3) = ctrl%rotation_tot(3*(iatom-1)+1,3) - d2
-!      ctrl%rotation_tot(3*(iatom-1)+2,3) = ctrl%rotation_tot(3*(iatom-1)+2,3) + d1
-!    enddo
-!    ! subtract projected other rotational components
-!    ctrl%rotation_tot(:,3) = ctrl%rotation_tot(:,3) - d3 * ctrl%rotation_tot(:,1) - d4 * ctrl%rotation_tot(:,2)
-!    !normalize
-!    ctrl%rotation_tot(:,3) = ctrl%rotation_tot(:,3) / sqrt(dot_product(ctrl%rotation_tot(:,3),ctrl%rotation_tot(:,3)))
-!
-!  endsubroutine
-
-! =================================================================== !
 
 endmodule

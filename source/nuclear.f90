@@ -96,23 +96,18 @@ subroutine VelocityVerlet_xstep(traj,ctrl)
     case (1) ! Langevin thermostat
       allocate(b(ctrl%ntempregions))
       do iregion=1,ctrl%ntempregions
-        b(iregion)=1/(1+ctrl%thermostat_const(iregion,1)*ctrl%dtstep*0.5d0)
+        b(iregion)=1/(1+ctrl%thermostat_const(iregion,1)) !ctrl%thermostat_const is 0.5frict.*dt here
       enddo
       ! create randomness vector
       do iatom=1,ctrl%natom
         if (ctrl%atommask_b(iatom) .eqv. .false.) cycle ! skip for frozen atoms
-        !b=1/(1+ctrl%thermostat_const(1)*ctrl%dtstep/(2*traj%mass_a(iatom)))
-        do idir=1,3                 ! propagate positions according to Langevin equation
-          traj%thermostat_random(3*(iatom-1)+idir)=rnor()*ctrl%temperature(ctrl%tempregion(iatom)) !ctrl%temperature is sqrt(variance) here
+        do idir=1,3                 ! generate random component, (ctrl%temperature is frict.*kB*T here)
+          traj%thermostat_random(3*(iatom-1)+idir)=rnor()*b(ctrl%tempregion(iatom))&
+                  &*sqrt(ctrl%temperature(ctrl%tempregion(iatom))*ctrl%dtstep/traj%mass_a(iatom))
         enddo
       enddo
       if (ctrl%remove_trans_rot) then !remove total trans and rot components from randomness
-        !call get_rotation_tot(ctrl,traj)
-        !write(*,*) 'random before'
-        !write(*,*) traj%thermostat_random
         call remove_trans_rot_components(traj%thermostat_random, ctrl, traj)
-        !write(*,*) 'random after'
-        !write(*,*) traj%thermostat_random
       endif
       !propagate positions with thermostat
       do iatom=1,ctrl%natom
@@ -123,9 +118,9 @@ subroutine VelocityVerlet_xstep(traj,ctrl)
 
           traj%geom_ad(iatom,idir)=&
           & traj%geom_ad(iatom,idir)&
-          &+b(ctrl%tempregion(iatom))*traj%veloc_ad(iatom,idir)*ctrl%dtstep&
-          &+0.5d0*b(ctrl%tempregion(iatom))*traj%accel_ad(iatom,idir)*ctrl%dtstep**2&
-          &+0.5d0*b(ctrl%tempregion(iatom))*traj%thermostat_random(3*(iatom-1)+idir)*ctrl%dtstep/sqrt(traj%mass_a(iatom))
+          &+b(ctrl%tempregion(iatom))*( traj%veloc_ad(iatom,idir)*ctrl%dtstep&
+          &                           +0.5d0*traj%accel_ad(iatom,idir)*ctrl%dtstep**2 )&
+          &+ ctrl%dtstep* sqrt(0.5d0) *traj%thermostat_random(3*(iatom-1)+idir)
         enddo
       enddo
       deallocate(b)
@@ -145,6 +140,7 @@ subroutine VelocityVerlet_xstep(traj,ctrl)
           ! define the atomic id of the atoms that have fixed distance
           iA=ctrl%constraints_ca(iconstr,1)
           iB=ctrl%constraints_ca(iconstr,2)
+          !TODO: think about how to handle RATTLE + frozen atoms
           !if ((ctrl%atommask_b(iA) .eqv. .false.) .or. (ctrl%atommask_b(iB) .eqv. .false.)) then
           !  check_constraints(iconstr) = .TRUE.
           !  if (printlevel>2) then
@@ -243,21 +239,19 @@ subroutine VelocityVerlet_vstep(traj,ctrl)
       allocate(a(ctrl%ntempregions))
       allocate(b(ctrl%ntempregions))
       do iregion=1,ctrl%ntempregions
-        a(iregion)=ctrl%thermostat_const(iregion,1)*ctrl%dtstep*0.5d0
-        b(iregion)=1/(1+a(iregion))
-        a(iregion)=(1-a(iregion))*b(iregion)
+        b(iregion)=1/(1+ctrl%thermostat_const(iregion,1)) !ctrl%thermostat_const is 0.5frict.*dt here
+        a(iregion)=(1-ctrl%thermostat_const(iregion,1))*b(iregion)
       enddo
       do iatom=1,ctrl%natom
         if (ctrl%atommask_b(iatom) .eqv. .false.) cycle ! skip for frozen atoms
-        !a=ctrl%thermostat_const(1)*ctrl%dtstep/(2*traj%mass_a(iatom))
         do idir=1,3
-          traj%accel_ad(iatom,idir)=0.5d0*(a(ctrl%tempregion(iatom))*traj%accel_ad(iatom,idir)&
+          traj%accel_ad(iatom,idir)=0.5d0*( a(ctrl%tempregion(iatom))*traj%accel_ad(iatom,idir)&
           &-traj%grad_ad(iatom,idir)/traj%mass_a(iatom) )
     
           traj%veloc_ad(iatom,idir)=&
           & a(ctrl%tempregion(iatom))*traj%veloc_ad(iatom,idir)&
           &+traj%accel_ad(iatom,idir)*ctrl%dtstep&
-          &+b(ctrl%tempregion(iatom))*traj%thermostat_random(3*(iatom-1)+idir)/sqrt(traj%mass_a(iatom))
+          &+sqrt(2.0d0)*traj%thermostat_random(3*(iatom-1)+idir)
         enddo
       enddo
       deallocate(a)
@@ -603,6 +597,7 @@ endsubroutine
 !> projects out the total translational and rotational (ctrl%rotation_tot) components from a 3*natom (3*iatom+idir) vector
 subroutine remove_trans_rot_components(vect,ctrl,traj)
   use definitions
+  use misc
   implicit none
   type(ctrl_type), intent(in) :: ctrl
   type(trajectory_type), intent(in) :: traj
@@ -621,9 +616,6 @@ subroutine remove_trans_rot_components(vect,ctrl,traj)
     enddo
   enddo
   x = x / dot_product(traj%mass_a,traj%mass_a)
-  !write(*,*) 'removed transl:'
-  !write(*,*) x
-
   do idir=1,3
     do iatom=1,ctrl%natom
       vect(3*(iatom-1)+idir) =  vect(3*(iatom-1)+idir) - x(idir) * traj%mass_a(iatom)
@@ -631,11 +623,9 @@ subroutine remove_trans_rot_components(vect,ctrl,traj)
   enddo
 
   ! rotational components of vect
+  call get_rotation_tot(ctrl,traj)
   do idir=1,3
-    !write(*,*) 'removed rot:'
-    !write(*,*) dot_product(temp, ctrl%rotation_tot(:,idir)) * ctrl%rotation_tot(:,idir)
     vect(:) =  vect(:) - dot_product(temp, ctrl%rotation_tot(:,idir)) * ctrl%rotation_tot(:,idir)
-    ! also *sqrt(m_i)
   enddo
 
 endsubroutine

@@ -41,7 +41,7 @@ USE_LIBS := mkl
 COMP_STATIC := false
 
 #needed for PYSHARC
-ANACONDA := /user/brigitta/anaconda3/envs/wrk
+ANACONDA := /user/brigitta/anaconda3/envs/wrk2
 #ANACONDA := ${CONDA_PREFIX}
 # =======================================
 

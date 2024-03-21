@@ -725,6 +725,7 @@ module restart
     ! set up thermostat randomness
     if (ctrl%thermostat==1 .and. ctrl%restart_thermostat_random .eqv. .true.) then
        ! initialte and call the ziggurat random number generator (used for thermostat) until it is in the same status as before the restart
+       !call init_random_seed_thermostat(traj%rngseed_thermostat)
        call zigset(traj%rngseed_thermostat+37+17**2)
        do i=1,3*ctrl%natom*traj%step
          dummy_randnum=rnor()
@@ -734,12 +735,12 @@ module restart
        ! initialte the ziggurat random number generator (used for thermostat),
        ! starts from random seed given in restart.traj! (only use this option for when manually given new random seed in restart.traj!)
        call zigset(traj%rngseed_thermostat+37+17**2)
+       !call init_random_seed_thermostat(traj%rngseed_thermostat)
        allocate (traj%thermostat_random(3*ctrl%natom)) ! allocate randomness for all atoms in all directions
     endif
-    ! compute total rotational component
+    ! allocate total rotational component
     if(ctrl%thermostat/=0 .and. ctrl%remove_trans_rot) then
        allocate(ctrl%rotation_tot(3*ctrl%natom,3))
-       call get_rotation_tot(ctrl,traj)
     endif
 
     ! since the relaxation check is done after writing the restart file,
