@@ -423,6 +423,7 @@ def test_gettasks_init():
         test_interface = SHARC_MOLCAS()
         test_interface.setup_mol(qmin)
         test_interface.read_template(templ)
+        test_interface.QMin.template["ipea"] = 0.0
         test_interface._read_resources = True
         test_interface.read_requests(qmin)
         test_interface.setup_interface()
@@ -434,109 +435,6 @@ def test_gettasks_init():
             except Exception as exc:
                 shutil.rmtree(os.path.join(os.getcwd(), "SAVE"))
                 raise RuntimeError(exc)
-    shutil.rmtree(os.path.join(os.getcwd(), "SAVE"))
-
-
-@pytest.mark.skip()
-def test_gettasks():
-    tests = [
-        (
-            os.path.join(PATH, "inputs/molcas/tasks/QM5.in"),
-            os.path.join(PATH, "inputs/molcas/tasks/template_casscf"),
-            {
-                "master": (
-                    0,
-                    [
-                        ["gateway"],
-                        ["seward"],
-                        ["link", f"{os.getcwd()}/SAVE/MOLCAS.1.JobIph.0", "JOBOLD"],
-                        ["rasscf", 1, 4, True, False],
-                        ["copy", "MOLCAS.JobIph", "MOLCAS.1.JobIph"],
-                        ["link", f"{os.getcwd()}/SAVE/MOLCAS.2.JobIph.0", "JOBOLD"],
-                        ["rasscf", 2, 2, True, False],
-                        ["copy", "MOLCAS.JobIph", "MOLCAS.2.JobIph"],
-                        ["link", f"{os.getcwd()}/SAVE/MOLCAS.1.JobIph.0", "JOB001"],
-                        ["link", "MOLCAS.1.JobIph", "JOB002"],
-                        ["rassi", "overlap", [4, 4]],
-                        ["link", f"{os.getcwd()}/SAVE/MOLCAS.2.JobIph.0", "JOB001"],
-                        ["link", "MOLCAS.2.JobIph", "JOB002"],
-                        ["rassi", "overlap", [2, 2]],
-                        ["link", "MOLCAS.1.JobIph", "JOB001"],
-                        ["link", "MOLCAS.2.JobIph", "JOB002"],
-                        ["rassi", "soc", [4, 2]],
-                    ],
-                ),
-                "grad_1_1": (
-                    1,
-                    [
-                        ["link", "MOLCAS.1.JobIph", "JOBOLD"],
-                        ["rasscf", 1, 4, True, False],
-                        ["mclr", 0.0001, "sala=1"],
-                        ["alaska"],
-                    ],
-                ),
-            },
-        ),
-        (
-            os.path.join(PATH, "inputs/molcas/tasks/QM5.in"),
-            os.path.join(PATH, "inputs/molcas/tasks/template_xmscaspt2"),
-            {
-                "master": (
-                    0,
-                    [
-                        ["gateway"],
-                        ["seward"],
-                        ["link", f"{os.getcwd()}/SAVE/MOLCAS.1.JobIph.0", "JOBOLD"],
-                        ["rasscf", 1, 4, True, False],
-                        ["caspt2", 1, 4, "xms-caspt2"],
-                        ["copy", "MOLCAS.JobMix", "MOLCAS.1.JobIph"],
-                        ["link", f"{os.getcwd()}/SAVE/MOLCAS.2.JobIph.0", "JOBOLD"],
-                        ["rasscf", 2, 2, True, False],
-                        ["caspt2", 2, 2, "xms-caspt2"],
-                        ["copy", "MOLCAS.JobMix", "MOLCAS.2.JobIph"],
-                        ["link", f"{os.getcwd()}/SAVE/MOLCAS.1.JobIph.0", "JOB001"],
-                        ["link", "MOLCAS.1.JobIph", "JOB002"],
-                        ["rassi", "overlap", [4, 4]],
-                        ["link", f"{os.getcwd()}/SAVE/MOLCAS.2.JobIph.0", "JOB001"],
-                        ["link", "MOLCAS.2.JobIph", "JOB002"],
-                        ["rassi", "overlap", [2, 2]],
-                        ["link", "MOLCAS.1.JobIph", "JOB001"],
-                        ["link", "MOLCAS.2.JobIph", "JOB002"],
-                        ["rassi", "soc", [4, 2]],
-                    ],
-                ),
-                "grad_1_1": (
-                    1,
-                    [
-                        ["link", "MOLCAS.1.JobIph", "JOBOLD"],
-                        ["rasscf", 1, 4, True, False],
-                        ["caspt2", 1, 4, "xms-caspt2", "GRDT\nrlxroot = 1"],
-                        ["mclr", 0.0001],
-                        ["alaska"],
-                    ],
-                ),
-            },
-        ),
-    ]
-
-    with open(f"{os.path.abspath(os.curdir)}/SAVE/STEP", "w", encoding="utf-8") as file:
-        file.write("0")
-    for qmin, templ, ref in tests:
-        test_interface = SHARC_MOLCAS()
-        test_interface.setup_mol(qmin)
-        test_interface.read_template(templ)
-        test_interface._read_resources = True
-        test_interface.QMin.save["step"] = 0
-        test_interface.read_requests(qmin)
-        test_interface.setup_interface()
-        test_interface.QMin.scheduling["schedule"] = test_interface._generate_schedule()
-        for k, v in ref.items():
-            tasks = test_interface._gen_tasklist(test_interface.QMin.scheduling["schedule"][v[0]][k])
-            try:
-                assert tasks == v[1], f"Key: {k}, QMin: {qmin}"
-            except Exception as exc:
-                # shutil.rmtree(os.path.join(os.getcwd(), "SAVE"))
-                raise exc
     shutil.rmtree(os.path.join(os.getcwd(), "SAVE"))
 
 
@@ -565,35 +463,6 @@ def test_write_geom():
         test_interface.setup_mol(geom)
         test_interface.set_coords(geom)
         assert test_interface._write_geom(test_interface.QMin.molecule["elements"], test_interface.QMin.coords["coords"]) == ref
-
-
-@pytest.mark.skip()
-def test_write_input():
-    tests = [
-        (
-            os.path.join(PATH, "inputs/molcas/inputfile/QM.in"),
-            os.path.join(PATH, "inputs/molcas/inputfile/template_casscf"),
-            (
-                f"&GATEWAY\nCOORD=MOLCAS.xyz\nGROUP=NOSYM\nBASIS=cc-pvdz\nAMFI\nangmom\n0 0 0\nBASLIB\n{os.getcwd()}/basisset\n\nRICD\nCDTHreshold=0.0001\n\n&SEWARD\nDOANA\n\n&RASSCF\nSPIN=1\nNACTEL=8 0 0\nINACTIVE=5\nRAS2=6\nITERATIONS=200,100\nCIROOT=4 5; 1 2 3 4 ;1 1 1 1 \nORBLISTING=NOTHING\nPRWF=0.1\nTHRS=1.0e-10 1.0e-06 1.0e-06\n\n>> COPY MOLCAS.JobIph MOLCAS.1.JobIph\n\n>> COPY MOLCAS.rasscf.molden MOLCAS.1.molden\n\n>> COPY MOLCAS.1.JobIph JOB001\n\n&RASSI\nNROFJOBIPHS\n1 4\n1 2 3 4\nMEIN\n\n&RASSCF\nSPIN=2\nNACTEL=7 0 0\nINACTIVE=5\nRAS2=6\nITERATIONS=200,100\nCIROOT=2 2 1\nORBLISTING=NOTHING\nPRWF=0.1\nTHRS=1.0e-10 1.0e-06 1.0e-06\n\n>> COPY MOLCAS.JobIph MOLCAS.2.JobIph\n\n>> COPY MOLCAS.rasscf.molden MOLCAS.2.molden\n\n>> COPY MOLCAS.2.JobIph JOB001\n\n&RASSI\nNROFJOBIPHS\n1 2\n1 2\nMEIN\n\n>> COPY MOLCAS.1.JobIph JOB001\n\n>> COPY MOLCAS.2.JobIph JOB002\n\n&RASSI\nNROFJOBIPHS\n2 4 2\n1 2 3 4\n1 2\nMEIN\nSPINORBIT\nSOCOUPLING=0.0d0\nEJOB\n\n",
-                ">> COPY MOLCAS.1.JobIph JOBOLD\n\n>> COPY MOLCAS.1.JobIph JOBOLD\n\n&RASSCF\nSPIN=1\nNACTEL=8 0 0\nINACTIVE=5\nRAS2=6\nITERATIONS=200,100\nCIROOT=4 5; 1 2 3 4 ;1 1 1 1 \nORBLISTING=NOTHING\nPRWF=0.1\nTHRS=1.0e-10 1.0e-06 1.0e-06\nJOBIPH\n\n&MCLR\nTHRESHOLD=0.000100\nsala=1\n\n&ALASKA\n\n>> COPY MOLCAS.2.JobIph JOBOLD\n\n",
-                ">> COPY MOLCAS.1.JobIph JOBOLD\n\n>> COPY MOLCAS.1.JobIph JOBOLD\n\n&RASSCF\nSPIN=1\nNACTEL=8 0 0\nINACTIVE=5\nRAS2=6\nITERATIONS=200,100\nCIROOT=4 5; 1 2 3 4 ;1 1 1 1 \nORBLISTING=NOTHING\nPRWF=0.1\nTHRS=1.0e-10 1.0e-06 1.0e-06\nJOBIPH\n\n&MCLR\nTHRESHOLD=0.000100\nnac=1 2\n\n&ALASKA\n\n>> COPY MOLCAS.1.JobIph JOB001\n\n>> COPY MOLCAS.JobIph JOB002\n\n>> COPY MOLCAS.1.JobIph JOB002\n\n&RASSI\nNROFJOBIPHS\n2 4 4\n1 2 3 4\n1 2 3 4\nMEIN\nOVERLAPS\n\n>> COPY MOLCAS.2.JobIph JOBOLD\n\n>> COPY MOLCAS.2.JobIph JOB001\n\n>> COPY MOLCAS.JobIph JOB002\n\n>> COPY MOLCAS.2.JobIph JOB002\n\n&RASSI\nNROFJOBIPHS\n2 2 2\n1 2\n1 2\nMEIN\nOVERLAPS\n\n",
-            ),
-        )
-    ]
-    for qmin, template, ref in tests:
-        test_interface = SHARC_MOLCAS()
-        test_interface.setup_mol(qmin)
-        test_interface.read_template(template)
-        test_interface._read_resources = True
-        test_interface.setup_interface()
-        test_interface.read_requests(qmin)
-        test_interface.QMin.scheduling["schedule"] = test_interface._generate_schedule()
-        master = test_interface.QMin.scheduling["schedule"][0]["master"]
-        assert test_interface._write_input(test_interface._gen_tasklist(master), master) == ref[0]
-        grad = test_interface.QMin.scheduling["schedule"][1]["grad_1_1"]
-        # print(test_interface._write_input(test_interface._gen_tasklist(grad),grad))
-        assert test_interface._write_input(test_interface._gen_tasklist(grad), grad) == ref[1]
-        nac = test_interface.QMin.scheduling["schedule"][1]["nacdr_1_1_1_2"]
 
 
 def test_get_energy():
@@ -628,6 +497,11 @@ def test_get_energy():
             "xms-caspt2",
             os.path.join(PATH, "inputs/molcas/output/hdmsoc420xmscaspt2"),
         ),
+        (
+            os.path.join(PATH, "inputs/molcas/tasks/QM6.in"),
+            "casscf",
+            os.path.join(PATH, "inputs/molcas/output/hsocdm620casscf"),
+        ),
     ]
 
     for qmin, method, output in tests:
@@ -639,7 +513,6 @@ def test_get_energy():
         with open(f"{output}.out", "r", encoding="utf-8") as ascii_out:
             a = test_interface._get_energy(hdf)
             b = test_interface._get_energy(ascii_out.read())
-            print("\n\n", a, "\n\n", b)
             assert np.allclose(a, b)
 
 
@@ -669,6 +542,11 @@ def test_get_socs():
             os.path.join(PATH, "inputs/molcas/tasks/QM1.in"),
             "xms-caspt2",
             os.path.join(PATH, "inputs/molcas/output/hdmsoc420xmscaspt2"),
+        ),
+        (
+            os.path.join(PATH, "inputs/molcas/tasks/QM6.in"),
+            "casscf",
+            os.path.join(PATH, "inputs/molcas/output/hsocdm620casscf"),
         ),
     ]
 
@@ -765,9 +643,9 @@ def test_get_nac():
             os.path.join(PATH, "inputs/molcas/output/casscf_nac"),
             np.array(
                 [
-                    [-4.59600985544311e-01, -3.27056590371374e-12, -1.52794321395426e-12],
-                    [1.98996064900520e-01, 2.40445696386980e-12, 2.70792725056564e-12],
-                    [1.98991580093693e-01, 1.10942176397583e-12, -9.14928384659732e-13],
+                    [4.59600985544311e-01, 3.27056590371374e-12, 1.52794321395426e-12],
+                    [-1.98996064900520e-01, -2.40445696386980e-12, -2.70792725056564e-12],
+                    [-1.98991580093693e-01, -1.10942176397583e-12, 9.14928384659732e-13],
                 ]
             ),
         ),
@@ -775,9 +653,9 @@ def test_get_nac():
             os.path.join(PATH, "inputs/molcas/output/pdft_nac"),
             np.array(
                 [
-                    [-4.49619731397271e-01, 1.35330745308723e-04, -2.23672171966667e00],
-                    [1.94059028259231e-01, -1.44604756461768e00, 1.11830692616236e00],
-                    [1.93946961370966e-01, 1.44591223387113e00, 1.11841479350129e00],
+                    [4.49619731397271e-01, -1.35330745308723e-04, 2.23672171966667e00],
+                    [-1.94059028259231e-01, 1.44604756461768e00, -1.11830692616236e00],
+                    [-1.93946961370966e-01, -1.44591223387113e00, -1.11841479350129e00],
                 ]
             ),
         ),
@@ -785,9 +663,9 @@ def test_get_nac():
             os.path.join(PATH, "inputs/molcas/output/mscaspt2_nac"),
             np.array(
                 [
-                    [4.87321455128924e-05, -8.67742769351658e-12, -1.38750932444674e-12],
-                    [-2.43771930304102e-05, 6.91832006617452e-13, 1.03435069236944e-11],
-                    [-2.43549524825160e-05, 7.98559568689917e-12, -8.95599759924761e-12],
+                    [-4.87321455128924e-05, 8.67742769351658e-12, 1.38750932444674e-12],
+                    [2.43771930304102e-05, -6.91832006617452e-13, -1.03435069236944e-11],
+                    [2.43549524825160e-05, -7.98559568689917e-12, 8.95599759924761e-12],
                 ]
             ),
         ),
@@ -795,9 +673,9 @@ def test_get_nac():
             os.path.join(PATH, "inputs/molcas/output/xmscaspt2_nac"),
             np.array(
                 [
-                    [1.43880397582491e-05, 1.28300680798075e-11, -8.32265069311128e-12],
-                    [-7.21476729695450e-06, -5.43217088215603e-12, -3.39707753610685e-12],
-                    [-7.17327246347659e-06, -7.39789719765155e-12, 1.17197282292181e-11],
+                    [-1.43880397582491e-05, -1.28300680798075e-11, 8.32265069311128e-12],
+                    [7.21476729695450e-06, 5.43217088215603e-12, 3.39707753610685e-12],
+                    [7.17327246347659e-06, 7.39789719765155e-12, -1.17197282292181e-11],
                 ]
             ),
         ),
@@ -805,5 +683,65 @@ def test_get_nac():
 
     for nac, ref in tests:
         test_interface = SHARC_MOLCAS()
+        test_interface.QMin.molecule["states"] = [4, 2]
         with open(nac, "r", encoding="utf-8") as file:
-            assert np.allclose(test_interface._get_nacdr(file.read()), np.einsum("ij->ji", ref))
+            assert np.allclose(test_interface._get_nacdr(file.read()), ref)
+
+
+def test_get_dipoles():
+    tests = [
+        (
+            os.path.join(PATH, "inputs/molcas/output/dipoles/QM1.in"),
+            "casscf",
+            os.path.join(PATH, "inputs/molcas/output/dipoles/621casscf"),
+        ),
+        (
+            os.path.join(PATH, "inputs/molcas/output/dipoles/QM1.in"),
+            "caspt2",
+            os.path.join(PATH, "inputs/molcas/output/dipoles/621caspt2"),
+        ),
+        (
+            os.path.join(PATH, "inputs/molcas/output/dipoles/QM1.in"),
+            "ms-caspt2",
+            os.path.join(PATH, "inputs/molcas/output/dipoles/621mscaspt2"),
+        ),
+        (
+            os.path.join(PATH, "inputs/molcas/output/dipoles/QM2.in"),
+            "xms-caspt2",
+            os.path.join(PATH, "inputs/molcas/output/dipoles/622xmscaspt2"),
+        ),
+        (
+            os.path.join(PATH, "inputs/molcas/output/dipoles/QM3.in"),
+            "casscf",
+            os.path.join(PATH, "inputs/molcas/output/dipoles/101casscf"),
+        ),
+        (
+            os.path.join(PATH, "inputs/molcas/output/dipoles/QM4.in"),
+            "casscf",
+            os.path.join(PATH, "inputs/molcas/output/dipoles/1111casscf"),
+        ),
+        (
+            os.path.join(PATH, "inputs/molcas/output/dipoles/QM5.in"),
+            "casscf",
+            os.path.join(PATH, "inputs/molcas/output/dipoles/2222casscf"),
+        ),
+    ]
+
+    for qmin, method, output in tests:
+        test_interface = SHARC_MOLCAS()
+        test_interface.setup_mol(qmin)
+        test_interface.QMin.template["method"] = method
+        test_interface.setup_interface()
+
+        s_cnt = 0
+        ref_hdf = np.zeros((3, test_interface.QMin.molecule["nmstates"], test_interface.QMin.molecule["nmstates"]))
+        for m, s in enumerate(test_interface.QMin.molecule["states"], 1):
+            if s > 0:
+                with h5py.File(f"{output}.{m}.h5", "r") as dp:
+                    for _ in range(m):
+                        ref_hdf[:, s_cnt : s_cnt + s, s_cnt : s_cnt + s] = dp["SFS_EDIPMOM"][:]
+                        s_cnt += s
+
+        with open(f"{output}.out", "r", encoding="utf-8") as ascii_out:
+            ref_ascii = test_interface._get_dipoles(ascii_out.read())
+            assert np.allclose(ref_ascii, ref_hdf)
