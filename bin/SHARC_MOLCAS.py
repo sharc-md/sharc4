@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import datetime
 import os
 import re
@@ -8,6 +9,7 @@ from functools import cmp_to_key
 from io import TextIOWrapper
 from itertools import product
 from typing import Any
+from math import ceil
 
 import h5py
 import numpy as np
@@ -325,6 +327,11 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             self.log.error(f"No analytical gradients for cms-pdft and {self.QMin.template['functional']}.")
             raise ValueError()
 
+        # States must be > 1 for xms-caspt2
+        if self.QMin.template["method"] == "xms-caspt2" and any((i == 1 for i in self.QMin.molecule["states"])):
+            self.log.error("All states in XMS-CASPT2 must be > 1!")
+            raise ValueError()
+
     def setup_interface(self) -> None:
         """
         Setup MOLCAS interface
@@ -604,6 +611,8 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         elif qmin.requests["dm"] or qmin.requests["ion"] or qmin.requests["multipolar_fit"]:
             tasks.append(["link", f"MOLCAS.{mult+1}.JobIph", "JOB001"])
             tasks.append(["rassi", "dm", [states]])
+            if self._hdf5:
+                tasks.append(["copy", "MOLCAS.rassi.h5", f"MOLCAS.rassi.{mult+1}.h5"])
             if qmin.requests["multipolar_fit"]:
                 for i in range(states):
                     for j in range(i + 1):
@@ -957,7 +966,17 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                             jstate = key - 1
                     self.QMout["nacdr"][istate, jstate] = self._get_nacdr(nac_out)
         if self.QMin.requests["dm"]:
-            self.QMout["dm"] = self._get_dipoles(master_out)
+            # Full DM matrix in ascii file, sub matrices of mult in h5 files
+            if isinstance(master_out, str):
+                self.QMout["dm"] = self._get_dipoles(master_out)
+            else:
+                s_cnt = 0
+                for m, s in enumerate(self.QMin.molecule["states"], 1):
+                    if s > 0:
+                        with h5py.File(os.path.join(scratchdir, f"master/MOLCAS.rassi.{m}.h5"), "r") as dp:
+                            for _ in range(m):
+                                self.QMout["dm"][:, s_cnt : s_cnt + s, s_cnt : s_cnt + s] = dp["SFS_EDIPMOM"][:]
+                                s_cnt += s
 
     def _get_energy(self, output_file: str | h5py.File) -> np.ndarray:
         """
@@ -1001,7 +1020,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 socs_complex[idx] = complex(val[0], val[1])
             idx = np.tril_indices(self.QMin.molecule["nmstates"])
             soc_mat = np.zeros((self.QMin.molecule["nmstates"], self.QMin.molecule["nmstates"]), dtype=np.complex128)
-            soc_mat[idx] = socs_complex.reshape(-1)
+            soc_mat[idx] = socs_complex
             soc_mat += soc_mat.T.conj()
             soc_mat = soc_mat.conj()
             soc_mat *= 4.556335e-6
@@ -1025,7 +1044,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             self.log.error("No gradients in output file!")
             raise ValueError()
 
-        grad = re.findall(r"(-{0,1}\d+\.\d+E[-|+]\d{2,3})", grad_block.group(1), re.DOTALL)
+        grad = re.findall(r"(-?\d+\.\d+E[-|+]\d{2,3})", grad_block.group(1), re.DOTALL)
         return np.asarray(grad, dtype=float).reshape(-1, 3)
 
     def _get_nacdr(self, output_file: str) -> np.ndarray:
@@ -1040,23 +1059,38 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         if not nac_block:
             self.log.error("No NACs in output file!")
             raise ValueError()
-        nac = re.findall(r"(-{0,1}\d+\.\d+E[-|+]\d{2,3})", nac_block.group(1), re.DOTALL)
+        nac = re.findall(r"(-?\d+\.\d+E[-|+]\d{2,3})", nac_block.group(1), re.DOTALL)
         return np.einsum("ij->ji", np.asarray(nac, dtype=float).reshape(-1, 3))
 
-    def _get_dipoles(self, output_file: str | h5py.File) -> np.ndarray:
+    def _get_dipoles(self, output_file: str) -> np.ndarray:
         """
         Extract (transition) dipole moments from outputfile
         """
-        dipoles = None
-        if isinstance(output_file, str):
-            pass
-        else:
-            dipoles = output_file["SFS_EDIPMOM"][:]
+        dipole_mat = np.zeros((3, self.QMin.molecule["nmstates"], self.QMin.molecule["nmstates"]))
 
-        if dipoles is None:
-            self.log.error("No gradients in output file!")
-            raise ValueError()
-        return np.asarray(dipoles, dtype=float)
+        # Find all occurences of dipole sub matriced
+        all_dp = iter(
+            re.findall(r"PROPERTY: MLTPL\s+[1-9]\d?\D+[1-3]\n[^\n]+\n[^\n]+\n([\s|\d|\.|E|\+|\-|\n]+)", output_file, re.DOTALL)
+        )
+
+        s_cnt = 0
+        for mult, state in enumerate(self.QMin.molecule["states"], 1):
+            dipoles = np.zeros((3, state, state), dtype=float)
+            n_block = ceil(state / 4)  # Matrices are in blocks states*4
+            for i in range(3):
+                for block in range(n_block):
+                    dipoles[i, :, block * 4 : block * 4 + 4] = np.asarray(
+                        re.findall(r"(-?\d+\.\d+E?[\+|-]?\d+)", next(all_dp))
+                    ).reshape(state, -1)
+
+            for _ in range(3 * n_block):  # Skip all extra blocks
+                next(all_dp)
+
+            for _ in range(mult):
+                dipole_mat[:, s_cnt : s_cnt + state, s_cnt : s_cnt + state] = dipoles
+                s_cnt += state
+
+        return dipole_mat
 
 
 if __name__ == "__main__":
