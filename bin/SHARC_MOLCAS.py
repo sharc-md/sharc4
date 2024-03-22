@@ -528,7 +528,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                         is_rasorb = True
                 case {"samestep": True}:
                     tasks.append(
-                        ["link", os.path.join(qmin.save["savedir"], f"MOLCAS.{mult+1}.JobIph.{qmin.save['step']}"), "JOBOLD"]
+                        ["copy", os.path.join(qmin.save["savedir"], f"MOLCAS.{mult+1}.JobIph.{qmin.save['step']}"), "JOBOLD"]
                     )
                     is_jobiph = True
                 case _:
@@ -592,23 +592,26 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         """
         Generate tasklist for properties
         """
+        # TODO: multipolar_fit task makes no sense
         tasks = []
         if qmin.requests["overlap"]:
             if qmin.control["master"]:
                 tasks.append(
-                    ["link", os.path.join(qmin.save["savedir"], f'MOLCAS.{mult+1}.JobIph.{qmin.save["step"]-1}'), "JOB001"]
+                    ["copy", os.path.join(qmin.save["savedir"], f'MOLCAS.{mult+1}.JobIph.{qmin.save["step"]-1}'), "JOB001"]
                 )
                 tasks.append(["link", f"MOLCAS.{mult+1}.JobIph", "JOB002"])
             else:
                 tasks.append(["link", f"MOLCAS.{mult + 1}.JobIph", "JOB001"])
                 tasks.append(["link", "MOLCAS.JobIph", "JOB002"])
             tasks.append(["rassi", "overlap", [states, states]])
+            if self._hdf5:
+                tasks.append(["copy", "MOLCAS.rassi.h5", f"MOLCAS.rassi.ovlp.{mult+1}.h5"])
             if qmin.requests["multipolar_fit"]:
                 for i in range(states):
                     for j in range(i + 1):
                         tasks.append(["copy", f"TRD2_{i+states+1:03d}_{j+states+1:03d}", f"TRD_{mult+1}_{i+1:03d}_{j+1:03d}"])
 
-        elif qmin.requests["dm"] or qmin.requests["ion"] or qmin.requests["multipolar_fit"]:
+        if qmin.requests["dm"] or qmin.requests["ion"] or qmin.requests["multipolar_fit"]:
             tasks.append(["link", f"MOLCAS.{mult+1}.JobIph", "JOB001"])
             tasks.append(["rassi", "dm", [states]])
             if self._hdf5:
@@ -630,6 +633,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             grad = list(qmin.maps["gradmap"])[0]
             mult = grad[0] - 1
             states = qmin.molecule["states"][mult]
+            tasks.append(["copy", f"$master_path/MOLCAS.{mult+1}.JobIph", "JOBOLD"])
             if qmin.template["roots"][mult] == 1:
                 tasks.append(["rasscf", mult + 1, qmin.template["roots"][mult], True, False])
                 if qmin.template["method"] in ("ms-caspt2", "xms-caspt2"):
@@ -637,7 +641,6 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                     raise ValueError()
                 tasks.append(["alaska"])
             else:
-                tasks.append(["copy", f"$master_path/MOLCAS.{mult+1}.JobIph", "JOBOLD"])
                 match qmin.template["method"]:
                     case "cms-pdft":
                         tasks.append(
@@ -988,6 +991,30 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                                 self.QMout["dm"][:, s_cnt : s_cnt + s, s_cnt : s_cnt + s] = dp["SFS_EDIPMOM"][:]
                                 s_cnt += s
 
+        if self.QMin.requests["overlap"]:
+            # Full overlap in ascii file, sub matrices of mult in h5 files
+            ovlp = None
+            if isinstance(master_out, str):
+                ovlp = self._get_overlaps(master_out)
+
+            s_cnt = 0
+            o_cnt = 0
+            for m, s in enumerate(self.QMin.molecule["states"], 1):
+                if s > 0:
+                    if not isinstance(master_out, str):
+                        with h5py.File(os.path.join(scratchdir, f"master/MOLCAS.rassi.ovlp.{m}.h5")) as f:
+                            ovlp = self._get_overlaps(f)
+                            for _ in range(m):
+                                self.QMout["overlap"][s_cnt : s_cnt + s, s_cnt : s_cnt + s] = ovlp
+                                s_cnt += s
+                    else:
+                        for _ in range(m):
+                            self.QMout["overlap"][s_cnt : s_cnt + s, s_cnt : s_cnt + s] = ovlp[
+                                o_cnt : o_cnt + s, o_cnt : o_cnt + s
+                            ]
+                            s_cnt += s
+                        o_cnt += s
+
     def _get_energy(self, output_file: str | h5py.File) -> np.ndarray:
         """
         Extract energies from outputfile
@@ -1024,6 +1051,10 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         soc_mat = None
         if isinstance(output_file, str):
             socs = re.search(r"Real part\s+Imag part\s+Absolute\n(.*) -{70}\n", output_file, re.DOTALL)
+            if socs is None:
+                self.log.error("No SOCs found in output file!")
+                raise ValueError()
+
             socs = np.asarray(convert_list(socs.group(1).split(), float)).reshape(-1, 9)[:, 6:8]
             socs_complex = np.zeros((socs.shape[0]), dtype=np.complex128)
             for idx, val in enumerate(socs):
@@ -1040,9 +1071,6 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         # Reorder multiplicities
         soc_mat = soc_mat[np.ix_(self._h_sort, self._h_sort)]
 
-        if soc_mat is None:
-            self.log.error("No SOCs found in output file!")
-            raise ValueError()
         return soc_mat
 
     def _get_grad(self, output_file: str) -> np.ndarray:
@@ -1061,6 +1089,8 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         """
         Extract NACs from outputfile
         """
+
+        # Get NACs from output file
         nac_block = re.search(
             r"Total derivative coupling\W*[\w* ]+:[\s|\w]+-{90}\s+X\s+Y\s+Z\n -{90}\n([A-Z|\s|\.|\-{1}|\d|+]+) -{90}",
             output_file,
@@ -1071,24 +1101,45 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             raise ValueError()
         nac = re.findall(r"(-?\d+\.\d+E[-|+]\d{2,3})", nac_block.group(1), re.DOTALL)
 
-        # Get overlaps
-        ovlp = re.search(r"OVERLAP MATRIX FOR THE ORIGINAL STATES:(.*)\+\+ Matrix", output_file, re.DOTALL)
-        ovlp = re.sub(r"\n", "\\t", ovlp.group(1))
-        ovlp = np.asarray(re.findall(r"(-?\d{1}\.\d{8})", ovlp), dtype=float)
-
-        # Build overlap matrix
-        states = self.QMin.molecule["states"][int(re.search(r"SPIN=(\d+)", output_file).group(1)) - 1]
+        # get NAC states and get overlaps
         state_i, state_j = re.findall(r"nac=(\d+) (\d+)", output_file)[0]
-        idx = np.tril_indices(states * 2)
-        ovlp_mat = -0.5 * np.eye(states * 2)
-        ovlp_mat[idx] += ovlp
-        ovlp_mat += ovlp_mat.T
+        ovlp_mat = self._get_overlaps(output_file)
 
+        # Adapt NAC to phase
         return (
             np.asarray(nac, dtype=float).reshape(-1, 3)
-            * ovlp_mat[int(state_i) - 1, states + int(state_i) - 1]
-            * ovlp_mat[int(state_j) - 1, states + int(state_j) - 1]
+            * ovlp_mat[int(state_i) - 1, int(state_i) - 1]
+            * ovlp_mat[int(state_j) - 1, int(state_j) - 1]
         )
+
+    def _get_overlaps(self, output_file: str | h5py.File) -> np.ndarray:
+        """
+        Extract overlaps from outputfile
+        """
+        ovlp = None
+        if isinstance(output_file, str):
+            mults = re.findall(r"SPIN=(\d+)", output_file)
+            nmstates = sum(self.QMin.molecule["states"][int(m) - 1] for m in mults)
+            ovlp = np.zeros((nmstates, nmstates))
+            all_ovlps = re.findall(r"OVERLAP MATRIX FOR THE ORIGINAL STATES:\n([\s|\n|\d|\.|-]+)\+\+", output_file, re.DOTALL)
+            s_cnt = 0
+            for i, m in enumerate(mults):
+                sub_mat = re.sub(r"\n", "\\t", all_ovlps[i])
+                sub_mat = np.asarray(re.findall(r"(-?\d{1}\.\d{8})", sub_mat), dtype=float)
+
+                states = self.QMin.molecule["states"][int(m) - 1]
+                idx = np.tril_indices(states * 2)
+
+                tmp_mat = -0.5 * np.eye(states * 2)
+                tmp_mat[idx] += sub_mat
+                tmp_mat += tmp_mat.T
+                ovlp[s_cnt : s_cnt + states, s_cnt : s_cnt + states] = tmp_mat[states:, :states]
+                s_cnt += states
+        else:
+            ovlp = output_file["ORIGINAL_OVERLAPS"][:]
+            ovlp = ovlp[ovlp.shape[0] // 2 :, : ovlp.shape[0] // 2]
+
+        return np.asarray(ovlp, dtype=float)
 
     def _get_dipoles(self, output_file: str) -> np.ndarray:
         """
