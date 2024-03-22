@@ -581,16 +581,14 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 continue
             tasks += self._gen_ovlp_task(qmin, mult, states)
 
-        if qmin.requests["soc"]:
-            i = 0
-            roots = []
-            for mult, states in enumerate(qmin.molecule["states"]):
-                if states == 0:
-                    continue
-                i += 1
-                roots.append(states)
-                tasks.append(["link", f"MOLCAS.{mult+1}.JobIph", f"JOB{i:03d}"])
-            tasks.append(["rassi", "soc", roots])
+
+        roots = []
+        for mult, states in enumerate(qmin.molecule["states"], 1):
+            if states == 0:
+                continue
+            roots.append(states)
+            tasks.append(["link", f"MOLCAS.{mult}.JobIph", f"JOB{mult:03d}"])
+        tasks.append(["rassi", "soc" if qmin.requests["soc"] else "", roots])
 
         return tasks
 
@@ -1045,6 +1043,14 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                     energies = re.findall(r"MS-CASPT2 Root\s+\d+\s+Total energy:\s+(.*)\n", output_file)
                 case "cms-pdft":
                     energies = re.findall(r"CMS-PDFT Root\s+\d+\s+Total energy:\s+(.*)\n", output_file)
+            # Remove extra roots
+            s_cnt = 0
+            for m, s in enumerate(self.QMin.molecule["states"]):
+                if self.QMin.template["roots"][m] > s > 0:
+                    for _ in range(self.QMin.template["roots"][m]-s):
+                        del energies[s_cnt+s]
+                s_cnt += s
+
         else:
             energies = output_file["SFS_ENERGIES"][:].tolist()
 
