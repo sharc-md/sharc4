@@ -8,8 +8,8 @@ from copy import deepcopy
 from functools import cmp_to_key
 from io import TextIOWrapper
 from itertools import product
-from typing import Any
 from math import ceil
+from typing import Any
 
 import h5py
 import numpy as np
@@ -575,7 +575,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             if states == 0:
                 continue
             tasks += self._gen_dp_task(qmin, mult, states)
-        
+
         for mult, states in list_to_do:
             if states == 0:
                 continue
@@ -1025,6 +1025,10 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                             ]
                             s_cnt += s
                         o_cnt += s
+            if self.QMin.requests["phases"]:
+                self.QMout["phases"] = np.einsum("ii->i", self.QMout["overlap"])
+                self.QMout["phases"][self.QMout["phases"] > 0] = 1
+                self.QMout["phases"][self.QMout["phases"] < 0] = -1
 
     def _get_energy(self, output_file: str | h5py.File) -> np.ndarray:
         """
