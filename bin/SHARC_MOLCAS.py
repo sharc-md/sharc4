@@ -41,6 +41,7 @@ all_features = set(
         "phases",
         "multipolar_fit",
         "molden",
+        "theodore",
         # raw data request
         "basis_set",
         "wave_functions",
@@ -569,11 +570,16 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                         tasks.append(["caspt2", mult + 1, states, qmin.template["method"]])
                         tasks.append(["copy", "MOLCAS.JobMix", f"MOLCAS.{mult+1}.JobIph"])
 
-        # Do property jobs last
+        # Do first dp then overlap tasks
         for mult, states in list_to_do:
             if states == 0:
                 continue
-            tasks += self._gen_property_tasks(qmin, mult, states)
+            tasks += self._gen_dp_task(qmin, mult, states)
+        
+        for mult, states in list_to_do:
+            if states == 0:
+                continue
+            tasks += self._gen_ovlp_task(qmin, mult, states)
 
         if qmin.requests["soc"]:
             i = 0
@@ -588,9 +594,9 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
 
         return tasks
 
-    def _gen_property_tasks(self, qmin: QMin, mult: int, states: int) -> list[list[Any]]:
+    def _gen_ovlp_task(self, qmin: QMin, mult: int, states: int) -> list[list[Any]]:
         """
-        Generate tasklist for properties
+        Generate tasklist for overlap and multipolar_fit
         """
         # TODO: multipolar_fit task makes no sense
         tasks = []
@@ -610,7 +616,13 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 for i in range(states):
                     for j in range(i + 1):
                         tasks.append(["copy", f"TRD2_{i+states+1:03d}_{j+states+1:03d}", f"TRD_{mult+1}_{i+1:03d}_{j+1:03d}"])
+        return tasks
 
+    def _gen_dp_task(self, qmin: QMin, mult: int, states: int) -> list[list[Any]]:
+        """
+        Generate tasklist for dipoles, ion and multipolar_fit
+        """
+        tasks = []
         if qmin.requests["dm"] or qmin.requests["ion"] or qmin.requests["multipolar_fit"]:
             tasks.append(["link", f"MOLCAS.{mult+1}.JobIph", "JOB001"])
             tasks.append(["rassi", "dm", [states]])
@@ -620,7 +632,6 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 for i in range(states):
                     for j in range(i + 1):
                         tasks.append(["copy", f"TRD2_{i+1:03d}_{j+1:03d}", f"TRD_{mult+1}_{i+1:03d}_{j+1:03d}"])
-
         return tasks
 
     def _gen_grad_tasks(self, qmin: QMin) -> list[list[Any]]:
@@ -688,7 +699,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                     tasks.append(["caspt2", mult + 1, states, qmin.template["method"], f"GRDT\nnac = {nac[1]} {nac[3]}"])
                     tasks.append(["alaska", nac[1], nac[3]])
 
-            tasks += self._gen_property_tasks(qmin, mult, states)
+            tasks += self._gen_ovlp_task(qmin, mult, states)
         return tasks
 
     def _write_input(self, tasks: list[list[str]], qmin: QMin) -> str:
@@ -1115,6 +1126,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
     def _get_overlaps(self, output_file: str | h5py.File) -> np.ndarray:
         """
         Extract overlaps from outputfile
+        Return full matrix for ascii file, sub matrices for hdf5
         """
         ovlp = None
         if isinstance(output_file, str):
@@ -1159,7 +1171,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             for i in range(3):
                 for block in range(n_block):
                     dipoles[i, :, block * 4 : block * 4 + 4] = np.asarray(
-                        re.findall(r"(-?\d+\.\d+E?[\+|-]?\d+)", next(all_dp))
+                        re.findall(r"(-?\d+\.\d+[E|D]?[\+|-]?\d{0,2})", next(all_dp))
                     ).reshape(state, -1)
 
             for _ in range(3 * n_block):  # Skip all extra blocks

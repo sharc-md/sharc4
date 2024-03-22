@@ -716,6 +716,11 @@ def test_get_dipoles():
             os.path.join(PATH, "inputs/molcas/output/dipoles/621cmspdft"),
         ),
         (
+            os.path.join(PATH, "inputs/molcas/output/dipoles/QM1.in"),
+            "cms-pdft",
+            os.path.join(PATH, "inputs/molcas/output/dipoles/621cmspdft_ovlp"),
+        ),
+        (
             os.path.join(PATH, "inputs/molcas/output/dipoles/QM3.in"),
             "casscf",
             os.path.join(PATH, "inputs/molcas/output/dipoles/101casscf"),
