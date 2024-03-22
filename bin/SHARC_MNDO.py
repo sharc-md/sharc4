@@ -257,13 +257,13 @@ class SHARC_MNDO(SHARC_ABINITIO):
         return
 
 
-    def saveGeometry(self):
-        string = ""
-        for label, atom in zip(self.QMin.molecule["elements"], self.QMin.coords["coords"]):
-            string += "%4s %16.9f %16.9f %16.9f\n" % (label, atom[0], atom[1], atom[2])
-        filename = os.path.join(self.QMin.save["savedir"], f'geom.dat.{self.QMin.save["step"]}')
-        writefile(filename, string)
-        return
+    # def saveGeometry(self):
+    #     string = ""
+    #     for label, atom in zip(self.QMin.molecule["elements"], self.QMin.coords["coords"]):
+    #         string += "%4s %16.9f %16.9f %16.9f\n" % (label, atom[0], atom[1], atom[2])
+    #     filename = os.path.join(self.QMin.save["savedir"], f'geom.dat.{self.QMin.save["step"]}')
+    #     writefile(filename, string)
+    #     return
 
 
     def _get_MO_from_molden(self, molden_file: str):
@@ -978,7 +978,7 @@ mocoef
 
         self.log.debug("All jobs finished successfully")
 
-        self.saveGeometry()
+        # self.saveGeometry()
 
         self.QMout["runtime"] = datetime.datetime.now() - starttime
 
