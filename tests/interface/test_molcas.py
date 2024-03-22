@@ -711,6 +711,11 @@ def test_get_dipoles():
             os.path.join(PATH, "inputs/molcas/output/dipoles/622xmscaspt2"),
         ),
         (
+            os.path.join(PATH, "inputs/molcas/output/dipoles/QM1.in"),
+            "cms-pdft",
+            os.path.join(PATH, "inputs/molcas/output/dipoles/621cmspdft"),
+        ),
+        (
             os.path.join(PATH, "inputs/molcas/output/dipoles/QM3.in"),
             "casscf",
             os.path.join(PATH, "inputs/molcas/output/dipoles/101casscf"),
@@ -829,5 +834,4 @@ def test_get_overlaps():
                     s_cnt += s
                 o_cnt += s
 
-        print(ref_hdf, "\n\n", ref_ascii, "\n\n")
         assert np.allclose(ref_ascii, ref_hdf)
