@@ -38,6 +38,7 @@ all_features = set(
         "grad",
         "nacdr",
         "overlap",
+        "phases",
         "molden",
         "point_charges",
     ]
@@ -596,7 +597,7 @@ mocoef
                 self.QMout.nacdr_pc = self._get_nacs_pc(grads_nacs_file, interstates)
 
         # Populate overlaps, only singlets so this function is simpler than normal
-        if self.QMin.requests["overlap"]:
+        if self.QMin.requests["overlap"] or self.QMin.requests["phases"]:
             outfile = os.path.join(self.QMin.resources["scratchdir"], "wfovl.out")
             ovlp_mat = self.parse_wfoverlap(outfile)
             for i in range(nmstates):
@@ -608,6 +609,12 @@ mocoef
                     if not ms1 == ms2:
                         continue
                     self.QMout["overlap"][i, j] = ovlp_mat[s1-1, s2-1]
+        
+        #Populate Phases if requested
+        if self.QMin.requests["phases"]:
+                for i in range(self.QMin.molecule["nmstates"]):
+                    self.QMout["phases"][i] = -1 if self.QMout["overlap"][i, i] < 0 else 1
+
 
 
     def _get_states_interstates(self, log_path: str):
@@ -910,14 +917,7 @@ mocoef
         for req, val in self.QMin.requests.items():
             if val and req != "retain" and req not in all_features:
                 raise ValueError(f"Found unsupported request {req}.")
-    
-    def _set_driver_requests(self, *args, **kwargs) -> None:
-        super()._set_driver_requests(*args, **kwargs)
-        self.QMin.requests["h"] = True
-
-    def _set_request(self, *args, **kwargs) -> None:
-        super()._set_request(*args, **kwargs)
-        self.QMin.requests["h"] = True
+           
 
 
     def read_template(self, template_file: str = "MNDO.template") -> None:
