@@ -169,6 +169,9 @@ def test_gettasks_init():
                         ["copy", "MOLCAS.JobIph", "MOLCAS.1.JobIph"],
                         ["rasscf", 2, 2, False, False],
                         ["copy", "MOLCAS.JobIph", "MOLCAS.2.JobIph"],
+                        ["link", "MOLCAS.1.JobIph", "JOB001"],
+                        ["link", "MOLCAS.2.JobIph", "JOB002"],
+                        ["rassi", "", [4, 2]],
                     ],
                 )
             },
@@ -186,6 +189,9 @@ def test_gettasks_init():
                         ["copy", "MOLCAS.JobIph", "MOLCAS.1.JobIph"],
                         ["rasscf", 2, 2, False, False],
                         ["copy", "MOLCAS.JobIph", "MOLCAS.2.JobIph"],
+                        ["link", "MOLCAS.1.JobIph", "JOB001"],
+                        ["link", "MOLCAS.2.JobIph", "JOB002"],
+                        ["rassi", "", [4, 2]],
                     ],
                 ),
                 "grad_1_2": (
@@ -361,12 +367,10 @@ def test_gettasks_init():
                         ["rassi", "soc", [4, 2]],
                     ],
                 ),
-                # TODO
                 "grad_1_1": (
                     1,
                     [
                         ["copy", "$master_path/MOLCAS.1.JobIph", "JOBOLD"],
-                        # ["copy", f"{os.getcwd()}/SAVE/Do_Rotate.1.txt", "Do_Rotate.txt"],
                         ["rasscf", 1, 4, True, False, ["RLXROOT=1", "CMSI"]],
                         ["mcpdft", ["KSDFT=t:pbe", "GRAD", "MSPDFT", "WJOB"]],
                         ["alaska", 1],
@@ -470,49 +474,70 @@ def test_get_energy():
         (
             os.path.join(PATH, "inputs/molcas/tasks/QM1.in"),
             "casscf",
+            [4, 2],
             os.path.join(PATH, "inputs/molcas/output/hdmsoc420casscf"),
         ),
         (
             os.path.join(PATH, "inputs/molcas/tasks/QM1.in"),
             "casscf",
+            [4, 2],
             os.path.join(PATH, "inputs/molcas/output/norootpad_hsoc420"),
         ),
         (
             os.path.join(PATH, "inputs/molcas/tasks/QM1.in"),
             "caspt2",
+            [4, 2],
             os.path.join(PATH, "inputs/molcas/output/hdmsoc420caspt2"),
         ),
         (
             os.path.join(PATH, "inputs/molcas/tasks/QM1.in"),
             "cms-pdft",
+            [4, 2],
             os.path.join(PATH, "inputs/molcas/output/hdmsoc420cmspdft"),
         ),
         (
             os.path.join(PATH, "inputs/molcas/tasks/QM1.in"),
             "ms-caspt2",
+            [4, 2],
             os.path.join(PATH, "inputs/molcas/output/hdmsoc420mscaspt2"),
         ),
         (
             os.path.join(PATH, "inputs/molcas/tasks/QM1.in"),
             "xms-caspt2",
+            [4, 2],
             os.path.join(PATH, "inputs/molcas/output/hdmsoc420xmscaspt2"),
         ),
         (
             os.path.join(PATH, "inputs/molcas/tasks/QM6.in"),
             "casscf",
+            [6,2],
             os.path.join(PATH, "inputs/molcas/output/hsocdm620casscf"),
+        ),
+        (
+            os.path.join(PATH, "inputs/molcas/output/QM1.in"),
+            "casscf",
+            [6, 4, 4],
+            os.path.join(PATH, "inputs/molcas/output/621casscf"),
+        ),
+        (
+            os.path.join(PATH, "inputs/molcas/output/QM1.in"),
+            "caspt2",
+            [6, 4, 4],
+            os.path.join(PATH, "inputs/molcas/output/621caspt2"),
         ),
     ]
 
-    for qmin, method, output in tests:
+    for qmin, method, roots, output in tests:
         test_interface = SHARC_MOLCAS()
         test_interface.setup_mol(qmin)
+        test_interface.QMin.template["roots"] = roots
         test_interface.QMin.template["method"] = method
 
         hdf = h5py.File(f"{output}.h5", "r")
         with open(f"{output}.out", "r", encoding="utf-8") as ascii_out:
             a = test_interface._get_energy(hdf)
             b = test_interface._get_energy(ascii_out.read())
+            print(a, "\n\n", b, "\n\n")
             assert np.allclose(a, b)
 
 
