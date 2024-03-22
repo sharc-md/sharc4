@@ -745,3 +745,89 @@ def test_get_dipoles():
         with open(f"{output}.out", "r", encoding="utf-8") as ascii_out:
             ref_ascii = test_interface._get_dipoles(ascii_out.read())
             assert np.allclose(ref_ascii, ref_hdf)
+
+
+def test_get_overlaps():
+    tests = [
+        (
+            os.path.join(PATH, "inputs/molcas/output/ovlp/QM1.in"),
+            "casscf",
+            os.path.join(PATH, "inputs/molcas/output/ovlp/620casscf"),
+        ),
+        (
+            os.path.join(PATH, "inputs/molcas/output/ovlp/QM2.in"),
+            "casscf",
+            os.path.join(PATH, "inputs/molcas/output/ovlp/1001casscf"),
+        ),
+        (
+            os.path.join(PATH, "inputs/molcas/output/ovlp/QM3.in"),
+            "casscf",
+            os.path.join(PATH, "inputs/molcas/output/ovlp/3333casscf"),
+        ),
+        (
+            os.path.join(PATH, "inputs/molcas/output/ovlp/QM4.in"),
+            "casscf",
+            os.path.join(PATH, "inputs/molcas/output/ovlp/4000casscf"),
+        ),
+        (
+            os.path.join(PATH, "inputs/molcas/output/ovlp/QM5.in"),
+            "casscf",
+            os.path.join(PATH, "inputs/molcas/output/ovlp/4200casscf"),
+        ),
+        (
+            os.path.join(PATH, "inputs/molcas/output/ovlp/QM6.in"),
+            "casscf",
+            os.path.join(PATH, "inputs/molcas/output/ovlp/1111casscf"),
+        ),
+        (
+            os.path.join(PATH, "inputs/molcas/output/ovlp/QM3.in"),
+            "caspt2",
+            os.path.join(PATH, "inputs/molcas/output/ovlp/3333caspt2"),
+        ),
+        (
+            os.path.join(PATH, "inputs/molcas/output/ovlp/QM3.in"),
+            "ms-caspt2",
+            os.path.join(PATH, "inputs/molcas/output/ovlp/3333mscaspt2"),
+        ),
+        (
+            os.path.join(PATH, "inputs/molcas/output/ovlp/QM3.in"),
+            "xms-caspt2",
+            os.path.join(PATH, "inputs/molcas/output/ovlp/3333xmscaspt2"),
+        ),
+        (
+            os.path.join(PATH, "inputs/molcas/output/ovlp/QM3.in"),
+            "cms-pdft",
+            os.path.join(PATH, "inputs/molcas/output/ovlp/3333cmspdft"),
+        ),
+    ]
+    for qmin, method, output in tests:
+        test_interface = SHARC_MOLCAS()
+        test_interface.setup_mol(qmin)
+        test_interface.QMin.template["method"] = method
+        test_interface.setup_interface()
+
+        s_cnt = 0
+        ref_hdf = np.zeros((test_interface.QMin.molecule["nmstates"],test_interface.QMin.molecule["nmstates"]))
+        for m, s in enumerate(test_interface.QMin.molecule["states"], 1):
+            if s > 0:
+                with h5py.File(f"{output}.{m}.h5") as f:
+                    ovlp = test_interface._get_overlaps(f)
+                    for _ in range(m):
+                        ref_hdf[s_cnt : s_cnt + s, s_cnt : s_cnt + s] = ovlp
+                        s_cnt += s
+
+        ref_ascii = np.zeros((test_interface.QMin.molecule["nmstates"],test_interface.QMin.molecule["nmstates"]))
+        with open(f"{output}.out", "r") as f:
+            ovlp = f.read()
+        s_cnt = 0
+        o_cnt = 0
+        ovlp = test_interface._get_overlaps(ovlp)
+        for m, s in enumerate(test_interface.QMin.molecule["states"], 1):
+            if s > 0:
+                for _ in range(m):
+                    ref_ascii[s_cnt : s_cnt + s, s_cnt : s_cnt + s] = ovlp[o_cnt : o_cnt + s, o_cnt : o_cnt + s]
+                    s_cnt += s
+                o_cnt += s
+
+        print(ref_hdf, "\n\n", ref_ascii, "\n\n")
+        assert np.allclose(ref_ascii, ref_hdf)
