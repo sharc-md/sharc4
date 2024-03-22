@@ -583,11 +583,13 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
 
 
         roots = []
+        i = 0
         for mult, states in enumerate(qmin.molecule["states"], 1):
             if states == 0:
                 continue
+            i += 1
             roots.append(states)
-            tasks.append(["link", f"MOLCAS.{mult}.JobIph", f"JOB{mult:03d}"])
+            tasks.append(["link", f"MOLCAS.{mult}.JobIph", f"JOB{i:03d}"])
         tasks.append(["rassi", "soc" if qmin.requests["soc"] else "", roots])
 
         return tasks
