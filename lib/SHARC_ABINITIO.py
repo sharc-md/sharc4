@@ -432,7 +432,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                     f"specified grid {self.QMin.resources['resp_grid']} not available.\n Possible options are 'lebedev', 'random', 'golden_spiral', 'gamess', 'marcus_deserno'"
                 )
 
-        if self.QMin.requests["ion"] or self.QMin.requests["overlap"]:
+        if (self.QMin.requests["ion"] or self.QMin.requests["overlap"]) and self.QMin.resources["wfoverlap"] != "":
             self.log.debug(self.QMin.resources["wfoverlap"])
             assert is_exec(self.QMin.resources["wfoverlap"])
 
@@ -696,7 +696,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                         for gs in ground_states:
                             if gs is s1.C["its_gs"] and gs is s2.C["its_gs"]:
                                 break
-                        if ( # TODO: Tomi, is this correct?
+                        if (  # TODO: Tomi, is this correct?
                             (s1, gs, "aa") in doables
                             and (gs, s2, "aa") in doables
                             and (s1, gs, "bb") in doables
@@ -1392,7 +1392,9 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         if mo_file:
             theodore_keys["mo_file"] = mo_file
         self.log.debug(f"theodore input with keys: {theodore_keys}")
-        theodore_input = "\n".join(starmap(lambda k, v: f'{k}="{v}"' if isinstance(v, str) else f"{k}={v}", theodore_keys.items()))
+        theodore_input = "\n".join(
+            starmap(lambda k, v: f'{k}="{v}"' if isinstance(v, str) else f"{k}={v}", theodore_keys.items())
+        )
         writefile(os.path.join(workdir, "dens_ana.in"), theodore_input)
         for s, d in link_files:
             self.log.debug(f"\ttheodore: linking file {s} -> {d}")
