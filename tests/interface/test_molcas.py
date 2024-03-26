@@ -510,7 +510,7 @@ def test_get_energy():
         (
             os.path.join(PATH, "inputs/molcas/tasks/QM6.in"),
             "casscf",
-            [6,2],
+            [6, 2],
             os.path.join(PATH, "inputs/molcas/output/hsocdm620casscf"),
         ),
         (
@@ -525,6 +525,12 @@ def test_get_energy():
             [6, 4, 4],
             os.path.join(PATH, "inputs/molcas/output/621caspt2"),
         ),
+        (
+            os.path.join(PATH, "inputs/molcas/output/QM2.in"),
+            "casscf",
+            [10, 4, 4, 4, 4, 4],
+            os.path.join(PATH, "inputs/molcas/output/622222casscf"),
+        ),
     ]
 
     for qmin, method, roots, output in tests:
@@ -537,7 +543,6 @@ def test_get_energy():
         with open(f"{output}.out", "r", encoding="utf-8") as ascii_out:
             a = test_interface._get_energy(hdf)
             b = test_interface._get_energy(ascii_out.read())
-            print(a, "\n\n", b, "\n\n")
             assert np.allclose(a, b)
 
 
@@ -572,6 +577,11 @@ def test_get_socs():
             os.path.join(PATH, "inputs/molcas/tasks/QM6.in"),
             "casscf",
             os.path.join(PATH, "inputs/molcas/output/hsocdm620casscf"),
+        ),
+        (
+            os.path.join(PATH, "inputs/molcas/output/QM2.in"),
+            "casscf",
+            os.path.join(PATH, "inputs/molcas/output/622222casscf"),
         ),
     ]
 
@@ -760,6 +770,11 @@ def test_get_dipoles():
             "casscf",
             os.path.join(PATH, "inputs/molcas/output/dipoles/2222casscf"),
         ),
+        (
+            os.path.join(PATH, "inputs/molcas/output/QM2.in"),
+            "casscf",
+            os.path.join(PATH, "inputs/molcas/output/622222casscf"),
+        ),
     ]
 
     for qmin, method, output in tests:
@@ -842,7 +857,7 @@ def test_get_overlaps():
         test_interface.setup_interface()
 
         s_cnt = 0
-        ref_hdf = np.zeros((test_interface.QMin.molecule["nmstates"],test_interface.QMin.molecule["nmstates"]))
+        ref_hdf = np.zeros((test_interface.QMin.molecule["nmstates"], test_interface.QMin.molecule["nmstates"]))
         for m, s in enumerate(test_interface.QMin.molecule["states"], 1):
             if s > 0:
                 with h5py.File(f"{output}.{m}.h5") as f:
@@ -851,7 +866,7 @@ def test_get_overlaps():
                         ref_hdf[s_cnt : s_cnt + s, s_cnt : s_cnt + s] = ovlp
                         s_cnt += s
 
-        ref_ascii = np.zeros((test_interface.QMin.molecule["nmstates"],test_interface.QMin.molecule["nmstates"]))
+        ref_ascii = np.zeros((test_interface.QMin.molecule["nmstates"], test_interface.QMin.molecule["nmstates"]))
         with open(f"{output}.out", "r") as f:
             ovlp = f.read()
         s_cnt = 0
@@ -865,3 +880,86 @@ def test_get_overlaps():
                 o_cnt += s
 
         assert np.allclose(ref_ascii, ref_hdf)
+
+
+def test_theodore():
+    tests = [
+        (
+            os.path.join(PATH, "inputs/molcas/output/theodore/QM1.in"),
+            os.path.join(PATH, "inputs/molcas/output/theodore/62222casscf"),
+            ["Om", "POSi", "POSf", "PR", "CT"],
+            np.array(
+                [
+                    [0.0, 0.0, 0.0, 0.0, 0.0],
+                    [0.918713, 1.004774, 1.248517, 1.302898, 0.250945],
+                    [0.902887, 1.004992, 1.281720, 1.344941, 0.284051],
+                    [0.870738, 1.131820, 1.302404, 1.513332, 0.430404],
+                    [0.874960, 1.178630, 1.240164, 1.495022, 0.411772],
+                    [0.957039, 1.178731, 1.276206, 1.540888, 0.292471],
+                    [0.0, 0.0, 0.0, 0.0, 0.0],
+                    [0.946211, 1.095648, 1.004818, 1.109436, 0.099545],
+                    [0.932435, 1.004773, 1.244990, 1.298371, 0.247451],
+                    [0.917946, 1.004968, 1.271816, 1.332622, 0.274218],
+                    [0.654795, 1.244730, 1.397764, 1.753110, 0.326706],
+                    [0.645511, 1.064127, 1.162970, 1.255790, 0.142593],
+                    [0.479625, 1.003847, 1.284892, 1.347682, 0.286752],
+                    [0.477791, 1.274591, 1.307292, 1.701758, 0.337918],
+                    [0.393342, 1.071056, 1.177698, 1.282503, 0.151775],
+                    [0.285810, 1.069244, 1.055550, 1.132600, 0.111469],
+                ]
+            ),
+        ),
+        (
+            os.path.join(PATH, "inputs/molcas/output/theodore/QM2.in"),
+            os.path.join(PATH, "inputs/molcas/output/theodore/603casscf"),
+            ["Om", "POSi", "POSf", "PR", "CT"],
+            np.array(
+                [
+                    [0.0, 0.0, 0.0, 0.0, 0.0],
+                    [0.918713, 1.004774, 1.248517, 1.302898, 0.250945],
+                    [0.902887, 1.004992, 1.281720, 1.344941, 0.284051],
+                    [0.870738, 1.131820, 1.302404, 1.513332, 0.430404],
+                    [0.874960, 1.178630, 1.240164, 1.495022, 0.411772],
+                    [0.957039, 1.178731, 1.276206, 1.540888, 0.292471],
+                    [0.932435, 1.004773, 1.244991, 1.298371, 0.247451],
+                    [0.917946, 1.004968, 1.271817, 1.332622, 0.274218],
+                    [0.986485, 1.271401, 1.370504, 1.764249, 0.314358],
+                ]
+            ),
+        ),
+        (
+            os.path.join(PATH, "inputs/molcas/output/theodore/QM3.in"),
+            os.path.join(PATH, "inputs/molcas/output/theodore/653casscf"),
+            ["Om", "POSi", "POSf", "PR", "CT"],
+            np.array(
+                [
+                    [0.0, 0.0, 0.0, 0.0, 0.0],
+                    [0.918713, 1.004774, 1.248517, 1.302898, 0.250945],
+                    [0.902887, 1.004992, 1.281720, 1.344941, 0.284051],
+                    [0.870738, 1.131820, 1.302404, 1.513332, 0.430404],
+                    [0.874960, 1.178630, 1.240164, 1.495022, 0.411772],
+                    [0.957039, 1.178731, 1.276206, 1.540888, 0.292471],
+                    [0.0, 0.0, 0.0, 0.0, 0.0],
+                    [0.946004, 1.096024, 1.004854, 1.109917, 0.099959],
+                    [0.916110, 1.173820, 1.006754, 1.208271, 0.178891],
+                    [0.896023, 1.006796, 1.261959, 1.322067, 0.266229],
+                    [0.870787, 1.009060, 1.268486, 1.332597, 0.274936],
+                    [0.932435, 1.004773, 1.244990, 1.298371, 0.247451],
+                    [0.917946, 1.004968, 1.271816, 1.332622, 0.274218],
+                    [0.986485, 1.271402, 1.370505, 1.764252, 0.314360],
+                ]
+            ),
+        ),
+    ]
+
+    for qmin, theo, prop, ref in tests:
+        test_interface = SHARC_MOLCAS()
+        test_interface.setup_mol(qmin)
+        test_interface.QMin.resources["theodore_prop"] = prop
+        with open(theo, "r", encoding="utf-8") as file:
+            a = file.read()
+            b = list(zip(prop, ref.T))
+            a = test_interface._get_theodore(a)
+        for idx, (p, v) in enumerate(a):
+            print(v, "\n\n", b[idx][1])
+            assert p == b[idx][0] and np.allclose(v, b[idx][1]), idx
