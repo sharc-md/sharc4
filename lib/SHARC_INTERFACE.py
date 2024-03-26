@@ -38,13 +38,13 @@ from textwrap import wrap
 from typing import Any
 
 import numpy as np
+
 # internal
 from constants import ATOMCHARGE, BOHR_TO_ANG
 from logger import SHARCPRINT, TRACE, CustomFormatter, logging, loglevel
 from qmin import QMin
 from qmout import QMout
-from utils import (batched, clock, convert_list, electronic_state, expand_path,
-                   itnmstates, parse_xyz, readfile, writefile)
+from utils import batched, clock, convert_list, electronic_state, expand_path, itnmstates, parse_xyz, readfile, writefile
 
 np.set_printoptions(linewidth=400, formatter={"float": lambda x: f"{x: 9.7}"})
 all_features = {
@@ -883,7 +883,7 @@ class SHARC_INTERFACE(ABC):
                 case ["nacdr" | "multipolar_fit" | "density_matrices", "all"]:
                     self.QMin.requests[req] = ["all"]
                 case ["grad", value]:
-                    self.QMin.requests[req] = sorted(list(map(int, request[1])))
+                    self.QMin.requests[req] = sorted(list(map(int, request[1]))) if isinstance(request[1], list) else [int(value)]
                     if max(self.QMin.requests[req]) > self.QMin.molecule["nmstates"]:
                         self.log.error(f"Requested {req} higher than total number of states!")
                         raise ValueError()
