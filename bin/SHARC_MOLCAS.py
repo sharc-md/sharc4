@@ -74,7 +74,9 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         self._h_sort = None
 
         # Add resource keys
-        self.QMin.resources.update({"molcas": None, "mpi_parallel": False, "delay": 0.0, "dry_run": False, "driver": None})
+        self.QMin.resources.update(
+            {"molcas": None, "mpi_parallel": False, "delay": 0.0, "dry_run": False, "driver": None, "wfoverlap": ""}
+        )
 
         self.QMin.resources.types.update({"molcas": str, "mpi_parallel": bool, "delay": float, "dry_run": bool, "driver": str})
 
@@ -183,7 +185,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         pass
 
     def read_resources(self, resources_file: str = "MOLCAS.resources", kw_whitelist: list[str] | None = None) -> None:
-        super().read_resources(resources_file, kw_whitelist)
+        super().read_resources(resources_file, ["theodore_fragment"])
 
         # Path to MOLCAS
         if not self.QMin.resources["molcas"]:
@@ -229,6 +231,35 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         # Set RAM limit
         os.environ["MOLCASMEM"] = str(self.QMin.resources["memory"])
         os.environ["MOLCAS_MEM"] = str(self.QMin.resources["memory"])
+
+        # Theodore descriptor whitelist
+        allowed_descriptors = (
+            "Om",
+            "POSi",
+            "POSf",
+            "POS",
+            "CT",
+            "CT2",
+            "CTnt",
+            "PRi",
+            "PRf",
+            "PR",
+            "PRh",
+            "DEL",
+            "COH",
+            "COHh",
+            "MC",
+            "LC",
+            "MLCT",
+            "LMCT",
+            "LLCT",
+        )
+        if self.QMin.resources["theodore_prop"]:
+            for prop in self.QMin.resources["theodore_prop"]:
+                if prop not in allowed_descriptors:
+                    self.log.error(f"Theodore descriptor {prop} is not allowed!")
+                    self.log.error(f"Allowed descriptors are {allowed_descriptors}.")
+                    raise ValueError()
 
     def read_template(self, template_file: str = "MOLCAS.template", kw_whitelist: list[str] | None = None) -> None:
         super().read_template(template_file, kw_whitelist)
@@ -387,7 +418,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                         os.path.join(self.QMin.resources["scratchdir"], "master", file),
                         os.path.join(self.QMin.save["savedir"], f"{file}.{self.QMin.save['step']}"),
                     )
-            self.log.debug("All hobs finished successful")
+            self.log.debug("All jobs finished successful")
 
         self.QMout["runtime"] = datetime.datetime.now() - starttime
 
@@ -581,7 +612,6 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 continue
             tasks += self._gen_ovlp_task(qmin, mult, states)
 
-
         roots = []
         i = 0
         for mult, states in enumerate(qmin.molecule["states"], 1):
@@ -591,6 +621,23 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             roots.append(states)
             tasks.append(["link", f"MOLCAS.{mult}.JobIph", f"JOB{i:03d}"])
         tasks.append(["rassi", "soc" if qmin.requests["soc"] else "", roots])
+
+        if qmin.requests["theodore"]:
+            tasks.append(["link", "MOLCAS.rassi.h5", "MOLCAS.rassi.h5.bak"])
+            all_states = qmin.molecule["states"][:]
+            for mult, states in enumerate(all_states, 1):
+                if states > 0:
+                    if len(qmin.molecule["states"]) >= mult + 2 and all_states[mult + 1] > 0:
+                        tasks.append(["link", f"MOLCAS.{mult}.JobIph", "JOB001"])
+                        tasks.append(["link", f"MOLCAS.{mult+2}.JobIph", "JOB002"])
+                        tasks.append(["rassi", "theodore", [states, all_states[mult + 1]]])
+                        all_states[mult + 1] = 1
+                        tasks.append(["theodore"])
+                    elif all_states[mult - 1] > 1:
+                        tasks.append(["link", f"MOLCAS.{mult}.JobIph", "JOB001"])
+                        tasks.append(["rassi", "theodore", [states]])
+                        tasks.append(["theodore"])
+            tasks.append(["link", "MOLCAS.rassi.h5.bak", "MOLCAS.rassi.h5"])
 
         return tasks
 
@@ -741,6 +788,21 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                     elif len(task) == 3:
                         input_str += f"\nnac={task[1]} {task[2]}\n"
                     input_str += "\n"
+                case "theodore":
+                    input_str += self._write_wfa()
+        return input_str
+
+    def _write_wfa(self) -> str:
+        """
+        Write WFA input for theodore
+        """
+        input_str = "&WFA\nH5file = MOLCAS.rassi.h5\nDoCTnumbers\nATLISTS\n"
+        input_str += f"{len(self.QMin.resources['theodore_fragment'])}\n"
+        for frag in self.QMin.resources["theodore_fragment"]:
+            input_str += " ".join(str(i) for i in frag)
+            input_str += " *\n"
+        input_str += f"PROP {' '.join(i for i in self.QMin.resources['theodore_prop'])} *\n"
+        input_str += "LOWDIN\nNXO\nEXCITON\nWFALEVEL 4\n\n"
         return input_str
 
     def _write_rassi(self, qmin: QMin, task: list[Any]) -> str:
@@ -760,10 +822,12 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             input_str += "TRD1\n"
         if task[1] == "soc":
             input_str += "SPINORBIT\nSOCOUPLING=0.0d0\nEJOB\n"
-        elif task[1] == "overlap":
+        if task[1] == "overlap":
             input_str += "OVERLAPS\n"
             if qmin.control["master"] and qmin.requests["multipolar_fit"]:
                 input_str += "TRD1\n"
+        if task[1] == "theodore":
+            input_str += "TRD1\n"
         input_str += "\n"
         return input_str
 
@@ -891,6 +955,11 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         ):
             self.log.error("Analytical gradients/NACs are not possible with pt2 methods and ipea shift!")
             raise ValueError()
+
+        if self.QMin.requests["theodore"]:
+            if not self._wfa or not self._hdf5:
+                self.log.error("Theodore not possible without WFA or HDF5!")
+                raise ValueError()
 
     def _get_molcas_features(self) -> None:
         """
@@ -1049,8 +1118,8 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             s_cnt = 0
             for m, s in enumerate(self.QMin.molecule["states"]):
                 if self.QMin.template["roots"][m] > s > 0:
-                    for _ in range(self.QMin.template["roots"][m]-s):
-                        del energies[s_cnt+s]
+                    for _ in range(self.QMin.template["roots"][m] - s):
+                        del energies[s_cnt + s]
                 s_cnt += s
 
         else:
@@ -1194,6 +1263,51 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 s_cnt += state
 
         return dipole_mat
+
+    def _get_theodore(self, output_file: str) -> list[tuple[str, np.ndarray]]:
+        """
+        Extract theodore props from outputfile
+        """
+        # Get all outputs from WFA
+        find_theo = re.findall(r"TheoDORE analysis of CT numbers \(Lowdin\)=+\n([^=]*)", output_file, re.DOTALL)
+        if not find_theo:
+            self.log.error("No theodore output found!")
+            raise ValueError()
+
+        # Extract values from submatrices
+        find_theo = [
+            np.array(re.findall(r"(-?\d+\.\d{6})", i), dtype=float).reshape(-1, len(self.QMin.resources["theodore_prop"]) + 2)
+            for i in find_theo
+        ]
+
+        sub_it = iter(find_theo)
+        tmp_states = self.QMin.molecule["states"][:]
+        states = self.QMin.molecule["states"][:]
+        theo_mat = np.zeros((sum(tmp_states), len(self.QMin.resources["theodore_prop"])))
+
+        s_cnt = 0
+        for mult, state in enumerate(tmp_states, 1):
+            # Filter states with 0 contribution
+            if state == 0 or (state == 1 and (len(tmp_states) < mult + 2 or tmp_states[mult + 1] == 0)):
+                continue
+
+            sub_mat = next(sub_it)[:, 2:] # Skip dE and f
+            s = state
+            if state > 1:
+                for i, _ in enumerate(self.QMin.resources["theodore_prop"]):
+                    theo_mat[s_cnt + 1 : s_cnt + s, i] = sub_mat[: s - 1, i]
+                s -= 1
+
+            if len(tmp_states) >= mult + 2 and tmp_states[mult + 1] > 0:
+                for i, _ in enumerate(self.QMin.resources["theodore_prop"]):
+                    theo_mat[
+                        s_cnt + states[mult - 1] + states[mult] : s_cnt + states[mult - 1] + states[mult] + states[mult + 1], i
+                    ] = sub_mat[s:, i]
+                    tmp_states[mult + 1] = 1 # Avoid double counting
+
+            s_cnt += states[mult - 1]
+
+        return list(zip(self.QMin.resources["theodore_prop"], theo_mat.T))
 
 
 if __name__ == "__main__":
