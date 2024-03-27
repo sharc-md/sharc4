@@ -580,9 +580,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             if qmin.template["method"] == "cms-pdft":
                 tasks[-1].append(["CMSI"])
 
-            # ION and MOLDEN requests
-            if qmin.requests["ion"]:
-                tasks.append(["copy", "MOLCAS.RasOrb", f"MOLCAS.{mult+1}.RasOrb"])
+            # MOLDEN request
             if qmin.requests["molden"]:
                 tasks.append(["copy", "MOLCAS.rasscf.molden", f"MOLCAS.{mult+1}.molden"])
 
@@ -670,7 +668,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         Generate tasklist for dipoles, ion and multipolar_fit
         """
         tasks = []
-        if qmin.requests["dm"] or qmin.requests["ion"] or qmin.requests["multipolar_fit"]:
+        if qmin.requests["dm"] or qmin.requests["multipolar_fit"]:
             tasks.append(["link", f"MOLCAS.{mult+1}.JobIph", "JOB001"])
             tasks.append(["rassi", "dm", [states]])
             if self._hdf5:
@@ -816,8 +814,6 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         input_str += "MEIN\n"
         if qmin.template["method"] != "casscf":
             input_str += "EJOB\n"
-        if task[1] != "soc" and qmin.control["master"] and qmin.requests["ion"]:
-            input_str += "CIPR\nTHRS=0.000005d0\n"
         if task[1] == "dm" and qmin.requests["multipolar_fit"]:
             input_str += "TRD1\n"
         if task[1] == "soc":
@@ -828,6 +824,9 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 input_str += "TRD1\n"
         if task[1] == "theodore":
             input_str += "TRD1\n"
+        if task[1] in ("", "soc") and qmin.requests["ion"]:
+            input_str += "CIPR\nTHRS=0.000005d0\n"
+            input_str += "DYSON\n"
         input_str += "\n"
         return input_str
 
@@ -1014,16 +1013,10 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             npc=self.QMin.molecule["npc"],
             requests=requests,
         )
-        if self.QMin.requests["theodore"]:
-            theodore_arr = np.zeros(
-                (
-                    self.QMin.molecule["nmstates"],
-                    len(self.QMin.resources["theodore_prop"]) + len(self.QMin.resources["theodore_fragment"]) ** 2,
-                )
-            )
 
         # Fill QMout
         scratchdir = self.QMin.resources["scratchdir"]
+        states = self.QMin.molecule["states"]
 
         if not self._hdf5:
             with open(os.path.join(scratchdir, "master/MOLCAS.out"), "r", encoding="utf-8") as f:
@@ -1031,10 +1024,41 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         else:
             master_out = h5py.File(os.path.join(scratchdir, "master/MOLCAS.rassi.h5"), "r+")
 
+        if self.QMin.requests["theodore"] or self.QMin.requests["ion"]:
+            ascii_out = master_out
+            if not isinstance(ascii_out, str):
+                with open(os.path.join(scratchdir, "master/MOLCAS.out"), "r", encoding="utf-8") as f:
+                    ascii_out = f.read()
+
+            if self.QMin.requests["theodore"]:
+                # Get theodore output (nstates)
+                theodore_raw = self._get_theodore(ascii_out)
+
+                # Create final prop list with nmstates
+                theodore_list = list(
+                    zip(
+                        self.QMin.resources["theodore_prop"],
+                        np.zeros((len(self.QMin.resources["theodore_prop"]), self.QMin.molecule["nmstates"])),
+                    )
+                )
+                # Expand raw output from nstates to nmstates
+                s_cnt = 0
+                for m, s in enumerate(states, 1):
+                    for idx, (_, val) in enumerate(theodore_raw):
+                        theodore_list[idx][1][s_cnt : s_cnt + s * m] = np.tile(val[sum(states[: m - 1]) : sum(states[:m])], m)
+                    s_cnt += s * m
+                self.QMout["prop1d"].extend(theodore_list)
+
+            if self.QMin.requests["ion"]:
+                dyson_mat = self._get_dyson(ascii_out)
+                self.QMout["prop2d"].append(("ion", dyson_mat))
+
         if self.QMin.requests["soc"]:
             self.QMout["h"] = self._get_socs(master_out)
+
         if self.QMin.requests["h"]:
             np.einsum("ii->i", self.QMout["h"])[:] = self._get_energy(master_out)
+
         if self.QMin.requests["grad"]:
             for grad in self.QMin.maps["gradmap"]:
                 with open(os.path.join(scratchdir, f"grad_{grad[0]}_{grad[1]}/MOLCAS.out"), "r", encoding="utf-8") as grad_file:
@@ -1042,6 +1066,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                     for key, val in self.QMin.maps["statemap"].items():
                         if (val[0], val[1]) == grad:
                             self.QMout["grad"][key - 1] = grad_out
+
         if self.QMin.requests["nacdr"]:
             for nac in self.QMin.maps["nacmap"]:
                 with open(
@@ -1064,7 +1089,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 self.QMout["dm"] = self._get_dipoles(master_out)
             else:
                 s_cnt = 0
-                for m, s in enumerate(self.QMin.molecule["states"], 1):
+                for m, s in enumerate(states, 1):
                     if s > 0:
                         with h5py.File(os.path.join(scratchdir, f"master/MOLCAS.rassi.{m}.h5"), "r") as dp:
                             for _ in range(m):
@@ -1079,7 +1104,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
 
             s_cnt = 0
             o_cnt = 0
-            for m, s in enumerate(self.QMin.molecule["states"], 1):
+            for m, s in enumerate(states, 1):
                 if s > 0:
                     if not isinstance(master_out, str):
                         with h5py.File(os.path.join(scratchdir, f"master/MOLCAS.rassi.ovlp.{m}.h5")) as f:
@@ -1291,7 +1316,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             if state == 0 or (state == 1 and (len(tmp_states) < mult + 2 or tmp_states[mult + 1] == 0)):
                 continue
 
-            sub_mat = next(sub_it)[:, 2:] # Skip dE and f
+            sub_mat = next(sub_it)[:, 2:]  # Skip dE and f
             s = state
             if state > 1:
                 for i, _ in enumerate(self.QMin.resources["theodore_prop"]):
@@ -1303,11 +1328,47 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                     theo_mat[
                         s_cnt + states[mult - 1] + states[mult] : s_cnt + states[mult - 1] + states[mult] + states[mult + 1], i
                     ] = sub_mat[s:, i]
-                    tmp_states[mult + 1] = 1 # Avoid double counting
+                    tmp_states[mult + 1] = 1  # Avoid double counting
 
             s_cnt += states[mult - 1]
 
         return list(zip(self.QMin.resources["theodore_prop"], theo_mat.T))
+
+    def _get_dyson(self, output_file: str) -> np.ndarray:
+        """
+        Extract dyson norms from outputfile
+        """
+        find_dyson = re.search(r"\+\+ Dyson amplitudes Biorth.*intensity([^\*]*)", output_file, re.DOTALL)
+        if not find_dyson:
+            self.log.error("No dyson norms found in output!")
+
+        # Extract s1, s2, val tuples
+        dyson_val = re.findall(r"^\s+(\d+)\s+(\d+)\s+[\d\.]+\s+(\d+\.\d{5}E\+?\-?\d{2})", find_dyson.group(1), re.MULTILINE)
+        dyson_raw = [(int(i[0]), int(i[1]), float(i[2])) for i in dyson_val]
+
+        # Fill states*states array with values
+        dyson_mat = np.zeros((self.QMin.molecule["nstates"], self.QMin.molecule["nstates"]))
+        for i, j, v in dyson_raw:
+            dyson_mat[i - 1, j - 1] = dyson_mat[j - 1, i - 1] = v
+
+        # Expand state*state array to nmstates*nmstates
+        dyson_nmat = np.zeros((self.QMin.molecule["nmstates"], self.QMin.molecule["nmstates"]))
+        for i in range(dyson_nmat.shape[0]):
+            for j in range(i, dyson_nmat.shape[0]):
+                m1, s1, ms1 = tuple(self.QMin.maps["statemap"][i + 1])
+                m2, s2, ms2 = tuple(self.QMin.maps["statemap"][j + 1])
+                if not abs(ms1 - ms2) == 0.5:
+                    continue
+                if m1 > m2:
+                    s1, s2, m1, m2, ms1, ms2 = s2, s1, m2, m1, ms2, ms1
+                if ms1 < ms2:
+                    factor = (ms1 + 1 + (m1 - 1) / 2) / m1
+                else:
+                    factor = (-ms1 + 1 + (m1 - 1) / 2) / m1
+                x = sum(self.QMin.molecule["states"][: m1 - 1]) + s1 - 1
+                y = sum(self.QMin.molecule["states"][: m2 - 1]) + s2 - 1
+                dyson_nmat[i, j] = dyson_nmat[j, i] = dyson_mat[x, y] * factor
+        return dyson_nmat
 
 
 if __name__ == "__main__":
