@@ -525,6 +525,12 @@ def test_get_energy():
             [10, 4, 4, 4, 4, 4],
             os.path.join(PATH, "inputs/molcas/output/622222casscf"),
         ),
+        (
+            os.path.join(PATH, "inputs/molcas/output/dyson/QM3.in"),
+            "casscf",
+            [10, 5, 4, 4, 4, 4],
+            os.path.join(PATH, "inputs/molcas/output/000022casscf"),
+        ),
     ]
 
     for qmin, method, roots, output in tests:
@@ -576,6 +582,11 @@ def test_get_socs():
             os.path.join(PATH, "inputs/molcas/output/QM2.in"),
             "casscf",
             os.path.join(PATH, "inputs/molcas/output/622222casscf"),
+        ),
+        (
+            os.path.join(PATH, "inputs/molcas/output/dyson/QM3.in"),
+            "casscf",
+            os.path.join(PATH, "inputs/molcas/output/000022casscf"),
         ),
     ]
 
@@ -768,6 +779,11 @@ def test_get_dipoles():
             os.path.join(PATH, "inputs/molcas/output/QM2.in"),
             "casscf",
             os.path.join(PATH, "inputs/molcas/output/622222casscf"),
+        ),
+        (
+            os.path.join(PATH, "inputs/molcas/output/dyson/QM3.in"),
+            "casscf",
+            os.path.join(PATH, "inputs/molcas/output/000022casscf"),
         ),
     ]
 
