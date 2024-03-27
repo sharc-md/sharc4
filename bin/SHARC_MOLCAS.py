@@ -1338,7 +1338,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         """
         Extract dyson norms from outputfile
         """
-        find_dyson = re.search(r"\+\+ Dyson amplitudes Biorth.*intensity([^\*]*)", output_file, re.DOTALL)
+        find_dyson = re.search(r"\+\+ Dyson amplitudes Biorth.*?intensity([^\*]*)", output_file, re.DOTALL)
         if not find_dyson:
             self.log.error("No dyson norms found in output!")
 
