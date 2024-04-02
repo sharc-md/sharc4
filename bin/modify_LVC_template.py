@@ -2,21 +2,21 @@
 from optparse import OptionParser
 import numpy as np
 
-# from sys import stderr
-
 
 def main(file, states, modes):
-    # print(file, states, modes, file=stderr)
+    # read the V0-file
     new_template = []
     with open(file) as f:
         V0txt = f.readline()[:-1]
         new_template.append(V0txt)
+        # get number of modes
         with open(V0txt, "r") as V0:
             line = V0.readline()
             while "Frequencies" not in line:
                 line = V0.readline()
             nmodes = len(V0.readline().split())
 
+        # perform mode selection
         selected_modes = []
         if modes != "all":
             try:
@@ -35,6 +35,7 @@ def main(file, states, modes):
             selected_modes = list(range(1, nmodes + 1))
         selected_modes = set(selected_modes)
 
+        # perform state selection
         template_states = [int(s) for s in f.readline().split()]
         new_template.append(states)
         states = [int(s) for s in states.split()]
@@ -43,7 +44,6 @@ def main(file, states, modes):
             raise ValueError(f"{states} not compatible with {template_states} from template file!")
 
         selected_states = {(im + 1, s + 1) for im, ns in enumerate(states) for s in range(ns) if ns != 0}
-        # print(selected_states, selected_modes, file=stderr)
 
         line = f.readline()
         if line == "epsilon\n":
@@ -126,7 +126,7 @@ def main(file, states, modes):
             new_template.extend(selected)
             line = f.readline()
 
-        # nmstates = sum((im + 1) * s for im, s in enumerate(states))
+        # get indices of the selected states in the old state vector
         template_nmstates = sum((im + 1) * s for im, s in enumerate(template_states))
         all = [(im + 1, s + 1) for im, ns in enumerate(template_states) for s in range((im + 1) * ns)]
         selected_nmstates = [(im + 1, s + 1) for im, ns in enumerate(states) for s in range((im + 1) * ns)]
@@ -177,13 +177,22 @@ def main(file, states, modes):
             else:
                 line = f.readline()
         f.close()
+
+    # write the file to stdout
     print("\n".join(new_template))
 
 
 if __name__ == "__main__":
     parser = OptionParser()
     parser.set_usage(
-        """usage: python3 {sys.argv[0]} -s={'<states>'} -m={'modes'} LVC.template > LVC_mod.template
+        """
+============================================================================
+                            modify LVC-template
+
+                        author: Severin Polonius
+============================================================================
+
+usage: python3 {sys.argv[0]} -s='<states>' -m='<modes>' LVC.template > LVC_mod.template
 
     states is a string e.g.: '2 0 2' for 2 Singlets and 2 Triplets
     modes is a string e.g.: '7~12,14,15~89' (range expressions allowed)
@@ -193,4 +202,6 @@ if __name__ == "__main__":
     parser.add_option("-m", "--modes", dest="modes", type="str", default="all", help="specify the modes")
 
     (options, args) = parser.parse_args()
+    if len(args) == 0:
+        parser.print_usage()
     main(args[0], options.states, options.modes)

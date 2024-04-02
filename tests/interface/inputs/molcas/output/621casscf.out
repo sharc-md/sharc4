@@ -1,0 +1,3842 @@
+   This run of MOLCAS is using the pymolcas driver
+
+                             OPE
+                             OPE          NMOL  CASOP  ENMOLC A   SO
+                 OPE        NMOLC        AS  OP EN  MO LC     AS  OP
+                OPENM       OL CA        SO  PE NM  OL CA     SOP EN
+                OP EN      MO   LC       AS  OP ENMOL  CASO   PENMOL
+                OP  EN     MO   LC       AS  OP EN     MO     LC ASO
+               OP   E  NMOL  C  AS       OP  EN MO     LC     AS  OP
+               OP  E   NMO   LC AS        OPEN  MO     LCASOP EN   M
+               O  PEN   MO  LCA  SO
+            OPE   NMO   L   CAS    OP
+        OPENMOL  CASOP     ENMOL   CASOPE
+     OPENMOLCA   SOPENMOLCASOPEN   MOLCASOPE
+    OPENMOLCAS   OP           EN   MOL    CAS
+    OPENMOLCAS       OP  ENM        O     LCA
+    OPENMOLCAS    OPEN  MOLCASO     P  E  NMO
+    OPENMOLCAS     OP               E  N  MOL
+    OPENMOLCA   SO           PENM   O  L  CAS    OPEN    MO    LCAS
+    OPENMOLCA   SOP           ENM   O  L  CAS   OP  EN  MOLC  AS   O
+    OPENMOLCA   SOPE           NM      O  LCA   S      OP  EN MO
+    OPENMOLC                AS         O  PEN   M      OL  CA  SOPE
+    OPENMO        LCASOPE  NMOL        C  ASO   P      ENMOLC     AS
+    OPE     NMO      LCA  SO     P     E   NM   OL  CA SO  PE N   MO
+          OPENMOLCA            SOPE   NMO        LCAS  O    P  ENMO
+     OPENMOLCASOPENMOLCASOPENMOLCASOPENMOLCA
+        OPENMOLCASOPENMOLCASOPENMOLCASOPE
+            OPENMOLCASOPENMOLCASOPENM
+               OPENMOLCASOPENMOLCA        version: v23.10
+                   OPENMOLCASO
+                       OPE                tag:
+
+ OpenMolcas is free software; you can redistribute it and/or modify it
+ under the terms of the GNU Lesser General Public License version 2.1.
+ OpenMolcas is distributed in the hope that it will be useful, but it
+ is provided "as is" and without any express or implied warranties.
+ For more details see the full text of the license in the file
+ LICENSE or in <http://www.gnu.org/licenses/>.
+
+                 Copyright (C) The OpenMolcas Authors
+           For the author list and the recommended citation,
+                   consult the file CONTRIBUTORS.md
+
+           *************************************************
+           * pymolcas version py2.25                       *
+           *   build 2b27fa14244bdc32cb1957e6230cd793      *
+           *   (after the EMIL interpreter by V. Veryazov) *
+           *************************************************
+
+configuration info
+------------------
+Host name: manganese.itc.univie.ac.at (Linux)
+C Compiler ID: Clang
+C flags: -std=gnu99
+Fortran Compiler ID: Intel
+Fortran flags: -fpp -i8 -heap-arrays
+Definitions: _MOLCAS_;_I8_;_LINUX_
+Parallel: OFF (GA=OFF)
+
+
+   ---------------------------------------------------------------------------
+  |
+  |           Project: MOLCAS
+  |    Submitted from: /public/manganese/scratch/tmp/sascha.925337/WORK/master
+  |      Scratch area: /public/manganese/scratch/tmp/sascha.925337/WORK/master
+  |   Save outputs to: WORKDIR
+  |            Molcas: /usr/license/openmolcas/v23.10
+  |
+  | Scratch area is NOT empty
+  |
+  |        MOLCASMEM = 10000
+  |    MOLCAS_DRIVER = /usr/license/openmolcas/v23.10/pymolcas
+  |    MOLCAS_NPROCS = 1
+  |    MOLCAS_SOURCE = /usr/license/openmolcas/v23.10
+  | MOLCAS_STRUCTURE = 0
+  |
+   ---------------------------------------------------------------------------
+
+++ ---------   Input file   ---------
+
+&GATEWAY
+COORD=MOLCAS.xyz
+GROUP=NOSYM
+BASIS=cc-pvdz
+AMFI
+angmom
+0 0 0
+BASLIB
+/user/sascha/development/eci/sharc_main/examples/SHARC_MOLCAS/basisset
+
+RICD
+CDTHreshold=0.0001
+
+&SEWARD
+
+&RASSCF
+SPIN=1
+NACTEL=8 0 0
+INACTIVE=5
+RAS2=6
+ITERATIONS=200,100
+CIROOT=6 6 1
+ORBLISTING=NOTHING
+PRWF=0.1
+THRS=0.000000010000 0.000100000000 0.000100000000
+
+>>> COPY MOLCAS.JobIph MOLCAS.1.JobIph
+
+&RASSCF
+SPIN=2
+NACTEL=7 0 0
+INACTIVE=5
+RAS2=6
+ITERATIONS=200,100
+CIROOT=4 4 1
+ORBLISTING=NOTHING
+PRWF=0.1
+THRS=0.000000010000 0.000100000000 0.000100000000
+
+>>> COPY MOLCAS.JobIph MOLCAS.2.JobIph
+
+&RASSCF
+SPIN=3
+NACTEL=8 0 0
+INACTIVE=5
+RAS2=6
+ITERATIONS=200,100
+CIROOT=4 4 1
+ORBLISTING=NOTHING
+PRWF=0.1
+THRS=0.000000010000 0.000100000000 0.000100000000
+
+>>> COPY MOLCAS.JobIph MOLCAS.3.JobIph
+
+>>> COPY MOLCAS.1.JobIph JOB001
+
+>>> COPY MOLCAS.2.JobIph JOB002
+
+>>> COPY MOLCAS.3.JobIph JOB003
+
+&RASSI
+NROFJOBIPHS
+3 6 2 1
+1 2 3 4 5 6
+1 2
+1
+MEIN
+SPINORBIT
+SOCOUPLING=0.0d0
+EJOB
+
+-- ----------------------------------
+
+--- Start Module: gateway at Fri Mar 22 16:31:26 2024 ---
+ 
+()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()
+
+                                              &GATEWAY
+
+                                   only a single process is used
+                       available to each process: 10 GB of memory, 1 thread?
+                                            pid: 2115096
+()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()
+ 
+ 
+ 
+ Basis Set     1 Label: S.CC-PVDZ
+ Basis set is read from library:/user/sascha/development/eci/sharc_main/examples/SHARC_MOLCAS/basisset 
+ 
+ 
+ Basis Set     2 Label: H.CC-PVDZ
+ Basis set is read from library:/user/sascha/development/eci/sharc_main/examples/SHARC_MOLCAS/basisset 
+ 
+++    Symmetry information:
+      ---------------------
+ 
+                    Character Table for C1 
+ 
+                             E  
+                    a        1  x, y, xy, Rz, z, xz, Ry, yz, Rx, I
+--
+ 
+ 
+++    Basis set information:
+      ----------------------
+ 
+ 
+      Basis set label: S.CC-PVDZ.........
+ 
+      Electronic valence basis set:
+      ------------------
+      Associated Effective Charge  16.000000 au
+      Associated Actual Charge     16.000000 au
+      Nuclear Model: Point charge
+ 
+      Shell  nPrim  nBasis  Cartesian Spherical Contaminant
+         s      12       4        X                  
+         p       8       3        X                  
+         d       1       1                 X         
+ 
+ 
+      Basis set label: H.CC-PVDZ.........
+ 
+      Electronic valence basis set:
+      ------------------
+      Associated Effective Charge   1.000000 au
+      Associated Actual Charge      1.000000 au
+      Nuclear Model: Point charge
+ 
+      Shell  nPrim  nBasis  Cartesian Spherical Contaminant
+         s       4       2        X                  
+         p       1       1        X                  
+--
+ 
+ 
+++    Molecular structure info:
+      -------------------------
+ 
+                    ************************************************ 
+                    **** Cartesian Coordinates / Bohr, Angstrom **** 
+                    ************************************************ 
+ 
+     Center  Label                x              y              z                     x              y              z
+        1      S1               0.000000       0.000000       0.001589              0.000000       0.000000       0.000841
+        2      H2               0.000000       1.842103       2.235421              0.000000       0.974799       1.182934
+        3      H3              -0.188973      -1.842103       2.235421             -0.100000      -0.974799       1.182934
+ 
+                    *************************************** 
+                    *    InterNuclear Distances / Bohr    * 
+                    *************************************** 
+ 
+               1 S1            2 H2            3 H3    
+    1 S1       0.000000
+    2 H2       2.895401        0.000000
+    3 H3       2.901562        3.689050        0.000000
+ 
+                    ******************************************* 
+                    *    InterNuclear Distances / Angstrom    * 
+                    ******************************************* 
+ 
+               1 S1            2 H2            3 H3    
+    1 S1       0.000000
+    2 H2       1.532180        0.000000
+    3 H3       1.535440        1.952161        0.000000
+ 
+                    ************************************** 
+                    *    Valence Bond Angles / Degree    * 
+                    ************************************** 
+                          Atom centers                 Phi
+                      2 H2       1 S1       3 H3        79.04
+--
+ 
+ 
+            Nuclear Potential Energy             11.31134847 au
+ 
+--- Stop Module: gateway at Fri Mar 22 16:31:26 2024 /rc=_RC_ALL_IS_WELL_ ---
+
+--- Start Module: seward at Fri Mar 22 16:31:26 2024 ---
+ 
+()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()
+
+                                              &SEWARD
+
+                                   only a single process is used
+                       available to each process: 10 GB of memory, 1 thread?
+                                            pid: 2115099
+()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()
+ 
+               SEWARD will generate:
+                  Multipole Moment integrals up to order  2
+                  Kinetic Energy integrals
+                  Nuclear Attraction integrals (point charge)
+                  One-Electron Hamiltonian integrals
+                  Velocity integrals
+                  Orbital angular momentum around ( 0.0000  0.0000  0.0000 )
+                  Velocity quadrupole around (-0.0056  0.0000  0.1341 )
+                  Atomic mean-field integrals
+                  RI decomposed two-electron repulsion integrals stored Cholesky style
+                   - acCD auxiliary basis
+                   - CD Threshold:   0.10E-03
+ 
+                   Integrals are discarded if absolute value <: 0.10E-13
+                   Integral cutoff threshold is set to       <: 0.10E-15
+ 
+            Nuclear Potential Energy             11.31134847 au
+ 
+ 
+      Basis set specifications :
+      Symmetry species         a  
+      Basis functions           28
+ 
+ 
+      Input file to MOLDEN was generated!
+ 
+--- Stop Module: seward at Fri Mar 22 16:31:27 2024 /rc=_RC_ALL_IS_WELL_ ---
+
+*** symbolic link created: INPORB -> MOLCAS.GssOrb
+--- Start Module: rasscf at Fri Mar 22 16:31:27 2024 ---
+ 
+()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()
+
+                                              &RASSCF
+
+                                   only a single process is used
+                       available to each process: 10 GB of memory, 1 thread?
+                                            pid: 2115104
+()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()
+ 
+ 
+      Header of the ONEINT file:
+      --------------------------
+      
+      Integrals generated by Gateway/Seward, Fri Mar 22 16:31:27 2024
+ 
+ 
+      OrdInt status: non-squared
+ 
+ 
+      Cartesian coordinates in Angstrom:
+      -----------------------------------------------------
+      No.  Label        X            Y            Z        
+      -----------------------------------------------------
+       1   S1         0.00000000   0.00000000   0.00084100
+       2   H2         0.00000000   0.97479900   1.18293400
+       3   H3        -0.10000000  -0.97479900   1.18293400
+      -----------------------------------------------------
+      Nuclear repulsion energy =   11.31134847
+ 
+++    Wave function specifications:
+      -----------------------------
+ 
+      Number of closed shell electrons          10
+      Number of electrons in active shells       8
+      Max number of holes in RAS1 space          0
+      Max nr of electrons in RAS3 space          0
+      Number of inactive orbitals                5
+      Number of active orbitals                  6
+      Number of secondary orbitals              17
+      Spin quantum number                      0.0
+      State symmetry                             1
+--
+ 
+++    Orbital specifications:
+      -----------------------
+ 
+      Symmetry species                           1
+                                                 a
+      Frozen orbitals                            0
+      Inactive orbitals                          5
+      Active orbitals                            6
+      RAS1 orbitals                              0
+      RAS2 orbitals                              6
+      RAS3 orbitals                              0
+      Secondary orbitals                        17
+      Deleted orbitals                           0
+      Number of basis functions                 28
+--
+ 
+++    CI expansion specifications:
+      ----------------------------
+ 
+      Number of CSFs                           105
+      Number of determinants                   120
+      Number of root(s) required                 6
+      Root chosen for geometry opt.              6
+      CI roots used                              1     2     3     4     5     6
+      weights                                0.167 0.167 0.167 0.167 0.167 0.167
+      highest root included in the CI            6
+      max. size of the explicit Hamiltonian    105
+--
+ 
+++    Optimization specifications:
+      ----------------------------
+ 
+      RASSCF algorithm: LK RI/DF
+      Maximum number of macro iterations       200
+      Maximum number of SX iterations          100
+      Threshold for RASSCF energy            0.100E-07
+      Threshold for max MO rotation          0.100E-03
+      Threshold for max BLB element          0.100E-03
+      Level shift parameter                  0.500E+00
+      Make Quasi-Newton update
+--
+ 
+      Orbitals from runfile: guessorb orbitals
+      The MO-coefficients are taken from guessorb on runfile
+ 
+      Total molecular charge    0.00
+ 
+      ************************************************************************************************************************
+      *                                                                                                                      *
+      *                                            Wave function control section                                             *
+      *                                                                                                                      *
+      ************************************************************************************************************************
+ 
+ 
+                                         RASSCF iterations: Energy and convergence statistics
+                                         ----------------------------------------------------
+ 
+      Iter CI   SX   CI       RASSCF       Energy    max ROT     max BLB   max BLB  Level Ln srch  Step   QN   Walltime
+          iter iter root      energy       change     param      element    value   shift minimum  type update hh:mm:ss
+ Nr of preliminary CI iterations:   1
+        1   1   84    0  -398.36538354    0.00E+00   0.17E+00*   7  18 1  0.15E+00*  0.00   0.00    SX    NO    0:00:00
+        2   1   19    0  -398.43716036   -0.72E-01* -0.69E-01*   6  13 1  0.27E-01*  0.00   0.00    SX    NO    0:00:00
+        3   1   15    0  -398.44244265   -0.53E-02*  0.27E-01*  11  13 1 -0.91E-02*  0.00   0.00    SX    NO    0:00:00
+        4   1   14    0  -398.44309703   -0.65E-03*  0.12E-01*  11  13 1 -0.38E-02*  0.00   0.00    SX    NO    0:00:00
+        5   1   13    0  -398.44319995   -0.10E-03*  0.78E-02*  11  13 1 -0.16E-02*  0.00   1.69    LS   YES    0:00:00
+        6   1   11    0  -398.44322034   -0.20E-04*  0.43E-03*   9  25 1  0.35E-03*  0.00   1.02    QN   YES    0:00:00
+        7   1   10    0  -398.44322068   -0.34E-06*  0.11E-03*   7  12 1  0.52E-04   0.00   1.15    QN   YES    0:00:00
+        8   1    6    0  -398.44322070   -0.21E-07*  0.20E-04    6  13 1  0.68E-05   0.00   1.07    QN   YES    0:00:00
+        9   1    5    0  -398.44322070   -0.11E-09  -0.15E-04    6  13 1  0.30E-05   0.00   0.36    QN   YES    0:00:00
+      Convergence after  9 iterations
+       10   1    5    0  -398.44322070   -0.80E-10  -0.15E-04   10  13 1  0.76E-06   0.00   0.36    QN   YES    0:00:00
+ 
+      ************************************************************************************************************************
+                                                      Wave function printout:
+                       occupation of active orbitals, and spin coupling of open shells (u,d: Spin up or down)
+      ************************************************************************************************************************
+ 
+      Note: transformation to natural orbitals
+      has been made, which may change the order of the CSFs.
+ 
+      printout of CI-coefficients larger than  0.10 for root  1
+      energy=    -398.691294
+      conf/sym  111111     Coeff  Weight
+             1  222200  -0.97157 0.94395
+            15  2u22d0   0.10830 0.01173
+            38  2ud2ud   0.10422 0.01086
+ 
+      printout of CI-coefficients larger than  0.10 for root  2
+      energy=    -398.508333
+      conf/sym  111111     Coeff  Weight
+             2  222ud0   0.96011 0.92182
+             4  222u0d   0.17078 0.02916
+            10  22udud   0.10436 0.01089
+ 
+      printout of CI-coefficients larger than  0.10 for root  3
+      energy=    -398.478752
+      conf/sym  111111     Coeff  Weight
+             2  222ud0  -0.16881 0.02850
+             4  222u0d   0.94668 0.89620
+             8  22ud20   0.11092 0.01230
+            18  2u2dud   0.15683 0.02460
+            51  202u2d   0.10524 0.01108
+ 
+      printout of CI-coefficients larger than  0.10 for root  4
+      energy=    -398.352219
+      conf/sym  111111     Coeff  Weight
+             7  22u2d0   0.10695 0.01144
+             9  22u20d  -0.73226 0.53621
+            15  2u22d0   0.58031 0.33676
+            17  2u220d   0.15662 0.02453
+            31  220220  -0.17040 0.02904
+            52  202202   0.13665 0.01867
+ 
+      printout of CI-coefficients larger than  0.10 for root  5
+      energy=    -398.346259
+      conf/sym  111111     Coeff  Weight
+             7  22u2d0  -0.67478 0.45532
+            15  2u22d0  -0.10968 0.01203
+            17  2u220d   0.66320 0.43984
+            32  2202ud  -0.12419 0.01542
+            37  2ud220   0.13684 0.01873
+            40  2ud202  -0.14123 0.01994
+ 
+      printout of CI-coefficients larger than  0.10 for root  6
+      energy=    -398.282469
+      conf/sym  111111     Coeff  Weight
+             7  22u2d0   0.68366 0.46739
+             9  22u20d   0.14237 0.02027
+            15  2u22d0  -0.13192 0.01740
+            17  2u220d   0.68522 0.46953
+ 
+      Natural orbitals and occupation numbers for root  1
+      sym 1:   1.997301   1.960930   1.964393   1.998621   0.048585   0.030170
+ 
+      Natural orbitals and occupation numbers for root  2
+      sym 1:   1.998911   1.986331   1.961214   1.000000   0.999145   0.054399
+ 
+      Natural orbitals and occupation numbers for root  3
+      sym 1:   1.998793   1.939791   1.971768   1.000000   0.097441   0.992207
+ 
+      Natural orbitals and occupation numbers for root  4
+      sym 1:   1.977015   1.592564   1.354189   1.983485   0.457999   0.634749
+ 
+      Natural orbitals and occupation numbers for root  5
+      sym 1:   1.992372   1.506926   1.408677   1.997379   0.595693   0.498953
+ 
+      Natural orbitals and occupation numbers for root  6
+      sym 1:   1.990624   1.501275   1.482162   1.998446   0.525752   0.501741
+ 
+      ************************************************************************************************************************
+      *                                                                                                                      *
+      *                                                    Final results                                                     *
+      *                                                                                                                      *
+      ************************************************************************************************************************
+ 
+ 
+++    Wave function specifications:
+      -----------------------------
+ 
+      Number of closed shell electrons          10
+      Number of electrons in active shells       8
+      Max number of holes in RAS1 space          0
+      Max nr of electrons in RAS3 space          0
+      Number of inactive orbitals                5
+      Number of active orbitals                  6
+      Number of secondary orbitals              17
+      Spin quantum number                      0.0
+      State symmetry                             1
+--
+ 
+++    Orbital specifications:
+      -----------------------
+ 
+      Symmetry species                           1
+                                                 a
+      Frozen orbitals                            0
+      Inactive orbitals                          5
+      Active orbitals                            6
+      RAS1 orbitals                              0
+      RAS2 orbitals                              6
+      RAS3 orbitals                              0
+      Secondary orbitals                        17
+      Deleted orbitals                           0
+      Number of basis functions                 28
+--
+ 
+++    CI expansion specifications:
+      ----------------------------
+ 
+      Number of CSFs                           105
+      Number of determinants                   120
+      Number of root(s) required                 6
+      CI roots used                              1     2     3     4     5     6
+      weights                                0.167 0.167 0.167 0.167 0.167 0.167
+      highest root included in the CI            6
+      Root passed to geometry opt.               6
+--
+ 
+++    Final optimization conditions:
+      ------------------------------
+ 
+      Average CI energy                            -398.44322070
+      RASSCF energy for state  6                   -398.28246877
+      Super-CI energy                                -0.00000000
+      RASSCF energy change                           -0.00000000
+      Max change in MO coefficients              -0.296E-04
+      Max non-diagonal density matrix element    -0.146E-04
+      Maximum BLB matrix element                  0.761E-06
+      (orbital pair  10,  13 in symmetry   1)
+      Norm of electronic gradient            0.934E-01
+--
+ 
+ 
+      Final state energy(ies):
+      ------------------------
+ 
+::    RASSCF root number  1 Total energy:   -398.69129351
+::    RASSCF root number  2 Total energy:   -398.50833284
+::    RASSCF root number  3 Total energy:   -398.47875151
+::    RASSCF root number  4 Total energy:   -398.35221889
+::    RASSCF root number  5 Total energy:   -398.34625868
+::    RASSCF root number  6 Total energy:   -398.28246877
+      Von Neumann Entropy (Root   1) =  0.27787
+ 
+
+      Mulliken population analysis for root number:  1
+      -----------------------------------------------
+ 
+ 
+++    Molecular charges:
+      ------------------
+ 
+      Mulliken charges per centre
+      ---------------------------
+ 
+                S1      H2      H3    
+      Total   16.1054  0.9472  0.9474
+ 
+      N-E     -0.1054  0.0528  0.0526
+ 
+      Total electronic charge=   18.000000
+ 
+      Total            charge=   -0.000000
+--
+ 
+ 
+
+      Expectation values of various properties for root number:  1
+      -----------------------------------------------------------
+ 
+ 
+++    Molecular properties:
+      ---------------------
+ 
+      Charge (e):
+                      =   -0.0000
+      Dipole Moment (Debye):
+      Origin of the operator (Ang)=    0.0000    0.0000    0.0000
+                   X= -3.8657E-02               Y=  3.2814E-03               Z=  9.1790E-01           Total=  9.1872E-01
+      Quadrupole Moment (Debye*Ang):
+      Origin of the operator (Ang)=   -0.0030    0.0000    0.0709
+                  XX= -1.6696E+01              XY=  1.7551E-01              XZ= -1.5458E-01              YY= -1.3284E+01
+                  YZ=  6.1144E-03              ZZ= -1.3049E+01
+      In traceless form (Debye*Ang)
+                  XX= -3.5288E+00              XY=  2.6327E-01              XZ= -2.3187E-01              YY=  1.5881E+00
+                  YZ=  9.1715E-03              ZZ=  1.9407E+00
+--
+ 
+      Von Neumann Entropy (Root   2) =  1.17995
+ 
+
+      Mulliken population analysis for root number:  2
+      -----------------------------------------------
+ 
+ 
+++    Molecular charges:
+      ------------------
+ 
+      Mulliken charges per centre
+      ---------------------------
+ 
+                S1      H2      H3    
+      Total   15.9289  1.0304  1.0407
+ 
+      N-E      0.0711 -0.0304 -0.0407
+ 
+      Total electronic charge=   18.000000
+ 
+      Total            charge=   -0.000000
+--
+ 
+ 
+
+      Expectation values of various properties for root number:  2
+      -----------------------------------------------------------
+ 
+ 
+++    Molecular properties:
+      ---------------------
+ 
+      Charge (e):
+                      =   -0.0000
+      Dipole Moment (Debye):
+      Origin of the operator (Ang)=    0.0000    0.0000    0.0000
+                   X=  3.5197E-03               Y=  5.2947E-02               Z= -1.9006E-02           Total=  5.6365E-02
+      Quadrupole Moment (Debye*Ang):
+      Origin of the operator (Ang)=   -0.0030    0.0000    0.0709
+                  XX= -1.4024E+01              XY= -1.5172E-01              XZ=  1.0805E-01              YY= -1.6864E+01
+                  YZ=  1.2822E-01              ZZ= -1.6411E+01
+      In traceless form (Debye*Ang)
+                  XX=  2.6133E+00              XY= -2.2758E-01              XZ=  1.6208E-01              YY= -1.6464E+00
+                  YZ=  1.9233E-01              ZZ= -9.6683E-01
+--
+ 
+      Von Neumann Entropy (Root   3) =  1.27795
+ 
+
+      Mulliken population analysis for root number:  3
+      -----------------------------------------------
+ 
+ 
+++    Molecular charges:
+      ------------------
+ 
+      Mulliken charges per centre
+      ---------------------------
+ 
+                S1      H2      H3    
+      Total   15.8174  1.0973  1.0853
+ 
+      N-E      0.1826 -0.0973 -0.0853
+ 
+      Total electronic charge=   18.000000
+ 
+      Total            charge=   -0.000000
+--
+ 
+ 
+
+      Expectation values of various properties for root number:  3
+      -----------------------------------------------------------
+ 
+ 
+++    Molecular properties:
+      ---------------------
+ 
+      Charge (e):
+                      =   -0.0000
+      Dipole Moment (Debye):
+      Origin of the operator (Ang)=    0.0000    0.0000    0.0000
+                   X=  4.7360E-02               Y= -5.5652E-02               Z= -1.1872E+00           Total=  1.1894E+00
+      Quadrupole Moment (Debye*Ang):
+      Origin of the operator (Ang)=   -0.0030    0.0000    0.0709
+                  XX= -1.4473E+01              XY= -1.2015E-01              XZ=  1.7700E-01              YY= -1.6924E+01
+                  YZ= -1.4871E-01              ZZ= -1.8824E+01
+      In traceless form (Debye*Ang)
+                  XX=  3.4013E+00              XY= -1.8022E-01              XZ=  2.6549E-01              YY= -2.7581E-01
+                  YZ= -2.2306E-01              ZZ= -3.1255E+00
+--
+ 
+      Von Neumann Entropy (Root   4) =  1.68344
+ 
+
+      Mulliken population analysis for root number:  4
+      -----------------------------------------------
+ 
+ 
+++    Molecular charges:
+      ------------------
+ 
+      Mulliken charges per centre
+      ---------------------------
+ 
+                S1      H2      H3    
+      Total   16.0063  0.9706  1.0231
+ 
+      N-E     -0.0063  0.0294 -0.0231
+ 
+      Total electronic charge=   18.000000
+ 
+      Total            charge=   -0.000000
+--
+ 
+ 
+
+      Expectation values of various properties for root number:  4
+      -----------------------------------------------------------
+ 
+ 
+++    Molecular properties:
+      ---------------------
+ 
+      Charge (e):
+                      =   -0.0000
+      Dipole Moment (Debye):
+      Origin of the operator (Ang)=    0.0000    0.0000    0.0000
+                   X=  2.6558E-02               Y=  2.1411E-01               Z= -3.6824E-01           Total=  4.2679E-01
+      Quadrupole Moment (Debye*Ang):
+      Origin of the operator (Ang)=   -0.0030    0.0000    0.0709
+                  XX= -1.7067E+01              XY=  4.7484E-02              XZ= -1.6633E-02              YY= -1.5652E+01
+                  YZ=  5.9683E-01              ZZ= -1.5953E+01
+      In traceless form (Debye*Ang)
+                  XX= -1.2643E+00              XY=  7.1225E-02              XZ= -2.4950E-02              YY=  8.5784E-01
+                  YZ=  8.9524E-01              ZZ=  4.0646E-01
+--
+ 
+      Von Neumann Entropy (Root   5) =  1.69140
+ 
+
+      Mulliken population analysis for root number:  5
+      -----------------------------------------------
+ 
+ 
+++    Molecular charges:
+      ------------------
+ 
+      Mulliken charges per centre
+      ---------------------------
+ 
+                S1      H2      H3    
+      Total   16.0421  1.0058  0.9522
+ 
+      N-E     -0.0421 -0.0058  0.0478
+ 
+      Total electronic charge=   18.000000
+ 
+      Total            charge=   -0.000000
+--
+ 
+ 
+
+      Expectation values of various properties for root number:  5
+      -----------------------------------------------------------
+ 
+ 
+++    Molecular properties:
+      ---------------------
+ 
+      Charge (e):
+                      =   -0.0000
+      Dipole Moment (Debye):
+      Origin of the operator (Ang)=    0.0000    0.0000    0.0000
+                   X= -1.0852E-02               Y= -2.1719E-01               Z= -6.8136E-03           Total=  2.1757E-01
+      Quadrupole Moment (Debye*Ang):
+      Origin of the operator (Ang)=   -0.0030    0.0000    0.0709
+                  XX= -1.7099E+01              XY=  1.1527E-01              XZ= -8.0552E-02              YY= -1.5354E+01
+                  YZ= -5.9823E-01              ZZ= -1.5929E+01
+      In traceless form (Debye*Ang)
+                  XX= -1.4571E+00              XY=  1.7290E-01              XZ= -1.2083E-01              YY=  1.1598E+00
+                  YZ= -8.9734E-01              ZZ=  2.9734E-01
+--
+ 
+      Von Neumann Entropy (Root   6) =  1.64605
+ 
+
+      Mulliken population analysis for root number:  6
+      -----------------------------------------------
+ 
+ 
+++    Molecular charges:
+      ------------------
+ 
+      Mulliken charges per centre
+      ---------------------------
+ 
+                S1      H2      H3    
+      Total   16.0067  0.9960  0.9972
+ 
+      N-E     -0.0067  0.0040  0.0028
+ 
+      Total electronic charge=   18.000000
+ 
+      Total            charge=   -0.000000
+--
+ 
+ 
+
+      Expectation values of various properties for root number:  6
+      -----------------------------------------------------------
+ 
+ 
+++    Molecular properties:
+      ---------------------
+ 
+      Charge (e):
+                      =   -0.0000
+      Dipole Moment (Debye):
+      Origin of the operator (Ang)=    0.0000    0.0000    0.0000
+                   X= -1.5339E-02               Y=  5.8297E-03               Z=  3.6970E-01           Total=  3.7007E-01
+      Quadrupole Moment (Debye*Ang):
+      Origin of the operator (Ang)=   -0.0030    0.0000    0.0709
+                  XX= -1.7062E+01              XY=  9.2056E-02              XZ= -5.3730E-02              YY= -1.5250E+01
+                  YZ=  2.9701E-02              ZZ= -1.5762E+01
+      In traceless form (Debye*Ang)
+                  XX= -1.5558E+00              XY=  1.3808E-01              XZ= -8.0595E-02              YY=  1.1626E+00
+                  YZ=  4.4552E-02              ZZ=  3.9319E-01
+--
+ 
+ 
+      Input file to MOLDEN was generated!
+ 
+ 
+      Input file to MOLDEN was generated!
+ 
+ 
+      Input file to MOLDEN was generated!
+ 
+ 
+      Input file to MOLDEN was generated!
+ 
+ 
+      Input file to MOLDEN was generated!
+ 
+ 
+      Input file to MOLDEN was generated!
+ 
+ 
+      Input file to MOLDEN was generated!
+ 
+      Average orbitals are written to the RASORB file
+      Natural orbitals for root   1 are written to the RASORB.1 file
+      Natural orbitals for root   2 are written to the RASORB.2 file
+      Natural orbitals for root   3 are written to the RASORB.3 file
+      Natural orbitals for root   4 are written to the RASORB.4 file
+      Natural orbitals for root   5 are written to the RASORB.5 file
+      Natural orbitals for root   6 are written to the RASORB.6 file
+      Spin density orbitals for root   1 are written to the SPDORB.1 file
+      Spin density orbitals for root   2 are written to the SPDORB.2 file
+      Spin density orbitals for root   3 are written to the SPDORB.3 file
+      Spin density orbitals for root   4 are written to the SPDORB.4 file
+      Spin density orbitals for root   5 are written to the SPDORB.5 file
+      Spin density orbitals for root   6 are written to the SPDORB.6 file
+ 
+--- Stop Module: rasscf at Fri Mar 22 16:31:30 2024 /rc=_RC_ALL_IS_WELL_ ---
+--- Module rasscf spent 2 seconds ---
+
+>>> COPY MOLCAS.JobIph MOLCAS.1.JobIph
+
+*** symbolic link created: INPORB -> MOLCAS.RasOrb
+--- Start Module: rasscf at Fri Mar 22 16:31:30 2024 ---
+ 
+()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()
+
+                                              &RASSCF
+
+                                   only a single process is used
+                       available to each process: 10 GB of memory, 1 thread?
+                                            pid: 2115112
+()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()
+ 
+ 
+      Header of the ONEINT file:
+      --------------------------
+      
+      Integrals generated by Gateway/Seward, Fri Mar 22 16:31:27 2024
+ 
+ 
+      OrdInt status: non-squared
+ 
+ 
+      Cartesian coordinates in Angstrom:
+      -----------------------------------------------------
+      No.  Label        X            Y            Z        
+      -----------------------------------------------------
+       1   S1         0.00000000   0.00000000   0.00084100
+       2   H2         0.00000000   0.97479900   1.18293400
+       3   H3        -0.10000000  -0.97479900   1.18293400
+      -----------------------------------------------------
+      Nuclear repulsion energy =   11.31134847
+ 
+++    Wave function specifications:
+      -----------------------------
+ 
+      Number of closed shell electrons          10
+      Number of electrons in active shells       7
+      Max number of holes in RAS1 space          0
+      Max nr of electrons in RAS3 space          0
+      Number of inactive orbitals                5
+      Number of active orbitals                  6
+      Number of secondary orbitals              17
+      Spin quantum number                      0.5
+      State symmetry                             1
+--
+ 
+++    Orbital specifications:
+      -----------------------
+ 
+      Symmetry species                           1
+                                                 a
+      Frozen orbitals                            0
+      Inactive orbitals                          5
+      Active orbitals                            6
+      RAS1 orbitals                              0
+      RAS2 orbitals                              6
+      RAS3 orbitals                              0
+      Secondary orbitals                        17
+      Deleted orbitals                           0
+      Number of basis functions                 28
+--
+ 
+++    CI expansion specifications:
+      ----------------------------
+ 
+      Number of CSFs                           210
+      Number of determinants                   300
+      Number of root(s) required                 4
+      Root chosen for geometry opt.              4
+      CI roots used                              1     2     3     4
+      weights                                0.250 0.250 0.250 0.250
+      highest root included in the CI            4
+      max. size of the explicit Hamiltonian    200
+--
+ 
+++    Optimization specifications:
+      ----------------------------
+ 
+      RASSCF algorithm: LK RI/DF
+      Maximum number of macro iterations       200
+      Maximum number of SX iterations          100
+      Threshold for RASSCF energy            0.100E-07
+      Threshold for max MO rotation          0.100E-03
+      Threshold for max BLB element          0.100E-03
+      Level shift parameter                  0.500E+00
+      Make Quasi-Newton update
+--
+ 
+      Orbitals from runfile: rasscf orbitals
+      The MO-coefficients are taken from rasscf orbitals on runfile
+ 
+      Total molecular charge    1.00
+ 
+      ************************************************************************************************************************
+      *                                                                                                                      *
+      *                                            Wave function control section                                             *
+      *                                                                                                                      *
+      ************************************************************************************************************************
+ 
+ 
+                                         RASSCF iterations: Energy and convergence statistics
+                                         ----------------------------------------------------
+ 
+      Iter CI   SX   CI       RASSCF       Energy    max ROT     max BLB   max BLB  Level Ln srch  Step   QN   Walltime
+          iter iter root      energy       change     param      element    value   shift minimum  type update hh:mm:ss
+ Nr of preliminary CI iterations:   3
+        1   1   20    0  -398.19777187    0.00E+00   0.29E+00*   7  12 1 -0.80E-01*  0.00   0.00    SX    NO    0:00:00
+        2   3    8    0  -398.22724339   -0.29E-01*  0.70E-01*   7  21 1 -0.13E-01*  0.00   0.00    SX    NO    0:00:00
+        3   1    8    0  -398.22888100   -0.16E-02* -0.28E-01*   7  12 1 -0.28E-02*  0.00   0.00    SX    NO    0:00:00
+        4   3    8    0  -398.22910668   -0.23E-03*  0.14E-01*   7  21 1 -0.16E-02*  0.00   0.00    SX    NO    0:00:00
+        5   3    7    0  -398.22914354   -0.37E-04*  0.89E-02*  10  12 1  0.46E-03*  0.00   1.67    LS   YES    0:00:00
+        6   3    7    0  -398.22915047   -0.69E-05* -0.15E-02*   7  21 1  0.41E-03*  0.00   1.02    QN   YES    0:00:00
+        7   3    6    0  -398.22915144   -0.96E-06* -0.59E-03*   8  27 1  0.77E-04   0.00   1.41    LS   YES    0:00:00
+        8   3    6    0  -398.22915152   -0.87E-07* -0.51E-03*   7  12 1  0.10E-03   0.00   1.00    QN   YES    0:00:00
+        9   3    6    0  -398.22915160   -0.80E-07*  0.27E-03*   8  22 1 -0.29E-04   0.00   1.31    QN   YES    0:00:00
+       10   3    4    0  -398.22915161   -0.10E-07* -0.40E-04    6  22 1 -0.73E-05   0.00   1.13    QN   YES    0:00:00
+       11   1    4    0  -398.22915161   -0.27E-09  -0.10E-04    9  18 1 -0.16E-05   0.00   2.50    QN   YES    0:00:00
+      Convergence after 11 iterations
+       12   1    4    0  -398.22915161   -0.32E-10  -0.10E-04    6  22 1  0.33E-06   0.00   2.50    QN   YES    0:00:00
+ 
+      ************************************************************************************************************************
+                                                      Wave function printout:
+                       occupation of active orbitals, and spin coupling of open shells (u,d: Spin up or down)
+      ************************************************************************************************************************
+ 
+      Note: transformation to natural orbitals
+      has been made, which may change the order of the CSFs.
+ 
+      printout of CI-coefficients larger than  0.10 for root  1
+      energy=    -398.367451
+      conf/sym  111111     Coeff  Weight
+             1  222u00  -0.97361 0.94793
+            56  202u20  -0.10763 0.01158
+ 
+      printout of CI-coefficients larger than  0.10 for root  2
+      energy=    -398.233506
+      conf/sym  111111     Coeff  Weight
+             4  22u200  -0.95871 0.91912
+            13  2u2200  -0.17060 0.02910
+           124  20u220  -0.10709 0.01147
+ 
+      printout of CI-coefficients larger than  0.10 for root  3
+      energy=    -398.220559
+      conf/sym  111111     Coeff  Weight
+             4  22u200   0.16872 0.02847
+            13  2u2200  -0.94600 0.89491
+            41  2ud20u   0.11686 0.01366
+            55  2022u0   0.10610 0.01126
+ 
+      printout of CI-coefficients larger than  0.10 for root  4
+      energy=    -398.095090
+      conf/sym  111111     Coeff  Weight
+             2  2220u0   0.95477 0.91159
+            11  22u0ud  -0.12374 0.01531
+            16  2u2020  -0.12896 0.01663
+ 
+      Natural orbitals and occupation numbers for root  1
+      sym 1:   1.994895   1.949177   1.957993   1.000000   0.059882   0.038052
+ 
+      Natural orbitals and occupation numbers for root  2
+      sym 1:   1.979316   1.937847   1.006413   1.998397   0.047642   0.030385
+ 
+      Natural orbitals and occupation numbers for root  3
+      sym 1:   1.986200   1.013703   1.932545   1.981439   0.049563   0.036550
+ 
+      Natural orbitals and occupation numbers for root  4
+      sym 1:   1.977336   1.971837   1.950848   0.048894   0.992269   0.058817
+ 
+      ************************************************************************************************************************
+      *                                                                                                                      *
+      *                                                    Final results                                                     *
+      *                                                                                                                      *
+      ************************************************************************************************************************
+ 
+ 
+++    Wave function specifications:
+      -----------------------------
+ 
+      Number of closed shell electrons          10
+      Number of electrons in active shells       7
+      Max number of holes in RAS1 space          0
+      Max nr of electrons in RAS3 space          0
+      Number of inactive orbitals                5
+      Number of active orbitals                  6
+      Number of secondary orbitals              17
+      Spin quantum number                      0.5
+      State symmetry                             1
+--
+ 
+++    Orbital specifications:
+      -----------------------
+ 
+      Symmetry species                           1
+                                                 a
+      Frozen orbitals                            0
+      Inactive orbitals                          5
+      Active orbitals                            6
+      RAS1 orbitals                              0
+      RAS2 orbitals                              6
+      RAS3 orbitals                              0
+      Secondary orbitals                        17
+      Deleted orbitals                           0
+      Number of basis functions                 28
+--
+ 
+++    CI expansion specifications:
+      ----------------------------
+ 
+      Number of CSFs                           210
+      Number of determinants                   300
+      Number of root(s) required                 4
+      CI roots used                              1     2     3     4
+      weights                                0.250 0.250 0.250 0.250
+      highest root included in the CI            4
+      Root passed to geometry opt.               4
+--
+ 
+++    Final optimization conditions:
+      ------------------------------
+ 
+      Average CI energy                            -398.22915161
+      RASSCF energy for state  4                   -398.09509049
+      Super-CI energy                                -0.00000000
+      RASSCF energy change                            0.00000000
+      Max change in MO coefficients               0.243E-04
+      Max non-diagonal density matrix element    -0.101E-04
+      Maximum BLB matrix element                  0.334E-06
+      (orbital pair   6,  22 in symmetry   1)
+      Norm of electronic gradient            0.801E-01
+--
+ 
+ 
+      Final state energy(ies):
+      ------------------------
+ 
+::    RASSCF root number  1 Total energy:   -398.36745097
+::    RASSCF root number  2 Total energy:   -398.23350552
+::    RASSCF root number  3 Total energy:   -398.22055947
+::    RASSCF root number  4 Total energy:   -398.09509049
+      Von Neumann Entropy (Root   1) =  0.83015
+ 
+
+      Mulliken population analysis for root number:  1
+      -----------------------------------------------
+ 
+ 
+++    Molecular charges:
+      ------------------
+ 
+      Mulliken charges per centre
+      ---------------------------
+ 
+                S1      H2      H3    
+      Total   15.4692  0.7654  0.7654
+ 
+      N-E      0.5308  0.2346  0.2346
+ 
+      Total electronic charge=   17.000000
+ 
+      Total            charge=    1.000000
+--
+ 
+ 
+
+      Expectation values of various properties for root number:  1
+      -----------------------------------------------------------
+ 
+ 
+++    Molecular properties:
+      ---------------------
+ 
+      Charge (e):
+                      =    1.0000
+      Dipole Moment (Debye):
+      Origin of the operator (Ang)=    0.0000    0.0000    0.0000
+                   X= -1.0663E-01               Y=  1.3120E-03               Z=  2.5265E+00           Total=  2.5287E+00
+      Center of Charge (Ang)
+                     X=   -0.02219885               Y=    0.00027316               Z=    0.52599429
+      Quadrupole Moment (Debye*Ang):
+      Origin of the operator (Ang)=   -0.0030    0.0000    0.0709
+                  XX= -1.1664E+01              XY=  1.0714E-01              XZ= -1.2020E-01              YY= -9.5852E+00
+                  YZ=  9.8174E-04              ZZ= -8.8320E+00
+      In traceless form (Debye*Ang)
+                  XX= -2.4557E+00              XY=  1.6071E-01              XZ= -1.8029E-01              YY=  6.6292E-01
+                  YZ=  1.4726E-03              ZZ=  1.7927E+00
+--
+ 
+
+      Mulliken spin population analysis for root number:  1
+      ---------------------------------------------------
+ 
+ 
+++    Molecular charges:
+      ------------------
+ 
+      Mulliken spin population per centre
+      ---------------------------
+ 
+                S1      H2      H3    
+      Total    1.1016 -0.0505 -0.0511
+ 
+      Total electronic spin=    1.000000
+--
+ 
+ 
+      Von Neumann Entropy (Root   2) =  0.77890
+ 
+
+      Mulliken population analysis for root number:  2
+      -----------------------------------------------
+ 
+ 
+++    Molecular charges:
+      ------------------
+ 
+      Mulliken charges per centre
+      ---------------------------
+ 
+                S1      H2      H3    
+      Total   15.6237  0.6899  0.6864
+ 
+      N-E      0.3763  0.3101  0.3136
+ 
+      Total electronic charge=   17.000000
+ 
+      Total            charge=    1.000000
+--
+ 
+ 
+
+      Expectation values of various properties for root number:  2
+      -----------------------------------------------------------
+ 
+ 
+++    Molecular properties:
+      ---------------------
+ 
+      Charge (e):
+                      =    1.0000
+      Dipole Moment (Debye):
+      Origin of the operator (Ang)=    0.0000    0.0000    0.0000
+                   X= -1.0660E-01               Y= -9.8025E-03               Z=  2.5124E+00           Total=  2.5147E+00
+      Center of Charge (Ang)
+                     X=   -0.02219380               Y=   -0.00204082               Z=    0.52306887
+      Quadrupole Moment (Debye*Ang):
+      Origin of the operator (Ang)=   -0.0030    0.0000    0.0709
+                  XX= -1.4179E+01              XY=  2.6746E-01              XZ= -3.3922E-01              YY= -9.0161E+00
+                  YZ= -2.8840E-02              ZZ= -6.2220E+00
+      In traceless form (Debye*Ang)
+                  XX= -6.5596E+00              XY=  4.0120E-01              XZ= -5.0883E-01              YY=  1.1843E+00
+                  YZ= -4.3259E-02              ZZ=  5.3754E+00
+--
+ 
+
+      Mulliken spin population analysis for root number:  2
+      ---------------------------------------------------
+ 
+ 
+++    Molecular charges:
+      ------------------
+ 
+      Mulliken spin population per centre
+      ---------------------------
+ 
+                S1      H2      H3    
+      Total    0.6662  0.1612  0.1726
+ 
+      Total electronic spin=    1.000000
+--
+ 
+ 
+      Von Neumann Entropy (Root   3) =  0.80569
+ 
+
+      Mulliken population analysis for root number:  3
+      -----------------------------------------------
+ 
+ 
+++    Molecular charges:
+      ------------------
+ 
+      Mulliken charges per centre
+      ---------------------------
+ 
+                S1      H2      H3    
+      Total   15.6195  0.6881  0.6924
+ 
+      N-E      0.3805  0.3119  0.3076
+ 
+      Total electronic charge=   17.000000
+ 
+      Total            charge=    1.000000
+--
+ 
+ 
+
+      Expectation values of various properties for root number:  3
+      -----------------------------------------------------------
+ 
+ 
+++    Molecular properties:
+      ---------------------
+ 
+      Charge (e):
+                      =    1.0000
+      Dipole Moment (Debye):
+      Origin of the operator (Ang)=    0.0000    0.0000    0.0000
+                   X= -1.4475E-01               Y=  1.2139E-02               Z=  3.4410E+00           Total=  3.4440E+00
+      Center of Charge (Ang)
+                     X=   -0.03013645               Y=    0.00252720               Z=    0.71638734
+      Quadrupole Moment (Debye*Ang):
+      Origin of the operator (Ang)=   -0.0030    0.0000    0.0709
+                  XX= -1.4259E+01              XY=  3.5702E-01              XZ= -2.5625E-01              YY= -7.2893E+00
+                  YZ=  4.6756E-02              ZZ= -8.1734E+00
+      In traceless form (Debye*Ang)
+                  XX= -6.5278E+00              XY=  5.3553E-01              XZ= -3.8437E-01              YY=  3.9269E+00
+                  YZ=  7.0134E-02              ZZ=  2.6008E+00
+--
+ 
+
+      Mulliken spin population analysis for root number:  3
+      ---------------------------------------------------
+ 
+ 
+++    Molecular charges:
+      ------------------
+ 
+      Mulliken spin population per centre
+      ---------------------------
+ 
+                S1      H2      H3    
+      Total    0.4067  0.3013  0.2920
+ 
+      Total electronic spin=    1.000000
+--
+ 
+ 
+      Von Neumann Entropy (Root   4) =  0.85365
+ 
+
+      Mulliken population analysis for root number:  4
+      -----------------------------------------------
+ 
+ 
+++    Molecular charges:
+      ------------------
+ 
+      Mulliken charges per centre
+      ---------------------------
+ 
+                S1      H2      H3    
+      Total   15.1969  0.8972  0.9059
+ 
+      N-E      0.8031  0.1028  0.0941
+ 
+      Total electronic charge=   17.000000
+ 
+      Total            charge=    1.000000
+--
+ 
+ 
+
+      Expectation values of various properties for root number:  4
+      -----------------------------------------------------------
+ 
+ 
+++    Molecular properties:
+      ---------------------
+ 
+      Charge (e):
+                      =    1.0000
+      Dipole Moment (Debye):
+      Origin of the operator (Ang)=    0.0000    0.0000    0.0000
+                   X= -5.7705E-02               Y=  3.6402E-02               Z=  1.4124E+00           Total=  1.4141E+00
+      Center of Charge (Ang)
+                     X=   -0.01201379               Y=    0.00757862               Z=    0.29405948
+      Quadrupole Moment (Debye*Ang):
+      Origin of the operator (Ang)=   -0.0030    0.0000    0.0709
+                  XX= -9.1612E+00              XY= -1.6801E-01              XZ=  1.0587E-01              YY= -1.2359E+01
+                  YZ=  7.7818E-02              ZZ= -1.1557E+01
+      In traceless form (Debye*Ang)
+                  XX=  2.7969E+00              XY= -2.5202E-01              XZ=  1.5881E-01              YY= -2.0005E+00
+                  YZ=  1.1673E-01              ZZ= -7.9636E-01
+--
+ 
+
+      Mulliken spin population analysis for root number:  4
+      ---------------------------------------------------
+ 
+ 
+++    Molecular charges:
+      ------------------
+ 
+      Mulliken spin population per centre
+      ---------------------------
+ 
+                S1      H2      H3    
+      Total    0.2328  0.3720  0.3952
+ 
+      Total electronic spin=    1.000000
+--
+ 
+ 
+ 
+      Input file to MOLDEN was generated!
+ 
+ 
+      Input file to MOLDEN was generated!
+ 
+ 
+      Input file to MOLDEN was generated!
+ 
+ 
+      Input file to MOLDEN was generated!
+ 
+ 
+      Input file to MOLDEN was generated!
+ 
+      Average orbitals are written to the RASORB file
+      Natural orbitals for root   1 are written to the RASORB.1 file
+      Natural orbitals for root   2 are written to the RASORB.2 file
+      Natural orbitals for root   3 are written to the RASORB.3 file
+      Natural orbitals for root   4 are written to the RASORB.4 file
+      Spin density orbitals for root   1 are written to the SPDORB.1 file
+      Spin density orbitals for root   2 are written to the SPDORB.2 file
+      Spin density orbitals for root   3 are written to the SPDORB.3 file
+      Spin density orbitals for root   4 are written to the SPDORB.4 file
+ 
+--- Stop Module: rasscf at Fri Mar 22 16:31:33 2024 /rc=_RC_ALL_IS_WELL_ ---
+--- Module rasscf spent 2 seconds ---
+
+>>> COPY MOLCAS.JobIph MOLCAS.2.JobIph
+
+*** symbolic link created: INPORB -> MOLCAS.RasOrb
+--- Start Module: rasscf at Fri Mar 22 16:31:33 2024 ---
+ 
+()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()
+
+                                              &RASSCF
+
+                                   only a single process is used
+                       available to each process: 10 GB of memory, 1 thread?
+                                            pid: 2115115
+()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()
+ 
+ 
+      Header of the ONEINT file:
+      --------------------------
+      
+      Integrals generated by Gateway/Seward, Fri Mar 22 16:31:27 2024
+ 
+ 
+      OrdInt status: non-squared
+ 
+ 
+      Cartesian coordinates in Angstrom:
+      -----------------------------------------------------
+      No.  Label        X            Y            Z        
+      -----------------------------------------------------
+       1   S1         0.00000000   0.00000000   0.00084100
+       2   H2         0.00000000   0.97479900   1.18293400
+       3   H3        -0.10000000  -0.97479900   1.18293400
+      -----------------------------------------------------
+      Nuclear repulsion energy =   11.31134847
+ 
+++    Wave function specifications:
+      -----------------------------
+ 
+      Number of closed shell electrons          10
+      Number of electrons in active shells       8
+      Max number of holes in RAS1 space          0
+      Max nr of electrons in RAS3 space          0
+      Number of inactive orbitals                5
+      Number of active orbitals                  6
+      Number of secondary orbitals              17
+      Spin quantum number                      1.0
+      State symmetry                             1
+--
+ 
+++    Orbital specifications:
+      -----------------------
+ 
+      Symmetry species                           1
+                                                 a
+      Frozen orbitals                            0
+      Inactive orbitals                          5
+      Active orbitals                            6
+      RAS1 orbitals                              0
+      RAS2 orbitals                              6
+      RAS3 orbitals                              0
+      Secondary orbitals                        17
+      Deleted orbitals                           0
+      Number of basis functions                 28
+--
+ 
+++    CI expansion specifications:
+      ----------------------------
+ 
+      Number of CSFs                           105
+      Number of determinants                   120
+      Number of root(s) required                 4
+      Root chosen for geometry opt.              4
+      CI roots used                              1     2     3     4
+      weights                                0.250 0.250 0.250 0.250
+      highest root included in the CI            4
+      max. size of the explicit Hamiltonian    105
+--
+ 
+++    Optimization specifications:
+      ----------------------------
+ 
+      RASSCF algorithm: LK RI/DF
+      Maximum number of macro iterations       200
+      Maximum number of SX iterations          100
+      Threshold for RASSCF energy            0.100E-07
+      Threshold for max MO rotation          0.100E-03
+      Threshold for max BLB element          0.100E-03
+      Level shift parameter                  0.500E+00
+      Make Quasi-Newton update
+--
+ 
+      Orbitals from runfile: rasscf orbitals
+      The MO-coefficients are taken from rasscf orbitals on runfile
+ 
+      Total molecular charge    0.00
+ 
+      ************************************************************************************************************************
+      *                                                                                                                      *
+      *                                            Wave function control section                                             *
+      *                                                                                                                      *
+      ************************************************************************************************************************
+ 
+ 
+                                         RASSCF iterations: Energy and convergence statistics
+                                         ----------------------------------------------------
+ 
+      Iter CI   SX   CI       RASSCF       Energy    max ROT     max BLB   max BLB  Level Ln srch  Step   QN   Walltime
+          iter iter root      energy       change     param      element    value   shift minimum  type update hh:mm:ss
+ Nr of preliminary CI iterations:   1
+        1   1   95    0  -398.42153287    0.00E+00   0.30E+00*   8  14 1 -0.91E-01*  0.15   0.00    SX    NO    0:00:00
+        2   1    9    0  -398.48029912   -0.59E-01*  0.73E-01*  11  12 1 -0.17E-01*  0.00   0.00    SX    NO    0:00:00
+        3   1    7    0  -398.48276382   -0.25E-02*  0.16E-01*  11  12 1 -0.39E-02*  0.00   0.00    SX    NO    0:00:00
+        4   1    7    0  -398.48291785   -0.15E-03*  0.46E-02*   7  21 1  0.12E-02*  0.00   0.00    SX    NO    0:00:00
+        5   1    6    0  -398.48293086   -0.13E-04*  0.20E-02*   7  21 1  0.41E-03*  0.00   1.43    LS   YES    0:00:00
+        6   1    5    0  -398.48293217   -0.13E-05*  0.83E-04    9  17 1  0.12E-03*  0.00   1.01    QN   YES    0:00:00
+        7   1    4    0  -398.48293221   -0.40E-07*  0.31E-04    9  17 1  0.37E-04   0.00   1.39    QN   YES    0:00:00
+        8   1    3    0  -398.48293221   -0.29E-08   0.21E-05    5  15 1  0.26E-05   0.00   1.03    QN   YES    0:00:00
+      Convergence after  8 iterations
+        9   1    3    0  -398.48293221   -0.81E-10   0.21E-05    6  22 1 -0.51E-06   0.00   1.03    QN   YES    0:00:00
+ 
+      ************************************************************************************************************************
+                                                      Wave function printout:
+                       occupation of active orbitals, and spin coupling of open shells (u,d: Spin up or down)
+      ************************************************************************************************************************
+ 
+      Note: transformation to natural orbitals
+      has been made, which may change the order of the CSFs.
+ 
+      printout of CI-coefficients larger than  0.10 for root  1
+      energy=    -398.529132
+      conf/sym  111111     Coeff  Weight
+             1  222uu0  -0.97712 0.95477
+            20  2u2u02   0.10040 0.01008
+ 
+      printout of CI-coefficients larger than  0.10 for root  2
+      energy=    -398.503208
+      conf/sym  111111     Coeff  Weight
+             2  222u0u  -0.96671 0.93453
+             5  22uu20   0.13172 0.01735
+            19  2u2uud   0.12581 0.01583
+            41  202u2u  -0.10372 0.01076
+ 
+      printout of CI-coefficients larger than  0.10 for root  3
+      energy=    -398.451020
+      conf/sym  111111     Coeff  Weight
+             4  22u2u0  -0.20776 0.04317
+             6  22u20u  -0.53354 0.28466
+            13  2u22u0  -0.79058 0.62501
+            15  2u220u  -0.11585 0.01342
+ 
+      printout of CI-coefficients larger than  0.10 for root  4
+      energy=    -398.448368
+      conf/sym  111111     Coeff  Weight
+             4  22u2u0  -0.82006 0.67250
+             6  22u20u   0.12870 0.01656
+            13  2u22u0   0.19980 0.03992
+            15  2u220u  -0.48696 0.23713
+ 
+      Natural orbitals and occupation numbers for root  1
+      sym 1:   1.997194   1.976187   1.965364   1.000000   0.998862   0.062392
+ 
+      Natural orbitals and occupation numbers for root  2
+      sym 1:   1.998657   1.952372   1.962503   1.000000   0.097103   0.989366
+ 
+      Natural orbitals and occupation numbers for root  3
+      sym 1:   1.995492   1.207530   1.752843   1.998887   0.796586   0.248663
+ 
+      Natural orbitals and occupation numbers for root  4
+      sym 1:   1.993819   1.787891   1.174382   1.997977   0.828763   0.217168
+ 
+      ************************************************************************************************************************
+      *                                                                                                                      *
+      *                                                    Final results                                                     *
+      *                                                                                                                      *
+      ************************************************************************************************************************
+ 
+ 
+++    Wave function specifications:
+      -----------------------------
+ 
+      Number of closed shell electrons          10
+      Number of electrons in active shells       8
+      Max number of holes in RAS1 space          0
+      Max nr of electrons in RAS3 space          0
+      Number of inactive orbitals                5
+      Number of active orbitals                  6
+      Number of secondary orbitals              17
+      Spin quantum number                      1.0
+      State symmetry                             1
+--
+ 
+++    Orbital specifications:
+      -----------------------
+ 
+      Symmetry species                           1
+                                                 a
+      Frozen orbitals                            0
+      Inactive orbitals                          5
+      Active orbitals                            6
+      RAS1 orbitals                              0
+      RAS2 orbitals                              6
+      RAS3 orbitals                              0
+      Secondary orbitals                        17
+      Deleted orbitals                           0
+      Number of basis functions                 28
+--
+ 
+++    CI expansion specifications:
+      ----------------------------
+ 
+      Number of CSFs                           105
+      Number of determinants                   120
+      Number of root(s) required                 4
+      CI roots used                              1     2     3     4
+      weights                                0.250 0.250 0.250 0.250
+      highest root included in the CI            4
+      Root passed to geometry opt.               4
+--
+ 
+++    Final optimization conditions:
+      ------------------------------
+ 
+      Average CI energy                            -398.48293221
+      RASSCF energy for state  4                   -398.44836830
+      Super-CI energy                                -0.00000000
+      RASSCF energy change                           -0.00000000
+      Max change in MO coefficients               0.534E-05
+      Max non-diagonal density matrix element     0.207E-05
+      Maximum BLB matrix element                 -0.509E-06
+      (orbital pair   6,  22 in symmetry   1)
+      Norm of electronic gradient            0.606E-01
+--
+ 
+ 
+      Final state energy(ies):
+      ------------------------
+ 
+::    RASSCF root number  1 Total energy:   -398.52913226
+::    RASSCF root number  2 Total energy:   -398.50320833
+::    RASSCF root number  3 Total energy:   -398.45101995
+::    RASSCF root number  4 Total energy:   -398.44836830
+      Von Neumann Entropy (Root   1) =  1.20017
+ 
+
+      Mulliken population analysis for root number:  1
+      -----------------------------------------------
+ 
+ 
+++    Molecular charges:
+      ------------------
+ 
+      Mulliken charges per centre
+      ---------------------------
+ 
+                S1      H2      H3    
+      Total   15.8784  1.0550  1.0666
+ 
+      N-E      0.1216 -0.0550 -0.0666
+ 
+      Total electronic charge=   18.000000
+ 
+      Total            charge=   -0.000000
+--
+ 
+ 
+
+      Expectation values of various properties for root number:  1
+      -----------------------------------------------------------
+ 
+ 
+++    Molecular properties:
+      ---------------------
+ 
+      Charge (e):
+                      =   -0.0000
+      Dipole Moment (Debye):
+      Origin of the operator (Ang)=    0.0000    0.0000    0.0000
+                   X=  8.9395E-03               Y=  5.0459E-02               Z= -1.5016E-01           Total=  1.5866E-01
+      Quadrupole Moment (Debye*Ang):
+      Origin of the operator (Ang)=   -0.0030    0.0000    0.0709
+                  XX= -1.3854E+01              XY= -1.4854E-01              XZ=  1.1161E-01              YY= -1.6637E+01
+                  YZ=  1.2198E-01              ZZ= -1.6332E+01
+      In traceless form (Debye*Ang)
+                  XX=  2.6308E+00              XY= -2.2281E-01              XZ=  1.6742E-01              YY= -1.5438E+00
+                  YZ=  1.8297E-01              ZZ= -1.0870E+00
+--
+ 
+
+      Mulliken spin population analysis for root number:  1
+      ---------------------------------------------------
+ 
+ 
+++    Molecular charges:
+      ------------------
+ 
+      Mulliken spin population per centre
+      ---------------------------
+ 
+                S1      H2      H3    
+      Total    1.3459  0.3121  0.3420
+ 
+      Total electronic spin=    2.000000
+--
+ 
+ 
+      Von Neumann Entropy (Root   2) =  1.27591
+ 
+
+      Mulliken population analysis for root number:  2
+      -----------------------------------------------
+ 
+ 
+++    Molecular charges:
+      ------------------
+ 
+      Mulliken charges per centre
+      ---------------------------
+ 
+                S1      H2      H3    
+      Total   15.7759  1.1189  1.1052
+ 
+      N-E      0.2241 -0.1189 -0.1052
+ 
+      Total electronic charge=   18.000000
+ 
+      Total            charge=   -0.000000
+--
+ 
+ 
+
+      Expectation values of various properties for root number:  2
+      -----------------------------------------------------------
+ 
+ 
+++    Molecular properties:
+      ---------------------
+ 
+      Charge (e):
+                      =   -0.0000
+      Dipole Moment (Debye):
+      Origin of the operator (Ang)=    0.0000    0.0000    0.0000
+                   X=  3.4955E-02               Y= -5.2498E-02               Z= -8.9007E-01           Total=  8.9230E-01
+      Quadrupole Moment (Debye*Ang):
+      Origin of the operator (Ang)=   -0.0030    0.0000    0.0709
+                  XX= -1.4194E+01              XY= -1.1262E-01              XZ=  1.5644E-01              YY= -1.6496E+01
+                  YZ= -1.4401E-01              ZZ= -1.8054E+01
+      In traceless form (Debye*Ang)
+                  XX=  3.0814E+00              XY= -1.6892E-01              XZ=  2.3466E-01              YY= -3.7153E-01
+                  YZ= -2.1601E-01              ZZ= -2.7098E+00
+--
+ 
+
+      Mulliken spin population analysis for root number:  2
+      ---------------------------------------------------
+ 
+ 
+++    Molecular charges:
+      ------------------
+ 
+      Mulliken spin population per centre
+      ---------------------------
+ 
+                S1      H2      H3    
+      Total    1.2024  0.4137  0.3838
+ 
+      Total electronic spin=    2.000000
+--
+ 
+ 
+      Von Neumann Entropy (Root   3) =  1.51327
+ 
+
+      Mulliken population analysis for root number:  3
+      -----------------------------------------------
+ 
+ 
+++    Molecular charges:
+      ------------------
+ 
+      Mulliken charges per centre
+      ---------------------------
+ 
+                S1      H2      H3    
+      Total   16.0566  0.9531  0.9903
+ 
+      N-E     -0.0566  0.0469  0.0097
+ 
+      Total electronic charge=   18.000000
+ 
+      Total            charge=   -0.000000
+--
+ 
+ 
+
+      Expectation values of various properties for root number:  3
+      -----------------------------------------------------------
+ 
+ 
+++    Molecular properties:
+      ---------------------
+ 
+      Charge (e):
+                      =   -0.0000
+      Dipole Moment (Debye):
+      Origin of the operator (Ang)=    0.0000    0.0000    0.0000
+                   X= -1.4187E-03               Y=  3.6456E-01               Z=  4.7562E-01           Total=  5.9927E-01
+      Quadrupole Moment (Debye*Ang):
+      Origin of the operator (Ang)=   -0.0030    0.0000    0.0709
+                  XX= -1.6801E+01              XY=  8.6144E-02              XZ= -3.3127E-02              YY= -1.4579E+01
+                  YZ=  6.6593E-01              ZZ= -1.5217E+01
+      In traceless form (Debye*Ang)
+                  XX= -1.9038E+00              XY=  1.2922E-01              XZ= -4.9690E-02              YY=  1.4304E+00
+                  YZ=  9.9890E-01              ZZ=  4.7350E-01
+--
+ 
+
+      Mulliken spin population analysis for root number:  3
+      ---------------------------------------------------
+ 
+ 
+++    Molecular charges:
+      ------------------
+ 
+      Mulliken spin population per centre
+      ---------------------------
+ 
+                S1      H2      H3    
+      Total    0.9965  0.2627  0.7408
+ 
+      Total electronic spin=    2.000000
+--
+ 
+ 
+      Von Neumann Entropy (Root   4) =  1.47599
+ 
+
+      Mulliken population analysis for root number:  4
+      -----------------------------------------------
+ 
+ 
+++    Molecular charges:
+      ------------------
+ 
+      Mulliken charges per centre
+      ---------------------------
+ 
+                S1      H2      H3    
+      Total   16.0286  1.0039  0.9675
+ 
+      N-E     -0.0286 -0.0039  0.0325
+ 
+      Total electronic charge=   18.000000
+ 
+      Total            charge=   -0.000000
+--
+ 
+ 
+
+      Expectation values of various properties for root number:  4
+      -----------------------------------------------------------
+ 
+ 
+++    Molecular properties:
+      ---------------------
+ 
+      Charge (e):
+                      =   -0.0000
+      Dipole Moment (Debye):
+      Origin of the operator (Ang)=    0.0000    0.0000    0.0000
+                   X= -1.5542E-02               Y= -3.6163E-01               Z= -7.1083E-02           Total=  3.6887E-01
+      Quadrupole Moment (Debye*Ang):
+      Origin of the operator (Ang)=   -0.0030    0.0000    0.0709
+                  XX= -1.6716E+01              XY=  9.4220E-02              XZ= -1.3049E-01              YY= -1.5427E+01
+                  YZ= -6.5240E-01              ZZ= -1.4433E+01
+      In traceless form (Debye*Ang)
+                  XX= -1.7860E+00              XY=  1.4133E-01              XZ= -1.9573E-01              YY=  1.4685E-01
+                  YZ= -9.7860E-01              ZZ=  1.6391E+00
+--
+ 
+
+      Mulliken spin population analysis for root number:  4
+      ---------------------------------------------------
+ 
+ 
+++    Molecular charges:
+      ------------------
+ 
+      Mulliken spin population per centre
+      ---------------------------
+ 
+                S1      H2      H3    
+      Total    1.1275  0.6741  0.1984
+ 
+      Total electronic spin=    2.000000
+--
+ 
+ 
+ 
+      Input file to MOLDEN was generated!
+ 
+ 
+      Input file to MOLDEN was generated!
+ 
+ 
+      Input file to MOLDEN was generated!
+ 
+ 
+      Input file to MOLDEN was generated!
+ 
+ 
+      Input file to MOLDEN was generated!
+ 
+      Average orbitals are written to the RASORB file
+      Natural orbitals for root   1 are written to the RASORB.1 file
+      Natural orbitals for root   2 are written to the RASORB.2 file
+      Natural orbitals for root   3 are written to the RASORB.3 file
+      Natural orbitals for root   4 are written to the RASORB.4 file
+      Spin density orbitals for root   1 are written to the SPDORB.1 file
+      Spin density orbitals for root   2 are written to the SPDORB.2 file
+      Spin density orbitals for root   3 are written to the SPDORB.3 file
+      Spin density orbitals for root   4 are written to the SPDORB.4 file
+ 
+--- Stop Module: rasscf at Fri Mar 22 16:31:35 2024 /rc=_RC_ALL_IS_WELL_ ---
+--- Module rasscf spent 2 seconds ---
+
+>>> COPY MOLCAS.JobIph MOLCAS.3.JobIph
+
+>>> COPY MOLCAS.1.JobIph JOB001
+
+>>> COPY MOLCAS.2.JobIph JOB002
+
+>>> COPY MOLCAS.3.JobIph JOB003
+
+*** symbolic link created: INPORB -> MOLCAS.RasOrb
+--- Start Module: rassi at Fri Mar 22 16:31:35 2024 ---
+ 
+()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()
+
+                                               &RASSI
+
+                                   only a single process is used
+                       available to each process: 10 GB of memory, 1 thread?
+                                            pid: 2115118
+()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()
+ 
+ 
+      ********************************************************************************
+      *                                                                              *
+      *                             General data section                             *
+      *                                                                              *
+      ********************************************************************************
+ 
+   Specific data for JOBIPH file 
+ JOB001                                                                         
+                                                  
+   -------------------------------------
+ 
+   Header from SEWARD:
+                                                                               
+        Integrals generated by Gateway/Seward, Fri Mar 22 16:31:27 2024        
+ 
+   CASSCF title (first line only):
+       (No title given)                                                        
+ 
+   STATE IRREP:                             1
+   SPIN MULTIPLICITY:                       1
+   ACTIVE ELECTRONS:                        8
+   MAX RAS1 HOLES:                          0
+   MAX RAS3 ELECTRONS:                      0
+   NR OF CONFIG:                          105
+ 
+   Specific data for JOBIPH file 
+ JOB002                                                                         
+                                                  
+   -------------------------------------
+ 
+   Header from SEWARD:
+                                                                               
+        Integrals generated by Gateway/Seward, Fri Mar 22 16:31:27 2024        
+ 
+   CASSCF title (first line only):
+       (No title given)                                                        
+ 
+   STATE IRREP:                             1
+   SPIN MULTIPLICITY:                       2
+   ACTIVE ELECTRONS:                        7
+   MAX RAS1 HOLES:                          0
+   MAX RAS3 ELECTRONS:                      0
+   NR OF CONFIG:                          210
+ 
+   Specific data for JOBIPH file 
+ JOB003                                                                         
+                                                  
+   -------------------------------------
+ 
+   Header from SEWARD:
+                                                                               
+        Integrals generated by Gateway/Seward, Fri Mar 22 16:31:27 2024        
+ 
+   CASSCF title (first line only):
+       (No title given)                                                        
+ 
+   STATE IRREP:                             1
+   SPIN MULTIPLICITY:                       3
+   ACTIVE ELECTRONS:                        8
+   MAX RAS1 HOLES:                          0
+   MAX RAS3 ELECTRONS:                      0
+   NR OF CONFIG:                          105
+ ###############################################################################
+ ###############################################################################
+ ###                                                                         ###
+ ###                                                                         ###
+ ###    WARNING: EJOB used when HEFF is available, possible                  ###
+ ###    extra interaction between states is ignored!                         ###
+ ###                                                                         ###
+ ###                                                                         ###
+ ###############################################################################
+ ###############################################################################
+ 
+   The following data are common to all the states:
+   ------------------------------------------------
+   (note: frozen counts as inactive, deleted as secondary)
+ 
+      Nr of irreps: 1
+ 
+                 Total     No./Irrep 
+      Irrep                  1
+                             a
+ 
+      INACTIVE       5       5
+      ACTIVE         6       6
+      SECONDARY     17      17
+      BASIS         28      28
+ 
+      RAS1           0       0
+      RAS2           6       6
+      RAS3           0       0
+ 
+        MATRIX ELEMENTS WILL BE COMPUTED FOR THE FOLLOWING ONE-ELECTRON OPERATOR
+ S, UNLESS ZERO BY SYMMETRY.
+   (Herm=Hermitian, Anti=Antihermitian, Sing=Singlet operator, Trip=Triplet oper
+ ator)
+     MLTPL  0   1 (HERMSING)     MLTPL  0   1 (ANTITRIP)     MLTPL  1   1 (HERMSING)
+     MLTPL  1   1 (ANTITRIP)     MLTPL  1   2 (HERMSING)     MLTPL  1   2 (ANTITRIP)
+     MLTPL  1   3 (HERMSING)     MLTPL  1   3 (ANTITRIP)     MLTPL  2   1 (HERMSING)
+     MLTPL  2   2 (HERMSING)     MLTPL  2   3 (HERMSING)     MLTPL  2   4 (HERMSING)
+     MLTPL  2   5 (HERMSING)     MLTPL  2   6 (HERMSING)     VELOCITY   1 (ANTISING)
+     VELOCITY   2 (ANTISING)     VELOCITY   3 (ANTISING)     ANGMOM     1 (ANTISING)
+     ANGMOM     2 (ANTISING)     ANGMOM     3 (ANTISING)     MLTPV  2   1 (ANTISING)
+     MLTPV  2   2 (ANTISING)     MLTPV  2   3 (ANTISING)     MLTPV  2   4 (ANTISING)
+     MLTPV  2   5 (ANTISING)     MLTPV  2   6 (ANTISING)     AMFI       1 (ANTITRIP)
+     AMFI       2 (ANTITRIP)     AMFI       3 (ANTITRIP)
+ 
+       EIGENSTATES OF A SPIN-FREE HAMILTONIAN WILL BE COMPUTED BASED ON:
+ 
+  a Hamiltonian matrix assumed to be diagonal with energies read from the wavefu
+ nction file(s).
+ 
+  SO coupling elements will be added.
+ 
+        MATRIX ELEMENTS OVER SPIN EIGENSTATES FOR:
+     MLTPL  0   1 (HERMSING)     MLTPL  0   1 (ANTITRIP)     MLTPL  1   1 (HERMSING)
+     MLTPL  1   1 (ANTITRIP)     MLTPL  1   2 (HERMSING)     MLTPL  1   2 (ANTITRIP)
+     MLTPL  1   3 (HERMSING)     MLTPL  1   3 (ANTITRIP)     MLTPL  2   1 (HERMSING)
+     MLTPL  2   2 (HERMSING)     MLTPL  2   3 (HERMSING)     MLTPL  2   4 (HERMSING)
+     MLTPL  2   5 (HERMSING)     MLTPL  2   6 (HERMSING)     VELOCITY   1 (ANTISING)
+     VELOCITY   2 (ANTISING)     VELOCITY   3 (ANTISING)     ANGMOM     1 (ANTISING)
+     ANGMOM     2 (ANTISING)     ANGMOM     3 (ANTISING)     MLTPV  2   1 (ANTISING)
+     MLTPV  2   2 (ANTISING)     MLTPV  2   3 (ANTISING)     MLTPV  2   4 (ANTISING)
+     MLTPV  2   5 (ANTISING)     MLTPV  2   6 (ANTISING)     AMFI       1 (ANTITRIP)
+     AMFI       2 (ANTITRIP)     AMFI       3 (ANTITRIP)
+ 
+       EIGENSTATES OF SPIN-ORBIT HAMILTONIAN WILL BE COMPUTED
+ 
+  Nr of states:                     9
+ 
+   State:        1   2   3   4   5   6   7   8   9
+  JobIph:        1   1   1   1   1   1   2   2   3
+ Root nr:        1   2   3   4   5   6   1   2   1
+ 
+  HAMILTONIAN MATRIX FOR THE ORIGINAL STATES:
+ 
+  Diagonal, with energies
+   -398.69129351   -398.50833284   -398.47875151   -398.35221889   -398.34625868
+   -398.28246877   -398.36745097   -398.23350552   -398.52913226
+ 
+      OVERLAP MATRIX FOR THE ORIGINAL STATES:
+ 
+  Diagonal, with elements
+      1.00000000      1.00000000      1.00000000      1.00000000      1.00000000
+      1.00000000      1.00000000      1.00000000      1.00000000
+ 
+++ Matrix elements for input states
+   --------------------------------
+ 
+  MATRIX ELEMENTS OF 1-ELECTRON OPERATORS
+  FOR THE RASSCF INPUT WAVE FUNCTIONS:
+ 
+ 
+ PROPERTY: MLTPL  0   COMPONENT:*   1
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       1                2                3                4
+ 
+     1       -0.113686838E-12 -0.155805349E-14  0.152472989E-14 -0.873866951E-15
+     2       -0.155805349E-14 -0.117239551E-12 -0.369225050E-15  0.515048924E-15
+     3        0.152472989E-14 -0.369225050E-15 -0.106581410E-12  0.397546905E-15
+     4       -0.873866951E-15  0.515048924E-15  0.397546905E-15 -0.106581410E-12
+     5        0.104672943E-15  0.338012209E-15  0.388174989E-15  0.315062375E-16
+     6       -0.261430366E-15 -0.527038677E-15  0.619982029E-15  0.210304728E-15
+     7         0.00000000       0.00000000       0.00000000       0.00000000    
+     8         0.00000000       0.00000000       0.00000000       0.00000000    
+     9        0.151461293E-27 -0.520417043E-17  0.523042845E-18 -0.333214844E-26
+ 
+ 
+ PROPERTY: MLTPL  0   COMPONENT:*   1
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       5                6                7                8
+ 
+     1        0.104672943E-15 -0.261430366E-15   0.00000000       0.00000000    
+     2        0.338012209E-15 -0.527038677E-15   0.00000000       0.00000000    
+     3        0.388174989E-15  0.619982029E-15   0.00000000       0.00000000    
+     4        0.315062375E-16  0.210304728E-15   0.00000000       0.00000000    
+     5       -0.110134124E-12  0.109222527E-14   0.00000000       0.00000000    
+     6        0.109222527E-14 -0.113686838E-12   0.00000000       0.00000000    
+     7         0.00000000       0.00000000       1.00000000      0.810115863E-15
+     8         0.00000000       0.00000000      0.810115863E-15   1.00000000    
+     9        0.361111865E-34 -0.504870979E-27   0.00000000       0.00000000    
+ 
+ 
+ PROPERTY: MLTPL  0   COMPONENT:*   1
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       9
+ 
+     1        0.151461293E-27
+     2       -0.520417043E-17
+     3        0.523042845E-18
+     4       -0.333214844E-26
+     5        0.361111865E-34
+     6       -0.504870979E-27
+     7         0.00000000    
+     8         0.00000000    
+     9       -0.113686838E-12
+ 
+ 
+ PROPERTY: MLTPL  0   COMPONENT:*   1
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       1                2                3                4
+ 
+     1         18.0000000      0.101365318E-16 -0.182676705E-17 -0.161394335E-13
+     2        0.101365318E-16   18.0000000      0.166303007E-12  0.171832865E-16
+     3       -0.182676705E-17  0.166303007E-12   18.0000000     -0.153172826E-16
+     4       -0.161394335E-13  0.171832865E-16 -0.153172826E-16   18.0000000    
+     5       -0.228393964E-15 -0.258868612E-18 -0.734196339E-17 -0.332196734E-13
+     6       -0.393857615E-16 -0.166216194E-15  0.700746869E-16 -0.741899218E-16
+     7         0.00000000       0.00000000       0.00000000       0.00000000    
+     8         0.00000000       0.00000000       0.00000000       0.00000000    
+     9       -0.319167748E-10 -0.143940773      0.425595724     -0.357582353E-10
+ 
+ 
+ PROPERTY: MLTPL  0   COMPONENT:*   1
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       5                6                7                8
+ 
+     1       -0.228393964E-15 -0.393857615E-16   0.00000000       0.00000000    
+     2       -0.258868612E-18 -0.166216194E-15   0.00000000       0.00000000    
+     3       -0.734196339E-17  0.700746869E-16   0.00000000       0.00000000    
+     4       -0.332196734E-13 -0.741899218E-16   0.00000000       0.00000000    
+     5         18.0000000     -0.273804417E-14   0.00000000       0.00000000    
+     6       -0.273804417E-14   18.0000000       0.00000000       0.00000000    
+     7         0.00000000       0.00000000       18.0000000     -0.592209615E-11
+     8         0.00000000       0.00000000      0.592209615E-11   18.0000000    
+     9        0.477950665E-11 -0.136850253E-11   0.00000000       0.00000000    
+ 
+ 
+ PROPERTY: MLTPL  0   COMPONENT:*   1
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       9
+ 
+     1        0.319167748E-10
+     2        0.143940773    
+     3       -0.425595724    
+     4        0.357582353E-10
+     5       -0.477950665E-11
+     6        0.136850253E-11
+     7         0.00000000    
+     8         0.00000000    
+     9         18.0000000    
+ 
+ 
+ PROPERTY: MLTPL  1   COMPONENT:*   1
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       1                2                3                4
+ 
+     1       -0.152088733E-01  0.204640326E-04 -0.283841575E-01 -0.132715653E-01
+     2        0.204640326E-04  0.138477073E-02  0.325639802E-01 -0.146311073E-01
+     3       -0.283841575E-01  0.325639802E-01  0.186326660E-01 -0.259239036    
+     4       -0.132715653E-01 -0.146311073E-01 -0.259239036      0.104487780E-01
+     5       -0.783179636E-02 -0.178747450      0.152163749E-01  0.431486184E-01
+     6        0.966406095E-01  0.230589024     -0.224470821E-02 -0.379686397E-03
+     7         0.00000000       0.00000000       0.00000000       0.00000000    
+     8         0.00000000       0.00000000       0.00000000       0.00000000    
+     9        0.655953775E-20  0.181138544E-18  0.367476927E-18  0.305310670E-19
+ 
+ 
+ PROPERTY: MLTPL  1   COMPONENT:*   1
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       5                6                7                8
+ 
+     1       -0.783179636E-02  0.966406095E-01   0.00000000       0.00000000    
+     2       -0.178747450      0.230589024       0.00000000       0.00000000    
+     3        0.152163749E-01 -0.224470821E-02   0.00000000       0.00000000    
+     4        0.431486184E-01 -0.379686397E-03   0.00000000       0.00000000    
+     5       -0.426953900E-02  0.206402298E-02   0.00000000       0.00000000    
+     6        0.206402298E-02 -0.603467843E-02   0.00000000       0.00000000    
+     7         0.00000000       0.00000000     -0.419497423E-01  0.311857917    
+     8         0.00000000       0.00000000      0.311857917     -0.419402008E-01
+     9       -0.211235437E-18  0.267224816E-19   0.00000000       0.00000000    
+ 
+ 
+ PROPERTY: MLTPL  1   COMPONENT:*   1
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       9
+ 
+     1        0.655953775E-20
+     2        0.181138544E-18
+     3        0.367476927E-18
+     4        0.305310670E-19
+     5       -0.211235437E-18
+     6        0.267224816E-19
+     7         0.00000000    
+     8         0.00000000    
+     9        0.351705682E-02
+ 
+ 
+ PROPERTY: MLTPL  1   COMPONENT:*   1
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       1                2                3                4
+ 
+     1       -0.188972612     -0.106418160E-18  0.191782745E-19  0.169439496E-15
+     2       -0.106418160E-18 -0.188972612     -0.174592853E-14 -0.180398363E-18
+     3        0.191782745E-19 -0.174592853E-14 -0.188972612      0.160808161E-18
+     4        0.169439496E-15 -0.180398363E-18  0.160808161E-18 -0.188972612    
+     5        0.239778911E-17  0.271772655E-20  0.770794445E-19  0.348756025E-15
+     6        0.413490569E-18  0.174501713E-17 -0.735677592E-18  0.778881297E-18
+     7         0.00000000       0.00000000       0.00000000       0.00000000    
+     8         0.00000000       0.00000000       0.00000000       0.00000000    
+     9       -0.297388454E-01  0.167685765E-01 -0.516858404E-01 -0.254289585E-01
+ 
+ 
+ PROPERTY: MLTPL  1   COMPONENT:*   1
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       5                6                7                8
+ 
+     1        0.239778911E-17  0.413490569E-18   0.00000000       0.00000000    
+     2        0.271772655E-20  0.174501713E-17   0.00000000       0.00000000    
+     3        0.770794445E-19 -0.735677592E-18   0.00000000       0.00000000    
+     4        0.348756025E-15  0.778881297E-18   0.00000000       0.00000000    
+     5       -0.188972612      0.287452977E-16   0.00000000       0.00000000    
+     6        0.287452977E-16 -0.188972612       0.00000000       0.00000000    
+     7         0.00000000       0.00000000     -0.188972612     -0.647464152    
+     8         0.00000000       0.00000000      0.647464152     -0.188972612    
+     9       -0.312456789      0.687478255       0.00000000       0.00000000    
+ 
+ 
+ PROPERTY: MLTPL  1   COMPONENT:*   1
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       9
+ 
+     1        0.297388454E-01
+     2       -0.167685765E-01
+     3        0.516858404E-01
+     4        0.254289585E-01
+     5        0.312456789    
+     6       -0.687478255    
+     7         0.00000000    
+     8         0.00000000    
+     9       -0.188972612    
+ 
+ 
+ PROPERTY: MLTPL  1   COMPONENT:*   2
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       1                2                3                4
+ 
+     1        0.129101530E-02 -0.104964192E-05  0.145589795E-02 -0.105120977E-01
+     2       -0.104964192E-05  0.208311317E-01  0.629803375      0.750467899E-03
+     3        0.145589795E-02  0.629803375     -0.218951883E-01  0.132970508E-01
+     4       -0.105120977E-01  0.750467899E-03  0.132970508E-01  0.842374930E-01
+     5       -0.165114193      0.916842601E-02 -0.780487818E-03  0.848345973    
+     6         1.87230806     -0.118275164E-01  0.115136970E-03 -0.882642977E-02
+     7         0.00000000       0.00000000       0.00000000       0.00000000    
+     8         0.00000000       0.00000000       0.00000000       0.00000000    
+     9       -0.336455847E-21 -0.158611296E-18  0.685091185E-17 -0.156601852E-20
+ 
+ 
+ PROPERTY: MLTPL  1   COMPONENT:*   2
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       5                6                7                8
+ 
+     1       -0.165114193       1.87230806       0.00000000       0.00000000    
+     2        0.916842601E-02 -0.118275164E-01   0.00000000       0.00000000    
+     3       -0.780487818E-03  0.115136970E-03   0.00000000       0.00000000    
+     4        0.848345973     -0.882642977E-02   0.00000000       0.00000000    
+     5       -0.854494458E-01  0.175707477E-02   0.00000000       0.00000000    
+     6        0.175707477E-02  0.229356472E-02   0.00000000       0.00000000    
+     7         0.00000000       0.00000000      0.516194513E-03 -0.159960114E-01
+     8         0.00000000       0.00000000     -0.159960114E-01 -0.385659247E-02
+     9        0.108348199E-19 -0.137066570E-20   0.00000000       0.00000000    
+ 
+ 
+ PROPERTY: MLTPL  1   COMPONENT:*   2
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       9
+ 
+     1       -0.336455847E-21
+     2       -0.158611296E-18
+     3        0.685091185E-17
+     4       -0.156601852E-20
+     5        0.108348199E-19
+     6       -0.137066570E-20
+     7         0.00000000    
+     8         0.00000000    
+     9        0.198522523E-01
+ 
+ 
+ PROPERTY: MLTPL  1   COMPONENT:*   2
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       1                2                3                4
+ 
+     1         0.00000000       0.00000000       0.00000000       0.00000000    
+     2         0.00000000       0.00000000       0.00000000       0.00000000    
+     3         0.00000000       0.00000000       0.00000000       0.00000000    
+     4         0.00000000       0.00000000       0.00000000       0.00000000    
+     5         0.00000000       0.00000000       0.00000000       0.00000000    
+     6         0.00000000       0.00000000       0.00000000       0.00000000    
+     7         0.00000000       0.00000000       0.00000000       0.00000000    
+     8         0.00000000       0.00000000       0.00000000       0.00000000    
+     9        0.152538345E-02  0.266454587E-01 -0.214844703      0.130431802E-02
+ 
+ 
+ PROPERTY: MLTPL  1   COMPONENT:*   2
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       5                6                7                8
+ 
+     1         0.00000000       0.00000000       0.00000000       0.00000000    
+     2         0.00000000       0.00000000       0.00000000       0.00000000    
+     3         0.00000000       0.00000000       0.00000000       0.00000000    
+     4         0.00000000       0.00000000       0.00000000       0.00000000    
+     5         0.00000000       0.00000000       0.00000000       0.00000000    
+     6         0.00000000       0.00000000       0.00000000       0.00000000    
+     7         0.00000000       0.00000000      0.609005592E-17  0.332101362E-01
+     8         0.00000000       0.00000000     -0.332101362E-01  0.647258587E-17
+     9        0.160267290E-01 -0.352625646E-01   0.00000000       0.00000000    
+ 
+ 
+ PROPERTY: MLTPL  1   COMPONENT:*   2
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       9
+ 
+     1       -0.152538345E-02
+     2       -0.266454587E-01
+     3        0.214844703    
+     4       -0.130431802E-02
+     5       -0.160267290E-01
+     6        0.352625646E-01
+     7         0.00000000    
+     8         0.00000000    
+     9       -0.435711670E-16
+ 
+ 
+ PROPERTY: MLTPL  1   COMPONENT:*   3
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       1                2                3                4
+ 
+     1        0.361131607      0.865611896E-06 -0.120058903E-02  0.301016960    
+     2        0.865611896E-06 -0.747762040E-02 -0.614006591E-02 -0.618864476E-03
+     3       -0.120058903E-02 -0.614006591E-02 -0.467062148     -0.109652555E-01
+     4        0.301016960     -0.618864476E-03 -0.109652555E-01 -0.144877692    
+     5       -0.150680001E-01 -0.756063399E-02  0.643620040E-03  0.863575211E-02
+     6       -0.143036442E-01  0.975342144E-02 -0.949463516E-04 -0.172690461E-02
+     7         0.00000000       0.00000000       0.00000000       0.00000000    
+     8         0.00000000       0.00000000       0.00000000       0.00000000    
+     9        0.277454600E-21 -0.448306335E-17 -0.379227526E-18  0.129139788E-20
+ 
+ 
+ PROPERTY: MLTPL  1   COMPONENT:*   3
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       5                6                7                8
+ 
+     1       -0.150680001E-01 -0.143036442E-01   0.00000000       0.00000000    
+     2       -0.756063399E-02  0.975342144E-02   0.00000000       0.00000000    
+     3        0.643620040E-03 -0.949463516E-04   0.00000000       0.00000000    
+     4        0.863575211E-02 -0.172690461E-02   0.00000000       0.00000000    
+     5       -0.268068938E-02 -0.466666202E-01   0.00000000       0.00000000    
+     6       -0.466666202E-01  0.145452321       0.00000000       0.00000000    
+     7         0.00000000       0.00000000      0.993985158      0.131909214E-01
+     8         0.00000000       0.00000000      0.131909214E-01  0.988456905    
+     9       -0.893480616E-20  0.113030427E-20   0.00000000       0.00000000    
+ 
+ 
+ PROPERTY: MLTPL  1   COMPONENT:*   3
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       9
+ 
+     1        0.277454600E-21
+     2       -0.448306335E-17
+     3       -0.379227526E-18
+     4        0.129139788E-20
+     5       -0.893480616E-20
+     6        0.113030427E-20
+     7         0.00000000    
+     8         0.00000000    
+     9       -0.590758738E-01
+ 
+ 
+ PROPERTY: MLTPL  1   COMPONENT:*   3
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       1                2                3                4
+ 
+     1         4.49627072      0.253203283E-17 -0.456313289E-18 -0.403151458E-14
+     2        0.253203283E-17   4.49627072      0.415412966E-13  0.429226156E-17
+     3       -0.456313289E-18  0.415412966E-13   4.49627072     -0.382614717E-17
+     4       -0.403151458E-14  0.429226156E-17 -0.382614717E-17   4.49627072    
+     5       -0.570511718E-16 -0.646635200E-19 -0.183396972E-17 -0.829803581E-14
+     6       -0.983828035E-17 -0.415196114E-16  0.175041535E-16 -0.185321096E-16
+     7         0.00000000       0.00000000       0.00000000       0.00000000    
+     8         0.00000000       0.00000000       0.00000000       0.00000000    
+     9       -0.125788930E-02 -0.364357397      0.962093696     -0.107559048E-02
+ 
+ 
+ PROPERTY: MLTPL  1   COMPONENT:*   3
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       5                6                7                8
+ 
+     1       -0.570511718E-16 -0.983828035E-17   0.00000000       0.00000000    
+     2       -0.646635200E-19 -0.415196114E-16   0.00000000       0.00000000    
+     3       -0.183396972E-17  0.175041535E-16   0.00000000       0.00000000    
+     4       -0.829803581E-14 -0.185321096E-16   0.00000000       0.00000000    
+     5         4.49627072     -0.683943768E-15   0.00000000       0.00000000    
+     6       -0.683943768E-15   4.49627072       0.00000000       0.00000000    
+     7         0.00000000       0.00000000       4.49627072     -0.273863458E-01
+     8         0.00000000       0.00000000      0.273863458E-01   4.49627072    
+     9       -0.132162524E-01  0.290788565E-01   0.00000000       0.00000000    
+ 
+ 
+ PROPERTY: MLTPL  1   COMPONENT:*   3
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       9
+ 
+     1        0.125788930E-02
+     2        0.364357397    
+     3       -0.962093696    
+     4        0.107559048E-02
+     5        0.132162524E-01
+     6       -0.290788565E-01
+     7         0.00000000    
+     8         0.00000000    
+     9         4.49627072    
+ 
+ 
+ PROPERTY: MLTPL  2   COMPONENT:*   1
+ ORIGIN    :  -0.56035333D-02   0.00000000D+00   0.13406721D+00
+ STATE     :       1                2                3                4
+ 
+     1        -12.4128340      0.600930600E-01  0.256895379E-01  0.145557247    
+     2        0.600930600E-01  -10.4265723     -0.183334687E-01  0.444080205E-01
+     3        0.256895379E-01 -0.183334687E-01  -10.7603120     -0.557476898E-01
+     4        0.145557247      0.444080205E-01 -0.557476898E-01  -12.6887717    
+     5       -0.992538208E-02 -0.543981448E-01  0.640459083E-01 -0.203231127E-01
+     6       -0.132873840E-01  0.534415760E-01  0.528525352E-01 -0.931226049E-02
+     7         0.00000000       0.00000000       0.00000000       0.00000000    
+     8         0.00000000       0.00000000       0.00000000       0.00000000    
+     9        0.218010855E-20 -0.571274427E-17  0.753246745E-18 -0.627985364E-19
+ 
+ 
+ PROPERTY: MLTPL  2   COMPONENT:*   1
+ ORIGIN    :  -0.56035333D-02   0.00000000D+00   0.13406721D+00
+ STATE     :       5                6                7                8
+ 
+     1       -0.992538208E-02 -0.132873840E-01   0.00000000       0.00000000    
+     2       -0.543981448E-01  0.534415760E-01   0.00000000       0.00000000    
+     3        0.640459083E-01  0.528525352E-01   0.00000000       0.00000000    
+     4       -0.203231127E-01 -0.931226049E-02   0.00000000       0.00000000    
+     5        -12.7126510     -0.244546981       0.00000000       0.00000000    
+     6       -0.244546981      -12.6850039       0.00000000       0.00000000    
+     7         0.00000000       0.00000000      -8.67209253      0.705713968E-01
+     8         0.00000000       0.00000000      0.705713968E-01  -10.5415214    
+     9        0.351304151E-19 -0.324925907E-22   0.00000000       0.00000000    
+ 
+ 
+ PROPERTY: MLTPL  2   COMPONENT:*   1
+ ORIGIN    :  -0.56035333D-02   0.00000000D+00   0.13406721D+00
+ STATE     :       9
+ 
+     1        0.218010855E-20
+     2       -0.571274427E-17
+     3        0.753246745E-18
+     4       -0.627985364E-19
+     5        0.351304151E-19
+     6       -0.324925907E-22
+     7         0.00000000    
+     8         0.00000000    
+     9        -10.3000201    
+ 
+ 
+ PROPERTY: MLTPL  2   COMPONENT:*   2
+ ORIGIN    :  -0.56035333D-02   0.00000000D+00   0.13406721D+00
+ STATE     :       1                2                3                4
+ 
+     1        0.130489603      0.579940100     -0.924815111E-02  0.222394585E-01
+     2        0.579940100     -0.112799023     -0.128742083      0.468374366    
+     3       -0.924815111E-02 -0.128742083     -0.893279257E-01  0.227197521E-01
+     4        0.222394585E-01  0.468374366      0.227197521E-01  0.353028171E-01
+     5       -0.245343828E-01 -0.115282289E-01  0.586807953     -0.186876249    
+     6       -0.122946522      0.972374550E-02  0.519369150      0.894447976E-02
+     7         0.00000000       0.00000000       0.00000000       0.00000000    
+     8         0.00000000       0.00000000       0.00000000       0.00000000    
+     9        0.485971998E-21 -0.558850872E-18 -0.298384562E-18 -0.615134432E-18
+ 
+ 
+ PROPERTY: MLTPL  2   COMPONENT:*   2
+ ORIGIN    :  -0.56035333D-02   0.00000000D+00   0.13406721D+00
+ STATE     :       5                6                7                8
+ 
+     1       -0.245343828E-01 -0.122946522       0.00000000       0.00000000    
+     2       -0.115282289E-01  0.972374550E-02   0.00000000       0.00000000    
+     3        0.586807953      0.519369150       0.00000000       0.00000000    
+     4       -0.186876249      0.894447976E-02   0.00000000       0.00000000    
+     5        0.856976641E-01  0.422389745E-01   0.00000000       0.00000000    
+     6        0.422389745E-01  0.684413353E-01   0.00000000       0.00000000    
+     7         0.00000000       0.00000000      0.796570684E-01  0.513546330E-02
+     8         0.00000000       0.00000000      0.513546330E-02  0.198852697    
+     9        0.511387410E-19  0.203418405E-22   0.00000000       0.00000000    
+ 
+ 
+ PROPERTY: MLTPL  2   COMPONENT:*   2
+ ORIGIN    :  -0.56035333D-02   0.00000000D+00   0.13406721D+00
+ STATE     :       9
+ 
+     1        0.485971998E-21
+     2       -0.558850872E-18
+     3       -0.298384562E-18
+     4       -0.615134432E-18
+     5        0.511387410E-19
+     6        0.203418405E-22
+     7         0.00000000    
+     8         0.00000000    
+     9       -0.110437072    
+ 
+ 
+ PROPERTY: MLTPL  2   COMPONENT:*   3
+ ORIGIN    :  -0.56035333D-02   0.00000000D+00   0.13406721D+00
+ STATE     :       1                2                3                4
+ 
+     1       -0.114924777     -0.394991111E-02 -0.313546775      0.180359348E-01
+     2       -0.394991111E-02  0.803349179E-01  0.157402683      0.453517860E-01
+     3       -0.313546775      0.157402683      0.131592204      0.683627955    
+     4        0.180359348E-01  0.453517860E-01  0.683627955     -0.123663856E-01
+     5        0.277013250E-01  0.626214671     -0.421413985E-01  0.227046468    
+     6        0.149255406     -0.617145330      0.780996779E-02 -0.509979990E-02
+     7         0.00000000       0.00000000       0.00000000       0.00000000    
+     8         0.00000000       0.00000000       0.00000000       0.00000000    
+     9       -0.250676858E-19  0.522945565E-18  0.420682774E-18 -0.688878391E-20
+ 
+ 
+ PROPERTY: MLTPL  2   COMPONENT:*   3
+ ORIGIN    :  -0.56035333D-02   0.00000000D+00   0.13406721D+00
+ STATE     :       5                6                7                8
+ 
+     1        0.277013250E-01  0.149255406       0.00000000       0.00000000    
+     2        0.626214671     -0.617145330       0.00000000       0.00000000    
+     3       -0.421413985E-01  0.780996779E-02   0.00000000       0.00000000    
+     4        0.227046468     -0.509979990E-02   0.00000000       0.00000000    
+     5       -0.598884231E-01  0.595503330E-01   0.00000000       0.00000000    
+     6        0.595503330E-01 -0.399469511E-01   0.00000000       0.00000000    
+     7         0.00000000       0.00000000     -0.893628449E-01 -0.824304721    
+     8         0.00000000       0.00000000     -0.824304721     -0.252199305    
+     9       -0.351425099E-18  0.407036899E-21   0.00000000       0.00000000    
+ 
+ 
+ PROPERTY: MLTPL  2   COMPONENT:*   3
+ ORIGIN    :  -0.56035333D-02   0.00000000D+00   0.13406721D+00
+ STATE     :       9
+ 
+     1       -0.250676858E-19
+     2        0.522945565E-18
+     3        0.420682774E-18
+     4       -0.688878391E-20
+     5       -0.351425099E-18
+     6        0.407036899E-21
+     7         0.00000000    
+     8         0.00000000    
+     9        0.829816869E-01
+ 
+ 
+ PROPERTY: MLTPL  2   COMPONENT:*   4
+ ORIGIN    :  -0.56035333D-02   0.00000000D+00   0.13406721D+00
+ STATE     :       1                2                3                4
+ 
+     1        -9.87661688     -0.596514015E-01  0.881136412E-03  0.600498202    
+     2       -0.596514015E-01  -12.5379058      0.455774497E-02 -0.481651364E-01
+     3        0.881136412E-03  0.455774497E-02  -12.5828726     -0.218404301E-02
+     4        0.600498202     -0.481651364E-01 -0.218404301E-02  -11.6369278    
+     5       -0.283120345E-01  0.132574415E-02 -0.603663416E-01  0.172707852E-01
+     6       -0.154199972E-01 -0.113811410E-02 -0.534186660E-01  0.309467277E-01
+     7         0.00000000       0.00000000       0.00000000       0.00000000    
+     8         0.00000000       0.00000000       0.00000000       0.00000000    
+     9       -0.555889068E-22 -0.161726080E-16  0.665809943E-18  0.632689336E-19
+ 
+ 
+ PROPERTY: MLTPL  2   COMPONENT:*   4
+ ORIGIN    :  -0.56035333D-02   0.00000000D+00   0.13406721D+00
+ STATE     :       5                6                7                8
+ 
+     1       -0.283120345E-01 -0.154199972E-01   0.00000000       0.00000000    
+     2        0.132574415E-02 -0.113811410E-02   0.00000000       0.00000000    
+     3       -0.603663416E-01 -0.534186660E-01   0.00000000       0.00000000    
+     4        0.172707852E-01  0.309467277E-01   0.00000000       0.00000000    
+     5        -11.4155915      0.590827485       0.00000000       0.00000000    
+     6        0.590827485      -11.3376635       0.00000000       0.00000000    
+     7         0.00000000       0.00000000      -7.12636369     -0.712491493E-03
+     8         0.00000000       0.00000000     -0.712491493E-03  -6.70324181    
+     9       -0.533850661E-20 -0.200045873E-23   0.00000000       0.00000000    
+ 
+ 
+ PROPERTY: MLTPL  2   COMPONENT:*   4
+ ORIGIN    :  -0.56035333D-02   0.00000000D+00   0.13406721D+00
+ STATE     :       9
+ 
+     1       -0.555889068E-22
+     2       -0.161726080E-16
+     3        0.665809943E-18
+     4        0.632689336E-19
+     5       -0.533850661E-20
+     6       -0.200045873E-23
+     7         0.00000000    
+     8         0.00000000    
+     9        -12.3691398    
+ 
+ 
+ PROPERTY: MLTPL  2   COMPONENT:*   5
+ ORIGIN    :  -0.56035333D-02   0.00000000D+00   0.13406721D+00
+ STATE     :       1                2                3                4
+ 
+     1        0.454587511E-02  0.248632004E-01  0.157471955E-01  0.263615682E-01
+     2        0.248632004E-01  0.953269715E-01   3.05538004      0.175813657E-01
+     3        0.157471955E-01   3.05538004     -0.110561321     -0.342250242E-01
+     4        0.263615682E-01  0.175813657E-01 -0.342250242E-01  0.443727647    
+     5        0.554794896     -0.327258344E-01  0.271212135E-01   4.44042093    
+     6         2.88879535      0.321822430E-01  0.216822752E-01 -0.161826023    
+     7         0.00000000       0.00000000       0.00000000       0.00000000    
+     8         0.00000000       0.00000000       0.00000000       0.00000000    
+     9        0.131107337E-20  0.466504403E-18  0.690819803E-17 -0.258017695E-19
+ 
+ 
+ PROPERTY: MLTPL  2   COMPONENT:*   5
+ ORIGIN    :  -0.56035333D-02   0.00000000D+00   0.13406721D+00
+ STATE     :       5                6                7                8
+ 
+     1        0.554794896       2.88879535       0.00000000       0.00000000    
+     2       -0.327258344E-01  0.321822430E-01   0.00000000       0.00000000    
+     3        0.271212135E-01  0.216822752E-01   0.00000000       0.00000000    
+     4         4.44042093     -0.161826023       0.00000000       0.00000000    
+     5       -0.444766790      0.139842665E-01   0.00000000       0.00000000    
+     6        0.139842665E-01  0.220821175E-01   0.00000000       0.00000000    
+     7         0.00000000       0.00000000      0.729896937E-03  0.426510818E-01
+     8         0.00000000       0.00000000      0.426510818E-01 -0.214415136E-01
+     9        0.202647924E-19 -0.200871868E-22   0.00000000       0.00000000    
+ 
+ 
+ PROPERTY: MLTPL  2   COMPONENT:*   5
+ ORIGIN    :  -0.56035333D-02   0.00000000D+00   0.13406721D+00
+ STATE     :       9
+ 
+     1        0.131107337E-20
+     2        0.466504403E-18
+     3        0.690819803E-17
+     4       -0.258017695E-19
+     5        0.202647924E-19
+     6       -0.200871868E-22
+     7         0.00000000    
+     8         0.00000000    
+     9        0.906878895E-01
+ 
+ 
+ PROPERTY: MLTPL  2   COMPONENT:*   6
+ ORIGIN    :  -0.56035333D-02   0.00000000D+00   0.13406721D+00
+ STATE     :       1                2                3                4
+ 
+     1        -9.70184020     -0.441658544E-03 -0.265706744E-01 -0.249256201    
+     2       -0.441658544E-03  -12.2010569     -0.212483753E-01  0.375711589E-02
+     3       -0.265706744E-01 -0.212483753E-01  -13.9953210      0.579317328E-01
+     4       -0.249256201      0.375711589E-02  0.579317328E-01  -11.8606535    
+     5        0.103676440E-01  0.530724007E-01 -0.367956674E-02  0.157551121E-01
+     6       -0.262368106E-01 -0.523034619E-01  0.566130839E-03 -0.856568247E-01
+     7         0.00000000       0.00000000       0.00000000       0.00000000    
+     8         0.00000000       0.00000000       0.00000000       0.00000000    
+     9       -0.212451894E-20 -0.174596577E-16 -0.782130064E-18 -0.470414330E-21
+ 
+ 
+ PROPERTY: MLTPL  2   COMPONENT:*   6
+ ORIGIN    :  -0.56035333D-02   0.00000000D+00   0.13406721D+00
+ STATE     :       5                6                7                8
+ 
+     1        0.103676440E-01 -0.262368106E-01   0.00000000       0.00000000    
+     2        0.530724007E-01 -0.523034619E-01   0.00000000       0.00000000    
+     3       -0.367956674E-02  0.566130839E-03   0.00000000       0.00000000    
+     4        0.157551121E-01 -0.856568247E-01   0.00000000       0.00000000    
+     5        -11.8430539      -1.63511725       0.00000000       0.00000000    
+     6        -1.63511725      -11.7190060       0.00000000       0.00000000    
+     7         0.00000000       0.00000000      -6.56636923     -0.698589054E-01
+     8         0.00000000       0.00000000     -0.698589054E-01  -4.62592898    
+     9       -0.297919092E-19  0.344920651E-22   0.00000000       0.00000000    
+ 
+ 
+ PROPERTY: MLTPL  2   COMPONENT:*   6
+ ORIGIN    :  -0.56035333D-02   0.00000000D+00   0.13406721D+00
+ STATE     :       9
+ 
+     1       -0.212451894E-20
+     2       -0.174596577E-16
+     3       -0.782130064E-18
+     4       -0.470414330E-21
+     5       -0.297919092E-19
+     6        0.344920651E-22
+     7         0.00000000    
+     8         0.00000000    
+     9        -12.1427140    
+ 
+ 
+ PROPERTY: VELOCITY   COMPONENT:*   1
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       1                2                3                4
+ 
+     1        0.459207879E-17 -0.754815496E-03 -0.358516273E-01  0.483682343E-02
+     2        0.754815496E-03 -0.637197034E-17  0.276827523E-03  0.222908474E-02
+     3        0.358516273E-01 -0.276827523E-03  0.346407190E-17  0.498689038E-01
+     4       -0.483682343E-02 -0.222908474E-02 -0.498689038E-01 -0.150228218E-17
+     5       -0.158717607E-02 -0.219915251E-01  0.280114822E-02 -0.397200058E-03
+     6        0.353199319E-01  0.451492907E-01 -0.116336190E-03  0.146987561E-02
+     7         0.00000000       0.00000000       0.00000000       0.00000000    
+     8         0.00000000       0.00000000       0.00000000       0.00000000    
+     9        0.636685141E-21  0.728614844E-20 -0.128742715E-18  0.131486499E-19
+ 
+ 
+ PROPERTY: VELOCITY   COMPONENT:*   1
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       5                6                7                8
+ 
+     1        0.158717607E-02 -0.353199319E-01   0.00000000       0.00000000    
+     2        0.219915251E-01 -0.451492907E-01   0.00000000       0.00000000    
+     3       -0.280114822E-02  0.116336190E-03   0.00000000       0.00000000    
+     4        0.397200058E-03 -0.146987561E-02   0.00000000       0.00000000    
+     5        0.252106185E-17  0.452509493E-04   0.00000000       0.00000000    
+     6       -0.452509493E-04 -0.250871407E-17   0.00000000       0.00000000    
+     7         0.00000000       0.00000000      0.522965104E-17 -0.531640476E-01
+     8         0.00000000       0.00000000      0.531640476E-01  0.876199667E-18
+     9       -0.477495494E-19  0.110185870E-19   0.00000000       0.00000000    
+ 
+ 
+ PROPERTY: VELOCITY   COMPONENT:*   1
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       9
+ 
+     1       -0.636685141E-21
+     2       -0.728614844E-20
+     3        0.128742715E-18
+     4       -0.131486499E-19
+     5        0.477495494E-19
+     6       -0.110185870E-19
+     7         0.00000000    
+     8         0.00000000    
+     9       -0.681843576E-17
+ 
+ 
+ PROPERTY: VELOCITY   COMPONENT:*   2
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       1                2                3                4
+ 
+     1        0.150839742E-16  0.387164517E-04  0.183892408E-02  0.240584116E-02
+     2       -0.387164517E-04  0.219147119E-16  0.548420293E-02 -0.114335607E-03
+     3       -0.183892408E-02 -0.548420293E-02  0.351800087E-16 -0.255790700E-02
+     4       -0.240584116E-02  0.114335607E-03  0.255790700E-02 -0.253553809E-16
+     5       -0.355530446E-01  0.112800306E-02 -0.143678246E-03 -0.776690114E-02
+     6        0.684200655     -0.231582566E-02  0.596718970E-05  0.288099672E-01
+     7         0.00000000       0.00000000       0.00000000       0.00000000    
+     8         0.00000000       0.00000000       0.00000000       0.00000000    
+     9       -0.326572189E-22 -0.157299233E-18 -0.237932805E-17 -0.674428803E-21
+ 
+ 
+ PROPERTY: VELOCITY   COMPONENT:*   2
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       5                6                7                8
+ 
+     1        0.355530446E-01 -0.684200655       0.00000000       0.00000000    
+     2       -0.112800306E-02  0.231582566E-02   0.00000000       0.00000000    
+     3        0.143678246E-03 -0.596718970E-05   0.00000000       0.00000000    
+     4        0.776690114E-02 -0.288099672E-01   0.00000000       0.00000000    
+     5        0.147988856E-16  0.163945566E-02   0.00000000       0.00000000    
+     6       -0.163945566E-02  0.751672320E-17   0.00000000       0.00000000    
+     7         0.00000000       0.00000000      0.270327252E-16  0.272692358E-02
+     8         0.00000000       0.00000000     -0.272692358E-02 -0.330743397E-16
+     9        0.244919986E-20 -0.565172562E-21   0.00000000       0.00000000    
+ 
+ 
+ PROPERTY: VELOCITY   COMPONENT:*   2
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       9
+ 
+     1        0.326572189E-22
+     2        0.157299233E-18
+     3        0.237932805E-17
+     4        0.674428803E-21
+     5       -0.244919986E-20
+     6        0.565172562E-21
+     7         0.00000000    
+     8         0.00000000    
+     9       -0.331199978E-16
+ 
+ 
+ PROPERTY: VELOCITY   COMPONENT:*   3
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       1                2                3                4
+ 
+     1       -0.690848038E-19 -0.319270817E-04 -0.151644698E-02 -0.111434052    
+     2        0.319270817E-04  0.460233282E-16  0.105718385E-03  0.942855065E-04
+     3        0.151644698E-02 -0.105718385E-03  0.927326329E-17  0.210934774E-02
+     4        0.111434052     -0.942855065E-04 -0.210934774E-02 -0.323490319E-16
+     5       -0.558971440E-02 -0.930194372E-03  0.118482564E-03 -0.280083450E-04
+     6       -0.533085991E-02  0.190971822E-02 -0.492077090E-05  0.185901401E-03
+     7         0.00000000       0.00000000       0.00000000       0.00000000    
+     8         0.00000000       0.00000000       0.00000000       0.00000000    
+     9        0.269303520E-22 -0.363007498E-18  0.158417782E-18  0.556159589E-21
+ 
+ 
+ PROPERTY: VELOCITY   COMPONENT:*   3
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       5                6                7                8
+ 
+     1        0.558971440E-02  0.533085991E-02   0.00000000       0.00000000    
+     2        0.930194372E-03 -0.190971822E-02   0.00000000       0.00000000    
+     3       -0.118482564E-03  0.492077090E-05   0.00000000       0.00000000    
+     4        0.280083450E-04 -0.185901401E-03   0.00000000       0.00000000    
+     5        0.383968303E-17  0.918274319E-03   0.00000000       0.00000000    
+     6       -0.918274319E-03  0.695463802E-16   0.00000000       0.00000000    
+     7         0.00000000       0.00000000     -0.197277780E-16 -0.224872525E-02
+     8         0.00000000       0.00000000      0.224872525E-02 -0.206911665E-16
+     9       -0.201970361E-20  0.466062583E-21   0.00000000       0.00000000    
+ 
+ 
+ PROPERTY: VELOCITY   COMPONENT:*   3
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       9
+ 
+     1       -0.269303520E-22
+     2        0.363007498E-18
+     3       -0.158417782E-18
+     4       -0.556159589E-21
+     5        0.201970361E-20
+     6       -0.466062583E-21
+     7         0.00000000    
+     8         0.00000000    
+     9        0.159273155E-15
+ 
+ 
+ PROPERTY: ANGMOM     COMPONENT:*   1
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       1                2                3                4
+ 
+     1        0.937515653E-16 -0.277338473E-01  0.261218567E-01 -0.327524582E-01
+     2        0.277338473E-01  0.157648589E-15  0.379664714      0.259575947E-01
+     3       -0.261218567E-01 -0.379664714      0.623098409E-16  0.376908655E-01
+     4        0.327524582E-01 -0.259575947E-01 -0.376908655E-01  0.392750563E-16
+     5        0.615340733     -0.309433874E-01 -0.237322122E-01 -0.584568758E-01
+     6       -0.160526153      0.296805980E-01 -0.230791408E-01  -1.04165697    
+     7         0.00000000       0.00000000       0.00000000       0.00000000    
+     8         0.00000000       0.00000000       0.00000000       0.00000000    
+     9        0.127411174E-20  0.921562286E-19  0.230456595E-17 -0.299558215E-19
+ 
+ 
+ PROPERTY: ANGMOM     COMPONENT:*   1
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       5                6                7                8
+ 
+     1       -0.615340733      0.160526153       0.00000000       0.00000000    
+     2        0.309433874E-01 -0.296805980E-01   0.00000000       0.00000000    
+     3        0.237322122E-01  0.230791408E-01   0.00000000       0.00000000    
+     4        0.584568758E-01   1.04165697       0.00000000       0.00000000    
+     5        0.565005078E-18 -0.493305730E-01   0.00000000       0.00000000    
+     6        0.493305730E-01  0.211733170E-17   0.00000000       0.00000000    
+     7         0.00000000       0.00000000      0.140403815E-15 -0.453700493E-01
+     8         0.00000000       0.00000000      0.453700493E-01 -0.120047453E-15
+     9       -0.253123442E-19 -0.219097351E-21   0.00000000       0.00000000    
+ 
+ 
+ PROPERTY: ANGMOM     COMPONENT:*   1
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       9
+ 
+     1       -0.127411174E-20
+     2       -0.921562286E-19
+     3       -0.230456595E-17
+     4        0.299558215E-19
+     5        0.253123442E-19
+     6        0.219097351E-21
+     7         0.00000000    
+     8         0.00000000    
+     9       -0.128007633E-15
+ 
+ 
+ PROPERTY: ANGMOM     COMPONENT:*   2
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       1                2                3                4
+ 
+     1       -0.320285151E-17  0.954523866E-02  0.501646137      0.167246872E-02
+     2       -0.954523866E-02  0.466432843E-17 -0.194739928E-01  0.434330273E-01
+     3       -0.501646137      0.194739928E-01 -0.116581425E-16  0.718498906    
+     4       -0.167246872E-02 -0.434330273E-01 -0.718498906      0.782597219E-17
+     5       -0.315628175E-01 -0.618700165      0.465578798E-01  0.299840475E-02
+     6        0.823344949E-02  0.592221520     -0.842142595E-02  0.534293331E-01
+     7         0.00000000       0.00000000       0.00000000       0.00000000    
+     8         0.00000000       0.00000000       0.00000000       0.00000000    
+     9        0.253451691E-19 -0.475133721E-20 -0.118196588E-18 -0.129306050E-19
+ 
+ 
+ PROPERTY: ANGMOM     COMPONENT:*   2
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       5                6                7                8
+ 
+     1        0.315628175E-01 -0.823344949E-02   0.00000000       0.00000000    
+     2        0.618700165     -0.592221520       0.00000000       0.00000000    
+     3       -0.465578798E-01  0.842142595E-02   0.00000000       0.00000000    
+     4       -0.299840475E-02 -0.534293331E-01   0.00000000       0.00000000    
+     5       -0.268532759E-16  0.253035634E-02   0.00000000       0.00000000    
+     6       -0.253035634E-02 -0.405124439E-17   0.00000000       0.00000000    
+     7         0.00000000       0.00000000     -0.129296202E-16 -0.892895062    
+     8         0.00000000       0.00000000      0.892895062     -0.884659623E-18
+     9       -0.542554132E-18 -0.425968151E-20   0.00000000       0.00000000    
+ 
+ 
+ PROPERTY: ANGMOM     COMPONENT:*   2
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       9
+ 
+     1       -0.253451691E-19
+     2        0.475133721E-20
+     3        0.118196588E-18
+     4        0.129306050E-19
+     5        0.542554132E-18
+     6        0.425968151E-20
+     7         0.00000000    
+     8         0.00000000    
+     9       -0.790127597E-17
+ 
+ 
+ PROPERTY: ANGMOM     COMPONENT:*   3
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       1                2                3                4
+ 
+     1        0.599654219E-17  0.667254798     -0.924655017E-02 -0.138552050E-02
+     2       -0.667254798      0.125779014E-17  0.160586349E-01 -0.561016625    
+     3        0.924655017E-02 -0.160586349E-01 -0.192493352E-16 -0.197922621E-01
+     4        0.138552050E-02  0.561016625      0.197922621E-01  0.644788094E-17
+     5        0.260299840E-01 -0.187094228E-01  0.617532194     -0.247207843E-02
+     6       -0.683590569E-02  0.164547014E-01  0.535421548     -0.440617934E-01
+     7         0.00000000       0.00000000       0.00000000       0.00000000    
+     8         0.00000000       0.00000000       0.00000000       0.00000000    
+     9        0.612525261E-21  0.390858408E-20  0.976381435E-19  0.692531003E-18
+ 
+ 
+ PROPERTY: ANGMOM     COMPONENT:*   3
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       5                6                7                8
+ 
+     1       -0.260299840E-01  0.683590569E-02   0.00000000       0.00000000    
+     2        0.187094228E-01 -0.164547014E-01   0.00000000       0.00000000    
+     3       -0.617532194     -0.535421548       0.00000000       0.00000000    
+     4        0.247207843E-02  0.440617934E-01   0.00000000       0.00000000    
+     5       -0.185040902E-17 -0.208668771E-02   0.00000000       0.00000000    
+     6        0.208668771E-02 -0.744557556E-17   0.00000000       0.00000000    
+     7         0.00000000       0.00000000      0.386547069E-17 -0.101395847E-01
+     8         0.00000000       0.00000000      0.101395847E-01  0.526620328E-17
+     9       -0.594990355E-19  0.143556586E-22   0.00000000       0.00000000    
+ 
+ 
+ PROPERTY: ANGMOM     COMPONENT:*   3
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       9
+ 
+     1       -0.612525261E-21
+     2       -0.390858408E-20
+     3       -0.976381435E-19
+     4       -0.692531003E-18
+     5        0.594990355E-19
+     6       -0.143556586E-22
+     7         0.00000000    
+     8         0.00000000    
+     9       -0.245716876E-16
+ 
+ 
+ PROPERTY: MLTPV  2   COMPONENT:*   1
+ ORIGIN    :  -0.56035333D-02   0.00000000D+00   0.13406721D+00
+ STATE     :       1                2                3                4
+ 
+     1        0.933132069E-16  0.432608865E-02 -0.107293901E-02  0.251596274    
+     2       -0.432608865E-02 -0.225015215E-15  0.517506248      0.367832456E-02
+     3        0.107293901E-02 -0.517506248      0.147349308E-15 -0.445659054E-02
+     4       -0.251596274     -0.367832456E-02  0.445659054E-02  0.296006553E-17
+     5       -0.329610728      0.424704492E-02 -0.526346845E-02  0.418018413E-01
+     6       -0.450932718E-01 -0.423874935E-02 -0.557021495E-02 -0.636667187    
+     7         0.00000000       0.00000000       0.00000000       0.00000000    
+     8         0.00000000       0.00000000       0.00000000       0.00000000    
+     9       -0.155994736E-21 -0.628303609E-18 -0.100520581E-17  0.826637875E-20
+ 
+ 
+ PROPERTY: MLTPV  2   COMPONENT:*   1
+ ORIGIN    :  -0.56035333D-02   0.00000000D+00   0.13406721D+00
+ STATE     :       5                6                7                8
+ 
+     1        0.329610728      0.450932718E-01   0.00000000       0.00000000    
+     2       -0.424704492E-02  0.423874935E-02   0.00000000       0.00000000    
+     3        0.526346845E-02  0.557021495E-02   0.00000000       0.00000000    
+     4       -0.418018413E-01  0.636667187       0.00000000       0.00000000    
+     5       -0.865134146E-17  0.300838953E-01   0.00000000       0.00000000    
+     6       -0.300838953E-01 -0.120606044E-15   0.00000000       0.00000000    
+     7         0.00000000       0.00000000      0.244860653E-15  0.615422105E-02
+     8         0.00000000       0.00000000     -0.615422105E-02 -0.529185227E-16
+     9       -0.298404608E-20  0.215830853E-22   0.00000000       0.00000000    
+ 
+ 
+ PROPERTY: MLTPV  2   COMPONENT:*   1
+ ORIGIN    :  -0.56035333D-02   0.00000000D+00   0.13406721D+00
+ STATE     :       9
+ 
+     1        0.155994736E-21
+     2        0.628303609E-18
+     3        0.100520581E-17
+     4       -0.826637875E-20
+     5        0.298404608E-20
+     6       -0.215830853E-22
+     7         0.00000000    
+     8         0.00000000    
+     9       -0.175070700E-15
+ 
+ 
+ PROPERTY: MLTPV  2   COMPONENT:*   2
+ ORIGIN    :  -0.56035333D-02   0.00000000D+00   0.13406721D+00
+ STATE     :       1                2                3                4
+ 
+     1        0.458809422E-17  0.422235443E-01 -0.567995489E-03  0.383185338E-02
+     2       -0.422235443E-01 -0.121288037E-16 -0.313330440E-02  0.387457472E-01
+     3        0.567995489E-03  0.313330440E-02  0.510391966E-17  0.194818265E-02
+     4       -0.383185338E-02 -0.387457472E-01 -0.194818265E-02 -0.709892759E-17
+     5        0.814263725E-02  0.849503845E-03 -0.484169152E-01 -0.523429621E-03
+     6        0.460917088E-01 -0.102205930E-02 -0.548082406E-01  0.416988296E-02
+     7         0.00000000       0.00000000       0.00000000       0.00000000    
+     8         0.00000000       0.00000000       0.00000000       0.00000000    
+     9       -0.326907691E-22 -0.480838496E-20 -0.137959233E-18  0.805131559E-19
+ 
+ 
+ PROPERTY: MLTPV  2   COMPONENT:*   2
+ ORIGIN    :  -0.56035333D-02   0.00000000D+00   0.13406721D+00
+ STATE     :       5                6                7                8
+ 
+     1       -0.814263725E-02 -0.460917088E-01   0.00000000       0.00000000    
+     2       -0.849503845E-03  0.102205930E-02   0.00000000       0.00000000    
+     3        0.484169152E-01  0.548082406E-01   0.00000000       0.00000000    
+     4        0.523429621E-03 -0.416988296E-02   0.00000000       0.00000000    
+     5        0.277078896E-17  0.334468972E-02   0.00000000       0.00000000    
+     6       -0.334468972E-02 -0.253996643E-18   0.00000000       0.00000000    
+     7         0.00000000       0.00000000      0.183501860E-17  0.329788304E-03
+     8         0.00000000       0.00000000     -0.329788304E-03 -0.800276707E-17
+     9       -0.667020404E-20 -0.831809471E-23   0.00000000       0.00000000    
+ 
+ 
+ PROPERTY: MLTPV  2   COMPONENT:*   2
+ ORIGIN    :  -0.56035333D-02   0.00000000D+00   0.13406721D+00
+ STATE     :       9
+ 
+     1        0.326907691E-22
+     2        0.480838496E-20
+     3        0.137959233E-18
+     4       -0.805131559E-19
+     5        0.667020404E-20
+     6        0.831809471E-23
+     7         0.00000000    
+     8         0.00000000    
+     9       -0.609293954E-17
+ 
+ 
+ PROPERTY: MLTPV  2   COMPONENT:*   3
+ ORIGIN    :  -0.56035333D-02   0.00000000D+00   0.13406721D+00
+ STATE     :       1                2                3                4
+ 
+     1       -0.583314456E-17  0.290153310E-03  0.119382964E-01  0.207034846E-02
+     2       -0.290153310E-03  0.121222640E-16  0.380251628E-02  0.369612086E-02
+     3       -0.119382964E-01 -0.380251628E-02 -0.417999828E-17  0.548106620E-01
+     4       -0.207034846E-02 -0.369612086E-02 -0.548106620E-01  0.773449709E-17
+     5       -0.958652109E-02 -0.489519632E-01  0.323116033E-02  0.637582825E-03
+     6       -0.559347646E-01  0.486450853E-01 -0.909298368E-03 -0.511311888E-02
+     7         0.00000000       0.00000000       0.00000000       0.00000000    
+     8         0.00000000       0.00000000       0.00000000       0.00000000    
+     9        0.179621082E-20  0.543429948E-20  0.172744044E-18  0.350155180E-21
+ 
+ 
+ PROPERTY: MLTPV  2   COMPONENT:*   3
+ ORIGIN    :  -0.56035333D-02   0.00000000D+00   0.13406721D+00
+ STATE     :       5                6                7                8
+ 
+     1        0.958652109E-02  0.559347646E-01   0.00000000       0.00000000    
+     2        0.489519632E-01 -0.486450853E-01   0.00000000       0.00000000    
+     3       -0.323116033E-02  0.909298368E-03   0.00000000       0.00000000    
+     4       -0.637582825E-03  0.511311888E-02   0.00000000       0.00000000    
+     5       -0.472553442E-17 -0.269483279E-02   0.00000000       0.00000000    
+     6        0.269483279E-02 -0.138246228E-18   0.00000000       0.00000000    
+     7         0.00000000       0.00000000     -0.327846783E-17 -0.720271455E-01
+     8         0.00000000       0.00000000      0.720271455E-01  0.788567461E-17
+     9        0.270296451E-19 -0.264091141E-21   0.00000000       0.00000000    
+ 
+ 
+ PROPERTY: MLTPV  2   COMPONENT:*   3
+ ORIGIN    :  -0.56035333D-02   0.00000000D+00   0.13406721D+00
+ STATE     :       9
+ 
+     1       -0.179621082E-20
+     2       -0.543429948E-20
+     3       -0.172744044E-18
+     4       -0.350155180E-21
+     5       -0.270296451E-19
+     6        0.264091141E-21
+     7         0.00000000    
+     8         0.00000000    
+     9        0.739083777E-17
+ 
+ 
+ PROPERTY: MLTPV  2   COMPONENT:*   4
+ ORIGIN    :  -0.56035333D-02   0.00000000D+00   0.13406721D+00
+ STATE     :       1                2                3                4
+ 
+     1        0.233093526E-15 -0.434289455E-02  0.610908516E-04  0.333386281    
+     2        0.434289455E-02 -0.370313288E-15  0.518003735     -0.398441964E-02
+     3       -0.610908516E-04 -0.518003735      0.165039411E-15 -0.188129814E-03
+     4       -0.333386281      0.398441964E-02  0.188129814E-03 -0.584089956E-17
+     5       -0.326879875     -0.983202471E-04  0.498070924E-02  0.418376595E-01
+     6       -0.440174225E-01  0.116000062E-03  0.563717199E-02 -0.639921661    
+     7         0.00000000       0.00000000       0.00000000       0.00000000    
+     8         0.00000000       0.00000000       0.00000000       0.00000000    
+     9        0.376417298E-23 -0.557919081E-18 -0.115411746E-17 -0.828121022E-20
+ 
+ 
+ PROPERTY: MLTPV  2   COMPONENT:*   4
+ ORIGIN    :  -0.56035333D-02   0.00000000D+00   0.13406721D+00
+ STATE     :       5                6                7                8
+ 
+     1        0.326879875      0.440174225E-01   0.00000000       0.00000000    
+     2        0.983202471E-04 -0.116000062E-03   0.00000000       0.00000000    
+     3       -0.498070924E-02 -0.563717199E-02   0.00000000       0.00000000    
+     4       -0.418376595E-01  0.639921661       0.00000000       0.00000000    
+     5       -0.223220254E-16  0.907947152E-01   0.00000000       0.00000000    
+     6       -0.907947152E-01 -0.123117941E-15   0.00000000       0.00000000    
+     7         0.00000000       0.00000000      0.340427822E-15 -0.500227775E-04
+     8         0.00000000       0.00000000      0.500227775E-04 -0.169560312E-15
+     9        0.692115566E-21  0.796579553E-24   0.00000000       0.00000000    
+ 
+ 
+ PROPERTY: MLTPV  2   COMPONENT:*   4
+ ORIGIN    :  -0.56035333D-02   0.00000000D+00   0.13406721D+00
+ STATE     :       9
+ 
+     1       -0.376417298E-23
+     2        0.557919081E-18
+     3        0.115411746E-17
+     4        0.828121022E-20
+     5       -0.692115566E-21
+     6       -0.796579553E-24
+     7         0.00000000    
+     8         0.00000000    
+     9       -0.325959741E-15
+ 
+ 
+ PROPERTY: MLTPV  2   COMPONENT:*   5
+ ORIGIN    :  -0.56035333D-02   0.00000000D+00   0.13406721D+00
+ STATE     :       1                2                3                4
+ 
+     1        0.586042775E-16  0.178046843E-02 -0.638699376E-03  0.872291062E-02
+     2       -0.178046843E-02  0.741783329E-16  0.742904897E-01  0.145725869E-02
+     3        0.638699376E-03 -0.742904897E-01 -0.809939183E-16 -0.273864769E-02
+     4       -0.872291062E-02 -0.145725869E-02  0.273864769E-02  0.133331864E-15
+     5       -0.188197321      0.255602117E-02 -0.222508588E-02  0.123530242E-01
+     6        -1.08265314     -0.254756132E-02 -0.228371575E-02 -0.102008704    
+     7         0.00000000       0.00000000       0.00000000       0.00000000    
+     8         0.00000000       0.00000000       0.00000000       0.00000000    
+     9       -0.938534163E-22  0.198453357E-18  0.306359312E-17  0.340550824E-20
+ 
+ 
+ PROPERTY: MLTPV  2   COMPONENT:*   5
+ ORIGIN    :  -0.56035333D-02   0.00000000D+00   0.13406721D+00
+ STATE     :       5                6                7                8
+ 
+     1        0.188197321       1.08265314       0.00000000       0.00000000    
+     2       -0.255602117E-02  0.254756132E-02   0.00000000       0.00000000    
+     3        0.222508588E-02  0.228371575E-02   0.00000000       0.00000000    
+     4       -0.123530242E-01  0.102008704       0.00000000       0.00000000    
+     5       -0.705042293E-16 -0.510725856E-02   0.00000000       0.00000000    
+     6        0.510725856E-02 -0.168606162E-16   0.00000000       0.00000000    
+     7         0.00000000       0.00000000      0.117175321E-16  0.372176273E-02
+     8         0.00000000       0.00000000     -0.372176273E-02  0.113292209E-15
+     9       -0.167503066E-20  0.132414068E-22   0.00000000       0.00000000    
+ 
+ 
+ PROPERTY: MLTPV  2   COMPONENT:*   5
+ ORIGIN    :  -0.56035333D-02   0.00000000D+00   0.13406721D+00
+ STATE     :       9
+ 
+     1        0.938534163E-22
+     2       -0.198453357E-18
+     3       -0.306359312E-17
+     4       -0.340550824E-20
+     5        0.167503066E-20
+     6       -0.132414068E-22
+     7         0.00000000    
+     8         0.00000000    
+     9       -0.318009221E-16
+ 
+ 
+ PROPERTY: MLTPV  2   COMPONENT:*   6
+ ORIGIN    :  -0.56035333D-02   0.00000000D+00   0.13406721D+00
+ STATE     :       1                2                3                4
+ 
+     1        0.319048304E-15  0.168058545E-04  0.101184837E-02  0.213118275    
+     2       -0.168058545E-04 -0.419814585E-15  0.518017834      0.306095038E-03
+     3       -0.101184837E-02 -0.518017834      0.198402414E-15  0.464472035E-02
+     4       -0.213118275     -0.306095038E-03 -0.464472035E-02  0.334687328E-17
+     5       -0.332008744     -0.414872464E-02  0.282759249E-03  0.417619465E-01
+     6       -0.403041397E-01  0.412274923E-02 -0.669570011E-04 -0.639914873    
+     7         0.00000000       0.00000000       0.00000000       0.00000000    
+     8         0.00000000       0.00000000       0.00000000       0.00000000    
+     9        0.152231031E-21 -0.515648991E-18 -0.135973772E-17  0.148325817E-22
+ 
+ 
+ PROPERTY: MLTPV  2   COMPONENT:*   6
+ ORIGIN    :  -0.56035333D-02   0.00000000D+00   0.13406721D+00
+ STATE     :       5                6                7                8
+ 
+     1        0.332008744      0.403041397E-01   0.00000000       0.00000000    
+     2        0.414872464E-02 -0.412274923E-02   0.00000000       0.00000000    
+     3       -0.282759249E-03  0.669570011E-04   0.00000000       0.00000000    
+     4       -0.417619465E-01  0.639914873       0.00000000       0.00000000    
+     5       -0.533021278E-17  0.873158786E-01   0.00000000       0.00000000    
+     6       -0.873158786E-01 -0.149415231E-15   0.00000000       0.00000000    
+     7         0.00000000       0.00000000      0.406893351E-15 -0.610419830E-02
+     8         0.00000000       0.00000000      0.610419830E-02 -0.142914360E-15
+     9        0.229193107E-20 -0.223795558E-22   0.00000000       0.00000000    
+ 
+ 
+ PROPERTY: MLTPV  2   COMPONENT:*   6
+ ORIGIN    :  -0.56035333D-02   0.00000000D+00   0.13406721D+00
+ STATE     :       9
+ 
+     1       -0.152231031E-21
+     2        0.515648991E-18
+     3        0.135973772E-17
+     4       -0.148325817E-22
+     5       -0.229193107E-20
+     6        0.223795558E-22
+     7         0.00000000    
+     8         0.00000000    
+     9       -0.389365152E-15
+ 
+ 
+ PROPERTY: AMFI       COMPONENT:*   1
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       1                2                3                4
+ 
+     1         0.00000000       0.00000000       0.00000000       0.00000000    
+     2         0.00000000       0.00000000       0.00000000       0.00000000    
+     3         0.00000000       0.00000000       0.00000000       0.00000000    
+     4         0.00000000       0.00000000       0.00000000       0.00000000    
+     5         0.00000000       0.00000000       0.00000000       0.00000000    
+     6         0.00000000       0.00000000       0.00000000       0.00000000    
+     7         0.00000000       0.00000000       0.00000000       0.00000000    
+     8         0.00000000       0.00000000       0.00000000       0.00000000    
+     9        0.591542868E-04 -0.781275479E-06  0.685220882E-03  0.265240288E-04
+ 
+ 
+ PROPERTY: AMFI       COMPONENT:*   1
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       5                6                7                8
+ 
+     1         0.00000000       0.00000000       0.00000000       0.00000000    
+     2         0.00000000       0.00000000       0.00000000       0.00000000    
+     3         0.00000000       0.00000000       0.00000000       0.00000000    
+     4         0.00000000       0.00000000       0.00000000       0.00000000    
+     5         0.00000000       0.00000000       0.00000000       0.00000000    
+     6         0.00000000       0.00000000       0.00000000       0.00000000    
+     7         0.00000000       0.00000000     -0.652280682E-21  0.891679691E-04
+     8         0.00000000       0.00000000     -0.891679691E-04 -0.903748755E-19
+     9        0.398029715E-04 -0.302684480E-04   0.00000000       0.00000000    
+ 
+ 
+ PROPERTY: AMFI       COMPONENT:*   1
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       9
+ 
+     1       -0.591542868E-04
+     2        0.781275479E-06
+     3       -0.685220882E-03
+     4       -0.265240288E-04
+     5       -0.398029715E-04
+     6        0.302684480E-04
+     7         0.00000000    
+     8         0.00000000    
+     9       -0.129634031E-20
+ 
+ 
+ PROPERTY: AMFI       COMPONENT:*   2
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       1                2                3                4
+ 
+     1         0.00000000       0.00000000       0.00000000       0.00000000    
+     2         0.00000000       0.00000000       0.00000000       0.00000000    
+     3         0.00000000       0.00000000       0.00000000       0.00000000    
+     4         0.00000000       0.00000000       0.00000000       0.00000000    
+     5         0.00000000       0.00000000       0.00000000       0.00000000    
+     6         0.00000000       0.00000000       0.00000000       0.00000000    
+     7         0.00000000       0.00000000       0.00000000       0.00000000    
+     8         0.00000000       0.00000000       0.00000000       0.00000000    
+     9       -0.242905905E-04  0.400737397E-07 -0.351467782E-04  0.533964061E-04
+ 
+ 
+ PROPERTY: AMFI       COMPONENT:*   2
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       5                6                7                8
+ 
+     1         0.00000000       0.00000000       0.00000000       0.00000000    
+     2         0.00000000       0.00000000       0.00000000       0.00000000    
+     3         0.00000000       0.00000000       0.00000000       0.00000000    
+     4         0.00000000       0.00000000       0.00000000       0.00000000    
+     5         0.00000000       0.00000000       0.00000000       0.00000000    
+     6         0.00000000       0.00000000       0.00000000       0.00000000    
+     7         0.00000000       0.00000000     -0.114536463E-19  0.175383924E-02
+     8         0.00000000       0.00000000     -0.175383924E-02  0.113914556E-19
+     9        0.789093233E-03 -0.597742983E-03   0.00000000       0.00000000    
+ 
+ 
+ PROPERTY: AMFI       COMPONENT:*   2
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       9
+ 
+     1        0.242905905E-04
+     2       -0.400737397E-07
+     3        0.351467782E-04
+     4       -0.533964061E-04
+     5       -0.789093233E-03
+     6        0.597742983E-03
+     7         0.00000000    
+     8         0.00000000    
+     9       -0.229450361E-19
+ 
+ 
+ PROPERTY: AMFI       COMPONENT:*   3
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       1                2                3                4
+ 
+     1         0.00000000       0.00000000       0.00000000       0.00000000    
+     2         0.00000000       0.00000000       0.00000000       0.00000000    
+     3         0.00000000       0.00000000       0.00000000       0.00000000    
+     4         0.00000000       0.00000000       0.00000000       0.00000000    
+     5         0.00000000       0.00000000       0.00000000       0.00000000    
+     6         0.00000000       0.00000000       0.00000000       0.00000000    
+     7         0.00000000       0.00000000       0.00000000       0.00000000    
+     8         0.00000000       0.00000000       0.00000000       0.00000000    
+     9       -0.142797343E-02 -0.330464497E-07  0.289833745E-04 -0.562326060E-03
+ 
+ 
+ PROPERTY: AMFI       COMPONENT:*   3
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       5                6                7                8
+ 
+     1         0.00000000       0.00000000       0.00000000       0.00000000    
+     2         0.00000000       0.00000000       0.00000000       0.00000000    
+     3         0.00000000       0.00000000       0.00000000       0.00000000    
+     4         0.00000000       0.00000000       0.00000000       0.00000000    
+     5         0.00000000       0.00000000       0.00000000       0.00000000    
+     6         0.00000000       0.00000000       0.00000000       0.00000000    
+     7         0.00000000       0.00000000      0.225738714E-19  0.187019005E-04
+     8         0.00000000       0.00000000     -0.187019005E-04 -0.233707072E-20
+     9        0.158800503E-04 -0.925245491E-05   0.00000000       0.00000000    
+ 
+ 
+ PROPERTY: AMFI       COMPONENT:*   3
+ ORIGIN    :   0.00000000D+00   0.00000000D+00   0.00000000D+00
+ STATE     :       9
+ 
+     1        0.142797343E-02
+     2        0.330464497E-07
+     3       -0.289833745E-04
+     4        0.562326060E-03
+     5       -0.158800503E-04
+     6        0.925245491E-05
+     7         0.00000000    
+     8         0.00000000    
+     9       -0.113313782E-19
+ 
+--
+ 
+::    RASSI State    1     Total energy:    -398.69129350973549
+::    RASSI State    2     Total energy:    -398.50833283648421
+::    RASSI State    3     Total energy:    -398.47875151343311
+::    RASSI State    4     Total energy:    -398.35221889270741
+::    RASSI State    5     Total energy:    -398.34625868099351
+::    RASSI State    6     Total energy:    -398.28246877345646
+::    RASSI State    7     Total energy:    -398.36745096820420
+::    RASSI State    8     Total energy:    -398.23350552382243
+::    RASSI State    9     Total energy:    -398.52913225829508
+ 
+ 
+ 
+      ****************************************************************************************************
+      *                                                                                                  *
+      *                                         Spin-free section                                        *
+      *                                                                                                  *
+      *                 Note: index according to input order, order according to energy.                 *
+      *                                                                                                  *
+      ****************************************************************************************************
+ 
+ 
+ 
+  SPIN-FREE ENERGIES:
+  (Shifted by EMIN (a.u.) =       -398.6912935097)
+ 
+ SF State       Relative EMIN(au)   Rel lowest level(eV)    D:o, cm**(-1)
+ 
+     1             0.0000000000        0.0000000000              0.0000
+     9             0.1621612514        4.4126324471          35590.2809
+     2             0.1829606733        4.9786135477          40155.2263
+     3             0.2125419963        5.7835623549          46647.5763
+     7             0.3238425415        8.8122044805          71075.2224
+     4             0.3390746170        9.2266903702          74418.2766
+     5             0.3450348287        9.3888759932          75726.3918
+     6             0.4088247363       11.1246878058          89726.6583
+     8             0.4577879859       12.4570457035         100472.8495
+ 
+++ Dipole transition strengths (spin-free states):
+   -----------------------------------------------
+     for osc. strength at least  1.00000000E-05
+ 
+      From   To        Osc. strength     Einstein coefficients Ax, Ay, Az (sec-1)    Total A (sec-1)
+     -----------------------------------------------------------------------------------------------
+         1    3       1.14662361E-04  1.65693666E+05  4.35928998E+02  2.96443978E+02  1.66426039E+05
+         1    4       2.05474356E-02  1.47078692E+05  9.22750401E+04  7.56636690E+07  7.59030227E+07
+         1    5       6.33738777E-03  5.39673640E+04  2.39870725E+07  1.99765121E+05  2.42408050E+07
+         1    6       9.58034837E-01  1.36694311E+07  5.13080766E+09  2.99450140E+05  5.14477654E+09
+         2    3       7.84398880E-03  5.87959447E+02  2.19928937E+05  2.09034742E+01  2.20537800E+05
+         2    4       2.23779446E-05  1.74461298E+04  4.58996053E+01  3.12130219E+01  1.75232424E+04
+         2    5       3.46750893E-03  2.91367184E+06  7.66567664E+03  5.21287553E+03  2.92655039E+06
+         2    6       8.04171189E-03  1.31231561E+07  3.45261501E+04  2.34787523E+04  1.31811610E+07
+         3    4       5.69413043E-03  2.91627135E+06  7.67251577E+03  5.21752632E+03  2.92916139E+06
+         3    5       2.05418188E-05  1.15350419E+04  3.03479274E+01  2.06374434E+01  1.15860273E+04
+         7    8       8.72299467E-03  5.00630167E+06  1.31712464E+04  8.95681763E+03  5.02842973E+06
+         4    5       2.86736753E-03  8.44381043E+00  3.26400406E+03  3.38224466E-01  3.27278609E+03
+         5    6       9.29257754E-05  2.36867022E+01  1.71654829E+01  1.21084413E+04  1.21492935E+04
+     -----------------------------------------------------------------------------------------------
+--
+ 
+++ Velocity transition strengths (spin-free states):
+   -------------------------------------------------
+     for osc. strength at least  1.00000000E-05
+ 
+      From   To        Osc. strength     Einstein coefficients Ax, Ay, Az (sec-1)    Total A (sec-1)
+     -----------------------------------------------------------------------------------------------
+         1    3       4.04945989E-03  5.85170098E+06  1.53954356E+04  1.04693289E+04  5.87756575E+06
+         1    4       2.44719603E-02  1.69916429E+05  4.20386544E+04  9.01884139E+07  9.04003690E+07
+         1    5       2.50754013E-03  1.86179892E+04  9.34192028E+06  2.30920133E+05  9.59145840E+06
+         1    6       7.65456703E-01  1.09243726E+07  4.09943270E+09  2.48857841E+05  4.11060593E+09
+         2    3       6.79804879E-04  4.85574366E+01  1.90574264E+04  7.08171192E+00  1.91130656E+04
+         2    4       2.13125577E-05  1.66155406E+04  4.37143803E+01  2.97270078E+01  1.66889820E+04
+         2    5       1.99811757E-03  1.67897445E+06  4.41726999E+03  3.00386774E+03  1.68639559E+06
+         2    6       6.04336519E-03  9.86208236E+06  2.59464821E+04  1.76443370E+04  9.90567318E+06
+         3    4       1.31607686E-02  6.74033950E+06  1.77333845E+04  1.20591998E+04  6.77013209E+06
+         3    5       3.96555435E-05  2.22681526E+04  5.85860267E+01  3.98401436E+01  2.23665788E+04
+         7    8       1.41296772E-02  8.10930526E+06  2.13350423E+04  1.45084283E+04  8.14514873E+06
+         4    5       6.76523012E-03  2.01418760E+01  7.70152743E+03  1.00151211E-01  7.72176946E+03
+         4    6       7.95419719E-03  3.22794219E+03  1.24008115E+06  5.16333027E+01  1.24336073E+06
+         5    6       3.69242342E-05  2.79786649E+00  3.67257731E+03  1.15216977E+03  4.82754495E+03
+     -----------------------------------------------------------------------------------------------
+--
+ 
+++ Length and velocity gauge comparison (spin-free states):
+   --------------------------------------------------------
+ 
+ --------------------------------------------------
+ A comparison between the dipole oscillator strengths in 
+ length and velocity gauge will be performed
+ 
+     All dipole oscillator differences above the tolerance of   1.00000000E-01  will be printed 
+ 
+ Due to basis set deficiency these oscillator may be problematic 
+ 
+ The tolerance is defined as ABS(1-O_l/O_v) 
+ O_l : dipole oscillator strength in length gauge
+ O_p : dipole oscillator strength in velocity gauge
+ --------------------------------------------------
+ 
+  Problematic transitions have been found
+ 
+      From   To       Difference (%) Osc. st. (len.) Osc. st. (vel.)
+     ---------------------------------------------------------------
+         1    3            97.168453  1.14662361E-04  4.04945989E-03
+         1    4            16.036822  2.05474356E-02  2.44719603E-02
+         1    5           152.733255  6.33738777E-03  2.50754013E-03
+         1    6            25.158593  9.58034837E-01  7.65456703E-01
+         2    3          1053.858855  7.84398880E-03  6.79804879E-04
+         2    5            73.538784  3.46750893E-03  1.99811757E-03
+         2    6            33.066787  8.04171189E-03  6.04336519E-03
+         3    4            56.734058  5.69413043E-03  1.31607686E-02
+         3    5            48.199376  2.05418188E-05  3.96555435E-05
+         7    8            38.264728  8.72299467E-03  1.41296772E-02
+         4    5            57.616112  2.86736753E-03  6.76523012E-03
+         4    6      --------------- below threshold  7.95419719E-03
+         5    6           151.666087  9.29257754E-05  3.69242342E-05
+     ---------------------------------------------------------------
+ 
+ Number of problematic transitions =                     13
+ 
+--
+ 
+ Electric-dipole - electric-octupole not included
+ Electric-dipole - magnetic-quadrupole not included
+ 
+ 
+ 
+      ****************************************************************************************************
+      *                                                                                                  *
+      *                                         Spin-orbit section                                       *
+      *                                                                                                  *
+      ****************************************************************************************************
+ 
+ 
+ Complex SO-Hamiltonian matrix elements over
+ spin components of spin-free eigenstates (SFS):
+ (In cm-1. Print threshold:      0.000 cm-1)
+ ----------------------------------------------------------------------
+ 
+  I1  S1  MS1    I2  S2  MS2    Real part    Imag part      Absolute
+     1  0.0  0.0    1  0.0  0.0         0.000         0.000         0.000
+     2  0.0  0.0    1  0.0  0.0         0.000         0.000         0.000
+     2  0.0  0.0    2  0.0  0.0         0.000         0.000         0.000
+     3  0.0  0.0    1  0.0  0.0         0.000         0.000         0.000
+     3  0.0  0.0    2  0.0  0.0         0.000         0.000         0.000
+     3  0.0  0.0    3  0.0  0.0         0.000         0.000         0.000
+     4  0.0  0.0    1  0.0  0.0         0.000         0.000         0.000
+     4  0.0  0.0    2  0.0  0.0         0.000         0.000         0.000
+     4  0.0  0.0    3  0.0  0.0         0.000         0.000         0.000
+     4  0.0  0.0    4  0.0  0.0         0.000         0.000         0.000
+     5  0.0  0.0    1  0.0  0.0         0.000         0.000         0.000
+     5  0.0  0.0    2  0.0  0.0         0.000         0.000         0.000
+     5  0.0  0.0    3  0.0  0.0         0.000         0.000         0.000
+     5  0.0  0.0    4  0.0  0.0         0.000         0.000         0.000
+     5  0.0  0.0    5  0.0  0.0         0.000         0.000         0.000
+     6  0.0  0.0    1  0.0  0.0         0.000         0.000         0.000
+     6  0.0  0.0    2  0.0  0.0         0.000         0.000         0.000
+     6  0.0  0.0    3  0.0  0.0         0.000         0.000         0.000
+     6  0.0  0.0    4  0.0  0.0         0.000         0.000         0.000
+     6  0.0  0.0    5  0.0  0.0         0.000         0.000         0.000
+     6  0.0  0.0    6  0.0  0.0         0.000         0.000         0.000
+     7  0.5 -0.5    1  0.0  0.0         0.000         0.000         0.000
+     7  0.5 -0.5    2  0.0  0.0         0.000         0.000         0.000
+     7  0.5 -0.5    3  0.0  0.0         0.000         0.000         0.000
+     7  0.5 -0.5    4  0.0  0.0         0.000         0.000         0.000
+     7  0.5 -0.5    5  0.0  0.0         0.000         0.000         0.000
+     7  0.5 -0.5    6  0.0  0.0         0.000         0.000         0.000
+     7  0.5 -0.5    7  0.5 -0.5         0.000        -0.000         0.000
+     8  0.5  0.5    1  0.0  0.0         0.000         0.000         0.000
+     8  0.5  0.5    2  0.0  0.0         0.000         0.000         0.000
+     8  0.5  0.5    3  0.0  0.0         0.000         0.000         0.000
+     8  0.5  0.5    4  0.0  0.0         0.000         0.000         0.000
+     8  0.5  0.5    5  0.0  0.0         0.000         0.000         0.000
+     8  0.5  0.5    6  0.0  0.0         0.000         0.000         0.000
+     8  0.5  0.5    7  0.5 -0.5        -0.000        -0.000         0.000
+     8  0.5  0.5    8  0.5  0.5         0.000         0.000         0.000
+     9  0.5 -0.5    1  0.0  0.0         0.000         0.000         0.000
+     9  0.5 -0.5    2  0.0  0.0         0.000         0.000         0.000
+     9  0.5 -0.5    3  0.0  0.0         0.000         0.000         0.000
+     9  0.5 -0.5    4  0.0  0.0         0.000         0.000         0.000
+     9  0.5 -0.5    5  0.0  0.0         0.000         0.000         0.000
+     9  0.5 -0.5    6  0.0  0.0         0.000         0.000         0.000
+     9  0.5 -0.5    7  0.5 -0.5         0.000         1.676         1.676
+     9  0.5 -0.5    8  0.5  0.5       157.144        -7.989       157.347
+     9  0.5 -0.5    9  0.5 -0.5         0.000         0.000         0.000
+    10  0.5  0.5    1  0.0  0.0         0.000         0.000         0.000
+    10  0.5  0.5    2  0.0  0.0         0.000         0.000         0.000
+    10  0.5  0.5    3  0.0  0.0         0.000         0.000         0.000
+    10  0.5  0.5    4  0.0  0.0         0.000         0.000         0.000
+    10  0.5  0.5    5  0.0  0.0         0.000         0.000         0.000
+    10  0.5  0.5    6  0.0  0.0         0.000         0.000         0.000
+    10  0.5  0.5    7  0.5 -0.5      -157.144        -7.989       157.347
+    10  0.5  0.5    8  0.5  0.5         0.000        -1.676         1.676
+    10  0.5  0.5    9  0.5 -0.5         0.000        -0.000         0.000
+    10  0.5  0.5   10  0.5  0.5         0.000        -0.000         0.000
+    11  1.0 -1.0    1  0.0  0.0         2.176         5.300         5.730
+    11  1.0 -1.0    2  0.0  0.0        -0.004        -0.070         0.070
+    11  1.0 -1.0    3  0.0  0.0         3.149        61.396        61.477
+    11  1.0 -1.0    4  0.0  0.0        -4.784         2.377         5.342
+    11  1.0 -1.0    5  0.0  0.0       -70.703         3.566        70.793
+    11  1.0 -1.0    6  0.0  0.0        53.558        -2.712        53.626
+    11  1.0 -1.0    7  0.5 -0.5         0.000         0.000         0.000
+    11  1.0 -1.0    8  0.5  0.5         0.000         0.000         0.000
+    11  1.0 -1.0    9  0.5 -0.5         0.000         0.000         0.000
+    11  1.0 -1.0   10  0.5  0.5         0.000         0.000         0.000
+    11  1.0 -1.0   11  1.0 -1.0         0.000         0.000         0.000
+    12  1.0  0.0    1  0.0  0.0         0.000      -180.944       180.944
+    12  1.0  0.0    2  0.0  0.0         0.000        -0.004         0.004
+    12  1.0  0.0    3  0.0  0.0         0.000         3.673         3.673
+    12  1.0  0.0    4  0.0  0.0         0.000       -71.254        71.254
+    12  1.0  0.0    5  0.0  0.0         0.000         2.012         2.012
+    12  1.0  0.0    6  0.0  0.0         0.000        -1.172         1.172
+    12  1.0  0.0    7  0.5 -0.5         0.000         0.000         0.000
+    12  1.0  0.0    8  0.5  0.5         0.000         0.000         0.000
+    12  1.0  0.0    9  0.5 -0.5         0.000         0.000         0.000
+    12  1.0  0.0   10  0.5  0.5         0.000         0.000         0.000
+    12  1.0  0.0   11  1.0 -1.0        -0.000        -0.000         0.000
+    12  1.0  0.0   12  1.0  0.0         0.000         0.000         0.000
+    13  1.0  1.0    1  0.0  0.0         2.176        -5.300         5.730
+    13  1.0  1.0    2  0.0  0.0        -0.004         0.070         0.070
+    13  1.0  1.0    3  0.0  0.0         3.149       -61.396        61.477
+    13  1.0  1.0    4  0.0  0.0        -4.784        -2.377         5.342
+    13  1.0  1.0    5  0.0  0.0       -70.703        -3.566        70.793
+    13  1.0  1.0    6  0.0  0.0        53.558         2.712        53.626
+    13  1.0  1.0    7  0.5 -0.5         0.000         0.000         0.000
+    13  1.0  1.0    8  0.5  0.5         0.000         0.000         0.000
+    13  1.0  1.0    9  0.5 -0.5         0.000         0.000         0.000
+    13  1.0  1.0   10  0.5  0.5         0.000         0.000         0.000
+    13  1.0  1.0   11  1.0 -1.0         0.000         0.000         0.000
+    13  1.0  1.0   12  1.0  0.0        -0.000        -0.000         0.000
+    13  1.0  1.0   13  1.0  1.0         0.000        -0.000         0.000
+ ----------------------------------------------------------------------
+ 
+       Total energies including SO-coupling:
+::    SO-RASSI State    1     Total energy:    -398.69129770956408
+::    SO-RASSI State    2     Total energy:    -398.52913537837117
+::    SO-RASSI State    3     Total energy:    -398.52913388647244
+::    SO-RASSI State    4     Total energy:    -398.52912865528083
+::    SO-RASSI State    5     Total energy:    -398.50833283647438
+::    SO-RASSI State    6     Total energy:    -398.47874839336686
+::    SO-RASSI State    7     Total energy:    -398.36745480579197
+::    SO-RASSI State    8     Total energy:    -398.36745480579197
+::    SO-RASSI State    9     Total energy:    -398.35221829021401
+::    SO-RASSI State   10     Total energy:    -398.34625754269410
+::    SO-RASSI State   11     Total energy:    -398.28246828925762
+::    SO-RASSI State   12     Total energy:    -398.23350168623466
+::    SO-RASSI State   13     Total energy:    -398.23350168623466
+ 
+ 
+   Eigenvalues of complex Hamiltonian:
+   -----------------------------------
+  (Shifted by EMIN (a.u.) =       -398.6912935097)
+ 
+ SO State       Relative EMIN(au)   Rel lowest level(eV)    D:o, cm**(-1)
+ 
+     1            -0.0000041998        0.0000000000              0.0000
+     2             0.1621581314        4.4126618286          35590.5179
+     3             0.1621596233        4.4127024253          35590.8453
+     4             0.1621648545        4.4128447732          35591.9934
+     5             0.1829606733        4.9787278311          40156.1481
+     6             0.2125451164        5.7837615394          46649.1828
+     7             0.3238387039        8.8122143376          71075.3019
+     8             0.3238387039        8.8122143376          71075.3019
+     9             0.3390752195        9.2268210480          74419.3306
+    10             0.3450359670        9.3890212511          75727.5634
+    11             0.4088252205       11.1248152647          89727.6863
+    12             0.4577918235       12.4572644127         100474.6135
+    13             0.4577918235       12.4572644127         100474.6135
+ 
+ 
+ Weights of the five most important spin-orbit-free states for each spin-orbit s
+ tate.
+ 
+ SO State  Total energy (au)           Spin-free states, spin, and weights
+ -------------------------------------------------------------------------------
+ ------------------------
+    1        -0.000004       1 0.0  1.0000    9 1.0  0.0000    4 0.0  0.0000    5 0.0  0.0000    6 0.0  0.0000
+    2         0.162158       9 1.0  0.9999    3 0.0  0.0001    2 0.0  0.0000    5 0.0  0.0000    4 0.0  0.0000
+    3         0.162160       9 1.0  1.0000    5 0.0  0.0000    6 0.0  0.0000    4 0.0  0.0000    1 0.0  0.0000
+    4         0.162165       9 1.0  1.0000    1 0.0  0.0000    4 0.0  0.0000    5 0.0  0.0000    6 0.0  0.0000
+    5         0.182961       2 0.0  1.0000    9 1.0  0.0000    3 0.0  0.0000    5 0.0  0.0000    1 0.0  0.0000
+    6         0.212545       3 0.0  0.9999    9 1.0  0.0001    2 0.0  0.0000    5 0.0  0.0000    6 0.0  0.0000
+    7         0.323839       7 0.5  1.0000    8 0.5  0.0000    9 1.0  0.0000    6 0.0  0.0000    5 0.0  0.0000
+    8         0.323839       7 0.5  1.0000    8 0.5  0.0000    9 1.0  0.0000    6 0.0  0.0000    5 0.0  0.0000
+    9         0.339075       4 0.0  1.0000    9 1.0  0.0000    5 0.0  0.0000    1 0.0  0.0000    6 0.0  0.0000
+   10         0.345036       5 0.0  1.0000    9 1.0  0.0000    6 0.0  0.0000    4 0.0  0.0000    1 0.0  0.0000
+   11         0.408825       6 0.0  1.0000    9 1.0  0.0000    5 0.0  0.0000    4 0.0  0.0000    1 0.0  0.0000
+   12         0.457792       8 0.5  1.0000    7 0.5  0.0000    9 1.0  0.0000    6 0.0  0.0000    5 0.0  0.0000
+   13         0.457792       8 0.5  1.0000    7 0.5  0.0000    9 1.0  0.0000    6 0.0  0.0000    5 0.0  0.0000
+ -------------------------------------------------------------------------------
+ ------------------------
+ 
+ 
+      ****************************************************************************************************
+      *                                                                                                  *
+      *                                    Special properties section                                    *
+      *                                                                                                  *
+      ****************************************************************************************************
+ 
+ 
+++ Dipole transition strengths (SO states):
+   ----------------------------------------
+        for osc. strength at least   1.00000000E-05
+ 
+      From   To        Osc. strength     Einstein coefficients Ax, Ay, Az (sec-1)    Total A (sec-1)
+     -----------------------------------------------------------------------------------------------
+         1    6       1.14666470E-04  1.65711017E+05  4.35974648E+02  2.96475021E+02  1.66443467E+05
+         1    9       2.05473275E-02  1.47078490E+05  9.22199196E+04  7.56654750E+07  7.59047735E+07
+         1   10       6.33502750E-03  5.39490724E+04  2.39788863E+07  1.99691212E+05  2.42325266E+07
+         1   11       9.58020772E-01  1.36695429E+07  5.13084990E+09  2.99449753E+05  5.14481890E+09
+         4   11       1.50237074E-05  7.81693766E+01  2.92884352E+04  2.23213723E+00  2.93688367E+04
+         5    6       7.84433009E-03  5.88109258E+02  2.19984903E+05  2.09096460E+01  2.20593922E+05
+         5    9       2.23717404E-05  1.74414275E+04  4.58872338E+01  3.12046090E+01  1.75185193E+04
+         5   10       3.46739655E-03  2.91361834E+06  7.66553588E+03  5.21277980E+03  2.92649665E+06
+         5   11       8.04183878E-03  1.31234195E+07  3.45268429E+04  2.34792235E+04  1.31814255E+07
+         6    9       5.69365796E-03  2.91591333E+06  7.67157386E+03  5.21688579E+03  2.92880179E+06
+         6   10       2.05327722E-05  1.15296170E+04  3.03336548E+01  2.06277376E+01  1.15805784E+04
+         7   12       8.72349450E-03  5.00716231E+06  1.31735107E+04  8.95835742E+03  5.02929418E+06
+         8   13       8.72349450E-03  5.00716231E+06  1.31735107E+04  8.95835742E+03  5.02929418E+06
+         9   10       2.86760410E-03  8.44605395E+00  3.26486037E+03  3.38179430E-01  3.27364461E+03
+        10   11       9.29153788E-05  2.36835100E+01  1.71622431E+01  1.21068393E+04  1.21476851E+04
+     -----------------------------------------------------------------------------------------------
+--
+ 
+++ Velocity transition strengths (SO states):
+   ------------------------------------------
+        for osc. strength at least   1.00000000E-05
+ 
+      From   To        Osc. strength     Einstein coefficients Ax, Ay, Az (sec-1)    Total A (sec-1)
+     -----------------------------------------------------------------------------------------------
+         1    6       4.04901981E-03  5.85146807E+06  1.53948228E+04  1.04689122E+04  5.87733180E+06
+         1    9       2.44709122E-02  1.69910824E+05  4.20069939E+04  9.01871399E+07  9.03990577E+07
+         1   10       2.50613281E-03  1.86077147E+04  9.33693845E+06  2.30825795E+05  9.58637196E+06
+         1   11       7.65427722E-01  1.09242093E+07  4.09937143E+09  2.48853972E+05  4.11054449E+09
+         4   11       3.18642879E-05  1.65606163E+02  6.21197388E+04  4.01158975E+00  6.22893566E+04
+         5    6       6.79691094E-04  4.85595511E+01  1.90582563E+04  7.08202029E+00  1.91138978E+04
+         5    9       2.13075496E-05  1.66117645E+04  4.37044455E+01  2.97202518E+01  1.66851892E+04
+         5   10       1.99798427E-03  1.67888603E+06  4.41703736E+03  3.00370954E+03  1.68630677E+06
+         5   11       6.04339966E-03  9.86218089E+06  2.59467414E+04  1.76445133E+04  9.90577215E+06
+         6    9       1.31602710E-02  6.73981648E+06  1.77320084E+04  1.20582640E+04  6.76960675E+06
+         6   10       3.96388859E-05  2.22581329E+04  5.85596654E+01  3.98222171E+01  2.23565147E+04
+         7   12       1.41272486E-02  8.10884062E+06  2.13338198E+04  1.45075970E+04  8.14468204E+06
+         8   13       1.41272486E-02  8.10884062E+06  2.13338198E+04  1.45075970E+04  8.14468204E+06
+         9   10       6.76415366E-03  2.01422949E+01  7.70168652E+03  1.00148581E-01  7.72192896E+03
+         9   11       7.95590721E-03  3.22863331E+03  1.24034356E+06  5.16200931E+01  1.24362381E+06
+        10   11       3.69188201E-05  2.79683106E+00  3.67180161E+03  1.15213968E+03  4.82673812E+03
+     -----------------------------------------------------------------------------------------------
+--
+ 
+++ Length and velocity gauge comparison (SO states):
+ 
+ --------------------------------------------------
+ A comparison between the dipole oscillator strengths in 
+ length and velocity gauge will be performed
+ 
+     All dipole oscillator differences above the tolerance of   1.00000000E-01  will be printed 
+ 
+ Due to basis set deficiency these oscillator may be problematic 
+ 
+ The tolerance is defined as ABS(1-O_l/O_v) 
+ O_l : dipole oscillator strength in length gauge
+ O_p : dipole oscillator strength in velocity gauge
+ --------------------------------------------------
+ 
+  Problematic transitions have been found
+ 
+      From   To       Difference (%) Osc. st. (len.) Osc. st. (vel.)
+     ---------------------------------------------------------------
+         1    6            97.168044  1.14666470E-04  4.04901981E-03
+         1    9            16.033667  2.05473275E-02  2.44709122E-02
+         1   10           152.780997  6.33502750E-03  2.50613281E-03
+         1   11            25.161494  9.58020772E-01  7.65427722E-01
+         4   11            52.850955  1.50237074E-05  3.18642879E-05
+         5    6          1054.102233  7.84433009E-03  6.79691094E-04
+         5   10            73.544737  3.46739655E-03  1.99798427E-03
+         5   11            33.068128  8.04183878E-03  6.04339966E-03
+         6    9            56.736013  5.69365796E-03  1.31602710E-02
+         6   10            48.200431  2.05327722E-05  3.96388859E-05
+         7   12            38.250577  8.72349450E-03  1.41272486E-02
+         8   13            38.250577  8.72349450E-03  1.41272486E-02
+         9   10            57.605870  2.86760410E-03  6.76415366E-03
+         9   11      --------------- below threshold  7.95590721E-03
+        10   11           151.674833  9.29153788E-05  3.69188201E-05
+     ---------------------------------------------------------------
+ 
+ Number of problematic transitions =                     15
+ 
+--
+ 
+ Electric-dipole - electric-octupole not included
+++ I/O STATISTICS
+ 
+  I. General I/O information
+  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  Unit  Name          Flsize      Write/Read            MBytes           Write/Read
+                      (MBytes)       Calls              In/Out           Time, sec.
+  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+   1  ANNI              0.00 .       0/       0 .      0.0/      0.0 .       0/       0
+   2  RUNFILE           0.25 .     427/    7692 .      3.0/     55.8 .       0/       0
+   3  ONEINT            1.46 .       0/    2757 .      0.0/   2496.5 .       0/       0
+   4  JOB001            1.22 .       0/      83 .      0.0/      1.1 .       0/       0
+   5  JOB002            1.22 .       0/      51 .      0.0/      1.1 .       0/       0
+   6  JOB003            1.22 .       0/      43 .      0.0/      1.1 .       0/       0
+  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+   *  TOTAL             5.38 .     427/   10626 .      3.0/   2555.6 .       0/       0
+  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+ 
+  II. I/O Access Patterns
+  - - - - - - - - - - - - - - - - - - - -
+  Unit  Name               % of random
+                         Write/Read calls
+  - - - - - - - - - - - - - - - - - - - -
+   1  ANNI                 0.0/   0.0
+   2  RUNFILE             28.6/  10.7
+   3  ONEINT               0.0/  97.6
+   4  JOB001               0.0/  65.1
+   5  JOB002               0.0/  74.5
+   6  JOB003               0.0/  79.1
+  - - - - - - - - - - - - - - - - - - - -
+--
+--- Stop Module: rassi at Fri Mar 22 16:31:40 2024 /rc=_RC_ALL_IS_WELL_ ---
+--- Module rassi spent 4 seconds ---
+
+.##################.
+.# Happy landing! #.
+.##################.
+
+    Timing: Wall=13.71 User=12.00 System=1.58

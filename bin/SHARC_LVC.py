@@ -300,7 +300,7 @@ class SHARC_LVC(SHARC_FAST):
         return self.QMout
 
     @staticmethod
-    @njit
+    @njit(cache=True, fastmath=True)
     def get_mult_prefactors(pc_coord_diff):
         # precalculated dist matrix
         pc_inv_dist_A_B = 1 / np.sqrt(np.sum((pc_coord_diff) ** 2, axis=2))  # distance matrix n_coord (A), n_pc (B)
@@ -325,7 +325,7 @@ class SHARC_LVC(SHARC_FAST):
         )
 
     @staticmethod
-    @njit
+    @njit(cache=True, fastmath=True)
     def get_mult_prefactors_deriv(pc_coord_diff):
         pc_inv_dist_A_B = 1 / np.sqrt(np.sum((pc_coord_diff) ** 2, axis=2))  # distance matrix n_coord (A), n_pc (B)
         R = pc_coord_diff
