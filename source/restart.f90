@@ -164,11 +164,16 @@ module restart
     ! thermostat
     write(u,*) ctrl%thermostat
     if (ctrl%thermostat/=0) then
-      write(u,*) ctrl%temperature
-      if (ctrl%thermostat==1) then   !Langevin: only 1 Thermostat constant
-        write(u,*) ctrl%thermostat_const(1)
+      write(u,*) ctrl%ntempregions
+      call vecwrite(ctrl%ntempregions, ctrl%temperature, u, 'temperature','ES24.16E3')
+      call matwrite(ctrl%ntempregions, ctrl%thermostat_const, u, 'thermostat_const','ES24.16E3')
+      if (ctrl%ntempregions>1) then
+        do iatom=1,ctrl%natom
+          write(u,*) ctrl%tempregion(iatom)
+        enddo
       endif
       write(u,*) ctrl%restart_thermostat_random
+      write(u,*) ctrl%remove_trans_rot
     endif
 
     ! constraints
@@ -203,10 +208,29 @@ module restart
     write(u,*) ctrl%n_property1d
     write(u,*) ctrl%n_property2d
     
+    ! write atom mask for decoherence, rescaling, ...
     do iatom=1,ctrl%natom
       write(u,*) ctrl%atommask_a(iatom)
     enddo
+    ! write atom mask for freezing atoms
+    do iatom=1,ctrl%natom
+      write(u,*) ctrl%atommask_b(iatom)
+    enddo
     
+    ! write restrictive potentials info
+    write(u,*) ctrl%restrictive_potential
+    if (ctrl%restrictive_potential==1 .or. ctrl%restrictive_potential==3) then
+      write(u,*) ctrl%restricted_droplet_force
+      write(u,*) ctrl%restricted_droplet_radius
+      do iatom=1,ctrl%natom
+        write(u,*) ctrl%sel_restricted_droplet(iatom)
+      enddo
+    endif
+    if (ctrl%restrictive_potential==2 .or. ctrl%restrictive_potential==3) then
+      write(u,*) ctrl%tethering_force
+      write(u,*) ctrl%tethering_radius
+      write(u,*) (ctrl%tether_at(iatom),iatom=1,size(ctrl%tether_at))
+    endif
     close(u)
 
   endsubroutine
@@ -552,6 +576,10 @@ module restart
     ! Trajectory consistency
     write(u,*) traj%discrepancy
 
+    if (ctrl%restrictive_potential==2 .or. ctrl%restrictive_potential==3) then
+      call vecwrite(3, traj%tethering_pos,  u, 'Tethering position','ES24.16E3')
+    endif
+
     close(u)
 
   endsubroutine
@@ -572,6 +600,7 @@ module restart
     use matrix
     use misc
     use decoherence_afssh
+    use ziggurat
     implicit none
     integer :: u_ctrl,u_traj
     type(trajectory_type) :: traj
@@ -594,6 +623,7 @@ module restart
   subroutine read_restart_ctrl(u_ctrl,u_traj,ctrl,traj)
     use definitions
     use matrix
+    use string
     use misc
     use decoherence_afssh
     implicit none
@@ -603,7 +633,8 @@ module restart
     type(ctrl_type) :: ctrl
 
     integer :: imult, iatom, i,j,k, istate, ilaser, ipair
-    character(8000) :: string
+    character(8000) :: line
+    character*8000, allocatable :: values(:)
 
     open(unit=u_ctrl, file='restart.ctrl',status='old',action='read')
 
@@ -722,12 +753,25 @@ module restart
     ! thermostat
     read(u_ctrl,*) ctrl%thermostat
     if (ctrl%thermostat/=0) then
-      read(u_ctrl,*) ctrl%temperature
-      if (ctrl%thermostat==1) then   !Langevin: only 1 Thermostat constant
-        allocate(ctrl%thermostat_const(1))
-        read(u_ctrl,*) ctrl%thermostat_const(1)
+      read(u_ctrl,*) ctrl%ntempregions
+      allocate(ctrl%temperature(ctrl%ntempregions))
+      if (ctrl%thermostat==1) then
+        allocate(ctrl%thermostat_const(ctrl%ntempregions,1))
+      endif
+      allocate(ctrl%tempregion(ctrl%natom))
+      call vecread(ctrl%ntempregions, ctrl%temperature, u_ctrl, line)
+      call matread(ctrl%ntempregions, ctrl%thermostat_const, u_ctrl, line)
+      if (ctrl%ntempregions>1) then
+        do iatom=1,ctrl%natom
+          read(u_ctrl,*) ctrl%tempregion(iatom)
+        enddo
+      else if (ctrl%ntempregions==1) then
+         do iatom=1,ctrl%natom
+          ctrl%tempregion(iatom)=1
+        enddo
       endif
       read(u_ctrl,*) ctrl%restart_thermostat_random
+      read(u_ctrl,*) ctrl%remove_trans_rot
     endif
 
 
@@ -756,9 +800,9 @@ module restart
       read(u_ctrl,*) ctrl%nlasers
       allocate( ctrl%laserfield_td(ctrl%nsteps*ctrl%nsubsteps+1,3) )
       allocate( ctrl%laserenergy_tl(ctrl%nsteps*ctrl%nsubsteps+1,ctrl%nlasers) )
-      call vec3read(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_td, u_ctrl, string)
+      call vec3read(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_td, u_ctrl, line)
       do ilaser=1,ctrl%nlasers
-        call vecread(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserenergy_tl(:,ilaser), u_ctrl, string)
+        call vecread(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserenergy_tl(:,ilaser), u_ctrl, line)
       enddo
     endif
 
@@ -775,7 +819,32 @@ module restart
     do iatom=1,ctrl%natom
       read(u_ctrl,*) ctrl%atommask_a(iatom)
     enddo
-
+    allocate( ctrl%atommask_b(ctrl%natom))
+    do iatom=1,ctrl%natom
+      read(u_ctrl,*) ctrl%atommask_b(iatom)
+    enddo
+    
+    !read restrictive potential infos
+    read(u_ctrl, *) ctrl%restrictive_potential
+    if (ctrl%restrictive_potential==1 .or. ctrl%restrictive_potential==3) then
+      read(u_ctrl,*) ctrl%restricted_droplet_force
+      read(u_ctrl,*) ctrl%restricted_droplet_radius
+      allocate( ctrl%sel_restricted_droplet(ctrl%natom))
+      do iatom=1,ctrl%natom
+        read(u_ctrl,*) ctrl%sel_restricted_droplet(iatom)
+      enddo
+    endif
+    if (ctrl%restrictive_potential==2 .or. ctrl%restrictive_potential==3) then
+      read(u_ctrl,*) ctrl%tethering_force
+      read(u_ctrl,*) ctrl%tethering_radius
+      call split(line,' ',values,k)
+      allocate(ctrl%tether_at(k))
+      do i=1,k
+        read(values(i),*) ctrl%tether_at(i)
+      enddo
+      deallocate(values)
+    endif
+    
     close(u_ctrl)
 
     ! -------------------------
@@ -1106,6 +1175,11 @@ module restart
   ! Trajectory consistency
   read(u_traj,*) traj%discrepancy
 
+  !read tethering position
+  if (ctrl%restrictive_potential==2 .or. ctrl%restrictive_potential==3) then
+    call vecread(3, traj%tethering_pos,  u_traj, string)
+  endif
+
   close(u_traj)
   ! Now everything about trajectory has been read from the restart file
   endsubroutine
@@ -1119,6 +1193,7 @@ module restart
     use definitions
     use matrix
     use misc
+    use ziggurat
     use decoherence_afssh
     implicit none
     integer :: u_ctrl,u_traj
@@ -1136,6 +1211,27 @@ module restart
     do i=1,2*traj%step
       call random_number(dummy_randnum)
     enddo
+    
+    ! set up thermostat randomness
+    if (ctrl%thermostat==1 .and. ctrl%restart_thermostat_random .eqv. .true.) then
+       ! initialte and call the ziggurat random number generator (used for thermostat) until it is in the same status as before the restart
+       !call init_random_seed_thermostat(traj%rngseed_thermostat)
+       call zigset(traj%rngseed_thermostat+37+17**2)
+       do i=1,3*ctrl%natom*traj%step
+         dummy_randnum=rnor()
+       enddo
+       allocate (traj%thermostat_random(3*ctrl%natom)) ! allocate randomness for all atoms in all directions
+    else if (ctrl%thermostat==1 .and. ctrl%restart_thermostat_random .eqv. .false.)  then
+       ! initialte the ziggurat random number generator (used for thermostat),
+       ! starts from random seed given in restart.traj! (only use this option for when manually given new random seed in restart.traj!)
+       call zigset(traj%rngseed_thermostat+37+17**2)
+       !call init_random_seed_thermostat(traj%rngseed_thermostat)
+       allocate (traj%thermostat_random(3*ctrl%natom)) ! allocate randomness for all atoms in all directions
+    endif
+    ! allocate total rotational component
+    if(ctrl%thermostat/=0 .and. ctrl%remove_trans_rot) then
+       allocate(ctrl%rotation_tot(3*ctrl%natom,3))
+    endif
 
     ! since the relaxation check is done after writing the restart file,
     ! add one to the relaxation counter

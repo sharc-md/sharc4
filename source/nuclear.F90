@@ -32,6 +32,9 @@
 !>                       add following subroutines used for adaptive step size:
 !>                       Check_Consistency, Adaptive_Stepsize, Back_propagate
 !>
+!>                   modified 2023 by Brigitta Bachmair
+!>                        added Langevin thermostat and frozen atoms
+!>
 !> This module defines all subroutines for the nuclear dynamics:
 !> - the two velocity-verlet steps (update of geometry, update of velocity)
 !> - calculation of total and kinetic energy
@@ -48,13 +51,16 @@ module nuclear
 subroutine VelocityVerlet_xstep(traj,ctrl)
   use definitions
   use matrix
+  use ziggurat
+  use misc
   implicit none
   type(trajectory_type) :: traj
   type(ctrl_type) :: ctrl
   integer :: iatom, idir
 
   ! variables for thermostat
-  real*8 :: b
+  integer :: iregion
+  real*8,allocatable :: b(:)
 
   ! variables for constraints
   real*8 :: initdistvec(ctrl%n_constraints,3)
@@ -85,6 +91,7 @@ subroutine VelocityVerlet_xstep(traj,ctrl)
   select case (ctrl%thermostat)
     case (0) ! no thermostat
       do iatom=1,ctrl%natom
+        if (ctrl%atommask_b(iatom) .eqv. .false.) cycle ! skip for frozen atoms
         do idir=1,3
           traj%accel_ad(iatom,idir)=&
           &-traj%grad_ad(iatom,idir)/traj%mass_a(iatom)
@@ -96,21 +103,36 @@ subroutine VelocityVerlet_xstep(traj,ctrl)
         enddo
       enddo
     case (1) ! Langevin thermostat
-      traj%thermostat_random=gaussian_random(ctrl%natom,real(0,8),ctrl%temperature) !ctrl%temperature is variance here
-      !write(u_log,*) traj%thermostat_random
+      allocate(b(ctrl%ntempregions))
+      do iregion=1,ctrl%ntempregions
+        b(iregion)=1/(1+ctrl%thermostat_const(iregion,1)) !ctrl%thermostat_const is 0.5frict.*dt here
+      enddo
+      ! create randomness vector
       do iatom=1,ctrl%natom
-        b=1/(1+ctrl%thermostat_const(1)*ctrl%dtstep/(2*traj%mass_a(iatom)))
-        do idir=1,3                 ! propagate positions according to Langevin equation
+        if (ctrl%atommask_b(iatom) .eqv. .false.) cycle ! skip for frozen atoms
+        do idir=1,3                 ! generate random component, (ctrl%temperature is frict.*kB*T here)
+          traj%thermostat_random(3*(iatom-1)+idir)=rnor()*b(ctrl%tempregion(iatom))&
+                  &*sqrt(ctrl%temperature(ctrl%tempregion(iatom))*ctrl%dtstep/traj%mass_a(iatom))
+        enddo
+      enddo
+      if (ctrl%remove_trans_rot) then !remove total trans and rot components from randomness
+        call remove_trans_rot_components(traj%thermostat_random, ctrl, traj)
+      endif
+      !propagate positions with thermostat
+      do iatom=1,ctrl%natom
+        if (ctrl%atommask_b(iatom) .eqv. .false.) cycle ! skip for frozen atoms    
+        do idir=1,3
           traj%accel_ad(iatom,idir)=&
           &-traj%grad_ad(iatom,idir)/traj%mass_a(iatom)
 
           traj%geom_ad(iatom,idir)=&
           & traj%geom_ad(iatom,idir)&
-          &+b*traj%veloc_ad(iatom,idir)*ctrl%dtstep&
-          &+0.5d0*b*traj%accel_ad(iatom,idir)*ctrl%dtstep**2&
-          &+0.5d0*b*traj%thermostat_random(3*(iatom-1)+idir)*ctrl%dtstep/traj%mass_a(iatom)
+          &+b(ctrl%tempregion(iatom))*( traj%veloc_ad(iatom,idir)*ctrl%dtstep&
+          &                           +0.5d0*traj%accel_ad(iatom,idir)*ctrl%dtstep**2 )&
+          &+ ctrl%dtstep* sqrt(0.5d0) *traj%thermostat_random(3*(iatom-1)+idir)
         enddo
       enddo
+      deallocate(b)
   end select
 
   ! carry out RATTLE
@@ -127,6 +149,13 @@ subroutine VelocityVerlet_xstep(traj,ctrl)
           ! define the atomic id of the atoms that have fixed distance
           iA=ctrl%constraints_ca(iconstr,1)
           iB=ctrl%constraints_ca(iconstr,2)
+          !TODO: think about how to handle RATTLE + frozen atoms
+          !if ((ctrl%atommask_b(iA) .eqv. .false.) .or. (ctrl%atommask_b(iB) .eqv. .false.)) then
+          !  check_constraints(iconstr) = .TRUE.
+          !  if (printlevel>2) then
+          !    write(u_log,*) 'constraint over frozen: is skipped'
+          !  cycle
+          !endif
           ! compute the relative position of the two constrained atoms, and the relative norm squared
           relpos = traj%geom_ad(iA,:) - traj%geom_ad(iB,:)
           D2t = DOT_PRODUCT(relpos, relpos)
@@ -184,7 +213,8 @@ subroutine VelocityVerlet_vstep(traj,ctrl)
   integer :: iatom, idir
 
   ! variables for thermostat
-  real*8 :: a, b
+  integer :: iregion
+  real*8,allocatable :: a(:), b(:)
 
   ! variables for constraints
   logical :: check_constraints(ctrl%n_constraints)
@@ -204,6 +234,7 @@ subroutine VelocityVerlet_vstep(traj,ctrl)
   select case (ctrl%thermostat)
     case (0) ! no thermostat
       do iatom=1,ctrl%natom
+        if (ctrl%atommask_b(iatom) .eqv. .false.) cycle ! skip for frozen atoms
         do idir=1,3
           traj%accel_ad(iatom,idir)=0.5d0*(traj%accel_ad(iatom,idir)&
           &-traj%grad_ad(iatom,idir)/traj%mass_a(iatom) )
@@ -214,20 +245,26 @@ subroutine VelocityVerlet_vstep(traj,ctrl)
         enddo
       enddo
     case (1) ! Langevin thermostat
+      allocate(a(ctrl%ntempregions))
+      allocate(b(ctrl%ntempregions))
+      do iregion=1,ctrl%ntempregions
+        b(iregion)=1/(1+ctrl%thermostat_const(iregion,1)) !ctrl%thermostat_const is 0.5frict.*dt here
+        a(iregion)=(1-ctrl%thermostat_const(iregion,1))*b(iregion)
+      enddo
       do iatom=1,ctrl%natom
-        a=ctrl%thermostat_const(1)*ctrl%dtstep/(2*traj%mass_a(iatom))
-        b=1/(1+a)
-        a=(1-a)*b
+        if (ctrl%atommask_b(iatom) .eqv. .false.) cycle ! skip for frozen atoms
         do idir=1,3
-          traj%accel_ad(iatom,idir)=0.5d0*(a*traj%accel_ad(iatom,idir)&
+          traj%accel_ad(iatom,idir)=0.5d0*( a(ctrl%tempregion(iatom))*traj%accel_ad(iatom,idir)&
           &-traj%grad_ad(iatom,idir)/traj%mass_a(iatom) )
     
           traj%veloc_ad(iatom,idir)=&
-          & a*traj%veloc_ad(iatom,idir)&
+          & a(ctrl%tempregion(iatom))*traj%veloc_ad(iatom,idir)&
           &+traj%accel_ad(iatom,idir)*ctrl%dtstep&
-          &+b*traj%thermostat_random(3*(iatom-1)+idir)/traj%mass_a(iatom)
+          &+sqrt(2.0d0)*traj%thermostat_random(3*(iatom-1)+idir)
         enddo
       enddo
+      deallocate(a)
+      deallocate(b)
   endselect    
 
   ! carry out RATTLE
@@ -908,37 +945,42 @@ subroutine Adaptive_Stepsize(traj,ctrl)
 
 endsubroutine
 
-
-
-
-
-
 ! ===========================================================
 
-!> returns 3*natoms gaussian distributed random numbers with mean=mu and variance=var
-function gaussian_random(natoms,mu,var)
-#ifdef __INTEL_COMPILER
-  use ifport
-#endif
+!> projects out the total translational and rotational (ctrl%rotation_tot) components from a 3*natom (3*iatom+idir) vector
+subroutine remove_trans_rot_components(vect,ctrl,traj)
   use definitions
+  use misc
   implicit none
-  integer,intent(in) :: natoms
-  integer :: i
-  real*8,intent(in) :: mu, var
-  real*8 :: gaussian_random(2*((natoms*3+1)/2))   !note:fortran integer division -> truncation
-  real*8 :: theta,r
-  
-  do i=1,(3*natoms+1)/2
-    theta=rand()
-    r=rand()
-    theta=2*pi*rand()
-    r=sqrt(-2*log(rand())*var)
-    gaussian_random(2*i-1)=r*dcos(theta) +mu
-    gaussian_random(2*i)=r*dsin(theta) +mu
-  end do
+  type(ctrl_type), intent(in) :: ctrl
+  type(trajectory_type), intent(in) :: traj
+  real*8, intent(inout) :: vect(3*ctrl%natom)
+  real*8 :: temp(3*ctrl%natom)
+  real*8 :: x(3)
+  integer :: iatom, idir
 
-  return
-endfunction
+  temp(:) = vect(:)
+  x = 0.
 
+  ! translational components of vect
+  do idir=1,3
+    do iatom=1,ctrl%natom
+      x(idir) = x(idir) + temp(3*(iatom-1)+idir) * traj%mass_a(iatom)
+    enddo
+  enddo
+  x = x / dot_product(traj%mass_a,traj%mass_a)
+  do idir=1,3
+    do iatom=1,ctrl%natom
+      vect(3*(iatom-1)+idir) =  vect(3*(iatom-1)+idir) - x(idir) * traj%mass_a(iatom)
+    enddo
+  enddo
+
+  ! rotational components of vect
+  call get_rotation_tot(ctrl,traj)
+  do idir=1,3
+    vect(:) =  vect(:) - dot_product(temp, ctrl%rotation_tot(:,idir)) * ctrl%rotation_tot(:,idir)
+  enddo
+
+endsubroutine
 
 endmodule nuclear

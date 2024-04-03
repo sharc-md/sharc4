@@ -32,16 +32,17 @@
 USE_PYSHARC := true
 
 #intel, gnu
-USE_COMPILER := gnu
+USE_COMPILER := intel
 
 #mkl,gnu
-USE_LIBS := gnu
+USE_LIBS := mkl
 
 #Static libraries
 COMP_STATIC := false
 
 #needed for PYSHARC
-ANACONDA := ${CONDA_PREFIX}
+ANACONDA := /user/brigitta/anaconda3/envs/wrk2
+#ANACONDA := ${CONDA_PREFIX}
 # =======================================
 
 
@@ -175,7 +176,10 @@ SHARC  =  driver.o \
           zpe.o \
           tsh_tu.o \
           army_ants.o \
-          pointer_basis.o 
+          pointer_basis.o \
+	  ziggurat.o \
+          restrictive_potential.o
+
 ifeq ($(USE_PYSHARC),true)
 SHARC += interface.o
 endif
@@ -328,20 +332,21 @@ driver.o: output.o qm.o bsh.o restart.o misc.o electronic_laser.o input.o decohe
 interface.o: electronic.o definitions.o definitions_NetCDF.o output.o qm.o restart.o misc.o electronic_laser.o input.o decoherence_afssh.o decoherence_dom.o zpe.o tsh_tu.o army_ants.o pointer_basis.o
 misc.o: definitions.o
 output.o: $(TOOLS) build_info misc.o
-nuclear.o: $(TOOLS) decoherence_afssh.o decoherence_dom.o
+nuclear.o: $(TOOLS) decoherence_afssh.o decoherence_dom.o ziggurat.o misc.o
 electronic.o: nuclear.o $(TOOLS) decoherence_afssh.o decoherence_dom.o
 electronic_laser.o: electronic.o $(TOOLS)
-input.o: $(TOOLS) output.o restart.o misc.o
-qm.o: $(TOOLS) electronic.o nuclear.o qm_out.o restart.o
+input.o: $(TOOLS) output.o restart.o misc.o restrictive_potential.o
+qm.o: $(TOOLS) electronic.o nuclear.o qm_out.o restart.o restrictive_potential.o
 bsh.o: $(TOOLS) electronic.o decoherence_dom.o qm.o
 qm_out.o: $(TOOLS)
-restart.o: $(TOOLS) misc.o decoherence_afssh.o
-decoherence_afssh.o: $(TOOLS) definitions.o 
+restart.o: $(TOOLS) misc.o decoherence_afssh.o ziggurat.o
+decoherence_afssh.o: $(TOOLS) definitions.o
 decoherence_dom.o: $(TOOLS) definitions.o
 zpe.o: $(TOOLS) definitions.o nuclear.o
 tsh_tu.o: $(TOOLS) definitions.o electronic.o nuclear.o army_ants.o
 army_ants.o: $(TOOLS) definitions.o electronic.o 
-pointer_basis.o: $(TOOLS) definitions.o 
+pointer_basis.o: $(TOOLS) definitions.o
+restrictive_potential.o: $(TOOLS) definitions.o
 
 LASER_input.o: LASER_definitions.o 
 LASER_calc_fftw.o: LASER_definitions.o

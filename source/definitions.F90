@@ -60,6 +60,9 @@
 !>                        ctrl%decoherence - add decay of mixing for Ehrenfest dynamics -> CSDM, SCDM, or NDM
 !>                        ctrl%switching_procedure - switching procedure used by CSDM
 !>
+!>                   modified 2023 by Brigitta Bachmair
+!>                         added keywords for thermostat, additional restrictive potentials, frozen atoms
+!>
 !> This module defines the trajectory and control types.
 !>
 !> All arrays defined here have their order and meaning of the
@@ -337,6 +340,9 @@ type trajectory_type
 
   ! Thermostat randomness
   real*8,allocatable :: thermostat_random(:)
+
+  ! tethering position
+  real*8,allocatable :: tethering_pos(:)
 endtype
 
 ! =========================================================== !
@@ -362,6 +368,7 @@ type ctrl_type
 ! numerical constants
   integer :: natom                          !< number of atoms
   logical,allocatable :: atommask_a(:)      !< atoms which are considered for decoherence, rescaling, ...
+  logical,allocatable :: atommask_b(:)      !< atoms which are considered for verlocity verlet (-> use to freeze atoms)
   integer :: maxmult                        !< highest spin quantum number (determines length of nstates_m)
   integer,allocatable :: nstates_m(:)       !< numer of states considered in each multiplicy
   integer :: nstates                        !< total number of states
@@ -424,6 +431,8 @@ type ctrl_type
   
   integer :: thermostat                     !< 0=none, 1=Langevin thermostat
   logical :: restart_thermostat_random      !< F=no, T=yes (default) to use same random number sequence if restarted
+  logical :: remove_trans_rot               !< whether to remove the total translational and rotational components during thermostatting
+  integer :: restrictive_potential          !< 0=none, 1=restricted droplet, 2=tethering of an atom, 3=restricted atom + tethering
 
 ! lp-zpe
   integer :: lpzpe_scheme                   !< correction_scheme=0 skip correction if BC bonds do not have enough kinetic energy; 1=forced correction by moving all kinetic energies of BC bonds to AH bonds
@@ -459,8 +468,8 @@ type ctrl_type
   integer :: n_property1d                   !< number of property vectors
 
   integer :: killafter                      !< -1=no, >1=kill after that many steps in the ground state
-  integer :: ionization                     !<  -1=no, n=ionization every n steps
-  integer :: theodore                       !<  -1=no, n=theodore every n steps
+  integer :: ionization                     !< -1=no, n=ionization every n steps
+  integer :: theodore                       !< -1=no, n=theodore every n steps
   integer :: track_phase                    !< 0=no, 1=track phase of U matrix through the propagation (turn off only for debugging purposes)
   integer :: track_phase_at_zero            !< 0=nothing, 1=at time zero, get phases from whatever is in the savedir
   integer :: hopping_procedure              !< 0=no hops, 1=hops (standard formula), 2=GFSH
@@ -487,8 +496,19 @@ type ctrl_type
   complex*16, allocatable :: laserenergy_tl(:,:)  !< momentary central energy of laser (for detecting induced hops)
 
   ! thermostat
-  real*8 :: temperature                     !< temperature used for thermostat
-  real*8,allocatable :: thermostat_const(:) !< constants needed for thermostat. Langevin: friction coeffitient
+  integer :: ntempregions                     !< number of regions with different thermostat conditions
+  integer,allocatable :: tempregion(:)        !< array of thermostat region number for each atom
+  real*8,allocatable :: temperature(:)        !< temperature(s) used for thermostat
+  real*8,allocatable :: thermostat_const(:,:) !< constants needed for thermostat. Langevin: friction coeffitient
+  real*8,allocatable :: rotation_tot(:,:)     !< unit vectors for rotation of whole system (used to prevent such a rotation)
+
+  ! restrictive potentials
+  real*8 :: restricted_droplet_force        !< force constant for restricted droplet potential
+  real*8 :: restricted_droplet_radius       !< radius of primary water sphere for restricted droplet potential
+  real*8 :: tethering_force                 !< force constant for tethering of atom
+  real*8 :: tethering_radius                !< radius of beyond which tethering potential is not zero
+  logical,allocatable :: sel_restricted_droplet(:)       !< selection mask for restricted droplet
+  integer,allocatable :: tether_at(:)                    !< selection of indices for tethering of center of mass of these atoms
 
 endtype
 
@@ -531,6 +551,9 @@ integer, parameter :: u_i_coeff=15           !< initial coefficients
 integer, parameter :: u_i_laser=16           !< numerical laser field
 integer, parameter :: u_i_atommask=17        !< which atoms are active for rescaling/decoherence/...
 integer, parameter :: u_i_rattle=18          !< atoms for constraints
+integer, parameter :: u_i_frozen=19          !< which atoms are active for verlocity verlet (i.e. not frozen)
+integer, parameter :: u_i_thermostat=20      !< thermostat settings (number of regions, temperatures, constants, regions)
+integer, parameter :: u_i_droplet=21         !< which atoms are part of the restrictive droplet (i.e. feel the corresponding potential)
 
 integer, parameter :: u_qm_QMin=41           !< here SHARC writes information for the QM interface (like geometry, number of states, what kind of data is requested)
 integer, parameter :: u_qm_QMout=42          !< here SHARC retrieves the results of the QM run (Hamiltonian, gradients, couplings, etc.)
@@ -986,13 +1009,19 @@ integer, parameter :: u_qm_QMout=42          !< here SHARC retrieves the results
       if (allocated(ctrl%nstates_m))                  deallocate(ctrl%nstates_m)
       if (allocated(ctrl%actstates_s))                deallocate(ctrl%actstates_s)
       if (allocated(ctrl%atommask_a))                 deallocate(ctrl%atommask_a)
+      if (allocated(ctrl%atommask_b))                 deallocate(ctrl%atommask_b)
       if (allocated(ctrl%laserfield_td))              deallocate(ctrl%laserfield_td)
       if (allocated(ctrl%laserenergy_tl))             deallocate(ctrl%laserenergy_tl)
       if (allocated(ctrl%lpzpe_ah))                   deallocate(ctrl%lpzpe_ah)
       if (allocated(ctrl%lpzpe_bc))                   deallocate(ctrl%lpzpe_bc)
       if (allocated(ctrl%lpzpe_ke_zpe_ah))            deallocate(ctrl%lpzpe_ke_zpe_ah)
       if (allocated(ctrl%lpzpe_ke_zpe_bc))            deallocate(ctrl%lpzpe_ke_zpe_bc)
+      if (allocated(ctrl%tempregion))                 deallocate(ctrl%tempregion)
+      if (allocated(ctrl%temperature))                deallocate(ctrl%temperature)
       if (allocated(ctrl%thermostat_const))           deallocate(ctrl%thermostat_const)
+      if (allocated(ctrl%rotation_tot))               deallocate(ctrl%rotation_tot)
+      if (allocated(ctrl%sel_restricted_droplet))     deallocate(ctrl%sel_restricted_droplet)
+      if (allocated(ctrl%tether_at))                  deallocate(ctrl%tether_at)
 
     endsubroutine
 
@@ -1114,6 +1143,7 @@ integer, parameter :: u_qm_QMout=42          !< here SHARC retrieves the results
     if (allocated(traj%lpzpe_ke_ah))                deallocate(traj%lpzpe_ke_ah)
     if (allocated(traj%lpzpe_ke_bc))                deallocate(traj%lpzpe_ke_bc)
     if (allocated(traj%thermostat_random))          deallocate(traj%thermostat_random)
+    if (allocated(traj%tethering_pos))              deallocate(traj%tethering_pos)
   endsubroutine
 
 
