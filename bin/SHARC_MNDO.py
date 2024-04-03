@@ -14,7 +14,7 @@ import numpy as np
 from constants import *
 from qmin import QMin
 from SHARC_ABINITIO import SHARC_ABINITIO
-from utils import containsstring, expand_path, itmult, link, makecmatrix, mkdir, readfile, writefile
+from utils import containsstring, expand_path, question, link, makecmatrix, mkdir, readfile, writefile
 
 __all__ = ["SHARC_MNDO"]
 
@@ -47,7 +47,7 @@ all_features = set(
 KCAL_TO_EH = 0.0015936010974213599
 EV_TO_EH = 0.03674930495120813
 BOHR_TO_ANG = 0.529176125
-D2AU = 1 / 0.393456
+D2AU =  0.393456
 
 
 class SHARC_MNDO(SHARC_ABINITIO):
@@ -154,7 +154,79 @@ class SHARC_MNDO(SHARC_ABINITIO):
         Parameters:
         INFOS: dictionary with all previously collected infos during setup
         KEYSTROKES: object as returned by open() to be used with question()
+
         """
+        """prepare INFOS obj
+
+        ---
+        Parameters:
+        INFOS: dictionary with all previously collected infos during setup
+        KEYSTROKES: object as returned by open() to be used with question()
+        """
+        self.log.info("=" * 80)
+        self.log.info(f"{'||':<78}||")
+        self.log.info(f"||{'MDNO interface setup': ^76}||\n{'||':<78}||")
+        self.log.info("=" * 80)
+        self.log.info("\n")
+        self.files = []
+
+        self.log.info(
+            "\nPlease specify path to MNDO directory (SHELL variables and ~ can be used, will be expanded when interface is started).\n"
+        )
+        INFOS["mndodir"] = question("Path to MNDO:", str, KEYSTROKES=KEYSTROKES)
+        self.log.info("")
+
+        # scratch
+        self.log.info(f"{'Scratch directory':-^60}\n")
+        self.log.info(
+            "Please specify an appropriate scratch directory. This will be used to run the MNDO calculations. The scratch directory will be deleted after the calculation. Remember that this script cannot check whether the path is valid, since you may run the calculations on a different machine. The path will not be expanded by this script."
+        )
+        INFOS["scratchdir"] = question("Path to scratch directory:", str, KEYSTROKES=KEYSTROKES)
+        self.log.info("")
+
+        self.template_file = None
+        self.log.info(f"{'MNDO input template file':-^60}\n")
+
+        if os.path.isfile("MNDO.template"):
+            usethisone = question("Use this template file?", bool, KEYSTROKES=KEYSTROKES, default=True)
+            if usethisone:
+                self.template_file = "MNDO.template"
+        else:
+            while True:
+                self.template_file = question("Template filename:", str, KEYSTROKES=KEYSTROKES)
+                if not os.path.isfile(self.template_file):
+                    self.log.info(f"File {self.template_file} does not exist!")
+                    continue
+                break
+        self.log.info("")
+        self.files.append(self.template_file)
+
+        # Resources
+        if question("Do you have a 'MNDO.resources' file?", bool, KEYSTROKES=KEYSTROKES, default=False):
+            while True:
+                resources_file = question("Specify the path:", str, KEYSTROKES=KEYSTROKES, default="MNDO.resources")
+                if os.path.isfile(resources_file):
+                    break
+                else:
+                    self.log.info(f"file at {resources_file} does not exist!")
+                self.files.append(resources_file)
+                self.make_resources = False
+        else:
+            self.make_resources = True
+            self.log.info(f"{'MNDO Ressource usage':-^60}\n")
+
+            INFOS["memory"] = question("Memory (MB):", int, default=[1000], KEYSTROKES=KEYSTROKES)[0]
+
+            # Ionization
+            # self.log.info('\n'+centerstring('Ionization probability by Dyson norms',60,'-')+'\n')
+            # INFOS['ion']=question('Dyson norms?',bool,False)
+            # if INFOS['ion']:
+            if "overlap" in INFOS["needed_requests"]:
+                self.log.info(f"\n{'WFoverlap setup':-^60}\n")
+                INFOS["wfoverlap"] = question(
+                    "Path to wavefunction overlap executable:", str, default="$SHARC/wfoverlap.x", KEYSTROKES=KEYSTROKES
+                )
+
         return INFOS
 
 
@@ -598,6 +670,8 @@ mocoef
 
         # Populate overlaps, only singlets so this function is simpler than normal
         if self.QMin.requests["overlap"] or self.QMin.requests["phases"]:
+            if "overlap" not in self.QMout:
+                self.QMout["overlap"] = makecmatrix(nmstates, nmstates)
             outfile = os.path.join(self.QMin.resources["scratchdir"], "wfovl.out")
             ovlp_mat = self.parse_wfoverlap(outfile)
             for i in range(nmstates):
@@ -608,12 +682,12 @@ mocoef
                         continue
                     if not ms1 == ms2:
                         continue
-                    self.QMout["overlap"][i, j] = ovlp_mat[s1-1, s2-1]
+                    self.QMout["overlap"][i][j] = ovlp_mat[s1-1,s2-1]
         
         #Populate Phases if requested
         if self.QMin.requests["phases"]:
                 for i in range(self.QMin.molecule["nmstates"]):
-                    self.QMout["phases"][i] = -1 if self.QMout["overlap"][i, i] < 0 else 1
+                    self.QMout["phases"][i] = -1 if self.QMout["overlap"][i][i] < 0 else 1
 
 
 
@@ -888,9 +962,33 @@ mocoef
         return energies
 
 
-    def prepare(self, INFOS: dict, dir_path: str):
-        "setup the calculation in directory 'dir'"
-        return
+    def prepare(self, INFOS: dict, workdir: str):
+        """
+        prepare the workdir according to dictionary
+
+        ---
+        Parameters:
+        INFOS: dictionary with infos
+        workdir: path to workdir
+        """
+        if self.make_resources:
+            try:
+                resources_file = open('%s/MNDO.resources' % (workdir), 'w')
+            except IOError:
+                self.log.error('IOError during prepareMNDO, iconddir=%s' % (workdir))
+                quit(1)
+#  project='GAUSSIAN'
+            string = 'groot %s\nscratchdir %s/%s/\n' % (INFOS['groot'], INFOS['scratchdir'], workdir)
+            string += 'memory %i\n' % (INFOS['mem'])
+            if 'overlap' in INFOS['needed_requests']:
+                string += 'wfoverlap %s\n' % (INFOS['wfoverlap'])
+
+            resources_file.write(string)
+            resources_file.close()
+
+        create_file = link if INFOS["link_files"] else shutil.copy
+        for file in self.files:
+            create_file(expand_path(file), os.path.join(workdir, file.split("/")[-1]))
 
 
     def printQMout(self) -> None:
@@ -969,11 +1067,11 @@ mocoef
         schedule = [{"mndo_calc" : self.QMin}] #Generate fake schedule
         self.QMin.control["nslots_pool"].append(1)
         self.runjobs(schedule)
-        #self.execute_from_qmin(self.QMin.control["workdir"], self.QMin)
+        #self.execute_from_qmin(self.QMin.control["workdir"], self.QMin)+
 
         self._save_files(self.QMin.control["workdir"])
         # Run wfoverlap
-        if self.QMin.requests["overlap"]:
+        if self.QMin.requests["overlap"] or self.QMin.requests["phases"]:
             self._run_wfoverlap()
 
         self.log.debug("All jobs finished successfully")
@@ -1007,41 +1105,40 @@ mocoef
         wf_cmd = f"{self.QMin.resources['wfoverlap']} -m {self.QMin.resources['memory']} -f wfovl.inp"
 
         # Overlap calculations
-        if self.QMin.requests["overlap"]:
-            workdir = self.QMin.resources["scratchdir"]
+        workdir = self.QMin.resources["scratchdir"]
 
-            # Write input
-            writefile(os.path.join(workdir, "wfovl.inp"), wf_input)
+        # Write input
+        writefile(os.path.join(workdir, "wfovl.inp"), wf_input)
 
-            # Link files
-            # breakpoint()
-            link(
-                os.path.join(self.QMin.save["savedir"], f"dets.{self.QMin.save['step']}"),
-                os.path.join(workdir, "det.a"),
-            )
-            link(
-                os.path.join(self.QMin.save["savedir"], f"dets.{self.QMin.save['step']-1}"),
-                os.path.join(workdir, "det.b"),
-            )
-            link(
-                os.path.join(self.QMin.save["savedir"], f"mos.{self.QMin.save['step']}"),
-                os.path.join(workdir, "mo.a"),
-            )
-            link(
-                os.path.join(self.QMin.save["savedir"], f"mos.{self.QMin.save['step']-1}"),
-                os.path.join(workdir, "mo.b"),
-            )
+        # Link files
+        # breakpoint()
+        link(
+            os.path.join(self.QMin.save["savedir"], f"dets.{self.QMin.save['step']}"),
+            os.path.join(workdir, "det.a"),
+        )
+        link(
+            os.path.join(self.QMin.save["savedir"], f"dets.{self.QMin.save['step']-1}"),
+            os.path.join(workdir, "det.b"),
+        )
+        link(
+            os.path.join(self.QMin.save["savedir"], f"mos.{self.QMin.save['step']}"),
+            os.path.join(workdir, "mo.a"),
+        )
+        link(
+            os.path.join(self.QMin.save["savedir"], f"mos.{self.QMin.save['step']-1}"),
+            os.path.join(workdir, "mo.b"),
+        )
 
-            # Execute wfoverlap, maybe better using time.perf_counter() ??
-            starttime = datetime.datetime.now()
+        # Execute wfoverlap, maybe better using time.perf_counter() ??
+        starttime = datetime.datetime.now()
 
-            code = self.run_program(workdir, wf_cmd, os.path.join(workdir, "wfovl.out"), os.path.join(workdir, "wfovl.err"))
-            self.log.info(f"Finished wfoverlap job!!\nruntime: {datetime.datetime.now()-starttime}")
-            if code != 0:
-                self.log.error("wfoverlap did not finish successfully!")
-                with open(os.path.join(workdir, "wfovl.err"), "r", encoding="utf-8") as err_file:
-                    self.log.error(err_file.read())
-                raise OSError()
+        code = self.run_program(workdir, wf_cmd, os.path.join(workdir, "wfovl.out"), os.path.join(workdir, "wfovl.err"))
+        self.log.info(f"Finished wfoverlap job!!\nruntime: {datetime.datetime.now()-starttime}")
+        if code != 0:
+            self.log.error("wfoverlap did not finish successfully!")
+            with open(os.path.join(workdir, "wfovl.err"), "r", encoding="utf-8") as err_file:
+                self.log.error(err_file.read())
+            raise OSError()
 
 
     @staticmethod
