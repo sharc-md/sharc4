@@ -800,6 +800,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
                             factor = (-ms1 + 1.0 + (m1 - 1.0) / 2.0) / m1
                         ion_mat[i, j] = dyson_mat[s1 - 1, s2 - 1] * factor
             self.QMout["prop2d"].append(("ion", ion_mat))
+        return self.QMout
 
     def _get_pc_grad(self, grad_path: str) -> np.ndarray:
         """

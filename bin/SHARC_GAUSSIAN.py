@@ -1914,7 +1914,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                     outfile = os.path.join(self.QMin.resources["scratchdir"], "Dyson_%i_%i_%i_%i/wfovl.out" % ion)
                     shutil.copy(outfile, os.path.join(copydir, "Dyson_%i_%i_%i_%i.out" % ion))
 
-        return
+        return self.QMout
 
     # ======================================================================= #
 

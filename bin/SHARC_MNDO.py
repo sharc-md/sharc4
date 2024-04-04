@@ -606,6 +606,7 @@ mocoef
                 for i in range(nmstates):
                     for j in range(nmstates):
                         self.QMout["overlap"][i][j] = self.getsmate(out, i + 1, j + 1)
+        return self.QMout
 
     def _get_states_interstates(self, log_path: str):
         f = readfile(log_path)

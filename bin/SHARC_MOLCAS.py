@@ -1123,6 +1123,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 self.QMout["phases"] = deepcopy(np.einsum("ii->i", self.QMout["overlap"]))
                 self.QMout["phases"][self.QMout["phases"] > 0] = 1
                 self.QMout["phases"][self.QMout["phases"] < 0] = -1
+        return self.QMout
 
     def _get_energy(self, output_file: str | h5py.File) -> np.ndarray:
         """

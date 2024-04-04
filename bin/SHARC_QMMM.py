@@ -578,6 +578,7 @@ class SHARC_QMMM(SHARC_HYBRID):
             if i in qmQMout:
                 self.QMout[i] = qmQMout[i]
         self.QMout.runtime = self.clock.measuretime()
+        return self.QMout
 
     def create_restart_files(self):
         self.qm_interface.create_restart_files()
