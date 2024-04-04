@@ -406,8 +406,6 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         if not self.QMin.resources["dry_run"]:
             self.runjobs(self.QMin.scheduling["schedule"])
 
-            # TODO: wfoverlap, theodore?
-
             # Save Jobiphs and/or molden files
             re_jobiph = re.compile(r"^MOLCAS\.\d+\.JobIph")
             re_molden = re.compile(r"^MOLCAS\.\d+\.molden")
@@ -621,7 +619,8 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         tasks.append(["rassi", "soc" if qmin.requests["soc"] else "", roots])
 
         if qmin.requests["theodore"]:
-            tasks.append(["link", "MOLCAS.rassi.h5", "MOLCAS.rassi.h5.bak"])
+            if self._hdf5:
+                tasks.append(["link", "MOLCAS.rassi.h5", "MOLCAS.rassi.h5.bak"])
             all_states = qmin.molecule["states"][:]
             for mult, states in enumerate(all_states, 1):
                 if states > 0:
@@ -635,7 +634,8 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                         tasks.append(["link", f"MOLCAS.{mult}.JobIph", "JOB001"])
                         tasks.append(["rassi", "theodore", [states]])
                         tasks.append(["theodore"])
-            tasks.append(["link", "MOLCAS.rassi.h5.bak", "MOLCAS.rassi.h5"])
+            if self._hdf5:
+                tasks.append(["link", "MOLCAS.rassi.h5.bak", "MOLCAS.rassi.h5"])
 
         return tasks
 
@@ -819,7 +819,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         if task[1] == "soc":
             input_str += "SPINORBIT\nSOCOUPLING=0.0d0\nEJOB\n"
         if task[1] == "overlap":
-            input_str += "OVERLAPS\n"
+            input_str += "STOVERLAPS\nOVERLAPS\n"
             if qmin.control["master"] and qmin.requests["multipolar_fit"]:
                 input_str += "TRD1\n"
         if task[1] == "theodore":
@@ -1120,7 +1120,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                             s_cnt += s
                         o_cnt += s
             if self.QMin.requests["phases"]:
-                self.QMout["phases"] = np.einsum("ii->i", self.QMout["overlap"])
+                self.QMout["phases"] = deepcopy(np.einsum("ii->i", self.QMout["overlap"]))
                 self.QMout["phases"][self.QMout["phases"] > 0] = 1
                 self.QMout["phases"][self.QMout["phases"] < 0] = -1
 
