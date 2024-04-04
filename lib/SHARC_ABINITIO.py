@@ -436,9 +436,6 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             self.log.debug(self.QMin.resources["wfoverlap"])
             assert is_exec(self.QMin.resources["wfoverlap"])
 
-    @abstractmethod
-    def getQMout(self):
-        pass
 
     @abstractmethod
     def create_restart_files(self):
