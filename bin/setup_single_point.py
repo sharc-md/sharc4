@@ -134,7 +134,7 @@ def get_interface() -> SHARC_INTERFACE:
 
 def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
     """ get requests for every single point"""
-    standard_requests = {'dm': "dipole moments", 'grad': "gradients", 'soc': "spin orbit couplings", 'nacdr': "nonadiabatic couplings", 'socdr': "derivatives of spin--orbit couplings", 'dmdr':
+    standard_requests = {'dm': "dipole moments", 'grad': "gradients", 'soc': "spin orbit couplings", 'nacdr': "nonadiabatic couplings", 'overlap' : "overlaps", 'phases': "phases", 'socdr': "derivatives of spin--orbit couplings", 'dmdr':
                          "derivates of dipole moments", 'multipolar_fit': "a distributed multipole expansion for all states", 'theodore': "THEODORE analysis"}
     int_features = interface.get_features(KEYSTROKES=KEYSTROKES)
     available_requests = sorted(set(standard_requests.keys()).intersection(int_features))

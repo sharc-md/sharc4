@@ -20,15 +20,16 @@ __all__ = ["SHARC_MNDO"]
 
 AUTHORS = "Nadja K. Singer, Hans Georg Gallmetzer"
 VERSION = "0.2"
-VERSIONDATE = datetime.datetime(2024, 3, 19)
+VERSIONDATE = datetime.datetime(2024, 4, 3)
 NAME = "MNDO"
-DESCRIPTION = "SHARC interface for the mndo2020 program"
+DESCRIPTION = "SHARC interface for the MNDO program"
 
 CHANGELOGSTRING = """27.10.2021:     Initial version 0.1 by Nadja
 - Only OM2/MRCI
 - Only singlets
 
-19.03.2024:     New implementation version 0.2 by Georg
+03.04.2024:     New implementation version 0.2 by Georg
+- also ODM2/MRCI
 """
 
 all_features = set(
@@ -198,9 +199,11 @@ class SHARC_MNDO(SHARC_ABINITIO):
                     self.log.info(f"File {self.template_file} does not exist!")
                     continue
                 break
+            
         self.log.info("")
         self.files.append(self.template_file)
 
+        self.make_resources = False
         # Resources
         if question("Do you have a 'MNDO.resources' file?", bool, KEYSTROKES=KEYSTROKES, default=False):
             while True:
@@ -217,10 +220,7 @@ class SHARC_MNDO(SHARC_ABINITIO):
 
             INFOS["memory"] = question("Memory (MB):", int, default=[1000], KEYSTROKES=KEYSTROKES)[0]
 
-            # Ionization
-            # self.log.info('\n'+centerstring('Ionization probability by Dyson norms',60,'-')+'\n')
-            # INFOS['ion']=question('Dyson norms?',bool,False)
-            # if INFOS['ion']:
+            
             if "overlap" in INFOS["needed_requests"]:
                 self.log.info(f"\n{'WFoverlap setup':-^60}\n")
                 INFOS["wfoverlap"] = question(
@@ -311,9 +311,14 @@ class SHARC_MNDO(SHARC_ABINITIO):
         shutil.copy(moldenfile, tofile)
 
         # MOs
-        mos, MO_occ, *_ = self._get_MO_from_molden(moldenfile)
+        mos, MO_occ, NAO, *_ = self._get_MO_from_molden(moldenfile)
         mo = os.path.join(savedir, f"mos.{step}")
         writefile(mo, mos)
+        
+        #AO_OVL
+        aos = self.get_Double_AOovl(NAO)
+        ao = os.path.join(savedir, f"ao.{step}")
+        writefile(ao, aos)
 
         # imomap
         if self.QMin["template"]["imomap"] == 3:
@@ -329,6 +334,18 @@ class SHARC_MNDO(SHARC_ABINITIO):
         writefile(det, determinants)
         return
 
+    @staticmethod
+    def get_Double_AOovl(NAO):
+        
+        string = '{} {}\n'.format(NAO, NAO)
+        for irow in range(0, NAO):
+            for icol in range(0, NAO):
+                # OMx methods have globally orthogonalized AOs (10.1063/1.5022466)
+                string += '{: .15e} '.format(
+                    0. if irow != icol else 1.
+                )    # note the exchanged indices => transposition
+            string += '\n'
+        return string
 
     # def saveGeometry(self):
     #     string = ""
@@ -978,7 +995,7 @@ mocoef
                 self.log.error('IOError during prepareMNDO, iconddir=%s' % (workdir))
                 quit(1)
 #  project='GAUSSIAN'
-            string = 'groot %s\nscratchdir %s/%s/\n' % (INFOS['groot'], INFOS['scratchdir'], workdir)
+            string = 'scratchdir %s/%s/\n' % (INFOS['scratchdir'], workdir)
             string += 'memory %i\n' % (INFOS['mem'])
             if 'overlap' in INFOS['needed_requests']:
                 string += 'wfoverlap %s\n' % (INFOS['wfoverlap'])
@@ -986,9 +1003,6 @@ mocoef
             resources_file.write(string)
             resources_file.close()
 
-        create_file = link if INFOS["link_files"] else shutil.copy
-        for file in self.files:
-            create_file(expand_path(file), os.path.join(workdir, file.split("/")[-1]))
 
 
     def printQMout(self) -> None:
@@ -1087,17 +1101,27 @@ mocoef
         """
 
         # Content of wfoverlap input file
+        # wf_input = dedent(
+        #     """\
+        # a_mo=mo.a
+        # b_mo=mo.b
+        # a_det=det.a
+        # b_det=det.b
+        # ao_read=-1
+        # same_aos
+        # """
+        # )
+
         wf_input = dedent(
             """\
         a_mo=mo.a
         b_mo=mo.b
         a_det=det.a
         b_det=det.b
-        ao_read=-1
-        same_aos
+        ao_read=0
         """
         )
-
+    
         if self.QMin.resources["ncpu"] >= 8:
             wf_input += "force_direct_dets"
 
@@ -1109,6 +1133,11 @@ mocoef
 
         # Write input
         writefile(os.path.join(workdir, "wfovl.inp"), wf_input)
+
+        link(
+            os.path.join(self.QMin.save["savedir"], f"ao.{self.QMin.save['step']}"),
+            os.path.join(workdir, "S_mix"),
+        )
 
         # Link files
         # breakpoint()
