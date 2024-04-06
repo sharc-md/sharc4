@@ -5,8 +5,6 @@ import re
 import subprocess as sp
 import time
 from abc import abstractmethod
-from datetime import date
-from io import TextIOWrapper
 from itertools import starmap
 from multiprocessing import Pool, set_start_method
 from textwrap import dedent
@@ -106,70 +104,6 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             }
         )
 
-    @staticmethod
-    @abstractmethod
-    def authors() -> str:
-        return "Severin Polonius, Sebastian Mai"
-
-    @staticmethod
-    @abstractmethod
-    def version() -> str:
-        return "3.0"
-
-    @staticmethod
-    @abstractmethod
-    def versiondate() -> date:
-        return date(2021, 7, 15)
-
-    @staticmethod
-    @abstractmethod
-    def name() -> str:
-        return "base"
-
-    @staticmethod
-    @abstractmethod
-    def description() -> str:
-        return "Abstract base class for SHARC interfaces."
-
-    @staticmethod
-    @abstractmethod
-    def changelogstring() -> str:
-        return "This is the changelog string"
-
-    @staticmethod
-    @abstractmethod
-    def about() -> str:
-        return "Name and description of the interface"
-
-    @abstractmethod
-    def get_features(self, KEYSTROKES: Optional[TextIOWrapper] = None) -> set[str]:
-        """return availble features
-
-        ---
-        Parameters:
-        KEYSTROKES: object as returned by open() to be used with question()
-        """
-        return all_features
-
-    @abstractmethod
-    def get_infos(self, INFOS: dict, KEYSTROKES: Optional[TextIOWrapper] = None) -> dict:
-        """prepare INFOS obj
-
-        ---
-        Parameters:
-        INFOS: dictionary with all previously collected infos during setup
-        KEYSTROKES: object as returned by open() to be used with question()
-        """
-        return INFOS
-
-    @abstractmethod
-    def prepare(self, INFOS: dict, dir_path: str):
-        "setup the calculation in directory 'dir'"
-        return
-
-    def print_qmin(self) -> None:
-        self.log.info(f"{self.QMin}")
-
     @abstractmethod
     def execute_from_qmin(self, workdir: str, qmin: QMin) -> tuple[int, datetime.timedelta]:
         """
@@ -184,20 +118,12 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         """
 
     @abstractmethod
-    def read_template(self, template_file: str, kw_whitelist: Optional[list[str]] = None) -> None:
-        super().read_template(template_file, kw_whitelist)
-
-    @abstractmethod
     def read_resources(self, resources_file: str, kw_whitelist: Optional[list[str]] = None) -> None:
         kw_whitelist = [] if kw_whitelist is None else kw_whitelist
         super().read_resources(resources_file, kw_whitelist + ["theodore_fragment"])
 
         if self.QMin.resources["theodore_fragment"]:
             self.QMin.resources["theodore_fragment"] = convert_list(self.QMin.resources["theodore_fragment"])
-
-    @abstractmethod
-    def read_requests(self, requests_file: str = "QM.in") -> None:
-        super().read_requests(requests_file)
 
     def printQMout(self) -> None:
         super().writeQMout()
@@ -435,11 +361,6 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         if (self.QMin.requests["ion"] or self.QMin.requests["overlap"]) and self.QMin.resources["wfoverlap"] != "":
             self.log.debug(self.QMin.resources["wfoverlap"])
             assert is_exec(self.QMin.resources["wfoverlap"])
-
-
-    @abstractmethod
-    def create_restart_files(self):
-        pass
 
     def get_mole(self):
         raise NotImplementedError("This interface does not support the density request!")
