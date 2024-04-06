@@ -618,6 +618,9 @@ class SHARC_INTERFACE(ABC):
         if "always_orb_init" in raw_dict:
             self.QMin.save["always_orb_init"] = True
             del raw_dict["always_orb_init"]
+        if "scratchdir" in raw_dict:
+            raw_dict["scratchdir"] = expand_path(raw_dict["scratchdir"])
+            self.log.info(f"Scratchdir set to {raw_dict['scratchdir']}")
         self.QMin.resources.update(raw_dict)
 
         self._read_resources = True
