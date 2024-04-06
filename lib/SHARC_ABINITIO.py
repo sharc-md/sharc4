@@ -1405,6 +1405,23 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
     # also add staticmethod
     # routine to read wfoverlap output
 
+    def trim_civecs(self, civec: dict[tuple[int, ...], float]) -> None:
+        """
+        Sort civec dict by squared value, sum values iteratively and
+        delete remaining keys if threshold is exeeded.
+
+        civec:  CI vector dictionary
+        """
+        norm = 0.0
+        cnt = 0
+        for k, v in sorted(civec.items(), key=lambda x: x[1] ** 2, reverse=True):
+            if norm > self.QMin.resources["wfthres"]:
+                del civec[k]
+                continue
+            cnt += 1
+            norm += v**2
+        self.log.debug(f"Filter dets: norm {norm:.5f} after {cnt} entries, threshold {self.QMin.resources['wfthres']}")
+
     @abstractmethod
     def run(self) -> None:
         """

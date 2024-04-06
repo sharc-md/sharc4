@@ -15,8 +15,7 @@ import numpy as np
 from constants import IToMult
 from qmin import QMin
 from SHARC_ABINITIO import SHARC_ABINITIO
-from utils import (batched, expand_path, itmult, mkdir, question, readfile,
-                   writefile)
+from utils import batched, expand_path, itmult, mkdir, question, readfile, writefile
 
 __all__ = ["SHARC_ORCA"]
 
@@ -728,7 +727,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 # Point charges
                 point_charges = None
                 if self.QMin.molecule["point_charges"] and not point_charges:
-                    point_charges = self._get_pc_grad(os.path.join(scratchdir, job_path, f"ORCA.pcgrad"))
+                    point_charges = self._get_pc_grad(os.path.join(scratchdir, job_path, "ORCA.pcgrad"))
 
                 for key, val in self.QMin.maps["statemap"].items():
                     if (val[0], val[1]) == grad:
@@ -1272,12 +1271,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
                                     dets[(occ, virt, 2)] /= 2
 
                     # Truncate determinants with contribution under threshold
-                    norm = 0.0
-                    for k in sorted(dets, key=lambda x: dets[x] ** 2, reverse=True):
-                        if norm > self.QMin.resources["wfthres"]:
-                            del dets[k]
-                            continue
-                        norm += dets[k] ** 2
+                    self.trim_civecs(dets)
 
                     dets_exp = {}
                     for occ, virt, dummy in dets:
