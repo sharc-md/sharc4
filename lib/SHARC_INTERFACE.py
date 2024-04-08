@@ -599,7 +599,7 @@ class SHARC_INTERFACE(ABC):
 
         raw_dict = self._parse_raw(
             resources_file,
-            {**self.QMin.resources.types, "savedir": str, "always_guess": bool, "always_orb_init": bool},
+            {**self.QMin.resources.types, "savedir": str, "always_guess": bool, "always_orb_init": bool, "retain": int},
             kw_whitelist,
         )
 
@@ -621,6 +621,9 @@ class SHARC_INTERFACE(ABC):
         if "scratchdir" in raw_dict:
             raw_dict["scratchdir"] = expand_path(raw_dict["scratchdir"])
             self.log.info(f"Scratchdir set to {raw_dict['scratchdir']}")
+        if "retain" in raw_dict:
+            self.QMin.requests["retain"] = raw_dict["retain"]
+            del raw_dict["retain"]
         self.QMin.resources.update(raw_dict)
 
         self._read_resources = True
@@ -732,7 +735,9 @@ class SHARC_INTERFACE(ABC):
         self.log.debug(f"Reading requests from {requests_file}")
 
         # Reset requests
+        retain = self.QMin.requests["retain"]
         self.QMin.requests = QMin().requests
+        self.QMin.requests["retain"] = retain  # keep retain
         self.QMin.save["init"] = False
         self.QMin.save["samestep"] = False
         self.QMin.save["newstep"] = False
