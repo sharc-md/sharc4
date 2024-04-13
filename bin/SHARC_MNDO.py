@@ -524,7 +524,7 @@ mocoef
                         break
                     coeff *= 1.0 * num / denom
                 elif step[k] == 3:
-                    sign *= powmin1(bval[k])
+                    #sign *= powmin1(bval[k])
                     num = 1.0
 
             # add determinant to dict if coefficient non-zero
@@ -572,12 +572,16 @@ mocoef
 
         # dictionary to convert to "0123"-nomenclature
         dict_ab_to_int = {"ab": "3", "a": "1", "b": "2", "-": "0"}
+        dict_int_to_int = {'2.0': '3', '0.0': '0'}
+        
 
         ci_vectors = {}
 
         # add MO occupancy to ci_vector
         active_mos = [*self._get_active_space(log_file)]
-        ci_vectors["active MOs"] = active_mos
+        # ci_vectors["active MOs"] = active_mos
+        # active_mos = [*get_active_space(logfile)]
+        ci_vectors["active MOs"] = [*range(1, len(MO_occ)+1)]
 
         # get CSFs from log_file
         csf = self._get_csfs(log_file, active_mos, nstates)
@@ -586,8 +590,11 @@ mocoef
         ## 1) Convert nomenclature
         for i in csf:
             ref = []
-            for k in csf[i]["CSF"].keys():
-                ref.append(dict_ab_to_int[csf[i]["CSF"][k]])
+            for k in MO_occ:
+                if (k in active_mos) :
+                    ref.append(dict_ab_to_int[csf[i]['CSF'][k]])
+                else:
+                    ref.append(dict_int_to_int[MO_occ[k]])
             ref = tuple([int(n) for n in ref])
             csf[i]["CSF"] = ref
         ## 2) build ci vector from CSFs
@@ -1195,9 +1202,9 @@ mocoef
 
 
         if qmin["molecule"]["point_charges"]:
-            inputstring = f"iop={iop} jop=-2 imult=0 iform=1 igeom=1 mprint=1 icuts=-1 icutg=-1 dstep=1e-05 kci=5 ioutci=1 iroot={iroot} icross=7 ncigrd={ncigrd} inac=0 imomap={imomap} iscf=16 iplscf=16 kitscf={kitscf} ici1={ici1} ici2={ici2} movo={movo} nciref={nciref} mciref=3 levexc=6 iuvcd=3 nsav13=2 kharge={kharge} multci=1 cilead=1 ncisym=-1 numatm={ncharges} mmcoup=2 mmfile=1 mmskip=0 mminp=2 nsav15=9"
+            inputstring = f"iop={iop} jop=-2 imult=0 iform=1 igeom=1 mprint=1 icuts=-1 icutg=-1 dstep=1e-05 kci=5 ioutci=1 iroot={iroot} icross=7 ncigrd={ncigrd} inac=0 imomap={imomap} iscf=9 iplscf=9 kitscf={kitscf} ici1={ici1} ici2={ici2} movo={movo} nciref={nciref} mciref=3 levexc=6 iuvcd=3 nsav13=2 kharge={kharge} multci=1 cilead=1 ncisym=-1 numatm={ncharges} mmcoup=2 mmfile=1 mmskip=0 mminp=2 nsav15=9"
         else:
-            inputstring = f"iop={iop} jop=-2 imult=0 iform=1 igeom=1 mprint=1 icuts=-1 icutg=-1 dstep=1e-05 kci=5 ioutci=1 iroot={iroot} icross=7 ncigrd={ncigrd} inac=0 imomap={imomap} iscf=16 iplscf=16 kitscf={kitscf} ici1={ici1} ici2={ici2} movo={movo} nciref={nciref} mciref=3 levexc=6 iuvcd=3 nsav13=2 kharge={kharge} multci=1 cilead=1 ncisym=-1 nsav15=9"
+            inputstring = f"iop={iop} jop=-2 imult=0 iform=1 igeom=1 mprint=1 icuts=-1 icutg=-1 dstep=1e-05 kci=5 ioutci=1 iroot={iroot} icross=7 ncigrd={ncigrd} inac=0 imomap={imomap} iscf=9 iplscf=9 kitscf={kitscf} ici1={ici1} ici2={ici2} movo={movo} nciref={nciref} mciref=3 levexc=6 iuvcd=3 nsav13=2 kharge={kharge} multci=1 cilead=1 ncisym=-1 nsav15=9"
 
         inputstring = " +\n".join(wrap(inputstring, width=70))
         inputstring += "\nheader\n"
