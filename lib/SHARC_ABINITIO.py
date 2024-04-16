@@ -962,7 +962,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         ao_read=0
         """
         )
-        if self.QMin.resources["numocc"]:
+        if "numocc" in self.QMin.resources:
             wf_input += f"\nndocc={self.QMin.resources['numocc']}"
 
         if self.QMin.resources["ncpu"] >= 8:
@@ -1048,24 +1048,14 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
 
         overlap_file: path to wfovlp.out
         """
-        overlap_mat = []
         with open(overlap_file, "r", encoding="utf-8") as wffile:
-            overlap_mat = []
-            while True:
-                line = next(wffile, False)
-                if not line or containsstring("matrix <PsiA_i|PsiB_j>", line):
-                    dim = -1 if not line else len(next(wffile).split()) // 2
-                    break
-
-            for line in wffile:
-                if containsstring("<PsiA", line):
-                    overlap_mat.append([float(x) for x in line.split()[2:]])
-                else:
-                    break
-
-            if len(overlap_mat) != dim:
-                raise ValueError(f"File {overlap_file} does not contain an overlap matrix!")
-        return np.asarray(overlap_mat)
+            wf_out = wffile.read()
+            dim = re.search(r"Number of <bra\| states:\s+(\d+)", wf_out)
+            if not dim:
+                raise ValueError("No states found in overlap file.")
+            ovlp_values = re.findall(r"Overlap matrix(.*?)Ren", wf_out, re.DOTALL)
+            ovlp_values = re.findall(r"-?\d+\.\d{10}", ovlp_values[0])
+        return np.asarray(ovlp_values, dtype=float).reshape(int(dim.group(1)),-1)
 
     def get_dyson(self, wfovl: str) -> np.ndarray:
         """
