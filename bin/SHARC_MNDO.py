@@ -208,12 +208,12 @@ class SHARC_MNDO(SHARC_ABINITIO):
         if question("Do you have a 'MNDO.resources' file?", bool, KEYSTROKES=KEYSTROKES, default=False):
             while True:
                 resources_file = question("Specify the path:", str, KEYSTROKES=KEYSTROKES, default="MNDO.resources")
+                self.files.append(resources_file)
+                self.make_resources = False
                 if os.path.isfile(resources_file):
                     break
                 else:
                     self.log.info(f"file at {resources_file} does not exist!")
-                self.files.append(resources_file)
-                self.make_resources = False
         else:
             self.make_resources = True
             self.log.info(f"{'MNDO Ressource usage':-^60}\n")
@@ -346,14 +346,6 @@ class SHARC_MNDO(SHARC_ABINITIO):
                 )    # note the exchanged indices => transposition
             string += '\n'
         return string
-
-    # def saveGeometry(self):
-    #     string = ""
-    #     for label, atom in zip(self.QMin.molecule["elements"], self.QMin.coords["coords"]):
-    #         string += "%4s %16.9f %16.9f %16.9f\n" % (label, atom[0], atom[1], atom[2])
-    #     filename = os.path.join(self.QMin.save["savedir"], f'geom.dat.{self.QMin.save["step"]}')
-    #     writefile(filename, string)
-    #     return
 
 
     def _get_MO_from_molden(self, molden_file: str):
@@ -524,7 +516,7 @@ mocoef
                         break
                     coeff *= 1.0 * num / denom
                 elif step[k] == 3:
-                    #sign *= powmin1(bval[k])
+                    sign *= powmin1(bval[k])
                     num = 1.0
 
             # add determinant to dict if coefficient non-zero
@@ -1002,13 +994,19 @@ mocoef
                 self.log.error('IOError during prepareMNDO, iconddir=%s' % (workdir))
                 quit(1)
 #  project='GAUSSIAN'
-            string = 'scratchdir %s/%s/\n' % (INFOS['scratchdir'], workdir)
-            string += 'memory %i\n' % (INFOS['mem'])
+            string = 'scratchdir %s/\n' % INFOS['scratchdir']
+            string += 'mndodir %s\n' % INFOS['mndodir']
+            string += 'memory %i\n' % (INFOS['memory'])
             if 'overlap' in INFOS['needed_requests']:
                 string += 'wfoverlap %s\n' % (INFOS['wfoverlap'])
 
             resources_file.write(string)
             resources_file.close()
+            
+        create_file = link if INFOS["link_files"] else shutil.copy
+        print(self.files)
+        for file in self.files:
+            create_file(expand_path(file), os.path.join(workdir, file.split("/")[-1]))
 
 
 
@@ -1253,10 +1251,7 @@ mocoef
         if (any(num > 0 for num in self.QMin.molecule["states"][1:]) or self.QMin.molecule["states"][0] == 0):
             self.log.error("MNDO can only calculate singlets!!")
             raise ValueError()
-        
-        # if (len(self.QMin.maps["gradmap"]) > 4):
-        #     self.log.error("MNDO can only calculate gradients for up to 4 states!!")
-        #     raise ValueError()
+
         
 
 
