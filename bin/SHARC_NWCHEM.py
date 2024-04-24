@@ -11,7 +11,7 @@ import numpy as np
 from pyscf import gto
 from qmin import QMin
 from SHARC_ABINITIO import SHARC_ABINITIO
-from utils import convert_list, expand_path, is_exec, mkdir, writefile, question, link
+from utils import convert_list, expand_path, is_exec, link, mkdir, question, writefile
 
 __all__ = ["SHARC_NWCHEM"]
 
@@ -43,9 +43,9 @@ class SHARC_NWCHEM(SHARC_ABINITIO):
         super().__init__(*args, **kwargs)
 
         # Add resource keys
-        self.QMin.resources.update({"nwchem": None, "dry_run": False, "library_path": None, "ncpu": 2})
+        self.QMin.resources.update({"nwchem": None, "dry_run": False, "ncpu": 2})
 
-        self.QMin.resources.types.update({"nwchem": str, "dry_run": bool, "library_path": str})
+        self.QMin.resources.types.update({"nwchem": str, "dry_run": bool})
 
         # Add template keys
         self.QMin.template.update(
@@ -61,6 +61,7 @@ class SHARC_NWCHEM(SHARC_ABINITIO):
                 "spherical": False,  # Spherical or cartesian coordinates
                 "forcecartesian": False,  # Force cartesian overlaps
                 "cosmo": None,  # Dielectric constant
+                "library_path": None,
             }
         )
 
@@ -77,6 +78,7 @@ class SHARC_NWCHEM(SHARC_ABINITIO):
                 "spherical": bool,
                 "forcecartesian": bool,
                 "cosmo": float,
+                "library_path": str,
             }
         )
 
@@ -141,9 +143,6 @@ class SHARC_NWCHEM(SHARC_ABINITIO):
         self.log.info("\nSpecify path to NWChem binary.")
         INFOS["nwchem"] = question("Path to NWChem:", str, KEYSTROKES=KEYSTROKES)
 
-        self.log.info("\nSpecify path to NWChem libraries directory.")
-        INFOS["library_path"] = question("Path to libraries directory", str, KEYSTROKES=KEYSTROKES)
-
         self.log.info("\n\nSpecify a scratch directory. The scratch directory will be used to run the calculations.")
         INFOS["scratchdir"] = question("Path to scratch directory:", str, KEYSTROKES=KEYSTROKES)
 
@@ -187,7 +186,7 @@ class SHARC_NWCHEM(SHARC_ABINITIO):
         create_file = link if INFOS["link_files"] else shutil.copy
         if not self._resource_file:
             with open(os.path.join(dir_path, "NWCHEM.resources"), "w", encoding="utf-8") as file:
-                for key in ("nwchem", "library_path", "scratchdir", "ncpu", "memory", "wfoverlap", "wfthres"):
+                for key in ("nwchem", "scratchdir", "ncpu", "memory", "wfoverlap", "wfthres"):
                     if key in INFOS:
                         file.write(f"{key} {INFOS[key]}\n")
         else:
@@ -230,8 +229,6 @@ class SHARC_NWCHEM(SHARC_ABINITIO):
             if self.QMin.requests["molden"]:
                 shutil.copy(os.path.join(workdir, "nwchem.molden"), os.path.join(savedir, f"nwchem.molden.{jobid}.{step}"))
             shutil.copy(os.path.join(workdir, "nwchem.movecs"), os.path.join(savedir, f"nwchem.movecs.{jobid}.{step}"))
-            if os.path.isfile(os.path.join(workdir, "nwchem.trials")):
-                shutil.copy(os.path.join(workdir, "nwchem.trials"), os.path.join(savedir, f"nwchem.trials.{jobid}.{step}"))
             if not os.path.isfile(os.path.join(savedir, f"input.xyz.{step}")):
                 writefile(os.path.join(savedir, f"input.xyz.{step}"), xyz_str)
 
@@ -298,8 +295,6 @@ class SHARC_NWCHEM(SHARC_ABINITIO):
         if not qmin.save["always_guess"]:
             if os.path.isfile(os.path.join(savedir, f"nwchem.movecs.{jobid}.{step}")):
                 shutil.copy(os.path.join(savedir, f"nwchem.movecs.{jobid}.{step}"), os.path.join(workdir, "nwchem.movecs"))
-        if os.path.isfile(os.path.join(savedir, f"nwchem.trials.{jobid}.{step}")):
-            shutil.copy(os.path.join(savedir, f"nwchem.trials.{jobid}.{step}"), os.path.join(workdir, "nwchem.trials"))
 
     def read_template(self, template_file: str = "NWCHEM.template", kw_whitelist: list[str] | None = None) -> None:
         super().read_template(template_file, kw_whitelist)
@@ -315,6 +310,11 @@ class SHARC_NWCHEM(SHARC_ABINITIO):
             self.log.warning("Both spherical and forcecartesian defined in template. Using cartesian!")
             self.QMin.template["spherical"] = False
 
+        if not self.QMin.template["library_path"]:
+            self.log.error("library_path has to be set in the template file!")
+            raise ValueError()
+        self.QMin.template["library_path"] = expand_path(self.QMin.template["library_path"])
+
     def read_resources(self, resources_file: str = "NWCHEM.resources", kw_whitelist: list[str] | None = None) -> None:
         super().read_resources(resources_file, kw_whitelist)
 
@@ -328,11 +328,6 @@ class SHARC_NWCHEM(SHARC_ABINITIO):
         if not is_exec(self.QMin.resources["nwchem"]):
             self.log.error(f"{self.QMin.resources['nwchem']} is not an executable!")
             raise ValueError()
-
-        if not self.QMin.resources["library_path"]:
-            self.log.error("library_path has to be set in the resource file!")
-            raise ValueError()
-        self.QMin.resources["library_path"] = expand_path(self.QMin.resources["library_path"])
 
     def read_requests(self, requests_file: str = "QM.in") -> None:
         super().read_requests(requests_file)
@@ -353,6 +348,9 @@ class SHARC_NWCHEM(SHARC_ABINITIO):
         super().setup_interface()
         self._build_jobs()
 
+        self.log.info(f"Scratchdir: {self.QMin.resources['scratchdir']}")
+        self.log.info(f"Savedir: {self.QMin.save['savedir']}")
+
         # Setup multmap
         self.log.debug("Building multmap")
         self.QMin.maps["multmap"] = {}
@@ -366,7 +364,7 @@ class SHARC_NWCHEM(SHARC_ABINITIO):
         if self.QMin.template["nooverlap"]:
             return
 
-        basis_path = os.path.join(self.QMin.resources["library_path"], self.QMin.template["basis"])
+        basis_path = os.path.join(self.QMin.template["library_path"], self.QMin.template["basis"])
         if not os.path.isfile(basis_path):
             self.log.error(f"Basis {self.QMin.template['basis']} not in library path!")
             raise ValueError()
@@ -463,7 +461,7 @@ class SHARC_NWCHEM(SHARC_ABINITIO):
 
             # Get gradients
             if self.QMin.requests["grad"]:
-                for state, grad in self._get_gradents(output):
+                for state, grad in self._get_gradients(output):
                     for key, val in self.QMin.maps["statemap"].items():
                         if (val[0], val[1]) == (job, state):
                             self.QMout["grad"][key - 1] = grad
@@ -517,7 +515,7 @@ class SHARC_NWCHEM(SHARC_ABINITIO):
             raise ValueError()
         return np.asarray(dm[:] + tdm[: states - 1], dtype=float)
 
-    def _get_gradents(self, nw_out: str) -> list[tuple[int, np.ndarray]]:
+    def _get_gradients(self, nw_out: str) -> list[tuple[int, np.ndarray]]:
         """
         Get gradients from logfile
 
@@ -570,7 +568,6 @@ class SHARC_NWCHEM(SHARC_ABINITIO):
         self.log.debug(f"Ground state energy job {jobid} {gs_energy:.7f} S**2 {s2}")
 
         # Get root energies, S**2, save dets
-
         roots, s2_root, _ = self._dets_from_civec(
             os.path.join(self.QMin.resources["scratchdir"], f"master_{jobid}", nw_civec), jobid == 3
         )
@@ -667,11 +664,9 @@ class SHARC_NWCHEM(SHARC_ABINITIO):
                 # Unrestricted
                 for occ in range(nmo[0], nmo[0] + nocc[1]):
                     for virt in range(nmo[0] + nocc[1], sum(nmo)):
-                        val = next(it_civec)
-
                         key = occ_str[:]
                         key[occ], key[virt] = 0, 2
-                        tmp[tuple(key)] = val
+                        tmp[tuple(key)] = next(it_civec)
                 self.log.debug(f"Determinants norm: {np.linalg.norm(list(tmp.values())):.5f}")
 
                 # Filter out dets with lowest contribution
@@ -820,11 +815,11 @@ class SHARC_NWCHEM(SHARC_ABINITIO):
         # Total memory, charge and geometry
         input_str = f"memory total {self.QMin.resources['memory']} mb\n"
         input_str += f"charge {self.QMin.template['charge'][job-1]}\n"
-        input_str += "geometry units bohr noautosym nocenter\nload format xyz input.xyz\nend\n\n"
+        input_str += "geometry units bohr noautosym nocenter\n load format xyz input.xyz\nend\n\n"
 
         # Basis set
         input_str += (
-            f"basis{' spherical' if self.QMin.template['spherical'] else ''}\n* library {self.QMin.template['basis']}\nend\n\n"
+            f"basis{' spherical' if self.QMin.template['spherical'] else ''}\n * library {self.QMin.template['basis']}\nend\n\n"
         )
 
         # COSMO
@@ -832,19 +827,18 @@ class SHARC_NWCHEM(SHARC_ABINITIO):
             input_str += f"cosmo\n minbem 3\n ificos 1\n dielec {self.QMin.template['cosmo']}\nend\n\n"
 
         # DFT section, functional, grid, ...
-        input_str += f"dft\nxc {self.QMin.template['functional']}\n"
+        input_str += f"dft\n xc {self.QMin.template['functional']}\n"
         if self.QMin.template["cam"]:
-            input_str += f"{self.QMin.template['cam']}\n"
+            input_str += f" cam {self.QMin.template['cam']}\n"
         if self.QMin.template["dispersion"]:
-            input_str += f"disp {self.QMin.template['dispersion']}\n"
+            input_str += f" disp {self.QMin.template['dispersion']}\n"
         if self.QMin.template["grid"]:
-            input_str += f"grid {self.QMin.template['grid']}\n"
+            input_str += f" grid {self.QMin.template['grid']}\n"
         if self.QMin.template["maxiter"]:
-            input_str += f"maxiter {self.QMin.template['maxiter']}\n"
+            input_str += f" maxiter {self.QMin.template['maxiter']}\n"
         if not qmin.save["init"] and not qmin.save["always_guess"]:
-            input_str += "vectors nwchem.movecs\n"
-        # input_str += "print debug\n"
-        input_str += f"mult {job}\nend\n\n"
+            input_str += " vectors nwchem.movecs\n"
+        input_str += f" mult {job}\nend\n\n"
 
         if (job, 1) in qmin.maps["gradmap"]:
             input_str += "task dft gradient\n\n"
@@ -862,10 +856,10 @@ class SHARC_NWCHEM(SHARC_ABINITIO):
         if self.QMin.requests["molden"] or self.QMin.requests["dm"]:
             input_str += "property\n"
             if self.QMin.requests["molden"]:
-                input_str += "moldenfile\nmolden_norm nwchem\n"
+                input_str += " moldenfile\n molden_norm nwchem\n"
             if self.QMin.requests["dm"]:
-                input_str += "dipole\n"
-            input_str += "vectors nwchem.movecs\n"
+                input_str += " dipole\n"
+            input_str += " vectors nwchem.movecs\n"
             input_str += "end\ntask dft property\n"
 
         return input_str
@@ -879,15 +873,15 @@ class SHARC_NWCHEM(SHARC_ABINITIO):
         """
         if self.QMin.molecule["states"][job - 1] < 2:
             return ""
-        tddft_str = f"tddft\nnroots {self.QMin.molecule['states'][job-1]-1}\ntarget 1\ncivecs"
-        if not self.QMin.save["init"] and not self.QMin.save["always_guess"]:
-            tddft_str += "\ntrials"
+        tddft_str = f"tddft\n nroots {self.QMin.molecule['states'][job-1]-1}\n target 1\n civecs"
+        if self.QMin.template["maxiter"]:
+            tddft_str += f"\n maxiter {self.QMin.template['maxiter']}"
         if self.QMin.template["tda"]:
-            tddft_str += "\ncis"
+            tddft_str += "\n cis"
         if job == 1:
-            tddft_str += "\nnotriplet"
+            tddft_str += "\n notriplet"
         if root:
-            tddft_str += f"\ngrad\nroot {root}\nend"
+            tddft_str += f"\n grad\n  root {root}\n end"
         tddft_str += f"\nend\ntask tddft {'gradient' if root else 'energy'}\n\n"
         return tddft_str
 
