@@ -28,8 +28,12 @@ CHANGELOGSTRING = """27.10.2021:     Initial version 0.1 by Nadja
 - Only OM2/MRCI
 - Only singlets
 
-03.04.2024:     New implementation version 0.2 by Georg
+24.04.2024:     New implementation version 0.2 by Georg
 - also ODM2/MRCI
+- Point charges
+- Overlaps/Phases
+- NACDR
+- Problems with the MO-Tracking through imomap file.
 """
 
 all_features = set(
@@ -45,10 +49,6 @@ all_features = set(
     ]
 )
 
-KCAL_TO_EH = 0.0015936010974213599
-EV_TO_EH = 0.03674930495120813
-BOHR_TO_ANG = 0.529176125
-D2AU =  0.393456
 
 
 class SHARC_MNDO(SHARC_ABINITIO):
@@ -766,7 +766,7 @@ mocoef
                     grads[st, j, 2] =  float(s[-1])
                 iline += 1
 
-            grads[st, ...] = grads[st, ...] * KCAL_TO_EH * BOHR_TO_ANG  # kcal/Ang --> H/a0
+            grads[st, ...] = grads[st, ...] * kcal_to_Eh * BOHR_TO_ANG  # kcal/Ang --> H/a0
 
         return grads
 
@@ -800,7 +800,7 @@ mocoef
                 grads[st, j, 1] =  float(s[-2])
                 grads[st, j, 2] =  float(s[-1])
                 iline += 1
-            grads[st, ...] = grads[st, ...] * KCAL_TO_EH * BOHR_TO_ANG  # kcal/Ang --> H/a0
+            grads[st, ...] = grads[st, ...] * kcal_to_Eh * BOHR_TO_ANG  # kcal/Ang --> H/a0
 
         return grads
 
@@ -852,8 +852,8 @@ mocoef
 
                 iline += 1
             if (dE != 0.0):
-                nac[s1,s2,...] = nac[s1,s2,...] * KCAL_TO_EH * BOHR_TO_ANG / dE # kcal/mol*Ang --> 1/a_0
-                nac[s2,s1,...] = nac[s2,s1,...] * KCAL_TO_EH * BOHR_TO_ANG / dE
+                nac[s1,s2,...] = nac[s1,s2,...] * kcal_to_Eh * BOHR_TO_ANG / dE # kcal/mol*Ang --> 1/a_0
+                nac[s2,s1,...] = nac[s2,s1,...] * kcal_to_Eh * BOHR_TO_ANG / dE
         
         return nac
     
@@ -894,8 +894,8 @@ mocoef
                 nac[s2, s1, j, 2] = -float(s[-1])
                 iline += 1
             if (dE != 0.0):
-                nac[s1,s2,...] = nac[s1,s2,...] * KCAL_TO_EH * BOHR_TO_ANG / dE  # kcal/mol*Ang --> 1/a_0 
-                nac[s2,s1,...] = nac[s2,s1,...] * KCAL_TO_EH * BOHR_TO_ANG / dE
+                nac[s1,s2,...] = nac[s1,s2,...] * kcal_to_Eh * BOHR_TO_ANG / dE  # kcal/mol*Ang --> 1/a_0 
+                nac[s2,s1,...] = nac[s2,s1,...] * kcal_to_Eh * BOHR_TO_ANG / dE
 
         return nac
 
@@ -921,9 +921,9 @@ mocoef
                 for st in range(nmstates):
                     line = f[iline]
                     s = line.split()
-                    dmx = float(s[5]) * D2AU
-                    dmy = float(s[6]) * D2AU
-                    dmz = float(s[7]) * D2AU
+                    dmx = float(s[5]) * D2au
+                    dmy = float(s[6]) * D2au
+                    dmz = float(s[7]) * D2au
                     state = int(s[0])
                     states.append(state)
                     dm[0][state - 1][state - 1] = dmx
@@ -942,9 +942,9 @@ mocoef
             for j in range(noffdiag):
                 line = f[i]
                 s = line.split()
-                dmx = float(s[5]) * D2AU
-                dmy = float(s[6]) * D2AU
-                dmz = float(s[7]) * D2AU
+                dmx = float(s[5]) * D2au
+                dmy = float(s[6]) * D2au
+                dmz = float(s[7]) * D2au
                 dm[0][states[st] - 1][int(s[0]) - 1] = dmx
                 dm[1][states[st] - 1][int(s[0]) - 1] = dmy
                 dm[2][states[st] - 1][int(s[0]) - 1] = dmz
