@@ -171,8 +171,8 @@ def finalize_sharc():
 def safe(func: callable):
     try:
         func()
-    except Error:
-        finalize_sharc()
+    except Exception as e:
+        sharc.error_finalize_sharc(str(e))
         raise
 
 

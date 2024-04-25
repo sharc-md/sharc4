@@ -147,9 +147,12 @@ static PyObject * finalize_sharc(PyObject * self)
 /* ERROR FINALIZE SHARC */
 static char error_finalize_sharc_docstring[] = "error_finalize_sharc()\n:return: None";
 
-static PyObject * error_finalize_sharc(PyObject * self)
+static PyObject * error_finalize_sharc(PyObject * self, PyObject * args)
 {
-        error_finalize_sharc_();
+        char * message;
+        if (!PyArg_ParseTuple(args, "s", &message))
+            return NULL;
+        error_finalize_sharc_(message);
         Py_RETURN_NONE;
 }
 
