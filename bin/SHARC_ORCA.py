@@ -39,6 +39,8 @@ all_features = set(
         "overlap",
         "phases",
         "molden",
+        "point_charges",
+        "grad_pc",
         # raw data request
         "basis_set",
         "wave_functions",
