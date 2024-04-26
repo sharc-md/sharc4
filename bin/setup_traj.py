@@ -1466,7 +1466,7 @@ def writeSHARCinput(INFOS, initobject, iconddir, istate, ask=False):
         s += "killafter %f\n" % (INFOS["killafter"])
     s += "\n"
 
-    if "atommaskarray" in INFOS:
+    if INFOS["atommaskarray"]:
         s += 'atommask external\natommaskfile "atommask"\n\n'
 
     s += "surf %s\n" % (INFOS["surf"])
@@ -1945,6 +1945,7 @@ This interactive program prepares SHARC dynamics calculations.
     log.info("")
 
     if setup:
+        INFOS["link_files"] = False
         if question("Do you want to link the interface files?", bool, default=False, autocomplete=False):
             INFOS["link_files"] = True
         setup_all(INFOS, chosen_interface)

@@ -32,7 +32,7 @@ grads 1 2 4
 mminp 2
 
 ## Number of point charges
-numatm 1
+numatm 0
 
 ## Definition of orbitals involved in the active space. 0 -> False, 1 -> True
 movo 1
