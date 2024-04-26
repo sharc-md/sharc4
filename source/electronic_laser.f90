@@ -48,7 +48,40 @@ subroutine propagate_laser(traj,ctrl)
   type(trajectory_type) :: traj
   type(ctrl_type) :: ctrl
   integer :: istate, iatom, idir
+  complex*16 :: local_laser_efield_tp(ctrl%nsubsteps, 3)
+  complex*16 :: local_laser_bfield_tp(ctrl%nsubsteps, 3)
+  complex*16 :: local_laser_egrad_tpd(ctrl%nsubsteps, 3, 3)
+  complex*16 :: local_laser_bgrad_tpd(ctrl%nsubsteps, 3, 3)
 
+  if (ctrl%laser_e .EQV. .true.) then
+    local_laser_efield_tp(:,:) = ctrl%laserfield_e_tp( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:)
+    !write(0,*) ctrl%laserfield_e_tp( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:)
+  else 
+    local_laser_efield_tp(:,:) = cmplx(0.0, 0.0) 
+  endif
+  if (ctrl%laser_b .EQV. .true.) then
+    local_laser_bfield_tp(:,:) = ctrl%laserfield_b_tp( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:)
+  else
+    local_laser_bfield_tp(:,:) = cmplx(0.0, 0.0)
+    endif
+  if (ctrl%laser_egrad .EQV. .true.) then
+    do idir=1,3
+      local_laser_egrad_tpd(:,:,idir) = ctrl%laserfield_egrad_tpd( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:, idir)
+    enddo
+  else
+    do idir=1,3
+      local_laser_egrad_tpd(:,:,idir) = cmplx(0.0, 0.0) 
+    enddo
+  endif
+  if (ctrl%laser_bgrad .EQV. .true.) then
+    do idir=1,3
+      local_laser_bgrad_tpd(:,:,idir) = ctrl%laserfield_bgrad_tpd( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:, idir)
+    enddo
+  else 
+    do idir=1,3
+      local_laser_bgrad_tpd(:,:,idir) = cmplx(0.0, 0.0) 
+    enddo
+  endif
   ! initialize the propagator matrix to the unit matrix
   traj%Rtotal_ss=dcmplx(0.d0,0.d0)
   do istate=1,ctrl%nstates
@@ -66,10 +99,10 @@ subroutine propagate_laser(traj,ctrl)
         &traj%NACdt_ss, traj%NACdt_old_ss,&
         &traj%U_ss,traj%U_old_ss,&
         &traj%DM_ssd,traj%DM_old_ssd,&
-        &ctrl%laserfield_e_tp( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
-        &ctrl%laserfield_b_tp( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
-        &ctrl%laserfield_egrad_tpd( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:,:),&
-        &ctrl%laserfield_bgrad_tpd( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:,:),&
+        &local_laser_efield_tp(:,:),&
+        &local_laser_bfield_tp(:,:),&
+        &local_laser_egrad_tpd(:,:,:),&
+        &local_laser_bgrad_tpd(:,:,:),&
         &ctrl%dtstep, ctrl%nsubsteps, 1,&       ! 1=constant interpolation
         &traj%Rtotal_ss)
     case (1)    ! linear interpolation, default for coupling=ddr,nacdr
@@ -87,10 +120,10 @@ subroutine propagate_laser(traj,ctrl)
         &traj%NACdt_ss, traj%NACdt_old_ss,&
         &traj%U_ss,traj%U_old_ss,&
         &traj%DM_ssd,traj%DM_old_ssd,&
-        &ctrl%laserfield_e_tp( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
-        &ctrl%laserfield_b_tp( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
-        &ctrl%laserfield_egrad_tpd( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:,:),&
-        &ctrl%laserfield_bgrad_tpd( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:,:),&
+        &local_laser_efield_tp(:,:),&
+        &local_laser_bfield_tp(:,:),&
+        &local_laser_egrad_tpd(:,:,:),&
+        &local_laser_bgrad_tpd(:,:,:),& 
         &ctrl%dtstep, ctrl%nsubsteps, 0,&       ! 0=linear interpolation
         &traj%Rtotal_ss)
     case (2)    ! local diabatization, defafult for coupling=overlap
@@ -102,23 +135,23 @@ subroutine propagate_laser(traj,ctrl)
         &traj%U_ss,traj%U_old_ss,&
         &traj%overlaps_ss,&
         &traj%DM_ssd,traj%DM_old_ssd,&
-        &ctrl%laserfield_e_tp( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
-        &ctrl%laserfield_b_tp( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
-        &ctrl%laserfield_egrad_tpd( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:,:),&
-        &ctrl%laserfield_bgrad_tpd( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:,:),&
+        &local_laser_efield_tp(:,:),&
+        &local_laser_bfield_tp(:,:),&
+        &local_laser_egrad_tpd(:,:,:),&
+        &local_laser_bgrad_tpd(:,:,:),&  
         &ctrl%dtstep, ctrl%nsubsteps,&
         &traj%Rtotal_ss)
-    case (3)    ! norm perserving interporlation
+    case (3)    ! norm perserving interpolation
       call NPI_propagator_laser(&
         &ctrl%nstates,&
         &traj%H_MCH_ss, traj%H_MCH_old_ss,&
         &traj%U_ss,traj%U_old_ss,&
         &traj%overlaps_ss,&
         &traj%DM_ssd,traj%DM_old_ssd,&
-        &ctrl%laserfield_e_tp((traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
-        &ctrl%laserfield_b_tp( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
-        &ctrl%laserfield_egrad_tpd( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:,:),&
-        &ctrl%laserfield_bgrad_tpd( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:,:),&
+        &local_laser_efield_tp(:,:),&
+        &local_laser_bfield_tp(:,:),&
+        &local_laser_egrad_tpd(:,:,:),&
+        &local_laser_bgrad_tpd(:,:,:),&   
         &ctrl%dtstep, ctrl%nsubsteps,&
         &traj%Rtotal_ss)
   endselect
@@ -130,17 +163,17 @@ subroutine propagate_laser(traj,ctrl)
     write(u_log,*) '============================================================='
     if (printlevel>3) then
       call vec3write(ctrl%nsubsteps,&
-      &ctrl%laserfield_e_tp( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
+      &local_laser_efield_tp(:,:),&  
       &u_log,'Laser E-Field','F12.9')
       call vec3write(ctrl%nsubsteps,&
-      &ctrl%laserfield_b_tp( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
+      &local_laser_bfield_tp(:,:),&  
       &u_log,'Laser B-Field','F12.9')
       do idir=1,3
         call vec3write(ctrl%nsubsteps,&
-        &ctrl%laserfield_egrad_tpd( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:,idir),&
+        &local_laser_egrad_tpd(:,:,idir),&
         &u_log,'Laser E-Field gradients','F12.9')
         call vec3write(ctrl%nsubsteps,&
-        &ctrl%laserfield_bgrad_tpd( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:,idir),&
+        &local_laser_bgrad_tpd(:,:,idir),&
         &u_log,'Laser B-Field gradients','F12.9')
       enddo
     endif
@@ -520,7 +553,7 @@ endsubroutine
 
 !> template for a subroutine returning the laser field for a given time
 !> this is not yet fully implemented
-subroutine internal_laserfield_e(t,field,energy) !LORENZ IMPLEMENT B-FIELD
+subroutine internal_laserfield(t,field,energy) !LORENZ IMPLEMENT B-FIELD
 implicit none
 real*8,intent(in) :: t     ! time in atomic units
 complex*16,intent(out) :: field(3)      ! x,y,z of laser field, imaginary part has to be included

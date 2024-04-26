@@ -96,14 +96,13 @@ def custom_formatter(val: float):
        Formatted laser fields files' values 
     """
     assert isinstance(val, float), "val must be a float!"
-    if np.log(val)<=-99:
-        val=0.0
-    elif np.isnan(val):
-        return f'NaN'
+    if val!=0.0:
+        if val<1E-99:
+            val=0.0
     val_form = '{:.8e}'.format(val)  # Format with 3 digits for the exponent
     mantissa, exponent = val_form.split('e')
-    sign = '+' if float(mantissa) >= 0 else ''  # Check if positive
-    return f'{sign}{mantissa}E{exponent[0]}{exponent[1:].zfill(3)}'
+    sign = '  ' if float(mantissa) >= 0 else ' '  # Check if positive
+    return f'{sign}{mantissa}E{exponent[0]}{exponent[1:].zfill(2)}'
 
 
 def displaywelcome():
@@ -167,12 +166,15 @@ def get_general(INFOS):
             if not os.path.isfile(sim_file_path):
                 log.info(f'File does not exist: {sim_file_path}')
                 continue
-            try:
-                sim_file = h5py.File(sim_file_path, 'r')
-            except IOError:
-                log.info('Could not open: {sim_file_path}')
-            break
+    try:
+        sim_file = h5py.File(sim_file_path, 'r')
+    except IOError:
+        log.info('Could not open: {sim_file_path}')
+    print(os.listdir())
     for attrs in sim_file_attrs:
+        print(attrs)
+        print(sim_file.attrs)
+        print(sim_file)
         try:
             sim_file.attrs[attrs]
             pass
@@ -404,19 +406,38 @@ def main():
         # header = "t/fs , Re[Erho/x] (au), Im[Erho/x] (au), Re[Ephi/y] (au), Im[Ephi/y] (au), Re[Ez] (au), Im[Ez] (au), \
         # Re[Brho/x] (au), Im[Brho/x] (au), Re[Bphi/y] (au), Im[Brho/y] (au), Re[Bz] (au), Im[Bz] (au)"
         header = f'''\
-        ! Laser file SHARC {sharcversion}
-        ! version 2.0 
-        ! nsteps = {len(int_t_arr)} 
-        ! dt = {INFOS["electronic time_step"]:.8E}
-        ! E-fields = true 
-        ! B-fields = true
-        ! E-field gradients = true 
-        ! B-field gradients = true 
-        '''
-        header = '\n'.join(line.lstrip() for line in header.split('\n'))
+         laser file 
+         SHARC {sharcversion}
+         file_version 2.0 
+         nsteps = {len(int_t_arr)} 
+         dt {INFOS["electronic time_step"]:.8E}
+         e-field true 
+         b-field true
+         e-field_grad true 
+         b-field_grad true 
+         laser_freq_path laser_freq'''
+        header_line = f''' #{"="*782}'''+"\n"
+        field_columns = ["Time", \
+                   "Re(Ex)", "Im(Ex)", "Re(Ey)", "Im(Ey)", "Re(Ez)", "Im(Ez)", \
+                   "Re(Bx)", "Im(Bx)", "Re(By)", "Im(By)", "Re(Bz)", "Im(Bz)", \
+                   "Re(Ex_grad_x)", "Im(Ex_grad_x)", "Re(Ex_grad_y)", "Im(Ex_grad_y)", "Re(Ex_grad_z)", "Im(Ex_grad_z)", \
+                   "Re(Ey_grad_x)", "Im(Ey_grad_x)", "Re(Ey_grad_y)", "Im(Ey_grad_y)", "Re(Ey_grad_z)", "Im(Ey_grad_z)", \
+                   "Re(Ez_grad_x)", "Im(Ez_grad_x)", "Re(Ez_grad_y)", "Im(Ez_grad_y)", "Re(Ez_grad_z)", "Im(Ez_grad_z)", \
+                   "Re(Bx_grad_x)", "Im(Bx_grad_x)", "Re(Bx_grad_y)", "Im(Bx_grad_y)", "Re(Bx_grad_z)", "Im(Bx_grad_z)", \
+                   "Re(By_grad_x)", "Im(By_grad_x)", "Re(By_grad_y)", "Im(By_grad_y)", "Re(By_grad_z)", "Im(By_grad_z)", \
+                   "Re(Bz_grad_x)", "Im(Bz_grad_x)", "Re(Bz_grad_y)", "Im(Bz_grad_y)", "Re(Bz_grad_z)", "Im(Bz_grad_z)"]
+        
+        unit_columns = ["[fs]"]+["a.u."]*(len(field_columns)-1)
+        # {"[fs] |":>14} {"[a.u.] |":>17} {"[a.u.] |":>17} {"[a.u.] |":>17} {"[a.u.] |":>17} {"[a.u.] |":>17} {"[a.u.] |":>17} 
+        #{"[a.u.] |":>17} {"[a.u.] |":>17} {"[a.u.] |":>17} {"[a.u.] |":>17} {"[a.u.] |":>17} {"[a.u.] |":>17} 
+        max_lengths = [11]+[13 for column in field_columns[:-1]]
+        header = '\n'.join(" ! " + line.lstrip() for line in header.split('\n'))+"\n"
+        header_fields = " # " + " | ".join([f"{column:>{length}}" for column, length in zip(field_columns, max_lengths)])+" |"+"\n"
+        header_units = " # " + " | ".join([f"{column:>{length}}" for column, length in zip(unit_columns, max_lengths)])+" |"+"\n"
+        header=header+header_line+header_fields+header_units+header_line
         log.info("Writing fields and gradients to file:")
         formatted_laser_file = np.array([[custom_formatter(val) for val in row] for row in laser_file], dtype=str)
-        np.savetxt("laser", formatted_laser_file, fmt="%s", delimiter="  ", header=header, comments='')
+        np.savetxt("laser", formatted_laser_file, fmt="%s", delimiter="", header=header, comments='')
     
         
     #QA: Where should the laser file be saved?

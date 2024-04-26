@@ -44,5 +44,4 @@ module LASER_definitions
   
   logical :: debug
   integer :: allocatestatus
-!  character*1023 :: laser_freq_file_path                      ! Laser frequency file path 
 end module LASER_definitions

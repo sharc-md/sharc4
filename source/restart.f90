@@ -117,7 +117,6 @@ module restart
     write(u,*) ctrl%laser_b, '! laser_bfield'
     write(u,*) ctrl%laser_egrad, '! laser_efield_grad'
     write(u,*) ctrl%laser_bgrad, '! laser_bfield_grad'
-    write(u,*) ctrl%laser_file_version, '! laser_file_version'
     write(u,*) ctrl%coupling
     write(u,*) ctrl%ktdc_method
     write(u,*) ctrl%kmatrix_method
@@ -722,7 +721,6 @@ module restart
     read(u_ctrl,*) ctrl%laser_b
     read(u_ctrl,*) ctrl%laser_egrad
     read(u_ctrl,*) ctrl%laser_bgrad
-    read(u_ctrl,*) ctrl%laser_file_version
     read(u_ctrl,*) ctrl%coupling
     read(u_ctrl,*) ctrl%ktdc_method
     read(u_ctrl,*) ctrl%kmatrix_method

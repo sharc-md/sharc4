@@ -550,22 +550,22 @@ def check_laserfields(filename):
             match split_line[0]:
                 case "!":
                     match split_line[1]:
-                        case "E-field":
+                        case "e-field":
                             if split_line[2] in posresponse:
                                 set_efield=1
                             elif split_line[2] in negresponse:
                                 set_efield=0
-                        case "B-field":
+                        case "b-field":
                             if split_line[2] in posresponse:
                                 set_bfield=1
                             elif split_line[2] in negresponse:
                                 set_bfield=0
-                        case "E-field_gradients":
+                        case "e-field_gradients":
                             if split_line[2] in posresponse:
                                 set_egrad=1
                             elif split_line[2] in negresponse:
                                 set_egrad=0
-                        case "B-field_gradients":
+                        case "b-field_gradients":
                             if split_line[2] in posresponse:
                                 set_bgrad=1
                             elif split_line[2] in negresponse:
@@ -626,7 +626,7 @@ def check_laserfile(filename, nsteps, dt):
         for line_no, line in enumerate(data):
             split_line = line.split()
             if len(split_line)>0:
-                if (split_line[0]!="!") and (split_line[0]!="#"): 
+                if (split_line[0]!="!") and (split_line[0]!="#"):
                     if len(split_line)==(1+6*(set_efield+set_bfield)+18*(set_egrad+set_bgrad)):
                         n += 1
                     else:
@@ -640,7 +640,7 @@ def check_laserfile(filename, nsteps, dt):
             if abs(abs(t1 - t0) - dt) > 1e-6:
                 print('Time step wrong in file %s at line %i.' % (filename, i + 1))
                 return False
-            return True 
+        return True 
 # ======================================================================================================================
 
 
@@ -1790,9 +1790,12 @@ def writeSHARCinput(INFOS, initobject, iconddir, istate, ask=False):
     velocf.close()
 
     # laser file
-    if INFOS["laser"]:
-        laserfname = iconddir + "/laser"
-        shutil.copy(INFOS["laserfile"], laserfname)
+    if INFOS['laser']:
+        laserfname = iconddir + '/laser'
+        shutil.copy(INFOS['laserfile'], laserfname)
+        if (check_laserfileversion(INFOS['laserfile'])[0]==2.0):
+            laserfreqname = iconddir + '/laser_freq'
+            shutil.copy(INFOS['laser_freq_file'], laserfreqname)
 
     # atommask file
     if "atommaskarray" in INFOS and INFOS['atommaskarray'] is not None:

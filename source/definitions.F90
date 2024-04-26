@@ -408,7 +408,6 @@ type ctrl_type
   logical :: laser_b = .false.                  !< false=none, true=exists (Laser B-field)
   logical :: laser_egrad = .false.              !< false=none, true=exists (Laser E-field gradients)
   logical :: laser_bgrad = .false.              !< false=none, true=exists (Laser E-field gradients)
-  real*8  :: laser_file_version=-1.0             !< Laser file version
   integer :: coupling                       !< 0=ddt, 1=ddr, 2=overlap, 3=ktdc
   integer :: ktdc_method                    !< 0=gradient based approximation, 1=energy based approximation
   integer :: kmatrix_method                 !< 0=gradient based approximation, 1=energy based approximation
@@ -502,7 +501,7 @@ type ctrl_type
   complex*16, allocatable :: laserfield_egrad_tpd(:,:,:)   !< complex valued laser field gradient ( E-field)
   complex*16, allocatable :: laserfield_bgrad_tpd(:,:,:)   !< complex valued laser field gradient ( E-field)
   complex*16, allocatable :: laserenergy_tl(:,:)  !< momentary central energy of laser (for detecting induced hops)
-  character*1023, allocatable :: laser_freq_file_path      ! Laser frequency file path 
+  !character*1023, allocatable :: laser_freq_file_path      ! Laser frequency file path 
   ! thermostat
   integer :: ntempregions                     !< number of regions with different thermostat conditions
   integer,allocatable :: tempregion(:)        !< array of thermostat region number for each atom
@@ -561,6 +560,7 @@ integer, parameter :: u_i_rattle=18          !< atoms for constraints
 integer, parameter :: u_i_frozen=19          !< which atoms are active for verlocity verlet (i.e. not frozen)
 integer, parameter :: u_i_thermostat=20      !< thermostat settings (number of regions, temperatures, constants, regions)
 integer, parameter :: u_i_droplet=21         !< which atoms are part of the restrictive droplet (i.e. feel the corresponding potential)
+integer, parameter :: u_i_laser_freq=51      !< numerical laser field freq
 
 integer, parameter :: u_qm_QMin=41           !< here SHARC writes information for the QM interface (like geometry, number of states, what kind of data is requested)
 integer, parameter :: u_qm_QMout=42          !< here SHARC retrieves the results of the QM run (Hamiltonian, gradients, couplings, etc.)
@@ -1022,6 +1022,7 @@ integer, parameter :: u_qm_QMout=42          !< here SHARC retrieves the results
       if (allocated(ctrl%laserfield_egrad_tpd))       deallocate(ctrl%laserfield_egrad_tpd)
       if (allocated(ctrl%laserfield_bgrad_tpd))       deallocate(ctrl%laserfield_bgrad_tpd)
       if (allocated(ctrl%laserenergy_tl))             deallocate(ctrl%laserenergy_tl)
+      !if (allocated(ctrl%laser_freq_file_path))       deallocate(ctrl%laser_freq_file_path)
       if (allocated(ctrl%lpzpe_ah))                   deallocate(ctrl%lpzpe_ah)
       if (allocated(ctrl%lpzpe_bc))                   deallocate(ctrl%lpzpe_bc)
       if (allocated(ctrl%lpzpe_ke_zpe_ah))            deallocate(ctrl%lpzpe_ke_zpe_ah)

@@ -81,16 +81,12 @@ def custom_formatter(val: float):
        Formatted laser fields files' values 
     """
     assert isinstance(val, float), "val must be a float!"
-    if val==0:
+    if val<=1E-99:
         val=0.0
-    elif np.log(val)<=-99:
-        val=0.0
-    elif np.isnan(val):
-        return f'NaN'
-    val_form = '{:.6e}'.format(val)  # Format with 3 digits for the exponent
+    val_form = '{:1.6e}'.format(val)  # Format with 3 digits for the exponent
     mantissa, exponent = val_form.split('e')
-    sign = '+' if float(mantissa) >= 0 else ''  # Check if positive
-    return f'{sign}{mantissa}E{exponent[0]}{exponent[1:].zfill(3)}'
+    sign = '  ' if float(mantissa) >= 0 else ' '  # Check if positive
+    return f'{sign}{mantissa}E{exponent[0]}{exponent[1:].zfill(2)}'
 
 
 def displaywelcome():
@@ -217,13 +213,16 @@ def wavelet_calc(field, time_arr):
 
 
 def read_fields(INFOS):
-    laser_file = np.loadtxt(INFOS["laser_file_path"], comments="!")
-    return laser_file[:, 1:13]  # 2*3*2 fields
+    laser_file = np.loadtxt(INFOS["laser_file_path"], comments=("!", "#"))
+    laser_file = np.array([line[1:13] for line in laser_file if len(line)!=0])
+    return laser_file  # 2*3*2 fields
 
 
 def read_time(INFOS):
-    laser_file = np.loadtxt(INFOS["laser_file_path"], comments="!")
-    return laser_file[:, 0]*temp_unit_fac
+    laser_file = np.loadtxt(INFOS["laser_file_path"], comments=("!", "#"))
+    laser_file_time = np.array([line[0] for line in laser_file if len(line)!=0])
+    log.info(laser_file_time)
+    return laser_file_time*temp_unit_fac
 
 
 def main():
@@ -242,11 +241,17 @@ def main():
         log.info(f"{item:<25} {INFOS[item]}") 
     time_arr = read_time(INFOS)
     header = f'''\
-        ! Laser frequency file SHARC {sharcversion}
-        ! version 2.0 
-        ! laser file path = {INFOS["laser_file_path"]} 
-        '''
-    header = '\n'.join(line.lstrip() for line in header.split('\n'))
+         laser frequency file 
+         SHARC {sharcversion}
+         file_version 2.0'''
+    header_line = f''' #{"="*26}'''+"\n"
+    field_columns = ["Time", "Frequency"]
+    unit_columns = ["[fs]"]+["a.u."]*(len(field_columns)-1)
+    max_lengths = [9, 11]
+    header = "\n".join(" ! " + line.lstrip() for line in header.split('\n'))+"\n"
+    header_fields = " # " + " | ".join([f"{column:>{length}}" for column, length in zip(field_columns, max_lengths)])+" |"+"\n"
+    header_units = " # " + " | ".join([f"{column:>{length}}" for column, length in zip(unit_columns, max_lengths)])+" |"+"\n"  
+    header = header+header_line+header_fields+header_units+header_line
     laser_freq_file = np.nan*np.ones((len(time_arr), 2))  # tsteps, (f_exr, f_eyr, f_ezr or f_bxr, f_byr, f_bzr) #3*2 Exyz (real, imag), #3*2 Bxyz (real, imag), #3*3*2 Grad Exyz (real, imag), #3*3*2 Grad Bxyz (real, imag)
     laser_freq_file[:, 0] = time_arr*1E15  # SAVE timesteps in fs
     if check_laser_file_version(INFOS["laser_file_path"]):
@@ -286,7 +291,7 @@ def main():
         raise IOError
     log.info("Writing frequencies to file: laser_freq")
     formatted_laser_freq_file = np.array([[custom_formatter(val) for val in row] for row in laser_freq_file], dtype=str)
-    np.savetxt("laser_freq", formatted_laser_freq_file, fmt="%s", delimiter="  ", header=header, comments='')
+    np.savetxt("laser_freq", formatted_laser_freq_file, fmt="%s", delimiter="", header=header, comments='')
         
     close_keystrokes()
     

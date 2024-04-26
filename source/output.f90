@@ -419,7 +419,7 @@ subroutine write_dat_initial(u, ctrl, traj)
   implicit none
   type(ctrl_type) :: ctrl
   type(trajectory_type) :: traj
-  integer :: u, n, ipol
+  integer :: u, n, ipol, idir
   character*8000 :: string1
   character*8000, allocatable :: string2(:)
 
@@ -497,7 +497,6 @@ subroutine write_dat_initial(u, ctrl, traj)
     write(u,*) 'n_property1d',               ctrl%n_property1d
     write(u,*) 'n_property2d',               ctrl%n_property2d
     write(u,*) 'laser',                      ctrl%laser
-    write(u,*) 'laser_file_version',         ctrl%laser_file_version
     write(u,*) 'laser_e',                    ctrl%laser_e
     write(u,*) 'laser_b',                    ctrl%laser_b
     write(u,*) 'laser_egrad',                ctrl%laser_egrad
@@ -514,13 +513,13 @@ subroutine write_dat_initial(u, ctrl, traj)
             call vec3write(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_b_tp, u, '! Laser B-field','E21.13e3')    
         endif 
         if (ctrl%laser_egrad) then  
-            do ipol = 1,3
-              call vec3write(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_egrad_tpd(:,:,ipol), u, '! Laser E-field gradient','E21.13e3') 
+            do idir=1,3
+              call vec3write(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_egrad_tpd(:,idir,:), u, '! Laser E-field gradient','E21.13e3') 
             enddo
         endif
         if (ctrl%laser_bgrad) then  
-            do ipol = 1,3
-              call vec3write(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_bgrad_tpd(:,:,ipol), u, '! Laser B-field gradient','E21.13e3') 
+            do idir=1,3
+              call vec3write(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_bgrad_tpd(:,idir,:), u, '! Laser B-field gradient','E21.13e3') 
             enddo
         endif
     endif 
