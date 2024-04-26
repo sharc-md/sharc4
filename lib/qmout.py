@@ -525,7 +525,7 @@ class QMout:
         nmstates = self.nmstates
         string = ""
         string += "! %i Magnetic Dipole Moment Matrices (3x%ix%i, complex)\n" % (
-            2,
+            41,
             nmstates,
             nmstates,
         )
@@ -555,8 +555,8 @@ class QMout:
         1 string: multiline string with the EQM matrices"""
         nmstates = self.nmstates
         string = ""
-        string += "! %i Dipole Moment Matrices (3x%ix%i, complex)\n" % (
-            2,
+        string += "! %i Electric Quadrupole Moment Matrices (3x%ix%i, complex)\n" % (
+            42,
             nmstates,
             nmstates,
         )
@@ -572,7 +572,6 @@ class QMout:
                     string += "\n"
                 string += ""
             string += "\n"
-        string += "\n"
         return string
 
     # ======================================================================= #
@@ -1230,7 +1229,6 @@ class QMout:
                     matrix = self["eqm"][dxdydz][xyz]
                     string += formatcomplexmatrix(matrix, states)
                 string += "\n" 
-            string += "\n" 
         # Gradients
         if QMin.requests["grad"]:
             string += "=> Gradient Vectors:\n\n"

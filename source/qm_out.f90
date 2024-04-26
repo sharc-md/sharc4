@@ -54,8 +54,8 @@ public open_qmout
 public close_qmout
 public get_hamiltonian
 public get_dipoles
-public get_magnetic_dipoles
-public get_electric_quadrupoles
+!public get_magnetic_dipoles
+!public get_electric_quadrupoles
 public get_gradients
 public get_phases
 public get_nonadiabatic_ddt
@@ -274,31 +274,31 @@ endsubroutine
 
 ! =================================================================== !
 
-!> reads the magnetic Dipole moment matrix from the already opened QMout file
-subroutine get_magnetic_dipoles(n, mag_DM_ssd)
-  use matrix
-  implicit none
-  integer,intent(in) :: n       ! size of the matrix
-  complex*16,intent(out) :: mag_DM_ssd(n,n,3)
-  integer :: icol,irow,idir
-  character(len=8000) title
-
-  call check_qmout_unit('get_dipoles')
-
-  call goto_flag(2,'get_dipoles')
-
-  do idir=1,3
-    call matread(n, DM_ssd(:,:,idir), qmout_unit, title)
-    read(title,*) irow,icol
-    if ( (irow==n).and.(icol==n) ) then
-      continue
-    else
-      write(0,*) 'Magnetic Dipole matrix has wrong format! nrow=',irow,'ncol=',icol
-      stop 1
-    endif
-  enddo
-
-endsubroutine
+!!> reads the magnetic Dipole moment matrix from the already opened QMout file
+!subroutine get_magnetic_dipoles(n, mag_DM_ssd)
+!  use matrix
+!  implicit none
+!  integer,intent(in) :: n       ! size of the matrix
+!  complex*16,intent(out) :: mag_DM_ssd(n,n,3)
+!  integer :: icol,irow,idir
+!  character(len=8000) title
+!
+!  call check_qmout_unit('get_dipoles')
+!
+!  call goto_flag(2,'get_dipoles')
+!
+!  do idir=1,3
+!    call matread(n, DM_ssd(:,:,idir), qmout_unit, title)
+!    read(title,*) irow,icol
+!    if ( (irow==n).and.(icol==n) ) then
+!      continue
+!    else
+!      write(0,*) 'Magnetic Dipole matrix has wrong format! nrow=',irow,'ncol=',icol
+!      stop 1
+!    endif
+!  enddo
+!
+!endsubroutine
 
 ! =================================================================== !
 
