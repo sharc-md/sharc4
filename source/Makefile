@@ -75,16 +75,18 @@ else
 endif
 
 
+$(info VAR="$(USE_COMPILER)" )
+
 ifeq ($(USE_COMPILER), )
-  USE_COMPILER:=gnu
+  USE_COMPILER := gnu
 endif
 ifeq ($(USE_COMPILER), gnu)
-  CC :=gcc
-  F90 :=gfortran 
+  CC := gcc
+  F90 := gfortran 
   EXTRAFLAGS := -ffree-line-length-none 
 else ifeq ($(USE_COMPILER), intel)
-  CC:=icc
-  F90:=ifort
+  CC := icc
+  F90 := ifort
   EXTRAFLAGS := -DIFORT
 endif
 

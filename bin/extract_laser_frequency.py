@@ -53,6 +53,7 @@ temp_unit_fac = 1E-15  # Conversion input unit to SI
 # nsubsteps = 25  # Number of substeps for the integration of the electronic EOM: QA -> take from SHARC                                               
 efield_au_to_v_per_m = const.physical_constants["Hartree energy"][0]/const.e/const.physical_constants["Bohr radius"][0]                             
 bfield_au_to_t = const.electron_mass*const.physical_constants["Hartree energy"][0]/(const.e*const.physical_constants["reduced Planck constant"][0]) 
+time_au_to_s = const.physical_constants["reduced Planck constant"][0]/const.physical_constants["Hartree energy"][0]
 # efield_grad_au_to_v_per_m2 = efield_au_to_v_per_m*const.physical_constants["Bohr radius"][0]                                                        
 # bfield_grad_au_to_t_per_m =  bfield_au_to_t*const.physical_constants["Bohr radius"][0]                                                              
 
@@ -262,12 +263,12 @@ def main():
                 central_fft_freq = [fft_calc(em_fields[:, field_idx], time_arr) for field_idx in range(len(em_fields[0, :]))]
                 combined_central_fft_freq = np.nansum(em_fields_max*central_fft_freq)/np.nansum(em_fields_max)
                 # print(combined_central_fft_freq/(const.c/527.5E-9))
-                laser_freq_file[:, 1] = np.ones_like(time_arr)*combined_central_fft_freq
+                laser_freq_file[:, 1] = np.ones_like(time_arr)*combined_central_fft_freq*time_au_to_s
                 break
             elif fft_field[0]==1:
                 central_fft_freq = [wavelet_calc(em_fields[:, field_idx], time_arr) for field_idx in range(len(em_fields[0, :]))]
                 combined_central_fft_freq = np.nansum(em_fields.T**2*central_fft_freq, axis=0)/np.nansum(em_fields.T**2, axis=0)  
-                laser_freq_file[:, 1] = combined_central_fft_freq
+                laser_freq_file[:, 1] = combined_central_fft_freq*time_au_to_s
                 # QA: Should a treshold be implemented such that the frequency is assigned NaN, if the corresponding fields are within noise/lower than a treshold value?
                 # print(combined_central_fft_freq)#/(const.c/527.5E-9))
                 # for i in range(12):

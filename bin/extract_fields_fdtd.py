@@ -100,7 +100,7 @@ def custom_formatter(val: float):
         val=0.0
     elif np.isnan(val):
         return f'NaN'
-    val_form = '{:.6e}'.format(val)  # Format with 3 digits for the exponent
+    val_form = '{:.8e}'.format(val)  # Format with 3 digits for the exponent
     mantissa, exponent = val_form.split('e')
     sign = '+' if float(mantissa) >= 0 else ''  # Check if positive
     return f'{sign}{mantissa}E{exponent[0]}{exponent[1:].zfill(3)}'
@@ -407,7 +407,7 @@ def main():
         ! Laser file SHARC {sharcversion}
         ! version 1.0 
         ! nsteps = {len(int_t_arr)} 
-        ! dt =  {INFOS["electronic time_step"]}
+        ! dt = {INFOS["electronic time_step"]:.8E}
         ! E-fields = true 
         ! B-fields = true
         ! E-field gradients = true 

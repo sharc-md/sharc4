@@ -91,24 +91,41 @@ program create_laser
   write(6,*) 'Writing out laser field'
   
   open (10,file='laser')
+  ! Write the header information
+  write(10, '(a)') ' ! Laser file SHARC 4.0'
+  write(10, '(a)') ' ! version 1.0'
+  write(10, '(a, i0)') ' ! nsteps = ', Nt
+  write(10, '(a, 107(e16.8,x))') ' ! dt = ', dt
+  write(10, '(a)') ' ! E-fields = true'
+  write(10, '(a)') ' ! B-fields = false'
+  write(10, '(a)') ' ! E-field gradients = false'
+  write(10, '(a)') ' ! B-field gradients = false'
+  write(10, '(a)') ''
   do it = 1,Nt
     t = t0 + (it-1) * dt
     if (realvalued) then
-      write(10,'(107(e16.8))') t*au2fs, &
+      write(10,'(107(e16.8,x))') t*au2fs, &
                              dble(laser(it,1)), 0.d0, &
                              dble(laser(it,2)), 0.d0, &
-                             dble(laser(it,3)), 0.d0, &
-                             (mom_freq(it,ilasers),ilasers=1,Nlasers) 
+                             dble(laser(it,3)), 0.d0
     else
-      write(10,'(107(e16.8))') t*au2fs, &
+      write(10,'(107(e16.8,x))') t*au2fs, &
                              dble(laser(it,1)), aimag(laser(it,1)), &
                              dble(laser(it,2)), aimag(laser(it,2)), &
-                             dble(laser(it,3)), aimag(laser(it,3)), &
-                             (mom_freq(it,ilasers),ilasers=1,Nlasers)
+                             dble(laser(it,3)), aimag(laser(it,3))
     endif 
   enddo
   close (10)
   
+  write(6,*) 'Writing out laser frequency'
+  
+  open (10,file='laser_freq')
+  do it = 1,Nt
+    t = t0 + (it-1) * dt
+    write(10,'(107(e16.8,x))') t*au2fs, &
+                            (mom_freq(it,ilasers),ilasers=1,Nlasers)
+  enddo
+  close (10)
 
   deallocate (polarization)
   deallocate (type_envelope)
