@@ -404,10 +404,11 @@ type ctrl_type
   integer :: staterep                       !< 0=initial state is given in diag representation, 1=in MCH representation
   integer :: initcoeff                      !< 0=initial coefficients are diag, 1=initial coefficients are MCH, 2=auto diag, 3=auto MCH
   integer :: laser                          !< 0=none, 1=internal, 2=external
-  logical :: laser_e                        !< false=none, true=exists (Laser E-field)
-  logical :: laser_b                        !< false=none, true=exists (Laser B-field)
-  logical :: laser_egrad                    !< false=none, true=exists (Laser E-field gradients)
-  real*8  :: laser_file_version             !<  Laser file version
+  logical :: laser_e = .false.                  !< false=none, true=exists (Laser E-field)
+  logical :: laser_b = .false.                  !< false=none, true=exists (Laser B-field)
+  logical :: laser_egrad = .false.              !< false=none, true=exists (Laser E-field gradients)
+  logical :: laser_bgrad = .false.              !< false=none, true=exists (Laser E-field gradients)
+  real*8  :: laser_file_version=-1.0             !< Laser file version
   integer :: coupling                       !< 0=ddt, 1=ddr, 2=overlap, 3=ktdc
   integer :: ktdc_method                    !< 0=gradient based approximation, 1=energy based approximation
   integer :: kmatrix_method                 !< 0=gradient based approximation, 1=energy based approximation
@@ -499,6 +500,7 @@ type ctrl_type
   complex*16, allocatable :: laserfield_e_tp(:,:)   !< complex valued laser field (E-field)
   complex*16, allocatable :: laserfield_b_tp(:,:)   !< complex valued laser field (B-field)
   complex*16, allocatable :: laserfield_egrad_tpd(:,:,:)   !< complex valued laser field gradient ( E-field)
+  complex*16, allocatable :: laserfield_bgrad_tpd(:,:,:)   !< complex valued laser field gradient ( E-field)
   complex*16, allocatable :: laserenergy_tl(:,:)  !< momentary central energy of laser (for detecting induced hops)
 
   ! thermostat
@@ -1018,6 +1020,7 @@ integer, parameter :: u_qm_QMout=42          !< here SHARC retrieves the results
       if (allocated(ctrl%laserfield_e_tp))            deallocate(ctrl%laserfield_e_tp)
       if (allocated(ctrl%laserfield_b_tp))            deallocate(ctrl%laserfield_b_tp)
       if (allocated(ctrl%laserfield_egrad_tpd))       deallocate(ctrl%laserfield_egrad_tpd)
+      if (allocated(ctrl%laserfield_bgrad_tpd))       deallocate(ctrl%laserfield_bgrad_tpd)
       if (allocated(ctrl%laserenergy_tl))             deallocate(ctrl%laserenergy_tl)
       if (allocated(ctrl%lpzpe_ah))                   deallocate(ctrl%lpzpe_ah)
       if (allocated(ctrl%lpzpe_bc))                   deallocate(ctrl%lpzpe_bc)

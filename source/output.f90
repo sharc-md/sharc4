@@ -501,6 +501,7 @@ subroutine write_dat_initial(u, ctrl, traj)
     write(u,*) 'laser_e',                    ctrl%laser_e
     write(u,*) 'laser_b',                    ctrl%laser_b
     write(u,*) 'laser_egrad',                ctrl%laser_egrad
+    write(u,*) 'laser_bgrad',                ctrl%laser_bgrad
     write(u,'(a)') '************************************* End of settings *************************************'
     call vecwrite(ctrl%natom,traj%atomicnumber_a,u,'! Atomic numbers','E21.13e3')
     call vecwrite(ctrl%natom,traj%element_a,     u,'! Elements',      'A3'  )
@@ -515,6 +516,11 @@ subroutine write_dat_initial(u, ctrl, traj)
         if (ctrl%laser_egrad) then  
             do ipol = 1,3
               call vec3write(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_egrad_tpd(:,:,ipol), u, '! Laser E-field gradient','E21.13e3') 
+            enddo
+        endif
+        if (ctrl%laser_bgrad) then  
+            do ipol = 1,3
+              call vec3write(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_bgrad_tpd(:,:,ipol), u, '! Laser B-field gradient','E21.13e3') 
             enddo
         endif
     endif 

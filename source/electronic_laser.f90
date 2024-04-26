@@ -67,6 +67,9 @@ subroutine propagate_laser(traj,ctrl)
         &traj%U_ss,traj%U_old_ss,&
         &traj%DM_ssd,traj%DM_old_ssd,&
         &ctrl%laserfield_e_tp( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
+        &ctrl%laserfield_b_tp( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
+        &ctrl%laserfield_egrad_tpd( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:,:),&
+        &ctrl%laserfield_bgrad_tpd( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:,:),&
         &ctrl%dtstep, ctrl%nsubsteps, 1,&       ! 1=constant interpolation
         &traj%Rtotal_ss)
     case (1)    ! linear interpolation, default for coupling=ddr,nacdr
@@ -85,6 +88,9 @@ subroutine propagate_laser(traj,ctrl)
         &traj%U_ss,traj%U_old_ss,&
         &traj%DM_ssd,traj%DM_old_ssd,&
         &ctrl%laserfield_e_tp( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
+        &ctrl%laserfield_b_tp( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
+        &ctrl%laserfield_egrad_tpd( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:,:),&
+        &ctrl%laserfield_bgrad_tpd( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:,:),&
         &ctrl%dtstep, ctrl%nsubsteps, 0,&       ! 0=linear interpolation
         &traj%Rtotal_ss)
     case (2)    ! local diabatization, defafult for coupling=overlap
@@ -97,6 +103,9 @@ subroutine propagate_laser(traj,ctrl)
         &traj%overlaps_ss,&
         &traj%DM_ssd,traj%DM_old_ssd,&
         &ctrl%laserfield_e_tp( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
+        &ctrl%laserfield_b_tp( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
+        &ctrl%laserfield_egrad_tpd( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:,:),&
+        &ctrl%laserfield_bgrad_tpd( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:,:),&
         &ctrl%dtstep, ctrl%nsubsteps,&
         &traj%Rtotal_ss)
     case (3)    ! norm perserving interporlation
@@ -107,6 +116,9 @@ subroutine propagate_laser(traj,ctrl)
         &traj%overlaps_ss,&
         &traj%DM_ssd,traj%DM_old_ssd,&
         &ctrl%laserfield_e_tp((traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
+        &ctrl%laserfield_b_tp( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
+        &ctrl%laserfield_egrad_tpd( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:,:),&
+        &ctrl%laserfield_bgrad_tpd( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:,:),&
         &ctrl%dtstep, ctrl%nsubsteps,&
         &traj%Rtotal_ss)
   endselect
@@ -119,7 +131,18 @@ subroutine propagate_laser(traj,ctrl)
     if (printlevel>3) then
       call vec3write(ctrl%nsubsteps,&
       &ctrl%laserfield_e_tp( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
-      &u_log,'Laser Field','F12.9')
+      &u_log,'Laser E-Field','F12.9')
+      call vec3write(ctrl%nsubsteps,&
+      &ctrl%laserfield_b_tp( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
+      &u_log,'Laser B-Field','F12.9')
+      do idir=1,3
+        call vec3write(ctrl%nsubsteps,&
+        &ctrl%laserfield_egrad_tpd( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:,idir),&
+        &u_log,'Laser E-Field gradients','F12.9')
+        call vec3write(ctrl%nsubsteps,&
+        &ctrl%laserfield_bgrad_tpd( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:,idir),&
+        &u_log,'Laser B-Field gradients','F12.9')
+      enddo
     endif
     select case (ctrl%eeom)
       case (0)  ! constant interpolation 
@@ -230,7 +253,7 @@ endsubroutine
 
 !> calculates the propagator matrix in substeps, see SHARC manual for the equations.
 !> \param interp 0=linear interpolation of non-adiabatic coupling matrix, 1=constant non-adiabatic coupling matrix (NACMold not used)
-subroutine unitary_propagator_laser(n, SO, SOold, NACM, NACMold, U, Uold, DM, DMold, laserfield, dt, nsubsteps, interp, Rtotal)
+subroutine unitary_propagator_laser(n, SO, SOold, NACM, NACMold, U, Uold, DM, DMold, laserfield_e, laserfield_b, laserfield_e_grad, laserfield_b_grad, dt, nsubsteps, interp, Rtotal)
   use definitions, only: u_log
   use matrix
 ! calculates the propagator matrix for a timestep
@@ -245,7 +268,10 @@ subroutine unitary_propagator_laser(n, SO, SOold, NACM, NACMold, U, Uold, DM, DM
 
   integer, intent(in) :: n, nsubsteps, interp
   complex*16, intent(in) :: U(n,n), SO(n,n), SOold(n,n), NACM(n,n), NACMold(n,n), DM(n,n,3),DMold(n,n,3)
-  complex*16, intent(in) :: laserfield(nsubsteps,3)
+  complex*16, intent(in) :: laserfield_e(nsubsteps,3)
+  complex*16, intent(in) :: laserfield_b(nsubsteps,3)
+  complex*16, intent(in) :: laserfield_e_grad(nsubsteps,3,3)
+  complex*16, intent(in) :: laserfield_b_grad(nsubsteps,3,3)
   complex*16, intent(inout) :: Uold(n,n), Rtotal(n,n)
   real*8, intent(in) :: dt
   ! internal variables:
@@ -268,7 +294,7 @@ subroutine unitary_propagator_laser(n, SO, SOold, NACM, NACMold, U, Uold, DM, DM
 
     ! here the laser field is added to the Hamiltonian
     do ixyz=1,3
-      H=H - ( DMold(:,:,ixyz) + (DM(:,:,ixyz)-DMold(:,:,ixyz))*istep/nsubsteps ) * real(laserfield(istep,ixyz))
+      H=H - ( DMold(:,:,ixyz) + (DM(:,:,ixyz)-DMold(:,:,ixyz))*istep/nsubsteps ) * real(laserfield_e(istep,ixyz)) !LORENZ IMPLEMENT
     enddo
 
     ! second ingredient, T
@@ -303,7 +329,7 @@ endsubroutine
 
 !> calculates the propagator matrix in substeps, see SHARC manual for the equations.
 !> Uses the local diabatization procedure
-subroutine LD_propagator_laser(n, SOin, SOold, U, Uold, overlap, DMin, DMold, laserfield, dt, nsubsteps, Rtotal)
+subroutine LD_propagator_laser(n, SOin, SOold, U, Uold, overlap, DMin, DMold, laserfield_e, laserfield_b, laserfield_e_grad, laserfield_b_grad, dt, nsubsteps, Rtotal)
   use definitions, only: u_log
   use matrix
   ! calculates the propagator matrix for a timestep
@@ -318,7 +344,10 @@ subroutine LD_propagator_laser(n, SOin, SOold, U, Uold, overlap, DMin, DMold, la
   integer, intent(in) :: n, nsubsteps
   real*8, intent(in) :: dt
   complex*16, intent(in) :: U(n,n), Uold(n,n),SOin(n,n),SOold(n,n), DMin(n,n,3),DMold(n,n,3)
-  complex*16, intent(in) :: laserfield(nsubsteps,3)
+  complex*16, intent(in) :: laserfield_e(nsubsteps,3)
+  complex*16, intent(in) :: laserfield_b(nsubsteps,3)
+  complex*16, intent(in) :: laserfield_e_grad(nsubsteps,3,3)
+  complex*16, intent(in) :: laserfield_b_grad(nsubsteps,3,3)
   complex*16, intent(inout) :: overlap(n,n)
   complex*16, intent(inout) :: Rtotal(n,n)
 
@@ -372,7 +401,7 @@ subroutine LD_propagator_laser(n, SOin, SOold, U, Uold, overlap, DMin, DMold, la
     H=SOold + (SO-SOold)*k/nsubsteps
     ! here the laser field is added to the Hamiltonian
     do ixyz=1,3
-      H=H - ( DMold(:,:,ixyz) + (DM(:,:,ixyz)-DMold(:,:,ixyz))*k/nsubsteps ) * real(laserfield(k,ixyz))
+      H=H - ( DMold(:,:,ixyz) + (DM(:,:,ixyz)-DMold(:,:,ixyz))*k/nsubsteps ) * real(laserfield_e(k,ixyz)) !LORENZ IMPLEMENT
     enddo
     H=dtsubstep*H
 
@@ -394,7 +423,7 @@ endsubroutine
 
 !> calculates the propagator matrix in substeps, see SHARC manual for th equations.
 !> Uses the norm perserving interpolation
-subroutine NPI_propagator_laser(n, SO, SOold, U, Uold, overlap, DM, DMold, laserfield, dt, nsubsteps, Rtotal)
+subroutine NPI_propagator_laser(n, SO, SOold, U, Uold, overlap, DM, DMold, laserfield_e, laserfield_b, laserfield_e_grad, laserfield_b_grad, dt, nsubsteps, Rtotal)
   use definitions, only: u_log
   use matrix
   ! calculates the propagator matrix for a timestep
@@ -410,7 +439,10 @@ subroutine NPI_propagator_laser(n, SO, SOold, U, Uold, overlap, DM, DMold, laser
   integer, intent(in) :: n, nsubsteps
   real*8, intent(in) :: dt
   complex*16, intent(in) :: U(n,n), Uold(n,n),SO(n,n),SOold(n,n), DM(n,n,3),DMold(n,n,3)
-  complex*16, intent(in) :: laserfield(nsubsteps,3)
+  complex*16, intent(in) :: laserfield_e(nsubsteps,3)
+  complex*16, intent(in) :: laserfield_b(nsubsteps,3)
+  complex*16, intent(in) :: laserfield_e_grad(nsubsteps,3,3)
+  complex*16, intent(in) :: laserfield_b_grad(nsubsteps,3,3)
   complex*16, intent(inout) :: overlap(n,n)
   complex*16, intent(inout) :: Rtotal(n,n)
 
@@ -437,7 +469,7 @@ subroutine NPI_propagator_laser(n, SO, SOold, U, Uold, overlap, DM, DMold, laser
 
     ! here the laser field is added to the Hamiltonian
     do ixyz=1,3
-      H=H - ( DMold(:,:,ixyz) + (DM(:,:,ixyz)-DMold(:,:,ixyz))*istep/nsubsteps ) * real(laserfield(istep,ixyz))
+      H=H - ( DMold(:,:,ixyz) + (DM(:,:,ixyz)-DMold(:,:,ixyz))*istep/nsubsteps ) * real(laserfield_e(istep,ixyz)) !LORENZ IMPLEMENT
     enddo
 
     ! second ingredient, T
@@ -488,7 +520,7 @@ endsubroutine
 
 !> template for a subroutine returning the laser field for a given time
 !> this is not yet fully implemented
-subroutine internal_laserfield(t,field,energy)
+subroutine internal_laserfield_e(t,field,energy) !LORENZ IMPLEMENT B-FIELD
 implicit none
 real*8,intent(in) :: t     ! time in atomic units
 complex*16,intent(out) :: field(3)      ! x,y,z of laser field, imaginary part has to be included

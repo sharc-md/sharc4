@@ -68,7 +68,8 @@ subroutine propagate_laser(traj,ctrl)
         &traj%DM_E_ssd,traj%DM_E_old_ssd,&
         &ctrl%laser_efield_td( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
         &ctrl%laser_bfield_td( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
-        &ctrl%laser_efield_grad_td( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
+        &ctrl%laser_efield_grad_tpd( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
+        &ctrl%laser_bfield_grad_tpd( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
         &ctrl%dtstep, ctrl%nsubsteps, 1,&       ! 1=constant interpolation
         &traj%Rtotal_ss)
     case (1)    ! ddr
@@ -88,7 +89,8 @@ subroutine propagate_laser(traj,ctrl)
         &traj%DM_E_ssd,traj%DM_E_old_ssd,&
         &ctrl%laser_efield_td( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
         &ctrl%laser_bfield_td( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
-        &ctrl%laser_efield_grad_td( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
+        &ctrl%laser_efield_grad_tpd( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
+        &ctrl%laser_bfield_grad_tpd( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
         &ctrl%dtstep, ctrl%nsubsteps, 0,&       ! 0=linear interpolation
         &traj%Rtotal_ss)
     case (2)    ! overlap
@@ -102,7 +104,8 @@ subroutine propagate_laser(traj,ctrl)
         &traj%DM_E_ssd,traj%DM_E_old_ssd,&
         &ctrl%laser_efield_td( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
         &ctrl%laser_bfield_td( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
-        &ctrl%laser_efield_grad_td( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
+        &ctrl%laser_efield_grad_tpd( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
+        &ctrl%laser_bfield_grad_tpd( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
         &ctrl%dtstep, ctrl%nsubsteps,&
         &traj%Rtotal_ss)
   endselect
@@ -215,7 +218,7 @@ endsubroutine
 !> calculates the propagator matrix in substeps, see SHARC manual for the equations.
 !> \param interp 0=linear interpolation of non-adiabatic coupling matrix, 1=constant non-adiabatic coupling matrix (NACMold not used)
 subroutine unitary_propagator_laser(n, SO, SOold, NACM, NACMold, U, Uold, DM_E, DM_Eold, laser_efield, laser_bfield,
-laser_efield_grad, dt, nsubsteps, interp, Rtotal)
+laser_efield_grad, laser_bfield_grad, dt, nsubsteps, interp, Rtotal)
   use definitions, only: u_log
   use matrix
 ! calculates the propagator matrix for a timestep

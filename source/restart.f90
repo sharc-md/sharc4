@@ -116,6 +116,7 @@ module restart
     write(u,*) ctrl%laser_e, '! laser_efield'
     write(u,*) ctrl%laser_b, '! laser_bfield'
     write(u,*) ctrl%laser_egrad, '! laser_efield_grad'
+    write(u,*) ctrl%laser_bgrad, '! laser_bfield_grad'
     write(u,*) ctrl%laser_file_version, '! laser_file_version'
     write(u,*) ctrl%coupling
     write(u,*) ctrl%ktdc_method
@@ -206,6 +207,11 @@ module restart
       if (ctrl%laser_egrad) then
         do idir=1,3 
           call vec3write(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_egrad_tpd(:,:,idir), u, 'Laser E-field gradient','ES24.16E3')
+        enddo
+      endif
+      if (ctrl%laser_bgrad) then
+        do idir=1,3 
+          call vec3write(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_bgrad_tpd(:,:,idir), u, 'Laser B-field gradient','ES24.16E3')
         enddo
       endif 
       do ilaser=1,ctrl%nlasers
@@ -715,6 +721,7 @@ module restart
     read(u_ctrl,*) ctrl%laser_e
     read(u_ctrl,*) ctrl%laser_b
     read(u_ctrl,*) ctrl%laser_egrad
+    read(u_ctrl,*) ctrl%laser_bgrad
     read(u_ctrl,*) ctrl%laser_file_version
     read(u_ctrl,*) ctrl%coupling
     read(u_ctrl,*) ctrl%ktdc_method
@@ -840,6 +847,12 @@ module restart
           allocate( ctrl%laserfield_egrad_tpd(ctrl%nsteps*ctrl%nsubsteps+1,3,3) )
           do idir=1,3
             call vec3read(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_egrad_tpd(:,:,idir), u_ctrl, string)
+          enddo 
+      endif
+      if (ctrl%laser_bgrad) then
+          allocate( ctrl%laserfield_bgrad_tpd(ctrl%nsteps*ctrl%nsubsteps+1,3,3) )
+          do idir=1,3
+            call vec3read(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_bgrad_tpd(:,:,idir), u_ctrl, string)
           enddo 
       endif
       allocate( ctrl%laserenergy_tl(ctrl%nsteps*ctrl%nsubsteps+1,ctrl%nlasers) )

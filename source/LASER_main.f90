@@ -109,20 +109,18 @@ program create_laser
   write(10, '(a)') ' ! E-field = true'
   write(10, '(a)') ' ! B-field = true'
   write(10, '(a)') ' ! E-field_gradients = false'
+  write(10, '(a)') ' ! B-field_gradients = false'
   write(10, '(a)') ' ! laser_freq_path = laser_freq'
+  write(10, '(a)') ' #' // adjustl(repeat('=', 218))
   write(10, '(A2, A14, A17, A17, A17, A17, A17, A17, A17, A17, A17, A17, A17, A17)') & 
                                         ' # ', 'Time |', 'Re(Ex) |', 'Im(Ex) |', 'Re(Ey) |', 'Im(Ey) |', 'Re(Ez) |', 'Im(Ez) |', & 
                                                          'Re(Bx) |', 'Im(Bx) |', 'Re(By) |', 'Im(By) |', 'Re(Bz) |', 'Im(Bz) |'!,
- !                                                      'Re(Ex_grad_x) |', 'Im(Ex_grad_x) |', 'Re(Ex_grad_y) |', 'Im(Ex_grad_y) |', 
- !                                                      'Re(Ex_grad_z) |', 'Im(Ex_grad_z) |',
- !                                                      'Re(Ey_grad_x) |', 'Im(Ey_grad_x) |', 'Re(Ey_grad_y) |', 'Im(Ey_grad_y) |',
- !                                                      'Re(Ey_grad_z) |', 'Im(Ey_grad_z) |',
- !                                                      'Re(Ez_grad_x) |', 'Im(Ez_grad_x) |', 'Re(Ez_grad_y) |', 'Im(Ez_grad_y) |',
- !                                                      'Re(Ez_grad_z) |', 'Im(Ez_grad_z) |',
 
  write(10, '(A2, A14, A17, A17, A17, A17, A17, A17, A17, A17, A17, A17, A17, A17)') &
                                        ' # ', '[fs] |', '[a.u.] |', '[a.u.] |', '[a.u.] |', '[a.u.] |', '[a.u.] |', '[a.u.] |', &
                                                         '[a.u.] |', '[a.u.] |', '[a.u.] |', '[a.u.] |', '[a.u.] |', '[a.u.] |'
+  
+  write(10, '(a)') ' #' // adjustl(repeat('=', 218))
   write(10, '(a)') ''
   do it = 1,Nt
     t = t0 + (it-1) * dt
