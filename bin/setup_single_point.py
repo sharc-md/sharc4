@@ -40,7 +40,7 @@ from SHARC_INTERFACE import SHARC_INTERFACE
 import factory
 from logger import log
 
-version = '3.0'
+version = '4.0'
 versiondate = datetime.datetime(year=2023, month=8, day=22)
 
 # =========================================================0
@@ -426,6 +426,7 @@ This interactive program prepares SHARC single point calculations.
     log.info('')
 
     if setup:
+        INFOS['link_files'] = False
         if question("Do you want to link the interface files?", bool, default=False, autocomplete=False):
             INFOS['link_files'] = True
         setup_all(INFOS, chosen_interface)

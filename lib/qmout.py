@@ -1121,7 +1121,9 @@ class QMout:
         if QMin.requests["h"] or QMin.requests["soc"]:
             eshift = math.ceil(self["h"][0][0].real)
             string += "=> Hamiltonian Matrix:\nDiagonal Shift: %9.2f\n" % (eshift)
-            string += formatcomplexmatrix(self.h - eshift, states)
+            en = self.h.copy()
+            np.einsum("ii->i", en)[:] -= eshift
+            string += formatcomplexmatrix(en, states)
             string += "\n"
         # Dipole moment matrices
         if QMin.requests["dm"]:

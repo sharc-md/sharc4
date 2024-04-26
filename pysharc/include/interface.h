@@ -87,7 +87,7 @@ void verlet_vstep_(int * iredo);
 void verlet_finalize_(int * IExit, int * iskip);
 void finalize_sharc_(void);
 void write_restart_(void);
-void error_finalize_sharc_(void);
+void error_finalize_sharc_(char * string);
 #ifdef __cplusplus
 }
 #endif

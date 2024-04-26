@@ -1,0 +1,17 @@
+3
+Comment: QM.in file for no-QM/MM example
+ S     0.000000     0.000000     0.000841
+ H    -0.000000     0.974799     1.182934
+ H    -0.100000    -0.974799     1.182934
+
+States 3 3 3
+Unit Angstrom           # in which units to interpret the above geometry
+Step 0                 # Optional, used only to name the backup directories
+
+H
+#SOC
+#DM
+#GRAD
+#OVERLAP
+#PHASES
+#MOLDEN

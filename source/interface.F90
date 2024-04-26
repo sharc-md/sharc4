@@ -1383,13 +1383,21 @@ end subroutine finalize_sharc
 
 ! ------------------------------------------------------
 
-subroutine error_finalize_sharc()
+subroutine error_finalize_sharc(message)
+    use iso_c_binding
     use memory_module, only: traj, ctrl
     use output, only: write_final
     use definitions, only:  u_log, deallocate_traj, deallocate_ctrl
     implicit none
-    write(u_log, *) "Error called in finalize SHARC, ending Calculation"
-    write(u_log, *) "Restart files etc. saved!"
+    character(len=4096, kind=c_char),  intent(in) :: message
+    character(len=4096) :: str
+    integer :: nchars
+
+    call c_to_f_string(message, str, nchars) 
+    write(u_log,*) '============================================================='
+    write(u_log,*) 'QM call was not successful, aborting the run.'
+    write(u_log,*) message(1:nchars)
+    write(u_log,*) '============================================================='
     call write_restart()
     ! add further functions to deallocate sharc main!
     call deallocate_traj(traj)
@@ -1401,7 +1409,7 @@ end subroutine error_finalize_sharc
 ! ------------------------------------------------------
 
 subroutine write_restart()
-
+    
     use memory_module, only: traj, ctrl
     use definitions, only: u_rest, u_resc
     use restart, only: write_restart_ctrl, write_restart_traj 

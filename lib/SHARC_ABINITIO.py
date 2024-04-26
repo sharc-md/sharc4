@@ -5,8 +5,6 @@ import re
 import subprocess as sp
 import time
 from abc import abstractmethod
-from datetime import date
-from io import TextIOWrapper
 from itertools import starmap
 from multiprocessing import Pool, set_start_method
 from textwrap import dedent
@@ -106,70 +104,6 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             }
         )
 
-    @staticmethod
-    @abstractmethod
-    def authors() -> str:
-        return "Severin Polonius, Sebastian Mai"
-
-    @staticmethod
-    @abstractmethod
-    def version() -> str:
-        return "3.0"
-
-    @staticmethod
-    @abstractmethod
-    def versiondate() -> date:
-        return date(2021, 7, 15)
-
-    @staticmethod
-    @abstractmethod
-    def name() -> str:
-        return "base"
-
-    @staticmethod
-    @abstractmethod
-    def description() -> str:
-        return "Abstract base class for SHARC interfaces."
-
-    @staticmethod
-    @abstractmethod
-    def changelogstring() -> str:
-        return "This is the changelog string"
-
-    @staticmethod
-    @abstractmethod
-    def about() -> str:
-        return "Name and description of the interface"
-
-    @abstractmethod
-    def get_features(self, KEYSTROKES: Optional[TextIOWrapper] = None) -> set[str]:
-        """return availble features
-
-        ---
-        Parameters:
-        KEYSTROKES: object as returned by open() to be used with question()
-        """
-        return all_features
-
-    @abstractmethod
-    def get_infos(self, INFOS: dict, KEYSTROKES: Optional[TextIOWrapper] = None) -> dict:
-        """prepare INFOS obj
-
-        ---
-        Parameters:
-        INFOS: dictionary with all previously collected infos during setup
-        KEYSTROKES: object as returned by open() to be used with question()
-        """
-        return INFOS
-
-    @abstractmethod
-    def prepare(self, INFOS: dict, dir_path: str):
-        "setup the calculation in directory 'dir'"
-        return
-
-    def print_qmin(self) -> None:
-        self.log.info(f"{self.QMin}")
-
     @abstractmethod
     def execute_from_qmin(self, workdir: str, qmin: QMin) -> tuple[int, datetime.timedelta]:
         """
@@ -184,20 +118,12 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         """
 
     @abstractmethod
-    def read_template(self, template_file: str, kw_whitelist: Optional[list[str]] = None) -> None:
-        super().read_template(template_file, kw_whitelist)
-
-    @abstractmethod
     def read_resources(self, resources_file: str, kw_whitelist: Optional[list[str]] = None) -> None:
         kw_whitelist = [] if kw_whitelist is None else kw_whitelist
         super().read_resources(resources_file, kw_whitelist + ["theodore_fragment"])
 
         if self.QMin.resources["theodore_fragment"]:
             self.QMin.resources["theodore_fragment"] = convert_list(self.QMin.resources["theodore_fragment"])
-
-    @abstractmethod
-    def read_requests(self, requests_file: str = "QM.in") -> None:
-        super().read_requests(requests_file)
 
     def printQMout(self) -> None:
         super().writeQMout()
@@ -436,14 +362,6 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             self.log.debug(self.QMin.resources["wfoverlap"])
             assert is_exec(self.QMin.resources["wfoverlap"])
 
-    @abstractmethod
-    def getQMout(self):
-        pass
-
-    @abstractmethod
-    def create_restart_files(self):
-        pass
-
     def get_mole(self):
         raise NotImplementedError("This interface does not support the density request!")
 
@@ -498,13 +416,13 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 pool.join()
 
         # Processing error codes
-        error_string = "All jobs finished:\n"
+        error_string = ""
         for job, code in error_codes.items():
-            error_string += f"job: {job:<10s} code: {code.get()[0]:<4d} runtime: {code.get()[1]}\n"
-        self.log.info(f"{error_string}")
+            error_string += f"job: {job:<15s} code: {code.get()[0]:<4d} runtime: {code.get()[1]}\n"
+        self.log.info(f"All jobs finished:\n{error_string}")
 
         if any(map(lambda x: x.get()[0] != 0, error_codes.values())):
-            raise RuntimeError("Some subprocesses did not finish successfully!")
+            raise RuntimeError(f"Some subprocesses did not finish successfully!\n{error_string}")
 
         return error_codes
 
@@ -1044,7 +962,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         ao_read=0
         """
         )
-        if self.QMin.resources["numocc"]:
+        if "numocc" in self.QMin.resources:
             wf_input += f"\nndocc={self.QMin.resources['numocc']}"
 
         if self.QMin.resources["ncpu"] >= 8:
@@ -1130,24 +1048,14 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
 
         overlap_file: path to wfovlp.out
         """
-        overlap_mat = []
         with open(overlap_file, "r", encoding="utf-8") as wffile:
-            overlap_mat = []
-            while True:
-                line = next(wffile, False)
-                if not line or containsstring("matrix <PsiA_i|PsiB_j>", line):
-                    dim = -1 if not line else len(next(wffile).split()) // 2
-                    break
-
-            for line in wffile:
-                if containsstring("<PsiA", line):
-                    overlap_mat.append([float(x) for x in line.split()[2:]])
-                else:
-                    break
-
-            if len(overlap_mat) != dim:
-                raise ValueError(f"File {overlap_file} does not contain an overlap matrix!")
-        return np.asarray(overlap_mat)
+            wf_out = wffile.read()
+            dim = re.search(r"Number of <bra\| states:\s+(\d+)", wf_out)
+            if not dim:
+                raise ValueError("No states found in overlap file.")
+            ovlp_values = re.findall(r"Overlap matrix(.*?)Ren", wf_out, re.DOTALL)
+            ovlp_values = re.findall(r"-?\d+\.\d{10}", ovlp_values[0])
+        return np.asarray(ovlp_values, dtype=float).reshape(int(dim.group(1)), -1)
 
     def get_dyson(self, wfovl: str) -> np.ndarray:
         """
@@ -1407,6 +1315,23 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
 
     # also add staticmethod
     # routine to read wfoverlap output
+
+    def trim_civecs(self, civec: dict[tuple[int, ...], float]) -> None:
+        """
+        Sort civec dict by squared value, sum values iteratively and
+        delete remaining keys if threshold is exeeded.
+
+        civec:  CI vector dictionary
+        """
+        norm = 0.0
+        cnt = 0
+        for k, v in sorted(civec.items(), key=lambda x: x[1] ** 2, reverse=True):
+            if norm > self.QMin.resources["wfthres"]:
+                del civec[k]
+                continue
+            cnt += 1
+            norm += v**2
+        self.log.debug(f"Filter dets: norm {norm:.5f} after {cnt} entries, threshold {self.QMin.resources['wfthres']}")
 
     @abstractmethod
     def run(self) -> None:

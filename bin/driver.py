@@ -171,8 +171,8 @@ def finalize_sharc():
 def safe(func: callable):
     try:
         func()
-    except Error:
-        finalize_sharc()
+    except Exception as e:
+        sharc.error_finalize_sharc(str(e))
         raise
 
 
@@ -185,11 +185,10 @@ def do_qm_calc(i: SHARC_INTERFACE, qmout: QMOUT):
     log.debug(f"\trun")
     with InDir("QM"):
         safe(i.run)
-        i.getQMout()
         i.write_step_file()
-        i.clean_savedir(i.QMin.save["savedir"], i.QMin.requests["retain"], i.QMin.save["step"])
     log.debug(f"\tset_props")
-    qmout.set_props(i.QMout, icall)
+    qmout.set_props(i.getQMout(), icall)
+    i.clean_savedir(i.QMin.save["savedir"], i.QMin.requests["retain"], i.QMin.save["step"])
 
     isecond = set_qmout(qmout._QMout, icall)
     if isecond == 1:
@@ -198,11 +197,8 @@ def do_qm_calc(i: SHARC_INTERFACE, qmout: QMOUT):
         i.set_coords(get_crd())
         with InDir("QM"):
             safe(i.run)
-            i.getQMout()
-            i.clean_savedir(i.QMin.save["savedir"], i.QMin.requests["retain"], i.QMin.save["step"])
-        qmout.set_props(i.QMout, icall)
+        qmout.set_props(i.getQMout(), icall)
         set_qmout(qmout._QMout, icall)
-    return
 
 
 def main():
