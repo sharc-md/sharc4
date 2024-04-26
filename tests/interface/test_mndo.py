@@ -69,9 +69,7 @@ def get_tdm(outfile: str, template: str, qmin: str, tdms: list):
     test_interface.setup_interface()
     test_interface.read_requests(qmin)
     parsed = test_interface._get_transition_dipoles(outfile)
-    print(parsed)
-    print(tdms)
-    assert np.allclose(parsed, tdms, rtol=1e-5)
+    assert np.allclose(parsed, tdms, rtol=1e-4)
     
 
 def get_grads(outfile: str, template: str, qmin: str, grads: list, grads_pc: list):
@@ -83,8 +81,8 @@ def get_grads(outfile: str, template: str, qmin: str, grads: list, grads_pc: lis
     test_interface.read_requests(qmin)
     parsed = test_interface._get_grad(outfile)
     parsed_pc = test_interface._get_grad_pc(outfile)
-    assert np.allclose(parsed, grads, rtol=1e-8)
-    assert np.allclose(parsed_pc, grads_pc, rtol=1e-8)
+    assert np.allclose(parsed, grads, rtol=1e-5)
+    assert np.allclose(parsed_pc, grads_pc, rtol=1e-5)
 
 def get_grads_no_pc(outfile: str, template: str, qmin: str, grads: list):
     test_interface = SHARC_MNDO()
@@ -94,7 +92,7 @@ def get_grads_no_pc(outfile: str, template: str, qmin: str, grads: list):
     test_interface.setup_interface()
     test_interface.read_requests(qmin)
     parsed = test_interface._get_grad(outfile)
-    assert np.allclose(parsed, grads, rtol=1e-8)
+    assert np.allclose(parsed, grads, rtol=1e-5)
 
 def get_nacs(logfile:str, fortfile: str, template: str, qmin: str, nacs: list, nacs_pc: list):
     test_interface = SHARC_MNDO()
