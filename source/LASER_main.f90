@@ -106,10 +106,10 @@ program create_laser
   write(10, '(a)') ' ! file_version 2.0'
   write(10, '(a, i0)') ' ! nsteps = ', Nt
   write(10, '(a, 107(es16.8,x))') ' ! dt = ', dt
-  write(10, '(a)') ' ! E-field = true'
-  write(10, '(a)') ' ! B-field = true'
-  write(10, '(a)') ' ! E-field_gradients = false'
-  write(10, '(a)') ' ! B-field_gradients = false'
+  write(10, '(a)') ' ! e-field = true'
+  write(10, '(a)') ' ! b-field = true'
+  write(10, '(a)') ' ! e-field_gradients = false'
+  write(10, '(a)') ' ! b-field_gradients = false'
   write(10, '(a)') ' ! laser_freq_path = laser_freq'
   write(10, '(a)') ' #' // adjustl(repeat('=', 218))
   write(10, '(A2, A14, A17, A17, A17, A17, A17, A17, A17, A17, A17, A17, A17, A17)') & 
@@ -151,6 +151,12 @@ program create_laser
   write(10, '(a)') ' ! Laser freq file'
   write(10, '(a)') ' ! SHARC 4.0'
   write(10, '(a)') ' ! file_version 2.0' 
+  write(10, '(a)') ' #' // adjustl(repeat('=',31))
+  write(10, '(A2, A14, A17)') & 
+            ' # ', 'Time |', 'Frequency |'
+   write(10, '(A2, A14, A17)') &
+             ' # ', '[fs] |', '[a.u.] |'
+  write(10, '(a)') ' #' // adjustl(repeat('=', 31))
   write(10, '(a)') ''
   do it = 1,Nt
     t = t0 + (it-1) * dt

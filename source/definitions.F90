@@ -502,7 +502,7 @@ type ctrl_type
   complex*16, allocatable :: laserfield_egrad_tpd(:,:,:)   !< complex valued laser field gradient ( E-field)
   complex*16, allocatable :: laserfield_bgrad_tpd(:,:,:)   !< complex valued laser field gradient ( E-field)
   complex*16, allocatable :: laserenergy_tl(:,:)  !< momentary central energy of laser (for detecting induced hops)
-
+  character*1023, allocatable :: laser_freq_file_path      ! Laser frequency file path 
   ! thermostat
   integer :: ntempregions                     !< number of regions with different thermostat conditions
   integer,allocatable :: tempregion(:)        !< array of thermostat region number for each atom
