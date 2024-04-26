@@ -103,12 +103,10 @@ public set_project_diffthr
 public matwrite
 public vecwrite
 public vec3write
-public vec33write
 public vec2write
 public matread
 public vecread
 public vec3read
-public vec33read
 public vec2read
 public ishermitian
 public isantihermitian
@@ -174,10 +172,6 @@ interface vec3write
   module procedure d3vecwrite,z3vecwrite
 endinterface
 
-interface vec33write
-  module procedure d33vecwrite,z33vecwrite
-endinterface
-
 interface vec2write
   module procedure d2vecwrite,z2vecwrite
 endinterface
@@ -192,10 +186,6 @@ endinterface
 
 interface vec3read
   module procedure d3vecread,z3vecread
-endinterface
-
-interface vec33read
-  module procedure d33vecread,z33vecread
 endinterface
 
 interface vec2read

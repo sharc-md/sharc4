@@ -215,10 +215,27 @@ module qm
     enddo
     if (printlevel>3) write(u_log,'(A31,A2)') 'Hamiltonian:                   ','OK'
 
-    ! get Dipole moments
+    ! get electric Dipole moments
     if (ctrl%calc_dipole==1) then
-      call get_dipoles(ctrl%nstates, traj%DM_ssd)
-      if (printlevel>3) write(u_log,'(A31,A2)') 'Dipole Moments:                ','OK'
+      call get_electric_dipoles(ctrl%nstates, traj%DM_ssd)
+      if (printlevel>3) write(u_log,'(A31,A2)') 'Electric Dipole Moments:                ','OK'
+      traj%DM_print_ssd=traj%DM_ssd
+      ! apply frozen-state mask 
+      do i=1,ctrl%nstates
+        do j=1,ctrl%nstates
+          if (ctrl%actstates_s(i).neqv.ctrl%actstates_s(j)) traj%DM_ssd(i,j,:)=dcmplx(0.d0,0.d0)
+        enddo
+      enddo
+    endif
+
+    ! get electric Dipole moments (DM), magnetic DM, electric QM
+    if (ctrl%calc_dipole==2) then
+      call get_electric_dipoles(ctrl%nstates, traj%DM_ssd)
+      if (printlevel>3) write(u_log,'(A31,A2)') 'Electric Dipole Moments:                ','OK'
+      call get_magnetic_dipoles(ctrl%nstates, traj%DM_ssd)
+      if (printlevel>3) write(u_log,'(A31,A2)') 'Magnetic Dipole Moments:                ','OK' 
+      call get_electric_quadrupoles(ctrl%nstates, traj%DM_ssd)
+      if (printlevel>3) write(u_log,'(A31,A2)') 'Electric Quadrupole Moments:                ','OK' 
       traj%DM_print_ssd=traj%DM_ssd
       ! apply frozen-state mask 
       do i=1,ctrl%nstates

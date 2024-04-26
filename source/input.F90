@@ -2937,7 +2937,6 @@ module input
     rewind(u_i_laser)
 
     if (laser_file_version==2.0) then
-      write(0,*) laser_freq_file_path
       open(u_i_laser_freq, file=laser_freq_file_path, status='old', action='read', iostat=io)
 
       if (printlevel>1) write(u_log,'(3a)') 'Reading from laser frequency file "',trim(laser_freq_file_path),'"'
@@ -3154,7 +3153,6 @@ module input
           endif
           do j=1,ctrl%nlasers
             read(values(1+j),*) a
-            write(0,*) trim(values(1+j))
             ctrl%laserenergy_tl(i-freq_com_line_number,j)=dcmplx(a,0.d0)
           enddo
         endif  

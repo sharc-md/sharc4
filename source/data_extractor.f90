@@ -95,11 +95,15 @@ program data_extractor
   integer :: have_overlap                 !< whether overlap matrices are in the dat file (0=no, 1=yes)
   integer :: have_grad                    !< whether gradients are in the dat file (0=no, 1=yes)
   integer :: have_NAC                     !< whether nonadiabatic couplings are in the dat file (0=no, 1=yes)
-  integer :: have_property1d                !< whether property vectors are in the dat file (0=no, 1=yes)
-  integer :: have_property2d                !< whether property matrices are in the dat file (0=no, 1=yes)
-  integer :: n_property1d                !< 
-  integer :: n_property2d                !< 
+  integer :: have_property1d              !< whether property vectors are in the dat file (0=no, 1=yes)
+  integer :: have_property2d              !< whether property matrices are in the dat file (0=no, 1=yes)
+  integer :: n_property1d                 !< 
+  integer :: n_property2d                 !< 
   integer :: laser                        !< whether a laser field is in the dat file (0=no, 1=, 2=yes)
+  logical :: laser_e = .false.            !< false=none, true=exists (Laser E-field)
+  logical :: laser_b = .false.            !< false=none, true=exists (Laser B-field)
+  logical :: laser_egrad = .false.        !< false=none, true=exists (Laser E-field gradients)
+  logical :: laser_bgrad = .false.        !< false=none, true=exists (Laser E-field gradients)
   integer :: nsteps                       !< number of timesteps from dat file (needed to read the laser field)
   integer :: nsubsteps                    !< number of substeps (needed to read the laser field)
   integer :: nprojections                    !< number of vectors to project dipole moment onto
@@ -133,7 +137,10 @@ program data_extractor
   complex*16, allocatable :: H_diag_ss(:,:)       !< diagonal Hamiltonian (including laser field)
   complex*16, allocatable :: A_ss(:,:)            !< temporary matrix
   complex*16, allocatable :: coeff_MCH_s(:)       !< MCH coefficient vector
-  complex*16, allocatable :: laser_td(:,:)        !< laser field for all timesteps
+  complex*16, allocatable :: laserfield_e_tp(:,:)        !< laser field for all timesteps
+  complex*16, allocatable :: laserfield_b_tp(:,:)   !< complex valued laser field (B-field)
+  complex*16, allocatable :: laserfield_egrad_tpd(:,:,:)   !< complex valued laser field gradient ( E-field)
+  complex*16, allocatable :: laserfield_bgrad_tpd(:,:,:)   !< complex valued laser field gradient ( E-field)
   complex*16, allocatable :: coeff_diab_s(:)      !< diabatic coefficient vector
   real*8,allocatable :: expec_pop(:)                !< spin expectation value per state
   real*8,allocatable :: expec_s(:)                !< spin expectation value per state
@@ -695,6 +702,39 @@ program data_extractor
     else
       laser=0
     endif
+    
+    if (laser==2) then
+      ! look up laser e-field keyword
+      line=get_value_from_key('laser_e',io)
+      if (io==0) then
+        read(line,*) laser_e
+      else
+        laser_e=.false.
+      endif
+      ! look up laser b-field keyword
+      line=get_value_from_key('laser_b',io)
+      if (io==0) then
+        read(line,*) laser_b
+      else
+        laser_b=.false.
+      endif
+      
+      ! look up laser e-field gradient keyword
+      line=get_value_from_key('laser_egrad',io)
+      if (io==0) then
+        read(line,*) laser_egrad
+      else
+        laser_egrad=.false.! look up laser e-field gradient keyword
+      endif
+
+      ! look up laser b-field gradient keyword
+      line=get_value_from_key('laser_bgrad',io)
+      if (io==0) then
+        read(line,*) laser_bgrad
+      else
+        laser_bgrad=.false.
+      endif
+    endif
 
     line=get_value_from_key('nsteps',io)
     if (io==0) then
@@ -735,8 +775,31 @@ program data_extractor
     ! if an explicit laser file is in the dat file, read it now
     ! laser field comes before the time step data
     if (laser==2) then
-      allocate( laser_td(nsteps*nsubsteps+1,3) )
-      call vec3read(nsteps*nsubsteps+1,laser_td,u_dat,string1)
+      if (laser_e .EQV. .true.) then
+        allocate( laserfield_e_tp(nsteps*nsubsteps+1,3) )
+        call vec3read(nsteps*nsubsteps+1,laserfield_e_tp,u_dat,string1)
+      endif
+      if (laser_b .EQV. .true.) then
+        allocate( laserfield_b_tp(nsteps*nsubsteps+1,3) )
+        call vec3read(nsteps*nsubsteps+1,laserfield_b_tp,u_dat,string1) 
+      endif
+      if (laser_egrad .EQV. .true.) then
+        allocate( laserfield_egrad_tpd(nsteps*nsubsteps+1,3,3) )
+        do idir=1,3 
+          call vec3read(nsteps*nsubsteps+1,laserfield_egrad_tpd(:,:,idir),u_dat,string1)
+        enddo
+      endif
+      if (laser_bgrad .EQV. .true.) then
+        allocate( laserfield_bgrad_tpd(nsteps*nsubsteps+1,3,3) )
+        do idir=1,3 
+          call vec3read(nsteps*nsubsteps+1,laserfield_bgrad_tpd(:,:,idir),u_dat,string1)
+        enddo
+      endif
+      if ((laser_e .EQV. .false.) .and. (laser_b .EQV. .false.) &
+          .and. (laser_egrad .EQV. .false.) .and. (laser_bgrad .EQV. .false.)) then
+        allocate( laserfield_e_tp(nsteps*nsubsteps+1,3) )
+        call vec3read(nsteps*nsubsteps+1,laserfield_e_tp,u_dat,string1)
+      endif           
     endif
 
     ! skip the "End of header array data" separator line
@@ -1095,7 +1158,7 @@ program data_extractor
     H_diag_ss=H_MCH_ss
     if (laser==2) then
       do idir=1,3
-        H_diag_ss=H_diag_ss - DM_mch_ssd(:,:,idir)*real(laser_td(step*nsubsteps+1,idir))
+        H_diag_ss=H_diag_ss - DM_mch_ssd(:,:,idir)*real(laserfield_e_tp(step*nsubsteps+1,idir))
       enddo
     endif
 !     call matwrite(nstates,H_diag_ss,0,'Hbefore','F12.9')

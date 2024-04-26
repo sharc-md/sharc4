@@ -67,9 +67,11 @@ int_method = "cubic"
 tolerance = 2  # only one works for now
 
 progress_width = 50
-
+write_shift=0
 sim_file_attrs = ["dimensions", "tmax_si", "rxmin_si_output", "rxmax_si_output", "ymin_si_output", "ymax_si_output", "zmin_si_output", "zmax_si_output"]
 
+efields = ["e_x_data_si", "e_y_data_si", "e_z_data_si"]
+bfields = ["b_x_data_si", "b_y_data_si", "b_z_data_si"]
 
 def question(question, typefunc, default=None, autocomplete=True, ranges=False):
     return old_question(question=question, typefunc=typefunc, KEYSTROKES=KEYSTROKES, default=default, autocomplete=autocomplete, ranges=ranges)
@@ -97,7 +99,7 @@ def custom_formatter(val: float):
     """
     assert isinstance(val, float), "val must be a float!"
     if val!=0.0:
-        if val<1E-99:
+        if np.abs(val)<1E-99:
             val=0.0
     val_form = '{:.8e}'.format(val)  # Format with 3 digits for the exponent
     mantissa, exponent = val_form.split('e')
@@ -170,11 +172,7 @@ def get_general(INFOS):
         sim_file = h5py.File(sim_file_path, 'r')
     except IOError:
         log.info('Could not open: {sim_file_path}')
-    print(os.listdir())
     for attrs in sim_file_attrs:
-        print(attrs)
-        print(sim_file.attrs)
-        print(sim_file)
         try:
             sim_file.attrs[attrs]
             pass
@@ -196,7 +194,6 @@ def get_general(INFOS):
         # INFOS['Nt'], INFOS['Nrx'], INFOS['Nz'] = sim_file['e_x_data_si'].shape
         log.info('Cylindrical coordinates not implemented yet!')
         raise IOError
-    # INFOS[''] = 
     log.info(f'\nFile "{sim_file_path}" contains simulation output in {sim_file.attrs["dimensions"]} coordinates.')
     log.info("Fields are saved within the following coordinates:")
     
@@ -249,6 +246,19 @@ def get_general(INFOS):
             continue
         break
     INFOS["delta"] = delta[0]*1E-9
+    log.info('\nWhich fields/gradients do you want to export? Default: y')
+    export_e = question('Export electric field:', bool, True)  # Default time step 
+    export_b = question('Export magnetic field:', bool, True)  # Default time step 
+    export_egrad = question('Export electric field gradients:', bool, True)  # Default time step 
+    export_bgrad = question('Export magnetic field gradients:', bool, True)  # Default time step 
+    if not export_e and not export_b and not export_egrad and not export_bgrad: 
+        log.info('Nothing to export!')
+        raise IOError
+        # QA: Does one have to return a value, if raise IOError?
+    INFOS["export_e"]=export_e
+    INFOS["export_b"]=export_b
+    INFOS["export_egrad"]=export_egrad
+    INFOS["export_bgrad"]=export_bgrad
     return INFOS
 
 
@@ -315,8 +325,11 @@ def calc_fields(INFOS, t_arr, rx_arr, y_arr, z_arr, quant: str, cmplx: str, read
                                      point_idx[2]-tol:point_idx[2]+tol+1]),
                                                  method=int_method) 
         fields = interp(interpol_point)[0]
-        gradients = [(interp((interpol_point+di_basis))[0]- interp((interpol_point-di_basis))[0])/(2*INFOS["delta"]) for di_basis in [dx_basis, dy_basis, dz_basis]]
-        return fields, *gradients 
+        if ((quant in efields) and INFOS["export_egrad"]) or ((quant in bfields) and INFOS["export_bgrad"]):
+            gradients = [(interp((interpol_point+di_basis))[0]- interp((interpol_point-di_basis))[0])/(2*INFOS["delta"]) for di_basis in [dx_basis, dy_basis, dz_basis]]
+            return fields, *gradients 
+        else:
+            return [fields]
     else:
         log.info(f'Dimension not implemented yet: {INFOS["dimensions"]}')
         raise IOError
@@ -353,54 +366,63 @@ def main():
         y_arr = np.linspace(INFOS["ymin"], INFOS["ymax"], INFOS["Ny"], endpoint=True)
         z_arr = np.linspace(INFOS["zmin"], INFOS["zmax"], INFOS["Nz"], endpoint=True)
 
-        # Initialize laser fields file
-        laser_file = np.nan*np.ones((len(int_t_arr), 49))  # tsteps, (f_exr, f_eyr, f_ezr or f_bxr, f_byr, f_bzr) #3*2 Exyz (real, imag), #3*2 Bxyz (real, imag), #3*3*2 Grad Exyz (real, imag), #3*3*2 Grad Bxyz (real, imag)
-        laser_file[:, 0] = int_t_arr*1E15  # SAVE timesteps in fs
 
         point_idx = [np.argmin(np.abs(INFOS["extract_point"][0]-rx_arr)),
                      np.argmin(np.abs(INFOS["extract_point"][1]-y_arr)),  
                      np.argmin(np.abs(INFOS["extract_point"][2]-z_arr))]  
 
-        efields = ["e_x_data_si", "e_y_data_si", "e_z_data_si"]
-        bfields = ["b_x_data_si", "b_y_data_si", "b_z_data_si"]
 
         log.info("Interpolating E-fields/Gradients and writing to laser file:")
-        for fld_count, fld in enumerate(efields):
-            fields_gradients_real = []
-            fields_gradients_imag = []
-            for t_count, t_i in enumerate(int_t_arr):
-                # Calculate real fields
-                fields_gradients_real.append(calc_fields(INFOS, t_arr, rx_arr, y_arr, z_arr, fld, "real", t_i, point_idx, tolerance, int_method))
-                # Calculate imaginary fields
-                fields_gradients_imag.append(calc_fields(INFOS, t_arr, rx_arr, y_arr, z_arr, fld, "imag", t_i, point_idx, tolerance, int_method))
-                done = t_count * progress_width // len(int_t_arr)
-                sys.stdout.write("\rProgress for component '%s': [" % (fld) + "=" * done + " " * (progress_width - done) + "] %3i%%" % (done * 100 // progress_width))
-            sys.stdout.write("\rProgress for component '%s': ["  % (fld) + "=" * progress_width + " " * (0) + "] %3i%% \n" % (100))
-            fields_gradients_real = np.asarray(fields_gradients_real)
-            fields_gradients_imag = np.asarray(fields_gradients_imag)  
-            laser_file[:, 1+fld_count*2] = fields_gradients_real[:, 0]/efield_au_to_v_per_m
-            laser_file[:, 13+fld_count*6], laser_file[:, 15+fld_count*6], laser_file[:, 17+fld_count*6] =  (fields_gradients_real[:, 1:]/efield_grad_au_to_v_per_m2).T 
-            laser_file[:, 2+fld_count*2] = fields_gradients_imag[:, 0]/efield_au_to_v_per_m
-            laser_file[:, 14+fld_count*6], laser_file[:, 16+fld_count*6], laser_file[:, 18+fld_count*6] =  (fields_gradients_imag[:, 1:]/efield_grad_au_to_v_per_m2).T 
-
-        log.info("E-field extracted!")
-        log.info("Interpolating B-fields/Gradients and writing to laser file:") 
-        for fld_count, fld in enumerate(bfields):
-            fields_gradients_real = []
-            fields_gradients_imag = []
-            for t_count, t_i in enumerate(int_t_arr):
-                fields_gradients_real.append(calc_fields(INFOS, t_arr, rx_arr, y_arr, z_arr, fld, "real", t_i, point_idx, tolerance, int_method))
-                fields_gradients_imag.append(calc_fields(INFOS, t_arr, rx_arr, y_arr, z_arr, fld, "imag", t_i, point_idx, tolerance, int_method))
-                done = t_count * progress_width // len(int_t_arr)
-                sys.stdout.write("\rProgress for component '%s': [" % (fld) + "=" * done + " " * (progress_width - done) + "] %3i%%" % (done * 100 // progress_width))
-            sys.stdout.write("\rProgress for component '%s': ["  % (fld) + "=" * progress_width + " " * (0) + "] %3i%% \n" % (100))
-            fields_gradients_real = np.asarray(fields_gradients_real)
-            fields_gradients_imag = np.asarray(fields_gradients_imag) 
-            laser_file[:, 7+fld_count*2] = fields_gradients_real[:, 0]/bfield_au_to_t 
-            laser_file[:, 31+fld_count*6], laser_file[:, 33+fld_count*6], laser_file[:, 35+fld_count*6] =  (fields_gradients_real[:, 1:]/bfield_grad_au_to_t_per_m).T 
-            laser_file[:, 8+fld_count*2] = fields_gradients_imag[:, 0]/bfield_au_to_t
-            laser_file[:, 32+fld_count*6], laser_file[:, 34+fld_count*6], laser_file[:, 36+fld_count*6] =  (fields_gradients_imag[:, 1:]/bfield_grad_au_to_t_per_m).T 
-        log.info("B-field extracted!")
+        e_write_shift = int(1)
+        b_write_shift = e_write_shift+6*int(INFOS["export_e"])
+        egrad_write_shift = b_write_shift+6*int(INFOS["export_b"])
+        bgrad_write_shift = egrad_write_shift+18*int(INFOS["export_egrad"])
+        no_of_columns = bgrad_write_shift+18*int(INFOS["export_bgrad"])
+        head_line_length = 16*no_of_columns-2
+        # Initialize laser fields file
+        laser_file = np.nan*np.ones((len(int_t_arr), no_of_columns))  # tsteps, (f_exr, f_eyr, f_ezr or f_bxr, f_byr, f_bzr) #3*2 Exyz (real, imag), #3*2 Bxyz (real, imag), #3*3*2 Grad Exyz (real, imag), #3*3*2 Grad Bxyz (real, imag)
+        laser_file[:, 0] = int_t_arr*1E15  # SAVE timesteps in fs
+        if INFOS["export_e"] or INFOS["export_egrad"]:
+            for fld_count, fld in enumerate(efields):
+                fields_gradients_real = []
+                fields_gradients_imag = []
+                for t_count, t_i in enumerate(int_t_arr):
+                    # Calculate real fields
+                    fields_gradients_real.append(calc_fields(INFOS, t_arr, rx_arr, y_arr, z_arr, fld, "real", t_i, point_idx, tolerance, int_method))
+                    # Calculate imaginary fields
+                    fields_gradients_imag.append(calc_fields(INFOS, t_arr, rx_arr, y_arr, z_arr, fld, "imag", t_i, point_idx, tolerance, int_method))
+                    done = t_count * progress_width // len(int_t_arr)
+                    sys.stdout.write("\rProgress for component '%s': [" % (fld) + "=" * done + " " * (progress_width - done) + "] %3i%%" % (done * 100 // progress_width))
+                sys.stdout.write("\rProgress for component '%s': ["  % (fld) + "=" * progress_width + " " * (0) + "] %3i%% \n" % (100))
+                fields_gradients_real = np.asarray(fields_gradients_real)
+                fields_gradients_imag = np.asarray(fields_gradients_imag)  
+                if INFOS["export_e"]:
+                    laser_file[:, e_write_shift+fld_count*2] = fields_gradients_real[:, 0]/efield_au_to_v_per_m
+                    laser_file[:, e_write_shift+1+fld_count*2] = fields_gradients_imag[:, 0]/efield_au_to_v_per_m
+                if INFOS["export_egrad"]:
+                    laser_file[:, egrad_write_shift+fld_count*6], laser_file[:, egrad_write_shift+2+fld_count*6], laser_file[:, egrad_write_shift+4+fld_count*6] =  (fields_gradients_real[:, 1:]/efield_grad_au_to_v_per_m2).T 
+                    laser_file[:, egrad_write_shift+1+fld_count*6], laser_file[:, egrad_write_shift+3+fld_count*6], laser_file[:, egrad_write_shift+5+fld_count*6] =  (fields_gradients_imag[:, 1:]/efield_grad_au_to_v_per_m2).T 
+            log.info("E-field/E-gradients extracted!")
+        if INFOS["export_b"] or INFOS["export_bgrad"]:
+            log.info("Interpolating B-fields/Gradients and writing to laser file:") 
+            for fld_count, fld in enumerate(bfields):
+                fields_gradients_real = []
+                fields_gradients_imag = []
+                for t_count, t_i in enumerate(int_t_arr):
+                    fields_gradients_real.append(calc_fields(INFOS, t_arr, rx_arr, y_arr, z_arr, fld, "real", t_i, point_idx, tolerance, int_method))
+                    fields_gradients_imag.append(calc_fields(INFOS, t_arr, rx_arr, y_arr, z_arr, fld, "imag", t_i, point_idx, tolerance, int_method))
+                    done = t_count * progress_width // len(int_t_arr)
+                    sys.stdout.write("\rProgress for component '%s': [" % (fld) + "=" * done + " " * (progress_width - done) + "] %3i%%" % (done * 100 // progress_width))
+                sys.stdout.write("\rProgress for component '%s': ["  % (fld) + "=" * progress_width + " " * (0) + "] %3i%% \n" % (100))
+                fields_gradients_real = np.asarray(fields_gradients_real)
+                fields_gradients_imag = np.asarray(fields_gradients_imag) 
+                if INFOS["export_b"]:
+                    laser_file[:, b_write_shift+fld_count*2] = fields_gradients_real[:, 0]/bfield_au_to_t 
+                    laser_file[:, b_write_shift+1+fld_count*2] = fields_gradients_imag[:, 0]/bfield_au_to_t
+                if INFOS["export_bgrad"]:
+                    laser_file[:, bgrad_write_shift+fld_count*6], laser_file[:, bgrad_write_shift+2+fld_count*6], laser_file[:, bgrad_write_shift+4+fld_count*6] =  (fields_gradients_real[:, 1:]/bfield_grad_au_to_t_per_m).T 
+                    laser_file[:, bgrad_write_shift+1+fld_count*6], laser_file[:, bgrad_write_shift+3+fld_count*6], laser_file[:, bgrad_write_shift+5+fld_count*6] =  (fields_gradients_imag[:, 1:]/bfield_grad_au_to_t_per_m).T 
+            log.info("B-field/B-gradients extracted!")
         log.info("Calculate central laser frequency on the chosen position.")
         # SAVE LASER FILE
         # header = "t/fs , Re[Erho/x] (au), Im[Erho/x] (au), Re[Ephi/y] (au), Im[Ephi/y] (au), Re[Ez] (au), Im[Ez] (au), \
@@ -411,21 +433,23 @@ def main():
          file_version 2.0 
          nsteps = {len(int_t_arr)} 
          dt {INFOS["electronic time_step"]:.8E}
-         e-field true 
-         b-field true
-         e-field_grad true 
-         b-field_grad true 
+         e-field {str(INFOS["export_e"]).lower()} 
+         b-field {str(INFOS["export_b"]).lower()}  
+         e-field_grad {str(INFOS["export_egrad"]).lower()}   
+         b-field_grad {str(INFOS["export_bgrad"]).lower()}    
          laser_freq_path laser_freq'''
-        header_line = f''' #{"="*782}'''+"\n"
-        field_columns = ["Time", \
-                   "Re(Ex)", "Im(Ex)", "Re(Ey)", "Im(Ey)", "Re(Ez)", "Im(Ez)", \
-                   "Re(Bx)", "Im(Bx)", "Re(By)", "Im(By)", "Re(Bz)", "Im(Bz)", \
-                   "Re(Ex_grad_x)", "Im(Ex_grad_x)", "Re(Ex_grad_y)", "Im(Ex_grad_y)", "Re(Ex_grad_z)", "Im(Ex_grad_z)", \
-                   "Re(Ey_grad_x)", "Im(Ey_grad_x)", "Re(Ey_grad_y)", "Im(Ey_grad_y)", "Re(Ey_grad_z)", "Im(Ey_grad_z)", \
-                   "Re(Ez_grad_x)", "Im(Ez_grad_x)", "Re(Ez_grad_y)", "Im(Ez_grad_y)", "Re(Ez_grad_z)", "Im(Ez_grad_z)", \
-                   "Re(Bx_grad_x)", "Im(Bx_grad_x)", "Re(Bx_grad_y)", "Im(Bx_grad_y)", "Re(Bx_grad_z)", "Im(Bx_grad_z)", \
-                   "Re(By_grad_x)", "Im(By_grad_x)", "Re(By_grad_y)", "Im(By_grad_y)", "Re(By_grad_z)", "Im(By_grad_z)", \
-                   "Re(Bz_grad_x)", "Im(Bz_grad_x)", "Re(Bz_grad_y)", "Im(Bz_grad_y)", "Re(Bz_grad_z)", "Im(Bz_grad_z)"]
+        header_line = f''' #{"="*head_line_length}'''+"\n"
+        field_columns = ["Time"]
+        [field_columns.append(val) for val in ["Re(Ex)", "Im(Ex)", "Re(Ey)", "Im(Ey)", "Re(Ez)", "Im(Ez)"] if INFOS["export_e"]]
+        [field_columns.append(val) for val in ["Re(Bx)", "Im(Bx)", "Re(By)", "Im(By)", "Re(Bz)", "Im(Bz)"] if INFOS["export_b"]]
+        [field_columns.append(val) for val in ["Re(Ex_grad_x)", "Im(Ex_grad_x)", "Re(Ex_grad_y)", "Im(Ex_grad_y)", "Re(Ex_grad_z)", "Im(Ex_grad_z)", 
+                                               "Re(Ey_grad_x)", "Im(Ey_grad_x)", "Re(Ey_grad_y)", "Im(Ey_grad_y)", "Re(Ey_grad_z)", "Im(Ey_grad_z)",
+                                               "Re(Ez_grad_x)", "Im(Ez_grad_x)", "Re(Ez_grad_y)", "Im(Ez_grad_y)", "Re(Ez_grad_z)", "Im(Ez_grad_z)"]
+            if INFOS["export_egrad"]]
+        [field_columns.append(val) for val in ["Re(Bx_grad_x)", "Im(Bx_grad_x)", "Re(Bx_grad_y)", "Im(Bx_grad_y)", "Re(Bx_grad_z)", "Im(Bx_grad_z)",
+                                               "Re(By_grad_x)", "Im(By_grad_x)", "Re(By_grad_y)", "Im(By_grad_y)", "Re(By_grad_z)", "Im(By_grad_z)",
+                                               "Re(Bz_grad_x)", "Im(Bz_grad_x)", "Re(Bz_grad_y)", "Im(Bz_grad_y)", "Re(Bz_grad_z)", "Im(Bz_grad_z)"]
+            if INFOS["export_bgrad"]]
         
         unit_columns = ["[fs]"]+["a.u."]*(len(field_columns)-1)
         # {"[fs] |":>14} {"[a.u.] |":>17} {"[a.u.] |":>17} {"[a.u.] |":>17} {"[a.u.] |":>17} {"[a.u.] |":>17} {"[a.u.] |":>17} 

@@ -456,7 +456,7 @@ type ctrl_type
   integer :: calc_nacdt                     !< 0=no, 1=request time derivatives
   integer :: calc_nacdr                     !< request nac vectors: \n -1=no, 0=all in step 1, 1=select in step 1, 2=select in step 2
   integer :: calc_effectivenac              !< 0=no, 1=request effective nac vectors
-  integer :: calc_dipole                    !< 0=no, 1=request dipolemoment 
+  integer :: calc_dipole                    !< 0=no, 1=request el. dipolemoment (DM), 2=request mag. DM and el. QM
   integer :: calc_dipolegrad                !< request dipole gradient vectors: \n -1=no, 0=all in step 1, 1=select in step 1, 2=select in step 2
   integer :: calc_second                    !< 0=no, 1=do two interface calls per timestep
   integer :: calc_phases                    !< 0=no, 1=yes
