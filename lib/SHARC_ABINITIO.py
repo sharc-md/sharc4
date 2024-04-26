@@ -418,7 +418,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         # Processing error codes
         error_string = ""
         for job, code in error_codes.items():
-            error_string += f"job: {job:<10s} code: {code.get()[0]:<4d} runtime: {code.get()[1]}\n"
+            error_string += f"job: {job:<15s} code: {code.get()[0]:<4d} runtime: {code.get()[1]}\n"
         self.log.info(f"All jobs finished:\n{error_string}")
 
         if any(map(lambda x: x.get()[0] != 0, error_codes.values())):
