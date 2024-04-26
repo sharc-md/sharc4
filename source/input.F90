@@ -2901,6 +2901,7 @@ module input
       stop 1
     endif
 
+    ! Check for header of laser file
     read(u_i_laser,'(A)',iostat=io) line
     if (io/=0) then
       write(0,*) 'EOF encountered during read of laser file!'

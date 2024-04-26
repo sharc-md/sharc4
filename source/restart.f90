@@ -823,34 +823,22 @@ module restart
       read(u_ctrl,*) ctrl%nlasers
       if (ctrl%laser_e) then
           allocate( ctrl%laserfield_e_tp(ctrl%nsteps*ctrl%nsubsteps+1,3) )
+          call vec3read(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_e_tp, u_ctrl, line)
       endif
       if (ctrl%laser_b) then
           allocate( ctrl%laserfield_b_tp(ctrl%nsteps*ctrl%nsubsteps+1,3) )
-      endif
-      if (ctrl%laser_egrad) then
-          allocate( ctrl%laserfield_egrad_tpd(ctrl%nsteps*ctrl%nsubsteps+1,3,3) )
-      endif
-      allocate( ctrl%laserenergy_tl(ctrl%nsteps*ctrl%nsubsteps+1,ctrl%nlasers) )
-      call vec3read(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_e_tp, u_ctrl, string)
-      call vec3read(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_b_tp, u_ctrl, string)
-      call vec3read(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_e_grad_tpd, u_ctrl, string)
-      if (ctrl%laser_e) then
-          call vec3read(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_e_tp, u_ctrl, string)
-      endif
-      if (ctrl%laser_b) then
-          allocate( ctrl%laserfield_b_tp(ctrl%nsteps*ctrl%nsubsteps+1,3) )
-          call vec3read(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_b_tp, u_ctrl, string)
+          call vec3read(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_b_tp, u_ctrl, line)
       endif
       if (ctrl%laser_egrad) then
           allocate( ctrl%laserfield_egrad_tpd(ctrl%nsteps*ctrl%nsubsteps+1,3,3) )
           do idir=1,3
-            call vec3read(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_egrad_tpd(:,:,idir), u_ctrl, string)
-          enddo 
+            call vec3read(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_egrad_tpd(:,:,idir), u_ctrl, line)
+          enddo
       endif
       if (ctrl%laser_bgrad) then
           allocate( ctrl%laserfield_bgrad_tpd(ctrl%nsteps*ctrl%nsubsteps+1,3,3) )
           do idir=1,3
-            call vec3read(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_bgrad_tpd(:,:,idir), u_ctrl, string)
+            call vec3read(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_bgrad_tpd(:,:,idir), u_ctrl, line)
           enddo 
       endif
       allocate( ctrl%laserenergy_tl(ctrl%nsteps*ctrl%nsubsteps+1,ctrl%nlasers) )
