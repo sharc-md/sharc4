@@ -243,7 +243,7 @@ def main():
     time_arr = read_time(INFOS)
     header = f'''\
         ! Laser frequency file SHARC {sharcversion}
-        ! version 1.0 
+        ! version 2.0 
         ! laser file path = {INFOS["laser_file_path"]} 
         '''
     header = '\n'.join(line.lstrip() for line in header.split('\n'))

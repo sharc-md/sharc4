@@ -1,3 +1,0 @@
-2 ! Number of lasers
-F ! Real-valued field (T) or not (F)
-0 ! Set starting time, end of time and number of time steps (t0[fs],tEnd[fs],Nt)

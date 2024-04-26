@@ -195,10 +195,12 @@ endif
 DATA_EXTRACTOR =  qm_out.o \
 		  data_extractor.o
 
-LASER=  LASER_definitions.o \
-	LASER_calc_fftw.o \
-	LASER_input.o \
-	LASER_main.o 
+LASER =	definitions.o \
+		vector_operations.o \
+		LASER_definitions.o \
+		LASER_calc_fftw.o \
+		LASER_input.o \
+		LASER_main.o 
 
 
 DIAGONALIZER = string.o \

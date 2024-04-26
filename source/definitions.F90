@@ -404,6 +404,9 @@ type ctrl_type
   integer :: staterep                       !< 0=initial state is given in diag representation, 1=in MCH representation
   integer :: initcoeff                      !< 0=initial coefficients are diag, 1=initial coefficients are MCH, 2=auto diag, 3=auto MCH
   integer :: laser                          !< 0=none, 1=internal, 2=external
+  logical :: laser_e                        !< 0=none, 1=exists (Laser E-field)
+  logical :: laser_b                        !< 0=none, 1=exists (Laser B-field)
+  logical :: laser_egrad                    !< 0=none, 1=exists (Laser E-field gradients)
   integer :: coupling                       !< 0=ddt, 1=ddr, 2=overlap, 3=ktdc
   integer :: ktdc_method                    !< 0=gradient based approximation, 1=energy based approximation
   integer :: kmatrix_method                 !< 0=gradient based approximation, 1=energy based approximation
@@ -492,7 +495,9 @@ type ctrl_type
   ! laser
   real*8 :: laser_bandwidth                       !< for detecting induced hops (in a.u.)
   integer :: nlasers
-  complex*16, allocatable :: laserfield_td(:,:)   !< complex valued laser field
+  complex*16, allocatable :: laserfield_e_tp(:,:)   !< complex valued laser field (E-field)
+  complex*16, allocatable :: laserfield_b_tp(:,:)   !< complex valued laser field (B-field)
+  complex*16, allocatable :: laserfield_egrad_tpd(:,:)   !< complex valued laser field gradient ( E-field)
   complex*16, allocatable :: laserenergy_tl(:,:)  !< momentary central energy of laser (for detecting induced hops)
 
   ! thermostat
@@ -530,7 +535,7 @@ real*8,parameter:: au2debye=2.5417469d0           !< dipole moment
 
 complex*16,parameter:: ii=dcmplx(0.d0,1.d0)       !< imaginary unit
 real*8,parameter:: pi=4.d0*datan(1.d0)            !< pi
-
+real*8,parameter:: speed_of_light_au=137.035999084
 character*20,parameter :: multnames(8)=(/'Singlet','Doublet','Triplet','Quartet','Quintet',' Sextet',' Septet','  Octet'/)
 !< strings used to represent the multiplicities
 ! =========================================================== !
@@ -1010,7 +1015,9 @@ integer, parameter :: u_qm_QMout=42          !< here SHARC retrieves the results
       if (allocated(ctrl%actstates_s))                deallocate(ctrl%actstates_s)
       if (allocated(ctrl%atommask_a))                 deallocate(ctrl%atommask_a)
       if (allocated(ctrl%atommask_b))                 deallocate(ctrl%atommask_b)
-      if (allocated(ctrl%laserfield_td))              deallocate(ctrl%laserfield_td)
+      if (allocated(ctrl%laserfield_e_tp))            deallocate(ctrl%laserfield_e_tp)
+      if (allocated(ctrl%laserfield_b_tp))            deallocate(ctrl%laserfield_b_tp)
+      if (allocated(ctrl%laserfield_egrad_tpd))       deallocate(ctrl%laserfield_egrad_tpd)
       if (allocated(ctrl%laserenergy_tl))             deallocate(ctrl%laserenergy_tl)
       if (allocated(ctrl%lpzpe_ah))                   deallocate(ctrl%lpzpe_ah)
       if (allocated(ctrl%lpzpe_bc))                   deallocate(ctrl%lpzpe_bc)

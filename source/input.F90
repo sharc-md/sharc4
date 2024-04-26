@@ -2913,7 +2913,9 @@ module input
       endif
       rewind(u_i_laser)
 
-      allocate(ctrl%laserfield_td(ctrl%nsteps*ctrl%nsubsteps+1,3))
+      allocate(ctrl%laserfield_e_tp(ctrl%nsteps*ctrl%nsubsteps+1,3))
+      allocate(ctrl%laserfield_b_tp(ctrl%nsteps*ctrl%nsubsteps+1,3))
+      allocate(ctrl%laserfield_e_grad_tpd(ctrl%nsteps*ctrl%nsubsteps+1,3,3))
       allocate(ctrl%laserenergy_tl(ctrl%nsteps*ctrl%nsubsteps+1,ctrl%nlasers))
 
       ! read laser field line by line, checking the time with the substeps given above
@@ -2924,7 +2926,10 @@ module input
           stop 1
         endif
         call split(line,' ',values,n)
-        if (n<8) then
+        if (values(1)=='!') then
+          read(values(1))
+        endif
+        if (i>=10) and (n<8) then
           write(0,*) 'Laser file malformatted! Line=',i
           stop 1
         endif
@@ -2943,7 +2948,19 @@ module input
         do j=1,3
           read(values(2*j),*) a
           read(values(2*j+1),*) b
-          ctrl%laserfield_td(i,j)=dcmplx(a,b)
+          ctrl%laserfield_e_tp(i,j)=dcmplx(a,b)
+        enddo
+       do j=4,6
+          read(values(2*j),*) a
+          read(values(2*j+1),*) b
+          ctrl%laserfield_b_tp(i,j)=dcmplx(a,b)
+        enddo 
+       do j=1,3
+            do k=1,3
+                read(values(6*j+6+2*k),*) a
+                read(values(6*j+7+2*k),*) b
+                ctrl%laserfield_e_grad_tpd(i,j,k)=dcmplx(a,b)
+            enddo 
         enddo
         do j=1,ctrl%nlasers
           read(values(7+j),*) a
@@ -2955,7 +2972,7 @@ module input
 
       if (printlevel>1) then
         write(u_log,'(a,1x,i8,1x,a)') 'Laser field with',(ctrl%nsteps*ctrl%nsubsteps+1), 'steps has been read successfully.'
-!         n=sizeof(ctrl%laserfield_td)
+!         n=sizeof(ctrl%laserfield_e_tp)
 !         write(u_log,'(a,1x,i10,1x,a)') 'Using',n,'bytes for laser data.'
         write(u_log,'(a)') 'Step size has been checked.'
         write(u_log,'(a,1x,i2,1x,a)') 'Laser central frequencies for',ctrl%nlasers,'lasers read.'
@@ -3593,7 +3610,9 @@ module input
     enddo
     if (ctrl%laser==2) then
       do i=1,min(40,ctrl%nsteps*ctrl%nsubsteps+1)
-        write(key,'(6(F9.6))') (ctrl%laserfield_td(i,j),j=1,3)
+        write(key,'(6(F9.6))') (ctrl%laserfield_e_tp(i,j),j=1,3)
+        write(key,'(6(F9.6))') (ctrl%laserfield_b_tp(i,j),j=1,3)
+        write(key,'(6(F9.6))') (ctrl%laserfield_e_grad_tpd(i,j,k),j=1,3,k=1,3)
         string=trim(string)//trim(key)
       enddo
     endif

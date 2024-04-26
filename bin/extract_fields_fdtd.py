@@ -405,7 +405,7 @@ def main():
         # Re[Brho/x] (au), Im[Brho/x] (au), Re[Bphi/y] (au), Im[Brho/y] (au), Re[Bz] (au), Im[Bz] (au)"
         header = f'''\
         ! Laser file SHARC {sharcversion}
-        ! version 1.0 
+        ! version 2.0 
         ! nsteps = {len(int_t_arr)} 
         ! dt = {INFOS["electronic time_step"]:.8E}
         ! E-fields = true 

@@ -193,7 +193,9 @@ module restart
     if (ctrl%laser==2) then
       write(u,*) ctrl%laser_bandwidth
       write(u,*) ctrl%nlasers
-      call vec3write(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_td, u, 'Laser field','ES24.16E3')
+      call vec3write(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_e_tp, u, 'Laser E-field','ES24.16E3')
+      call vec3write(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_b_tp, u, 'Laser B-field','ES24.16E3')
+      call vec3write(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_e_grad_tpd, u, 'Laser E-field gradient','ES24.16E3')
       do ilaser=1,ctrl%nlasers
         call vecwrite(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserenergy_tl(:,ilaser), u, 'Laser Energy','ES24.16E3')
       enddo
@@ -798,9 +800,17 @@ module restart
     if (ctrl%laser==2) then
       read(u_ctrl,*) ctrl%laser_bandwidth
       read(u_ctrl,*) ctrl%nlasers
-      allocate( ctrl%laserfield_td(ctrl%nsteps*ctrl%nsubsteps+1,3) )
+      allocate( ctrl%laserfield_e_tp(ctrl%nsteps*ctrl%nsubsteps+1,3) )
+      allocate( ctrl%laserfield_b_tp(ctrl%nsteps*ctrl%nsubsteps+1,3) )
+      allocate( ctrl%laserfield_e_grad_tpd(ctrl%nsteps*ctrl%nsubsteps+1,3) )
       allocate( ctrl%laserenergy_tl(ctrl%nsteps*ctrl%nsubsteps+1,ctrl%nlasers) )
+<<<<<<< HEAD
       call vec3read(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_td, u_ctrl, line)
+=======
+      call vec3read(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_e_tp, u_ctrl, string)
+      call vec3read(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_b_tp, u_ctrl, string)
+      call vec3read(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_e_grad_tpd, u_ctrl, string)
+>>>>>>> 8445742 (added B-field and E-field_grad - not tested!)
       do ilaser=1,ctrl%nlasers
         call vecread(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserenergy_tl(:,ilaser), u_ctrl, line)
       enddo

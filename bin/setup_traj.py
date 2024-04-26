@@ -501,6 +501,41 @@ def get_initconds(INFOS):
 # ======================================================================================================================
 
 
+def check_laserfileversion(laser_filename, laserfreq_filename):
+    if laser_filename is None:
+        raise IOError
+        return None 
+    elif laserfreq_filename is None:
+        version = 1.0
+        try:
+            f = open(laser_filename)
+            data = f.readlines()
+            f.close()
+        except IOError:
+            print('Could not open laser file %s' % (laser_filename))
+            return False 
+        return version    
+    else:
+        version = 2.0
+        try:
+            f = open(laser_filename)
+            data = f.readlines()
+            f.close()
+        except IOError:
+            print('Could not open laser file %s' % (laser_filename))
+            return False 
+        try:
+            f = open(laserfreq_filename)
+            data = f.readlines()
+            f.close()
+        except IOError:
+            print('Could not open laser frequency file %s' % (laserfreq_filename))
+            return False  
+        return version
+
+# ======================================================================================================================
+
+
 def check_laserfile(filename, nsteps, dt):
     log.info('Laser file must have %i steps and a time step of %f fs.' % (nsteps,dt))
     try:
@@ -512,7 +547,7 @@ def check_laserfile(filename, nsteps, dt):
         return False
     n = 0
     for line in data:
-        if len(line.split()) >= 8:
+        if len(line.split()) >= 13:  # time, Ex_r, Ex_i, Ey_r, Ey_i, Ez_r, Ez_i, Bx_r, Bx_i , By_r, By_i, Bz_r, Bz_i
             n += 1
         else:
             break
@@ -524,6 +559,35 @@ def check_laserfile(filename, nsteps, dt):
         t1 = float(data[i + 1].split()[0])
         if abs(abs(t1 - t0) - dt) > 1e-6:
             log.info("Time step wrong in file %s at line %i." % (filename, i + 1))
+            return False
+    return True
+
+
+# ======================================================================================================================
+
+
+def check_laserfreqfile(filename, nsteps, dt):
+    try:
+        f = open(filename)
+        data = f.readlines()
+        f.close()
+    except IOError:
+        print('Could not open laser file %s' % (filename))
+        return False
+    n = 0
+    for line in data:
+        if len(line.split()) >= 13:  # time, freq 
+            n += 1
+        else:
+            break
+    if n < nsteps:
+        print('File %s has only %i timesteps, %i steps needed!' % (filename, n, nsteps))
+        return False
+    for i in range(int(nsteps) - 1):
+        t0 = float(data[i].split()[0])
+        t1 = float(data[i + 1].split()[0])
+        if abs(abs(t1 - t0) - dt) > 1e-6:
+            print('Time step wrong in file %s at line %i.' % (filename, i + 1))
             return False
     return True
 

@@ -27,7 +27,8 @@ module LASER_input
   integer,allocatable :: type_envelope(:)
   real(kind=8) :: t0
   real(kind=8) :: dt
-  real(kind=8),allocatable :: polarization(:,:)
+  real(kind=8),allocatable :: polarization_b(:,:)
+  real(kind=8),allocatable :: polarization_e(:,:)
   real(kind=8),allocatable :: field_strength(:)
   real(kind=8),allocatable :: fwhm(:)
   real(kind=8),allocatable :: pulse_begin(:)
@@ -42,7 +43,7 @@ module LASER_input
   real(kind=8),allocatable :: b_4(:)
   real(kind=8),allocatable :: threshold(:)
   logical :: realvalued
-  
+  logical :: same_polarization 
   contains
 subroutine read_params
   
@@ -55,7 +56,8 @@ subroutine read_params
   integer :: unit_case
   
   real(kind=8) :: tEnd
-  real(kind=8) :: polarization_norm
+  real(kind=8) :: polarization_b_norm
+  real(kind=8) :: polarization_e_norm
 
   character*255 :: line
 
@@ -94,7 +96,8 @@ subroutine read_params
   write(6,*) debug
 
   
-  allocate (polarization(3,Nlasers))
+  allocate (polarization_b(3,Nlasers))
+  allocate (polarization_e(3,Nlasers))
   allocate (type_envelope(Nlasers))
   allocate (field_strength(Nlasers))
   allocate (fwhm(Nlasers))
@@ -116,18 +119,37 @@ subroutine read_params
     write(42,'(255A)')
     write(6,*)
     
-    write(6,*) 'Choose polarization vector (e.g. 2.,0.,0. will be normalized):'
+    write(6,*) 'Choose polarization_e vector (e.g. 0.,2.,0. will be normalized):'
     read(5,'(A)') line
     call removecomment(line)
-    write(42,'(255A)') trim(line),' ! Choose polarization vector (e.g. 2.,0.,0. will be normalized)'
-    read(line,*)  (polarization(ixyz,ilasers),ixyz=1,3)
-    polarization_norm = 0.
+    write(42,'(255A)') trim(line),' ! Choose polarization_e vector (e.g. 0.,0.,0. will be normalized)'
+    read(line,*)  (polarization_e(ixyz,ilasers),ixyz=1,3)
+    polarization_e_norm = 0.
     do ixyz = 1,3
-      polarization_norm = polarization_norm + (polarization(ixyz,ilasers))**2
+      polarization_e_norm = polarization_e_norm + (polarization_e(ixyz,ilasers))**2
     enddo
-    polarization(:,ilasers) = polarization(:,ilasers) / sqrt(polarization_norm)
-    write(6,*) (polarization(ixyz,ilasers),ixyz=1,3)
-     
+    polarization_e(:,ilasers) = polarization_e(:,ilasers) / sqrt(polarization_e_norm)
+    write(6,*) (polarization_e(ixyz,ilasers),ixyz=1,3)
+
+    write(6,*) 'Choose polarization_b vector (e.g. 2.,0.,0. will be normalized):'
+    read(5,'(A)') line
+    call removecomment(line)
+    write(42,'(255A)') trim(line),' ! Choose polarization_b vector (e.g. 2.,0.,0. will be normalized)'
+    read(line,*)  (polarization_b(ixyz,ilasers),ixyz=1,3)
+    polarization_b_norm = 0.
+    do ixyz = 1,3
+      polarization_b_norm = polarization_b_norm + (polarization_b(ixyz,ilasers))**2
+    enddo
+    polarization_b(:,ilasers) = polarization_b(:,ilasers) / sqrt(polarization_b_norm)
+    write(6,*) (polarization_b(ixyz,ilasers),ixyz=1,3)
+
+    same_polarization = all(polarization_e(:, ilasers) == polarization_b(:, ilasers))
+
+    if (same_polarization) then
+        print*, 'Error! E-field is parallel to B-field. Choose different orientations!'
+        stop
+    end if
+
     write(6,*) 'Choose type of envelope (1=Gaussian,2=Sinusoidal):'
     read(5,'(A)') line
     call removecomment(line)
