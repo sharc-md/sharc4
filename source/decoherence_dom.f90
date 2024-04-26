@@ -293,7 +293,7 @@ subroutine DoM_step_MCH(traj,ctrl)
         &traj%H_MCH_ss, traj%H_MCH_old_ss,&
         &traj%NACdt_ss, traj%NACdt_old_ss,&
         &traj%DM_ssd,traj%DM_old_ssd,&
-        &ctrl%laserfield_td( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
+        &ctrl%laserfield_e_tp( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
         &traj%RDtotal_ss, traj%Dtotal_ss)
     case (1)    ! linear interpolation, default for coupling=ddr,nacdr
       call repropagate_coeff_laser(&
@@ -304,7 +304,7 @@ subroutine DoM_step_MCH(traj,ctrl)
         &traj%H_MCH_ss, traj%H_MCH_old_ss,&
         &traj%NACdt_ss, traj%NACdt_old_ss,&
         &traj%DM_ssd,traj%DM_old_ssd,&
-        &ctrl%laserfield_td( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
+        &ctrl%laserfield_e_tp( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
         &traj%RDtotal_ss, traj%Dtotal_ss)
     case (3)    ! norm perserving interpolation
       call repropagate_coeff_NPI_laser(&
@@ -315,7 +315,7 @@ subroutine DoM_step_MCH(traj,ctrl)
         &traj%H_MCH_ss, traj%H_MCH_old_ss,&
         &traj%overlaps_ss,&
         &traj%DM_ssd,traj%DM_old_ssd,&
-        &ctrl%laserfield_td( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
+        &ctrl%laserfield_e_tp( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
         &traj%RDtotal_ss, traj%Dtotal_ss)
   endselect
   endif
@@ -563,7 +563,7 @@ subroutine compute_svec_tau_control(traj,ctrl)
   H_ss=traj%H_MCH_ss
   if (ctrl%laser==2) then
     do idir=1,3
-      H_ss=H_ss-traj%DM_ssd(:,:,idir)*real(ctrl%laserfield_td(traj%step*ctrl%nsubsteps+1,idir))
+      H_ss=H_ss-traj%DM_ssd(:,:,idir)*real(ctrl%laserfield_e_tp(traj%step*ctrl%nsubsteps+1,idir))
     enddo
   endif
   if (printlevel>4) then
@@ -1912,7 +1912,7 @@ endsubroutine
 !    &traj%H_MCH_ss, traj%H_MCH_old_ss,&
 !    &traj%NACdt_ss, traj%NACdt_old_ss,&
 !    &traj%DM_ssd,traj%DM_old_ssd,&
-!    &ctrl%laserfield_td( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
+!    &ctrl%laserfield_e_tp( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
 !    &traj%RDtotal_ss, Dtotal_ss)
 !> DC is the current decoherence coefficient, which is at time t as input
 !> DC is also the output as decoherence coefficient at time t+dt
@@ -2035,7 +2035,7 @@ endsubroutine
 !    &traj%H_MCH_ss, traj%H_MCH_old_ss,&
 !    &traj%overlaps_ss,&
 !    &traj%DM_ssd,traj%DM_old_ssd,&
-!    &ctrl%laserfield_td((traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
+!    &ctrl%laserfield_e_tp((traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
 !    &traj%RDtotal_ss, Dtotal_ss)
 !> DC is the current decoherence coefficient, which is at time t as input
 !> DC is also the output as decoherence coefficient at time t+dt

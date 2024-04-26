@@ -143,10 +143,10 @@ subroutine read_params
     polarization_b(:,ilasers) = polarization_b(:,ilasers) / sqrt(polarization_b_norm)
     write(6,*) (polarization_b(ixyz,ilasers),ixyz=1,3)
 
-    same_polarization = all(polarization_e(:, ilasers) == polarization_b(:, ilasers))
+    same_polarization = all(cross_product( polarization_e(:, ilasers) , polarization_b(:, ilasers)) == 0)
 
     if (same_polarization) then
-        print*, 'Error! E-field is parallel to B-field. Choose different orientations!'
+        print*, 'Error! E-field is (anti-)parallel to B-field. Choose different orientations!'
         stop
     end if
 

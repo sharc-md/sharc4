@@ -325,7 +325,7 @@ module qm
     ! if laser field, add it here, without imaginary part
     if (ctrl%laser==2) then
       do i=1,3
-        traj%H_diag_ss=traj%H_diag_ss - traj%DM_ssd(:,:,i)*real(ctrl%laserfield_td(traj%step*ctrl%nsubsteps+1,i))
+        traj%H_diag_ss=traj%H_diag_ss - traj%DM_ssd(:,:,i)*real(ctrl%laserfield_e_tp(traj%step*ctrl%nsubsteps+1,i))
       enddo
     endif
 
@@ -1103,7 +1103,7 @@ module qm
       elseif (ctrl%laser==2) then
         H_temp=traj%H_MCH_ss
         do idir=1,3
-          H_temp=H_temp - traj%DM_ssd(:,:,idir)*real(ctrl%laserfield_td(traj%step*ctrl%nsubsteps+1,idir))
+          H_temp=H_temp - traj%DM_ssd(:,:,idir)*real(ctrl%laserfield_e_tp(traj%step*ctrl%nsubsteps+1,idir))
         enddo
         call diagonalize(ctrl%nstates,H_temp,U_temp)
       endif
@@ -1137,7 +1137,7 @@ module qm
             do jstate=1,ctrl%nstates
               do ipol=1,3
                 NACdR_diag_ss(istate,jstate)=NACdR_diag_ss(istate,jstate)-&
-                &traj%DMgrad_ssdad(istate,jstate,ipol,iatom,idir)*ctrl%laserfield_td(traj%step*ctrl%nsubsteps+1,ipol)
+                &traj%DMgrad_ssdad(istate,jstate,ipol,iatom,idir)*ctrl%laserfield_e_tp(traj%step*ctrl%nsubsteps+1,ipol)
               enddo
             enddo
           enddo
@@ -1183,7 +1183,7 @@ module qm
             do jstate=1,ctrl%nstates
               do ipol=1,3
                 pNACdR_diag_ss(istate,jstate)=pNACdR_diag_ss(istate,jstate)-&
-                &traj%DMgrad_ssdad(istate,jstate,ipol,iatom,idir)*ctrl%laserfield_td(traj%step*ctrl%nsubsteps+1,ipol)
+                &traj%DMgrad_ssdad(istate,jstate,ipol,iatom,idir)*ctrl%laserfield_e_tp(traj%step*ctrl%nsubsteps+1,ipol)
               enddo
             enddo
           enddo
@@ -1601,7 +1601,7 @@ module qm
       traj%H_diag_ss=traj%H_MCH_ss
       if (ctrl%laser==2) then
         do ixyz=1,3
-          traj%H_diag_ss=traj%H_diag_ss - traj%DM_ssd(:,:,ixyz)*real(ctrl%laserfield_td(traj%step*ctrl%nsubsteps+1,ixyz))
+          traj%H_diag_ss=traj%H_diag_ss - traj%DM_ssd(:,:,ixyz)*real(ctrl%laserfield_e_tp(traj%step*ctrl%nsubsteps+1,ixyz))
         enddo
       endif
       if (ctrl%surf==0) then
@@ -2294,7 +2294,7 @@ module qm
       elseif (ctrl%laser==2) then
         H_temp=traj%H_MCH_ss
         do idir=1,3
-          H_temp=H_temp - traj%DM_ssd(:,:,idir)*real(ctrl%laserfield_td(traj%step*ctrl%nsubsteps+1,idir))
+          H_temp=H_temp - traj%DM_ssd(:,:,idir)*real(ctrl%laserfield_e_tp(traj%step*ctrl%nsubsteps+1,idir))
         enddo
         call diagonalize(ctrl%nstates,H_temp,U_temp)
       endif
@@ -2423,9 +2423,9 @@ module qm
             do jstate=1,ctrl%nstates
               do ipol=1,3
                 G1matrix_ss(istate,jstate)=G1matrix_ss(istate,jstate)-&
-                &traj%DMgrad_ssdad(istate,jstate,ipol,iatom,idir)*ctrl%laserfield_td(traj%step*ctrl%nsubsteps+1,ipol)
+                &traj%DMgrad_ssdad(istate,jstate,ipol,iatom,idir)*ctrl%laserfield_e_tp(traj%step*ctrl%nsubsteps+1,ipol)
                 G2matrix_ss(istate,jstate)=G2matrix_ss(istate,jstate)-&
-                &traj%DMgrad_ssdad(istate,jstate,ipol,iatom,idir)*ctrl%laserfield_td(traj%step*ctrl%nsubsteps+1,ipol)
+                &traj%DMgrad_ssdad(istate,jstate,ipol,iatom,idir)*ctrl%laserfield_e_tp(traj%step*ctrl%nsubsteps+1,ipol)
               enddo
             enddo
           enddo
@@ -2739,7 +2739,7 @@ module qm
               do jstate=1,ctrl%nstates
                 do ipol=1,3
                   Gmatrix_ss(istate,jstate)=Gmatrix_ss(istate,jstate)-&
-                  &traj%DMgrad_ssdad(istate,jstate,ipol,iatom,idir)*ctrl%laserfield_td(traj%step*ctrl%nsubsteps+1,ipol)
+                  &traj%DMgrad_ssdad(istate,jstate,ipol,iatom,idir)*ctrl%laserfield_e_tp(traj%step*ctrl%nsubsteps+1,ipol)
                 enddo
               enddo
             enddo
@@ -2795,7 +2795,7 @@ module qm
               do jstate=1,ctrl%nstates
                 do ipol=1,3
                   Gmatrix_ss(istate,jstate)=Gmatrix_ss(istate,jstate)-&
-                  &traj%DMgrad_ssdad(istate,jstate,ipol,iatom,idir)*ctrl%laserfield_td(traj%step*ctrl%nsubsteps+1,ipol)
+                  &traj%DMgrad_ssdad(istate,jstate,ipol,iatom,idir)*ctrl%laserfield_e_tp(traj%step*ctrl%nsubsteps+1,ipol)
                 enddo
               enddo
             enddo

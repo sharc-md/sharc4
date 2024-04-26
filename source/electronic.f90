@@ -540,7 +540,7 @@ subroutine Electronic_gradients_MCH(traj,ctrl)
     H_ss=traj%H_MCH_ss
   else if (ctrl%laser==2) then
     do idir=1,3
-      H_ss=traj%H_MCH_ss-traj%DM_ssd(:,:,idir)*real(ctrl%laserfield_td(traj%step*ctrl%nsubsteps+1,idir))
+      H_ss=traj%H_MCH_ss-traj%DM_ssd(:,:,idir)*real(ctrl%laserfield_e_tp(traj%step*ctrl%nsubsteps+1,idir))
     enddo
   endif
   if (printlevel>4) then

@@ -60,12 +60,12 @@ program create_laser
   
   allocate (laser_efield(Nt,3), STAT=allocatestatus)
   if (allocatestatus /= 0) stop "*** Not enough memory 1 ***"
- ! allocate (complex_polarization_b(3), STAT=allocatestatus)
- ! if (allocatestatus /= 0) stop "*** Not enough memory 2 ***"
- allocate (complex_polarization_e(3), STAT=allocatestatus)
- if (allocatestatus /= 0) stop "*** Not enough memory 3 ***"
- ! allocate (complex_wavevector(3), STAT=allocatestatus)
- ! if (allocatestatus /= 0) stop "*** Not enough memory 4 ***"
+  ! allocate (complex_polarization_b(3), STAT=allocatestatus)
+  ! if (allocatestatus /= 0) stop "*** Not enough memory 2 ***"
+  allocate (complex_polarization_e(3), STAT=allocatestatus)
+  if (allocatestatus /= 0) stop "*** Not enough memory 3 ***"
+  ! allocate (complex_wavevector(3), STAT=allocatestatus)
+  ! if (allocatestatus /= 0) stop "*** Not enough memory 4 ***"
   allocate (x(3), STAT=allocatestatus)
   if (allocatestatus /= 0) stop "*** Not enough memory 5 ***"
   allocate (laser_bfield(Nt,3), STAT=allocatestatus)
