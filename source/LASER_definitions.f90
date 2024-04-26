@@ -39,7 +39,7 @@ module LASER_definitions
   double precision, parameter :: D2Cm = 3.336d-30             ! transforms dipole moment in d to C * m
   double precision, parameter :: au2I = 3.509d16              ! transforms (intensity in a.u.)^2 to W/cm^2, attention: watch the square!!!
   double precision, parameter :: au2GV_m = 514.502            ! transforms (field strength in a.u.) to GV/m
-  
+  double precision, parameter :: speed_of_light_au = 137.035999084  
   double precision, parameter :: pi = 3.1415926535897932384626433832795028841971693993751058209749445923078164d0 ! that's just pi
   
   logical :: debug

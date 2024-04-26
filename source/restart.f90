@@ -64,7 +64,7 @@ module restart
     integer :: u
     type(ctrl_type) :: ctrl
 
-    integer :: imult, istate, ilaser, iatom, iconstr, ipair
+    integer :: imult, istate, ilaser, iatom, iconstr, ipair, idir
 
     ! the ctrl restart file is only written once at the beginning to avoid writing the laser field
     ! each timestep
@@ -116,6 +116,7 @@ module restart
     write(u,*) ctrl%laser_e, '! laser_efield'
     write(u,*) ctrl%laser_b, '! laser_bfield'
     write(u,*) ctrl%laser_egrad, '! laser_efield_grad'
+    write(u,*) ctrl%laser_file_version, '! laser_file_version'
     write(u,*) ctrl%coupling
     write(u,*) ctrl%ktdc_method
     write(u,*) ctrl%kmatrix_method
@@ -203,7 +204,9 @@ module restart
         call vec3write(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_b_tp, u, 'Laser B-field','ES24.16E3')
       endif
       if (ctrl%laser_egrad) then
-        call vec33write(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_egrad_tpd, u, 'Laser E-field gradient','ES24.16E3')
+        do idir=1,3 
+          call vec3write(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_egrad_tpd(:,:,idir), u, 'Laser E-field gradient','ES24.16E3')
+        enddo
       endif 
       do ilaser=1,ctrl%nlasers
         call vecwrite(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserenergy_tl(:,ilaser), u, 'Laser Energy','ES24.16E3')
@@ -638,7 +641,7 @@ module restart
     use misc
     use decoherence_afssh
     implicit none
-    integer :: iconstr
+    integer :: iconstr, idir
     integer :: u_ctrl,u_traj
     type(trajectory_type) :: traj
     type(ctrl_type) :: ctrl
@@ -712,6 +715,7 @@ module restart
     read(u_ctrl,*) ctrl%laser_e
     read(u_ctrl,*) ctrl%laser_b
     read(u_ctrl,*) ctrl%laser_egrad
+    read(u_ctrl,*) ctrl%laser_file_version
     read(u_ctrl,*) ctrl%coupling
     read(u_ctrl,*) ctrl%ktdc_method
     read(u_ctrl,*) ctrl%kmatrix_method
@@ -829,11 +833,16 @@ module restart
           call vec3read(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_e_tp, u_ctrl, string)
       endif
       if (ctrl%laser_b) then
+          allocate( ctrl%laserfield_b_tp(ctrl%nsteps*ctrl%nsubsteps+1,3) )
           call vec3read(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_b_tp, u_ctrl, string)
       endif
       if (ctrl%laser_egrad) then
-          call vec33read(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_egrad_tpd, u_ctrl, string)
+          allocate( ctrl%laserfield_egrad_tpd(ctrl%nsteps*ctrl%nsubsteps+1,3,3) )
+          do idir=1,3
+            call vec3read(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_egrad_tpd(:,:,idir), u_ctrl, string)
+          enddo 
       endif
+      allocate( ctrl%laserenergy_tl(ctrl%nsteps*ctrl%nsubsteps+1,ctrl%nlasers) )
       do ilaser=1,ctrl%nlasers
         call vecread(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserenergy_tl(:,ilaser), u_ctrl, line)
       enddo

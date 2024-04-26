@@ -36,11 +36,11 @@ program create_laser
   use LASER_input
   use LASER_calc
   use vector_operations
-  use definitions, only: speed_of_light_au 
   implicit none
   
   integer :: ilasers
-  integer :: ixyz
+  integer :: ip_xyz ! index running over the polarization directions x,y,z
+ ! integer :: id_xyz ! index running over the gradient directions x,y,z
   integer :: it
 !   integer :: NE
 !   integer :: max_polarizaton_index(1)
@@ -61,27 +61,24 @@ program create_laser
   
   allocate (laser_efield(Nt,3), STAT=allocatestatus)
   if (allocatestatus /= 0) stop "*** Not enough memory 1 ***"
+  allocate (laser_bfield(Nt,3), STAT=allocatestatus)
+  if (allocatestatus /= 0) stop "*** Not enough memory 2 ***"
   allocate (wavevector(3), STAT=allocatestatus)
   if (allocatestatus /= 0) stop "*** Not enough memory 4 ***"
   allocate (x(3), STAT=allocatestatus)
   if (allocatestatus /= 0) stop "*** Not enough memory 5 ***"
-  allocate (laser_bfield(Nt,3), STAT=allocatestatus)
-  if (allocatestatus /= 0) stop "*** Not enough memory 6 ***"
-  write(6,*) "Size of myArray: ", size(polarization_b(:, :)) 
-  write(6,*) "Size of myArray: ", size(polarization_b(:, :)) 
   allocate (laser_t(Nt), STAT=allocatestatus)
-  if (allocatestatus /= 0) stop "*** Not enough memory 7 ***"
+  if (allocatestatus /= 0) stop "*** Not enough memory 6 ***"
   allocate (envelope(Nt), STAT=allocatestatus)
-  if (allocatestatus /= 0) stop "*** Not enough memory 8 ***"
+  if (allocatestatus /= 0) stop "*** Not enough memory 7 ***"
   allocate (env(Nt,Nlasers), STAT=allocatestatus)
-  if (allocatestatus /= 0) stop "*** Not enough memory 9 ***"
+  if (allocatestatus /= 0) stop "*** Not enough memory 8 ***"
   allocate (momentary_frequency(Nt), STAT=allocatestatus)
-  if (allocatestatus /= 0) stop "*** Not enough memory 10 ***"
+  if (allocatestatus /= 0) stop "*** Not enough memory 9 ***"
   allocate (mom_freq(Nt,Nlasers), STAT=allocatestatus)
-  if (allocatestatus /= 0) stop "*** Not enough memory 11 ***"
+  if (allocatestatus /= 0) stop "*** Not enough memory 10 ***"
   laser_efield = 0.
   laser_bfield = 0.
-  
   do ilasers = 1, Nlasers
     call field_transform(laser_t,type_envelope(ilasers),field_strength(ilasers),fwhm(ilasers), &
                          pulse_begin(ilasers),pulse_center(ilasers),pulse_center2(ilasers), &
@@ -90,34 +87,47 @@ program create_laser
     env(:,ilasers) = sqrt(dble(laser_t(:))**2+aimag(laser_t(:))**2)
     mom_freq(:,ilasers) = momentary_frequency(:)
     wavevector = cross_product( polarization_e(:, ilasers), polarization_b(:, ilasers))
-    do ixyz = 1,3
+    do ip_xyz = 1,3
       do it = 1,Nt
         if (abs(laser_t(it)) < threshold(ilasers)) then
           laser_t(it) = 0.
           endif
-          laser_efield(it, ixyz) = laser_efield(it,ixyz) + polarization_e(ixyz,ilasers)*laser_t(it)
+          laser_efield(it, ip_xyz) = laser_efield(it,ip_xyz) + polarization_e(ip_xyz,ilasers)*laser_t(it)
           x = laser_efield(it, :)
           laser_bfield(it,:) = cross_product( wavevector, x)/speed_of_light_au
-    
       enddo
     enddo
   enddo
   write(6,*) 'Writing out laser field'
   open (10,file='laser')
   ! Write the header information
-  write(10, '(a)') ' ! Laser file SHARC 4.0'
-  write(10, '(a)') ' ! version 1.0'
+  write(10, '(a)') ' ! laser file '
+  write(10, '(a)') ' ! SHARC 4.0'
+  write(10, '(a)') ' ! file_version 2.0'
   write(10, '(a, i0)') ' ! nsteps = ', Nt
   write(10, '(a, 107(es16.8,x))') ' ! dt = ', dt
-  write(10, '(a)') ' ! E-fields = true'
-  write(10, '(a)') ' ! B-fields = false'
-  write(10, '(a)') ' ! E-field gradients = false'
-  write(10, '(a)') ' ! B-field gradients = false'
+  write(10, '(a)') ' ! E-field = true'
+  write(10, '(a)') ' ! B-field = true'
+  write(10, '(a)') ' ! E-field_gradients = false'
+  write(10, '(a)') ' ! laser_freq_path = laser_freq'
+  write(10, '(A2, A14, A17, A17, A17, A17, A17, A17, A17, A17, A17, A17, A17, A17)') & 
+                                        ' # ', 'Time |', 'Re(Ex) |', 'Im(Ex) |', 'Re(Ey) |', 'Im(Ey) |', 'Re(Ez) |', 'Im(Ez) |', & 
+                                                         'Re(Bx) |', 'Im(Bx) |', 'Re(By) |', 'Im(By) |', 'Re(Bz) |', 'Im(Bz) |'!,
+ !                                                      'Re(Ex_grad_x) |', 'Im(Ex_grad_x) |', 'Re(Ex_grad_y) |', 'Im(Ex_grad_y) |', 
+ !                                                      'Re(Ex_grad_z) |', 'Im(Ex_grad_z) |',
+ !                                                      'Re(Ey_grad_x) |', 'Im(Ey_grad_x) |', 'Re(Ey_grad_y) |', 'Im(Ey_grad_y) |',
+ !                                                      'Re(Ey_grad_z) |', 'Im(Ey_grad_z) |',
+ !                                                      'Re(Ez_grad_x) |', 'Im(Ez_grad_x) |', 'Re(Ez_grad_y) |', 'Im(Ez_grad_y) |',
+ !                                                      'Re(Ez_grad_z) |', 'Im(Ez_grad_z) |',
+
+ write(10, '(A2, A14, A17, A17, A17, A17, A17, A17, A17, A17, A17, A17, A17, A17)') &
+                                       ' # ', '[fs] |', '[a.u.] |', '[a.u.] |', '[a.u.] |', '[a.u.] |', '[a.u.] |', '[a.u.] |', &
+                                                        '[a.u.] |', '[a.u.] |', '[a.u.] |', '[a.u.] |', '[a.u.] |', '[a.u.] |'
   write(10, '(a)') ''
   do it = 1,Nt
     t = t0 + (it-1) * dt
     if (realvalued) then
-      write(10,'(107(es16.8,x))') t*au2fs, &
+      write(10,'(13(es16.8,x))') t*au2fs, &
                              dble(laser_efield(it,1)), 0.d0, &
                              dble(laser_efield(it,2)), 0.d0, &
                              dble(laser_efield(it,3)), 0.d0, &
@@ -125,7 +135,7 @@ program create_laser
                              dble(laser_bfield(it,2)), 0.d0, &
                              dble(laser_bfield(it,3)), 0.d0
     else
-      write(10,'(107(es16.8,x))') t*au2fs, &
+      write(10,'(13(es16.8,x))') t*au2fs, &
                              dble(laser_efield(it,1)), aimag(laser_efield(it,1)), &
                              dble(laser_efield(it,2)), aimag(laser_efield(it,2)), &
                              dble(laser_efield(it,3)), aimag(laser_efield(it,3)), &
@@ -140,9 +150,9 @@ program create_laser
   
   open (10,file='laser_freq')
   ! Write the header information
-  write(10, '(a)') ' ! Laser file SHARC 4.0'
-  write(10, '(a)') ' ! version 1.0' 
-  write(10, '(a)') ' ! laser file path = laser'
+  write(10, '(a)') ' ! Laser freq file'
+  write(10, '(a)') ' ! SHARC 4.0'
+  write(10, '(a)') ' ! file_version 2.0' 
   write(10, '(a)') ''
   do it = 1,Nt
     t = t0 + (it-1) * dt

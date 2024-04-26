@@ -419,7 +419,7 @@ subroutine write_dat_initial(u, ctrl, traj)
   implicit none
   type(ctrl_type) :: ctrl
   type(trajectory_type) :: traj
-  integer :: u, n
+  integer :: u, n, ipol
   character*8000 :: string1
   character*8000, allocatable :: string2(:)
 
@@ -438,22 +438,14 @@ subroutine write_dat_initial(u, ctrl, traj)
     write(u,*) ctrl%calc_overlap, '! calc_overlap'
     write(u,*) ctrl%laser, '! laser'
     write(u,*) ctrl%laser_e, '! laser_e'
-    write(u,*) ctrl%laser_b, '! laser_b'
-    write(u,*) ctrl%laser_egrad, '! laser_egrad'
     write(u,*) ctrl%nsteps,'! nsteps'
     write(u,*) ctrl%nsubsteps,'! nsubsteps'
     if (ctrl%laser==2) then
         if (ctrl%laser_e) then  
             call vec3write(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_e_tp, u, '! Laser E-field','E21.13e3')    
         endif
-        if (ctrl%laser_b) then  
-            call vec3write(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_b_tp, u, '! Laser B-field','E21.13e3')    
-        endif 
-        if (ctrl%laser_egrad) then  
-            call vec33write(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_egrad_tpd, u, '! Laser E-field gradients','E21.13e3')    
-        endif
     endif
-  elseif   (ctrl%output_version >= 2.0) then
+  elseif   (ctrl%output_version == 2.0) then
     ! header for SHARC v2.0
     write(u,'(a14,f5.1)') 'SHARC_version ',  ctrl%output_version
     write(u,*) 'method',           ctrl%method
@@ -474,8 +466,41 @@ subroutine write_dat_initial(u, ctrl, traj)
     write(u,*) 'n_property2d',     ctrl%n_property2d
     write(u,*) 'laser',            ctrl%laser
     write(u,*) 'laser_e',          ctrl%laser_e
-    write(u,*) 'laser_b',          ctrl%laser_b
-    write(u,*) 'laser_egrad',      ctrl%laser_egrad
+    write(u,'(a)') '************************************* End of settings *************************************'
+    call vecwrite(ctrl%natom,traj%atomicnumber_a,u,'! Atomic numbers','E21.13e3')
+    call vecwrite(ctrl%natom,traj%element_a,     u,'! Elements',      'A3'  )
+    call vecwrite(ctrl%natom,traj%mass_a,        u,'! Atomic masses', 'E21.13e3')
+    if (ctrl%laser==2) then
+        if (ctrl%laser_e) then  
+            call vec3write(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_e_tp, u, '! Laser E-field','E21.13e3')    
+        endif
+    endif 
+    write(u,'(a)') '********************************* End of header array data ********************************'
+
+  elseif   (ctrl%output_version >= 3.0) then
+    ! header for SHARC v2.0
+    write(u,'(a14,f5.1)') 'SHARC_version ',  ctrl%output_version
+    write(u,*) 'method',                     ctrl%method
+    write(u,*) 'integrator',                 ctrl%integrator
+    write(u,*) 'maxmult',                    ctrl%maxmult
+    write(u,'(1X,A9,64(1X,I4))') 'nstates_m',ctrl%nstates_m
+    write(u,*) 'natom',                      ctrl%natom
+    write(u,*) 'dtstep',                     ctrl%dtstep
+    write(u,*) 'nsteps',                     ctrl%nsteps
+    write(u,*) 'nsubsteps',                  ctrl%nsubsteps
+    write(u,*) 'ezero',                      ctrl%ezero
+    write(u,*) 'write_overlap',              ctrl%write_overlap
+    write(u,*) 'write_grad',                 ctrl%write_grad
+    write(u,*) 'write_nacdr',                ctrl%write_NACdr
+    write(u,*) 'write_property1d',           ctrl%write_property1d
+    write(u,*) 'write_property2d',           ctrl%write_property2d
+    write(u,*) 'n_property1d',               ctrl%n_property1d
+    write(u,*) 'n_property2d',               ctrl%n_property2d
+    write(u,*) 'laser',                      ctrl%laser
+    write(u,*) 'laser_file_version',         ctrl%laser_file_version
+    write(u,*) 'laser_e',                    ctrl%laser_e
+    write(u,*) 'laser_b',                    ctrl%laser_b
+    write(u,*) 'laser_egrad',                ctrl%laser_egrad
     write(u,'(a)') '************************************* End of settings *************************************'
     call vecwrite(ctrl%natom,traj%atomicnumber_a,u,'! Atomic numbers','E21.13e3')
     call vecwrite(ctrl%natom,traj%element_a,     u,'! Elements',      'A3'  )
@@ -488,7 +513,9 @@ subroutine write_dat_initial(u, ctrl, traj)
             call vec3write(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_b_tp, u, '! Laser B-field','E21.13e3')    
         endif 
         if (ctrl%laser_egrad) then  
-            call vec33write(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_egrad_tpd, u, '! Laser E-field gradients','E21.13e3')    
+            do ipol = 1,3
+              call vec3write(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_egrad_tpd(:,:,ipol), u, '! Laser E-field gradient','E21.13e3') 
+            enddo
         endif
     endif 
     write(u,'(a)') '********************************* End of header array data ********************************'

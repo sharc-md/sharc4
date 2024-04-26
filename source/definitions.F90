@@ -359,7 +359,7 @@ type ctrl_type
   sequence
 
   character*1023 :: cwd                     !< working directory for SHARC
-  real*8 :: output_version                         !< version as float for checks during writing output
+  real*8 :: output_version                  !< version as float for checks during writing output
   integer :: compat_mode                    !< compatibility mode with older versions
                                             ! currently: 
                                             ! 0 : no compatibility mode
@@ -404,9 +404,10 @@ type ctrl_type
   integer :: staterep                       !< 0=initial state is given in diag representation, 1=in MCH representation
   integer :: initcoeff                      !< 0=initial coefficients are diag, 1=initial coefficients are MCH, 2=auto diag, 3=auto MCH
   integer :: laser                          !< 0=none, 1=internal, 2=external
-  logical :: laser_e                        !< 0=none, 1=exists (Laser E-field)
-  logical :: laser_b                        !< 0=none, 1=exists (Laser B-field)
-  logical :: laser_egrad                    !< 0=none, 1=exists (Laser E-field gradients)
+  logical :: laser_e                        !< false=none, true=exists (Laser E-field)
+  logical :: laser_b                        !< false=none, true=exists (Laser B-field)
+  logical :: laser_egrad                    !< false=none, true=exists (Laser E-field gradients)
+  real*8  :: laser_file_version             !<  Laser file version
   integer :: coupling                       !< 0=ddt, 1=ddr, 2=overlap, 3=ktdc
   integer :: ktdc_method                    !< 0=gradient based approximation, 1=energy based approximation
   integer :: kmatrix_method                 !< 0=gradient based approximation, 1=energy based approximation
@@ -535,7 +536,6 @@ real*8,parameter:: au2debye=2.5417469d0           !< dipole moment
 
 complex*16,parameter:: ii=dcmplx(0.d0,1.d0)       !< imaginary unit
 real*8,parameter:: pi=4.d0*datan(1.d0)            !< pi
-real*8,parameter:: speed_of_light_au=137.035999084
 character*20,parameter :: multnames(8)=(/'Singlet','Doublet','Triplet','Quartet','Quintet',' Sextet',' Septet','  Octet'/)
 !< strings used to represent the multiplicities
 ! =========================================================== !
