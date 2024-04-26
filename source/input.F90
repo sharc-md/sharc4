@@ -957,7 +957,7 @@ module input
     endif
 
     ! default is do projection for system with more than 4 atoms
-    if (ctrl%natom.ge.4) then
+    if (ctrl%method==1 .and. ctrl%natom.ge.4) then
       ctrl%nac_projection=1
     else
       ctrl%nac_projection=0
@@ -3464,6 +3464,7 @@ module input
       endif
    endif
 
+   call additional_allocate_traj(traj,ctrl)
   ! =====================================================
 
 !   ! check for floquet keyword
