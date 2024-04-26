@@ -324,6 +324,7 @@ module qm
     traj%H_diag_ss=traj%H_MCH_ss
     ! if laser field, add it here, without imaginary part
     if (ctrl%laser==2) then
+      write(0,*) "TEST"
       do i=1,3
         traj%H_diag_ss=traj%H_diag_ss - traj%DM_ssd(:,:,i)*real(ctrl%laserfield_e_tp(traj%step*ctrl%nsubsteps+1,i))
       enddo
@@ -904,7 +905,7 @@ module qm
 !> The interface has to take care to only calculate non-zero NACs 
 !> (e.g., not between singlets and triplets)
 !> 
-!> TODO: The threshold eselect_dmgrad should be dependent on the laser energy
+!> TODO: The threshold eselect_dmgrad should be dependent on the naser energy
   subroutine select_dipolegrad(traj,ctrl)
     use definitions
     implicit none
@@ -1103,6 +1104,7 @@ module qm
       elseif (ctrl%laser==2) then
         H_temp=traj%H_MCH_ss
         do idir=1,3
+          write(0,*) "TEST"
           H_temp=H_temp - traj%DM_ssd(:,:,idir)*real(ctrl%laserfield_e_tp(traj%step*ctrl%nsubsteps+1,idir))
         enddo
         call diagonalize(ctrl%nstates,H_temp,U_temp)

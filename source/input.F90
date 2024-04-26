@@ -2600,488 +2600,404 @@ module input
 
   ! Reading the coefficients
 
-    if (printlevel>0) then
-      write(u_log,*) '============================================================='
-      write(u_log,*) '               Initial State and Coefficients'
-      write(u_log,*) '============================================================='
-      write(u_log,*) 
-    endif
+  if (printlevel>0) then
+    write(u_log,*) '============================================================='
+    write(u_log,*) '               Initial State and Coefficients'
+    write(u_log,*) '============================================================='
+    write(u_log,*) 
+  endif
 
-    select case (ctrl%surf)
-      ! =====================================================
-      case (0)  !SHARC
-        if (printlevel>1) write(u_log,'(A)') 'Setting state and coefficients for SHARC dynamics.'
-        if (printlevel>1) write(u_log,*)
-        line=get_value_from_key('state',io)
-        if (io/=0) then
-          write(0,*) 'You have to give an initial state!'
-          stop 1
-        endif
-        call split(line,' ',values,n)
-        if (n<1) then
-          write(0,*) 'You have to give an initial state!'
-          stop 1
-        endif
-        read(values(1),*) j
-        if (j>ctrl%nstates) then
-          write(0,*) 'Initial state can''t be larger than nstates=',ctrl%nstates,'!'
-          stop 1
-        endif
-        if (j<=0) then
-           write(0,*) 'Initial state can''t be zero or negative!'
-           stop 1
-        endif
-        if (n==1) then
-          write(0,*) 'Please specify representation of initial state!'
-          stop 1
-        endif
-        select case (trim(values(2)))
-          case ('mch')
-            traj%state_MCH=j
-            ctrl%staterep=1
-            if (printlevel>1) write(u_log,'(a,1x,i3,1x,a)') 'Initial state is ',traj%state_mch,'in the MCH basis. '
-          case ('diag')
-            traj%state_diag=j
-            ctrl%staterep=0
-            if (printlevel>1) write(u_log,'(a,1x,i3,1x,a)') 'Initial state is ',traj%state_diag,'in the diag basis.'
-          case default
-            write(0,*) 'Unknown keyword for "state"!'
-            stop 1
-        endselect
-        deallocate(values)
-
-        line=get_value_from_key('coeff',io)
-        if (io/=0) then
-          write(0,*) 'Please specify origin of coefficients ("auto" or "external")!'
-          stop 1
-        endif
-        select case (trim(line))
-          case ('auto')
-            ctrl%initcoeff=2+ctrl%staterep
-            if (printlevel>1) write(u_log,'(a)') 'Initial coefficients will be set automatically.'
-          case ('external')
-            ctrl%initcoeff=ctrl%staterep
-            if (printlevel>1) write(u_log,'(a)') 'Initial coefficients will be read from file.'
-          case default
-            write(0,*) 'Unknown keyword for "coeff"!'
-            stop 1
-        endselect
-      ! =====================================================
-      case (1)  !non-SHARC
-        if (printlevel>1) write(u_log,'(A)') 'Setting state and coefficients for dynamics on MCH surfaces.'
-        if (printlevel>1) write(u_log,*)
-        line=get_value_from_key('state',io)
-        if (io/=0) then
-          write(0,*) 'You have to give an initial state!'
-          stop 1
-        endif
-        read(line,*) j
-        if (j>ctrl%nstates) then
-          write(0,*) 'Initial state can''t be larger than nstates=',ctrl%nstates,'!'
-          stop 1
-        endif
-        if (j<=0) then
-           write(0,*) 'Initial state can''t be zero or negative!'
-           stop 1
-        endif
-        traj%state_MCH=j
-        ctrl%staterep=1
-        if (printlevel>1) write(u_log,'(a,1x,i3)') 'Initial state is ',traj%state_MCH
-
-        line=get_value_from_key('coeff',io)
-        if (io/=0) then
-          write(0,*) 'Please specify origin of coefficients ("auto" or "external")!'
-          stop 1
-        endif
-        select case (trim(line))
-          case ('auto')
-            ctrl%initcoeff=3
-            if (printlevel>1) write(u_log,'(a)') 'Initial coefficients will be set automatically.'
-          case ('external')
-            ctrl%initcoeff=ctrl%staterep
-            if (printlevel>1) write(u_log,'(a)') 'Initial coefficients will be read from file.'
-          case default
-            write(0,*) 'Unknown keyword for "coeff"!'
-            stop 1
-        endselect
-      ! =====================================================
-      case default
-    endselect
-
+  select case (ctrl%surf)
     ! =====================================================
-    if (ctrl%initcoeff<2) then
-
-      ! get filename
-      line=get_value_from_key('coefffile',io)
-      if (io==0) then
-        call get_quoted(line,geomfilename)
-        filename=trim(geomfilename)
-      else
-        filename='coeff'
-      endif
-      open(u_i_coeff,file=filename, status='old', action='read', iostat=io)
-
-      ! read the coefficients
-      if (printlevel>1) write(u_log,'(3a)') 'Reading from coefffile "',trim(filename),'"'
+    case (0)  !SHARC
+      if (printlevel>1) write(u_log,'(A)') 'Setting state and coefficients for SHARC dynamics.'
+      if (printlevel>1) write(u_log,*)
+      line=get_value_from_key('state',io)
       if (io/=0) then
-        write(0,*) 'Could not find coefficients file!'
+        write(0,*) 'You have to give an initial state!'
         stop 1
       endif
-      do i=1,ctrl%nstates
-        read(u_i_coeff,'(A)') line
-        call split(line,' ',values,n)
-        if (n<2) then
-          write(0,*) 'Problem reading the coefficients file!'
+      call split(line,' ',values,n)
+      if (n<1) then
+        write(0,*) 'You have to give an initial state!'
+        stop 1
+      endif
+      read(values(1),*) j
+      if (j>ctrl%nstates) then
+        write(0,*) 'Initial state can''t be larger than nstates=',ctrl%nstates,'!'
+        stop 1
+      endif
+      if (j<=0) then
+         write(0,*) 'Initial state can''t be zero or negative!'
+         stop 1
+      endif
+      if (n==1) then
+        write(0,*) 'Please specify representation of initial state!'
+        stop 1
+      endif
+      select case (trim(values(2)))
+        case ('mch')
+          traj%state_MCH=j
+          ctrl%staterep=1
+          if (printlevel>1) write(u_log,'(a,1x,i3,1x,a)') 'Initial state is ',traj%state_mch,'in the MCH basis. '
+        case ('diag')
+          traj%state_diag=j
+          ctrl%staterep=0
+          if (printlevel>1) write(u_log,'(a,1x,i3,1x,a)') 'Initial state is ',traj%state_diag,'in the diag basis.'
+        case default
+          write(0,*) 'Unknown keyword for "state"!'
           stop 1
-        endif
-        read(line,*) a,b
-        traj%coeff_MCH_s(i)=dcmplx(a,b)
-        deallocate(values)
-      enddo
-      close(u_i_coeff)
-
-      ! Normalize the coefficients
-      a=0.
-      do i=1,ctrl%nstates
-        a=a+real(traj%coeff_MCH_s(i)*conjg(traj%coeff_MCH_s(i)))
-      enddo
-      if (a<1.d-9) then
-        write(0,*) 'Sum of initial coefficients is very small!'
-        stop
-      endif
-      a=1.d0/sqrt(a)
-      traj%coeff_MCH_s=dcmplx(a,0.d0)*traj%coeff_MCH_s
-      if (ctrl%initcoeff==0) then
-        traj%coeff_diag_s=traj%coeff_MCH_s
-      endif
-    elseif (ctrl%initcoeff==2) then
-      traj%coeff_diag_s=dcmplx(0.d0,0.d0)
-      traj%coeff_diag_s(traj%state_diag)=dcmplx(1.d0,0.d0)
-    elseif (ctrl%initcoeff==3) then
-      traj%coeff_MCH_s=dcmplx(0.d0,0.d0)
-      traj%coeff_MCH_s(traj%state_MCH)=dcmplx(1.d0,0.d0)
-    endif
-
-    if (printlevel>1) then
-      write(u_log,*)
-      ! Writing the coefficients
-      select case (ctrl%initcoeff)
-        case (0)
-          write(u_log,*) 'Coefficients (diag):'
-          write(u_log,'(a3,1x,A12,1X,A12)') '#','Real(c)','Imag(c)'
-          do i=1,ctrl%nstates
-            write(u_log,'(i3,1x,F12.9,1X,F12.9)') i,traj%coeff_diag_s(i)
-          enddo
-          write(u_log,*)
-        case (1)
-          write(u_log,*) 'Coefficients (MCH):'
-          write(u_log,'(a3,1x,A12,1X,A12)') '#','Real(c)','Imag(c)'
-          do i=1,ctrl%nstates
-            write(u_log,'(i3,1x,F12.9,1X,F12.9)') i,traj%coeff_MCH_s(i)
-          enddo
-          write(u_log,*)
-          if (ctrl%surf==0) then
-            write(u_log,*) 'Coefficients will be transformed after the initial energy calculation.'
-            write(u_log,*)
-          endif
-        case (2)
-          write(u_log,*) 'Coefficients (diag):'
-          write(u_log,'(a3,1x,A12,1X,A12)') '#','Real(c)','Imag(c)'
-          do i=1,ctrl%nstates
-            write(u_log,'(i3,1x,F12.9,1X,F12.9)') i,traj%coeff_diag_s(i)
-          enddo
-          write(u_log,*)
-        case (3)
-          write(u_log,*) 'Coefficients (MCH):'
-          write(u_log,'(a3,1x,A12,1X,A12)') '#','Real(c)','Imag(c)'
-          do i=1,ctrl%nstates
-            write(u_log,'(i3,1x,F12.9,1X,F12.9)') i,traj%coeff_MCH_s(i)
-          enddo
-          write(u_log,*)
-          if (ctrl%surf==0) then
-            write(u_log,*) 'Coefficients will be transformed after the initial energy calculation.'
-          endif
-          write(u_log,*)
       endselect
+      deallocate(values)
+
+      line=get_value_from_key('coeff',io)
+      if (io/=0) then
+        write(0,*) 'Please specify origin of coefficients ("auto" or "external")!'
+        stop 1
+      endif
+      select case (trim(line))
+        case ('auto')
+          ctrl%initcoeff=2+ctrl%staterep
+          if (printlevel>1) write(u_log,'(a)') 'Initial coefficients will be set automatically.'
+        case ('external')
+          ctrl%initcoeff=ctrl%staterep
+          if (printlevel>1) write(u_log,'(a)') 'Initial coefficients will be read from file.'
+        case default
+          write(0,*) 'Unknown keyword for "coeff"!'
+          stop 1
+      endselect
+    ! =====================================================
+    case (1)  !non-SHARC
+      if (printlevel>1) write(u_log,'(A)') 'Setting state and coefficients for dynamics on MCH surfaces.'
+      if (printlevel>1) write(u_log,*)
+      line=get_value_from_key('state',io)
+      if (io/=0) then
+        write(0,*) 'You have to give an initial state!'
+        stop 1
+      endif
+      read(line,*) j
+      if (j>ctrl%nstates) then
+        write(0,*) 'Initial state can''t be larger than nstates=',ctrl%nstates,'!'
+        stop 1
+      endif
+      if (j<=0) then
+         write(0,*) 'Initial state can''t be zero or negative!'
+         stop 1
+      endif
+      traj%state_MCH=j
+      ctrl%staterep=1
+      if (printlevel>1) write(u_log,'(a,1x,i3)') 'Initial state is ',traj%state_MCH
+
+      line=get_value_from_key('coeff',io)
+      if (io/=0) then
+        write(0,*) 'Please specify origin of coefficients ("auto" or "external")!'
+        stop 1
+      endif
+      select case (trim(line))
+        case ('auto')
+          ctrl%initcoeff=3
+          if (printlevel>1) write(u_log,'(a)') 'Initial coefficients will be set automatically.'
+        case ('external')
+          ctrl%initcoeff=ctrl%staterep
+          if (printlevel>1) write(u_log,'(a)') 'Initial coefficients will be read from file.'
+        case default
+          write(0,*) 'Unknown keyword for "coeff"!'
+          stop 1
+      endselect
+    ! =====================================================
+    case default
+  endselect
+
+  ! =====================================================
+  if (ctrl%initcoeff<2) then
+
+    ! get filename
+    line=get_value_from_key('coefffile',io)
+    if (io==0) then
+      call get_quoted(line,geomfilename)
+      filename=trim(geomfilename)
+    else
+      filename='coeff'
     endif
+    open(u_i_coeff,file=filename, status='old', action='read', iostat=io)
+
+    ! read the coefficients
+    if (printlevel>1) write(u_log,'(3a)') 'Reading from coefffile "',trim(filename),'"'
+    if (io/=0) then
+      write(0,*) 'Could not find coefficients file!'
+      stop 1
+    endif
+    do i=1,ctrl%nstates
+      read(u_i_coeff,'(A)') line
+      call split(line,' ',values,n)
+      if (n<2) then
+        write(0,*) 'Problem reading the coefficients file!'
+        stop 1
+      endif
+      read(line,*) a,b
+      traj%coeff_MCH_s(i)=dcmplx(a,b)
+    enddo
+    close(u_i_coeff)
+
+    ! Normalize the coefficients
+    a=0.
+    do i=1,ctrl%nstates
+      a=a+real(traj%coeff_MCH_s(i)*conjg(traj%coeff_MCH_s(i)))
+    enddo
+    if (a<1.d-9) then
+      write(0,*) 'Sum of initial coefficients is very small!'
+      stop
+    endif
+    a=1.d0/sqrt(a)
+    traj%coeff_MCH_s=dcmplx(a,0.d0)*traj%coeff_MCH_s
+    if (ctrl%initcoeff==0) then
+      traj%coeff_diag_s=traj%coeff_MCH_s
+    endif
+  elseif (ctrl%initcoeff==2) then
+    traj%coeff_diag_s=dcmplx(0.d0,0.d0)
+    traj%coeff_diag_s(traj%state_diag)=dcmplx(1.d0,0.d0)
+  elseif (ctrl%initcoeff==3) then
+    traj%coeff_MCH_s=dcmplx(0.d0,0.d0)
+    traj%coeff_MCH_s(traj%state_MCH)=dcmplx(1.d0,0.d0)
+  endif
+
+  if (printlevel>1) then
+    write(u_log,*)
+    ! Writing the coefficients
+    select case (ctrl%initcoeff)
+      case (0)
+        write(u_log,*) 'Coefficients (diag):'
+        write(u_log,'(a3,1x,A12,1X,A12)') '#','Real(c)','Imag(c)'
+        do i=1,ctrl%nstates
+          write(u_log,'(i3,1x,F12.9,1X,F12.9)') i,traj%coeff_diag_s(i)
+        enddo
+        write(u_log,*)
+      case (1)
+        write(u_log,*) 'Coefficients (MCH):'
+        write(u_log,'(a3,1x,A12,1X,A12)') '#','Real(c)','Imag(c)'
+        do i=1,ctrl%nstates
+          write(u_log,'(i3,1x,F12.9,1X,F12.9)') i,traj%coeff_MCH_s(i)
+        enddo
+        write(u_log,*)
+        if (ctrl%surf==0) then
+          write(u_log,*) 'Coefficients will be transformed after the initial energy calculation.'
+          write(u_log,*)
+        endif
+      case (2)
+        write(u_log,*) 'Coefficients (diag):'
+        write(u_log,'(a3,1x,A12,1X,A12)') '#','Real(c)','Imag(c)'
+        do i=1,ctrl%nstates
+          write(u_log,'(i3,1x,F12.9,1X,F12.9)') i,traj%coeff_diag_s(i)
+        enddo
+        write(u_log,*)
+      case (3)
+        write(u_log,*) 'Coefficients (MCH):'
+        write(u_log,'(a3,1x,A12,1X,A12)') '#','Real(c)','Imag(c)'
+        do i=1,ctrl%nstates
+          write(u_log,'(i3,1x,F12.9,1X,F12.9)') i,traj%coeff_MCH_s(i)
+        enddo
+        write(u_log,*)
+        if (ctrl%surf==0) then
+          write(u_log,*) 'Coefficients will be transformed after the initial energy calculation.'
+        endif
+        write(u_log,*)
+    endselect
+  endif
 
   ! =====================================================
 
   ! check for laser and laser_version keyword
 
-    line=get_value_from_key('laser',io)
-    if (io==0) then
-      select case (trim(line))
-        case ('none') 
-          ctrl%laser=0
-        case ('internal')
-          ctrl%laser=1
-        case ('external')
-          ctrl%laser=2
-        case default
-          ctrl%laser=0
+  line=get_value_from_key('laser',io)
+  if (io==0) then
+    select case (trim(line))
+      case ('none') 
+        ctrl%laser=0
+      case ('internal')
+        ctrl%laser=1
+      case ('external')
+        ctrl%laser=2
+      case default
+        ctrl%laser=0
+    endselect
+  else
+    ctrl%laser=0
+  endif
+  
+  if (printlevel>0) then
+    write(u_log,*) '============================================================='
+    write(u_log,*) '                       Laser Field'
+    write(u_log,*) '============================================================='
+    if (printlevel>1) then
+      select case (ctrl%laser)
+        case (0)
+          write(u_log,'(a)') 'No laser field will be applied.'
+        case (1)
+          write(u_log,'(a)') 'Laser field is calculated from function internal_laserfield().'
+        case (2)
+          write(u_log,'(a)') 'Laser field is read from file.'
       endselect
+    endif
+    write(u_log,*)
+  endif
+
+  if (ctrl%laser/=0) then
+    line=get_value_from_key('laserwidth',io)
+    if (io==0) then
+      read(line,*) ctrl%laser_bandwidth
+      ctrl%laser_bandwidth=ctrl%laser_bandwidth/au2eV
     else
-      ctrl%laser=0
+      ctrl%laser_bandwidth=1./au2eV
     endif
-    
-    if (printlevel>0) then
-      write(u_log,*) '============================================================='
-      write(u_log,*) '                       Laser Field'
-      write(u_log,*) '============================================================='
-      if (printlevel>1) then
-        select case (ctrl%laser)
-          case (0)
-            write(u_log,'(a)') 'No laser field will be applied.'
-          case (1)
-            write(u_log,'(a)') 'Laser field is calculated from function internal_laserfield().'
-          case (2)
-            write(u_log,'(a)') 'Laser field is read from file.'
-        endselect
-      endif
-      write(u_log,*)
-    endif
+  endif
 
-    if (ctrl%laser/=0) then
-      line=get_value_from_key('laserwidth',io)
-      if (io==0) then
-        read(line,*) ctrl%laser_bandwidth
-        ctrl%laser_bandwidth=ctrl%laser_bandwidth/au2eV
-      else
-        ctrl%laser_bandwidth=1./au2eV
-      endif
-    endif
+  ctrl%calc_dipole=1
 
+  if (ctrl%laser/=0) then
     ctrl%calc_dipole=1
+  endif
 
-    if (ctrl%laser/=0) then
-      ctrl%calc_dipole=1
-    endif
+  ctrl%dipolegrad=0
+  ctrl%calc_dipolegrad=-1
 
-    ctrl%dipolegrad=0
-    ctrl%calc_dipolegrad=-1
-
-    if (ctrl%laser/=0) then
-      line=get_value_from_key('dipole_gradient',io)
-      if (io==0) then
-        ctrl%dipolegrad=1
-        ctrl%calc_dipolegrad=0
-        if ((ctrl%calc_grad>=1).or.(ctrl%calc_nacdr>=1)) then
-          ctrl%calc_dipolegrad=1
-          ctrl%eselect_dmgrad=ctrl%eselect_nac
-          if (ctrl%calc_second==1) then
-            ctrl%calc_dipolegrad=2
-          endif
+  if (ctrl%laser/=0) then
+    line=get_value_from_key('dipole_gradient',io)
+    if (io==0) then
+      ctrl%dipolegrad=1
+      ctrl%calc_dipolegrad=0
+      if ((ctrl%calc_grad>=1).or.(ctrl%calc_nacdr>=1)) then
+        ctrl%calc_dipolegrad=1
+        ctrl%eselect_dmgrad=ctrl%eselect_nac
+        if (ctrl%calc_second==1) then
+          ctrl%calc_dipolegrad=2
         endif
       endif
-      line=get_value_from_key('nodipole_gradient',io)
-      if (io==0) then
-        ctrl%dipolegrad=0
-        ctrl%calc_dipolegrad=-1
-      endif
+    endif
+    line=get_value_from_key('nodipole_gradient',io)
+    if (io==0) then
+      ctrl%dipolegrad=0
+      ctrl%calc_dipolegrad=-1
+    endif
+  endif
+
+
+  if (ctrl%laser==2) then
+    ! get filename
+    line=get_value_from_key('laserfile',io)
+    if (io==0) then
+      call get_quoted(line,geomfilename)
+      filename=trim(geomfilename)
+    else
+      filename='laser'
+    endif
+    open(u_i_laser,file=filename, status='old', action='read', iostat=io)
+
+    if (printlevel>1) write(u_log,'(3a)') 'Reading from laser file "',trim(filename),'"'
+    if (io/=0) then
+      write(0,*) 'Could not find laser file!'
+      stop 1
     endif
 
-
-    if (ctrl%laser==2) then
-
-      ! get filename
-      line=get_value_from_key('laserfile',io)
-      if (io==0) then
-        call get_quoted(line,geomfilename)
-        filename=trim(geomfilename)
-      else
-        filename='laser'
-      endif
-      open(u_i_laser,file=filename, status='old', action='read', iostat=io)
-
-      if (printlevel>1) write(u_log,'(3a)') 'Reading from laser file "',trim(filename),'"'
-      if (io/=0) then
-        write(0,*) 'Could not find laser file!'
-        stop 1
-      endif
-
-      ! check for header of laser file
-      read(u_i_laser,'(A)',iostat=io) line
-      if (io/=0) then
-        write(0,*) 'EOF encountered during read of laser file!'
-        stop 1
-      endif
-      call split(line,' ',values,n)
-      ctrl%nlasers=n-7
-      deallocate(values)
-      if (ctrl%nlasers<1) then
-        write(0,*) 'No central energies for lasers found in ',filename
-        stop 1
-      endif
+    read(u_i_laser,'(A)',iostat=io) line
+    if (io/=0) then
+      write(0,*) 'EOF encountered during read of laser file!'
+      stop 1
+    endif
+    call split(line,' ',values,n)
+    if ((trim(values(1))=='!') .or. (trim(values(1))=='#')) then
+      !switch old laser filei
       rewind(u_i_laser)
-      if ((trim(values(1))=='!') .or. (trim(values(1))=='#')) then
-        !switch old laser filei
-        rewind(u_i_laser)
 
-        allocate(ctrl%laserfield_e_tp(ctrl%nsteps*ctrl%nsubsteps+1,3))
-        allocate(ctrl%laserfield_b_tp(ctrl%nsteps*ctrl%nsubsteps+1,3))
-        allocate(ctrl%laserfield_egrad_tpd(ctrl%nsteps*ctrl%nsubsteps+1,3,3))
-        allocate(ctrl%laserenergy_tl(ctrl%nsteps*ctrl%nsubsteps+1,ctrl%nlasers))
+      allocate(ctrl%laserfield_e_tp(ctrl%nsteps*ctrl%nsubsteps+1,3))
+      allocate(ctrl%laserfield_b_tp(ctrl%nsteps*ctrl%nsubsteps+1,3))
+      allocate(ctrl%laserfield_egrad_tpd(ctrl%nsteps*ctrl%nsubsteps+1,3,3))
+      allocate(ctrl%laserenergy_tl(ctrl%nsteps*ctrl%nsubsteps+1,ctrl%nlasers))
 
-        ! read laser file version - stop, when it was detected
-        !ctrl%laser_file_version=-1.0 !corresponding to "No laser file version stated"
-        line_number = 0
-        com_line_number = 0 
-        do
-          read(u_i_laser,'(A)',iostat=io) line
-          if (io/=0) then
-              write(0,*) 'EOF encountered during lookup for laser file version!'
-              stop 1
+      ! read laser file version - stop, when it was detected
+      !ctrl%laser_file_version=-1.0 !corresponding to "No laser file version stated"
+      line_number = 0
+      com_line_number = 1 !blank line after comment section in laser file
+      do
+        read(u_i_laser,'(A)',iostat=io) line
+        !write(0,*) line, line_number, com_line_number
+        call split(line,' ',values,n)
+        write(0,*) line_number, com_line_number, ctrl%laser_file_version
+        if (trim(values(1))=='!' .OR. index(values(1),'#')/=0) then
+          com_line_number = com_line_number+1
+          if (trim(values(2))=='file_version') then
+              read(values(3), *) ctrl%laser_file_version 
+              write(0,*) 'Detected laser file version: ', ctrl%laser_file_version 
           endif
-          call split(line,' ',values,n)
-          if (trim(values(1))=='file_version') then 
-            call split(trim(values(2)),' ',string2,n)
-            read(string2(1),*) ctrl%laser_file_version
-            deallocate(string2) 
-            write(0,*) 'Detected laser file version: ', ctrl%laser_file_version 
-          endif
-          if (trim(values(1))=='!' .OR. trim(values(1))=='#') then
-            com_line_number = com_line_number+1
-          endif
-          line_number=line_number+1
-        enddo
-      endif              
+        else if (io/=0) then
+          exit
+        endif
+        line_number=line_number+1
+        
+      enddo
+      if (ctrl%laser_file_version==-1.0) then 
+          write(0,*) 'No laser file version found in file!'
+          stop 1
+      endif
+    endif
+    rewind(u_i_laser)
+    ! Reading laser file data
+    if (ctrl%laser_file_version/=-1.0) then !Reading for new laser file format
+      do i=1, com_line_number
+        read(u_i_laser,'(A)',iostat=io) line                                                                                      
+        if (io/=0) then                                                                                                           
+           write(0,*) 'EOF encountered during lookup for header section!'                                                    
+           stop 1                                                                                                                
+        endif
+        call lowercase(line)
+        call split(line,' ',values,n)
+        ! check if ! in values(1), if # cycle, if neither then exit
+        select case (trim(values(1)))
+          case('#')
+              cycle
+          case('!')
+            if (values(1)=='#' .OR. values(1)=='!') then
+              select case (trim(values(2)))
+                case ("e-field", "b-field", "e-field_grad", "b-field_grad")
+                  if (trim(values(3))=='true') then
+                    tmp = .true.
+                  elseif (trim(values(3))=='false') then
+                    tmp = .false.
+                  else 
+                    write(0,*) 'EOF encountered during lookup for field/gradient existence!'                                                    
+                    stop 1                                                                                                                    
+                  endif
+                  select case (trim(values(2)))
+                    case ("e-field")
+                        ctrl%laser_e = tmp
+                    case ("b-field")
+                        ctrl%laser_b = tmp 
+                    case ("e-field_grad")
+                        ctrl%laser_egrad = tmp  
+                    case ("b-field_grad")
+                        ctrl%laser_bgrad = tmp
+                    !LORENZ: What if the keyword is in the laserfile multiple times?
+                  end select
+              end select
+            endif
+        end select
+      enddo
       rewind(u_i_laser)
-      ! Reading laser file data
-      if (ctrl%laser_file_version/=-1.0) then !Reading for new laser file format
-        do i=1, com_line_number
-          read(u_i_laser,'(A)',iostat=io) line                                                                                      
-          if (io/=0) then                                                                                                           
-             write(0,*) 'EOF encountered during lookup for header section!'                                                    
-             stop 1                                                                                                                
-          endif
-          call lowercase(line)
-          call split(line,' ',values,n)
-          ! check if ! in values(1), if # cycle, if neither then exit
-          select case (trim(values(1)))
-            case('#')
-                cycle
-            case('!')
-              if (values(1)=='#' .OR. values(1)=='!') then
-                select case (trim(values(2)))
-                  case ("e-field", "b-field", "e-field_grad", "b-field_grad")
-                    if (trim(values(3))=='true') then
-                      tmp = .true.
-                    elseif (trim(values(3))=='false') then
-                      tmp = .false.
-                    else 
-                      write(0,*) 'EOF encountered during lookup for field/gradient existence!'                                                    
-                      stop 1                                                                                                                    
-                    endif
-                    select case (trim(values(2)))
-                      case ("e-field")
-                          ctrl%laser_e = tmp
-                      case ("b-field")
-                          ctrl%laser_b = tmp 
-                      case ("e-field_grad")
-                          ctrl%laser_egrad = tmp  
-                      case ("b-field_grad")
-                          ctrl%laser_bgrad = tmp
-                      !LORENZ: What if the keyword is in the laserfile multiple times?
-                    end select
-                end select
-              endif
-          end select
-        enddo 
-        rewind(u_i_laser)
-        read_shift = 0
-        if (ctrl%nsteps*ctrl%nsubsteps /= line_number-com_line_number) then
-            write(0,*) 'Number of lines in laserfile does not match requested steps!'
-            stop 1
-        do i=1, line_number
-           read(u_i_laser,'(A)',iostat=io) line
-           if (io/=0) then
-             write(0,*) 'EOF encountered during read of laser file!'
-             stop 1
-           endif
-           if (line_number <=com_line_number+1) then
-               cycle
-           else
-             call split(line,' ',values,n)
-             if ((i>=com_line_number+2) .and. ((values(1)=='!') .or. (values(1)=='#'))) then
-               write(0,*) 'Laser file malformatted! Line=',i
-               stop 1
-             !endif
-             !read(values(1),*) a
-             !if (i==1) then
-             !  if (dabs(a)>0.001d0) then
-             !    write(0,*) 'Laser field must start at t=0 fs!'
-             !    stop 1
-             !  endif
-             !endif
-             !b=ctrl%dtstep/ctrl%nsubsteps
-             !if ( dabs(a-b*(i-1))>0.001d0) then 
-             !  write(0,*) 'Laser field spacing does not match substep spacing!'
-             !  stop 1
-             endif
-             if (ctrl%laser_e .EQV. .true.) then 
-               do j=1,3
-                 read(values(2*j-1),*) a
-                 read(values(2*j),*) b
-                 ctrl%laserfield_e_tp(i,j)=dcmplx(a,b)
-               enddo
-               read_shift=read_shift+6
-             endif
-             if (ctrl%laser_b .EQV. .true.) then 
-               do j=1,3
-                read(values(2*j-1+read_shift),*) a
-                read(values(2*j+read_shift),*) b
-                ctrl%laserfield_b_tp(i,j)=dcmplx(a,b)
-               enddo
-               read_shift=read_shift+6
-             endif
-             if (ctrl%laser_egrad .EQV. .true.) then 
-               do j=1,3
-                 do k=1,3
-                   read(values(6*j+2*k-1+read_shift),*) a
-                   read(values(6*j+2*k+read_shift),*) b
-                   ctrl%laserfield_egrad_tpd(i,j,k)=dcmplx(a,b)
-                 enddo 
-               enddo 
-             read_shift=read_shift+18  
-             endif
-             if (ctrl%laser_bgrad .EQV. .true.) then
-               do j=1,3
-                 do k=1,3
-                   read(values(6*j+2*k-1),*) a
-                   read(values(6*j+2*k),*) b
-                   ctrl%laserfield_bgrad_tpd(i,j,k)=dcmplx(a,b)
-                 enddo 
-               enddo 
-             endif
-           endif
-        !LORENZ: Continue with reading in frequency file! 
-        !LASER ENERGY
-        !do i=1,ctrl%nsteps*ctrl%nsubsteps+1 !LORENZ MORE LINES
-        !   read(u_i_laser,'(A)',iostat=io) line
-        !   if (io/=0) then
-        !     write(0,*) 'EOF encountered during read of laser file!'
-        !     stop 1
-        !   endif
-        !   call split(line,' ',values,n) 
-        !do j=1,ctrl%nlasers
-        !     read(values(7+j),*) a
-        !     ctrl%laserenergy_tl(i,j)=dcmplx(a,0.d0)
-        !   enddo
-        enddo 
-      else
-        write(0,*) 'Laser file version 1.0 detected!'
-        do i=1,ctrl%nsteps*ctrl%nsubsteps+1
-           read(u_i_laser,'(A)',iostat=io) line
-           if (io/=0) then
-             write(0,*) 'EOF encountered during read of laser file!'
-             stop 1
-           endif
+      if (ctrl%nsteps*ctrl%nsubsteps+1 /= line_number-com_line_number) then
+          write(0,*) 'Number of lines in laserfile does not match requested steps!'
+          stop 1
+      endif
+      do i=1, line_number
+         read_shift=0
+         read(u_i_laser,'(A)',iostat=io) line
+         if (io/=0) then
+           write(0,*) 'EOF encountered during read of laser file!'
+           stop 1
+         endif
+         if (i<=com_line_number+1) then
+             cycle
+         else
            call split(line,' ',values,n)
-           if (values(1)=='!') then
-             read(values(1))
-           endif
-           if ((i>=10) .and. (n<8)) then
+           if ((i>=com_line_number+2) .and. ((values(1)=='!') .or. (values(1)=='#'))) then
              write(0,*) 'Laser file malformatted! Line=',i
              stop 1
            endif
@@ -3093,41 +3009,62 @@ module input
              endif
            endif
            b=ctrl%dtstep/ctrl%nsubsteps
-           if ( dabs(a-b*(i-1))>0.001d0) then 
+           if ( dabs(a-b*(i-1-com_line_number))>0.001d0) then 
              write(0,*) 'Laser field spacing does not match substep spacing!'
              stop 1
            endif
-           do j=1,3
-             read(values(2*j),*) a
-             read(values(2*j+1),*) b
-             ctrl%laserfield_e_tp(i,j)=dcmplx(a,b)
-           enddo
-          do j=4,6
-             read(values(2*j),*) a
-             read(values(2*j+1),*) b
-             ctrl%laserfield_b_tp(i,j)=dcmplx(a,b)
-           enddo 
-          do j=1,3
+           if (ctrl%laser_e .EQV. .true.) then 
+             do j=1,3
+               read(values(2*j),*) a
+               read(values(2*j+1),*) b 
+               ctrl%laserfield_e_tp(i-(com_line_number+2),j)=dcmplx(a,b)
+             enddo
+             read_shift=read_shift+6
+           endif
+           if (ctrl%laser_b .EQV. .true.) then
+             do j=1,3
+               read(values(2*j+read_shift),*) a
+               read(values(2*j+1+read_shift),*) b
+               ctrl%laserfield_b_tp(i-(com_line_number+2),j)=dcmplx(a,b)
+             enddo
+             read_shift=read_shift+6
+           endif
+           if (ctrl%laser_egrad .EQV. .true.) then 
+             do j=1,3
                do k=1,3
-                   read(values(6*j+6+2*k),*) a
-                   read(values(6*j+7+2*k),*) b
-                   ctrl%laserfield_egrad_tpd(i,j,k)=dcmplx(a,b)
+                 read(values(6*j+2*k+read_shift),*) a
+                 read(values(6*j+2*k+1+read_shift),*) b
+                 ctrl%laserfield_egrad_tpd(i-(com_line_number+2),j,k)=dcmplx(a,b)
                enddo 
-           enddo
-           do j=1,3
+             enddo 
+           read_shift=read_shift+18  
+           endif
+           if (ctrl%laser_bgrad .EQV. .true.) then
+             do j=1,3
                do k=1,3
-                   read(values(6*j+6+2*k),*) a
-                   read(values(6*j+7+2*k),*) b
-                   ctrl%laserfield_bgrad_tpd(i,j,k)=dcmplx(a,b)
+                 read(values(6*j+2*k),*) a
+                 read(values(6*j+2*k+1),*) b
+                 ctrl%laserfield_bgrad_tpd(i-(com_line_number+2),j,k)=dcmplx(a,b)
                enddo 
-           enddo
-           do j=1,ctrl%nlasers
-             read(values(7+j),*) a
-             ctrl%laserenergy_tl(i,j)=dcmplx(a,0.d0)
-           enddo
-        enddo   
-      endif
-      ! read laser field line by line, checking the time with the substeps given above
+             enddo 
+           endif
+         endif
+      !LORENZ: Continue with reading in frequency file! 
+      !LASER ENERGY
+      !do i=1,ctrl%nsteps*ctrl%nsubsteps+1 !LORENZ MORE LINES
+      !   read(u_i_laser,'(A)',iostat=io) line
+      !   if (io/=0) then
+      !     write(0,*) 'EOF encountered during read of laser file!'
+      !     stop 1
+      !   endif
+      !   call split(line,' ',values,n) 
+      !do j=1,ctrl%nlasers
+      !     read(values(7+j),*) a
+      !     ctrl%laserenergy_tl(i,j)=dcmplx(a,0.d0)
+      !   enddo
+      enddo 
+    else
+      write(0,*) 'Laser file version 1.0 detected!'
       do i=1,ctrl%nsteps*ctrl%nsubsteps+1
         read(u_i_laser,'(A)',iostat=io) line
         if (io/=0) then
@@ -3159,138 +3096,43 @@ module input
           read(values(2*j+1),*) b
           ctrl%laserfield_e_tp(i,j)=dcmplx(a,b)
         enddo
-       do j=4,6
-          read(values(2*j),*) a
-          read(values(2*j+1),*) b
-          ctrl%laserfield_b_tp(i,j)=dcmplx(a,b)
-        enddo 
-       do j=1,3
-            do k=1,3
-                read(values(6*j+6+2*k),*) a
-                read(values(6*j+7+2*k),*) b
-                ctrl%laserfield_egrad_tpd(i,j,k)=dcmplx(a,b)
-            enddo 
-        enddo
-        do j=1,3
-            do k=1,3
-                read(values(6*j+6+2*k),*) a
-                read(values(6*j+7+2*k),*) b
-                ctrl%laserfield_bgrad_tpd(i,j,k)=dcmplx(a,b)
-            enddo 
-        enddo
         do j=1,ctrl%nlasers
           read(values(7+j),*) a
           ctrl%laserenergy_tl(i,j)=dcmplx(a,0.d0)
         enddo
-      enddo
-      
-      else 
-        ! find number of lasers
-        read(u_i_laser,'(A)',iostat=io) line
-        if (io/=0) then
-          write(0,*) 'EOF encountered during read of laser file!'
-          stop 1
-        endif
-        call split(line,' ',values,n)
-        ctrl%nlasers=n-7
-        if (ctrl%nlasers<1) then
-          write(0,*) 'No central energies for lasers found in ',filename
-          stop 1
-        endif
-        rewind(u_i_laser)
-
-        allocate(ctrl%laserfield_e_tp(ctrl%nsteps*ctrl%nsubsteps+1,3))
-
-        ! read laser field line by line, checking the time with the substeps given above
-        do i=1,ctrl%nsteps*ctrl%nsubsteps+1
-          read(u_i_laser,'(A)',iostat=io) line
-          if (io/=0) then
-            write(0,*) 'EOF encountered during read of laser file!'
-            stop 1
-          endif
-          call split(line,' ',values,n)
-          if (values(1)=='!') then
-            read(values(1))
-          endif
-          if ((i>=10) .and. (n<8)) then
-            write(0,*) 'Laser file malformatted! Line=',i
-            stop 1
-          endif
-          read(values(1),*) a
-          if (i==1) then
-            if (dabs(a)>0.001d0) then
-              write(0,*) 'Laser field must start at t=0 fs!'
-              stop 1
-            endif
-          endif
-          b=ctrl%dtstep/ctrl%nsubsteps
-          if ( dabs(a-b*(i-1))>0.001d0) then 
-            write(0,*) 'Laser field spacing does not match substep spacing!'
-            stop 1
-          endif
-          do j=1,3
-            read(values(2*j),*) a
-            read(values(2*j+1),*) b
-            ctrl%laserfield_e_tp(i,j)=dcmplx(a,b)
-          enddo
-          do j=1,ctrl%nlasers
-            read(values(7+j),*) a
-            ctrl%laserenergy_tl(i,j)=dcmplx(a,0.d0)
-          enddo
-        enddo
-
-       do j=4,6
-          read(values(2*j),*) a
-          read(values(2*j+1),*) b
-          ctrl%laserfield_b_tp(i,j)=dcmplx(a,b)
-        enddo 
-       do j=1,3
-            do k=1,3
-                read(values(6*j+6+2*k),*) a
-                read(values(6*j+7+2*k),*) b
-                ctrl%laserfield_egrad_tpd(i,j,k)=dcmplx(a,b)
-            enddo 
-        enddo
-        do j=1,ctrl%nlasers
-          read(values(7+j),*) a
-          ctrl%laserenergy_tl(i,j)=dcmplx(a,0.d0)
-        enddo
-        deallocate(values)
-      enddo
-
-      endif
-
+      enddo   
       close(u_i_laser)
-
-      if (printlevel>1) then
-        write(u_log,'(a,1x,i8,1x,a)') 'Laser field with',(ctrl%nsteps*ctrl%nsubsteps+1), 'steps has been read successfully.'
-!         n=sizeof(ctrl%laserfield_e_tp)
-!         write(u_log,'(a,1x,i10,1x,a)') 'Using',n,'bytes for laser data.'
-        write(u_log,'(a)') 'Step size has been checked.'
-        write(u_log,'(a,1x,i2,1x,a)') 'Laser central frequencies for',ctrl%nlasers,'lasers read.'
-        write(u_log,*)
-        if (ctrl%dipolegrad==1) then
-          write(u_log,'(a)') 'Will include the cartesian gradient of the dipole moments in the gradient transformation.'
-          select case (ctrl%calc_dipolegrad)
-            case (-1) 
-              write(0,'(a)') 'Internal error 4'
-              stop
-            case (0)
-              write(u_log,'(a)') 'Calculating all dipole moment gradients.'
-            case (1)
-              write(u_log,'(a)') 'Selecting dipole moment gradients in first quantum chemistry calculation.'
-            case (2)
-              write(u_log,'(a)') 'Selecting dipole moment gradients in second quantum chemistry calculation.'
-            case default
-              write(0,'(a)') 'Internal error 4'
-              stop
-          endselect
-        else
-          write(u_log,'(a)') 'Gradients of dipole moments will be neglected.'
-        endif
-      endif
     endif
 
+    if (printlevel>1) then
+      write(u_log,'(a,1x,i8,1x,a)') 'Laser field with',(ctrl%nsteps*ctrl%nsubsteps+1), 'steps has been read successfully.'
+!       n=sizeof(ctrl%laserfield_e_tp)
+!       write(u_log,'(a,1x,i10,1x,a)') 'Using',n,'bytes for laser data.'
+      write(u_log,'(a)') 'Step size has been checked.'
+      write(u_log,'(a,1x,i2,1x,a)') 'Laser central frequencies for',ctrl%nlasers,'lasers read.'
+      write(u_log,*)
+      if (ctrl%dipolegrad==1) then
+        write(u_log,'(a)') 'Will include the cartesian gradient of the dipole moments in the gradient transformation.'
+        select case (ctrl%calc_dipolegrad)
+          case (-1) 
+            write(0,'(a)') 'Internal error 4'
+            stop
+          case (0)
+            write(u_log,'(a)') 'Calculating all dipole moment gradients.'
+          case (1)
+            write(u_log,'(a)') 'Selecting dipole moment gradients in first quantum chemistry calculation.'
+          case (2)
+            write(u_log,'(a)') 'Selecting dipole moment gradients in second quantum chemistry calculation.'
+          case default
+            write(0,'(a)') 'Internal error 4'
+            stop
+        endselect
+      else
+        write(u_log,'(a)') 'Gradients of dipole moments will be neglected.'
+      endif
+    endif
+  endif
+    
   ! =====================================================
 
   ! check for thermostat
@@ -3308,20 +3150,20 @@ module input
       ctrl%thermostat=0
     endif
 
-   if (printlevel>0) then
-     write(u_log,*) '============================================================='
-     write(u_log,*) '                       Thermostat'
-     write(u_log,*) '============================================================='
-     if (printlevel>1) then
-       select case (ctrl%thermostat)
-         case (0)
-           write(u_log,'(a)') 'No thermostat will be applied.'
-         case (1)
-           write(u_log,'(a)') 'Langevin thermostat will be applied.'
-       endselect
-     endif
-   endif
-
+    if (printlevel>0) then
+      write(u_log,*) '============================================================='
+      write(u_log,*) '                       Thermostat'
+      write(u_log,*) '============================================================='
+      if (printlevel>1) then
+        select case (ctrl%thermostat)
+          case (0)
+            write(u_log,'(a)') 'No thermostat will be applied.'
+          case (1)
+            write(u_log,'(a)') 'Langevin thermostat will be applied.'
+            write(u_log,'(a)') 'Temperature (in K) and friction coeffitient (in m_e*fs^-1): '
+        endselect
+      endif
+    endif
 
     ! set up values needed for thermostat
     if (ctrl%thermostat/=0) then
