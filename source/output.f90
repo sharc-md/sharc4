@@ -450,7 +450,7 @@ subroutine write_dat_initial(u, ctrl, traj)
             call vec3write(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_b_tp, u, '! Laser B-field','E21.13e3')    
         endif 
         if (ctrl%laser_egrad) then  
-            call vec3write(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_egrad_tpd, u, '! Laser E-field gradients','E21.13e3')    
+            call vec33write(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_egrad_tpd, u, '! Laser E-field gradients','E21.13e3')    
         endif
     endif
   elseif   (ctrl%output_version >= 2.0) then
@@ -488,7 +488,7 @@ subroutine write_dat_initial(u, ctrl, traj)
             call vec3write(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_b_tp, u, '! Laser B-field','E21.13e3')    
         endif 
         if (ctrl%laser_egrad) then  
-            call vec3write(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_egrad_tpd, u, '! Laser E-field gradients','E21.13e3')    
+            call vec33write(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_egrad_tpd, u, '! Laser E-field gradients','E21.13e3')    
         endif
     endif 
     write(u,'(a)') '********************************* End of header array data ********************************'

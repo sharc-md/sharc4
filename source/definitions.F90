@@ -497,7 +497,7 @@ type ctrl_type
   integer :: nlasers
   complex*16, allocatable :: laserfield_e_tp(:,:)   !< complex valued laser field (E-field)
   complex*16, allocatable :: laserfield_b_tp(:,:)   !< complex valued laser field (B-field)
-  complex*16, allocatable :: laserfield_egrad_tpd(:,:)   !< complex valued laser field gradient ( E-field)
+  complex*16, allocatable :: laserfield_egrad_tpd(:,:,:)   !< complex valued laser field gradient ( E-field)
   complex*16, allocatable :: laserenergy_tl(:,:)  !< momentary central energy of laser (for detecting induced hops)
 
   ! thermostat

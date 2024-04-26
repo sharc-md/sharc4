@@ -3612,7 +3612,7 @@ module input
       do i=1,min(40,ctrl%nsteps*ctrl%nsubsteps+1)
         write(key,'(6(F9.6))') (ctrl%laserfield_e_tp(i,j),j=1,3)
         write(key,'(6(F9.6))') (ctrl%laserfield_b_tp(i,j),j=1,3)
-        write(key,'(3(3(2F9.6)))') ((ctrl%laserfield_egrad_tpd(i,j,k), j=1,3), k=1,3)
+        ! write(key,'(3(3(2F9.6)))') ((ctrl%laserfield_egrad_tpd(i,j,k), j=1,3), k=1,3)
         ! write(key,'(6(F9.6))') ((ctrl%laserfield_egrad_tpd(i,j,k), j=1,3), k=1,3)
         string=trim(string)//trim(key)
       enddo

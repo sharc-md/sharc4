@@ -103,10 +103,12 @@ public set_project_diffthr
 public matwrite
 public vecwrite
 public vec3write
+public vec33write
 public vec2write
 public matread
 public vecread
 public vec3read
+public vec33read
 public vec2read
 public ishermitian
 public isantihermitian
@@ -172,6 +174,10 @@ interface vec3write
   module procedure d3vecwrite,z3vecwrite
 endinterface
 
+interface vec33write
+  module procedure d33vecwrite,z33vecwrite
+endinterface
+
 interface vec2write
   module procedure d2vecwrite,z2vecwrite
 endinterface
@@ -186,6 +192,10 @@ endinterface
 
 interface vec3read
   module procedure d3vecread,z3vecread
+endinterface
+
+interface vec33read
+  module procedure d33vecread,z33vecread
 endinterface
 
 interface vec2read
@@ -1424,6 +1434,68 @@ endsubroutine
 
 ! =================================================================== !
 
+!> writes vector c of dimension 3x3xn to unit wrunit
+!> writes the title before the vector
+!> uses precstring as format string
+subroutine d33vecwrite(n,c,wrunit,title,precstring)
+  implicit none
+  ! parameters
+  integer, intent(in) :: n
+  real*8,intent(in) :: c(n,3,3)
+  integer, intent(in) :: wrunit
+  character(len=*), intent(in) :: title
+  character(len=*), intent(in) :: precstring
+  ! internal variables
+  integer :: i,j,k
+  character*255 :: fmtstring
+
+  write(wrunit,'(A)') trim(title)
+
+  write(fmtstring,'(I10)') 9
+  fmtstring='('//trim(adjustl(fmtstring))//'('//trim(adjustl(precstring))//',1X))'
+  do i=1,n
+    do j=1,3
+      do k=1,3
+        write(wrunit,fmtstring) c(i,j,k)
+      enddo 
+    enddo
+  enddo
+
+endsubroutine
+
+! =================================================================== !
+
+!> writes vector c of dimension 3x3xn to unit wrunit
+!> writes the title before the vector
+!> uses precstring as format string
+subroutine z33vecwrite(n,c,wrunit,title,precstring)
+  implicit none
+  ! parameters
+  integer, intent(in) :: n
+  complex*16,intent(in) :: c(n,3,3)
+  integer, intent(in) :: wrunit
+  character(len=*), intent(in) :: title
+  character(len=*), intent(in) :: precstring
+  ! internal variables
+  integer :: i,j,k
+  character*255 :: fmtstring
+
+  write(wrunit,'(A)') trim(title)
+
+  write(fmtstring,'(I10)') 9
+  fmtstring='('//trim(adjustl(fmtstring))//'('//trim(adjustl(precstring))//',1X,'//trim(adjustl(precstring))//',4X))'
+  do i=1,n
+     do j=1,3
+       do k=1,3
+         write(wrunit,fmtstring) c(i,j,k)
+       enddo 
+     enddo
+   enddo 
+
+endsubroutine
+
+! =================================================================== !
+
 !> writes vector c of dimension 2xn to unit wrunit
 !> writes the title before the vector
 !> uses precstring as format string
@@ -1710,6 +1782,69 @@ subroutine z3vecread(n,c,runit,title)
     enddo
   enddo
 
+endsubroutine
+
+! =================================================================== !! =================================================================== !
+
+!> reads a 3x3-vector c from unit runit
+!> also reads the title, THIS MEANS THAT the current line of runit has to be the title line
+subroutine d33vecread(n,c,runit,title)
+  implicit none
+  ! parameters
+  integer, intent(in) :: n
+  real*8,intent(out) :: c(n,3,3)
+  integer, intent(in) :: runit
+  character(len=8000), intent(out) :: title
+  ! internal variables
+  integer :: i,j,k, io
+
+  read(runit,'(A)', iostat=io) title
+
+  do i=1,n
+    do j=1,3
+      do k=1,3
+        read(runit,*, iostat=io) c(i,j,k)
+        if (io/=0) then
+          write(*,*) 'Could not read 3x3-matrix'
+          write(*,*) 'routine=d33vecread(), n=',n,', unit=',runit
+          write(*,*) 'title=',trim(title)
+       endif
+      enddo
+    enddo
+  enddo
+endsubroutine
+
+! =================================================================== !
+
+!> reads a 3x3-vector c from unit runit
+!> also reads the title, THIS MEANS THAT the current line of runit has to be the title line
+subroutine z33vecread(n,c,runit,title)
+  implicit none
+  ! parameters
+  integer, intent(in) :: n
+  complex*16,intent(out) :: c(n,3,3)
+  integer, intent(in) :: runit
+  character(len=8000), intent(out) :: title
+  ! internal variables
+  integer :: i,j,k, io
+  real*8 :: re_im(18)
+
+  read(runit,'(A)', iostat=io) title
+
+  do i=1,n 
+    read(runit,*) (re_im(j),j=1,18)
+    if (io/=0) then
+      write(*,*) 'Could not read 3x3-vector'
+      write(*,*) 'routine=d3vecread(), n=',n,', unit=',runit
+      write(*,*) 'title=',trim(title)
+    endif
+    do j=1,3
+      do k=1,3
+        c(i,j,k)=dcmplx(re_im(6*j+2*k-7),re_im(6*j+2*k-6))
+      enddo
+    enddo
+  enddo
+    
 endsubroutine
 
 ! =================================================================== !

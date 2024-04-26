@@ -51,25 +51,24 @@ program create_laser
   real(kind=8), allocatable :: env(:,:)
   real(kind=8), allocatable :: momentary_frequency(:)
   real(kind=8), allocatable :: mom_freq(:,:)
-  
+  real(kind=8), allocatable :: wavevector(:)
+  real(kind=8),allocatable :: x(:)
+
   complex(kind=8),allocatable :: laser_efield(:,:)
   complex(kind=8),allocatable :: laser_bfield(:,:)
   complex(kind=8),allocatable :: laser_t(:)
-  complex(kind=8),allocatable :: x(:), complex_polarization_e(:), complex_polarization_b(:), complex_wavevector(:)
   call read_params
   
   allocate (laser_efield(Nt,3), STAT=allocatestatus)
   if (allocatestatus /= 0) stop "*** Not enough memory 1 ***"
-  ! allocate (complex_polarization_b(3), STAT=allocatestatus)
-  ! if (allocatestatus /= 0) stop "*** Not enough memory 2 ***"
-  allocate (complex_polarization_e(3), STAT=allocatestatus)
-  if (allocatestatus /= 0) stop "*** Not enough memory 3 ***"
-  ! allocate (complex_wavevector(3), STAT=allocatestatus)
-  ! if (allocatestatus /= 0) stop "*** Not enough memory 4 ***"
+  allocate (wavevector(3), STAT=allocatestatus)
+  if (allocatestatus /= 0) stop "*** Not enough memory 4 ***"
   allocate (x(3), STAT=allocatestatus)
   if (allocatestatus /= 0) stop "*** Not enough memory 5 ***"
   allocate (laser_bfield(Nt,3), STAT=allocatestatus)
   if (allocatestatus /= 0) stop "*** Not enough memory 6 ***"
+  write(6,*) "Size of myArray: ", size(polarization_b(:, :)) 
+  write(6,*) "Size of myArray: ", size(polarization_b(:, :)) 
   allocate (laser_t(Nt), STAT=allocatestatus)
   if (allocatestatus /= 0) stop "*** Not enough memory 7 ***"
   allocate (envelope(Nt), STAT=allocatestatus)
@@ -90,10 +89,7 @@ program create_laser
                          b_2(ilasers),b_3(ilasers),b_4(ilasers),dt,t0,Nt,envelope,momentary_frequency) 
     env(:,ilasers) = sqrt(dble(laser_t(:))**2+aimag(laser_t(:))**2)
     mom_freq(:,ilasers) = momentary_frequency(:)
-    complex_polarization_e = norm(cmplx(polarization_e(:,ilasers), kind=8))
-    complex_polarization_b = z3gram_schmidt_vec1_on_vec2( cmplx(polarization_b(:,ilasers), kind=8), complex_polarization_e)
-    complex_wavevector = cross_product(complex_polarization_e, complex_polarization_b)
-
+    wavevector = cross_product( polarization_e(:, ilasers), polarization_b(:, ilasers))
     do ixyz = 1,3
       do it = 1,Nt
         if (abs(laser_t(it)) < threshold(ilasers)) then
@@ -101,13 +97,12 @@ program create_laser
           endif
           laser_efield(it, ixyz) = laser_efield(it,ixyz) + polarization_e(ixyz,ilasers)*laser_t(it)
           x = laser_efield(it, :)
-          laser_bfield(it,:) = cross_product( complex_wavevector, x)/speed_of_light_au
+          laser_bfield(it,:) = cross_product( wavevector, x)/speed_of_light_au
     
       enddo
     enddo
   enddo
   write(6,*) 'Writing out laser field'
-  
   open (10,file='laser')
   ! Write the header information
   write(10, '(a)') ' ! Laser file SHARC 4.0'
@@ -158,6 +153,7 @@ program create_laser
 
   deallocate (polarization_e)
   deallocate (polarization_b)
+  deallocate (wavevector)
   deallocate (type_envelope)
   deallocate (field_strength)
   deallocate (fwhm)

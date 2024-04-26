@@ -22,6 +22,8 @@
 !******************************************
 
 module LASER_input
+  use vector_operations
+
   integer :: Nlasers
   integer :: Nt
   integer,allocatable :: type_envelope(:)
@@ -142,13 +144,19 @@ subroutine read_params
     enddo
     polarization_b(:,ilasers) = polarization_b(:,ilasers) / sqrt(polarization_b_norm)
     write(6,*) (polarization_b(ixyz,ilasers),ixyz=1,3)
-
-    same_polarization = all(cross_product( polarization_e(:, ilasers) , polarization_b(:, ilasers)) == 0)
+    
+    !Calculate cross product to check if E-field is (anti-)parallel to B-field
+    same_polarization = all(cross_product(polarization_e(:, ilasers) , polarization_b(:, ilasers)) == 0)
 
     if (same_polarization) then
-        print*, 'Error! E-field is (anti-)parallel to B-field. Choose different orientations!'
+        write(6,*) 'Error! E-field is (anti-)parallel to B-field. Choose different orientations!'
         stop
     end if
+    
+    !Orthonormalize E-field and B-field, whereby the E-field polarization is only normalized
+    polarization_b(:, ilasers) = z3gram_schmidt_vec1_on_vec2(polarization_b(:, ilasers), polarization_e(:, ilasers))
+    write(6,*) 'Gram-Schmidt orthonormalized E-field polarisation:', polarization_e(:, ilasers)
+    write(6,*) 'Gram-Schmidt orthonormalized B-field polarisation:', polarization_b(:, ilasers)
 
     write(6,*) 'Choose type of envelope (1=Gaussian,2=Sinusoidal):'
     read(5,'(A)') line
