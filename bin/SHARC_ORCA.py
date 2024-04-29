@@ -390,7 +390,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
             # Delete files not needed
             work_files = os.listdir(workdir)
             for file in work_files:
-                if not re.search(r"\.log$|\.cis$|\.engrad|A\.err$|\.molden\.input$|\.gbw$|\.pc$|\.pcgrad$", file):
+                if not re.search(r"\.log$|\.cis$|\.engrad|A\.err$|\.molden\.input$|\.gbw$|\.pc$|\.pcgrad.*$", file):
                     os.remove(os.path.join(workdir, file))
 
         return exit_code, endtime - starttime
@@ -729,7 +729,10 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 # Point charges
                 point_charges = None
                 if self.QMin.molecule["point_charges"] and not point_charges:
-                    point_charges = self._get_pc_grad(os.path.join(scratchdir, job_path, "ORCA.pcgrad"))
+                    if ground_state:
+                        gradients = self._get_pc_grad(os.path.join(scratchdir, job_path, "ORCA.pcgrad"))
+                    else:
+                        gradients = self._get_pc_grad(os.path.join(scratchdir, job_path, f"ORCA.pcgrad.{grad_ext}"))
 
                 for key, val in self.QMin.maps["statemap"].items():
                     if (val[0], val[1]) == grad:
