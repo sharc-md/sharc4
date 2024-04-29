@@ -340,9 +340,9 @@ module definitions
   
     ! Thermostat randomness
     real*8,allocatable :: thermostat_random(:)
-  
-    ! tethering position
-    real*8,allocatable :: tethering_pos(:)
+
+  ! tethering position
+  real*8,allocatable :: tethering_pos(:)
   endtype
   
   ! =========================================================== !
@@ -359,7 +359,7 @@ module definitions
     sequence
   
     character*1023 :: cwd                     !< working directory for SHARC
-    real*8 :: output_version                  !< version as float for checks during writing output
+    real*8 :: output_version                         !< version as float for checks during writing output
     integer :: compat_mode                    !< compatibility mode with older versions
                                               ! currently: 
                                               ! 0 : no compatibility mode
@@ -368,7 +368,7 @@ module definitions
   ! numerical constants
     integer :: natom                          !< number of atoms
     logical,allocatable :: atommask_a(:)      !< atoms which are considered for decoherence, rescaling, ...
-    logical,allocatable :: atommask_b(:)      !< atoms which are considered for verlocity verlet (-> use to freeze atoms)
+  logical,allocatable :: atommask_b(:)      !< atoms which are considered for verlocity verlet (-> use to freeze atoms)
     integer :: maxmult                        !< highest spin quantum number (determines length of nstates_m)
     integer,allocatable :: nstates_m(:)       !< numer of states considered in each multiplicy
     integer :: nstates                        !< total number of states
@@ -400,12 +400,12 @@ module definitions
     logical :: restart_rerun_last_qm_step     !< if true, then qm.f90 will write "restart" instruction
     integer :: method                         !< 0=trajectory surface hopping(tsh), 1=self-consistent potential(scp)
     integer :: integrator                     !< integrator used, 0=Bulirsch-Stoer, 1=adaptive Velocity Verlet, 2=fixed stepzie Velocity Verlet
-    logical :: write_restart_files            !< if false skips the generation of all restart files and logic
+  logical :: write_restart_files            !< if false skips the generation of all restart files and logic
     integer :: staterep                       !< 0=initial state is given in diag representation, 1=in MCH representation
     integer :: initcoeff                      !< 0=initial coefficients are diag, 1=initial coefficients are MCH, 2=auto diag, 3=auto MCH
     integer :: laser                          !< 0=none, 1=internal, 2=external
     logical :: laser_e = .false.                  !< false=none, true=exists (Laser E-field)
-    logical :: laser_b = .false.                  !< false=none, true=exists (Laser B-field)
+    logical :: laser_b = .false.                  !< false=none, true=exists/ (Laser B-field)
     logical :: laser_egrad = .false.              !< false=none, true=exists (Laser E-field gradients)
     logical :: laser_bgrad = .false.              !< false=none, true=exists (Laser E-field gradients)
     integer :: coupling                       !< 0=ddt, 1=ddr, 2=overlap, 3=ktdc
@@ -435,8 +435,8 @@ module definitions
     
     integer :: thermostat                     !< 0=none, 1=Langevin thermostat
     logical :: restart_thermostat_random      !< F=no, T=yes (default) to use same random number sequence if restarted
-    logical :: remove_trans_rot               !< whether to remove the total translational and rotational components during thermostatting
-    integer :: restrictive_potential          !< 0=none, 1=restricted droplet, 2=tethering of an atom, 3=restricted atom + tethering
+  logical :: remove_trans_rot               !< whether to remove the total translational and rotational components during thermostatting
+  integer :: restrictive_potential          !< 0=none, 1=restricted droplet, 2=tethering of an atom, 3=restricted atom + tethering
   
   ! lp-zpe
     integer :: lpzpe_scheme                   !< correction_scheme=0 skip correction if BC bonds do not have enough kinetic energy; 1=forced correction by moving all kinetic energies of BC bonds to AH bonds
@@ -472,8 +472,8 @@ module definitions
     integer :: n_property1d                   !< number of property vectors
   
     integer :: killafter                      !< -1=no, >1=kill after that many steps in the ground state
-    integer :: ionization                     !< -1=no, n=ionization every n steps
-    integer :: theodore                       !< -1=no, n=theodore every n steps
+  integer :: ionization                     !< -1=no, n=ionization every n steps
+  integer :: theodore                       !< -1=no, n=theodore every n steps
     integer :: track_phase                    !< 0=no, 1=track phase of U matrix through the propagation (turn off only for debugging purposes)
     integer :: track_phase_at_zero            !< 0=nothing, 1=at time zero, get phases from whatever is in the savedir
     integer :: hopping_procedure              !< 0=no hops, 1=hops (standard formula), 2=GFSH
@@ -501,21 +501,21 @@ module definitions
     complex*16, allocatable :: laserfield_egrad_tpd(:,:,:)   !< complex valued laser field gradient ( E-field)
     complex*16, allocatable :: laserfield_bgrad_tpd(:,:,:)   !< complex valued laser field gradient ( E-field)
     complex*16, allocatable :: laserenergy_tl(:,:)  !< momentary central energy of laser (for detecting induced hops)
-    !character*1023, allocatable :: laser_freq_file_path      ! Laser frequency file path 
-    ! thermostat
-    integer :: ntempregions                     !< number of regions with different thermostat conditions
-    integer,allocatable :: tempregion(:)        !< array of thermostat region number for each atom
-    real*8,allocatable :: temperature(:)        !< temperature(s) used for thermostat
-    real*8,allocatable :: thermostat_const(:,:) !< constants needed for thermostat. Langevin: friction coeffitient
-    real*8,allocatable :: rotation_tot(:,:)     !< unit vectors for rotation of whole system (used to prevent such a rotation)
   
-    ! restrictive potentials
-    real*8 :: restricted_droplet_force        !< force constant for restricted droplet potential
-    real*8 :: restricted_droplet_radius       !< radius of primary water sphere for restricted droplet potential
-    real*8 :: tethering_force                 !< force constant for tethering of atom
-    real*8 :: tethering_radius                !< radius of beyond which tethering potential is not zero
-    logical,allocatable :: sel_restricted_droplet(:)       !< selection mask for restricted droplet
-    integer,allocatable :: tether_at(:)                    !< selection of indices for tethering of center of mass of these atoms
+    ! thermostat
+  integer :: ntempregions                     !< number of regions with different thermostat conditions
+  integer,allocatable :: tempregion(:)        !< array of thermostat region number for each atom
+  real*8,allocatable :: temperature(:)        !< temperature(s) used for thermostat
+  real*8,allocatable :: thermostat_const(:,:) !< constants needed for thermostat. Langevin: friction coeffitient
+  real*8,allocatable :: rotation_tot(:,:)     !< unit vectors for rotation of whole system (used to prevent such a rotation)
+
+  ! restrictive potentials
+  real*8 :: restricted_droplet_force        !< force constant for restricted droplet potential
+  real*8 :: restricted_droplet_radius       !< radius of primary water sphere for restricted droplet potential
+  real*8 :: tethering_force                 !< force constant for tethering of atom
+  real*8 :: tethering_radius                !< radius of beyond which tethering potential is not zero
+  logical,allocatable :: sel_restricted_droplet(:)       !< selection mask for restricted droplet
+  integer,allocatable :: tether_at(:)                    !< selection of indices for tethering of center of mass of these atoms
   
   endtype
   
@@ -537,6 +537,7 @@ module definitions
   
   complex*16,parameter:: ii=dcmplx(0.d0,1.d0)       !< imaginary unit
   real*8,parameter:: pi=4.d0*datan(1.d0)            !< pi
+  
   character*20,parameter :: multnames(8)=(/'Singlet','Doublet','Triplet','Quartet','Quintet',' Sextet',' Septet','  Octet'/)
   !< strings used to represent the multiplicities
   ! =========================================================== !
@@ -557,11 +558,10 @@ module definitions
   integer, parameter :: u_i_laser=16           !< numerical laser field
   integer, parameter :: u_i_atommask=17        !< which atoms are active for rescaling/decoherence/...
   integer, parameter :: u_i_rattle=18          !< atoms for constraints
-  integer, parameter :: u_i_frozen=19          !< which atoms are active for verlocity verlet (i.e. not frozen)
-  integer, parameter :: u_i_thermostat=20      !< thermostat settings (number of regions, temperatures, constants, regions)
-  integer, parameter :: u_i_droplet=21         !< which atoms are part of the restrictive droplet (i.e. feel the corresponding potential)
-  integer, parameter :: u_i_laser_freq=51      !< numerical laser field freq
-  
+integer, parameter :: u_i_frozen=19          !< which atoms are active for verlocity verlet (i.e. not frozen)
+integer, parameter :: u_i_thermostat=20      !< thermostat settings (number of regions, temperatures, constants, regions)
+integer, parameter :: u_i_droplet=21         !< which atoms are part of the restrictive droplet (i.e. feel the corresponding potential)
+ integer, parameter :: u_i_laser_freq=51      !< numerical laser field freq
   integer, parameter :: u_qm_QMin=41           !< here SHARC writes information for the QM interface (like geometry, number of states, what kind of data is requested)
   integer, parameter :: u_qm_QMout=42          !< here SHARC retrieves the results of the QM run (Hamiltonian, gradients, couplings, etc.)
   
@@ -572,7 +572,8 @@ module definitions
   ! =========================================================== !
   
       subroutine allocate_traj(traj,ctrl)
-        !< Allocates all arrays in traj
+        !< Allocates almost all arrays in traj
+        !< Memory-heavy allocations are done in additional_allocate_traj
         !< Does not allocate arrays in ctrl (laser-related, actstates_s,
         !  nstates_m, lpzpe_ah, lpzpe_bc, lpzpe_ke_zpe_ah, lpzpe_ke_zpe_bc)
         !< Reads natom and nstates from ctrl
@@ -887,34 +888,6 @@ module definitions
         if (status/=0) stop 'Could not allocate NACdR_diag_ssad'
         traj%NACdR_diag_ssad=-123.d0
   
-        allocate(traj%trans_rot_P(3*natom,3*natom),stat=status)
-        if (status/=0) stop 'Could not allocate trans_rot_P'
-        traj%trans_rot_P=-123.d0
-  
-        allocate(traj%pNACdR_MCH_ssad(nstates,nstates,natom,3),stat=status)
-        if (status/=0) stop 'Could not allocate pNACdR_MCH_ssad'
-        traj%pNACdR_MCH_ssad=-123.d0
-  
-        allocate(traj%pNACdR_diag_ssad(nstates,nstates,natom,3),stat=status)
-        if (status/=0) stop 'Could not allocate pNACdR_diag_ssad'
-        traj%pNACdR_diag_ssad=-123.d0
-  
-        allocate(traj%NACGV_MCH_ssad(nstates,nstates,natom,3),stat=status)
-        if (status/=0) stop 'Could not allocate NACGV_MCH_ssad'
-        traj%NACGV_MCH_ssad=-123.d0
-  
-        allocate(traj%NACGV_diag_ssad(nstates,nstates,natom,3),stat=status)
-        if (status/=0) stop 'Could not allocate NACGV_diag_ssad'
-        traj%NACGV_diag_ssad=-123.d0
-  
-        allocate(traj%pNACGV_MCH_ssad(nstates,nstates,natom,3),stat=status)
-        if (status/=0) stop 'Could not allocate pNACGV_MCH_ssad'
-        traj%pNACGV_MCH_ssad=-123.d0
-  
-        allocate(traj%pNACGV_diag_ssad(nstates,nstates,natom,3),stat=status)
-        if (status/=0) stop 'Could not allocate pNACGV_diag_ssad'
-        traj%pNACGV_diag_ssad=-123.d0
-  
         allocate(traj%dendt_MCH_ss(nstates,nstates),stat=status)
         if (status/=0) stop 'Could not allocate dendt_MCH_ss'
         traj%dendt_MCH_ss=-123.d0
@@ -1009,6 +982,105 @@ module definitions
   
       endsubroutine
   
+  
+  ! ===========================================================
+  ! used to manage memory-heavy allocations
+  ! perform conditional allocation 
+      subroutine additional_allocate_traj(traj,ctrl)
+        implicit none
+        type(ctrl_type), intent(inout) :: ctrl
+        type(trajectory_type), intent(inout) :: traj
+        integer :: status
+        integer :: natom,nstates
+  
+        ! GB denotes a general basis, meaning it can be either MCH or diag
+        integer :: allocate_trans_rot_P
+        integer :: allocate_pNACdR_GB_ssad
+        integer :: allocate_NACGV_GB_ssad
+        integer :: allocate_pNACGV_GB_ssad
+  
+        natom=ctrl%natom
+        nstates=ctrl%nstates
+  
+        if (printlevel>0) then
+          write(u_log,*) '============================================================='
+          write(u_log,*) '                  Memory-heavy Allocations'
+          write(u_log,*) '============================================================='
+        endif
+  
+        ! projection operator trans_rot_P is only computed when:
+        ! 1. in SCP, use projected nonadiabatic force direction; 
+        ! 2. in TSH, use projected hopping direction or velocity reflection vector. 
+        allocate_trans_rot_P=0
+        if (ctrl%method==1 .and. ctrl%nac_projection==1) then
+          allocate_trans_rot_P=1
+        else if (ctrl%method==0 .and. &
+          &(ctrl%ekincorrect==2 .or. ctrl%ekincorrect==5 .or. ctrl%ekincorrect==6 .or. ctrl%ekincorrect==8)) then 
+          allocate_trans_rot_P=1
+        else if (ctrl%method==0 .and. &
+          &(ctrl%reflect_frustrated==2 .or. ctrl%reflect_frustrated==5 .or. ctrl%reflect_frustrated==6 .or. ctrl%reflect_frustrated==8 .or. &
+          &ctrl%reflect_frustrated==92 .or. ctrl%reflect_frustrated==95 .or. ctrl%reflect_frustrated==96 .or. ctrl%reflect_frustrated==98)) then 
+          allocate_trans_rot_P=1
+        endif 
+  
+        if (allocate_trans_rot_P==1) then
+          write(u_log,*) "allocating trans_rot_P"
+          allocate(traj%trans_rot_P(3*natom,3*natom),stat=status)
+          if (status/=0) stop 'Could not allocate trans_rot_P'
+          traj%trans_rot_P=-123.d0
+        endif
+  
+        ! projected NAC is only used in SCP for nonadiabatic force direction 
+        ! in TSH, if one is using projected NAC, the vector is given in
+        ! traj%hopping_direction_ssad and traj%frustrated_hop_vec_ssad
+        allocate_pNACdR_GB_ssad=0
+        if (ctrl%method==1 .and. ctrl%nac_projection==1) then
+          allocate_pNACdR_GB_ssad=1
+        endif
+  
+        if (allocate_pNACdR_GB_ssad==1) then 
+          write(u_log,*) "allocating projected NAC"
+          allocate(traj%pNACdR_MCH_ssad(nstates,nstates,natom,3),stat=status)
+          if (status/=0) stop 'Could not allocate pNACdR_MCH_ssad'
+          traj%pNACdR_MCH_ssad=-123.d0
+          allocate(traj%pNACdR_diag_ssad(nstates,nstates,natom,3),stat=status)
+          if (status/=0) stop 'Could not allocate pNACdR_diag_ssad'
+          traj%pNACdR_diag_ssad=-123.d0
+        endif
+  
+        ! effective NAC is only used when calc_effectivenac is set to 1
+        allocate_NACGV_GB_ssad=0
+        if (ctrl%calc_effectivenac==1) then
+          allocate_NACGV_GB_ssad=1
+        endif
+        if (allocate_NACGV_GB_ssad==1) then
+          write(u_log,*) "allocating effective NAC"
+          allocate(traj%NACGV_MCH_ssad(nstates,nstates,natom,3),stat=status)
+          if (status/=0) stop 'Could not allocate NACGV_MCH_ssad'
+          traj%NACGV_MCH_ssad=-123.d0
+          allocate(traj%NACGV_diag_ssad(nstates,nstates,natom,3),stat=status)
+          if (status/=0) stop 'Could not allocate NACGV_diag_ssad'
+          traj%NACGV_diag_ssad=-123.d0
+        endif
+          
+        ! projected effective NAC is only used when calc_effectivenac is set to 1 
+        allocate_pNACGV_GB_ssad=0
+        if (ctrl%calc_effectivenac==1 .and. ctrl%nac_projection==1) then
+          allocate_pNACGV_GB_ssad=1
+        endif
+        if (allocate_pNACGV_GB_ssad==1) then 
+          write(u_log,*) "allocating projected effective NAC"
+          allocate(traj%pNACGV_MCH_ssad(nstates,nstates,natom,3),stat=status)
+          if (status/=0) stop 'Could not allocate pNACGV_MCH_ssad'
+          traj%pNACGV_MCH_ssad=-123.d0
+          allocate(traj%pNACGV_diag_ssad(nstates,nstates,natom,3),stat=status)
+          if (status/=0) stop 'Could not allocate pNACGV_diag_ssad'
+          traj%pNACGV_diag_ssad=-123.d0
+        endif 
+  
+      endsubroutine
+  
+  
       subroutine deallocate_ctrl(ctrl)
         implicit none
         type(ctrl_type), intent(inout) :: ctrl
@@ -1016,7 +1088,7 @@ module definitions
         if (allocated(ctrl%nstates_m))                  deallocate(ctrl%nstates_m)
         if (allocated(ctrl%actstates_s))                deallocate(ctrl%actstates_s)
         if (allocated(ctrl%atommask_a))                 deallocate(ctrl%atommask_a)
-        if (allocated(ctrl%atommask_b))                 deallocate(ctrl%atommask_b)
+      if (allocated(ctrl%atommask_b))                 deallocate(ctrl%atommask_b)
         if (allocated(ctrl%laserfield_e_tp))            deallocate(ctrl%laserfield_e_tp)
         if (allocated(ctrl%laserfield_b_tp))            deallocate(ctrl%laserfield_b_tp)
         if (allocated(ctrl%laserfield_egrad_tpd))       deallocate(ctrl%laserfield_egrad_tpd)
@@ -1027,12 +1099,12 @@ module definitions
         if (allocated(ctrl%lpzpe_bc))                   deallocate(ctrl%lpzpe_bc)
         if (allocated(ctrl%lpzpe_ke_zpe_ah))            deallocate(ctrl%lpzpe_ke_zpe_ah)
         if (allocated(ctrl%lpzpe_ke_zpe_bc))            deallocate(ctrl%lpzpe_ke_zpe_bc)
-        if (allocated(ctrl%tempregion))                 deallocate(ctrl%tempregion)
-        if (allocated(ctrl%temperature))                deallocate(ctrl%temperature)
+      if (allocated(ctrl%tempregion))                 deallocate(ctrl%tempregion)
+      if (allocated(ctrl%temperature))                deallocate(ctrl%temperature)
         if (allocated(ctrl%thermostat_const))           deallocate(ctrl%thermostat_const)
-        if (allocated(ctrl%rotation_tot))               deallocate(ctrl%rotation_tot)
-        if (allocated(ctrl%sel_restricted_droplet))     deallocate(ctrl%sel_restricted_droplet)
-        if (allocated(ctrl%tether_at))                  deallocate(ctrl%tether_at)
+      if (allocated(ctrl%rotation_tot))               deallocate(ctrl%rotation_tot)
+      if (allocated(ctrl%sel_restricted_droplet))     deallocate(ctrl%sel_restricted_droplet)
+      if (allocated(ctrl%tether_at))                  deallocate(ctrl%tether_at)
   
       endsubroutine
   
@@ -1154,7 +1226,7 @@ module definitions
       if (allocated(traj%lpzpe_ke_ah))                deallocate(traj%lpzpe_ke_ah)
       if (allocated(traj%lpzpe_ke_bc))                deallocate(traj%lpzpe_ke_bc)
       if (allocated(traj%thermostat_random))          deallocate(traj%thermostat_random)
-      if (allocated(traj%tethering_pos))              deallocate(traj%tethering_pos)
+    if (allocated(traj%tethering_pos))              deallocate(traj%tethering_pos)
     endsubroutine
   
   
@@ -1449,21 +1521,22 @@ module definitions
     endsubroutine
   
   ! =========================================================== !
-
-endmodule
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+  
+  endmodule
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
