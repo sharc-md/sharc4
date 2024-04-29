@@ -177,6 +177,12 @@ class SHARC_QMOUT(SHARC_FAST):
         if self.QMin.requests["dm"]:
             self.QMout["dm"] = self.QMout2["dm"]
 
+        if self.QMin.requests["mdm"]:
+            self.QMout["mdm"] = self.QMout2["mdm"]
+
+        if self.QMin.requests["eqm"]:
+            self.QMout["eqm"] = self.QMout2["eqm"]
+
         if self.QMin.requests["overlap"]:
             np.fill_diagonal(self.QMout["overlap"], 1.0)
 

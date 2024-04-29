@@ -235,6 +235,7 @@ class QMout:
                 for jblock in range(shape[1]):
                     for irow in range(shape[2]):
                         line = data[iline + irow].split()
+                        log.info("iblock=%s, jblock=%s, irow=%s, line=%s", iblock, jblock, irow, line)
                         if type == complex:
                             result[iblock, jblock, irow, :] = np.array(
                                 [complex(float(line[2 * i]), float(line[2 * i + 1])) for i in range(shape[3])]
@@ -499,7 +500,7 @@ class QMout:
             nmstates,
         )
         for xyz in range(3):
-            string += "%i %i\n" % (nmstates, nmstates)
+            string += "%i %i pol %s\n" % (nmstates, nmstates, IToPol[xyz])
             for i in range(nmstates):
                 for j in range(nmstates):
                     string += "%s %s " % (
@@ -530,7 +531,7 @@ class QMout:
             nmstates,
         )
         for xyz in range(3):
-            string += "%i %i\n" % (nmstates, nmstates)
+            string += "%i %i pol %s\n" % (nmstates, nmstates, IToPol[xyz])
             for i in range(nmstates):
                 for j in range(nmstates):
                     string += "%s %s " % (
@@ -562,7 +563,7 @@ class QMout:
         )
         for dxdydz in range(3):
             for xyz in range(3):
-                string += "%i %i\n" % (nmstates, nmstates)
+                string += "%i %i der %s pol %s\n" % (nmstates, nmstates, IToPol[dxdydz], IToPol[xyz])
                 for i in range(nmstates):
                     for j in range(nmstates):
                         string += "%s %s " % (
@@ -571,7 +572,6 @@ class QMout:
                         )
                     string += "\n"
                 string += ""
-            string += "\n"
         return string
 
     # ======================================================================= #
