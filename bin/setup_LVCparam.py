@@ -938,6 +938,12 @@ def write_QM_in(INFOS, displacement_key, displacement_value, displacement_dir):
     # dipole moment
     string += "DM\n"
 
+    # magnetic dipole moment
+    string += "MDM\n"
+
+    # electric quadrupole moment
+    string += "EQM\n"
+
     # gradient
     if displacement_key == "000_eq" and INFOS["ana_grad"]:
         string += "GRAD\n"
