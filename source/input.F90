@@ -3663,70 +3663,70 @@ module input
         deallocate(values)
       endif
     endif
-   ! set values for tethering atom
-   if (ctrl%restrictive_potential==2 .or. ctrl%restrictive_potential==3) then
-      line=get_value_from_key('tethering_force',io)
-      if (io==0) then
-        read(line,*) ctrl%tethering_force ! provide in u/fs^2
-        if (printlevel>1) write(u_log,'(1x,ES11.4)') ctrl%tethering_force
-      else
-        write(0,*) 'No force constant for tethering of atom given!'
-        stop 1
-      endif
-      ctrl%tethering_force = ctrl%tethering_force * au2fs**2/au2u
-      line=get_value_from_key('tethering_radius',io)
-      if (io==0) then
-        read(line,*) ctrl%tethering_radius
-      else
-        ctrl%tethering_radius=0. ! default radius beyond which tethering potential activated is 0
-      endif
-      if (printlevel>1) then
-        write(u_log,'(1x,F7.2,4x,ES11.4)') ctrl%tethering_radius
-      endif
-      ctrl%tethering_radius= ctrl%tethering_radius/au2a ! in atomic units
-      line=get_value_from_key('tether_at',io)
-      if (io==0) then
-        call split(line,' ',values,n)
-        allocate(ctrl%tether_at(n))
-        do i=1,n
-          read(values(i),*) a
-          ctrl%tether_at(i) = a
-        enddo
-        deallocate(values)
-        if (printlevel>1) then
-          write(u_log,'(a)') 'Atoms to be tethered: '
-          write(u_log, *) ctrl%tether_at(:)
-        endif
-      else
-        write(0,*) 'No atom specified for tethering!'
-        stop 1
-      endif
-      allocate(traj%tethering_pos(3))
-      line=get_value_from_key('tethering_position',io)
-      if (io==0) then
-        call split(line,' ',values,n)
-        if (n==3) then
-          do i=1,n
-             read(values(i),*) a
-             traj%tethering_pos = a
-          enddo
-        else
-          write(0,*) 'Tethering position specified needs to have 3 coordinates!'
-          stop 1
-        endif
-        if (printlevel>1) then
-          write(u_log,'(a)') 'Tethering to position'
-          write(u_log,'(1x,ES11.4)') traj%tethering_pos
-        endif
-        traj%tethering_pos = traj%tethering_pos/au2a ! in atomic units
-        deallocate(values)
-      else
-        !use center of mass at time 0 of specified tether atoms as center of tethering potential
-        traj%tethering_pos(:) = calc_centerofmass(traj,ctrl)
-         write(u_log,'(a)') 'Tethering to center of mass at start'
-      endif
-   endif
-   call additional_allocate_traj(traj,ctrl)
+    ! set values for tethering atom
+    if (ctrl%restrictive_potential==2 .or. ctrl%restrictive_potential==3) then
+       line=get_value_from_key('tethering_force',io)
+       if (io==0) then
+         read(line,*) ctrl%tethering_force ! provide in u/fs^2
+         if (printlevel>1) write(u_log,'(1x,ES11.4)') ctrl%tethering_force
+       else
+         write(0,*) 'No force constant for tethering of atom given!'
+         stop 1
+       endif
+       ctrl%tethering_force = ctrl%tethering_force * au2fs**2/au2u
+       line=get_value_from_key('tethering_radius',io)
+       if (io==0) then
+         read(line,*) ctrl%tethering_radius
+       else
+         ctrl%tethering_radius=0. ! default radius beyond which tethering potential activated is 0
+       endif
+       if (printlevel>1) then
+         write(u_log,'(1x,F7.2,4x,ES11.4)') ctrl%tethering_radius
+       endif
+       ctrl%tethering_radius= ctrl%tethering_radius/au2a ! in atomic units
+       line=get_value_from_key('tether_at',io)
+       if (io==0) then
+         call split(line,' ',values,n)
+         allocate(ctrl%tether_at(n))
+         do i=1,n
+           read(values(i),*) a
+           ctrl%tether_at(i) = a
+         enddo
+         deallocate(values)
+         if (printlevel>1) then
+           write(u_log,'(a)') 'Atoms to be tethered: '
+           write(u_log, *) ctrl%tether_at(:)
+         endif
+       else
+         write(0,*) 'No atom specified for tethering!'
+         stop 1
+       endif
+       allocate(traj%tethering_pos(3))
+       line=get_value_from_key('tethering_position',io)
+       if (io==0) then
+         call split(line,' ',values,n)
+         if (n==3) then
+           do i=1,n
+              read(values(i),*) a
+              traj%tethering_pos = a
+           enddo
+         else
+           write(0,*) 'Tethering position specified needs to have 3 coordinates!'
+           stop 1
+         endif
+         if (printlevel>1) then
+           write(u_log,'(a)') 'Tethering to position'
+           write(u_log,'(1x,ES11.4)') traj%tethering_pos
+         endif
+         traj%tethering_pos = traj%tethering_pos/au2a ! in atomic units
+         deallocate(values)
+       else
+         !use center of mass at time 0 of specified tether atoms as center of tethering potential
+         traj%tethering_pos(:) = calc_centerofmass(traj,ctrl)
+          write(u_log,'(a)') 'Tethering to center of mass at start'
+       endif
+    endif
+    call additional_allocate_traj(traj,ctrl)
   ! =====================================================
 
 !   ! check for floquet keyword
