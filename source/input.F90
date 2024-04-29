@@ -3182,9 +3182,9 @@ module input
             stop 1
           endif
           call split(line,' ',values,n)
-          if (values(1)=='!') then
-            read(values(1))
-          endif
+          !if (values(1)=='!') then
+          !  read(values(1),*)
+          !endif
           if ((i>=10) .and. (n<8)) then
             write(0,*) 'Laser file malformatted! Line=',i
             stop 1
@@ -3263,19 +3263,19 @@ module input
       ctrl%thermostat=0
     endif
 
-    if (printlevel>0) then
-      write(u_log,*) '============================================================='
-      write(u_log,*) '                       Thermostat'
-      write(u_log,*) '============================================================='
-      if (printlevel>1) then
-        select case (ctrl%thermostat)
-          case (0)
-            write(u_log,'(a)') 'No thermostat will be applied.'
-          case (1)
-            write(u_log,'(a)') 'Langevin thermostat will be applied.'
-        endselect
-      endif
-    endif
+     if (printlevel>0) then
+       write(u_log,*) '============================================================='
+       write(u_log,*) '                       Thermostat'
+       write(u_log,*) '============================================================='
+       if (printlevel>1) then
+         select case (ctrl%thermostat)
+           case (0)
+             write(u_log,'(a)') 'No thermostat will be applied.'
+           case (1)
+             write(u_log,'(a)') 'Langevin thermostat will be applied.'
+         endselect
+       endif
+     endif
 
     ! set up values needed for thermostat
     if (ctrl%thermostat/=0) then
@@ -3664,7 +3664,7 @@ module input
       endif
     endif
    ! set values for tethering atom
-    if (ctrl%restrictive_potential==2 .or. ctrl%restrictive_potential==3) then
+   if (ctrl%restrictive_potential==2 .or. ctrl%restrictive_potential==3) then
       line=get_value_from_key('tethering_force',io)
       if (io==0) then
         read(line,*) ctrl%tethering_force ! provide in u/fs^2
