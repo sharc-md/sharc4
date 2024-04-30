@@ -217,7 +217,7 @@ class SHARC_LVC(SHARC_FAST):
                     self._soc[i, :] += np.asarray(line.split(), dtype=float) * factor
                     i += 1
                     line = f.readline()
-                self.available_requests.add("SOC")
+                self.available_requests.add("soc")
 
             elif "DM" in line and "MDM" not in line:
                 self._dipole = np.zeros((3, nmstates, nmstates), dtype=complex)
@@ -230,7 +230,7 @@ class SHARC_LVC(SHARC_FAST):
                     self._dipole[j, i, :] += np.asarray(line.split(), dtype=float) * factor
                     i += 1
                     line = f.readline()
-                self.available_requests.add("DM")
+                self.available_requests.add("dm")
 
             elif "MDM" in line:
                 self._mag_dipole = np.zeros((3, nmstates, nmstates), dtype=complex)
@@ -243,7 +243,7 @@ class SHARC_LVC(SHARC_FAST):
                     self._mag_dipole[j, i, :] += np.asarray(line.split(), dtype=float) * factor
                     i += 1
                     line = f.readline()
-                self.available_requests.add("MDM")
+                self.available_requests.add("mdm")
 
             elif "EQM" in line:
                 self._el_quadrupole = np.zeros((3, 3, nmstates, nmstates), dtype=complex)
@@ -257,7 +257,7 @@ class SHARC_LVC(SHARC_FAST):
                     self._el_quadrupole[k, j, i, :] += np.asarray(line.split(), dtype=float) * factor
                     i += 1
                     line = f.readline()
-                self.available_requests.add("EQM")
+                self.available_requests.add("eqm")
 
             elif "Multipolar Density Fit" in line:
                 line = f.readline()
@@ -280,13 +280,13 @@ class SHARC_LVC(SHARC_FAST):
         f.close()
         # setting type as necessary (converting type through view and reshape is a lot faster that simple astype
         # assignemnt) 
-        if soc_real:
+        if "soc" in self.available_requests and soc_real:
             self._soc = np.reshape(self._soc.view(float), self._soc.shape + (2,))[:, :, 0]
-        if dipole_real:
+        if "dm" in self.available_requests and dipole_real:
             self._dipole = np.reshape(self._dipole.view(float), self._dipole.shape + (2,))[:, :, :, 0]
-        if mag_dipole_real:
+        if "mdm" in self.available_requests and mag_dipole_real:
             self._mag_dipole = np.reshape(self._mag_dipole.view(float), self._mag_dipole.shape + (2,))[:, :, :, 0]
-        if el_quadrupole_real:
+        if "eqm" in self.available_requests and el_quadrupole_real:
             self._el_quadrupole = np.reshape(self._el_quadrupole.view(float), self._el_quadrupole.shape + (2,))[:, :, :, :, 0]
         # if self.QMin.save["init"]:
             # SHARC_FAST.checkscratch(self.QMin.save["savedir"])
@@ -430,19 +430,22 @@ class SHARC_LVC(SHARC_FAST):
         res[..., 7:] = 2 * quad[..., [0, 0, 1], [1, 2, 2]]
         return res
 
-    # @profile
-    def run(self):
+    def _request_logic(self):
+        super()._request_logic()
+
         failed_req = [req for req in self.QMin.requests if req and req not in self.available_requests]
         if not failed_req:
             self.log.error("Requested unavailable requests: %s", failed_req)
             raise RuntimeError()
-        do_pc = self.QMin.molecule["point_charges"]
         # check if Multipolar Density fit and Point charges both have the same state (true/false)
-        if "Multipolar Density Fit" in self.available_requests != self.QMin.molecule["point_charges"]:
-            raise RuntimeError(
-                "Inconsistent request of Multipolar Density and Point charges! -> check your input file for Multipolar Density Fit line / Point charges"
-            )
+        if "Multipolar Density Fit" not in self.available_requests and self.QMin.molecule["point_charges"]:
+            self.log.error("Inconsistent request of Multipolar Density and Point charges! -> check your input file for Multipolar Density Fit line / Point charges")
+            raise RuntimeError()
+
+    # @profile
+    def run(self):
         weights = self._masses
+        do_pc = self.QMin.molecule["point_charges"]
         # NOTE: do not calculate all nacs and grads only requested!!
         req_nmstates = self.QMin.molecule["nmstates"]
         req_states = self.QMin.molecule["states"]
@@ -759,24 +762,25 @@ class SHARC_LVC(SHARC_FAST):
             self.log.debug(f"soc sanity check: {adia_soc.dtype} {self._soc.dtype}")
             Hd += adia_soc
 
-        dipole = (
-            np.einsum("ni,kij,jm->knm", self._U.T, self._dipole, self._U, casting="no", optimize=True)
-            if self._diagonalize
-            else self._dipole
-        )
+        if "dm" in self.available_requests:
+            dipole = (
+                np.einsum("ni,kij,jm->knm", self._U.T, self._dipole, self._U, casting="no", optimize=True)
+                if self._diagonalize
+                else self._dipole
+            )
 
-        mag_dipole = (
-            np.einsum("ni,kij,jm->knm", self._U.T, self._mag_dipole, self._U, casting="no", optimize=True)
-            if self._diagonalize
-            else self._mag_dipole
-        ) 
-        print(self._el_quadrupole.shape)
-        print(self._U.T.shape)
-        el_quadrupole = (
-            np.einsum("ni,klij,jm->klnm", self._U.T, self._el_quadrupole, self._U, casting="no", optimize=True)
-            if self._diagonalize
-            else self._el_quadrupole
-        )
+        if "mdm" in self.available_requests:
+            mag_dipole = (
+                np.einsum("ni,kij,jm->knm", self._U.T, self._mag_dipole, self._U, casting="no", optimize=True)
+                if self._diagonalize
+                else self._mag_dipole
+            ) 
+        if "eqm" in self.available_requests:
+            el_quadrupole = (
+                np.einsum("ni,klij,jm->klnm", self._U.T, self._el_quadrupole, self._U, casting="no", optimize=True)
+                if self._diagonalize
+                else self._el_quadrupole
+            )
 
         if do_kabsch:
             dipole = np.einsum("inm,ij->jnm", dipole, self._Trot)
@@ -801,9 +805,12 @@ class SHARC_LVC(SHARC_FAST):
         self.QMout.npc = self.QMin.molecule["npc"]
         self.QMout.point_charges = do_pc
         self.QMout.h = Hd
-        self.QMout.dm = dipole
-        self.QMout.mdm = mag_dipole
-        self.QMout.eqm = el_quadrupole
+        if "dm" in self.available_requests:
+            self.QMout.dm = dipole
+        if "mdm" in self.available_requests:
+            self.QMout.mdm = mag_dipole
+        if "eqm" in self.available_requests:
+            self.QMout.eqm = el_quadrupole
         if self.QMin.requests["overlap"]:
             self.QMout.overlap = overlap
         if self.QMin.requests["grad"]:
