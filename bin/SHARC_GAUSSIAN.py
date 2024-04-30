@@ -442,14 +442,6 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         if self.guess_file is not None:
             create_file(expand_path(self.guess_file), "GAUSSIAN.chk.init")
 
-
-    def read_requests(self, requests_file: str = "QM.in") -> None:
-        super().read_requests(requests_file)
-
-        for req, val in self.QMin.requests.items():
-            if val and req != "retain" and req not in all_features:
-                raise ValueError(f"Found unsupported request {req}.")
-
     def read_resources(self, resources_file: str = "GAUSSIAN.resources", kw_whitelist: Optional[list[str]] = None) -> None:
         super().read_resources(resources_file, kw_whitelist)
         self.QMin.resources["gaussian_version"] = self.getVersion(self.QMin.resources["groot"])

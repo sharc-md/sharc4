@@ -938,11 +938,6 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
     def read_requests(self, requests_file: str = "QM.in") -> None:
         super().read_requests(requests_file)
 
-        for req, val in self.QMin.requests.items():
-            if val and req != "retain" and req not in all_features:
-                self.log.error(f"Found unsupported request {req}.")
-                raise ValueError()
-
         if self.QMin.template["method"] == "caspt2" and (self.QMin.requests["nacdr"] or self.QMin.requests["grad"]):
             self.log.error("NACs/Gradients are not possible with caspt2")
             raise ValueError()

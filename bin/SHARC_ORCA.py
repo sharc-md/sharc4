@@ -982,10 +982,6 @@ class SHARC_ORCA(SHARC_ABINITIO):
     def print_qmin(self) -> None:
         pass
 
-    def _set_driver_requests(self, *args, **kwargs) -> None:
-        super()._set_driver_requests(*args, **kwargs)
-        self.QMin.requests["h"] = True
-
     def _set_request(self, *args, **kwargs) -> None:
         super()._set_request(*args, **kwargs)
         self.QMin.requests["h"] = True
@@ -1026,10 +1022,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
 
     def read_requests(self, requests_file: str = "QM.in") -> None:
         super().read_requests(requests_file)
-
-        for req, val in self.QMin.requests.items():
-            if val and req != "retain" and req not in all_features:
-                raise ValueError(f"Found unsupported request {req}.")
+        self.QMin.requests["h"] = True
 
     def read_template(self, template_file: str = "ORCA.template", kw_whitelist: Optional[list[str]] = None) -> None:
         kw_whitelist = ["basis_per_element", "basis_per_atom", "ecp_per_element"]

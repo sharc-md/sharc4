@@ -179,7 +179,7 @@ def safe(func: callable):
 def do_qm_calc(i: SHARC_INTERFACE, qmout: QMOUT):
     icall = 1
     log.debug(f"\tset_requ")
-    i._set_driver_requests(get_all_tasks(icall))
+    i.read_requests(get_all_tasks(icall))
     log.debug(f"\tcoords")
     i.set_coords(get_crd())
     log.debug(f"\trun")
@@ -193,7 +193,7 @@ def do_qm_calc(i: SHARC_INTERFACE, qmout: QMOUT):
     isecond = set_qmout(qmout._QMout, icall)
     if isecond == 1:
         icall = 2
-        i._set_driver_requests(get_all_tasks(icall))
+        i.read_requests(get_all_tasks(icall))
         i.set_coords(get_crd())
         with InDir("QM"):
             safe(i.run)
