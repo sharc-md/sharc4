@@ -128,14 +128,11 @@ class SHARC_LVC(SHARC_FAST):
         states = self.parsed_states["states"]
 
         self._H_i = {im: np.zeros((n, n, r3N), dtype=float) for im, n in enumerate(states) if n != 0}
-        self._G = {im: np.zeros((n, n, r3N, r3N), dtype=float) for im, n in enumerate(states) if n != 0}
         self._h = {im: np.zeros((n, n), dtype=float) for im, n in enumerate(states) if n != 0}
-        self._dipole = np.zeros((3, nmstates, nmstates), dtype=complex)
-        self._mag_dipole = np.zeros((3, nmstates, nmstates), dtype=complex)
-        self._el_quadrupole = np.zeros((3, 3, nmstates, nmstates), dtype=complex)
-        self._soc = np.zeros((nmstates, nmstates), dtype=complex)
         self._U = np.zeros((nmstates, nmstates), dtype=float)
         self._Q = np.zeros(r3N, float)
+
+        self.available_requests = set()
         xyz = {"X": 0, "Y": 1, "Z": 2}
         soc_real = True
         dipole_real = True
@@ -153,6 +150,7 @@ class SHARC_LVC(SHARC_FAST):
             for im, s, v in map(a, range(z)):
                 self._h[im][s, s] += v
             line = f.readline()
+            self.available_requests.add("epsilon")
 
         if line == "eta\n":
             z = int(f.readline()[:-1])
@@ -162,6 +160,7 @@ class SHARC_LVC(SHARC_FAST):
             ):
                 self._h[im][si, sj] += v
             line = f.readline()
+            self.available_requests.add("eta")
 
         if line == "kappa\n":
             z = int(f.readline()[:-1])
@@ -173,6 +172,7 @@ class SHARC_LVC(SHARC_FAST):
             for im, s, i, v in map(b, range(z)):
                 self._H_i[im][s, s, i] = v
             line = f.readline()
+            self.available_requests.add("kappa")
 
         if line == "lambda\n":
             z = int(f.readline()[:-1])
@@ -185,8 +185,10 @@ class SHARC_LVC(SHARC_FAST):
                 self._H_i[im][si, sj, i] = v
                 self._H_i[im][sj, si, i] = v
             line = f.readline()
+            self.available_requests.add("lambda")
 
         if line == "gamma\n":
+            self._G = {im: np.zeros((n, n, r3N, r3N), dtype=float) for im, n in enumerate(states) if n != 0}
             z = int(f.readline()[:-1])
             self._gammas = z != 0
             self.log.info(f"including Gammas in calculation: {self._gammas}")
@@ -200,10 +202,12 @@ class SHARC_LVC(SHARC_FAST):
                 self._G[im][si, sj, n, m] = v
                 self._G[im][si, sj, n, m] = v
             line = f.readline()
+            self.available_requests.add("gamma")
 
         while line:
             factor = 1j if line[-2] == "I" else 1
             if "SOC" in line:
+                self._soc = np.zeros((nmstates, nmstates), dtype=complex)
                 if factor != 1:
                     soc_real = False
                 line = f.readline()
@@ -213,7 +217,10 @@ class SHARC_LVC(SHARC_FAST):
                     self._soc[i, :] += np.asarray(line.split(), dtype=float) * factor
                     i += 1
                     line = f.readline()
+                self.available_requests.add("SOC")
+
             elif "DM" in line and "MDM" not in line:
+                self._dipole = np.zeros((3, nmstates, nmstates), dtype=complex)
                 j = xyz[line[2]]
                 if factor != 1:
                     dipole_real = False
@@ -223,9 +230,10 @@ class SHARC_LVC(SHARC_FAST):
                     self._dipole[j, i, :] += np.asarray(line.split(), dtype=float) * factor
                     i += 1
                     line = f.readline()
+                self.available_requests.add("DM")
+
             elif "MDM" in line:
-                print(line)
-                print(xyz[line[3]])
+                self._mag_dipole = np.zeros((3, nmstates, nmstates), dtype=complex)
                 j = xyz[line[3]]
                 if factor != 1:
                     mag_dipole_real = False
@@ -234,8 +242,11 @@ class SHARC_LVC(SHARC_FAST):
                 while i < nmstates:
                     self._mag_dipole[j, i, :] += np.asarray(line.split(), dtype=float) * factor
                     i += 1
-                    line = f.readline() 
+                    line = f.readline()
+                self.available_requests.add("MDM")
+
             elif "EQM" in line:
+                self._el_quadrupole = np.zeros((3, 3, nmstates, nmstates), dtype=complex)
                 k = xyz[line[3]]  # Readout of derivative direction EQMXY -> X
                 j = xyz[line[4]]  # Readout of polarization direction  -> Y
                 if factor != 1:
@@ -245,12 +256,15 @@ class SHARC_LVC(SHARC_FAST):
                 while i < nmstates:
                     self._el_quadrupole[k, j, i, :] += np.asarray(line.split(), dtype=float) * factor
                     i += 1
-                    line = f.readline() 
+                    line = f.readline()
+                self.available_requests.add("EQM")
+
             elif "Multipolar Density Fit" in line:
                 line = f.readline()
                 n_fits = int(line)
                 self.log.debug(f"multipolar_fit {n_fits}")
                 self._fits = {im: np.zeros((n, n, natom, 10), dtype=float) for im, n in enumerate(states) if n != 0}
+                self.available_requests.add("Multipolar Density Fit")
 
                 def d(_):
                     v = f.readline().split()
@@ -265,7 +279,7 @@ class SHARC_LVC(SHARC_FAST):
                 line = f.readline()
         f.close()
         # setting type as necessary (converting type through view and reshape is a lot faster that simple astype
-        # assignemnt)
+        # assignemnt) 
         if soc_real:
             self._soc = np.reshape(self._soc.view(float), self._soc.shape + (2,))[:, :, 0]
         if dipole_real:
@@ -418,7 +432,16 @@ class SHARC_LVC(SHARC_FAST):
 
     # @profile
     def run(self):
+        failed_req = [req for req in self.QMin.requests if req and req not in self.available_requests]
+        if not failed_req:
+            self.log.error("Requested unavailable requests: %s", failed_req)
+            raise RuntimeError()
         do_pc = self.QMin.molecule["point_charges"]
+        # check if Multipolar Density fit and Point charges both have the same state (true/false)
+        if "Multipolar Density Fit" in self.available_requests != self.QMin.molecule["point_charges"]:
+            raise RuntimeError(
+                "Inconsistent request of Multipolar Density and Point charges! -> check your input file for Multipolar Density Fit line / Point charges"
+            )
         weights = self._masses
         # NOTE: do not calculate all nacs and grads only requested!!
         req_nmstates = self.QMin.molecule["nmstates"]
