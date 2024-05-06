@@ -157,7 +157,7 @@ def verlet_xstep(istep: int):
 
 
 def verlet_vstep():
-    return sharc.verlet_vstep()
+    return sharc.verlet_vstep(1)
 
 
 def verlet_finalize(iskip=1):
@@ -194,12 +194,11 @@ def do_qm_calc(i: SHARC_INTERFACE, qmout: QMOUT):
     if isecond == 1:
         icall = 2
         i.read_requests(get_all_tasks(icall))
-        i.set_coords(get_crd())
         with InDir("QM"):
             safe(i.run)
         qmout.set_props(i.getQMout(), icall)
-        set_qmout(qmout._QMout, icall)
-
+        isecond = set_qmout(qmout._QMout, icall)
+    return icall
 
 def main():
     start = time.time_ns()
@@ -272,27 +271,20 @@ def main():
         log.debug(f"{istep} done")
         s1 = time.perf_counter_ns()
         log.debug(f"{istep} do_qm_calc")
-        do_qm_calc(derived_int, QMout)
+        count = do_qm_calc(derived_int, QMout)
         log.debug(f"{istep} done")
         s2 = time.perf_counter_ns()
         # print(" do_qm_calc: ", (s2 - s1) * 1e-6)
         lvc_time += s2 - s1
-        log.debug(f"{istep} crd")
-        crd = get_crd()
         log.debug(f"{istep} done")
         log.debug(f"{istep} verlet_vstep")
         IRedo = verlet_vstep()
         log.debug(f"{istep} done")
 
-        if False:  # IRedo == 1:
-            # calculate gradients numerically by setting up 6N calculations
-            # TODO what if I want to get gradients only ? i.e. samestep
-            # possibly skip whole Hamiltonian build in LVC -> major timesave
-            derived_int._set_driver_requests(get_all_tasks(3))
-            derived_int.set_coords(crd)
+        if IRedo == 2:
+            derived_int.read_requests(get_all_tasks(count))
             safe(derived_int.run)
-            QMout.set_gradient(list2dict(derived_int.QMout["grad"]), 3)
-            set_qmout(QMout._QMout, 3)
+            QMout.set_props(derived_int.getQMout(), 3)
         iexit = verlet_finalize(1)
         all_s2 = time.perf_counter_ns()
         all_time += all_s2 - all_s1
