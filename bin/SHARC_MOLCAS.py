@@ -1276,7 +1276,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
 
         # Find all occurences of dipole sub matriced
         all_dp = iter(
-            re.findall(r"PROPERTY: MLTPL\s+[1-9]\d?\D+[1-3]\n[^\n]+\n[^\n]+\n([\s|\d|\.|E|\+|\-|\n]+)", output_file, re.DOTALL)
+            re.findall(r"PROPERTY: MLTPL\s+[1]\d?\D+[1-3]\n[^\n]+\n[^\n]+\n([\s|\d|\.|E|\+|\-|\n]+)", output_file, re.DOTALL)
         )
 
         s_cnt = 0
@@ -1295,38 +1295,38 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             for _ in range(mult):
                 dipole_mat[:, s_cnt : s_cnt + state, s_cnt : s_cnt + state] = dipoles
                 s_cnt += state
-
+        print(dipole_mat)
         return dipole_mat
 
-    #def _get_magnetic_dipoles(self, output_file: str) -> np.ndarray:
-    #    """
-    #    Extract (transition) magnetic dipole moments from outputfile
-    #    """
-    #    mag_dipole_mat = np.zeros((3, self.QMin.molecule["nmstates"], self.QMin.molecule["nmstates"]))
+    def _get_magnetic_dipoles(self, output_file: str) -> np.ndarray:
+        """
+        Extract (transition) magnetic dipole moments from outputfile
+        """
+        mag_dipole_mat = np.zeros((3, self.QMin.molecule["nmstates"], self.QMin.molecule["nmstates"]))
 
-    #    # Find all occurences of dipole sub matriced
-    #    all_angmom = iter(
-    #        re.findall(r"PROPERTY: ANGMOM\s+[1-9]\d?\D+[1-3]\n[^\n]+\n[^\n]+\n([\s|\d|\.|E|\+|\-|\n]+)", output_file, re.DOTALL)
-    #    )
+        # Find all occurences of dipole sub matriced
+        all_angmom = iter(
+            re.findall(r"PROPERTY: ANGMOM\s+[1-9]\d?\D+[1-3]\n[^\n]+\n[^\n]+\n([\s|\d|\.|E|\+|\-|\n]+)", output_file, re.DOTALL)
+        )
 
-    #    s_cnt = 0
-    #    for mult, state in enumerate(self.QMin.molecule["states"], 1):
-    #        mag_dipoles = np.zeros((3, state, state), dtype=float)
-    #        n_block = ceil(state / 4)  # Matrices are in blocks states*4
-    #        for i in range(3):
-    #            for block in range(n_block):
-    #                mag_dipoles[i, :, block * 4 : block * 4 + 4] = np.asarray(
-    #                    re.findall(r"(-?\d+\.\d+[E|D]?[\+|-]?\d{0,2})", next(all_angmom))
-    #                ).reshape(state, -1)
+        s_cnt = 0
+        for mult, state in enumerate(self.QMin.molecule["states"], 1):
+            mag_dipoles = np.zeros((3, state, state), dtype=float)
+            n_block = ceil(state / 4)  # Matrices are in blocks states*4
+            for i in range(3):
+                for block in range(n_block):
+                    mag_dipoles[i, :, block * 4 : block * 4 + 4] = np.asarray(
+                        re.findall(r"(-?\d+\.\d+[E|D]?[\+|-]?\d{0,2})", next(all_angmom))
+                    ).reshape(state, -1)
 
-    #        for _ in range(3 * n_block):  # Skip all extra blocks
-    #            next(all_angmom)
+            for _ in range(3 * n_block):  # Skip all extra blocks
+                next(all_angmom)
 
-    #        for _ in range(mult):
-    #            mag_dipole_mat[:, s_cnt : s_cnt + state, s_cnt : s_cnt + state] = mag_dipoles
-    #            s_cnt += state
+            for _ in range(mult):
+                mag_dipole_mat[:, s_cnt : s_cnt + state, s_cnt : s_cnt + state] = mag_dipoles
+                s_cnt += state
 
-    #    return dipole_mat 
+        return dipole_mat 
 
     def _get_theodore(self, output_file: str) -> list[tuple[str, np.ndarray]]:
         """

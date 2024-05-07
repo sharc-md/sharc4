@@ -86,7 +86,7 @@ ifeq ($(USE_COMPILER), gnu)
   EXTRAFLAGS := -ffree-line-length-none -fcheck=all 
 else ifeq ($(USE_COMPILER), intel)
   CC := icc
-  F90 := ifort -fpp
+  F90 := ifort
   EXTRAFLAGS := -DIFORT
 endif
 
