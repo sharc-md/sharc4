@@ -332,10 +332,6 @@ class SHARC_NWCHEM(SHARC_ABINITIO):
     def read_requests(self, requests_file: str = "QM.in") -> None:
         super().read_requests(requests_file)
 
-        for req, val in self.QMin.requests.items():
-            if val and req != "retain" and req not in all_features:
-                raise ValueError(f"Found unsupported request {req}.")
-
         if not self.QMin.template["spherical"] and self.QMin.requests["overlap"]:
             if not self.QMin.template["forcecartesian"]:
                 self.log.error(

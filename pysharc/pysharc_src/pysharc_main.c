@@ -112,10 +112,13 @@ verlet_xstep(PyObject * self, PyObject * args)
 static char verlet_vstep_docstring[] =
     "setup_sharc(fileName)\n\
     :return: int ";
-static PyObject * verlet_vstep(PyObject * self)
+static PyObject * verlet_vstep(PyObject * self, PyObject * args)
 {
     int iredo = 0;
-    verlet_vstep_(&iredo);
+    int pysharc = 1;
+    if (!PyArg_ParseTuple(args, "i", &pysharc))
+        return NULL;
+    verlet_vstep_(&iredo, &pysharc);
     return Py_BuildValue("i", iredo);
 }
 /* Verlet Finalize */

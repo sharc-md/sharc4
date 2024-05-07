@@ -165,8 +165,8 @@ call write_final(traj)
       call Verlet_xstep(i_step)
       ! QM Calculation
       call do_qm_calculations(traj,ctrl)
-      call Verlet_vstep(IRedo)
-      if (IRedo .eq. 1) call redo_qm_gradients(traj,ctrl)
+      call Verlet_vstep(IRedo, 0)
+      if (IRedo >= 1) call redo_qm_gradients(traj,ctrl)
       if (ctrl%method==0) then
         if (traj%kind_of_jump/=0) call Mix_gradients(traj,ctrl)
       endif

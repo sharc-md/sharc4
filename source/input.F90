@@ -962,7 +962,7 @@ module input
     endif
 
     ! default is do projection for system with more than 4 atoms
-    if (ctrl%method==1 .and. ctrl%natom.ge.4) then
+    if (ctrl%natom.ge.4) then
       ctrl%nac_projection=1
     else
       ctrl%nac_projection=0
@@ -2810,7 +2810,7 @@ module input
 
   ! =====================================================
 
-  ! check for laser and laser_version keyword
+  ! check for laser keyword
 
     line=get_value_from_key('laser',io)
     if (io==0) then
@@ -2827,7 +2827,7 @@ module input
     else
       ctrl%laser=0
     endif
-    
+
     if (printlevel>0) then
       write(u_log,*) '============================================================='
       write(u_log,*) '                       Laser Field'
@@ -2903,324 +2903,66 @@ module input
         stop 1
       endif
 
-      ! Check for header of laser file
+      ! find number of lasers
       read(u_i_laser,'(A)',iostat=io) line
       if (io/=0) then
         write(0,*) 'EOF encountered during read of laser file!'
         stop 1
       endif
-      rewind(u_i_laser)
-      read(u_i_laser,'(A)',iostat=io) line 
       call split(line,' ',values,n)
-      deallocate(values) 
-      rewind(u_i_laser)
-      line_number = 0
-      com_line_number = 0 !blank line after comment section in laser file
-      laser_file_version = 1.0
-      do
-        read(u_i_laser,'(A)',iostat=io) line 
-        call split(line,' ',values,n)
-        if (io/=0) then
-          exit
-        else if (trim(values(1))=='!' .OR. index(values(1),'#')/=0 .OR. n==1) then
-          com_line_number = com_line_number+1
-          line_number=line_number+1
-          if (n>=3) then
-            if (trim(values(2))=='file_version') then
-                read(values(3), *) laser_file_version 
-                write(0,*) 'Detected laser file version: ', laser_file_version
-            else if (trim(values(2))=='laser_freq_path') then
-                read(values(3), *) laser_freq_file_path 
-                write(0,*) 'Detected laser frequency file path: ', laser_freq_file_path   
-            endif
-          endif
-        else
-          line_number=line_number+1
-        endif
-      enddo
-      rewind(u_i_laser)
-
-      if (laser_file_version==2.0) then
-        open(u_i_laser_freq, file=laser_freq_file_path, status='old', action='read', iostat=io)
-
-        if (printlevel>1) write(u_log,'(3a)') 'Reading from laser frequency file "',trim(laser_freq_file_path),'"'
-        if (io/=0) then
-          write(0,*) 'Could not find laser frequency file!'
-          stop 1
-        endif
-        !  check for header of laser file
-        read(u_i_laser_freq,'(A)',iostat=io) line
-        if (io/=0) then
-          write(0,*) 'EOF encountered during read of laser frequency file!'
-          stop 1
-        endif
-        rewind(u_i_laser_freq)      
-        freq_line_number = 0
-        freq_com_line_number = 0
-        do 
-          read(u_i_laser_freq,'(A)',iostat=io_freq) line
-          call split(line,' ',values,n)
-          if (io_freq/=0) then
-            exit
-          else if (trim(values(1))=='!' .OR. index(values(1),'#')/=0 .OR. n==1) then
-            freq_com_line_number = freq_com_line_number+1
-            freq_line_number = freq_line_number+1
-          else
-            freq_line_number = freq_line_number+1
-            ctrl%nlasers=n-1
-          endif
-        enddo
-        if (ctrl%nsteps*ctrl%nsubsteps+1 /= freq_line_number-freq_com_line_number) then
-          write(0,*) 'Number of lines in laser frequency file does not match requested steps!' 
-          write(0,*) ctrl%nsteps*ctrl%nsubsteps+1,  freq_line_number-freq_com_line_number
-          stop 1
-        endif
-      endif
-      rewind(u_i_laser_freq)
-      ! Reading laser file data
-      if (laser_file_version==2.0) then !Reading for new laser file format
-        do i=1, com_line_number+1
-          read(u_i_laser,'(A)',iostat=io) line                                                                                      
-          if (io/=0) then                                                                                                           
-             write(0,*) 'EOF encountered during lookup for header section!'                                                    
-             stop 1                                                                                                                
-          endif
-          call lowercase(line)
-          call split(line,' ',values,n)
-          ! check if ! in values(1), if # cycle, if neither then exit
-          select case (trim(values(1)))
-            case('#')
-                cycle
-            case('!')
-              if (values(1)=='#' .OR. values(1)=='!') then
-                select case (trim(values(2)))
-                  case ("e-field", "b-field", "e-field_grad", "b-field_grad")
-                    if (trim(values(3))=='true') then
-                      tmp = .true.
-                    elseif (trim(values(3))=='false') then
-                      tmp = .false.
-                    else 
-                      write(0,*) 'EOF encountered during lookup for field/gradient existence!'                                                    
-                      stop 1                                                                                                                    
-                    endif
-                    select case (trim(values(2)))
-                      case ("e-field")
-                          ctrl%laser_e = tmp
-                      case ("b-field")
-                          ctrl%laser_b = tmp 
-                      case ("e-field_grad")
-                          ctrl%laser_egrad = tmp  
-                      case ("b-field_grad")
-                          ctrl%laser_bgrad = tmp
-                      !LORENZ: What if the keyword is in the laserfile multiple times?
-                    end select
-                end select
-              endif
-          end select
-        enddo
-      else if (laser_file_version==1.0) then
-        read(u_i_laser,'(A)',iostat=io) line 
-        call split(line,' ',values,n)
-        ctrl%nlasers=n-7
-        if (ctrl%nlasers<1) then
-          write(0,*) 'No central energies for lasers found in ',filename
-          stop 1
-        endif
-        ctrl%laser_e=.true.
+      ctrl%nlasers=n-7
+      deallocate(values)
+      if (ctrl%nlasers<1) then
+        write(0,*) 'No central energies for lasers found in ',filename
+        stop 1
       endif
       rewind(u_i_laser)
-      
-      if (laser_file_version==2.0) then
-        write(0,*) 'Laser file version 2.0 detected!'
-        if (ctrl%laser_e .EQV. .true.) then
-          allocate(ctrl%laserfield_e_tp(ctrl%nsteps*ctrl%nsubsteps+1,3))
-        endif
-        if (ctrl%laser_b .EQV. .true.) then
-          allocate(ctrl%laserfield_b_tp(ctrl%nsteps*ctrl%nsubsteps+1,3))
-        endif
-        if (ctrl%laser_egrad .EQV. .true.) then
-          allocate(ctrl%laserfield_egrad_tpd(ctrl%nsteps*ctrl%nsubsteps+1,3,3))
-        endif
-        if (ctrl%laser_egrad .EQV. .true.) then
-          allocate(ctrl%laserfield_bgrad_tpd(ctrl%nsteps*ctrl%nsubsteps+1,3,3))
-        endif
-        allocate(ctrl%laserenergy_tl(ctrl%nsteps*ctrl%nsubsteps+1,ctrl%nlasers))
-      else if (laser_file_version==1.0) then
-        write(0,*) 'Laser file version 1.0 detected!'
-        allocate(ctrl%laserfield_e_tp(ctrl%nsteps*ctrl%nsubsteps+1,3))
-        allocate(ctrl%laserenergy_tl(ctrl%nsteps*ctrl%nsubsteps+1,ctrl%nlasers))
-      endif  !allocate(laser_freq_file_path)
-      
-      if (laser_file_version==2.0) then
-        if (ctrl%nsteps*ctrl%nsubsteps+1 /= line_number-com_line_number) then
-          write(0,*) 'Number of lines in laserfile does not match requested steps!'
-          stop 1
-        endif
-      !else if (laser_file_version==1.0) then
 
-      endif
-      ! READING FIELDS
-      if (laser_file_version==2.0) then
-        do i=1, line_number
-          read_shift=0
-          read(u_i_laser,'(A)',iostat=io) line
-          if (io/=0) then
-            write(0,*) 'EOF encountered during read of laser file!'
-            stop 1
-          endif
-          if (i<=com_line_number) then
-              cycle
-          else
-            call split(line,' ',values,n)
-            if ((i>=(com_line_number+1)+1) .and. ((values(1)=='!') .or. (values(1)=='#'))) then
-              write(0,*) 'Laser file malformatted! Line=',i
-              stop 1
-            endif
-            read(values(1),*) a
-            if (i==1) then
-              if (dabs(a)>0.001d0) then
-                write(0,*) 'Laser field must start at t=0 fs!'
-                stop 1
-              endif
-            endif
-            b=ctrl%dtstep/ctrl%nsubsteps
-            if ( dabs(a-b*(i-2-com_line_number+1))>0.001d0) then 
-              write(0,*) 'Laser field spacing does not match substep spacing!'
-              stop 1
-            endif
-            if (ctrl%laser_e .EQV. .true.) then 
-              do j=1,3
-                read(values(2*j),*) a
-                read(values(2*j+1),*) b
-                ctrl%laserfield_e_tp(i-com_line_number,j)=dcmplx(a,b)
-              enddo
-              read_shift=read_shift+6
-            endif
-            if (ctrl%laser_b .EQV. .true.) then
-              do j=1,3
-                read(values(2*j+read_shift),*) a
-                read(values(2*j+1+read_shift),*) b
-                ctrl%laserfield_b_tp(i-com_line_number,j)=dcmplx(a,b)
-              enddo
-              read_shift=read_shift+6
-            endif
-            if (ctrl%laser_egrad .EQV. .true.) then 
-              do j=1,3
-                do k=1,3
-                  read(values(6*(j-1)+2*k+read_shift),*) a
-                  read(values(6*(j-1)+2*k+1+read_shift),*) b
-                  ctrl%laserfield_egrad_tpd(i-com_line_number,j,k)=dcmplx(a,b)
-                enddo 
-              enddo 
-            read_shift=read_shift+18  
-            endif
-            if (ctrl%laser_bgrad .EQV. .true.) then
-              do j=1,3
-                do k=1,3
-                  read(values(6*(j-1)+2*k+read_shift),*) a
-                  read(values(6*(j-1)+2*k+1+read_shift),*) b
-                  ctrl%laserfield_bgrad_tpd(i-com_line_number,j,k)=dcmplx(a,b)
-                enddo 
-              enddo 
-            endif
-          endif
-        enddo
-        close(u_i_laser)
-        
-        !LORENZ: Continue wit reading in frequency file! 
-        !LASER ENERGY
-        do i=1, freq_line_number
-          read(u_i_laser_freq,'(A)',iostat=io_freq) line
-          if (io_freq/=0) then
-            write(0,*) 'EOF encountered during read of laser frequency file!'
-            stop 1
-          endif
-          if (i<=freq_com_line_number) then
-              cycle
-          else
-            call split(line,' ',values,n)
-            if ((i>=(freq_com_line_number+1)+1) .and. ((values(1)=='!') .or. (values(1)=='#'))) then
-              write(0,*) 'Laser frequency file malformatted! Line=',i
-              stop 1
-            endif
-            read(values(1),*) a
-            if (i==1) then
-              if (dabs(a)>0.001d0) then
-                write(0,*) 'Laser frequency file must start at t=0 fs!'
-                stop 1
-              endif
-            endif
-            b=ctrl%dtstep/ctrl%nsubsteps
-            if ( dabs(a-b*(i-2-freq_com_line_number+1))>0.001d0) then 
-              write(0,*) 'Laser frequency spacing does not match substep spacing!'
-              stop 1
-            endif
-            do j=1,ctrl%nlasers
-              read(values(1+j),*) a
-              ctrl%laserenergy_tl(i-freq_com_line_number,j)=dcmplx(a,0.d0)
-            enddo
-          endif  
-        enddo
-      else if (laser_file_version==1.0) then
-        read(u_i_laser,'(A)',iostat=io) line 
+      allocate(ctrl%laserfield_td(ctrl%nsteps*ctrl%nsubsteps+1,3))
+      allocate(ctrl%laserenergy_tl(ctrl%nsteps*ctrl%nsubsteps+1,ctrl%nlasers))
+
+      ! read laser field line by line, checking the time with the substeps given above
+      do i=1,ctrl%nsteps*ctrl%nsubsteps+1
+        read(u_i_laser,'(A)',iostat=io) line
         if (io/=0) then
           write(0,*) 'EOF encountered during read of laser file!'
           stop 1
         endif
         call split(line,' ',values,n)
-        ctrl%nlasers=n-7
-        if (ctrl%nlasers<1) then
-          write(0,*) 'No central energies for lasers found in ',filename
+        if (n<8) then
+          write(0,*) 'Laser file malformatted! Line=',i
           stop 1
         endif
-
-        rewind(u_i_laser)
-        do i=1,ctrl%nsteps*ctrl%nsubsteps+1
-          read(u_i_laser,'(A)',iostat=io) line
-          if (io/=0) then
-            write(0,*) 'EOF encountered during read of laser file!'
+        read(values(1),*) a
+        if (i==1) then
+          if (dabs(a)>0.001d0) then
+            write(0,*) 'Laser field must start at t=0 fs!'
             stop 1
           endif
-          call split(line,' ',values,n)
-          !if (values(1)=='!') then
-          !  read(values(1),*)
-          !endif
-          if ((i>=10) .and. (n<8)) then
-            write(0,*) 'Laser file malformatted! Line=',i
-            stop 1
-          endif
-          read(values(1),*) a
-          if (i==1) then
-            if (dabs(a)>0.001d0) then
-              write(0,*) 'Laser field must start at t=0 fs!'
-              stop 1
-            endif
-          endif
-          b=ctrl%dtstep/ctrl%nsubsteps
-          if ( dabs(a-b*(i-1))>0.001d0) then 
-            write(0,*) 'Laser field spacing does not match substep spacing!'
-            stop 1
-          endif
-          do j=1,3
-            read(values(2*j),*) a
-            read(values(2*j+1),*) b
-            ctrl%laserfield_e_tp(i,j)=dcmplx(a,b)
-          enddo
-          do j=1,ctrl%nlasers
-            read(values(7+j),*) a
-            ctrl%laserenergy_tl(i,j)=dcmplx(a,0.d0)
-          enddo
+        endif
+        b=ctrl%dtstep/ctrl%nsubsteps
+        if ( dabs(a-b*(i-1))>0.001d0) then 
+          write(0,*) 'Laser field spacing does not match substep spacing!'
+          stop 1
+        endif
+        do j=1,3
+          read(values(2*j),*) a
+          read(values(2*j+1),*) b
+          ctrl%laserfield_td(i,j)=dcmplx(a,b)
         enddo
-        close(u_i_laser)
-      endif
-      
+        do j=1,ctrl%nlasers
+          read(values(7+j),*) a
+          ctrl%laserenergy_tl(i,j)=dcmplx(a,0.d0)
+        enddo
+        deallocate(values)
+      enddo
+      close(u_i_laser)
+
       if (printlevel>1) then
         write(u_log,'(a,1x,i8,1x,a)') 'Laser field with',(ctrl%nsteps*ctrl%nsubsteps+1), 'steps has been read successfully.'
-!         n=sizeof(ctrl%laserfield_e_tp)
+!         n=sizeof(ctrl%laserfield_td)
 !         write(u_log,'(a,1x,i10,1x,a)') 'Using',n,'bytes for laser data.'
-        flush(u_log) 
         write(u_log,'(a)') 'Step size has been checked.'
-        flush(u_log) 
         write(u_log,'(a,1x,i2,1x,a)') 'Laser central frequencies for',ctrl%nlasers,'lasers read.'
         write(u_log,*)
         if (ctrl%dipolegrad==1) then
@@ -3244,7 +2986,6 @@ module input
         endif
       endif
     endif
-    flush(u_log)
 
   ! =====================================================
 
@@ -3263,19 +3004,20 @@ module input
       ctrl%thermostat=0
     endif
 
-     if (printlevel>0) then
-       write(u_log,*) '============================================================='
-       write(u_log,*) '                       Thermostat'
-       write(u_log,*) '============================================================='
-       if (printlevel>1) then
-         select case (ctrl%thermostat)
-           case (0)
-             write(u_log,'(a)') 'No thermostat will be applied.'
-           case (1)
-             write(u_log,'(a)') 'Langevin thermostat will be applied.'
-         endselect
-       endif
+   if (printlevel>0) then
+     write(u_log,*) '============================================================='
+     write(u_log,*) '                       Thermostat'
+     write(u_log,*) '============================================================='
+     if (printlevel>1) then
+       select case (ctrl%thermostat)
+         case (0)
+           write(u_log,'(a)') 'No thermostat will be applied.'
+         case (1)
+           write(u_log,'(a)') 'Langevin thermostat will be applied.'
+       endselect
      endif
+   endif
+
 
     ! set up values needed for thermostat
     if (ctrl%thermostat/=0) then
@@ -3663,70 +3405,70 @@ module input
         deallocate(values)
       endif
     endif
-    ! set values for tethering atom
+   ! set values for tethering atom
     if (ctrl%restrictive_potential==2 .or. ctrl%restrictive_potential==3) then
-       line=get_value_from_key('tethering_force',io)
-       if (io==0) then
-         read(line,*) ctrl%tethering_force ! provide in u/fs^2
-         if (printlevel>1) write(u_log,'(1x,ES11.4)') ctrl%tethering_force
-       else
-         write(0,*) 'No force constant for tethering of atom given!'
-         stop 1
-       endif
-       ctrl%tethering_force = ctrl%tethering_force * au2fs**2/au2u
-       line=get_value_from_key('tethering_radius',io)
-       if (io==0) then
-         read(line,*) ctrl%tethering_radius
-       else
-         ctrl%tethering_radius=0. ! default radius beyond which tethering potential activated is 0
-       endif
-       if (printlevel>1) then
-         write(u_log,'(1x,F7.2,4x,ES11.4)') ctrl%tethering_radius
-       endif
-       ctrl%tethering_radius= ctrl%tethering_radius/au2a ! in atomic units
-       line=get_value_from_key('tether_at',io)
-       if (io==0) then
-         call split(line,' ',values,n)
-         allocate(ctrl%tether_at(n))
-         do i=1,n
-           read(values(i),*) a
-           ctrl%tether_at(i) = a
-         enddo
-         deallocate(values)
-         if (printlevel>1) then
-           write(u_log,'(a)') 'Atoms to be tethered: '
-           write(u_log, *) ctrl%tether_at(:)
-         endif
-       else
-         write(0,*) 'No atom specified for tethering!'
-         stop 1
-       endif
-       allocate(traj%tethering_pos(3))
-       line=get_value_from_key('tethering_position',io)
-       if (io==0) then
-         call split(line,' ',values,n)
-         if (n==3) then
-           do i=1,n
-              read(values(i),*) a
-              traj%tethering_pos = a
-           enddo
-         else
-           write(0,*) 'Tethering position specified needs to have 3 coordinates!'
-           stop 1
-         endif
-         if (printlevel>1) then
-           write(u_log,'(a)') 'Tethering to position'
-           write(u_log,'(1x,ES11.4)') traj%tethering_pos
-         endif
-         traj%tethering_pos = traj%tethering_pos/au2a ! in atomic units
-         deallocate(values)
-       else
-         !use center of mass at time 0 of specified tether atoms as center of tethering potential
-         traj%tethering_pos(:) = calc_centerofmass(traj,ctrl)
-          write(u_log,'(a)') 'Tethering to center of mass at start'
-       endif
-    endif
-    call additional_allocate_traj(traj,ctrl)
+      line=get_value_from_key('tethering_force',io)
+      if (io==0) then
+        read(line,*) ctrl%tethering_force ! provide in u/fs^2
+        if (printlevel>1) write(u_log,'(1x,ES11.4)') ctrl%tethering_force
+      else
+        write(0,*) 'No force constant for tethering of atom given!'
+        stop 1
+      endif
+      ctrl%tethering_force = ctrl%tethering_force * au2fs**2/au2u
+      line=get_value_from_key('tethering_radius',io)
+      if (io==0) then
+        read(line,*) ctrl%tethering_radius
+      else
+        ctrl%tethering_radius=0. ! default radius beyond which tethering potential activated is 0
+      endif
+      if (printlevel>1) then
+        write(u_log,'(1x,F7.2,4x,ES11.4)') ctrl%tethering_radius
+      endif
+      ctrl%tethering_radius= ctrl%tethering_radius/au2a ! in atomic units
+      line=get_value_from_key('tether_at',io)
+      if (io==0) then
+        call split(line,' ',values,n)
+        allocate(ctrl%tether_at(n))
+        do i=1,n
+          read(values(i),*) a
+          ctrl%tether_at(i) = a
+        enddo
+        deallocate(values)
+        if (printlevel>1) then
+          write(u_log,'(a)') 'Atoms to be tethered: '
+          write(u_log, *) ctrl%tether_at(:)
+        endif
+      else
+        write(0,*) 'No atom specified for tethering!'
+        stop 1
+      endif
+      allocate(traj%tethering_pos(3))
+      line=get_value_from_key('tethering_position',io)
+      if (io==0) then
+        call split(line,' ',values,n)
+        if (n==3) then
+          do i=1,n
+             read(values(i),*) a
+             traj%tethering_pos = a
+          enddo
+        else
+          write(0,*) 'Tethering position specified needs to have 3 coordinates!'
+          stop 1
+        endif
+        if (printlevel>1) then
+          write(u_log,'(a)') 'Tethering to position'
+          write(u_log,'(1x,ES11.4)') traj%tethering_pos
+        endif
+        traj%tethering_pos = traj%tethering_pos/au2a ! in atomic units
+        deallocate(values)
+      else
+        !use center of mass at time 0 of specified tether atoms as center of tethering potential
+        traj%tethering_pos(:) = calc_centerofmass(traj,ctrl)
+         write(u_log,'(a)') 'Tethering to center of mass at start'
+      endif
+   endif
+
   ! =====================================================
 
 !   ! check for floquet keyword
@@ -3786,6 +3528,7 @@ module input
 
   endsubroutine
 
+
 ! =================================================================== !
 
 !> calculates random velocities for each atom with given kinetic energy
@@ -3834,7 +3577,7 @@ module input
     type(ctrl_type) :: ctrl
     character*4096 :: string
     character*512 :: key
-    integer :: i,j,k,n,io
+    integer :: i,j,n,io
     integer*8 :: temp
 
     string=''
@@ -3855,26 +3598,7 @@ module input
     enddo
     if (ctrl%laser==2) then
       do i=1,min(40,ctrl%nsteps*ctrl%nsubsteps+1)
-        if (ctrl%laser_e .EQV. .true.) then
-          write(key,'(6(F9.6))') (ctrl%laserfield_e_tp(i,j),j=1,3)
-        endif
-        if (ctrl%laser_b .EQV. .true.) then
-          write(key,'(6(F9.6))') (ctrl%laserfield_b_tp(i,j),j=1,3)
-        endif
-        if (ctrl%laser_egrad .EQV. .true.) then
-          do j=1,3
-            do k=1,3
-              write(key,'(6(F9.6))') ctrl%laserfield_egrad_tpd(i,j,k)
-            enddo
-          enddo
-        endif
-        if (ctrl%laser_bgrad .EQV. .true.) then
-          do j=1,3
-            do k=1,3
-              write(key,'(6(F9.6))') ctrl%laserfield_bgrad_tpd(i,j,k)
-            enddo
-          enddo
-        endif             
+        write(key,'(6(F9.6))') (ctrl%laserfield_td(i,j),j=1,3)
         string=trim(string)//trim(key)
       enddo
     endif

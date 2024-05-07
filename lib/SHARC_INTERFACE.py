@@ -724,13 +724,16 @@ class SHARC_INTERFACE(ABC):
 
         return out_dict
 
-    def read_requests(self, requests_file: str = "QM.in") -> None:
+    def read_requests(self, requests_file: str | dict = "QM.in") -> None:
         """
         Reads QM.in file and parses requests
         """
-        # TODO: pc file? densmap only for multipolar fit?
         assert self._read_template, "Interface is not set up correctly. Call read_template with the .template file first!"
         assert self._read_resources, "Interface is not set up correctly. Call read_resources with the .resources file first!"
+
+        if isinstance(requests_file, dict):
+            self.log.debug("PySHARC detected, using driver_requests")
+            return self._set_driver_requests(requests_file)
 
         self.log.debug(f"Reading requests from {requests_file}")
 
@@ -942,6 +945,11 @@ class SHARC_INTERFACE(ABC):
         assert not (
             (self.QMin.requests["overlap"] or self.QMin.requests["phases"]) and self.QMin.save["init"]
         ), '"overlap" and "phases" cannot be calculated in the first timestep!'
+
+        for req, val in self.QMin.requests.items():
+            if val and req != "retain" and req not in self.get_features():
+                self.log.error(f"Found unsupported request {req}, supported requests are {self.get_features()}")
+                raise ValueError()
 
     def write_step_file(self) -> None:
         """

@@ -1203,10 +1203,10 @@ end subroutine Verlet_xstep
 
 ! ------------------------------------------------------
 
-subroutine Verlet_vstep(IRedo)
+subroutine Verlet_vstep(IRedo, pysharc)
     use memory_module, only: traj, ctrl
     use definitions
-    use qm, only: Adjust_phases, Mix_gradients, QM_processing, NAC_processing
+    use qm, only: Adjust_phases, Mix_gradients, QM_processing, NAC_processing, select_grad
     use electronic, only: propagate, surface_hopping, decoherence, &
                           Calculate_cMCH, surface_switching
     use electronic_laser, only: propagate_laser
@@ -1220,6 +1220,9 @@ subroutine Verlet_vstep(IRedo)
 
     implicit none
     __INT__, intent(out) :: IRedo
+    __INT__, intent(in) :: pysharc
+    logical :: old_selg_s(ctrl%nstates), selg_s(ctrl%nstates)
+    real*8  :: old_grad_MCH_sad(ctrl%nstates,ctrl%natom,3)
 
     IRedo = 0
   ! QM Processing
@@ -1269,6 +1272,15 @@ subroutine Verlet_vstep(IRedo)
     call Calculate_cMCH(traj,ctrl)
     if (ctrl%calc_grad>=1) then
       IRedo = 1
+      if (pysharc .eq. 1) then
+        old_selg_s=traj%selG_s
+        old_grad_MCH_sad=traj%grad_MCH_sad
+        call select_grad(traj, ctrl)
+        selg_s=.not.old_selg_s.and.traj%selg_s
+        if (any(selg_s)) then
+          IRedo = 2
+        endif
+      endif
     endif
   else if (ctrl%method==1) then !SCP
     ! Propagation coherent coefficients
@@ -1313,7 +1325,7 @@ subroutine Verlet_finalize(IExit, iskip)
     use memory_module, only: traj, ctrl
     use misc
     use definitions
-    use qm, only: Update_old, Mix_gradients
+    use qm, only: Update_old, Mix_gradients, NAC_processing
     use electronic, only: kill_after_relaxation
     use output, only: allflush, write_dat, write_list_line, write_geom
     use restart, only: write_restart_traj
@@ -1323,7 +1335,13 @@ subroutine Verlet_finalize(IExit, iskip)
     __INT__, intent(out) :: IExit ! if IExit = 0 end loop, else continue
     __INT__, intent(in)  :: iskip ! if IExit = 0 end loop, else continue
 
-    if (traj%kind_of_jump/=0) call Mix_gradients(traj, ctrl)
+    !if (iskip .eq. 2) then
+    !  call NAC_processing(traj, ctrl)
+    !endif
+    if (traj%kind_of_jump/=0) then
+      call NAC_processing(traj, ctrl)
+      call Mix_gradients(traj, ctrl)
+    endif
     ! Finalization: Variable update, Output, Restart File, Consistency Checks
     call Update_old(traj,ctrl)
     call set_time(traj)

@@ -23,10 +23,10 @@ act_orbs 4 6 7
 grads 1 2 4
 
 ## Number of CI gradients to be computed.
-ncigrd 3
+## ncigrd 3
 
 ## Total number of lowest CI states computed. Basically highest CI state in states definition above.
-iroot 4
+## iroot 4
 
 ## Activate point charges. mm 0 --> deactivate QM/MM, mm 2 -> read point charges from fort.20
 mminp 0
@@ -41,5 +41,5 @@ movo 1
 kharge 1
 
 ## Definition of active orbitals in consecutive CI runs.  = 0 Keep original definition of 
-## MO labels according to movo. = 3 Track MO character via file I/O (imomap.dat) for use with single-point calculations
-imomap 3
+## MO labels according to movo. = 1 Track MO character via file I/O (imomap.dat) for use with single-point calculations
+imomap 1

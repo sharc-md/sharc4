@@ -83,7 +83,7 @@ void setup_sharc_(char * input, int * IRestart);
 void initial_step_(int * IRestart);
 void do_initial_step_2(void);
 void verlet_xstep_(int * i_step);
-void verlet_vstep_(int * iredo);
+void verlet_vstep_(int * iredo, int * pysharc);
 void verlet_finalize_(int * IExit, int * iskip);
 void finalize_sharc_(void);
 void write_restart_(void);

@@ -4,7 +4,7 @@
 #
 #    SHARC Program Suite
 #
-#    Copyright (c) 2023 University of Vienna
+#    Copyright (c) 2019 University of Vienna
 #
 #    This file is part of SHARC.
 #
@@ -57,9 +57,9 @@ U_TO_AMU = 1. / 5.4857990943e-4            # conversion from g/mol to amu
 BOHR_TO_ANG = 0.529177211
 PI = math.pi
 
-version = '3.0'
+version = '2.1'
 versionneeded = [0.2, 1.0, 2.0, 2.1, float(version)]
-versiondate = datetime.date(2024, 4, 24)
+versiondate = datetime.date(2019, 9, 1)
 
 
 IToMult = {
@@ -128,6 +128,7 @@ Interfaces = {
                      'dyson': ['wfoverlap'],
                      'dipolegrad': [],
                      'phases': [],
+                     'nacdr': [],
                      'soc': []},
         'pysharc': False
         },
@@ -3225,12 +3226,11 @@ PRIMARY_DIR=%s/
 cd $PRIMARY_DIR
 
 %s
-export ORCADIR=%s
 export PATH=$SHARC:$ORCADIR:$PATH
 
 orca orca.inp > orca.log
 
-''' % (projname, os.path.abspath(iconddir), intstring, INFOS['orca'])
+''' % (projname, os.path.abspath(iconddir), intstring)
 
     runscript.write(string)
     runscript.close()
@@ -3282,25 +3282,12 @@ end
 
 ''' % (INFOS['maxstep'], -INFOS['maxstep'], 'geom.xyz')
 
-    runscript.write(string)
-    runscript.close()
 
-    filename = '%s/otool_external.inp' % (iconddir)
-    string = '''#
-SHARC: states %s
-SHARC: interface %s
-SHARC: opt %s %i''' % (' '.join([str(i) for i in INFOS['states']]),
-                        Interfaces[INFOS['interface']]['name'],
-                        INFOS['opttype'],
-                        INFOS['cas.root1'])
-    if INFOS['opttype'] == 'cross':
-        string += ' %i' % INFOS['cas.root2']
-    string += '\n'
-    if INFOS['opttype'] == 'cross' and INFOS['calc_ci'] and 'nacdr' not in Interfaces[INFOS['interface']]['features']:
-        string += 'SHARC: param %f %f\n' % (INFOS['sigma'], INFOS['alpha'])
-    runscript = open(filename, 'w')    
+
     runscript.write(string)
     runscript.close()
+    filename = '%s/orca.inp' % (iconddir)
+
 
     return
 
