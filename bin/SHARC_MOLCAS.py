@@ -668,9 +668,9 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         Generate tasklist for dipoles, ion and multipolar_fit
         """
         tasks = []
-        if qmin.requests["dm"] or qmin.requests["mdm"] or qmin.requests["eqm"] or qmin.requests["multipolar_fit"]:
+        if any([qmin.requests["dm"], qmin.requests["mdm"], qmin.requests["eqm"], qmin.requests["multipolar_fit"]]):
             tasks.append(["link", f"MOLCAS.{mult+1}.JobIph", "JOB001"])
-            tasks.append(["rassi", "dm", "mdm", "eqm", [states]])
+            tasks.append(["rassi", "dm", [states]])
             if self._hdf5:
                 tasks.append(["copy", "MOLCAS.rassi.h5", f"MOLCAS.rassi.{mult+1}.h5"])
             if qmin.requests["multipolar_fit"]:
@@ -909,7 +909,9 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         # TODO: qmmm
         input_str = f"&GATEWAY\nCOORD=MOLCAS.xyz\nGROUP=NOSYM\nBASIS={qmin.template['basis']}\n"
         if qmin.requests["soc"]:
-            input_str += "AMFI\nangmom\n0 0 0\n"
+            input_str += "AMFI\n"
+        if qmin.requests["soc"] or qmin.requests["mdm"]:
+            "angmom\n0 0 0\n"
         if qmin.template["baslib"]:
             input_str += f"BASLIB\n{qmin.template['baslib']}\n\n"
         input_str += f"RICD\nCDTHreshold={qmin.template['cholesky_accu']}\n"
@@ -1276,7 +1278,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
 
         # Find all occurences of dipole sub matriced
         all_dp = iter(
-            re.findall(r"PROPERTY: MLTPL\s+[1]\d?\D+[1-3]\n[^\n]+\n[^\n]+\n([\s|\d|\.|E|\+|\-|\n]+)", output_file, re.DOTALL)
+            re.findall(r"PROPERTY: MLTPL\s+[1-9]\d?\D+[1-3]\n[^\n]+\n[^\n]+\n([\s|\d|\.|E|\+|\-|\n]+)", output_file, re.DOTALL)
         )
 
         s_cnt = 0
@@ -1295,7 +1297,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             for _ in range(mult):
                 dipole_mat[:, s_cnt : s_cnt + state, s_cnt : s_cnt + state] = dipoles
                 s_cnt += state
-        print(dipole_mat)
+        #print(dipole_mat)
         return dipole_mat
 
     def _get_magnetic_dipoles(self, output_file: str) -> np.ndarray:
@@ -1326,7 +1328,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 mag_dipole_mat[:, s_cnt : s_cnt + state, s_cnt : s_cnt + state] = mag_dipoles
                 s_cnt += state
 
-        return dipole_mat 
+        return mag_dipole_mat 
 
     def _get_theodore(self, output_file: str) -> list[tuple[str, np.ndarray]]:
         """
