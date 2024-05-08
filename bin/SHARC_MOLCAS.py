@@ -260,6 +260,8 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                     self.log.error(f"Theodore descriptor {prop} is not allowed!")
                     self.log.error(f"Allowed descriptors are {allowed_descriptors}.")
                     raise ValueError()
+        if self.QMin.resources["theodore_fragment"]:
+            self.QMin.resources["theodore_fragment"] = convert_list(self.QMin.resources["theodore_fragment"], str)
 
     def read_template(self, template_file: str = "MOLCAS.template", kw_whitelist: list[str] | None = None) -> None:
         super().read_template(template_file, kw_whitelist)
@@ -879,7 +881,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         else:
             input_str += "THRS=" + " ".join(f"{i:14.12f}" for i in qmin.template["rasscf_thrs"]) + "\n"
         if task[3]:
-            input_str += "JOBIPH\n"
+            input_str += "JOBIPH\nCIRESTART\n"
         if task[4]:
             input_str += "LUMORB\n"
         if len(task) > 5:
@@ -953,6 +955,14 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         if self.QMin.requests["theodore"]:
             if not self._wfa or not self._hdf5:
                 self.log.error("Theodore not possible without WFA or HDF5!")
+                raise ValueError()
+            if not self.QMin.resources["theodore_prop"] or not self.QMin.resources["theodore_fragment"]:
+                self.log.error("theodore_prop and theodore_frag have to be set in resources!")
+                raise ValueError()
+
+        if self.QMin.requests["multipolar_fit"] or self.QMin.requests["density_matrices"]:
+            if not self._hdf5:
+                self.log.error("Densities and/or multipolar_fit request require HDF5 support!")
                 raise ValueError()
 
     def _get_molcas_features(self) -> None:
@@ -1263,7 +1273,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
 
         # Find all occurences of dipole sub matriced
         all_dp = iter(
-            re.findall(r"PROPERTY: MLTPL\s+[1-9]\d?\D+[1-3]\n[^\n]+\n[^\n]+\n([\s|\d|\.|E|\+|\-|\n]+)", output_file, re.DOTALL)
+            re.findall(r"PROPERTY: MLTPL\s+1\d?\D+[1-3]\n[^\n]+\n[^\n]+\n([\s|\d|\.|E|\+|\-|\n]+)", output_file, re.DOTALL)
         )
 
         s_cnt = 0
@@ -1275,9 +1285,6 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                     dipoles[i, :, block * 4 : block * 4 + 4] = np.asarray(
                         re.findall(r"(-?\d+\.\d+[E|D]?[\+|-]?\d{0,2})", next(all_dp))
                     ).reshape(state, -1)
-
-            for _ in range(3 * n_block):  # Skip all extra blocks
-                next(all_dp)
 
             for _ in range(mult):
                 dipole_mat[:, s_cnt : s_cnt + state, s_cnt : s_cnt + state] = dipoles
