@@ -41,7 +41,7 @@ from SHARC_FAST import SHARC_FAST
 from utils import readfile, question, expand_path
 from io import TextIOWrapper
 from constants import U_TO_AMU
-from kabsch import kabsch_w as kabsch
+from kabsch import kabsch_w as kabsch, kabsch_w_with_deriv
 from numba import njit
 
 authors = "Sebastian Mai and Severin Polonius"
@@ -63,16 +63,12 @@ class SHARC_LVC(SHARC_FAST):
         super().__init__(*args, **kwargs)
 
         # Add resource keys
-        self.QMin.resources.update(
-            {
-                "do_kabsch": False,
-                "diagonalize": True
-            }
-        )
+        self.QMin.resources.update({"do_kabsch": False, "diagonalize": True, "keep_U": False})
         self.QMin.resources.types.update(
             {
                 "do_kabsch": bool,
-                "diagonalize": bool
+                "diagonalize": bool,
+                "keep_U": bool,
             }
         )
 
@@ -245,7 +241,7 @@ class SHARC_LVC(SHARC_FAST):
             self._dipole = np.reshape(self._dipole.view(float), self._dipole.shape + (2,))[:, :, :, 0]
 
         # if self.QMin.save["init"]:
-            # SHARC_FAST.checkscratch(self.QMin.save["savedir"])
+        # SHARC_FAST.checkscratch(self.QMin.save["savedir"])
         self._read_template = True
         return
 
@@ -288,11 +284,9 @@ class SHARC_LVC(SHARC_FAST):
             if self.QMin.save["step"] == 0:
                 self.QMout.overlap = np.identity(self.parsed_states["nmstates"], dtype=float)
             else:
-                self.log.debug(f'restarting: getting overlap from file {self.QMin.save["step"]-1}.out')
+                self.log.debug(f'restarting: getting overlap from file {self.QMin.save["step"]-1}.npy')
                 self.QMout.overlap = (
-                    np.fromfile(os.path.join(self.QMin.save["savedir"], f'U_{self.QMin.save["step"]-1}.out'), dtype=float)
-                    .reshape(self._U.shape)
-                    .T
+                    np.load(os.path.join(self.QMin.save["savedir"], f'U_{self.QMin.save["step"]-1}')).reshape(self._U.shape).T
                     @ self._U
                 )
 
@@ -374,21 +368,22 @@ class SHARC_LVC(SHARC_FAST):
 
     @staticmethod
     def rotate_multipoles(q, Trot):
-        res = q.copy()
-        res[..., 1:4] = res[..., 1:4] @ Trot
-        quad = np.zeros((*[*res.shape][:-1], 3, 3))
+        dip = q[..., 1:4].copy()
+        # res = np.zeros_like(q)
+        dip = dip @ Trot
+        quad = np.zeros((*q.shape[:-1], 3, 3))
         # [0,1,2,0,0,1],[0,1,2,1,2,2]
-        quad[..., [0, 1, 2], [0, 1, 2]] = res[..., 4:7]
-        quad[..., [0, 0, 1], [1, 2, 2]] = 0.5 * res[..., 7:]
+        quad[..., [0, 1, 2], [0, 1, 2]] = q[..., 4:7]
+        quad[..., [0, 0, 1], [1, 2, 2]] = 0.5 * q[..., 7:]
         quad[..., [1, 2, 2], [0, 0, 1]] = quad[..., [0, 0, 1], [1, 2, 2]]
         quad = Trot.T @ quad @ Trot
-        res[..., 4:7] = quad[..., [0, 1, 2], [0, 1, 2]]
-        res[..., 7:] = 2 * quad[..., [0, 0, 1], [1, 2, 2]]
-        return res
+        return np.concatenate((q[..., 0, None], dip, quad[..., [0, 1, 2], [0, 1, 2]], 2 * quad[..., [0, 0, 1], [1, 2, 2]]), axis=-1)
 
     # @profile
     def run(self):
         do_pc = self.QMin.molecule["point_charges"]
+        do_derivs = self.QMin.requests["grad"] or self.QMin.requests["nacdr"]
+
         weights = self._masses
         # NOTE: do not calculate all nacs and grads only requested!!
         req_nmstates = self.QMin.molecule["nmstates"]
@@ -401,11 +396,22 @@ class SHARC_LVC(SHARC_FAST):
         self.clock.starttime = datetime.datetime.now()
         self._U = np.zeros((nmstates, req_nmstates), dtype=float)
         Hd = np.zeros((req_nmstates, req_nmstates), dtype=float)
+        natom = self.QMin.molecule["natom"]
         r3N = 3 * self.QMin.molecule["natom"]
         coords: np.ndarray = self.QMin.coords["coords"].copy()
         coords_ref_basis = coords
         if do_kabsch:
-            self._Trot, self._com_ref, self._com_coords = kabsch(self._ref_coords, coords, weights)
+            if do_derivs:
+                self._Trot, self._com_ref, self._com_coords, dTrot = kabsch_w_with_deriv(self._ref_coords, coords, weights)
+                dc = np.eye(r3N).reshape((natom, 3, natom, 3))
+                dcom = np.einsum("b,axby->xby", weights, dc) / sum(weights)
+                dcom = dcom.reshape((3, r3N))
+                coords_deriv = np.einsum("ax,kyx->ayk", (coords - self._com_coords), dTrot) + np.einsum(
+                    "axk,yx->ayk", (-dcom[None, ...]), self._Trot.T
+                )
+                coords_deriv = coords_deriv.reshape((r3N, r3N))
+            else:
+                self._Trot, self._com_ref, self._com_coords = kabsch(self._ref_coords, coords, weights)
             coords_ref_basis = (coords - self._com_coords) @ self._Trot.T + self._com_ref
         # sanity check for coordinates - check if centre of mass is conserved
         elif self.QMin.save["step"] == 0:
@@ -429,7 +435,6 @@ class SHARC_LVC(SHARC_FAST):
             mult_prefactors_pc = np.einsum("b,yab->yab", self.pc_chrg, mult_prefactors)
             del mult_prefactors
 
-
         # Build full H and diagonalize
         self._Q = np.sqrt(self._Om) * (self._Km @ (coords_ref_basis.flatten() - self._ref_coords.flatten()))
         self._V = self._Om * self._Q
@@ -449,6 +454,7 @@ class SHARC_LVC(SHARC_FAST):
             if do_pc:
                 if "_H_ee_coupling" not in self.__dict__:
                     self._H_ee_coupling = np.einsum_path("ijay,yab->ij", fits_rot[im], mult_prefactors_pc, optimize="optimal")[0]
+                # print(np.einsum("iiay,yab->i", fits_rot[im], mult_prefactors_pc, casting="no", optimize=True))
                 H += np.einsum("ijay,yab->ij", fits_rot[im], mult_prefactors_pc, casting="no", optimize=self._H_ee_coupling)
             if self._diagonalize:
                 eigen_values, eigen_vec = np.linalg.eigh(H, UPLO="U")
@@ -472,8 +478,6 @@ class SHARC_LVC(SHARC_FAST):
             start += n * (im + 1)
             start_req += n_req * (im + 1)
 
-
-        do_derivs = self.QMin.requests["grad"] or self.QMin.requests["nacdr"]
         if do_kabsch:
             if do_pc and do_derivs:
                 pc_grad = np.zeros((req_nmstates, self.pc_chrg.shape[0], 3))
@@ -481,9 +485,13 @@ class SHARC_LVC(SHARC_FAST):
                 mult_prefactors_deriv = self.get_mult_prefactors_deriv(pc_coord_diff)
 
                 fits_deriv = {
-                    im: np.zeros((n, n, self.QMin.molecule["natom"], 9, self.QMin.molecule["natom"], 3))
-                    for im, n in filter(lambda x: x[1] != 0, enumerate(states))
                 }
+                for im, n in filter(lambda x: x[1] != 0, enumerate(states)):
+                    fits_deriv[im] = np.zeros((n,n,natom,9,natom,3))
+                    for k in range(r3N):
+                        x = k % natom
+                        a = k // natom
+                        fits_deriv[..., a, x] = self.rotate_multipoles(self._fits[im], dTrot[k, ...])[..., :1]
 
                 mult_prefactors_deriv_pc = np.einsum("xyab,b->xyab", mult_prefactors_deriv, self.pc_chrg)
                 del mult_prefactors_deriv
@@ -522,9 +530,9 @@ class SHARC_LVC(SHARC_FAST):
                         stop_req = start_req + n_req
                         stop = start + n
                         u = self._U[start:stop, start_req:stop_req]
-                        dfits[im] = np.einsum('ijay,in,jm->mnay', fits_rot[im], u, u, optimize=True)
+                        dfits[im] = np.einsum("ijay,in,jm->mnay", fits_rot[im], u, u, optimize=True)
                         if do_derivs:
-                            dfits_deriv[im] = np.einsum('ijaybx,in,jm->mnaybx', fits_deriv[im], u, u, optimize=True)
+                            dfits_deriv[im] = np.einsum("ijaybx,in,jm->mnaybx", fits_deriv[im], u, u, optimize=True)
                         start += n * (im + 1)
                         start_req += n_req * (im + 1)
                 else:
@@ -571,7 +579,7 @@ class SHARC_LVC(SHARC_FAST):
                     dlvc = np.einsum("ijk,im,jn->mnk", dlvc, u, u, casting="no", optimize=self._dlvc_nac_diag_path)
                 else:
                     dlvc = dlvc[:n_req, :n_req, ...]
-                    
+
                 if do_pc:
                     # calculate derivative of electrostic interaction
                     if "_dcoulomb_path" not in self.__dict__:
@@ -603,7 +611,9 @@ class SHARC_LVC(SHARC_FAST):
                 idx = tmp != float(0)
                 tmp[idx] **= -1
 
-                nacdr[start_req:stop_req, start_req:stop_req, :] = np.einsum("ji,ijk->ijk", tmp, dlvc, casting="no", optimize=True)
+                nacdr[start_req:stop_req, start_req:stop_req, :] = np.einsum(
+                    "ji,ijk->ijk", tmp, dlvc, casting="no", optimize=True
+                )
                 grad[start_req:stop_req, ...] = np.einsum("iik->ik", dlvc)
                 if do_pc:
                     pc_grad[start_req:stop_req, ...] = np.einsum("iibx->ibx", pc_derivative)
@@ -687,7 +697,7 @@ class SHARC_LVC(SHARC_FAST):
                 overlap = self._Uold.T @ self._U
             else:
                 overlap = (
-                    np.fromfile(os.path.join(self.QMin.save["savedir"], f"U.{self.QMin.save['step']}.out"), dtype=float).reshape(self._U.shape).T
+                    np.load(os.path.join(self.QMin.save["savedir"], f"U.{self.QMin.save['step']-1}.npy")).reshape(self._U.shape).T
                     @ self._U
                 )
 
@@ -695,12 +705,16 @@ class SHARC_LVC(SHARC_FAST):
         if self.persistent:
             self._Uold = np.copy(self._U)
         else:
-            self._U.tofile(
-                os.path.join(self.QMin.save["savedir"], f"U.{self.QMin.save['step']}.out")
-            )  # writes a binary file (can be read with numpy.fromfile())
+            np.save(
+                os.path.join(self.QMin.save["savedir"], f"U.{self.QMin.save['step']}"), self._U
+            )  # writes a binary file (can be read with numpy.load())
+        if self.QMin.resources["keep_U"]:
+            if "all_U" not in self.__dict__:
+                self.all_U = []
+            self.all_U.append(self._U)
 
         # ========================== Prepare results ========================================
-        if self.QMin.requests['soc']:
+        if self.QMin.requests["soc"]:
             Hd = Hd.astype(self._soc.dtype)
             adia_soc = self._U.T @ self._soc @ self._U
             self.log.debug(f"soc sanity check: {adia_soc.dtype} {self._soc.dtype}")
@@ -722,7 +736,7 @@ class SHARC_LVC(SHARC_FAST):
 
         if self.QMin.requests["multipolar_fit"]:
             multipolar_fit = {}
-            for (s1, s2) in self.QMin.requests["multipolar_fit"]:
+            for s1, s2 in self.QMin.requests["multipolar_fit"]:
                 im = s1.S
                 multipolar_fit[(s1, s2)] = dfits[im][s1.N - 1, s2.N - 1, ...]
 
@@ -752,9 +766,13 @@ class SHARC_LVC(SHARC_FAST):
         return
 
     def create_restart_files(self):
-        self._U.tofile(
-            os.path.join(self.QMin.save["savedir"], f'U.{self.QMin.save["step"]}.out')
-        )  # writes a binary file (can be read with numpy.fromfile())
+        np.save(
+            os.path.join(self.QMin.save["savedir"], f'U.{self.QMin.save["step"]}.out'), self._U
+        )  # writes a binary file (can be read with numpy.load())
+
+        if self.QMin.resources["keep_U"]:
+            all_U = np.array(self.all_U)
+            np.save(os.path.join(self.QMin.save["savedir"], f"U_0-{self.QMin.save['step']}.npy"), all_U)
 
     def get_features(self, KEYSTROKES: TextIOWrapper = None) -> set:
         return {

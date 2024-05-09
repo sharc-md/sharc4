@@ -37,6 +37,8 @@ struct sharc_ncxyz {
     // Variable IDs 
     int ian_id;
     int crd_id;
+    int veloc_id;
+    int time_step_id;
 //    int veloc_id;
 }; 
 
@@ -69,8 +71,8 @@ struct sharc_ncoutput {
 }; 
 
 
-void write_sharc_ncxyz_traj_(const int* istep, const int* NAtoms, double* Crd, struct sharc_ncxyz* ncxyz);
-void write_sharc_ncxyz_init_(const int* NAtoms, int* IAn, double* Crd, struct sharc_ncxyz* ncxyz);
+void setup_ncxyz(int NAtoms, struct sharc_ncxyz* ncxyz);
+void write_sharc_ncxyz_traj_(const int* istep, const int* NAtoms, const int* IAn, double* Crd, double* Veloc, int* time_step, struct sharc_ncxyz* ncxyz);
 
 void write_sharc_ncdat_init_(const double* E, struct sharc_ncdat* ncdat);
 void write_sharc_ncdat_traj_(const int* istep, const double* E, struct sharc_ncdat* ncdat);

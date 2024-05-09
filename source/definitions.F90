@@ -286,7 +286,7 @@ type ctrl_type
   integer :: track_phase                    !< 0=no, 1=track phase of U matrix through the propagation (turn off only for debugging purposes)
   integer :: track_phase_at_zero            !< 0=nothing, 1=at time zero, get phases from whatever is in the savedir
   integer :: hopping_procedure              !< 0=no hops, 1=hops (standard formula), 2=GFSH
-  integer :: output_format                  !< 0 ASCII, 1 NetCDF
+  integer :: output_format                  !< 0 ASCII, 1 NetCDF, 2 Split-NetCDF
 
 ! thresholds
 !   real*8 :: propag_sharc_UdUdiags=1.d-2           ! Threshold for the size of diagonal elements in UdU (needed for dynamic substeps)        in hartree

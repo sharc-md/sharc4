@@ -92,6 +92,7 @@ program data_extractor
   ! =============================================================================================
   write(6,*) 
   write(6,*) 'Running...'
+  write(6,'(I,I,I,I)') nsteps,istep,general_infos%natom,nstates
   istep = 0 
   do 
     call read_sharc_ncoutputdat_istep(nsteps, istep, general_infos%natom, nstates, &
