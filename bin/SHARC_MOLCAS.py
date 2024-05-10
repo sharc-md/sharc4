@@ -337,7 +337,8 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 raise ValueError()
 
         # Validate method
-        if self.QMin.template["method"].lower() not in [
+        self.QMin.template["method"] = self.QMin.template["method"].lower()
+        if self.QMin.template["method"] not in [
             "casscf",
             "caspt2",
             "ms-caspt2",
