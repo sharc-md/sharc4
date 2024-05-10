@@ -918,6 +918,7 @@ Afterwards, it asks for the interface used and goes through the preparation depe
     log.info("")
 
     if setup:
+        INFOS["link_files"] = False
         if question("Do you want to link the interface files?", bool, default=False, autocomplete=False):
             INFOS["link_files"] = True
         setup_all(INFOS, chosen_interface)

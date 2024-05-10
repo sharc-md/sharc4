@@ -92,6 +92,7 @@ class SHARC_MNDO(SHARC_ABINITIO):
                 "imomap": 0,
                 "disp": 0,
                 "iop": -6,
+                "fomo": 0,
             }
         )
         self.QMin.template.types.update(
@@ -106,6 +107,8 @@ class SHARC_MNDO(SHARC_ABINITIO):
                 "imomap": int,
                 "disp": int,
                 "iop": int,
+                "fomo": int,
+
             }
         )
 
@@ -373,6 +376,8 @@ class SHARC_MNDO(SHARC_ABINITIO):
                 line = f[jline]
                 while "Sym= " not in line:
                     s = line.split()
+                    if "[GEOCONV]" in line:
+                        break
                     AO[int(s[0])] = float(s[1])
                     jline += 1
                     if jline == len(f):
@@ -704,7 +709,8 @@ mocoef
         if self.QMin.requests["phases"]:
                 for i in range(self.QMin.molecule["nmstates"]):
                     self.QMout["phases"][i] = -1 if self.QMout["overlap"][i][i] < 0 else 1
-
+        
+        return self.QMout
 
 
     def _get_states_interstates(self, log_path: str):
@@ -973,6 +979,8 @@ mocoef
         pattern = re.compile(r"eV,  E=[\s:]+([-+]\d*\.*\d+) eV")
         energies = {}
         for i, match in enumerate(pattern.finditer(output)):
+            if i == self.QMin.molecule["nmstates"]:
+                break
             energies[(1, i + 1)] = float(match.group(1)) * EV_TO_EH  # only singlets for now!!
 
         return energies
@@ -1049,7 +1057,7 @@ mocoef
         if self.QMin["template"]["imomap"] == 1:
             self.QMin["template"]["imomap"] = 3   #Orbital tracking activated when imomap=3 in the MNDO.inp file.
         
-        if self.QMin["template"]["disp"] < 0 or self.QMin["template"]["disp"] > 1:  # Check if imomap is not out of range.
+        if self.QMin["template"]["disp"] < 0 or self.QMin["template"]["disp"] > 1:  # Check if disp is not out of range.
             raise ValueError(f"disp can either be 0 (false) or 1 (true). Negative numbers not supported!")
         if self.QMin["template"]["disp"] == 1:
             self.QMin["template"]["iop"] = -22 
@@ -1061,6 +1069,11 @@ mocoef
         
         if self.QMin["template"]["movo"] == 1 :
             self.QMin["template"]["act_orbs"] = [int(i) for i in self.QMin["template"]["act_orbs"]]
+        
+        self.QMin["template"]["fomo"] = int(self.QMin["template"]["fomo"])
+        if self.QMin["template"]["fomo"] > 1 or self.QMin["template"]["fomo"] < 0 :
+            raise ValueError(f"fomo can only be 0 (false) or 1 (true).")
+
 
 
     def remove_old_restart_files(self, retain: int = 5) -> None:
@@ -1203,11 +1216,19 @@ mocoef
         imomap = qmin["template"]["imomap"]
         iop = qmin["template"]["iop"]
 
-
-        if qmin["molecule"]["point_charges"]:
-            inputstring = f"iop={iop} jop=-2 imult=0 iform=1 igeom=1 mprint=1 icuts=-1 icutg=-1 dstep=1e-05 kci=5 ioutci=1 iroot={iroot} icross=7 ncigrd={ncigrd} inac=0 imomap={imomap} iscf=9 iplscf=9 kitscf={kitscf} ici1={ici1} ici2={ici2} movo={movo} nciref={nciref} mciref=3 levexc=3 iuvcd=3 nsav13=2 kharge={kharge} multci=1 cilead=1 ncisym=-1 numatm={ncharges} mmcoup=2 mmfile=1 mmskip=0 mminp=2 nsav15=9"
+        nfloat = ici1 + ici2
+        icross = 1
+        if qmin.requests["nacdr"]:
+            icross = 7
+        
+        if qmin["template"]["fomo"] == 1:
+            inputstring = f"iop={iop} jop=-2 imult=0 iform=1 igeom=1 mprint=1 icuts=-1 icutg=-1 dstep=1e-05 kci=5 ioutci=1 iroot={iroot} icross={icross} ncigrd={ncigrd} inac=0 imomap={imomap} iscf=9 iplscf=9 kitscf={kitscf} nciref={nciref} mciref=3 levexc=3 mapthr=70 iuvcd=3 nsav13=2 kharge={kharge} multci=1 cilead=1 ncisym=-1 nsav15=9 iuhf=-6 nfloat={nfloat}"
         else:
-            inputstring = f"iop={iop} jop=-2 imult=0 iform=1 igeom=1 mprint=1 icuts=-1 icutg=-1 dstep=1e-05 kci=5 ioutci=1 iroot={iroot} icross=7 ncigrd={ncigrd} inac=0 imomap={imomap} iscf=9 iplscf=9 kitscf={kitscf} ici1={ici1} ici2={ici2} movo={movo} nciref={nciref} mciref=3 levexc=3 iuvcd=3 nsav13=2 kharge={kharge} multci=1 cilead=1 ncisym=-1 nsav15=9"
+            inputstring = f"iop={iop} jop=-2 imult=0 iform=1 igeom=1 mprint=1 icuts=-1 icutg=-1 dstep=1e-05 kci=5 ioutci=1 iroot={iroot} icross={icross} ncigrd={ncigrd} inac=0 imomap={imomap} iscf=9 iplscf=9 kitscf={kitscf} ici1={ici1} ici2={ici2} movo={movo} nciref={nciref} mciref=3 levexc=3 mapthr=70 iuvcd=3 nsav13=2 kharge={kharge} multci=1 cilead=1 ncisym=-1 nsav15=9"
+        
+        if qmin["molecule"]["point_charges"]:
+            inputstring += f" numatm={ncharges} mmcoup=2 mmfile=1 mmskip=0 mminp=2"
+            
 
         inputstring = " +\n".join(wrap(inputstring, width=70))
         inputstring += "\nheader\n"
