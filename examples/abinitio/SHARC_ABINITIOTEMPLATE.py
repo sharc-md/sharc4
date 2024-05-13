@@ -39,7 +39,7 @@ all_features = set(
         # Rest of the possible requests:
         # "phases",
         # "ion",
-        # "dmdr",
+        # "soc",
         # "multipolar_fit",
         # "theodore",
         # "density_matrices",
@@ -176,7 +176,8 @@ class SHARC_INTERFACENAME(SHARC_ABINITIO):
         #TODO: Do some request related checks here. Only important for hybrid interfaces.
 
 
-# ---------------------------------| Run Schedule and WFoverlap/Theodore + Care fpr Restart Information |----------------
+# ---------------------------------| Run Schedule |---------------------------------------------------------------------
+# and WFoverlap/Theodore + Care for Restart Information
 
     def run(self) -> None:
         starttime = datetime.datetime.now()
@@ -198,6 +199,15 @@ class SHARC_INTERFACENAME(SHARC_ABINITIO):
         self.QMout["runtime"] = datetime.datetime.now() - starttime
     
     def create_restart_files(self) -> None:
+        pass
+
+
+# ---------------------------------| Make Schedule |---------------------------------------------------------------------
+
+    def _gen_schedule(self) -> None:
+        """
+        Generates scheduling from joblist
+        """
         pass
 
 
