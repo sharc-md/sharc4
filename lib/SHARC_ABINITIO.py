@@ -19,7 +19,7 @@ from qmin import QMin
 from resp import Resp, multipoles_from_dens_parallel
 from SHARC_INTERFACE import SHARC_INTERFACE
 from sympy.physics.wigner import wigner_3j
-from utils import containsstring, convert_list, is_exec, itmult, link, mkdir, readfile, safe_cast, shorten_DIR, writefile
+from utils import convert_list, is_exec, itmult, link, mkdir, readfile, safe_cast, shorten_DIR, writefile
 
 all_features = {
     "h",
@@ -159,7 +159,6 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 return 1
             if (s1.S != s2.S or (s1.S == s2.S and s1.M != 0)) and spin == "q":
                 return 1
-            #  if (s1.S != s2.S or s1.M !=0) and spin == 'q': return 1
         elif s2.M - s1.M == 2 and s2.S - s1.S in [-2, 0, 2] and spin == "ba":
             return 1
         elif s2.M - s1.M == -2 and s2.S - s1.S in [-2, 0, 2] and spin == "ab":
@@ -186,8 +185,6 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                     for s1 in self.states:
                         for s2 in self.states:
                             for spin in ["tot", "q", "aa", "bb", "ab", "ba"]:
-                                # if s1.S == s2.S and spin == 'q':
-                                #    print(repr(s1), repr(s2), spin, 'logic = ', self.density_logic(s1,s2,spin)  )
                                 if self.density_logic(s1, s2, spin):
                                     requested_densities.add((s1, s2, spin))
                 else:
@@ -298,10 +295,6 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 self.QMin.requests["multipolar_fit"] = {dme: [] for dme in requested_dmes}
 
             self.QMin.requests["density_matrices"] = sorted(requested_densities, key=lambda x: (x[0], x[1], x[2]))
-            # for key in self.QMin.requests['density_matrices']:
-            #    s1, s2, spin = key
-            #    print(s1.S, s1.M, s1.N, '|', s2.S, s2.M, s2.N, '|', spin)
-            # sys.exit()
             self.get_density_recipes()
 
         # Setup nacmap
@@ -555,30 +548,27 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         self.density_recipes["from_determinants"] = densities_to_be_calculated_from_determinants
         self.density_recipes["from_gs2es"] = densities_to_be_calculated_from_gs2es
         self.density_recipes["construct"] = densities_to_be_constructed
-        self.log.print("DENSITY RECIPES:")
-        if self.QMin.resources["debug"]:
-            self.log.print("   To be read:")
-            for d, v in self.density_recipes["read"].items():
-                self.log.debug(f"      {v['repr']}")
-            self.log.debug("   To be calculated from gs2es:")
-            for d, v in self.density_recipes["from_gs2es"].items():
-                self.log.debug(f"      {v['repr']}: GS = {d[0].C['its_gs']}")
-            self.log.debug("   To be calculated from CI vectors:")
-            for d, v in self.density_recipes["from_determinants"].items():
-                self.log.debug(f"      {v['repr']}: Multiplicities of dets files = {set(v['needed'])}")
-            self.log.debug("   To be constructed by Wigner-Eckart theorem:")
-            for d, v in self.density_recipes["construct"].items():
-                string = ""
-                for coeff, dens in zip(v["how"], v["needed"]):
-                    sing = "+"
-                    if coeff < 0.0:
-                        sing = "-"
-                    string = (
-                        string + " " + sing + " " + str(sympy.nsimplify(abs(coeff))) + "[" + doable_densities[dens]["repr"] + "]"
-                    )
-                    if doable_densities[dens].get("transpose", False):
-                        string += ".T"
-                print("      " + v["repr"] + " = " + string)
+        self.log.debug("DENSITY RECIPES:")
+        self.log.debug("   To be read:")
+        for d, v in self.density_recipes["read"].items():
+            self.log.debug(f"      {v['repr']}")
+        self.log.debug("   To be calculated from gs2es:")
+        for d, v in self.density_recipes["from_gs2es"].items():
+            self.log.debug(f"      {v['repr']}: GS = {d[0].C['its_gs']}")
+        self.log.debug("   To be calculated from CI vectors:")
+        for d, v in self.density_recipes["from_determinants"].items():
+            self.log.debug(f"      {v['repr']}: Multiplicities of dets files = {set(v['needed'])}")
+        self.log.debug("   To be constructed by Wigner-Eckart theorem:")
+        for d, v in self.density_recipes["construct"].items():
+            string = ""
+            for coeff, dens in zip(v["how"], v["needed"]):
+                sing = "+"
+                if coeff < 0.0:
+                    sing = "-"
+                string = string + " " + sing + " " + str(sympy.nsimplify(abs(coeff))) + "[" + doable_densities[dens]["repr"] + "]"
+                if doable_densities[dens].get("transpose", False):
+                    string += ".T"
+            self.log.debug("      " + v["repr"] + " = " + string)
         return
 
     def get_readable_densities(self):
@@ -629,13 +619,10 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
     def append_constructable_densities(self, doables):
         added = False
         self.log.trace("Tu sam 6")
-        #  for d in doables:
-        #  print('Doable ', d)
         for s1 in self.states:
             for s2 in self.states:
                 for spin in ["tot", "q", "aa", "bb", "ab", "ba"]:
                     density = (s1, s2, spin)
-                    #  print(density, self.density_logic(s1,s2,spin), self.is_constructable( density, doables )[0])
                     if self.density_logic(s1, s2, spin) and not density in doables:
                         constructable, recipe = self.is_constructable(density, doables)
                         if constructable:
@@ -720,24 +707,24 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         self.calculate_from_determinants_and_append_densities()
         self.log.trace("Tu sam 2")
         for d in self.QMout["density_matrices"]:
-            print(d)
+            self.log.print(d)
         missing_to_construct, missing_to_calculate = True, True
         if "from_gs2es" not in self.QMin.template["density_calculation_methods"]:
             missing_to_calculate = False
         i = 0
         while missing_to_calculate or missing_to_construct:
             i += 1
-            print(missing_to_calculate, missing_to_construct)
+            self.log.print(missing_to_calculate, missing_to_construct)
             if missing_to_construct:
                 missing_to_construct = self.construct_and_append_densities()
             self.log.trace("Tu sam 4", i)
             for d in self.QMout["density_matrices"]:
-                print(d)
+                self.log.print(d)
             if missing_to_calculate:
                 missing_to_calculate = self.calculate_from_gs2es_and_append_densities()
             self.log.trace("Tu sam 3", i)
             for d in self.QMout["density_matrices"]:
-                print(d)
+                self.log.print(d)
 
         if self.QMin.resources["debug"]:
             mol = self.QMin.molecule["mol"]
@@ -782,10 +769,10 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                     if recipe["transpose"]:
                         rho = rho.T
                     QMout["density_matrices"][density] = rho
-                    print("Success")
-                    print(density)
+                    self.log.print("Success")
+                    self.log.print(density)
                 else:
-                    print(density)
+                    self.log.print(density)
                     self.log.trace([d for d in dens if d not in QMout["density_matrices"]])
                     missing = True
         return missing
@@ -805,12 +792,12 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                         determinant_jobs[recipe["needed"]].append(density)
             for (S1, S2), densities in determinant_jobs.items():
                 if S1 == S2:
-                    print("Doing dM0 densities from determinants for multiplicity = ", S1 + 1)
+                    self.log.print("Doing dM0 densities from determinants for multiplicity = ", S1 + 1)
                     nst, dets, CI, mos = self.read_dets_and_mos(QMin.save["savedir"], S1, QMin.save["step"])
                     t1 = time.time()
                     rhos = wf2rho.deltaS0(QMin.template["tCI"], nst, dets, CI, mos)
                     t2 = time.time()
-                    print(" Time elapsed in CI2rho_dM0 = ", round(t2 - t1, 3), "sec.")
+                    self.log.print(" Time elapsed in CI2rho_dM0 = ", round(t2 - t1, 3), "sec.")
                     for density in densities:
                         s1, s2, spin = density
                         if spin == "aa":
@@ -818,7 +805,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                         elif spin == "bb":
                             QMout["density_matrices"][density] = rhos[1, s1.N - 1, s2.N - 1, :, :]
                 elif S1 == S2 - 2:
-                    print("Doing dM1 densities from determinants for multiplicities = ", S1 + 1, S2 + 1)
+                    self.log.print("Doing dM1 densities from determinants for multiplicities = ", S1 + 1, S2 + 1)
                     nst1, dets1, CI1, mos1 = self.read_dets_and_mos(QMin.save["savedir"], S1, QMin.save["step"])
                     nst2, dets2, CI2, mos2 = self.read_dets_and_mos(QMin.save["savedir"], S2, QMin.save["step"])
                     rhos = wf2rho.deltaS1(QMin.template["tCI"], nst1, nst2, dets1, dets2, CI1, CI2, mos1, mos2)
@@ -839,7 +826,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             d1, d2 = r["needed"]
             rho10 = QMout["density_matrices"].get(d1, None)
             rho02 = QMout["density_matrices"].get(d2, None)
-            print(rho10, rho02)
+            self.log.print(rho10, rho02)
             if rho10 is None or rho02 is None:
                 missing = True
             else:
@@ -875,74 +862,6 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         dets = np.char.replace(dets, old="e", new="-1,")
         dets = np.array([np.fromstring(i, dtype=int, sep=",") for i in dets])
         return nst, dets, CI, mos
-
-    #    def dyson_orbitals_with_other(self, other):
-    #        QMin1 = self.QMin
-    #        QMin2 = other.QMin
-    #        save1 = QMin1.save["savedir"]
-    #        save2 = QMin2.save["savedir"]
-    #        step1 = QMin1.save["step"]
-    #        step2 = QMin2.save["step"]
-    #        nmos =
-    #        phi_norms = {}
-    #        dyson_jobs = {}
-    #        for s1 in self.states:
-    #            for s2 in other.states:
-    #                if s1.Z == s2.Z -1 and s2.S - s1.S in [-1,1] and  s1.M == s1.S and s2.M == s2.S:
-    #                    if s2.M == s1.M + 1: spin = 'a'
-    #                    if s2.M == s1.M - 1: spin = 'b'
-    #
-    #                        if (s1.S,s2.S) in dyson_jobs:
-    #                            dyson_jobs[(s1.S,s2.S)].append( (s1,s2,'a') )
-    #                        else:
-    #                            dyson_jobs[(s1.S,s2.S)] = [ (s1,s2,'a') ]
-    #        for ( (S1, S2), DO ) in dyson_jobs.items():
-    #            mos1 = f"mos.{S1}.{step1}"
-    #            mos2 = f"mos.{S2}.{step2}"
-    #            dets1 = f"dets.{S1}.{step1}"
-    #            dets2 = f"dets.{S2}.{step2}"
-    #            generate_wfinp( mos1, mos2, dets1, dets2 )
-    #            call_wfoverlap(self)
-    #            phi[(m1,m2)] = read_wfout()
-    #        for (m1,m2), orbital in phi:
-    #            for ms1 in range(-m1+1,m1,2):
-    #                for ms2 in range(-m2+1,m2,2):
-    #                    if ms1 == -m1+1 and ms2 == -m2+1:
-    #                        dyson_orbitals[(m1,ms1,m2,ms2,'b')] = orbital
-    #                    elif ms1 == m1-1 and ms2 == m2-1:
-    #                        dyson_orbitals[(m1,ms1,m2,ms2,'a')] = orbital
-    #                    elif
-    #
-    #    # End TOMI
-    #
-    #        def generate_wfinp( mos1, mos2, dets1, dets2 ):
-    #            f = open('wfovl.inp','w')
-    #            f.write('a_mo='+mos1+'\n')
-    #            f.write('b_mo='+mos2+'\n')
-    #            f.write('a_det='+dets1+'\n')
-    #            f.write('b_det='+dets2+'\n')
-    #            f.write('ao_read=-1\n')
-    #            f.write('same_aos=.true.\n')
-    #            f.write('moprint=1\n')
-    #            f.close()
-    #            return
-    #
-    #        def call_wfoverlap(interface):
-    #            QMin = interface.QMin
-    #            workdir = os.path.join(interface.QMin.resources["scratchdir"])
-    #            wf_cmd = f"{interface.QMin.resources['wfoverlap']} -m {interface.QMin.resources['memory']} -f wfovl.inp"
-    #            starttime = datetime.datetime.now()
-    #            os.environ["OMP_NUM_THREADS"] = str(QMin.resources["ncpu"])
-    #            code = interface.run_program(workdir, wf_cmd, "wfovl.out", "wfovl.err")
-    #            interface.log.info(
-    #                f"Finished wfoverlap job: {str(ion_pair):<10s} code: {code:<4d} runtime: {datetime.datetime.now()-starttime}"
-    #            )
-    #            if code != 0:
-    #                interface.log.error("wfoverlap did not finish successfully!")
-    #                with open(os.path.join(workdir, "wfovl.err"), "r", encoding="utf-8") as err_file:
-    #                    interface.log.error(err_file.read())
-    #                raise OSError()
-    #            return
 
     def _run_wfoverlap(self) -> None:
         """
@@ -1100,17 +1019,6 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             string += "\n"
         return string
 
-    # def do_fit(fits, pair, density_matrices, order, betas):
-    # s1, s2 = pair
-    # charge = s1.Z if s1 == s2 else 0
-    # return (s1, s2), fits.multipoles_from_dens(
-    # density_matrices[(s1, s2, 'tot')],
-    # include_core_charges=s1 is s2,
-    # order=order,
-    # charge=charge,
-    # betas=betas,
-    # )
-
     def _resp_fit_on_densities(self) -> dict[(int, int, int, int, int, int), np.ndarray]:
         """
         Performs the resp fit on all densities given and returns the fits as dict.
@@ -1136,7 +1044,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             grid=self.QMin.resources["resp_grid"],
             logger=self.log,
         )
-        mol = self.QMin.molecule["mol"]
+        mol = self.QMout["mol"]
         gsmult = self.QMin.maps["statemap"][1][0]
         charge = self.QMin.maps["chargemap"][gsmult]  # the charge is irrelevant for the integrals calculated!!
         fits.prepare(mol)  # the charge of the atom does not affect integrals
@@ -1146,7 +1054,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         queued = set()
         get_transpose = []
         self.log.debug(f"starting pool with {self.QMin.resources['ncpu']} workers")
-        set_start_method("fork")
+        set_start_method("fork", force=True)
         with Pool(processes=self.QMin.resources["ncpu"]) as pool:
             for dens in self.QMin.requests["multipolar_fit"]:
                 s1, s2 = dens
