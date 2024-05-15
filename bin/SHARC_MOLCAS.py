@@ -979,6 +979,9 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             if not self._hdf5:
                 self.log.error("Densities, basis_set and multipolar_fit request require HDF5 support!")
                 raise ValueError()
+        if self.QMin.requests["multipolar_fit"] and self.QMin.molecule["point_charges"]:
+            self.log.error("Multipolar fit not comatible with point charges!")
+            raise ValueError()
 
     def _get_molcas_features(self) -> None:
         """
