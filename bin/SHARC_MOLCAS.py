@@ -14,6 +14,7 @@ from typing import Any
 import h5py
 import numpy as np
 from constants import au2a
+from pyscf import gto
 from qmin import QMin
 from SHARC_ABINITIO import SHARC_ABINITIO
 from utils import convert_list, expand_path, mkdir, writefile
@@ -103,6 +104,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 "iterations": [200, 100],
                 "cholesky_accu": 1e-4,
                 "rasscf_thrs": [1e-8, 1e-4, 1e-4],
+                "density_calculation_methods": [],
             }
         )
 
@@ -526,6 +528,15 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 shutil.copy(os.path.join(self.QMin.resources["scratchdir"], "master", file), os.path.join(workdir, file))
         shutil.copy(os.path.join(self.QMin.resources["scratchdir"], "master/MOLCAS.OneInt"), os.path.join(workdir, "ONEINT"))
 
+    def get_readable_densities(self) -> dict[str, str]:
+        densities = {}
+        for s1 in self.states:
+            for s2 in self.states:
+                for spin in ["tot", "q"]:
+                    if self.density_logic(s1, s2, spin):
+                        densities[(s1, s2, spin)] = {"how": "read"}
+        return densities
+
     def _gen_tasklist(self, qmin: QMin) -> list[list[Any]]:
         """
         Generate tasklist
@@ -574,8 +585,6 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                     )
                     is_jobiph = True
 
-            # TODO: CIRESTART
-
             # RASSCF block
             tasks.append(["rasscf", mult + 1, qmin.template["roots"][mult], is_jobiph, is_rasorb])
             if qmin.template["method"] == "cms-pdft":
@@ -621,7 +630,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             tasks.append(["link", f"MOLCAS.{mult}.JobIph", f"JOB{i:03d}"])
         tasks.append(["rassi", "soc" if qmin.requests["soc"] else "", roots])
 
-        if qmin.requests["theodore"]:
+        if qmin.requests["theodore"] or qmin.requests["multipolar_fit"] or qmin.requests["density_matrices"]:
             if self._hdf5:
                 tasks.append(["link", "MOLCAS.rassi.h5", "MOLCAS.rassi.h5.bak"])
             all_states = qmin.molecule["states"][:]
@@ -632,21 +641,25 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                         tasks.append(["link", f"MOLCAS.{mult+2}.JobIph", "JOB002"])
                         tasks.append(["rassi", "theodore", [states, all_states[mult + 1]]])
                         all_states[mult + 1] = 1
-                        tasks.append(["theodore"])
+                        if qmin.requests["theodore"]:
+                            tasks.append(["theodore"])
+                        #
+                        if qmin.requests["multipolar_fit"] or qmin.requests["density_matrices"]:
+                            tasks.append(["link", "MOLCAS.rassi.h5", f"MOLCAS.rassi.trd{mult}.h5"])
+                            tasks.append(["link", "MOLCAS.rassi.h5.bak", "MOLCAS.rassi.h5"])
                     elif all_states[mult - 1] > 1:
                         tasks.append(["link", f"MOLCAS.{mult}.JobIph", "JOB001"])
                         tasks.append(["rassi", "theodore", [states]])
-                        tasks.append(["theodore"])
+                        if qmin.requests["theodore"]:
+                            tasks.append(["theodore"])
             if self._hdf5:
                 tasks.append(["link", "MOLCAS.rassi.h5.bak", "MOLCAS.rassi.h5"])
-
         return tasks
 
     def _gen_ovlp_task(self, qmin: QMin, mult: int, states: int) -> list[list[Any]]:
         """
-        Generate tasklist for overlap and multipolar_fit
+        Generate tasklist for overlap
         """
-        # TODO: multipolar_fit task makes no sense
         tasks = []
         if qmin.requests["overlap"]:
             if qmin.control["master"]:
@@ -660,15 +673,11 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             tasks.append(["rassi", "overlap", [states, states]])
             if self._hdf5:
                 tasks.append(["copy", "MOLCAS.rassi.h5", f"MOLCAS.rassi.ovlp.{mult+1}.h5"])
-            if qmin.requests["multipolar_fit"]:
-                for i in range(states):
-                    for j in range(i + 1):
-                        tasks.append(["copy", f"TRD2_{i+states+1:03d}_{j+states+1:03d}", f"TRD_{mult+1}_{i+1:03d}_{j+1:03d}"])
         return tasks
 
     def _gen_dp_task(self, qmin: QMin, mult: int, states: int) -> list[list[Any]]:
         """
-        Generate tasklist for dipoles, ion and multipolar_fit
+        Generate tasklist for dipoles, ion
         """
         tasks = []
         if qmin.requests["dm"] or qmin.requests["multipolar_fit"]:
@@ -676,10 +685,6 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             tasks.append(["rassi", "dm", [states]])
             if self._hdf5:
                 tasks.append(["copy", "MOLCAS.rassi.h5", f"MOLCAS.rassi.{mult+1}.h5"])
-            if qmin.requests["multipolar_fit"]:
-                for i in range(states):
-                    for j in range(i + 1):
-                        tasks.append(["copy", f"TRD2_{i+1:03d}_{j+1:03d}", f"TRD_{mult+1}_{i+1:03d}_{j+1:03d}"])
         return tasks
 
     def _gen_grad_tasks(self, qmin: QMin) -> list[list[Any]]:
@@ -714,7 +719,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                         )
                         tasks.append(["mcpdft", [f"KSDFT={qmin.template['functional']}", "GRAD", "MSPDFT", "WJOB"]])
                         tasks.append(["alaska", grad[1]])
-                    case "casscf":  # TODO: CIRESTART
+                    case "casscf":
                         tasks.append(["rasscf", mult + 1, qmin.template["roots"][mult], True, False])
                         tasks.append(["mclr", qmin.template["gradaccudefault"], f"sala={grad[1]}"])
                         tasks.append(["alaska"])
@@ -899,7 +904,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         """
         Write SEWARD part of MOLCAS input string
         """
-        input_str = "&SEWARD\n"  # DOANA\n"
+        input_str = "&SEWARD\n"
         if qmin.template["method"] == "cms-pdft":
             input_str += "GRID INPUT\nNORO\nNOSC\nEND OF GRID INPUT\n"
         input_str += "\n"
@@ -935,9 +940,6 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
     def _create_aoovl(self) -> None:
         pass
 
-    def dyson_orbitals_with_other(self, other) -> None:
-        pass
-
     def read_requests(self, requests_file: str = "QM.in") -> None:
         super().read_requests(requests_file)
 
@@ -961,9 +963,9 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 self.log.error("theodore_prop and theodore_frag have to be set in resources!")
                 raise ValueError()
 
-        if self.QMin.requests["multipolar_fit"] or self.QMin.requests["density_matrices"]:
+        if self.QMin.requests["multipolar_fit"] or self.QMin.requests["density_matrices"] or self.QMin.requests["basis_set"]:
             if not self._hdf5:
-                self.log.error("Densities and/or multipolar_fit request require HDF5 support!")
+                self.log.error("Densities, basis_set and multipolar_fit request require HDF5 support!")
                 raise ValueError()
 
     def _get_molcas_features(self) -> None:
@@ -1129,7 +1131,93 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 self.QMout["phases"] = deepcopy(np.einsum("ii->i", self.QMout["overlap"]))
                 self.QMout["phases"][self.QMout["phases"] > 0] = 1
                 self.QMout["phases"][self.QMout["phases"] < 0] = -1
+
+        if self.QMin.requests["basis_set"] or self.QMin.requests["density_matrices"] or self.QMin.requests["multipolar_fit"]:
+            # Parse basis
+            mol = gto.Mole()
+            mol.basis = None  # Using basis set from hdf5
+            mol._basis = self._get_basis(master_out)
+            mol.charge = self.QMin.template["charge"][0]
+            mol.atom = [
+                [e + str(idx), c]
+                for idx, (e, c) in enumerate(zip(self.QMin.molecule["elements"], self.QMin.coords["coords"].tolist()), 1)
+            ]
+            mol.build()
+            self.QMout["mol"] = mol
+            if self.QMin.requests["density_matrices"] or self.QMin.requests["multipolar_fit"]:
+                self._get_densities()
+                if self.QMin.requests["multipolar_fit"]:
+                    self.QMout["multipolar_fit"] = self._resp_fit_on_densities()
+
         return self.QMout
+
+    def _get_densities(self) -> None:
+        """
+        Parse densities from h5 files
+        """
+        states = self.QMin.molecule["states"]
+
+        dens_one_mult = {}  # Transition densities between same mult
+        dens_one_mult_spin = {}  # Spin transition densities between same mult
+        trans_dens = {}  # Transition densities between mult and mult + 1
+        trans_dens_spin = {}  # Spin transition densities between mult and mult + 1
+
+        for m, s in enumerate(states, 1):
+            if s < 1:  # skip 0 states
+                continue
+            # Densities between same mults
+            with h5py.File(os.path.join(self.QMin.resources["scratchdir"], f"master/MOLCAS.rassi.{m}.h5"), "r+") as f:
+                dens_one_mult[m] = f["SFS_TRANSITION_DENSITIES"][:]
+                dens_one_mult_spin[m] = f["SFS_TRANSITION_SPIN_DENSITIES"][:]
+            if not os.path.isfile(os.path.join(self.QMin.resources["scratchdir"], f"master/MOLCAS.rassi.trd{m}.h5")):
+                continue
+            # Densities between mult and mult + 1
+            with h5py.File(os.path.join(self.QMin.resources["scratchdir"], f"master/MOLCAS.rassi.trd{m}.h5"), "r+") as f:
+                trans_dens[m] = f["SFS_TRANSITION_DENSITIES"][:]
+                trans_dens_spin[m] = f["SFS_TRANSITION_SPIN_DENSITIES"][:]
+
+        # Matrix in h5 flattened, calc dimension for squared matrix
+        dim = int(next(iter(dens_one_mult.values())).shape[2] ** 0.5)
+
+        for i in self.states:
+            for j in self.states:
+                if i.S == j.S and i.M == j.M:  # Same mult states, are stored in the non trd h5
+                    self.QMout["density_matrices"][(i, j, "tot")] = dens_one_mult[i.S + 1][i.N - 1, j.N - 1, :].reshape(dim, -1)
+                    self.QMout["density_matrices"][(i, j, "q")] = dens_one_mult_spin[i.S + 1][i.N - 1, j.N - 1, :].reshape(
+                        dim, -1
+                    )
+                elif i.S != j.S and i.M == j.M:
+                    mult = min(i.S, j.S)  # Transitions between 2 mults are stored in the h5 named after the lowest mult
+                    s1, s2 = i.N - 1 + states[mult], j.N - 1  # dens(i,j) != dens(j,i) for different mults!
+                    if i.S < j.S:
+                        s1, s2 = i.N - 1, j.N - 1 + states[mult]
+
+                    self.QMout["density_matrices"][(i, j, "tot")] = trans_dens[mult + 1][s1, s2, :].reshape(dim, -1)
+                    self.QMout["density_matrices"][(i, j, "q")] = trans_dens_spin[mult + 1][s1, s2, :].reshape(dim, -1)
+
+    def _get_basis(self, output_file: h5py.File) -> dict[str, list]:
+        """
+        Parse basis from outputfile
+        """
+        # Basis dict, PySCF format -> {'element+#', [[angmom, (gto-exp, contract-coeff)]]}
+        basis = {element + str(idx): [] for idx, element in enumerate(self.QMin.molecule["elements"], 1)}
+
+        prev_id = 0
+        prev_atom = 1
+        # PRIMITIVES: (gto-exp, contract-coeff)
+        # PRIMITIVE_IDS: (atom_id, angular momentum, primitive_id)
+        for primitive, ids in zip(output_file["PRIMITIVES"][:], output_file["PRIMITIVE_IDS"][:]):
+            atom, ang_mom, prim_id = ids
+            # Reset prev_id if next atom
+            if prev_atom != atom:
+                prev_atom = atom
+                prev_id = 0
+            if prev_id != prim_id:  # Start new list for every new primitive_id
+                basis[self.QMin.molecule["elements"][atom - 1] + str(atom)].append([ang_mom, [primitive[0], primitive[1]]])
+                prev_id = prim_id
+            else:
+                basis[self.QMin.molecule["elements"][atom - 1] + str(atom)][-1].append([primitive[0], primitive[1]])
+        return basis
 
     def _get_energy(self, output_file: str | h5py.File) -> np.ndarray:
         """
@@ -1272,7 +1360,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         """
         dipole_mat = np.zeros((3, self.QMin.molecule["nmstates"], self.QMin.molecule["nmstates"]))
 
-        # Find all occurences of dipole sub matriced
+        # Find all occurences of dipole sub matrices
         all_dp = iter(
             re.findall(r"PROPERTY: MLTPL\s+1\d?\D+[1-3]\n[^\n]+\n[^\n]+\n([\s|\d|\.|E|\+|\-|\n]+)", output_file, re.DOTALL)
         )
