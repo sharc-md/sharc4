@@ -43,6 +43,8 @@ all_features = set(
         "multipolar_fit",
         "molden",
         "theodore",
+        "point_charges",
+        "grad_pc",
         # raw data request
         "basis_set",
         "wave_functions",
@@ -914,8 +916,13 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         """
         Write GATEWAY part of MOLCAS input string
         """
-        # TODO: qmmm
         input_str = f"&GATEWAY\nCOORD=MOLCAS.xyz\nGROUP=NOSYM\nBASIS={qmin.template['basis']}\n"
+        if qmin.molecule["point_charges"]:
+            input_str = "&GATEWAY\n"
+            for idx, (charge, coord) in enumerate(zip(qmin.molecule["elements"], qmin.coords["coords"]), 1):
+                input_str += f"basis set\n{charge}.{qmin.template['basis']}....\n{charge}{idx} {coord[0]: >10.15f} {coord[1]: >10.15f} {coord[2]: >10.15f}"
+                input_str += " /Angstrom\nend of basis\n\n"
+
         if qmin.requests["soc"]:
             input_str += "AMFI\nangmom\n0 0 0\n"
         if qmin.template["baslib"]:
@@ -924,6 +931,12 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         if qmin.template["pcmset"]:
             input_str += f"TF-INPUT\nPCM-MODEL\nSOLVENT = {qmin.template['pcmset']['solvent']}\n"
             input_str += f"AARE = {qmin.template['pcmset']['aare']}\nR-MIN = {qmin.template['pcmset']['r-min']}"
+        if qmin.molecule["point_charges"]:
+            for idx, (charge, coord) in enumerate(zip(qmin.coords["pccharge"], qmin.coords["pccoords"]), 1):
+                input_str += (
+                    f"basis set\nX...0s.0s.\nX{idx} {coord[0]: >10.15f} {coord[1]: >10.15f} {coord[2]: >10.15f} /Angstrom\n"
+                )
+                input_str += f"Charge = {charge}\nend of basis\n"
         input_str += "\n"
         return input_str
 
@@ -931,7 +944,6 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         """
         Generate xyz file from coords
         """
-        # TODO: qmmm
         geom_str = f"{len(atoms)}\n\n"
         for idx, (at, crd) in enumerate(zip(atoms, coords)):
             geom_str += f"{at}{idx+1}  {crd[0]*au2a:6f} {crd[1]*au2a:6f} {crd[2]*au2a:6f}\n"
@@ -1073,7 +1085,9 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                     grad_out = self._get_grad(grad_file.read())
                     for key, val in self.QMin.maps["statemap"].items():
                         if (val[0], val[1]) == grad:
-                            self.QMout["grad"][key - 1] = grad_out
+                            self.QMout["grad"][key - 1] = grad_out[: self.QMin.molecule["natom"], :]  # Filter MM
+                            if self.QMin.molecule["point_charges"]:
+                                self.QMout["grad_pc"][key - 1] = grad_out[self.QMin.molecule["natom"] :, :]  # Filter QM
 
         if self.QMin.requests["nacdr"]:
             for nac in self.QMin.maps["nacmap"]:
@@ -1088,8 +1102,17 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                             istate = key - 1
                         if (val[0], val[1]) == (nac[2], nac[3]):
                             jstate = key - 1
-                    self.QMout["nacdr"][istate, jstate] = self.QMout["nacdr"][jstate, istate] = self._get_nacdr(nac_out)
+                    nacdr = self._get_nacdr(nac_out)
+                    self.QMout["nacdr"][istate, jstate] = self.QMout["nacdr"][jstate, istate] = nacdr[
+                        : self.QMin.molecule["natom"], :
+                    ]  # Filter MM
                     self.QMout["nacdr"][jstate, istate] *= -1
+
+                    if self.QMin.molecule["point_charges"]:
+                        self.QMout["nacdr_pc"][istate, jstate] = self.QMout["nacdr_pc"][jstate, istate] = nacdr[
+                            self.QMin.molecule["natom"] :, :
+                        ]  # Filter QM
+                        self.QMout["nacdr_pc"][jstate, istate] *= -1
 
         if self.QMin.requests["dm"]:
             # Full DM matrix in ascii file, sub matrices of mult in h5 files
@@ -1137,12 +1160,15 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             mol = gto.Mole()
             mol.basis = None  # Using basis set from hdf5
             mol._basis = self._get_basis(master_out)
-            mol.charge = self.QMin.template["charge"][0]
             mol.atom = [
                 [e + str(idx), c]
                 for idx, (e, c) in enumerate(zip(self.QMin.molecule["elements"], self.QMin.coords["coords"].tolist()), 1)
             ]
-            mol.build()
+            try:
+                mol.build()
+            except RuntimeError:
+                mol.spin = 1
+                mol.build()
             self.QMout["mol"] = mol
             if self.QMin.requests["density_matrices"] or self.QMin.requests["multipolar_fit"]:
                 self._get_densities()
