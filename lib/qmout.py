@@ -44,7 +44,7 @@ class QMout:
     socdr_pc: ndarray[float, 4]
     dmdr: ndarray[float, 5]
     dmdr_pc: ndarray[float, 5]
-    multipolar_fit: ndarray[float, 4]
+    multipolar_fit: dict
     density_matrices: dict
     mol: pyscf.gto.Mole
     #dyson_orbitals: dict[tuple(electronic_state,electronic_state,str), ndarray[float,1] ]
@@ -344,7 +344,7 @@ class QMout:
             if self.point_charges:
                 self.dmdr_pc = np.zeros((3, self.nmstates, self.nmstates, npc, 3), dtype=float)
         if "multipolar_fit" in requests:
-            self.multipolar_fit = np.zeros((self.nmstates, self.nmstates, natom, 10), dtype=float)
+            self.multipolar_fit = {}#np.zeros((self.nmstates, self.nmstates, natom, 10), dtype=float)
         if "density_matrices" in requests:
             self.density_matrices = {}
         self.mol = None 
