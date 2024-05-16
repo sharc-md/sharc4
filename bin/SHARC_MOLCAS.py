@@ -21,11 +21,11 @@ from utils import convert_list, expand_path, mkdir, writefile
 
 __all__ = ["SHARC_MOLCAS"]
 
-AUTHORS = ""
-VERSION = ""
+AUTHORS = "Sascha Mausenberger, Sebastian Mai"
+VERSION = "4.0"
 VERSIONDATE = datetime.datetime(2023, 8, 29)
 NAME = "MOLCAS"
-DESCRIPTION = ""
+DESCRIPTION = "MOLCAS interface for CASSCF/RASSCF, CASPT2, MS-CASPT2, XMS-CASPT2 and CMS-PDFT"
 
 CHANGELOGSTRING = """
 """
@@ -222,10 +222,6 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         if not self.QMin.resources["driver"]:
             self.log.error(f"No driver found in {self.QMin.resources['molcas']}")
             raise ValueError()
-
-        # WFOVERLAP
-        if self.QMin.resources["wfoverlap"]:
-            self.QMin.resources["wfoverlap"] = expand_path(self.QMin.resources["wfoverlap"])
 
         # Check orb init and guess
         if self.QMin.save["always_guess"] and self.QMin.save["always_orb_init"]:
@@ -920,7 +916,8 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         if qmin.molecule["point_charges"]:
             input_str = "&GATEWAY\n"
             for idx, (charge, coord) in enumerate(zip(qmin.molecule["elements"], qmin.coords["coords"]), 1):
-                input_str += f"basis set\n{charge}.{qmin.template['basis']}....\n{charge}{idx} {coord[0]: >10.15f} {coord[1]: >10.15f} {coord[2]: >10.15f}"
+                input_str += f"basis set\n{charge}.{qmin.template['basis']}....\n"
+                input_str += f"{charge}{idx} {coord[0]: >10.15f} {coord[1]: >10.15f} {coord[2]: >10.15f}"
                 input_str += " /Angstrom\nend of basis\n\n"
 
         if qmin.requests["soc"]:
