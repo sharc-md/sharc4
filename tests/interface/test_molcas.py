@@ -108,6 +108,7 @@ def test_generate_schedule():
         test_interface._read_template = True
         test_interface._read_resources = True
         test_interface.setup_interface()
+        test_interface._hdf5 = True
         test_interface.read_requests(qmin)
         schedule = test_interface._generate_schedule()
         assert len(schedule) == len(ref)
@@ -423,6 +424,7 @@ def test_gettasks_init():
         test_interface.read_template(templ)
         test_interface.QMin.template["ipea"] = 0.0
         test_interface._read_resources = True
+        test_interface._hdf5 = True
         test_interface.read_requests(qmin)
         test_interface.setup_interface()
         test_interface.QMin.scheduling["schedule"] = test_interface._generate_schedule()

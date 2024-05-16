@@ -46,7 +46,7 @@ all_features = set(
         "point_charges",
         "grad_pc",
         # raw data request
-        "basis_set",
+        "mol",
         "wave_functions",
         "density_matrices",
     ]
@@ -975,7 +975,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 self.log.error("theodore_prop and theodore_frag have to be set in resources!")
                 raise ValueError()
 
-        if self.QMin.requests["multipolar_fit"] or self.QMin.requests["density_matrices"] or self.QMin.requests["basis_set"]:
+        if self.QMin.requests["multipolar_fit"] or self.QMin.requests["density_matrices"] or self.QMin.requests["mol"]:
             if not self._hdf5:
                 self.log.error("Densities, basis_set and multipolar_fit request require HDF5 support!")
                 raise ValueError()
@@ -1158,7 +1158,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 self.QMout["phases"][self.QMout["phases"] > 0] = 1
                 self.QMout["phases"][self.QMout["phases"] < 0] = -1
 
-        if self.QMin.requests["basis_set"] or self.QMin.requests["density_matrices"] or self.QMin.requests["multipolar_fit"]:
+        if self.QMin.requests["mol"] or self.QMin.requests["density_matrices"] or self.QMin.requests["multipolar_fit"]:
             # Parse basis
             mol = gto.Mole()
             mol.basis = None  # Using basis set from hdf5

@@ -42,7 +42,7 @@ all_features = set(
         "point_charges",
         "grad_pc",
         # raw data request
-        "basis_set",
+        "mol",
         "wave_functions",
         "density_matrices",
     ]
