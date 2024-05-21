@@ -979,6 +979,8 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         if self.QMin.requests["multipolar_fit"] and self.QMin.molecule["point_charges"]:
             self.log.error("Multipolar fit not comatible with point charges!")
             raise ValueError()
+        if self.QMin.requests["phases"]:
+            self.QMin.requests["overlap"] = True
 
     def _get_molcas_features(self) -> None:
         """
