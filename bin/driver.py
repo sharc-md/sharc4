@@ -26,6 +26,7 @@
 # IMPORTS
 # EXTERNAL
 import time
+import os
 from typing import Any, Union
 from optparse import OptionParser
 from constants import IAn2AName, ATOMCHARGE, FROZENS
@@ -254,6 +255,9 @@ def main():
     derived_int.QMin.molecule["Atomcharge"] = sum(map(lambda x: ATOMCHARGE[x], derived_int.QMin.molecule["elements"]))
     derived_int.QMin.molecule["frozcore"] = sum(map(lambda x: FROZENS[x], derived_int.QMin.molecule["elements"]))
     derived_int.QMin.maps["statemap"] = basic_info["statemap"]
+    if "SHARC_RETAIN" in os.environ:
+        derived_int.QMin.requests["retain"] = int(os.environ["SHARC_RETAIN"])
+
     derived_int._setup_mol = True
     with InDir("QM"):
         derived_int.read_resources()
