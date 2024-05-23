@@ -105,13 +105,10 @@ class STATE:
         return s
 
     def Excite(self, max_Prob, erange):
-        try:
-            Prob = self.Prob / max_Prob
-        except ZeroDivisionError:
-            Prob = -1.0
-        if not (erange[0] <= self.Eexc <= erange[1]):
-            Prob = -1.0
-        self.Excited = random.random() < Prob
+        if erange[0] <= self.Eexc <= erange[1]:
+            self.Excited = random.random() < (self.Prob / max_Prob)
+        else:
+            self.Excited = False
 
 
 # ======================================================================================================================
@@ -136,11 +133,11 @@ class INITCOND:
     def init_from_file(self, f, eref, index):
         while True:
             line = f.readline()
-            # if 'Index     %i' % (index) in line:
-            if re.search(r"^Index\s+%i" % (index), line):
-                break
             if line == "\n":
                 continue
+            # if 'Index     %i' % (index) in line:
+            if line.startswith("Index") and int(line.split()[-1]) == index:
+                break
             if line == "":
                 print("Initial condition %i not found in file %s" % (index, f.name))
                 quit(1)
@@ -149,21 +146,21 @@ class INITCOND:
         self.Ekin = 0.0
         while True:
             line = f.readline()
-            if "States" in line:
+            if line.startswith("States"):
                 break
             m, vx, vy, vz = line.split()[-4:]
             self.Ekin += 0.5 * float(m) * U_TO_AMU * (float(vx) ** 2 + float(vy) ** 2 + float(vz) ** 2)
             atomlist.append(line)
-        statelist = []
+        # statelist = []
         while True:
             line = f.readline()
-            if "Ekin" in line:
+            if line.startswith("Ekin"):
                 break
-            state = STATE()
-            state.init_from_str(line)
-            statelist.append(state)
+            # state = STATE()
+            # state.init_from_str(line)
+            # statelist.append(state)
         epot_harm = 0.0
-        while not line == "\n" and not line == "":
+        while line and line != "\n":
             line = f.readline()
             if "epot_harm" in line.lower():
                 epot_harm = float(line.split()[1])
@@ -173,12 +170,12 @@ class INITCOND:
         self.Epot_harm = epot_harm
         self.natom = len(atomlist)
         # self.Ekin = sum([atom.Ekin for atom in self.atomlist])
-        self.statelist = statelist
-        self.nstate = len(statelist)
-        if self.nstate > 0:
-            self.Epot = self.statelist[0].e - self.eref
-        else:
-            self.Epot = epot_harm
+        # self.statelist = statelist
+        # self.nstate = len(statelist)
+        # if self.nstate > 0:
+            # self.Epot = self.statelist[0].e - self.eref
+        # else:
+            # self.Epot = epot_harm
 
     def __str__(self):
         s = "Atoms\n" + "".join(self.atomlist)
@@ -802,14 +799,18 @@ def excite(INFOS, initlist):
         if INFOS["excite"] == 3:
             # get the maximum oscillator strength
             maxprob = 0
+            probs = np.zeros((len(initlist), len(initlist[0].statelist)), dtype=float)
             for i, icond in enumerate(initlist):
                 if icond.statelist == []:
                     continue
                 for j, jstate in enumerate(icond.statelist):
                     if emin <= jstate.Eexc <= emax:
                         if -(j + 1) not in INFOS["allowed"]:
+                            probs[i, j] = jstate.Prob
                             if jstate.Prob > maxprob:
                                 maxprob = jstate.Prob
+            np.save("initconds_props.npy", probs)
+            
         # set the excitation flags
         print("\nSelecting initial states ...")
         width_bar = 50
@@ -843,7 +844,7 @@ def excite(INFOS, initlist):
                     # and excite
                     for j, jstate in enumerate(icond.statelist):
                         if emin <= jstate.Eexc <= emax:
-                            if -(j + 1) not in INFOS["allowed"]:
+                            if maxprob > 0 and -(j + 1) not in INFOS["allowed"]:
                                 jstate.Excite(maxprob, INFOS["erange"])
                                 if jstate.Excited:
                                     nselected += 1
