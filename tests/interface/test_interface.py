@@ -35,6 +35,7 @@ def read_resources(path: str, params: dict, whitelist: list):
         "key2": list,
         "key4": bool,
         "key5": list,
+        "key6": dict,
     }
     test_interface.QMin.resources.data = {
         "int_key": None,
@@ -43,6 +44,7 @@ def read_resources(path: str, params: dict, whitelist: list):
         "key2": None,
         "key4": None,
         "key5": None,
+        "key6": {},
     }
     test_interface._setup_mol = True
     test_interface.read_resources(path, whitelist)
@@ -348,6 +350,8 @@ def test_resources1():
         ("inputs/interface_resources7", {"key1": "test2", "key2": [["test1", "test2"], ["test3", "test4"]]}, []),
         ("inputs/interface_resources8", {"key1": "test2", "key2": ["test1", "test2", "test3", "test4"]}, []),
         ("inputs/interface_resources10", {"key2": [[1, 2], ["3"]], "key5": [[1], [2]]}, ["key2"]),
+        ("inputs/interface_resources11", {"key6": {"Fe": "1.81", "C": "1.2", "N": "2.0"}}, []),
+        ("inputs/interface_resources12", {"key6": {"Fe": "1.81", "C": "1.2", "N": "2.0"}}, []),
     ]
     for path, params, whitelist in tests:
         read_resources(os.path.join(expand_path(PATH), path), params, whitelist)

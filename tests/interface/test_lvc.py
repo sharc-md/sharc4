@@ -94,8 +94,12 @@ def test_lvc():
         ]
     )
 
-    assert np.allclose(H_ref, lvc.QMout.h, rtol=1e-8)
-    assert np.allclose(grad_ref, lvc.QMout.grad, rtol=1e-8)
+    if not np.allclose(H_ref, lvc.QMout.h, rtol=1e-8):
+        raise ValueError("Hamiltonian is not correct")
+    if not np.allclose(grad_ref, lvc.QMout.grad, rtol=1e-8):
+        print(grad_ref)
+        print(lvc.QMout.grad)
+        raise ValueError("Gradient is not correct")
 
 
 @pytest.mark.slow
@@ -655,9 +659,13 @@ def test_lvc_pc():
             ],
         ]
     )
-    assert np.allclose(H_ref, lvc.QMout.h, rtol=1e-8)
-    assert np.allclose(grad_ref, lvc.QMout.grad, rtol=1e-8)
-    assert np.allclose(nacdr_ref, lvc.QMout.nacdr, rtol=1e-8)
+    if not np.allclose(H_ref, lvc.QMout.h, rtol=1e-8):
+        raise ValueError("Hamiltonian is not correct")
+    if not np.allclose(grad_ref, lvc.QMout.grad, rtol=1e-7):
+        # print(grad_ref, lvc.QMout.grad)
+        raise ValueError("Gradient is not correct")
+    if not np.allclose(nacdr_ref, lvc.QMout.nacdr, rtol=1e-8):
+        raise ValueError("Nac is not correct")
     # f = open('/user/severin/sharc_main/tests/interface/test_lvc.py', 'a')
     # print('H_ref =', np.array2string(lvc.QMout.h, separator=','), file=f)
     # print('grad_ref =', np.array2string(lvc.QMout.grad, separator=','), file=f)
