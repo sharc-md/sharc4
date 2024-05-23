@@ -10,6 +10,7 @@ import sys
 import numpy as np
 from asa_grid import mk_layers
 from pyscf import gto, df
+from pyscf.lib import misc
 from constants import au2a
 from logger import log
 
@@ -71,7 +72,7 @@ class Resp:
         self.R_alpha: np.ndarray = np.full((self.natom, self.ngp, 3), self.mk_grid) - self.coords[:, None, :]  # rA-ri
         self.r_inv: np.ndarray = 1 / np.sqrt(np.sum((self.R_alpha) ** 2, axis=2))  # 1 / |ri-rA|
 
-    def prepare(self, mol: gto.Mole):
+    def prepare(self, mol: gto.Mole, ncpu=1):
         """
         Prepares the gto.Mole object and 3c2e integrals
 
@@ -80,6 +81,7 @@ class Resp:
         Parameters
         ----------
         mol: gto.Mole
+        ncpu: int
         """
         Z = mol.atom_charges()
         self.log.trace(f"{self.natom} {Z} {self.r_inv.shape}")
@@ -89,7 +91,9 @@ class Resp:
         # NOTE This could be very big (fakemol could be broken up into multiple pieces)
         # NOTE the value of these integrals is not affected by the atom charge
         self.log.info("starting to evaluate integrals")
-        self.ints = df.incore.aux_e2(mol, fakemol, intor="int3c2e")
+
+        with misc.with_omp_threads(ncpu) as _:
+            self.ints = df.incore.aux_e2(mol, fakemol, intor="int3c2e")
         self.log.info("done")
 
     def one_shot_fit(self, dm: np.ndarray, include_core_charges: bool, order=2, charge=0, **kwargs):

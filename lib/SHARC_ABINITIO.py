@@ -21,7 +21,7 @@ from qmin import QMin
 from resp import Resp, multipoles_from_dens_parallel
 from SHARC_INTERFACE import SHARC_INTERFACE
 from sympy.physics.wigner import wigner_3j
-from utils import containsstring, convert_list, is_exec, itmult, link, mkdir, readfile, safe_cast, shorten_DIR, writefile
+from utils import containsstring, convert_list, convert_dict, is_exec, itmult, link, mkdir, readfile, safe_cast, shorten_DIR, writefile
 
 all_features = {
     "h",
@@ -194,6 +194,10 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
 
         if self.QMin.resources["theodore_fragment"]:
             self.QMin.resources["theodore_fragment"] = convert_list(self.QMin.resources["theodore_fragment"])
+        if self.QMin.resources["resp_vdw_radii"]:
+            self.QMin.resources["resp_vdw_radii"] = convert_list(self.QMin.resources["resp_vdw_radii"], float)
+        if self.QMin.resources["resp_vdw_radii_symbol"]:
+            self.QMin.resources["resp_vdw_radii_symbol"] = convert_dict(self.QMin.resources["resp_vdw_radii_symbol"], float)
 
     @abstractmethod
     def read_requests(self, requests_file: str = "QM.in") -> None:
@@ -417,6 +421,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 ]
 
             if self.QMin.resources["resp_betas"]:
+                self.QMin.resources["resp_betas"] = [float(x) for x in self.QMin.resources["resp_betas"]]
                 if len(self.QMin.resources["resp_betas"]) != self.QMin.resources["resp_fit_order"] + 1:
                     raise RuntimeError(
                         f"specify one beta parameter for each multipole order (order + 1)!\n needed {self.QMin.resources['resp_fit_order']+1:d}"
@@ -1231,14 +1236,14 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         mol = self.QMin.molecule["mol"]
         gsmult = self.QMin.maps["statemap"][1][0]
         charge = self.QMin.maps["chargemap"][gsmult]  # the charge is irrelevant for the integrals calculated!!
-        fits.prepare(mol)  # the charge of the atom does not affect integrals
+        fits.prepare(mol, self.QMin.resources['ncpu'])  # the charge of the atom does not affect integrals
         fits.prepare_parallel(self.QMout.density_matrices, self.QMin.resources["resp_fit_order"])
 
         fits_map = {}
         queued = set()
         get_transpose = []
         self.log.debug(f"starting pool with {self.QMin.resources['ncpu']} workers")
-        set_start_method("fork")
+        set_start_method("fork", force=True)
         with Pool(processes=self.QMin.resources["ncpu"]) as pool:
             for dens in self.QMin.requests["multipolar_fit"]:
                 s1, s2 = dens
