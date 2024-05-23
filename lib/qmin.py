@@ -302,6 +302,7 @@ class QMinResources(QMinBase):
         "ncpu": int,
         "ngpu": int,
         "memory": int,
+        "retain": int,
     """
 
     def __init__(self, *args, **kwargs):
@@ -313,6 +314,7 @@ class QMinResources(QMinBase):
             "ncpu": 1,
             "ngpu": None,
             "memory": 1000,
+            "retain": 5,
         }
         self.types = {
             "pwd": str,
@@ -321,6 +323,7 @@ class QMinResources(QMinBase):
             "ncpu": int,
             "ngpu": int,
             "memory": int,
+            "retain": int,
         }
 
 

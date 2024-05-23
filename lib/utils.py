@@ -30,11 +30,13 @@ class InDir:
         if exc_type is not None:
             exception_hook(exc_type, exc_value, exc_traceback)
 
+
 # Because itertools.batched only in python >=3.12
 def batched(it: Iterable, n: int = 2):
     l = len(it)
     for ndx in range(0, l, n):
-        yield it[ndx:ndx+n]
+        yield it[ndx : ndx + n]
+
 
 def convert_list(raw_list: list, new_type: Any = int) -> list:
     output = raw_list
@@ -43,6 +45,14 @@ def convert_list(raw_list: list, new_type: Any = int) -> list:
     else:
         return list(map(new_type, output))
     return output
+
+
+def convert_dict(raw_dict: dict, new_type: Any = int) -> dict:
+    keys = list(raw_dict.keys())
+    if isinstance(raw_dict[keys[0]], dict):
+        return {k: convert_dict(v, new_type) for k, v in raw_dict.items()}
+    else:
+        return {k: new_type(v) for k, v in raw_dict.items()}
 
 
 # ======================================================================= #
@@ -689,6 +699,67 @@ class ATOM:
 
     def __eq__(self, other):
         return self.id == other.id
+
+
+def truncate_states_in_array(array: np.ndarray, old_states: list[int], new_states: list[int], dim: int = None):
+    """
+    truncates the state space of an array to a smaller one
+
+    [S,S,S,S, T,T,T,T, T,T,T,T, T,T,T,T] -> [S,S, T, T, T]
+
+    if dim> 1: truncates first two indices!
+    ---
+    Parameters:
+    - array: np.ndarray
+    - old_states: list[int]  # list with old states
+    - new_states: list[int]  # list with new states
+    - dim: int # number of dims to truncates [1,2]
+
+    ---
+    Returns:
+    np.ndarray
+    """
+    if (len(new_states) > len(old_states)) or any(a > b for (a, b) in zip(new_states, old_states)):
+        raise ValueError(f"states are inconsistent! {new_states} is not a subset of {old_states}")
+
+    if dim is None:
+        dim = 1 if len(array.shape) == 1 else 2
+    elif dim > len(array.shape):
+        raise ValueError(f"{dim =} exceeds {len(array.shape) =}")
+    new_nmstates = sum((i + 1) * n for i, n in enumerate(new_states))
+    new_shape = tuple(new_nmstates if i < dim else array.shape[i] for i in range(len(array.shape)))
+
+    new_arr = np.zeros(new_shape, dtype=array.dtype)
+
+    leading0 = 0
+    for i, nn in enumerate(new_states):
+        if nn != 0:
+            leading0 = i
+            break
+
+    start = sum((i + 1) * old_states[i] for i in range(leading0))
+    start_new = 0
+    for im, (n, nr) in filter(lambda x: x[1][1] != 0, enumerate(zip(old_states, new_states))):
+        stop_new = start_new + nr
+        stop = start + nr
+        if dim == 1:
+            new_arr[start_new:stop_new, ...] = array[start:stop, ...]
+        else:
+            new_arr[start_new:stop_new, start_new:stop_new, ...] = array[start:stop, start:stop, ...]
+
+        for x in range(1, im + 1):
+            s1 = start + n * x
+            s1_new = start_new + nr * x
+            s2 = s1 + nr
+            s2_new = s1_new + nr
+            if dim == 1:
+                new_arr[s1_new:s2_new, ...] = array[s1:s2, ...]
+            else:
+                new_arr[s1_new:s2_new, s1_new:s2_new, ...] = array[s1:s2, s1:s2, ...]
+        start += n * (im + 1)
+        start_new += nr * (im + 1)
+
+    return new_arr
 
 
 def get_rot(theta: float, axis: int) -> np.ndarray:
