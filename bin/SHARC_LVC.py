@@ -123,7 +123,7 @@ class SHARC_LVC(SHARC_FAST):
         nmstates = self.parsed_states["nmstates"]
         states = self.parsed_states["states"]
 
-        self._H_i = {im: np.zeros((n, n, r3N), dtype=float) for im, n in enumerate(states) if n != 0}
+        self._H_i = {im: np.zeros((r3N, n, n), dtype=float) for im, n in enumerate(states) if n != 0}
         self._G = {im: np.zeros((n, n, r3N, r3N), dtype=float) for im, n in enumerate(states) if n != 0}
         self._h = {im: np.zeros((n, n), dtype=float) for im, n in enumerate(states) if n != 0}
         self._dipole = np.zeros((3, nmstates, nmstates), dtype=complex)
@@ -134,6 +134,10 @@ class SHARC_LVC(SHARC_FAST):
         soc_real = True
         dipole_real = True
         line = f.readline()
+        if line.startswith("charge"):
+            self.QMin.molecule["charge"] = [int(x) for x in line.split()[1:]]
+            self.QMout.charges = self.QMin.molecule["charge"]
+            line = f.readline()
         # NOTE: possibly assign whole array with index accessor (numpy)
         if line == "epsilon\n":
             z = int(f.readline()[:-1])
@@ -163,7 +167,7 @@ class SHARC_LVC(SHARC_FAST):
                 return (int(v[0]) - 1, int(v[1]) - 1, int(v[2]) - 1, float(v[3]))
 
             for im, s, i, v in map(b, range(z)):
-                self._H_i[im][s, s, i] = v
+                self._H_i[im][i, s, s] = v
             line = f.readline()
 
         if line == "lambda\n":
@@ -174,8 +178,8 @@ class SHARC_LVC(SHARC_FAST):
                 return (int(v[0]) - 1, int(v[1]) - 1, int(v[2]) - 1, int(v[3]) - 1, float(v[4]))
 
             for im, si, sj, i, v in map(c, range(z)):
-                self._H_i[im][si, sj, i] = v
-                self._H_i[im][sj, si, i] = v
+                self._H_i[im][i, si, sj] = v
+                self._H_i[im][i, sj, si] = v
             line = f.readline()
 
         if line == "gamma\n":
@@ -377,7 +381,24 @@ class SHARC_LVC(SHARC_FAST):
         quad[..., [0, 0, 1], [1, 2, 2]] = 0.5 * q[..., 7:]
         quad[..., [1, 2, 2], [0, 0, 1]] = quad[..., [0, 0, 1], [1, 2, 2]]
         quad = Trot.T @ quad @ Trot
-        return np.concatenate((q[..., 0, None], dip, quad[..., [0, 1, 2], [0, 1, 2]], 2 * quad[..., [0, 0, 1], [1, 2, 2]]), axis=-1)
+        return np.concatenate(
+            (q[..., 0, None], dip, quad[..., [0, 1, 2], [0, 1, 2]], 2 * quad[..., [0, 0, 1], [1, 2, 2]]), axis=-1
+        )
+
+    @staticmethod
+    def rotate_multipoles_deriv(q, Trot, dTrot):
+        dip = q[..., 1:4].copy()
+        # res = np.zeros_like(q)
+        dip = np.einsum("ijax,kxy->kijay", dip, dTrot)
+        quad = np.zeros((*q.shape[:-1], 3, 3))
+        # [0,1,2,0,0,1],[0,1,2,1,2,2]
+        quad[..., [0, 1, 2], [0, 1, 2]] = q[..., 4:7]
+        quad[..., [0, 0, 1], [1, 2, 2]] = 0.5 * q[..., 7:]
+        quad[..., [1, 2, 2], [0, 0, 1]] = quad[..., [0, 0, 1], [1, 2, 2]]
+        quad = np.einsum("kxm,ijaxy,yn->kijamn", dTrot, quad, Trot, optimize=["einsum_path", (0, 1), (0, 1)]) + np.einsum(
+            "xm,ijaxy,kyn->kijamn", Trot, quad, dTrot, optimize=["einsum_path", (0, 1), (0, 1)]
+        )
+        return np.concatenate((dip, quad[..., [0, 1, 2], [0, 1, 2]], 2 * quad[..., [0, 0, 1], [1, 2, 2]]), axis=-1)
 
     # @profile
     def run(self):
@@ -406,10 +427,12 @@ class SHARC_LVC(SHARC_FAST):
                 dc = np.eye(r3N).reshape((natom, 3, natom, 3))
                 dcom = np.einsum("b,axby->xby", weights, dc) / sum(weights)
                 dcom = dcom.reshape((3, r3N))
-                coords_deriv = np.einsum("ax,kyx->ayk", (coords - self._com_coords), dTrot) + np.einsum(
-                    "axk,yx->ayk", (-dcom[None, ...]), self._Trot.T
+                dc = dc.reshape(natom, 3, r3N)
+                coords_deriv = np.einsum("ax,kyx->kay", (coords - self._com_coords), dTrot) + np.einsum(
+                    "axk,yx->kay", (dc - dcom[None, ...]), self._Trot
                 )
                 coords_deriv = coords_deriv.reshape((r3N, r3N))
+                # print(coords_deriv.T)
             else:
                 self._Trot, self._com_ref, self._com_coords = kabsch(self._ref_coords, coords, weights)
             coords_ref_basis = (coords - self._com_coords) @ self._Trot.T + self._com_ref
@@ -429,10 +452,11 @@ class SHARC_LVC(SHARC_FAST):
             self.pc_chrg = np.array(self.QMin.coords["pccharge"])  # n_pc, 1
             pc_coord = np.array(self.QMin.coords["pccoords"])  # n_pc, 1
 
+            n_pc = pc_coord.shape[0]
             # matrix of position differences (for gradient calc) n_coord (A), n_pc (B), 3
-            pc_coord_diff = np.full((coords.shape[0], pc_coord.shape[0], 3), coords[:, None, :]) - pc_coord
+            pc_coord_diff = np.full((coords.shape[0], n_pc, 3), coords[:, None, :]) - pc_coord
             mult_prefactors = self.get_mult_prefactors(pc_coord_diff)
-            mult_prefactors_pc = np.einsum("b,yab->yab", self.pc_chrg, mult_prefactors)
+            mult_prefactors_pc = np.einsum("b,yab->aby", self.pc_chrg, mult_prefactors)
             del mult_prefactors
 
         # Build full H and diagonalize
@@ -448,14 +472,14 @@ class SHARC_LVC(SHARC_FAST):
             stop_req = start_req + n_req
 
             H = self._h[im] + np.identity(n) * V0
-            H += self._H_i[im] @ self._Q
+            H += np.einsum("kij, k->ij", self._H_i[im], self._Q)
             if self._gammas:
                 H += np.einsum("n,ijnm,m->ij", self._Q, self._G[im], self._Q, casting="no", optimize=True)
             if do_pc:
                 if "_H_ee_coupling" not in self.__dict__:
-                    self._H_ee_coupling = np.einsum_path("ijay,yab->ij", fits_rot[im], mult_prefactors_pc, optimize="optimal")[0]
+                    self._H_ee_coupling = np.einsum_path("ijay,aby->ij", fits_rot[im], mult_prefactors_pc, optimize="optimal")[0]
                 # print(np.einsum("iiay,yab->i", fits_rot[im], mult_prefactors_pc, casting="no", optimize=True))
-                H += np.einsum("ijay,yab->ij", fits_rot[im], mult_prefactors_pc, casting="no", optimize=self._H_ee_coupling)
+                H += np.einsum("ijay,aby->ij", fits_rot[im], mult_prefactors_pc, casting="no", optimize=self._H_ee_coupling)
             if self._diagonalize:
                 eigen_values, eigen_vec = np.linalg.eigh(H, UPLO="U")
                 np.einsum("ii->i", Hd)[start_req:stop_req] = eigen_values[:n_req]
@@ -480,42 +504,42 @@ class SHARC_LVC(SHARC_FAST):
 
         if do_kabsch:
             if do_pc and do_derivs:
-                pc_grad = np.zeros((req_nmstates, self.pc_chrg.shape[0], 3))
+                pc_grad = np.zeros((self.pc_chrg.shape[0] * 3, req_nmstates))
 
                 mult_prefactors_deriv = self.get_mult_prefactors_deriv(pc_coord_diff)
 
-                fits_deriv = {
-                }
+                fits_deriv = {}
                 for im, n in filter(lambda x: x[1] != 0, enumerate(states)):
-                    fits_deriv[im] = np.zeros((n,n,natom,9,natom,3))
-                    for k in range(r3N):
-                        x = k % natom
-                        a = k // natom
-                        fits_deriv[..., a, x] = self.rotate_multipoles(self._fits[im], dTrot[k, ...])[..., :1]
+                    fits_deriv[im] = self.rotate_multipoles_deriv(self._fits[im], self._Trot, dTrot)
 
-                mult_prefactors_deriv_pc = np.einsum("xyab,b->xyab", mult_prefactors_deriv, self.pc_chrg)
+                mult_prefactors_deriv_pc = np.einsum("xyab,b->abxy", mult_prefactors_deriv, self.pc_chrg)
                 del mult_prefactors_deriv
 
             if do_derivs:
                 # numerically calculate the derivatives of the coordinates in the reference system with respect ot the sharc coords
-                shift = 0.0005
-                multiplier = 1 / (2 * shift)
+                # shift = 0.0005
+                # multiplier = 1 / (2 * shift)
 
-                coords_deriv = np.zeros((r3N, r3N))
-                for a in range(self.QMin.molecule["natom"]):
-                    for x in range(3):
-                        for f, m in [(1, multiplier), (-1, -multiplier)]:
-                            c = np.copy(coords)
-                            c[a, x] += f * shift
-                            Trot, com_ref, com_c = kabsch(self._ref_coords, c, weights)
-                            c_rot = (c - com_c) @ Trot.T + com_ref
-                            coords_deriv[..., a * 3 + x] += (m * c_rot).flat
-                            if do_pc:
-                                for im, n in filter(lambda x: x[1] != 0, enumerate(states)):
-                                    _fits_rot = self.rotate_multipoles(self._fits[im], Trot)
-                                    fits_deriv[im][..., a, x] += m * _fits_rot[..., 1:]
+                # fits_deriv2 = {im: np.zeros((n, n, natom, 9, natom * 3)) for im, n in enumerate(states) if n != 0}
+                # # coords_deriv = np.zeros((r3N, r3N))
+                # for a in range(self.QMin.molecule["natom"]):
+                #     for x in range(3):
+                #         for f, m in [(1, multiplier), (-1, -multiplier)]:
+                #             c = np.copy(coords)
+                #             c[a, x] += f * shift
+                #             Trot, com_ref, com_c = kabsch(self._ref_coords, c, weights)
+                #             c_rot = (c - com_c) @ Trot.T + com_ref
+                #             # coords_deriv[..., a * 3 + x] += (m * c_rot).flat
+                #             if do_pc:
+                #                 for im, n in filter(lambda x: x[1] != 0, enumerate(states)):
+                #                     _fits_rot = self.rotate_multipoles(self._fits[im], Trot)
+                #                     fits_deriv2[im][..., a * 3 + x] += m * _fits_rot[..., 1:]
+                # if do_pc:
+                #     print(fits_deriv2[0][1, 0, 1, :5, 0])
+                #     print(np.einsum("kijay-> ijayk", fits_deriv[im])[1, 0, 1, :5, 0])
 
-                dQ_dr = np.sqrt(self._Om)[..., None] * (self._Km @ coords_deriv)
+                dQ_dr = np.sqrt(self._Om)[..., None] * (self._Km @ coords_deriv.T)
+                dQ_dr = dQ_dr.T
                 del coords_deriv
 
             # rotate and diagonalize the fits already to decrease comp effort in case of less adia states
@@ -532,19 +556,19 @@ class SHARC_LVC(SHARC_FAST):
                         u = self._U[start:stop, start_req:stop_req]
                         dfits[im] = np.einsum("ijay,in,jm->mnay", fits_rot[im], u, u, optimize=True)
                         if do_derivs:
-                            dfits_deriv[im] = np.einsum("ijaybx,in,jm->mnaybx", fits_deriv[im], u, u, optimize=True)
+                            dfits_deriv[im] = np.einsum("kijay,in,jm->kmnay", fits_deriv[im], u, u, optimize=True)
                         start += n * (im + 1)
                         start_req += n_req * (im + 1)
                 else:
                     dfits = {}
                     dfits_deriv = {}
                     for im, n_req in filter(lambda x: x[1] != 0, enumerate(req_states)):
-                        dfits[im] = fits_rot[im][:n_req, :n_req, ...]
+                        dfits[im] = fits_rot[im][..., :n_req, :n_req]
                         if do_derivs:
-                            dfits_deriv[im] = fits_deriv[im][:n_req, :n_req, ...]
+                            dfits_deriv[im] = fits_deriv[im][:, :n_req, :n_req, ...]
 
         elif do_derivs:
-            dQ_dr = np.sqrt(self._Om)[..., None] * self._Km
+            dQ_dr = np.sqrt(self._Om)[None, ...] * self._Km.T
         elif self.QMin.requests["multipolar_fit"]:
             dfits = self._fits
 
@@ -554,10 +578,10 @@ class SHARC_LVC(SHARC_FAST):
             # Build full derivative matrix
             start = 0  # starting index for blocks
             start_req = 0  # starting index for blocks
-            nacdr = np.zeros((req_nmstates, req_nmstates, self.QMin.molecule["natom"] * 3), float)
-            grad = np.zeros((req_nmstates, r3N))
+            nacdr = np.zeros((r3N, req_nmstates, req_nmstates), float)
+            grad = np.zeros((r3N, req_nmstates))
             if do_pc:
-                nacdr_pc = np.zeros((req_nmstates, req_nmstates, self.QMin.molecule["npc"], 3), float)
+                nacdr_pc = np.zeros((n_pc * 3, req_nmstates, req_nmstates), float)
 
             for im, n_req in filter(lambda x: x[1] != 0, enumerate(req_states)):
                 n = states[im]
@@ -565,42 +589,42 @@ class SHARC_LVC(SHARC_FAST):
                 stop_req = start_req + n_req
 
                 u = self._U[start:stop, start_req:stop_req]
-                dlvc = np.zeros((n, n, r3N))
-                np.einsum("iik->ik", dlvc)[...] += self._V[
-                    None, ...
+                dlvc = np.zeros((r3N, n, n))
+                np.einsum("kii->ki", dlvc)[...] += self._V[
+                    ..., None
                 ]  # fills diagonal on matrix with shape (nmstates,nmstates, r3N)
                 dlvc += self._H_i[im]
-                dlvc = np.einsum("ijk,kl->ijl", dlvc, dQ_dr, casting="no", optimize=True)
+                dlvc = np.einsum("kij,lk->lij", dlvc, dQ_dr, casting="no", optimize=True)
                 if self._gammas:
-                    dlvc += np.einsum("n,ijnm,ml->ijl", self._Q, self._G[im], dQ_dr, casting="no", optimize=True)
+                    dlvc += np.einsum("n,ijnm,lm->lij", self._Q, self._G[im], dQ_dr, casting="no", optimize=True)
                 if self._diagonalize:
                     if "_dlvc_nac_diag_path" not in self.__dict__:
-                        self._dlvc_nac_diag_path = np.einsum_path("ijk,im,jn->mnk", dlvc, u, u, optimize="optimal")[0]
-                    dlvc = np.einsum("ijk,im,jn->mnk", dlvc, u, u, casting="no", optimize=self._dlvc_nac_diag_path)
+                        self._dlvc_nac_diag_path = np.einsum_path("kij,im,jn->kmn", dlvc, u, u, optimize="optimal")[0]
+                    dlvc = np.einsum("kij,im,jn->kmn", dlvc, u, u, casting="no", optimize=self._dlvc_nac_diag_path)
                 else:
-                    dlvc = dlvc[:n_req, :n_req, ...]
+                    dlvc = dlvc[..., :n_req, :n_req]
 
                 if do_pc:
                     # calculate derivative of electrostic interaction
                     if "_dcoulomb_path" not in self.__dict__:
                         self._dcoulomb_path = np.einsum_path(
-                            "xyab,ijay->ijabx", mult_prefactors_deriv_pc, dfits[im], optimize="optimal"
+                            "abxy,ijay->abxij", mult_prefactors_deriv_pc, dfits[im], optimize="optimal"
                         )[0]
                     dcoulomb: np.ndarray = np.einsum(
-                        "xyab,ijay->ijabx", mult_prefactors_deriv_pc, dfits[im], optimize=self._dcoulomb_path
+                        "abxy,ijay->abxij", mult_prefactors_deriv_pc, dfits[im], optimize=self._dcoulomb_path
                     )
                     # add derivative to lvc derivative summed ofe all point charges
-                    dlvc += np.einsum("ijabx->ijax", dcoulomb).reshape((n_req, n_req, r3N))
+                    dlvc += np.einsum("abxij->axij", dcoulomb).reshape((r3N, n_req, n_req))
                     # add the derivative of the multipoles
                     if "_dlvc_path" not in self.__dict__:
                         self._dlvc_path = np.einsum_path(
-                            "yab,ijaymx->ijmx", mult_prefactors_pc[1:, ...], dfits_deriv[im], optimize="optimal"
+                            "aby,kijay->kij", mult_prefactors_pc[..., 1:], dfits_deriv[im], optimize="optimal"
                         )[0]
                     dlvc += np.einsum(
-                        "yab,ijaymx->ijmx", mult_prefactors_pc[1:, ...], dfits_deriv[im], casting="no", optimize=self._dlvc_path
-                    ).reshape((n_req, n_req, r3N))
+                        "aby,kijay->kij", mult_prefactors_pc[..., 1:], dfits_deriv[im], casting="no", optimize=self._dlvc_path
+                    )
                     # calculate the pc derivatives
-                    pc_derivative = -np.einsum("ijabx->ijbx", dcoulomb)
+                    pc_derivative = -np.einsum("abxij->bxij", dcoulomb).reshape((-1, n_req, n_req))
                     del dcoulomb
 
                 # transform gradients to adiabatic basis
@@ -611,30 +635,30 @@ class SHARC_LVC(SHARC_FAST):
                 idx = tmp != float(0)
                 tmp[idx] **= -1
 
-                nacdr[start_req:stop_req, start_req:stop_req, :] = np.einsum(
-                    "ji,ijk->ijk", tmp, dlvc, casting="no", optimize=True
+                nacdr[:, start_req:stop_req, start_req:stop_req] = np.einsum(
+                    "ji,kij->kij", tmp, dlvc, casting="no", optimize=True
                 )
-                grad[start_req:stop_req, ...] = np.einsum("iik->ik", dlvc)
+                grad[..., start_req:stop_req] = np.einsum("kii->ki", dlvc)
                 if do_pc:
-                    pc_grad[start_req:stop_req, ...] = np.einsum("iibx->ibx", pc_derivative)
-                    nacdr_pc[start_req:stop_req, start_req:stop_req, :] = np.einsum(
-                        "ji,ijbx->ijbx", tmp, pc_derivative, casting="no", optimize=True
+                    pc_grad[..., start_req:stop_req] = np.einsum("kii->ki", pc_derivative)
+                    nacdr_pc[..., start_req:stop_req, start_req:stop_req] = np.einsum(
+                        "ji,kij->kij", tmp, pc_derivative, casting="no", optimize=True
                     )
                 # fills in blocks for other magnetic quantum numbers
                 for s1 in map(lambda x: start_req + n_req * (x + 1), range(im)):
                     s2 = s1 + n_req
-                    nacdr[s1:s2, s1:s2, :] = nacdr[start_req:stop_req, start_req:stop_req, :]
-                    grad[s1:s2, ...] = grad[start_req:stop_req, ...]
+                    nacdr[:, s1:s2, s1:s2] = nacdr[:, start_req:stop_req, start_req:stop_req]
+                    grad[..., s1:s2] = grad[..., start_req:stop_req]
                     if do_pc:
-                        nacdr_pc[s1:s2, s1:s2, :] = nacdr_pc[start_req:stop_req, start_req:stop_req, :]
-                        pc_grad[s1:s2, ...] = pc_grad[start_req:stop_req, ...]
+                        nacdr_pc[:, s1:s2, s1:s2] = nacdr_pc[:, start_req:stop_req, start_req:stop_req]
+                        pc_grad[..., s1:s2] = pc_grad[..., start_req:stop_req]
                 start += n * (im + 1)
                 start_req += n_req * (im + 1)
 
         # calculate only gradients
         if self.QMin.requests["grad"]:
             self.log.debug("start calculating gradients")
-            grad = np.zeros((req_nmstates, r3N))
+            grad = np.zeros((r3N, req_nmstates))
             start = 0
             start_req = 0
             for im, n_req in filter(lambda x: x[1] != 0, enumerate(req_states)):
@@ -643,50 +667,50 @@ class SHARC_LVC(SHARC_FAST):
                 stop_req = start_req + n_req
 
                 u = self._U[start:stop, start_req:stop_req]
-                grad_lvc = np.full((n_req, r3N), self._V[None, ...])
+                grad_lvc = np.full((r3N, n_req), self._V[..., None])
                 if self._diagonalize:
                     if self._gammas:
-                        h_i = self._H_i[im] + np.einsum("m,ijnm->ijn", self._Q, self._G[im], casting="no", optimize=True)
-                        grad_lvc += np.einsum("ijk,in,jn->nk", h_i, u, u, casting="no", optimize=True)
+                        h_i = self._H_i[im] + np.einsum("m,ijnm->nij", self._Q, self._G[im], casting="no", optimize=True)
+                        grad_lvc += np.einsum("kij,in,jn->kn", h_i, u, u, casting="no", optimize=True)
                     else:
-                        grad_lvc += np.einsum("ijk,in,jn->nk", self._H_i[im], u, u, casting="no", optimize=True)
+                        grad_lvc += np.einsum("kij,in,jn->kn", self._H_i[im], u, u, casting="no", optimize=True)
                 else:
-                    grad_lvc += np.einsum("iik->ik", self._H_i[im][:n_req, :n_req])
+                    grad_lvc += np.einsum("kii->ki", self._H_i[im][:, :n_req, :n_req])
                     if self._gammas:
-                        grad_lvc += np.einsum("n,ijnm->ijm", self._Q, self._G[im], casting="no", optimize=True)
+                        grad_lvc += np.einsum("n,iinm->mi", self._Q, self._G[im], casting="no", optimize=True)
                 if do_pc:
                     idfits = np.einsum("iiay->iay", dfits[im])
-                    idfits_deriv = np.einsum("iiaymx->iaymx", dfits_deriv[im])
-                grad_lvc = grad_lvc @ dQ_dr
+                    idfits_deriv = np.einsum("kiiay->kiay", dfits_deriv[im])
+                grad_lvc = np.einsum("lk,ki->li", dQ_dr, grad_lvc)
                 if do_pc:
                     # calculate derivative of electrostic interaction
                     if "_dcoulomb_grad_path" not in self.__dict__:
                         self._dcoulomb_grad_path = np.einsum_path(
-                            "xyab,iay->iabx", mult_prefactors_deriv_pc, idfits, optimize="optimal"
+                            "abxy,iay->abxi", mult_prefactors_deriv_pc, idfits, optimize="optimal"
                         )[0]
                     dcoulomb: np.ndarray = np.einsum(
-                        "xyab,iay->iabx", mult_prefactors_deriv_pc, idfits, casting="no", optimize=self._dcoulomb_grad_path
+                        "abxy,iay->abxi", mult_prefactors_deriv_pc, idfits, casting="no", optimize=self._dcoulomb_grad_path
                     )
                     # add derivative to lvc derivative summed ofe all point charges
-                    grad_lvc += np.einsum("iabx->iax", dcoulomb).reshape((n_req, r3N))
+                    grad_lvc += np.einsum("abxi->axi", dcoulomb).reshape((r3N, n_req))
                     # add the derivative of the multipoles
                     if "_grad_lvc_path" not in self.__dict__:
                         self._grad_lvc_path = np.einsum_path(
-                            "yab,iaymx->imx", mult_prefactors_pc[1:, ...], idfits_deriv, optimize="optimal"
+                            "aby,kiay->ki", mult_prefactors_pc[..., 1:], idfits_deriv, optimize="optimal"
                         )[0]
                     grad_lvc += np.einsum(
-                        "yab,iaymx->imx", mult_prefactors_pc[1:, ...], idfits_deriv, casting="no", optimize=self._grad_lvc_path
-                    ).reshape((n_req, r3N))
+                        "aby,kiay->ki", mult_prefactors_pc[..., 1:], idfits_deriv, casting="no", optimize=self._grad_lvc_path
+                    )
                     # calculate the pc derivatives
-                    pc_grad[start_req:stop_req, ...] = -np.einsum("iabx->ibx", dcoulomb)
+                    pc_grad[..., start_req:stop_req] = -np.einsum("abxi->bxi", dcoulomb).reshape((-1, n_req))
                     del dcoulomb
-                grad[start_req:stop_req, ...] += grad_lvc
+                grad[..., start_req:stop_req] += grad_lvc
                 # fills in blocks for other magnetic quantum numbers
                 for s1 in map(lambda x: start_req + n_req * (x + 1), range(im)):
                     s2 = s1 + n_req
-                    grad[s1:s2, ...] += grad_lvc
+                    grad[..., s1:s2] += grad_lvc
                     if do_pc:
-                        pc_grad[s1:s2, ...] = pc_grad[start_req:stop_req, ...]
+                        pc_grad[..., s1:s2] = pc_grad[..., start_req:stop_req]
                 start += n * (im + 1)
                 start_req += n_req * (im + 1)
 
@@ -721,7 +745,7 @@ class SHARC_LVC(SHARC_FAST):
             Hd += adia_soc
 
         dipole = (
-            np.einsum("ni,kij,jm->knm", self._U.T, self._dipole, self._U, casting="no", optimize=True)
+            np.einsum("in,kij,jm->knm", self._U, self._dipole, self._U, casting="no", optimize=True)
             if self._diagonalize
             else self._dipole
         )
@@ -730,9 +754,9 @@ class SHARC_LVC(SHARC_FAST):
             dipole = np.einsum("inm,ij->jnm", dipole, self._Trot)
 
         if self.QMin.requests["grad"]:
-            grad = grad.reshape((req_nmstates, self.QMin.molecule["natom"], 3))
+            grad = grad.T.reshape((req_nmstates, self.QMin.molecule["natom"], 3))
         if self.QMin.requests["nacdr"]:
-            nacdr = nacdr.reshape((req_nmstates, req_nmstates, self.QMin.molecule["natom"], 3))
+            nacdr = np.einsum("kij->ijk", nacdr).reshape((req_nmstates, req_nmstates, self.QMin.molecule["natom"], 3))
 
         if self.QMin.requests["multipolar_fit"]:
             multipolar_fit = {}
@@ -757,9 +781,9 @@ class SHARC_LVC(SHARC_FAST):
         if self.QMin.requests["nacdr"]:
             self.QMout.nacdr = nacdr
             if do_pc:
-                self.QMout.nacdr_pc = nacdr_pc
+                self.QMout.nacdr_pc = np.einsum("kij->ijk", nacdr_pc).reshape((req_nmstates, req_nmstates, -1, 3))
         if do_pc and do_derivs:
-            self.QMout.grad_pc = pc_grad
+            self.QMout.grad_pc = pc_grad.T.reshape((req_nmstates, -1, 3))
         if self.QMin.requests["multipolar_fit"]:
             self.QMout.multipolar_fit = multipolar_fit
 

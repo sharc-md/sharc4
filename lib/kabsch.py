@@ -188,6 +188,7 @@ def kabsch_w_with_deriv(a: np.ndarray, b: np.ndarray, weights) -> (np.ndarray, f
 
     if S[1] + S[2] < 1e-16 * S[0]:
         print("Optimal rotation is not uniquely or poorly defined " "for the given sets of vectors.")
+        raise ValueError("Optimal rotation is not uniquely or poorly defined ")
 
     na = a.shape[0]
     dr = np.eye(na * 3)
@@ -196,7 +197,7 @@ def kabsch_w_with_deriv(a: np.ndarray, b: np.ndarray, weights) -> (np.ndarray, f
     dA_full = np.einsum("ax,ayk->kxy", a - a_s, dr)
 
     F = np.array([[1 / (s2**2 - s1**2) if i != j else 0.0 for j, s2 in enumerate(S)] for i, s1 in enumerate(S)], dtype=float)
-    S_inv = np.diag(1 / S)
+    S_inv = np.diag([1 / s if s > 1e-15 else 0 for s in S])
     S = np.diag(S)
     eye_3 = np.eye((3), dtype=float)
     V = V_T.T
