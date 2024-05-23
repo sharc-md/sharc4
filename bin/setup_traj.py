@@ -265,13 +265,14 @@ class INITCOND:
                 quit(1)
         f.readline()  # skip one line, where "Atoms" stands
         atomlist = []
+        self.Ekin = 0.
         while True:
             line = f.readline()
             if "States" in line:
                 break
-            atom = ATOM()
-            atom.init_from_str(line)
-            atomlist.append(atom)
+            m, vx, vy, vz = line.split()[-4:]
+            self.Ekin += 0.5 * float(m) * U_TO_AMU * (float(vx) ** 2 + float(vy) ** 2 + float(vz) ** 2)
+            atomlist.append(line)
         statelist = []
         while True:
             line = f.readline()
@@ -290,7 +291,7 @@ class INITCOND:
         self.eref = eref
         self.Epot_harm = epot_harm
         self.natom = len(atomlist)
-        self.Ekin = sum([atom.Ekin for atom in self.atomlist])
+        # self.Ekin = sum([atom.Ekin for atom in self.atomlist])
         self.statelist = statelist
         self.nstate = len(statelist)
         if self.nstate > 0:
@@ -487,11 +488,15 @@ def get_initconds(INFOS):
 
     INFOS["initf"].seek(0)  # rewind the initf file
     initlist = []
+    log.info("Reading initconds file")
+    width_bar = 80
     for icond in range(1, INFOS["ninit"] + 1):
+        done = width_bar * (icond) // INFOS["ninit"]
+        sys.stdout.write("\r  Progress: [" + "=" * done + " " * (width_bar - done) + "] %3i%%" % (done * 100 // width_bar))
         initcond = INITCOND()
         initcond.init_from_file(INFOS["initf"], INFOS["eref"], icond)
         initlist.append(initcond)
-    log.info("Number of initial conditions in file:       %5i" % (INFOS["ninit"]))
+    log.info("\nNumber of initial conditions in file:       %5i" % (INFOS["ninit"]))
 
     INFOS["initlist"] = initlist
     INFOS["n_issel"] = analyze_initconds(initlist, INFOS)
@@ -1466,7 +1471,7 @@ def writeSHARCinput(INFOS, initobject, iconddir, istate, ask=False):
         s += "killafter %f\n" % (INFOS["killafter"])
     s += "\n"
 
-    if "atommaskarray" in INFOS:
+    if "atommaskarray" in INFOS and INFOS["atommaskarray"] is not None:
         s += 'atommask external\natommaskfile "atommask"\n\n'
 
     s += "surf %s\n" % (INFOS["surf"])
@@ -1630,14 +1635,14 @@ def writeSHARCinput(INFOS, initobject, iconddir, istate, ask=False):
     geomfname = iconddir + "/geom"
     geomf = open(geomfname, "w")
     for atom in initobject.atomlist:
-        geomf.write(atom.geomstring() + "\n")
+        geomf.write(atom[:60] + "\n")
     geomf.close()
 
     # velocity file
     velocfname = iconddir + "/veloc"
     velocf = open(velocfname, "w")
     for atom in initobject.atomlist:
-        velocf.write(atom.velocstring() + "\n")
+        velocf.write(atom[60:])
     velocf.close()
 
     # laser file
