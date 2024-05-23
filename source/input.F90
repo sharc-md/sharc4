@@ -1043,6 +1043,32 @@ module input
       endif
     endif
 
+    ! how often sharc_traj_xyz is written
+    ctrl%output_steps_limits_nuc=0
+    ctrl%output_steps_stride_nuc=1
+    line=get_value_from_key('output_dat_steps_nuc',io)
+    if (io==0) then
+      call split(line,' ',values,n)
+      if (n>=1) then
+        read(values(1),*) i
+        ctrl%output_steps_stride_nuc=max(i,1)
+      endif
+      if (n>=3) then
+        read(values(2),*) i
+        ctrl%output_steps_limits_nuc(2)=max(i,0)
+        ctrl%output_steps_limits_nuc(3)=max(i,0)
+        read(values(3),*) i         
+        ctrl%output_steps_stride_nuc(2)=max(i,1)
+        ctrl%output_steps_stride_nuc(3)=max(i,1)
+      endif                         
+      if (n>=5) then                
+        read(values(4),*) i         
+        ctrl%output_steps_limits_nuc(3)=max(i,0)
+        read(values(5),*) i         
+        ctrl%output_steps_stride_nuc(3)=max(i,1)
+      endif
+    endif
+
 
 
     line=get_value_from_key('output_version',io)
@@ -1219,6 +1245,16 @@ module input
         write(u_log,'(a,i6,a,i6)') 'Finally, writing to output.dat every ',ctrl%output_steps_stride(3),&
         &' steps if step is >= ',ctrl%output_steps_limits(3)
       write(u_log,*)
+      if (ctrl%output_format == 2) then
+          write(u_log,*)
+            write(u_log,'(a,i6,a,i6)') 'First,   writing to sharc_traj_xyz.nc every ',ctrl%output_steps_stride_nuc(1),&
+            &' steps if step is >= ',ctrl%output_steps_limits_nuc(1)
+            write(u_log,'(a,i6,a,i6)') 'Then,    writing to sharc_traj_xyz.nc  every ',ctrl%output_steps_stride_nuc(2),&
+            &' steps if step is >= ',ctrl%output_steps_limits_nuc(2)
+            write(u_log,'(a,i6,a,i6)') 'Finally, writing to sharc_traj_xyz.nc every ',ctrl%output_steps_stride_nuc(3),&
+            &' steps if step is >= ',ctrl%output_steps_limits_nuc(3)
+          write(u_log,*)
+      endif
     endif
 
     endif

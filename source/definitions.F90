@@ -114,6 +114,7 @@ type trajectory_type
   integer :: steps_in_gs                                 !< counter for the number of timesteps in the lowest state
   integer :: ncids(10)                                   !< NetCDF indices
   integer :: nc_index                                    !< number of steps written to NetCDF
+  integer :: nc_nuc_index                                    !< number of steps written to NetCDF
 
   logical :: phases_found                                !< whether wavefunction phases were found in QM.out
 
@@ -241,6 +242,8 @@ type ctrl_type
   logical,allocatable :: actstates_s(:)     !< mask of the active states
   integer :: output_steps_stride(3)         !< how often output.dat is written
   integer :: output_steps_limits(3)         !< switches stride for output.dat writing
+  integer :: output_steps_stride_nuc(3)         !< how often sharc_traj_xyz.nc is written
+  integer :: output_steps_limits_nuc(3)         !< switches stride for sharc_traj_xyz writing
 
 ! methods and switches
   logical :: restart                        !< restart yes or no

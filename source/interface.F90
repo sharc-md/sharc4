@@ -1076,10 +1076,12 @@ subroutine write_data_netcdf_seperate_nuc()
   implicit none
 
   real*8 :: E(3)
-  integer :: stride
+  integer :: stride, stride_nuc
   real*8, DIMENSION(1, 3) :: dummy_geom_ad, dummy_veloc_ad
   integer, DIMENSION(ctrl%natom) :: IAn
-  call get_IAn(ctrl%natom, IAn)
+  if (traj%step == 0) then
+      call get_IAn(ctrl%natom, IAn)
+  endif
 
   E(1) = traj%Etot
   E(2) = traj%Epot
@@ -1093,13 +1095,23 @@ subroutine write_data_netcdf_seperate_nuc()
   if (traj%step>=ctrl%output_steps_limits(3)) then
     stride=ctrl%output_steps_stride(3)
   endif
-  
-  ! write electronic data with dummy atom evey time step
-  dummy_geom_ad = reshape((/ 0., 0., 0. /), shape(dummy_geom_ad))
-  dummy_veloc_ad = reshape((/ 0., 0., 0. /), shape(dummy_veloc_ad))
 
+  ! check if writing nuc
+  stride_nuc=ctrl%output_steps_stride_nuc(1)
+  if (traj%step>=ctrl%output_steps_limits_nuc(2)) then
+    stride_nuc=ctrl%output_steps_stride_nuc(2)
+  endif
+  if (traj%step>=ctrl%output_steps_limits_nuc(3)) then
+    stride_nuc=ctrl%output_steps_stride_nuc(3)
+  endif
+  
+
+  if (modulo(traj%step,stride)==0) then
+      ! write electronic data with dummy atom evey time step
+      dummy_geom_ad = reshape((/ 0., 0., 0. /), shape(dummy_geom_ad))
+      dummy_veloc_ad = reshape((/ 0., 0., 0. /), shape(dummy_veloc_ad))
   call write_sharc_ncoutputdat_istep(&
-      & traj%step, &  ! nc_index == step if we write every time step
+      & traj%nc_index, &
       & 1, &
       & ctrl%nstates, &
       & traj%H_MCH_ss, &
@@ -1116,11 +1128,14 @@ subroutine write_data_netcdf_seperate_nuc()
       & traj%state_MCH, &
       & traj%step, &
       & ncdat)
+    if (traj%nc_index<0) traj%nc_index=-traj%nc_index
+    traj%nc_index=traj%nc_index+1
+  endif
 
   ! write nuclear netcdf with stride
-  if (modulo(traj%step,stride)==0) then
+  if (modulo(traj%step,stride_nuc)==0) then
     call write_sharc_ncxyz_traj(&
-        & traj%nc_index, &
+        & traj%nc_nuc_index, &
         & ctrl%natom, &
           !
         & IAn, &
@@ -1128,8 +1143,8 @@ subroutine write_data_netcdf_seperate_nuc()
         & traj%veloc_ad, &
         & traj%step, &
         & ncxyz)
-    if (traj%nc_index<0) traj%nc_index=-traj%nc_index
-    traj%nc_index=traj%nc_index+1
+    if (traj%nc_nuc_index<0) traj%nc_nuc_index=-traj%nc_nuc_index
+    traj%nc_nuc_index=traj%nc_nuc_index+1
   endif
 
 end subroutine write_data_netcdf_seperate_nuc 

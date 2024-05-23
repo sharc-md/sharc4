@@ -286,7 +286,6 @@ read_sharc_ncoutputdat_istep_(
 {
    int iret = 0;
    int pointer = 0;
-   printf("processing step = %d\n", *istep);
 
    if (*istep == 0) {
         ncdat->id = open_ncfile("output.dat.nc", NC_NOWRITE);
@@ -303,38 +302,24 @@ read_sharc_ncoutputdat_istep_(
         check_nccall(iret,
                 nc_inq_dimlen(ncdat->id, unlim_id, nsteps)
         );
-        printf("%d\n", pointer); pointer += 1;
 
         printf("found %d steps\n", *nsteps);
         
         check_nccall(iret, 
                 nc_inq_varid(ncdat->id, "H_MCH", &ncdat->H_MCH_id)
         );
-        printf("%d\n", pointer); pointer += 1;
         check_nccall(iret, nc_inq_varid(ncdat->id, "U", &ncdat->U_id));
-        printf("%d\n", pointer); pointer += 1;
         check_nccall(iret, nc_inq_varid(ncdat->id, "Ovlap", &ncdat->overlaps_id));
-        printf("%d\n", pointer); pointer += 1;
         check_nccall(iret, nc_inq_varid(ncdat->id, "DM", &ncdat->DM_id));
-        printf("%d\n", pointer); pointer += 1;
         check_nccall(iret, nc_inq_varid(ncdat->id, "coeff_diag", &ncdat->coeff_diag_id));
-        printf("%d\n", pointer); pointer += 1;
         check_nccall(iret, nc_inq_varid(ncdat->id, "hopprob", &ncdat->hopprop_id));
-        printf("%d\n", pointer); pointer += 1;
         check_nccall(iret, nc_inq_varid(ncdat->id, "Energy", &ncdat->e_id));
-        printf("%d\n", pointer); pointer += 1;
         check_nccall(iret, nc_inq_varid(ncdat->id, "geom", &ncdat->crd_id));
-        printf("%d\n", pointer); pointer += 1;
         check_nccall(iret, nc_inq_varid(ncdat->id, "veloc", &ncdat->veloc_id));
-        printf("%d\n", pointer); pointer += 1;
         check_nccall(iret, nc_inq_varid(ncdat->id, "randnum", &ncdat->randnum_id));
-        printf("%d\n", pointer); pointer += 1;
         check_nccall(iret, nc_inq_varid(ncdat->id, "state_diag", &ncdat->state_diag_id));
-        printf("%d\n", pointer); pointer += 1;
         check_nccall(iret, nc_inq_varid(ncdat->id, "state_MCH", &ncdat->state_MCH_id));
-        printf("%d\n", pointer); pointer += 1;
         check_nccall(iret, nc_inq_varid(ncdat->id, "time_step", &ncdat->time_step_id));
-        printf("%d\n", pointer); pointer += 1;
     }
 
    size_t start[4] = {*istep, 0, 0, 0};
@@ -542,7 +527,7 @@ setup_ncxyz(int natoms, struct sharc_ncxyz* ncxyz)
          nc_def_var(ncxyz->id, "veloc", NC_DOUBLE, 3, dimids, &ncxyz->veloc_id)
     );
     check_nccall(iret, 
-         nc_def_var(ncxyz->id, "time_step", NC_INT, 2, &dimids[0], &ncxyz->time_step_id)
+         nc_def_var(ncxyz->id, "time_step", NC_INT, 1, &frames_id, &ncxyz->time_step_id)
     );
     // end definition section
     check_nccall(iret, nc_enddef(ncxyz->id));
@@ -584,7 +569,7 @@ write_sharc_ncxyz_traj_(const int* istep, const int* natoms, const int* IAn, dou
     );
     count[1] = 1;
     check_nccall(iret, 
-            nc_put_vara_int(ncxyz->id, ncxyz->time_step_id, start, count, time_step)
+            nc_put_vara_int(ncxyz->id, ncxyz->time_step_id, &start[0], &count[0], time_step)
     );
     //
 //    close_ncfile_(ncxyz->id);
