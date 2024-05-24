@@ -210,16 +210,12 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             self.QMin.resources["mpi_parallel"] = False
 
         # MOLCAS driver
-        driver = None
         for p in os.walk(self.QMin.resources["molcas"]):
             if "pymolcas" in p[2]:
-                driver = os.path.join(p[0], "pymolcas")
+                self.QMin.resources.update({"driver": os.path.join(p[0], "pymolcas")})
                 break
 
-        if os.path.isfile(driver):
-            self.QMin.resources.update({"driver": driver})
-
-        if not self.QMin.resources["driver"]:
+        if not os.path.isfile(self.QMin.resources["driver"]):
             self.log.error(f"No driver found in {self.QMin.resources['molcas']}")
             raise ValueError()
 
@@ -507,13 +503,11 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         # Execute MOLCAS
         starttime = datetime.datetime.now()
         while qmin.template["gradaccudefault"] < qmin.template["gradaccumax"]:
-            exit_code = self.run_program(workdir, f"{qmin.resources['driver']} MOLCAS.input", "MOLCAS.out", "MOLCAS.err")
-            if exit_code != 96:
+            if (code := self.run_program(workdir, f"{qmin.resources['driver']} MOLCAS.input", "MOLCAS.out", "MOLCAS.err")) != 96:
                 break
             qmin.template["gradaccudefault"] *= 10
-        endtime = datetime.datetime.now()
 
-        return exit_code, endtime - starttime
+        return code, datetime.datetime.now() - starttime
 
     def _copy_run_files(self, workdir: str) -> None:
         """
@@ -562,11 +556,11 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 case {"always_guess": True}:
                     pass
                 case {"always_orb_init": True} | {"init": True}:
-                    if os.path.isfile(os.path.join(qmin.resources["pwd"], f"MOLCAS.{mult+1}.JobIph.init")):
-                        tasks.append(["copy", os.path.join(qmin.resources["pwd"], f"MOLCAS.{mult+1}.JobIph.init"), "JOBOLD"])
+                    if os.path.isfile((init := os.path.join(qmin.resources["pwd"], f"MOLCAS.{mult+1}.JobIph.init"))):
+                        tasks.append(["copy", init, "JOBOLD"])
                         is_jobiph = True
-                    elif os.path.isfile(os.path.join(qmin.resources["pwd"], f"MOLCAS.{mult+1}.RasOrb.init")):
-                        tasks.append(["copy", os.path.join(qmin.resources["pwd"], f"MOLCAS.{mult+1}.RasOrb.init"), "INPORB"])
+                    elif os.path.isfile((init := os.path.join(qmin.resources["pwd"], f"MOLCAS.{mult+1}.RasOrb.init"))):
+                        tasks.append(["copy", init, "INPORB"])
                         is_rasorb = True
                 case {"samestep": True}:
                     tasks.append(
@@ -631,8 +625,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         if qmin.requests["theodore"] or qmin.requests["multipolar_fit"] or qmin.requests["density_matrices"]:
             if self._hdf5:
                 tasks.append(["link", "MOLCAS.rassi.h5", "MOLCAS.rassi.h5.bak"])
-            all_states = qmin.molecule["states"][:]
-            for mult, states in enumerate(all_states, 1):
+            for mult, states in enumerate((all_states := qmin.molecule["states"][:]), 1):
                 if states > 0:
                     if len(qmin.molecule["states"]) >= mult + 2 and all_states[mult + 1] > 0:
                         tasks.append(["link", f"MOLCAS.{mult}.JobIph", "JOB001"])
@@ -641,7 +634,6 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                         all_states[mult + 1] = 1
                         if qmin.requests["theodore"]:
                             tasks.append(["theodore"])
-                        #
                         if qmin.requests["multipolar_fit"] or qmin.requests["density_matrices"]:
                             tasks.append(["link", "MOLCAS.rassi.h5", f"MOLCAS.rassi.trd{mult}.h5"])
                             tasks.append(["link", "MOLCAS.rassi.h5.bak", "MOLCAS.rassi.h5"])
@@ -1135,8 +1127,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             if isinstance(master_out, str):
                 ovlp = self._get_overlaps(master_out)
 
-            s_cnt = 0
-            o_cnt = 0
+            s_cnt, o_cnt = 0, 0
             for m, s in enumerate(states, 1):
                 if s > 0:
                     if not isinstance(master_out, str):
@@ -1230,16 +1221,14 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         # Basis dict, PySCF format -> {'element+#', [[angmom, (gto-exp, contract-coeff)]]}
         basis = {element + str(idx): [] for idx, element in enumerate(self.QMin.molecule["elements"], 1)}
 
-        prev_id = 0
-        prev_atom = 1
+        prev_id, prev_atom = 0, 1
         # PRIMITIVES: (gto-exp, contract-coeff)
         # PRIMITIVE_IDS: (atom_id, angular momentum, primitive_id)
         for primitive, ids in zip(output_file["PRIMITIVES"][:], output_file["PRIMITIVE_IDS"][:]):
             atom, ang_mom, prim_id = ids
             # Reset prev_id if next atom
             if prev_atom != atom:
-                prev_atom = atom
-                prev_id = 0
+                prev_atom, prev_id = atom, 0
             if prev_id != prim_id:  # Start new list for every new primitive_id
                 basis[self.QMin.molecule["elements"][atom - 1] + str(atom)].append([ang_mom, [primitive[0], primitive[1]]])
                 prev_id = prim_id
@@ -1278,9 +1267,8 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             raise ValueError()
 
         # Expand energy list by multiplicity
-        states = self.QMin.molecule["states"]
         expandend_energies = []
-        for i in range(len(states)):
+        for i in range(len((states := self.QMin.molecule["states"]))):
             expandend_energies += energies[sum(states[:i]) : sum(states[: i + 1])] * (i + 1)
         return np.asarray(expandend_energies, dtype=np.complex128)
 
@@ -1309,16 +1297,13 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             soc_mat = output_file["HSO_MATRIX_REAL"][:] + 1j * output_file["HSO_MATRIX_IMAG"][:]
 
         # Reorder multiplicities
-        soc_mat = soc_mat[np.ix_(self._h_sort, self._h_sort)]
-
-        return soc_mat
+        return soc_mat[np.ix_(self._h_sort, self._h_sort)]
 
     def _get_grad(self, output_file: str) -> np.ndarray:
         """
         Extract gradients from outputfile
         """
-        grad_block = re.search(r"X\s+Y\s+Z\s+-{90}\n(.*) -{90}", output_file, re.DOTALL)
-        if not grad_block:
+        if not (grad_block := re.search(r"X\s+Y\s+Z\s+-{90}\n(.*) -{90}", output_file, re.DOTALL)):
             self.log.error("No gradients in output file!")
             raise ValueError()
 
@@ -1414,8 +1399,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         Extract theodore props from outputfile
         """
         # Get all outputs from WFA
-        find_theo = re.findall(r"TheoDORE analysis of CT numbers \(Lowdin\)=+\n([^=]*)", output_file, re.DOTALL)
-        if not find_theo:
+        if not (find_theo := re.findall(r"TheoDORE analysis of CT numbers \(Lowdin\)=+\n([^=]*)", output_file, re.DOTALL)):
             self.log.error("No theodore output found!")
             raise ValueError()
 
@@ -1437,8 +1421,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 continue
 
             sub_mat = next(sub_it)[:, 2:]  # Skip dE and f
-            s = state
-            if state > 1:
+            if (s := state) > 1:
                 for i, _ in enumerate(self.QMin.resources["theodore_prop"]):
                     theo_mat[s_cnt + 1 : s_cnt + s, i] = sub_mat[: s - 1, i]
                 s -= 1
@@ -1458,8 +1441,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         """
         Extract dyson norms from outputfile
         """
-        find_dyson = re.search(r"\+\+ Dyson amplitudes Biorth.*?intensity([^\*]*)", output_file, re.DOTALL)
-        if not find_dyson:
+        if not (find_dyson := re.search(r"\+\+ Dyson amplitudes Biorth.*?intensity([^\*]*)", output_file, re.DOTALL)):
             self.log.error("No dyson norms found in output!")
 
         # Extract s1, s2, val tuples
