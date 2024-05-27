@@ -1151,6 +1151,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         if self.QMin.requests["mol"] or self.QMin.requests["density_matrices"] or self.QMin.requests["multipolar_fit"]:
             # Parse basis
             mol, _, _, _, _, _ = tools.molden.load(os.path.join(scratchdir, "master/MOLCAS.rasscf.molden"))
+            mol.basis = mol._basis
             self.QMout["mol"] = mol
             if self.QMin.requests["density_matrices"] or self.QMin.requests["multipolar_fit"]:
                 self._get_densities(master_out["BASIS_FUNCTION_IDS"][:])
