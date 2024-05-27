@@ -267,7 +267,10 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                         case 4:
                             for fit in multipolar_fit:
                                 dens_s1, dens_n1, dens_s2, dens_n2 = fit
-                                if dens_n1 > self.QMin.molecule["states"][dens_s1 - 1] or dens_n2 > self.QMin.molecule["states"][dens_s2 - 1]:
+                                if (
+                                    dens_n1 > self.QMin.molecule["states"][dens_s1 - 1]
+                                    or dens_n2 > self.QMin.molecule["states"][dens_s2 - 1]
+                                ):
                                     self.log.warning(
                                         f"Requested multipolar expansion {fit} refers to the states that are not going to be calculated. Hence skipping it..."
                                     )
@@ -716,28 +719,8 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             if missing_to_calculate:
                 missing_to_calculate = self.calculate_from_gs2es_and_append_densities()
 
-        if self.log.level <= DEBUG:
-            mol = self.QMin.molecule["mol"]
-            self.log.debug("NUMBERS OF ELECTRONS FROM DIFFERENT DENSITY MATRICES:")
-            sao = self.QMin.molecule["SAO"]
-            for d, rho in self.QMout["density_matrices"].items():
-                s1, s2, spin = d
-                self.log.debug(f"{s1.symbol()} ---{spin}---> {s2.symbol()} :{np.einsum('ij,ij->', sao, rho): 12.8f}", extra={"simple": True})
-            self.log.debug("State and transition dipole moments calculated from the total densities matrices:")
-            nuclear_moment = np.sum(np.array([mol.atom_charge(j) * mol.atom_coord(j) for j in range(mol.natm)]), axis=0)
-            mu = mol.intor("int1e_r")
-            for d, rho in self.QMout["density_matrices"].items():
-                s1, s2, spin = d
-                if spin == "tot" and s1.N <= s2.N:
-                    x = -np.einsum("xij,ij->x", mu, rho)
-                    if s1 is s2:
-                        x += nuclear_moment
-                    self.log.debug(
-                        f"{s1.symbol()} ---> {s2.symbol()}: {' '.join([f'{x[c]: 8.5f}' for c in range(3)])} a.u.",
-                        extra={"simple": True},
-                    )
-
-        return
+        self.check_electrons_dens()
+        self.check_dipoles_dens()
 
     def read_and_append_densities(self):
         raise NotImplementedError("This interface does not support the density request!")
@@ -1154,7 +1137,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                     multipoles_from_dens_parallel,
                     args=(
                         (s1, s2, "tot"),
-                        s1 is s2,
+                        s1 // s2,
                         charge,
                         self.QMin.resources["resp_fit_order"],
                         self.QMin.resources["resp_betas"],
@@ -1170,6 +1153,38 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             fits_map[dens] = fits_map[(s2, s1)]
 
         return fits_map
+
+    def check_electrons_dens(self) -> None:
+        """
+        Calculate and print number of electrons from QMout["density_matrices"]
+        """
+
+        if "density_matrices" not in self.QMout:
+            self.log.error("QMout object must contain density_matrices!")
+            raise ValueError()
+        ao_ovlp = self.QMout["mol"].intor("int1e_ovlp")
+        for (s1, s2, spin), rho in self.QMout["density_matrices"].items():
+            self.log.debug(f"{s1.symbol():13s} ---{spin:^3s}---> {s2.symbol():13s} :{np.einsum('ij,ij->', ao_ovlp, rho):>8.4f}")
+
+    def check_dipoles_dens(self) -> None:
+        """
+        Calculate and print (transition) dipole moments from QMout["density_matrices"]
+        """
+
+        if "density_matrices" not in self.QMout:
+            self.log.error("QMout object must contain density_matrices!")
+            raise ValueError()
+
+        mol = self.QMout.mol
+        nuclear_moment = np.sum(np.array([mol.atom_charge(j) * mol.atom_coord(j) for j in range(mol.natm)]), axis=0)
+        mu = mol.intor("int1e_r")
+        for (s1, s2, spin), rho in self.QMout["density_matrices"].items():
+            if spin != "tot" or s1.N > s2.N:
+                continue
+            x = -np.einsum("xij,ij->x", mu, rho)
+            if s1 is s2:
+                x += nuclear_moment
+            self.log.debug(f"{s1.symbol():12s} ---> {s2.symbol():12s}: {' '.join([f'{x[c]: 8.5f}' for c in range(3)])} a.u.")
 
     @staticmethod
     def get_theodore(sumfile: str, omffile: str) -> dict[tuple[int], list[float]]:
