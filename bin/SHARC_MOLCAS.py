@@ -14,7 +14,7 @@ from typing import Any
 import h5py
 import numpy as np
 from constants import au2a
-from pyscf import gto
+from pyscf import tools
 from qmin import QMin
 from SHARC_ABINITIO import SHARC_ABINITIO
 from utils import convert_list, expand_path, mkdir, writefile
@@ -1150,27 +1150,18 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
 
         if self.QMin.requests["mol"] or self.QMin.requests["density_matrices"] or self.QMin.requests["multipolar_fit"]:
             # Parse basis
-            mol = gto.Mole()
-            mol.basis = None  # Using basis set from hdf5
-            mol._basis = self._get_basis(master_out)
-            mol.atom = [
-                [e + str(idx), c]
-                for idx, (e, c) in enumerate(zip(self.QMin.molecule["elements"], self.QMin.coords["coords"].tolist()), 1)
-            ]
-            try:
-                mol.build()
-            except RuntimeError:
-                mol.spin = 1
-                mol.build()
+            mol, _, _, _, _, _ = tools.molden.load(os.path.join(scratchdir, "master/MOLCAS.rasscf.molden"))
             self.QMout["mol"] = mol
             if self.QMin.requests["density_matrices"] or self.QMin.requests["multipolar_fit"]:
-                self._get_densities()
+                self._get_densities(master_out["BASIS_FUNCTION_IDS"][:])
+                self.check_electrons_dens()
+                self.check_dipoles_dens()
                 if self.QMin.requests["multipolar_fit"]:
                     self.QMout["multipolar_fit"] = self._resp_fit_on_densities()
 
         return self.QMout
 
-    def _get_densities(self) -> None:
+    def _get_densities(self, ao_order: np.ndarray) -> None:
         """
         Parse densities from h5 files
         """
@@ -1180,6 +1171,16 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         dens_one_mult_spin = {}  # Spin transition densities between same mult
         trans_dens = {}  # Transition densities between mult and mult + 1
         trans_dens_spin = {}  # Spin transition densities between mult and mult + 1
+
+        # MOLCAS orders by ml -> e.g. 2px, 3px, 4px, 2py, ...
+        ao_list = list(range(ao_order.shape[0]))
+
+        def sort_ao(key1, key2):  # reorder to 2px, 2py, 2pz, 3py, ...
+            ao1 = ao_order[key1]
+            ao2 = ao_order[key2]
+            return (ao1[0] - ao2[0]) * 1000 + (ao1[2] - ao2[2]) * 100 + (ao1[1] * ao1[2] - ao2[1] * ao2[2])
+
+        ao_sorted = sorted(ao_list, key=cmp_to_key(sort_ao))
 
         for m, s in enumerate(states, 1):
             if s < 1:  # skip 0 states
@@ -1213,28 +1214,9 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
 
                     self.QMout["density_matrices"][(i, j, "tot")] = trans_dens[mult + 1][s1, s2, :].reshape(dim, -1)
                     self.QMout["density_matrices"][(i, j, "q")] = trans_dens_spin[mult + 1][s1, s2, :].reshape(dim, -1)
-
-    def _get_basis(self, output_file: h5py.File) -> dict[str, list]:
-        """
-        Parse basis from outputfile
-        """
-        # Basis dict, PySCF format -> {'element+#', [[angmom, (gto-exp, contract-coeff)]]}
-        basis = {element + str(idx): [] for idx, element in enumerate(self.QMin.molecule["elements"], 1)}
-
-        prev_id, prev_atom = 0, 1
-        # PRIMITIVES: (gto-exp, contract-coeff)
-        # PRIMITIVE_IDS: (atom_id, angular momentum, primitive_id)
-        for primitive, ids in zip(output_file["PRIMITIVES"][:], output_file["PRIMITIVE_IDS"][:]):
-            atom, ang_mom, prim_id = ids
-            # Reset prev_id if next atom
-            if prev_atom != atom:
-                prev_atom, prev_id = atom, 0
-            if prev_id != prim_id:  # Start new list for every new primitive_id
-                basis[self.QMin.molecule["elements"][atom - 1] + str(atom)].append([ang_mom, [primitive[0], primitive[1]]])
-                prev_id = prim_id
-            else:
-                basis[self.QMin.molecule["elements"][atom - 1] + str(atom)][-1].append([primitive[0], primitive[1]])
-        return basis
+        # Apply sort order to densities
+        for k, v in self.QMout["density_matrices"].items():
+            self.QMout["density_matrices"][k] = v[np.ix_(ao_sorted, ao_sorted)]
 
     def _get_energy(self, output_file: str | h5py.File) -> np.ndarray:
         """
