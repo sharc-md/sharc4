@@ -34,23 +34,16 @@ all_features = set(
         "dm",
         "grad",
         "nacdr",
-        "overlap",
         "molden",
+        "overlap",
         # Rest of the possible requests:
         # "phases",
-        # "ion",
         # "soc",
-        # "multipolar_fit",
+        # "ion",
         # "theodore",
-        # "density_matrices",
-        # "retain",
-        # "molden",
     ]
 )
 
-
-
-# ---------------------------------| Template/Resources Definition |----------------------------------------------------
 
 class SHARC_INTERFACENAME(SHARC_ABINITIO):
     """
@@ -66,6 +59,9 @@ class SHARC_INTERFACENAME(SHARC_ABINITIO):
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
+
+
+# ---------------------------------| Template/Resources Definition |----------------------------------------------------
 
         #TODO: Define all class variables here
         self._need_this_later = None
@@ -118,6 +114,7 @@ class SHARC_INTERFACENAME(SHARC_ABINITIO):
             }
         )
 
+
 # ---------------------------------| Standard Methods |------------------------------------------------------------
 
     @staticmethod
@@ -148,6 +145,7 @@ class SHARC_INTERFACENAME(SHARC_ABINITIO):
     def about() -> str:
         return f"{SHARC_INTERFACENAME._name}\n{SHARC_INTERFACENAME._description}"
 
+
 # ---------------------------------| Initialization |------------------------------------------------------------------
 
     def read_template(self, template_file: str = "INTERFACENAME.template", kw_whitelist: list[str] | None = None) -> None:
@@ -165,7 +163,8 @@ class SHARC_INTERFACENAME(SHARC_ABINITIO):
 
         #TODO: Setup stuff that needs to be done after read_template and read_resources
 
-    
+#----------------------------------| Requests | ----------------------------------------------
+# Read requests and set coords
     def read_requests(self, requests_file: str = "QM.in") -> None:
         super().read_requests(requests_file)
 
@@ -175,18 +174,30 @@ class SHARC_INTERFACENAME(SHARC_ABINITIO):
 
         #TODO: Do some request related checks here. Only important for hybrid interfaces.
 
+    def set_coords(self, coords_file: str = "QM.in") -> None:
+        super().set_coords(coords_file)
 
-# ---------------------------------| Run Schedule |---------------------------------------------------------------------
-# and WFoverlap/Theodore + Care for Restart Information
+        #TODO: Nothing to do here, this method just update the coordinates.
+
+
+# ---------------------------------| Run |---------------------------------------------------------------------
+# and if needed WFoverlap/Theodore + Care for Restart Information
 
     def run(self) -> None:
         starttime = datetime.datetime.now()
+
+        #HINT: If no schduling is needed then do this:
+        # schedule = [{"calc" : self.QMin}] #Generate fake schedule
+        # self.QMin.control["nslots_pool"].append(1)
+        # self.runjobs(schedule)
 
         #TODO: Build schedule executed by runjobs here
         
 
         # Execute schedule, execute_from_qmin will be run inside runjobs
         self.runjobs(self.QMin.scheduling["schedule"])
+
+        #TODO: Save files that you need to keep after program execution.
 
         # Run overlap calc here if needed
         if self.QMin.requests["overlap"]:
@@ -197,12 +208,13 @@ class SHARC_INTERFACENAME(SHARC_ABINITIO):
         self.log.debug("All jobs finished successful")
 
         self.QMout["runtime"] = datetime.datetime.now() - starttime
-    
+
     def create_restart_files(self) -> None:
-        pass
+            pass
 
 
-# ---------------------------------| Make Schedule |---------------------------------------------------------------------
+# ---------------------------------| Scheduling |---------------------------------------------------------------------
+# Generate schedule if needed
 
     def _gen_schedule(self) -> None:
         """
@@ -278,7 +290,6 @@ class SHARC_INTERFACENAME(SHARC_ABINITIO):
 # ---------------------------------| Additional Methods |------------------------------------------------------------
 
 #TODO: Put all of your extra methods in here. They all should start with and underscore "_". For example a method that parses the gradients from the output-file should be called _get_grad().
-
 
 
 # ---------------------------------| Main Function |--------------------------------------------------------------------       

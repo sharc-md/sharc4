@@ -837,7 +837,7 @@ mocoef
         # nac = np.fromiter(map(), count=).reshape()
         for i, (s1, s2) in enumerate(interstates):
             iline = line_marker[i]
-            dE = self.QMout["h"][s2,s2].real - self.QMout["h"][s1,s1].real # In MNDO cannot calculate imaginary energies
+            #dE = self.QMout["h"][s2,s2].real - self.QMout["h"][s1,s1].real # In MNDO cannot calculate imaginary energies
             for j in range(natom):
                 line = f[iline]
                 s = line.split()
@@ -857,9 +857,11 @@ mocoef
                     nac[s2, s1, j, 2] = -float(s[-1])
 
                 iline += 1
-            if (dE != 0.0):
-                nac[s1,s2,...] = nac[s1,s2,...] * kcal_to_Eh * BOHR_TO_ANG / dE # kcal/mol*Ang --> 1/a_0
-                nac[s2,s1,...] = nac[s2,s1,...] * kcal_to_Eh * BOHR_TO_ANG / dE
+            nac[s1,s2,...] = nac[s1,s2,...] * BOHR_TO_ANG # 1/Ang --> 1/a_0
+            nac[s2,s1,...] = nac[s2,s1,...] * BOHR_TO_ANG
+            # if (dE != 0.0):
+            #     nac[s1,s2,...] = nac[s1,s2,...] * kcal_to_Eh * BOHR_TO_ANG / dE # kcal/mol*Ang --> 1/a_0
+            #     nac[s2,s1,...] = nac[s2,s1,...] * kcal_to_Eh * BOHR_TO_ANG / dE
         
         return nac
     
@@ -888,7 +890,7 @@ mocoef
         # make nac matrix
         for i, (s1, s2) in enumerate(interstates):
             iline = line_marker[i] 
-            dE = self.QMout["h"][s2, s2].real - self.QMout["h"][s1, s1].real # In MNDO cannot calculate imaginary energies
+            #dE = self.QMout["h"][s2, s2].real - self.QMout["h"][s1, s1].real # In MNDO cannot calculate imaginary energies
             for j in range(ncharges):
                 line = f[iline]
                 s = line.split() 
@@ -899,9 +901,12 @@ mocoef
                 nac[s2, s1, j, 1] = -float(s[-2])
                 nac[s2, s1, j, 2] = -float(s[-1])
                 iline += 1
-            if (dE != 0.0):
-                nac[s1,s2,...] = nac[s1,s2,...] * kcal_to_Eh * BOHR_TO_ANG / dE  # kcal/mol*Ang --> 1/a_0 
-                nac[s2,s1,...] = nac[s2,s1,...] * kcal_to_Eh * BOHR_TO_ANG / dE
+
+            nac[s1,s2,...] = nac[s1,s2,...] * BOHR_TO_ANG # 1/Ang --> 1/a_0
+            nac[s2,s1,...] = nac[s2,s1,...] * BOHR_TO_ANG
+            # if (dE != 0.0):
+            #     nac[s1,s2,...] = nac[s1,s2,...] * kcal_to_Eh * BOHR_TO_ANG / dE  # kcal/mol*Ang --> 1/a_0 
+            #     nac[s2,s1,...] = nac[s2,s1,...] * kcal_to_Eh * BOHR_TO_ANG / dE
 
         return nac
 
@@ -1222,9 +1227,9 @@ mocoef
             icross = 7
         
         if qmin["template"]["fomo"] == 1:
-            inputstring = f"iop={iop} jop=-2 imult=0 iform=1 igeom=1 mprint=1 icuts=-1 icutg=-1 dstep=1e-05 kci=5 ioutci=1 iroot={iroot} icross={icross} ncigrd={ncigrd} inac=0 imomap={imomap} iscf=9 iplscf=9 kitscf={kitscf} nciref={nciref} mciref=3 levexc=3 mapthr=70 iuvcd=3 nsav13=2 kharge={kharge} multci=1 cilead=1 ncisym=-1 nsav15=9 iuhf=-6 nfloat={nfloat}"
+            inputstring = f"iop={iop} jop=-2 imult=1 iform=1 igeom=1 mprint=1 icuts=-1 icutg=-1 dstep=1e-05 kci=5 ioutci=1 iroot={iroot} icross={icross} ncigrd={ncigrd} inac=0 imomap={imomap} iscf=9 iplscf=9 kitscf={kitscf} nciref={nciref} mciref=3 levexc=2 mapthr=70 iuvcd=3 nsav13=2 kharge={kharge} multci=1 cilead=1 ncisym=-1 nsav15=9 iuhf=-6 nfloat={nfloat}"
         else:
-            inputstring = f"iop={iop} jop=-2 imult=0 iform=1 igeom=1 mprint=1 icuts=-1 icutg=-1 dstep=1e-05 kci=5 ioutci=1 iroot={iroot} icross={icross} ncigrd={ncigrd} inac=0 imomap={imomap} iscf=9 iplscf=9 kitscf={kitscf} ici1={ici1} ici2={ici2} movo={movo} nciref={nciref} mciref=3 levexc=3 mapthr=70 iuvcd=3 nsav13=2 kharge={kharge} multci=1 cilead=1 ncisym=-1 nsav15=9"
+            inputstring = f"iop={iop} jop=-2 imult=1 iform=1 igeom=1 mprint=1 icuts=-1 icutg=-1 dstep=1e-05 kci=5 ioutci=1 iroot={iroot} icross={icross} ncigrd={ncigrd} inac=0 imomap={imomap} iscf=9 iplscf=9 kitscf={kitscf} ici1={ici1} ici2={ici2} movo={movo} nciref={nciref} mciref=3 levexc=2 mapthr=70 iuvcd=3 nsav13=2 kharge={kharge} multci=1 cilead=1 ncisym=-1 nsav15=9"
         
         if qmin["molecule"]["point_charges"]:
             inputstring += f" numatm={ncharges} mmcoup=2 mmfile=1 mmskip=0 mminp=2"
