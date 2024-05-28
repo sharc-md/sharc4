@@ -1174,14 +1174,12 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         trans_dens_spin = {}  # Spin transition densities between mult and mult + 1
 
         # MOLCAS orders by ml -> e.g. 2px, 3px, 4px, 2py, ...
-        ao_list = list(range(ao_order.shape[0]))
-
         def sort_ao(key1, key2):  # reorder to 2px, 2py, 2pz, 3py, ...
             ao1 = ao_order[key1]
             ao2 = ao_order[key2]
             return (ao1[0] - ao2[0]) * 1000 + (ao1[2] - ao2[2]) * 100 + (ao1[1] * ao1[2] - ao2[1] * ao2[2])
 
-        ao_sorted = sorted(ao_list, key=cmp_to_key(sort_ao))
+        ao_sorted = sorted(list(range(ao_order.shape[0])), key=cmp_to_key(sort_ao))
 
         for m, s in enumerate(states, 1):
             if s < 1:  # skip 0 states
