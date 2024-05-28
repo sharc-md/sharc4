@@ -1164,7 +1164,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             raise ValueError()
         ao_ovlp = self.QMout["mol"].intor("int1e_ovlp")
         for (s1, s2, spin), rho in self.QMout["density_matrices"].items():
-            self.log.debug(f"{s1.symbol():13s} ---{spin:^3s}---> {s2.symbol():13s} :{np.einsum('ij,ij->', ao_ovlp, rho):>8.4f}")
+            self.log.debug(f"{s1.symbol():14s} ---{spin:^3s}---> {s2.symbol():14s} :{np.einsum('ij,ij->', ao_ovlp, rho):>10.6f}")
 
     def check_dipoles_dens(self) -> None:
         """
@@ -1184,7 +1184,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             x = -np.einsum("xij,ij->x", mu, rho)
             if s1 is s2:
                 x += nuclear_moment
-            self.log.debug(f"{s1.symbol():12s} ---> {s2.symbol():12s}: {' '.join([f'{x[c]: 8.5f}' for c in range(3)])} a.u.")
+            self.log.debug(f"{s1.symbol():14s} ---> {s2.symbol():14s}: {' '.join([f'{x[c]: 8.5f}' for c in range(3)])} a.u.")
 
     @staticmethod
     def get_theodore(sumfile: str, omffile: str) -> dict[tuple[int], list[float]]:
