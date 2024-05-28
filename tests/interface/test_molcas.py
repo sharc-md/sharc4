@@ -4,8 +4,9 @@ import shutil
 import h5py
 import numpy as np
 import pytest
+from pyscf import tools
 from SHARC_MOLCAS import SHARC_MOLCAS
-from utils import expand_path
+from utils import electronic_state, expand_path
 
 PATH = expand_path("$SHARC/../tests/interface")
 
@@ -3078,7 +3079,7 @@ def test_dyson():
                         0.0000e0,
                     ],
                 ]
-            )
+            ),
         ),
     ]
 
@@ -3090,3 +3091,93 @@ def test_dyson():
             a = f.read()
             a = test_interface._get_dyson(a)
             assert np.allclose(a, ref, rtol=1e-1)
+
+
+def test_densities_electron():
+    tests = [
+        (
+            os.path.join(PATH, "inputs/molcas/density/thioformaldehyde/"), # cc-pVTZ
+            {
+                (electronic_state(0, 0, 0, 1), electronic_state(0, 0, 0, 1), "tot"): 40.0,
+                (electronic_state(0, 0, 0, 2), electronic_state(0, 0, 0, 2), "tot"): 40.0,
+                (electronic_state(0, 0, 0, 3), electronic_state(0, 0, 0, 3), "tot"): 40.0,
+                (electronic_state(1, 1, -1, 1), electronic_state(1, 1, -1, 1), "tot"): 39.0,
+                (electronic_state(1, 1, 1, 1), electronic_state(1, 1, 1, 1), "tot"): 39.0,
+                (electronic_state(0, 2, -2, 1), electronic_state(0, 2, -2, 1), "tot"): 40.0,
+                (electronic_state(0, 2, 2, 1), electronic_state(0, 2, 2, 1), "tot"): 40.0,
+                (electronic_state(0, 2, 0, 1), electronic_state(0, 2, 0, 1), "tot"): 40.0,
+                (electronic_state(0, 2, -2, 2), electronic_state(0, 2, -2, 2), "tot"): 40.0,
+                (electronic_state(0, 2, 2, 2), electronic_state(0, 2, 2, 2), "tot"): 40.0,
+                (electronic_state(0, 2, 0, 2), electronic_state(0, 2, 0, 2), "tot"): 40.0,
+                (electronic_state(1, 3, -3, 1), electronic_state(1, 3, -3, 1), "tot"): 39.0,
+                (electronic_state(1, 3, -1, 1), electronic_state(1, 3, -1, 1), "tot"): 39.0,
+                (electronic_state(1, 3, 1, 1), electronic_state(1, 3, 1, 1), "tot"): 39.0,
+                (electronic_state(1, 3, 3, 1), electronic_state(1, 3, 3, 1), "tot"): 39.0,
+            },
+        ),
+        (
+            os.path.join(PATH, "inputs/molcas/density/thioformaldehyde_6-31G/"),
+            {
+                (electronic_state(0, 0, 0, 1), electronic_state(0, 0, 0, 1), "tot"): 40.0,
+                (electronic_state(0, 0, 0, 2), electronic_state(0, 0, 0, 2), "tot"): 40.0,
+                (electronic_state(0, 0, 0, 3), electronic_state(0, 0, 0, 3), "tot"): 40.0,
+                (electronic_state(1, 1, -1, 1), electronic_state(1, 1, -1, 1), "tot"): 39.0,
+                (electronic_state(1, 1, 1, 1), electronic_state(1, 1, 1, 1), "tot"): 39.0,
+                (electronic_state(0, 2, -2, 1), electronic_state(0, 2, -2, 1), "tot"): 40.0,
+                (electronic_state(0, 2, 2, 1), electronic_state(0, 2, 2, 1), "tot"): 40.0,
+                (electronic_state(0, 2, 0, 1), electronic_state(0, 2, 0, 1), "tot"): 40.0,
+                (electronic_state(0, 2, -2, 2), electronic_state(0, 2, -2, 2), "tot"): 40.0,
+                (electronic_state(0, 2, 2, 2), electronic_state(0, 2, 2, 2), "tot"): 40.0,
+                (electronic_state(0, 2, 0, 2), electronic_state(0, 2, 0, 2), "tot"): 40.0,
+                (electronic_state(1, 3, -3, 1), electronic_state(1, 3, -3, 1), "tot"): 39.0,
+                (electronic_state(1, 3, -1, 1), electronic_state(1, 3, -1, 1), "tot"): 39.0,
+                (electronic_state(1, 3, 1, 1), electronic_state(1, 3, 1, 1), "tot"): 39.0,
+                (electronic_state(1, 3, 3, 1), electronic_state(1, 3, 3, 1), "tot"): 39.0,
+            },
+        ),
+        (
+            os.path.join(PATH, "inputs/molcas/density/thioformaldehyde_cc-pvqz/"),
+            {
+                (electronic_state(0, 0, 0, 1), electronic_state(0, 0, 0, 1), "tot"): 40.0,
+                (electronic_state(0, 0, 0, 2), electronic_state(0, 0, 0, 2), "tot"): 40.0,
+                (electronic_state(0, 0, 0, 3), electronic_state(0, 0, 0, 3), "tot"): 40.0,
+                (electronic_state(1, 1, -1, 1), electronic_state(1, 1, -1, 1), "tot"): 39.0,
+                (electronic_state(1, 1, 1, 1), electronic_state(1, 1, 1, 1), "tot"): 39.0,
+                (electronic_state(0, 2, -2, 1), electronic_state(0, 2, -2, 1), "tot"): 40.0,
+                (electronic_state(0, 2, 2, 1), electronic_state(0, 2, 2, 1), "tot"): 40.0,
+                (electronic_state(0, 2, 0, 1), electronic_state(0, 2, 0, 1), "tot"): 40.0,
+                (electronic_state(0, 2, -2, 2), electronic_state(0, 2, -2, 2), "tot"): 40.0,
+                (electronic_state(0, 2, 2, 2), electronic_state(0, 2, 2, 2), "tot"): 40.0,
+                (electronic_state(0, 2, 0, 2), electronic_state(0, 2, 0, 2), "tot"): 40.0,
+                (electronic_state(1, 3, -3, 1), electronic_state(1, 3, -3, 1), "tot"): 39.0,
+                (electronic_state(1, 3, -1, 1), electronic_state(1, 3, -1, 1), "tot"): 39.0,
+                (electronic_state(1, 3, 1, 1), electronic_state(1, 3, 1, 1), "tot"): 39.0,
+                (electronic_state(1, 3, 3, 1), electronic_state(1, 3, 3, 1), "tot"): 39.0,
+            },
+        ),
+    ]
+
+    for path, ref in tests:
+        test_interface = SHARC_MOLCAS()
+        test_interface.setup_mol(os.path.join(path, "QM.in"))
+        test_interface.QMin.resources["scratchdir"] = path
+        test_interface.setup_interface()
+        test_interface._hdf5 = True
+        test_interface.read_template(os.path.join(path, "MOLCAS.template"))
+        test_interface._read_resources = True
+        test_interface.read_requests(os.path.join(path, "QM.in"))
+        with h5py.File(os.path.join(path, "master/MOLCAS.rassi.h5")) as f:
+            test_interface.QMout.allocate(
+                states=test_interface.QMin.molecule["states"],
+                natom=test_interface.QMin.molecule["natom"],
+                npc=test_interface.QMin.molecule["npc"],
+                requests=set(["density_matrices"]),
+            )
+            mol, _, _, _, _, _ = tools.molden.load(os.path.join(path, "master/MOLCAS.rasscf.molden"))
+            mol.basis = mol._basis
+            test_interface.QMout["mol"] = mol
+            test_interface._get_densities(f["BASIS_FUNCTION_IDS"][:])
+
+        ao_ovlp = test_interface.QMout["mol"].intor("int1e_ovlp")
+        for k, v in ref.items():
+            assert pytest.approx(np.einsum("ij,ij->", ao_ovlp, test_interface.QMout["density_matrices"][k])) == v
