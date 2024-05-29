@@ -3093,10 +3093,10 @@ def test_dyson():
             assert np.allclose(a, ref, rtol=1e-1)
 
 
-def test_densities_electron():
+def test_densities():
     tests = [
         (
-            os.path.join(PATH, "inputs/molcas/density/thioformaldehyde/"), # cc-pVTZ
+            os.path.join(PATH, "inputs/molcas/density/thioformaldehyde/"),  # cc-pVTZ
             {
                 (electronic_state(0, 0, 0, 1), electronic_state(0, 0, 0, 1), "tot"): 40.0,
                 (electronic_state(0, 0, 0, 2), electronic_state(0, 0, 0, 2), "tot"): 40.0,
@@ -3171,13 +3171,35 @@ def test_densities_electron():
                 states=test_interface.QMin.molecule["states"],
                 natom=test_interface.QMin.molecule["natom"],
                 npc=test_interface.QMin.molecule["npc"],
-                requests=set(["density_matrices"]),
+                requests=set(["density_matrices", "dm"]),
             )
             mol, _, _, _, _, _ = tools.molden.load(os.path.join(path, "master/MOLCAS.rasscf.molden"))
             mol.basis = mol._basis
             test_interface.QMout["mol"] = mol
             test_interface._get_densities(f["BASIS_FUNCTION_IDS"][:])
 
+        # Test number of electrons
         ao_ovlp = test_interface.QMout["mol"].intor("int1e_ovlp")
         for k, v in ref.items():
             assert pytest.approx(np.einsum("ij,ij->", ao_ovlp, test_interface.QMout["density_matrices"][k])) == v
+
+        # Test (transition) dipole moments
+        s_cnt = 0
+        for m, s in enumerate(test_interface.QMin.molecule["states"], 1):
+            if s > 0:
+                with h5py.File(os.path.join(path, f"master/MOLCAS.rassi.{m}.h5"), "r") as dp:
+                    for _ in range(m):
+                        test_interface.QMout["dm"][:, s_cnt : s_cnt + s, s_cnt : s_cnt + s] = dp["SFS_EDIPMOM"][:]
+                        s_cnt += s
+
+        mu = test_interface.QMout["mol"].intor("int1e_r")
+        nuclear_moment = np.sum(np.array([mol.atom_charge(j) * mol.atom_coord(j) for j in range(mol.natm)]), axis=0)
+        for (s1, s2, spin), rho in test_interface.QMout["density_matrices"].items():
+            if spin != "tot" or s1.N > s2.N:
+                continue
+            x = -np.einsum("xij,ij->x", mu, rho)
+            if s1 is s2:
+                x += nuclear_moment
+            dp1 = sum(s*m for (m, s) in enumerate(test_interface.QMin.molecule["states"][:s1.S], 1)) + s1.N -1
+            dp2 = sum(s*m for (m, s) in enumerate(test_interface.QMin.molecule["states"][:s2.S], 1)) + s2.N -1
+            assert np.allclose(x, test_interface.QMout["dm"][:, dp1, dp2])
