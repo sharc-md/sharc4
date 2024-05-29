@@ -93,6 +93,8 @@ class SHARC_MNDO(SHARC_ABINITIO):
                 "disp": 0,
                 "iop": -6,
                 "fomo": 0,
+                "rohf": 0,
+                "levexc": 2,
             }
         )
         self.QMin.template.types.update(
@@ -108,6 +110,8 @@ class SHARC_MNDO(SHARC_ABINITIO):
                 "disp": int,
                 "iop": int,
                 "fomo": int,
+                "rohf": int,
+                "levexc": int,
 
             }
         )
@@ -842,14 +846,14 @@ mocoef
                 line = f[iline]
                 s = line.split()
                 if self.QMin.molecule["point_charges"]: #In the fort.15 file, depending if thhe calculation includs point charges or not, there is a different amount of columns for the gradients and NACs
-                    nac[s1, s2, j, 0] =  float(s[-4])  
+                    nac[s1, s2, j, 0] =  float(s[-4])
                     nac[s1, s2, j, 1] =  float(s[-3])
                     nac[s1, s2, j, 2] =  float(s[-2])
                     nac[s2, s1, j, 0] = -float(s[-4])
                     nac[s2, s1, j, 1] = -float(s[-3])
                     nac[s2, s1, j, 2] = -float(s[-2])
-                else: 
-                    nac[s1, s2, j, 0] =  float(s[-3]) 
+                else:
+                    nac[s1, s2, j, 0] =  float(s[-3])
                     nac[s1, s2, j, 1] =  float(s[-2])
                     nac[s1, s2, j, 2] =  float(s[-1])
                     nac[s2, s1, j, 0] = -float(s[-3])
@@ -1078,6 +1082,14 @@ mocoef
         self.QMin["template"]["fomo"] = int(self.QMin["template"]["fomo"])
         if self.QMin["template"]["fomo"] > 1 or self.QMin["template"]["fomo"] < 0 :
             raise ValueError(f"fomo can only be 0 (false) or 1 (true).")
+        
+        self.QMin["template"]["rohf"] = int(self.QMin["template"]["rohf"])
+        if self.QMin["template"]["rohf"] > 1 or self.QMin["template"]["rohf"] < 0 :
+            raise ValueError(f"rohf can only be 0 (false) or 1 (true).")
+        
+        self.QMin["template"]["levexc"] = int(self.QMin["template"]["levexc"])
+        if self.QMin["template"]["levexc"] > 6 or self.QMin["template"]["levexc"] < 1 :
+            raise ValueError(f"levexc can only be between 1 (singlets) and 6 (sextets).")
 
 
 
@@ -1220,6 +1232,8 @@ mocoef
         kitscf = qmin["template"]["kitscf"]
         imomap = qmin["template"]["imomap"]
         iop = qmin["template"]["iop"]
+        rohf = qmin["template"]["rohf"]
+        levexc = qmin["template"]["levexc"]
 
         nfloat = ici1 + ici2
         icross = 1
@@ -1227,9 +1241,9 @@ mocoef
             icross = 7
         
         if qmin["template"]["fomo"] == 1:
-            inputstring = f"iop={iop} jop=-2 imult=1 iform=1 igeom=1 mprint=1 icuts=-1 icutg=-1 dstep=1e-05 kci=5 ioutci=1 iroot={iroot} icross={icross} ncigrd={ncigrd} inac=0 imomap={imomap} iscf=9 iplscf=9 kitscf={kitscf} nciref={nciref} mciref=3 levexc=2 mapthr=70 iuvcd=3 nsav13=2 kharge={kharge} multci=1 cilead=1 ncisym=-1 nsav15=9 iuhf=-6 nfloat={nfloat}"
+            inputstring = f"iop={iop} jop=-2 imult={rohf} iform=1 igeom=1 mprint=1 icuts=-1 icutg=-1 dstep=1e-05 kci=5 ioutci=1 iroot={iroot} icross={icross} ncigrd={ncigrd} inac=0 imomap={imomap} iscf=9 iplscf=9 kitscf={kitscf} nciref={nciref} mciref=3 levexc={levexc} mapthr=70 iuvcd=3 nsav13=2 kharge={kharge} multci=1 cilead=1 ncisym=-1 nsav15=9 iuhf=-6 nfloat={nfloat}"
         else:
-            inputstring = f"iop={iop} jop=-2 imult=1 iform=1 igeom=1 mprint=1 icuts=-1 icutg=-1 dstep=1e-05 kci=5 ioutci=1 iroot={iroot} icross={icross} ncigrd={ncigrd} inac=0 imomap={imomap} iscf=9 iplscf=9 kitscf={kitscf} ici1={ici1} ici2={ici2} movo={movo} nciref={nciref} mciref=3 levexc=2 mapthr=70 iuvcd=3 nsav13=2 kharge={kharge} multci=1 cilead=1 ncisym=-1 nsav15=9"
+            inputstring = f"iop={iop} jop=-2 imult={rohf} iform=1 igeom=1 mprint=1 icuts=-1 icutg=-1 dstep=1e-05 kci=5 ioutci=1 iroot={iroot} icross={icross} ncigrd={ncigrd} inac=0 imomap={imomap} iscf=9 iplscf=9 kitscf={kitscf} ici1={ici1} ici2={ici2} movo={movo} nciref={nciref} mciref=3 levexc={levexc} mapthr=70 iuvcd=3 nsav13=2 kharge={kharge} multci=1 cilead=1 ncisym=-1 nsav15=9"
         
         if qmin["molecule"]["point_charges"]:
             inputstring += f" numatm={ncharges} mmcoup=2 mmfile=1 mmskip=0 mminp=2"
