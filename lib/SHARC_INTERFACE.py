@@ -62,7 +62,7 @@ all_features = {
     "theodore",
     "point_charges",
     # raw data request
-    "basis_set",
+    "mol",
     "wave_functions",
     "density_matrices",
 }
@@ -352,8 +352,8 @@ class SHARC_INTERFACE(ABC):
 
         for s, nstates in enumerate(self.QMin.molecule["states"]):
             c = self.QMin.template["charge"][s]
-            for n in range(nstates):
-                for m in range(-s, s + 1, 2):
+            for m in range(-s, s + 1, 2):
+                for n in range(nstates):
                     self.states.append(
                         electronic_state(Z=c, S=s, M=m, N=n + 1, C={})
                     )  # This is the moment in which states get their pointers
@@ -799,6 +799,10 @@ class SHARC_INTERFACE(ABC):
         Performs step logic
         """
         self.log.debug("Starting step logic")
+        self.QMin.save["init"] = False
+        self.QMin.save["samestep"] = False
+        self.QMin.save["newstep"] = False
+        self.QMin.save["restart"] = False
 
         # TODO: implement previous_step from driver
         self.QMin.save.update({"newstep": False, "init": False, "samestep": False})

@@ -196,7 +196,7 @@ class QMinRequests(QMinBase):
         "molden": bool,
         "savestuff": bool,
         "nooverlap": bool,
-        "basis_set": bool,
+        "mol": bool,
         "density_matrices": list,
         "dyson_orbitals" : list,
     """
@@ -225,7 +225,7 @@ class QMinRequests(QMinBase):
             "molden": False,
             "savestuff": False,
             "nooverlap": False,
-            "basis_set": False,
+            "mol": False,
             "density_matrices": None,
             "dyson_orbitals": None,
         }
