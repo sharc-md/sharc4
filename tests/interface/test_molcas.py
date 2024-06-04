@@ -9,7 +9,6 @@ from utils import expand_path
 
 PATH = expand_path("$SHARC/../tests/interface")
 
-
 def test_molcasversion():
     tests = [
         (os.path.join(PATH, "inputs/molcas/version1"), (18, 0)),
@@ -805,6 +804,164 @@ def test_get_dipoles():
         with open(f"{output}.out", "r", encoding="utf-8") as ascii_out:
             ref_ascii = test_interface._get_dipoles(ascii_out.read())
             assert np.allclose(ref_ascii, ref_hdf)
+
+
+def test_get_electric_dipoles():
+    tests = [
+        (
+            os.path.join(PATH, "inputs/molcas/output/dipoles/QM1.in"),
+            "casscf",
+            os.path.join(PATH, "inputs/molcas/output/dipoles/621casscf"),
+        ),
+        (
+            os.path.join(PATH, "inputs/molcas/output/dipoles/QM1.in"),
+            "caspt2",
+            os.path.join(PATH, "inputs/molcas/output/dipoles/621caspt2"),
+        ),
+        (
+            os.path.join(PATH, "inputs/molcas/output/dipoles/QM1.in"),
+            "ms-caspt2",
+            os.path.join(PATH, "inputs/molcas/output/dipoles/621mscaspt2"),
+        ),
+        (
+            os.path.join(PATH, "inputs/molcas/output/dipoles/QM2.in"),
+            "xms-caspt2",
+            os.path.join(PATH, "inputs/molcas/output/dipoles/622xmscaspt2"),
+        ),
+        (
+            os.path.join(PATH, "inputs/molcas/output/dipoles/QM1.in"),
+            "cms-pdft",
+            os.path.join(PATH, "inputs/molcas/output/dipoles/621cmspdft"),
+        ),
+        (
+            os.path.join(PATH, "inputs/molcas/output/dipoles/QM1.in"),
+            "cms-pdft",
+            os.path.join(PATH, "inputs/molcas/output/dipoles/621cmspdft_ovlp"),
+        ),
+        (
+            os.path.join(PATH, "inputs/molcas/output/dipoles/QM3.in"),
+            "casscf",
+            os.path.join(PATH, "inputs/molcas/output/dipoles/101casscf"),
+        ),
+        (
+            os.path.join(PATH, "inputs/molcas/output/dipoles/QM4.in"),
+            "casscf",
+            os.path.join(PATH, "inputs/molcas/output/dipoles/1111casscf"),
+        ),
+        (
+            os.path.join(PATH, "inputs/molcas/output/dipoles/QM5.in"),
+            "casscf",
+            os.path.join(PATH, "inputs/molcas/output/dipoles/2222casscf"),
+        ),
+        (
+            os.path.join(PATH, "inputs/molcas/output/QM2.in"),
+            "casscf",
+            os.path.join(PATH, "inputs/molcas/output/622222casscf"),
+        ),
+        (
+            os.path.join(PATH, "inputs/molcas/output/dyson/QM3.in"),
+            "casscf",
+            os.path.join(PATH, "inputs/molcas/output/000022casscf"),
+        ),
+    ]
+
+    for qmin, method, output in tests:
+        test_interface = SHARC_MOLCAS()
+        test_interface.setup_mol(qmin)
+        test_interface.QMin.template["method"] = method
+        test_interface.setup_interface()
+
+        s_cnt = 0
+        ref_hdf = np.zeros((3, 3, test_interface.QMin.molecule["nmstates"], test_interface.QMin.molecule["nmstates"]))
+        for m, s in enumerate(test_interface.QMin.molecule["states"], 1):
+            if s > 0:
+                with h5py.File(f"{output}.{m}.h5", "r") as mdp:
+                    for _ in range(m):
+                        ref_hdf[:, s_cnt : s_cnt + s, s_cnt : s_cnt + s] = mdp["SFS_ANGMOM"][:]
+                        s_cnt += s
+        with open(f"{output}.out", "r", encoding="utf-8") as ascii_out:
+            print("FILE: ", qmin, output)
+            ref_ascii = test_interface._get_magnetic_dipoles(ascii_out.read())
+            assert np.allclose(np.einsum('ijk->ikj',ref_ascii), ref_hdf)
+
+
+def test_get_magnetic_dipoles():
+    tests = [
+        (
+            os.path.join(PATH, "inputs/molcas/output/dipoles/QM1.in"),
+            "casscf",
+            os.path.join(PATH, "inputs/molcas/output/dipoles/621casscf"),
+        ),
+        (
+            os.path.join(PATH, "inputs/molcas/output/dipoles/QM1.in"),
+            "caspt2",
+            os.path.join(PATH, "inputs/molcas/output/dipoles/621caspt2"),
+        ),
+        (
+            os.path.join(PATH, "inputs/molcas/output/dipoles/QM1.in"),
+            "ms-caspt2",
+            os.path.join(PATH, "inputs/molcas/output/dipoles/621mscaspt2"),
+        ),
+        (
+            os.path.join(PATH, "inputs/molcas/output/dipoles/QM2.in"),
+            "xms-caspt2",
+            os.path.join(PATH, "inputs/molcas/output/dipoles/622xmscaspt2"),
+        ),
+        (
+            os.path.join(PATH, "inputs/molcas/output/dipoles/QM1.in"),
+            "cms-pdft",
+            os.path.join(PATH, "inputs/molcas/output/dipoles/621cmspdft"),
+        ),
+        (
+            os.path.join(PATH, "inputs/molcas/output/dipoles/QM1.in"),
+            "cms-pdft",
+            os.path.join(PATH, "inputs/molcas/output/dipoles/621cmspdft_ovlp"),
+        ),
+        (
+            os.path.join(PATH, "inputs/molcas/output/dipoles/QM3.in"),
+            "casscf",
+            os.path.join(PATH, "inputs/molcas/output/dipoles/101casscf"),
+        ),
+        (
+            os.path.join(PATH, "inputs/molcas/output/dipoles/QM4.in"),
+            "casscf",
+            os.path.join(PATH, "inputs/molcas/output/dipoles/1111casscf"),
+        ),
+        (
+            os.path.join(PATH, "inputs/molcas/output/dipoles/QM5.in"),
+            "casscf",
+            os.path.join(PATH, "inputs/molcas/output/dipoles/2222casscf"),
+        ),
+        (
+            os.path.join(PATH, "inputs/molcas/output/QM2.in"),
+            "casscf",
+            os.path.join(PATH, "inputs/molcas/output/622222casscf"),
+        ),
+        (
+            os.path.join(PATH, "inputs/molcas/output/dyson/QM3.in"),
+            "casscf",
+            os.path.join(PATH, "inputs/molcas/output/000022casscf"),
+        ),
+    ]
+
+    for qmin, method, output in tests:
+        test_interface = SHARC_MOLCAS()
+        test_interface.setup_mol(qmin)
+        test_interface.QMin.template["method"] = method
+        test_interface.setup_interface()
+
+        s_cnt = 0
+        ref_hdf = np.zeros((3, test_interface.QMin.molecule["nmstates"], test_interface.QMin.molecule["nmstates"]))
+        for m, s in enumerate(test_interface.QMin.molecule["states"], 1):
+            if s > 0:
+                with h5py.File(f"{output}.{m}.h5", "r") as mdp:
+                    for _ in range(m):
+                        ref_hdf[:, s_cnt : s_cnt + s, s_cnt : s_cnt + s] = mdp["SFS_ANGMOM"][:]
+                        s_cnt += s
+        with open(f"{output}.out", "r", encoding="utf-8") as ascii_out:
+            print("FILE: ", qmin, output)
+            ref_ascii = test_interface._get_magnetic_dipoles(ascii_out.read())
+            assert np.allclose(np.einsum('ijk->ikj',ref_ascii), ref_hdf)
 
 
 def test_get_overlaps():

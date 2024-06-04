@@ -13,7 +13,7 @@ from typing import Any
 
 import h5py
 import numpy as np
-from constants import au2a
+from constants import au2a, lande_g_factor
 from qmin import QMin
 from SHARC_ABINITIO import SHARC_ABINITIO
 from utils import convert_list, expand_path, mkdir, writefile
@@ -1304,36 +1304,70 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             for _ in range(mult):
                 dipole_mat[:, s_cnt : s_cnt + state, s_cnt : s_cnt + state] = dipoles
                 s_cnt += state
-        #print(dipole_mat)
         return dipole_mat
+
+    def _get_electric_quadrupoles(self, output_file: str) -> np.ndarray:
+        """
+        Extract (transition) electric quadrupole moments from outputfile
+        """
+        el_quadrupole_mat = np.zeros((3, 3, self.QMin.molecule["nmstates"], self.QMin.molecule["nmstates"]))
+
+        # Find all occurences of dipole sub matriced
+        all_eq = iter(
+            re.findall(r"PROPERTY: MLTPL\s+2\d?\D+[1-3]\n[^\n]+\n[^\n]+\n([\s|\d|\.|E|\+|\-|\n]+)", output_file, re.DOTALL)
+        )
+
+        s_cnt = 0
+        for mult, state in enumerate(self.QMin.molecule["states"], 1):
+            el_quadrupoles = np.zeros((3, 3, state, state), dtype=float)
+            n_block = ceil(state / 4)  # Matrices are in blocks states*4
+            for i in range(3):
+                for j in range(3):
+                    for block in range(n_block):
+                        el_quadrupoles[i, j, :, block * 4 : block * 4 + 4] = np.asarray(
+                            re.findall(r"(-?\d+\.\d+[E|D]?[\+|-]?\d{0,2})", next(all_eq))
+                        ).reshape(state, -1)
+                        print(mult, state, i, j, block, el_quadrupoles[i, j, :, block * 4 : block * 4 + 4])
+            for _ in range(mult):
+                el_quadrupole_mat[:, s_cnt : s_cnt + state, s_cnt : s_cnt + state] = el_quadrupoles
+                s_cnt += state 
 
     def _get_magnetic_dipoles(self, output_file: str) -> np.ndarray:
         """
         Extract (transition) magnetic dipole moments from outputfile
         """
         mag_dipole_mat = np.zeros((3, self.QMin.molecule["nmstates"], self.QMin.molecule["nmstates"]))
+        spin_dipole_mat = np.zeros((3, self.QMin.molecule["nmstates"], self.QMin.molecule["nmstates"]))
 
+        # Angular momentum contribution
         # Find all occurences of dipole sub matriced
         all_angmom = iter(
-            re.findall(r"PROPERTY: ANGMOM\s+[1-9]\d?\D+[1-3]\n[^\n]+\n[^\n]+\n([\s|\d|\.|E|\+|\-|\n]+)", output_file, re.DOTALL)
+            re.findall(r"PROPERTY: ANGMOM\s+\d?\D+[1-3]\n[^\n]+\n[^\n]+\n([\s|\d|\.|E|\+|\-|\n]+)", output_file, re.DOTALL)
         )
 
         s_cnt = 0
         for mult, state in enumerate(self.QMin.molecule["states"], 1):
-            mag_dipoles = np.zeros((3, state, state), dtype=float)
+            mag_dipoles_angmom = np.zeros((3, state, state), dtype=float)
             n_block = ceil(state / 4)  # Matrices are in blocks states*4
             for i in range(3):
                 for block in range(n_block):
-                    mag_dipoles[i, :, block * 4 : block * 4 + 4] = np.asarray(
+                    mag_dipoles_angmom[i, :, block * 4 : block * 4 + 4] = np.asarray(
                         re.findall(r"(-?\d+\.\d+[E|D]?[\+|-]?\d{0,2})", next(all_angmom))
                     ).reshape(state, -1)
-
-            for _ in range(3 * n_block):  # Skip all extra blocks
-                next(all_angmom)
-
+                    print(mult, state, i, block, mag_dipoles_angmom[i, :, block * 4 : block * 4 + 4])
             for _ in range(mult):
-                mag_dipole_mat[:, s_cnt : s_cnt + state, s_cnt : s_cnt + state] = mag_dipoles
+                mag_dipole_mat[:, s_cnt : s_cnt + state, s_cnt : s_cnt + state] = mag_dipoles_angmom
                 s_cnt += state
+        # Spin contribution
+        for i in range(self.QMin.molecule["nmstates"]):
+            for j in range(self.QMin.molecule["nmstates"]):
+                mi, si, msi = tuple(self.QMin['statemap'][i + 1])
+                mj, sj, msj = tuple(self.QMin['statemap'][i + 1])
+                if mi == mj:
+                    continue
+                if msi == msj:
+                    spin_dipole_mat[2, i, j] = lande_g_factor
+                #if msi ==
 
         return mag_dipole_mat 
 
