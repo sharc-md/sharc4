@@ -325,9 +325,20 @@ subroutine unitary_propagator_laser(n, SO, SOold, NACM, NACMold, U, Uold, DM, DM
     ! first ingredient, H
     H=SOold + (SO-SOold)*istep/nsubsteps
 
-    ! here the laser field is added to the Hamiltonian
+    ! here the laser field is added to the Hamiltonian (1st order Light-Matter interaction)
     do ixyz=1,3
-      H=H - ( DMold(:,:,ixyz) + (DM(:,:,ixyz)-DMold(:,:,ixyz))*istep/nsubsteps ) * real(laserfield_e(istep,ixyz)) !LORENZ IMPLEMENT
+      H=H - ( DMold(:,:,ixyz) + (DM(:,:,ixyz)-DMold(:,:,ixyz))*istep/nsubsteps ) * real(laserfield_e(istep,ixyz)) 
+    enddo
+    ! here the laser field is added to the Hamiltonian (2nd order Light-Matter interaction (B-field))
+    do ixyz=1,3
+      H=H - ( MDMold(:,:,ixyz) + (MDM(:,:,ixyz)-MDMold(:,:,ixyz))*istep/nsubsteps ) * real(laserfield_b(istep,ixyz)) 
+    enddo 
+    ! here the laser field is added to the Hamiltonian (2nd order Light-Matter interaction (E-field))
+    do ixyz=1,3
+      do jxyz=1,3
+        H=H - ( EQMold(:,:,ixyz,jxyz) + (EQM(:,:,ixyz,jxyz)-EQMold(:,:,ixyz,jxyz))*istep/nsubsteps ) *
+                    real(laserfield_egrad(istep,ixyz,jxyz))
+      enddo
     enddo
 
     ! second ingredient, T
@@ -432,10 +443,21 @@ subroutine LD_propagator_laser(n, SOin, SOold, U, Uold, overlap, DMin, DMold, la
   dtsubstep=dt/nsubsteps
   do k=1,nsubsteps
     H=SOold + (SO-SOold)*k/nsubsteps
-    ! here the laser field is added to the Hamiltonian
+    ! here the laser field is added to the Hamiltonian (1st order Light-Matter interaction)
     do ixyz=1,3
-      H=H - ( DMold(:,:,ixyz) + (DM(:,:,ixyz)-DMold(:,:,ixyz))*k/nsubsteps ) * real(laserfield_e(k,ixyz)) !LORENZ IMPLEMENT
+      H=H - ( DMold(:,:,ixyz) + (DM(:,:,ixyz)-DMold(:,:,ixyz))*k/nsubsteps ) * real(laserfield_e(k,ixyz)) 
     enddo
+    ! here the laser field is added to the Hamiltonian (2nd order Light-Matter interaction (B-field))
+    do ixyz=1,3
+      H=H - ( MDMold(:,:,ixyz) + (MDM(:,:,ixyz)-MDMold(:,:,ixyz))*k/nsubsteps ) * real(laserfield_b(k,ixyz)) 
+    enddo 
+    ! here the laser field is added to the Hamiltonian (2nd order Light-Matter interaction (E-field))
+    do ixyz=1,3
+      do jxyz=1,3
+        H=H - ( EQMold(:,:,ixyz,jxyz) + (EQM(:,:,ixyz,jxyz)-EQMold(:,:,ixyz,jxyz))*k/nsubsteps ) *
+                    real(laserfield_egrad(k,ixyz,jxyz))
+      enddo
+    enddo 
     H=dtsubstep*H
 
     call exponentiate(n,H,-ii)
@@ -500,11 +522,22 @@ subroutine NPI_propagator_laser(n, SO, SOold, U, Uold, overlap, DM, DMold, laser
     ! first ingredient, H
     H=SOold + (SO-SOold)*istep/nsubsteps
 
-    ! here the laser field is added to the Hamiltonian
+    ! here the laser field is added to the Hamiltonian (1st order Light-Matter interaction)
     do ixyz=1,3
-      H=H - ( DMold(:,:,ixyz) + (DM(:,:,ixyz)-DMold(:,:,ixyz))*istep/nsubsteps ) * real(laserfield_e(istep,ixyz)) !LORENZ IMPLEMENT
+      H=H - ( DMold(:,:,ixyz) + (DM(:,:,ixyz)-DMold(:,:,ixyz))*istep/nsubsteps ) * real(laserfield_e(istep,ixyz)) 
     enddo
-
+    ! here the laser field is added to the Hamiltonian (2nd order Light-Matter interaction (B-field))
+    do ixyz=1,3
+      H=H - ( MDMold(:,:,ixyz) + (MDM(:,:,ixyz)-MDMold(:,:,ixyz))*istep/nsubsteps ) * real(laserfield_b(istep,ixyz)) 
+    enddo 
+    ! here the laser field is added to the Hamiltonian (2nd order Light-Matter interaction (E-field))
+    do ixyz=1,3
+      do jxyz=1,3
+        H=H - ( EQMold(:,:,ixyz,jxyz) + (EQM(:,:,ixyz,jxyz)-EQMold(:,:,ixyz,jxyz))*istep/nsubsteps ) *
+                    real(laserfield_egrad(istep,ixyz,jxyz))
+      enddo
+    enddo
+    
     ! second ingredient, T
     ! compute NPI rotation matrix W
     do istate=1,n
@@ -553,7 +586,7 @@ endsubroutine
 
 !> template for a subroutine returning the laser field for a given time
 !> this is not yet fully implemented
-subroutine internal_laserfield(t,field,energy) !LORENZ IMPLEMENT B-FIELD
+subroutine internal_laserfield(t,field,energy) 
 implicit none
 real*8,intent(in) :: t     ! time in atomic units
 complex*16,intent(out) :: field(3)      ! x,y,z of laser field, imaginary part has to be included
