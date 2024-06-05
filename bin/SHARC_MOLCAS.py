@@ -1125,17 +1125,55 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                                 s_cnt += s
 
         if self.QMin.requests["mdm"]:
-            # Full DM matrix in ascii file, sub matrices of mult in h5 files
+            # Full MDM matrix in ascii file, sub matrices of mult in h5 files
             if isinstance(master_out, str):
-                self.QMout["mdm"] = self._get_dipoles(master_out)
+                self.QMout["mdm"] = self._get_magnetic_dipoles(master_out)
             else:
                 s_cnt = 0
                 for m, s in enumerate(states, 1):
                     if s > 0:
-                        with h5py.File(os.path.join(scratchdir, f"master/MOLCAS.rassi.{m}.h5"), "r") as dp:
+                        with h5py.File(os.path.join(scratchdir, f"master/MOLCAS.rassi.{m}.h5"), "r") as mdp:
                             for _ in range(m):
-                                self.QMout["mdm"][:, s_cnt : s_cnt + s, s_cnt : s_cnt + s] = dp["SFS_EDIPMOM"][:]
+                                self.QMout["mdm"][:, s_cnt : s_cnt + s, s_cnt : s_cnt + s] = mdp["SFS_EDIPMOM"][:]
                                 s_cnt += s
+
+        if self.QMin.requests["eqm"]:
+            # Full EQM matrix in ascii file, sub matrices of mult in h5 files
+            if isinstance(master_out, str):
+                self.QMout["eqm"] = self._get_electric_quadrupoles(master_out)
+            else:
+                s_cnt = 0
+                for m, s in enumerate(states, 1):
+                    if s > 0:
+                        with h5py.File(os.path.join(scratchdir, f"master/MOLCAS.rassi.{m}.h5"), "r") as eqp:
+                            for _ in range(m):
+                                ao_mltpl = [np.array(eqp["AO_MLTPL_XX"]),
+                                            np.array(eqp["AO_MLTPL_XY"]),
+                                            np.array(eqp["AO_MLTPL_XZ"]),
+                                            np.array(eqp["AO_MLTPL_YY"]),
+                                            np.array(eqp["AO_MLTPL_YZ"]),
+                                            np.array(eqp["AO_MLTPL_ZZ"]) 
+                                            ]                            
+                                trans_dens = np.array(eqp["SFS_TRANSITION_DENSITIES"]).reshape(self.QMin.molecule["states"],
+                                                                                               self.QMin.molecule["states"],
+                                                                                               -1, -1)
+                                nuc_center = np.array(eqp["CENTER_COORDINATES"])
+                                nuc_charges = np.array(eqp["CENTER_CHARGES"])
+                                nuc_dip_mom = np.einsum('n,nab->ab', nuc_charges, nuc_center)
+                                el_quad_mom = np.einsum('ijk,abjk->iab', ao_mltpl, trans_dens)
+                                el_quad_mat = -np.asarray([[el_quad_mom[0, :, :] - nuc_dip_mom[0, 0] * np.eye(self.QMin.molecule["states"], self.QMin.molecule["states"]),
+                                                            el_quad_mom[1, :, :] - nuc_dip_mom[0, 1] * np.eye(self.QMin.molecule["states"], self.QMin.molecule["states"]), 
+                                                            el_quad_mom[2, :, :] - nuc_dip_mom[0, 2] * np.eye(self.QMin.molecule["states"], self.QMin.molecule["states"])],
+                                                           [el_quad_mom[1, :, :] - nuc_dip_mom[1, 0] * np.eye(self.QMin.molecule["states"], self.QMin.molecule["states"]),
+                                                            el_quad_mom[3, :, :] - nuc_dip_mom[1, 1] * np.eye(self.QMin.molecule["states"], self.QMin.molecule["states"]),
+                                                            el_quad_mom[4, :, :] - nuc_dip_mom[1, 2] * np.eye(self.QMin.molecule["states"], self.QMin.molecule["states"])],
+                                                           [el_quad_mom[2, :, :] - nuc_dip_mom[2, 0] * np.eye(self.QMin.molecule["states"], self.QMin.molecule["states"]),
+                                                            el_quad_mom[4, :, :] - nuc_dip_mom[2, 1] * np.eye(self.QMin.molecule["states"], self.QMin.molecule["states"]),
+                                                            el_quad_mom[5, :, :] - nuc_dip_mom[2, 2] * np.eye(self.QMin.molecule["states"], self.QMin.molecule["states"])]])
+                                el_quad_mat = el_quad_mat.reshape(3, 3, self.QMin.molecule["states"], self.QMin.molecule["states"])
+                                el_quad_mat = np.where(el_quad_mat, el_quad_mat, el_quad_mat.transpose(0, 1, 3, 2))
+                                self.QMout["eqm"][:, :, s_cnt : s_cnt + s, s_cnt : s_cnt + s] = el_quad_mat
+                                s_cnt += s        
 
         if self.QMin.requests["overlap"]:
             # Full overlap in ascii file, sub matrices of mult in h5 files
@@ -1399,32 +1437,34 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
 
         # Find all occurences of dipole sub matriced
         all_eq = iter(
-            re.findall(r"PROPERTY: MLTPL\s+2\d?\D+[1-3]\n[^\n]+\n[^\n]+\n([\s|\d|\.|E|\+|\-|\n]+)", output_file, re.DOTALL)
+            re.findall(r"PROPERTY: MLTPL\s+2\d?\D+[1-6]\n[^\n]+\n[^\n]+\n([\s|\d|\.|E|\+|\-|\n]+)", output_file, re.DOTALL)
         )
 
         s_cnt = 0
         for mult, state in enumerate(self.QMin.molecule["states"], 1):
-            el_quadrupoles = np.zeros((3, 3, state, state), dtype=float)
+            el_quadrupoles = np.zeros((6, state, state), dtype=float)
             n_block = ceil(state / 4)  # Matrices are in blocks states*4
-            for i in range(3):
-                for j in range(3):
-                    for block in range(n_block):
-                        el_quadrupoles[i, j, :, block * 4 : block * 4 + 4] = np.asarray(
-                            re.findall(r"(-?\d+\.\d+[E|D]?[\+|-]?\d{0,2})", next(all_eq))
-                        ).reshape(state, -1)
-                        print(mult, state, i, j, block, el_quadrupoles[i, j, :, block * 4 : block * 4 + 4])
+            for i in range(6):
+                for block in range(n_block):
+                    el_quadrupoles[i, :, block * 4 : block * 4 + 4] = np.asarray(
+                        re.findall(r"(-?\d+\.\d+[E|D]?[\+|-]?\d{0,2})", next(all_eq))
+                    ).reshape(state, -1)
             for _ in range(mult):
-                el_quadrupole_mat[:, s_cnt : s_cnt + state, s_cnt : s_cnt + state] = el_quadrupoles
-                s_cnt += state 
+                el_quadrupole_mat[0, 0, s_cnt : s_cnt + state, s_cnt : s_cnt + state] = el_quadrupoles[0, :, :]  # XX
+                el_quadrupole_mat[0, 1, s_cnt : s_cnt + state, s_cnt : s_cnt + state] = el_quadrupole_mat[1, 0, s_cnt : s_cnt + state, s_cnt : s_cnt + state] = el_quadrupoles[1, :, :]  # XY=YX
+                el_quadrupole_mat[0, 2, s_cnt : s_cnt + state, s_cnt : s_cnt + state] = el_quadrupole_mat[2, 0, s_cnt : s_cnt + state, s_cnt : s_cnt + state] = el_quadrupoles[2, :, :]  # XZ=ZX
+                el_quadrupole_mat[1, 1, s_cnt : s_cnt + state, s_cnt : s_cnt + state] = el_quadrupoles[3, :, :]  # YY
+                el_quadrupole_mat[1, 2, s_cnt : s_cnt + state, s_cnt : s_cnt + state] = el_quadrupole_mat[2, 1, s_cnt : s_cnt + state, s_cnt : s_cnt + state] = el_quadrupoles[4, :, :]  # YZ=ZY
+                el_quadrupole_mat[2, 2, s_cnt : s_cnt + state, s_cnt : s_cnt + state] = el_quadrupoles[5, :, :]  # ZZ
+            s_cnt += state
+        return el_quadrupole_mat
 
     def _get_magnetic_dipoles(self, output_file: str) -> np.ndarray:
         """
         Extract (transition) magnetic dipole moments from outputfile
         """
-        mag_dipole_mat = np.zeros((3, self.QMin.molecule["nmstates"], self.QMin.molecule["nmstates"]))
         spin_dipole_mat = np.zeros((3, self.QMin.molecule["nmstates"], self.QMin.molecule["nmstates"]))
-
-        # Angular momentum contribution
+        mag_dipole_mat =  np.zeros((3, self.QMin.molecule["nmstates"], self.QMin.molecule["nmstates"]))        # Angular momentum contribution
         # Find all occurences of dipole sub matriced
         all_angmom = iter(
             re.findall(r"PROPERTY: ANGMOM\s+\d?\D+[1-3]\n[^\n]+\n[^\n]+\n([\s|\d|\.|E|\+|\-|\n]+)", output_file, re.DOTALL)
@@ -1432,28 +1472,29 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
 
         s_cnt = 0
         for mult, state in enumerate(self.QMin.molecule["states"], 1):
-            mag_dipoles_angmom = np.zeros((3, state, state), dtype=float)
+            angmom_dipole_mat = np.zeros((3, state, state), dtype=float)
             n_block = ceil(state / 4)  # Matrices are in blocks states*4
             for i in range(3):
                 for block in range(n_block):
-                    mag_dipoles_angmom[i, :, block * 4 : block * 4 + 4] = np.asarray(
+                    angmom_dipole_mat[i, :, block * 4 : block * 4 + 4] = np.asarray(
                         re.findall(r"(-?\d+\.\d+[E|D]?[\+|-]?\d{0,2})", next(all_angmom))
                     ).reshape(state, -1)
-                    print(mult, state, i, block, mag_dipoles_angmom[i, :, block * 4 : block * 4 + 4])
             for _ in range(mult):
-                mag_dipole_mat[:, s_cnt : s_cnt + state, s_cnt : s_cnt + state] = mag_dipoles_angmom
+                mag_dipole_mat[:, s_cnt : s_cnt + state, s_cnt : s_cnt + state] = angmom_dipole_mat
                 s_cnt += state
         # Spin contribution
-        for i in range(self.QMin.molecule["nmstates"]):
-            for j in range(self.QMin.molecule["nmstates"]):
-                mi, si, msi = tuple(self.QMin['statemap'][i + 1])
-                mj, sj, msj = tuple(self.QMin['statemap'][i + 1])
-                if mi == mj:
-                    continue
-                if msi == msj:
-                    spin_dipole_mat[2, i, j] = lande_g_factor
-                #if msi ==
-
+        for s1, i1 in enumerate(self.states):
+            for s2, i2 in enumerate(self.states): 
+                if s1 // s2:
+                    if s1.M == s2.M - 2:  # ms-value double
+                        spin_dipole_mat[0, i1, i2] = 1/2.*1.j*lande_g_factor*np.sqrt(s2.S/2.*(s2.S/2.-1)-s2.M/2.*(s2.M/2.-1))
+                        spin_dipole_mat[1, i1, i2] = 1/2.*1.j*lande_g_factor*np.sqrt(s2.S/2.*(s2.S/2.-1)-s2.M/2.*(s2.M/2.-1))
+                    if s1.M == s2.M + 2:  # ms-value double
+                        spin_dipole_mat[0, i1, i2] = -1/2.*1.j*lande_g_factor*np.sqrt(s2.S/2.*(s2.S/2.-1)-s2.M/2.*(s2.M/2.+1))
+                        spin_dipole_mat[1, i1, i2] = 1/2.*1.j*lande_g_factor*np.sqrt(s2.S/2.*(s2.S/2.-1)-s2.M/2.*(s2.M/2.+1))
+                    if s1.M == s2.M:
+                        spin_dipole_mat[2, i1, i2] = s2.M/2.*lande_g_factor 
+        mag_dipole_mat += spin_dipole_mat 
         return mag_dipole_mat 
 
     def _get_theodore(self, output_file: str) -> list[tuple[str, np.ndarray]]:

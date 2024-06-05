@@ -36,6 +36,9 @@
 !> Output files:
 !> - energy.out 
 !> - fosc.out
+!> - fosc_md2.out
+!> - fosc_eq2.out
+!> - fosc_mdeq.out
 !> - fosc_act.out
 !> - coeff_diab.out
 !> - coeff_MCH.out
@@ -50,7 +53,7 @@
 !> Additionally, the output file <input.file>.ext contains build infos of the data_extractor program
 program data_extractor
   use matrix
-  use definitions, only: au2a, au2fs, au2u, au2rcm, au2eV, au2debye
+  use definitions, only: au2a, au2fs, au2u, au2rcm, au2eV, au2debye, alpha
   use qm_out
   use string
   use input_list
@@ -59,7 +62,10 @@ program data_extractor
   !> # Parameters: unit numbers for all files
   integer, parameter :: u_dat=11          !< unit for output.dat file
   integer, parameter :: u_ener=21         !< energy.out
-  integer, parameter :: u_dm=22           !< fosc.out
+  integer, parameter :: u_dm=22           !< electric dipole fosc.out
+  integer, parameter :: u_mdm=32          !< magnetic dipole fosc_md2.out
+  integer, parameter :: u_eqm=33          !< electric quadrupole fosc_eq2.out
+  integer, parameter :: u_mdeqm=34        !< magnetic dipole * electric quadrupole fosc_md_eq.out
   integer, parameter :: u_spin=23         !< spin.out
   integer, parameter :: u_coefd=24        !< coeff_diag.out
   integer, parameter :: u_coefm=25        !< coeff_MCH.out
@@ -125,6 +131,8 @@ program data_extractor
   !> Most of these are equivalent to their definition in definitions.f90
   integer :: step
   complex*16, allocatable :: H_MCH_ss(:,:),U_ss(:,:),DM_mch_ssd(:,:,:),DM_diag_ssd(:,:,:)
+  complex*16, allocatable :: MDM_mch_ssd(:,:,:),MDM_diag_ssd(:,:,:)
+  complex*16, allocatable :: EQM_mch_ssd(:,:,:),EQM_diag_ssd(:,:,:)
   complex*16, allocatable :: Prop2d_xss(:,:,:)
   real*8, allocatable     :: Prop1d_ys(:,:)
   complex*16, allocatable :: coeff_diag_s(:),overlaps_ss(:,:), ref_ovl_ss(:,:)
@@ -150,6 +158,8 @@ program data_extractor
   real*8,allocatable :: expec_ion_mch(:)           !< oscillator strength per state in MCH basis
   real*8,allocatable :: expec_dm_act(:)           !< oscillator strength per state with active state as source state
   real*8,allocatable :: dm_proj_sp(:,:)           !< dipole moment per state projected onto vector yet to be defined
+  real*8,allocatable :: mdm_proj_sp(:,:)           !< magnetic dipole moment per state projected onto vector yet to be defined
+  real*8,allocatable :: eqm_proj_spp(:,:,:)           !< electric quaduprole moment per state projected onto vector yet to be defined
   real*8,allocatable :: proj_vec_pd(:,:)           !< vectors to project dipole moment onto
   real*8,allocatable :: norm_proj_vec_p(:)          !< norm of vectors to project dipole moment onto
   real*8,allocatable :: proj_point(:,:)          !< norm of vectors to project dipole moment onto
@@ -527,6 +537,12 @@ program data_extractor
     allocate( DM_mch_ssd(nstates,nstates,3) )
     allocate( DM_diag_ssd(nstates,nstates,3) )
     allocate( dm_proj_sp(nstates,nprojections) )
+    allocate( MDM_mch_ssd(nstates,nstates,3) )
+    allocate( MDM_diag_ssd(nstates,nstates,3) )
+    allocate( mdm_proj_sp(nstates,nprojections) ) 
+    allocate( EQM_mch_ssdd(nstates,nstates,3,3) )
+    allocate( EQM_diag_ssdd(nstates,nstates,3,3) )
+    allocate( eqm_proj_sp(nstates,nprojections) )  
     allocate( proj_vec_pd(nprojections,3) )
     allocate( norm_proj_vec_p(nprojections) )
     allocate( coeff_diag_s(nstates), coeff_MCH_s(nstates), coeff_diab_s(nstates) )
@@ -826,6 +842,9 @@ program data_extractor
   ! open output files
   if (write_energy)    open(unit=u_ener, file='output_data/energy.out', status='replace', action='write')           ! -e
   if (write_dip)       open(unit=u_dm, file='output_data/fosc.out', status='replace', action='write')               ! -d
+  if (write_mag_dip)   open(unit=u_mdm, file='output_data/fosc_md2.out', status='replace', action='write')               ! -dmd
+  if (write_el_quad)   open(unit=u_eqm, file='output_data/fosc_eq2.out', status='replace', action='write')               ! -deq
+  if (write_mag_dip_el_quad)   open(unit=u_mdeqm, file='output_data/fosc_mdeq.out', status='replace', action='write')    ! -dmdeq
   if (write_spin)      open(unit=u_spin, file='output_data/spin.out', status='replace', action='write')             ! -s
 
   if (write_coeffdiag) open(unit=u_coefd, file='output_data/coeff_diag.out', status='replace', action='write')      ! -cd
@@ -864,6 +883,18 @@ program data_extractor
     write(u_dm,'(A1,1X,3(A20,1X))') '#','Time |','f_osc (state) |','=== f_osc ===>'
     write(u_dm,'(A1,1X,3(A20,1X))') '#','[fs] |','[] |','[] |'
   endif
+  
+  if (write_mag_dip) then
+    write(u_mdm,'(A1,1X,1000(I20,1X))') '#',(i,i=1,nstates+2)
+    write(u_mdm,'(A1,1X,3(A20,1X))') '#','Time |','mag. dip. f_osc (state) |','=== mag. dip. f_osc ===>'
+    write(u_mdm,'(A1,1X,3(A20,1X))') '#','[fs] |','[] |','[] |'
+  endif
+  
+  if (write_el_quad) then
+    write(u_eqm,'(A1,1X,1000(I20,1X))') '#',(i,i=1,nstates+2)
+    write(u_eqm,'(A1,1X,3(A20,1X))') '#','Time |','el. quad. f_osc (state) |','=== el. quad. f_osc ===>'
+    write(u_eqm,'(A1,1X,3(A20,1X))') '#','[fs] |','[] |','[] |'
+  endif 
 
   if (write_dipact) then
     write(u_fosc_act,'(A1,1X,1000(I20,1X))') '#',(i,i=1,2*nstates+1)
@@ -1092,6 +1123,18 @@ program data_extractor
     do idir=1,3
       call matread(nstates,DM_mch_ssd(:,:,idir),u_dat,string1)
     enddo
+    if laser_b==.true. then 
+      do idir=1,3
+        call matread(nstates,MDM_mch_ssd(:,:,idir),u_dat,string1)
+      enddo
+    endif        
+    if laser_egrad==.true. then 
+      do idir=1,3
+        do jdir=1,3
+          call matread(nstates,EQM_mch_ssdd(:,:,idir,jdir),u_dat,string1)
+        enddo
+      enddo
+    endif         
     if (have_overlap==1) then
       call matread(nstates,overlaps_ss,u_dat,string1)
     endif
@@ -1156,9 +1199,21 @@ program data_extractor
 
     ! calculate Hamiltonian including laser field
     H_diag_ss=H_MCH_ss
-    if (laser==2) then
+    if (laser==2 .AND. laser_e==.true.) then
       do idir=1,3
         H_diag_ss=H_diag_ss - DM_mch_ssd(:,:,idir)*real(laserfield_e_tp(step*nsubsteps+1,idir))
+      enddo
+    endif
+    if (laser==2 .AND. laser_b==.true.) then
+      do idir=1,3
+        H_diag_ss=H_diag_ss - MDM_mch_ssd(:,:,idir)*real(laserfield_b_tp(step*nsubsteps+1,idir))
+      enddo
+    endif
+    if (laser==2 .AND. laser_egrad==.true.) then
+      do idir=1,3
+        do jdir=1,3
+          H_diag_ss=H_diag_ss - EQM_mch_ssdd(:,:,idir,jdir)*real(laserfield_egrad_tpd(step*nsubsteps+1,idir,jdir))
+        enddo
       enddo
     endif
 !     call matwrite(nstates,H_diag_ss,0,'Hbefore','F12.9')
@@ -1201,6 +1256,79 @@ program data_extractor
         expec_dm_act(i)=expec_dm_act(i)*real(H_diag_ss(i,i)-H_diag_ss(state_diag,state_diag))
       enddo
     endif
+    
+    ! calculate oscillator strengths for magnetic dipoles
+    if (write_mag_dip .or. write_dipact .or. write_expec .or. write_expecmch .or. write_dm_diag) then
+      expec_mdm=0.d0
+      expec_mdm_mch=0.d0
+      expec_mdm_act=0.d0 
+      do idir=1,3
+        A_ss=MDM_mch_ssd(:,:,idir)
+        expec_mdm_mch=expec_mdm_mch+real(A_ss(:,1)*A_ss(1,:))
+        call transform(nstates,A_ss,U_ss,'utau')
+        MDM_diag_ssd(:,:,idir)=A_ss
+        expec_mdm=expec_mdm+real(A_ss(:,1)*A_ss(1,:))
+        expec_mdm_act=expec_mdm_act+real(A_ss(:,state_diag)*A_ss(state_diag,:))
+      enddo 
+      expec_mdm=expec_mdm*2./3.
+      expec_mdm_mch=expec_mdm_mch*2./3.
+      expec_mdm_act=expec_mdm_act*2./3.  
+      do i=1,nstates
+        expec_mdm(i)=expec_mdm(i)*real(H_diag_ss(i,i)-H_diag_ss(1,1))
+        expec_mdm_mch(i)=expec_mdm_mch(i)*real(H_MCH_ss(i,i)-H_MCH_ss(1,1))
+        expec_mdm_act(i)=expec_mdm_act(i)*real(H_diag_ss(i,i)-H_diag_ss(state_diag,state_diag))
+      enddo 
+    endif
+    
+    ! calculate oscillator strengths for electric quadrupoles
+    if (write_el_quad .or. write_dipact .or. write_expec .or. write_expecmch .or. write_dm_diag) then
+      expec_eqm=0.d0
+      expec_eqm_mch=0.d0
+      expec_eqm_act=0.d0 
+      do idir=1,3
+        do jdir=1,3
+          A_ss=EQM_mch_ssdd(:,:,idir,jdir)
+          expec_eqm_mch=expec_eqm_mch+real(A_ss(:,1)*A_ss(1,:))
+          call transform(nstates,A_ss,U_ss,'utau')
+          EQM_diag_ssdd(:,:,idir,jdir)=A_ss
+          expec_eqm=expec_eqm+real(A_ss(:,1)*A_ss(1,:))
+          expec_eqm_act=expec_eqm_act+real(A_ss(:,state_diag)*A_ss(state_diag,:))
+        enddo
+      enddo 
+      expec_eqm=expec_eqm*1./20.*alpha**2
+      expec_eqm_mch=expec_eqm_mch*1./20.*alpha**2
+      expec_eqm_act=expec_eqm_act*1./20.*alpha**2 
+      do i=1,nstates
+        expec_eqm(i)=expec_eqm(i)*real(H_diag_ss(i,i)-H_diag_ss(1,1))
+        expec_eqm_mch(i)=expec_eqm_mch(i)*real(H_MCH_ss(i,i)-H_MCH_ss(1,1))
+        expec_eqm_act(i)=expec_eqm_act(i)*real(H_diag_ss(i,i)-H_diag_ss(state_diag,state_diag))
+      enddo
+    endif
+    
+    ! calculate oscillator strengths for magnetic dipole * electric quadupole
+    if (write_mag_dip_el_quad .or. write_dipact .or. write_expec .or. write_expecmch .or. write_dm_diag) then
+      expec_mdeqm=0.d0
+      expec_mdeqm_mch=0.d0
+      expec_mdeqm_act=0.d0 
+      do idir=1,3
+        do jdir=1,3
+          A_ss=EQM_mch_ssdd(:,:,idir,jdir)
+          expec_mdeqm_mch=expec_mdeqm_mch+real(A_ss(:,1)*A_ss(1,:))
+          call transform(nstates,A_ss,U_ss,'utau')
+          EQM_diag_ssdd(:,:,idir,jdir)=A_ss
+          expec_mdeqm=expec_mdeqm+real(A_ss(:,1)*A_ss(1,:))
+          expec_mdeqm_act=expec_mdeqm_act+real(A_ss(:,state_diag)*A_ss(state_diag,:))
+        enddo
+      enddo 
+      expec_mdeqm=expec_mdeqm*1./20.*alpha**2
+      expec_mdeqm_mch=expec_mdeqm_mch*1./20.*alpha**2
+      expec_mdeqm_act=expec_mdeqm_act*1./20.*alpha**2 
+      do i=1,nstates
+        expec_mdeqm(i)=expec_mdeqm(i)*real(H_diag_ss(i,i)-H_diag_ss(1,1))
+        expec_mdeqm_mch(i)=expec_mdeqm_mch(i)*real(H_MCH_ss(i,i)-H_MCH_ss(1,1))
+        expec_mdeqm_act(i)=expec_mdeqm_act(i)*real(H_diag_ss(i,i)-H_diag_ss(state_diag,state_diag))
+      enddo
+    endif 
     
     ! calculate length of projection of dipole moment onto vector
     ! projection length is scalar product of dip mom with unit vector of desired direction (proj_vec/norm_proj_vec)
@@ -1276,6 +1404,24 @@ program data_extractor
       &microtime, expec_dm(state_diag),&
       (expec_dm(istate),istate=1,nstates)
     endif
+    if (write_mag_dip) then
+      ! write to fosc_md2.out
+      write(u_mdm,'(2X,1000(ES20.12E3,1X))') &
+      &microtime, expec_mdm(state_diag),&
+      (expec_mdm(istate),istate=1,nstates)
+    endif 
+    if (write_el_quad) then
+      ! write to fosc_eq2.out
+      write(u_eqm,'(2X,1000(ES20.12E3,1X))') &
+      &microtime, expec_eqm(state_diag),&
+      (expec_eqm(istate),istate=1,nstates)
+    endif
+    if (write_mag_dip_el_quad) then
+      ! write to fosc_md_eq.out
+      write(u_mdeqm,'(2X,1000(ES20.12E3,1X))') &
+      &microtime, expec_mdeqm(state_diag),&
+      (expec_mdeqm(istate),istate=1,nstates)
+    endif 
     if (write_dipact)  then
       ! write to fosc_act.out
       write(u_fosc_act,'(2X,1000(ES20.12E3,1X))') &
@@ -1442,7 +1588,24 @@ program data_extractor
       call matwrite(nstates, DM_diag_ssd(:,:,2), u_dm_diag, '! 1 Dipole moments Y (diag) in a.u.', 'F12.8')
       call matwrite(nstates, DM_diag_ssd(:,:,3), u_dm_diag, '! 1 Dipole moments Z (diag) in a.u.', 'F12.8')
     endif
-    
+    if (write_MDM_diag) then
+          write(u_mdm_diag,'(A)') '! 0 Step'
+          write(u_mdm_diag,'(I12)') step
+          call matwrite(nstates, MDM_diag_ssd(:,:,1), u_mdm_diag, '! 1 Magnetic dipole moments X (diag) in a.u.', 'F12.8')
+          call matwrite(nstates, MDM_diag_ssd(:,:,2), u_mdm_diag, '! 1 Magnetic dipole moments Y (diag) in a.u.', 'F12.8')
+          call matwrite(nstates, MDM_diag_ssd(:,:,3), u_mdm_diag, '! 1 Magnetic dipole moments Z (diag) in a.u.', 'F12.8')
+    if (write_EQM_diag) then
+          write(u_eqm_diag,'(A)') '! 0 Step'
+          write(u_eqm_diag,'(I12)') step
+          call matwrite(nstates, EQM_diag_ssdd(:,:,1,1), u_eqm_diag, '! 1 Electric quadrupole moments XX (diag) in a.u.', 'F12.8')
+          call matwrite(nstates, EQM_diag_ssdd(:,:,1,2), u_eqm_diag, '! 1 Electric quadrupole moments XY (diag) in a.u.', 'F12.8')
+          call matwrite(nstates, EQM_diag_ssdd(:,:,1,3), u_eqm_diag, '! 1 Electric quadrupole moments XZ (diag) in a.u.', 'F12.8')
+          call matwrite(nstates, EQM_diag_ssdd(:,:,2,1), u_eqm_diag, '! 1 Electric quadrupole moments YX (diag) in a.u.', 'F12.8')
+          call matwrite(nstates, EQM_diag_ssdd(:,:,2,2), u_eqm_diag, '! 1 Electric quadrupole moments YY (diag) in a.u.', 'F12.8')
+          call matwrite(nstates, EQM_diag_ssdd(:,:,2,3), u_eqm_diag, '! 1 Electric quadrupole moments YZ (diag) in a.u.', 'F12.8')
+          call matwrite(nstates, EQM_diag_ssdd(:,:,3,1), u_eqm_diag, '! 1 Electric quadrupole moments ZX (diag) in a.u.', 'F12.8')
+          call matwrite(nstates, EQM_diag_ssdd(:,:,3,2), u_eqm_diag, '! 1 Electric quadrupole moments ZY (diag) in a.u.', 'F12.8')
+          call matwrite(nstates, EQM_diag_ssdd(:,:,3,3), u_eqm_diag, '! 1 Electric quadrupole moments ZZ (diag) in a.u.', 'F12.8') 
     if (write_dm_proj) then
       write(u_dm_proj,'(A,I12)') '# ',step
       do i=1,nstates
@@ -1462,9 +1625,12 @@ program data_extractor
   write(*,*)
 
   ! close output files
-  if (write_energy)    close(u_ener)      ! -e
-  if (write_dip)       close(u_dm)        ! -d
-  if (write_spin)      close(u_spin)      ! -s
+  if (write_energy)             close(u_ener)      ! -e
+  if (write_dip)                close(u_dm)        ! -d
+  if (write_mag_dip)            close(u_mdm)       ! -dmd
+  if (write_el_quad)            close(u_eqm)       ! -deq
+  if (write_mag_dip_el_quadp)   close(u_mdeqm)     ! -dmdeq
+  if (write_spin)               close(u_spin)      ! -s
  
   if (write_coeffdiag) close(u_coefd)     ! -cd
   if (write_coeffmch)  close(u_coefm)     ! -cm 
@@ -2174,7 +2340,10 @@ program data_extractor
     write(u,*) '       -s  : small = write all output files except ionization data, diagonal dipole/projection'
     write(u,*) '       -xs : extrasmall = energy (-e), coeffdiag (-cd), coeffmch (-cm), prob (-p), expec (-x), dip (-d), skip (-sk)'
     write(u,*) '       -e  : write energy file              (output_data/energy.out)'
-    write(u,*) '       -d  : write dipole file              (output_data/fosc.out)'
+    write(u,*) '       -d       : write dipole file              (output_data/fosc.out)'
+    write(u,*) '       -dmd     : write magnetic dipole file              (output_data/fosc_md2.out)'
+    write(u,*) '       -deq     : write electric quadrupole file              (output_data/fosc_eq2.out)'
+    write(u,*) '       -dmdeq   : write mixed magnetic dipole - electric quadrupole file  (output_data/fosc_md_eq.out)'
     write(u,*) '       -sp : write spin expec file          (output_data/spin.out)'
     write(u,*) '       -cd : write diag coefficient file    (output_data/coeff_diag.out,'
     write(u,*) '                                             output_data/coeff_class_diag.out,'

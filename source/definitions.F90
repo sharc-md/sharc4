@@ -537,7 +537,7 @@ module definitions
   
   complex*16,parameter:: ii=dcmplx(0.d0,1.d0)       !< imaginary unit
   real*8,parameter:: pi=4.d0*datan(1.d0)            !< pi
-  
+  real*8,parameter:: alpha=7.2973525693d-3          !< fine-structure constant
   character*20,parameter :: multnames(8)=(/'Singlet','Doublet','Triplet','Quartet','Quintet',' Sextet',' Septet','  Octet'/)
   !< strings used to represent the multiplicities
   ! =========================================================== !
