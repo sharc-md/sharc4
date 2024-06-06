@@ -3177,6 +3177,7 @@ def test_densities():
             mol.basis = mol._basis
             test_interface.QMout["mol"] = mol
             test_interface._get_densities(f["BASIS_FUNCTION_IDS"][:])
+            test_interface.get_densities()
 
         # Test number of electrons
         ao_ovlp = test_interface.QMout["mol"].intor("int1e_ovlp")
