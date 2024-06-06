@@ -1155,12 +1155,14 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             self.QMout["mol"] = mol
             if self.QMin.requests["density_matrices"] or self.QMin.requests["multipolar_fit"]:
                 self._get_densities(master_out["BASIS_FUNCTION_IDS"][:])
-                self.check_electrons_dens()
-                self.check_dipoles_dens()
+                self.get_densities()
                 if self.QMin.requests["multipolar_fit"]:
                     self.QMout["multipolar_fit"] = self._resp_fit_on_densities()
 
         return self.QMout
+
+    def read_and_append_densities(self):
+        pass
 
     def _get_densities(self, ao_order: np.ndarray) -> None:
         """
@@ -1198,24 +1200,33 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         # Matrix in h5 flattened, calc dimension for squared matrix
         dim = int(next(iter(dens_one_mult.values())).shape[2] ** 0.5)
 
-        for i in self.states:
-            for j in self.states:
-                if i.S == j.S and i.M == j.M:  # Same mult states, are stored in the non trd h5
-                    self.QMout["density_matrices"][(i, j, "tot")] = dens_one_mult[i.S + 1][i.N - 1, j.N - 1, :].reshape(dim, -1)
-                    self.QMout["density_matrices"][(i, j, "q")] = dens_one_mult_spin[i.S + 1][i.N - 1, j.N - 1, :].reshape(
+        for s1, s2, spin in self.density_recipes["read"].keys():
+            if spin == "tot":
+                if s1.S == s2.S and s1.M == s2.M:
+                    self.QMout["density_matrices"][(s1, s2, spin)] = dens_one_mult[s1.S + 1][s1.N - 1, s2.N - 1, :].reshape(
                         dim, -1
-                    )
-                elif i.S != j.S and i.M == j.M:
-                    mult = min(i.S, j.S)  # Transitions between 2 mults are stored in the h5 named after the lowest mult
-                    s1, s2 = i.N - 1 + states[mult], j.N - 1  # dens(i,j) != dens(j,i) for different mults!
-                    if i.S < j.S:
-                        s1, s2 = i.N - 1, j.N - 1 + states[mult]
-
-                    self.QMout["density_matrices"][(i, j, "tot")] = trans_dens[mult + 1][s1, s2, :].reshape(dim, -1)
-                    self.QMout["density_matrices"][(i, j, "q")] = trans_dens_spin[mult + 1][s1, s2, :].reshape(dim, -1)
-        # Apply sort order to densities
-        for k, v in self.QMout["density_matrices"].items():
-            self.QMout["density_matrices"][k] = v[np.ix_(ao_sorted, ao_sorted)]
+                    )[np.ix_(ao_sorted, ao_sorted)]
+                else:
+                    mult = min(s1.S, s2.S)
+                    x, y = s1.N - 1 + states[mult], s2.N - 1
+                    if s1.S < s2.S:
+                        x, y = s1.N - 1, s2.N - 1 + states[mult]
+                    self.QMout["density_matrices"][(s1, s2, spin)] = trans_dens[mult + 1][x, y, :].reshape(dim, -1)[
+                        np.ix_(ao_sorted, ao_sorted)
+                    ]
+            elif spin == "q":
+                if s1.S == s2.S and s1.M == s2.M:
+                    self.QMout["density_matrices"][(s1, s2, spin)] = dens_one_mult_spin[s1.S + 1][s1.N - 1, s2.N - 1, :].reshape(
+                        dim, -1
+                    )[np.ix_(ao_sorted, ao_sorted)]
+                else:
+                    mult = min(s1.S, s2.S)
+                    x, y = s1.N - 1 + states[mult], s2.N - 1
+                    if s1.S < s2.S:
+                        x, y = s1.N - 1, s2.N - 1 + states[mult]
+                    self.QMout["density_matrices"][(s1, s2, spin)] = trans_dens_spin[mult + 1][x, y, :].reshape(dim, -1)[
+                        np.ix_(ao_sorted, ao_sorted)
+                    ]
 
     def _get_energy(self, output_file: str | h5py.File) -> np.ndarray:
         """
