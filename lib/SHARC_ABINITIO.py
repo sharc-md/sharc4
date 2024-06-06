@@ -363,7 +363,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
     def get_mole(self):
         raise NotImplementedError("This interface does not support the density request!")
 
-    def run_program(self, workdir: str, cmd: str, out: str, err: str) -> int:
+    def run_program(self, workdir: str, cmd: str, out: str, err: str, env: dict | None = None) -> int:
         """
         Runs a ab-initio programm and returns the exit_code
 
@@ -371,6 +371,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         cmd:        Contains path and arguments for execution of ab-initio program
         out:        Name of the output file
         err:        Name of the error file (optional)
+        env:        Pass environment variables
         """
         current_dir = os.getcwd()
         os.chdir(workdir)
@@ -379,7 +380,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
 
         with open(out, "w", encoding="utf-8") as outfile, open(err, "w", encoding="utf-8") as errfile:
             try:
-                exit_code = sp.call(cmd, shell=True, stdout=outfile, stderr=errfile)
+                exit_code = sp.call(cmd, shell=True, stdout=outfile, stderr=errfile, env=env)
             except OSError as error:
                 self.log.error(f"Execution of {cmd} failed!")
                 raise OSError from error
@@ -506,7 +507,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
 
         if self.log.level <= TRACE:
             self.log.trace("DOABLE DENSITIES:")
-            for key, value in doable_densities.items():
+            for value in doable_densities.values():
                 self.log.trace(f"        {value['repr']}    {value}", format=False)
 
         if not all(density in doable_densities for density in requested_densities):
@@ -712,7 +713,11 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         if "from_gs2es" not in self.QMin.template["density_calculation_methods"]:
             missing_to_calculate = False
         i = 0
+        max_iter = len(self.states)**2
         while missing_to_calculate or missing_to_construct:
+            if i > max_iter:
+                self.log.error("Constructing densities failed!")
+                raise ValueError()
             i += 1
             if missing_to_construct:
                 missing_to_construct = self.construct_and_append_densities()
@@ -728,10 +733,10 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
     def construct_and_append_densities(self):
         missing = False
         for density, recipe in self.density_recipes["construct"].items():
-            if not density in self.QMout["density_matrices"]:
+            if density not in self.QMout["density_matrices"]:
                 dens, coeffs = recipe["needed"], recipe["how"]
                 if all(d in self.QMout["density_matrices"] for d in dens):
-                    nao = self.QMin.molecule["mol"].nao
+                    nao = self.QMout["mol"].nao
                     rho = np.zeros((nao, nao), dtype=float)
                     for d, c in zip(dens, coeffs):
                         rho += c * self.QMout["density_matrices"][d]
