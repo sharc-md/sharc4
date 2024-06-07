@@ -65,7 +65,7 @@ program data_extractor
   integer, parameter :: u_dm=22           !< electric dipole fosc.out
   integer, parameter :: u_mdm=32          !< magnetic dipole fosc_md2.out
   integer, parameter :: u_eqm=33          !< electric quadrupole fosc_eq2.out
-  integer, parameter :: u_mdeqm=34        !< magnetic dipole * electric quadrupole fosc_md_eq.out
+  integer, parameter :: u_mdeqm=34        !< magnetic dipole * electric quadrupole fosc_mdeq.out
   integer, parameter :: u_spin=23         !< spin.out
   integer, parameter :: u_coefd=24        !< coeff_diag.out
   integer, parameter :: u_coefm=25        !< coeff_MCH.out
@@ -74,14 +74,20 @@ program data_extractor
   integer, parameter :: u_coefdiab=28     !< coeff_diab.out
   integer, parameter :: u_expec_mch=29    !< expec_MCH.out
   integer, parameter :: u_fosc_act=30     !< fosc_act.out
+  integer, parameter :: u_fosc_act_mdm=35     !< fosc_act_md2.out
+  integer, parameter :: u_fosc_act_eqm=36     !< fosc_act_eq2.out
+  integer, parameter :: u_fosc_act_mdeqm=37     !< fosc_act_eq2.out
   integer, parameter :: u_ref=31          !< Reference/QM.out
   integer, parameter :: u_info=42         !< output.dat.ext
   integer, parameter :: u_ion_diag=51     !< ion_diag.out
   integer, parameter :: u_ion_mch=52      !< ion_mch.out
   integer, parameter :: u_dm_diag=53      !< dip_mom_diag.out
   integer, parameter :: u_dm_proj=55      !< dip_mom_proj.out
+  integer, parameter :: u_mdm_diag=53      !< mag. dip_mom_diag.out
+  integer, parameter :: u_mdm_proj=55      !< mag. dip_mom_proj.out
+  integer, parameter :: u_eqm_diag=53      !< el. quad_mom_diag.out
+  integer, parameter :: u_eqm_proj=55      !< el. quad_mom_proj.out
   integer, parameter :: u_proj=56         !< projections.inp
-
   integer, parameter :: u_classd=61        !< JCP 139, 211101 (2013), Method 1 (diag)
   integer, parameter :: u_classm=62        !< JCP 139, 211101 (2013), Method 1 (MCH)
   integer, parameter :: u_classdiab=63     !< JCP 139, 211101 (2013), Method 1 (diabatic)
@@ -132,7 +138,7 @@ program data_extractor
   integer :: step
   complex*16, allocatable :: H_MCH_ss(:,:),U_ss(:,:),DM_mch_ssd(:,:,:),DM_diag_ssd(:,:,:)
   complex*16, allocatable :: MDM_mch_ssd(:,:,:),MDM_diag_ssd(:,:,:)
-  complex*16, allocatable :: EQM_mch_ssd(:,:,:),EQM_diag_ssd(:,:,:)
+  complex*16, allocatable :: EQM_mch_ssdd(:,:,:,:),EQM_diag_ssdd(:,:,:,:)
   complex*16, allocatable :: Prop2d_xss(:,:,:)
   real*8, allocatable     :: Prop1d_ys(:,:)
   complex*16, allocatable :: coeff_diag_s(:),overlaps_ss(:,:), ref_ovl_ss(:,:)
@@ -154,12 +160,21 @@ program data_extractor
   real*8,allocatable :: expec_s(:)                !< spin expectation value per state
   real*8,allocatable :: expec_dm(:)               !< oscillator strength per state
   real*8,allocatable :: expec_dm_mch(:)           !< oscillator strength per state in MCH basis
+  real*8,allocatable :: expec_mdm(:)               !< mag. dipole oscillator strength per state
+  real*8,allocatable :: expec_mdm_mch(:)           !< mag. dipole oscillator strength per state in MCH basis
+  real*8,allocatable :: expec_eqm(:)               !< el. quadrupole oscillator strength per state
+  real*8,allocatable :: expec_eqm_mch(:)           !< el. quadrupole oscillator strength per state in MCH basis
+  real*8,allocatable :: expec_mdeqm(:)               !< mag. dip. - el. quadrupole oscillator strength per state
+  real*8,allocatable :: expec_mdeqm_mch(:)           !< mag. dip. - el. quadrupole oscillator strength per state in MCH basis
   real*8,allocatable :: expec_ion_diag(:)           !< oscillator strength per state in MCH basis
   real*8,allocatable :: expec_ion_mch(:)           !< oscillator strength per state in MCH basis
   real*8,allocatable :: expec_dm_act(:)           !< oscillator strength per state with active state as source state
+  real*8,allocatable :: expec_mdm_act(:)           !< mag. dipole oscillator strength per state with active state as source state
+  real*8,allocatable :: expec_eqm_act(:)           !< el. quadrupole oscillator strength per state with active state as source state
+  real*8,allocatable :: expec_mdeqm_act(:)           !< mag. dip. - el. quadrupole oscillator strength per state with active state as source state
   real*8,allocatable :: dm_proj_sp(:,:)           !< dipole moment per state projected onto vector yet to be defined
   real*8,allocatable :: mdm_proj_sp(:,:)           !< magnetic dipole moment per state projected onto vector yet to be defined
-  real*8,allocatable :: eqm_proj_spp(:,:,:)           !< electric quaduprole moment per state projected onto vector yet to be defined
+  real*8,allocatable :: eqm_proj_sp(:,:)           !< electric quaduprole moment per state projected onto vector yet to be defined
   real*8,allocatable :: proj_vec_pd(:,:)           !< vectors to project dipole moment onto
   real*8,allocatable :: norm_proj_vec_p(:)          !< norm of vectors to project dipole moment onto
   real*8,allocatable :: proj_point(:,:)          !< norm of vectors to project dipole moment onto
@@ -175,11 +190,14 @@ program data_extractor
   character*8000, allocatable :: args(:)
   character*8000, allocatable :: values(:)
   character*21 :: string2
-  integer :: i, io, idir,istate,jstate,kstate,imult,ims,j,n,iproj
+  integer :: i, io, idir,istate,jdir,jstate,kstate,imult,ims,j,n,iproj
   logical :: exists
   logical :: is_integer
   logical :: write_energy
   logical :: write_dip
+  logical :: write_mag_dip
+  logical :: write_el_quad
+  logical :: write_mag_dip_el_quad
   logical :: write_spin
   logical :: write_coeffdiag
   logical :: write_coeffmch
@@ -188,8 +206,15 @@ program data_extractor
   logical :: write_expecmch
   logical :: write_coeffdiab
   logical :: write_dipact
+  logical :: write_mag_dipact
+  logical :: write_el_quadact
+  logical :: write_mag_dip_el_quadact
   logical :: write_dm_diag
   logical :: write_dm_proj
+  logical :: write_mdm_diag
+  logical :: write_mdm_proj
+  logical :: write_eqm_diag
+  logical :: write_eqm_proj
   logical :: write_iondiag
   logical :: write_ionmch
   logical :: skip_geom_vel_grad_nac
@@ -222,6 +247,9 @@ program data_extractor
   ! defaults for writing options
   write_energy    = .false.
   write_dip       = .false.
+  write_mag_dip       = .false.
+  write_el_quad       = .false.
+  write_mag_dip_el_quad       = .false.
   write_spin      = .false.
   write_coeffdiag = .false.
   write_coeffmch  = .false.
@@ -230,6 +258,9 @@ program data_extractor
   write_expecmch  = .false.
   write_coeffdiab = .false.
   write_dipact    = .false.
+  write_mag_dipact    = .false.
+  write_el_quadact    = .false.
+  write_mag_dip_el_quadact    = .false.
   write_dm_diag   = .false.
   write_dm_proj   = .false.
   write_iondiag   = .false.
@@ -266,6 +297,10 @@ program data_extractor
       write_energy = .true.
     elseif (trim(args(i)) == "-d") then
       write_dip = .true.
+    elseif (trim(args(i)) == "-dmd") then
+      write_mag_dip = .true.
+    elseif (trim(args(i)) == "-deq") then
+      write_el_quad = .true.
     elseif (trim(args(i)) == "-sp") then
       write_spin = .true.
     elseif (trim(args(i)) == "-cd") then
@@ -281,7 +316,13 @@ program data_extractor
     elseif (trim(args(i)) == "-cb") then
       write_coeffdiab = .true.
     elseif (trim(args(i)) == "-da") then
-      write_dipact = .true.
+      write_dipact = .true.    
+    elseif (trim(args(i)) == "-daeq") then
+      write_el_quadact = .true.
+    elseif (trim(args(i)) == "-damd") then
+      write_mag_dipact = .true.
+    elseif (trim(args(i)) == "-damdeq") then
+      write_mag_dip_el_quadact = .true.
     elseif (trim(args(i)) == "-dd") then
       write_dm_diag = .true.
     elseif (trim(args(i)) == "-dp") then
@@ -296,6 +337,9 @@ program data_extractor
     elseif (trim(args(i)) == "-xl") then
       write_energy = .true.
       write_dip = .true.
+      write_mag_dip = .true.
+      write_el_quad = .true.
+      write_mag_dip_el_quad = .true.
       write_spin = .true.
       write_coeffdiag = .true.
       write_coeffmch = .true.
@@ -304,6 +348,9 @@ program data_extractor
       write_expecmch = .true.
       write_coeffdiab = .true.
       write_dipact = .true.
+      write_mag_dipact = .true.
+      write_el_quadact = .true.
+      write_mag_dip_el_quadact = .true.
       write_dm_diag = .true.
       write_dm_proj = .true.
       write_iondiag = .true.
@@ -312,6 +359,9 @@ program data_extractor
     elseif (trim(args(i)) == "-l") then
       write_energy = .true.
       write_dip = .true.
+      write_mag_dip = .true.
+      write_el_quad = .true.
+      write_mag_dip_el_quad = .true.
       write_spin = .true.
       write_coeffdiag = .true.
       write_coeffmch = .true.
@@ -320,6 +370,9 @@ program data_extractor
       write_expecmch = .true.
       write_coeffdiab = .true.
       write_dipact = .true.
+      write_mag_dipact = .true.
+      write_el_quadact = .true.
+      write_mag_dip_el_quadact = .true.
       write_iondiag = .true.
       write_ionmch = .true.
       skip_geom_vel_grad_nac = .true.
@@ -327,6 +380,9 @@ program data_extractor
     elseif (trim(args(i)) == "-s") then
       write_energy = .true.
       write_dip = .true.
+      write_mag_dip = .true.
+      write_el_quad = .true.
+      write_mag_dip_el_quad = .true.
       write_spin = .true.
       write_coeffdiag = .true.
       write_coeffmch = .true.
@@ -335,11 +391,17 @@ program data_extractor
       write_expecmch = .true.
       write_coeffdiab = .true.
       write_dipact = .true.
+      write_mag_dipact = .true.
+      write_el_quadact = .true.
+      write_mag_dip_el_quadact = .true.
       skip_geom_vel_grad_nac = .true.
     ! very small set of flags true
     elseif (trim(args(i)) == "-xs") then
       write_energy = .true.
       write_dip = .true.
+      write_mag_dip = .true.
+      write_el_quad = .true.
+      write_mag_dip_el_quad = .true.
       write_coeffdiag = .true.
       write_coeffmch = .true.
       write_prob = .true.
@@ -362,6 +424,9 @@ program data_extractor
     write_energy    = .true.
     write_dip       = .true.
     write_spin      = .true.
+    write_mag_dip = .true.
+    write_el_quad = .true.
+    write_mag_dip_el_quad = .true.
     write_coeffdiag = .true.
     write_coeffmch  = .true.
     write_prob      = .true.
@@ -369,6 +434,9 @@ program data_extractor
     write_expecmch  = .true.
     write_coeffdiab = .true.
     write_dipact    = .true.
+    write_mag_dipact = .true.
+    write_el_quadact = .true.
+    write_mag_dip_el_quadact = .true.
     write_dm_diag   = .false.
     write_dm_proj   = .false.
     write_iondiag   = .false.
@@ -537,12 +605,16 @@ program data_extractor
     allocate( DM_mch_ssd(nstates,nstates,3) )
     allocate( DM_diag_ssd(nstates,nstates,3) )
     allocate( dm_proj_sp(nstates,nprojections) )
-    allocate( MDM_mch_ssd(nstates,nstates,3) )
-    allocate( MDM_diag_ssd(nstates,nstates,3) )
-    allocate( mdm_proj_sp(nstates,nprojections) ) 
-    allocate( EQM_mch_ssdd(nstates,nstates,3,3) )
-    allocate( EQM_diag_ssdd(nstates,nstates,3,3) )
-    allocate( eqm_proj_sp(nstates,nprojections) )  
+    if (laser_b==.true.) then
+      allocate( MDM_mch_ssd(nstates,nstates,3) )
+      allocate( MDM_diag_ssd(nstates,nstates,3) )
+      allocate( mdm_proj_sp(nstates,nprojections) ) 
+    endif
+    if (laser_egrad==.true.) then
+      allocate( EQM_mch_ssdd(nstates,nstates,3,3) )
+      allocate( EQM_diag_ssdd(nstates,nstates,3,3) )
+      allocate( eqm_proj_sp(nstates,nprojections) )  
+    endif
     allocate( proj_vec_pd(nprojections,3) )
     allocate( norm_proj_vec_p(nprojections) )
     allocate( coeff_diag_s(nstates), coeff_MCH_s(nstates), coeff_diab_s(nstates) )
@@ -643,6 +715,10 @@ program data_extractor
     allocate( overlaps_ss(nstates,nstates), ref_ovl_ss(nstates,nstates) )
     allocate( DM_mch_ssd(nstates,nstates,3) )
     allocate( DM_diag_ssd(nstates,nstates,3) )
+    allocate( MDM_mch_ssd(nstates,nstates,3) )
+    allocate( MDM_diag_ssd(nstates,nstates,3) )
+    allocate( EQM_mch_ssdd(nstates,nstates,3,3) )
+    allocate( EQM_diag_ssdd(nstates,nstates,3,3) )
     allocate( dm_proj_sp(nstates,nprojections) )
     allocate( proj_vec_pd(nprojections,3) )
     allocate( norm_proj_vec_p(nprojections) )
@@ -863,6 +939,10 @@ program data_extractor
   if (write_expec)     open(unit=u_expec, file='output_data/expec.out', status='replace', action='write')           ! -x
   if (write_expecmch)  open(unit=u_expec_mch, file='output_data/expec_MCH.out', status='replace', action='write')   ! -xm
   if (write_dipact)    open(unit=u_fosc_act, file='output_data/fosc_act.out', status='replace', action='write')     ! -da
+  if (write_mag_dipact)    open(unit=u_fosc_act_mdm, file='output_data/fosc_act_md2.out', status='replace', action='write')     !-damd
+  if (write_el_quadact)    open(unit=u_fosc_act_eqm, file='output_data/fosc_act_eq2.out', status='replace', action='write')     !-daeq
+  if (write_mag_dip_el_quadact)    open(unit=u_fosc_act_mdeqm, file='output_data/fosc_act_mdeq.out', status='replace',&
+                                         &action='write')     ! -damdeq
   if (write_iondiag)   open(unit=u_ion_diag, file='output_data/ion_diag.out', status='replace', action='write')     ! -id
   if (write_ionmch)    open(unit=u_ion_mch, file='output_data/ion_mch.out', status='replace', action='write')       ! -im
   if (write_dm_diag)   open(unit=u_dm_diag, file='output_data/dip_mom_diag.out', status='replace', action='write')   ! -dd
@@ -896,6 +976,12 @@ program data_extractor
     write(u_eqm,'(A1,1X,3(A20,1X))') '#','[fs] |','[] |','[] |'
   endif 
 
+  if (write_mag_dip_el_quad) then
+    write(u_mdeqm,'(A1,1X,1000(I20,1X))') '#',(i,i=1,nstates+2)
+    write(u_mdeqm,'(A1,1X,3(A20,1X))') '#','Time |','mag. dip. - el. quad. f_osc (state) |','=== mag. dip. - el. quad. f_osc ===>'
+    write(u_mdeqm,'(A1,1X,3(A20,1X))') '#','[fs] |','[] |','[] |'
+  endif 
+
   if (write_dipact) then
     write(u_fosc_act,'(A1,1X,1000(I20,1X))') '#',(i,i=1,2*nstates+1)
     write(string1, '(A1,1X,1(A20,1X))') '#','Time |'
@@ -919,7 +1005,75 @@ program data_extractor
     enddo
     write(u_fosc_act,'(A)') trim(string1)
   endif
-  
+  if (write_mag_dipact) then
+    write(u_fosc_act_mdm,'(A1,1X,1000(I20,1X))') '#',(i,i=1,2*nstates+1)
+    write(string1, '(A1,1X,1(A20,1X))') '#','Time |'
+    do i=1,nstates
+      write(string2,'(1X,A8,I10,A2)') 'dE ',i,' |'
+      string1=trim(string1)//string2
+    enddo
+    do i=1,nstates
+      write(string2,'(1X,A6,I12,A2)') 'f_osc ',i,' |'
+      string1=trim(string1)//string2
+    enddo
+    write(u_fosc_act_mdm,'(A)') trim(string1)
+    write(string1, '(A1,1X,1(A20,1X))') '#','[fs] |'
+    do i=1,nstates
+      write(string2,'(1X,A20)') '[eV] |'
+      string1=trim(string1)//string2
+    enddo
+    do i=1,nstates
+      write(string2,'(1X,A20)') '[] |'
+      string1=trim(string1)//string2
+    enddo
+    write(u_fosc_act_mdm,'(A)') trim(string1)
+  endif 
+  if (write_el_quadact) then
+    write(u_fosc_act_eqm,'(A1,1X,1000(I20,1X))') '#',(i,i=1,2*nstates+1)
+    write(string1, '(A1,1X,1(A20,1X))') '#','Time |'
+    do i=1,nstates
+      write(string2,'(1X,A8,I10,A2)') 'dE ',i,' |'
+      string1=trim(string1)//string2
+    enddo
+    do i=1,nstates
+      write(string2,'(1X,A6,I12,A2)') 'f_osc ',i,' |'
+      string1=trim(string1)//string2
+    enddo
+    write(u_fosc_act_eqm,'(A)') trim(string1)
+    write(string1, '(A1,1X,1(A20,1X))') '#','[fs] |'
+    do i=1,nstates
+      write(string2,'(1X,A20)') '[eV] |'
+      string1=trim(string1)//string2
+    enddo
+    do i=1,nstates
+      write(string2,'(1X,A20)') '[] |'
+      string1=trim(string1)//string2
+    enddo
+    write(u_fosc_act_eqm,'(A)') trim(string1)
+  endif 
+  if (write_mag_dip_el_quadact) then
+    write(u_fosc_act_mdeqm,'(A1,1X,1000(I20,1X))') '#',(i,i=1,2*nstates+1)
+    write(string1, '(A1,1X,1(A20,1X))') '#','Time |'
+    do i=1,nstates
+      write(string2,'(1X,A8,I10,A2)') 'dE ',i,' |'
+      string1=trim(string1)//string2
+    enddo
+    do i=1,nstates
+      write(string2,'(1X,A6,I12,A2)') 'f_osc ',i,' |'
+      string1=trim(string1)//string2
+    enddo
+    write(u_fosc_act_mdeqm,'(A)') trim(string1)
+    write(string1, '(A1,1X,1(A20,1X))') '#','[fs] |'
+    do i=1,nstates
+      write(string2,'(1X,A20)') '[eV] |'
+      string1=trim(string1)//string2
+    enddo
+    do i=1,nstates
+      write(string2,'(1X,A20)') '[] |'
+      string1=trim(string1)//string2
+    enddo
+    write(u_fosc_act_mdeqm,'(A)') trim(string1)
+  endif 
   if (write_iondiag) then
     write(u_ion_diag,'(A1,1X,1000(I20,1X))') '#',(i,i=1,2*nstates+2)
     write(string1, '(A1,1X,2(A20,1X))') '#','Time |','State (diag) |'
@@ -935,200 +1089,200 @@ program data_extractor
     write(string1, '(A1,1X,2(A20,1X))') '#','[fs] |','|'
     do i=1,nstates
       write(string2,'(1X,A20)') '[eV] |'
-      string1=trim(string1)//string2
-    enddo
-    do i=1,nstates
-      write(string2,'(1X,A20)') '[] |'
-      string1=trim(string1)//string2
-    enddo
-    write(u_ion_diag,'(A)') trim(string1)
-  endif
-  
-  if (write_ionmch) then 
-    write(u_ion_mch,'(A1,1X,1000(I20,1X))') '#',(i,i=1,2*nstates+2)
-    write(string1, '(A1,1X,2(A20,1X))') '#','Time |','State (diag) |'
-    do i=1,nstates
-      write(string2,'(1X,A8,I10,A2)') 'dE ',i,' |'
-      string1=trim(string1)//string2
-    enddo
-    do i=1,nstates
-      write(string2,'(1X,A6,I12,A2)') 'f_osc ',i,' |'
-      string1=trim(string1)//string2
-    enddo
-    write(u_ion_mch,'(A)') trim(string1)
-    write(string1, '(A1,1X,2(A20,1X))') '#','[fs] |','|'
-    do i=1,nstates
-      write(string2,'(1X,A20)') '[eV] |'
-      string1=trim(string1)//string2
-    enddo
-    do i=1,nstates
-      write(string2,'(1X,A20)') '[] |'
-      string1=trim(string1)//string2
-    enddo
-    write(u_ion_mch,'(A)') trim(string1)
-  endif
-  
-  if (write_spin) then
-    write(u_spin,'(A1,1X,1000(I20,1X))') '#',(i,i=1,nstates+2)
-    write(u_spin,'(A1,1X,3(A20,1X))') '#','Time |','Spin_s |','=== Spins ===>'
-    write(u_spin,'(A1,1X,3(A20,1X))') '#','[fs] |','[] |','[] |'
-  endif
-  
-  if (write_coeffdiag) then
-    write(u_coefd,'(A1,1X,1000(I20,1X))') '#',(i,i=1,2*nstates+2)
-    write(u_coefd,'(A1,1X,3(A20,1X))') '#','Time |','Sum c**2 |','=== coeff_diag ===>'
-    write(u_coefd,'(A1,1X,3(A20,1X))') '#','[fs] |','[] |','[] |'
-    write(u_classd,'(A1,1X,1000(I20,1X))') '#',(i,i=1,2*nstates+2)
-    write(u_classd,'(A1,1X,3(A20,1X))') '#','Time |','Sum c**2 |','=== coeff_diag ===>'
-    write(u_classd,'(A1,1X,3(A20,1X))') '#','[fs] |','[] |','[] |'
-    write(u_cmixd,'(A1,1X,1000(I20,1X))') '#',(i,i=1,2*nstates+2)
-    write(u_cmixd,'(A1,1X,3(A20,1X))') '#','Time |','Sum c**2 |','=== coeff_diag ===>'
-    write(u_cmixd,'(A1,1X,3(A20,1X))') '#','[fs] |','[] |','[] |'
-  endif
-  
-  if (write_coeffmch) then
-    write(u_coefm,'(A1,1X,1000(I20,1X))') '#',(i,i=1,2*nstates+2)
-    write(u_coefm,'(A1,1X,3(A20,1X))') '#','Time |','Sum c**2 |','=== coeff_MCH ===>'
-    write(u_coefm,'(A1,1X,3(A20,1X))') '#','[fs] |','[] |','[] |'
-    write(u_classm,'(A1,1X,1000(I20,1X))') '#',(i,i=1,2*nstates+2)
-    write(u_classm,'(A1,1X,3(A20,1X))') '#','Time |','Sum c**2 |','=== coeff_MCH ===>'
-    write(u_classm,'(A1,1X,3(A20,1X))') '#','[fs] |','[] |','[] |'
-    write(u_cmixm,'(A1,1X,1000(I20,1X))') '#',(i,i=1,2*nstates+2)
-    write(u_cmixm,'(A1,1X,3(A20,1X))') '#','Time |','Sum c**2 |','=== coeff_MCH ===>'
-    write(u_cmixm,'(A1,1X,3(A20,1X))') '#','[fs] |','[] |','[] |'
-  endif
-  
-  if (write_coeffdiab) then
-    write(u_coefdiab,'(A1,1X,1000(I20,1X))') '#',(i,i=1,2*nstates+2)
-    write(u_coefdiab,'(A1,1X,3(A20,1X))') '#','Time |','Sum c**2 |','=== coeff_diab ===>'
-    write(u_coefdiab,'(A1,1X,3(A20,1X))') '#','[fs] |','[] |','[] |'
-    write(u_classdiab,'(A1,1X,1000(I20,1X))') '#',(i,i=1,2*nstates+2)
-    write(u_classdiab,'(A1,1X,3(A20,1X))') '#','Time |','Sum c**2 |','=== coeff_diab ===>'
-    write(u_classdiab,'(A1,1X,3(A20,1X))') '#','[fs] |','[] |','[] |'
-    write(u_cmixdiab,'(A1,1X,1000(I20,1X))') '#',(i,i=1,2*nstates+2)
-    write(u_cmixdiab,'(A1,1X,3(A20,1X))') '#','Time |','Sum c**2 |','=== coeff_diab ===>'
-    write(u_cmixdiab,'(A1,1X,3(A20,1X))') '#','[fs] |','[] |','[] |'
-  endif
-  
-  if (write_prob) then
-    write(u_prob,'(A1,1X,1000(I20,1X))') '#',(i,i=1,nstates+2)
-    write(u_prob,'(A1,1X,3(A20,1X))') '#','Time |','Random Number |','=== cumu Prob ===>'
-    write(u_prob,'(A1,1X,3(A20,1X))') '#','[fs] |','[] |','[] |'
-  endif
-  
-  if (write_expec .or. write_expecmch) then
-    ! Strings for expec and expec_mch
-    write(string1, '(A1,1X,4(A20,1X))') '#','Time |','Ekin |','Epot |','Etot |'
-    do i=1,nstates
-      write(string2,'(1X,A8,I10,A2)') 'Energy ',i,' |'
-      string1=trim(string1)//string2
-    enddo
-    do i=1,nstates
-      write(string2,'(1X,A5,I13,A2)') 'Spin ',i,' |'
-      string1=trim(string1)//string2
-    enddo
-    do i=1,nstates
-      write(string2,'(1X,A6,I12,A2)') 'f_osc ',i,' |'
-      string1=trim(string1)//string2
-    enddo 
+          string1=trim(string1)//string2
+        enddo
+        do i=1,nstates
+          write(string2,'(1X,A20)') '[] |'
+          string1=trim(string1)//string2
+        enddo
+        write(u_ion_diag,'(A)') trim(string1)
+      endif
+      
+      if (write_ionmch) then 
+        write(u_ion_mch,'(A1,1X,1000(I20,1X))') '#',(i,i=1,2*nstates+2)
+        write(string1, '(A1,1X,2(A20,1X))') '#','Time |','State (diag) |'
+        do i=1,nstates
+          write(string2,'(1X,A8,I10,A2)') 'dE ',i,' |'
+          string1=trim(string1)//string2
+        enddo
+        do i=1,nstates
+          write(string2,'(1X,A6,I12,A2)') 'f_osc ',i,' |'
+          string1=trim(string1)//string2
+        enddo
+        write(u_ion_mch,'(A)') trim(string1)
+        write(string1, '(A1,1X,2(A20,1X))') '#','[fs] |','|'
+        do i=1,nstates
+          write(string2,'(1X,A20)') '[eV] |'
+          string1=trim(string1)//string2
+        enddo
+        do i=1,nstates
+          write(string2,'(1X,A20)') '[] |'
+          string1=trim(string1)//string2
+        enddo
+        write(u_ion_mch,'(A)') trim(string1)
+      endif
+      
+      if (write_spin) then
+        write(u_spin,'(A1,1X,1000(I20,1X))') '#',(i,i=1,nstates+2)
+        write(u_spin,'(A1,1X,3(A20,1X))') '#','Time |','Spin_s |','=== Spins ===>'
+        write(u_spin,'(A1,1X,3(A20,1X))') '#','[fs] |','[] |','[] |'
+      endif
+      
+      if (write_coeffdiag) then
+        write(u_coefd,'(A1,1X,1000(I20,1X))') '#',(i,i=1,2*nstates+2)
+        write(u_coefd,'(A1,1X,3(A20,1X))') '#','Time |','Sum c**2 |','=== coeff_diag ===>'
+        write(u_coefd,'(A1,1X,3(A20,1X))') '#','[fs] |','[] |','[] |'
+        write(u_classd,'(A1,1X,1000(I20,1X))') '#',(i,i=1,2*nstates+2)
+        write(u_classd,'(A1,1X,3(A20,1X))') '#','Time |','Sum c**2 |','=== coeff_diag ===>'
+        write(u_classd,'(A1,1X,3(A20,1X))') '#','[fs] |','[] |','[] |'
+        write(u_cmixd,'(A1,1X,1000(I20,1X))') '#',(i,i=1,2*nstates+2)
+        write(u_cmixd,'(A1,1X,3(A20,1X))') '#','Time |','Sum c**2 |','=== coeff_diag ===>'
+        write(u_cmixd,'(A1,1X,3(A20,1X))') '#','[fs] |','[] |','[] |'
+      endif
+      
+      if (write_coeffmch) then
+        write(u_coefm,'(A1,1X,1000(I20,1X))') '#',(i,i=1,2*nstates+2)
+        write(u_coefm,'(A1,1X,3(A20,1X))') '#','Time |','Sum c**2 |','=== coeff_MCH ===>'
+        write(u_coefm,'(A1,1X,3(A20,1X))') '#','[fs] |','[] |','[] |'
+        write(u_classm,'(A1,1X,1000(I20,1X))') '#',(i,i=1,2*nstates+2)
+        write(u_classm,'(A1,1X,3(A20,1X))') '#','Time |','Sum c**2 |','=== coeff_MCH ===>'
+        write(u_classm,'(A1,1X,3(A20,1X))') '#','[fs] |','[] |','[] |'
+        write(u_cmixm,'(A1,1X,1000(I20,1X))') '#',(i,i=1,2*nstates+2)
+        write(u_cmixm,'(A1,1X,3(A20,1X))') '#','Time |','Sum c**2 |','=== coeff_MCH ===>'
+        write(u_cmixm,'(A1,1X,3(A20,1X))') '#','[fs] |','[] |','[] |'
+      endif
+      
+      if (write_coeffdiab) then
+        write(u_coefdiab,'(A1,1X,1000(I20,1X))') '#',(i,i=1,2*nstates+2)
+        write(u_coefdiab,'(A1,1X,3(A20,1X))') '#','Time |','Sum c**2 |','=== coeff_diab ===>'
+        write(u_coefdiab,'(A1,1X,3(A20,1X))') '#','[fs] |','[] |','[] |'
+        write(u_classdiab,'(A1,1X,1000(I20,1X))') '#',(i,i=1,2*nstates+2)
+        write(u_classdiab,'(A1,1X,3(A20,1X))') '#','Time |','Sum c**2 |','=== coeff_diab ===>'
+        write(u_classdiab,'(A1,1X,3(A20,1X))') '#','[fs] |','[] |','[] |'
+        write(u_cmixdiab,'(A1,1X,1000(I20,1X))') '#',(i,i=1,2*nstates+2)
+        write(u_cmixdiab,'(A1,1X,3(A20,1X))') '#','Time |','Sum c**2 |','=== coeff_diab ===>'
+        write(u_cmixdiab,'(A1,1X,3(A20,1X))') '#','[fs] |','[] |','[] |'
+      endif
+      
+      if (write_prob) then
+        write(u_prob,'(A1,1X,1000(I20,1X))') '#',(i,i=1,nstates+2)
+        write(u_prob,'(A1,1X,3(A20,1X))') '#','Time |','Random Number |','=== cumu Prob ===>'
+        write(u_prob,'(A1,1X,3(A20,1X))') '#','[fs] |','[] |','[] |'
+      endif
+      
+      if (write_expec .or. write_expecmch) then
+        ! Strings for expec and expec_mch
+        write(string1, '(A1,1X,4(A20,1X))') '#','Time |','Ekin |','Epot |','Etot |'
+        do i=1,nstates
+          write(string2,'(1X,A8,I10,A2)') 'Energy ',i,' |'
+          string1=trim(string1)//string2
+        enddo
+        do i=1,nstates
+          write(string2,'(1X,A5,I13,A2)') 'Spin ',i,' |'
+          string1=trim(string1)//string2
+        enddo
+        do i=1,nstates
+          write(string2,'(1X,A6,I12,A2)') 'f_osc ',i,' |'
+          string1=trim(string1)//string2
+        enddo 
 
-    write(string3, '(A1,1X,4(A20,1X))') '#','[fs] |','[eV] |','[eV] |','[eV] |'
-    do i=1,nstates
-      write(string2,'(1X,A20)') '[eV] |'
-      string3=trim(string3)//string2
-    enddo
-    do i=1,nstates
-      write(string2,'(1X,A20)') '[] |'
-      string3=trim(string3)//string2
-    enddo
-    do i=1,nstates
-      write(string2,'(1X,A20)') '[] |'
-      string3=trim(string3)//string2
-    enddo
-  endif    
-     
-  if (write_expec) then
-    write(u_expec,'(A1,1X,1000(I20,1X))') '#',(i,i=1,3*nstates+4)
-    write(u_expec,'(A)') trim(string1)
-    write(u_expec,'(A)') trim(string3)
-  endif
-    
-  if (write_expecmch) then
-    write(u_expec_mch,'(A1,1X,1000(I20,1X))') '#',(i,i=1,3*nstates+4)
-    write(u_expec_mch,'(A)') trim(string1)
-    write(u_expec_mch,'(A)') trim(string3)
-  endif
-
-
-  ! =============================================================================================
-  !                                Initialize data
-  ! =============================================================================================
+        write(string3, '(A1,1X,4(A20,1X))') '#','[fs] |','[eV] |','[eV] |','[eV] |'
+        do i=1,nstates
+          write(string2,'(1X,A20)') '[eV] |'
+          string3=trim(string3)//string2
+        enddo
+        do i=1,nstates
+          write(string2,'(1X,A20)') '[] |'
+          string3=trim(string3)//string2
+        enddo
+        do i=1,nstates
+          write(string2,'(1X,A20)') '[] |'
+          string3=trim(string3)//string2
+        enddo
+      endif    
+         
+      if (write_expec) then
+        write(u_expec,'(A1,1X,1000(I20,1X))') '#',(i,i=1,3*nstates+4)
+        write(u_expec,'(A)') trim(string1)
+        write(u_expec,'(A)') trim(string3)
+      endif
+        
+      if (write_expecmch) then
+        write(u_expec_mch,'(A1,1X,1000(I20,1X))') '#',(i,i=1,3*nstates+4)
+        write(u_expec_mch,'(A)') trim(string1)
+        write(u_expec_mch,'(A)') trim(string3)
+      endif
 
 
-  ! spin values in MCH basis
-  ! spin values in diagonal basis are calculated from these 
-  spin0_s=0.d0
-  i=0
-  do imult=1,maxmult
-    do ims=1,imult
-      do istate=1,nstates_m(imult)
-        i=i+1
-        spin0_s(i)=real(imult-1)
+      ! =============================================================================================
+      !                                Initialize data
+      ! =============================================================================================
+
+
+      ! spin values in MCH basis
+      ! spin values in diagonal basis are calculated from these 
+      spin0_s=0.d0
+      i=0
+      do imult=1,maxmult
+        do ims=1,imult
+          do istate=1,nstates_m(imult)
+            i=i+1
+            spin0_s(i)=real(imult-1)
+          enddo
+        enddo
       enddo
-    enddo
-  enddo
 
-  ! Initial overlap for diabatic populations
-  if (write_coeffdiab) then
-    ! reference overlap
-    ! by default, the reference overlap is the unit matrix
-    ref_ovl_ss=dcmplx(0.d0,0.d0)
-    do i=1,nstates
-      ref_ovl_ss(i,i)=dcmplx(1.d0,0.d0)
-    enddo
+      ! Initial overlap for diabatic populations
+      if (write_coeffdiab) then
+        ! reference overlap
+        ! by default, the reference overlap is the unit matrix
+        ref_ovl_ss=dcmplx(0.d0,0.d0)
+        do i=1,nstates
+          ref_ovl_ss(i,i)=dcmplx(1.d0,0.d0)
+        enddo
 
-    ! if "Reference/QM.out" exists, reference overlap is read from there and
-    ! Löwdin orthogonalized
-    filename='Reference/QM.out'
-    inquire(file=filename,exist=exists)
-    if (exists) then
-      call open_qmout(u_ref,filename)
-      call get_overlap(nstates,ref_ovl_ss)
-      call close_qmout
-      call lowdin(nstates,ref_ovl_ss)
-    else
-      write(6,*) 'WARNING: Reference overlap not available! Data in coeff_diab.out will be incompatible with other trajectories.'
-    endif
-  endif
+        ! if "Reference/QM.out" exists, reference overlap is read from there and
+        ! Löwdin orthogonalized
+        filename='Reference/QM.out'
+        inquire(file=filename,exist=exists)
+        if (exists) then
+          call open_qmout(u_ref,filename)
+          call get_overlap(nstates,ref_ovl_ss)
+          call close_qmout
+          call lowdin(nstates,ref_ovl_ss)
+        else
+          write(6,*) 'WARNING: Reference overlap not available! Data in coeff_diab.out will be incompatible with other trajectories.'
+        endif
+      endif
 
-  ! =============================================================================================
-  !                                Main loop
-  ! =============================================================================================
+      ! =============================================================================================
+      !                                Main loop
+      ! =============================================================================================
 
-  write(6,*) 
-  write(6,*) 'Running...'
-  do
-    ! read everything: H, U, DM, overlap, coeff_diag, hopprob, Ekin, active states
-    ! random number, runtime for the timestep, geometry, velocity, property matrix
-    read(u_dat,*,iostat=io) string1
-    if (io/=0) exit
-    if (adaptive==0) then 
-      read(u_dat,*) step
-      microtime=step*dtstep
-    else if (adaptive==1) then
-      read(u_dat,*) nsteps_adapted, microtime, dtstep_adapted
-    endif
-    call matread(nstates,H_MCH_ss,u_dat,string1)
-    call matread(nstates,U_ss,u_dat,string1)
-    do idir=1,3
-      call matread(nstates,DM_mch_ssd(:,:,idir),u_dat,string1)
-    enddo
-    if laser_b==.true. then 
-      do idir=1,3
-        call matread(nstates,MDM_mch_ssd(:,:,idir),u_dat,string1)
-      enddo
-    endif        
-    if laser_egrad==.true. then 
+      write(6,*) 
+      write(6,*) 'Running...'
+      do
+        ! read everything: H, U, DM, overlap, coeff_diag, hopprob, Ekin, active states
+        ! random number, runtime for the timestep, geometry, velocity, property matrix
+        read(u_dat,*,iostat=io) string1
+        if (io/=0) exit
+        if (adaptive==0) then 
+          read(u_dat,*) step
+          microtime=step*dtstep
+        else if (adaptive==1) then
+          read(u_dat,*) nsteps_adapted, microtime, dtstep_adapted
+        endif
+        call matread(nstates,H_MCH_ss,u_dat,string1)
+        call matread(nstates,U_ss,u_dat,string1)
+        do idir=1,3
+          call matread(nstates,DM_mch_ssd(:,:,idir),u_dat,string1)
+        enddo
+        if (laser_b==.true.) then 
+          do idir=1,3
+            call matread(nstates,MDM_mch_ssd(:,:,idir),u_dat,string1)
+          enddo
+        endif        
+        if (laser_egrad==.true.) then 
       do idir=1,3
         do jdir=1,3
           call matread(nstates,EQM_mch_ssdd(:,:,idir,jdir),u_dat,string1)
@@ -1199,7 +1353,7 @@ program data_extractor
 
     ! calculate Hamiltonian including laser field
     H_diag_ss=H_MCH_ss
-    if (laser==2 .AND. laser_e==.true.) then
+    if (laser==2) then
       do idir=1,3
         H_diag_ss=H_diag_ss - DM_mch_ssd(:,:,idir)*real(laserfield_e_tp(step*nsubsteps+1,idir))
       enddo
@@ -1258,7 +1412,7 @@ program data_extractor
     endif
     
     ! calculate oscillator strengths for magnetic dipoles
-    if (write_mag_dip .or. write_dipact .or. write_expec .or. write_expecmch .or. write_dm_diag) then
+    if (write_mag_dip .or. write_mag_dipact .or. write_expec .or. write_expecmch .or. write_dm_diag) then
       expec_mdm=0.d0
       expec_mdm_mch=0.d0
       expec_mdm_act=0.d0 
@@ -1281,7 +1435,7 @@ program data_extractor
     endif
     
     ! calculate oscillator strengths for electric quadrupoles
-    if (write_el_quad .or. write_dipact .or. write_expec .or. write_expecmch .or. write_dm_diag) then
+    if (write_el_quad .or. write_el_quadact .or. write_expec .or. write_expecmch .or. write_dm_diag) then
       expec_eqm=0.d0
       expec_eqm_mch=0.d0
       expec_eqm_act=0.d0 
@@ -1305,8 +1459,8 @@ program data_extractor
       enddo
     endif
     
-    ! calculate oscillator strengths for magnetic dipole * electric quadupole
-    if (write_mag_dip_el_quad .or. write_dipact .or. write_expec .or. write_expecmch .or. write_dm_diag) then
+    ! calculate oscillator strengths for magnetic dipole * electric quadrupole
+    if (write_mag_dip_el_quad .or. write_mag_dip_el_quadact .or. write_expec .or. write_expecmch .or. write_dm_diag) then
       expec_mdeqm=0.d0
       expec_mdeqm_mch=0.d0
       expec_mdeqm_act=0.d0 
@@ -1417,7 +1571,7 @@ program data_extractor
       (expec_eqm(istate),istate=1,nstates)
     endif
     if (write_mag_dip_el_quad) then
-      ! write to fosc_md_eq.out
+      ! write to fosc_mdeq.out
       write(u_mdeqm,'(2X,1000(ES20.12E3,1X))') &
       &microtime, expec_mdeqm(state_diag),&
       (expec_mdeqm(istate),istate=1,nstates)
@@ -1431,7 +1585,24 @@ program data_extractor
 !       &step*dtstep,(real(H_diag_ss(istate,istate)-H_diag_ss(state_diag,state_diag))*au2eV,istate=1,nstates),&
 !       (expec_dm_act(istate),istate=1,nstates)
     endif
-
+    if (write_mag_dipact)  then
+      ! write to fosc_act.out
+      write(u_fosc_act_mdm,'(2X,1000(ES20.12E3,1X))') &
+      &microtime,(abs(real(H_diag_ss(istate,istate)-H_diag_ss(state_diag,state_diag)))*au2eV,istate=1,nstates),&
+      (expec_mdm_act(istate),istate=1,nstates)
+!       write(u_fosc_act,'(2X,1000(ES20.12E3,1X))') &
+!       &step*dtstep,(real(H_diag_ss(istate,istate)-H_diag_ss(state_diag,state_diag))*au2eV,istate=1,nstates),&
+!       (expec_dm_act(istate),istate=1,nstates)
+    endif
+    if (write_mag_dip_el_quadact)  then
+      ! write to fosc_act.out
+      write(u_fosc_act,'(2X,1000(ES20.12E3,1X))') &
+      &microtime,(abs(real(H_diag_ss(istate,istate)-H_diag_ss(state_diag,state_diag)))*au2eV,istate=1,nstates),&
+      (expec_mdeqm_act(istate),istate=1,nstates)
+!       write(u_fosc_act,'(2X,1000(ES20.12E3,1X))') &
+!       &step*dtstep,(real(H_diag_ss(istate,istate)-H_diag_ss(state_diag,state_diag))*au2eV,istate=1,nstates),&
+!       (expec_dm_act(istate),istate=1,nstates)
+    endif
 
     if (write_iondiag) then
       ! write to ion_diag.out
@@ -1594,6 +1765,7 @@ program data_extractor
           call matwrite(nstates, MDM_diag_ssd(:,:,1), u_mdm_diag, '! 1 Magnetic dipole moments X (diag) in a.u.', 'F12.8')
           call matwrite(nstates, MDM_diag_ssd(:,:,2), u_mdm_diag, '! 1 Magnetic dipole moments Y (diag) in a.u.', 'F12.8')
           call matwrite(nstates, MDM_diag_ssd(:,:,3), u_mdm_diag, '! 1 Magnetic dipole moments Z (diag) in a.u.', 'F12.8')
+    endif
     if (write_EQM_diag) then
           write(u_eqm_diag,'(A)') '! 0 Step'
           write(u_eqm_diag,'(I12)') step
@@ -1606,6 +1778,7 @@ program data_extractor
           call matwrite(nstates, EQM_diag_ssdd(:,:,3,1), u_eqm_diag, '! 1 Electric quadrupole moments ZX (diag) in a.u.', 'F12.8')
           call matwrite(nstates, EQM_diag_ssdd(:,:,3,2), u_eqm_diag, '! 1 Electric quadrupole moments ZY (diag) in a.u.', 'F12.8')
           call matwrite(nstates, EQM_diag_ssdd(:,:,3,3), u_eqm_diag, '! 1 Electric quadrupole moments ZZ (diag) in a.u.', 'F12.8') 
+    endif
     if (write_dm_proj) then
       write(u_dm_proj,'(A,I12)') '# ',step
       do i=1,nstates
@@ -1629,7 +1802,7 @@ program data_extractor
   if (write_dip)                close(u_dm)        ! -d
   if (write_mag_dip)            close(u_mdm)       ! -dmd
   if (write_el_quad)            close(u_eqm)       ! -deq
-  if (write_mag_dip_el_quadp)   close(u_mdeqm)     ! -dmdeq
+  if (write_mag_dip_el_quad)   close(u_mdeqm)     ! -dmdeq
   if (write_spin)               close(u_spin)      ! -s
  
   if (write_coeffdiag) close(u_coefd)     ! -cd
@@ -1648,6 +1821,9 @@ program data_extractor
   if (write_expec)     close(u_expec)     ! -x
   if (write_expecmch)  close(u_expec_mch) ! -xm
   if (write_dipact)    close(u_fosc_act)  ! -da
+  if (write_mag_dipact)    close(u_fosc_act_mdm)  ! -damd
+  if (write_el_quadact)    close(u_fosc_act_eqm)  ! -daeq
+  if (write_mag_dip_el_quadact)    close(u_fosc_act_mdeqm)  ! -damdeq
   if (write_iondiag)   close(u_ion_diag)  ! -id
   if (write_ionmch)    close(u_ion_mch)   ! -im 
   if (write_dm_diag)   close(u_dm_diag)   ! -dd
@@ -1737,6 +1913,104 @@ program data_extractor
       deallocate(tmp_out_matrix)
     endif
 
+    if (write_mag_dip) then
+      ! nstates, expected_mdm, time
+      total_columns=nstates+2
+      allocate(tmp_in_matrix(nsteps_adapted+1,total_columns))
+      allocate(tmp_out_matrix(nsteps+1,total_columns))
+      open(unit=u_mdm, file='output_data/fosc_md2.out', status='old', action='read')
+        read(u_mdm,'(A)') header1
+        read(u_mdm,'(A)') header2
+        read(u_mdm,'(A)') header3
+        do i=1,nsteps_adapted+1
+          read(u_mdm,*) (tmp_in_matrix(i,istate),istate=1,total_columns)
+        enddo
+      close(u_mdm)
+      filename1='output_data/fosc_md2.out'
+      filename2='output_data/fosc_md2.original.out'
+      call system("mv "//trim(filename1)//" "//trim(filename2))
+      timeline_adapted(:)=tmp_in_matrix(:,1)
+      do istate=2,total_columns ! starts with column 2 because first column is time.
+        call linear_interp(nsteps_adapted+1, nsteps+1, timeline_adapted, tmp_in_matrix(:,istate), timeline, tmp_out_matrix(:,istate))
+      enddo
+      tmp_out_matrix(:,1)=timeline(:)
+      open(unit=u_mdm, file='output_data/fosc_md2.out', status='replace', action='write')
+        write(u_mdm,'(A)') trim(header1)
+        write(u_mdm,'(A)') trim(header2)
+        write(u_mdm,'(A)') trim(header3)
+        do i=1,nsteps+1
+          write(u_mdm,'(2X,1000(ES20.12E3,1X))') (tmp_out_matrix(i,istate),istate=1,total_columns)
+        enddo
+      close(u_mdm)
+      deallocate(tmp_in_matrix)
+      deallocate(tmp_out_matrix)
+    endif
+ 
+    if (write_el_quad) then
+      ! nstates, expected_eqm, time
+      total_columns=nstates+2
+      allocate(tmp_in_matrix(nsteps_adapted+1,total_columns))
+      allocate(tmp_out_matrix(nsteps+1,total_columns))
+      open(unit=u_eqm, file='output_data/fosc_eq2.out', status='old', action='read')
+        read(u_eqm,'(A)') header1
+        read(u_eqm,'(A)') header2
+        read(u_eqm,'(A)') header3
+        do i=1,nsteps_adapted+1
+          read(u_eqm,*) (tmp_in_matrix(i,istate),istate=1,total_columns)
+        enddo
+      close(u_eqm)
+      filename1='output_data/fosc_eq2.out'
+      filename2='output_data/fosc_eq2.original.out'
+      call system("mv "//trim(filename1)//" "//trim(filename2))
+      timeline_adapted(:)=tmp_in_matrix(:,1)
+      do istate=2,total_columns ! starts with column 2 because first column is time.
+        call linear_interp(nsteps_adapted+1, nsteps+1, timeline_adapted, tmp_in_matrix(:,istate), timeline, tmp_out_matrix(:,istate))
+      enddo
+      tmp_out_matrix(:,1)=timeline(:)
+      open(unit=u_eqm, file='output_data/fosc_eq2.out', status='replace', action='write')
+        write(u_eqm,'(A)') trim(header1)
+        write(u_eqm,'(A)') trim(header2)
+        write(u_eqm,'(A)') trim(header3)
+        do i=1,nsteps+1
+          write(u_eqm,'(2X,1000(ES20.12E3,1X))') (tmp_out_matrix(i,istate),istate=1,total_columns)
+        enddo
+      close(u_eqm)
+      deallocate(tmp_in_matrix)
+      deallocate(tmp_out_matrix)
+    endif 
+
+    if (write_mag_dip_el_quad) then
+      ! nstates, expected_mag_dip_el_quad, time
+      total_columns=nstates+2
+      allocate(tmp_in_matrix(nsteps_adapted+1,total_columns))
+      allocate(tmp_out_matrix(nsteps+1,total_columns))
+      open(unit=u_mdeqm, file='output_data/fosc_mdeq.out', status='old', action='read')
+        read(u_mdeqm,'(A)') header1
+        read(u_mdeqm,'(A)') header2
+        read(u_mdeqm,'(A)') header3
+        do i=1,nsteps_adapted+1
+          read(u_mdeqm,*) (tmp_in_matrix(i,istate),istate=1,total_columns)
+        enddo
+      close(u_mdeqm)
+      filename1='output_data/fosc_mdeq.out'
+      filename2='output_data/fosc_mdeq.original.out'
+      call system("mv "//trim(filename1)//" "//trim(filename2))
+      timeline_adapted(:)=tmp_in_matrix(:,1)
+      do istate=2,total_columns ! starts with column 2 because first column is time.
+        call linear_interp(nsteps_adapted+1, nsteps+1, timeline_adapted, tmp_in_matrix(:,istate), timeline, tmp_out_matrix(:,istate))
+      enddo
+      tmp_out_matrix(:,1)=timeline(:)
+      open(unit=u_mdeqm, file='output_data/fosc_mdeq.out', status='replace', action='write')
+        write(u_mdeqm,'(A)') trim(header1)
+        write(u_mdeqm,'(A)') trim(header2)
+        write(u_mdeqm,'(A)') trim(header3)
+        do i=1,nsteps+1
+          write(u_mdeqm,'(2X,1000(ES20.12E3,1X))') (tmp_out_matrix(i,istate),istate=1,total_columns)
+        enddo
+      close(u_mdeqm)
+      deallocate(tmp_in_matrix)
+      deallocate(tmp_out_matrix)
+    endif
 
     if (write_dipact)  then
       ! nstates, nstates, time
@@ -1769,8 +2043,105 @@ program data_extractor
       close(u_fosc_act)
       deallocate(tmp_in_matrix)
       deallocate(tmp_out_matrix)
+    endif   
+
+    if (write_mag_dipact)  then
+      ! nstates, nstates, time
+      total_columns=2*nstates+1
+      allocate(tmp_in_matrix(nsteps_adapted+1,total_columns))
+      allocate(tmp_out_matrix(nsteps+1,total_columns))
+      open(unit=u_fosc_act_mdm, file='output_data/fosc_act_md2.out', status='old', action='read')
+        read(u_fosc_act_mdm,'(A)') header1
+        read(u_fosc_act_mdm,'(A)') header2
+        read(u_fosc_act_mdm,'(A)') header3
+        do i=1,nsteps_adapted+1
+          read(u_fosc_act_mdm,*) (tmp_in_matrix(i,istate),istate=1,total_columns)
+        enddo
+      close(u_fosc_act)
+      filename1='output_data/fosc_act_md2.out'
+      filename2='output_data/fosc_act_md2.original.out'
+      call system("mv "//trim(filename1)//" "//trim(filename2))
+      timeline_adapted(:)=tmp_in_matrix(:,1)
+      do istate=2,total_columns ! starts with column 2 because first column is time.
+        call linear_interp(nsteps_adapted+1, nsteps+1, timeline_adapted, tmp_in_matrix(:,istate), timeline, tmp_out_matrix(:,istate))
+      enddo
+      tmp_out_matrix(:,1)=timeline(:)
+      open(unit=u_fosc_act_mdm, file='output_data/fosc_act_md2.out', status='replace', action='write')
+        write(u_fosc_act_mdm,'(A)') trim(header1)
+        write(u_fosc_act_mdm,'(A)') trim(header2)
+        write(u_fosc_act_mdm,'(A)') trim(header3)
+        do i=1,nsteps+1
+          write(u_fosc_act_mdm,'(2X,1000(ES20.12E3,1X))') (tmp_out_matrix(i,istate),istate=1,total_columns)
+        enddo
+      close(u_fosc_act_mdm)
+      deallocate(tmp_in_matrix)
+      deallocate(tmp_out_matrix)
     endif
 
+    if (write_el_quadact)  then
+      ! nstates, nstates, time
+      total_columns=2*nstates+1
+      allocate(tmp_in_matrix(nsteps_adapted+1,total_columns))
+      allocate(tmp_out_matrix(nsteps+1,total_columns))
+      open(unit=u_fosc_act_eqm, file='output_data/fosc_act_eq2.out', status='old', action='read')
+        read(u_fosc_act_eqm,'(A)') header1
+        read(u_fosc_act_eqm,'(A)') header2
+        read(u_fosc_act_eqm,'(A)') header3
+        do i=1,nsteps_adapted+1
+          read(u_fosc_act_eqm,*) (tmp_in_matrix(i,istate),istate=1,total_columns)
+        enddo
+      close(u_fosc_act)
+      filename1='output_data/fosc_act_eq2.out'
+      filename2='output_data/fosc_act_eq2.original.out'
+      call system("mv "//trim(filename1)//" "//trim(filename2))
+      timeline_adapted(:)=tmp_in_matrix(:,1)
+      do istate=2,total_columns ! starts with column 2 because first column is time.
+        call linear_interp(nsteps_adapted+1, nsteps+1, timeline_adapted, tmp_in_matrix(:,istate), timeline, tmp_out_matrix(:,istate))
+      enddo
+      tmp_out_matrix(:,1)=timeline(:)
+      open(unit=u_fosc_act_eqm, file='output_data/fosc_act_eq2.out', status='replace', action='write')
+        write(u_fosc_act_eqm,'(A)') trim(header1)
+        write(u_fosc_act_eqm,'(A)') trim(header2)
+        write(u_fosc_act_eqm,'(A)') trim(header3)
+        do i=1,nsteps+1
+          write(u_fosc_act_eqm,'(2X,1000(ES20.12E3,1X))') (tmp_out_matrix(i,istate),istate=1,total_columns)
+        enddo
+      close(u_fosc_act_eqm)
+      deallocate(tmp_in_matrix)
+      deallocate(tmp_out_matrix)
+    endif
+    if (write_mag_dip_el_quadact)  then
+      ! nstates, nstates, time
+      total_columns=2*nstates+1
+      allocate(tmp_in_matrix(nsteps_adapted+1,total_columns))
+      allocate(tmp_out_matrix(nsteps+1,total_columns))
+      open(unit=u_fosc_act_mdeqm, file='output_data/fosc_act_mdeq.out', status='old', action='read')
+        read(u_fosc_act_mdeqm,'(A)') header1
+        read(u_fosc_act_mdeqm,'(A)') header2
+        read(u_fosc_act_mdeqm,'(A)') header3
+        do i=1,nsteps_adapted+1
+          read(u_fosc_act_mdeqm,*) (tmp_in_matrix(i,istate),istate=1,total_columns)
+        enddo
+      close(u_fosc_act)
+      filename1='output_data/fosc_act_mdeq.out'
+      filename2='output_data/fosc_act_mdeq.original.out'
+      call system("mv "//trim(filename1)//" "//trim(filename2))
+      timeline_adapted(:)=tmp_in_matrix(:,1)
+      do istate=2,total_columns ! starts with column 2 because first column is time.
+        call linear_interp(nsteps_adapted+1, nsteps+1, timeline_adapted, tmp_in_matrix(:,istate), timeline, tmp_out_matrix(:,istate))
+      enddo
+      tmp_out_matrix(:,1)=timeline(:)
+      open(unit=u_fosc_act_mdeqm, file='output_data/fosc_act_mdeq.out', status='replace', action='write')
+        write(u_fosc_act_mdeqm,'(A)') trim(header1)
+        write(u_fosc_act_mdeqm,'(A)') trim(header2)
+        write(u_fosc_act_mdeqm,'(A)') trim(header3)
+        do i=1,nsteps+1
+          write(u_fosc_act_mdeqm,'(2X,1000(ES20.12E3,1X))') (tmp_out_matrix(i,istate),istate=1,total_columns)
+        enddo
+      close(u_fosc_act_mdeqm)
+      deallocate(tmp_in_matrix)
+      deallocate(tmp_out_matrix)
+    endif
 
     if (write_iondiag) then
       ! nstates, nstates, state_diag, time
@@ -2343,7 +2714,7 @@ program data_extractor
     write(u,*) '       -d       : write dipole file              (output_data/fosc.out)'
     write(u,*) '       -dmd     : write magnetic dipole file              (output_data/fosc_md2.out)'
     write(u,*) '       -deq     : write electric quadrupole file              (output_data/fosc_eq2.out)'
-    write(u,*) '       -dmdeq   : write mixed magnetic dipole - electric quadrupole file  (output_data/fosc_md_eq.out)'
+    write(u,*) '       -dmdeq   : write mixed magnetic dipole - electric quadrupole file  (output_data/fosc_mdeq.out)'
     write(u,*) '       -sp : write spin expec file          (output_data/spin.out)'
     write(u,*) '       -cd : write diag coefficient file    (output_data/coeff_diag.out,'
     write(u,*) '                                             output_data/coeff_class_diag.out,'
@@ -2358,6 +2729,9 @@ program data_extractor
     write(u,*) '       -x  : write expec (E,S^2,mu) file    (output_data/expec.out)'
     write(u,*) '       -xm : write MCH expec file           (output_data/expec_MCH.out)'
     write(u,*) '       -da : write dip of active state file (output_data/fosc_act.out)'
+    write(u,*) '       -damd : write mag. dip of active state file (output_data/fosc_act_md2.out)'
+    write(u,*) '       -daeq : write el. quad of active state file (output_data/fosc_act_eq2.out)'
+    write(u,*) '       -damdeq : write mag. dip - el. quad of active state file (output_data/fosc_act_mdeq.out)'
     write(u,*) '       -dd : write dip in diag. represent.  (output_data/dip_mom_diag.out)'
 !     write(u,*) '       -dp : write projection of dip diag   (output_data/dip_mom_proj.out)'
     write(u,*) '       -id : write diag ion file            (output_data/ion_diag.out)'

@@ -232,15 +232,19 @@ module qm
     if (ctrl%calc_dipole==2) then
       call get_dipoles(ctrl%nstates, traj%DM_ssd)
       if (printlevel>3) write(u_log,'(A31,A2)') 'Electric Dipole Moments:                ','OK'
-      !call get_magnetic_dipoles(ctrl%nstates, traj%DM_ssd)
-      !if (printlevel>3) write(u_log,'(A31,A2)') 'Magnetic Dipole Moments:                ','OK' 
-      !call get_electric_quadrupoles(ctrl%nstates, traj%DM_ssd)
-      !if (printlevel>3) write(u_log,'(A31,A2)') 'Electric Quadrupole Moments:                ','OK' 
+      call get_magnetic_dipoles(ctrl%nstates, traj%MDM_ssd)
+      if (printlevel>3) write(u_log,'(A31,A2)') 'Magnetic Dipole Moments:                ','OK' 
+      call get_electric_quadrupoles(ctrl%nstates, traj%EQM_ssdd)
+      if (printlevel>3) write(u_log,'(A31,A2)') 'Electric Quadrupole Moments:                ','OK' 
       traj%DM_print_ssd=traj%DM_ssd
+      traj%MDM_print_ssd=traj%MDM_ssd
+      traj%EQM_print_ssdd=traj%EQM_ssdd
       ! apply frozen-state mask 
       do i=1,ctrl%nstates
         do j=1,ctrl%nstates
           if (ctrl%actstates_s(i).neqv.ctrl%actstates_s(j)) traj%DM_ssd(i,j,:)=dcmplx(0.d0,0.d0)
+          if (ctrl%actstates_s(i).neqv.ctrl%actstates_s(j)) traj%MDM_ssd(i,j,:)=dcmplx(0.d0,0.d0)
+          if (ctrl%actstates_s(i).neqv.ctrl%actstates_s(j)) traj%EQM_ssdd(i,j,:,:)=dcmplx(0.d0,0.d0)
         enddo
       enddo
     endif
@@ -344,6 +348,14 @@ module qm
       do i=1,3
         traj%H_diag_ss=traj%H_diag_ss - traj%DM_ssd(:,:,i)*real(ctrl%laserfield_e_tp(traj%step*ctrl%nsubsteps+1,i))
       enddo
+      if (ctrl%laser_b==.true.) then
+        traj%H_diag_ss=traj%H_diag_ss - traj%MDM_ssd(:,:,i)*real(ctrl%laserfield_b_tp(traj%step*ctrl%nsubsteps+1,i))
+      endif
+      if (ctrl%laser_egrad==.true.) then
+        do j=1,3
+          traj%H_diag_ss=traj%H_diag_ss - traj%EQM_ssdd(:,:,i,j)*real(ctrl%laserfield_egrad_tpd(traj%step*ctrl%nsubsteps+1,i,j))
+        enddo
+      endif
     endif
 
     ! diagonalize, if SHARC dynamics
@@ -606,8 +618,11 @@ module qm
     endif
     if (ctrl%calc_dipole==1) then
       write(u_qm_qmin,'(A)') 'DM'
+    else if (ctrl%calc_dipole==2) then
+      write(u_qm_qmin,'(A)') 'DM'
+      write(u_qm_qmin,'(A)') 'MDM'
+      write(u_qm_qmin,'(A)') 'EQM'
     endif
-
     select case (ctrl%calc_grad)
       case (0)
         write(u_qm_qmin,'(A)') 'GRAD all'
@@ -1008,6 +1023,17 @@ module qm
       call matwrite(ctrl%nstates,traj%DM_ssd(:,:,i),u,'Dipole matrix (MCH basis) '//xyz(i)//' direction','F9.4')
     enddo
     write(u,*)
+    do i=1,3
+      call matwrite(ctrl%nstates,traj%MDM_ssd(:,:,i),u,'Magnetic dipole matrix (MCH basis) '//xyz(i)//' direction','F9.4')
+    enddo 
+    write(u,*)
+    do i=1,3
+      do j=1,3
+        call matwrite(ctrl%nstates,traj%EQM_ssdd(:,:,i,j),u,'Electric quadrupole matrix (MCH basis) '//xyz(i)//''//xyz(j)//' direction','F9.4')
+      enddo
+      write(u,*)
+    enddo  
+    write(u,*)
     do i=1,ctrl%nstates
       write(string,'(A27,I3)') 'Gradient (MCH basis) state ',i
       call vec3write(ctrl%natom,traj%grad_MCH_sad(i,:,:),u,trim(string),'F9.4')
@@ -1079,6 +1105,8 @@ module qm
     traj%H_diag_old_ss=traj%H_diag_ss
  
     traj%DM_old_ssd=traj%DM_ssd
+    traj%MDM_old_ssd=traj%MDM_ssd
+    traj%EQM_old_ssdd=traj%EQM_ssdd
     traj%U_old_ss=traj%U_ss
     traj%NACdt_old_ss=traj%NACdt_ss
     traj%NACdr_old_ssad=traj%NACdr_ssad
@@ -1472,7 +1500,7 @@ module qm
     implicit none
     type(trajectory_type) :: traj
     type(ctrl_type) :: ctrl
-    integer :: istate, jstate, ixyz
+    integer :: istate, jstate, ixyz, jxyz
     complex*16:: scalarProd(ctrl%nstates,ctrl%nstates)
     complex*16 :: Utemp(ctrl%nstates,ctrl%nstates), Htemp(ctrl%nstates,ctrl%nstates)
 
@@ -1574,6 +1602,14 @@ module qm
       traj%H_MCH_ss(istate,:)=traj%H_MCH_ss(istate,:)*traj%phases_s(istate)
       traj%DM_ssd(istate,:,:)=traj%DM_ssd(istate,:,:)*traj%phases_s(istate)
       traj%DM_print_ssd(istate,:,:)=traj%DM_print_ssd(istate,:,:)*traj%phases_s(istate)
+      if (ctrl%laser_b==.true.) then
+        traj%MDM_ssd(istate,:,:)=traj%MDM_ssd(istate,:,:)*traj%phases_s(istate)
+        traj%MDM_print_ssd(istate,:,:)=traj%MDM_print_ssd(istate,:,:)*traj%phases_s(istate)
+      endif
+      if (ctrl%laser_egrad==.true.) then
+        traj%EQM_ssdd(istate,:,:,:)=traj%EQM_ssdd(istate,:,:,:)*traj%phases_s(istate)
+        traj%EQM_print_ssdd(istate,:,:,:)=traj%EQM_print_ssdd(istate,:,:,:)*traj%phases_s(istate)
+      endif  
       !this if is taken off because we add QM processing subroutine
       !if (ctrl%calc_nacdt==1) then
         traj%NACdt_ss(istate,:)=traj%NACdt_ss(istate,:)*traj%phases_s(istate)
@@ -1591,6 +1627,14 @@ module qm
       traj%H_MCH_ss(:,istate)=traj%H_MCH_ss(:,istate)*traj%phases_s(istate)
       traj%DM_ssd(:,istate,:)=traj%DM_ssd(:,istate,:)*traj%phases_s(istate)
       traj%DM_print_ssd(:,istate,:)=traj%DM_print_ssd(:,istate,:)*traj%phases_s(istate)
+      if (ctrl%laser_b==.true.) then
+        traj%MDM_ssd(istate,:,:)=traj%MDM_ssd(istate,:,:)*traj%phases_s(istate)
+        traj%MDM_print_ssd(istate,:,:)=traj%MDM_print_ssd(istate,:,:)*traj%phases_s(istate)
+      endif
+      if (ctrl%laser_egrad==.true.) then
+        traj%EQM_ssdd(istate,:,:,:)=traj%EQM_ssdd(istate,:,:,:)*traj%phases_s(istate)
+        traj%EQM_print_ssdd(istate,:,:,:)=traj%EQM_print_ssdd(istate,:,:,:)*traj%phases_s(istate)
+      endif 
       !if (ctrl%calc_nacdt==1) then
         traj%NACdt_ss(:,istate)=traj%NACdt_ss(:,istate)*traj%phases_s(istate)
       !endif
@@ -1619,6 +1663,18 @@ module qm
       if (ctrl%laser==2) then
         do ixyz=1,3
           traj%H_diag_ss=traj%H_diag_ss - traj%DM_ssd(:,:,ixyz)*real(ctrl%laserfield_e_tp(traj%step*ctrl%nsubsteps+1,ixyz))
+        enddo
+      endif
+      if (ctrl%laser==2 .and. ctrl%laser_b==.true.) then
+        do ixyz=1,3
+          traj%H_diag_ss=traj%H_diag_ss - traj%MDM_ssd(:,:,ixyz)*real(ctrl%laserfield_b_tp(traj%step*ctrl%nsubsteps+1,ixyz))
+        enddo
+      endif
+      if (ctrl%laser==2 .and. ctrl%laser_egrad) then
+        do ixyz=1,3
+          do jxyz=1,3
+            traj%H_diag_ss=traj%H_diag_ss - traj%EQM_ssdd(:,:,ixyz,jxyz)*real(ctrl%laserfield_egrad_tpd(traj%step*ctrl%nsubsteps+1,ixyz,jxyz))
+          enddo
         enddo
       endif
       if (ctrl%surf==0) then
@@ -2246,7 +2302,7 @@ module qm
     implicit none
     type(trajectory_type) :: traj
     type(ctrl_type) :: ctrl
-    integer :: stat,i,j,istate,jstate,kstate,iatom,idir,ipol
+    integer :: stat,i,j,istate,jstate,kstate,iatom,idir,jdir,ipol
     integer :: imult
 
     ! 0. compute rotation matrix variables.
@@ -2313,6 +2369,18 @@ module qm
         do idir=1,3
           H_temp=H_temp - traj%DM_ssd(:,:,idir)*real(ctrl%laserfield_e_tp(traj%step*ctrl%nsubsteps+1,idir))
         enddo
+        if (ctrl%laser_b==.true.) then
+          do idir=1,3 
+            H_temp=H_temp - traj%MDM_ssd(:,:,idir)*real(ctrl%laserfield_b_tp(traj%step*ctrl%nsubsteps+1,idir))
+          enddo 
+        endif
+        if (ctrl%laser_egrad==.true.) then
+          do idir=1,3
+            do jdir=1,3
+              H_temp=H_temp - traj%EQM_ssdd(:,:,idir,jdir)*real(ctrl%laserfield_egrad_tpd(traj%step*ctrl%nsubsteps+1,idir,jdir))
+            enddo
+          enddo 
+        endif
         call diagonalize(ctrl%nstates,H_temp,U_temp)
       endif
     elseif (ctrl%surf==1) then

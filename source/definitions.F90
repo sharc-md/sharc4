@@ -197,14 +197,28 @@ module definitions
     complex*16, pointer :: overlaps_ss(:,:)                !< overlaps for LD propagation
     complex*16, pointer :: DM_ssd(:,:,:)                   !< (transition) dipole moment matrix
                                                            !< transition dipoles between active and inactive states are zero.
+    complex*16, pointer :: MDM_ssd(:,:,:)                  !< (transition) magnetic dipole moment matrix
+                                                           !< transition magnetic transition dipoles between active and inactive states are zero.
+    complex*16, pointer :: EQM_ssdd(:,:,:,:)               !< (transition) electric quadrupole moment matrix
+                                                           !< transition electric quadrupoles between active and inactive states are zero.
 #else
     complex*16, allocatable :: overlaps_ss(:,:)            !< overlaps for LD propagation
     complex*16, allocatable :: DM_ssd(:,:,:)               !< (transition) dipole moment matrix
                                                            !< transition dipoles between active and inactive states are zero.
+    complex*16, allocatable :: MDM_ssd(:,:,:)               !< (transition) magnetic dipole moment matrix
+                                                           !< transition  magnetic dipoles between active and inactive states are zero.
+    complex*16, allocatable :: EQM_ssdd(:,:,:,:)           !< (transition) electric quadrupole moment matrix
+                                                           !< transition electric quadrupole between active and inactive states are zero.
 #endif
     complex*16,allocatable :: DM_old_ssd(:,:,:)            !< old dipole moment matrix
     complex*16,allocatable :: DM_print_ssd(:,:,:)          !< dipole moment matrix used for the output routines
                                                            !< transition dipoles between active and inactive states are not zero.
+    complex*16,allocatable :: MDM_old_ssd(:,:,:)           !< old magnetic dipole moment matrix
+    complex*16,allocatable :: MDM_print_ssd(:,:,:)         !< magnetic dipole moment matrix used for the output routines
+                                                           !< transition magnetic dipoles between active and inactive states are not zero.
+    complex*16,allocatable :: EQM_old_ssdd(:,:,:,:)           !< old electric quadrupole moment matrix
+    complex*16,allocatable :: EQM_print_ssdd(:,:,:,:)         !< electric quadrupole moment matrix used for the output routines
+                                                           !< transition electric quadruples between active and inactive states are not zero.
     complex*16,allocatable :: Rtotal_ss(:,:)               !< total propagator for the current timestep
     complex*16,allocatable :: RDtotal_ss(:,:)              !< total propagator with decay of mixing for the current timestep
     complex*16,allocatable :: Dtotal_ss(:,:)               !< total decoherent propagator for the current timestep

@@ -111,7 +111,7 @@ program data_converter
     Energy(3) = shdata%Ekin 
 
     call write_sharc_ncoutputdat_istep(nc_index, general_infos%natom, nstates, &
-       &  shdata%H_MCH_ss, shdata%U_ss, shdata%DM_ssd, shdata%overlaps_ss,&
+       &  shdata%H_MCH_ss, shdata%U_ss, shdata%DM_ssd, shdata%MDM_ssd, shdata%EQM_ssdd, shdata%overlaps_ss,&
        &  shdata%coeff_diag_s, Energy, shdata%hopprob_s, &
        &  shdata%geom_ad, shdata%veloc_ad,&
        &  shdata%randnum, shdata%state_diag, shdata%state_MCH, shdata%time_step,&

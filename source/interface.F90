@@ -104,6 +104,14 @@ subroutine set_pointers(H, dm, overlap, grad, nac) bind(C, name='setPointers')
     if (associated(traj%DM_ssd)) then
         dm = c_loc(traj%DM_ssd(1,1,1))
     endif
+    
+    if (associated(traj%MDM_ssd)) then
+        mdm = c_loc(traj%MDM_ssd(1,1,1))
+    endif
+
+    if (associated(traj%EQM_ssdd)) then
+        eqm = c_loc(traj%EQM_ssdd(1,1,1,1))
+    endif
 
     if (associated(traj%overlaps_ss)) then
         overlap = c_loc(traj%overlaps_ss(1,1))
@@ -367,7 +375,10 @@ subroutine get_tasks(string, ICALL)
           write(string,'(A)')  trim(string) // ' H'
         endif
         write(string,'(A)')  trim(string)   // ' DM'
-
+        if (ctrl%calc_dipole==2) then
+          write(string,'(A)')  trim(string)   // ' MDM'
+          write(string,'(A)')  trim(string)   // ' EQM'
+        endif        
         if ((traj%step==0).and.(ctrl%track_phase_at_zero==1)) then
           write(string,'(A)') trim(string)  // ' PHASES'
         endif
@@ -544,14 +555,14 @@ endsubroutine
 
 !if pointer are use, also call the scaling etc.!
 
-subroutine postprocess_qmout_data(IH, IDM, IGrad, IOverlap, INac)
+subroutine postprocess_qmout_data(IH, IDM, IMDM, IEQM, IGrad, IOverlap, INac)
     use memory_module, only: traj, ctrl
     use definitions, only: printlevel, u_log
 !C
 !C  if pointers are used, do still the postprocessing!
 !C
     implicit none
-    __INT__, intent(inout) :: IH, IDM, IGrad, IOverlap, INac
+    __INT__, intent(inout) :: IH, IDM, IMDM, IEQM, IGrad, IOverlap, INac
     integer :: i,j,istate,jstate
 
 !    write(*,*) "Postprocess setting data", IH, IDM, IGrad, IOverlap
@@ -599,6 +610,29 @@ subroutine postprocess_qmout_data(IH, IDM, IGrad, IOverlap, INac)
         IDM = 0
     end if
 
+    if (IMDM .eq. 1) then
+        if (printlevel>3) write(u_log,'(A31,A2)') 'Magnetic dipole Moments:                ','OK'
+        traj%MDM_print_ssd=traj%MDM_ssd
+        ! apply frozen-state mask 
+        do i=1,ctrl%nstates
+          do j=1,ctrl%nstates
+            if (ctrl%actstates_s(i).neqv.ctrl%actstates_s(j)) traj%MDM_ssd(j,i,:)=dcmplx(0.d0,0.d0)
+          end do
+        end do
+        IMDM = 0
+    end if
+
+    if (IEQM .eq. 1) then
+        if (printlevel>3) write(u_log,'(A31,A2)') 'Electric quadrupole Moments:                ','OK'
+        traj%EQM_print_ssdd=traj%EQM_ssdd
+        ! apply frozen-state mask 
+        do i=1,ctrl%nstates
+          do j=1,ctrl%nstates
+            if (ctrl%actstates_s(i).neqv.ctrl%actstates_s(j)) traj%EQM_ssdd(j,i,:,:)=dcmplx(0.d0,0.d0)
+          end do
+        end do
+        IEQM = 0
+    end if
 
     if (IGrad .eq. 1) then
         if (printlevel>3) write(u_log,'(A31,A2)') 'Gradients:                     ','OK'
@@ -727,6 +761,80 @@ subroutine set_dipolemoments(N, DM_ssd)
     do i=1,ctrl%nstates
       do j=1,ctrl%nstates
         if (ctrl%actstates_s(i).neqv.ctrl%actstates_s(j)) traj%DM_ssd(j,i,:)=dcmplx(0.d0,0.d0)
+      end do
+    end do
+
+endsubroutine
+
+! ------------------------------------------------------
+
+subroutine set_magneticdipolemoments(N, MDM_ssd)
+!C
+!C  
+!C
+    use memory_module, only: traj, ctrl
+    use definitions, only: printlevel, u_log
+    implicit none
+    integer, intent(in)    :: N
+    __COMPLEX__, intent(in) :: MDM_ssd(N,N,3) 
+    
+    integer :: i,j,k
+
+    if ( ctrl%nstates .ne. N) then
+        write(*,*) "Magnetic dipole matrix has wrong dimension!"
+        call Exit(1)
+    end if
+
+    do k = 1,3
+        do i=1,N
+            do j=1,N
+                traj%MDM_ssd(j, i, k) =  MDM_ssd(j, i, k)
+            end do
+        end do
+    end do
+    if (printlevel>3) write(u_log,'(A31,A2)') 'Magnetic dipole Moments:                ','OK'
+    traj%MDM_print_ssd=traj%MDM_ssd
+    ! apply frozen-state mask 
+    do i=1,ctrl%nstates
+      do j=1,ctrl%nstates
+        if (ctrl%actstates_s(i).neqv.ctrl%actstates_s(j)) traj%MDM_ssd(j,i,:)=dcmplx(0.d0,0.d0)
+      end do
+    end do
+
+endsubroutine
+
+! ------------------------------------------------------
+
+subroutine set_electricquadrupolemoments(N, EQM_ssdd)
+!C
+!C  
+!C
+    use memory_module, only: traj, ctrl
+    use definitions, only: printlevel, u_log
+    implicit none
+    integer, intent(in)    :: N
+    __COMPLEX__, intent(in) :: EQM_ssdd(N,N,3,3) 
+    
+    integer :: i,j,k,l
+
+    if ( ctrl%nstates .ne. N) then
+        write(*,*) "Electric quadrupole Matrix has wrong dimension!"
+        call Exit(1)
+    end if
+
+    do k = 1,3
+        do i=1,N
+            do j=1,N
+                traj%EQM_ssdd(j, i, k, l) =  EQM_ssdd(j, i, k,l)
+            end do
+        end do
+    end do
+    if (printlevel>3) write(u_log,'(A31,A2)') 'Electric Quadrupole Moments:                ','OK'
+    traj%EQM_print_ssdd=traj%EQM_ssdd
+    ! apply frozen-state mask 
+    do i=1,ctrl%nstates
+      do j=1,ctrl%nstates
+        if (ctrl%actstates_s(i).neqv.ctrl%actstates_s(j)) traj%EQM_ssd(j,i,:,:)=dcmplx(0.d0,0.d0)
       end do
     end do
 
@@ -956,8 +1064,20 @@ subroutine post_process_data(ISecond)
     ! if laser field, add it here, without imaginary part
     if (ctrl%laser==2) then
       do i=1,3
-        traj%H_diag_ss=traj%H_diag_ss - traj%DM_ssd(:,:,i)*real(ctrl%laserfield_e_tp(traj%step*ctrl%nsubsteps+1,i)) !LORENZ IMPLEMENT
+        traj%H_diag_ss=traj%H_diag_ss - traj%DM_ssd(:,:,i)*real(ctrl%laserfield_e_tp(traj%step*ctrl%nsubsteps+1,i))
       enddo
+      if (ctrl%laser_b==.true.) then
+        do i=1,3
+          traj%H_diag_ss=traj%H_diag_ss - traj%MDM_ssd(:,:,i)*real(ctrl%laserfield_b_tp(traj%step*ctrl%nsubsteps+1,i))
+        enddo 
+      endif
+      if (ctrl%laser_egrad==.true.) then
+        do i=1,3
+          do j=1,3
+            traj%H_diag_ss=traj%H_diag_ss - traj%EQM_ssdd(:,:,i,j)*real(ctrl%laserfield_egrad_tpd(traj%step*ctrl%nsubsteps+1,i,j))
+          enddo
+        enddo 
+      endif 
     endif
     ! diagonalize, if SHARC dynamics
     if (ctrl%surf==0) then
@@ -1058,6 +1178,8 @@ subroutine write_data_netcdf()
         & traj%H_MCH_ss, &
         & traj%U_ss, &
         & traj%DM_print_ssd, &
+        & traj%MDM_print_ssd, &
+        & traj%EQM_print_ssdd, &
         & traj%overlaps_ss, &
         & traj%coeff_diag_s, &
         & E, &

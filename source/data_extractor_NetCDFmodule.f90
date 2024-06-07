@@ -42,6 +42,9 @@ module data_extractor_NetCDFmodule
   type Twrite_options
     logical :: write_energy
     logical :: write_dip
+    logical :: write_mag_dip
+    logical :: write_el_quad
+    logical :: write_mag_dip_el_quad
     logical :: write_spin
     logical :: write_coeffdiag
     logical :: write_coeffmch
@@ -50,6 +53,9 @@ module data_extractor_NetCDFmodule
     logical :: write_expecmch
     logical :: write_coeffdiab
     logical :: write_dipact
+    logical :: write_mag_dipact
+    logical :: write_el_quadact
+    logical :: write_mag_dip_el_quadact
     logical :: write_iondiag
     logical :: write_ionmch
     logical :: write_geometry
@@ -69,7 +75,7 @@ module data_extractor_NetCDFmodule
     integer              :: state_diag, state_MCH, time_step
     real*8               :: Ekin, Epot, randnum, Etot
     integer, allocatable :: nstates_m(:)    !< number of states per multiplicity
-    complex*16, allocatable :: H_MCH_ss(:,:),U_ss(:,:),DM_ssd(:,:,:)
+    complex*16, allocatable :: H_MCH_ss(:,:),U_ss(:,:),DM_ssd(:,:,:),MDM_ssd(:,:,:),EQM_ssdd(:,:,:,:)
     complex*16, allocatable :: Prop2d_xss(:,:,:)
     real*8, allocatable     :: Prop1d_ys(:,:)
     complex*16, allocatable :: coeff_diag_s(:),overlaps_ss(:,:), ref_ovl_ss(:,:)
@@ -145,6 +151,9 @@ contains
     write(u,*) '       -xs : extrasmall = energy (-e), coeffdiag (-cd), coeffmch (-cm), prob (-p), expec (-x), dip (-d), skip (-sk)'
     write(u,*) '       -e  : write energy file              (output_data/energy.out)'
     write(u,*) '       -d  : write dipole file              (output_data/fosc.out)'
+    write(u,*) '       -dmd  : write magnetic dipole file              (output_data/fosc_md2.out)'
+    write(u,*) '       -deq  : write electric quadrupole file              (output_data/fosc_eq2.out)'
+    write(u,*) '       -dmdeq  : write mixed magnetic dipole - electric quadrupole file  (output_data/fosc_md_eq.out)' 
     write(u,*) '       -sp : write spin expec file          (output_data/spin.out)'
     write(u,*) '       -cd : write diag coefficient file    (output_data/coeff_diag.out, output_data/class_diag.out, output_data/cmix_diag.out)'
     write(u,*) '       -cm : write MCH coefficient file     (output_data/coeff_MCH.out, output_data/class_MCH.out, output_data/cmix_MCH.out)'
@@ -153,6 +162,9 @@ contains
     write(u,*) '       -x  : write expec (E,S^2,mu) file    (output_data/expec.out)'
     write(u,*) '       -xm : write MCH expec file           (output_data/expec_MCH.out)'
     write(u,*) '       -da : write dip of active state file (output_data/fosc_act.out)'
+    write(u,*) '       -damd : write mag. dip of active state file (output_data/fosc_act_md2.out)'
+    write(u,*) '       -daeq : write el. quad of active state file (output_data/fosc_act_eq2.out)'
+    write(u,*) '       -damdeq : write mag. dip - el. quad of active state file (output_data/fosc_act_mdeq.out)'
 !     write(u,*) '       -dd : write dip in diag. represent.  (output_data/dip_mom_diag.out)'
 !     write(u,*) '       -dp : write projection of dip diag   (output_data/dip_mom_proj.out)'
 !     write(u,*) '       -id : write diag ion file            (output_data/ion_diag.out)'
@@ -231,6 +243,9 @@ contains
   write_options%write_expecmch  = .false.
   write_options%write_coeffdiab = .false.
   write_options%write_dipact    = .false.
+  write_options%write_mag_dipact    = .false.
+  write_options%write_el_quadact    = .false.
+  write_options%write_mag_dip_el_quadact    = .false.
   write_options%write_iondiag   = .false.
   write_options%write_ionmch    = .false.
   write_options%write_geometry  = .false.
@@ -267,6 +282,10 @@ contains
       write_options%write_energy = .true.
     elseif (trim(args(i)) == "-d") then
       write_options%write_dip = .true.
+    elseif (trim(args(i)) == "-dmd") then
+      wwrite_options%rite_mag_dip = .true.
+    elseif (trim(args(i)) == "-deq") then
+      wwrite_options%rite_el_quad = .true.
     elseif (trim(args(i)) == "-sp") then
       write_options%write_spin = .true.
     elseif (trim(args(i)) == "-cd") then
@@ -282,7 +301,13 @@ contains
     elseif (trim(args(i)) == "-cb") then
       write_options%write_coeffdiab = .true.
     elseif (trim(args(i)) == "-da") then
-      write_options%write_dipact = .true.
+      write_options%write_dipact = .true.            
+    elseif (trim(args(i)) == "-daeq") then
+      write_options%write_el_quadact = .true.
+    elseif (trim(args(i)) == "-damd") then
+      write_options%write_mag_dipact = .true.
+    elseif (trim(args(i)) == "-damdeq") then
+      write_options%write_mag_dip_el_quadact = .true.
     elseif (trim(args(i)) == "-dd") then
       write(0,*) 'Ignoring -dd option in NetCDF mode.'
 !       write_dm_diag = .true.
@@ -332,6 +357,9 @@ contains
     elseif (trim(args(i)) == "-xl") then
       write_options%write_energy = .true.
       write_options%write_dip = .true.
+      write_options%write_mag_dip = .true.
+      write_options%write_el_quad = .true.
+      write_options%write_mag_dip_el_quad = .true.
       write_options%write_spin = .true.
       write_options%write_coeffdiag = .true.
       write_options%write_coeffmch = .true.
@@ -340,6 +368,9 @@ contains
       write_options%write_expecmch = .true.
       write_options%write_coeffdiab = .true.
       write_options%write_dipact = .true.
+      write_options%write_mag_dipact = .true.
+      write_options%write_el_quadact = .true.
+      write_options%write_mag_dip_el_quadact = .true.
 !       write_dm_diag = .true.
 !       write_dm_proj = .true.
 !       write_iondiag = .true.
@@ -348,6 +379,9 @@ contains
     elseif (trim(args(i)) == "-l") then
       write_options%write_energy = .true.
       write_options%write_dip = .true.
+      write_options%write_mag_dip = .true.
+      write_options%write_el_quad = .true.
+      write_options%write_mag_dip_el_quad = .true.
       write_options%write_spin = .true.
       write_options%write_coeffdiag = .true.
       write_options%write_coeffmch = .true.
@@ -356,24 +390,36 @@ contains
       write_options%write_expecmch = .true.
       write_options%write_coeffdiab = .true.
       write_options%write_dipact = .true.
+      write_options%write_mag_dipact = .true.
+      write_options%write_el_quadact = .true.
+      write_options%write_mag_dip_el_quadact = .true.
 !       write_iondiag = .true.
 !       write_ionmch = .true.
     ! small set of flags true
     elseif (trim(args(i)) == "-s") then
       write_options%write_energy = .true.
       write_options%write_dip = .true.
+      write_options%write_mag_dip = .true.
+      write_options%write_el_quad = .true.
+      write_options%write_mag_dip_el_quad = .true.      
       write_options%write_spin = .true.
       write_options%write_coeffdiag = .true.
       write_options%write_coeffmch = .true.
       write_options%write_prob = .true.
       write_options%write_expec = .true.
       write_options%write_expecmch = .true.
-     write_options% write_coeffdiab = .true.
+      write_options% write_coeffdiab = .true.
       write_options%write_dipact = .true.
+      write_options%write_mag_dipact = .true.
+      write_options%write_el_quadact = .true.
+      write_options%write_mag_dip_el_quadact = .true.
     ! very small set of flags true
     elseif (trim(args(i)) == "-xs") then
       write_options%write_energy = .true.
       write_options%write_dip = .true.
+      write_options%write_mag_dip = .true.
+      write_options%write_el_quad = .true.
+      write_options%write_mag_dip_el_quad = .true.
       write_options%write_coeffdiag = .true.
       write_options%write_coeffmch = .true.
       write_options%write_prob = .true.
@@ -394,6 +440,9 @@ contains
     ! defaults for writing options
     write_options%write_energy    = .true.
     write_options%write_dip       = .true.
+    write_options%write_mag_dip = .true.
+    write_options%write_el_quad = .true.
+    write_options%write_mag_dip_el_quad = .true.      
     write_options%write_spin      = .true.
     write_options%write_coeffdiag = .true.
     write_options%write_coeffmch  = .true.
@@ -402,6 +451,9 @@ contains
     write_options%write_expecmch  = .true.
     write_options%write_coeffdiab = .true.
     write_options%write_dipact    = .true.
+    write_options%write_mag_dipact = .true.
+    write_options%write_el_quadact = .true.
+    write_options%write_mag_dip_el_quadact = .true.
 !     write_options%write_iondiag   = .false.
 !     write_options%write_ionmch    = .false.
   endif
@@ -476,6 +528,8 @@ contains
     allocate( shdata%Prop2d_xss(general_infos%n_property2d,nstates,nstates),shdata%Prop1d_ys(general_infos%n_property1d,nstates) )
     allocate( shdata%overlaps_ss(nstates,nstates), shdata%ref_ovl_ss(nstates,nstates) )
     allocate( shdata%DM_ssd(nstates,nstates,3) )
+    allocate( shdata%MDM_ssd(nstates,nstates,3) )
+    allocate( shdata%EQM_ssd(nstates,nstates,3,3) )
     allocate( shdata%coeff_diag_s(nstates), shdata%coeff_MCH_s(nstates), shdata%coeff_diab_s(nstates) )
     allocate( shdata%hopprob_s(nstates) )
     allocate( shdata%A_ss(nstates,nstates) )
@@ -722,6 +776,24 @@ contains
     write(u_dm,'(A1,1X,3(A20,1X))') '#','[fs] |','[] |','[] |'
   endif
 
+  if (write_options%write_mag_dip) then
+    write(u_mdm,'(A1,1X,1000(I20,1X))') '#',(i,i=1,nstates+2)
+    write(u_mdm,'(A1,1X,3(A20,1X))') '#','Time |','mag. dip. f_osc (state) |','=== mag. dip. f_osc ===>'
+    write(u_mdm,'(A1,1X,3(A20,1X))') '#','[fs] |','[] |','[] |'
+  endif
+  
+  if (write_options%write_el_quad) then
+    write(u_eqm,'(A1,1X,1000(I20,1X))') '#',(i,i=1,nstates+2)
+    write(u_eqm,'(A1,1X,3(A20,1X))') '#','Time |','el. quad. f_osc (state) |','=== el. quad. f_osc ===>'
+    write(u_eqm,'(A1,1X,3(A20,1X))') '#','[fs] |','[] |','[] |'
+  endif 
+
+  if (write_options%write_mag_dip_el_quad) then
+    write(u_mdeqm,'(A1,1X,1000(I20,1X))') '#',(i,i=1,nstates+2)
+    write(u_mdeqm,'(A1,1X,3(A20,1X))') '#','Time |','mag. dip. - el. quad. f_osc (state) |','=== mag. dip. - el. quad. f_osc ===>'
+    write(u_mdeqm,'(A1,1X,3(A20,1X))') '#','[fs] |','[] |','[] |'
+  endif
+
   if (write_options%write_dipact) then
     write(u_fosc_act,'(A1,1X,1000(I20,1X))') '#',(i,i=1,2*nstates+1)
     write(string1, '(A1,1X,1(A20,1X))') '#','Time |'
@@ -746,6 +818,75 @@ contains
     write(u_fosc_act,'(A)') trim(string1)
   endif
   
+  if (write_options%write_mag_dipact) then
+    write(u_fosc_act_mdm,'(A1,1X,1000(I20,1X))') '#',(i,i=1,2*nstates+1)
+    write(string1, '(A1,1X,1(A20,1X))') '#','Time |'
+    do i=1,nstates
+      write(string2,'(1X,A8,I10,A2)') 'dE ',i,' |'
+      string1=trim(string1)//string2
+    enddo
+    do i=1,nstates
+      write(string2,'(1X,A6,I12,A2)') 'f_osc ',i,' |'
+      string1=trim(string1)//string2
+    enddo
+    write(u_fosc_act_mdm,'(A)') trim(string1)
+    write(string1, '(A1,1X,1(A20,1X))') '#','[fs] |'
+    do i=1,nstates
+      write(string2,'(1X,A20)') '[eV] |'
+      string1=trim(string1)//string2
+    enddo
+    do i=1,nstates
+      write(string2,'(1X,A20)') '[] |'
+      string1=trim(string1)//string2
+    enddo
+    write(u_fosc_act_mdm,'(A)') trim(string1)
+  endif 
+  if (write_options%write_el_quadact) then
+    write(u_fosc_act_eqm,'(A1,1X,1000(I20,1X))') '#',(i,i=1,2*nstates+1)
+    write(string1, '(A1,1X,1(A20,1X))') '#','Time |'
+    do i=1,nstates
+      write(string2,'(1X,A8,I10,A2)') 'dE ',i,' |'
+      string1=trim(string1)//string2
+    enddo
+    do i=1,nstates
+      write(string2,'(1X,A6,I12,A2)') 'f_osc ',i,' |'
+      string1=trim(string1)//string2
+    enddo
+    write(u_fosc_act_eqm,'(A)') trim(string1)
+    write(string1, '(A1,1X,1(A20,1X))') '#','[fs] |'
+    do i=1,nstates
+      write(string2,'(1X,A20)') '[eV] |'
+      string1=trim(string1)//string2
+    enddo
+    do i=1,nstates
+      write(string2,'(1X,A20)') '[] |'
+      string1=trim(string1)//string2
+    enddo
+    write(u_fosc_act_eqm,'(A)') trim(string1)
+  endif 
+  if (write_options%write_mag_dip_el_quadact) then
+    write(u_fosc_act_mdeqm,'(A1,1X,1000(I20,1X))') '#',(i,i=1,2*nstates+1)
+    write(string1, '(A1,1X,1(A20,1X))') '#','Time |'
+    do i=1,nstates
+      write(string2,'(1X,A8,I10,A2)') 'dE ',i,' |'
+      string1=trim(string1)//string2
+    enddo
+    do i=1,nstates
+      write(string2,'(1X,A6,I12,A2)') 'f_osc ',i,' |'
+      string1=trim(string1)//string2
+    enddo
+    write(u_fosc_act_mdeqm,'(A)') trim(string1)
+    write(string1, '(A1,1X,1(A20,1X))') '#','[fs] |'
+    do i=1,nstates
+      write(string2,'(1X,A20)') '[eV] |'
+      string1=trim(string1)//string2
+    enddo
+    do i=1,nstates
+      write(string2,'(1X,A20)') '[] |'
+      string1=trim(string1)//string2
+    enddo
+    write(u_fosc_act_mdeqm,'(A)') trim(string1)
+  endif 
   if (write_options%write_iondiag) then
     write(u_ion_diag,'(A1,1X,1000(I20,1X))') '#',(i,i=1,2*nstates+2)
     write(string1, '(A1,1X,2(A20,1X))') '#','Time |','State (diag) |'
@@ -901,11 +1042,21 @@ contains
 
       if (write_options%write_energy)    open(unit=u_ener, file='output_data/energy.out', status='replace', action='write')           ! -e
       if (write_options%write_dip)       open(unit=u_dm, file='output_data/fosc.out', status='replace', action='write')               ! -d
+      if (write_options%write_mag_dip)   open(unit=u_mdm, file='output_data/fosc_md2.out', status='replace', action='write')          ! -dmd
+      if (write_options%write_el_quad)   open(unit=u_eqm, file='output_data/fosc_eq2.out', status='replace', action='write')          ! -deq
+      if (write_options%write_mag_dip_el_quad)   open(unit=u_mdeqm, file='output_data/fosc_mdeq.out', status='replace',
+        action='write') ! -dmdeq
       if (write_options%write_spin)      open(unit=u_spin, file='output_data/spin.out', status='replace', action='write')             ! -s
       if (write_options%write_prob)      open(unit=u_prob, file='output_data/prob.out', status='replace', action='write')             ! -p
       if (write_options%write_expec)     open(unit=u_expec, file='output_data/expec.out', status='replace', action='write')           ! -x
       if (write_options%write_expecmch)  open(unit=u_expec_mch, file='output_data/expec_MCH.out', status='replace', action='write')   ! -xm
       if (write_options%write_dipact)    open(unit=u_fosc_act, file='output_data/fosc_act.out', status='replace', action='write')     ! -da
+      if (write_options%write_mag_dipact)    open(unit=u_fosc_act_mdm, file='output_data/fosc_act_md2.out', status='replace',
+        action='write')     ! -damd
+      if (write_options%write_el_quadact)    open(unit=u_fosc_act_eqm, file='output_data/fosc_act_eq2.out', status='replace',
+        action='write')     ! -daeq
+      if (write_options%write_mag_dip_el_quadact)    open(unit=u_fosc_act_mdeqm, file='output_data/fosc_act_mdeq.out', status='replace',
+        action='write')     ! -damdeq
       if (write_options%write_iondiag)   open(unit=u_ion_diag, file='output_data/ion_diag.out', status='replace', action='write')     ! -id
       if (write_options%write_ionmch)    open(unit=u_ion_mch, file='output_data/ion_mch.out', status='replace', action='write')       ! -im
 
@@ -994,7 +1145,7 @@ contains
 
     character*8000 :: string1 
     integer        :: i, j, idir
-    ! read everything: H, U, DM, overlap, coeff_diag, hopprob, Ekin, active states
+    ! read everything: H, U, DM, MDM, EQM, overlap, coeff_diag, hopprob, Ekin, active states
     ! random number, time_step for the timestep, geometry, velocity, property matrix
     read(u_dat,*,iostat=ierr) string1
     if (ierr/=0) return
@@ -1003,6 +1154,14 @@ contains
     call matread(nstates,shdata%U_ss,u_dat,string1)
     do idir=1,3
       call matread(nstates,shdata%DM_ssd(:,:,idir),u_dat,string1)
+    enddo
+    do idir=1,3
+      call matread(nstates,shdata%MDM_ssd(:,:,idir),u_dat,string1)
+    enddo
+    do idir=1,3
+      do jdir=1,3
+        call matread(nstates,shdata%EQM_ssdd(:,:,idir,jdir),u_dat,string1)
+      enddo
     enddo
     if (prop_info%have_overlap==1) then
       call matread(nstates,shdata%overlaps_ss,u_dat,string1)
@@ -1100,6 +1259,23 @@ contains
       &time_step*general_infos%dtstep, shdata%expec_dm(shdata%state_diag),&
       (shdata%expec_dm(istate),istate=1,nstates)
     endif
+    if (write_options%write_mag_dip) then
+      ! write to fosc_md2.out
+      write(u_mdm,'(2X,1000(ES20.12E3,1X))') &
+      &time_step*general_infos%dtstep, shdata%expec_mdm(shdata%state_diag),&
+      (shdata%expec_mdm(istate),istate=1,nstates)
+    endif
+    if (write_options%write_el_quad) then
+      ! write to fosc_eq2.out
+      write(u_eqm,'(2X,1000(ES20.12E3,1X))') &
+      &time_step*general_infos%dtstep, shdata%expec_eqm(shdata%state_diag),&
+      (shdata%expec_eqm(istate),istate=1,nstates)
+    endif
+    if (write_options%write_mag_dip_el_quad) then
+      ! write to fosc_md_eq.out
+      write(u_mdeqm,'(2X,1000(ES20.12E3,1X))') &
+      &time_step*general_infos%dtstep, shdata%expec_mdeqm(shdata%state_diag),&
+      (shdata%expec_mdeqm(istate),istate=1,nstates)
     if (write_options%write_dipact)  then
       ! write to fosc_act.out
       write(u_fosc_act,'(2X,1000(ES20.12E3,1X))') &
@@ -1110,7 +1286,36 @@ contains
 !       &time_step*dtstep,(real(H_diag_ss(istate,istate)-H_diag_ss(state_diag,state_diag))*au2eV,istate=1,nstates),&
 !       (expec_dm_act(istate),istate=1,nstates)
     endif
-
+    if (write_options%write_mag_dipact)  then
+      ! write to fosc_act.out
+      write(u_fosc_act_mdm,'(2X,1000(ES20.12E3,1X))') &
+      & time_step*general_infos%dtstep,(abs(real(shdata%H_diag_ss(istate,istate)&
+      & -shdata%H_diag_ss(shdata%state_diag,shdata%state_diag)))*au2eV,istate=1,nstates),&
+      & (shdata%expec_dm_act(istate),istate=1,nstates)
+!       write(u_fosc_act,'(2X,1000(ES20.12E3,1X))') &
+!       &time_step*dtstep,(real(H_diag_ss(istate,istate)-H_diag_ss(state_diag,state_diag))*au2eV,istate=1,nstates),&
+!       (expec_dm_act(istate),istate=1,nstates)
+    endif
+    if (write_options%write_el_quadact)  then
+      ! write to fosc_act.out
+      write(u_fosc_act_eqm,'(2X,1000(ES20.12E3,1X))') &
+      & time_step*general_infos%dtstep,(abs(real(shdata%H_diag_ss(istate,istate)&
+      & -shdata%H_diag_ss(shdata%state_diag,shdata%state_diag)))*au2eV,istate=1,nstates),&
+      & (shdata%expec_eqm_act(istate),istate=1,nstates)
+!       write(u_fosc_act,'(2X,1000(ES20.12E3,1X))') &
+!       &time_step*dtstep,(real(H_diag_ss(istate,istate)-H_diag_ss(state_diag,state_diag))*au2eV,istate=1,nstates),&
+!       (expec_dm_act(istate),istate=1,nstates)
+    endif
+    if (write_options%write_mag_dip_el_quadact)  then
+      ! write to fosc_act.out
+      write(u_fosc_act_mdeqm,'(2X,1000(ES20.12E3,1X))') &
+      & time_step*general_infos%dtstep,(abs(real(shdata%H_diag_ss(istate,istate)&
+      & -shdata%H_diag_ss(shdata%state_diag,shdata%state_diag)))*au2eV,istate=1,nstates),&
+      & (shdata%expec_mdeqm_act(istate),istate=1,nstates)
+!       write(u_fosc_act,'(2X,1000(ES20.12E3,1X))') &
+!       &time_step*dtstep,(real(H_diag_ss(istate,istate)-H_diag_ss(state_diag,state_diag))*au2eV,istate=1,nstates),&
+!       (expec_dm_act(istate),istate=1,nstates)
+    endif
 
     if (write_options%write_iondiag) then
       ! write to ion_diag.out
@@ -1326,6 +1531,79 @@ contains
       enddo
     endif
 
+    ! calculate oscillator strengths for magnetic dipoles
+    if (write_options%write_mag_dip .or. write_options%write_mag_dipact .or. write_options%write_expec .or.&
+        &write_options%write_expecmch .or. write_options%write_dm_diag) then
+      shdata%expec_mdm=0.d0
+      shdata%expec_mdm_mch=0.d0
+      shdata%expec_mdm_act=0.d0 
+      do idir=1,3
+        shdata%A_ss=shdata%M_mch_ssd(:,:,idir)
+        shdata%expec_mdm_mch=shdata%expec_mdm_mch+real(shdata%A_ss(:,1)*shdata%A_ss(1,:))
+        call transform(nstates,shdata%A_ss,shdata%U_ss,'utau')
+        shdata%expec_mdm=shdata%expec_mdm+real(shdata%A_ss(:,1)*shdata%A_ss(1,:))
+        shdata%expec_mdm_act=shdata%expec_mdm_act+real(shdata%A_ss(:,shdata%state_diag)*shdata%A_ss(shdata%state_diag,:))
+      enddo 
+      shdata%expec_mdm=shdata%expec_mdm*2./3.
+      shdata%expec_mdm_mch=shdata%expec_mdm_mch*2./3.
+      shdata%expec_mdm_act=shdata%expec_mdm_act*2./3.  
+      do i=1,nstates
+        shdata%expec_mdm(i)=shdata%expec_mdm(i)*real(shdata%H_diag_ss(i,i)-shdata%H_diag_ss(1,1))
+        shdata%expec_mdm_mch(i)=shdata%expec_mdm_mch(i)*real(shdata%H_MCH_ss(i,i)-shdata%H_MCH_ss(1,1))
+        shdata%expec_mdm_act(i)=shdata%expec_mdm_act(i)*real(shdata%H_diag_ss(i,i)-shdata%H_diag_ss(shdata%state_diag,shdata%state_diag))
+      enddo 
+    endif
+    
+    ! calculate oscillator strengths for electric quadrupoles
+    if (write_options%write_el_quad .or. write_options%write_el_quadact .or. write_options%write_expec .or.&
+        &write_options%write_expecmch .or. write_options%write_dm_diag) then
+      shdata%expec_eqm=0.d0
+      shdata%expec_eqm_mch=0.d0
+      shdata%expec_eqm_act=0.d0 
+      do idir=1,3
+        do jdir=1,3
+          shdata%A_ss=shdata%EQM_mch_ssdd(:,:,idir,jdir)
+          shdata%expec_eqm_mch=shdata%expec_eqm_mch+real(shdata%A_ss(:,1)*shdata%A_ss(1,:))
+          call transform(nstates,shdata%A_ss,shdata%U_ss,'utau')
+          shdata%expec_eqm=shdata%expec_eqm+real(shdata%A_ss(:,1)*shdata%A_ss(1,:))
+          shdata%expec_eqm_act=shdata%expec_eqm_act+real(shdata%A_ss(:,shdata%state_diag)*shdata%A_ss(shdata%state_diag,:))
+        enddo
+      enddo 
+      shdata%expec_eqm=shdata%expec_eqm*1./20.*alpha**2
+      shdata%expec_eqm_mch=shdata%expec_eqm_mch*1./20.*alpha**2
+      shdata%expec_eqm_act=shdata%expec_eqm_act*1./20.*alpha**2 
+      do i=1,nstates
+        shdata%expec_eqm(i)=shdata%expec_eqm(i)*real(shdata%H_diag_ss(i,i)-shdata%H_diag_ss(1,1))
+        shdata%expec_eqm_mch(i)=shdata%expec_eqm_mch(i)*real(shdata%H_MCH_ss(i,i)-shdata%H_MCH_ss(1,1))
+        shdata%expec_eqm_act(i)=shdata%expec_eqm_act(i)*real(shdata%H_diag_ss(i,i)-shdata%H_diag_ss(shdata%state_diag,shdata%state_diag))
+      enddo
+    endif
+    
+    ! calculate oscillator strengths for magnetic dipole * electric quadrupole
+    if (write_options%write_mag_dip_el_quad .or. write_options%write_mag_dip_el_quadact .or. write_options%write_expec .or.&
+        &write_options%write_expecmch .or. write_options%write_dm_diag) then
+      shdata%expec_mdeqm=0.d0
+      shdata%expec_mdeqm_mch=0.d0
+      shdata%expec_mdeqm_act=0.d0 
+      do idir=1,3
+        do jdir=1,3
+          A_ss=EQM_mch_ssdd(:,:,idir,jdir)
+          shdata%expec_mdeqm_mch=shdata%expec_mdeqm_mch+real(shdata%A_ss(:,1)*shdata%A_ss(1,:))
+          call transform(nstates,shdata%A_ss,shdata%U_ss,'utau')
+          shdata%expec_mdeqm=shdata%expec_mdeqm+real(shdata%A_ss(:,1)*shdata%A_ss(1,:))
+          shdata%expec_mdeqm_act=shdata%expec_mdeqm_act+real(shdata%A_ss(:,shdata%state_diag)*shdata%A_ss(shdata%state_diag,:))
+        enddo
+      enddo 
+      shdata%expec_mdeqm=shdata%expec_mdeqm*1./20.*alpha**2
+      shdata%expec_mdeqm_mch=shdata%expec_mdeqm_mch*1./20.*alpha**2
+      shdata%expec_mdeqm_act=shdata%expec_mdeqm_act*1./20.*alpha**2 
+      do i=1,nstates
+        shdata%expec_mdeqm(i)=shdata%expec_mdeqm(i)*real(shdata%H_diag_ss(i,i)-shdata%H_diag_ss(1,1))
+        shdata%expec_mdeqm_mch(i)=shdata%expec_mdeqm_mch(i)*real(shdata%H_MCH_ss(i,i)-shdata%H_MCH_ss(1,1))
+        shdata%expec_mdeqm_act(i)=shdata%expec_mdeqm_act(i)*real(shdata%H_diag_ss(i,i)-shdata%H_diag_ss(shdata%state_diag,shdata%state_diag))
+      enddo
+    endif 
+    
     ! calculate ionization
     if (write_options%write_iondiag .or. write_options%write_ionmch) then
       shdata%expec_ion_diag=0.d0
