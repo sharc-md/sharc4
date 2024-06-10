@@ -13,11 +13,16 @@ from typing import Any
 
 import h5py
 import numpy as np
-from constants import au2a, lande_g_factor
+from constants import au2a, IToMult, lande_g_factor
 from pyscf import tools
 from qmin import QMin
 from SHARC_ABINITIO import SHARC_ABINITIO
-from utils import convert_list, expand_path, mkdir, writefile
+from utils import (convert_list,
+                   expand_path,
+                   link,
+                   mkdir,
+                   question,
+                   writefile)
 
 __all__ = ["SHARC_MOLCAS"]
 
@@ -34,6 +39,7 @@ all_features = set(
     [
         "h",
         "dm",
+        "mdeqm",
         "soc",
         "nacdr",
         "grad",
@@ -163,6 +169,26 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
     def about() -> str:
         return f"{SHARC_MOLCAS._name}\n{SHARC_MOLCAS._description}"
 
+    @staticmethod
+    def check_template(template_file):
+
+        necessary = {"basis", "method"}
+        with open(template_file, "r") as f:
+            for line in f:
+                if len(necessary) == 0:
+                    break
+                line = line.strip()
+                if len(line) == 0:
+                    continue
+                if line[0] == "#":
+                    continue
+                lspt = line.split()
+                if len(lspt) == 0:
+                    continue
+                elif line.split()[0] in necessary:
+                    necessary.remove(line.split()[0])
+        return not len(necessary) != 0
+
     def get_features(self, KEYSTROKES: TextIOWrapper | None = None) -> set[str]:
         """return availble features
 
@@ -180,10 +206,194 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         INFOS: dictionary with all previously collected infos during setup
         KEYSTROKES: object as returned by open() to be used with question()
         """
+
+        self.log.info("=" * 80)
+        self.log.info(f"{'||':<78}||")
+        self.log.info(f"||{'MOLCAS interface setup': ^76}||\n{'||':<78}||")
+        self.log.info("=" * 80)
+        self.log.info("\n")
+        self.files = []
+
+        self.log.info(f"{'Path to MOLCAS':-^60s}\n")
+        tries = ['MOLCAS']
+        for i in tries:
+            path = os.getenv(i)
+            if path:
+                break
+        self.log.info('\nPlease specify path to MOLCAS directory (SHELL variables and ~ can be used, will be expanded when interface is started).\n')
+        INFOS['molcas'] = question('Path to MOLCAS:', str, KEYSTROKES=KEYSTROKES, default=path)
+        self.log.info('')
+
+        # scratch
+        self.log.info('{:-^60}'.format('Scratch directory') + '\n')
+        self.log.info('Please specify an appropriate scratch directory. This will be used to temporally store the integrals. The scratch directory will be deleted after the calculation. Remember that this script cannot check whether the path is valid, since you may run the calculations on a different machine. The path will not be expanded by this script.')
+        INFOS['scratchdir'] = question('Path to scratch directory:', str, KEYSTROKES=KEYSTROKES)
+        self.log.info('')
+
+        # template file
+        self._template_file = None
+        self._resource_file = None
+        self.log.info('{:-^60}'.format('MOLCAS input template file') + '\n')
+        self.log.info('''Please specify the path to the MOLCAS.template file. This file must contain the following keywords:
+
+    basis <basis>
+    ras2 <Number of active orbitals>             
+    nactel <Number of active electrons>          
+    inactive <Number of doubly occupied orbitals>
+    roots <Number of roots for state-averaging>  
+
+    The MOLCAS interface will generate the appropriate MOLCAS input automatically.
+    ''')
+        if os.path.isfile('MOLCAS.template'):
+            if SHARC_MOLCAS.check_template('MOLCAS.template'):
+                self.log.info('Valid file "MOLCAS.template" detected. ')
+                usethisone = question('Use this template file?', bool, KEYSTROKES=KEYSTROKES, default=True)
+                if usethisone:
+                    self._template_file = 'MOLCAS.template'
+        if not self.template_file:
+            while True:
+                filename = question('Template filename:', str, KEYSTROKES=KEYSTROKES)
+                if not os.path.isfile(filename):
+                    self.log.info('File %s does not exist!' % (filename))
+                    continue
+                if SHARC_MOLCAS.check_template(filename):
+                    break
+            self._template_file = filename
+        self.log.info('')
+        self.files.append(self._template_file)
+        # extra_file_keys = {"basis_external", "paste_input_file"}
+        # with open(self.template_file, "r") as f:
+        #     for line in f:
+        #         line = line.strip()
+        #         if len(line) == 0:
+        #             continue
+        #         if line[0] == "#":
+        #             continue
+        #         lspt = line.split()
+        #         if len(lspt) == 0:
+        #             continue
+        #         if lspt[0] in extra_file_keys:
+        #             self.files.append(lspt[1])
+
+        # TODO check_MOLCAS_qmmm -> setup_init_old.py -> get_MOLCAS
+
+        # initial MOs
+        self.log.info('{:-^60}'.format('Initial restart: MO Guess') + '\n')
+        self.log.info('''Please specify the path to a MOLCAS JobIph or RasOrb file containing suitable starting MOs for the MOLCAS calculation. Please note that this script cannot check whether the wavefunction file and the Input template are consistent!
+    ''')
+        self.guess_file = None
+        string = 'Do you have initial wavefunction files for '
+        for mult, state in enumerate(self.QMin.molecule["states"]):
+            if state<= 0:
+                continue
+            string += '%s, ' % (IToMult[mult + 1])
+        string = string[:-2] + '?'
+        if question(f'{string}', bool, KEYSTROKES=KEYSTROKES, default=True):
+            while True:
+                jobiph_or_rasorb = question('JobIph files (1) or RasOrb files (2)?', int)[0]
+                if jobiph_or_rasorb in [1, 2]:
+                    break
+            INFOS['molcas.jobiph_or_rasorb'] = jobiph_or_rasorb
+            INFOS['molcas.guess'] = {}                         
+            for mult, state in enumerate(self.QMin.molecule["states"]): 
+                if state <=0:
+                    continue
+                while True:
+                    if jobiph_or_rasorb == 1:
+                        guess_file = 'MOLCAS.%i.JobIph.init' % (mult + 1)
+                    else:
+                        guess_file = 'MOLCAS.%i.RasOrb.init' % (mult + 1)
+                filename = question('Initial wavefunction file for %ss:' % (IToMult[mult + 1]), str, guess_file)
+                if os.path.isfile(filename):                                                                    
+                    INFOS['molcas.guess'][mult + 1] = filename
+                    break                                     
+                else:
+                    self.log.info('Could not find file "%s"!' % (filename))
+
+        # Resources
+        # TODO
+        if question("Do you have a 'MOLCAS.resources' file?", bool, KEYSTROKES=KEYSTROKES, default=False):
+            while True:
+                resources_file = question("Specify the path:", str, KEYSTROKES=KEYSTROKES, default="MOLCAS.resources")
+                if os.path.isfile(resources_file):
+                    break
+                else:
+                    self.log.info(f"file at {resources_file} does not exist!")
+            self.files.append(resources_file)
+            self.make_resources = False
+        else:
+            self.make_resources = True
+            self.log.info('{:-^60}'.format('MOLCAS Ressource usage') + '\n')
+            self.log.info('''Please specify the number of CPUs to be used by EACH calculation.
+        ''')
+            INFOS['ncpu'] = abs(question('Number of CPUs:', int, KEYSTROKES=KEYSTROKES)[0])
+
+        #     if INFOS['ncpu'] > 1:
+        #         self.log.info('''Please specify how well your job will parallelize.
+        # A value of 0 means that running in parallel will not make the calculation faster, a value of 1 means that the speedup scales perfectly with the number of cores.
+        # Typical values for MOLCAS are 0.90-0.98.''')
+        #         INFOS['scaling'] = min(1.0, max(0.0, question('Parallel scaling:', float, default=[0.9], KEYSTROKES=KEYSTROKES)[0]))
+        #     else:
+        #         INFOS['scaling'] = 0.9
+
+            INFOS['mem'] = question('Memory (MB):', int, default=[1000], KEYSTROKES=KEYSTROKES)[0]
+
+            # Ionization
+            # self.log.info('\n'+centerstring('Ionization probability by Dyson norms',60,'-')+'\n')
+            # INFOS['ion']=question('Dyson norms?',bool,False)
+            # if INFOS['ion']:
+            if 'overlap' in INFOS['needed_requests']:
+                self.log.info('\n' + '{:-^60}'.format('WFoverlap setup') + '\n')
+                INFOS['wfoverlap'] = question('Path to wavefunction overlap executable:', str, default='$SHARC/wfoverlap.x', KEYSTROKES=KEYSTROKES)
+                self.log.info('')
+                # self.log.info('State threshold for choosing determinants to include in the overlaps')
+                # self.log.info('For hybrids without TDA one should consider that the eigenvector X may have a norm larger than 1')
+                # INFOS['ciothres'] = question('Threshold:', float, default=[0.998], KEYSTROKES=KEYSTROKES)[0]
+                self.log.info('')
+                # TODO not asked: numfrozcore and numocc
+
+                # self.log.info('Please state the number of core orbitals you wish to freeze for the overlaps (recommended to use for at least the 1s orbital and a negative number uses default values)?')
+                # self.log.info('A value of -1 will use the defaults used by MOLCAS for a small frozen core and 0 will turn off the use of frozen cores')
+                # INFOS['frozcore_number']=question('How many orbital to freeze?',int,[-1])[0]
+
         return INFOS
 
     def prepare(self, INFOS: dict, dir_path: str) -> None:
-        pass
+        """
+        prepare the workdir according to dictionary
+
+        ---
+        Parameters:
+        INFOS: dictionary with infos
+        workdir: path to workdir
+        """
+        # if self.make_resources:
+        #     try:
+        #         resources_file = open('MOLCAS.resources' % (workdir), 'w')
+        #     except IOError:
+        #         self.log.error('IOError during prepareMOLCAS, iconddir=%s' % (workdir))
+        #         quit(1)
+        #     string = 'molcas %s\nscratchdir %s\nsavedir %s/\nschedule_scaling %f\n' % (INFOS['molcas'], INFOS['scratchdir'], workdir, INFOS['scaling'])
+        #     string += 'memory %i\nncpu %i\n' % (INFOS['mem'], INFOS["ncpu"])
+        #     if 'overlap' in INFOS['needed_requests']:
+        #         string += 'wfoverlap %s\nwfthres %f\n' % (INFOS['wfoverlap'], INFOS['ciothres'])
+        #         # string+='numfrozcore %i\n' %(INFOS['frozcore_number'])
+        #     # if 'theodore' in INFOS['needed_requests']:
+        #     #     string += 'theodir %s\n' % (INFOS['gaussian.theodore'])
+        #     #     string += 'theodore_prop %s\n' % (INFOS['theodore.prop'])
+        #     #     string += 'theodore_fragment %s\n' % (INFOS['theodore.frag'])
+        #     resources_file.write(string)
+        #     resources_file.close()
+
+        create_file = link if INFOS["link_files"] else shutil.copy
+        if not self._resource_file:
+            with open(os.path.join(dir_path, "MOLCAS.resources"), "w", encoding="utf-8") as file:
+                for key in ("molcas", "scratchdir", "savedir", "memory", "ncpu", "wfoverlap", "wfthres"):
+                    if key in INFOS:
+                        file.write(f"{key} {INFOS[key]}\n")
+        else:
+            create_file(expand_path(self._resource_file), os.path.join(dir_path, "MOLCAS.resources"))
+        create_file(expand_path(self._template_file), os.path.join(dir_path, "MOLCAS.template"))      
 
     def create_restart_files(self) -> None:
         pass
@@ -671,9 +881,11 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         Generate tasklist for dipoles, ion
         """
         tasks = []
-        if any([qmin.requests["dm"], qmin.requests["mdm"], qmin.requests["eqm"], qmin.requests["multipolar_fit"]]):
+        if any([qmin.requests["dm"], qmin.requests["mdeqm"], qmin.requests["multipolar_fit"]]):
             tasks.append(["link", f"MOLCAS.{mult+1}.JobIph", "JOB001"])
             tasks.append(["rassi", "dm", [states]])
+            if qmin.requests["mdeqm"]:
+                tasks.append(["mdm", "eqm"])
             if self._hdf5:
                 tasks.append(["copy", "MOLCAS.rassi.h5", f"MOLCAS.rassi.{mult+1}.h5"])
         return tasks
@@ -915,7 +1127,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
 
         if qmin.requests["soc"]:
             input_str += "AMFI\n"
-        if qmin.requests["soc"] or qmin.requests["mdm"]:
+        if qmin.requests["soc"] or qmin.requests["mdeqm"]:
             "angmom\n0 0 0\n"
         if qmin.template["baslib"]:
             input_str += f"BASLIB\n{qmin.template['baslib']}\n\n"
@@ -1124,7 +1336,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                                 self.QMout["dm"][:, s_cnt : s_cnt + s, s_cnt : s_cnt + s] = dp["SFS_EDIPMOM"][:]
                                 s_cnt += s
 
-        if self.QMin.requests["mdm"]:
+        if self.QMin.requests["mdeqm"]:
             # Full MDM matrix in ascii file, sub matrices of mult in h5 files
             if isinstance(master_out, str):
                 self.QMout["mdm"] = self._get_magnetic_dipoles(master_out)
@@ -1134,10 +1346,8 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                     if s > 0:
                         with h5py.File(os.path.join(scratchdir, f"master/MOLCAS.rassi.{m}.h5"), "r") as mdp:
                             for _ in range(m):
-                                self.QMout["mdm"][:, s_cnt : s_cnt + s, s_cnt : s_cnt + s] = mdp["SFS_EDIPMOM"][:]
+                                self.QMout["mdm"][:, s_cnt : s_cnt + s, s_cnt : s_cnt + s] = mdp["SFS_ANGMOM"][:]
                                 s_cnt += s
-
-        if self.QMin.requests["eqm"]:
             # Full EQM matrix in ascii file, sub matrices of mult in h5 files
             if isinstance(master_out, str):
                 self.QMout["eqm"] = self._get_electric_quadrupoles(master_out)

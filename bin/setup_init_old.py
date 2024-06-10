@@ -2395,14 +2395,13 @@ The GAUSSIAN interface will generate the appropriate GAUSSIAN input automaticall
     print('''Please specify the path to an GAUSSIAN chk file containing suitable starting MOs for the GAUSSIAN calculation. Please note that this script cannot check whether the wavefunction file and the Input template are consistent!
 ''')
     if question('Do you have a restart file?', bool, True):
-        if True:
-            while True:
-                filename = question('Restart file:', str, 'GAUSSIAN.chk.init')
-                if os.path.isfile(filename):
-                    INFOS['gaussian.guess'] = filename
-                    break
-                else:
-                    print('Could not find file "%s"!' % (filename))
+        while True:
+            filename = question('Restart file:', str, 'GAUSSIAN.chk.init')
+            if os.path.isfile(filename):
+                INFOS['gaussian.guess'] = filename
+                break
+            else:
+                print('Could not find file "%s"!' % (filename))
     else:
         INFOS['gaussian.guess'] = {}
 

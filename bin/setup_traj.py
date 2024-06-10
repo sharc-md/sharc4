@@ -576,7 +576,7 @@ def check_laserfields(filename):
 
 
 def check_laserfile(filename, nsteps, dt):
-    log.info('Laser file must have %i steps and a time step of %f fs.' % (nsteps,dt))
+    log.info('Laser file must have %i steps and a time step of %f fs.' % (nsteps, dt))
     last_com_line = -1 #Last comment line
     try:
         f = open(filename)
@@ -1379,17 +1379,24 @@ Laser files can be created using $SHARC/laser.x
             INFOS['b-field'] = bool(set_fields[1])
             INFOS['e-field gradients'] = bool(set_fields[2])
             INFOS['b-field gradients'] = bool(set_fields[3])
-                
         # only the analytical interface can do dipole gradients
         if "dipolegrad" in int_features:
             INFOS["dipolegrad"] = question("Do you want to use dipole moment gradients?", bool, False)
         else:
             INFOS["dipolegrad"] = False
+        # 2nd order LM-interaction can only be described, if B-field and E-field gradients are present in laser file
+        if "mdeqm" in int_features and INFOS['b-field'] and INFOS['e-field gradients']:
+            INFOS["mdeqm"] = True
+        else:
+            INFOS["mdeqm"] = False
         log.info("")
     else:
         INFOS["dipolegrad"] = False
+        INFOS["mdeqm"] = False
     if INFOS["dipolegrad"]:
         INFOS["needed_requests"].append("dmdr")
+    if INFOS["mdeqm"]:
+        INFOS["needed_requests"].append("mdeqm")
 
     # Setup Dyson computation
     INFOS["ion"] = False
@@ -1703,7 +1710,8 @@ def writeSHARCinput(INFOS, initobject, iconddir, istate, ask=False):
         if INFOS["dipolegrad"]:
             s += "dipole_gradient\n"
         s += "\n"
-
+        if INFOS["mdeqm"]:
+            s += "2_multipole_moments\n"
     if "ion" in INFOS and INFOS["ion"]:
         s += "ionization\n"
         s += "ionization_step 1\n"
