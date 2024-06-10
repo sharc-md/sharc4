@@ -250,7 +250,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 usethisone = question('Use this template file?', bool, KEYSTROKES=KEYSTROKES, default=True)
                 if usethisone:
                     self._template_file = 'MOLCAS.template'
-        if not self.template_file:
+        if not self._template_file:
             while True:
                 filename = question('Template filename:', str, KEYSTROKES=KEYSTROKES)
                 if not os.path.isfile(filename):
@@ -283,19 +283,21 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
     ''')
         self.guess_file = None
         string = 'Do you have initial wavefunction files for '
-        for mult, state in enumerate(self.QMin.molecule["states"]):
+        for mult, state in enumerate(INFOS["states"]):
             if state<= 0:
                 continue
             string += '%s, ' % (IToMult[mult + 1])
         string = string[:-2] + '?'
         if question(f'{string}', bool, KEYSTROKES=KEYSTROKES, default=True):
             while True:
-                jobiph_or_rasorb = question('JobIph files (1) or RasOrb files (2)?', int)[0]
+                jobiph_or_rasorb = question('JobIph files (1) or RasOrb files (2)?', int, KEYSTROKES=KEYSTROKES, default=None)[0]
                 if jobiph_or_rasorb in [1, 2]:
+                    self.log.info("TEST")
                     break
             INFOS['molcas.jobiph_or_rasorb'] = jobiph_or_rasorb
-            INFOS['molcas.guess'] = {}                         
-            for mult, state in enumerate(self.QMin.molecule["states"]): 
+            INFOS['molcas.guess'] = {}
+            self.log.info("ESCAPE")
+            for mult, state in enumerate(INFOS["states"]): 
                 if state <=0:
                     continue
                 while True:
@@ -303,12 +305,12 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                         guess_file = 'MOLCAS.%i.JobIph.init' % (mult + 1)
                     else:
                         guess_file = 'MOLCAS.%i.RasOrb.init' % (mult + 1)
-                filename = question('Initial wavefunction file for %ss:' % (IToMult[mult + 1]), str, guess_file)
-                if os.path.isfile(filename):                                                                    
-                    INFOS['molcas.guess'][mult + 1] = filename
-                    break                                     
-                else:
-                    self.log.info('Could not find file "%s"!' % (filename))
+                    filename = question('Initial wavefunction file for %ss:' % (IToMult[mult + 1]), str, KEYSTROKES=KEYSTROKES, default=guess_file)
+                    if os.path.isfile(filename):                                                                    
+                        INFOS['molcas.guess'][mult + 1] = filename
+                        break                                     
+                    else:
+                        self.log.info('Could not find file "%s"!' % (filename))
 
         # Resources
         # TODO
