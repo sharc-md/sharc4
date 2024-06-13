@@ -13,7 +13,7 @@ from utils import mkdir
 
 #TODO: Change INTERFACENAME to your desired name
 
-__all__ = ["SHARC_INTERFACENAME"]  # Only export interface class
+__all__ = ["SHARC_<INTERFACENAME>"]  # Only export interface class
 
 
 #TODO: This will be shown in the header when running a single point or sharc.x
@@ -45,7 +45,7 @@ all_features = set(
 )
 
 
-class SHARC_INTERFACENAME(SHARC_ABINITIO):
+class SHARC_<INTERFACENAME>(SHARC_ABINITIO):
     """
     Doc string of your interface
     """
@@ -119,31 +119,31 @@ class SHARC_INTERFACENAME(SHARC_ABINITIO):
 
     @staticmethod
     def version() -> str:
-        return SHARC_INTERFACENAME._version
+        return SHARC_<INTERFACENAME>._version
 
     @staticmethod
     def versiondate() -> datetime.datetime:
-        return SHARC_INTERFACENAME._versiondate
+        return SHARC_<INTERFACENAME>._versiondate
 
     @staticmethod
     def changelogstring() -> str:
-        return SHARC_INTERFACENAME._changelogstring
+        return SHARC_<INTERFACENAME>._changelogstring
 
     @staticmethod
     def authors() -> str:
-        return SHARC_INTERFACENAME._authors
+        return SHARC_<INTERFACENAME>._authors
 
     @staticmethod
     def name() -> str:
-        return SHARC_INTERFACENAME._name
+        return SHARC_<INTERFACENAME>._name
 
     @staticmethod
     def description() -> str:
-        return SHARC_INTERFACENAME._description
+        return SHARC_<INTERFACENAME>._description
 
     @staticmethod
     def about() -> str:
-        return f"{SHARC_INTERFACENAME._name}\n{SHARC_INTERFACENAME._description}"
+        return f"{SHARC_<INTERFACENAME>._name}\n{SHARC_<INTERFACENAME>._description}"
 
 
 # ---------------------------------| Initialization |------------------------------------------------------------------
@@ -163,8 +163,60 @@ class SHARC_INTERFACENAME(SHARC_ABINITIO):
 
         #TODO: Setup stuff that needs to be done after read_template and read_resources
 
-#----------------------------------| Requests | ----------------------------------------------
-# Read requests and set coords
+
+# ---------------------------------| Run |---------------------------------------------------------------------
+# and if needed WFoverlap/Theodore + Care for Restart Information
+
+    def run(self) -> None:
+        starttime = datetime.datetime.now()
+
+        #TODO: Execute QC program. care for errors and restart files
+
+        # Setup workdir
+        workdir = self.QMin.control["workdir"]
+        mkdir(workdir)
+
+        # Run QC Program
+        exec_str = "<command to run QM program>"
+        exit_code = self.run_program(
+            workdir, exec_str, os.path.join(workdir, "interfacename.log"), os.path.join(workdir, "interfacename.err")
+        )
+
+        #TODO: Maybe some errorhandling in case exit_code != 0
+
+        #TODO: Post processing, molden file, wfoverlap det/mo files, ...
+
+        #TODO: Copy restart files to savedir
+
+
+        #TODO: If you need more calculation runs in order to get all of the necessary data 
+        # you can use scheduling
+        # #HINT: If no schduling is needed then do this:
+        # # schedule = [{"calc" : self.QMin}] #Generate fake schedule
+        # # self.QMin.control["nslots_pool"].append(1)
+        # # self.runjobs(schedule)
+
+        # #TODO: Build schedule executed by runjobs here
+        
+
+        # # Execute schedule, execute_from_qmin will be run inside runjobs
+        # self.runjobs(self.QMin.scheduling["schedule"])
+
+        # #TODO: Save files that you need to keep after program execution.
+
+        # Run overlap calc here if needed
+        if self.QMin.requests["overlap"]:
+            self._run_wfoverlap()
+        
+        #TODO: ion/dyson calc and everything that has to be done after the actual QM calc
+
+        self.log.debug("All jobs finished successful")
+
+        self.QMout["runtime"] = datetime.datetime.now() - starttime
+
+    def create_restart_files(self) -> None:
+            pass
+
     def read_requests(self, requests_file: str = "QM.in") -> None:
         super().read_requests(requests_file)
 
@@ -180,39 +232,6 @@ class SHARC_INTERFACENAME(SHARC_ABINITIO):
         #TODO: Nothing to do here, this method just update the coordinates.
 
 
-# ---------------------------------| Run |---------------------------------------------------------------------
-# and if needed WFoverlap/Theodore + Care for Restart Information
-
-    def run(self) -> None:
-        starttime = datetime.datetime.now()
-
-        #HINT: If no schduling is needed then do this:
-        # schedule = [{"calc" : self.QMin}] #Generate fake schedule
-        # self.QMin.control["nslots_pool"].append(1)
-        # self.runjobs(schedule)
-
-        #TODO: Build schedule executed by runjobs here
-        
-
-        # Execute schedule, execute_from_qmin will be run inside runjobs
-        self.runjobs(self.QMin.scheduling["schedule"])
-
-        #TODO: Save files that you need to keep after program execution.
-
-        # Run overlap calc here if needed
-        if self.QMin.requests["overlap"]:
-            self._run_wfoverlap()
-        
-        #TODO: ion/dyson calc and everything that has to be done after the actual QM calc
-
-        self.log.debug("All jobs finished successful")
-
-        self.QMout["runtime"] = datetime.datetime.now() - starttime
-
-    def create_restart_files(self) -> None:
-            pass
-
-
 # ---------------------------------| Scheduling |---------------------------------------------------------------------
 # Generate schedule if needed
 
@@ -221,9 +240,6 @@ class SHARC_INTERFACENAME(SHARC_ABINITIO):
         Generates scheduling from joblist
         """
         pass
-
-
-# ---------------------------------| Execute Program |-----------------------------------------------------------------
 
     def execute_from_qmin(self, workdir: str, qmin: QMin) -> tuple[int, datetime.timedelta]:
         """
@@ -250,7 +266,7 @@ class SHARC_INTERFACENAME(SHARC_ABINITIO):
 
         #TODO: Copy restart files to savedir
         return exit_code, endtime - starttime
-    
+
 
 # ---------------------------------| Get Data |-----------------------------------------------------------------------
 

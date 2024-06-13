@@ -95,6 +95,7 @@ class SHARC_MNDO(SHARC_ABINITIO):
                 "fomo": 0,
                 "rohf": 0,
                 "levexc": 2,
+                "mciref": 0,
             }
         )
         self.QMin.template.types.update(
@@ -112,6 +113,7 @@ class SHARC_MNDO(SHARC_ABINITIO):
                 "fomo": int,
                 "rohf": int,
                 "levexc": int,
+                "mciref": int,
 
             }
         )
@@ -1090,6 +1092,11 @@ mocoef
         self.QMin["template"]["levexc"] = int(self.QMin["template"]["levexc"])
         if self.QMin["template"]["levexc"] > 6 or self.QMin["template"]["levexc"] < 1 :
             raise ValueError(f"levexc can only be between 1 (singlets) and 6 (sextets).")
+        
+        self.QMin["template"]["mciref"] = int(self.QMin["template"]["mciref"])
+        if self.QMin["template"]["mciref"] != 3 and self.QMin["template"]["mciref"] != 0:
+            raise ValueError(f"mciref can only be between 0 (automatic definition) or 3 (mciref 0 plut 85% of something).")
+
 
 
 
@@ -1234,6 +1241,7 @@ mocoef
         iop = qmin["template"]["iop"]
         rohf = qmin["template"]["rohf"]
         levexc = qmin["template"]["levexc"]
+        mciref = qmin["template"]["mciref"]
 
         nfloat = ici1 + ici2
         icross = 1
@@ -1241,9 +1249,9 @@ mocoef
             icross = 7
         
         if qmin["template"]["fomo"] == 1:
-            inputstring = f"iop={iop} jop=-2 imult={rohf} iform=1 igeom=1 mprint=1 icuts=-1 icutg=-1 dstep=1e-05 kci=5 ioutci=1 iroot={iroot} icross={icross} ncigrd={ncigrd} inac=0 imomap={imomap} iscf=9 iplscf=9 kitscf={kitscf} nciref={nciref} mciref=3 levexc={levexc} mapthr=70 iuvcd=3 nsav13=2 kharge={kharge} multci=1 cilead=1 ncisym=-1 nsav15=9 iuhf=-6 nfloat={nfloat}"
+            inputstring = f"iop={iop} jop=-2 imult={rohf} iform=1 igeom=1 mprint=1 icuts=-1 icutg=-1 dstep=1e-05 kci=5 ioutci=1 iroot={iroot} icross={icross} ncigrd={ncigrd} inac=0 imomap={imomap} iscf=9 iplscf=9 kitscf={kitscf} nciref={nciref} mciref={mciref} levexc={levexc} mapthr=70 iuvcd=3 nsav13=2 kharge={kharge} multci=1 cilead=1 ncisym=-1 nsav15=9 iuhf=-6 nfloat={nfloat}"
         else:
-            inputstring = f"iop={iop} jop=-2 imult={rohf} iform=1 igeom=1 mprint=1 icuts=-1 icutg=-1 dstep=1e-05 kci=5 ioutci=1 iroot={iroot} icross={icross} ncigrd={ncigrd} inac=0 imomap={imomap} iscf=9 iplscf=9 kitscf={kitscf} ici1={ici1} ici2={ici2} movo={movo} nciref={nciref} mciref=3 levexc={levexc} mapthr=70 iuvcd=3 nsav13=2 kharge={kharge} multci=1 cilead=1 ncisym=-1 nsav15=9"
+            inputstring = f"iop={iop} jop=-2 imult={rohf} iform=1 igeom=1 mprint=1 icuts=-1 icutg=-1 dstep=1e-05 kci=5 ioutci=1 iroot={iroot} icross={icross} ncigrd={ncigrd} inac=0 imomap={imomap} iscf=9 iplscf=9 kitscf={kitscf} ici1={ici1} ici2={ici2} movo={movo} nciref={nciref} mciref={mciref} levexc={levexc} mapthr=70 iuvcd=3 nsav13=2 kharge={kharge} multci=1 cilead=1 ncisym=-1 nsav15=9"
         
         if qmin["molecule"]["point_charges"]:
             inputstring += f" numatm={ncharges} mmcoup=2 mmfile=1 mmskip=0 mminp=2"
