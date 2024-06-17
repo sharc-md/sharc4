@@ -883,7 +883,9 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         else:
             input_str += "THRS=" + " ".join(f"{i:14.12f}" for i in qmin.template["rasscf_thrs"]) + "\n"
         if task[3]:
-            input_str += "JOBIPH\nCIRESTART\n"
+            input_str += "JOBIPH\n"
+            if qmin.save["samestep"]:
+                input_str += "CIRESTART\n"
         if task[4]:
             input_str += "LUMORB\n"
         if len(task) > 5:
@@ -902,7 +904,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         """
         input_str = "&SEWARD\n"
         if qmin.template["method"] == "cms-pdft":
-            input_str += "GRID INPUT\nNORO\nNOSC\nEND OF GRID INPUT\n"
+            input_str += "GRID INPUT\nNOSC\nEND OF GRID INPUT\n"
         input_str += "\n"
         return input_str
 
@@ -922,7 +924,9 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             input_str += "AMFI\nangmom\n0 0 0\n"
         if qmin.template["baslib"]:
             input_str += f"BASLIB\n{qmin.template['baslib']}\n\n"
-        input_str += f"RICD\nCDTHreshold={qmin.template['cholesky_accu']}\n"
+        input_str += "RICD\n"
+        if qmin.template["method"] != "cms-pdft":
+            input_str += f"CDTHreshold={qmin.template['cholesky_accu']}\n"
         if qmin.template["pcmset"]:
             input_str += f"TF-INPUT\nPCM-MODEL\nSOLVENT = {qmin.template['pcmset']['solvent']}\n"
             input_str += f"AARE = {qmin.template['pcmset']['aare']}\nR-MIN = {qmin.template['pcmset']['r-min']}"
@@ -1242,13 +1246,13 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         if isinstance(output_file, str):
             match self.QMin.template["method"]:
                 case "casscf":
-                    energies = re.findall(r"RASSCF root number\s+\d+\s+Total energy:\s+(.*)\n", output_file)
+                    energies = re.findall(r"RASSCF root number.*Total energy:\s+(.*)\n", output_file)
                 case "xms-caspt2" | "caspt2":
-                    energies = re.findall(r"CASPT2 Root\s+\d+\s+Total energy:\s+(.*)\n", output_file)
+                    energies = re.findall(r"CASPT2 Root.*Total energy:\s+(.*)\n", output_file)
                 case "ms-caspt2":
-                    energies = re.findall(r"MS-CASPT2 Root\s+\d+\s+Total energy:\s+(.*)\n", output_file)
+                    energies = re.findall(r"MS-CASPT2 Root.*Total energy:\s+(.*)\n", output_file)
                 case "cms-pdft":
-                    energies = re.findall(r"CMS-PDFT Root\s+\d+\s+Total energy:\s+(.*)\n", output_file)
+                    energies = re.findall(r"CMS-PDFT Root.*Total energy:\s+(.*)\n", output_file)
             # Remove extra roots
             s_cnt = 0
             for m, s in enumerate(self.QMin.molecule["states"]):
