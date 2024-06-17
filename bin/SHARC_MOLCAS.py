@@ -549,7 +549,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         tasks = [["gateway"], ["seward"]]
 
         # Mult loop
-        list_to_do = list((i, j) for i, j in enumerate(qmin.molecule["states"]))
+        list_to_do = list(enumerate(qmin.molecule["states"]))
         for mult, states in list_to_do:
             if states == 0:
                 continue
@@ -584,8 +584,6 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
 
             # RASSCF block
             tasks.append(["rasscf", mult + 1, qmin.template["roots"][mult], is_jobiph, is_rasorb])
-            if qmin.template["method"] == "cms-pdft":
-                tasks[-1].append(["CMSI"])
 
             # MOLDEN request
             if qmin.requests["molden"]:
@@ -598,7 +596,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 case "cms-pdft":
                     keys = [f"KSDFT={qmin.template['functional']}"]
                     keys.append("noGrad")
-                    keys += ["MSPDFT", "WJOB", "CMMI=0", "CMSS=Do_Rotate.txt", "CMTH=1.0d-10"]
+                    keys += ["MSPDFT", "WJOB", "CMSS=Do_Rotate.txt", "CMTH=1.0d-10"]
                     tasks.append(["mcpdft", keys])
                     tasks.append(["copy", "MOLCAS.JobIph", f"MOLCAS.{mult+1}.JobIph"])
                 case _:  # PT2 methods
@@ -649,6 +647,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                             tasks.append(["theodore"])
             if self._hdf5:
                 tasks.append(["link", "MOLCAS.rassi.h5.bak", "MOLCAS.rassi.h5"])
+        self.log.debug("\n".join(str(i) for i in tasks))
         return tasks
 
     def _gen_ovlp_task(self, qmin: QMin, mult: int, states: int) -> list[list[Any]]:
@@ -709,10 +708,10 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                                 qmin.template["roots"][mult],
                                 True,
                                 False,
-                                [f"RLXROOT={grad[1]}", "CMSI"],
+                                [f"RLXROOT={grad[1]}"],
                             ]
                         )
-                        tasks.append(["mcpdft", [f"KSDFT={qmin.template['functional']}", "GRAD", "MSPDFT", "WJOB"]])
+                        tasks.append(["mcpdft", [f"KSDFT={qmin.template['functional']}", "GRAD", "MSPDFT"]])
                         tasks.append(["alaska", grad[1]])
                     case "casscf":
                         tasks.append(["rasscf", mult + 1, qmin.template["roots"][mult], True, False])
@@ -736,9 +735,9 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                     tasks.append(["mclr", qmin["template"]["gradaccudefault"], f"nac={nac[1]} {nac[3]}"])
                     tasks.append(["alaska"])
                 case "cms-pdft":
-                    tasks.append(["rasscf", mult + 1, qmin["template"]["roots"][mult], True, False, ["CMSI"]])
+                    tasks.append(["rasscf", mult + 1, qmin["template"]["roots"][mult], True, False])
                     tasks.append(
-                        ["mcpdft", [f"KSDFT={qmin.template['functional']}", "GRAD", "MSPDFT", "WJOB", f"nac={nac[1]} {nac[3]}"]]
+                        ["mcpdft", [f"KSDFT={qmin.template['functional']}", "GRAD", "MSPDFT", f"nac={nac[1]} {nac[3]}"]]
                     )
                     tasks.append(["mclr", qmin.template["gradaccudefault"], f"nac={nac[1]} {nac[3]}"])
                     tasks.append(["alaska"])
@@ -748,6 +747,8 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                     tasks.append(["alaska", nac[1], nac[3]])
 
             tasks += self._gen_ovlp_task(qmin, mult, states)
+
+        self.log.debug("\n".join(str(i) for i in tasks))
         return tasks
 
     def _write_input(self, tasks: list[list[str]], qmin: QMin) -> str:
