@@ -515,10 +515,15 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         """
         self.log.debug("Copy run files from master")
         re_runfiles = ("ChVec", "QVec", "ChRed", "ChDiag", "ChRst", "ChMap", "RunFile", "GRIDFILE", "NqGrid", "Rotate.txt")
-        for file in os.listdir(os.path.join(self.QMin.resources["scratchdir"], "master")):
-            if any(i in file for i in re_runfiles):
-                shutil.copy(os.path.join(self.QMin.resources["scratchdir"], "master", file), os.path.join(workdir, file))
-        shutil.copy(os.path.join(self.QMin.resources["scratchdir"], "master/MOLCAS.OneInt"), os.path.join(workdir, "ONEINT"))
+        try:
+            for file in os.listdir(os.path.join(self.QMin.resources["scratchdir"], "master")):
+                if any(i in file for i in re_runfiles):
+                    shutil.copy(os.path.join(self.QMin.resources["scratchdir"], "master", file), os.path.join(workdir, file))
+                shutil.copy(
+                    os.path.join(self.QMin.resources["scratchdir"], "master/MOLCAS.OneInt"), os.path.join(workdir, "ONEINT")
+                )
+        except FileNotFoundError:
+            self.log.error("Copy file(s) failed! This is most likely due to an error in master job!")
 
     def get_readable_densities(self) -> dict[str, str]:
         densities = {}
