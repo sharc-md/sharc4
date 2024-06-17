@@ -428,7 +428,12 @@ def get_general(INFOS):
     INFOS["states"] = states
     INFOS["nstates"] = nstates
 
-    log.info("")
+    # # Setup origin for calculation of multipole moment operators 
+    # log.info("\n" + f"{'Definition of geometrical origin for Multipole Moment Operators:-^60'}" + "\n")
+    # if question("Shift origin from default position to new position?", bool, False):
+    #     INFOS["origin"] = question("Define the new origin, e.g. 0 0 0: ", int)
+    #     log.info(INFOS["origin"])
+    # log.info("")
     return INFOS
 
 
@@ -511,6 +516,13 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
         INFOS["theodore"] = question("TheoDORE?", bool, False)
         if INFOS["theodore"]:
             INFOS["needed_requests"].append("theodore")
+
+    # Setup Magnetic Dipole and/or Electric Quadrupole moments
+    if "mdeqm" in int_features:
+        log.info("\n" + f"{'Magnetic Dipole / Electric Quadrupole calculation':-^60}" + "\n")
+        INFOS["mdeqm"] = question("Do you want to calculate Magnetic Dipoles and Electric Quadrupoles?", bool, False)
+        if INFOS["mdeqm"]:
+            INFOS["needed_requests"].append("mdeqm")
 
     return INFOS
 
@@ -677,7 +689,10 @@ def writeQMin(INFOS, iconddir):
         string += "ion\n"
     if "theodore" in INFOS and INFOS["theodore"]:
         string += "theodore\n"
-
+    if "mdeqm" in INFOS and INFOS["mdeqm"]:
+        string += "MDEQM\n"
+    if "origin" in INFOS and INFOS["origin"]:
+        string += "ORIGIN\n"    
     qmin.write(string)
     qmin.close()
     return
@@ -921,7 +936,6 @@ Afterwards, it asks for the interface used and goes through the preparation depe
         if question("Do you want to link the interface files?", bool, default=False, autocomplete=False):
             INFOS["link_files"] = True
         setup_all(INFOS, chosen_interface)
-
     close_keystrokes()
 
 

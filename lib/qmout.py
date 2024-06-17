@@ -366,9 +366,8 @@ class QMout:
             self.h = np.zeros((self.nmstates, self.nmstates), dtype=complex)
         if "dm" in requests:
             self.dm = np.zeros((3, self.nmstates, self.nmstates), dtype=float)
-        if "mdm" in requests:
+        if "mdeqm" in requests:
             self.mdm = np.zeros((3, self.nmstates, self.nmstates), dtype=float) 
-        if "eqm" in requests:
             self.eqm = np.zeros((3, 3, self.nmstates, self.nmstates), dtype=float) 
         if "grad" in requests:
             self.grad = np.zeros((self.nmstates, natom, 3), dtype=float)
@@ -451,9 +450,8 @@ class QMout:
             string += self.writeQMoutsoc()
         if requests["dm"]:
             string += self.writeQMoutdm()
-        if requests["mdm"]:
+        if requests["mdeqm"]:
             string += self.writeQMoutmdm() 
-        if requests["eqm"]:
             string += self.writeQMouteqm() 
         if requests["grad"]:
             string += self.writeQMoutgrad()
@@ -1252,15 +1250,13 @@ class QMout:
                 string += formatcomplexmatrix(matrix, states)
             string += "\n"
         # Magnetic Dipole moment matrices
-        if QMin.requests["mdm"]:
+        if QMin.requests["mdeqm"]:
             string += "=> Magnetic Dipole Moment Matrices:\n\n"
             for xyz in range(3):
                 string += "Polarisation %s:\n" % (IToPol[xyz])
                 matrix = self["mdm"][xyz]
                 string += formatcomplexmatrix(matrix, states)
             string += "\n" 
-        # Electric Quadrupole moment matrices
-        if QMin.requests["eqm"]:
             string += "=> Electric Quadrupole Moment Matrices:\n\n"
             for dxdydz in range(3):
                 string += "Derivative %s:\n" % (IToPol[dxdydz])

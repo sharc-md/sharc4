@@ -55,6 +55,7 @@ all_features = set(
         "h",
         "soc",
         "dm",
+        "mdeqm",
         "grad",
         "nacdr",
         "overlap",
@@ -177,10 +178,8 @@ class SHARC_QMOUT(SHARC_FAST):
         if self.QMin.requests["dm"]:
             self.QMout["dm"] = self.QMout2["dm"]
 
-        if self.QMin.requests["mdm"]:
+        if self.QMin.requests["mdeqm"]:
             self.QMout["mdm"] = self.QMout2["mdm"]
-
-        if self.QMin.requests["eqm"]:
             self.QMout["eqm"] = self.QMout2["eqm"]
 
         if self.QMin.requests["overlap"]:

@@ -100,6 +100,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 "ras3": None,
                 "inactive": None,
                 "roots": list(range(8)),
+                "origin": [0., 0., 0.],
                 "method": "casscf",
                 "functional": "t:pbe",
                 "ipea": 0.25,
@@ -126,6 +127,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 "ras3": int,
                 "inactive": int,
                 "roots": list,
+                "origin": list,
                 "method": str,
                 "functional": str,
                 "ipea": float,
@@ -171,8 +173,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
 
     @staticmethod
     def check_template(template_file):
-
-        necessary = {"basis", "method"}
+        necessary = {"basis", "ras2", "nactel", "inactive", "roots"}
         with open(template_file, "r") as f:
             for line in f:
                 if len(necessary) == 0:
@@ -224,6 +225,16 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         INFOS['molcas'] = question('Path to MOLCAS:', str, KEYSTROKES=KEYSTROKES, default=path)
         self.log.info('')
 
+        # Set path for PyMOLCAS
+        self.log.info(f"{'Path to PyMOLCAS':-^60s}\n")
+        for p in os.walk(INFOS['molcas']):
+            if "pymolcas" in p[2]:
+                path =  os.path.join(p[0], "pymolcas")
+                break
+        self.log.info('\nPlease specify path to PyMOLCAS directory (SHELL variables and ~ can be used, will be expanded when interface is started).\n')
+        INFOS['driver'] = question('Path to PyMOLCAS:', str, KEYSTROKES=KEYSTROKES, default=path)
+        self.log.info('')
+
         # scratch
         self.log.info('{:-^60}'.format('Scratch directory') + '\n')
         self.log.info('Please specify an appropriate scratch directory. This will be used to temporally store the integrals. The scratch directory will be deleted after the calculation. Remember that this script cannot check whether the path is valid, since you may run the calculations on a different machine. The path will not be expanded by this script.')
@@ -261,20 +272,6 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             self._template_file = filename
         self.log.info('')
         self.files.append(self._template_file)
-        # extra_file_keys = {"basis_external", "paste_input_file"}
-        # with open(self.template_file, "r") as f:
-        #     for line in f:
-        #         line = line.strip()
-        #         if len(line) == 0:
-        #             continue
-        #         if line[0] == "#":
-        #             continue
-        #         lspt = line.split()
-        #         if len(lspt) == 0:
-        #             continue
-        #         if lspt[0] in extra_file_keys:
-        #             self.files.append(lspt[1])
-
         # TODO check_MOLCAS_qmmm -> setup_init_old.py -> get_MOLCAS
 
         # initial MOs
@@ -292,11 +289,9 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             while True:
                 jobiph_or_rasorb = question('JobIph files (1) or RasOrb files (2)?', int, KEYSTROKES=KEYSTROKES, default=None)[0]
                 if jobiph_or_rasorb in [1, 2]:
-                    self.log.info("TEST")
                     break
             INFOS['molcas.jobiph_or_rasorb'] = jobiph_or_rasorb
             INFOS['molcas.guess'] = {}
-            self.log.info("ESCAPE")
             for mult, state in enumerate(INFOS["states"]): 
                 if state <=0:
                     continue
@@ -344,19 +339,15 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             # self.log.info('\n'+centerstring('Ionization probability by Dyson norms',60,'-')+'\n')
             # INFOS['ion']=question('Dyson norms?',bool,False)
             # if INFOS['ion']:
-            if 'overlap' in INFOS['needed_requests']:
-                self.log.info('\n' + '{:-^60}'.format('WFoverlap setup') + '\n')
-                INFOS['wfoverlap'] = question('Path to wavefunction overlap executable:', str, default='$SHARC/wfoverlap.x', KEYSTROKES=KEYSTROKES)
-                self.log.info('')
-                # self.log.info('State threshold for choosing determinants to include in the overlaps')
-                # self.log.info('For hybrids without TDA one should consider that the eigenvector X may have a norm larger than 1')
-                # INFOS['ciothres'] = question('Threshold:', float, default=[0.998], KEYSTROKES=KEYSTROKES)[0]
-                self.log.info('')
-                # TODO not asked: numfrozcore and numocc
+            # self.log.info('State threshold for choosing determinants to include in the overlaps')
+            # self.log.info('For hybrids without TDA one should consider that the eigenvector X may have a norm larger than 1')
+            # INFOS['ciothres'] = question('Threshold:', float, default=[0.998], KEYSTROKES=KEYSTROKES)[0]
+            # self.log.info('')
+            # TODO not asked: numfrozcore and numocc
 
-                # self.log.info('Please state the number of core orbitals you wish to freeze for the overlaps (recommended to use for at least the 1s orbital and a negative number uses default values)?')
-                # self.log.info('A value of -1 will use the defaults used by MOLCAS for a small frozen core and 0 will turn off the use of frozen cores')
-                # INFOS['frozcore_number']=question('How many orbital to freeze?',int,[-1])[0]
+            # self.log.info('Please state the number of core orbitals you wish to freeze for the overlaps (recommended to use for at least the 1s orbital and a negative number uses default values)?')
+            # self.log.info('A value of -1 will use the defaults used by MOLCAS for a small frozen core and 0 will turn off the use of frozen cores')
+            # INFOS['frozcore_number']=question('How many orbital to freeze?',int,[-1])[0]
 
         return INFOS
 
@@ -369,28 +360,12 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         INFOS: dictionary with infos
         workdir: path to workdir
         """
-        # if self.make_resources:
-        #     try:
-        #         resources_file = open('MOLCAS.resources' % (workdir), 'w')
-        #     except IOError:
-        #         self.log.error('IOError during prepareMOLCAS, iconddir=%s' % (workdir))
-        #         quit(1)
-        #     string = 'molcas %s\nscratchdir %s\nsavedir %s/\nschedule_scaling %f\n' % (INFOS['molcas'], INFOS['scratchdir'], workdir, INFOS['scaling'])
-        #     string += 'memory %i\nncpu %i\n' % (INFOS['mem'], INFOS["ncpu"])
-        #     if 'overlap' in INFOS['needed_requests']:
-        #         string += 'wfoverlap %s\nwfthres %f\n' % (INFOS['wfoverlap'], INFOS['ciothres'])
-        #         # string+='numfrozcore %i\n' %(INFOS['frozcore_number'])
-        #     # if 'theodore' in INFOS['needed_requests']:
-        #     #     string += 'theodir %s\n' % (INFOS['gaussian.theodore'])
-        #     #     string += 'theodore_prop %s\n' % (INFOS['theodore.prop'])
-        #     #     string += 'theodore_fragment %s\n' % (INFOS['theodore.frag'])
-        #     resources_file.write(string)
-        #     resources_file.close()
 
+        self.log.info(INFOS["link_files"])
         create_file = link if INFOS["link_files"] else shutil.copy
         if not self._resource_file:
             with open(os.path.join(dir_path, "MOLCAS.resources"), "w", encoding="utf-8") as file:
-                for key in ("molcas", "scratchdir", "savedir", "memory", "ncpu", "wfoverlap", "wfthres"):
+                for key in ("molcas", "driver", "scratchdir", "savedir", "memory", "ncpu"):
                     if key in INFOS:
                         file.write(f"{key} {INFOS[key]}\n")
         else:
@@ -422,10 +397,13 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             self.QMin.resources["mpi_parallel"] = False
 
         # MOLCAS driver
-        for p in os.walk(self.QMin.resources["molcas"]):
-            if "pymolcas" in p[2]:
-                self.QMin.resources.update({"driver": os.path.join(p[0], "pymolcas")})
-                break
+        if self.QMin.resources["driver"]:
+            self.QMin.resources["driver"] = expand_path(self.QMin.resources["driver"])
+        else:
+            for p in os.walk(self.QMin.resources["molcas"]):
+                if "pymolcas" in p[2]:
+                    self.QMin.resources.update({"driver": os.path.join(p[0], "pymolcas")})
+                    break
 
         if not os.path.isfile(self.QMin.resources["driver"]):
             self.log.error(f"No driver found in {self.QMin.resources['molcas']}")
@@ -495,6 +473,14 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                     self.QMin.template["roots"] = self.QMin.template["roots"][: -1 * idx]
                     break
 
+        self.QMin.template["origin"] = convert_list(self.QMin.template["origin"], float)
+        for idx, val in enumerate(self.QMin.template["origin"]):
+            if isinstance(val, float):
+                pass
+            else:
+                self.log.error("Template key \"origin\" not defined as list of floats")
+                raise ValueError()
+
         # Check gradaccu
         if self.QMin.template["gradaccudefault"] > self.QMin.template["gradaccumax"]:
             self.log.error("Template key gradaccudefault cannot be higher than gradaccumax")
@@ -529,7 +515,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             self.QMin.template["pcmstate"] = convert_list(self.QMin.template["pcmstate"])
 
         # Check for basis and cas settings
-        for i in ["basis", "nactel", "ras2", "inactive"]:
+        for i in ["basis", "nactel", "ras2", "inactive", "roots"]:
             if not self.QMin.template[i]:
                 self.log.error(f"Key {i} is missing in template file!")
                 raise ValueError()
@@ -885,9 +871,10 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         tasks = []
         if any([qmin.requests["dm"], qmin.requests["mdeqm"], qmin.requests["multipolar_fit"]]):
             tasks.append(["link", f"MOLCAS.{mult+1}.JobIph", "JOB001"])
-            tasks.append(["rassi", "dm", [states]])
             if qmin.requests["mdeqm"]:
-                tasks.append(["mdm", "eqm"])
+                tasks.append(["rassi", "dm", "mdeqm", [states]])
+            else:
+                tasks.append(["rassi", "dm", [states]])
             if self._hdf5:
                 tasks.append(["copy", "MOLCAS.rassi.h5", f"MOLCAS.rassi.{mult+1}.h5"])
         return tasks
@@ -1020,24 +1007,25 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         """
         Write RASSI part of MOLCAS input string
         """
-        input_str = f"&RASSI\nNROFJOBIPHS\n{len(task[2])} "
-        input_str += " ".join(convert_list(task[2], str)) + "\n"
-        for i in task[2]:
+        input_str = f"&RASSI\nNROFJOBIPHS\n{len(task[-1])} "
+        input_str += " ".join(convert_list(task[-1], str)) + "\n"
+        for i in task[-1]:
             input_str += " ".join([str(j) for j in range(1, i + 1)]) + "\n"
         input_str += "MEIN\n"
         if qmin.template["method"] != "casscf":
             input_str += "EJOB\n"
-        if task[1] == "dm" and qmin.requests["multipolar_fit"]:
+        if ("dm" in task and qmin.requests["multipolar_fit"]) or "mdeqm" in task or "theodore" in task:
             input_str += "TRD1\n"
-        if task[1] == "soc":
+        if "mdeqm" in task:
+            input_str += "QIALL\nQIPR = 0.\n"
+        if "soc" in task:
             input_str += "SPINORBIT\nSOCOUPLING=0.0d0\nEJOB\n"
-        if task[1] == "overlap":
+        if "overlap" in task:
             input_str += "STOVERLAPS\nOVERLAPS\n"
             if qmin.control["master"] and qmin.requests["multipolar_fit"]:
                 input_str += "TRD1\n"
-        if task[1] == "theodore":
-            input_str += "TRD1\n"
-        if task[1] in ("", "soc") and qmin.requests["ion"]:
+        #if task[1] in ("", "soc") and qmin.requests["ion"]:
+        if "soc" in task and qmin.requests["ion"]:
             input_str += "CIPR\nTHRS=0.000005d0\n"
             input_str += "DYSON\n"
         input_str += "\n"
@@ -1113,6 +1101,14 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         if qmin.template["method"] == "cms-pdft":
             input_str += "GRID INPUT\nNORO\nNOSC\nEND OF GRID INPUT\n"
         input_str += "\n"
+        if qmin.template["origin"]:
+            center = [f"{el:.2f}" for el in qmin.template["origin"]]
+            center =" ".join(center)
+            if qmin.requests["soc"] or qmin.requests["mdeqm"]:
+                input_str += f"CENTER\n3\n0 {center}\n1 {center}\n2 {center}\n"
+            else:
+                input_str += f"CENTER\n2\n\0 {center}\n\1 {center}\n"
+            input_str += "\n"
         return input_str
 
     def _write_gateway(self, qmin: QMin) -> str:
@@ -1130,7 +1126,9 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         if qmin.requests["soc"]:
             input_str += "AMFI\n"
         if qmin.requests["soc"] or qmin.requests["mdeqm"]:
-            "angmom\n0 0 0\n"
+            center = [f"{el:.2f}" for el in qmin.template["origin"]]
+            center =" ".join(center)                                
+            input_str += f"ANGMOM\n{center}\n"
         if qmin.template["baslib"]:
             input_str += f"BASLIB\n{qmin.template['baslib']}\n\n"
         input_str += f"RICD\nCDTHreshold={qmin.template['cholesky_accu']}\n"
@@ -1335,6 +1333,8 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                     if s > 0:
                         with h5py.File(os.path.join(scratchdir, f"master/MOLCAS.rassi.{m}.h5"), "r") as dp:
                             for _ in range(m):
+                                # en_diff = np.array(dp["SFS_ENERGIES"])[:, np.newaxis] - np.array(dp["SFS_ENERGIES"])
+                                # el_dip_mom = np.einsum("ijk, jk -> ijk", dp["SFS_EDIPMOM"][:], en_diff)
                                 self.QMout["dm"][:, s_cnt : s_cnt + s, s_cnt : s_cnt + s] = dp["SFS_EDIPMOM"][:]
                                 s_cnt += s
 
@@ -1348,8 +1348,27 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                     if s > 0:
                         with h5py.File(os.path.join(scratchdir, f"master/MOLCAS.rassi.{m}.h5"), "r") as mdp:
                             for _ in range(m):
+                                ao_mltpl = [np.array(mdp["AO_MLTPL_X"]),
+                                            np.array(mdp["AO_MLTPL_Y"]),
+                                            np.array(mdp["AO_MLTPL_Z"])]
+                                sum_states = self.QMin.molecule["states"][m-1]
+                                trans_spin_den = np.array(mdp["SFS_TRANSITION_SPIN_DENSITIES"]).reshape(sum_states, sum_states, *mdp["AO_MLTPL_X"].shape)
+                                mag_dip_spin_mom = np.einsum('ijk,abjk->iab', ao_mltpl, trans_spin_den)
+                                # self.QMout["mdm"][:, s_cnt : s_cnt + s, s_cnt : s_cnt + s] = 1/2.*1.j*(mdp["SFS_ANGMOM"][:] - lande_g_factor * mag_dip_spin_mom)
                                 self.QMout["mdm"][:, s_cnt : s_cnt + s, s_cnt : s_cnt + s] = mdp["SFS_ANGMOM"][:]
                                 s_cnt += s
+                for i1, s1 in enumerate(self.states, 1):
+                    for i2, s2, in enumerate(self.states, 1):
+                        spin_p, spin_n = 0
+                        if s1 // s2:  # floor_div defined in utils.py 
+                            if s1.M == s2.M-2:  # <s1, m1| S+ |s2, m2>
+                                spin_p = np.sqrt(s2.S*(s2.S+1)-s2.M/2.*(s2.M/2.+1))
+                            if s1.M == s2.M+2:  # <s1, m1| S+ |s2, m2>
+                                spin_n = np.sqrt(s2.S*(s2.S+1)-s2.M/2.*(s2.M/2.-1))
+                        mag_dip_spin_mom[0, i1, i2] *= 1/2.*(spin_p+spin_n)
+                        mag_dip_spin_mom[1, i1, i2] *= 1/2.j*(spin_p-spin_n)
+                        mag_dip_spin_mom[0, i1, i2] *= s2.M
+            
             # Full EQM matrix in ascii file, sub matrices of mult in h5 files
             if isinstance(master_out, str):
                 self.QMout["eqm"] = self._get_electric_quadrupoles(master_out)
@@ -1365,24 +1384,27 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                                             np.array(eqp["AO_MLTPL_YY"]),
                                             np.array(eqp["AO_MLTPL_YZ"]),
                                             np.array(eqp["AO_MLTPL_ZZ"]) 
-                                            ]                            
-                                trans_dens = np.array(eqp["SFS_TRANSITION_DENSITIES"]).reshape(self.QMin.molecule["states"],
-                                                                                               self.QMin.molecule["states"],
-                                                                                               -1, -1)
+                                            ]
+                                sum_states = self.QMin.molecule["states"][m-1]
+                                trans_dens = np.array(eqp["SFS_TRANSITION_DENSITIES"]).reshape(sum_states, sum_states, *eqp["AO_MLTPL_XX"].shape)
                                 nuc_center = np.array(eqp["CENTER_COORDINATES"])
+                                mltpl_origin = np.array(eqp["MLTPL_ORIG"])
+                                nuc_dist = np.einsum('na, nb -> nab', nuc_center - mltpl_origin[2, :] , nuc_center - mltpl_origin[2, :])
                                 nuc_charges = np.array(eqp["CENTER_CHARGES"])
-                                nuc_dip_mom = np.einsum('n,nab->ab', nuc_charges, nuc_center)
+                                nuc_dip_mom = np.einsum('n,nab->ab', nuc_charges, nuc_dist)
                                 el_quad_mom = np.einsum('ijk,abjk->iab', ao_mltpl, trans_dens)
-                                el_quad_mat = -np.asarray([[el_quad_mom[0, :, :] - nuc_dip_mom[0, 0] * np.eye(self.QMin.molecule["states"], self.QMin.molecule["states"]),
-                                                            el_quad_mom[1, :, :] - nuc_dip_mom[0, 1] * np.eye(self.QMin.molecule["states"], self.QMin.molecule["states"]), 
-                                                            el_quad_mom[2, :, :] - nuc_dip_mom[0, 2] * np.eye(self.QMin.molecule["states"], self.QMin.molecule["states"])],
-                                                           [el_quad_mom[1, :, :] - nuc_dip_mom[1, 0] * np.eye(self.QMin.molecule["states"], self.QMin.molecule["states"]),
-                                                            el_quad_mom[3, :, :] - nuc_dip_mom[1, 1] * np.eye(self.QMin.molecule["states"], self.QMin.molecule["states"]),
-                                                            el_quad_mom[4, :, :] - nuc_dip_mom[1, 2] * np.eye(self.QMin.molecule["states"], self.QMin.molecule["states"])],
-                                                           [el_quad_mom[2, :, :] - nuc_dip_mom[2, 0] * np.eye(self.QMin.molecule["states"], self.QMin.molecule["states"]),
-                                                            el_quad_mom[4, :, :] - nuc_dip_mom[2, 1] * np.eye(self.QMin.molecule["states"], self.QMin.molecule["states"]),
-                                                            el_quad_mom[5, :, :] - nuc_dip_mom[2, 2] * np.eye(self.QMin.molecule["states"], self.QMin.molecule["states"])]])
-                                el_quad_mat = el_quad_mat.reshape(3, 3, self.QMin.molecule["states"], self.QMin.molecule["states"])
+                                el_quad_mat = -np.asarray([[el_quad_mom[0, :, :] - nuc_dip_mom[0, 0] * np.eye(sum_states, sum_states),
+                                                            el_quad_mom[1, :, :] - nuc_dip_mom[0, 1] * np.eye(sum_states, sum_states), 
+                                                            el_quad_mom[2, :, :] - nuc_dip_mom[0, 2] * np.eye(sum_states, sum_states)],
+                                                           [el_quad_mom[1, :, :] - nuc_dip_mom[1, 0] * np.eye(sum_states, sum_states),
+                                                            el_quad_mom[3, :, :] - nuc_dip_mom[1, 1] * np.eye(sum_states, sum_states),
+                                                            el_quad_mom[4, :, :] - nuc_dip_mom[1, 2] * np.eye(sum_states, sum_states)],
+                                                           [el_quad_mom[2, :, :] - nuc_dip_mom[2, 0] * np.eye(sum_states, sum_states),
+                                                            el_quad_mom[4, :, :] - nuc_dip_mom[2, 1] * np.eye(sum_states, sum_states),
+                                                            el_quad_mom[5, :, :] - nuc_dip_mom[2, 2] * np.eye(sum_states, sum_states)]])
+                                el_quad_mat = el_quad_mat.reshape(3, 3, sum_states, sum_states)
+                                # en_diff = np.array(eqp["SFS_ENERGIES"])[:, np.newaxis] - np.array(eqp["SFS_ENERGIES"])
+                                # el_quad_mat = 1/2.*np.einsum("ijkl, kl -> ijkl", el_quad_mat, en_diff)
                                 el_quad_mat = np.where(el_quad_mat, el_quad_mat, el_quad_mat.transpose(0, 1, 3, 2))
                                 self.QMout["eqm"][:, :, s_cnt : s_cnt + s, s_cnt : s_cnt + s] = el_quad_mat
                                 s_cnt += s        
