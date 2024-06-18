@@ -367,8 +367,8 @@ class QMout:
         if "dm" in requests:
             self.dm = np.zeros((3, self.nmstates, self.nmstates), dtype=float)
         if "mdeqm" in requests:
-            self.mdm = np.zeros((3, self.nmstates, self.nmstates), dtype=float) 
-            self.eqm = np.zeros((3, 3, self.nmstates, self.nmstates), dtype=float) 
+            self.mdm = np.zeros((3, self.nmstates, self.nmstates), dtype=complex) 
+            self.eqm = np.zeros((3, 3, self.nmstates, self.nmstates), dtype=complex) 
         if "grad" in requests:
             self.grad = np.zeros((self.nmstates, natom, 3), dtype=float)
             if self.point_charges:
@@ -1249,7 +1249,7 @@ class QMout:
                 matrix = self["dm"][xyz]
                 string += formatcomplexmatrix(matrix, states)
             string += "\n"
-        # Magnetic Dipole moment matrices
+        # Magnetic Dipole and Electric Quadrupole moment matrices
         if QMin.requests["mdeqm"]:
             string += "=> Magnetic Dipole Moment Matrices:\n\n"
             for xyz in range(3):
@@ -1262,7 +1262,7 @@ class QMout:
                 string += "Derivative %s:\n" % (IToPol[dxdydz])
                 for xyz in range(3):
                     string += "Polarisation %s:\n" % (IToPol[xyz])
-                    matrix = self["eqm"][dxdydz][xyz]
+                    matrix = self["mdm"][xyz]# self["eqm"][dxdydz][xyz]
                     string += formatcomplexmatrix(matrix, states)
                 string += "\n" 
         # Gradients

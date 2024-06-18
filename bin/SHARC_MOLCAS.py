@@ -1344,6 +1344,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 self.QMout["mdm"] = self._get_magnetic_dipoles(master_out)
             else:
                 s_cnt = 0
+                mag_dip_spin_mom = np.zeros_like(self.QMout["mdm"], dtype=complex)
                 for m, s in enumerate(states, 1):
                     if s > 0:
                         with h5py.File(os.path.join(scratchdir, f"master/MOLCAS.rassi.{m}.h5"), "r") as mdp:
@@ -1352,23 +1353,38 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                                             np.array(mdp["AO_MLTPL_Y"]),
                                             np.array(mdp["AO_MLTPL_Z"])]
                                 sum_states = self.QMin.molecule["states"][m-1]
-                                trans_spin_den = np.array(mdp["SFS_TRANSITION_SPIN_DENSITIES"]).reshape(sum_states, sum_states, *mdp["AO_MLTPL_X"].shape)
-                                mag_dip_spin_mom = np.einsum('ijk,abjk->iab', ao_mltpl, trans_spin_den)
-                                # self.QMout["mdm"][:, s_cnt : s_cnt + s, s_cnt : s_cnt + s] = 1/2.*1.j*(mdp["SFS_ANGMOM"][:] - lande_g_factor * mag_dip_spin_mom)
-                                self.QMout["mdm"][:, s_cnt : s_cnt + s, s_cnt : s_cnt + s] = mdp["SFS_ANGMOM"][:]
+                                # trans_spin_den = np.array(mdp["SFS_TRANSITION_SPIN_DENSITIES"]).reshape(sum_states, sum_states, *mdp["AO_MLTPL_X"].shape)
+                                #trans_spin_den = np.array(mdp["SFS_TRANSITION_SPIN_DENSITIES"])
+                                #trans_spin_den = np.maximum(trans_spin_den, np.transpose(trans_spin_den, axes=(1, 0, 2)))
+                                #trans_spin_den= trans_spin_den.reshape(sum_states, sum_states, *mdp["AO_MLTPL_X"].shape)
+                                #trans_spin_den = np.where(trans_spin_den, trans_spin_den, trans_spin_den.transpose(1, 0, 2))
+                                #trans_spin_den = trans_spin_den.reshape(sum_states, sum_states, *mdp["AO_MLTPL_X"].shape)
+                                #mag_dip_spin_mom[:, s_cnt : s_cnt + s, s_cnt : s_cnt + s] = np.einsum('ijk,abjk->iab', ao_mltpl, trans_spin_den)
+                                self.QMout["mdm"][:, s_cnt : s_cnt + s, s_cnt : s_cnt + s] = -1.j*mdp["SFS_ANGMOM"][:]
                                 s_cnt += s
-                for i1, s1 in enumerate(self.states, 1):
-                    for i2, s2, in enumerate(self.states, 1):
-                        spin_p, spin_n = 0
+                for i1, s1 in enumerate(self.states, 0):
+                    for i2, s2, in enumerate(self.states, 0):
+                        spin_p, spin_n, spin_m = 0, 0, 0
                         if s1 // s2:  # floor_div defined in utils.py 
                             if s1.M == s2.M-2:  # <s1, m1| S+ |s2, m2>
-                                spin_p = np.sqrt(s2.S*(s2.S+1)-s2.M/2.*(s2.M/2.+1))
-                            if s1.M == s2.M+2:  # <s1, m1| S+ |s2, m2>
-                                spin_n = np.sqrt(s2.S*(s2.S+1)-s2.M/2.*(s2.M/2.-1))
-                        mag_dip_spin_mom[0, i1, i2] *= 1/2.*(spin_p+spin_n)
-                        mag_dip_spin_mom[1, i1, i2] *= 1/2.j*(spin_p-spin_n)
-                        mag_dip_spin_mom[0, i1, i2] *= s2.M
-            
+                                spin_p = np.sqrt(s2.S/2*(s2.S/2+1)-s2.M/2.*(s2.M/2.-1))
+                            if s1.M == s2.M+2:  # <s1, m1| S- |s2, m2>
+                                spin_m = np.sqrt(s2.S/2*(s2.S/2+1)-s2.M/2.*(s2.M/2.+1))
+                            if s1.M == s2.M:  # <s1, m1| Sz |s2, m2>
+                                spin_n = s2.M/2.
+                        # mag_dip_spin_mom[0, i1, i1+i2] *= 1/2.*(spin_p+spin_m)
+                        # mag_dip_spin_mom[1, i1, i1+i2] *= 1/2.j*(spin_p-spin_m)
+                        # mag_dip_spin_mom[2, i1, i1+i2] *= spin_n 
+                        mag_dip_spin_mom[0, i1, i2] += s1.M  # 1/2.*(spin_p+spin_m)
+                        mag_dip_spin_mom[1, i1, i2] += s1.M  # 1/2.j*(spin_p-spin_m)
+                        mag_dip_spin_mom[2, i1, i2] += s2.M  # spin_n
+                        # self.log.info("STATE", i1, i2, s1.M, s2.M)
+                        # self.log.info("nu",  1/2.*(spin_p+spin_m) , 1/2.j*(spin_p-spin_m) , spin_n)
+                        # self.log.info("no",  mag_dip_spin_mom[0, i1, i2] ,  mag_dip_spin_mom[1, i1, i2] ,  mag_dip_spin_mom[2, i1, i2]) 
+                # mag_dip_spin_mom[0, :, :] = mag_dip_spin_mom[0, :, :] + mag_dip_spin_mom[0, :, :].T - np.diag(np.diag(mag_dip_spin_mom[0, :, :])) 
+                # mag_dip_spin_mom[1, :, :] = mag_dip_spin_mom[1, :, :] + mag_dip_spin_mom[1, :, :].T - np.diag(np.diag(mag_dip_spin_mom[1, :, :])) 
+                # mag_dip_spin_mom[2, :, :] = mag_dip_spin_mom[2, :, :] + mag_dip_spin_mom[2, :, :].T - np.diag(np.diag(mag_dip_spin_mom[2, :, :])) 
+                self.QMout["mdm"][:, :, :] += mag_dip_spin_mom# lande_g_factor*mag_dip_spin_mom 
             # Full EQM matrix in ascii file, sub matrices of mult in h5 files
             if isinstance(master_out, str):
                 self.QMout["eqm"] = self._get_electric_quadrupoles(master_out)
@@ -1403,10 +1419,12 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                                                             el_quad_mom[4, :, :] - nuc_dip_mom[2, 1] * np.eye(sum_states, sum_states),
                                                             el_quad_mom[5, :, :] - nuc_dip_mom[2, 2] * np.eye(sum_states, sum_states)]])
                                 el_quad_mat = el_quad_mat.reshape(3, 3, sum_states, sum_states)
+                                #self.log.info("EQM", el_quad_mom[5, 0:5, 0:5])
                                 # en_diff = np.array(eqp["SFS_ENERGIES"])[:, np.newaxis] - np.array(eqp["SFS_ENERGIES"])
                                 # el_quad_mat = 1/2.*np.einsum("ijkl, kl -> ijkl", el_quad_mat, en_diff)
                                 el_quad_mat = np.where(el_quad_mat, el_quad_mat, el_quad_mat.transpose(0, 1, 3, 2))
-                                self.QMout["eqm"][:, :, s_cnt : s_cnt + s, s_cnt : s_cnt + s] = el_quad_mat
+                                self.QMout["eqm"][:, :, s_cnt : s_cnt + s, s_cnt : s_cnt + s] = 1.j*el_quad_mat
+                                # self.log.info("EQM", el_quad_mat[2, 2, 0:5, 0:5])
                                 s_cnt += s        
 
         if self.QMin.requests["overlap"]:
@@ -1725,21 +1743,23 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                         re.findall(r"(-?\d+\.\d+[E|D]?[\+|-]?\d{0,2})", next(all_angmom))
                     ).reshape(state, -1)
             for _ in range(mult):
-                mag_dipole_mat[:, s_cnt : s_cnt + state, s_cnt : s_cnt + state] = angmom_dipole_mat
+                #mag_dipole_mat[:, s_cnt : s_cnt + state, s_cnt : s_cnt + state] = angmom_dipole_mat
                 s_cnt += state
         # Spin contribution
         for s1, i1 in enumerate(self.states):
             for s2, i2 in enumerate(self.states): 
+                spin_p, spin_n, spin_m = 0, 0, 0
                 if s1 // s2:
-                    if s1.M == s2.M - 2:  # ms-value double
-                        spin_dipole_mat[0, i1, i2] = 1/2.*1.j*lande_g_factor*np.sqrt(s2.S/2.*(s2.S/2.-1)-s2.M/2.*(s2.M/2.-1))
-                        spin_dipole_mat[1, i1, i2] = 1/2.*1.j*lande_g_factor*np.sqrt(s2.S/2.*(s2.S/2.-1)-s2.M/2.*(s2.M/2.-1))
-                    if s1.M == s2.M + 2:  # ms-value double
-                        spin_dipole_mat[0, i1, i2] = -1/2.*1.j*lande_g_factor*np.sqrt(s2.S/2.*(s2.S/2.-1)-s2.M/2.*(s2.M/2.+1))
-                        spin_dipole_mat[1, i1, i2] = 1/2.*1.j*lande_g_factor*np.sqrt(s2.S/2.*(s2.S/2.-1)-s2.M/2.*(s2.M/2.+1))
+                    if s1.M == s2.M-2:  # <s1, m1| S+ |s2, m2>
+                        spin_p = np.sqrt(s2.S*(s2.S+1)-s2.M/2.*(s2.M/2.+1))
+                    if s1.M == s2.M+2:  # <s1, m1| S- |s2, m2>
+                        spin_m = np.sqrt(s2.S*(s2.S+1)-s2.M/2.*(s2.M/2.-1))
                     if s1.M == s2.M:
-                        spin_dipole_mat[2, i1, i2] = s2.M/2.*lande_g_factor 
-        mag_dipole_mat += spin_dipole_mat 
+                        spin_n = s2.M/2.
+                spin_dipole_mat[0, i1, i2] += s1.M#1/2.*(spin_p+spin_m)
+                spin_dipole_mat[1, i1, i2] += s1.M#1/2.j*(spin_p-spin_m)
+                spin_dipole_mat[2, i1, i2] += s2.M#spin_n
+        mag_dipole_mat += spin_dipole_mat#*lande_g_factor 
         return mag_dipole_mat 
 
     def _get_theodore(self, output_file: str) -> list[tuple[str, np.ndarray]]:
