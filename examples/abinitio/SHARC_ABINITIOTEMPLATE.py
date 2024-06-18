@@ -170,6 +170,11 @@ class SHARC_<INTERFACENAME>(SHARC_ABINITIO):
     def run(self) -> None:
         starttime = datetime.datetime.now()
 
+        #TODO: Prints contents of the QMin object and terminates Program, delete if no longer needed.
+        print(self.QMin) 
+        exit(1)     #<--------- Delete this after you have checked that the interface works so far.
+
+
         #TODO: Execute QC program. care for errors and restart files
 
         # Setup workdir
@@ -182,7 +187,7 @@ class SHARC_<INTERFACENAME>(SHARC_ABINITIO):
             workdir, exec_str, os.path.join(workdir, "interfacename.log"), os.path.join(workdir, "interfacename.err")
         )
 
-        #TODO: Maybe some errorhandling in case exit_code != 0
+        #TODO: Errorhandling in case exit_code != 0
 
         #TODO: Post processing, molden file, wfoverlap det/mo files, ...
 

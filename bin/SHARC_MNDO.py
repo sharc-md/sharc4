@@ -1059,6 +1059,10 @@ mocoef
     def read_template(self, template_file: str = "MNDO.template") -> None:
         super().read_template(template_file)
 
+        self.QMin["template"]["nciref"] = int(self.QMin["template"]["nciref"])
+        if self.QMin["template"]["nciref"] < 1 or self.QMin["template"]["nciref"] > 20:
+            raise ValueError(f"number of references can only be between 1 and 20.")
+
         self.QMin["template"]["kharge"] = int(self.QMin["template"]["kharge"]) #cast template inputs to int
         self.QMin["template"]["imomap"] = int(self.QMin["template"]["imomap"])
         self.QMin["template"]["disp"] = int(self.QMin["template"]["disp"])
@@ -1095,7 +1099,7 @@ mocoef
         
         self.QMin["template"]["mciref"] = int(self.QMin["template"]["mciref"])
         if self.QMin["template"]["mciref"] != 3 and self.QMin["template"]["mciref"] != 0:
-            raise ValueError(f"mciref can only be between 0 (automatic definition) or 3 (mciref 0 plut 85% of something).")
+            raise ValueError(f"mciref can only be between 0 (automatic definition) or 3 (mciref 0 plus 85% of something).")
 
 
 
