@@ -1474,6 +1474,91 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 dyson_nmat[i, j] = dyson_nmat[j, i] = dyson_mat[x, y] * factor
         return dyson_nmat
 
+    def dyson_orbitals_with_other(self, other, workdir, ncpu, mem):
+        os.environ["MOLCASMEM"] = str(mem)
+        os.environ["MOLCAS_MEM"] = str(mem)
+
+        qmin1 = self.QMin
+        qmin2 = other.QMin
+        save1 = qmin1.save["savedir"]
+        save2 = qmin2.save["savedir"]
+        step1 = qmin1.save["step"]
+        step2 = qmin2.save["step"]
+        nstates1 = qmin1.molecule["states"]
+        nstates2 = qmin2.molecule["states"]
+
+        # Getting all non-zero DOs
+        dyson_orbitals_from_rassi = {}
+        dyson_orbitals_from_wigner_eckart = []
+        for s1 in self.states:
+            for s2 in other.states:
+                for spin in ["a", "b"]:
+                    if self.dyson_logic(s1, s2, spin):
+                        if s1.M == s1.S and s2.M == s2.S:
+                            if (s1.S, s2.S) in dyson_orbitals_from_rassi:
+                                dyson_orbitals_from_rassi[(s1.S, s2.S)].append((s1, s2, spin))
+                            else:
+                                dyson_orbitals_from_rassi[(s1.S, s2.S)] = [(s1, s2, spin)]
+                        else:
+                            dyson_orbitals_from_wigner_eckart.append((s1, s2, spin))
+
+        phi = {}
+        # Calling RASSI for each pair of multiplicities
+        for (dyson_s1, dyson_s2), dos in dyson_orbitals_from_rassi.items():
+            phi_work = np.zeros((nstates1[dyson_s1], nstates2[dyson_s2], self.QMout['mol'].nao))
+            with InDir(workdir):
+
+                # Fetch JOBIPH files
+                os.copy(os.path.join( self.QMin.save['savedir'], 'MOLCAS.'+str(dyson_s1)+'.JobIph.'+str(step1) ), 'JOBIPH001')
+                os.copy(os.path.join( other.QMin.save['savedir'], 'MOLCAS.'+str(dyson_s2)+'.JobIph.'+str(step2) ), 'JOBIPH002' )
+
+                # Make RASSI.input
+                input_str = "&RASSI\n"
+                input_str += "MEIN\n"
+                input_str += "CIPR\nTHRS=0.000005d0\n"
+                input_str += "DYSON\n"
+                input_str += "DYSEXPORT "+str(self.QMin.molecule['states'][dyson_s1] + other.QMin.molecule['states'][dyson_s2])+"\n"
+                input_str += "\n"
+                f = open('RASSI.input','w')
+                f.write(input_str)
+                f.close()
+
+                # Call pymolcas
+                self.run_program(workdir, self.QMin.resources['driver']+' RASSI.input', 'RASSI.out', 'RASSI.err')
+
+                # Parse
+
+            for s1, s2, spin in dos:
+                phi[(s1, s2, spin)] = phi_work[s1.N - 1, s2.N - 1, :]
+
+        all_done = False
+        while not all_done:
+            for thes1, thes2, thespin in dyson_orbitals_from_wigner_eckart:
+                for (s1, s2, spin), phi_work in phi.items():
+                    to_append = {}
+                    if s1 // thes1 and s2 // thes2:
+                        if thespin == "a":
+                            numerator = wigner_3j(
+                                thes1.S / 2.0, 1.0 / 2.0, thes2.S / 2.0, thes1.M / 2.0, -1.0 / 2.0, -thes2.M / 2.0
+                            )
+                        elif thespin == "b":
+                            numerator = wigner_3j(
+                                thes1.S / 2.0, 1.0 / 2.0, thes2.S / 2.0, thes1.M / 2.0, 1.0 / 2.0, -thes2.M / 2.0
+                            )
+                        if spin == "a":
+                            denominator = wigner_3j(s1.S / 2.0, 1.0 / 2.0, s2.S / 2.0, s1.M / 2.0, -1.0 / 2.0, -s2.M / 2.0)
+                        elif spin == "b":
+                            denominator = wigner_3j(s1.S / 2.0, 1.0 / 2.0, s2.S / 2.0, s1.M / 2.0, 1.0 / 2.0, -s2.M / 2.0)
+                        if denominator != 0:
+                            to_append[(thes1, thes2, thespin)] = (
+                                (-1.0) ** (thes2.M / 2.0 - s2.M / 2.0) * float(numerator.evalf()) / float(denominator.evalf()) * phi_work
+                            )
+                        break
+                for do, phi_work in to_append.items():
+                    phi[do] = phi_work
+            all_done = all(do in phi for do in dyson_orbitals_from_wigner_eckart)
+        return phi
+
 
 if __name__ == "__main__":
     SHARC_MOLCAS().main()
